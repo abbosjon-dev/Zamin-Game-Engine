@@ -13,6 +13,7 @@ namespace Zamin {
 
     struct InputAction;
     struct InputAxis;
+    struct InputVector;
 
     // One step of typing (Input::GetTextInput): a typed character, or a key press for editing -
     // Backspace, arrows, Enter, Ctrl+C ... (the keyboard's auto-repeat included).
@@ -71,12 +72,18 @@ namespace Zamin {
         static float GetAxis(std::string_view axis);
         // Two axes as a vector whose length is clamped to 1 (diagonals are not faster).
         static glm::vec2 GetAxis2D(std::string_view horizontal = "Horizontal", std::string_view vertical = "Vertical");
+        // A composite 2D axis of the map ("Move": its X and Y axes, radial deadzone and mode).
+        static glm::vec2 GetVector(std::string_view vector);
 
         // The same queries for a specific action / axis definition (editor preview, tools, tests).
         static bool IsActionPressed(const InputAction& action);
         static bool IsActionJustPressed(const InputAction& action);
         static bool IsActionJustReleased(const InputAction& action);
         static float GetAxis(const InputAxis& axis);
+        // Its axes are looked up in the project's map (an unknown one reads 0).
+        static glm::vec2 GetVector(const InputVector& vector);
+        // The composite's rules on a raw (x, y) value: radial deadzone, then the mode.
+        static glm::vec2 ShapeVector(const InputVector& vector, glm::vec2 value);
 
         // 0 inside the deadzone, then rescaled so the output still covers 0..1 (sign kept).
         static float ApplyDeadzone(float value, float deadzone);

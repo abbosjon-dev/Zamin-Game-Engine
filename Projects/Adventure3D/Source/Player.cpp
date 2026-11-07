@@ -27,7 +27,7 @@ public:
         if (!cc) return;
 
         // ---- input (named actions / axes: Loyiha sozlamalari > Input)
-        glm::vec2 input = Input::GetAxis2D("Horizontal", "Vertical");
+        glm::vec2 input = Input::GetVector("Move"); // Horizontal + Vertical as one 2D value
         bool run = Input::IsActionPressed("Sprint");
 
         // ---- camera-relative direction

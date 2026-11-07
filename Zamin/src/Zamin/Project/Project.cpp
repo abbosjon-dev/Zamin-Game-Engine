@@ -18,6 +18,7 @@ namespace Zamin {
     {
         s_ActiveProject = CreateRef<Project>();
         AudioEngine::SetMixerSettings(s_ActiveProject->m_Config.Audio);
+        Quality::SetSettings(s_ActiveProject->m_Config.Quality);
         return s_ActiveProject;
     }
 
@@ -31,6 +32,7 @@ namespace Zamin {
         project->m_ProjectDirectory = project->m_ProjectFile.parent_path();
         s_ActiveProject = project;
         AudioEngine::SetMixerSettings(project->m_Config.Audio);
+        Quality::SetSettings(project->m_Config.Quality);
         ZM_CORE_INFO("Loyiha ochildi: {} ({})", project->m_Config.Name, project->m_ProjectDirectory.string());
 
         // The start scene was renamed / moved outside the editor: found again by its UUID.
@@ -285,7 +287,17 @@ namespace Zamin {
             axis["GamepadAxis"] = a.GamepadAxisCode >= 0 ? GamepadAxisToString((GamepadAxis)a.GamepadAxisCode) : "";
             axes.push_back(axis);
         }
-        return { { "Actions", actions }, { "Axes", axes } };
+        json result = { { "Actions", actions }, { "Axes", axes } };
+        // Composite 2D axes: only when there are any (older files stay as they were).
+        if (!map.Vectors.empty())
+        {
+            json vectors = json::array();
+            for (const auto& v : map.Vectors)
+                vectors.push_back({ { "Name", v.Name }, { "X", v.XAxis }, { "Y", v.YAxis }, { "Mode", InputVectorModeToString(v.Mode) },
+                                    { "Deadzone", v.Deadzone } });
+            result["Vectors"] = vectors;
+        }
+        return result;
     }
 
     static InputActionMap InputMapFromJson(const json& j)
@@ -313,6 +325,20 @@ namespace Zamin {
                 axis.Invert = a.value("Invert", false);
                 axis.Deadzone = std::clamp(a.value("Deadzone", 0.15f), 0.0f, 0.95f);
                 map.Axes.push_back(std::move(axis));
+            }
+        if (j.contains("Vectors") && j["Vectors"].is_array())
+            for (const json& v : j["Vectors"])
+            {
+                if (!v.is_object())
+                    continue;
+                InputVector vector;
+                vector.Name = v.value("Name", "");
+                if (vector.Name.empty()) continue;
+                vector.XAxis = v.value("X", std::string());
+                vector.YAxis = v.value("Y", std::string());
+                InputVectorModeFromString(v.value("Mode", std::string("Clamp")), vector.Mode);
+                vector.Deadzone = std::clamp(v.value("Deadzone", 0.0f), 0.0f, 0.95f);
+                map.Vectors.push_back(std::move(vector));
             }
         return map;
     }
@@ -378,16 +404,8 @@ namespace Zamin {
         }
     }
 
-    bool ProjectSerializer::Serialize(const std::filesystem::path& filepath)
+    static json ConfigToJson(const ProjectConfig& c)
     {
-        auto& c = m_Project->GetConfig();
-        // The start scene's UUID, from the registry of the project being saved (when it is active).
-        if (m_Project == Project::GetActive() && !c.StartScene.empty())
-            if (AssetRegistry* registry = Project::GetAssetRegistry())
-            {
-                const AssetMetadata* meta = registry->Find(c.StartScene);
-                c.StartSceneHandle = meta && meta->HasMetaFile ? meta->Handle : AssetHandle();
-            }
         json j;
         j["Project"] = {
             { "Name", c.Name },
@@ -399,19 +417,11 @@ namespace Zamin {
         };
         if (c.StartSceneHandle && !c.StartScene.empty())
             j["Project"]["StartSceneUUID"] = c.StartSceneHandle.ToString();
-        // The build scenes with their UUIDs (from the registry of the project being saved).
         if (!c.BuildScenes.empty())
         {
-            AssetRegistry* registry = m_Project == Project::GetActive() ? Project::GetAssetRegistry() : nullptr;
             json list = json::array();
-            for (BuildSceneEntry& entry : c.BuildScenes)
+            for (const BuildSceneEntry& entry : c.BuildScenes)
             {
-                if (registry)
-                {
-                    const AssetMetadata* meta = registry->Find(entry.Path);
-                    if (meta && meta->HasMetaFile)
-                        entry.Handle = meta->Handle;
-                }
                 json item = { { "Path", entry.Path.generic_string() }, { "Enabled", entry.Enabled } };
                 if (entry.Handle)
                     item["UUID"] = entry.Handle.ToString();
@@ -430,6 +440,9 @@ namespace Zamin {
         // Written once the mixer differs from the defaults (older files stay as they were).
         if (!c.Audio.IsDefault())
             j["Audio"] = json::parse(c.Audio.ToJson());
+        // Written once the levels differ from the defaults (older files stay as they were).
+        if (!c.Quality.IsDefault())
+            j["Quality"] = json::parse(c.Quality.ToJson());
         j["DebugDraw"] = {
             { "Enabled", c.DebugDraw.Enabled },
             { "Raycasts", c.DebugDraw.ShowRaycasts },
@@ -443,7 +456,149 @@ namespace Zamin {
             { "LineWidth", c.DebugDraw.LineWidth },
             { "TextSize", c.DebugDraw.TextSize },
         };
-        return FileSystem::WriteTextFile(filepath, j.dump(4));
+        return j;
+    }
+
+    bool ProjectSerializer::Serialize(const std::filesystem::path& filepath)
+    {
+        auto& c = m_Project->GetConfig();
+        // The start scene's UUID, from the registry of the project being saved (when it is active).
+        if (m_Project == Project::GetActive() && !c.StartScene.empty())
+            if (AssetRegistry* registry = Project::GetAssetRegistry())
+            {
+                const AssetMetadata* meta = registry->Find(c.StartScene);
+                c.StartSceneHandle = meta && meta->HasMetaFile ? meta->Handle : AssetHandle();
+            }
+        // The build scenes' UUIDs the same way.
+        if (AssetRegistry* registry = m_Project == Project::GetActive() && !c.BuildScenes.empty() ? Project::GetAssetRegistry() : nullptr)
+            for (BuildSceneEntry& entry : c.BuildScenes)
+            {
+                const AssetMetadata* meta = registry->Find(entry.Path);
+                if (meta && meta->HasMetaFile)
+                    entry.Handle = meta->Handle;
+            }
+        return FileSystem::WriteTextFile(filepath, ConfigToJson(c).dump(4));
+    }
+
+    std::string ProjectSerializer::ConfigToString(const ProjectConfig& config) { return ConfigToJson(config).dump(4); }
+
+    std::vector<std::pair<std::string, std::string>> ProjectSerializer::ConfigToSections(const ProjectConfig& config)
+    {
+        std::vector<std::pair<std::string, std::string>> sections;
+        json j = ConfigToJson(config);
+        for (auto it = j.begin(); it != j.end(); ++it)
+        {
+            if (it.key() == "Project" && it->is_object())
+                for (auto p = it->begin(); p != it->end(); ++p)
+                    sections.emplace_back("Project." + p.key(), p->dump());
+            else
+                sections.emplace_back(it.key(), it->dump());
+        }
+        return sections;
+    }
+
+    // Throws (nlohmann) when a required part is missing or of the wrong type.
+    static void ConfigFromJson(const json& j, ProjectConfig& c)
+    {
+        const json& p = j.at("Project");
+        c.Name = p.value("Name", "Untitled");
+        c.StartScene = p.value("StartScene", "");
+        c.StartSceneHandle = {};
+        if (auto it = p.find("StartSceneUUID"); it != p.end() && it->is_string())
+            c.StartSceneHandle = AssetHandle::FromString(it->get<std::string>()).value_or(AssetHandle());
+        c.AssetDirectory = p.value("AssetDirectory", "Assets");
+        c.SourceDirectory = p.value("SourceDirectory", "Source");
+        c.ScriptModulePath = p.value("ScriptModulePath", "");
+        // Build scenes (older projects: none - every scene, no build indices).
+        c.BuildScenes.clear();
+        if (auto it = j.find("BuildScenes"); it != j.end() && it->is_array())
+            for (const json& item : *it)
+            {
+                BuildSceneEntry entry;
+                if (item.is_string())
+                    entry.Path = item.get<std::string>();
+                else if (item.is_object())
+                {
+                    entry.Path = item.value("Path", std::string());
+                    entry.Enabled = item.value("Enabled", true);
+                    if (auto uuid = item.find("UUID"); uuid != item.end() && uuid->is_string())
+                        entry.Handle = AssetHandle::FromString(uuid->get<std::string>()).value_or(AssetHandle());
+                }
+                if (!entry.Path.empty())
+                    c.BuildScenes.push_back(entry);
+            }
+        // Older projects have no input section: keep the defaults.
+        if (j.contains("InputActions") && j["InputActions"].is_object())
+            c.InputActions = InputMapFromJson(j["InputActions"]);
+        else
+            c.InputActions = InputActionMap::CreateDefault();
+        // Tag list (older projects: the defaults).
+        if (j.contains("Tags") && j["Tags"].is_array())
+        {
+            c.Tags.clear();
+            for (const json& tag : j["Tags"])
+                if (tag.is_string() && !tag.get<std::string>().empty() &&
+                    std::find(c.Tags.begin(), c.Tags.end(), tag.get<std::string>()) == c.Tags.end())
+                    c.Tags.push_back(tag.get<std::string>());
+        }
+        else
+            c.Tags = ProjectConfig::DefaultTags();
+        // Sorting layers (older projects: only Default).
+        c.SortingLayers = SortingLayerList();
+        if (auto it = j.find("SortingLayers"); it != j.end())
+            SortingLayersFromJson(*it, c.SortingLayers);
+        // 2D collision layers (older projects: only Default, everything collides).
+        c.CollisionLayers = CollisionLayers2D();
+        if (auto it = j.find("CollisionLayers2D"); it != j.end() && it->is_object())
+            CollisionLayers2D::FromJson(it->dump(), c.CollisionLayers);
+        // Audio mixer (older projects: Master > Music, SFX, UI).
+        c.Audio = AudioSettings();
+        if (auto it = j.find("Audio"); it != j.end() && it->is_object())
+            AudioSettings::FromJson(it->dump(), c.Audio);
+        // Debug drawing in the player (older projects: on, no physics views).
+        c.DebugDraw = DebugDrawSettings();
+        if (auto it = j.find("DebugDraw"); it != j.end() && it->is_object())
+        {
+            const json& d = *it;
+            auto readBool = [&](const char* key, bool& out) {
+                if (auto v = d.find(key); v != d.end() && v->is_boolean()) out = v->get<bool>();
+            };
+            auto readFloat = [&](const char* key, float& out) {
+                if (auto v = d.find(key); v != d.end() && v->is_number()) out = v->get<float>();
+            };
+            readBool("Enabled", c.DebugDraw.Enabled);
+            readBool("Raycasts", c.DebugDraw.ShowRaycasts);
+            readFloat("RaycastDuration", c.DebugDraw.RaycastDuration);
+            readBool("Contacts", c.DebugDraw.ShowContacts);
+            readBool("ContactDetails", c.DebugDraw.ShowContactDetails);
+            readBool("Joints", c.DebugDraw.ShowJoints);
+            readBool("Velocities", c.DebugDraw.ShowVelocities);
+            readBool("BodyVelocities", c.DebugDraw.ShowBodyVelocities);
+            readFloat("VelocityScale", c.DebugDraw.VelocityScale);
+            readFloat("LineWidth", c.DebugDraw.LineWidth);
+            readFloat("TextSize", c.DebugDraw.TextSize);
+            c.DebugDraw.Sanitize();
+        }
+        // Quality levels (older projects: Low / Medium / High / Ultra, starting on Ultra).
+        c.Quality = QualitySettings();
+        if (auto it = j.find("Quality"); it != j.end() && it->is_object())
+            QualitySettings::FromJson(it->dump(), c.Quality);
+    }
+
+    bool ProjectSerializer::ConfigFromString(const std::string& text, ProjectConfig& out)
+    {
+        try
+        {
+            ProjectConfig config;
+            ConfigFromJson(json::parse(text), config);
+            out = std::move(config);
+            return true;
+        }
+        catch (const std::exception& e)
+        {
+            ZM_CORE_ERROR("Loyiha sozlamalari o'qilmadi: {}", e.what());
+            return false;
+        }
     }
 
     bool ProjectSerializer::Deserialize(const std::filesystem::path& filepath)
@@ -452,87 +607,7 @@ namespace Zamin {
         if (text.empty()) return false;
         try
         {
-            json j = json::parse(text);
-            const json& p = j.at("Project");
-            auto& c = m_Project->GetConfig();
-            c.Name = p.value("Name", "Untitled");
-            c.StartScene = p.value("StartScene", "");
-            c.StartSceneHandle = {};
-            if (auto it = p.find("StartSceneUUID"); it != p.end() && it->is_string())
-                c.StartSceneHandle = AssetHandle::FromString(it->get<std::string>()).value_or(AssetHandle());
-            c.AssetDirectory = p.value("AssetDirectory", "Assets");
-            c.SourceDirectory = p.value("SourceDirectory", "Source");
-            c.ScriptModulePath = p.value("ScriptModulePath", "");
-            // Build scenes (older projects: none - every scene, no build indices).
-            c.BuildScenes.clear();
-            if (auto it = j.find("BuildScenes"); it != j.end() && it->is_array())
-                for (const json& item : *it)
-                {
-                    BuildSceneEntry entry;
-                    if (item.is_string())
-                        entry.Path = item.get<std::string>();
-                    else if (item.is_object())
-                    {
-                        entry.Path = item.value("Path", std::string());
-                        entry.Enabled = item.value("Enabled", true);
-                        if (auto uuid = item.find("UUID"); uuid != item.end() && uuid->is_string())
-                            entry.Handle = AssetHandle::FromString(uuid->get<std::string>()).value_or(AssetHandle());
-                    }
-                    if (!entry.Path.empty())
-                        c.BuildScenes.push_back(entry);
-                }
-            // Older projects have no input section: keep the defaults.
-            if (j.contains("InputActions") && j["InputActions"].is_object())
-                c.InputActions = InputMapFromJson(j["InputActions"]);
-            else
-                c.InputActions = InputActionMap::CreateDefault();
-            // Tag list (older projects: the defaults).
-            if (j.contains("Tags") && j["Tags"].is_array())
-            {
-                c.Tags.clear();
-                for (const json& tag : j["Tags"])
-                    if (tag.is_string() && !tag.get<std::string>().empty() &&
-                        std::find(c.Tags.begin(), c.Tags.end(), tag.get<std::string>()) == c.Tags.end())
-                        c.Tags.push_back(tag.get<std::string>());
-            }
-            else
-                c.Tags = ProjectConfig::DefaultTags();
-            // Sorting layers (older projects: only Default).
-            c.SortingLayers = SortingLayerList();
-            if (auto it = j.find("SortingLayers"); it != j.end())
-                SortingLayersFromJson(*it, c.SortingLayers);
-            // 2D collision layers (older projects: only Default, everything collides).
-            c.CollisionLayers = CollisionLayers2D();
-            if (auto it = j.find("CollisionLayers2D"); it != j.end() && it->is_object())
-                CollisionLayers2D::FromJson(it->dump(), c.CollisionLayers);
-            // Audio mixer (older projects: Master > Music, SFX, UI).
-            c.Audio = AudioSettings();
-            if (auto it = j.find("Audio"); it != j.end() && it->is_object())
-                AudioSettings::FromJson(it->dump(), c.Audio);
-            // Debug drawing in the player (older projects: on, no physics views).
-            c.DebugDraw = DebugDrawSettings();
-            if (auto it = j.find("DebugDraw"); it != j.end() && it->is_object())
-            {
-                const json& d = *it;
-                auto readBool = [&](const char* key, bool& out) {
-                    if (auto v = d.find(key); v != d.end() && v->is_boolean()) out = v->get<bool>();
-                };
-                auto readFloat = [&](const char* key, float& out) {
-                    if (auto v = d.find(key); v != d.end() && v->is_number()) out = v->get<float>();
-                };
-                readBool("Enabled", c.DebugDraw.Enabled);
-                readBool("Raycasts", c.DebugDraw.ShowRaycasts);
-                readFloat("RaycastDuration", c.DebugDraw.RaycastDuration);
-                readBool("Contacts", c.DebugDraw.ShowContacts);
-                readBool("ContactDetails", c.DebugDraw.ShowContactDetails);
-                readBool("Joints", c.DebugDraw.ShowJoints);
-                readBool("Velocities", c.DebugDraw.ShowVelocities);
-                readBool("BodyVelocities", c.DebugDraw.ShowBodyVelocities);
-                readFloat("VelocityScale", c.DebugDraw.VelocityScale);
-                readFloat("LineWidth", c.DebugDraw.LineWidth);
-                readFloat("TextSize", c.DebugDraw.TextSize);
-                c.DebugDraw.Sanitize();
-            }
+            ConfigFromJson(json::parse(text), m_Project->GetConfig());
         }
         catch (const std::exception& e)
         {

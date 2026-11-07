@@ -257,6 +257,7 @@ namespace Zamin {
         vertical.Invert = true; // stick up is -1
 
         map.Axes = { std::move(horizontal), std::move(vertical) };
+        map.Vectors = { InputVector{ "Move", "Horizontal", "Vertical", InputVectorMode::Clamp, 0.0f } };
         return map;
     }
 
@@ -286,7 +287,92 @@ namespace Zamin {
         return const_cast<InputActionMap*>(this)->FindAxis(name);
     }
 
+    InputVector* InputActionMap::FindVector(std::string_view name)
+    {
+        for (auto& v : Vectors)
+            if (v.Name == name)
+                return &v;
+        return nullptr;
+    }
+
+    const InputVector* InputActionMap::FindVector(std::string_view name) const
+    {
+        return const_cast<InputActionMap*>(this)->FindVector(name);
+    }
+
     std::string InputActionMap::MakeUniqueActionName(std::string_view base) const { return MakeUniqueName(Actions, base); }
     std::string InputActionMap::MakeUniqueAxisName(std::string_view base) const { return MakeUniqueName(Axes, base); }
+    std::string InputActionMap::MakeUniqueVectorName(std::string_view base) const { return MakeUniqueName(Vectors, base); }
+
+    std::vector<InputBindingConflict> InputActionMap::FindConflicts() const
+    {
+        // Every place each control is bound, in map order.
+        std::vector<InputBindingConflict> uses;
+        auto add = [&](const InputBinding& binding, const std::string& user) {
+            for (InputBindingConflict& u : uses)
+                if (u.Binding == binding)
+                {
+                    u.Users.push_back(user);
+                    return;
+                }
+            uses.push_back({ binding, { user } });
+        };
+        for (const InputAction& action : Actions)
+            for (const InputBinding& b : action.Bindings)
+                add(b, action.Name);
+        for (const InputAxis& axis : Axes)
+        {
+            for (const InputBinding& b : axis.Negative)
+                add(b, axis.Name + " (-)");
+            for (const InputBinding& b : axis.Positive)
+                add(b, axis.Name + " (+)");
+        }
+        std::vector<InputBindingConflict> conflicts;
+        for (InputBindingConflict& u : uses)
+            if (u.Users.size() > 1)
+                conflicts.push_back(std::move(u));
+        return conflicts;
+    }
+
+    std::vector<std::string> InputActionMap::FindUsers(const InputBinding& binding) const
+    {
+        std::vector<std::string> users;
+        for (const InputAction& action : Actions)
+            for (const InputBinding& b : action.Bindings)
+                if (b == binding)
+                    users.push_back(action.Name);
+        for (const InputAxis& axis : Axes)
+        {
+            for (const InputBinding& b : axis.Negative)
+                if (b == binding)
+                    users.push_back(axis.Name + " (-)");
+            for (const InputBinding& b : axis.Positive)
+                if (b == binding)
+                    users.push_back(axis.Name + " (+)");
+        }
+        return users;
+    }
+
+    const char* InputVectorModeToString(InputVectorMode mode)
+    {
+        switch (mode)
+        {
+            case InputVectorMode::Clamp:     return "Clamp";
+            case InputVectorMode::Normalize: return "Normalize";
+            case InputVectorMode::Raw:       return "Raw";
+        }
+        return "Clamp";
+    }
+
+    bool InputVectorModeFromString(std::string_view name, InputVectorMode& out)
+    {
+        for (int i = 0; i < InputVectorModeCount; i++)
+            if (name == InputVectorModeToString((InputVectorMode)i))
+            {
+                out = (InputVectorMode)i;
+                return true;
+            }
+        return false;
+    }
 
 }

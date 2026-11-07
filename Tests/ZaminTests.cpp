@@ -33580,3 +33580,440 @@ TEST(EditorIIPureLogic)
     std::error_code ec;
     fs::remove_all(layouts, ec);
 }
+
+// ------------------------------------------------------------------ M17: project settings (quality, input, layers)
+TEST(QualityLevelLimits)
+{
+    ShadowSettings shadows; // 4096, PCF 3x3, 3 cascades
+    PostProcessSettings post;
+    post.SSAO = post.Bloom = post.FXAA = post.AutoExposure = true;
+
+    // Unlimited and Ultra change nothing a scene asks for.
+    for (const QualityLevel& level : { QualityLevel::Unlimited(), QualitySettings::DefaultLevels().back() })
+    {
+        ShadowSettings s = level.ApplyTo(shadows);
+        CHECK(s.AtlasSize == 4096 && s.Filter == ShadowFilter::PCF3x3 && s.CascadeCount == 3);
+        PostProcessSettings p = level.ApplyTo(post);
+        CHECK(p.SSAO && p.Bloom && p.FXAA && p.AutoExposure);
+        CHECK(level.ApplyRenderScale(1.25f) == 1.25f && level.ApplyShadowDistance(40.0f) == 40.0f && level.AllowsSunShadows(true));
+        CHECK(level.DescribeLimits(shadows, post, 1.0f, 40.0f).empty());
+    }
+    CHECK(QualitySettings::DefaultLevels().back().Name == "Ultra" && QualitySettings::DefaultLevels().back().Anisotropy == 1);
+
+    // Low: small atlas, hard edges, one cascade, half the distance, no effects, 0.75 render scale.
+    const QualityLevel low = QualitySettings::DefaultLevels().front();
+    CHECK(low.Name == "Low");
+    ShadowSettings s = low.ApplyTo(shadows);
+    CHECK(s.AtlasSize == 1024 && s.Filter == ShadowFilter::Hard && s.CascadeCount == 1);
+    PostProcessSettings p = low.ApplyTo(post);
+    CHECK(!p.SSAO && !p.Bloom && !p.FXAA && !p.AutoExposure);
+    CHECK_NEAR(low.ApplyRenderScale(1.0f), 0.75f, 1e-6f);
+    CHECK_NEAR(low.ApplyShadowDistance(40.0f), 20.0f, 1e-5f);
+    CHECK(low.DescribeLimits(shadows, post, 1.0f, 40.0f).size() >= 6);
+    // A scene that asks for less than the limit keeps its own value; effects it does not use stay off.
+    ShadowSettings cheap;
+    cheap.AtlasSize = 1024;
+    cheap.Filter = ShadowFilter::Hard;
+    cheap.CascadeCount = 1;
+    QualityLevel medium = QualitySettings::DefaultLevels()[1];
+    ShadowSettings m = medium.ApplyTo(cheap);
+    CHECK(m.AtlasSize == 1024 && m.Filter == ShadowFilter::Hard && m.CascadeCount == 1);
+    CHECK(!medium.ApplyTo(PostProcessSettings()).Bloom);
+    // Filters by cost: a Poisson scene under a PCF 3x3 limit gets PCF 3x3; under PCF 5x5 it keeps Poisson.
+    CHECK(QualityLevel::FilterCost(ShadowFilter::Hard) < QualityLevel::FilterCost(ShadowFilter::PCF3x3));
+    CHECK(QualityLevel::FilterCost(ShadowFilter::PCF3x3) < QualityLevel::FilterCost(ShadowFilter::Poisson));
+    CHECK(QualityLevel::FilterCost(ShadowFilter::Poisson) < QualityLevel::FilterCost(ShadowFilter::PCF5x5));
+    ShadowSettings poisson;
+    poisson.Filter = ShadowFilter::Poisson;
+    CHECK(medium.ApplyTo(poisson).Filter == ShadowFilter::PCF3x3);
+    CHECK(QualityLevel::Unlimited().ApplyTo(poisson).Filter == ShadowFilter::Poisson);
+    // No shadows at all.
+    QualityLevel off;
+    off.Shadows = false;
+    CHECK(!off.AllowsSunShadows(true) && off.DescribeLimits(shadows, post, 1.0f, 40.0f).size() == 1);
+
+    // Sanitize: atlas to the nearest size, anisotropy to a power of two, scales clamped.
+    QualityLevel bad;
+    bad.ShadowAtlasSize = 1700;
+    bad.Anisotropy = 6;
+    bad.TextureQuality = 9;
+    bad.RenderScale = std::numeric_limits<float>::quiet_NaN();
+    bad.MaxShadowCascades = 0;
+    bad.Sanitize();
+    CHECK(bad.ShadowAtlasSize == 2048 && bad.Anisotropy == 4 && bad.TextureQuality == QualityLevel::MaxTextureQuality);
+    CHECK(bad.RenderScale == 1.0f && bad.MaxShadowCascades == 1);
+}
+
+TEST(QualitySettingsJson)
+{
+    QualitySettings defaults;
+    CHECK(defaults.Levels.size() == 4 && defaults.DefaultLevel == 3 && defaults.IsDefault());
+    CHECK(defaults.Find("high") == 2 && defaults.Find("ULTRA") == 3 && defaults.Find("Epic") == -1);
+    CHECK(defaults.MakeUniqueName("High") == "High 2" && defaults.MakeUniqueName("Epic") == "Epic");
+
+    // Round trip of edited levels.
+    QualitySettings edited;
+    edited.Levels[2].ShadowAtlasSize = 2048;
+    edited.Levels[2].Anisotropy = 8;
+    edited.Levels[2].TextureQuality = 1;
+    edited.Levels[0].MaxShadowFilter = ShadowFilter::Poisson;
+    QualityLevel epic = edited.Levels[3];
+    epic.Name = "Epic";
+    epic.RenderScale = 1.5f;
+    edited.Levels.push_back(epic);
+    edited.DefaultLevel = 1;
+    CHECK(!edited.IsDefault());
+    QualitySettings read;
+    CHECK(QualitySettings::FromJson(edited.ToJson(), read));
+    CHECK(read == edited);
+    CHECK(read.Levels[read.DefaultLevel].Name == "Medium");
+
+    // Missing values: a built-in name starts from that level, another one from the defaults.
+    QualitySettings partial;
+    CHECK(QualitySettings::FromJson(R"({"Default":"Low","Levels":[{"Name":"Low","Bloom":true},{"Name":"Custom"}]})", partial));
+    CHECK(partial.Levels.size() == 2 && partial.DefaultLevel == 0);
+    CHECK(partial.Levels[0].Bloom && !partial.Levels[0].SSAO && partial.Levels[0].ShadowAtlasSize == 1024);
+    CHECK(partial.Levels[1].SSAO && partial.Levels[1].ShadowAtlasSize == 4096);
+    // Duplicate / empty names are made unique, an unknown default is the last level, bad text fails.
+    QualitySettings messy;
+    CHECK(QualitySettings::FromJson(R"({"Default":"Nope","Levels":[{"Name":"A"},{"Name":"a"},{"Name":""}]})", messy));
+    CHECK(messy.Levels.size() == 3 && messy.Levels[1].Name == "a 2" && messy.Levels[2].Name == "Level" && messy.DefaultLevel == 2);
+    CHECK(QualitySettings::FromJson(R"({"Levels":[]})", messy) && messy == QualitySettings());
+    CHECK(!QualitySettings::FromJson("not json", messy));
+}
+
+TEST(QualityRuntimeLevel)
+{
+    Quality::Reset();
+    CHECK(Quality::GetLevel() == -1 && Quality::GetLevelCount() == 0 && Quality::GetActive() == QualityLevel::Unlimited());
+    CHECK(!Quality::SetLevel(0) && !Quality::SetLevel("Low"));
+    CHECK(Renderer::GetRenderResolution(1000, 500, 1.0f) == glm::uvec2(1000, 500));
+
+    QualitySettings settings;
+    settings.Levels[0].Anisotropy = 4;
+    Quality::SetSettings(settings);
+    CHECK(Quality::GetLevel() == 3 && Quality::GetLevelName() == "Ultra" && Quality::GetLevelCount() == 4);
+    CHECK(Quality::GetLevelNames().size() == 4 && Quality::GetLevelNames()[1] == "Medium");
+    const uint64_t changes = Quality::GetChangeCount();
+    CHECK(Quality::SetLevel("low") && Quality::GetLevel() == 0 && Quality::GetChangeCount() > changes);
+    // The renderer's limits follow the active level: render resolution and texture sampling.
+    CHECK(Renderer::GetRenderResolution(1000, 500, 1.0f) == glm::uvec2(750, 375));
+    CHECK(Texture2D::GetAnisotropy() == 4 && Texture2D::GetSkippedMips() == 1);
+    CHECK(Quality::SetLevelFromString("2") && Quality::GetLevelName() == "High");
+    CHECK(Quality::SetLevelFromString("Medium") && Quality::GetLevel() == 1);
+    CHECK(!Quality::SetLevelFromString("7") && !Quality::SetLevelFromString("Epic") && Quality::GetLevel() == 1);
+
+    // Edited levels keep the active one by name; when it is gone, the default level is used.
+    settings.Levels[1].Bloom = false;
+    Quality::SetSettings(settings, true);
+    CHECK(Quality::GetLevelName() == "Medium" && !Quality::GetActive().Bloom);
+    settings.Levels.erase(settings.Levels.begin() + 1);
+    settings.DefaultLevel = 0;
+    Quality::SetSettings(settings, true);
+    CHECK(Quality::GetLevelName() == "Low");
+
+    // The player's choice is kept with SaveData.
+    namespace fs = std::filesystem;
+    fs::path dir = fs::temp_directory_path() / ("zamin-quality-" + std::to_string((uint64_t)UUID()));
+    const fs::path previousSave = SaveData::GetFilePath();
+    SaveData::SetFilePath(dir / "save.json");
+    CHECK(!Quality::HasSavedSettings() && !Quality::LoadSettings());
+    CHECK(Quality::SetLevel("High") && Quality::SaveSettings() && Quality::HasSavedSettings());
+    CHECK(SaveData::GetString("Zamin.Quality.Level") == "High");
+    Quality::SetLevel(0);
+    CHECK(Quality::LoadSettings() && Quality::GetLevelName() == "High");
+    SaveData::SetString("Zamin.Quality.Level", "Gone");
+    CHECK(!Quality::LoadSettings() && Quality::GetLevelName() == "High"); // an unknown name changes nothing
+    Quality::ClearSavedSettings();
+    CHECK(!Quality::HasSavedSettings());
+    SaveData::DeleteAll();
+    SaveData::SetFilePath(previousSave);
+    Quality::Reset();
+    CHECK(Texture2D::GetAnisotropy() == 1 && Texture2D::GetSkippedMips() == 0);
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
+TEST(ProjectQualityAndSections)
+{
+    namespace fs = std::filesystem;
+    fs::path dir = fs::temp_directory_path() / ("zamin-project-quality-" + std::to_string((uint64_t)UUID()));
+    fs::create_directories(dir);
+    Ref<Project> previous = Project::GetActive();
+    auto project = Project::New();
+    CHECK(project->GetConfig().Quality.IsDefault() && Quality::GetLevelName() == "Ultra");
+    CHECK(ProjectSerializer(project).Serialize(dir / "Plain.zproject"));
+    CHECK(FileSystem::ReadTextFile(dir / "Plain.zproject").find("\"Quality\"") == std::string::npos); // defaults: not written
+
+    project->GetConfig().Quality.Levels[1].SSAO = true;
+    project->GetConfig().Quality.DefaultLevel = 1;
+    CHECK(ProjectSerializer(project).Serialize(dir / "Q.zproject"));
+    Ref<Project> loaded = Project::Load(dir / "Q.zproject");
+    CHECK(loaded && loaded->GetConfig().Quality == project->GetConfig().Quality);
+    CHECK(Quality::GetLevelName() == "Medium" && Quality::GetActive().SSAO); // loading applied it
+
+    // The whole config as text and back; the sections the settings window compares.
+    ProjectConfig config = project->GetConfig();
+    config.Name = "Sections";
+    config.Tags = { "A", "B" };
+    config.InputActions.Vectors.push_back({ "Look", "Horizontal", "Vertical", InputVectorMode::Raw, 0.2f });
+    ProjectConfig copy;
+    CHECK(ProjectSerializer::ConfigFromString(ProjectSerializer::ConfigToString(config), copy));
+    CHECK(ProjectSerializer::ConfigToString(copy) == ProjectSerializer::ConfigToString(config));
+    CHECK(copy.Name == "Sections" && copy.Tags.size() == 2 && copy.InputActions.FindVector("Look") &&
+          copy.InputActions.FindVector("Look")->Mode == InputVectorMode::Raw);
+    auto sections = ProjectSerializer::ConfigToSections(config);
+    auto find = [&](const std::string& key) {
+        for (auto& [k, v] : sections)
+            if (k == key)
+                return v;
+        return std::string("<none>");
+    };
+    CHECK(find("Project.Name") == "\"Sections\"" && find("Tags") == R"(["A","B"])");
+    CHECK(find("InputActions") != "<none>" && find("Quality") != "<none>" && find("SortingLayers") == "<none>");
+    CHECK(!ProjectSerializer::ConfigFromString("{}", copy) && copy.Name == "Sections"); // no "Project": nothing changes
+
+    Project::SetActive(previous);
+    if (previous)
+        Quality::SetSettings(previous->GetConfig().Quality);
+    else
+        Quality::Reset();
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
+TEST(InputVectorsComposite)
+{
+    Project::SetActive(nullptr);
+    Input::ResetState();
+    NextFrame();
+    const InputActionMap defaults = InputActionMap::CreateDefault();
+    const InputVector* move = defaults.FindVector("Move");
+    CHECK(move && move->XAxis == "Horizontal" && move->YAxis == "Vertical" && move->Mode == InputVectorMode::Clamp);
+    CHECK(defaults.MakeUniqueVectorName("Move") == "Move 2");
+    CHECK(Input::GetVector("Move") == glm::vec2(0.0f));
+
+    // Keyboard diagonal: clamped to length 1.
+    Input::OnKeyEvent(Key::D, true);
+    Input::OnKeyEvent(Key::W, true);
+    NextFrame();
+    glm::vec2 v = Input::GetVector("Move");
+    CHECK_NEAR(v.x, 0.70710678f, 1e-5f);
+    CHECK_NEAR(v.y, 0.70710678f, 1e-5f);
+    InputVector raw{ "Raw", "Horizontal", "Vertical", InputVectorMode::Raw, 0.0f };
+    CHECK(Input::GetVector(raw) == glm::vec2(1.0f, 1.0f));
+    Input::OnKeyEvent(Key::D, false);
+    Input::OnKeyEvent(Key::W, false);
+    NextFrame();
+
+    // Shaping on its own: radial deadzone and the modes.
+    InputVector stick{ "Stick", "Horizontal", "Vertical", InputVectorMode::Clamp, 0.2f };
+    CHECK(Input::ShapeVector(stick, { 0.1f, 0.1f }) == glm::vec2(0.0f)); // inside the radius (0.14)
+    glm::vec2 shaped = Input::ShapeVector(stick, { 0.6f, 0.0f });
+    CHECK_NEAR(shaped.x, 0.5f, 1e-5f);
+    CHECK_NEAR(shaped.y, 0.0f, 1e-6f);
+    stick.Mode = InputVectorMode::Normalize;
+    CHECK_NEAR(glm::length(Input::ShapeVector(stick, { 0.3f, 0.3f })), 1.0f, 1e-5f);
+    CHECK(Input::ShapeVector(stick, { 0.0f, 0.0f }) == glm::vec2(0.0f));
+    stick.Mode = InputVectorMode::Clamp;
+    stick.Deadzone = 0.0f;
+    CHECK_NEAR(glm::length(Input::ShapeVector(stick, { 1.0f, 1.0f })), 1.0f, 1e-5f);
+
+    // A stick through the map's axes (Vertical is inverted: up is -1 on the device).
+    Input::SimulateGamepadAxis(0, GamepadAxis::LeftX, 1.0f);
+    Input::SimulateGamepadAxis(0, GamepadAxis::LeftY, -1.0f);
+    NextFrame();
+    v = Input::GetVector("Move");
+    CHECK_NEAR(glm::length(v), 1.0f, 1e-5f);
+    CHECK(v.x > 0.0f && v.y > 0.0f);
+    CHECK(Input::GetVector("NoSuchVector") == glm::vec2(0.0f));
+    Input::ResetState();
+
+    // Mode names, serialization (older input sections without vectors stay without them).
+    InputVectorMode mode;
+    CHECK(InputVectorModeFromString("Normalize", mode) && mode == InputVectorMode::Normalize);
+    CHECK(!InputVectorModeFromString("Sideways", mode) && std::string(InputVectorModeToString(InputVectorMode::Raw)) == "Raw");
+    InputActionMap map = defaults;
+    map.Vectors.push_back({ "Aim", "AimX", "AimY", InputVectorMode::Normalize, 0.25f });
+    InputActionMap read;
+    CHECK(ProjectSerializer::InputMapFromString(ProjectSerializer::InputMapToString(map), read));
+    CHECK(read.Vectors == map.Vectors);
+    CHECK(ProjectSerializer::InputMapFromString(R"({"Actions":[],"Axes":[]})", read) && read.Vectors.empty());
+    map.Vectors.clear();
+    CHECK(ProjectSerializer::InputMapToString(map).find("Vectors") == std::string::npos);
+}
+
+TEST(InputBindingConflicts)
+{
+    InputActionMap map = InputActionMap::CreateDefault();
+    CHECK(map.FindConflicts().empty());
+    std::vector<std::string> users = map.FindUsers(InputBinding::FromKey(Key::Space));
+    CHECK(users.size() == 1 && users[0] == "Jump");
+    users = map.FindUsers(InputBinding::FromKey(Key::A));
+    CHECK(users.size() == 1 && users[0] == "Horizontal (-)");
+
+    // Space for Fire too, W on both sides of Vertical, E twice for Interact.
+    map.FindAction("Fire")->Bindings.push_back(InputBinding::FromKey(Key::Space));
+    map.FindAxis("Vertical")->Negative.push_back(InputBinding::FromKey(Key::W));
+    map.FindAction("Interact")->Bindings.push_back(InputBinding::FromKey(Key::E));
+    // Gamepad axis halves are different controls; the same half is the same control.
+    map.FindAction("Sprint")->Bindings.push_back(InputBinding::FromGamepadAxis(GamepadAxis::RightTrigger, -1));
+    std::vector<InputBindingConflict> conflicts = map.FindConflicts();
+    CHECK(conflicts.size() == 3);
+    if (conflicts.size() == 3)
+    {
+        CHECK(conflicts[0].Binding == InputBinding::FromKey(Key::Space) && conflicts[0].Users == std::vector<std::string>({ "Jump", "Fire" }));
+        CHECK(conflicts[1].Binding == InputBinding::FromKey(Key::E) && conflicts[1].Users.size() == 2 && conflicts[1].Users[0] == "Interact");
+        CHECK(conflicts[2].Binding == InputBinding::FromKey(Key::W) &&
+              conflicts[2].Users == std::vector<std::string>({ "Vertical (-)", "Vertical (+)" }));
+    }
+    map.FindAction("Sprint")->Bindings.back() = InputBinding::FromGamepadAxis(GamepadAxis::RightTrigger, 1);
+    CHECK(map.FindConflicts().size() == 4);
+}
+
+TEST(CollisionLayerPresets)
+{
+    CollisionLayers2D layers;
+    CHECK(CollisionLayers2D::GetPresets().size() == 5);
+    CHECK(!layers.ApplyPreset(-1) && !layers.ApplyPreset(99) && layers.IsDefault());
+    layers.Names[1] = "Player";
+    layers.Names[2] = "Enemy";
+
+    CHECK(layers.ApplyPreset(2)); // none
+    CHECK(!layers.CanCollide(0, 0) && !layers.CanCollide(1, 2) && layers.Names[1] == "Player");
+    CHECK(layers.CountCollidingPairs(layers.GetNamedLayers()) == 0);
+    CHECK(layers.ApplyPreset(1)); // own layer (and Default)
+    CHECK(layers.CanCollide(1, 1) && layers.CanCollide(1, 0) && layers.CanCollide(0, 2) && !layers.CanCollide(1, 2));
+    CHECK(layers.CountCollidingPairs({ 0, 1, 2 }) == 5); // 0-0, 0-1, 0-2, 1-1, 2-2
+    CHECK(layers.ApplyPreset(0)); // all
+    CHECK(layers.CountCollidingPairs({ 0, 1, 2 }) == 6);
+    layers.SetRow(1, { 0, 1, 2 }, false);
+    CHECK(!layers.CanCollide(1, 0) && !layers.CanCollide(1, 1) && !layers.CanCollide(2, 1) && layers.CanCollide(2, 2));
+
+    // Named presets replace the names and set only their pairs (Default with everything).
+    CHECK(layers.ApplyPreset(3));
+    CHECK(layers.Find("Player") == 1 && layers.Find("Ground") == 3 && layers.Find("Trigger") == 6 && !layers.IsNamed(7));
+    const int player = layers.Find("Player"), enemy = layers.Find("Enemy"), ground = layers.Find("Ground");
+    const int pickup = layers.Find("Pickup"), projectile = layers.Find("Projectile");
+    CHECK(layers.CanCollide(player, ground) && layers.CanCollide(player, enemy) && layers.CanCollide(player, pickup));
+    CHECK(!layers.CanCollide(player, player) && !layers.CanCollide(enemy, enemy) && !layers.CanCollide(player, projectile));
+    CHECK(layers.CanCollide(projectile, ground) && layers.CanCollide(enemy, projectile) && !layers.CanCollide(pickup, ground));
+    CHECK(layers.CanCollide(0, projectile) && layers.CanCollide(7, player)); // Default / unnamed: everything
+    // Symmetric, and survives the project file.
+    for (int a = 0; a < CollisionLayers2D::Count; a++)
+        for (int b = 0; b < CollisionLayers2D::Count; b++)
+            CHECK(layers.CanCollide(a, b) == layers.CanCollide(b, a));
+    CollisionLayers2D read;
+    CHECK(CollisionLayers2D::FromJson(layers.ToJson(), read) && read == layers);
+
+    CHECK(layers.ApplyPreset(4));
+    const int world = layers.Find("World"), ragdoll = layers.Find("Ragdoll");
+    CHECK(world == 3 && ragdoll == 6 && layers.CanCollide(ragdoll, world) && layers.CanCollide(ragdoll, ragdoll));
+    CHECK(!layers.CanCollide(ragdoll, layers.Find("Player")) && layers.CanCollide(layers.Find("Enemy"), layers.Find("Enemy")));
+}
+
+TEST(SceneFileTagReferences)
+{
+    auto scene = CreateRef<Scene>();
+    scene->SetName("Refs");
+    Entity a = scene->CreateEntity("A");
+    a.AddComponent<TagsComponent>().Tags = { "Enemy", "Boss" };
+    Entity b = scene->CreateEntity("B");
+    b.AddComponent<TagsComponent>().Tags = { "Enemy" };
+    Entity c = scene->CreateEntity("C");
+    c.AddComponent<TagsComponent>().Tags = { "Foe", "Enemy" };
+    b.AddComponent<SpriteRendererComponent>().SortingLayer = 3;
+    c.AddComponent<SpriteRendererComponent>().SortingLayer = 3;
+    scene->CreateEntity("Plain").AddComponent<CircleRendererComponent>();
+    std::string text = SceneSerializer(scene).SerializeToString();
+
+    SceneFileUsage usage;
+    CHECK(SceneFileReferences::CountUsage(text, usage));
+    CHECK(usage.Files == 1 && usage.Entities == 4);
+    CHECK(usage.GetTagCount("Enemy") == 3 && usage.GetTagCount("Boss") == 1 && usage.GetTagCount("Foe") == 1 && usage.GetTagCount("X") == 0);
+    CHECK(usage.GetSortingLayerCount(3) == 2 && usage.GetSortingLayerCount(0) == 1);
+    CHECK(!SceneFileReferences::CountUsage("{\"NotAScene\":1}", usage) && !SceneFileReferences::CountUsage("garbage", usage));
+
+    // Nothing to rename: the text stays exactly as it was.
+    std::string same = text;
+    CHECK(SceneFileReferences::RenameTag(same, "Missing", "Other") == 0 && same == text);
+    CHECK(SceneFileReferences::RenameTag(same, "Enemy", "Enemy") == 0 && same == text);
+    std::string notScene = "[1,2]";
+    CHECK(SceneFileReferences::RenameTag(notScene, "Enemy", "Foe") == -1);
+
+    // Renamed: an entity that already had the new tag keeps one; the file is still a scene in the
+    // serializer's own format (loading and saving again gives the same text).
+    std::string renamed = text;
+    CHECK(SceneFileReferences::RenameTag(renamed, "Enemy", "Foe") == 3);
+    SceneFileUsage after;
+    CHECK(SceneFileReferences::CountUsage(renamed, after) && after.GetTagCount("Enemy") == 0 && after.GetTagCount("Foe") == 3);
+    auto reloaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(reloaded).DeserializeFromString(renamed));
+    Entity rc = reloaded->FindEntityByName("C");
+    CHECK(rc && rc.GetComponent<TagsComponent>().Tags == std::vector<std::string>({ "Foe" }));
+    Entity ra = reloaded->FindEntityByName("A");
+    CHECK(ra && ra.GetComponent<TagsComponent>().Tags == std::vector<std::string>({ "Foe", "Boss" }));
+    CHECK(SceneSerializer(reloaded).SerializeToString() == renamed);
+
+    // A folder of files: counted together, renamed on disk except the skipped (open) one.
+    namespace fs = std::filesystem;
+    fs::path dir = fs::temp_directory_path() / ("zamin-tagrefs-" + std::to_string((uint64_t)UUID()));
+    fs::create_directories(dir / "Sub");
+    CHECK(FileSystem::WriteTextFile(dir / "One.zscene", text));
+    CHECK(FileSystem::WriteTextFile(dir / "Sub" / "Two.zprefab", text));
+    CHECK(FileSystem::WriteTextFile(dir / "Notes.txt", text));
+    std::vector<fs::path> files = SceneFileReferences::FindSceneFiles(dir);
+    CHECK(files.size() == 2 && files[0] == "One.zscene" && files[1] == "Sub/Two.zprefab");
+    SceneFileUsage all = SceneFileReferences::ScanDirectory(dir);
+    CHECK(all.Files == 2 && all.GetTagCount("Enemy") == 6);
+    CHECK(SceneFileReferences::ScanDirectory(dir, dir / "One.zscene").GetTagCount("Enemy") == 3);
+    std::vector<std::string> errors;
+    CHECK(SceneFileReferences::RenameTagInDirectory(dir, "Boss", "Chief", dir / "One.zscene", &errors) == 1 && errors.empty());
+    CHECK(FileSystem::ReadTextFile(dir / "One.zscene") == text);
+    SceneFileUsage two;
+    CHECK(SceneFileReferences::CountUsage(FileSystem::ReadTextFile(dir / "Sub" / "Two.zprefab"), two) && two.GetTagCount("Chief") == 1);
+    CHECK(SceneFileReferences::RenameTagInDirectory(dir, "Boss", "Chief") == 1); // the other one now
+    CHECK(SceneFileReferences::ScanDirectory(dir).GetTagCount("Boss") == 0);
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
+TEST(ProjectSettingsIndexSearch)
+{
+    const auto& categories = ProjectSettingsIndex::GetCategories();
+    CHECK(categories.size() == 9);
+    CHECK(ProjectSettingsIndex::Find("Quality") == 1 && ProjectSettingsIndex::Find("tagsandlayers") == 5 && ProjectSettingsIndex::Find("Nope") == -1);
+    CHECK(categories[0].Id == "General" && categories[8].Id == "SaveData" && categories[8].Sections.empty());
+    // Search: case and the Uzbek apostrophes are ignored.
+    CHECK(ProjectSettingsIndex::TextContains("Soya atlasi", "ATLAS") && ProjectSettingsIndex::TextContains("anything", ""));
+    CHECK(ProjectSettingsIndex::TextContains("Bog'lanish", "bog\xCA\xBBlan") && ProjectSettingsIndex::TextContains("O\xE2\x80\x99qlar", "o'q"));
+    CHECK(!ProjectSettingsIndex::TextContains("Soya", "bloom"));
+    std::vector<std::string> hits;
+    const ProjectSettingsCategory& quality = categories[(size_t)ProjectSettingsIndex::Find("Quality")];
+    CHECK(ProjectSettingsIndex::Matches(quality, "soya", &hits) && hits.size() >= 4);
+    CHECK(ProjectSettingsIndex::Matches(quality, "sifat", &hits)); // the title
+    CHECK(!ProjectSettingsIndex::Matches(categories[(size_t)ProjectSettingsIndex::Find("Audio")], "deadzone", &hits) && hits.empty());
+    CHECK(ProjectSettingsIndex::Matches(categories[(size_t)ProjectSettingsIndex::Find("Input")], "deadzone", &hits) && hits.size() == 1);
+    // Every file section belongs to one category at most.
+    std::set<std::string> owned;
+    for (const ProjectSettingsCategory& c : categories)
+        for (const std::string& section : c.Sections)
+            CHECK(owned.insert(section).second);
+
+    // Which categories differ between two configs.
+    ProjectConfig saved, edited;
+    edited.Tags.push_back("Boss");
+    edited.Quality.Levels[0].Bloom = true;
+    std::vector<std::string> changed =
+        ProjectSettingsIndex::DiffSections(ProjectSerializer::ConfigToSections(saved), ProjectSerializer::ConfigToSections(edited));
+    CHECK(std::find(changed.begin(), changed.end(), "Tags") != changed.end());
+    CHECK(std::find(changed.begin(), changed.end(), "Quality") != changed.end()); // only written when not default
+    CHECK(changed.size() == 2);
+    CHECK(ProjectSettingsIndex::IsChanged(categories[5], changed) && ProjectSettingsIndex::IsChanged(quality, changed));
+    CHECK(!ProjectSettingsIndex::IsChanged(categories[(size_t)ProjectSettingsIndex::Find("Input")], changed));
+    edited = saved;
+    edited.StartScene = "Scenes/B.zscene";
+    changed = ProjectSettingsIndex::DiffSections(ProjectSerializer::ConfigToSections(saved), ProjectSerializer::ConfigToSections(edited));
+    CHECK(changed.size() == 1 && ProjectSettingsIndex::IsChanged(categories[(size_t)ProjectSettingsIndex::Find("BuildScenes")], changed));
+    CHECK(ProjectSettingsIndex::DiffSections(ProjectSerializer::ConfigToSections(saved), ProjectSerializer::ConfigToSections(saved)).empty());
+}

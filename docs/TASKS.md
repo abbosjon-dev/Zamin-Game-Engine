@@ -372,11 +372,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 
 ## M17 Loyiha sozlamalari
 
-- [ ] 321. Loyiha sozlamalari oynasi
-- [ ] 322. Input xaritasi muharriri
-- [ ] 323. Teglar va qatlamlar muharriri
-- [ ] 324. Fizika qatlamlari matritsasi
-- [ ] 325. Sifat sozlamalari (soya, SSAO, bloom default)
+- [x] 321. Loyiha sozlamalari oynasi
+- [x] 322. Input xaritasi muharriri
+- [x] 323. Teglar va qatlamlar muharriri
+- [x] 324. Fizika qatlamlari matritsasi
+- [x] 325. Sifat sozlamalari (soya, SSAO, bloom default)
 - [ ] 326. Player oyna sozlamalari (o'lcham, fullscreen, vsync, sarlavha)
 - [ ] 327. O'yin ikonkasi
 - [ ] 328. Boshlang'ich sahna va build sahnalari

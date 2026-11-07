@@ -52,24 +52,66 @@ namespace Zamin {
         float Deadzone = 0.15f;
     };
 
+    // How a composite 2D axis treats its value (after the radial deadzone).
+    enum class InputVectorMode : uint8_t
+    {
+        Clamp = 0,  // longer than 1 (keyboard diagonals) is shortened to 1; a half tilted stick stays half
+        Normalize,  // any direction has length 1 (digital feel); nothing pressed stays (0, 0)
+        Raw,        // the two axes as they are (diagonals up to ~1.41)
+    };
+    constexpr int InputVectorModeCount = 3;
+
+    // Named 2D composite axis ("Move"): two of the map's axes as X and Y, read together with
+    // Input::GetVector("Move"). The radial deadzone acts on the combined length (a stick drifting a
+    // little in any direction reads 0), then the length is rescaled to start at 0.
+    struct InputVector
+    {
+        std::string Name;
+        std::string XAxis = "Horizontal";
+        std::string YAxis = "Vertical";
+        InputVectorMode Mode = InputVectorMode::Clamp;
+        float Deadzone = 0.0f; // 0 .. 0.95 of the length
+
+        bool operator==(const InputVector&) const = default;
+    };
+
+    // One physical control bound more than once in the map (Project settings > Input warns about it):
+    // `Users` names each place, e.g. "Jump", "Horizontal (+)"; the same list twice is listed twice.
+    struct InputBindingConflict
+    {
+        InputBinding Binding;
+        std::vector<std::string> Users;
+    };
+
     // The project's input configuration (stored in the .zproject file).
     struct InputActionMap
     {
         std::vector<InputAction> Actions;
         std::vector<InputAxis> Axes;
+        std::vector<InputVector> Vectors;
 
-        // Jump, Fire, Interact, Sprint, Pause + Horizontal / Vertical axes.
+        // Jump, Fire, Interact, Sprint, Pause + Horizontal / Vertical axes + the Move vector.
         static InputActionMap CreateDefault();
 
         InputAction* FindAction(std::string_view name);
         const InputAction* FindAction(std::string_view name) const;
         InputAxis* FindAxis(std::string_view name);
         const InputAxis* FindAxis(std::string_view name) const;
-        bool IsEmpty() const { return Actions.empty() && Axes.empty(); }
+        InputVector* FindVector(std::string_view name);
+        const InputVector* FindVector(std::string_view name) const;
+        bool IsEmpty() const { return Actions.empty() && Axes.empty() && Vectors.empty(); }
 
         // Returns `base` if unused, otherwise base + " 2", " 3", ... (for new entries in the editor).
         std::string MakeUniqueActionName(std::string_view base) const;
         std::string MakeUniqueAxisName(std::string_view base) const;
+        std::string MakeUniqueVectorName(std::string_view base) const;
+
+        // Every control bound in more than one place (two actions, an action and an axis side, both
+        // sides of an axis, or twice in one list), in the order they are first found. A shared control
+        // can be intended (Gamepad A for Jump and a menu's Submit); the editor only warns.
+        std::vector<InputBindingConflict> FindConflicts() const;
+        // The places that use this control ("Jump", "Horizontal (-)" ...).
+        std::vector<std::string> FindUsers(const InputBinding& binding) const;
     };
 
     // ---- names (stable identifiers used by the project file and the editor)
@@ -90,6 +132,8 @@ namespace Zamin {
     inline constexpr int GamepadAxisCount = 6;
 
     const char* InputSourceToString(InputSource source);
+    const char* InputVectorModeToString(InputVectorMode mode);   // "Clamp", "Normalize", "Raw"
+    bool InputVectorModeFromString(std::string_view name, InputVectorMode& out);
 
     // "Key:Space", "Mouse:Left", "Gamepad:A", "GamepadAxis:LeftX+" / "GamepadAxis:LeftY-"
     std::string InputBindingToString(const InputBinding& binding);

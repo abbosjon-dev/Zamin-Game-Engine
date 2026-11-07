@@ -312,6 +312,49 @@ namespace Zamin {
         return length > 1.0f ? v / length : v;
     }
 
+    glm::vec2 Input::ShapeVector(const InputVector& vector, glm::vec2 value)
+    {
+        float length = glm::length(value);
+        if (!std::isfinite(length) || length <= 0.0f)
+            return glm::vec2(0.0f);
+        // Radial deadzone: a short vector reads 0, a longer one is rescaled to start at 0.
+        const float deadzone = std::clamp(vector.Deadzone, 0.0f, 0.95f);
+        if (deadzone > 0.0f)
+        {
+            if (length <= deadzone)
+                return glm::vec2(0.0f);
+            const float scaled = (length - deadzone) / (1.0f - deadzone);
+            value *= scaled / length;
+            length = scaled;
+        }
+        switch (vector.Mode)
+        {
+            case InputVectorMode::Normalize: return value / length;
+            case InputVectorMode::Raw:       return value;
+            case InputVectorMode::Clamp:
+            default:                         return length > 1.0f ? value / length : value;
+        }
+    }
+
+    glm::vec2 Input::GetVector(const InputVector& vector)
+    {
+        const InputActionMap& map = Project::GetInputActionMap();
+        const InputAxis* x = map.FindAxis(vector.XAxis);
+        const InputAxis* y = map.FindAxis(vector.YAxis);
+        return ShapeVector(vector, glm::vec2(x ? GetAxis(*x) : 0.0f, y ? GetAxis(*y) : 0.0f));
+    }
+
+    glm::vec2 Input::GetVector(std::string_view vector)
+    {
+        const InputVector* v = Project::GetInputActionMap().FindVector(vector);
+        if (!v)
+        {
+            WarnUnknown("vektor", vector);
+            return glm::vec2(0.0f);
+        }
+        return GetVector(*v);
+    }
+
     // ------------------------------------------------------------------ frame state
     void Input::Update()
     {

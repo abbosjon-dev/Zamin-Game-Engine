@@ -6,11 +6,13 @@
 #include "Zamin/Core/InputActions.h"
 #include "Zamin/Debug/DebugDraw.h"
 #include "Zamin/Physics/CollisionLayers.h"
+#include "Zamin/Renderer/Quality.h"
 #include "Zamin/Scene/SortingLayers.h"
 
 #include <filesystem>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace Zamin {
@@ -63,6 +65,11 @@ namespace Zamin {
         // ones get the build indices 0, 1, 2 ... (SceneManager::LoadScene(int)); an export with a
         // list takes only these scenes (and the start scene). Empty: every scene, no indices.
         std::vector<BuildSceneEntry> BuildScenes;
+        // Quality levels (Project settings > Quality): what each level lets the scenes' rendering use
+        // and which one the game starts on. Projects without a "Quality" section: Low / Medium / High /
+        // Ultra, starting on Ultra (the scenes' own settings, unlimited). Applied to the renderer when
+        // the project is loaded (Quality::SetSettings).
+        QualitySettings Quality;
 
         static std::vector<std::string> DefaultTags() { return { "Player", "Enemy", "Pickup" }; }
     };
@@ -146,6 +153,16 @@ namespace Zamin {
         explicit ProjectSerializer(Ref<Project> project) : m_Project(std::move(project)) {}
         bool Serialize(const std::filesystem::path& filepath);
         bool Deserialize(const std::filesystem::path& filepath);
+
+        // A whole config as the text of a .zproject file / read from one (nothing of the asset
+        // registry is touched: the scene UUIDs are written as the config has them).
+        static std::string ConfigToString(const ProjectConfig& config);
+        static bool ConfigFromString(const std::string& text, ProjectConfig& out);
+        // The config's parts as (key, JSON text) pairs, in file order: each top-level section
+        // ("InputActions", "Tags" ...) and each value of the "Project" object as "Project.<key>".
+        // A section that is not written (left at its defaults) is not listed. The project settings
+        // window compares them with the saved file to show which categories changed.
+        static std::vector<std::pair<std::string, std::string>> ConfigToSections(const ProjectConfig& config);
 
         // The "InputActions" section on its own (JSON), used by tests and the editor.
         static std::string InputMapToString(const InputActionMap& map);

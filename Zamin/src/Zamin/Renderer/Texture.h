@@ -78,6 +78,14 @@ namespace Zamin {
             const TextureSpecification& spec = GetSpecification();
             return { spec.Filter, spec.Wrap, spec.GenerateMips, spec.SRGB };
         }
+
+        // Sampling quality of every texture read from an image that has mipmaps (the quality level):
+        // anisotropic filtering samples (1 = off; as many as the GPU allows at most) and how many of
+        // the largest mip levels are skipped (0 = full resolution, 1 = half ...). Applied to the
+        // textures that exist and to every later one; nothing touches the GPU while none exists.
+        static void SetSamplingQuality(int anisotropy, int skippedMips);
+        static int GetAnisotropy();
+        static int GetSkippedMips();
     };
 
     // Caches textures by absolute path so the same file is only uploaded once. Files are imported

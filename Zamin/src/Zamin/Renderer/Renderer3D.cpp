@@ -1,4 +1,5 @@
 #include "Zamin/Renderer/Renderer3D.h"
+#include "Zamin/Renderer/Quality.h"
 #include "Zamin/Core/Profiler.h"
 #include "Zamin/Renderer/Renderer.h"
 #include "Zamin/Renderer/Shader.h"
@@ -806,6 +807,11 @@ void main()
         s_Data->Projection = projection;
         s_Data->CameraPosition = cameraPosition;
         s_Data->Environment = environment;
+        // The quality level limits the scene's shadows (atlas, filter, cascades, distance, on / off).
+        const QualityLevel& quality = Quality::GetActive();
+        s_Data->Environment.Shadows = quality.ApplyTo(environment.Shadows);
+        s_Data->Environment.ShadowDistance = quality.ApplyShadowDistance(environment.ShadowDistance);
+        s_Data->Environment.Sun.CastShadows = quality.AllowsSunShadows(environment.Sun.CastShadows);
         s_Data->Queue.clear();
         s_Data->GridSubmitted = false;
     }

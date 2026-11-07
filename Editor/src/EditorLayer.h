@@ -544,6 +544,7 @@ namespace Zamin {
             bool Mode2D = false;
             std::weak_ptr<Scene> RuntimeStart; // the copy of the edit scene the game started with
             std::string SceneName;
+            std::string QualityLevel;  // the editor's preview level: back on Stop (a script may change it)
         } m_PlayStart;
         // Project scenes the Scenes panel marks to be loaded with Play (additively, next to the edit scene).
         void LoadPlayAdditiveScenes();
@@ -773,6 +774,12 @@ namespace Zamin {
         bool m_ShowUnusedAssets = false, m_UnusedAssetsShown = false;
         ConsolePanel m_ConsolePanel;
         ProjectSettingsPanel m_ProjectSettingsPanel;
+        // Writes the .zproject now (the settings window then knows the file has its state).
+        void SaveProjectSettingsNow()
+        {
+            m_ProjectSettingsPanel.MarkDirty();
+            m_ProjectSettingsPanel.SaveIfDirty();
+        }
         AudioMixerPanel m_AudioMixerPanel;
         bool m_ShowAudioMixer = false;
         bool m_ShowHierarchy = true, m_ShowInspector = true, m_ShowContentBrowser = true, m_ShowConsole = true;

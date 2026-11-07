@@ -3,11 +3,20 @@
 #include <array>
 #include <cstdint>
 #include <initializer_list>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
 
 namespace Zamin {
+
+    // A ready-made setup of the collision layers (Project settings > Physics layers > Presets).
+    struct CollisionLayerPreset
+    {
+        const char* Name;
+        const char* Description;
+        bool SetsNames; // replaces every layer's name (else only the matrix changes)
+    };
 
     // The 16 named collision layers of 2D physics (Project settings > Physics layers) and which
     // pairs of them collide. Every 2D body / collider / tilemap is on one layer; two colliders touch
@@ -57,6 +66,17 @@ namespace Zamin {
         // The bits of the named layers (unknown names are left out): masks for queries.
         uint16_t MakeMask(std::initializer_list<std::string_view> names) const;
 
+        // Every pair of `layer` with the layers in `others` (the row of the matrix) on / off.
+        void SetRow(int layer, const std::vector<int>& others, bool collide);
+        // How many of the pairs of `layers` (each pair once, a layer with itself included) collide.
+        int CountCollidingPairs(const std::vector<int>& layers) const;
+
+        // Built-in presets: all collide, each layer only with itself (and Default), none, and named
+        // layer sets for a 2D platformer and a 3D action game.
+        static std::span<const CollisionLayerPreset> GetPresets();
+        // Applies GetPresets()[index]; false for an unknown index (nothing changes).
+        bool ApplyPreset(int index);
+
         bool IsDefault() const { return *this == CollisionLayers2D(); }
         bool operator==(const CollisionLayers2D&) const = default;
 
@@ -65,5 +85,8 @@ namespace Zamin {
         std::string ToJson() const;
         static bool FromJson(std::string_view text, CollisionLayers2D& out);
     };
+
+    // The same 16 layers serve 3D physics (Rigidbody 3D, Character Controller 3D, 3D queries).
+    using CollisionLayers = CollisionLayers2D;
 
 }

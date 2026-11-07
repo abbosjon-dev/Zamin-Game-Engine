@@ -1,5 +1,7 @@
 #include "Zamin/Physics/CollisionLayers.h"
 
+#include <utility>
+
 #include <nlohmann/json.hpp>
 
 #include <format>
@@ -91,6 +93,98 @@ namespace Zamin {
                 layers.SetCollision(a, b, layers.CanCollide(a, b) && layers.CanCollide(b, a));
         out = layers;
         return true;
+    }
+
+
+    void CollisionLayers2D::SetRow(int layer, const std::vector<int>& others, bool collide)
+    {
+        for (int other : others)
+            SetCollision(layer, other, collide);
+    }
+
+    int CollisionLayers2D::CountCollidingPairs(const std::vector<int>& layers) const
+    {
+        int count = 0;
+        for (size_t i = 0; i < layers.size(); i++)
+            for (size_t j = i; j < layers.size(); j++)
+                count += CanCollide(layers[i], layers[j]) ? 1 : 0;
+        return count;
+    }
+
+    namespace {
+        constexpr CollisionLayerPreset s_Presets[] = {
+            { "Hammasi to'qnashadi", "Har bir qatlam har biri bilan to'qnashadi (yangi loyiha). Nomlar o'zgarmaydi.", false },
+            { "Faqat o'z qatlami bilan", "Har bir qatlam faqat o'zi va Default bilan to'qnashadi. Nomlar o'zgarmaydi.", false },
+            { "Hech biri", "Hech qanday juftlik to'qnashmaydi (keyin kerakli juftliklarni yoqing). Nomlar o'zgarmaydi.", false },
+            { "Platformer 2D",
+              "Default, Player, Enemy, Ground, Pickup, Projectile, Trigger: o'yinchi yer, dushman, buyum va triggerlarga; dushman yer va "
+              "o'qlarga; o'q yerga tegadi. Bir xil qatlamdagi o'yinchilar / dushmanlar / o'qlar bir-biridan o'tadi.",
+              true },
+            { "3D aksiya",
+              "Default, Player, Enemy, World, Projectile, Pickup, Ragdoll, Trigger: o'yinchi dunyo, dushman, buyum va triggerlarga; "
+              "dushmanlar bir-biriga, dunyoga va o'qlarga; ragdoll faqat dunyoga va o'ziga tegadi.",
+              true },
+        };
+
+        void SetNames(CollisionLayers2D& layers, std::initializer_list<const char*> names)
+        {
+            layers.Names.fill(std::string());
+            int i = 0;
+            for (const char* name : names)
+                layers.Names[(size_t)i++] = name;
+        }
+
+        // Only these pairs (and Default with everything, unnamed layers with everything) collide.
+        void SetPairs(CollisionLayers2D& layers, std::initializer_list<std::pair<int, int>> pairs)
+        {
+            const std::vector<int> named = layers.GetNamedLayers();
+            for (int a : named)
+                for (int b : named)
+                    layers.SetCollision(a, b, a == 0 || b == 0);
+            for (const auto& [a, b] : pairs)
+                layers.SetCollision(a, b, true);
+        }
+    }
+
+    std::span<const CollisionLayerPreset> CollisionLayers2D::GetPresets() { return s_Presets; }
+
+    bool CollisionLayers2D::ApplyPreset(int index)
+    {
+        switch (index)
+        {
+            case 0:
+                Masks.fill(AllLayers);
+                return true;
+            case 1:
+                for (int a = 0; a < Count; a++)
+                    Masks[(size_t)a] = (uint16_t)((1u << a) | 1u);
+                Masks[0] = AllLayers;
+                return true;
+            case 2:
+                Masks.fill(0);
+                return true;
+            case 3:
+            {
+                enum { Default, Player, Enemy, Ground, Pickup, Projectile, Trigger };
+                Masks.fill(AllLayers);
+                SetNames(*this, { "Default", "Player", "Enemy", "Ground", "Pickup", "Projectile", "Trigger" });
+                SetPairs(*this, { { Player, Ground }, { Player, Enemy }, { Player, Pickup }, { Player, Trigger },
+                                  { Enemy, Ground }, { Enemy, Projectile }, { Projectile, Ground } });
+                return true;
+            }
+            case 4:
+            {
+                enum { Default, Player, Enemy, World, Projectile, Pickup, Ragdoll, Trigger };
+                Masks.fill(AllLayers);
+                SetNames(*this, { "Default", "Player", "Enemy", "World", "Projectile", "Pickup", "Ragdoll", "Trigger" });
+                SetPairs(*this, { { Player, World }, { Player, Enemy }, { Player, Pickup }, { Player, Trigger },
+                                  { Enemy, Enemy }, { Enemy, World }, { Enemy, Projectile }, { Projectile, World },
+                                  { Pickup, World }, { Ragdoll, World }, { Ragdoll, Ragdoll } });
+                return true;
+            }
+            default:
+                return false;
+        }
     }
 
 }

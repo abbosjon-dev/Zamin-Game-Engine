@@ -1,6 +1,6 @@
 // Zamin Player: runs an exported / development game project fullscreen-ready.
 //   ZaminPlayer [path/to/Game.zproject] [--scene Scenes/Level.zscene | <build index> | <build scene name>]
-//               [--fullscreen] [--width W --height H]
+//               [--fullscreen] [--width W --height H] [--quality <level name | index>]
 //               [--no-debug-draw] [--debug-raycasts] [--debug-contacts] [--debug-contact-details] [--debug-joints]
 //               [--debug-velocities]
 #include <Zamin/Zamin.h>
@@ -23,6 +23,8 @@ namespace Zamin {
 
     // --fullscreen / --no-vsync were given: they win over the display options the game saved.
     static bool s_DisplayFromCommandLine = false;
+    // --quality <name | index>: wins over the level the game saved (Quality::SaveSettings) and the project's default.
+    static std::string s_QualityFromCommandLine;
 
     class RuntimeLayer : public Layer
     {
@@ -54,6 +56,21 @@ namespace Zamin {
             if (!s_DisplayFromCommandLine && Display::LoadSettings())
                 ZM_INFO("Saqlangan ekran sozlamalari yuklandi (to'liq ekran: {}, VSync: {})", Display::IsFullscreen() ? "ha" : "yo'q",
                         Display::IsVSync() ? "ha" : "yo'q");
+
+            // Quality level: --quality, else the one the player chose in the game (saved), else the project's default.
+            if (!s_QualityFromCommandLine.empty())
+            {
+                if (!Quality::SetLevelFromString(s_QualityFromCommandLine))
+                {
+                    std::string names;
+                    for (const std::string& name : Quality::GetLevelNames())
+                        names += (names.empty() ? "" : ", ") + name;
+                    ZM_WARN("--quality {}: bunday sifat darajasi yo'q (bor: {}) - standart daraja qoldi", s_QualityFromCommandLine, names);
+                }
+            }
+            else if (Quality::LoadSettings())
+                ZM_INFO("Saqlangan sifat darajasi yuklandi");
+            ZM_INFO("Sifat darajasi: {}", Quality::GetLevelName());
 
             // Debug drawing: the project's settings, then the command line (Shipping: compiled out).
             DebugDrawSettings& debugDraw = DebugDraw::GetSettings();
@@ -506,6 +523,7 @@ namespace Zamin {
                 spec.Window.VSync = false;
                 s_DisplayFromCommandLine = true;
             }
+            else if (!std::strcmp(args[i], "--quality") && i + 1 < args.Count) s_QualityFromCommandLine = args[++i];
             else if (!std::strcmp(args[i], "--no-debug-draw")) debugDraw.Disable = true;
             else if (!std::strcmp(args[i], "--debug-raycasts")) debugDraw.Raycasts = true;
             else if (!std::strcmp(args[i], "--debug-contacts")) debugDraw.Contacts = true;

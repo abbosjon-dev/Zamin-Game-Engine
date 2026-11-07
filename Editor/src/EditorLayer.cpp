@@ -129,6 +129,10 @@ namespace Zamin {
         m_ProjectSettingsPanel.OnSceneModified = [this]() { MarkDirty(); };
         m_ProjectSettingsPanel.OnOpenSceneRequested = [this](const fs::path& scene) { OpenScene(Project::GetAssetFileSystemPath(scene)); };
         m_AudioMixerPanel.OnProjectModified = [this]() { m_ProjectSettingsPanel.MarkDirty(); };
+        m_ProjectSettingsPanel.OnAudioMixerRequested = [this]() {
+            m_ShowAudioMixer = true;
+            m_AudioMixerPanel.Focus();
+        };
         m_SceneHierarchyPanel.OnAudioMixerRequested = [this]() {
             m_ShowAudioMixer = true;
             m_AudioMixerPanel.Focus();
@@ -931,7 +935,8 @@ namespace Zamin {
                     keys = comma == std::string_view::npos ? std::string_view() : keys.substr(comma + 1);
                 }
             }
-            if (const char* tab = std::getenv("ZAMIN_EDITOR_PROJECT_SETTINGS")) // 1 | SaveData | Tags | General | SortingLayers | PhysicsLayers | BuildScenes
+            // 1 | Input | SaveData | Tags | General | SortingLayers | PhysicsLayers | BuildScenes | Quality | Audio | Debug
+            if (const char* tab = std::getenv("ZAMIN_EDITOR_PROJECT_SETTINGS"))
             {
                 m_ShowProjectSettings = true;
                 std::string_view t(tab);
@@ -941,8 +946,27 @@ namespace Zamin {
                                            : t == "General"         ? ProjectSettingsPanel::Tab::General
                                            : t == "SortingLayers"   ? ProjectSettingsPanel::Tab::SortingLayers
                                            : t == "PhysicsLayers"   ? ProjectSettingsPanel::Tab::PhysicsLayers
+                                           : t == "Quality"         ? ProjectSettingsPanel::Tab::Quality
+                                           : t == "Audio"           ? ProjectSettingsPanel::Tab::Audio
+                                           : t == "Debug"           ? ProjectSettingsPanel::Tab::Debug
                                                                     : ProjectSettingsPanel::Tab::Input);
+                // ZAMIN_EDITOR_PROJECT_SETTINGS_RECT="x,y,w,h": the window floats there (screenshots);
+                // ZAMIN_EDITOR_PROJECT_SETTINGS_SEARCH=<text>: the category search.
+                if (const char* rect = std::getenv("ZAMIN_EDITOR_PROJECT_SETTINGS_RECT"))
+                {
+                    float x = 0, y = 0, w = 0, h = 0;
+                    if (std::sscanf(rect, "%f,%f,%f,%f", &x, &y, &w, &h) == 4 && w > 0 && h > 0)
+                        m_ProjectSettingsPanel.SetFloatingRect(ImVec4(x, y, w, h));
+                }
+                if (const char* search = std::getenv("ZAMIN_EDITOR_PROJECT_SETTINGS_SEARCH"))
+                    m_ProjectSettingsPanel.SetSearch(search);
+                // ZAMIN_EDITOR_PROJECT_SETTINGS_OPEN=expand (the input map's entries) | presets (the physics presets menu)
+                if (const char* open = std::getenv("ZAMIN_EDITOR_PROJECT_SETTINGS_OPEN"))
+                    m_ProjectSettingsPanel.RequestOpen(open);
             }
+            // ZAMIN_EDITOR_QUALITY=<level name | index>: the quality level the editor shows.
+            if (const char* quality = std::getenv("ZAMIN_EDITOR_QUALITY"); quality && !Quality::SetLevelFromString(quality))
+                ZM_WARN("ZAMIN_EDITOR_QUALITY={}: bunday sifat darajasi yo'q", quality);
             // ZAMIN_EDITOR_PARALLAX=1: the scene view moves parallax layers with the editor camera.
             if (std::getenv("ZAMIN_EDITOR_PARALLAX"))
                 m_PreviewParallax = true;
@@ -4452,7 +4476,7 @@ namespace Zamin {
         if (auto project = Project::GetActive(); project && project->GetConfig().StartScene.empty())
         {
             project->GetConfig().StartScene = Project::GetAssetRelativePath(m_EditorScenePath);
-            Project::SaveActive(Project::GetProjectFilePath());
+            SaveProjectSettingsNow();
         }
         UpdateWindowTitle();
     }
@@ -4515,6 +4539,7 @@ namespace Zamin {
         m_PlayStart.Camera = m_EditorCamera.GetViewState();
         m_PlayStart.Mode2D = m_2DMode;
         m_PlayStart.SceneName = m_EditorScene->GetName();
+        m_PlayStart.QualityLevel = Quality::GetLevelName();
         // The game's first scene is a copy of the edit scene: its making counts as the entities'
         // stage of the load (the scene manager adds the physics, the scripts and the audio).
         const auto playClock = std::chrono::steady_clock::now();
@@ -4596,6 +4621,9 @@ namespace Zamin {
             // Every scene of the game stops (the persistent one too).
             m_RuntimeScenes->Stop();
         }
+        // The game may have picked another quality level (an options menu): the editor's preview comes back.
+        if (m_SceneState == SceneState::Play && !m_PlayStart.QualityLevel.empty() && Quality::GetLevelName() != m_PlayStart.QualityLevel)
+            Quality::SetLevel(m_PlayStart.QualityLevel);
         if (m_SceneState == SceneState::Play)
         {
             // The game's global state and services end with the run (made by its scripts' code).
@@ -5581,7 +5609,7 @@ namespace Zamin {
                 if (auto mapped = AssetFiles::RemapPath(start.generic_string(), from, to))
                 {
                     start = *mapped;
-                    Project::SaveActive(Project::GetProjectFilePath());
+                    SaveProjectSettingsNow();
                     ZM_INFO("Boshlang'ich sahna: {}", *mapped);
                     break;
                 }
@@ -9404,6 +9432,30 @@ namespace Zamin {
             UI::EndPropertyGrid();
         }
 
+        // The quality level the editor shows limits this scene's shadows / effects / render scale.
+        if (Quality::GetLevel() >= 0)
+        {
+            const std::vector<std::string> limits = Quality::GetActive().DescribeLimits(s.Shadows, s.Post, s.RenderScale, s.ShadowDistance);
+            ImGui::Spacing();
+            if (limits.empty())
+                ImGui::TextDisabled(ICON_FA_GAUGE_HIGH "  Sifat darajasi: %s (sahna o'z sozlamalari bilan)", Quality::GetLevelName().c_str());
+            else
+                ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.30f, 1.0f), ICON_FA_GAUGE_HIGH "  Sifat darajasi: %s - %zu ta cheklov",
+                                   Quality::GetLevelName().c_str(), limits.size());
+            if (ImGui::IsItemHovered())
+            {
+                std::string text = limits.empty() ? std::string("Bu daraja sahna so'raganlarini cheklamaydi") : std::string();
+                for (const std::string& line : limits)
+                    text += (text.empty() ? "" : "\n") + line;
+                ImGui::SetTooltip("%s\n\nBosing: Loyiha sozlamalari > Sifat (darajalar, editorda ko'rish)", text.c_str());
+            }
+            if (ImGui::IsItemClicked())
+            {
+                m_ShowProjectSettings = true;
+                m_ProjectSettingsPanel.Focus(ProjectSettingsPanel::Tab::Quality);
+            }
+        }
+
         ImGui::SeparatorText(ICON_FA_EXPAND "  Render");
         if (m_SceneSettingsScrollTo == "render")
         {
@@ -9791,7 +9843,7 @@ namespace Zamin {
             if (!m_EditorScenePath.empty() && ImGui::Button(ICON_FA_HOUSE "  Shu sahnani boshlang'ich qilish"))
             {
                 c.StartScene = Project::GetAssetRelativePath(m_EditorScenePath);
-                Project::SaveActive(Project::GetProjectFilePath());
+                SaveProjectSettingsNow();
             }
             if (ImGui::Button(ICON_FA_GAMEPAD "  Input va loyiha sozlamalari"))
             {

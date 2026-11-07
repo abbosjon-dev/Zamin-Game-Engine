@@ -5,9 +5,11 @@
 #include <glad/glad.h>
 #include <stb_image.h>
 
+#include <algorithm>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace Zamin {
 
@@ -96,6 +98,49 @@ namespace Zamin {
         return true;
     }
 
+    // ---- sampling quality (the quality level): every texture read from an image takes it.
+    class OpenGLTexture2D;
+    namespace {
+        struct SamplingQuality
+        {
+            int Anisotropy = 1;
+            int SkippedMips = 0;
+            std::unordered_set<OpenGLTexture2D*> ImageTextures; // alive, made from an image (file / memory)
+        };
+
+        SamplingQuality& Sampling()
+        {
+            static SamplingQuality s_Sampling;
+            return s_Sampling;
+        }
+
+        // The GPU's most anisotropic samples (1: no support), asked once.
+        float MaxSupportedAnisotropy()
+        {
+            static float s_Max = -1.0f;
+            if (s_Max < 0.0f)
+            {
+                s_Max = 1.0f;
+                if (GLAD_GL_VERSION_4_6 || GLAD_GL_ARB_texture_filter_anisotropic || GLAD_GL_EXT_texture_filter_anisotropic)
+                {
+                    GLfloat value = 1.0f;
+                    glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &value);
+                    s_Max = std::max(1.0f, (float)value);
+                }
+            }
+            return s_Max;
+        }
+
+        // Mip levels of a texture of this size (level 0 included).
+        int MipLevelCount(uint32_t width, uint32_t height)
+        {
+            int levels = 1;
+            for (uint32_t size = std::max(width, height); size > 1; size >>= 1)
+                levels++;
+            return levels;
+        }
+    }
+
     class OpenGLTexture2D : public Texture2D
     {
     public:
@@ -107,6 +152,9 @@ namespace Zamin {
 
         OpenGLTexture2D(const std::string& path, const TextureImportSettings& settings) : m_Path(path), m_FromFile(true)
         {
+            // Before the first upload: the quality level's sampling from the start (and on reloads).
+            m_FromImage = true;
+            Sampling().ImageTextures.insert(this);
             ApplySettings(settings);
             GLDecodedImage image;
             // Decoded ahead on a loading thread (an async scene load): only the upload is left.
@@ -127,6 +175,8 @@ namespace Zamin {
 
         OpenGLTexture2D(const void* encoded, size_t size, const std::string& name) : m_Path(name)
         {
+            m_FromImage = true;
+            Sampling().ImageTextures.insert(this);
             int width, height, channels;
             stbi_set_flip_vertically_on_load_thread(1); // same convention as file textures (glTF V is flipped in the mesh)
             stbi_uc* data = stbi_load_from_memory((const stbi_uc*)encoded, (int)size, &width, &height, &channels, 4);
@@ -144,7 +194,22 @@ namespace Zamin {
             m_Loaded = true;
         }
 
-        ~OpenGLTexture2D() override { if (m_RendererID) glDeleteTextures(1, &m_RendererID); }
+        ~OpenGLTexture2D() override
+        {
+            if (m_FromImage)
+                Sampling().ImageTextures.erase(this);
+            if (m_RendererID)
+                glDeleteTextures(1, &m_RendererID);
+        }
+
+        // The quality level changed: anisotropy and the skipped mip levels again (binds the texture).
+        void ApplyQualitySampling()
+        {
+            if (!m_RendererID || !m_FromImage)
+                return;
+            glBindTexture(GL_TEXTURE_2D, m_RendererID);
+            ApplyQualityParameters();
+        }
 
         bool Reimport(const TextureImportSettings& settings, std::string* error) override
         {
@@ -216,7 +281,13 @@ namespace Zamin {
             glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
             glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, (GLsizei)m_Specification.Width, (GLsizei)m_Specification.Height, dataFormat, type, data);
             if (m_Specification.GenerateMips)
+            {
+                // The chain is made from the base level: the full picture, whatever the quality skips.
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
                 glGenerateMipmap(GL_TEXTURE_2D);
+                if (m_FromImage)
+                    ApplyQualityParameters();
+            }
         }
 
         void Bind(uint32_t slot) const override
@@ -272,6 +343,24 @@ namespace Zamin {
             GLint swizzle[] = { GL_ONE, GL_ONE, GL_ONE, GL_RED };
             GLint identity[] = { GL_RED, GL_GREEN, GL_BLUE, GL_ALPHA };
             glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, m_Specification.Format == ImageFormat::R8 ? swizzle : identity);
+            if (m_FromImage)
+                ApplyQualityParameters();
+        }
+
+        // Anisotropic filtering and the first mip level sampled (the bound texture): only textures
+        // with mipmaps (a pixel-art copy without them stays crisp and full size).
+        void ApplyQualityParameters()
+        {
+            const SamplingQuality& q = Sampling();
+            const bool mips = m_Specification.GenerateMips;
+            const int maxLevel = MipLevelCount(m_Specification.Width, m_Specification.Height) - 1;
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, mips ? std::clamp(q.SkippedMips, 0, maxLevel) : 0);
+            if (MaxSupportedAnisotropy() > 1.0f)
+            {
+                const bool linear = m_Specification.Filter == TextureFilter::Linear;
+                const float samples = mips && linear ? std::min((float)q.Anisotropy, MaxSupportedAnisotropy()) : 1.0f;
+                glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, std::max(1.0f, samples));
+            }
         }
 
     private:
@@ -280,7 +369,29 @@ namespace Zamin {
         uint32_t m_RendererID = 0;
         bool m_Loaded = false;
         bool m_FromFile = false; // m_Path is a file (not the name of an image decoded from memory)
+        bool m_FromImage = false; // read from an image (a file or memory): takes the quality level's sampling
     };
+
+    void Texture2D::SetSamplingQuality(int anisotropy, int skippedMips)
+    {
+        SamplingQuality& q = Sampling();
+        anisotropy = std::clamp(anisotropy, 1, 16);
+        skippedMips = std::clamp(skippedMips, 0, 8);
+        if (q.Anisotropy == anisotropy && q.SkippedMips == skippedMips)
+            return;
+        q.Anisotropy = anisotropy;
+        q.SkippedMips = skippedMips;
+        if (q.ImageTextures.empty())
+            return;
+        GLint bound = 0;
+        glGetIntegerv(GL_TEXTURE_BINDING_2D, &bound);
+        for (OpenGLTexture2D* texture : q.ImageTextures)
+            texture->ApplyQualitySampling();
+        glBindTexture(GL_TEXTURE_2D, (GLuint)bound);
+    }
+
+    int Texture2D::GetAnisotropy() { return Sampling().Anisotropy; }
+    int Texture2D::GetSkippedMips() { return Sampling().SkippedMips; }
 
     Ref<Texture2D> Texture2D::Create(const TextureSpecification& specification) { return CreateRef<OpenGLTexture2D>(specification); }
     Ref<Texture2D> Texture2D::Create(const std::string& path, TextureFilter filter)

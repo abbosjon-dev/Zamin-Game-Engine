@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Zamin/Audio/AudioMixer.h>
+#include <Zamin/Editor/ProjectSettingsIndex.h>
 #include <Zamin/ImGui/Icons.h>
 #include <Zamin/ImGui/ImGuiLayer.h>
 #include <Zamin/Renderer/Material.h>
@@ -15,6 +16,7 @@
 #include <cstdint>
 #include <format>
 #include <string>
+#include <string_view>
 
 // Small helpers for a consistent, good-looking editor UI.
 namespace Zamin::UI {
@@ -92,12 +94,33 @@ namespace Zamin::UI {
             ImGui::NewLine();
     }
 
+    // ---- settings search: while a window draws with a search text set, the property labels that
+    // contain it (case is ignored) get an accent frame. Empty: nothing is highlighted.
+    inline std::string& SearchHighlightText()
+    {
+        static std::string s_Text;
+        return s_Text;
+    }
+
+    // An accent frame around the last item when its text matches the search.
+    inline void HighlightIfSearched(const char* label)
+    {
+        const std::string& query = SearchHighlightText();
+        if (query.empty() || !label || !ProjectSettingsIndex::TextContains(label, query))
+            return;
+        ImVec2 min = ImGui::GetItemRectMin(), max = ImGui::GetItemRectMax();
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        dl->AddRectFilled(ImVec2(min.x - 3.0f, min.y - 1.0f), ImVec2(max.x + 3.0f, max.y + 1.0f), AccentU32(0.22f), 3.0f);
+        dl->AddRect(ImVec2(min.x - 3.0f, min.y - 1.0f), ImVec2(max.x + 3.0f, max.y + 1.0f), AccentU32(0.85f), 3.0f);
+    }
+
     inline void PropertyLabel(const char* label)
     {
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
         ImGui::AlignTextToFramePadding();
         ImGui::TextColored(ImVec4(0.72f, 0.75f, 0.80f, 1.0f), "%s", label);
+        HighlightIfSearched(label);
         ImGui::TableSetColumnIndex(1);
         ImGui::SetNextItemWidth(-FLT_MIN);
     }
@@ -114,6 +137,7 @@ namespace Zamin::UI {
         ImGui::TableSetColumnIndex(0);
         ImGui::AlignTextToFramePadding();
         ImGui::TextColored(ImVec4(0.80f, 0.83f, 0.88f, 1.0f), "%s", label);
+        HighlightIfSearched(label);
         ImVec2 min = ImGui::GetItemRectMin(), max = ImGui::GetItemRectMax();
         ImU32 dots = ImGui::GetColorU32(ImVec4(0.55f, 0.60f, 0.68f, 0.9f));
         for (float x = min.x; x < max.x; x += 3.0f)
@@ -132,6 +156,7 @@ namespace Zamin::UI {
         ImGui::TableSetColumnIndex(0);
         ImGui::Dummy(ImVec2(0.0f, 2.0f));
         ImGui::TextColored(AccentColor(), "%s", text);
+        HighlightIfSearched(text);
         if (tooltip && *tooltip)
         {
             ImVec2 min = ImGui::GetItemRectMin(), max = ImGui::GetItemRectMax();

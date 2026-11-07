@@ -11,142 +11,170 @@
 
 namespace Zamin {
 
-    static const char* s_SourceLabels[] = {
-        ICON_FA_KEYBOARD "  Klaviatura",
-        ICON_FA_COMPUTER_MOUSE "  Sichqoncha",
-        ICON_FA_GAMEPAD "  Gamepad",
-        ICON_FA_GAMEPAD "  Gamepad o'qi",
-    };
+    namespace {
+        const ImVec4 s_ChangedColor(0.95f, 0.75f, 0.30f, 1.0f);
 
-    static InputBinding DefaultBindingFor(InputSource source)
-    {
-        switch (source)
+        const ProjectSettingsCategory& Info(ProjectSettingsPanel::Category category)
         {
-            case InputSource::Key:           return InputBinding::FromKey(Key::Space);
-            case InputSource::Mouse:         return InputBinding::FromMouse(MouseButton::Left);
-            case InputSource::GamepadButton: return InputBinding::FromGamepadButton(GamepadButton::A);
-            case InputSource::GamepadAxis:   return InputBinding::FromGamepadAxis(GamepadAxis::LeftX, 1);
+            return ProjectSettingsIndex::GetCategories()[(size_t)category];
         }
-        return {};
-    }
 
-    static std::string CodeLabel(const InputBinding& b)
-    {
-        switch (b.Source)
+        // A small filled dot (a category with unsaved changes).
+        void ChangedDot(const ImVec2& center)
         {
-            case InputSource::Key:           return KeyToString((Key)b.Code);
-            case InputSource::Mouse:         return MouseButtonToString((MouseButton)b.Code);
-            case InputSource::GamepadButton: return GamepadButtonToString((GamepadButton)b.Code);
-            case InputSource::GamepadAxis:   return std::format("{} {}", GamepadAxisToString((GamepadAxis)b.Code), b.Direction < 0 ? '-' : '+');
+            ImGui::GetWindowDrawList()->AddCircleFilled(center, ImGui::GetFontSize() * 0.2f, ImGui::GetColorU32(s_ChangedColor));
         }
-        return {};
-    }
-
-    static std::string Summary(const std::vector<InputBinding>& bindings)
-    {
-        std::string s;
-        for (const auto& b : bindings)
-        {
-            if (!s.empty()) s += ", ";
-            s += InputBindingDisplayName(b);
-        }
-        return s.empty() ? "(bog'lanmagan)" : s;
-    }
-
-    // Returns the first control that is currently held (used by "press a key" capture).
-    static bool PollPressed(InputBinding& out, bool includeMouse, bool includeEscape)
-    {
-        for (Key k : GetAllKeys())
-            if ((includeEscape || k != Key::Escape) && Input::IsKeyPressed(k))
-            {
-                out = InputBinding::FromKey(k);
-                return true;
-            }
-        if (includeMouse)
-            for (int i = 0; i < MouseButtonCount; i++)
-                if (Input::IsMouseButtonPressed((MouseButton)i))
-                {
-                    out = InputBinding::FromMouse((MouseButton)i);
-                    return true;
-                }
-        if (Input::IsGamepadConnected(0))
-        {
-            for (int i = 0; i < GamepadButtonCount; i++)
-                if (Input::IsGamepadButtonPressed((GamepadButton)i))
-                {
-                    out = InputBinding::FromGamepadButton((GamepadButton)i);
-                    return true;
-                }
-            for (int i = 0; i < GamepadAxisCount; i++)
-            {
-                float v = Input::GetGamepadAxis((GamepadAxis)i, 0, 0.0f);
-                bool trigger = i == (int)GamepadAxis::LeftTrigger || i == (int)GamepadAxis::RightTrigger;
-                if (trigger ? v > 0.2f : std::abs(v) > 0.6f)
-                {
-                    out = InputBinding::FromGamepadAxis((GamepadAxis)i, trigger || v > 0.0f ? 1 : -1);
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    // Live preview: a dot that lights up while the action is active.
-    static void ActionIndicator(const InputAction& action)
-    {
-        const bool active = Input::IsActionPressed(action);
-        const float h = ImGui::GetFrameHeight();
-        const float r = ImGui::GetFontSize() * 0.26f;
-        ImVec2 p = ImGui::GetCursorScreenPos();
-        ImGui::Dummy(ImVec2(r * 2.0f + 6.0f, h));
-        ImVec2 c(p.x + r + 3.0f, p.y + h * 0.5f);
-        ImDrawList* dl = ImGui::GetWindowDrawList();
-        if (active)
-        {
-            dl->AddCircleFilled(c, r + 2.5f, UI::AccentU32(0.30f));
-            dl->AddCircleFilled(c, r, UI::AccentU32());
-        }
-        else
-            dl->AddCircle(c, r, ImGui::GetColorU32(ImGuiCol_TextDisabled), 0, 1.5f);
-        if (ImGui::IsItemHovered())
-            UI::Tooltip(active ? "Faol (hozir bosilgan)" : "Jonli holat: bog'langan tugmani bosib sinab ko'ring");
-    }
-
-    // Live preview: a -1..1 bar filled from the centre to the axis value.
-    static void AxisIndicator(const InputAxis& axis)
-    {
-        const float value = Input::GetAxis(axis);
-        const float h = ImGui::GetFrameHeight();
-        const float w = ImGui::GetFontSize() * 4.5f;
-        ImVec2 p = ImGui::GetCursorScreenPos();
-        ImGui::Dummy(ImVec2(w, h));
-        ImDrawList* dl = ImGui::GetWindowDrawList();
-        const float barH = h * 0.36f;
-        ImVec2 a(p.x, p.y + (h - barH) * 0.5f), b(p.x + w, a.y + barH);
-        dl->AddRectFilled(a, b, ImGui::GetColorU32(ImGuiCol_FrameBg), barH * 0.5f);
-        const float mid = (a.x + b.x) * 0.5f;
-        const float end = mid + value * (w * 0.5f);
-        if (std::abs(value) > 0.001f)
-            dl->AddRectFilled(ImVec2(std::min(mid, end), a.y), ImVec2(std::max(mid, end), b.y), UI::AccentU32(), barH * 0.5f);
-        dl->AddLine(ImVec2(mid, a.y - 2.0f), ImVec2(mid, b.y + 2.0f), ImGui::GetColorU32(ImGuiCol_TextDisabled), 1.0f);
-        if (ImGui::IsItemHovered())
-            UI::Tooltip(std::format("Jonli qiymat: {:.2f}", value).c_str());
     }
 
     // ------------------------------------------------------------------ panel
+    void ProjectSettingsPanel::Focus(Tab tab)
+    {
+        m_FocusRequested = true;
+        switch (tab)
+        {
+            case Tab::Input:         m_Category = Category::Input; break;
+            case Tab::SaveData:      m_Category = Category::SaveData; break;
+            case Tab::Tags:          m_Category = Category::TagsAndLayers; m_RequestedLayersPage = 0; break;
+            case Tab::General:       m_Category = Category::General; break;
+            case Tab::SortingLayers: m_Category = Category::TagsAndLayers; m_RequestedLayersPage = 1; break;
+            case Tab::PhysicsLayers: m_Category = Category::Physics; break;
+            case Tab::BuildScenes:   m_Category = Category::BuildScenes; break;
+            case Tab::Quality:       m_Category = Category::Quality; break;
+            case Tab::Audio:         m_Category = Category::Audio; break;
+            case Tab::Debug:         m_Category = Category::Debug; break;
+        }
+        // The asked category must be in the list.
+        if (!ProjectSettingsIndex::Matches(Info(m_Category), m_Search))
+            m_Search.clear();
+    }
+
     void ProjectSettingsPanel::OnProjectChanged()
     {
         m_Dirty = false;
         StopListening();
+        m_SavedFor = nullptr;
+        m_SavedSections.clear();
+        m_DirtySections.clear();
+        m_ProjectUsageValid = false;
+        m_UsageFor = nullptr;
+        m_QualityLevel = -1;
+        m_RenamingTag = -1;
+        m_RenamingLayer = ~0u;
+        m_PendingPreset = -1;
+    }
+
+    void ProjectSettingsPanel::RefreshSaved()
+    {
+        Ref<Project> project = Project::GetActive();
+        m_SavedFor = project.get();
+        m_DirtySections.clear();
+        if (!project)
+        {
+            m_Saved = ProjectConfig();
+            m_SavedSections.clear();
+            return;
+        }
+        // The file as it is on disk (no file yet: what is in memory counts as saved).
+        ProjectConfig saved = project->GetConfig();
+        const std::filesystem::path file = Project::GetProjectFilePath();
+        std::error_code ec;
+        if (!file.empty() && std::filesystem::is_regular_file(file, ec))
+        {
+            ProjectConfig read;
+            if (ProjectSerializer::ConfigFromString(FileSystem::ReadTextFile(file), read))
+                saved = std::move(read);
+        }
+        m_Saved = std::move(saved);
+        m_SavedSections = ProjectSerializer::ConfigToSections(m_Saved);
+    }
+
+    void ProjectSettingsPanel::UpdateDirtySections(const ProjectConfig& config)
+    {
+        if (!m_Dirty)
+        {
+            m_DirtySections.clear();
+            return;
+        }
+        m_DirtySections = ProjectSettingsIndex::DiffSections(m_SavedSections, ProjectSerializer::ConfigToSections(config));
+        // Changed back to what the file has: nothing to save.
+        if (m_DirtySections.empty())
+            m_Dirty = false;
+    }
+
+    bool ProjectSettingsPanel::IsCategoryDirty(Category category) const
+    {
+        return m_Dirty && ProjectSettingsIndex::IsChanged(Info(category), m_DirtySections);
+    }
+
+    void ProjectSettingsPanel::ApplyRuntime(Category category, ProjectConfig& config)
+    {
+        switch (category)
+        {
+            case Category::Quality:
+                Quality::SetSettings(config.Quality, true);
+                break;
+            case Category::Audio:
+                // In play mode the mixer is the game's: the defaults apply when it stops.
+                if (m_SceneEditable)
+                    AudioEngine::SetMixerSettings(config.Audio);
+                break;
+            default:
+                break;
+        }
+    }
+
+    void ProjectSettingsPanel::RevertCategory(Category category, ProjectConfig& config)
+    {
+        const ProjectConfig& s = m_Saved;
+        switch (category)
+        {
+            case Category::General:
+                config.Name = s.Name;
+                config.AssetDirectory = s.AssetDirectory;
+                config.SourceDirectory = s.SourceDirectory;
+                config.ScriptModulePath = s.ScriptModulePath;
+                break;
+            case Category::Quality:       config.Quality = s.Quality; m_QualityLevel = -1; break;
+            case Category::Physics:       config.CollisionLayers = s.CollisionLayers; break;
+            case Category::Audio:         config.Audio = s.Audio; break;
+            case Category::Input:         config.InputActions = s.InputActions; StopListening(); break;
+            case Category::TagsAndLayers:
+                config.Tags = s.Tags;
+                config.SortingLayers = s.SortingLayers;
+                m_RenamingTag = -1;
+                m_RenamingLayer = ~0u;
+                break;
+            case Category::BuildScenes:
+                config.BuildScenes = s.BuildScenes;
+                config.StartScene = s.StartScene;
+                config.StartSceneHandle = s.StartSceneHandle;
+                break;
+            case Category::Debug:         config.DebugDraw = s.DebugDraw; break;
+            default:                      break;
+        }
+        ApplyRuntime(category, config);
+        m_Dirty = true; // compared with the file again next frame
+    }
+
+    void ProjectSettingsPanel::RevertAll(ProjectConfig& config)
+    {
+        for (int i = 0; i < (int)Category::Count; i++)
+            RevertCategory((Category)i, config);
+        ZM_INFO("Loyiha sozlamalari saqlangan holatiga qaytarildi");
     }
 
     void ProjectSettingsPanel::SaveIfDirty()
     {
-        if (!m_Dirty || !Project::GetActive())
+        Ref<Project> project = Project::GetActive();
+        if (!m_Dirty || !project)
             return;
         if (Project::SaveActive(Project::GetProjectFilePath()))
         {
             m_Dirty = false;
+            m_SavedFor = project.get();
+            m_Saved = project->GetConfig();
+            m_SavedSections = ProjectSerializer::ConfigToSections(m_Saved);
+            m_DirtySections.clear();
             ZM_INFO("Loyiha sozlamalari saqlandi: {}", Project::GetProjectFilePath().filename().string());
         }
         else
@@ -165,6 +193,14 @@ namespace Zamin {
             ImGui::SetNextWindowFocus();
             m_FocusRequested = false;
         }
+        if (m_FloatingRequested)
+        {
+            ImGui::SetNextWindowDockID(0, ImGuiCond_Always);
+            ImGui::SetNextWindowPos(ImVec2(m_FloatingRect.x, m_FloatingRect.y), ImGuiCond_Always);
+            ImGui::SetNextWindowSize(ImVec2(m_FloatingRect.z, m_FloatingRect.w), ImGuiCond_Always);
+        }
+        else
+            ImGui::SetNextWindowSize(ImVec2(ImGui::GetFontSize() * 52.0f, ImGui::GetFontSize() * 34.0f), ImGuiCond_FirstUseEver);
         if (!ImGui::Begin(ICON_FA_GEAR "  Loyiha sozlamalari###ProjectSettings", show))
         {
             ImGui::End();
@@ -179,82 +215,235 @@ namespace Zamin {
             return;
         }
         auto& config = project->GetConfig();
+        if (m_SavedFor != project.get())
+            RefreshSaved();
+        UpdateDirtySections(config);
 
-        // Save bar
+        // ---- save bar: save, revert, what changed
         ImGui::BeginDisabled(!m_Dirty);
         if (ImGui::Button(ICON_FA_FLOPPY_DISK "  Saqlash"))
             SaveIfDirty();
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            UI::Tooltip("O'zgarishlarni loyiha fayliga yozish (Ctrl+S sahna bilan birga saqlaydi)");
+        ImGui::SameLine();
+        if (ImGui::Button(ICON_FA_ROTATE_LEFT "  Bekor qilish"))
+            ImGui::OpenPopup("RevertAllSettings");
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            UI::Tooltip("Hamma bo'limlarni loyiha faylidagi (oxirgi saqlangan) holatiga qaytarish");
         ImGui::EndDisabled();
         ImGui::SameLine();
         if (m_Dirty)
-            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), "Saqlanmagan o'zgarishlar bor (Ctrl+S)");
-        else
-            ImGui::TextDisabled("%s", Project::GetProjectFilePath().filename().string().c_str());
-        ImGui::Spacing();
-
-        if (ImGui::BeginTabBar("##projectTabs"))
         {
-            auto tabFlags = [&](Tab tab) {
-                return m_RequestedTab == (int)tab ? ImGuiTabItemFlags_SetSelected : ImGuiTabItemFlags_None;
-            };
-            if (ImGui::BeginTabItem(ICON_FA_GAMEPAD "  Input", nullptr, tabFlags(Tab::Input)))
+            int changed = 0;
+            for (int i = 0; i < (int)Category::Count; i++)
+                changed += IsCategoryDirty((Category)i) ? 1 : 0;
+            ImGui::AlignTextToFramePadding();
+            ImGui::TextColored(s_ChangedColor, ICON_FA_CIRCLE "  %d ta bo'limda saqlanmagan o'zgarish", std::max(changed, 1));
+        }
+        else
+        {
+            ImGui::AlignTextToFramePadding();
+            ImGui::TextDisabled(ICON_FA_CHECK "  Saqlangan: %s", Project::GetProjectFilePath().filename().string().c_str());
+        }
+        if (ImGui::BeginPopup("RevertAllSettings"))
+        {
+            ImGui::TextUnformatted("Barcha saqlanmagan o'zgarishlar bekor qilinsinmi?");
+            if (ImGui::Button("Ha, qaytarish"))
             {
-                DrawInputMap(config.InputActions);
-                ImGui::EndTabItem();
+                RevertAll(config);
+                ImGui::CloseCurrentPopup();
             }
-            if (ImGui::BeginTabItem(ICON_FA_FLOPPY_DISK "  Saqlangan ma'lumotlar", nullptr, tabFlags(Tab::SaveData)))
-            {
-                DrawSaveData();
-                ImGui::EndTabItem();
-            }
-            if (ImGui::BeginTabItem(ICON_FA_TAGS "  Teglar", nullptr, tabFlags(Tab::Tags)))
-            {
-                DrawTags(config);
-                ImGui::EndTabItem();
-            }
-            if (ImGui::BeginTabItem(ICON_FA_LAYER_GROUP "  Saralash qatlamlari", nullptr, tabFlags(Tab::SortingLayers)))
-            {
-                DrawSortingLayers(config);
-                ImGui::EndTabItem();
-            }
-            if (ImGui::BeginTabItem(ICON_FA_TABLE_CELLS "  Fizika qatlamlari", nullptr, tabFlags(Tab::PhysicsLayers)))
-            {
-                DrawPhysicsLayers(config);
-                ImGui::EndTabItem();
-            }
-            if (ImGui::BeginTabItem(ICON_FA_LIST_OL "  Build sahnalar", nullptr, tabFlags(Tab::BuildScenes)))
-            {
-                DrawBuildScenes(config);
-                ImGui::EndTabItem();
-            }
-            if (ImGui::BeginTabItem(ICON_FA_SLIDERS "  Umumiy", nullptr, tabFlags(Tab::General)))
-            {
-                DrawGeneral(config);
-                ImGui::EndTabItem();
-            }
-            m_RequestedTab = -1;
-            ImGui::EndTabBar();
+            ImGui::SameLine();
+            if (ImGui::Button("Yo'q"))
+                ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+        }
+        ImGui::Separator();
+
+        const bool compact = ImGui::GetContentRegionAvail().x < ImGui::GetFontSize() * 30.0f;
+        if (compact)
+        {
+            DrawCategoryList(ImGui::GetContentRegionAvail().x, true);
+            ImGui::Separator();
+            if (ImGui::BeginChild("##content", ImVec2(0, 0)))
+                DrawCategoryContent(config);
+            ImGui::EndChild();
+        }
+        else
+        {
+            const float listWidth = std::clamp(ImGui::GetFontSize() * 12.5f, 150.0f, ImGui::GetContentRegionAvail().x * 0.35f);
+            if (ImGui::BeginChild("##categories", ImVec2(listWidth, 0), ImGuiChildFlags_Borders))
+                DrawCategoryList(listWidth, false);
+            ImGui::EndChild();
+            ImGui::SameLine();
+            if (ImGui::BeginChild("##content", ImVec2(0, 0)))
+                DrawCategoryContent(config);
+            ImGui::EndChild();
         }
         ImGui::End();
+    }
+
+    void ProjectSettingsPanel::DrawCategoryList(float width, bool compact)
+    {
+        const auto& categories = ProjectSettingsIndex::GetCategories();
+        ImGui::SetNextItemWidth(compact ? std::max(80.0f, width * 0.45f) : -FLT_MIN);
+        ImGui::InputTextWithHint("##search", ICON_FA_MAGNIFYING_GLASS "  Sozlamani qidirish", &m_Search);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Bo'lim nomi yoki sozlama nomi (masalan \"soya\", \"deadzone\", \"teg\"): mos sozlamalar belgilanadi");
+
+        // The categories that match the search (all without one).
+        std::vector<int> shown;
+        std::vector<std::vector<std::string>> hits(categories.size());
+        for (size_t i = 0; i < categories.size(); i++)
+            if (ProjectSettingsIndex::Matches(categories[i], m_Search, &hits[i]))
+                shown.push_back((int)i);
+        if (!shown.empty() && std::find(shown.begin(), shown.end(), (int)m_Category) == shown.end())
+            m_Category = (Category)shown.front(); // the search hid the open one
+
+        if (compact)
+        {
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            const ProjectSettingsCategory& current = categories[(size_t)m_Category];
+            const std::string preview = std::format("{}  {}{}", current.Icon, current.Title, IsCategoryDirty(m_Category) ? "  *" : "");
+            if (ImGui::BeginCombo("##category", preview.c_str(), ImGuiComboFlags_HeightLarge))
+            {
+                for (int i : shown)
+                {
+                    const std::string label = std::format("{}  {}{}", categories[(size_t)i].Icon, categories[(size_t)i].Title,
+                                                          IsCategoryDirty((Category)i) ? "  *" : "");
+                    if (ImGui::Selectable(label.c_str(), i == (int)m_Category))
+                        m_Category = (Category)i;
+                }
+                ImGui::EndCombo();
+            }
+            if (shown.empty())
+                ImGui::TextDisabled("Hech narsa topilmadi");
+            return;
+        }
+
+        ImGui::Spacing();
+        for (int i : shown)
+        {
+            const ProjectSettingsCategory& c = categories[(size_t)i];
+            ImGui::PushID(i);
+            const bool selected = i == (int)m_Category;
+            const std::string label = std::format("{}  {}", c.Icon, c.Title);
+            if (ImGui::Selectable(label.c_str(), selected, ImGuiSelectableFlags_None, ImVec2(0, ImGui::GetFrameHeight())))
+                m_Category = (Category)i;
+            if (IsCategoryDirty((Category)i))
+            {
+                const ImVec2 max = ImGui::GetItemRectMax(), min = ImGui::GetItemRectMin();
+                ChangedDot(ImVec2(max.x - ImGui::GetFontSize() * 0.45f, (min.y + max.y) * 0.5f));
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("Saqlanmagan o'zgarishlar bor");
+            }
+            // Under a search: the matching settings, a click opens the category.
+            if (!m_Search.empty())
+                for (size_t h = 0; h < hits[(size_t)i].size() && h < 4; h++)
+                {
+                    ImGui::PushID((int)h);
+                    ImGui::Indent(ImGui::GetFontSize() * 1.2f);
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+                    if (ImGui::Selectable(hits[(size_t)i][h].c_str(), false))
+                        m_Category = (Category)i;
+                    ImGui::PopStyleColor();
+                    ImGui::Unindent(ImGui::GetFontSize() * 1.2f);
+                    ImGui::PopID();
+                }
+            ImGui::PopID();
+        }
+        if (shown.empty())
+            ImGui::TextDisabled("Hech narsa topilmadi");
+    }
+
+    void ProjectSettingsPanel::DrawCategoryContent(ProjectConfig& config)
+    {
+        const ProjectSettingsCategory& info = Info(m_Category);
+        // Header: the category's title, what it is, its own revert.
+        const float rightEdge = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x;
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextColored(UI::AccentColor(), "%s  %s", info.Icon.c_str(), info.Title.c_str());
+        if (IsCategoryDirty(m_Category))
+        {
+            const char* revert = ICON_FA_ROTATE_LEFT "  Bo'limni qaytarish";
+            ImGui::SameLine();
+            const float width = ImGui::CalcTextSize(revert).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+            ImGui::SetCursorPosX(std::max(ImGui::GetCursorPosX() + 8.0f, rightEdge - width));
+            if (ImGui::SmallButton(revert))
+                RevertCategory(m_Category, config);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Shu bo'limni loyiha faylidagi holatiga qaytarish");
+        }
+        ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+        ImGui::TextWrapped("%s", info.Description.c_str());
+        ImGui::PopStyleColor();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        // The search highlights the matching labels of the category.
+        UI::SearchHighlightText() = m_Search;
+        switch (m_Category)
+        {
+            case Category::General:       DrawGeneral(config); break;
+            case Category::Quality:       DrawQuality(config); break;
+            case Category::Physics:       DrawPhysicsLayers(config); break;
+            case Category::Audio:         DrawAudio(config); break;
+            case Category::Input:         DrawInputMap(config.InputActions); break;
+            case Category::TagsAndLayers: DrawTagsAndLayers(config); break;
+            case Category::BuildScenes:   DrawBuildScenes(config); break;
+            case Category::Debug:         DrawDebug(config); break;
+            case Category::SaveData:      DrawSaveData(); break;
+            default:                      break;
+        }
+        UI::SearchHighlightText().clear();
+        // Listening for a key only while the input map is shown.
+        if (m_Category != Category::Input)
+            StopListening();
     }
 
     void ProjectSettingsPanel::DrawGeneral(ProjectConfig& c)
     {
         if (!UI::BeginPropertyGrid("general"))
             return;
-        UI::PropertyLabel("Nomi");
-        ImGui::TextUnformatted(c.Name.c_str());
+        UI::PropertyLabel("Loyiha nomi", "O'yin nomi (oyna sarlavhasi, SaveData papkasi). Loyiha faylining nomi o'zgarmaydi.");
+        std::string name = c.Name;
+        if (ImGui::InputText("##name", &name, ImGuiInputTextFlags_EnterReturnsTrue) || ImGui::IsItemDeactivatedAfterEdit())
+        {
+            if (!name.empty() && name != c.Name)
+            {
+                c.Name = name;
+                m_Dirty = true;
+            }
+        }
         UI::PropertyLabel("Papka");
         ImGui::TextWrapped("%s", Project::GetProjectDirectory().string().c_str());
-        UI::PropertyLabel("Boshlang'ich sahna");
-        ImGui::TextUnformatted(c.StartScene.empty() ? "-" : c.StartScene.generic_string().c_str());
+        UI::PropertyLabel("Loyiha fayli");
+        ImGui::TextUnformatted(Project::GetProjectFilePath().filename().string().c_str());
         UI::PropertyLabel("Assets papkasi");
         ImGui::TextUnformatted(c.AssetDirectory.generic_string().c_str());
         UI::PropertyLabel("Skriptlar papkasi");
         ImGui::TextUnformatted(c.SourceDirectory.generic_string().c_str());
         UI::PropertyLabel("Skript moduli");
         ImGui::TextUnformatted(c.ScriptModulePath.empty() ? "-" : c.ScriptModulePath.generic_string().c_str());
+        UI::PropertyLabel("Boshlang'ich sahna");
+        ImGui::TextUnformatted(c.StartScene.empty() ? "-" : c.StartScene.generic_string().c_str());
+        ImGui::SameLine();
+        if (ImGui::SmallButton(ICON_FA_LIST_OL "  Build sahnalar"))
+            m_Category = Category::BuildScenes;
+        UI::PropertyLabel("Sifat darajasi");
+        ImGui::Text("%s  (o'yin: %s)", Quality::GetLevelName().empty() ? "-" : Quality::GetLevelName().c_str(),
+                    c.Quality.Levels[(size_t)std::clamp(c.Quality.DefaultLevel, 0, (int)c.Quality.Levels.size() - 1)].Name.c_str());
+        ImGui::SameLine();
+        if (ImGui::SmallButton(ICON_FA_GAUGE_HIGH "  Sifat"))
+            m_Category = Category::Quality;
+        UI::EndPropertyGrid();
+    }
 
+    void ProjectSettingsPanel::DrawDebug(ProjectConfig& c)
+    {
+        if (!UI::BeginPropertyGrid("debug"))
+            return;
         // Debug drawing in the player (the editor viewport has its own toggles in the toolbar).
         UI::PropertyHeader(ICON_FA_BUG "  Debug chizish (o'yinda)",
                            "Skriptlardagi DebugDraw chaqiruvlari (chiziq, quti, sfera, o'q, matn) va fizika ko'rinishlari "
@@ -515,13 +704,88 @@ namespace Zamin {
         }
     }
 
-    // ------------------------------------------------------------------ tags
+    // ------------------------------------------------------------------ tags and layers
     static std::string TrimText(const std::string& s)
     {
         size_t b = s.find_first_not_of(" \t\r\n");
         if (b == std::string::npos) return {};
         size_t e = s.find_last_not_of(" \t\r\n");
         return s.substr(b, e - b + 1);
+    }
+
+    void ProjectSettingsPanel::ScanProjectUsage()
+    {
+        Ref<Project> project = Project::GetActive();
+        m_UsageFor = project.get();
+        m_ProjectUsage = SceneFileUsage();
+        m_ProjectUsageValid = project != nullptr;
+        if (!project)
+            return;
+        // The open scene is counted from memory (it may have unsaved changes).
+        const std::filesystem::path open = m_OpenScenePath.empty() ? std::filesystem::path() : Project::GetAssetFileSystemPath(m_OpenScenePath);
+        m_ProjectUsage = SceneFileReferences::ScanDirectory(Project::GetAssetDirectory(), open);
+    }
+
+    void ProjectSettingsPanel::RenameTag(ProjectConfig& config, int index, const std::string& name)
+    {
+        auto& tags = config.Tags;
+        if (index < 0 || index >= (int)tags.size() || name.empty() || std::find(tags.begin(), tags.end(), name) != tags.end())
+            return;
+        const std::string old = tags[(size_t)index];
+        // The open scene's entities keep the tag under its new name.
+        size_t entities = 0;
+        if (m_Scene && m_SceneEditable)
+        {
+            for (Entity e : m_Scene->FindEntitiesWithTag(old))
+            {
+                auto& c = e.GetComponent<TagsComponent>();
+                if (c.Has(name)) c.Remove(old);
+                else std::replace(c.Tags.begin(), c.Tags.end(), old, name);
+                entities++;
+            }
+            if (entities > 0 && OnSceneModified)
+                OnSceneModified();
+        }
+        // The other scenes and prefabs of the project, on disk.
+        size_t files = 0;
+        if (m_RenameInFiles && m_SceneEditable)
+        {
+            std::vector<std::string> errors;
+            const std::filesystem::path open = m_OpenScenePath.empty() ? std::filesystem::path() : Project::GetAssetFileSystemPath(m_OpenScenePath);
+            files = SceneFileReferences::RenameTagInDirectory(Project::GetAssetDirectory(), old, name, open, &errors);
+            for (const std::string& error : errors)
+                ZM_ERROR("Teg qayta nomlanmadi: {}", error);
+        }
+        tags[(size_t)index] = name;
+        m_Dirty = true;
+        m_ProjectUsageValid = false;
+        ZM_INFO("Teg '{}' -> '{}': ochiq sahnada {} ta obyekt, {} ta boshqa sahna / prefab fayli yangilandi", old, name, entities, files);
+    }
+
+    void ProjectSettingsPanel::DrawTagsAndLayers(ProjectConfig& config)
+    {
+        if (m_UsageFor != Project::GetActive().get())
+            m_ProjectUsageValid = false;
+        if (!m_ProjectUsageValid)
+            ScanProjectUsage();
+        if (ImGui::BeginTabBar("##tagsAndLayers"))
+        {
+            auto flags = [&](int page) { return m_RequestedLayersPage == page ? ImGuiTabItemFlags_SetSelected : ImGuiTabItemFlags_None; };
+            if (ImGui::BeginTabItem(ICON_FA_TAGS "  Teglar", nullptr, flags(0)))
+            {
+                m_LayersPage = 0;
+                DrawTags(config);
+                ImGui::EndTabItem();
+            }
+            if (ImGui::BeginTabItem(ICON_FA_LAYER_GROUP "  Saralash qatlamlari", nullptr, flags(1)))
+            {
+                m_LayersPage = 1;
+                DrawSortingLayers(config);
+                ImGui::EndTabItem();
+            }
+            m_RequestedLayersPage = -1;
+            ImGui::EndTabBar();
+        }
     }
 
     void ProjectSettingsPanel::DrawTags(ProjectConfig& config)
@@ -553,16 +817,22 @@ namespace Zamin {
             ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), "Bu teg allaqachon bor");
         }
 
-        // Tags used in the open scene but missing from the list
+        // Tags used in the open scene or the project's files but missing from the list
         std::vector<std::string> missing;
+        auto addMissing = [&](const std::string& t) {
+            if (std::find(tags.begin(), tags.end(), t) == tags.end() && std::find(missing.begin(), missing.end(), t) == missing.end())
+                missing.push_back(t);
+        };
         if (m_Scene)
             for (auto& t : m_Scene->GetAllTags())
-                if (std::find(tags.begin(), tags.end(), t) == tags.end())
-                    missing.push_back(t);
+                addMissing(t);
+        for (const auto& [t, count] : m_ProjectUsage.Tags)
+            addMissing(t);
         if (!missing.empty())
         {
-            ImGui::SameLine();
-            if (ImGui::Button(std::format(ICON_FA_PLUS "  Sahnadagilarni qo'shish ({})", missing.size()).c_str()))
+            const std::string label = std::format(ICON_FA_PLUS "  Ishlatilganlarni qo'shish ({})", missing.size());
+            UI::SameLineIfFits(label.c_str());
+            if (ImGui::Button(label.c_str()))
             {
                 tags.insert(tags.end(), missing.begin(), missing.end());
                 m_Dirty = true;
@@ -571,7 +841,7 @@ namespace Zamin {
             {
                 std::string list;
                 for (auto& t : missing) list += (list.empty() ? "" : ", ") + t;
-                UI::Tooltip(("Sahnada ishlatilgan, ro'yxatda yo'q: " + list).c_str());
+                UI::Tooltip(("Sahnalarda ishlatilgan, ro'yxatda yo'q: " + list).c_str());
             }
         }
         ImGui::Spacing();
@@ -582,12 +852,14 @@ namespace Zamin {
             return;
         }
 
-        int remove = -1, moveUp = -1;
+        int remove = -1, moveUp = -1, rename = -1;
+        std::string renameTo;
         const ImGuiTableFlags flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_PadOuterX;
-        if (ImGui::BeginTable("##tags", 3, flags))
+        if (ImGui::BeginTable("##tags", 4, flags))
         {
             ImGui::TableSetupColumn("Teg", ImGuiTableColumnFlags_WidthStretch);
-            ImGui::TableSetupColumn("Sahnada", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 7.0f);
+            ImGui::TableSetupColumn("Ochiq sahnada", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 6.5f);
+            ImGui::TableSetupColumn("Loyihada", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 5.0f);
             ImGui::TableSetupColumn("##actions", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFrameHeight() * 3.4f);
             ImGui::TableHeadersRow();
             for (int i = 0; i < (int)tags.size(); i++)
@@ -596,8 +868,9 @@ namespace Zamin {
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
                 const size_t used = m_Scene ? m_Scene->CountEntitiesWithTag(tags[i]) : 0;
+                const size_t inFiles = m_ProjectUsage.GetTagCount(tags[i]);
                 // Renaming also renames the tag on the scene's entities: only while editing.
-                const bool canRename = m_SceneEditable || used == 0;
+                const bool canRename = m_SceneEditable || (used == 0 && inFiles == 0);
                 if (m_RenamingTag == i && !canRename)
                     m_RenamingTag = -1; // play started while the rename field was open
                 if (m_RenamingTag == i)
@@ -613,22 +886,8 @@ namespace Zamin {
                         std::string name = TrimText(m_TagRenameBuffer);
                         if (!name.empty() && std::find(tags.begin(), tags.end(), name) == tags.end())
                         {
-                            // Rename in the open scene too, so existing entities keep the tag.
-                            if (m_Scene)
-                            {
-                                bool sceneChanged = false;
-                                for (Entity e : m_Scene->FindEntitiesWithTag(tags[i]))
-                                {
-                                    auto& c = e.GetComponent<TagsComponent>();
-                                    if (c.Has(name)) c.Remove(tags[i]);
-                                    else std::replace(c.Tags.begin(), c.Tags.end(), tags[i], name);
-                                    sceneChanged = true;
-                                }
-                                if (sceneChanged && OnSceneModified)
-                                    OnSceneModified();
-                            }
-                            tags[i] = name;
-                            m_Dirty = true;
+                            rename = i;
+                            renameTo = name;
                         }
                         m_RenamingTag = -1;
                     }
@@ -639,6 +898,7 @@ namespace Zamin {
                 {
                     ImGui::AlignTextToFramePadding();
                     ImGui::Text(ICON_FA_TAG "  %s", tags[i].c_str());
+                    UI::HighlightIfSearched(tags[i].c_str());
                     if (canRename && ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
                     {
                         m_RenamingTag = i;
@@ -651,6 +911,21 @@ namespace Zamin {
                 if (used > 0) ImGui::Text("%zu ta obyekt", used);
                 else ImGui::TextDisabled("-");
                 ImGui::TableSetColumnIndex(2);
+                ImGui::AlignTextToFramePadding();
+                if (used + inFiles > 0)
+                {
+                    ImGui::Text("%zu", used + inFiles);
+                    if (ImGui::IsItemHovered())
+                        UI::Tooltip(std::format("Ochiq sahnada {}, boshqa {} ta sahna / prefab faylida {} ta obyekt", used,
+                                                m_ProjectUsage.Files, inFiles).c_str());
+                }
+                else
+                {
+                    ImGui::TextDisabled("0");
+                    if (ImGui::IsItemHovered())
+                        UI::Tooltip("Hech bir sahna yoki prefabda ishlatilmagan");
+                }
+                ImGui::TableSetColumnIndex(3);
                 ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
                 ImGui::BeginDisabled(i == 0);
                 if (ImGui::Button(ICON_FA_ARROW_UP)) moveUp = i;
@@ -666,7 +941,8 @@ namespace Zamin {
                 }
                 ImGui::EndDisabled();
                 if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-                    UI::Tooltip(canRename ? "Qayta nomlash (sahnadagi obyektlarda ham)"
+                    UI::Tooltip(canRename ? (m_RenameInFiles ? "Qayta nomlash (ochiq sahnadagi obyektlarda va loyihadagi boshqa sahna / prefablarda ham)"
+                                                             : "Qayta nomlash (ochiq sahnadagi obyektlarda ham)")
                                           : "Sahnada ishlatilgan tegni o'yin davomida qayta nomlab bo'lmaydi");
                 ImGui::SameLine();
                 if (ImGui::Button(ICON_FA_TRASH)) remove = i;
@@ -676,6 +952,8 @@ namespace Zamin {
             }
             ImGui::EndTable();
         }
+        if (rename >= 0)
+            RenameTag(config, rename, renameTo);
         if (moveUp > 0)
         {
             std::swap(tags[moveUp], tags[moveUp - 1]);
@@ -687,9 +965,19 @@ namespace Zamin {
             if (m_RenamingTag == remove) m_RenamingTag = -1;
             m_Dirty = true;
         }
+
+        ImGui::Spacing();
+        ImGui::Checkbox("Qayta nomlashda loyihadagi boshqa sahna va prefablar ham yangilansin", &m_RenameInFiles);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Assets ichidagi .zscene / .zprefab fayllardagi obyektlarning teglari ham yangi nomga o'tadi (fayllar darhol "
+                        "yoziladi). Ochiq sahna xotirada o'zgaradi: uni saqlang.");
+        ImGui::TextDisabled("Loyiha: %zu ta sahna / prefab fayli, %zu ta obyekt (ochiq sahnadan tashqari)", m_ProjectUsage.Files,
+                            m_ProjectUsage.Entities);
+        ImGui::SameLine();
+        if (ImGui::SmallButton(ICON_FA_ARROWS_ROTATE "  Qayta hisoblash"))
+            ScanProjectUsage();
     }
 
-    // ------------------------------------------------------------------ sorting layers
     // How many 2D renderers of the scene are on each layer (by ID).
     static std::unordered_map<uint32_t, size_t> CountSortingLayerUse(Scene& scene)
     {
@@ -705,143 +993,6 @@ namespace Zamin {
         for (auto e : scene.GetAllEntitiesWith<ParticleSystemComponent>())
             used[Entity(e, &scene).GetComponent<ParticleSystemComponent>().SortingLayer]++;
         return used;
-    }
-
-    void ProjectSettingsPanel::DrawPhysicsLayers(ProjectConfig& config)
-    {
-        CollisionLayers2D& layers = config.CollisionLayers;
-        ImGui::TextWrapped("Fizikaning 16 ta to'qnashuv qatlami (2D va 3D uchun bir xil). Rigidbody 2D (va xohlasa har bir kollider), "
-                           "tilemap'lar, Rigidbody 3D va Character Controller 3D bitta qatlamda bo'ladi; ikki kollider faqat quyidagi "
-                           "jadvalda belgilangan qatlamlar juftligida bir-biriga tegadi (raycast va overlap so'rovlari ham qatlam "
-                           "niqobini oladi). 2D uchun o'zgarishlar keyingi Play / Simulate'da, 3D uchun darhol qo'llanadi.");
-        ImGui::Spacing();
-
-        // How many bodies / colliders / tilemaps of the edited scene use each layer.
-        std::array<int, CollisionLayers2D::Count> usage{};
-        if (m_Scene)
-        {
-            auto count = [&](int layer) {
-                if (CollisionLayers2D::IsValid(layer))
-                    usage[(size_t)layer]++;
-            };
-            for (auto e : m_Scene->GetAllEntitiesWith<Rigidbody2DComponent>())
-                count(m_Scene->GetRegistry().get<Rigidbody2DComponent>(e).Layer);
-            for (auto e : m_Scene->GetAllEntitiesWith<BoxCollider2DComponent>()) count(m_Scene->GetRegistry().get<BoxCollider2DComponent>(e).Layer);
-            for (auto e : m_Scene->GetAllEntitiesWith<CircleCollider2DComponent>()) count(m_Scene->GetRegistry().get<CircleCollider2DComponent>(e).Layer);
-            for (auto e : m_Scene->GetAllEntitiesWith<PolygonCollider2DComponent>()) count(m_Scene->GetRegistry().get<PolygonCollider2DComponent>(e).Layer);
-            for (auto e : m_Scene->GetAllEntitiesWith<EdgeCollider2DComponent>()) count(m_Scene->GetRegistry().get<EdgeCollider2DComponent>(e).Layer);
-            for (auto e : m_Scene->GetAllEntitiesWith<TilemapComponent>()) count(m_Scene->GetRegistry().get<TilemapComponent>(e).CollisionLayer);
-            for (auto e : m_Scene->GetAllEntitiesWith<Rigidbody3DComponent>()) count(m_Scene->GetRegistry().get<Rigidbody3DComponent>(e).Layer);
-            for (auto e : m_Scene->GetAllEntitiesWith<CharacterController3DComponent>())
-                count(m_Scene->GetRegistry().get<CharacterController3DComponent>(e).Layer);
-        }
-
-        // ---- the matrix of the named layers (a triangle: each pair once)
-        ImGui::SeparatorText("Qaysi qatlamlar to'qnashadi");
-        std::vector<int> named = layers.GetNamedLayers();
-        for (int i = 0; i < CollisionLayers2D::Count; i++)
-            if (usage[(size_t)i] > 0 && std::find(named.begin(), named.end(), i) == named.end())
-                named.insert(std::upper_bound(named.begin(), named.end(), i), i); // unnamed, but used
-        if (ImGui::SmallButton(ICON_FA_CHECK_DOUBLE "  Hammasi to'qnashadi"))
-        {
-            layers.Masks.fill(CollisionLayers2D::AllLayers);
-            m_Dirty = true;
-        }
-        ImGui::SameLine();
-        if (ImGui::SmallButton(ICON_FA_SQUARE "  Hech biri"))
-        {
-            for (int a : named)
-                for (int b : named)
-                    layers.SetCollision(a, b, false);
-            m_Dirty = true;
-        }
-        ImGui::Spacing();
-        const int columns = (int)named.size() + 1;
-        const ImGuiTableFlags flags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_RowBg |
-                                      ImGuiTableFlags_HighlightHoveredColumn;
-        if (columns > 1 && ImGui::BeginTable("##physicsMatrix", columns, flags))
-        {
-            ImGui::TableSetupColumn("", ImGuiTableColumnFlags_NoHide | ImGuiTableColumnFlags_NoReorder, 140.0f);
-            // Columns from the last layer to the first: the rows' cells fill a staircase towards the left.
-            std::vector<int> columnLayers(named.rbegin(), named.rend());
-            std::vector<std::string> labels;
-            for (int l : columnLayers)
-                labels.push_back(std::format("{}  {}", l, layers.GetName(l)));
-            for (size_t c = 0; c < columnLayers.size(); c++)
-                ImGui::TableSetupColumn(labels[c].c_str(), ImGuiTableColumnFlags_AngledHeader | ImGuiTableColumnFlags_WidthFixed, 0.0f);
-            ImGui::TableAngledHeadersRow();
-            for (size_t r = 0; r < named.size(); r++)
-            {
-                const int a = named[r];
-                ImGui::PushID(a);
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::AlignTextToFramePadding();
-                ImGui::TextUnformatted(std::format("{}  {}", a, layers.GetName(a)).c_str());
-                for (size_t c = 0; c < columnLayers.size(); c++)
-                {
-                    const int b = columnLayers[c];
-                    // Each pair once: the row's layer against itself and the layers after it.
-                    if (b < a)
-                        continue;
-                    ImGui::TableSetColumnIndex((int)c + 1);
-                    ImGui::PushID(b);
-                    bool collide = layers.CanCollide(a, b);
-                    if (ImGui::Checkbox("##pair", &collide))
-                    {
-                        layers.SetCollision(a, b, collide);
-                        m_Dirty = true;
-                    }
-                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-                        UI::Tooltip(std::format("{} va {}: {}", layers.GetName(a), layers.GetName(b), collide ? "to'qnashadi" : "bir-biridan o'tib ketadi").c_str());
-                    ImGui::PopID();
-                }
-                ImGui::PopID();
-            }
-            ImGui::EndTable();
-        }
-        ImGui::Spacing();
-        // ---- names
-        ImGui::SeparatorText("Qatlamlar");
-        if (ImGui::BeginTable("##physicsLayerNames", 3, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH))
-        {
-            ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthFixed, 26.0f);
-            ImGui::TableSetupColumn("Nomi", ImGuiTableColumnFlags_WidthStretch);
-            ImGui::TableSetupColumn("Sahnada", ImGuiTableColumnFlags_WidthFixed, 70.0f);
-            ImGui::TableHeadersRow();
-            for (int i = 0; i < CollisionLayers2D::Count; i++)
-            {
-                ImGui::PushID(i);
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::AlignTextToFramePadding();
-                ImGui::TextDisabled("%d", i);
-                ImGui::TableSetColumnIndex(1);
-                ImGui::SetNextItemWidth(-FLT_MIN);
-                if (i == 0)
-                {
-                    ImGui::BeginDisabled();
-                    std::string name = layers.Names[0];
-                    ImGui::InputText("##name", &name);
-                    ImGui::EndDisabled();
-                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-                        UI::Tooltip("Asosiy qatlam: hamma narsa avval shu qatlamda");
-                }
-                else if (ImGui::InputTextWithHint("##name", std::format("(Qatlam {})", i).c_str(), &layers.Names[(size_t)i]))
-                    m_Dirty = true;
-                ImGui::TableSetColumnIndex(2);
-                ImGui::AlignTextToFramePadding();
-                if (usage[(size_t)i] > 0)
-                    ImGui::Text("%d", usage[(size_t)i]);
-                else
-                    ImGui::TextDisabled("-");
-                ImGui::PopID();
-            }
-            ImGui::EndTable();
-        }
-
-        ImGui::Spacing();
-        ImGui::TextDisabled(ICON_FA_CIRCLE_INFO "  Skriptlarda: Raycast2D / Raycast3D(..., LayerMask({ \"Ground\" })), OverlapSphere3D, LayerIndex(\"Player\")");
     }
 
     void ProjectSettingsPanel::DrawSortingLayers(ProjectConfig& config)
@@ -886,7 +1037,7 @@ namespace Zamin {
         {
             const float buttons = 4.0f * (ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.x);
             ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 1.2f);
-            ImGui::TableSetupColumn("Qatlam (sahnada)", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableSetupColumn("Qatlam (sahnada / loyihada)", ImGuiTableColumnFlags_WidthStretch);
             ImGui::TableSetupColumn("Y", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFrameHeight() + 4.0f);
             ImGui::TableSetupColumn("##actions", ImGuiTableColumnFlags_WidthFixed, buttons);
             ImGui::TableHeadersRow();
@@ -932,12 +1083,19 @@ namespace Zamin {
                         UI::Tooltip(layer.ID == SortingLayerList::DefaultID ? "Asosiy qatlam (o'chirib bo'lmaydi). Ikki marta bosing: qayta nomlash"
                                                                             : "Ikki marta bosing: qayta nomlash");
                     }
+                    UI::HighlightIfSearched(layer.Name.c_str());
+                    // How many renderers use it: in the open scene, and in the project's other files.
                     auto it = used.find(layer.ID);
+                    const size_t inScene = it != used.end() ? it->second : 0;
+                    const size_t inFiles = m_ProjectUsage.GetSortingLayerCount(layer.ID);
                     ImGui::SameLine();
-                    if (it != used.end() && it->second > 0)
-                        ImGui::TextDisabled("%zu", it->second);
+                    if (inScene + inFiles > 0)
+                        ImGui::TextDisabled("%zu / %zu", inScene, inScene + inFiles);
                     else
                         ImGui::TextDisabled("-");
+                    if (ImGui::IsItemHovered())
+                        UI::Tooltip(std::format("Ochiq sahnada {} ta, butun loyihada {} ta 2D renderer (sprite, doira, matn, tilemap, "
+                                                "particle)", inScene, inScene + inFiles).c_str());
                 }
                 ImGui::TableSetColumnIndex(2);
                 bool ySort = layer.YSort;
@@ -1135,333 +1293,6 @@ namespace Zamin {
             }
             m_NewSaveKey.clear();
         }
-    }
-
-    // ------------------------------------------------------------------ input map
-    std::vector<InputBinding>* ProjectSettingsPanel::ResolveList(InputActionMap& map, ListKind kind, int entry)
-    {
-        switch (kind)
-        {
-            case ListKind::Action:
-                return entry >= 0 && entry < (int)map.Actions.size() ? &map.Actions[entry].Bindings : nullptr;
-            case ListKind::AxisNegative:
-                return entry >= 0 && entry < (int)map.Axes.size() ? &map.Axes[entry].Negative : nullptr;
-            case ListKind::AxisPositive:
-                return entry >= 0 && entry < (int)map.Axes.size() ? &map.Axes[entry].Positive : nullptr;
-            default:
-                return nullptr;
-        }
-    }
-
-    void ProjectSettingsPanel::StartListening(const ListenTarget& target)
-    {
-        m_Listen = target;
-        m_ListenArmed = false;
-        // Drop keyboard focus so Space/Enter don't activate the focused button while we capture.
-        ImGui::SetWindowFocus(nullptr);
-    }
-
-    void ProjectSettingsPanel::UpdateListening(InputActionMap& map)
-    {
-        if (m_Listen.Kind == ListKind::None)
-            return;
-        std::vector<InputBinding>* list = ResolveList(map, m_Listen.Kind, m_Listen.Entry);
-        if (!list || m_Listen.Binding < 0 || m_Listen.Binding >= (int)list->size())
-        {
-            StopListening();
-            return;
-        }
-
-        InputBinding pressed;
-        if (!m_ListenArmed)
-        {
-            // Wait until everything (including the click that started listening) is released.
-            m_ListenArmed = !PollPressed(pressed, true, true);
-            return;
-        }
-        if (Input::IsKeyPressed(Key::Escape))
-        {
-            StopListening();
-            return;
-        }
-        // Mouse buttons count only when not clicking on a widget (e.g. the cancel button).
-        if (PollPressed(pressed, !ImGui::IsAnyItemHovered(), false))
-        {
-            (*list)[m_Listen.Binding] = pressed;
-            m_Dirty = true;
-            StopListening();
-        }
-    }
-
-    bool ProjectSettingsPanel::DrawBinding(InputBinding& b, const ListenTarget& target)
-    {
-        bool changed = false;
-        const float buttonSize = ImGui::GetFrameHeight();
-        const float spacing = ImGui::GetStyle().ItemSpacing.x;
-        const float avail = ImGui::GetContentRegionAvail().x;
-        const float sourceWidth = std::min(ImGui::GetFontSize() * 9.0f, avail * 0.42f);
-        const float codeWidth = std::max(40.0f, avail - sourceWidth - (buttonSize + spacing) * 2.0f - spacing);
-
-        ImGui::SetNextItemWidth(sourceWidth);
-        int source = (int)b.Source;
-        if (ImGui::Combo("##source", &source, s_SourceLabels, IM_ARRAYSIZE(s_SourceLabels)) && source != (int)b.Source)
-        {
-            b = DefaultBindingFor((InputSource)source);
-            changed = true;
-        }
-
-        ImGui::SameLine();
-        bool listening = m_Listen == target;
-        if (listening)
-        {
-            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.18f, 0.55f, 0.45f, 0.65f));
-            if (ImGui::Button("Tugmani bosing...  (Esc: bekor qilish)", ImVec2(codeWidth, 0)))
-                StopListening();
-            ImGui::PopStyleColor();
-        }
-        else
-        {
-            ImGui::SetNextItemWidth(codeWidth);
-            if (ImGui::BeginCombo("##code", CodeLabel(b).c_str(), ImGuiComboFlags_HeightLarge))
-            {
-                auto option = [&](const char* label, const InputBinding& candidate) {
-                    bool selected = candidate == b;
-                    if (ImGui::Selectable(label, selected) && !selected)
-                    {
-                        b = candidate;
-                        changed = true;
-                    }
-                    if (selected) ImGui::SetItemDefaultFocus();
-                };
-                switch (b.Source)
-                {
-                    case InputSource::Key:
-                        for (Key k : GetAllKeys())
-                            option(KeyToString(k), InputBinding::FromKey(k));
-                        break;
-                    case InputSource::Mouse:
-                        for (int i = 0; i < MouseButtonCount; i++)
-                            option(MouseButtonToString((MouseButton)i), InputBinding::FromMouse((MouseButton)i));
-                        break;
-                    case InputSource::GamepadButton:
-                        for (int i = 0; i < GamepadButtonCount; i++)
-                            option(GamepadButtonToString((GamepadButton)i), InputBinding::FromGamepadButton((GamepadButton)i));
-                        break;
-                    case InputSource::GamepadAxis:
-                        for (int i = 0; i < GamepadAxisCount; i++)
-                            for (int dir : { 1, -1 })
-                            {
-                                InputBinding candidate = InputBinding::FromGamepadAxis((GamepadAxis)i, dir);
-                                option(CodeLabel(candidate).c_str(), candidate);
-                            }
-                        break;
-                }
-                ImGui::EndCombo();
-            }
-        }
-
-        ImGui::SameLine();
-        if (ImGui::Button(listening ? ICON_FA_XMARK : ICON_FA_KEYBOARD, ImVec2(buttonSize, 0)))
-        {
-            if (listening) StopListening();
-            else StartListening(target);
-        }
-        if (ImGui::IsItemHovered())
-            UI::Tooltip(listening ? "Bekor qilish" : "Tugmani bosib tanlash (klaviatura, sichqoncha yoki gamepad)");
-        return changed;
-    }
-
-    bool ProjectSettingsPanel::DrawBindingList(const char* label, std::vector<InputBinding>& bindings, ListKind kind, int entry)
-    {
-        bool changed = false;
-        ImGui::PushID(label);
-        ImGui::TextColored(ImVec4(0.72f, 0.75f, 0.80f, 1.0f), "%s", label);
-        int remove = -1;
-        for (int i = 0; i < (int)bindings.size(); i++)
-        {
-            ImGui::PushID(i);
-            changed |= DrawBinding(bindings[i], { kind, entry, i });
-            ImGui::SameLine();
-            if (ImGui::Button(ICON_FA_TRASH, ImVec2(ImGui::GetFrameHeight(), 0)))
-                remove = i;
-            if (ImGui::IsItemHovered())
-                UI::Tooltip("Bog'lanishni o'chirish");
-            ImGui::PopID();
-        }
-        if (remove >= 0)
-        {
-            bindings.erase(bindings.begin() + remove);
-            StopListening();
-            changed = true;
-        }
-        if (ImGui::SmallButton(ICON_FA_PLUS "  Bog'lash qo'shish"))
-        {
-            bindings.push_back(InputBinding::FromKey(Key::Space));
-            StartListening({ kind, entry, (int)bindings.size() - 1 });
-            changed = true;
-        }
-        ImGui::PopID();
-        return changed;
-    }
-
-    template<typename T>
-    static void NameWarning(const std::vector<T>& items, int index)
-    {
-        const std::string& name = items[index].Name;
-        if (name.empty())
-        {
-            ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.35f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  Nom bo'sh bo'lmasligi kerak");
-            return;
-        }
-        for (int i = 0; i < (int)items.size(); i++)
-            if (i != index && items[i].Name == name)
-            {
-                ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.35f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  Bu nom allaqachon bor");
-                return;
-            }
-    }
-
-    void ProjectSettingsPanel::DrawInputMap(InputActionMap& map)
-    {
-        UpdateListening(map);
-        bool changed = false;
-        const ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding;
-
-        ImGui::TextDisabled("Harakat va o'qlarni nomi bilan tugma, sichqoncha yoki gamepad'ga bog'lang.");
-        ImGui::TextDisabled("Skriptda: Input::IsActionJustPressed(\"Jump\"), Input::GetAxis(\"Horizontal\")");
-        ImGui::Spacing();
-
-        // ---- actions
-        ImGui::SeparatorText(ICON_FA_HAND_POINTER "  Harakatlar (actions)");
-        int removeAction = -1;
-        for (int i = 0; i < (int)map.Actions.size(); i++)
-        {
-            InputAction& action = map.Actions[i];
-            ImGui::PushID(i);
-            bool open = ImGui::TreeNodeEx("##action", nodeFlags, "%s", action.Name.empty() ? "(nomsiz)" : action.Name.c_str());
-            ImGui::SameLine();
-            ActionIndicator(action);
-            if (!open)
-            {
-                ImGui::SameLine();
-                ImGui::TextDisabled("%s", Summary(action.Bindings).c_str());
-            }
-            else
-            {
-                if (UI::BeginPropertyGrid("props"))
-                {
-                    changed |= UI::PropertyString("Nomi", action.Name);
-                    UI::EndPropertyGrid();
-                }
-                NameWarning(map.Actions, i);
-                changed |= DrawBindingList("Bog'lanishlar", action.Bindings, ListKind::Action, i);
-                if (ImGui::SmallButton(ICON_FA_TRASH "  Harakatni o'chirish"))
-                    removeAction = i;
-                ImGui::Spacing();
-                ImGui::TreePop();
-            }
-            ImGui::PopID();
-        }
-        if (removeAction >= 0)
-        {
-            map.Actions.erase(map.Actions.begin() + removeAction);
-            StopListening();
-            changed = true;
-        }
-        if (ImGui::Button(ICON_FA_PLUS "  Harakat qo'shish"))
-        {
-            map.Actions.push_back({ map.MakeUniqueActionName("Action"), {} });
-            StopListening();
-            changed = true;
-        }
-
-        // ---- axes
-        ImGui::Spacing();
-        ImGui::SeparatorText(ICON_FA_ARROWS_LEFT_RIGHT "  O'qlar (axes)");
-        int removeAxis = -1;
-        static const char* s_AxisItems[] = { "(yo'q)", "LeftX", "LeftY", "RightX", "RightY", "LeftTrigger", "RightTrigger" };
-        for (int i = 0; i < (int)map.Axes.size(); i++)
-        {
-            InputAxis& axis = map.Axes[i];
-            ImGui::PushID(1000 + i);
-            bool open = ImGui::TreeNodeEx("##axis", nodeFlags, "%s", axis.Name.empty() ? "(nomsiz)" : axis.Name.c_str());
-            ImGui::SameLine();
-            AxisIndicator(axis);
-            if (!open)
-            {
-                ImGui::SameLine();
-                std::string summary = Summary(axis.Negative) + "  |  " + Summary(axis.Positive);
-                if (axis.GamepadAxisCode >= 0)
-                    summary += std::format("  |  {}", GamepadAxisToString((GamepadAxis)axis.GamepadAxisCode));
-                ImGui::TextDisabled("%s", summary.c_str());
-            }
-            else
-            {
-                if (UI::BeginPropertyGrid("props"))
-                {
-                    changed |= UI::PropertyString("Nomi", axis.Name);
-                    int gamepadAxis = axis.GamepadAxisCode + 1;
-                    if (UI::PropertyCombo("Gamepad o'qi", gamepadAxis, s_AxisItems, IM_ARRAYSIZE(s_AxisItems)))
-                    {
-                        axis.GamepadAxisCode = gamepadAxis - 1;
-                        changed = true;
-                    }
-                    changed |= UI::PropertyBool("Teskari (invert)", axis.Invert);
-                    if (UI::PropertySlider("Deadzone", axis.Deadzone, 0.0f, 0.95f))
-                    {
-                        axis.Deadzone = std::clamp(axis.Deadzone, 0.0f, 0.95f);
-                        changed = true;
-                    }
-                    UI::EndPropertyGrid();
-                }
-                NameWarning(map.Axes, i);
-                changed |= DrawBindingList("Manfiy tomon (-1)", axis.Negative, ListKind::AxisNegative, i);
-                changed |= DrawBindingList("Musbat tomon (+1)", axis.Positive, ListKind::AxisPositive, i);
-                if (ImGui::SmallButton(ICON_FA_TRASH "  O'qni o'chirish"))
-                    removeAxis = i;
-                ImGui::Spacing();
-                ImGui::TreePop();
-            }
-            ImGui::PopID();
-        }
-        if (removeAxis >= 0)
-        {
-            map.Axes.erase(map.Axes.begin() + removeAxis);
-            StopListening();
-            changed = true;
-        }
-        if (ImGui::Button(ICON_FA_PLUS "  O'q qo'shish"))
-        {
-            InputAxis axis;
-            axis.Name = map.MakeUniqueAxisName("Axis");
-            map.Axes.push_back(std::move(axis));
-            StopListening();
-            changed = true;
-        }
-
-        // ---- reset
-        ImGui::Spacing();
-        ImGui::Separator();
-        if (ImGui::Button(ICON_FA_ROTATE_LEFT "  Standart holatga qaytarish"))
-            ImGui::OpenPopup("ResetInputMap");
-        if (ImGui::BeginPopup("ResetInputMap"))
-        {
-            ImGui::TextUnformatted("Barcha harakat va o'qlar standart holatga qaytarilsinmi?");
-            if (ImGui::Button("Ha, qaytarish"))
-            {
-                map = InputActionMap::CreateDefault();
-                StopListening();
-                changed = true;
-                ImGui::CloseCurrentPopup();
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("Yo'q"))
-                ImGui::CloseCurrentPopup();
-            ImGui::EndPopup();
-        }
-
-        if (changed)
-            m_Dirty = true;
     }
 
 }

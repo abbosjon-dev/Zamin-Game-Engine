@@ -1,4 +1,5 @@
 #include "Zamin/Renderer/Renderer.h"
+#include "Zamin/Renderer/Quality.h"
 #include "Zamin/Debug/DebugDraw.h"
 #include "Zamin/Renderer/Renderer2D.h"
 #include "Zamin/Renderer/Renderer3D.h"
@@ -54,6 +55,8 @@ namespace Zamin {
     {
         if (width == 0 || height == 0)
             return { width, height };
+        // The scene's render scale x the quality level's.
+        renderScale = Quality::GetActive().ApplyRenderScale(renderScale);
         float scale = std::isfinite(renderScale) ? std::clamp(renderScale, MinRenderScale, MaxRenderScale) : 1.0f;
         scale = std::min({ scale, (float)MaxRenderSize / (float)width, (float)MaxRenderSize / (float)height });
         auto side = [&](uint32_t size) {

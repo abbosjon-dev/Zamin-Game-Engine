@@ -1,4 +1,5 @@
 #include "Zamin/Renderer/PostProcess.h"
+#include "Zamin/Renderer/Quality.h"
 #include "Zamin/Renderer/RenderCommand.h"
 #include "Zamin/Renderer/Renderer.h"
 #include "Zamin/Renderer/Shader.h"
@@ -834,8 +835,10 @@ void main()
         Apply(input, settings, target);
     }
 
-    void PostProcessor::Apply(const PostProcessInput& input, const PostProcessSettings& settings, const Ref<Framebuffer>& target)
+    void PostProcessor::Apply(const PostProcessInput& input, const PostProcessSettings& sceneSettings, const Ref<Framebuffer>& target)
     {
+        // The quality level turns off the effects it does not allow (SSAO, bloom, FXAA, auto exposure).
+        const PostProcessSettings settings = Quality::GetActive().ApplyTo(sceneSettings);
         const uint32_t inputTexture = input.ColorTexture, width = input.Width, height = input.Height;
         const uint32_t depthTexture = input.DepthTexture;
         const glm::mat4& projection = input.Projection;

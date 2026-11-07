@@ -73,6 +73,15 @@
                     "Gamepad:DPadUp"
                 ]
             }
+        ],
+        "Vectors": [
+            {
+                "Deadzone": 0.0,
+                "Mode": "Clamp",
+                "Name": "Move",
+                "X": "Horizontal",
+                "Y": "Vertical"
+            }
         ]
     },
     "Project": {

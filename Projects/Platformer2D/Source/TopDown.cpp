@@ -23,9 +23,8 @@ public:
 
     void OnUpdate(Timestep ts) override
     {
-        glm::vec2 input = { Input::GetAxis("Horizontal"), Input::GetAxis("Vertical") };
-        if (glm::length(input) > 1.0f)
-            input = glm::normalize(input);
+        // The "Move" vector (Loyiha sozlamalari > Input > Vektorlar): Horizontal + Vertical, diagonals not faster.
+        glm::vec2 input = Input::GetVector("Move");
 
         // Smooth start and stop (the body has no gravity in this scene).
         glm::vec2 velocity = GetVelocity();

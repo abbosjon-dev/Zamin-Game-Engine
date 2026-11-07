@@ -396,6 +396,7 @@ o'zgarmaydi (Release modul `<loyiha>/Build/ExportRelease` da, editor ham shunday
 | `ZAMIN_PLAYER_NO_CULLING=1`, `ZAMIN_PLAYER_NO_INSTANCING=1` | player | Frustum culling / instancing o'chiq (solishtirish) |
 | `ZAMIN_EDITOR_EXPORT=<papka>` | editor | 5-kadrda o'yinni eksport qiladi va tugashini kutadi |
 | `ZAMIN_EDITOR_EXPORT_REPORT=<papka>` | editor | Avvalgi eksport hisobotini oynada ochadi |
+| `ZAMIN_EDITOR_ABOUT=1` | editor | "Zamin haqida" oynasi (versiya, kommit, build) |
 
 ## 15. Muammolar va yechimlar
 

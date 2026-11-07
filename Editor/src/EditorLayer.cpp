@@ -568,6 +568,9 @@ namespace Zamin {
             // ZAMIN_EDITOR_MENU=<Fayl|Tahrirlash|Ko'rinish|Oyna|Yordam>[/recent|/layout|/views]: that main menu kept open (screenshots).
             if (const char* menu = std::getenv("ZAMIN_EDITOR_MENU"))
                 m_OpenMenu = menu;
+            // ZAMIN_EDITOR_ABOUT=1: the "Zamin haqida" window (the engine's version, commit and build).
+            if (std::getenv("ZAMIN_EDITOR_ABOUT"))
+                m_ShowAbout = true;
             // ZAMIN_EDITOR_LAYOUT=<Default|2D|Animation|FourViews|<saved name>>[,save=<name>][,manage][,saveprompt]: a window
             // layout applied / the current one saved / the Joylashuvlar window or the save prompt opened.
             if (const char* layout = std::getenv("ZAMIN_EDITOR_LAYOUT"))

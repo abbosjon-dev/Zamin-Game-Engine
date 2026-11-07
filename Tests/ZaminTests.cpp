@@ -33001,3 +33001,109 @@ TEST(SceneStatisticsCounting)
     std::error_code ec;
     fs::remove_all(dir, ec);
 }
+
+// Opening code in the external editor (317): command lines split like a shell, placeholders
+// substituted, the default command from $VISUAL / $EDITOR / VS Code / xdg-open (terminal editors in a
+// terminal), starting a program without waiting for it, and finding a script class's source.
+TEST(ExternalEditorCommands)
+{
+    namespace fs = std::filesystem;
+    using Args = std::vector<std::string>;
+    CHECK(ExternalEditor::SplitCommandLine("code  -g \"my file\" 'a b' c\\ d") == (Args{ "code", "-g", "my file", "a b", "c d" }));
+    CHECK(ExternalEditor::SplitCommandLine("  ").empty());
+    CHECK(ExternalEditor::SplitCommandLine("say \"it's \\\"x\\\"\" ''") == (Args{ "say", "it's \"x\"", "" }));
+
+    CHECK(ExternalEditor::ExpandCommand("code -g {file}:{line}:{col}", "/p/Source/Player.cpp", 42, 7) ==
+          (Args{ "code", "-g", "/p/Source/Player.cpp:42:7" }));
+    CHECK(ExternalEditor::ExpandCommand("kate -l {line} -c {column} {file}", "/x/a b.cpp") == (Args{ "kate", "-l", "1", "-c", "1", "/x/a b.cpp" }));
+    CHECK(ExternalEditor::ExpandCommand("myedit --wait", "/x/y.h", 3) == (Args{ "myedit", "--wait", "/x/y.h" })); // the file at the end
+    CHECK(ExternalEditor::ExpandCommand("term --cwd {dir} {file} {nope}", "/x/y.h") == (Args{ "term", "--cwd", "/x", "/x/y.h", "{nope}" }));
+    CHECK(ExternalEditor::ExpandCommand("'/opt/My Editor/bin/ed' +{line} {file}", "/s/a.cpp", 9) == (Args{ "/opt/My Editor/bin/ed", "+9", "/s/a.cpp" }));
+
+    // The default command, with a made-up environment and PATH.
+    std::map<std::string, std::string> env;
+    std::set<std::string> installed;
+    auto getEnv = [&](const char* name) -> const char* {
+        auto it = env.find(name);
+        return it == env.end() ? nullptr : it->second.c_str();
+    };
+    auto onPath = [&](std::string_view program) { return installed.count(std::string(program)) > 0; };
+    auto defaultCommand = [&]() { return ExternalEditor::GetDefaultCommand(getEnv, onPath); };
+    CHECK(defaultCommand() == "xdg-open {file}");
+    installed = { "code" };
+    CHECK(defaultCommand() == "code -g {file}:{line}:{col}");
+    installed = { "code", "subl", "gedit", "vim" };
+    env["EDITOR"] = "subl";
+    CHECK(defaultCommand() == "subl {file}:{line}:{col}");
+    env["VISUAL"] = "gedit";
+    CHECK(defaultCommand() == "gedit +{line} {file}");            // $VISUAL first
+    env["VISUAL"] = "notinstalled";
+    CHECK(defaultCommand() == "subl {file}:{line}:{col}");        // a program that is not there is skipped
+    env.erase("VISUAL");
+    env["EDITOR"] = "vim";
+    CHECK(defaultCommand() == "code -g {file}:{line}:{col}");     // a terminal editor without a terminal
+    installed.insert("xterm");
+    CHECK(defaultCommand() == "xterm -e vim +{line} {file}");
+    installed.insert("gnome-terminal");
+    CHECK(defaultCommand() == "gnome-terminal -- vim +{line} {file}");
+    env["TERMINAL"] = "foot";
+    installed.insert("foot");
+    CHECK(defaultCommand() == "foot -e vim +{line} {file}");
+    env["EDITOR"] = "myeditor --flag";
+    installed.insert("myeditor");
+    CHECK(defaultCommand() == "myeditor --flag {file}");          // one it does not know: its own command line
+    CHECK(ExternalEditor::CommandForProgram("/usr/bin/code", getEnv, onPath) == "/usr/bin/code -g {file}:{line}:{col}");
+    CHECK(ExternalEditor::CommandForProgram("unknown-editor", getEnv, onPath).empty());
+    std::vector<std::string> offered = ExternalEditor::GetInstalledCommands(onPath);
+    CHECK(std::find(offered.begin(), offered.end(), "subl {file}:{line}:{col}") != offered.end());
+    CHECK(std::find_if(offered.begin(), offered.end(), [](const std::string& c) { return c.starts_with("vim "); }) == offered.end());
+
+    // Starting programs: not waited for, errors reported.
+    std::string error;
+    CHECK(ExternalEditor::IsOnPath("sh") && !ExternalEditor::IsOnPath("zamin-no-such-program-xyz") && !ExternalEditor::IsOnPath(""));
+    CHECK(!ExternalEditor::Launch({}, &error) && !error.empty());
+    error.clear();
+    CHECK(!ExternalEditor::Launch({ "zamin-no-such-program-xyz", "a.cpp" }, &error) && error.find("zamin-no-such-program-xyz") != std::string::npos);
+    const fs::path dir = fs::temp_directory_path() / ("zamin-external-" + std::to_string((uint64_t)UUID()));
+    fs::create_directories(dir / "Source" / "Enemies");
+    const fs::path marker = dir / "opened.txt";
+    // A stand-in "editor": writes the arguments it got to a file.
+    CHECK(ExternalEditor::Open("sh -c 'echo \"$1:$2\" > \"$3\"' editor {file} {line} " + marker.string(), dir / "Source" / "Player.cpp", 17, 0, &error));
+    std::string written;
+    for (int i = 0; i < 200 && written.empty(); i++)
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        written = FileSystem::ReadTextFile(marker);
+    }
+    CHECK(written.starts_with((dir / "Source" / "Player.cpp").string() + ":17"));
+
+    // Finding a script class's source.
+    FileSystem::WriteTextFile(dir / "Source" / "Player.cpp",
+                              "#include <Zamin/Zamin.h>\n"
+                              "using namespace Zamin;\n"
+                              "class PlayerHelper;\n"
+                              "// ZM_REGISTER_SCRIPT(Player) in a comment does not count\n"
+                              "class Player : public ScriptableEntity\n"
+                              "{\n"
+                              "};\n"
+                              "ZM_REGISTER_SCRIPT(Player, ZM_FIELD(Player, Speed))\n");
+    FileSystem::WriteTextFile(dir / "Source" / "Enemies" / "Enemy.h", "#pragma once\nstruct Enemy : ScriptableEntity\n{\n};\n");
+    FileSystem::WriteTextFile(dir / "Source" / "Enemies" / "Enemy.cpp", "#include \"Enemy.h\"\n\nZM_REGISTER_SCRIPT( Enemy )\n");
+    FileSystem::WriteTextFile(dir / "Source" / "Helpers.h", "#pragma once\nclass Player;\nclass  Helper final\n{\n};\n");
+    FileSystem::WriteTextFile(dir / "Source" / "notes.txt", "class Missing {};\nZM_REGISTER_SCRIPT(Missing)\n");
+    SourceLocation player = ExternalEditor::FindScriptSource(dir / "Source", "Player");
+    CHECK(player.IsValid() && player.File.filename() == "Player.cpp" && player.Line == 5 && player.Column == 1);
+    SourceLocation enemy = ExternalEditor::FindScriptSource(dir / "Source", "Enemy");
+    CHECK(enemy.IsValid() && enemy.File.filename() == "Enemy.cpp" && enemy.Line == 3); // registered where it is not declared
+    SourceLocation helper = ExternalEditor::FindScriptSource(dir / "Source", "Helper");
+    CHECK(helper.IsValid() && helper.File.filename() == "Helpers.h" && helper.Line == 3); // only declared
+    CHECK(!ExternalEditor::FindScriptSource(dir / "Source", "Missing").IsValid());          // not a source file
+    CHECK(!ExternalEditor::FindScriptSource(dir / "Source", "Play").IsValid());             // not a prefix match
+    CHECK(!ExternalEditor::FindScriptSource(dir / "Nowhere", "Player").IsValid());
+    CHECK(ExternalEditor::IsSourceFile("a/B.CPP") && ExternalEditor::IsSourceFile("x.hpp") && !ExternalEditor::IsSourceFile("x.zscene"));
+    // The sample projects' classes are found where they are registered.
+    SourceLocation crystal = ExternalEditor::FindScriptSource(fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Adventure3D" / "Source", "Crystal");
+    CHECK(crystal.IsValid() && crystal.File.filename() == "World.cpp" && crystal.Line > 0);
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}

@@ -728,6 +728,8 @@ namespace Zamin {
             OnOpenScene(entry.Path);
         else if (entry.Type == AssetType::Animation && OnOpenAnimation)
             OnOpenAnimation(entry.Path);
+        else if (ExternalEditor::IsSourceFile(entry.Path) && OnOpenSourceFile)
+            OnOpenSourceFile(entry.Path);
         else
             Platform::OpenInFileBrowser(entry.Path);
     }
@@ -813,6 +815,9 @@ namespace Zamin {
             Open(entry);
         if (entry.Type == AssetType::Scene && ImGui::MenuItem(ICON_FA_EARTH_ASIA "  Sahnani ochish") && OnOpenScene)
             OnOpenScene(path);
+        if (!entry.IsDirectory && ExternalEditor::IsSourceFile(path) && OnOpenSourceFile &&
+            ImGui::MenuItem(ICON_FA_PEN_TO_SQUARE "  Tashqi muharrirda ochish"))
+            OnOpenSourceFile(path);
         if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN "  Tizimda ochish"))
             Platform::OpenInFileBrowser(path);
         if (ImGui::MenuItem(ICON_FA_COPY "  Yo'lni nusxalash"))

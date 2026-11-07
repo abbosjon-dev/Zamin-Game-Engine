@@ -24,6 +24,7 @@
 #include <memory>
 #include <optional>
 #include <thread>
+#include <unordered_map>
 #include <unordered_set>
 
 namespace Zamin {
@@ -272,6 +273,15 @@ namespace Zamin {
         // Writes Source/<className>.cpp from a template and starts a script build.
         bool CreateScriptClass(const std::string& className, ScriptTemplateKind kind = ScriptTemplateKind::Full);
         void CheckModuleHotReload(Timestep ts);
+
+        // ---- the external code editor (EditorExternalTools.cpp): C++ files open in the user's own
+        // editor (Sozlamalar > Tashqi muharrir; $VISUAL / $EDITOR, VS Code, xdg-open by default).
+        bool OpenInExternalEditor(const std::filesystem::path& file, int line = 0, int column = 0);
+        // A script class's source (found in the project's Source folder by its ZM_REGISTER_SCRIPT).
+        bool OpenScriptClassSource(const std::string& className);
+        // Where a class is written (cached for a few seconds; invalid when not found).
+        const SourceLocation& GetScriptSource(const std::string& className);
+        void UI_ExternalEditorPreferences(bool& changed);
 
         // ---- export
         void BuildGame(const std::filesystem::path& outputDirectory);
@@ -817,6 +827,10 @@ namespace Zamin {
         bool m_AutoReload = true;
         float m_HotReloadTimer = 0.0f;
         float m_BuildStartTime = 0.0f;
+        // script classes' source files (the inspector's / statistics' "open the code")
+        std::unordered_map<std::string, SourceLocation> m_ScriptSources;
+        double m_ScriptSourcesTime = -100.0;
+        std::string m_ExternalEditorTest;      // the preferences' test result ("" none)
         bool m_OpenNewScriptPopup = false;
         std::string m_NewScriptName = "MyScript";
         ScriptTemplateKind m_NewScriptTemplate = ScriptTemplateKind::Full;

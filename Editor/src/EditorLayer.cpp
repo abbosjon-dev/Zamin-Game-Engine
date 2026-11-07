@@ -134,6 +134,8 @@ namespace Zamin {
             m_AudioMixerPanel.Focus();
         };
         m_SceneHierarchyPanel.OnPrefabDropped = [this](const fs::path& p, Entity parent) { InstantiatePrefabInEditor(p, parent); };
+        m_SceneHierarchyPanel.OnOpenScriptSource = [this](const std::string& className) { OpenScriptClassSource(className); };
+        m_ContentBrowserPanel.OnOpenSourceFile = [this](const fs::path& file) { OpenInExternalEditor(file); };
         m_SceneHierarchyPanel.OnAnimationWindowRequested = [this](Entity e, int clip) {
             m_ShowAnimation = true;
             m_AnimationPanel.SetContext(m_ActiveScene, m_SceneState == SceneState::Edit);
@@ -533,11 +535,11 @@ namespace Zamin {
                         Log::Write(logLevel, true, std::string(item.substr(colon + 1)));
                 }
             }
-            // ZAMIN_EDITOR_PREFERENCES=<page 0..4>: the preferences window opens on that page.
+            // ZAMIN_EDITOR_PREFERENCES=<page 0..5>: the preferences window opens on that page.
             if (const char* prefs = std::getenv("ZAMIN_EDITOR_PREFERENCES"))
             {
                 m_ShowPreferences = true;
-                m_PreferencesPage = std::clamp(std::atoi(prefs), 0, 4);
+                m_PreferencesPage = std::clamp(std::atoi(prefs), 0, 5);
             }
             // ZAMIN_EDITOR_UNDO="select=<name>;move=<name>,dx,dy,dz;rename=<name>,<new>;duplicate;delete;undo=<n>;history":
             // undo steps made one by one (each its own step, named as usual); "history" opens the window.
@@ -6081,9 +6083,10 @@ namespace Zamin {
             if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN "  Source papkasini ochish", nullptr, false, hasProject))
                 Platform::OpenInFileBrowser(Project::GetSourceDirectory());
             ImGui::Separator();
-            ImGui::TextDisabled("Ro'yxatdan o'tgan klasslar: %zu", ScriptRegistry::GetAll().size());
+            ImGui::TextDisabled("Ro'yxatdan o'tgan klasslar: %zu (bosish: kodini ochish)", ScriptRegistry::GetAll().size());
             for (auto& [n, info] : ScriptRegistry::GetAll())
-                ImGui::BulletText("%s (%zu maydon)", n.c_str(), info.Fields.size());
+                if (ImGui::MenuItem(std::format(ICON_FA_PEN_TO_SQUARE "  {}", n).c_str(), std::format("{} maydon", info.Fields.size()).c_str()))
+                    OpenScriptClassSource(n);
             ImGui::EndMenu();
         }
 

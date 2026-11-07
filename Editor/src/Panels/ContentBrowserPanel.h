@@ -84,6 +84,8 @@ namespace Zamin {
         std::function<void(const std::filesystem::path&)> OnOpenScene;
         // A .zanim clip was double-clicked: the Animation window opens it.
         std::function<void(const std::filesystem::path&)> OnOpenAnimation;
+        // A C++ source / header (double click, "Tashqi muharrirda ochish"): opened in the external editor.
+        std::function<void(const std::filesystem::path&)> OnOpenSourceFile;
         // An item was clicked: the file or folder the selection is about now (empty when the
         // click / Escape cleared it). The editor shows the file in the inspector.
         std::function<void(const std::filesystem::path&)> OnAssetSelected;

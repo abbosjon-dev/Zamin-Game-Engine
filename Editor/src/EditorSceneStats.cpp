@@ -322,7 +322,7 @@ namespace Zamin {
             {
                 if (s.Scripts.empty())
                     ImGui::TextDisabled("Sahnada C++ skript komponenti yo'q");
-                else if (ImGui::BeginTable("##statsScriptTable", 3, s_TableFlags))
+                else if (ImGui::BeginTable("##statsScriptTable", 4, s_TableFlags))
                 {
                     auto& sort = m_SceneStatsSort[1];
                     ImGui::TableSetupScrollFreeze(0, 1);
@@ -330,7 +330,8 @@ namespace Zamin {
                                             0.0f, (ImGuiID)SceneStatsColumn::Name);
                     ImGui::TableSetupColumn("Obyektlar", SortFlags(SceneStatsColumn::Count, sort.first, sort.second, ImGuiTableColumnFlags_WidthFixed |
                                             ImGuiTableColumnFlags_PreferSortDescending), 80.0f, (ImGuiID)SceneStatsColumn::Count);
-                    ImGui::TableSetupColumn("Holat", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort, 190.0f, 99);
+                    ImGui::TableSetupColumn("Holat", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort, 170.0f, 99);
+                    ImGui::TableSetupColumn("Manba", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort, 190.0f, 98);
                     ImGui::TableHeadersRow();
                     if (TakeSortSpecs(sort.first, sort.second))
                         SortSceneStatsGroups(m_SceneStatistics.Scripts, sort.first, sort.second);
@@ -348,8 +349,28 @@ namespace Zamin {
                             UI_StatsEntityTooltip(g.Entities);
                             ImGui::EndTooltip();
                         }
+                        const SourceLocation& source = g.Key.empty() ? SourceLocation() : GetScriptSource(g.Key);
+                        if (ImGui::BeginPopupContextItem("##scriptRow"))
+                        {
+                            if (ImGui::MenuItem(ICON_FA_PEN_TO_SQUARE "  Kodini ochish", nullptr, false, source.IsValid()))
+                                OpenInExternalEditor(source.File, source.Line, source.Column);
+                            if (ImGui::MenuItem(ICON_FA_OBJECT_GROUP "  Obyektlarni tanlash"))
+                                SelectStatsEntities(g.Entities, false, false);
+                            ImGui::EndPopup();
+                        }
                         ImGui::TableSetColumnIndex(1);
                         ImGui::TextUnformatted(FormatCount(g.Count()).c_str());
+                        ImGui::TableSetColumnIndex(3);
+                        if (source.IsValid())
+                        {
+                            const std::string where = std::format(ICON_FA_PEN_TO_SQUARE "  {}:{}", source.File.filename().string(), source.Line);
+                            if (ImGui::SmallButton(where.c_str()))
+                                OpenInExternalEditor(source.File, source.Line, source.Column);
+                            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                                UI::Tooltip(std::format("{}\nTashqi muharrirda ochish", source.File.string()).c_str());
+                        }
+                        else
+                            ImGui::TextDisabled("%s", g.Key.empty() ? "-" : "topilmadi");
                         ImGui::TableSetColumnIndex(2);
                         if (g.Key.empty())
                             ImGui::TextDisabled("-");

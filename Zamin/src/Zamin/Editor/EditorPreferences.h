@@ -112,6 +112,14 @@ namespace Zamin {
         std::string Current;  // the layout last chosen (a built-in one's key or a saved one's name; "" none)
     };
 
+    // The program source files open in (C++ scripts, compiler errors): a command line with
+    // {file} {line} {col} {dir} placeholders (see ExternalEditor); empty = the default one
+    // ($VISUAL / $EDITOR, VS Code, xdg-open).
+    struct ExternalEditorPreferences
+    {
+        std::string Command;
+    };
+
     // The editor's per-user preferences (Tahrirlash > Sozlamalar), stored as JSON in the user's
     // config directory (~/.config/zamin/preferences.json).
     struct EditorPreferences
@@ -123,6 +131,7 @@ namespace Zamin {
         AutosaveSettings Autosave;
         UndoPreferences Undo;
         LayoutPreferences Layout;
+        ExternalEditorPreferences ExternalEditor;
         // Keyboard shortcuts rebound in the shortcuts window: id -> chord ("" = unbound).
         std::map<std::string, std::string> Shortcuts;
 

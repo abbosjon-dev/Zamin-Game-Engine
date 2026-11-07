@@ -155,6 +155,7 @@ namespace Zamin {
             ICON_FA_TERMINAL "  Konsol",
             ICON_FA_CAMERA "  Editor kamerasi",
             ICON_FA_FLOPPY_DISK "  Saqlash va undo",
+            ICON_FA_PEN_TO_SQUARE "  Tashqi muharrir",
         };
         if (ImGui::BeginChild("##pages", ImVec2(em * 11.0f, -ImGui::GetFrameHeightWithSpacing() - 6.0f), ImGuiChildFlags_Borders))
         {
@@ -376,6 +377,9 @@ namespace Zamin {
                 }
                 case 4:
                     UI_AutosavePreferences(changed);
+                    break;
+                case 5:
+                    UI_ExternalEditorPreferences(changed);
                     break;
             }
         }

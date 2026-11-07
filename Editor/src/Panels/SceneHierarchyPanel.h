@@ -274,6 +274,8 @@ namespace Zamin {
         std::function<void()> OnPhysicsLayersRequested;
         // The Animation window is to open on an entity's Animation Player (clip: index in its list).
         std::function<void(Entity, int)> OnAnimationWindowRequested;
+        // The script inspector's "open the code" button: the class's source in the external editor.
+        std::function<void(const std::string&)> OnOpenScriptSource;
         // The Animator graph window for this entity's state machine.
         std::function<void(Entity)> OnAnimatorGraphRequested;
 

@@ -197,6 +197,9 @@ namespace Zamin {
         j["Layout"] = {
             { "Current", Layout.Current },
         };
+        j["ExternalEditor"] = {
+            { "Command", ExternalEditor.Command },
+        };
         j["Shortcuts"] = json::object();
         for (const auto& [id, chord] : Shortcuts)
             j["Shortcuts"][id] = chord;
@@ -252,6 +255,9 @@ namespace Zamin {
         if (auto it = j.find("Layout"); it != j.end() && it->is_object())
             if (auto current = it->find("Current"); current != it->end() && current->is_string())
                 Layout.Current = current->get<std::string>();
+        if (auto it = j.find("ExternalEditor"); it != j.end() && it->is_object())
+            if (auto command = it->find("Command"); command != it->end() && command->is_string())
+                ExternalEditor.Command = command->get<std::string>();
         if (auto it = j.find("Shortcuts"); it != j.end() && it->is_object())
         {
             Shortcuts.clear();

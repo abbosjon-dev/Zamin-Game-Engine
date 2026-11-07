@@ -5794,6 +5794,9 @@ namespace Zamin {
             if (!exists && !c.ClassName.empty())
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.4f, 0.35f, 1.0f));
             std::string preview = c.ClassName.empty() ? "(tanlang)" : c.ClassName;
+            // Room for the "open the code" button after the class.
+            const float openWidth = ImGui::GetFrameHeight();
+            ImGui::SetNextItemWidth(-(openWidth + ImGui::GetStyle().ItemSpacing.x));
             if (c.Instance)
             {
                 // The running instance is of one class: switching it would need a new instance.
@@ -5820,8 +5823,17 @@ namespace Zamin {
                 ImGui::EndCombo();
             }
             if (!exists && !c.ClassName.empty())
-            {
                 ImGui::PopStyleColor();
+            ImGui::SameLine();
+            ImGui::BeginDisabled(c.ClassName.empty() || !OnOpenScriptSource);
+            if (ImGui::Button(ICON_FA_PEN_TO_SQUARE "##openScript", ImVec2(openWidth, openWidth)))
+                OnOpenScriptSource(c.ClassName);
+            ImGui::EndDisabled();
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayShort))
+                UI::Tooltip("Klass kodini tashqi muharrirda ochish (Source papkasidagi ZM_REGISTER_SCRIPT bo'yicha topiladi).\n"
+                            "Muharrir: Tahrirlash > Sozlamalar > Tashqi muharrir");
+            if (!exists && !c.ClassName.empty())
+            {
                 UI::PropertyLabel("");
                 ImGui::TextColored(ImVec4(0.95f, 0.6f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION " Klass yuklanmagan");
             }

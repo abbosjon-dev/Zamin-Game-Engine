@@ -43841,3 +43841,629 @@ TEST(FormationMembersKeepUpWhileWalking)
         scene->OnRuntimeStop();
     }
 }
+
+// ------------------------------------------------------------------ M21: prefab links, overrides, apply / revert, nesting
+namespace {
+    // A small prefab made in a scene of its own: Enemy (red sprite, following Weapon) with Weapon
+    // and Shield below it. Saved with the source scene's UUIDs as its IDs.
+    struct PrefabFixture
+    {
+        Ref<Scene> Source = CreateRef<Scene>();
+        Entity Enemy, Weapon, Shield;
+        std::filesystem::path File;
+
+        explicit PrefabFixture(const std::filesystem::path& assets, const char* name = "Enemy")
+        {
+            Enemy = Source->CreateEntity(name);
+            Enemy.AddComponent<SpriteRendererComponent>().Color = { 1.0f, 0.0f, 0.0f, 1.0f };
+            Weapon = Source->CreateEntity("Weapon");
+            Weapon.AddComponent<SpriteRendererComponent>().Color = { 0.2f, 0.2f, 0.2f, 1.0f };
+            Weapon.GetComponent<TransformComponent>().Translation = { 0.5f, 0.0f, 0.0f };
+            Shield = Source->CreateEntity("Shield");
+            Source->SetParent(Weapon, Enemy, false);
+            Source->SetParent(Shield, Enemy, false);
+            Enemy.AddComponent<Camera2DFollowComponent>().Target.ID = Weapon.GetUUID(); // a reference inside the prefab
+            File = assets / "Prefabs" / (std::string(name) + ".zprefab");
+            Save();
+        }
+        bool Save() { return Source->SavePrefab(Enemy, File); }
+        std::string Rel() const { return "Prefabs/" + File.filename().string(); }
+    };
+
+    Entity ChildNamed(Scene& scene, Entity parent, std::string_view name)
+    {
+        for (Entity c : scene.GetChildren(parent))
+            if (c.GetName() == name)
+                return c;
+        return {};
+    }
+
+    const std::vector<std::string>& OverridesOf(Entity e)
+    {
+        static const std::vector<std::string> s_None;
+        const auto* link = e.TryGetComponent<PrefabLinkComponent>();
+        return link ? link->Overrides : s_None;
+    }
+}
+
+TEST(PrefabLinkSerialization)
+{
+    auto scene = CreateRef<Scene>();
+    Entity root = scene->CreateEntity("Enemy");
+    Entity child = scene->CreateEntity("Weapon");
+    scene->SetParent(child, root, false);
+    scene->SetPrefabSource(root, "Prefabs/Enemy.zprefab");
+    {
+        auto& link = root.AddComponent<PrefabLinkComponent>();
+        link.PrefabEntity = 1;
+        link.PrefabHash = 0x77b20c41aa03b7d4ull;
+        link.PrefabUUID = UUID(0xe23d68ebead3b2a7ull);
+        link.RemovedEntities = { 17 };
+        link.Overrides = { "NativeScript/Fields/Speed" };
+        auto& c = child.AddComponent<PrefabLinkComponent>();
+        c.PrefabEntity = 2;
+        c.Overrides = { "SpriteRenderer/Color" };
+        c.RemovedComponents = { "UIAnimation" };
+    }
+    const std::string text = SceneSerializer(scene).SerializeToString();
+    CHECK(text.find("\"PrefabHash\": \"77b20c41aa03b7d4\"") != std::string::npos);
+    CHECK(text.find("\"PrefabUUID\": \"e23d68ebead3b2a7\"") != std::string::npos);
+    auto loaded = CreateRef<Scene>();
+    SceneSerializer reader(loaded);
+    CHECK(reader.DeserializeFromString(text) && !reader.GetLoadReport().HasIssues());
+    Entity r = loaded->GetEntityByUUID(root.GetUUID()), c = loaded->GetEntityByUUID(child.GetUUID());
+    CHECK(r && c && loaded->GetPrefabSource(r) == "Prefabs/Enemy.zprefab");
+    if (r && c)
+    {
+        const auto& rl = r.GetComponent<PrefabLinkComponent>();
+        CHECK(rl.PrefabEntity == 1 && rl.PrefabHash == 0x77b20c41aa03b7d4ull && (uint64_t)rl.PrefabUUID == 0xe23d68ebead3b2a7ull);
+        CHECK(rl.RemovedEntities == std::vector<uint64_t>{ 17 } && rl.Overrides == std::vector<std::string>{ "NativeScript/Fields/Speed" });
+        const auto& cl = c.GetComponent<PrefabLinkComponent>();
+        CHECK(cl.PrefabEntity == 2 && cl.Overrides == std::vector<std::string>{ "SpriteRenderer/Color" } &&
+              cl.RemovedComponents == std::vector<std::string>{ "UIAnimation" });
+    }
+    CHECK(SceneSerializer(loaded).SerializeToString() == text);
+
+    // The clipboard keeps the links of a whole instance; a part of one is not linked; a prefab file
+    // (includeEditorFlags = false) has none.
+    CHECK(SceneSerializer::SerializeEntities(*scene, { root, child }).find("\"PrefabEntity\": 2") != std::string::npos);
+    CHECK(SceneSerializer::SerializeEntities(*scene, { child }).find("PrefabEntity") == std::string::npos);
+    const std::string prefabText = SceneSerializer::SerializeEntities(*scene, { root, child }, false);
+    CHECK(prefabText.find("PrefabEntity") == std::string::npos && prefabText.find("Prefabs/Enemy") == std::string::npos);
+
+    // An older scene names only the prefab: it loads (a legacy instance), nothing unknown.
+    const std::string old = R"({"Scene":"Old","Version":4,"Entities":[{"Entity":5,"Tag":"A","Editor":{"Prefab":"Prefabs/A.zprefab"}}]})";
+    auto legacy = CreateRef<Scene>();
+    SceneSerializer legacyReader(legacy);
+    CHECK(legacyReader.DeserializeFromString(old) && !legacyReader.GetLoadReport().HasIssues());
+    Entity a = legacy->GetEntityByUUID(UUID(5));
+    CHECK(a && legacy->GetPrefabSource(a) == "Prefabs/A.zprefab" && !a.HasComponent<PrefabLinkComponent>());
+    CHECK(a && PrefabUtility::IsLegacyInstance(a));
+
+    // The player: the prefab is still named, the links are not read.
+    SceneSerializer::SetReadPrefabLinks(false);
+    auto game = CreateRef<Scene>();
+    CHECK(SceneSerializer(game).DeserializeFromString(text));
+    SceneSerializer::SetReadPrefabLinks(true);
+    Entity gr = game->GetEntityByUUID(root.GetUUID());
+    CHECK(gr && game->GetPrefabSource(gr) == "Prefabs/Enemy.zprefab" && game->GetAllEntitiesWith<PrefabLinkComponent>().empty());
+
+    // KeepPrefabLinks = false (a plain copy): neither the prefab nor the links.
+    SceneSerializer::EntitySetReadOptions plain;
+    plain.KeepPrefabLinks = false;
+    auto copies = CreateRef<Scene>();
+    std::vector<Entity> made = SceneSerializer::DeserializeEntities(*copies, SceneSerializer::SerializeEntities(*scene, { root, child }), plain);
+    CHECK(made.size() == 2 && copies->GetAllEntitiesWith<PrefabLinkComponent>().empty() && copies->GetPrefabSource(made[0]).empty());
+
+    // The paths: escaped names, what belongs to the instance, the deterministic UUIDs.
+    CHECK(PrefabOverrides::SplitPath("NativeScript/Fields/a~1b") == (std::vector<std::string>{ "NativeScript", "Fields", "a/b" }));
+    CHECK(PrefabOverrides::JoinPath({ "A", "b~c" }) == "A/b~0c");
+    CHECK(PrefabOverrides::IsInstanceOwned(true, "Transform/Translation") && !PrefabOverrides::IsInstanceOwned(true, "Transform/Scale"));
+    CHECK(!PrefabOverrides::IsInstanceOwned(false, "Tag") && PrefabOverrides::IsInstanceOwned(true, "Tag"));
+    CHECK(PrefabOverrides::IsUnder("A/B/C", "A/B") && !PrefabOverrides::IsUnder("A/BC", "A/B"));
+    CHECK(PrefabOverrides::MixUUID(7, 1) == PrefabOverrides::MixUUID(7, 1) && PrefabOverrides::MixUUID(7, 1) != PrefabOverrides::MixUUID(7, 2) &&
+          PrefabOverrides::MixUUID(0, 0) != 0);
+}
+
+TEST(PrefabInstantiateLinked)
+{
+    namespace fs = std::filesystem;
+    TempDirectory temp("zamin-prefab");
+    PrefabFixture prefab(temp.GetPath());
+    PrefabDatabase db(temp.GetPath());
+    const PrefabDatabase::Template* t = db.Get(prefab.Rel());
+    CHECK(t && t->Readable && t->Linkable && t->Root == (uint64_t)prefab.Enemy.GetUUID() && t->Order.size() == 3);
+
+    auto scene = CreateRef<Scene>();
+    Entity a = PrefabUtility::InstantiateLinked(*scene, db, prefab.Rel());
+    CHECK(a && scene->GetPrefabSource(a) == prefab.Rel());
+    if (!a)
+        return;
+    Entity weapon = ChildNamed(*scene, a, "Weapon");
+    CHECK(weapon && weapon.GetUUID() != prefab.Weapon.GetUUID());
+    CHECK(a.GetComponent<PrefabLinkComponent>().PrefabEntity == (uint64_t)prefab.Enemy.GetUUID());
+    CHECK(PrefabUtility::GetPrefabEntity(weapon) == (uint64_t)prefab.Weapon.GetUUID() && PrefabUtility::IsLinked(weapon) && !PrefabUtility::IsAdded(weapon));
+    CHECK(a.GetComponent<PrefabLinkComponent>().PrefabHash == db.ResolvedHash(prefab.Rel()) && db.ResolvedHash(prefab.Rel()) != 0);
+    CHECK(a.GetComponent<Camera2DFollowComponent>().Target.ID == (uint64_t)weapon.GetUUID()); // the reference followed
+    CHECK(PrefabUtility::GetOverrides(a).empty() && !PrefabUtility::RecordOverrides(a, db));
+    CHECK(PrefabUtility::GetApplyTargets(weapon, db) == std::vector<std::string>{ prefab.Rel() });
+
+    // Scene::InstantiatePrefab (scripts, the game) stays a plain copy.
+    Entity plain = scene->InstantiatePrefab(prefab.File);
+    CHECK(plain && !plain.HasComponent<PrefabLinkComponent>() && scene->GetPrefabSource(plain).empty());
+
+    // A prefab that cannot be linked (two roots) is placed as a plain copy, its prefab named.
+    FileSystem::WriteTextFile(temp.GetPath() / "Prefabs" / "Two.zprefab",
+                              R"({"ZaminEntities":1,"Entities":[{"Entity":1,"Tag":"A"},{"Entity":2,"Tag":"B"}]})");
+    Entity two = PrefabUtility::InstantiateLinked(*scene, db, "Prefabs/Two.zprefab");
+    CHECK(two && scene->GetPrefabSource(two) == "Prefabs/Two.zprefab" && !two.HasComponent<PrefabLinkComponent>());
+    CHECK(db.Get("Prefabs/Two.zprefab") && !db.Get("Prefabs/Two.zprefab")->Linkable);
+    CHECK(!PrefabUtility::InstantiateLinked(*scene, db, "Prefabs/Missing.zprefab"));
+
+    // The saved source becomes the first instance: its own UUIDs are the prefab's IDs.
+    PrefabUtility::LinkSource(prefab.Enemy, prefab.Rel(), db);
+    CHECK(PrefabUtility::IsInstanceRoot(prefab.Enemy) && PrefabUtility::GetPrefabEntity(prefab.Shield) == (uint64_t)prefab.Shield.GetUUID());
+    CHECK(PrefabUtility::GetOverrides(prefab.Enemy).empty());
+}
+
+TEST(PrefabLegacyLinkMenuScene)
+{
+    namespace fs = std::filesystem;
+    const fs::path assets = fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Platformer2D" / "Assets";
+    const fs::path sceneFile = assets / "Scenes" / "Menu.zscene", prefabFile = assets / "Prefabs" / "GameMenu.zprefab";
+    const std::string sceneBytes = FileSystem::ReadTextFile(sceneFile), prefabBytes = FileSystem::ReadTextFile(prefabFile);
+    auto scene = CreateRef<Scene>();
+    CHECK(SceneSerializer(scene).Deserialize(sceneFile));
+    Entity menu = scene->FindEntityByName("Bosh menyu");
+    CHECK(menu && PrefabUtility::IsLegacyInstance(menu));
+    if (!menu)
+        return;
+    PrefabDatabase db(assets);
+    const std::string before = SceneSerializer(scene).SerializeToString();
+    CHECK(PrefabUtility::LinkLegacyInstances(*scene, db) == 1);
+    size_t linked = 0;
+    for (Entity e : PrefabUtility::GetMembers(menu))
+        linked += PrefabUtility::IsLinked(e) ? 1 : 0;
+    CHECK(linked == 44);
+    const auto overrides = PrefabUtility::GetOverrides(menu);
+    CHECK(overrides.empty());
+    for (const auto& o : overrides)
+        std::printf("    override: %s %s\n", o.EntityName.c_str(), o.Path.c_str());
+    // Already up to date: the sync changes nothing (no entity data was touched by the link).
+    PrefabUtility::SyncResult sync = PrefabUtility::SyncScene(*scene, db);
+    CHECK(sync.Instances == 1 && sync.Changed == 0 && sync.Issues.empty());
+    const std::string after = SceneSerializer(scene).SerializeToString();
+    auto strip = [](const std::string& text) {
+        // Only the "Editor" link keys may differ.
+        auto a = CreateRef<Scene>();
+        SceneSerializer(a).DeserializeFromString(text);
+        for (auto e : a->GetAllEntitiesWith<PrefabLinkComponent>())
+            a->GetRegistry().remove<PrefabLinkComponent>(e);
+        return SceneSerializer(a).SerializeToString();
+    };
+    CHECK(strip(after) == before);
+    // Saved and loaded again: the same text, still linked, still no overrides.
+    auto again = CreateRef<Scene>();
+    CHECK(SceneSerializer(again).DeserializeFromString(after));
+    CHECK(SceneSerializer(again).SerializeToString() == after);
+    Entity menu2 = again->FindEntityByName("Bosh menyu");
+    CHECK(menu2 && !PrefabUtility::IsLegacyInstance(menu2) && !PrefabUtility::RecordOverrides(menu2, db));
+    CHECK(PrefabUtility::SyncScene(*again, db).Changed == 0);
+    // The sample files are never written.
+    CHECK(FileSystem::ReadTextFile(sceneFile) == sceneBytes && FileSystem::ReadTextFile(prefabFile) == prefabBytes);
+}
+
+TEST(PrefabOverrideDetection)
+{
+    TempDirectory temp("zamin-prefab");
+    PrefabFixture prefab(temp.GetPath());
+    PrefabDatabase db(temp.GetPath());
+    auto scene = CreateRef<Scene>();
+    Entity a = PrefabUtility::InstantiateLinked(*scene, db, prefab.Rel());
+    Entity weapon = ChildNamed(*scene, a, "Weapon"), shield = ChildNamed(*scene, a, "Shield");
+    CHECK(a && weapon && shield);
+    if (!a || !weapon || !shield)
+        return;
+
+    // A value, and back.
+    weapon.GetComponent<SpriteRendererComponent>().Color = { 0.0f, 1.0f, 0.0f, 1.0f };
+    CHECK(PrefabUtility::RecordOverrides(a, db) && OverridesOf(weapon) == std::vector<std::string>{ "SpriteRenderer/Color" });
+    weapon.GetComponent<SpriteRendererComponent>().Color = { 0.2f, 0.2f, 0.2f, 1.0f };
+    CHECK(PrefabUtility::RecordOverrides(a, db) && OverridesOf(weapon).empty());
+    // A component added / removed.
+    weapon.AddComponent<Rigidbody2DComponent>();
+    PrefabUtility::RecordOverrides(a, db);
+    CHECK(OverridesOf(weapon) == std::vector<std::string>{ "Rigidbody2D" });
+    weapon.RemoveComponent<Rigidbody2DComponent>();
+    a.RemoveComponent<SpriteRendererComponent>();
+    PrefabUtility::RecordOverrides(a, db);
+    CHECK(OverridesOf(weapon).empty() && a.GetComponent<PrefabLinkComponent>().RemovedComponents == std::vector<std::string>{ "SpriteRenderer" });
+    // The root's place and name belong to the instance.
+    a.GetComponent<TransformComponent>().Translation = { 4.0f, 5.0f, 0.0f };
+    a.GetComponent<TransformComponent>().Rotation = { 0.0f, 0.0f, 1.0f };
+    a.SetName("Enemy (2)");
+    a.GetComponent<TransformComponent>().Scale = { 2.0f, 2.0f, 2.0f };
+    PrefabUtility::RecordOverrides(a, db);
+    CHECK(OverridesOf(a) == std::vector<std::string>{ "Transform/Scale" });
+    // A child's name is not.
+    weapon.SetName("Sword");
+    PrefabUtility::RecordOverrides(a, db);
+    CHECK(OverridesOf(weapon) == std::vector<std::string>{ "Tag" });
+    // Children: deleted (the root lists it), added (no link), moved, reordered.
+    const uint64_t shieldID = PrefabUtility::GetPrefabEntity(shield);
+    scene->DestroyEntity(shield);
+    Entity extra = scene->CreateEntity("Extra");
+    scene->SetParent(extra, a, false);
+    PrefabUtility::RecordOverrides(a, db);
+    CHECK(a.GetComponent<PrefabLinkComponent>().RemovedEntities == std::vector<uint64_t>{ shieldID });
+    CHECK(PrefabUtility::IsAdded(extra) && !PrefabUtility::IsLinked(extra));
+    size_t addedListed = 0, removedListed = 0;
+    for (const auto& o : PrefabUtility::GetOverrides(a))
+    {
+        addedListed += o.Type == PrefabOverrideInfo::Kind::AddedEntity && o.Entity == extra.GetUUID() ? 1 : 0;
+        removedListed += o.Type == PrefabOverrideInfo::Kind::RemovedEntity && o.LocalID == shieldID ? 1 : 0;
+    }
+    CHECK(addedListed == 1 && removedListed == 1);
+    scene->SetParent(weapon, extra, false);
+    PrefabUtility::RecordOverrides(a, db);
+    CHECK(OverridesOf(weapon) == (std::vector<std::string>{ "Parent", "Tag" }));
+    scene->SetParent(weapon, a, false);
+    PrefabUtility::RecordOverrides(a, db);
+    CHECK(OverridesOf(weapon) == std::vector<std::string>{ "Tag" });
+
+    // The order of the prefab's children (an added one in between does not count).
+    auto second = CreateRef<Scene>();
+    Entity b = PrefabUtility::InstantiateLinked(*second, db, prefab.Rel());
+    Entity bw = ChildNamed(*second, b, "Weapon");
+    second->SetSiblingIndex(bw, 1);
+    PrefabUtility::RecordOverrides(b, db);
+    CHECK(OverridesOf(b) == std::vector<std::string>{ "ChildOrder" });
+    second->SetSiblingIndex(bw, 0);
+    Entity between = second->CreateEntity("Between");
+    second->SetParent(between, b, false);
+    second->SetSiblingIndex(between, 1);
+    PrefabUtility::RecordOverrides(b, db);
+    CHECK(OverridesOf(b).empty());
+
+    // Saved and loaded: the same lists, no new ones (no float or UUID noise).
+    auto copy = CreateRef<Scene>();
+    CHECK(SceneSerializer(copy).DeserializeFromString(SceneSerializer(scene).SerializeToString()));
+    Entity a2 = copy->GetEntityByUUID(a.GetUUID());
+    CHECK(a2 && !PrefabUtility::RecordOverrides(a2, db));
+    CHECK(a2 && OverridesOf(a2) == std::vector<std::string>{ "Transform/Scale" });
+}
+
+TEST(PrefabApplyPropagate)
+{
+    TempDirectory temp("zamin-prefab");
+    PrefabFixture prefab(temp.GetPath());
+    PrefabDatabase db(temp.GetPath());
+    auto scene = CreateRef<Scene>();
+    Entity a = PrefabUtility::InstantiateLinked(*scene, db, prefab.Rel());
+    Entity b = PrefabUtility::InstantiateLinked(*scene, db, prefab.Rel());
+    Entity aw = ChildNamed(*scene, a, "Weapon"), bw = ChildNamed(*scene, b, "Weapon");
+    CHECK(a && b && aw && bw);
+    if (!a || !b || !aw || !bw)
+        return;
+    // B keeps a change of its own.
+    bw.GetComponent<TransformComponent>().Scale = { 3.0f, 3.0f, 3.0f };
+    PrefabUtility::RecordOverrides(b, db);
+    CHECK(OverridesOf(bw) == std::vector<std::string>{ "Transform/Scale" });
+
+    // One value of A goes into the file: only that value changes there.
+    const std::string fileBefore = FileSystem::ReadTextFile(prefab.File);
+    aw.GetComponent<SpriteRendererComponent>().Color = { 0.0f, 0.0f, 1.0f, 1.0f };
+    aw.GetComponent<TransformComponent>().Scale = { 5.0f, 5.0f, 5.0f };
+    PrefabUtility::RecordOverrides(a, db);
+    PrefabApplyResult r = PrefabUtility::Apply(aw, PrefabScope::Field, "SpriteRenderer/Color", db);
+    CHECK(r.Applied && r.Error.empty() && r.Target == prefab.Rel() && r.Files.size() == 1);
+    CHECK(r.Files.size() == 1 && r.Files[0].Before && *r.Files[0].Before == fileBefore && r.Files[0].After == FileSystem::ReadTextFile(prefab.File));
+    const PrefabDatabase::Template* t = db.Get(prefab.Rel());
+    Entity tw = t ? t->Entities->GetEntityByUUID(prefab.Weapon.GetUUID()) : Entity();
+    CHECK(tw && tw.GetComponent<SpriteRendererComponent>().Color == glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
+    CHECK(tw && tw.GetComponent<TransformComponent>().Scale == glm::vec3(1.0f)); // not applied
+    CHECK(OverridesOf(aw) == std::vector<std::string>{ "Transform/Scale" });
+    // B followed, with its own scale.
+    CHECK(bw.GetComponent<SpriteRendererComponent>().Color == glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
+    CHECK(bw.GetComponent<TransformComponent>().Scale == glm::vec3(3.0f) && OverridesOf(bw) == std::vector<std::string>{ "Transform/Scale" });
+    CHECK(r.InstancesSynced >= 1);
+
+    // Everything of A, with a child added there: B gets the child too (a UUID of its own).
+    Entity extra = scene->CreateEntity("Extra");
+    extra.AddComponent<CircleRendererComponent>();
+    scene->SetParent(extra, a, false);
+    a.GetComponent<TransformComponent>().Translation = { 9.0f, 0.0f, 0.0f }; // the instance's place: not applied
+    PrefabUtility::RecordOverrides(a, db);
+    r = PrefabUtility::Apply(a, PrefabScope::Instance, {}, db);
+    CHECK(r.Applied && r.Skipped.empty());
+    CHECK(PrefabUtility::GetOverrides(a).empty() && PrefabUtility::IsLinked(extra));
+    const uint64_t extraID = PrefabUtility::GetPrefabEntity(extra);
+    CHECK(extraID == (uint64_t)extra.GetUUID()); // its UUID was free in the prefab
+    t = db.Get(prefab.Rel());
+    CHECK(t && t->Order.size() == 4 && t->Entities->GetEntityByUUID(prefab.Enemy.GetUUID()).GetComponent<TransformComponent>().Translation == glm::vec3(0.0f));
+    Entity bExtra = ChildNamed(*scene, b, "Extra");
+    CHECK(bExtra && bExtra.HasComponent<CircleRendererComponent>() && (uint64_t)bExtra.GetUUID() == PrefabOverrides::MixUUID((uint64_t)b.GetUUID(), extraID));
+    CHECK(bw.GetComponent<TransformComponent>().Scale == glm::vec3(3.0f)); // still B's
+    CHECK(aw.GetComponent<TransformComponent>().Scale == glm::vec3(5.0f) && bw.GetComponent<SpriteRendererComponent>().Color.b == 1.0f);
+
+    // A reference to an entity outside the instance is not written: it stays A's override.
+    Entity outside = scene->CreateEntity("Outside");
+    a.GetComponent<Camera2DFollowComponent>().Target.ID = outside.GetUUID();
+    PrefabUtility::RecordOverrides(a, db);
+    CHECK(OverridesOf(a) == std::vector<std::string>{ "Camera2DFollow/Target" });
+    r = PrefabUtility::Apply(a, PrefabScope::Field, "Camera2DFollow/Target", db);
+    CHECK(!r.Applied && !r.Error.empty());
+    r = PrefabUtility::Apply(a, PrefabScope::Instance, {}, db);
+    CHECK(r.Applied && r.Skipped.size() == 1);
+    CHECK(OverridesOf(a) == std::vector<std::string>{ "Camera2DFollow/Target" } && a.GetComponent<Camera2DFollowComponent>().Target.ID == (uint64_t)outside.GetUUID());
+    CHECK(b.GetComponent<Camera2DFollowComponent>().Target.ID == (uint64_t)bw.GetUUID());
+
+    // The IDs stay what they are, whatever is applied again.
+    std::vector<uint64_t> ids = db.Get(prefab.Rel())->Order;
+    aw.GetComponent<SpriteRendererComponent>().Color = { 1.0f, 1.0f, 0.0f, 1.0f };
+    PrefabUtility::RecordOverrides(a, db);
+    CHECK(PrefabUtility::Apply(aw, PrefabScope::Entity, {}, db).Applied);
+    CHECK(db.Get(prefab.Rel())->Order == ids && bw.GetComponent<SpriteRendererComponent>().Color == glm::vec4(1.0f, 1.0f, 0.0f, 1.0f));
+    // A component removed in A goes from the file (Component scope).
+    aw.RemoveComponent<SpriteRendererComponent>();
+    PrefabUtility::RecordOverrides(a, db);
+    CHECK(PrefabUtility::Apply(aw, PrefabScope::Component, "SpriteRenderer", db).Applied);
+    CHECK(!bw.HasComponent<SpriteRendererComponent>() && !PrefabUtility::HasOverrides(aw) == (OverridesOf(aw).size() == 0));
+    // Nothing is written while the scene plays.
+    scene->OnRuntimeStart();
+    CHECK(!PrefabUtility::Apply(a, PrefabScope::Instance, {}, db).Applied);
+    scene->OnRuntimeStop();
+}
+
+TEST(PrefabRevertLevels)
+{
+    TempDirectory temp("zamin-prefab");
+    PrefabFixture prefab(temp.GetPath());
+    PrefabDatabase db(temp.GetPath());
+    auto scene = CreateRef<Scene>();
+    Entity a = PrefabUtility::InstantiateLinked(*scene, db, prefab.Rel());
+    Entity weapon = ChildNamed(*scene, a, "Weapon"), shield = ChildNamed(*scene, a, "Shield");
+    CHECK(a && weapon && shield);
+    if (!a || !weapon || !shield)
+        return;
+    const UUID weaponID = weapon.GetUUID();
+    weapon.GetComponent<SpriteRendererComponent>().Color = { 0.0f, 1.0f, 0.0f, 1.0f };
+    weapon.GetComponent<TransformComponent>().Scale = { 2.0f, 2.0f, 2.0f };
+    PrefabUtility::RecordOverrides(a, db);
+    // A value.
+    CHECK(PrefabUtility::Revert(weapon, PrefabScope::Field, "SpriteRenderer/Color", db));
+    CHECK(weapon.GetComponent<SpriteRendererComponent>().Color == glm::vec4(0.2f, 0.2f, 0.2f, 1.0f) &&
+          weapon.GetComponent<TransformComponent>().Scale == glm::vec3(2.0f));
+    CHECK(OverridesOf(weapon) == std::vector<std::string>{ "Transform/Scale" });
+    // A component.
+    CHECK(PrefabUtility::Revert(weapon, PrefabScope::Component, "Transform", db));
+    CHECK(weapon.GetComponent<TransformComponent>().Scale == glm::vec3(1.0f) && OverridesOf(weapon).empty());
+    CHECK(weapon.GetComponent<TransformComponent>().Translation == glm::vec3(0.5f, 0.0f, 0.0f));
+    // An entity: an added component goes.
+    weapon.AddComponent<Rigidbody2DComponent>();
+    weapon.RemoveComponent<SpriteRendererComponent>();
+    PrefabUtility::RecordOverrides(a, db);
+    CHECK(PrefabUtility::Revert(weapon, PrefabScope::Entity, {}, db));
+    CHECK(!weapon.HasComponent<Rigidbody2DComponent>() && weapon.HasComponent<SpriteRendererComponent>() && weapon.GetUUID() == weaponID);
+    // Structure only: the deleted ones come back, nothing else changes.
+    const uint64_t shieldLocal = PrefabUtility::GetPrefabEntity(shield);
+    scene->DestroyEntity(shield);
+    weapon.GetComponent<SpriteRendererComponent>().Color = { 0.0f, 0.0f, 1.0f, 1.0f };
+    PrefabUtility::RecordOverrides(a, db);
+    CHECK(PrefabUtility::RestoreRemoved(a, db) == 1);
+    Entity back = ChildNamed(*scene, a, "Shield");
+    CHECK(back && (uint64_t)back.GetUUID() == PrefabOverrides::MixUUID((uint64_t)a.GetUUID(), shieldLocal));
+    CHECK(weapon.GetComponent<SpriteRendererComponent>().Color == glm::vec4(0.0f, 0.0f, 1.0f, 1.0f) && OverridesOf(weapon).size() == 1);
+    // The whole instance: added entities go, deleted ones come back, the place stays.
+    Entity extra = scene->CreateEntity("Extra");
+    scene->SetParent(extra, a, false);
+    scene->DestroyEntity(back);
+    a.GetComponent<TransformComponent>().Translation = { 7.0f, 0.0f, 0.0f };
+    PrefabUtility::RecordOverrides(a, db);
+    const UUID extraID = extra.GetUUID();
+    CHECK(PrefabUtility::Revert(a, PrefabScope::Instance, {}, db));
+    CHECK(!scene->GetEntityByUUID(extraID) && ChildNamed(*scene, a, "Shield") && PrefabUtility::GetOverrides(a).empty());
+    CHECK(weapon.GetComponent<SpriteRendererComponent>().Color == glm::vec4(0.2f, 0.2f, 0.2f, 1.0f) && weapon.GetUUID() == weaponID);
+    CHECK(a.GetComponent<TransformComponent>().Translation == glm::vec3(7.0f, 0.0f, 0.0f));
+    // An added entity reverted on its own is deleted.
+    Entity gem = scene->CreateEntity("Gem");
+    scene->SetParent(gem, weapon, false);
+    const UUID gemID = gem.GetUUID();
+    CHECK(PrefabUtility::Revert(gem, PrefabScope::Entity, {}, db) && !scene->GetEntityByUUID(gemID));
+    // Unpack: plain entities.
+    CHECK(PrefabUtility::Unpack(a) == 3 && !PrefabUtility::IsInstanceRoot(a) && !weapon.HasComponent<PrefabLinkComponent>());
+}
+
+TEST(PrefabSyncStructural)
+{
+    TempDirectory temp("zamin-prefab");
+    PrefabFixture prefab(temp.GetPath());
+    PrefabDatabase db(temp.GetPath());
+    db.SetRecheckInterval(0.0);
+    auto scene = CreateRef<Scene>();
+    Entity a = PrefabUtility::InstantiateLinked(*scene, db, prefab.Rel());
+    Entity c = PrefabUtility::InstantiateLinked(*scene, db, prefab.Rel());
+    CHECK(a && c);
+    if (!a || !c)
+        return;
+    // A deletes Shield and adds Gem below Weapon.
+    scene->DestroyEntity(ChildNamed(*scene, a, "Shield"));
+    Entity gem = scene->CreateEntity("Gem");
+    scene->SetParent(gem, ChildNamed(*scene, a, "Weapon"), false);
+    PrefabUtility::RecordOverrides(a, db);
+    // Nothing changed in the file: nothing to do, nothing written.
+    CHECK(PrefabUtility::SyncScene(*scene, db).Changed == 0);
+
+    // The prefab drops Weapon and gets Helmet (with a sprite).
+    prefab.Source->DestroyEntity(prefab.Weapon);
+    Entity helmet = prefab.Source->CreateEntity("Helmet");
+    helmet.AddComponent<SpriteRendererComponent>().Color = { 0.9f, 0.9f, 0.1f, 1.0f };
+    prefab.Source->SetParent(helmet, prefab.Enemy, false);
+    prefab.Enemy.GetComponent<Camera2DFollowComponent>().Target.ID = helmet.GetUUID();
+    CHECK(prefab.Save());
+    const std::string fileText = FileSystem::ReadTextFile(prefab.File);
+    PrefabUtility::SyncResult sync = PrefabUtility::SyncScene(*scene, db);
+    CHECK(sync.Instances == 2 && sync.Changed == 2);
+    // A: Weapon gone (Gem moved up to the root, kept), Helmet made, Shield still deleted.
+    CHECK(!ChildNamed(*scene, a, "Weapon") && !ChildNamed(*scene, a, "Shield") && ChildNamed(*scene, a, "Gem") == gem);
+    Entity ah = ChildNamed(*scene, a, "Helmet"), ch = ChildNamed(*scene, c, "Helmet");
+    CHECK(ah && ch && (uint64_t)ah.GetUUID() == PrefabOverrides::MixUUID((uint64_t)a.GetUUID(), (uint64_t)helmet.GetUUID()));
+    CHECK(ch && (uint64_t)ch.GetUUID() == PrefabOverrides::MixUUID((uint64_t)c.GetUUID(), (uint64_t)helmet.GetUUID()));
+    CHECK(ah && ah.GetComponent<SpriteRendererComponent>().Color == glm::vec4(0.9f, 0.9f, 0.1f, 1.0f));
+    CHECK(ah && a.GetComponent<Camera2DFollowComponent>().Target.ID == (uint64_t)ah.GetUUID()); // the reference follows into the instance
+    CHECK(ChildNamed(*scene, c, "Shield") && !ChildNamed(*scene, c, "Weapon"));
+    CHECK(PrefabUtility::IsAdded(gem) && a.GetComponent<PrefabLinkComponent>().RemovedEntities.size() == 1);
+    // Up to date: the hash says so, nothing changes, nothing is written.
+    CHECK(PrefabUtility::SyncScene(*scene, db).Changed == 0 && FileSystem::ReadTextFile(prefab.File) == fileText);
+    CHECK(PrefabUtility::GetOverrides(c).empty());
+}
+
+TEST(PrefabNested)
+{
+    namespace fs = std::filesystem;
+    TempDirectory temp("zamin-prefab");
+    PrefabDatabase db(temp.GetPath());
+    // Q: Weapon with Muzzle.
+    auto qs = CreateRef<Scene>();
+    Entity qWeapon = qs->CreateEntity("Weapon");
+    qWeapon.AddComponent<SpriteRendererComponent>().Color = { 0.5f, 0.5f, 0.5f, 1.0f };
+    Entity qMuzzle = qs->CreateEntity("Muzzle");
+    qMuzzle.AddComponent<CircleRendererComponent>().Color = { 1.0f, 1.0f, 1.0f, 1.0f };
+    qs->SetParent(qMuzzle, qWeapon, false);
+    const fs::path qFile = temp.GetPath() / "Prefabs" / "Weapon.zprefab";
+    CHECK(qs->SavePrefab(qWeapon, qFile));
+    // P: Enemy with an instance of Q below it (its Weapon scaled in P).
+    auto ps = CreateRef<Scene>();
+    Entity pEnemy = ps->CreateEntity("Enemy");
+    Entity nested = PrefabUtility::InstantiateLinked(*ps, db, "Prefabs/Weapon.zprefab", pEnemy);
+    CHECK(nested);
+    if (!nested)
+        return;
+    nested.GetComponent<TransformComponent>().Scale = { 2.0f, 2.0f, 2.0f };
+    PrefabUtility::RecordOverrides(nested, db);
+    const fs::path pFile = temp.GetPath() / "Prefabs" / "Enemy.zprefab";
+    CHECK(ps->SavePrefab(pEnemy, pFile));
+    const std::string pText = FileSystem::ReadTextFile(pFile);
+    CHECK(pText.find("\"Prefab\": \"Prefabs/Weapon.zprefab\"") != std::string::npos && pText.find("Transform/Scale") != std::string::npos);
+    const PrefabDatabase::Template* pt = db.Get("Prefabs/Enemy.zprefab");
+    CHECK(pt && pt->Linkable && pt->Deps == std::vector<std::string>{ "Prefabs/Weapon.zprefab" } && pt->NestedOwner.size() == 2);
+    CHECK(db.GetDependents("Prefabs/Weapon.zprefab") == std::vector<std::string>{ "Prefabs/Enemy.zprefab" });
+    CHECK(db.DependsOn("Prefabs/Enemy.zprefab", "Prefabs/Weapon.zprefab") && !db.DependsOn("Prefabs/Weapon.zprefab", "Prefabs/Enemy.zprefab"));
+
+    // In a scene: one instance of P, Q's entities belong to it (no nested marker).
+    auto scene = CreateRef<Scene>();
+    Entity enemy = PrefabUtility::InstantiateLinked(*scene, db, "Prefabs/Enemy.zprefab");
+    Entity weapon = enemy ? ChildNamed(*scene, enemy, "Weapon") : Entity();
+    Entity muzzle = weapon ? ChildNamed(*scene, weapon, "Muzzle") : Entity();
+    CHECK(enemy && weapon && muzzle && !PrefabUtility::IsInstanceRoot(weapon) && PrefabUtility::GetInstanceRoot(muzzle) == enemy);
+    if (!muzzle)
+        return;
+    CHECK(PrefabUtility::GetApplyTargets(muzzle, db) == (std::vector<std::string>{ "Prefabs/Enemy.zprefab", "Prefabs/Weapon.zprefab" }));
+    CHECK(PrefabUtility::GetApplyTargets(enemy, db) == std::vector<std::string>{ "Prefabs/Enemy.zprefab" });
+    CHECK(weapon.GetComponent<TransformComponent>().Scale == glm::vec3(2.0f));
+
+    // Q changes outside: P's file is stale on disk, its template is up to date in memory.
+    qMuzzle.GetComponent<CircleRendererComponent>().Color = { 1.0f, 0.0f, 0.0f, 1.0f };
+    qWeapon.GetComponent<TransformComponent>().Scale = { 4.0f, 4.0f, 4.0f };
+    CHECK(qs->SavePrefab(qWeapon, qFile));
+    db.Invalidate("Prefabs/Weapon.zprefab");
+    pt = db.Get("Prefabs/Enemy.zprefab");
+    Entity ptMuzzle;
+    for (uint64_t id : pt->Order)
+        if (pt->Entities->GetEntityByUUID(UUID(id)).GetName() == "Muzzle")
+            ptMuzzle = pt->Entities->GetEntityByUUID(UUID(id));
+    CHECK(ptMuzzle && ptMuzzle.GetComponent<CircleRendererComponent>().Color == glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+    CHECK(FileSystem::ReadTextFile(pFile) == pText);
+    // The scene follows; P's own scale of the weapon stays.
+    PrefabUtility::SyncScene(*scene, db);
+    CHECK(muzzle.GetComponent<CircleRendererComponent>().Color == glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+    CHECK(weapon.GetComponent<TransformComponent>().Scale == glm::vec3(2.0f));
+    // P's file brought up to date (only what changed).
+    std::vector<FileEdit> edits;
+    CHECK(PrefabUtility::SyncPrefabFile(db, "Prefabs/Enemy.zprefab", &edits) && edits.size() == 1);
+    CHECK(FileSystem::ReadTextFile(pFile) != pText && PrefabUtility::SyncPrefabFile(db, "Prefabs/Enemy.zprefab", &edits) && edits.size() == 1);
+
+    // A value applied to Q from the scene: Q's file, then P inherits it, the instance has no override.
+    muzzle.GetComponent<CircleRendererComponent>().Color = { 0.0f, 1.0f, 0.0f, 1.0f };
+    PrefabUtility::RecordOverrides(enemy, db);
+    CHECK(OverridesOf(muzzle) == std::vector<std::string>{ "CircleRenderer/Color" });
+    PrefabApplyResult r = PrefabUtility::Apply(muzzle, PrefabScope::Field, "CircleRenderer/Color", db, "Prefabs/Weapon.zprefab");
+    CHECK(r.Applied && r.Target == "Prefabs/Weapon.zprefab" && std::find(r.Written.begin(), r.Written.end(), "Prefabs/Enemy.zprefab") != r.Written.end());
+    CHECK(OverridesOf(muzzle).empty() && muzzle.GetComponent<CircleRendererComponent>().Color == glm::vec4(0.0f, 1.0f, 0.0f, 1.0f));
+    auto check = CreateRef<Scene>();
+    PrefabDatabase fresh(temp.GetPath());
+    Entity q2 = PrefabUtility::InstantiateLinked(*check, fresh, "Prefabs/Weapon.zprefab");
+    Entity q2m = q2 ? ChildNamed(*check, q2, "Muzzle") : Entity();
+    CHECK(q2m && q2m.GetComponent<CircleRendererComponent>().Color == glm::vec4(0.0f, 1.0f, 0.0f, 1.0f));
+    // P's override of the weapon's scale applied to Q: P's file inherits it again (its override goes).
+    PrefabUtility::RecordOverrides(enemy, db);
+    weapon.GetComponent<TransformComponent>().Scale = { 6.0f, 6.0f, 6.0f };
+    PrefabUtility::RecordOverrides(enemy, db);
+    r = PrefabUtility::Apply(weapon, PrefabScope::Field, "Transform/Scale", db, "Prefabs/Weapon.zprefab");
+    CHECK(r.Applied);
+    CHECK(FileSystem::ReadTextFile(pFile).find("Transform/Scale") == std::string::npos);
+    CHECK(weapon.GetComponent<TransformComponent>().Scale == glm::vec3(6.0f) && OverridesOf(weapon).empty());
+
+    // A cycle: Q cannot get an instance of P (which is made of Q).
+    auto qScene = CreateRef<Scene>();
+    Entity qi = PrefabUtility::InstantiateLinked(*qScene, db, "Prefabs/Weapon.zprefab");
+    Entity pi = PrefabUtility::InstantiateLinked(*qScene, db, "Prefabs/Enemy.zprefab", qi);
+    CHECK(qi && pi);
+    PrefabUtility::RecordOverrides(qi, db);
+    r = PrefabUtility::Apply(qi, PrefabScope::Instance, {}, db);
+    CHECK(!r.Applied && r.Error.find("sikli") != std::string::npos);
+    // A prefab that names itself inside: reported, not followed.
+    FileSystem::WriteTextFile(temp.GetPath() / "Prefabs" / "Loop.zprefab",
+                              R"({"ZaminEntities":1,"Entities":[{"Entity":1,"Tag":"A"},{"Entity":2,"Parent":1,"Tag":"B","Editor":{"Prefab":"Prefabs/Loop.zprefab","PrefabEntity":1}}]})");
+    const PrefabDatabase::Template* loop = db.Get("Prefabs/Loop.zprefab");
+    bool cycle = false;
+    for (const std::string& issue : loop ? loop->Issues : std::vector<std::string>())
+        cycle |= issue.find("sikli") != std::string::npos;
+    CHECK(loop && loop->Readable && cycle);
+}
+
+TEST(PrefabUndoFileEdits)
+{
+    namespace fs = std::filesystem;
+    UndoHistory history;
+    history.Reset("s0", {}, "Boshlang'ich");
+    CHECK(history.CommitEdit("s1", {}, "Qo'llash", 0.0, { FileEdit{ "Prefabs/A.zprefab", std::string("eski"), "yangi" } }));
+    // The same scene text with files: still a step.
+    CHECK(history.CommitEdit("s1", {}, "Qo'llash 2", 0.0, { FileEdit{ "Prefabs/B.zprefab", std::nullopt, "b" } }));
+    UndoHistory::Move move = history.Undo();
+    CHECK(move.Target && move.Files.size() == 1 && move.Files[0].Undo && move.Files[0].Edit->Path == "Prefabs/B.zprefab" && !move.Files[0].Edit->Before);
+    move = history.JumpTo(0);
+    CHECK(move.Files.size() == 1 && move.Files[0].Undo && move.Files[0].Edit->Before == std::optional<std::string>("eski"));
+    move = history.JumpTo(2);
+    CHECK(move.Files.size() == 2 && !move.Files[0].Undo && move.Files[0].Edit->After == "yangi" && move.Files[1].Edit->After == "b");
+    CHECK(history.GetEntries()[1].Files.size() == 1);
+    // The scene followed its prefabs: the current state changes without a step.
+    history.MarkSaved();
+    CHECK(history.IsAtSavedState());
+    history.ReplaceCurrentScene("s1-yangilangan");
+    CHECK(*history.GetCurrent().Scene == "s1-yangilangan" && !history.IsAtSavedState() && history.GetEntries().size() == 3);
+    history.RewriteScenes([](std::string& text) {
+        if (text == "yangi")
+            text = "yangi2";
+    });
+    CHECK(history.GetEntries()[1].Files[0].After == "yangi2");
+
+    // The database's writes: atomic, remembered (an outside change is not its own), undoable.
+    TempDirectory temp("zamin-prefab");
+    PrefabFixture prefab(temp.GetPath());
+    PrefabDatabase db(temp.GetPath());
+    const std::string before = FileSystem::ReadTextFile(prefab.File);
+    std::vector<FileEdit> edits;
+    const std::string text = R"({"ZaminEntities":1,"Entities":[{"Entity":1,"Tag":"Yangi"}]})";
+    CHECK(db.Write(prefab.Rel(), text, &edits) && edits.size() == 1 && edits[0].Before == std::optional<std::string>(before) && edits[0].After == text);
+    CHECK(db.Write(prefab.Rel(), text, &edits) && edits.size() == 1); // the same text: nothing to undo
+    CHECK(db.IsOwnWrite(prefab.File, PrefabDatabase::HashText(text)));
+    CHECK(db.Get(prefab.Rel())->Order == std::vector<uint64_t>{ 1 });
+    FileSystem::WriteTextFile(prefab.File, before);
+    CHECK(!db.IsOwnWrite(prefab.File, PrefabDatabase::HashText(before)));
+    std::error_code ec;
+    size_t leftovers = 0;
+    for (const auto& entry : fs::directory_iterator(prefab.File.parent_path(), ec))
+        leftovers += entry.path().filename().string().find(".tmp-") != std::string::npos ? 1 : 0;
+    CHECK(leftovers == 0);
+}

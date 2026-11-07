@@ -32,12 +32,31 @@ namespace Zamin {
 
     bool UndoHistory::CommitEdit(std::string scene, UndoSelection selection, std::string name, double time)
     {
+        return CommitEdit(std::move(scene), std::move(selection), std::move(name), time, {});
+    }
+
+    void UndoHistory::ReplaceCurrentScene(std::string scene)
+    {
+        if (m_Entries.empty())
+            return;
+        const std::shared_ptr<const std::string> old = m_Entries[m_Current].Scene;
+        if (old && *old == scene)
+            return;
+        auto updated = std::make_shared<const std::string>(std::move(scene));
+        // Selection steps share the scene text of the state they follow.
+        for (Entry& e : m_Entries)
+            if (e.Scene == old)
+                e.Scene = updated;
+    }
+
+    bool UndoHistory::CommitEdit(std::string scene, UndoSelection selection, std::string name, double time, std::vector<FileEdit> files)
+    {
         if (m_Entries.empty())
         {
             Reset(std::move(scene), std::move(selection), std::move(name), time, false);
             return true;
         }
-        if (GetCurrent().Scene && *GetCurrent().Scene == scene)
+        if (files.empty() && GetCurrent().Scene && *GetCurrent().Scene == scene)
             return false;
         m_Entries.resize(m_Current + 1);
         Entry entry;
@@ -46,6 +65,7 @@ namespace Zamin {
         entry.Time = time;
         entry.Scene = std::make_shared<const std::string>(std::move(scene));
         entry.Selection = std::move(selection);
+        entry.Files = std::move(files);
         m_Entries.push_back(std::move(entry));
         m_Current = m_Entries.size() - 1;
         Trim();
@@ -103,9 +123,23 @@ namespace Zamin {
         if (index >= m_Entries.size() || index == m_Current)
             return {};
         const Entry& from = m_Entries[m_Current];
+        Move move;
+        // The files of the steps passed over: back from the current one down to the one after
+        // `index`, or forward from the one after the current one up to `index`.
+        if (index < m_Current)
+        {
+            for (size_t i = m_Current; i > index; i--)
+                for (auto it = m_Entries[i].Files.rbegin(); it != m_Entries[i].Files.rend(); ++it)
+                    move.Files.push_back({ &*it, true });
+        }
+        else
+        {
+            for (size_t i = m_Current + 1; i <= index; i++)
+                for (const FileEdit& edit : m_Entries[i].Files)
+                    move.Files.push_back({ &edit, false });
+        }
         m_Current = index;
         const Entry& to = m_Entries[m_Current];
-        Move move;
         move.Target = &to;
         move.SceneChanged = from.Scene != to.Scene && (!from.Scene || !to.Scene || *from.Scene != *to.Scene);
         return move;
@@ -211,7 +245,15 @@ namespace Zamin {
             return updated;
         };
         for (Entry& e : m_Entries)
+        {
             e.Scene = get(e.Scene);
+            for (FileEdit& file : e.Files)
+            {
+                if (file.Before)
+                    rewrite(*file.Before);
+                rewrite(file.After);
+            }
+        }
         m_Saved = get(m_Saved);
     }
 

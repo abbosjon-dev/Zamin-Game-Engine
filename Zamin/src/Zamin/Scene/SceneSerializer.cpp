@@ -3213,6 +3213,7 @@ namespace Zamin {
             const bool prefabData = !s_SkipPrefabData;
             if (auto prefab = it->find("Prefab"); prefabData && prefab != it->end() && prefab->is_string())
                 m.Prefab = ReadLinkedAssetPath(*it, "Prefab");
+            const bool marker = !m.Prefab.empty();
             if (!m.IsDefault())
                 entity.AddOrReplaceComponent<EditorMetadataComponent>(std::move(m));
             if (prefabData && s_ReadPrefabLinks)
@@ -3233,7 +3234,7 @@ namespace Zamin {
                     link.PrefabEntity = (uint64_t)id->get<int64_t>();
                 strings("Overrides", link.Overrides);
                 strings("RemovedComponents", link.RemovedComponents);
-                if (!m.Prefab.empty())
+                if (marker)
                 {
                     if (auto uuid = it->find("PrefabUUID"); uuid != it->end())
                         link.PrefabUUID = UUID(HashFromString(*uuid));

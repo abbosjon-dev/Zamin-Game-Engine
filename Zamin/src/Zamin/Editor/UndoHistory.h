@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -18,6 +19,15 @@ namespace Zamin {
 
         bool IsEmpty() const { return Entities.empty(); }
         bool operator==(const UndoSelection&) const = default;
+    };
+
+    // A file an undo step wrote besides the scene (a prefab Apply writes the .zprefab): its text
+    // before (none: the step made the file) and after. Undo puts `Before` back, Redo `After`.
+    struct FileEdit
+    {
+        std::string Path;                    // relative to the assets ('/')
+        std::optional<std::string> Before;
+        std::string After;
     };
 
     enum class UndoEntryKind : uint8_t
@@ -42,6 +52,14 @@ namespace Zamin {
             double Time = 0.0;                         // when it was made (the editor's clock)
             std::shared_ptr<const std::string> Scene;
             UndoSelection Selection;
+            std::vector<FileEdit> Files;               // files the step wrote (shown with a file icon)
+        };
+        // One file of a step the move goes back over (Undo: write Edit->Before) or forward over
+        // (Redo: write Edit->After), in the order they are to be written.
+        struct FileStep
+        {
+            const FileEdit* Edit = nullptr;
+            bool Undo = false;
         };
         // What a cursor move asks of the editor: the state to show, and whether its scene differs
         // from the one shown before the move (else only the selection is put back).
@@ -49,6 +67,7 @@ namespace Zamin {
         {
             const Entry* Target = nullptr;             // null: nothing moved
             bool SceneChanged = false;
+            std::vector<FileStep> Files;
         };
 
         // At most `maxEdits` scene steps and `maxSelections` selection steps are kept (the oldest
@@ -62,6 +81,11 @@ namespace Zamin {
         // A new state after the current one (the states after the cursor are dropped). False
         // (nothing added) when the scene text is the same as the current state's.
         bool CommitEdit(std::string scene, UndoSelection selection, std::string name, double time = 0.0);
+        // A step that also wrote files (always added when `files` is not empty).
+        bool CommitEdit(std::string scene, UndoSelection selection, std::string name, double time, std::vector<FileEdit> files);
+        // The current state's scene becomes `scene` without a new step (the prefabs it uses changed
+        // on disk and their instances followed): it is no longer the saved one unless it is the same.
+        void ReplaceCurrentScene(std::string scene);
         // A step that only changes the selection; false when it is the current one already.
         bool CommitSelection(UndoSelection selection, std::string name, double time = 0.0);
         // The current state's selection, without a step (selection steps switched off; after play).

@@ -1177,6 +1177,8 @@ namespace Zamin {
         ZaminPlayer(const ApplicationSpecification& spec, std::filesystem::path project, PlayerCommandLine commandLine, PlayerLaunchSettings launch)
             : Application(spec)
         {
+            // The editor's prefab links (PrefabLinkComponent) are not the game's: never read here.
+            SceneSerializer::SetReadPrefabLinks(false);
             PushLayer(new RuntimeLayer(std::move(project), std::move(commandLine), std::move(launch)));
         }
     };

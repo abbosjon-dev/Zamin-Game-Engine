@@ -927,7 +927,7 @@ namespace Zamin {
             ref(ps->Collision.PlaneEntity, "ParticleSystem", "Collision/PlaneEntity");
             ref(ps->CustomSpace, "ParticleSystem", "CustomSpace");
             for (size_t i = 0; i < ps->SubEmitters.Emitters.size(); i++)
-                ref(ps->SubEmitters.Emitters[i].Emitter, "ParticleSystem", std::format("SubEmitters/{}/Emitter", i));
+                ref(ps->SubEmitters.Emitters[i].Emitter, "ParticleSystem", std::format("SubEmitters/Emitters/{}/Emitter", i));
         }
         if (auto* nav = e.TryGetComponent<UINavigationComponent>())
         {

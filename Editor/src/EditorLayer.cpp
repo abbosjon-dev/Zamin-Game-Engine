@@ -5825,6 +5825,26 @@ namespace Zamin {
     }
 
     // ================================================================== export
+    void EditorLayer::ReportExcludedAssets(const ExportAssetPlan& plan, const std::string& gameName, const fs::path& outputDirectory)
+    {
+        const fs::path report = outputDirectory / ExportAssets::ReportFileName;
+        std::error_code ec;
+        if (plan.Excluded.empty())
+        {
+            fs::remove(report, ec);
+            ZM_INFO("Eksport: {} ta asset fayli ({}), hammasi ishlatiladi", plan.Included.size(), ExportAssets::FormatSize(plan.IncludedBytes));
+            return;
+        }
+        ZM_INFO("Eksport: {} ta asset fayli ({}); {} tasi chiqarib tashlandi ({}) - ro'yxat: {}", plan.Included.size(),
+                ExportAssets::FormatSize(plan.IncludedBytes), plan.Excluded.size(), ExportAssets::FormatSize(plan.ExcludedBytes), report.string());
+        const size_t shown = std::min<size_t>(plan.Excluded.size(), 12);
+        for (size_t i = 0; i < shown; i++)
+            ZM_INFO("    - {} ({}, {})", plan.Excluded[i].Path, ExportAssets::FormatSize(plan.Excluded[i].Size), plan.Excluded[i].Reason);
+        if (plan.Excluded.size() > shown)
+            ZM_INFO("    ... va yana {} ta", plan.Excluded.size() - shown);
+        FileSystem::WriteTextFile(report, plan.FormatReport(gameName));
+    }
+
     void EditorLayer::BuildGame(const fs::path& outputDirectory)
     {
         auto project = Project::GetActive();
@@ -5858,40 +5878,24 @@ namespace Zamin {
         fs::path moduleRel = project->GetConfig().ScriptModulePath;
         fs::path assetRel = project->GetConfig().AssetDirectory;
         fs::path exeDir = FileSystem::GetExecutableDirectory();
-        // With a build list only its enabled scenes (and the start scene) go into the game.
-        std::vector<std::string> buildScenes;
-        for (const fs::path& scene : Project::GetBuildScenes())
-            buildScenes.push_back(scene.lexically_normal().generic_string());
-        if (!buildScenes.empty() && !project->GetConfig().StartScene.empty())
-        {
-            const std::string start = project->GetConfig().StartScene.lexically_normal().generic_string();
-            if (std::find(buildScenes.begin(), buildScenes.end(), start) == buildScenes.end())
-            {
-                ZM_WARN("Boshlang'ich sahna build ro'yxatida yo'q - baribir eksportga qo'shiladi: {}", start);
-                buildScenes.push_back(start);
-            }
-        }
-        // The sub-scenes the listed scenes bring (SubSceneComponent) go into the game with them.
-        if (!buildScenes.empty())
-            for (size_t i = 0; i < buildScenes.size(); i++)
-            {
-                SceneFileInfo info;
-                if (!SceneSerializer::ReadSceneInfo(Project::GetAssetFileSystemPath(buildScenes[i]), info))
-                    continue;
-                for (const std::string& sub : info.SubScenes)
-                {
-                    const std::string path = fs::path(sub).lexically_normal().generic_string();
-                    if (std::find(buildScenes.begin(), buildScenes.end(), path) != buildScenes.end())
-                        continue;
-                    ZM_INFO("Eksport: '{}' sub-sahnasi ham kiritiladi ({} ichida)", path, buildScenes[i]);
-                    buildScenes.push_back(path);
-                }
-            }
+        // Which assets go: with a build list only its enabled scenes, the start scene and their sub-scenes;
+        // then what they lead to (prefabs, materials, models, clips ...), what the project file and the C++
+        // code name, the folders always taken - the rest stays out (Project settings > Build scenes > Export).
+        // Planned here, on this thread (the registry).
+        std::vector<std::string> buildScenes, notes;
+        const ExportAssetPlan assetPlan = ExportAssets::PlanForActiveProject(&buildScenes, &notes);
+        for (const std::string& note : notes)
+            ZM_INFO("Eksport: {}", note);
         const bool binaryScenes = m_BuildGameBinaryScenes;
-        // The exported game reads its asset registry from one file (made here, on this thread).
+        // The exported game reads its asset registry from one file (made here, on this thread) - without the
+        // assets left out.
         std::string registryText;
         if (AssetRegistry* registry = Project::GetAssetRegistry())
-            registryText = registry->Serialize();
+        {
+            AssetRegistry::Snapshot snapshot = registry->GetSnapshot();
+            std::erase_if(snapshot, [&](const AssetRegistry::SnapshotEntry& e) { return assetPlan.IsExcluded(e.Path); });
+            registryText = AssetRegistry::SerializeSnapshot(snapshot);
+        }
 
         if (m_ExportThread.joinable()) m_ExportThread.join();
         m_Exporting = true;
@@ -5915,26 +5919,22 @@ namespace Zamin {
                     copy(entry.path(), outputDirectory / entry.path().filename());
             copy(exeDir / "Resources", outputDirectory / "Resources");
             copy(projectFile, outputDirectory / "Game" / projectFile.filename());
-            copy(projectDir / assetRel, outputDirectory / "Game" / assetRel);
-            if (!buildScenes.empty())
             {
-                // Scenes that are not in the build list stay out of the game (with their .zmeta).
+                // The assets of the plan, each with its .zmeta (a folder exported before loses what is left out now).
                 const fs::path assets = outputDirectory / "Game" / assetRel;
-                std::vector<fs::path> dropped;
-                for (auto it = fs::recursive_directory_iterator(assets, ec); !ec && it != fs::recursive_directory_iterator(); it.increment(ec))
-                    if (it->path().extension() == ".zscene")
-                    {
-                        const std::string rel = fs::relative(it->path(), assets, ec).lexically_normal().generic_string();
-                        if (std::find(buildScenes.begin(), buildScenes.end(), rel) == buildScenes.end())
-                            dropped.push_back(it->path());
-                    }
-                for (const fs::path& scene : dropped)
+                std::error_code e;
+                if (!fs::exists(assets, e) || !fs::equivalent(assets, projectDir / assetRel, e))
+                    fs::remove_all(assets, e);
+                for (const std::string& file : assetPlan.Included)
                 {
-                    std::error_code e;
-                    fs::remove(scene, e);
-                    fs::remove(fs::path(scene.string() + ".zmeta"), e);
+                    copy(projectDir / assetRel / file, assets / file);
+                    const fs::path meta = projectDir / assetRel / (file + ".zmeta");
+                    if (fs::exists(meta, e))
+                        copy(meta, assets / (file + ".zmeta"));
                 }
-                ZM_INFO("Eksport: build ro'yxatidagi {} ta sahna ({} tasi kiritilmadi)", buildScenes.size(), dropped.size());
+                if (!buildScenes.empty())
+                    ZM_INFO("Eksport: build ro'yxatidagi {} ta sahna", buildScenes.size());
+                ReportExcludedAssets(assetPlan, name, outputDirectory);
             }
             if (binaryScenes)
             {
@@ -10777,7 +10777,12 @@ namespace Zamin {
         }
 
         // ---- build game
-        if (m_OpenBuildGamePopup) { ImGui::OpenPopup("###BuildGame"); m_OpenBuildGamePopup = false; }
+        if (m_OpenBuildGamePopup)
+        {
+            ImGui::OpenPopup("###BuildGame");
+            m_OpenBuildGamePopup = false;
+            m_BuildAssetPreviewValid = false;
+        }
         if (ImGui::BeginPopupModal(Tr("O'yinni build qilish###BuildGame"), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
             ImGui::TextUnformatted(ICON_FA_ROCKET "  O'yin mustaqil papkaga eksport qilinadi (Linux).");
@@ -10795,6 +10800,44 @@ namespace Zamin {
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Har sahna yoniga uning MessagePack nusxasi yoziladi: ~3 marta kichik, joriy formatda (migratsiyasiz). "
                             "O'yin uni .zscene o'rniga o'qiydi (fayl o'zgargan bo'lsa - matnni)");
+            // The assets the export takes (Project settings > Build scenes > Export).
+            if (auto project = Project::GetActive())
+            {
+                ExportSettings& exportSettings = project->GetConfig().Export;
+                if (ImGui::Checkbox(Tr("Ishlatilmagan assetlarni chiqarib tashlash"), &exportSettings.ExcludeUnusedAssets))
+                {
+                    m_ProjectSettingsPanel.MarkDirty(); // saved with the project before the export
+                    m_BuildAssetPreviewValid = false;
+                }
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("Faqat o'yin ishlatadigan assetlar: build sahnalari va ular orqali kerak bo'lganlar, loyiha fayli, C++ "
+                                "skriptlardagi asset yo'llari, Resources/ va til fayllari. \"Doim kiritish\" ro'yxati: Project settings > "
+                                "Build sahnalar > Eksport");
+                if (!m_BuildAssetPreviewValid)
+                {
+                    m_BuildAssetPreview = ExportAssets::PlanForActiveProject();
+                    m_BuildAssetPreviewValid = true;
+                }
+                const ExportAssetPlan& plan = m_BuildAssetPreview;
+                ImGui::TextDisabled(ICON_FA_BOX "  Assetlar: %zu ta fayl (%s)", plan.Included.size(), ExportAssets::FormatSize(plan.IncludedBytes).c_str());
+                if (!plan.Excluded.empty())
+                {
+                    ImGui::SameLine();
+                    ImGui::TextColored(ImVec4(0.95f, 0.72f, 0.32f, 1.0f), "  %s %zu ta (%s)", Tr("chiqarib tashlanadi:"), plan.Excluded.size(),
+                                       ExportAssets::FormatSize(plan.ExcludedBytes).c_str());
+                    if (ImGui::IsItemHovered())
+                    {
+                        std::string list;
+                        const size_t shown = std::min<size_t>(plan.Excluded.size(), 15);
+                        for (size_t i = 0; i < shown; i++)
+                            list += std::format("{}{}  ({}, {})", i ? "\n" : "", plan.Excluded[i].Path, ExportAssets::FormatSize(plan.Excluded[i].Size),
+                                                plan.Excluded[i].Reason);
+                        if (plan.Excluded.size() > shown)
+                            list += std::format("\n... va yana {} ta", plan.Excluded.size() - shown);
+                        UI::Tooltip(list.c_str());
+                    }
+                }
+            }
             // How the exported game starts (Project settings > Player), with a way to change it.
             if (auto project = Project::GetActive())
             {

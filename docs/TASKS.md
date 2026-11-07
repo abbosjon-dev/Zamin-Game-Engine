@@ -404,7 +404,7 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 347. Crash bo'lganda xabar oynasi
 - [x] 348. Player'da kursorni yashirish/bloklash API
 - [x] 349. Ekran o'lchami o'zgarishiga moslashish
-- [ ] 350. Eksportda ishlatilmagan assetlarni chiqarib tashlash
+- [x] 350. Eksportda ishlatilmagan assetlarni chiqarib tashlash
 - [ ] 351. Eksportda skript modulini optimizatsiya (Release)
 - [ ] 352. Eksport: .desktop fayli va ikonka
 - [ ] 353. Eksport hisobotini ko'rsatish (hajm, fayllar)

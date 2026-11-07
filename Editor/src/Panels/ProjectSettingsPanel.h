@@ -107,6 +107,8 @@ namespace Zamin {
         void DrawAudio(ProjectConfig& config);
         // The game's build scenes: order (drag / arrows), on / off, build indices, the start scene.
         void DrawBuildScenes(ProjectConfig& config);
+        // The export's assets: unused ones left out, the always-taken list, what the next export would take.
+        void DrawExportSettings(ProjectConfig& config);
         void DrawSaveData();
         void DrawTagsAndLayers(ProjectConfig& config);
         void DrawTags(ProjectConfig& config);
@@ -144,6 +146,11 @@ namespace Zamin {
 
     private:
         bool m_Dirty = false;
+        // DrawExportSettings: the last computed plan (for the settings it was made with) and the path being typed.
+        ExportAssetPlan m_ExportPreview;
+        ExportSettings m_ExportPreviewFor;
+        bool m_HasExportPreview = false;
+        std::string m_NewExportInclude;
         bool m_FocusRequested = false;
         ListenTarget m_Listen;
         bool m_ListenArmed = false; // all inputs were released since listening started

@@ -404,7 +404,8 @@ namespace Zamin {
         for (const fs::path& file : files)
         {
             std::string ext = LowerExtension(file);
-            if (ext == ".zscene" || ext == ".zprefab" || ext == ".zmat" || ext == ".zparticle")
+            if (ext == ".zscene" || ext == ".zprefab" || ext == ".zmat" || ext == ".zparticle" || ext == ".zanim" || ext == ".zsanim" ||
+                ext == ".zphysmat")
                 ScanJson(file, ReadText(file));
             else if (ext == ".gltf")
                 ScanModel(file, ReadText(file));
@@ -549,25 +550,38 @@ namespace Zamin {
         return out;
     }
 
+    std::unordered_set<std::string> AssetReferenceIndex::CollectReachable(const std::vector<std::string>& rootAssets, bool includeProjectRoots) const
+    {
+        std::unordered_set<std::string> used;
+        std::deque<std::string> queue;
+        if (includeProjectRoots)
+            queue.insert(queue.end(), m_Roots.begin(), m_Roots.end());
+        for (const std::string& root : rootAssets)
+        {
+            const std::string asset = fs::path(root).lexically_normal().generic_string();
+            if (!asset.empty() && used.insert(asset).second)
+                queue.push_back(ToKey(m_AssetDirectory / asset));
+        }
+        // Through the files they lead to.
+        while (!queue.empty())
+        {
+            std::string key = std::move(queue.front());
+            queue.pop_front();
+            auto it = m_Outgoing.find(key);
+            if (it == m_Outgoing.end())
+                continue;
+            for (const std::string& asset : it->second)
+                if (used.insert(asset).second)
+                    queue.push_back(ToKey(m_AssetDirectory / asset));
+        }
+        return used;
+    }
+
     std::vector<UnusedAsset> AssetReferenceIndex::FindUnused(bool reachableOnly) const
     {
         std::unordered_set<std::string> used;
         if (reachableOnly)
-        {
-            // Everything the project file and the code lead to, through the files they lead to.
-            std::deque<std::string> queue(m_Roots.begin(), m_Roots.end());
-            while (!queue.empty())
-            {
-                std::string key = std::move(queue.front());
-                queue.pop_front();
-                auto it = m_Outgoing.find(key);
-                if (it == m_Outgoing.end())
-                    continue;
-                for (const std::string& asset : it->second)
-                    if (used.insert(asset).second)
-                        queue.push_back(ToKey(m_AssetDirectory / asset));
-            }
-        }
+            used = CollectReachable({}); // everything the project file and the code lead to
         else
         {
             for (const auto& [asset, referrers] : m_Referrers)

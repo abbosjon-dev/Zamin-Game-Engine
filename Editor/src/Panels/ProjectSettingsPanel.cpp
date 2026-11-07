@@ -884,6 +884,135 @@ namespace Zamin {
                 ImGui::PopID();
             }
         }
+        ImGui::Spacing();
+        DrawExportSettings(config);
+    }
+
+    void ProjectSettingsPanel::DrawExportSettings(ProjectConfig& config)
+    {
+        ExportSettings& e = config.Export;
+        bool changed = false;
+        if (UI::BeginPropertyGrid("exportSettings"))
+        {
+            UI::PropertyHeader(ICON_FA_FILTER "  Eksport",
+                               "Eksportga faqat o'yin ishlatadigan assetlar kiradi: build sahnalari va ular orqali kerak bo'lganlar (prefab, "
+                               "material, model, klip ...), loyiha fayli (ikonka, splash) va C++ skriptlardagi \"Audio/jump.wav\" kabi "
+                               "satrlar. Resources/ va til fayllari papkasi doim kiradi. Skript nomini o'zi yasaydigan assetlarni "
+                               "\"Doim kiritish\" ro'yxatiga qo'shing. Chiqarib tashlanganlar ro'yxati: excluded-assets.txt.");
+            changed |= UI::PropertyBool("Ishlatilmaganlarni chiqarish", e.ExcludeUnusedAssets);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("O'chirilsa, Assets papkasidagi hamma fayl eksportga kiradi (build ro'yxatida yo'q sahnalardan tashqari)");
+            UI::PropertyLabel("Doim kiritish", "Fayl yoki papka (Assets ichida); * istalgan qism: \"Levels/*.zscene\", \"Data/*\"");
+            int remove = -1;
+            for (size_t i = 0; i < e.AlwaysInclude.size(); i++)
+            {
+                ImGui::PushID((int)i);
+                if (i > 0)
+                    UI::PropertyLabel("");
+                ImGui::TextUnformatted(ICON_FA_FOLDER_OPEN);
+                ImGui::SameLine();
+                ImGui::TextUnformatted(e.AlwaysInclude[i].c_str());
+                ImGui::SameLine(ImGui::GetContentRegionMax().x - ImGui::GetFrameHeight());
+                if (ImGui::SmallButton(ICON_FA_XMARK))
+                    remove = (int)i;
+                ImGui::PopID();
+            }
+            if (!e.AlwaysInclude.empty())
+                UI::PropertyLabel("");
+            const float addWidth = ImGui::CalcTextSize(ICON_FA_PLUS).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+            ImGui::SetNextItemWidth(std::max(60.0f, ImGui::GetContentRegionAvail().x - addWidth - ImGui::GetStyle().ItemSpacing.x));
+            const bool enter = ImGui::InputTextWithHint("##newInclude", Tr("Data/  yoki  Levels/*.zscene"), &m_NewExportInclude,
+                                                        ImGuiInputTextFlags_EnterReturnsTrue);
+            // Content Browser: a file or a folder dropped on the field.
+            if (ImGui::BeginDragDropTarget())
+            {
+                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM"))
+                {
+                    std::filesystem::path path((const char*)payload->Data);
+                    m_NewExportInclude = path.is_absolute() ? Project::GetAssetRelativePath(path) : path.generic_string();
+                }
+                ImGui::EndDragDropTarget();
+            }
+            ImGui::SameLine();
+            if ((ImGui::Button(ICON_FA_PLUS) || enter) && !m_NewExportInclude.empty())
+            {
+                std::string path = std::filesystem::path(m_NewExportInclude).lexically_normal().generic_string();
+                while (path.size() > 1 && path.back() == '/')
+                    path.pop_back();
+                if (!path.empty() && path != "." && std::find(e.AlwaysInclude.begin(), e.AlwaysInclude.end(), path) == e.AlwaysInclude.end())
+                {
+                    e.AlwaysInclude.push_back(path);
+                    changed = true;
+                }
+                m_NewExportInclude.clear();
+            }
+            if (remove >= 0)
+            {
+                e.AlwaysInclude.erase(e.AlwaysInclude.begin() + remove);
+                changed = true;
+            }
+            UI::EndPropertyGrid();
+        }
+        if (changed)
+            m_Dirty = true;
+
+        // What the next export would take (made again when the settings change or on request).
+        if (!m_HasExportPreview || !(m_ExportPreviewFor == e))
+        {
+            const ExportSettings saved = Project::GetActive() ? Project::GetActive()->GetConfig().Export : ExportSettings();
+            if (Project::GetActive())
+                Project::GetActive()->GetConfig().Export = e; // (the config being edited is the active one's copy or itself)
+            m_ExportPreview = ExportAssets::PlanForActiveProject();
+            if (Project::GetActive())
+                Project::GetActive()->GetConfig().Export = saved;
+            m_ExportPreviewFor = e;
+            m_HasExportPreview = true;
+        }
+        ImGui::TextDisabled(ICON_FA_BOX "  Keyingi eksport: %zu ta fayl (%s)", m_ExportPreview.Included.size(),
+                            ExportAssets::FormatSize(m_ExportPreview.IncludedBytes).c_str());
+        ImGui::SameLine();
+        if (ImGui::SmallButton(Tr(ICON_FA_ROTATE "  Yangilash")))
+            m_HasExportPreview = false;
+        if (m_ExportPreview.Excluded.empty())
+            ImGui::TextDisabled(ICON_FA_CHECK "  Hamma asset ishlatiladi - hech narsa chiqarib tashlanmaydi");
+        else
+        {
+            ImGui::TextColored(ImVec4(0.95f, 0.72f, 0.32f, 1.0f), ICON_FA_FILTER "  Chiqarib tashlanadi: %zu ta (%s)", m_ExportPreview.Excluded.size(),
+                               ExportAssets::FormatSize(m_ExportPreview.ExcludedBytes).c_str());
+            if (ImGui::BeginTable("##excludedAssets", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_ScrollY |
+                                                            ImGuiTableFlags_SizingStretchProp,
+                                  ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * (float)std::min<size_t>(m_ExportPreview.Excluded.size() + 1, 9) + 4.0f)))
+            {
+                ImGui::TableSetupScrollFreeze(0, 1);
+                ImGui::TableSetupColumn(Tr("Asset"), ImGuiTableColumnFlags_WidthStretch, 3.0f);
+                ImGui::TableSetupColumn(Tr("Hajmi"), ImGuiTableColumnFlags_WidthStretch, 0.8f);
+                ImGui::TableSetupColumn(Tr("Sabab"), ImGuiTableColumnFlags_WidthStretch, 2.4f);
+                ImGui::TableHeadersRow();
+                for (size_t i = 0; i < m_ExportPreview.Excluded.size(); i++)
+                {
+                    const ExcludedAsset& asset = m_ExportPreview.Excluded[i];
+                    ImGui::PushID((int)i);
+                    ImGui::TableNextRow();
+                    ImGui::TableNextColumn();
+                    ImGui::TextUnformatted(asset.Path.c_str());
+                    if (ImGui::BeginPopupContextItem("##excludedMenu"))
+                    {
+                        if (ImGui::MenuItem(Tr(ICON_FA_PLUS "  Doim kiritish")))
+                        {
+                            e.AlwaysInclude.push_back(asset.Path);
+                            m_Dirty = true;
+                        }
+                        ImGui::EndPopup();
+                    }
+                    ImGui::TableNextColumn();
+                    ImGui::TextDisabled("%s", ExportAssets::FormatSize(asset.Size).c_str());
+                    ImGui::TableNextColumn();
+                    ImGui::TextDisabled("%s", asset.Reason.c_str());
+                    ImGui::PopID();
+                }
+                ImGui::EndTable();
+            }
+        }
     }
 
     // ------------------------------------------------------------------ tags and layers

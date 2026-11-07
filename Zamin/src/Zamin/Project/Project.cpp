@@ -556,7 +556,7 @@ namespace Zamin {
     {
         static const std::vector<std::string> s_Keys = { "Version", "Project", "Player", "BuildScenes", "InputActions", "Tags", "SortingLayers",
                                                          "CollisionLayers2D", "Physics", "Time", "Audio", "Quality", "Graphics",
-                                                         "Localization", "DebugDraw" };
+                                                         "Localization", "DebugDraw", "Export" };
         return s_Keys;
     }
 
@@ -660,6 +660,9 @@ namespace Zamin {
         // Written once the languages differ from the defaults (older files stay as they were).
         if (!c.Localization.IsDefault())
             j["Localization"] = ToOrdered(c.Localization.ToJson());
+        // Written once the export differs from the defaults (older files stay as they were).
+        if (!c.Export.IsDefault())
+            j["Export"] = ToOrdered(c.Export.ToJson());
         ordered_json debug;
         debug["Enabled"] = c.DebugDraw.Enabled;
         debug["Raycasts"] = c.DebugDraw.ShowRaycasts;
@@ -825,6 +828,10 @@ namespace Zamin {
         c.Localization = LocalizationSettings();
         if (auto it = j.find("Localization"); it != j.end() && it->is_object())
             LocalizationSettings::FromJson(it->dump(), c.Localization);
+        // The export (older projects: unused assets left out, nothing always taken).
+        c.Export = ExportSettings();
+        if (auto it = j.find("Export"); it != j.end() && it->is_object())
+            ExportSettings::FromJson(it->dump(), c.Export);
     }
 
     // Migrates, reads, and keeps what is not understood. Throws (nlohmann) on a broken required part.

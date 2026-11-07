@@ -112,6 +112,7 @@
 #include "Zamin/Project/PlayerLaunch.h"
 #include "Zamin/Project/ProjectMigration.h"
 #include "Zamin/Project/AssetFiles.h"
+#include "Zamin/Project/ExportAssets.h"
 #include "Zamin/Asset/AssetTypes.h"
 #include "Zamin/Asset/AssetMetadata.h"
 #include "Zamin/Asset/AssetRegistry.h"

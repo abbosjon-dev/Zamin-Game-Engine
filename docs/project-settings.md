@@ -195,6 +195,25 @@ progress chizig'i bilan kutib turadi. Splash'dan keyin o'yinning birinchi kadri 
 Avtomatlashtirilgan ishga tushishlarda (`ZAMIN_MAX_FRAMES`: skrinshotlar, CI) splash ko'rsatilmaydi;
 `ZAMIN_PLAYER_SPLASH=1` uni majburan yoqadi.
 
+### Ekran nisbati (letterbox)
+
+Bitta ekran shakli uchun qilingan o'yin (`"Aspect": { ... }`). Yoqilganda o'yin tasviri `Width : Height`
+nisbatida qoladi: oyna kengroq bo'lsa yon tomonlarda, balandroq bo'lsa tepa va pastda `BarColor` rangli
+polosalar. Sahnalar kamerasi, UI (canvas masshtabi), sichqoncha (`GetMousePosition`, UI bosishlari) va render
+nishonlari tasvir o'lchamida ishlaydi; oyna o'lchami o'zgarsa (tortish, F11) hammasi har kadrda moslashadi va
+yangi o'lcham bir marta log'ga yoziladi. O'chiq (standart): tasvir butun oynani egallaydi. Editorda Play ham
+shu nisbatda ko'rsatiladi (o'yin ko'rinishi "Erkin" bo'lsa). Sozlamalar oynasi turli oynalarda (o'yin oynasi,
+2560x1080, 1024x768) qanday ko'rinishini chizib beradi.
+
+| Maydon | Kalit | Ma'nosi |
+|---|---|---|
+| Qat'iy nisbat | `Fixed` | Standart: o'chiq |
+| Nisbat | `Width`, `Height` | Tomonlari 1 ... 64 (16:9, 4:3, 21:9 ...) |
+| Polosalar rangi | `BarColor` | `[r, g, b]` (0 ... 1), standart qora |
+
+Oyna kichraytirilganda (minimize) player va editor yangilash va chizishni to'xtatadi: sikl faqat
+hodisalarni kutadi (protsessor band bo'lmaydi), o'yin vaqti o'tmaydi; oyna qaytganda davom etadi.
+
 ### Ikonka
 
 `Icon` - assetlar ichidagi PNG (masalan `Textures/GameIcon.png`). Player oynaga 16, 32, 48, 64, 128, 256 px
@@ -423,6 +442,35 @@ glm::vec2 move = Input::GetVector("Move");
 boshlang'ich sahna yo'q / ro'yxatda emas / o'chirilgan, fayl topilmadi, takroriy sahna. Batafsil:
 [docs/scenes.md, 7-bo'lim](scenes.md#7-build-sahnalar-royxati-va-indekslar).
 
+### Eksport: ishlatilmagan assetlar
+
+Eksport (`File > O'yinni build qilish`) Assets papkasidan faqat o'yin ishlatadiganlarini oladi
+(`ExportAssets::Plan`, `AssetReferenceIndex`):
+
+- build sahnalari (ro'yxat bo'sh bo'lsa - hamma sahnalar), boshlang'ich sahna va ularning sub-sahnalari;
+- ular orqali kerak bo'lganlar: prefab, material, model (va uning `.bin` / rasm fayllari), sprite va xossa
+  animatsiya kliplari (`.zsanim`, `.zanim`), particle preset, shrift, tovush ...;
+- loyiha fayli nomlaganlar (ikonka, splash rasmi) va C++ skriptlardagi satrlar (`"Audio/jump.wav"`);
+- doim: `Resources/` papkasi, til fayllari papkasi (`Localization/`) va "Doim kiritish" ro'yxati.
+
+Build ro'yxatida yo'q sahna har doim chiqarib tashlanadi. Hech qaysi turga kirmaydigan va hech kim nomlamagan
+fayllar (masalan `Data/levels.json`) kiritiladi - skript ularni o'zi o'qishi mumkin. Chiqarib tashlanganlar
+log'ga va eksport papkasidagi `excluded-assets.txt` ga yoziladi (yo'l, hajm, sabab); eksport oynasi va
+Project settings > Build sahnalar > Eksport keyingi eksport nimani olishini ko'rsatadi (ro'yxatdagi assetni
+o'ng tugma bilan "Doim kiritish"ga qo'shish mumkin). O'yin registriga (`AssetRegistry.zreg`) ham faqat
+kiritilganlar yoziladi.
+
+```json
+"Export": {
+    "ExcludeUnusedAssets": true,
+    "AlwaysInclude": [ "Data", "Levels/*.zscene" ]
+}
+```
+
+Skript asset nomini o'zi yasasa (`"Levels/Level" + n + ".zscene"`), uni "Doim kiritish"ga qo'shing (`*`
+istalgan qismga mos keladi). `ExcludeUnusedAssets: false` - hamma fayl kiradi (build ro'yxatidan tashqari
+sahnalardan boshqa). Bo'lim standartdan farq qilganda yoziladi.
+
 ---
 
 ## 13. Lokalizatsiya
@@ -578,8 +626,8 @@ ko'rinadi.
 
 Fayl JSON, bo'limlar qat'iy tartibda: `Version`, `Project`, `Player`, `BuildScenes`, `InputActions`, `Tags`,
 `SortingLayers`, `CollisionLayers2D`, `Physics`, `Time`, `Audio`, `Quality`, `Graphics`, `Localization`,
-`DebugDraw`. Standart qiymatdagi bo'limlar (`Physics`, `Time`, `Quality`, `Graphics`, `Localization`, audio
-`Spatial`) yozilmaydi - eski fayllar o'zgarmaydi.
+`Export`, `DebugDraw`. Standart qiymatdagi bo'limlar (`Physics`, `Time`, `Quality`, `Graphics`, `Localization`,
+`Export`, audio `Spatial`) yozilmaydi - eski fayllar o'zgarmaydi.
 
 - **Versiya** (`"Version": 2`): eski fayl (v0 - tekis, v1 - `"Version"`siz) o'qilganda migratsiyalar zanjiri bilan
   joriy versiyaga keltiriladi; diskdagi fayl loyiha saqlanmaguncha o'zgarmaydi. Log nima o'zgarganini yozadi.
@@ -647,9 +695,50 @@ ogohlantirish bilan log'ga yoziladi, qolganlari ishlatiladi.
 | `--no-splash` | Splash ekransiz | Loyiha |
 | `--gl`, `--msaa`, `--gl-debug` / `--no-gl-debug`, `--srgb` / `--no-srgb` | OpenGL konteksti | Grafika sozlamalari |
 | `--no-debug-draw`, `--debug-raycasts`, `--debug-contacts`, `--debug-contact-details`, `--debug-joints`, `--debug-velocities` | Debug chizish | Loyihaning debug sozlamalari |
+| `--log-file <fayl>`, `--no-log-file` | Log faqat shu faylga / log faylsiz | Standart log papkasi |
+| `--no-crash-handler`, `--no-crash-dialog` | Crash hisobotisiz (debugger, core dump) / hisobot bor, oyna yo'q | - |
 | `-h`, `--help` | Hamma variantlar va ustunlik tartibi | - |
 
 O'yin ichida: **F11** / **Alt+Enter** - to'liq ekran <-> oyna, **F10** - FPS va audio profili log'ga.
+
+### Log fayllari
+
+Player har ishga tushganda logni `~/.local/share/<kompaniya>/<o'yin>/logs/player-<sana_vaqt>.log` ga yozadi
+(kompaniya bo'sh bo'lsa `~/.local/share/zamin/<o'yin>/logs`; `$XDG_DATA_HOME` hisobga olinadi). Eng oxirgi
+5 tasi saqlanadi, eskilari o'chiriladi; `latest.log` - doim oxirgi ishga tushish. Fayl boshida o'yin nomi,
+versiyasi, dvigatel versiyasi, boshlanish vaqti va buyruq qatori yoziladi; fayl ochilishidan oldingi xabarlar
+ham (ishga tushish) yoziladi. Har satr darhol diskka yoziladi - crash bo'lsa ham log to'liq qoladi.
+API: `LogFile::OpenRotating`, `LogFile::Open`, `LogFile::GetPath`, `LogFile::GetDefaultDirectory`.
+
+### Crash hisobotlari
+
+`CrashHandler` SIGSEGV, SIGABRT, SIGFPE, SIGILL, SIGBUS signallarini va ushlanmagan C++ istisnolarini
+ushlaydi va log papkasiga `crash-<sana_vaqt>.txt` yozadi: o'yin va versiya, sabab (signal, kodi va manzili
+yoki istisno turi va matni), backtrace, oxirgi 48 log satri, yuklangan modullar. Log fayliga va terminalga
+qisqa xabar yoziladi. Keyin xabar oynasi ochiladi (alohida jarayon, o'yin darhol yopiladi): `zenity`,
+`kdialog`, bo'lmasa playerning o'z oynasi (`ZaminPlayer --crash-dialog <hisobot>`: sabab, hisobot yo'li,
+"Papkani ochish", "Yo'lni nusxalash", "Yopish"), oxiri `xmessage`. Oyna backtrace'dagi C++ nomlarini
+o'qiladigan qiladi. Signal handler faqat async-signal-safe chaqiruvlardan foydalanadi (hamma narsa oldindan
+tayyorlanadi; ikkinchi crash darhol tugatadi). Signal so'ng odatdagidek dasturni tugatadi (chiqish kodi, core
+dump o'zgarmaydi). Avtomatik ishga tushishlarda (`ZAMIN_MAX_FRAMES`) oyna ko'rsatilmaydi
+(`ZAMIN_CRASH_DIALOG=1` majburlaydi); `ZAMIN_PLAYER_CRASH_TEST=<kadr>:<segv|abort|fpe|exception>` ataylab crash
+qiladi (sinov uchun).
+
+### Kursor (skript API)
+
+```cpp
+Cursor::SetLockMode(CursorLockMode::Locked);   // yashirin, joyida: Input::GetMouseDelta() bilan sichqoncha-qarash
+Cursor::SetLockMode(CursorLockMode::Confined); // oyna ichida qoladi
+Cursor::SetVisible(false);
+Cursor::SetImage("Textures/crosshair.png", { 16, 16 });   // o'z rasmi (hotspot), Cursor::ClearImage()
+Cursor::SetShape(CursorShape::Hand);                      // tizim shakllari
+Cursor::SetReleaseWhenPaused(true);                       // Time::SetPaused paytida bo'sh va ko'rinadigan (standart)
+```
+
+Istaklar saqlanadi va har kadr oynaga qo'llanadi: oyna fokusni yo'qotsa, o'yin pauzada bo'lsa va Play
+to'xtaganda tizim kursori qaytadi. Editorda o'yin ko'rinishi fokusda bo'lganda ishlaydi; **Esc** kursorni
+editorga qaytaradi (o'yin ko'rinishini bosish - yana o'yinga). Adventure3D kamerasi o'ng tugma bilan
+aylantirganda kursorni bloklaydi.
 
 ---
 
@@ -676,6 +765,11 @@ O'yin ichida: **F11** / **Alt+Enter** - to'liq ekran <-> oyna, **F10** - FPS va 
 | `LocalizedTextComponentAndScripts` | Text komponenti kaliti til bilan yangilanadi, `OnLanguageChanged` |
 | `ProjectLocalizationSettings` | `"Localization"` bo'limi va loyiha bilan yuklanishi |
 | `EditorLanguageStrings` | Editor tili jadvali: tarjima, ikonka / `###id` saqlanishi, `Choose`, preferences |
+| `PlayerLogFileRotation` | Log fayl nomi, oxirgi 5 tasi, `latest.log`, `--log-file`, ochilishdan oldingi xabarlar |
+| `CrashHandlerReports` | Hisobot matni, demangle, o'qish, oyna buyruqlari; bola jarayonda haqiqiy SIGSEGV, istisno, abort |
+| `CursorApiForScripts` | Kursor holatlari (fokus, pauza), rasm, `Reset`, bloklashda sichqoncha siljishi |
+| `PlayerViewportFixedAspect` | Ekran nisbati: polosalar, sichqoncha, `"Aspect"` JSON, UI masshtabi oyna bilan |
+| `ExportExcludesUnusedAssets` | Eksportga kiradigan / kirmaydigan assetlar, sabablar, `"Export"` bo'limi, namuna loyihalar |
 
 ---
 

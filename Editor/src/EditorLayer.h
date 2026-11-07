@@ -310,6 +310,8 @@ namespace Zamin {
 
         // ---- export
         void BuildGame(const std::filesystem::path& outputDirectory);
+        // The export's report of the assets left out (the log and excluded-assets.txt).
+        void ReportExcludedAssets(const ExportAssetPlan& plan, const std::string& gameName, const std::filesystem::path& outputDirectory);
 
         // ---- UI
         void UI_DockSpace();
@@ -950,6 +952,9 @@ namespace Zamin {
 
         // game export
         bool m_OpenBuildGamePopup = false;
+        // The build dialog's view of the assets the export takes (made when it opens / its option changes).
+        ExportAssetPlan m_BuildAssetPreview;
+        bool m_BuildAssetPreviewValid = false;
         std::string m_BuildGameOutput;
         bool m_BuildGameBinaryScenes = true; // export: every scene also as a binary cache (.zsceneb, smaller)
         std::atomic<bool> m_Exporting = false;

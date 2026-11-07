@@ -9,6 +9,7 @@
 #include "Zamin/Localization/Localization.h"
 #include "Zamin/Physics/CollisionLayers.h"
 #include "Zamin/Physics/PhysicsDefaults.h"
+#include "Zamin/Project/ExportAssets.h"
 #include "Zamin/Project/PlayerSettings.h"
 #include "Zamin/Project/ProjectMigration.h"
 #include "Zamin/Renderer/GraphicsSettings.h"
@@ -114,6 +115,10 @@ namespace Zamin {
         // offered ones, the folder of the language files (Assets/Localization/<code>.json). Projects
         // without a "Localization" section: Uzbek, every file found. Applied when the project is loaded.
         LocalizationSettings Localization;
+        // What the editor's export takes of the assets (Project settings > Build scenes > Export): unused
+        // assets left out, the folders / files always taken. Projects without an "Export" section: unused
+        // assets are left out, nothing extra is always taken.
+        ExportSettings Export;
 
         // What the file has that this engine does not read (sections of tools, keys of a newer engine):
         // (key, JSON text) in file order, a top-level key as "<key>", one inside "Project" / "Player"

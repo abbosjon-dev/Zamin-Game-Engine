@@ -36128,3 +36128,139 @@ TEST(PlayerViewportFixedAspect)
     CHECK_NEAR(scene->GetUIScale(button), 0.5f, 1e-5f);
     CHECK(scene->PickUI(area.WindowToViewport({ 480.0f, 540.0f }, 1080)) == button);
 }
+
+// ---- M18: the export leaves out unused assets
+TEST(ExportExcludesUnusedAssets)
+{
+    namespace fs = std::filesystem;
+    const fs::path root = fs::temp_directory_path() / ("zamin-export-" + std::to_string((uint64_t)UUID()));
+    const fs::path assets = root / "Assets";
+    auto write = [&](const fs::path& file, const std::string& text) {
+        fs::create_directories(file.parent_path());
+        FileSystem::WriteTextFile(file, text);
+    };
+    write(assets / "Scenes/Main.zscene", R"({ "Entities": [ { "Sprite": { "Texture": "Textures/used.png" } },
+        { "Prefab": { "Path": "Prefabs/P.zprefab" } }, { "SpriteAnimator": { "Clip2": "Animations/Fire.zsanim" } } ] })");
+    write(assets / "Scenes/Other.zscene", R"({ "Entities": [ { "Sprite": { "Texture": "Textures/other.png" } } ] })");
+    write(assets / "Prefabs/P.zprefab", R"({ "Entities": [ { "MeshRenderer": { "Model": "Models/m.gltf" } } ] })");
+    write(assets / "Models/m.gltf", R"({ "buffers": [ { "uri": "m.bin" } ] })");
+    write(assets / "Models/m.bin", "bin");
+    write(assets / "Models/unused.gltf", R"({ "buffers": [ { "uri": "unused.bin" } ] })");
+    write(assets / "Models/unused.bin", "bin");
+    write(assets / "Animations/Fire.zsanim", R"({ "Version": 1, "Texture": "Textures/sheet.png", "Frames": [] })");
+    for (const char* png : { "used", "other", "unused", "code", "icon", "sheet" })
+        write(assets / "Textures" / (std::string(png) + ".png"), "png");
+    write(assets / "Localization/uz.json", "{}");
+    write(assets / "Resources/r.png", "png");
+    write(assets / "Data/levels/l1.json", "{}");
+    write(assets / "Dynamic/d1.png", "png");
+    write(assets / "notes.txt", "eslatma");
+    write(assets / "Textures/unused.png.zmeta", "{}");
+    write(root / "Source/Game.cpp", "void F() { Load(\"Textures/code.png\"); }\n");
+    write(root / "Game.zproject", R"({ "Player": { "Icon": "Textures/icon.png" } })");
+
+    AssetReferenceIndex index;
+    AssetReferenceIndex::Sources sources;
+    sources.AssetDirectory = assets;
+    sources.ProjectDirectory = root;
+    sources.ProjectFile = root / "Game.zproject";
+    sources.SourceDirectory = root / "Source";
+    index.Build(sources);
+    // Clip files are scanned too: the sprite sheet a .zsanim uses.
+    CHECK(index.IsReferenced("Textures/sheet.png"));
+    const std::unordered_set<std::string> reachable = index.CollectReachable({ "Scenes/Main.zscene" });
+    CHECK(reachable.count("Scenes/Main.zscene") && reachable.count("Models/m.bin") && reachable.count("Textures/sheet.png") &&
+          reachable.count("Textures/code.png") && reachable.count("Textures/icon.png") && !reachable.count("Textures/other.png"));
+
+    ExportAssetInputs inputs;
+    inputs.BuildScenes = { "Scenes/Main.zscene" };
+    inputs.AlwaysFolders = { "Localization" };
+    inputs.Settings.AlwaysInclude = { "Dynamic/*" };
+    ExportAssetPlan plan = ExportAssets::Plan(index, inputs);
+    auto included = [&](const char* path) { return std::find(plan.Included.begin(), plan.Included.end(), path) != plan.Included.end(); };
+    auto reason = [&](const char* path) -> std::string {
+        for (const ExcludedAsset& a : plan.Excluded)
+            if (a.Path == path)
+                return a.Reason;
+        return {};
+    };
+    for (const char* path : { "Scenes/Main.zscene", "Prefabs/P.zprefab", "Models/m.gltf", "Models/m.bin", "Animations/Fire.zsanim", "Textures/used.png",
+                              "Textures/sheet.png", "Textures/code.png", "Textures/icon.png", "Localization/uz.json", "Resources/r.png",
+                              "Data/levels/l1.json", "Dynamic/d1.png", "notes.txt" })
+        CHECK(included(path));
+    CHECK(reason("Scenes/Other.zscene") == "build ro'yxatida yo'q");
+    CHECK(reason("Textures/other.png") == "faqat o'yinga kirmaydigan fayllar ishlatadi"); // only the left-out scene used it
+    CHECK(reason("Textures/unused.png") == "hech qayerda ishlatilmaydi");
+    CHECK(!reason("Models/unused.gltf").empty() && !reason("Models/unused.bin").empty()); // the model's buffer goes with it
+    CHECK(plan.Excluded.size() == 5 && plan.IsExcluded("Models/unused.bin") && !plan.IsExcluded("Models/m.bin"));
+    CHECK(!included("Textures/unused.png.zmeta")); // .zmeta files go with their asset
+    CHECK(plan.ExcludedBytes > 0 && plan.IncludedBytes > plan.ExcludedBytes);
+    CHECK(std::is_sorted(plan.Excluded.begin(), plan.Excluded.end(), [](const ExcludedAsset& a, const ExcludedAsset& b) { return a.Path < b.Path; }));
+    const std::string report = plan.FormatReport("Sinov");
+    CHECK(report.starts_with("# Sinov - eksportga kirmagan assetlar\n") && report.find("Textures/unused.png\t") != std::string::npos);
+
+    // Unused assets kept: only the scene outside the build list stays out.
+    inputs.Settings.ExcludeUnusedAssets = false;
+    plan = ExportAssets::Plan(index, inputs);
+    CHECK(plan.Excluded.size() == 1 && plan.Excluded[0].Path == "Scenes/Other.zscene");
+    // No build list: every scene, and what they use.
+    inputs.Settings.ExcludeUnusedAssets = true;
+    inputs.BuildScenes.clear();
+    plan = ExportAssets::Plan(index, inputs);
+    CHECK(!plan.IsExcluded("Scenes/Other.zscene") && !plan.IsExcluded("Textures/other.png") && plan.IsExcluded("Textures/unused.png"));
+
+    // The include patterns, the sizes.
+    CHECK(ExportAssets::MatchesInclude("Data/a/b.json", "Data") && ExportAssets::MatchesInclude("Data/a/b.json", "Data/"));
+    CHECK(!ExportAssets::MatchesInclude("Database/x.json", "Data"));
+    CHECK(ExportAssets::MatchesInclude("Levels/L1.zscene", "Levels/*.zscene") && !ExportAssets::MatchesInclude("Levels/L1.json", "Levels/*.zscene"));
+    CHECK(ExportAssets::MatchesInclude("Audio/a.wav", "*.wav") && ExportAssets::MatchesInclude("x.png", "x.png"));
+    CHECK(ExportAssets::FormatSize(512) == "512 B" && ExportAssets::FormatSize(2048) == "2 KB" && ExportAssets::FormatSize(3 * 1024 * 1024) == "3.0 MB");
+
+    // The project's "Export" section: written only when it differs from the defaults.
+    ProjectConfig config;
+    CHECK(config.Export.IsDefault() && ProjectSerializer::ConfigToString(config).find("\"Export\"") == std::string::npos);
+    config.Export.ExcludeUnusedAssets = false;
+    config.Export.AlwaysInclude = { "Data/", "Levels/*.zscene" };
+    ProjectConfig read;
+    CHECK(ProjectSerializer::ConfigFromString(ProjectSerializer::ConfigToString(config), read));
+    CHECK(!read.Export.ExcludeUnusedAssets && read.Export.AlwaysInclude == std::vector<std::string>({ "Data", "Levels/*.zscene" }));
+    ExportSettings settings;
+    CHECK(ExportSettings::FromJson(R"({ "AlwaysInclude": [ "A", "A/", 3, "" ] })", settings) && settings.ExcludeUnusedAssets &&
+          settings.AlwaysInclude == std::vector<std::string>({ "A" }));
+
+    // The scenes of an export: the enabled build scenes, the start scene when the list lacks it.
+    config.BuildScenes = { { "Scenes/Main.zscene", {}, true }, { "Scenes/Other.zscene", {}, false } };
+    config.StartScene = "Scenes/Menu.zscene";
+    std::vector<std::string> notes;
+    CHECK(ExportAssets::CollectScenes(config, assets, &notes) == std::vector<std::string>({ "Scenes/Main.zscene", "Scenes/Menu.zscene" }));
+    CHECK(notes.size() == 1);
+    config.BuildScenes.clear();
+    CHECK(ExportAssets::CollectScenes(config, assets).empty()); // no list: every scene
+
+    // The samples: every build scene and what it refers to goes, the language files too.
+    for (const char* name : { "Platformer2D", "Showcase3D", "Adventure3D" })
+    {
+        auto project = Project::Load(fs::path(ZAMIN_SOURCE_DIR) / "Projects" / name / (std::string(name) + ".zproject"));
+        CHECK(project != nullptr);
+        if (!project)
+            continue;
+        std::vector<std::string> scenes;
+        const ExportAssetPlan sample = ExportAssets::PlanForActiveProject(&scenes);
+        CHECK(!sample.Included.empty());
+        AssetReferenceIndex sampleIndex;
+        sampleIndex.BuildForActiveProject();
+        for (const std::string& scene : scenes)
+        {
+            CHECK(!sample.IsExcluded(scene));
+            for (const std::string& used : sampleIndex.GetReferences(scene))
+                CHECK(!sample.IsExcluded(used));
+        }
+        for (const std::string& file : sample.Included)
+            CHECK(!sample.IsExcluded(file));
+        if (std::string(name) == "Platformer2D")
+            CHECK(std::find(sample.Included.begin(), sample.Included.end(), "Localization/uz.json") != sample.Included.end());
+    }
+    Project::SetActive(nullptr);
+    std::error_code ec;
+    fs::remove_all(root, ec);
+}

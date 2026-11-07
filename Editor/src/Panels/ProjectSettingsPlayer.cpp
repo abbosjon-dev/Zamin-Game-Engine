@@ -446,7 +446,7 @@ namespace Zamin {
         // How windows of a few shapes show the picture: the player's own size, a wide and a square-ish screen.
         if (p.FixedAspectRatio)
         {
-            ImGui::TextDisabled("Turli oynalarda:");
+            ImGui::TextDisabled("%s", Tr("Turli oynalarda:"));
             const std::pair<uint32_t, uint32_t> windows[] = { { p.Width, p.Height }, { 2560, 1080 }, { 1024, 768 } };
             const float avail = ImGui::GetContentRegionAvail().x;
             const float boxHeight = std::min(ImGui::GetFontSize() * 5.5f, avail * 0.16f);

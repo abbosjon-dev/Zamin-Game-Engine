@@ -60,8 +60,9 @@ namespace Zamin {
         uintmax_t Size = 0;           // bytes
     };
 
-    // Who refers to which asset in a project: asset paths and UUIDs in scenes, prefabs, materials
-    // and the project file, file names inside .gltf models and string literals in C++ scripts.
+    // Who refers to which asset in a project: asset paths and UUIDs in scenes, prefabs, materials,
+    // particle presets, animation clips and the project file, file names inside .gltf models and string
+    // literals in C++ scripts.
     // Answers "where is this used" (the asset inspector, deleting) and "what is not used at all".
     class AssetReferenceIndex
     {
@@ -115,6 +116,10 @@ namespace Zamin {
         // through scenes, prefabs, models and materials - is used; a scene nothing opens and
         // everything only it refers to are unused as well.
         std::vector<UnusedAsset> FindUnused(bool reachableOnly = false) const;
+        // What `rootAssets` (asset-relative files) lead to - themselves, the assets they refer to, what those
+        // refer to ... - and with includeProjectRoots what the project file and the C++ code lead to (the
+        // export: the build scenes and the folders always taken are the roots). Asset-relative paths.
+        std::unordered_set<std::string> CollectReachable(const std::vector<std::string>& rootAssets, bool includeProjectRoots = true) const;
 
         // The registered assets that were considered (asset-relative, sorted).
         const std::vector<std::string>& GetAssets() const { return m_AssetList; }

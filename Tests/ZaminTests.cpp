@@ -43279,3 +43279,49 @@ TEST(FormationSerializationAndCopies)
         CHECK(c.Members.size() == 2 && c.Members[0].ID == (uint64_t)copyA.GetUUID() && c.Assignments == 0);
     }
 }
+
+TEST(FormationSampleScene)
+{
+    // Showcase3D "Squad3D": the commander walks its round with six soldiers (tagged "Askar") in a
+    // column; the caravan goes back and forth in a ring of five guards (its scripts live in the
+    // game's module: only the components run here).
+    namespace fs = std::filesystem;
+    auto scene = CreateRef<Scene>();
+    CHECK(SceneSerializer(scene).Deserialize(fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Showcase3D" / "Assets" / "Scenes" / "Squad3D.zscene"));
+    for (Entity camera : scene->FindEntitiesWith<CameraComponent>())
+        camera.RemoveComponent<CameraComponent>(); // headless: nothing is drawn
+    Entity commander = scene->FindEntityByName("Komandir"), cart = scene->FindEntityByName("Karvon"), nav = scene->FindEntityByName("Navigatsiya");
+    CHECK(commander && cart && nav);
+    if (!(commander && cart && nav))
+        return;
+    CHECK(commander.HasComponent<FormationComponent>() && commander.HasComponent<PatrolPathComponent>() && commander.HasComponent<NavAgentComponent>());
+    CHECK(scene->GetFormationMembers(commander).size() == 6 && scene->GetFormationMembers(cart).size() == 5);
+    CHECK(cart.GetComponent<FormationComponent>().Shape == FormationShape::Circle);
+    scene->OnRuntimeStart();
+    const NavGrid* grid = scene->GetNavGrid(nav, 3);
+    CHECK(grid && grid->CountWalkable() > 1000);
+    if (!grid)
+        return;
+    auto& squad = commander.GetComponent<FormationComponent>();
+    auto& ring = cart.GetComponent<FormationComponent>();
+    int squadInPlace = 0, ringInPlace = 0;
+    bool slotsOnGrid = true;
+    for (int frame = 0; frame < 1500; frame++)
+    {
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+        squadInPlace += squad.IsInPlace() ? 1 : 0;
+        ringInPlace += ring.IsInPlace() ? 1 : 0;
+        for (const glm::vec3& s : squad.Slots)
+            slotsOnGrid = slotsOnGrid && grid->IsWalkable(grid->WorldToCell(glm::vec2(s.x, s.z)));
+    }
+    CHECK(slotsOnGrid && squad.SlotMembers.size() == 6 && ring.SlotMembers.size() == 5);
+    CHECK(squadInPlace > 120 && ringInPlace > 300);
+    CHECK(commander.GetComponent<PatrolPathComponent>().Arrivals >= 2 && cart.GetComponent<PatrolPathComponent>().Arrivals >= 1);
+    // The soldiers kept up: none is far from its commander.
+    for (Entity soldier : scene->GetFormationMembers(commander))
+    {
+        const glm::vec3 d = scene->GetWorldPosition(soldier) - scene->GetWorldPosition(commander);
+        CHECK(glm::length(glm::vec2(d.x, d.z)) < 9.0f);
+    }
+    scene->OnRuntimeStop();
+}

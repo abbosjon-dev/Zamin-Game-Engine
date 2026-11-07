@@ -2708,7 +2708,7 @@ namespace Zamin {
         ImGui::TextColored(UI::AccentColor(), ICON_FA_DIAGRAM_PROJECT "  %s", tree.Describe().c_str());
         UI::PropertyLabel("");
         const std::string header = std::format("{} ({} {})###bt", Tr("Daraxt"), tree.GetNodeCount(), Tr("tugun"));
-        if (ImGui::TreeNodeEx(header.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth))
+        if (ImGui::TreeNodeEx(header.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_DefaultOpen))
         {
             const uint32_t tick = tree.GetTickIndex();
             tree.ForEachNode([&](const BTNode& node, int depth) {

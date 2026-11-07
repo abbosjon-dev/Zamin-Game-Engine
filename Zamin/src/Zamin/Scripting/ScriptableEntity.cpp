@@ -1168,4 +1168,52 @@ namespace Zamin {
         GetEventBus().EmitDeferred(std::move(eventName), std::move(payload), m_Entity);
     }
 
+
+    // ------------------------------------------------------------------ navigation
+    bool ScriptableEntity::SetDestination(const glm::vec3& destination)
+    {
+        return m_Entity.GetScene()->SetNavDestination(m_Entity, destination);
+    }
+
+    bool ScriptableEntity::SetDestination(const glm::vec2& destination)
+    {
+        return SetDestination(glm::vec3(destination, GetWorldPosition().z));
+    }
+
+    void ScriptableEntity::StopMoving(bool immediate)
+    {
+        if (auto* agent = m_Entity.TryGetComponent<NavAgentComponent>())
+            agent->Stop(immediate);
+    }
+
+    bool ScriptableEntity::IsMoving() const
+    {
+        const auto* agent = m_Entity.HasComponent<NavAgentComponent>() ? &m_Entity.GetComponent<NavAgentComponent>() : nullptr;
+        return agent && agent->IsMoving();
+    }
+
+    float ScriptableEntity::GetRemainingDistance() const
+    {
+        const auto* agent = m_Entity.HasComponent<NavAgentComponent>() ? &m_Entity.GetComponent<NavAgentComponent>() : nullptr;
+        return agent ? agent->RemainingDistance() : 0.0f;
+    }
+
+    bool ScriptableEntity::HasArrived() const
+    {
+        const auto* agent = m_Entity.HasComponent<NavAgentComponent>() ? &m_Entity.GetComponent<NavAgentComponent>() : nullptr;
+        return agent && agent->Arrived;
+    }
+
+    std::vector<glm::vec3> ScriptableEntity::FindPath(const glm::vec3& from, const glm::vec3& to) const
+    {
+        std::vector<glm::vec3> path;
+        m_Entity.GetScene()->FindNavPath(from, to, path);
+        return path;
+    }
+
+    bool ScriptableEntity::HasNavLineOfSight(const glm::vec3& from, const glm::vec3& to) const
+    {
+        return m_Entity.GetScene()->HasNavLineOfSight(from, to);
+    }
+
 }

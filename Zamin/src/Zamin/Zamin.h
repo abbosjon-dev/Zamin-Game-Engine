@@ -102,6 +102,10 @@
 #include "Zamin/Physics/Polygon2D.h"
 #include "Zamin/Physics/PhysicsWorld3D.h"
 #include "Zamin/Physics/CollisionShapes3D.h"
+#include "Zamin/AI/NavGrid.h"
+#include "Zamin/AI/NavGridBuilder.h"
+#include "Zamin/AI/NavPathfinder.h"
+#include "Zamin/AI/NavPathSmoothing.h"
 #include "Zamin/Debug/DebugDraw.h"
 #include "Zamin/Debug/MeshNormals.h"
 

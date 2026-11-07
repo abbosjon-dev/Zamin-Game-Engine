@@ -6956,10 +6956,13 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<FootstepsComponent>();
     e.AddComponent<BoneAttachmentComponent>();
     e.AddComponent<SubSceneComponent>().ScenePath = "Scenes/Parts/Room.zscene";
+    e.AddComponent<NavGrid2DComponent>();
+    e.AddComponent<NavGrid3DComponent>();
+    e.AddComponent<NavAgentComponent>();
     e.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
 
     const auto& types = ComponentRegistry::GetTypes();
-    CHECK(types.size() == 67);
+    CHECK(types.size() == 70);
     CHECK(types.front().Key == "Transform");
     std::vector<std::string> keys = ComponentRegistry::GetKeys(e);
     CHECK(keys.size() == types.size());
@@ -40440,4 +40443,793 @@ TEST(GeometrySampleScene)
         hits += hit;
     }
     CHECK(hits >= 8 && hits < 25);
+}
+
+// ------------------------------------------------------------------ navigation (M20)
+// A path of cells is valid when every step goes to a walkable 8-neighbour, diagonals only past two
+// walkable side cells (no corner cutting), and its cost is the sum of the steps.
+static bool NavPathIsValid(const NavGrid& grid, const NavPathResult& path, bool diagonals, float* cost = nullptr)
+{
+    float sum = 0.0f;
+    for (size_t i = 0; i < path.Cells.size(); i++)
+    {
+        const glm::ivec2 c = path.Cells[i];
+        if (!grid.IsWalkable(c))
+            return false;
+        if (i == 0)
+            continue;
+        const glm::ivec2 d = c - path.Cells[i - 1];
+        if (std::abs(d.x) > 1 || std::abs(d.y) > 1 || (d.x == 0 && d.y == 0))
+            return false;
+        const bool diagonal = d.x != 0 && d.y != 0;
+        if (diagonal && (!diagonals || !grid.IsWalkable(path.Cells[i - 1] + glm::ivec2(d.x, 0)) || !grid.IsWalkable(path.Cells[i - 1] + glm::ivec2(0, d.y))))
+            return false;
+        sum += (diagonal ? std::sqrt(2.0f) : 1.0f) * grid.GetCellSize() * grid.GetCost(c.x, c.y);
+    }
+    if (cost)
+        *cost = sum;
+    return true;
+}
+
+TEST(NavGridBasics)
+{
+    NavGrid grid(8, 4, 0.5f, { -2.0f, 1.0f });
+    CHECK(grid.GetWidth() == 8 && grid.GetHeight() == 4 && grid.GetCellCount() == 32 && grid.CountWalkable() == 32);
+    CHECK(grid.WorldToCell({ -2.0f, 1.0f }) == glm::ivec2(0, 0));
+    CHECK(grid.WorldToCell({ -0.26f, 2.9f }) == glm::ivec2(3, 3));
+    CHECK(grid.WorldToCell({ -2.1f, 0.9f }) == glm::ivec2(-1, -1));
+    CHECK(Math::Approximately(grid.CellToWorld(1, 2), glm::vec2(-1.25f, 2.25f)));
+    CHECK(!grid.IsWalkable(-1, 0) && !grid.IsWalkable(8, 0) && grid.IsWalkable(7, 3));
+    const uint32_t revision = grid.GetRevision();
+    grid.SetWalkable(2, 1, false);
+    CHECK(!grid.IsWalkable(2, 1) && grid.GetRevision() != revision && grid.CountWalkable() == 31);
+    grid.SetCost(3, 1, 0.2f);
+    CHECK(grid.GetCost(3, 1) == 1.0f); // at least 1
+    grid.SetCost(3, 1, 5000.0f);
+    CHECK(grid.GetCost(3, 1) == NavGrid::MaxCost);
+    grid.FillRect(0, 0, 7, 3, false);
+    grid.SetWalkable(6, 3, true);
+    glm::ivec2 nearest;
+    CHECK(grid.FindNearestWalkable({ 0, 0 }, 10, nearest) && nearest == glm::ivec2(6, 3));
+    CHECK(!grid.FindNearestWalkable({ 0, 0 }, 3, nearest)); // too far
+    // Nearest by real distance, not by ring: (3, 3) is 3 rings away but nearer than a ring-3 corner.
+    NavGrid ring(9, 9);
+    ring.Fill(false);
+    ring.SetWalkable(7, 7, true); // ring 3 corner of (4, 4): distance sqrt 18
+    ring.SetWalkable(4, 0, true); // ring 4 edge: distance 4 (< sqrt 18)
+    CHECK(ring.FindNearestWalkable({ 4, 4 }, 8, nearest) && nearest == glm::ivec2(4, 0));
+    // Empty grid.
+    NavGrid empty;
+    CHECK(empty.IsEmpty() && !empty.IsWalkable(0, 0) && !empty.HasLineOfSight({ 0, 0 }, { 1, 1 }));
+    NavPathfinder finder;
+    NavPathResult result;
+    CHECK(finder.FindPath(empty, glm::ivec2(0), glm::ivec2(1), result) == NavPathStatus::Failed && !result.Found());
+}
+
+TEST(NavAStarOptimalAgainstDijkstra)
+{
+    // Random grids with walls and costly cells: A* (octile / Manhattan heuristic) finds paths exactly
+    // as cheap as Dijkstra's (no heuristic), valid ones, and expands no more cells.
+    uint32_t seed = 12345u;
+    auto next = [&]() { seed = seed * 1664525u + 1013904223u; return seed >> 8; };
+    NavPathfinder astar, dijkstra;
+    int compared = 0, unreachable = 0;
+    for (int trial = 0; trial < 120; trial++)
+    {
+        const int w = 8 + (int)(next() % 40), h = 8 + (int)(next() % 40);
+        NavGrid grid(w, h, 0.25f + (float)(next() % 4) * 0.25f);
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                const uint32_t r = next() % 100;
+                if (r < 28)
+                    grid.SetWalkable(x, y, false);
+                else if (r < 40)
+                    grid.SetCost(x, y, 1.0f + (float)(next() % 5));
+            }
+        const bool diagonals = trial % 3 != 0;
+        NavPathOptions options;
+        options.Diagonals = diagonals;
+        options.SnapRadius = 0;
+        NavPathOptions plain = options;
+        plain.HeuristicWeight = 0.0f;
+        const glm::ivec2 a((int)(next() % w), (int)(next() % h)), b((int)(next() % w), (int)(next() % h));
+        grid.SetWalkable(a.x, a.y, true);
+        grid.SetWalkable(b.x, b.y, true);
+        NavPathResult fast, exact;
+        astar.FindPath(grid, a, b, fast, options);
+        dijkstra.FindPath(grid, a, b, exact, plain);
+        CHECK(fast.Status == exact.Status);
+        if (exact.Status != NavPathStatus::Complete)
+        {
+            unreachable++;
+            CHECK(fast.Status == NavPathStatus::Partial);
+            continue;
+        }
+        compared++;
+        float cost = 0.0f;
+        CHECK(NavPathIsValid(grid, fast, diagonals, &cost));
+        CHECK(fast.Cells.front() == a && fast.Cells.back() == b);
+        CHECK_NEAR(cost, fast.Cost, 1e-3f);
+        CHECK_NEAR(fast.Cost, exact.Cost, 1e-3f * std::max(1.0f, exact.Cost));
+        CHECK(fast.Expanded <= exact.Expanded);
+    }
+    CHECK(compared > 60 && unreachable > 0);
+    // The same search twice: the same path (deterministic, buffers reused).
+    NavGrid grid(30, 30);
+    for (int y = 3; y < 27; y++)
+        grid.SetWalkable(15, y, false);
+    NavPathResult first, second;
+    astar.FindPath(grid, glm::ivec2(2, 15), glm::ivec2(28, 15), first);
+    astar.FindPath(grid, glm::ivec2(2, 15), glm::ivec2(28, 15), second);
+    CHECK(first.IsComplete() && first.Cells == second.Cells && first.Cost == second.Cost);
+    // Weighted A*: no worse than the weight times the shortest, fewer cells looked at.
+    NavPathOptions weighted;
+    weighted.HeuristicWeight = 2.0f;
+    NavPathResult greedy;
+    astar.FindPath(grid, glm::ivec2(2, 15), glm::ivec2(28, 15), greedy, weighted);
+    CHECK(greedy.IsComplete() && greedy.Cost <= first.Cost * 2.0f + 1e-3f && greedy.Expanded <= first.Expanded);
+}
+
+TEST(NavAStarCornersAndNeighbours)
+{
+    NavPathfinder finder;
+    NavPathResult path;
+    // One blocked side cell: no corner cutting goes round it (2 steps), cutting goes diagonally.
+    NavGrid grid(3, 3);
+    grid.SetWalkable(1, 0, false);
+    CHECK(finder.FindPath(grid, glm::ivec2(0, 0), glm::ivec2(1, 1), path) == NavPathStatus::Complete);
+    CHECK(path.Cells.size() == 3 && path.Cells[1] == glm::ivec2(0, 1));
+    CHECK_NEAR(path.Cost, 2.0f, 1e-4f);
+    NavPathOptions cut;
+    cut.CutCorners = true;
+    finder.FindPath(grid, glm::ivec2(0, 0), glm::ivec2(1, 1), path, cut);
+    CHECK(path.IsComplete() && path.Cells.size() == 2);
+    CHECK_NEAR(path.Cost, std::sqrt(2.0f), 1e-4f);
+    // Both side cells blocked: never between them, even cutting corners.
+    grid.SetWalkable(0, 1, false);
+    CHECK(finder.FindPath(grid, glm::ivec2(0, 0), glm::ivec2(1, 1), path, cut) == NavPathStatus::Partial);
+    CHECK(path.Cells.size() == 1 && path.Cells[0] == glm::ivec2(0, 0));
+    // 4 neighbours: Manhattan steps only.
+    NavGrid open(6, 6);
+    NavPathOptions four;
+    four.Diagonals = false;
+    finder.FindPath(open, glm::ivec2(0, 0), glm::ivec2(5, 5), path, four);
+    CHECK(path.IsComplete() && path.Cells.size() == 11 && NavPathIsValid(open, path, false));
+    CHECK_NEAR(path.Cost, 10.0f, 1e-4f);
+    finder.FindPath(open, glm::ivec2(0, 0), glm::ivec2(5, 5), path);
+    CHECK(path.Cells.size() == 6);
+    CHECK_NEAR(path.Cost, 5.0f * std::sqrt(2.0f), 1e-4f);
+    // Costly cells are walked round when that is cheaper.
+    NavGrid mud(5, 3);
+    for (int x = 1; x < 4; x++)
+        mud.SetCost(x, 1, 10.0f);
+    finder.FindPath(mud, glm::ivec2(0, 1), glm::ivec2(4, 1), path);
+    CHECK(path.IsComplete());
+    for (const glm::ivec2& c : path.Cells)
+        CHECK(mud.GetCost(c.x, c.y) == 1.0f);
+}
+
+TEST(NavPartialPaths)
+{
+    NavPathfinder finder;
+    NavPathResult path;
+    // A wall all across: the goal cannot be reached; the path ends at the cell nearest to it.
+    NavGrid grid(20, 10);
+    for (int y = 0; y < 10; y++)
+        grid.SetWalkable(12, y, false);
+    CHECK(finder.FindPath(grid, glm::ivec2(2, 5), glm::ivec2(18, 5), path) == NavPathStatus::Partial);
+    CHECK(path.Found() && !path.IsComplete() && path.Cells.front() == glm::ivec2(2, 5) && path.Cells.back() == glm::ivec2(11, 5));
+    CHECK(NavPathIsValid(grid, path, true));
+    // A blocked goal moves to the nearest walkable cell: a path there, partial.
+    CHECK(finder.FindPath(grid, glm::ivec2(2, 5), glm::ivec2(12, 5), path) == NavPathStatus::Partial);
+    CHECK(path.Cells.back() == glm::ivec2(11, 5) && path.Goal == glm::ivec2(11, 5));
+    // A goal outside the grid: clamped to its edge.
+    CHECK(finder.FindPath(grid, glm::ivec2(2, 5), glm::ivec2(-30, 5), path) == NavPathStatus::Partial);
+    CHECK(path.Cells.back() == glm::ivec2(0, 5));
+    // A blocked start (an agent in an eroded cell) moves out of it first.
+    grid.SetWalkable(2, 5, false);
+    CHECK(finder.FindPath(grid, glm::ivec2(2, 5), glm::ivec2(5, 5), path) == NavPathStatus::Complete);
+    CHECK(path.Cells.front() != glm::ivec2(2, 5) && grid.IsWalkable(path.Cells.front()));
+    // No walkable cell near the start at all: no path.
+    NavPathOptions noSnap;
+    noSnap.SnapRadius = 0;
+    CHECK(finder.FindPath(grid, glm::ivec2(2, 5), glm::ivec2(5, 5), path, noSnap) == NavPathStatus::Failed && path.Cells.empty());
+    // The search budget runs out: a partial path towards the goal.
+    NavGrid big(200, 200);
+    NavPathOptions budget;
+    budget.MaxExpanded = 50;
+    CHECK(finder.FindPath(big, glm::ivec2(0, 0), glm::ivec2(199, 199), path, budget) == NavPathStatus::Partial);
+    CHECK(path.Expanded == 50 && path.Cells.size() > 5 && NavPathIsValid(big, path, true));
+    CHECK(finder.FindPath(big, glm::ivec2(0, 0), glm::ivec2(199, 199), path) == NavPathStatus::Complete && path.Cells.size() == 200);
+    // World positions.
+    NavGrid world(10, 10, 0.5f, { -2.5f, -2.5f });
+    CHECK(finder.FindPath(world, glm::vec2(-2.4f, -2.4f), glm::vec2(2.4f, 2.4f), path) == NavPathStatus::Complete);
+    CHECK(path.Cells.front() == glm::ivec2(0, 0) && path.Cells.back() == glm::ivec2(9, 9));
+}
+
+TEST(NavLineOfSightAndErosion)
+{
+    NavGrid grid(10, 10);
+    std::vector<glm::ivec2> cells;
+    // A diagonal through cell corners: the two cells beside each corner are part of the trace.
+    grid.TraceLine({ 0.5f, 0.5f }, { 2.5f, 2.5f }, cells);
+    const std::vector<glm::ivec2> expected = { { 0, 0 }, { 1, 0 }, { 0, 1 }, { 1, 1 }, { 2, 1 }, { 1, 2 }, { 2, 2 } };
+    CHECK(cells == expected);
+    // A shallow line: every cell it touches, in order.
+    grid.TraceLine({ 0.5f, 0.5f }, { 6.5f, 2.7f }, cells); // no corner on the way
+    CHECK(cells.front() == glm::ivec2(0, 0) && cells.back() == glm::ivec2(6, 2) && cells.size() == 9);
+    for (size_t i = 1; i < cells.size(); i++)
+    {
+        const glm::ivec2 d = cells[i] - cells[i - 1];
+        CHECK(std::abs(d.x) + std::abs(d.y) == 1);
+    }
+    CHECK(grid.HasLineOfSight({ 0.5f, 0.5f }, { 9.5f, 9.5f }));
+    // Blocking one corner cell of the diagonal: no line of sight (no squeezing past it).
+    grid.SetWalkable(1, 0, false);
+    CHECK(!grid.HasLineOfSight({ 0.5f, 0.5f }, { 2.5f, 2.5f }));
+    CHECK(grid.HasLineOfSight({ 0.5f, 0.6f }, { 0.5f, 9.5f }));
+    CHECK(!grid.HasLineOfSight({ 0.5f, 0.5f }, { 12.0f, 0.5f })); // leaves the grid
+    // Erosion: cells nearer than the radius to a blocked one go too (not the grid's own edge).
+    NavGrid room(11, 11);
+    room.SetWalkable(5, 5, false);
+    NavGrid eroded = room;
+    eroded.Erode(0.5f); // exactly half a cell: the neighbours' centres are 0.5 away - kept
+    CHECK(eroded.CountWalkable() == 120);
+    eroded = room;
+    eroded.Erode(0.6f); // the 4 side neighbours (0.5 away) go, the diagonal ones (0.707) stay
+    CHECK(eroded.CountWalkable() == 116 && !eroded.IsWalkable(4, 5) && eroded.IsWalkable(4, 4) && eroded.IsWalkable(0, 0));
+    eroded = room;
+    eroded.Erode(1.2f); // the 8 neighbours (the diagonal ones' centres 0.707 from its corner), not the next ring (1.5)
+    CHECK(eroded.CountWalkable() == 120 - 8 && !eroded.IsWalkable(4, 4) && eroded.IsWalkable(3, 5));
+    eroded = room;
+    eroded.Erode(1.6f); // the next ring's middle cells too (1.5, 1.58), not its corners (2.12)
+    CHECK(eroded.CountWalkable() == 120 - 8 - 12 && !eroded.IsWalkable(3, 5) && !eroded.IsWalkable(3, 4) && eroded.IsWalkable(3, 3));
+    // 3D grids: a ledge between floors too far apart erodes like a wall; steps within reach do not.
+    NavGrid floors(10, 4);
+    floors.EnableHeights();
+    floors.SetMaxClimb(0.3f);
+    for (int y = 0; y < 4; y++)
+        for (int x = 5; x < 10; x++)
+            floors.SetFloorHeight(x, y, 1.0f);
+    CHECK(!floors.CanStep(4, 1, 5, 1) && floors.CanStep(3, 1, 4, 1));
+    CHECK(!floors.HasLineOfSight({ 1.5f, 1.5f }, { 8.5f, 1.5f }));
+    NavPathfinder finder;
+    NavPathResult path;
+    CHECK(finder.FindPath(floors, glm::ivec2(1, 1), glm::ivec2(8, 1), path) == NavPathStatus::Partial && path.Cells.back().x == 4);
+    floors.Erode(0.6f);
+    CHECK(!floors.IsWalkable(4, 1) && !floors.IsWalkable(5, 1) && floors.IsWalkable(3, 1) && floors.IsWalkable(6, 1));
+    CHECK_NEAR(floors.SampleFloorHeight({ 7.0f, 2.0f }), 1.0f, 1e-5f);
+}
+
+TEST(NavStringPullingAndSpline)
+{
+    NavPathfinder finder;
+    NavPathResult result;
+    // Open ground: a straight line, whatever zig-zag of cells the search found.
+    NavGrid open(20, 20);
+    const glm::vec2 start(0.5f, 0.5f), goal(17.5f, 6.5f);
+    finder.FindPath(open, start, goal, result);
+    std::vector<glm::vec2> points = NavPathSmoothing::ToPoints(open, result.Cells, &start, &goal);
+    CHECK(points.size() == result.Cells.size() && points.front() == start && points.back() == goal);
+    std::vector<glm::vec2> pulled = NavPathSmoothing::StringPull(open, points);
+    CHECK(pulled.size() == 2 && pulled.front() == start && pulled.back() == goal);
+    // Round a wall: the corner it must turn at, and every segment walkable.
+    NavGrid wall(20, 20);
+    wall.FillRect(10, 0, 11, 15, false);
+    const glm::vec2 a(3.5f, 3.5f), b(17.5f, 3.5f);
+    finder.FindPath(wall, a, b, result);
+    CHECK(result.IsComplete());
+    points = NavPathSmoothing::ToPoints(wall, result.Cells, &a, &b);
+    pulled = NavPathSmoothing::StringPull(wall, points);
+    CHECK(pulled.size() >= 3 && pulled.size() <= 5 && pulled.size() < points.size());
+    for (size_t i = 1; i < pulled.size(); i++)
+        CHECK(wall.HasLineOfSight(pulled[i - 1], pulled[i]));
+    bool aboveWall = false;
+    for (const glm::vec2& p : pulled)
+        aboveWall = aboveWall || p.y > 15.0f;
+    CHECK(aboveWall);
+    CHECK(NavPathSmoothing::GetLength(pulled) < NavPathSmoothing::GetLength(points));
+    // The spline: rounder (more points), never through the wall, the same ends.
+    const std::vector<glm::vec2> curve = NavPathSmoothing::SplineSmooth(wall, pulled, 0.25f);
+    CHECK(curve.size() > pulled.size() && curve.front() == pulled.front() && curve.back() == pulled.back());
+    for (size_t i = 1; i < curve.size(); i++)
+        CHECK(wall.HasLineOfSight(curve[i - 1], curve[i]));
+    // Start and goal in one cell: a straight step between them.
+    finder.FindPath(open, glm::vec2(2.2f, 2.2f), glm::vec2(2.8f, 2.7f), result);
+    const glm::vec2 s(2.2f, 2.2f), g(2.8f, 2.7f);
+    points = NavPathSmoothing::ToPoints(open, result.Cells, &s, &g);
+    CHECK(points.size() == 2 && points[0] == s && points[1] == g);
+}
+
+TEST(NavGridBuilderShapes)
+{
+    // Shapes block the cells they overlap; touching a border does not count.
+    NavGrid grid(20, 20, 1.0f, { 0.0f, 0.0f });
+    CHECK(NavGridBuilder::BlockPolygon(grid, { { 2, 2 }, { 4, 2 }, { 4, 4 }, { 2, 4 } }) == 4);
+    CHECK(!grid.IsWalkable(2, 2) && !grid.IsWalkable(3, 3) && grid.IsWalkable(1, 2) && grid.IsWalkable(4, 4));
+    // A concave L: the notch stays free.
+    NavGrid l(20, 20);
+    NavGridBuilder::BlockPolygon(l, { { 10, 10 }, { 14, 10 }, { 14, 11 }, { 11, 11 }, { 11, 14 }, { 10, 14 } });
+    CHECK(!l.IsWalkable(10, 10) && !l.IsWalkable(13, 10) && !l.IsWalkable(10, 13) && l.IsWalkable(12, 12) && l.CountWalkable() == 400 - 7);
+    // A small diamond inside one cell, a polygon's corner poking into a cell.
+    NavGrid d(10, 10);
+    CHECK(NavGridBuilder::BlockPolygon(d, { { 5.5f, 5.2f }, { 5.8f, 5.5f }, { 5.5f, 5.8f }, { 5.2f, 5.5f } }) == 1 && !d.IsWalkable(5, 5));
+    CHECK(NavGridBuilder::BlockCircle(d, { 2.0f, 2.0f }, 0.9f) == 4);
+    CHECK(NavGridBuilder::BlockCircle(d, { 8.5f, 8.5f }, 0.3f) == 1);
+    CHECK(NavGridBuilder::BlockSegment(d, { 0.5f, 9.5f }, { 3.5f, 9.5f }) == 4);
+    CHECK(NavGridBuilder::PointInPolygon({ { 0, 0 }, { 2, 0 }, { 1, 2 } }, { 1.0f, 0.5f }));
+    CHECK(!NavGridBuilder::PointInPolygon({ { 0, 0 }, { 2, 0 }, { 1, 2 } }, { 1.9f, 1.5f }));
+    CHECK(NavGridBuilder::SegmentIntersectsRect({ -1, 0.5f }, { 3, 0.5f }, { 0, 0 }, { 1, 1 }));
+    CHECK(!NavGridBuilder::SegmentIntersectsRect({ -1, 2 }, { 3, 2 }, { 0, 0 }, { 1, 1 }));
+}
+
+TEST(NavGridFromTilemap)
+{
+    // A tilemap's colliding tiles block the cells over them: half-size cells, the tilemap moved; a
+    // layer without collision does not block; one-way and non-colliding tiles by the tileset's settings.
+    TilemapComponent tm;
+    tm.Width = 8;
+    tm.Height = 4;
+    tm.TileSize = 1.0f;
+    tm.EnsureSize();
+    tm.Set(2, 1, 0);
+    tm.Set(5, 2, 1);
+    tm.Set(6, 0, 2);       // one-way
+    tm.Set(7, 3, 3);       // no collision
+    const int decor = tm.AddLayer("Bezak");
+    tm.Set(0, 0, 0, decor); // a layer without Collision
+    TilesetProperties properties;
+    properties.SetCollision(2, TileCollision::OneWay);
+    properties.SetCollision(3, TileCollision::None);
+    const glm::mat4 world = glm::translate(glm::mat4(1.0f), glm::vec3(-4.0f, -2.0f, 0.0f));
+    glm::vec2 lo, hi;
+    NavGridBuilder::GetTilemapBounds(tm, world, lo, hi);
+    CHECK(Math::Approximately(lo, glm::vec2(-4.0f, -2.0f)) && Math::Approximately(hi, glm::vec2(4.0f, 2.0f)));
+    NavGrid grid(16, 8, 0.5f, lo);
+    CHECK(NavGridBuilder::BlockTilemap(grid, tm, world, &properties, false) == 8);
+    CHECK(!grid.IsWalkable(4, 2) && !grid.IsWalkable(5, 3) && !grid.IsWalkable(10, 4) && !grid.IsWalkable(11, 5));
+    CHECK(grid.IsWalkable(3, 2) && grid.IsWalkable(12, 0) && grid.IsWalkable(14, 6) && grid.IsWalkable(0, 0));
+    NavGrid withOneWay(16, 8, 0.5f, lo);
+    CHECK(NavGridBuilder::BlockTilemap(withOneWay, tm, world, &properties, true) == 12 && !withOneWay.IsWalkable(12, 0));
+    // A cell size larger than the tiles: every cell overlapping a solid tile.
+    NavGrid coarse(4, 2, 2.0f, lo);
+    NavGridBuilder::BlockTilemap(coarse, tm, world, &properties, false);
+    CHECK(!coarse.IsWalkable(1, 0) && !coarse.IsWalkable(2, 1) && coarse.IsWalkable(0, 0) && coarse.IsWalkable(3, 0) && coarse.CountWalkable() == 6);
+    // Collision off on the tilemap: nothing.
+    tm.Collision = false;
+    NavGrid none(16, 8, 0.5f, lo);
+    CHECK(NavGridBuilder::BlockTilemap(none, tm, world, &properties, true) == 0);
+}
+
+TEST(NavGrid2DBakeInScene)
+{
+    // A NavGrid 2D bakes from the scene's tilemap and static colliders (not dynamic bodies or
+    // triggers, only on its layers), around the sources' bounds; play start bakes it.
+    auto scene = CreateRef<Scene>();
+    Entity map = scene->CreateEntity("Map");
+    map.GetTransform().Translation = { -5.0f, -5.0f, 0.0f };
+    auto& tm = map.AddComponent<TilemapComponent>();
+    tm.Width = tm.Height = 10;
+    tm.EnsureSize();
+    for (int y = 0; y < 8; y++)
+        tm.Set(4, y, 0); // a wall with a gap at the top
+    Entity rock = scene->CreateEntity("Rock");
+    rock.GetTransform().Translation = { 3.0f, 3.0f, 0.0f };
+    rock.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Static;
+    rock.AddComponent<CircleCollider2DComponent>().Radius = 0.7f;
+    Entity crate = scene->CreateEntity("Crate"); // dynamic: not an obstacle
+    crate.GetTransform().Translation = { 2.0f, -3.0f, 0.0f };
+    crate.AddComponent<Rigidbody2DComponent>();
+    crate.AddComponent<BoxCollider2DComponent>();
+    Entity zone = scene->CreateEntity("Zone"); // a trigger: not an obstacle
+    zone.GetTransform().Translation = { -3.0f, 3.0f, 0.0f };
+    zone.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Static;
+    zone.AddComponent<BoxCollider2DComponent>().IsSensor = true;
+    Entity post = scene->CreateEntity("Post"); // on layer 3: left out by the mask
+    post.GetTransform().Translation = { -3.0f, -3.0f, 0.0f };
+    post.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Static;
+    post.AddComponent<BoxCollider2DComponent>().Layer = 3;
+
+    Entity nav = scene->CreateEntity("Nav");
+    auto& c = nav.AddComponent<NavGrid2DComponent>();
+    c.CellSize = 0.5f;
+    c.AgentRadius = 0.0f;
+    c.LayerMask = 0xFFFF & ~(1u << 3);
+    glm::vec2 lo, hi;
+    CHECK(scene->GetNavGrid2DSourceBounds(nav, lo, hi));
+    CHECK(Math::Approximately(lo, glm::vec2(-5.0f, -5.0f)) && Math::Approximately(hi, glm::vec2(5.0f, 5.0f)));
+    CHECK(scene->GetNavGrid(nav) == nullptr);
+    CHECK(scene->BakeNavGrid(nav) && c.Baked && c.BakeCount == 1);
+    const NavGrid* grid = scene->GetNavGrid(nav);
+    CHECK(grid && grid->GetWidth() == 20 && grid->GetHeight() == 20 && Scene::GetNavGridDimension(nav) == 2);
+    if (!grid)
+        return;
+    auto walkable = [&](float x, float y) { return grid->IsWalkable(grid->WorldToCell({ x, y })); };
+    CHECK(!walkable(-0.75f, -4.0f) && !walkable(-0.25f, 2.9f) && walkable(-0.5f, 3.5f)); // the wall and its gap
+    CHECK(!walkable(3.0f, 3.0f) && !walkable(3.5f, 3.0f) && walkable(4.0f, 4.0f));       // the rock
+    CHECK(walkable(2.0f, -3.0f) && walkable(-3.0f, 3.0f) && walkable(-3.0f, -3.0f));     // crate, trigger, masked post
+    // A path from one side of the wall to the other goes through the gap.
+    std::vector<glm::vec3> path;
+    CHECK(scene->FindNavPath({ -3.0f, -4.0f, 0.5f }, { 3.0f, -4.0f, 0.5f }, path, nav) == NavPathStatus::Complete);
+    CHECK(path.size() >= 3 && path.front().z == 0.5f);
+    bool throughGap = false;
+    for (const glm::vec3& p : path)
+        throughGap = throughGap || p.y > 2.9f;
+    CHECK(throughGap);
+    CHECK(!scene->HasNavLineOfSight({ -3.0f, -4.0f, 0 }, { 3.0f, -4.0f, 0 }, nav) && scene->HasNavLineOfSight({ -3.0f, -4.0f, 0 }, { -3.0f, 4.0f, 0 }, nav));
+    // Agent clearance; explicit bounds.
+    c.AgentRadius = 0.3f;
+    scene->BakeNavGrid(nav);
+    CHECK(!walkable(-0.25f, -3.0f) && !walkable(-1.25f, -3.0f) && walkable(-1.75f, -3.0f));
+    c.AutoBounds = false;
+    c.Size = { 4.0f, 2.0f };
+    c.Offset = { 1.0f, 0.0f };
+    scene->BakeNavGrid(nav);
+    CHECK(grid->GetWidth() == 8 && grid->GetHeight() == 4 && Math::Approximately(grid->GetOrigin(), glm::vec2(-1.0f, -1.0f)));
+    // Play start: baked (the runtime copy is cleared first).
+    c.AutoBounds = true;
+    c.ResetRuntime();
+    scene->OnRuntimeStart();
+    CHECK(c.Baked && scene->FindNavGridEntity({ 0, 0, 0 }) == nav && scene->FindNavGridEntity({ 0, 0, 0 }, 3) == Entity());
+    // Auto rebuild: a tile dug out of the wall opens a way.
+    c.AutoRebuild = true;
+    const uint32_t bakes = c.BakeCount;
+    scene->OnUpdateRuntime(0.6f);
+    CHECK(c.BakeCount == bakes); // nothing changed
+    tm.Set(4, 0, -1);
+    scene->OnUpdateRuntime(0.6f);
+    CHECK(c.BakeCount == bakes + 1 && walkable(-0.75f, -4.75f));
+    scene->OnRuntimeStop();
+}
+
+TEST(NavGrid3DBakeOnColliders)
+{
+    // A floor with a wall, a box to stand on (too high to step up), a gentle and a steep ramp: rays
+    // onto the static colliders give the floor heights; the wall, the steep ramp and the space under
+    // a low beam are blocked; the gentle ramp is walkable.
+    auto scene = CreateRef<Scene>();
+    auto addBox = [&](const char* name, const glm::vec3& position, const glm::vec3& size, const glm::vec3& rotation = glm::vec3(0.0f),
+                      bool dynamic = false) {
+        Entity e = scene->CreateEntity(name);
+        e.GetTransform().Translation = position;
+        e.GetTransform().Scale = size;
+        e.GetTransform().Rotation = glm::radians(rotation);
+        e.AddComponent<Rigidbody3DComponent>().Type = dynamic ? Rigidbody3DComponent::BodyType::Dynamic : Rigidbody3DComponent::BodyType::Static;
+        e.AddComponent<BoxCollider3DComponent>();
+        return e;
+    };
+    addBox("Floor", { 0.0f, -0.5f, 0.0f }, { 20.0f, 1.0f, 20.0f });
+    addBox("Wall", { 0.0f, 1.0f, 2.1f }, { 8.0f, 2.0f, 0.5f });
+    addBox("Block", { 6.0f, 0.5f, -6.0f }, { 2.0f, 1.0f, 2.0f });
+    addBox("Ramp", { -6.0f, 0.0f, -6.0f }, { 4.0f, 0.2f, 3.0f }, { 0.0f, 0.0f, 15.0f });
+    addBox("Steep", { -6.0f, 0.5f, 6.0f }, { 4.0f, 0.2f, 3.0f }, { 0.0f, 0.0f, 60.0f });
+    addBox("Pole", { 6.1f, 1.0f, 6.1f }, { 0.1f, 2.0f, 0.1f }); // thinner than a cell: no ray hits it, the overlap box does
+    addBox("Crate", { 0.0f, 0.5f, -3.0f }, { 1.0f, 1.0f, 1.0f }, glm::vec3(0.0f), true); // dynamic: ignored
+
+    Entity nav = scene->CreateEntity("Nav3D");
+    auto& c = nav.AddComponent<NavGrid3DComponent>();
+    c.Size = { 20.0f, 6.0f, 20.0f };
+    c.CellSize = 0.5f;
+    c.AgentRadius = 0.0f;
+    CHECK(scene->BakeNavGrid(nav) && c.Baked && c.BakeBodies == 6);
+    const NavGrid* grid = scene->GetNavGrid(nav, 3);
+    CHECK(grid && grid->GetWidth() == 40 && grid->GetHeight() == 40 && grid->HasHeights() && Scene::GetNavGridDimension(nav) == 3);
+    if (!grid)
+        return;
+    auto cell = [&](float x, float z) { return grid->WorldToCell({ x, z }); };
+    auto walkable = [&](float x, float z) { return grid->IsWalkable(cell(x, z)); };
+    auto height = [&](float x, float z) { const glm::ivec2 c = cell(x, z); return grid->GetFloorHeight(c.x, c.y); };
+    CHECK(walkable(-8.0f, 0.0f) && std::abs(height(-8.0f, 0.0f)) < 1e-3f);
+    CHECK(!walkable(0.0f, 1.75f) && walkable(0.0f, 1.25f) && walkable(0.0f, 2.75f) && walkable(4.6f, 1.75f)); // beside the wall: in the way
+    CHECK(walkable(0.0f, 2.25f) && std::abs(height(0.0f, 2.25f) - 2.0f) < 1e-3f);        // its top: a floor of its own, cut off
+    CHECK(walkable(6.0f, -6.0f) && std::abs(height(6.0f, -6.0f) - 1.0f) < 1e-3f);       // standing on the block
+    CHECK(!grid->CanStep(cell(4.75f, -6.0f).x, cell(4.75f, -6.0f).y, cell(5.25f, -6.0f).x, cell(5.25f, -6.0f).y)); // too high a step
+    CHECK(walkable(-6.0f, -6.0f) && height(-6.0f, -6.0f) > 0.05f);                     // the gentle ramp
+    CHECK(!walkable(-6.0f, 6.0f));                                                      // the steep one
+    CHECK(!walkable(6.25f, 6.25f) && walkable(8.5f, 8.5f) && std::abs(height(6.25f, 6.25f)) < 1e-3f); // beside the pole / away from it
+    CHECK(walkable(0.0f, -3.0f) && std::abs(height(0.0f, -3.0f)) < 1e-3f);             // the dynamic crate is not there
+    // A path round the wall; on the ramp its points follow the floor.
+    std::vector<glm::vec3> path;
+    CHECK(scene->FindNavPath({ 0.0f, 0.0f, -1.0f }, { 0.0f, 0.0f, 5.0f }, path, nav) == NavPathStatus::Complete);
+    CHECK(path.size() >= 3);
+    for (size_t i = 1; i < path.size(); i++)
+        CHECK(grid->HasLineOfSight({ path[i - 1].x, path[i - 1].z }, { path[i].x, path[i].z }));
+    CHECK(scene->FindNavPath({ -9.0f, 0.0f, -6.0f }, { -6.0f, 0.0f, -6.0f }, path, nav) == NavPathStatus::Complete && path.back().y > 0.05f);
+    // Onto the block: not reachable (partial, ends beside it).
+    CHECK(scene->FindNavPath({ 2.0f, 0.0f, -6.0f }, { 6.0f, 0.0f, -6.0f }, path, nav) == NavPathStatus::Partial);
+    // Clearance: cells near the wall go too.
+    c.AgentRadius = 0.5f;
+    scene->BakeNavGrid(nav);
+    CHECK(!walkable(0.0f, 1.25f) && walkable(0.0f, 0.5f) && !walkable(4.75f, -6.0f) && !walkable(0.0f, 2.25f)); // the wall's narrow top too
+    // The layer mask: a mask without the colliders' layer sees nothing to stand on.
+    c.LayerMask = 0x0002;
+    scene->BakeNavGrid(nav);
+    CHECK(grid->CountWalkable() == 0);
+}
+
+TEST(NavAgent2DWalksToDestination)
+{
+    // An agent moved by its transform walks round a wall to its destination, staying on walkable
+    // cells, brakes and stops there; a dynamic body agent (no gravity) does it by velocity.
+    for (int mode = 0; mode < 2; mode++)
+    {
+        auto scene = CreateRef<Scene>();
+        scene->GetSettings().Gravity = { 0.0f, 0.0f };
+        Entity map = scene->CreateEntity("Map");
+        map.GetTransform().Translation = { -10.0f, -10.0f, 0.0f };
+        auto& tm = map.AddComponent<TilemapComponent>();
+        tm.Width = tm.Height = 20;
+        tm.EnsureSize();
+        for (int y = 0; y < 16; y++)
+            tm.Set(10, y, 0);
+        Entity nav = scene->CreateEntity("Nav");
+        nav.AddComponent<NavGrid2DComponent>().AgentRadius = 0.3f;
+        Entity agentEntity = scene->CreateEntity("Agent");
+        agentEntity.GetTransform().Translation = { -5.0f, -5.0f, 0.2f };
+        auto& agent = agentEntity.AddComponent<NavAgentComponent>();
+        agent.Speed = 5.0f;
+        agent.UpdateRotation = mode == 0;
+        if (mode == 1)
+        {
+            auto& rb = agentEntity.AddComponent<Rigidbody2DComponent>();
+            rb.FixedRotation = true;
+            agentEntity.AddComponent<CircleCollider2DComponent>().Radius = 0.25f;
+        }
+        scene->OnRuntimeStart();
+        CHECK(scene->GetNavAgentGrid(agentEntity) == nav);
+        agent.SetDestination({ 5.0f, -5.0f, 0.0f });
+        CHECK(agent.IsMoving() && agent.RepathRequested);
+        const NavGrid* grid = scene->GetNavGrid(nav);
+        bool stayedOnGrid = true;
+        int frames = 0;
+        for (; frames < 600 && (frames < 2 || agent.IsMoving()); frames++)
+        {
+            scene->OnUpdateRuntime(1.0f / 60.0f);
+            const glm::vec3 p = scene->GetWorldPosition(agentEntity);
+            // Eroded cells may be touched while rounding a corner, never the wall itself.
+            if (grid && agentEntity.GetTransform().Translation.x > -0.05f && agentEntity.GetTransform().Translation.x < 0.05f && p.y < 5.9f)
+                stayedOnGrid = false;
+        }
+        const glm::vec3 end = scene->GetWorldPosition(agentEntity);
+        CHECK(frames < 600 && !agent.IsMoving() && agent.Arrived && agent.PathStatus == NavPathStatus::Complete);
+        CHECK(glm::length(glm::vec2(end) - glm::vec2(5.0f, -5.0f)) < 0.2f);
+        CHECK_NEAR(end.z, 0.2f, 1e-5f);
+        CHECK(agent.RemainingDistance() == 0.0f && stayedOnGrid);
+        if (mode == 0)
+            CHECK(std::abs(agentEntity.GetTransform().Rotation.z) < glm::radians(100.0f)); // it turned towards its way
+        // Far enough that it had to go round: more than the straight 10 units of time at 5 / s.
+        CHECK(frames > 150);
+        // Stop: it brakes, the destination is gone.
+        agent.SetDestination({ -5.0f, 5.0f, 0.0f });
+        for (int i = 0; i < 20; i++)
+            scene->OnUpdateRuntime(1.0f / 60.0f);
+        CHECK(agent.IsMoving());
+        agent.Stop(true);
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+        CHECK(!agent.HasDestination && !agent.IsMoving());
+        scene->OnRuntimeStop();
+    }
+}
+
+TEST(NavAgentFollowsTargetAndRepaths)
+{
+    auto scene = CreateRef<Scene>();
+    Entity nav = scene->CreateEntity("Nav");
+    auto& grid = nav.AddComponent<NavGrid2DComponent>();
+    grid.AutoBounds = false;
+    grid.Size = { 30.0f, 30.0f };
+    grid.AgentRadius = 0.0f;
+    Entity target = scene->CreateEntity("Target");
+    target.GetTransform().Translation = { 6.0f, 0.0f, 0.0f };
+    Entity chaser = scene->CreateEntity("Chaser");
+    auto& agent = chaser.AddComponent<NavAgentComponent>();
+    agent.Target.ID = (uint64_t)target.GetUUID();
+    agent.Speed = 6.0f;
+    agent.StoppingDistance = 0.5f;
+    agent.RepathInterval = 0.25f;
+    scene->OnRuntimeStart();
+    for (int i = 0; i < 120; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(agent.Arrived && glm::length(scene->GetWorldPosition(chaser) - scene->GetWorldPosition(target)) < 0.7f);
+    // The target goes elsewhere: the agent follows on its next path.
+    target.GetTransform().Translation = { -6.0f, 4.0f, 0.0f };
+    for (int i = 0; i < 180; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(glm::length(scene->GetWorldPosition(chaser) - scene->GetWorldPosition(target)) < 0.7f && agent.PathRequests > 3);
+    // The grid changes (a wall appears where it is going): the agent finds a new path at once.
+    target.GetTransform().Translation = { 8.0f, 4.0f, 0.0f };
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    const uint32_t requests = agent.PathRequests;
+    Entity wall = scene->CreateEntity("Wall");
+    wall.GetTransform().Translation = { 2.0f, 4.0f, 0.0f };
+    wall.GetTransform().Scale = { 1.0f, 16.0f, 1.0f };
+    wall.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Static;
+    wall.AddComponent<BoxCollider2DComponent>();
+    scene->BakeNavGrid(nav);
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(agent.PathRequests == requests + 1 && agent.Path.size() >= 3);
+    scene->OnRuntimeStop();
+}
+
+TEST(NavAgent3DWithCharacterController)
+{
+    // A Character Controller 3D agent walks round a wall on a NavGrid 3D (by its move velocity, the
+    // controller keeps it on the floor); a transform agent follows the floor height up a ramp.
+    auto scene = CreateRef<Scene>();
+    auto addBox = [&](const char* name, const glm::vec3& position, const glm::vec3& size, const glm::vec3& rotation = glm::vec3(0.0f)) {
+        Entity e = scene->CreateEntity(name);
+        e.GetTransform().Translation = position;
+        e.GetTransform().Scale = size;
+        e.GetTransform().Rotation = glm::radians(rotation);
+        e.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Static;
+        e.AddComponent<BoxCollider3DComponent>();
+        return e;
+    };
+    addBox("Floor", { 0.0f, -0.5f, 0.0f }, { 24.0f, 1.0f, 24.0f });
+    addBox("Wall", { 0.0f, 1.0f, 0.0f }, { 10.0f, 2.0f, 0.5f });
+    addBox("Ramp", { -7.0f, 0.0f, -7.0f }, { 6.0f, 0.2f, 3.0f }, { 0.0f, 0.0f, 12.0f });
+    Entity nav = scene->CreateEntity("Nav3D");
+    auto& gridComponent = nav.AddComponent<NavGrid3DComponent>();
+    gridComponent.Size = { 24.0f, 6.0f, 24.0f };
+    gridComponent.AgentRadius = 0.4f;
+    Entity npc = scene->CreateEntity("NPC");
+    npc.GetTransform().Translation = { 0.0f, 0.0f, -4.0f };
+    npc.AddComponent<CharacterController3DComponent>();
+    auto& agent = npc.AddComponent<NavAgentComponent>();
+    agent.Speed = 4.0f;
+    Entity walker = scene->CreateEntity("Walker");
+    walker.GetTransform().Translation = { -10.5f, 0.0f, -7.0f };
+    auto& transformAgent = walker.AddComponent<NavAgentComponent>();
+    transformAgent.Speed = 3.0f;
+    scene->OnRuntimeStart();
+    CHECK(gridComponent.Baked && scene->GetNavAgentGrid(npc) == nav && scene->GetNavAgentGrid(walker) == nav);
+    CHECK(scene->SetNavDestination(npc, { 0.0f, 0.0f, 4.0f }) && agent.Path.size() >= 3);
+    transformAgent.SetDestination({ -7.0f, 0.0f, -7.0f });
+    int frames = 0;
+    for (; frames < 900 && (agent.IsMoving() || transformAgent.IsMoving() || frames < 2); frames++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    const glm::vec3 end = scene->GetWorldPosition(npc);
+    CHECK(frames < 900 && agent.Arrived && glm::length(glm::vec2(end.x, end.z) - glm::vec2(0.0f, 4.0f)) < 0.3f);
+    CHECK(std::abs(end.y) < 0.1f);
+    // Facing the way it went last (-Z forward): roughly towards +Z at the end.
+    const glm::vec3 forward = glm::vec3(glm::quat(npc.GetTransform().Rotation) * glm::vec4(0.0f, 0.0f, -1.0f, 0.0f));
+    CHECK(forward.z > 0.3f);
+    const glm::vec3 top = scene->GetWorldPosition(walker);
+    CHECK(transformAgent.Arrived && glm::length(glm::vec2(top.x, top.z) - glm::vec2(-7.0f, -7.0f)) < 0.3f && top.y > 0.05f);
+    scene->OnRuntimeStop();
+}
+
+TEST(NavComponentsSerializationAndCopies)
+{
+    auto scene = CreateRef<Scene>();
+    Entity map = scene->CreateEntity("Map");
+    map.AddComponent<TilemapComponent>();
+    Entity grid2 = scene->CreateEntity("Grid2D");
+    auto& g2 = grid2.AddComponent<NavGrid2DComponent>();
+    g2.AutoBounds = false;
+    g2.Offset = { 1.5f, -2.0f };
+    g2.Size = { 30.0f, 12.0f };
+    g2.CellSize = 0.25f;
+    g2.UseTilemaps = true;
+    g2.OneWayBlocks = true;
+    g2.Tilemap.ID = (uint64_t)map.GetUUID();
+    g2.UseColliders = false;
+    g2.LayerMask = 0x00F3;
+    g2.AgentRadius = 0.45f;
+    g2.Paths.Diagonals = false;
+    g2.Paths.CutCorners = true;
+    g2.Paths.BakeOnStart = false;
+    g2.AutoRebuild = true;
+    Entity grid3 = scene->CreateEntity("Grid3D");
+    auto& g3 = grid3.AddComponent<NavGrid3DComponent>();
+    g3.Offset = { 0.0f, 1.0f, 2.0f };
+    g3.Size = { 50.0f, 8.0f, 40.0f };
+    g3.CellSize = 1.0f;
+    g3.AgentRadius = 0.6f;
+    g3.AgentHeight = 2.2f;
+    g3.MaxSlope = 30.0f;
+    g3.StepHeight = 0.25f;
+    g3.LayerMask = 0x0005;
+    Entity npc = scene->CreateEntity("NPC");
+    auto& a = npc.AddComponent<NavAgentComponent>();
+    a.Grid.ID = (uint64_t)grid3.GetUUID();
+    a.Target.ID = (uint64_t)map.GetUUID();
+    a.Speed = 7.0f;
+    a.Acceleration = 0.0f;
+    a.AngularSpeed = 90.0f;
+    a.StoppingDistance = 1.25f;
+    a.Radius = 0.6f;
+    a.LookAhead = 1.5f;
+    a.RepathInterval = 0.0f;
+    a.BaseOffset = 0.9f;
+    a.AutoBraking = false;
+    a.SmoothPath = false;
+    a.SplinePath = true;
+    a.UpdateRotation = false;
+    // Runtime state is not saved.
+    scene->BakeNavGrid(grid2);
+    a.SetDestination({ 1, 2, 3 });
+
+    const std::string text = SceneSerializer(scene).SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    Entity l2 = loaded->FindEntityByName("Grid2D"), l3 = loaded->FindEntityByName("Grid3D"), ln = loaded->FindEntityByName("NPC");
+    CHECK(l2 && l3 && ln);
+    if (!l2 || !l3 || !ln)
+        return;
+    const auto& r2 = l2.GetComponent<NavGrid2DComponent>();
+    CHECK(!r2.AutoBounds && r2.Offset == g2.Offset && r2.Size == g2.Size && r2.CellSize == 0.25f && r2.OneWayBlocks && !r2.UseColliders);
+    CHECK(r2.Tilemap == g2.Tilemap && r2.LayerMask == 0x00F3 && r2.AgentRadius == 0.45f && !r2.Paths.Diagonals && r2.Paths.CutCorners);
+    CHECK(!r2.Paths.BakeOnStart && r2.AutoRebuild && !r2.Baked && r2.Grid.IsEmpty());
+    const auto& r3 = l3.GetComponent<NavGrid3DComponent>();
+    CHECK(r3.Offset == g3.Offset && r3.Size == g3.Size && r3.CellSize == 1.0f && r3.AgentRadius == 0.6f && r3.AgentHeight == 2.2f);
+    CHECK(r3.MaxSlope == 30.0f && r3.StepHeight == 0.25f && r3.LayerMask == 0x0005 && r3.Paths.BakeOnStart && !r3.Baked);
+    const auto& rn = ln.GetComponent<NavAgentComponent>();
+    CHECK(rn.Grid == a.Grid && rn.Target == a.Target && rn.Speed == 7.0f && rn.Acceleration == 0.0f && rn.AngularSpeed == 90.0f);
+    CHECK(rn.StoppingDistance == 1.25f && rn.Radius == 0.6f && rn.LookAhead == 1.5f && rn.RepathInterval == 0.0f && rn.BaseOffset == 0.9f);
+    CHECK(!rn.AutoBraking && !rn.SmoothPath && rn.SplinePath && !rn.UpdateRotation && !rn.HasDestination && rn.Path.empty());
+    // Defaults: an empty object gives the component's defaults.
+    auto defaults = CreateRef<Scene>();
+    Entity d = defaults->CreateEntity("D");
+    d.AddComponent<NavAgentComponent>();
+    d.AddComponent<NavGrid2DComponent>();
+    auto again = CreateRef<Scene>();
+    CHECK(SceneSerializer(again).DeserializeFromString(SceneSerializer(defaults).SerializeToString()));
+    Entity da = again->FindEntityByName("D");
+    CHECK(da && da.GetComponent<NavAgentComponent>().Speed == NavAgentComponent().Speed && da.GetComponent<NavGrid2DComponent>().LayerMask == 0xFFFF);
+
+    // Scene::Copy (the editor's Play) clears the baked grid and the agent's path.
+    Ref<Scene> copy = Scene::Copy(scene);
+    Entity c2 = copy->FindEntityByName("Grid2D"), cn = copy->FindEntityByName("NPC");
+    CHECK(c2 && cn && !c2.GetComponent<NavGrid2DComponent>().Baked && c2.GetComponent<NavGrid2DComponent>().Grid.IsEmpty());
+    CHECK(cn && !cn.GetComponent<NavAgentComponent>().HasDestination && cn.GetComponent<NavAgentComponent>().Grid == a.Grid);
+    // A duplicated group: references inside it point to the copies.
+    scene->SetParent(grid3, npc);
+    Entity dup = scene->DuplicateEntity(npc);
+    CHECK(dup && dup.GetComponent<NavAgentComponent>().Grid.ID != a.Grid.ID && dup.GetComponent<NavAgentComponent>().Target == a.Target);
+    CHECK(dup && !dup.GetComponent<NavAgentComponent>().HasDestination);
+    // The component keys.
+    CHECK(ComponentRegistry::Find("NavGrid2D") && ComponentRegistry::Find("NavGrid3D") && ComponentRegistry::Find("NavAgent"));
+}
+
+class NavScriptProbe : public ScriptableEntity
+{
+public:
+    bool Found = false, MovingAfter = false;
+    float Remaining = -1.0f;
+    size_t PathPoints = 0;
+    void OnStart() override
+    {
+        Found = SetDestination(glm::vec2(4.0f, 0.0f));
+        MovingAfter = IsMoving();
+        Remaining = GetRemainingDistance();
+        PathPoints = FindPath(GetWorldPosition(), { -4.0f, 2.0f, 0.0f }).size();
+    }
+};
+ZM_REGISTER_SCRIPT(NavScriptProbe)
+
+TEST(NavScriptApi)
+{
+    auto scene = CreateRef<Scene>();
+    Entity nav = scene->CreateEntity("Nav");
+    auto& grid = nav.AddComponent<NavGrid2DComponent>();
+    grid.AutoBounds = false;
+    grid.Size = { 12.0f, 12.0f };
+    Entity e = scene->CreateEntity("Agent");
+    e.AddComponent<NavAgentComponent>();
+    e.AddComponent<NativeScriptComponent>().ClassName = "NavScriptProbe";
+    scene->OnRuntimeStart();
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    auto* probe = dynamic_cast<NavScriptProbe*>(e.GetComponent<NativeScriptComponent>().Instance);
+    CHECK(probe && probe->Found && probe->MovingAfter && probe->PathPoints == 2);
+    CHECK(probe && std::abs(probe->Remaining - 4.0f) < 1e-3f);
+    for (int i = 0; i < 240; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(glm::length(scene->GetWorldPosition(e) - glm::vec3(4.0f, 0.0f, 0.0f)) < 0.2f && !e.GetComponent<NavAgentComponent>().IsMoving());
+    // Without a grid: no path.
+    Entity lost = scene->CreateEntity("Lost");
+    lost.AddComponent<NavAgentComponent>().Grid.ID = 12345;
+    CHECK(!scene->SetNavDestination(lost, { 1, 1, 0 }) && lost.GetComponent<NavAgentComponent>().PathStatus == NavPathStatus::Failed);
+    scene->OnRuntimeStop();
 }

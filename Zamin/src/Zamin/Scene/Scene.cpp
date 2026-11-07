@@ -420,6 +420,9 @@ namespace Zamin {
         for (auto e : registry.view<CameraComponent>()) registry.get<CameraComponent>(e).Shake.ResetRuntime();
         for (auto e : registry.view<Camera2DFollowComponent>()) registry.get<Camera2DFollowComponent>(e).ResetRuntime();
         for (auto e : registry.view<SplineFollowerComponent>()) registry.get<SplineFollowerComponent>(e).ResetRuntime();
+        for (auto e : registry.view<NavGrid2DComponent>()) registry.get<NavGrid2DComponent>(e).ResetRuntime();
+        for (auto e : registry.view<NavGrid3DComponent>()) registry.get<NavGrid3DComponent>(e).ResetRuntime();
+        for (auto e : registry.view<NavAgentComponent>()) registry.get<NavAgentComponent>(e).ResetRuntime();
         for (auto e : registry.view<ParticleSystemComponent>()) registry.get<ParticleSystemComponent>(e).ResetRuntime();
         for (auto e : registry.view<MeshRendererComponent>())
         {
@@ -488,6 +491,9 @@ namespace Zamin {
         if (auto* c = e.TryGetComponent<CameraComponent>()) c->Shake.ResetRuntime();
         if (auto* c = e.TryGetComponent<Camera2DFollowComponent>()) c->ResetRuntime();
         if (auto* c = e.TryGetComponent<SplineFollowerComponent>()) c->ResetRuntime();
+        if (auto* c = e.TryGetComponent<NavGrid2DComponent>()) c->ResetRuntime();
+        if (auto* c = e.TryGetComponent<NavGrid3DComponent>()) c->ResetRuntime();
+        if (auto* c = e.TryGetComponent<NavAgentComponent>()) c->ResetRuntime();
         if (auto* c = e.TryGetComponent<CharacterController3DComponent>()) { c->RuntimeID = 0xffffffff; c->Grounded = false; c->Velocity = glm::vec3(0.0f); }
         if (auto* c = e.TryGetComponent<ParticleSystemComponent>()) { c->ResetRuntime(); c->RandomState ^= (uint32_t)(uint64_t)e.GetUUID(); }
         if (auto* c = e.TryGetComponent<UIButtonComponent>()) c->Hovered = c->Pressed = c->Clicked = false;
@@ -881,6 +887,13 @@ namespace Zamin {
                 remap(follow->Target);
             if (auto* follower = e.TryGetComponent<SplineFollowerComponent>())
                 remap(follower->Path);
+            if (auto* grid = e.TryGetComponent<NavGrid2DComponent>())
+                remap(grid->Tilemap);
+            if (auto* agent = e.TryGetComponent<NavAgentComponent>())
+            {
+                remap(agent->Grid);
+                remap(agent->Target);
+            }
             if (auto* button = e.TryGetComponent<UIButtonComponent>())
                 remap(button->ClickTarget);
             if (auto* scroll = e.TryGetComponent<UIScrollViewComponent>())
@@ -2574,6 +2587,9 @@ namespace Zamin {
         for (auto e : sources)
             StartEntityEffects({ e, this });
 
+        // The navigation grids are baked before the scripts start (OnCreate / OnStart can find paths).
+        StartNavigation();
+
         const auto scriptsClock = std::chrono::steady_clock::now();
         StartScripts();
         m_RuntimeStartTiming.ScriptsMilliseconds = ElapsedMilliseconds(scriptsClock);
@@ -3722,12 +3738,19 @@ namespace Zamin {
 
         auto& rb = entity.GetComponent<Rigidbody3DComponent>();
         if (rb.RuntimeBodyID != 0xffffffff) return;
+        PhysicsBody3DDesc desc;
+        if (MakePhysicsBody3DDesc(entity, desc, false))
+            rb.RuntimeBodyID = m_PhysicsWorld3D->CreateBody(desc);
+    }
 
+    bool Scene::MakePhysicsBody3DDesc(Entity entity, PhysicsBody3DDesc& desc, bool quiet)
+    {
+        const auto& rb = entity.GetComponent<Rigidbody3DComponent>();
         glm::vec3 position, rotation, scale;
         Math::DecomposeTransform(GetWorldTransform(entity), position, rotation, scale);
         scale = glm::abs(scale);
 
-        PhysicsBody3DDesc desc;
+        desc = {};
         desc.EntityID = entity.GetUUID();
         desc.MotionType = (int)rb.Type;
         desc.Position = position;
@@ -3789,15 +3812,18 @@ namespace Zamin {
                 common(s, *c, ShapeTagConvexHull3D);
                 desc.Shapes.push_back(s);
             }
-            else
+            else if (!quiet)
                 ZM_CORE_WARN("'{}': Convex Hull Collider 3D qurilmadi - {}", entity.GetName(), error);
         }
         if (auto* c = entity.TryGetComponent<MeshCollider3DComponent>())
         {
             std::string error;
             if (rb.Type == Rigidbody3DComponent::BodyType::Dynamic)
-                ZM_CORE_WARN("'{}': Mesh Collider 3D faqat statik yoki kinematik jismda ishlaydi - dinamik jism uni hisobga olmaydi "
-                             "(Convex Hull Collider 3D ishlating)", entity.GetName());
+            {
+                if (!quiet)
+                    ZM_CORE_WARN("'{}': Mesh Collider 3D faqat statik yoki kinematik jismda ishlaydi - dinamik jism uni hisobga olmaydi "
+                                 "(Convex Hull Collider 3D ishlating)", entity.GetName());
+            }
             else if (Ref<const CollisionMesh3D> mesh = GetMeshCollider(entity, &error))
             {
                 PhysicsBody3DDesc::Shape s;
@@ -3808,16 +3834,16 @@ namespace Zamin {
                 common(s, *c, ShapeTagMesh3D);
                 desc.Shapes.push_back(s);
             }
-            else
+            else if (!quiet)
                 ZM_CORE_WARN("'{}': Mesh Collider 3D qurilmadi - {}", entity.GetName(), error);
         }
         if (desc.Shapes.empty())
         {
-            if (!entity.HasComponent<MeshCollider3DComponent>())
+            if (!quiet && !entity.HasComponent<MeshCollider3DComponent>())
                 ZM_CORE_WARN("'{}': Rigidbody3D uchun collider yo'q (Box/Sphere/Capsule/Convex Hull/Mesh Collider 3D qo'shing)", entity.GetName());
-            return;
+            return false;
         }
-        rb.RuntimeBodyID = m_PhysicsWorld3D->CreateBody(desc);
+        return true;
     }
 
     // The model a 3D collider of `entity` is made from: its own ModelPath, else the Mesh Renderer's
@@ -4994,7 +5020,10 @@ namespace Zamin {
                         inst->TickTimers(inst->IsTimersUnscaled() ? m_UnscaledDeltaTime : (float)ts);
             }
 
-            // Spline followers move before physics: kinematic bodies on a path carry what stands on them.
+            // Nav agents and spline followers move before physics: bodies by velocity, kinematic ones
+            // on a path carry what stands on them.
+            UpdateNavGrids(ts);
+            UpdateNavAgents(ts);
             UpdateSplineFollowers(ts);
             StepPhysics(ts);
             // Property animations write their values before OnLateUpdate (scripts may read or

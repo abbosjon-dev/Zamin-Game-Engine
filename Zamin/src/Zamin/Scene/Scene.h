@@ -44,6 +44,8 @@ namespace Zamin {
 
     class Entity;
     class AssetRegistry;
+    class NavGrid;
+    enum class NavPathStatus : uint8_t;
     struct TilemapComponent;
     class PhysicsWorld2D;
     class PhysicsWorld3D;
@@ -559,6 +561,42 @@ namespace Zamin {
         Entity GetSplineFollowerPath(Entity follower);
         // 0..1: how far along its path a follower is.
         float GetSplineFollowerProgress(Entity follower);
+
+        // ---- navigation (AI/NavGrid.h; NavGrid2D / NavGrid3D / NavAgent components: SceneNavigation.cpp)
+        // Bakes the entity's NavGrid 2D / NavGrid 3D (both when it has both) from the level as it is
+        // now: 2D - the colliding tiles of tilemaps and the static 2D colliders; 3D - rays cast down
+        // onto the static 3D colliders (in a physics world of their own: it works in the editor too).
+        // False when the entity has neither component.
+        bool BakeNavGrid(Entity entity);
+        // Every grid of the scene on an active entity; how many were baked.
+        int BakeNavGrids();
+        // The world rectangle around a NavGrid 2D's sources (what AutoBounds uses); false when it has none.
+        bool GetNavGrid2DSourceBounds(Entity entity, glm::vec2& min, glm::vec2& max);
+        // The baked grid of the entity's NavGrid 3D (dimension 3) or NavGrid 2D (2; 0: whichever it has,
+        // 3D first). Null when it has none or it was not baked yet.
+        const NavGrid* GetNavGrid(Entity entity, int dimension = 0);
+        // 2 or 3 for an entity with a NavGrid 2D / 3D (3D first), else 0.
+        static int GetNavGridDimension(Entity entity);
+        // The baked grid entity whose area holds `position` (a 3D grid: x / z, a 2D one: x / y);
+        // dimension 2 / 3 looks only at those, 0 at both (3D first). Nearest area when none holds it;
+        // an invalid entity when nothing is baked.
+        Entity FindNavGridEntity(const glm::vec3& position, int dimension = 0);
+        // The grid an agent walks on: its Grid, else FindNavGridEntity at its position (3D grids for
+        // agents with a Character Controller 3D or a Rigidbody 3D, 2D ones for the others first).
+        Entity GetNavAgentGrid(Entity agent);
+        // A path between two world points over a grid (`grid` not set: FindNavGridEntity at `from`):
+        // world corners from `from` to `to` (3D: on the floor heights; 2D: at from's z), string-pulled
+        // unless !smooth, then rounded with a spline when `spline`. Complete / Partial (the reachable
+        // point nearest to `to`) / Failed (no grid or no walkable cell near `from`; `path` empty).
+        NavPathStatus FindNavPath(const glm::vec3& from, const glm::vec3& to, std::vector<glm::vec3>& path, Entity grid, bool smooth = true,
+                                  bool spline = false);
+        NavPathStatus FindNavPath(const glm::vec3& from, const glm::vec3& to, std::vector<glm::vec3>& path);
+        // Whether one could walk straight from `from` to `to` on the grid (NavGrid::HasLineOfSight).
+        bool HasNavLineOfSight(const glm::vec3& from, const glm::vec3& to, Entity grid);
+        bool HasNavLineOfSight(const glm::vec3& from, const glm::vec3& to);
+        // A Nav Agent's path to `destination`, found at once (the agent then walks it). False without a
+        // Nav Agent, a baked grid, or when no path was found (it then stays where it is).
+        bool SetNavDestination(Entity agent, const glm::vec3& destination);
 
         // ---- bounds (editor framing: F = selection, Shift+F = whole scene)
         // World-space box around what the entity draws: mesh / model, sprite, circle, text,
@@ -1089,6 +1127,9 @@ namespace Zamin {
         // The Create* functions do nothing for an entity that is not active in the hierarchy.
         void CreatePhysicsBody(Entity entity);
         void CreatePhysicsBody3D(Entity entity);
+        // What the entity's Rigidbody 3D and 3D colliders make (in the world as it is placed now); false
+        // without a collider. `quiet`: no warnings (navigation baking reads the colliders too).
+        bool MakePhysicsBody3DDesc(Entity entity, struct PhysicsBody3DDesc& desc, bool quiet);
         void CreateTilemapBody(Entity entity);
         void CreateCharacter3D(Entity entity);
         // A physics material asset changed: the running colliders that use one get its values.
@@ -1152,6 +1193,19 @@ namespace Zamin {
         void UpdateCameraFollow(float dt);
         // Spline followers move along their paths (before physics: kinematic bodies by velocity).
         void UpdateSplineFollowers(float dt);
+        // ---- navigation (SceneNavigation.cpp)
+        // Play start: the grids with BakeOnStart are baked.
+        void StartNavigation();
+        // Grids with AutoRebuild bake again when their sources changed (checked a few times a second).
+        void UpdateNavGrids(float dt);
+        // Agents find their paths and move along them (before physics: bodies by velocity).
+        void UpdateNavAgents(float dt);
+        bool BakeNavGrid2D(Entity entity);
+        bool BakeNavGrid3D(Entity entity);
+        // A fingerprint of what a 2D grid is baked from (its settings, the tilemaps and static colliders).
+        uint64_t GetNavGrid2DSourceHash(Entity entity);
+        // The agent's path to its Destination, found now.
+        bool ComputeNavAgentPath(Entity agent, struct NavAgentComponent& a);
         void UpdateAudio(float ts);
         // The entity's Audio Source (nullptr: none, or not this scene's entity).
         AudioSourceComponent* GetAudioSource(Entity entity);

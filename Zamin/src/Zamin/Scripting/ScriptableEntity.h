@@ -485,6 +485,25 @@ namespace Zamin {
         std::vector<RaycastHit> CapsuleCast3DAll(const glm::vec3& point0, const glm::vec3& point1, float radius, const glm::vec3& direction,
                                                  float maxDistance = 100.0f, uint16_t layerMask = 0xFFFF, bool includeTriggers = false) const;
 
+        // ---- navigation (Nav Agent on this entity; NavGrid 2D / 3D in the scene)
+        // The Nav Agent goes to `destination`: the path is found now (it walks it from this frame on).
+        // False without a Nav Agent / a baked grid, or when there is no path (it then stays). A 2D
+        // destination keeps the entity's own z.
+        //   if (CanSeePlayer()) SetDestination(player.GetComponent<TransformComponent>().Translation);
+        bool SetDestination(const glm::vec3& destination);
+        bool SetDestination(const glm::vec2& destination);
+        // No destination: the agent brakes to a stop (at once with `immediate`).
+        void StopMoving(bool immediate = false);
+        // Walking a path or still moving; the distance left along its path (0 when there).
+        bool IsMoving() const;
+        float GetRemainingDistance() const;
+        bool HasArrived() const;
+        // A path between two world points over the scene's grids (Scene::FindNavPath): the corners,
+        // empty when there is none.
+        std::vector<glm::vec3> FindPath(const glm::vec3& from, const glm::vec3& to) const;
+        // Whether one could walk straight between the points (no blocked cell in between).
+        bool HasNavLineOfSight(const glm::vec3& from, const glm::vec3& to) const;
+
         // ---- viewport / mouse (pixels, origin top-left of the game view)
         glm::vec2 GetMousePosition() const;
         glm::vec2 GetViewportSize() const;

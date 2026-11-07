@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Zamin/AI/NavGrid.h"
+#include "Zamin/AI/NavPathfinder.h"
 #include "Zamin/Audio/AudioMixer.h"
 #include "Zamin/Core/UUID.h"
 #include "Zamin/Localization/Localization.h"
@@ -1282,6 +1284,178 @@ namespace Zamin {
             Distance = 0.0f;
             Direction = 1.0f;
             Playing = Finished = Initialized = PlayStateSet = false;
+        }
+    };
+
+    // ------------------------------------------------------------------ navigation (AI/NavGrid.h)
+    // What every grid's agents share: how their paths may step and how the grid is made.
+    struct NavGridPathSettings
+    {
+        bool Diagonals = true;   // 8 neighbours (else 4)
+        bool CutCorners = false; // diagonal steps past one blocked side cell (graze corners)
+        bool BakeOnStart = true; // baked when the game starts (else: Scene::BakeNavGrid / a script)
+    };
+
+    // A path-finding grid over a 2D level (the world's XY plane), baked from it: the cells under
+    // colliding tiles (the tileset's tile collision: Solid; OneWay too with OneWayBlocks) and under
+    // static 2D colliders (Rigidbody 2D Static; triggers left out) are blocked, cells nearer than
+    // AgentRadius to those too. The area is the sources' bounds (AutoBounds) or Size around the
+    // entity's position + Offset; the grid is axis aligned (the entity's rotation / scale do not
+    // turn it). Not saved in the scene: baked when the game starts (BakeOnStart), again while it runs
+    // when the sources change (AutoRebuild: tiles painted / dug, static colliders moved) or when a
+    // script asks (Scene::BakeNavGrid). Nav Agents walk on it.
+    struct NavGrid2DComponent
+    {
+        static constexpr float MinCellSize = 0.05f, MaxCellSize = 100.0f;
+
+        bool AutoBounds = true;
+        glm::vec2 Offset{ 0.0f };
+        glm::vec2 Size{ 20.0f, 20.0f };
+        float CellSize = 0.5f;
+        bool UseTilemaps = true;
+        bool OneWayBlocks = false;
+        EntityRef Tilemap;                // not set: every tilemap of the scene
+        bool UseColliders = true;
+        uint16_t LayerMask = 0xFFFF;      // the collision layers of tilemaps / colliders that block
+        float AgentRadius = 0.25f;
+        NavGridPathSettings Paths;
+        bool AutoRebuild = false;
+
+        // runtime (not saved; cleared when play starts / stops)
+        NavGrid Grid;                     // empty until baked
+        bool Baked = false;
+        uint64_t SourceHash = 0;          // of what it was baked from
+        float RebuildTimer = 0.0f;
+        uint32_t BakeCount = 0;
+        float BakeMilliseconds = 0.0f;
+
+        void ResetRuntime()
+        {
+            Grid.Clear();
+            Baked = false;
+            SourceHash = 0;
+            RebuildTimer = 0.0f;
+            BakeCount = 0;
+            BakeMilliseconds = 0.0f;
+        }
+    };
+
+    // A path-finding grid over a 3D level (cells on the world's XZ plane, one floor height each),
+    // baked by casting a ray down through each cell's centre onto the static 3D colliders (Rigidbody 3D
+    // Static on a layer of LayerMask) of the box Size around the entity's position + Offset: the first
+    // surface hit is the cell's floor - walkable when it is no steeper than MaxSlope and nothing is in
+    // the way above it up to AgentHeight (an overlap box from StepHeight up: walls, crates, low
+    // ceilings). Neighbouring floors more than StepHeight apart do not connect; cells nearer than
+    // AgentRadius to a blocked cell or such a ledge are blocked. One level (the topmost floor), not a
+    // navmesh. Baked when the game starts (BakeOnStart), by the inspector's button or Scene::BakeNavGrid.
+    struct NavGrid3DComponent
+    {
+        static constexpr float MinCellSize = 0.05f, MaxCellSize = 100.0f;
+
+        glm::vec3 Offset{ 0.0f };
+        glm::vec3 Size{ 20.0f, 10.0f, 20.0f };
+        float CellSize = 0.5f;
+        float AgentRadius = 0.4f;
+        float AgentHeight = 1.8f;
+        float MaxSlope = 45.0f;           // degrees
+        float StepHeight = 0.4f;
+        uint16_t LayerMask = 0xFFFF;
+        NavGridPathSettings Paths;
+
+        // runtime (not saved; cleared when play starts / stops)
+        NavGrid Grid;
+        bool Baked = false;
+        uint32_t BakeCount = 0;
+        float BakeMilliseconds = 0.0f;
+        int BakeBodies = 0;               // static bodies the last bake saw
+
+        void ResetRuntime()
+        {
+            Grid.Clear();
+            Baked = false;
+            BakeCount = 0;
+            BakeMilliseconds = 0.0f;
+            BakeBodies = 0;
+        }
+    };
+
+    // Walks its entity along paths found on a NavGrid 2D / 3D: SetDestination (or Target: an entity
+    // it keeps going after) finds the path, the agent then follows it - towards the point LookAhead
+    // ahead along it, speeding up / braking with Acceleration, turning at AngularSpeed (3D: its -Z
+    // forward; 2D: its +X) - and stops StoppingDistance from the end. It moves a Character Controller
+    // 3D (by its move velocity), a Rigidbody 2D / 3D (dynamic: by velocity; kinematic: by its
+    // transform), or else the transform itself (3D: on the grid's floor + BaseOffset). The path is
+    // found again every RepathInterval seconds while moving and whenever its grid changes.
+    // Scripts: SetDestination(p), Stop(), IsMoving(), RemainingDistance() (ScriptableEntity::
+    // SetDestination finds the path at once).
+    struct NavAgentComponent
+    {
+        EntityRef Grid;                   // the NavGrid entity (not set: the grid whose area holds the agent)
+        EntityRef Target;                 // set: it keeps going after this entity
+        float Speed = 3.5f;               // units / s
+        float Acceleration = 12.0f;       // units / s^2 (0: changes speed at once)
+        float AngularSpeed = 540.0f;      // degrees / s (0: does not turn)
+        float StoppingDistance = 0.1f;
+        float Radius = 0.3f;              // how near a corner counts as reached
+        float LookAhead = 0.5f;           // units ahead along the path it steers towards
+        float RepathInterval = 0.5f;      // s (0: only on SetDestination / grid changes)
+        float BaseOffset = 0.0f;          // 3D, moved by transform: its origin above the floor
+        bool AutoBraking = true;          // slows down to stop at the end (else full speed to it)
+        bool SmoothPath = true;           // string pulling (else through cell centres)
+        bool SplinePath = false;          // rounded corners (Catmull-Rom over the string-pulled path)
+        bool UpdateRotation = true;
+
+        // runtime (read by scripts; cleared when play starts / stops)
+        glm::vec3 Destination{ 0.0f };
+        bool HasDestination = false;
+        bool Arrived = false;             // reached the end of its path (Partial: as near as it gets)
+        bool RepathRequested = false;
+        std::vector<glm::vec3> Path;      // world corners, from where it was when the path was found
+        int PathIndex = 0;                // the corner it is heading to
+        NavPathStatus PathStatus = NavPathStatus::None;
+        glm::vec3 Velocity{ 0.0f };       // what it moves with now (planar)
+        float Remaining = 0.0f;           // along the path to its end
+        float RepathTimer = 0.0f;
+        uint32_t GridRevision = 0;
+        uint32_t PathRequests = 0;        // paths found since play started
+
+        // Goes there (the path is found at the next navigation update, this frame when called from
+        // OnUpdate).
+        void SetDestination(const glm::vec3& destination)
+        {
+            Destination = destination;
+            HasDestination = true;
+            Arrived = false;
+            RepathRequested = true;
+        }
+        // No destination any more: it brakes to a stop (at once with `immediate`). Target is kept.
+        void Stop(bool immediate = false)
+        {
+            HasDestination = Arrived = RepathRequested = false;
+            Path.clear();
+            PathIndex = 0;
+            Remaining = 0.0f;
+            if (immediate)
+                Velocity = glm::vec3(0.0f);
+        }
+        // Moving now, walking a path, or about to (a destination whose path is not found yet).
+        bool IsMoving() const
+        {
+            return glm::dot(Velocity, Velocity) > 1e-4f || (HasDestination && !Arrived && (RepathRequested || Path.size() >= 2));
+        }
+        float RemainingDistance() const { return Remaining; }
+        bool HasPath() const { return Path.size() >= 2; }
+        bool IsPathPartial() const { return PathStatus == NavPathStatus::Partial; }
+        void ResetRuntime()
+        {
+            Destination = glm::vec3(0.0f);
+            HasDestination = Arrived = RepathRequested = false;
+            Path.clear();
+            PathIndex = 0;
+            PathStatus = NavPathStatus::None;
+            Velocity = glm::vec3(0.0f);
+            Remaining = RepathTimer = 0.0f;
+            GridRevision = PathRequests = 0;
         }
     };
 
@@ -2832,7 +3006,7 @@ namespace Zamin {
         CircleCollider2DComponent, PolygonCollider2DComponent, EdgeCollider2DComponent, PlatformEffector2DComponent, AreaEffector2DComponent, BuoyancyEffector2DComponent, DistanceJoint2DComponent, RevoluteJoint2DComponent, PrismaticJoint2DComponent, WeldJoint2DComponent,
         WheelJoint2DComponent, Rigidbody3DComponent, BoxCollider3DComponent, SphereCollider3DComponent,
         CapsuleCollider3DComponent, ConvexHullCollider3DComponent, MeshCollider3DComponent, FixedJoint3DComponent, HingeJoint3DComponent, DistanceJoint3DComponent,
-        SliderJoint3DComponent, ConeJoint3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, Camera2DFollowComponent, SplineComponent, SplineFollowerComponent, ParticleSystemComponent, UITransformComponent, UICanvasComponent,
+        SliderJoint3DComponent, ConeJoint3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, Camera2DFollowComponent, SplineComponent, SplineFollowerComponent, NavGrid2DComponent, NavGrid3DComponent, NavAgentComponent, ParticleSystemComponent, UITransformComponent, UICanvasComponent,
         UILayoutGroupComponent, UILayoutElementComponent, UINavigationComponent, UIAnimationComponent, UIButtonComponent,
         UIImageComponent, UISliderComponent, UIToggleComponent, UIProgressBarComponent, UIInputFieldComponent, UIMaskComponent,
         UIScrollViewComponent, AudioSourceComponent, AudioListenerComponent, AmbientZoneComponent, FootstepsComponent,

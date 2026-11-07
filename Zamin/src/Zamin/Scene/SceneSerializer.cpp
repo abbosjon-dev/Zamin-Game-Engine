@@ -1535,6 +1535,24 @@ namespace Zamin {
             e["SplineFollower"] = { { "Path", c->Path.ID }, { "Speed", c->Speed }, { "Mode", EnumName(c->Mode, s_SplineFollowModes) },
                                     { "StartPosition", c->StartPosition }, { "Rotation", EnumName(c->Rotation, s_SplineRotations) },
                                     { "Offset", ToJson(c->Offset) }, { "PlayOnStart", c->PlayOnStart } };
+        // Navigation: the settings only - the grids are baked again when the game starts.
+        if (auto* c = entity.TryGetComponent<NavGrid2DComponent>())
+            e["NavGrid2D"] = { { "AutoBounds", c->AutoBounds }, { "Offset", ToJson(c->Offset) }, { "Size", ToJson(c->Size) },
+                               { "CellSize", c->CellSize }, { "UseTilemaps", c->UseTilemaps }, { "OneWayBlocks", c->OneWayBlocks },
+                               { "Tilemap", c->Tilemap.ID }, { "UseColliders", c->UseColliders }, { "LayerMask", c->LayerMask },
+                               { "AgentRadius", c->AgentRadius }, { "Diagonals", c->Paths.Diagonals }, { "CutCorners", c->Paths.CutCorners },
+                               { "BakeOnStart", c->Paths.BakeOnStart }, { "AutoRebuild", c->AutoRebuild } };
+        if (auto* c = entity.TryGetComponent<NavGrid3DComponent>())
+            e["NavGrid3D"] = { { "Offset", ToJson(c->Offset) }, { "Size", ToJson(c->Size) }, { "CellSize", c->CellSize },
+                               { "AgentRadius", c->AgentRadius }, { "AgentHeight", c->AgentHeight }, { "MaxSlope", c->MaxSlope },
+                               { "StepHeight", c->StepHeight }, { "LayerMask", c->LayerMask }, { "Diagonals", c->Paths.Diagonals },
+                               { "CutCorners", c->Paths.CutCorners }, { "BakeOnStart", c->Paths.BakeOnStart } };
+        if (auto* c = entity.TryGetComponent<NavAgentComponent>())
+            e["NavAgent"] = { { "Grid", c->Grid.ID }, { "Target", c->Target.ID }, { "Speed", c->Speed }, { "Acceleration", c->Acceleration },
+                              { "AngularSpeed", c->AngularSpeed }, { "StoppingDistance", c->StoppingDistance }, { "Radius", c->Radius },
+                              { "LookAhead", c->LookAhead }, { "RepathInterval", c->RepathInterval }, { "BaseOffset", c->BaseOffset },
+                              { "AutoBraking", c->AutoBraking }, { "SmoothPath", c->SmoothPath }, { "SplinePath", c->SplinePath },
+                              { "UpdateRotation", c->UpdateRotation } };
         if (auto* c = entity.TryGetComponent<ParticleSystemComponent>())
             e["ParticleSystem"] = ParticleSystemToJson(*c);
         if (auto* c = entity.TryGetComponent<UITransformComponent>())
@@ -2569,6 +2587,69 @@ namespace Zamin {
             if (auto o = j.find("Offset"); o != j.end())
                 Numbers(*o, &c.Offset.x, 3);
             c.PlayOnStart = j.value("PlayOnStart", true);
+        }
+        auto entityRef = [](const json& j, const char* key) -> uint64_t {
+            auto it = j.find(key);
+            return it != j.end() && it->is_number_unsigned() ? it->get<uint64_t>() : 0;
+        };
+        auto layerMask = [](const json& j) -> uint16_t {
+            auto it = j.find("LayerMask");
+            return it != j.end() && it->is_number_integer() ? (uint16_t)std::clamp(it->get<int64_t>(), (int64_t)0, (int64_t)0xFFFF) : (uint16_t)0xFFFF;
+        };
+        auto readPaths = [](const json& j, NavGridPathSettings& paths) {
+            paths.Diagonals = j.value("Diagonals", true);
+            paths.CutCorners = j.value("CutCorners", false);
+            paths.BakeOnStart = j.value("BakeOnStart", true);
+        };
+        if (auto it = e.find("NavGrid2D"); it != e.end() && it->is_object())
+        {
+            const json& j = *it;
+            auto& c = entity.AddComponent<NavGrid2DComponent>();
+            c.AutoBounds = j.value("AutoBounds", true);
+            c.Offset = Vec(j, "Offset", c.Offset);
+            c.Size = glm::max(Vec(j, "Size", c.Size), glm::vec2(0.0f));
+            c.CellSize = std::clamp(Number(j, "CellSize", c.CellSize), NavGrid2DComponent::MinCellSize, NavGrid2DComponent::MaxCellSize);
+            c.UseTilemaps = j.value("UseTilemaps", true);
+            c.OneWayBlocks = j.value("OneWayBlocks", false);
+            c.Tilemap.ID = entityRef(j, "Tilemap");
+            c.UseColliders = j.value("UseColliders", true);
+            c.LayerMask = layerMask(j);
+            c.AgentRadius = std::clamp(Number(j, "AgentRadius", c.AgentRadius), 0.0f, 100.0f);
+            readPaths(j, c.Paths);
+            c.AutoRebuild = j.value("AutoRebuild", false);
+        }
+        if (auto it = e.find("NavGrid3D"); it != e.end() && it->is_object())
+        {
+            const json& j = *it;
+            auto& c = entity.AddComponent<NavGrid3DComponent>();
+            c.Offset = Vec(j, "Offset", c.Offset);
+            c.Size = glm::max(Vec(j, "Size", c.Size), glm::vec3(0.0f));
+            c.CellSize = std::clamp(Number(j, "CellSize", c.CellSize), NavGrid3DComponent::MinCellSize, NavGrid3DComponent::MaxCellSize);
+            c.AgentRadius = std::clamp(Number(j, "AgentRadius", c.AgentRadius), 0.0f, 100.0f);
+            c.AgentHeight = std::clamp(Number(j, "AgentHeight", c.AgentHeight), 0.0f, 1000.0f);
+            c.MaxSlope = std::clamp(Number(j, "MaxSlope", c.MaxSlope), 0.0f, 89.9f);
+            c.StepHeight = std::clamp(Number(j, "StepHeight", c.StepHeight), 0.0f, 100.0f);
+            c.LayerMask = layerMask(j);
+            readPaths(j, c.Paths);
+        }
+        if (auto it = e.find("NavAgent"); it != e.end() && it->is_object())
+        {
+            const json& j = *it;
+            auto& c = entity.AddComponent<NavAgentComponent>();
+            c.Grid.ID = entityRef(j, "Grid");
+            c.Target.ID = entityRef(j, "Target");
+            c.Speed = std::clamp(Number(j, "Speed", c.Speed), 0.0f, 1e4f);
+            c.Acceleration = std::clamp(Number(j, "Acceleration", c.Acceleration), 0.0f, 1e5f);
+            c.AngularSpeed = std::clamp(Number(j, "AngularSpeed", c.AngularSpeed), 0.0f, 1e5f);
+            c.StoppingDistance = std::clamp(Number(j, "StoppingDistance", c.StoppingDistance), 0.0f, 1e4f);
+            c.Radius = std::clamp(Number(j, "Radius", c.Radius), 0.0f, 1e3f);
+            c.LookAhead = std::clamp(Number(j, "LookAhead", c.LookAhead), 0.0f, 1e3f);
+            c.RepathInterval = std::clamp(Number(j, "RepathInterval", c.RepathInterval), 0.0f, 1e3f);
+            c.BaseOffset = std::clamp(Number(j, "BaseOffset", c.BaseOffset), -1e3f, 1e3f);
+            c.AutoBraking = j.value("AutoBraking", true);
+            c.SmoothPath = j.value("SmoothPath", true);
+            c.SplinePath = j.value("SplinePath", false);
+            c.UpdateRotation = j.value("UpdateRotation", true);
         }
         if (e.contains("ParticleSystem"))
             ParticleSystemFromJson(e["ParticleSystem"], entity.AddComponent<ParticleSystemComponent>());

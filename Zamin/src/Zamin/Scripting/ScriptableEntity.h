@@ -32,6 +32,7 @@ namespace Zamin {
 
     struct SoundParams;
     class StateMachine;
+    class BehaviorTree;
 
     // A 2D joint of the script's entity that broke (BreakForce / BreakTorque exceeded): it is gone
     // for good (its component's Broken flag is set; clearing it makes the joint again).
@@ -549,6 +550,13 @@ namespace Zamin {
         void WatchStateMachine(const StateMachine& machine);
         void UnwatchStateMachine(const StateMachine& machine);
         const std::vector<const StateMachine*>& GetWatchedStateMachines() const { return m_WatchedMachines; }
+        // ---- AI behavior trees (AI/BehaviorTree.h)
+        // The inspector shows the tree while playing - every node with its last answer, the branch
+        // that runs, the blackboard (C++ Skript > AI). The tree must live as long as the script (a
+        // member) or be unwatched first.
+        void WatchBehaviorTree(const BehaviorTree& tree);
+        void UnwatchBehaviorTree(const BehaviorTree& tree);
+        const std::vector<const BehaviorTree*>& GetWatchedBehaviorTrees() const { return m_WatchedTrees; }
 
         // ---- viewport / mouse (pixels, origin top-left of the game view)
         glm::vec2 GetMousePosition() const;
@@ -961,6 +969,7 @@ namespace Zamin {
         bool m_TimersUnscaled = false;   // timers / tweens on real time (SetTimersUnscaled)
 
         std::vector<const StateMachine*> m_WatchedMachines;
+        std::vector<const BehaviorTree*> m_WatchedTrees;
 
         Entity m_Entity;
         std::string m_ClassName;

@@ -42662,3 +42662,274 @@ TEST(PatrolSampleScenes)
         scene->OnRuntimeStop();
     }
 }
+
+TEST(BehaviorTreeComposites)
+{
+    // A sequence with memory: goes on from the running child; a selector falls back.
+    {
+        BehaviorTree tree("T");
+        int a = 0, b = 0, c = 0;
+        bool bDone = false;
+        BehaviorTreeBuilder()
+            .Sequence("Root")
+                .Action("A", [&] { a++; })                       // void: Success
+                .Action("B", [&] { b++; return bDone ? BTStatus::Success : BTStatus::Running; })
+                .Action("C", [&] { c++; return true; })          // bool: Success
+            .End()
+            .Build(tree);
+        CHECK(tree.HasRoot() && tree.GetNodeCount() == 4);
+        CHECK(tree.Tick(0.1f) == BTStatus::Running && a == 1 && b == 1 && c == 0);
+        CHECK(tree.Tick(0.1f) == BTStatus::Running && a == 1 && b == 2); // A not again (memory)
+        CHECK(tree.GetActivePath() == "Root > B");
+        bDone = true;
+        CHECK(tree.Tick(0.1f) == BTStatus::Success && a == 1 && b == 3 && c == 1);
+        bDone = false;
+        CHECK(tree.Tick(0.1f) == BTStatus::Running && a == 2 && b == 4); // finished root starts again
+        CHECK(tree.GetTickIndex() == 4 && tree.GetRoot()->GetStartCount() == 2);
+    }
+    {
+        BehaviorTree tree;
+        std::vector<std::string> order;
+        BehaviorTreeBuilder()
+            .Selector("Root")
+                .Condition("No", [&] { order.push_back("No"); return false; })
+                .Action("Fails", [&] { order.push_back("Fails"); return BTStatus::Failure; })
+                .Action("Works", [&] { order.push_back("Works"); return BTStatus::Success; })
+                .Action("Never", [&] { order.push_back("Never"); return BTStatus::Success; })
+            .End()
+            .Build(tree);
+        CHECK(tree.Tick(0.0f) == BTStatus::Success);
+        CHECK((order == std::vector<std::string>{ "No", "Fails", "Works" }));
+        CHECK(tree.GetActivePath() == "Root > Works");
+        // All fail: the selector fails; an empty composite: a sequence succeeds, a selector fails.
+        BehaviorTree none;
+        BehaviorTreeBuilder().Selector().Condition("x", [] { return false; }).Condition("y", [] { return false; }).End().Build(none);
+        CHECK(none.Tick(0.0f) == BTStatus::Failure);
+        BehaviorTree emptySeq, emptySel;
+        BehaviorTreeBuilder().Sequence().End().Build(emptySeq);
+        BehaviorTreeBuilder().Selector().End().Build(emptySel);
+        CHECK(emptySeq.Tick(0.0f) == BTStatus::Success && emptySel.Tick(0.0f) == BTStatus::Failure);
+        BehaviorTree noRoot;
+        CHECK(noRoot.Tick(0.0f) == BTStatus::Failure && noRoot.Describe() == "(to'xtagan)");
+    }
+    // Reactive selector: a condition that turns true halts the running lower branch (OnHalt).
+    {
+        BehaviorTree tree("Qorovul");
+        bool sees = false;
+        int patrolTicks = 0, chaseTicks = 0, patrolHalts = 0;
+        BehaviorTreeBuilder()
+            .ReactiveSelector("Root")
+                .ReactiveSequence("Chase")
+                    .Condition("Sees", [&] { return sees; })
+                    .Action("Run", [&] { chaseTicks++; return BTStatus::Running; })
+                .End()
+                .Action("Patrol", [&] { patrolTicks++; return BTStatus::Running; }, [&] { patrolHalts++; })
+            .End()
+            .Build(tree);
+        tree.Tick(0.1f);
+        tree.Tick(0.1f);
+        CHECK(patrolTicks == 2 && chaseTicks == 0 && tree.GetActivePath() == "Root > Patrol");
+        sees = true;
+        CHECK(tree.Tick(0.1f) == BTStatus::Running && chaseTicks == 1 && patrolHalts == 1 && patrolTicks == 2);
+        CHECK(tree.GetActivePath() == "Root > Chase > Run" && tree.Describe() == "Chase > Run (Running)");
+        // The halted node shows no answer; the patrol starts again when the chase's condition fails.
+        const BTNode* patrol = tree.GetRoot()->GetChild(1);
+        CHECK(patrol && patrol->GetStatus() == BTStatus::Invalid);
+        sees = false;
+        tree.Tick(0.1f);
+        CHECK(patrolTicks == 3 && patrol->GetStatus() == BTStatus::Running && patrol->GetStartCount() == 2);
+        // The chase's running action was halted too (its sequence failed at the condition).
+        CHECK(tree.GetRoot()->GetChild(0)->GetChild(1)->GetStatus() == BTStatus::Invalid);
+        // A sequence with memory under it would go on with its running action without asking the
+        // condition again (that is what ReactiveSequence is for).
+        BehaviorTree stale;
+        bool see = true;
+        int runs = 0;
+        BehaviorTreeBuilder()
+            .ReactiveSelector()
+                .Sequence("Chase")
+                    .Condition("Sees", [&] { return see; })
+                    .Action("Run", [&] { runs++; return BTStatus::Running; })
+                .End()
+                .Action("Patrol", [] { return BTStatus::Running; })
+            .End()
+            .Build(stale);
+        stale.Tick(0.1f);
+        see = false;
+        stale.Tick(0.1f);
+        CHECK(runs == 2 && stale.GetActivePath() == "ReactiveSelector > Chase > Run");
+        // A memory selector would not have looked at the chase again while patrolling.
+        BehaviorTree memory;
+        bool flag = false;
+        int ran = 0;
+        BehaviorTreeBuilder()
+            .Selector()
+                .Condition("Flag", [&] { return flag; })
+                .Action("Long", [&] { ran++; return BTStatus::Running; })
+            .End()
+            .Build(memory);
+        memory.Tick(0.1f);
+        flag = true;
+        memory.Tick(0.1f);
+        CHECK(ran == 2);
+    }
+    // Reactive sequence: a condition checked every tick stops the action when it no longer holds.
+    {
+        BehaviorTree tree;
+        bool ok = true;
+        int halts = 0;
+        BehaviorTreeBuilder()
+            .ReactiveSequence()
+                .Condition("Ok", [&] { return ok; })
+                .Action("Work", [] { return BTStatus::Running; }, [&] { halts++; })
+            .End()
+            .Build(tree);
+        CHECK(tree.Tick(0.1f) == BTStatus::Running);
+        ok = false;
+        CHECK(tree.Tick(0.1f) == BTStatus::Failure && halts == 1);
+    }
+}
+
+TEST(BehaviorTreeDecoratorsParallelAndBlackboard)
+{
+    // Decorators.
+    {
+        BehaviorTree inv, suc, fail;
+        BehaviorTreeBuilder().Inverter().Condition("t", [] { return true; }).Build(inv);
+        BehaviorTreeBuilder().Succeeder().Action("f", [] { return BTStatus::Failure; }).Build(suc);
+        BehaviorTreeBuilder().Failer().Action("s", [] { return BTStatus::Success; }).Build(fail);
+        CHECK(inv.Tick(0.0f) == BTStatus::Failure && suc.Tick(0.0f) == BTStatus::Success && fail.Tick(0.0f) == BTStatus::Failure);
+        // An inverter round a running node stays running.
+        BehaviorTree running;
+        BehaviorTreeBuilder().Inverter().Wait(1.0f).Build(running);
+        CHECK(running.Tick(0.5f) == BTStatus::Running && running.Tick(0.6f) == BTStatus::Failure);
+    }
+    // Repeat: one run per tick, Success after the count; a failure ends it; forever never ends.
+    {
+        BehaviorTree tree;
+        int runs = 0;
+        BehaviorTreeBuilder().Repeat(3).Action("Step", [&] { runs++; }).Build(tree);
+        CHECK(tree.Tick(0.0f) == BTStatus::Running && runs == 1);
+        CHECK(tree.Tick(0.0f) == BTStatus::Running && runs == 2);
+        CHECK(tree.Tick(0.0f) == BTStatus::Success && runs == 3);
+        CHECK(tree.GetRoot()->GetDetail() == "3/3");
+        BehaviorTree failing;
+        int tries = 0;
+        BehaviorTreeBuilder().Repeat(10).Action("Fails 2nd", [&] { return ++tries < 2; }).Build(failing);
+        CHECK(failing.Tick(0.0f) == BTStatus::Running && failing.Tick(0.0f) == BTStatus::Failure && tries == 2);
+        BehaviorTree forever;
+        BehaviorTreeBuilder().Repeat(0).Wait(0.1f).Build(forever);
+        bool ended = false;
+        for (int i = 0; i < 100; i++)
+            ended = ended || forever.Tick(0.06f) != BTStatus::Running;
+        CHECK(!ended);
+    }
+    // Wait counts the tree's delta times.
+    {
+        BehaviorTree tree;
+        BehaviorTreeBuilder().Sequence().Wait(1.0f, "Pause").SetBlackboard("Done", true).End().Build(tree);
+        int ticks = 0;
+        while (tree.Tick(0.25f) == BTStatus::Running && ticks < 100)
+            ticks++;
+        CHECK(ticks == 3 && tree.GetBlackboard().Get<bool>("Done")); // 0.25, 0.5, 0.75 running; 1.0 done
+        CHECK(tree.GetRoot()->GetChild(0)->GetDetail() == "1.0 / 1.0 s");
+        CHECK(tree.GetRunningTime() == 1.0f);
+        BehaviorTree negative;
+        BehaviorTreeBuilder().Wait(0.5f).Build(negative);
+        CHECK(negative.Tick(-1.0f) == BTStatus::Running && negative.Tick(std::numeric_limits<float>::quiet_NaN()) == BTStatus::Running);
+    }
+    // Parallel: thresholds; the running ones are halted when it finishes.
+    {
+        BehaviorTree all;
+        int halted = 0;
+        BehaviorTreeBuilder()
+            .Parallel("Both")
+                .Wait(0.2f, "Short")
+                .Wait(0.5f, "Long")
+            .End()
+            .Build(all);
+        CHECK(all.Tick(0.25f) == BTStatus::Running); // Short done, Long running
+        CHECK(all.Tick(0.25f) == BTStatus::Success);
+        BehaviorTree any;
+        BehaviorTreeBuilder()
+            .Parallel("Any", 1, -1)
+                .Wait(0.2f, "Short")
+                .Action("Endless", [] { return BTStatus::Running; }, [&] { halted++; })
+            .End()
+            .Build(any);
+        CHECK(any.Tick(0.1f) == BTStatus::Running && any.Tick(0.15f) == BTStatus::Success && halted == 1);
+        BehaviorTree failFast;
+        BehaviorTreeBuilder()
+            .Parallel("Fail")
+                .Action("Endless", [] { return BTStatus::Running; }, [&] { halted++; })
+                .Condition("No", [] { return false; })
+            .End()
+            .Build(failFast);
+        CHECK(failFast.Tick(0.1f) == BTStatus::Failure && halted == 2);
+        CHECK(failFast.GetRoot()->GetDetail() == "0+ 1-");
+    }
+    // Blackboard: kinds, conversions, ids, text, revision.
+    {
+        Blackboard b;
+        b.Set("Alarm", true);
+        b.Set("Count", 3);
+        b.Set("Speed", 2.5);
+        b.Set("Name", "Qorovul");
+        b.Set("Where", glm::vec3(1.0f, 2.0f, 3.0f));
+        b.Set("Target", (uint64_t)0xFEDCBA9876543210ull);
+        b.Set("Flat", glm::vec2(4.0f, 5.0f));
+        CHECK(b.Size() == 7 && b.Has("Alarm") && !b.Has("alarm"));
+        CHECK(b.Get<bool>("Alarm") && b.Get<int>("Count") == 3 && b.Get<float>("Count") == 3.0f && b.Get<int>("Speed") == 2);
+        CHECK(b.Get<float>("Speed") == 2.5f && b.Get<std::string>("Name") == "Qorovul" && b.Get<std::string>("Count", "x") == "x");
+        CHECK(b.Get<glm::vec3>("Where") == glm::vec3(1.0f, 2.0f, 3.0f) && b.Get("Missing", glm::vec3(7.0f)) == glm::vec3(7.0f));
+        CHECK(b.Get<uint64_t>("Target") == 0xFEDCBA9876543210ull); // exact, not through a double
+        CHECK(b.Get<glm::vec2>("Where", glm::vec2(-1.0f)) == glm::vec2(-1.0f)); // another kind: the fallback
+        CHECK(b.Describe("Alarm") == "true" && b.Describe("Speed") == "2.50" && b.Describe("Name") == "\"Qorovul\"");
+        CHECK(b.Describe("Where") == "(1.0, 2.0, 3.0)" && b.Describe("Nope").empty());
+        CHECK((b.GetKeys() == std::vector<std::string>{ "Alarm", "Count", "Flat", "Name", "Speed", "Target", "Where" }));
+        const uint32_t revision = b.GetRevision();
+        b.Set("Count", 0);
+        CHECK(b.GetRevision() == revision + 1 && !b.IsTrue("Count") && b.IsTrue("Alarm") && b.IsTrue("Where") && !b.IsTrue("Nope"));
+        b.Set("Name", "");
+        CHECK(!b.IsTrue("Name") && b.Erase("Name") && !b.Erase("Name") && b.Size() == 6);
+        b.Clear();
+        CHECK(b.Empty());
+        // Nodes share it: one writes, a CheckBlackboard reads.
+        BehaviorTree tree;
+        BehaviorTreeBuilder()
+            .Selector()
+                .Sequence("Alarmed")
+                    .CheckBlackboard("Alarm")
+                    .Action("Count", [](Blackboard& bb) { bb.Set("Seen", bb.Get<int>("Seen") + 1); })
+                .End()
+                .Action("Raise", [](BTContext& c) { c.Board.Set("Alarm", true); return BTStatus::Failure; })
+            .End()
+            .Build(tree);
+        CHECK(tree.Tick(0.0f) == BTStatus::Failure && tree.GetBlackboard().Get<bool>("Alarm"));
+        CHECK(tree.Tick(0.0f) == BTStatus::Success && tree.GetBlackboard().Get<int>("Seen") == 1);
+    }
+    // The builder: decorators close themselves, mistakes are counted (and logged), a tree of nodes.
+    {
+        BehaviorTreeBuilder builder;
+        builder.Sequence("Root").Inverter("Not").Condition("c", [] { return false; }).Action("a", [] {}).End();
+        CHECK(builder.GetErrorCount() == 0);
+        builder.End(); // too many
+        builder.Action("Second root", [] {});
+        CHECK(builder.GetErrorCount() == 2);
+        std::unique_ptr<BTNode> root = builder.Build();
+        CHECK(root && root->GetChildCount() == 2 && std::string(root->GetChild(0)->GetTypeName()) == "Inverter");
+        BehaviorTreeBuilder empty;
+        empty.Sequence().Inverter();
+        CHECK(!empty.Build()->GetChild(0)->GetChildCount() && empty.GetErrorCount() == 1);
+        BehaviorTree tree;
+        CHECK(!BehaviorTreeBuilder().Build(tree) && !tree.HasRoot());
+        tree.SetRoot(std::move(root));
+        std::vector<std::pair<std::string, int>> walk;
+        tree.ForEachNode([&](const BTNode& n, int depth) { walk.emplace_back(n.GetName(), depth); });
+        CHECK((walk == std::vector<std::pair<std::string, int>>{ { "Root", 0 }, { "Not", 1 }, { "c", 2 }, { "a", 1 } }));
+        CHECK(tree.Tick(0.0f) == BTStatus::Success);
+        tree.Reset();
+        CHECK(tree.GetTickIndex() == 0 && tree.GetStatus() == BTStatus::Invalid && tree.GetActivePath().empty());
+        CHECK(std::string(BTStatusName(BTStatus::Running)) == "Running" && std::string(BTStatusName(BTStatus::Invalid)) == "Invalid");
+    }
+}

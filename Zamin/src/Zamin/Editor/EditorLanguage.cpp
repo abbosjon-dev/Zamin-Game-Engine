@@ -1335,6 +1335,12 @@ namespace Zamin {
             { "Tekshiruvlar", "Checks" },
             { "ta ko'rinadi", "visible" },
             { "Oxirgi o'tishlar", "Recent transitions" },
+            { "AI daraxti", "AI tree" },
+            { "Daraxt", "Tree" },
+            { "tugun", "nodes" },
+            { "Oxirgi javob", "Last answer" },
+            { "marta tekshirildi", "ticks" },
+            { "marta boshlandi", "starts" },
             // ---- patrol (Patrol Path)
             { "Nuqtalar", "Points" },
             { "Manba", "Source" },

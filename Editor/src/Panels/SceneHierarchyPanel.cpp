@@ -2699,6 +2699,60 @@ namespace Zamin {
 
     // ------------------------------------------------------------------ navigation
     // What a baked grid holds (or that it is not baked yet), and the bake button.
+    // A behavior tree a script watches (WatchBehaviorTree): the branch running now, and folded out every
+    // node with its last answer (bright: ticked in the last tick) and the blackboard.
+    static void DrawWatchedBehaviorTree(const BehaviorTree& tree)
+    {
+        ImGui::PushID(&tree);
+        UI::PropertyLabel(tree.Name.empty() ? "AI daraxti" : tree.Name.c_str());
+        ImGui::TextColored(UI::AccentColor(), ICON_FA_DIAGRAM_PROJECT "  %s", tree.Describe().c_str());
+        UI::PropertyLabel("");
+        const std::string header = std::format("{} ({} {})###bt", Tr("Daraxt"), tree.GetNodeCount(), Tr("tugun"));
+        if (ImGui::TreeNodeEx(header.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth))
+        {
+            const uint32_t tick = tree.GetTickIndex();
+            tree.ForEachNode([&](const BTNode& node, int depth) {
+                const bool ticked = tick != 0 && node.GetLastTick() == tick;
+                ImVec4 color;
+                const char* icon;
+                switch (node.GetStatus())
+                {
+                    case BTStatus::Running: color = ImVec4(1.0f, 0.8f, 0.3f, 1.0f); icon = ICON_FA_SPINNER; break;
+                    case BTStatus::Success: color = ImVec4(0.45f, 0.9f, 0.5f, 1.0f); icon = ICON_FA_CIRCLE_CHECK; break;
+                    case BTStatus::Failure: color = ImVec4(0.95f, 0.42f, 0.38f, 1.0f); icon = ICON_FA_CIRCLE_XMARK; break;
+                    default: color = ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]; icon = ICON_FA_CIRCLE; break;
+                }
+                if (!ticked)
+                    color.w *= 0.45f; // an answer from an earlier tick
+                ImGui::Indent(4.0f + (float)depth * 12.0f);
+                ImGui::TextColored(color, "%s %s", icon, node.GetName().c_str());
+                ImGui::SameLine();
+                const std::string detail = node.GetDetail();
+                ImGui::TextDisabled("%s%s%s", node.GetTypeName(), detail.empty() ? "" : "  ", detail.c_str());
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                    UI::Tooltip(std::format("{}: {}\n{} {}, {} {}", Tr("Oxirgi javob"), BTStatusName(node.GetStatus()), node.GetTickCount(),
+                                            Tr("marta tekshirildi"), node.GetStartCount(), Tr("marta boshlandi")).c_str());
+                ImGui::Unindent(4.0f + (float)depth * 12.0f);
+            });
+            const Blackboard& board = tree.GetBlackboard();
+            if (!board.Empty())
+            {
+                ImGui::Spacing();
+                ImGui::TextDisabled(ICON_FA_CLIPBOARD "  %s", Tr("Blackboard"));
+                for (const std::string& key : board.GetKeys())
+                {
+                    ImGui::Indent(16.0f);
+                    ImGui::TextUnformatted(key.c_str());
+                    ImGui::SameLine();
+                    ImGui::TextDisabled("= %s", board.Describe(key).c_str());
+                    ImGui::Unindent(16.0f);
+                }
+            }
+            ImGui::TreePop();
+        }
+        ImGui::PopID();
+    }
+
     static bool DrawNavGridStatus(Scene* scene, Entity entity, const NavGrid& grid, bool baked, uint32_t bakeCount, float milliseconds,
                                   const char* extra)
     {
@@ -6773,6 +6827,8 @@ namespace Zamin {
                     }
                     ImGui::PopID();
                 }
+                for (const BehaviorTree* tree : c.Instance->GetWatchedBehaviorTrees())
+                    DrawWatchedBehaviorTree(*tree);
                 if (const ScriptClassInfo* live = ScriptRegistry::Find(liveClass))
                     for (const auto& f : live->Fields)
                     {

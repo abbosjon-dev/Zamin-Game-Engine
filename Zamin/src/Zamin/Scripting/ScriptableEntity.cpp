@@ -1298,4 +1298,16 @@ namespace Zamin {
         std::erase(m_WatchedMachines, &machine);
     }
 
+    // ------------------------------------------------------------------ AI behavior trees
+    void ScriptableEntity::WatchBehaviorTree(const BehaviorTree& tree)
+    {
+        if (std::find(m_WatchedTrees.begin(), m_WatchedTrees.end(), &tree) == m_WatchedTrees.end())
+            m_WatchedTrees.push_back(&tree);
+    }
+
+    void ScriptableEntity::UnwatchBehaviorTree(const BehaviorTree& tree)
+    {
+        std::erase(m_WatchedTrees, &tree);
+    }
+
 }

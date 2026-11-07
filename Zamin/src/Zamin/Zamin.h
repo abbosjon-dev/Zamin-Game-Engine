@@ -110,6 +110,7 @@
 #include "Zamin/AI/NavDebugDraw.h"
 #include "Zamin/AI/Sight.h"
 #include "Zamin/AI/StateMachine.h"
+#include "Zamin/AI/BehaviorTree.h"
 #include "Zamin/AI/Steering.h"
 #include "Zamin/Debug/DebugDraw.h"
 #include "Zamin/Debug/MeshNormals.h"

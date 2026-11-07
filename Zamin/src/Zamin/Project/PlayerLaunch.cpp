@@ -68,7 +68,8 @@ namespace Zamin {
         PlayerCommandLine c;
         // Options that take a value (the next argument, or after '=').
         static const char* const s_ValueOptions[] = { "--scene", "--resolution", "--width", "--height", "--monitor", "--fps",
-                                                      "--quality", "--lang", "--language", "--gl", "--msaa" };
+                                                      "--quality", "--lang", "--language", "--gl", "--msaa", "--log-file",
+                                                      "--crash-dialog" };
         for (size_t i = 0; i < args.size(); i++)
         {
             const std::string& arg = args[i];
@@ -111,6 +112,15 @@ namespace Zamin {
                     c.Language = value;
                 else if (name == "--gl")
                     c.GLVersion = value;
+                else if (name == "--log-file")
+                {
+                    if (value.empty())
+                        c.Errors.push_back("--log-file: fayl yo'li kerak");
+                    else
+                        c.LogFile = value;
+                }
+                else if (name == "--crash-dialog")
+                    c.CrashDialog = value;
                 else if (name == "--resolution")
                 {
                     uint32_t w = 0, h = 0;
@@ -173,6 +183,12 @@ namespace Zamin {
                 c.VSync = false;
             else if (name == "--no-splash")
                 c.NoSplash = true;
+            else if (name == "--no-log-file")
+                c.NoLogFile = true;
+            else if (name == "--no-crash-handler")
+                c.NoCrashHandler = true;
+            else if (name == "--no-crash-dialog")
+                c.NoCrashDialog = true;
             else if (name == "--no-debug-draw")
                 c.NoDebugDraw = true;
             else if (name == "--debug-raycasts")
@@ -234,6 +250,13 @@ namespace Zamin {
             "Debug chizish (Shipping build'da yo'q):\n"
             "  --no-debug-draw               debug chizishni o'chirish\n"
             "  --debug-raycasts, --debug-contacts, --debug-contact-details, --debug-joints, --debug-velocities\n"
+            "\n"
+            "Log va xatolar:\n"
+            "  --log-file <fayl>             logni shu faylga yozish (standart: ~/.local/share/<kompaniya>/<o'yin>/logs/\n"
+            "                                player-<sana>.log, oxirgi 5 tasi saqlanadi, latest.log - oxirgisi)\n"
+            "  --no-log-file                 log faylsiz (faqat terminal)\n"
+            "  --no-crash-handler            crash bo'lganda hisobot yozilmaydi (debugger, core dump uchun)\n"
+            "  --no-crash-dialog             crash hisoboti yoziladi, lekin xabar oynasi ko'rsatilmaydi\n"
             "\n"
             "Boshqa:\n"
             "  -h, --help                    shu yordam\n"

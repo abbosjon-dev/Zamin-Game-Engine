@@ -35753,3 +35753,238 @@ TEST(EditorLanguageStrings)
     CHECK(read.FromJson(prefs.ToJson()) && read.Language == "en");
     CHECK(read.FromJson(R"({ "ZaminEditorPreferences": 1, "Language": "fr" })") && read.Language == "uz");
 }
+
+// ---- M18: the player's log file and crash reports
+#include <csignal>
+#include <fcntl.h>
+#include <sys/resource.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+TEST(PlayerLogFileRotation)
+{
+    namespace fs = std::filesystem;
+    const fs::path dir = fs::temp_directory_path() / ("zamin-logs-" + std::to_string((uint64_t)UUID()));
+    fs::create_directories(dir);
+    const LogLevel level = Log::GetMinLevel();
+    const bool terminal = Log::GetTerminalOutput();
+    Log::SetMinLevel(LogLevel::Trace);
+    Log::SetTerminalOutput(false);
+
+    // The file name: the prefix and the local date and time (sorts by time).
+    const std::string name = LogFile::MakeFileName("player", std::time(nullptr));
+    CHECK(name.starts_with("player-20") && name.ends_with(".log") && name.size() == std::string("player-2026-11-07_14-03-12.log").size());
+    CHECK(name[17] == '_' && name[11] == '-');
+    CHECK(LogFile::GetDefaultDirectory("Studio", "Oyin").generic_string().ends_with("Studio/Oyin/logs"));
+
+    // Six runs of the past: after this one opens, only the newest four of them are left (5 in all).
+    for (int day = 1; day <= 6; day++)
+        FileSystem::WriteTextFile(dir / std::format("player-2026-01-0{}_10-00-00.log", day), "eski\n");
+    FileSystem::WriteTextFile(dir / "notes.txt", "boshqa fayl");
+    ZM_INFO("ochilishdan oldingi xabar");
+    LogFile::Options options;
+    options.Directory = dir;
+    options.Keep = 5;
+    options.Header = "# Sinov o'yini 1.2.3";
+    CHECK(LogFile::OpenRotating(options));
+    CHECK(LogFile::IsOpen() && LogFile::GetDirectory() == dir);
+    std::vector<fs::path> logs = LogFile::ListLogs(dir, "player");
+    CHECK(logs.size() == 5);
+    CHECK(!fs::exists(dir / "player-2026-01-01_10-00-00.log") && !fs::exists(dir / "player-2026-01-02_10-00-00.log"));
+    CHECK(fs::exists(dir / "player-2026-01-03_10-00-00.log") && fs::exists(dir / "notes.txt"));
+    CHECK(!logs.empty() && logs.back() == LogFile::GetPath());
+    CHECK(LogFile::GetLatestPath() == dir / LogFile::LatestFileName);
+    ZM_WARN("log fayliga yozildi {}", 42);
+    const fs::path path = LogFile::GetPath();
+    LogFile::Close();
+    CHECK(!LogFile::IsOpen() && LogFile::GetPath().empty());
+    ZM_INFO("yopilgandan keyingi xabar");
+
+    const std::string text = FileSystem::ReadTextFile(path);
+    CHECK(text.starts_with("# Sinov o'yini 1.2.3\n"));
+    CHECK(text.find("ochilishdan oldingi xabar") != std::string::npos); // the start-up before the file
+    CHECK(text.find("WARN  APP: log fayliga yozildi 42") != std::string::npos);
+    CHECK(text.find("yopilgandan keyingi") == std::string::npos);
+    CHECK(FileSystem::ReadTextFile(dir / LogFile::LatestFileName) == text);
+
+    // A second run in the same second gets its own file; the oldest ones keep going.
+    CHECK(LogFile::OpenRotating(options));
+    CHECK(LogFile::GetPath() != path && LogFile::ListLogs(dir, "player").size() == 5);
+    LogFile::Close();
+    CHECK(LogFile::RemoveOldLogs(dir, "player", 2) == 3 && LogFile::ListLogs(dir, "player").size() == 2);
+
+    // --log-file: exactly that file, no latest.log.
+    const fs::path single = dir / "sub" / "my.log";
+    CHECK(LogFile::Open(single, "# bitta fayl"));
+    ZM_ERROR("bitta faylga");
+    CHECK(LogFile::GetLatestPath().empty());
+    LogFile::Close();
+    const std::string singleText = FileSystem::ReadTextFile(single);
+    CHECK(singleText.starts_with("# bitta fayl") && singleText.find("ERROR APP: bitta faylga") != std::string::npos);
+
+    // The command line.
+    PlayerCommandLine c = PlayerCommandLine::Parse({ "--log-file", "/tmp/x.log", "--no-crash-handler", "--no-crash-dialog" });
+    CHECK(c.LogFile == "/tmp/x.log" && c.NoCrashHandler && c.NoCrashDialog && !c.NoLogFile && c.Errors.empty());
+    c = PlayerCommandLine::Parse({ "--no-log-file", "--log-file=a.log", "--crash-dialog", "r.txt" });
+    CHECK(c.NoLogFile && c.LogFile == "a.log" && c.CrashDialog == "r.txt" && c.Errors.empty());
+    c = PlayerCommandLine::Parse({ "--log-file" });
+    CHECK(c.LogFile.empty() && c.Errors.size() == 1);
+    const std::string help = PlayerCommandLine::GetHelpText();
+    CHECK(help.find("--log-file") != std::string::npos && help.find("--no-crash-handler") != std::string::npos &&
+          help.find("--crash-dialog") == std::string::npos);
+
+    Log::SetMinLevel(level);
+    Log::SetTerminalOutput(terminal);
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
+// Runs `body` in a forked child that should die by a signal; its status (-1 when it did not end in 20 s).
+static int RunCrashingChild(const std::function<void()>& body)
+{
+    std::fflush(stdout);
+    std::fflush(stderr);
+    const pid_t child = fork();
+    if (child == 0)
+    {
+        // No core files, nothing in the test's output.
+        rlimit noCore{ 0, 0 };
+        setrlimit(RLIMIT_CORE, &noCore);
+        const int null = open("/dev/null", O_WRONLY);
+        dup2(null, STDERR_FILENO);
+        dup2(null, STDOUT_FILENO);
+        body();
+        _exit(0); // it did not crash
+    }
+    if (child < 0)
+        return -1;
+    for (int i = 0; i < 2000; i++)
+    {
+        int status = 0;
+        const pid_t done = waitpid(child, &status, WNOHANG);
+        if (done == child)
+            return status;
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    kill(child, SIGKILL);
+    waitpid(child, nullptr, 0);
+    return -1;
+}
+
+static std::filesystem::path FindCrashReport(const std::filesystem::path& dir)
+{
+    std::error_code ec;
+    for (auto& entry : std::filesystem::directory_iterator(dir, ec))
+        if (entry.path().filename().string().starts_with("crash-") && entry.path().extension() == ".txt")
+            return entry.path();
+    return {};
+}
+
+TEST(CrashHandlerReports)
+{
+    namespace fs = std::filesystem;
+    const fs::path dir = fs::temp_directory_path() / ("zamin-crash-" + std::to_string((uint64_t)UUID()));
+    const LogLevel level = Log::GetMinLevel();
+    const bool terminal = Log::GetTerminalOutput();
+    Log::SetMinLevel(LogLevel::Trace);
+    Log::SetTerminalOutput(false);
+
+    CrashHandlerSettings settings;
+    settings.ReportDirectory = dir / "a";
+    settings.Application = "Sinov Player";
+    settings.Product = "Sinov O'yini";
+    settings.Version = "2.1.0";
+    settings.LogFile = "/tmp/sinov.log";
+    settings.ShowDialog = false;
+    settings.DialogProgram = "/opt/game/ZaminPlayer";
+    settings.DialogArguments = { "--crash-dialog" };
+    CrashHandler::Configure(settings);
+    CHECK(!CrashHandler::IsInstalled());
+
+    // The report the handler writes (here without a crash).
+    ZM_INFO("crash sinovi marker {}", 7);
+    const fs::path file = dir / "manual.txt";
+    fs::create_directories(dir);
+    const int fd = open(file.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    CHECK(fd >= 0);
+    CrashHandler::WriteReport(fd, SIGSEGV, 1, (const void*)0x10, nullptr);
+    close(fd);
+    const std::string text = FileSystem::ReadTextFile(file);
+    CHECK(text.starts_with("=== Zamin crash hisoboti ===\nDastur: Sinov Player\nO'yin: Sinov O'yini 2.1.0\n"));
+    CHECK(text.find("Sabab: SIGSEGV - xotiraga noto'g'ri murojaat") != std::string::npos);
+    CHECK(text.find("manzil 0x0000000000000010") != std::string::npos);
+    CHECK(text.find("Log fayli: /tmp/sinov.log") != std::string::npos);
+    CHECK(text.find("--- Backtrace") != std::string::npos && text.find("libZamin.so") != std::string::npos);
+    CHECK(text.find("INFO APP: crash sinovi marker 7") != std::string::npos);
+    CHECK(text.find("--- Yuklangan modullar") != std::string::npos && text.ends_with("=== Hisobot oxiri ===\n"));
+
+    // Read back (the dialog), with the backtrace made readable.
+    CHECK(CrashHandler::DemangleReport(file) > 0);
+    CrashReportSummary summary;
+    CHECK(CrashHandler::ReadReport(file, summary));
+    CHECK(summary.Application == "Sinov Player" && summary.Product == "Sinov O'yini" && summary.Version == "2.1.0");
+    CHECK(summary.Reason.starts_with("SIGSEGV") && summary.LogFile == "/tmp/sinov.log" && summary.Engine.starts_with("Zamin Engine"));
+    CHECK(!summary.Backtrace.empty() && summary.Backtrace[0].find("Zamin::CrashHandler::WriteReport(") != std::string::npos);
+    CHECK(!summary.LastLog.empty() && summary.LastLog.back().find("crash sinovi marker 7") != std::string::npos);
+    CHECK(!CrashHandler::ReadReport(dir / "yoq.txt", summary));
+
+    CHECK(CrashHandler::DemangleBacktraceLine("/x/libZamin.so(_ZN5Zamin12CrashHandler7InstallERKNS_20CrashHandlerSettingsE+0x2a)[0x7f]") ==
+          "/x/libZamin.so(Zamin::CrashHandler::Install(Zamin::CrashHandlerSettings const&)+0x2a)[0x7f]");
+    CHECK(CrashHandler::DemangleBacktraceLine("/lib/libc.so.6(+0x45330)[0x7f]") == "/lib/libc.so.6(+0x45330)[0x7f]");
+    CHECK(CrashHandler::DemangleBacktraceLine("main+0x5c") == "main+0x5c");
+    CHECK(std::string(CrashHandler::GetSignalName(SIGFPE)) == "SIGFPE" && std::string(CrashHandler::GetSignalName(12345)) == "signal");
+    const std::string reportName = CrashHandler::MakeReportFileName(std::time(nullptr));
+    CHECK(reportName.starts_with("crash-20") && reportName.ends_with(".txt") && reportName.size() == std::string("crash-2026-11-07_14-03-12.txt").size());
+
+    // The dialogs: the player itself with its argument and the report (zenity / kdialog / xmessage when installed).
+    bool player = false;
+    for (const std::vector<std::string>& command : CrashHandler::GetDialogCommands("/r/crash.txt"))
+        if (command == std::vector<std::string>{ "/opt/game/ZaminPlayer", "--crash-dialog", "/r/crash.txt" })
+            player = true;
+    CHECK(player);
+    CHECK(CrashHandler::MakeDialogMessage("/r/crash.txt").find("Sinov O'yini kutilmaganda to'xtadi") != std::string::npos);
+    CHECK(CrashHandler::MakeDialogMessage("/r/crash.txt").find("/r/crash.txt") != std::string::npos);
+
+    // A real crash in a child process: the report is written, then the signal ends the program as usual.
+    settings.ReportDirectory = dir / "segv";
+    const int segv = RunCrashingChild([&] {
+        CrashHandler::Install(settings);
+        ZM_INFO("bola jarayon marker");
+        *(volatile int*)(uintptr_t)8 = 1;
+    });
+    CHECK(segv != -1 && WIFSIGNALED(segv) && WTERMSIG(segv) == SIGSEGV);
+    const fs::path segvReport = FindCrashReport(dir / "segv");
+    CHECK(!segvReport.empty());
+    const std::string segvText = FileSystem::ReadTextFile(segvReport);
+    CHECK(segvText.find("Sabab: SIGSEGV") != std::string::npos && segvText.find("manzil 0x0000000000000008") != std::string::npos);
+    CHECK(segvText.find("bola jarayon marker") != std::string::npos);
+
+    // An uncaught exception (here in a thread): its type and message, then abort - one report only.
+    settings.ReportDirectory = dir / "exception";
+    const int exception = RunCrashingChild([&] {
+        CrashHandler::Install(settings);
+        std::thread([] { throw std::runtime_error("bola istisnosi"); }).join();
+    });
+    CHECK(exception != -1 && WIFSIGNALED(exception) && WTERMSIG(exception) == SIGABRT);
+    const fs::path exceptionReport = FindCrashReport(dir / "exception");
+    CHECK(!exceptionReport.empty());
+    CHECK(FileSystem::ReadTextFile(exceptionReport).find("Sabab: ushlanmagan C++ istisnosi - std::runtime_error: bola istisnosi") != std::string::npos);
+    size_t reports = 0;
+    for (auto& entry : fs::directory_iterator(dir / "exception"))
+        reports += entry.path().filename().string().starts_with("crash-") ? 1 : 0;
+    CHECK(reports == 1);
+
+    // abort(): SIGABRT.
+    settings.ReportDirectory = dir / "abort";
+    const int aborted = RunCrashingChild([&] {
+        CrashHandler::Install(settings);
+        std::abort();
+    });
+    CHECK(aborted != -1 && WIFSIGNALED(aborted) && WTERMSIG(aborted) == SIGABRT);
+    CHECK(FileSystem::ReadTextFile(FindCrashReport(dir / "abort")).find("Sabab: SIGABRT") != std::string::npos);
+
+    Log::SetMinLevel(level);
+    Log::SetTerminalOutput(terminal);
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}

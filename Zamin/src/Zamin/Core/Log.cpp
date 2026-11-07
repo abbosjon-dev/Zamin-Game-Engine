@@ -1,10 +1,50 @@
 #include "Zamin/Core/Log.h"
 
+#include <atomic>
 #include <chrono>
 #include <cstdio>
+#include <cstring>
 #include <ctime>
 
 namespace Zamin {
+
+    namespace {
+
+        // The log files (Log::AttachFiles), written under Log's mutex.
+        std::FILE* s_FilePrimary = nullptr;
+        std::FILE* s_FileSecondary = nullptr;
+        std::atomic<int> s_FileDescriptors[2] = { -1, -1 }; // theirs, for the crash handler
+
+        // The last lines for a crash report: a ring of fixed buffers (no allocation, no lock to read).
+        char s_CrashLines[Log::CrashLineCount][Log::CrashLineSize];
+        std::atomic<uint32_t> s_CrashNext{ 0 };   // the slot the next line goes to (counts up, wraps by modulo)
+
+        void RememberForCrash(const char* time, LogLevel level, bool fromClient, const std::string& text)
+        {
+            const uint32_t slot = s_CrashNext.load(std::memory_order_relaxed) % Log::CrashLineCount;
+            char* line = s_CrashLines[slot];
+            const int written = std::snprintf(line, Log::CrashLineSize, "[%s] %s %s: %s", time, Log::LevelToString(level), fromClient ? "APP" : "ZAMIN",
+                                              text.c_str());
+            if (written < 0)
+                line[0] = '\0';
+            // (Multi-line messages stay on one line of the report.)
+            for (char* c = line; *c; c++)
+                if (*c == '\n' || *c == '\r')
+                    *c = ' ';
+            s_CrashNext.store(s_CrashNext.load(std::memory_order_relaxed) + 1, std::memory_order_release);
+        }
+
+        void WriteFileLine(std::FILE* file, const LogMessage& message)
+        {
+            if (!file)
+                return;
+            const std::string line = Log::FormatFileLine(message);
+            std::fwrite(line.data(), 1, line.size(), file);
+            std::fputc('\n', file);
+            std::fflush(file); // a crash right after this message still finds it in the file
+        }
+
+    }
 
     const char* Log::LevelToString(LogLevel level)
     {
@@ -53,7 +93,10 @@ namespace Zamin {
             std::fprintf(level >= LogLevel::Error ? stderr : stdout, "%s[%s] %s: %s\033[0m\n",
                          LevelColor(level), timeBuf, fromClient ? "APP" : "ZAMIN", text.c_str());
 
+        RememberForCrash(timeBuf, level, fromClient, text);
         s_Messages.push_back({ level, fromClient, timeBuf, std::move(text) });
+        WriteFileLine(s_FilePrimary, s_Messages.back());
+        WriteFileLine(s_FileSecondary, s_Messages.back());
         if (s_Messages.size() > MaxMessages)
             s_Messages.pop_front();
         s_Revision++;
@@ -98,6 +141,69 @@ namespace Zamin {
     {
         std::lock_guard lock(s_Mutex);
         return s_Messages.size();
+    }
+
+    std::string Log::FormatFileLine(const LogMessage& message)
+    {
+        return std::format("[{}] {:<5} {}: {}", message.Time, LevelToString(message.Level), message.FromClient ? "APP" : "ZAMIN", message.Text);
+    }
+
+    void Log::AttachFiles(std::FILE* primary, std::FILE* secondary, const std::string& header)
+    {
+        std::lock_guard lock(s_Mutex);
+        for (std::FILE* file : { primary, secondary })
+        {
+            if (!file)
+                continue;
+            if (!header.empty())
+            {
+                std::fwrite(header.data(), 1, header.size(), file);
+                if (header.back() != '\n')
+                    std::fputc('\n', file);
+            }
+            // What was logged before the file was opened (start-up).
+            for (const LogMessage& message : s_Messages)
+                WriteFileLine(file, message);
+            std::fflush(file);
+        }
+        s_FilePrimary = primary;
+        s_FileSecondary = secondary;
+        s_FileDescriptors[0] = primary ? fileno(primary) : -1;
+        s_FileDescriptors[1] = secondary ? fileno(secondary) : -1;
+    }
+
+    void Log::DetachFiles(std::FILE** primary, std::FILE** secondary)
+    {
+        std::lock_guard lock(s_Mutex);
+        if (primary)
+            *primary = s_FilePrimary;
+        if (secondary)
+            *secondary = s_FileSecondary;
+        s_FilePrimary = s_FileSecondary = nullptr;
+        s_FileDescriptors[0] = s_FileDescriptors[1] = -1;
+    }
+
+    void Log::GetFileDescriptorsUnsafe(int* primary, int* secondary)
+    {
+        if (primary)
+            *primary = s_FileDescriptors[0].load();
+        if (secondary)
+            *secondary = s_FileDescriptors[1].load();
+    }
+
+    void Log::ForEachRecentLineUnsafe(void (*emit)(const char* line, size_t length, void* user), void* user)
+    {
+        // No lock: called from a signal handler. A line being written at that moment may come out torn.
+        const uint32_t next = s_CrashNext.load(std::memory_order_acquire);
+        const uint32_t count = next < CrashLineCount ? next : (uint32_t)CrashLineCount;
+        for (uint32_t i = next - count; i != next; i++)
+        {
+            const char* line = s_CrashLines[i % CrashLineCount];
+            size_t length = 0;
+            while (length < CrashLineSize && line[length])
+                length++;
+            emit(line, length, user);
+        }
     }
 
 }

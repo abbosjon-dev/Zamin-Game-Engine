@@ -6,7 +6,11 @@
 //   ZaminPlayer [path/to/Game.zproject] [--windowed | --fullscreen | --borderless] [--resolution WxH]
 //               [--monitor N] [--vsync | --no-vsync] [--fps N] [--scene <path | build index | name>]
 //               [--quality <level>] [--lang <code>] [--no-splash] [--gl ...] [--msaa N] [--debug-...]
+//               [--log-file <path> | --no-log-file] [--no-crash-handler] [--no-crash-dialog]
 //   ZaminPlayer --help lists every option.
+// The log goes to ~/.local/share/<company>/<product>/logs (player-<date>.log, the last 5 kept, latest.log);
+// a crash writes crash-<date>.txt there and the player shows it in a window of its own
+// (ZaminPlayer --crash-dialog <report>, started by the crash handler).
 #include <Zamin/Zamin.h>
 #include <Zamin/Core/EntryPoint.h>
 
@@ -14,6 +18,9 @@
 
 #include <algorithm>
 #include <charconv>
+#include <csignal>
+#include <ctime>
+#include <stdexcept>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -460,8 +467,39 @@ namespace Zamin {
             Renderer2D::SetDisplayOutput(false);
         }
 
+        // ZAMIN_PLAYER_CRASH_TEST="<frame>:<segv | abort | fpe | exception>": the player crashes on purpose
+        // in that frame (the crash handler, its report and dialog are checked with it).
+        void RunCrashTest()
+        {
+            static const char* test = std::getenv("ZAMIN_PLAYER_CRASH_TEST");
+            if (!test)
+                return;
+            static int frames = 0;
+            const int at = std::atoi(test);
+            const char* colon = std::strchr(test, ':');
+            if (frames++ != at || !colon)
+                return;
+            const std::string_view kind = colon + 1;
+            ZM_WARN("ZAMIN_PLAYER_CRASH_TEST: ataylab crash ({}) - {}-kadr", kind, at);
+            if (kind == "segv")
+                *(volatile int*)(uintptr_t)8 = 1; // a real invalid write
+            else if (kind == "abort")
+                std::abort();
+            else if (kind == "fpe")
+            {
+                volatile int zero = 0;
+                volatile int result = 1 / zero;
+                (void)result;
+                std::raise(SIGFPE); // where division by zero does not trap
+            }
+            else if (kind == "exception")
+                throw std::runtime_error("ZAMIN_PLAYER_CRASH_TEST sinov istisnosi");
+            ZM_WARN("ZAMIN_PLAYER_CRASH_TEST: noma'lum tur '{}' (segv, abort, fpe, exception)", kind);
+        }
+
         void OnUpdate(Timestep ts) override
         {
+            RunCrashTest();
             if (!m_ScriptedInput.empty())
                 PlayScriptedInput();
             const bool toggled = HandleFullscreenToggle();
@@ -629,6 +667,177 @@ namespace Zamin {
         int m_Frame = 0;
     };
 
+    // ZaminPlayer --crash-dialog <report>: the window about a crash (the crash handler starts it after the
+    // game crashed; the game itself has already exited). Says what happened and where the report is;
+    // opens its folder, copies its path.
+    class CrashDialogLayer : public Layer
+    {
+    public:
+        explicit CrashDialogLayer(std::filesystem::path report) : Layer("CrashDialog"), m_Report(std::move(report)) {}
+
+        void OnAttach() override
+        {
+            // The crashed program could not make the backtrace readable; this one can.
+            CrashHandler::DemangleReport(m_Report);
+            m_HasReport = CrashHandler::ReadReport(m_Report, m_Summary);
+            const std::string product = !m_Summary.Product.empty() ? m_Summary.Product : !m_Summary.Application.empty() ? m_Summary.Application : "O'yin";
+            Application::Get().GetWindow().SetTitle(std::format("{} - xato", product));
+            m_Product = product;
+            ZM_INFO("Crash hisoboti: {} ({})", m_Report.string(), m_HasReport ? m_Summary.Reason : "o'qilmadi");
+        }
+
+        void OnUpdate(Timestep) override
+        {
+            auto& window = Application::Get().GetWindow();
+            const uint32_t w = window.GetFramebufferWidth(), h = window.GetFramebufferHeight();
+            if (w == 0 || h == 0)
+                return;
+            const float px = window.GetWidth() > 0 ? (float)w / (float)window.GetWidth() : 1.0f; // window -> framebuffer pixels
+            const float scale = std::clamp((float)h / 440.0f, 0.75f, 3.0f);
+            const glm::vec2 mouse = Input::GetMousePosition() * px;
+            const glm::vec2 mouseUp(mouse.x, (float)h - mouse.y); // bottom-up, like the drawing
+
+            // The buttons along the bottom, right to left.
+            struct Button { const char* Label; int Action; glm::vec2 Min, Max; };
+            Button buttons[] = { { "Yopish", 0, {}, {} }, { "Yo'lni nusxalash", 1, {}, {} }, { "Papkani ochish", 2, {}, {} } };
+            const Ref<Font> font = Font::GetDefault();
+            const float buttonText = 17.0f * scale, buttonHeight = 38.0f * scale, gap = 12.0f * scale;
+            float right = (float)w - 24.0f * scale;
+            for (Button& b : buttons)
+            {
+                const float width = (font ? Renderer2D::MeasureString(b.Label, font).x * buttonText : 120.0f) + 36.0f * scale;
+                b.Min = { right - width, 22.0f * scale };
+                b.Max = { right, 22.0f * scale + buttonHeight };
+                right -= width + gap;
+            }
+            int clicked = -1;
+            if (Input::IsMouseButtonJustReleased(MouseButton::Left))
+                for (const Button& b : buttons)
+                    if (mouseUp.x >= b.Min.x && mouseUp.x <= b.Max.x && mouseUp.y >= b.Min.y && mouseUp.y <= b.Max.y)
+                        clicked = b.Action;
+            if (Input::IsKeyJustPressed(Key::Escape) || Input::IsKeyJustPressed(Key::Enter) || clicked == 0)
+            {
+                Application::Get().Close();
+                return;
+            }
+            if (Input::IsKeyJustPressed(Key::C) || clicked == 1)
+            {
+                Input::SetClipboardText(m_Report.string());
+                m_Notice = "Yo'l nusxalandi";
+                m_NoticeTime = 2.5f;
+            }
+            if (Input::IsKeyJustPressed(Key::O) || clicked == 2)
+                Platform::OpenInFileBrowser(m_Report.parent_path());
+
+            RenderCommand::SetViewport(0, 0, w, h);
+            RenderCommand::SetClearColor({ 0.07f, 0.075f, 0.09f, 1.0f });
+            RenderCommand::Clear();
+            RenderCommand::SetDepthTest(false);
+            Renderer2D::SetDisplayOutput(true);
+            Renderer2D::SetLit(false);
+            Renderer2D::BeginScene(glm::ortho(0.0f, (float)w, 0.0f, (float)h, -1.0f, 1.0f));
+            // A red strip down the left.
+            Renderer2D::DrawQuad(glm::vec2(14.0f * scale, (float)h * 0.5f), glm::vec2(6.0f * scale, (float)h), glm::vec4(0.86f, 0.27f, 0.25f, 1.0f));
+            const float left = 40.0f * scale, maxRight = (float)w - 28.0f * scale;
+            float y = (float)h - 56.0f * scale;
+            // (keepEnd: a long path loses its start - its end matters; other text loses its end.)
+            auto line = [&](std::string text, float size, const glm::vec4& color, float after = 1.5f, bool keepEnd = false) {
+                if (!font)
+                    return;
+                const float maxWidth = (maxRight - left) / size;
+                if (Renderer2D::MeasureString(text, font).x > maxWidth)
+                {
+                    if (keepEnd)
+                    {
+                        while (text.size() > 4 && Renderer2D::MeasureString("..." + text, font).x > maxWidth)
+                            text.erase(0, 1);
+                        text = "..." + text;
+                    }
+                    else
+                    {
+                        while (text.size() > 4 && Renderer2D::MeasureString(text + "...", font).x > maxWidth)
+                            text.pop_back();
+                        text += "...";
+                    }
+                }
+                Renderer2D::TextParams params;
+                params.Color = color;
+                Renderer2D::DrawString(text, font, glm::translate(glm::mat4(1.0f), glm::vec3(left, y, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(size)),
+                                       params);
+                y -= size * after;
+            };
+            const glm::vec4 white(0.94f, 0.95f, 0.97f, 1.0f), grey(0.60f, 0.63f, 0.68f, 1.0f), red(0.96f, 0.50f, 0.46f, 1.0f), dim(0.45f, 0.48f, 0.53f, 1.0f);
+            line(std::format("{} kutilmaganda to'xtadi", m_Product), 30.0f * scale, white, 1.7f);
+            if (m_HasReport)
+            {
+                if (!m_Summary.Version.empty() || !m_Summary.Engine.empty())
+                    line(std::format("{}{}{}", m_Summary.Version.empty() ? "" : "Versiya " + m_Summary.Version, !m_Summary.Version.empty() && !m_Summary.Engine.empty() ? "  |  " : "",
+                                     m_Summary.Engine),
+                         15.0f * scale, dim, 1.9f);
+                line("Sabab: " + m_Summary.Reason, 18.0f * scale, red, 2.0f);
+            }
+            else
+                line("Hisobot o'qilmadi.", 18.0f * scale, red, 2.0f);
+            line("Xato haqida hisobot saqlandi:", 17.0f * scale, white, 1.45f);
+            line(m_Report.string(), 16.0f * scale, grey, 2.0f, true);
+            line("Iltimos, shu faylni o'yin muallifiga yuboring - u xatoni tuzatishga yordam beradi.", 15.0f * scale, grey, 1.9f);
+            // The last things the game logged.
+            if (m_HasReport && !m_Summary.LastLog.empty())
+            {
+                line("Oxirgi log satrlari:", 14.0f * scale, dim, 1.4f);
+                const size_t first = m_Summary.LastLog.size() > 4 ? m_Summary.LastLog.size() - 4 : 0;
+                for (size_t i = first; i < m_Summary.LastLog.size() && y > 80.0f * scale; i++)
+                    line(m_Summary.LastLog[i], 13.0f * scale, dim, 1.35f);
+            }
+            // Buttons.
+            for (const Button& b : buttons)
+            {
+                const bool hover = mouseUp.x >= b.Min.x && mouseUp.x <= b.Max.x && mouseUp.y >= b.Min.y && mouseUp.y <= b.Max.y;
+                const glm::vec4 fill = b.Action == 0 ? (hover ? glm::vec4(0.32f, 0.52f, 0.92f, 1.0f) : glm::vec4(0.25f, 0.44f, 0.82f, 1.0f))
+                                                     : (hover ? glm::vec4(0.24f, 0.26f, 0.31f, 1.0f) : glm::vec4(0.17f, 0.18f, 0.22f, 1.0f));
+                Renderer2D::DrawQuad((b.Min + b.Max) * 0.5f, b.Max - b.Min, fill);
+                if (font)
+                {
+                    const float width = Renderer2D::MeasureString(b.Label, font).x * buttonText;
+                    Renderer2D::TextParams params;
+                    params.Color = white;
+                    Renderer2D::DrawString(b.Label, font,
+                                           glm::translate(glm::mat4(1.0f), glm::vec3((b.Min.x + b.Max.x - width) * 0.5f, b.Min.y + buttonHeight * 0.32f, 0.0f)) *
+                                               glm::scale(glm::mat4(1.0f), glm::vec3(buttonText)),
+                                           params);
+                }
+            }
+            if (m_NoticeTime > 0.0f && font)
+            {
+                Renderer2D::TextParams params;
+                params.Color = glm::vec4(0.55f, 0.85f, 0.55f, std::clamp(m_NoticeTime, 0.0f, 1.0f));
+                Renderer2D::DrawString(m_Notice, font,
+                                       glm::translate(glm::mat4(1.0f), glm::vec3(left, 32.0f * scale, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(15.0f * scale)),
+                                       params);
+                m_NoticeTime -= Application::Get().GetFrameTime() / 1000.0f;
+            }
+            Renderer2D::EndScene();
+            Renderer2D::SetDisplayOutput(false);
+        }
+
+    private:
+        std::filesystem::path m_Report;
+        CrashReportSummary m_Summary;
+        bool m_HasReport = false;
+        std::string m_Product;
+        std::string m_Notice;
+        float m_NoticeTime = 0.0f;
+    };
+
+    class CrashDialogApp : public Application
+    {
+    public:
+        CrashDialogApp(const ApplicationSpecification& spec, std::filesystem::path report) : Application(spec)
+        {
+            PushLayer(new CrashDialogLayer(std::move(report)));
+        }
+    };
+
     class ZaminPlayer : public Application
     {
     public:
@@ -675,6 +884,17 @@ namespace Zamin {
             std::fputs(PlayerCommandLine::GetHelpText(program).c_str(), stdout);
             std::exit(0);
         }
+        // The window about a crash report (the crash handler started this process): nothing else.
+        if (!commandLine.CrashDialog.empty())
+        {
+            spec.Name = "Zamin Player (xato)";
+            spec.Window.Title = "Xato";
+            spec.Window.Width = 780;
+            spec.Window.Height = 440;
+            spec.Window.Resizable = false;
+            spec.Window.VSync = true;
+            return new CrashDialogApp(spec, std::filesystem::absolute(commandLine.CrashDialog));
+        }
         for (const std::string& problem : commandLine.Errors)
             ZM_WARN("Buyruq qatori: {}", problem);
 
@@ -696,6 +916,50 @@ namespace Zamin {
         SaveData::SetFilePath(SaveData::GetFilePathFor(config.Player.CompanyName, config.Player.GetProductName(config.Name)));
         const SavedDisplaySettings saved = Display::GetSavedSettings();
         SaveData::SetFilePath({}); // the project's own location once it is open (the same file)
+
+        // The log file (from here on every message goes there too; the ones before are written first):
+        // --log-file, else ~/.local/share/<company>/<product>/logs/player-<date>.log (the last 5) + latest.log.
+        const std::string product = config.Player.GetProductName(config.Name);
+        const std::filesystem::path logDirectory = LogFile::GetDefaultDirectory(config.Player.CompanyName, product);
+        if (!commandLine.NoLogFile)
+        {
+            std::string command;
+            for (int i = 1; i < args.Count; i++)
+                command += std::string(i > 1 ? " " : "") + (args[i] ? args[i] : "");
+            char started[32];
+            const std::time_t now = std::time(nullptr);
+            std::tm tm{};
+            localtime_r(&now, &tm);
+            std::strftime(started, sizeof(started), "%Y-%m-%d %H:%M:%S", &tm);
+            const std::string header = std::format("# {} {} - Zamin Player (Zamin Engine {})\n# Boshlandi: {}\n# Loyiha: {}\n# Buyruq qatori: {}\n", product,
+                                                   config.Player.Version, ZM_ENGINE_VERSION, started, project.string(), command.empty() ? "-" : command);
+            std::string logError;
+            const bool opened = !commandLine.LogFile.empty()
+                                    ? LogFile::Open(commandLine.LogFile, header, &logError)
+                                    : LogFile::OpenRotating({ logDirectory, "player", 5, true, header }, &logError);
+            if (opened)
+                ZM_INFO("Log fayli: {}", LogFile::GetPath().string());
+            else
+                ZM_WARN("Log fayli ochilmadi ({}) - log faqat terminalda", logError);
+        }
+        // Crashes (fatal signals, uncaught exceptions): a report next to the logs and a window about it
+        // (this program again, --crash-dialog; automation runs - screenshots, CI - without the window
+        // unless ZAMIN_CRASH_DIALOG=1).
+        if (!commandLine.NoCrashHandler)
+        {
+            CrashHandlerSettings crash;
+            crash.ReportDirectory = LogFile::IsOpen() ? LogFile::GetDirectory() : logDirectory;
+            crash.Application = "Zamin Player";
+            crash.Product = product;
+            crash.Version = config.Player.Version;
+            crash.LogFile = LogFile::GetPath();
+            crash.ShowDialog = !commandLine.NoCrashDialog && (!Application::IsAutomationRun() || std::getenv("ZAMIN_CRASH_DIALOG"));
+            crash.DialogProgram = FileSystem::GetExecutablePath();
+            crash.DialogArguments = { "--crash-dialog" };
+            if (CrashHandler::Install(crash))
+                ZM_INFO("Crash hisobotlari: {}", crash.ReportDirectory.string());
+        }
+
         PlayerLaunchSettings launch = PlayerLaunchSettings::Resolve(config, saved, commandLine);
         for (const std::string& warning : launch.Warnings)
             ZM_WARN("{}", warning);

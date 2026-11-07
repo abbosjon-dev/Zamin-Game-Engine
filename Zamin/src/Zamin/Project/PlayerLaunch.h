@@ -28,6 +28,16 @@ namespace Zamin {
         std::string Language;               // --lang | --language <code>
         bool NoSplash = false;              // --no-splash
         bool Help = false;                  // --help | -h | -?
+        // The log file: --log-file <path> writes only that file (else the rotating logs in
+        // ~/.local/share/<company>/<product>/logs); --no-log-file none.
+        std::string LogFile;
+        bool NoLogFile = false;
+        // Crashes: --no-crash-handler leaves fatal signals to the system (a debugger, core dumps);
+        // --no-crash-dialog writes the report without showing a window.
+        bool NoCrashHandler = false, NoCrashDialog = false;
+        // --crash-dialog <report>: only the window about a crash report (the crash handler starts the
+        // player like this after the game crashed); not listed in --help.
+        std::string CrashDialog;
         // Debug drawing (compiled out of Shipping builds).
         bool NoDebugDraw = false, DebugRaycasts = false, DebugContacts = false, DebugContactDetails = false, DebugJoints = false,
              DebugVelocities = false;

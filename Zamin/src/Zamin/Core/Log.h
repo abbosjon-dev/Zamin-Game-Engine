@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdio>
 #include <format>
 #include <functional>
 #include <mutex>
@@ -43,6 +44,23 @@ namespace Zamin {
         static bool GetTerminalOutput() { return s_TerminalOutput; }
 
         static const char* LevelToString(LogLevel level);
+
+        // ---- files (LogFile opens / rotates them): every message from then on is also written to
+        // these (without colours, flushed at once - a crash loses nothing). Attaching first writes the
+        // messages already kept (start-up before the file was opened) after `header`. The files belong
+        // to the caller: DetachFiles hands them back (not closed).
+        static void AttachFiles(std::FILE* primary, std::FILE* secondary, const std::string& header);
+        static void DetachFiles(std::FILE** primary, std::FILE** secondary);
+        // One message as a line of a log file: "[14:03:12] INFO  ZAMIN: text".
+        static std::string FormatFileLine(const LogMessage& message);
+
+        // ---- the last messages for a crash report (CrashHandler): kept in fixed buffers so that a
+        // signal handler can read them without locking or allocating. `emit` gets each line (oldest
+        // first, without a newline); a line may be cut at CrashLineSize - 1 bytes.
+        static constexpr size_t CrashLineCount = 48, CrashLineSize = 320;
+        static void ForEachRecentLineUnsafe(void (*emit)(const char* line, size_t length, void* user), void* user);
+        // The attached files' descriptors (-1: none) - the crash handler appends its line with write().
+        static void GetFileDescriptorsUnsafe(int* primary, int* secondary);
 
     private:
         static inline std::mutex s_Mutex;

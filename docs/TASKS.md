@@ -400,8 +400,8 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 343. FPS cheklovi
 - [x] 344. Splash ekran (Zamin logotipi)
 - [x] 345. Player command line: --windowed, --resolution
-- [ ] 346. Player log faylga yozish
-- [ ] 347. Crash bo'lganda xabar oynasi
+- [x] 346. Player log faylga yozish
+- [x] 347. Crash bo'lganda xabar oynasi
 - [ ] 348. Player'da kursorni yashirish/bloklash API
 - [ ] 349. Ekran o'lchami o'zgarishiga moslashish
 - [ ] 350. Eksportda ishlatilmagan assetlarni chiqarib tashlash

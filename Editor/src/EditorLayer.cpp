@@ -820,7 +820,7 @@ namespace Zamin {
                 o.Sanitize();
                 if (v.find("menu") != std::string_view::npos) m_OpenGizmosMenu = true;
             }
-            // ZAMIN_EDITOR_OVERLAY=0 | 1 | graph=0,calls=0,culling=0,hotspots,audio,corner=tl|tr|bl|br,target=144,menu:
+            // ZAMIN_EDITOR_OVERLAY=0 | 1 | graph=0,calls=0,culling=0,hotspots,audio,memory,corner=tl|tr|bl|br,target=144,menu:
             // the viewport's statistics overlay (for this session; not saved unless the settings change).
             if (const char* overlay = std::getenv("ZAMIN_EDITOR_OVERLAY"))
             {
@@ -836,6 +836,7 @@ namespace Zamin {
                 flag("culling=", o.Culling);
                 if (v.find("hotspots") != std::string_view::npos) o.Hotspots = true;
                 if (v.find("audio") != std::string_view::npos) o.Audio = true;
+                if (v.find("memory") != std::string_view::npos) o.Memory = true;
                 if (size_t at = v.find("corner="); at != std::string_view::npos)
                 {
                     std::string_view c = v.substr(at + 7, 2);
@@ -9755,6 +9756,39 @@ namespace Zamin {
                     }
                 }
             }
+            // ---- memory: the process's RAM, what the engine holds by category (the biggest ones)
+            if (o.Memory)
+            {
+                ImGui::Separator();
+                const MemoryStats::ProcessMemory process = MemoryStats::GetProcessMemory();
+                ImGui::TextDisabled(ICON_FA_MEMORY "  Xotira");
+                if (process.Valid)
+                {
+                    const std::string rss = std::format("{} RAM", MemoryStats::FormatBytes(process.Resident));
+                    ImGui::SameLine();
+                    ImGui::SetCursorPosX(std::max(ImGui::GetCursorPosX(), ImGui::GetWindowContentRegionMax().x - ImGui::CalcTextSize(rss.c_str()).x));
+                    ImGui::TextUnformatted(rss.c_str());
+                    if (ImGui::IsItemHovered())
+                        UI::Tooltip(std::format("Jarayonning RAM'dagi xotirasi (RSS, /proc/self/statm)\nEng ko'pi: {}   virtual: {}",
+                                                MemoryStats::FormatBytes(process.PeakResident), MemoryStats::FormatBytes(process.Virtual)).c_str());
+                }
+                if (table("##overlayMemory"))
+                {
+                    ImGui::TableSetupColumn("label", ImGuiTableColumnFlags_WidthStretch, 1.25f);
+                    ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthStretch, 1.0f);
+                    // The categories that hold the most, biggest first (at most four).
+                    std::array<std::pair<uint64_t, MemoryCategory>, MemoryCategoryCount> sorted;
+                    for (size_t i = 0; i < MemoryCategoryCount; i++)
+                        sorted[i] = { MemoryStats::Get((MemoryCategory)i).Bytes, (MemoryCategory)i };
+                    std::sort(sorted.begin(), sorted.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
+                    for (size_t i = 0; i < 4 && sorted[i].first > 0; i++)
+                        row(MemoryStats::GetName(sorted[i].second), MemoryStats::FormatBytes(sorted[i].first), nullptr,
+                            MemoryStats::GetDescription(sorted[i].second));
+                    row("Dvigatel jami", MemoryStats::FormatBytes(MemoryStats::GetTrackedTotal()), nullptr,
+                        "Dvigatel modullari hisoblagan hamma xotira (Statistika paneli > Xotira: toifalar bo'yicha)");
+                    ImGui::EndTable();
+                }
+            }
             // Right click: the overlay's settings.
             if (ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) && ImGui::IsMouseReleased(ImGuiMouseButton_Right))
                 ImGui::OpenPopup("##StatsOverlayContext");
@@ -9792,6 +9826,10 @@ namespace Zamin {
         if (ImGui::IsItemHovered())
             UI::Tooltip("Ijro etilayotgan ovozlar soni / limit, mixer guruhlari bo'yicha, limit sababli to'xtatilgan va ijro "
                         "etilmagan ovozlar (Play boshlanganidan beri)");
+        changed |= ImGui::Checkbox(Tr(ICON_FA_MEMORY "  Xotira"), &o.Memory);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Jarayonning RAM'dagi xotirasi (RSS) va dvigatel ushlab turgan xotira: teksturalar, render buferlari, "
+                        "meshlar, audio, sahnalar, particle'lar, animatsiya keshi");
         static const char* corners[] = { "Yuqori chap", "Yuqori o'ng", "Pastki chap", "Pastki o'ng" };
         int corner = (int)o.Corner;
         ImGui::SetNextItemWidth(150);
@@ -10436,6 +10474,8 @@ namespace Zamin {
                 ImGui::SetNextItemOpen(false);
             if (!ImGui::CollapsingHeader(Tr(ICON_FA_CUBES "  Render statistikasi"), ImGuiTreeNodeFlags_DefaultOpen))
             {
+                UI_MemoryStats();
+                UI_JobSystemStats();
                 UI_AnimationStats();
                 if (loadFirst && ImGui::IsWindowAppearing())
                     ImGui::SetNextItemOpen(false); // the scene load times in view (automation)
@@ -10544,12 +10584,156 @@ namespace Zamin {
                 UI::EndPropertyGrid();
             }
 
+            UI_MemoryStats();
+            UI_JobSystemStats();
             UI_AnimationStats();
             UI_AudioProfiler();
             UI_SceneLoadTimings(true);
             UI_ProfilerTree(true);
         }
         ImGui::End();
+    }
+
+    void EditorLayer::UI_MemoryStats()
+    {
+        // ZAMIN_EDITOR_STATS=memory (automation): open even when the panel starts folded.
+        static const bool memoryFirst = [] {
+            const char* v = std::getenv("ZAMIN_EDITOR_STATS");
+            return v && std::string_view(v).find("memory") != std::string_view::npos;
+        }();
+        if (memoryFirst && ImGui::IsWindowAppearing())
+            ImGui::SetNextItemOpen(true);
+        if (!ImGui::CollapsingHeader(Tr(ICON_FA_MEMORY "  Xotira"), ImGuiTreeNodeFlags_DefaultOpen))
+            return;
+        const MemoryStats::ProcessMemory process = MemoryStats::GetProcessMemory();
+        const uint64_t tracked = MemoryStats::GetTrackedTotal();
+        float labelWidth = 0.0f;
+        for (size_t i = 0; i < MemoryCategoryCount; i++)
+            labelWidth = std::max(labelWidth, ImGui::CalcTextSize(MemoryStats::GetName((MemoryCategory)i)).x);
+        labelWidth = std::min(labelWidth + ImGui::GetStyle().ItemSpacing.x * 2.0f, ImGui::GetContentRegionAvail().x * 0.45f);
+        if (UI::BeginPropertyGrid("memstats", labelWidth))
+        {
+            UI::PropertyLabel("RAM (RSS)", "Jarayonning hozir RAM'dagi xotirasi (/proc/self/statm) - dvigatel, kutubxonalar, GPU drayveri, "
+                                           "skriptlar hammasi. Qavsda: shu paytgacha eng ko'pi (VmHWM)");
+            if (process.Valid)
+            {
+                ImGui::Text("%s", MemoryStats::FormatBytes(process.Resident).c_str());
+                ImGui::SameLine(0.0f, 6.0f);
+                ImGui::TextDisabled("(eng ko'pi %s)", MemoryStats::FormatBytes(process.PeakResident).c_str());
+            }
+            else
+                ImGui::TextDisabled("bu tizimda o'qilmaydi");
+            UI::PropertyLabel("Virtual", "Jarayon band qilgan manzil maydoni (hammasi ham RAM'da emas)");
+            ImGui::TextDisabled("%s", process.Valid ? MemoryStats::FormatBytes(process.Virtual).c_str() : "-");
+            UI::PropertyLabel("Dvigatel jami", "Dvigatel modullari o'zi hisoblagan xotira (quyidagi toifalar yig'indisi). GPU xotirasi "
+                                               "(teksturalar, buferlar) drayverga qarab RAM'da ham, videokartada ham bo'lishi mumkin");
+            ImGui::Text("%s", MemoryStats::FormatBytes(tracked).c_str());
+            UI::EndPropertyGrid();
+        }
+        // The categories: bytes, objects, peak, and a bar of each one's share.
+        if (ImGui::BeginTable("##memoryCategories", 4, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_RowBg | ImGuiTableFlags_NoSavedSettings))
+        {
+            ImGui::TableSetupColumn(Tr("Toifa"), ImGuiTableColumnFlags_WidthStretch, 1.5f);
+            ImGui::TableSetupColumn(Tr("Bayt"), ImGuiTableColumnFlags_WidthStretch, 0.9f);
+            ImGui::TableSetupColumn(Tr("Soni"), ImGuiTableColumnFlags_WidthStretch, 0.5f);
+            ImGui::TableSetupColumn(Tr("Eng ko'pi"), ImGuiTableColumnFlags_WidthStretch, 0.9f);
+            ImGui::TableHeadersRow();
+            for (size_t i = 0; i < MemoryCategoryCount; i++)
+            {
+                const MemoryCategory category = (MemoryCategory)i;
+                const MemoryStats::Category c = MemoryStats::Get(category);
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                // The share as a thin bar under the name.
+                const ImVec2 at = ImGui::GetCursorScreenPos();
+                const float width = ImGui::GetContentRegionAvail().x;
+                ImGui::TextUnformatted(MemoryStats::GetName(category));
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip(MemoryStats::GetDescription(category));
+                if (tracked > 0 && c.Bytes > 0)
+                {
+                    const float share = (float)((double)c.Bytes / (double)tracked);
+                    const float y = at.y + ImGui::GetTextLineHeight() + 1.0f;
+                    ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(at.x, y), ImVec2(at.x + width * share, y + 2.0f),
+                                                              ImGui::GetColorU32(UI::AccentColor()), 1.0f);
+                }
+                ImGui::TableSetColumnIndex(1);
+                if (c.Bytes > 0)
+                    ImGui::TextUnformatted(MemoryStats::FormatBytes(c.Bytes).c_str());
+                else
+                    ImGui::TextDisabled("0");
+                ImGui::TableSetColumnIndex(2);
+                ImGui::TextDisabled("%llu", (unsigned long long)c.Count);
+                ImGui::TableSetColumnIndex(3);
+                ImGui::TextDisabled("%s", MemoryStats::FormatBytes(c.PeakBytes).c_str());
+            }
+            ImGui::EndTable();
+        }
+        if (ImGui::SmallButton(Tr(ICON_FA_ROTATE_LEFT "  Eng ko'pini tiklash")))
+            MemoryStats::ResetPeaks();
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Toifalarning 'eng ko'pi' ustunini hozirgi qiymatga qaytarish");
+        const Scene::MemoryEstimate scene = m_ActiveScene->EstimateMemory();
+        ImGui::SameLine();
+        ImGui::TextDisabled("Bu sahna: %llu obyekt, %s (+%s particle)", (unsigned long long)scene.Entities,
+                            MemoryStats::FormatBytes(scene.Components).c_str(), MemoryStats::FormatBytes(scene.Particles).c_str());
+    }
+
+    void EditorLayer::UI_JobSystemStats()
+    {
+        static const bool jobsFirst = [] {
+            const char* v = std::getenv("ZAMIN_EDITOR_STATS");
+            return v && std::string_view(v).find("jobs") != std::string_view::npos;
+        }();
+        if (jobsFirst && ImGui::IsWindowAppearing())
+            ImGui::SetNextItemOpen(true);
+        if (!ImGui::CollapsingHeader(Tr(ICON_FA_GEARS "  Vazifalar tizimi"), ImGuiTreeNodeFlags_DefaultOpen))
+            return;
+        const JobSystem::Stats& frame = JobSystem::GetLastFrameStats();
+        bool enabled = JobSystem::IsEnabled();
+        ImGui::BeginDisabled(!JobSystem::IsRunning());
+        if (ImGui::Checkbox(Tr("Parallel ishlash"), &enabled))
+            JobSystem::SetEnabled(enabled);
+        ImGui::EndDisabled();
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            UI::Tooltip("O'chirilsa, hamma vazifa asosiy oqimda ketma-ket bajariladi (natija bir xil, tezlik farqini ko'rish yoki "
+                        "debug uchun). Mustaqil particle tizimlari va animator pozalari ishchi oqimlarda hisoblanadi. "
+                        "Ishga tushirishda: ZAMIN_JOBS=<son> (0 - o'chiq), player'da --jobs N");
+        ImGui::SameLine();
+        if (JobSystem::IsRunning())
+            ImGui::TextDisabled("%u ishchi oqim + asosiy", JobSystem::GetWorkerCount());
+        else
+            ImGui::TextDisabled("ishga tushmagan (ZAMIN_JOBS=0)");
+        ImGui::Text("Oxirgi kadr: %llu vazifa, %llu parallel for", (unsigned long long)frame.Jobs, (unsigned long long)frame.ParallelFors);
+        // Per thread: its jobs and how long they took (a bar against the frame's time).
+        const float frameMs = std::max(0.001f, Application::Get().GetFrameTime());
+        if (!frame.Threads.empty() &&
+            ImGui::BeginTable("##jobThreads", 3, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_RowBg | ImGuiTableFlags_NoSavedSettings))
+        {
+            ImGui::TableSetupColumn(Tr("Oqimlar"), ImGuiTableColumnFlags_WidthStretch, 1.0f);
+            ImGui::TableSetupColumn(Tr("Vazifa"), ImGuiTableColumnFlags_WidthStretch, 0.5f);
+            ImGui::TableSetupColumn(Tr("Band"), ImGuiTableColumnFlags_WidthStretch, 1.4f);
+            ImGui::TableHeadersRow();
+            for (size_t i = 0; i < frame.Threads.size(); i++)
+            {
+                const JobSystem::ThreadStats& t = frame.Threads[i];
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                if (i == 0)
+                    ImGui::TextUnformatted(Tr("Asosiy oqim"));
+                else
+                    ImGui::Text("%s %zu", Tr("Ishchi"), i);
+                ImGui::TableSetColumnIndex(1);
+                ImGui::TextDisabled("%llu", (unsigned long long)t.Jobs);
+                ImGui::TableSetColumnIndex(2);
+                const float share = std::clamp((float)t.BusyMilliseconds / frameMs, 0.0f, 1.0f);
+                const std::string label = std::format("{:.2f} ms", t.BusyMilliseconds);
+                ImGui::PushStyleColor(ImGuiCol_PlotHistogram, UI::AccentColor());
+                ImGui::ProgressBar(share, ImVec2(-1.0f, ImGui::GetTextLineHeight()), label.c_str());
+                ImGui::PopStyleColor();
+            }
+            ImGui::EndTable();
+        }
     }
 
     void EditorLayer::UI_AnimationStats()

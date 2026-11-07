@@ -5019,6 +5019,7 @@ namespace Zamin {
             UpdateParticles(ts, false);
             UpdateAnimators(ts, false);
             UpdateAudio(ts);
+            UpdateMemoryStats();
 
             FlushDestroyQueue();
             DeleteRetiredScripts();
@@ -5092,6 +5093,7 @@ namespace Zamin {
             UpdateTintAnimations(ts, false);
             UpdateParticles(ts, false);
             UpdateAnimators(ts, false);
+            UpdateMemoryStats();
             FlushDestroyQueue(); // what asked to go this frame (a particle system's Destroy stop action)
         }
         else
@@ -5116,6 +5118,47 @@ namespace Zamin {
         UpdateTintAnimations(ts, true);
         UpdateParticles(ts, true);
         UpdateAnimators(ts, true);
+        UpdateMemoryStats();
+    }
+
+    namespace {
+        template<typename... Component>
+        uint64_t ComponentBytes(const entt::registry& registry, ComponentGroup<Component...>)
+        {
+            uint64_t bytes = 0;
+            ([&] {
+                if (const auto* storage = registry.storage<Component>())
+                    bytes += (uint64_t)storage->size() * sizeof(Component);
+            }(), ...);
+            return bytes;
+        }
+    }
+
+    Scene::MemoryEstimate Scene::EstimateMemory() const
+    {
+        MemoryEstimate estimate;
+        if (const auto* ids = m_Registry.storage<IDComponent>())
+        {
+            estimate.Entities = ids->size();
+            estimate.Components = (uint64_t)ids->size() * (sizeof(IDComponent) + sizeof(TagComponent)); // every entity has both
+        }
+        estimate.Components += ComponentBytes(m_Registry, AllComponents{});
+        if (const auto* animators = m_Registry.storage<AnimatorComponent>())
+            for (const AnimatorComponent& a : *animators)
+                estimate.Components += (uint64_t)a.JointMatrices.capacity() * sizeof(glm::mat4) + (uint64_t)a.MorphWeights.capacity() * sizeof(float);
+        if (const auto* systems = m_Registry.storage<ParticleSystemComponent>())
+            for (const ParticleSystemComponent& ps : *systems)
+                estimate.Particles += (uint64_t)ps.Particles.capacity() * sizeof(Particle) +
+                                      (uint64_t)ps.TrailPool.Points.capacity() * sizeof(ParticleTrailPool::Point) +
+                                      (uint64_t)ps.Events.capacity() * sizeof(ParticleEvent);
+        return estimate;
+    }
+
+    void Scene::UpdateMemoryStats()
+    {
+        const MemoryEstimate estimate = EstimateMemory();
+        m_ComponentMemory.Set(estimate.Components);
+        m_ParticleMemory.Set(estimate.Particles);
     }
 
     void Scene::OnRenderEditor(const EditorCamera& camera, const SceneRenderOptions& options)

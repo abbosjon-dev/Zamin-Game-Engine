@@ -1,4 +1,5 @@
 #include "Zamin/Renderer/Texture.h"
+#include "Zamin/Core/MemoryStats.h"
 #include "Zamin/Asset/AssetImportLog.h"
 #include "Zamin/Asset/AssetImporter.h"
 
@@ -322,6 +323,9 @@ namespace Zamin {
             glBindTexture(GL_TEXTURE_2D, m_RendererID);
             glTexImage2D(GL_TEXTURE_2D, 0, (GLint)internalFormat, (GLsizei)m_Specification.Width, (GLsizei)m_Specification.Height,
                          0, dataFormat, type, nullptr);
+            // The memory statistics: the base level, a third more with its mip chain.
+            const uint64_t base = (uint64_t)m_Specification.Width * m_Specification.Height * BytesPerPixel(m_Specification.Format);
+            m_Memory.Set(m_Specification.GenerateMips ? base + base / 3 : base);
             ApplySampling();
         }
 
@@ -370,6 +374,7 @@ namespace Zamin {
         bool m_Loaded = false;
         bool m_FromFile = false; // m_Path is a file (not the name of an image decoded from memory)
         bool m_FromImage = false; // read from an image (a file or memory): takes the quality level's sampling
+        TrackedMemory m_Memory{ MemoryCategory::Textures };
     };
 
     void Texture2D::SetSamplingQuality(int anisotropy, int skippedMips)

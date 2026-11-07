@@ -1,5 +1,6 @@
 #include "Zamin/Renderer/Animation.h"
 #include "Zamin/Math/MathUtils.h"
+#include "Zamin/Core/MemoryStats.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 #ifndef GLM_ENABLE_EXPERIMENTAL
@@ -330,21 +331,23 @@ namespace Zamin {
     }
 
     // ---- pose cache
-    static std::atomic<size_t> s_BakedBytes{ 0 };
-
+    // Counted in the memory statistics' Animation category (only the pose caches are).
     BakedClip::~BakedClip()
     {
-        s_BakedBytes -= m_Bytes;
+        if (m_Bytes)
+            MemoryStats::Remove(MemoryCategory::Animation, m_Bytes);
     }
 
     size_t GetBakedClipMemory()
     {
-        return s_BakedBytes.load();
+        return (size_t)MemoryStats::Get(MemoryCategory::Animation).Bytes;
     }
 
     void BakeClip(const Skeleton& skeleton, const AnimationClip& clip, float rate, BakedClip& out)
     {
-        s_BakedBytes -= out.m_Bytes;
+        if (out.m_Bytes)
+            MemoryStats::Remove(MemoryCategory::Animation, out.m_Bytes);
+        out.m_Bytes = 0;
         const size_t n = skeleton.Joints.size();
         if (!std::isfinite(rate) || rate < 1.0f)
             rate = 1.0f;
@@ -370,7 +373,7 @@ namespace Zamin {
             std::copy(pose.R.begin(), pose.R.end(), out.R.begin() + (std::ptrdiff_t)(f * n));
         }
         out.m_Bytes = out.T.size() * sizeof(glm::vec3) * 2 + out.R.size() * sizeof(glm::quat) + out.FromClip.size();
-        s_BakedBytes += out.m_Bytes;
+        MemoryStats::Add(MemoryCategory::Animation, out.m_Bytes);
     }
 
     void SampleBakedPose(const Skeleton& skeleton, const AnimationClip& clip, const BakedClip& baked, float time, LocalPose& out,

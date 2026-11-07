@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Zamin/Core/MemoryStats.h"
 #include "Zamin/Core/Timestep.h"
 #include "Zamin/Core/UUID.h"
 #include "Zamin/Renderer/EditorCamera.h"
@@ -350,6 +351,18 @@ namespace Zamin {
             float Milliseconds = 0.0f;   // the whole update
         };
         const AnimationStats& GetAnimationStats() const { return m_AnimationStats; }
+
+        // ---- memory (the memory statistics' Scenes and Particles categories; an estimate)
+        struct MemoryEstimate
+        {
+            uint64_t Components = 0; // every component's size x how many there are, skeleton poses
+            uint64_t Particles = 0;  // the particle systems' particles, trails and events (their capacity)
+            uint64_t Entities = 0;
+        };
+        MemoryEstimate EstimateMemory() const;
+        // Counts EstimateMemory into MemoryStats (the updates do it every frame; a scene that is
+        // not updated keeps what it counted last).
+        void UpdateMemoryStats();
         // The animators (with a model) a camera of this view x projection sees are marked as seen
         // after the last update; RenderScene does it for each view it draws (the game's camera, the
         // editor's). An Animator with Culling on that no view saw is off screen in the next update -
@@ -1593,6 +1606,8 @@ namespace Zamin {
         void DispatchLanguageChanged();
         std::optional<glm::vec3> m_ParticleViewer; // SetParticleViewer
         AnimationStats m_AnimationStats;
+        TrackedMemory m_ComponentMemory{ MemoryCategory::Scenes };
+        TrackedMemory m_ParticleMemory{ MemoryCategory::Particles };
         uint64_t m_AnimationUpdate = 0;           // UpdateAnimators calls
         uint64_t m_AnimationViewUpdate = ~0ull;   // the update after which a view was last drawn
 

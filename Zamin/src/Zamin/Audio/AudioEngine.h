@@ -330,6 +330,10 @@ namespace Zamin {
         static void UnloadAll();
         static bool IsPreloaded(const std::filesystem::path& path);
         static size_t GetPreloadedCount();
+        // What the sounds decoded into memory take now (the preloaded files and the files of the
+        // playing sounds that are not streamed, each once), and how many files that is. The memory
+        // statistics' Audio category (AudioEngine::Update counts it every frame).
+        static uint64_t GetDecodedMemory(size_t* files = nullptr);
         // A scene starts: exactly these files stay preloaded for it (its Audio Sources' clips with
         // Preload). What an earlier scene (or a clip's Preload on its first play) left decoded and
         // this scene does not use is let go; files preloaded by a Preload call stay.

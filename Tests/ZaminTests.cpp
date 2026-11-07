@@ -38673,3 +38673,139 @@ TEST(JobSystemAnimatorsMatchSerial)
           parallelStats.ClipSamples == serialStats.ClipSamples && parallelStats.CachedSamples > 0 && parallelStats.ClipSamples > 0);
     JobSystem::Shutdown();
 }
+
+// ------------------------------------------------------------------ M19: memory statistics (370)
+TEST(MemoryStatsCategories)
+{
+    const MemoryStats::Category before = MemoryStats::Get(MemoryCategory::Meshes);
+    const uint64_t totalBefore = MemoryStats::GetTrackedTotal();
+    MemoryStats::Add(MemoryCategory::Meshes, 1000);
+    MemoryStats::Add(MemoryCategory::Meshes, 500, 2);
+    MemoryStats::Category c = MemoryStats::Get(MemoryCategory::Meshes);
+    CHECK(c.Bytes == before.Bytes + 1500 && c.Count == before.Count + 3 && c.PeakBytes >= c.Bytes);
+    CHECK(MemoryStats::GetTrackedTotal() == totalBefore + 1500);
+    MemoryStats::Remove(MemoryCategory::Meshes, 1500, 3);
+    c = MemoryStats::Get(MemoryCategory::Meshes);
+    CHECK(c.Bytes == before.Bytes && c.Count == before.Count && c.PeakBytes >= before.Bytes + 1500); // the peak stays
+    MemoryStats::ResetPeaks();
+    CHECK(MemoryStats::Get(MemoryCategory::Meshes).PeakBytes == before.Bytes);
+    // Removing more than there is stops at 0 (a category nobody else uses in the tests: Audio has no engine here).
+    const MemoryStats::Category audio = MemoryStats::Get(MemoryCategory::Audio);
+    MemoryStats::Set(MemoryCategory::Audio, 300, 2);
+    CHECK(MemoryStats::Get(MemoryCategory::Audio).Bytes == 300 && MemoryStats::Get(MemoryCategory::Audio).Count == 2);
+    MemoryStats::Remove(MemoryCategory::Audio, 1000, 5);
+    CHECK(MemoryStats::Get(MemoryCategory::Audio).Bytes == 0 && MemoryStats::Get(MemoryCategory::Audio).Count == 0);
+    MemoryStats::Set(MemoryCategory::Audio, audio.Bytes, audio.Count);
+    // Unknown categories are ignored; every category has a name and a description.
+    MemoryStats::Add(MemoryCategory::Count, 99);
+    CHECK(MemoryStats::Get(MemoryCategory::Count).Bytes == 0 && std::string(MemoryStats::GetName(MemoryCategory::Count)) == "?");
+    for (size_t i = 0; i < MemoryCategoryCount; i++)
+        CHECK(std::strlen(MemoryStats::GetName((MemoryCategory)i)) > 2 && std::strlen(MemoryStats::GetDescription((MemoryCategory)i)) > 10);
+    CHECK(std::string(MemoryStats::GetName(MemoryCategory::Textures)) == "Teksturalar");
+
+    // TrackedMemory: one object while it holds memory, given back when it goes, moves with its owner.
+    const MemoryStats::Category textures = MemoryStats::Get(MemoryCategory::Textures);
+    {
+        TrackedMemory a(MemoryCategory::Textures);
+        CHECK(a.Get() == 0 && MemoryStats::Get(MemoryCategory::Textures).Count == textures.Count);
+        a.Set(4096);
+        CHECK(MemoryStats::Get(MemoryCategory::Textures).Bytes == textures.Bytes + 4096 && MemoryStats::Get(MemoryCategory::Textures).Count == textures.Count + 1);
+        a.Set(1024); // smaller (a texture made again at a smaller size): still one
+        CHECK(MemoryStats::Get(MemoryCategory::Textures).Bytes == textures.Bytes + 1024 && MemoryStats::Get(MemoryCategory::Textures).Count == textures.Count + 1);
+        TrackedMemory b = std::move(a);
+        CHECK(a.Get() == 0 && b.Get() == 1024 && MemoryStats::Get(MemoryCategory::Textures).Count == textures.Count + 1);
+        TrackedMemory c2(MemoryCategory::Textures);
+        c2.Set(10);
+        c2 = std::move(b); // c2's own 10 bytes go, b's come
+        CHECK(c2.Get() == 1024 && MemoryStats::Get(MemoryCategory::Textures).Bytes == textures.Bytes + 1024 &&
+              MemoryStats::Get(MemoryCategory::Textures).Count == textures.Count + 1);
+        c2.Set(0);
+        CHECK(MemoryStats::Get(MemoryCategory::Textures).Count == textures.Count);
+        c2.Set(77);
+    }
+    CHECK(MemoryStats::Get(MemoryCategory::Textures).Bytes == textures.Bytes && MemoryStats::Get(MemoryCategory::Textures).Count == textures.Count);
+
+    CHECK(MemoryStats::FormatBytes(512) == "512 B" && MemoryStats::FormatBytes(1536) == "1.5 KB" &&
+          MemoryStats::FormatBytes(5u * 1024 * 1024 + 512 * 1024) == "5.50 MB" && MemoryStats::FormatBytes(3ull << 30) == "3.00 GB");
+}
+
+TEST(MemoryStatsProcess)
+{
+    MemoryStats::ProcessMemory m;
+    CHECK(MemoryStats::ParseStatm("2500 1200 300 10 0 900 0\n", 4096, m));
+    CHECK(m.Valid && m.Virtual == 2500ull * 4096 && m.Resident == 1200ull * 4096 && m.Shared == 300ull * 4096);
+    MemoryStats::ProcessMemory bad;
+    CHECK(!MemoryStats::ParseStatm("", 4096, bad) && !MemoryStats::ParseStatm("12 abc", 4096, bad) && !bad.Valid);
+    const char* status = "Name:\tZaminTests\nVmPeak:\t  300000 kB\nVmHWM:\t   12345 kB\nVmRSS:\t   12000 kB\n";
+    CHECK(MemoryStats::ParseStatusBytes(status, "VmHWM") == 12345ull * 1024 && MemoryStats::ParseStatusBytes(status, "VmRSS") == 12000ull * 1024);
+    CHECK(MemoryStats::ParseStatusBytes(status, "VmSwap") == 0 && MemoryStats::ParseStatusBytes(status, "HWM") == 0); // whole keys only
+#if defined(__linux__)
+    // This process: a resident size, the peak at least that, the address space bigger.
+    const MemoryStats::ProcessMemory self = MemoryStats::GetProcessMemory(0.0);
+    CHECK(self.Valid && self.Resident > 1024 * 1024 && self.PeakResident >= self.Resident && self.Virtual >= self.Resident);
+    // More memory in use shows up in the next read (touched pages).
+    std::vector<uint8_t> block(64u * 1024 * 1024, 1);
+    const MemoryStats::ProcessMemory bigger = MemoryStats::GetProcessMemory(0.0);
+    CHECK(bigger.Resident > self.Resident + 32u * 1024 * 1024 && block[12345] == 1);
+    CHECK(MemoryStats::GetProcessMemory(60.0).Resident == bigger.Resident); // cached within the age
+#endif
+}
+
+TEST(MemoryStatsScenesAndPoseCaches)
+{
+    const MemoryStats::Category scenes = MemoryStats::Get(MemoryCategory::Scenes);
+    const MemoryStats::Category particles = MemoryStats::Get(MemoryCategory::Particles);
+    {
+        auto scene = CreateRef<Scene>();
+        for (int i = 0; i < 100; i++)
+        {
+            Entity e = scene->CreateEntity(std::format("Obyekt {}", i));
+            e.AddComponent<SpriteRendererComponent>();
+        }
+        Entity fx = scene->CreateEntity("Fx");
+        auto& ps = fx.AddComponent<ParticleSystemComponent>();
+        ps.EmissionRate = 500.0f;
+        Scene::MemoryEstimate estimate = scene->EstimateMemory();
+        CHECK(estimate.Entities == 101);
+        CHECK(estimate.Components >= 101 * (sizeof(IDComponent) + sizeof(TagComponent) + sizeof(TransformComponent)) + 100 * sizeof(SpriteRendererComponent));
+        CHECK(estimate.Particles == 0);
+        for (int i = 0; i < 30; i++)
+            scene->UpdateEditorAnimation(1.0f / 60.0f); // counts itself every update
+        estimate = scene->EstimateMemory();
+        CHECK(estimate.Particles >= ps.Particles.size() * sizeof(Particle) && !ps.Particles.empty());
+        CHECK(MemoryStats::Get(MemoryCategory::Scenes).Bytes == scenes.Bytes + estimate.Components &&
+              MemoryStats::Get(MemoryCategory::Scenes).Count == scenes.Count + 1);
+        CHECK(MemoryStats::Get(MemoryCategory::Particles).Bytes == particles.Bytes + estimate.Particles);
+        // Fewer entities: less.
+        for (Entity e : scene->FindEntitiesWith<SpriteRendererComponent>())
+            scene->DestroyEntity(e);
+        scene->UpdateMemoryStats();
+        CHECK(scene->EstimateMemory().Components < estimate.Components &&
+              MemoryStats::Get(MemoryCategory::Scenes).Bytes == scenes.Bytes + scene->EstimateMemory().Components);
+    }
+    // The scene is gone: so is what it counted.
+    CHECK(MemoryStats::Get(MemoryCategory::Scenes).Bytes == scenes.Bytes && MemoryStats::Get(MemoryCategory::Scenes).Count == scenes.Count);
+    CHECK(MemoryStats::Get(MemoryCategory::Particles).Bytes == particles.Bytes);
+
+    // The pose caches are the Animation category.
+    const uint64_t animation = MemoryStats::Get(MemoryCategory::Animation).Bytes;
+    CHECK(GetBakedClipMemory() == animation);
+    {
+        Ref<Model> model = MakeJobSkeletonModel(6);
+        const BakedClip* baked = model->GetBakedClip(model->GetAnimations()[0], 30.0f);
+        CHECK(baked && GetBakedClipMemory() == animation + baked->GetMemory() &&
+              MemoryStats::Get(MemoryCategory::Animation).Bytes == animation + baked->GetMemory());
+        CHECK(model->FindBakedClip(model->GetAnimations()[0], 30.0f) == baked && !model->FindBakedClip(model->GetAnimations()[0], 24.0f) &&
+              !model->FindBakedClip(model->GetAnimations()[1], 30.0f));
+    }
+    CHECK(MemoryStats::Get(MemoryCategory::Animation).Bytes == animation);
+
+    // The player's --jobs.
+    PlayerCommandLine c = PlayerCommandLine::Parse({ "--jobs", "0" });
+    CHECK(c.Jobs && *c.Jobs == 0 && c.Errors.empty());
+    c = PlayerCommandLine::Parse({ "--jobs=6" });
+    CHECK(c.Jobs && *c.Jobs == 6);
+    c = PlayerCommandLine::Parse({ "--jobs", "ko'p" });
+    CHECK(!c.Jobs && c.Errors.size() == 1);
+    CHECK(PlayerCommandLine::GetHelpText().find("--jobs N") != std::string::npos);
+}

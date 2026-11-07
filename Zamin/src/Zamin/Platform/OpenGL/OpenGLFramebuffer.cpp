@@ -1,3 +1,4 @@
+#include "Zamin/Core/MemoryStats.h"
 #include "Zamin/Renderer/Framebuffer.h"
 
 #include <glad/glad.h>
@@ -124,6 +125,19 @@ namespace Zamin {
             m_ColorAttachments.clear();
             m_DepthAttachment = 0;
             m_RendererID = 0;
+            m_Memory.Set(0);
+        }
+
+        // What its attachments take on the GPU (bytes per pixel x size).
+        uint64_t AttachmentBytes() const
+        {
+            uint64_t perPixel = 0;
+            for (const auto& spec : m_ColorAttachmentSpecs)
+                perPixel += spec.TextureFormat == FramebufferTextureFormat::RGBA16F ? 8u
+                          : spec.TextureFormat == FramebufferTextureFormat::None ? 0u : 4u;
+            if (m_DepthAttachmentSpec.TextureFormat != FramebufferTextureFormat::None)
+                perPixel += 4u;
+            return perPixel * m_Specification.Width * m_Specification.Height;
         }
 
         void Invalidate()
@@ -207,11 +221,13 @@ namespace Zamin {
             GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
             if (status != GL_FRAMEBUFFER_COMPLETE)
                 ZM_CORE_ERROR("Framebuffer to'liq emas! (status 0x{:X})", status);
+            m_Memory.Set(AttachmentBytes());
 
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
         }
 
     private:
+        TrackedMemory m_Memory{ MemoryCategory::RenderTargets };
         uint32_t m_RendererID = 0;
         FramebufferSpecification m_Specification;
         std::vector<FramebufferTextureSpecification> m_ColorAttachmentSpecs;

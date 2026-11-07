@@ -3,6 +3,7 @@
 #include "Zamin/Asset/AssetImportLog.h"
 #include "Zamin/Audio/AudioFilter.h"
 #include "Zamin/Core/Log.h"
+#include "Zamin/Core/MemoryStats.h"
 
 #define MINIAUDIO_IMPLEMENTATION
 #define MA_NO_ENCODING
@@ -172,6 +173,8 @@ namespace Zamin {
         // Files kept decoded in the resource manager: file -> asked for by Preload (kept until
         // Unload) or not (a scene's clips, a clip's Preload setting on its first play).
         std::unordered_map<std::string, bool> s_Preloaded;
+        // The decoded size of the files decoded into memory (the memory statistics), by file.
+        std::unordered_map<std::string, uint64_t> s_DecodedBytes;
 
         // Sounds that ended by themselves, waiting for TakeFinishedSounds.
         std::vector<FinishedSound> s_Finished;
@@ -765,8 +768,62 @@ namespace Zamin {
             return true;
         }
 
+        // What a data source decoded into memory takes (frames x channels x sample size).
+        uint64_t DataSourceBytes(ma_data_source* source)
+        {
+            ma_uint64 frames = 0;
+            ma_format format = ma_format_unknown;
+            ma_uint32 channels = 0, sampleRate = 0;
+            if (!source || ma_data_source_get_length_in_pcm_frames(source, &frames) != MA_SUCCESS ||
+                ma_data_source_get_data_format(source, &format, &channels, &sampleRate, nullptr, 0) != MA_SUCCESS)
+                return 0;
+            return (uint64_t)frames * channels * ma_get_bytes_per_sample(format);
+        }
+
+        // A preloaded file's decoded size (asked once: the resource manager already holds it decoded).
+        uint64_t PreloadedBytes(const std::string& file)
+        {
+            if (auto it = s_DecodedBytes.find(file); it != s_DecodedBytes.end())
+                return it->second;
+            uint64_t bytes = 0;
+            ma_resource_manager_data_source source;
+            if (ma_resource_manager_data_source_init(ResourceManager(), file.c_str(), MA_RESOURCE_MANAGER_DATA_SOURCE_FLAG_DECODE, nullptr,
+                                                     &source) == MA_SUCCESS)
+            {
+                bytes = DataSourceBytes(&source);
+                ma_resource_manager_data_source_uninit(&source);
+            }
+            s_DecodedBytes[file] = bytes;
+            return bytes;
+        }
+
+        // The sounds decoded into memory now: the preloaded files and the files of the playing
+        // sounds that are not streamed (each file once - its plays share the decoded data).
+        void CountDecodedMemory(uint64_t& bytes, uint64_t& files)
+        {
+            bytes = files = 0;
+            std::unordered_set<std::string> counted;
+            for (const auto& [file, requested] : s_Preloaded)
+                if (counted.insert(file).second)
+                {
+                    bytes += PreloadedBytes(file);
+                    files++;
+                }
+            for (const auto& [handle, voice] : s_Voices)
+            {
+                if (voice.Streamed || !voice.Sound || !counted.insert(voice.File).second)
+                    continue;
+                auto it = s_DecodedBytes.find(voice.File);
+                const uint64_t size = it != s_DecodedBytes.end() ? it->second
+                                                                 : (s_DecodedBytes[voice.File] = DataSourceBytes(ma_sound_get_data_source(voice.Sound.get())));
+                bytes += size;
+                files++;
+            }
+        }
+
         void UnloadFile(const std::string& file)
         {
+            s_DecodedBytes.erase(file); // read again when it is decoded again (it may have changed)
             if (s_Preloaded.erase(file) && s_Engine)
                 ma_resource_manager_unregister_file(ResourceManager(), file.c_str());
         }
@@ -1128,6 +1185,8 @@ namespace Zamin {
         s_Engine = nullptr;
         s_HasDevice = false;
         s_OutputPaused = false;
+        s_DecodedBytes.clear();
+        MemoryStats::Set(MemoryCategory::Audio, 0, 0);
     }
 
     bool AudioEngine::SetOutputPaused(bool paused)
@@ -1164,6 +1223,19 @@ namespace Zamin {
         s_VoiceHistory[s_VoiceHistoryNext] = (float)voices;
         s_VoiceHistoryNext = (s_VoiceHistoryNext + 1) % VoiceHistoryCapacity;
         s_VoiceHistoryCount = std::min(s_VoiceHistoryCount + 1, VoiceHistoryCapacity);
+        uint64_t decoded = 0, files = 0;
+        CountDecodedMemory(decoded, files);
+        MemoryStats::Set(MemoryCategory::Audio, decoded, files);
+    }
+
+    uint64_t AudioEngine::GetDecodedMemory(size_t* files)
+    {
+        uint64_t bytes = 0, count = 0;
+        if (s_Engine)
+            CountDecodedMemory(bytes, count);
+        if (files)
+            *files = (size_t)count;
+        return bytes;
     }
 
     void AudioEngine::RenderOffline(float seconds)
@@ -1750,6 +1822,7 @@ namespace Zamin {
             for (const auto& [file, requested] : s_Preloaded)
                 ma_resource_manager_unregister_file(ResourceManager(), file.c_str());
         s_Preloaded.clear();
+        s_DecodedBytes.clear();
     }
 
     bool AudioEngine::IsPreloaded(const std::filesystem::path& path) { return s_Preloaded.contains(path.string()); }

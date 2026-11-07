@@ -1,4 +1,5 @@
 #include "Zamin/Renderer/Buffer.h"
+#include "Zamin/Core/MemoryStats.h"
 #include "Zamin/Renderer/VertexArray.h"
 
 #include <glad/glad.h>
@@ -16,6 +17,7 @@ namespace Zamin {
             glGenBuffers(1, &m_RendererID);
             glBindBuffer(GL_ARRAY_BUFFER, m_RendererID);
             glBufferData(GL_ARRAY_BUFFER, size, nullptr, GL_DYNAMIC_DRAW);
+            m_Memory.Set(size);
         }
 
         OpenGLVertexBuffer(const void* vertices, uint32_t size) : m_Size(size)
@@ -23,6 +25,7 @@ namespace Zamin {
             glGenBuffers(1, &m_RendererID);
             glBindBuffer(GL_ARRAY_BUFFER, m_RendererID);
             glBufferData(GL_ARRAY_BUFFER, size, vertices, GL_STATIC_DRAW);
+            m_Memory.Set(size);
         }
 
         ~OpenGLVertexBuffer() override { glDeleteBuffers(1, &m_RendererID); }
@@ -62,6 +65,7 @@ namespace Zamin {
         uint32_t m_RendererID = 0;
         uint32_t m_Size = 0;
         BufferLayout m_Layout;
+        TrackedMemory m_Memory{ MemoryCategory::Meshes };
     };
 
     Ref<VertexBuffer> VertexBuffer::Create(uint32_t size) { return CreateRef<OpenGLVertexBuffer>(size); }
@@ -77,6 +81,7 @@ namespace Zamin {
             // GL_ARRAY_BUFFER so creation does not depend on the currently bound VAO.
             glBindBuffer(GL_ARRAY_BUFFER, m_RendererID);
             glBufferData(GL_ARRAY_BUFFER, count * sizeof(uint32_t), indices, GL_STATIC_DRAW);
+            m_Memory.Set((uint64_t)count * sizeof(uint32_t));
         }
 
         ~OpenGLIndexBuffer() override { glDeleteBuffers(1, &m_RendererID); }
@@ -88,6 +93,7 @@ namespace Zamin {
     private:
         uint32_t m_RendererID = 0;
         uint32_t m_Count;
+        TrackedMemory m_Memory{ MemoryCategory::Meshes };
     };
 
     Ref<IndexBuffer> IndexBuffer::Create(const uint32_t* indices, uint32_t count) { return CreateRef<OpenGLIndexBuffer>(indices, count); }

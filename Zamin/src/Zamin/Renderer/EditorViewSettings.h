@@ -158,7 +158,8 @@ namespace Zamin {
 
     // The statistics overlay over the editor viewport (never in the player): the frame rate and a
     // graph of the last frames' times, what the scene drew (draw calls, triangles, meshes, 2D
-    // objects), what frustum culling skipped and the slowest profiler scopes.
+    // objects), what frustum culling skipped, the slowest profiler scopes, the audio voices and the
+    // memory.
     struct ViewportStatsOverlaySettings
     {
         bool Visible = false;
@@ -167,6 +168,7 @@ namespace Zamin {
         bool Culling = true;
         bool Hotspots = false;          // the profiler scopes that took the most time themselves
         bool Audio = false;             // the audio profiler: voices against the limit, by mixer group
+        bool Memory = false;            // the process's RAM (RSS) and what the engine holds (MemoryStats)
         OverlayCorner Corner = OverlayCorner::TopRight;
         float Opacity = 0.85f;          // of the background
         float TargetFPS = 60.0f;        // the graph's budget line and the colours of the numbers

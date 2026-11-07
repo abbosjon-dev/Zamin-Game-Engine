@@ -8,6 +8,7 @@
 #include "Zamin/Core/CrashHandler.h"
 #include "Zamin/Core/Profiler.h"
 #include "Zamin/Core/JobSystem.h"
+#include "Zamin/Core/MemoryStats.h"
 #include "Zamin/Core/Application.h"
 #include "Zamin/Core/BuildInfo.h"
 #include "Zamin/Core/Layer.h"

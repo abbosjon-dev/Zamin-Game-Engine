@@ -927,7 +927,11 @@ namespace Zamin {
                 m_PendingClick = { entity, false, false };
             m_ClickedSelected = {};
         }
-        if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0) && !hasChildren && OnFocusRequested)
+        // Prefab mode: a prefab nested in it opens on its own (one level deeper).
+        if (m_PrefabStageMode && m_SceneEditable && ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0) &&
+            PrefabUtility::IsInstanceRoot(entity) && OnOpenPrefabRequested)
+            OnOpenPrefabRequested(PrefabUtility::GetPrefabPath(entity), 0);
+        else if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0) && !hasChildren && OnFocusRequested)
             OnFocusRequested(entity);
 
         // drag & drop: reorder (row edges), parent (row middle); a multi-selection moves together
@@ -1297,12 +1301,22 @@ namespace Zamin {
             return;
         m_Selection.Prune();
 
-        // Header: scene name + add button
+        // Header: scene name (prefab mode: the prefab's) + add button
         ImGui::PushFont(ImGuiLayer::GetBoldFont());
-        ImGui::TextUnformatted(ICON_FA_EARTH_ASIA);
-        ImGui::SameLine();
-        ImGui::TextUnformatted(m_Context->GetName().c_str());
-        ImGui::PopFont();
+        if (m_PrefabStageMode)
+        {
+            ImGui::TextColored(ImVec4(0.365f, 0.663f, 1.0f, 1.0f), ICON_FA_BOX "  %s.zprefab", m_Context->GetName().c_str());
+            ImGui::PopFont();
+            if (ImGui::IsItemHovered())
+                UI::Tooltip(Tr("Prefab rejimi: prefab alohida tahrirlanmoqda (Ctrl+S - saqlash, viewport ustidagi yo'l - sahnaga qaytish)"));
+        }
+        else
+        {
+            ImGui::TextUnformatted(ICON_FA_EARTH_ASIA);
+            ImGui::SameLine();
+            ImGui::TextUnformatted(m_Context->GetName().c_str());
+            ImGui::PopFont();
+        }
         DrawRuntimeSceneHeader();
         if (m_Selection.Size() > 1)
         {
@@ -2200,8 +2214,8 @@ namespace Zamin {
         ImGui::PopStyleVar();
         ImGui::PopStyleColor(2);
         if (ImGui::IsItemHovered())
-            UI::Tooltip(external ? "Qo'llashda yozilmaydi (prefabdan tashqarida): havola shu sahnada qoladi, prefabga va uning "
-                                   "boshqa nusxalariga o'tmaydi"
+            UI::Tooltip(external ? Tr("Qo'llashda yozilmaydi (prefabdan tashqarida): havola shu sahnada qoladi, prefabga va uning "
+                                      "boshqa nusxalariga o'tmaydi")
                         : missing ? "Bog'langan obyekt sahnada yo'q. Boshqasini tanlang yoki tozalang"
                                   : "Ierarxiyadan obyektni tortib tashlang yoki bosib tanlang");
 

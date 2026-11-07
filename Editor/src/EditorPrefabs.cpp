@@ -331,8 +331,10 @@ namespace Zamin {
 
     // ZAMIN_EDITOR_PREFAB="color=<name>,r,g,b;scale=<name>,s;remove=<name>,<Component>;child=<parent>,<name>;
     // create=<name>;save=<name>;select=<name>;top=<name>;move=<name>,x,y,z;instantiate=<prefab>[,<parent>[,<name>]];
-    // apply=<name>[,<path>[,<target>]];revert=<name>[,<path>];unpack=<name>;undo;redo;changes": prefab
-    // instance edits made one by one as undo steps (screenshots, checks). "changes" opens the inspector's list.
+    // apply=<name>[,<path>[,<target>]];revert=<name>[,<path>];unpack=<name>;undo;redo;changes;open=<prefab>[,<name>];
+    // stagesave;stageclose[=<levels kept>]": prefab instance edits made one by one as undo steps (screenshots,
+    // checks). "changes" opens the inspector's list; "open" opens a prefab in prefab mode (the entity of an
+    // instance named second is selected there), "stagesave" / "stageclose" save / leave it.
     void EditorLayer::ApplyPrefabAutomation(std::string_view spec)
     {
         if (m_SceneState != SceneState::Edit || !m_EditorScene)
@@ -363,6 +365,24 @@ namespace Zamin {
             if (op == "changes")
             {
                 m_SceneHierarchyPanel.OpenPrefabChanges();
+                continue;
+            }
+            // Prefab mode: open=<prefab path>[,<entity of an instance to select there>]; stagesave; stageclose[=<levels kept>]
+            if (op == "open" && !args.empty())
+            {
+                Entity focus = args.size() >= 2 ? find(args[1]) : Entity();
+                OpenPrefabStage(args[0], focus ? PrefabUtility::GetPrefabEntity(focus) : 0);
+                continue;
+            }
+            if (op == "stagesave")
+            {
+                SavePrefabStage();
+                continue;
+            }
+            if (op == "stageclose")
+            {
+                RequestLeavePrefabStages(args.empty() || args[0].empty() ? (IsInPrefabStage() ? m_PrefabStages.size() - 1 : 0)
+                                                                          : (size_t)std::max(0, std::atoi(args[0].c_str())));
                 continue;
             }
             if (op == "undo" || op == "redo")

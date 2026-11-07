@@ -611,6 +611,14 @@ namespace Zamin {
             if (ImGui::SmallButton(Tr(ICON_FA_EARTH_ASIA "  Ochish")))
                 OnOpenScene(m_Path);
         }
+        if (m_Type == AssetType::Prefab && OnOpenPrefab)
+        {
+            ImGui::SameLine();
+            if (ImGui::SmallButton(Tr(ICON_FA_PEN_TO_SQUARE "  Prefab rejimida ochish")))
+                OnOpenPrefab(m_Path);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip(Tr("Prefabni alohida ochib tahrirlash (saqlanganda barcha nusxalari yangilanadi)"));
+        }
         ImGui::EndGroup();
         ImGui::Separator();
 

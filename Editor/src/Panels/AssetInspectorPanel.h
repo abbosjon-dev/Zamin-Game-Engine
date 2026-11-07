@@ -54,6 +54,8 @@ namespace Zamin {
         // A file of the list was clicked: the editor shows it in the content browser (and here).
         std::function<void(const std::filesystem::path&)> OnRevealRequested;
         std::function<void(const std::filesystem::path&)> OnOpenScene;
+        // A prefab (absolute path) to edit in prefab mode.
+        std::function<void(const std::filesystem::path&)> OnOpenPrefab;
         // Scenes: the open scene's file (its metadata is edited in the scene settings) and asking for
         // the scene settings' metadata section.
         std::function<bool(const std::filesystem::path&)> IsOpenScene;

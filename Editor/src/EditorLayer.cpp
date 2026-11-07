@@ -132,6 +132,10 @@ namespace Zamin {
         m_SceneHierarchyPanel.OnSavePrefabRequested = [this](Entity e) { SavePrefab(e); };
         m_SceneHierarchyPanel.SetPrefabDatabase(&m_PrefabDatabase);
         m_SceneHierarchyPanel.OnPrefabRequest = [this](const PrefabRequest& request) { QueuePrefabRequest(request); };
+        // Prefab mode: a prefab opened on its own (the hierarchy / inspector, the content browser, the asset inspector).
+        m_SceneHierarchyPanel.OnOpenPrefabRequested = [this](const std::string& prefab, uint64_t focus) { RequestPrefabStage(prefab, focus); };
+        m_ContentBrowserPanel.OnOpenPrefab = [this](const fs::path& p) { RequestPrefabStage(Project::GetAssetRelativePath(p)); };
+        m_AssetInspectorPanel.OnOpenPrefab = [this](const fs::path& p) { RequestPrefabStage(Project::GetAssetRelativePath(p)); };
         m_SceneHierarchyPanel.OnProjectSettingsModified = [this]() { m_ProjectSettingsPanel.MarkDirty(); };
         m_SceneHierarchyPanel.SetFoldState(&m_ViewSettings.Inspector); // open / collapsed inspector headers, per user
         m_SceneHierarchyPanel.OnFoldStateModified = [this]() { MarkViewSettingsDirty(); };
@@ -398,6 +402,14 @@ namespace Zamin {
             const EditorViewSettings viewSettingsBefore = m_ViewSettings; // the hooks' changes are for this session
             if (const char* scene = std::getenv("ZAMIN_EDITOR_SCENE"))
                 OpenScene(Project::GetAssetFileSystemPath(scene));
+            // ZAMIN_EDITOR_SCENE_RECOVER=1: a scene that did not open (broken JSON) is recovered in part
+            // (the "Qisman tiklash" answer; the broken file is copied aside first).
+            if (std::getenv("ZAMIN_EDITOR_SCENE_RECOVER") && !m_SceneRecoverPrompt.empty())
+            {
+                const fs::path broken = m_SceneRecoverPrompt;
+                m_SceneRecoverPrompt.clear();
+                RecoverScene(broken);
+            }
             // ZAMIN_EDITOR_LOAD_REPORT=1: the scene load problems window open (when the load found any).
             if (std::getenv("ZAMIN_EDITOR_LOAD_REPORT") && m_LoadReport.HasIssues())
                 m_ShowLoadReport = true;
@@ -583,6 +595,10 @@ namespace Zamin {
                 ApplyUndoAutomation(undo);
             // ZAMIN_EDITOR_PREFAB="color=<name>,r,g,b;remove=<name>,<Component>;child=<parent>,<name>;apply=..;changes":
             // prefab instance edits (EditorPrefabs.cpp).
+            // ZAMIN_EDITOR_OPEN_PREFAB=<prefab path relative to Assets>: that prefab open in prefab mode (before the
+            // ZAMIN_EDITOR_PREFAB steps, which then edit it).
+            if (const char* open = std::getenv("ZAMIN_EDITOR_OPEN_PREFAB"))
+                OpenPrefabStage(open);
             if (const char* prefab = std::getenv("ZAMIN_EDITOR_PREFAB"))
                 ApplyPrefabAutomation(prefab);
             // ZAMIN_EDITOR_MENU=<Fayl|Tahrirlash|Ko'rinish|Oyna|Yordam>[/recent|/layout|/views]: that main menu kept open (screenshots).
@@ -4424,6 +4440,7 @@ namespace Zamin {
         }
         if (m_SceneState != SceneState::Edit)
             OnSceneStop();
+        DropPrefabStages(); // the previous project's prefabs
 
         m_ProjectSettingsPanel.SaveIfDirty();
         SaveData::Save(); // the previous project's game data
@@ -4479,6 +4496,7 @@ namespace Zamin {
 
     void EditorLayer::CloseProject()
     {
+        DropPrefabStages();
         m_AssetHotReload.Stop();
         SaveAssetRegistryCache(true);
         if (m_SceneState != SceneState::Edit)
@@ -4531,6 +4549,12 @@ namespace Zamin {
 
     void EditorLayer::NewScene()
     {
+        if (IsInPrefabStage())
+        {
+            // Prefab mode is left first (unsaved prefabs asked about), then the new scene.
+            RequestLeavePrefabStages(0, [this]() { NewScene(); });
+            return;
+        }
         if (m_SceneState != SceneState::Edit)
             OnSceneStop();
         DiscardSessionAutosave(); // the scene that was open is left
@@ -4564,6 +4588,12 @@ namespace Zamin {
             ZM_WARN("Sahna fayli emas: {}", path.string());
             return false;
         }
+        if (IsInPrefabStage())
+        {
+            // Prefab mode is left first (unsaved prefabs asked about), then the scene opens.
+            RequestLeavePrefabStages(0, [this, path]() { OpenScene(path); });
+            return false;
+        }
 
         const auto loadClock = std::chrono::steady_clock::now();
         Ref<Scene> newScene = CreateRef<Scene>();
@@ -4579,6 +4609,9 @@ namespace Zamin {
             SceneLoadProfiler::Record(timing);
             // The scene that was open stays; what went wrong is shown over the viewport.
             ShowSceneLoadReport(serializer.GetLoadReport());
+            // Broken JSON (a crash while writing, a bad merge): what parses can be recovered - asked.
+            if (const SceneLoadIssue* main = serializer.GetLoadReport().GetMain(); main && main->Type == SceneLoadIssue::Kind::ParseError)
+                m_SceneRecoverPrompt = path;
             return false;
         }
         timing.Add(serializer.GetTiming());
@@ -4781,6 +4814,11 @@ namespace Zamin {
             ZM_WARN("O'yin rejimida saqlab bo'lmaydi - avval to'xtating");
             return;
         }
+        if (IsInPrefabStage())
+        {
+            SavePrefabStage(); // prefab mode: the prefab is what is saved
+            return;
+        }
         if (m_EditorScenePath.empty())
         {
             SaveSceneAs();
@@ -4814,6 +4852,11 @@ namespace Zamin {
     void EditorLayer::SaveSceneAs()
     {
         if (m_SceneState != SceneState::Edit) return;
+        if (IsInPrefabStage())
+        {
+            SavePrefabStage();
+            return;
+        }
         fs::path start = Project::GetActive() ? Project::GetAssetDirectory() / "Scenes" : fs::current_path();
         std::string path = FileDialogs::SaveFile("Zamin Scene (*.zscene) | *.zscene", start);
         if (path.empty())
@@ -4851,6 +4894,11 @@ namespace Zamin {
 
     void EditorLayer::OnScenePlay()
     {
+        if (IsInPrefabStage())
+        {
+            ShowViewportMessage(Tr(ICON_FA_BOX "  Prefab rejimida o'yin ishga tushmaydi (avval sahnaga qayting)"));
+            return;
+        }
         if (m_SceneState == SceneState::Simulate)
             OnSceneStop();
         // Konsol > "O'yin boshlanganda tozalash": the game's run starts with an empty console.
@@ -4920,6 +4968,11 @@ namespace Zamin {
 
     void EditorLayer::OnSceneSimulate()
     {
+        if (IsInPrefabStage())
+        {
+            ShowViewportMessage(Tr(ICON_FA_BOX "  Prefab rejimida o'yin ishga tushmaydi (avval sahnaga qayting)"));
+            return;
+        }
         if (m_SceneState == SceneState::Play)
             OnSceneStop();
         m_SceneState = SceneState::Simulate;
@@ -5260,7 +5313,9 @@ namespace Zamin {
         std::string title = "Zamin Editor";
         if (auto project = Project::GetActive())
             title += " - " + project->GetConfig().Name;
-        if (m_EditorScene)
+        if (IsInPrefabStage())
+            title += " - " + GetPrefabStageTitle();
+        else if (m_EditorScene)
             title += " - " + m_EditorScene->GetName() + (m_SceneDirty ? " *" : "");
         if (m_SceneState == SceneState::Play) title += "  [O'YIN]";
         Application::Get().GetWindow().SetTitle(title);
@@ -6505,6 +6560,8 @@ namespace Zamin {
     {
         // ---- keyboard shortcuts (EditorShortcuts.cpp; ignored while typing)
         HandleShortcuts();
+        // Prefab mode: prefabs asked to open / levels to leave (before the panels draw the scene).
+        ProcessPrefabStageRequests();
 
         if (!m_PendingFileDrop.empty())
         {
@@ -6521,6 +6578,8 @@ namespace Zamin {
         m_SceneHierarchyPanel.OnImGuiRender(&m_ShowHierarchy, &m_ShowInspector);
         ProcessPrefabRequests(); // Apply / Revert asked in the hierarchy / inspector (the panel is drawn)
         UI_PrefabPopups();
+        UI_PrefabStagePopups();
+        UI_SceneRecoveryPopups();
         m_ContentBrowserPanel.OnImGuiRender(&m_ShowContentBrowser);
         if (m_ShowUnusedAssets && !m_UnusedAssetsShown)
             m_UnusedAssetsPanel.Refresh(); // opened: a fresh scan (C++ files are not watched)
@@ -7086,11 +7145,16 @@ namespace Zamin {
         ImVec2 offset = ImGui::GetWindowPos();
 
         m_ViewportFocused = ImGui::IsWindowFocused();
+        // Prefab mode: the way back to the scene (breadcrumb) and Save / Close above the picture.
+        const float stageBar = GetPrefabStageBarHeight();
+        const ImVec2 imageMin(regionMin.x + offset.x, regionMin.y + offset.y + stageBar);
+        ImVec2 imageSize = ImGui::GetContentRegionAvail();
+        imageSize.y = std::max(1.0f, imageSize.y - stageBar);
         // The picture fills the panel; while playing with a game resolution it is letterboxed /
         // scaled in it (the bounds are then where it is, the size what the game draws at).
         uint64_t textureID = m_FinalFramebuffer->GetColorAttachmentRendererID(0);
         ImGui::SetNextItemAllowOverlap();
-        PlaceViewportImage(ImVec2(regionMin.x + offset.x, regionMin.y + offset.y), ImGui::GetContentRegionAvail(), (ImTextureID)textureID);
+        PlaceViewportImage(imageMin, imageSize, (ImTextureID)textureID);
         m_ViewportHovered = ImGui::IsItemHovered();
         Application::Get().GetImGuiLayer()->BlockEvents(!m_ViewportHovered);
 
@@ -7221,6 +7285,12 @@ namespace Zamin {
         }
         UI_ViewportMessage();
         UI_SceneLoadBanner();
+        if (stageBar > 0.0f)
+        {
+            const ImVec2 cursor = ImGui::GetCursorScreenPos();
+            UI_PrefabStageBar(ImVec2(regionMin.x + offset.x, regionMin.y + offset.y), regionMax.x - regionMin.x);
+            ImGui::SetCursorScreenPos(cursor);
+        }
 
         // Play-mode border (around the whole panel)
         if (m_SceneState != SceneState::Edit)

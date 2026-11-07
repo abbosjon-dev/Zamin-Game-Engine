@@ -101,7 +101,8 @@ namespace Zamin {
 
     void EditorLayer::UpdateAutosave()
     {
-        if (!Project::GetActive() || !m_EditorScene)
+        // Prefab mode: no safety copy (it would be taken for the untitled scene's).
+        if (!Project::GetActive() || !m_EditorScene || IsInPrefabStage())
             return;
         const double now = ImGui::GetTime();
         const auto& scene = m_UndoHistory.GetCurrent().Scene;
@@ -120,6 +121,8 @@ namespace Zamin {
 
     bool EditorLayer::WriteAutosave(bool manual)
     {
+        if (IsInPrefabStage())
+            return false;
         if (m_SceneState != SceneState::Edit || !m_EditorScene)
             return false;
         CommitUndo(); // the snapshot is the scene as it is now

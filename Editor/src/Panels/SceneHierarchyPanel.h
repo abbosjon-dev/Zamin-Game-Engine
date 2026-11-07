@@ -322,6 +322,9 @@ namespace Zamin {
         // Prefab mode (the scene is a prefab opened on its own): references to entities that are not
         // in it point outside the prefab (shown as such, not as missing).
         void SetPrefabStageMode(bool stage) { m_PrefabStageMode = stage; }
+        // A prefab (relative to the assets) to open in prefab mode; `focus`: its entity to select there
+        // (an ID in the prefab, 0: its root).
+        std::function<void(const std::string&, uint64_t focus)> OnOpenPrefabRequested;
         bool IsPrefabStageMode() const { return m_PrefabStageMode; }
 
     private:

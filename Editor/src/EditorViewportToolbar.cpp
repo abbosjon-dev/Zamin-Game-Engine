@@ -14,7 +14,6 @@ namespace Zamin {
 
     void EditorLayer::UI_ViewportToolbar()
     {
-        ImVec2 regionMin = ImGui::GetWindowContentRegionMin();
         float width = m_ViewportPanelBounds[1].x - m_ViewportPanelBounds[0].x;
         float buttonSize = ImGui::GetFrameHeight() + 4.0f;
         const float spacing = 2.0f, caretWidth = std::floor(buttonSize * 0.55f);
@@ -29,7 +28,8 @@ namespace Zamin {
         };
         auto beginPanel = [&](ImVec2 pos, float w) {
             panelBg(pos, w);
-            ImGui::SetCursorPos(ImVec2(regionMin.x + pos.x, regionMin.y + pos.y));
+            // From the picture's area (prefab mode has its bar above it).
+            ImGui::SetCursorScreenPos(ImVec2(m_ViewportPanelBounds[0].x + pos.x, m_ViewportPanelBounds[0].y + pos.y));
         };
         ImVec2 size(buttonSize, buttonSize);
         bool editing = m_SceneState == SceneState::Edit;
@@ -158,6 +158,9 @@ namespace Zamin {
             ImVec2 pos(centerX, 10);
             beginPanel(pos, w);
 
+            // Prefab mode: nothing to play (the prefab is not a scene).
+            const bool stage = IsInPrefabStage();
+            ImGui::BeginDisabled(stage);
             ImGui::PushStyleColor(ImGuiCol_Text, m_SceneState == SceneState::Play ? ImVec4(0.95f, 0.4f, 0.4f, 1) : ImVec4(0.35f, 0.9f, 0.55f, 1));
             if (UI::ToolbarButton(m_SceneState == SceneState::Play ? ICON_FA_STOP : ICON_FA_PLAY,
                                   m_SceneState == SceneState::Play ? "To'xtatish (Ctrl+P)" : "O'ynash (Ctrl+P)", false, size))
@@ -170,6 +173,9 @@ namespace Zamin {
                                   m_SceneState == SceneState::Simulate ? "Simulyatsiyani to'xtatish" : "Fizikani simulyatsiya qilish", false, size))
                 m_SceneState == SceneState::Simulate ? OnSceneStop() : OnSceneSimulate();
             ImGui::PopStyleColor();
+            ImGui::EndDisabled();
+            if (stage && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                UI::Tooltip(Tr("Prefab rejimida o'yin ishga tushmaydi"));
             ImGui::SameLine();
 
             ImGui::BeginDisabled(editing);
@@ -410,7 +416,7 @@ namespace Zamin {
         // camera fly speed hint (with the acceleration's boost)
         if (m_EditorCamera.IsFlying())
         {
-            ImGui::SetCursorPos(ImVec2(regionMin.x + 12, regionMin.y + buttonSize + 26));
+            ImGui::SetCursorScreenPos(ImVec2(m_ViewportPanelBounds[0].x + 12, m_ViewportPanelBounds[0].y + buttonSize + 26));
             const float boost = m_EditorCamera.GetFlyBoostNow();
             if (boost > 1.01f)
                 ImGui::TextColored(ImVec4(1, 1, 1, 0.75f), ICON_FA_PERSON_RUNNING "  Tezlik: %.1f x%.1f  (g'ildirak bilan o'zgartiring)",

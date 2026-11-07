@@ -151,6 +151,41 @@ namespace Zamin {
         void UI_PrefabPopups();
         // ZAMIN_EDITOR_PREFAB: prefab instance edits made as steps (screenshots, checks).
         void ApplyPrefabAutomation(std::string_view spec);
+
+        // ---- prefab mode (EditorPrefabStage.cpp): a prefab opened on its own and edited as a scene of
+        // its own (its file's IDs kept). What was open goes on a stack (scene, history, selection,
+        // camera) and comes back when it is closed; nested prefabs open one level deeper. Saving
+        // writes the prefab (the prefabs made of it follow); closing brings the scene's instances up
+        // to date, as one undo step there that carries the file writes. No play, autosave or scene
+        // file in prefab mode.
+        bool IsInPrefabStage() const { return !m_PrefabStages.empty(); }
+        // Asks for it to open (done before the next frame's panels draw). `focus`: the prefab ID of the
+        // entity to select there (0: the root).
+        void RequestPrefabStage(const std::string& prefab, uint64_t focus = 0, bool recover = false);
+        bool OpenPrefabStage(const std::string& prefab, uint64_t focus = 0, bool recover = false);
+        bool SavePrefabStage();
+        // Leaves prefab mode down to `keep` levels (0: back to the scene): each level with unsaved
+        // edits asks Saqlash / Saqlamaslik / Bekor qilish first; `then` runs once all are closed.
+        void RequestLeavePrefabStages(size_t keep, std::function<void()> then = {});
+        void PopPrefabStage();
+        // Every level closed at once, unsaved prefab edits dropped (a project closes / another opens).
+        void DropPrefabStages();
+        void ProcessPrefabStageRequests();
+        // The file of the open prefab changed outside the editor: a clean stage reads it again, one
+        // with unsaved edits shows the banner.
+        void CheckPrefabStageFile();
+        void ReloadPrefabStage();
+        void UI_PrefabStageBar(ImVec2 at, float width);
+        float GetPrefabStageBarHeight() const;
+        void UI_PrefabStagePopups();
+        std::string GetPrefabStageTitle() const;
+
+        // ---- a broken scene file (EditorSceneRecovery.cpp): its JSON does not parse - the editor asks
+        // "Qisman tiklash?"; the file is copied aside (.corrupt-<time>.bak), what parses is loaded (with
+        // the report), the scene keeps its path and is unsaved; prefab instances that lost entities can
+        // get them back from their prefabs.
+        bool RecoverScene(const std::filesystem::path& path);
+        void UI_SceneRecoveryPopups();
         // A content browser item (asset-relative path) dropped onto the viewport: a scene opens,
         // an image / model / sound / prefab becomes an entity (edit mode). Returns that entity.
         Entity DropAssetOnViewport(const std::string& assetPath);
@@ -997,6 +1032,43 @@ namespace Zamin {
             std::vector<std::string> Added;               // the added entities a full revert deletes
             bool Open = false;
         } m_PrefabRevertConfirm;
+        // prefab mode
+        struct PrefabStageLevel
+        {
+            std::string Prefab;                           // the prefab edited (relative to the assets)
+            Ref<Scene> OuterScene;                        // what was open below it (the scene, or the prefab it was opened from)
+            std::filesystem::path OuterPath;
+            int OuterFileVersion = 0;
+            UndoHistory OuterHistory;
+            std::shared_ptr<const std::string> OuterAutosaved;
+            UndoSelection OuterSelection;
+            EditorCameraState OuterCamera;
+            bool Outer2D = false, OuterDirty = false;
+            std::vector<FileEdit> Files;                  // what saving it wrote (the outer history's step carries them)
+            uint64_t FileHash = 0;                        // the file's text as loaded / saved (outside changes)
+            std::filesystem::file_time_type FileTime{};
+            double NextCheck = 0.0;
+            bool ExternalChange = false;                  // changed outside while there were unsaved edits
+        };
+        std::vector<PrefabStageLevel> m_PrefabStages;
+        struct PrefabStageOpenRequest
+        {
+            std::string Prefab;
+            uint64_t Focus = 0;
+            bool Recover = false;
+        };
+        std::vector<PrefabStageOpenRequest> m_PrefabStageOpen;   // asked while panels draw
+        struct PrefabStageLeave
+        {
+            bool Active = false;
+            size_t Keep = 0;                              // levels that stay
+            bool Asking = false;                          // the Saqlash / Saqlamaslik question is open
+            std::function<void()> Then;
+        } m_PrefabStageLeave;
+        std::string m_PrefabStageRecoverPrompt;           // a prefab that could not be read: "Qisman tiklash?"
+        std::filesystem::path m_SceneRecoverPrompt;       // a scene file that does not parse: "Qisman tiklash?"
+        bool m_RecoveredPrefabsPrompt = false;            // recovered: "Prefab nusxalarini tiklash?"
+        bool m_PrefabStageWrapPrompt = false;             // several roots: "Yangi ildizga o'rash?"
 
         // keyboard shortcuts
         ShortcutRegistry m_Shortcuts;

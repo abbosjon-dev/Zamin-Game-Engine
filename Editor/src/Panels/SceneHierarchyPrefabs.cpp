@@ -158,6 +158,8 @@ namespace Zamin {
         const bool legacy = PrefabUtility::IsLegacyInstance(root);
         const bool editable = m_SceneEditable && !legacy && PrefabProblem(m_Prefabs, root).empty();
         const size_t changes = CountChanges(root);
+        if (ImGui::MenuItem(Tr(ICON_FA_PEN_TO_SQUARE "  Prefab rejimida ochish"), nullptr, false, m_SceneEditable && OnOpenPrefabRequested))
+            OnOpenPrefabRequested(path, PrefabUtility::GetPrefabEntity(entity));
         if (ImGui::MenuItem(Tr(ICON_FA_FOLDER_OPEN "  Kontent brauzerda ko'rsatish")))
             RequestPrefab(PrefabRequest::Op::ShowInBrowser, root);
         if (entity != root && ImGui::MenuItem(Tr(ICON_FA_ARROW_UP "  Nusxa ildizini tanlash")))
@@ -252,6 +254,11 @@ namespace Zamin {
                 SetSelectedEntity(root);
             ImGui::SameLine();
         }
+        ImGui::BeginDisabled(!m_SceneEditable || !OnOpenPrefabRequested);
+        if (UI::ToolbarButton(ICON_FA_PEN_TO_SQUARE, Tr("Prefab rejimida ochish (prefabni alohida tahrirlash)")) && OnOpenPrefabRequested)
+            OnOpenPrefabRequested(path, PrefabUtility::GetPrefabEntity(entity));
+        ImGui::EndDisabled();
+        ImGui::SameLine();
         if (UI::ToolbarButton(ICON_FA_FOLDER_OPEN, Tr("Kontent brauzerda ko'rsatish")))
             RequestPrefab(PrefabRequest::Op::ShowInBrowser, root);
         const std::string changesLabel = std::format("{} ({}) " ICON_FA_CARET_DOWN "###changes", Tr("O'zgarishlar"), changes.size());

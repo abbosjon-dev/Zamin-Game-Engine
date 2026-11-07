@@ -728,6 +728,8 @@ namespace Zamin {
             OnOpenScene(entry.Path);
         else if (entry.Type == AssetType::Animation && OnOpenAnimation)
             OnOpenAnimation(entry.Path);
+        else if (entry.Type == AssetType::Prefab && OnOpenPrefab)
+            OnOpenPrefab(entry.Path);
         else if (ExternalEditor::IsSourceFile(entry.Path) && OnOpenSourceFile)
             OnOpenSourceFile(entry.Path);
         else
@@ -815,6 +817,8 @@ namespace Zamin {
             Open(entry);
         if (entry.Type == AssetType::Scene && ImGui::MenuItem(Tr(ICON_FA_EARTH_ASIA "  Sahnani ochish")) && OnOpenScene)
             OnOpenScene(path);
+        if (entry.Type == AssetType::Prefab && ImGui::MenuItem(Tr(ICON_FA_PEN_TO_SQUARE "  Prefab rejimida ochish")) && OnOpenPrefab)
+            OnOpenPrefab(path);
         // The project's settings that point to files: the build list, the start scene, the game's icon.
         if (Ref<Project> project = Project::GetActive(); project && !entry.IsDirectory)
         {

@@ -400,8 +400,9 @@ namespace Zamin {
             ImGui::TextDisabled(ICON_FA_CHEVRON_RIGHT);
             ImGui::SameLine(0.0f, 2.0f);
             const bool current = i + 1 == m_PrefabStages.size();
-            const std::string label = std::format(ICON_FA_BOX "  {}{}###stage{}", FileName(m_PrefabStages[i].Prefab),
-                                                  current && m_SceneDirty ? " *" : "", i);
+            // A level below the open one keeps its unsaved state on the next level's stack entry.
+            const bool dirty = current ? m_SceneDirty : m_PrefabStages[i + 1].OuterDirty;
+            const std::string label = std::format(ICON_FA_BOX "  {}{}###stage{}", FileName(m_PrefabStages[i].Prefab), dirty ? " *" : "", i);
             ImGui::PushStyleColor(ImGuiCol_Text, current ? s_StageBlue : ImVec4(0.70f, 0.80f, 0.92f, 1.0f));
             if (current)
                 ImGui::PushFont(ImGuiLayer::GetBoldFont());

@@ -469,11 +469,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 403. Instansiyani asl holatiga qaytarish (Revert)
 - [x] 404. Prefab override'larini ko'rsatish inspektorda
 - [x] 405. Ichma-ich prefab'lar (nested)
-- [ ] 406. Prefab muharriri rejimi (alohida ochish)
-- [ ] 407. Prefab instansiyalarda EntityRef'larni qayta xaritalash
-- [ ] 408. Dublikat qilishda EntityRef'larni ichki xaritalash
-- [ ] 409. Sahna fayli versiyasi va migratsiya
-- [ ] 410. Buzilgan sahna faylini tiklash (qisman yuklash)
+- [x] 406. Prefab muharriri rejimi (alohida ochish)
+- [x] 407. Prefab instansiyalarda EntityRef'larni qayta xaritalash
+- [x] 408. Dublikat qilishda EntityRef'larni ichki xaritalash
+- [x] 409. Sahna fayli versiyasi va migratsiya
+- [x] 410. Buzilgan sahna faylini tiklash (qisman yuklash)
 - [ ] 411. Serializatsiya fuzz testi (tasodifiy JSON)
 - [ ] 412. Katta sahnalar serializatsiya benchmark
 - [ ] 413. Prefab variantlari (asosiy prefabdan meros)

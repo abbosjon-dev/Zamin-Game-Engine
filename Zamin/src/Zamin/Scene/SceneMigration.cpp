@@ -367,7 +367,8 @@ namespace Zamin {
 
     bool SceneMigration::LogMigration(const std::string& file, const SceneMigrationResult& result)
     {
-        if (!result.Migrated() && !result.IsNewer())
+        // A migration that changed nothing (the steps only raised the version) is not news.
+        if (!result.IsNewer() && (!result.Migrated() || result.GetChangeCount() == 0))
             return false;
         {
             std::lock_guard lock(s_LogMutex);

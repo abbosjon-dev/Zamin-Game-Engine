@@ -68,8 +68,8 @@ namespace Zamin {
         // A file already in the current version (or a newer one) is left as it is.
         static bool MigrateText(std::string& text, SceneMigrationResult* result = nullptr, std::string* error = nullptr);
         // Logs a migration of `file` (info: the steps and their changes) - once per file version: the
-        // editor reads a scene file again and again (thumbnails, the scenes panel, play mode).
-        // Returns whether it was logged now.
+        // editor reads a scene file again and again (thumbnails, the scenes panel, play mode). A
+        // migration whose steps changed nothing is not logged. Returns whether it was logged now.
         static bool LogMigration(const std::string& file, const SceneMigrationResult& result);
         // Forgets which files were logged (tests).
         static void ResetLog();

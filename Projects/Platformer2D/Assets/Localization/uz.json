@@ -26,7 +26,10 @@
         "start": "Boshlash",
         "hint": "Space / Enter yoki tugmani bosing   ·   L - til",
         "session_info": "GameSession (DontDestroyOnLoad) musiqa va jami tangalarni\nhamma darajalarda saqlaydi",
-        "session_empty": "Sessiya: 0 tanga"
+        "session_empty": "Sessiya: 0 tanga",
+        "play": "O'ynash",
+        "main_title": "Bosh menyu",
+        "nav_hint": "Strelkalar / Enter yoki sichqoncha  ·  Esc - orqaga"
     },
     "loading": {
         "title": "Yuklanmoqda",
@@ -64,7 +67,10 @@
         "controls": "Boshqaruv",
         "controls_info": "Esc / Start - pauza. Strelkalar / D-pad - tanlash, Enter / A - bosish, Esc / B - orqaga. Ro'yxatni sichqoncha g'ildiragi bilan yoki sudrab aylantiring.",
         "back": "Orqaga",
-        "reset": "Standart"
+        "reset": "Standart",
+        "resolution": "Ekran o'lchami: {0}",
+        "quality": "Grafika sifati: {0}",
+        "graphics": "Grafika"
     },
     "player": {
         "paused": "Pauza",

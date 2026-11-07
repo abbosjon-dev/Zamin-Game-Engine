@@ -11136,9 +11136,20 @@ namespace Zamin {
         if (ImGui::BeginPopupModal(Tr("Zamin haqida###About"), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
             ImGui::PushFont(ImGuiLayer::GetTitleFont());
-            ImGui::TextColored(UI::AccentColor(), ICON_FA_EARTH_ASIA "  Zamin Engine 0.1");
+            const BuildInfo& build = BuildInfo::Get();
+            ImGui::TextColored(UI::AccentColor(), ICON_FA_EARTH_ASIA "  Zamin Engine %s", build.EngineVersion.c_str());
             ImGui::PopFont();
-            ImGui::TextUnformatted("C++20 da yozilgan o'yin dvigateli. O'yinlar ham C++ da yoziladi.");
+            ImGui::TextUnformatted(Tr("C++20 da yozilgan o'yin dvigateli. O'yinlar ham C++ da yoziladi."));
+            ImGui::Spacing();
+            // This build: the commit (with its date, and a mark for uncommitted changes), the build's date, type, compiler.
+            if (!build.Commit.empty())
+                ImGui::Text("%s %s%s%s", Tr("Kommit:"), build.Commit.c_str(), build.CommitDate.empty() ? "" : (" (" + build.CommitDate + ")").c_str(),
+                            build.Dirty ? Tr("  [o'zgarishlar bilan]") : "");
+            else
+                ImGui::TextUnformatted(Tr("Kommit: noma'lum (git'siz build)"));
+            ImGui::Text("%s %s, %s%s, %s", Tr("Build:"), build.BuildDate.c_str(), build.BuildType.c_str(), build.Shipping ? " Shipping" : "", build.Compiler.c_str());
+            if (ImGui::SmallButton(Tr(ICON_FA_COPY "  Versiyani nusxalash")))
+                ImGui::SetClipboardText(VersionInfo::ForActiveProject().Format("Zamin Editor").c_str());
             ImGui::Spacing();
             ImGui::TextDisabled("Renderer: OpenGL 4.1 (PBR, soyalar, 2D batch)");
             ImGui::TextDisabled("ECS: EnTT  |  Fizika: Box2D  |  Audio: miniaudio  |  UI: Dear ImGui");

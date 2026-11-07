@@ -40,6 +40,9 @@ namespace Zamin {
         void SetResizable(bool resizable) override;
         bool IsResizable() const override { return m_Resizable; }
         void SetWindowedSize(uint32_t width, uint32_t height) override;
+        ScreenResolution GetWindowedSize() const override;
+        void SetFullscreenResolution(uint32_t width, uint32_t height) override;
+        std::vector<ScreenResolution> GetVideoModes() const override;
         void SetIcon(const std::vector<WindowIconImage>& images) override;
         void SetTitle(const std::string& title) override;
         const std::string& GetTitle() const override { return m_Data.Title; }

@@ -30,7 +30,10 @@
         "start": "Начать",
         "hint": "Нажмите Space / Enter или кнопку   ·   L - язык",
         "session_info": "GameSession (DontDestroyOnLoad) хранит музыку и монеты\nна всех уровнях",
-        "session_empty": "Сессия: 0 монет"
+        "session_empty": "Сессия: 0 монет",
+        "play": "Играть",
+        "main_title": "Главное меню",
+        "nav_hint": "Стрелки / Enter или мышь  ·  Esc - назад"
     },
     "loading": {
         "title": "Загрузка",
@@ -68,7 +71,10 @@
         "controls": "Управление",
         "controls_info": "Esc / Start - пауза. Стрелки / D-pad - выбор, Enter / A - нажать, Esc / B - назад. Прокручивайте список колесом мыши или перетаскиванием.",
         "back": "Назад",
-        "reset": "По умолчанию"
+        "reset": "По умолчанию",
+        "resolution": "Разрешение: {0}",
+        "quality": "Качество графики: {0}",
+        "graphics": "Графика"
     },
     "player": {
         "paused": "Пауза",

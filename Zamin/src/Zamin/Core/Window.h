@@ -33,6 +33,15 @@ namespace Zamin {
     // corner when the window is larger).
     void CenterInArea(const MonitorArea& area, int width, int height, int& x, int& y);
 
+    // A screen / window size in pixels (an options menu's resolutions, a monitor's video modes).
+    struct ScreenResolution
+    {
+        uint32_t Width = 0, Height = 0;
+
+        bool IsValid() const { return Width > 0 && Height > 0; }
+        auto operator<=>(const ScreenResolution&) const = default;
+    };
+
     // One size of a window icon: RGBA8 pixels, rows top first.
     struct WindowIconImage
     {
@@ -125,6 +134,13 @@ namespace Zamin {
         virtual bool IsResizable() const = 0;
         // The windowed size (screen coordinates); applied now in windowed mode, else when it goes back.
         virtual void SetWindowedSize(uint32_t width, uint32_t height) = 0;
+        // The windowed size: the window's own in windowed mode, else the one it goes back to.
+        virtual ScreenResolution GetWindowedSize() const = 0;
+        // Exclusive fullscreen's video mode (the monitor's closest one; 0 x 0: the monitor's own), applied now
+        // when the window is in exclusive fullscreen.
+        virtual void SetFullscreenResolution(uint32_t width, uint32_t height) = 0;
+        // The sizes of the video modes of the monitor the window is on (each once, the smallest first).
+        virtual std::vector<ScreenResolution> GetVideoModes() const = 0;
         // The title bar / taskbar icon: one or more sizes (the system picks the best); empty: the default.
         virtual void SetIcon(const std::vector<WindowIconImage>& images) = 0;
         virtual void SetTitle(const std::string& title) = 0;

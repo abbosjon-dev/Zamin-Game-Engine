@@ -447,6 +447,57 @@ namespace Zamin {
             glfwSetWindowSize(m_Window, m_WindowedWidth, m_WindowedHeight);
     }
 
+    ScreenResolution GlfwWindow::GetWindowedSize() const
+    {
+        if (m_Mode == WindowMode::Windowed)
+        {
+            int w = 0, h = 0;
+            glfwGetWindowSize(m_Window, &w, &h);
+            if (w > 0 && h > 0)
+                return { (uint32_t)w, (uint32_t)h };
+        }
+        return { (uint32_t)std::max(1, m_WindowedWidth), (uint32_t)std::max(1, m_WindowedHeight) };
+    }
+
+    void GlfwWindow::SetFullscreenResolution(uint32_t width, uint32_t height)
+    {
+        if (width == m_FullscreenWidth && height == m_FullscreenHeight)
+            return;
+        m_FullscreenWidth = width;
+        m_FullscreenHeight = height;
+        if (m_Mode != WindowMode::Fullscreen)
+            return;
+        // Exclusive fullscreen now: the monitor switches to that video mode (GLFW picks the closest).
+        GLFWmonitor* monitor = glfwGetWindowMonitor(m_Window);
+        if (!monitor)
+            monitor = FindCurrentMonitor();
+        const GLFWvidmode* video = monitor ? glfwGetVideoMode(monitor) : nullptr;
+        if (!video)
+            return;
+        const bool ownMode = width > 0 && height > 0;
+        glfwSetWindowMonitor(m_Window, monitor, 0, 0, ownMode ? (int)width : video->width, ownMode ? (int)height : video->height,
+                             ownMode ? GLFW_DONT_CARE : video->refreshRate);
+        SetVSync(m_Data.VSync);
+    }
+
+    std::vector<ScreenResolution> GlfwWindow::GetVideoModes() const
+    {
+        std::vector<ScreenResolution> sizes;
+        GLFWmonitor* monitor = FindCurrentMonitor();
+        if (!monitor)
+            return sizes;
+        int count = 0;
+        const GLFWvidmode* modes = glfwGetVideoModes(monitor, &count);
+        for (int i = 0; modes && i < count; i++)
+            if (modes[i].width > 0 && modes[i].height > 0)
+                sizes.push_back({ (uint32_t)modes[i].width, (uint32_t)modes[i].height });
+        std::sort(sizes.begin(), sizes.end(), [](const ScreenResolution& a, const ScreenResolution& b) {
+            return (uint64_t)a.Width * a.Height != (uint64_t)b.Width * b.Height ? (uint64_t)a.Width * a.Height < (uint64_t)b.Width * b.Height : a.Width < b.Width;
+        });
+        sizes.erase(std::unique(sizes.begin(), sizes.end()), sizes.end());
+        return sizes;
+    }
+
     void GlfwWindow::SetIcon(const std::vector<WindowIconImage>& images)
     {
         // Wayland has no window icons (the desktop file's icon is used): GLFW would report an error.

@@ -1,12 +1,13 @@
 #pragma once
 
+#include "Zamin/Core/Window.h"
+
 #include <glm/glm.hpp>
 
 #include <optional>
+#include <vector>
 
 namespace Zamin {
-
-    class Window;
 
     // The picture's gamma and brightness the player shows the game with (an options menu's sliders): the
     // whole finished frame - the scene, its UI, the fades - on its way to the screen.
@@ -34,11 +35,12 @@ namespace Zamin {
     {
         std::optional<bool> Fullscreen, VSync;
         std::optional<float> Gamma, Brightness;
+        std::optional<ScreenResolution> Resolution; // the windowed size (and exclusive fullscreen's video mode)
 
-        bool IsEmpty() const { return !Fullscreen && !VSync && !Gamma && !Brightness; }
+        bool IsEmpty() const { return !Fullscreen && !VSync && !Gamma && !Brightness && !Resolution; }
     };
 
-    // The game's display options (an options menu): fullscreen, vertical sync, gamma and brightness. The
+    // The game's display options (an options menu): fullscreen, vertical sync, the resolution, gamma and brightness. The
     // host that owns the game's window binds it (the player: its own window), and the options change that
     // window; without one (the editor's Play, tests) they are only kept - the editor's window stays as it
     // is. The gamma and the brightness are the player's (GetAdjustment: its last pass over every frame).
@@ -56,6 +58,20 @@ namespace Zamin {
         static bool IsFullscreen();
         static void SetVSync(bool enabled);
         static bool IsVSync();
+        // The resolution: the window's size in windowed mode (and the video mode of exclusive fullscreen; a
+        // borderless window always covers its monitor). Without a window it is only kept. Sizes outside the
+        // player's window size range are refused (false).
+        static bool SetResolution(uint32_t width, uint32_t height);
+        static bool SetResolution(const ScreenResolution& resolution) { return SetResolution(resolution.Width, resolution.Height); }
+        // The window's windowed size; without one what was set (0 x 0: nothing).
+        static ScreenResolution GetResolution();
+        // What an options menu offers: the sizes of the window's monitor (MakeResolutionList), without a window
+        // the common ones; the current resolution is always among them.
+        static std::vector<ScreenResolution> GetResolutions();
+        // The list of resolutions from a monitor's video modes: each once, at least 640 x 360 and not larger than
+        // the largest mode (the monitor), the smallest first; no modes: the common 16:9 sizes (1280 x 720 ...
+        // 2560 x 1440). `current` is added when it is not there (a window size of its own).
+        static std::vector<ScreenResolution> MakeResolutionList(const std::vector<ScreenResolution>& modes, const ScreenResolution& current = {});
         // DisplayAdjustment::Gamma / Brightness (kept in their ranges).
         static void SetGamma(float gamma);
         static float GetGamma();
@@ -65,7 +81,8 @@ namespace Zamin {
         static void SetAdjustment(const DisplayAdjustment& adjustment);
 
         static constexpr const char* SettingsKey = "Zamin.Display";
-        // Writes the options to SaveData (and the save file). False without storage.
+        // Writes the options to SaveData (and the save file; the resolution once SetResolution chose one). False
+        // without storage.
         static bool SaveSettings();
         // Applies the saved options; false when none were saved.
         static bool LoadSettings();

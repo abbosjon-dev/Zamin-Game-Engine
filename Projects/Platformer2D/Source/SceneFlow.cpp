@@ -9,67 +9,12 @@
 
 using namespace Zamin;
 
-// Sahnalar oqimi namunasi (M15): bosh menyu (Menu.zscene) -> yuklanish ekrani (Loading.zscene, daraja
+// Sahnalar oqimi namunasi (M15): bosh menyu (Menu.zscene: GameMenu, GameMenu.cpp) -> yuklanish ekrani (Loading.zscene, daraja
 // fonda yuklanadi) -> 1-daraja (qora rangga so'nib-ochilish bilan). GameSession - o'yin sessiyasi
 // menejeri: menyuda yaratiladi va DontDestroyOnLoad bilan sahnalar almashganda ham saqlanadi - musiqa
 // uzilmaydi, hamma darajalarda yig'ilgan tangalar global holatda (GameState) jamlanadi, darajalar
 // bo'yicha statistika SessionStats servisida (Services), pastki chap burchakdagi HUD faqat
 // darajalarda ko'rinadi.
-
-// Bosh menyu: "Boshlash" tugmasi (yoki Space / Enter) yuklanish ekraniga so'nib o'tadi.
-class MainMenu : public ScriptableEntity
-{
-public:
-    std::string Target = "Scenes/Loading.zscene";
-    float FadeOut = 0.35f;
-    float FadeIn = 0.35f;
-    EntityRef Title;       // tebranib turadigan sarlavha
-    EntityRef VersionText; // pastki o'ng burchakda o'yin nomi va versiyasi
-
-    void OnStart() override
-    {
-        // The button's ClickMessage "Start" comes here (its ClickTarget is this entity).
-        AddMessageHandler("Start", [this](const ScriptMessage&) { Begin(); });
-        // The menu's texts have localization keys (Text > Lokalizatsiya kaliti): L switches the language.
-        if (Entity title = Resolve(Title))
-            m_TitleY = title.GetComponent<UITransformComponent>().Position.y;
-        // The game's name and version (Project settings > Player).
-        if (Entity version = Resolve(VersionText))
-            if (auto* text = version.TryGetComponent<TextComponent>())
-                text->Text = std::format("{} v{}", Application::GetProductName(), Application::GetVersion());
-    }
-
-    void OnUpdate(Timestep) override
-    {
-        m_Time += GetUnscaledDeltaTime();
-        if (Entity title = Resolve(Title))
-            title.GetComponent<UITransformComponent>().Position.y = m_TitleY + std::sin(m_Time * 2.0f) * 6.0f;
-        if (Input::IsActionJustPressed("Jump") || Input::IsKeyJustPressed(Key::Enter))
-            Begin();
-        // L: the next language (uz -> ru -> en), kept for the next game (SaveData).
-        if (Input::IsKeyJustPressed(Key::L) && Localization::NextLanguage())
-            Localization::SaveSettings();
-    }
-
-private:
-    void Begin()
-    {
-        if (m_Started)
-            return;
-        m_Started = true;
-        ZM_INFO("Bosh menyu: yuklanish ekraniga o'tilmoqda");
-        LoadScene(Target, SceneTransition::Fade(FadeOut, FadeIn));
-    }
-
-    float m_Time = 0.0f, m_TitleY = 0.0f;
-    bool m_Started = false;
-};
-ZM_REGISTER_SCRIPT(MainMenu,
-    ZM_FIELD_TOOLTIP(MainMenu, Target, "Boshlash bosilganda ochiladigan sahna (yo'l yoki build ro'yxatidagi nomi)").Header("O'tish"),
-    ZM_FIELD_RANGE(MainMenu, FadeOut, 0.0f, 2.0f).Tooltip("Ekran qorayishi (sekund)"),
-    ZM_FIELD_RANGE(MainMenu, FadeIn, 0.0f, 2.0f).Tooltip("Yangi sahnada ochilishi (sekund)"),
-    ZM_FIELD(MainMenu, Title).Tooltip("Tebranib turadigan sarlavha (UI)"),
-    ZM_FIELD(MainMenu, VersionText).Tooltip("O'yin nomi va versiyasi yoziladigan matn (Loyiha sozlamalari > Player)"))
 
 // Yuklanish ekrani: keyingi sahnani LoadSceneAsync bilan fonda yuklaydi, progress bar va bosqichni
 // ko'rsatadi. Sahna tayyor bo'lsa ham kamida MinSeconds turadi (SetAllowSceneActivation(false)), keyin

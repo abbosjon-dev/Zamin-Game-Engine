@@ -36945,3 +36945,257 @@ TEST(ExportFolderSelfCheck)
     // Another game's name: its launcher and entry are missing.
     CHECK(ExportFiles::CheckExportFolder(dir, "Boshqa").size() > problems.size());
 }
+
+// The game's resolution (an options menu): the list from a monitor's modes, set / saved without a window, the
+// launch precedence (the command line > the saved resolution > the project).
+TEST(DisplayResolutionSettings)
+{
+    using R = ScreenResolution;
+    // A monitor's modes: each once, the tiny ones out, the smallest first; the current size is always there.
+    std::vector<R> list = Display::MakeResolutionList({ { 1920, 1080 }, { 640, 480 }, { 320, 240 }, { 1280, 720 }, { 1920, 1080 }, { 1600, 900 } });
+    CHECK(list == std::vector<R>({ { 640, 480 }, { 1280, 720 }, { 1600, 900 }, { 1920, 1080 } }));
+    list = Display::MakeResolutionList({ { 1920, 1080 }, { 1280, 720 } }, { 1000, 700 });
+    CHECK(list == std::vector<R>({ { 1000, 700 }, { 1280, 720 }, { 1920, 1080 } }));
+    // No modes (no window): the common 16:9 sizes, with the current one among them.
+    list = Display::MakeResolutionList({});
+    CHECK((list.size() == 5 && list.front() == R{ 1280, 720 } && list.back() == R{ 2560, 1440 }));
+    CHECK(Display::MakeResolutionList({}, { 1600, 900 }).size() == 5 && Display::MakeResolutionList({}, { 1024, 768 }).size() == 6);
+    // Larger than the monitor: left out (unless it is the window's own size now).
+    list = Display::MakeResolutionList({ { 1366, 768 }, { 1280, 720 } }, { 1920, 1080 });
+    CHECK((list.back() == R{ 1920, 1080 } && list.size() == 3));
+    CHECK(((R{ 1280, 720 } < R{ 1366, 768 }) && R{ 0, 5 }.IsValid() == false));
+
+    // Without a window: kept; out of the window size range refused; saved with the other display options.
+    const auto dir = std::filesystem::temp_directory_path() / ("zamin-resolution-" + std::to_string((uint64_t)UUID()));
+    SaveData::SetFilePath(dir / "save.json");
+    Display::ClearSavedSettings();
+    CHECK(!Display::HasWindow());
+    CHECK((Display::SetResolution(1600, 900) && Display::GetResolution() == R{ 1600, 900 }));
+    CHECK((!Display::SetResolution(100, 900) && !Display::SetResolution(1600, 9000) && Display::GetResolution() == R{ 1600, 900 }));
+    CHECK(Display::GetResolutions().size() == 5); // the common ones (1600 x 900 is one)
+    CHECK(Display::SaveSettings());
+    SavedDisplaySettings saved = Display::GetSavedSettings();
+    CHECK((saved.Resolution && *saved.Resolution == R{ 1600, 900 } && !saved.IsEmpty()));
+    CHECK(SaveData::GetInt(std::string(Display::SettingsKey) + ".Width") == 1600);
+    Display::SetResolution(1280, 720);
+    CHECK((Display::LoadSettings() && Display::GetResolution() == R{ 1600, 900 }));
+    // A hand-edited size out of range is not used.
+    SaveData::SetInt(std::string(Display::SettingsKey) + ".Height", 20000);
+    CHECK(!Display::GetSavedSettings().Resolution);
+    SaveData::SetInt(std::string(Display::SettingsKey) + ".Height", 900);
+
+    // The player's window: the command line > the saved resolution > the project.
+    ProjectConfig config;
+    config.Player.Width = 1280;
+    config.Player.Height = 720;
+    saved = Display::GetSavedSettings();
+    PlayerLaunchSettings launch = PlayerLaunchSettings::Resolve(config, saved, PlayerCommandLine::Parse(std::vector<std::string>{}));
+    CHECK(launch.Window.Width == 1600 && launch.Window.Height == 900 && launch.SizeSource == PlayerSettingSource::Saved);
+    CHECK(launch.Describe().find("1600x900 (saqlangan)") != std::string::npos);
+    launch = PlayerLaunchSettings::Resolve(config, saved, PlayerCommandLine::Parse({ "--resolution", "1920x1080" }));
+    CHECK(launch.Window.Width == 1920 && launch.SizeSource == PlayerSettingSource::CommandLine);
+    launch = PlayerLaunchSettings::Resolve(config, {}, PlayerCommandLine::Parse(std::vector<std::string>{}));
+    CHECK(launch.Window.Width == 1280 && launch.SizeSource == PlayerSettingSource::Project);
+    // Exclusive fullscreen with a saved resolution: that video mode.
+    config.Player.Mode = WindowMode::Fullscreen;
+    SavedDisplaySettings sizeOnly;
+    sizeOnly.Resolution = saved.Resolution;
+    launch = PlayerLaunchSettings::Resolve(config, sizeOnly, PlayerCommandLine::Parse(std::vector<std::string>{}));
+    CHECK(launch.Window.FullscreenWidth == 1600 && launch.Window.FullscreenHeight == 900);
+    Display::ClearSavedSettings();
+    CHECK(!Display::GetSavedSettings().Resolution);
+    SaveData::SetFilePath({});
+    std::error_code ec;
+    std::filesystem::remove_all(dir, ec);
+}
+
+// Platformer2D's main menu (Menu.zscene): an instance of the reusable game menu prefab (Prefabs/GameMenu.zprefab) -
+// Play / Settings (resolution, fullscreen, vsync, quality, gamma, volume, language) / Quit, the versions in its
+// corner; the same prefab as a pause menu.
+TEST(GameMenuSampleScene)
+{
+    namespace fs = std::filesystem;
+    fs::path root = fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Platformer2D";
+    auto project = Project::Load(root / "Platformer2D.zproject");
+    CHECK(project != nullptr);
+    if (!project)
+        return;
+    Project::SetActive(project);
+    ScopeExit noProject{ []() { Project::SetActive(nullptr); } };
+    const fs::path prefabPath = root / "Assets" / "Prefabs" / "GameMenu.zprefab";
+    CHECK(fs::exists(prefabPath) && fs::exists(prefabPath.string() + ".zmeta"));
+
+    auto scene = CreateRef<Scene>();
+    CHECK(SceneSerializer(scene).Deserialize(root / "Assets" / "Scenes" / "Menu.zscene"));
+    auto find = [&](const Ref<Scene>& s, const char* name) { return s->FindEntityByName(name); };
+    Entity menu = find(scene, "Bosh menyu"), overlay = find(scene, "Overlay"), main = find(scene, "Main Panel"), settings = find(scene, "Settings Panel");
+    Entity play = find(scene, "Play Button"), settingsButton = find(scene, "Settings Button"), quit = find(scene, "Quit Button");
+    Entity resolution = find(scene, "Resolution Button"), quality = find(scene, "Quality Button"), language = find(scene, "Language Button");
+    Entity gamma = find(scene, "Gamma Slider"), master = find(scene, "Umumiy ovoz Slider"), version = find(scene, "Settings Version");
+    Entity session = find(scene, "GameSession");
+    const bool all = menu && overlay && main && settings && play && settingsButton && quit && resolution && quality && language && gamma && master &&
+                     version && session;
+    CHECK(all);
+    if (!all)
+        return;
+    CHECK(menu.GetComponent<NativeScriptComponent>().ClassName == "GameMenu");
+    CHECK(menu.HasComponent<EditorMetadataComponent>() && menu.GetComponent<EditorMetadataComponent>().Prefab == "Prefabs/GameMenu.zprefab");
+    CHECK(overlay.IsActive() && main.IsActive() && !settings.IsActive());
+    CHECK(play.GetComponent<UIButtonComponent>().ClickMessage == "Play" && play.GetComponent<UIButtonComponent>().ClickTarget.ID == menu.GetUUID());
+    CHECK(quit.GetComponent<UIButtonComponent>().ClickMessage == "Quit" && resolution.GetComponent<UIButtonComponent>().ClickMessage == "NextResolution");
+    CHECK(quality.GetComponent<UIButtonComponent>().ClickMessage == "NextQuality");
+    CHECK(gamma.GetComponent<UISliderComponent>().MinValue == DisplayAdjustment::MinGamma && gamma.GetComponent<UISliderComponent>().MaxValue == DisplayAdjustment::MaxGamma);
+    // Every text of the menu that is not a value has a key in all three languages.
+    for (const char* key : { "menu.play", "menu.main_title", "menu.nav_hint", "settings.resolution", "settings.quality", "settings.graphics" })
+        for (const char* lang : { "uz", "ru", "en" })
+        {
+            const StringTable* table = Localization::GetTable(lang);
+            CHECK(table && table->Has(key));
+        }
+
+    // The prefab itself: spawned anywhere, its references point into the new copy (what Scene::InstantiatePrefab
+    // reads; headless without the fonts and textures it then loads).
+    auto spawnPrefab = [&](Scene& into) {
+        std::string error;
+        std::vector<Entity> spawnedEntities = SceneSerializer::DeserializeEntities(into, FileSystem::ReadTextFile(prefabPath), true, nullptr, &error);
+        CHECK(error.empty() && spawnedEntities.size() == 44);
+        return spawnedEntities.empty() ? Entity() : spawnedEntities.front();
+    };
+    auto other = CreateRef<Scene>();
+    Entity spawned = spawnPrefab(*other);
+    CHECK(spawned && spawned.GetComponent<NativeScriptComponent>().ClassName == "GameMenu");
+    if (spawned)
+    {
+        const auto& fields = spawned.GetComponent<NativeScriptComponent>().Fields;
+        Entity spawnedOverlay = other->GetEntityByUUID(fields.at("Overlay").Get<EntityRef>().ID);
+        CHECK(spawnedOverlay && spawnedOverlay.GetName() == "Overlay" && other->GetParent(spawnedOverlay) == spawned);
+        CHECK(other->GetEntityByUUID(fields.at("VersionText").Get<EntityRef>().ID).GetName() == "Settings Version");
+        CHECK(!fields.at("PauseMenu").Get<bool>() && fields.at("PlayScene").Get<std::string>() == "Scenes/Loading.zscene");
+    }
+
+    // Live, with the game's scripts (skipped when the module was not built).
+    const fs::path module = Project::GetScriptModulePath();
+    if (module.empty() || !fs::exists(module))
+    {
+        std::printf("    (Platformer2D skript moduli topilmadi - jonli qism o'tkazib yuborildi)\n");
+        return;
+    }
+    const bool audioWas = AudioEngine::IsAvailable();
+    AudioEngine::Init(true);
+    auto dir = fs::temp_directory_path() / ("zamin-game-menu-" + std::to_string((uint64_t)UUID()));
+    SaveData::SetFilePath(dir / "save.json");
+    const int qualityWas = Quality::GetLevel();
+    CHECK(ScriptEngine::LoadModule(module));
+    ScopeExit cleanup{ [&]() {
+        ScriptEngine::UnloadModule();
+        Display::ClearSavedSettings();
+        Display::SetFullscreen(false);
+        Display::SetVSync(true);
+        Display::SetAdjustment(DisplayAdjustment());
+        Quality::ClearSavedSettings();
+        Quality::SetLevel(qualityWas);
+        Audio::ClearSavedSettings();
+        Localization::SetLanguage("uz");
+        SaveData::Save();
+        SaveData::SetFilePath({});
+        if (!audioWas)
+            AudioEngine::Shutdown();
+        std::error_code ec;
+        fs::remove_all(dir, ec);
+        Input::ResetState();
+    } };
+    Input::ResetState();
+    Log::SetMinLevel(LogLevel::Warn); // the scripts' own messages
+    if (Entity camera = find(scene, "Main Camera"))
+        camera.GetComponent<CameraComponent>().Primary = false; // headless: nothing is drawn
+    scene->OnViewportResize(1600, 900);
+    scene->OnRuntimeStart();
+    for (int i = 0; i < 5; i++)
+        scene->OnUpdateRuntime(0.016f);
+    // The main menu: shown, "O'ynash" selected, the game's name, the versions in the corners.
+    CHECK(overlay.IsActive() && main.IsActive() && !settings.IsActive() && !scene->IsGamePaused());
+    CHECK(scene->GetSelectedUI() == play);
+    CHECK(find(scene, "Menu Title").GetComponent<TextComponent>().Text == Application::GetProductName());
+    CHECK(version.GetComponent<TextComponent>().Text == VersionInfo::ForActiveProject().FormatShort());
+    CHECK(version.GetComponent<TextComponent>().Text.find("Zamin Engine") != std::string::npos);
+    CHECK(find(scene, "Screen Version").GetComponent<TextComponent>().Text.find("v0.4.0") != std::string::npos);
+    // Down, Enter: the settings, the resolution selected.
+    UIKeyFrame(scene, { Key::Down });
+    CHECK(scene->GetSelectedUI() == settingsButton);
+    UIKeyFrame(scene, { Key::Enter });
+    CHECK(settings.IsActive() && !main.IsActive() && scene->GetSelectedUI() == resolution);
+    // The resolution: right / Enter the next one, left the one before (no window: the common sizes).
+    const std::vector<ScreenResolution> sizes = Display::GetResolutions();
+    CHECK(sizes.size() >= 2);
+    UIKeyFrame(scene, { Key::Right });
+    const ScreenResolution first = Display::GetResolution();
+    CHECK(first.IsValid() && std::find(sizes.begin(), sizes.end(), first) != sizes.end());
+    UIKeyFrame(scene, { Key::Enter });
+    const ScreenResolution second = Display::GetResolution();
+    CHECK(second != first);
+    UIKeyFrame(scene, { Key::Left });
+    CHECK(Display::GetResolution() == first);
+    CHECK(resolution.GetComponent<TextComponent>().Text == Localize("settings.resolution", std::format("{}x{}", first.Width, first.Height)));
+    // Down to the quality (fullscreen, vsync between): right - the next level.
+    for (int i = 0; i < 3; i++)
+        UIKeyFrame(scene, { Key::Down });
+    CHECK(scene->GetSelectedUI() == quality);
+    const int levelBefore = Quality::GetLevel();
+    UIKeyFrame(scene, { Key::Right });
+    CHECK(Quality::GetLevel() == (levelBefore + 1) % Quality::GetLevelCount());
+    CHECK(quality.GetComponent<TextComponent>().Text.find(Quality::GetLevelName()) != std::string::npos);
+    // The gamma slider (right: brighter), the master volume (left: a tenth down).
+    UIKeyFrame(scene, { Key::Down });
+    CHECK(scene->GetSelectedUI() == gamma);
+    UIKeyFrame(scene, { Key::Right });
+    CHECK(Display::GetGamma() > 1.0f);
+    UIKeyFrame(scene, { Key::Down });
+    CHECK(scene->GetSelectedUI() == master);
+    UIKeyFrame(scene, { Key::Left });
+    CHECK_NEAR(Audio::GetGroupVolume("Master"), 0.9f, 1e-4f);
+    CHECK(find(scene, "Umumiy ovoz Value").GetComponent<TextComponent>().Text == "90%");
+    // Down to the language button (music, effects between), Enter: the next language, its texts follow.
+    for (int i = 0; i < 3; i++)
+        UIKeyFrame(scene, { Key::Down });
+    CHECK(scene->GetSelectedUI() == language);
+    UIKeyFrame(scene, { Key::Enter });
+    CHECK(Localization::GetLanguage() != "uz");
+    CHECK(language.GetComponent<TextComponent>().Text == Localize("settings.language", Localization::GetLanguageName(Localization::GetLanguage())));
+    Localization::SetLanguage("uz");
+    // Esc: back to the menu - everything saved (the next start opens with them).
+    UIKeyFrame(scene, { Key::Escape });
+    CHECK(!settings.IsActive() && main.IsActive() && scene->GetSelectedUI() == settingsButton);
+    const SavedDisplaySettings saved = Display::GetSavedSettings();
+    CHECK(saved.Resolution && *saved.Resolution == first && saved.Gamma && *saved.Gamma > 1.0f);
+    CHECK(Quality::HasSavedSettings() && SaveData::HasKey(Audio::SettingsKey));
+    // Up, Enter: "O'ynash" - the loading screen (with a fade).
+    UIKeyFrame(scene, { Key::Up });
+    CHECK(scene->GetSelectedUI() == play);
+    UIKeyFrame(scene, { Key::Enter });
+    CHECK(scene->GetPendingSceneLoad().generic_string().find("Loading.zscene") != std::string::npos);
+    scene->OnRuntimeStop();
+
+    // The same prefab as a pause menu: hidden until Esc, which stops the game; "Davom etish" goes back.
+    auto level = CreateRef<Scene>();
+    Entity pause = spawnPrefab(*level);
+    CHECK(pause);
+    if (!pause)
+        return;
+    pause.GetComponent<NativeScriptComponent>().Fields["PauseMenu"].Set(true);
+    Entity pauseOverlay = level->GetEntityByUUID(pause.GetComponent<NativeScriptComponent>().Fields.at("Overlay").Get<EntityRef>().ID);
+    Entity resume = level->GetEntityByUUID(pause.GetComponent<NativeScriptComponent>().Fields.at("PlayButton").Get<EntityRef>().ID);
+    level->OnViewportResize(1600, 900);
+    level->OnRuntimeStart();
+    for (int i = 0; i < 3; i++)
+        level->OnUpdateRuntime(0.016f);
+    CHECK(!pauseOverlay.IsActive() && !level->IsGamePaused());
+    CHECK(resume.GetComponent<TextComponent>().LocalizationKey == "pause.resume");
+    UIKeyFrame(level, { Key::Escape });
+    CHECK(pauseOverlay.IsActive() && level->IsGamePaused() && level->GetSelectedUI() == resume);
+    UIKeyFrame(level, { Key::Enter });
+    CHECK(!pauseOverlay.IsActive() && !level->IsGamePaused());
+    UIKeyFrame(level, { Key::Escape });
+    UIKeyFrame(level, { Key::Escape }); // open, then closed again
+    CHECK(!pauseOverlay.IsActive() && !level->IsGamePaused());
+    level->OnRuntimeStop();
+}

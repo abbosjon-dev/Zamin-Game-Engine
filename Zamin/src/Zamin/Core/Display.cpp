@@ -3,6 +3,7 @@
 #include "Zamin/Core/Log.h"
 #include "Zamin/Core/SaveData.h"
 #include "Zamin/Core/Window.h"
+#include "Zamin/Project/PlayerSettings.h"
 
 #include <algorithm>
 #include <cmath>
@@ -16,9 +17,19 @@ namespace Zamin {
             Window* BoundWindow = nullptr;
             bool Fullscreen = false;
             bool VSync = true;
+            ScreenResolution Resolution; // set by SetResolution (0 x 0: not set)
             DisplayAdjustment Adjustment;
             bool Set = false; // an option was set before a window was bound
         };
+
+        bool InWindowRange(uint32_t value) { return value >= PlayerSettings::MinWindowSize && value <= PlayerSettings::MaxWindowSize; }
+
+        // The window takes a resolution: its windowed size, and exclusive fullscreen's video mode.
+        void ApplyResolution(Window& window, const ScreenResolution& r)
+        {
+            window.SetWindowedSize(r.Width, r.Height);
+            window.SetFullscreenResolution(r.Width, r.Height);
+        }
 
         DisplayState& State()
         {
@@ -37,6 +48,8 @@ namespace Zamin {
             return;
         if (s.Set)
         {
+            if (s.Resolution.IsValid())
+                ApplyResolution(*window, s.Resolution);
             window->SetVSync(s.VSync);
             window->SetFullscreen(s.Fullscreen);
         }
@@ -77,6 +90,60 @@ namespace Zamin {
     {
         const DisplayState& s = State();
         return s.BoundWindow ? s.BoundWindow->IsVSync() : s.VSync;
+    }
+
+    // ------------------------------------------------------------------ resolution
+    bool Display::SetResolution(uint32_t width, uint32_t height)
+    {
+        if (!InWindowRange(width) || !InWindowRange(height))
+            return false;
+        DisplayState& s = State();
+        s.Resolution = { width, height };
+        s.Set = true;
+        if (s.BoundWindow)
+            ApplyResolution(*s.BoundWindow, s.Resolution);
+        return true;
+    }
+
+    ScreenResolution Display::GetResolution()
+    {
+        const DisplayState& s = State();
+        return s.BoundWindow ? s.BoundWindow->GetWindowedSize() : s.Resolution;
+    }
+
+    std::vector<ScreenResolution> Display::GetResolutions()
+    {
+        const DisplayState& s = State();
+        return MakeResolutionList(s.BoundWindow ? s.BoundWindow->GetVideoModes() : std::vector<ScreenResolution>(), GetResolution());
+    }
+
+    std::vector<ScreenResolution> Display::MakeResolutionList(const std::vector<ScreenResolution>& modes, const ScreenResolution& current)
+    {
+        static const ScreenResolution s_Common[] = { { 1280, 720 }, { 1366, 768 }, { 1600, 900 }, { 1920, 1080 }, { 2560, 1440 } };
+        std::vector<ScreenResolution> list;
+        uint32_t maxWidth = 0, maxHeight = 0;
+        for (const ScreenResolution& mode : modes)
+        {
+            maxWidth = std::max(maxWidth, mode.Width);
+            maxHeight = std::max(maxHeight, mode.Height);
+        }
+        if (modes.empty())
+            list.assign(std::begin(s_Common), std::end(s_Common));
+        else
+            for (const ScreenResolution& mode : modes)
+                if (mode.Width >= 640 && mode.Height >= 360 && InWindowRange(mode.Width) && InWindowRange(mode.Height))
+                    list.push_back(mode);
+        if (current.IsValid() && InWindowRange(current.Width) && InWindowRange(current.Height))
+            list.push_back(current);
+        auto area = [](const ScreenResolution& r) { return (uint64_t)r.Width * r.Height; };
+        std::sort(list.begin(), list.end(), [&](const ScreenResolution& a, const ScreenResolution& b) {
+            return area(a) != area(b) ? area(a) < area(b) : a.Width < b.Width;
+        });
+        list.erase(std::unique(list.begin(), list.end()), list.end());
+        // (A window of its own larger than the monitor stays: it is what the player has now.)
+        if (!modes.empty())
+            std::erase_if(list, [&](const ScreenResolution& r) { return (r.Width > maxWidth || r.Height > maxHeight) && r != current; });
+        return list;
     }
 
     // ------------------------------------------------------------------ gamma / brightness
@@ -129,6 +196,13 @@ namespace Zamin {
         SaveData::SetBool(SettingKey("VSync"), IsVSync());
         SaveData::SetFloat(SettingKey("Gamma"), GetGamma());
         SaveData::SetFloat(SettingKey("Brightness"), GetBrightness());
+        // The resolution only once the game chose one (SetResolution): a window the player just dragged bigger
+        // does not become the next start's size.
+        if (const ScreenResolution r = State().Resolution; r.IsValid())
+        {
+            SaveData::SetInt(SettingKey("Width"), (int)r.Width);
+            SaveData::SetInt(SettingKey("Height"), (int)r.Height);
+        }
         return SaveData::Save();
     }
 
@@ -137,6 +211,8 @@ namespace Zamin {
         if (!HasSavedSettings())
             return false;
         const SavedDisplaySettings saved = GetSavedSettings();
+        if (saved.Resolution)
+            SetResolution(*saved.Resolution);
         if (saved.VSync || saved.Fullscreen)
         {
             SetVSync(saved.VSync.value_or(true));
@@ -166,6 +242,12 @@ namespace Zamin {
             a.Sanitize();
             saved.Gamma = a.Gamma;
         }
+        if (SaveData::GetType(SettingKey("Width")) == SaveValueType::Int && SaveData::GetType(SettingKey("Height")) == SaveValueType::Int)
+        {
+            const int w = SaveData::GetInt(SettingKey("Width")), h = SaveData::GetInt(SettingKey("Height"));
+            if (w > 0 && h > 0 && InWindowRange((uint32_t)w) && InWindowRange((uint32_t)h))
+                saved.Resolution = ScreenResolution{ (uint32_t)w, (uint32_t)h };
+        }
         if (SaveData::GetType(SettingKey("Brightness")) == SaveValueType::Float)
         {
             DisplayAdjustment a;
@@ -182,6 +264,8 @@ namespace Zamin {
         SaveData::DeleteKey(SettingKey("VSync"));
         SaveData::DeleteKey(SettingKey("Gamma"));
         SaveData::DeleteKey(SettingKey("Brightness"));
+        SaveData::DeleteKey(SettingKey("Width"));
+        SaveData::DeleteKey(SettingKey("Height"));
     }
 
 }

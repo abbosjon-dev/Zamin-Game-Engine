@@ -318,7 +318,7 @@ namespace Zamin {
             "  -v, --version                 o'yin va dvigatel versiyasi (kommit, build sanasi)\n"
             "  -h, --help                    shu yordam\n"
             "\n"
-            "Ustunlik: buyruq qatori > o'yinchi saqlagan sozlamalar (o'yin menyusi: to'liq ekran, VSync, gamma, yorqinlik, sifat, til)\n"
+            "Ustunlik: buyruq qatori > o'yinchi saqlagan sozlamalar (o'yin menyusi: ekran o'lchami, to'liq ekran, VSync, gamma, yorqinlik, sifat, til)\n"
             "          > loyiha sozlamalari (Project settings > Player, Graphics).\n",
             program, PlayerBenchmarkSettings::DefaultWarmup);
     }
@@ -342,13 +342,20 @@ namespace Zamin {
         player.Sanitize();
         r.Window = player.MakeWindowProps(config.Name);
 
-        // The windowed size: the command line, else the project.
+        // The windowed size: the command line, else the resolution the player chose in the game's options menu
+        // (Display::SetResolution, saved), else the project.
         if (c.Width > 0)
             r.Window.Width = std::clamp(c.Width, PlayerSettings::MinWindowSize, PlayerSettings::MaxWindowSize);
         if (c.Height > 0)
             r.Window.Height = std::clamp(c.Height, PlayerSettings::MinWindowSize, PlayerSettings::MaxWindowSize);
         if (c.Width > 0 || c.Height > 0)
             r.SizeSource = Source::CommandLine;
+        else if (saved.Resolution && saved.Resolution->IsValid())
+        {
+            r.Window.Width = std::clamp(saved.Resolution->Width, PlayerSettings::MinWindowSize, PlayerSettings::MaxWindowSize);
+            r.Window.Height = std::clamp(saved.Resolution->Height, PlayerSettings::MinWindowSize, PlayerSettings::MaxWindowSize);
+            r.SizeSource = Source::Saved;
+        }
 
         // The mode: the command line, else the player's saved choice (fullscreen in the project's kind of
         // fullscreen), else the project.
@@ -364,8 +371,8 @@ namespace Zamin {
             r.Window.Mode = *saved.Fullscreen ? r.Window.FullscreenMode : WindowMode::Windowed;
             r.ModeSource = Source::Saved;
         }
-        // An exclusive fullscreen start with an asked resolution: that video mode.
-        if (r.Window.Mode == WindowMode::Fullscreen && c.Width > 0 && c.Height > 0)
+        // An exclusive fullscreen start with an asked (or saved) resolution: that video mode.
+        if (r.Window.Mode == WindowMode::Fullscreen && ((c.Width > 0 && c.Height > 0) || r.SizeSource == Source::Saved))
         {
             r.Window.FullscreenWidth = r.Window.Width;
             r.Window.FullscreenHeight = r.Window.Height;

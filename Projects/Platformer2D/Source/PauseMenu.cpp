@@ -14,7 +14,8 @@ using namespace Zamin;
 // til o'zgarganda o'zi yangilanadi); hammasi SaveData'da saqlanadi (Audio::SaveSettings, Display::SaveSettings) va
 // keyingi safar o'yin boshlanganda qaytadi. Sozlamalar ro'yxati scroll view ichida (g'ildirak, sudrash,
 // klaviatura bilan tanlanganda o'zi aylanadi). Klaviatura / gamepad: strelkalar / D-pad tanlaydi,
-// Enter / A bosadi, Esc / B orqaga qaytadi (sozlamalardan menyuga, menyudan o'yinga).
+// Enter / A bosadi, Esc / B orqaga qaytadi (sozlamalardan menyuga, menyudan o'yinga). Menyu burchagida o'yin va
+// dvigatel versiyasi (kommiti bilan) - xato haqida xabar berishda kerak bo'ladi.
 class PauseMenu : public ScriptableEntity
 {
 public:
@@ -30,6 +31,7 @@ public:
     EntityRef GammaSlider, BrightnessSlider; // the player's picture (0.5 ... 2.0, 0.5 ... 1.5; 1 unchanged)
     EntityRef GammaValue, BrightnessValue;
     EntityRef LanguageButton;   // "Til: O'zbekcha": the next language on each click
+    EntityRef VersionText;      // the menu's corner: the game's and the engine's versions (VersionInfo)
     float MusicMuffle = 900.0f; // Hz: the music's low-pass while paused (0 = off)
 
     void OnCreate() override
@@ -41,6 +43,10 @@ public:
     {
         if (Entity overlay = Resolve(Overlay))
             overlay.SetActive(false);
+        // "Zamin Platformer v0.4.0  |  Zamin Engine 0.1.0 (fe60e8f)": what to tell when reporting a bug.
+        if (Entity version = Resolve(VersionText))
+            if (auto* text = version.TryGetComponent<TextComponent>())
+                text->Text = VersionInfo::ForActiveProject().FormatShort();
         AddMessageHandler("Resume", [this](const ScriptMessage&) { Close(); });
         AddMessageHandler("Settings", [this](const ScriptMessage&) { OpenSettings(); });
         AddMessageHandler("Back", [this](const ScriptMessage&) { CloseSettings(); });
@@ -269,4 +275,5 @@ ZM_REGISTER_SCRIPT(PauseMenu,
     ZM_FIELD(PauseMenu, GammaValue),
     ZM_FIELD(PauseMenu, BrightnessValue),
     ZM_FIELD(PauseMenu, LanguageButton).Header("Til").Tooltip("Bosilganda keyingi til (Localization::NextLanguage); matni joriy til nomi"),
+    ZM_FIELD(PauseMenu, VersionText).Header("Versiya").Tooltip("Menyu burchagi: o'yin va dvigatel versiyasi (VersionInfo::FormatShort)"),
     ZM_FIELD_RANGE(PauseMenu, MusicMuffle, 0.0f, 20000.0f).Label("Musiqa bo'g'iqligi (Hz)").Tooltip("Pauzada musiqaga low-pass filtr (0 - o'chiq)"))

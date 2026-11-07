@@ -26,7 +26,10 @@
         "start": "Start",
         "hint": "Press Space / Enter or the button   ·   L - language",
         "session_info": "GameSession (DontDestroyOnLoad) keeps the music and the coins\nacross every level",
-        "session_empty": "Session: 0 coins"
+        "session_empty": "Session: 0 coins",
+        "play": "Play",
+        "main_title": "Main menu",
+        "nav_hint": "Arrows / Enter or the mouse  ·  Esc - back"
     },
     "loading": {
         "title": "Loading",
@@ -64,7 +67,10 @@
         "controls": "Controls",
         "controls_info": "Esc / Start - pause. Arrows / D-pad - select, Enter / A - press, Esc / B - back. Scroll the list with the mouse wheel or by dragging.",
         "back": "Back",
-        "reset": "Defaults"
+        "reset": "Defaults",
+        "resolution": "Resolution: {0}",
+        "quality": "Graphics quality: {0}",
+        "graphics": "Graphics"
     },
     "player": {
         "paused": "Paused",

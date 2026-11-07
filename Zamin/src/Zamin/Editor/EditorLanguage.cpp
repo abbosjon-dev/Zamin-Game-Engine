@@ -89,6 +89,11 @@ namespace Zamin {
             // ---- Help
             { "Yordam", "Help" },
             { "Zamin haqida", "About Zamin" },
+            { "C++20 da yozilgan o'yin dvigateli. O'yinlar ham C++ da yoziladi.", "A game engine written in C++20. Games are written in C++ too." },
+            { "Kommit", "Commit" },
+            { "[o'zgarishlar bilan]", "[with uncommitted changes]" },
+            { "Kommit: noma'lum (git'siz build)", "Commit: unknown (built without git)" },
+            { "Versiyani nusxalash", "Copy version" },
             // ---- layouts
             { "Joylashuv", "Layout" },
             { "Joriy joylashuvni saqlash", "Save current layout" },

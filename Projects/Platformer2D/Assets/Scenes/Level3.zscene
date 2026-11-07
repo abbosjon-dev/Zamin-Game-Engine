@@ -3321,6 +3321,10 @@
           "BrightnessValue": {
             "Type": "Entity",
             "Value": 7732000000000048
+          },
+          "VersionText": {
+            "Type": "Entity",
+            "Value": 7732000000000050
           }
         }
       }
@@ -6878,6 +6882,66 @@
         "HoverScale": 1.04,
         "PressScale": 0.95,
         "FeedbackDuration": 0.08
+      }
+    },
+    {
+      "Entity": 7732000000000050,
+      "Tag": "Version Text",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7732000000000002,
+      "UITransform": {
+        "AnchorMin": [
+          1,
+          0
+        ],
+        "AnchorMax": [
+          1,
+          0
+        ],
+        "Pivot": [
+          1,
+          0
+        ],
+        "Position": [
+          -28,
+          20
+        ],
+        "Size": [
+          900,
+          30
+        ],
+        "FontSize": 20,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Zamin Platformer v0.4.0  |  Zamin Engine 0.1.0",
+        "Color": [
+          0.7,
+          0.75,
+          0.85,
+          0.85
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Right",
+        "AlignV": "Bottom",
+        "Font": ""
       }
     }
   ]

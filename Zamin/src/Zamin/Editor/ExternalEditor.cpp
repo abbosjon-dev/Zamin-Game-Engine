@@ -374,10 +374,7 @@ namespace Zamin {
     // ------------------------------------------------------------------ script sources
     bool ExternalEditor::IsSourceFile(const fs::path& path)
     {
-        std::string ext = path.extension().string();
-        std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return (char)std::tolower(c); });
-        return ext == ".cpp" || ext == ".cc" || ext == ".cxx" || ext == ".c" || ext == ".h" || ext == ".hpp" || ext == ".hh" ||
-               ext == ".hxx" || ext == ".inl";
+        return FileSystem::HasExtension(path, { ".cpp", ".cc", ".cxx", ".c", ".h", ".hpp", ".hh", ".hxx", ".inl" });
     }
 
     // The line (1-based) and column of "class <name>" / "struct <name>" that defines it (not a

@@ -169,9 +169,8 @@ namespace Zamin {
             std::error_code ec;
             if (!project.empty())
             {
-                const fs::path relative = scene.lexically_relative(project.parent_path() / "Assets");
-                if (!relative.empty() && !relative.generic_string().starts_with(".."))
-                    where = relative.generic_string();
+                if (std::string relative = FileSystem::GetRelativeInside(scene, project.parent_path() / "Assets"); !relative.empty())
+                    where = relative;
             }
             const std::string detail = std::format("{}   \xc2\xb7   {}   \xc2\xb7   {}", project.empty() ? std::string("?") : project.stem().string(), where,
                                                    FormatTimeAgo(e.Time, now));

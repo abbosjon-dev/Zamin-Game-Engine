@@ -294,21 +294,9 @@ namespace Zamin {
 
     std::filesystem::path SaveData::GetDirectoryFor(std::string_view company, std::string_view product)
     {
-        std::filesystem::path base;
-#ifdef _WIN32
-        if (const char* appData = std::getenv("APPDATA"); appData && *appData)
-            base = appData;
-#else
-        if (const char* xdg = std::getenv("XDG_DATA_HOME"); xdg && *xdg && std::filesystem::path(xdg).is_absolute())
-            base = xdg;
-        else if (const char* home = std::getenv("HOME"); home && *home)
-            base = std::filesystem::path(home) / ".local" / "share";
-#endif
+        std::filesystem::path base = FileSystem::GetUserDataDirectory();
         if (base.empty())
-        {
-            std::error_code ec;
-            base = std::filesystem::temp_directory_path(ec);
-        }
+            base = FileSystem::GetTempDirectory();
         // Without a company (or one of only spaces / dots) the engine's own folder: where every game
         // kept its data before company names.
         const bool hasCompany = company.find_first_not_of(" .") != std::string_view::npos;

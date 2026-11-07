@@ -1,6 +1,7 @@
 #include "UI.h"
 
 #include <imgui_stdlib.h>
+#include <Zamin/Utils/FileSystem.h>
 
 #include <algorithm>
 #include <filesystem>
@@ -21,8 +22,7 @@ namespace Zamin::UI {
     static bool HasExtension(const std::string& path, const char* extensions)
     {
         if (!extensions || !*extensions) return true;
-        std::string ext = std::filesystem::path(path).extension().string();
-        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+        const std::string ext = FileSystem::GetExtension(path);
         std::string list = extensions;
         size_t start = 0;
         while (start <= list.size())

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Zamin/Math/Geometry.h"
 #include "Zamin/Renderer/VertexArray.h"
 
 #include <glm/glm.hpp>
@@ -23,12 +24,6 @@ namespace Zamin {
         glm::vec2 TexCoord;
         glm::ivec4 Joints{ 0 };
         glm::vec4 Weights{ 0.0f };
-    };
-
-    struct AABB
-    {
-        glm::vec3 Min{ 0.0f };
-        glm::vec3 Max{ 0.0f };
     };
 
     // A mesh's vertices on the CPU: their positions and normals, for a skinned mesh also the

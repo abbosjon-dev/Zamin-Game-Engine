@@ -7,6 +7,7 @@
 
 #include <Zamin/Core/BuildInfo.h>
 #include <Zamin/Core/SaveData.h>
+#include <Zamin/Utils/FileSystem.h>
 #include <Zamin/Utils/PlatformUtils.h>
 
 #include <cstdlib>
@@ -166,9 +167,7 @@ namespace Zamin {
         ImGui::EndDisabled();
 
         const fs::path current = LogFile::GetPath();
-        std::string shown = current.empty() ? GetEditorLogDirectory().string() : current.string();
-        if (const char* home = std::getenv("HOME"); home && *home && shown.starts_with(home))
-            shown = "~" + shown.substr(std::strlen(home));
+        const std::string shown = FileSystem::ShortenHomePath(current.empty() ? GetEditorLogDirectory() : current);
         // The folder button first: the path may be long (it is cut at the window's edge, whole in the tooltip).
         std::error_code ec;
         const fs::path folder = current.empty() ? GetEditorLogDirectory() : current.parent_path();

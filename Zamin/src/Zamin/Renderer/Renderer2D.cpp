@@ -988,7 +988,7 @@ void main()
 
     AABB Renderer2D::GetStringBounds(std::string_view text, const Ref<Font>& font, const TextParams& params)
     {
-        AABB box{ glm::vec3(std::numeric_limits<float>::max()), glm::vec3(-std::numeric_limits<float>::max()) };
+        AABB box = AABB::Empty();
         if (!font || !font->IsLoaded())
             return box;
         // The same layout as DrawString.
@@ -1005,8 +1005,8 @@ void main()
             if (!g) continue;
             if (g->X1 > g->X0)
             {
-                box.Min = glm::min(box.Min, glm::vec3(x + std::min(g->X0, g->X1), y + std::min(g->Y0, g->Y1), 0.0f));
-                box.Max = glm::max(box.Max, glm::vec3(x + std::max(g->X0, g->X1), y + std::max(g->Y0, g->Y1), 0.0f));
+                box.Encapsulate(glm::vec3(x + std::min(g->X0, g->X1), y + std::min(g->Y0, g->Y1), 0.0f));
+                box.Encapsulate(glm::vec3(x + std::max(g->X0, g->X1), y + std::max(g->Y0, g->Y1), 0.0f));
             }
             x += g->Advance + params.Kerning;
         }

@@ -142,6 +142,7 @@
 #include "Zamin/Math/AnimationCurve.h"
 #include "Zamin/Math/Spline.h"
 #include "Zamin/Math/Color.h"
+#include "Zamin/Math/Geometry.h"
 #include "Zamin/Utils/PlatformUtils.h"
 #include "Zamin/Utils/FileSystem.h"
 #include "Zamin/Utils/StringUtils.h"

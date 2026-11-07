@@ -3,6 +3,7 @@
 #include "Zamin/Core/Services.h"
 #include "Zamin/Scripting/ScriptableEntity.h"
 #include "Zamin/Core/Log.h"
+#include "Zamin/Utils/FileSystem.h"
 
 #if defined(__linux__) || defined(__APPLE__)
     #include <dlfcn.h>
@@ -92,7 +93,7 @@ namespace Zamin {
 #if defined(__linux__) || defined(__APPLE__)
         // Load a uniquely named copy so dlopen never returns a cached handle
         // and the build system can overwrite the original file.
-        std::filesystem::path tmpDir = std::filesystem::temp_directory_path(ec) / "zamin-modules";
+        std::filesystem::path tmpDir = FileSystem::GetTempDirectory() / "zamin-modules";
         std::filesystem::create_directories(tmpDir, ec);
         std::filesystem::path copy = tmpDir / (path.stem().string() + "-" + std::to_string(getpid()) + "-" +
                                                std::to_string(++s_Module.Generation) + path.extension().string());

@@ -39464,3 +39464,879 @@ TEST(AssertsWithMessages)
     std::error_code ec;
     fs::remove_all(dir, ec);
 }
+
+TEST(FileSystemLexicalPaths)
+{
+    // NormalizePath: separators, ".", "..", repeated and trailing slashes.
+    CHECK(FileSystem::NormalizePath("Assets\\Textures/./../Sprites//hero.png") == "Assets/Sprites/hero.png");
+    CHECK(FileSystem::NormalizePath("") == "");
+    CHECK(FileSystem::NormalizePath(".") == ".");
+    CHECK(FileSystem::NormalizePath("a/..") == ".");
+    CHECK(FileSystem::NormalizePath("a/b/../../..") == "..");
+    CHECK(FileSystem::NormalizePath("../../a/./b/") == "../../a/b");
+    CHECK(FileSystem::NormalizePath("/../a/../../b") == "/b");   // nothing above the root
+    CHECK(FileSystem::NormalizePath("//usr///lib/") == "/usr/lib");
+    CHECK(FileSystem::NormalizePath("/") == "/");
+    CHECK(FileSystem::NormalizePath("c:\\Games\\..\\Zamin\\") == "C:/Zamin");
+    CHECK(FileSystem::NormalizePath("a:b.png") == "a:b.png");     // a file name, not a drive
+    CHECK(FileSystem::NormalizePath("..foo/.bar") == "..foo/.bar"); // only ".." itself climbs
+    CHECK(FileSystem::NormalizePath(std::string_view("x/y/../z")) == "x/z");
+
+    CHECK(FileSystem::IsAbsolutePath("/a") && FileSystem::IsAbsolutePath("\\a") && FileSystem::IsAbsolutePath("C:/a") &&
+          FileSystem::IsAbsolutePath("d:"));
+    CHECK(!FileSystem::IsAbsolutePath("a/b") && !FileSystem::IsAbsolutePath("") && !FileSystem::IsAbsolutePath("a:b"));
+
+    // RelativePath.
+    CHECK(FileSystem::RelativePath("Assets/Scenes/A.zscene", "Assets/Textures") == "../Scenes/A.zscene");
+    CHECK(FileSystem::RelativePath("/game/Assets/a.png", "/game") == "Assets/a.png");
+    CHECK(FileSystem::RelativePath("/game", "/game/Assets/x") == "../..");
+    CHECK(FileSystem::RelativePath("/game/./Assets/", "/game/Assets") == ".");
+    CHECK(FileSystem::RelativePath("../b", "../a") == "../b");
+    CHECK(FileSystem::RelativePath("a", "..") == "");             // the folder ".." ends in has no name here
+    CHECK(FileSystem::RelativePath("/a", "a") == "");             // absolute against relative
+    CHECK(FileSystem::RelativePath("C:/a", "D:/a") == "");        // other drives
+    CHECK(FileSystem::RelativePath("c:/x/y", "C:/x") == "y");     // a drive letter in either case
+    CHECK(FileSystem::RelativePath("", "a") == "" && FileSystem::RelativePath("a", "") == "");
+
+    // IsSubPath / GetRelativeInside: whole parts.
+    CHECK(FileSystem::IsSubPath("/p/Assets/a/b.png", "/p/Assets"));
+    CHECK(FileSystem::IsSubPath("/p/Assets", "/p/Assets/"));
+    CHECK(!FileSystem::IsSubPath("/p/Assets", "/p/Assets", false));
+    CHECK(!FileSystem::IsSubPath("/p/Assets2/x", "/p/Assets"));
+    CHECK(!FileSystem::IsSubPath("/p/Assets/../x", "/p/Assets"));
+    CHECK(FileSystem::IsSubPath("/p/Assets/x/../y", "/p/Assets"));
+    CHECK(FileSystem::IsSubPath("a/b", ".") && !FileSystem::IsSubPath("../a", "."));
+    CHECK(FileSystem::IsSubPath("../a", "..") && !FileSystem::IsSubPath("../..", ".."));
+    CHECK(!FileSystem::IsSubPath("p/Assets/x", "/p/Assets") && !FileSystem::IsSubPath("", "/") && !FileSystem::IsSubPath("/a", ""));
+    CHECK(FileSystem::IsSubPath("/anything", "/"));
+    CHECK(FileSystem::GetRelativeInside("/game/Assets/a/b.png", "/game/Assets") == "a/b.png");
+    CHECK(FileSystem::GetRelativeInside("/game/Assets", "/game/Assets") == "");
+    CHECK(FileSystem::GetRelativeInside("/game/Other/a.png", "/game/Assets") == "");
+    CHECK(FileSystem::GetRelativeInside("/game/Assets/..hidden/a", "/game/Assets") == "..hidden/a");
+    CHECK(FileSystem::GetRelativeInside("C:\\Game\\Assets\\a.png", "c:/game/../Game/Assets") == "a.png");
+
+    // Safe relative paths and SafeJoin: nothing may leave the root.
+    CHECK(FileSystem::IsSafeRelativePath("slot1.json") && FileSystem::IsSafeRelativePath("a/../b") && FileSystem::IsSafeRelativePath("."));
+    CHECK(!FileSystem::IsSafeRelativePath("") && !FileSystem::IsSafeRelativePath("../x") && !FileSystem::IsSafeRelativePath("a/../../x"));
+    CHECK(!FileSystem::IsSafeRelativePath("/etc/passwd") && !FileSystem::IsSafeRelativePath("\\\\server\\share") &&
+          !FileSystem::IsSafeRelativePath("C:\\Windows") && !FileSystem::IsSafeRelativePath(".."));
+    CHECK(!FileSystem::IsSafeRelativePath(std::string("a\0b", 3)));
+    const std::filesystem::path root = "/saves";
+    CHECK(FileSystem::SafeJoin(root, "slot1.json") == std::filesystem::path("/saves/slot1.json"));
+    CHECK(FileSystem::SafeJoin(root, "a\\./b/../c.json") == std::filesystem::path("/saves/a/c.json"));
+    CHECK(FileSystem::SafeJoin(root, ".") == root);
+    CHECK(FileSystem::SafeJoin(root, "../etc/passwd").empty());
+    CHECK(FileSystem::SafeJoin(root, "a/../../x").empty());
+    CHECK(FileSystem::SafeJoin(root, "/etc/passwd").empty());
+    CHECK(FileSystem::SafeJoin(root, "").empty());
+    // Whatever SafeJoin gives stays inside the root (random part soups).
+    RandomGenerator rng(376);
+    const char* parts[] = { "a", "..", ".", "b", "", "\\", "/", "c.txt", "..x" };
+    int joined = 0;
+    for (int i = 0; i < 2000; i++)
+    {
+        std::string text;
+        for (int k = rng.Range(1, 6); k > 0; k--)
+            text += std::string(parts[rng.Index(std::size(parts))]) + (rng.Bool() ? "/" : "");
+        const std::filesystem::path out = FileSystem::SafeJoin(root, text);
+        if (!out.empty())
+        {
+            joined++;
+            CHECK(FileSystem::IsSubPath(out, root));
+        }
+        CHECK(out.empty() == !FileSystem::IsSafeRelativePath(text));
+        // Normalizing twice changes nothing.
+        CHECK(FileSystem::NormalizePath(FileSystem::NormalizePath(text)) == FileSystem::NormalizePath(text));
+        // The sanitized path is always safe (or empty).
+        const std::string clean = FileSystem::SanitizeRelativePath(text);
+        CHECK(clean.empty() || FileSystem::IsSafeRelativePath(clean));
+    }
+    CHECK(joined > 200);
+
+    CHECK(FileSystem::SanitizeRelativePath("/etc/x") == "etc/x");
+    CHECK(FileSystem::SanitizeRelativePath("../../a/./b") == "a/b");
+    CHECK(FileSystem::SanitizeRelativePath("C:\\a\\b") == "a/b");
+    CHECK(FileSystem::SanitizeRelativePath("..") == "" && FileSystem::SanitizeRelativePath("") == "");
+    // The autosave copies use it (unchanged results).
+    const std::filesystem::path project = "/proj";
+    CHECK(EditorAutosave::GetFilePath(project, "../../etc/x.zscene") == project / ".zamin" / "autosave" / "etc" / "x.zscene");
+    CHECK(EditorAutosave::GetFilePath(project, "/abs/Level.zscene") == project / ".zamin" / "autosave" / "abs" / "Level.zscene");
+    CHECK(EditorAutosave::GetFilePath(project, "..") == project / ".zamin" / "autosave" / EditorAutosave::UnsavedSceneName);
+
+    // Extensions.
+    CHECK(FileSystem::GetExtension("Textures/Hero.PNG") == ".png");
+    CHECK(FileSystem::GetExtension("Makefile") == "" && FileSystem::GetExtension(".gitignore") == "");
+    CHECK(FileSystem::GetExtension("a.tar.GZ") == ".gz");
+    CHECK(FileSystem::HasExtension("a/Model.GLB", ".glb") && FileSystem::HasExtension("a/Model.GLB", "glb"));
+    CHECK(FileSystem::HasExtension("a.tar.gz", ".tar.gz") && FileSystem::HasExtension("a.tar.gz", "TAR.GZ"));
+    CHECK(!FileSystem::HasExtension("a.png", ".jpg") && !FileSystem::HasExtension(".png", ".png") && !FileSystem::HasExtension("apng", "png"));
+    CHECK(FileSystem::HasExtension("README", "") && !FileSystem::HasExtension("a.txt", ""));
+    CHECK(FileSystem::HasExtension("scene.zscene", { ".zprefab", ".zscene" }) && !FileSystem::HasExtension("scene.zmat", { ".zprefab", ".zscene" }));
+    CHECK(FileSystem::ReplaceExtension("a/b.png", ".zmeta") == std::filesystem::path("a/b.zmeta"));
+    CHECK(FileSystem::ReplaceExtension("a/b.png", "jpg") == std::filesystem::path("a/b.jpg"));
+    CHECK(FileSystem::ReplaceExtension("a/b.png", "") == std::filesystem::path("a/b"));
+    CHECK(FileSystem::GetStem("a/hero.png") == "hero");
+    CHECK(ExternalEditor::IsSourceFile("Source/Player.CPP") && ExternalEditor::IsSourceFile("x.hpp") && !ExternalEditor::IsSourceFile("x.zscene"));
+
+    // The asset registry's relative paths go through it: Windows separators work, nothing outside.
+    AssetRegistry registry(true);
+    CHECK(registry.ToRelativePath("Textures\\Hero.png") == "Textures/Hero.png");
+    CHECK(registry.ToRelativePath("Textures/./a/../Hero.png/") == "Textures/Hero.png");
+    CHECK(registry.ToRelativePath("../Outside.png") == "");
+    CHECK(registry.ToRelativePath(".") == "");
+}
+
+TEST(FileSystemDiskPathsAndFolders)
+{
+    namespace fs = std::filesystem;
+    // Temporary folders: new, unique, private; TempDirectory removes its own.
+    fs::path kept;
+    {
+        TempDirectory a("zamin-fs-test"), b("zamin-fs-test");
+        CHECK(a.IsValid() && b.IsValid() && a.GetPath() != b.GetPath());
+        CHECK(fs::is_directory(a.GetPath()) && fs::is_empty(a.GetPath()));
+        CHECK(FileSystem::IsSubPath(a.GetPath(), FileSystem::GetTempDirectory(), false));
+        CHECK(a.GetPath().filename().string().starts_with("zamin-fs-test-"));
+#if defined(__linux__)
+        const fs::perms perms = fs::status(a.GetPath()).permissions();
+        CHECK((perms & (fs::perms::group_all | fs::perms::others_all)) == fs::perms::none);
+#endif
+        CHECK(FileSystem::WriteTextFile(a.GetPath() / "sub" / "x.txt", "salom"));
+
+        // Symbolic links: lexically outside, on disk inside.
+        const fs::path inside = a.GetPath() / "real";
+        fs::create_directories(inside / "deep");
+        std::error_code ec;
+        fs::create_directory_symlink(inside, b.GetPath() / "link", ec);
+        CHECK(!ec);
+        const fs::path viaLink = b.GetPath() / "link" / "deep";
+        CHECK(!FileSystem::IsSubPath(viaLink, a.GetPath()));
+        CHECK(FileSystem::IsSubPathOnDisk(viaLink, a.GetPath()));
+        CHECK(FileSystem::IsSubPathOnDisk(viaLink / "not-yet" / "file.txt", inside)); // the missing rest is kept
+        CHECK(FileSystem::CanonicalPath(viaLink) == fs::path(FileSystem::NormalizePath(fs::canonical(inside / "deep"))));
+        CHECK(AssetFiles::IsInside(viaLink, inside) && !AssetFiles::IsInside(b.GetPath(), inside));
+        CHECK(FileSystem::AbsolutePath(b.GetPath() / "link" / ".." / "x") == fs::path(FileSystem::NormalizePath(b.GetPath() / "x")));
+
+        // Moving hands the folder over; Release keeps it.
+        TempDirectory moved = std::move(a);
+        CHECK(!a.IsValid() && moved.IsValid() && fs::exists(moved.GetPath() / "sub" / "x.txt"));
+        TempDirectory c("zamin-fs-kept");
+        kept = c.Release();
+        CHECK(!c.IsValid() && fs::is_directory(kept));
+        const fs::path removed = moved.GetPath();
+        moved.Remove();
+        CHECK(!fs::exists(removed) && !moved.IsValid());
+    }
+    CHECK(fs::is_directory(kept));
+    std::error_code ec;
+    fs::remove_all(kept, ec);
+    // Separators in the prefix cannot lead out of the temporary folder.
+    {
+        TempDirectory odd("../../zamin-odd");
+        CHECK(odd.IsValid() && FileSystem::IsSubPath(odd.GetPath(), FileSystem::GetTempDirectory(), false));
+        CHECK(odd.GetPath().filename().string().starts_with(".._.._zamin-odd-"));
+    }
+
+    // XDG folders: absolute values only.
+    auto saveEnv = [](const char* name) { const char* v = std::getenv(name); return v ? std::optional<std::string>(v) : std::nullopt; };
+    auto restoreEnv = [](const char* name, const std::optional<std::string>& v) { if (v) setenv(name, v->c_str(), 1); else unsetenv(name); };
+    const auto home = saveEnv("HOME"), config = saveEnv("XDG_CONFIG_HOME"), data = saveEnv("XDG_DATA_HOME"), cache = saveEnv("XDG_CACHE_HOME");
+    setenv("HOME", "/home/zamin-test", 1);
+    unsetenv("XDG_CONFIG_HOME");
+    unsetenv("XDG_DATA_HOME");
+    setenv("XDG_CACHE_HOME", "relative/cache", 1);
+    CHECK(FileSystem::GetHomeDirectory() == fs::path("/home/zamin-test"));
+    CHECK(FileSystem::GetUserConfigDirectory() == fs::path("/home/zamin-test/.config"));
+    CHECK(FileSystem::GetUserDataDirectory() == fs::path("/home/zamin-test/.local/share"));
+    CHECK(FileSystem::GetUserCacheDirectory() == fs::path("/home/zamin-test/.cache"));
+    CHECK(EditorPreferences::GetConfigDirectory() == fs::path("/home/zamin-test/.config/zamin"));
+    CHECK(SaveData::GetDirectoryFor("", "Demo") == fs::path("/home/zamin-test/.local/share/zamin/Demo"));
+    setenv("XDG_CONFIG_HOME", "/xdg/config", 1);
+    setenv("XDG_DATA_HOME", "/xdg/data", 1);
+    CHECK(FileSystem::GetUserConfigDirectory() == fs::path("/xdg/config") && FileSystem::GetUserDataDirectory() == fs::path("/xdg/data"));
+    CHECK(EditorPreferences::GetConfigDirectory() == fs::path("/xdg/config/zamin"));
+    // "~" for the home folder, whole parts only.
+    CHECK(FileSystem::ShortenHomePath("/home/zamin-test/.config/zamin/preferences.json") == "~/.config/zamin/preferences.json");
+    CHECK(FileSystem::ShortenHomePath("/home/zamin-test") == "~");
+    CHECK(FileSystem::ShortenHomePath("/home/zamin-test2/x") == "/home/zamin-test2/x");
+    CHECK(FileSystem::ShortenHomePath("relative/x") == "relative/x");
+    restoreEnv("HOME", home);
+    restoreEnv("XDG_CONFIG_HOME", config);
+    restoreEnv("XDG_DATA_HOME", data);
+    restoreEnv("XDG_CACHE_HOME", cache);
+}
+
+// The 12 triangles (counter-clockwise from outside) of a box, for cross-checking the box tests.
+static std::vector<glm::vec3> BoxTriangles(const AABB& box, const glm::mat4& transform = glm::mat4(1.0f))
+{
+    static const int faces[6][4] = { { 0, 4, 6, 2 }, { 1, 3, 7, 5 }, { 0, 1, 5, 4 }, { 2, 6, 7, 3 }, { 0, 2, 3, 1 }, { 4, 5, 7, 6 } };
+    std::vector<glm::vec3> out;
+    for (const auto& f : faces)
+    {
+        glm::vec3 c[4];
+        for (int i = 0; i < 4; i++)
+            c[i] = glm::vec3(transform * glm::vec4(box.GetCorner(f[i]), 1.0f));
+        for (int i : { 0, 1, 2, 0, 2, 3 })
+            out.push_back(c[i]);
+    }
+    return out;
+}
+
+TEST(GeometryBoundingVolumes)
+{
+    // AABB basics.
+    AABB box = AABB::Empty();
+    CHECK(!box.IsValid() && box.GetVolume() == 0.0f);
+    box.Encapsulate(glm::vec3(1, 2, 3));
+    CHECK(box.IsValid() && box.Min == glm::vec3(1, 2, 3) && box.Max == glm::vec3(1, 2, 3));
+    box.Encapsulate(AABB{ { -1, 0, 0 }, { 0, 4, 1 } });
+    CHECK(box == (AABB{ { -1, 0, 0 }, { 1, 4, 3 } }));
+    box.Encapsulate(AABB::Empty()); // adds nothing
+    CHECK(box == (AABB{ { -1, 0, 0 }, { 1, 4, 3 } }));
+    CHECK(box.GetCenter() == glm::vec3(0, 2, 1.5f) && box.GetSize() == glm::vec3(2, 4, 3) && box.GetExtents() == glm::vec3(1, 2, 1.5f));
+    CHECK_NEAR(box.GetVolume(), 24.0f, 1e-6f);
+    CHECK_NEAR(box.GetSurfaceArea(), 2.0f * (8 + 12 + 6), 1e-5f);
+    CHECK(box.GetCorner(0) == box.Min && box.GetCorner(7) == box.Max && box.GetCorner(5) == glm::vec3(1, 0, 3));
+    CHECK(box.Contains(glm::vec3(1, 4, 3)) && !box.Contains(glm::vec3(1.001f, 0, 0)));
+    CHECK(box.Contains(AABB{ { 0, 0, 0 }, { 1, 1, 1 } }) && !box.Contains(AABB{ { 0, 0, 0 }, { 2, 1, 1 } }) && !box.Contains(AABB::Empty()));
+    CHECK(box.Intersects(AABB{ { 1, 4, 3 }, { 5, 5, 5 } }));   // touching
+    CHECK(!box.Intersects(AABB{ { 1.01f, 0, 0 }, { 5, 5, 5 } }) && !box.Intersects(AABB::Empty()));
+    CHECK(box.Expanded(1.0f) == (AABB{ { -2, -1, -1 }, { 2, 5, 4 } }));
+    CHECK(box.ClosestPoint(glm::vec3(5, -3, 2)) == glm::vec3(1, 0, 2));
+    CHECK_NEAR(box.Distance(glm::vec3(4, 2, 1)), 3.0f, 1e-6f);
+    CHECK(box.DistanceSquared(glm::vec3(0, 1, 1)) == 0.0f);
+    CHECK(AABB::FromCenterExtents({ 1, 1, 1 }, { 1, 2, 3 }) == (AABB{ { 0, -1, -2 }, { 2, 3, 4 } }));
+    const glm::vec3 pts[] = { { 3, -1, 2 }, { -2, 5, 0 }, { 0, 0, -4 } };
+    CHECK(AABB::FromPoints(pts) == (AABB{ { -2, -1, -4 }, { 3, 5, 2 } }));
+    CHECK(!AABB::FromPoints({}).IsValid());
+    CHECK(AABB::Empty().Transformed(glm::mat4(2.0f)) == AABB::Empty()); // stays empty
+    CHECK(TransformAABB(box, glm::mat4(1.0f)) == box);
+
+    // Transformed: the tightest box around the moved corners (random affine transforms).
+    RandomGenerator rng(377);
+    for (int i = 0; i < 200; i++)
+    {
+        const glm::vec3 c = rng.InsideBox(glm::vec3(-10), glm::vec3(10)), e = rng.InsideBox(glm::vec3(0.1f), glm::vec3(4));
+        const AABB local = AABB::FromCenterExtents(c, e);
+        const glm::mat4 m = glm::translate(glm::mat4(1.0f), rng.InsideBox(glm::vec3(-5), glm::vec3(5))) * glm::mat4_cast(rng.Rotation()) *
+                            glm::scale(glm::mat4(1.0f), rng.InsideBox(glm::vec3(0.2f), glm::vec3(3)));
+        AABB corners = AABB::Empty();
+        for (int k = 0; k < 8; k++)
+            corners.Encapsulate(glm::vec3(m * glm::vec4(local.GetCorner(k), 1.0f)));
+        const AABB moved = local.Transformed(m);
+        CHECK(Math::Approximately(moved.Min, corners.Min, 1e-3f) && Math::Approximately(moved.Max, corners.Max, 1e-3f));
+    }
+
+    // Spheres.
+    const Sphere unit{ glm::vec3(0.0f), 1.0f };
+    CHECK(unit.Contains(glm::vec3(1, 0, 0)) && !unit.Contains(glm::vec3(0.8f, 0.8f, 0)));
+    CHECK(unit.Contains(Sphere{ { 0.5f, 0, 0 }, 0.5f }) && !unit.Contains(Sphere{ { 0.6f, 0, 0 }, 0.5f }));
+    CHECK(unit.Intersects(Sphere{ { 3, 0, 0 }, 2.0f }) && !unit.Intersects(Sphere{ { 3.01f, 0, 0 }, 2.0f }));
+    CHECK(unit.ClosestPoint(glm::vec3(0, 3, 0)) == glm::vec3(0, 1, 0) && unit.ClosestPoint(glm::vec3(0.2f)) == glm::vec3(0.2f));
+    CHECK_NEAR(unit.SignedDistance(glm::vec3(0, 0, 3)), 2.0f, 1e-6f);
+    CHECK_NEAR(unit.SignedDistance(glm::vec3(0)), -1.0f, 1e-6f);
+    CHECK(unit.GetBounds() == (AABB{ glm::vec3(-1), glm::vec3(1) }));
+    const Sphere fromBox = Sphere::FromAABB(AABB{ glm::vec3(-1), glm::vec3(1) });
+    CHECK_NEAR(fromBox.Radius, std::sqrt(3.0f), 1e-6f);
+    Sphere grown = unit;
+    grown.Encapsulate(glm::vec3(3, 0, 0));
+    CHECK(Math::Approximately(grown.Center, glm::vec3(1, 0, 0)) && std::abs(grown.Radius - 2.0f) < 1e-5f);
+    grown.Encapsulate(Sphere{ { -10, 0, 0 }, 1.0f });
+    CHECK(grown.Contains(Sphere{ { -10, 0, 0 }, 0.999f }) && grown.Contains(glm::vec3(2.999f, 0, 0)));
+    Sphere swallowed = unit;
+    swallowed.Encapsulate(Sphere{ { 0.5f, 0, 0 }, 5.0f });
+    CHECK(swallowed == (Sphere{ { 0.5f, 0, 0 }, 5.0f }));
+    const glm::mat4 scaled = glm::translate(glm::mat4(1.0f), glm::vec3(5, 0, 0)) * glm::scale(glm::mat4(1.0f), glm::vec3(1, 3, 2));
+    const Sphere moved = unit.Transformed(scaled);
+    CHECK(Math::Approximately(moved.Center, glm::vec3(5, 0, 0)) && std::abs(moved.Radius - 3.0f) < 1e-5f);
+
+    // FromPoints holds every point and stays near the smallest sphere: points on a sphere of radius 2.
+    for (int round = 0; round < 20; round++)
+    {
+        std::vector<glm::vec3> cloud;
+        const glm::vec3 center = rng.InsideBox(glm::vec3(-50), glm::vec3(50));
+        for (int i = 0; i < 300; i++)
+            cloud.push_back(center + rng.OnUnitSphere() * 2.0f);
+        const Sphere s = Sphere::FromPoints(cloud);
+        for (const glm::vec3& p : cloud)
+            CHECK(glm::length(p - s.Center) <= s.Radius * 1.0001f + 1e-4f);
+        CHECK(s.Radius >= 1.99f && s.Radius < 2.0f * 1.15f);
+    }
+    const glm::vec3 cube[] = { { 0, 0, 0 }, { 1, 0, 0 }, { 0, 1, 0 }, { 1, 1, 0 }, { 0, 0, 1 }, { 1, 0, 1 }, { 0, 1, 1 }, { 1, 1, 1 } };
+    const Sphere cubeSphere = Sphere::FromPoints(cube);
+    CHECK(Math::Approximately(cubeSphere.Center, glm::vec3(0.5f), 1e-5f) && std::abs(cubeSphere.Radius - std::sqrt(0.75f)) < 1e-4f);
+    CHECK(Sphere::FromPoints({}).Radius == 0.0f);
+
+    // Planes.
+    const Plane ground = Plane::FromPointNormal(glm::vec3(0, 2, 0), glm::vec3(0, 5, 0));
+    CHECK(ground.Normal == glm::vec3(0, 1, 0) && ground.Distance == -2.0f && ground.IsValid());
+    CHECK(ground.SignedDistance(glm::vec3(3, 5, 1)) == 3.0f && ground.IsInFront(glm::vec3(0, 3, 0)) && !ground.IsInFront(glm::vec3(0, 1, 0)));
+    CHECK(ground.ClosestPoint(glm::vec3(4, -7, 1)) == glm::vec3(4, 2, 1));
+    CHECK(ground.Flipped().SignedDistance(glm::vec3(0, 5, 0)) == -3.0f);
+    const Plane tri = Plane::FromPoints(glm::vec3(0, 0, 0), glm::vec3(1, 0, 0), glm::vec3(0, 1, 0)); // counter-clockwise seen from +Z
+    CHECK(Math::Approximately(tri.Normal, glm::vec3(0, 0, 1)) && tri.Distance == 0.0f);
+    CHECK(!Plane::FromPoints(glm::vec3(0), glm::vec3(1), glm::vec3(2)).IsValid());
+    const Plane fromVector = Plane::FromVector(glm::vec4(0, 0, 2, -4));
+    CHECK(fromVector.Normal == glm::vec3(0, 0, 1) && fromVector.Distance == -2.0f && fromVector.ToVector() == glm::vec4(0, 0, 1, -2));
+    // Transformed: points of the plane stay on it, with non-uniform scale too.
+    const glm::mat4 skew = glm::translate(glm::mat4(1.0f), glm::vec3(1, 2, 3)) * glm::mat4_cast(glm::angleAxis(0.7f, glm::normalize(glm::vec3(1, 1, 0)))) *
+                           glm::scale(glm::mat4(1.0f), glm::vec3(2, 0.5f, 3));
+    const Plane slanted = Plane::FromPointNormal(glm::vec3(0.3f, 1, -2), glm::vec3(1, 2, -1));
+    const Plane slantedMoved = slanted.Transformed(skew);
+    for (const glm::vec3& p : { glm::vec3(0.3f, 1, -2), slanted.ClosestPoint(glm::vec3(5, 5, 5)), slanted.ClosestPoint(glm::vec3(-3, 0, 8)) })
+        CHECK(std::abs(slantedMoved.SignedDistance(glm::vec3(skew * glm::vec4(p, 1.0f)))) < 1e-4f);
+    CHECK(slantedMoved.SignedDistance(glm::vec3(skew * glm::vec4(glm::vec3(0.3f, 1, -2) + slanted.Normal, 1.0f))) > 0.0f); // the front stays the front
+
+    // Frustum (moved here from the renderer): spheres as well as boxes.
+    const glm::mat4 proj = glm::perspective(glm::radians(60.0f), 16.0f / 9.0f, 0.1f, 100.0f);
+    const Frustum frustum = Frustum::FromViewProjection(proj);
+    CHECK(frustum.Intersects(Sphere{ { 0, 0, -10 }, 1.0f }) && !frustum.Intersects(Sphere{ { 0, 0, 10 }, 1.0f }));
+    CHECK(frustum.Intersects(Sphere{ { 0, 0, 0.5f }, 1.0f }) && !frustum.Intersects(Sphere{ { 0, 0, -102 }, 1.0f }));
+    CHECK(frustum.GetPlane(4).ToVector() == frustum.Planes[4]);
+    for (int i = 0; i < 300; i++)
+    {
+        const Sphere s{ rng.InsideBox(glm::vec3(-60, -40, -120), glm::vec3(60, 40, 10)), rng.Range(0.1f, 5.0f) };
+        // A sphere the boxes call visible is never culled by the sphere test, and the reverse.
+        if (frustum.Contains(s.Center))
+            CHECK(frustum.Intersects(s) && frustum.Intersects(s.GetBounds()));
+        if (!frustum.Intersects(s.GetBounds()))
+            CHECK(!frustum.Intersects(s));
+    }
+}
+
+TEST(GeometryRayAABBAndSphere)
+{
+    const AABB box{ { -1, -2, -3 }, { 1, 2, 3 } };
+    // Straight at a face.
+    auto hit = Geometry::Raycast(Ray({ -10, 0, 0 }, { 1, 0, 0 }), box);
+    CHECK(hit && std::abs(hit->Distance - 9.0f) < 1e-5f && hit->Normal == glm::vec3(-1, 0, 0) && Math::Approximately(hit->Point, glm::vec3(-1, 0, 0)));
+    hit = Geometry::Raycast(Ray({ 0, 0, 10 }, { 0, 0, -2 }), box); // the direction is normalized
+    CHECK(hit && std::abs(hit->Distance - 7.0f) < 1e-5f && hit->Normal == glm::vec3(0, 0, 1));
+    // Misses: beside it, behind it, too far, parallel outside a slab, zero direction, empty box.
+    CHECK(!Geometry::Raycast(Ray({ -10, 2.01f, 0 }, { 1, 0, 0 }), box));
+    CHECK(!Geometry::Raycast(Ray({ -10, 0, 0 }, { -1, 0, 0 }), box));
+    CHECK(!Geometry::Raycast(Ray({ -10, 0, 0 }, { 1, 0, 0 }), box, 8.9f) && Geometry::Raycast(Ray({ -10, 0, 0 }, { 1, 0, 0 }), box, 9.1f));
+    CHECK(!Geometry::Raycast(Ray({ 0, 5, 0 }, { 1, 0, 0 }), box));
+    CHECK(!Geometry::Raycast(Ray({ 0, 0, 0 }, { 0, 0, 0 }), box));
+    CHECK(!Geometry::Raycast(Ray({ -10, 0, 0 }, { 1, 0, 0 }), AABB::Empty()));
+    // Along a face (inclusive) and through an edge.
+    CHECK(Geometry::Raycast(Ray({ -10, 2, 0 }, { 1, 0, 0 }), box));
+    hit = Geometry::Raycast(Ray({ -5, -6, 0 }, glm::vec3(1, 1, 0)), box);
+    CHECK(hit && Math::Approximately(hit->Point, glm::vec3(-1, -2, 0), 1e-4f));
+    // From inside: at the origin, no normal; the slab interval says where it leaves.
+    hit = Geometry::Raycast(Ray({ 0.5f, 0, 0 }, { 1, 0, 0 }), box);
+    CHECK(hit && hit->Distance == 0.0f && hit->Normal == glm::vec3(0.0f) && hit->Point == glm::vec3(0.5f, 0, 0));
+    float tEnter = 0.0f, tExit = 0.0f;
+    CHECK(Geometry::IntersectRayAABB(Ray({ 0.5f, 0, 0 }, { 1, 0, 0 }), box, tEnter, tExit) && tEnter < 0.0f && std::abs(tExit - 0.5f) < 1e-6f);
+    CHECK(Geometry::IntersectRayAABB(Ray({ 0, 0, -9 }, { 0, 0, 1 }), box, tEnter, tExit) && std::abs(tEnter - 6.0f) < 1e-5f && std::abs(tExit - 12.0f) < 1e-5f);
+    CHECK(!Geometry::IntersectRayAABB(Ray({ 0, 0, 9 }, { 0, 0, 1 }), box, tEnter, tExit));
+
+    // Against the box's 12 triangles: the same first hit for random rays from outside (and oriented boxes).
+    RandomGenerator rng(378);
+    int hits = 0, misses = 0, mismatches = 0;
+    for (int i = 0; i < 3000; i++)
+    {
+        const glm::vec3 c = rng.InsideBox(glm::vec3(-3), glm::vec3(3)), e = rng.InsideBox(glm::vec3(0.2f), glm::vec3(2));
+        const AABB b = AABB::FromCenterExtents(c, e);
+        glm::vec3 origin = rng.InsideBox(glm::vec3(-12), glm::vec3(12));
+        if (b.Contains(origin))
+            continue;
+        // Half aimed at the box (with axis-aligned directions now and then: zero components).
+        glm::vec3 target = rng.Bool() ? rng.InsideBox(b.Min, b.Max) : rng.InsideBox(glm::vec3(-12), glm::vec3(12));
+        if (rng.Bool(0.15f))
+            target = origin + glm::vec3(rng.Bool() ? 1.0f : 0.0f, 0.0f, 0.0f) * (rng.Bool() ? 1.0f : -1.0f) + glm::vec3(0, 0, 1e-30f);
+        const Ray ray = Ray::FromPoints(origin, target);
+        const bool oriented = rng.Bool(0.4f);
+        const glm::mat4 m = oriented ? glm::translate(glm::mat4(1.0f), rng.InsideBox(glm::vec3(-2), glm::vec3(2))) * glm::mat4_cast(rng.Rotation()) *
+                                           glm::scale(glm::mat4(1.0f), rng.InsideBox(glm::vec3(0.5f), glm::vec3(2)))
+                                     : glm::mat4(1.0f);
+        if (oriented && b.Transformed(m).Contains(origin))
+            continue; // (possibly) inside the oriented box: the triangles cannot tell
+        const std::vector<glm::vec3> triangles = BoxTriangles(b, m);
+        const auto expected = Geometry::Raycast(ray, triangles, {}, true);
+        const auto got = oriented ? Geometry::Raycast(ray, b, m) : Geometry::Raycast(ray, b);
+        if (expected.has_value() != got.has_value())
+        {
+            mismatches++; // only a ray grazing an edge or a corner may be called differently
+            continue;
+        }
+        if (expected && got)
+        {
+            hits++;
+            CHECK(std::abs(expected->Distance - got->Distance) < 1e-3f * std::max(1.0f, got->Distance));
+            CHECK(glm::dot(expected->Normal, got->Normal) > 0.99f || glm::length(got->Point - expected->Point) < 1e-3f);
+            CHECK(std::abs(glm::length(got->Normal) - 1.0f) < 1e-4f);
+        }
+        else if (!expected && !got)
+            misses++;
+    }
+    CHECK(hits > 500 && misses > 300 && mismatches <= 3);
+
+    // Spheres.
+    const Sphere sphere{ { 0, 0, -5 }, 2.0f };
+    hit = Geometry::Raycast(Ray({ 0, 0, 0 }, { 0, 0, -1 }), sphere);
+    CHECK(hit && std::abs(hit->Distance - 3.0f) < 1e-5f && Math::Approximately(hit->Normal, glm::vec3(0, 0, 1)));
+    CHECK(!Geometry::Raycast(Ray({ 0, 0, 0 }, { 0, 0, 1 }), sphere));            // behind
+    CHECK(!Geometry::Raycast(Ray({ 0, 2.01f, 0 }, { 0, 0, -1 }), sphere));       // beside
+    CHECK(!Geometry::Raycast(Ray({ 0, 0, 0 }, { 0, 0, -1 }), sphere, 2.9f));
+    hit = Geometry::Raycast(Ray({ 0, 0, -4 }, { 1, 0, 0 }), sphere);              // inside
+    CHECK(hit && hit->Distance == 0.0f && hit->Normal == glm::vec3(0.0f));
+    hit = Geometry::Raycast(Ray({ 0, 2, 0 }, { 0, 0, -1 }), sphere);              // grazing
+    CHECK(hit && std::abs(hit->Distance - 5.0f) < 1e-3f);
+    // Random rays: the hit lies on the surface, and no earlier point of the ray is inside.
+    int sphereHits = 0;
+    for (int i = 0; i < 2000; i++)
+    {
+        const Sphere s{ rng.InsideBox(glm::vec3(-5), glm::vec3(5)), rng.Range(0.2f, 3.0f) };
+        const glm::vec3 origin = rng.InsideBox(glm::vec3(-15), glm::vec3(15));
+        if (s.Contains(origin))
+            continue;
+        const Ray ray = Ray::FromPoints(origin, rng.Bool() ? s.Center + rng.InsideUnitSphere() * s.Radius * 1.3f : rng.InsideBox(glm::vec3(-15), glm::vec3(15)));
+        const auto h = Geometry::Raycast(ray, s);
+        // The nearest approach of the ray's line decides.
+        float along = 0.0f;
+        const glm::vec3 nearest = Geometry::ClosestPointOnRay(s.Center, ray, &along);
+        const float miss = glm::length(nearest - s.Center) - s.Radius;
+        if (std::abs(miss) < 1e-3f)
+            continue; // too close to the edge to call
+        CHECK(h.has_value() == (miss < 0.0f));
+        if (h)
+        {
+            sphereHits++;
+            CHECK(std::abs(glm::length(h->Point - s.Center) - s.Radius) < 1e-3f * std::max(1.0f, s.Radius));
+            CHECK(!s.Contains(ray.GetPoint(h->Distance * 0.99f)));
+            CHECK(glm::dot(h->Normal, ray.Direction) < 0.0f);
+        }
+    }
+    CHECK(sphereHits > 400);
+
+    // Rays from the screen: through the world point that projects to that spot.
+    const glm::mat4 view = glm::lookAt(glm::vec3(3, 4, 10), glm::vec3(0, 1, 0), glm::vec3(0, 1, 0));
+    for (const glm::mat4& proj : { glm::perspective(glm::radians(50.0f), 1.6f, 0.1f, 200.0f), glm::ortho(-8.0f, 8.0f, -5.0f, 5.0f, 0.1f, 50.0f) })
+    {
+        const glm::mat4 vp = proj * view;
+        const glm::vec3 world(1.5f, -0.5f, 2.0f);
+        const glm::vec4 clip = vp * glm::vec4(world, 1.0f);
+        const Ray ray = Ray::FromNDC(glm::vec2(clip) / clip.w, glm::inverse(vp));
+        float along = 0.0f;
+        CHECK(glm::length(Geometry::ClosestPointOnRay(world, ray, &along) - world) < 1e-3f && along > 0.0f);
+        CHECK(std::abs(glm::length(ray.Direction) - 1.0f) < 1e-5f);
+    }
+    CHECK(Ray::FromNDC(glm::vec2(0.0f), glm::mat4(0.0f)).Direction == glm::vec3(0.0f));
+    // Ray helpers.
+    const Ray r = Ray::FromPoints(glm::vec3(1, 1, 1), glm::vec3(1, 1, 5));
+    CHECK(r.Direction == glm::vec3(0, 0, 1) && r.GetPoint(2.0f) == glm::vec3(1, 1, 3));
+    const Ray moved = r.Transformed(glm::translate(glm::mat4(1.0f), glm::vec3(0, 3, 0)) * glm::scale(glm::mat4(1.0f), glm::vec3(2.0f)));
+    CHECK(moved.Origin == glm::vec3(2, 5, 2) && moved.Direction == glm::vec3(0, 0, 1));
+    CHECK(Ray(glm::vec3(0), glm::vec3(0)).Direction == glm::vec3(0.0f));
+}
+
+TEST(GeometryRayPlaneAndTriangle)
+{
+    // Planes: both sides, the normal facing the ray.
+    const Plane ground{ { 0, 1, 0 }, 0.0f };
+    auto hit = Geometry::Raycast(Ray({ 2, 5, 0 }, { 0, -1, 0 }), ground);
+    CHECK(hit && hit->Distance == 5.0f && hit->Point == glm::vec3(2, 0, 0) && hit->Normal == glm::vec3(0, 1, 0));
+    hit = Geometry::Raycast(Ray({ 0, -3, 0 }, glm::vec3(0, 1, 1)), ground);
+    CHECK(hit && std::abs(hit->Distance - 3.0f * std::sqrt(2.0f)) < 1e-5f && hit->Normal == glm::vec3(0, -1, 0));
+    CHECK(!Geometry::Raycast(Ray({ 0, 5, 0 }, { 0, 1, 0 }), ground));   // away from it
+    CHECK(!Geometry::Raycast(Ray({ 0, 5, 0 }, { 1, 0, 0 }), ground));   // along it
+    CHECK(!Geometry::Raycast(Ray({ 0, 5, 0 }, { 0, -1, 0 }), ground, 4.0f));
+
+    // Triangles (Moller-Trumbore): inside, edges, back faces, parallel, degenerate.
+    const glm::vec3 a(0, 0, 0), b(2, 0, 0), c(0, 2, 0); // counter-clockwise seen from +Z
+    hit = Geometry::Raycast(Ray({ 0.5f, 0.5f, 3 }, { 0, 0, -1 }), a, b, c);
+    CHECK(hit && std::abs(hit->Distance - 3.0f) < 1e-6f && Math::Approximately(hit->Normal, glm::vec3(0, 0, 1)));
+    CHECK(Math::Approximately(hit->Barycentric, glm::vec2(0.25f, 0.25f), 1e-5f));
+    CHECK(Math::Approximately(a * (1 - hit->Barycentric.x - hit->Barycentric.y) + b * hit->Barycentric.x + c * hit->Barycentric.y, hit->Point, 1e-5f));
+    CHECK(!Geometry::Raycast(Ray({ 1.5f, 1.5f, 3 }, { 0, 0, -1 }), a, b, c));          // beyond the long edge
+    CHECK(Geometry::Raycast(Ray({ 1.0f, 1.0f, 3 }, { 0, 0, -1 }), a, b, c));            // on it
+    CHECK(Geometry::Raycast(Ray({ 0, 0, 3 }, { 0, 0, -1 }), a, b, c));                  // a corner
+    hit = Geometry::Raycast(Ray({ 0.5f, 0.5f, -3 }, { 0, 0, 1 }), a, b, c);             // from behind
+    CHECK(hit && Math::Approximately(hit->Normal, glm::vec3(0, 0, -1)));
+    CHECK(!Geometry::Raycast(Ray({ 0.5f, 0.5f, -3 }, { 0, 0, 1 }), a, b, c, false));    // one-sided
+    CHECK(Geometry::Raycast(Ray({ 0.5f, 0.5f, 3 }, { 0, 0, -1 }), a, b, c, false));
+    CHECK(!Geometry::Raycast(Ray({ -1, 0.5f, 0 }, { 1, 0, 0 }), a, b, c));              // in its plane
+    CHECK(!Geometry::Raycast(Ray({ 0.5f, 0.5f, 3 }, { 0, 0, 1 }), a, b, c));            // behind the origin
+    CHECK(!Geometry::Raycast(Ray({ 0.5f, 0.5f, 3 }, { 0, 0, -1 }), a, b, b));           // degenerate
+    CHECK(!Geometry::Raycast(Ray({ 0.5f, 0.5f, 3 }, { 0, 0, -1 }), a, b, c, true, 2.5f));
+
+    // Random triangles: a hit lies in the triangle's plane and inside it; aimed rays always hit.
+    RandomGenerator rng(1378);
+    for (int i = 0; i < 2000; i++)
+    {
+        const glm::vec3 p0 = rng.InsideBox(glm::vec3(-5), glm::vec3(5)), p1 = rng.InsideBox(glm::vec3(-5), glm::vec3(5)),
+                        p2 = rng.InsideBox(glm::vec3(-5), glm::vec3(5));
+        if (Geometry::TriangleArea(p0, p1, p2) < 0.5f)
+            continue;
+        // A point well inside (barycentric weights >= 0.05) seen from somewhere off the plane.
+        float u = rng.Range(0.05f, 0.9f), v = rng.Range(0.05f, 0.9f);
+        if (u + v > 0.95f) { u = 0.95f - u; v = std::max(0.05f, 0.95f - v - u); }
+        const glm::vec3 target = p0 * (1 - u - v) + p1 * u + p2 * v;
+        const glm::vec3 n = Geometry::TriangleNormal(p0, p1, p2);
+        const glm::vec3 origin = target + (rng.InsideUnitSphere() * 3.0f + n * rng.Range(1.0f, 6.0f) * rng.Sign());
+        const Ray ray = Ray::FromPoints(origin, target);
+        if (std::abs(glm::dot(ray.Direction, n)) < 0.05f)
+            continue;
+        const auto h = Geometry::Raycast(ray, p0, p1, p2);
+        CHECK(h.has_value());
+        if (!h)
+            continue;
+        CHECK(glm::length(h->Point - target) < 1e-3f);
+        CHECK(std::abs(h->Barycentric.x - u) < 1e-3f && std::abs(h->Barycentric.y - v) < 1e-3f);
+        CHECK(glm::dot(h->Normal, ray.Direction) < 0.0f);
+        const glm::vec3 w = Geometry::Barycentric(h->Point, p0, p1, p2);
+        CHECK(std::abs(w.y - u) < 1e-3f && std::abs(w.z - v) < 1e-3f && std::abs(w.x + w.y + w.z - 1.0f) < 1e-5f);
+        // One-sided: only the front.
+        CHECK(Geometry::Raycast(ray, p0, p1, p2, false).has_value() == (glm::dot(ray.Direction, n) < 0.0f));
+    }
+
+    // Triangle lists: the nearest one, indices or not, broken indices skipped.
+    const std::vector<glm::vec3> positions = { { -1, -1, -5 }, { 1, -1, -5 }, { 0, 1, -5 }, { -1, -1, -2 }, { 1, -1, -2 }, { 0, 1, -2 } };
+    hit = Geometry::Raycast(Ray({ 0, 0, 0 }, { 0, 0, -1 }), positions, {});
+    CHECK(hit && hit->Triangle == 1 && std::abs(hit->Distance - 2.0f) < 1e-6f);
+    const std::vector<uint32_t> indices = { 0, 1, 2, 3, 4, 99, 3, 4, 5 };
+    hit = Geometry::Raycast(Ray({ 0, 0, 0 }, { 0, 0, -1 }), positions, indices);
+    CHECK(hit && hit->Triangle == 2 && std::abs(hit->Distance - 2.0f) < 1e-6f);
+    hit = Geometry::Raycast(Ray({ 0, 0, 0 }, { 0, 0, -1 }), positions, indices, true, 3.0f);
+    CHECK(hit && hit->Triangle == 2);
+    CHECK(!Geometry::Raycast(Ray({ 0, 0, 0 }, { 0, 0, -1 }), positions, indices, true, 1.0f));
+    CHECK(!Geometry::Raycast(Ray({ 0, 0, 0 }, { 0, 0, 1 }), positions, indices));
+
+    // Triangle helpers.
+    CHECK(Geometry::TriangleNormal(a, b, c) == glm::vec3(0, 0, 1) && Geometry::TriangleNormal(a, a, c) == glm::vec3(0.0f));
+    CHECK_NEAR(Geometry::TriangleArea(a, b, c), 2.0f, 1e-6f);
+    CHECK(Geometry::Barycentric(glm::vec3(5), a, a, a) == glm::vec3(1, 0, 0));
+}
+
+TEST(GeometryOverlapsAndClosestPoints)
+{
+    // Sphere / box, box / plane, sphere / plane.
+    const AABB box{ glm::vec3(0), glm::vec3(2) };
+    CHECK(Geometry::Intersects(Sphere{ { 3, 1, 1 }, 1.0f }, box) && !Geometry::Intersects(Sphere{ { 3.01f, 1, 1 }, 1.0f }, box));
+    CHECK(Geometry::Intersects(box, Sphere{ { 1, 1, 1 }, 0.1f }) && box.Intersects(Sphere{ { 3, 3, 1 }, 1.42f }) && !box.Intersects(Sphere{ { 3, 3, 1 }, 1.41f }));
+    CHECK(!Geometry::Intersects(Sphere{ glm::vec3(0), 5.0f }, AABB::Empty()));
+    CHECK(Geometry::Intersects(Sphere{ glm::vec3(0), 1.0f }, Sphere{ { 0, 2, 0 }, 1.0f }));
+    const Plane slope = Plane::FromPointNormal(glm::vec3(1, 1, 1), glm::vec3(1, 1, 0));
+    CHECK(Geometry::Classify(box, slope) == PlaneSide::Both && Geometry::Intersects(box, slope));
+    CHECK(Geometry::Classify(box, Plane{ { 0, 1, 0 }, 1.0f }) == PlaneSide::Front);    // y = -1
+    CHECK(Geometry::Classify(box, Plane{ { 0, 1, 0 }, -2.5f }) == PlaneSide::Back);    // y = 2.5
+    CHECK(Geometry::Classify(box, Plane{ { 0, 1, 0 }, -2.0f }) == PlaneSide::Both);    // touching the top
+    CHECK(Geometry::Classify(Sphere{ { 0, 3, 0 }, 1.0f }, Plane{ { 0, 1, 0 }, 0.0f }) == PlaneSide::Front);
+    CHECK(Geometry::Intersects(Sphere{ { 0, 0.5f, 0 }, 1.0f }, Plane{ { 0, 1, 0 }, 0.0f }));
+
+    RandomGenerator rng(2378);
+    // Box classification against the corners; sphere / box against the closest point.
+    for (int i = 0; i < 1000; i++)
+    {
+        const AABB b = AABB::FromCenterExtents(rng.InsideBox(glm::vec3(-3), glm::vec3(3)), rng.InsideBox(glm::vec3(0.1f), glm::vec3(2)));
+        const Plane p = Plane::FromPointNormal(rng.InsideBox(glm::vec3(-3), glm::vec3(3)), rng.OnUnitSphere());
+        float nearest = 1e30f, farthest = -1e30f;
+        for (int k = 0; k < 8; k++)
+        {
+            nearest = std::min(nearest, p.SignedDistance(b.GetCorner(k)));
+            farthest = std::max(farthest, p.SignedDistance(b.GetCorner(k)));
+        }
+        const PlaneSide side = Geometry::Classify(b, p);
+        if (std::abs(nearest) > 1e-4f && std::abs(farthest) > 1e-4f)
+        {
+            CHECK((side == PlaneSide::Front) == (nearest > 0.0f));
+            CHECK((side == PlaneSide::Back) == (farthest < 0.0f));
+            CHECK(Geometry::Intersects(b, p) == (nearest < 0.0f && farthest > 0.0f));
+        }
+        const Sphere s{ rng.InsideBox(glm::vec3(-6), glm::vec3(6)), rng.Range(0.1f, 3.0f) };
+        CHECK(Geometry::Intersects(s, b) == s.Contains(b.ClosestPoint(s.Center)));
+        // AABB / AABB against a brute-force interval test.
+        const AABB o = AABB::FromCenterExtents(rng.InsideBox(glm::vec3(-4), glm::vec3(4)), rng.InsideBox(glm::vec3(0.1f), glm::vec3(2)));
+        bool overlap = true;
+        for (int axis = 0; axis < 3; axis++)
+            overlap = overlap && std::max(b.Min[axis], o.Min[axis]) <= std::min(b.Max[axis], o.Max[axis]);
+        CHECK(Geometry::Intersects(b, o) == overlap && b.Intersects(o) == o.Intersects(b));
+    }
+
+    // Triangle / box (separating axes): any sample point of the triangle inside the box means they
+    // meet; when they do not meet, no sample point is inside.
+    CHECK(Geometry::Intersects(box, glm::vec3(1, 1, 1), glm::vec3(5, 1, 1), glm::vec3(1, 5, 1)));        // a corner inside
+    CHECK(Geometry::Intersects(box, glm::vec3(-5, -5, 1), glm::vec3(10, -5, 1), glm::vec3(-5, 10, 1)));  // a big one through it
+    CHECK(!Geometry::Intersects(box, glm::vec3(3, 3, 3), glm::vec3(5, 3, 3), glm::vec3(3, 5, 3)));
+    CHECK(!Geometry::Intersects(box, glm::vec3(2.5f, 0, -1), glm::vec3(4.5f, 0, -1), glm::vec3(2.5f, 0, 5)) );
+    CHECK(!Geometry::Intersects(box, glm::vec3(4.5f, 0, 1), glm::vec3(0, 4.5f, 1), glm::vec3(5, 5, 1)));   // just misses the corner (edge axis)
+    CHECK(Geometry::Intersects(box, glm::vec3(3.5f, 0, 1), glm::vec3(0, 3.5f, 1), glm::vec3(5, 5, 1)));    // cuts the corner
+    int met = 0;
+    for (int i = 0; i < 1500; i++)
+    {
+        const glm::vec3 p0 = rng.InsideBox(glm::vec3(-3), glm::vec3(5)), p1 = rng.InsideBox(glm::vec3(-3), glm::vec3(5)),
+                        p2 = rng.InsideBox(glm::vec3(-3), glm::vec3(5));
+        bool sampleInside = false;
+        for (int k = 0; k < 400 && !sampleInside; k++)
+        {
+            float u = rng.Float(), v = rng.Float();
+            if (u + v > 1.0f) { u = 1.0f - u; v = 1.0f - v; }
+            sampleInside = box.Contains(p0 * (1 - u - v) + p1 * u + p2 * v);
+        }
+        const bool meets = Geometry::Intersects(box, p0, p1, p2);
+        if (sampleInside)
+            CHECK(meets);
+        met += meets;
+        // When it says they meet, the triangle's closest point to the box is (nearly) in it.
+        if (meets)
+        {
+            float best = 1e30f;
+            for (int k = 0; k < 2000; k++)
+            {
+                float u = rng.Float(), v = rng.Float();
+                if (u + v > 1.0f) { u = 1.0f - u; v = 1.0f - v; }
+                best = std::min(best, box.Distance(p0 * (1 - u - v) + p1 * u + p2 * v));
+            }
+            CHECK(best < 0.25f);
+        }
+    }
+    CHECK(met > 200);
+
+    // Closest points: segments, lines, rays, triangles.
+    float t = -1.0f;
+    CHECK(Geometry::ClosestPointOnSegment(glm::vec3(1, 5, 0), glm::vec3(0), glm::vec3(4, 0, 0), &t) == glm::vec3(1, 0, 0) && t == 0.25f);
+    CHECK(Geometry::ClosestPointOnSegment(glm::vec3(-3, 1, 0), glm::vec3(0), glm::vec3(4, 0, 0), &t) == glm::vec3(0) && t == 0.0f);
+    CHECK(Geometry::ClosestPointOnSegment(glm::vec3(9, 1, 0), glm::vec3(0), glm::vec3(4, 0, 0), &t) == glm::vec3(4, 0, 0) && t == 1.0f);
+    CHECK(Geometry::ClosestPointOnSegment(glm::vec3(9, 1, 0), glm::vec3(2), glm::vec3(2), &t) == glm::vec3(2) && t == 0.0f);
+    CHECK(Geometry::ClosestPointOnLine(glm::vec3(-3, 1, 0), glm::vec3(0), glm::vec3(2, 0, 0), &t) == glm::vec3(-3, 0, 0) && t == -1.5f);
+    float along = -1.0f;
+    CHECK(Geometry::ClosestPointOnRay(glm::vec3(-3, 1, 0), Ray(glm::vec3(0), glm::vec3(1, 0, 0)), &along) == glm::vec3(0) && along == 0.0f);
+    float t1 = 0.0f, t2 = 0.0f;
+    CHECK(Geometry::ClosestPointsOnLines(glm::vec3(0), glm::vec3(1, 0, 0), glm::vec3(3, 5, 2), glm::vec3(0, 0, 1), t1, t2));
+    CHECK(std::abs(t1 - 3.0f) < 1e-5f && std::abs(t2 + 2.0f) < 1e-5f);
+    CHECK(!Geometry::ClosestPointsOnLines(glm::vec3(0), glm::vec3(1, 0, 0), glm::vec3(0, 1, 0), glm::vec3(-2, 0, 0), t1, t2)); // parallel
+    glm::vec3 c1, c2;
+    float s = 0.0f;
+    CHECK(std::abs(Geometry::ClosestPointsOnSegments(glm::vec3(0), glm::vec3(4, 0, 0), glm::vec3(2, 3, -1), glm::vec3(2, 3, 1), c1, c2, &s, &t) - 9.0f) < 1e-5f);
+    CHECK(Math::Approximately(c1, glm::vec3(2, 0, 0)) && Math::Approximately(c2, glm::vec3(2, 3, 0)) && std::abs(s - 0.5f) < 1e-6f && std::abs(t - 0.5f) < 1e-6f);
+    CHECK(std::abs(Geometry::ClosestPointsOnSegments(glm::vec3(0), glm::vec3(1, 0, 0), glm::vec3(3, 1, 0), glm::vec3(5, 1, 0), c1, c2) - 5.0f) < 1e-5f);
+    CHECK(Geometry::ClosestPointsOnSegments(glm::vec3(1), glm::vec3(1), glm::vec3(2), glm::vec3(2), c1, c2) == 3.0f); // two points
+
+    const glm::vec3 a(0, 0, 0), b(4, 0, 0), c(0, 4, 0);
+    glm::vec3 weights;
+    CHECK(Geometry::ClosestPointOnTriangle(glm::vec3(1, 1, 5), a, b, c, &weights) == glm::vec3(1, 1, 0) && Math::Approximately(weights, glm::vec3(0.5f, 0.25f, 0.25f)));
+    CHECK(Geometry::ClosestPointOnTriangle(glm::vec3(-2, -2, 1), a, b, c) == a);
+    CHECK(Geometry::ClosestPointOnTriangle(glm::vec3(9, -1, 0), a, b, c) == b);
+    CHECK(Geometry::ClosestPointOnTriangle(glm::vec3(2, -3, 0), a, b, c) == glm::vec3(2, 0, 0));
+    CHECK(Math::Approximately(Geometry::ClosestPointOnTriangle(glm::vec3(4, 4, 0), a, b, c), glm::vec3(2, 2, 0)));
+    // Random points against brute force on random triangles and segment pairs.
+    for (int i = 0; i < 400; i++)
+    {
+        const glm::vec3 p0 = rng.InsideBox(glm::vec3(-3), glm::vec3(3)), p1 = rng.InsideBox(glm::vec3(-3), glm::vec3(3)),
+                        p2 = rng.InsideBox(glm::vec3(-3), glm::vec3(3)), q = rng.InsideBox(glm::vec3(-6), glm::vec3(6));
+        glm::vec3 w;
+        const glm::vec3 closest = Geometry::ClosestPointOnTriangle(q, p0, p1, p2, &w);
+        CHECK(w.x >= -1e-4f && w.y >= -1e-4f && w.z >= -1e-4f && std::abs(w.x + w.y + w.z - 1.0f) < 1e-4f);
+        CHECK(Math::Approximately(p0 * w.x + p1 * w.y + p2 * w.z, closest, 1e-3f));
+        float best = 1e30f;
+        for (int k = 0; k <= 60; k++)
+            for (int l = 0; k + l <= 60; l++)
+                best = std::min(best, glm::length(q - (p0 * (1.0f - (k + l) / 60.0f) + p1 * (k / 60.0f) + p2 * (l / 60.0f))));
+        CHECK(glm::length(q - closest) <= best + 1e-4f && glm::length(q - closest) > best - 0.2f);
+
+        glm::vec3 a1, a2;
+        const float d2 = Geometry::ClosestPointsOnSegments(p0, p1, p2, q, a1, a2);
+        float bestSegments = 1e30f;
+        for (int k = 0; k <= 100; k++)
+            for (int l = 0; l <= 100; l++)
+                bestSegments = std::min(bestSegments, glm::length(glm::mix(p0, p1, k / 100.0f) - glm::mix(p2, q, l / 100.0f)));
+        CHECK(std::sqrt(d2) <= bestSegments + 1e-4f && std::sqrt(d2) > bestSegments - 0.15f);
+        CHECK(std::abs(glm::length(a1 - a2) - std::sqrt(d2)) < 1e-4f);
+    }
+}
+
+// Invariants of every M19 math module, checked on many random inputs (the per-module tests above
+// check exact values; this one checks the rules hold everywhere).
+TEST(MathPropertiesRandomized)
+{
+    RandomGenerator rng(379);
+    constexpr float Pi = Math::Pi;
+
+    // ---- MathUtils
+    for (int i = 0; i < 2000; i++)
+    {
+        const float a = rng.Range(-100.0f, 100.0f), b = a + rng.Range(0.01f, 50.0f) * rng.Sign(), v = rng.Range(-200.0f, 200.0f);
+        // InverseLerp undoes Lerp; Remap there and back is the identity.
+        const float t = rng.Float();
+        CHECK(std::abs(Math::InverseLerp(a, b, Math::Lerp(a, b, t)) - t) < 1e-3f);
+        const float c = rng.Range(-10.0f, 10.0f), d = c + rng.Range(0.5f, 20.0f);
+        CHECK(std::abs(Math::Remap(Math::Remap(v, a, b, c, d), c, d, a, b) - v) < 1e-2f * std::max(1.0f, std::abs(v)));
+        const float clamped = Math::RemapClamped(v, a, b, c, d);
+        CHECK(clamped >= c - 1e-4f && clamped <= d + 1e-4f);
+        CHECK(Math::Clamp01(v) >= 0.0f && Math::Clamp01(v) <= 1.0f);
+        // Repeat / PingPong / Wrap stay in range.
+        const float length = rng.Range(0.1f, 10.0f);
+        const float r = Math::Repeat(v, length), p = Math::PingPong(v, length), w = Math::Wrap(v, c, d);
+        CHECK(r >= 0.0f && r < length + 1e-4f);
+        CHECK(p >= 0.0f && p <= length + 1e-4f);
+        CHECK(w >= c - 1e-4f && w <= d + 1e-4f);
+        CHECK(std::abs(Math::Repeat(v + length, length) - r) < 1e-3f || std::abs(std::abs(Math::Repeat(v + length, length) - r) - length) < 1e-3f);
+        // Angles: wrapped to -Pi..Pi, DeltaAngle is the shortest turn.
+        const float angle = rng.Range(-50.0f, 50.0f), target = rng.Range(-50.0f, 50.0f);
+        const float wrapped = Math::WrapAngle(angle);
+        CHECK(wrapped >= -Pi - 1e-4f && wrapped <= Pi + 1e-4f);
+        CHECK(std::abs(std::sin(wrapped) - std::sin(angle)) < 1e-3f && std::abs(std::cos(wrapped) - std::cos(angle)) < 1e-3f);
+        const float delta = Math::DeltaAngle(angle, target);
+        CHECK(std::abs(delta) <= Pi + 1e-4f);
+        CHECK(std::abs(Math::WrapAngle(angle + delta - target)) < 1e-3f);
+        CHECK(std::abs(Math::DeltaAngle(Math::LerpAngle(angle, target, 1.0f), target)) < 1e-3f);
+        // MoveTowards: never past the target, never more than the step.
+        const float step = rng.Range(0.0f, 5.0f);
+        const float moved = Math::MoveTowards(a, b, step);
+        CHECK(std::abs(moved - a) <= step + 1e-4f);
+        CHECK((b - a) * (b - moved) >= -1e-4f);
+        CHECK(std::abs(Math::DeltaAngle(Math::MoveTowardsAngle(angle, target, step), target)) <= std::max(0.0f, std::abs(delta) - step) + 1e-3f);
+        // SmoothStep is monotonic and inside 0..1.
+        const float x0 = rng.Range(-1.0f, 2.0f), x1 = x0 + rng.Range(0.0f, 1.0f);
+        CHECK(Math::SmoothStep(0.0f, 1.0f, x0) <= Math::SmoothStep(0.0f, 1.0f, x1) + 1e-6f);
+        CHECK(Math::SmootherStep(0.0f, 1.0f, x0) >= -1e-6f && Math::SmootherStep(0.0f, 1.0f, x0) <= 1.0f + 1e-6f);
+        // Approximately is symmetric.
+        const float e = a + rng.Range(-1e-4f, 1e-4f);
+        CHECK(Math::Approximately(a, e) == Math::Approximately(e, a));
+        CHECK(Math::Sign(v) * std::abs(v) == v);
+    }
+    // SmoothDamp: reaches the target from anywhere without passing it.
+    for (int i = 0; i < 200; i++)
+    {
+        float x = rng.Range(-50.0f, 50.0f), velocity = 0.0f;
+        const float goal = rng.Range(-50.0f, 50.0f), smooth = rng.Range(0.05f, 1.0f), dt = rng.Range(1.0f / 240.0f, 1.0f / 20.0f);
+        const float startSide = goal - x;
+        for (int frame = 0; frame < 2000; frame++)
+        {
+            x = Math::SmoothDamp(x, goal, velocity, smooth, dt);
+            CHECK((goal - x) * startSide >= -1e-3f * std::max(1.0f, std::abs(startSide)));
+        }
+        CHECK(std::abs(x - goal) < 1e-2f);
+    }
+
+    // ---- Quaternions
+    for (int i = 0; i < 1000; i++)
+    {
+        const glm::quat q = rng.Rotation();
+        CHECK(Math::Approximately(Math::FromEuler(Math::ToEuler(q)), q, 1e-3f));
+        float angle = 0.0f;
+        glm::vec3 axis;
+        Math::ToAngleAxis(q, angle, axis);
+        CHECK(angle >= 0.0f && angle <= Pi + 1e-4f && std::abs(glm::length(axis) - 1.0f) < 1e-4f);
+        CHECK(Math::Approximately(Math::AngleAxis(angle, axis), q, 1e-3f));
+        // LookRotation faces forward; FromToRotation turns one direction onto the other.
+        const glm::vec3 f = rng.OnUnitSphere(), u = rng.OnUnitSphere();
+        CHECK(glm::length(Math::Forward(Math::LookRotation(f, u)) - f) < 1e-3f);
+        CHECK(glm::length(Math::FromToRotation(f, u) * f - u) < 1e-3f);
+        // Slerp goes at an even speed; RotateTowards never turns more than asked.
+        const glm::quat other = rng.Rotation();
+        const float total = Math::Angle(q, other), s = rng.Float();
+        CHECK(std::abs(Math::Angle(q, Math::Slerp(q, other, s)) - total * s) < 2e-3f);
+        const float maxTurn = rng.Range(0.0f, 1.0f);
+        CHECK(Math::Angle(q, Math::RotateTowards(q, other, maxTurn)) <= std::min(maxTurn, total) + 2e-3f);
+        CHECK(std::abs(Math::Angle(f, u) - std::acos(std::clamp(glm::dot(f, u), -1.0f, 1.0f))) < 1e-3f);
+    }
+
+    // ---- Transforms: compose then decompose gives the parts back.
+    for (int i = 0; i < 300; i++)
+    {
+        const glm::vec3 position = rng.InsideBox(glm::vec3(-100), glm::vec3(100));
+        const glm::vec3 euler(rng.Range(-1.5f, 1.5f), rng.Range(-1.5f, 1.5f), rng.Range(-3.0f, 3.0f));
+        const glm::vec3 scale = rng.InsideBox(glm::vec3(0.1f), glm::vec3(5.0f));
+        const glm::mat4 m = glm::translate(glm::mat4(1.0f), position) * glm::mat4_cast(Math::FromEuler(euler)) * glm::scale(glm::mat4(1.0f), scale);
+        glm::vec3 t, r, s;
+        CHECK(Math::DecomposeTransform(m, t, r, s));
+        CHECK(Math::Approximately(t, position, 1e-3f) && Math::Approximately(s, scale, 1e-3f));
+        CHECK(Math::Approximately(Math::FromEuler(r), Math::FromEuler(euler), 1e-3f));
+    }
+
+    // ---- Colours: conversions there and back.
+    for (int i = 0; i < 2000; i++)
+    {
+        const glm::vec3 rgb(rng.Float(), rng.Float(), rng.Float());
+        CHECK(Math::Approximately(Color::HSVToRGB(Color::RGBToHSV(rgb)), rgb, 1e-4f));
+        CHECK(Math::Approximately(Color::HSLToRGB(Color::RGBToHSL(rgb)), rgb, 1e-4f));
+        const glm::vec3 hsv = Color::RGBToHSV(rgb);
+        CHECK(hsv.x >= 0.0f && hsv.x < 1.0f + 1e-6f && hsv.y >= 0.0f && hsv.y <= 1.0f && hsv.z >= 0.0f && hsv.z <= 1.0f);
+        CHECK(Math::Approximately(Color::LinearToSRGB(Color::SRGBToLinear(rgb)), rgb, 1e-4f));
+        CHECK(Math::Approximately(Color::LinearToGamma(Color::GammaToLinear(rgb)), rgb, 1e-4f));
+        // 8-bit colours survive the hex text exactly.
+        const glm::vec4 bytes = Color::FromRGBA8((uint8_t)rng.Range(0, 255), (uint8_t)rng.Range(0, 255), (uint8_t)rng.Range(0, 255), (uint8_t)rng.Range(0, 255));
+        const auto parsed = Color::FromHex(Color::ToHex(bytes, Color::HexAlpha::Always));
+        CHECK(parsed && glm::length(*parsed - bytes) < 1e-6f);
+        // Blends stay between their ends.
+        const glm::vec4 x(rgb, 1.0f), y(rng.Float(), rng.Float(), rng.Float(), rng.Float());
+        const float s = rng.Float();
+        for (const glm::vec4& mix : { Color::Lerp(x, y, s), Color::LerpLinear(x, y, s) })
+            for (int k = 0; k < 4; k++)
+                CHECK(mix[k] >= std::min(x[k], y[k]) - 1e-4f && mix[k] <= std::max(x[k], y[k]) + 1e-4f);
+    }
+    // sRGB <-> linear is monotonic.
+    for (int i = 1; i <= 256; i++)
+        CHECK(Color::SRGBToLinear(i / 256.0f) > Color::SRGBToLinear((i - 1) / 256.0f));
+
+    // ---- Easing: every curve starts at 0 and ends at 1, and has no jumps.
+    for (int e = 0; e < EaseCount; e++)
+    {
+        const Ease ease = (Ease)e;
+        CHECK(std::abs(ApplyEase(ease, 0.0f)) < 1e-5f && std::abs(ApplyEase(ease, 1.0f) - 1.0f) < 1e-5f);
+        for (int k = 0; k < 1000; k++)
+            CHECK(std::abs(ApplyEase(ease, (k + 1) / 1000.0f) - ApplyEase(ease, k / 1000.0f)) < 0.05f);
+        CHECK(EaseFromString(EaseToString(ease)) == ease);
+    }
+
+    // ---- Noise: deterministic, in range, and continuous for every kind.
+    for (int i = 0; i < 2000; i++)
+    {
+        const glm::vec3 p = rng.InsideBox(glm::vec3(-100), glm::vec3(100));
+        const uint32_t seed = (uint32_t)rng.Range(0, 1000);
+        for (float n : { Noise::Perlin(p, seed), Noise::Simplex(p, seed), Noise::Value(p, seed), Noise::Perlin(glm::vec2(p), seed),
+                         Noise::Simplex(glm::vec2(p), seed) })
+            CHECK(n >= -1.0001f && n <= 1.0001f);
+        CHECK(Noise::Perlin(p, seed) == Noise::Perlin(p, seed) && Noise::Simplex(p, seed) == Noise::Simplex(p, seed));
+        CHECK(std::abs(Noise::Perlin(p, seed) - Noise::Perlin(p + glm::vec3(1e-3f), seed)) < 0.02f);
+        CHECK(std::abs(Noise::Simplex(p, seed) - Noise::Simplex(p + glm::vec3(1e-3f), seed)) < 0.05f);
+    }
+
+    // ---- AnimationCurve: goes through its keys, a linear curve is a lerp.
+    for (int i = 0; i < 100; i++)
+    {
+        AnimationCurve curve;
+        std::vector<std::pair<float, float>> keys;
+        float time = rng.Range(-2.0f, 2.0f);
+        for (int k = rng.Range(2, 8); k > 0; k--)
+        {
+            keys.emplace_back(time, rng.Range(-10.0f, 10.0f));
+            curve.AddKey(time, keys.back().second);
+            time += rng.Range(0.1f, 2.0f);
+        }
+        curve.SmoothTangents();
+        for (const auto& [t, v] : keys)
+            CHECK(std::abs(curve.Evaluate(t) - v) < 1e-3f);
+        CHECK(curve.GetMin() <= curve.GetMax());
+        const float t0 = rng.Range(-5.0f, 0.0f), t1 = t0 + rng.Range(0.5f, 5.0f), v0 = rng.Range(-5.0f, 5.0f), v1 = rng.Range(-5.0f, 5.0f);
+        const AnimationCurve line = AnimationCurve::Linear(t0, v0, t1, v1);
+        const float s = rng.Float();
+        CHECK(std::abs(line.Evaluate(t0 + (t1 - t0) * s) - (v0 + (v1 - v0) * s)) < 1e-3f);
+    }
+
+    // ---- Splines: through their points, the length table and nearest point agree with the curve.
+    for (int i = 0; i < 40; i++)
+    {
+        Spline spline;
+        spline.Type = (SplineType)rng.Range(0, 2);
+        spline.Closed = rng.Bool();
+        for (int k = rng.Range(3, 7); k > 0; k--)
+            spline.Points.push_back({ rng.InsideBox(glm::vec3(-10), glm::vec3(10)) });
+        if (spline.Type == SplineType::Bezier)
+            spline.AutoTangents();
+        for (int k = 0; k < (int)spline.Points.size() - (spline.Closed ? 0 : 1); k++)
+            CHECK(glm::length(spline.Evaluate((float)k) - spline.Points[k].Position) < 1e-3f);
+        const SplineLengthTable table(spline);
+        float chord = 0.0f;
+        for (int k = 0; k < spline.GetSegmentCount(); k++)
+            chord += glm::length(spline.EvaluateSegment(k, 1.0f) - spline.EvaluateSegment(k, 0.0f));
+        CHECK(table.GetLength() >= chord - 1e-3f);
+        const float u = rng.Range(0.0f, spline.GetParameterEnd());
+        const glm::vec3 onCurve = spline.Evaluate(u);
+        CHECK(spline.FindClosest(onCurve).DistanceSquared < 1e-4f);
+        const float distance = rng.Range(0.0f, table.GetLength());
+        CHECK(std::abs(table.GetDistance(table.GetParameter(distance)) - distance) < 1e-2f * std::max(1.0f, table.GetLength() * 0.01f));
+    }
+}

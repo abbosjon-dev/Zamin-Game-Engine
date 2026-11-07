@@ -475,8 +475,7 @@ namespace Zamin {
     bool Model::ReadMaterials(const fs::path& path, std::vector<Material>& out, std::string* error)
     {
         out.clear();
-        std::string ext = path.extension().string();
-        std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return (char)std::tolower(c); });
+        const std::string ext = FileSystem::GetExtension(path);
         if (ext == ".obj")
         {
             std::error_code ec;
@@ -543,9 +542,7 @@ namespace Zamin {
             if (error) *error = std::move(reason);
             return false;
         };
-        std::string ext = path.extension().string();
-        std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return (char)std::tolower(c); });
-        if (ext != ".gltf" && ext != ".glb")
+        if (!FileSystem::HasExtension(path, { ".gltf", ".glb" }))
             return fail("faqat glTF (.gltf, .glb) modellarining materiallari eksport qilinadi");
 
         cgltf_options cgltfOptions{};
@@ -1004,10 +1001,7 @@ namespace Zamin {
             const AABB& b = sub.MeshRef->GetBounds();
             if (first) { model->m_Bounds = b; first = false; }
             else
-            {
-                model->m_Bounds.Min = glm::min(model->m_Bounds.Min, b.Min);
-                model->m_Bounds.Max = glm::max(model->m_Bounds.Max, b.Max);
-            }
+                model->m_Bounds.Encapsulate(b);
             model->m_SubMeshes.push_back(std::move(sub));
         };
 
@@ -1169,8 +1163,7 @@ namespace Zamin {
             error = "fayl topilmadi";
             return nullptr;
         }
-        std::string ext = path.extension().string();
-        for (auto& c : ext) c = (char)std::tolower((unsigned char)c);
+        const std::string ext = FileSystem::GetExtension(path);
         if (ext == ".gltf" || ext == ".glb")
             return LoadGLTF(path, settings, error);
         if (ext == ".obj")

@@ -420,9 +420,7 @@ namespace Zamin {
         ImGui::Separator();
         // The file, under the home directory as "~/..." (the full path in the tooltip).
         const fs::path file = EditorPreferences::GetDefaultPath();
-        std::string shown = file.string();
-        if (const char* home = std::getenv("HOME"); home && *home && shown.starts_with(home))
-            shown = "~" + shown.substr(std::strlen(home));
+        const std::string shown = FileSystem::ShortenHomePath(file);
         const char* resetLabel = Tr(ICON_FA_ARROW_ROTATE_LEFT "  Hammasini standartga qaytarish");
         const float resetWidth = ImGui::CalcTextSize(resetLabel).x + ImGui::GetStyle().FramePadding.x * 2.0f;
         const float pathRight = ImGui::GetWindowContentRegionMax().x - resetWidth - 12.0f;

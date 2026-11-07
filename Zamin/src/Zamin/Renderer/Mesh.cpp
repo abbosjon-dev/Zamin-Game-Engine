@@ -9,6 +9,17 @@
 
 namespace Zamin {
 
+    // The box around the vertices' positions (none: the box is left as it is).
+    template<typename V>
+    static void BoundsOf(const std::vector<V>& vertices, AABB& bounds)
+    {
+        if (vertices.empty())
+            return;
+        bounds = AABB::Empty();
+        for (const auto& v : vertices)
+            bounds.Encapsulate(v.Position);
+    }
+
     Mesh::Mesh(const std::vector<MeshVertex>& vertices, const std::vector<uint32_t>& indices)
     {
         m_VertexArray = VertexArray::Create();
@@ -25,15 +36,7 @@ namespace Zamin {
         m_IndexCount = (uint32_t)indices.size();
         m_VertexCount = (uint32_t)vertices.size();
 
-        if (!vertices.empty())
-        {
-            m_Bounds.Min = m_Bounds.Max = vertices[0].Position;
-            for (const auto& v : vertices)
-            {
-                m_Bounds.Min = glm::min(m_Bounds.Min, v.Position);
-                m_Bounds.Max = glm::max(m_Bounds.Max, v.Position);
-            }
-        }
+        BoundsOf(vertices, m_Bounds);
     }
 
     Mesh::Mesh(const std::vector<SkinnedVertex>& vertices, const std::vector<uint32_t>& indices) : m_Skinned(true)
@@ -53,28 +56,7 @@ namespace Zamin {
         m_VertexBuffer = vb;
         m_IndexCount = (uint32_t)indices.size();
         m_VertexCount = (uint32_t)vertices.size();
-        if (!vertices.empty())
-        {
-            m_Bounds.Min = m_Bounds.Max = vertices[0].Position;
-            for (const auto& v : vertices)
-            {
-                m_Bounds.Min = glm::min(m_Bounds.Min, v.Position);
-                m_Bounds.Max = glm::max(m_Bounds.Max, v.Position);
-            }
-        }
-    }
-
-    template<typename V>
-    static void BoundsOf(const std::vector<V>& vertices, AABB& bounds)
-    {
-        if (vertices.empty())
-            return;
-        bounds.Min = bounds.Max = vertices[0].Position;
-        for (const auto& v : vertices)
-        {
-            bounds.Min = glm::min(bounds.Min, v.Position);
-            bounds.Max = glm::max(bounds.Max, v.Position);
-        }
+        BoundsOf(vertices, m_Bounds);
     }
 
     bool Mesh::UpdateVertices(const std::vector<MeshVertex>& vertices)

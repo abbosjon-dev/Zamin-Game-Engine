@@ -36,10 +36,9 @@ namespace Zamin {
 
     std::string AssetRegistry::NormalizeRelative(const fs::path& path)
     {
-        std::string rel = path.lexically_normal().generic_string();
-        while (rel.size() > 1 && rel.back() == '/')
-            rel.pop_back();
-        if (rel.empty() || rel == "." || rel == ".." || rel.starts_with("../") || rel.starts_with("/"))
+        // Inside the asset folder: not absolute, not climbing out, not the folder itself.
+        std::string rel = FileSystem::NormalizePath(path);
+        if (rel == "." || !FileSystem::IsSafeRelativePath(rel))
             return {};
         return rel;
     }
@@ -52,14 +51,14 @@ namespace Zamin {
             return NormalizeRelative(path);
         if (m_AssetDirectory.empty())
             return {};
-        if (std::string rel = NormalizeRelative(path.lexically_normal().lexically_relative(m_AssetDirectory)); !rel.empty())
+        if (std::string rel = FileSystem::GetRelativeInside(path, m_AssetDirectory); !rel.empty())
             return rel;
         // Another spelling of the same place (symlinks, "..").
         std::error_code ec;
         fs::path canonical = fs::weakly_canonical(path, ec);
         if (ec || m_CanonicalDirectory.empty())
             return {};
-        return NormalizeRelative(canonical.lexically_relative(m_CanonicalDirectory));
+        return FileSystem::GetRelativeInside(canonical, m_CanonicalDirectory);
     }
 
     fs::path AssetRegistry::ToFileSystemPath(std::string_view relativePath) const

@@ -125,10 +125,8 @@ namespace Zamin {
                 return {};
             if (Project::GetActive())
             {
-                std::error_code ec;
-                fs::path relative = fs::path(file).lexically_relative(Project::GetProjectDirectory());
-                if (!relative.empty() && !relative.string().starts_with(".."))
-                    return relative.generic_string();
+                if (std::string relative = FileSystem::GetRelativeInside(file, Project::GetProjectDirectory()); !relative.empty())
+                    return relative;
             }
             return file;
         }

@@ -330,11 +330,9 @@ namespace Zamin {
 
     std::filesystem::path EditorPreferences::GetConfigDirectory()
     {
-        if (const char* xdg = std::getenv("XDG_CONFIG_HOME"); xdg && *xdg)
-            return std::filesystem::path(xdg) / "zamin";
-        if (const char* home = std::getenv("HOME"); home && *home)
-            return std::filesystem::path(home) / ".config" / "zamin";
-        return std::filesystem::temp_directory_path() / "zamin";
+        if (std::filesystem::path config = FileSystem::GetUserConfigDirectory(); !config.empty())
+            return config / "zamin";
+        return FileSystem::GetTempDirectory() / "zamin";
     }
 
 }

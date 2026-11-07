@@ -505,8 +505,7 @@ namespace Zamin {
     {
         s_Settings = settings;
         std::error_code ec;
-        fs::path temp = fs::temp_directory_path(ec);
-        CopyText(s_FallbackDirectory, PathSize, ec || temp.empty() ? std::string("/tmp") : temp.string());
+        CopyText(s_FallbackDirectory, PathSize, FileSystem::GetTempDirectory().string());
         CopyText(s_ReportDirectory, PathSize, settings.ReportDirectory.empty() ? std::string(s_FallbackDirectory) : settings.ReportDirectory.string());
         if (!settings.ReportDirectory.empty())
             fs::create_directories(settings.ReportDirectory, ec);

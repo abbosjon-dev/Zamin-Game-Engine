@@ -4,6 +4,7 @@
 #include "AnimatorEditing.h"
 #include "../UI.h"
 
+#include <Zamin/Utils/FileSystem.h>
 #include <Zamin/Utils/Image.h>
 
 #include <imgui_stdlib.h>
@@ -1772,9 +1773,7 @@ namespace Zamin {
 
     bool SceneHierarchyPanel::DrawExtractModelMaterials(MeshRendererComponent& c)
     {
-        std::string ext = std::filesystem::path(c.ModelPath).extension().string();
-        std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char ch) { return (char)std::tolower(ch); });
-        if (!Project::GetActive() || (ext != ".gltf" && ext != ".glb"))
+        if (!Project::GetActive() || !FileSystem::HasExtension(c.ModelPath, { ".gltf", ".glb" }))
             return false;
         UI::PropertyLabel("");
         bool clicked = ImGui::Button(Tr(ICON_FA_FILE_EXPORT "  Modeldan .zmat yaratib biriktirish"), ImVec2(-FLT_MIN, 0));

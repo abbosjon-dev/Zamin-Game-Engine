@@ -1,5 +1,6 @@
 #include "Zamin/Asset/AssetInfo.h"
 #include "Zamin/Renderer/Mesh.h"
+#include "Zamin/Utils/FileSystem.h"
 
 #include <stb_image.h>
 #include <cgltf.h>
@@ -21,17 +22,10 @@ namespace Zamin {
 
     namespace fs = std::filesystem;
 
-    static std::string LowerExtension(const fs::path& path)
-    {
-        std::string ext = path.extension().string();
-        std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return (char)std::tolower(c); });
-        return ext;
-    }
-
     // ------------------------------------------------------------------ images
     static std::string ImageFormatName(const fs::path& path)
     {
-        std::string ext = LowerExtension(path);
+        std::string ext = FileSystem::GetExtension(path);
         if (ext == ".png") return "PNG";
         if (ext == ".jpg" || ext == ".jpeg") return "JPEG";
         if (ext == ".bmp") return "BMP";
@@ -287,7 +281,7 @@ namespace Zamin {
             info.Error = "fayl topilmadi";
             return info;
         }
-        std::string ext = LowerExtension(path);
+        std::string ext = FileSystem::GetExtension(path);
         if (ext == ".gltf" || ext == ".glb")
         {
             ReadGLTF(path, info);
@@ -318,7 +312,7 @@ namespace Zamin {
     // ------------------------------------------------------------------ audio
     static std::string AudioFormatName(const fs::path& path)
     {
-        std::string ext = LowerExtension(path);
+        std::string ext = FileSystem::GetExtension(path);
         if (ext == ".wav") return "WAV";
         if (ext == ".mp3") return "MP3";
         if (ext == ".flac") return "FLAC";
@@ -342,7 +336,7 @@ namespace Zamin {
     static std::string DecoderError(const fs::path& path, ma_result result)
     {
         if (result == MA_NO_BACKEND || result == MA_INVALID_FILE || result == MA_INVALID_DATA || result == MA_FORMAT_NOT_SUPPORTED)
-            return LowerExtension(path) == ".ogg" ? "OGG Vorbis dekoderi yo'q (WAV, MP3 yoki FLAC ishlating)"
+            return FileSystem::GetExtension(path) == ".ogg" ? "OGG Vorbis dekoderi yo'q (WAV, MP3 yoki FLAC ishlating)"
                                                  : "format qo'llab-quvvatlanmaydi yoki fayl buzilgan";
         return ma_result_description(result);
     }

@@ -5794,8 +5794,8 @@ namespace Zamin {
         AssetFiles::PathMoves moves;
         for (const auto& m : result.Moved)
         {
-            std::string from = m.From.lexically_relative(assets).generic_string(), to = m.To.lexically_relative(assets).generic_string();
-            if (!from.empty() && !to.empty() && !from.starts_with("..") && !to.starts_with(".."))
+            std::string from = FileSystem::GetRelativeInside(m.From, assets), to = FileSystem::GetRelativeInside(m.To, assets);
+            if (!from.empty() && !to.empty())
                 moves.emplace_back(from, to);
         }
         auto remap = [&](std::string& text) {
@@ -7929,7 +7929,7 @@ namespace Zamin {
             return "(matn)";
         fs::path file(report.File);
         std::string relative = Project::GetActive() ? Project::GetAssetRelativePath(file) : std::string();
-        return relative.empty() || relative.starts_with("..") ? file.filename().string() : relative;
+        return FileSystem::IsSafeRelativePath(relative) ? relative : file.filename().string();
     }
 
     void EditorLayer::UI_SceneLoadBanner()
@@ -8545,13 +8545,11 @@ namespace Zamin {
         if (size.x <= 0 || size.y <= 0)
             return false;
         const glm::vec2 ndc = { (mouse.x - m_ViewportBounds[0].x) / size.x * 2.0f - 1.0f, 1.0f - (mouse.y - m_ViewportBounds[0].y) / size.y * 2.0f };
-        const glm::mat4 inv = glm::inverse(m_EditorCamera.GetViewProjection());
-        const glm::vec4 n = inv * glm::vec4(ndc, -1.0f, 1.0f), f = inv * glm::vec4(ndc, 1.0f, 1.0f);
-        origin = glm::vec3(n) / n.w;
-        const glm::vec3 d = glm::vec3(f) / f.w - origin;
-        if (glm::length(d) < 1e-8f)
+        const Ray ray = Ray::FromNDC(ndc, glm::inverse(m_EditorCamera.GetViewProjection()));
+        if (ray.Direction == glm::vec3(0.0f))
             return false;
-        direction = glm::normalize(d);
+        origin = ray.Origin;
+        direction = ray.Direction;
         return true;
     }
 
@@ -8854,12 +8852,8 @@ namespace Zamin {
             glm::vec3 o, d;
             if (!ViewportMouseRay(o, d))
                 return false;
-            const glm::vec3 w = point - o;
-            const float b = glm::dot(lineDir, d), denom = 1.0f - b * b;
-            if (denom < 1e-5f)
-                return false;
-            t = (b * glm::dot(d, w) - glm::dot(lineDir, w)) / denom;
-            return true;
+            float along = 0.0f;
+            return Geometry::ClosestPointsOnLines(point, lineDir, o, d, t, along);
         };
         // The angle (degrees) of the mouse around `axisDir` from `from` (the arc's 0), on the arc's plane.
         auto arcAngle = [&](const glm::vec3& center, const glm::vec3& axisDir, const glm::vec3& from, const glm::vec3& from90, float& degrees) {

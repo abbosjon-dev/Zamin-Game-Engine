@@ -3919,7 +3919,7 @@ namespace Zamin {
         if (Project::GetActive())
         {
             std::string relative = Project::GetAssetRelativePath(file);
-            if (!relative.empty() && !relative.starts_with("..") && std::filesystem::path(relative).is_relative())
+            if (FileSystem::IsSafeRelativePath(relative))
                 return relative;
         }
         return file.generic_string();

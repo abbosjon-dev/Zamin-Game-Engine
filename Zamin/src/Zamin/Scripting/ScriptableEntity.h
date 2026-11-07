@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Zamin/Math/Easing.h"
+#include "Zamin/Math/Geometry.h"
 #include "Zamin/Math/MathUtils.h"
 #include "Zamin/Math/Quaternion.h"
 #include "Zamin/Scene/TintAnimation.h"

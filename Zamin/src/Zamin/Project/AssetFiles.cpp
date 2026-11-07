@@ -362,9 +362,8 @@ namespace Zamin {
 
     bool AssetFiles::IsInside(const fs::path& path, const fs::path& directory)
     {
-        if (path.empty() || directory.empty())
-            return false;
-        return IsUnder(Normalize(path), Normalize(directory));
+        // Symbolic links resolved, whole parts compared ("Assets2" is not inside "Assets").
+        return FileSystem::IsSubPathOnDisk(path, directory);
     }
 
     fs::path AssetFiles::MakeUniquePath(const fs::path& directory, const fs::path& fileName)

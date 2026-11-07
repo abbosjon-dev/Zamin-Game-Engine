@@ -433,10 +433,10 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 373. Timer va Stopwatch utilitalari
 - [x] 374. String utilitalari (split, trim, format)
 - [x] 375. UUID generatsiya testi kuchaytirish
-- [ ] 376. Fayl tizimi yordamchilari (yo'l normalizatsiya)
-- [ ] 377. Bounding volume yordamchilari (AABB, sfera, ray kesishuvi)
-- [ ] 378. Geometriya testlari (ray-AABB, ray-sfera)
-- [ ] 379. Math testlari
+- [x] 376. Fayl tizimi yordamchilari (yo'l normalizatsiya)
+- [x] 377. Bounding volume yordamchilari (AABB, sfera, ray kesishuvi)
+- [x] 378. Geometriya testlari (ray-AABB, ray-sfera)
+- [x] 379. Math testlari
 - [ ] 380. Core hujjatlari
 
 ## M20 Navigatsiya va AI

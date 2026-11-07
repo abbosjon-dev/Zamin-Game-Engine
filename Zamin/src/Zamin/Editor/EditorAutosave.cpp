@@ -35,11 +35,7 @@ namespace Zamin {
             if (sceneAssetPath.empty())
                 return GetDirectory(projectDirectory) / UnsavedSceneName;
             // Kept inside the folder: "../x" or an absolute path cannot point out of it.
-            fs::path relative = fs::path(sceneAssetPath).lexically_normal().relative_path();
-            fs::path clean;
-            for (const fs::path& part : relative)
-                if (part != ".." && part != ".")
-                    clean /= part;
+            const std::string clean = FileSystem::SanitizeRelativePath(sceneAssetPath);
             if (clean.empty())
                 return GetDirectory(projectDirectory) / UnsavedSceneName;
             return GetDirectory(projectDirectory) / clean;

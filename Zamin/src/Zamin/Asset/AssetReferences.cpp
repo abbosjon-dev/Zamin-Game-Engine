@@ -16,13 +16,6 @@ namespace Zamin {
     namespace fs = std::filesystem;
     using json = nlohmann::json;
 
-    static std::string LowerExtension(const fs::path& path)
-    {
-        std::string ext = path.extension().string();
-        std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return (char)std::tolower(c); });
-        return ext;
-    }
-
     static fs::path Absolute(const fs::path& path)
     {
         std::error_code ec;
@@ -67,11 +60,7 @@ namespace Zamin {
     {
         if (m_AssetDirectory.empty())
             return {};
-        fs::path relative = Absolute(path).lexically_relative(m_AssetDirectory);
-        std::string text = relative.generic_string();
-        if (text.empty() || text == "." || text.starts_with(".."))
-            return {};
-        return text;
+        return FileSystem::GetRelativeInside(Absolute(path), m_AssetDirectory);
     }
 
     bool AssetReferenceIndex::AssetExists(const std::string& relativePath) const
@@ -103,8 +92,8 @@ namespace Zamin {
         }
         if (unsaved)
             *unsaved = false;
-        std::string name = fs::path(key).lexically_relative(m_ProjectDirectory).generic_string();
-        return name.empty() || name.starts_with("..") ? key : name;
+        std::string name = FileSystem::GetRelativeInside(key, m_ProjectDirectory);
+        return name.empty() ? key : name;
     }
 
     void AssetReferenceIndex::AddReference(const fs::path& file, const std::string& asset, AssetReferenceKind kind)
@@ -164,8 +153,8 @@ namespace Zamin {
             if (!AssetFiles::IsAssetPathValue(key, value))
                 return;
             fs::path p(value);
-            std::string relative = p.is_absolute() ? ToAssetPath(p) : p.lexically_normal().generic_string();
-            if (relative.starts_with(".."))
+            std::string relative = p.is_absolute() ? ToAssetPath(p) : FileSystem::NormalizePath(p);
+            if (!relative.empty() && !FileSystem::IsSafeRelativePath(relative))
                 return; // outside the asset folder
             std::string byHandle = uuid.empty() ? std::string() : pathOfHandle(uuid);
             if (!relative.empty() && AssetExists(relative))
@@ -315,8 +304,8 @@ namespace Zamin {
             fs::path p(literal);
             if (p.is_absolute())
                 continue;
-            std::string relative = p.lexically_normal().generic_string();
-            if (relative.starts_with(".."))
+            std::string relative = FileSystem::NormalizePath(p);
+            if (!FileSystem::IsSafeRelativePath(relative))
                 continue;
             if (AssetExists(relative))
                 AddReference(file, relative, AssetReferenceKind::Code);
@@ -381,7 +370,7 @@ namespace Zamin {
                     m_TopFolders.insert(name);
                 continue;
             }
-            if (!it->is_regular_file(fec) || LowerExtension(it->path()) == ".zmeta")
+            if (!it->is_regular_file(fec) || FileSystem::GetExtension(it->path()) == ".zmeta")
                 continue;
             files.push_back(it->path());
         }
@@ -403,7 +392,7 @@ namespace Zamin {
         // ---- files that refer to assets
         for (const fs::path& file : files)
         {
-            std::string ext = LowerExtension(file);
+            std::string ext = FileSystem::GetExtension(file);
             if (ext == ".zscene" || ext == ".zprefab" || ext == ".zmat" || ext == ".zparticle" || ext == ".zanim" || ext == ".zsanim" ||
                 ext == ".zphysmat")
                 ScanJson(file, ReadText(file));

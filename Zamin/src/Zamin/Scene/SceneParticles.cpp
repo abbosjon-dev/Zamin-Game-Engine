@@ -481,13 +481,9 @@ namespace Zamin {
         // diagonal around its position; a trail in one of half its widest width around its points.
         const float maxSize = ParticleSimulation::GetMaxSize(ps);
         float scale = 1.0f; // inherited sizes (sub-emitters)
-        AABB box{ glm::vec3(std::numeric_limits<float>::max()), glm::vec3(-std::numeric_limits<float>::max()) };
+        AABB box = AABB::Empty();
         const bool world = ps.Space == ParticleSystemComponent::SimulationSpace::World;
-        auto add = [&](const glm::vec3& p) {
-            const glm::vec3 pos = world ? p : glm::vec3(space * glm::vec4(p, 1.0f));
-            box.Min = glm::min(box.Min, pos);
-            box.Max = glm::max(box.Max, pos);
-        };
+        auto add = [&](const glm::vec3& p) { box.Encapsulate(world ? p : glm::vec3(space * glm::vec4(p, 1.0f))); };
         const bool trails = ps.Trails.Enabled && ps.TrailPool.Capacity > 0;
         float speed = 0.0f; // Stretched: the quads grow with it
         for (const auto& p : ps.Particles)

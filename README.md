@@ -807,7 +807,13 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   tugma bilan o'tkaziladi, o'z rasmi / fon rangi), `--windowed` / `--borderless` / `--resolution` / `--monitor` / `--no-splash` / `--help`;
   fonda ishlash o'chiq bo'lsa oyna fokusni yo'qotganda pauza (vaqt, fizika, audio to'xtaydi; oxirgi kadr xiralashib
   "Pauza" yozuvi), o'yinchining gamma va yorqinlik sozlamasi (oxirgi o'tish, `Display::SetGamma` / `SetBrightness`,
-  saqlanadi, `--gamma` / `--brightness`; Platformer2D pauza menyusida slayderlar)
+  saqlanadi, `--gamma` / `--brightness`; Platformer2D pauza menyusida slayderlar); `--version` (o'yin versiyasi va dvigatel
+  build'i: git kommiti, sana - `BuildInfo`, log va crash hisobotlarida ham), `--benchmark N` (headless ishlash testi: o'rtacha,
+  p95, p99 ms, JSON, chegaralar - `Tests/player_bench.sh`), avtomatik eksport testi (`Tests/export_test.sh`: editor eksporti,
+  eksport qilingan o'yin xvfb'da), qayta ishlatiladigan o'yin menyusi (`Prefabs/GameMenu.zprefab`: O'ynash / Sozlamalar -
+  ekran o'lchami, to'liq ekran, VSync, sifat, gamma, ovoz, til / Chiqish)
+  - Batafsil qo'llanma: [docs/runtime.md](docs/runtime.md) — player, buyruq qatori, sozlamalar ustunligi, eksport, log, crash
+    hisobotlari, versiya, ekran va kursor API, o'yin menyusi, ishlash va eksport testlari
 - **Audio** (miniaudio): wav/mp3/flac/ogg
 - **C++ skriptlar**: `ScriptableEntity` + `ZM_REGISTER_SCRIPT`, o'yin moduli `.so` sifatida yuklanadi, hot reload
 - Zamin Player — eksport qilingan o'yinlarni ishga tushiruvchi runtime

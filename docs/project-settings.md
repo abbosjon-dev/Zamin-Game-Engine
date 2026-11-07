@@ -140,6 +140,7 @@ loyiha sozlamasidan ustun):
 ```cpp
 Display::SetFullscreen(!Display::IsFullscreen());
 Display::SetVSync(false);
+Display::SetResolution(1920, 1080);   // Display::GetResolutions(): monitorning rejimlari
 Display::SaveSettings();     // SaveData: "Zamin.Display.*"
 ```
 
@@ -147,7 +148,7 @@ Display::SaveSettings();     // SaveData: "Zamin.Display.*"
 
 1. buyruq qatori (`--fullscreen`, `--borderless`, `--windowed`, `--resolution`, `--monitor`, `--vsync` / `--no-vsync`,
    `--fps`, `--no-splash` - 18-bo'lim);
-2. o'yinchi saqlagan tanlov (`Display::SaveSettings`: to'liq ekran, VSync; sifat va til ham o'zinikini saqlaydi);
+2. o'yinchi saqlagan tanlov (`Display::SaveSettings`: ekran o'lchami, to'liq ekran, VSync; sifat va til ham o'zinikini saqlaydi);
 3. loyiha sozlamalari (shu bo'lim).
 
 Player saqlangan tanlovni oyna yaratilishidan **oldin** o'qiydi: o'yin to'liq ekranda yopilgan bo'lsa, keyingi safar
@@ -758,6 +759,8 @@ Qisqartirilgan misol (Platformer2D asosida; `Physics`, `Time`, `Quality`, `Graph
 
 ## 18. Player buyruq qatori
 
+Player, eksport, log, crash, versiya, ishlash va eksport testlari haqida to'liq qo'llanma: [runtime.md](runtime.md).
+
 ```
 ZaminPlayer [O'yin.zproject | loyiha papkasi] [variantlar]     # hammasi: ZaminPlayer --help
 ```
@@ -768,7 +771,7 @@ ogohlantirish bilan log'ga yoziladi, qolganlari ishlatiladi.
 | Variant | Ma'nosi | Nimadan ustun |
 |---|---|---|
 | `--windowed`, `--fullscreen`, `--borderless` | Oyna rejimi (oxirgisi yutadi) | Saqlangan `Display` tanlovi, loyiha |
-| `--resolution KxB` (`--width K`, `--height B`) | Oyna o'lchami; `--fullscreen` bilan video rejim ham | Loyiha |
+| `--resolution KxB` (`--width K`, `--height B`) | Oyna o'lchami; `--fullscreen` bilan video rejim ham | Saqlangan o'lcham, loyiha |
 | `--monitor N` | Qaysi monitorda ochiladi (0 - asosiy; log monitorlar ro'yxatini yozadi) | Asosiy monitor |
 | `--vsync`, `--no-vsync` | Vertikal sinxronizatsiya | Saqlangan tanlov, loyiha |
 | `--fps N` | Kadr chastotasi cheklovi (0 - cheklovsiz, 10 ... 1000) | Loyiha |
@@ -781,6 +784,8 @@ ogohlantirish bilan log'ga yoziladi, qolganlari ishlatiladi.
 | `--no-debug-draw`, `--debug-raycasts`, `--debug-contacts`, `--debug-contact-details`, `--debug-joints`, `--debug-velocities` | Debug chizish | Loyihaning debug sozlamalari |
 | `--log-file <fayl>`, `--no-log-file` | Log faqat shu faylga / log faylsiz | Standart log papkasi |
 | `--no-crash-handler`, `--no-crash-dialog` | Crash hisobotisiz (debugger, core dump) / hisobot bor, oyna yo'q | - |
+| `--benchmark N` (`--benchmark-warmup`, `--benchmark-out`, `--benchmark-max-avg`, `--benchmark-max-p95`) | Ishlash testi: N kadr o'lchanadi (o'rtacha, mediana, p95, p99), JSON, chiqish kodi ([runtime.md](runtime.md#12-ishlash-testi-headless)) | Splash, FPS cheklovi, VSync |
+| `-v`, `--version` | O'yin va dvigatel versiyasi (kommit, build sanasi) - oynasiz | - |
 | `-h`, `--help` | Hamma variantlar va ustunlik tartibi | - |
 
 O'yin ichida: **F11** / **Alt+Enter** - to'liq ekran <-> oyna, **F10** - FPS va audio profili log'ga.
@@ -859,6 +864,8 @@ aylantirganda kursorni bloklaydi.
 | `ExportReportSizesAndFiles` | Hisobot: turlar, eng katta fayllar, chiqarib tashlanganlar, JSON / matn, yozish / o'qish |
 | `PauseInBackgroundAudioOutput` | Audio chiqishi pauzasi: tovush joyida turadi, keyin davom etadi |
 | `DisplayGammaAndBrightness` | Gamma / yorqinlik formulasi, diapazonlar, saqlash, `--gamma` / `--brightness` |
+| `DisplayResolutionSettings` | Ekran o'lchamlari ro'yxati, saqlash, ustunlik (buyruq qatori > saqlangan > loyiha) |
+| `PlayerBenchmarkStatsAndLimits`, `ExportFolderSelfCheck`, `BuildInfoAndVersionText`, `GameMenuSampleScene` | Ishlash testi, eksport tekshiruvi, versiya, o'yin menyusi ([runtime.md](runtime.md#16-testlar)) |
 
 ---
 
@@ -875,6 +882,10 @@ Application::GetVersion(); Application::GetProductName(); Application::GetCompan
 // Oyna
 Display::SetFullscreen(bool); Display::IsFullscreen(); Display::SetVSync(bool); Display::SaveSettings(); Display::LoadSettings();
 Display::SetGamma(float); Display::SetBrightness(float); Display::GetAdjustment();   // player tasviri (0.5 ... 2.0 / 0.5 ... 1.5)
+Display::GetResolutions(); Display::SetResolution(w, h); Display::GetResolution();    // ekran o'lchami
+
+// Versiya
+BuildInfo::Get().Describe(); VersionInfo::ForActiveProject().Format(); VersionInfo::ForActiveProject().FormatShort();
 
 // Eksport (editor)
 ExportModuleBuild; BinaryStrip::Strip(file); ExportReport::Read(papka, report); ExportFiles::WriteIconSet(rasm, papka, id);

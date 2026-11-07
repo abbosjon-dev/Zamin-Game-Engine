@@ -410,11 +410,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 353. Eksport hisobotini ko'rsatish (hajm, fayllar)
 - [x] 354. Player'da pauza (fokus yo'qolganda)
 - [x] 355. Gamma va yorqinlik sozlamasi player'da
-- [ ] 356. Player ishlash testi (headless)
-- [ ] 357. Eksport testi (avtomatik)
-- [ ] 358. Player uchun minimal o'yin menyusi namunasi
-- [ ] 359. Player versiya ma'lumoti
-- [ ] 360. Runtime hujjatlari
+- [x] 356. Player ishlash testi (headless)
+- [x] 357. Eksport testi (avtomatik)
+- [x] 358. Player uchun minimal o'yin menyusi namunasi
+- [x] 359. Player versiya ma'lumoti
+- [x] 360. Runtime hujjatlari
 
 ## M19 Matematika va core
 

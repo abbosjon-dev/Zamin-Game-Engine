@@ -33,17 +33,29 @@ namespace Zamin {
     class ConsoleTextMatcher
     {
     public:
+        // std::regex backtracks recursively (in libstdc++ a stack frame or more per character), so a
+        // long message could overflow the stack. Messages up to RegexDirectLimit bytes are searched
+        // as they are; a longer one in a single pass that keeps every alternative at once (stack
+        // depth by the pattern only, time linear in the text), up to its first RegexTextLimit bytes.
+        // Where that is not available (a back-reference, another standard library) only the first
+        // RegexDirectLimit bytes of a long message are searched.
+        static constexpr size_t RegexDirectLimit = 1024;
+        static constexpr size_t RegexTextLimit = 16 * 1024;
+
         void Set(const std::string& text, bool regex, bool caseSensitive);
         // Empty text matches everything; an invalid regular expression too (IsValid tells).
         bool Matches(std::string_view text) const;
         bool IsEmpty() const { return m_Text.empty(); }
         bool IsValid() const { return m_Error.empty(); }
         const std::string& GetError() const { return m_Error; }
+        // Long messages are matched in full (up to RegexTextLimit), not only their beginning.
+        bool HasLongTextPattern() const { return m_LongPattern != nullptr; }
 
     private:
         std::string m_Text, m_Lower;
         bool m_Regex = false, m_CaseSensitive = false;
         std::shared_ptr<std::regex> m_Pattern;
+        std::shared_ptr<std::regex> m_LongPattern; // the single-pass form for long messages
         std::string m_Error;
     };
 

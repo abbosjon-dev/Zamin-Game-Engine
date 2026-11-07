@@ -28,7 +28,7 @@ namespace Zamin {
                 if (const auto* ps = selected.TryGetComponent<ParticleSystemComponent>())
                     particlePreview = ps->Playing && !ps->Paused;
         state.Animating = cameraMoving || particlePreview || m_AnimationPanel.IsPlaying() || ImGui::IsAnyItemActive() ||
-                          ImGui::IsAnyMouseDown() || m_GizmoOwner >= 0;
+                          ImGui::IsAnyMouseDown() || m_GizmoEdit.IsActive();
 
         // Work that goes on frame by frame (or that the user waits for).
         state.PendingWork = m_Building || m_Exporting || !m_ThumbnailQueue.empty() || !m_PendingLayout.empty() ||

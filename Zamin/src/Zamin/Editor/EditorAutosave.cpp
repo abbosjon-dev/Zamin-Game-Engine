@@ -45,6 +45,13 @@ namespace Zamin {
             return GetDirectory(projectDirectory) / clean;
         }
 
+        fs::path GetKeptPath(const fs::path& autosaveFile)
+        {
+            fs::path kept = autosaveFile;
+            kept += ".kept";
+            return kept;
+        }
+
         fs::path GetLockPath(const fs::path& projectDirectory)
         {
             return projectDirectory / ".zamin" / "editor.lock";
@@ -80,12 +87,14 @@ namespace Zamin {
             return true;
         }
 
-        RecoveryDecision DecideRecovery(const RecoveryCheck& check)
+        RecoveryDecision DecideRecovery(const RecoveryCheck& check, bool kept)
         {
             if (!check.AutosaveExists)
                 return RecoveryDecision::None;
             if (check.SameContent)
                 return RecoveryDecision::Discard;
+            if (kept)
+                return RecoveryDecision::Offer;
             // Saved after the copy was made: what the copy had is in the file (or was thrown away).
             if (check.SceneExists && check.AutosaveTime <= check.SceneTime)
                 return RecoveryDecision::Discard;

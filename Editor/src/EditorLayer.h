@@ -264,6 +264,9 @@ namespace Zamin {
         // After a scene was opened (`path` empty: the project's unsaved scene): a newer copy is
         // offered back, a stale one deleted.
         void CheckAutosaveRecovery(const std::filesystem::path& scenePath);
+        // The prompt's answers besides recovering: the copy put aside to be offered again, or deleted.
+        void DeferAutosaveRecovery();
+        void DeleteOfferedAutosave();
         void RecoverAutosave();
         void UI_AutosaveRecovery();
         void UI_AutosavePreferences(bool& changed);
@@ -440,6 +443,8 @@ namespace Zamin {
         void UI_ViewAxisItems(int index);
         // The transform gizmo in a view (the main viewport's tools: mode, snapping, pivot).
         bool UI_TransformGizmo(const SceneViewTarget& view);
+        // The gizmo drag (of whichever view) is over: no view owns the gizmo any more.
+        void EndGizmoDrag() { m_GizmoEdit.End(); m_GizmoOwner = -1; }
         // ---- the editor cameras' settings popup (fly speed, acceleration, FOV, clip planes, mouse)
         void UI_CameraSettingsPopup(int index);
         bool UI_CameraSettings(int index);
@@ -682,6 +687,14 @@ namespace Zamin {
         // view options (snapping, grid, camera bookmarks are saved per user in editor-view.json)
         EditorViewSettings m_ViewSettings;
         bool m_ViewSettingsDirty = false;
+        // Automation hooks change some view settings for their session only (ZAMIN_EDITOR_LABELS,
+        // _GIZMOS, _OVERLAY ...): the settings before and right after them. A save writes the file's
+        // value back for each such section that was not changed again since.
+        struct ViewSettingsOverride
+        {
+            EditorViewSettings Before, Applied;
+        };
+        std::optional<ViewSettingsOverride> m_ViewSettingsOverride;
         // preferences.json (Tahrirlash > Sozlamalar)
         EditorPreferences m_Preferences;
         bool m_PreferencesDirty = false;
@@ -913,6 +926,7 @@ namespace Zamin {
             std::string SceneName;
             std::filesystem::file_time_type AutosaveTime{}, SceneTime{};
             bool SceneExists = false, Crashed = false;
+            bool Kept = false;                // a copy put aside earlier ("Keyinroq"), not the usual one
             bool CloseRequested = false;      // the prompt closes (answered from outside it)
         } m_Recovery;
         std::string m_AutosaveNotice;

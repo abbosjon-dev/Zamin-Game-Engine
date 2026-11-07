@@ -45,20 +45,36 @@ namespace Zamin {
         m_CaseSensitive = caseSensitive;
         m_Lower = LowerAscii(text);
         m_Pattern.reset();
+        m_LongPattern.reset();
         m_Error.clear();
         if (!regex || text.empty())
             return;
+        auto flags = std::regex::ECMAScript | std::regex::optimize;
+        if (!caseSensitive)
+            flags |= std::regex::icase;
         try
         {
-            auto flags = std::regex::ECMAScript | std::regex::optimize;
-            if (!caseSensitive)
-                flags |= std::regex::icase;
             m_Pattern = std::make_shared<std::regex>(text, flags);
         }
         catch (const std::regex_error& e)
         {
             m_Error = e.what();
+            return;
         }
+#if defined(__GLIBCXX__)
+        // libstdc++'s polynomial executor (a Thompson NFA: all alternatives advance together, the
+        // recursion only follows the pattern's empty transitions). Searching restarts it at every
+        // position (quadratic); a lazy "anything" in front and a match from the first position
+        // only is the same search in one pass. It has no back-references: those stay without.
+        try
+        {
+            m_LongPattern = std::make_shared<std::regex>("[\\s\\S]*?(?:" + text + ")", flags | std::regex_constants::__polynomial);
+        }
+        catch (const std::regex_error&)
+        {
+            m_LongPattern.reset();
+        }
+#endif
     }
 
     bool ConsoleTextMatcher::Matches(std::string_view text) const
@@ -69,7 +85,15 @@ namespace Zamin {
         {
             if (!m_Pattern)
                 return true; // invalid pattern: no filtering (the console marks the field)
-            return std::regex_search(text.begin(), text.end(), *m_Pattern);
+            if (text.size() <= RegexDirectLimit)
+                return std::regex_search(text.begin(), text.end(), *m_Pattern);
+            if (m_LongPattern)
+            {
+                const std::string_view head = text.substr(0, RegexTextLimit);
+                return std::regex_search(head.begin(), head.end(), *m_LongPattern, std::regex_constants::match_continuous);
+            }
+            const std::string_view head = text.substr(0, RegexDirectLimit);
+            return std::regex_search(head.begin(), head.end(), *m_Pattern);
         }
         if (m_CaseSensitive)
             return text.find(m_Text) != std::string_view::npos;

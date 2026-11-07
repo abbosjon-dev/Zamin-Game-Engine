@@ -203,10 +203,7 @@ namespace Zamin {
             if (m_LastSceneView == extraIndex + 1)
                 m_LastSceneView = 0;
             if (m_GizmoOwner == extraIndex + 1)
-            {
-                m_GizmoEdit.End();
-                m_GizmoOwner = -1;
-            }
+                EndGizmoDrag();
         }
     }
 
@@ -756,6 +753,10 @@ namespace Zamin {
 
     bool EditorLayer::UI_TransformGizmo(const SceneViewTarget& view)
     {
+        // The viewport's hover is this frame's (the early returns below leave no gizmo to hover;
+        // the UI rect gizmo, drawn later, may set it again).
+        if (view.Index == 0)
+            m_GizmoHovered = false;
         // While another view drags the selection, this one shows no gizmo (one drag at a time).
         if (m_GizmoEdit.IsActive() && m_GizmoOwner != view.Index)
             return false;
@@ -764,7 +765,7 @@ namespace Zamin {
         if (!primary || !primary.IsValid() || m_GizmoMode == GizmoMode::None || m_SceneHierarchyPanel.IsTilePainting() || IsViewportHandleEditing() ||
             primary.HasComponent<UITransformComponent>())
         {
-            m_GizmoEdit.End();
+            EndGizmoDrag();
             return false;
         }
         // Every selected subtree moves together (an entity inside another selected one follows
@@ -772,7 +773,7 @@ namespace Zamin {
         std::vector<Entity> targets = GetGizmoTargets();
         if (targets.empty())
         {
-            m_GizmoEdit.End();
+            EndGizmoDrag();
             return false;
         }
         if (m_ActiveScene->IsLockedInEditor(primary))
@@ -816,7 +817,7 @@ namespace Zamin {
         // Pivot: the primary entity, or the center of the selection. While dragging, the
         // gizmo's own previous result is fed back (ImGuizmo works incrementally).
         if (m_GizmoEdit.IsActive() && m_GizmoEditMode != m_GizmoMode)
-            m_GizmoEdit.End(); // W/E/R pressed mid-drag: start over with the new operation
+            EndGizmoDrag(); // W/E/R pressed mid-drag: start over with the new operation
         bool dragging = m_GizmoEdit.IsActive() && m_GizmoEdit.GetScene() == m_ActiveScene.get();
         bool center = m_GizmoPivotCenter && targets.size() > 1;
         glm::mat4 pivot = dragging ? m_GizmoMatrix
@@ -860,10 +861,7 @@ namespace Zamin {
             MarkDirty();
         }
         else if (m_GizmoEdit.IsActive())
-        {
-            m_GizmoEdit.End();
-            m_GizmoOwner = -1;
-        }
+            EndGizmoDrag();
         return hovered;
     }
 

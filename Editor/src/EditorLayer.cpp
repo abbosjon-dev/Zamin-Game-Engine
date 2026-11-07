@@ -360,6 +360,7 @@ namespace Zamin {
         static int frame = 0;
         if (++frame == 5)
         {
+            const EditorViewSettings viewSettingsBefore = m_ViewSettings; // the hooks' changes are for this session
             if (const char* scene = std::getenv("ZAMIN_EDITOR_SCENE"))
                 OpenScene(Project::GetAssetFileSystemPath(scene));
             // ZAMIN_EDITOR_LOAD_REPORT=1: the scene load problems window open (when the load found any).
@@ -552,12 +553,19 @@ namespace Zamin {
             // layout applied / the current one saved / the Joylashuvlar window or the save prompt opened.
             if (const char* layout = std::getenv("ZAMIN_EDITOR_LAYOUT"))
                 ApplyLayoutAutomation(layout);
-            // ZAMIN_EDITOR_RECOVER=1: the recovery prompt's "Tiklash" (the offered copy is loaded).
-            if (std::getenv("ZAMIN_EDITOR_RECOVER") && !m_Recovery.Autosave.empty())
+            // ZAMIN_EDITOR_RECOVER=1 | later | delete: the recovery prompt's "Tiklash" (the offered copy is
+            // loaded), "Keyinroq" (it is put aside, offered again next time) or "Nusxani o'chirish".
+            if (const char* recover = std::getenv("ZAMIN_EDITOR_RECOVER"); recover && !m_Recovery.Autosave.empty())
             {
                 m_Recovery.Pending = false;
                 m_Recovery.CloseRequested = true;
-                RecoverAutosave();
+                const std::string_view answer(recover);
+                if (answer == "later")
+                    DeferAutosaveRecovery();
+                else if (answer == "delete")
+                    DeleteOfferedAutosave();
+                else
+                    RecoverAutosave();
             }
             // ZAMIN_EDITOR_AUTOSAVE=now: the open scene's safety copy is written (deleted again on exit).
             if (const char* autosave = std::getenv("ZAMIN_EDITOR_AUTOSAVE"); autosave && std::string_view(autosave) == "now")
@@ -1015,6 +1023,8 @@ namespace Zamin {
                     CreateScriptClass(v.substr(0, bar), minimal ? ScriptTemplateKind::Minimal : ScriptTemplateKind::Full);
                 }
             }
+            if (viewSettingsBefore.ToJson() != m_ViewSettings.ToJson())
+                m_ViewSettingsOverride = ViewSettingsOverride{ viewSettingsBefore, m_ViewSettings };
         }
 
         // ZAMIN_EDITOR_CAMERA_SHAKE="intensity,duration,frequency[,frame]": the game camera shakes at that
@@ -4165,7 +4175,7 @@ namespace Zamin {
     {
         m_ActiveScene = scene;
         m_ActiveScene->OnViewportResize((uint32_t)m_ViewportSize.x, (uint32_t)m_ViewportSize.y);
-        m_GizmoEdit.End();
+        EndGizmoDrag();
         m_SceneStatsDirty = true;
         // Entities kept from the previous scene (it may be freed right after this: undo, stop):
         // the next frame's picking finds them again in this one.
@@ -4674,7 +4684,7 @@ namespace Zamin {
     void EditorLayer::DeleteSelectedEntity()
     {
         if (m_SceneState != SceneState::Edit) return;
-        m_GizmoEdit.End();
+        EndGizmoDrag();
         size_t count = m_SceneHierarchyPanel.DeleteSelection();
         if (count > 1)
             ZM_INFO("{} ta obyekt o'chirildi", count);
@@ -4819,7 +4829,18 @@ namespace Zamin {
             }
         m_ViewSettings.Snap.Sanitize();
         m_ViewSettings.Grid.Sanitize();
-        if (!m_ViewSettings.Save(ConfigDirectory() / "editor-view.json"))
+        const EditorViewSettings* saved = &m_ViewSettings;
+        std::optional<EditorViewSettings> kept;
+        if (m_ViewSettingsOverride)
+        {
+            // What the automation hooks set for this session (and nobody changed since) is not saved.
+            kept = m_ViewSettings;
+            if (kept->RestoreUnchangedSections(m_ViewSettingsOverride->Before, m_ViewSettingsOverride->Applied,
+                                               { "EntityLabels", "DebugDraw", "Gizmos", "TransformGizmo", "SelectionOutline",
+                                                 "StatsOverlay", "GameView" }) > 0)
+                saved = &*kept;
+        }
+        if (!saved->Save(ConfigDirectory() / "editor-view.json"))
             ZM_WARN("Viewport sozlamalari saqlanmadi");
         m_ViewSettingsDirty = false;
     }

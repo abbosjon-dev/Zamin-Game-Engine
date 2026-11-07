@@ -9,9 +9,11 @@
 
 #include <array>
 #include <filesystem>
+#include <initializer_list>
 #include <map>
 #include <optional>
 #include <string>
+#include <string_view>
 
 namespace Zamin {
 
@@ -296,6 +298,13 @@ namespace Zamin {
         bool FromJson(const std::string& text);
         bool Save(const std::filesystem::path& path) const;
         bool Load(const std::filesystem::path& path);
+
+        // Settings changed for one session only (the editor's automation hooks): each of `sections`
+        // (top-level JSON keys such as "EntityLabels") that is still as `applied` left it, and that
+        // `applied` changed from `before`, gets `before`'s value back. One changed since keeps its
+        // own. Returns how many sections were put back.
+        size_t RestoreUnchangedSections(const EditorViewSettings& before, const EditorViewSettings& applied,
+                                        std::initializer_list<std::string_view> sections);
     };
 
 }

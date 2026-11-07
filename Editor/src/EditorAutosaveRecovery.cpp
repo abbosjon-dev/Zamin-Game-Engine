@@ -1,7 +1,9 @@
 // Autosave (EditorLayer): a safety copy of the open scene every few minutes while it has unsaved
 // changes, in <project>/.zamin/autosave (the scene's own file is never touched); the project's lock
 // file, which tells a session that crashed from one that closed the project; and the prompt that
-// offers a copy newer than its scene's file back when that scene is opened.
+// offers a copy newer than its scene's file back when that scene is opened. A copy whose answer was
+// postponed ("Keyinroq") is put aside (<copy>.kept): this session's copies and saving the scene use
+// the usual file, and the kept one is offered again the next time the scene is opened.
 #include "EditorLayer.h"
 #include "UI.h"
 
@@ -48,7 +50,7 @@ namespace Zamin {
             if (!fs::is_directory(directory, ec))
                 return 0;
             for (auto it = fs::recursive_directory_iterator(directory, ec); !ec && it != fs::recursive_directory_iterator(); it.increment(ec))
-                if (it->is_regular_file(ec) && it->path().extension() == ".zscene")
+                if (it->is_regular_file(ec) && (it->path().extension() == ".zscene" || it->path().extension() == ".kept"))
                     count++;
             return count;
         }
@@ -163,31 +165,75 @@ namespace Zamin {
             return;
         const std::string relative = scenePath.empty() ? std::string() : Project::GetAssetRelativePath(scenePath);
         const fs::path autosave = EditorAutosave::GetFilePath(Project::GetProjectDirectory(), relative);
-        const EditorAutosave::RecoveryCheck check = EditorAutosave::InspectRecovery(autosave, scenePath);
-        switch (EditorAutosave::DecideRecovery(check))
+        // The last session's copy first; else one put aside earlier (offered whatever the file's time).
+        for (const bool kept : { false, true })
         {
-            case EditorAutosave::RecoveryDecision::None:
-                return;
-            case EditorAutosave::RecoveryDecision::Discard:
+            const fs::path path = kept ? EditorAutosave::GetKeptPath(autosave) : autosave;
+            const EditorAutosave::RecoveryCheck check = EditorAutosave::InspectRecovery(path, scenePath);
+            switch (EditorAutosave::DecideRecovery(check, kept))
             {
-                // Older than the file (or the same): what it had was saved or thrown away since.
-                std::error_code ec;
-                fs::remove(autosave, ec);
-                return;
+                case EditorAutosave::RecoveryDecision::None:
+                    continue;
+                case EditorAutosave::RecoveryDecision::Discard:
+                {
+                    // Older than the file (or the same): what it had was saved or thrown away since.
+                    std::error_code ec;
+                    fs::remove(path, ec);
+                    continue;
+                }
+                case EditorAutosave::RecoveryDecision::Offer:
+                    break;
             }
-            case EditorAutosave::RecoveryDecision::Offer:
-                break;
+            m_Recovery = {};
+            m_Recovery.Pending = true;
+            m_Recovery.Autosave = path;
+            m_Recovery.Kept = kept;
+            m_Recovery.Scene = scenePath;
+            m_Recovery.SceneName = scenePath.empty() ? std::string("Nomsiz sahna") : scenePath.stem().string();
+            m_Recovery.AutosaveTime = check.AutosaveTime;
+            m_Recovery.SceneTime = check.SceneTime;
+            m_Recovery.SceneExists = check.SceneExists;
+            m_Recovery.Crashed = m_PreviousSessionCrashed && !kept;
+            if (kept)
+                ZM_WARN("'{}' sahnasining keyinroqqa qoldirilgan nusxasi bor ({}) - tiklash mumkin", m_Recovery.SceneName, WhenText(check.AutosaveTime));
+            else
+                ZM_WARN("'{}' sahnasining avtomatik saqlangan nusxasi topildi ({}) - tiklash mumkin", m_Recovery.SceneName, WhenText(check.AutosaveTime));
+            return;
         }
-        m_Recovery = {};
-        m_Recovery.Pending = true;
-        m_Recovery.Autosave = autosave;
-        m_Recovery.Scene = scenePath;
-        m_Recovery.SceneName = scenePath.empty() ? std::string("Nomsiz sahna") : scenePath.stem().string();
-        m_Recovery.AutosaveTime = check.AutosaveTime;
-        m_Recovery.SceneTime = check.SceneTime;
-        m_Recovery.SceneExists = check.SceneExists;
-        m_Recovery.Crashed = m_PreviousSessionCrashed;
-        ZM_WARN("'{}' sahnasining avtomatik saqlangan nusxasi topildi ({}) - tiklash mumkin", m_Recovery.SceneName, WhenText(check.AutosaveTime));
+    }
+
+    void EditorLayer::DeferAutosaveRecovery()
+    {
+        if (m_Recovery.Autosave.empty() || m_Recovery.Kept)
+            return; // already put aside: it stays where it is
+        // This session's copies of the scene go to the usual file and saving the scene deletes it:
+        // the offered copy moves out of their way (a copy put aside before is replaced by this newer one).
+        const fs::path kept = EditorAutosave::GetKeptPath(m_Recovery.Autosave);
+        std::error_code ec;
+        const bool replaced = fs::exists(kept, ec);
+        fs::rename(m_Recovery.Autosave, kept, ec);
+        if (ec)
+        {
+            ZM_WARN("Nusxa chetga olinmadi ({}): avtosaqlash yoki sahnani saqlash uni almashtirishi mumkin", ec.message());
+            return;
+        }
+        m_SessionAutosaves.erase(m_Recovery.Autosave.lexically_normal().string());
+        m_Recovery.Autosave = kept;
+        m_Recovery.Kept = true;
+        const std::string shown = Project::GetActive() ? kept.lexically_relative(Project::GetProjectDirectory()).generic_string() : kept.string();
+        ZM_INFO("'{}' nusxasi keyinroqqa qoldirildi ({}): sahna keyingi ochilganda yana so'raladi", m_Recovery.SceneName, shown);
+        if (replaced)
+            ZM_WARN("Avvalroq qoldirilgan nusxa shu yangisi bilan almashtirildi: {}", shown);
+    }
+
+    void EditorLayer::DeleteOfferedAutosave()
+    {
+        if (m_Recovery.Autosave.empty())
+            return;
+        std::error_code ec;
+        fs::remove(m_Recovery.Autosave, ec);
+        m_SessionAutosaves.erase(m_Recovery.Autosave.lexically_normal().string());
+        ZM_INFO("Avtomatik saqlangan nusxa o'chirildi: {}", m_Recovery.SceneName);
     }
 
     void EditorLayer::RecoverAutosave()
@@ -224,7 +270,19 @@ namespace Zamin {
         m_UndoHistory.CommitEdit(TakeSnapshot(), CaptureUndoSelection(), "Avtosaqlashdan tiklandi", (double)GetUnixTime());
         m_UndoSelectionRevision = m_SceneHierarchyPanel.GetSelection().GetRevision();
         m_UndoHistoryScroll = true;
-        // The copy now belongs to this session (written again with the next change, deleted on save).
+        // The copy now belongs to this session (written again with the next change, deleted on save);
+        // one that was put aside goes back to the usual file for that.
+        if (const fs::path usual = GetAutosavePath(); m_Recovery.Kept && !usual.empty())
+        {
+            fs::rename(m_Recovery.Autosave, usual, ec);
+            if (ec)
+                ZM_WARN("Qoldirilgan nusxa avtosaqlash fayliga ko'chirilmadi ({}): {}", ec.message(), m_Recovery.Autosave.string());
+            else
+            {
+                m_Recovery.Autosave = usual;
+                m_Recovery.Kept = false;
+            }
+        }
         m_SessionAutosaves.insert(m_Recovery.Autosave.lexically_normal().string());
         m_AutosavedScene = m_UndoHistory.GetCurrent().Scene;
         m_LastAutosaveTime = ImGui::GetTime();
@@ -259,8 +317,18 @@ namespace Zamin {
             ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.35f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  Editor oldingi safar kutilmaganda yopilgan.");
             ImGui::Spacing();
         }
-        ImGui::TextWrapped("'%s' sahnasining saqlanmagan o'zgarishlari avtomatik saqlangan nusxada bor. Nusxa sahna faylidan yangiroq.",
-                           m_Recovery.SceneName.c_str());
+        if (m_Recovery.Kept)
+        {
+            ImGui::TextWrapped("'%s' sahnasining avvalroq \"Keyinroq\" bilan qoldirilgan nusxasi bor (saqlanmagan o'zgarishlar).",
+                               m_Recovery.SceneName.c_str());
+            if (m_Recovery.SceneExists && m_Recovery.SceneTime > m_Recovery.AutosaveTime)
+                ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.35f, 1.0f),
+                                   ICON_FA_TRIANGLE_EXCLAMATION "  Sahna fayli nusxadan keyin saqlangan: tiklash fayldagi keyingi o'zgarishlar "
+                                   "o'rniga nusxani qo'yadi.");
+        }
+        else
+            ImGui::TextWrapped("'%s' sahnasining saqlanmagan o'zgarishlari avtomatik saqlangan nusxada bor. Nusxa sahna faylidan yangiroq.",
+                               m_Recovery.SceneName.c_str());
         ImGui::Spacing();
         if (ImGui::BeginTable("##recovery", 2, ImGuiTableFlags_SizingFixedFit))
         {
@@ -299,16 +367,18 @@ namespace Zamin {
         ImGui::SameLine();
         if (ImGui::Button(ICON_FA_TRASH "  Nusxani o'chirish", button))
         {
-            std::error_code ec;
-            fs::remove(m_Recovery.Autosave, ec);
-            ZM_INFO("Avtomatik saqlangan nusxa o'chirildi: {}", m_Recovery.SceneName);
+            DeleteOfferedAutosave();
             ImGui::CloseCurrentPopup();
         }
         ImGui::SameLine();
         if (ImGui::Button("Keyinroq", button))
+        {
+            DeferAutosaveRecovery();
             ImGui::CloseCurrentPopup();
+        }
         if (ImGui::IsItemHovered())
-            UI::Tooltip("Nusxa qoladi: sahna keyingi ochilganda yana so'raladi");
+            UI::Tooltip("Nusxa chetga olinadi va qoladi: bu sessiyadagi avtosaqlash va sahnani saqlash unga tegmaydi, "
+                        "sahna keyingi ochilganda yana so'raladi");
         ImGui::EndPopup();
     }
 

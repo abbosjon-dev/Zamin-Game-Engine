@@ -34,7 +34,7 @@ namespace Zamin {
             {
                 case BuiltInLayout::Mode2D: return "Ierarxiya ostida plitka palitrasi, viewport 2D rejimda";
                 case BuiltInLayout::Animation: return "Pastda katta Animatsiya va Animator grafi oynalari";
-                case BuiltInLayout::FourViews: return "Viewport va uchta ortografik ko'rinish: yuqoridan, old, o'ng (2x2)";
+                case BuiltInLayout::FourViews: return "Viewport va uchta ortografik ko'rinish: yuqoridan, old, o'ng (2x2, viewport kattaroq; ierarxiya inspektor ustida)";
                 default: return "Ierarxiya chapda, inspektor o'ngda, kontent va konsol pastda";
             }
         }
@@ -171,21 +171,25 @@ namespace Zamin {
             }
             case BuiltInLayout::FourViews:
             {
-                ImGuiID left = ImGui::DockBuilderSplitNode(main, ImGuiDir_Left, 0.16f, nullptr, &main);
+                // The hierarchy over the inspector in one column: the scene area keeps the width.
                 ImGuiID right = ImGui::DockBuilderSplitNode(main, ImGuiDir_Right, 0.24f, nullptr, &main);
-                ImGuiID bottom = ImGui::DockBuilderSplitNode(main, ImGuiDir_Down, 0.24f, nullptr, &main);
-                // The scene area in four: the viewport top-left, Top top-right, Front bottom-left, Right bottom-right.
-                ImGuiID topRight = ImGui::DockBuilderSplitNode(main, ImGuiDir_Right, 0.5f, nullptr, &main);
-                ImGuiID bottomLeft = ImGui::DockBuilderSplitNode(main, ImGuiDir_Down, 0.5f, nullptr, &main);
-                ImGuiID bottomRight = ImGui::DockBuilderSplitNode(topRight, ImGuiDir_Down, 0.5f, nullptr, &topRight);
-                dock(left, { "###Hierarchy" });
+                ImGuiID rightTop = ImGui::DockBuilderSplitNode(right, ImGuiDir_Up, 0.4f, nullptr, &right);
+                ImGuiID bottom = ImGui::DockBuilderSplitNode(main, ImGuiDir_Down, 0.22f, nullptr, &main);
+                // The scene area in four: the viewport top-left, Top top-right, Front bottom-left, Right
+                // bottom-right. The viewport gets the larger share (its toolbar needs about two rows of
+                // 550 px; the axis views have a single small panel), the dividers line up.
+                constexpr float axisViews = 0.42f;
+                ImGuiID topRight = ImGui::DockBuilderSplitNode(main, ImGuiDir_Right, axisViews, nullptr, &main);
+                ImGuiID bottomLeft = ImGui::DockBuilderSplitNode(main, ImGuiDir_Down, axisViews, nullptr, &main);
+                ImGuiID bottomRight = ImGui::DockBuilderSplitNode(topRight, ImGuiDir_Down, axisViews, nullptr, &topRight);
+                dock(rightTop, { "###Hierarchy" });
                 dock(right, { "###Inspector", "###SceneSettings" });
                 dock(bottom, { "###ContentBrowser", "###ScenesPanel", "###Console", "###Animation", "###AnimatorGraph" });
                 dock(main, { "###Viewport" });
                 dock(topRight, { "###SceneView2" });
                 dock(bottomLeft, { "###SceneView3" });
                 dock(bottomRight, { "###SceneView4" });
-                dockTools(bottom, left, right);
+                dockTools(bottom, rightTop, right);
                 open({ "Hierarchy", "Inspector", "ContentBrowser", "Console", "SceneSettings", "Scenes", "SceneView2", "SceneView3", "SceneView4" });
                 // The three views look at what the viewport looks at: from above, the front, the right.
                 static const ViewAxis axes[SceneViewSettings::Count] = { ViewAxis::Top, ViewAxis::Front, ViewAxis::Right };
@@ -375,7 +379,8 @@ namespace Zamin {
         }
 
         ImGui::SeparatorText("Saqlanganlar");
-        std::optional<std::string> remove;
+        // Saving, renaming and removing re-read the folder (the list below changes): done after it.
+        std::optional<std::string> remove, update, rename;
         const int64_t now = GetUnixTime();
         if (m_Layouts.GetNames().empty())
             ImGui::TextDisabled("Hali saqlangan joylashuv yo'q: oynalarni joylab, \"Joriy joylashuvni saqlash\" ni bosing");
@@ -400,26 +405,8 @@ namespace Zamin {
                     }
                     ImGui::SetNextItemWidth(-FLT_MIN);
                     if (ImGui::InputText("##rename", &m_LayoutRenameTo, ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll))
-                    {
-                        std::string error;
-                        const bool wasCurrent = current == name;
-                        if (m_Layouts.Rename(name, m_LayoutRenameTo, &error))
-                        {
-                            if (wasCurrent)
-                            {
-                                m_Preferences.Layout.Current = EditorLayoutLibrary::CleanName(m_LayoutRenameTo);
-                                MarkPreferencesDirty();
-                            }
-                            ZM_INFO("Joylashuv nomi o'zgardi: {} → {}", name, EditorLayoutLibrary::CleanName(m_LayoutRenameTo));
-                            m_LayoutRenameFrom.clear();
-                            m_LayoutError.clear();
-                        }
-                        else
-                            m_LayoutError = error;
-                        ImGui::PopID();
-                        break; // the list changed
-                    }
-                    if (ImGui::IsKeyPressed(ImGuiKey_Escape))
+                        rename = name;
+                    else if (ImGui::IsKeyPressed(ImGuiKey_Escape))
                         m_LayoutRenameFrom.clear();
                 }
                 else
@@ -443,7 +430,7 @@ namespace Zamin {
                     RequestLayout(name);
                 ImGui::SameLine(0.0f, 2.0f);
                 if (UI::ToolbarButton(ICON_FA_FLOPPY_DISK, "Hozirgi joylashuv bilan yangilash"))
-                    SaveCurrentLayout(name);
+                    update = name;
                 ImGui::SameLine(0.0f, 2.0f);
                 if (UI::ToolbarButton(ICON_FA_PEN, "Nomini o'zgartirish"))
                 {
@@ -458,6 +445,27 @@ namespace Zamin {
                 ImGui::PopID();
             }
             ImGui::EndTable();
+        }
+        if (update)
+            SaveCurrentLayout(*update);
+        if (rename)
+        {
+            std::string error;
+            const bool wasCurrent = current == *rename;
+            const std::string to = EditorLayoutLibrary::CleanName(m_LayoutRenameTo);
+            if (m_Layouts.Rename(*rename, m_LayoutRenameTo, &error))
+            {
+                if (wasCurrent)
+                {
+                    m_Preferences.Layout.Current = to;
+                    MarkPreferencesDirty();
+                }
+                ZM_INFO("Joylashuv nomi o'zgardi: {} → {}", *rename, to);
+                m_LayoutRenameFrom.clear();
+                m_LayoutError.clear();
+            }
+            else
+                m_LayoutError = error;
         }
         if (remove)
         {

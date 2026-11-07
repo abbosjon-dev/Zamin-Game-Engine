@@ -43,7 +43,9 @@ namespace Zamin {
         // once; any mouse navigation or zoom stops the transition where it is.
         void TransitionTo(const EditorCameraState& state, float duration = 0.3f);
         bool IsTransitioning() const { return m_Transition.Active; }
-        void StopTransition() { m_Transition.Active = false; }
+        // The user takes over: a transition into an orthographic view arrives at once (the projection
+        // and a 2D view's rotation lock are the ones it was going to); any other stops where it is.
+        void StopTransition();
         // The view of `bounds` from the current direction: the focal point at the box center,
         // just far enough that every corner of the box is inside the viewport. `padding` > 1
         // leaves a margin; a box smaller than about a meter is framed as if it were that big.

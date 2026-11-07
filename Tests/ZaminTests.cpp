@@ -6310,6 +6310,34 @@ TEST(EditorViewSettingsJson)
     CHECK_NEAR(keep.Grid.Color.a, GridSettings().Color.a, 1e-6f);
     CHECK(keep.Bookmarks["/a.zscene"].Count() == 1);
     CHECK(keep.Bookmarks["/a.zscene"].Get(3) && keep.Bookmarks["/a.zscene"].Get(3)->Distance > 0.0f);
+
+    // Settings an automation run changed for its session only are not saved: each section listed
+    // that is still as the hooks left it gets the file's value back; one changed since keeps its own.
+    {
+        EditorViewSettings before;
+        before.EntityLabels.Mode = EntityLabelMode::Off;
+        before.StatsOverlay.Visible = false;
+        before.Snap.Translate = 0.5f;
+        EditorViewSettings applied = before;
+        applied.EntityLabels.Mode = EntityLabelMode::All;      // ZAMIN_EDITOR_LABELS=all
+        applied.EntityLabels.Scale = 1.5f;
+        applied.StatsOverlay.Visible = true;                    // ZAMIN_EDITOR_OVERLAY=1
+        EditorViewSettings now = applied;
+        now.StatsOverlay.Corner = OverlayCorner::BottomLeft;    // changed by hand afterwards
+        now.Snap.Translate = 2.0f;                              // a section no hook touches
+        now.Bookmarks["/b.zscene"].Set(1, EditorCameraState{});
+        EditorViewSettings saved = now;
+        CHECK(saved.RestoreUnchangedSections(before, applied, { "EntityLabels", "StatsOverlay", "Gizmos", "Nimadir" }) == 1);
+        CHECK(saved.EntityLabels.Mode == EntityLabelMode::Off);
+        CHECK_NEAR(saved.EntityLabels.Scale, 1.0f, 1e-6f);
+        CHECK(saved.StatsOverlay.Visible && saved.StatsOverlay.Corner == OverlayCorner::BottomLeft);
+        CHECK_NEAR(saved.Snap.Translate, 2.0f, 1e-6f);
+        CHECK(saved.Bookmarks["/b.zscene"].Count() == 1);
+        // Nothing the hooks changed: nothing to put back.
+        EditorViewSettings same = before;
+        CHECK(same.RestoreUnchangedSections(before, before, { "EntityLabels", "StatsOverlay" }) == 0);
+        CHECK(same.ToJson() == before.ToJson());
+    }
 }
 
 TEST(EditorCameraBookmarkTransition)
@@ -6370,6 +6398,35 @@ TEST(EditorCameraBookmarkTransition)
     CHECK(!camera.IsTransitioning());
     CHECK(!camera.IsOrthographic());
     CHECK_NEAR(camera.GetDistance(), 10.0f, 1e-4f);
+
+    // Cut short on the way into an orthographic (here a 2D) view - a scroll, a drag, the projection
+    // toggle - it arrives at once: the projection and the 2D lock the editor already shows.
+    EditorCameraState view2D = target;
+    view2D.Orthographic = true;
+    view2D.Mode2D = true;
+    camera.TransitionTo(view2D, 1.0f);
+    camera.OnUpdate(0.3f, false);
+    CHECK(camera.IsTransitioning() && !camera.IsOrthographic() && !camera.IsRotationLocked());
+    camera.OnEvent(scroll);
+    CHECK(!camera.IsTransitioning() && camera.IsOrthographic() && camera.IsRotationLocked());
+    CHECK_NEAR(camera.GetYaw(), view2D.Yaw, 1e-5f);
+    CHECK_NEAR(camera.GetFocalPoint().x, view2D.FocalPoint.x, 1e-4f);
+    camera.SetViewState(saved);
+    camera.TransitionTo(view2D, 1.0f);
+    camera.ToggleOrthographic(); // arrives first: a locked 2D view does not toggle
+    CHECK(camera.IsOrthographic() && camera.IsRotationLocked() && camera.GetViewState().Mode2D);
+    camera.SetViewState(saved);
+    camera.TransitionTo(flat, 1.0f); // an orthographic 3D view: arrives, then the toggle turns it back
+    camera.ToggleOrthographic();
+    CHECK(!camera.IsTransitioning() && !camera.IsOrthographic() && !camera.IsRotationLocked());
+    CHECK_NEAR(camera.GetDistance(), flat.Distance, 1e-3f);
+    // Stopping any other transition leaves the camera where it is.
+    camera.SetViewState(saved);
+    camera.TransitionTo(target, 1.0f);
+    camera.OnUpdate(0.5f, false);
+    camera.StopTransition();
+    CHECK(!camera.IsTransitioning() && !camera.IsOrthographic());
+    CHECK_NEAR(camera.GetFocalPoint().x, 5.0f, 1e-3f);
 }
 
 // Every corner of `box` inside the camera's view (normalized device coordinates); returns the
@@ -31852,6 +31909,48 @@ TEST(ConsoleFilterAndCollapse)
     CHECK(matcher.IsValid());
     CHECK(BuildConsoleView(log, filter, matcher).Rows.empty());
 
+    // Long messages: std::regex recurses per character, 60 000 of them overflowed the stack. A long
+    // one is searched in a single pass (its first RegexTextLimit bytes), or (a back-reference) only
+    // its first RegexDirectLimit bytes.
+    {
+        const std::string longText(60000, 'a');
+        const std::string endsWithX = std::string(10000, 'a') + "x";
+        matcher.Set(".*x", true, false);
+        CHECK(matcher.IsValid());
+        CHECK(!matcher.Matches(longText));
+        CHECK(matcher.Matches(endsWithX));
+        CHECK(matcher.Matches("abcx") && !matcher.Matches("abc"));
+        matcher.Set("(a|b|c|d)+x", true, false);
+        CHECK(!matcher.Matches(longText) && matcher.Matches(endsWithX));
+        matcher.Set("^a+$", true, false);
+        CHECK(matcher.Matches(endsWithX.substr(0, 5000)) && !matcher.Matches(endsWithX));
+        matcher.Set("X$", true, true); // case-sensitive: the lower-case x does not count
+        CHECK(!matcher.Matches(endsWithX));
+        matcher.Set("x$", true, true);
+        CHECK(matcher.Matches(endsWithX));
+        // Past the limit nothing is looked at; the plain search still sees all of it.
+        const std::string farX = std::string(ConsoleTextMatcher::RegexTextLimit + 10, 'a') + "x";
+        matcher.Set("x", true, false);
+        CHECK(!matcher.Matches(farX));
+        matcher.Set("x", false, false);
+        CHECK(matcher.Matches(farX));
+        // Back-references: only the beginning of a long message (no crash either way).
+        matcher.Set("(a)\\1", true, false);
+        CHECK(matcher.IsValid() && !matcher.HasLongTextPattern());
+        CHECK(matcher.Matches(longText));
+        matcher.Set("(a)\\1x", true, false);
+        CHECK(!matcher.Matches(longText) && !matcher.Matches(endsWithX));
+        CHECK(matcher.Matches("aax"));
+#if defined(__GLIBCXX__)
+        matcher.Set("tanga|sahna", true, false);
+        CHECK(matcher.HasLongTextPattern());
+#endif
+        std::vector<LogMessage> big = { msg(LogLevel::Info, true, "10:00:09", longText.c_str()), msg(LogLevel::Warn, true, "10:00:10", endsWithX.c_str()) };
+        matcher.Set(".*x", true, false);
+        view = BuildConsoleView(big, filter, matcher);
+        CHECK(view.Rows.size() == 1 && view.Rows[0].First == 1);
+    }
+
     CHECK(ContainsIgnoreCase("Sahna YUKLANDI", "yuklandi"));
     CHECK(ContainsIgnoreCase("abc", ""));
     CHECK(!ContainsIgnoreCase("abc", "abcd"));
@@ -32336,6 +32435,24 @@ TEST(EditorAutosaveRecovery)
     CHECK(EditorAutosave::DecideRecovery(EditorAutosave::InspectRecovery(copy, scene)) == D::Discard);
     CHECK(EditorAutosave::DecideRecovery(EditorAutosave::InspectRecovery(copy, {})) == D::Offer);
     CHECK(EditorAutosave::DecideRecovery(EditorAutosave::InspectRecovery(project / "none.zscene", scene)) == D::None);
+
+    // A copy put aside ("Keyinroq") sits next to it, out of the way of this session's copies, and is
+    // offered again even after the scene was saved - unless it holds just what the file does.
+    const fs::path kept = EditorAutosave::GetKeptPath(copy);
+    CHECK(kept == project / ".zamin" / "autosave" / "Scenes" / "Level1.zscene.kept");
+    CHECK(kept != copy && kept.parent_path() == copy.parent_path());
+    CHECK(EditorAutosave::WriteFileAtomic(kept, "{\"Scene\": \"C\"}"));
+    fs::last_write_time(kept, fs::last_write_time(scene) - std::chrono::seconds(60));
+    CHECK(EditorAutosave::DecideRecovery(EditorAutosave::InspectRecovery(kept, scene)) == D::Discard); // as a usual copy: stale
+    CHECK(EditorAutosave::DecideRecovery(EditorAutosave::InspectRecovery(kept, scene), true) == D::Offer);
+    CHECK(EditorAutosave::DecideRecovery(EditorAutosave::InspectRecovery(kept, {}), true) == D::Offer);
+    CHECK(EditorAutosave::WriteFileAtomic(kept, "{\"Scene\": \"A\"}"));
+    CHECK(EditorAutosave::DecideRecovery(EditorAutosave::InspectRecovery(kept, scene), true) == D::Discard); // nothing to recover
+    CHECK(EditorAutosave::DecideRecovery(EditorAutosave::InspectRecovery(project / "none.kept", scene), true) == D::None);
+    {
+        EditorAutosave::RecoveryCheck none;
+        CHECK(EditorAutosave::DecideRecovery(none, true) == D::None);
+    }
 
     // The lock file: who has the project open, and whether that session ended without closing it.
     using L = EditorAutosave::LockState;

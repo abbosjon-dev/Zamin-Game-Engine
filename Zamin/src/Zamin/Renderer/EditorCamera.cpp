@@ -45,6 +45,7 @@ namespace Zamin {
     void EditorCamera::SetViewState(const EditorCameraState& state)
     {
         m_Transition.Active = false;
+        m_Transition.OrthographicAtEnd = false;
         m_FocalPoint = state.FocalPoint;
         m_Distance = std::max(state.Distance, 0.01f);
         m_Pitch = state.Pitch;
@@ -85,6 +86,18 @@ namespace Zamin {
         m_Transition.From = GetViewState();
         m_Transition.To = state;
         m_Transition.To.Distance = std::max(state.Distance, 0.01f);
+    }
+
+    void EditorCamera::StopTransition()
+    {
+        if (!m_Transition.Active)
+            return;
+        // Perspective until the end: cut short there it would stay perspective (an editor that
+        // already shows the 2D / axis view it was asked for would then disagree with the camera).
+        if (m_Transition.OrthographicAtEnd)
+            SetViewState(m_Transition.To);
+        m_Transition.Active = false;
+        m_Transition.OrthographicAtEnd = false;
     }
 
     EditorCameraState EditorCamera::ComputeFrameState(const AABB& bounds, float padding) const
@@ -157,9 +170,9 @@ namespace Zamin {
 
     void EditorCamera::ToggleOrthographic()
     {
+        StopTransition(); // first: a 2D view on the way is locked once it arrives
         if (m_RotationLocked)
             return;
-        m_Transition.Active = false;
         m_Orthographic = !m_Orthographic;
         UpdateProjection();
         UpdateView();
@@ -267,7 +280,7 @@ namespace Zamin {
                 return;
             }
             m_HasMouse = true;
-            m_Transition.Active = false; // the user takes over
+            StopTransition(); // the user takes over
             return; // skip the first delta to avoid jumps
         }
 
@@ -349,7 +362,7 @@ namespace Zamin {
     {
         EventDispatcher dispatcher(e);
         dispatcher.Dispatch<MouseScrolledEvent>([this](MouseScrolledEvent& ev) {
-            m_Transition.Active = false;
+            StopTransition();
             if (m_Flying && !m_Orthographic)
             {
                 FlySpeed = std::clamp(FlySpeed * (ev.GetYOffset() > 0 ? 1.2f : 1.0f / 1.2f), 0.5f, 200.0f);

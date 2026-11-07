@@ -693,6 +693,31 @@ namespace Zamin {
         return true;
     }
 
+    size_t EditorViewSettings::RestoreUnchangedSections(const EditorViewSettings& before, const EditorViewSettings& applied,
+                                                        std::initializer_list<std::string_view> sections)
+    {
+        // Compared as they are saved (the JSON), so "unchanged" means "the file would get the same".
+        const json now = json::parse(ToJson()), was = json::parse(before.ToJson()), set = json::parse(applied.ToJson());
+        json restore = json::object();
+        restore["ZaminEditorView"] = 1;
+        size_t count = 0;
+        for (std::string_view section : sections)
+        {
+            const std::string key(section);
+            auto n = now.find(key), w = was.find(key), a = set.find(key);
+            if (n == now.end() || w == was.end() || a == set.end())
+                continue;
+            if (*n == *a && *a != *w)
+            {
+                restore[key] = *w;
+                count++;
+            }
+        }
+        if (count > 0)
+            FromJson(restore.dump());
+        return count;
+    }
+
     bool EditorViewSettings::Save(const std::filesystem::path& path) const
     {
         return FileSystem::WriteTextFile(path, ToJson());

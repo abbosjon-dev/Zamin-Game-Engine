@@ -32,6 +32,9 @@ namespace Zamin {
         // .zamin/autosave/Scenes/Level1.zscene); a scene never saved is UnsavedSceneName.
         std::filesystem::path GetFilePath(const std::filesystem::path& projectDirectory, std::string_view sceneAssetPath);
         inline constexpr const char* UnsavedSceneName = "Nomsiz.zscene";
+        // A copy put aside when its recovery was postponed ("Keyinroq"): next to it with ".kept"
+        // added, where this session's copies of the scene (and saving it) do not reach it.
+        std::filesystem::path GetKeptPath(const std::filesystem::path& autosaveFile);
         // <project>/.zamin/editor.lock: written while the editor has the project open.
         std::filesystem::path GetLockPath(const std::filesystem::path& projectDirectory);
 
@@ -59,7 +62,9 @@ namespace Zamin {
             std::filesystem::file_time_type SceneTime{};
             bool SameContent = false;
         };
-        RecoveryDecision DecideRecovery(const RecoveryCheck& check);
+        // A kept copy (`kept`) is offered whatever the file's time - the user asked to be asked
+        // again - unless it holds just what the file does.
+        RecoveryDecision DecideRecovery(const RecoveryCheck& check, bool kept = false);
         // The facts about a copy and its scene's file (`sceneFile` empty: a scene never saved).
         RecoveryCheck InspectRecovery(const std::filesystem::path& autosaveFile, const std::filesystem::path& sceneFile);
 

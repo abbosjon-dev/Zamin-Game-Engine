@@ -118,6 +118,9 @@ namespace Zamin {
         // pixels before the output (it is centred). 0: scaled with linear filtering.
         int PixelZoom = 0;
         glm::ivec2 PixelOffset{ 0 };
+        // The output viewport's bottom-left corner in its framebuffer (the player's picture between
+        // letterbox bars): pixel-perfect upscaling counts its pixels from there.
+        glm::ivec2 OutputOrigin{ 0 };
     };
 
     // Screen-space effects applied to a rendered color texture: SSAO, bloom (threshold +

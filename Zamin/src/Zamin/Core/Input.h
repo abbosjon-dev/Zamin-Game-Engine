@@ -52,6 +52,8 @@ namespace Zamin {
         static float GetMouseX() { return GetMousePosition().x; }
         static float GetMouseY() { return GetMousePosition().y; }
         static glm::vec2 GetMouseDelta();          // movement since the previous frame (pixels)
+        // The next frame's mouse delta is 0 (the cursor was moved by the system: locked / released).
+        static void ResetMouseDelta();
         static glm::vec2 GetMouseScrollDelta();    // wheel movement since the previous frame (y: up > 0)
 
         // ---- gamepads (Xbox / PlayStation layout). id = 0..MaxGamepads-1

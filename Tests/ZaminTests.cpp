@@ -35988,3 +35988,143 @@ TEST(CrashHandlerReports)
     std::error_code ec;
     fs::remove_all(dir, ec);
 }
+
+// ---- M18: the cursor API for scripts
+TEST(CursorApiForScripts)
+{
+    namespace fs = std::filesystem;
+    using M = WindowCursorMode;
+    // The window state for the game's wishes.
+    CursorAppliedState s = Cursor::Resolve(true, CursorLockMode::None, false, CursorShape::Arrow, true, false);
+    CHECK(s == CursorAppliedState());
+    s = Cursor::Resolve(false, CursorLockMode::None, true, CursorShape::Hand, true, false);
+    CHECK(s.Mode == M::Hidden && !s.Image && !s.Transparent);
+    s = Cursor::Resolve(true, CursorLockMode::None, true, CursorShape::Hand, true, false);
+    CHECK(s.Mode == M::Normal && s.Image && s.Shape == CursorShape::Hand);
+    s = Cursor::Resolve(true, CursorLockMode::Confined, false, CursorShape::Crosshair, true, false);
+    CHECK(s.Mode == M::Captured && !s.Image && !s.Transparent && s.Shape == CursorShape::Crosshair);
+    s = Cursor::Resolve(false, CursorLockMode::Confined, true, CursorShape::Arrow, true, false);
+    CHECK(s.Mode == M::Captured && s.Transparent && !s.Image); // confined + invisible: an empty picture
+    s = Cursor::Resolve(true, CursorLockMode::Locked, true, CursorShape::Arrow, true, false);
+    CHECK(s.Mode == M::Disabled && !s.Image);
+    // Focus lost / the editor's game view not focused: the system's cursor whatever the game wants.
+    CHECK(Cursor::Resolve(false, CursorLockMode::Locked, true, CursorShape::Hand, false, false) == CursorAppliedState());
+    // Paused (a pause menu): free and visible, the game's picture kept.
+    s = Cursor::Resolve(false, CursorLockMode::Locked, true, CursorShape::Hand, true, true);
+    CHECK(s.Mode == M::Normal && s.Image && s.Shape == CursorShape::Hand);
+    CHECK(std::string(CursorLockModeToString(CursorLockMode::Confined)) == "Confined");
+
+    // The wishes are kept (no window: nothing to apply, nothing breaks).
+    CHECK(!Cursor::HasWindow());
+    Cursor::SetVisible(false);
+    Cursor::SetLockMode(CursorLockMode::Locked);
+    Cursor::SetShape(CursorShape::Crosshair);
+    Cursor::SetReleaseWhenPaused(false);
+    Cursor::Update();
+    CHECK(!Cursor::IsVisible() && Cursor::IsLocked() && Cursor::GetShape() == CursorShape::Crosshair && !Cursor::GetReleaseWhenPaused());
+
+    // A picture from a PNG (the hotspot kept inside it); one that cannot be read leaves it as it was.
+    const fs::path png = fs::temp_directory_path() / ("zamin-cursor-" + std::to_string((uint64_t)UUID()) + ".png");
+    std::vector<uint8_t> pixels(32 * 32 * 4, 255);
+    CHECK(Image::WritePNG(png.string(), 32, 32, 4, pixels.data()));
+    CHECK(Cursor::SetImage(png, { 40, 3 }));
+    CHECK(Cursor::HasImage() && Cursor::GetImage().Width == 32 && Cursor::GetImage().HotspotX == 31 && Cursor::GetImage().HotspotY == 3);
+    std::string error;
+    CHECK(!Cursor::SetImage(fs::temp_directory_path() / "zamin-yoq-kursor.png", {}, &error) && !error.empty());
+    CHECK(Cursor::HasImage() && Cursor::GetImage().Width == 32);
+    WindowCursorImage bad;
+    bad.Width = 4;
+    bad.Height = 4; // no pixels
+    CHECK(!Cursor::SetImage(bad));
+    Cursor::ClearImage();
+    CHECK(!Cursor::HasImage());
+    CHECK(Cursor::SetImage(png));
+    // Play stops: everything back.
+    Cursor::Reset();
+    CHECK(Cursor::IsVisible() && Cursor::GetLockMode() == CursorLockMode::None && Cursor::GetShape() == CursorShape::Arrow && !Cursor::HasImage() &&
+          Cursor::GetReleaseWhenPaused());
+    std::error_code ec;
+    fs::remove(png, ec);
+
+    // Locking moves the cursor: the next frame's mouse delta is 0, not the jump.
+    Input::ResetState();
+    Input::OnMouseMovedEvent(10.0f, 10.0f);
+    Input::Update();
+    Input::OnMouseMovedEvent(50.0f, 10.0f);
+    Input::Update();
+    CHECK_NEAR(Input::GetMouseDelta().x, 40.0f, 1e-4f);
+    Input::OnMouseMovedEvent(400.0f, 300.0f);
+    Input::ResetMouseDelta();
+    Input::Update();
+    CHECK_NEAR(glm::length(Input::GetMouseDelta()), 0.0f, 1e-4f);
+    Input::OnMouseMovedEvent(405.0f, 300.0f);
+    Input::Update();
+    CHECK_NEAR(Input::GetMouseDelta().x, 5.0f, 1e-4f);
+    Input::ResetState();
+}
+
+// ---- M18: window size changes, a fixed aspect ratio (letterbox)
+TEST(PlayerViewportFixedAspect)
+{
+    using Rect = PlayerSettings::ViewportRect;
+    PlayerSettings p;
+    CHECK(!p.FixedAspectRatio && p.AspectWidth == 16 && p.AspectHeight == 9);
+    // Off: the whole window.
+    CHECK((p.ComputeViewport(1280, 720) == Rect{ 0, 0, 1280, 720, false }));
+    CHECK((p.ComputeViewport(1000, 1000) == Rect{ 0, 0, 1000, 1000, false }));
+    // 16:9 in a taller window: bars at the top and the bottom; in a wider one: left and right.
+    p.FixedAspectRatio = true;
+    CHECK((p.ComputeViewport(1920, 1440) == Rect{ 0, 180, 1920, 1080, true }));
+    CHECK((p.ComputeViewport(2560, 1080) == Rect{ 320, 0, 1920, 1080, true }));
+    CHECK((p.ComputeViewport(1280, 720) == Rect{ 0, 0, 1280, 720, false })); // the same shape: no bars
+    p.AspectWidth = 4;
+    p.AspectHeight = 3;
+    CHECK((p.ComputeViewport(1001, 500) == Rect{ 167, 0, 667, 500, true }));
+    const Rect tiny = p.ComputeViewport(0, 0); // minimized: never 0 x 0
+    CHECK(tiny.Width >= 1 && tiny.Height >= 1);
+    // The window's mouse (top-left origin) in the picture's own pixels.
+    p.AspectWidth = 16;
+    p.AspectHeight = 9;
+    const Rect tall = p.ComputeViewport(1920, 1440);
+    CHECK(tall.WindowToViewport({ 100.0f, 190.0f }, 1440) == glm::vec2(100.0f, 10.0f));
+    CHECK(tall.WindowToViewport({ 5.0f, 50.0f }, 1440).y < 0.0f); // over the top bar: outside
+    const Rect wide = p.ComputeViewport(2560, 1080);
+    CHECK(wide.WindowToViewport({ 330.0f, 40.0f }, 1080) == glm::vec2(10.0f, 40.0f));
+
+    // Saved in the project (Player > Aspect), sanitized; a project without it has none.
+    p.AspectWidth = 21;
+    p.LetterboxColor = { 0.1f, 0.2f, 0.3f };
+    PlayerSettings read;
+    CHECK(PlayerSettings::FromJson(p.ToJson(), read));
+    CHECK(read.FixedAspectRatio && read.AspectWidth == 21 && read.AspectHeight == 9);
+    CHECK_NEAR(read.LetterboxColor.g, 0.2f, 1e-4f);
+    CHECK(PlayerSettings::FromJson(R"({ "Width": 800 })", read) && !read.FixedAspectRatio && read.AspectWidth == 16);
+    CHECK(PlayerSettings::FromJson(R"({ "Aspect": { "Fixed": true, "Width": 0, "Height": 500, "BarColor": [2, -1, 0.5] } })", read));
+    CHECK(read.FixedAspectRatio && read.AspectWidth == 1 && read.AspectHeight == PlayerSettings::MaxAspectSide);
+    CHECK(read.LetterboxColor == glm::vec3(1.0f, 0.0f, 0.5f));
+    const std::vector<std::string>& keys = PlayerSettings::GetKnownKeys();
+    CHECK(std::find(keys.begin(), keys.end(), "Aspect") != keys.end());
+
+    // The UI follows the picture's size: a 1920 x 1080 canvas in a 4:3 window of a 16:9 game is 1:1 in the
+    // picture, and the window's mouse finds its button there.
+    auto scene = CreateRef<Scene>();
+    using A = UITransformComponent::AnchorPoint;
+    Entity canvas = scene->CreateEntity("Canvas");
+    canvas.AddComponent<UITransformComponent>().SetStretch();
+    canvas.AddComponent<UICanvasComponent>();
+    Entity button = MakeUIRect(scene, "Play", A::Center, { 0.0f, 0.0f }, { 400.0f, 100.0f });
+    button.AddComponent<UIButtonComponent>();
+    scene->SetParent(button, canvas, false);
+    p.AspectWidth = 16;
+    Rect area = p.ComputeViewport(1920, 1440);
+    scene->OnViewportResize(area.Width, area.Height);
+    CHECK_NEAR(scene->GetUIScale(button), 1.0f, 1e-5f);
+    CHECK(scene->PickUI(area.WindowToViewport({ 960.0f, 720.0f }, 1440)) == button);
+    CHECK(!scene->PickUI(area.WindowToViewport({ 960.0f, 1440.0f - 100.0f }, 1440))); // the bottom bar
+    // The window made smaller: the picture and the UI with it.
+    area = p.ComputeViewport(960, 1080);
+    CHECK((area == Rect{ 0, 270, 960, 540, true }));
+    scene->OnViewportResize(area.Width, area.Height);
+    CHECK_NEAR(scene->GetUIScale(button), 0.5f, 1e-5f);
+    CHECK(scene->PickUI(area.WindowToViewport({ 480.0f, 540.0f }, 1080)) == button);
+}

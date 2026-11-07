@@ -40,6 +40,27 @@ namespace Zamin {
         std::vector<uint8_t> Pixels;
     };
 
+    // How the window treats the mouse cursor (Cursor resolves the game's wishes into one of these).
+    enum class WindowCursorMode : uint8_t
+    {
+        Normal = 0, // visible, free
+        Hidden,     // invisible over the window, free
+        Captured,   // visible, kept inside the window
+        Disabled    // invisible and locked: unlimited movement (mouse look), the position is virtual
+    };
+
+    // A cursor picture: RGBA8 pixels, rows top first; the hotspot (the pixel that points) from the top-left.
+    struct WindowCursorImage
+    {
+        uint32_t Width = 0, Height = 0;
+        std::vector<uint8_t> Pixels;
+        int HotspotX = 0, HotspotY = 0;
+    };
+
+    // The system's cursor shapes.
+    enum class CursorShape : uint8_t { Arrow = 0, IBeam, Crosshair, Hand, ResizeHorizontal, ResizeVertical, ResizeAll, NotAllowed };
+    inline constexpr int CursorShapeCount = (int)CursorShape::NotAllowed + 1;
+
     struct WindowProps
     {
         std::string Title = "Zamin Engine";
@@ -106,9 +127,17 @@ namespace Zamin {
         virtual void SetIcon(const std::vector<WindowIconImage>& images) = 0;
         virtual void SetTitle(const std::string& title) = 0;
         virtual const std::string& GetTitle() const = 0;
+        // Locked: WindowCursorMode::Disabled; else Normal.
         virtual void SetCursorLocked(bool locked) = 0;
+        virtual void SetCursorMode(WindowCursorMode mode) = 0;
+        virtual WindowCursorMode GetCursorMode() const = 0;
+        // The cursor's picture over the window: an image (nullptr: the shape) / one of the system's shapes.
+        virtual void SetCursorImage(const WindowCursorImage* image) = 0;
+        virtual void SetCursorShape(CursorShape shape) = 0;
         // Whether the window has the keyboard focus (in front of the other programs).
         virtual bool IsFocused() const = 0;
+        // Whether the window is minimized (iconified: only on the task bar).
+        virtual bool IsMinimized() const = 0;
         // Waits up to `seconds` for the window's events and handles them (any input ends the wait).
         virtual void WaitEvents(double seconds) = 0;
 

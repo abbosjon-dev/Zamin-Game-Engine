@@ -10,6 +10,7 @@
 #include "Zamin/Core/Application.h"
 #include "Zamin/Core/Layer.h"
 #include "Zamin/Core/Input.h"
+#include "Zamin/Core/Cursor.h"
 #include "Zamin/Core/InputActions.h"
 #include "Zamin/Core/SaveData.h"
 #include "Zamin/Core/GameState.h"

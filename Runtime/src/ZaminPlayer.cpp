@@ -79,6 +79,9 @@ namespace Zamin {
             // The game's display options change this window (fullscreen, vsync); the window already is as
             // they were saved (or as the command line says).
             Display::BindWindow(&Application::Get().GetWindow());
+            // The game's cursor wishes (Cursor: hidden, locked, its picture) go to this window.
+            Cursor::BindWindow(&Application::Get().GetWindow());
+            Cursor::SetHostActive(true);
             m_FullscreenToggle = player.FullscreenToggle;
             m_HasToggleAction = Project::GetInputActionMap().FindAction("ToggleFullscreen") != nullptr;
 
@@ -372,6 +375,7 @@ namespace Zamin {
             }
             ScriptEngine::UnloadModule();
             Display::BindWindow(nullptr);
+            Cursor::BindWindow(nullptr);
         }
 
         // The game's first scene could not be loaded: what went wrong, instead of a closed window.
@@ -467,6 +471,28 @@ namespace Zamin {
             Renderer2D::SetDisplayOutput(false);
         }
 
+        // The window's size changed (resized, fullscreen switched): logged once it settles (a drag resizes
+        // it every frame), with the picture's area when it has bars.
+        void OnWindowSize(uint32_t w, uint32_t h, const PlayerSettings::ViewportRect& area)
+        {
+            if (w == m_WindowWidth && h == m_WindowHeight)
+            {
+                if (m_SizeSettle > 0 && --m_SizeSettle == 0)
+                {
+                    if (area.Letterboxed)
+                        ZM_INFO("Oyna o'lchami: {}x{} - o'yin tasviri {}x{} ({}:{}, chetlarida polosalar)", w, h, area.Width, area.Height,
+                                Project::GetPlayerSettings().AspectWidth, Project::GetPlayerSettings().AspectHeight);
+                    else
+                        ZM_INFO("Oyna o'lchami: {}x{}", w, h);
+                }
+                return;
+            }
+            const bool first = m_WindowWidth == 0;
+            m_WindowWidth = w;
+            m_WindowHeight = h;
+            m_SizeSettle = first && !area.Letterboxed ? 0 : 10;
+        }
+
         // ZAMIN_PLAYER_CRASH_TEST="<frame>:<segv | abort | fpe | exception>": the player crashes on purpose
         // in that frame (the crash handler, its report and dialog are checked with it).
         void RunCrashTest()
@@ -520,21 +546,30 @@ namespace Zamin {
                 m_LastAudioProfile = AudioEngine::GetProfile().Format();
             auto& window = Application::Get().GetWindow();
             uint32_t w = window.GetFramebufferWidth(), h = window.GetFramebufferHeight();
-            m_Scenes->OnViewportResize(w, h);
+            if (w == 0 || h == 0)
+                return; // (minimized: the application does not even call this)
+            // The game's picture: the whole window, or (Project settings > Player > fixed aspect ratio) that
+            // shape in its middle with bars around it. The scenes' cameras, the UI's canvas scaling and the
+            // render targets follow its size every frame (the window resized, fullscreen switched).
+            const PlayerSettings::ViewportRect area = Project::GetPlayerSettings().ComputeViewport(w, h);
+            OnWindowSize(w, h, area);
+            m_Scenes->OnViewportResize(area.Width, area.Height);
 
             Renderer::ResetStats();
             glm::vec2 mouse = m_HasScriptedMouse ? m_ScriptedMouse : Input::GetMousePosition();
             float scale = window.GetWidth() > 0 ? (float)w / (float)window.GetWidth() : 1.0f;
-            m_Scenes->SetViewportMouse(mouse * scale, Input::IsMouseButtonPressed(MouseButton::Left) || m_ScriptedClick || m_ScriptedHold);
+            // (The mouse in the picture's own pixels; over the bars it is outside it.)
+            m_Scenes->SetViewportMouse(area.WindowToViewport(mouse * scale, h),
+                                       Input::IsMouseButtonPressed(MouseButton::Left) || m_ScriptedClick || m_ScriptedHold);
             m_Scenes->SetViewportScroll(Input::GetMouseScrollDelta() + m_ScriptedScroll);
 
             // The scene whose camera draws the game: its picture settings (render size, post-processing).
             Scene* view = m_Scenes->GetRenderScene();
             const auto& post = view->GetSettings().Post;
-            // The scene is rendered in linear HDR at the render scale of the window's size, then
+            // The scene is rendered in linear HDR at the render scale of the picture's size, then
             // tonemapped (and scaled) to the screen.
             // (A pixel-perfect camera: the art's resolution, blown up with sharp pixels.)
-            const glm::uvec2 renderSize = view->GetRuntimeRenderResolution(w, h);
+            const glm::uvec2 renderSize = view->GetRuntimeRenderResolution(area.Width, area.Height);
             if (!m_Target)
             {
                 FramebufferSpecification spec;
@@ -554,15 +589,24 @@ namespace Zamin {
 
             {
                 m_Target->Unbind();
-                RenderCommand::SetViewport(0, 0, w, h);
+                if (area.Letterboxed)
+                {
+                    // The bars (the whole window cleared; the picture covers its part).
+                    RenderCommand::SetViewport(0, 0, w, h);
+                    const glm::vec3& bars = Project::GetPlayerSettings().LetterboxColor;
+                    RenderCommand::SetClearColor({ bars.r, bars.g, bars.b, 1.0f });
+                    RenderCommand::Clear();
+                }
+                RenderCommand::SetViewport(area.X, area.Y, area.Width, area.Height);
                 PostProcessInput input;
                 input.ColorTexture = m_Target->GetColorAttachmentRendererID(0);
                 input.Width = m_Target->GetSpecification().Width;
                 input.Height = m_Target->GetSpecification().Height;
                 input.DepthTexture = m_Target->GetDepthAttachmentRendererID();
                 input.Projection = view->GetLastProjection();
-                input.OutputWidth = w;
-                input.OutputHeight = h;
+                input.OutputWidth = area.Width;
+                input.OutputHeight = area.Height;
+                input.OutputOrigin = { (int)area.X, (int)area.Y };
                 input.DeltaTime = ts;
                 input.History = &m_PostHistory;
                 if (PixelPerfectView pixel; view->GetPixelPerfectView(pixel) && pixel.Upscale &&
@@ -581,15 +625,17 @@ namespace Zamin {
                     DebugDrawView debugView;
                     debugView.View = view->GetLastView();
                     debugView.Projection = view->GetLastProjection();
-                    debugView.Width = w;
-                    debugView.Height = h;
+                    debugView.Width = area.Width;
+                    debugView.Height = area.Height;
                     debugView.DepthTexture = m_Target->GetDepthAttachmentRendererID();
                     debugView.DepthWidth = m_Target->GetSpecification().Width;
                     debugView.DepthHeight = m_Target->GetSpecification().Height;
                     DebugDraw::Render(debugView);
                 }
-                // A fade between scenes covers everything.
-                m_Scenes->RenderTransition(w, h);
+                // A fade between scenes covers the game's picture.
+                m_Scenes->RenderTransition(area.Width, area.Height);
+                // The strips below are the player's own: over the whole window.
+                RenderCommand::SetViewport(0, 0, w, h);
                 RenderLoadBanner(w, h);
                 m_BannerTime -= ts;
                 RenderSplashCover(w, h, ts);
@@ -647,6 +693,8 @@ namespace Zamin {
         float m_SplashCover = 0.0f;
         glm::vec3 m_SplashColor{ 0.0f };
         bool m_FullscreenToggle = true, m_HasToggleAction = false;
+        uint32_t m_WindowWidth = 0, m_WindowHeight = 0; // the last framebuffer size (OnWindowSize)
+        int m_SizeSettle = 0;                           // frames until a new size is logged
         std::string m_LastAudioProfile = "-";
         std::unique_ptr<SceneManager> m_Scenes;
         uint64_t m_ActiveSerial = 0;

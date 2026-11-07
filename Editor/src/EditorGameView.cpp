@@ -8,9 +8,25 @@
 
 namespace Zamin {
 
+    // The game view's resolution: the chosen preset; "Free" with a project of a fixed aspect ratio (Project
+    // settings > Player) is that ratio - Play looks like the player.
+    static GameViewResolution EffectiveGameView(const GameViewResolution& chosen)
+    {
+        if (chosen.Preset != GameViewPreset::Free)
+            return chosen;
+        const PlayerSettings& player = Project::GetPlayerSettings();
+        if (!player.FixedAspectRatio)
+            return chosen;
+        GameViewResolution aspect;
+        aspect.Preset = GameViewPreset::Custom;
+        aspect.CustomAspect = true;
+        aspect.CustomSize = { (int)player.AspectWidth, (int)player.AspectHeight };
+        return aspect;
+    }
+
     bool EditorLayer::IsGameViewSized() const
     {
-        return m_SceneState == SceneState::Play && m_ViewSettings.GameView.Preset != GameViewPreset::Free;
+        return m_SceneState == SceneState::Play && EffectiveGameView(m_ViewSettings.GameView).Preset != GameViewPreset::Free;
     }
 
     void EditorLayer::PlaceViewportImage(ImVec2 areaMin, ImVec2 areaSize, ImTextureID texture)
@@ -33,8 +49,16 @@ namespace Zamin {
         }
 
         // The bars around the picture, then the picture where the layout puts it.
-        m_GameViewLayout = ComputeGameViewLayout(m_ViewSettings.GameView, area);
-        ImGui::GetWindowDrawList()->AddRectFilled(areaMin, ImVec2(areaMin.x + area.x, areaMin.y + area.y), IM_COL32(6, 7, 9, 255));
+        const GameViewResolution view = EffectiveGameView(m_ViewSettings.GameView);
+        m_GameViewLayout = ComputeGameViewLayout(view, area);
+        // (The project's own bars' colour when it is its aspect ratio.)
+        ImU32 bars = IM_COL32(6, 7, 9, 255);
+        if (m_ViewSettings.GameView.Preset == GameViewPreset::Free)
+        {
+            const glm::vec3& c = Project::GetPlayerSettings().LetterboxColor;
+            bars = ImGui::ColorConvertFloat4ToU32(ImVec4(c.r, c.g, c.b, 1.0f));
+        }
+        ImGui::GetWindowDrawList()->AddRectFilled(areaMin, ImVec2(areaMin.x + area.x, areaMin.y + area.y), bars);
         const ImVec2 at(areaMin.x + m_GameViewLayout.Offset.x, areaMin.y + m_GameViewLayout.Offset.y);
         const ImVec2 size(m_GameViewLayout.DisplaySize.x, m_GameViewLayout.DisplaySize.y);
         m_ViewportBounds[0] = { at.x, at.y };

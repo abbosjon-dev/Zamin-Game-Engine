@@ -42,6 +42,41 @@ namespace Zamin {
         SplashDuration = std::isfinite(SplashDuration) ? std::clamp(SplashDuration, MinSplashDuration, MaxSplashDuration) : 2.0f;
         for (int i = 0; i < 3; i++)
             SplashBackground[i] = std::isfinite(SplashBackground[i]) ? std::clamp(SplashBackground[i], 0.0f, 1.0f) : 0.0f;
+        AspectWidth = std::clamp(AspectWidth, 1u, MaxAspectSide);
+        AspectHeight = std::clamp(AspectHeight, 1u, MaxAspectSide);
+        for (int i = 0; i < 3; i++)
+            LetterboxColor[i] = std::isfinite(LetterboxColor[i]) ? std::clamp(LetterboxColor[i], 0.0f, 1.0f) : 0.0f;
+    }
+
+    PlayerSettings::ViewportRect PlayerSettings::ComputeViewport(uint32_t width, uint32_t height) const
+    {
+        ViewportRect rect;
+        rect.Width = std::max(width, 1u);
+        rect.Height = std::max(height, 1u);
+        if (!FixedAspectRatio || AspectWidth == 0 || AspectHeight == 0 || width == 0 || height == 0)
+            return rect;
+        const double aspect = (double)AspectWidth / (double)AspectHeight;
+        if ((double)width / (double)height > aspect)
+        {
+            // Wider than the game: bars left and right.
+            rect.Width = (uint32_t)std::clamp(std::lround((double)height * aspect), 1l, (long)width);
+            rect.X = (width - rect.Width) / 2;
+        }
+        else
+        {
+            // Taller: bars at the top and the bottom.
+            rect.Height = (uint32_t)std::clamp(std::lround((double)width / aspect), 1l, (long)height);
+            rect.Y = (height - rect.Height) / 2;
+        }
+        rect.Letterboxed = rect.Width != width || rect.Height != height;
+        return rect;
+    }
+
+    glm::vec2 PlayerSettings::ViewportRect::WindowToViewport(const glm::vec2& point, uint32_t windowHeight) const
+    {
+        // The picture's top edge, from the window's top.
+        const float top = (float)windowHeight - (float)(Y + Height);
+        return { point.x - (float)X, point.y - top };
     }
 
     std::string PlayerSettings::GetProductName(std::string_view projectName) const
@@ -74,7 +109,7 @@ namespace Zamin {
     {
         static const std::vector<std::string> s_Keys = { "Company", "Product", "Version", "Width", "Height", "WindowMode", "Resizable", "VSync",
                                                          "Title", "VersionInTitle", "TargetFrameRate", "RunInBackground", "FullscreenToggle", "Icon",
-                                                         "Splash" };
+                                                         "Splash", "Aspect" };
         return s_Keys;
     }
 
@@ -104,6 +139,12 @@ namespace Zamin {
         splash["Image"] = SplashImage.generic_string();
         splash["Background"] = { rounded(SplashBackground.r, 1000.0), rounded(SplashBackground.g, 1000.0), rounded(SplashBackground.b, 1000.0) };
         j["Splash"] = std::move(splash);
+        ordered_json aspect;
+        aspect["Fixed"] = FixedAspectRatio;
+        aspect["Width"] = AspectWidth;
+        aspect["Height"] = AspectHeight;
+        aspect["BarColor"] = { rounded(LetterboxColor.r, 1000.0), rounded(LetterboxColor.g, 1000.0), rounded(LetterboxColor.b, 1000.0) };
+        j["Aspect"] = std::move(aspect);
         return j.dump(4);
     }
 
@@ -151,6 +192,18 @@ namespace Zamin {
                 for (size_t i = 0; i < 3; i++)
                     if ((*it)[i].is_number())
                         s.SplashBackground[(int)i] = (*it)[i].get<float>();
+        }
+        if (auto aspect = j.find("Aspect"); aspect != j.end() && aspect->is_object())
+        {
+            if (auto it = aspect->find("Fixed"); it != aspect->end() && it->is_boolean()) s.FixedAspectRatio = it->get<bool>();
+            if (auto it = aspect->find("Width"); it != aspect->end() && it->is_number())
+                s.AspectWidth = (uint32_t)std::clamp(it->get<double>(), 1.0, (double)MaxAspectSide);
+            if (auto it = aspect->find("Height"); it != aspect->end() && it->is_number())
+                s.AspectHeight = (uint32_t)std::clamp(it->get<double>(), 1.0, (double)MaxAspectSide);
+            if (auto it = aspect->find("BarColor"); it != aspect->end() && it->is_array() && it->size() == 3)
+                for (size_t i = 0; i < 3; i++)
+                    if ((*it)[i].is_number())
+                        s.LetterboxColor[(int)i] = (*it)[i].get<float>();
         }
         s.Sanitize();
         out = std::move(s);

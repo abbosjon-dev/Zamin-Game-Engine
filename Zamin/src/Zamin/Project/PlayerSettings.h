@@ -52,6 +52,14 @@ namespace Zamin {
         std::filesystem::path SplashImage;
         glm::vec3 SplashBackground{ 0.043f, 0.051f, 0.067f };
 
+        // ---- aspect ratio (a game made for one shape of screen)
+        // On: the game's picture keeps AspectWidth : AspectHeight whatever the window's shape - bars of
+        // LetterboxColor fill the rest (left and right, or top and bottom); the mouse and the UI work in the
+        // picture. Off: the picture fills the window (its camera follows the window's shape).
+        bool FixedAspectRatio = false;
+        uint32_t AspectWidth = 16, AspectHeight = 9;
+        glm::vec3 LetterboxColor{ 0.0f };
+
         // ---- icon
         // A PNG (relative to the assets) for the window and the exported game's desktop entry. Empty:
         // the system's default icon.
@@ -61,6 +69,7 @@ namespace Zamin {
         static constexpr uint32_t MinWindowSize = 160, MaxWindowSize = 7680;
         static constexpr int MaxTargetFrameRate = 1000, MinTargetFrameRate = 10;
         static constexpr float MinSplashDuration = 0.5f, MaxSplashDuration = 10.0f;
+        static constexpr uint32_t MaxAspectSide = 64; // 21:9, 32:9, 4:3 ... (sides 1 ... 64)
         // The icon sizes made from the PNG (those not larger than it, at least the smallest).
         static constexpr uint32_t IconSizes[] = { 16, 32, 48, 64, 128, 256 };
 
@@ -75,6 +84,21 @@ namespace Zamin {
         std::string GetWindowTitle(std::string_view projectName) const;
         // The window to create (title, size, mode, vsync, resizable).
         WindowProps MakeWindowProps(std::string_view projectName) const;
+
+        // Where the game's picture goes in a window of width x height pixels (GL viewport: X, Y from the
+        // bottom-left): the whole window, or with FixedAspectRatio the largest centred rectangle of that
+        // shape (whole pixels, at least 1 x 1).
+        struct ViewportRect
+        {
+            uint32_t X = 0, Y = 0, Width = 0, Height = 0;
+            bool Letterboxed = false; // there are bars
+
+            bool operator==(const ViewportRect&) const = default;
+            // A window point (pixels from the top-left) in the picture (pixels from its top-left; outside
+            // it: outside 0 ... size).
+            glm::vec2 WindowToViewport(const glm::vec2& point, uint32_t windowHeight) const;
+        };
+        ViewportRect ComputeViewport(uint32_t width, uint32_t height) const;
 
         // The "Player" section of a .zproject (a JSON object with every value, in a fixed order) and
         // back. FromJson keeps the defaults for missing / wrong values; false when the

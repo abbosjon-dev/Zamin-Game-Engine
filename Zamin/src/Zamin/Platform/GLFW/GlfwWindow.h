@@ -5,6 +5,7 @@
 
 struct GLFWwindow;
 struct GLFWmonitor;
+struct GLFWcursor;
 
 namespace Zamin {
 
@@ -42,7 +43,12 @@ namespace Zamin {
         void SetTitle(const std::string& title) override;
         const std::string& GetTitle() const override { return m_Data.Title; }
         void SetCursorLocked(bool locked) override;
+        void SetCursorMode(WindowCursorMode mode) override;
+        WindowCursorMode GetCursorMode() const override { return m_CursorMode; }
+        void SetCursorImage(const WindowCursorImage* image) override;
+        void SetCursorShape(CursorShape shape) override;
         bool IsFocused() const override;
+        bool IsMinimized() const override;
         void WaitEvents(double seconds) override;
 
         void* GetNativeWindow() const override { return m_Window; }
@@ -61,6 +67,10 @@ namespace Zamin {
         bool m_Resizable = true;
         int m_VSyncInterval = 1;                              // vertical blanks per frame with vsync
         uint32_t m_FullscreenWidth = 0, m_FullscreenHeight = 0; // exclusive fullscreen's video mode (0: the monitor's)
+        WindowCursorMode m_CursorMode = WindowCursorMode::Normal;
+        GLFWcursor* m_CustomCursor = nullptr;                 // SetCursorImage's
+        GLFWcursor* m_ShapeCursors[CursorShapeCount] = {};    // made when first used
+        CursorShape m_CursorShape = CursorShape::Arrow;
 
         struct WindowData
         {

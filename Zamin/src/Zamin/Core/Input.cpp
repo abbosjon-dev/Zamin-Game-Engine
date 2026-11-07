@@ -200,6 +200,7 @@ namespace Zamin {
 
     glm::vec2 Input::GetMousePosition() { return State().MousePosition; }
     glm::vec2 Input::GetMouseDelta() { return State().MousePosition - State().MousePrevious; }
+    void Input::ResetMouseDelta() { State().HasMousePosition = false; }
     glm::vec2 Input::GetMouseScrollDelta() { return State().Scroll; }
 
     // ------------------------------------------------------------------ gamepads

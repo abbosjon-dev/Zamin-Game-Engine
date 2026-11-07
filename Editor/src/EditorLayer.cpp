@@ -70,6 +70,9 @@ namespace Zamin {
     {
         // The editor gives every asset a .zmeta file (UUID, import settings); the player only reads them.
         AssetRegistry::SetWriteMetaFilesByDefault(true);
+        // The game's cursor wishes reach the editor's window only while the game view has the focus.
+        Cursor::BindWindow(&Application::Get().GetWindow());
+        Cursor::SetHostActive(false);
 
         FramebufferSpecification fbSpec;
         fbSpec.Attachments = { FramebufferTextureFormat::RGBA16F, FramebufferTextureFormat::RED_INTEGER, FramebufferTextureFormat::Depth };
@@ -342,6 +345,7 @@ namespace Zamin {
             }
             ZM_INFO("Profiler (oxirgi kadr, ms):\n{}", Profiler::FormatTree(Profiler::GetLastFrame()));
         }
+        Cursor::BindWindow(nullptr);
         m_AssetHotReload.Stop();
         SaveAssetRegistryCache(true);
         if (m_SceneState != SceneState::Edit)
@@ -4709,6 +4713,10 @@ namespace Zamin {
             ShowViewportMessage(std::format(ICON_FA_ROTATE_LEFT "  Editor holati tiklandi: {} ({} ta tanlangan)", m_EditorScene->GetName(), selection.size()));
         }
         m_PlayStart.RuntimeStart.reset();
+        // The game's cursor wishes end with it (visible, free, the arrow).
+        Cursor::SetHostActive(false);
+        Cursor::Reset();
+        m_GameCursorReleased = false;
         // What the game's scripts changed of the debug drawing does not stay in the editor.
         ApplyDebugDrawSettings();
         // The game's music stops with it, and the mixer is the project's again (what the game or the
@@ -6075,6 +6083,7 @@ namespace Zamin {
         UI_SceneViews();
         if (m_MaximizeOnPlay && m_SceneState == SceneState::Play)
             UI_MaximizedGame();
+        UpdateGameCursor();
         if (m_ShowImGuiDemo) ImGui::ShowDemoWindow(&m_ShowImGuiDemo);
 
         UI_Preferences();
@@ -6725,6 +6734,35 @@ namespace Zamin {
 
         ImGui::End();
         ImGui::PopStyleVar();
+    }
+
+    void EditorLayer::UpdateGameCursor()
+    {
+        const bool playing = m_SceneState == SceneState::Play && m_RuntimeScenes && !m_RuntimeScenes->IsPaused();
+        const bool wantsHold = Cursor::GetLockMode() != CursorLockMode::None;
+        if (playing && wantsHold && !m_GameCursorReleased && Cursor::IsHostActive() && ImGui::IsKeyPressed(ImGuiKey_Escape, false))
+        {
+            m_GameCursorReleased = true;
+            ShowViewportMessage(Tr(ICON_FA_ARROW_POINTER "  Kursor bo'shatildi - qaytarish uchun o'yin ko'rinishini bosing"));
+        }
+        if (m_GameCursorReleased && (!playing || (m_ViewportHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left))))
+            m_GameCursorReleased = false;
+        // A held cursor (confined / locked) stays the game's while its view has the focus; a hidden one or a
+        // picture only over the view.
+        const bool active = playing && m_ViewportFocused && !m_GameCursorReleased && (wantsHold || m_ViewportHovered);
+        Cursor::SetHostActive(active);
+        // ImGui would set its own cursor shape and mode every frame: not while the game has it. A locked
+        // cursor's position is virtual - ImGui ignores the mouse then (it would wander over other panels).
+        const CursorAppliedState wanted = Cursor::Resolve(Cursor::IsVisible(), Cursor::GetLockMode(), Cursor::HasImage(), Cursor::GetShape(), active,
+                                                          Cursor::GetReleaseWhenPaused() && Time::IsPaused());
+        int flags = 0;
+        if (wanted != CursorAppliedState())
+            flags |= ImGuiConfigFlags_NoMouseCursorChange;
+        if (wanted.Mode == WindowCursorMode::Disabled)
+            flags |= ImGuiConfigFlags_NoMouse;
+        ImGuiIO& io = ImGui::GetIO();
+        io.ConfigFlags = (io.ConfigFlags & ~m_GameCursorImGuiFlags) | flags;
+        m_GameCursorImGuiFlags = flags;
     }
 
     void EditorLayer::UI_MaximizedGame()

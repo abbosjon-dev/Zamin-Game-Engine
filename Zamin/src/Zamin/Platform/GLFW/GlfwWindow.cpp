@@ -253,6 +253,11 @@ namespace Zamin {
 
     GlfwWindow::~GlfwWindow()
     {
+        if (m_CustomCursor)
+            glfwDestroyCursor(m_CustomCursor);
+        for (GLFWcursor* cursor : m_ShapeCursors)
+            if (cursor)
+                glfwDestroyCursor(cursor);
         glfwDestroyWindow(m_Window);
         if (--s_GLFWWindowCount == 0)
             glfwTerminate();
@@ -267,6 +272,11 @@ namespace Zamin {
     bool GlfwWindow::IsFocused() const
     {
         return glfwGetWindowAttrib(m_Window, GLFW_FOCUSED) != 0;
+    }
+
+    bool GlfwWindow::IsMinimized() const
+    {
+        return glfwGetWindowAttrib(m_Window, GLFW_ICONIFIED) != 0;
     }
 
     void GlfwWindow::WaitEvents(double seconds)
@@ -455,7 +465,71 @@ namespace Zamin {
 
     void GlfwWindow::SetCursorLocked(bool locked)
     {
-        glfwSetInputMode(m_Window, GLFW_CURSOR, locked ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+        SetCursorMode(locked ? WindowCursorMode::Disabled : WindowCursorMode::Normal);
+    }
+
+    void GlfwWindow::SetCursorMode(WindowCursorMode mode)
+    {
+        int value = GLFW_CURSOR_NORMAL;
+        switch (mode)
+        {
+            case WindowCursorMode::Normal:   value = GLFW_CURSOR_NORMAL; break;
+            case WindowCursorMode::Hidden:   value = GLFW_CURSOR_HIDDEN; break;
+            case WindowCursorMode::Captured: value = GLFW_CURSOR_CAPTURED; break;
+            case WindowCursorMode::Disabled: value = GLFW_CURSOR_DISABLED; break;
+        }
+        glfwSetInputMode(m_Window, GLFW_CURSOR, value);
+        // Raw mouse motion for mouse look (no acceleration) where the system has it.
+        if (glfwRawMouseMotionSupported())
+            glfwSetInputMode(m_Window, GLFW_RAW_MOUSE_MOTION, mode == WindowCursorMode::Disabled ? GLFW_TRUE : GLFW_FALSE);
+        m_CursorMode = mode;
+    }
+
+    void GlfwWindow::SetCursorImage(const WindowCursorImage* image)
+    {
+        GLFWcursor* previous = m_CustomCursor;
+        m_CustomCursor = nullptr;
+        if (image && image->Width > 0 && image->Height > 0 && image->Pixels.size() >= (size_t)image->Width * image->Height * 4)
+        {
+            GLFWimage glfwImage{ (int)image->Width, (int)image->Height, const_cast<unsigned char*>(image->Pixels.data()) };
+            m_CustomCursor = glfwCreateCursor(&glfwImage, image->HotspotX, image->HotspotY);
+        }
+        if (m_CustomCursor)
+            glfwSetCursor(m_Window, m_CustomCursor);
+        else
+            SetCursorShape(m_CursorShape);
+        if (previous)
+            glfwDestroyCursor(previous);
+    }
+
+    void GlfwWindow::SetCursorShape(CursorShape shape)
+    {
+        m_CursorShape = shape;
+        if (m_CustomCursor)
+            return; // the image is shown until it is cleared
+        if (shape == CursorShape::Arrow)
+        {
+            glfwSetCursor(m_Window, nullptr); // the system's default
+            return;
+        }
+        GLFWcursor*& cursor = m_ShapeCursors[(int)shape];
+        if (!cursor)
+        {
+            int glfwShape = GLFW_ARROW_CURSOR;
+            switch (shape)
+            {
+                case CursorShape::Arrow:            glfwShape = GLFW_ARROW_CURSOR; break;
+                case CursorShape::IBeam:            glfwShape = GLFW_IBEAM_CURSOR; break;
+                case CursorShape::Crosshair:        glfwShape = GLFW_CROSSHAIR_CURSOR; break;
+                case CursorShape::Hand:             glfwShape = GLFW_POINTING_HAND_CURSOR; break;
+                case CursorShape::ResizeHorizontal: glfwShape = GLFW_RESIZE_EW_CURSOR; break;
+                case CursorShape::ResizeVertical:   glfwShape = GLFW_RESIZE_NS_CURSOR; break;
+                case CursorShape::ResizeAll:        glfwShape = GLFW_RESIZE_ALL_CURSOR; break;
+                case CursorShape::NotAllowed:       glfwShape = GLFW_NOT_ALLOWED_CURSOR; break;
+            }
+            cursor = glfwCreateStandardCursor(glfwShape);
+        }
+        glfwSetCursor(m_Window, cursor);
     }
 
 }

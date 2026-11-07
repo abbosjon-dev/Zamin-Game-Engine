@@ -282,8 +282,10 @@ namespace Zamin {
         TitleBarPreview(p.GetWindowTitle(config.Name), m_IconPreview, modeLine.c_str());
         ImGui::Spacing();
 
-        // ------------------------------------------------ splash screen
+        // ------------------------------------------------ splash screen, aspect ratio
         DrawPlayerSplash(p);
+        ImGui::Spacing();
+        DrawPlayerAspect(p);
 
         if (changed)
         {
@@ -383,6 +385,102 @@ namespace Zamin {
             }
             ImGui::Dummy(ImVec2(width, height + 2.0f));
             ImGui::TextDisabled("%.1f s%s", p.SplashDuration, p.SplashSkippable ? ", tugma bilan o'tkaziladi" : "");
+        }
+        if (changed)
+        {
+            p.Sanitize();
+            m_Dirty = true;
+        }
+    }
+
+    void ProjectSettingsPanel::DrawPlayerAspect(PlayerSettings& p)
+    {
+        bool changed = false;
+        if (UI::BeginPropertyGrid("playerAspect"))
+        {
+            UI::PropertyHeader(ICON_FA_CROP "  Ekran nisbati",
+                               "Bitta ekran shakli uchun qilingan o'yin: tasvir shu nisbatda qoladi, oynaning qolgan qismida polosalar "
+                               "(yon tomonlarda yoki tepa-pastda). Sichqoncha va UI tasvir ichida ishlaydi; oyna o'lchami o'zgarsa tasvir "
+                               "va UI unga moslashadi. O'chiq: tasvir butun oynani egallaydi (kamera oyna shakliga moslashadi).");
+            changed |= UI::PropertyBool("Qat'iy nisbat", p.FixedAspectRatio);
+            ImGui::BeginDisabled(!p.FixedAspectRatio);
+            UI::PropertyLabel("Nisbat", "Kenglik : balandlik (1 ... 64). Editorda Play ham shu nisbatda ko'rsatiladi (o'yin ko'rinishi \"Erkin\" bo'lsa)");
+            static const std::pair<uint32_t, uint32_t> s_Aspects[] = { { 16, 9 }, { 16, 10 }, { 4, 3 }, { 21, 9 }, { 3, 2 }, { 1, 1 }, { 9, 16 } };
+            const float comboWidth = ImGui::GetFrameHeight() * 1.2f;
+            const float fieldWidth = std::max(40.0f, (ImGui::GetContentRegionAvail().x - comboWidth - ImGui::CalcTextSize(":").x -
+                                                      ImGui::GetStyle().ItemSpacing.x * 3.0f) * 0.5f);
+            int aw = (int)p.AspectWidth, ah = (int)p.AspectHeight;
+            ImGui::SetNextItemWidth(fieldWidth);
+            if (ImGui::DragInt("##aspectW", &aw, 0.1f, 1, (int)PlayerSettings::MaxAspectSide, "%d", ImGuiSliderFlags_AlwaysClamp))
+            {
+                p.AspectWidth = (uint32_t)aw;
+                changed = true;
+            }
+            ImGui::SameLine();
+            ImGui::TextUnformatted(":");
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(fieldWidth);
+            if (ImGui::DragInt("##aspectH", &ah, 0.1f, 1, (int)PlayerSettings::MaxAspectSide, "%d", ImGuiSliderFlags_AlwaysClamp))
+            {
+                p.AspectHeight = (uint32_t)ah;
+                changed = true;
+            }
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(comboWidth);
+            if (ImGui::BeginCombo("##aspectPresets", "", ImGuiComboFlags_NoPreview))
+            {
+                for (const auto& [w, h] : s_Aspects)
+                    if (ImGui::Selectable(std::format("{}:{}", w, h).c_str(), p.AspectWidth == w && p.AspectHeight == h))
+                    {
+                        p.AspectWidth = w;
+                        p.AspectHeight = h;
+                        changed = true;
+                    }
+                ImGui::EndCombo();
+            }
+            changed |= UI::PropertyColor3("Polosalar rangi", p.LetterboxColor);
+            ImGui::EndDisabled();
+            UI::EndPropertyGrid();
+        }
+
+        // How windows of a few shapes show the picture: the player's own size, a wide and a square-ish screen.
+        if (p.FixedAspectRatio)
+        {
+            ImGui::TextDisabled("Turli oynalarda:");
+            const std::pair<uint32_t, uint32_t> windows[] = { { p.Width, p.Height }, { 2560, 1080 }, { 1024, 768 } };
+            const float avail = ImGui::GetContentRegionAvail().x;
+            const float boxHeight = std::min(ImGui::GetFontSize() * 5.5f, avail * 0.16f);
+            const float spacing = ImGui::GetStyle().ItemSpacing.x * 2.0f;
+            ImDrawList* draw = ImGui::GetWindowDrawList();
+            ImVec2 at = ImGui::GetCursorScreenPos();
+            float rowHeight = 0.0f;
+            for (const auto& [ww, wh] : windows)
+            {
+                const float aspect = (float)ww / (float)std::max(1u, wh);
+                const float h = boxHeight, w = std::min(h * aspect, avail * 0.45f);
+                const float hh = w / aspect;
+                const ImVec2 min(at.x, at.y), max(at.x + w, at.y + hh);
+                const glm::vec3& bars = p.LetterboxColor;
+                draw->AddRectFilled(min, max, ImGui::ColorConvertFloat4ToU32(ImVec4(bars.r, bars.g, bars.b, 1.0f)));
+                // The picture (GL rect: Y from the bottom).
+                const PlayerSettings::ViewportRect rect = p.ComputeViewport(ww, wh);
+                const float sx = w / (float)ww, sy = hh / (float)wh;
+                const ImVec2 pmin(min.x + (float)rect.X * sx, max.y - (float)(rect.Y + rect.Height) * sy);
+                const ImVec2 pmax(pmin.x + (float)rect.Width * sx, pmin.y + (float)rect.Height * sy);
+                draw->AddRectFilledMultiColor(pmin, pmax, IM_COL32(64, 112, 176, 255), IM_COL32(72, 128, 196, 255), IM_COL32(52, 120, 92, 255),
+                                              IM_COL32(46, 104, 84, 255));
+                const std::string inner = std::format("{}x{}", rect.Width, rect.Height);
+                const ImVec2 innerSize = ImGui::CalcTextSize(inner.c_str());
+                if (innerSize.x < pmax.x - pmin.x - 4.0f)
+                    draw->AddText(ImVec2((pmin.x + pmax.x - innerSize.x) * 0.5f, (pmin.y + pmax.y - innerSize.y) * 0.5f), IM_COL32(236, 240, 244, 230),
+                                  inner.c_str());
+                draw->AddRect(min, max, IM_COL32(90, 96, 110, 255));
+                const std::string label = std::format("{}x{}", ww, wh);
+                draw->AddText(ImVec2(min.x, max.y + 2.0f), ImGui::GetColorU32(ImGuiCol_TextDisabled), label.c_str());
+                at.x += w + spacing;
+                rowHeight = std::max(rowHeight, hh + ImGui::GetTextLineHeight() + 4.0f);
+            }
+            ImGui::Dummy(ImVec2(avail, rowHeight));
         }
         if (changed)
         {

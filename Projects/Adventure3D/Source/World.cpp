@@ -16,12 +16,16 @@ void OrbitFollowCamera::OnLateUpdate(Timestep ts)
     Entity target = Follow ? Resolve(Follow) : FindEntity(Target);
     if (!target) return;
 
-    // rotate: RMB drag, Q/E, gamepad right stick
+    // rotate: RMB drag, Q/E, gamepad right stick. While dragging the cursor is hidden and locked (Cursor API):
+    // it stays where the drag began and the mouse's movement keeps turning the camera at the screen's edges.
     glm::vec2 mouse = GetMousePosition();
     bool rmb = Input::IsMouseButtonPressed(MouseButton::Right);
+    if (rmb != m_Dragging)
+        Cursor::SetLockMode(rmb ? CursorLockMode::Locked : CursorLockMode::None);
     if (rmb && m_Dragging)
     {
-        glm::vec2 d = mouse - m_LastMouse;
+        // Locked: the window's (unlimited) movement; else (the editor's game view without the focus) the pointer's.
+        glm::vec2 d = Cursor::GetApplied().Mode == WindowCursorMode::Disabled ? Input::GetMouseDelta() : mouse - m_LastMouse;
         Yaw -= d.x * Sensitivity;
         Pitch = std::clamp(Pitch + d.y * Sensitivity, -0.2f, 1.2f);
     }
@@ -42,6 +46,13 @@ void OrbitFollowCamera::OnLateUpdate(Timestep ts)
     glm::vec3 dir = glm::normalize(m_Focus - t.Translation);
     t.Rotation = { std::asin(dir.y), std::atan2(-dir.x, -dir.z), 0.0f };
 }
+void OrbitFollowCamera::OnDestroy()
+{
+    // A scene switch in the middle of a drag: the cursor does not stay locked.
+    if (m_Dragging)
+        Cursor::SetLockMode(CursorLockMode::None);
+}
+
 ZM_REGISTER_SCRIPT(OrbitFollowCamera, ZM_FIELD(OrbitFollowCamera, Follow), ZM_FIELD(OrbitFollowCamera, Target), ZM_FIELD(OrbitFollowCamera, Distance),
                    ZM_FIELD(OrbitFollowCamera, Height), ZM_FIELD(OrbitFollowCamera, Yaw), ZM_FIELD(OrbitFollowCamera, Pitch))
 

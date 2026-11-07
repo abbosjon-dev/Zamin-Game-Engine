@@ -100,6 +100,8 @@ namespace Zamin {
         void DrawPlayer(ProjectConfig& config);
         void DrawPlayerIcon(PlayerSettings& player);
         void DrawPlayerSplash(PlayerSettings& player);
+        // Fixed aspect ratio: the picture's shape, the bars' colour and how windows of other shapes show it.
+        void DrawPlayerAspect(PlayerSettings& player);
         void DrawDebug(ProjectConfig& config);
         void DrawQuality(ProjectConfig& config);
         void DrawAudio(ProjectConfig& config);

@@ -355,6 +355,9 @@ namespace Zamin {
         void UI_SceneLoadBanner();
         void UI_SceneLoadReport();
         void UI_MaximizedGame();
+        // The game's cursor (Cursor: hidden / confined / locked / its picture) while its view has the focus;
+        // Esc gives the editor the cursor back until the game view is clicked again.
+        void UpdateGameCursor();
         void UI_TransparentOrder();
         // The icons of cameras, lights and sounds in a view (a click selects).
         void UI_ViewportIcons(const SceneViewTarget& view);
@@ -679,6 +682,8 @@ namespace Zamin {
         MaterialLibrary::Snapshot m_PlayMaterials;
 
         bool m_ViewportFocused = false, m_ViewportHovered = false;
+        bool m_GameCursorReleased = false;   // Esc while the game held the cursor
+        int m_GameCursorImGuiFlags = 0;      // ImGui config flags UpdateGameCursor set (it clears only those)
         // The size the viewport's picture is drawn at, and where it is on screen (they differ when a
         // fixed game resolution is scaled down to fit); the panel's whole area (toolbar, bars).
         glm::vec2 m_ViewportSize = { 0.0f, 0.0f };

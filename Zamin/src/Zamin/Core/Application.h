@@ -87,6 +87,9 @@ namespace Zamin {
         bool GetRunInBackground() const { return m_RunInBackground; }
         // The game is standing still now because its window lost the focus.
         bool IsPausedInBackground() const { return m_PausedInBackground; }
+        // The window is minimized: nothing is updated or drawn (the loop only waits for events) until it
+        // comes back - no frame time passes for the game meanwhile.
+        bool IsMinimized() const { return m_Minimized; }
 
         // ---- versions
         // The engine's version ("0.1.0").
@@ -117,6 +120,7 @@ namespace Zamin {
         LayerStack m_LayerStack;
         bool m_Running = true;
         bool m_Minimized = false;
+        bool m_ZeroSize = false;   // the last resize made the window 0 x 0
         float m_LastFrameTime = 0.0f;
         float m_FPS = 0.0f;
         float m_FrameTimeMs = 0.0f;

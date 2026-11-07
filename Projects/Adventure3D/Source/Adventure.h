@@ -38,6 +38,7 @@ public:
 
     void OnCreate() override;
     void OnLateUpdate(Zamin::Timestep ts) override;
+    void OnDestroy() override;
 
 private:
     glm::vec2 m_LastMouse{ 0.0f };

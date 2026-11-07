@@ -1033,7 +1033,8 @@ void main()
         comp->SetFloat3("u_Tint", settings.Tint);
         comp->SetInt("u_Tonemap", (int)settings.Tonemap);
         comp->SetInt("u_PixelZoom", input.PixelZoom > 0 ? input.PixelZoom : 0);
-        comp->SetFloat2("u_PixelOffset", glm::vec2(input.PixelOffset));
+        // (FXAA: the composite goes into a picture of its own, from its corner.)
+        comp->SetFloat2("u_PixelOffset", glm::vec2(input.PixelOffset - (fxaa ? glm::ivec2(0) : input.OutputOrigin)));
         comp->SetInt("u_Exposure", 3);
         comp->SetInt("u_AutoExposure", exposureTexture ? 1 : 0);
         RenderCommand::BindTextureUnit(3, exposureTexture);

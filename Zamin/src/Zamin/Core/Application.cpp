@@ -2,6 +2,7 @@
 
 #include "Zamin/ImGui/ImGuiLayer.h"
 #include "Zamin/Core/Profiler.h"
+#include "Zamin/Core/Cursor.h"
 #include "Zamin/Core/Input.h"
 #include "Zamin/Core/SaveData.h"
 #include "Zamin/Core/Time.h"
@@ -188,10 +189,27 @@ namespace Zamin {
                 m_WindowFocused = focused;
                 m_LastInputTime = frameStart;
             }
+            // Minimized (iconified, or a 0 x 0 framebuffer): nothing to draw - the layers wait (no update, no
+            // swap, no busy loop) until the window comes back; the game's time does not jump then.
+            const bool minimized = m_ZeroSize || m_Window->IsMinimized();
+            if (minimized != m_Minimized)
+            {
+                m_Minimized = minimized;
+                ZM_CORE_INFO("{}", minimized ? "Oyna kichraytirildi: yangilash va chizish to'xtatildi" : "Oyna tiklandi: yangilash va chizish davom etmoqda");
+            }
+            if (m_Minimized)
+            {
+                ExecuteMainThreadQueue();
+                Cursor::Update();
+                m_Window->WaitEvents(0.1);
+                m_LastFrameTime = (float)glfwGetTime();
+                continue;
+            }
             // A game that does not run in the background stands still while its window is behind others.
             SetPausedInBackground(!m_RunInBackground && !m_WindowFocused && !IsAutomationRun());
             if (m_PausedInBackground)
             {
+                Cursor::Update(); // the system's cursor while the window is behind others
                 m_Window->WaitEvents(0.1);
                 m_LastFrameTime = (float)glfwGetTime(); // no long step when it comes back
                 continue;
@@ -224,13 +242,14 @@ namespace Zamin {
             ExecuteMainThreadQueue();
             // Snapshot keyboard / mouse / gamepads once per frame (JustPressed, actions, axes).
             Input::Update();
+            // The game's cursor (hidden / locked / its picture) as its wishes, the focus and a pause say.
+            Cursor::Update();
             // Music fades, level meters, finished sounds (also while minimized: fades go on).
             {
                 ZM_PROFILE_SCOPE("Audio (mixer)");
                 AudioEngine::Update(timestep);
             }
 
-            if (!m_Minimized)
             {
                 ZM_PROFILE_SCOPE("Kadr");
                 {
@@ -309,12 +328,10 @@ namespace Zamin {
 
     bool Application::OnWindowResize(WindowResizeEvent& e)
     {
-        if (e.GetWidth() == 0 || e.GetHeight() == 0)
-        {
-            m_Minimized = true;
+        // (A 0 x 0 window - minimized on some systems - is handled by the loop.)
+        m_ZeroSize = e.GetWidth() == 0 || e.GetHeight() == 0 || m_Window->GetFramebufferWidth() == 0 || m_Window->GetFramebufferHeight() == 0;
+        if (m_ZeroSize)
             return false;
-        }
-        m_Minimized = false;
         Renderer::OnWindowResize(m_Window->GetFramebufferWidth(), m_Window->GetFramebufferHeight());
         return false;
     }

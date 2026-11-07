@@ -43541,3 +43541,104 @@ TEST(NavBakeSavedWithScene)
         loaded->OnRuntimeStop();
     }
 }
+
+TEST(NavigationComponentsRoundTrip)
+{
+    // Every navigation / AI component with values other than its defaults: written, read back (text
+    // and binary cache) and written again gives the same text; the runtime state is never written.
+    auto scene = CreateRef<Scene>();
+    Entity grid2 = scene->CreateEntity("Grid2");
+    auto& g2 = grid2.AddComponent<NavGrid2DComponent>();
+    g2.AutoBounds = false;
+    g2.Offset = { 1.5f, -2.0f };
+    g2.Size = { 30.0f, 12.0f };
+    g2.CellSize = 0.25f;
+    g2.UseTilemaps = false;
+    g2.OneWayBlocks = true;
+    g2.LayerMask = 0x00F3;
+    g2.AgentRadius = 0.45f;
+    g2.Paths = { false, true, false, true };
+    g2.AutoRebuild = true;
+    Entity grid3 = scene->CreateEntity("Grid3");
+    auto& g3 = grid3.AddComponent<NavGrid3DComponent>();
+    g3.Offset = { 0.0f, 3.0f, 1.0f };
+    g3.Size = { 40.0f, 6.0f, 22.0f };
+    g3.CellSize = 0.75f;
+    g3.AgentRadius = 0.6f;
+    g3.AgentHeight = 2.2f;
+    g3.MaxSlope = 30.0f;
+    g3.StepHeight = 0.25f;
+    g3.LayerMask = 0x0101;
+    g3.Paths.CacheBake = true;
+    Entity agent = scene->CreateEntity("Agent");
+    auto& a = agent.AddComponent<NavAgentComponent>();
+    a.Grid.ID = (uint64_t)grid3.GetUUID();
+    a.Speed = 4.5f;
+    a.Acceleration = 0.0f;
+    a.StoppingDistance = 0.4f;
+    a.SplinePath = true;
+    a.Avoidance = true;
+    a.FeelerLength = 2.5f;
+    a.AvoidanceMask = 0x000F;
+    a.AvoidStatic = true;
+    a.SetDestination({ 5.0f, 0.0f, 5.0f }); // runtime
+    Entity obstacle = scene->CreateEntity("Obstacle");
+    auto& o = obstacle.AddComponent<NavObstacleComponent>();
+    o.Shape = NavObstacleComponent::ShapeType::Circle;
+    o.Radius = 1.25f;
+    o.CarveOnlyStationary = true;
+    o.Grid.ID = (uint64_t)grid2.GetUUID();
+    Entity eyes = scene->CreateEntity("Eyes");
+    auto& s = eyes.AddComponent<SightSensorComponent>();
+    s.FieldOfView = 75.0f;
+    s.TargetTag = "Dushman";
+    s.BlockingMask = 0x0FF0;
+    s.CanSee = true; // runtime
+    Entity patrol = scene->CreateEntity("Patrol");
+    auto& p = patrol.AddComponent<PatrolPathComponent>();
+    p.Points = { { { 1.0f, 0.0f, 2.0f }, -1.0f }, { { 3.0f, 0.0f, 2.0f }, 2.5f } };
+    p.Mode = PatrolPathComponent::PatrolMode::PingPong;
+    p.WaitVariance = 0.5f;
+    p.Arrivals = 9; // runtime
+    Entity leader = scene->CreateEntity("Leader");
+    auto& f = leader.AddComponent<FormationComponent>();
+    f.Shape = FormationShape::Column;
+    f.Members = { EntityRef{ (uint64_t)agent.GetUUID() }, EntityRef{ (uint64_t)eyes.GetUUID() } };
+    f.Spacing = 2.0f;
+    f.Assignments = 3; // runtime
+
+    const std::string text = SceneSerializer(scene).SerializeToString();
+    for (const char* key : { "\"NavGrid2D\"", "\"NavGrid3D\"", "\"NavAgent\"", "\"NavObstacle\"", "\"SightSensor\"", "\"PatrolPath\"", "\"Formation\"",
+                             "\"CacheBake\": true", "\"Avoidance\"" })
+        CHECK(text.find(key) != std::string::npos);
+    for (const char* runtime : { "\"Arrivals\"", "\"CanSee\"", "\"Assignments\"", "\"Destination\"", "\"Baked\"" })
+        CHECK(text.find(runtime) == std::string::npos);
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    CHECK(SceneSerializer(loaded).SerializeToString() == text);
+    auto binary = CreateRef<Scene>();
+    CHECK(SceneSerializer(binary).DeserializeFromBinary(SceneSerializer(scene).SerializeToBinary()));
+    CHECK(SceneSerializer(binary).SerializeToString() == text);
+    // A few values checked by hand (a symmetric mistake in writing and reading would pass the above).
+    const auto& lg2 = loaded->FindEntityByName("Grid2").GetComponent<NavGrid2DComponent>();
+    CHECK(!lg2.AutoBounds && lg2.CellSize == 0.25f && lg2.LayerMask == 0x00F3 && lg2.Paths.CutCorners && !lg2.Paths.Diagonals && lg2.Paths.CacheBake);
+    CHECK(!lg2.Paths.BakeOnStart && lg2.AutoRebuild && !lg2.Baked);
+    const auto& lg3 = loaded->FindEntityByName("Grid3").GetComponent<NavGrid3DComponent>();
+    CHECK(lg3.Paths.CacheBake && lg3.MaxSlope == 30.0f && lg3.LayerMask == 0x0101 && lg3.Size == glm::vec3(40.0f, 6.0f, 22.0f));
+    const auto& la = loaded->FindEntityByName("Agent").GetComponent<NavAgentComponent>();
+    CHECK(la.Grid.ID == (uint64_t)grid3.GetUUID() && la.Avoidance && la.AvoidStatic && la.AvoidanceMask == 0x000F && la.SplinePath && !la.HasDestination);
+    CHECK(loaded->FindEntityByName("Obstacle").GetComponent<NavObstacleComponent>().Shape == NavObstacleComponent::ShapeType::Circle);
+    CHECK(loaded->FindEntityByName("Eyes").GetComponent<SightSensorComponent>().TargetTag == "Dushman");
+    CHECK(loaded->FindEntityByName("Patrol").GetComponent<PatrolPathComponent>().Points == p.Points);
+    CHECK(loaded->FindEntityByName("Leader").GetComponent<FormationComponent>().Members == f.Members);
+    // Copy / paste of single components (the inspector's menu) and of whole entities.
+    for (const char* key : { "NavGrid2D", "NavGrid3D", "NavAgent", "NavObstacle", "SightSensor", "PatrolPath", "Formation" })
+    {
+        Entity source;
+        for (Entity e : { grid2, grid3, agent, obstacle, eyes, patrol, leader })
+            if (ComponentRegistry::Has(e, key))
+                source = e;
+        const std::string clip = SceneSerializer::SerializeComponent(source, key);
+        CHECK(!clip.empty() && SceneSerializer::GetSerializedComponentKey(clip) == key);
+    }
+}

@@ -1,0 +1,3582 @@
+{
+  "Scene": "AI3D",
+  "Version": 4,
+  "Metadata": {
+    "Description": "M20: AI namunasi - yopiq eshik (Nav Obstacle) katakni yopadi va agentlar boshqa yo'l topadi; qorovul holat mashinasi va ko'rish sensori bilan mehmonni ta'qib qiladi, yo'qotsa qidiradi; kuzatuv kamerasi ko'rganini kuzatadi; hammollar mo'ylov nurlari bilan aravani aylanib o'tadi; qo'ylar suruvi steering bilan yuradi",
+    "Author": "Zamin",
+    "Tags": [
+      "AI",
+      "navigatsiya",
+      "M20"
+    ]
+  },
+  "Settings": {
+    "DrawSky": true,
+    "SkyTop": [
+      0.26,
+      0.46,
+      0.82
+    ],
+    "SkyHorizon": [
+      0.82,
+      0.86,
+      0.92
+    ],
+    "Ground": [
+      0.33,
+      0.31,
+      0.28
+    ],
+    "Ambient": 0.55,
+    "Exposure": 1.05,
+    "ShadowDistance": 60,
+    "Gravity": [
+      0,
+      -9.8
+    ],
+    "Gravity3D": [
+      0,
+      -9.81,
+      0
+    ],
+    "Post": {
+      "Bloom": true,
+      "BloomThreshold": 1.0,
+      "BloomKnee": 0.5,
+      "BloomIntensity": 0.55,
+      "BloomRadius": 1.0,
+      "Vignette": 0.25,
+      "Saturation": 1.08,
+      "Contrast": 1.05,
+      "Brightness": 0.0,
+      "Tint": [
+        1,
+        1,
+        1
+      ],
+      "Tonemap": 1,
+      "SSAO": true,
+      "SSAORadius": 0.6,
+      "SSAOIntensity": 1.2,
+      "SSAOBias": 0.03,
+      "FXAA": true,
+      "FXAASubpixel": 0.75
+    },
+    "Environment": {
+      "Map": "Textures/sunset.hdr",
+      "Intensity": 0.85,
+      "Rotation": 0.0
+    }
+  },
+  "Entities": [
+    {
+      "Entity": 7960000000000001,
+      "Tag": "Main Camera",
+      "Transform": {
+        "Translation": [
+          0,
+          23.5,
+          11.4
+        ],
+        "Rotation": [
+          -1.08,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Camera": {
+        "ProjectionType": 0,
+        "PerspectiveFOV": 0.85,
+        "PerspectiveNear": 0.1,
+        "PerspectiveFar": 500,
+        "OrthographicSize": 10,
+        "OrthographicNear": -100,
+        "OrthographicFar": 100,
+        "Primary": true,
+        "FixedAspectRatio": false,
+        "ClearColor": [
+          0.1,
+          0.1,
+          0.12,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 7960000000000002,
+      "Tag": "Quyosh",
+      "Transform": {
+        "Translation": [
+          0,
+          10,
+          0
+        ],
+        "Rotation": [
+          -0.95,
+          -0.55,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "DirectionalLight": {
+        "Color": [
+          1.0,
+          0.95,
+          0.88
+        ],
+        "Intensity": 3.0,
+        "CastShadows": true
+      }
+    },
+    {
+      "Entity": 7960000000000003,
+      "Tag": "Yer",
+      "Transform": {
+        "Translation": [
+          0,
+          -0.5,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          26,
+          1,
+          20
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.34,
+          0.38,
+          0.32,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.95,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "Density": 1.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7960000000000004,
+      "Tag": "Chegara",
+      "Transform": {
+        "Translation": [
+          0,
+          0.6,
+          -9.75
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          26,
+          1.2,
+          0.5
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.72,
+          0.66,
+          0.58,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.85,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "Density": 1.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7960000000000005,
+      "Tag": "Chegara",
+      "Transform": {
+        "Translation": [
+          0,
+          0.6,
+          9.75
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          26,
+          1.2,
+          0.5
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.72,
+          0.66,
+          0.58,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.85,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "Density": 1.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7960000000000006,
+      "Tag": "Chegara",
+      "Transform": {
+        "Translation": [
+          -12.75,
+          0.6,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.5,
+          1.2,
+          19
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.72,
+          0.66,
+          0.58,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.85,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "Density": 1.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7960000000000007,
+      "Tag": "Chegara",
+      "Transform": {
+        "Translation": [
+          12.75,
+          0.6,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.5,
+          1.2,
+          19
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.72,
+          0.66,
+          0.58,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.85,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "Density": 1.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7960000000000008,
+      "Tag": "Devor",
+      "Transform": {
+        "Translation": [
+          -7.0,
+          1.0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          11.0,
+          2.0,
+          0.5
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.72,
+          0.66,
+          0.58,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.85,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "Density": 1.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7960000000000009,
+      "Tag": "Devor",
+      "Transform": {
+        "Translation": [
+          4.75,
+          1.0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          6.5,
+          2.0,
+          0.5
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.72,
+          0.66,
+          0.58,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.85,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "Density": 1.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7960000000000010,
+      "Tag": "Ustun",
+      "Transform": {
+        "Translation": [
+          -8,
+          1.0,
+          -5.5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.0,
+          2.0,
+          1.0
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.55,
+          0.5,
+          0.62,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.6,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "Density": 1.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7960000000000011,
+      "Tag": "Ustun",
+      "Transform": {
+        "Translation": [
+          -3.5,
+          1.0,
+          -6.2
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.0,
+          2.0,
+          1.0
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.55,
+          0.5,
+          0.62,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.6,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "Density": 1.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7960000000000012,
+      "Tag": "Ustun",
+      "Transform": {
+        "Translation": [
+          3.5,
+          1.0,
+          -4.5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.0,
+          2.0,
+          1.0
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.55,
+          0.5,
+          0.62,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.6,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "Density": 1.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7960000000000013,
+      "Tag": "Ustun",
+      "Transform": {
+        "Translation": [
+          8.5,
+          1.0,
+          -6.5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.0,
+          2.0,
+          1.0
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.55,
+          0.5,
+          0.62,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.6,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "Density": 1.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7960000000000014,
+      "Tag": "Ustun",
+      "Transform": {
+        "Translation": [
+          3.5,
+          1.0,
+          5.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.0,
+          2.0,
+          1.0
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.55,
+          0.5,
+          0.62,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.6,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "Density": 1.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7960000000000015,
+      "Tag": "Ustun",
+      "Transform": {
+        "Translation": [
+          8.2,
+          1.0,
+          3.2
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.0,
+          2.0,
+          1.0
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.55,
+          0.5,
+          0.62,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.6,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "Density": 1.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7960000000000016,
+      "Tag": "Navigatsiya",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "NavGrid3D": {
+        "Offset": [
+          0,
+          2,
+          0
+        ],
+        "Size": [
+          26,
+          8,
+          20
+        ],
+        "CellSize": 0.5,
+        "AgentRadius": 0.4,
+        "AgentHeight": 1.8,
+        "MaxSlope": 40.0,
+        "StepHeight": 0.3,
+        "LayerMask": 65535,
+        "Diagonals": true,
+        "CutCorners": false,
+        "BakeOnStart": true
+      }
+    },
+    {
+      "Entity": 7960000000000017,
+      "Tag": "Eshik",
+      "Transform": {
+        "Translation": [
+          0,
+          0.95,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          3.0,
+          1.9,
+          0.3
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.62,
+          0.36,
+          0.2,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Kinematic",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "Density": 1.0,
+        "IsSensor": false
+      },
+      "NavObstacle": {
+        "Shape": "Box",
+        "Center": [
+          0,
+          0,
+          0
+        ],
+        "Size": [
+          1,
+          1,
+          1
+        ],
+        "Radius": 0.5,
+        "Grid": 0,
+        "MoveThreshold": 0.1,
+        "CarveOnlyStationary": false,
+        "StationaryTime": 0.5
+      },
+      "NativeScript": {
+        "Class": "SlidingDoor",
+        "Fields": {
+          "OpenOffset": {
+            "Type": "Vec3",
+            "Value": [
+              -3,
+              0,
+              0
+            ]
+          },
+          "MoveTime": {
+            "Type": "Float",
+            "Value": 1.2
+          },
+          "OpenTime": {
+            "Type": "Float",
+            "Value": 6.0
+          },
+          "ClosedTime": {
+            "Type": "Float",
+            "Value": 8.0
+          },
+          "StartOpen": {
+            "Type": "Bool",
+            "Value": false
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7960000000000018,
+      "Tag": "Arava",
+      "Transform": {
+        "Translation": [
+          -4.5,
+          0.45,
+          4.3
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.6,
+          0.9,
+          1.0
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.78,
+          0.6,
+          0.3,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.6,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Kinematic",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "Density": 1.0,
+        "IsSensor": false
+      },
+      "NavObstacle": {
+        "Shape": "Box",
+        "Center": [
+          0,
+          0,
+          0
+        ],
+        "Size": [
+          1,
+          1,
+          1
+        ],
+        "Radius": 0.5,
+        "Grid": 0,
+        "MoveThreshold": 0.1,
+        "CarveOnlyStationary": true,
+        "StationaryTime": 0.4
+      },
+      "NativeScript": {
+        "Class": "PingPongMover",
+        "Fields": {
+          "Offset": {
+            "Type": "Vec3",
+            "Value": [
+              8.5,
+              0,
+              0
+            ]
+          },
+          "Speed": {
+            "Type": "Float",
+            "Value": 1.5
+          },
+          "Wait": {
+            "Type": "Float",
+            "Value": 3.0
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7960000000000019,
+      "Tag": "Patrul yo'li",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 7960000000000020,
+      "Tag": "Nuqta",
+      "Parent": 7960000000000019,
+      "Transform": {
+        "Translation": [
+          -9.5,
+          0.03,
+          -7.5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.45,
+          0.04,
+          0.45
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          0.35,
+          0.85,
+          0.45,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000021,
+      "Tag": "Nuqta",
+      "Parent": 7960000000000019,
+      "Transform": {
+        "Translation": [
+          5.5,
+          0.03,
+          -8.2
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.45,
+          0.04,
+          0.45
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          0.35,
+          0.85,
+          0.45,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000022,
+      "Tag": "Nuqta",
+      "Parent": 7960000000000019,
+      "Transform": {
+        "Translation": [
+          10.5,
+          0.03,
+          -2.5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.45,
+          0.04,
+          0.45
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          0.35,
+          0.85,
+          0.45,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000023,
+      "Tag": "Nuqta",
+      "Parent": 7960000000000019,
+      "Transform": {
+        "Translation": [
+          10.5,
+          0.03,
+          5.5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.45,
+          0.04,
+          0.45
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          0.35,
+          0.85,
+          0.45,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000024,
+      "Tag": "Nuqta",
+      "Parent": 7960000000000019,
+      "Transform": {
+        "Translation": [
+          1.5,
+          0.03,
+          7.8
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.45,
+          0.04,
+          0.45
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          0.35,
+          0.85,
+          0.45,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000025,
+      "Tag": "Nuqta",
+      "Parent": 7960000000000019,
+      "Transform": {
+        "Translation": [
+          -3.0,
+          0.03,
+          3.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.45,
+          0.04,
+          0.45
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          0.35,
+          0.85,
+          0.45,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000026,
+      "Tag": "Qorovul",
+      "Transform": {
+        "Translation": [
+          -9.5,
+          0,
+          -7.0
+        ],
+        "Rotation": [
+          0,
+          0.0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "CharacterController3D": {
+        "Radius": 0.35,
+        "Height": 1.8,
+        "MaxSlope": 45.0,
+        "StepHeight": 0.35,
+        "Mass": 70.0,
+        "GravityScale": 1.0,
+        "StickToFloor": true
+      },
+      "NavAgent": {
+        "Grid": 7960000000000016,
+        "Target": 0,
+        "Speed": 2.4,
+        "Acceleration": 12.0,
+        "AngularSpeed": 540.0,
+        "StoppingDistance": 0.3,
+        "Radius": 0.35,
+        "LookAhead": 0.6,
+        "RepathInterval": 0.4,
+        "BaseOffset": 0.0,
+        "AutoBraking": true,
+        "SmoothPath": true,
+        "SplinePath": false,
+        "UpdateRotation": true,
+        "Avoidance": {
+          "Enabled": true,
+          "FeelerLength": 1.6,
+          "FeelerAngle": 35.0,
+          "FeelerHeight": 0.5,
+          "Weight": 1.0,
+          "LayerMask": 65535,
+          "Static": false
+        }
+      },
+      "SightSensor": {
+        "ViewDistance": 9.0,
+        "FieldOfView": 100.0,
+        "NearDistance": 1.5,
+        "EyeHeight": 1.6,
+        "Target": 0,
+        "TargetTag": "Player",
+        "BlockingMask": 65535,
+        "CheckInterval": 0.1,
+        "MemoryTime": 3.0
+      },
+      "NativeScript": {
+        "Class": "GuardBrain",
+        "Fields": {
+          "Route": {
+            "Type": "Entity",
+            "Value": 7960000000000019
+          },
+          "Body": {
+            "Type": "Entity",
+            "Value": 7960000000000027
+          },
+          "Lamp": {
+            "Type": "Entity",
+            "Value": 7960000000000030
+          },
+          "WaitTime": {
+            "Type": "Float",
+            "Value": 1.0
+          },
+          "ChaseSpeed": {
+            "Type": "Float",
+            "Value": 4.0
+          },
+          "SearchTime": {
+            "Type": "Float",
+            "Value": 4.0
+          },
+          "CatchDistance": {
+            "Type": "Float",
+            "Value": 1.3
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7960000000000027,
+      "Tag": "Tana",
+      "Parent": 7960000000000026,
+      "Transform": {
+        "Translation": [
+          0,
+          0.75,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.7,
+          1.5,
+          0.7
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.3,
+          0.85,
+          0.4,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000028,
+      "Tag": "Bosh",
+      "Parent": 7960000000000026,
+      "Transform": {
+        "Translation": [
+          0,
+          1.62,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.3,
+          0.85,
+          0.4,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.4,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000029,
+      "Tag": "Burun",
+      "Parent": 7960000000000026,
+      "Transform": {
+        "Translation": [
+          0,
+          1.62,
+          -0.32
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.14,
+          0.14,
+          0.3
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.95,
+          0.9,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000030,
+      "Tag": "Chiroq",
+      "Parent": 7960000000000026,
+      "Transform": {
+        "Translation": [
+          0,
+          2.15,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.22,
+          0.22,
+          0.22
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          0.3,
+          0.85,
+          0.4,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.3,
+        "Emission": [
+          0.3,
+          0.85,
+          0.4
+        ],
+        "EmissionStrength": 4.0
+      }
+    },
+    {
+      "Entity": 7960000000000031,
+      "Tag": "Mehmon",
+      "Tags": [
+        "Player"
+      ],
+      "Transform": {
+        "Translation": [
+          -1.5,
+          0,
+          -4.5
+        ],
+        "Rotation": [
+          0,
+          3.141592653589793,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "CharacterController3D": {
+        "Radius": 0.35,
+        "Height": 1.8,
+        "MaxSlope": 45.0,
+        "StepHeight": 0.35,
+        "Mass": 70.0,
+        "GravityScale": 1.0,
+        "StickToFloor": true
+      },
+      "NavAgent": {
+        "Grid": 7960000000000016,
+        "Target": 0,
+        "Speed": 2.8,
+        "Acceleration": 12.0,
+        "AngularSpeed": 540.0,
+        "StoppingDistance": 0.3,
+        "Radius": 0.35,
+        "LookAhead": 0.6,
+        "RepathInterval": 0.4,
+        "BaseOffset": 0.0,
+        "AutoBraking": true,
+        "SmoothPath": true,
+        "SplinePath": false,
+        "UpdateRotation": true,
+        "Avoidance": {
+          "Enabled": true,
+          "FeelerLength": 1.6,
+          "FeelerAngle": 35.0,
+          "FeelerHeight": 0.5,
+          "Weight": 1.0,
+          "LayerMask": 65535,
+          "Static": false
+        }
+      },
+      "NativeScript": {
+        "Class": "Visitor",
+        "Fields": {
+          "AreaMin": {
+            "Type": "Vec2",
+            "Value": [
+              -12,
+              -9
+            ]
+          },
+          "AreaMax": {
+            "Type": "Vec2",
+            "Value": [
+              12,
+              9
+            ]
+          },
+          "PauseMin": {
+            "Type": "Float",
+            "Value": 0.3
+          },
+          "PauseMax": {
+            "Type": "Float",
+            "Value": 1.2
+          },
+          "Seed": {
+            "Type": "Int",
+            "Value": 11
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7960000000000032,
+      "Tag": "Tana",
+      "Parent": 7960000000000031,
+      "Transform": {
+        "Translation": [
+          0,
+          0.75,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.7,
+          1.5,
+          0.7
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.98,
+          0.82,
+          0.25,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000033,
+      "Tag": "Bosh",
+      "Parent": 7960000000000031,
+      "Transform": {
+        "Translation": [
+          0,
+          1.62,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.98,
+          0.82,
+          0.25,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.4,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000034,
+      "Tag": "Burun",
+      "Parent": 7960000000000031,
+      "Transform": {
+        "Translation": [
+          0,
+          1.62,
+          -0.32
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.14,
+          0.14,
+          0.3
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.95,
+          0.9,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000035,
+      "Tag": "Hammol 1",
+      "Transform": {
+        "Translation": [
+          -0.5,
+          0,
+          7.6
+        ],
+        "Rotation": [
+          0,
+          0.0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "CharacterController3D": {
+        "Radius": 0.35,
+        "Height": 1.8,
+        "MaxSlope": 45.0,
+        "StepHeight": 0.35,
+        "Mass": 70.0,
+        "GravityScale": 1.0,
+        "StickToFloor": true
+      },
+      "NavAgent": {
+        "Grid": 7960000000000016,
+        "Target": 0,
+        "Speed": 2.6,
+        "Acceleration": 12.0,
+        "AngularSpeed": 540.0,
+        "StoppingDistance": 0.3,
+        "Radius": 0.35,
+        "LookAhead": 0.6,
+        "RepathInterval": 0.4,
+        "BaseOffset": 0.0,
+        "AutoBraking": true,
+        "SmoothPath": true,
+        "SplinePath": false,
+        "UpdateRotation": true,
+        "Avoidance": {
+          "Enabled": true,
+          "FeelerLength": 1.6,
+          "FeelerAngle": 35.0,
+          "FeelerHeight": 0.5,
+          "Weight": 1.0,
+          "LayerMask": 65535,
+          "Static": false
+        }
+      },
+      "NativeScript": {
+        "Class": "Shuttle",
+        "Fields": {
+          "PointA": {
+            "Type": "Vec3",
+            "Value": [
+              -0.5,
+              0,
+              7.6
+            ]
+          },
+          "PointB": {
+            "Type": "Vec3",
+            "Value": [
+              -0.5,
+              0,
+              -7.6
+            ]
+          },
+          "Wait": {
+            "Type": "Float",
+            "Value": 0.8
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7960000000000036,
+      "Tag": "Tana",
+      "Parent": 7960000000000035,
+      "Transform": {
+        "Translation": [
+          0,
+          0.75,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.7,
+          1.5,
+          0.7
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.3,
+          0.6,
+          0.95,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000037,
+      "Tag": "Bosh",
+      "Parent": 7960000000000035,
+      "Transform": {
+        "Translation": [
+          0,
+          1.62,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.3,
+          0.6,
+          0.95,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.4,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000038,
+      "Tag": "Burun",
+      "Parent": 7960000000000035,
+      "Transform": {
+        "Translation": [
+          0,
+          1.62,
+          -0.32
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.14,
+          0.14,
+          0.3
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.95,
+          0.9,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000039,
+      "Tag": "Hammol 2",
+      "Transform": {
+        "Translation": [
+          6.5,
+          0,
+          -8.0
+        ],
+        "Rotation": [
+          0,
+          0.0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "CharacterController3D": {
+        "Radius": 0.35,
+        "Height": 1.8,
+        "MaxSlope": 45.0,
+        "StepHeight": 0.35,
+        "Mass": 70.0,
+        "GravityScale": 1.0,
+        "StickToFloor": true
+      },
+      "NavAgent": {
+        "Grid": 7960000000000016,
+        "Target": 0,
+        "Speed": 2.6,
+        "Acceleration": 12.0,
+        "AngularSpeed": 540.0,
+        "StoppingDistance": 0.3,
+        "Radius": 0.35,
+        "LookAhead": 0.6,
+        "RepathInterval": 0.4,
+        "BaseOffset": 0.0,
+        "AutoBraking": true,
+        "SmoothPath": true,
+        "SplinePath": false,
+        "UpdateRotation": true,
+        "Avoidance": {
+          "Enabled": true,
+          "FeelerLength": 1.6,
+          "FeelerAngle": 35.0,
+          "FeelerHeight": 0.5,
+          "Weight": 1.0,
+          "LayerMask": 65535,
+          "Static": false
+        }
+      },
+      "NativeScript": {
+        "Class": "Shuttle",
+        "Fields": {
+          "PointA": {
+            "Type": "Vec3",
+            "Value": [
+              6.5,
+              0,
+              -8.0
+            ]
+          },
+          "PointB": {
+            "Type": "Vec3",
+            "Value": [
+              -5.5,
+              0,
+              7.5
+            ]
+          },
+          "Wait": {
+            "Type": "Float",
+            "Value": 0.8
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7960000000000040,
+      "Tag": "Tana",
+      "Parent": 7960000000000039,
+      "Transform": {
+        "Translation": [
+          0,
+          0.75,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.7,
+          1.5,
+          0.7
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.25,
+          0.8,
+          0.85,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000041,
+      "Tag": "Bosh",
+      "Parent": 7960000000000039,
+      "Transform": {
+        "Translation": [
+          0,
+          1.62,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.25,
+          0.8,
+          0.85,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.4,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000042,
+      "Tag": "Burun",
+      "Parent": 7960000000000039,
+      "Transform": {
+        "Translation": [
+          0,
+          1.62,
+          -0.32
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.14,
+          0.14,
+          0.3
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.95,
+          0.9,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000043,
+      "Tag": "Kamera ustuni",
+      "Transform": {
+        "Translation": [
+          11.6,
+          1.1,
+          -8.6
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.3,
+          2.2,
+          0.3
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.4,
+          0.42,
+          0.46,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "Density": 1.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7960000000000044,
+      "Tag": "Kuzatuv kamerasi",
+      "Transform": {
+        "Translation": [
+          11.6,
+          2.45,
+          -8.6
+        ],
+        "Rotation": [
+          0,
+          2.356,
+          0
+        ],
+        "Scale": [
+          0.45,
+          0.35,
+          0.7
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.22,
+          0.25,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.6,
+        "Roughness": 0.35,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "SightSensor": {
+        "ViewDistance": 10.0,
+        "FieldOfView": 50.0,
+        "NearDistance": 0.0,
+        "EyeHeight": 0.0,
+        "Target": 0,
+        "TargetTag": "Player",
+        "BlockingMask": 65535,
+        "CheckInterval": 0.1,
+        "MemoryTime": 2.0
+      },
+      "NativeScript": {
+        "Class": "SecurityCamera",
+        "Fields": {
+          "Lamp": {
+            "Type": "Entity",
+            "Value": 7960000000000046
+          },
+          "SweepAngle": {
+            "Type": "Float",
+            "Value": 55.0
+          },
+          "SweepSpeed": {
+            "Type": "Float",
+            "Value": 0.6
+          },
+          "TurnSpeed": {
+            "Type": "Float",
+            "Value": 120.0
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7960000000000045,
+      "Tag": "Linza",
+      "Parent": 7960000000000044,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          -0.52
+        ],
+        "Rotation": [
+          1.5707963267948966,
+          0,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.08,
+          0.6
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          0.05,
+          0.05,
+          0.08,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.8,
+        "Roughness": 0.1,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000046,
+      "Tag": "Chiroq",
+      "Parent": 7960000000000044,
+      "Transform": {
+        "Translation": [
+          0,
+          0.75,
+          0.2
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.4,
+          0.5,
+          0.25
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          0.3,
+          1.0,
+          0.45,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.3,
+        "Emission": [
+          0.3,
+          1.0,
+          0.45
+        ],
+        "EmissionStrength": 4.0
+      }
+    },
+    {
+      "Entity": 7960000000000047,
+      "Tag": "Qo'ra",
+      "Transform": {
+        "Translation": [
+          -8.3,
+          0,
+          5.6
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "NativeScript": {
+        "Class": "SheepFlock",
+        "Fields": {
+          "MaxSpeed": {
+            "Type": "Float",
+            "Value": 1.8
+          },
+          "PenRadius": {
+            "Type": "Float",
+            "Value": 2.8
+          },
+          "PanicDistance": {
+            "Type": "Float",
+            "Value": 3.2
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7960000000000048,
+      "Tag": "Qo'ra maydoni",
+      "Transform": {
+        "Translation": [
+          -8.3,
+          0.02,
+          5.6
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          6.6,
+          0.02,
+          6.6
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          0.45,
+          0.55,
+          0.3,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.95,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000049,
+      "Tag": "Qo'y",
+      "Parent": 7960000000000047,
+      "Transform": {
+        "Translation": [
+          -1.0,
+          0.33,
+          -0.9
+        ],
+        "Rotation": [
+          0,
+          0.0,
+          0
+        ],
+        "Scale": [
+          0.55,
+          0.45,
+          0.75
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.93,
+          0.92,
+          0.88,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.9,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000050,
+      "Tag": "Bosh",
+      "Parent": 7960000000000049,
+      "Transform": {
+        "Translation": [
+          0,
+          0.25,
+          -0.6
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.45,
+          0.6,
+          0.35
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.22,
+          0.2,
+          0.2,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.8,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000051,
+      "Tag": "Qo'y",
+      "Parent": 7960000000000047,
+      "Transform": {
+        "Translation": [
+          0.1,
+          0.33,
+          -1.1
+        ],
+        "Rotation": [
+          0,
+          0.7,
+          0
+        ],
+        "Scale": [
+          0.55,
+          0.45,
+          0.75
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.93,
+          0.92,
+          0.88,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.9,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000052,
+      "Tag": "Bosh",
+      "Parent": 7960000000000051,
+      "Transform": {
+        "Translation": [
+          0,
+          0.25,
+          -0.6
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.45,
+          0.6,
+          0.35
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.22,
+          0.2,
+          0.2,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.8,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000053,
+      "Tag": "Qo'y",
+      "Parent": 7960000000000047,
+      "Transform": {
+        "Translation": [
+          1.1,
+          0.33,
+          -0.6
+        ],
+        "Rotation": [
+          0,
+          1.4,
+          0
+        ],
+        "Scale": [
+          0.55,
+          0.45,
+          0.75
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.93,
+          0.92,
+          0.88,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.9,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000054,
+      "Tag": "Bosh",
+      "Parent": 7960000000000053,
+      "Transform": {
+        "Translation": [
+          0,
+          0.25,
+          -0.6
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.45,
+          0.6,
+          0.35
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.22,
+          0.2,
+          0.2,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.8,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000055,
+      "Tag": "Qo'y",
+      "Parent": 7960000000000047,
+      "Transform": {
+        "Translation": [
+          -1.2,
+          0.33,
+          0.2
+        ],
+        "Rotation": [
+          0,
+          2.0999999999999996,
+          0
+        ],
+        "Scale": [
+          0.55,
+          0.45,
+          0.75
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.93,
+          0.92,
+          0.88,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.9,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000056,
+      "Tag": "Bosh",
+      "Parent": 7960000000000055,
+      "Transform": {
+        "Translation": [
+          0,
+          0.25,
+          -0.6
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.45,
+          0.6,
+          0.35
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.22,
+          0.2,
+          0.2,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.8,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000057,
+      "Tag": "Qo'y",
+      "Parent": 7960000000000047,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.33,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          2.8,
+          0
+        ],
+        "Scale": [
+          0.55,
+          0.45,
+          0.75
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.93,
+          0.92,
+          0.88,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.9,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000058,
+      "Tag": "Bosh",
+      "Parent": 7960000000000057,
+      "Transform": {
+        "Translation": [
+          0,
+          0.25,
+          -0.6
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.45,
+          0.6,
+          0.35
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.22,
+          0.2,
+          0.2,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.8,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000059,
+      "Tag": "Qo'y",
+      "Parent": 7960000000000047,
+      "Transform": {
+        "Translation": [
+          1.0,
+          0.33,
+          0.4
+        ],
+        "Rotation": [
+          0,
+          3.5,
+          0
+        ],
+        "Scale": [
+          0.55,
+          0.45,
+          0.75
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.93,
+          0.92,
+          0.88,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.9,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000060,
+      "Tag": "Bosh",
+      "Parent": 7960000000000059,
+      "Transform": {
+        "Translation": [
+          0,
+          0.25,
+          -0.6
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.45,
+          0.6,
+          0.35
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.22,
+          0.2,
+          0.2,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.8,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000061,
+      "Tag": "Qo'y",
+      "Parent": 7960000000000047,
+      "Transform": {
+        "Translation": [
+          -0.6,
+          0.33,
+          1.1
+        ],
+        "Rotation": [
+          0,
+          4.199999999999999,
+          0
+        ],
+        "Scale": [
+          0.55,
+          0.45,
+          0.75
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.93,
+          0.92,
+          0.88,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.9,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000062,
+      "Tag": "Bosh",
+      "Parent": 7960000000000061,
+      "Transform": {
+        "Translation": [
+          0,
+          0.25,
+          -0.6
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.45,
+          0.6,
+          0.35
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.22,
+          0.2,
+          0.2,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.8,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000063,
+      "Tag": "Qo'y",
+      "Parent": 7960000000000047,
+      "Transform": {
+        "Translation": [
+          0.5,
+          0.33,
+          1.2
+        ],
+        "Rotation": [
+          0,
+          4.8999999999999995,
+          0
+        ],
+        "Scale": [
+          0.55,
+          0.45,
+          0.75
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.93,
+          0.92,
+          0.88,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.9,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000064,
+      "Tag": "Bosh",
+      "Parent": 7960000000000063,
+      "Transform": {
+        "Translation": [
+          0,
+          0.25,
+          -0.6
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.45,
+          0.6,
+          0.35
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.22,
+          0.2,
+          0.2,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.8,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000065,
+      "Tag": "Qo'y",
+      "Parent": 7960000000000047,
+      "Transform": {
+        "Translation": [
+          1.5,
+          0.33,
+          1.4
+        ],
+        "Rotation": [
+          0,
+          5.6,
+          0
+        ],
+        "Scale": [
+          0.55,
+          0.45,
+          0.75
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.93,
+          0.92,
+          0.88,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.9,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7960000000000066,
+      "Tag": "Bosh",
+      "Parent": 7960000000000065,
+      "Transform": {
+        "Translation": [
+          0,
+          0.25,
+          -0.6
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.45,
+          0.6,
+          0.35
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.22,
+          0.2,
+          0.2,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.8,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    }
+  ]
+}

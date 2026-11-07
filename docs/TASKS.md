@@ -446,11 +446,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 383. NavGrid 3D (yer tekisligi bo'yicha, to'siqlarni aniqlash)
 - [x] 384. NavAgent komponenti (yo'l bo'ylab yurish)
 - [x] 385. Yo'lni silliqlash (string pulling)
-- [ ] 386. Dinamik to'siqlar (grid yangilash)
-- [ ] 387. Steering: seek, flee, arrive, wander
-- [ ] 388. Obstacle avoidance (raycast bilan)
-- [ ] 389. AI holat mashinasi yordamchi klassi
-- [ ] 390. Ko'rish maydoni (line of sight) tekshiruvi
+- [x] 386. Dinamik to'siqlar (grid yangilash)
+- [x] 387. Steering: seek, flee, arrive, wander
+- [x] 388. Obstacle avoidance (raycast bilan)
+- [x] 389. AI holat mashinasi yordamchi klassi
+- [x] 390. Ko'rish maydoni (line of sight) tekshiruvi
 - [ ] 391. Patrol yo'llari (waypoints) komponenti
 - [ ] 392. Navigatsiya debug chizish
 - [ ] 393. Navigatsiya testlari

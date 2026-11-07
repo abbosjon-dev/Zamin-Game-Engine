@@ -821,6 +821,13 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   xotira statistikasi, log darajalari, xabarli assert'lar, `Stopwatch` / `Timer`, `StringUtils`, fayl yo'llari
   (`NormalizePath`, `SafeJoin`, vaqtinchalik papkalar)
   - Batafsil qo'llanma: [docs/core.md](docs/core.md) — har modul API'si misollar bilan, Showcase3D'dagi `Geometry` sahnasi
+- **Navigatsiya va AI**: NavGrid 2D (tilemap / collider'lardan) va 3D (nurlar bilan pol), A* (binar heap, qisman yo'llar),
+  string pulling va spline silliqlash, Nav Agent (`SetDestination`, nishon ortidan, nurlar bilan to'siqdan qochish),
+  Nav Obstacle (grid'ni dinamik o'yish, qayta yo'l), steering (seek / flee / arrive / wander / pursue / evade / suruv),
+  Sight Sensor (ko'rish konusi va chizig'i, `OnTargetSpotted`), Patrol Path, Formation (qator / kolonna / pona / doira),
+  `StateMachine` va behavior tree (`BehaviorTreeBuilder`, inspektorda jonli daraxt), navigatsiya gizmo'si va
+  `--debug-nav`, vazifalar tizimida guruhlangan yo'l qidirish (`ZaminBench --nav`), bake'ni `.znav` faylida saqlash
+  - Batafsil qo'llanma: [docs/ai.md](docs/ai.md) — har tizim misollar bilan, namuna sahnalar (Chase2D, AI3D, Squad3D, Island)
 - **Audio** (miniaudio): wav/mp3/flac/ogg
 - **C++ skriptlar**: `ScriptableEntity` + `ZM_REGISTER_SCRIPT`, o'yin moduli `.so` sifatida yuklanadi, hot reload
 - Zamin Player — eksport qilingan o'yinlarni ishga tushiruvchi runtime

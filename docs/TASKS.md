@@ -456,11 +456,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 393. Navigatsiya testlari
 - [x] 394. AI namunasi: dushman ta'qib qiladi (2D)
 - [x] 395. AI namunasi: 3D NPC patrul
-- [ ] 396. Formation/guruh harakati (oddiy)
-- [ ] 397. Behavior tree (minimal) yordamchisi
-- [ ] 398. Navigatsiya performance testi
-- [ ] 399. Navigatsiya serializatsiyasi
-- [ ] 400. AI hujjatlari
+- [x] 396. Formation/guruh harakati (oddiy)
+- [x] 397. Behavior tree (minimal) yordamchisi
+- [x] 398. Navigatsiya performance testi
+- [x] 399. Navigatsiya serializatsiyasi
+- [x] 400. AI hujjatlari
 
 ## M21 Prefab va serializatsiya II
 

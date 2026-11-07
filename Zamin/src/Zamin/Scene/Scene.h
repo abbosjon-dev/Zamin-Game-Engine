@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Zamin/Core/MemoryStats.h"
+#include "Zamin/Math/Geometry.h"
 #include "Zamin/Core/Timestep.h"
 #include "Zamin/Core/UUID.h"
 #include "Zamin/Renderer/EditorCamera.h"
@@ -826,6 +827,9 @@ namespace Zamin {
         const glm::mat4& GetLastView() const { return m_LastView; }
         // Unprojects a viewport pixel through the primary camera onto the plane z = depthZ.
         glm::vec3 ScreenToWorld(const glm::vec2& screen, float depthZ = 0.0f);
+        // The primary camera's ray through a viewport pixel (from its near plane; perspective or
+        // orthographic), for Geometry::Raycast picking. No camera / viewport: a zero direction.
+        Ray ScreenPointToRay(const glm::vec2& screen);
 
         // ---- pixel-perfect cameras (CameraComponent::PixelPerfect), for the viewport size
         // The projection a camera entity shows the viewport with: its pixel-perfect one (what the

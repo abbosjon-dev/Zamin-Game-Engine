@@ -437,7 +437,7 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 377. Bounding volume yordamchilari (AABB, sfera, ray kesishuvi)
 - [x] 378. Geometriya testlari (ray-AABB, ray-sfera)
 - [x] 379. Math testlari
-- [ ] 380. Core hujjatlari
+- [x] 380. Core hujjatlari
 
 ## M20 Navigatsiya va AI
 

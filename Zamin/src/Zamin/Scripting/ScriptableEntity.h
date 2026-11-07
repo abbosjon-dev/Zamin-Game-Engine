@@ -491,6 +491,11 @@ namespace Zamin {
         // Mouse position projected onto the z = 0 plane using the primary camera (2D games).
         glm::vec2 GetMouseWorldPosition() const;
         glm::vec3 ScreenToWorld(const glm::vec2& screen, float depthZ = 0.0f) const;
+        // The primary camera's ray through a viewport pixel / under the mouse, for picking with
+        // Geometry::Raycast (no camera: a zero direction, which hits nothing):
+        //   if (auto hit = Geometry::Raycast(GetMouseRay(), Sphere{ target, 1.0f })) Select();
+        Ray ScreenPointToRay(const glm::vec2& screen) const;
+        Ray GetMouseRay() const { return ScreenPointToRay(GetMousePosition()); }
 
         // ---- camera
         // Shakes the game camera's view (Scene::ShakeCamera): `intensity` 0..1 of trauma that fades

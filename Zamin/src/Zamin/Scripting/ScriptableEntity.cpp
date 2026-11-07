@@ -414,6 +414,7 @@ namespace Zamin {
     glm::vec2 ScriptableEntity::GetViewportSize() const { return m_Entity.GetScene()->GetViewportSize(); }
     glm::vec2 ScriptableEntity::GetMouseWorldPosition() const { return glm::vec2(ScreenToWorld(GetMousePosition(), 0.0f)); }
     glm::vec3 ScriptableEntity::ScreenToWorld(const glm::vec2& screen, float depthZ) const { return m_Entity.GetScene()->ScreenToWorld(screen, depthZ); }
+    Ray ScriptableEntity::ScreenPointToRay(const glm::vec2& screen) const { return m_Entity.GetScene()->ScreenPointToRay(screen); }
 
     bool ScriptableEntity::ShakeCamera(float intensity, float duration, float frequency)
     {

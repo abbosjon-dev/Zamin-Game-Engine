@@ -814,6 +814,13 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   ekran o'lchami, to'liq ekran, VSync, sifat, gamma, ovoz, til / Chiqish)
   - Batafsil qo'llanma: [docs/runtime.md](docs/runtime.md) — player, buyruq qatori, sozlamalar ustunligi, eksport, log, crash
     hisobotlari, versiya, ekran va kursor API, o'yin menyusi, ishlash va eksport testlari
+- **Matematika va core**: son utilitalari (`Remap`, `SmoothDamp`, `MoveTowards`, burchaklar), kvaternionlar
+  (`LookRotation`, `Slerp`, `RotateTowards`), geometriya (`AABB`, `Sphere`, `Ray`, `Plane`, `Frustum`; ray-AABB /
+  sfera / tekislik / uchburchak, kesishuvlar, eng yaqin nuqtalar; skriptda `GetMouseRay()`), Perlin / Simplex shovqin
+  (fBm, ridged), `AnimationCurve`, spline'lar, ranglar (HSV/HSL, hex, sRGB), vazifalar tizimi (`JobSystem::ParallelFor`),
+  xotira statistikasi, log darajalari, xabarli assert'lar, `Stopwatch` / `Timer`, `StringUtils`, fayl yo'llari
+  (`NormalizePath`, `SafeJoin`, vaqtinchalik papkalar)
+  - Batafsil qo'llanma: [docs/core.md](docs/core.md) — har modul API'si misollar bilan, Showcase3D'dagi `Geometry` sahnasi
 - **Audio** (miniaudio): wav/mp3/flac/ogg
 - **C++ skriptlar**: `ScriptableEntity` + `ZM_REGISTER_SCRIPT`, o'yin moduli `.so` sifatida yuklanadi, hot reload
 - Zamin Player — eksport qilingan o'yinlarni ishga tushiruvchi runtime

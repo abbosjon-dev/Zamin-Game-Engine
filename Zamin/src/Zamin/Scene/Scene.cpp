@@ -6903,6 +6903,19 @@ namespace Zamin {
         return nearP + dir * t;
     }
 
+    Ray Scene::ScreenPointToRay(const glm::vec2& screen)
+    {
+        Ray ray;
+        ray.Direction = glm::vec3(0.0f);
+        Entity cam = GetPrimaryCameraEntity();
+        const glm::vec2 size = GetViewportSize();
+        if (!cam || size.x <= 0.0f || size.y <= 0.0f)
+            return ray;
+        const glm::mat4 viewProj = GetCameraProjection(cam) * glm::inverse(GetWorldTransform(cam));
+        const glm::vec2 ndc = { screen.x / size.x * 2.0f - 1.0f, 1.0f - screen.y / size.y * 2.0f };
+        return Ray::FromNDC(ndc, glm::inverse(viewProj));
+    }
+
     void Scene::ResolveMeshRenderer(MeshRendererComponent& mr)
     {
         if (mr.Type == PrimitiveMesh::Model)

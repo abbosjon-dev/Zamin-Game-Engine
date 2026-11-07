@@ -1,0 +1,670 @@
+{
+  "Scene": "Geometry",
+  "Version": 4,
+  "Metadata": {
+    "Description": "M19: Math/Geometry - fizikasiz nur testlari (Geometry::Raycast: yo'naltirilgan qutilar va sharlar), eng yaqin nuqtalar va sfera-AABB kesishuvi, Sphere::FromPoints, AABB'ni tekislikka nisbatan tasniflash (DebugDraw bilan)",
+    "Author": "Zamin",
+    "Tags": [
+      "geometry",
+      "raycast",
+      "M19"
+    ]
+  },
+  "Settings": {
+    "DrawSky": true,
+    "SkyTop": [
+      0.26,
+      0.46,
+      0.82
+    ],
+    "SkyHorizon": [
+      0.82,
+      0.86,
+      0.92
+    ],
+    "Ground": [
+      0.33,
+      0.31,
+      0.28
+    ],
+    "Ambient": 0.55,
+    "Exposure": 1.05,
+    "ShadowDistance": 60,
+    "Gravity": [
+      0,
+      -9.8
+    ],
+    "Gravity3D": [
+      0,
+      -9.81,
+      0
+    ],
+    "Post": {
+      "Bloom": true,
+      "BloomThreshold": 1.0,
+      "BloomKnee": 0.5,
+      "BloomIntensity": 0.55,
+      "BloomRadius": 1.0,
+      "Vignette": 0.25,
+      "Saturation": 1.08,
+      "Contrast": 1.05,
+      "Brightness": 0.0,
+      "Tint": [
+        1,
+        1,
+        1
+      ],
+      "Tonemap": 1,
+      "SSAO": true,
+      "SSAORadius": 0.6,
+      "SSAOIntensity": 1.2,
+      "SSAOBias": 0.03,
+      "FXAA": true,
+      "FXAASubpixel": 0.75
+    },
+    "Environment": {
+      "Map": "Textures/sunset.hdr",
+      "Intensity": 0.85,
+      "Rotation": 0.0
+    }
+  },
+  "Entities": [
+    {
+      "Entity": 7910000000000001,
+      "Tag": "Main Camera",
+      "Transform": {
+        "Translation": [
+          0,
+          8.8,
+          9.8
+        ],
+        "Rotation": [
+          -0.66,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Camera": {
+        "ProjectionType": 0,
+        "PerspectiveFOV": 0.9,
+        "PerspectiveNear": 0.1,
+        "PerspectiveFar": 300,
+        "OrthographicSize": 10,
+        "OrthographicNear": -100,
+        "OrthographicFar": 100,
+        "Primary": true,
+        "FixedAspectRatio": false,
+        "ClearColor": [
+          0.1,
+          0.1,
+          0.12,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 7910000000000002,
+      "Tag": "Quyosh",
+      "Transform": {
+        "Translation": [
+          0,
+          10,
+          0
+        ],
+        "Rotation": [
+          -0.9,
+          -0.5,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "DirectionalLight": {
+        "Color": [
+          1.0,
+          0.95,
+          0.88
+        ],
+        "Intensity": 2.6,
+        "CastShadows": true
+      }
+    },
+    {
+      "Entity": 7910000000000003,
+      "Tag": "Yer",
+      "Transform": {
+        "Translation": [
+          0,
+          -0.5,
+          -2
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          30,
+          1,
+          24
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.24,
+          0.26,
+          0.29,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.95,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7910000000000004,
+      "Tag": "Quti A",
+      "Transform": {
+        "Translation": [
+          -4.2,
+          1.2,
+          -3.0
+        ],
+        "Rotation": [
+          0.3,
+          0.5,
+          0.1
+        ],
+        "Scale": [
+          2,
+          2,
+          2
+        ]
+      },
+      "Tags": [
+        "Nishon"
+      ],
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.85,
+          0.42,
+          0.25,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.45,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "NativeScript": {
+        "Class": "Rotator",
+        "Fields": {
+          "Speed": {
+            "Type": "Vec3",
+            "Value": [
+              0.0,
+              0.45,
+              0.25
+            ]
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7910000000000005,
+      "Tag": "Quti B",
+      "Transform": {
+        "Translation": [
+          3.6,
+          1.3,
+          -4.8
+        ],
+        "Rotation": [
+          0,
+          0.8,
+          0.2
+        ],
+        "Scale": [
+          1.4,
+          2.6,
+          1.4
+        ]
+      },
+      "Tags": [
+        "Nishon"
+      ],
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.3,
+          0.6,
+          0.9,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.45,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "NativeScript": {
+        "Class": "Rotator",
+        "Fields": {
+          "Speed": {
+            "Type": "Vec3",
+            "Value": [
+              0.25,
+              -0.35,
+              0.0
+            ]
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7910000000000006,
+      "Tag": "Quti C",
+      "Transform": {
+        "Translation": [
+          -7.0,
+          0.8,
+          1.0
+        ],
+        "Rotation": [
+          0,
+          0.3,
+          0
+        ],
+        "Scale": [
+          3.2,
+          1.6,
+          1.0
+        ]
+      },
+      "Tags": [
+        "Nishon"
+      ],
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.55,
+          0.75,
+          0.35,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.45,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "NativeScript": {
+        "Class": "Rotator",
+        "Fields": {
+          "Speed": {
+            "Type": "Vec3",
+            "Value": [
+              0.0,
+              0.6,
+              0.0
+            ]
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7910000000000007,
+      "Tag": "Shar A",
+      "Transform": {
+        "Translation": [
+          0.2,
+          1.4,
+          -7.2
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          2.8,
+          2.8,
+          2.8
+        ]
+      },
+      "Tags": [
+        "Nishon"
+      ],
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.9,
+          0.8,
+          0.3,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.45,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7910000000000008,
+      "Tag": "Shar B",
+      "Transform": {
+        "Translation": [
+          6.6,
+          0.9,
+          -1.2
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.8,
+          1.8,
+          1.8
+        ]
+      },
+      "Tags": [
+        "Nishon"
+      ],
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.75,
+          0.35,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.45,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7910000000000009,
+      "Tag": "Silindr",
+      "Transform": {
+        "Translation": [
+          -1.2,
+          1.0,
+          -1.5
+        ],
+        "Rotation": [
+          0.4,
+          0,
+          0.3
+        ],
+        "Scale": [
+          1.2,
+          2.0,
+          1.2
+        ]
+      },
+      "Tags": [
+        "Nishon"
+      ],
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.35,
+          0.8,
+          0.75,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.45,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "NativeScript": {
+        "Class": "Rotator",
+        "Fields": {
+          "Speed": {
+            "Type": "Vec3",
+            "Value": [
+              0.3,
+              0.0,
+              0.4
+            ]
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7910000000000010,
+      "Tag": "Nur yelpig'ichi",
+      "Transform": {
+        "Translation": [
+          0.0,
+          1.0,
+          5.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.35,
+          0.35,
+          0.35
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.9,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.3,
+        "Emission": [
+          0.2,
+          0.9,
+          1.0
+        ],
+        "EmissionStrength": 2.0
+      },
+      "NativeScript": {
+        "Class": "GeometryRayFan",
+        "Fields": {
+          "Rays": {
+            "Type": "Int",
+            "Value": 25
+          },
+          "Spread": {
+            "Type": "Float",
+            "Value": 1.9
+          },
+          "SweepSpeed": {
+            "Type": "Float",
+            "Value": 0.35
+          },
+          "Range": {
+            "Type": "Float",
+            "Value": 16.0
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7910000000000011,
+      "Tag": "Zond",
+      "Transform": {
+        "Translation": [
+          0.0,
+          2.2,
+          -3.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.3,
+          0.3,
+          0.3
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          0.75,
+          0.3,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.3,
+        "Emission": [
+          1.0,
+          0.6,
+          0.2
+        ],
+        "EmissionStrength": 2.5
+      },
+      "NativeScript": {
+        "Class": "GeometryProbe",
+        "Fields": {
+          "Radius": {
+            "Type": "Float",
+            "Value": 1.6
+          },
+          "OrbitRadius": {
+            "Type": "Float",
+            "Value": 4.8
+          },
+          "Speed": {
+            "Type": "Float",
+            "Value": 0.55
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7910000000000012,
+      "Tag": "Chegaralar",
+      "Transform": {
+        "Translation": [
+          0.0,
+          1.0,
+          -3.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "NativeScript": {
+        "Class": "GeometryBoundsView",
+        "Fields": {
+          "PlaneSpeed": {
+            "Type": "Float",
+            "Value": 0.25
+          },
+          "PlaneTilt": {
+            "Type": "Float",
+            "Value": 0.45
+          }
+        }
+      }
+    }
+  ]
+}

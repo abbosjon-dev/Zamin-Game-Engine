@@ -12264,6 +12264,10 @@ TEST(InactiveCamerasDoNotCount)
     CHECK(scene->GetPrimaryCameraEntity() == main);
     CHECK_NEAR(scene->GetClearColor().r, 1.0f, 1e-6f);
     CHECK_NEAR(scene->ScreenToWorld({ 400.0f, 300.0f }).x, -10.0f, 1e-3f);
+    // The picking ray of the same pixel: straight down the orthographic camera's view.
+    const Ray pick = scene->ScreenPointToRay({ 400.0f, 300.0f });
+    CHECK(Math::Approximately(pick.Direction, glm::vec3(0, 0, -1)) && std::abs(pick.Origin.x + 10.0f) < 1e-3f);
+    CHECK(Geometry::Raycast(pick, Sphere{ { -10.0f, 0.0f, 0.0f }, 0.5f }) && !Geometry::Raycast(pick, Sphere{ { 10.0f, 0.0f, 0.0f }, 0.5f }));
     rig.SetActive(true);
     main.SetActive(false);
     CHECK(scene->GetPrimaryCameraEntity() == cutscene);
@@ -12276,6 +12280,7 @@ TEST(InactiveCamerasDoNotCount)
     CHECK(!scene->GetPrimaryCameraEntity());
     CHECK(scene->GetPrimaryCameraEntity(true) == main || scene->GetPrimaryCameraEntity(true) == cutscene);
     CHECK(scene->ScreenToWorld({ 400.0f, 300.0f }) == glm::vec3(0.0f));
+    CHECK(scene->ScreenPointToRay({ 400.0f, 300.0f }).Direction == glm::vec3(0.0f));
     CHECK_NEAR(scene->GetClearColor().b, 0.11f, 1e-6f); // the default background
 
     // The runtime copy sees the same (play mode starts from Scene::Copy). Updating it renders
@@ -40339,4 +40344,35 @@ TEST(MathPropertiesRandomized)
         const float distance = rng.Range(0.0f, table.GetLength());
         CHECK(std::abs(table.GetDistance(table.GetParameter(distance)) - distance) < 1e-2f * std::max(1.0f, table.GetLength() * 0.01f));
     }
+}
+
+// The Showcase3D "Geometry" sample: its targets are tagged and have bounds, and the fan's rays
+// (the same tests its script makes) hit them.
+TEST(GeometrySampleScene)
+{
+    namespace fs = std::filesystem;
+    auto scene = CreateRef<Scene>();
+    CHECK(SceneSerializer(scene).Deserialize(fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Showcase3D" / "Assets" / "Scenes" / "Geometry.zscene"));
+    const std::vector<Entity> targets = scene->FindEntitiesWithTag("Nishon");
+    CHECK(targets.size() == 6);
+    Entity fan = scene->FindEntityByName("Nur yelpig'ichi");
+    CHECK(fan && fan.HasComponent<NativeScriptComponent>() && scene->FindEntityByName("Zond") && scene->FindEntityByName("Chegaralar"));
+    if (!fan)
+        return;
+    const glm::vec3 origin = scene->GetWorldPosition(fan);
+    int hits = 0;
+    for (int i = 0; i < 25; i++)
+    {
+        const float a = 1.9f * ((float)i / 24.0f - 0.5f);
+        const Ray ray(origin, glm::vec3(std::sin(a), -0.03f, -std::cos(a)));
+        bool hit = false;
+        for (Entity t : targets)
+        {
+            AABB local;
+            CHECK(scene->GetEntityLocalBounds(t, local) && local.IsValid());
+            hit = hit || Geometry::Raycast(ray, local, scene->GetWorldTransform(t), 16.0f).has_value();
+        }
+        hits += hit;
+    }
+    CHECK(hits >= 8 && hits < 25);
 }

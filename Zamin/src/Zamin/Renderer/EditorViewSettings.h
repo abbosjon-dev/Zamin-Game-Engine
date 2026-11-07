@@ -2,6 +2,7 @@
 
 #include "Zamin/Debug/DebugDraw.h"
 #include "Zamin/Editor/GameViewResolution.h"
+#include "Zamin/Editor/SceneViews.h"
 #include "Zamin/Project/AssetFiles.h"
 
 #include <glm/glm.hpp>
@@ -185,7 +186,21 @@ namespace Zamin {
         float Distance = 12.0f;
         float Pitch = 0.35f;
         float Yaw = -0.6f;
-        bool Orthographic = false; // 2D mode
+        bool Orthographic = false; // the projection (the 2D mode, an axis view)
+        bool Mode2D = false;       // the 2D editing mode: orthographic, no rotation
+    };
+
+    // One of the editor's extra scene views ("Ko'rinish 2" ... "Ko'rinish 4"): a window of its own
+    // next to the main viewport, with a camera of its own (an axis view by default).
+    struct SceneViewSettings
+    {
+        bool Open = false;
+        EditorCameraState Camera;
+        bool ShowGrid = true;
+
+        static constexpr int Count = 3;     // extra views (the main viewport is view 1)
+        // View `index` (0..Count-1) as it starts: 0 Top, 1 Front, 2 Right - orthographic.
+        static SceneViewSettings GetDefault(int index);
     };
 
     // Saved editor camera views of one scene: Ctrl+1..5 stores, 1..5 flies back.
@@ -264,6 +279,10 @@ namespace Zamin {
         ContentBrowserSettings ContentBrowser;
         // The game view's size while playing (viewport toolbar / Ko'rinish menu).
         GameViewResolution GameView;
+        // The extra scene views (Oyna > Ko'rinishlar) and the entities' names over the views.
+        std::array<SceneViewSettings, SceneViewSettings::Count> SceneViews{ SceneViewSettings::GetDefault(0), SceneViewSettings::GetDefault(1),
+                                                                            SceneViewSettings::GetDefault(2) };
+        EntityLabelSettings EntityLabels;
 
         // Bookmarks of a scene file ("" = a scene that was never saved).
         static std::string SceneKey(const std::filesystem::path& scenePath);

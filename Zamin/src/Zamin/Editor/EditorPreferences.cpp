@@ -141,6 +141,8 @@ namespace Zamin {
         NearClip = std::clamp(Finite(NearClip, 0.1f), MinNear, MaxNear);
         FarClip = std::clamp(Finite(FarClip, 1000.0f), NearClip * 10.0f, MaxFar);
         FlySpeed = std::clamp(Finite(FlySpeed, 6.0f), MinFlySpeed, MaxFlySpeed);
+        FlyAcceleration = std::clamp(Finite(FlyAcceleration, 0.0f), 0.0f, MaxAcceleration);
+        LookSensitivity = std::clamp(Finite(LookSensitivity, 1.0f), MinSensitivity, MaxSensitivity);
     }
 
     // ------------------------------------------------------------------ preferences
@@ -171,6 +173,9 @@ namespace Zamin {
             { "Near", Num(Camera.NearClip) },
             { "Far", Num(Camera.FarClip) },
             { "FlySpeed", Num(Camera.FlySpeed) },
+            { "FlyAcceleration", Num(Camera.FlyAcceleration) },
+            { "LookSensitivity", Num(Camera.LookSensitivity) },
+            { "InvertY", Camera.InvertY },
         };
         j["Console"] = {
             { "Timestamps", Console.ShowTimestamps },
@@ -188,6 +193,9 @@ namespace Zamin {
         };
         j["Undo"] = {
             { "RecordSelection", Undo.RecordSelection },
+        };
+        j["Layout"] = {
+            { "Current", Layout.Current },
         };
         j["Shortcuts"] = json::object();
         for (const auto& [id, chord] : Shortcuts)
@@ -218,6 +226,9 @@ namespace Zamin {
             Read(*it, "Near", Camera.NearClip);
             Read(*it, "Far", Camera.FarClip);
             Read(*it, "FlySpeed", Camera.FlySpeed);
+            Read(*it, "FlyAcceleration", Camera.FlyAcceleration);
+            Read(*it, "LookSensitivity", Camera.LookSensitivity);
+            Read(*it, "InvertY", Camera.InvertY);
         }
         if (auto it = j.find("Console"); it != j.end() && it->is_object())
         {
@@ -238,6 +249,9 @@ namespace Zamin {
         }
         if (auto it = j.find("Undo"); it != j.end() && it->is_object())
             Read(*it, "RecordSelection", Undo.RecordSelection);
+        if (auto it = j.find("Layout"); it != j.end() && it->is_object())
+            if (auto current = it->find("Current"); current != it->end() && current->is_string())
+                Layout.Current = current->get<std::string>();
         if (auto it = j.find("Shortcuts"); it != j.end() && it->is_object())
         {
             Shortcuts.clear();

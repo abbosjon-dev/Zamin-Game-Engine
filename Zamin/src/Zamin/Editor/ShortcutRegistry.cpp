@@ -443,6 +443,14 @@ namespace Zamin {
             r.Register(E::BookmarkRecall(slot), view, std::format("{}-xatcho'pga qaytish", slot), { digit }, S::SceneView);
             r.Register(E::BookmarkSave(slot), view, std::format("{}-xatcho'pni saqlash", slot), { digit, ctrl }, S::SceneView);
         }
+        r.Register(E::ViewTop, view, "Yuqoridan ko'rinish (ortografik)", { Key::KP7 }, S::SceneView);
+        r.Register(E::ViewBottom, view, "Pastdan ko'rinish", { Key::KP7, ctrl }, S::SceneView);
+        r.Register(E::ViewFront, view, "Old tomondan ko'rinish", { Key::KP1 }, S::SceneView);
+        r.Register(E::ViewBack, view, "Orqa tomondan ko'rinish", { Key::KP1, ctrl }, S::SceneView);
+        r.Register(E::ViewRight, view, "O'ng tomondan ko'rinish", { Key::KP3 }, S::SceneView);
+        r.Register(E::ViewLeft, view, "Chap tomondan ko'rinish", { Key::KP3, ctrl }, S::SceneView);
+        r.Register(E::ViewToggleOrtho, view, "Perspektiv / ortografik", { Key::KP5 }, S::SceneView);
+        r.Register(E::ViewPerspective, view, "Erkin perspektivga qaytish", { Key::KP0 }, S::SceneView);
         r.RegisterFixed("camera.fly", view, "Uchish (Q / E - pastga / yuqoriga, Shift - tezroq)", {}, S::Camera, "O'ng tugma + WASD");
         r.RegisterFixed("camera.fly_speed", view, "Uchish tezligi", {}, S::Camera, "O'ng tugma + g'ildirak");
         r.RegisterFixed("camera.orbit", view, "Aylanib qarash (orbit)", {}, S::Camera, "Alt + chap tugma");

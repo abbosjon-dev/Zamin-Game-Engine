@@ -201,6 +201,15 @@ namespace Zamin {
         inline constexpr const char* HandlesExitNone = "handles.exit_none";
         inline constexpr const char* HandlesExitMove = "handles.exit_move";
         inline constexpr const char* ShortcutsWindow = "help.shortcuts";
+        // Axis views of the scene view under the mouse (numpad-like).
+        inline constexpr const char* ViewTop = "view.axis_top";
+        inline constexpr const char* ViewBottom = "view.axis_bottom";
+        inline constexpr const char* ViewFront = "view.axis_front";
+        inline constexpr const char* ViewBack = "view.axis_back";
+        inline constexpr const char* ViewRight = "view.axis_right";
+        inline constexpr const char* ViewLeft = "view.axis_left";
+        inline constexpr const char* ViewToggleOrtho = "view.toggle_ortho";
+        inline constexpr const char* ViewPerspective = "view.perspective";
         // Camera bookmarks: "view.bookmark_save_1" ... / "view.bookmark_recall_1" ...
         std::string BookmarkSave(int slot);
         std::string BookmarkRecall(int slot);

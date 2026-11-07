@@ -7011,8 +7011,11 @@ namespace Zamin {
         }
 
         ZM_PROFILE_SCOPE("Render");
-        m_LastProjection = projection;
-        m_LastView = view;
+        if (!options.KeepLastView)
+        {
+            m_LastProjection = projection;
+            m_LastView = view;
+        }
         // What this view sees of the animated models: the others may skip posing (Animator culling).
         MarkVisibleAnimators(projection * view);
         Renderer3D::BeginScene(view, projection, cameraPosition, env);

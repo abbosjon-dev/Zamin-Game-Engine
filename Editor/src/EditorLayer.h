@@ -17,6 +17,7 @@
 #include "SceneThumbnails.h"
 #include "SubScenePreviews.h"
 
+#include <array>
 #include <atomic>
 #include <deque>
 #include <filesystem>
@@ -44,6 +45,14 @@ namespace Zamin {
     private:
         enum class SceneState { Edit = 0, Play = 1, Simulate = 2 };
         enum class GizmoMode { None = -1, Translate = 0, Rotate = 1, Scale = 2 };
+        // A scene view's camera and where its picture is on screen (EditorSceneViews.cpp).
+        struct SceneViewTarget
+        {
+            int Index = 0;                 // 0: the main viewport, 1..3: the extra views
+            EditorCamera* Camera = nullptr;
+            glm::vec2 Min{ 0.0f }, Max{ 0.0f }; // the picture on screen
+            bool Hovered = false;
+        };
 
         bool OnKeyPressed(KeyPressedEvent& e);
         bool OnMouseButtonPressed(MouseButtonPressedEvent& e);
@@ -205,7 +214,8 @@ namespace Zamin {
         void LoadPreferences();
         void SavePreferences();
         void MarkPreferencesDirty() { m_PreferencesDirty = true; }
-        // The editor camera takes the preferences' FOV / clip planes (and the fly speed: `flySpeed`).
+        // Every view's editor camera takes the preferences' FOV / clip planes, acceleration and mouse
+        // settings (and the fly speed: `flySpeed`).
         void ApplyCameraDefaults(bool flySpeed);
         // The ImGui style follows the preferences and the scene state (the play-mode tint): applied
         // at the start of a frame when something changed.
@@ -310,8 +320,8 @@ namespace Zamin {
         void UI_SceneLoadReport();
         void UI_MaximizedGame();
         void UI_TransparentOrder();
-        void UI_ViewportIcons();
-        void UI_Gizmos();
+        // The icons of cameras, lights and sounds in a view (a click selects).
+        void UI_ViewportIcons(const SceneViewTarget& view);
         // ---- screen-space UI in the viewport (EditorLayerUIRect.cpp): the selected UI element's rect
         // gizmo (move / resize handles, pivot, anchors in its parent's rectangle) and picking UI
         // elements by their rectangles (`viewPixel`: view px, origin bottom-left).
@@ -350,7 +360,68 @@ namespace Zamin {
         void UI_StatusBarSelection(float maxX);
         void UI_Launcher();
         void UI_Modals();
-        void UI_BuildDefaultLayout(unsigned int dockspaceID);
+
+        // ---- window layouts (EditorLayouts.cpp): the built-in ones (Standart, 2D, Animatsiya,
+        // 4 ko'rinish) built by code, the user's saved ones (ImGui's window settings + the open
+        // windows, ~/.config/zamin/layouts/*.zlayout); Oyna > Joylashuv.
+        struct LayoutPanel
+        {
+            const char* Key;      // in layout files ("Hierarchy")
+            const char* Window;   // the window's ImGui id ("###Hierarchy")
+            bool* Open;
+        };
+        std::vector<LayoutPanel> GetLayoutPanels();
+        void RequestBuiltInLayout(BuiltInLayout layout);
+        void RequestLayout(const std::string& name);
+        // A saved layout is loaded between frames (OnUpdate: ImGui takes window settings then).
+        void ApplyPendingLayout();
+        // In the frame before the dock space: a built-in layout's dock tree and open windows.
+        void UI_BuildLayout(BuiltInLayout layout, unsigned int dockspaceID);
+        bool SaveCurrentLayout(const std::string& name);
+        void UI_LayoutMenu();
+        void UI_LayoutWindows();   // the save prompt and Joylashuvlar (manage) window
+        // ZAMIN_EDITOR_LAYOUT=<built-in key | saved name>[,save=<name>][,manage][,saveprompt].
+        void ApplyLayoutAutomation(std::string_view spec);
+
+        // ---- scene views (EditorSceneViews.cpp): the main viewport (view 0) and up to three extra
+        // ones (Oyna > Ko'rinishlar), each with its own editor camera; axis views (Top / Front /
+        // Right ... orthographic) from the toolbar, the axis navigator or the numpad keys.
+        SceneViewTarget GetSceneViewTarget(int index);
+        // The view camera shortcuts act on: the one under the mouse, else the one with the keyboard.
+        int GetShortcutSceneView() const;
+        EditorCamera& GetSceneViewCamera(int index);
+        bool IsAnySceneViewHovered() const;
+        bool IsAnySceneViewFocused() const;
+        // An axis view (Free: perspective) for a view with a short notice; the main viewport in the
+        // 2D mode leaves it first.
+        void SetSceneViewAxis(int index, ViewAxis axis);
+        void ToggleSceneViewProjection(int index);
+        void OpenSceneView(int extraIndex, bool open);
+        // The extra views' pictures (after the main one): each its own camera, grid, selection.
+        void RenderSceneViews(Timestep ts);
+        void UI_SceneViews();
+        void UI_SceneViewToolbar(int extraIndex);
+        // The axis navigator in a view's corner: click an axis for its view, the centre toggles the
+        // projection. True: the mouse is over it.
+        bool UI_ViewAxisNavigator(const SceneViewTarget& view, ImVec2 center, float radius);
+        // The axis view menu (Perspektiv / Yuqoridan / Old ...) of a view.
+        void UI_ViewAxisItems(int index);
+        // The transform gizmo in a view (the main viewport's tools: mode, snapping, pivot).
+        bool UI_TransformGizmo(const SceneViewTarget& view);
+        // ---- the editor cameras' settings popup (fly speed, acceleration, FOV, clip planes, mouse)
+        void UI_CameraSettingsPopup(int index);
+        bool UI_CameraSettings(int index);
+        // A fly speed changed with the wheel becomes the preferences' (every view's, the next session's).
+        void SyncFlySpeed();
+        // Before the dock space: extra views opened from the menu are docked next to the viewport.
+        void DockPendingSceneViews();
+        // The selection outline in an extra view's picture.
+        void RenderSceneViewOutline(int extraIndex);
+
+        // ---- entity names over the scene views (EditorEntityLabels.cpp)
+        void UI_EntityLabels(const SceneViewTarget& view, const glm::mat4& viewProjection, const glm::vec3& cameraPosition, bool orthographic);
+        void UI_EntityLabelsPopup();
+        bool UI_EntityLabelSettings();
 
         void OnOverlayRender();
         // The overlay's camera frustums, light direction arrows and audio source radii (the view
@@ -667,6 +738,42 @@ namespace Zamin {
         bool m_ShowLauncher = false;
         bool m_ShowAbout = false;
         bool m_LayoutInitialized = false;
+
+        // window layouts
+        EditorLayoutLibrary m_Layouts;
+        std::optional<BuiltInLayout> m_PendingBuiltInLayout; // built by the next frame's dock space
+        std::string m_PendingLayout;          // a saved layout loaded before the next frame
+        bool m_ShowLayouts = false;           // the Joylashuvlar window
+        bool m_OpenSaveLayout = false;        // the save prompt opens
+        std::string m_LayoutName;             // the save prompt's name field
+        std::string m_LayoutRenameFrom, m_LayoutRenameTo;
+        bool m_LayoutRenameFocus = false;
+        std::string m_AutomationLayoutSave;   // ZAMIN_EDITOR_LAYOUT=...,save=<name>: saved at frame 20
+        std::string m_LayoutError;
+
+        // the extra scene views (the settings - open, camera - are in m_ViewSettings.SceneViews)
+        struct ExtraSceneView
+        {
+            EditorCamera Camera;
+            Ref<Framebuffer> SceneBuffer, FinalBuffer;
+            PostProcessHistory PostHistory;
+            glm::vec2 Size{ 0.0f };                 // the picture's size (pixels)
+            glm::vec2 Bounds[2] = {};               // where it is on screen
+            bool Visible = false;                   // its window was drawn last frame
+            bool Hovered = false, Focused = false;
+            bool GizmoHovered = false, NavigatorHovered = false;
+            Entity HoveredEntity;
+            bool CameraLoaded = false;              // the camera took the saved state
+        };
+        std::array<ExtraSceneView, SceneViewSettings::Count> m_ExtraViews;
+        int m_LastSceneView = 0;                  // the view last hovered / clicked (shortcuts' fallback)
+        int m_GizmoOwner = -1;                    // the view whose transform gizmo is being dragged
+        bool m_NavigatorHovered = false;          // the main viewport's axis navigator (last frame)
+        float m_ToolbarBottom = 0.0f;             // where the viewport toolbar's rows end (px below the panel's top)
+        int m_OpenCameraSettings = -1;            // automation: that view's camera popup opens
+        bool m_OpenLabelsMenu = false;            // automation: the labels popup opens
+        uint32_t m_PendingViewDock = 0;           // extra views (bits) to dock next to the viewport
+        EntityLabelMode m_LabelToggleMode = EntityLabelMode::All; // what the toolbar's names button turns on
 
         // launcher state
         RecentFileList m_RecentProjects{ 10 };

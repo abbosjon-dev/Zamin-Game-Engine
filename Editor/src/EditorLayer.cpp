@@ -85,6 +85,9 @@ namespace Zamin {
         static std::string iniPath = (ConfigDirectory() / "editor-layout.ini").string();
         ImGui::GetIO().IniFilename = iniPath.c_str();
         m_LayoutInitialized = fs::exists(iniPath);
+        // Saved window layouts (Oyna > Joylashuv).
+        m_Layouts.SetDirectory(ConfigDirectory() / "layouts");
+        m_Layouts.Refresh();
 
         m_EditorCamera.Focus({ 0.0f, 0.5f, 0.0f }, 14.0f);
         RegisterShortcuts(); // before the preferences: they rebind some of them
@@ -329,6 +332,9 @@ namespace Zamin {
         if (m_SceneState != SceneState::Edit)
             OnSceneStop();
         m_ProjectSettingsPanel.SaveIfDirty();
+        // The extra views' cameras are kept for the next session.
+        if (std::any_of(m_ViewSettings.SceneViews.begin(), m_ViewSettings.SceneViews.end(), [](const SceneViewSettings& v) { return v.Open; }))
+            m_ViewSettingsDirty = true;
         if (m_ViewSettingsDirty)
             SaveViewSettings();
         if (m_PreferencesDirty || m_ConsolePanel.ConsumePreferencesChanged())
@@ -346,6 +352,8 @@ namespace Zamin {
     {
         // The UI's look (accent, font size, the play-mode tint) between two frames.
         UpdateEditorTheme();
+        // A saved window layout chosen last frame (ImGui takes window settings between frames).
+        ApplyPendingLayout();
         // Automation hooks (CI / screenshots): ZAMIN_EDITOR_SELECT=<entity name>, ZAMIN_EDITOR_PLAY=1
         static int frame = 0;
         if (++frame == 5)
@@ -535,9 +543,13 @@ namespace Zamin {
             // undo steps made one by one (each its own step, named as usual); "history" opens the window.
             if (const char* undo = std::getenv("ZAMIN_EDITOR_UNDO"))
                 ApplyUndoAutomation(undo);
-            // ZAMIN_EDITOR_MENU=<Fayl|Tahrirlash|Yordam>[/recent]: that main menu kept open (screenshots).
+            // ZAMIN_EDITOR_MENU=<Fayl|Tahrirlash|Ko'rinish|Oyna|Yordam>[/recent|/layout|/views]: that main menu kept open (screenshots).
             if (const char* menu = std::getenv("ZAMIN_EDITOR_MENU"))
                 m_OpenMenu = menu;
+            // ZAMIN_EDITOR_LAYOUT=<Default|2D|Animation|FourViews|<saved name>>[,save=<name>][,manage][,saveprompt]: a window
+            // layout applied / the current one saved / the Joylashuvlar window or the save prompt opened.
+            if (const char* layout = std::getenv("ZAMIN_EDITOR_LAYOUT"))
+                ApplyLayoutAutomation(layout);
             // ZAMIN_EDITOR_RECOVER=1: the recovery prompt's "Tiklash" (the offered copy is loaded).
             if (std::getenv("ZAMIN_EDITOR_RECOVER") && !m_Recovery.Autosave.empty())
             {
@@ -573,6 +585,59 @@ namespace Zamin {
                 m_ShowTransparentOrder = true;
             if (std::getenv("ZAMIN_EDITOR_FRAME_ALL"))
                 FrameAll();
+            // ZAMIN_EDITOR_VIEWS=<axis>[,<axis>[,<axis>]] (top | front | right | bottom | back | left | persp): the extra
+            // scene views open with those views (framed on the scene a few frames later).
+            if (const char* views = std::getenv("ZAMIN_EDITOR_VIEWS"))
+            {
+                std::string_view rest(views);
+                for (int i = 0; i < SceneViewSettings::Count && !rest.empty(); i++)
+                {
+                    const size_t comma = rest.find(',');
+                    const ViewAxis axis = ViewAxisFromKey(rest.substr(0, comma));
+                    rest = comma == std::string_view::npos ? std::string_view() : rest.substr(comma + 1);
+                    OpenSceneView(i, true);
+                    ExtraSceneView& view = m_ExtraViews[i];
+                    EditorCameraState state = view.Camera.GetAxisViewState(axis);
+                    if (axis == ViewAxis::Free)
+                    {
+                        state.Pitch = 0.45f;
+                        state.Yaw = 0.7f;
+                    }
+                    view.Camera.SetViewState(state);
+                    view.CameraLoaded = true;
+                }
+                m_LastSceneView = 0;
+            }
+            // ZAMIN_EDITOR_VIEW_AXIS=<view 1..4>:<axis>: a view's axis view (1: the viewport; e.g. "1:top").
+            if (const char* axis = std::getenv("ZAMIN_EDITOR_VIEW_AXIS"))
+            {
+                std::string_view v(axis);
+                const size_t colon = v.find(':');
+                const int index = colon == std::string_view::npos ? 0 : std::clamp(std::atoi(std::string(v.substr(0, colon)).c_str()) - 1, 0, SceneViewSettings::Count);
+                const ViewAxis target = ViewAxisFromKey(colon == std::string_view::npos ? v : v.substr(colon + 1));
+                GetSceneViewCamera(index).SetViewAxis(target, 0.0f);
+                if (index == 0 && target != ViewAxis::Front)
+                    m_2DMode = false;
+            }
+            // ZAMIN_EDITOR_LABELS=all | selected | off[,menu][,fade=<start>:<end>][,scale=<x>][,nooverlap=0]: the entity names over
+            // the views (for this session); "menu" opens the toolbar's names popup.
+            if (const char* labels = std::getenv("ZAMIN_EDITOR_LABELS"))
+            {
+                std::string_view v(labels);
+                auto& l = m_ViewSettings.EntityLabels;
+                l.Mode = v.starts_with("all") ? EntityLabelMode::All : v.starts_with("off") ? EntityLabelMode::Off : EntityLabelMode::Selected;
+                if (size_t at = v.find("fade="); at != std::string_view::npos)
+                    std::sscanf(std::string(v.substr(at + 5)).c_str(), "%f:%f", &l.FadeStart, &l.FadeEnd);
+                if (size_t at = v.find("scale="); at != std::string_view::npos)
+                    l.Scale = (float)std::atof(std::string(v.substr(at + 6)).c_str());
+                if (v.find("nooverlap=0") != std::string_view::npos)
+                    l.HideOverlapping = false;
+                l.Sanitize();
+                m_OpenLabelsMenu = v.find("menu") != std::string_view::npos;
+            }
+            // ZAMIN_EDITOR_CAMERA_SETTINGS=<view 1..4>: that view's camera settings popup opens (1: the viewport).
+            if (const char* settings = std::getenv("ZAMIN_EDITOR_CAMERA_SETTINGS"))
+                m_OpenCameraSettings = std::clamp(std::atoi(settings) - 1, 0, SceneViewSettings::Count);
             // ZAMIN_EDITOR_CAMERA="x,y,z,distance,pitch,yaw": the editor camera looks at that point from
             // that distance (degrees; a positive pitch looks down).
             if (const char* cam = std::getenv("ZAMIN_EDITOR_CAMERA"))
@@ -953,6 +1018,20 @@ namespace Zamin {
         }
         if (frame == 20 && std::getenv("ZAMIN_EDITOR_TOGGLE_ACTIVE"))
             ToggleSelectionActive();
+        if (frame == 20 && !m_AutomationLayoutSave.empty())
+        {
+            SaveCurrentLayout(m_AutomationLayoutSave);
+            m_AutomationLayoutSave.clear();
+        }
+        // ZAMIN_EDITOR_VIEWS: the extra views (their sizes known by now) framed on the scene.
+        if (frame == 14 && std::getenv("ZAMIN_EDITOR_VIEWS"))
+            if (AABB bounds; m_ActiveScene->ComputeSceneBounds(bounds))
+                for (int i = 0; i < SceneViewSettings::Count; i++)
+                    if (m_ViewSettings.SceneViews[i].Open)
+                    {
+                        EditorCamera& camera = m_ExtraViews[i].Camera;
+                        camera.SetViewState(camera.ComputeFrameState(bounds, 1.1f));
+                    }
         // ZAMIN_EDITOR_COLLIDER_EDIT=polygon|edge (with ZAMIN_EDITOR_SELECT): the collider's points are
         // edited in the viewport from frame 12; ZAMIN_EDITOR_COLLIDER_HOVER=v<i> | e<i> pins the hovered
         // point / edge (screenshots).
@@ -1339,7 +1418,7 @@ namespace Zamin {
 
         SceneRenderOptions options;
         options.ShowGrid = m_ViewSettings.Grid.Visible;
-        options.GridPlane = m_2DMode ? 1 : 0;
+        options.GridPlane = GetGridPlaneForView(m_EditorCamera.GetForwardDirection(), m_EditorCamera.IsOrthographic(), m_2DMode);
         options.Grid = m_ViewSettings.Grid;
         options.SkipEditorHidden = true; // the hierarchy's eye: edit + simulate views only (play draws everything)
         options.DebugView = m_DebugView;
@@ -1506,6 +1585,11 @@ namespace Zamin {
         if (m_SceneState == SceneState::Play && m_RuntimeScenes)
             m_RuntimeScenes->RenderTransition(m_FinalFramebuffer->GetSpecification().Width, m_FinalFramebuffer->GetSpecification().Height);
         m_FinalFramebuffer->Unbind();
+
+        // The extra scene views (Oyna > Ko'rinishlar), each from its own camera; a fly speed the
+        // wheel changed becomes every view's.
+        RenderSceneViews(ts);
+        SyncFlySpeed();
 
         // The game's scene switches of this frame (LoadScene, async activations, DontDestroyOnLoad):
         // after its picture is finished, as the player does them.
@@ -3861,6 +3945,10 @@ namespace Zamin {
     {
         if (m_SceneState != SceneState::Play && m_ViewportHovered)
             m_EditorCamera.OnEvent(e);
+        // An extra view under the mouse: its camera (also while playing: the views watch the game).
+        for (int i = 0; i < SceneViewSettings::Count; i++)
+            if (m_ViewSettings.SceneViews[i].Open && m_ExtraViews[i].Hovered)
+                m_ExtraViews[i].Camera.OnEvent(e);
 
         EventDispatcher dispatcher(e);
         dispatcher.Dispatch<KeyPressedEvent>(ZM_BIND_EVENT_FN(OnKeyPressed));
@@ -3884,9 +3972,10 @@ namespace Zamin {
         if (e.GetMouseButton() == MouseButton::Left && m_ViewportHovered && m_SceneState != SceneState::Play)
         {
             bool alt = Input::IsKeyPressed(Key::LeftAlt) || Input::IsKeyPressed(Key::RightAlt);
-            bool overGizmo = m_SceneHierarchyPanel.GetSelectedEntity() && ImGuizmo::IsOver() && m_GizmoMode != GizmoMode::None;
-            // A press on the UI rect gizmo is its own (inside it: a click selects when the button comes up).
-            if (IsUIRectGizmoHovered())
+            bool overGizmo = m_SceneHierarchyPanel.GetSelectedEntity() && m_GizmoHovered && m_GizmoMode != GizmoMode::None;
+            // A press on the UI rect gizmo is its own (inside it: a click selects when the button comes up),
+            // the axis navigator's too.
+            if (IsUIRectGizmoHovered() || m_NavigatorHovered)
                 return false;
             if (alt && overGizmo && m_SceneState == SceneState::Edit && !m_SceneHierarchyPanel.IsTilePainting())
             {
@@ -4058,6 +4147,8 @@ namespace Zamin {
         // Entities kept from the previous scene (it may be freed right after this: undo, stop):
         // the next frame's picking finds them again in this one.
         m_HoveredEntity = {};
+        for (ExtraSceneView& view : m_ExtraViews)
+            view.HoveredEntity = {};
         m_OutlineHover = {};
         m_OutlineHoverCaptured = {};
         // The brightness adapted to the previous scene (or to play mode) does not carry over:
@@ -4624,7 +4715,9 @@ namespace Zamin {
         AABB bounds;
         if (!m_ActiveScene->ComputeBounds(entities, bounds, true))
             return false;
-        m_EditorCamera.TransitionTo(m_EditorCamera.ComputeFrameState(bounds), 0.3f);
+        // The view the mouse / keyboard is in (the last one used otherwise).
+        EditorCamera& camera = GetSceneViewCamera(GetShortcutSceneView());
+        camera.TransitionTo(camera.ComputeFrameState(bounds), 0.3f);
         return true;
     }
 
@@ -4644,7 +4737,8 @@ namespace Zamin {
             ShowViewportMessage(empty ? ICON_FA_EXPAND "  Sahna bo'sh" : ICON_FA_EXPAND "  Ko'rinadigan obyekt yo'q");
             return;
         }
-        m_EditorCamera.TransitionTo(m_EditorCamera.ComputeFrameState(bounds), 0.35f);
+        EditorCamera& camera = GetSceneViewCamera(GetShortcutSceneView());
+        camera.TransitionTo(camera.ComputeFrameState(bounds), 0.35f);
         ShowViewportMessage(ICON_FA_EXPAND "  Butun sahna");
     }
 
@@ -4670,7 +4764,7 @@ namespace Zamin {
             ShowViewportMessage(std::format(ICON_FA_BOOKMARK "  Xatcho'p {} bo'sh (saqlash: Ctrl+{})", slot, slot));
             return;
         }
-        m_2DMode = state->Orthographic; // the camera switches its projection itself
+        m_2DMode = state->Mode2D; // the camera switches its projection (and the 2D lock) itself
         m_EditorCamera.TransitionTo(*state, 0.35f);
         ShowViewportMessage(std::format(ICON_FA_BOOKMARK "  Xatcho'p {}", slot));
     }
@@ -4692,6 +4786,13 @@ namespace Zamin {
 
     void EditorLayer::SaveViewSettings()
     {
+        // The extra views' cameras where they look now (the next session starts there).
+        for (int i = 0; i < SceneViewSettings::Count; i++)
+            if (m_ExtraViews[i].CameraLoaded)
+            {
+                m_ViewSettings.SceneViews[i].Camera = m_ExtraViews[i].Camera.GetViewState();
+                m_ViewSettings.SceneViews[i].Camera.Mode2D = false;
+            }
         m_ViewSettings.Snap.Sanitize();
         m_ViewSettings.Grid.Sanitize();
         if (!m_ViewSettings.Save(ConfigDirectory() / "editor-view.json"))
@@ -4703,6 +4804,7 @@ namespace Zamin {
     {
         m_2DMode = enabled;
         m_EditorCamera.SetOrthographic(enabled);
+        m_EditorCamera.SetRotationLocked(enabled);
         if (enabled)
         {
             glm::vec3 focus = m_EditorCamera.GetFocalPoint();
@@ -5759,11 +5861,13 @@ namespace Zamin {
         UI_Stats();
         UI_ProfilerWindow();
         UI_Viewport();
+        UI_SceneViews();
         if (m_MaximizeOnPlay && m_SceneState == SceneState::Play)
             UI_MaximizedGame();
         if (m_ShowImGuiDemo) ImGui::ShowDemoWindow(&m_ShowImGuiDemo);
 
         UI_Preferences();
+        UI_LayoutWindows();
         UI_UndoHistory();
         UI_ShortcutsWindow();
         UI_Modals();
@@ -5793,39 +5897,27 @@ namespace Zamin {
     {
         ImGuiViewport* viewport = ImGui::GetMainViewport();
         ImGuiID dockspaceID = ImGui::GetID("ZaminDockSpace");
-        if (!m_LayoutInitialized)
+        // The first run (no layout file yet) or a built-in layout chosen (Oyna > Joylashuv): its
+        // dock tree is built before the dock space and the windows of this frame.
+        const bool firstRun = !m_LayoutInitialized;
+        if (firstRun && !m_PendingBuiltInLayout)
+            m_PendingBuiltInLayout = BuiltInLayout::Default;
+        if (m_PendingBuiltInLayout)
         {
-            UI_BuildDefaultLayout(dockspaceID);
+            const BuiltInLayout layout = *m_PendingBuiltInLayout;
+            m_PendingBuiltInLayout.reset();
+            UI_BuildLayout(layout, dockspaceID);
             m_LayoutInitialized = true;
+            m_Preferences.Layout.Current = EditorLayoutLibrary::GetBuiltInKey(layout);
+            MarkPreferencesDirty();
+            if (!firstRun)
+            {
+                ZM_INFO("Joylashuv qo'llandi: {}", EditorLayoutLibrary::GetBuiltInName(layout));
+                ShowViewportMessage(std::format(ICON_FA_WINDOW_RESTORE "  Joylashuv: {}", EditorLayoutLibrary::GetBuiltInName(layout)));
+            }
         }
+        DockPendingSceneViews();
         ImGui::DockSpaceOverViewport(dockspaceID, viewport, ImGuiDockNodeFlags_None);
-    }
-
-    void EditorLayer::UI_BuildDefaultLayout(ImGuiID dockspaceID)
-    {
-        ImGuiViewport* viewport = ImGui::GetMainViewport();
-        ImGui::DockBuilderRemoveNode(dockspaceID);
-        ImGui::DockBuilderAddNode(dockspaceID, ImGuiDockNodeFlags_DockSpace);
-        ImGui::DockBuilderSetNodeSize(dockspaceID, viewport->WorkSize);
-
-        ImGuiID main = dockspaceID;
-        ImGuiID left = ImGui::DockBuilderSplitNode(main, ImGuiDir_Left, 0.18f, nullptr, &main);
-        ImGuiID right = ImGui::DockBuilderSplitNode(main, ImGuiDir_Right, 0.26f, nullptr, &main);
-        ImGuiID bottom = ImGui::DockBuilderSplitNode(main, ImGuiDir_Down, 0.30f, nullptr, &main);
-
-        ImGui::DockBuilderDockWindow("###Hierarchy", left);
-        ImGui::DockBuilderDockWindow("###Inspector", right);
-        ImGui::DockBuilderDockWindow("###SceneSettings", right);
-        ImGui::DockBuilderDockWindow("###ProjectSettings", right);
-        ImGui::DockBuilderDockWindow("###ContentBrowser", bottom);
-        ImGui::DockBuilderDockWindow("###ScenesPanel", bottom);
-        ImGui::DockBuilderDockWindow("###Console", bottom);
-        ImGui::DockBuilderDockWindow("###TilePalette", bottom);
-        ImGui::DockBuilderDockWindow("###AudioMixer", bottom);
-        ImGui::DockBuilderDockWindow("###Animation", bottom);
-        ImGui::DockBuilderDockWindow("###Stats", left);
-        ImGui::DockBuilderDockWindow("###Viewport", main);
-        ImGui::DockBuilderFinish(dockspaceID);
     }
 
     void EditorLayer::UI_MenuBar()
@@ -5974,6 +6066,8 @@ namespace Zamin {
             ImGui::EndMenu();
         }
 
+        if (m_OpenMenu.starts_with("Oyna"))
+            ImGui::OpenPopup("Oyna");
         if (ImGui::BeginMenu("Oyna"))
         {
             ImGui::MenuItem(ICON_FA_LIST "  Ierarxiya", nullptr, &m_ShowHierarchy);
@@ -6004,7 +6098,34 @@ namespace Zamin {
             if (ImGui::MenuItem(ICON_FA_CLOCK_ROTATE_LEFT "  Undo tarixi", ShortcutLabel(EditorShortcut::UndoHistory), &m_ShowUndoHistory) && m_ShowUndoHistory)
                 m_UndoHistoryScroll = true;
             ImGui::Separator();
-            if (ImGui::MenuItem(ICON_FA_BORDER_ALL "  Standart joylashuv")) m_LayoutInitialized = false;
+            if (m_OpenMenu == "Oyna/views")
+                ImGui::OpenPopup(ICON_FA_TABLE_COLUMNS "  Ko'rinishlar");
+            if (ImGui::BeginMenu(ICON_FA_TABLE_COLUMNS "  Ko'rinishlar"))
+            {
+                ImGui::TextDisabled("Har biri o'z kamerasi bilan (sahna ko'rinishlari)");
+                for (int i = 0; i < SceneViewSettings::Count; i++)
+                {
+                    bool open = m_ViewSettings.SceneViews[i].Open;
+                    const ViewAxis axis = m_ExtraViews[i].Camera.GetViewAxis();
+                    const std::string label = std::format(ICON_FA_CUBE "  Ko'rinish {}", i + 2);
+                    const std::string hint = axis != ViewAxis::Free ? GetViewAxisInfo(axis).Short
+                                           : m_ExtraViews[i].Camera.IsOrthographic() ? "Orto" : "Persp";
+                    if (ImGui::MenuItem(label.c_str(), hint.c_str(), open))
+                        OpenSceneView(i, !open);
+                }
+                ImGui::Separator();
+                if (ImGui::MenuItem(ICON_FA_TABLE_CELLS_LARGE "  4 ko'rinish (2x2 joylashuv)"))
+                    RequestBuiltInLayout(BuiltInLayout::FourViews);
+                if (ImGui::MenuItem(ICON_FA_XMARK "  Qo'shimcha ko'rinishlarni yopish", nullptr, false,
+                                    std::any_of(m_ViewSettings.SceneViews.begin(), m_ViewSettings.SceneViews.end(), [](const SceneViewSettings& v) { return v.Open; })))
+                    for (int i = 0; i < SceneViewSettings::Count; i++)
+                        OpenSceneView(i, false);
+                ImGui::EndMenu();
+            }
+            if (m_OpenMenu == "Oyna/layout")
+                ImGui::OpenPopup(ICON_FA_WINDOW_RESTORE "  Joylashuv");
+            UI_LayoutMenu();
+            ImGui::Separator();
             ImGui::MenuItem("ImGui demo", nullptr, &m_ShowImGuiDemo);
             ImGui::EndMenu();
         }
@@ -6292,10 +6413,21 @@ namespace Zamin {
             m_MaterialDrag.Target = 0;
         }
 
+        const SceneViewTarget mainView = GetSceneViewTarget(0);
         if (m_SceneState != SceneState::Play)
         {
-            UI_Gizmos();
-            if (m_ShowIcons) UI_ViewportIcons();
+            UI_TransformGizmo(mainView);
+            if (m_ShowIcons) UI_ViewportIcons(mainView);
+        }
+        else
+            m_GizmoHovered = false;
+        // Entity names: the scene view's camera, while playing the game's (when asked for).
+        if (m_ViewSettings.EntityLabels.IsEnabled())
+        {
+            if (m_SceneState != SceneState::Play)
+                UI_EntityLabels(mainView, m_EditorCamera.GetViewProjection(), m_EditorCamera.GetPosition(), m_EditorCamera.IsOrthographic());
+            else if (glm::mat4 view, projection; m_ViewSettings.EntityLabels.ShowInPlay && OverlayCamera(view, projection))
+                UI_EntityLabels(mainView, projection * view, glm::vec3(glm::inverse(view)[3]), projection[3][3] == 1.0f);
         }
         UI_UIRectGizmo(); // the selected UI element's rect gizmo; the UI element under the mouse
         UI_ColliderPointEditor();
@@ -6320,6 +6452,19 @@ namespace Zamin {
         UI_StatsOverlay();
         UI_ParticleOverlay();
         UI_ViewportToolbar();
+        // The axis navigator (edit / simulate, not the 2D mode): top-right below the toolbar, or
+        // bottom-right when the statistics overlay has that corner.
+        m_NavigatorHovered = false;
+        if (m_SceneState != SceneState::Play && !m_2DMode)
+        {
+            const float radius = std::floor(ImGui::GetFontSize() * 2.8f);
+            const auto& overlay = m_ViewSettings.StatsOverlay;
+            const bool overlayTop = overlay.Visible && overlay.Corner == OverlayCorner::TopRight;
+            const float x = m_ViewportBounds[1].x - radius - 16.0f;
+            const float y = overlayTop ? m_ViewportBounds[1].y - radius - 64.0f
+                                       : std::max(m_ViewportBounds[0].y, m_ViewportPanelBounds[0].y + m_ToolbarBottom) + 16.0f + radius;
+            m_NavigatorHovered = UI_ViewAxisNavigator(mainView, ImVec2(x, y), radius);
+        }
         UI_ViewportMessage();
         UI_SceneLoadBanner();
 
@@ -6373,337 +6518,6 @@ namespace Zamin {
             OnSceneStop();
         ImGui::PopStyleColor();
         ImGui::End();
-        ImGui::PopStyleVar(2);
-    }
-
-    void EditorLayer::UI_ViewportToolbar()
-    {
-        ImVec2 regionMin = ImGui::GetWindowContentRegionMin();
-        float width = m_ViewportPanelBounds[1].x - m_ViewportPanelBounds[0].x;
-        float buttonSize = ImGui::GetFrameHeight() + 4.0f;
-        const float spacing = 2.0f, caretWidth = std::floor(buttonSize * 0.55f);
-        ImDrawList* dl = ImGui::GetWindowDrawList();
-        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(spacing, 0));
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
-
-        auto panelBg = [&](ImVec2 pos, float w) {
-            ImVec2 a(m_ViewportPanelBounds[0].x + pos.x - 4, m_ViewportPanelBounds[0].y + pos.y - 4);
-            ImVec2 b(a.x + w + 8, a.y + buttonSize + 8);
-            dl->AddRectFilled(a, b, IM_COL32(18, 20, 24, 210), 7.0f);
-        };
-        auto beginPanel = [&](ImVec2 pos, float w) {
-            panelBg(pos, w);
-            ImGui::SetCursorPos(ImVec2(regionMin.x + pos.x, regionMin.y + pos.y));
-        };
-        ImVec2 size(buttonSize, buttonSize);
-        bool editing = m_SceneState == SceneState::Edit;
-        auto& snap = m_ViewSettings.Snap;
-        auto& grid = m_ViewSettings.Grid;
-        // The play controls sit in the middle; the side panels next to them are left out when
-        // the viewport is too narrow (snapping / camera stay reachable from the "Ko'rinish" menu).
-        const float centerW = buttonSize * 4 + spacing * 3;
-        const float centerMin = (width - centerW) * 0.5f - 12.0f, centerMax = (width + centerW) * 0.5f + 12.0f;
-
-        // ---- left: gizmo tools | snapping
-        float leftEnd = 10.0f;
-        {
-            ImVec2 pos(10, 10);
-            float w = buttonSize * 5 + spacing * 4 + caretWidth;
-            beginPanel(pos, w);
-            if (UI::ToolbarButton(ICON_FA_ARROW_POINTER, "Tanlash (Q)", m_GizmoMode == GizmoMode::None, size)) m_GizmoMode = GizmoMode::None;
-            ImGui::SameLine();
-            if (UI::ToolbarButton(ICON_FA_ARROWS_UP_DOWN_LEFT_RIGHT, "Ko'chirish (W)\nAlt+sudrash: nusxasini sudrash", m_GizmoMode == GizmoMode::Translate, size)) m_GizmoMode = GizmoMode::Translate;
-            ImGui::SameLine();
-            if (UI::ToolbarButton(ICON_FA_ROTATE, "Aylantirish (E)", m_GizmoMode == GizmoMode::Rotate, size)) m_GizmoMode = GizmoMode::Rotate;
-            ImGui::SameLine();
-            if (UI::ToolbarButton(ICON_FA_UP_RIGHT_AND_DOWN_LEFT_FROM_CENTER, "Masshtab (R)", m_GizmoMode == GizmoMode::Scale, size)) m_GizmoMode = GizmoMode::Scale;
-            ImGui::SameLine();
-            if (UI::ToolbarButton(m_GizmoPivotCenter ? ICON_FA_OBJECT_GROUP : ICON_FA_CIRCLE_DOT,
-                                  m_GizmoPivotCenter ? "Gizmo: tanlov markazida (bosing: asosiy obyektda)"
-                                                     : "Gizmo: asosiy obyektda (bosing: tanlov markazida)",
-                                  m_GizmoPivotCenter, size))
-                m_GizmoPivotCenter = !m_GizmoPivotCenter;
-            if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
-                ImGui::OpenPopup("##TransformGizmo");
-            ImGui::SameLine(0.0f, 0.0f);
-            // The gizmo's size on screen (and its handles' thickness, the icons' size).
-            const auto& tg = m_ViewSettings.TransformGizmo;
-            const bool resized = tg.Size != 1.0f || tg.LineThickness != 1.0f || tg.IconSize != 1.0f;
-            if (resized) ImGui::PushStyleColor(ImGuiCol_Text, UI::AccentColor());
-            std::string tip = std::format("Gizmo o'lchami: x{:.2g} (chiziqlar x{:.2g}, ikonkalar x{:.2g})", tg.Size, tg.LineThickness, tg.IconSize);
-            if (UI::ToolbarButton(ICON_FA_CARET_DOWN "###TransformGizmoMenu", tip.c_str(), resized, ImVec2(caretWidth, buttonSize)))
-                ImGui::OpenPopup("##TransformGizmo");
-            if (resized) ImGui::PopStyleColor();
-            if (m_OpenTransformGizmoMenu)
-            {
-                ImGui::OpenPopup("##TransformGizmo");
-                m_OpenTransformGizmoMenu = false;
-            }
-            // below the caret, its left edge under the caret's
-            ImGui::SetNextWindowPos(ImVec2(ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y + 8.0f), ImGuiCond_Appearing);
-            UI_TransformGizmoPopup();
-            leftEnd = pos.x + w;
-        }
-        if (m_SceneState == SceneState::Play)
-        {
-            // While playing (no gizmos to snap): the game view's resolution, next to the tools. The
-            // label shrinks to the icon when the viewport is narrow.
-            const auto& gameView = m_ViewSettings.GameView;
-            std::string label = std::string(ICON_FA_DESKTOP "  ") + gameView.GetLabel();
-            if (IsGameViewSized() && m_GameViewLayout.Scale < 0.995f)
-                label += std::format(" ({:.0f}%)", m_GameViewLayout.Scale * 100.0f);
-            label += "  " ICON_FA_CARET_DOWN;
-            const float padding = ImGui::GetStyle().FramePadding.x * 2.0f;
-            ImVec2 pos(leftEnd + 14.0f, 10);
-            float w = ImGui::CalcTextSize(label.c_str()).x + padding;
-            if (pos.x + w >= centerMin)
-            {
-                label = ICON_FA_DESKTOP " " ICON_FA_CARET_DOWN;
-                w = ImGui::CalcTextSize(label.c_str()).x + padding;
-            }
-            if (pos.x + w < centerMin)
-            {
-                beginPanel(pos, w);
-                const bool sized = gameView.Preset != GameViewPreset::Free;
-                std::string tip = std::format("O'yin oynasi o'lchami: {}\nErkin, 16:9, 16:10, 4:3, 21:9, 1920x1080, 1280x720 yoki boshqa",
-                                              GameViewResolution::GetName(gameView.Preset));
-                if (UI::ToolbarButton((label + "###GameViewResolution").c_str(), tip.c_str(), sized, ImVec2(w, buttonSize)))
-                    ImGui::OpenPopup("##GameViewResolution");
-                ImGui::SetNextWindowPos(ImVec2(ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y + 8.0f), ImGuiCond_Appearing);
-            }
-            if (m_OpenGameViewMenu)
-            {
-                ImGui::OpenPopup("##GameViewResolution");
-                m_OpenGameViewMenu = false;
-            }
-            UI_GameViewResolutionPopup();
-        }
-        else
-        {
-            // The step of the current gizmo operation, e.g. "0.5", "15°", "x0.1".
-            std::string step = m_GizmoMode == GizmoMode::Rotate ? std::format("{:g}\xc2\xb0", snap.Rotate)
-                             : m_GizmoMode == GizmoMode::Scale  ? std::format("x{:g}", snap.Scale)
-                                                                : std::format("{:g}", snap.Translate);
-            std::string label = step + "  " ICON_FA_CARET_DOWN;
-            float stepWidth = ImGui::CalcTextSize(label.c_str()).x + ImGui::GetStyle().FramePadding.x * 2.0f;
-            ImVec2 pos(leftEnd + 14.0f, 10);
-            float w = buttonSize + spacing + stepWidth;
-            if (pos.x + w < centerMin)
-            {
-                beginPanel(pos, w);
-                if (UI::ToolbarButton(ICON_FA_MAGNET, snap.Enabled ? "Snapping yoqilgan (Ctrl bosib turish: vaqtincha o'chirish)"
-                                                                   : "Snapping o'chiq (Ctrl bosib turish: vaqtincha yoqish)",
-                                      snap.Enabled, size))
-                {
-                    snap.Enabled = !snap.Enabled;
-                    MarkViewSettingsDirty();
-                }
-                ImGui::SameLine();
-                if (UI::ToolbarButton((label + "###SnapStep").c_str(), "Snapping qadamlari (ko'chirish / aylantirish / masshtab)", false,
-                                      ImVec2(stepWidth, buttonSize)))
-                    ImGui::OpenPopup("##SnapSettings");
-            }
-            UI_SnapSettingsPopup();
-        }
-
-        // ---- center: play controls
-        {
-            float w = centerW;
-            ImVec2 pos((width - w) * 0.5f, 10);
-            beginPanel(pos, w);
-
-            ImGui::PushStyleColor(ImGuiCol_Text, m_SceneState == SceneState::Play ? ImVec4(0.95f, 0.4f, 0.4f, 1) : ImVec4(0.35f, 0.9f, 0.55f, 1));
-            if (UI::ToolbarButton(m_SceneState == SceneState::Play ? ICON_FA_STOP : ICON_FA_PLAY,
-                                  m_SceneState == SceneState::Play ? "To'xtatish (Ctrl+P)" : "O'ynash (Ctrl+P)", false, size))
-                m_SceneState == SceneState::Play ? OnSceneStop() : OnScenePlay();
-            ImGui::PopStyleColor();
-            ImGui::SameLine();
-
-            ImGui::PushStyleColor(ImGuiCol_Text, m_SceneState == SceneState::Simulate ? ImVec4(0.95f, 0.4f, 0.4f, 1) : ImVec4(0.45f, 0.7f, 1.0f, 1));
-            if (UI::ToolbarButton(m_SceneState == SceneState::Simulate ? ICON_FA_STOP : ICON_FA_GEARS,
-                                  m_SceneState == SceneState::Simulate ? "Simulyatsiyani to'xtatish" : "Fizikani simulyatsiya qilish", false, size))
-                m_SceneState == SceneState::Simulate ? OnSceneStop() : OnSceneSimulate();
-            ImGui::PopStyleColor();
-            ImGui::SameLine();
-
-            ImGui::BeginDisabled(editing);
-            bool paused = !editing && (m_RuntimeScenes && m_SceneState == SceneState::Play ? m_RuntimeScenes->IsPaused() : m_ActiveScene->IsPaused());
-            if (UI::ToolbarButton(ICON_FA_PAUSE, "Pauza", paused, size)) OnScenePause();
-            ImGui::SameLine();
-            ImGui::BeginDisabled(!paused);
-            if (UI::ToolbarButton(ICON_FA_FORWARD_STEP, "Bir kadr oldinga", false, size))
-            {
-                if (m_RuntimeScenes && m_SceneState == SceneState::Play)
-                    m_RuntimeScenes->Step(1);
-                else
-                    m_ActiveScene->Step(1);
-            }
-            ImGui::EndDisabled();
-            ImGui::EndDisabled();
-        }
-
-        // ---- right: camera (frame all, bookmarks) | view options
-        float viewW = buttonSize * 9 + caretWidth * 5 + spacing * 9;
-        ImVec2 viewPos(width - viewW - 10, 10);
-        {
-            bool cameraTools = m_SceneState != SceneState::Play;
-            float w = buttonSize * 2 + spacing;
-            ImVec2 pos(viewPos.x - 14.0f - w, 10);
-            if (pos.x > centerMax)
-            {
-                beginPanel(pos, w);
-                ImGui::BeginDisabled(!cameraTools);
-                if (UI::ToolbarButton(ICON_FA_EXPAND, "Hammasini ko'rsatish (Shift+F)", false, size)) FrameAll();
-                ImGui::SameLine();
-                int saved = GetSceneBookmarks().Count();
-                std::string tip = std::format("Kamera xatcho'plari ({} / {})\nCtrl+1..5: saqlash   1..5: qaytish", saved, CameraBookmarks::SlotCount);
-                if (UI::ToolbarButton(ICON_FA_BOOKMARK, tip.c_str(), saved > 0, size))
-                    ImGui::OpenPopup("##CameraBookmarks");
-                ImGui::EndDisabled();
-            }
-            UI_CameraBookmarksPopup();
-        }
-        {
-            beginPanel(viewPos, viewW);
-            if (UI::ToolbarButton(m_2DMode ? "2D" : "3D", m_2DMode ? "2D rejim (bosing: 3D)" : "3D rejim (bosing: 2D)", m_2DMode, size))
-                Set2DMode(!m_2DMode);
-            ImGui::SameLine();
-            if (UI::ToolbarButton(ICON_FA_BORDER_ALL, "Grid (o'ng tugma: sozlamalar)", grid.Visible, size))
-            {
-                grid.Visible = !grid.Visible;
-                MarkViewSettingsDirty();
-            }
-            if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
-                ImGui::OpenPopup("##GridSettings");
-            ImGui::SameLine(0.0f, 0.0f);
-            if (UI::ToolbarButton(ICON_FA_CARET_DOWN "###GridMenu", "Grid sozlamalari: o'lcham, rang, ko'rinish", false, ImVec2(caretWidth, buttonSize)))
-                ImGui::OpenPopup("##GridSettings");
-            UI_GridSettingsPopup();
-            ImGui::SameLine();
-            // Wireframe toggle + the view mode menu (debug views of the surfaces).
-            {
-                bool wire = m_Wireframe != WireframeMode::Off;
-                std::string tip = std::format("Wireframe: {} (o'ng tugma yoki {}: ko'rinish rejimlari - yorug'lik, normallar, albedo ...)",
-                                              wire ? "yoqilgan" : "o'chiq", ICON_FA_CARET_DOWN);
-                if (UI::ToolbarButton(ICON_FA_DRAW_POLYGON, tip.c_str(), wire, size))
-                    m_Wireframe = wire ? WireframeMode::Off : m_WireframeStyle;
-                if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
-                    ImGui::OpenPopup("##ViewMode");
-                ImGui::SameLine(0.0f, 0.0f);
-                const bool debugView = m_DebugView != RenderDebugView::Lit;
-                if (debugView) ImGui::PushStyleColor(ImGuiCol_Text, UI::AccentColor());
-                if (UI::ToolbarButton(ICON_FA_CARET_DOWN "###ViewModeMenu", "Ko'rinish rejimi: oddiy, faqat yorug'lik, normallar, albedo, "
-                                      "roughness, metallic; wireframe turi", debugView, ImVec2(caretWidth, buttonSize)))
-                    ImGui::OpenPopup("##ViewMode");
-                if (debugView) ImGui::PopStyleColor();
-                if (m_OpenViewModeMenu)
-                {
-                    ImGui::OpenPopup("##ViewMode");
-                    m_OpenViewModeMenu = false;
-                }
-                UI_ViewModePopup();
-            }
-            ImGui::SameLine();
-            if (UI::ToolbarButton(ICON_FA_VECTOR_SQUARE, "Fizik colliderlar", m_ShowColliders, size)) m_ShowColliders = !m_ShowColliders;
-            ImGui::SameLine();
-            // Debug drawing (scripts' DebugDraw shapes, physics raycasts / contacts) + its settings.
-            {
-                // What is shown now (a game script may have changed it while playing).
-                const DebugDrawSettings& debug = DebugDraw::GetSettings();
-                std::string tip = std::format("Debug chizish: {} (o'ng tugma yoki {}: raycastlar, kontakt nuqtalari, qalinlik ...)",
-                                              debug.Enabled ? "yoqilgan" : "o'chiq", ICON_FA_CARET_DOWN);
-                if (UI::ToolbarButton(ICON_FA_BUG, tip.c_str(), debug.Enabled, size))
-                    ToggleDebugDraw();
-                if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
-                    ImGui::OpenPopup("##DebugDraw");
-                ImGui::SameLine(0.0f, 0.0f);
-                const bool physicsViews = debug.Enabled && (debug.ShowRaycasts || debug.ShowContacts || debug.ShowJoints ||
-                                                            debug.ShowVelocities || debug.ShowBodyVelocities);
-                if (physicsViews) ImGui::PushStyleColor(ImGuiCol_Text, UI::AccentColor());
-                if (UI::ToolbarButton(ICON_FA_CARET_DOWN "###DebugDrawMenu", "Debug chizish sozlamalari: raycastlar, kontakt nuqtalari, "
-                                      "chiziq qalinligi, matn o'lchami", physicsViews, ImVec2(caretWidth, buttonSize)))
-                    ImGui::OpenPopup("##DebugDraw");
-                if (physicsViews) ImGui::PopStyleColor();
-                // The popup hangs below the caret, its right edge under the caret's.
-                const ImVec2 popupAnchor(ImGui::GetItemRectMax().x, ImGui::GetItemRectMax().y + 8.0f);
-                if (m_OpenDebugDrawMenu)
-                {
-                    ImGui::OpenPopup("##DebugDraw");
-                    m_OpenDebugDrawMenu = false;
-                }
-                ImGui::SetNextWindowPos(popupAnchor, ImGuiCond_Appearing, ImVec2(1.0f, 0.0f));
-                UI_DebugDrawPopup();
-            }
-            ImGui::SameLine();
-            // The statistics overlay (FPS graph, draw calls, triangles, culling) + its settings.
-            {
-                auto& overlay = m_ViewSettings.StatsOverlay;
-                std::string tip = std::format("Statistika overlay: {} (o'ng tugma yoki {}: FPS grafigi, draw call, uchburchaklar, "
-                                              "culling, burchak)", overlay.Visible ? "yoqilgan" : "o'chiq", ICON_FA_CARET_DOWN);
-                if (UI::ToolbarButton(ICON_FA_GAUGE_HIGH, tip.c_str(), overlay.Visible, size))
-                {
-                    overlay.Visible = !overlay.Visible;
-                    MarkViewSettingsDirty();
-                }
-                if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
-                    ImGui::OpenPopup("##StatsOverlay");
-                ImGui::SameLine(0.0f, 0.0f);
-                if (UI::ToolbarButton(ICON_FA_CARET_DOWN "###StatsOverlayMenu", "Statistika overlay sozlamalari", false,
-                                      ImVec2(caretWidth, buttonSize)))
-                    ImGui::OpenPopup("##StatsOverlay");
-                const ImVec2 popupAnchor(ImGui::GetItemRectMax().x, ImGui::GetItemRectMax().y + 8.0f);
-                if (m_OpenStatsOverlayMenu)
-                {
-                    ImGui::OpenPopup("##StatsOverlay");
-                    m_OpenStatsOverlayMenu = false;
-                }
-                ImGui::SetNextWindowPos(popupAnchor, ImGuiCond_Appearing, ImVec2(1.0f, 0.0f));
-                UI_StatsOverlayPopup();
-            }
-            ImGui::SameLine();
-            // Icons + the component visualisations (camera frustums, light directions, audio radii).
-            {
-                std::string tip = std::format("Ikonkalar: {} (o'ng tugma yoki {}: gizmolar - kamera frustumi, yorug'lik yo'nalishi, "
-                                              "audio radiusi)", m_ShowIcons ? "yoqilgan" : "o'chiq", ICON_FA_CARET_DOWN);
-                if (UI::ToolbarButton(ICON_FA_EYE, tip.c_str(), m_ShowIcons, size)) m_ShowIcons = !m_ShowIcons;
-                if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
-                    ImGui::OpenPopup("##ComponentGizmos");
-                ImGui::SameLine(0.0f, 0.0f);
-                const auto& g = m_ViewSettings.Gizmos;
-                const bool showingAll = g.CameraFrustums == GizmoVisibility::All || g.LightDirections == GizmoVisibility::All ||
-                                        g.AudioRanges == GizmoVisibility::All || g.Bounds == GizmoVisibility::All ||
-                                        g.Skeletons == GizmoVisibility::All || g.Normals != GizmoVisibility::Off ||
-                                        g.Joints2D == GizmoVisibility::All || g.ParticleShapes == GizmoVisibility::All;
-                if (showingAll) ImGui::PushStyleColor(ImGuiCol_Text, UI::AccentColor());
-                if (UI::ToolbarButton(ICON_FA_CARET_DOWN "###ComponentGizmosMenu", "Gizmolar: kamera frustumi, yorug'lik yo'nalishi, "
-                                      "audio radiusi, chegaralar, skelet - tanlanganda yoki hammasida; tanlash konturi",
-                                      showingAll, ImVec2(caretWidth, buttonSize)))
-                    ImGui::OpenPopup("##ComponentGizmos");
-                if (showingAll) ImGui::PopStyleColor();
-                const ImVec2 popupAnchor(ImGui::GetItemRectMax().x, ImGui::GetItemRectMax().y + 8.0f);
-                if (m_OpenGizmosMenu)
-                {
-                    ImGui::OpenPopup("##ComponentGizmos");
-                    m_OpenGizmosMenu = false;
-                }
-                ImGui::SetNextWindowPos(popupAnchor, ImGuiCond_Appearing, ImVec2(1.0f, 0.0f));
-                UI_ComponentGizmosPopup();
-            }
-            ImGui::SameLine();
-            if (UI::ToolbarButton(ICON_FA_GLOBE, m_GizmoLocal ? "Lokal koordinatalar" : "Global koordinatalar", m_GizmoLocal, size))
-                m_GizmoLocal = !m_GizmoLocal;
-            ImGui::SameLine();
-            if (UI::ToolbarButton(ICON_FA_UP_RIGHT_AND_DOWN_LEFT_FROM_CENTER, "O'yinda to'liq oyna (Maximize on Play)", m_MaximizeOnPlay, size))
-                m_MaximizeOnPlay = !m_MaximizeOnPlay;
-        }
-
-        // camera fly speed hint
-        if (m_EditorCamera.IsFlying())
-        {
-            ImGui::SetCursorPos(ImVec2(regionMin.x + 12, regionMin.y + buttonSize + 26));
-            ImGui::TextColored(ImVec4(1, 1, 1, 0.75f), ICON_FA_PERSON_RUNNING "  Tezlik: %.1f  (g'ildirak bilan o'zgartiring)", m_EditorCamera.FlySpeed);
-        }
-
         ImGui::PopStyleVar(2);
     }
 
@@ -7272,6 +7086,8 @@ namespace Zamin {
 
     void EditorLayer::UI_ViewMenu()
     {
+        if (m_OpenMenu.starts_with("Ko'rinish"))
+            ImGui::OpenPopup("Ko'rinish");
         if (!ImGui::BeginMenu("Ko'rinish"))
             return;
         bool camera = m_SceneState != SceneState::Play;
@@ -7368,6 +7184,38 @@ namespace Zamin {
         if (ImGui::IsItemHovered())
             UI::Tooltip("Shaffof sirtlar qaysi tartibda chizilayotgani: har birining ustida raqami (1 - birinchi, eng orqadagi), "
                         "ustuvorligi va kameradan uzoqligi");
+        if (ImGui::BeginMenu(ICON_FA_TAG "  Obyekt nomlari"))
+        {
+            if (UI_EntityLabelSettings())
+                MarkViewSettingsDirty();
+            ImGui::EndMenu();
+        }
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Ko'rinishlarda obyektlar nomi: tanlanganlar yoki hammasi, uzoqlashganda xiralashadi");
+        ImGui::Separator();
+        if (ImGui::BeginMenu(ICON_FA_CUBE "  Ko'rinish o'qi (viewport)", camera))
+        {
+            UI_ViewAxisItems(0);
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu(ICON_FA_VIDEO "  Editor kamerasi"))
+        {
+            UI_CameraSettings(0);
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu(ICON_FA_TABLE_COLUMNS "  Qo'shimcha ko'rinishlar"))
+        {
+            for (int i = 0; i < SceneViewSettings::Count; i++)
+            {
+                bool open = m_ViewSettings.SceneViews[i].Open;
+                if (ImGui::MenuItem(std::format(ICON_FA_CUBE "  Ko'rinish {}", i + 2).c_str(), nullptr, open))
+                    OpenSceneView(i, !open);
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem(ICON_FA_TABLE_CELLS_LARGE "  4 ko'rinish (2x2 joylashuv)"))
+                RequestBuiltInLayout(BuiltInLayout::FourViews);
+            ImGui::EndMenu();
+        }
         ImGui::Separator();
         if (ImGui::MenuItem(ICON_FA_BULLSEYE "  Tanlanganga fokus", "F", false, camera && m_SceneHierarchyPanel.GetSelectedEntity())) FrameSelection();
         if (ImGui::MenuItem(ICON_FA_EXPAND "  Hammasini ko'rsatish", "Shift+F", false, camera)) FrameAll();
@@ -8973,6 +8821,9 @@ namespace Zamin {
         if (!top && left && (m_DebugView != RenderDebugView::Lit || m_Wireframe != WireframeMode::Off || m_ShowTransparentOrder))
             pos.y -= ImGui::GetTextLineHeight() + 22.0f;
         pos.y = std::max(pos.y, m_ViewportBounds[0].y + toolbar);
+        // The toolbar's second row (the camera panel of a narrow viewport) is on the right.
+        if (top && !left)
+            pos.y = std::max(pos.y, m_ViewportPanelBounds[0].y + m_ToolbarBottom + 12.0f);
 
         ImGui::SetCursorScreenPos(pos);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 8.0f));
@@ -9367,160 +9218,6 @@ namespace Zamin {
             ImGui::EndPopup();
         }
         ImGui::PopStyleVar(2);
-    }
-
-    void EditorLayer::UI_ViewportIcons()
-    {
-        ImDrawList* dl = ImGui::GetWindowDrawList();
-        glm::mat4 viewProj = m_EditorCamera.GetViewProjection();
-        glm::vec2 size = m_ViewportBounds[1] - m_ViewportBounds[0];
-        ImVec2 mouse = ImGui::GetMousePos();
-
-        // Hidden and inactive entities have no icon; locked ones are drawn faint and cannot be clicked.
-        SceneRenderOptions skipped;
-        skipped.SkipEditorHidden = true;
-        std::unordered_set<entt::entity> hidden = m_ActiveScene->CollectRenderSkipped(skipped);
-        // Their size: the view settings' factor (the glyph scales with the circle).
-        const float iconScale = m_ViewSettings.TransformGizmo.IconSize;
-        const float iconRadius = m_ViewSettings.TransformGizmo.GetIconRadius();
-        ImFont* font = ImGui::GetFont();
-        const float fontSize = ImGui::GetFontSize() * iconScale;
-        auto drawIcon = [&](Entity e, const char* icon, ImU32 color) {
-            if (hidden.contains(e)) return;
-            glm::vec4 clip = viewProj * glm::vec4(m_ActiveScene->GetWorldPosition(e), 1.0f);
-            if (clip.w <= 0.0f) return;
-            glm::vec3 ndc = glm::vec3(clip) / clip.w;
-            if (std::abs(ndc.x) > 1.1f || std::abs(ndc.y) > 1.1f) return;
-            ImVec2 p(m_ViewportBounds[0].x + (ndc.x * 0.5f + 0.5f) * size.x, m_ViewportBounds[0].y + (1.0f - (ndc.y * 0.5f + 0.5f)) * size.y);
-            const float r = iconRadius;
-            const bool locked = m_ActiveScene->IsLockedInEditor(e);
-            bool hovered = !locked && (mouse.x - p.x) * (mouse.x - p.x) + (mouse.y - p.y) * (mouse.y - p.y) < r * r;
-            bool isSelected = m_SceneHierarchyPanel.IsSelected(e);
-            if (locked)
-                color = (color & ~IM_COL32_A_MASK) | IM_COL32(0, 0, 0, 110);
-            dl->AddCircleFilled(p, r, isSelected ? IM_COL32(30, 140, 110, 230) : (hovered ? IM_COL32(50, 55, 65, 230) : IM_COL32(20, 22, 26, 200)));
-            dl->AddCircle(p, r, color, 0, 1.5f * std::max(1.0f, iconScale * 0.8f));
-            ImVec2 ts = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, icon);
-            dl->AddText(font, fontSize, ImVec2(p.x - ts.x * 0.5f, p.y - ts.y * 0.5f), color, icon);
-            if (hovered && m_ViewportHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !ImGuizmo::IsOver())
-                m_SceneHierarchyPanel.SelectWithModifiers(e, ImGui::GetIO().KeyCtrl, ImGui::GetIO().KeyShift);
-        };
-
-        for (auto e : m_ActiveScene->GetAllEntitiesWith<CameraComponent>())
-            drawIcon({ e, m_ActiveScene.get() }, ICON_FA_CAMERA, IM_COL32(220, 220, 230, 255));
-        for (auto e : m_ActiveScene->GetAllEntitiesWith<DirectionalLightComponent>())
-            drawIcon({ e, m_ActiveScene.get() }, ICON_FA_SUN, IM_COL32(255, 210, 90, 255));
-        for (auto e : m_ActiveScene->GetAllEntitiesWith<PointLightComponent>())
-            drawIcon({ e, m_ActiveScene.get() }, ICON_FA_LIGHTBULB, IM_COL32(255, 230, 140, 255));
-        for (auto e : m_ActiveScene->GetAllEntitiesWith<SpotLightComponent>())
-            drawIcon({ e, m_ActiveScene.get() }, ICON_FA_BULLHORN, IM_COL32(255, 220, 120, 255));
-        for (auto e : m_ActiveScene->GetAllEntitiesWith<Light2DComponent>())
-            drawIcon({ e, m_ActiveScene.get() }, ICON_FA_FIRE, IM_COL32(255, 190, 90, 255));
-        for (auto e : m_ActiveScene->GetAllEntitiesWith<AudioSourceComponent>())
-            drawIcon({ e, m_ActiveScene.get() }, ICON_FA_VOLUME_HIGH, IM_COL32(220, 140, 220, 255));
-        for (auto e : m_ActiveScene->GetAllEntitiesWith<AmbientZoneComponent>())
-            drawIcon({ e, m_ActiveScene.get() }, ICON_FA_TREE, IM_COL32(120, 220, 140, 255));
-    }
-
-    void EditorLayer::UI_Gizmos()
-    {
-        m_GizmoHovered = false;
-        Entity primary = m_SceneHierarchyPanel.GetSelectedEntity();
-        // Screen-space UI is placed by its UI Transform (pixels), not by the Transform: no gizmo for it.
-        if (!primary || !primary.IsValid() || m_GizmoMode == GizmoMode::None || m_SceneHierarchyPanel.IsTilePainting() || IsViewportHandleEditing() ||
-            primary.HasComponent<UITransformComponent>())
-        {
-            m_GizmoEdit.End();
-            return;
-        }
-        // Every selected subtree moves together (an entity inside another selected one follows
-        // it); locked ones stay where they are.
-        std::vector<Entity> targets = GetGizmoTargets();
-        if (targets.empty())
-        {
-            m_GizmoEdit.End();
-            return;
-        }
-        if (m_ActiveScene->IsLockedInEditor(primary))
-            primary = targets.front(); // the pivot follows an entity that moves
-
-        ImGuizmo::SetOrthographic(m_EditorCamera.IsOrthographic());
-        ImGuizmo::SetDrawlist();
-        // The gizmo's size on screen and the thickness of its handles (the view settings).
-        {
-            const TransformGizmoSettings& size = m_ViewSettings.TransformGizmo;
-            ImGuizmo::SetGizmoSizeClipSpace(size.GetClipSpaceSize());
-            static const ImGuizmo::Style defaults;
-            ImGuizmo::Style& style = ImGuizmo::GetStyle();
-            const float t = size.LineThickness;
-            style.TranslationLineThickness = defaults.TranslationLineThickness * t;
-            style.TranslationLineArrowSize = defaults.TranslationLineArrowSize * t;
-            style.RotationLineThickness = defaults.RotationLineThickness * t;
-            style.RotationOuterLineThickness = defaults.RotationOuterLineThickness * t;
-            style.ScaleLineThickness = defaults.ScaleLineThickness * t;
-            style.ScaleLineCircleSize = defaults.ScaleLineCircleSize * t;
-            style.HatchedAxisLineThickness = defaults.HatchedAxisLineThickness * t;
-            style.CenterCircleSize = defaults.CenterCircleSize * t;
-        }
-        ImGuizmo::SetRect(m_ViewportBounds[0].x, m_ViewportBounds[0].y,
-                          m_ViewportBounds[1].x - m_ViewportBounds[0].x, m_ViewportBounds[1].y - m_ViewportBounds[0].y);
-
-        const glm::mat4& projection = m_EditorCamera.GetProjection();
-        glm::mat4 view = m_EditorCamera.GetViewMatrix();
-
-        // Snapping: the toolbar toggle (magnet), inverted while Ctrl is held; steps per operation.
-        bool ctrl = Input::IsKeyPressed(Key::LeftControl) || Input::IsKeyPressed(Key::RightControl);
-        bool snap = m_ViewSettings.Snap.IsActive(ctrl);
-        float snapValue = m_ViewSettings.Snap.GetStep((int)m_GizmoMode);
-        float snapValues[3] = { snapValue, snapValue, snapValue };
-
-        ImGuizmo::OPERATION op = m_GizmoMode == GizmoMode::Translate ? ImGuizmo::TRANSLATE :
-                                 m_GizmoMode == GizmoMode::Rotate ? ImGuizmo::ROTATE : ImGuizmo::SCALE;
-        ImGuizmo::MODE mode = (m_GizmoLocal || m_GizmoMode == GizmoMode::Scale) ? ImGuizmo::LOCAL : ImGuizmo::WORLD;
-
-        // Pivot: the primary entity, or the center of the selection. While dragging, the
-        // gizmo's own previous result is fed back (ImGuizmo works incrementally).
-        if (m_GizmoEdit.IsActive() && m_GizmoEditMode != m_GizmoMode)
-            m_GizmoEdit.End(); // W/E/R pressed mid-drag: start over with the new operation
-        bool dragging = m_GizmoEdit.IsActive() && m_GizmoEdit.GetScene() == m_ActiveScene.get();
-        bool center = m_GizmoPivotCenter && targets.size() > 1;
-        glm::mat4 pivot = dragging ? m_GizmoMatrix
-                                   : GroupTransformEdit::ComputePivot(*m_ActiveScene, targets, primary, center, mode == ImGuizmo::LOCAL);
-        glm::mat4 transform = pivot;
-        ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(projection), op, mode, glm::value_ptr(transform),
-                             nullptr, snap ? snapValues : nullptr);
-        m_GizmoHovered = ImGuizmo::IsOver();
-
-        if (ImGuizmo::IsUsing())
-        {
-            if (!dragging)
-            {
-                m_GizmoEdit.Begin(*m_ActiveScene, targets, pivot);
-                m_GizmoEditMode = m_GizmoMode;
-            }
-            m_GizmoMatrix = transform;
-            if (m_GizmoAltDuplicatePending && m_SceneState == SceneState::Edit)
-            {
-                // Alt + drag: the copies move, the originals stay where they were. ImGuizmo is
-                // "using" from the click on, so the copies are made only once the gizmo really
-                // moves past the drag threshold: a plain Alt+click leaves nothing behind. Until
-                // then nothing was applied, so the copies sit exactly on the originals and the
-                // drag restarts from its first pivot with them.
-                if (!ImGui::IsMouseDragging(ImGuiMouseButton_Left) || !m_GizmoEdit.HasMoved(transform))
-                    return;
-                m_GizmoAltDuplicatePending = false;
-                if (size_t count = m_SceneHierarchyPanel.DuplicateSelection(true))
-                {
-                    m_GizmoEdit.Begin(*m_ActiveScene, GetGizmoTargets(), m_GizmoEdit.GetStartPivot());
-                    ShowViewportMessage(count > 1 ? std::format(ICON_FA_CLONE "  {} ta nusxa sudralmoqda", count)
-                                                  : std::string(ICON_FA_CLONE "  Nusxa sudralmoqda"));
-                }
-            }
-            m_GizmoEdit.Update(transform, (GroupTransformEdit::Operation)(int)m_GizmoMode);
-            MarkDirty();
-        }
-        else if (m_GizmoEdit.IsActive())
-            m_GizmoEdit.End();
     }
 
     void EditorLayer::UI_SceneSettings()

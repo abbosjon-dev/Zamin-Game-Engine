@@ -65,18 +65,24 @@ namespace Zamin {
         void Sanitize();
     };
 
-    // The editor camera's projection and fly speed: what a new session starts with.
+    // The editor cameras' projection, fly speed and mouse (the viewport's camera popup and the
+    // preferences): every scene view's camera uses them, a new session starts with them.
     struct EditorCameraDefaults
     {
         float FOV = 45.0f;          // degrees (vertical)
         float NearClip = 0.1f;
         float FarClip = 1000.0f;
         float FlySpeed = 6.0f;      // units / second (RMB + WASD)
+        float FlyAcceleration = 0.0f; // the speed grows by this x per second of flying (0: steady)
+        float LookSensitivity = 1.0f; // x the mouse's turning speed (fly look, orbit)
+        bool InvertY = false;       // moving the mouse up looks down (fly look, orbit)
 
         static constexpr float MinFOV = 10.0f, MaxFOV = 120.0f;
         static constexpr float MinNear = 0.001f, MaxNear = 10.0f;
         static constexpr float MaxFar = 100000.0f;
         static constexpr float MinFlySpeed = 0.5f, MaxFlySpeed = 200.0f;
+        static constexpr float MaxAcceleration = 5.0f;
+        static constexpr float MinSensitivity = 0.1f, MaxSensitivity = 4.0f;
 
         // Far stays at least 10x Near.
         void Sanitize();
@@ -100,6 +106,12 @@ namespace Zamin {
         bool RecordSelection = true;
     };
 
+    // The editor's window layout (Oyna > Joylashuv).
+    struct LayoutPreferences
+    {
+        std::string Current;  // the layout last chosen (a built-in one's key or a saved one's name; "" none)
+    };
+
     // The editor's per-user preferences (Tahrirlash > Sozlamalar), stored as JSON in the user's
     // config directory (~/.config/zamin/preferences.json).
     struct EditorPreferences
@@ -110,6 +122,7 @@ namespace Zamin {
         ConsolePreferences Console;
         AutosaveSettings Autosave;
         UndoPreferences Undo;
+        LayoutPreferences Layout;
         // Keyboard shortcuts rebound in the shortcuts window: id -> chord ("" = unbound).
         std::map<std::string, std::string> Shortcuts;
 

@@ -164,7 +164,7 @@ namespace Zamin {
     struct SceneRenderOptions
     {
         bool ShowGrid = false;
-        int GridPlane = 0;       // 0 = XZ, 1 = XY
+        int GridPlane = 0;       // 0 = XZ, 1 = XY, 2 = YZ
         GridSettings Grid;       // cell size, colors, axes (editor viewport preferences)
         // Editor scene view: entities hidden with the hierarchy's eye button (and their children)
         // are not drawn and their lights do not count. Runtime rendering never sets this.
@@ -197,6 +197,9 @@ namespace Zamin {
         // Drawn over another scene's picture through that scene's camera (SceneManager: additively
         // loaded scenes): no sky - only what this scene has is added to the picture.
         bool Overlay = false;
+        // Another view of the same frame (the editor's extra scene views): GetLastView /
+        // GetLastProjection keep the main view's.
+        bool KeepLastView = false;
     };
 
     // What a scene says about itself ("Metadata" in its file): shown by the editor (the inspector of

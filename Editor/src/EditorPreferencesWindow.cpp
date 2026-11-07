@@ -88,10 +88,17 @@ namespace Zamin {
 
     void EditorLayer::ApplyCameraDefaults(bool flySpeed)
     {
-        const EditorCameraDefaults& camera = m_Preferences.Camera;
-        m_EditorCamera.SetProjection(camera.FOV, camera.NearClip, camera.FarClip);
-        if (flySpeed)
-            m_EditorCamera.FlySpeed = camera.FlySpeed;
+        const EditorCameraDefaults& defaults = m_Preferences.Camera;
+        for (int i = 0; i <= SceneViewSettings::Count; i++)
+        {
+            EditorCamera& camera = GetSceneViewCamera(i);
+            camera.SetProjection(defaults.FOV, defaults.NearClip, defaults.FarClip);
+            camera.FlyAcceleration = defaults.FlyAcceleration;
+            camera.LookSensitivity = defaults.LookSensitivity;
+            camera.InvertY = defaults.InvertY;
+            if (flySpeed)
+                camera.FlySpeed = defaults.FlySpeed;
+        }
     }
 
     bool EditorLayer::IsPlayTintActive() const
@@ -328,7 +335,8 @@ namespace Zamin {
                 {
                     EditorCameraDefaults& camera = m_Preferences.Camera;
                     ImGui::SeparatorText("Editor kamerasi");
-                    ImGui::TextDisabled("Har yangi sessiyada kamera shu qiymatlar bilan boshlanadi (o'zgarish hozir ham qo'llanadi)");
+                    ImGui::TextDisabled("Hamma ko'rinishlarning kamerasi; har yangi sessiya shu qiymatlar bilan boshlanadi (viewport'dagi "
+                                        ICON_FA_VIDEO " tugmasi ham shularni o'zgartiradi)");
                     bool projection = false, speed = false;
                     ImGui::SetNextItemWidth(em * 14.0f);
                     projection |= ImGui::SliderFloat("Ko'rish burchagi (FOV)", &camera.FOV, EditorCameraDefaults::MinFOV, EditorCameraDefaults::MaxFOV, "%.0f\xc2\xb0");
@@ -340,6 +348,15 @@ namespace Zamin {
                     speed |= ImGui::DragFloat("Uchish tezligi", &camera.FlySpeed, 0.1f, EditorCameraDefaults::MinFlySpeed, EditorCameraDefaults::MaxFlySpeed, "%.1f");
                     if (ImGui::IsItemHovered())
                         UI::Tooltip("O'ng tugma + WASD bilan uchish tezligi (uchayotganda g'ildirak bilan ham o'zgaradi)");
+                    ImGui::SetNextItemWidth(em * 14.0f);
+                    projection |= ImGui::SliderFloat("Tezlanish", &camera.FlyAcceleration, 0.0f, EditorCameraDefaults::MaxAcceleration,
+                                                     camera.FlyAcceleration > 0.0f ? "+%.1fx / s" : "yo'q");
+                    if (ImGui::IsItemHovered())
+                        UI::Tooltip("Tugmalar uzoq bosilsa uchish tezligi oshib boradi (ko'pi bilan 4x)");
+                    ImGui::SetNextItemWidth(em * 14.0f);
+                    projection |= ImGui::SliderFloat("Sichqoncha sezgirligi", &camera.LookSensitivity, EditorCameraDefaults::MinSensitivity,
+                                                     EditorCameraDefaults::MaxSensitivity, "%.2fx", ImGuiSliderFlags_Logarithmic);
+                    projection |= ImGui::Checkbox("Y o'qini teskari qilish", &camera.InvertY);
                     if (projection || speed)
                     {
                         camera.Sanitize();

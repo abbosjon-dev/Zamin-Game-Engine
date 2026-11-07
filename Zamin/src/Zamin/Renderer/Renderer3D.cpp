@@ -634,7 +634,7 @@ in vec3 v_Near;
 in vec3 v_Far;
 uniform mat4 u_ViewProjection;
 uniform vec3 u_CameraPos;
-uniform int u_Plane;          // 0 = XZ, 1 = XY
+uniform int u_Plane;          // 0 = XZ, 1 = XY, 2 = YZ
 uniform float u_CellSize;     // world units between minor lines
 uniform float u_MajorEvery;   // every Nth line is a major line (<= 1: none)
 uniform vec4 u_MinorColor;    // rgb + opacity
@@ -658,18 +658,18 @@ float LineAlpha(vec2 coord, float spacing)
 void main()
 {
     vec3 dir = v_Far - v_Near;
-    float t = u_Plane == 0 ? -v_Near.y / dir.y : -v_Near.z / dir.z;
+    float t = u_Plane == 0 ? -v_Near.y / dir.y : u_Plane == 1 ? -v_Near.z / dir.z : -v_Near.x / dir.x;
     if (t <= 0.0)
         discard;
     vec3 p = v_Near + t * dir;
-    vec2 coord = u_Plane == 0 ? p.xz : p.xy;
+    vec2 coord = u_Plane == 0 ? p.xz : u_Plane == 1 ? p.xy : p.zy;
 
     vec4 clip = u_ViewProjection * vec4(p, 1.0);
     float depth = clip.z / clip.w;
     gl_FragDepth = depth * 0.5 + 0.5;
 
     float dist = length(p - u_CameraPos);
-    float camHeight = abs(u_Plane == 0 ? u_CameraPos.y : u_CameraPos.z);
+    float camHeight = abs(u_Plane == 0 ? u_CameraPos.y : u_Plane == 1 ? u_CameraPos.z : u_CameraPos.x);
     float fade = 1.0 - smoothstep((camHeight * 4.0 + 10.0) * u_FadeScale, (camHeight * 12.0 + 40.0) * u_FadeScale, dist);
 
     float minor = LineAlpha(coord, u_CellSize) * u_MinorColor.a;
@@ -679,10 +679,12 @@ void main()
     if (u_ShowAxes == 1)
     {
         vec2 pixel = min(fwidth(coord), vec2(u_CellSize)); // world units per pixel
-        if (abs(coord.x) < pixel.x) // the line x = 0: Z axis (3D) / Y axis (2D)
+        // XZ: x = 0 is the Z axis, z = 0 the X axis; XY: x = 0 the Y axis, y = 0 the X axis;
+        // YZ (coord = z, y): z = 0 the Y axis, y = 0 the Z axis.
+        if (abs(coord.x) < pixel.x)
             color = vec4(u_Plane == 0 ? vec3(0.25, 0.45, 1.0) : vec3(0.35, 0.85, 0.35), 0.9);
-        if (abs(coord.y) < pixel.y) // X axis
-            color = vec4(1.0, 0.3, 0.3, 0.9);
+        if (abs(coord.y) < pixel.y)
+            color = vec4(u_Plane == 2 ? vec3(0.25, 0.45, 1.0) : vec3(1.0, 0.3, 0.3), 0.9);
     }
 
     color.a *= fade;

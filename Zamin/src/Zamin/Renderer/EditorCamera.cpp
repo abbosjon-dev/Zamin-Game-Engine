@@ -38,6 +38,7 @@ namespace Zamin {
         state.Pitch = m_Pitch;
         state.Yaw = m_Yaw;
         state.Orthographic = m_Orthographic;
+        state.Mode2D = m_Orthographic && m_RotationLocked;
         return state;
     }
 
@@ -49,6 +50,7 @@ namespace Zamin {
         m_Pitch = state.Pitch;
         m_Yaw = state.Yaw;
         m_Orthographic = state.Orthographic;
+        m_RotationLocked = state.Mode2D && state.Orthographic;
         UpdateProjection();
         UpdateView();
     }
@@ -67,11 +69,16 @@ namespace Zamin {
             SetViewState(state);
             return;
         }
-        if (m_Orthographic != state.Orthographic)
+        // Into orthographic: the turn is seen in perspective, the projection changes on arrival
+        // (the ortho view's size matches the perspective's at the focal point). Out of it: now.
+        m_Transition.OrthographicAtEnd = !m_Orthographic && state.Orthographic;
+        if (m_Orthographic && !state.Orthographic)
         {
-            m_Orthographic = state.Orthographic;
+            m_Orthographic = false;
             UpdateProjection();
         }
+        if (!m_Transition.OrthographicAtEnd)
+            m_RotationLocked = state.Mode2D && state.Orthographic;
         m_Transition.Active = true;
         m_Transition.Time = 0.0f;
         m_Transition.Duration = duration;
@@ -123,6 +130,39 @@ namespace Zamin {
         }
         state.Distance = std::clamp(state.Distance, 0.5f, m_FarClip * 0.5f);
         return state;
+    }
+
+    ViewAxis EditorCamera::GetViewAxis() const
+    {
+        if (!m_Orthographic || m_RotationLocked)
+            return ViewAxis::Free;
+        return FindViewAxis(GetForwardDirection());
+    }
+
+    EditorCameraState EditorCamera::GetAxisViewState(ViewAxis axis) const
+    {
+        EditorCameraState state = GetViewState();
+        state.Mode2D = false;
+        if (axis == ViewAxis::Free)
+        {
+            state.Orthographic = false;
+            return state;
+        }
+        const ViewAxisInfo& info = GetViewAxisInfo(axis);
+        state.Pitch = info.Pitch;
+        state.Yaw = info.Yaw;
+        state.Orthographic = true;
+        return state;
+    }
+
+    void EditorCamera::ToggleOrthographic()
+    {
+        if (m_RotationLocked)
+            return;
+        m_Transition.Active = false;
+        m_Orthographic = !m_Orthographic;
+        UpdateProjection();
+        UpdateView();
     }
 
     void EditorCamera::SetProjection(float fovDegrees, float nearClip, float farClip)
@@ -191,6 +231,13 @@ namespace Zamin {
                 m_Pitch = b.Pitch;
                 m_Yaw = b.Yaw;
                 m_Transition.Active = false;
+                if (m_Transition.OrthographicAtEnd)
+                {
+                    m_Orthographic = true;
+                    m_RotationLocked = b.Mode2D;
+                    m_Transition.OrthographicAtEnd = false;
+                    UpdateProjection();
+                }
             }
             else
             {
@@ -216,6 +263,7 @@ namespace Zamin {
             if (!active || !anyButton)
             {
                 m_Flying = false;
+                m_FlyTime = 0.0f;
                 return;
             }
             m_HasMouse = true;
@@ -229,14 +277,34 @@ namespace Zamin {
         {
             m_HasMouse = false;
             m_Flying = false;
+            m_FlyTime = 0.0f;
             return;
         }
 
-        if (m_Orthographic)
+        if (m_Orthographic && m_RotationLocked)
         {
             // 2D: any drag pans, Alt+RMB zooms
             if (alt && rmb) MouseZoom(delta.y);
             else MousePan(delta);
+            m_Flying = false;
+        }
+        else if (m_Orthographic)
+        {
+            // An orthographic 3D view: drags pan, Alt + RMB zooms, Alt + LMB orbits - an axis view
+            // turns back to perspective then (a free orthographic view stays orthographic).
+            if (alt && Input::IsMouseButtonPressed(MouseButton::Left))
+            {
+                if (GetViewAxis() != ViewAxis::Free)
+                {
+                    m_Orthographic = false;
+                    UpdateProjection();
+                }
+                MouseRotate(delta);
+            }
+            else if (alt && rmb)
+                MouseZoom(delta.y);
+            else
+                MousePan(delta);
             m_Flying = false;
         }
         else if (alt)
@@ -257,10 +325,9 @@ namespace Zamin {
             glm::vec3 position = m_Position;
             float yawSign = GetUpDirection().y < 0 ? -1.0f : 1.0f;
             m_Yaw += yawSign * delta.x * RotationSpeed();
-            m_Pitch += delta.y * RotationSpeed();
+            m_Pitch += (InvertY ? -delta.y : delta.y) * RotationSpeed();
             m_Pitch = std::clamp(m_Pitch, -1.55f, 1.55f);
 
-            float speed = FlySpeed * (Input::IsKeyPressed(Key::LeftShift) ? 3.0f : 1.0f) * ts;
             glm::vec3 move(0.0f);
             if (Input::IsKeyPressed(Key::W)) move += GetForwardDirection();
             if (Input::IsKeyPressed(Key::S)) move -= GetForwardDirection();
@@ -268,6 +335,9 @@ namespace Zamin {
             if (Input::IsKeyPressed(Key::A)) move -= GetRightDirection();
             if (Input::IsKeyPressed(Key::E)) move += glm::vec3(0, 1, 0);
             if (Input::IsKeyPressed(Key::Q)) move -= glm::vec3(0, 1, 0);
+            // Acceleration: the longer the keys are held, the faster (up to MaxFlyBoost).
+            m_FlyTime = glm::length(move) > 0.0f ? m_FlyTime + (float)ts : 0.0f;
+            float speed = FlySpeed * (Input::IsKeyPressed(Key::LeftShift) ? 3.0f : 1.0f) * GetFlyBoost(m_FlyTime, FlyAcceleration) * ts;
             position += move * speed;
 
             m_FocalPoint = position + GetForwardDirection() * m_Distance;
@@ -304,7 +374,7 @@ namespace Zamin {
     {
         float yawSign = GetUpDirection().y < 0 ? -1.0f : 1.0f;
         m_Yaw += yawSign * delta.x * RotationSpeed();
-        m_Pitch += delta.y * RotationSpeed();
+        m_Pitch += (InvertY ? -delta.y : delta.y) * RotationSpeed();
     }
 
     void EditorCamera::MouseZoom(float delta)

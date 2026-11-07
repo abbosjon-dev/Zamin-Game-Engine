@@ -147,11 +147,11 @@ namespace Zamin {
         m_Shortcuts.Bind(E::Preferences, [this]() { m_ShowPreferences = !m_ShowPreferences; });
         // Delete needs the keyboard (not only the mouse) on the scene view or the hierarchy.
         m_Shortcuts.Bind(E::Delete, [this]() {
-            if (m_ViewportFocused || m_SceneHierarchyPanel.IsHierarchyFocused())
+            if (m_ViewportFocused || IsAnySceneViewFocused() || m_SceneHierarchyPanel.IsHierarchyFocused())
                 DeleteSelectedEntity();
         });
         m_Shortcuts.Bind(E::SelectAll, [this]() {
-            if (m_SceneHierarchyPanel.IsHierarchyFocused() || (m_ViewportFocused && m_SceneState != SceneState::Play))
+            if (m_SceneHierarchyPanel.IsHierarchyFocused() || ((m_ViewportFocused || IsAnySceneViewFocused()) && m_SceneState != SceneState::Play))
                 m_SceneHierarchyPanel.SelectAll();
         });
         m_Shortcuts.Bind(E::ToggleActive, [this]() { ToggleSelectionActive(); });
@@ -164,6 +164,12 @@ namespace Zamin {
         m_Shortcuts.Bind(E::ToolMove, [this]() { m_GizmoMode = GizmoMode::Translate; });
         m_Shortcuts.Bind(E::ToolRotate, [this]() { m_GizmoMode = GizmoMode::Rotate; });
         m_Shortcuts.Bind(E::ToolScale, [this]() { m_GizmoMode = GizmoMode::Scale; });
+        // Axis views of the scene view the mouse / keyboard is in.
+        for (auto [id, axis] : { std::pair{ E::ViewTop, ViewAxis::Top }, { E::ViewBottom, ViewAxis::Bottom }, { E::ViewFront, ViewAxis::Front },
+                                 { E::ViewBack, ViewAxis::Back }, { E::ViewRight, ViewAxis::Right }, { E::ViewLeft, ViewAxis::Left },
+                                 { E::ViewPerspective, ViewAxis::Free } })
+            m_Shortcuts.Bind(id, [this, axis]() { SetSceneViewAxis(GetShortcutSceneView(), axis); });
+        m_Shortcuts.Bind(E::ViewToggleOrtho, [this]() { ToggleSceneViewProjection(GetShortcutSceneView()); });
         m_Shortcuts.Bind(E::FrameSelection, [this]() { FrameSelection(); });
         m_Shortcuts.Bind(E::FrameAll, [this]() { FrameAll(); });
         for (int slot = 1; slot <= E::BookmarkSlots; slot++)
@@ -254,7 +260,9 @@ namespace Zamin {
         // The scene view: the mouse over it or the keyboard in it, not flying the camera (RMB:
         // WASD / QE move it then) and not playing (the game has the keys).
         const bool flying = Input::IsMouseButtonPressed(MouseButton::Right);
-        if (!flying && (m_ViewportHovered || m_ViewportFocused) && m_SceneState != SceneState::Play)
+        // The extra scene views are scene views in every state (they watch the running game too).
+        const bool extraView = IsAnySceneViewHovered() || IsAnySceneViewFocused();
+        if (!flying && (((m_ViewportHovered || m_ViewportFocused) && m_SceneState != SceneState::Play) || extraView))
         {
             situations |= S::SceneView;
             if (m_SceneState == SceneState::Edit)

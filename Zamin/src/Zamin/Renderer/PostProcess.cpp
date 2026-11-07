@@ -488,6 +488,16 @@ void main()
         };
         constexpr size_t s_MaxMipChains = 4;
 
+        // Single targets (SSAO, FXAA's input) of a few sizes: several views drawn every frame (the
+        // editor's extra scene views) reuse theirs instead of resizing one back and forth.
+        struct SizedTarget
+        {
+            uint32_t Width = 0, Height = 0;
+            uint64_t LastUsed = 0;
+            Ref<Framebuffer> Target;
+        };
+        constexpr size_t s_MaxSizedTargets = 4;
+
         struct PostData
         {
             Ref<Shader> Downsample, Upsample, Composite, SSAO, Blur, Fxaa;
@@ -496,14 +506,47 @@ void main()
             PostProcessHistory OwnHistory;                // views without a history of their own
             std::vector<MipChain> Chains;
             uint64_t ChainUses = 0;
-            Ref<Framebuffer> AO, AOBlur;
-            Ref<Framebuffer> FxaaInput; // the composited (LDR) picture FXAA reads
+            std::vector<SizedTarget> AO, AOBlur;
+            std::vector<SizedTarget> FxaaInput; // the composited (LDR) picture FXAA reads
+            uint64_t TargetUses = 0;
             Ref<Texture2D> LensDirt;    // made the first time a scene uses it
             Ref<Texture2D> Black;       // bound where a texture is not used
         };
         PostData* s_Data = nullptr;
         constexpr int s_MipCount = 6;
         constexpr uint32_t s_LuminanceSize = 256;
+
+        // The RGBA8 target of `cache` with this size: kept, else a new one (in place of the one
+        // used least recently once the cache is full).
+        const Ref<Framebuffer>& GetSizedTarget(std::vector<SizedTarget>& cache, uint32_t width, uint32_t height)
+        {
+            const uint64_t use = ++s_Data->TargetUses;
+            for (SizedTarget& t : cache)
+                if (t.Width == width && t.Height == height && t.Target)
+                {
+                    t.LastUsed = use;
+                    return t.Target;
+                }
+            SizedTarget* slot = nullptr;
+            if (cache.size() < s_MaxSizedTargets)
+                slot = &cache.emplace_back();
+            else
+                slot = &*std::min_element(cache.begin(), cache.end(), [](const SizedTarget& a, const SizedTarget& b) { return a.LastUsed < b.LastUsed; });
+            slot->Width = width;
+            slot->Height = height;
+            slot->LastUsed = use;
+            if (slot->Target)
+                slot->Target->Resize(width, height);
+            else
+            {
+                FramebufferSpecification spec;
+                spec.Width = width;
+                spec.Height = height;
+                spec.Attachments = { FramebufferTextureFormat::RGBA8 }; // linear filtering, clamped
+                slot->Target = Framebuffer::Create(spec);
+            }
+            return slot->Target;
+        }
 
         Ref<Framebuffer> CreateColorTarget(uint32_t width, uint32_t height)
         {
@@ -814,20 +857,10 @@ void main()
         if (ssao)
         {
             uint32_t hw = std::max(1u, width / 2), hh = std::max(1u, height / 2);
-            for (Ref<Framebuffer>* fb : { &s_Data->AO, &s_Data->AOBlur })
-            {
-                if (!*fb)
-                {
-                    FramebufferSpecification spec;
-                    spec.Width = hw; spec.Height = hh;
-                    spec.Attachments = { FramebufferTextureFormat::RGBA8 };
-                    *fb = Framebuffer::Create(spec);
-                }
-                else if ((*fb)->GetSpecification().Width != hw || (*fb)->GetSpecification().Height != hh)
-                    (*fb)->Resize(hw, hh);
-            }
+            const Ref<Framebuffer> ao = GetSizedTarget(s_Data->AO, hw, hh);
+            const Ref<Framebuffer> aoBlur = GetSizedTarget(s_Data->AOBlur, hw, hh);
             RenderCommand::SetBlendMode(BlendMode::None);
-            s_Data->AO->Bind();
+            ao->Bind();
             auto& sh = s_Data->SSAO;
             sh->Bind();
             sh->SetInt("u_Depth", 0);
@@ -843,13 +876,13 @@ void main()
             sh->SetFloat("u_Intensity", settings.SSAOIntensity);
             RenderCommand::DrawArrays(3);
 
-            s_Data->AOBlur->Bind();
+            aoBlur->Bind();
             s_Data->Blur->Bind();
             s_Data->Blur->SetInt("u_Source", 0);
-            RenderCommand::BindTextureUnit(0, s_Data->AO->GetColorAttachmentRendererID(0));
+            RenderCommand::BindTextureUnit(0, ao->GetColorAttachmentRendererID(0));
             s_Data->Blur->SetFloat2("u_TexelSize", { 1.0f / hw, 1.0f / hh });
             RenderCommand::DrawArrays(3);
-            aoTexture = s_Data->AOBlur->GetColorAttachmentRendererID(0);
+            aoTexture = aoBlur->GetColorAttachmentRendererID(0);
             stats.DrawCalls += 2;
         }
 
@@ -938,19 +971,11 @@ void main()
         // Composite: straight into the target, or (FXAA) into an LDR picture FXAA reads.
         RenderCommand::RestoreRenderTarget();
         const bool fxaa = settings.FXAA && s_Data->Fxaa && s_Data->Fxaa->IsValid();
+        Ref<Framebuffer> fxaaInput;
         if (fxaa)
         {
-            if (!s_Data->FxaaInput)
-            {
-                FramebufferSpecification spec;
-                spec.Width = outWidth;
-                spec.Height = outHeight;
-                spec.Attachments = { FramebufferTextureFormat::RGBA8 }; // linear filtering, clamped
-                s_Data->FxaaInput = Framebuffer::Create(spec);
-            }
-            else if (s_Data->FxaaInput->GetSpecification().Width != outWidth || s_Data->FxaaInput->GetSpecification().Height != outHeight)
-                s_Data->FxaaInput->Resize(outWidth, outHeight);
-            s_Data->FxaaInput->Bind();
+            fxaaInput = GetSizedTarget(s_Data->FxaaInput, outWidth, outHeight);
+            fxaaInput->Bind();
         }
         else if (target)
             target->Bind();
@@ -1014,7 +1039,7 @@ void main()
             auto& aa = s_Data->Fxaa;
             aa->Bind();
             aa->SetInt("u_Source", 0);
-            RenderCommand::BindTextureUnit(0, s_Data->FxaaInput->GetColorAttachmentRendererID(0));
+            RenderCommand::BindTextureUnit(0, fxaaInput->GetColorAttachmentRendererID(0));
             aa->SetFloat2("u_TexelSize", { 1.0f / outWidth, 1.0f / outHeight });
             aa->SetFloat("u_Subpixel", std::clamp(settings.FXAASubpixel, 0.0f, 1.0f));
             RenderCommand::DrawArrays(3);

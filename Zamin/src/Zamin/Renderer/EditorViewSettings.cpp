@@ -119,6 +119,20 @@ namespace Zamin {
         return (int)std::count_if(m_Slots.begin(), m_Slots.end(), [](const auto& s) { return s.has_value(); });
     }
 
+    // ------------------------------------------------------------------ extra scene views
+    SceneViewSettings SceneViewSettings::GetDefault(int index)
+    {
+        static const ViewAxis axes[Count] = { ViewAxis::Top, ViewAxis::Front, ViewAxis::Right };
+        const ViewAxisInfo& axis = GetViewAxisInfo(axes[std::clamp(index, 0, Count - 1)]);
+        SceneViewSettings view;
+        view.Camera.FocalPoint = glm::vec3(0.0f);
+        view.Camera.Distance = 20.0f;
+        view.Camera.Pitch = axis.Pitch;
+        view.Camera.Yaw = axis.Yaw;
+        view.Camera.Orthographic = true;
+        return view;
+    }
+
     // ------------------------------------------------------------------ inspector headers
     bool InspectorFoldState::IsOpen(const std::string& key, bool defaultOpen) const
     {
@@ -318,6 +332,40 @@ namespace Zamin {
             Corner = OverlayCorner::TopRight;
     }
 
+    static json CameraStateJson(const EditorCameraState& s)
+    {
+        return {
+            { "FocalPoint", Vec(s.FocalPoint) },
+            { "Distance", Num(s.Distance) },
+            { "Pitch", Num(s.Pitch) },
+            { "Yaw", Num(s.Yaw) },
+            { "Orthographic", s.Orthographic },
+            { "Mode2D", s.Mode2D },
+        };
+    }
+
+    // Files from before Mode2D: an orthographic camera was always the 2D mode.
+    static EditorCameraState ReadCameraState(const json& value, EditorCameraState s)
+    {
+        ReadVec(value, "FocalPoint", s.FocalPoint);
+        Read(value, "Distance", s.Distance);
+        Read(value, "Pitch", s.Pitch);
+        Read(value, "Yaw", s.Yaw);
+        Read(value, "Orthographic", s.Orthographic);
+        if (value.contains("Mode2D"))
+            Read(value, "Mode2D", s.Mode2D);
+        else
+            s.Mode2D = s.Orthographic;
+        s.Mode2D = s.Mode2D && s.Orthographic;
+        if (!std::isfinite(s.Distance) || s.Distance <= 0.0f)
+            s.Distance = 12.0f;
+        if (!std::isfinite(s.Pitch)) s.Pitch = 0.35f;
+        if (!std::isfinite(s.Yaw)) s.Yaw = -0.6f;
+        for (int i = 0; i < 3; i++)
+            if (!std::isfinite(s.FocalPoint[i])) s.FocalPoint[i] = 0.0f;
+        return s;
+    }
+
     std::string EditorViewSettings::ToJson() const
     {
         json j;
@@ -403,13 +451,7 @@ namespace Zamin {
             json slots = json::object();
             for (int slot = 1; slot <= CameraBookmarks::SlotCount; slot++)
                 if (const EditorCameraState* s = bookmarks.Get(slot))
-                    slots[std::to_string(slot)] = {
-                        { "FocalPoint", Vec(s->FocalPoint) },
-                        { "Distance", Num(s->Distance) },
-                        { "Pitch", Num(s->Pitch) },
-                        { "Yaw", Num(s->Yaw) },
-                        { "Orthographic", s->Orthographic },
-                    };
+                    slots[std::to_string(slot)] = CameraStateJson(*s);
             scenes[scene] = std::move(slots);
         }
         j["CameraBookmarks"] = std::move(scenes);
@@ -434,6 +476,22 @@ namespace Zamin {
             { "CustomWidth", GameView.CustomSize.x },
             { "CustomHeight", GameView.CustomSize.y },
             { "CustomAspect", GameView.CustomAspect },
+        };
+        json views = json::array();
+        for (const SceneViewSettings& view : SceneViews)
+            views.push_back({ { "Open", view.Open }, { "Grid", view.ShowGrid }, { "Camera", CameraStateJson(view.Camera) } });
+        j["SceneViews"] = std::move(views);
+        j["EntityLabels"] = {
+            { "Mode", EntityLabelSettings::GetModeKey(EntityLabels.Mode) },
+            { "Fade", EntityLabels.Fade },
+            { "FadeStart", Num(EntityLabels.FadeStart) },
+            { "FadeEnd", Num(EntityLabels.FadeEnd) },
+            { "FadeSelected", EntityLabels.FadeSelected },
+            { "HideOverlapping", EntityLabels.HideOverlapping },
+            { "Background", EntityLabels.Background },
+            { "ShowInPlay", EntityLabels.ShowInPlay },
+            { "Scale", Num(EntityLabels.Scale) },
+            { "MaxLabels", EntityLabels.MaxLabels },
         };
         return j.dump(2);
     }
@@ -552,15 +610,7 @@ namespace Zamin {
                     int slot = std::atoi(key.c_str());
                     if (slot < 1 || slot > CameraBookmarks::SlotCount || !value.is_object())
                         continue;
-                    EditorCameraState s;
-                    ReadVec(value, "FocalPoint", s.FocalPoint);
-                    Read(value, "Distance", s.Distance);
-                    Read(value, "Pitch", s.Pitch);
-                    Read(value, "Yaw", s.Yaw);
-                    Read(value, "Orthographic", s.Orthographic);
-                    if (!std::isfinite(s.Distance) || s.Distance <= 0.0f)
-                        s.Distance = 12.0f;
-                    bookmarks.Set(slot, s);
+                    bookmarks.Set(slot, ReadCameraState(value, EditorCameraState()));
                 }
                 Bookmarks[scene] = bookmarks;
             }
@@ -608,6 +658,37 @@ namespace Zamin {
             Read(*it, "CustomHeight", GameView.CustomSize.y);
             Read(*it, "CustomAspect", GameView.CustomAspect);
             GameView.Sanitize();
+        }
+        if (auto it = j.find("SceneViews"); it != j.end() && it->is_array())
+            for (size_t i = 0; i < it->size() && i < SceneViews.size(); i++)
+            {
+                const json& value = (*it)[i];
+                if (!value.is_object())
+                    continue;
+                SceneViewSettings& view = SceneViews[i];
+                Read(value, "Open", view.Open);
+                Read(value, "Grid", view.ShowGrid);
+                if (auto camera = value.find("Camera"); camera != value.end() && camera->is_object())
+                {
+                    view.Camera = ReadCameraState(*camera, view.Camera);
+                    view.Camera.Mode2D = false; // the extra views have no 2D mode
+                }
+            }
+        if (auto it = j.find("EntityLabels"); it != j.end() && it->is_object())
+        {
+            auto& l = EntityLabels;
+            if (auto mode = it->find("Mode"); mode != it->end() && mode->is_string())
+                l.Mode = EntityLabelSettings::ModeFromKey(mode->get<std::string>(), EntityLabelMode::Off);
+            Read(*it, "Fade", l.Fade);
+            Read(*it, "FadeStart", l.FadeStart);
+            Read(*it, "FadeEnd", l.FadeEnd);
+            Read(*it, "FadeSelected", l.FadeSelected);
+            Read(*it, "HideOverlapping", l.HideOverlapping);
+            Read(*it, "Background", l.Background);
+            Read(*it, "ShowInPlay", l.ShowInPlay);
+            Read(*it, "Scale", l.Scale);
+            Read(*it, "MaxLabels", l.MaxLabels);
+            l.Sanitize();
         }
         return true;
     }

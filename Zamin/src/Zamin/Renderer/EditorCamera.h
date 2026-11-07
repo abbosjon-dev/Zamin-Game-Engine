@@ -2,6 +2,7 @@
 
 #include "Zamin/Renderer/Camera.h"
 #include "Zamin/Renderer/EditorViewSettings.h"
+#include "Zamin/Editor/SceneViews.h"
 #include "Zamin/Core/Timestep.h"
 #include "Zamin/Events/Event.h"
 
@@ -17,7 +18,9 @@ namespace Zamin {
 
     // Viewport camera for the editor.
     //  * Alt + LMB: orbit    * Alt + MMB / MMB: pan    * Alt + RMB / scroll: zoom
-    //  * RMB + WASD/QE: fly (Shift = faster), mouse looks around
+    //  * RMB + WASD/QE: fly (Shift = faster), mouse looks around; the wheel changes the fly speed
+    // Orthographic views: RMB / MMB pan; in an axis view (Top, Front ...) orbiting turns back to
+    // perspective. The 2D mode locks the rotation (pan + zoom only).
     class EditorCamera : public Camera
     {
     public:
@@ -35,8 +38,9 @@ namespace Zamin {
         // Focal point, distance, orientation and projection (camera bookmarks, framing).
         EditorCameraState GetViewState() const;
         void SetViewState(const EditorCameraState& state);
-        // Moves smoothly to `state` over `duration` seconds (<= 0: at once). The projection
-        // switches right away; any mouse navigation or zoom stops the transition where it is.
+        // Moves smoothly to `state` over `duration` seconds (<= 0: at once). Perspective to
+        // orthographic switches at the end (the turn is seen in perspective), the other way at
+        // once; any mouse navigation or zoom stops the transition where it is.
         void TransitionTo(const EditorCameraState& state, float duration = 0.3f);
         bool IsTransitioning() const { return m_Transition.Active; }
         void StopTransition() { m_Transition.Active = false; }
@@ -73,8 +77,25 @@ namespace Zamin {
         // 2D editing: orthographic projection, rotation disabled (pan + zoom only).
         void SetOrthographic(bool ortho) { m_Orthographic = ortho; UpdateProjection(); }
         bool IsOrthographic() const { return m_Orthographic; }
+        void SetRotationLocked(bool locked) { m_RotationLocked = locked; }
+        bool IsRotationLocked() const { return m_RotationLocked; }
+
+        // ---- axis views (Top, Front, Right ... orthographic; Free: perspective)
+        // The axis view shown now: orthographic, not the 2D mode, looking along an axis.
+        ViewAxis GetViewAxis() const;
+        // Where the camera goes for `axis`: the same focal point and distance, the axis' direction,
+        // orthographic (Free: perspective, the direction kept).
+        EditorCameraState GetAxisViewState(ViewAxis axis) const;
+        void SetViewAxis(ViewAxis axis, float duration = 0.3f) { TransitionTo(GetAxisViewState(axis), duration); }
+        // Perspective <-> orthographic, the direction kept (not in the 2D mode).
+        void ToggleOrthographic();
 
         float FlySpeed = 6.0f;
+        float FlyAcceleration = 0.0f;  // the fly speed grows while moving (GetFlyBoost)
+        float LookSensitivity = 1.0f;  // x the mouse's turning speed
+        bool InvertY = false;          // mouse up looks down (fly look, orbit)
+        // The fly speed's boost now (1 when not accelerating).
+        float GetFlyBoostNow() const { return m_Flying ? GetFlyBoost(m_FlyTime, FlyAcceleration) : 1.0f; }
 
     private:
         void UpdateProjection();
@@ -86,7 +107,7 @@ namespace Zamin {
 
         glm::vec3 CalculatePosition() const;
         std::pair<float, float> PanSpeed() const;
-        float RotationSpeed() const { return 0.8f; }
+        float RotationSpeed() const { return 0.8f * LookSensitivity; }
         float ZoomSpeed() const;
 
     private:
@@ -99,7 +120,9 @@ namespace Zamin {
         glm::vec2 m_InitialMousePosition = { 0.0f, 0.0f };
         bool m_Flying = false;
         bool m_Orthographic = false;
+        bool m_RotationLocked = false;
         bool m_HasMouse = false;
+        float m_FlyTime = 0.0f;        // seconds the fly keys have been held (acceleration)
 
         float m_Distance = 12.0f;
         float m_Pitch = 0.35f, m_Yaw = -0.6f;
@@ -109,6 +132,7 @@ namespace Zamin {
         struct Transition
         {
             bool Active = false;
+            bool OrthographicAtEnd = false; // perspective now, orthographic once it arrives
             float Time = 0.0f, Duration = 0.0f;
             EditorCameraState From, To;
         } m_Transition;

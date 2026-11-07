@@ -6352,11 +6352,17 @@ TEST(EditorCameraBookmarkTransition)
     CHECK_NEAR(camera.GetYaw(), -3.0f, 1e-6f); // ends exactly on the bookmark
     CHECK_NEAR(camera.GetDistance(), 40.0f, 1e-4f);
 
-    // The projection switches at once; scrolling stops a transition where it is.
+    // Into orthographic the turn is seen in perspective: the projection switches on arrival.
     EditorCameraState flat = target;
     flat.Orthographic = true;
     camera.TransitionTo(flat, 1.0f);
+    CHECK(!camera.IsOrthographic());
+    camera.OnUpdate(1.1f, false);
+    CHECK(!camera.IsTransitioning());
     CHECK(camera.IsOrthographic());
+    // Out of it at once; scrolling stops a transition where it is.
+    camera.TransitionTo(saved, 1.0f);
+    CHECK(!camera.IsOrthographic());
     MouseScrolledEvent scroll(0.0f, 1.0f);
     camera.OnEvent(scroll);
     CHECK(!camera.IsTransitioning());
@@ -32491,4 +32497,352 @@ TEST(UndoHistoryNamingAndJumps)
     CHECK(DescribeSelection({}) == "Tanlov bekor qilindi");
     CHECK(DescribeSelection({ "Player" }) == "Tanlash: Player");
     CHECK(DescribeSelection({ "Player", "Enemy", "Coin" }) == "Tanlash: Player (+2)");
+}
+
+// Editor II (311): the saved window layouts - names, files, renames, the built-in ones.
+TEST(EditorLayoutLibraryFiles)
+{
+    namespace fs = std::filesystem;
+    const fs::path dir = fs::temp_directory_path() / "zamin_layouts_test";
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+
+    // Names: trimmed, one space between words; nothing a file name cannot hold, no built-in names.
+    CHECK(EditorLayoutLibrary::CleanName("  Mening   joylashuvim \t") == "Mening joylashuvim");
+    CHECK(EditorLayoutLibrary::IsValidName("Animatsiya ishi"));
+    CHECK(EditorLayoutLibrary::IsValidName("Ko'p ekran (2)"));
+    std::string reason;
+    CHECK(!EditorLayoutLibrary::IsValidName("", &reason) && !reason.empty());
+    CHECK(!EditorLayoutLibrary::IsValidName("a/b"));
+    CHECK(!EditorLayoutLibrary::IsValidName("a\\b"));
+    CHECK(!EditorLayoutLibrary::IsValidName("what?"));
+    CHECK(!EditorLayoutLibrary::IsValidName(".hidden"));
+    CHECK(!EditorLayoutLibrary::IsValidName(std::string(EditorLayoutLibrary::MaxNameLength + 1, 'x')));
+    CHECK(!EditorLayoutLibrary::IsValidName("standart")); // a built-in layout's name, any letter case
+    CHECK(!EditorLayoutLibrary::IsValidName("FourViews"));
+    CHECK(EditorLayoutLibrary::FindBuiltIn("2d") == BuiltInLayout::Mode2D);
+    CHECK(EditorLayoutLibrary::FindBuiltIn("Animatsiya") == BuiltInLayout::Animation);
+    CHECK(EditorLayoutLibrary::FindBuiltIn("4 ko'rinish") == BuiltInLayout::FourViews);
+    CHECK(!EditorLayoutLibrary::FindBuiltIn("Mening"));
+    CHECK(std::string(EditorLayoutLibrary::GetBuiltInKey(BuiltInLayout::Default)) == "Default");
+
+    // A layout's file: its ImGui text and which windows were open.
+    EditorLayout layout;
+    layout.Name = "  Ish   joyi ";
+    layout.Ini = "[Window][###Hierarchy]\nPos=0,0\nSize=300,600\nDockId=0x00000001,0\n\n[Docking][Data]\n";
+    layout.Panels = { { "Hierarchy", true }, { "Console", false }, { "SceneView2", true } };
+    layout.SavedAt = 1700000000;
+    EditorLayout parsed;
+    CHECK(parsed.FromJson(layout.ToJson()));
+    CHECK(parsed.Ini == layout.Ini);
+    CHECK(parsed.IsPanelOpen("Hierarchy", false) && !parsed.IsPanelOpen("Console", true) && parsed.IsPanelOpen("SceneView2", false));
+    CHECK(parsed.IsPanelOpen("Stats", true) && !parsed.IsPanelOpen("Stats", false)); // not named: the fallback
+    CHECK(parsed.SavedAt == 1700000000);
+    CHECK(!parsed.FromJson("{\"Name\":\"x\"}")); // no layout marker / no ImGui text
+    CHECK(!parsed.FromJson("not json"));
+
+    EditorLayoutLibrary library(dir);
+    CHECK(library.Refresh() == 0); // no folder yet
+    CHECK(library.MakeUniqueName("Mening joylashuvim") == "Mening joylashuvim");
+    std::string error;
+    CHECK(library.Save(layout, &error));
+    CHECK(fs::exists(dir / "Ish joyi.zlayout"));
+    CHECK(library.GetNames().size() == 1 && library.GetNames()[0] == "Ish joyi");
+    CHECK(library.Contains("ish JOYI"));
+    CHECK(library.GetSavedAt("Ish joyi") == 1700000000);
+    std::optional<EditorLayout> loaded = library.Load("ISH joyi");
+    CHECK(loaded && loaded->Name == "Ish joyi" && loaded->Ini == layout.Ini && loaded->Panels.size() == 3);
+    CHECK(!library.Load("Yo'q"));
+    EditorLayout bad = layout;
+    bad.Name = "a:b";
+    CHECK(!library.Save(bad, &error) && !error.empty());
+    bad.Name = "2D";
+    CHECK(!library.Save(bad));
+
+    // Unique names, overwriting in another letter case (one file, the new spelling).
+    CHECK(library.MakeUniqueName("Ish joyi") == "Ish joyi 2");
+    EditorLayout second = layout;
+    second.Name = "Ish joyi 2";
+    CHECK(library.Save(second));
+    CHECK(library.MakeUniqueName("ish joyi") == "ish joyi 3");
+    EditorLayout upper = layout;
+    upper.Name = "ISH JOYI";
+    upper.Ini = "[Window][###Console]\n";
+    CHECK(library.Save(upper));
+    CHECK(library.GetNames().size() == 2);
+    CHECK(library.Contains("Ish joyi") && library.Load("ish joyi")->Ini == "[Window][###Console]\n");
+    CHECK(!fs::exists(dir / "Ish joyi.zlayout") && fs::exists(dir / "ISH JOYI.zlayout"));
+    // Listed by name, letter case aside; files that are no layouts are left out.
+    FileSystem::WriteTextFile(dir / "Buzilgan.zlayout", "{ yo'q");
+    FileSystem::WriteTextFile(dir / "boshqa.txt", "x");
+    CHECK(library.Refresh() == 2);
+    CHECK(library.GetNames()[0] == "ISH JOYI" && library.GetNames()[1] == "Ish joyi 2");
+
+    // Renames: into a free name (the old file goes), not onto another layout, not to a bad name.
+    CHECK(library.Rename("ish joyi 2", "Animatsiya ishi", &error));
+    CHECK(library.Contains("Animatsiya ishi") && !library.Contains("Ish joyi 2"));
+    CHECK(!fs::exists(dir / "Ish joyi 2.zlayout"));
+    CHECK(library.Load("Animatsiya ishi")->Name == "Animatsiya ishi");
+    CHECK(!library.Rename("Animatsiya ishi", "ish joyi", &error) && !error.empty()); // taken
+    CHECK(!library.Rename("Animatsiya ishi", "Standart"));                          // built-in
+    CHECK(!library.Rename("Yo'q", "Boshqa"));
+    CHECK(library.Rename("ISH JOYI", "Ish joyi")); // letter case only
+    CHECK(library.GetNames().size() == 2 && library.Contains("Ish joyi") && library.Load("Ish joyi")->Name == "Ish joyi");
+
+    // Removing.
+    CHECK(library.Remove("animatsiya ISHI"));
+    CHECK(!library.Contains("Animatsiya ishi") && library.GetNames().size() == 1);
+    CHECK(!library.Remove("Animatsiya ishi"));
+    fs::remove_all(dir, ec);
+}
+
+// Editor II (312-314): axis views, the editor camera's projection, lock and fly settings, the
+// extra views' settings in editor-view.json and the camera preferences.
+TEST(SceneViewAxesAndCamera)
+{
+    // Every axis view's angles make the camera look along its direction, and it is found again.
+    for (int i = 1; i < (int)ViewAxis::Count; i++)
+    {
+        const ViewAxis axis = (ViewAxis)i;
+        const ViewAxisInfo& info = GetViewAxisInfo(axis);
+        EditorCamera camera;
+        camera.SetViewportSize(800.0f, 600.0f);
+        camera.Focus({ 1.0f, 2.0f, 3.0f }, 10.0f);
+        camera.SetViewState(camera.GetAxisViewState(axis));
+        CHECK(camera.IsOrthographic());
+        CHECK_NEAR(glm::length(camera.GetForwardDirection() - info.Forward), 0.0f, 1e-4f);
+        CHECK(camera.GetViewAxis() == axis);
+        CHECK(FindViewAxis(info.Forward) == axis);
+        CHECK(GetOppositeViewAxis(GetOppositeViewAxis(axis)) == axis);
+        CHECK_NEAR(glm::dot(GetViewAxisInfo(GetOppositeViewAxis(axis)).Forward, info.Forward), -1.0f, 1e-5f);
+        CHECK(ViewAxisFromKey(info.Key) == axis);
+        // The focal point and distance stay; the camera sits on the axis' side.
+        CHECK_NEAR(glm::length(camera.GetFocalPoint() - glm::vec3(1.0f, 2.0f, 3.0f)), 0.0f, 1e-4f);
+        CHECK_NEAR(glm::length(camera.GetPosition() - (glm::vec3(1.0f, 2.0f, 3.0f) - info.Forward * 10.0f)), 0.0f, 1e-3f);
+    }
+    // Top: X to the right, -Z up on screen; Right view: looking -X.
+    {
+        EditorCamera camera;
+        camera.SetViewState(camera.GetAxisViewState(ViewAxis::Top));
+        CHECK_NEAR(glm::length(camera.GetRightDirection() - glm::vec3(1, 0, 0)), 0.0f, 1e-4f);
+        CHECK_NEAR(glm::length(camera.GetUpDirection() - glm::vec3(0, 0, -1)), 0.0f, 1e-4f);
+    }
+    CHECK(ViewAxisFromKey("yuqoridan") == ViewAxis::Top && ViewAxisFromKey("RIGHT") == ViewAxis::Right);
+    CHECK(ViewAxisFromKey("persp") == ViewAxis::Free && ViewAxisFromKey("nimadir") == ViewAxis::Free);
+    CHECK(FindViewAxis(glm::normalize(glm::vec3(0.0f, -1.0f, 0.004f))) == ViewAxis::Top);   // within half a degree
+    CHECK(FindViewAxis(glm::normalize(glm::vec3(0.0f, -1.0f, 0.05f))) == ViewAxis::Free);   // about 3 degrees off
+    CHECK(FindViewAxis(glm::vec3(0.0f)) == ViewAxis::Free);
+    // The navigator's ends: the view from that side towards the centre.
+    CHECK(GetViewAxisFromSide({ 1, 0, 0 }) == ViewAxis::Right && GetViewAxisFromSide({ -1, 0, 0 }) == ViewAxis::Left);
+    CHECK(GetViewAxisFromSide({ 0, 1, 0 }) == ViewAxis::Top && GetViewAxisFromSide({ 0, -1, 0 }) == ViewAxis::Bottom);
+    CHECK(GetViewAxisFromSide({ 0, 0, 1 }) == ViewAxis::Front && GetViewAxisFromSide({ 0, 0, -1 }) == ViewAxis::Back);
+    // The grid's plane: the ground in perspective, the plane facing an orthographic side view.
+    CHECK(GetGridPlaneForView({ 0, 0, -1 }, false, false) == 0);
+    CHECK(GetGridPlaneForView({ 0, 0, -1 }, true, false) == 1);
+    CHECK(GetGridPlaneForView({ -1, 0, 0 }, true, false) == 2);
+    CHECK(GetGridPlaneForView({ 0, -1, 0 }, true, false) == 0);
+    CHECK(GetGridPlaneForView({ -1, 0, 0 }, true, true) == 1); // the 2D mode: always XY
+
+    // Free: back to perspective, the direction kept.
+    {
+        EditorCamera camera;
+        camera.SetViewState(camera.GetAxisViewState(ViewAxis::Front));
+        const glm::vec3 forward = camera.GetForwardDirection();
+        camera.SetViewState(camera.GetAxisViewState(ViewAxis::Free));
+        CHECK(!camera.IsOrthographic() && camera.GetViewAxis() == ViewAxis::Free);
+        CHECK_NEAR(glm::length(camera.GetForwardDirection() - forward), 0.0f, 1e-5f);
+        // Perspective <-> orthographic; a perspective camera along an axis is no axis view.
+        camera.ToggleOrthographic();
+        CHECK(camera.IsOrthographic() && camera.GetViewAxis() == ViewAxis::Front);
+        camera.ToggleOrthographic();
+        CHECK(!camera.IsOrthographic());
+    }
+    // A transition into an axis view turns in perspective and switches on arrival.
+    {
+        EditorCamera camera;
+        camera.SetViewAxis(ViewAxis::Right, 0.5f);
+        CHECK(camera.IsTransitioning() && !camera.IsOrthographic());
+        camera.OnUpdate(0.25f, false);
+        CHECK(!camera.IsOrthographic());
+        camera.OnUpdate(0.3f, false);
+        CHECK(!camera.IsTransitioning() && camera.IsOrthographic() && camera.GetViewAxis() == ViewAxis::Right);
+        // Top -> Front: orthographic all the way.
+        camera.SetViewAxis(ViewAxis::Top, 0.0f);
+        camera.SetViewAxis(ViewAxis::Front, 0.4f);
+        CHECK(camera.IsOrthographic());
+        camera.OnUpdate(0.5f, false);
+        CHECK(camera.GetViewAxis() == ViewAxis::Front);
+    }
+    // The 2D mode: orthographic with the rotation locked - no axis view, kept in its state.
+    {
+        EditorCamera camera;
+        camera.SetOrthographic(true);
+        camera.SetRotationLocked(true);
+        camera.SetOrientation(0.0f, 0.0f);
+        CHECK(camera.GetViewAxis() == ViewAxis::Free);
+        EditorCameraState state = camera.GetViewState();
+        CHECK(state.Orthographic && state.Mode2D);
+        camera.ToggleOrthographic(); // not in the 2D mode
+        CHECK(camera.IsOrthographic());
+        EditorCamera other;
+        other.SetViewState(state);
+        CHECK(other.IsRotationLocked() && other.IsOrthographic());
+        other.SetViewState(other.GetAxisViewState(ViewAxis::Top)); // an axis view leaves it
+        CHECK(!other.IsRotationLocked() && other.GetViewAxis() == ViewAxis::Top);
+    }
+    // Fly acceleration: 1 at the start, growing per second, capped.
+    CHECK_NEAR(GetFlyBoost(0.0f, 2.0f), 1.0f, 1e-6f);
+    CHECK_NEAR(GetFlyBoost(1.0f, 0.0f), 1.0f, 1e-6f);
+    CHECK_NEAR(GetFlyBoost(0.5f, 2.0f), 2.0f, 1e-6f);
+    CHECK_NEAR(GetFlyBoost(100.0f, 2.0f), MaxFlyBoost, 1e-6f);
+    CHECK_NEAR(GetFlyBoost(1.0f, -1.0f), 1.0f, 1e-6f);
+
+    // editor-view.json: the extra views (defaults Top / Front / Right orthographic) and bookmarks'
+    // 2D flag (files from before it: orthographic was the 2D mode).
+    EditorViewSettings view;
+    CHECK(!view.SceneViews[0].Open && view.SceneViews[0].Camera.Orthographic);
+    {
+        EditorCamera probe;
+        probe.SetViewState(view.SceneViews[2].Camera);
+        CHECK(probe.GetViewAxis() == ViewAxis::Right);
+        probe.SetViewState(view.SceneViews[1].Camera);
+        CHECK(probe.GetViewAxis() == ViewAxis::Front);
+    }
+    view.SceneViews[1].Open = true;
+    view.SceneViews[1].ShowGrid = false;
+    view.SceneViews[1].Camera.FocalPoint = { 4.0f, 5.0f, 6.0f };
+    view.SceneViews[1].Camera.Distance = 33.0f;
+    view.SceneViews[2].Camera.Orthographic = false;
+    EditorCameraState axisMark;
+    axisMark.Orthographic = true; // an axis view saved as a bookmark: not the 2D mode
+    view.GetBookmarks("Scenes/A.zscene").Set(1, axisMark);
+    EditorCameraState flatMark;
+    flatMark.Orthographic = flatMark.Mode2D = true;
+    view.GetBookmarks("Scenes/A.zscene").Set(2, flatMark);
+    EditorViewSettings read;
+    CHECK(read.FromJson(view.ToJson()));
+    CHECK(read.SceneViews[1].Open && !read.SceneViews[1].ShowGrid && !read.SceneViews[0].Open);
+    CHECK_NEAR(read.SceneViews[1].Camera.FocalPoint.z, 6.0f, 1e-5f);
+    CHECK_NEAR(read.SceneViews[1].Camera.Distance, 33.0f, 1e-4f);
+    CHECK(!read.SceneViews[2].Camera.Orthographic);
+    CHECK(read.GetBookmarks("Scenes/A.zscene").Get(1)->Orthographic && !read.GetBookmarks("Scenes/A.zscene").Get(1)->Mode2D);
+    CHECK(read.GetBookmarks("Scenes/A.zscene").Get(2)->Mode2D);
+    EditorViewSettings old;
+    const std::string oldKey = EditorViewSettings::SceneKey("Scenes/B.zscene");
+    CHECK(old.FromJson(std::format(R"({{"ZaminEditorView":1,"CameraBookmarks":{{"{}":{{"1":{{"Distance":5,"Orthographic":true}}}}}}}})", oldKey)));
+    CHECK(old.GetBookmarks("Scenes/B.zscene").Has(1) && old.GetBookmarks("Scenes/B.zscene").Get(1)->Mode2D);
+
+    // The camera preferences' new fields, sanitized.
+    EditorPreferences prefs;
+    prefs.Camera.FlyAcceleration = 2.5f;
+    prefs.Camera.LookSensitivity = 1.5f;
+    prefs.Camera.InvertY = true;
+    EditorPreferences prefsRead;
+    CHECK(prefsRead.FromJson(prefs.ToJson()));
+    CHECK_NEAR(prefsRead.Camera.FlyAcceleration, 2.5f, 1e-5f);
+    CHECK_NEAR(prefsRead.Camera.LookSensitivity, 1.5f, 1e-5f);
+    CHECK(prefsRead.Camera.InvertY);
+    prefs.Camera.FlyAcceleration = 99.0f;
+    prefs.Camera.LookSensitivity = 0.0f;
+    prefs.Layout.Current = "Ish joyi";
+    CHECK(prefsRead.FromJson(prefs.ToJson()));
+    CHECK_NEAR(prefsRead.Camera.FlyAcceleration, EditorCameraDefaults::MaxAcceleration, 1e-5f);
+    CHECK_NEAR(prefsRead.Camera.LookSensitivity, EditorCameraDefaults::MinSensitivity, 1e-5f);
+    CHECK(prefsRead.Layout.Current == "Ish joyi");
+
+    // The numpad axis keys are in the shortcut table, without conflicts.
+    ShortcutRegistry shortcuts;
+    RegisterEditorShortcuts(shortcuts);
+    const ShortcutInfo* top = shortcuts.Find(EditorShortcut::ViewTop);
+    CHECK(top && top->Chord == KeyChord(Key::KP7) && std::string(top->Display) == "Num 7");
+    CHECK(shortcuts.Find(EditorShortcut::ViewBack) && shortcuts.Find(EditorShortcut::ViewBack)->Chord == KeyChord(Key::KP1, true));
+    CHECK(shortcuts.Match(KeyChord(Key::KP3), ShortcutSituation::Editor | ShortcutSituation::SceneView)->Id == EditorShortcut::ViewRight);
+    CHECK(!shortcuts.Match(KeyChord(Key::KP3), ShortcutSituation::Editor)); // only over a scene view
+    CHECK(shortcuts.CountConflicts() == 0);
+}
+
+// Editor II (315): entity names over the views - fading with the distance, which labels stay where
+// they would overlap, their drawing order, shortened names.
+TEST(EntityLabelsLayoutAndFade)
+{
+    EntityLabelSettings s;
+    s.Mode = EntityLabelMode::All;
+    s.FadeStart = 10.0f;
+    s.FadeEnd = 30.0f;
+    CHECK_NEAR(s.GetAlpha(5.0f, false), 1.0f, 1e-6f);
+    CHECK_NEAR(s.GetAlpha(10.0f, false), 1.0f, 1e-6f);
+    CHECK_NEAR(s.GetAlpha(20.0f, false), 0.5f, 1e-5f);    // smoothstep's middle
+    CHECK(s.GetAlpha(15.0f, false) > s.GetAlpha(25.0f, false));
+    CHECK_NEAR(s.GetAlpha(30.0f, false), 0.0f, 1e-6f);
+    CHECK_NEAR(s.GetAlpha(500.0f, false), 0.0f, 1e-6f);
+    CHECK_NEAR(s.GetAlpha(500.0f, true), 1.0f, 1e-6f);    // the selection stays readable
+    CHECK_NEAR(s.GetAlpha(-1.0f, false), 1.0f, 1e-6f);    // orthographic: no fading
+    s.FadeSelected = true;
+    CHECK_NEAR(s.GetAlpha(500.0f, true), 0.0f, 1e-6f);
+    s.Fade = false;
+    CHECK_NEAR(s.GetAlpha(500.0f, false), 1.0f, 1e-6f);
+    s.Fade = true;
+    s.FadeSelected = false;
+    // Sanitizing: the range kept in order, the scale and count in range.
+    EntityLabelSettings bad;
+    bad.FadeStart = 50.0f;
+    bad.FadeEnd = 10.0f;
+    bad.Scale = 9.0f;
+    bad.MaxLabels = 0;
+    bad.Sanitize();
+    CHECK(bad.FadeEnd > bad.FadeStart && bad.Scale == EntityLabelSettings::MaxScale && bad.MaxLabels == EntityLabelSettings::MinLabels);
+    CHECK(EntityLabelSettings::ModeFromKey("selected", EntityLabelMode::Off) == EntityLabelMode::Selected);
+    CHECK(EntityLabelSettings::ModeFromKey("x", EntityLabelMode::All) == EntityLabelMode::All);
+
+    auto label = [](float x, float y, float distance, bool selected = false, bool hovered = false, float alpha = 1.0f) {
+        EntityLabelCandidate c;
+        c.Min = { x, y };
+        c.Max = { x + 60.0f, y + 18.0f };
+        c.Distance = distance;
+        c.Selected = selected;
+        c.Hovered = hovered;
+        c.Alpha = alpha;
+        return c;
+    };
+    const glm::vec2 viewMin(0.0f), viewMax(800.0f, 600.0f);
+    // Two overlapping: the nearer stays; a third apart from them stays too.
+    std::vector<EntityLabelCandidate> c = { label(100, 100, 20.0f), label(120, 105, 8.0f), label(400, 300, 50.0f) };
+    std::vector<size_t> shown = LayoutEntityLabels(c, s, viewMin, viewMax);
+    CHECK(shown.size() == 2);
+    CHECK(std::find(shown.begin(), shown.end(), 1) != shown.end() && std::find(shown.begin(), shown.end(), 0) == shown.end());
+    CHECK(shown.front() == 2 && shown.back() == 1); // drawn far to near
+    // The selection keeps its place over a nearer one; the hovered one over a nearer unselected one.
+    c = { label(100, 100, 20.0f, true), label(120, 105, 8.0f) };
+    shown = LayoutEntityLabels(c, s, viewMin, viewMax);
+    CHECK(shown.size() == 1 && shown[0] == 0);
+    c = { label(100, 100, 20.0f, false, true), label(120, 105, 8.0f) };
+    shown = LayoutEntityLabels(c, s, viewMin, viewMax);
+    CHECK(shown.size() == 1 && shown[0] == 0);
+    // Overlapping allowed: all of them, the selected one drawn last.
+    s.HideOverlapping = false;
+    c = { label(100, 100, 5.0f, true), label(120, 105, 8.0f), label(110, 102, 30.0f) };
+    shown = LayoutEntityLabels(c, s, viewMin, viewMax);
+    CHECK(shown.size() == 3 && shown[0] == 2 && shown[1] == 1 && shown[2] == 0);
+    s.HideOverlapping = true;
+    // Invisible ones and those outside the view are left out; at most MaxLabels, the nearest first.
+    c = { label(100, 100, 5.0f, false, false, 0.01f), label(-100, 100, 5.0f), label(790, 590, 5.0f), label(300, 300, 1.0f) };
+    shown = LayoutEntityLabels(c, s, viewMin, viewMax);
+    CHECK(shown.size() == 2); // the one half inside the view's corner stays
+    c.clear();
+    for (int i = 0; i < 20; i++)
+        c.push_back(label(10.0f + 70.0f * (i % 10), 20.0f + 30.0f * (i / 10), (float)(20 - i)));
+    s.MaxLabels = 5;
+    shown = LayoutEntityLabels(c, s, viewMin, viewMax);
+    CHECK(shown.size() == 5);
+    for (size_t index : shown)
+        CHECK(index >= 15); // the five nearest
+
+    // Names: trimmed, an empty one has a placeholder, long ones end in "..." on a character boundary.
+    CHECK(ShortenEntityLabel("  Player  ") == "Player");
+    CHECK(ShortenEntityLabel("   ") == "(nomsiz)");
+    CHECK(ShortenEntityLabel("Abcdefghij", 8) == "Abcde...");
+    CHECK(ShortenEntityLabel("Abcdefgh", 8) == "Abcdefgh");
+    const std::string cyrillic = "\xd0\x9e\xd0\xb4\xd0\xb0\xd0\xbc\xd0\xbb\xd0\xb0\xd1\x80\xd0\xb8"; // 8 characters, 16 bytes
+    CHECK(ShortenEntityLabel(cyrillic, 8) == cyrillic);
+    CHECK(ShortenEntityLabel(cyrillic, 6) == std::string(cyrillic.substr(0, 6)) + "...");
 }

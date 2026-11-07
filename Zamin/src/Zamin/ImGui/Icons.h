@@ -214,3 +214,5 @@
 #define ICON_FA_TEXT_HEIGHT "\xef\x80\xb4"      // preferences: font size
 #define ICON_FA_USER_GEAR "\xef\x93\xbe"        // preferences
 #define ICON_FA_BRUSH "\xef\x95\x9d"            // play-mode tint
+#define ICON_FA_WINDOW_RESTORE "\xef\x8b\x92"   // window layouts
+#define ICON_FA_TABLE_COLUMNS "\xef\x83\x9b"    // extra scene views

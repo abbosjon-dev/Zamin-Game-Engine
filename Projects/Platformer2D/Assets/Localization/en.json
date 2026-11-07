@@ -57,11 +57,17 @@
         "display": "Display",
         "fullscreen": "Fullscreen",
         "vsync": "Vertical sync (VSync)",
+        "gamma": "Gamma",
+        "brightness": "Brightness",
         "language_header": "Language",
         "language": "Language: {0}",
         "controls": "Controls",
         "controls_info": "Esc / Start - pause. Arrows / D-pad - select, Enter / A - press, Esc / B - back. Scroll the list with the mouse wheel or by dragging.",
         "back": "Back",
         "reset": "Defaults"
+    },
+    "player": {
+        "paused": "Paused",
+        "paused_hint": "The game window is not focused - select it to continue"
     }
 }

@@ -339,17 +339,27 @@ namespace Zamin {
 
             // The Exec key's program, quoted: ", `, $ and \ escaped inside the quotes (then the string
             // value's own escaping of the backslashes).
-            std::string QuotedExec(const std::filesystem::path& exec)
+            // One quoted argument of an Exec key: ", `, $ and \ escaped inside the quotes, a % doubled (the
+            // field codes), before the string value's own escaping.
+            std::string QuotedArgument(std::string_view text)
             {
                 std::string quoted = "\"";
-                for (char c : exec.string())
+                for (char c : text)
                 {
                     if (c == '"' || c == '`' || c == '$' || c == '\\')
                         quoted += '\\';
+                    else if (c == '%')
+                        quoted += '%';
                     quoted += c;
                 }
                 quoted += '"';
-                return EntryValue(quoted);
+                return quoted;
+            }
+
+            // The Exec key's program, quoted (then the string value's own escaping of the backslashes).
+            std::string QuotedExec(const std::filesystem::path& exec)
+            {
+                return EntryValue(QuotedArgument(exec.string()));
             }
 
             // The entry's lines before Exec / Path / Icon and after them (they do not depend on where the game is).
@@ -398,6 +408,53 @@ namespace Zamin {
             return entry + EntryTail(player);
         }
 
+        std::string MakeRelocatableExec(const std::string& launcher)
+        {
+            // %k: the entry file's path (a file:// URI from some launchers); the launcher is next to it.
+            const std::string script = "d=$(dirname -- \"${1#file://}\") && cd -- \"$d\" && exec ./" + ShellQuote(launcher);
+            return "sh -c " + QuotedArgument(script) + " sh %k";
+        }
+
+        std::string MakeRelocatableDesktopEntry(const std::string& productName, const PlayerSettings& player, const std::string& launcher,
+                                                const std::filesystem::path& icon)
+        {
+            std::string entry = EntryHead(productName, player);
+            entry += "Exec=" + EntryValue(MakeRelocatableExec(launcher)) + "\n";
+            if (!icon.empty())
+                entry += "Icon=" + EntryValue(icon.string()) + "\n";
+            return entry + EntryTail(player);
+        }
+
+        std::filesystem::path GetIconSetPath(const std::filesystem::path& directory, std::string_view id, uint32_t size)
+        {
+            return directory / "icons" / "hicolor" / std::format("{}x{}", size, size) / "apps" / (std::string(id) + ".png");
+        }
+
+        std::vector<uint32_t> WriteIconSet(const ImageData& image, const std::filesystem::path& directory, std::string_view id, std::string* error)
+        {
+            std::vector<uint32_t> sizes;
+            if (!image.IsValid() || image.Channels != 4)
+            {
+                if (error)
+                    *error = "ikonka rasmi bo'sh";
+                return sizes;
+            }
+            for (const WindowIconImage& icon : GameIcon::MakeWindowImages(image))
+            {
+                const std::filesystem::path file = GetIconSetPath(directory, id, icon.Width);
+                std::error_code ec;
+                std::filesystem::create_directories(file.parent_path(), ec);
+                if (!Image::WritePNG(file.string(), icon.Width, icon.Height, 4, icon.Pixels.data()))
+                {
+                    if (error)
+                        *error = std::format("yozilmadi: {}", file.string());
+                    return {};
+                }
+                sizes.push_back(icon.Width);
+            }
+            return sizes;
+        }
+
         std::string MakeDesktopEntryId(std::string_view name)
         {
             std::string id = "zamin-";
@@ -414,13 +471,14 @@ namespace Zamin {
         std::string MakeDesktopInstallScript(const std::string& productName, const PlayerSettings& player, const std::string& launcher,
                                              const std::string& icon, const std::string& id)
         {
-            // The head / tail lines are fixed text (a quoted here-document: nothing in them is expanded); Exec,
-            // Path and Icon are escaped at run time the way MakeDesktopEntry does it: inside the Exec quotes
-            // ", `, $ and \ get a backslash, then every backslash of a value is doubled.
+            // The head / tail lines and the relocatable Exec are fixed text (quoted here-documents: nothing in
+            // them is expanded); the menu entry's Exec, Path and Icon are escaped at run time the way
+            // MakeDesktopEntry does it: inside the Exec quotes ", `, $ and \ get a backslash and % is doubled,
+            // then every backslash of a value is doubled.
             const std::string localEntry = std::filesystem::path(launcher).stem().string() + ".desktop";
             std::string script = "#!/bin/sh\n"
                                  "# " + EntryValue(productName) + ": puts the game into the application menus for the folder it is in now.\n"
-                                 "# Run it again after moving the folder; \"--uninstall\" takes the menu entry away.\n"
+                                 "# Run it again after moving the folder; \"--uninstall\" takes the menu entry and its icons away.\n"
                                  "set -e\n";
             script += "launcher=" + ShellQuote(launcher) + "\n";
             script += "icon=" + ShellQuote(icon) + "\n";
@@ -431,25 +489,48 @@ case "$dir" in
 *'
 '*) echo "Papka yo'lida qator tashlash bor: desktop fayli yozilmaydi" >&2; exit 1 ;;
 esac
-apps="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+data="${XDG_DATA_HOME:-$HOME/.local/share}"
+apps="$data/applications"
 installed="$apps/$id.desktop"
 if [ "$1" = "--uninstall" ]; then
     rm -f "$installed"
+    for file in "$data"/icons/hicolor/*/apps/"$id.png"; do
+        if [ -f "$file" ]; then rm -f "$file"; fi
+    done
     echo "Dasturlar menyusidan olib tashlandi: $installed"
     exit 0
 fi
-exec_value=$(printf '%s' "$dir/$launcher" | sed -e 's/[\\"`$]/\\&/g' -e 's/\\/\\\\/g')
+# The icon set (every size the export made) into the user's icon theme: the menu entry names it by its id.
+icons_installed=0
+for file in "$dir"/icons/hicolor/*/apps/"$id.png"; do
+    [ -f "$file" ] || continue
+    size=$(basename -- "$(dirname -- "$(dirname -- "$file")")")
+    mkdir -p "$data/icons/hicolor/$size/apps"
+    cp -f "$file" "$data/icons/hicolor/$size/apps/$id.png"
+    icons_installed=1
+done
+exec_value=$(printf '%s' "$dir/$launcher" | sed -e 's/[\\"`$]/\\&/g' -e 's/%/%%/g' -e 's/\\/\\\\/g')
 path_value=$(printf '%s' "$dir" | sed -e 's/\\/\\\\/g')
 icon_value=$(printf '%s' "$dir/$icon" | sed -e 's/\\/\\\\/g')
+# write_entry menu | local
 write_entry()
 {
     cat <<'ZAMIN_DESKTOP_HEAD'
 )SH";
             script += EntryHead(productName, player);
             script += R"SH(ZAMIN_DESKTOP_HEAD
-    printf 'Exec="%s"\n' "$exec_value"
-    printf 'Path=%s\n' "$path_value"
-    if [ -n "$icon" ] && [ -f "$dir/$icon" ]; then
+    if [ "$1" = local ]; then
+        cat <<'ZAMIN_DESKTOP_EXEC'
+)SH";
+            script += "Exec=" + EntryValue(MakeRelocatableExec(launcher)) + "\n";
+            script += R"SH(ZAMIN_DESKTOP_EXEC
+    else
+        printf 'Exec="%s"\n' "$exec_value"
+        printf 'Path=%s\n' "$path_value"
+    fi
+    if [ "$1" != local ] && [ "$icons_installed" = 1 ]; then
+        printf 'Icon=%s\n' "$id"
+    elif [ -n "$icon" ] && [ -f "$dir/$icon" ]; then
         printf 'Icon=%s\n' "$icon_value"
     fi
     cat <<'ZAMIN_DESKTOP_TAIL'
@@ -458,10 +539,10 @@ write_entry()
             script += R"SH(ZAMIN_DESKTOP_TAIL
 }
 mkdir -p "$apps"
-write_entry > "$installed"
+write_entry menu > "$installed"
 chmod +x "$installed"
 # The entry next to the launcher too (skipped when the folder cannot be written, e.g. a system folder).
-if { write_entry > "$dir/$local_entry"; } 2>/dev/null; then
+if { write_entry local > "$dir/$local_entry"; } 2>/dev/null; then
     chmod +x "$dir/$local_entry" 2>/dev/null || true
 fi
 if command -v update-desktop-database >/dev/null 2>&1; then

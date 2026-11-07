@@ -26,6 +26,14 @@ namespace Zamin {
         // "Levels/*.zscene", "Data/*"): what the game opens by names it makes itself.
         // The asset folder's Resources/ and the language files' folder are always taken.
         std::vector<std::string> AlwaysInclude;
+        // The C++ script module is compiled again for the export: Release (-O2, no debug checks) in a build
+        // folder of its own (<project>/Build/ExportRelease - the editor's hot reload module stays as it is).
+        // Off (or when that build fails): the module the editor uses is copied.
+        bool ReleaseScriptModule = true;
+        // The exported binaries (the player, the engine, the script module) lose their debug information
+        // and local symbols (strip --strip-unneeded): much smaller; a crash report still names the
+        // exported functions.
+        bool StripBinaries = true;
 
         bool operator==(const ExportSettings&) const = default;
         bool IsDefault() const { return *this == ExportSettings(); }

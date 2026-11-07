@@ -128,7 +128,7 @@ ZM_INFO("{} {} ({})", Application::GetProductName(), Application::GetVersion(), 
 | Oyna sarlavhasi | `Title` | Bo'sh: mahsulot nomi |
 | Sarlavhada versiya | `VersionInTitle` | `"Mening o'yinim 1.4.2"` |
 | FPS cheklovi | `TargetFrameRate` | Soniyadagi eng ko'p kadr (10 ... 1000); `0` - cheklovsiz (VSync boshqaradi) |
-| Fonda ishlash | `RunInBackground` | `false`: oyna oldinda bo'lmasa o'yin to'xtab turadi |
+| Fonda ishlash | `RunInBackground` | `false`: oyna fokusni yo'qotsa o'yin pauzada (pastda) |
 | F11 / Alt+Enter | `FullscreenToggle` | O'yin ichida to'liq ekran <-> oyna (standart: yoqiq) |
 
 Standart: 1280x720, oynali, o'lchami o'zgaradi, VSync yoqiq, cheklovsiz, fonda ishlaydi - player avval ham
@@ -177,6 +177,33 @@ Kutish jadval bo'yicha: kadrlar boshi bir-biridan aniq bir davr uzoqlikda (`Fram
 biroz kech uyg'onsa ham o'rtacha chastota aniq; davrdan uzoq to'xtash (yuklanish) jadvalni qayta boshlaydi.
 `ZAMIN_PLAYER_STATS=1` chiqishda haqiqiy kadr vaqtlarini yozadi (o'rtacha, min, max, eng sekin 1%).
 
+**Fonda pauza** (`RunInBackground: false`): oyna fokusni yo'qotsa (boshqa oyna oldinga chiqdi, Alt+Tab) o'yin
+butunlay to'xtaydi - skriptlar, fizika, animatsiyalar, o'yin vaqti (`Time`) yangilanmaydi, audio chiqishi pauzada
+(har bir tovush va musiqa joyida turadi, ovoz eshitilmaydi). Ekranda o'yinning oxirgi kadri xiralashgan holda
+va o'rtada "Pauza" yozuvi (ostida "O'yin oynasi fokusda emas - davom etish uchun oynani tanlang"); o'yinning til
+fayllarida `player.paused` / `player.paused_hint` kalitlari bo'lsa, ular ishlatiladi (Platformer2D: uz, ru, en).
+Pauzada CPU band emas: player voqealarni kutadi, rasmni boshida, oyna o'lchami o'zgarganda va har 0.5 s da qayta
+chizadi. Oyna yana fokusga kelsa o'yin to'xtagan joyidan davom etadi (uzun kadr sakrashisiz). Log:
+`O'yin to'xtatildi (pauza): oyna fokusda emas` / `O'yin davom etmoqda: oyna yana fokusda`. Avtomatlashtirishda
+(screenshot, CI) `ZAMIN_FOCUS_LOSS_TEST=<kadr>[:<kadrlar soni>]` shu kadrdan fokus yo'qolganini taqlid qiladi.
+
+**Gamma va yorqinlik** (o'yinchi sozlamasi): player tayyor kadrni (sahna, UI, o'tishlar) ekranga oxirgi o'tishda
+(`DisplayPass`) gamma va yorqinlik bilan chiqaradi: `ekran = (rang x Yorqinlik) ^ (1 / Gamma)`. Gamma 0.5 ... 2.0
+(1 - o'zgarishsiz, kattasi - o'rta tonlar yorqinroq, qora va oq o'zgarmaydi), yorqinlik 0.5 ... 1.5 (butun tasvir
+ko'paytiriladi). O'yin menyusi o'zgartiradi va saqlaydi:
+
+```cpp
+Display::SetGamma(1.2f);        // keyingi kadrdan
+Display::SetBrightness(0.9f);
+Display::SaveSettings();        // SaveData: "Zamin.Display.Gamma", "Zamin.Display.Brightness"
+```
+
+Player boshida saqlanganini oladi; `--gamma G` / `--brightness B` undan ustun. Ikkalasi 1 bo'lsa (va o'yin fonda
+ishlasa) kadr to'g'ridan-to'g'ri ekranga chiziladi - avvalgidek, qo'shimcha o'tishsiz. Editorning Play rejimi ham
+o'yin tasvirini shu sozlama bilan ko'rsatadi (editor gizmolari o'zgarmaydi); Play boshlanganda saqlangan qiymatlar
+olinadi, Stop'da tiklanadi. Platformer2D pauza menyusining Sozlamalar > Ekran bo'limida "Gamma" va "Yorqinlik"
+slayderlari bor.
+
 ### Splash ekran
 
 Player birinchi sahnadan oldin Zamin logotipini (logotip dvigatelning o'zida chiziladi, fayl kerak emas) yoki o'yinning
@@ -219,12 +246,26 @@ hodisalarni kutadi (protsessor band bo'lmaydi), o'yin vaqti o'tmaydi; oyna qaytg
 `Icon` - assetlar ichidagi PNG (masalan `Textures/GameIcon.png`). Player oynaga 16, 32, 48, 64, 128, 256 px
 o'lchamlarini (rasmdan katta bo'lmaganlarini) qo'yadi; kvadrat bo'lmagan rasm shaffof kvadrat o'rtasiga
 joylanadi. Sozlamalar oynasi ikonkani ko'rsatadi va ogohlantiradi (kvadrat emas, 64 px dan kichik ...).
-Eksportda ikonka `.png` sifatida va `<o'yin>.desktop` fayli bilan birga yoziladi. Desktop faylida yo'llar
-to'liq (absolyut) bo'lishi shart, shuning uchun u faqat eksport qilingan papkada ishlaydi. Papka ko'chirilsa,
-arxivlansa yoki boshqa kompyuterga berilsa, o'sha yerda `install-desktop-entry.sh` ni ishga tushiring: skript
-papkaning hozirgi joyi uchun `<o'yin>.desktop` ni qayta yozadi va `~/.local/share/applications` ga
-(`$XDG_DATA_HOME/applications`) `zamin-<o'yin>.desktop` nomi bilan o'rnatadi, shunda o'yin dasturlar menyusida
-ko'rinadi. `install-desktop-entry.sh --uninstall` uni menyudan olib tashlaydi.
+Eksportda ikonka uch xil yoziladi:
+
+- `<o'yin>.png` - asl rasm, launcher yonida;
+- `icons/hicolor/<o'lcham>x<o'lcham>/apps/zamin-<o'yin>.png` - ikonka mavzusining tuzilishida 16, 32, 48, 64, 128,
+  256 px (rasmdan katta bo'lmaganlari, `ExportFiles::WriteIconSet`);
+- `<o'yin>.desktop` - papka qayerga ko'chirilsa ham ishlaydigan desktop fayli: uning `Exec`i o'zi turgan papkadagi
+  launcher'ni ishga tushiradi (`sh -c "..." sh %k`, `%k` - desktop faylining o'z yo'li), `Path` yo'q. Faqat `Icon`
+  to'liq yo'l bo'lishi shart (desktop fayllari nisbiy ikonka yo'lini olmaydi) - u eksport qilingan joyni ko'rsatadi.
+
+Dasturlar menyusiga qo'shish: papkada `install-desktop-entry.sh` ni ishga tushiring (ko'chirilgan, arxivdan ochilgan
+yoki boshqa kompyuterdagi papkada ham). Skript:
+
+- `~/.local/share/applications/zamin-<o'yin>.desktop` (`$XDG_DATA_HOME/applications`) ni papkaning hozirgi to'liq
+  yo'llari bilan yozadi;
+- ikonkalarni hamma o'lchamda `~/.local/share/icons/hicolor/<o'lcham>/apps/` ga o'rnatadi va menyu yozuvi ikonkani
+  nomi bilan oladi (`Icon=zamin-<o'yin>`: menyu, panel, Alt+Tab o'ziga kerakli o'lchamni topadi); ikonka to'plami
+  bo'lmasa - launcher yonidagi PNG;
+- launcher yonidagi `<o'yin>.desktop` ni yangi joy uchun qayta yozadi (ikonka yo'li yangilanadi).
+
+`install-desktop-entry.sh --uninstall` menyu yozuvini va o'rnatilgan ikonkalarni olib tashlaydi.
 
 ---
 
@@ -471,6 +512,48 @@ Skript asset nomini o'zi yasasa (`"Levels/Level" + n + ".zscene"`), uni "Doim ki
 istalgan qismga mos keladi). `ExcludeUnusedAssets: false` - hamma fayl kiradi (build ro'yxatidan tashqari
 sahnalardan boshqa). Bo'lim standartdan farq qilganda yoziladi.
 
+### Eksport: Release skript moduli va strip
+
+Eksport C++ skriptlarni o'zi qayta kompilyatsiya qiladi (`"ReleaseScriptModule": true`, standart): Release
+rejimida, `-O2 -DNDEBUG` bilan, alohida build papkasida (`<loyiha>/Build/ExportRelease`, `ExportModuleBuild`).
+Modul o'sha papkaning `bin/` iga yoziladi (`cmake/ZaminGame.cmake`: `ZAMIN_GAME_MODULE_OUTPUT_DIR`), shuning uchun
+editorning hot reload moduli (`Binaries/lib<o'yin>.so`) o'zgarmaydi. Loyihada `CMakeLists.txt` bo'lmasa, u
+yoziladi. Kompilyatsiya bo'lmasa (cmake / kompilyator yo'q, kodda xato) editor moduli nusxalanadi va hisobotda
+ogohlantirish chiqadi.
+
+So'ng eksport qilingan binarlar - `ZaminPlayer`, `libZamin.so` va skript moduli - `strip --strip-unneeded` dan
+o'tadi (`"StripBinaries": true`, standart; `BinaryStrip`): debug ma'lumotlari va lokal simvollar olib tashlanadi,
+dinamik simvollar qoladi (modul yuklanadi, crash hisobotida eksport qilingan funksiya nomlari ko'rinadi). Debug
+build qilingan engine'da bu eksport hajmini bir necha marta kamaytiradi. `strip` (binutils) topilmasa, binarlar
+o'zgarmaydi va hisobotda ogohlantirish chiqadi. Ikkala variant eksport oynasida ham bor.
+
+```json
+"Export": {
+    "ReleaseScriptModule": true,
+    "StripBinaries": true
+}
+```
+
+### Eksport hisoboti
+
+Eksport tugagach editor "Eksport hisoboti" oynasini ochadi (`File > Eksport hisoboti` - qayta ochish) va hisobotni
+o'yin papkasiga yozadi: `export-report.json` (vositalar uchun) va `export-report.txt` (o'qish uchun),
+`ExportReport`:
+
+- o'yin, versiya, papka, sana, eksport qancha vaqt olgani, natija (muvaffaqiyatli / ogohlantirishlar / xatolar);
+- jami hajm va fayllar soni;
+- turlar bo'yicha hajm va ulush: binarlar, teksturalar, modellar (`.gltf`, `.glb`, `.bin`), audio, sahnalar
+  (`.zscene`, `.zsceneb`, prefablar), shriftlar, ma'lumotlar (material, klip, `.zmeta`, loyiha fayli, JSON),
+  boshqa (launcher, desktop fayli, ikonkalar);
+- eng katta 15 ta fayl;
+- chiqarib tashlangan assetlar (yo'l, hajm, sabab);
+- skript moduli qanday olingani (Release kompilyatsiya vaqti bilan / editor moduli), strip qancha kamaytirgani;
+- ogohlantirishlar va xatolar (build sahnalari muammolari, o'qilmagan ikonka, nusxalash xatolari ...).
+
+Oynada papkani ochish, `.txt` faylini ochish va hisobot matnini nusxalash tugmalari bor. Avtomatlashtirish:
+`ZAMIN_EDITOR_EXPORT=<papka>` eksportni tugashini kutadi (hisobot oynasi ochiladi), `ZAMIN_EDITOR_EXPORT_REPORT=<papka>`
+oldingi eksportning hisobotini ochadi.
+
 ---
 
 ## 13. Lokalizatsiya
@@ -693,6 +776,7 @@ ogohlantirish bilan log'ga yoziladi, qolganlari ishlatiladi.
 | `--quality <nom / indeks>` | Sifat darajasi | O'yinchi saqlagan daraja, loyiha standarti |
 | `--lang <kod>` (`--language`) | Til; yo'q til - ogohlantirish, joriy til qoladi | Saqlangan til, tizim tili, standart til |
 | `--no-splash` | Splash ekransiz | Loyiha |
+| `--gamma G`, `--brightness B` | Tasvir gammasi (0.5 ... 2.0) va yorqinligi (0.5 ... 1.5); 1 - o'zgarishsiz | Saqlangan tanlov |
 | `--gl`, `--msaa`, `--gl-debug` / `--no-gl-debug`, `--srgb` / `--no-srgb` | OpenGL konteksti | Grafika sozlamalari |
 | `--no-debug-draw`, `--debug-raycasts`, `--debug-contacts`, `--debug-contact-details`, `--debug-joints`, `--debug-velocities` | Debug chizish | Loyihaning debug sozlamalari |
 | `--log-file <fayl>`, `--no-log-file` | Log faqat shu faylga / log faylsiz | Standart log papkasi |
@@ -770,6 +854,11 @@ aylantirganda kursorni bloklaydi.
 | `CursorApiForScripts` | Kursor holatlari (fokus, pauza), rasm, `Reset`, bloklashda sichqoncha siljishi |
 | `PlayerViewportFixedAspect` | Ekran nisbati: polosalar, sichqoncha, `"Aspect"` JSON, UI masshtabi oyna bilan |
 | `ExportExcludesUnusedAssets` | Eksportga kiradigan / kirmaydigan assetlar, sabablar, `"Export"` bo'limi, namuna loyihalar |
+| `ExportReleaseModuleAndStrip` | Release modul buyruqlari (`-O2`, alohida build va chiqish papkasi), haqiqiy kichik modul build'i, `strip` |
+| `ExportDesktopEntryRelocatableAndIcons` | Ko'chiriladigan `.desktop` (`%k`), ko'chirilgan papkadan ishga tushirish, ikonka o'lchamlari, o'rnatish skripti |
+| `ExportReportSizesAndFiles` | Hisobot: turlar, eng katta fayllar, chiqarib tashlanganlar, JSON / matn, yozish / o'qish |
+| `PauseInBackgroundAudioOutput` | Audio chiqishi pauzasi: tovush joyida turadi, keyin davom etadi |
+| `DisplayGammaAndBrightness` | Gamma / yorqinlik formulasi, diapazonlar, saqlash, `--gamma` / `--brightness` |
 
 ---
 
@@ -785,6 +874,10 @@ Application::GetVersion(); Application::GetProductName(); Application::GetCompan
 
 // Oyna
 Display::SetFullscreen(bool); Display::IsFullscreen(); Display::SetVSync(bool); Display::SaveSettings(); Display::LoadSettings();
+Display::SetGamma(float); Display::SetBrightness(float); Display::GetAdjustment();   // player tasviri (0.5 ... 2.0 / 0.5 ... 1.5)
+
+// Eksport (editor)
+ExportModuleBuild; BinaryStrip::Strip(file); ExportReport::Read(papka, report); ExportFiles::WriteIconSet(rasm, papka, id);
 
 // Sifat
 Quality::GetLevel(); Quality::GetLevelName(); Quality::GetLevelNames(); Quality::SetLevel(int | "High");

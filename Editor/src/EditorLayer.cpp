@@ -13,9 +13,11 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <ctime>
 #include <format>
 #include <map>
 #include <string_view>
@@ -1064,7 +1066,15 @@ namespace Zamin {
                     m_SpriteEditorPanel.Save();
             }
             if (const char* out = std::getenv("ZAMIN_EDITOR_EXPORT"))
+            {
                 BuildGame(out);
+                // Automation (screenshots, CI): the export ends here, its report window opens in the next frames.
+                if (Application::IsAutomationRun() && m_ExportThread.joinable())
+                    m_ExportThread.join();
+            }
+            // ZAMIN_EDITOR_EXPORT_REPORT=<folder>: the report of an export done before (export-report.json) in its window.
+            if (const char* folder = std::getenv("ZAMIN_EDITOR_EXPORT_REPORT"); folder && !OpenExportReport(folder))
+                ZM_WARN("ZAMIN_EDITOR_EXPORT_REPORT: {} da eksport hisoboti yo'q", folder);
             if (std::getenv("ZAMIN_EDITOR_BUILD"))
                 BuildScripts(true);
             // ZAMIN_EDITOR_BUILD_LOG=<file>: a saved compiler output in the Kompilyatsiya window (screenshots).
@@ -1458,6 +1468,7 @@ namespace Zamin {
         }
         if (!m_Exporting && m_ExportThread.joinable())
             m_ExportThread.join();
+        TakeFinishedExportReport();
 
         CheckModuleHotReload(ts);
         ProcessAssetChanges();
@@ -1676,6 +1687,28 @@ namespace Zamin {
         // A pixel-perfect game's UI: over the finished picture, at the viewport's resolution.
         if (m_SceneState == SceneState::Play && m_RuntimeScenes)
             m_RuntimeScenes->RenderDeferredUI();
+        // The player's gamma and brightness (Display::SetGamma / SetBrightness, the game's options menu): the
+        // game's picture in Play as the player shows it (the editor's overlays below are not adjusted).
+        if (const DisplayAdjustment adjustment = Display::GetAdjustment(); m_SceneState == SceneState::Play && !adjustment.IsIdentity())
+        {
+            const FramebufferSpecification& finalSpec = m_FinalFramebuffer->GetSpecification();
+            if (!m_PlayAdjustFramebuffer)
+            {
+                FramebufferSpecification spec;
+                spec.Width = finalSpec.Width;
+                spec.Height = finalSpec.Height;
+                spec.Attachments = { FramebufferTextureFormat::RGBA8 };
+                m_PlayAdjustFramebuffer = Framebuffer::Create(spec);
+            }
+            else if (m_PlayAdjustFramebuffer->GetSpecification().Width != finalSpec.Width ||
+                     m_PlayAdjustFramebuffer->GetSpecification().Height != finalSpec.Height)
+                m_PlayAdjustFramebuffer->Resize(finalSpec.Width, finalSpec.Height);
+            m_PlayAdjustFramebuffer->Bind();
+            DisplayPass::Present(m_FinalFramebuffer->GetColorAttachmentRendererID(0), adjustment);
+            m_FinalFramebuffer->Bind();
+            DisplayPass::Present(m_PlayAdjustFramebuffer->GetColorAttachmentRendererID(0), DisplayAdjustment());
+            RenderCommand::SetDepthTest(true);
+        }
         RenderSelectionOutline();
         RenderDebugDraw();
         {
@@ -4579,6 +4612,14 @@ namespace Zamin {
             Log::Clear();
         m_SceneState = SceneState::Play;
         m_AnimationPanel.StopPreview(true); // the game starts from the scene's own values
+        // The player's gamma and brightness as the game saved them (its options menu): Play shows them too.
+        {
+            const SavedDisplaySettings saved = Display::GetSavedSettings();
+            DisplayAdjustment adjustment;
+            adjustment.Gamma = saved.Gamma.value_or(1.0f);
+            adjustment.Brightness = saved.Brightness.value_or(1.0f);
+            Display::SetAdjustment(adjustment);
+        }
         m_PlayMaterials = MaterialLibrary::TakeSnapshot();
         // The editor's state, for Stop after the game has switched scenes.
         m_PlayStart = {};
@@ -4713,9 +4754,10 @@ namespace Zamin {
             ShowViewportMessage(std::format(ICON_FA_ROTATE_LEFT "  Editor holati tiklandi: {} ({} ta tanlangan)", m_EditorScene->GetName(), selection.size()));
         }
         m_PlayStart.RuntimeStart.reset();
-        // The game's cursor wishes end with it (visible, free, the arrow).
+        // The game's cursor wishes end with it (visible, free, the arrow); its picture's gamma and brightness too.
         Cursor::SetHostActive(false);
         Cursor::Reset();
+        Display::SetAdjustment(DisplayAdjustment());
         m_GameCursorReleased = false;
         // What the game's scripts changed of the debug drawing does not stay in the editor.
         ApplyDebugDrawSettings();
@@ -5853,24 +5895,50 @@ namespace Zamin {
         if (m_SceneDirty) SaveScene();
         m_ProjectSettingsPanel.SaveIfDirty(); // the exported game reads the .zproject (input map)
 
+        const auto started = std::chrono::steady_clock::now();
         std::string name = project->GetConfig().Name;
+        const PlayerSettings player = project->GetConfig().Player;
+        const std::string productName = player.GetProductName(name);
+        // The report the export ends with (the window, export-report.json / .txt): what went wrong is
+        // collected here and on the export thread.
+        auto report = std::make_shared<ExportReport>();
+        {
+            std::error_code ec;
+            report->Game = productName;
+            report->Version = player.Version;
+            report->Company = player.CompanyName;
+            report->OutputDirectory = fs::absolute(outputDirectory, ec).lexically_normal().string();
+            const std::time_t now = std::time(nullptr);
+            std::tm tm{};
+            localtime_r(&now, &tm);
+            char date[32];
+            std::strftime(date, sizeof(date), "%Y-%m-%d %H:%M:%S", &tm);
+            report->Date = date;
+        }
+        // (Only the export thread uses these from here on: the main thread reads the report once it is handed over.)
+        auto warn = [report](std::string message) {
+            ZM_WARN("Eksport: {}", message);
+            report->Warnings.push_back(std::move(message));
+        };
+        auto fail = [report](std::string message) {
+            ZM_ERROR("Eksport: {}", message);
+            report->Errors.push_back(std::move(message));
+        };
         // The start scene and the build list: what would break the game is an error, the rest warnings.
         for (const BuildSceneIssue& issue : Project::CheckBuildScenes(project->GetConfig(), Project::GetAssetDirectory()))
         {
             if (issue.Error)
-                ZM_ERROR("Eksport: {}", issue.Message);
+                fail(issue.Message);
             else
-                ZM_WARN("Eksport: {}", issue.Message);
+                warn(issue.Message);
         }
-        const PlayerSettings player = project->GetConfig().Player;
-        const std::string productName = player.GetProductName(name);
         const fs::path iconFile = Project::GetIconPath();
         if (!iconFile.empty())
         {
             ImageData icon;
             std::string error;
             if (!GameIcon::Load(iconFile, icon, &error))
-                ZM_WARN("Eksport: o'yin ikonkasi o'qilmadi ({}) - .desktop faylida ikonka bo'lmaydi", error);
+                warn(std::format("o'yin ikonkasi o'qilmadi ({}) - .desktop faylida ikonka bo'lmaydi", error));
         }
         fs::path projectDir = Project::GetProjectDirectory();
         fs::path projectFile = Project::GetProjectFilePath();
@@ -5878,6 +5946,19 @@ namespace Zamin {
         fs::path moduleRel = project->GetConfig().ScriptModulePath;
         fs::path assetRel = project->GetConfig().AssetDirectory;
         fs::path exeDir = FileSystem::GetExecutableDirectory();
+        const ExportSettings exportSettings = project->GetConfig().Export;
+        // The script module in Release (-O2) in a build folder of its own: needs the project's CMakeLists.txt
+        // (written like BuildScripts does for a project without one) and its sources.
+        std::error_code sourcesError;
+        const bool hasSources = !modulePath.empty() && fs::is_directory(Project::GetSourceDirectory(), sourcesError);
+        if (exportSettings.ReleaseScriptModule && hasSources && !fs::exists(projectDir / "CMakeLists.txt"))
+            Project::WriteBuildFiles(projectDir, name);
+        ExportModuleBuild moduleBuild;
+        moduleBuild.ProjectDirectory = projectDir;
+        moduleBuild.BuildDirectory = ExportModuleBuild::DefaultBuildDirectory(projectDir);
+        moduleBuild.EngineDirectory = exeDir.parent_path();
+        moduleBuild.OutputDirectory = moduleBuild.BuildDirectory / "bin";
+        moduleBuild.Ninja = std::system("command -v ninja >/dev/null 2>&1") == 0;
         // Which assets go: with a build list only its enabled scenes, the start scene and their sub-scenes;
         // then what they lead to (prefabs, materials, models, clips ...), what the project file and the C++
         // code name, the folders always taken - the rest stays out (Project settings > Build scenes > Export).
@@ -5907,16 +5988,22 @@ namespace Zamin {
             bool ok = true;
             auto copy = [&](const fs::path& from, const fs::path& to) {
                 std::error_code e;
-                if (!fs::exists(from)) { ZM_ERROR("Topilmadi: {}", from.string()); ok = false; return; }
+                if (!fs::exists(from)) { fail(std::format("topilmadi: {}", from.string())); ok = false; return; }
                 fs::create_directories(to.parent_path(), e);
                 fs::copy(from, to, copyOpts, e);
-                if (e) { ZM_ERROR("Nusxalashda xato {}: {}", from.string(), e.message()); ok = false; }
+                if (e) { fail(std::format("nusxalashda xato {}: {}", from.string(), e.message())); ok = false; }
             };
 
+            // The binaries: the player, the engine (and later the script module) - stripped below.
+            std::vector<fs::path> binaries;
             copy(exeDir / "ZaminPlayer", outputDirectory / "ZaminPlayer");
+            binaries.push_back(outputDirectory / "ZaminPlayer");
             for (auto& entry : fs::directory_iterator(exeDir, ec))
                 if (entry.path().filename().string().starts_with("libZamin"))
+                {
                     copy(entry.path(), outputDirectory / entry.path().filename());
+                    binaries.push_back(outputDirectory / entry.path().filename());
+                }
             copy(exeDir / "Resources", outputDirectory / "Resources");
             copy(projectFile, outputDirectory / "Game" / projectFile.filename());
             {
@@ -5955,18 +6042,104 @@ namespace Zamin {
                         binaryBytes += (size_t)fs::file_size(SceneSerializer::GetBinaryCachePath(it->path()), e);
                     }
                     else
-                        ZM_WARN("Sahnaning binar keshi yozilmadi ({}): {}", error, it->path().filename().string());
+                        warn(std::format("sahnaning binar keshi yozilmadi ({}): {}", error, it->path().filename().string()));
                 }
                 if (written)
                     ZM_INFO("Eksport: {} ta sahna binar keshga yozildi ({:.1f} KB -> {:.1f} KB)", written, (double)textBytes / 1024.0,
                             (double)binaryBytes / 1024.0);
             }
             if (!registryText.empty() && !FileSystem::WriteTextFile(outputDirectory / "Game" / Project::BuildAssetRegistryFile, registryText))
+            {
+                fail("asset registri yozilmadi");
                 ok = false;
+            }
+
+            // The script module: compiled again in Release (-O2, its own build folder) - the editor's module
+            // when that is off or fails.
             if (!modulePath.empty())
             {
-                if (fs::exists(modulePath)) copy(modulePath, outputDirectory / "Game" / moduleRel);
-                else ZM_WARN("Skript moduli topilmadi - o'yin skriptlarsiz eksport qilinadi");
+                fs::path module = modulePath;
+                std::string how = "editor moduli nusxalandi";
+                if (exportSettings.ReleaseScriptModule && hasSources)
+                {
+                    ZM_INFO("Eksport: skript moduli Release'da kompilyatsiya qilinmoqda ({}): {}", moduleBuild.OptimizationFlags,
+                            moduleBuild.BuildDirectory.string());
+                    const auto buildStart = std::chrono::steady_clock::now();
+                    std::string firstError;
+                    auto onLine = [&](const std::string& line) {
+                        if (line.empty())
+                            return;
+                        if (firstError.empty() && (line.find("error") != std::string::npos || line.find("Error") != std::string::npos))
+                            firstError = line;
+                        ZM_TRACE("{}", line);
+                    };
+                    int code = RunShellCommand(moduleBuild.MakeConfigureCommand(), onLine);
+                    if (code == 0)
+                        code = RunShellCommand(moduleBuild.MakeBuildCommand(), onLine);
+                    // lib<Name>.so: the project's module name, else the only module the build made.
+                    fs::path built = moduleBuild.OutputDirectory / modulePath.filename();
+                    std::error_code e;
+                    if (code == 0 && !fs::exists(built, e))
+                        for (const auto& entry : fs::directory_iterator(moduleBuild.OutputDirectory, e))
+                            if (entry.path().extension() == ".so")
+                                built = entry.path();
+                    const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - buildStart).count();
+                    if (code == 0 && fs::exists(built, e))
+                    {
+                        module = built;
+                        how = std::format("Release ({}), {:.1f} s da kompilyatsiya qilindi", moduleBuild.OptimizationFlags, seconds);
+                        ZM_INFO("Eksport: skript moduli {} ({})", how, ExportAssets::FormatSize(fs::file_size(built, e)));
+                    }
+                    else
+                    {
+                        how = "editor moduli nusxalandi (Release kompilyatsiya bo'lmadi)";
+                        warn(std::format("skript moduli Release'da kompilyatsiya qilinmadi{} - editor moduli nusxalandi",
+                                         firstError.empty() ? std::format(" (chiqish kodi {})", code) : ": " + firstError));
+                    }
+                }
+                if (fs::exists(module))
+                {
+                    copy(module, outputDirectory / "Game" / moduleRel);
+                    binaries.push_back(outputDirectory / "Game" / moduleRel);
+                    report->ScriptModule = how;
+                }
+                else
+                {
+                    warn("skript moduli topilmadi - o'yin skriptlarsiz eksport qilinadi");
+                    report->ScriptModule = "yo'q (skriptsiz)";
+                }
+            }
+            else
+                report->ScriptModule = "yo'q (loyihada skript moduli yo'q)";
+
+            // The binaries without their debug information and local symbols (much smaller).
+            if (exportSettings.StripBinaries)
+            {
+                if (!BinaryStrip::IsAvailable())
+                    warn("strip dasturi topilmadi (binutils) - binarlar kichraytirilmadi");
+                else
+                {
+                    uintmax_t before = 0, after = 0;
+                    size_t stripped = 0;
+                    for (const fs::path& binary : binaries)
+                    {
+                        std::error_code e;
+                        if (!fs::is_regular_file(binary, e) || !BinaryStrip::IsElfFile(binary))
+                            continue;
+                        const StripResult result = BinaryStrip::Strip(binary);
+                        if (!result.Ok)
+                        {
+                            warn(std::format("strip: {} - {}", binary.filename().string(), result.Error));
+                            continue;
+                        }
+                        before += result.SizeBefore;
+                        after += result.SizeAfter;
+                        stripped++;
+                    }
+                    report->StrippedBytes = before > after ? before - after : 0;
+                    if (stripped)
+                        ZM_INFO("Eksport: strip - {} ta binar {} -> {}", stripped, ExportAssets::FormatSize(before), ExportAssets::FormatSize(after));
+                }
             }
 
             fs::path launcher = outputDirectory / (name + ".sh");
@@ -5975,12 +6148,15 @@ namespace Zamin {
             fs::permissions(launcher, fs::perms::owner_all | fs::perms::group_read | fs::perms::group_exec |
                                           fs::perms::others_read | fs::perms::others_exec, ec);
 
-            // The game's icon next to the launcher and a desktop entry (application menus, file managers).
-            // A desktop entry's paths must be absolute: this one is for where the game was exported to, and
-            // install-desktop-entry.sh writes it again for wherever the folder is moved / shipped to (and
-            // installs it into ~/.local/share/applications).
+            // The game's icon next to the launcher (the PNG as it is, and icons/hicolor/<size>/apps/<id>.png in
+            // every size up to its own) and a desktop entry that works wherever the folder goes (its Exec runs
+            // the launcher next to the entry itself; the icon path is where the game was exported to).
+            // install-desktop-entry.sh puts the game into the application menus for wherever the folder is
+            // (absolute paths, the icons into the user's icon theme).
+            const std::string entryId = ExportFiles::MakeDesktopEntryId(name);
             const fs::path absoluteOut = fs::absolute(outputDirectory, ec);
             fs::path exportedIcon;
+            fs::remove_all(outputDirectory / "icons", ec); // the sizes of an earlier export
             if (!iconFile.empty())
             {
                 ImageData icon;
@@ -5988,11 +6164,20 @@ namespace Zamin {
                 {
                     exportedIcon = absoluteOut / (name + ".png");
                     copy(iconFile, exportedIcon);
+                    std::string iconError;
+                    const std::vector<uint32_t> sizes = ExportFiles::WriteIconSet(icon, outputDirectory, entryId, &iconError);
+                    if (sizes.empty())
+                        warn(std::format("ikonka o'lchamlari yozilmadi: {}", iconError));
+                    else
+                        ZM_INFO("Eksport: ikonka {} o'lchamda ({} ... {} px, icons/hicolor)", sizes.size(), sizes.front(), sizes.back());
                 }
             }
             if (!FileSystem::WriteTextFile(outputDirectory / (name + ".desktop"),
-                                           ExportFiles::MakeDesktopEntry(productName, player, absoluteOut / launcher.filename(), exportedIcon, absoluteOut)))
+                                           ExportFiles::MakeRelocatableDesktopEntry(productName, player, launcher.filename().string(), exportedIcon)))
+            {
+                fail(std::format("{}.desktop yozilmadi", name));
                 ok = false;
+            }
             else
                 fs::permissions(outputDirectory / (name + ".desktop"), fs::perms::owner_exec | fs::perms::group_exec | fs::perms::others_exec,
                                 fs::perm_options::add, ec);
@@ -6000,14 +6185,31 @@ namespace Zamin {
             if (!FileSystem::WriteTextFile(installScript,
                                            ExportFiles::MakeDesktopInstallScript(productName, player, launcher.filename().string(),
                                                                                  exportedIcon.empty() ? std::string() : exportedIcon.filename().string(),
-                                                                                 ExportFiles::MakeDesktopEntryId(name))))
+                                                                                 entryId)))
+            {
+                fail(std::format("{} yozilmadi", ExportFiles::DesktopInstallScriptName));
                 ok = false;
+            }
             else
                 fs::permissions(installScript, fs::perms::owner_all | fs::perms::group_read | fs::perms::group_exec | fs::perms::others_read |
                                                    fs::perms::others_exec, ec);
 
-            if (ok) ZM_INFO("O'yin eksport qilindi " ICON_FA_ROCKET " {}  (ishga tushirish: {})", outputDirectory.string(), launcher.string());
+            // The report: what the folder holds now, what was left out, how long it took and what went wrong.
+            report->SetExcluded(assetPlan);
+            report->ScanDirectory(outputDirectory);
+            report->Seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
+            report->Succeeded = ok && report->Errors.empty();
+            if (!report->Write(outputDirectory))
+                ZM_WARN("Eksport hisoboti yozilmadi: {}", (outputDirectory / ExportReport::JsonFileName).string());
+            ZM_INFO("Eksport hisoboti: {} ta fayl, {} ({} ogohlantirish, {} xato) - {}", report->FileCount, ExportAssets::FormatSize(report->TotalBytes),
+                    report->Warnings.size(), report->Errors.size(), (outputDirectory / ExportReport::TextFileName).string());
+
+            if (report->Succeeded) ZM_INFO("O'yin eksport qilindi " ICON_FA_ROCKET " {}  (ishga tushirish: {})", outputDirectory.string(), launcher.string());
             else ZM_ERROR("O'yinni eksport qilishda xatolar bo'ldi");
+            {
+                std::lock_guard<std::mutex> lock(m_ExportReportMutex);
+                m_PendingExportReport = std::make_unique<ExportReport>(*report);
+            }
             m_Exporting = false;
         });
     }
@@ -6195,6 +6397,14 @@ namespace Zamin {
             {
                 m_BuildGameOutput = (Project::GetProjectDirectory() / "Build" / "Game").string();
                 m_OpenBuildGamePopup = true;
+            }
+            // The last export's report (this session's, else the one in the default build folder).
+            if (ImGui::MenuItem(Tr(ICON_FA_CHART_PIE "  Eksport hisoboti"), nullptr, false, hasProject && !m_Exporting))
+            {
+                if (m_HasExportReport)
+                    m_ShowExportReport = true;
+                else if (!OpenExportReport(m_BuildGameOutput.empty() ? Project::GetProjectDirectory() / "Build" / "Game" : fs::path(m_BuildGameOutput)))
+                    ZM_WARN("Eksport hisoboti yo'q: avval o'yinni build qiling (Fayl > O'yinni build qilish)");
             }
             ImGui::Separator();
             if (ImGui::MenuItem(Tr(ICON_FA_XMARK "  Chiqish"), "Alt+F4")) Application::Get().Close();
@@ -10786,7 +10996,8 @@ namespace Zamin {
         if (ImGui::BeginPopupModal(Tr("O'yinni build qilish###BuildGame"), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
             ImGui::TextUnformatted(ICON_FA_ROCKET "  O'yin mustaqil papkaga eksport qilinadi (Linux).");
-            ImGui::TextDisabled("Tarkibi: ZaminPlayer, libZamin.so, Resources, Assets, skript moduli, .sh launcher");
+            ImGui::TextDisabled("Tarkibi: ZaminPlayer, libZamin.so, Resources, Assets, skript moduli, .sh launcher, .desktop, ikonkalar");
+            ImGui::TextDisabled("Tugagach eksport hisoboti ochiladi (export-report.json / .txt)");
             ImGui::Spacing();
             ImGui::SetNextItemWidth(460);
             ImGui::InputText("##out", &m_BuildGameOutput);
@@ -10813,6 +11024,21 @@ namespace Zamin {
                     UI::Tooltip("Faqat o'yin ishlatadigan assetlar: build sahnalari va ular orqali kerak bo'lganlar, loyiha fayli, C++ "
                                 "skriptlardagi asset yo'llari, Resources/ va til fayllari. \"Doim kiritish\" ro'yxati: Project settings > "
                                 "Build sahnalar > Eksport");
+                if (ImGui::Checkbox(Tr("Skript modulini Release'da kompilyatsiya qilish (-O2)"), &exportSettings.ReleaseScriptModule))
+                    m_ProjectSettingsPanel.MarkDirty();
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip(std::format("C++ skriptlar eksport uchun alohida build papkasida ({}) Release rejimida qayta kompilyatsiya "
+                                            "qilinadi: tezroq va kichikroq. Editorning hot reload moduli o'zgarmaydi. Kompilyatsiya bo'lmasa - "
+                                            "editor moduli nusxalanadi (hisobotda ogohlantirish).",
+                                            ExportModuleBuild::DefaultBuildDirectory(Project::GetProjectDirectory()).string())
+                                    .c_str());
+                if (ImGui::Checkbox(Tr("Binarlarni strip qilish (player, engine, skriptlar)"), &exportSettings.StripBinaries))
+                    m_ProjectSettingsPanel.MarkDirty();
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip(BinaryStrip::IsAvailable()
+                                    ? "strip --strip-unneeded: debug ma'lumotlari va lokal simvollar olib tashlanadi - fayllar bir necha marta "
+                                      "kichrayadi. Crash hisobotida eksport qilingan funksiya nomlari qoladi."
+                                    : "strip dasturi topilmadi (binutils paketi) - binarlar o'zgarmaydi");
                 if (!m_BuildAssetPreviewValid)
                 {
                     m_BuildAssetPreview = ExportAssets::PlanForActiveProject();
@@ -10851,13 +11077,15 @@ namespace Zamin {
                                     modes[(int)player.Mode], player.VSync ? "yoqilgan" : "o'chiq",
                                     player.TargetFrameRate > 0 ? std::format("{} FPS", player.TargetFrameRate).c_str() : "FPS cheklanmagan",
                                     player.RunInBackground ? "" : ", fonda to'xtaydi");
-                ImGui::TextDisabled("Ikonka: %s  (%s.desktop + %s.png)", player.Icon.empty() ? "yo'q" : player.Icon.generic_string().c_str(),
-                                    config.Name.c_str(), config.Name.c_str());
+                ImGui::TextDisabled("Ikonka: %s  (%s.desktop + %s.png + icons/hicolor 16...256 px)",
+                                    player.Icon.empty() ? "yo'q" : player.Icon.generic_string().c_str(), config.Name.c_str(), config.Name.c_str());
                 if (ImGui::IsItemHovered())
-                    UI::Tooltip(std::format("{}.desktop eksport papkasining to'liq yo'li bilan yoziladi. Papka ko'chirilsa yoki boshqa "
-                                            "kompyuterga berilsa, o'sha yerda {} ni ishga tushiring: u desktop faylini yangi joy uchun "
-                                            "qayta yozadi va dasturlar menyusiga qo'shadi (--uninstall - olib tashlash).",
-                                            config.Name, ExportFiles::DesktopInstallScriptName).c_str());
+                    UI::Tooltip(std::format("{}.desktop papka qayerga ko'chirilsa ham ishlaydi: u o'zi turgan papkadagi {}.sh ni ishga "
+                                            "tushiradi (%k). Dasturlar menyusiga qo'shish uchun o'sha yerda {} ni ishga tushiring: menyu "
+                                            "yozuvi to'liq yo'llar bilan yoziladi, ikonka hamma o'lchamda ~/.local/share/icons ga o'rnatiladi "
+                                            "(--uninstall - olib tashlash).",
+                                            config.Name, config.Name, ExportFiles::DesktopInstallScriptName)
+                                    .c_str());
                 const GraphicsSettings& graphics = config.Graphics;
                 ImGui::TextDisabled("Grafika: OpenGL %s core%s%s%s", graphics.GetVersionString().c_str(), graphics.WantsDebugContext() ? ", debug" : "",
                                     graphics.MSAASamples > 0 ? std::format(", MSAA {}x", graphics.MSAASamples).c_str() : "",
@@ -10891,6 +11119,9 @@ namespace Zamin {
             if (ImGui::Button(Tr("Bekor qilish"), ImVec2(150, 0))) ImGui::CloseCurrentPopup();
             ImGui::EndPopup();
         }
+
+        // ---- the export's report (opens when an export ends)
+        UI_ExportReportWindow();
 
         // ---- about
         if (m_ShowAbout) { ImGui::OpenPopup("###About"); m_ShowAbout = false; }

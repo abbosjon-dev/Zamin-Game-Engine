@@ -70,6 +70,8 @@ namespace Zamin {
         ordered_json j;
         j["ExcludeUnusedAssets"] = ExcludeUnusedAssets;
         j["AlwaysInclude"] = AlwaysInclude;
+        j["ReleaseScriptModule"] = ReleaseScriptModule;
+        j["StripBinaries"] = StripBinaries;
         return j.dump(4);
     }
 
@@ -87,6 +89,10 @@ namespace Zamin {
                     if (std::string path = Normalize(item.get<std::string>()); !path.empty() &&
                         std::find(s.AlwaysInclude.begin(), s.AlwaysInclude.end(), path) == s.AlwaysInclude.end())
                         s.AlwaysInclude.push_back(std::move(path));
+        if (auto it = j.find("ReleaseScriptModule"); it != j.end() && it->is_boolean())
+            s.ReleaseScriptModule = it->get<bool>();
+        if (auto it = j.find("StripBinaries"); it != j.end() && it->is_boolean())
+            s.StripBinaries = it->get<bool>();
         out = std::move(s);
         return true;
     }

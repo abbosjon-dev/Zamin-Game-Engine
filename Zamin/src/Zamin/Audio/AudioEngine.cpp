@@ -158,6 +158,7 @@ namespace Zamin {
 
         ma_engine* s_Engine = nullptr;
         bool s_HasDevice = false;
+        bool s_OutputPaused = false;
         std::unordered_map<uint32_t, Voice> s_Voices;
         uint32_t s_NextHandle = 1;
         AudioSettings s_Mixer;
@@ -1126,7 +1127,22 @@ namespace Zamin {
         delete s_Engine;
         s_Engine = nullptr;
         s_HasDevice = false;
+        s_OutputPaused = false;
     }
+
+    bool AudioEngine::SetOutputPaused(bool paused)
+    {
+        if (!s_Engine)
+            return false;
+        if (paused == s_OutputPaused)
+            return true;
+        if (s_HasDevice && (paused ? ma_engine_stop(s_Engine) : ma_engine_start(s_Engine)) != MA_SUCCESS)
+            return false;
+        s_OutputPaused = paused;
+        return true;
+    }
+
+    bool AudioEngine::IsOutputPaused() { return s_Engine && s_OutputPaused; }
 
     bool AudioEngine::IsAvailable() { return s_Engine != nullptr; }
     bool AudioEngine::HasDevice() { return s_Engine && s_HasDevice; }
@@ -1152,7 +1168,7 @@ namespace Zamin {
 
     void AudioEngine::RenderOffline(float seconds)
     {
-        if (!s_Engine || s_HasDevice || !(seconds > 0.0f)) return;
+        if (!s_Engine || s_HasDevice || s_OutputPaused || !(seconds > 0.0f)) return;
         const ma_uint32 channels = ma_engine_get_channels(s_Engine);
         ma_uint64 frames = (ma_uint64)((double)seconds * ma_engine_get_sample_rate(s_Engine));
         std::vector<float> buffer(1024 * channels);

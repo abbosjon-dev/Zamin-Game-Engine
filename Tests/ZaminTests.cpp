@@ -34648,7 +34648,9 @@ TEST(GameIconImagesAndDesktopEntry)
         const std::string expected = ExportFiles::MakeDesktopEntry("Kosmos \"Sayohat\"", player, game / "O'yin.sh", game / "O'yin.png", game);
         const fs::path installed = data / "applications" / "zamin-Oyin.desktop";
         CHECK(fs::exists(installed) && FileSystem::ReadTextFile(installed) == expected);
-        CHECK(FileSystem::ReadTextFile(game / "O'yin.desktop") == expected);
+        // (Next to the launcher: the entry that works wherever the folder goes, its icon for this place.)
+        CHECK(FileSystem::ReadTextFile(game / "O'yin.desktop") ==
+              ExportFiles::MakeRelocatableDesktopEntry("Kosmos \"Sayohat\"", player, "O'yin.sh", game / "O'yin.png"));
         // No icon file: no Icon line.
         fs::remove(game / "O'yin.png");
         CHECK(std::system((run + ">/dev/null 2>&1").c_str()) == 0);
@@ -36263,4 +36265,449 @@ TEST(ExportExcludesUnusedAssets)
     Project::SetActive(nullptr);
     std::error_code ec;
     fs::remove_all(root, ec);
+}
+
+TEST(ExportReleaseModuleAndStrip)
+{
+    namespace fs = std::filesystem;
+    const fs::path dir = fs::temp_directory_path() / ("zamin-export-module-" + std::to_string((uint64_t)UUID()));
+    fs::create_directories(dir);
+
+    // The commands: Release with -O2, the module into a folder of its own, every path quoted.
+    ExportModuleBuild build;
+    build.ProjectDirectory = dir / "My 'Game'";
+    build.BuildDirectory = ExportModuleBuild::DefaultBuildDirectory(build.ProjectDirectory);
+    build.EngineDirectory = "/engine/build";
+    build.OutputDirectory = build.BuildDirectory / "bin";
+    build.Ninja = true;
+    CHECK(build.BuildDirectory == build.ProjectDirectory / "Build" / "ExportRelease");
+    const std::string configure = build.MakeConfigureCommand();
+    CHECK(configure.starts_with("cmake -S " + ShellQuote(build.ProjectDirectory.string()) + " -B " + ShellQuote(build.BuildDirectory.string())));
+    CHECK(configure.find(" -G Ninja") != std::string::npos && configure.find(" -DCMAKE_BUILD_TYPE=Release") != std::string::npos);
+    CHECK(configure.find("'-DCMAKE_CXX_FLAGS_RELEASE=-O2 -DNDEBUG'") != std::string::npos);
+    CHECK(configure.find("'-DZamin_DIR=/engine/build'") != std::string::npos);
+    CHECK(configure.find(ShellQuote("-DZAMIN_GAME_MODULE_OUTPUT_DIR=" + build.OutputDirectory.string())) != std::string::npos);
+    CHECK(build.MakeBuildCommand() == "cmake --build " + ShellQuote(build.BuildDirectory.string()) + " --config Release --parallel");
+    // A build folder made before keeps its generator.
+    FileSystem::WriteTextFile(build.BuildDirectory / "CMakeCache.txt", "# cache");
+    CHECK(build.MakeConfigureCommand().find("-G Ninja") == std::string::npos);
+    CHECK(ShellQuote("a'b") == "'a'\\''b'" && ShellQuote("") == "''");
+
+    // Running commands: every line, the exit code.
+    std::vector<std::string> lines;
+    CHECK(RunShellCommand("printf 'bir\\nikki\\n'; echo xato >&2; exit 3", [&](const std::string& l) { lines.push_back(l); }) == 3);
+    CHECK(lines == std::vector<std::string>({ "bir", "ikki", "xato" }));
+    CHECK(RunShellCommand("true") == 0);
+
+    // strip: only ELF files.
+    FileSystem::WriteTextFile(dir / "notes.txt", "not a program");
+    CHECK(!BinaryStrip::IsElfFile(dir / "notes.txt") && !BinaryStrip::IsElfFile(dir / "none"));
+    StripResult notElf = BinaryStrip::Strip(dir / "notes.txt");
+    CHECK(!notElf.Ok && notElf.Error.find("ELF") != std::string::npos && notElf.Saved() == 0);
+    CHECK(!BinaryStrip::Strip(dir / "none").Ok);
+
+    // A real module built for an export: Release in its own build folder, the module where the export
+    // wants it (not in the project's Binaries - the editor's hot reload module), then stripped.
+    const fs::path engineBuild = FileSystem::GetExecutableDirectory().parent_path();
+    if (std::system("command -v cmake >/dev/null 2>&1 && command -v c++ >/dev/null 2>&1") == 0 && fs::exists(engineBuild / "ZaminConfig.cmake"))
+    {
+        const fs::path project = dir / "Tiny Game";
+        FileSystem::WriteTextFile(project / "CMakeLists.txt", "cmake_minimum_required(VERSION 3.20)\nproject(TinyGame LANGUAGES C CXX)\n"
+                                                             "find_package(Zamin REQUIRED CONFIG)\n"
+                                                             "zamin_add_game_module(TinyGame ${CMAKE_CURRENT_SOURCE_DIR}/Source/Tiny.cpp)\n");
+        FileSystem::WriteTextFile(project / "Source" / "Tiny.cpp", "#include <string>\nextern \"C\" int ZaminTinyValue() { return (int)std::string(\"tiny\").size(); }\n");
+        ExportModuleBuild tiny;
+        tiny.ProjectDirectory = project;
+        tiny.BuildDirectory = ExportModuleBuild::DefaultBuildDirectory(project);
+        tiny.EngineDirectory = engineBuild;
+        tiny.OutputDirectory = tiny.BuildDirectory / "bin";
+        tiny.Ninja = std::system("command -v ninja >/dev/null 2>&1") == 0;
+        std::string output;
+        auto collect = [&](const std::string& l) { output += l + "\n"; };
+        int code = RunShellCommand(tiny.MakeConfigureCommand(), collect);
+        if (code == 0)
+            code = RunShellCommand(tiny.MakeBuildCommand(), collect);
+        CHECK(code == 0);
+        if (code != 0)
+            std::printf("%s\n", output.c_str());
+        const fs::path module = tiny.OutputDirectory / "libTinyGame.so";
+        CHECK(fs::exists(module) && BinaryStrip::IsElfFile(module));
+        CHECK(!fs::exists(project / "Binaries" / "libTinyGame.so"));
+        const std::string cache = FileSystem::ReadTextFile(tiny.BuildDirectory / "CMakeCache.txt");
+        CHECK(cache.find("CMAKE_BUILD_TYPE:STRING=Release") != std::string::npos && cache.find("-O2 -DNDEBUG") != std::string::npos);
+        if (BinaryStrip::IsAvailable() && fs::exists(module))
+        {
+            const StripResult stripped = BinaryStrip::Strip(module);
+            CHECK(stripped.Ok && stripped.SizeAfter > 0 && stripped.SizeAfter <= stripped.SizeBefore);
+            // Its exported function is still there (the dynamic symbols stay).
+            if (std::system("command -v nm >/dev/null 2>&1") == 0)
+                CHECK(RunShellCommand("nm -D --defined-only " + ShellQuote(module.string()) + " | grep -q ZaminTinyValue") == 0);
+        }
+    }
+    // The engine's own Debug binaries get much smaller.
+    if (BinaryStrip::IsAvailable())
+    {
+        const fs::path sample = fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Platformer2D" / "Binaries" / "libPlatformer2D.so";
+        std::error_code e;
+        if (fs::exists(sample) && fs::copy_file(sample, dir / "libPlatformer2D.so", e))
+        {
+            const StripResult result = BinaryStrip::Strip(dir / "libPlatformer2D.so");
+            CHECK(result.Ok && result.SizeAfter < result.SizeBefore && result.Saved() == result.SizeBefore - result.SizeAfter);
+            CHECK(BinaryStrip::IsElfFile(dir / "libPlatformer2D.so"));
+        }
+    }
+
+    // The project's "Export" section keeps the two options.
+    ProjectConfig config;
+    config.Export.ReleaseScriptModule = false;
+    config.Export.StripBinaries = false;
+    ProjectConfig read;
+    CHECK(ProjectSerializer::ConfigFromString(ProjectSerializer::ConfigToString(config), read));
+    CHECK(!read.Export.ReleaseScriptModule && !read.Export.StripBinaries && !read.Export.IsDefault());
+    ExportSettings defaults;
+    CHECK(ExportSettings::FromJson("{}", defaults) && defaults.ReleaseScriptModule && defaults.StripBinaries);
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
+// A desktop entry's Exec value as a launcher reads it (the specification): the string escapes, then the
+// arguments (quoted ones with their own escapes), %k the entry file's path, %% a %.
+static std::vector<std::string> ParseDesktopExec(const std::string& entry, const std::string& entryPath)
+{
+    std::string value;
+    const size_t at = entry.find("\nExec=");
+    if (at == std::string::npos)
+        return {};
+    const size_t end = entry.find('\n', at + 6);
+    const std::string raw = entry.substr(at + 6, end - at - 6);
+    for (size_t i = 0; i < raw.size(); i++)
+    {
+        if (raw[i] == '\\' && i + 1 < raw.size())
+        {
+            const char c = raw[++i];
+            value += c == 's' ? ' ' : c == 'n' ? '\n' : c == 't' ? '\t' : c == 'r' ? '\r' : c;
+        }
+        else
+            value += raw[i];
+    }
+    std::vector<std::string> args;
+    std::string arg;
+    bool quoted = false, any = false;
+    for (size_t i = 0; i < value.size(); i++)
+    {
+        const char c = value[i];
+        if (quoted)
+        {
+            if (c == '\\' && i + 1 < value.size())
+                arg += value[++i];
+            else if (c == '"')
+                quoted = false;
+            else
+                arg += c;
+        }
+        else if (c == '"')
+            quoted = any = true;
+        else if (c == ' ')
+        {
+            if (any || !arg.empty())
+                args.push_back(arg);
+            arg.clear();
+            any = false;
+        }
+        else
+            arg += c;
+    }
+    if (any || !arg.empty())
+        args.push_back(arg);
+    for (std::string& a : args)
+    {
+        if (a == "%k")
+            a = entryPath;
+        else
+            for (size_t p = a.find("%%"); p != std::string::npos; p = a.find("%%", p + 1))
+                a.erase(p, 1);
+    }
+    return args;
+}
+
+TEST(ExportDesktopEntryRelocatableAndIcons)
+{
+    namespace fs = std::filesystem;
+    const fs::path dir = fs::temp_directory_path() / ("zamin-desktop-" + std::to_string((uint64_t)UUID()));
+    fs::create_directories(dir);
+    PlayerSettings player;
+    player.CompanyName = "Zamin Studio";
+    player.Version = "2.0.0";
+
+    // The entry next to the launcher: no absolute launcher, no Path; the launcher next to the entry file.
+    const std::string entry = ExportFiles::MakeRelocatableDesktopEntry("Kosmos", player, "Kosmos O'yin.sh", "/games/Kosmos/Kosmos.png");
+    CHECK(entry.starts_with("[Desktop Entry]\nType=Application\n") && entry.find("\nName=Kosmos\n") != std::string::npos);
+    CHECK(entry.find("\nPath=") == std::string::npos && entry.find("%k") != std::string::npos);
+    CHECK(entry.find("\nIcon=/games/Kosmos/Kosmos.png\n") != std::string::npos && entry.find("Categories=Game;") != std::string::npos);
+    CHECK(ExportFiles::MakeRelocatableDesktopEntry("Kosmos", player, "K.sh", "").find("Icon=") == std::string::npos);
+    const std::vector<std::string> args = ParseDesktopExec(entry, "/x/Kosmos.desktop");
+    CHECK(args.size() == 5 && args[0] == "sh" && args[1] == "-c" && args[3] == "sh" && args[4] == "/x/Kosmos.desktop");
+    // A % in a launcher's name is doubled (a field code otherwise).
+    CHECK(ExportFiles::MakeRelocatableExec("100%.sh").find("100%%.sh") != std::string::npos);
+
+    // It works from wherever the folder is: run its Exec as a desktop would (the launcher writes where it ran).
+    if (std::system("command -v sh >/dev/null 2>&1") == 0)
+    {
+        auto runFrom = [&](const fs::path& game) {
+            fs::remove(game / "ran.txt");
+            const std::string desktop = FileSystem::ReadTextFile(game / "Kosmos.desktop");
+            std::string command;
+            for (const std::string& a : ParseDesktopExec(desktop, (game / "Kosmos.desktop").string()))
+                command += ShellQuote(a) + " ";
+            return std::system((command + ">/dev/null 2>&1").c_str()) == 0 && FileSystem::ReadTextFile(game / "ran.txt") == game.string() + "\n";
+        };
+        const fs::path game = dir / "Mening \"o'yinim\" $HOME";
+        fs::create_directories(game);
+        FileSystem::WriteTextFile(game / "Kosmos O'yin.sh", "#!/bin/sh\npwd > ran.txt\n");
+        fs::permissions(game / "Kosmos O'yin.sh", fs::perms::owner_all, fs::perm_options::add);
+        FileSystem::WriteTextFile(game / "Kosmos.desktop", entry);
+        CHECK(runFrom(game));
+        const fs::path moved = dir / "boshqa joy";
+        std::error_code e;
+        fs::rename(game, moved, e);
+        CHECK(!e && runFrom(moved)); // the same file, moved: still the launcher next to it
+    }
+
+    // The icon set: every size up to the picture's, in the icon theme's layout.
+    ImageData image;
+    image.Width = image.Height = 100;
+    image.Channels = 4;
+    image.Pixels.assign(100 * 100 * 4, 200);
+    std::string error;
+    const std::vector<uint32_t> sizes = ExportFiles::WriteIconSet(image, dir / "out", "zamin-Kosmos", &error);
+    CHECK(sizes == std::vector<uint32_t>({ 16, 32, 48, 64 }));
+    for (uint32_t size : sizes)
+    {
+        ImageData read;
+        const fs::path file = ExportFiles::GetIconSetPath(dir / "out", "zamin-Kosmos", size);
+        CHECK(file == dir / "out" / "icons" / "hicolor" / std::format("{}x{}", size, size) / "apps" / "zamin-Kosmos.png");
+        CHECK(GameIcon::Load(file, read) && read.Width == size && read.Height == size);
+    }
+    CHECK(ExportFiles::WriteIconSet(ImageData(), dir / "out", "x", &error).empty() && !error.empty());
+
+    // The install script: the menu entry with absolute paths and the icon by its theme name (the icons
+    // installed), the relocatable entry next to the launcher; --uninstall takes both the entry and the icons.
+    if (std::system("command -v sh >/dev/null 2>&1 && command -v sed >/dev/null 2>&1") == 0)
+    {
+        const fs::path game = dir / "My Game";
+        const fs::path data = dir / "data";
+        fs::create_directories(game);
+        FileSystem::WriteTextFile(game / "Kosmos.sh", "#!/bin/sh\n");
+        CHECK(Image::WritePNG((game / "Kosmos.png").string(), 100, 100, 4, image.Pixels.data()));
+        CHECK(ExportFiles::WriteIconSet(image, game, "zamin-Kosmos").size() == 4);
+        const std::string script = ExportFiles::MakeDesktopInstallScript("Kosmos", player, "Kosmos.sh", "Kosmos.png", "zamin-Kosmos");
+        FileSystem::WriteTextFile(game / ExportFiles::DesktopInstallScriptName, script);
+        const std::string run = "XDG_DATA_HOME=" + ShellQuote(data.string()) + " sh " + ShellQuote((game / ExportFiles::DesktopInstallScriptName).string()) + " ";
+        CHECK(std::system((run + ">/dev/null 2>&1").c_str()) == 0);
+        const fs::path installed = data / "applications" / "zamin-Kosmos.desktop";
+        CHECK(FileSystem::ReadTextFile(installed) == ExportFiles::MakeDesktopEntry("Kosmos", player, game / "Kosmos.sh", "zamin-Kosmos", game));
+        for (uint32_t size : { 16u, 32u, 48u, 64u })
+            CHECK(fs::exists(ExportFiles::GetIconSetPath(data, "zamin-Kosmos", size)));
+        CHECK(!fs::exists(ExportFiles::GetIconSetPath(data, "zamin-Kosmos", 128)));
+        CHECK(FileSystem::ReadTextFile(game / "Kosmos.desktop") == ExportFiles::MakeRelocatableDesktopEntry("Kosmos", player, "Kosmos.sh", game / "Kosmos.png"));
+        CHECK(std::system((run + "--uninstall >/dev/null 2>&1").c_str()) == 0);
+        CHECK(!fs::exists(installed) && !fs::exists(ExportFiles::GetIconSetPath(data, "zamin-Kosmos", 16)));
+        // Without an icon set: the menu entry takes the PNG next to the launcher.
+        std::error_code e;
+        fs::remove_all(game / "icons", e);
+        CHECK(std::system((run + ">/dev/null 2>&1").c_str()) == 0);
+        CHECK(FileSystem::ReadTextFile(installed) == ExportFiles::MakeDesktopEntry("Kosmos", player, game / "Kosmos.sh", game / "Kosmos.png", game));
+    }
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
+TEST(ExportReportSizesAndFiles)
+{
+    namespace fs = std::filesystem;
+    const fs::path dir = fs::temp_directory_path() / ("zamin-report-" + std::to_string((uint64_t)UUID()));
+    auto write = [&](const std::string& relative, size_t size, bool elf = false) {
+        std::string bytes(size, 'x');
+        if (elf && size >= 4)
+            bytes.replace(0, 4, "\x7f" "ELF");
+        FileSystem::WriteTextFile(dir / relative, bytes);
+    };
+    write("ZaminPlayer", 5000, true);
+    write("libZamin.so", 9000, true);
+    write("Game/Binaries/libKosmos.so", 3000, true);
+    write("Game/Assets/Textures/hero.png", 4000);
+    write("Game/Assets/Textures/hero.png.zmeta", 100);
+    write("Game/Assets/Models/ship.gltf", 600);
+    write("Game/Assets/Models/ship.bin", 7000);
+    write("Game/Assets/Audio/theme.ogg", 6000);
+    write("Game/Assets/Scenes/Level.zscene", 800);
+    write("Game/Assets/Scenes/Level.zsceneb", 300);
+    write("Game/Assets/Materials/Hull.zmat", 200);
+    write("Resources/fonts/Inter.ttf", 2500);
+    write("Game/Kosmos.zproject", 400);
+    write("Kosmos.sh", 80);
+    write("Kosmos.desktop", 300);
+    write("Kosmos.png", 1200);
+    write("icons/hicolor/16x16/apps/zamin-Kosmos.png", 90);
+    write("export-report.json", 99999);   // the report's own files do not count
+    write(ExportAssets::ReportFileName, 99999);
+
+    CHECK(ExportReport::Categorize("libZamin.so") == ExportCategory::Binaries && ExportReport::Categorize("libfoo.so.1") == ExportCategory::Binaries);
+    CHECK(ExportReport::Categorize("ZaminPlayer", true) == ExportCategory::Binaries && ExportReport::Categorize("ZaminPlayer") == ExportCategory::Other);
+    CHECK(ExportReport::Categorize("Game/Assets/a.jpg") == ExportCategory::Textures && ExportReport::Categorize("Game/Assets/a.hdr") == ExportCategory::Textures);
+    CHECK(ExportReport::Categorize("Game/Assets/m.glb") == ExportCategory::Models && ExportReport::Categorize("Game/Assets/m.bin") == ExportCategory::Models);
+    CHECK(ExportReport::Categorize("a/b.wav") == ExportCategory::Audio && ExportReport::Categorize("a/b.zprefab") == ExportCategory::Scenes);
+    CHECK(ExportReport::Categorize("a/b.zsanim") == ExportCategory::Data && ExportReport::Categorize("a/x.json") == ExportCategory::Data);
+    CHECK(ExportReport::Categorize("Kosmos.png") == ExportCategory::Other && ExportReport::Categorize("notes.md") == ExportCategory::Other);
+    CHECK(std::string(ExportReport::GetCategoryName(ExportCategory::Textures)) == "Teksturalar" &&
+          std::string(ExportReport::GetCategoryKey(ExportCategory::Binaries)) == "Binaries");
+
+    ExportReport report;
+    report.Game = "Kosmos";
+    report.Version = "1.4.0";
+    report.Company = "Zamin Studio";
+    report.OutputDirectory = dir.string();
+    report.Date = "2026-11-07 12:00:00";
+    report.Seconds = 12.5;
+    report.ScriptModule = "Release (-O2 -DNDEBUG), 6.0 s da kompilyatsiya qilindi";
+    report.StrippedBytes = 123456;
+    report.Warnings = { "strip: x - y" };
+    report.ScanDirectory(dir, 5);
+    auto total = [&](ExportCategory c) { return report.Categories[(size_t)c]; };
+    CHECK(report.FileCount == 17);
+    CHECK(report.TotalBytes == 5000 + 9000 + 3000 + 4000 + 100 + 600 + 7000 + 6000 + 800 + 300 + 200 + 2500 + 400 + 80 + 300 + 1200 + 90);
+    CHECK(total(ExportCategory::Binaries).Bytes == 17000 && total(ExportCategory::Binaries).Files == 3);
+    CHECK(total(ExportCategory::Textures).Bytes == 4000 && total(ExportCategory::Models).Bytes == 7600 && total(ExportCategory::Audio).Bytes == 6000);
+    CHECK(total(ExportCategory::Scenes).Bytes == 1100 && total(ExportCategory::Fonts).Bytes == 2500);
+    CHECK(total(ExportCategory::Data).Bytes == 700 && total(ExportCategory::Data).Files == 3); // .zmeta, .zmat, .zproject
+    CHECK(total(ExportCategory::Other).Bytes == 80 + 300 + 1200 + 90 && total(ExportCategory::Other).Files == 4);
+    // The largest first, at most 5.
+    CHECK(report.Largest.size() == 5 && report.Largest[0].Path == "libZamin.so" && report.Largest[1].Path == "Game/Assets/Models/ship.bin");
+    CHECK(report.Largest[2].Path == "Game/Assets/Audio/theme.ogg" && report.Largest[3].Path == "ZaminPlayer" && report.Largest[3].Category == ExportCategory::Binaries);
+
+    ExportAssetPlan plan;
+    plan.Excluded.push_back({ "Textures/unused.png", AssetType::Texture, 4096, "hech qayerda ishlatilmaydi" });
+    plan.ExcludedBytes = 4096;
+    report.SetExcluded(plan);
+    CHECK(report.Excluded.size() == 1 && report.ExcludedBytes == 4096);
+
+    // JSON both ways, the text, the files.
+    ExportReport back;
+    CHECK(ExportReport::FromJson(report.ToJson(), back) && back == report);
+    CHECK(!ExportReport::FromJson("[]", back) && !ExportReport::FromJson("nope", back));
+    const std::string text = report.ToText();
+    CHECK(text.starts_with("Kosmos 1.4.0 - eksport hisoboti\n") && text.find("Jami: 17 ta fayl") != std::string::npos);
+    CHECK(text.find("Binarlar") != std::string::npos && text.find("Eng katta fayllar:") != std::string::npos);
+    CHECK(text.find("Textures/unused.png") != std::string::npos && text.find("strip: x - y") != std::string::npos);
+    CHECK(report.Write(dir));
+    ExportReport read;
+    CHECK(ExportReport::Read(dir, read) && read == report);
+    CHECK(FileSystem::ReadTextFile(dir / ExportReport::TextFileName) == text);
+    CHECK(!ExportReport::Read(dir / "none", read));
+    // Scanned again: the report's files are still not counted.
+    ExportReport again;
+    again.ScanDirectory(dir, 5);
+    CHECK(again.FileCount == report.FileCount && again.TotalBytes == report.TotalBytes);
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
+TEST(PauseInBackgroundAudioOutput)
+{
+    // The output stands still: a playing sound keeps its place until it goes on.
+    const bool wasAvailable = AudioEngine::IsAvailable();
+    AudioEngine::Init(true);
+    CHECK(AudioEngine::IsAvailable());
+    if (!AudioEngine::IsAvailable())
+        return;
+    const auto dir = std::filesystem::temp_directory_path() / ("zamin-pause-" + std::to_string((uint64_t)UUID()));
+    std::filesystem::create_directories(dir);
+    const std::string wav = (dir / "tone.wav").string();
+    WriteTestWav(wav, 1.0f);
+    const uint32_t sound = AudioEngine::Play(wav, 1.0f, 1.0f, true);
+    CHECK(sound != 0);
+    AudioEngine::RenderOffline(0.1f);
+    const float before = AudioEngine::GetCursor(sound);
+    CHECK(before > 0.05f && !AudioEngine::IsOutputPaused());
+    CHECK(AudioEngine::SetOutputPaused(true) && AudioEngine::IsOutputPaused());
+    CHECK(AudioEngine::SetOutputPaused(true)); // already
+    AudioEngine::RenderOffline(0.2f);
+    CHECK(AudioEngine::GetCursor(sound) == before && AudioEngine::IsPlaying(sound));
+    CHECK(AudioEngine::SetOutputPaused(false) && !AudioEngine::IsOutputPaused());
+    AudioEngine::RenderOffline(0.1f);
+    CHECK(AudioEngine::GetCursor(sound) > before);
+    AudioEngine::Stop(sound);
+    // A layer draws nothing while paused unless it has a paused picture (the player's).
+    Layer layer;
+    CHECK(!layer.OnRenderPaused());
+    if (!wasAvailable)
+    {
+        AudioEngine::Shutdown();
+        CHECK(!AudioEngine::IsOutputPaused() && !AudioEngine::SetOutputPaused(true));
+    }
+    std::error_code ec;
+    std::filesystem::remove_all(dir, ec);
+}
+
+TEST(DisplayGammaAndBrightness)
+{
+    // The picture's adjustment: identity, the gamma's curve, the brightness's multiplier, the ranges.
+    DisplayAdjustment a;
+    CHECK(a.IsIdentity() && a.Apply(glm::vec3(0.25f, 0.5f, 1.0f)) == glm::vec3(0.25f, 0.5f, 1.0f));
+    a.Gamma = 2.0f;
+    CHECK(!a.IsIdentity());
+    CHECK_NEAR(a.Apply(glm::vec3(0.25f)).x, 0.5f, 1e-5f);                       // 0.25^(1/2)
+    CHECK(a.Apply(glm::vec3(0.0f)).x == 0.0f && a.Apply(glm::vec3(1.0f)).x == 1.0f); // black and white stay
+    a.Gamma = 0.5f;
+    CHECK_NEAR(a.Apply(glm::vec3(0.5f)).x, 0.25f, 1e-5f);
+    a = DisplayAdjustment();
+    a.Brightness = 1.5f;
+    CHECK_NEAR(a.Apply(glm::vec3(0.4f)).x, 0.6f, 1e-5f);
+    CHECK(a.Apply(glm::vec3(0.9f)).x == 1.0f); // clipped
+    a.Gamma = 9.0f;
+    a.Brightness = std::numeric_limits<float>::quiet_NaN();
+    a.Sanitize();
+    CHECK(a.Gamma == DisplayAdjustment::MaxGamma && a.Brightness == 1.0f);
+
+    // Display keeps them in range; saved with the other display options and read back without a window.
+    const auto dir = std::filesystem::temp_directory_path() / ("zamin-gamma-" + std::to_string((uint64_t)UUID()));
+    SaveData::SetFilePath(dir / "save.json");
+    Display::ClearSavedSettings();
+    CHECK(!Display::GetSavedSettings().Gamma && !Display::GetSavedSettings().Brightness);
+    Display::SetGamma(0.1f);
+    CHECK(Display::GetGamma() == DisplayAdjustment::MinGamma);
+    Display::SetGamma(1.3f);
+    Display::SetBrightness(1.2f);
+    CHECK_NEAR(Display::GetAdjustment().Gamma, 1.3f, 1e-6f);
+    CHECK_NEAR(Display::GetAdjustment().Brightness, 1.2f, 1e-6f);
+    CHECK(Display::SaveSettings());
+    Display::SetAdjustment(DisplayAdjustment());
+    CHECK(Display::GetAdjustment().IsIdentity());
+    SavedDisplaySettings saved = Display::GetSavedSettings();
+    CHECK(saved.Gamma && saved.Brightness && !saved.IsEmpty());
+    CHECK_NEAR(*saved.Gamma, 1.3f, 1e-5f);
+    CHECK(Display::LoadSettings());
+    CHECK_NEAR(Display::GetGamma(), 1.3f, 1e-5f);
+    CHECK_NEAR(Display::GetBrightness(), 1.2f, 1e-5f);
+    // A hand-edited file cannot make the picture black.
+    SaveData::SetFloat(std::string(Display::SettingsKey) + ".Gamma", 0.0f);
+    CHECK(Display::GetSavedSettings().Gamma.value_or(0.0f) == DisplayAdjustment::MinGamma);
+    Display::ClearSavedSettings();
+    saved = Display::GetSavedSettings();
+    CHECK(!saved.Gamma && !saved.Brightness);
+    Display::SetAdjustment(DisplayAdjustment());
+    Display::SetVSync(true);
+    Display::SetFullscreen(false);
+
+    // The command line: --gamma / --brightness in their ranges (a comma works too).
+    PlayerCommandLine c = PlayerCommandLine::Parse(std::vector<std::string>{ "--gamma", "1.4", "--brightness=0,8" });
+    CHECK(c.Errors.empty() && c.Gamma && c.Brightness);
+    CHECK_NEAR(*c.Gamma, 1.4f, 1e-6f);
+    CHECK_NEAR(*c.Brightness, 0.8f, 1e-6f);
+    c = PlayerCommandLine::Parse(std::vector<std::string>{ "--gamma", "5", "--brightness", "abc", "--gamma" });
+    CHECK(!c.Gamma && !c.Brightness && c.Errors.size() == 3);
+    CHECK(PlayerCommandLine::GetHelpText().find("--gamma G") != std::string::npos && PlayerCommandLine::GetHelpText().find("--brightness B") != std::string::npos);
+    SaveData::SetFilePath({});
+    std::error_code ec;
+    std::filesystem::remove_all(dir, ec);
 }

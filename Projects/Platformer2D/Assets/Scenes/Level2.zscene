@@ -3464,6 +3464,22 @@
           "LanguageButton": {
             "Type": "Entity",
             "Value": 7722000000000040
+          },
+          "GammaSlider": {
+            "Type": "Entity",
+            "Value": 7722000000000043
+          },
+          "GammaValue": {
+            "Type": "Entity",
+            "Value": 7722000000000044
+          },
+          "BrightnessSlider": {
+            "Type": "Entity",
+            "Value": 7722000000000047
+          },
+          "BrightnessValue": {
+            "Type": "Entity",
+            "Value": 7722000000000048
           }
         }
       }
@@ -5940,6 +5956,520 @@
           0.28,
           1.0
         ]
+      }
+    },
+    {
+      "Entity": 7722000000000041,
+      "Tag": "Gamma",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000013,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          400,
+          60
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      }
+    },
+    {
+      "Entity": 7722000000000042,
+      "Tag": "Gamma Label",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000041,
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          230,
+          0
+        ],
+        "FontSize": 26,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Gamma",
+        "LocalizationKey": "settings.gamma",
+        "Color": [
+          0.94,
+          0.96,
+          1.0,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7722000000000043,
+      "Tag": "Gamma Slider",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000041,
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          70,
+          0
+        ],
+        "Size": [
+          -340,
+          -28
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UISlider": {
+        "Min": 0.5,
+        "Max": 2.0,
+        "Value": 1.0,
+        "WholeNumbers": false,
+        "Direction": "LeftToRight",
+        "Interactable": true,
+        "TrackThickness": 10.0,
+        "HandleSize": 30.0,
+        "Rounded": true,
+        "TrackColor": [
+          0.1,
+          0.12,
+          0.18,
+          1
+        ],
+        "FillColor": [
+          1.0,
+          0.8,
+          0.35,
+          1
+        ],
+        "HandleColor": [
+          1.0,
+          0.97,
+          0.9,
+          1
+        ]
+      },
+      "UINavigation": {
+        "Mode": "Automatic",
+        "Up": 0,
+        "Down": 0,
+        "Left": 0,
+        "Right": 0,
+        "SelectOnEnable": false,
+        "ShowHighlight": true,
+        "HighlightColor": [
+          1.0,
+          0.8,
+          0.28,
+          1.0
+        ]
+      }
+    },
+    {
+      "Entity": 7722000000000044,
+      "Tag": "Gamma Value",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000041,
+      "UITransform": {
+        "AnchorMin": [
+          1,
+          0
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          1,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          90,
+          0
+        ],
+        "FontSize": 26,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "1.00",
+        "Color": [
+          0.78,
+          0.82,
+          0.9,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Right",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7722000000000045,
+      "Tag": "Yorqinlik",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000013,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          400,
+          60
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      }
+    },
+    {
+      "Entity": 7722000000000046,
+      "Tag": "Yorqinlik Label",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000045,
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          230,
+          0
+        ],
+        "FontSize": 26,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Yorqinlik",
+        "LocalizationKey": "settings.brightness",
+        "Color": [
+          0.94,
+          0.96,
+          1.0,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7722000000000047,
+      "Tag": "Yorqinlik Slider",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000045,
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          70,
+          0
+        ],
+        "Size": [
+          -340,
+          -28
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UISlider": {
+        "Min": 0.5,
+        "Max": 1.5,
+        "Value": 1.0,
+        "WholeNumbers": false,
+        "Direction": "LeftToRight",
+        "Interactable": true,
+        "TrackThickness": 10.0,
+        "HandleSize": 30.0,
+        "Rounded": true,
+        "TrackColor": [
+          0.1,
+          0.12,
+          0.18,
+          1
+        ],
+        "FillColor": [
+          1.0,
+          0.8,
+          0.35,
+          1
+        ],
+        "HandleColor": [
+          1.0,
+          0.97,
+          0.9,
+          1
+        ]
+      },
+      "UINavigation": {
+        "Mode": "Automatic",
+        "Up": 0,
+        "Down": 0,
+        "Left": 0,
+        "Right": 0,
+        "SelectOnEnable": false,
+        "ShowHighlight": true,
+        "HighlightColor": [
+          1.0,
+          0.8,
+          0.28,
+          1.0
+        ]
+      }
+    },
+    {
+      "Entity": 7722000000000048,
+      "Tag": "Yorqinlik Value",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000045,
+      "UITransform": {
+        "AnchorMin": [
+          1,
+          0
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          1,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          90,
+          0
+        ],
+        "FontSize": 26,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "100%",
+        "Color": [
+          0.78,
+          0.82,
+          0.9,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Right",
+        "AlignV": "Middle",
+        "Font": ""
       }
     },
     {

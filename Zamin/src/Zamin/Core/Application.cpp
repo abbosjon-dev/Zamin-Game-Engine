@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <cstring>
 #include <format>
 #include <string>
 
@@ -48,6 +49,14 @@ namespace Zamin {
         {
             m_ImGuiLayer = new ImGuiLayer();
             PushOverlay(m_ImGuiLayer);
+        }
+        // ZAMIN_FOCUS_LOSS_TEST=<frame>[:<frames>]: from that frame on the window counts as not focused (for
+        // that many paused frames, else until the end): the pause in the background under automation.
+        if (const char* test = std::getenv("ZAMIN_FOCUS_LOSS_TEST"))
+        {
+            m_FocusLossTestFrame = std::max<int64_t>(0, std::strtoll(test, nullptr, 10));
+            if (const char* colon = std::strchr(test, ':'))
+                m_FocusLossTestFrames = std::max(0, std::atoi(colon + 1));
         }
     }
 
@@ -98,19 +107,60 @@ namespace Zamin {
         if (paused == m_PausedInBackground)
             return;
         m_PausedInBackground = paused;
-        // The sound stands still with the game (unless the game muted it itself).
+        // The sound stands still with the game: the output pauses (every sound and the music keep their
+        // place); where it cannot, the Master group is muted (unless the game muted it itself).
         if (paused)
         {
-            m_MutedForBackground = AudioEngine::HasGroup(AudioSettings::Master) && !AudioEngine::IsGroupMuted(AudioSettings::Master);
+            m_AudioPausedForBackground = !AudioEngine::IsOutputPaused() && AudioEngine::SetOutputPaused(true);
+            m_MutedForBackground = !m_AudioPausedForBackground && AudioEngine::HasGroup(AudioSettings::Master) &&
+                                   !AudioEngine::IsGroupMuted(AudioSettings::Master);
             if (m_MutedForBackground)
                 AudioEngine::SetGroupMuted(AudioSettings::Master, true);
+            m_PausedRedraw = true; // the paused picture at once
         }
-        else if (m_MutedForBackground)
+        else
         {
-            AudioEngine::SetGroupMuted(AudioSettings::Master, false);
-            m_MutedForBackground = false;
+            if (m_AudioPausedForBackground)
+                AudioEngine::SetOutputPaused(false);
+            if (m_MutedForBackground)
+                AudioEngine::SetGroupMuted(AudioSettings::Master, false);
+            m_AudioPausedForBackground = m_MutedForBackground = false;
         }
-        ZM_CORE_INFO("O'yin {}", paused ? "to'xtatildi: oyna fokusda emas (fonda ishlash o'chirilgan)" : "davom etmoqda: oyna fokusda");
+        ZM_CORE_INFO("O'yin {}", paused ? "to'xtatildi (pauza): oyna fokusda emas (fonda ishlash o'chirilgan)" : "davom etmoqda: oyna yana fokusda");
+    }
+
+    bool Application::IsFocusLossTestActive() const
+    {
+        return m_FocusLossTestFrame >= 0 && (int64_t)m_FrameCount >= m_FocusLossTestFrame &&
+               (m_FocusLossTestFrames < 0 || m_FocusLossTestDone < m_FocusLossTestFrames);
+    }
+
+    void Application::RunPausedFrame()
+    {
+        Cursor::Update(); // the system's cursor while the window is behind others
+        // The paused picture: when the pause began (or the window was resized), then now and then (the
+        // window can be uncovered behind others).
+        const bool test = IsFocusLossTestActive();
+        const double now = glfwGetTime();
+        if (m_PausedRedraw || test || now - m_LastPausedRedraw > 0.5)
+        {
+            m_PausedRedraw = false;
+            m_LastPausedRedraw = now;
+            bool drew = false;
+            for (Layer* layer : m_LayerStack)
+                drew |= layer->OnRenderPaused();
+            if (test)
+            {
+                // The simulated pause counts its frames (ZAMIN_MAX_FRAMES, ZAMIN_SCREENSHOT see them).
+                m_FocusLossTestDone++;
+                m_FrameCount++;
+                HandleAutomation();
+            }
+            if (drew)
+                m_Window->SwapBuffers();
+        }
+        m_Window->WaitEvents(test ? 0.01 : 0.1);
+        m_LastFrameTime = (float)glfwGetTime(); // no long step when it comes back
     }
 
     void Application::PaceFrame()
@@ -206,12 +256,11 @@ namespace Zamin {
                 continue;
             }
             // A game that does not run in the background stands still while its window is behind others.
-            SetPausedInBackground(!m_RunInBackground && !m_WindowFocused && !IsAutomationRun());
+            const bool focusLossTest = IsFocusLossTestActive();
+            SetPausedInBackground(!m_RunInBackground && ((!m_WindowFocused && !IsAutomationRun()) || focusLossTest));
             if (m_PausedInBackground)
             {
-                Cursor::Update(); // the system's cursor while the window is behind others
-                m_Window->WaitEvents(0.1);
-                m_LastFrameTime = (float)glfwGetTime(); // no long step when it comes back
+                RunPausedFrame();
                 continue;
             }
             float time = (float)frameStart;
@@ -333,6 +382,7 @@ namespace Zamin {
         if (m_ZeroSize)
             return false;
         Renderer::OnWindowResize(m_Window->GetFramebufferWidth(), m_Window->GetFramebufferHeight());
+        m_PausedRedraw = true; // (paused in the background: the picture again at the new size)
         return false;
     }
 

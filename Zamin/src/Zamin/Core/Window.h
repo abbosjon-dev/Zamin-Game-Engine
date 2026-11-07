@@ -91,6 +91,8 @@ namespace Zamin {
         virtual ~Window() = default;
 
         virtual void OnUpdate() = 0;
+        // Shows what was drawn (no events polled: WaitEvents does that).
+        virtual void SwapBuffers() = 0;
 
         virtual uint32_t GetWidth() const = 0;
         virtual uint32_t GetHeight() const = 0;

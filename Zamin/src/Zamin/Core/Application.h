@@ -81,8 +81,11 @@ namespace Zamin {
         // How the frames are paced now (vsync blanks per frame, the sleep limiter's rate).
         const FramePacingPlan& GetFramePacingPlan() const { return m_PacingPlan; }
         // false: while the window is not in front the layers are not updated (the game's time stands
-        // still, the mixer's Master group is muted) and the loop only waits for events. Automation runs
-        // always run.
+        // still, the audio output is paused - every sound keeps its place) and the loop only waits for
+        // events; the layers draw the paused picture (Layer::OnRenderPaused: the player dims the last
+        // frame and writes "Pauza") when it starts and now and then after it. The focus back: the game
+        // goes on where it was. Automation runs always run (ZAMIN_FOCUS_LOSS_TEST=<frame>[:<frames>] plays a
+        // focus loss from that frame on, for that many paused frames: screenshots, CI).
         void SetRunInBackground(bool run) { m_RunInBackground = run; }
         bool GetRunInBackground() const { return m_RunInBackground; }
         // The game is standing still now because its window lost the focus.
@@ -110,6 +113,10 @@ namespace Zamin {
         void HandleAutomation();
         // RunInBackground: pauses / resumes the game when its window loses / gets the focus.
         void SetPausedInBackground(bool paused);
+        // One frame of the pause: the paused picture (when due) and the wait for events.
+        void RunPausedFrame();
+        // ZAMIN_FOCUS_LOSS_TEST holds a simulated focus loss now.
+        bool IsFocusLossTestActive() const;
         // The end of a frame: the target frame rate's wait (and vsync's interval for it).
         void PaceFrame();
 
@@ -137,6 +144,12 @@ namespace Zamin {
         bool m_RunInBackground = true;
         bool m_PausedInBackground = false;
         bool m_MutedForBackground = false; // the Master group was muted by the pause (not by the game)
+        bool m_AudioPausedForBackground = false; // the audio output was paused by the pause
+        bool m_PausedRedraw = false;       // the paused picture is drawn again (the pause began, a resize)
+        double m_LastPausedRedraw = 0.0;
+        // ZAMIN_FOCUS_LOSS_TEST: the frame the simulated focus loss begins (-1 none), its paused frames.
+        int64_t m_FocusLossTestFrame = -1;
+        int m_FocusLossTestFrames = -1, m_FocusLossTestDone = 0;
 
         std::vector<std::function<void()>> m_MainThreadQueue;
         std::mutex m_MainThreadQueueMutex;

@@ -269,6 +269,8 @@ namespace Zamin {
         m_Context->SwapBuffers();
     }
 
+    void GlfwWindow::SwapBuffers() { m_Context->SwapBuffers(); }
+
     bool GlfwWindow::IsFocused() const
     {
         return glfwGetWindowAttrib(m_Window, GLFW_FOCUSED) != 0;

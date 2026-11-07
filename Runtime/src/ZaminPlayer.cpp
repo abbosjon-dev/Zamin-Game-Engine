@@ -2,10 +2,13 @@
 // player settings say (size, fullscreen / borderless, vsync, title, icon, frame rate limit, running in
 // the background); what the player saved in the game's options menu wins over them, and the command
 // line over both (PlayerLaunchSettings::Resolve). A splash screen (the Zamin logo or the game's picture)
-// shows while the first scene loads in the background; F11 / Alt+Enter switch fullscreen.
+// shows while the first scene loads in the background; F11 / Alt+Enter switch fullscreen. The finished
+// frame goes through a last pass with the player's gamma and brightness (the game's options menu,
+// --gamma / --brightness); a game that does not run in the background stands still when its window
+// loses the focus (time, physics, audio) and shows its last frame dimmed with "Pauza" until it is back.
 //   ZaminPlayer [path/to/Game.zproject] [--windowed | --fullscreen | --borderless] [--resolution WxH]
 //               [--monitor N] [--vsync | --no-vsync] [--fps N] [--scene <path | build index | name>]
-//               [--quality <level>] [--lang <code>] [--no-splash] [--gl ...] [--msaa N] [--debug-...]
+//               [--quality <level>] [--lang <code>] [--no-splash] [--gamma G] [--brightness B] [--gl ...] [--msaa N] [--debug-...]
 //               [--log-file <path> | --no-log-file] [--no-crash-handler] [--no-crash-dialog]
 //   ZaminPlayer --help lists every option.
 // The log goes to ~/.local/share/<company>/<product>/logs (player-<date>.log, the last 5 kept, latest.log);
@@ -79,6 +82,25 @@ namespace Zamin {
             // The game's display options change this window (fullscreen, vsync); the window already is as
             // they were saved (or as the command line says).
             Display::BindWindow(&Application::Get().GetWindow());
+            // The picture's gamma and brightness: --gamma / --brightness, else what the player saved in the game's
+            // options menu (Display::SaveSettings), else unchanged.
+            {
+                const SavedDisplaySettings saved = Display::GetSavedSettings();
+                if (saved.Gamma)
+                    Display::SetGamma(*saved.Gamma);
+                if (saved.Brightness)
+                    Display::SetBrightness(*saved.Brightness);
+                if (m_CommandLine.Gamma)
+                    Display::SetGamma(*m_CommandLine.Gamma);
+                if (m_CommandLine.Brightness)
+                    Display::SetBrightness(*m_CommandLine.Brightness);
+                if (!Display::GetAdjustment().IsIdentity())
+                    ZM_INFO("Tasvir: gamma {:.2f} ({}), yorqinlik {:.0f}% ({})", Display::GetGamma(),
+                            m_CommandLine.Gamma ? "buyruq qatori" : saved.Gamma ? "saqlangan" : "standart", Display::GetBrightness() * 100.0f,
+                            m_CommandLine.Brightness ? "buyruq qatori" : saved.Brightness ? "saqlangan" : "standart");
+            }
+            if (!player.RunInBackground)
+                ZM_INFO("Fonda ishlash o'chiq: oyna fokusni yo'qotsa o'yin pauzada (vaqt, fizika, ovoz to'xtaydi)");
             // The game's cursor wishes (Cursor: hidden, locked, its picture) go to this window.
             Cursor::BindWindow(&Application::Get().GetWindow());
             Cursor::SetHostActive(true);
@@ -587,8 +609,32 @@ namespace Zamin {
             m_Scenes->OnUpdate(ts);
             view = m_Scenes->GetRenderScene(); // its frame may have switched its camera off
 
+            // The finished frame goes into the player's own picture first when it is adjusted (gamma,
+            // brightness) or the game may pause in the background (the paused picture is the last frame,
+            // dimmed): then the last pass puts it on the screen (DisplayPass). Otherwise straight to the screen.
+            const DisplayAdjustment adjustment = Display::GetAdjustment();
+            const bool viaDisplay = !adjustment.IsIdentity() || !Application::Get().GetRunInBackground();
             {
                 m_Target->Unbind();
+                if (viaDisplay)
+                {
+                    if (!m_Display)
+                    {
+                        FramebufferSpecification spec;
+                        spec.Width = w;
+                        spec.Height = h;
+                        spec.Attachments = { FramebufferTextureFormat::RGBA8 };
+                        m_Display = Framebuffer::Create(spec);
+                    }
+                    else if (m_Display->GetSpecification().Width != w || m_Display->GetSpecification().Height != h)
+                        m_Display->Resize(w, h);
+                    m_Display->Bind();
+                    if (!area.Letterboxed)
+                    {
+                        RenderCommand::SetClearColor({ 0.0f, 0.0f, 0.0f, 1.0f });
+                        RenderCommand::Clear();
+                    }
+                }
                 if (area.Letterboxed)
                 {
                     // The bars (the whole window cleared; the picture covers its part).
@@ -639,6 +685,14 @@ namespace Zamin {
                 RenderLoadBanner(w, h);
                 m_BannerTime -= ts;
                 RenderSplashCover(w, h, ts);
+                // The last pass: the frame on the screen with the gamma and the brightness.
+                if (viaDisplay)
+                {
+                    m_Display->Unbind();
+                    RenderCommand::SetViewport(0, 0, w, h);
+                    DisplayPass::Present(m_Display->GetColorAttachmentRendererID(0), adjustment);
+                }
+                m_HasDisplayFrame = viaDisplay;
             }
 
             if (m_Scenes->IsQuitRequested())
@@ -668,6 +722,58 @@ namespace Zamin {
                 m_ActiveSerial = m_Scenes->GetActiveSceneSerial();
                 m_PostHistory.Reset(); // the new level adapts at once (not from the last one's brightness)
             }
+        }
+
+        // Paused in the background (Project settings > Player > "Fonda ishlash" off, the window lost the focus):
+        // the last frame dimmed, "Pauza" over it. Nothing of the game runs meanwhile (Application).
+        bool OnRenderPaused() override
+        {
+            auto& window = Application::Get().GetWindow();
+            const uint32_t w = window.GetFramebufferWidth(), h = window.GetFramebufferHeight();
+            if (w == 0 || h == 0)
+                return false;
+            RenderCommand::SetViewport(0, 0, w, h);
+            if (m_Display && m_HasDisplayFrame)
+                DisplayPass::Present(m_Display->GetColorAttachmentRendererID(0), Display::GetAdjustment(), 0.6f);
+            else
+            {
+                RenderCommand::SetClearColor({ 0.03f, 0.035f, 0.045f, 1.0f });
+                RenderCommand::Clear();
+            }
+            const Ref<Font> font = Font::GetDefault();
+            if (!font)
+                return true;
+            // The game's own words when its language files have them ("player.paused", "player.paused_hint").
+            const std::string title = Localization::Has("player.paused") ? Localization::Get("player.paused") : std::string("Pauza");
+            const std::string hint = Localization::Has("player.paused_hint") ? Localization::Get("player.paused_hint")
+                                                                             : std::string("O'yin oynasi fokusda emas - davom etish uchun oynani tanlang");
+            const float scale = std::clamp((float)h / 720.0f, 0.6f, 3.0f);
+            RenderCommand::SetDepthTest(false);
+            Renderer2D::SetDisplayOutput(true);
+            Renderer2D::SetLit(false);
+            Renderer2D::BeginScene(glm::ortho(0.0f, (float)w, 0.0f, (float)h, -1.0f, 1.0f));
+            auto centred = [&](const std::string& text, float size, float y, const glm::vec4& color) {
+                const float width = Renderer2D::MeasureString(text, font).x * size;
+                Renderer2D::TextParams params;
+                params.Color = color;
+                Renderer2D::DrawString(text, font,
+                                       glm::translate(glm::mat4(1.0f), glm::vec3(((float)w - width) * 0.5f, y, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(size)),
+                                       params);
+            };
+            // A darker band behind the words (they stay readable over a bright picture), then the two bars of a
+            // pause sign above the word.
+            const float hintWidth = Renderer2D::MeasureString(hint, font).x * 20.0f * scale;
+            Renderer2D::DrawQuad(glm::vec2((float)w * 0.5f, (float)h * 0.5f + 8.0f * scale),
+                                 glm::vec2(std::min((float)w, std::max(hintWidth, 300.0f * scale) + 120.0f * scale), 250.0f * scale),
+                                 glm::vec4(0.0f, 0.0f, 0.0f, 0.38f));
+            const float barW = 16.0f * scale, barH = 58.0f * scale, cy = (float)h * 0.5f + 70.0f * scale;
+            Renderer2D::DrawQuad(glm::vec2((float)w * 0.5f - 18.0f * scale, cy), glm::vec2(barW, barH), glm::vec4(0.95f, 0.96f, 0.98f, 0.92f));
+            Renderer2D::DrawQuad(glm::vec2((float)w * 0.5f + 18.0f * scale, cy), glm::vec2(barW, barH), glm::vec4(0.95f, 0.96f, 0.98f, 0.92f));
+            centred(title, 64.0f * scale, (float)h * 0.5f - 26.0f * scale, glm::vec4(0.96f, 0.97f, 1.0f, 1.0f));
+            centred(hint, 20.0f * scale, (float)h * 0.5f - 72.0f * scale, glm::vec4(0.70f, 0.74f, 0.80f, 1.0f));
+            Renderer2D::EndScene();
+            Renderer2D::SetDisplayOutput(false);
+            return true;
         }
 
         void OnEvent(Event& e) override
@@ -705,6 +811,9 @@ namespace Zamin {
         std::string m_BannerText;
         float m_BannerTime = 0.0f;
         Ref<Framebuffer> m_Target;
+        // The finished frame before the last pass (gamma, brightness; the paused picture): RGBA8, the window's size.
+        Ref<Framebuffer> m_Display;
+        bool m_HasDisplayFrame = false;
         PostProcessHistory m_PostHistory; // auto exposure: the screen's adapted brightness
         // ZAMIN_PLAYER_INPUT
         std::vector<std::pair<int, std::string>> m_ScriptedInput;

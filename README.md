@@ -87,7 +87,12 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   meshlar / instanced, soyalar, 2D obyektlar, culling kesganlari (ulushi bilan) va eng sekin profiler bo'limlari.
   Burchagi, foni, bo'limlari va maqsad FPS sozlanadi (o'ng tugma yoki menyu), editor sozlamalarida saqlanadi
 - **Maximize on Play**: o'yin rejimida viewport butun oynaga yoyiladi
-- **O'yinni build qilish**: bitta tugma bilan mustaqil papkaga eksport (`./MeningOyinim.sh`)
+- **O'yinni build qilish**: bitta tugma bilan mustaqil papkaga eksport (`./MeningOyinim.sh`): C++ skriptlar alohida
+  build papkasida Release (`-O2`) da qayta kompilyatsiya qilinadi, binarlar `strip` qilinadi (Debug engine bilan
+  ~218 MB -> 37 MB), ishlatilmagan assetlar chiqarib tashlanadi; papka qayerga ko'chirilsa ham ishlaydigan `.desktop`
+  fayli va 16 ... 256 px ikonkalar (`install-desktop-entry.sh` menyuga va ikonka mavzusiga o'rnatadi); tugagach
+  **eksport hisoboti** oynasi (jami hajm, turlar bo'yicha ulush, eng katta fayllar, chiqarib tashlanganlar,
+  ogohlantirishlar; `export-report.json` / `.txt`)
 
 **Dvigatel**
 - ECS arxitektura (EnTT), UUID, JSON sahna formati (`.zscene`)
@@ -799,7 +804,10 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
 - **Player** (`ZaminPlayer`): oyna sozlamalari ustunlik tartibi bilan (buyruq qatori > o'yinchi saqlagani > loyiha), F11 / Alt+Enter
   bilan to'liq ekran (oyna avvalgi joyiga qaytadi, oyna turgan monitorda), FPS cheklovi (`--fps`, VSync bilan kelishilgan: 30 FPS
   60 Hz da VSync intervali 2, boshqalari uyqu + aylanish jadvali), Zamin logotipli splash ekran (birinchi sahna fonda yuklanadi,
-  tugma bilan o'tkaziladi, o'z rasmi / fon rangi), `--windowed` / `--borderless` / `--resolution` / `--monitor` / `--no-splash` / `--help`
+  tugma bilan o'tkaziladi, o'z rasmi / fon rangi), `--windowed` / `--borderless` / `--resolution` / `--monitor` / `--no-splash` / `--help`;
+  fonda ishlash o'chiq bo'lsa oyna fokusni yo'qotganda pauza (vaqt, fizika, audio to'xtaydi; oxirgi kadr xiralashib
+  "Pauza" yozuvi), o'yinchining gamma va yorqinlik sozlamasi (oxirgi o'tish, `Display::SetGamma` / `SetBrightness`,
+  saqlanadi, `--gamma` / `--brightness`; Platformer2D pauza menyusida slayderlar)
 - **Audio** (miniaudio): wav/mp3/flac/ogg
 - **C++ skriptlar**: `ScriptableEntity` + `ZM_REGISTER_SCRIPT`, o'yin moduli `.so` sifatida yuklanadi, hot reload
 - Zamin Player — eksport qilingan o'yinlarni ishga tushiruvchi runtime

@@ -17,6 +17,7 @@ namespace Zamin {
         ~GlfwWindow() override;
 
         void OnUpdate() override;
+        void SwapBuffers() override;
 
         uint32_t GetWidth() const override { return m_Data.Width; }
         uint32_t GetHeight() const override { return m_Data.Height; }

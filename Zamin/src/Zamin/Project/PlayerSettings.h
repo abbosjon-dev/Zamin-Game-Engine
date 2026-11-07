@@ -134,14 +134,33 @@ namespace Zamin {
         std::string MakeDesktopEntry(const std::string& productName, const PlayerSettings& player, const std::filesystem::path& exec,
                                      const std::filesystem::path& icon, const std::filesystem::path& workingDirectory);
 
-        // A desktop entry's paths must be absolute, so the exported <game>.desktop only works where the game
-        // was exported to. This POSIX shell script (install-desktop-entry.sh, next to the launcher) writes the
-        // same entry for the folder it is in when it runs - after the folder was moved, unzipped or installed
-        // elsewhere - next to the launcher and into $XDG_DATA_HOME/applications (~/.local/share/applications)
-        // as <id>.desktop; "--uninstall" removes the installed one. `launcher` and `icon` are file names in
-        // that folder (the icon is left out when the file is not there or `icon` is empty).
+        // The entry next to the exported launcher, made to work wherever the folder is moved to: its Exec
+        // runs the launcher next to the entry file itself (`sh -c "..." sh %k` - %k is the entry's own path;
+        // no Path key, the launcher goes to its folder). Only the icon is absolute (desktop entries take no
+        // relative icon paths): right where the game was exported to, install-desktop-entry.sh writes it
+        // again after a move. `launcher`: the launcher's file name.
+        std::string MakeRelocatableDesktopEntry(const std::string& productName, const PlayerSettings& player, const std::string& launcher,
+                                                const std::filesystem::path& icon);
+        // That entry's Exec value (before the entry's own string escaping).
+        std::string MakeRelocatableExec(const std::string& launcher);
+
+        // This POSIX shell script (install-desktop-entry.sh, next to the launcher) puts the game into the
+        // application menus for the folder it is in when it runs - after the folder was moved, unzipped or
+        // installed elsewhere: $XDG_DATA_HOME/applications/<id>.desktop (~/.local/share/applications) with
+        // that folder's absolute paths, the icon set (icons/hicolor/<size>/apps/<id>.png, WriteIconSet) into
+        // $XDG_DATA_HOME/icons/hicolor (the entry then names the icon by <id>, every size there), and the
+        // relocatable entry next to the launcher again (its icon path for the new place). "--uninstall"
+        // removes the installed entry and icons. `launcher` and `icon` are file names in that folder (the
+        // icon is left out when neither the file nor an icon set is there).
         std::string MakeDesktopInstallScript(const std::string& productName, const PlayerSettings& player, const std::string& launcher,
                                              const std::string& icon, const std::string& id);
+        // The game's icon in the sizes desktops look for: <directory>/icons/hicolor/<s>x<s>/apps/<id>.png for
+        // every size GameIcon::MakeWindowImages makes of `image` (RGBA8, rows top first: up to its size, at
+        // least 16). The sizes written (none when `image` is empty or a file cannot be written: `error`).
+        std::vector<uint32_t> WriteIconSet(const ImageData& image, const std::filesystem::path& directory, std::string_view id,
+                                           std::string* error = nullptr);
+        // <directory>/icons/hicolor/<size>x<size>/apps/<id>.png
+        std::filesystem::path GetIconSetPath(const std::filesystem::path& directory, std::string_view id, uint32_t size);
         // The installed entry's file name (without ".desktop") for a game: "zamin-" and the name with
         // letters, digits, '-', '_' and '.' kept, anything else '-'.
         std::string MakeDesktopEntryId(std::string_view name);

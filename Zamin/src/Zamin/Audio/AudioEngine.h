@@ -198,6 +198,12 @@ namespace Zamin {
         static bool HasDevice();
         // The output's sample rate in Hz (0 without an engine): sounds are decoded at it.
         static uint32_t GetSampleRate();
+        // The whole output stands still (the device stops: every sound and the music keep their place, nothing
+        // is heard) and goes on again - a game paused in the background. Without a device (tests) it is
+        // only kept (RenderOffline mixes nothing meanwhile). False without an audio engine or when the
+        // device does not stop / start.
+        static bool SetOutputPaused(bool paused);
+        static bool IsOutputPaused();
         // Once per frame (the application does it): music fades, the level meters, finished
         // sounds released. `deltaSeconds` is real time.
         static void Update(float deltaSeconds);

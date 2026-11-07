@@ -1,4 +1,5 @@
 #include "Zamin/Renderer/Renderer.h"
+#include "Zamin/Renderer/DisplayPass.h"
 #include "Zamin/Renderer/Quality.h"
 #include "Zamin/Debug/DebugDraw.h"
 #include "Zamin/Renderer/Renderer2D.h"
@@ -40,6 +41,7 @@ namespace Zamin {
         DebugDraw::Shutdown();
         SelectionOutline::Shutdown();
         PostProcessor::Shutdown();
+        DisplayPass::Shutdown();
         ParticleRenderer::Shutdown();
         Renderer3D::Shutdown();
         Renderer2D::Shutdown();

@@ -312,6 +312,11 @@ namespace Zamin {
         void BuildGame(const std::filesystem::path& outputDirectory);
         // The export's report of the assets left out (the log and excluded-assets.txt).
         void ReportExcludedAssets(const ExportAssetPlan& plan, const std::string& gameName, const std::filesystem::path& outputDirectory);
+        // The export report window (EditorExportReport.cpp); the report the export thread handed over.
+        void UI_ExportReportWindow();
+        void TakeFinishedExportReport();
+        // The report of an export folder (export-report.json) into the window; false when there is none.
+        bool OpenExportReport(const std::filesystem::path& outputDirectory);
 
         // ---- UI
         void UI_DockSpace();
@@ -535,6 +540,7 @@ namespace Zamin {
 
         Ref<Framebuffer> m_Framebuffer;
         Ref<Framebuffer> m_FinalFramebuffer; // after post-processing + overlays
+        Ref<Framebuffer> m_PlayAdjustFramebuffer; // Play: the game's picture with the player's gamma / brightness
         Ref<Scene> m_ActiveScene;
         Ref<Scene> m_EditorScene;
         // Play mode: every scene of the running game (additive ones, DontDestroyOnLoad); the hierarchy
@@ -959,6 +965,12 @@ namespace Zamin {
         bool m_BuildGameBinaryScenes = true; // export: every scene also as a binary cache (.zsceneb, smaller)
         std::atomic<bool> m_Exporting = false;
         std::thread m_ExportThread;
+        // The export's report (sizes, the largest files, what was left out, warnings): handed over by the
+        // export thread when it ends, then shown (EditorExportReport.cpp) - and read back from a folder.
+        std::mutex m_ExportReportMutex;
+        std::unique_ptr<ExportReport> m_PendingExportReport;
+        ExportReport m_ExportReport;
+        bool m_HasExportReport = false, m_ShowExportReport = false;
     };
 
 }

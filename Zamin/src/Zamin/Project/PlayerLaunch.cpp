@@ -4,6 +4,8 @@
 
 #include <algorithm>
 #include <charconv>
+#include <cmath>
+#include <cstdlib>
 #include <format>
 
 namespace Zamin {
@@ -69,7 +71,7 @@ namespace Zamin {
         // Options that take a value (the next argument, or after '=').
         static const char* const s_ValueOptions[] = { "--scene", "--resolution", "--width", "--height", "--monitor", "--fps",
                                                       "--quality", "--lang", "--language", "--gl", "--msaa", "--log-file",
-                                                      "--crash-dialog" };
+                                                      "--crash-dialog", "--gamma", "--brightness" };
         for (size_t i = 0; i < args.size(); i++)
         {
             const std::string& arg = args[i];
@@ -154,6 +156,21 @@ namespace Zamin {
                         c.TargetFrameRate = number;
                     else
                         c.Errors.push_back(std::format("--fps {}: kadr soni kerak (0 - cheklovsiz)", value));
+                }
+                else if (name == "--gamma" || name == "--brightness")
+                {
+                    // A number in the slider's range ("1.2", "1,2").
+                    std::string text = value;
+                    std::replace(text.begin(), text.end(), ',', '.');
+                    char* end = nullptr;
+                    const float number = std::strtof(text.c_str(), &end);
+                    const bool gamma = name == "--gamma";
+                    const float lo = gamma ? DisplayAdjustment::MinGamma : DisplayAdjustment::MinBrightness;
+                    const float hi = gamma ? DisplayAdjustment::MaxGamma : DisplayAdjustment::MaxBrightness;
+                    if (!text.empty() && end && *end == '\0' && std::isfinite(number) && number >= lo && number <= hi)
+                        (gamma ? c.Gamma : c.Brightness) = number;
+                    else
+                        c.Errors.push_back(std::format("{} {}: {:.1f} ... {:.1f} oralig'idagi son kerak (1 - o'zgarishsiz)", name, value, lo, hi));
                 }
                 else if (name == "--msaa")
                 {
@@ -240,6 +257,8 @@ namespace Zamin {
             "  --quality <nom | indeks>      sifat darajasi (Low, Medium, High ...)\n"
             "  --lang <kod>                  til (uz, ru, en ...); --language ham bo'ladi\n"
             "  --no-splash                   splash ekransiz (Zamin logotipi)\n"
+            "  --gamma G                     gamma 0.5 ... 2.0 (1 - o'zgarishsiz, kattasi - yorqinroq o'rta tonlar)\n"
+            "  --brightness B                yorqinlik 0.5 ... 1.5 (butun tasvir ko'paytiriladi)\n"
             "\n"
             "Grafika:\n"
             "  --gl <4.1 | 4.3 | 4.5 | 4.6>  OpenGL versiyasi\n"
@@ -261,7 +280,7 @@ namespace Zamin {
             "Boshqa:\n"
             "  -h, --help                    shu yordam\n"
             "\n"
-            "Ustunlik: buyruq qatori > o'yinchi saqlagan sozlamalar (o'yin menyusi: to'liq ekran, VSync, sifat, til)\n"
+            "Ustunlik: buyruq qatori > o'yinchi saqlagan sozlamalar (o'yin menyusi: to'liq ekran, VSync, gamma, yorqinlik, sifat, til)\n"
             "          > loyiha sozlamalari (Project settings > Player, Graphics).\n",
             program);
     }

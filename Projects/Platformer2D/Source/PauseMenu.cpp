@@ -9,7 +9,8 @@ using namespace Zamin;
 // "Davom etish", "Sozlamalar", "Chiqish". O'yin vaqti to'xtaydi (PauseGame: fizika, animatsiyalar,
 // boshqa skriptlar), UI esa ishlayveradi - bu skript SetUpdateWhenPaused bilan pauzada ham ishlaydi.
 // Sozlamalar: ovoz guruhlari (Master, Music, SFX, UI) slayderlari audio mikserga ulangan, to'liq ekran
-// va VSync belgilashlari, til tugmasi (o'zbek / rus / ingliz: menyu matnlari lokalizatsiya kalitlari bilan,
+// va VSync belgilashlari, gamma va yorqinlik slayderlari (Display::SetGamma / SetBrightness: player tasvirni
+// shu bilan ko'rsatadi), til tugmasi (o'zbek / rus / ingliz: menyu matnlari lokalizatsiya kalitlari bilan,
 // til o'zgarganda o'zi yangilanadi); hammasi SaveData'da saqlanadi (Audio::SaveSettings, Display::SaveSettings) va
 // keyingi safar o'yin boshlanganda qaytadi. Sozlamalar ro'yxati scroll view ichida (g'ildirak, sudrash,
 // klaviatura bilan tanlanganda o'zi aylanadi). Klaviatura / gamepad: strelkalar / D-pad tanlaydi,
@@ -26,6 +27,8 @@ public:
     EntityRef MasterSlider, MusicSlider, SfxSlider, UiSlider;
     EntityRef MasterValue, MusicValue, SfxValue, UiValue;
     EntityRef FullscreenToggle, VSyncToggle;
+    EntityRef GammaSlider, BrightnessSlider; // the player's picture (0.5 ... 2.0, 0.5 ... 1.5; 1 unchanged)
+    EntityRef GammaValue, BrightnessValue;
     EntityRef LanguageButton;   // "Til: O'zbekcha": the next language on each click
     float MusicMuffle = 900.0f; // Hz: the music's low-pass while paused (0 = off)
 
@@ -56,11 +59,15 @@ public:
         RefreshLanguage();
         Subscribe("UISliderChanged", [this](const ScriptMessage& m) {
             if (const char* group = GroupOf(m.Sender))
-            {
                 Audio::SetGroupVolume(group, m.Get<float>());
-                m_Changed = true;
-                RefreshLabels();
-            }
+            else if (m.Sender == Resolve(GammaSlider))
+                Display::SetGamma(m.Get<float>()); // the player's last pass shows it from the next frame
+            else if (m.Sender == Resolve(BrightnessSlider))
+                Display::SetBrightness(m.Get<float>());
+            else
+                return;
+            m_Changed = true;
+            RefreshLabels();
         });
         Subscribe("UIToggleChanged", [this](const ScriptMessage& m) {
             if (m.Sender == Resolve(FullscreenToggle))
@@ -165,6 +172,8 @@ private:
         Audio::ClearSavedSettings(); // the project's mixer again
         Display::SetVSync(true);
         Display::SetFullscreen(false);
+        Display::SetGamma(1.0f);
+        Display::SetBrightness(1.0f);
         Display::ClearSavedSettings();
         SyncFromSettings();
         m_Changed = false;
@@ -183,6 +192,10 @@ private:
             GetScene().SetToggle(toggle, Display::IsFullscreen(), false);
         if (Entity toggle = Resolve(VSyncToggle))
             GetScene().SetToggle(toggle, Display::IsVSync(), false);
+        if (Entity slider = Resolve(GammaSlider))
+            GetScene().SetSliderValue(slider, Display::GetGamma(), false);
+        if (Entity slider = Resolve(BrightnessSlider))
+            GetScene().SetSliderValue(slider, Display::GetBrightness(), false);
         RefreshLabels();
     }
 
@@ -204,6 +217,10 @@ private:
             if (slider && label && slider.HasComponent<UISliderComponent>() && label.HasComponent<TextComponent>())
                 label.GetComponent<TextComponent>().Text = std::format("{}%", (int)std::round(slider.GetComponent<UISliderComponent>().Value * 100.0f));
         }
+        if (Entity label = Resolve(GammaValue); label && label.HasComponent<TextComponent>())
+            label.GetComponent<TextComponent>().Text = std::format("{:.2f}", Display::GetGamma());
+        if (Entity label = Resolve(BrightnessValue); label && label.HasComponent<TextComponent>())
+            label.GetComponent<TextComponent>().Text = std::format("{}%", (int)std::round(Display::GetBrightness() * 100.0f));
     }
 
     const char* GroupOf(Entity slider) const
@@ -247,5 +264,9 @@ ZM_REGISTER_SCRIPT(PauseMenu,
     ZM_FIELD(PauseMenu, UiValue),
     ZM_FIELD(PauseMenu, FullscreenToggle).Header("Ekran"),
     ZM_FIELD(PauseMenu, VSyncToggle),
+    ZM_FIELD(PauseMenu, GammaSlider).Tooltip("Display::SetGamma (0.5 ... 2.0): player tasvirining o'rta tonlari"),
+    ZM_FIELD(PauseMenu, BrightnessSlider).Tooltip("Display::SetBrightness (0.5 ... 1.5): butun tasvir yorqinligi"),
+    ZM_FIELD(PauseMenu, GammaValue),
+    ZM_FIELD(PauseMenu, BrightnessValue),
     ZM_FIELD(PauseMenu, LanguageButton).Header("Til").Tooltip("Bosilganda keyingi til (Localization::NextLanguage); matni joriy til nomi"),
     ZM_FIELD_RANGE(PauseMenu, MusicMuffle, 0.0f, 20000.0f).Label("Musiqa bo'g'iqligi (Hz)").Tooltip("Pauzada musiqaga low-pass filtr (0 - o'chiq)"))

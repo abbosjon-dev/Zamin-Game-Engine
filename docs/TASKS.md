@@ -405,11 +405,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 348. Player'da kursorni yashirish/bloklash API
 - [x] 349. Ekran o'lchami o'zgarishiga moslashish
 - [x] 350. Eksportda ishlatilmagan assetlarni chiqarib tashlash
-- [ ] 351. Eksportda skript modulini optimizatsiya (Release)
-- [ ] 352. Eksport: .desktop fayli va ikonka
-- [ ] 353. Eksport hisobotini ko'rsatish (hajm, fayllar)
-- [ ] 354. Player'da pauza (fokus yo'qolganda)
-- [ ] 355. Gamma va yorqinlik sozlamasi player'da
+- [x] 351. Eksportda skript modulini optimizatsiya (Release)
+- [x] 352. Eksport: .desktop fayli va ikonka
+- [x] 353. Eksport hisobotini ko'rsatish (hajm, fayllar)
+- [x] 354. Player'da pauza (fokus yo'qolganda)
+- [x] 355. Gamma va yorqinlik sozlamasi player'da
 - [ ] 356. Player ishlash testi (headless)
 - [ ] 357. Eksport testi (avtomatik)
 - [ ] 358. Player uchun minimal o'yin menyusi namunasi

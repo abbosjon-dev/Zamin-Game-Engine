@@ -27,6 +27,8 @@ namespace Zamin {
         std::string Quality;                // --quality <level name | index>
         std::string Language;               // --lang | --language <code>
         bool NoSplash = false;              // --no-splash
+        // --gamma G, --brightness B: the picture (Display::SetGamma / SetBrightness) over what was saved.
+        std::optional<float> Gamma, Brightness;
         bool Help = false;                  // --help | -h | -?
         // The log file: --log-file <path> writes only that file (else the rotating logs in
         // ~/.local/share/<company>/<product>/logs); --no-log-file none.

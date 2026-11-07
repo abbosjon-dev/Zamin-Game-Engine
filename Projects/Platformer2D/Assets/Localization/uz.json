@@ -57,11 +57,17 @@
         "display": "Ekran",
         "fullscreen": "To'liq ekran",
         "vsync": "Vertikal sinxronlash (VSync)",
+        "gamma": "Gamma",
+        "brightness": "Yorqinlik",
         "language_header": "Til",
         "language": "Til: {0}",
         "controls": "Boshqaruv",
         "controls_info": "Esc / Start - pauza. Strelkalar / D-pad - tanlash, Enter / A - bosish, Esc / B - orqaga. Ro'yxatni sichqoncha g'ildiragi bilan yoki sudrab aylantiring.",
         "back": "Orqaga",
         "reset": "Standart"
+    },
+    "player": {
+        "paused": "Pauza",
+        "paused_hint": "O'yin oynasi fokusda emas - davom etish uchun oynani tanlang"
     }
 }

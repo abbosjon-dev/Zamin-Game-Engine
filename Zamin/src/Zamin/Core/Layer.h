@@ -20,6 +20,11 @@ namespace Zamin {
         virtual void OnUpdate(Timestep) {}
         virtual void OnImGuiRender() {}
         virtual void OnEvent(Event&) {}
+        // The application stands still in the background (Application::IsPausedInBackground: the window lost
+        // the focus and the game does not run in the background): nothing is updated; a layer draws the
+        // paused picture here (the player: the last frame dimmed, "Pauza") when the pause starts and now and
+        // then after it. True when it drew - the application then shows it.
+        virtual bool OnRenderPaused() { return false; }
 
         const std::string& GetName() const { return m_DebugName; }
     protected:

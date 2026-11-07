@@ -464,11 +464,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 
 ## M21 Prefab va serializatsiya II
 
-- [ ] 401. Prefab instansiyalari asl prefabga bog'lanishi (link)
-- [ ] 402. Prefab o'zgarishlarini instansiyalarga qo'llash (Apply)
-- [ ] 403. Instansiyani asl holatiga qaytarish (Revert)
-- [ ] 404. Prefab override'larini ko'rsatish inspektorda
-- [ ] 405. Ichma-ich prefab'lar (nested)
+- [x] 401. Prefab instansiyalari asl prefabga bog'lanishi (link)
+- [x] 402. Prefab o'zgarishlarini instansiyalarga qo'llash (Apply)
+- [x] 403. Instansiyani asl holatiga qaytarish (Revert)
+- [x] 404. Prefab override'larini ko'rsatish inspektorda
+- [x] 405. Ichma-ich prefab'lar (nested)
 - [ ] 406. Prefab muharriri rejimi (alohida ochish)
 - [ ] 407. Prefab instansiyalarda EntityRef'larni qayta xaritalash
 - [ ] 408. Dublikat qilishda EntityRef'larni ichki xaritalash

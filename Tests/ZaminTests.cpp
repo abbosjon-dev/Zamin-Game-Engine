@@ -44049,6 +44049,24 @@ TEST(PrefabLegacyLinkMenuScene)
     Entity menu2 = again->FindEntityByName("Bosh menyu");
     CHECK(menu2 && !PrefabUtility::IsLegacyInstance(menu2) && !PrefabUtility::RecordOverrides(menu2, db));
     CHECK(PrefabUtility::SyncScene(*again, db).Changed == 0);
+    // With the project open (asset UUIDs written next to the paths): still nothing differs.
+    {
+        auto project = Project::Load(fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Platformer2D" / "Platformer2D.zproject");
+        CHECK(project != nullptr);
+        if (project)
+        {
+            Project::SetActive(project);
+            ScopeExit noProject{ []() { Project::SetActive(nullptr); } };
+            auto withProject = CreateRef<Scene>();
+            CHECK(SceneSerializer(withProject).Deserialize(sceneFile));
+            PrefabDatabase projectDB;
+            CHECK(PrefabUtility::LinkLegacyInstances(*withProject, projectDB) == 1);
+            Entity root = withProject->FindEntityByName("Bosh menyu");
+            CHECK(root && PrefabUtility::GetOverrides(root).empty());
+            CHECK(root && (uint64_t)root.GetComponent<PrefabLinkComponent>().PrefabUUID == 0x6d2e9b47c1a83f05ull); // the .zmeta's
+            CHECK(PrefabUtility::SyncScene(*withProject, projectDB).Changed == 0);
+        }
+    }
     // The sample files are never written.
     CHECK(FileSystem::ReadTextFile(sceneFile) == sceneBytes && FileSystem::ReadTextFile(prefabFile) == prefabBytes);
 }

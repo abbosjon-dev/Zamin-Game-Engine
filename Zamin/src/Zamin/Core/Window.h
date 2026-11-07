@@ -41,6 +41,9 @@ namespace Zamin {
         bool IsValid() const { return Width > 0 && Height > 0; }
         auto operator<=>(const ScreenResolution&) const = default;
     };
+    // A window size on a `screen` (a monitor's size): as it is when it fits (or the screen is unknown: 0 x 0),
+    // else scaled down to fit with its aspect ratio kept (a size saved on a larger monitor).
+    ScreenResolution FitResolution(const ScreenResolution& size, const ScreenResolution& screen);
 
     // One size of a window icon: RGBA8 pixels, rows top first.
     struct WindowIconImage

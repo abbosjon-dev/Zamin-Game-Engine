@@ -20,6 +20,7 @@ namespace Zamin {
             ScreenResolution Resolution; // set by SetResolution (0 x 0: not set)
             DisplayAdjustment Adjustment;
             bool Set = false; // an option was set before a window was bound
+            std::vector<ScreenResolution> HostModes; // SetHostVideoModes (no window bound)
         };
 
         bool InWindowRange(uint32_t value) { return value >= PlayerSettings::MinWindowSize && value <= PlayerSettings::MaxWindowSize; }
@@ -114,8 +115,10 @@ namespace Zamin {
     std::vector<ScreenResolution> Display::GetResolutions()
     {
         const DisplayState& s = State();
-        return MakeResolutionList(s.BoundWindow ? s.BoundWindow->GetVideoModes() : std::vector<ScreenResolution>(), GetResolution());
+        return MakeResolutionList(s.BoundWindow ? s.BoundWindow->GetVideoModes() : s.HostModes, GetResolution());
     }
+
+    void Display::SetHostVideoModes(std::vector<ScreenResolution> modes) { State().HostModes = std::move(modes); }
 
     std::vector<ScreenResolution> Display::MakeResolutionList(const std::vector<ScreenResolution>& modes, const ScreenResolution& current)
     {
@@ -187,6 +190,21 @@ namespace Zamin {
     {
         State().Adjustment = adjustment;
         State().Adjustment.Sanitize();
+    }
+
+    void Display::ResetOptions(const PlayerSettings& player)
+    {
+        DisplayState& s = State();
+        s.Fullscreen = player.Mode != WindowMode::Windowed;
+        s.VSync = player.VSync;
+        s.Resolution = {};
+        s.Adjustment = DisplayAdjustment();
+        s.Set = false;
+        if (s.BoundWindow)
+        {
+            s.BoundWindow->SetVSync(s.VSync);
+            s.BoundWindow->SetFullscreen(s.Fullscreen);
+        }
     }
 
     // ------------------------------------------------------------------ saved

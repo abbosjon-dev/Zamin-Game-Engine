@@ -137,12 +137,19 @@ namespace Zamin {
         // The entry next to the exported launcher, made to work wherever the folder is moved to: its Exec
         // runs the launcher next to the entry file itself (`sh -c "..." sh %k` - %k is the entry's own path;
         // no Path key, the launcher goes to its folder). Only the icon is absolute (desktop entries take no
-        // relative icon paths): right where the game was exported to, install-desktop-entry.sh writes it
-        // again after a move. `launcher`: the launcher's file name.
+        // relative icon paths): where the game was exported to; after a move the launcher (MakeLauncherScript)
+        // points it at the new place the first time the game starts there, install-desktop-entry.sh too.
+        // `launcher`: the launcher's file name.
         std::string MakeRelocatableDesktopEntry(const std::string& productName, const PlayerSettings& player, const std::string& launcher,
                                                 const std::filesystem::path& icon);
         // That entry's Exec value (before the entry's own string escaping).
         std::string MakeRelocatableExec(const std::string& launcher);
+        // The exported game's launcher (<Game>.sh, POSIX sh): goes to its own folder and runs ./ZaminPlayer with
+        // `projectFile` (relative to it, "Game/Kosmos.zproject") and its own arguments. Before that, when the
+        // desktop entry next to it (`desktopEntry`, a file name) names an icon and `icon` (a file name) is
+        // there, it points the entry's Icon line at that file in the folder it runs from - the entry's icon
+        // follows the folder wherever it is moved (written only when it changed and the entry can be written).
+        std::string MakeLauncherScript(const std::string& projectFile, const std::string& desktopEntry, const std::string& icon);
 
         // This POSIX shell script (install-desktop-entry.sh, next to the launcher) puts the game into the
         // application menus for the folder it is in when it runs - after the folder was moved, unzipped or

@@ -4615,14 +4615,11 @@ namespace Zamin {
             Log::Clear();
         m_SceneState = SceneState::Play;
         m_AnimationPanel.StopPreview(true); // the game starts from the scene's own values
-        // The player's gamma and brightness as the game saved them (its options menu): Play shows them too.
-        {
-            const SavedDisplaySettings saved = Display::GetSavedSettings();
-            DisplayAdjustment adjustment;
-            adjustment.Gamma = saved.Gamma.value_or(1.0f);
-            adjustment.Brightness = saved.Brightness.value_or(1.0f);
-            Display::SetAdjustment(adjustment);
-        }
+        // The game's display options start as the player's would (the project's Player settings, no resolution
+        // chosen, gamma and brightness 1; what the game saved is loaded below): nothing of the last run stays.
+        // The game's resolution list is the editor's monitor's (no window of its own: none larger than the screen).
+        Display::ResetOptions(Project::GetPlayerSettings());
+        Display::SetHostVideoModes(Application::Get().GetWindow().GetVideoModes());
         m_PlayMaterials = MaterialLibrary::TakeSnapshot();
         // The editor's state, for Stop after the game has switched scenes.
         m_PlayStart = {};
@@ -4652,7 +4649,8 @@ namespace Zamin {
         // mixer, for this run (the mixer is the project's again when play stops).
         if (Audio::LoadSettings())
             ZM_INFO("O'yinda saqlangan ovoz sozlamalari yuklandi (SaveData)");
-        // The display options too (no window of its own: the editor's stays as it is, the game sees them).
+        // The display options too (no window of its own: the editor's stays as it is, the game sees them) - the
+        // player's gamma and brightness as the game saved them (its options menu): Play shows them too.
         Display::LoadSettings();
         // The language the player chose in the game's language menu (else the editor's preview language).
         if (Localization::LoadSettings())
@@ -4757,10 +4755,11 @@ namespace Zamin {
             ShowViewportMessage(std::format(ICON_FA_ROTATE_LEFT "  Editor holati tiklandi: {} ({} ta tanlangan)", m_EditorScene->GetName(), selection.size()));
         }
         m_PlayStart.RuntimeStart.reset();
-        // The game's cursor wishes end with it (visible, free, the arrow); its picture's gamma and brightness too.
+        // The game's cursor wishes end with it (visible, free, the arrow); its display options too (fullscreen,
+        // vsync, the resolution it chose, its picture's gamma and brightness).
         Cursor::SetHostActive(false);
         Cursor::Reset();
-        Display::SetAdjustment(DisplayAdjustment());
+        Display::ResetOptions(Project::GetPlayerSettings());
         m_GameCursorReleased = false;
         // What the game's scripts changed of the debug drawing does not stay in the editor.
         ApplyDebugDrawSettings();
@@ -6058,7 +6057,8 @@ namespace Zamin {
             }
 
             // The script module: compiled again in Release (-O2, its own build folder) - the editor's module
-            // when that is off or fails.
+            // when that is off or fails. (None at all: the game is exported without scripts - a warning.)
+            bool moduleExported = false;
             if (!modulePath.empty())
             {
                 fs::path module = modulePath;
@@ -6105,6 +6105,7 @@ namespace Zamin {
                     copy(module, outputDirectory / "Game" / moduleRel);
                     binaries.push_back(outputDirectory / "Game" / moduleRel);
                     report->ScriptModule = how;
+                    moduleExported = true;
                 }
                 else
                 {
@@ -6145,15 +6146,17 @@ namespace Zamin {
                 }
             }
 
+            // (It also points the desktop entry next to it at the icon in the folder it runs from: below.)
             fs::path launcher = outputDirectory / (name + ".sh");
-            FileSystem::WriteTextFile(launcher, "#!/bin/sh\ncd \"$(dirname \"$0\")\"\nexec ./ZaminPlayer \"Game/" +
-                                                    projectFile.filename().string() + "\" \"$@\"\n");
+            FileSystem::WriteTextFile(launcher, ExportFiles::MakeLauncherScript("Game/" + projectFile.filename().string(), name + ".desktop",
+                                                                                iconFile.empty() ? std::string() : name + ".png"));
             fs::permissions(launcher, fs::perms::owner_all | fs::perms::group_read | fs::perms::group_exec |
                                           fs::perms::others_read | fs::perms::others_exec, ec);
 
             // The game's icon next to the launcher (the PNG as it is, and icons/hicolor/<size>/apps/<id>.png in
             // every size up to its own) and a desktop entry that works wherever the folder goes (its Exec runs
-            // the launcher next to the entry itself; the icon path is where the game was exported to).
+            // the launcher next to the entry itself; the icon path is where the game was exported to - the
+            // launcher points it at the new place when the game starts from there).
             // install-desktop-entry.sh puts the game into the application menus for wherever the folder is
             // (absolute paths, the icons into the user's icon theme).
             const std::string entryId = ExportFiles::MakeDesktopEntryId(name);
@@ -6198,8 +6201,9 @@ namespace Zamin {
                                                    fs::perms::others_exec, ec);
 
             // The folder checks itself: everything the exported game needs to start is there (the launcher, the
-            // player, the engine, the project, its start / build scenes, the registry, the script module).
-            for (const std::string& problem : ExportFiles::CheckExportFolder(outputDirectory, name))
+            // player, the engine, the project, its start / build scenes, the registry, the script module - when
+            // one was exported: a game exported without scripts was a warning above).
+            for (const std::string& problem : ExportFiles::CheckExportFolder(outputDirectory, name, moduleExported))
             {
                 fail(std::format("eksport to'liq emas - {}", problem));
                 ok = false;

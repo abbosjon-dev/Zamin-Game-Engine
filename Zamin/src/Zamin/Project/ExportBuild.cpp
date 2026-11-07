@@ -420,7 +420,7 @@ namespace Zamin {
     }
 
     // ------------------------------------------------------------------ the exported folder
-    std::vector<std::string> ExportFiles::CheckExportFolder(const fs::path& folder, const std::string& gameName)
+    std::vector<std::string> ExportFiles::CheckExportFolder(const fs::path& folder, const std::string& gameName, bool scriptModule)
     {
         std::vector<std::string> problems;
         std::error_code ec;
@@ -486,7 +486,7 @@ namespace Zamin {
                 problems.push_back(std::format("build sahnasi yo'q: {}", scene.Path.generic_string()));
         if (!fs::is_regular_file(game / Project::BuildAssetRegistryFile, ec))
             problems.push_back(std::format("asset registri yo'q: Game/{}", Project::BuildAssetRegistryFile));
-        if (!config.ScriptModulePath.empty() && !fs::is_regular_file(game / config.ScriptModulePath, ec))
+        if (scriptModule && !config.ScriptModulePath.empty() && !fs::is_regular_file(game / config.ScriptModulePath, ec))
             problems.push_back(std::format("skript moduli yo'q: Game/{}", config.ScriptModulePath.generic_string()));
         return problems;
     }

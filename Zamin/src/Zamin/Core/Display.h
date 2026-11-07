@@ -9,6 +9,8 @@
 
 namespace Zamin {
 
+    struct PlayerSettings;
+
     // The picture's gamma and brightness the player shows the game with (an options menu's sliders): the
     // whole finished frame - the scene, its UI, the fades - on its way to the screen.
     struct DisplayAdjustment
@@ -65,9 +67,12 @@ namespace Zamin {
         static bool SetResolution(const ScreenResolution& resolution) { return SetResolution(resolution.Width, resolution.Height); }
         // The window's windowed size; without one what was set (0 x 0: nothing).
         static ScreenResolution GetResolution();
-        // What an options menu offers: the sizes of the window's monitor (MakeResolutionList), without a window
-        // the common ones; the current resolution is always among them.
+        // What an options menu offers: the sizes of the window's monitor (MakeResolutionList); without a window
+        // the host's monitor (SetHostVideoModes), else the common ones; the current resolution is always among them.
         static std::vector<ScreenResolution> GetResolutions();
+        // Without a bound window (the editor's Play): the video modes of the monitor the game would run on (the
+        // editor's own) - GetResolutions offers no size larger than it. Empty: unknown (the common sizes).
+        static void SetHostVideoModes(std::vector<ScreenResolution> modes);
         // The list of resolutions from a monitor's video modes: each once, at least 640 x 360 and not larger than
         // the largest mode (the monitor), the smallest first; no modes: the common 16:9 sizes (1280 x 720 ...
         // 2560 x 1440). `current` is added when it is not there (a window size of its own).
@@ -79,6 +84,11 @@ namespace Zamin {
         static float GetBrightness();
         static DisplayAdjustment GetAdjustment();
         static void SetAdjustment(const DisplayAdjustment& adjustment);
+        // Back to how a game starts without saved options: the project's Player settings (`player`) - fullscreen
+        // unless its window mode is windowed, its vsync - no resolution chosen (GetResolution 0 x 0 without a
+        // window), gamma and brightness 1. A bound window takes the fullscreen and the vsync at once. (The editor
+        // starts and ends every Play with it: what one run set does not reach the next; tests clean up with it.)
+        static void ResetOptions(const PlayerSettings& player);
 
         static constexpr const char* SettingsKey = "Zamin.Display";
         // Writes the options to SaveData (and the save file; the resolution once SetResolution chose one). False

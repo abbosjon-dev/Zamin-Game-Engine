@@ -415,6 +415,40 @@ namespace Zamin {
             return "sh -c " + QuotedArgument(script) + " sh %k";
         }
 
+        std::string MakeLauncherScript(const std::string& projectFile, const std::string& desktopEntry, const std::string& icon)
+        {
+            std::string script = "#!/bin/sh\n"
+                                 "# Starts the game: ZaminPlayer with its project (the arguments go to the player).\n"
+                                 "CDPATH= cd -- \"$(dirname -- \"$0\")\" || exit 1\n";
+            if (!desktopEntry.empty() && !icon.empty())
+            {
+                // (The Icon value is escaped like the entry's own strings: every backslash doubled.)
+                script += "# The desktop entry next to it names its icon by an absolute path (desktop entries take no relative\n"
+                          "# ones): after the folder was moved it is pointed at the icon here again.\n";
+                script += "entry=" + ShellQuote(desktopEntry) + "\n";
+                script += "icon=" + ShellQuote(icon) + "\n";
+                script += R"SH(dir=$(pwd)
+if [ -f "$entry" ] && [ -w "$entry" ] && [ -f "$icon" ] && grep -q '^Icon=' "$entry" 2>/dev/null; then
+    case "$dir" in
+    *'
+'*) ;;
+    *)
+        line="Icon=$(printf '%s' "$dir/$icon" | sed -e 's/\\/\\\\/g')"
+        if ! grep -qxF -- "$line" "$entry"; then
+            if ZAMIN_ICON_LINE=$line awk '/^Icon=/ { print ENVIRON["ZAMIN_ICON_LINE"]; next } { print }' "$entry" >"$entry.tmp" 2>/dev/null; then
+                cat "$entry.tmp" >"$entry" 2>/dev/null
+            fi
+            rm -f "$entry.tmp" 2>/dev/null
+        fi
+        ;;
+    esac
+fi
+)SH";
+            }
+            script += "exec ./ZaminPlayer " + ShellQuote(projectFile) + " \"$@\"\n";
+            return script;
+        }
+
         std::string MakeRelocatableDesktopEntry(const std::string& productName, const PlayerSettings& player, const std::string& launcher,
                                                 const std::filesystem::path& icon)
         {

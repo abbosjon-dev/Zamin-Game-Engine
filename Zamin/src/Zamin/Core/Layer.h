@@ -25,6 +25,10 @@ namespace Zamin {
         // paused picture here (the player: the last frame dimmed, "Pauza") when the pause starts and now and
         // then after it. True when it drew - the application then shows it.
         virtual bool OnRenderPaused() { return false; }
+        // The main loop ended (the window was closed, Application::Close, ZAMIN_MAX_FRAMES) - before anything is
+        // shut down: the window, the renderer and the audio still work, and the exit code can still be set
+        // (OnDetach comes later, while the application is destroyed).
+        virtual void OnRunEnded() {}
 
         const std::string& GetName() const { return m_DebugName; }
     protected:

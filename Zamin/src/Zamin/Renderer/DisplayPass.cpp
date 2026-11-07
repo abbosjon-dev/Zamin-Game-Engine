@@ -59,7 +59,9 @@ void main()
         shader->SetFloat("u_Dim", std::clamp(dim, 0.0f, 1.0f));
         RenderCommand::BindTextureUnit(0, texture);
         RenderCommand::DrawArrays(3);
+        // Back to the renderers' default state (the next frame's 3D pass relies on the depth test).
         RenderCommand::SetBlendMode(BlendMode::Alpha);
+        RenderCommand::SetDepthTest(true);
     }
 
     void DisplayPass::Shutdown() { PassShader().reset(); }

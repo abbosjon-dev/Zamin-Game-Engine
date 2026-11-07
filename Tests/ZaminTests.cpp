@@ -27711,8 +27711,7 @@ TEST(DisplaySettingsAreSaved)
     SaveData::SetFilePath(dir / "save.json");
     ScopeExit restore{ [dir]() {
         Display::ClearSavedSettings();
-        Display::SetFullscreen(false);
-        Display::SetVSync(true);
+        Display::ResetOptions(PlayerSettings());
         SaveData::Save();
         SaveData::SetFilePath({});
         std::error_code ec;
@@ -36473,6 +36472,40 @@ TEST(ExportDesktopEntryRelocatableAndIcons)
         CHECK(!e && runFrom(moved)); // the same file, moved: still the launcher next to it
     }
 
+    // The launcher: the player with the project and the arguments; the entry's absolute icon follows the folder
+    // (the first start after a move points it at the icon there).
+    if (std::system("command -v sh >/dev/null 2>&1 && command -v awk >/dev/null 2>&1 && command -v sed >/dev/null 2>&1") == 0)
+    {
+        auto executable = [](const fs::path& file, const std::string& text) {
+            FileSystem::WriteTextFile(file, text);
+            fs::permissions(file, fs::perms::owner_all, fs::perm_options::add);
+        };
+        const fs::path game = dir / "Launcher \\ joy";
+        fs::create_directories(game);
+        executable(game / "Kosmos.sh", ExportFiles::MakeLauncherScript("Game/Kosmos.zproject", "Kosmos.desktop", "Kosmos.png"));
+        executable(game / "ZaminPlayer", "#!/bin/sh\nprintf '%s|' \"$@\" > args.txt\n");
+        FileSystem::WriteTextFile(game / "Kosmos.png", "png");
+        const std::string exported = ExportFiles::MakeRelocatableDesktopEntry("Kosmos", player, "Kosmos.sh", "/eski/joy/Kosmos.png");
+        FileSystem::WriteTextFile(game / "Kosmos.desktop", exported);
+        const fs::path moved = dir / "Ko'chirilgan \\ o'yin";
+        std::error_code e;
+        fs::rename(game, moved, e);
+        CHECK(!e);
+        const std::string launch = "sh " + ShellQuote((moved / "Kosmos.sh").string()) + " --windowed 'a b' >/dev/null 2>&1";
+        CHECK(std::system(launch.c_str()) == 0);
+        CHECK(FileSystem::ReadTextFile(moved / "args.txt") == "Game/Kosmos.zproject|--windowed|a b|");
+        const std::string expected = ExportFiles::MakeRelocatableDesktopEntry("Kosmos", player, "Kosmos.sh", moved / "Kosmos.png");
+        CHECK(FileSystem::ReadTextFile(moved / "Kosmos.desktop") == expected);
+        CHECK(!fs::exists(moved / "Kosmos.desktop.tmp"));
+        CHECK(std::system(launch.c_str()) == 0 && FileSystem::ReadTextFile(moved / "Kosmos.desktop") == expected); // already right
+        // No icon file there (or an entry without an icon): the entry is left as it is.
+        fs::remove(moved / "Kosmos.png");
+        FileSystem::WriteTextFile(moved / "Kosmos.desktop", exported);
+        CHECK(std::system(launch.c_str()) == 0 && FileSystem::ReadTextFile(moved / "Kosmos.desktop") == exported);
+        // A game without an icon: the plain launcher.
+        CHECK(ExportFiles::MakeLauncherScript("Game/K.zproject", "K.desktop", "").find("Icon") == std::string::npos);
+    }
+
     // The icon set: every size up to the picture's, in the icon theme's layout.
     ImageData image;
     image.Width = image.Height = 100;
@@ -36939,6 +36972,13 @@ TEST(ExportFolderSelfCheck)
     };
     CHECK(has("bajarish huquqi") && has("Scenes/Level.zscene") && has("libKosmos.so") && has("AssetRegistry"));
     CHECK(!has("Old.zscene")); // a disabled build scene is not exported
+    // Exported without scripts on purpose (the module was not built: the editor warned): not a problem.
+    {
+        const std::vector<std::string> withoutScripts = ExportFiles::CheckExportFolder(dir, "Kosmos", false);
+        CHECK(withoutScripts.size() == 3);
+        CHECK(std::none_of(withoutScripts.begin(), withoutScripts.end(),
+                           [](const std::string& p) { return p.find("libKosmos.so") != std::string::npos; }));
+    }
     // The start scene gone: the first build scene is not there either -> nothing to start.
     fs::remove(dir / "Game" / "Assets" / "Scenes" / "Menu.zscene");
     CHECK(ExportFiles::CheckExportFolder(dir, "Kosmos").size() >= 4);
@@ -36983,6 +37023,30 @@ TEST(DisplayResolutionSettings)
     SaveData::SetInt(std::string(Display::SettingsKey) + ".Height", 20000);
     CHECK(!Display::GetSavedSettings().Resolution);
     SaveData::SetInt(std::string(Display::SettingsKey) + ".Height", 900);
+    // The editor's Play (no window of its own): its monitor's modes - nothing larger than that screen.
+    Display::SetHostVideoModes({ { 1280, 720 }, { 1920, 1080 }, { 800, 600 } });
+    CHECK(Display::GetResolutions() == std::vector<R>({ { 800, 600 }, { 1280, 720 }, { 1600, 900 }, { 1920, 1080 } }));
+    Display::SetHostVideoModes({});
+    CHECK(Display::GetResolutions().back() == (R{ 2560, 1440 }));
+    // Back to a game's start (the editor's Play / Stop, the menu's "Standart"): the project's window mode and
+    // vsync, nothing chosen, gamma and brightness 1.
+    {
+        PlayerSettings player;
+        player.Mode = WindowMode::Borderless;
+        player.VSync = false;
+        Display::SetGamma(1.4f);
+        Display::ResetOptions(player);
+        CHECK(Display::IsFullscreen() && !Display::IsVSync() && !Display::GetResolution().IsValid() && Display::GetAdjustment().IsIdentity());
+        Display::ResetOptions(PlayerSettings());
+        CHECK(!Display::IsFullscreen() && Display::IsVSync() && !Display::GetResolution().IsValid());
+        Display::SetResolution(1600, 900);
+    }
+    // A window size larger than the monitor (saved on a larger one): fitted, its shape kept.
+    CHECK(FitResolution({ 2560, 1440 }, { 1920, 1080 }) == (R{ 1920, 1080 }));
+    CHECK(FitResolution({ 1280, 720 }, { 1920, 1080 }) == (R{ 1280, 720 }));
+    CHECK(FitResolution({ 3000, 1000 }, { 1920, 1080 }) == (R{ 1920, 640 }));
+    CHECK(FitResolution({ 1000, 2000 }, { 1920, 1080 }) == (R{ 540, 1080 }));
+    CHECK(FitResolution({ 1600, 900 }, {}) == (R{ 1600, 900 }));
 
     // The player's window: the command line > the saved resolution > the project.
     ProjectConfig config;
@@ -37004,6 +37068,7 @@ TEST(DisplayResolutionSettings)
     CHECK(launch.Window.FullscreenWidth == 1600 && launch.Window.FullscreenHeight == 900);
     Display::ClearSavedSettings();
     CHECK(!Display::GetSavedSettings().Resolution);
+    Display::ResetOptions(PlayerSettings()); // (no chosen resolution left for the tests after this one)
     SaveData::SetFilePath({});
     std::error_code ec;
     std::filesystem::remove_all(dir, ec);
@@ -37089,9 +37154,7 @@ TEST(GameMenuSampleScene)
     ScopeExit cleanup{ [&]() {
         ScriptEngine::UnloadModule();
         Display::ClearSavedSettings();
-        Display::SetFullscreen(false);
-        Display::SetVSync(true);
-        Display::SetAdjustment(DisplayAdjustment());
+        Display::ResetOptions(PlayerSettings());
         Quality::ClearSavedSettings();
         Quality::SetLevel(qualityWas);
         Audio::ClearSavedSettings();
@@ -37168,6 +37231,21 @@ TEST(GameMenuSampleScene)
     const SavedDisplaySettings saved = Display::GetSavedSettings();
     CHECK(saved.Resolution && *saved.Resolution == first && saved.Gamma && *saved.Gamma > 1.0f);
     CHECK(Quality::HasSavedSettings() && SaveData::HasKey(Audio::SettingsKey));
+    // "Standart": the display as the next start opens it - the project's window mode (here borderless, so
+    // fullscreen), its vsync and window size, gamma 1; nothing saved.
+    {
+        PlayerSettings& player = project->GetConfig().Player;
+        const PlayerSettings playerWas = player;
+        player.Mode = WindowMode::Borderless;
+        player.VSync = false;
+        Display::SetFullscreen(false);
+        CHECK(scene->SendMessage(menu, ScriptMessage{ "ResetSettings" }));
+        CHECK(Display::IsFullscreen() && !Display::IsVSync());
+        CHECK_NEAR(Display::GetGamma(), 1.0f, 1e-6f);
+        CHECK((Display::GetResolution() == ScreenResolution{ player.Width, player.Height }));
+        CHECK(!Display::HasSavedSettings());
+        player = playerWas;
+    }
     // Up, Enter: "O'ynash" - the loading screen (with a fade).
     UIKeyFrame(scene, { Key::Up });
     CHECK(scene->GetSelectedUI() == play);

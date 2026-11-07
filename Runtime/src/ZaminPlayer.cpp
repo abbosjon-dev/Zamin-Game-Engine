@@ -296,7 +296,7 @@ namespace Zamin {
                 return;
             if (m_ErrorScreen || (!m_Scenes && !m_ProjectLoaded))
             {
-                FinishBenchmark(false);
+                FinishBenchmark("o'yin ishga tushmadi (boshlang'ich sahna yuklanmadi)");
                 return;
             }
             if (!m_GameStarted || !m_Scenes)
@@ -306,13 +306,16 @@ namespace Zamin {
                 const double frameMs = std::chrono::duration<double, std::milli>(start - m_LastFrameStart).count();
                 const double updateMs = std::chrono::duration<double, std::milli>(end - start).count();
                 if (m_Benchmark.AddFrame(frameMs, updateMs))
-                    FinishBenchmark(true);
+                    FinishBenchmark();
             }
             m_LastFrameStart = start;
             m_HasLastFrameStart = true;
         }
 
-        void FinishBenchmark(bool ran)
+        // The result: logged, written to --benchmark-out, the exit code (0 passed, 3 over a limit, 2 it did not
+        // run to the end or its report could not be written). `failure`: why it could not run (the result
+        // fails, exit code 2). `close`: the player closes now (not when the run already ended without it).
+        void FinishBenchmark(std::string_view failure = {}, bool close = true)
         {
             m_BenchmarkFinished = true;
             PlayerBenchmark::Result result = m_Benchmark.GetResult();
@@ -328,26 +331,32 @@ namespace Zamin {
             result.Width = window.GetFramebufferWidth();
             result.Height = window.GetFramebufferHeight();
             result.LoadSeconds = m_LoadSeconds;
-            if (!ran)
+            const bool ran = failure.empty() && m_Benchmark.IsDone();
+            if (!failure.empty())
             {
                 result.Passed = false;
-                result.Failures.insert(result.Failures.begin(), "o'yin ishga tushmadi (boshlang'ich sahna yuklanmadi)");
+                result.Failures.insert(result.Failures.begin(), std::string(failure));
             }
             const std::string text = PlayerBenchmark::Describe(result);
             if (result.Passed)
                 ZM_INFO("{}", text);
             else
                 ZM_ERROR("{}", text);
+            bool written = true;
             if (const auto& output = m_Benchmark.GetSettings().Output; !output.empty())
             {
                 std::string error;
-                if (PlayerBenchmark::WriteJson(result, output, &error))
+                written = PlayerBenchmark::WriteJson(result, output, &error);
+                if (written)
                     ZM_INFO("Ishlash testi natijasi: {}", std::filesystem::absolute(output).string());
                 else
-                    ZM_ERROR("Ishlash testi: {}", error);
+                    ZM_ERROR("Ishlash testi: natija fayli {}", error);
             }
-            Application::Get().SetExitCode(!ran ? PlayerBenchmarkSettings::ExitFailed : result.Passed ? 0 : PlayerBenchmarkSettings::ExitLimitExceeded);
-            Application::Get().Close();
+            // (A report that was asked for and is missing is a failed run: a script cannot tell it from a pass.)
+            const int code = !ran || !written ? PlayerBenchmarkSettings::ExitFailed : result.Passed ? 0 : PlayerBenchmarkSettings::ExitLimitExceeded;
+            Application::Get().SetExitCode(code);
+            if (close)
+                Application::Get().Close();
         }
 
         // One frame of the splash screen: the first scene loads meanwhile; once both are done the game starts.
@@ -455,6 +464,25 @@ namespace Zamin {
                     ZM_WARN("ZAMIN_PLAYER_INPUT: noma'lum amal '{}'", action);
             }
             m_Frame++;
+        }
+
+        // The player closes: a performance test that did not measure all its frames (the window closed, the game
+        // quit, ZAMIN_MAX_FRAMES) still reports - an incomplete, failed result (exit code 2), never a silent 0.
+        void OnRunEnded() override
+        {
+            if (!m_Benchmark.IsEnabled() || m_BenchmarkFinished)
+                return;
+            std::string failure;
+            if (!m_ProjectLoaded)
+                failure = "loyiha yuklanmadi";
+            else if (m_ErrorScreen || (!m_GameStarted && !m_Scenes))
+                failure = "o'yin ishga tushmadi (boshlang'ich sahna yuklanmadi)";
+            else if (!m_GameStarted)
+                failure = "player o'yin boshlanmasdan yopildi";
+            else
+                failure = std::format("player test tugamasdan yopildi ({})",
+                                      m_QuitRequested ? "o'yin chiqishni so'radi" : "oyna yopildi yoki ZAMIN_MAX_FRAMES");
+            FinishBenchmark(failure, false);
         }
 
         void OnDetach() override
@@ -692,6 +720,11 @@ namespace Zamin {
             else if (m_Target->GetSpecification().Width != renderSize.x || m_Target->GetSpecification().Height != renderSize.y)
                 m_Target->Resize(renderSize.x, renderSize.y);
             m_Target->Bind();
+            // The scene's passes start from the renderers' default state, whatever the overlays of the last
+            // frame (splash cover, banner, fade, the display pass, the pause screen) left behind.
+            RenderCommand::SetDepthTest(true);
+            RenderCommand::SetDepthWrite(true);
+            RenderCommand::SetBlendMode(BlendMode::Alpha);
 
             glm::vec4 clear = view->GetClearColor();
             RenderCommand::SetClearColor({ std::pow(clear.r, 2.2f), std::pow(clear.g, 2.2f), std::pow(clear.b, 2.2f), clear.a });
@@ -788,6 +821,7 @@ namespace Zamin {
             if (m_Scenes->IsQuitRequested())
             {
                 ZM_INFO("O'yin chiqishni so'radi");
+                m_QuitRequested = true;
                 m_Scenes->ClearQuitRequest();
                 Application::Get().Close();
                 return;
@@ -866,6 +900,7 @@ namespace Zamin {
             Renderer2D::EndScene();
             Renderer2D::SetDisplayOutput(false);
             RenderCommand::SetColorWriteMask(0, true, true);
+            RenderCommand::SetDepthTest(true);
             return true;
         }
 
@@ -891,7 +926,7 @@ namespace Zamin {
         // --benchmark: the frames timed, the start of the last one, the time the first scene took.
         PlayerBenchmark m_Benchmark;
         Clock::time_point m_AttachTime{}, m_LastFrameStart{};
-        bool m_HasLastFrameStart = false, m_BenchmarkFinished = false;
+        bool m_HasLastFrameStart = false, m_BenchmarkFinished = false, m_QuitRequested = false;
         double m_LoadSeconds = 0.0;
         // The splash screen and the first scene loading behind it; then the cover the game fades in from.
         SplashScreen m_Splash;

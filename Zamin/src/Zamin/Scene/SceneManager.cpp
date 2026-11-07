@@ -469,6 +469,7 @@ namespace Zamin {
         Renderer2D::EndScene();
         Renderer2D::SetDisplayOutput(false);
         RenderCommand::SetColorWriteMask(0, true, true);
+        RenderCommand::SetDepthTest(true);
     }
 
     void SceneManager::UpdateFade(float dt)

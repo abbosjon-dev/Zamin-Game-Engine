@@ -81,6 +81,7 @@ namespace Zamin {
             std::string Title;
             uint32_t Width = 0, Height = 0;
             bool VSync = true;
+            bool WindowedSizePending = false; // SetWindowedSize asked, the window manager has not resized yet
             EventCallbackFn EventCallback;
         } m_Data;
     };

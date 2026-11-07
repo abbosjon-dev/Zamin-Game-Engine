@@ -176,10 +176,9 @@ private:
     void ResetSettings()
     {
         Audio::ClearSavedSettings(); // the project's mixer again
-        Display::SetVSync(true);
-        Display::SetFullscreen(false);
-        Display::SetGamma(1.0f);
-        Display::SetBrightness(1.0f);
+        // The display as the next start opens it: the project's window mode (fullscreen unless windowed) and
+        // vsync; gamma and brightness 1.
+        Display::ResetOptions(Project::GetPlayerSettings());
         Display::ClearSavedSettings();
         SyncFromSettings();
         m_Changed = false;

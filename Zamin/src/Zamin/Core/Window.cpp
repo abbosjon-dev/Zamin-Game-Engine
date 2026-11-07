@@ -66,4 +66,12 @@ namespace Zamin {
         y = area.Y + std::max(0, (area.Height - height) / 2);
     }
 
+    ScreenResolution FitResolution(const ScreenResolution& size, const ScreenResolution& screen)
+    {
+        if (!size.IsValid() || !screen.IsValid() || (size.Width <= screen.Width && size.Height <= screen.Height))
+            return size;
+        const double scale = std::min((double)screen.Width / size.Width, (double)screen.Height / size.Height);
+        return { std::clamp((uint32_t)(size.Width * scale), 1u, screen.Width), std::clamp((uint32_t)(size.Height * scale), 1u, screen.Height) };
+    }
+
 }

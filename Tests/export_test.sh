@@ -6,7 +6,8 @@
 #   2. <Game>.sh --version answers with the game's name and the engine's version;
 #   3. the exported game runs its start scene for some frames (ZaminPlayer --benchmark, from the launcher):
 #      exit code 0, its log has no errors, the script module loaded, the benchmark report was written;
-#   4. the folder still runs after it was moved elsewhere (relocatable launcher).
+#   4. the folder still runs after it was moved elsewhere (relocatable launcher), and its desktop entry's icon
+#      then points into the new place (the launcher rewrites it).
 #   Tests/export_test.sh                             Platformer2D, 120 frames
 #   Tests/export_test.sh --project Projects/Adventure3D --frames 60
 #   Tests/export_test.sh --keep                      keep the temporary folder (the export, the logs)
@@ -140,6 +141,15 @@ fi
 mv "$export_dir" "$work/moved"
 version="$(HOME="$work/home" "$work/moved/$name.sh" --version 2>&1)"
 if [[ $? -eq 0 && "$version" == *"$product"* ]]; then pass "boshqa papkaga ko'chirilgandan keyin ham ishga tushadi"; else fail "ko'chirilgan papkadan ishga tushmadi: $version"; fi
+# (Desktop entries take only absolute icon paths: the launcher pointed the entry next to it at the icon here.)
+desktop="$work/moved/$name.desktop"
+if grep -q '^Icon=' "$desktop" 2>/dev/null; then
+    if grep -qxF "Icon=$work/moved/$name.png" "$desktop"; then
+        pass "ko'chirilgan papkada .desktop ikonkasi yangi joyni ko'rsatadi"
+    else
+        fail ".desktop ikonkasi yangi joyni ko'rsatmaydi: $(grep '^Icon=' "$desktop")"
+    fi
+fi
 mv "$work/moved" "$export_dir"
 
 echo

@@ -345,6 +345,9 @@ namespace Zamin {
                 }
             }
         }
+        // However the loop ended: the layers can still use everything (and set the exit code).
+        for (Layer* layer : m_LayerStack)
+            layer->OnRunEnded();
     }
 
     // Automation hooks for CI / headless testing:

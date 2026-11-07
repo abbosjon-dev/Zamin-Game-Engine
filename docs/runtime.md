@@ -218,10 +218,15 @@ Application::GetVersion(); Application::GetProductName();  // o'yin versiyasi va
 
 Player o'z oynasini `Display` ga bog'laydi; o'yinning sozlamalar menyusi shu orqali oynani o'zgartiradi. Editorning
 Play rejimida oyna bog'lanmagan: qiymatlar faqat saqlanadi (editor oynasi o'zgarmaydi), gamma / yorqinlik esa
-o'yin ko'rinishida ishlaydi.
+o'yin ko'rinishida ishlaydi. Har Play player kabi boshlanadi (`Display::ResetOptions`: loyihaning oyna rejimi va
+VSync'i, tanlangan o'lcham yo'q, gamma 1; keyin saqlanganlar yuklanadi) va Stop'da shu holatga qaytadi - bir
+yurgizishda o'zgartirilgan narsa keyingisiga o'tmaydi. Play'dagi o'lchamlar ro'yxati editor monitoriniki (ekrandan
+katta o'lcham taklif qilinmaydi). Player oynasi ochilganda saqlangan / so'ralgan oyna o'lchami monitordan katta
+bo'lsa, nisbati saqlangan holda monitorga sig'diriladi.
 
 ```cpp
-// Ekran o'lchami: monitorning video rejimlari (oynasiz - 1280x720 ... 2560x1440), joriy o'lcham doim ro'yxatda.
+// Ekran o'lchami: monitorning video rejimlari (oynasiz - editor monitori yoki 1280x720 ... 2560x1440), joriy
+// o'lcham doim ro'yxatda.
 std::vector<ScreenResolution> sizes = Display::GetResolutions();
 Display::SetResolution(1920, 1080);     // oynali rejimda oyna o'lchami, eksklyuziv to'liq ekranda video rejim
 ScreenResolution r = Display::GetResolution();
@@ -231,7 +236,9 @@ Display::SetVSync(false);
 Display::SetGamma(1.2f);                // 0.5 ... 2.0
 Display::SetBrightness(0.9f);           // 0.5 ... 1.5
 Display::SaveSettings();                // keyingi ishga tushishda shular bilan ochiladi
-Display::ClearSavedSettings();          // "Standart" tugmasi uchun
+// "Standart" tugmasi: keyingi ishga tushish qanday ochilsa (loyihaning oyna rejimi, VSync), saqlanganlar o'chadi.
+Display::ResetOptions(Project::GetPlayerSettings());
+Display::ClearSavedSettings();
 ```
 
 ### Kursor (`Cursor`)
@@ -308,11 +315,14 @@ Editorda **Fayl > O'yinni build qilish...** o'yinni papkaga eksport qiladi:
   qilinadi; binarlar `strip` qilinadi (~218 MB -> ~37 MB). Ikkalasini o'chirsa bo'ladi.
 - **Eksport o'zini tekshiradi** (`ExportFiles::CheckExportFolder`): ishga tushirish skripti (bajarish huquqi bilan),
   player, dvigatel, `Resources/`, loyiha fayli, uning boshlang'ich va build sahnalari, asset registri, skript moduli,
-  `.desktop` va o'rnatish skripti joyida bo'lishi kerak - yo'qlari hisobotga xato bo'lib yoziladi.
+  `.desktop` va o'rnatish skripti joyida bo'lishi kerak - yo'qlari hisobotga xato bo'lib yoziladi. Skript moduli
+  topilmasa (kompilyatsiya qilinmagan) o'yin skriptlarsiz eksport qilinadi - bu xato emas, ogohlantirish.
 - **Hisobot oynasi** eksport tugaganda ochiladi: jami hajm, turlar bo'yicha hajm, eng katta fayllar, chiqarib
   tashlangan assetlar, ogohlantirish va xatolar (Fayl > "Eksport hisoboti" - qayta ochish).
-- Eksport qilingan papkani istalgan joyga ko'chirish, arxivlash mumkin: skript va `.desktop` o'z joyidan ishlaydi;
-  ilovalar menyusiga qo'shish uchun yangi joyda `./install-desktop-entry.sh` ni ishga tushiring.
+- Eksport qilingan papkani istalgan joyga ko'chirish, arxivlash mumkin: skript va `.desktop` o'z joyidan ishlaydi.
+  `.desktop` ikonkani faqat to'liq yo'l bilan ko'rsata oladi (standart nisbiy yo'lni qabul qilmaydi): o'yin yangi
+  joydan birinchi marta ishga tushganda launcher (`<O'yin>.sh`) yonidagi `.desktop`ning `Icon=` qatorini shu papkaga
+  to'g'rilaydi. Ilovalar menyusiga qo'shish uchun yangi joyda `./install-desktop-entry.sh` ni ishga tushiring.
 
 ## 12. Ishlash testi (headless)
 
@@ -320,7 +330,9 @@ Editorda **Fayl > O'yinni build qilish...** o'yinni papkaga eksport qiladi:
 cheklovi va VSync o'chiriladi (buyruq qatorida `--vsync` / `--fps` berilmasa), fonda ham ishlaydi; avval
 `--benchmark-warmup` (standart 60) kadr isitiladi (shaderlar, keshlar, sahnaning birinchi kadrlari), keyin har kadr
 vaqti yoziladi. Natija log'da va `--benchmark-out` JSON faylida, chiqish kodi: **0** - o'tdi, **3** - chegaradan
-oshdi (`--benchmark-max-avg MS`, `--benchmark-max-p95 MS`), **2** - ishlamadi (sahna yuklanmadi).
+oshdi (`--benchmark-max-avg MS`, `--benchmark-max-p95 MS`), **2** - ishlamadi (sahna yuklanmadi, player N kadr
+o'lchanmasdan yopildi - oyna yopildi, o'yin `QuitGame` qildi, `ZAMIN_MAX_FRAMES` - yoki `--benchmark-out` fayli
+yozilmadi). Test oxirigacha bormasa ham natija (o'lchangan kadrlar bilan, "o'tmadi") log'ga va faylga yoziladi.
 
 ```bash
 xvfb-run -a ./build/bin/ZaminPlayer Projects/Showcase3D --benchmark 300 --benchmark-out bench.json --resolution 1280x720
@@ -407,7 +419,7 @@ o'zgarmaydi (Release modul `<loyiha>/Build/ExportRelease` da, editor ham shunday
 | Skriptlar ishlamaydi | Log'da "Skript moduli yuklandi" bormi? Modul eksportda bo'lmasa eksport tekshiruvi xato beradi; loyihaning `ScriptModulePath` ini tekshiring |
 | O'yin qulaydi | `crash-*.txt` (log papkasida): sabab, backtrace, kommit; debugger uchun `--no-crash-handler` |
 | Kadrlar notekis | `--benchmark` yoki `ZAMIN_PLAYER_STATS=1`; VSync va `--fps` birga (5-bo'lim) |
-| Ilovalar menyusida ikonka yo'q / eski joyni ko'rsatadi | Papkani ko'chirgandan keyin `./install-desktop-entry.sh` |
+| Ilovalar menyusida ikonka yo'q / eski joyni ko'rsatadi | Papkani ko'chirgandan keyin `./install-desktop-entry.sh` (papkadagi `.desktop` ikonkasini o'yinning birinchi ishga tushishi o'zi to'g'rilaydi) |
 | Qaysi versiya ishlayapti? | `./O'yin.sh --version`, log faylining boshi yoki sozlamalar menyusining burchagi |
 
 ## 16. Testlar

@@ -94,6 +94,26 @@ namespace Zamin {
             ZM_CORE_INFO("Monitorlar: {}", list);
         }
 
+        // The windowed size fits the monitor (a size saved on a larger one, or chosen in the editor's Play): never
+        // a window larger than the screen.
+        if (const GLFWvidmode* screen = target ? glfwGetVideoMode(target) : nullptr)
+        {
+            const ScreenResolution asked{ (uint32_t)m_WindowedWidth, (uint32_t)m_WindowedHeight };
+            const ScreenResolution fitted = FitResolution(asked, { (uint32_t)screen->width, (uint32_t)screen->height });
+            if (fitted != asked)
+            {
+                ZM_CORE_WARN("Oyna o'lchami {}x{} monitordan ({}x{}) katta - {}x{} qilindi", asked.Width, asked.Height, screen->width, screen->height,
+                             fitted.Width, fitted.Height);
+                m_WindowedWidth = (int)fitted.Width;
+                m_WindowedHeight = (int)fitted.Height;
+                if (props.Mode == WindowMode::Windowed)
+                {
+                    m_Data.Width = fitted.Width;
+                    m_Data.Height = fitted.Height;
+                }
+            }
+        }
+
         // Fullscreen: the monitor's own video mode (or the asked one); borderless: an undecorated window of its size.
         const GLFWvidmode* video = props.Mode != WindowMode::Windowed && target ? glfwGetVideoMode(target) : nullptr;
         WindowMode mode = video ? props.Mode : WindowMode::Windowed;
@@ -196,6 +216,7 @@ namespace Zamin {
             WindowData& data = *(WindowData*)glfwGetWindowUserPointer(window);
             data.Width = width;
             data.Height = height;
+            data.WindowedSizePending = false; // the window manager answered (with the size or one of its own)
             WindowResizeEvent event(width, height);
             if (data.EventCallback) data.EventCallback(event);
         });
@@ -393,12 +414,15 @@ namespace Zamin {
             ZM_CORE_WARN("To'liq ekran: monitor topilmadi");
             return;
         }
-        // Leaving the window: where it was, to come back to.
+        // Leaving the window: where it was, to come back to (a size asked for that the window manager has not
+        // applied yet stays the one to come back to).
         if (m_Mode == WindowMode::Windowed)
         {
             if (glfwGetPlatform() != GLFW_PLATFORM_WAYLAND)
                 glfwGetWindowPos(m_Window, &m_WindowedX, &m_WindowedY);
-            glfwGetWindowSize(m_Window, &m_WindowedWidth, &m_WindowedHeight);
+            if (!m_Data.WindowedSizePending)
+                glfwGetWindowSize(m_Window, &m_WindowedWidth, &m_WindowedHeight);
+            m_Data.WindowedSizePending = false;
         }
         switch (mode)
         {
@@ -443,13 +467,21 @@ namespace Zamin {
     {
         m_WindowedWidth = (int)std::max(1u, width);
         m_WindowedHeight = (int)std::max(1u, height);
-        if (m_Mode == WindowMode::Windowed)
-            glfwSetWindowSize(m_Window, m_WindowedWidth, m_WindowedHeight);
+        if (m_Mode != WindowMode::Windowed)
+            return;
+        int w = 0, h = 0;
+        glfwGetWindowSize(m_Window, &w, &h);
+        if (w == m_WindowedWidth && h == m_WindowedHeight)
+            return;
+        // (A window manager resizes later: until it answers, the size is the one asked for - an options menu
+        // shows it at once.)
+        m_Data.WindowedSizePending = true;
+        glfwSetWindowSize(m_Window, m_WindowedWidth, m_WindowedHeight);
     }
 
     ScreenResolution GlfwWindow::GetWindowedSize() const
     {
-        if (m_Mode == WindowMode::Windowed)
+        if (m_Mode == WindowMode::Windowed && !m_Data.WindowedSizePending)
         {
             int w = 0, h = 0;
             glfwGetWindowSize(m_Window, &w, &h);

@@ -147,8 +147,10 @@ namespace Zamin {
         // and the engine library, Resources/, Game/ with one .zproject whose asset folder, start scene, enabled
         // build scenes, asset registry and script module (when it has one) are there, and the desktop entry with
         // its install script. One message per problem (Uzbek); empty: complete. Every export checks itself with
-        // it (the report's errors); Tests/export_test.sh runs the exported game afterwards.
-        std::vector<std::string> CheckExportFolder(const std::filesystem::path& folder, const std::string& gameName);
+        // it (the report's errors); Tests/export_test.sh runs the exported game afterwards. `scriptModule` false:
+        // the game was exported without its script module on purpose (it was not built - the player runs the
+        // game without scripts), so a missing module is no problem.
+        std::vector<std::string> CheckExportFolder(const std::filesystem::path& folder, const std::string& gameName, bool scriptModule = true);
 
     }
 

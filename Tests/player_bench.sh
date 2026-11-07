@@ -9,7 +9,7 @@
 #   Tests/player_bench.sh --resolution 1920x1080 --out /tmp/bench
 # Other options go to ZaminPlayer as they are (--quality Low, --lang en, --msaa 4 ...). The players run with a
 # fresh HOME (no saved settings, logs in it; ZAMIN_BENCH_HOME=<dir> to keep one). Exit code: 0 when every run
-# finished within its limits, 1 otherwise, 2 when the player is missing.
+# finished within its limits, 1 otherwise, 2 when the player is missing or the output folder cannot be written.
 set -uo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 build="${ZAMIN_BUILD_DIR:-$root/build}"
@@ -53,7 +53,10 @@ if [[ -z "${DISPLAY:-}" ]]; then
         exit 2
     fi
 fi
-mkdir -p "$out"
+if ! mkdir -p "$out" 2>/dev/null || [[ ! -d "$out" || ! -w "$out" ]]; then
+    echo "Natijalar papkasi yaratilmadi yoki yozib bo'lmaydi: $out" >&2
+    exit 2
+fi
 home="${ZAMIN_BENCH_HOME:-}"
 cleanup_home=0
 if [[ -z "$home" ]]; then

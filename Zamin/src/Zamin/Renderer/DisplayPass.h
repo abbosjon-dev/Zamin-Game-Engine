@@ -8,7 +8,8 @@ namespace Zamin {
 
     // The player's last pass: its finished frame (an RGBA8 picture in display colours) drawn over the
     // bound framebuffer's viewport with the player's gamma and brightness (Display::GetAdjustment) -
-    // and, while the game is paused in the background, dimmed (`dim`: 0 none .. 1 black).
+    // and, while the game is paused in the background, dimmed (`dim`: 0 none .. 1 black). Leaves the
+    // renderers' default state behind: depth test on, alpha blending.
     class DisplayPass
     {
     public:

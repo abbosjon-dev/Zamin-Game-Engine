@@ -91,8 +91,8 @@ namespace Zamin {
         ScriptFieldInfo Range(ScriptFieldInfo info, float min, float max)
         {
             static_assert(std::is_same_v<T, float> || std::is_same_v<T, int> || std::is_same_v<T, glm::vec2> ||
-                          std::is_same_v<T, glm::vec3> || std::is_same_v<T, glm::vec4>,
-                          "ZM_FIELD_RANGE: maydon float, int, glm::vec2, glm::vec3 yoki glm::vec4 bo'lishi kerak");
+                          std::is_same_v<T, glm::vec3> || std::is_same_v<T, glm::vec4> || std::is_same_v<T, AnimationCurve>,
+                          "ZM_FIELD_RANGE: maydon float, int, glm::vec2, glm::vec3, glm::vec4 yoki AnimationCurve bo'lishi kerak");
             info.Range(min, max);
             return info;
         }
@@ -124,7 +124,8 @@ namespace Zamin {
 #define ZM_FIELD_COLOR_HDR(Class, Member) \
     ::Zamin::ScriptFieldAttributes::Color<ZM_FIELD_TYPE(Class, Member)>(ZM_FIELD(Class, Member), true)
 
-// float / int / glm::vecN edited with a slider limited to [Min, Max].
+// float / int / glm::vecN edited with a slider limited to [Min, Max] (AnimationCurve: the values its
+// curve editor shows at least).
 #define ZM_FIELD_RANGE(Class, Member, Min, Max) \
     ::Zamin::ScriptFieldAttributes::Range<ZM_FIELD_TYPE(Class, Member)>(ZM_FIELD(Class, Member), (float)(Min), (float)(Max))
 

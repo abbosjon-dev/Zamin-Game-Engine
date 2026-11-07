@@ -3,6 +3,7 @@
 #include "Zamin/Asset/AssetImportLog.h"
 #include "Zamin/Asset/AssetImporter.h"
 #include "Zamin/Core/Log.h"
+#include "Zamin/Math/Color.h"
 #include "Zamin/Asset/AssetRegistry.h"
 #include "Zamin/Project/AssetFiles.h"
 #include "Zamin/Project/Project.h"
@@ -195,8 +196,8 @@ namespace Zamin {
         if (m.has_pbr_metallic_roughness)
         {
             const auto& pbr = m.pbr_metallic_roughness;
-            out.Albedo = { std::pow(pbr.base_color_factor[0], 1.0f / 2.2f), std::pow(pbr.base_color_factor[1], 1.0f / 2.2f),
-                           std::pow(pbr.base_color_factor[2], 1.0f / 2.2f), pbr.base_color_factor[3] };
+            out.Albedo = glm::vec4(Color::LinearToGamma(glm::vec3(pbr.base_color_factor[0], pbr.base_color_factor[1], pbr.base_color_factor[2])),
+                                   pbr.base_color_factor[3]);
             out.Metallic = pbr.metallic_factor;
             out.Roughness = pbr.roughness_factor;
         }

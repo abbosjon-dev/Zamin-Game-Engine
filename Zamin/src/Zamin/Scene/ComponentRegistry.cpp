@@ -61,6 +61,8 @@ namespace Zamin {
             MakeTypeInfo<TilemapComponent>(),
             MakeTypeInfo<ParallaxComponent>(),
             MakeTypeInfo<Camera2DFollowComponent>(),
+            MakeTypeInfo<SplineComponent>(),
+            MakeTypeInfo<SplineFollowerComponent>(),
             MakeTypeInfo<ParticleSystemComponent>(),
             MakeTypeInfo<UITransformComponent>(),
             MakeTypeInfo<UICanvasComponent>(),

@@ -763,7 +763,8 @@ namespace Zamin {
                 for (auto [key, target] : { std::pair<std::string_view, GizmoVisibility*>{ "frustums=", &g.CameraFrustums },
                                             { "lights=", &g.LightDirections }, { "audio=", &g.AudioRanges },
                                             { "bounds=", &g.Bounds }, { "skeleton=", &g.Skeletons }, { "normals=", &g.Normals },
-                                            { "joints=", &g.Joints2D }, { "particles=", &g.ParticleShapes } })
+                                            { "joints=", &g.Joints2D }, { "particles=", &g.ParticleShapes },
+                                            { "splines=", &g.Splines } })
                     if (size_t at = v.find(key); at != std::string_view::npos)
                         *target = parse(v.substr(at + key.size()));
                 if (size_t at = v.find("normallength="); at != std::string_view::npos)
@@ -1154,6 +1155,17 @@ namespace Zamin {
             m_SceneHierarchyPanel.SetColliderPointEdit(std::string_view(edit) == "edge" ? Kind::Edge : Kind::Polygon);
             if (const char* hover = std::getenv("ZAMIN_EDITOR_COLLIDER_HOVER"))
                 m_ColliderHoverOverride = hover;
+        }
+        // ZAMIN_EDITOR_SPLINE_EDIT=1 (with ZAMIN_EDITOR_SELECT): the spline's points are edited in the
+        // viewport from frame 12; ZAMIN_EDITOR_SPLINE_PICK=<point> picks one (gizmo, Bezier handles),
+        // ZAMIN_EDITOR_SPLINE_HOVER=p<i> | i<i> | o<i> | c<u> pins the hovered point / handle / curve.
+        if (std::getenv("ZAMIN_EDITOR_SPLINE_EDIT") && frame == 12)
+        {
+            m_SceneHierarchyPanel.SetSplinePointEdit(true);
+            if (const char* pick = std::getenv("ZAMIN_EDITOR_SPLINE_PICK"))
+                m_SplinePicked = std::atoi(pick);
+            if (const char* hover = std::getenv("ZAMIN_EDITOR_SPLINE_HOVER"))
+                m_SplineHoverOverride = hover;
         }
         // ZAMIN_EDITOR_JOINT_EDIT=distance|revolute|prismatic|weld|wheel (with ZAMIN_EDITOR_SELECT): that
         // joint's anchors are edited in the viewport from frame 12; ZAMIN_EDITOR_JOINT_HOVER=anchor |
@@ -2512,6 +2524,61 @@ namespace Zamin {
     // A Particle System's emitter shape in its local space (`world`: the emitter's transform):
     // circle / sphere / box outlines (the inner edge too when only an outer shell emits), the cone
     // with its rim rays out to its length, the edge line, the mesh's edges, and the emission direction.
+    // A Spline component's path in the world: the curve, a small cross at each point (the first one
+    // a ring), an arrow half way along showing the way it runs; Bezier handles of a selected path.
+    static void DrawSplineGizmo(const glm::mat4& world, const SplineComponent& c, const glm::vec4& color, const EditorOverlayView& view,
+                                bool selected)
+    {
+        const Spline& path = c.Path;
+        const int segments = path.GetSegmentCount();
+        auto toWorld = [&](const glm::vec3& p) { return glm::vec3(world * glm::vec4(p, 1.0f)); };
+        if (segments > 0)
+        {
+            const int steps = path.Type == SplineType::Linear ? 1 : 24;
+            glm::vec3 previous = toWorld(path.EvaluateSegment(0, 0.0f));
+            for (int s = 0; s < segments; s++)
+                for (int i = 1; i <= steps; i++)
+                {
+                    const glm::vec3 p = toWorld(path.EvaluateSegment(s, (float)i / (float)steps));
+                    Renderer2D::DrawLine(previous, p, color);
+                    previous = p;
+                }
+            // The way it runs: a chevron half way along.
+            const float length = c.GetLength();
+            const glm::vec3 mid = toWorld(c.GetPositionAtDistance(length * 0.5f));
+            glm::vec3 along = glm::mat3(world) * c.GetTangentAtDistance(length * 0.5f);
+            if (glm::dot(along, along) > 1e-12f)
+            {
+                along = glm::normalize(along);
+                glm::vec3 side = glm::cross(along, view.Forward);
+                side = glm::dot(side, side) > 1e-8f ? glm::normalize(side) : glm::vec3(0.0f, 1.0f, 0.0f);
+                const float size = view.PixelSize(mid) * 9.0f;
+                Renderer2D::DrawLine(mid, mid - along * size + side * size * 0.6f, color);
+                Renderer2D::DrawLine(mid, mid - along * size - side * size * 0.6f, color);
+            }
+        }
+        // The points (crosses facing the camera); the first a ring.
+        glm::vec3 right = glm::cross(view.Forward, glm::vec3(0.0f, 1.0f, 0.0f));
+        right = glm::dot(right, right) > 1e-8f ? glm::normalize(right) : glm::vec3(1.0f, 0.0f, 0.0f);
+        const glm::vec3 up = glm::normalize(glm::cross(right, view.Forward));
+        for (size_t i = 0; i < path.Points.size(); i++)
+        {
+            const glm::vec3 p = toWorld(path.Points[i].Position);
+            const float size = view.PixelSize(p) * 4.0f;
+            if (i == 0)
+                DrawWireCircle(p, right, up, size * 1.4f, color);
+            Renderer2D::DrawLine(p - right * size, p + right * size, color);
+            Renderer2D::DrawLine(p - up * size, p + up * size, color);
+            if (selected && path.Type == SplineType::Bezier)
+            {
+                glm::vec4 faint = color;
+                faint.a *= 0.55f;
+                Renderer2D::DrawLine(p, toWorld(path.Points[i].Position + path.Points[i].InTangent), faint);
+                Renderer2D::DrawLine(p, toWorld(path.Points[i].Position + path.Points[i].OutTangent), faint);
+            }
+        }
+    }
+
     static void DrawParticleShapeGizmo(const glm::mat4& world, const ParticleSystemComponent& ps, const glm::vec4& color, float pixel)
     {
         using Shape = ParticleSystemComponent::EmitterShape;
@@ -3193,6 +3260,53 @@ namespace Zamin {
                 if (zone.BlendDistance > 0.0f)
                     DrawWireBox(shell, faint);
             }
+
+        // Spline paths; a selected follower: where it starts on its path (a dashed line to it).
+        if (gizmos.Splines != GizmoVisibility::Off)
+        {
+            for (auto e : scene.GetAllEntitiesWith<SplineComponent>())
+            {
+                if (!shows(e, gizmos.Splines))
+                    continue;
+                Entity entity{ e, &scene };
+                const auto& c = entity.GetComponent<SplineComponent>();
+                const bool selected = m_SceneHierarchyPanel.IsSelected(entity);
+                glm::vec4 color = c.Color;
+                if (!selected)
+                    color.a *= 0.6f;
+                DrawSplineGizmo(scene.GetWorldTransform(entity), c, color, view, selected);
+            }
+            if (m_SceneState != SceneState::Play)
+                for (auto e : scene.GetAllEntitiesWith<SplineFollowerComponent>())
+                {
+                    Entity entity{ e, &scene };
+                    if (!m_SceneHierarchyPanel.IsSelected(entity) || !shows(e, gizmos.Splines))
+                        continue;
+                    const auto& f = entity.GetComponent<SplineFollowerComponent>();
+                    Entity pathEntity = scene.GetSplineFollowerPath(entity);
+                    if (!pathEntity || pathEntity == entity)
+                        continue;
+                    const glm::vec3 start = scene.GetSplinePosition(pathEntity, f.StartPosition * scene.GetSplineLength(pathEntity));
+                    const glm::vec3 from = scene.GetWorldPosition(entity);
+                    const glm::vec4 color(1.0f, 0.8f, 0.3f, 0.9f);
+                    const float size = view.PixelSize(start) * 6.0f;
+                    glm::vec3 right = glm::cross(view.Forward, glm::vec3(0.0f, 1.0f, 0.0f));
+                    right = glm::dot(right, right) > 1e-8f ? glm::normalize(right) : glm::vec3(1.0f, 0.0f, 0.0f);
+                    const glm::vec3 up = glm::normalize(glm::cross(right, view.Forward));
+                    // A diamond at the start, dashes from the follower to it.
+                    Renderer2D::DrawLine(start + up * size, start + right * size, color);
+                    Renderer2D::DrawLine(start + right * size, start - up * size, color);
+                    Renderer2D::DrawLine(start - up * size, start - right * size, color);
+                    Renderer2D::DrawLine(start - right * size, start + up * size, color);
+                    const float gap = glm::length(start - from);
+                    if (gap > size)
+                    {
+                        const int dashes = std::clamp((int)(gap / (size * 1.5f)), 1, 64);
+                        for (int i = 0; i < dashes; i += 2)
+                            Renderer2D::DrawLine(glm::mix(from, start, (float)i / dashes), glm::mix(from, start, (float)(i + 1) / dashes), color);
+                    }
+                }
+        }
 
         // Particle System emitters: the shape they emit from.
         if (gizmos.ParticleShapes != GizmoVisibility::Off)
@@ -6901,6 +7015,7 @@ namespace Zamin {
         }
         UI_UIRectGizmo(); // the selected UI element's rect gizmo; the UI element under the mouse
         UI_ColliderPointEditor();
+        UI_SplinePointEditor();
         UI_JointAnchorEditor();
         UI_Joint3DAnchorEditor();
         if (m_ShowTransparentOrder) UI_TransparentOrder(); // also while playing (the game camera's order)
@@ -7372,6 +7487,8 @@ namespace Zamin {
             changed |= ImGui::Checkbox(Tr("Bo'g'in nomlari"), &g.JointNames);
             ImGui::Unindent();
         }
+        option(ICON_FA_BEZIER_CURVE "  Spline yo'llar", g.Splines,
+               "Spline komponentlarining yo'li (egri chiziq, nuqtalari, yo'nalish o'qi) va Spline Follower'larning boshlanish nuqtasi");
         option(ICON_FA_WAND_MAGIC_SPARKLES "  Particle shakli", g.ParticleShapes,
                "Particle System emitteri: doira, sfera, quti, konus (chetidagi nurlari bilan) yoki chiziq - particle'lar qayerdan "
                "chiqadi, va yo'nalish o'qi");

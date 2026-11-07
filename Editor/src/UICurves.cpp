@@ -1,4 +1,5 @@
-// Inspector widgets for values over a particle's life: colour gradients and curves.
+// Inspector widgets for values over a particle's life and over time: colour gradients and curves
+// (ParticleCurve, AnimationCurve).
 #include "UI.h"
 
 #include <algorithm>
@@ -195,21 +196,34 @@ namespace Zamin::UI {
     // ------------------------------------------------------------------ curves
     static const char* const s_Interpolations[] = { "Pog'onali", "Chiziqli", "Silliq (Bezier)" };
 
-    bool CurveEditor(const char* id, ParticleCurve& curve, float valueMin, float valueMax)
+    // The editor of a key list over [t0, t1] (the view's time span): ParticleCurve (0..1, shown as
+    // % of the life) and AnimationCurve (seconds) share it. `emptyValue`: the value a curve without
+    // keys starts from.
+    static bool KeyCurveEditor(std::vector<AnimationKey>& keys, float t0, float t1, bool percent, float valueMin, float valueMax,
+                               float emptyValue)
     {
-        ImGui::PushID(id);
         bool changed = false;
-        if (curve.Keys.empty())
+        if (keys.empty())
         {
-            curve = ParticleCurve::Constant(1.0f);
+            AnimationKey a;
+            a.Time = t0;
+            a.Value.x = emptyValue;
+            AnimationKey b = a;
+            b.Time = t1;
+            keys = { a, b };
             changed = true;
         }
+        if (!(t1 > t0))
+            t1 = t0 + 1.0f;
+        const float span = t1 - t0;
         ImGuiStorage* storage = ImGui::GetStateStorage();
         const ImGuiID selectedKey = ImGui::GetID("##selected"), dragKey = ImGui::GetID("##drag");
-        int selected = std::clamp(storage->GetInt(selectedKey, 0), 0, (int)curve.Keys.size() - 1);
+        int selected = std::clamp(storage->GetInt(selectedKey, 0), 0, (int)keys.size() - 1);
 
         // The view: at least valueMin..valueMax, more when the curve goes beyond.
-        float bottom = std::min(valueMin, curve.GetMin()), top = std::max(valueMax, curve.GetMax());
+        float curveMin, curveMax;
+        CurveKeys::GetRange(keys, t0, t1, curveMin, curveMax);
+        float bottom = std::min(valueMin, curveMin), top = std::max(valueMax, curveMax);
         if (top - bottom < 1e-3f)
             top = bottom + 1.0f;
         ImDrawList* dl = ImGui::GetWindowDrawList();
@@ -221,12 +235,13 @@ namespace Zamin::UI {
         const bool hovered = ImGui::IsItemHovered(), active = ImGui::IsItemActive();
         const float pad = 5.0f; // keys at the edges stay clickable
         auto toScreen = [&](float t, float v) {
-            return ImVec2(origin.x + pad + t * (width - pad * 2.0f), max.y - pad - (v - bottom) / (top - bottom) * (height - pad * 2.0f));
+            return ImVec2(origin.x + pad + (t - t0) / span * (width - pad * 2.0f), max.y - pad - (v - bottom) / (top - bottom) * (height - pad * 2.0f));
         };
         auto fromScreen = [&](ImVec2 p, float& t, float& v) {
-            t = std::clamp((p.x - origin.x - pad) / (width - pad * 2.0f), 0.0f, 1.0f);
+            t = t0 + std::clamp((p.x - origin.x - pad) / (width - pad * 2.0f), 0.0f, 1.0f) * span;
             v = std::clamp(bottom + (max.y - pad - p.y) / (height - pad * 2.0f) * (top - bottom), bottom, top);
         };
+        auto timeText = [&](float t) { return percent ? std::format("{:.0f}%", (t - t0) / span * 100.0f) : std::format("{:.2f} s", t); };
 
         dl->AddRectFilled(origin, max, IM_COL32(24, 26, 31, 255), 3.0f);
         for (int i = 1; i < 4; i++)
@@ -236,26 +251,32 @@ namespace Zamin::UI {
         }
         if (bottom < 0.0f && top > 0.0f)
         {
-            const float y = toScreen(0.0f, 0.0f).y;
+            const float y = toScreen(t0, 0.0f).y;
             dl->AddLine(ImVec2(origin.x, y), ImVec2(max.x, y), IM_COL32(255, 255, 255, 40));
         }
         const std::string topText = std::format("{:.2g}", top), bottomText = std::format("{:.2g}", bottom);
         dl->AddText(ImVec2(origin.x + 3.0f, origin.y + 1.0f), IM_COL32(150, 155, 165, 160), topText.c_str());
         dl->AddText(ImVec2(origin.x + 3.0f, max.y - ImGui::GetFontSize() - 1.0f), IM_COL32(150, 155, 165, 160), bottomText.c_str());
+        if (!percent)
+        {
+            const std::string endText = std::format("{:.2g} s", t1);
+            const ImVec2 size = ImGui::CalcTextSize(endText.c_str());
+            dl->AddText(ImVec2(max.x - size.x - 3.0f, max.y - ImGui::GetFontSize() - 1.0f), IM_COL32(150, 155, 165, 160), endText.c_str());
+        }
 
         // The curve itself, then its keys.
         constexpr int samples = 64;
         ImVec2 points[samples + 1];
         for (int i = 0; i <= samples; i++)
         {
-            const float t = i / (float)samples;
-            points[i] = toScreen(t, curve.Evaluate(t));
+            const float t = t0 + span * (i / (float)samples);
+            points[i] = toScreen(t, CurveKeys::EvaluateScalar(keys, t));
         }
         dl->PushClipRect(origin, max, true);
         dl->AddPolyline(points, samples + 1, AccentU32(), 0, 2.0f);
-        for (int i = 0; i < (int)curve.Keys.size(); i++)
+        for (int i = 0; i < (int)keys.size(); i++)
         {
-            const AnimationKey& k = curve.Keys[i];
+            const AnimationKey& k = keys[i];
             const ImVec2 p = toScreen(k.Time, k.Value.x);
             dl->AddCircleFilled(p, i == selected ? 5.0f : 4.0f, i == selected ? IM_COL32(255, 255, 255, 255) : IM_COL32(200, 205, 210, 255));
             if (i == selected)
@@ -268,9 +289,9 @@ namespace Zamin::UI {
         auto keyAt = [&]() {
             int best = -1;
             float bestDistance = 8.0f * 8.0f;
-            for (int i = 0; i < (int)curve.Keys.size(); i++)
+            for (int i = 0; i < (int)keys.size(); i++)
             {
-                const ImVec2 p = toScreen(curve.Keys[i].Time, curve.Keys[i].Value.x);
+                const ImVec2 p = toScreen(keys[i].Time, keys[i].Value.x);
                 const float d = (p.x - mouse.x) * (p.x - mouse.x) + (p.y - mouse.y) * (p.y - mouse.y);
                 if (d <= bestDistance)
                 {
@@ -293,23 +314,24 @@ namespace Zamin::UI {
         }
         if (hovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && keyAt() < 0)
         {
-            selected = curve.AddKey(mouseT);
-            curve.Keys[selected].Value.x = mouseV;
-            PropertyAnimation::UpdateTangents(curve.Keys);
+            selected = CurveKeys::Insert(keys, mouseT);
+            keys[selected].Value.x = mouseV;
+            CurveKeys::UpdateTangents(keys);
             changed = true;
         }
         if (active && storage->GetInt(dragKey, 0) && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 1.0f))
         {
             // Between its neighbours: the keys keep their order.
-            AnimationKey& k = curve.Keys[selected];
-            const float lo = selected > 0 ? curve.Keys[selected - 1].Time + 1e-3f : 0.0f;
-            const float hi = selected + 1 < (int)curve.Keys.size() ? curve.Keys[selected + 1].Time - 1e-3f : 1.0f;
+            AnimationKey& k = keys[selected];
+            const float gap = span * 1e-3f;
+            const float lo = selected > 0 ? keys[selected - 1].Time + gap : t0;
+            const float hi = selected + 1 < (int)keys.size() ? keys[selected + 1].Time - gap : t1;
             const float t = std::clamp(mouseT, std::min(lo, hi), std::max(lo, hi));
             if (t != k.Time || mouseV != k.Value.x)
             {
                 k.Time = t;
                 k.Value.x = mouseV;
-                PropertyAnimation::UpdateTangents(curve.Keys);
+                CurveKeys::UpdateTangents(keys);
                 changed = true;
             }
         }
@@ -327,13 +349,13 @@ namespace Zamin::UI {
                 ImGui::OpenPopup("##shapes");
         }
         if (hovered && !ImGui::IsMouseDown(ImGuiMouseButton_Left) && !ImGui::IsPopupOpen("##key") && !ImGui::IsPopupOpen("##shapes"))
-            Tooltip(std::format("{:.0f}%: {:.3f}\nIkki marta bosish - yangi kalit, kalitni sudrash - surish, o'ng tugma - menyu",
-                                   mouseT * 100.0f, curve.Evaluate(mouseT)).c_str());
+            Tooltip(std::format("{}: {:.3f}\nIkki marta bosish - yangi kalit, kalitni sudrash - surish, o'ng tugma - menyu",
+                                   timeText(mouseT), CurveKeys::EvaluateScalar(keys, mouseT)).c_str());
 
         if (ImGui::BeginPopup("##key"))
         {
-            selected = std::clamp(selected, 0, (int)curve.Keys.size() - 1);
-            AnimationKey& k = curve.Keys[selected];
+            selected = std::clamp(selected, 0, (int)keys.size() - 1);
+            AnimationKey& k = keys[selected];
             ImGui::TextDisabled("Keyingi kalitgacha:");
             for (int i = 0; i < 3; i++)
                 if (ImGui::MenuItem(s_Interpolations[i], nullptr, (int)k.Interpolation == i))
@@ -344,15 +366,15 @@ namespace Zamin::UI {
             if (k.Interpolation == KeyInterpolation::Bezier && ImGui::MenuItem(Tr("Tekis (ease)"), nullptr, k.TangentMode == KeyTangentMode::Flat))
             {
                 k.TangentMode = k.TangentMode == KeyTangentMode::Flat ? KeyTangentMode::Auto : KeyTangentMode::Flat;
-                PropertyAnimation::UpdateTangents(curve.Keys);
+                CurveKeys::UpdateTangents(keys);
                 changed = true;
             }
             ImGui::Separator();
-            if (ImGui::MenuItem(Tr(ICON_FA_TRASH "  O'chirish"), nullptr, false, curve.Keys.size() > 1))
+            if (ImGui::MenuItem(Tr(ICON_FA_TRASH "  O'chirish"), nullptr, false, keys.size() > 1))
             {
-                curve.Keys.erase(curve.Keys.begin() + selected);
-                selected = std::min(selected, (int)curve.Keys.size() - 1);
-                PropertyAnimation::UpdateTangents(curve.Keys);
+                keys.erase(keys.begin() + selected);
+                selected = std::min(selected, (int)keys.size() - 1);
+                CurveKeys::UpdateTangents(keys);
                 changed = true;
             }
             ImGui::EndPopup();
@@ -360,63 +382,79 @@ namespace Zamin::UI {
         if (ImGui::BeginPopup("##shapes"))
         {
             ImGui::TextDisabled("Tayyor shakllar:");
-            auto shape = [&](const char* name, ParticleCurve c) {
+            const float hi = std::max(valueMax, valueMin + 1e-3f), lo = valueMin;
+            // Keys at the ends of the view (and one in the middle), linear or smooth.
+            auto make = [&](std::initializer_list<std::pair<float, float>> points, bool smooth) {
+                std::vector<AnimationKey> out;
+                for (const auto& [x, v] : points)
+                {
+                    AnimationKey key;
+                    key.Time = t0 + span * x;
+                    key.Value.x = v;
+                    key.Interpolation = smooth ? KeyInterpolation::Bezier : KeyInterpolation::Linear;
+                    out.push_back(key);
+                }
+                CurveKeys::Sort(out);
+                return out;
+            };
+            auto shape = [&](const char* name, std::vector<AnimationKey> k) {
                 if (ImGui::MenuItem(name))
                 {
-                    curve = std::move(c);
+                    keys = std::move(k);
                     selected = 0;
                     changed = true;
                 }
             };
-            const float hi = std::max(valueMax, valueMin + 1e-3f), lo = valueMin;
-            shape("Doimiy", ParticleCurve::Constant(hi));
-            shape("Kamayish (chiziqli)", ParticleCurve::Linear(hi, lo));
-            shape("O'sish (chiziqli)", ParticleCurve::Linear(lo, hi));
-            {
-                ParticleCurve c = ParticleCurve::Linear(hi, lo);
-                for (auto& k : c.Keys) k.Interpolation = KeyInterpolation::Bezier;
-                c.Sort();
-                shape("Kamayish (silliq)", std::move(c));
-            }
-            {
-                ParticleCurve c = ParticleCurve::Linear(lo, hi);
-                for (auto& k : c.Keys) k.Interpolation = KeyInterpolation::Bezier;
-                c.Sort();
-                shape("O'sish (silliq)", std::move(c));
-            }
-            {
-                ParticleCurve c = ParticleCurve::Linear(lo, lo);
-                c.AddKey(0.5f);
-                c.Keys[1].Value.x = hi;
-                for (auto& k : c.Keys) k.Interpolation = KeyInterpolation::Bezier;
-                c.Sort();
-                shape("Ko'tarilib tushish", std::move(c));
-            }
+            shape("Doimiy", make({ { 0.0f, hi }, { 1.0f, hi } }, false));
+            shape("Kamayish (chiziqli)", make({ { 0.0f, hi }, { 1.0f, lo } }, false));
+            shape("O'sish (chiziqli)", make({ { 0.0f, lo }, { 1.0f, hi } }, false));
+            shape("Kamayish (silliq)", make({ { 0.0f, hi }, { 1.0f, lo } }, true));
+            shape("O'sish (silliq)", make({ { 0.0f, lo }, { 1.0f, hi } }, true));
+            shape("Ko'tarilib tushish", make({ { 0.0f, lo }, { 0.5f, hi }, { 1.0f, lo } }, true));
             ImGui::EndPopup();
         }
 
-        // The selected key: time (% of the life), value, interpolation.
-        selected = std::clamp(selected, 0, (int)curve.Keys.size() - 1);
-        AnimationKey& k = curve.Keys[selected];
+        // The selected key: time, value, interpolation.
+        selected = std::clamp(selected, 0, (int)keys.size() - 1);
+        AnimationKey& k = keys[selected];
         const float spacing = ImGui::GetStyle().ItemSpacing.x;
         const float third = std::max(30.0f, (ImGui::GetContentRegionAvail().x - spacing * 2.0f) / 3.0f);
         ImGui::SetNextItemWidth(third);
-        float percent = k.Time * 100.0f;
-        const float lo = selected > 0 ? curve.Keys[selected - 1].Time * 100.0f + 0.1f : 0.0f;
-        const float hi = selected + 1 < (int)curve.Keys.size() ? curve.Keys[selected + 1].Time * 100.0f - 0.1f : 100.0f;
-        if (ImGui::DragFloat("##t", &percent, 0.5f, std::min(lo, hi), std::max(lo, hi), "%.1f%%", ImGuiSliderFlags_AlwaysClamp))
+        if (percent)
         {
-            k.Time = percent / 100.0f;
-            PropertyAnimation::UpdateTangents(curve.Keys);
-            changed = true;
+            float value = (k.Time - t0) / span * 100.0f;
+            const float lo = selected > 0 ? (keys[selected - 1].Time - t0) / span * 100.0f + 0.1f : 0.0f;
+            const float hi = selected + 1 < (int)keys.size() ? (keys[selected + 1].Time - t0) / span * 100.0f - 0.1f : 100.0f;
+            if (ImGui::DragFloat("##t", &value, 0.5f, std::min(lo, hi), std::max(lo, hi), "%.1f%%", ImGuiSliderFlags_AlwaysClamp))
+            {
+                k.Time = t0 + value / 100.0f * span;
+                CurveKeys::UpdateTangents(keys);
+                changed = true;
+            }
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                Tooltip("Tanlangan kalitning vaqti (umrning foizi)");
         }
-        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-            Tooltip("Tanlangan kalitning vaqti (umrning foizi)");
+        else
+        {
+            // Seconds: the first / last key may move outwards (the view follows).
+            float value = k.Time;
+            const float gap = span * 1e-3f;
+            const float lo = selected > 0 ? keys[selected - 1].Time + gap : -1e6f;
+            const float hi = selected + 1 < (int)keys.size() ? keys[selected + 1].Time - gap : 1e6f;
+            if (ImGui::DragFloat("##t", &value, std::max(0.001f, span * 0.005f), std::min(lo, hi), std::max(lo, hi), "%.3f s", ImGuiSliderFlags_AlwaysClamp))
+            {
+                k.Time = value;
+                CurveKeys::UpdateTangents(keys);
+                changed = true;
+            }
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                Tooltip("Tanlangan kalitning vaqti (soniya)");
+        }
         ImGui::SameLine();
         ImGui::SetNextItemWidth(third);
         if (ImGui::DragFloat("##v", &k.Value.x, 0.01f, 0.0f, 0.0f, "%.3f"))
         {
-            PropertyAnimation::UpdateTangents(curve.Keys);
+            CurveKeys::UpdateTangents(keys);
             changed = true;
         }
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
@@ -427,13 +465,56 @@ namespace Zamin::UI {
         if (ImGui::Combo("##i", &interpolation, s_Interpolations, 3))
         {
             k.Interpolation = (KeyInterpolation)interpolation;
-            PropertyAnimation::UpdateTangents(curve.Keys);
+            CurveKeys::UpdateTangents(keys);
             changed = true;
         }
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
             Tooltip("Tanlangan kalitdan keyingisigacha qanday o'tadi");
 
         storage->SetInt(selectedKey, selected);
+        return changed;
+    }
+
+    bool CurveEditor(const char* id, ParticleCurve& curve, float valueMin, float valueMax)
+    {
+        ImGui::PushID(id);
+        const bool changed = KeyCurveEditor(curve.Keys, 0.0f, 1.0f, true, valueMin, valueMax, 1.0f);
+        ImGui::PopID();
+        return changed;
+    }
+
+    bool CurveEditor(const char* id, AnimationCurve& curve, float valueMin, float valueMax)
+    {
+        ImGui::PushID(id);
+        // The view spans the keys (a curve of one key or none: a second).
+        float t0 = curve.GetStartTime(), t1 = curve.GetEndTime();
+        if (curve.Keys.size() < 2 || !(t1 - t0 > 1e-4f))
+            t1 = t0 + 1.0f;
+        bool changed = KeyCurveEditor(curve.Keys, t0, t1, false, valueMin, valueMax, 0.0f);
+
+        // Before the first / after the last key.
+        static const char* const wraps[] = { "Ushlab turish", "Takrorlash", "Borib-qaytish" };
+        const float spacing = ImGui::GetStyle().ItemSpacing.x;
+        const float half = std::max(40.0f, (ImGui::GetContentRegionAvail().x - spacing) * 0.5f);
+        ImGui::SetNextItemWidth(half);
+        int pre = (int)curve.PreWrap;
+        if (ImGui::Combo("##pre", &pre, wraps, 3))
+        {
+            curve.PreWrap = (AnimationWrap)pre;
+            changed = true;
+        }
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            Tooltip("Birinchi kalitdan oldin: ushlab turish (birinchi qiymat), takrorlash yoki borib-qaytish");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        int post = (int)curve.PostWrap;
+        if (ImGui::Combo("##post", &post, wraps, 3))
+        {
+            curve.PostWrap = (AnimationWrap)post;
+            changed = true;
+        }
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            Tooltip("Oxirgi kalitdan keyin: ushlab turish (oxirgi qiymat), takrorlash yoki borib-qaytish");
         ImGui::PopID();
         return changed;
     }
@@ -445,6 +526,12 @@ namespace Zamin::UI {
     }
 
     bool PropertyCurve(const char* label, ParticleCurve& curve, float valueMin, float valueMax, const char* tooltip)
+    {
+        PropertyLabel(label, tooltip);
+        return CurveEditor(label, curve, valueMin, valueMax);
+    }
+
+    bool PropertyCurve(const char* label, AnimationCurve& curve, float valueMin, float valueMax, const char* tooltip)
     {
         PropertyLabel(label, tooltip);
         return CurveEditor(label, curve, valueMin, valueMax);

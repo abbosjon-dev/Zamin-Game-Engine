@@ -242,6 +242,8 @@ namespace Zamin {
     static const char* const s_UIDirections[] = { "LeftToRight", "RightToLeft", "BottomToTop", "TopToBottom" };
     static const char* const s_UIToggleStyles[] = { "Checkbox", "Switch" };
     static const char* const s_UIToggleMarks[] = { "Check", "Square", "Dot" };
+    static const char* const s_SplineFollowModes[] = { "Once", "Loop", "PingPong" };
+    static const char* const s_SplineRotations[] = { "None", "Path3D", "Path2D" };
     static const char* const s_UIContentTypes[] = { "Standard", "Integer", "Decimal", "Alphanumeric", "Password" };
     static const char* const s_UIScaleModes[] = { "ConstantPixelSize", "ScaleWithScreenSize" };
     static const char* const s_UIScreenMatchModes[] = { "MatchWidthOrHeight", "Expand", "Shrink" };
@@ -304,10 +306,10 @@ namespace Zamin {
     }
 
     // [{ "Time", "Value", "Interpolation"[, "Tangent"[, "In", "Out"]] }] - the keys of the animation clips, one value.
-    static json ParticleCurveToJson(const ParticleCurve& curve)
+    static json CurveKeysToJson(const std::vector<AnimationKey>& keys)
     {
-        json keys = json::array();
-        for (const AnimationKey& k : curve.Keys)
+        json out = json::array();
+        for (const AnimationKey& k : keys)
         {
             json key = { { "Time", k.Time }, { "Value", k.Value.x }, { "Interpolation", PropertyAnimation::InterpolationToString(k.Interpolation) } };
             if (k.TangentMode != KeyTangentMode::Auto)
@@ -317,24 +319,22 @@ namespace Zamin {
                 key["In"] = k.InTangent.x;
                 key["Out"] = k.OutTangent.x;
             }
-            keys.push_back(std::move(key));
+            out.push_back(std::move(key));
         }
-        return keys;
+        return out;
     }
 
-    static ParticleCurve ParticleCurveFromJson(const json& j, const char* name, const ParticleCurve& fallback)
+    // The keys of an array (sorted, tangents updated); times clamped into [minTime, maxTime].
+    static std::vector<AnimationKey> CurveKeysFromJson(const json& array, float minTime, float maxTime, float defaultValue)
     {
-        auto it = j.find(name);
-        if (it == j.end() || !it->is_array())
-            return fallback;
-        ParticleCurve curve;
-        for (const json& k : *it)
+        std::vector<AnimationKey> keys;
+        for (const json& k : array)
         {
             if (!k.is_object())
                 continue;
             AnimationKey key;
-            key.Time = std::clamp(Number(k, "Time", 0.0f), 0.0f, 1.0f);
-            key.Value.x = Number(k, "Value", 1.0f);
+            key.Time = std::clamp(Number(k, "Time", 0.0f), minTime, maxTime);
+            key.Value.x = Number(k, "Value", defaultValue);
             if (auto i = k.find("Interpolation"); i != k.end() && i->is_string())
                 key.Interpolation = PropertyAnimation::InterpolationFromString(i->get<std::string>()).value_or(KeyInterpolation::Linear);
             if (auto i = k.find("Tangent"); i != k.end() && i->is_string())
@@ -344,10 +344,127 @@ namespace Zamin {
                 key.InTangent.x = Number(k, "In", 0.0f);
                 key.OutTangent.x = Number(k, "Out", 0.0f);
             }
-            curve.Keys.push_back(key);
+            keys.push_back(key);
         }
-        curve.Sort();
+        CurveKeys::Sort(keys);
+        return keys;
+    }
+
+    static json ParticleCurveToJson(const ParticleCurve& curve)
+    {
+        return CurveKeysToJson(curve.Keys);
+    }
+
+    static ParticleCurve ParticleCurveFromJson(const json& j, const char* name, const ParticleCurve& fallback)
+    {
+        auto it = j.find(name);
+        if (it == j.end() || !it->is_array())
+            return fallback;
+        ParticleCurve curve;
+        curve.Keys = CurveKeysFromJson(*it, 0.0f, 1.0f, 1.0f);
         return curve;
+    }
+
+    // { "Keys": [...], "PreWrap", "PostWrap" } (the wraps only when not Once).
+    static json AnimationCurveToJson(const AnimationCurve& curve)
+    {
+        json j = { { "Keys", CurveKeysToJson(curve.Keys) } };
+        if (curve.PreWrap != AnimationWrap::Once)
+            j["PreWrap"] = AnimationCurve::WrapToString(curve.PreWrap);
+        if (curve.PostWrap != AnimationWrap::Once)
+            j["PostWrap"] = AnimationCurve::WrapToString(curve.PostWrap);
+        return j;
+    }
+
+    static AnimationCurve AnimationCurveFromJson(const json& j)
+    {
+        AnimationCurve curve;
+        if (!j.is_object())
+            return curve;
+        if (auto it = j.find("Keys"); it != j.end() && it->is_array())
+            curve.Keys = CurveKeysFromJson(*it, -1e9f, 1e9f, 0.0f);
+        auto wrap = [&](const char* key) {
+            auto it = j.find(key);
+            return it != j.end() && it->is_string() ? AnimationCurve::WrapFromString(it->get<std::string>()).value_or(AnimationWrap::Once)
+                                                    : AnimationWrap::Once;
+        };
+        curve.PreWrap = wrap("PreWrap");
+        curve.PostWrap = wrap("PostWrap");
+        return curve;
+    }
+
+    // ------------------------------------------------------------------ splines
+    // { "Type", "Closed", "Alpha", "Color", "Points": [[x, y, z], ...][, "Handles": [[in xyz, out xyz], ...]] }
+    // (the Bezier handles when the path is a Bezier or they were changed from the default).
+    static json SplineToJson(const SplineComponent& c)
+    {
+        const Spline& path = c.Path;
+        json points = json::array();
+        bool customHandles = path.Type == SplineType::Bezier;
+        const SplinePoint defaults;
+        for (const SplinePoint& p : path.Points)
+        {
+            points.push_back(ToJson(p.Position));
+            customHandles |= p.InTangent != defaults.InTangent || p.OutTangent != defaults.OutTangent;
+        }
+        json j = { { "Type", SplineTypeToString(path.Type) }, { "Closed", path.Closed }, { "Alpha", path.Alpha },
+                   { "Color", ToJson(c.Color) }, { "Points", std::move(points) } };
+        if (customHandles)
+        {
+            json handles = json::array();
+            for (const SplinePoint& p : path.Points)
+                handles.push_back(json::array({ p.InTangent.x, p.InTangent.y, p.InTangent.z, p.OutTangent.x, p.OutTangent.y, p.OutTangent.z }));
+            j["Handles"] = std::move(handles);
+        }
+        return j;
+    }
+
+    // An array of finite numbers (at least `count`) into out[0..count).
+    static bool Numbers(const json& j, float* out, int count)
+    {
+        if (!j.is_array() || j.size() < (size_t)count)
+            return false;
+        for (int i = 0; i < count; i++)
+        {
+            if (!j[(size_t)i].is_number())
+                return false;
+            const float v = j[(size_t)i].get<float>();
+            if (!std::isfinite(v))
+                return false;
+            out[i] = v;
+        }
+        return true;
+    }
+
+    static void SplineFromJson(const json& j, SplineComponent& c)
+    {
+        Spline& path = c.Path;
+        if (auto it = j.find("Type"); it != j.end() && it->is_string())
+            path.Type = SplineTypeFromString(it->get<std::string>()).value_or(SplineType::CatmullRom);
+        path.Closed = j.value("Closed", false);
+        path.Alpha = std::clamp(Number(j, "Alpha", 0.5f), 0.0f, 1.0f);
+        if (auto it = j.find("Color"); it != j.end())
+            Numbers(*it, &c.Color.x, 4);
+        if (auto it = j.find("Points"); it != j.end() && it->is_array())
+        {
+            path.Points.clear();
+            for (const json& p : *it)
+            {
+                SplinePoint point;
+                if (Numbers(p, &point.Position.x, 3))
+                    path.Points.push_back(point);
+            }
+            if (auto h = j.find("Handles"); h != j.end() && h->is_array())
+                for (size_t i = 0; i < std::min(h->size(), path.Points.size()); i++)
+                {
+                    float v[6];
+                    if (Numbers((*h)[i], v, 6))
+                    {
+                        path.Points[i].InTangent = { v[0], v[1], v[2] };
+                        path.Points[i].OutTangent = { v[3], v[4], v[5] };
+                    }
+                }
+        }
     }
 
     // { "Fixed", "Stops": [[time, r, g, b, a], ...] }
@@ -792,6 +909,7 @@ namespace Zamin {
             case ScriptFieldType::String: j["Value"] = v.StringValue; break;
             case ScriptFieldType::Entity: j["Value"] = v.Get<EntityRef>().ID; break;
             case ScriptFieldType::Enum:   j["Value"] = v.GetEnum(); break;
+            case ScriptFieldType::Curve:  j["Value"] = AnimationCurveToJson(v.CurveValue); break;
             default: break;
         }
         return j;
@@ -811,6 +929,7 @@ namespace Zamin {
             case ScriptFieldType::Vec4:   v.Set(Vec<glm::vec4>(wrapper, "Value", glm::vec4(0.0f))); break;
             case ScriptFieldType::String: v.Set(j.value("Value", std::string())); break;
             case ScriptFieldType::Entity: v.Set(EntityRef{ j.value("Value", (uint64_t)0) }); break;
+            case ScriptFieldType::Curve:  v.Set(AnimationCurveFromJson(j.contains("Value") ? j["Value"] : json())); break;
             case ScriptFieldType::Enum:
             {
                 const json& value = j.contains("Value") ? j["Value"] : json();
@@ -1410,6 +1529,12 @@ namespace Zamin {
                                     { "LookAheadDamping", c->LookAheadDamping }, { "LookAheadMinSpeed", c->LookAheadMinSpeed },
                                     { "UseBounds", c->UseBounds }, { "BoundsMin", ToJson(c->BoundsMin) }, { "BoundsMax", ToJson(c->BoundsMax) },
                                     { "SnapOnStart", c->SnapOnStart } };
+        if (auto* c = entity.TryGetComponent<SplineComponent>())
+            e["Spline"] = SplineToJson(*c);
+        if (auto* c = entity.TryGetComponent<SplineFollowerComponent>())
+            e["SplineFollower"] = { { "Path", c->Path.ID }, { "Speed", c->Speed }, { "Mode", EnumName(c->Mode, s_SplineFollowModes) },
+                                    { "StartPosition", c->StartPosition }, { "Rotation", EnumName(c->Rotation, s_SplineRotations) },
+                                    { "Offset", ToJson(c->Offset) }, { "PlayOnStart", c->PlayOnStart } };
         if (auto* c = entity.TryGetComponent<ParticleSystemComponent>())
             e["ParticleSystem"] = ParticleSystemToJson(*c);
         if (auto* c = entity.TryGetComponent<UITransformComponent>())
@@ -2429,6 +2554,21 @@ namespace Zamin {
             c.BoundsMin = Vec(j, "BoundsMin", c.BoundsMin);
             c.BoundsMax = Vec(j, "BoundsMax", c.BoundsMax);
             c.SnapOnStart = j.value("SnapOnStart", true);
+        }
+        if (auto it = e.find("Spline"); it != e.end() && it->is_object())
+            SplineFromJson(*it, entity.AddComponent<SplineComponent>());
+        if (auto it = e.find("SplineFollower"); it != e.end() && it->is_object())
+        {
+            const json& j = *it;
+            auto& c = entity.AddComponent<SplineFollowerComponent>();
+            c.Path.ID = j.contains("Path") && j["Path"].is_number_unsigned() ? j["Path"].get<uint64_t>() : 0;
+            c.Speed = std::clamp(Number(j, "Speed", c.Speed), -1e4f, 1e4f);
+            c.Mode = EnumFromJson(j, "Mode", s_SplineFollowModes, c.Mode);
+            c.StartPosition = std::clamp(Number(j, "StartPosition", 0.0f), 0.0f, 1.0f);
+            c.Rotation = EnumFromJson(j, "Rotation", s_SplineRotations, c.Rotation);
+            if (auto o = j.find("Offset"); o != j.end())
+                Numbers(*o, &c.Offset.x, 3);
+            c.PlayOnStart = j.value("PlayOnStart", true);
         }
         if (e.contains("ParticleSystem"))
             ParticleSystemFromJson(e["ParticleSystem"], entity.AddComponent<ParticleSystemComponent>());

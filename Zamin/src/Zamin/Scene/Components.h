@@ -3,6 +3,7 @@
 #include "Zamin/Audio/AudioMixer.h"
 #include "Zamin/Core/UUID.h"
 #include "Zamin/Localization/Localization.h"
+#include "Zamin/Math/Spline.h"
 #include "Zamin/Renderer/Texture.h"
 #include "Zamin/Renderer/Mesh.h"
 #include "Zamin/Renderer/Material.h"
@@ -1214,6 +1215,74 @@ namespace Zamin {
         bool RepeatX = false;
         bool RepeatY = false;
         glm::vec2 Spacing{ 0.0f };
+    };
+
+    // ------------------------------------------------------------------ splines
+    // A path through points in the entity's own space (Math/Spline.h): Catmull-Rom (smooth through
+    // every point), Bezier (shaped by two handles per point) or straight lines; open or closed.
+    // Spline Followers move along it, scripts sample it (Scene::GetSplinePosition / GetSplineTangent /
+    // GetSplineClosestDistance). The editor draws it and edits its points in the viewport
+    // (Inspector: "Nuqtalarni tahrirlash").
+    struct SplineComponent
+    {
+        Zamin::Spline Path = DefaultPath();
+        glm::vec4 Color{ 0.35f, 0.85f, 1.0f, 1.0f }; // the editor's line
+
+        // The path's length table (its own units), rebuilt when the path has changed.
+        const SplineLengthTable& GetLengthTable() const;
+        float GetLength() const { return GetLengthTable().GetLength(); }
+        // Distance along the path -> its parameter (closed paths wrap, open ones clamp).
+        float GetParameterAtDistance(float distance) const;
+        // Local-space point / unit direction `distance` along the path.
+        glm::vec3 GetPositionAtDistance(float distance) const { return Path.Evaluate(GetParameterAtDistance(distance)); }
+        glm::vec3 GetTangentAtDistance(float distance) const { return Path.EvaluateTangent(GetParameterAtDistance(distance)); }
+
+        // A gentle S of four points along X.
+        static Zamin::Spline DefaultPath();
+
+    private:
+        mutable SplineLengthTable m_Table;
+        mutable Zamin::Spline m_TableSource;
+        mutable bool m_TableBuilt = false;
+    };
+
+    // Moves its entity along a Spline component's path at Speed (world units / s): once to the end,
+    // round and round (Loop; an open path starts over), or back and forth (PingPong). Rotation turns
+    // it to face along the path (Path3D: its -Z forward, Y up; Path2D: its +X along the path, about
+    // Z). Offset shifts it from the path in the path's own frame (x right, y up, z along it). A
+    // kinematic body is moved by velocity (it carries what stands on it), anything else by its
+    // transform. Scripts: Play() / Pause() / Restart(), Speed, Distance.
+    struct SplineFollowerComponent
+    {
+        enum class FollowMode { Once = 0, Loop, PingPong };
+        enum class RotationMode { None = 0, Path3D, Path2D };
+
+        EntityRef Path;                  // the entity with the Spline component (not set: the nearest ancestor with one)
+        float Speed = 2.0f;              // world units / s (negative: backwards)
+        FollowMode Mode = FollowMode::Loop;
+        float StartPosition = 0.0f;      // where it starts: 0..1 of the path's length
+        RotationMode Rotation = RotationMode::None;
+        glm::vec3 Offset{ 0.0f };
+        bool PlayOnStart = true;
+
+        // runtime (cleared when play starts / stops)
+        float Distance = 0.0f;           // along the path (the path's own units)
+        float Direction = 1.0f;          // 1, or -1 on a ping-pong's way back
+        bool Playing = false;            // the first update sets it from PlayOnStart (unless Play / Pause came first)
+        bool Finished = false;           // Once: reached the end
+        bool Initialized = false;        // placed at StartPosition
+        bool PlayStateSet = false;       // Play / Pause / Restart called
+
+        void Play() { Playing = PlayStateSet = true; Finished = false; }
+        void Pause() { Playing = false; PlayStateSet = true; }
+        // Back to StartPosition, playing.
+        void Restart() { Initialized = false; Play(); }
+        void ResetRuntime()
+        {
+            Distance = 0.0f;
+            Direction = 1.0f;
+            Playing = Finished = Initialized = PlayStateSet = false;
+        }
     };
 
     // ------------------------------------------------------------------ particles
@@ -2763,7 +2832,7 @@ namespace Zamin {
         CircleCollider2DComponent, PolygonCollider2DComponent, EdgeCollider2DComponent, PlatformEffector2DComponent, AreaEffector2DComponent, BuoyancyEffector2DComponent, DistanceJoint2DComponent, RevoluteJoint2DComponent, PrismaticJoint2DComponent, WeldJoint2DComponent,
         WheelJoint2DComponent, Rigidbody3DComponent, BoxCollider3DComponent, SphereCollider3DComponent,
         CapsuleCollider3DComponent, ConvexHullCollider3DComponent, MeshCollider3DComponent, FixedJoint3DComponent, HingeJoint3DComponent, DistanceJoint3DComponent,
-        SliderJoint3DComponent, ConeJoint3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, Camera2DFollowComponent, ParticleSystemComponent, UITransformComponent, UICanvasComponent,
+        SliderJoint3DComponent, ConeJoint3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, Camera2DFollowComponent, SplineComponent, SplineFollowerComponent, ParticleSystemComponent, UITransformComponent, UICanvasComponent,
         UILayoutGroupComponent, UILayoutElementComponent, UINavigationComponent, UIAnimationComponent, UIButtonComponent,
         UIImageComponent, UISliderComponent, UIToggleComponent, UIProgressBarComponent, UIInputFieldComponent, UIMaskComponent,
         UIScrollViewComponent, AudioSourceComponent, AudioListenerComponent, AmbientZoneComponent, FootstepsComponent,

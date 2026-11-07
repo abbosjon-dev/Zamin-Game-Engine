@@ -347,6 +347,11 @@ namespace Zamin {
         // The selected Polygon / Edge collider 2D's points in the viewport: drag, add on an edge,
         // Ctrl + click / Delete removes (Inspector: "Nuqtalarni tahrirlash").
         void UI_ColliderPointEditor();
+        // The selected Spline's points in the viewport (EditorSplineEditor.cpp): drag them (in the plane
+        // facing the camera; the picked one also has a translate gizmo), click the curve - a new point
+        // there, Ctrl + click / Delete - remove, double-click empty space - a point at the end; Bezier:
+        // the picked point's handles (mirrored; Ctrl: on their own).
+        void UI_SplinePointEditor();
         // The selected entity's 2D joint in the viewport (Inspector: "Langarlarni tahrirlash"): drag its
         // anchor, connected anchor, a prismatic / wheel axis and the limits (revolute angles, slide range).
         void UI_JointAnchorEditor();
@@ -509,9 +514,13 @@ namespace Zamin {
         bool IsColliderPointEditing() const;
         bool IsJointAnchorEditing() const;
         bool IsJoint3DAnchorEditing() const;
+        bool IsSplinePointEditing() const;
         // Collider points or joint anchors are being edited: viewport clicks go to their handles (no
         // picking, no transform gizmo, Delete does not delete the entity).
-        bool IsViewportHandleEditing() const { return IsColliderPointEditing() || IsJointAnchorEditing() || IsJoint3DAnchorEditing(); }
+        bool IsViewportHandleEditing() const
+        {
+            return IsColliderPointEditing() || IsJointAnchorEditing() || IsJoint3DAnchorEditing() || IsSplinePointEditing();
+        }
         // The cell of the selected tilemap under the mouse (or the automation's hover cell); false
         // when the mouse does not hit the tilemap's plane. The cell may lie outside the map.
         bool GetTileCellUnderMouse(Entity tilemap, glm::ivec2& cell);
@@ -649,6 +658,15 @@ namespace Zamin {
         Entity m_HoveredUIElement;        // the UI element under the mouse (rect picking)
         // 3D joint anchor editing: the same, plus 5 the cone's swing angle; the picked point (anchor /
         // connected anchor with a translate gizmo) and the joint it belongs to; the drag's plane point.
+        // Spline point editing: the handle dragged / hovered (point * 3 + 0 the point, + 1 its in handle,
+        // + 2 its out handle; -1 none), the picked point (translate gizmo, Bezier handles), the curve
+        // under the mouse (segment parameter, -1 none), the spline's entity and the drag's plane point;
+        // automation pins the hovered handle / pick (ZAMIN_EDITOR_SPLINE_HOVER / _PICK).
+        int m_SplineDrag = -1, m_SplineHover = -1, m_SplinePicked = -1;
+        float m_SplineHoverCurve = -1.0f;
+        uint64_t m_SplineEntity = 0;
+        glm::vec3 m_SplineDragOffset{ 0.0f }, m_SplineDragPlane{ 0.0f };
+        std::string m_SplineHoverOverride;
         int m_Joint3DDrag = -1, m_Joint3DHover = -1, m_Joint3DPicked = -1, m_Joint3DType = -1;
         uint64_t m_Joint3DEntity = 0;
         glm::vec3 m_Joint3DDragOffset{ 0.0f }, m_Joint3DDragPlane{ 0.0f };

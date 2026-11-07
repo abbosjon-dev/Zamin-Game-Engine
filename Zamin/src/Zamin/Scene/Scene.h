@@ -530,6 +530,22 @@ namespace Zamin {
         bool GetBoneAttachmentLocal(Entity entity, Entity& target, glm::mat4& boneInTarget);
         glm::vec3 GetWorldPosition(Entity entity);
 
+        // ---- splines (SplineComponent, SplineFollowerComponent: SceneSplines.cpp)
+        // A point / unit direction of an entity's spline in the world, `distance` along it (the
+        // path's own units: GetSplineLength; closed paths wrap, open ones clamp). Without a Spline
+        // component: the entity's position / its -Z.
+        glm::vec3 GetSplinePosition(Entity spline, float distance);
+        glm::vec3 GetSplineTangent(Entity spline, float distance);
+        float GetSplineLength(Entity spline);
+        // How far along the spline its point nearest to `worldPoint` is (a camera dolly following
+        // the player: GetSplinePosition(rail, GetSplineClosestDistance(rail, player))).
+        float GetSplineClosestDistance(Entity spline, const glm::vec3& worldPoint);
+        // The entity a follower moves along: its Path, else its nearest ancestor with a Spline
+        // component (an invalid entity when there is none).
+        Entity GetSplineFollowerPath(Entity follower);
+        // 0..1: how far along its path a follower is.
+        float GetSplineFollowerProgress(Entity follower);
+
         // ---- bounds (editor framing: F = selection, Shift+F = whole scene)
         // World-space box around what the entity draws: mesh / model, sprite, circle, text,
         // tilemap. Without any of these it is just the entity's position. False for screen-space
@@ -1117,6 +1133,8 @@ namespace Zamin {
         void StepCharacters(float dt);
         // Camera2DFollowComponent: the followers move after their targets (game time `dt`).
         void UpdateCameraFollow(float dt);
+        // Spline followers move along their paths (before physics: kinematic bodies by velocity).
+        void UpdateSplineFollowers(float dt);
         void UpdateAudio(float ts);
         // The entity's Audio Source (nullptr: none, or not this scene's entity).
         AudioSourceComponent* GetAudioSource(Entity entity);

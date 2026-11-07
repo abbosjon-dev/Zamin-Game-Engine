@@ -134,6 +134,8 @@ namespace Zamin {
         GizmoVisibility Joints2D = GizmoVisibility::Selected;
         // Particle System emitters: their shape (circle, sphere, box, cone, edge) and direction.
         GizmoVisibility ParticleShapes = GizmoVisibility::Selected;
+        // Spline paths (the curve, its points, the way it runs) and Spline Followers' start points.
+        GizmoVisibility Splines = GizmoVisibility::All;
 
         static constexpr float MinNormalLength = 0.001f, MaxNormalLength = 100.0f;
 

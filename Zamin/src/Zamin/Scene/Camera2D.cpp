@@ -2,6 +2,7 @@
 
 #include "Zamin/Scene/Components.h"
 #include "Zamin/Scene/Parallax.h"
+#include "Zamin/Math/Noise.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -11,29 +12,10 @@
 namespace Zamin {
 
     // ------------------------------------------------------------------ shake
-    static uint32_t HashNoise(uint32_t seed, int32_t i)
-    {
-        // A small integer hash (lowbias32): the same input always gives the same value.
-        uint32_t x = seed ^ ((uint32_t)i * 0x9E3779B9u);
-        x ^= x >> 16;
-        x *= 0x7FEB352Du;
-        x ^= x >> 15;
-        x *= 0x846CA68Bu;
-        x ^= x >> 16;
-        return x;
-    }
-
     float CameraShake::Noise(uint32_t seed, float t)
     {
-        if (!std::isfinite(t))
-            return 0.0f;
-        float cell = std::floor(t);
-        float f = t - cell;
-        int32_t i = (int32_t)(int64_t)cell;
-        float a = (float)(HashNoise(seed, i) & 0xFFFFFFu) / (float)0xFFFFFF * 2.0f - 1.0f;
-        float b = (float)(HashNoise(seed, i + 1) & 0xFFFFFFu) / (float)0xFFFFFF * 2.0f - 1.0f;
-        float u = f * f * f * (f * (f * 6.0f - 15.0f) + 10.0f); // smootherstep: no kinks between samples
-        return a + (b - a) * u;
+        // Value noise with a smootherstep blend (Math/Noise): no kinks between samples.
+        return Noise::Value(t, seed);
     }
 
     void CameraShake::Add(float intensity, float duration, float frequency)

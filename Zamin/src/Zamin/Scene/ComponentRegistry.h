@@ -58,6 +58,8 @@ namespace Zamin {
         else if constexpr (std::is_same_v<T, TilemapComponent>) return "Tilemap";
         else if constexpr (std::is_same_v<T, ParallaxComponent>) return "Parallax";
         else if constexpr (std::is_same_v<T, Camera2DFollowComponent>) return "Camera2DFollow";
+        else if constexpr (std::is_same_v<T, SplineComponent>) return "Spline";
+        else if constexpr (std::is_same_v<T, SplineFollowerComponent>) return "SplineFollower";
         else if constexpr (std::is_same_v<T, ParticleSystemComponent>) return "ParticleSystem";
         else if constexpr (std::is_same_v<T, UITransformComponent>) return "UITransform";
         else if constexpr (std::is_same_v<T, UICanvasComponent>) return "UICanvas";

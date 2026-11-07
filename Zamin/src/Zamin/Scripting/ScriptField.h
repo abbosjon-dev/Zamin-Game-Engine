@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Zamin/Math/AnimationCurve.h"
+
 #include <glm/glm.hpp>
 
 #include <cstdint>
@@ -23,7 +25,8 @@ namespace Zamin {
 
     // Enum: any C++ enum member (stored as a 64-bit integer, written back with the
     // member's own size). Give it option names with ZM_FIELD_ENUM for a dropdown.
-    enum class ScriptFieldType { None = 0, Float, Int, Bool, Vec2, Vec3, Vec4, String, Entity, Enum };
+    // Curve: an AnimationCurve (edited with a curve editor).
+    enum class ScriptFieldType { None = 0, Float, Int, Bool, Vec2, Vec3, Vec4, String, Entity, Enum, Curve };
 
     const char* ScriptFieldTypeToString(ScriptFieldType type);
     ScriptFieldType ScriptFieldTypeFromString(const std::string& str);
@@ -38,10 +41,11 @@ namespace Zamin {
         else if constexpr (std::is_same_v<T, glm::vec4>)   return ScriptFieldType::Vec4;
         else if constexpr (std::is_same_v<T, std::string>) return ScriptFieldType::String;
         else if constexpr (std::is_same_v<T, EntityRef>)   return ScriptFieldType::Entity;
+        else if constexpr (std::is_same_v<T, AnimationCurve>) return ScriptFieldType::Curve;
         else if constexpr (std::is_enum_v<T>)              return ScriptFieldType::Enum;
         else
         {
-            static_assert(sizeof(T) == 0, "ZM_FIELD: qo'llab-quvvatlanmaydigan tur (float,int,bool,vec2,vec3,vec4,std::string,EntityRef,enum)");
+            static_assert(sizeof(T) == 0, "ZM_FIELD: qo'llab-quvvatlanmaydigan tur (float,int,bool,vec2,vec3,vec4,std::string,EntityRef,AnimationCurve,enum)");
             return ScriptFieldType::None;
         }
     }
@@ -52,11 +56,13 @@ namespace Zamin {
         ScriptFieldType Type = ScriptFieldType::None;
         alignas(16) unsigned char Data[16]{};
         std::string StringValue;
+        AnimationCurve CurveValue;
 
         template<typename T>
         T Get() const
         {
             if constexpr (std::is_same_v<T, std::string>) return StringValue;
+            else if constexpr (std::is_same_v<T, AnimationCurve>) return CurveValue;
             else if constexpr (std::is_enum_v<T>) return static_cast<T>(GetEnum());
             else { T v; std::memcpy(&v, Data, sizeof(T)); return v; }
         }
@@ -66,6 +72,7 @@ namespace Zamin {
         {
             Type = ScriptFieldTypeOf<T>();
             if constexpr (std::is_same_v<T, std::string>) StringValue = value;
+            else if constexpr (std::is_same_v<T, AnimationCurve>) CurveValue = value;
             else if constexpr (std::is_enum_v<T>) SetEnum(static_cast<int64_t>(value));
             else { static_assert(sizeof(T) <= 16); std::memcpy(Data, &value, sizeof(T)); }
         }

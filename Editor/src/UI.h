@@ -5,6 +5,7 @@
 #include <Zamin/Editor/ProjectSettingsIndex.h>
 #include <Zamin/ImGui/Icons.h>
 #include <Zamin/ImGui/ImGuiLayer.h>
+#include <Zamin/Math/AnimationCurve.h>
 #include <Zamin/Renderer/Material.h>
 #include <Zamin/Renderer/MaterialPresets.h>
 #include <Zamin/Scene/ParticleSystem.h>
@@ -364,7 +365,11 @@ namespace Zamin::UI {
     // shapes; the selected key's time and value below it. The view spans valueMin..valueMax at
     // least (more when the curve goes beyond).
     bool CurveEditor(const char* id, ParticleCurve& curve, float valueMin = 0.0f, float valueMax = 1.0f);
+    // The same editor for an AnimationCurve (time in seconds: the view spans its keys) with its
+    // wrap modes (before the first / after the last key) below.
+    bool CurveEditor(const char* id, AnimationCurve& curve, float valueMin = 0.0f, float valueMax = 1.0f);
     bool PropertyGradient(const char* label, ParticleGradient& gradient, const char* tooltip = nullptr);
     bool PropertyCurve(const char* label, ParticleCurve& curve, float valueMin = 0.0f, float valueMax = 1.0f, const char* tooltip = nullptr);
+    bool PropertyCurve(const char* label, AnimationCurve& curve, float valueMin = 0.0f, float valueMax = 1.0f, const char* tooltip = nullptr);
 
 }

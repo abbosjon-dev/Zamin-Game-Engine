@@ -1484,7 +1484,7 @@ namespace Zamin {
             { "MeshCollider3D", "Mesh Collider 3D" },
             { "FixedJoint3D", "Fixed Joint 3D" }, { "HingeJoint3D", "Hinge Joint 3D" }, { "DistanceJoint3D", "Distance Joint 3D" },
             { "SliderJoint3D", "Slider Joint 3D" }, { "ConeJoint3D", "Cone Joint 3D" }, { "CharacterController3D", "Character Controller 3D" },
-            { "Tilemap", "Tilemap" }, { "Parallax", "Parallax" }, { "Camera2DFollow", "Camera 2D Follow" }, { "ParticleSystem", "Particle System" }, { "UITransform", "UI Transform" },
+            { "Tilemap", "Tilemap" }, { "Parallax", "Parallax" }, { "Camera2DFollow", "Camera 2D Follow" }, { "Spline", "Spline" }, { "SplineFollower", "Spline Follower" }, { "ParticleSystem", "Particle System" }, { "UITransform", "UI Transform" },
             { "UICanvas", "UI Canvas" }, { "UILayoutGroup", "UI Layout Group" }, { "UILayoutElement", "UI Layout Element" }, { "UINavigation", "UI Navigation" },
             { "UIButton", "UI Button" }, { "UIImage", "UI Image" }, { "UISlider", "UI Slider" }, { "UIToggle", "UI Toggle" },
             { "UIProgressBar", "UI Progress Bar" }, { "UIInputField", "UI Input Field" }, { "UIMask", "UI Mask" }, { "UIScrollView", "UI Scroll View" }, { "AudioSource", "Audio Source" }, { "AudioListener", "Audio Listener" }, { "AmbientZone", "Ambient Zone" },
@@ -2898,6 +2898,7 @@ namespace Zamin {
             {
                 m_TilePaint = false;
                 m_JointAnchorEdit = m_Joint3DAnchorEdit = -1;
+                m_SplinePointEdit = false;
             }
         }
         if (editing)
@@ -5443,6 +5444,224 @@ namespace Zamin {
         return changed;
     }
 
+    bool SceneHierarchyPanel::DrawSpline(Entity entity, SplineComponent& c)
+    {
+        bool changed = false;
+        Spline& path = c.Path;
+
+        // The points dragged in the viewport.
+        const bool editing = m_SplinePointEdit;
+        UI::PropertyLabel("Viewportda", "Nuqtalarni sahnada sudrab o'zgartirish (3D: kamera tekisligida, tanlangan nuqtada o'qli gizmo). "
+                                        "Chiziq ustiga bosish - o'sha joyga yangi nuqta, Ctrl + nuqtaga bosish / Delete - o'chirish, bo'sh joyga "
+                                        "ikki marta bosish - oxiriga nuqta, Shift - 0.1 qadam. Esc yoki tugma qayta bosilsa - tugaydi");
+        ImGui::BeginDisabled(!m_SceneEditable);
+        if (editing)
+            ImGui::PushStyleColor(ImGuiCol_Button, UI::AccentColor());
+        if (ImGui::Button(editing ? ICON_FA_CHECK "  Tahrirlashni tugatish" : ICON_FA_BEZIER_CURVE "  Nuqtalarni tahrirlash", ImVec2(-FLT_MIN, 0)))
+            SetSplinePointEdit(!editing);
+        if (editing)
+            ImGui::PopStyleColor();
+        ImGui::EndDisabled();
+
+        static const char* const types[] = { "Catmull-Rom", "Bezier", "Chiziqli" };
+        static const char* const typeTips[] = { "Har bir nuqtadan silliq o'tadi (tutqichlarsiz)",
+                                                "Har nuqtaning ikki tutqichi egrilikni boshqaradi (viewportda sudraladi)",
+                                                "Nuqtalar to'g'ri chiziqlar bilan ulanadi" };
+        int type = (int)path.Type;
+        if (UI::PropertySegmented("Turi", type, types, 3, typeTips) && type != (int)path.Type)
+        {
+            // To Bezier: handles that keep the curve it had.
+            if ((SplineType)type == SplineType::Bezier && path.Type == SplineType::CatmullRom)
+                path.AutoTangents();
+            path.Type = (SplineType)type;
+            changed = true;
+        }
+        changed |= UI::PropertyBool("Yopiq (halqa)", path.Closed);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            UI::Tooltip("Oxirgi nuqta birinchisiga ulanadi (aylanma yo'l)");
+        if (path.Type == SplineType::CatmullRom)
+        {
+            UI::PropertyLabel("Alpha", "Nuqtalar orasidagi masofa hisobi: 0 - bir xil (uniform), 0.5 - centripetal (yaqin nuqtalarda "
+                                       "halqa va o'tkir uchlar bo'lmaydi), 1 - xordal");
+            if (ImGui::SliderFloat("##alpha", &path.Alpha, 0.0f, 1.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp))
+                changed = true;
+        }
+        changed |= UI::PropertyColor4("Chiziq rangi", c.Color);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            UI::Tooltip("Editorda yo'l shu rangda chiziladi (o'yinda ko'rinmaydi)");
+        UI::PropertyLabel("Uzunligi", "Yo'l uzunligi obyektning o'z birliklarida (masshtabsiz). Skriptda: GetScene()->GetSplineLength(entity)");
+        ImGui::TextDisabled("%.2f birlik  |  %d segment", c.GetLength(), path.GetSegmentCount());
+
+        // The points (local coordinates); Bezier: their handles.
+        UI::PropertyHeader(std::format("Nuqtalar ({})", path.Points.size()).c_str(), "Obyekt koordinatalarida (uning transformi bilan siljiydi va aylanadi)");
+        int remove = -1;
+        const float button = ImGui::GetFrameHeight();
+        for (size_t i = 0; i < path.Points.size(); i++)
+        {
+            ImGui::PushID((int)i);
+            SplinePoint& p = path.Points[i];
+            UI::PropertyLabel(std::format("  {}", i).c_str());
+            ImGui::SetNextItemWidth(std::max(60.0f, ImGui::GetContentRegionAvail().x - button - ImGui::GetStyle().ItemSpacing.x));
+            changed |= ImGui::DragFloat3("##p", &p.Position.x, 0.02f, 0.0f, 0.0f, "%.2f");
+            ImGui::SameLine();
+            ImGui::BeginDisabled(path.Points.size() <= 2);
+            if (ImGui::Button(ICON_FA_XMARK, ImVec2(button, 0)))
+                remove = (int)i;
+            ImGui::EndDisabled();
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayShort))
+                UI::Tooltip(path.Points.size() <= 2 ? "Kamida 2 ta nuqta kerak" : "Nuqtani o'chirish");
+            if (path.Type == SplineType::Bezier)
+            {
+                UI::PropertyLabel("      kirish");
+                changed |= ImGui::DragFloat3("##in", &p.InTangent.x, 0.02f, 0.0f, 0.0f, "%.2f");
+                UI::PropertyLabel("      chiqish");
+                changed |= ImGui::DragFloat3("##out", &p.OutTangent.x, 0.02f, 0.0f, 0.0f, "%.2f");
+            }
+            ImGui::PopID();
+        }
+        if (remove >= 0)
+        {
+            path.Points.erase(path.Points.begin() + remove);
+            changed = true;
+        }
+
+        UI::PropertyLabel("");
+        ImGui::BeginDisabled(!m_SceneEditable);
+        if (ImGui::Button(Tr(ICON_FA_PLUS "  Nuqta qo'shish")))
+        {
+            // Past the last point, in the direction the path ends in.
+            SplinePoint p;
+            const size_t n = path.Points.size();
+            if (n >= 2)
+            {
+                const glm::vec3 last = path.Points[n - 1].Position, before = path.Points[n - 2].Position;
+                glm::vec3 step = last - before;
+                if (glm::length(step) < 1e-3f)
+                    step = glm::vec3(1.0f, 0.0f, 0.0f);
+                p.Position = last + step;
+            }
+            else if (n == 1)
+                p.Position = path.Points[0].Position + glm::vec3(1.0f, 0.0f, 0.0f);
+            path.Points.push_back(p);
+            if (path.Type == SplineType::Bezier)
+                path.AutoTangents((int)path.Points.size() - 1);
+            changed = true;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button(Tr(ICON_FA_ARROWS_LEFT_RIGHT "  Teskari")))
+        {
+            std::reverse(path.Points.begin(), path.Points.end());
+            for (SplinePoint& p : path.Points)
+                std::swap(p.InTangent, p.OutTangent);
+            changed = true;
+        }
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Yo'l yo'nalishini almashtirish (oxiri boshiga aylanadi)");
+        if (path.Type == SplineType::Bezier)
+        {
+            ImGui::SameLine();
+            if (ImGui::Button(Tr(ICON_FA_WAND_MAGIC_SPARKLES "  Avto tutqichlar")))
+            {
+                path.AutoTangents();
+                changed = true;
+            }
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Hamma tutqichlarni nuqtalardan silliq o'tadigan qilib qayta hisoblash (Catmull-Rom shakli)");
+        }
+        ImGui::EndDisabled();
+        UI::PropertyLabel("");
+        ImGui::TextDisabled("Skriptda: GetScene()->GetSplinePosition(entity, masofa)");
+        (void)entity;
+        return changed;
+    }
+
+    bool SceneHierarchyPanel::DrawSplineFollower(Entity entity, SplineFollowerComponent& c)
+    {
+        bool changed = DrawEntityRefField("Yo'l", c.Path, "Spline komponentli obyekt (ierarxiyadan tortib tashlang). Tanlanmasa - Spline "
+                                                          "komponenti bor eng yaqin ota obyekt");
+        Entity path = m_Context ? m_Context->GetSplineFollowerPath(entity) : Entity();
+        if (!path || path == entity || (m_Context && m_Context->IsAncestorOf(entity, path)))
+        {
+            UI::PropertyLabel("");
+            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  %s",
+                               !path ? "Yo'l topilmadi: Spline komponentli obyektni tanlang"
+                                     : "O'z yo'lini (yoki uni olib yuruvchi obyektni) kuzata olmaydi");
+        }
+        InactiveComponentNote(entity, "Obyekt nofaol: harakatlanmaydi");
+
+        UI::PropertyLabel("Tezlik", "Dunyo birligi / soniya, yo'l bo'ylab (manfiy - orqaga)");
+        changed |= ImGui::DragFloat("##speed", &c.Speed, 0.05f, -1000.0f, 1000.0f, "%.2f");
+        static const char* const modes[] = { "Bir marta", "Aylanma", "Borib-qaytish" };
+        static const char* const modeTips[] = { "Oxiriga yetib to'xtaydi", "Qaytadan boshlaydi (yopiq yo'lda aylanib yuradi)",
+                                                "Uchlarida orqaga qaytadi" };
+        int mode = (int)c.Mode;
+        if (UI::PropertySegmented("Rejim", mode, modes, 3, modeTips))
+        {
+            c.Mode = (SplineFollowerComponent::FollowMode)mode;
+            changed = true;
+        }
+        UI::PropertyLabel("Boshlanish", "Qayerdan boshlaydi: yo'l uzunligining ulushi");
+        float start = c.StartPosition * 100.0f;
+        if (ImGui::SliderFloat("##start", &start, 0.0f, 100.0f, "%.0f%%", ImGuiSliderFlags_AlwaysClamp))
+        {
+            c.StartPosition = start / 100.0f;
+            changed = true;
+        }
+        static const char* const rotations[] = { "Yo'q", "Yo'l bo'ylab (3D)", "Yo'l bo'ylab (2D)" };
+        int rotation = (int)c.Rotation;
+        if (UI::PropertyCombo("Burilish", rotation, rotations, 3))
+        {
+            c.Rotation = (SplineFollowerComponent::RotationMode)rotation;
+            changed = true;
+        }
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            UI::Tooltip("Yo'l bo'ylab qarab boradi: 3D - obyektning -Z o'qi oldinga, Y yuqoriga; 2D - +X o'qi yo'l bo'ylab (Z atrofida). "
+                        "Yo'q - burilish o'zgarmaydi (platformalar)");
+        UI::PropertyLabel("Siljish", "Yo'ldan siljish yo'lning o'z o'qlarida: x - o'ngga, y - yuqoriga, z - yo'l bo'ylab");
+        changed |= ImGui::DragFloat3("##offset", &c.Offset.x, 0.02f, 0.0f, 0.0f, "%.2f");
+        changed |= UI::PropertyBool("Boshida o'ynash", c.PlayOnStart);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            UI::Tooltip("O'yin boshlanganda darhol yuradi. O'chiq bo'lsa skriptdan: GetComponent<SplineFollowerComponent>().Play()");
+
+        if (m_Context && m_Context->IsRunning())
+        {
+            UI::PropertyHeader("Jonli");
+            UI::PropertyLabel("Holat");
+            ImGui::TextDisabled("%s  |  %.2f / %.2f birlik", c.Finished ? "oxiriga yetdi" : c.Playing ? "yuryapti" : "to'xtagan", c.Distance,
+                                m_Context->GetSplineLength(path));
+            UI::PropertyLabel("");
+            ImGui::ProgressBar(m_Context->GetSplineFollowerProgress(entity), ImVec2(-FLT_MIN, 0.0f));
+            UI::PropertyLabel("");
+            if (ImGui::Button(c.Playing ? ICON_FA_PAUSE "  Pauza" : ICON_FA_PLAY "  Davom"))
+            {
+                if (c.Playing)
+                    c.Pause();
+                else
+                    c.Play();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button(Tr(ICON_FA_BACKWARD_STEP "  Boshidan")))
+                c.Restart();
+        }
+        else
+        {
+            UI::PropertyLabel("");
+            ImGui::BeginDisabled(!path || path == entity || !m_SceneEditable);
+            if (ImGui::Button(Tr(ICON_FA_CROSSHAIRS "  Boshlanish nuqtasiga qo'yish")) && path && m_Context)
+            {
+                glm::mat4 world = m_Context->GetWorldTransform(entity);
+                const glm::vec3 p = m_Context->GetSplinePosition(path, c.StartPosition * m_Context->GetSplineLength(path));
+                world[3] = glm::vec4(p, 1.0f);
+                m_Context->SetWorldTransform(entity, world);
+                changed = true;
+            }
+            ImGui::EndDisabled();
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                UI::Tooltip("Obyektni yo'ldagi boshlanish nuqtasiga ko'chirish (o'yin boshida u baribir shu yerga qo'yiladi; siljishsiz)");
+        }
+        return changed;
+    }
+
     bool SceneHierarchyPanel::DrawSpriteAnimation(Entity entity, SpriteAnimationComponent& c)
     {
         InactiveComponentNote(entity, "Obyekt nofaol: animatsiya to'xtab turadi");
@@ -5848,6 +6067,10 @@ namespace Zamin {
                 changed = f.IsMultiline ? ImGui::InputTextMultiline("##v", &v.StringValue, ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 4.5f))
                                         : ImGui::InputText("##v", &v.StringValue);
                 break;
+            case ScriptFieldType::Curve:
+                // ZM_FIELD_RANGE: the values the view shows at least.
+                changed = UI::CurveEditor("##v", v.CurveValue, f.HasRange ? f.RangeMin : 0.0f, f.HasRange ? f.RangeMax : 1.0f);
+                break;
             default:
                 ImGui::TextDisabled("(noma'lum tur)");
                 break;
@@ -6222,6 +6445,8 @@ namespace Zamin {
                 DisplayAddComponentEntry<TilemapComponent>("Tilemap", ICON_FA_TABLE_CELLS);
                 DisplayAddComponentEntry<ParallaxComponent>("Parallax", ICON_FA_MOUNTAIN);
                 DisplayAddComponentEntry<Camera2DFollowComponent>("Camera 2D Follow", ICON_FA_VIDEO);
+                DisplayAddComponentEntry<SplineComponent>("Spline (yo'l: Catmull-Rom, Bezier)", ICON_FA_BEZIER_CURVE);
+                DisplayAddComponentEntry<SplineFollowerComponent>("Spline Follower (yo'l bo'ylab harakat)", ICON_FA_ROUTE);
                 DisplayAddComponentEntry<ParticleSystemComponent>("Particle System", ICON_FA_WAND_MAGIC_SPARKLES);
                 DisplayAddComponentEntry<UITransformComponent>("UI Transform", ICON_FA_TABLE_CELLS);
                 DisplayAddComponentEntry<UICanvasComponent>("UI Canvas (ekranga moslashuvchi masshtab)", ICON_FA_EXPAND);
@@ -6359,6 +6584,14 @@ namespace Zamin {
 
         AddSection<Camera2DFollowComponent>(ICON_FA_VIDEO, "Camera 2D Follow", entity, [&](Camera2DFollowComponent& c) {
             return DrawCamera2DFollow(entity, c);
+        }, true, modified);
+
+        AddSection<SplineComponent>(ICON_FA_BEZIER_CURVE, "Spline", entity, [&](SplineComponent& c) {
+            return DrawSpline(entity, c);
+        }, true, modified);
+
+        AddSection<SplineFollowerComponent>(ICON_FA_ROUTE, "Spline Follower", entity, [&](SplineFollowerComponent& c) {
+            return DrawSplineFollower(entity, c);
         }, true, modified);
 
         AddSection<SpriteRendererComponent>(ICON_FA_IMAGE, "Sprite Renderer", entity, [&](SpriteRendererComponent& c) {

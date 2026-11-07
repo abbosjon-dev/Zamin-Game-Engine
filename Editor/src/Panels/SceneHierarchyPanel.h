@@ -144,7 +144,28 @@ namespace Zamin {
         {
             m_ColliderPointEdit = kind;
             if (kind != ColliderPointKind::None)
+            {
                 m_JointAnchorEdit = m_Joint3DAnchorEdit = -1;
+                m_SplinePointEdit = false;
+            }
+        }
+        // The selected entity's Spline points edited in the viewport (false when it has no Spline
+        // component or is hidden / locked).
+        bool IsSplinePointEditing() const
+        {
+            Entity e = GetSelectedEntity();
+            return m_SplinePointEdit && e && e.HasComponent<SplineComponent>() && !e.GetScene()->IsHiddenInEditor(e) &&
+                   !e.GetScene()->IsLockedInEditor(e);
+        }
+        void SetSplinePointEdit(bool edit)
+        {
+            m_SplinePointEdit = edit;
+            if (edit)
+            {
+                m_ColliderPointEdit = ColliderPointKind::None;
+                m_JointAnchorEdit = m_Joint3DAnchorEdit = -1;
+                m_TilePaint = false;
+            }
         }
         // The 2D joint of the selected entity whose anchors / axis / limits are dragged in the viewport
         // (a Joint2DType), -1 when none (or the entity has no such joint, or is hidden / locked).
@@ -163,6 +184,7 @@ namespace Zamin {
                 m_ColliderPointEdit = ColliderPointKind::None;
                 m_Joint3DAnchorEdit = -1;
                 m_TilePaint = false;
+                m_SplinePointEdit = false;
             }
         }
         // The same for a 3D joint of the selected entity (a Joint3DType), -1 when none.
@@ -181,6 +203,7 @@ namespace Zamin {
                 m_ColliderPointEdit = ColliderPointKind::None;
                 m_JointAnchorEdit = -1;
                 m_TilePaint = false;
+                m_SplinePointEdit = false;
             }
         }
         static bool HasJoint3D(Entity e, Joint3DType type)
@@ -374,6 +397,8 @@ namespace Zamin {
         bool DrawUIImage(Entity entity, UIImageComponent& c);
         // Camera 2D Follow: target, damping, dead zone, look-ahead, bounds.
         bool DrawCamera2DFollow(Entity entity, Camera2DFollowComponent& c);
+        bool DrawSpline(Entity entity, SplineComponent& c);
+        bool DrawSplineFollower(Entity entity, SplineFollowerComponent& c);
         // 2D joints: the connected body (with what keeps the joint from being made), the anchors and
         // the break limits; the type's own settings follow in its section, then the live read-outs.
         // `type`: which joint it is (the viewport editing toggle).
@@ -480,6 +505,7 @@ namespace Zamin {
         bool m_HierarchyFocused = false;
         bool m_TilePaint = false;
         ColliderPointKind m_ColliderPointEdit = ColliderPointKind::None;
+        bool m_SplinePointEdit = false;
         int m_JointAnchorEdit = -1;   // Joint2DType edited in the viewport, -1 = none
         int m_Joint3DAnchorEdit = -1; // Joint3DType edited in the viewport, -1 = none
         TileTool m_TileTool = TileTool::Brush, m_ToolBeforePicker = TileTool::Brush;

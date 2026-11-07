@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Zamin/Core/Base.h"
+#include "Zamin/Math/CurveKey.h"
 
 #include <glm/glm.hpp>
 
@@ -16,17 +17,7 @@ namespace Zamin {
 
     class Entity;
 
-    // ------------------------------------------------------------------ keys and curves
-    // How the value goes from a key to the next one.
-    enum class KeyInterpolation : uint8_t { Step = 0, Linear, Bezier };
-    // Where a Bezier key's tangents (slopes) come from: Auto - smooth through the neighbours, without
-    // overshooting at peaks and level at the first / last key; Flat - level (eases in and out);
-    // Free - set by hand (the curve view's handles).
-    enum class KeyTangentMode : uint8_t { Auto = 0, Flat, Free };
-
-    // What happens at the end of a clip: Once stops on its last value, Loop starts over, PingPong
-    // plays it backwards and forwards again.
-    enum class AnimationWrap : uint8_t { Once = 0, Loop, PingPong };
+    // KeyInterpolation, KeyTangentMode, AnimationWrap and AnimationKey: Math/CurveKey.h.
 
     // What a track animates on its target entity.
     enum class AnimatedProperty : uint8_t
@@ -37,21 +28,6 @@ namespace Zamin {
         UIPosition, UISize, UIScale, UIAlpha, UIImageColor,
         ScriptFloat,                             // a float field of the entity's script (AnimationTrack::Field)
         Count
-    };
-
-    struct AnimationKey
-    {
-        float Time = 0.0f;                    // seconds
-        glm::vec4 Value{ 0.0f };              // the property's components (x, y, z, w; unused ones are 0)
-        KeyInterpolation Interpolation = KeyInterpolation::Linear; // from this key to the next
-        KeyTangentMode TangentMode = KeyTangentMode::Auto;
-        // Bezier: slopes (value per second) arriving at / leaving the key. The curve between keys a
-        // and b is the cubic Bezier through a.Value, a.Value + a.OutTangent * dt / 3,
-        // b.Value - b.InTangent * dt / 3 and b.Value (dt = b.Time - a.Time).
-        glm::vec4 InTangent{ 0.0f };
-        glm::vec4 OutTangent{ 0.0f };
-
-        bool operator==(const AnimationKey&) const = default;
     };
 
     // The keys of one property of one entity.

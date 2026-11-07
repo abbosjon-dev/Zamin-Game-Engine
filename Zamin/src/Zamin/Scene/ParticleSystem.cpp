@@ -1,5 +1,6 @@
 #include "Zamin/Scene/ParticleSystem.h"
 #include "Zamin/Scene/Components.h"
+#include "Zamin/Math/Noise.h"
 
 #include <glm/gtc/constants.hpp>
 
@@ -53,90 +54,45 @@ namespace Zamin {
     // ------------------------------------------------------------------ curve
     float ParticleCurve::Evaluate(float t) const
     {
-        // PropertyAnimation::Evaluate for one component, without the vectors (called for every
-        // particle every frame): the same numbers.
-        const size_t n = Keys.size();
-        if (n == 0)
-            return 1.0f;
-        const AnimationKey& first = Keys.front();
-        if (n == 1 || t <= first.Time)
-            return first.Value.x;
-        const AnimationKey& last = Keys.back();
-        if (t >= last.Time)
-            return last.Value.x;
-        size_t i = 1; // the first key after t (a curve has a few keys)
-        while (i < n - 1 && !(t < Keys[i].Time))
-            i++;
-        const AnimationKey& a = Keys[i - 1];
-        const AnimationKey& b = Keys[i];
-        const float dt = b.Time - a.Time;
-        if (dt <= 0.0f)
-            return b.Value.x;
-        if (a.Interpolation == KeyInterpolation::Step)
-            return a.Value.x;
-        const float s = std::clamp((t - a.Time) / dt, 0.0f, 1.0f);
-        if (a.Interpolation == KeyInterpolation::Linear)
-            return a.Value.x * (1.0f - s) + b.Value.x * s;
-        const float s2 = s * s, s3 = s2 * s;
-        const float h00 = 2.0f * s3 - 3.0f * s2 + 1.0f;
-        const float h10 = s3 - 2.0f * s2 + s;
-        const float h01 = -2.0f * s3 + 3.0f * s2;
-        const float h11 = s3 - s2;
-        return h00 * a.Value.x + h10 * dt * a.OutTangent.x + h01 * b.Value.x + h11 * dt * b.InTangent.x;
+        // The keys' shared arithmetic (CurveKeys, as AnimationCurve); without keys 1.
+        return Keys.empty() ? 1.0f : CurveKeys::EvaluateScalar(Keys, t);
     }
 
     void ParticleCurve::Sort()
     {
-        std::stable_sort(Keys.begin(), Keys.end(), [](const AnimationKey& a, const AnimationKey& b) { return a.Time < b.Time; });
-        PropertyAnimation::UpdateTangents(Keys);
-    }
-
-    // Values at the keys and in between (enough for the overshoot of a free Bezier tangent).
-    template<typename F>
-    static void SampleCurve(const ParticleCurve& curve, F&& f)
-    {
-        if (curve.Keys.empty())
-        {
-            f(1.0f);
-            return;
-        }
-        for (const AnimationKey& k : curve.Keys)
-            f(k.Value.x);
-        bool smooth = false;
-        for (const AnimationKey& k : curve.Keys)
-            smooth |= k.Interpolation == KeyInterpolation::Bezier;
-        if (smooth)
-            for (int i = 0; i <= 32; i++)
-                f(curve.Evaluate(i / 32.0f));
+        CurveKeys::Sort(Keys);
     }
 
     float ParticleCurve::GetMin() const
     {
-        float v = std::numeric_limits<float>::max();
-        SampleCurve(*this, [&](float x) { v = std::min(v, x); });
-        return v;
+        if (Keys.empty())
+            return 1.0f;
+        float lo, hi;
+        CurveKeys::GetRange(Keys, 0.0f, 1.0f, lo, hi);
+        return lo;
     }
 
     float ParticleCurve::GetMax() const
     {
-        float v = -std::numeric_limits<float>::max();
-        SampleCurve(*this, [&](float x) { v = std::max(v, x); });
-        return v;
+        if (Keys.empty())
+            return 1.0f;
+        float lo, hi;
+        CurveKeys::GetRange(Keys, 0.0f, 1.0f, lo, hi);
+        return hi;
     }
 
     int ParticleCurve::AddKey(float t)
     {
-        t = std::clamp(t, 0.0f, 1.0f);
-        AnimationKey key;
-        key.Time = t;
-        key.Value = glm::vec4(Evaluate(t), 0.0f, 0.0f, 0.0f);
-        auto it = std::upper_bound(Keys.begin(), Keys.end(), t, [](float time, const AnimationKey& k) { return time < k.Time; });
-        if (it != Keys.begin())
-            key.Interpolation = (it - 1)->Interpolation;
-        const int index = (int)(it - Keys.begin());
-        Keys.insert(it, key);
-        PropertyAnimation::UpdateTangents(Keys);
-        return index;
+        // Without keys the curve is 1 everywhere: the new key keeps that.
+        if (Keys.empty())
+        {
+            AnimationKey key;
+            key.Time = std::clamp(t, 0.0f, 1.0f);
+            key.Value.x = 1.0f;
+            Keys.push_back(key);
+            return 0;
+        }
+        return CurveKeys::Insert(Keys, std::clamp(t, 0.0f, 1.0f));
     }
 
     ParticleCurve ParticleCurve::Constant(float value)
@@ -376,13 +332,10 @@ namespace Zamin {
             return (state & 0xFFFFFF) / float(0x1000000);
         }
 
-        // lowbias32 (Chris Wellons): a well mixed 32-bit hash.
+        // lowbias32 (Noise::Hash): a well mixed 32-bit hash.
         static uint32_t Hash(uint32_t x)
         {
-            x ^= x >> 16; x *= 0x7feb352du;
-            x ^= x >> 15; x *= 0x846ca68bu;
-            x ^= x >> 16;
-            return x;
+            return Zamin::Noise::Hash(x);
         }
 
         float SeedRandom(uint32_t seed, uint32_t salt)
@@ -390,93 +343,19 @@ namespace Zamin {
             return (Hash(seed ^ (salt * 0x9E3779B9u)) & 0xFFFFFF) / float(0x1000000);
         }
 
-        // ---- noise
-        // The gradient of a lattice corner (Perlin's improved set: the 12 edge midpoints of a cube).
-        static float Gradient(uint32_t hash, float x, float y, float z)
-        {
-            switch (hash & 15u)
-            {
-                case 0: case 12: return x + y;
-                case 1: case 13: return -x + y;
-                case 2: return x - y;
-                case 3: return -x - y;
-                case 4: return x + z;
-                case 5: return -x + z;
-                case 6: return x - z;
-                case 7: return -x - z;
-                case 8: return y + z;
-                case 9: case 14: return -y + z;
-                case 10: return y - z;
-                default: return -y - z;
-            }
-        }
-
-        // A point's lattice cell, its place in it and the fade weights there: the same for the
-        // three axes' noises of a layer (NoiseField works them out once).
-        struct NoiseCell
-        {
-            int X, Y, Z;
-            float Fx, Fy, Fz; // 0..1 in the cell
-            float Ux, Uy, Uz; // faded
-        };
-
-        static NoiseCell MakeNoiseCell(float px, float py, float pz)
-        {
-            NoiseCell c;
-            const float floorX = std::floor(px), floorY = std::floor(py), floorZ = std::floor(pz);
-            c.Fx = px - floorX;
-            c.Fy = py - floorY;
-            c.Fz = pz - floorZ;
-            c.X = (int)floorX;
-            c.Y = (int)floorY;
-            c.Z = (int)floorZ;
-            // Quintic fade: the field and its slope are smooth across the lattice.
-            c.Ux = c.Fx * c.Fx * c.Fx * (c.Fx * (c.Fx * 6.0f - 15.0f) + 10.0f);
-            c.Uy = c.Fy * c.Fy * c.Fy * (c.Fy * (c.Fy * 6.0f - 15.0f) + 10.0f);
-            c.Uz = c.Fz * c.Fz * c.Fz * (c.Fz * (c.Fz * 6.0f - 15.0f) + 10.0f);
-            return c;
-        }
-
-        static float NoiseAt(const NoiseCell& c, uint32_t seed)
-        {
-            const uint32_t hs = Hash(seed);
-            const uint32_t hz0 = Hash((uint32_t)c.Z ^ hs), hz1 = Hash((uint32_t)(c.Z + 1) ^ hs);
-            const uint32_t h00 = Hash((uint32_t)c.Y + hz0), h10 = Hash((uint32_t)(c.Y + 1) + hz0);
-            const uint32_t h01 = Hash((uint32_t)c.Y + hz1), h11 = Hash((uint32_t)(c.Y + 1) + hz1);
-            const uint32_t x0 = (uint32_t)c.X, x1 = (uint32_t)(c.X + 1);
-            const float fx = c.Fx, fy = c.Fy, fz = c.Fz;
-            const float n000 = Gradient(Hash(x0 + h00), fx, fy, fz), n100 = Gradient(Hash(x1 + h00), fx - 1.0f, fy, fz);
-            const float n010 = Gradient(Hash(x0 + h10), fx, fy - 1.0f, fz), n110 = Gradient(Hash(x1 + h10), fx - 1.0f, fy - 1.0f, fz);
-            const float n001 = Gradient(Hash(x0 + h01), fx, fy, fz - 1.0f), n101 = Gradient(Hash(x1 + h01), fx - 1.0f, fy, fz - 1.0f);
-            const float n011 = Gradient(Hash(x0 + h11), fx, fy - 1.0f, fz - 1.0f), n111 = Gradient(Hash(x1 + h11), fx - 1.0f, fy - 1.0f, fz - 1.0f);
-            const float x00 = n000 + (n100 - n000) * c.Ux, x10 = n010 + (n110 - n010) * c.Ux;
-            const float x01 = n001 + (n101 - n001) * c.Ux, x11 = n011 + (n111 - n011) * c.Ux;
-            const float y0 = x00 + (x10 - x00) * c.Uy, y1 = x01 + (x11 - x01) * c.Uy;
-            return std::clamp(y0 + (y1 - y0) * c.Uz, -1.0f, 1.0f);
-        }
-
+        // ---- noise (Math/Noise: the engine's shared Perlin noise)
         float Noise(const glm::vec3& p, uint32_t seed)
         {
-            return NoiseAt(MakeNoiseCell(p.x, p.y, p.z), seed);
+            return Zamin::Noise::Perlin(p, seed);
         }
 
         glm::vec3 NoiseField(const glm::vec3& p, uint32_t seed, int octaves, float octaveMultiplier, const glm::bvec3& axes)
         {
-            octaves = std::clamp(octaves, 1, 8);
-            float sum[3] = { 0.0f, 0.0f, 0.0f };
-            float amplitude = 1.0f, total = 0.0f, frequency = 1.0f;
-            for (int o = 0; o < octaves; o++)
-            {
-                const uint32_t s = Hash(seed * 0x632BE5ABu + (uint32_t)o * 0x85EBCA6Bu);
-                const NoiseCell cell = MakeNoiseCell(p.x * frequency, p.y * frequency, p.z * frequency);
-                for (int axis = 0; axis < 3; axis++)
-                    if (axes[axis])
-                        sum[axis] += NoiseAt(cell, s + (uint32_t)axis * 0x27D4EB2Fu) * amplitude;
-                total += amplitude;
-                amplitude *= octaveMultiplier;
-                frequency *= 2.0f;
-            }
-            return total > 0.0f ? glm::vec3(sum[0], sum[1], sum[2]) / total : glm::vec3(0.0f);
+            Zamin::Noise::FractalSettings settings;
+            settings.Octaves = std::clamp(octaves, 1, 8);
+            settings.Gain = octaveMultiplier;
+            settings.Seed = seed;
+            return Zamin::Noise::FractalVector(p, settings, axes);
         }
 
         // Two unit vectors at right angles to `dir` (a unit vector).

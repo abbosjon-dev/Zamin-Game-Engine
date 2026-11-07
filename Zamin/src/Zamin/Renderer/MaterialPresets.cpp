@@ -1,6 +1,7 @@
 #include "Zamin/Renderer/MaterialPresets.h"
 #include "Zamin/Asset/AssetRegistry.h"
 #include "Zamin/Core/Log.h"
+#include "Zamin/Math/Noise.h"
 #include "Zamin/Project/AssetFiles.h"
 #include "Zamin/Project/Project.h"
 #include "Zamin/Utils/Image.h"
@@ -135,13 +136,7 @@ namespace Zamin {
     // ------------------------------------------------------------------ noise (tiles without seams)
     static uint32_t Hash(uint32_t x, uint32_t y, uint32_t seed)
     {
-        uint32_t h = seed * 0x9E3779B9u ^ x * 0x85EBCA6Bu ^ y * 0xC2B2AE35u;
-        h ^= h >> 16;
-        h *= 0x7FEB352Du;
-        h ^= h >> 15;
-        h *= 0x846CA68Bu;
-        h ^= h >> 16;
-        return h;
+        return Noise::Hash(seed * 0x9E3779B9u ^ x * 0x85EBCA6Bu ^ y * 0xC2B2AE35u);
     }
 
     // Value noise on a lattice of periodX x periodY cells over u, v in [0, 1): it wraps at 1.

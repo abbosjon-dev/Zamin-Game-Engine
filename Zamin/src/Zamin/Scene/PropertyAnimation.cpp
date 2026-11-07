@@ -2,6 +2,7 @@
 
 #include "Zamin/Asset/AssetImportLog.h"
 #include "Zamin/Core/Log.h"
+#include "Zamin/Math/AnimationCurve.h"
 #include "Zamin/Project/Project.h"
 #include "Zamin/Scene/Components.h"
 #include "Zamin/Scene/Entity.h"
@@ -120,46 +121,20 @@ namespace Zamin {
 
     std::optional<AnimationWrap> PropertyAnimation::WrapFromString(std::string_view text)
     {
-        if (text == "Once") return AnimationWrap::Once;
-        if (text == "Loop") return AnimationWrap::Loop;
-        if (text == "PingPong") return AnimationWrap::PingPong;
-        return std::nullopt;
+        return AnimationCurve::WrapFromString(text);
     }
 
     // ------------------------------------------------------------------ curves
     glm::vec4 PropertyAnimation::Interpolate(const AnimationKey& a, const AnimationKey& b, float t)
     {
-        const float dt = b.Time - a.Time;
-        if (dt <= 0.0f)
-            return b.Value;
-        if (a.Interpolation == KeyInterpolation::Step)
-            return a.Value;
-        const float s = std::clamp(t / dt, 0.0f, 1.0f);
-        if (a.Interpolation == KeyInterpolation::Linear)
-            return glm::mix(a.Value, b.Value, s);
-        // Cubic Hermite with slopes = the Bezier with handles a third of the way in.
-        const float s2 = s * s, s3 = s2 * s;
-        const float h00 = 2.0f * s3 - 3.0f * s2 + 1.0f;
-        const float h10 = s3 - 2.0f * s2 + s;
-        const float h01 = -2.0f * s3 + 3.0f * s2;
-        const float h11 = s3 - s2;
-        return h00 * a.Value + h10 * dt * a.OutTangent + h01 * b.Value + h11 * dt * b.InTangent;
+        return CurveKeys::Interpolate(a, b, t);
     }
 
     int AnimationTrack::GetComponentCount() const { return PropertyAnimation::GetComponentCount(Property); }
 
     glm::vec4 PropertyAnimation::Evaluate(const std::vector<AnimationKey>& keys, float time)
     {
-        if (keys.empty())
-            return glm::vec4(0.0f);
-        if (keys.size() == 1 || time <= keys.front().Time)
-            return keys.front().Value;
-        if (time >= keys.back().Time)
-            return keys.back().Value;
-        auto it = std::upper_bound(keys.begin(), keys.end(), time, [](float t, const AnimationKey& k) { return t < k.Time; });
-        const AnimationKey& b = *it;
-        const AnimationKey& a = *(it - 1);
-        return Interpolate(a, b, time - a.Time);
+        return CurveKeys::Evaluate(keys, time);
     }
 
     glm::vec4 AnimationTrack::Evaluate(float time) const
@@ -185,36 +160,7 @@ namespace Zamin {
 
     void PropertyAnimation::UpdateTangents(std::vector<AnimationKey>& keys)
     {
-        const size_t n = keys.size();
-        for (size_t i = 0; i < n; i++)
-        {
-            AnimationKey& k = keys[i];
-            if (k.TangentMode == KeyTangentMode::Free)
-                continue;
-            if (k.TangentMode == KeyTangentMode::Flat || i == 0 || i + 1 == n)
-            {
-                k.InTangent = k.OutTangent = glm::vec4(0.0f);
-                continue;
-            }
-            const AnimationKey& p = keys[i - 1];
-            const AnimationKey& q = keys[i + 1];
-            const float dl = k.Time - p.Time, dr = q.Time - k.Time;
-            glm::vec4 slope(0.0f);
-            if (dl > 0.0f && dr > 0.0f)
-            {
-                for (int c = 0; c < 4; c++)
-                {
-                    const float left = (k.Value[c] - p.Value[c]) / dl;
-                    const float right = (q.Value[c] - k.Value[c]) / dr;
-                    if (left * right <= 0.0f)
-                        continue; // a peak or a plateau: level, so the curve does not overshoot
-                    float s = (q.Value[c] - p.Value[c]) / (dl + dr);
-                    const float limit = 3.0f * std::min(std::abs(left), std::abs(right));
-                    slope[c] = std::clamp(s, -limit, limit);
-                }
-            }
-            k.InTangent = k.OutTangent = slope;
-        }
+        CurveKeys::UpdateTangents(keys);
     }
 
     int AnimationTrack::FindKey(float time, float tolerance) const

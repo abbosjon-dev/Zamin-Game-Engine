@@ -6831,6 +6831,8 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<TilemapComponent>();
     e.AddComponent<ParallaxComponent>();
     e.AddComponent<Camera2DFollowComponent>();
+    e.AddComponent<SplineComponent>();
+    e.AddComponent<SplineFollowerComponent>();
     e.AddComponent<ParticleSystemComponent>();
     e.AddComponent<UITransformComponent>();
     e.AddComponent<UICanvasComponent>();
@@ -6855,7 +6857,7 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
 
     const auto& types = ComponentRegistry::GetTypes();
-    CHECK(types.size() == 65);
+    CHECK(types.size() == 67);
     CHECK(types.front().Key == "Transform");
     std::vector<std::string> keys = ComponentRegistry::GetKeys(e);
     CHECK(keys.size() == types.size());
@@ -37276,4 +37278,575 @@ TEST(GameMenuSampleScene)
     UIKeyFrame(level, { Key::Escape }); // open, then closed again
     CHECK(!pauseOverlay.IsActive() && !level->IsGamePaused());
     level->OnRuntimeStop();
+}
+
+// ------------------------------------------------------------------ M19: noise
+TEST(NoiseRangeContinuityDeterminism)
+{
+    uint32_t rng = 12345u;
+    auto random = [&](float lo, float hi) { return lo + (hi - lo) * ParticleSimulation::Random01(rng); };
+    struct Kind
+    {
+        const char* Name;
+        std::function<float(const glm::vec3&, uint32_t)> Fn;
+        float Spread; // a value at least this far from 0 shows up somewhere
+    };
+    const std::vector<Kind> kinds = {
+        { "perlin1", [](const glm::vec3& p, uint32_t s) { return Noise::Perlin(p.x, s); }, 0.3f },
+        { "perlin2", [](const glm::vec3& p, uint32_t s) { return Noise::Perlin(glm::vec2(p), s); }, 0.5f },
+        { "perlin3", [](const glm::vec3& p, uint32_t s) { return Noise::Perlin(p, s); }, 0.5f },
+        { "simplex2", [](const glm::vec3& p, uint32_t s) { return Noise::Simplex(glm::vec2(p), s); }, 0.6f },
+        { "simplex3", [](const glm::vec3& p, uint32_t s) { return Noise::Simplex(p, s); }, 0.6f },
+        { "value1", [](const glm::vec3& p, uint32_t s) { return Noise::Value(p.x, s); }, 0.6f },
+        { "value2", [](const glm::vec3& p, uint32_t s) { return Noise::Value(glm::vec2(p), s); }, 0.6f },
+        { "value3", [](const glm::vec3& p, uint32_t s) { return Noise::Value(p, s); }, 0.6f },
+    };
+    for (const Kind& k : kinds)
+    {
+        float lo = 1.0f, hi = -1.0f, sum = 0.0f, worstStep = 0.0f, seedDiff = 0.0f;
+        bool deterministic = true, inRange = true;
+        const int samples = 4000;
+        for (int i = 0; i < samples; i++)
+        {
+            const glm::vec3 p(random(-200.0f, 200.0f), random(-200.0f, 200.0f), random(-200.0f, 200.0f));
+            const float n = k.Fn(p, 7u);
+            deterministic &= k.Fn(p, 7u) == n;
+            inRange &= n >= -1.0f && n <= 1.0f && std::isfinite(n);
+            lo = std::min(lo, n);
+            hi = std::max(hi, n);
+            sum += n;
+            // Continuous: a tiny step moves the value a tiny bit.
+            worstStep = std::max(worstStep, std::abs(k.Fn(p + glm::vec3(1e-3f, 1e-3f, 1e-3f), 7u) - n));
+            seedDiff += std::abs(k.Fn(p, 8u) - n);
+        }
+        if (!(deterministic && inRange))
+            std::printf("    noise %s\n", k.Name);
+        CHECK(deterministic && inRange);
+        CHECK(hi > k.Spread && lo < -k.Spread);    // uses its range
+        CHECK(std::abs(sum / samples) < 0.08f);    // centred on 0
+        CHECK(worstStep < 0.03f);
+        CHECK(seedDiff / samples > 0.05f);         // another seed: another field
+    }
+    // Gradient noise is 0 on the lattice; non-finite input gives 0.
+    CHECK(Noise::Perlin(glm::vec3(3.0f, -4.0f, 5.0f), 1u) == 0.0f);
+    CHECK(Noise::Perlin(glm::vec2(-7.0f, 2.0f), 9u) == 0.0f);
+    CHECK(Noise::Perlin(5.0f, 3u) == 0.0f);
+    CHECK(Noise::Simplex(glm::vec2(std::numeric_limits<float>::quiet_NaN(), 0.0f)) == 0.0f);
+    CHECK(Noise::Perlin(glm::vec3(std::numeric_limits<float>::infinity(), 0.0f, 0.0f)) == 0.0f);
+    // The values the particles (M14) and the camera shake (M09) had before the consolidation.
+    CHECK_NEAR(Noise::Perlin(glm::vec3(0.3f, 0.6f, 0.9f), 7u), -0.284198225f, 1e-6f);
+    CHECK_NEAR(Noise::Perlin(glm::vec3(-12.75f, 3.1f, 100.5f), 12345u), -0.224990875f, 1e-6f);
+    const glm::vec3 field = ParticleSimulation::NoiseField({ 1.3f, -2.6f, 0.45f }, 3u, 3, 0.5f);
+    CHECK_NEAR(field.x, -0.00396895409f, 1e-6f);
+    CHECK_NEAR(field.y, 0.203527853f, 1e-6f);
+    CHECK_NEAR(field.z, 0.197081521f, 1e-6f);
+    CHECK_NEAR(CameraShake::Noise(7u, 2.37f), 0.555997252f, 1e-6f);
+    CHECK(ParticleSimulation::Noise({ 1.5f, 2.25f, -3.75f }, 4u) == Noise::Perlin(glm::vec3(1.5f, 2.25f, -3.75f), 4u));
+    CHECK(CameraShake::Noise(11u, 4.2f) == Noise::Value(4.2f, 11u));
+    // PerlinVector: three unrelated noises of a point, the disabled axes 0.
+    const glm::vec3 v = Noise::PerlinVector({ 0.4f, 1.7f, -2.2f }, { 1u, 2u, 3u }, glm::bvec3(true, false, true));
+    CHECK(v.x == Noise::Perlin(glm::vec3(0.4f, 1.7f, -2.2f), 1u) && v.y == 0.0f && v.z == Noise::Perlin(glm::vec3(0.4f, 1.7f, -2.2f), 3u));
+}
+
+TEST(NoiseFractalsAndTiling)
+{
+    uint32_t rng = 99u;
+    Noise::FractalSettings fbm;
+    fbm.Octaves = 6;
+    fbm.Frequency = 0.5f;
+    fbm.Seed = 42u;
+    Noise::FractalSettings ridged = fbm;
+    for (int type = 0; type < Noise::NoiseTypeCount; type++)
+    {
+        fbm.Type = ridged.Type = (Noise::NoiseType)type;
+        float ridgedMax = 0.0f, fbmSpread = 0.0f;
+        bool ok = true;
+        for (int i = 0; i < 1500; i++)
+        {
+            const glm::vec3 p(ParticleSimulation::Random01(rng) * 100.0f, ParticleSimulation::Random01(rng) * 100.0f,
+                              ParticleSimulation::Random01(rng) * 100.0f);
+            const float f2 = Noise::Fractal(glm::vec2(p), fbm), f3 = Noise::Fractal(p, fbm), f1 = Noise::Fractal(p.x, fbm);
+            const float r2 = Noise::Ridged(glm::vec2(p), ridged), r3 = Noise::Ridged(p, ridged);
+            const float t2 = Noise::Turbulence(glm::vec2(p), fbm), t3 = Noise::Turbulence(p, fbm);
+            ok &= f1 >= -1.0f && f1 <= 1.0f && f2 >= -1.0f && f2 <= 1.0f && f3 >= -1.0f && f3 <= 1.0f;
+            ok &= r2 >= 0.0f && r2 <= 1.0f && r3 >= 0.0f && r3 <= 1.0f && t2 >= 0.0f && t2 <= 1.0f && t3 >= 0.0f && t3 <= 1.0f;
+            ok &= Noise::Fractal(p, fbm) == f3; // deterministic
+            ridgedMax = std::max(ridgedMax, r3);
+            fbmSpread = std::max(fbmSpread, std::abs(f3));
+        }
+        CHECK(ok);
+        CHECK(ridgedMax > 0.3f && fbmSpread > 0.2f);
+    }
+    // One octave is the plain noise at the first frequency (with that octave's seed).
+    Noise::FractalSettings one;
+    one.Octaves = 1;
+    one.Frequency = 2.0f;
+    one.Seed = 5u;
+    CHECK(Noise::Fractal(glm::vec2(0.3f, 0.7f), one) == Noise::Perlin(glm::vec2(0.6f, 1.4f), Noise::OctaveSeed(5u, 0)));
+    // The periodic noise tiles: the same a period away.
+    for (int i = 0; i < 50; i++)
+    {
+        const glm::vec2 p(ParticleSimulation::Random01(rng) * 8.0f, ParticleSimulation::Random01(rng) * 4.0f);
+        CHECK_NEAR(Noise::PerlinPeriodic(p, { 8, 4 }, 3u), Noise::PerlinPeriodic(p + glm::vec2(8.0f, -4.0f), { 8, 4 }, 3u), 1e-4f);
+    }
+    CHECK(Noise::NoiseTypeFromString(Noise::NoiseTypeToString(Noise::NoiseType::Simplex)) == Noise::NoiseType::Simplex);
+    CHECK(!Noise::NoiseTypeFromString("Worley"));
+    CHECK(Noise::Hash(1u) != Noise::Hash(2u) && Noise::Hash(3, 4, 5u) != Noise::Hash(4, 3, 5u));
+}
+
+// ------------------------------------------------------------------ M19: AnimationCurve
+TEST(AnimationCurveEvaluateAndWrap)
+{
+    AnimationCurve c = AnimationCurve::Linear(0.0f, 0.0f, 2.0f, 4.0f);
+    CHECK(c.GetKeyCount() == 2 && c.GetStartTime() == 0.0f && c.GetEndTime() == 2.0f && c.GetDuration() == 2.0f);
+    CHECK_NEAR(c.Evaluate(1.0f), 2.0f, 1e-5f);
+    CHECK_NEAR(c.Evaluate(-1.0f), 0.0f, 1e-6f); // Once: held
+    CHECK_NEAR(c.Evaluate(5.0f), 4.0f, 1e-6f);
+    c.PostWrap = AnimationWrap::Loop;
+    CHECK_NEAR(c.Evaluate(3.0f), c.Evaluate(1.0f), 1e-5f);
+    CHECK_NEAR(c.Evaluate(4.5f), c.Evaluate(0.5f), 1e-5f);
+    c.PostWrap = AnimationWrap::PingPong;
+    CHECK_NEAR(c.Evaluate(3.0f), c.Evaluate(1.0f), 1e-5f);
+    CHECK_NEAR(c.Evaluate(3.5f), 1.0f, 1e-5f); // on its way back
+    CHECK_NEAR(c.Evaluate(4.5f), 1.0f, 1e-5f); // and forwards again
+    c.PreWrap = AnimationWrap::Loop;
+    CHECK_NEAR(c.Evaluate(-0.5f), c.Evaluate(1.5f), 1e-5f);
+    CHECK_NEAR(c.Evaluate(std::numeric_limits<float>::quiet_NaN()), 0.0f, 1e-6f);
+    CHECK(AnimationCurve().Evaluate(1.0f) == 0.0f);
+
+    // Keys: added in order, an existing time gets the value, AddKey(t) keeps the curve's value.
+    AnimationCurve k;
+    CHECK(k.AddKey(1.0f, 5.0f) == 0 && k.AddKey(0.0f, 1.0f) == 0 && k.AddKey(2.0f, 3.0f) == 2);
+    CHECK(k.AddKey(1.0f, 6.0f) == 1 && k.GetKeyCount() == 3 && k.Keys[1].Value.x == 6.0f);
+    const float before = k.Evaluate(1.5f);
+    const int added = k.AddKey(1.5f);
+    CHECK(added == 2 && k.GetKeyCount() == 4);
+    CHECK_NEAR(k.Keys[2].Value.x, before, 1e-5f);
+    CHECK(k.MoveKey(2, -1.0f, 2.0f) == 0 && k.Keys[0].Time == -1.0f); // re-sorted
+    CHECK(k.RemoveKey(0) && !k.RemoveKey(10) && k.GetKeyCount() == 3);
+    CHECK(k.FindKey(2.0f) == 2 && k.FindKey(7.0f) == -1);
+    // Smooth (Auto) tangents through a peak are level: no overshoot of the key.
+    CHECK(k.Keys[1].InTangent.x == 0.0f && k.GetMax() <= 6.0f + 1e-4f);
+    k.SetTangents(1, 10.0f, 10.0f);
+    CHECK(k.Keys[1].TangentMode == KeyTangentMode::Free && k.GetMax() > 6.0f); // a free slope overshoots
+    k.SmoothTangents();
+    CHECK(k.Keys[1].TangentMode == KeyTangentMode::Auto && k.Keys[1].InTangent.x == 0.0f);
+    k.SetInterpolation(0, KeyInterpolation::Step);
+    CHECK(k.Evaluate(0.5f) == k.Keys[0].Value.x);
+
+    // Ease in / out: level at both ends, monotonic between.
+    AnimationCurve ease = AnimationCurve::EaseInOut(0.0f, 0.0f, 1.0f, 1.0f);
+    CHECK_NEAR(ease.Evaluate(0.5f), 0.5f, 1e-5f);
+    CHECK(ease.Evaluate(0.05f) < 0.05f && ease.Evaluate(0.95f) > 0.95f);
+    float previous = -1.0f;
+    bool monotonic = true;
+    for (int i = 0; i <= 50; i++)
+    {
+        const float v = ease.Evaluate(i / 50.0f);
+        monotonic &= v >= previous;
+        previous = v;
+    }
+    CHECK(monotonic);
+    CHECK(AnimationCurve::Constant(0.0f, 3.0f, 2.5f).Evaluate(1.7f) == 2.5f);
+    // One arithmetic for every curve: the same numbers as the animation clips' tracks.
+    for (int i = 0; i <= 20; i++)
+    {
+        const float t = -0.5f + i * 0.15f;
+        CHECK_NEAR(ease.Evaluate(std::clamp(t, 0.0f, 1.0f)), PropertyAnimation::Evaluate(ease.Keys, t).x, 1e-6f);
+    }
+    // Particle curves keep their behaviour: 1 without keys, a first key at 1.
+    ParticleCurve pc;
+    CHECK(pc.Evaluate(0.3f) == 1.0f && pc.GetMin() == 1.0f && pc.GetMax() == 1.0f);
+    CHECK(pc.AddKey(0.5f) == 0 && pc.Keys[0].Value.x == 1.0f);
+    ParticleCurve lin = ParticleCurve::Linear(1.0f, 0.0f);
+    CHECK_NEAR(lin.Evaluate(0.25f), 0.75f, 1e-6f);
+    CHECK(lin.AddKey(0.5f) == 1 && std::abs(lin.Keys[1].Value.x - 0.5f) < 1e-6f);
+    CHECK(AnimationCurve::WrapFromString(AnimationCurve::WrapToString(AnimationWrap::PingPong)) == AnimationWrap::PingPong);
+}
+
+class CurveFieldScript : public ScriptableEntity
+{
+public:
+    AnimationCurve Height = AnimationCurve::EaseInOut(0.0f, 0.0f, 1.0f, 2.0f);
+    float Sampled = 0.0f;
+    void OnUpdate(Timestep) override { Sampled = Height.Evaluate(0.5f); }
+};
+ZM_REGISTER_SCRIPT(CurveFieldScript, ZM_FIELD_RANGE(CurveFieldScript, Height, 0.0f, 3.0f))
+
+TEST(AnimationCurveScriptField)
+{
+    CHECK(ScriptFieldTypeOf<AnimationCurve>() == ScriptFieldType::Curve);
+    CHECK(ScriptFieldTypeFromString(ScriptFieldTypeToString(ScriptFieldType::Curve)) == ScriptFieldType::Curve);
+    const ScriptClassInfo* info = ScriptRegistry::Find("CurveFieldScript");
+    CHECK(info && info->Fields.size() == 1 && info->Fields[0].Type == ScriptFieldType::Curve && info->Fields[0].HasRange);
+    if (!info)
+        return;
+
+    // A curve with every kind of key and wrap, through the scene file.
+    AnimationCurve curve;
+    curve.AddKey(0.0f, 1.0f);
+    curve.AddKey(0.75f, 3.0f, KeyInterpolation::Linear);
+    curve.AddKey(1.5f, -2.0f, KeyInterpolation::Step);
+    curve.AddKey(3.0f, 0.5f);
+    curve.SetTangents(3, 1.25f, -0.5f);
+    curve.FlattenTangents(0);
+    curve.PreWrap = AnimationWrap::PingPong;
+    curve.PostWrap = AnimationWrap::Loop;
+
+    auto scene = CreateRef<Scene>();
+    Entity e = scene->CreateEntity("Hopper");
+    auto& nsc = e.AddComponent<NativeScriptComponent>();
+    nsc.ClassName = "CurveFieldScript";
+    nsc.Fields["Height"].Set(curve);
+    const std::string text = SceneSerializer(scene).SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    Entity l = loaded->FindEntityByName("Hopper");
+    CHECK(l && l.GetComponent<NativeScriptComponent>().Fields.count("Height"));
+    if (!l)
+        return;
+    const ScriptFieldValue& value = l.GetComponent<NativeScriptComponent>().Fields["Height"];
+    CHECK(value.Type == ScriptFieldType::Curve);
+    CHECK(value.CurveValue == curve);
+    CHECK(SceneSerializer(loaded).SerializeToString() == text);
+
+    // Into the running script, and read back from it.
+    loaded->OnRuntimeStart();
+    loaded->OnUpdateRuntime(0.016f);
+    auto* script = dynamic_cast<CurveFieldScript*>(l.GetComponent<NativeScriptComponent>().Instance);
+    CHECK(script && script->Height == curve);
+    if (script)
+    {
+        CHECK_NEAR(script->Sampled, curve.Evaluate(0.5f), 1e-6f);
+        ScriptFieldValue out;
+        info->Fields[0].Load(script, out);
+        CHECK(out.Type == ScriptFieldType::Curve && out.CurveValue == curve);
+        AnimationCurve other = AnimationCurve::Linear(0.0f, 5.0f, 1.0f, 6.0f);
+        ScriptFieldValue in;
+        in.Set(other);
+        CHECK(info->Fields[0].Store(script, in) && script->Height == other);
+    }
+    loaded->OnRuntimeStop();
+}
+
+// ------------------------------------------------------------------ M19: splines
+static Spline MakeSpline(std::initializer_list<glm::vec3> points, SplineType type = SplineType::CatmullRom, bool closed = false)
+{
+    Spline s;
+    for (const glm::vec3& p : points)
+        s.Points.push_back({ p });
+    s.Type = type;
+    s.Closed = closed;
+    return s;
+}
+
+TEST(SplineEvaluation)
+{
+    // Catmull-Rom goes through its points; segments meet smoothly (same direction).
+    Spline s = MakeSpline({ { 0, 0, 0 }, { 2, 3, 0 }, { 5, -1, 1 }, { 8, 0, -2 }, { 9, 4, 0 } });
+    CHECK(s.GetSegmentCount() == 4 && s.GetParameterEnd() == 4.0f);
+    for (int i = 0; i < 5; i++)
+        CHECK(glm::length(s.Evaluate((float)i) - s.Points[(size_t)i].Position) < 1e-4f);
+    for (int i = 1; i < 4; i++)
+    {
+        const glm::vec3 before = glm::normalize(s.EvaluateSegmentDerivative(i - 1, 1.0f));
+        const glm::vec3 after = glm::normalize(s.EvaluateSegmentDerivative(i, 0.0f));
+        CHECK(glm::dot(before, after) > 0.9999f);
+    }
+    // The derivative matches the curve (finite differences), uniform Catmull-Rom is the textbook one.
+    const glm::vec3 d = s.EvaluateDerivative(1.3f), numeric = (s.Evaluate(1.3001f) - s.Evaluate(1.2999f)) / 0.0002f;
+    CHECK(glm::length(d - numeric) < 0.02f * glm::length(d));
+    const glm::vec3 p0(0, 0, 0), p1(1, 2, 0), p2(3, 2, 1), p3(4, 0, 0);
+    const float t = 0.35f;
+    const glm::vec3 textbook = 0.5f * ((2.0f * p1) + (-p0 + p2) * t + (2.0f * p0 - 5.0f * p1 + 4.0f * p2 - p3) * t * t +
+                                       (-p0 + 3.0f * p1 - 3.0f * p2 + p3) * t * t * t);
+    CHECK(glm::length(SplineMath::CatmullRom(p0, p1, p2, p3, t, 0.0f) - textbook) < 1e-4f);
+    // Centripetal Catmull-Rom does not loop where points crowd together: it stays inside the hull.
+    const glm::vec3 c = SplineMath::CatmullRom({ 0, 0, 0 }, { 1, 0, 0 }, { 1.05f, 0.05f, 0 }, { 2, 3, 0 }, 0.5f, 0.5f);
+    CHECK(c.x > 0.95f && c.x < 1.1f && c.y > -0.05f && c.y < 0.1f);
+
+    // Bezier: through its points, the derivative 3x the handle at the ends.
+    Spline b = MakeSpline({ { 0, 0, 0 }, { 4, 0, 0 } }, SplineType::Bezier);
+    b.Points[0].OutTangent = { 1, 2, 0 };
+    b.Points[1].InTangent = { -1, 2, 0 };
+    CHECK(glm::length(b.Evaluate(0.0f)) < 1e-6f && glm::length(b.Evaluate(1.0f) - glm::vec3(4, 0, 0)) < 1e-6f);
+    CHECK(glm::length(b.EvaluateDerivative(0.0f) - glm::vec3(3, 6, 0)) < 1e-4f);
+    CHECK_NEAR(b.Evaluate(0.5f).y, 1.5f, 1e-5f); // 3/4 of the handles' height
+    // Linear: straight between the points; closed paths wrap.
+    Spline l = MakeSpline({ { 0, 0, 0 }, { 2, 0, 0 }, { 2, 2, 0 } }, SplineType::Linear, true);
+    CHECK(l.GetSegmentCount() == 3);
+    CHECK(glm::length(l.Evaluate(2.5f) - glm::vec3(1, 1, 0)) < 1e-5f);
+    CHECK(glm::length(l.Evaluate(3.25f) - l.Evaluate(0.25f)) < 1e-5f);
+    CHECK(glm::length(l.Evaluate(-0.75f) - l.Evaluate(2.25f)) < 1e-5f);
+    CHECK(glm::length(l.EvaluateTangent(0.5f) - glm::vec3(1, 0, 0)) < 1e-5f);
+    // Degenerate paths do not blow up.
+    Spline one = MakeSpline({ { 1, 2, 3 } });
+    CHECK(one.GetSegmentCount() == 0 && one.Evaluate(0.5f) == glm::vec3(1, 2, 3) && Spline().Evaluate(3.0f) == glm::vec3(0.0f));
+    Spline same = MakeSpline({ { 1, 1, 1 }, { 1, 1, 1 } });
+    const glm::vec3 sp = same.Evaluate(0.5f), st = same.EvaluateTangent(0.5f);
+    CHECK(std::isfinite(sp.x + sp.y + sp.z) && std::isfinite(st.x + st.y + st.z));
+    CHECK(SplineTypeFromString(SplineTypeToString(SplineType::Bezier)) == SplineType::Bezier && !SplineTypeFromString("Hermite"));
+}
+
+TEST(SplineArcLengthAndClosest)
+{
+    // A straight Catmull-Rom of evenly spaced points: its length is the distance.
+    Spline straight = MakeSpline({ { 0, 0, 0 }, { 1, 0, 0 }, { 2, 0, 0 }, { 3, 0, 0 } });
+    SplineLengthTable table(straight);
+    CHECK_NEAR(table.GetLength(), 3.0f, 1e-3f);
+    CHECK_NEAR(straight.Evaluate(table.GetParameter(1.5f)).x, 1.5f, 1e-3f);
+    // A closed circle of 8 points (centripetal): close to 2 pi r.
+    Spline circle;
+    circle.Closed = true;
+    for (int i = 0; i < 8; i++)
+        circle.Points.push_back({ glm::vec3(std::cos(i * glm::pi<float>() / 4.0f), 0.0f, std::sin(i * glm::pi<float>() / 4.0f)) * 5.0f });
+    SplineLengthTable round(circle);
+    CHECK(std::abs(round.GetLength() - 2.0f * glm::pi<float>() * 5.0f) < 0.01f * 2.0f * glm::pi<float>() * 5.0f);
+    // Distance <-> parameter both ways; points evenly spaced by distance.
+    for (int i = 0; i <= 10; i++)
+    {
+        const float u = circle.GetParameterEnd() * i / 10.0f;
+        CHECK_NEAR(round.GetParameter(round.GetDistance(u)), u, 1e-3f);
+    }
+    const float quarter = round.GetLength() / 4.0f;
+    const float chord1 = glm::length(circle.Evaluate(round.GetParameter(quarter)) - circle.Evaluate(round.GetParameter(0.0f)));
+    const float chord2 = glm::length(circle.Evaluate(round.GetParameter(quarter * 2.0f)) - circle.Evaluate(round.GetParameter(quarter)));
+    CHECK_NEAR(chord1, chord2, 0.05f);
+    CHECK(round.GetParameter(-5.0f) == 0.0f && round.GetParameter(1e9f) == circle.GetParameterEnd());
+    CHECK(SplineLengthTable().GetLength() == 0.0f && SplineLengthTable().GetParameter(3.0f) == 0.0f);
+
+    // The nearest point: off the middle of a straight path, and of the circle.
+    const SplineHit hit = straight.FindClosest({ 1.25f, 2.0f, 0.0f });
+    CHECK(glm::length(hit.Position - glm::vec3(1.25f, 0, 0)) < 1e-3f);
+    CHECK_NEAR(hit.DistanceSquared, 4.0f, 1e-3f);
+    const SplineHit outside = circle.FindClosest({ 0.0f, 0.0f, 9.0f });
+    CHECK(glm::length(outside.Position - glm::vec3(0, 0, 5)) < 0.05f);
+    CHECK(straight.FindClosest({ -4.0f, 0.0f, 0.0f }).Parameter == 0.0f); // past the start: the start
+
+    // A point inserted on a Bezier keeps its shape (de Casteljau); auto handles draw the Catmull-Rom curve.
+    Spline b = MakeSpline({ { 0, 0, 0 }, { 3, 2, 0 }, { 6, -1, 2 }, { 8, 1, 0 } });
+    Spline asBezier = b;
+    asBezier.Type = SplineType::Bezier;
+    asBezier.AutoTangents();
+    for (int i = 0; i <= 30; i++)
+    {
+        const float u = 3.0f * i / 30.0f;
+        CHECK(glm::length(asBezier.Evaluate(u) - b.Evaluate(u)) < 1e-4f);
+    }
+    std::vector<glm::vec3> shape;
+    for (int i = 0; i <= 40; i++)
+        shape.push_back(asBezier.Evaluate(3.0f * i / 40.0f));
+    const SplineLengthTable beforeTable(asBezier);
+    CHECK(asBezier.InsertPoint(1.4f) == 2 && asBezier.Points.size() == 5);
+    const SplineLengthTable afterTable(asBezier);
+    CHECK_NEAR(beforeTable.GetLength(), afterTable.GetLength(), 1e-3f);
+    for (const glm::vec3& p : shape)
+        CHECK(asBezier.FindClosest(p).DistanceSquared < 1e-5f);
+    CHECK(b.InsertPoint(2.0f) == -1); // right on a point: nothing
+    CHECK(b.InsertPoint(0.5f) == 1 && glm::length(b.Points[1].Position - MakeSpline({ { 0, 0, 0 }, { 3, 2, 0 }, { 6, -1, 2 }, { 8, 1, 0 } }).Evaluate(0.5f)) < 1e-5f);
+}
+
+TEST(SplineComponentsSerializeAndFollow)
+{
+    auto scene = CreateRef<Scene>();
+    Entity rail = scene->CreateEntity("Rail");
+    auto& spline = rail.AddComponent<SplineComponent>();
+    spline.Path = MakeSpline({ { 0, 0, 0 }, { 5, 0, 0 }, { 10, 0, 0 } }, SplineType::Linear);
+    spline.Color = { 1.0f, 0.5f, 0.25f, 0.75f };
+    Entity cart = scene->CreateEntity("Cart");
+    auto& f = cart.AddComponent<SplineFollowerComponent>();
+    f.Path.ID = (uint64_t)rail.GetUUID();
+    f.Speed = 2.0f;
+    f.Mode = SplineFollowerComponent::FollowMode::PingPong;
+    f.Rotation = SplineFollowerComponent::RotationMode::Path2D;
+    f.Offset = { 0.0f, 1.0f, 0.0f };
+    f.StartPosition = 0.25f;
+
+    // Through the scene file (a Bezier path keeps its handles).
+    Entity curvy = scene->CreateEntity("Curvy");
+    auto& bezier = curvy.AddComponent<SplineComponent>();
+    bezier.Path.Type = SplineType::Bezier;
+    bezier.Path.Closed = true;
+    bezier.Path.Points[1].OutTangent = { 0.5f, 2.0f, -1.0f };
+    const std::string text = SceneSerializer(scene).SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    Entity lr = loaded->FindEntityByName("Rail"), lc = loaded->FindEntityByName("Cart"), lb = loaded->FindEntityByName("Curvy");
+    CHECK(lr && lc && lb);
+    if (!(lr && lc && lb))
+        return;
+    CHECK(lr.GetComponent<SplineComponent>().Path == spline.Path && lr.GetComponent<SplineComponent>().Color == spline.Color);
+    CHECK(lb.GetComponent<SplineComponent>().Path == bezier.Path);
+    const auto& lf = lc.GetComponent<SplineFollowerComponent>();
+    CHECK(lf.Path == f.Path && lf.Speed == 2.0f && lf.Mode == f.Mode && lf.Rotation == f.Rotation && lf.Offset == f.Offset &&
+          lf.StartPosition == 0.25f && lf.PlayOnStart);
+    CHECK(SceneSerializer(loaded).SerializeToString() == text);
+
+    // Scene queries in world space (the rail moved and scaled by 2).
+    lr.GetTransform().Translation = { 0.0f, 3.0f, 0.0f };
+    lr.GetTransform().Scale = glm::vec3(2.0f);
+    CHECK_NEAR(loaded->GetSplineLength(lr), 10.0f, 1e-3f);
+    CHECK(glm::length(loaded->GetSplinePosition(lr, 5.0f) - glm::vec3(10, 3, 0)) < 1e-3f);
+    CHECK(glm::length(loaded->GetSplineTangent(lr, 5.0f) - glm::vec3(1, 0, 0)) < 1e-4f);
+    CHECK_NEAR(loaded->GetSplineClosestDistance(lr, { 7.0f, 10.0f, 0.0f }), 3.5f, 1e-2f);
+    CHECK(loaded->GetSplineFollowerPath(lc) == lr);
+
+    // Playing: placed at its start (a quarter: 2.5 of 10 path units, x 5 in the world) with its offset.
+    loaded->OnRuntimeStart();
+    loaded->OnUpdateRuntime(0.0f);
+    auto& runtime = lc.GetComponent<SplineFollowerComponent>();
+    CHECK(runtime.Initialized && runtime.Playing);
+    CHECK(glm::length(lc.GetTransform().Translation - glm::vec3(5.0f, 4.0f, 0.0f)) < 1e-3f);
+    // 2 world units / s on a path stretched twice: 1 path unit / s.
+    for (int i = 0; i < 10; i++)
+        loaded->OnUpdateRuntime(0.1f);
+    CHECK_NEAR(runtime.Distance, 3.5f, 1e-3f);
+    CHECK_NEAR(lc.GetTransform().Translation.x, 7.0f, 1e-3f);
+    CHECK_NEAR(lc.GetTransform().Rotation.z, 0.0f, 1e-4f);
+    CHECK_NEAR(loaded->GetSplineFollowerProgress(lc), 0.35f, 1e-3f);
+    // Ping-pong: back from the end, facing the other way.
+    for (int i = 0; i < 80; i++)
+        loaded->OnUpdateRuntime(0.1f);
+    CHECK(runtime.Direction < 0.0f);
+    CHECK_NEAR(runtime.Distance, 10.0f - (11.5f - 10.0f), 1e-2f);
+    CHECK_NEAR(std::abs(lc.GetTransform().Rotation.z), glm::pi<float>(), 1e-3f);
+    loaded->OnRuntimeStop();
+
+    // Once: stops at the end; Loop on an open path starts over; Pause before the first frame wins
+    // over PlayOnStart.
+    auto onceScene = CreateRef<Scene>();
+    Entity path = onceScene->CreateEntity("Path");
+    path.AddComponent<SplineComponent>().Path = MakeSpline({ { 0, 0, 0 }, { 4, 0, 0 } }, SplineType::Linear);
+    Entity runner = onceScene->CreateEntity("Runner");
+    onceScene->SetParent(runner, path, false);
+    auto& once = runner.AddComponent<SplineFollowerComponent>(); // no Path: the parent's spline
+    once.Speed = 4.0f;
+    once.Mode = SplineFollowerComponent::FollowMode::Once;
+    Entity looper = onceScene->CreateEntity("Looper");
+    auto& loop = looper.AddComponent<SplineFollowerComponent>();
+    loop.Path.ID = (uint64_t)path.GetUUID();
+    loop.Speed = 3.0f;
+    Entity waiting = onceScene->CreateEntity("Waiting");
+    waiting.AddComponent<SplineFollowerComponent>().Path.ID = (uint64_t)path.GetUUID();
+    onceScene->OnRuntimeStart();
+    waiting.GetComponent<SplineFollowerComponent>().Pause();
+    for (int i = 0; i < 11; i++)
+        onceScene->OnUpdateRuntime(0.1f);
+    CHECK(onceScene->GetSplineFollowerPath(runner) == path);
+    CHECK(runner.GetComponent<SplineFollowerComponent>().Finished && !runner.GetComponent<SplineFollowerComponent>().Playing);
+    CHECK_NEAR(runner.GetTransform().Translation.x, 4.0f, 1e-4f);
+    CHECK_NEAR(looper.GetComponent<SplineFollowerComponent>().Distance, std::fmod(3.0f, 4.0f), 1e-3f); // 3 units in 1 s
+    for (int i = 0; i < 5; i++)
+        onceScene->OnUpdateRuntime(0.1f);
+    CHECK_NEAR(looper.GetComponent<SplineFollowerComponent>().Distance, 0.5f, 1e-3f); // 4.5 wrapped
+    CHECK(!waiting.GetComponent<SplineFollowerComponent>().Playing && waiting.GetTransform().Translation.x == 0.0f);
+    runner.GetComponent<SplineFollowerComponent>().Restart();
+    onceScene->OnUpdateRuntime(0.1f);
+    CHECK(runner.GetComponent<SplineFollowerComponent>().Playing && runner.GetComponent<SplineFollowerComponent>().Distance == 0.0f);
+    onceScene->OnRuntimeStop();
+}
+
+TEST(SplineFollowerMovesKinematicBodies)
+{
+    // A kinematic 2D platform on a path gets the path's velocity (it carries what stands on it).
+    auto scene = CreateRef<Scene>();
+    Entity path = scene->CreateEntity("Path");
+    path.AddComponent<SplineComponent>().Path = MakeSpline({ { 0, 0, 0 }, { 20, 0, 0 } }, SplineType::Linear);
+    Entity platform = scene->CreateEntity("Platform");
+    platform.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Kinematic;
+    platform.AddComponent<BoxCollider2DComponent>();
+    auto& f = platform.AddComponent<SplineFollowerComponent>();
+    f.Path.ID = (uint64_t)path.GetUUID();
+    f.Speed = 3.0f;
+    // A 3D one on the same path (its body follows the transform by velocity anyway).
+    Entity lift = scene->CreateEntity("Lift");
+    lift.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Kinematic;
+    lift.AddComponent<BoxCollider3DComponent>();
+    auto& f3 = lift.AddComponent<SplineFollowerComponent>();
+    f3.Path.ID = (uint64_t)path.GetUUID();
+    f3.Speed = 2.0f;
+    f3.Rotation = SplineFollowerComponent::RotationMode::Path3D;
+    scene->OnRuntimeStart();
+    for (int i = 0; i < 30; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    auto* body = (b2Body*)platform.GetComponent<Rigidbody2DComponent>().RuntimeBody;
+    CHECK(body != nullptr);
+    if (body)
+    {
+        const glm::vec2 v = PhysicsWorld2D::GetLinearVelocity(body);
+        CHECK_NEAR(v.x, 3.0f, 1e-2f);
+        CHECK_NEAR(v.y, 0.0f, 1e-4f);
+    }
+    CHECK_NEAR(platform.GetTransform().Translation.x, 3.0f * 29.0f / 60.0f, 1e-3f);
+    CHECK_NEAR(lift.GetTransform().Translation.x, 2.0f * 29.0f / 60.0f, 1e-3f);
+    // Path3D: its -Z along the path (+X).
+    const glm::vec3 forward = glm::quat(lift.GetTransform().Rotation) * glm::vec3(0, 0, -1);
+    CHECK(glm::length(forward - glm::vec3(1, 0, 0)) < 1e-3f); // (Euler angles at a 90 degree yaw lose a little)
+    scene->OnRuntimeStop();
+}
+
+// ------------------------------------------------------------------ M19: colours
+TEST(ColorConversions)
+{
+    // HSV / HSL: known colours and round trips.
+    CHECK(glm::length(Color::RGBToHSV({ 1, 0, 0 }) - glm::vec3(0, 1, 1)) < 1e-6f);
+    CHECK(glm::length(Color::HSVToRGB({ 1.0f / 3.0f, 1, 1 }) - glm::vec3(0, 1, 0)) < 1e-5f);
+    CHECK(glm::length(Color::HSVToRGB({ 2.0f / 3.0f, 1, 0.5f }) - glm::vec3(0, 0, 0.5f)) < 1e-5f);
+    CHECK(glm::length(Color::HSLToRGB({ 0.0f, 1.0f, 0.5f }) - glm::vec3(1, 0, 0)) < 1e-5f);
+    CHECK(glm::length(Color::RGBToHSL({ 0.5f, 0.5f, 0.5f }) - glm::vec3(0, 0, 0.5f)) < 1e-6f);
+    CHECK(glm::length(Color::HSVToRGB({ 1.25f, 1, 1 }) - Color::HSVToRGB({ 0.25f, 1, 1 })) < 1e-5f); // the hue wraps
+    uint32_t rng = 5u;
+    bool roundTrips = true;
+    for (int i = 0; i < 500; i++)
+    {
+        const glm::vec3 c(ParticleSimulation::Random01(rng), ParticleSimulation::Random01(rng), ParticleSimulation::Random01(rng));
+        roundTrips &= glm::length(Color::HSVToRGB(Color::RGBToHSV(c)) - c) < 1e-4f;
+        roundTrips &= glm::length(Color::HSLToRGB(Color::RGBToHSL(c)) - c) < 1e-4f;
+        roundTrips &= glm::length(Color::LinearToSRGB(Color::SRGBToLinear(c)) - c) < 1e-4f;
+        const auto hex = Color::FromHex(Color::ToHex(c));
+        roundTrips &= hex.has_value() && glm::all(glm::lessThan(glm::abs(glm::vec3(*hex) - c), glm::vec3(0.5f / 255.0f + 1e-5f)));
+    }
+    CHECK(roundTrips);
+    CHECK(Color::ToHSV({ 1, 0, 0, 0.25f }).w == 0.25f && Color::FromHSL(0.0f, 0.0f, 1.0f, 0.5f) == glm::vec4(1, 1, 1, 0.5f));
+
+    // Hex text.
+    CHECK(Color::FromHex("#F80") == glm::vec4(1.0f, 0x88 / 255.0f, 0.0f, 1.0f));
+    CHECK(Color::FromHex("ff880080") == glm::vec4(1.0f, 0x88 / 255.0f, 0.0f, 128.0f / 255.0f));
+    CHECK(Color::FromHex("  #3fa9f5 ") == Color::FromHex("0x3FA9F5"));
+    CHECK(!Color::FromHex("#GG0000") && !Color::FromHex("#12345") && !Color::FromHex("") && !Color::FromHex("#"));
+    CHECK(Color::ToHex(glm::vec4(1.0f, 0.5f, 0.0f, 1.0f)) == "#FF8000");
+    CHECK(Color::ToHex(glm::vec4(1.0f, 0.5f, 0.0f, 0.5f)) == "#FF800080");
+    CHECK(Color::ToHex(glm::vec4(2.0f, -1.0f, 0.0f, 1.0f), Color::HexAlpha::Always) == "#FF0000FF");
+    CHECK(Color::ToHex(glm::vec3(0.0f, 0.0f, 1.0f)) == "#0000FF");
+    // Names (English and Uzbek, any case and apostrophe).
+    CHECK(Color::FromName("Red") == Colors::Red && Color::FromName("qizil") == Colors::Red);
+    CHECK(Color::FromName("ko'k") == Colors::Blue && Color::FromName("KO\xCA\xBBK") == Colors::Blue && Color::FromName("ko\xE2\x80\x98k") == Colors::Blue);
+    CHECK(Color::FromName("sky blue") == Colors::SkyBlue && Color::FromName("havorang") == Colors::SkyBlue && Color::FromName("to'q sariq") == Colors::Orange);
+    CHECK(!Color::FromName("ultraviolet"));
+    CHECK(Color::Parse("#00FF00") == Colors::Green && Color::Parse("yashil") == Colors::Green && !Color::Parse("nope"));
+
+    // sRGB: the textbook values; the 2.2 power the shaders use.
+    CHECK_NEAR(Color::SRGBToLinear(0.5f), 0.21404f, 1e-4f);
+    CHECK_NEAR(Color::LinearToSRGB(0.5f), 0.73536f, 1e-4f);
+    CHECK_NEAR(Color::SRGBToLinear(0.02f), 0.02f / 12.92f, 1e-7f);
+    CHECK(Color::SRGBToLinear(glm::vec4(0.5f, 0.5f, 0.5f, 0.3f)).a == 0.3f);
+    CHECK_NEAR(Color::GammaToLinear(0.5f), std::pow(0.5f, 2.2f), 1e-6f);
+    CHECK(Color::LinearToGamma(0.25f) == std::pow(0.25f, 1.0f / 2.2f) && Color::LinearToGamma(0.0f) == 0.0f);
+
+    // Blends: linear light is brighter half way between red and green; HSV goes round the wheel.
+    const glm::vec4 plain = Color::Lerp(Colors::Red, Colors::Green, 0.5f), linear = Color::LerpLinear(Colors::Red, Colors::Green, 0.5f);
+    CHECK(plain == glm::vec4(0.5f, 0.5f, 0.0f, 1.0f));
+    CHECK_NEAR(linear.r, 0.73536f, 1e-4f);
+    CHECK(glm::length(Color::LerpHSV(Colors::Red, Colors::Blue, 0.5f) - Colors::Magenta) < 1e-4f);  // the short way, not through green
+    CHECK(glm::length(Color::LerpHSV(Colors::Red, Colors::Green, 0.5f) - Colors::Yellow) < 1e-4f);
+    CHECK(glm::length(glm::vec3(Color::LerpHSV(Colors::White, Colors::Red, 0.5f)) - glm::vec3(1.0f, 0.5f, 0.5f)) < 1e-4f); // grey takes red's hue
+    CHECK(Color::LerpLinear(Colors::Black, Colors::White, 1.0f) == Colors::White);
+    CHECK_NEAR(Color::Luminance({ 1, 1, 1 }), 1.0f, 1e-6f);
+    CHECK(Color::ContrastingTextColor(Colors::White) == Colors::Black && Color::ContrastingTextColor(Colors::Blue) == Colors::White);
+    CHECK(Color::PerceivedBrightness({ 0, 1, 0 }) > Color::PerceivedBrightness({ 1, 0, 0 }));
+    // 8-bit and packed.
+    CHECK(Color::ToPacked(Colors::Orange) == 0xFF8000FFu);
+    CHECK(Color::FromPacked(0x3366CC80u) == Color::FromRGBA8(0x33, 0x66, 0xCC, 0x80));
+    CHECK(Color::ToPacked(Color::FromPacked(0x12ABEF7Fu)) == 0x12ABEF7Fu);
+    CHECK(Color::WithAlpha(Colors::Red, 0.25f) == glm::vec4(1, 0, 0, 0.25f));
 }

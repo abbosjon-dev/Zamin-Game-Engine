@@ -416,6 +416,7 @@ namespace Zamin {
         for (auto e : registry.view<AnimatorComponent>()) registry.get<AnimatorComponent>(e).ResetRuntime();
         for (auto e : registry.view<CameraComponent>()) registry.get<CameraComponent>(e).Shake.ResetRuntime();
         for (auto e : registry.view<Camera2DFollowComponent>()) registry.get<Camera2DFollowComponent>(e).ResetRuntime();
+        for (auto e : registry.view<SplineFollowerComponent>()) registry.get<SplineFollowerComponent>(e).ResetRuntime();
         for (auto e : registry.view<ParticleSystemComponent>()) registry.get<ParticleSystemComponent>(e).ResetRuntime();
         for (auto e : registry.view<MeshRendererComponent>())
         {
@@ -483,6 +484,7 @@ namespace Zamin {
         if (auto* c = e.TryGetComponent<TilemapComponent>()) c->RuntimeBody = nullptr;
         if (auto* c = e.TryGetComponent<CameraComponent>()) c->Shake.ResetRuntime();
         if (auto* c = e.TryGetComponent<Camera2DFollowComponent>()) c->ResetRuntime();
+        if (auto* c = e.TryGetComponent<SplineFollowerComponent>()) c->ResetRuntime();
         if (auto* c = e.TryGetComponent<CharacterController3DComponent>()) { c->RuntimeID = 0xffffffff; c->Grounded = false; c->Velocity = glm::vec3(0.0f); }
         if (auto* c = e.TryGetComponent<ParticleSystemComponent>()) { c->ResetRuntime(); c->RandomState ^= (uint32_t)(uint64_t)e.GetUUID(); }
         if (auto* c = e.TryGetComponent<UIButtonComponent>()) c->Hovered = c->Pressed = c->Clicked = false;
@@ -874,6 +876,8 @@ namespace Zamin {
             };
             if (auto* follow = e.TryGetComponent<Camera2DFollowComponent>())
                 remap(follow->Target);
+            if (auto* follower = e.TryGetComponent<SplineFollowerComponent>())
+                remap(follower->Path);
             if (auto* button = e.TryGetComponent<UIButtonComponent>())
                 remap(button->ClickTarget);
             if (auto* scroll = e.TryGetComponent<UIScrollViewComponent>())
@@ -4992,6 +4996,8 @@ namespace Zamin {
                         inst->TickTimers(inst->IsTimersUnscaled() ? m_UnscaledDeltaTime : (float)ts);
             }
 
+            // Spline followers move before physics: kinematic bodies on a path carry what stands on them.
+            UpdateSplineFollowers(ts);
             StepPhysics(ts);
             // Property animations write their values before OnLateUpdate (scripts may read or
             // override them there); their events fire now.
@@ -5083,6 +5089,7 @@ namespace Zamin {
             DebugDraw::Advance(ts);
             m_AnimationTime += (double)ts;
             ApplyActiveChanges(); // flags changed in the inspector while simulating
+            UpdateSplineFollowers(ts);
             StepPhysics(ts);
             UpdateAnimationPlayers(ts, false);
             UpdateTintAnimations(ts, false);

@@ -178,6 +178,7 @@
 #define ICON_FA_DIAMOND "\xef\x88\x99"
 #define ICON_FA_KEY "\xef\x82\x84"
 #define ICON_FA_BEZIER_CURVE "\xef\x95\x9b"
+#define ICON_FA_ROUTE "\xef\x93\x97"                // spline follower
 #define ICON_FA_BELL "\xef\x83\xb3"
 #define ICON_FA_CLAPPERBOARD "\xee\x84\xb1"
 #define ICON_FA_PERSON_WALKING "\xef\x95\x94"

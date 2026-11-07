@@ -197,6 +197,7 @@ namespace Zamin {
             m_SceneHierarchyPanel.SetColliderPointEdit(SceneHierarchyPanel::ColliderPointKind::None);
             m_SceneHierarchyPanel.SetJointAnchorEdit(-1);
             m_SceneHierarchyPanel.SetJoint3DAnchorEdit(-1);
+            m_SceneHierarchyPanel.SetSplinePointEdit(false);
         };
         m_Shortcuts.Bind(E::HandlesExit, endHandles);
         m_Shortcuts.Bind(E::HandlesExitNone, endHandles);

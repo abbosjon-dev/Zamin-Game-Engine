@@ -19,6 +19,7 @@ namespace Zamin {
             case ScriptFieldType::String: return "String";
             case ScriptFieldType::Entity: return "Entity";
             case ScriptFieldType::Enum:   return "Enum";
+            case ScriptFieldType::Curve:  return "Curve";
             default: return "None";
         }
     }
@@ -34,6 +35,7 @@ namespace Zamin {
         if (s == "String") return ScriptFieldType::String;
         if (s == "Entity") return ScriptFieldType::Entity;
         if (s == "Enum")   return ScriptFieldType::Enum;
+        if (s == "Curve")  return ScriptFieldType::Curve;
         return ScriptFieldType::None;
     }
 
@@ -78,6 +80,7 @@ namespace Zamin {
     void ScriptFieldValue::ReadFrom(const void* field)
     {
         if (Type == ScriptFieldType::String) StringValue = *static_cast<const std::string*>(field);
+        else if (Type == ScriptFieldType::Curve) CurveValue = *static_cast<const AnimationCurve*>(field);
         else if (Type == ScriptFieldType::Enum) SetEnum(ReadInteger(field, sizeof(int), true));
         else std::memcpy(Data, field, SizeOf(Type));
     }
@@ -85,6 +88,7 @@ namespace Zamin {
     void ScriptFieldValue::WriteTo(void* field) const
     {
         if (Type == ScriptFieldType::String) *static_cast<std::string*>(field) = StringValue;
+        else if (Type == ScriptFieldType::Curve) *static_cast<AnimationCurve*>(field) = CurveValue;
         else if (Type == ScriptFieldType::Enum) WriteInteger(field, sizeof(int), GetEnum());
         else std::memcpy(field, Data, SizeOf(Type));
     }

@@ -1,4 +1,5 @@
 #include "Zamin/Asset/AssetThumbnails.h"
+#include "Zamin/Math/Color.h"
 #include "Zamin/Asset/AssetImportLog.h"
 #include "Zamin/Asset/AssetTypes.h"
 #include "Zamin/Utils/FileSystem.h"
@@ -173,7 +174,7 @@ namespace Zamin {
             {
                 float v = samples[i] > 0.0f ? sum[i * 3 + c] / samples[i] : 0.0f;
                 v = v / (1.0f + v);
-                out.Pixels[i * 4 + c] = (uint8_t)std::clamp(std::lround(std::pow(v, 1.0f / 2.2f) * 255.0f), 0l, 255l);
+                out.Pixels[i * 4 + c] = (uint8_t)std::clamp(std::lround(Color::LinearToGamma(v) * 255.0f), 0l, 255l);
             }
             out.Pixels[i * 4 + 3] = 255;
         }

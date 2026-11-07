@@ -1,4 +1,5 @@
 #include "Zamin/Renderer/Lighting2D.h"
+#include "Zamin/Math/Noise.h"
 
 #include <algorithm>
 #include <cmath>
@@ -61,10 +62,7 @@ namespace Zamin {
     // Smooth value noise in 0..1.
     static float Hash01(uint32_t x)
     {
-        x ^= x >> 16; x *= 0x7feb352du;
-        x ^= x >> 15; x *= 0x846ca68bu;
-        x ^= x >> 16;
-        return (float)(x & 0xffffff) / (float)0xffffff;
+        return (float)(Noise::Hash(x) & 0xffffff) / (float)0xffffff;
     }
 
     float Light2DMath::Flicker(double time, float amount, float speed, uint32_t seed)

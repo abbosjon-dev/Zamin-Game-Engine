@@ -26,8 +26,15 @@ namespace Zamin {
         void SetVSync(bool enabled) override;
         bool IsVSync() const override { return m_Data.VSync; }
         void SetFullscreen(bool fullscreen) override;
-        bool IsFullscreen() const override;
+        bool IsFullscreen() const override { return m_Mode != WindowMode::Windowed; }
+        void SetWindowMode(WindowMode mode) override;
+        WindowMode GetWindowMode() const override { return m_Mode; }
+        void SetResizable(bool resizable) override;
+        bool IsResizable() const override { return m_Resizable; }
+        void SetWindowedSize(uint32_t width, uint32_t height) override;
+        void SetIcon(const std::vector<WindowIconImage>& images) override;
         void SetTitle(const std::string& title) override;
+        const std::string& GetTitle() const override { return m_Data.Title; }
         void SetCursorLocked(bool locked) override;
         bool IsFocused() const override;
         void WaitEvents(double seconds) override;
@@ -38,6 +45,9 @@ namespace Zamin {
         GLFWwindow* m_Window = nullptr;
         Scope<GraphicsContext> m_Context;
         int m_WindowedX = 100, m_WindowedY = 100, m_WindowedWidth = 1600, m_WindowedHeight = 900; // before going fullscreen
+        WindowMode m_Mode = WindowMode::Windowed;
+        WindowMode m_FullscreenMode = WindowMode::Fullscreen; // what SetFullscreen(true) uses
+        bool m_Resizable = true;
 
         struct WindowData
         {

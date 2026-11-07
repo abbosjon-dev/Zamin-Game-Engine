@@ -96,6 +96,8 @@ namespace Zamin {
         std::function<void(const AssetFiles::MoveResult&)> OnAssetsMoved;
         // m_Settings changed (the editor saves its view settings).
         std::function<void()> OnSettingsModified;
+        // The item menu changed the project's settings (build list, start scene, the game's icon).
+        std::function<void()> OnProjectSettingsModified;
         // Files were deleted or created here (what refers to what may have changed).
         std::function<void()> OnFilesChanged;
         // "Ishlatilmagan assetlarni topish" in the panel's menu.

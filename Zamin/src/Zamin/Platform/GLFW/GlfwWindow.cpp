@@ -46,22 +46,62 @@ namespace Zamin {
         glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
 #endif
 
-        GLFWmonitor* monitor = props.Fullscreen ? glfwGetPrimaryMonitor() : nullptr;
-        if (monitor)
-        {
-            const GLFWvidmode* mode = glfwGetVideoMode(monitor);
-            m_Data.Width = mode->width;
-            m_Data.Height = mode->height;
-        }
+        glfwWindowHint(GLFW_RESIZABLE, props.Resizable ? GLFW_TRUE : GLFW_FALSE);
+        m_Resizable = props.Resizable;
+        m_WindowedWidth = (int)std::max(1u, props.Width);
+        m_WindowedHeight = (int)std::max(1u, props.Height);
+        m_FullscreenMode = props.Mode != WindowMode::Windowed ? props.Mode
+                         : props.FullscreenMode != WindowMode::Windowed ? props.FullscreenMode : WindowMode::Fullscreen;
 
-        m_Window = glfwCreateWindow((int)m_Data.Width, (int)m_Data.Height, m_Data.Title.c_str(), monitor, nullptr);
+        // Fullscreen: the monitor's own video mode; borderless: an undecorated window of its size.
+        GLFWmonitor* primary = props.Mode != WindowMode::Windowed ? glfwGetPrimaryMonitor() : nullptr;
+        const GLFWvidmode* video = primary ? glfwGetVideoMode(primary) : nullptr;
+        WindowMode mode = video ? props.Mode : WindowMode::Windowed;
+        if (props.Mode != WindowMode::Windowed && !video)
+            ZM_CORE_WARN("To'liq ekran: monitor topilmadi - oynali rejim");
+        if (video)
+        {
+            m_Data.Width = (uint32_t)video->width;
+            m_Data.Height = (uint32_t)video->height;
+        }
+        if (mode == WindowMode::Borderless)
+            glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
+
+        m_Window = glfwCreateWindow((int)m_Data.Width, (int)m_Data.Height, m_Data.Title.c_str(),
+                                    mode == WindowMode::Fullscreen ? primary : nullptr, nullptr);
+        glfwDefaultWindowHints();
         if (!m_Window)
         {
             ZM_CORE_CRITICAL("Oyna yaratilmadi (OpenGL 4.1 core qo'llab-quvvatlanadimi?)");
             std::exit(1);
         }
         ++s_GLFWWindowCount;
-        ZM_CORE_INFO("Oyna yaratildi: {} ({}x{})", m_Data.Title, m_Data.Width, m_Data.Height);
+        m_Mode = mode;
+        // (Wayland places windows itself: GLFW reports positions as unavailable there.)
+        const bool canPlace = glfwGetPlatform() != GLFW_PLATFORM_WAYLAND;
+        if (canPlace && mode == WindowMode::Borderless)
+        {
+            int mx = 0, my = 0;
+            glfwGetMonitorPos(primary, &mx, &my);
+            glfwSetWindowPos(m_Window, mx, my);
+        }
+        else if (canPlace && mode == WindowMode::Windowed && !props.Maximized)
+        {
+            // In the middle of the primary monitor's work area (where it goes back to from fullscreen too).
+            if (GLFWmonitor* monitor = glfwGetPrimaryMonitor())
+            {
+                int wx = 0, wy = 0, ww = 0, wh = 0;
+                glfwGetMonitorWorkarea(monitor, &wx, &wy, &ww, &wh);
+                if (ww > 0 && wh > 0)
+                {
+                    m_WindowedX = wx + std::max(0, (ww - m_WindowedWidth) / 2);
+                    m_WindowedY = wy + std::max(0, (wh - m_WindowedHeight) / 2);
+                    glfwSetWindowPos(m_Window, m_WindowedX, m_WindowedY);
+                }
+            }
+        }
+        ZM_CORE_INFO("Oyna yaratildi: {} ({}x{}, {})", m_Data.Title, m_Data.Width, m_Data.Height,
+                     mode == WindowMode::Fullscreen ? "to'liq ekran" : mode == WindowMode::Borderless ? "chegarasiz to'liq ekran" : "oynali");
 
         int w, h;
         glfwGetWindowSize(m_Window, &w, &h);
@@ -185,29 +225,81 @@ namespace Zamin {
         m_Data.VSync = enabled;
     }
 
-    bool GlfwWindow::IsFullscreen() const { return glfwGetWindowMonitor(m_Window) != nullptr; }
-
     void GlfwWindow::SetFullscreen(bool fullscreen)
     {
-        if (fullscreen == IsFullscreen())
+        SetWindowMode(fullscreen ? m_FullscreenMode : WindowMode::Windowed);
+    }
+
+    void GlfwWindow::SetWindowMode(WindowMode mode)
+    {
+        if (mode == m_Mode)
             return;
-        if (fullscreen)
+        GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+        const GLFWvidmode* video = monitor ? glfwGetVideoMode(monitor) : nullptr;
+        if (mode != WindowMode::Windowed && !video)
         {
-            GLFWmonitor* monitor = glfwGetPrimaryMonitor();
-            const GLFWvidmode* mode = monitor ? glfwGetVideoMode(monitor) : nullptr;
-            if (!mode)
-            {
-                ZM_CORE_WARN("To'liq ekran: monitor topilmadi");
-                return;
-            }
-            glfwGetWindowPos(m_Window, &m_WindowedX, &m_WindowedY);
-            glfwGetWindowSize(m_Window, &m_WindowedWidth, &m_WindowedHeight);
-            glfwSetWindowMonitor(m_Window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
+            ZM_CORE_WARN("To'liq ekran: monitor topilmadi");
+            return;
         }
-        else
-            glfwSetWindowMonitor(m_Window, nullptr, m_WindowedX, m_WindowedY, std::max(1, m_WindowedWidth), std::max(1, m_WindowedHeight), 0);
+        // Leaving the window: where it was, to come back to.
+        if (m_Mode == WindowMode::Windowed)
+        {
+            if (glfwGetPlatform() != GLFW_PLATFORM_WAYLAND)
+                glfwGetWindowPos(m_Window, &m_WindowedX, &m_WindowedY);
+            glfwGetWindowSize(m_Window, &m_WindowedWidth, &m_WindowedHeight);
+        }
+        switch (mode)
+        {
+            case WindowMode::Windowed:
+                glfwSetWindowAttrib(m_Window, GLFW_DECORATED, GLFW_TRUE);
+                glfwSetWindowMonitor(m_Window, nullptr, m_WindowedX, m_WindowedY, std::max(1, m_WindowedWidth), std::max(1, m_WindowedHeight), 0);
+                break;
+            case WindowMode::Fullscreen:
+                glfwSetWindowAttrib(m_Window, GLFW_DECORATED, GLFW_TRUE);
+                glfwSetWindowMonitor(m_Window, monitor, 0, 0, video->width, video->height, video->refreshRate);
+                break;
+            case WindowMode::Borderless:
+            {
+                int mx = 0, my = 0;
+                glfwGetMonitorPos(monitor, &mx, &my); // (0, 0) on Wayland, where the compositor places it
+                if (glfwGetWindowMonitor(m_Window))
+                    glfwSetWindowMonitor(m_Window, nullptr, mx, my, video->width, video->height, 0);
+                glfwSetWindowAttrib(m_Window, GLFW_DECORATED, GLFW_FALSE);
+                glfwSetWindowMonitor(m_Window, nullptr, mx, my, video->width, video->height, 0);
+                break;
+            }
+        }
+        m_Mode = mode;
+        if (mode != WindowMode::Windowed)
+            m_FullscreenMode = mode;
         SetVSync(m_Data.VSync); // some drivers forget the swap interval with the mode
-        ZM_CORE_INFO("Oyna: {}", fullscreen ? "to'liq ekran" : "oynali rejim");
+        ZM_CORE_INFO("Oyna: {}", mode == WindowMode::Fullscreen ? "to'liq ekran" : mode == WindowMode::Borderless ? "chegarasiz to'liq ekran" : "oynali rejim");
+    }
+
+    void GlfwWindow::SetResizable(bool resizable)
+    {
+        m_Resizable = resizable;
+        glfwSetWindowAttrib(m_Window, GLFW_RESIZABLE, resizable ? GLFW_TRUE : GLFW_FALSE);
+    }
+
+    void GlfwWindow::SetWindowedSize(uint32_t width, uint32_t height)
+    {
+        m_WindowedWidth = (int)std::max(1u, width);
+        m_WindowedHeight = (int)std::max(1u, height);
+        if (m_Mode == WindowMode::Windowed)
+            glfwSetWindowSize(m_Window, m_WindowedWidth, m_WindowedHeight);
+    }
+
+    void GlfwWindow::SetIcon(const std::vector<WindowIconImage>& images)
+    {
+        // Wayland has no window icons (the desktop file's icon is used): GLFW would report an error.
+        if (glfwGetPlatform() == GLFW_PLATFORM_WAYLAND)
+            return;
+        std::vector<GLFWimage> list;
+        for (const WindowIconImage& image : images)
+            if (image.Width > 0 && image.Height > 0 && image.Pixels.size() >= (size_t)image.Width * image.Height * 4)
+                list.push_back({ (int)image.Width, (int)image.Height, const_cast<unsigned char*>(image.Pixels.data()) });
+        glfwSetWindowIcon(m_Window, (int)list.size(), list.empty() ? nullptr : list.data());
     }
 
     void GlfwWindow::SetTitle(const std::string& title)

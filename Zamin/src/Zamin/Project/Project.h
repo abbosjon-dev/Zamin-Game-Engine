@@ -6,6 +6,8 @@
 #include "Zamin/Core/InputActions.h"
 #include "Zamin/Debug/DebugDraw.h"
 #include "Zamin/Physics/CollisionLayers.h"
+#include "Zamin/Project/PlayerSettings.h"
+#include "Zamin/Project/ProjectMigration.h"
 #include "Zamin/Renderer/Quality.h"
 #include "Zamin/Scene/SortingLayers.h"
 
@@ -29,6 +31,27 @@ namespace Zamin {
         bool Enabled = true;
 
         bool operator==(const BuildSceneEntry& other) const { return Path == other.Path && Enabled == other.Enabled; }
+    };
+
+    // A problem with the start scene / the build list (Project settings > Build scenes, the export).
+    struct BuildSceneIssue
+    {
+        enum class Kind
+        {
+            NoStartScene = 0,    // no start scene and no enabled build scene: the player has nothing to start
+            StartSceneMissing,   // the start scene's file is not there
+            StartSceneNotListed, // a build list without the start scene (it is exported anyway, no build index)
+            StartSceneDisabled,  // the start scene is in the list but switched off
+            SceneMissing,        // a listed scene's file is not there
+            Duplicate,           // the same scene twice in the list (the second one has no use)
+            NotAScene,           // a listed file is not a .zscene
+            NoEnabledScenes      // a list with every scene switched off
+        };
+        Kind Type = Kind::NoStartScene;
+        int Entry = -1;          // index in BuildScenes (-1: about the start scene / the whole list)
+        std::string Path;
+        bool Error = false;      // the game would not start / a scene would be missing (else a warning)
+        std::string Message;     // Uzbek, for the settings window and the log
     };
 
     struct ProjectConfig
@@ -70,6 +93,18 @@ namespace Zamin {
         // Ultra, starting on Ultra (the scenes' own settings, unlimited). Applied to the renderer when
         // the project is loaded (Quality::SetSettings).
         QualitySettings Quality;
+        // The game as the player runs it (Project settings > Player): company, product name and
+        // version, the window (size, fullscreen / borderless, vsync, title, frame rate limit, running
+        // in the background) and the icon. Projects without a "Player" section: the defaults.
+        PlayerSettings Player;
+
+        // What the file has that this engine does not read (sections of tools, keys of a newer engine):
+        // (key, JSON text) in file order, a top-level key as "<key>", one inside "Project" / "Player"
+        // as "Project.<key>" / "Player.<key>". Written back as they were when the project is saved.
+        std::vector<std::pair<std::string, std::string>> ExtraSections;
+        // The format version the file was written in (ProjectMigration; not saved: the project is
+        // always written in the current one).
+        int FileVersion = ProjectMigration::CurrentVersion;
 
         static std::vector<std::string> DefaultTags() { return { "Player", "Enemy", "Pickup" }; }
     };
@@ -111,6 +146,19 @@ namespace Zamin {
         static std::filesystem::path FindBuildScene(std::string_view name);
         // Adds the scene to the end of the list (false: no project, already listed, not a .zscene).
         static bool AddBuildScene(const std::filesystem::path& scene);
+        // What is wrong with the start scene and the build list of `config` (its files are looked for
+        // under `assetDirectory`): in list order, the start scene's problems first.
+        static std::vector<BuildSceneIssue> CheckBuildScenes(const ProjectConfig& config, const std::filesystem::path& assetDirectory);
+        // The scene the game starts with (relative to the assets): the start scene when its file is
+        // there, else the first enabled build scene whose file is there; "" when there is none.
+        static std::filesystem::path ResolveStartScene(const ProjectConfig& config, const std::filesystem::path& assetDirectory);
+
+        // ---- the player (ProjectConfig::Player of the active project; the defaults without one)
+        static const PlayerSettings& GetPlayerSettings();
+        // The product name (Player.ProductName, else the project's name; "Zamin" without a project).
+        static std::string GetProductName();
+        // The game's icon as a file system path ("" when none is set).
+        static std::filesystem::path GetIconPath();
 
         // Every asset of the active project with its handle (nullptr without a project). Read from
         // the asset folder on first use (with the snapshot in the cache folder: files moved while the
@@ -156,8 +204,11 @@ namespace Zamin {
 
         // A whole config as the text of a .zproject file / read from one (nothing of the asset
         // registry is touched: the scene UUIDs are written as the config has them).
+        // Older files are migrated first (ProjectMigration; `migration` gets what was done, `error` why
+        // the text is not a project file); keys this engine does not know go to ExtraSections.
         static std::string ConfigToString(const ProjectConfig& config);
-        static bool ConfigFromString(const std::string& text, ProjectConfig& out);
+        static bool ConfigFromString(const std::string& text, ProjectConfig& out, ProjectMigrationResult* migration = nullptr,
+                                     std::string* error = nullptr);
         // The config's parts as (key, JSON text) pairs, in file order: each top-level section
         // ("InputActions", "Tags" ...) and each value of the "Project" object as "Project.<key>".
         // A section that is not written (left at its defaults) is not listed. The project settings

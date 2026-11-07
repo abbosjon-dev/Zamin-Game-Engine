@@ -4,6 +4,8 @@
 #include "Zamin/Core/Profiler.h"
 #include "Zamin/Core/Input.h"
 #include "Zamin/Core/SaveData.h"
+#include "Zamin/Core/Version.h"
+#include "Zamin/Project/Project.h"
 #include "Zamin/Renderer/Renderer.h"
 #include "Zamin/Renderer/RenderCommand.h"
 #include "Zamin/Audio/AudioEngine.h"
@@ -12,8 +14,10 @@
 #include <GLFW/glfw3.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cstdlib>
 #include <string>
+#include <thread>
 
 namespace Zamin {
 
@@ -28,7 +32,7 @@ namespace Zamin {
         if (!m_Specification.WorkingDirectory.empty())
             std::filesystem::current_path(m_Specification.WorkingDirectory);
 
-        ZM_CORE_INFO("Zamin Engine v0.1.0 ishga tushmoqda ({})", m_Specification.Name);
+        ZM_CORE_INFO("Zamin Engine v{} ishga tushmoqda ({})", ZM_ENGINE_VERSION, m_Specification.Name);
 
         WindowProps props = m_Specification.Window;
         if (props.Title.empty())
@@ -80,6 +84,34 @@ namespace Zamin {
         return automation;
     }
 
+    const char* Application::GetEngineVersion() { return ZM_ENGINE_VERSION; }
+
+    std::string Application::GetVersion() { return Project::GetPlayerSettings().Version; }
+
+    std::string Application::GetCompanyName() { return Project::GetPlayerSettings().CompanyName; }
+
+    std::string Application::GetProductName() { return Project::GetProductName(); }
+
+    void Application::SetPausedInBackground(bool paused)
+    {
+        if (paused == m_PausedInBackground)
+            return;
+        m_PausedInBackground = paused;
+        // The sound stands still with the game (unless the game muted it itself).
+        if (paused)
+        {
+            m_MutedForBackground = AudioEngine::HasGroup(AudioSettings::Master) && !AudioEngine::IsGroupMuted(AudioSettings::Master);
+            if (m_MutedForBackground)
+                AudioEngine::SetGroupMuted(AudioSettings::Master, true);
+        }
+        else if (m_MutedForBackground)
+        {
+            AudioEngine::SetGroupMuted(AudioSettings::Master, false);
+            m_MutedForBackground = false;
+        }
+        ZM_CORE_INFO("O'yin {}", paused ? "to'xtatildi: oyna fokusda emas (fonda ishlash o'chirilgan)" : "davom etmoqda: oyna fokusda");
+    }
+
     double Application::GetSecondsSinceInput() const
     {
         return glfwGetTime() - m_LastInputTime;
@@ -124,6 +156,14 @@ namespace Zamin {
             {
                 m_WindowFocused = focused;
                 m_LastInputTime = frameStart;
+            }
+            // A game that does not run in the background stands still while its window is behind others.
+            SetPausedInBackground(!m_RunInBackground && !m_WindowFocused && !IsAutomationRun());
+            if (m_PausedInBackground)
+            {
+                m_Window->WaitEvents(0.1);
+                m_LastFrameTime = (float)glfwGetTime(); // no long step when it comes back
+                continue;
             }
             float time = (float)frameStart;
             const float frameSeconds = time - m_LastFrameTime;
@@ -187,6 +227,17 @@ namespace Zamin {
                 // Swapping the buffers (waits for vsync) and the window's events.
                 ZM_PROFILE_SCOPE("Oyna (swap, hodisalar)");
                 m_Window->OnUpdate();
+            }
+            // The game's frame rate limit: the rest of the frame's time asleep (the last bit spinning, the
+            // system's sleep is not that exact).
+            if (m_TargetFrameRate > 0 && m_Running && !IsAutomationRun())
+            {
+                const double frameEnd = frameStart + 1.0 / (double)m_TargetFrameRate;
+                double now = glfwGetTime();
+                if (frameEnd - now > 0.002)
+                    std::this_thread::sleep_for(std::chrono::duration<double>(frameEnd - now - 0.0015));
+                while ((now = glfwGetTime()) < frameEnd)
+                    std::this_thread::yield();
             }
             // A limited frame rate (the editor idling): the rest of the frame's time waiting for events.
             m_LastWaitMs = 0.0f;

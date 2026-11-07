@@ -45,7 +45,8 @@ void GameManager::OnLateUpdate(Timestep)
 void GameManager::AddCoin()
 {
     m_Coins++;
-    // Kept between sessions (SaveData file in ~/.local/share/zamin/Platformer2D).
+    // Kept between sessions (SaveData file in ~/.local/share/Zamin Studio/Zamin Platformer: the company and
+    // product name of Project settings > Player).
     SaveData::SetInt("TotalCoins", SaveData::GetInt("TotalCoins") + 1);
     RefreshText();
     if (m_Coins == m_TotalCoins)

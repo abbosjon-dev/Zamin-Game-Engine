@@ -377,11 +377,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 323. Teglar va qatlamlar muharriri
 - [x] 324. Fizika qatlamlari matritsasi
 - [x] 325. Sifat sozlamalari (soya, SSAO, bloom default)
-- [ ] 326. Player oyna sozlamalari (o'lcham, fullscreen, vsync, sarlavha)
-- [ ] 327. O'yin ikonkasi
-- [ ] 328. Boshlang'ich sahna va build sahnalari
-- [ ] 329. Kompaniya/o'yin nomi va versiya
-- [ ] 330. Loyiha sozlamalari serializatsiyasi
+- [x] 326. Player oyna sozlamalari (o'lcham, fullscreen, vsync, sarlavha)
+- [x] 327. O'yin ikonkasi
+- [x] 328. Boshlang'ich sahna va build sahnalari
+- [x] 329. Kompaniya/o'yin nomi va versiya
+- [x] 330. Loyiha sozlamalari serializatsiyasi
 - [ ] 331. Loyiha sozlamalari testlari
 - [ ] 332. Grafik API va kontekst sozlamalari
 - [ ] 333. Vaqt sozlamalari (fixed timestep, time scale)

@@ -33715,7 +33715,6 @@ TEST(QualityRuntimeLevel)
     // The player's choice is kept with SaveData.
     namespace fs = std::filesystem;
     fs::path dir = fs::temp_directory_path() / ("zamin-quality-" + std::to_string((uint64_t)UUID()));
-    const fs::path previousSave = SaveData::GetFilePath();
     SaveData::SetFilePath(dir / "save.json");
     CHECK(!Quality::HasSavedSettings() && !Quality::LoadSettings());
     CHECK(Quality::SetLevel("High") && Quality::SaveSettings() && Quality::HasSavedSettings());
@@ -33727,7 +33726,7 @@ TEST(QualityRuntimeLevel)
     Quality::ClearSavedSettings();
     CHECK(!Quality::HasSavedSettings());
     SaveData::DeleteAll();
-    SaveData::SetFilePath(previousSave);
+    SaveData::SetFilePath({}); // back to the automatic location
     Quality::Reset();
     CHECK(Texture2D::GetAnisotropy() == 1 && Texture2D::GetSkippedMips() == 0);
     std::error_code ec;
@@ -33981,9 +33980,9 @@ TEST(SceneFileTagReferences)
 TEST(ProjectSettingsIndexSearch)
 {
     const auto& categories = ProjectSettingsIndex::GetCategories();
-    CHECK(categories.size() == 9);
-    CHECK(ProjectSettingsIndex::Find("Quality") == 1 && ProjectSettingsIndex::Find("tagsandlayers") == 5 && ProjectSettingsIndex::Find("Nope") == -1);
-    CHECK(categories[0].Id == "General" && categories[8].Id == "SaveData" && categories[8].Sections.empty());
+    CHECK(categories.size() == 10);
+    CHECK(ProjectSettingsIndex::Find("Quality") == 2 && ProjectSettingsIndex::Find("tagsandlayers") == 6 && ProjectSettingsIndex::Find("Nope") == -1);
+    CHECK(categories[0].Id == "General" && categories[1].Id == "Player" && categories[9].Id == "SaveData" && categories[9].Sections.empty());
     // Search: case and the Uzbek apostrophes are ignored.
     CHECK(ProjectSettingsIndex::TextContains("Soya atlasi", "ATLAS") && ProjectSettingsIndex::TextContains("anything", ""));
     CHECK(ProjectSettingsIndex::TextContains("Bog'lanish", "bog\xCA\xBBlan") && ProjectSettingsIndex::TextContains("O\xE2\x80\x99qlar", "o'q"));
@@ -34009,11 +34008,368 @@ TEST(ProjectSettingsIndexSearch)
     CHECK(std::find(changed.begin(), changed.end(), "Tags") != changed.end());
     CHECK(std::find(changed.begin(), changed.end(), "Quality") != changed.end()); // only written when not default
     CHECK(changed.size() == 2);
-    CHECK(ProjectSettingsIndex::IsChanged(categories[5], changed) && ProjectSettingsIndex::IsChanged(quality, changed));
+    CHECK(ProjectSettingsIndex::IsChanged(categories[(size_t)ProjectSettingsIndex::Find("TagsAndLayers")], changed) &&
+          ProjectSettingsIndex::IsChanged(quality, changed));
     CHECK(!ProjectSettingsIndex::IsChanged(categories[(size_t)ProjectSettingsIndex::Find("Input")], changed));
     edited = saved;
     edited.StartScene = "Scenes/B.zscene";
     changed = ProjectSettingsIndex::DiffSections(ProjectSerializer::ConfigToSections(saved), ProjectSerializer::ConfigToSections(edited));
     CHECK(changed.size() == 1 && ProjectSettingsIndex::IsChanged(categories[(size_t)ProjectSettingsIndex::Find("BuildScenes")], changed));
     CHECK(ProjectSettingsIndex::DiffSections(ProjectSerializer::ConfigToSections(saved), ProjectSerializer::ConfigToSections(saved)).empty());
+}
+
+TEST(SemanticVersionParseCompare)
+{
+    auto v = SemanticVersion::Parse("1.4.2");
+    CHECK(v && v->Major == 1 && v->Minor == 4 && v->Patch == 2 && v->PreRelease.empty() && v->ToString() == "1.4.2");
+    auto pre = SemanticVersion::Parse("2.0.0-beta.1+build.7");
+    CHECK(pre && pre->PreRelease == "beta.1" && pre->Build == "build.7" && pre->ToString() == "2.0.0-beta.1+build.7");
+    // Strict: three numbers, no leading zeros, no empty identifiers.
+    for (const char* bad : { "1.2", "v1.0.0", "1.0.0-", "01.0.0", "1.0.0-01", " 1.0.0", "1.0.0+", "1..0", "a.b.c", "" })
+        CHECK(!SemanticVersion::IsValid(bad));
+    CHECK(SemanticVersion::IsValid("0.0.0") && SemanticVersion::IsValid("1.0.0-rc.1") && SemanticVersion::IsValid("1.0.0+001"));
+    // Lenient: what people type.
+    CHECK(SemanticVersion::ParseLenient("v1.2")->ToString() == "1.2.0" && SemanticVersion::ParseLenient(" 3 ")->ToString() == "3.0.0");
+    CHECK(SemanticVersion::ParseLenient("1.2-beta")->ToString() == "1.2.0-beta" && !SemanticVersion::ParseLenient("x.y"));
+    // Precedence (semver 11): 1.0.0-alpha < 1.0.0-alpha.1 < 1.0.0-alpha.beta < 1.0.0-beta < 1.0.0-beta.2 < 1.0.0-beta.11 < 1.0.0-rc.1 < 1.0.0.
+    const char* order[] = { "1.0.0-alpha", "1.0.0-alpha.1", "1.0.0-alpha.beta", "1.0.0-beta", "1.0.0-beta.2", "1.0.0-beta.11", "1.0.0-rc.1",
+                            "1.0.0", "1.0.1", "1.1.0", "2.0.0" };
+    for (size_t i = 0; i + 1 < std::size(order); i++)
+        CHECK(*SemanticVersion::Parse(order[i]) < *SemanticVersion::Parse(order[i + 1]));
+    CHECK(*SemanticVersion::Parse("1.0.0+a") == *SemanticVersion::Parse("1.0.0+b")); // build metadata is ignored
+    CHECK(SemanticVersion::Parse("1.9.3-rc")->Bumped(SemanticVersion::Part::Patch).ToString() == "1.9.4");
+    CHECK(SemanticVersion::Parse("1.9.3")->Bumped(SemanticVersion::Part::Minor).ToString() == "1.10.0");
+    CHECK(SemanticVersion::Parse("1.9.3")->Bumped(SemanticVersion::Part::Major).ToString() == "2.0.0");
+    CHECK(std::string(Application::GetEngineVersion()) == ZM_ENGINE_VERSION && SemanticVersion::IsValid(Application::GetEngineVersion()));
+}
+
+TEST(PlayerSettingsSerialization)
+{
+    // The defaults: what the player always did (1280x720 resizable window with vsync, the project's name as title).
+    PlayerSettings defaults;
+    CHECK(defaults.IsDefault() && defaults.Width == 1280 && defaults.Height == 720 && defaults.Mode == WindowMode::Windowed);
+    CHECK(defaults.Resizable && defaults.VSync && defaults.RunInBackground && defaults.TargetFrameRate == 0 && defaults.Icon.empty());
+    CHECK(defaults.GetWindowTitle("Kosmos") == "Kosmos" && defaults.GetProductName("Kosmos") == "Kosmos");
+    WindowProps props = defaults.MakeWindowProps("Kosmos");
+    CHECK(props.Title == "Kosmos" && props.Width == 1280 && props.Height == 720 && props.VSync && props.Resizable &&
+          props.Mode == WindowMode::Windowed && props.FullscreenMode == WindowMode::Fullscreen);
+    ProjectConfig plain;
+    CHECK(ProjectSerializer::ConfigToString(plain).find("\"Player\": {") == std::string::npos); // defaults: not written
+
+    // Every value through the file and back.
+    ProjectConfig config;
+    config.Name = "Kosmos";
+    PlayerSettings& p = config.Player;
+    p.CompanyName = "Zamin Studio";
+    p.ProductName = "Kosmos Sayohati";
+    p.Version = "2.1.0-beta.3";
+    p.Width = 1920;
+    p.Height = 1080;
+    p.Mode = WindowMode::Borderless;
+    p.Resizable = false;
+    p.VSync = false;
+    p.Title = "Kosmos!";
+    p.VersionInTitle = true;
+    p.TargetFrameRate = 144;
+    p.RunInBackground = false;
+    p.Icon = "Textures/Icon.png";
+    const std::string text = ProjectSerializer::ConfigToString(config);
+    ProjectConfig copy;
+    CHECK(ProjectSerializer::ConfigFromString(text, copy));
+    CHECK(copy.Player == p && ProjectSerializer::ConfigToString(copy) == text);
+    CHECK(p.GetWindowTitle("Kosmos") == "Kosmos! 2.1.0-beta.3" && p.GetProductName("Kosmos") == "Kosmos Sayohati");
+    props = p.MakeWindowProps("Kosmos");
+    CHECK(props.Mode == WindowMode::Borderless && props.FullscreenMode == WindowMode::Borderless && !props.Resizable && !props.VSync);
+    p.Title.clear();
+    p.VersionInTitle = false;
+    CHECK(p.GetWindowTitle("Kosmos") == "Kosmos Sayohati");
+
+    // Sanitize: sizes / frame rate into their ranges (0 = no limit), names trimmed, an empty version back to the default.
+    PlayerSettings odd;
+    odd.Width = 10;
+    odd.Height = 100000;
+    odd.TargetFrameRate = 5;
+    odd.CompanyName = "  Studio  ";
+    odd.Version = "   ";
+    odd.Sanitize();
+    CHECK(odd.Width == PlayerSettings::MinWindowSize && odd.Height == PlayerSettings::MaxWindowSize && odd.TargetFrameRate == PlayerSettings::MinTargetFrameRate);
+    CHECK(odd.CompanyName == "Studio" && odd.Version == PlayerSettings::DefaultVersion);
+    odd.TargetFrameRate = -3;
+    odd.Sanitize();
+    CHECK(odd.TargetFrameRate == 0);
+    // Wrong / missing values keep the defaults.
+    PlayerSettings read;
+    CHECK(PlayerSettings::FromJson(R"({ "Width": "big", "WindowMode": "Sideways", "VSync": 1, "Company": "A" })", read));
+    CHECK(read.Width == 1280 && read.Mode == WindowMode::Windowed && read.VSync && read.CompanyName == "A");
+    CHECK(!PlayerSettings::FromJson("[1, 2]", read) && !PlayerSettings::FromJson("nope", read));
+    WindowMode mode;
+    CHECK(WindowModeFromString("Fullscreen", mode) && mode == WindowMode::Fullscreen && !WindowModeFromString("fullscreen", mode));
+    CHECK(std::string(WindowModeToString(WindowMode::Borderless)) == "Borderless");
+
+    // The settings window: the Player category owns the section.
+    const auto& categories = ProjectSettingsIndex::GetCategories();
+    const auto changed = ProjectSettingsIndex::DiffSections(ProjectSerializer::ConfigToSections(plain), ProjectSerializer::ConfigToSections(config));
+    CHECK(ProjectSettingsIndex::IsChanged(categories[(size_t)ProjectSettingsIndex::Find("Player")], changed));
+    CHECK(!ProjectSettingsIndex::IsChanged(categories[(size_t)ProjectSettingsIndex::Find("Quality")], changed));
+    std::vector<std::string> hits;
+    CHECK(ProjectSettingsIndex::Matches(categories[(size_t)ProjectSettingsIndex::Find("Player")], "versiya", &hits) && !hits.empty());
+}
+
+TEST(PlayerCompanySaveDataAndVersion)
+{
+    const char* oldXdg = std::getenv("XDG_DATA_HOME");
+    const std::string savedXdg = oldXdg ? oldXdg : "";
+    const bool hadXdg = oldXdg != nullptr;
+    auto dir = std::filesystem::temp_directory_path() / ("zamin-xdg-company-" + std::to_string((uint64_t)UUID()));
+    setenv("XDG_DATA_HOME", dir.c_str(), 1);
+    SaveData::SetFilePath({}); // the automatic location
+
+    // <data home>/<company>/<product>; no company: the engine's folder as before.
+    CHECK(SaveData::GetDirectoryFor("Zamin Studio", "Kosmos") == dir / "Zamin Studio" / "Kosmos");
+    CHECK(SaveData::GetDirectoryFor("", "Kosmos") == dir / "zamin" / "Kosmos" && SaveData::GetDirectoryFor(" . ", "K") == dir / "zamin" / "K");
+    CHECK(SaveData::GetDirectoryFor("a/b", "c:d") == dir / "a_b" / "c_d");
+    CHECK(SaveData::GetDirectoryForProject("Kosmos") == SaveData::GetDirectoryFor("", "Kosmos"));
+
+    Ref<Project> previous = Project::GetActive();
+    // Without a project: the defaults.
+    Project::SetActive(nullptr);
+    CHECK(Application::GetVersion() == PlayerSettings::DefaultVersion && Application::GetCompanyName().empty() && Application::GetProductName() == "Zamin");
+    auto project = Project::New();
+    project->GetConfig().Name = "SaveCompanyGame";
+    CHECK(SaveData::GetFilePath() == dir / "zamin" / "SaveCompanyGame" / "savedata.json"); // as before company names
+    CHECK(Application::GetProductName() == "SaveCompanyGame" && Application::GetVersion() == "1.0.0");
+    project->GetConfig().Player.CompanyName = "Studio X";
+    project->GetConfig().Player.ProductName = "Kosmos";
+    project->GetConfig().Player.Version = "0.3.1";
+    CHECK(SaveData::GetFilePath() == dir / "Studio X" / "Kosmos" / "savedata.json");
+    CHECK(Application::GetCompanyName() == "Studio X" && Application::GetProductName() == "Kosmos" && Application::GetVersion() == "0.3.1");
+    // The data follows the company / product (what was stored under the old name is written there first).
+    SaveData::SetInt("Coins", 12);
+    CHECK(SaveData::Save() && std::filesystem::exists(dir / "Studio X" / "Kosmos" / "savedata.json"));
+    project->GetConfig().Player.CompanyName.clear();
+    CHECK(!SaveData::HasKey("Coins") && SaveData::GetFilePath() == dir / "zamin" / "Kosmos" / "savedata.json");
+    project->GetConfig().Player.CompanyName = "Studio X";
+    CHECK(SaveData::GetInt("Coins") == 12);
+
+    Project::SetActive(nullptr);
+    SaveData::SetFilePath({});
+    Project::SetActive(previous);
+    if (hadXdg)
+        setenv("XDG_DATA_HOME", savedXdg.c_str(), 1);
+    else
+        unsetenv("XDG_DATA_HOME");
+    std::error_code ec;
+    std::filesystem::remove_all(dir, ec);
+}
+
+TEST(GameIconImagesAndDesktopEntry)
+{
+    namespace fs = std::filesystem;
+    fs::path dir = fs::temp_directory_path() / ("zamin-icon-" + std::to_string((uint64_t)UUID()));
+    fs::create_directories(dir);
+    // A 100x50 red picture (wider than tall).
+    std::vector<uint8_t> pixels(100 * 50 * 4);
+    for (size_t i = 0; i < pixels.size(); i += 4)
+    {
+        pixels[i] = 220;
+        pixels[i + 1] = 30;
+        pixels[i + 2] = 40;
+        pixels[i + 3] = 255;
+    }
+    CHECK(Image::WritePNG((dir / "wide.png").string(), 100, 50, 4, pixels.data()));
+    ImageData image;
+    std::string error;
+    CHECK(GameIcon::Load(dir / "wide.png", image, &error) && image.Width == 100 && image.Height == 50 && image.Channels == 4);
+    CHECK(GameIcon::Check(image).find("Kvadrat emas") != std::string::npos);
+    // Sizes up to the picture's (100 px): 16, 32, 48, 64; each a square with the picture centred.
+    std::vector<WindowIconImage> sizes = GameIcon::MakeWindowImages(image);
+    CHECK(sizes.size() == 4 && sizes[0].Width == 16 && sizes[3].Width == 64 && sizes[3].Height == 64);
+    const WindowIconImage& icon = sizes[3];
+    auto at = [&](uint32_t x, uint32_t y) { return &icon.Pixels[((size_t)y * icon.Width + x) * 4]; };
+    CHECK(at(32, 32)[0] == 220 && at(32, 32)[1] == 30 && at(32, 32)[3] == 255); // the middle: the picture
+    CHECK(at(32, 2)[3] == 0 && at(32, 61)[3] == 0);                             // above / below: transparent
+    CHECK(at(32, 16)[3] == 255 && at(32, 47)[3] == 255);                        // rows 16..47 are the picture
+    // A small picture still gets the smallest size (scaled up).
+    ImageData tiny;
+    tiny.Width = tiny.Height = 8;
+    tiny.Channels = 4;
+    tiny.Pixels.assign(8 * 8 * 4, 255);
+    CHECK(GameIcon::MakeWindowImages(tiny).size() == 1 && GameIcon::MakeWindowImages(tiny)[0].Width == 16);
+    CHECK(GameIcon::Check(tiny).find("kichik") != std::string::npos);
+    // Not a PNG / not there.
+    FileSystem::WriteTextFile(dir / "fake.png", "this is not a png file");
+    CHECK(!GameIcon::Load(dir / "fake.png", image, &error) && error.find("PNG emas") != std::string::npos);
+    CHECK(!GameIcon::Load(dir / "none.png", image, &error) && error.find("topilmadi") != std::string::npos);
+
+    // The exported game's desktop entry.
+    PlayerSettings player;
+    player.CompanyName = "Zamin Studio";
+    player.Version = "1.2.0";
+    const std::string entry = ExportFiles::MakeDesktopEntry("Kosmos \"Sayohat\"", player, "/games/My Game/Kosmos.sh", "/games/My Game/Kosmos.png",
+                                                            "/games/My Game");
+    CHECK(entry.starts_with("[Desktop Entry]\nType=Application\n"));
+    CHECK(entry.find("\nName=Kosmos \"Sayohat\"\n") != std::string::npos);
+    CHECK(entry.find("\nComment=Kosmos \"Sayohat\" 1.2.0 (Zamin Studio)\n") != std::string::npos);
+    CHECK(entry.find("\nExec=\"/games/My Game/Kosmos.sh\"\n") != std::string::npos);
+    CHECK(entry.find("\nIcon=/games/My Game/Kosmos.png\n") != std::string::npos && entry.find("\nPath=/games/My Game\n") != std::string::npos);
+    CHECK(entry.find("Categories=Game;") != std::string::npos && entry.find("X-Zamin-Version=1.2.0") != std::string::npos);
+    const std::string odd = ExportFiles::MakeDesktopEntry("A\nB", PlayerSettings(), "/x/$HOME`a\\b.sh", "", "");
+    CHECK(odd.find("Name=A\\nB\n") != std::string::npos && odd.find("Icon=") == std::string::npos);
+    CHECK(odd.find("Exec=\"/x/\\\\$HOME\\\\`a\\\\\\\\b.sh\"") != std::string::npos);
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
+TEST(ProjectFileMigrationAndUnknownKeys)
+{
+    // The versions: flat (0), the original format (1), the current one.
+    CHECK(ProjectMigration::ReadVersion(R"({ "Name": "Old", "StartScene": "Scenes/A.zscene" })") == 0);
+    CHECK(ProjectMigration::ReadVersion(R"({ "Project": { "Name": "One" } })") == 1);
+    CHECK(ProjectMigration::ReadVersion(R"({ "Version": 2, "Project": { "Name": "Two" } })") == 2);
+    CHECK(ProjectMigration::ReadVersion("[]") == -1 && ProjectMigration::ReadVersion("{}") == -1 && ProjectMigration::ReadVersion("nope") == -1);
+    CHECK(ProjectMigration::ReadVersion(R"({ "Project": 5 })") == -1);
+    const auto& chain = ProjectMigration::GetChain();
+    CHECK(chain.size() == (size_t)ProjectMigration::CurrentVersion);
+    for (size_t i = 0; i < chain.size(); i++)
+        CHECK(chain[i].From == (int)i && chain[i].To == (int)i + 1 && !chain[i].Description.empty());
+
+    // v0 -> current: the flat keys into "Project", build scenes as objects.
+    std::string flat = R"({ "Name": "Flat", "StartScene": "Scenes/A.zscene", "BuildScenes": [ "Scenes/A.zscene", "Scenes/B.zscene" ],
+                            "Tags": [ "Hero" ] })";
+    ProjectMigrationResult migration;
+    CHECK(ProjectMigration::MigrateText(flat, &migration));
+    CHECK(migration.FileVersion == 0 && migration.Version == ProjectMigration::CurrentVersion && migration.Steps.size() == 2);
+    CHECK(migration.Steps[0].Changes == 2 && migration.Steps[1].Changes == 2 && migration.GetChangeCount() == 4);
+    CHECK(migration.Summary().find("v0 -> v2") != std::string::npos && !migration.IsNewer());
+    CHECK(ProjectMigration::ReadVersion(flat) == ProjectMigration::CurrentVersion && flat.find("\"Version\": 2") < flat.find("\"Project\""));
+    ProjectConfig config;
+    CHECK(ProjectSerializer::ConfigFromString(flat, config));
+    CHECK(config.Name == "Flat" && config.StartScene == "Scenes/A.zscene" && config.BuildScenes.size() == 2 && config.BuildScenes[1].Enabled);
+    CHECK(config.Tags.size() == 1 && config.Tags[0] == "Hero" && config.ExtraSections.empty());
+
+    // An original (v1) file: read with its version noted, written in the current one.
+    const std::string v1 = R"({ "Project": { "Name": "One", "StartScene": "", "EngineVersion": "0.1.0" }, "Tags": [ "A" ] })";
+    ProjectMigrationResult m1;
+    CHECK(ProjectSerializer::ConfigFromString(v1, config, &m1) && m1.FileVersion == 1 && m1.Migrated() && config.FileVersion == 1);
+    std::string written = ProjectSerializer::ConfigToString(config);
+    CHECK(ProjectMigration::ReadVersion(written) == ProjectMigration::CurrentVersion);
+    ProjectMigrationResult m2;
+    CHECK(ProjectSerializer::ConfigFromString(written, config, &m2) && !m2.Migrated() && config.FileVersion == ProjectMigration::CurrentVersion);
+    std::string untouched = written;
+    CHECK(ProjectMigration::MigrateText(untouched) && untouched == written); // the current version is left as it is
+    std::string bad = "{ \"Tags\": [] }";
+    std::string error;
+    CHECK(!ProjectMigration::MigrateText(bad, nullptr, &error) && !error.empty() && bad == "{ \"Tags\": [] }");
+
+    // A fixed section order: Version, Project, Player, BuildScenes, InputActions, Tags ... DebugDraw.
+    config.Player.Version = "3.0.0";
+    config.BuildScenes = { { "Scenes/A.zscene", {}, true } };
+    written = ProjectSerializer::ConfigToString(config);
+    const size_t version = written.find("\"Version\": 2"), project = written.find("\"Project\""), player = written.find("\"Player\""),
+                 build = written.find("\"BuildScenes\""), input = written.find("\"InputActions\""), tags = written.find("\"Tags\""),
+                 debug = written.find("\"DebugDraw\"");
+    CHECK(version < project && project < player && player < build && build < input && input < tags && tags < debug && debug != std::string::npos);
+    CHECK(written.find("\"Name\"") < written.find("\"StartScene\"") && written.find("\"StartScene\"") < written.find("\"AssetDirectory\""));
+    ProjectConfig again;
+    CHECK(ProjectSerializer::ConfigFromString(written, again) && ProjectSerializer::ConfigToString(again) == written); // stable
+
+    // Keys this engine does not know: kept (in order) and written back where they were.
+    const std::string future = R"({
+        "Version": 7,
+        "Project": { "Name": "Future", "StartScene": "", "Codename": "Lola", "Flags": [ 1, 2 ] },
+        "Player": { "Version": "9.0.0", "HdrOutput": true },
+        "Tags": [ "A" ],
+        "MyPlugin": { "Enabled": true, "List": [ "x" ] },
+        "Achievements": [ "First" ]
+    })";
+    ProjectMigrationResult m3;
+    ProjectConfig newer;
+    CHECK(ProjectSerializer::ConfigFromString(future, newer, &m3) && m3.IsNewer() && !m3.Migrated() && newer.FileVersion == 7);
+    CHECK(newer.Name == "Future" && newer.Player.Version == "9.0.0");
+    CHECK(newer.ExtraSections.size() == 5);
+    CHECK(newer.ExtraSections[0].first == "Project.Codename" && newer.ExtraSections[0].second == "\"Lola\"");
+    CHECK(newer.ExtraSections[1].first == "Project.Flags" && newer.ExtraSections[2].first == "Player.HdrOutput");
+    CHECK(newer.ExtraSections[3].first == "MyPlugin" && newer.ExtraSections[4].first == "Achievements");
+    const std::string kept = ProjectSerializer::ConfigToString(newer);
+    CHECK(kept.find("\"Codename\": \"Lola\"") != std::string::npos && kept.find("\"HdrOutput\": true") != std::string::npos);
+    CHECK(kept.find("\"MyPlugin\"") > kept.find("\"DebugDraw\"") && kept.find("\"Achievements\"") > kept.find("\"MyPlugin\""));
+    CHECK(kept.find("\"Codename\"") > kept.find("\"Project\"") && kept.find("\"Codename\"") < kept.find("\"Player\""));
+    ProjectConfig reread;
+    CHECK(ProjectSerializer::ConfigFromString(kept, reread) && reread.ExtraSections == newer.ExtraSections);
+    CHECK(ProjectSerializer::ConfigToString(reread) == kept);
+    // A kept Player key alone still writes the section; a key the engine writes itself wins.
+    ProjectConfig onlyExtra;
+    onlyExtra.ExtraSections = { { "Player.Future", "1" }, { "Project.Name", "\"Shadow\"" } };
+    const std::string extraText = ProjectSerializer::ConfigToString(onlyExtra);
+    CHECK(extraText.find("\"Player\"") != std::string::npos && extraText.find("\"Future\": 1") != std::string::npos);
+    CHECK(extraText.find("Shadow") == std::string::npos);
+
+    // Loading a file from disk migrates it in memory; the file stays until the project is saved.
+    namespace fs = std::filesystem;
+    fs::path dir = fs::temp_directory_path() / ("zamin-project-migrate-" + std::to_string((uint64_t)UUID()));
+    fs::create_directories(dir);
+    FileSystem::WriteTextFile(dir / "Old.zproject", R"({ "Project": { "Name": "OldGame" }, "Tools": { "Lint": true } })");
+    Ref<Project> previous = Project::GetActive();
+    Ref<Project> loaded = Project::Load(dir / "Old.zproject");
+    CHECK(loaded && loaded->GetConfig().FileVersion == 1 && loaded->GetConfig().ExtraSections.size() == 1);
+    CHECK(FileSystem::ReadTextFile(dir / "Old.zproject").find("\"Version\"") == std::string::npos);
+    CHECK(Project::SaveActive(dir / "Old.zproject") && loaded->GetConfig().FileVersion == ProjectMigration::CurrentVersion);
+    const std::string saved = FileSystem::ReadTextFile(dir / "Old.zproject");
+    CHECK(ProjectMigration::ReadVersion(saved) == ProjectMigration::CurrentVersion && saved.find("\"Lint\": true") != std::string::npos);
+    Project::SetActive(previous);
+    if (previous)
+        Quality::SetSettings(previous->GetConfig().Quality);
+    else
+        Quality::Reset();
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
+TEST(BuildSceneChecksAndStartScene)
+{
+    namespace fs = std::filesystem;
+    fs::path assets = fs::temp_directory_path() / ("zamin-build-check-" + std::to_string((uint64_t)UUID()));
+    fs::create_directories(assets / "Scenes");
+    FileSystem::WriteTextFile(assets / "Scenes" / "Menu.zscene", "{}");
+    FileSystem::WriteTextFile(assets / "Scenes" / "Level1.zscene", "{}");
+    auto kinds = [](const std::vector<BuildSceneIssue>& issues) {
+        std::vector<BuildSceneIssue::Kind> list;
+        for (const BuildSceneIssue& issue : issues)
+            list.push_back(issue.Type);
+        return list;
+    };
+    using Kind = BuildSceneIssue::Kind;
+
+    ProjectConfig config;
+    // Nothing to start.
+    auto issues = Project::CheckBuildScenes(config, assets);
+    CHECK(issues.size() == 1 && issues[0].Type == Kind::NoStartScene && issues[0].Error);
+    CHECK(Project::ResolveStartScene(config, assets).empty());
+    // A start scene and no list: fine.
+    config.StartScene = "Scenes/Menu.zscene";
+    CHECK(Project::CheckBuildScenes(config, assets).empty() && Project::ResolveStartScene(config, assets) == "Scenes/Menu.zscene");
+    // A list without the start scene: a warning (still exported, no build index).
+    config.BuildScenes = { { "Scenes/Level1.zscene", {}, true } };
+    issues = Project::CheckBuildScenes(config, assets);
+    CHECK(kinds(issues) == std::vector<Kind>{ Kind::StartSceneNotListed } && !issues[0].Error);
+    // Switched off in the list; a missing scene, a duplicate and a file that is not a scene.
+    config.BuildScenes = { { "Scenes/Menu.zscene", {}, false }, { "Scenes/Level1.zscene", {}, true }, { "Scenes/Gone.zscene", {}, true },
+                           { "Scenes/Level1.zscene", {}, true }, { "Textures/a.png", {}, true } };
+    issues = Project::CheckBuildScenes(config, assets);
+    CHECK((kinds(issues) == std::vector<Kind>{ Kind::StartSceneDisabled, Kind::SceneMissing, Kind::Duplicate, Kind::NotAScene }));
+    CHECK(issues[0].Entry == 0 && issues[1].Entry == 2 && issues[1].Error && issues[2].Entry == 3 && !issues[2].Error && issues[3].Error);
+    CHECK(issues[1].Message.find("Gone.zscene") != std::string::npos);
+    // The start scene's file is gone: the player starts with the first enabled build scene that is there.
+    config.StartScene = "Scenes/Deleted.zscene";
+    issues = Project::CheckBuildScenes(config, assets);
+    CHECK(!issues.empty() && issues[0].Type == Kind::StartSceneMissing && issues[0].Error);
+    CHECK(Project::ResolveStartScene(config, assets) == "Scenes/Level1.zscene");
+    // Every scene switched off.
+    config.StartScene = "Scenes/Menu.zscene";
+    config.BuildScenes = { { "Scenes/Menu.zscene", {}, false } };
+    CHECK((kinds(Project::CheckBuildScenes(config, assets)) == std::vector<Kind>{ Kind::StartSceneDisabled, Kind::NoEnabledScenes }));
+    config.StartScene.clear();
+    CHECK(kinds(Project::CheckBuildScenes(config, assets)).front() == Kind::NoStartScene && Project::ResolveStartScene(config, assets).empty());
+    std::error_code ec;
+    fs::remove_all(assets, ec);
 }

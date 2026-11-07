@@ -1,43 +1,68 @@
 {
+    "Version": 2,
+    "Project": {
+        "Name": "Adventure3D",
+        "StartScene": "Scenes/Island.zscene",
+        "StartSceneUUID": "945ba9e455f00f1d",
+        "AssetDirectory": "Assets",
+        "SourceDirectory": "Source",
+        "ScriptModulePath": "Binaries/libAdventure3D.so",
+        "EngineVersion": "0.1.0"
+    },
+    "Player": {
+        "Company": "",
+        "Product": "Zamin Adventure",
+        "Version": "0.9.0-beta.1",
+        "Width": 1280,
+        "Height": 720,
+        "WindowMode": "Windowed",
+        "Resizable": true,
+        "VSync": true,
+        "Title": "",
+        "VersionInTitle": false,
+        "TargetFrameRate": 0,
+        "RunInBackground": true,
+        "Icon": "Textures/GameIcon.png"
+    },
     "InputActions": {
         "Actions": [
             {
-                "Name": "Jump",
                 "Bindings": [
                     "Key:Space",
                     "Gamepad:A"
-                ]
+                ],
+                "Name": "Jump"
             },
             {
-                "Name": "Fire",
                 "Bindings": [
                     "Mouse:Left",
                     "Key:LeftControl",
                     "GamepadAxis:RightTrigger+"
-                ]
+                ],
+                "Name": "Fire"
             },
             {
-                "Name": "Interact",
                 "Bindings": [
                     "Key:E",
                     "Gamepad:X"
-                ]
+                ],
+                "Name": "Interact"
             },
             {
-                "Name": "Sprint",
                 "Bindings": [
                     "Key:LeftShift",
                     "Key:RightShift",
                     "GamepadAxis:RightTrigger+",
                     "Gamepad:LeftThumb"
-                ]
+                ],
+                "Name": "Sprint"
             },
             {
-                "Name": "Pause",
                 "Bindings": [
                     "Key:Escape",
                     "Gamepad:Start"
-                ]
+                ],
+                "Name": "Pause"
             }
         ],
         "Axes": [
@@ -83,14 +108,5 @@
                 "Y": "Vertical"
             }
         ]
-    },
-    "Project": {
-        "Name": "Adventure3D",
-        "StartScene": "Scenes/Island.zscene",
-        "StartSceneUUID": "945ba9e455f00f1d",
-        "AssetDirectory": "Assets",
-        "SourceDirectory": "Source",
-        "ScriptModulePath": "Binaries/libAdventure3D.so",
-        "EngineVersion": "0.1.0"
     }
 }

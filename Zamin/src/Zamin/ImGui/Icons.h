@@ -222,3 +222,7 @@
 #define ICON_FA_CIRCLE_EXCLAMATION "\xef\x81\xaa"  // compiler errors
 #define ICON_FA_SCREWDRIVER_WRENCH "\xef\x9f\x99"  // the build (compiler output) window
 #define ICON_FA_LEAF "\xef\x81\xac"                // idle throttling (power saving)
+// project settings II (M17): the player (window, icon, company / version)
+#define ICON_FA_BUILDING "\xef\x86\xad"            // company name
+#define ICON_FA_WINDOW_MAXIMIZE "\xef\x8b\x90"     // the player's window
+#define ICON_FA_CODE_BRANCH "\xef\x84\xa6"         // the game's version

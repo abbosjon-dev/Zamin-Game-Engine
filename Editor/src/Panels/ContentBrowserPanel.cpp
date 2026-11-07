@@ -815,6 +815,43 @@ namespace Zamin {
             Open(entry);
         if (entry.Type == AssetType::Scene && ImGui::MenuItem(ICON_FA_EARTH_ASIA "  Sahnani ochish") && OnOpenScene)
             OnOpenScene(path);
+        // The project's settings that point to files: the build list, the start scene, the game's icon.
+        if (Ref<Project> project = Project::GetActive(); project && !entry.IsDirectory)
+        {
+            ProjectConfig& config = project->GetConfig();
+            const std::string relative = Project::GetAssetRelativePath(path);
+            if (entry.Type == AssetType::Scene)
+            {
+                const bool listed = std::any_of(config.BuildScenes.begin(), config.BuildScenes.end(),
+                                                [&](const BuildSceneEntry& e) { return e.Path.generic_string() == relative; });
+                if (ImGui::MenuItem(ICON_FA_LIST_OL "  Build ro'yxatiga qo'shish", nullptr, listed, !listed) && Project::AddBuildScene(relative))
+                {
+                    ZM_INFO("Build ro'yxatiga qo'shildi: {} (indeks {})", relative, Project::GetBuildIndex(relative));
+                    if (OnProjectSettingsModified)
+                        OnProjectSettingsModified();
+                }
+                const bool isStart = config.StartScene.generic_string() == relative;
+                if (ImGui::MenuItem(ICON_FA_HOUSE "  Boshlang'ich sahna qilish", nullptr, isStart, !isStart))
+                {
+                    config.StartScene = relative;
+                    config.StartSceneHandle = {};
+                    ZM_INFO("Boshlang'ich sahna: {}", relative);
+                    if (OnProjectSettingsModified)
+                        OnProjectSettingsModified();
+                }
+            }
+            else if (path.extension() == ".png")
+            {
+                const bool isIcon = config.Player.Icon.generic_string() == relative;
+                if (ImGui::MenuItem(ICON_FA_IMAGE "  O'yin ikonkasi qilish", nullptr, isIcon, !isIcon))
+                {
+                    config.Player.Icon = relative;
+                    ZM_INFO("O'yin ikonkasi: {}", relative);
+                    if (OnProjectSettingsModified)
+                        OnProjectSettingsModified();
+                }
+            }
+        }
         if (!entry.IsDirectory && ExternalEditor::IsSourceFile(path) && OnOpenSourceFile &&
             ImGui::MenuItem(ICON_FA_PEN_TO_SQUARE "  Tashqi muharrirda ochish"))
             OnOpenSourceFile(path);

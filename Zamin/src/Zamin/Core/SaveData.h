@@ -11,7 +11,10 @@ namespace Zamin {
 
     // Persistent key / value storage for game data (settings, records, progress), like
     // Unity's PlayerPrefs. Values live in memory and are written as JSON to
-    //     $XDG_DATA_HOME/zamin/<project>/savedata.json   (default ~/.local/share/zamin/<project>/)
+    //     $XDG_DATA_HOME/zamin/<product>/savedata.json   (default ~/.local/share/zamin/<product>/)
+    // or, when the project names its company (Project settings > Player),
+    //     $XDG_DATA_HOME/<company>/<product>/savedata.json
+    // (<product>: the product name, else the project's name)
     // by Save(), which also runs automatically when play mode stops, a scene is unloaded
     // and the application exits. The file is loaded on first use and follows the active
     // project (data of a previous project is saved before switching).
@@ -46,6 +49,9 @@ namespace Zamin {
         static std::filesystem::path GetFilePath();
         // <data home>/zamin/<project name> (the name is made file-system safe).
         static std::filesystem::path GetDirectoryForProject(std::string_view projectName);
+        // <data home>/<company>/<product>; without a company <data home>/zamin/<product> (both names
+        // made file-system safe).
+        static std::filesystem::path GetDirectoryFor(std::string_view company, std::string_view product);
         // Use a fixed file instead of the per-project location (tests, tools); an empty path
         // goes back to the automatic location. Unsaved data is saved to the old file first.
         static void SetFilePath(const std::filesystem::path& path);

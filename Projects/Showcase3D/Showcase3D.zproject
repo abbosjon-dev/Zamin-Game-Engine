@@ -1,4 +1,5 @@
 {
+    "Version": 2,
     "Project": {
         "Name": "Showcase3D",
         "StartScene": "Scenes/Showcase.zscene",
@@ -8,25 +9,22 @@
         "ScriptModulePath": "Binaries/libShowcase3D.so",
         "EngineVersion": "0.1.0"
     },
+    "Player": {
+        "Company": "",
+        "Product": "Zamin Showcase 3D",
+        "Version": "1.2.0",
+        "Width": 1280,
+        "Height": 720,
+        "WindowMode": "Windowed",
+        "Resizable": true,
+        "VSync": true,
+        "Title": "",
+        "VersionInTitle": true,
+        "TargetFrameRate": 0,
+        "RunInBackground": true,
+        "Icon": "Textures/GameIcon.png"
+    },
     "CollisionLayers2D": {
-        "Names": [
-            "Default",
-            "Arvoh",
-            "Panjara",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            ""
-        ],
         "Collisions": [
             65535,
             65531,
@@ -44,10 +42,27 @@
             65535,
             65535,
             65535
+        ],
+        "Names": [
+            "Default",
+            "Arvoh",
+            "Panjara",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
         ]
     },
     "Audio": {
-        "StreamThresholdMB": 4.0,
         "Groups": [
             {
                 "Name": "Master",
@@ -73,6 +88,7 @@
                 "Parent": "SFX",
                 "Volume": 0.85
             }
-        ]
+        ],
+        "StreamThresholdMB": 4.0
     }
 }

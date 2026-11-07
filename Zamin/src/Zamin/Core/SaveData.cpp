@@ -61,7 +61,10 @@ namespace Zamin {
             if (!s.FixedPath.empty())
                 return s.FixedPath;
             auto project = Project::GetActive();
-            return SaveData::GetDirectoryForProject(project ? project->GetConfig().Name : "Zamin") / s_FileName;
+            if (!project)
+                return SaveData::GetDirectoryForProject("Zamin") / s_FileName;
+            const ProjectConfig& config = project->GetConfig();
+            return SaveData::GetDirectoryFor(config.Player.CompanyName, config.Player.GetProductName(config.Name)) / s_FileName;
         }
 
         bool WriteFile(Store& s)
@@ -287,7 +290,9 @@ namespace Zamin {
 
     std::filesystem::path SaveData::GetFilePath() { return ResolvePath(); }
 
-    std::filesystem::path SaveData::GetDirectoryForProject(std::string_view projectName)
+    std::filesystem::path SaveData::GetDirectoryForProject(std::string_view projectName) { return GetDirectoryFor({}, projectName); }
+
+    std::filesystem::path SaveData::GetDirectoryFor(std::string_view company, std::string_view product)
     {
         std::filesystem::path base;
 #ifdef _WIN32
@@ -304,7 +309,10 @@ namespace Zamin {
             std::error_code ec;
             base = std::filesystem::temp_directory_path(ec);
         }
-        return base / "zamin" / SanitizeName(projectName);
+        // Without a company (or one of only spaces / dots) the engine's own folder: where every game
+        // kept its data before company names.
+        const bool hasCompany = company.find_first_not_of(" .") != std::string_view::npos;
+        return base / (hasCompany ? SanitizeName(company) : std::string("zamin")) / SanitizeName(product);
     }
 
     void SaveData::SetFilePath(const std::filesystem::path& path)

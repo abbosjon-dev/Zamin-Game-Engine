@@ -5,6 +5,7 @@
 #include "Zamin/Core/Profiler.h"
 #include "Zamin/Core/Window.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <functional>
 #include <mutex>
@@ -69,6 +70,28 @@ namespace Zamin {
         float GetLastWaitMs() const { return m_LastWaitMs; }
         static bool IsAutomationRun();
 
+        // ---- the game's frame rate limit (Project settings > Player): the most frames per second
+        // (0 = none). Unlike the editor's limit above, input does not end the wait - the frames keep
+        // their pace (sleep, then a short spin). Automation runs are never limited.
+        void SetTargetFrameRate(int fps) { m_TargetFrameRate = std::max(0, fps); }
+        int GetTargetFrameRate() const { return m_TargetFrameRate; }
+        // false: while the window is not in front the layers are not updated (the game's time stands
+        // still, the mixer's Master group is muted) and the loop only waits for events. Automation runs
+        // always run.
+        void SetRunInBackground(bool run) { m_RunInBackground = run; }
+        bool GetRunInBackground() const { return m_RunInBackground; }
+        // The game is standing still now because its window lost the focus.
+        bool IsPausedInBackground() const { return m_PausedInBackground; }
+
+        // ---- versions
+        // The engine's version ("0.1.0").
+        static const char* GetEngineVersion();
+        // The game's version, company and product name (Project settings > Player of the active
+        // project; without one: "1.0.0", "", "Zamin"). Scripts can show / send them.
+        static std::string GetVersion();
+        static std::string GetCompanyName();
+        static std::string GetProductName();
+
         static Application& Get() { return *s_Instance; }
         static bool Exists() { return s_Instance != nullptr; }
 
@@ -77,6 +100,8 @@ namespace Zamin {
         bool OnWindowResize(WindowResizeEvent& e);
         void ExecuteMainThreadQueue();
         void HandleAutomation();
+        // RunInBackground: pauses / resumes the game when its window loses / gets the focus.
+        void SetPausedInBackground(bool paused);
 
     private:
         ApplicationSpecification m_Specification;
@@ -94,6 +119,10 @@ namespace Zamin {
         double m_LastInputTime = 0.0;
         bool m_WindowFocused = true;
         float m_LastWaitMs = 0.0f;
+        int m_TargetFrameRate = 0;
+        bool m_RunInBackground = true;
+        bool m_PausedInBackground = false;
+        bool m_MutedForBackground = false; // the Master group was muted by the pause (not by the game)
 
         std::vector<std::function<void()>> m_MainThreadQueue;
         std::mutex m_MainThreadQueueMutex;

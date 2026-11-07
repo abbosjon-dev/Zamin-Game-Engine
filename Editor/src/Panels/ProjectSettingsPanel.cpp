@@ -42,6 +42,7 @@ namespace Zamin {
             case Tab::Quality:       m_Category = Category::Quality; break;
             case Tab::Audio:         m_Category = Category::Audio; break;
             case Tab::Debug:         m_Category = Category::Debug; break;
+            case Tab::Player:        m_Category = Category::Player; break;
         }
         // The asked category must be in the list.
         if (!ProjectSettingsIndex::Matches(Info(m_Category), m_Search))
@@ -61,6 +62,9 @@ namespace Zamin {
         m_RenamingTag = -1;
         m_RenamingLayer = ~0u;
         m_PendingPreset = -1;
+        m_IconPreview = nullptr;
+        m_IconPreviewPath.clear();
+        m_VersionEditing = false;
     }
 
     void ProjectSettingsPanel::RefreshSaved()
@@ -134,6 +138,7 @@ namespace Zamin {
                 config.SourceDirectory = s.SourceDirectory;
                 config.ScriptModulePath = s.ScriptModulePath;
                 break;
+            case Category::Player:        config.Player = s.Player; m_VersionEditing = false; m_IconPreviewPath.clear(); break;
             case Category::Quality:       config.Quality = s.Quality; m_QualityLevel = -1; break;
             case Category::Physics:       config.CollisionLayers = s.CollisionLayers; break;
             case Category::Audio:         config.Audio = s.Audio; break;
@@ -386,6 +391,7 @@ namespace Zamin {
         switch (m_Category)
         {
             case Category::General:       DrawGeneral(config); break;
+            case Category::Player:        DrawPlayer(config); break;
             case Category::Quality:       DrawQuality(config); break;
             case Category::Physics:       DrawPhysicsLayers(config); break;
             case Category::Audio:         DrawAudio(config); break;
@@ -397,6 +403,11 @@ namespace Zamin {
             default:                      break;
         }
         UI::SearchHighlightText().clear();
+        if (m_ScrollFrames > 0)
+        {
+            m_ScrollFrames--;
+            ImGui::SetScrollY(m_ScrollRequest < 0.0f ? ImGui::GetScrollMaxY() : std::min(m_ScrollRequest, ImGui::GetScrollMaxY()));
+        }
         // Listening for a key only while the input map is shown.
         if (m_Category != Category::Input)
             StopListening();
@@ -406,7 +417,8 @@ namespace Zamin {
     {
         if (!UI::BeginPropertyGrid("general"))
             return;
-        UI::PropertyLabel("Loyiha nomi", "O'yin nomi (oyna sarlavhasi, SaveData papkasi). Loyiha faylining nomi o'zgarmaydi.");
+        UI::PropertyLabel("Loyiha nomi", "Loyihaning nomi (Player bo'limida mahsulot nomi berilmasa - oyna sarlavhasi va SaveData papkasi ham). "
+                                         "Loyiha faylining nomi o'zgarmaydi.");
         std::string name = c.Name;
         if (ImGui::InputText("##name", &name, ImGuiInputTextFlags_EnterReturnsTrue) || ImGui::IsItemDeactivatedAfterEdit())
         {
@@ -416,10 +428,33 @@ namespace Zamin {
                 m_Dirty = true;
             }
         }
+        UI::PropertyLabel("O'yin", "Player bo'limidagi mahsulot nomi, versiya va kompaniya (Application::GetProductName / GetVersion)");
+        ImGui::Text("%s %s%s", c.Player.GetProductName(c.Name).c_str(), c.Player.Version.c_str(),
+                    c.Player.CompanyName.empty() ? "" : std::format("  ({})", c.Player.CompanyName).c_str());
+        ImGui::SameLine();
+        if (ImGui::SmallButton(ICON_FA_WINDOW_MAXIMIZE "  Player"))
+            m_Category = Category::Player;
         UI::PropertyLabel("Papka");
         ImGui::TextWrapped("%s", Project::GetProjectDirectory().string().c_str());
-        UI::PropertyLabel("Loyiha fayli");
+        UI::PropertyLabel("Loyiha fayli", "Format versiyasi: eski fayllar o'qilganda joriy formatga o'tkaziladi (saqlanganda shunday yoziladi); "
+                                          "dvigatel tushunmagan kalitlar o'zgarmay saqlanadi");
         ImGui::TextUnformatted(Project::GetProjectFilePath().filename().string().c_str());
+        ImGui::SameLine();
+        if (c.FileVersion < ProjectMigration::CurrentVersion)
+            ImGui::TextColored(ImVec4(0.95f, 0.72f, 0.32f, 1.0f), "v%d -> v%d (saqlanganda)", c.FileVersion, ProjectMigration::CurrentVersion);
+        else if (c.FileVersion > ProjectMigration::CurrentVersion)
+            ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.40f, 1.0f), "v%d (yangiroq dvigatel)", c.FileVersion);
+        else
+            ImGui::TextDisabled("format v%d", c.FileVersion);
+        if (!c.ExtraSections.empty())
+        {
+            UI::PropertyLabel("Noma'lum kalitlar", "Fayldagi bu dvigatel o'qimaydigan kalitlar (boshqa vositalar, yangiroq versiya): saqlanganda "
+                                                   "o'zgarmay yoziladi");
+            std::string keys;
+            for (const auto& [key, text] : c.ExtraSections)
+                keys += (keys.empty() ? "" : ", ") + key;
+            ImGui::TextWrapped("%s", keys.c_str());
+        }
         UI::PropertyLabel("Assets papkasi");
         ImGui::TextUnformatted(c.AssetDirectory.generic_string().c_str());
         UI::PropertyLabel("Skriptlar papkasi");
@@ -501,6 +536,92 @@ namespace Zamin {
                            "(va boshlang'ich sahna) kiradi. Tartibni sudrab o'zgartiring (o'ng tugma: menyu).");
         ImGui::Spacing();
 
+        // ---- the start scene: what the player opens first (any scene of the project, or a dropped one).
+        if (UI::BeginPropertyGrid("startScene"))
+        {
+            UI::PropertyLabel("Boshlang'ich sahna", "O'yin shu sahnadan boshlanadi (player). Fayli topilmasa - birinchi yoqilgan "
+                                                                 "build sahnasidan. Content Browser'dan .zscene tortib tashlash ham mumkin");
+            const std::string current = config.StartScene.generic_string();
+            std::error_code ec;
+            const bool startExists = !current.empty() && std::filesystem::is_regular_file(Project::GetAssetFileSystemPath(config.StartScene), ec);
+            const float buttons = (ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.x) * 2.0f;
+            ImGui::SetNextItemWidth(std::max(80.0f, ImGui::GetContentRegionAvail().x - buttons));
+            if (!current.empty() && !startExists)
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.45f, 0.40f, 1.0f));
+            const std::string preview = current.empty() ? std::string("(tanlanmagan)") : current;
+            const bool comboOpen = ImGui::BeginCombo("##startScene", preview.c_str(), ImGuiComboFlags_HeightLarge);
+            if (!current.empty() && !startExists)
+                ImGui::PopStyleColor();
+            if (comboOpen)
+            {
+                // Build scenes first (with their indices), then the other scenes of the project.
+                std::vector<std::string> scenes;
+                for (auto it = std::filesystem::recursive_directory_iterator(Project::GetAssetDirectory(), ec);
+                     !ec && it != std::filesystem::recursive_directory_iterator(); it.increment(ec))
+                    if (it->path().extension() == ".zscene")
+                        scenes.push_back(Project::GetAssetRelativePath(it->path()));
+                std::sort(scenes.begin(), scenes.end());
+                std::stable_partition(scenes.begin(), scenes.end(), [&](const std::string& scene) { return Project::GetBuildIndex(scene) >= 0; });
+                std::stable_sort(scenes.begin(), scenes.end(), [&](const std::string& a, const std::string& b) {
+                    const int ia = Project::GetBuildIndex(a), ib = Project::GetBuildIndex(b);
+                    return ia >= 0 && ib >= 0 ? ia < ib : ia >= 0 && ib < 0;
+                });
+                for (const std::string& scene : scenes)
+                {
+                    const int index = Project::GetBuildIndex(scene);
+                    const std::string label = index >= 0 ? std::format("{}  {}##{}", index, scene, scene) : std::format("    {}##{}", scene, scene);
+                    if (ImGui::Selectable(label.c_str(), scene == current) && scene != current)
+                    {
+                        config.StartScene = scene;
+                        config.StartSceneHandle = {};
+                        m_Dirty = true;
+                    }
+                }
+                if (scenes.empty())
+                    ImGui::TextDisabled("Loyihada sahna yo'q");
+                ImGui::EndCombo();
+            }
+            if (ImGui::BeginDragDropTarget())
+            {
+                const ImGuiPayload* active = ImGui::GetDragDropPayload();
+                if (active && active->IsDataType("CONTENT_BROWSER_ITEM") && std::filesystem::path((const char*)active->Data).extension() == ".zscene")
+                    if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM"))
+                    {
+                        std::filesystem::path dropped((const char*)payload->Data);
+                        config.StartScene = dropped.is_absolute() ? std::filesystem::path(Project::GetAssetRelativePath(dropped)) : dropped;
+                        config.StartSceneHandle = {};
+                        m_Dirty = true;
+                    }
+                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("BUILD_SCENE"))
+                {
+                    const int index = *(const int*)payload->Data;
+                    if (index >= 0 && index < (int)list.size())
+                    {
+                        config.StartScene = list[(size_t)index].Path;
+                        config.StartSceneHandle = {};
+                        m_Dirty = true;
+                    }
+                }
+                ImGui::EndDragDropTarget();
+            }
+            ImGui::SameLine();
+            ImGui::BeginDisabled(!startExists || !OnOpenSceneRequested);
+            if (UI::ToolbarButton(ICON_FA_FOLDER_OPEN, "Boshlang'ich sahnani ochish"))
+                OnOpenSceneRequested(config.StartScene);
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+            ImGui::BeginDisabled(m_OpenScenePath.empty() || m_OpenScenePath.generic_string() == current);
+            if (UI::ToolbarButton(ICON_FA_HOUSE, "Ochiq sahnani boshlang'ich qilish"))
+            {
+                config.StartScene = m_OpenScenePath;
+                config.StartSceneHandle = {};
+                m_Dirty = true;
+            }
+            ImGui::EndDisabled();
+            UI::EndPropertyGrid();
+        }
+        ImGui::Spacing();
+
         // Add: the open scene, every scene of the project, or a .zscene dropped from the content browser.
         const std::string open = m_OpenScenePath.generic_string();
         const bool openListed = std::any_of(list.begin(), list.end(), [&](const BuildSceneEntry& e) { return e.Path.generic_string() == open; });
@@ -536,6 +657,15 @@ namespace Zamin {
             m_Dirty = true;
         }
         ImGui::EndDisabled();
+        if (OnScenesPanelRequested)
+        {
+            const char* scenesLabel = ICON_FA_CLAPPERBOARD "  Sahnalar oynasi";
+            UI::SameLineIfFits(scenesLabel);
+            if (ImGui::Button(scenesLabel))
+                OnScenesPanelRequested();
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Loyihaning hamma sahnalari: build ro'yxatiga qo'shish, boshlang'ich qilish, Play'da qo'shimcha sahnalar");
+        }
         ImGui::Spacing();
 
         const std::string start = config.StartScene.generic_string();
@@ -697,10 +827,45 @@ namespace Zamin {
             list.erase(list.begin() + remove);
             m_Dirty = true;
         }
-        if (!start.empty() && !list.empty() && Project::GetBuildIndex(config.StartScene) < 0)
+        // What is wrong with the start scene / the list (also checked before an export).
+        const std::vector<BuildSceneIssue> issues = Project::CheckBuildScenes(config, Project::GetAssetDirectory());
+        if (!issues.empty())
         {
-            ImGui::TextColored(ImVec4(0.95f, 0.72f, 0.32f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  Boshlang'ich sahna (%s) ro'yxatda yo'q yoki o'chirilgan: "
-                               "eksportga baribir kiradi, lekin build indeksi yo'q", start.c_str());
+            ImGui::Spacing();
+            for (const BuildSceneIssue& issue : issues)
+            {
+                ImGui::PushID(&issue);
+                ImGui::TextColored(issue.Error ? ImVec4(0.95f, 0.45f, 0.40f, 1.0f) : ImVec4(0.95f, 0.72f, 0.32f, 1.0f),
+                                   "%s  %s", issue.Error ? ICON_FA_CIRCLE_EXCLAMATION : ICON_FA_TRIANGLE_EXCLAMATION, issue.Message.c_str());
+                // A fix where there is an obvious one.
+                if (issue.Type == BuildSceneIssue::Kind::StartSceneNotListed)
+                {
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton(ICON_FA_PLUS "  Ro'yxatga qo'shish") && Project::AddBuildScene(config.StartScene))
+                        m_Dirty = true;
+                }
+                else if (issue.Type == BuildSceneIssue::Kind::StartSceneDisabled && issue.Entry >= 0 && issue.Entry < (int)list.size())
+                {
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton(ICON_FA_CHECK "  Yoqish"))
+                    {
+                        list[(size_t)issue.Entry].Enabled = true;
+                        m_Dirty = true;
+                    }
+                }
+                else if (issue.Type == BuildSceneIssue::Kind::Duplicate && issue.Entry >= 0 && issue.Entry < (int)list.size())
+                {
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton(ICON_FA_XMARK "  Takrorini olib tashlash"))
+                    {
+                        list.erase(list.begin() + issue.Entry);
+                        m_Dirty = true;
+                        ImGui::PopID();
+                        break; // the indices of the other issues moved
+                    }
+                }
+                ImGui::PopID();
+            }
         }
     }
 

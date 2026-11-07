@@ -133,6 +133,11 @@ namespace Zamin {
             m_ShowAudioMixer = true;
             m_AudioMixerPanel.Focus();
         };
+        m_ProjectSettingsPanel.OnScenesPanelRequested = [this]() {
+            m_ShowScenes = true;
+            m_ScenesPanel.Focus();
+        };
+        m_ContentBrowserPanel.OnProjectSettingsModified = [this]() { m_ProjectSettingsPanel.MarkDirty(); };
         m_SceneHierarchyPanel.OnAudioMixerRequested = [this]() {
             m_ShowAudioMixer = true;
             m_AudioMixerPanel.Focus();
@@ -935,7 +940,7 @@ namespace Zamin {
                     keys = comma == std::string_view::npos ? std::string_view() : keys.substr(comma + 1);
                 }
             }
-            // 1 | Input | SaveData | Tags | General | SortingLayers | PhysicsLayers | BuildScenes | Quality | Audio | Debug
+            // 1 | Input | SaveData | Tags | General | SortingLayers | PhysicsLayers | BuildScenes | Quality | Audio | Debug | Player
             if (const char* tab = std::getenv("ZAMIN_EDITOR_PROJECT_SETTINGS"))
             {
                 m_ShowProjectSettings = true;
@@ -949,6 +954,7 @@ namespace Zamin {
                                            : t == "Quality"         ? ProjectSettingsPanel::Tab::Quality
                                            : t == "Audio"           ? ProjectSettingsPanel::Tab::Audio
                                            : t == "Debug"           ? ProjectSettingsPanel::Tab::Debug
+                                           : t == "Player"          ? ProjectSettingsPanel::Tab::Player
                                                                     : ProjectSettingsPanel::Tab::Input);
                 // ZAMIN_EDITOR_PROJECT_SETTINGS_RECT="x,y,w,h": the window floats there (screenshots);
                 // ZAMIN_EDITOR_PROJECT_SETTINGS_SEARCH=<text>: the category search.
@@ -960,6 +966,9 @@ namespace Zamin {
                 }
                 if (const char* search = std::getenv("ZAMIN_EDITOR_PROJECT_SETTINGS_SEARCH"))
                     m_ProjectSettingsPanel.SetSearch(search);
+                // ZAMIN_EDITOR_PROJECT_SETTINGS_SCROLL=<px | max>: the category page scrolled down (screenshots).
+                if (const char* scroll = std::getenv("ZAMIN_EDITOR_PROJECT_SETTINGS_SCROLL"))
+                    m_ProjectSettingsPanel.RequestScroll(std::string_view(scroll) == "max" ? -1.0f : (float)std::atof(scroll));
                 // ZAMIN_EDITOR_PROJECT_SETTINGS_OPEN=expand (the input map's entries) | presets (the physics presets menu)
                 if (const char* open = std::getenv("ZAMIN_EDITOR_PROJECT_SETTINGS_OPEN"))
                     m_ProjectSettingsPanel.RequestOpen(open);
@@ -5601,7 +5610,7 @@ namespace Zamin {
         if (renamed > 0)
             SaveRecentScenes();
 
-        // The project's start scene.
+        // The project's start scene and the game's icon.
         if (auto project = Project::GetActive())
         {
             auto& start = project->GetConfig().StartScene;
@@ -5613,6 +5622,16 @@ namespace Zamin {
                     ZM_INFO("Boshlang'ich sahna: {}", *mapped);
                     break;
                 }
+            auto& icon = project->GetConfig().Player.Icon;
+            if (!icon.empty())
+                for (const auto& [from, to] : moves)
+                    if (auto mapped = AssetFiles::RemapPath(icon.generic_string(), from, to))
+                    {
+                        icon = *mapped;
+                        SaveProjectSettingsNow();
+                        ZM_INFO("O'yin ikonkasi: {}", *mapped);
+                        break;
+                    }
         }
     }
 
@@ -5746,6 +5765,24 @@ namespace Zamin {
         m_ProjectSettingsPanel.SaveIfDirty(); // the exported game reads the .zproject (input map)
 
         std::string name = project->GetConfig().Name;
+        // The start scene and the build list: what would break the game is an error, the rest warnings.
+        for (const BuildSceneIssue& issue : Project::CheckBuildScenes(project->GetConfig(), Project::GetAssetDirectory()))
+        {
+            if (issue.Error)
+                ZM_ERROR("Eksport: {}", issue.Message);
+            else
+                ZM_WARN("Eksport: {}", issue.Message);
+        }
+        const PlayerSettings player = project->GetConfig().Player;
+        const std::string productName = player.GetProductName(name);
+        const fs::path iconFile = Project::GetIconPath();
+        if (!iconFile.empty())
+        {
+            ImageData icon;
+            std::string error;
+            if (!GameIcon::Load(iconFile, icon, &error))
+                ZM_WARN("Eksport: o'yin ikonkasi o'qilmadi ({}) - .desktop faylida ikonka bo'lmaydi", error);
+        }
         fs::path projectDir = Project::GetProjectDirectory();
         fs::path projectFile = Project::GetProjectFilePath();
         fs::path modulePath = Project::GetScriptModulePath();
@@ -5868,6 +5905,26 @@ namespace Zamin {
                                                     projectFile.filename().string() + "\" \"$@\"\n");
             fs::permissions(launcher, fs::perms::owner_all | fs::perms::group_read | fs::perms::group_exec |
                                           fs::perms::others_read | fs::perms::others_exec, ec);
+
+            // The game's icon next to the launcher and a desktop entry (application menus, file managers;
+            // copy it to ~/.local/share/applications to install). Its paths are where the game was exported to.
+            const fs::path absoluteOut = fs::absolute(outputDirectory, ec);
+            fs::path exportedIcon;
+            if (!iconFile.empty())
+            {
+                ImageData icon;
+                if (GameIcon::Load(iconFile, icon))
+                {
+                    exportedIcon = absoluteOut / (name + ".png");
+                    copy(iconFile, exportedIcon);
+                }
+            }
+            if (!FileSystem::WriteTextFile(outputDirectory / (name + ".desktop"),
+                                           ExportFiles::MakeDesktopEntry(productName, player, absoluteOut / launcher.filename(), exportedIcon, absoluteOut)))
+                ok = false;
+            else
+                fs::permissions(outputDirectory / (name + ".desktop"), fs::perms::owner_exec | fs::perms::group_exec | fs::perms::others_exec,
+                                fs::perm_options::add, ec);
 
             if (ok) ZM_INFO("O'yin eksport qilindi " ICON_FA_ROCKET " {}  (ishga tushirish: {})", outputDirectory.string(), launcher.string());
             else ZM_ERROR("O'yinni eksport qilishda xatolar bo'ldi");
@@ -10587,6 +10644,33 @@ namespace Zamin {
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Har sahna yoniga uning MessagePack nusxasi yoziladi: ~3 marta kichik, joriy formatda (migratsiyasiz). "
                             "O'yin uni .zscene o'rniga o'qiydi (fayl o'zgargan bo'lsa - matnni)");
+            // How the exported game starts (Project settings > Player), with a way to change it.
+            if (auto project = Project::GetActive())
+            {
+                const ProjectConfig& config = project->GetConfig();
+                const PlayerSettings& player = config.Player;
+                ImGui::SeparatorText(ICON_FA_WINDOW_MAXIMIZE "  Player");
+                const char* modes[] = { "oynali", "to'liq ekran", "chegarasiz to'liq ekran" };
+                ImGui::Text("%s %s%s", player.GetProductName(config.Name).c_str(), player.Version.c_str(),
+                            player.CompanyName.empty() ? "" : std::format("  -  {}", player.CompanyName).c_str());
+                ImGui::TextDisabled("Oyna: \"%s\", %ux%u, %s, VSync %s, %s%s", player.GetWindowTitle(config.Name).c_str(), player.Width, player.Height,
+                                    modes[(int)player.Mode], player.VSync ? "yoqilgan" : "o'chiq",
+                                    player.TargetFrameRate > 0 ? std::format("{} FPS", player.TargetFrameRate).c_str() : "FPS cheklanmagan",
+                                    player.RunInBackground ? "" : ", fonda to'xtaydi");
+                ImGui::TextDisabled("Ikonka: %s  (%s.desktop + %s.png)", player.Icon.empty() ? "yo'q" : player.Icon.generic_string().c_str(),
+                                    config.Name.c_str(), config.Name.c_str());
+                if (ImGui::SmallButton(ICON_FA_GEAR "  Player sozlamalari..."))
+                {
+                    m_ShowProjectSettings = true;
+                    m_ProjectSettingsPanel.Focus(ProjectSettingsPanel::Tab::Player);
+                    ImGui::CloseCurrentPopup();
+                }
+                // The start scene / build list problems, before the export.
+                const std::vector<BuildSceneIssue> issues = Project::CheckBuildScenes(config, Project::GetAssetDirectory());
+                for (const BuildSceneIssue& issue : issues)
+                    ImGui::TextColored(issue.Error ? ImVec4(0.95f, 0.45f, 0.40f, 1.0f) : ImVec4(0.95f, 0.72f, 0.32f, 1.0f), "%s  %s",
+                                       issue.Error ? ICON_FA_CIRCLE_EXCLAMATION : ICON_FA_TRIANGLE_EXCLAMATION, issue.Message.c_str());
+            }
             ImGui::Spacing();
             if (ImGui::Button(ICON_FA_HAMMER "  Build", ImVec2(150, 0)))
             {

@@ -1,43 +1,145 @@
 {
+    "Version": 2,
+    "Project": {
+        "Name": "Platformer2D",
+        "StartScene": "Scenes/Level1.zscene",
+        "StartSceneUUID": "b42a5d091a0b27d2",
+        "AssetDirectory": "Assets",
+        "SourceDirectory": "Source",
+        "ScriptModulePath": "Binaries/libPlatformer2D.so",
+        "EngineVersion": "0.1.0"
+    },
+    "Player": {
+        "Company": "Zamin Studio",
+        "Product": "Zamin Platformer",
+        "Version": "0.4.0",
+        "Width": 1280,
+        "Height": 720,
+        "WindowMode": "Windowed",
+        "Resizable": true,
+        "VSync": true,
+        "Title": "",
+        "VersionInTitle": false,
+        "TargetFrameRate": 0,
+        "RunInBackground": true,
+        "Icon": "Textures/GameIcon.png"
+    },
+    "BuildScenes": [
+        {
+            "Path": "Scenes/Menu.zscene",
+            "Enabled": true,
+            "UUID": "3c8e51a07d24f9b6"
+        },
+        {
+            "Path": "Scenes/Loading.zscene",
+            "Enabled": true,
+            "UUID": "91d4b6e2c03a7f58"
+        },
+        {
+            "Path": "Scenes/Level1.zscene",
+            "Enabled": true,
+            "UUID": "b42a5d091a0b27d2"
+        },
+        {
+            "Path": "Scenes/Level2.zscene",
+            "Enabled": true,
+            "UUID": "f95b683b7161d553"
+        },
+        {
+            "Path": "Scenes/Level3.zscene",
+            "Enabled": true,
+            "UUID": "f8543f4fabe92e16"
+        },
+        {
+            "Path": "Scenes/Effectors2D.zscene",
+            "Enabled": true,
+            "UUID": "c3e90bb5e064170c"
+        },
+        {
+            "Path": "Scenes/Joints2D.zscene",
+            "Enabled": true,
+            "UUID": "e86765ce41dbcd73"
+        },
+        {
+            "Path": "Scenes/Ragdoll2D.zscene",
+            "Enabled": true,
+            "UUID": "095566f41547357c"
+        },
+        {
+            "Path": "Scenes/Shapes2D.zscene",
+            "Enabled": true,
+            "UUID": "690106e61927bedc"
+        },
+        {
+            "Path": "Scenes/Showcase2D.zscene",
+            "Enabled": true,
+            "UUID": "e512148239292d22"
+        },
+        {
+            "Path": "Scenes/Tilemap2D.zscene",
+            "Enabled": true,
+            "UUID": "d2a64f0e93b71c55"
+        },
+        {
+            "Path": "Scenes/TopDown2D.zscene",
+            "Enabled": true,
+            "UUID": "a47c2e9105d83b6f"
+        },
+        {
+            "Path": "Scenes/UILayout.zscene",
+            "Enabled": true,
+            "UUID": "77a1c3e5b2d94f60"
+        },
+        {
+            "Path": "Scenes/UIWidgets.zscene",
+            "Enabled": true,
+            "UUID": "7669f945ac64809f"
+        },
+        {
+            "Path": "Scenes/SubScenes.zscene",
+            "Enabled": true,
+            "UUID": "8d14c7e2a96f3b50"
+        }
+    ],
     "InputActions": {
         "Actions": [
             {
-                "Name": "Jump",
                 "Bindings": [
                     "Key:Space",
                     "Key:W",
                     "Key:Up",
                     "Gamepad:A"
-                ]
+                ],
+                "Name": "Jump"
             },
             {
-                "Name": "Fire",
                 "Bindings": [
                     "Mouse:Left",
                     "Key:LeftControl",
                     "GamepadAxis:RightTrigger+"
-                ]
+                ],
+                "Name": "Fire"
             },
             {
-                "Name": "Interact",
                 "Bindings": [
                     "Key:E",
                     "Gamepad:X"
-                ]
+                ],
+                "Name": "Interact"
             },
             {
-                "Name": "Sprint",
                 "Bindings": [
                     "Key:LeftShift",
                     "Gamepad:LeftThumb"
-                ]
+                ],
+                "Name": "Sprint"
             },
             {
-                "Name": "Pause",
                 "Bindings": [
                     "Key:Escape",
                     "Gamepad:Start"
-                ]
+                ],
+                "Name": "Pause"
             }
         ],
         "Axes": [
@@ -84,15 +186,6 @@
             }
         ]
     },
-    "Project": {
-        "Name": "Platformer2D",
-        "StartScene": "Scenes/Level1.zscene",
-        "StartSceneUUID": "b42a5d091a0b27d2",
-        "AssetDirectory": "Assets",
-        "SourceDirectory": "Source",
-        "ScriptModulePath": "Binaries/libPlatformer2D.so",
-        "EngineVersion": "0.1.0"
-    },
     "Tags": [
         "Player",
         "Coin",
@@ -119,24 +212,6 @@
         }
     ],
     "CollisionLayers2D": {
-        "Names": [
-            "Default",
-            "Ground",
-            "Ghost",
-            "Ragdoll",
-            "RagdollLimb",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            ""
-        ],
         "Collisions": [
             65531,
             65535,
@@ -154,83 +229,24 @@
             65531,
             65531,
             65531
+        ],
+        "Names": [
+            "Default",
+            "Ground",
+            "Ghost",
+            "Ragdoll",
+            "RagdollLimb",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
         ]
-    },
-    "BuildScenes": [
-        {
-            "Enabled": true,
-            "Path": "Scenes/Menu.zscene",
-            "UUID": "3c8e51a07d24f9b6"
-        },
-        {
-            "Enabled": true,
-            "Path": "Scenes/Loading.zscene",
-            "UUID": "91d4b6e2c03a7f58"
-        },
-        {
-            "Enabled": true,
-            "Path": "Scenes/Level1.zscene",
-            "UUID": "b42a5d091a0b27d2"
-        },
-        {
-            "Enabled": true,
-            "Path": "Scenes/Level2.zscene",
-            "UUID": "f95b683b7161d553"
-        },
-        {
-            "Enabled": true,
-            "Path": "Scenes/Level3.zscene",
-            "UUID": "f8543f4fabe92e16"
-        },
-        {
-            "Enabled": true,
-            "Path": "Scenes/Effectors2D.zscene",
-            "UUID": "c3e90bb5e064170c"
-        },
-        {
-            "Enabled": true,
-            "Path": "Scenes/Joints2D.zscene",
-            "UUID": "e86765ce41dbcd73"
-        },
-        {
-            "Enabled": true,
-            "Path": "Scenes/Ragdoll2D.zscene",
-            "UUID": "095566f41547357c"
-        },
-        {
-            "Enabled": true,
-            "Path": "Scenes/Shapes2D.zscene",
-            "UUID": "690106e61927bedc"
-        },
-        {
-            "Enabled": true,
-            "Path": "Scenes/Showcase2D.zscene",
-            "UUID": "e512148239292d22"
-        },
-        {
-            "Enabled": true,
-            "Path": "Scenes/Tilemap2D.zscene",
-            "UUID": "d2a64f0e93b71c55"
-        },
-        {
-            "Enabled": true,
-            "Path": "Scenes/TopDown2D.zscene",
-            "UUID": "a47c2e9105d83b6f"
-        },
-        {
-            "Enabled": true,
-            "Path": "Scenes/UILayout.zscene",
-            "UUID": "77a1c3e5b2d94f60"
-        },
-        {
-            "Enabled": true,
-            "Path": "Scenes/UIWidgets.zscene",
-            "UUID": "7669f945ac64809f"
-        },
-        {
-            "Enabled": true,
-            "Path": "Scenes/SubScenes.zscene",
-            "UUID": "8d14c7e2a96f3b50"
-        }
-    ]
+    }
 }

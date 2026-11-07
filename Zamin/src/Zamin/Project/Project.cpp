@@ -1,6 +1,7 @@
 #include "Zamin/Project/Project.h"
 #include "Zamin/Asset/AssetRegistry.h"
 #include "Zamin/Audio/AudioEngine.h"
+#include "Zamin/Core/Version.h"
 #include "Zamin/Scripting/ScriptTemplate.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Scene/SceneSerializer.h"
@@ -9,10 +10,13 @@
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
+#include <format>
+#include <stdexcept>
 
 namespace Zamin {
 
     using json = nlohmann::json;
+    using ordered_json = nlohmann::ordered_json;
 
     Ref<Project> Project::New()
     {
@@ -104,6 +108,111 @@ namespace Zamin {
         entry.Path = wanted;
         list.push_back(entry);
         return true;
+    }
+
+    std::vector<BuildSceneIssue> Project::CheckBuildScenes(const ProjectConfig& config, const std::filesystem::path& assetDirectory)
+    {
+        std::vector<BuildSceneIssue> issues;
+        auto add = [&](BuildSceneIssue::Kind kind, int entry, std::string path, bool error, std::string message) {
+            BuildSceneIssue issue;
+            issue.Type = kind;
+            issue.Entry = entry;
+            issue.Path = std::move(path);
+            issue.Error = error;
+            issue.Message = std::move(message);
+            issues.push_back(std::move(issue));
+        };
+        auto exists = [&](const std::filesystem::path& relative) {
+            std::error_code ec;
+            return std::filesystem::is_regular_file(relative.is_absolute() ? relative : assetDirectory / relative, ec);
+        };
+        auto normal = [](const std::filesystem::path& p) { return p.lexically_normal().generic_string(); };
+
+        const std::string start = config.StartScene.empty() ? std::string() : normal(config.StartScene);
+        bool anyEnabled = false, anyEnabledThere = false;
+        for (const BuildSceneEntry& entry : config.BuildScenes)
+            if (entry.Enabled)
+            {
+                anyEnabled = true;
+                anyEnabledThere = anyEnabledThere || exists(entry.Path);
+            }
+
+        // The start scene.
+        if (start.empty())
+        {
+            if (!anyEnabledThere)
+                add(BuildSceneIssue::Kind::NoStartScene, -1, "", true,
+                    "Boshlang'ich sahna tanlanmagan va build ro'yxatida yoqilgan sahna yo'q: o'yin hech narsani ochmaydi");
+        }
+        else if (!exists(config.StartScene))
+            add(BuildSceneIssue::Kind::StartSceneMissing, -1, start, true,
+                anyEnabledThere ? std::format("Boshlang'ich sahna fayli topilmadi: {} (o'yin birinchi build sahnasidan boshlanadi)", start)
+                                : std::format("Boshlang'ich sahna fayli topilmadi: {}", start));
+        else if (!config.BuildScenes.empty())
+        {
+            auto it = std::find_if(config.BuildScenes.begin(), config.BuildScenes.end(),
+                                   [&](const BuildSceneEntry& e) { return normal(e.Path) == start; });
+            if (it == config.BuildScenes.end())
+                add(BuildSceneIssue::Kind::StartSceneNotListed, -1, start, false,
+                    std::format("Boshlang'ich sahna ({}) build ro'yxatida yo'q: eksportga baribir kiradi, lekin build indeksi yo'q", start));
+            else if (!it->Enabled)
+                add(BuildSceneIssue::Kind::StartSceneDisabled, (int)(it - config.BuildScenes.begin()), start, false,
+                    std::format("Boshlang'ich sahna ({}) ro'yxatda o'chirilgan: eksportga baribir kiradi, lekin build indeksi yo'q", start));
+        }
+
+        // The list.
+        if (!config.BuildScenes.empty() && !anyEnabled)
+            add(BuildSceneIssue::Kind::NoEnabledScenes, -1, "", false, "Ro'yxatdagi hamma sahnalar o'chirilgan: build indekslari yo'q");
+        std::vector<std::string> seen;
+        for (size_t i = 0; i < config.BuildScenes.size(); i++)
+        {
+            const BuildSceneEntry& entry = config.BuildScenes[i];
+            const std::string path = normal(entry.Path);
+            if (std::find(seen.begin(), seen.end(), path) != seen.end())
+            {
+                add(BuildSceneIssue::Kind::Duplicate, (int)i, path, false, std::format("{} ro'yxatda ikki marta", path));
+                continue;
+            }
+            seen.push_back(path);
+            if (entry.Path.extension() != ".zscene")
+                add(BuildSceneIssue::Kind::NotAScene, (int)i, path, true, std::format("{} sahna fayli emas (.zscene)", path));
+            else if (!exists(entry.Path))
+                add(BuildSceneIssue::Kind::SceneMissing, (int)i, path, entry.Enabled,
+                    std::format("Sahna fayli topilmadi: {}{}", path, entry.Enabled ? "" : " (o'chirilgan)"));
+        }
+        return issues;
+    }
+
+    std::filesystem::path Project::ResolveStartScene(const ProjectConfig& config, const std::filesystem::path& assetDirectory)
+    {
+        auto exists = [&](const std::filesystem::path& relative) {
+            std::error_code ec;
+            return !relative.empty() && std::filesystem::is_regular_file(relative.is_absolute() ? relative : assetDirectory / relative, ec);
+        };
+        if (exists(config.StartScene))
+            return config.StartScene;
+        for (const BuildSceneEntry& entry : config.BuildScenes)
+            if (entry.Enabled && entry.Path.extension() == ".zscene" && exists(entry.Path))
+                return entry.Path;
+        return {};
+    }
+
+    const PlayerSettings& Project::GetPlayerSettings()
+    {
+        static const PlayerSettings s_Default;
+        return s_ActiveProject ? s_ActiveProject->m_Config.Player : s_Default;
+    }
+
+    std::string Project::GetProductName()
+    {
+        return s_ActiveProject ? s_ActiveProject->m_Config.Player.GetProductName(s_ActiveProject->m_Config.Name) : std::string("Zamin");
+    }
+
+    std::filesystem::path Project::GetIconPath()
+    {
+        if (!s_ActiveProject || s_ActiveProject->m_Config.Player.Icon.empty())
+            return {};
+        return GetAssetFileSystemPath(s_ActiveProject->m_Config.Player.Icon);
     }
 
     bool Project::SaveActive(const std::filesystem::path& path)
@@ -404,58 +513,120 @@ namespace Zamin {
         }
     }
 
-    static json ConfigToJson(const ProjectConfig& c)
+    // The top-level sections and the keys of "Project" this engine reads (anything else of a file is
+    // kept in ProjectConfig::ExtraSections).
+    static const std::vector<std::string>& KnownSections()
     {
-        json j;
-        j["Project"] = {
-            { "Name", c.Name },
-            { "StartScene", c.StartScene.generic_string() },
-            { "AssetDirectory", c.AssetDirectory.generic_string() },
-            { "SourceDirectory", c.SourceDirectory.generic_string() },
-            { "ScriptModulePath", c.ScriptModulePath.generic_string() },
-            { "EngineVersion", "0.1.0" },
-        };
+        static const std::vector<std::string> s_Keys = { "Version", "Project", "Player", "BuildScenes", "InputActions", "Tags", "SortingLayers",
+                                                         "CollisionLayers2D", "Audio", "Quality", "DebugDraw" };
+        return s_Keys;
+    }
+
+    static const std::vector<std::string>& KnownProjectKeys()
+    {
+        static const std::vector<std::string> s_Keys = { "Name", "StartScene", "StartSceneUUID", "AssetDirectory", "SourceDirectory",
+                                                         "ScriptModulePath", "EngineVersion" };
+        return s_Keys;
+    }
+
+    static bool Contains(const std::vector<std::string>& list, const std::string& key)
+    {
+        return std::find(list.begin(), list.end(), key) != list.end();
+    }
+
+    // A section made by another module (sorted json, or JSON text) in the file's ordered JSON.
+    static ordered_json ToOrdered(const json& j) { return ordered_json::parse(j.dump()); }
+    static ordered_json ToOrdered(const std::string& text) { return ordered_json::parse(text); }
+
+    // The kept unknown keys of one object ("" = top level, "Project", "Player") appended to it.
+    static void AppendExtras(ordered_json& object, const ProjectConfig& c, const std::string& owner)
+    {
+        const std::string prefix = owner.empty() ? std::string() : owner + ".";
+        for (const auto& [key, text] : c.ExtraSections)
+        {
+            const bool nested = key.starts_with("Project.") || key.starts_with("Player.");
+            if (owner.empty() ? nested : !key.starts_with(prefix))
+                continue;
+            const std::string name = key.substr(prefix.size());
+            if (name.empty() || object.contains(name))
+                continue; // the engine writes this key itself now
+            ordered_json value = ordered_json::parse(text, nullptr, false);
+            if (!value.is_discarded())
+                object[name] = std::move(value);
+        }
+    }
+
+    static bool HasExtras(const ProjectConfig& c, const std::string& owner)
+    {
+        return std::any_of(c.ExtraSections.begin(), c.ExtraSections.end(), [&](const auto& e) { return e.first.starts_with(owner + "."); });
+    }
+
+    // The whole file, its sections in a fixed order (keys inside the sections as their modules write them).
+    static ordered_json ConfigToJson(const ProjectConfig& c)
+    {
+        ordered_json j;
+        j["Version"] = ProjectMigration::CurrentVersion;
+        ordered_json project;
+        project["Name"] = c.Name;
+        project["StartScene"] = c.StartScene.generic_string();
         if (c.StartSceneHandle && !c.StartScene.empty())
-            j["Project"]["StartSceneUUID"] = c.StartSceneHandle.ToString();
+            project["StartSceneUUID"] = c.StartSceneHandle.ToString();
+        project["AssetDirectory"] = c.AssetDirectory.generic_string();
+        project["SourceDirectory"] = c.SourceDirectory.generic_string();
+        project["ScriptModulePath"] = c.ScriptModulePath.generic_string();
+        project["EngineVersion"] = ZM_ENGINE_VERSION;
+        AppendExtras(project, c, "Project");
+        j["Project"] = std::move(project);
+        // Written once something differs from the defaults (older files stay as they were).
+        if (!c.Player.IsDefault() || HasExtras(c, "Player"))
+        {
+            ordered_json player = ToOrdered(c.Player.ToJson());
+            AppendExtras(player, c, "Player");
+            j["Player"] = std::move(player);
+        }
         if (!c.BuildScenes.empty())
         {
-            json list = json::array();
+            ordered_json list = ordered_json::array();
             for (const BuildSceneEntry& entry : c.BuildScenes)
             {
-                json item = { { "Path", entry.Path.generic_string() }, { "Enabled", entry.Enabled } };
+                ordered_json item;
+                item["Path"] = entry.Path.generic_string();
+                item["Enabled"] = entry.Enabled;
                 if (entry.Handle)
                     item["UUID"] = entry.Handle.ToString();
-                list.push_back(item);
+                list.push_back(std::move(item));
             }
-            j["BuildScenes"] = list;
+            j["BuildScenes"] = std::move(list);
         }
-        j["InputActions"] = InputMapToJson(c.InputActions);
+        j["InputActions"] = ToOrdered(InputMapToJson(c.InputActions));
         j["Tags"] = c.Tags;
         // Written once there is more than the Default layer (older files stay as they were).
         if (!(c.SortingLayers == SortingLayerList()))
-            j["SortingLayers"] = SortingLayersToJson(c.SortingLayers);
+            j["SortingLayers"] = ToOrdered(SortingLayersToJson(c.SortingLayers));
         // Written once something differs from the defaults (older files stay as they were).
         if (!c.CollisionLayers.IsDefault())
-            j["CollisionLayers2D"] = json::parse(c.CollisionLayers.ToJson());
+            j["CollisionLayers2D"] = ToOrdered(c.CollisionLayers.ToJson());
         // Written once the mixer differs from the defaults (older files stay as they were).
         if (!c.Audio.IsDefault())
-            j["Audio"] = json::parse(c.Audio.ToJson());
+            j["Audio"] = ToOrdered(c.Audio.ToJson());
         // Written once the levels differ from the defaults (older files stay as they were).
         if (!c.Quality.IsDefault())
-            j["Quality"] = json::parse(c.Quality.ToJson());
-        j["DebugDraw"] = {
-            { "Enabled", c.DebugDraw.Enabled },
-            { "Raycasts", c.DebugDraw.ShowRaycasts },
-            { "RaycastDuration", c.DebugDraw.RaycastDuration },
-            { "Contacts", c.DebugDraw.ShowContacts },
-            { "ContactDetails", c.DebugDraw.ShowContactDetails },
-            { "Joints", c.DebugDraw.ShowJoints },
-            { "Velocities", c.DebugDraw.ShowVelocities },
-            { "BodyVelocities", c.DebugDraw.ShowBodyVelocities },
-            { "VelocityScale", c.DebugDraw.VelocityScale },
-            { "LineWidth", c.DebugDraw.LineWidth },
-            { "TextSize", c.DebugDraw.TextSize },
-        };
+            j["Quality"] = ToOrdered(c.Quality.ToJson());
+        ordered_json debug;
+        debug["Enabled"] = c.DebugDraw.Enabled;
+        debug["Raycasts"] = c.DebugDraw.ShowRaycasts;
+        debug["RaycastDuration"] = c.DebugDraw.RaycastDuration;
+        debug["Contacts"] = c.DebugDraw.ShowContacts;
+        debug["ContactDetails"] = c.DebugDraw.ShowContactDetails;
+        debug["Joints"] = c.DebugDraw.ShowJoints;
+        debug["Velocities"] = c.DebugDraw.ShowVelocities;
+        debug["BodyVelocities"] = c.DebugDraw.ShowBodyVelocities;
+        debug["VelocityScale"] = c.DebugDraw.VelocityScale;
+        debug["LineWidth"] = c.DebugDraw.LineWidth;
+        debug["TextSize"] = c.DebugDraw.TextSize;
+        j["DebugDraw"] = std::move(debug);
+        // What the file had that this engine does not read: at the end, as it was.
+        AppendExtras(j, c, "");
         return j;
     }
 
@@ -477,7 +648,10 @@ namespace Zamin {
                 if (meta && meta->HasMetaFile)
                     entry.Handle = meta->Handle;
             }
-        return FileSystem::WriteTextFile(filepath, ConfigToJson(c).dump(4));
+        if (!FileSystem::WriteTextFile(filepath, ConfigToJson(c).dump(4)))
+            return false;
+        c.FileVersion = ProjectMigration::CurrentVersion; // the file is in the current format now
+        return true;
     }
 
     std::string ProjectSerializer::ConfigToString(const ProjectConfig& config) { return ConfigToJson(config).dump(4); }
@@ -485,7 +659,7 @@ namespace Zamin {
     std::vector<std::pair<std::string, std::string>> ProjectSerializer::ConfigToSections(const ProjectConfig& config)
     {
         std::vector<std::pair<std::string, std::string>> sections;
-        json j = ConfigToJson(config);
+        ordered_json j = ConfigToJson(config);
         for (auto it = j.begin(); it != j.end(); ++it)
         {
             if (it.key() == "Project" && it->is_object())
@@ -583,20 +757,61 @@ namespace Zamin {
         c.Quality = QualitySettings();
         if (auto it = j.find("Quality"); it != j.end() && it->is_object())
             QualitySettings::FromJson(it->dump(), c.Quality);
+        // The player: company / product / version, window, icon (older projects: the defaults).
+        c.Player = PlayerSettings();
+        if (auto it = j.find("Player"); it != j.end() && it->is_object())
+            PlayerSettings::FromJson(it->dump(), c.Player);
     }
 
-    bool ProjectSerializer::ConfigFromString(const std::string& text, ProjectConfig& out)
+    // Migrates, reads, and keeps what is not understood. Throws (nlohmann) on a broken required part.
+    static void ParseConfig(const std::string& text, ProjectConfig& out, ProjectMigrationResult& migration)
+    {
+        std::string migrated = text;
+        std::string error;
+        if (!ProjectMigration::MigrateText(migrated, &migration, &error))
+            throw std::runtime_error(error);
+        const ordered_json root = ordered_json::parse(migrated);
+        ProjectConfig config;
+        ConfigFromJson(json::parse(migrated), config);
+        config.FileVersion = migration.FileVersion;
+        // Keys this engine does not read, in file order.
+        config.ExtraSections.clear();
+        for (auto it = root.begin(); it != root.end(); ++it)
+        {
+            if (!Contains(KnownSections(), it.key()))
+                config.ExtraSections.emplace_back(it.key(), it.value().dump());
+            else if (it.key() == "Project" && it->is_object())
+            {
+                for (auto p = it->begin(); p != it->end(); ++p)
+                    if (!Contains(KnownProjectKeys(), p.key()))
+                        config.ExtraSections.emplace_back("Project." + p.key(), p.value().dump());
+            }
+            else if (it.key() == "Player" && it->is_object())
+            {
+                for (auto p = it->begin(); p != it->end(); ++p)
+                    if (!Contains(PlayerSettings::GetKnownKeys(), p.key()))
+                        config.ExtraSections.emplace_back("Player." + p.key(), p.value().dump());
+            }
+        }
+        out = std::move(config);
+    }
+
+    bool ProjectSerializer::ConfigFromString(const std::string& text, ProjectConfig& out, ProjectMigrationResult* migration, std::string* error)
     {
         try
         {
-            ProjectConfig config;
-            ConfigFromJson(json::parse(text), config);
-            out = std::move(config);
+            ProjectMigrationResult result;
+            ParseConfig(text, out, result);
+            if (migration)
+                *migration = std::move(result);
             return true;
         }
         catch (const std::exception& e)
         {
-            ZM_CORE_ERROR("Loyiha sozlamalari o'qilmadi: {}", e.what());
+            if (error)
+                *error = e.what();
+            else
+                ZM_CORE_ERROR("Loyiha sozlamalari o'qilmadi: {}", e.what());
             return false;
         }
     }
@@ -605,14 +820,34 @@ namespace Zamin {
     {
         std::string text = FileSystem::ReadTextFile(filepath);
         if (text.empty()) return false;
+        ProjectMigrationResult migration;
         try
         {
-            ConfigFromJson(json::parse(text), m_Project->GetConfig());
+            ParseConfig(text, m_Project->GetConfig(), migration);
         }
         catch (const std::exception& e)
         {
             ZM_CORE_ERROR("Loyiha fayli o'qilmadi '{}': {}", filepath.string(), e.what());
             return false;
+        }
+        const std::string name = filepath.filename().string();
+        if (migration.Migrated())
+        {
+            ZM_CORE_INFO("Loyiha fayli eski formatda: {} {} - saqlanganda joriy formatda yoziladi", name, migration.Summary());
+            for (const ProjectMigrationStep& step : migration.Steps)
+                ZM_CORE_INFO("  v{} -> v{}: {} ({} ta)", step.From, step.To, step.Description, step.Changes);
+        }
+        if (migration.IsNewer())
+            ZM_CORE_WARN("Loyiha fayli yangiroq formatda (v{}, bu dvigatel v{} gacha biladi): {} - tushunarli qismi o'qildi, "
+                         "qolgani saqlanganda o'zgarmay yoziladi", migration.FileVersion, ProjectMigration::CurrentVersion, name);
+        if (const auto& extra = m_Project->GetConfig().ExtraSections; !extra.empty())
+        {
+            std::string keys;
+            for (size_t i = 0; i < extra.size() && i < 6; i++)
+                keys += (i ? ", " : "") + extra[i].first;
+            if (extra.size() > 6)
+                keys += std::format(" ... (+{})", extra.size() - 6);
+            ZM_CORE_INFO("Loyiha faylidagi {} ta noma'lum kalit saqlab qolinadi: {}", extra.size(), keys);
         }
         return true;
     }

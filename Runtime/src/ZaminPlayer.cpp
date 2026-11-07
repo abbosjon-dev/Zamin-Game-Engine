@@ -1,6 +1,8 @@
-// Zamin Player: runs an exported / development game project fullscreen-ready.
+// Zamin Player: runs an exported / development game project fullscreen-ready. Its window is made as
+// the project's player settings say (size, fullscreen / borderless, vsync, title, icon, frame rate
+// limit, running in the background); the command line wins over them.
 //   ZaminPlayer [path/to/Game.zproject] [--scene Scenes/Level.zscene | <build index> | <build scene name>]
-//               [--fullscreen] [--width W --height H] [--quality <level name | index>]
+//               [--fullscreen | --windowed] [--width W --height H] [--no-vsync] [--quality <level name | index>]
 //               [--no-debug-draw] [--debug-raycasts] [--debug-contacts] [--debug-contact-details] [--debug-joints]
 //               [--debug-velocities]
 #include <Zamin/Zamin.h>
@@ -21,7 +23,7 @@
 
 namespace Zamin {
 
-    // --fullscreen / --no-vsync were given: they win over the display options the game saved.
+    // --fullscreen / --windowed / --no-vsync were given: they win over the display options the game saved.
     static bool s_DisplayFromCommandLine = false;
     // --quality <name | index>: wins over the level the game saved (Quality::SaveSettings) and the project's default.
     static std::string s_QualityFromCommandLine;
@@ -47,7 +49,25 @@ namespace Zamin {
                 return;
             }
             auto& config = Project::GetActive()->GetConfig();
-            Application::Get().GetWindow().SetTitle(config.Name);
+            const PlayerSettings& player = config.Player;
+            Window& window = Application::Get().GetWindow();
+            window.SetTitle(player.GetWindowTitle(config.Name));
+            ZM_INFO("{} {}{}", player.GetProductName(config.Name), player.Version,
+                    player.CompanyName.empty() ? std::string() : std::format(" ({})", player.CompanyName));
+            // The game's icon (title bar, task bar).
+            if (!player.Icon.empty())
+            {
+                ImageData icon;
+                std::string error;
+                if (GameIcon::Load(Project::GetIconPath(), icon, &error))
+                    window.SetIcon(GameIcon::MakeWindowImages(icon));
+                else
+                    ZM_WARN("O'yin ikonkasi o'qilmadi ({}): {}", player.Icon.generic_string(), error);
+            }
+            Application::Get().SetTargetFrameRate(player.TargetFrameRate);
+            Application::Get().SetRunInBackground(player.RunInBackground);
+            if (player.TargetFrameRate > 0)
+                ZM_INFO("Kadr chastotasi cheklovi: {} FPS", player.TargetFrameRate);
             // The player's own audio settings (the game's options menu saved them) over the project's mixer.
             if (Audio::LoadSettings())
                 ZM_INFO("Saqlangan ovoz sozlamalari yuklandi");
@@ -86,8 +106,17 @@ namespace Zamin {
                 ScriptEngine::LoadModule(module);
 
             // The start scene: --scene (a path, a build index or a build scene's name), else the
-            // project's start scene, else the first build scene.
+            // project's start scene, else (it is not there / not set) the first build scene.
             std::filesystem::path start = m_SceneOverride.empty() ? config.StartScene : std::filesystem::path(m_SceneOverride);
+            if (m_SceneOverride.empty())
+                if (std::filesystem::path resolved = Project::ResolveStartScene(config, Project::GetAssetDirectory());
+                    !resolved.empty() && resolved != config.StartScene)
+                {
+                    if (!config.StartScene.empty())
+                        ZM_WARN("Boshlang'ich sahna topilmadi ({}) - birinchi build sahnasi ochiladi: {}", config.StartScene.generic_string(),
+                                resolved.generic_string());
+                    start = resolved;
+                }
             int buildIndex = -1;
             if (const std::string& arg = m_SceneOverride; !arg.empty() &&
                 std::from_chars(arg.data(), arg.data() + arg.size(), buildIndex).ptr == arg.data() + arg.size())
@@ -105,7 +134,6 @@ namespace Zamin {
             // Every scene of the game runs in the scene manager: additive scenes, DontDestroyOnLoad,
             // background loading and fades between scenes.
             m_Scenes = std::make_unique<SceneManager>();
-            auto& window = Application::Get().GetWindow();
             m_Scenes->OnViewportResize(window.GetFramebufferWidth(), window.GetFramebufferHeight());
             std::string error;
             if (!m_Scenes->Start(scenePath, &error))
@@ -506,23 +534,20 @@ namespace Zamin {
         spec.Name = "Zamin Player";
         spec.CommandLineArgs = args;
         spec.EnableImGui = false;
-        spec.Window.Width = 1280;
-        spec.Window.Height = 720;
 
         const char* projectArg = nullptr;
         std::string scene;
         RuntimeLayer::DebugDrawFlags debugDraw;
+        bool fullscreen = false, windowed = false, noVSync = false;
+        int width = 0, height = 0;
         for (int i = 1; i < args.Count; i++)
         {
-            if (!std::strcmp(args[i], "--fullscreen")) spec.Window.Fullscreen = s_DisplayFromCommandLine = true;
+            if (!std::strcmp(args[i], "--fullscreen")) fullscreen = true;
+            else if (!std::strcmp(args[i], "--windowed")) windowed = true;
             else if (!std::strcmp(args[i], "--scene") && i + 1 < args.Count) scene = args[++i];
-            else if (!std::strcmp(args[i], "--width") && i + 1 < args.Count) spec.Window.Width = (uint32_t)std::atoi(args[++i]);
-            else if (!std::strcmp(args[i], "--height") && i + 1 < args.Count) spec.Window.Height = (uint32_t)std::atoi(args[++i]);
-            else if (!std::strcmp(args[i], "--no-vsync"))
-            {
-                spec.Window.VSync = false;
-                s_DisplayFromCommandLine = true;
-            }
+            else if (!std::strcmp(args[i], "--width") && i + 1 < args.Count) width = std::atoi(args[++i]);
+            else if (!std::strcmp(args[i], "--height") && i + 1 < args.Count) height = std::atoi(args[++i]);
+            else if (!std::strcmp(args[i], "--no-vsync")) noVSync = true;
             else if (!std::strcmp(args[i], "--quality") && i + 1 < args.Count) s_QualityFromCommandLine = args[++i];
             else if (!std::strcmp(args[i], "--no-debug-draw")) debugDraw.Disable = true;
             else if (!std::strcmp(args[i], "--debug-raycasts")) debugDraw.Raycasts = true;
@@ -539,6 +564,24 @@ namespace Zamin {
             ZM_CRITICAL("Loyiha topilmadi. Foydalanish: ZaminPlayer <Game.zproject>");
             std::exit(1);
         }
+
+        // The window as the project's player settings say (read before the engine starts: the window
+        // is made with them); a file that cannot be read gets the defaults here and fails to load later.
+        ProjectConfig config;
+        std::string error;
+        if (!ProjectSerializer::ConfigFromString(FileSystem::ReadTextFile(project), config, nullptr, &error))
+            config = ProjectConfig();
+        spec.Window = config.Player.MakeWindowProps(config.Name);
+        // The command line wins.
+        if (width > 0) spec.Window.Width = (uint32_t)width;
+        if (height > 0) spec.Window.Height = (uint32_t)height;
+        if (fullscreen)
+            spec.Window.Mode = spec.Window.FullscreenMode;
+        else if (windowed)
+            spec.Window.Mode = WindowMode::Windowed;
+        if (noVSync)
+            spec.Window.VSync = false;
+        s_DisplayFromCommandLine = fullscreen || windowed || noVSync;
         return new ZaminPlayer(spec, project, scene, debugDraw);
     }
 

@@ -24,10 +24,10 @@ namespace Zamin {
     public:
         // What callers ask to see (Focus): a category, Tags / SortingLayers are the two pages of
         // "Tags and layers".
-        enum class Tab { Input = 0, SaveData, Tags, General, SortingLayers, PhysicsLayers, BuildScenes, Quality, Audio, Debug };
+        enum class Tab { Input = 0, SaveData, Tags, General, SortingLayers, PhysicsLayers, BuildScenes, Quality, Audio, Debug, Player };
 
         // In the order of ProjectSettingsIndex::GetCategories() (titles, search keywords, file sections).
-        enum class Category { General = 0, Quality, Physics, Audio, Input, TagsAndLayers, BuildScenes, Debug, SaveData, Count };
+        enum class Category { General = 0, Player, Quality, Physics, Audio, Input, TagsAndLayers, BuildScenes, Debug, SaveData, Count };
 
         void OnImGuiRender(bool* show);
 
@@ -50,6 +50,8 @@ namespace Zamin {
         std::function<void(const std::filesystem::path&)> OnOpenSceneRequested;
         // The Audio category's button: show the Audio Mixer window.
         std::function<void()> OnAudioMixerRequested;
+        // The build scenes page's button: show the Scenes window (every scene of the project).
+        std::function<void()> OnScenesPanelRequested;
         // Writes the active .zproject if there are unsaved changes.
         void SaveIfDirty();
         // Call when another project is opened / the project is closed.
@@ -64,6 +66,8 @@ namespace Zamin {
         // Automation: "expand" opens every entry of the input map (and its duplicate list), "presets"
         // the physics presets menu.
         void RequestOpen(const std::string& what) { m_AutomationOpen = what; }
+        // Automation: the category page scrolled to y (pixels; < 0: the bottom) for the next frames.
+        void RequestScroll(float y) { m_ScrollRequest = y; m_ScrollFrames = 30; }
 
     private:
         enum class ListKind { None = 0, Action, AxisNegative, AxisPositive };
@@ -88,6 +92,9 @@ namespace Zamin {
 
         // ---- categories
         void DrawGeneral(ProjectConfig& config);
+        // Company / product / version, the window, the icon (ProjectConfig::Player).
+        void DrawPlayer(ProjectConfig& config);
+        void DrawPlayerIcon(PlayerSettings& player);
         void DrawDebug(ProjectConfig& config);
         void DrawQuality(ProjectConfig& config);
         void DrawAudio(ProjectConfig& config);
@@ -155,11 +162,21 @@ namespace Zamin {
         std::string m_InputFilter;
         int m_InputOpenRequest = -1;
         std::string m_AutomationOpen;
+        float m_ScrollRequest = 0.0f;
+        int m_ScrollFrames = 0;
         // Quality: the level edited below the table, its name being typed.
         int m_QualityLevel = -1;
         std::string m_QualityNameBuffer;
         // Physics: the preset waiting for confirmation (it replaces the layer names).
         int m_PendingPreset = -1;
+        // Player: the icon's preview (loaded when the path or the file changes) and its problem.
+        Ref<Texture2D> m_IconPreview;
+        std::filesystem::path m_IconPreviewPath;
+        std::filesystem::file_time_type m_IconPreviewTime{};
+        std::string m_IconError, m_IconWarning;
+        glm::uvec2 m_IconSize{ 0 };
+        std::string m_VersionBuffer;
+        bool m_VersionEditing = false;
 
         // SaveData tab: new entry
         std::string m_NewSaveKey;

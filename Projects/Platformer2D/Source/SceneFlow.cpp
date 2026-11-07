@@ -23,7 +23,8 @@ public:
     std::string Target = "Scenes/Loading.zscene";
     float FadeOut = 0.35f;
     float FadeIn = 0.35f;
-    EntityRef Title;     // tebranib turadigan sarlavha
+    EntityRef Title;       // tebranib turadigan sarlavha
+    EntityRef VersionText; // pastki o'ng burchakda o'yin nomi va versiyasi
 
     void OnStart() override
     {
@@ -31,6 +32,10 @@ public:
         AddMessageHandler("Start", [this](const ScriptMessage&) { Begin(); });
         if (Entity title = Resolve(Title))
             m_TitleY = title.GetComponent<UITransformComponent>().Position.y;
+        // The game's name and version (Project settings > Player).
+        if (Entity version = Resolve(VersionText))
+            if (auto* text = version.TryGetComponent<TextComponent>())
+                text->Text = std::format("{} v{}", Application::GetProductName(), Application::GetVersion());
     }
 
     void OnUpdate(Timestep) override
@@ -59,7 +64,8 @@ ZM_REGISTER_SCRIPT(MainMenu,
     ZM_FIELD_TOOLTIP(MainMenu, Target, "Boshlash bosilganda ochiladigan sahna (yo'l yoki build ro'yxatidagi nomi)").Header("O'tish"),
     ZM_FIELD_RANGE(MainMenu, FadeOut, 0.0f, 2.0f).Tooltip("Ekran qorayishi (sekund)"),
     ZM_FIELD_RANGE(MainMenu, FadeIn, 0.0f, 2.0f).Tooltip("Yangi sahnada ochilishi (sekund)"),
-    ZM_FIELD(MainMenu, Title).Tooltip("Tebranib turadigan sarlavha (UI)"))
+    ZM_FIELD(MainMenu, Title).Tooltip("Tebranib turadigan sarlavha (UI)"),
+    ZM_FIELD(MainMenu, VersionText).Tooltip("O'yin nomi va versiyasi yoziladigan matn (Loyiha sozlamalari > Player)"))
 
 // Yuklanish ekrani: keyingi sahnani LoadSceneAsync bilan fonda yuklaydi, progress bar va bosqichni
 // ko'rsatadi. Sahna tayyor bo'lsa ham kamida MinSeconds turadi (SetAllowSceneActivation(false)), keyin

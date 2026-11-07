@@ -34851,3 +34851,60 @@ TEST(ProjectSettingsFullRoundTrip)
     CHECK(Time::GetSettings().MaxDeltaTime == 0.05f && Application::GetVersion() == "2.1.0" && Application::GetCompanyName() == "Studiya");
     CHECK(Project::SaveActive(dir / "Toliq.zproject") && FileSystem::ReadTextFile(dir / "Toliq.zproject") == text);
 }
+
+// ---------------------------------------------------------------- M17: audio defaults, localization, editor language
+TEST(AudioSpatialDefaults)
+{
+    AudioSpatialSettings spatial;
+    CHECK(spatial.IsDefault() && spatial.Rolloff == AudioRolloff::Inverse);
+    // Inverse (the engine's old model): full volume inside min, min / (min + (d - min)) beyond, no quieter past max.
+    CHECK_NEAR(spatial.ComputeGain(0.5f), 1.0f, 1e-6f);
+    CHECK_NEAR(spatial.ComputeGain(2.0f), 0.5f, 1e-6f);
+    CHECK_NEAR(spatial.ComputeGain(30.0f), spatial.ComputeGain(500.0f), 1e-6f);
+    spatial.Rolloff = AudioRolloff::Linear;
+    CHECK_NEAR(spatial.ComputeGain(1.0f), 1.0f, 1e-6f);
+    CHECK_NEAR(spatial.ComputeGain(15.5f), 0.5f, 1e-5f);
+    CHECK_NEAR(spatial.ComputeGain(30.0f), 0.0f, 1e-6f);
+    spatial.Rolloff = AudioRolloff::Exponential;
+    CHECK_NEAR(spatial.ComputeGain(4.0f), 0.25f, 1e-5f);
+    spatial.RolloffFactor = 0.0f;
+    CHECK_NEAR(spatial.ComputeGain(20.0f), 1.0f, 1e-6f);
+    spatial.Rolloff = AudioRolloff::None;
+    spatial.RolloffFactor = 1.0f;
+    CHECK_NEAR(spatial.ComputeGain(29.0f), 1.0f, 1e-6f);
+    CHECK(spatial.ComputeGain(std::numeric_limits<float>::quiet_NaN()) == 0.0f);
+    CHECK(AudioSpatialSettings::ParseRolloff("Linear") == AudioRolloff::Linear && AudioSpatialSettings::ParseRolloff("?") == AudioRolloff::Inverse);
+
+    // Sanitized: max not below min, factor clamped, broken numbers back to defaults.
+    AudioSpatialSettings broken;
+    broken.MinDistance = 50.0f;
+    broken.MaxDistance = 5.0f;
+    broken.RolloffFactor = 99.0f;
+    broken.Sanitize();
+    CHECK(broken.MaxDistance == 50.0f && broken.RolloffFactor == AudioSpatialSettings::MaxRolloffFactor);
+    broken.MinDistance = std::numeric_limits<float>::infinity();
+    broken.Sanitize();
+    CHECK(broken.MinDistance == 1.0f);
+
+    // The "Audio" section: "Spatial" only once it differs (older files stay the same), read back exactly.
+    AudioSettings audio;
+    CHECK(audio.ToJson().find("Spatial") == std::string::npos);
+    audio.Spatial.MinDistance = 2.0f;
+    audio.Spatial.MaxDistance = 80.0f;
+    audio.Spatial.Rolloff = AudioRolloff::Linear;
+    audio.Spatial.RolloffFactor = 0.5f;
+    CHECK(!audio.IsDefault() && audio.ToJson().find("\"Rolloff\": \"Linear\"") != std::string::npos);
+    AudioSettings read;
+    CHECK(AudioSettings::FromJson(audio.ToJson(), read) && read.EqualsIgnoringSolo(audio) && read.Spatial == audio.Spatial);
+    CHECK(AudioSettings::FromJson(R"({ "Spatial": { "MinDistance": -4, "MaxDistance": "far", "Rolloff": "Nope" } })", read));
+    CHECK(read.Spatial.MinDistance == 0.01f && read.Spatial.MaxDistance == 30.0f && read.Spatial.Rolloff == AudioRolloff::Inverse);
+
+    // Sounds and new sources start with the project's distances; SoundParams asks for them with -1.
+    CHECK(SoundParams().MinDistance < 0.0f && SoundParams().MaxDistance < 0.0f);
+    Ref<Project> project = Project::New();
+    project->GetConfig().Audio.Spatial.MinDistance = 3.0f;
+    CHECK(Audio::GetSpatialDefaults().MinDistance == 3.0f);
+    Project::SetActive(nullptr);
+    CHECK(Audio::GetSpatialDefaults().IsDefault());
+    AudioEngine::SetMixerSettings(AudioSettings());
+}

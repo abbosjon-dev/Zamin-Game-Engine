@@ -387,7 +387,7 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 333. Vaqt sozlamalari (fixed timestep, time scale)
 - [x] 334. Time.timeScale skript API (sekinlashtirish)
 - [x] 335. Gravitatsiya standart qiymatlari loyiha bo'yicha
-- [ ] 336. Audio standart sozlamalari
+- [x] 336. Audio standart sozlamalari
 - [ ] 337. Lokalizatsiya: til fayllari (uz, ru, en)
 - [ ] 338. Lokalizatsiya skript API (Localize("key"))
 - [ ] 339. Editor tilini tanlash (o'zbek/ingliz)

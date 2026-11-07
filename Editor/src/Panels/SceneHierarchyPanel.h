@@ -356,6 +356,9 @@ namespace Zamin {
         bool DrawSortingLayer(uint32_t& layer, int& order);
         // Audio Source: the mixer group it plays in (from the mixer's groups) + a button to the mixer.
         bool DrawAudioOutput(std::string& output);
+        // The project's default 3D distances / distance model (Project settings > Audio) under a 3D
+        // sound's distances, with a button that puts them back to the defaults.
+        bool DrawSpatialDefaultsRow(float& minDistance, float& maxDistance);
         // Audio Source while the game runs: playing / paused / stopped, the time with a progress bar
         // (click: jump there), what is heard after the random variation, the mixer and the distance,
         // the pitch with its variation and Doppler; Play / Pause / Stop buttons.

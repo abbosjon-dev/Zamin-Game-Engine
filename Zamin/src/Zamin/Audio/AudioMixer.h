@@ -64,6 +64,42 @@ namespace Zamin {
         bool operator==(const AudioConeSettings&) const = default;
     };
 
+    // How a 3D sound gets quieter with distance between its min and max distance (miniaudio's models).
+    enum class AudioRolloff
+    {
+        Inverse = 0, // min / (min + factor x (d - min)): like in nature, loud close by, a long quiet tail
+        Linear,      // 1 - factor x (d - min) / (max - min): silent at the max distance (with factor 1)
+        Exponential, // (d / min) ^ -factor: falls off faster than inverse
+        None         // the same volume at every distance (still panned left / right)
+    };
+
+    // The project's defaults for 3D sounds: the distances new Audio Sources / Footsteps and the
+    // scripts' PlaySoundAt start with, and how every 3D sound fades with distance.
+    struct AudioSpatialSettings
+    {
+        static constexpr float MaxDistanceLimit = 100000.0f;
+        static constexpr float MaxRolloffFactor = 10.0f;
+
+        // Closer than this: full volume; further than MaxDistance: no quieter (or silent: Linear).
+        float MinDistance = 1.0f;
+        float MaxDistance = 30.0f;
+        AudioRolloff Rolloff = AudioRolloff::Inverse;
+        // How quickly the volume falls with distance (1 = the model as it is, 0 = not at all).
+        float RolloffFactor = 1.0f;
+
+        // The gain of a sound `distance` away with these min / max distances (0..1).
+        float ComputeGain(float distance, float minDistance, float maxDistance) const;
+        float ComputeGain(float distance) const { return ComputeGain(distance, MinDistance, MaxDistance); }
+        // Distances 0.01..MaxDistanceLimit (max not below min), factor 0..MaxRolloffFactor.
+        void Sanitize();
+        bool IsDefault() const { return *this == AudioSpatialSettings(); }
+
+        static const char* GetRolloffName(AudioRolloff rolloff); // "Inverse", "Linear" ... (the file's names)
+        static AudioRolloff ParseRolloff(std::string_view name);  // unknown: Inverse
+
+        bool operator==(const AudioSpatialSettings&) const = default;
+    };
+
     // One mixer group (bus): the sounds routed to it and its child groups are mixed, multiplied by
     // its fader and passed on to its parent. Master is the root every group ends up in.
     struct AudioGroupSettings
@@ -103,6 +139,8 @@ namespace Zamin {
         // The Doppler effect of moving 3D sounds and a moving listener: 1 = as in nature, 0 = off.
         // Each sound's own factor (Audio Source "Doppler") is multiplied by it.
         float DopplerFactor = 1.0f;
+        // 3D sounds: the default distances and how they fade with distance (Project settings > Audio).
+        AudioSpatialSettings Spatial;
 
         static constexpr int MaxVoicesLimit = 1024;
         static constexpr float MaxDopplerFactor = 5.0f;
@@ -138,7 +176,7 @@ namespace Zamin {
 
         // Master first, built-ins present, unique non-empty names, every parent known (no loops;
         // otherwise Master), volumes in 0..MaxVolume, threshold positive, 1..MaxVoicesLimit voices,
-        // Doppler in 0..MaxDopplerFactor.
+        // Doppler in 0..MaxDopplerFactor, the spatial defaults sanitized.
         void Sanitize();
         // Equal to the defaults (Solo is not compared: it is never saved).
         bool IsDefault() const;

@@ -385,6 +385,16 @@ namespace Zamin {
         ImGui::BeginDisabled(!m_SceneEditable);
         if (UI::BeginPropertyGrid("audio"))
         {
+            // The master fader on its own row first: the game's overall volume.
+            if (AudioGroupSettings* master = audio.Find(AudioSettings::Master))
+            {
+                UI::PropertyHeader(ICON_FA_VOLUME_HIGH "  Umumiy ovoz",
+                                   "Master guruhining boshlang'ich balandligi: hamma ovozlar shundan o'tadi. O'yinchi sozlamalari "
+                                   "(Audio::SaveSettings) uni o'yin davomida o'zgartira oladi.");
+                const float db = master->Volume > 0.0001f ? 20.0f * std::log10(master->Volume) : -80.0f;
+                const std::string format = std::format("{:.0f}%  ({:+.1f} dB)", master->Volume * 100.0f, db);
+                changed |= PropertySliderFloat("Master ovozi", master->Volume, 0.0f, AudioSettings::MaxVolume, format.c_str());
+            }
             UI::PropertyHeader(ICON_FA_SLIDERS "  Mikser guruhlari (boshlang'ich ovoz)",
                                "Har bir guruh o'yin boshida shu ovoz balandligida (skript Audio::SetGroupVolume bilan o'zgartiradi). "
                                "Guruh qo'shish, ota guruh va filtrlar - Audio Mixer oynasida.");
@@ -421,6 +431,76 @@ namespace Zamin {
             changed |= PropertySliderFloat("Doppler", audio.DopplerFactor, 0.0f, AudioSettings::MaxDopplerFactor, "%.2f");
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Harakatlanayotgan 3D ovozlarning Doppler effekti: 1 - tabiatdagidek, 0 - o'chiq");
+
+            AudioSpatialSettings& spatial = audio.Spatial;
+            UI::PropertyHeader(ICON_FA_LOCATION_DOT "  3D ovoz (standartlar)",
+                               "Yangi Audio Source / Footsteps va skriptlarning PlaySoundAt'i shu masofalar bilan boshlanadi (har bir "
+                               "manba o'zinikini o'zgartira oladi). Masofa modeli hamma 3D ovozlarga ta'sir qiladi.");
+            changed |= UI::PropertyFloat("Min masofa", spatial.MinDistance, 0.05f, 0.01f, 1000.0f, "%.2f m");
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Shundan yaqinda ovoz to'liq balandlikda eshitiladi");
+            changed |= UI::PropertyFloat("Max masofa", spatial.MaxDistance, 0.1f, 0.1f, 10000.0f, "%.1f m");
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Shundan uzoqda ovoz boshqa pasaymaydi (chiziqli modelda - eshitilmaydi)");
+            static const char* s_RolloffLabels[] = { "Teskari (Inverse)", "Chiziqli (Linear)", "Eksponensial", "Masofasiz" };
+            int rolloff = (int)spatial.Rolloff;
+            if (UI::PropertyCombo("Masofa modeli", rolloff, s_RolloffLabels, 4))
+            {
+                spatial.Rolloff = (AudioRolloff)rolloff;
+                changed = true;
+            }
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Teskari - tabiatdagidek (yaqinda tez, keyin sekin pasayadi); chiziqli - max masofada jim; "
+                            "eksponensial - tezroq pasayadi; masofasiz - hamma joyda bir xil (faqat chap / o'ng)");
+            ImGui::BeginDisabled(spatial.Rolloff == AudioRolloff::None);
+            changed |= PropertySliderFloat("Pasayish (rolloff)", spatial.RolloffFactor, 0.0f, AudioSpatialSettings::MaxRolloffFactor, "%.2f");
+            ImGui::EndDisabled();
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Ovoz masofa bilan qanchalik tez pasayadi: 1 - model o'zi, 0 - umuman pasaymaydi");
+
+            // The curve: gain over 0 .. 1.25 x the max distance.
+            UI::PropertyLabel("Egri chiziq");
+            {
+                const float width = std::max(80.0f, ImGui::GetContentRegionAvail().x);
+                const float height = 70.0f;
+                ImDrawList* draw = ImGui::GetWindowDrawList();
+                const ImVec2 p0 = ImGui::GetCursorScreenPos();
+                const ImVec2 p1(p0.x + width, p0.y + height);
+                draw->AddRectFilled(p0, p1, ImGui::GetColorU32(ImGuiCol_FrameBg), 3.0f);
+                const float range = std::max(spatial.MaxDistance * 1.25f, 1.0f);
+                const float minX = p0.x + width * std::clamp(spatial.MinDistance / range, 0.0f, 1.0f);
+                const float maxX = p0.x + width * std::clamp(spatial.MaxDistance / range, 0.0f, 1.0f);
+                const ImU32 guide = ImGui::GetColorU32(ImGuiCol_TextDisabled, 0.6f);
+                draw->AddLine(ImVec2(minX, p0.y), ImVec2(minX, p1.y), guide);
+                draw->AddLine(ImVec2(maxX, p0.y), ImVec2(maxX, p1.y), guide);
+                constexpr int samples = 64;
+                ImVec2 points[samples + 1];
+                for (int i = 0; i <= samples; i++)
+                {
+                    const float d = range * (float)i / (float)samples;
+                    const float gain = spatial.ComputeGain(d);
+                    points[i] = ImVec2(p0.x + width * (float)i / (float)samples, p1.y - 4.0f - (height - 8.0f) * gain);
+                }
+                draw->AddPolyline(points, samples + 1, ImGui::GetColorU32(ImGuiCol_PlotLines), 0, 2.0f);
+                const std::string minText = std::format("{:.1f} m", spatial.MinDistance);
+                const std::string maxText = std::format("{:.1f} m", spatial.MaxDistance);
+                draw->AddText(ImVec2(minX + 3.0f, p0.y + 2.0f), guide, minText.c_str());
+                draw->AddText(ImVec2(std::min(maxX + 3.0f, p1.x - ImGui::CalcTextSize(maxText.c_str()).x - 3.0f), p0.y + 2.0f), guide,
+                              maxText.c_str());
+                ImGui::Dummy(ImVec2(width, height));
+                if (ImGui::IsItemHovered())
+                {
+                    const float d = range * std::clamp((ImGui::GetIO().MousePos.x - p0.x) / width, 0.0f, 1.0f);
+                    const float gain = spatial.ComputeGain(d);
+                    UI::Tooltip(std::format("{:.1f} m: {:.0f}%  ({:+.1f} dB)", d, gain * 100.0f, AudioGain::ToDecibels(gain)).c_str());
+                }
+            }
+            UI::PropertyLabel("");
+            if (ImGui::SmallButton(ICON_FA_ROTATE_LEFT "  3D standartlarini tiklash"))
+            {
+                spatial = AudioSpatialSettings();
+                changed = true;
+            }
             UI::EndPropertyGrid();
         }
         ImGui::EndDisabled();

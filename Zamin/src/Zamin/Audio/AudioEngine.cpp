@@ -431,7 +431,22 @@ namespace Zamin {
             return { p.x, p.y, p.z };
         }
 
-        // How much the distance from the listener (miniaudio's inverse model) and the directional
+        // The project's distance model and rolloff on a 3D sound.
+        void ApplySpatialModel(ma_sound* sound)
+        {
+            ma_attenuation_model model = ma_attenuation_model_inverse;
+            switch (s_Mixer.Spatial.Rolloff)
+            {
+                case AudioRolloff::Inverse: model = ma_attenuation_model_inverse; break;
+                case AudioRolloff::Linear: model = ma_attenuation_model_linear; break;
+                case AudioRolloff::Exponential: model = ma_attenuation_model_exponential; break;
+                case AudioRolloff::None: model = ma_attenuation_model_none; break;
+            }
+            ma_sound_set_attenuation_model(sound, model);
+            ma_sound_set_rolloff(sound, s_Mixer.Spatial.RolloffFactor);
+        }
+
+        // How much the distance from the listener (the project's rolloff model) and the directional
         // cone lower a 3D sound.
         float Attenuation(const Voice& voice, float* distanceOut = nullptr, float* coneOut = nullptr)
         {
@@ -446,10 +461,8 @@ namespace Zamin {
             float distance = glm::length(position - listener);
             if (distanceOut)
                 *distanceOut = distance;
-            float minDistance = ma_sound_get_min_distance(sound), maxDistance = ma_sound_get_max_distance(sound);
-            float gain = 1.0f;
-            if (minDistance < maxDistance)
-                gain = minDistance / (minDistance + ma_sound_get_rolloff(sound) * (std::clamp(distance, minDistance, maxDistance) - minDistance));
+            // The project's model and rolloff (the same ones miniaudio was given: ApplySpatialModel).
+            const float gain = s_Mixer.Spatial.ComputeGain(distance, ma_sound_get_min_distance(sound), ma_sound_get_max_distance(sound));
             const float cone = AudioEngine::ComputeConeGain(voice.Cone, position, voice.Direction, listener);
             if (coneOut)
                 *coneOut = cone;
@@ -826,9 +839,12 @@ namespace Zamin {
             if (params.Spatial)
             {
                 ma_sound_set_spatialization_enabled(sound, MA_TRUE);
-                ma_sound_set_attenuation_model(sound, ma_attenuation_model_inverse);
-                ma_sound_set_min_distance(sound, std::max(0.01f, params.MinDistance));
-                ma_sound_set_max_distance(sound, std::max(params.MinDistance, params.MaxDistance));
+                ApplySpatialModel(sound);
+                // Negative: the project's defaults (Audio > 3D ovoz).
+                const float minDistance = std::max(0.01f, params.MinDistance >= 0.0f ? params.MinDistance : s_Mixer.Spatial.MinDistance);
+                const float maxDistance = std::max(minDistance, params.MaxDistance >= 0.0f ? params.MaxDistance : s_Mixer.Spatial.MaxDistance);
+                ma_sound_set_min_distance(sound, minDistance);
+                ma_sound_set_max_distance(sound, maxDistance);
                 ma_sound_set_position(sound, params.Position.x, params.Position.y, params.Position.z);
                 voice.Cone = params.Cone;
                 voice.Cone.Sanitize();
@@ -1819,9 +1835,15 @@ namespace Zamin {
     // ------------------------------------------------------------------ mixer
     void AudioEngine::SetMixerSettings(const AudioSettings& settings)
     {
+        const AudioSpatialSettings previous = s_Mixer.Spatial;
         s_Mixer = settings;
         s_Mixer.Sanitize();
         BuildGroups();
+        // A new distance model reaches the 3D sounds playing now, too.
+        if (!(previous == s_Mixer.Spatial))
+            for (auto& [handle, voice] : s_Voices)
+                if (voice.Spatial && voice.Sound)
+                    ApplySpatialModel(voice.Sound.get());
     }
 
     const AudioSettings& AudioEngine::GetMixerSettings() { return s_Mixer; }

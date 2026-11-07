@@ -230,3 +230,6 @@
 #define ICON_FA_MICROCHIP "\xef\x8b\x9b"           // the graphics (OpenGL context) settings
 #define ICON_FA_GAUGE_SIMPLE "\xef\x98\xa9"        // time scale
 #define ICON_FA_ARROW_DOWN_LONG "\xef\x85\xb5"     // gravity
+// project settings IV (M17): audio defaults, localization, editor language
+#define ICON_FA_LOCATION_DOT "\xef\x8f\x85"        // 3D sound defaults
+#define ICON_FA_LANGUAGE "\xef\x86\xab"            // localization / the editor's language

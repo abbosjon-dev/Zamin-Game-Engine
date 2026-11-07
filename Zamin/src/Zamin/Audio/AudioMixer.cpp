@@ -50,6 +50,63 @@ namespace Zamin {
         OuterGain = std::isfinite(OuterGain) ? std::clamp(OuterGain, 0.0f, 1.0f) : 0.2f;
     }
 
+    // ------------------------------------------------------------------ spatial defaults
+    float AudioSpatialSettings::ComputeGain(float distance, float minDistance, float maxDistance) const
+    {
+        if (!std::isfinite(distance))
+            return 0.0f;
+        const float lo = std::max(0.01f, std::isfinite(minDistance) ? minDistance : 1.0f);
+        const float hi = std::max(lo, std::isfinite(maxDistance) ? maxDistance : lo);
+        const float factor = std::isfinite(RolloffFactor) ? std::clamp(RolloffFactor, 0.0f, MaxRolloffFactor) : 1.0f;
+        const float d = std::clamp(distance, lo, hi);
+        float gain = 1.0f;
+        switch (Rolloff)
+        {
+            case AudioRolloff::Inverse:
+                gain = lo / (lo + factor * (d - lo));
+                break;
+            case AudioRolloff::Linear:
+                gain = hi > lo ? 1.0f - factor * (d - lo) / (hi - lo) : 1.0f;
+                break;
+            case AudioRolloff::Exponential:
+                gain = std::pow(d / lo, -factor);
+                break;
+            case AudioRolloff::None:
+                gain = 1.0f;
+                break;
+        }
+        return std::clamp(std::isfinite(gain) ? gain : 0.0f, 0.0f, 1.0f);
+    }
+
+    void AudioSpatialSettings::Sanitize()
+    {
+        MinDistance = std::isfinite(MinDistance) ? std::clamp(MinDistance, 0.01f, MaxDistanceLimit) : 1.0f;
+        MaxDistance = std::isfinite(MaxDistance) ? std::clamp(MaxDistance, MinDistance, MaxDistanceLimit) : std::max(MinDistance, 30.0f);
+        RolloffFactor = std::isfinite(RolloffFactor) ? std::clamp(RolloffFactor, 0.0f, MaxRolloffFactor) : 1.0f;
+        if ((int)Rolloff < 0 || (int)Rolloff > (int)AudioRolloff::None)
+            Rolloff = AudioRolloff::Inverse;
+    }
+
+    const char* AudioSpatialSettings::GetRolloffName(AudioRolloff rolloff)
+    {
+        switch (rolloff)
+        {
+            case AudioRolloff::Inverse: return "Inverse";
+            case AudioRolloff::Linear: return "Linear";
+            case AudioRolloff::Exponential: return "Exponential";
+            case AudioRolloff::None: return "None";
+        }
+        return "Inverse";
+    }
+
+    AudioRolloff AudioSpatialSettings::ParseRolloff(std::string_view name)
+    {
+        for (AudioRolloff r : { AudioRolloff::Inverse, AudioRolloff::Linear, AudioRolloff::Exponential, AudioRolloff::None })
+            if (name == GetRolloffName(r))
+                return r;
+        return AudioRolloff::Inverse;
+    }
+
     // ------------------------------------------------------------------ groups
     std::vector<AudioGroupSettings> AudioSettings::DefaultGroups()
     {
@@ -246,12 +303,13 @@ namespace Zamin {
         StreamThresholdMB = std::clamp(StreamThresholdMB, 0.01f, 4096.0f);
         MaxVoices = std::clamp(MaxVoices, 1, MaxVoicesLimit);
         DopplerFactor = std::isfinite(DopplerFactor) ? std::clamp(DopplerFactor, 0.0f, MaxDopplerFactor) : 1.0f;
+        Spatial.Sanitize();
     }
 
     bool AudioSettings::EqualsIgnoringSolo(const AudioSettings& other) const
     {
         if (Groups.size() != other.Groups.size() || StreamThresholdMB != other.StreamThresholdMB || MaxVoices != other.MaxVoices ||
-            DopplerFactor != other.DopplerFactor)
+            DopplerFactor != other.DopplerFactor || !(Spatial == other.Spatial))
             return false;
         for (size_t i = 0; i < Groups.size(); i++)
         {
@@ -282,6 +340,10 @@ namespace Zamin {
             groups.push_back(std::move(item));
         }
         json j = { { "StreamThresholdMB", StreamThresholdMB }, { "MaxVoices", MaxVoices }, { "DopplerFactor", DopplerFactor }, { "Groups", groups } };
+        // Only spatial defaults that were changed (older files stay the same).
+        if (!Spatial.IsDefault())
+            j["Spatial"] = { { "MinDistance", Spatial.MinDistance }, { "MaxDistance", Spatial.MaxDistance },
+                             { "Rolloff", AudioSpatialSettings::GetRolloffName(Spatial.Rolloff) }, { "RolloffFactor", Spatial.RolloffFactor } };
         return j.dump(4);
     }
 
@@ -297,6 +359,17 @@ namespace Zamin {
             settings.MaxVoices = (int)std::clamp(it->get<double>(), 1.0, (double)MaxVoicesLimit);
         if (auto it = j.find("DopplerFactor"); it != j.end() && it->is_number())
             settings.DopplerFactor = it->get<float>();
+        if (auto sp = j.find("Spatial"); sp != j.end() && sp->is_object())
+        {
+            if (auto v = sp->find("MinDistance"); v != sp->end() && v->is_number())
+                settings.Spatial.MinDistance = v->get<float>();
+            if (auto v = sp->find("MaxDistance"); v != sp->end() && v->is_number())
+                settings.Spatial.MaxDistance = v->get<float>();
+            if (auto v = sp->find("Rolloff"); v != sp->end() && v->is_string())
+                settings.Spatial.Rolloff = AudioSpatialSettings::ParseRolloff(v->get<std::string>());
+            if (auto v = sp->find("RolloffFactor"); v != sp->end() && v->is_number())
+                settings.Spatial.RolloffFactor = v->get<float>();
+        }
         if (auto it = j.find("Groups"); it != j.end() && it->is_array())
         {
             settings.Groups.clear();

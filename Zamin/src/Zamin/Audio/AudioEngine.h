@@ -28,8 +28,10 @@ namespace Zamin {
         // 3D sound: volume and pan depend on where the listener is.
         bool Spatial = false;
         glm::vec3 Position{ 0.0f };
-        float MinDistance = 1.0f;
-        float MaxDistance = 30.0f;
+        // Full volume closer than MinDistance, fading out to MaxDistance (the project's rolloff
+        // model). Negative: the project's default (AudioSettings::Spatial, Project settings > Audio).
+        float MinDistance = -1.0f;
+        float MaxDistance = -1.0f;
 
         // Random variation, picked anew each time the sound starts: Volume and Pitch are multiplied
         // by a value between x (min) and y (max) - e.g. pitch 0.9..1.1 so repeated footsteps do not
@@ -208,7 +210,7 @@ namespace Zamin {
         // SFX group.
         static uint32_t Play(const std::filesystem::path& path, float volume = 1.0f, float pitch = 1.0f, bool loop = false);
         static uint32_t PlaySpatial(const std::filesystem::path& path, const glm::vec3& position, float volume = 1.0f,
-                                    float pitch = 1.0f, bool loop = false, float minDistance = 1.0f, float maxDistance = 30.0f);
+                                    float pitch = 1.0f, bool loop = false, float minDistance = -1.0f, float maxDistance = -1.0f);
         static void SetSoundPosition(uint32_t handle, const glm::vec3& position);
         // 3D sound: how fast it moves (units per second; Scene measures it from the transform) and
         // its own Doppler factor (x AudioSettings::DopplerFactor).

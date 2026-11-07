@@ -132,6 +132,13 @@ namespace Zamin {
 
     void Audio::StopSound(uint32_t handle, float fadeSeconds) { AudioEngine::Stop(handle, fadeSeconds); }
 
+    const AudioSpatialSettings& Audio::GetSpatialDefaults()
+    {
+        static const AudioSpatialSettings s_Defaults;
+        Ref<Project> project = Project::GetActive();
+        return project ? project->GetConfig().Audio.Spatial : s_Defaults;
+    }
+
     // ------------------------------------------------------------------ one-shot sounds
     uint32_t Audio::PlaySound(const std::string& assetPath, float volume, float pitch, const std::string& group)
     {

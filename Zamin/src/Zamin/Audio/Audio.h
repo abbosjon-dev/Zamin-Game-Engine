@@ -74,6 +74,11 @@ namespace Zamin {
         static void Unload(const std::string& assetPath);
         static bool IsPreloaded(const std::string& assetPath);
 
+        // ---- 3D sound defaults (Project settings > Audio): the distances new Audio Sources and
+        // PlaySoundAt start with and the distance model of every 3D sound (the project's; the
+        // engine's defaults without a project).
+        static const AudioSpatialSettings& GetSpatialDefaults();
+
         // ---- one-shot sounds (handle for AudioEngine; 0 = not played)
         static uint32_t PlaySound(const std::string& assetPath, float volume = 1.0f, float pitch = 1.0f,
                                   const std::string& group = AudioSettings::SFX);

@@ -671,7 +671,13 @@ namespace Zamin {
             tm.EnsureSize();
             m_TilePaint = true;
         }
-        else if (p == "Audio") { e = m_Context->CreateEntity("Ovoz manbai"); e.AddComponent<AudioSourceComponent>(); }
+        else if (p == "Audio")
+        {
+            e = m_Context->CreateEntity("Ovoz manbai");
+            auto& audio = e.AddComponent<AudioSourceComponent>();
+            audio.MinDistance = Audio::GetSpatialDefaults().MinDistance;
+            audio.MaxDistance = Audio::GetSpatialDefaults().MaxDistance;
+        }
 
         if (e)
         {
@@ -2043,6 +2049,12 @@ namespace Zamin {
             T& c = entity.AddComponent<T>();
             if constexpr (std::is_same_v<T, MeshRendererComponent>)
                 c.MeshAsset = MeshLibrary::GetPrimitive(c.Type);
+            // 3D sounds start with the project's distances (Project settings > Audio).
+            if constexpr (std::is_same_v<T, AudioSourceComponent> || std::is_same_v<T, FootstepsComponent>)
+            {
+                c.MinDistance = Audio::GetSpatialDefaults().MinDistance;
+                c.MaxDistance = Audio::GetSpatialDefaults().MaxDistance;
+            }
             if constexpr (std::is_same_v<T, TextComponent>)
                 c.FontAsset = Font::GetDefault();
             // On a widget: a little hover / press feedback from the start.
@@ -2312,6 +2324,30 @@ namespace Zamin {
     }
 
     // ------------------------------------------------------------------ audio
+    bool SceneHierarchyPanel::DrawSpatialDefaultsRow(float& minDistance, float& maxDistance)
+    {
+        const AudioSpatialSettings& defaults = Audio::GetSpatialDefaults();
+        static const char* s_RolloffLabels[] = { "teskari (Inverse)", "chiziqli (Linear)", "eksponensial", "masofasiz" };
+        UI::PropertyLabel("", "Loyihaning 3D ovoz standartlari: yangi Audio Source va PlaySoundAt shu masofalar bilan boshlanadi; "
+                              "masofa modeli hamma 3D ovozlarga ta'sir qiladi (Loyiha sozlamalari > Audio).");
+        ImGui::PushID("spatialDefaults");
+        const bool same = std::abs(minDistance - defaults.MinDistance) < 1e-4f && std::abs(maxDistance - defaults.MaxDistance) < 1e-4f;
+        ImGui::BeginDisabled(same);
+        bool changed = false;
+        if (ImGui::SmallButton(ICON_FA_ROTATE_LEFT "  Standart"))
+        {
+            minDistance = defaults.MinDistance;
+            maxDistance = defaults.MaxDistance;
+            changed = true;
+        }
+        ImGui::EndDisabled();
+        ImGui::SameLine();
+        ImGui::TextDisabled("loyiha: %.1f - %.1f m, %s", defaults.MinDistance, defaults.MaxDistance,
+                            s_RolloffLabels[std::clamp((int)defaults.Rolloff, 0, 3)]);
+        ImGui::PopID();
+        return changed;
+    }
+
     bool SceneHierarchyPanel::DrawAudioOutput(std::string& output)
     {
         bool changed = false;
@@ -3500,6 +3536,7 @@ namespace Zamin {
         {
             changed |= UI::PropertyFloat("Min masofa", c.MinDistance, 0.05f, 0.0f, 1000.0f);
             changed |= UI::PropertyFloat("Max masofa", c.MaxDistance, 0.1f, 0.0f, 10000.0f);
+            changed |= DrawSpatialDefaultsRow(c.MinDistance, c.MaxDistance);
         }
         UI::PropertyLabel("");
         ImGui::BeginDisabled(c.Sounds.empty());
@@ -8277,6 +8314,7 @@ namespace Zamin {
             {
                 changed |= UI::PropertyFloat("Min masofa", c.MinDistance, 0.05f, 0.01f, 1000.0f);
                 changed |= UI::PropertyFloat("Max masofa", c.MaxDistance, 0.1f, 0.1f, 10000.0f);
+                changed |= DrawSpatialDefaultsRow(c.MinDistance, c.MaxDistance);
                 UI::PropertyLabel("Doppler", "Ovoz manbai yoki tinglovchi harakatlanganda ton o'zgarishi kuchi (yaqinlashsa - "
                                              "baland, uzoqlashsa - past): 1 - tabiiy, 0 - yo'q. Loyihaning Doppler "
                                              "koeffitsiyentiga ko'paytiriladi (Audio Mixer > Sozlamalar). Tezlik "

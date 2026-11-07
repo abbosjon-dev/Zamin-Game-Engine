@@ -572,6 +572,9 @@ namespace Zamin {
         int BakeNavGrids();
         // The world rectangle around a NavGrid 2D's sources (what AutoBounds uses); false when it has none.
         bool GetNavGrid2DSourceBounds(Entity entity, glm::vec2& min, glm::vec2& max);
+        // A fingerprint of what a NavGrid 2D is baked from (its settings, the tilemaps and static
+        // colliders): AutoRebuild and the editor's preview bake again when it changes.
+        uint64_t GetNavGrid2DSourceHash(Entity entity);
         // The baked grid of the entity's NavGrid 3D (dimension 3) or NavGrid 2D (2; 0: whichever it has,
         // 3D first). Null when it has none or it was not baked yet.
         const NavGrid* GetNavGrid(Entity entity, int dimension = 0);
@@ -1202,8 +1205,6 @@ namespace Zamin {
         void UpdateNavAgents(float dt);
         bool BakeNavGrid2D(Entity entity);
         bool BakeNavGrid3D(Entity entity);
-        // A fingerprint of what a 2D grid is baked from (its settings, the tilemaps and static colliders).
-        uint64_t GetNavGrid2DSourceHash(Entity entity);
         // The agent's path to its Destination, found now.
         bool ComputeNavAgentPath(Entity agent, struct NavAgentComponent& a);
         void UpdateAudio(float ts);

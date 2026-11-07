@@ -40700,6 +40700,21 @@ TEST(NavLineOfSightAndErosion)
     floors.Erode(0.6f);
     CHECK(!floors.IsWalkable(4, 1) && !floors.IsWalkable(5, 1) && floors.IsWalkable(3, 1) && floors.IsWalkable(6, 1));
     CHECK_NEAR(floors.SampleFloorHeight({ 7.0f, 2.0f }), 1.0f, 1e-5f);
+    // A start in a blocked cell moves to the nearest walkable cell on its own floor: not up onto the
+    // raised cells right beside it, but to the ground two cells away.
+    NavGrid ledge(6, 1);
+    ledge.EnableHeights();
+    ledge.SetMaxClimb(0.3f);
+    ledge.SetFloorHeight(3, 0, 1.0f);
+    ledge.SetWalkable(2, 0, false);
+    glm::ivec2 snapped;
+    CHECK(ledge.FindNearestWalkable({ 2, 0 }, 4, snapped) && snapped == glm::ivec2(1, 0));
+    ledge.SetWalkable(1, 0, false);
+    CHECK(ledge.FindNearestWalkable({ 2, 0 }, 4, snapped) && snapped == glm::ivec2(3, 0));            // any floor: the raised one
+    CHECK(ledge.FindNearestWalkable({ 2, 0 }, 4, snapped, 0.0f, 0.5f) && snapped == glm::ivec2(0, 0)); // the ground
+    NavPathOptions onGround;
+    onGround.StartHeight = 0.0f;
+    CHECK(finder.FindPath(ledge, glm::ivec2(2, 0), glm::ivec2(0, 0), path, onGround) == NavPathStatus::Complete && path.Cells.front() == glm::ivec2(0, 0));
 }
 
 TEST(NavStringPullingAndSpline)
@@ -41231,5 +41246,47 @@ TEST(NavScriptApi)
     Entity lost = scene->CreateEntity("Lost");
     lost.AddComponent<NavAgentComponent>().Grid.ID = 12345;
     CHECK(!scene->SetNavDestination(lost, { 1, 1, 0 }) && lost.GetComponent<NavAgentComponent>().PathStatus == NavPathStatus::Failed);
+    scene->OnRuntimeStop();
+}
+
+// The Showcase3D "Navigation3D" sample: the grid bakes from its static colliders and the three NPCs
+// (Character Controller 3D + Nav Agent with the beacon as their target) catch up with the beacon
+// that runs round the level on a spline (the game's frames without drawing).
+TEST(NavSampleScene3D)
+{
+    namespace fs = std::filesystem;
+    auto scene = CreateRef<Scene>();
+    CHECK(SceneSerializer(scene).Deserialize(fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Showcase3D" / "Assets" / "Scenes" / "Navigation3D.zscene"));
+    Entity nav = scene->FindEntityByName("Navigatsiya"), beacon = scene->FindEntityByName("Mayoq");
+    CHECK(nav && beacon && nav.HasComponent<NavGrid3DComponent>());
+    if (!nav || !beacon)
+        return;
+    scene->OnRuntimeStart();
+    const NavGrid* grid = scene->GetNavGrid(nav, 3);
+    CHECK(grid && grid->CountWalkable() > 1000 && nav.GetComponent<NavGrid3DComponent>().BakeBodies >= 15);
+    std::vector<Entity> npcs;
+    for (const char* name : { "NPC 1", "NPC 2", "NPC 3" })
+        if (Entity npc = scene->FindEntityByName(name))
+            npcs.push_back(npc);
+    CHECK(npcs.size() == 3);
+    std::vector<float> nearest(npcs.size(), 1e9f);
+    float highest = 0.0f;
+    for (int frame = 0; frame < 1800; frame++)
+    {
+        scene->UpdateRuntime(1.0f / 60.0f);
+        const glm::vec3 target = scene->GetWorldPosition(beacon);
+        for (size_t i = 0; i < npcs.size(); i++)
+        {
+            const glm::vec3 p = scene->GetWorldPosition(npcs[i]);
+            nearest[i] = std::min(nearest[i], glm::length(glm::vec2(p.x - target.x, p.z - target.z)));
+            highest = std::max(highest, p.y);
+            CHECK(p.y > -0.2f && p.y < 1.5f); // on the floor or the platform, never through it
+        }
+    }
+    for (float d : nearest)
+        CHECK(d < 3.0f);
+    for (Entity npc : npcs)
+        CHECK(npc.GetComponent<NavAgentComponent>().PathRequests > 5);
+    CHECK(highest >= 0.0f);
     scene->OnRuntimeStop();
 }

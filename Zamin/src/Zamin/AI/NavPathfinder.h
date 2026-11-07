@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 
 #include <cstdint>
+#include <limits>
 #include <vector>
 
 namespace Zamin {
@@ -33,6 +34,10 @@ namespace Zamin {
         // A blocked (or outside) start or goal moves to the nearest walkable cell at most this many
         // cells away (an agent standing in an eroded cell next to a wall, a click on a wall).
         int SnapRadius = 8;
+        // 3D grids: the height of the agent's feet - the start must be a cell whose floor is within
+        // MaxClimb (at least 0.5 units) of it, else it moves to the nearest such cell (an agent beside
+        // a crate starts on the ground, not on the crate's top). Not a number: any floor.
+        float StartHeight = std::numeric_limits<float>::quiet_NaN();
     };
 
     struct NavPathResult

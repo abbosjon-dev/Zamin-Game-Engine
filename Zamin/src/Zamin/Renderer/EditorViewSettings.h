@@ -136,6 +136,9 @@ namespace Zamin {
         GizmoVisibility ParticleShapes = GizmoVisibility::Selected;
         // Spline paths (the curve, its points, the way it runs) and Spline Followers' start points.
         GizmoVisibility Splines = GizmoVisibility::All;
+        // Navigation: NavGrid 2D / 3D cells (blocked red, walkable green - those only for a selected
+        // grid) and their area, Nav Agents' paths and destinations.
+        GizmoVisibility Navigation = GizmoVisibility::All;
 
         static constexpr float MinNormalLength = 0.001f, MaxNormalLength = 100.0f;
 

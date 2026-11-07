@@ -167,21 +167,24 @@ namespace Zamin {
         return { std::clamp(cell.x, 0, m_Width - 1), std::clamp(cell.y, 0, m_Height - 1) };
     }
 
-    bool NavGrid::FindNearestWalkable(const glm::ivec2& cell, int maxRadius, glm::ivec2& out) const
+    // The nearest cell (by distance between centres; ties: lower y, then lower x) at most maxRadius
+    // cells away along each axis that `accept` takes.
+    template<typename Accept>
+    static bool FindNearest(const NavGrid& grid, const glm::ivec2& cell, int maxRadius, glm::ivec2& out, Accept&& accept)
     {
-        if (IsEmpty())
+        if (grid.IsEmpty())
             return false;
-        if (IsWalkable(cell))
+        if (accept(cell.x, cell.y))
         {
             out = cell;
             return true;
         }
-        maxRadius = std::clamp(maxRadius, 0, std::max(m_Width, m_Height) + std::abs(cell.x) + std::abs(cell.y));
+        maxRadius = std::clamp(maxRadius, 0, std::max(grid.GetWidth(), grid.GetHeight()) + std::abs(cell.x) + std::abs(cell.y));
         bool found = false;
         int bestDistance = std::numeric_limits<int>::max();
         glm::ivec2 best{ 0 };
         auto consider = [&](int x, int y) {
-            if (!IsWalkable(x, y))
+            if (!accept(x, y))
                 return;
             const int dx = x - cell.x, dy = y - cell.y;
             const int d = dx * dx + dy * dy;
@@ -211,6 +214,20 @@ namespace Zamin {
         if (found)
             out = best;
         return found;
+    }
+
+    bool NavGrid::FindNearestWalkable(const glm::ivec2& cell, int maxRadius, glm::ivec2& out) const
+    {
+        return FindNearest(*this, cell, maxRadius, out, [&](int x, int y) { return IsWalkable(x, y); });
+    }
+
+    bool NavGrid::FindNearestWalkable(const glm::ivec2& cell, int maxRadius, glm::ivec2& out, float height, float tolerance) const
+    {
+        if (!HasHeights() || !std::isfinite(height))
+            return FindNearestWalkable(cell, maxRadius, out);
+        tolerance = std::isfinite(tolerance) ? std::max(0.0f, tolerance) : 0.0f;
+        return FindNearest(*this, cell, maxRadius, out,
+                           [&](int x, int y) { return IsWalkable(x, y) && std::abs(m_Heights[Index(x, y)] - height) <= tolerance; });
     }
 
     void NavGrid::Erode(float radius)

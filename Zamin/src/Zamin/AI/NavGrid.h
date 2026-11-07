@@ -92,6 +92,9 @@ namespace Zamin {
         // x) at most maxRadius cells away along each axis: `cell` itself when it is walkable. False
         // when there is none.
         bool FindNearestWalkable(const glm::ivec2& cell, int maxRadius, glm::ivec2& out) const;
+        // The same among the cells whose floor is within `tolerance` of `height` (3D grids: the floor
+        // the agent stands on, not the top of a crate beside it). Without heights: as above.
+        bool FindNearestWalkable(const glm::ivec2& cell, int maxRadius, glm::ivec2& out, float height, float tolerance) const;
 
         // Agent clearance: blocks every walkable cell whose centre is nearer than `radius` (world
         // units) to a blocked cell's square - and, on 3D grids, to a ledge (the border between two

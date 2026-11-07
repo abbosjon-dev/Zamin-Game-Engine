@@ -139,7 +139,9 @@ namespace Zamin {
 
         const int snap = std::max(0, options.SnapRadius);
         glm::ivec2 start = grid.ClampCell(startCell);
-        if (!grid.FindNearestWalkable(start, snap, start))
+        const bool onFloor = grid.HasHeights() && std::isfinite(options.StartHeight);
+        if (onFloor ? !grid.FindNearestWalkable(start, snap, start, options.StartHeight, std::max(grid.GetMaxClimb(), 0.5f))
+                    : !grid.FindNearestWalkable(start, snap, start))
             return out.Status = NavPathStatus::Failed;
         glm::ivec2 goal = grid.ClampCell(goalCell);
         bool goalMoved = goal != goalCell;

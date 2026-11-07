@@ -441,11 +441,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 
 ## M20 Navigatsiya va AI
 
-- [ ] 381. Grid asosidagi A* pathfinding (2D)
-- [ ] 382. Pathfinding uchun grid'ni tilemap'dan yaratish
-- [ ] 383. NavGrid 3D (yer tekisligi bo'yicha, to'siqlarni aniqlash)
-- [ ] 384. NavAgent komponenti (yo'l bo'ylab yurish)
-- [ ] 385. Yo'lni silliqlash (string pulling)
+- [x] 381. Grid asosidagi A* pathfinding (2D)
+- [x] 382. Pathfinding uchun grid'ni tilemap'dan yaratish
+- [x] 383. NavGrid 3D (yer tekisligi bo'yicha, to'siqlarni aniqlash)
+- [x] 384. NavAgent komponenti (yo'l bo'ylab yurish)
+- [x] 385. Yo'lni silliqlash (string pulling)
 - [ ] 386. Dinamik to'siqlar (grid yangilash)
 - [ ] 387. Steering: seek, flee, arrive, wander
 - [ ] 388. Obstacle avoidance (raycast bilan)

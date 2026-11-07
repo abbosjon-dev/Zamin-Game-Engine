@@ -778,7 +778,7 @@ namespace Zamin {
                                             { "lights=", &g.LightDirections }, { "audio=", &g.AudioRanges },
                                             { "bounds=", &g.Bounds }, { "skeleton=", &g.Skeletons }, { "normals=", &g.Normals },
                                             { "joints=", &g.Joints2D }, { "particles=", &g.ParticleShapes },
-                                            { "splines=", &g.Splines } })
+                                            { "splines=", &g.Splines }, { "nav=", &g.Navigation } })
                     if (size_t at = v.find(key); at != std::string_view::npos)
                         *target = parse(v.substr(at + key.size()));
                 if (size_t at = v.find("normallength="); at != std::string_view::npos)
@@ -3487,6 +3487,155 @@ namespace Zamin {
         Renderer2D::DrawCircle(facing * glm::scale(glm::mat4(1.0f), glm::vec3(diameter)), color, 1.0f, 0.08f);
     }
 
+    // ------------------------------------------------------------------ navigation gizmos
+    // A run of cells of one row (cells [x0, x1) of row y) as one quad: on the XY plane (2D grids) or
+    // flat on the floor at `height` (3D grids).
+    static void DrawNavCellRun(const NavGrid& grid, int x0, int x1, int y, bool flat3D, float height, const glm::vec4& color)
+    {
+        const float cs = grid.GetCellSize();
+        const float inset = cs * 0.04f;
+        const glm::vec2 min = grid.GridToWorld(glm::vec2((float)x0, (float)y)) + inset;
+        const glm::vec2 max = grid.GridToWorld(glm::vec2((float)x1, (float)(y + 1))) - inset;
+        const glm::vec2 center = (min + max) * 0.5f, size = max - min;
+        glm::mat4 transform;
+        if (flat3D)
+            transform = glm::translate(glm::mat4(1.0f), glm::vec3(center.x, height + 0.03f, center.y)) *
+                        glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) *
+                        glm::scale(glm::mat4(1.0f), glm::vec3(size.x, size.y, 1.0f));
+        else
+            transform = glm::translate(glm::mat4(1.0f), glm::vec3(center, 0.01f)) * glm::scale(glm::mat4(1.0f), glm::vec3(size, 1.0f));
+        Renderer2D::DrawQuad(transform, color);
+    }
+
+    // The cells of a baked grid: blocked ones (red) always, walkable ones (green) when `walkable`;
+    // runs of equal cells (3D: on one floor height) merged into one quad. 3D cells without a floor are
+    // left out.
+    static void DrawNavGridCells(const NavGrid& grid, bool flat3D, bool walkable, float alpha)
+    {
+        const glm::vec4 blockedColor(0.95f, 0.25f, 0.2f, 0.34f * alpha), walkableColor(0.3f, 0.95f, 0.45f, 0.16f * alpha);
+        for (int y = 0; y < grid.GetHeight(); y++)
+        {
+            int x = 0;
+            while (x < grid.GetWidth())
+            {
+                const bool open = grid.IsWalkable(x, y);
+                const float h = grid.GetFloorHeight(x, y);
+                int end = x + 1;
+                while (end < grid.GetWidth() && grid.IsWalkable(end, y) == open &&
+                       (!flat3D || std::abs(grid.GetFloorHeight(end, y) - h) < 1e-3f || (std::isnan(h) && std::isnan(grid.GetFloorHeight(end, y)))))
+                    end++;
+                if ((open ? walkable : true) && (!flat3D || std::isfinite(h)))
+                    DrawNavCellRun(grid, x, end, y, flat3D, flat3D ? h : 0.0f, open ? walkableColor : blockedColor);
+                x = end;
+            }
+        }
+    }
+
+    void EditorLayer::DrawNavigationGizmos(const EditorOverlayView& view, const std::unordered_set<entt::entity>& hidden)
+    {
+        const GizmoVisibility visibility = m_ViewSettings.Gizmos.Navigation;
+        if (visibility == GizmoVisibility::Off)
+            return;
+        Scene& scene = *m_ActiveScene;
+        const bool editing = m_SceneState == SceneState::Edit;
+        // The editor bakes the grids it shows (the game bakes its own when it starts): a 2D grid again
+        // when its sources changed (checked a few times a second), a 3D one when its settings did.
+        m_NavPreviewTimer -= ImGui::GetIO().DeltaTime;
+        const bool check = m_NavPreviewTimer <= 0.0f;
+        if (check)
+            m_NavPreviewTimer = 0.5f;
+        constexpr size_t maxWalkableCells = 250000;
+
+        for (auto e : scene.GetAllEntitiesWith<NavGrid2DComponent>())
+        {
+            if (!ShowsGizmo(e, visibility, hidden))
+                continue;
+            Entity entity{ e, &scene };
+            auto& c = entity.GetComponent<NavGrid2DComponent>();
+            if (editing && (!c.Baked || (check && scene.GetNavGrid2DSourceHash(entity) != c.SourceHash)))
+                scene.BakeNavGrid(entity);
+            if (!c.Baked || c.Grid.IsEmpty())
+                continue;
+            const bool selected = m_SceneHierarchyPanel.IsSelected(entity);
+            DrawNavGridCells(c.Grid, false, selected && c.Grid.GetCellCount() <= maxWalkableCells, selected ? 1.0f : 0.6f);
+            const glm::vec2 min = c.Grid.GetOrigin(), max = min + c.Grid.GetSize();
+            const glm::vec4 frame(0.4f, 0.9f, 1.0f, selected ? 0.9f : 0.45f);
+            Renderer2D::DrawLine({ min.x, min.y, 0.0f }, { max.x, min.y, 0.0f }, frame);
+            Renderer2D::DrawLine({ max.x, min.y, 0.0f }, { max.x, max.y, 0.0f }, frame);
+            Renderer2D::DrawLine({ max.x, max.y, 0.0f }, { min.x, max.y, 0.0f }, frame);
+            Renderer2D::DrawLine({ min.x, max.y, 0.0f }, { min.x, min.y, 0.0f }, frame);
+        }
+
+        for (auto e : scene.GetAllEntitiesWith<NavGrid3DComponent>())
+        {
+            if (!ShowsGizmo(e, visibility, hidden))
+                continue;
+            Entity entity{ e, &scene };
+            auto& c = entity.GetComponent<NavGrid3DComponent>();
+            const bool selected = m_SceneHierarchyPanel.IsSelected(entity);
+            const glm::vec3 center = scene.GetWorldPosition(entity) + c.Offset;
+            if (editing && check)
+            {
+                // The settings and where the grid is: baked again when they change.
+                uint64_t hash = 1469598103934665603ull;
+                auto mix = [&](const void* data, size_t size) {
+                    for (size_t i = 0; i < size; i++)
+                        hash = (hash ^ ((const uint8_t*)data)[i]) * 1099511628211ull;
+                };
+                const float values[] = { center.x, center.y, center.z, c.Size.x, c.Size.y, c.Size.z, c.CellSize, c.AgentRadius, c.AgentHeight,
+                                         c.MaxSlope, c.StepHeight };
+                mix(values, sizeof(values));
+                mix(&c.LayerMask, sizeof(c.LayerMask));
+                auto [it, added] = m_NavPreviewHashes.try_emplace(e, 0);
+                if (!c.Baked || it->second != hash)
+                {
+                    scene.BakeNavGrid(entity);
+                    it->second = hash;
+                }
+            }
+            // The area's box.
+            const glm::vec3 half = glm::max(c.Size, glm::vec3(0.0f)) * 0.5f;
+            DrawWireBox(glm::translate(glm::mat4(1.0f), center) * glm::scale(glm::mat4(1.0f), half * 2.0f),
+                        glm::vec4(0.4f, 0.9f, 1.0f, selected ? 0.8f : 0.35f));
+            if (c.Baked && !c.Grid.IsEmpty())
+                DrawNavGridCells(c.Grid, true, selected && c.Grid.GetCellCount() <= maxWalkableCells, selected ? 1.0f : 0.6f);
+        }
+
+        // Agents: the path ahead (from where the agent is), its corners and the destination.
+        for (auto e : scene.GetAllEntitiesWith<NavAgentComponent>())
+        {
+            if (!ShowsGizmo(e, visibility, hidden))
+                continue;
+            Entity entity{ e, &scene };
+            const auto& a = entity.GetComponent<NavAgentComponent>();
+            const bool selected = m_SceneHierarchyPanel.IsSelected(entity);
+            const glm::vec4 color = a.IsPathPartial() ? glm::vec4(1.0f, 0.75f, 0.3f, 1.0f) : glm::vec4(0.35f, 0.9f, 1.0f, 1.0f);
+            const glm::vec3 lift(0.0f, Scene::GetNavGridDimension(scene.GetNavAgentGrid(entity)) == 3 ? 0.08f : 0.0f, 0.0f);
+            const glm::vec3 position = scene.GetWorldPosition(entity);
+            if (a.HasPath() && a.PathIndex >= 1 && a.PathIndex < (int)a.Path.size())
+            {
+                glm::vec3 from = position + lift;
+                for (size_t i = (size_t)a.PathIndex; i < a.Path.size(); i++)
+                {
+                    const glm::vec3 to = a.Path[i] + lift;
+                    Renderer2D::DrawLine(from, to, color);
+                    const float dot = view.PixelSize(to) * (i + 1 == a.Path.size() ? 9.0f : 5.0f);
+                    DrawScreenDot(to, dot, color, view);
+                    from = to;
+                }
+            }
+            if (a.HasDestination && (selected || !a.Arrived))
+            {
+                const glm::vec3 d = a.Destination + lift;
+                const float size = view.PixelSize(d) * 7.0f;
+                const glm::vec4 cross = a.Arrived ? glm::vec4(0.5f, 1.0f, 0.55f, 0.9f) : color;
+                Renderer2D::DrawLine(d - glm::vec3(size, 0, 0), d + glm::vec3(size, 0, 0), cross);
+                Renderer2D::DrawLine(d - glm::vec3(0, size, 0), d + glm::vec3(0, size, 0), cross);
+                Renderer2D::DrawLine(d - glm::vec3(0, 0, size), d + glm::vec3(0, 0, size), cross);
+            }
+        }
+    }
+
     void EditorLayer::DrawSkeletons(const EditorOverlayView& view, const std::unordered_set<entt::entity>& hidden)
     {
         m_JointLabels.clear();
@@ -3651,6 +3800,7 @@ namespace Zamin {
         overlayView.ViewportHeight = m_ViewportSize.y; // the final picture's pixels (what the overlay draws into)
 
         DrawComponentGizmos(overlayView, hidden);
+        DrawNavigationGizmos(overlayView, hidden);
 
         if (m_ShowColliders)
         {
@@ -7514,6 +7664,9 @@ namespace Zamin {
         }
         option(ICON_FA_BEZIER_CURVE "  Spline yo'llar", g.Splines,
                "Spline komponentlarining yo'li (egri chiziq, nuqtalari, yo'nalish o'qi) va Spline Follower'larning boshlanish nuqtasi");
+        option(ICON_FA_PERSON_WALKING "  Navigatsiya", g.Navigation,
+               "NavGrid 2D / 3D: yopiq kataklar (qizil) va maydon chegarasi, tanlangan grid'ning yuriladigan kataklari (yashil); Nav "
+               "Agent'larning yo'li, manzili va hozirgi burchagi. Editor'da grid ko'rish uchun avtomatik quriladi");
         option(ICON_FA_WAND_MAGIC_SPARKLES "  Particle shakli", g.ParticleShapes,
                "Particle System emitteri: doira, sfera, quti, konus (chetidagi nurlari bilan) yoki chiziq - particle'lar qayerdan "
                "chiqadi, va yo'nalish o'qi");

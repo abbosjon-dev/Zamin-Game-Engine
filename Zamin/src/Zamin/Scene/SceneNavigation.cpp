@@ -577,7 +577,10 @@ namespace Zamin {
         path.clear();
         const glm::vec2 a = ToPlane(from, dimension), b = ToPlane(to, dimension);
         NavPathResult result;
-        t_Pathfinder.FindPath(grid, a, b, result, MakeOptions(settings));
+        NavPathOptions options = MakeOptions(settings);
+        if (dimension == 3)
+            options.StartHeight = from.y; // the floor it stands on
+        t_Pathfinder.FindPath(grid, a, b, result, options);
         if (!result.Found())
             return result.Status;
         std::vector<glm::vec2> points = NavPathSmoothing::ToPoints(grid, result.Cells, &a, &b);

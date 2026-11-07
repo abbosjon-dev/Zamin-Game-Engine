@@ -508,6 +508,9 @@ namespace Zamin {
         bool ShowsGizmo(entt::entity e, GizmoVisibility visibility, const std::unordered_set<entt::entity>& hidden);
         // Gizmos.Bounds: the boxes around what entities draw (local and / or world).
         void DrawBoundingBoxes(const std::unordered_set<entt::entity>& hidden);
+        // Gizmos.Navigation: NavGrid cells and areas (baked for the preview in the editor), Nav Agents'
+        // paths and destinations.
+        void DrawNavigationGizmos(const EditorOverlayView& view, const std::unordered_set<entt::entity>& hidden);
         // Gizmos.Skeletons: the bones (parent joint -> joint) and joints of skinned models.
         void DrawSkeletons(const EditorOverlayView& view, const std::unordered_set<entt::entity>& hidden);
         // Gizmos.Normals: the vertex normals of meshes and models (skinned ones posed).
@@ -676,6 +679,10 @@ namespace Zamin {
         // automation pins the hovered handle / pick (ZAMIN_EDITOR_SPLINE_HOVER / _PICK).
         int m_SplineDrag = -1, m_SplineHover = -1, m_SplinePicked = -1;
         float m_SplineHoverCurve = -1.0f;
+        // Navigation preview: how soon the shown grids are checked for changes again, and the settings
+        // each 3D grid was last baked with.
+        float m_NavPreviewTimer = 0.0f;
+        std::unordered_map<entt::entity, uint64_t> m_NavPreviewHashes;
         uint64_t m_SplineEntity = 0;
         glm::vec3 m_SplineDragOffset{ 0.0f }, m_SplineDragPlane{ 0.0f };
         std::string m_SplineHoverOverride;

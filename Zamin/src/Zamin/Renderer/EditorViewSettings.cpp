@@ -289,7 +289,7 @@ namespace Zamin {
     void EditorGizmoSettings::Sanitize()
     {
         NormalLength = std::isfinite(NormalLength) ? std::clamp(NormalLength, MinNormalLength, MaxNormalLength) : 0.1f;
-        for (GizmoVisibility* v : { &CameraFrustums, &LightDirections, &AudioRanges, &Bounds, &Skeletons, &Normals, &Joints2D, &ParticleShapes, &Splines })
+        for (GizmoVisibility* v : { &CameraFrustums, &LightDirections, &AudioRanges, &Bounds, &Skeletons, &Normals, &Joints2D, &ParticleShapes, &Splines, &Navigation })
             if ((int)*v < (int)GizmoVisibility::Off || (int)*v > (int)GizmoVisibility::All)
                 *v = GizmoVisibility::Selected;
         if ((int)BoundsMode < (int)BoundsSpace::Local || (int)BoundsMode > (int)BoundsSpace::Both)
@@ -432,6 +432,7 @@ namespace Zamin {
             { "Joints2D", EditorGizmoSettings::GetKey(Gizmos.Joints2D) },
             { "ParticleShapes", EditorGizmoSettings::GetKey(Gizmos.ParticleShapes) },
             { "Splines", EditorGizmoSettings::GetKey(Gizmos.Splines) },
+            { "Navigation", EditorGizmoSettings::GetKey(Gizmos.Navigation) },
         };
         j["StatsOverlay"] = {
             { "Visible", StatsOverlay.Visible },
@@ -578,6 +579,7 @@ namespace Zamin {
             readVisibility("Joints2D", Gizmos.Joints2D);
             readVisibility("ParticleShapes", Gizmos.ParticleShapes);
             readVisibility("Splines", Gizmos.Splines);
+            readVisibility("Navigation", Gizmos.Navigation);
             Read(*it, "NormalLength", Gizmos.NormalLength);
             Read(*it, "NormalsFacingOnly", Gizmos.NormalsFacingOnly);
             Read(*it, "NormalsByDirection", Gizmos.NormalsByDirection);

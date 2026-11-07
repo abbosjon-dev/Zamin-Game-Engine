@@ -399,6 +399,11 @@ namespace Zamin {
         bool DrawCamera2DFollow(Entity entity, Camera2DFollowComponent& c);
         bool DrawSpline(Entity entity, SplineComponent& c);
         bool DrawSplineFollower(Entity entity, SplineFollowerComponent& c);
+        // Navigation: the grids' settings, their bake button and what they hold; the agent's settings
+        // and, while playing, its path.
+        bool DrawNavGrid2D(Entity entity, NavGrid2DComponent& c);
+        bool DrawNavGrid3D(Entity entity, NavGrid3DComponent& c);
+        bool DrawNavAgent(Entity entity, NavAgentComponent& c);
         // 2D joints: the connected body (with what keeps the joint from being made), the anchors and
         // the break limits; the type's own settings follow in its section, then the live read-outs.
         // `type`: which joint it is (the viewport editing toggle).

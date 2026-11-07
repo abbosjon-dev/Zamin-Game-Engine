@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Zamin/Audio/AudioMixer.h>
+#include <Zamin/Editor/EditorLanguage.h>
 #include <Zamin/Editor/ProjectSettingsIndex.h>
 #include <Zamin/ImGui/Icons.h>
 #include <Zamin/ImGui/ImGuiLayer.h>
@@ -116,6 +117,7 @@ namespace Zamin::UI {
 
     inline void PropertyLabel(const char* label)
     {
+        label = Tr(label); // the editor's language
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
         ImGui::AlignTextToFramePadding();
@@ -133,6 +135,7 @@ namespace Zamin::UI {
             PropertyLabel(label);
             return;
         }
+        label = Tr(label);
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
         ImGui::AlignTextToFramePadding();
@@ -152,6 +155,7 @@ namespace Zamin::UI {
     // With a tooltip: shown when the title is hovered (a dotted underline hints at it).
     inline void PropertyHeader(const char* text, const char* tooltip = nullptr)
     {
+        text = Tr(text); // the editor's language (Sozlamalar > Ko'rinish > Editor tili)
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
         ImGui::Dummy(ImVec2(0.0f, 2.0f));

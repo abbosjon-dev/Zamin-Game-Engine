@@ -45,12 +45,12 @@ namespace Zamin {
     {
         const float em = ImGui::GetFontSize();
         IdleThrottleSettings& idle = m_Preferences.Idle;
-        ImGui::SeparatorText("Bo'sh turganda kadrlarni kamaytirish");
+        ImGui::SeparatorText(Tr("Bo'sh turganda kadrlarni kamaytirish"));
         ImGui::TextWrapped("Editor oynasi orqada bo'lsa yoki hech narsa bo'lmayotgan bo'lsa (kiritish yo'q, o'yin ishlamayapti, "
                            "ko'rib chiqish ijro etilmayapti, hech narsa yuklanmayapti) editor kamroq kadr chizadi - protsessor va "
                            "videokarta bekorga ishlamaydi. Sichqoncha yoki klaviatura darhol to'liq tezlikka qaytaradi.");
         ImGui::Spacing();
-        changed |= ImGui::Checkbox("Yoqilgan", &idle.Enabled);
+        changed |= ImGui::Checkbox(Tr("Yoqilgan"), &idle.Enabled);
         ImGui::BeginDisabled(!idle.Enabled);
         ImGui::SetNextItemWidth(em * 14.0f);
         changed |= ImGui::SliderFloat("Oyna orqada (FPS)", &idle.UnfocusedFPS, IdleThrottleSettings::MinFPS, 60.0f, "%.0f");
@@ -68,7 +68,7 @@ namespace Zamin {
             idle.Sanitize();
 
         // What it is doing right now.
-        ImGui::SeparatorText("Hozir");
+        ImGui::SeparatorText(Tr("Hozir"));
         const IdleThrottleState& s = m_IdleState;
         const char* why = !idle.Enabled ? "o'chirilgan"
                         : s.Automation ? "avtomatlashtirish (ZAMIN_MAX_FRAMES) - cheklanmaydi"
@@ -84,7 +84,7 @@ namespace Zamin {
             ImGui::Text(ICON_FA_GAUGE_HIGH "  To'liq tezlik (%s)", why);
         ImGui::TextDisabled("Hozirgi FPS: %.0f   |   oxirgi kiritishdan beri: %.1f s", Application::Get().GetFPS(), s.SecondsSinceInput);
         ImGui::Spacing();
-        if (ImGui::Button(ICON_FA_ARROW_ROTATE_LEFT "  Standart qiymatlar"))
+        if (ImGui::Button(Tr(ICON_FA_ARROW_ROTATE_LEFT "  Standart qiymatlar")))
         {
             idle = IdleThrottleSettings();
             changed = true;

@@ -259,7 +259,7 @@ namespace Zamin {
         }
         ImGui::SetNextWindowSize(ImVec2(1180, 720), ImGuiCond_FirstUseEver);
         bool open = true;
-        std::string title = HasUnsavedChanges() ? ICON_FA_SCISSORS "  Sprite muharriri *###SpriteEditor" : ICON_FA_SCISSORS "  Sprite muharriri###SpriteEditor";
+        std::string title = std::format(ICON_FA_SCISSORS "  {}{}###SpriteEditor", Tr("Sprite muharriri"), HasUnsavedChanges() ? " *" : "");
         if (!ImGui::Begin(title.c_str(), &open))
         {
             ImGui::End();
@@ -315,10 +315,10 @@ namespace Zamin {
     {
         if (m_OpenUnsavedPopup)
         {
-            ImGui::OpenPopup("Saqlanmagan kadrlar###SpriteEditorUnsaved");
+            ImGui::OpenPopup("###SpriteEditorUnsaved");
             m_OpenUnsavedPopup = false;
         }
-        if (!ImGui::BeginPopupModal("Saqlanmagan kadrlar###SpriteEditorUnsaved", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        if (!ImGui::BeginPopupModal(Tr("Saqlanmagan kadrlar###SpriteEditorUnsaved"), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
             return;
         ImGui::Text(ICON_FA_TRIANGLE_EXCLAMATION "  '%s' kadrlari saqlanmagan.", m_TexturePath.c_str());
         ImGui::TextDisabled("%zu ta kadr (saqlangani %zu ta)", m_Edit.Frames.size(), m_Saved.Frames.size());
@@ -332,19 +332,19 @@ namespace Zamin {
             m_PendingClose = false;
             ImGui::CloseCurrentPopup();
         };
-        if (ImGui::Button(ICON_FA_FLOPPY_DISK "  Saqlash"))
+        if (ImGui::Button(Tr(ICON_FA_FLOPPY_DISK "  Saqlash")))
         {
             if (Save())
                 proceed();
         }
         ImGui::SameLine();
-        if (ImGui::Button(ICON_FA_XMARK "  Saqlamaslik"))
+        if (ImGui::Button(Tr(ICON_FA_XMARK "  Saqlamaslik")))
         {
             Revert();
             proceed();
         }
         ImGui::SameLine();
-        if (ImGui::Button("Bekor qilish") || ImGui::IsKeyPressed(ImGuiKey_Escape))
+        if (ImGui::Button(Tr("Bekor qilish")) || ImGui::IsKeyPressed(ImGuiKey_Escape))
         {
             m_PendingOpen.reset();
             m_PendingClose = false;
@@ -357,17 +357,17 @@ namespace Zamin {
     {
         const bool dirty = HasUnsavedChanges();
         ImGui::BeginDisabled(!dirty);
-        if (ImGui::Button(ICON_FA_FLOPPY_DISK "  Saqlash"))
+        if (ImGui::Button(Tr(ICON_FA_FLOPPY_DISK "  Saqlash")))
             Save();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
             UI::Tooltip("Kadrlarni rasmning .zmeta fayliga yozish (Ctrl+S)");
         ImGui::SameLine();
-        if (ImGui::Button(ICON_FA_ROTATE_LEFT "  Qaytarish"))
+        if (ImGui::Button(Tr(ICON_FA_ROTATE_LEFT "  Qaytarish")))
             Revert();
         ImGui::EndDisabled();
         ImGui::SameLine();
         ImGui::BeginDisabled(m_Width == 0);
-        if (ImGui::Button(ICON_FA_EXPAND "  Sig'dirish"))
+        if (ImGui::Button(Tr(ICON_FA_EXPAND "  Sig'dirish")))
             m_Zoom = 0.0f;
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
             UI::Tooltip("Rasmni oynaga sig'dirish (F)");
@@ -379,7 +379,7 @@ namespace Zamin {
         }
         ImGui::EndDisabled();
         ImGui::SameLine();
-        ImGui::Checkbox("Grid ko'rinishi", &m_ShowSlicePreview);
+        ImGui::Checkbox(Tr("Grid ko'rinishi"), &m_ShowSlicePreview);
         if (ImGui::IsItemHovered())
             UI::Tooltip("Kesish sozlamalari bo'yicha kataklar rasm ustida (hali kesilmagan)");
         ImGui::SameLine();
@@ -450,7 +450,7 @@ namespace Zamin {
             ImGui::SetNextItemOpen(m_SliceSectionRequest == 1);
             m_SliceSectionRequest = -1;
         }
-        if (!ImGui::CollapsingHeader(ICON_FA_SCISSORS "  Grid bo'yicha kesish", ImGuiTreeNodeFlags_DefaultOpen))
+        if (!ImGui::CollapsingHeader(Tr(ICON_FA_SCISSORS "  Grid bo'yicha kesish"), ImGuiTreeNodeFlags_DefaultOpen))
             return;
         if (!UI::BeginPropertyGrid("##slice"))
             return;
@@ -480,7 +480,7 @@ namespace Zamin {
         UI::PropertyLabel("Natija");
         ImGui::TextDisabled("%d x %d px, %zu katak", cell.x, cell.y, cells);
         UI::PropertyLabel("");
-        if (ImGui::Button(ICON_FA_SCISSORS "  Kesish", ImVec2(-FLT_MIN, 0)))
+        if (ImGui::Button(Tr(ICON_FA_SCISSORS "  Kesish"), ImVec2(-FLT_MIN, 0)))
             Slice(m_SliceReplace);
         UI::EndPropertyGrid();
     }
@@ -490,7 +490,7 @@ namespace Zamin {
         ImGui::Spacing();
         if (!ImGui::CollapsingHeader(std::format(ICON_FA_LIST "  Kadrlar ({})###frames", m_Edit.Frames.size()).c_str(), ImGuiTreeNodeFlags_DefaultOpen))
             return;
-        if (ImGui::Button(ICON_FA_PLUS "  Yangi"))
+        if (ImGui::Button(Tr(ICON_FA_PLUS "  Yangi")))
         {
             SpriteFrame f;
             f.Name = m_Edit.MakeUniqueName(m_Slice.NamePrefix);
@@ -503,7 +503,7 @@ namespace Zamin {
             UI::Tooltip("Yangi kadr (yoki rasm ustida sichqoncha bilan to'rtburchak torting)");
         ImGui::SameLine();
         ImGui::BeginDisabled(m_Selected < 0);
-        if (ImGui::Button(ICON_FA_TRASH "  O'chirish") && m_Selected >= 0 && m_Selected < (int)m_Edit.Frames.size())
+        if (ImGui::Button(Tr(ICON_FA_TRASH "  O'chirish")) && m_Selected >= 0 && m_Selected < (int)m_Edit.Frames.size())
         {
             m_Edit.Frames.erase(m_Edit.Frames.begin() + m_Selected);
             m_Selected = std::min(m_Selected, (int)m_Edit.Frames.size() - 1);
@@ -511,7 +511,7 @@ namespace Zamin {
         ImGui::EndDisabled();
         ImGui::SameLine();
         ImGui::BeginDisabled(m_Edit.Frames.empty());
-        if (ImGui::Button(ICON_FA_BROOM "  Hammasi"))
+        if (ImGui::Button(Tr(ICON_FA_BROOM "  Hammasi")))
         {
             m_Edit.Frames.clear();
             m_Selected = -1;
@@ -546,7 +546,7 @@ namespace Zamin {
         if (m_Selected < 0 || m_Selected >= (int)m_Edit.Frames.size())
             return;
         ImGui::Spacing();
-        if (!ImGui::CollapsingHeader(ICON_FA_CROP "  Tanlangan kadr", ImGuiTreeNodeFlags_DefaultOpen))
+        if (!ImGui::CollapsingHeader(Tr(ICON_FA_CROP "  Tanlangan kadr"), ImGuiTreeNodeFlags_DefaultOpen))
             return;
         SpriteFrame& f = m_Edit.Frames[(size_t)m_Selected];
         if (!UI::BeginPropertyGrid("##frame"))

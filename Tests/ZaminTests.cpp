@@ -1,5 +1,7 @@
 // Headless unit tests (no window / GPU needed).
 #include <Zamin/Zamin.h>
+#include <Zamin/Editor/EditorLanguage.h>
+#include <Zamin/ImGui/Icons.h>
 
 #include <algorithm>
 #include <chrono>
@@ -35247,4 +35249,53 @@ TEST(ProjectLocalizationSettings)
     CHECK(Localization::GetTable("uz") == nullptr);
     std::error_code ec;
     std::filesystem::remove_all(dir, ec);
+}
+
+TEST(EditorLanguageStrings)
+{
+    EditorText::SetLanguage(EditorLanguage::Uzbek);
+    const char* label = ICON_FA_GEAR "  Loyiha sozlamalari...###ProjectSettings";
+    CHECK(Tr(label) == label); // Uzbek: the text itself, no copy
+    EditorText::SetLanguage(EditorLanguage::English);
+    CHECK(EditorText::GetLanguage() == EditorLanguage::English);
+    // The icon, the "..." and the ImGui id stay; only the text is translated.
+    CHECK(std::string(Tr(label)) == ICON_FA_GEAR "  Project settings...###ProjectSettings");
+    CHECK(std::string(Tr("Fayl")) == "File" && std::string(Tr("Saqlash##scene")) == "Save##scene" && std::string(Tr("Til:")) == "Language:");
+    CHECK(Tr(label) == Tr(label)); // cached: the same pointer every frame
+    CHECK(std::string(Tr("Tarjimasi yo'q matn")) == "Tarjimasi yo'q matn");
+    CHECK(Tr(std::string("Oyna")) == "Window" && Tr(std::string_view("Yordam")) == "Help");
+    const EditorText::Parts parts = EditorText::Split(ICON_FA_FOLDER_OPEN "  Sahnani ochish...##open");
+    CHECK(parts.Prefix == ICON_FA_FOLDER_OPEN "  " && parts.Core == "Sahnani ochish" && parts.Suffix == "...##open");
+    // Main menus, window titles and common buttons are covered; no key twice, no empty text.
+    for (const char* uz : { "Fayl", "Tahrirlash", "Oyna", "Yordam", "Ierarxiya", "Inspektor", "Kontent", "Konsol", "Loyiha sozlamalari", "Saqlash",
+                            "Bekor qilish", "Yopish", "Qo'shish", "O'chirish", "Lokalizatsiya", "Sozlamalar" })
+        CHECK(EditorText::HasTranslation(uz));
+    const std::vector<std::string> keys = EditorText::GetTranslationKeys();
+    CHECK(keys.size() == EditorText::GetTranslationCount() && keys.size() > 300);
+    for (const std::string& key : keys)
+        CHECK(!key.empty() && EditorText::HasTranslation(key));
+    // Every category title of the project settings window has an English one.
+    for (const ProjectSettingsCategory& category : ProjectSettingsIndex::GetCategories())
+        CHECK(EditorText::HasTranslation(category.Title));
+    CHECK(EditorText::ParseLanguage("en") == EditorLanguage::English && EditorText::ParseLanguage("English") == EditorLanguage::English &&
+          EditorText::ParseLanguage("de") == EditorLanguage::Uzbek && std::string(EditorText::GetLanguageCode(EditorLanguage::English)) == "en");
+    // Words the table cannot key (one Uzbek text, two meanings) are picked per language.
+    CHECK(std::string(EditorText::Choose("Bekor qilish", "Undo")) == "Undo");
+    // Status bar, search hints, dialogs and inspector headers.
+    CHECK(std::string(Tr(ICON_FA_ARROW_POINTER "  Hech narsa tanlanmagan")) == ICON_FA_ARROW_POINTER "  Nothing selected");
+    CHECK(std::string(Tr("Qidirish...  (#teg)")) == "Search...  (#tag)");
+    CHECK(std::string(Tr("Yangi C++ skript###NewScript")) == "New C++ script###NewScript");
+    CHECK(std::string(Tr(ICON_FA_LOCATION_DOT "  3D ovoz (standartlar)")) == ICON_FA_LOCATION_DOT "  3D sound (defaults)");
+    CHECK(Tr(static_cast<const char*>(nullptr)) == nullptr);
+    EditorText::SetLanguage(EditorLanguage::Uzbek);
+    CHECK(std::string(Tr("Fayl")) == "Fayl");
+    CHECK(std::string(EditorText::Choose("Bekor qilish", "Undo")) == "Bekor qilish");
+
+    // The preference is saved (unknown codes: Uzbek).
+    EditorPreferences prefs;
+    CHECK(prefs.Language == "uz");
+    prefs.Language = "en";
+    EditorPreferences read;
+    CHECK(read.FromJson(prefs.ToJson()) && read.Language == "en");
+    CHECK(read.FromJson(R"({ "ZaminEditorPreferences": 1, "Language": "fr" })") && read.Language == "uz");
 }

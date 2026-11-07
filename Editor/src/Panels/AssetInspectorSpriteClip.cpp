@@ -249,10 +249,10 @@ namespace Zamin {
                 }
                 ImGui::SameLine();
                 ImGui::SetNextItemWidth(avail * 0.44f);
-                changed |= ImGui::InputTextWithHint("##name", "nom", &ev.Name);
+                changed |= ImGui::InputTextWithHint("##name", Tr("nom"), &ev.Name);
                 ImGui::SameLine();
                 ImGui::SetNextItemWidth(avail * 0.34f);
-                changed |= ImGui::InputTextWithHint("##param", "parametr", &ev.Parameter);
+                changed |= ImGui::InputTextWithHint("##param", Tr("parametr"), &ev.Parameter);
                 ImGui::SameLine();
                 if (ImGui::Button(ICON_FA_TRASH, ImVec2(button, 0)))
                     remove = i;
@@ -264,7 +264,7 @@ namespace Zamin {
                 changed = true;
             }
             UI::PropertyLabel("");
-            if (ImGui::Button(ICON_FA_PLUS "  Event"))
+            if (ImGui::Button(Tr(ICON_FA_PLUS "  Event")))
             {
                 clip.Events.push_back({ std::clamp(frame, 0, std::max(0, frameCount - 1)), "Footstep", "" });
                 changed = true;

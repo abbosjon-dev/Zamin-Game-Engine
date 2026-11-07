@@ -153,12 +153,15 @@ namespace Zamin {
         Camera.Sanitize();
         Autosave.Sanitize();
         Idle.Sanitize();
+        if (Language != "uz" && Language != "en")
+            Language = "uz";
     }
 
     std::string EditorPreferences::ToJson() const
     {
         json j;
         j["ZaminEditorPreferences"] = 1;
+        j["Language"] = Language;
         j["Theme"] = {
             { "Accent", Vec(Theme.Accent) },
             { "FontSize", Num(Theme.FontSize) },
@@ -218,6 +221,8 @@ namespace Zamin {
         json j = json::parse(text, nullptr, false);
         if (j.is_discarded() || !j.is_object() || !j.contains("ZaminEditorPreferences"))
             return false;
+        if (auto it = j.find("Language"); it != j.end() && it->is_string())
+            Language = it->get<std::string>();
         if (auto it = j.find("Theme"); it != j.end() && it->is_object())
         {
             ReadVec(*it, "Accent", Theme.Accent);

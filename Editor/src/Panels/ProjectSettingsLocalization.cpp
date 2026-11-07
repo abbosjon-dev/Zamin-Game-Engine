@@ -87,7 +87,7 @@ namespace Zamin {
                                                  "til menyusi tartibi.");
             ImGui::PushID("listMode");
             bool explicitList = !automatic;
-            if (ImGui::Checkbox("O'z ro'yxati", &explicitList))
+            if (ImGui::Checkbox(Tr("O'z ro'yxati"), &explicitList))
             {
                 loc.Languages = explicitList ? listed : std::vector<std::string>();
                 changed = true;
@@ -148,7 +148,7 @@ namespace Zamin {
                 {
                     ImGui::TextColored(s_WarnColor, ICON_FA_TRIANGLE_EXCLAMATION " yo'q");
                     ImGui::SameLine();
-                    if (ImGui::SmallButton("Yaratish"))
+                    if (ImGui::SmallButton(Tr("Yaratish")))
                     {
                         LocalizationTable created = table;
                         created.Languages.erase(std::remove_if(created.Languages.begin(), created.Languages.end(),
@@ -238,7 +238,7 @@ namespace Zamin {
         // Adding a language.
         ImGui::Spacing();
         ImGui::SetNextItemWidth(110.0f);
-        ImGui::InputTextWithHint("##newLanguage", "til kodi", &m_NewLanguage);
+        ImGui::InputTextWithHint("##newLanguage", Tr("til kodi"), &m_NewLanguage);
         ImGui::SameLine();
         const bool validNew = LocalizationSettings::IsValidCode(m_NewLanguage) &&
                               std::find(listed.begin(), listed.end(), m_NewLanguage) == listed.end();
@@ -249,7 +249,7 @@ namespace Zamin {
             changed = true;
         };
         ImGui::BeginDisabled(!validNew);
-        if (ImGui::Button(ICON_FA_PLUS "  Til qo'shish"))
+        if (ImGui::Button(Tr(ICON_FA_PLUS "  Til qo'shish")))
         {
             addLanguage(m_NewLanguage);
             m_NewLanguage.clear();
@@ -285,7 +285,7 @@ namespace Zamin {
         if (ImGui::IsItemHovered())
             UI::Tooltip("Sahnadagi lokalizatsiya kalitli matnlar shu tilda ko'rsatiladi (faqat editorda; loyiha faylida emas)");
         ImGui::SameLine();
-        if (ImGui::Button(ICON_FA_TABLE_CELLS "  Lokalizatsiya jadvali...") && OnLocalizationTableRequested)
+        if (ImGui::Button(Tr(ICON_FA_TABLE_CELLS "  Lokalizatsiya jadvali...")) && OnLocalizationTableRequested)
             OnLocalizationTableRequested();
         ImGui::TextDisabled("%zu ta kalit, %zu ta til. Skriptlar: Localize(\"kalit\"), Localize(\"kalit\", qiymat), LocalizePlural(\"kalit\", son)",
                             keys, listed.size());

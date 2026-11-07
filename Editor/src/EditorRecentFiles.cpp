@@ -105,7 +105,7 @@ namespace Zamin {
             scenes = m_RecentScenes.GetForOwner(Canonical(Project::GetProjectFilePath()), 12);
         if (m_OpenMenu.ends_with("/recent") && !scenes.empty())
             ImGui::OpenPopup(ICON_FA_CLOCK_ROTATE_LEFT "  So'nggi sahnalar");
-        if (!ImGui::BeginMenu(ICON_FA_CLOCK_ROTATE_LEFT "  So'nggi sahnalar", !scenes.empty()))
+        if (!ImGui::BeginMenu(Tr(ICON_FA_CLOCK_ROTATE_LEFT "  So'nggi sahnalar"), !scenes.empty()))
             return;
         std::optional<RecentFileList::Entry> picked;
         const int64_t now = GetUnixTime();
@@ -126,7 +126,7 @@ namespace Zamin {
                 UI::Tooltip(std::format("{}\nOchilgan: {}", Project::GetAssetRelativePath(path), FormatTimeAgo(e.Time, now)).c_str());
         }
         ImGui::Separator();
-        if (ImGui::MenuItem(ICON_FA_BROOM "  Ro'yxatni tozalash"))
+        if (ImGui::MenuItem(Tr(ICON_FA_BROOM "  Ro'yxatni tozalash")))
         {
             m_RecentScenes.ClearOwner(Canonical(Project::GetProjectFilePath()));
             SaveRecentScenes();

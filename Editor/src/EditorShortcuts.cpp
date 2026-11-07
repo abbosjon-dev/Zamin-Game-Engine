@@ -322,7 +322,7 @@ namespace Zamin {
         const float em = ImGui::GetFontSize();
         ImGui::SetNextWindowSize(ImVec2(em * 50.0f, em * 36.0f), ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_FirstUseEver, ImVec2(0.5f, 0.5f));
-        if (!ImGui::Begin(ICON_FA_KEYBOARD "  Klaviatura yorliqlari###Shortcuts", &m_ShowShortcuts, ImGuiWindowFlags_NoCollapse))
+        if (!ImGui::Begin(Tr(ICON_FA_KEYBOARD "  Klaviatura yorliqlari###Shortcuts"), &m_ShowShortcuts, ImGuiWindowFlags_NoCollapse))
         {
             ImGui::End();
             return;
@@ -464,7 +464,7 @@ namespace Zamin {
                     {
                         ImGui::PushStyleColor(ImGuiCol_Button, UI::AccentDarkColor());
                         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, UI::AccentMidColor());
-                        if (ImGui::Button(ICON_FA_KEYBOARD "  Tugmalarni bosing...", ImVec2(-FLT_MIN, 0.0f)))
+                        if (ImGui::Button(Tr(ICON_FA_KEYBOARD "  Tugmalarni bosing..."), ImVec2(-FLT_MIN, 0.0f)))
                             clickedId = s.Id;
                         captureHovered = ImGui::IsItemHovered();
                         ImGui::PopStyleColor(2);
@@ -547,7 +547,7 @@ namespace Zamin {
         // ---- bottom
         ImGui::Separator();
         ImGui::BeginDisabled(modified == 0);
-        if (ImGui::Button(ICON_FA_ARROW_ROTATE_LEFT "  Hammasini standartga qaytarish"))
+        if (ImGui::Button(Tr(ICON_FA_ARROW_ROTATE_LEFT "  Hammasini standartga qaytarish")))
         {
             m_Shortcuts.ResetAll();
             SaveShortcutPreferences();

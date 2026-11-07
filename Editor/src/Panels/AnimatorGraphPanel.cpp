@@ -245,7 +245,7 @@ namespace Zamin {
         ImGui::SetNextWindowSize(ImVec2(1000.0f, 420.0f), ImGuiCond_FirstUseEver);
         if (m_DefaultDock)
             ImGui::SetNextWindowDockID(m_DefaultDock, ImGuiCond_FirstUseEver);
-        if (!ImGui::Begin(ICON_FA_DIAGRAM_PROJECT "  Animator grafi###AnimatorGraph", show))
+        if (!ImGui::Begin(Tr(ICON_FA_DIAGRAM_PROJECT "  Animator grafi###AnimatorGraph"), show))
         {
             ImGui::End();
             return;
@@ -313,14 +313,14 @@ namespace Zamin {
         auto center = [&]() { return ToGraph(ImVec2(m_CanvasMin.x + 200.0f, m_CanvasMin.y + 80.0f)); };
         auto mr = entity.TryGetComponent<MeshRendererComponent>();
         const Model* model = mr && mr->ModelAsset ? mr->ModelAsset.get() : nullptr;
-        if (ImGui::Button(ICON_FA_PLUS "  Holat"))
+        if (ImGui::Button(Tr(ICON_FA_PLUS "  Holat")))
         {
             glm::vec2 p = center();
             m_Selection = { Kind::State, AnimatorEditing::AddState(*c, model, false, glm::round(p / s_Snap) * s_Snap) };
             MarkModified();
         }
         ImGui::SameLine();
-        if (ImGui::Button(ICON_FA_SHUFFLE "  Blend tree"))
+        if (ImGui::Button(Tr(ICON_FA_SHUFFLE "  Blend tree")))
         {
             glm::vec2 p = center();
             m_Selection = { Kind::State, AnimatorEditing::AddState(*c, model, true, glm::round(p / s_Snap) * s_Snap) };
@@ -329,7 +329,7 @@ namespace Zamin {
         if (ImGui::IsItemHovered())
             UI::Tooltip("1D blend tree: float parametr bo'yicha kliplar aralashadi (masalan Speed bo'yicha turish / yurish / yugurish)");
         ImGui::SameLine();
-        if (ImGui::Button(ICON_FA_EXPAND "  Moslash"))
+        if (ImGui::Button(Tr(ICON_FA_EXPAND "  Moslash")))
             m_FitRequested = true;
         if (ImGui::IsItemHovered())
             UI::Tooltip("Hamma node'lar ko'rinadigan qilish (F)");
@@ -474,19 +474,19 @@ namespace Zamin {
             {
                 ImGui::TextDisabled("%s", c.States[(size_t)m_ContextNode].Name.c_str());
                 ImGui::Separator();
-                if (ImGui::MenuItem(ICON_FA_ARROW_RIGHT "  O'tish yaratish"))
+                if (ImGui::MenuItem(Tr(ICON_FA_ARROW_RIGHT "  O'tish yaratish")))
                 {
                     m_LinkFrom = m_ContextNode;
                     m_LinkByClick = true;
                 }
-                if (ImGui::MenuItem(ICON_FA_FLAG "  Boshlang'ich holat qilish", nullptr, false, c.DefaultState != m_ContextNode))
+                if (ImGui::MenuItem(Tr(ICON_FA_FLAG "  Boshlang'ich holat qilish"), nullptr, false, c.DefaultState != m_ContextNode))
                 {
                     c.DefaultState = m_ContextNode;
                     if (m_Editable)
                         c.CurrentState = -1; // the editor previews it
                     MarkModified();
                 }
-                if (ImGui::MenuItem(ICON_FA_TRASH "  O'chirish", "Delete"))
+                if (ImGui::MenuItem(Tr(ICON_FA_TRASH "  O'chirish"), "Delete"))
                 {
                     m_Selection = { Kind::State, m_ContextNode };
                     DeleteSelection(c);
@@ -496,7 +496,7 @@ namespace Zamin {
             {
                 ImGui::TextDisabled("Har qanday holat");
                 ImGui::Separator();
-                if (ImGui::MenuItem(ICON_FA_ARROW_RIGHT "  O'tish yaratish"))
+                if (ImGui::MenuItem(Tr(ICON_FA_ARROW_RIGHT "  O'tish yaratish")))
                 {
                     m_LinkFrom = -1;
                     m_LinkByClick = true;
@@ -508,7 +508,7 @@ namespace Zamin {
                 ImGui::TextDisabled("%s  " ICON_FA_ARROW_RIGHT "  %s", AnimatorEditing::StateName(c, tr.From).c_str(),
                                     AnimatorEditing::StateName(c, tr.To).c_str());
                 ImGui::Separator();
-                if (ImGui::MenuItem(ICON_FA_TRASH "  O'tishni o'chirish", "Delete"))
+                if (ImGui::MenuItem(Tr(ICON_FA_TRASH "  O'tishni o'chirish"), "Delete"))
                 {
                     m_Selection = { Kind::Transition, m_ContextTransition };
                     DeleteSelection(c);
@@ -517,18 +517,18 @@ namespace Zamin {
             else
             {
                 const glm::vec2 at = glm::round(m_ContextPoint / s_Snap) * s_Snap;
-                if (ImGui::MenuItem(ICON_FA_PLUS "  Yangi holat"))
+                if (ImGui::MenuItem(Tr(ICON_FA_PLUS "  Yangi holat")))
                 {
                     m_Selection = { Kind::State, AnimatorEditing::AddState(c, model, false, at) };
                     MarkModified();
                 }
-                if (ImGui::MenuItem(ICON_FA_SHUFFLE "  Yangi blend tree"))
+                if (ImGui::MenuItem(Tr(ICON_FA_SHUFFLE "  Yangi blend tree")))
                 {
                     m_Selection = { Kind::State, AnimatorEditing::AddState(c, model, true, at) };
                     MarkModified();
                 }
                 ImGui::Separator();
-                if (ImGui::MenuItem(ICON_FA_EXPAND "  Ko'rinishni moslash", "F"))
+                if (ImGui::MenuItem(Tr(ICON_FA_EXPAND "  Ko'rinishni moslash"), "F"))
                     m_FitRequested = true;
             }
             ImGui::EndPopup();
@@ -715,23 +715,23 @@ namespace Zamin {
                     }
                     if (m_Selection.Type == Kind::State)
                     {
-                        if (ImGui::Button(ICON_FA_ARROW_RIGHT "  O'tish yaratish"))
+                        if (ImGui::Button(Tr(ICON_FA_ARROW_RIGHT "  O'tish yaratish")))
                         {
                             m_LinkFrom = m_Selection.Index;
                             m_LinkByClick = true;
                         }
                         ImGui::SameLine();
-                        if (ImGui::Button(ICON_FA_TRASH "  O'chirish"))
+                        if (ImGui::Button(Tr(ICON_FA_TRASH "  O'chirish")))
                             DeleteSelection(c);
                     }
                 }
                 break;
             case Kind::AnyState:
-                ImGui::SeparatorText(ICON_FA_ASTERISK "  Har qanday holat");
+                ImGui::SeparatorText(Tr(ICON_FA_ASTERISK "  Har qanday holat"));
                 ImGui::PushTextWrapPos(0.0f);
                 ImGui::TextDisabled("Bu node'dan chiqqan o'tishlar qaysi holatda bo'lsa ham tekshiriladi (masalan sakrash, zarba olish).");
                 ImGui::PopTextWrapPos();
-                if (ImGui::Button(ICON_FA_ARROW_RIGHT "  O'tish yaratish"))
+                if (ImGui::Button(Tr(ICON_FA_ARROW_RIGHT "  O'tish yaratish")))
                 {
                     m_LinkFrom = -1;
                     m_LinkByClick = true;
@@ -740,10 +740,10 @@ namespace Zamin {
             case Kind::Transition:
                 if (m_Selection.Index >= 0 && m_Selection.Index < (int)c.Transitions.size())
                 {
-                    ImGui::SeparatorText(ICON_FA_ARROW_RIGHT "  O'tish");
+                    ImGui::SeparatorText(Tr(ICON_FA_ARROW_RIGHT "  O'tish"));
                     changed |= AnimatorEditing::DrawTransition(c, m_Selection.Index);
                     ImGui::Spacing();
-                    if (ImGui::Button(ICON_FA_TRASH "  O'tishni o'chirish"))
+                    if (ImGui::Button(Tr(ICON_FA_TRASH "  O'tishni o'chirish")))
                         DeleteSelection(c);
                 }
                 break;

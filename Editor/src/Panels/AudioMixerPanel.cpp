@@ -95,7 +95,7 @@ namespace Zamin {
         if (ImGuiWindow* browser = ImGui::FindWindowByName("###ContentBrowser"); browser && browser->DockId)
             ImGui::SetNextWindowDockID(browser->DockId, ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowSize(ImVec2(ImGui::GetFontSize() * 52.0f, ImGui::GetFontSize() * 24.0f), ImGuiCond_FirstUseEver);
-        if (!ImGui::Begin(ICON_FA_SLIDERS "  Audio Mixer###AudioMixer", show))
+        if (!ImGui::Begin(Tr(ICON_FA_SLIDERS "  Audio Mixer###AudioMixer"), show))
         {
             ImGui::End();
             return;
@@ -106,7 +106,7 @@ namespace Zamin {
         bool changed = false, structural = false;
 
         // ---- toolbar
-        if (ImGui::Button(ICON_FA_PLUS "  Guruh"))
+        if (ImGui::Button(Tr(ICON_FA_PLUS "  Guruh")))
         {
             m_NewGroupName.clear();
             m_NewGroupError.clear();
@@ -148,7 +148,7 @@ namespace Zamin {
         if (settings.AnySolo())
         {
             ImGui::SameLine();
-            if (ImGui::Button(ICON_FA_HEADPHONES "  Solo'ni bekor qilish"))
+            if (ImGui::Button(Tr(ICON_FA_HEADPHONES "  Solo'ni bekor qilish")))
             {
                 for (AudioGroupSettings& g : settings.Groups)
                     g.Solo = false;
@@ -176,7 +176,7 @@ namespace Zamin {
             if (project && !project->GetConfig().Audio.EqualsIgnoringSolo(settings))
             {
                 ImGui::SameLine();
-                if (ImGui::SmallButton(ICON_FA_FLOPPY_DISK "  Standart qilib saqlash"))
+                if (ImGui::SmallButton(Tr(ICON_FA_FLOPPY_DISK "  Standart qilib saqlash")))
                 {
                     project->GetConfig().Audio = settings;
                     if (OnProjectModified)
@@ -185,7 +185,7 @@ namespace Zamin {
                 if (ImGui::IsItemHovered())
                     UI::Tooltip("Hozirgi mixerni loyihaning standart sozlamasi qilish (.zproject)");
                 ImGui::SameLine();
-                if (ImGui::SmallButton(ICON_FA_ROTATE_LEFT "  Qaytarish"))
+                if (ImGui::SmallButton(Tr(ICON_FA_ROTATE_LEFT "  Qaytarish")))
                 {
                     AudioSettings defaults = project->GetConfig().Audio;
                     AudioEngine::SetMixerSettings(defaults);
@@ -289,7 +289,7 @@ namespace Zamin {
         if (ImGui::IsWindowAppearing())
             ImGui::SetKeyboardFocusHere();
         ImGui::SetNextItemWidth(ImGui::GetFontSize() * 11.0f);
-        bool enter = ImGui::InputTextWithHint("##name", "Nomi (masalan Ovozlar)", &m_NewGroupName, ImGuiInputTextFlags_EnterReturnsTrue);
+        bool enter = ImGui::InputTextWithHint("##name", Tr("Nomi (masalan Ovozlar)"), &m_NewGroupName, ImGuiInputTextFlags_EnterReturnsTrue);
         ImGui::SetNextItemWidth(ImGui::GetFontSize() * 11.0f);
         if (ImGui::BeginCombo("Ota guruh", m_NewGroupParent.c_str()))
         {
@@ -298,7 +298,7 @@ namespace Zamin {
                     m_NewGroupParent = name;
             ImGui::EndCombo();
         }
-        if (ImGui::Button(ICON_FA_PLUS "  Qo'shish") || enter)
+        if (ImGui::Button(Tr(ICON_FA_PLUS "  Qo'shish")) || enter)
         {
             std::string name = m_NewGroupName;
             name.erase(0, name.find_first_not_of(" \t"));
@@ -459,7 +459,7 @@ namespace Zamin {
         ImGui::SetCursorScreenPos(ImVec2(start.x + pad, ImGui::GetCursorScreenPos().y + 2.0f));
         ImGui::PushStyleColor(ImGuiCol_Button, group->Muted ? ImVec4(0.80f, 0.25f, 0.22f, 1.0f) : ImVec4(0.22f, 0.23f, 0.27f, 1.0f));
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, group->Muted ? ImVec4(0.90f, 0.32f, 0.28f, 1.0f) : ImVec4(0.30f, 0.31f, 0.36f, 1.0f));
-        if (ImGui::Button("M", ImVec2(buttonWidth, 0)))
+        if (ImGui::Button(Tr("M"), ImVec2(buttonWidth, 0)))
         {
             group->Muted = !group->Muted;
             changed = true;
@@ -472,7 +472,7 @@ namespace Zamin {
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, group->Solo ? ImVec4(0.95f, 0.82f, 0.30f, 1.0f) : ImVec4(0.30f, 0.31f, 0.36f, 1.0f));
         ImGui::PushStyleColor(ImGuiCol_Text, group->Solo ? ImVec4(0.10f, 0.10f, 0.10f, 1.0f) : ImGui::GetStyleColorVec4(ImGuiCol_Text));
         ImGui::BeginDisabled(isMaster);
-        if (ImGui::Button("S", ImVec2(buttonWidth, 0)))
+        if (ImGui::Button(Tr("S"), ImVec2(buttonWidth, 0)))
         {
             group->Solo = !group->Solo;
             changed = true;
@@ -541,7 +541,7 @@ namespace Zamin {
         {
             ImGui::TextDisabled("%s", name.c_str());
             ImGui::Separator();
-            if (ImGui::BeginMenu("Ota guruh", !isMaster))
+            if (ImGui::BeginMenu(Tr("Ota guruh"), !isMaster))
             {
                 for (const auto& [other, otherDepth] : settings.GetTreeOrder())
                 {
@@ -552,14 +552,14 @@ namespace Zamin {
                 }
                 ImGui::EndMenu();
             }
-            if (ImGui::MenuItem("0 dB ga qaytarish"))
+            if (ImGui::MenuItem(Tr("0 dB ga qaytarish")))
             {
                 group->Volume = 1.0f;
                 changed = true;
             }
             ImGui::Separator();
             bool builtIn = AudioSettings::IsBuiltIn(name);
-            if (ImGui::MenuItem(ICON_FA_TRASH "  O'chirish", nullptr, false, !builtIn))
+            if (ImGui::MenuItem(Tr(ICON_FA_TRASH "  O'chirish"), nullptr, false, !builtIn))
             {
                 std::string parent = group->Parent;
                 if (settings.RemoveGroup(name))

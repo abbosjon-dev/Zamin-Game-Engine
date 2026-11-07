@@ -165,7 +165,7 @@ namespace Zamin {
         ImGui::DragFloat("##clipFps", &m_ModelEdit.ClipFrameRate, 0.2f, 1.0f, 240.0f, "%.0f kadr/s", ImGuiSliderFlags_AlwaysClamp);
         UI::PropertyLabel("Asl kliplar", "O'chirilsa: undan qism kesilgan fayl klipi ro'yxatda qolmaydi (faqat kesilgan qismlar). "
                                          "Hech narsa kesilmagan kliplar baribir qoladi.");
-        ImGui::Checkbox("Saqlansin##keepSources", &m_ModelEdit.KeepSourceClips);
+        ImGui::Checkbox(Tr("Saqlansin##keepSources"), &m_ModelEdit.KeepSourceClips);
         UI::EndPropertyGrid();
 
         const float fps = std::max(1.0f, m_ModelEdit.ClipFrameRate);
@@ -194,7 +194,7 @@ namespace Zamin {
             const float rest = ImGui::GetContentRegionAvail().x - button - spacing;
             ImGui::SetNextItemWidth(rest * 0.5f - spacing);
             std::string name = s.GetName();
-            if (ImGui::InputTextWithHint("##name", "nomi", &name))
+            if (ImGui::InputTextWithHint("##name", Tr("nomi"), &name))
                 s.Name = name == s.Source ? std::string() : name;
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Yangi klip nomi. Manba bilan bir xil bo'lsa: manba klip kesiladi (o'rniga)");
@@ -287,7 +287,7 @@ namespace Zamin {
         }
         ImGui::Spacing();
         ImGui::BeginDisabled(sources.empty());
-        if (ImGui::Button(ICON_FA_SCISSORS "  Klip qismi qo'shish"))
+        if (ImGui::Button(Tr(ICON_FA_SCISSORS "  Klip qismi qo'shish")))
             ImGui::OpenPopup("##addClipSetting");
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
@@ -298,12 +298,12 @@ namespace Zamin {
             {
                 if (ImGui::BeginMenu(std::format("{}  ({:.2f} s)##{}", c.Name, c.Duration, (const void*)&c).c_str()))
                 {
-                    if (ImGui::MenuItem(ICON_FA_SCISSORS "  Shu klipni kesish (nomi o'zgarmaydi)"))
+                    if (ImGui::MenuItem(Tr(ICON_FA_SCISSORS "  Shu klipni kesish (nomi o'zgarmaydi)")))
                     {
                         m_ModelEdit.Clips.push_back({ c.Name, {}, 0.0f, -1.0f });
                         StartClipSettingPreview((int)m_ModelEdit.Clips.size() - 1);
                     }
-                    if (ImGui::MenuItem(ICON_FA_PLUS "  Yangi qism (alohida klip)"))
+                    if (ImGui::MenuItem(Tr(ICON_FA_PLUS "  Yangi qism (alohida klip)")))
                     {
                         std::string name = c.Name + "_qism";
                         for (int n = 2; FindSourceClip(name) || std::any_of(m_ModelEdit.Clips.begin(), m_ModelEdit.Clips.end(),

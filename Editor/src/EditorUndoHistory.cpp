@@ -252,7 +252,7 @@ namespace Zamin {
         // First opened: a tab next to the Inspector.
         if (ImGuiWindow* inspector = ImGui::FindWindowByName("###Inspector"); inspector && inspector->DockId)
             ImGui::SetNextWindowDockID(inspector->DockId, ImGuiCond_FirstUseEver);
-        if (!ImGui::Begin(ICON_FA_CLOCK_ROTATE_LEFT "  Undo tarixi###UndoHistory", &m_ShowUndoHistory))
+        if (!ImGui::Begin(Tr(ICON_FA_CLOCK_ROTATE_LEFT "  Undo tarixi###UndoHistory"), &m_ShowUndoHistory))
         {
             ImGui::End();
             return;

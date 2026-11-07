@@ -176,7 +176,7 @@ namespace Zamin {
         const ImGuiViewport* mainViewport = ImGui::GetMainViewport();
         ImGui::SetNextWindowPos(ImVec2(mainViewport->WorkPos.x + mainViewport->WorkSize.x * 0.5f, mainViewport->WorkPos.y + mainViewport->WorkSize.y * 0.5f),
                                 ImGuiCond_FirstUseEver, ImVec2(0.5f, 0.5f));
-        if (!ImGui::Begin(ICON_FA_CHART_PIE "  Sahna statistikasi###SceneStatistics", &m_ShowSceneStatistics))
+        if (!ImGui::Begin(Tr(ICON_FA_CHART_PIE "  Sahna statistikasi###SceneStatistics"), &m_ShowSceneStatistics))
         {
             ImGui::End();
             return;
@@ -238,7 +238,7 @@ namespace Zamin {
 
         // ---- refresh and search
         ImGui::Spacing();
-        if (ImGui::Button(ICON_FA_ARROWS_ROTATE "  Yangilash"))
+        if (ImGui::Button(Tr(ICON_FA_ARROWS_ROTATE "  Yangilash")))
         {
             m_SceneStatsCollector.ClearCache(); // files changed outside the editor are read again
             UpdateSceneStatistics(true);
@@ -352,9 +352,9 @@ namespace Zamin {
                         const SourceLocation& source = g.Key.empty() ? SourceLocation() : GetScriptSource(g.Key);
                         if (ImGui::BeginPopupContextItem("##scriptRow"))
                         {
-                            if (ImGui::MenuItem(ICON_FA_PEN_TO_SQUARE "  Kodini ochish", nullptr, false, source.IsValid()))
+                            if (ImGui::MenuItem(Tr(ICON_FA_PEN_TO_SQUARE "  Kodini ochish"), nullptr, false, source.IsValid()))
                                 OpenInExternalEditor(source.File, source.Line, source.Column);
-                            if (ImGui::MenuItem(ICON_FA_OBJECT_GROUP "  Obyektlarni tanlash"))
+                            if (ImGui::MenuItem(Tr(ICON_FA_OBJECT_GROUP "  Obyektlarni tanlash")))
                                 SelectStatsEntities(g.Entities, false, false);
                             ImGui::EndPopup();
                         }
@@ -422,9 +422,9 @@ namespace Zamin {
                         }
                         if (ImGui::BeginPopupContextItem("##prefabRow"))
                         {
-                            if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN "  Kontent brauzerda ko'rsatish"))
+                            if (ImGui::MenuItem(Tr(ICON_FA_FOLDER_OPEN "  Kontent brauzerda ko'rsatish")))
                                 RevealAsset(Project::GetAssetFileSystemPath(g.Key));
-                            if (ImGui::MenuItem(ICON_FA_COPY "  Yo'lni nusxalash"))
+                            if (ImGui::MenuItem(Tr(ICON_FA_COPY "  Yo'lni nusxalash")))
                                 ImGui::SetClipboardText(g.Key.c_str());
                             ImGui::EndPopup();
                         }
@@ -450,7 +450,7 @@ namespace Zamin {
                 const char* current = m_SceneStatsAssetType < 0 ? "Hamma turlar" : AssetFiles::GetTypeName((AssetType)m_SceneStatsAssetType);
                 if (ImGui::BeginCombo("##statsAssetType", current))
                 {
-                    if (ImGui::Selectable("Hamma turlar", m_SceneStatsAssetType < 0))
+                    if (ImGui::Selectable(Tr("Hamma turlar"), m_SceneStatsAssetType < 0))
                         m_SceneStatsAssetType = -1;
                     for (AssetType type : present)
                         if (ImGui::Selectable(std::format("{} ({})", AssetFiles::GetTypeName(type), s.CountAssets(type)).c_str(),
@@ -534,11 +534,11 @@ namespace Zamin {
                             }
                             if (ImGui::BeginPopupContextItem("##assetRow"))
                             {
-                                if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN "  Kontent brauzerda ko'rsatish", nullptr, false, a.Exists))
+                                if (ImGui::MenuItem(Tr(ICON_FA_FOLDER_OPEN "  Kontent brauzerda ko'rsatish"), nullptr, false, a.Exists))
                                     RevealAsset(Project::GetAssetFileSystemPath(a.Path));
-                                if (ImGui::MenuItem(ICON_FA_COPY "  Yo'lni nusxalash"))
+                                if (ImGui::MenuItem(Tr(ICON_FA_COPY "  Yo'lni nusxalash")))
                                     ImGui::SetClipboardText(a.Path.c_str());
-                                if (ImGui::MenuItem(ICON_FA_OBJECT_GROUP "  Obyektlarni tanlash", nullptr, false, !a.Entities.empty()))
+                                if (ImGui::MenuItem(Tr(ICON_FA_OBJECT_GROUP "  Obyektlarni tanlash"), nullptr, false, !a.Entities.empty()))
                                     SelectStatsEntities(a.Entities, false, false);
                                 ImGui::EndPopup();
                             }

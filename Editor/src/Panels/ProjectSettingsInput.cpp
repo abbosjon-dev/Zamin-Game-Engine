@@ -212,7 +212,7 @@ namespace Zamin {
         if (listening)
         {
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.18f, 0.55f, 0.45f, 0.65f));
-            if (ImGui::Button("Tugmani bosing...  (Esc: bekor qilish)", ImVec2(codeWidth, 0)))
+            if (ImGui::Button(Tr("Tugmani bosing...  (Esc: bekor qilish)"), ImVec2(codeWidth, 0)))
                 StopListening();
             ImGui::PopStyleColor();
         }
@@ -319,7 +319,7 @@ namespace Zamin {
             StopListening();
             changed = true;
         }
-        if (ImGui::SmallButton(ICON_FA_PLUS "  Bog'lash qo'shish"))
+        if (ImGui::SmallButton(Tr(ICON_FA_PLUS "  Bog'lash qo'shish")))
         {
             bindings.push_back(InputBinding::FromKey(Key::Space));
             StartListening({ kind, entry, (int)bindings.size() - 1 });
@@ -381,15 +381,15 @@ namespace Zamin {
                 ImGui::SetNextItemOpen(openRequest == 1);
         };
         ImGui::SetNextItemWidth(std::min(ImGui::GetFontSize() * 16.0f, ImGui::GetContentRegionAvail().x));
-        ImGui::InputTextWithHint("##inputFilter", ICON_FA_MAGNIFYING_GLASS "  Nom yoki tugma bo'yicha qidirish", &m_InputFilter);
+        ImGui::InputTextWithHint("##inputFilter", Tr(ICON_FA_MAGNIFYING_GLASS "  Nom yoki tugma bo'yicha qidirish"), &m_InputFilter);
         const std::string& filter = m_InputFilter;
         UI::SameLineIfFits(ICON_FA_PLUS "  Yoyish");
-        if (ImGui::Button(ICON_FA_PLUS "  Yoyish"))
+        if (ImGui::Button(Tr(ICON_FA_PLUS "  Yoyish")))
             m_InputOpenRequest = 1;
         if (ImGui::IsItemHovered())
             UI::Tooltip("Hamma harakat, o'q va vektorlarni ochish");
         ImGui::SameLine();
-        if (ImGui::Button(ICON_FA_MINUS "  Yig'ish"))
+        if (ImGui::Button(Tr(ICON_FA_MINUS "  Yig'ish")))
             m_InputOpenRequest = 0;
         if (ImGui::IsItemHovered())
             UI::Tooltip("Hammasini yopish");
@@ -422,7 +422,7 @@ namespace Zamin {
         ImGui::Spacing();
 
         // ---- actions
-        ImGui::SeparatorText(ICON_FA_HAND_POINTER "  Harakatlar (actions)");
+        ImGui::SeparatorText(Tr(ICON_FA_HAND_POINTER "  Harakatlar (actions)"));
         int removeAction = -1;
         for (int i = 0; i < (int)map.Actions.size(); i++)
         {
@@ -448,7 +448,7 @@ namespace Zamin {
                 }
                 NameWarning(map.Actions, i);
                 changed |= DrawBindingList("Bog'lanishlar", action.Bindings, ListKind::Action, i, map);
-                if (ImGui::SmallButton(ICON_FA_TRASH "  Harakatni o'chirish"))
+                if (ImGui::SmallButton(Tr(ICON_FA_TRASH "  Harakatni o'chirish")))
                     removeAction = i;
                 ImGui::Spacing();
                 ImGui::TreePop();
@@ -461,7 +461,7 @@ namespace Zamin {
             StopListening();
             changed = true;
         }
-        if (ImGui::Button(ICON_FA_PLUS "  Harakat qo'shish"))
+        if (ImGui::Button(Tr(ICON_FA_PLUS "  Harakat qo'shish")))
         {
             map.Actions.push_back({ map.MakeUniqueActionName("Action"), {} });
             StopListening();
@@ -470,7 +470,7 @@ namespace Zamin {
 
         // ---- axes
         ImGui::Spacing();
-        ImGui::SeparatorText(ICON_FA_ARROWS_LEFT_RIGHT "  O'qlar (axes)");
+        ImGui::SeparatorText(Tr(ICON_FA_ARROWS_LEFT_RIGHT "  O'qlar (axes)"));
         int removeAxis = -1;
         static const char* s_AxisItems[] = { "(yo'q)", "LeftX", "LeftY", "RightX", "RightY", "LeftTrigger", "RightTrigger" };
         for (int i = 0; i < (int)map.Axes.size(); i++)
@@ -513,7 +513,7 @@ namespace Zamin {
                 NameWarning(map.Axes, i);
                 changed |= DrawBindingList("Manfiy tomon (-1)", axis.Negative, ListKind::AxisNegative, i, map);
                 changed |= DrawBindingList("Musbat tomon (+1)", axis.Positive, ListKind::AxisPositive, i, map);
-                if (ImGui::SmallButton(ICON_FA_TRASH "  O'qni o'chirish"))
+                if (ImGui::SmallButton(Tr(ICON_FA_TRASH "  O'qni o'chirish")))
                     removeAxis = i;
                 ImGui::Spacing();
                 ImGui::TreePop();
@@ -526,7 +526,7 @@ namespace Zamin {
             StopListening();
             changed = true;
         }
-        if (ImGui::Button(ICON_FA_PLUS "  O'q qo'shish"))
+        if (ImGui::Button(Tr(ICON_FA_PLUS "  O'q qo'shish")))
         {
             InputAxis axis;
             axis.Name = map.MakeUniqueAxisName("Axis");
@@ -541,12 +541,12 @@ namespace Zamin {
         // ---- reset
         ImGui::Spacing();
         ImGui::Separator();
-        if (ImGui::Button(ICON_FA_ROTATE_LEFT "  Standart holatga qaytarish"))
+        if (ImGui::Button(Tr(ICON_FA_ROTATE_LEFT "  Standart holatga qaytarish")))
             ImGui::OpenPopup("ResetInputMap");
         if (ImGui::BeginPopup("ResetInputMap"))
         {
             ImGui::TextUnformatted("Barcha harakat va o'qlar standart holatga qaytarilsinmi?");
-            if (ImGui::Button("Ha, qaytarish"))
+            if (ImGui::Button(Tr("Ha, qaytarish")))
             {
                 map = InputActionMap::CreateDefault();
                 StopListening();
@@ -554,7 +554,7 @@ namespace Zamin {
                 ImGui::CloseCurrentPopup();
             }
             ImGui::SameLine();
-            if (ImGui::Button("Yo'q"))
+            if (ImGui::Button(Tr("Yo'q")))
                 ImGui::CloseCurrentPopup();
             ImGui::EndPopup();
         }
@@ -596,7 +596,7 @@ namespace Zamin {
     {
         bool changed = false;
         ImGui::Spacing();
-        ImGui::SeparatorText(ICON_FA_ARROWS_UP_DOWN_LEFT_RIGHT "  Vektorlar (2D composite)");
+        ImGui::SeparatorText(Tr(ICON_FA_ARROWS_UP_DOWN_LEFT_RIGHT "  Vektorlar (2D composite)"));
         ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
         ImGui::TextWrapped("Ikki o'q bitta 2D qiymat bo'lib o'qiladi: Input::GetVector(\"Move\"). Radial deadzone butun uzunlikka "
                            "ta'sir qiladi (stick biroz og'sa ham 0).");
@@ -670,7 +670,7 @@ namespace Zamin {
                     ImGui::EndTable();
                 }
                 NameWarning(map.Vectors, i);
-                if (ImGui::SmallButton(ICON_FA_TRASH "  Vektorni o'chirish"))
+                if (ImGui::SmallButton(Tr(ICON_FA_TRASH "  Vektorni o'chirish")))
                     remove = i;
                 ImGui::Spacing();
                 ImGui::TreePop();
@@ -682,7 +682,7 @@ namespace Zamin {
             map.Vectors.erase(map.Vectors.begin() + remove);
             changed = true;
         }
-        if (ImGui::Button(ICON_FA_PLUS "  Vektor qo'shish"))
+        if (ImGui::Button(Tr(ICON_FA_PLUS "  Vektor qo'shish")))
         {
             InputVector vector;
             vector.Name = map.MakeUniqueVectorName(map.FindVector("Move") ? "Vector" : "Move");

@@ -151,7 +151,7 @@ namespace Zamin {
                     s_ModulesStartClosed = true;
             }
         }
-        if (ImGui::Button(ICON_FA_SWATCHBOOK "  Preset") || openPresets)
+        if (ImGui::Button(Tr(ICON_FA_SWATCHBOOK "  Preset")) || openPresets)
             ImGui::OpenPopup("##particlePresets");
         const ImVec2 presetCorner(ImGui::GetItemRectMax().x, ImGui::GetItemRectMax().y + 2.0f); // the menu hangs from the button
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
@@ -785,13 +785,13 @@ namespace Zamin {
                     changed = true;
                 }
                 UI::PropertyLabel("");
-                if (ImGui::Button(ICON_FA_PLUS "  Qo'shish"))
+                if (ImGui::Button(Tr(ICON_FA_PLUS "  Qo'shish")))
                 {
                     m.Emitters.push_back({});
                     changed = true;
                 }
                 ImGui::SameLine();
-                if (ImGui::Button(ICON_FA_WAND_MAGIC_SPARKLES "  Yangi shablon"))
+                if (ImGui::Button(Tr(ICON_FA_WAND_MAGIC_SPARKLES "  Yangi shablon")))
                     m_PendingSubEmitterFor = entity.GetUUID();
                 if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
                     UI::Tooltip("Bola obyekt yaratadi (o'zi chiqarmaydigan Particle System bilan) va uni \"O'lganda\" sub-emitter qiladi");
@@ -845,7 +845,7 @@ namespace Zamin {
                     {
                         if (ImGui::BeginCombo("##prefix", m.SpritePrefix.empty() ? "(hamma kadrlar)" : m.SpritePrefix.c_str()))
                         {
-                            if (ImGui::Selectable("(hamma kadrlar)", m.SpritePrefix.empty())) { m.SpritePrefix.clear(); changed = true; }
+                            if (ImGui::Selectable(Tr("(hamma kadrlar)"), m.SpritePrefix.empty())) { m.SpritePrefix.clear(); changed = true; }
                             for (const std::string& prefix : sheet->GetSequencePrefixes())
                                 if (ImGui::Selectable(prefix.c_str(), prefix == m.SpritePrefix)) { m.SpritePrefix = prefix; changed = true; }
                             ImGui::EndCombo();
@@ -989,7 +989,7 @@ namespace Zamin {
         if (!hiddenModules.empty())
         {
             UI::PropertyLabel("");
-            if (ImGui::Button(ICON_FA_PLUS "  Modul qo'shish"))
+            if (ImGui::Button(Tr(ICON_FA_PLUS "  Modul qo'shish")))
                 ImGui::OpenPopup("##addParticleModule");
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
                 UI::Tooltip(std::format("{} ta o'chiq modul yashirilgan: tanlangani yoqiladi", hiddenModules.size()).c_str());
@@ -1015,7 +1015,7 @@ namespace Zamin {
         bool changed = false;
         UI::PropertyLabel("Portlashlar", "Har siklda: Vaqt - sikl boshidan soniya; Soni - nechta particle; Sikl - necha marta "
                                          "(" ICON_FA_INFINITY " - sikl oxirigacha); Oraliq - takrorlar orasidagi soniya; % - ehtimollik");
-        if (ImGui::Button(ICON_FA_PLUS "  Portlash qo'shish"))
+        if (ImGui::Button(Tr(ICON_FA_PLUS "  Portlash qo'shish")))
         {
             PS::EmissionBurst burst;
             if (!c.Bursts.empty())
@@ -1154,7 +1154,7 @@ namespace Zamin {
     {
         bool chosen = false;
         const char* replaces = entity ? "\nObyektning hozirgi sozlamalari almashtiriladi (Ctrl+Z - bekor qilish)" : "";
-        ImGui::SeparatorText("Tayyor effektlar");
+        ImGui::SeparatorText(Tr("Tayyor effektlar"));
         for (const auto& info : ParticlePresets::GetBuiltins())
         {
             std::string label = std::format("{}  {}", GetParticlePresetIcon(info.Key), info.Name);
@@ -1167,7 +1167,7 @@ namespace Zamin {
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
                 UI::Tooltip(std::format("{}{}", info.Description, replaces).c_str());
         }
-        ImGui::SeparatorText("Loyiha preset'lari (.zparticle)");
+        ImGui::SeparatorText(Tr("Loyiha preset'lari (.zparticle)"));
         std::vector<std::string> files;
         if (AssetRegistry* registry = Project::GetActive() ? Project::GetAssetRegistry() : nullptr)
             for (const AssetMetadata* meta : registry->GetAssets(AssetType::ParticlePreset))
@@ -1193,7 +1193,7 @@ namespace Zamin {
     {
         DrawParticlePresetItems(entity);
         ImGui::Separator();
-        if (ImGui::MenuItem(ICON_FA_FLOPPY_DISK "  Preset sifatida saqlash", nullptr, false, Project::GetActive() != nullptr))
+        if (ImGui::MenuItem(Tr(ICON_FA_FLOPPY_DISK "  Preset sifatida saqlash"), nullptr, false, Project::GetActive() != nullptr))
             SaveParticlePreset(entity);
     }
 

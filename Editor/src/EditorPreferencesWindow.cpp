@@ -74,6 +74,7 @@ namespace Zamin {
         m_ConsolePanel.SetPreferences(m_Preferences.Console);
         ApplyCameraDefaults(true);
         ApplyShortcutPreferences(); // rebound keys over the defaults
+        EditorText::SetLanguage(EditorText::ParseLanguage(m_Preferences.Language));
         m_PreferencesDirty = false;
     }
 
@@ -142,7 +143,7 @@ namespace Zamin {
         const float em = ImGui::GetFontSize();
         ImGui::SetNextWindowSize(ImVec2(em * 46.0f, em * 31.0f), ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_FirstUseEver, ImVec2(0.5f, 0.5f));
-        if (!ImGui::Begin(ICON_FA_USER_GEAR "  Sozlamalar###Preferences", &m_ShowPreferences, ImGuiWindowFlags_NoCollapse))
+        if (!ImGui::Begin(Tr(ICON_FA_USER_GEAR "  Sozlamalar###Preferences"), &m_ShowPreferences, ImGuiWindowFlags_NoCollapse))
         {
             ImGui::End();
             return;
@@ -161,7 +162,7 @@ namespace Zamin {
         if (ImGui::BeginChild("##pages", ImVec2(em * 11.0f, -ImGui::GetFrameHeightWithSpacing() - 6.0f), ImGuiChildFlags_Borders))
         {
             for (int i = 0; i < (int)std::size(s_Pages); i++)
-                if (ImGui::Selectable(s_Pages[i], m_PreferencesPage == i, 0, ImVec2(0, ImGui::GetFrameHeight())))
+                if (ImGui::Selectable(Tr(s_Pages[i]), m_PreferencesPage == i, 0, ImVec2(0, ImGui::GetFrameHeight())))
                     m_PreferencesPage = i;
         }
         ImGui::EndChild();
@@ -176,7 +177,25 @@ namespace Zamin {
             {
                 case 0:
                 {
-                    ImGui::SeparatorText("Asosiy rang (accent)");
+                    // The editor's own language (menus, window titles, common buttons).
+                    ImGui::SeparatorText(Tr(ICON_FA_LANGUAGE "  Editor tili"));
+                    for (int l = 0; l < (int)EditorLanguage::Count; l++)
+                    {
+                        const EditorLanguage language = (EditorLanguage)l;
+                        if (l > 0)
+                            ImGui::SameLine();
+                        if (ImGui::RadioButton(EditorText::GetLanguageName(language), EditorText::GetLanguage() == language))
+                        {
+                            EditorText::SetLanguage(language);
+                            m_Preferences.Language = EditorText::GetLanguageCode(language);
+                            changed = true;
+                        }
+                    }
+                    ImGui::TextDisabled("%s", EditorText::GetLanguage() == EditorLanguage::English
+                                                  ? "Menus, window titles, buttons, the main panels and the project settings "
+                                                    "(hints and longer texts stay in Uzbek)"
+                                                  : "Menyular, oyna sarlavhalari, tugmalar, asosiy panellar va loyiha sozlamalari");
+                    ImGui::SeparatorText(Tr("Asosiy rang (accent)"));
                     ImGui::TextDisabled("Tanlangan tablar, belgilar, slayderlar va ajratib ko'rsatishlar rangi");
                     int clicked = SwatchRow("accent", EditorThemeSettings::GetAccentPresets(), theme.FindAccentPreset(),
                                             [](const glm::vec3& c) { return c; });
@@ -186,22 +205,22 @@ namespace Zamin {
                         changed = true;
                     }
                     ImGui::SameLine(0.0f, 14.0f);
-                    if (ImGui::ColorEdit3("Boshqa rang##accent", &theme.Accent.x, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_PickerHueWheel))
+                    if (ImGui::ColorEdit3(Tr("Boshqa rang##accent"), &theme.Accent.x, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_PickerHueWheel))
                         changed = true;
                     // How it looks: an active toggle, a checkbox, a slider, a progress bar.
                     ImGui::Spacing();
                     static bool s_PreviewCheck = true;
                     static float s_PreviewSlider = 0.6f;
-                    UI::ToolbarButton(ICON_FA_MAGNET "  Faol tugma", nullptr, true);
+                    UI::ToolbarButton(Tr(ICON_FA_MAGNET "  Faol tugma"), nullptr, true);
                     ImGui::SameLine();
-                    ImGui::Checkbox("Belgi", &s_PreviewCheck);
+                    ImGui::Checkbox(Tr("Belgi"), &s_PreviewCheck);
                     ImGui::SameLine();
                     ImGui::SetNextItemWidth(em * 8.0f);
                     ImGui::SliderFloat("##previewSlider", &s_PreviewSlider, 0.0f, 1.0f);
                     ImGui::SameLine();
                     ImGui::ProgressBar(s_PreviewSlider, ImVec2(em * 6.0f, 0.0f));
 
-                    ImGui::SeparatorText("Shrift o'lchami");
+                    ImGui::SeparatorText(Tr("Shrift o'lchami"));
                     ImGui::TextDisabled("Butun UI (oraliqlar, tugmalar) shu nisbatda kattalashadi / kichrayadi");
                     for (float size : { 13.0f, 14.0f, 16.0f, 18.0f, 20.0f })
                     {
@@ -232,7 +251,7 @@ namespace Zamin {
                     ImGui::SameLine();
                     ImGui::TextDisabled("x%.2f", theme.GetUIScale());
                     ImGui::Spacing();
-                    if (ImGui::Button(ICON_FA_ARROW_ROTATE_LEFT "  Standart ko'rinish"))
+                    if (ImGui::Button(Tr(ICON_FA_ARROW_ROTATE_LEFT "  Standart ko'rinish")))
                     {
                         theme = EditorThemeSettings();
                         changed = true;
@@ -241,12 +260,12 @@ namespace Zamin {
                 }
                 case 1:
                 {
-                    ImGui::SeparatorText("O'yin rejimida UI rang tusi");
+                    ImGui::SeparatorText(Tr("O'yin rejimida UI rang tusi"));
                     ImGui::TextWrapped("O'yin ishlayotganda editor oynalari, sarlavhalar, tablar va menyular shu rangga bo'yaladi - "
                                        "o'yin rejimida qilingan o'zgarishlar To'xtatishda yo'qolishini unutmaslik uchun.");
-                    changed |= ImGui::Checkbox("O'yin rejimida bo'yash", &tint.Enabled);
+                    changed |= ImGui::Checkbox(Tr("O'yin rejimida bo'yash"), &tint.Enabled);
                     ImGui::BeginDisabled(!tint.Enabled);
-                    changed |= ImGui::Checkbox("Fizika simulyatsiyasida ham", &tint.InSimulate);
+                    changed |= ImGui::Checkbox(Tr("Fizika simulyatsiyasida ham"), &tint.InSimulate);
                     // The swatches show a mid grey of the UI under each tint.
                     const PlayModeTintSettings shownTint = tint;
                     int clicked = SwatchRow("tint", PlayModeTintSettings::GetPresets(), tint.FindPreset(), [&](const glm::vec3& c) {
@@ -300,7 +319,7 @@ namespace Zamin {
                     if (IsPlayTintActive())
                         ImGui::TextColored(ImVec4(0.3f, 0.85f, 0.5f, 1.0f), ICON_FA_PLAY "  Hozir o'yin rejimi: UI bo'yalgan");
                     ImGui::Spacing();
-                    if (ImGui::Button(ICON_FA_ARROW_ROTATE_LEFT "  Standart tus"))
+                    if (ImGui::Button(Tr(ICON_FA_ARROW_ROTATE_LEFT "  Standart tus")))
                     {
                         tint = PlayModeTintSettings();
                         changed = true;
@@ -311,19 +330,19 @@ namespace Zamin {
                 {
                     ConsolePreferences console = m_ConsolePanel.GetPreferences();
                     bool consoleChanged = false;
-                    ImGui::SeparatorText("Konsol");
-                    consoleChanged |= ImGui::Checkbox("O'yin boshlanganda (Play) konsolni tozalash", &console.ClearOnPlay);
-                    consoleChanged |= ImGui::Checkbox("Vaqtni ko'rsatish", &console.ShowTimestamps);
-                    consoleChanged |= ImGui::Checkbox("Bir xil xabarlarni guruhlash (soni bilan)", &console.Collapse);
-                    consoleChanged |= ImGui::Checkbox("Avto-skroll (yangi xabarga)", &console.AutoScroll);
-                    ImGui::SeparatorText("Ko'rsatiladigan darajalar");
-                    consoleChanged |= ImGui::Checkbox(ICON_FA_BUG "  Trace", &console.ShowTrace);
+                    ImGui::SeparatorText(Tr("Konsol"));
+                    consoleChanged |= ImGui::Checkbox(Tr("O'yin boshlanganda (Play) konsolni tozalash"), &console.ClearOnPlay);
+                    consoleChanged |= ImGui::Checkbox(Tr("Vaqtni ko'rsatish"), &console.ShowTimestamps);
+                    consoleChanged |= ImGui::Checkbox(Tr("Bir xil xabarlarni guruhlash (soni bilan)"), &console.Collapse);
+                    consoleChanged |= ImGui::Checkbox(Tr("Avto-skroll (yangi xabarga)"), &console.AutoScroll);
+                    ImGui::SeparatorText(Tr("Ko'rsatiladigan darajalar"));
+                    consoleChanged |= ImGui::Checkbox(Tr(ICON_FA_BUG "  Trace"), &console.ShowTrace);
                     ImGui::SameLine();
-                    consoleChanged |= ImGui::Checkbox(ICON_FA_CIRCLE_INFO "  Ma'lumot", &console.ShowInfo);
+                    consoleChanged |= ImGui::Checkbox(Tr(ICON_FA_CIRCLE_INFO "  Ma'lumot"), &console.ShowInfo);
                     ImGui::SameLine();
-                    consoleChanged |= ImGui::Checkbox(ICON_FA_TRIANGLE_EXCLAMATION "  Ogohlantirish", &console.ShowWarn);
+                    consoleChanged |= ImGui::Checkbox(Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Ogohlantirish"), &console.ShowWarn);
                     ImGui::SameLine();
-                    consoleChanged |= ImGui::Checkbox(ICON_FA_CIRCLE_XMARK "  Xato", &console.ShowError);
+                    consoleChanged |= ImGui::Checkbox(Tr(ICON_FA_CIRCLE_XMARK "  Xato"), &console.ShowError);
                     ImGui::Spacing();
                     ImGui::TextDisabled("Qidiruv konsolning o'zida: matn (katta-kichik harfsiz) yoki regex (.*)");
                     if (consoleChanged)
@@ -336,7 +355,7 @@ namespace Zamin {
                 case 3:
                 {
                     EditorCameraDefaults& camera = m_Preferences.Camera;
-                    ImGui::SeparatorText("Editor kamerasi");
+                    ImGui::SeparatorText(Tr("Editor kamerasi"));
                     ImGui::TextDisabled("Hamma ko'rinishlarning kamerasi; har yangi sessiya shu qiymatlar bilan boshlanadi (viewport'dagi "
                                         ICON_FA_VIDEO " tugmasi ham shularni o'zgartiradi)");
                     bool projection = false, speed = false;
@@ -358,7 +377,7 @@ namespace Zamin {
                     ImGui::SetNextItemWidth(em * 14.0f);
                     projection |= ImGui::SliderFloat("Sichqoncha sezgirligi", &camera.LookSensitivity, EditorCameraDefaults::MinSensitivity,
                                                      EditorCameraDefaults::MaxSensitivity, "%.2fx", ImGuiSliderFlags_Logarithmic);
-                    projection |= ImGui::Checkbox("Y o'qini teskari qilish", &camera.InvertY);
+                    projection |= ImGui::Checkbox(Tr("Y o'qini teskari qilish"), &camera.InvertY);
                     if (projection || speed)
                     {
                         camera.Sanitize();
@@ -368,7 +387,7 @@ namespace Zamin {
                     ImGui::Spacing();
                     ImGui::TextDisabled("Hozirgi kamera: FOV %.0f\xc2\xb0, near %.3g, far %.0f, tezlik %.1f", m_EditorCamera.GetFOV(),
                                         m_EditorCamera.GetNearClip(), m_EditorCamera.GetFarClip(), m_EditorCamera.FlySpeed);
-                    if (ImGui::Button(ICON_FA_ARROW_ROTATE_LEFT "  Standart qiymatlar"))
+                    if (ImGui::Button(Tr(ICON_FA_ARROW_ROTATE_LEFT "  Standart qiymatlar")))
                     {
                         camera = EditorCameraDefaults();
                         ApplyCameraDefaults(true);
@@ -396,7 +415,7 @@ namespace Zamin {
         std::string shown = file.string();
         if (const char* home = std::getenv("HOME"); home && *home && shown.starts_with(home))
             shown = "~" + shown.substr(std::strlen(home));
-        const char* resetLabel = ICON_FA_ARROW_ROTATE_LEFT "  Hammasini standartga qaytarish";
+        const char* resetLabel = Tr(ICON_FA_ARROW_ROTATE_LEFT "  Hammasini standartga qaytarish");
         const float resetWidth = ImGui::CalcTextSize(resetLabel).x + ImGui::GetStyle().FramePadding.x * 2.0f;
         const float pathRight = ImGui::GetWindowContentRegionMax().x - resetWidth - 12.0f;
         ImGui::AlignTextToFramePadding();
@@ -413,6 +432,7 @@ namespace Zamin {
             m_ConsolePanel.SetPreferences(m_Preferences.Console);
             ApplyCameraDefaults(true);
             m_Shortcuts.ResetAll();
+            EditorText::SetLanguage(EditorText::ParseLanguage(m_Preferences.Language));
             changed = true;
         }
         if (changed)

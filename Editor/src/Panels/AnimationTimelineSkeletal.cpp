@@ -665,19 +665,19 @@ namespace Zamin {
                 ImGui::TextDisabled(ICON_FA_BELL " %s", ev.Name.c_str());
                 ImGui::Separator();
                 bool every = ev.Clip.empty();
-                if (ImGui::MenuItem("Hamma kliplarda", nullptr, &every))
+                if (ImGui::MenuItem(Tr("Hamma kliplarda"), nullptr, &every))
                 {
                     ev.Clip = every ? std::string() : m_SkelClip;
                     MarkSceneModified();
                 }
-                if (ImGui::MenuItem(ICON_FA_TRASH "  O'chirish", "Delete"))
+                if (ImGui::MenuItem(Tr(ICON_FA_TRASH "  O'chirish"), "Delete"))
                     DeleteSkeletalEvent(s_ContextEvent);
             }
             else
             {
                 if (ImGui::MenuItem(std::format(ICON_FA_BELL "  Event qo'shish ({:.2f} s)", s_ContextTime).c_str()))
                     AddSkeletalEvent(s_ContextTime);
-                if (ImGui::MenuItem(ICON_FA_LOCATION_CROSSHAIRS "  Shu vaqtga o'tish"))
+                if (ImGui::MenuItem(Tr(ICON_FA_LOCATION_CROSSHAIRS "  Shu vaqtga o'tish")))
                     SetSkeletalTime(s_ContextTime);
             }
             ImGui::EndDisabled();
@@ -710,10 +710,10 @@ namespace Zamin {
             ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.35f, 1.0f), ICON_FA_BELL "  Event");
             ImGui::BeginDisabled(!m_Editable);
             ImGui::SetNextItemWidth(-FLT_MIN);
-            if (ImGui::InputTextWithHint("##evname", "nomi (OnAnimationEvent)", &ev.Name))
+            if (ImGui::InputTextWithHint("##evname", Tr("nomi (OnAnimationEvent)"), &ev.Name))
                 MarkSceneModified();
             ImGui::SetNextItemWidth(-FLT_MIN);
-            if (ImGui::InputTextWithHint("##evparam", "parametr (ixtiyoriy)", &ev.Parameter))
+            if (ImGui::InputTextWithHint("##evparam", Tr("parametr (ixtiyoriy)"), &ev.Parameter))
                 MarkSceneModified();
             float seconds = ev.Time * clip->Duration;
             ImGui::SetNextItemWidth(-FLT_MIN);
@@ -725,17 +725,17 @@ namespace Zamin {
                 MarkSceneModified();
             }
             bool every = ev.Clip.empty();
-            if (ImGui::Checkbox("Hamma kliplarda", &every))
+            if (ImGui::Checkbox(Tr("Hamma kliplarda"), &every))
             {
                 ev.Clip = every ? std::string() : m_SkelClip;
                 MarkSceneModified();
             }
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Belgilansa: Animator o'ynaydigan har bir klipda shu normalizatsiyalangan vaqtda");
-            if (ImGui::Button(ICON_FA_LOCATION_CROSSHAIRS "  Shu vaqtga"))
+            if (ImGui::Button(Tr(ICON_FA_LOCATION_CROSSHAIRS "  Shu vaqtga")))
                 SetSkeletalTime(seconds);
             ImGui::SameLine();
-            if (ImGui::Button(ICON_FA_TRASH "  O'chirish"))
+            if (ImGui::Button(Tr(ICON_FA_TRASH "  O'chirish")))
                 DeleteSkeletalEvent(m_SkelSelectedEvent);
             ImGui::EndDisabled();
             ImGui::Separator();

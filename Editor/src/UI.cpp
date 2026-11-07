@@ -427,7 +427,7 @@ namespace Zamin::UI {
     {
         ImGui::PushID(id);
         ImGui::SetNextItemWidth(-FLT_MIN);
-        std::string fullHint = std::string(ICON_FA_MAGNIFYING_GLASS "  ") + hint;
+        std::string fullHint = std::string(ICON_FA_MAGNIFYING_GLASS "  ") + Tr(hint);
         bool changed = ImGui::InputTextWithHint("##search", fullHint.c_str(), &text);
         ImGui::PopID();
         return changed;

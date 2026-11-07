@@ -89,7 +89,7 @@ namespace Zamin {
             }
             ImGui::SameLine();
             ImGui::TextDisabled(view.CustomAspect ? "nisbat" : "piksel");
-            changed |= ImGui::Checkbox("Faqat nisbat (o'lchamga moslashadi)", &view.CustomAspect);
+            changed |= ImGui::Checkbox(Tr("Faqat nisbat (o'lchamga moslashadi)"), &view.CustomAspect);
             ImGui::Unindent();
         }
         return changed;

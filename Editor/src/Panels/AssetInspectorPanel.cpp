@@ -436,8 +436,8 @@ namespace Zamin {
         if (!ImGui::IsPopupOpen("###UnappliedImport"))
             ImGui::OpenPopup("###UnappliedImport");
         const bool material = m_Pending.front().Type == AssetType::Material;
-        std::string popupTitle = material ? ICON_FA_TRIANGLE_EXCLAMATION "  Saqlanmagan material###UnappliedImport"
-                                          : ICON_FA_TRIANGLE_EXCLAMATION "  Qo'llanmagan import sozlamalari###UnappliedImport";
+        std::string popupTitle = material ? Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Saqlanmagan material###UnappliedImport")
+                                          : Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Qo'llanmagan import sozlamalari###UnappliedImport");
         if (ImGui::BeginPopupModal(popupTitle.c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
             const PendingEdits& edits = m_Pending.front();
@@ -465,7 +465,7 @@ namespace Zamin {
             }
             ImGui::PopStyleColor();
             ImGui::SameLine();
-            if (ImGui::Button(ICON_FA_XMARK "  Tashlab yuborish", ImVec2(170, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape, false))
+            if (ImGui::Button(Tr(ICON_FA_XMARK "  Tashlab yuborish"), ImVec2(170, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape, false))
             {
                 if (material && edits.Material)
                     edits.Material->SetData(edits.MaterialSaved); // the scene shows the saved material again
@@ -553,7 +553,7 @@ namespace Zamin {
         if (m_ImportError->Count > 1)
             ImGui::TextDisabled("%u marta yuklashga urinildi (konsolga bir marta yozildi)", m_ImportError->Count);
         ImGui::PopTextWrapPos();
-        if (ImGui::SmallButton(ICON_FA_ARROWS_ROTATE "  Qayta urinish"))
+        if (ImGui::SmallButton(Tr(ICON_FA_ARROWS_ROTATE "  Qayta urinish")))
         {
             AssetImportLog::OnFileChanged(m_Path); // loaders try the file again
             bool failed = false;
@@ -608,7 +608,7 @@ namespace Zamin {
         if (m_Type == AssetType::Scene && OnOpenScene)
         {
             ImGui::SameLine();
-            if (ImGui::SmallButton(ICON_FA_EARTH_ASIA "  Ochish"))
+            if (ImGui::SmallButton(Tr(ICON_FA_EARTH_ASIA "  Ochish")))
                 OnOpenScene(m_Path);
         }
         ImGui::EndGroup();
@@ -673,7 +673,7 @@ namespace Zamin {
         const std::vector<AssetReferrer>& referrers = index.GetReferrers(relative);
 
         ImGui::Spacing();
-        std::string title = std::format(ICON_FA_LINK "  Ishlatilgan joylar ({})###usedBy", referrers.size());
+        std::string title = std::format(ICON_FA_LINK "  {} ({})###usedBy", Tr("Ishlatilgan joylar"), referrers.size());
         if (ImGui::CollapsingHeader(title.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
         {
             if (referrers.empty())
@@ -724,7 +724,7 @@ namespace Zamin {
             for (const MissingAssetReference& m : index.GetMissing())
                 if (m.File == self)
                     broken.push_back(&m);
-            std::string usesTitle = std::format(ICON_FA_DIAGRAM_PROJECT "  Ishlatadigan assetlar ({})###uses", uses.size());
+            std::string usesTitle = std::format(ICON_FA_DIAGRAM_PROJECT "  {} ({})###uses", Tr("Ishlatadigan assetlar"), uses.size());
             if (ImGui::CollapsingHeader(usesTitle.c_str()))
             {
                 if (uses.empty() && broken.empty())
@@ -758,12 +758,12 @@ namespace Zamin {
         ImGui::BeginDisabled(!modified || !canApply);
         if (modified && canApply)
             ImGui::PushStyleColor(ImGuiCol_Button, UI::AccentU32(0.75f));
-        if (ImGui::Button(ICON_FA_CHECK "  Qo'llash"))
+        if (ImGui::Button(Tr(ICON_FA_CHECK "  Qo'llash")))
             Apply();
         if (modified && canApply)
             ImGui::PopStyleColor();
         ImGui::SameLine();
-        if (ImGui::Button(ICON_FA_ROTATE_LEFT "  Bekor qilish"))
+        if (ImGui::Button(Tr(ICON_FA_ROTATE_LEFT "  Bekor qilish")))
             Revert();
         ImGui::EndDisabled();
         if (modified)
@@ -1032,7 +1032,7 @@ namespace Zamin {
             }
             UI::PropertyLabel("");
             ImGui::BeginDisabled(!meta || !OnOpenSpriteEditor);
-            if (ImGui::Button(ICON_FA_SCISSORS "  Sprite muharriri", ImVec2(-FLT_MIN, 0)) && OnOpenSpriteEditor)
+            if (ImGui::Button(Tr(ICON_FA_SCISSORS "  Sprite muharriri"), ImVec2(-FLT_MIN, 0)) && OnOpenSpriteEditor)
                 OnOpenSpriteEditor(m_Path);
             ImGui::EndDisabled();
             UI::EndPropertyGrid();
@@ -1223,7 +1223,7 @@ namespace Zamin {
             if (ImGui::BeginCombo("##clip", current))
             {
                 m_ClipSettingPreview = -1; // a clip picked here: the model's own clips again
-                if (ImGui::Selectable("Bind pose", m_Clip < 0))
+                if (ImGui::Selectable(Tr("Bind pose"), m_Clip < 0))
                 {
                     m_Clip = -1;
                     m_ClipPlaying = false;
@@ -1412,7 +1412,7 @@ namespace Zamin {
             if (file.Format != "OBJ")
             {
                 ImGui::Spacing();
-                if (ImGui::Button(ICON_FA_FILE_EXPORT "  .zmat ga eksport qilish"))
+                if (ImGui::Button(Tr(ICON_FA_FILE_EXPORT "  .zmat ga eksport qilish")))
                     ExportModelMaterials();
                 if (ImGui::IsItemHovered())
                 {
@@ -1422,7 +1422,7 @@ namespace Zamin {
                                             "chiqariladi. Keyin ularni tahrirlash va boshqa obyektlarda ishlatish mumkin.", folder).c_str());
                 }
                 ImGui::SameLine();
-                ImGui::Checkbox("Ustidan yozish", &m_ExportOverwrite);
+                ImGui::Checkbox(Tr("Ustidan yozish"), &m_ExportOverwrite);
                 if (ImGui::IsItemHovered())
                     UI::Tooltip("Oldingi eksportdan qolgan bir xil nomli fayllar qayta yoziladi (o'chirilsa: ular o'zgarmaydi va ishlatiladi)");
 
@@ -1447,7 +1447,7 @@ namespace Zamin {
                         if (!m_Export.Materials.empty() && OnRevealRequested)
                         {
                             ImGui::SameLine();
-                            if (ImGui::SmallButton(ICON_FA_ARROW_RIGHT "  Ko'rsatish"))
+                            if (ImGui::SmallButton(Tr(ICON_FA_ARROW_RIGHT "  Ko'rsatish")))
                                 OnRevealRequested(m_Export.Materials.front());
                         }
                         for (const std::string& warning : m_Export.Warnings)
@@ -1872,7 +1872,7 @@ namespace Zamin {
         if (ImGui::BeginPopup("##waveformMenu"))
         {
             ImGui::TextDisabled("%s", AssetInfo::FormatDuration(m_WaveMenuTime).c_str());
-            if (ImGui::MenuItem(ICON_FA_PLAY "  Shu joydan ijro", nullptr, false, available))
+            if (ImGui::MenuItem(Tr(ICON_FA_PLAY "  Shu joydan ijro"), nullptr, false, available))
             {
                 StopAudio();
                 m_Sound = PlayPreviewSound();
@@ -1880,29 +1880,29 @@ namespace Zamin {
                     AudioEngine::Seek(m_Sound, m_WaveMenuTime);
             }
             ImGui::Separator();
-            if (ImGui::MenuItem(ICON_FA_REPEAT "  Takrorlash boshi shu yerda"))
+            if (ImGui::MenuItem(Tr(ICON_FA_REPEAT "  Takrorlash boshi shu yerda")))
             {
                 m_AudioEdit.LoopStart = m_WaveMenuTime;
                 if (m_AudioEdit.LoopEnd > 0.0f && m_AudioEdit.LoopEnd <= m_WaveMenuTime + minLoop)
                     m_AudioEdit.LoopEnd = 0.0f;
             }
-            if (ImGui::MenuItem(ICON_FA_REPEAT "  Takrorlash oxiri shu yerda", nullptr, false, m_WaveMenuTime > minLoop))
+            if (ImGui::MenuItem(Tr(ICON_FA_REPEAT "  Takrorlash oxiri shu yerda"), nullptr, false, m_WaveMenuTime > minLoop))
             {
                 m_AudioEdit.LoopEnd = m_WaveMenuTime >= duration - 0.0005f ? 0.0f : m_WaveMenuTime;
                 if (m_AudioEdit.LoopStart >= m_WaveMenuTime - minLoop)
                     m_AudioEdit.LoopStart = 0.0f;
             }
-            if (ImGui::MenuItem(ICON_FA_XMARK "  Takrorlash oralig'ini olib tashlash", nullptr, false, hasLoop))
+            if (ImGui::MenuItem(Tr(ICON_FA_XMARK "  Takrorlash oralig'ini olib tashlash"), nullptr, false, hasLoop))
                 m_AudioEdit.LoopStart = m_AudioEdit.LoopEnd = 0.0f;
             ImGui::Separator();
-            if (ImGui::MenuItem(ICON_FA_MAGNIFYING_GLASS "  Oraliqni kattalashtirish", nullptr, false, hasLoop && duration > 0.0f))
+            if (ImGui::MenuItem(Tr(ICON_FA_MAGNIFYING_GLASS "  Oraliqni kattalashtirish"), nullptr, false, hasLoop && duration > 0.0f))
             {
                 const double pad = (double)(loop.y - loop.x) / duration * 0.08;
                 m_WaveView.Start = loop.x / duration - pad;
                 m_WaveView.End = loop.y / duration + pad;
                 m_WaveView.Clamp();
             }
-            if (ImGui::MenuItem(ICON_FA_EXPAND "  Butun ovoz", nullptr, false, m_WaveView.IsZoomed()))
+            if (ImGui::MenuItem(Tr(ICON_FA_EXPAND "  Butun ovoz"), nullptr, false, m_WaveView.IsZoomed()))
                 m_WaveView.Reset();
             ImGui::EndPopup();
         }
@@ -2382,7 +2382,7 @@ namespace Zamin {
         }
         if (IsOpenScene && IsOpenScene(m_Path) && OnEditSceneMetadata)
         {
-            if (ImGui::SmallButton(ICON_FA_PEN "  Ma'lumotni tahrirlash"))
+            if (ImGui::SmallButton(Tr(ICON_FA_PEN "  Ma'lumotni tahrirlash")))
                 OnEditSceneMetadata();
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Ochiq sahna: ta'rif, muallif va teglar Sahna oynasida tahrirlanadi");
@@ -2400,7 +2400,7 @@ namespace Zamin {
             return;
         }
         const PropertyClip& clip = asset->GetClip();
-        if (ImGui::Button(ICON_FA_TIMELINE "  Animatsiya oynasida ochish") && OnOpenAnimation)
+        if (ImGui::Button(Tr(ICON_FA_TIMELINE "  Animatsiya oynasida ochish")) && OnOpenAnimation)
             OnOpenAnimation(m_Path);
         ImGui::Spacing();
         if (UI::BeginPropertyGrid("##clip"))

@@ -270,7 +270,7 @@ namespace Zamin {
         }
 
         // ---- level list: add / remove / move / defaults
-        if (ImGui::Button(ICON_FA_PLUS "  Nusxa qo'shish") && count < QualitySettings::MaxLevels)
+        if (ImGui::Button(Tr(ICON_FA_PLUS "  Nusxa qo'shish")) && count < QualitySettings::MaxLevels)
         {
             QualityLevel copy = level;
             copy.Name = q.MakeUniqueName(level.Name);
@@ -311,7 +311,7 @@ namespace Zamin {
             UI::Tooltip("O'ngroqqa");
         ImGui::SameLine();
         ImGui::BeginDisabled(count <= 1);
-        if (ImGui::Button(ICON_FA_TRASH "  O'chirish"))
+        if (ImGui::Button(Tr(ICON_FA_TRASH "  O'chirish")))
         {
             q.Levels.erase(q.Levels.begin() + m_QualityLevel);
             if (q.DefaultLevel >= m_QualityLevel && q.DefaultLevel > 0)
@@ -322,12 +322,12 @@ namespace Zamin {
         }
         ImGui::EndDisabled();
         ImGui::SameLine();
-        if (ImGui::Button(ICON_FA_ROTATE_LEFT "  Standart darajalar"))
+        if (ImGui::Button(Tr(ICON_FA_ROTATE_LEFT "  Standart darajalar")))
             ImGui::OpenPopup("ResetQuality");
         if (ImGui::BeginPopup("ResetQuality"))
         {
             ImGui::TextUnformatted("Darajalar Low / Medium / High / Ultra standartlariga qaytarilsinmi?");
-            if (ImGui::Button("Ha, qaytarish"))
+            if (ImGui::Button(Tr("Ha, qaytarish")))
             {
                 q = QualitySettings();
                 m_QualityLevel = -1;
@@ -335,14 +335,14 @@ namespace Zamin {
                 ImGui::CloseCurrentPopup();
             }
             ImGui::SameLine();
-            if (ImGui::Button("Yo'q"))
+            if (ImGui::Button(Tr("Yo'q")))
                 ImGui::CloseCurrentPopup();
             ImGui::EndPopup();
         }
 
         // ---- what the previewed level does to the open scene
         ImGui::Spacing();
-        ImGui::SeparatorText(ICON_FA_EYE "  Ochiq sahnada");
+        ImGui::SeparatorText(Tr(ICON_FA_EYE "  Ochiq sahnada"));
         if (m_Scene)
         {
             const SceneSettings& s = m_Scene->GetSettings();
@@ -496,7 +496,7 @@ namespace Zamin {
                 }
             }
             UI::PropertyLabel("");
-            if (ImGui::SmallButton(ICON_FA_ROTATE_LEFT "  3D standartlarini tiklash"))
+            if (ImGui::SmallButton(Tr(ICON_FA_ROTATE_LEFT "  3D standartlarini tiklash")))
             {
                 spatial = AudioSpatialSettings();
                 changed = true;
@@ -505,7 +505,7 @@ namespace Zamin {
         }
         ImGui::EndDisabled();
         ImGui::Spacing();
-        if (ImGui::Button(ICON_FA_SLIDERS "  Audio Mixer oynasini ochish") && OnAudioMixerRequested)
+        if (ImGui::Button(Tr(ICON_FA_SLIDERS "  Audio Mixer oynasini ochish")) && OnAudioMixerRequested)
             OnAudioMixerRequested();
         if (changed)
         {
@@ -547,7 +547,7 @@ namespace Zamin {
 
         // ---- presets, copy / paste
         const auto presets = CollisionLayers2D::GetPresets();
-        if (ImGui::Button(ICON_FA_WAND_MAGIC_SPARKLES "  Presetlar") || m_AutomationOpen == "presets")
+        if (ImGui::Button(Tr(ICON_FA_WAND_MAGIC_SPARKLES "  Presetlar")) || m_AutomationOpen == "presets")
         {
             ImGui::OpenPopup("CollisionPresets");
             m_AutomationOpen.clear();
@@ -588,7 +588,7 @@ namespace Zamin {
                 ImGui::TextColored(s_WarnColor, ICON_FA_TRIANGLE_EXCLAMATION "  Ochiq sahnada %d ta jism Default'dan boshqa qatlamda: ular "
                                                                          "qatlam raqamini saqlaydi (nomi o'zgaradi).", used);
             ImGui::PopTextWrapPos();
-            if (ImGui::Button("Qo'llash"))
+            if (ImGui::Button(Tr("Qo'llash")))
             {
                 if (layers.ApplyPreset(m_PendingPreset))
                     m_Dirty = true;
@@ -596,7 +596,7 @@ namespace Zamin {
                 ImGui::CloseCurrentPopup();
             }
             ImGui::SameLine();
-            if (ImGui::Button("Bekor qilish"))
+            if (ImGui::Button(Tr("Bekor qilish")))
             {
                 m_PendingPreset = -1;
                 ImGui::CloseCurrentPopup();
@@ -604,7 +604,7 @@ namespace Zamin {
             ImGui::EndPopup();
         }
         ImGui::SameLine();
-        if (ImGui::Button(ICON_FA_COPY "  Nusxa"))
+        if (ImGui::Button(Tr(ICON_FA_COPY "  Nusxa")))
         {
             ImGui::SetClipboardText(layers.ToJson().c_str());
             ZM_INFO("Fizika qatlamlari buferga nusxalandi (JSON)");
@@ -612,7 +612,7 @@ namespace Zamin {
         if (ImGui::IsItemHovered())
             UI::Tooltip("Qatlam nomlari va matritsani JSON ko'rinishida buferga olish (boshqa loyihaga qo'yish uchun)");
         ImGui::SameLine();
-        if (ImGui::Button(ICON_FA_PASTE "  Qo'yish"))
+        if (ImGui::Button(Tr(ICON_FA_PASTE "  Qo'yish")))
         {
             const char* text = ImGui::GetClipboardText();
             CollisionLayers2D pasted;
@@ -627,7 +627,7 @@ namespace Zamin {
         }
 
         // ---- the matrix of the named layers (a triangle: each pair once)
-        ImGui::SeparatorText("Qaysi qatlamlar to'qnashadi");
+        ImGui::SeparatorText(Tr("Qaysi qatlamlar to'qnashadi"));
         std::vector<int> named = layers.GetNamedLayers();
         for (int i = 0; i < CollisionLayers2D::Count; i++)
             if (usage2D[(size_t)i] + usage3D[(size_t)i] > 0 && std::find(named.begin(), named.end(), i) == named.end())
@@ -698,7 +698,7 @@ namespace Zamin {
         ImGui::Spacing();
 
         // ---- names
-        ImGui::SeparatorText("Qatlamlar");
+        ImGui::SeparatorText(Tr("Qatlamlar"));
         if (ImGui::BeginTable("##physicsLayerNames", 4, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH))
         {
             ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthFixed, 26.0f);

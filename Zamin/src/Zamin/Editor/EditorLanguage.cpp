@@ -1,0 +1,915 @@
+#include "Zamin/Editor/EditorLanguage.h"
+
+#include <algorithm>
+#include <unordered_map>
+
+namespace Zamin {
+
+    namespace {
+
+        struct Entry
+        {
+            const char* Uzbek;
+            const char* English;
+        };
+
+        // The editor's English texts, keyed by the Uzbek ones (their core: no icon, no "...", no id).
+        const Entry s_English[] = {
+            // ---- main menu: File
+            { "Fayl", "File" },
+            { "Yangi loyiha", "New project" },
+            { "Loyihani ochish", "Open project" },
+            { "So'nggi loyihalar", "Recent projects" },
+            { "Loyiha sozlamalari", "Project settings" },
+            { "Loyihani yopish", "Close project" },
+            { "Yangi sahna", "New scene" },
+            { "Sahnani ochish", "Open scene" },
+            { "So'nggi sahnalar", "Recent scenes" },
+            { "Saqlash", "Save" },
+            { "Boshqacha saqlash", "Save as" },
+            { "O'yinni build qilish", "Build game" },
+            { "Chiqish", "Exit" },
+            // ---- Edit
+            { "Tahrirlash", "Edit" },
+            { "Bekor qilish (Undo)", "Undo" },
+            { "Bekor qilish (oxirgi o'zgarish)", "Undo (last change)" },
+            { "Qaytarish (Redo)", "Redo" },
+            { "Undo tarixi", "Undo history" },
+            { "Nusxalash", "Copy" },
+            { "Joylash", "Paste" },
+            { "Prefab sifatida saqlash", "Save as prefab" },
+            { "Nusxa olish", "Duplicate" },
+            { "O'chirish", "Delete" },
+            { "Fokus", "Focus" },
+            { "Ko'rsatish", "Show" },
+            { "Yashirish (editorda)", "Hide (in editor)" },
+            { "Qulfni ochish", "Unlock" },
+            { "Qulflash (viewport'da)", "Lock (in viewport)" },
+            { "Nofaol qilish", "Deactivate" },
+            { "Faollashtirish", "Activate" },
+            { "Hammasini ko'rsatish", "Show all" },
+            { "Hamma qulflarni ochish", "Unlock all" },
+            { "Hammasini tanlash", "Select all" },
+            { "Tanlovni bekor qilish", "Deselect" },
+            { "Sozlamalar", "Preferences" },
+            { "Klaviatura yorliqlari", "Keyboard shortcuts" },
+            // ---- Object / Scripts
+            { "Obyekt", "Object" },
+            { "O'yin rejimida mavjud emas", "Not available while playing" },
+            { "Skriptlar", "Scripts" },
+            { "Kompilyatsiya + qayta yuklash", "Compile + reload" },
+            { "Modulni qayta yuklash", "Reload module" },
+            { "Avtomatik hot-reload", "Automatic hot reload" },
+            { "Kompilyatsiya natijalari", "Compiler output" },
+            { "Yangi C++ skript", "New C++ script" },
+            { "Source papkasini ochish", "Open Source folder" },
+            // ---- Window
+            { "Oyna", "Window" },
+            { "Ierarxiya", "Hierarchy" },
+            { "Inspektor", "Inspector" },
+            { "Kontent", "Content" },
+            { "Konsol", "Console" },
+            { "Sahna sozlamalari", "Scene settings" },
+            { "Sahnalar", "Scenes" },
+            { "Statistika", "Statistics" },
+            { "Sahna statistikasi", "Scene statistics" },
+            { "Kompilyatsiya", "Compilation" },
+            { "Profiler", "Profiler" },
+            { "Audio Mixer", "Audio Mixer" },
+            { "Animatsiya", "Animation" },
+            { "Animator grafi", "Animator graph" },
+            { "Ishlatilmagan assetlar", "Unused assets" },
+            { "Sprite muharriri", "Sprite editor" },
+            { "Plitka palitrasi", "Tile palette" },
+            { "Lokalizatsiya", "Localization" },
+            { "Ko'rinishlar", "Views" },
+            { "4 ko'rinish (2x2 joylashuv)", "4 views (2x2 layout)" },
+            { "Qo'shimcha ko'rinishlarni yopish", "Close extra views" },
+            { "ImGui demo", "ImGui demo" },
+            // ---- Help
+            { "Yordam", "Help" },
+            { "Zamin haqida", "About Zamin" },
+            // ---- layouts
+            { "Joylashuv", "Layout" },
+            { "Joriy joylashuvni saqlash", "Save current layout" },
+            { "Joylashuvlarni boshqarish", "Manage layouts" },
+            { "Joylashuvni tiklash (standart)", "Reset layout (default)" },
+            { "Joylashuvlar", "Layouts" },
+            { "Qo'llash", "Apply" },
+            // ---- view menu / viewport
+            { "Ko'rinish", "View" },
+            { "Viewport", "Viewport" },
+            { "Rasmni hozir chizish", "Render image now" },
+            { "Butun model", "Whole model" },
+            { "Nomini nusxalash", "Copy name" },
+            { "UUID nusxalash", "Copy UUID" },
+            { "Ierarxiya yo'lini nusxalash", "Copy hierarchy path" },
+            { "Kamerani yo'naltirish", "Point camera" },
+            { "Standart o'lchamlar", "Default sizes" },
+            { "Doim yoqilgan", "Always on" },
+            { "Standart qadamlar", "Default steps" },
+            { "Yoqilgan", "Enabled" },
+            { "Raycastlar", "Raycasts" },
+            { "Kontakt nuqtalari", "Contact points" },
+            { "Joint'lar", "Joints" },
+            { "Qiymatlar (yozuvlar)", "Values (labels)" },
+            { "Personaj tezligi", "Character velocity" },
+            { "Jismlar tezligi", "Body velocities" },
+            { "Tozalash", "Clear" },
+            { "Ikonkalar", "Icons" },
+            { "Lokal", "Local" },
+            { "Dunyo (AABB)", "World (AABB)" },
+            { "Ikkalasi", "Both" },
+            { "Bo'g'in nomlari", "Bone names" },
+            { "Faqat kameraga qaraganlar", "Only camera-facing" },
+            { "Yo'nalish bo'yicha rang", "Colour by direction" },
+            { "Kontur", "Outline" },
+            { "Quti (eski)", "Box (old)" },
+            { "Yashiringan qismlar", "Hidden parts" },
+            { "Bolalari ham", "Children too" },
+            { "Sichqoncha ostidagi", "Under the mouse" },
+            { "Standart kontur", "Default outline" },
+            { "Standart qiymatlar", "Default values" },
+            { "Snapping qadamiga tenglash", "Match the snapping step" },
+            { "Hammasini tozalash", "Clear all" },
+            { "Grid", "Grid" },
+            { "Grid sozlamalari", "Grid settings" },
+            { "O'qlar", "Axes" },
+            { "Snapping", "Snapping" },
+            { "Snapping qadamlari", "Snapping steps" },
+            { "Fizik colliderlar", "Physics colliders" },
+            { "Debug chizish", "Debug drawing" },
+            { "Debug chizish sozlamalari", "Debug drawing settings" },
+            { "UI elementlarini tanlash (to'rtburchagi bo'yicha)", "Pick UI elements (by their rectangle)" },
+            { "Parallax (editor kamerasi bilan)", "Parallax (with the editor camera)" },
+            { "Gizmolar", "Gizmos" },
+            { "Gizmo o'lchami", "Gizmo size" },
+            { "Tanlash ko'rinishi", "Selection look" },
+            { "Statistika overlay", "Statistics overlay" },
+            { "Overlay sozlamalari", "Overlay settings" },
+            { "Shaffoflar tartibi", "Transparency order" },
+            { "Obyekt nomlari", "Object names" },
+            { "Ko'rinish o'qi (viewport)", "View axis (viewport)" },
+            { "Editor kamerasi", "Editor camera" },
+            { "Qo'shimcha ko'rinishlar", "Extra views" },
+            { "Tanlanganga fokus", "Focus selection" },
+            { "Kamera xatcho'plari", "Camera bookmarks" },
+            { "Joriy ko'rinishni saqlash", "Save current view" },
+            { "Batafsil", "Details" },
+            { "Sahna yuklash muammolari", "Scene load problems" },
+            { "Qayta ochish", "Reopen" },
+            { "Yopish", "Close" },
+            { "FPS grafigi", "FPS graph" },
+            { "Draw call va uchburchaklar", "Draw calls and triangles" },
+            { "Culling (kesilganlar)", "Culling (culled)" },
+            { "Eng sekin bo'limlar", "Slowest sections" },
+            { "Audio (faol ovozlar)", "Audio (active voices)" },
+            { "Standart", "Default" },
+            { "Sahna", "Scene" },
+            { "Standart osmon", "Default sky" },
+            { "Standart sifat", "Default quality" },
+            { "Standart fizika sozlamalari", "Default physics settings" },
+            { "Shu sahnani boshlang'ich qilish", "Make this the start scene" },
+            { "Input va loyiha sozlamalari", "Input and project settings" },
+            { "Render statistikasi", "Render statistics" },
+            { "Audio profiler", "Audio profiler" },
+            { "Hisoblagichlarni nollash", "Reset counters" },
+            { "Profiler (CPU, ms)", "Profiler (CPU, ms)" },
+            { "O'rtacha", "Average" },
+            { "Muzlatish", "Freeze" },
+            { "Yaratish", "Create" },
+            { "Bekor qilish", "Cancel" },
+            { "Sahnalarni binar keshga ham yozish (.zsceneb)", "Also write scenes to the binary cache (.zsceneb)" },
+            { "Player sozlamalari", "Player settings" },
+            { "Grafika", "Graphics" },
+            { "Build", "Build" },
+            // ---- content browser
+            { "Ochish", "Open" },
+            { "Filtrni tozalash", "Clear filter" },
+            { "Butun loyihada qidirish", "Search the whole project" },
+            { "Build ro'yxatiga qo'shish", "Add to build list" },
+            { "Boshlang'ich sahna qilish", "Make start scene" },
+            { "O'yin ikonkasi qilish", "Make game icon" },
+            { "Tashqi muharrirda ochish", "Open in external editor" },
+            { "Tizimda ochish", "Open with system" },
+            { "Yo'lni nusxalash", "Copy path" },
+            { "Qayta yuklash", "Reload" },
+            { "Nomini o'zgartirish", "Rename" },
+            { "Bo'sh material", "Empty material" },
+            { "Yangi papka", "New folder" },
+            { "Yangi material", "New material" },
+            { "Yangi fizik material (2D)", "New physics material (2D)" },
+            { "Yangi animatsiya klipi", "New animation clip" },
+            { "Yangi sprite animatsiya klipi", "New sprite animation clip" },
+            { "Fayl menejerida ochish", "Show in file manager" },
+            { "Yangilash", "Refresh" },
+            { "Ishlatilmagan assetlarni topish", "Find unused assets" },
+            { "OK", "OK" },
+            { "Ha, qaytarish", "Yes, revert" },
+            { "Yo'q", "No" },
+            { "Ha", "Yes" },
+            // ---- project settings
+            { "Umumiy", "General" },
+            { "Player", "Player" },
+            { "Sifat", "Quality" },
+            { "Vaqt", "Time" },
+            { "Fizika", "Physics" },
+            { "Audio", "Audio" },
+            { "Input", "Input" },
+            { "Teglar va qatlamlar", "Tags and layers" },
+            { "Build sahnalar", "Build scenes" },
+            { "Debug", "Debug" },
+            { "Saqlangan ma'lumotlar", "Saved data" },
+            { "Ochiq sahnani qo'shish", "Add the open scene" },
+            { "Yuqoriga", "Up" },
+            { "Pastga", "Down" },
+            { "Ro'yxatdan olib tashlash", "Remove from list" },
+            { "Ro'yxatga qo'shish", "Add to list" },
+            { "Yoqish", "Enable" },
+            { "Takrorini olib tashlash", "Remove duplicate" },
+            { "Teglar", "Tags" },
+            { "Saralash qatlamlari", "Sorting layers" },
+            { "Qo'shish", "Add" },
+            { "Qayta nomlashda loyihadagi boshqa sahna va prefablar ham yangilansin", "Renaming also updates the project's other scenes and prefabs" },
+            { "Qayta hisoblash", "Recount" },
+            { "Faylga yozish", "Write to file" },
+            { "Qayta o'qish", "Read again" },
+            { "Papkani ochish", "Open folder" },
+            { "Hammasini o'chirish", "Delete all" },
+            { "Ha, o'chirish", "Yes, delete" },
+            { "O'zgargan", "Changed" },
+            { "Qidiruv", "Search" },
+            { "Sozlamalarni qidirish", "Search settings" },
+            { "Topilgan sozlamalar", "Matching settings" },
+            { "Hech narsa topilmadi", "Nothing found" },
+            { "O'z ro'yxati", "Own list" },
+            { "Til qo'shish", "Add language" },
+            { "Lokalizatsiya jadvali", "Localization table" },
+            // ---- preferences
+            { "Belgi", "Accent" },
+            { "Standart ko'rinish", "Default look" },
+            { "O'yin rejimida bo'yash", "Tint in play mode" },
+            { "Fizika simulyatsiyasida ham", "Also in physics simulation" },
+            { "Standart tus", "Default tint" },
+            { "O'yin boshlanganda (Play) konsolni tozalash", "Clear the console when play starts" },
+            { "Vaqtni ko'rsatish", "Show time" },
+            { "Bir xil xabarlarni guruhlash (soni bilan)", "Collapse identical messages (with a count)" },
+            { "Avto-skroll (yangi xabarga)", "Auto scroll (to new messages)" },
+            { "Y o'qini teskari qilish", "Invert Y axis" },
+            { "Saqlanmagan o'zgarishlarning nusxasini avtomatik yozish", "Automatically write a copy of unsaved changes" },
+            { "Hozir nusxa yozish", "Write a copy now" },
+            { "Tanlov o'zgarishlari ham undo qadami", "Selection changes are undo steps too" },
+            { "Undo tarixi oynasi", "Undo history window" },
+            { "Hammasini standartga qaytarish", "Reset everything to defaults" },
+            { "Til", "Language" },
+            { "Editor tili", "Editor language" },
+            { "Ko'rinish va til", "Look and language" },
+            { "O'yin rejimi", "Play mode" },
+            { "Saqlash va undo", "Saving and undo" },
+            { "Tashqi muharrir", "External editor" },
+            { "Ishlash", "Performance" },
+            { "Asosiy rang (accent)", "Accent colour" },
+            { "Shrift o'lchami", "Font size" },
+            // ---- console
+            { "Trace", "Trace" },
+            { "Ma'lumot", "Info" },
+            { "Ogohlantirish", "Warning" },
+            { "Xato", "Error" },
+            { "O'yin boshlanganda tozalash (Play)", "Clear on play" },
+            { "Bir xil xabarlarni guruhlash", "Collapse identical messages" },
+            { "Qidiruv: regex (muntazam ifoda)", "Search: regex" },
+            { "Qidiruv: katta-kichik harf farqi", "Search: match case" },
+            { "Faqat matnni nusxalash", "Copy text only" },
+            { "Ko'rinayotganlarning hammasini nusxalash", "Copy all visible" },
+            { "Shu matn bo'yicha filtrlash", "Filter by this text" },
+            // ---- hierarchy: create menu
+            { "Bo'sh obyekt", "Empty object" },
+            { "2D", "2D" },
+            { "Sprite", "Sprite" },
+            { "Doira", "Circle" },
+            { "Matn", "Text" },
+            { "Tilemap", "Tilemap" },
+            { "Fizik quti", "Physics box" },
+            { "Fizik shar", "Physics ball" },
+            { "3D", "3D" },
+            { "Kub", "Cube" },
+            { "Shar", "Sphere" },
+            { "Tekislik", "Plane" },
+            { "Silindr", "Cylinder" },
+            { "Konus", "Cone" },
+            { "Model (glTF / OBJ)", "Model (glTF / OBJ)" },
+            { "Fizik kub", "Physics cube" },
+            { "Fizik yer (statik)", "Physics ground (static)" },
+            { "Qahramon (Character Controller)", "Hero (Character Controller)" },
+            { "Yorug'lik", "Light" },
+            { "Quyosh (yo'naltirilgan)", "Sun (directional)" },
+            { "Nuqtali", "Point" },
+            { "Spot (konus)", "Spot (cone)" },
+            { "Kamera", "Camera" },
+            { "Perspektiv (3D)", "Perspective (3D)" },
+            { "Ortografik (2D)", "Orthographic (2D)" },
+            { "Effektlar", "Effects" },
+            { "UI (ekran)", "UI (screen)" },
+            { "Rasm", "Image" },
+            { "Tugma", "Button" },
+            { "Slayder", "Slider" },
+            { "Belgilash (toggle)", "Toggle" },
+            { "Progress bar", "Progress bar" },
+            { "Matn maydoni (input)", "Input field" },
+            { "Canvas (ekranga moslashadi)", "Canvas (fits the screen)" },
+            { "Menyu (vertikal layout)", "Menu (vertical layout)" },
+            { "Scroll view (ro'yxat)", "Scroll view (list)" },
+            { "Ovoz manbai", "Audio source" },
+            { "Bola obyekt yaratish", "Create child object" },
+            { "Ota-onadan ajratish", "Unparent" },
+            // ---- inspector
+            { "Komponent qo'shish", "Add component" },
+            { "Komponentni nusxalash", "Copy component" },
+            { "Yuqoriga ko'chirish", "Move up" },
+            { "Pastga ko'chirish", "Move down" },
+            { "Eng yuqoriga", "To the top" },
+            { "Eng pastga", "To the bottom" },
+            { "Komponentni olib tashlash", "Remove component" },
+            { "Modeldan .zmat yaratib biriktirish", "Create a .zmat from the model and assign it" },
+            { "Standart material", "Default material" },
+            { "Materiallar", "Materials" },
+            { "Asset qilib saqlash", "Save as asset" },
+            { "(yo'q)", "(none)" },
+            { "Tiklash (hammasi)", "Reset (all)" },
+            { "Pozitsiyani tiklash", "Reset position" },
+            { "Aylanishni tiklash", "Reset rotation" },
+            { "Masshtabni tiklash", "Reset scale" },
+            { "Joylash (hammasi)", "Paste (all)" },
+            { "Faqat pozitsiyani joylash", "Paste position only" },
+            { "Faqat aylanishni joylash", "Paste rotation only" },
+            { "Faqat masshtabni joylash", "Paste scale only" },
+            { "(Rigidbody 2D qatlami)", "(Rigidbody 2D layer)" },
+            { "Hammasi", "All" },
+            { "Hech biri", "None" },
+            { "Nomsiz qatlamlar", "Unnamed layers" },
+            { "Shu qiymatlardan material yaratish", "Create a material from these values" },
+            { "Nuqta qo'shish", "Add point" },
+            { "(butun rasm)", "(whole image)" },
+            { "Sinash", "Test" },
+            { "Suyakka qo'yish (offset 0)", "Snap to bone (offset 0)" },
+            { "Yuklash", "Load" },
+            { "Qadamni tinglash", "Play a step" },
+            { "Yangi klip", "New clip" },
+            { "Kalit", "Key" },
+            { "Teskari", "Inverted" },
+            { "Viewport'da chizish", "Paint in viewport" },
+            { "Qatlamni tozalash", "Clear layer" },
+            { "(oddiy plitka)", "(plain tile)" },
+            { "Langar turgan joyga", "To the anchor" },
+            { "Sahna chegaralari", "Scene bounds" },
+            { "Kamerani nishonga qo'yish", "Aim the camera at the target" },
+            { "Shu kadrlardan klip", "Clip from these frames" },
+            { "Animator holat mashinasi", "Animator state machine" },
+            { "Graf oynasida ochish", "Open in the graph window" },
+            { "Holatni o'chirish", "Delete state" },
+            { "Holat", "State" },
+            { "Blend tree", "Blend tree" },
+            { "O'tishni o'chirish", "Delete transition" },
+            { "O'tish", "Transition" },
+            { "Komponent", "Component" },
+            { "Modelning o'z og'irliklari", "The model's own weights" },
+            { "(birinchi)", "(first)" },
+            { "(butun tana)", "(whole body)" },
+            { "Qatlam", "Layer" },
+            { "(avtomatik)", "(automatic)" },
+            { "(har qanday)", "(any)" },
+            { "Event", "Event" },
+            { "Platform Effector 2D ga o'tkazish", "Switch to Platform Effector 2D" },
+            { "Spraytga moslash", "Fit to the sprite" },
+            { "Tomonini almashtirish", "Flip side" },
+            { "Langar va pivot (qo'lda)", "Anchors and pivot (manual)" },
+            { "Ko'rinish (animatsiya)", "Look (animation)" },
+            { "Asl holiga", "Restore" },
+            { "Eshitish", "Listen" },
+            // ---- localization table
+            { "Faqat yetishmayotganlar", "Only missing" },
+            { "Qayta nomlash", "Rename" },
+            { "Kalitni nusxalash", "Copy key" },
+            { "Localize(\"...\") nusxalash", "Copy Localize(\"...\")" },
+            { "O'chirish (hamma tillardan)", "Delete (from every language)" },
+            { "Oddiy matn qilish", "Make plain text" },
+            { "Ko'plik shakllari (son bo'yicha)", "Plural forms (by count)" },
+            // ---- scenes window
+            { "Faqat build", "Build only" },
+            { "Build'ga", "To build" },
+            { "Build'dan", "From build" },
+            { "Boshlang'ich", "Start" },
+            { "Play bilan", "With play" },
+            { "Additiv", "Additive" },
+            { "Almashtirish", "Replace" },
+            { "Build ro'yxatidan olib tashlash", "Remove from build list" },
+            { "Play bilan qo'shimcha yuklash", "Load additively with play" },
+            { "O'yinga additiv yuklash", "Load additively into the game" },
+            { "O'yinni shu sahnaga o'tkazish", "Switch the game to this scene" },
+            { "Rasmini chizish", "Render its picture" },
+            { "Kontent brauzerda ko'rsatish", "Show in content browser" },
+            // ---- audio mixer
+            { "Guruh", "Group" },
+            { "Solo'ni bekor qilish", "Clear solo" },
+            { "Standart qilib saqlash", "Save as default" },
+            { "Qaytarish", "Revert" },
+            { "M", "M" },
+            { "S", "S" },
+            { "Ota guruh", "Parent group" },
+            { "0 dB ga qaytarish", "Back to 0 dB" },
+            // ---- statistics / unused assets / autosave / shortcuts
+            { "Kodini ochish", "Open its code" },
+            { "Obyektlarni tanlash", "Select objects" },
+            { "Hamma turlar", "All types" },
+            { "Qayta skanerlash", "Rescan" },
+            { "Chuqur tahlil", "Deep analysis" },
+            { "Tiklash", "Restore" },
+            { "Nusxani o'chirish", "Delete the copy" },
+            { "Keyinroq", "Later" },
+            { "Tugmalarni bosing", "Press the keys" },
+            // ---- animation timeline / animator graph
+            { "Trek qo'shish", "Add track" },
+            { "Event'ni o'chirish", "Delete event" },
+            { "Step (sakrash)", "Step (jump)" },
+            { "Linear (to'g'ri)", "Linear (straight)" },
+            { "Bezier (silliq)", "Bezier (smooth)" },
+            { "Tangent: avtomatik", "Tangent: automatic" },
+            { "Tangent: tekis (flat)", "Tangent: flat" },
+            { "Shu yerga kalit", "Key here" },
+            { "Shu yerga event", "Event here" },
+            { "Klip shu yerda tugaydi", "Clip ends here" },
+            { "Oxirgi kalitgacha", "Up to the last key" },
+            { "Kalitni o'chirish", "Delete key" },
+            { "Joriy vaqtda kalit (K)", "Key at current time (K)" },
+            { "Moslash", "Fit" },
+            { "O'tish yaratish", "Create transition" },
+            { "Boshlang'ich holat qilish", "Make entry state" },
+            { "Yangi holat", "New state" },
+            { "Yangi blend tree", "New blend tree" },
+            { "Ko'rinishni moslash", "Fit view" },
+            // ---- toolbar / status bar
+            { "O'ynash", "Play" },
+            { "To'xtatish", "Stop" },
+            { "Pauza", "Pause" },
+            { "Simulyatsiya", "Simulate" },
+            { "Bir kadr", "Step one frame" },
+            // ---- preferences pages, autosave, idle, external tools, labels
+            { "Avtomatik saqlash", "Autosave" },
+            { "Undo", "Undo" },
+            { "Klaviatura", "Keyboard" },
+            { "Xabarni nusxalash", "Copy message" },
+            { "O'chiq", "Off" },
+            { "Tanlanganlar", "Selected" },
+            { "Uzoqlashganda xiralashsin", "Fade with distance" },
+            { "Tanlanganlar ham xiralashsin", "Fade selected ones too" },
+            { "Ustma-ust tushganlarini yashirish", "Hide overlapping ones" },
+            { "Fon", "Background" },
+            { "O'yin rejimida ham (viewport)", "In play mode too (viewport)" },
+            { "Sinab ko'rish", "Test" },
+            { "Tashqi kod muharriri", "External code editor" },
+            { "Avtomatik", "Automatic" },
+            { "O'z buyrug'im", "Custom command" },
+            { "Faqat nisbat (o'lchamga moslashadi)", "Aspect only (fits the size)" },
+            { "Bo'sh turganda kadrlarni kamaytirish", "Fewer frames while idle" },
+            { "Hozir", "Now" },
+            { "Sahna yuklash vaqti", "Scene load time" },
+            { "Shablon", "Template" },
+            { "Wireframe", "Wireframe" },
+            { "Muhit", "Environment" },
+            { "Osmon gradienti va quyosh", "Sky gradient and sun" },
+            { "Render", "Rendering" },
+            { "Soyalar", "Shadows" },
+            { "Post-processing", "Post-processing" },
+            { "2D yorug'lik", "2D lighting" },
+            { "Box2D (2D)", "Box2D (2D)" },
+            { "Jolt (3D)", "Jolt (3D)" },
+            { "Loyiha", "Project" },
+            { "Editor joylashuvlari", "Editor layouts" },
+            { "Saqlanganlar", "Saved" },
+            { "O'yin rejimida UI rang tusi", "UI tint in play mode" },
+            { "Ko'rsatiladigan darajalar", "Shown levels" },
+            { "Ro'yxatni tozalash", "Clear list" },
+            { "Erkin (perspektiv)", "Free (perspective)" },
+            { "Ortografik proyeksiya", "Orthographic projection" },
+            { "Uchish: o'ng tugma + WASD / QE", "Fly: right button + WASD / QE" },
+            { "Sichqoncha", "Mouse" },
+            { "Proyeksiya", "Projection" },
+            { "Ortografik (shu ko'rinish)", "Orthographic (this view)" },
+            // ---- animation / animator / assets
+            { "Hamma kliplarda", "In every clip" },
+            { "Shu vaqtga o'tish", "Go to this time" },
+            { "Shu vaqtga", "To this time" },
+            { "Parametr", "Parameter" },
+            { "Motion", "Motion" },
+            { "Tartiblash", "Arrange" },
+            { "Shart", "Condition" },
+            { "Har qanday holat", "Any state" },
+            { "Sirt turi", "Surface type" },
+            { "Asosiy rang", "Base color" },
+            { "Nurlanish", "Emission" },
+            { "UV", "UV" },
+            { "Sirt", "Surface" },
+            { "Qo'shilish", "Combine" },
+            { "Kliplarni kesish", "Trim clips" },
+            { "Saqlansin", "Keep" },
+            { "Klip qismi qo'shish", "Add clip part" },
+            { "Shu klipni kesish (nomi o'zgarmaydi)", "Trim this clip (name stays)" },
+            { "Yangi qism (alohida klip)", "New part (separate clip)" },
+            { "Sprite kadrlari", "Sprite frames" },
+            { "Import sozlamalari", "Import settings" },
+            { "Bind pose", "Bind pose" },
+            { ".zmat ga eksport qilish", "Export to .zmat" },
+            { "Ustidan yozish", "Overwrite" },
+            { "Shu joydan ijro", "Play from here" },
+            { "Takrorlash boshi shu yerda", "Loop start here" },
+            { "Takrorlash oxiri shu yerda", "Loop end here" },
+            { "Takrorlash oralig'ini olib tashlash", "Remove loop region" },
+            { "Oraliqni kattalashtirish", "Zoom to region" },
+            { "Butun ovoz", "Whole sound" },
+            { "Ma'lumotni tahrirlash", "Edit info" },
+            { "Animatsiya oynasida ochish", "Open in Animation window" },
+            { "Ichida", "Contents" },
+            { "Tashlab yuborish", "Discard" },
+            { "Qayta urinish", "Retry" },
+            { "Kadrlar", "Frames" },
+            { "Ijro", "Playback" },
+            { "Hodisalar (event)", "Events" },
+            { "Quyosh soyalari", "Sun shadows" },
+            { "Teksturalar", "Textures" },
+            // ---- project settings pages
+            { "Nusxa qo'shish", "Add copy" },
+            { "Standart darajalar", "Default levels" },
+            { "Ochiq sahnada", "In the open scene" },
+            { "Umumiy ovoz", "Master volume" },
+            { "Mikser guruhlari (boshlang'ich ovoz)", "Mixer groups (start volume)" },
+            { "Ovoz dvigateli", "Audio engine" },
+            { "3D ovoz (standartlar)", "3D sound (defaults)" },
+            { "3D standartlarini tiklash", "Reset 3D defaults" },
+            { "Audio Mixer oynasini ochish", "Open Audio Mixer window" },
+            { "Presetlar", "Presets" },
+            { "Nusxa", "Copy" },
+            { "Qo'yish", "Paste" },
+            { "Qaysi qatlamlar to'qnashadi", "Which layers collide" },
+            { "Qatlamlar", "Layers" },
+            { "Tugmani bosing...  (Esc: bekor qilish)", "Press a key...  (Esc: cancel)" },
+            { "Bog'lash qo'shish", "Add binding" },
+            { "Yoyish", "Expand" },
+            { "Yig'ish", "Collapse" },
+            { "Harakatlar (actions)", "Actions" },
+            { "Harakatni o'chirish", "Delete action" },
+            { "Harakat qo'shish", "Add action" },
+            { "O'qlar (axes)", "Axes" },
+            { "O'qni o'chirish", "Delete axis" },
+            { "O'q qo'shish", "Add axis" },
+            { "Standart holatga qaytarish", "Reset to defaults" },
+            { "Vektorlar (2D composite)", "Vectors (2D composite)" },
+            { "Vektorni o'chirish", "Delete vector" },
+            { "Vektor qo'shish", "Add vector" },
+            { "Tillar", "Languages" },
+            { "Yangi qiymat", "New value" },
+            { "Debug chizish (o'yinda)", "Debug drawing (in game)" },
+            { "Nom va versiya", "Name and version" },
+            { "Ikonka", "Icon" },
+            { "Standart (4.1 core)", "Default (4.1 core)" },
+            { "Editor konteksti", "Editor context" },
+            { "Qat'iy qadam", "Fixed step" },
+            { "O'yin vaqti", "Game time" },
+            { "Standart (60 Hz, 5, 1x, 0.1 s)", "Default (60 Hz, 5, 1x, 0.1 s)" },
+            { "O'yin soati", "Game clock" },
+            { "Gravitatsiya", "Gravity" },
+            { "Dvigatel standarti (-9.8 / -9.81)", "Engine default (-9.8 / -9.81)" },
+            { "To'qnashuv qatlamlari", "Collision layers" },
+            { "Player konteksti", "Player context" },
+            // ---- inspector sections
+            { "Ichki material", "Built-in material" },
+            { "Holat (o'yin)", "State (game)" },
+            { "Saralash", "Sorting" },
+            { "Tezlik bo'yicha", "By speed" },
+            { "Pixel-perfect", "Pixel-perfect" },
+            { "Bo'yash", "Paint" },
+            { "Auto-tile", "Auto-tile" },
+            { "Palitra", "Palette" },
+            { "Plitka xususiyatlari", "Tile properties" },
+            { "Uzilish", "Break" },
+            { "Holati", "State" },
+            { "Oldinga qarash", "Look ahead" },
+            { "Chegaralar", "Bounds" },
+            { "Holatlar", "States" },
+            { "O'tishlar", "Transitions" },
+            { "Fizika 2D", "Physics 2D" },
+            { "Fizika 3D", "Physics 3D" },
+            { "Effektlar va UI", "Effects and UI" },
+            { "Boshqa", "Other" },
+            { "Silkinish", "Shake" },
+            { "Blend shape'lar", "Blend shapes" },
+            { "Material", "Material" },
+            { "Root motion", "Root motion" },
+            { "Samaradorlik", "Performance" },
+            { "Yon tomonlar", "Sides" },
+            { "Kuch", "Force" },
+            { "Qarshilik", "Drag" },
+            { "Suyuqlik", "Fluid" },
+            { "Oqim", "Current" },
+            { "Masofa", "Distance" },
+            { "Burchak chegarasi", "Angle limit" },
+            { "Motor", "Motor" },
+            { "Sirpanish", "Slip" },
+            { "Qattiqlik", "Stiffness" },
+            { "Osma", "Suspension" },
+            { "Prujina", "Spring" },
+            { "Itarish", "Push" },
+            { "Bolalar o'lchami", "Children size" },
+            { "O'z o'lchami", "Own size" },
+            { "Sichqoncha javobi", "Mouse response" },
+            { "Bosilganda", "When pressed" },
+            { "Scrollbar'lar", "Scrollbars" },
+            { "Yo'nalish konusi", "Direction cone" },
+            { "So'nish (fade)", "Fade" },
+            { "Filtr", "Filter" },
+            { "Tasodifiylik", "Randomness" },
+            { "Ovozlar limiti", "Voice limit" },
+            { "Hajm", "Volume" },
+            // ---- particles, scenes, sprite editor
+            { "Portlash qo'shish", "Add burst" },
+            { "Tayyor effektlar", "Ready-made effects" },
+            { "Loyiha preset'lari (.zparticle)", "Project presets (.zparticle)" },
+            { "Preset sifatida saqlash", "Save as preset" },
+            { "Preset", "Preset" },
+            { "Yangi shablon", "New template" },
+            { "(hamma kadrlar)", "(all frames)" },
+            { "Modul qo'shish", "Add module" },
+            { "Loyiha sahnalari", "Project scenes" },
+            { "O'yinda yuklangan sahnalar", "Scenes loaded in the game" },
+            { "Saqlamaslik", "Don't save" },
+            { "Sig'dirish", "Fit" },
+            { "Grid ko'rinishi", "Grid view" },
+            { "Grid bo'yicha kesish", "Slice by grid" },
+            { "Kesish", "Slice" },
+            { "Yangi", "New" },
+            { "Tanlangan kadr", "Selected frame" },
+            { "Tekis (ease)", "Smooth (ease)" },
+            // ---- window titles, dialogs and labels with numbers
+            { "Joylashuvni saqlash", "Save layout" },
+            { "Ishlatilmagan assetlarni o'chirish", "Delete unused assets" },
+            { "Saqlanmagan material", "Unsaved material" },
+            { "Qo'llanmagan import sozlamalari", "Unapplied import settings" },
+            { "Saqlanmagan kadrlar", "Unsaved frames" },
+            { "Avtomatik saqlangan nusxa", "Autosaved copy" },
+            { "Muammolar", "Problems" },
+            { "To'liq chiqish", "Full output" },
+            { "Buzilgan havolalar", "Broken references" },
+            { "Ishlatilgan joylar", "Used by" },
+            { "Ishlatadigan assetlar", "Uses assets" },
+            { "xato", "errors" },
+            { "qator", "lines" },
+            { "ta", "selected" },
+            { "O'yin oynasi o'lchami", "Game view size" },
+            { "Xatcho'p", "Bookmark" },
+            { "(bo'sh)", "(empty)" },
+            // ---- input hints, status bar, console
+            { "(yo'q: Matn o'zi)", "(none: the Text itself)" },
+            { ".zproject fayl yoki papka yo'li", ".zproject file or folder path" },
+            { "Joylashuv nomi", "Layout name" },
+            { "Loyiha nomi", "Project name" },
+            { "Nom yoki tugma bo'yicha qidirish", "Search by name or key" },
+            { "Nomi (masalan Ovozlar)", "Name (e.g. Voices)" },
+            { "Qidirish", "Search" },
+            { "Qidirish (yo'l)", "Search (path)" },
+            { "Qidirish (yo'l, *.png, t:rasm)", "Search (path, *.png, t:rasm)" },
+            { "Sozlamani qidirish", "Search settings" },
+            { "Yangi qatlam nomi", "New layer name" },
+            { "Yangi teg (Enter)", "New tag (Enter)" },
+            { "Yangi teg nomi", "New tag name" },
+            { "kalit", "key" },
+            { "kalit nomi", "key name" },
+            { "kalit yoki matn", "key or text" },
+            { "nom", "name" },
+            { "nom, ta'rif, #teg", "name, description, #tag" },
+            { "nomi", "name" },
+            { "nomi (OnAnimationEvent)", "name (OnAnimationEvent)" },
+            { "parametr", "parameter" },
+            { "parametr (ixtiyoriy)", "parameter (optional)" },
+            { "qidirish", "search" },
+            { "teg qo'shish (Enter)", "add tag (Enter)" },
+            { "til kodi", "language code" },
+            { "yangi.kalit", "new.key" },
+            { "Qidirish...  (#teg)", "Search...  (#tag)" },
+            { "Xabarlardan qidirish", "Search messages" },
+            { "Konsolni tozalash", "Clear the console" },
+            { "O'yin", "Playing" },
+            { "klass", "classes" },
+            { "Skript moduli yuklanmagan", "Script module not loaded" },
+            { "Hech narsa tanlanmagan", "Nothing selected" },
+            { "ta obyekt", "objects" },
+            { "komponent", "components" },
+            { "Boshqa rang", "Other colour" },
+            { "Faol tugma", "Active button" },
+            { "Saqlanmagan o'zgarishli bo'limlar", "Sections with unsaved changes" },
+            { "Saqlangan", "Saved" },
+            // ---- project settings: property labels
+            { "Anizotropik filtr", "Anisotropic filter" },
+            { "Assets papkasi", "Assets folder" },
+            { "Avto ekspozitsiya", "Auto exposure" },
+            { "Bir vaqtda ovozlar", "Simultaneous voices" },
+            { "Bloom", "Bloom" },
+            { "Boshlang'ich sahna", "Start scene" },
+            { "Chiziq qalinligi (px)", "Line width (px)" },
+            { "Deadzone", "Deadzone" },
+            { "Debug konteksti", "Debug context" },
+            { "Doppler", "Doppler" },
+            { "Editorda ko'rish", "Preview in editor" },
+            { "Egri chiziq", "Curve" },
+            { "FPS cheklovi", "FPS limit" },
+            { "FXAA", "FXAA" },
+            { "Fizika qiymatlari", "Physics values" },
+            { "Fonda ishlash", "Run in background" },
+            { "Gamepad o'qi", "Gamepad axis" },
+            { "Gravitatsiya (2D)", "Gravity (2D)" },
+            { "Gravitatsiya (3D)", "Gravity (3D)" },
+            { "Ikonka (PNG)", "Icon (PNG)" },
+            { "Kaskadlar (eng ko'pi)", "Cascades (at most)" },
+            { "Kompaniya", "Company" },
+            { "Loyiha fayli", "Project file" },
+            { "MSAA (oyna)", "MSAA (window)" },
+            { "Mahsulot nomi", "Product name" },
+            { "Masofa modeli", "Distance model" },
+            { "Master ovozi", "Master volume" },
+            { "Matn o'lchami (px)", "Text size (px)" },
+            { "Max masofa", "Max distance" },
+            { "Min masofa", "Min distance" },
+            { "Noma'lum kalitlar", "Unknown keys" },
+            { "Nomi", "Name" },
+            { "O'lchamini o'zgartirish", "Resizable" },
+            { "Ochiq sahna", "Open scene" },
+            { "OpenGL versiyasi", "OpenGL version" },
+            { "Oqim chegarasi (MB)", "Streaming threshold (MB)" },
+            { "Oyna o'lchami", "Window size" },
+            { "Oyna rejimi", "Window mode" },
+            { "Oyna sarlavhasi", "Window title" },
+            { "Papka", "Folder" },
+            { "Pasayish (rolloff)", "Rolloff" },
+            { "Qadam", "Step" },
+            { "Radial deadzone", "Radial deadzone" },
+            { "Raycast vaqti (s)", "Raycast time (s)" },
+            { "Rejim", "Mode" },
+            { "Render masshtabi", "Render scale" },
+            { "SSAO", "SSAO" },
+            { "Sarlavhada versiya", "Version in title" },
+            { "SaveData papkasi", "SaveData folder" },
+            { "Sifat darajasi", "Quality level" },
+            { "Skript moduli", "Script module" },
+            { "Skriptlar papkasi", "Scripts folder" },
+            { "So'raladi", "Requested" },
+            { "Soya atlasi (eng katta)", "Shadow atlas (largest)" },
+            { "Soya filtri (eng qimmati)", "Shadow filter (most costly)" },
+            { "Soya masofasi", "Shadow distance" },
+            { "Standart daraja", "Default level" },
+            { "Standart til", "Default language" },
+            { "Tekstura sifati", "Texture quality" },
+            { "Teskari (invert)", "Invert" },
+            { "Tezlik o'qi (s)", "Speed arrows (s)" },
+            { "Til fayllari papkasi", "Language files folder" },
+            { "Tillar ro'yxati", "Language list" },
+            { "Tizim tilida boshlash", "Start in the system language" },
+            { "VSync", "VSync" },
+            { "Versiya", "Version" },
+            { "sRGB framebuffer", "sRGB framebuffer" },
+        };
+
+        struct Table
+        {
+            std::unordered_map<std::string_view, const char*> English;
+            std::vector<std::string> Keys;
+            Table()
+            {
+                for (const Entry& e : s_English)
+                    if (English.emplace(e.Uzbek, e.English).second)
+                        Keys.emplace_back(e.Uzbek);
+            }
+        };
+
+        const Table& GetTable()
+        {
+            static const Table s_Table;
+            return s_Table;
+        }
+
+        EditorLanguage s_Language = EditorLanguage::Uzbek;
+        // Tr's results for this language (node based: the strings do not move).
+        std::unordered_map<std::string, std::string>& Cache()
+        {
+            static std::unordered_map<std::string, std::string> s_Cache;
+            return s_Cache;
+        }
+
+        // A Font Awesome icon (U+E000..U+F8FF, three bytes in UTF-8) at `i`.
+        bool IsIconAt(std::string_view text, size_t i)
+        {
+            if (i + 3 > text.size())
+                return false;
+            const unsigned char a = (unsigned char)text[i];
+            return a == 0xEE || a == 0xEF;
+        }
+
+        const char* Lookup(std::string_view core)
+        {
+            const auto& table = GetTable().English;
+            if (auto it = table.find(core); it != table.end())
+                return it->second;
+            return nullptr;
+        }
+    }
+
+    namespace EditorText {
+
+        void SetLanguage(EditorLanguage language)
+        {
+            if (language >= EditorLanguage::Count)
+                language = EditorLanguage::Uzbek;
+            if (language == s_Language)
+                return;
+            s_Language = language;
+            Cache().clear();
+        }
+
+        EditorLanguage GetLanguage() { return s_Language; }
+
+        const char* GetLanguageCode(EditorLanguage language) { return language == EditorLanguage::English ? "en" : "uz"; }
+
+        const char* GetLanguageName(EditorLanguage language) { return language == EditorLanguage::English ? "English" : "O'zbekcha"; }
+
+        EditorLanguage ParseLanguage(std::string_view code)
+        {
+            std::string lower;
+            for (char c : code)
+                lower += (char)(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c);
+            return lower == "en" || lower == "english" || lower.starts_with("en_") || lower.starts_with("en-") ? EditorLanguage::English
+                                                                                                              : EditorLanguage::Uzbek;
+        }
+
+        Parts Split(std::string_view text)
+        {
+            Parts parts;
+            // Icons and spaces at the start.
+            size_t start = 0;
+            while (start < text.size())
+            {
+                if (IsIconAt(text, start))
+                    start += 3;
+                else if (text[start] == ' ')
+                    start++;
+                else
+                    break;
+            }
+            // An ImGui id at the end.
+            size_t end = text.find("##", start);
+            if (end == std::string_view::npos)
+                end = text.size();
+            // "..." / ":" / spaces before it.
+            size_t coreEnd = end;
+            while (coreEnd > start && text[coreEnd - 1] == ' ')
+                coreEnd--;
+            if (coreEnd >= start + 3 && text.substr(coreEnd - 3, 3) == "...")
+                coreEnd -= 3;
+            else if (coreEnd > start && text[coreEnd - 1] == ':')
+                coreEnd--;
+            parts.Prefix = text.substr(0, start);
+            parts.Core = text.substr(start, coreEnd - start);
+            parts.Suffix = text.substr(coreEnd);
+            return parts;
+        }
+
+        const char* Tr(const char* uzbek)
+        {
+            if (!uzbek || s_Language == EditorLanguage::Uzbek)
+                return uzbek;
+            auto& cache = Cache();
+            if (auto it = cache.find(uzbek); it != cache.end())
+                return it->second.c_str();
+            const Parts parts = Split(uzbek);
+            const char* english = Lookup(parts.Core);
+            if (!english)
+                return uzbek; // not in the table: the text itself (not cached, so labels made at run time do not pile up)
+            std::string out = std::string(parts.Prefix) + english + std::string(parts.Suffix);
+            return cache.emplace(uzbek, std::move(out)).first->second.c_str();
+        }
+
+        std::string Tr(std::string_view uzbek)
+        {
+            if (s_Language == EditorLanguage::Uzbek)
+                return std::string(uzbek);
+            const Parts parts = Split(uzbek);
+            if (const char* english = Lookup(parts.Core))
+                return std::string(parts.Prefix) + english + std::string(parts.Suffix);
+            return std::string(uzbek);
+        }
+
+        bool HasTranslation(std::string_view uzbek) { return Lookup(Split(uzbek).Core) != nullptr; }
+
+        size_t GetTranslationCount() { return GetTable().English.size(); }
+
+        std::vector<std::string> GetTranslationKeys() { return GetTable().Keys; }
+
+    }
+
+}

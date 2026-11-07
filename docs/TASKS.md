@@ -390,7 +390,7 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 336. Audio standart sozlamalari
 - [x] 337. Lokalizatsiya: til fayllari (uz, ru, en)
 - [x] 338. Lokalizatsiya skript API (Localize("key"))
-- [ ] 339. Editor tilini tanlash (o'zbek/ingliz)
+- [x] 339. Editor tilini tanlash (o'zbek/ingliz)
 - [ ] 340. Loyiha sozlamalari hujjatlari
 
 ## M18 Runtime player

@@ -65,13 +65,13 @@ namespace Zamin {
     void EditorLayer::UI_ExternalEditorPreferences(bool& changed)
     {
         ExternalEditorPreferences& prefs = m_Preferences.ExternalEditor;
-        ImGui::SeparatorText("Tashqi kod muharriri");
+        ImGui::SeparatorText(Tr("Tashqi kod muharriri"));
         ImGui::TextWrapped("C++ skriptlar (inspektordagi " ICON_FA_PEN_TO_SQUARE " tugmasi, kontent brauzerda .cpp / .h fayllar) va "
                            "kompilyatsiya xatolari shu dastur bilan, kerakli qatorda ochiladi.");
         ImGui::Spacing();
         const std::string automatic = ExternalEditor::GetDefaultCommand();
         bool useDefault = prefs.Command.empty();
-        if (ImGui::RadioButton("Avtomatik", useDefault) && !useDefault)
+        if (ImGui::RadioButton(Tr("Avtomatik"), useDefault) && !useDefault)
         {
             prefs.Command.clear();
             changed = true;
@@ -81,7 +81,7 @@ namespace Zamin {
         if (ImGui::IsItemHovered())
             UI::Tooltip("$VISUAL, so'ng $EDITOR (vim / nano kabi terminal muharrirlari terminal oynasida), bo'lmasa VS Code,\n"
                         "u ham bo'lmasa xdg-open (fayl turi uchun tizimdagi dastur, qatorsiz).");
-        if (ImGui::RadioButton("O'z buyrug'im", !useDefault) && useDefault)
+        if (ImGui::RadioButton(Tr("O'z buyrug'im"), !useDefault) && useDefault)
         {
             prefs.Command = automatic;
             changed = true;
@@ -138,7 +138,7 @@ namespace Zamin {
         ImGui::PopTextWrapPos();
         ImGui::PopStyleColor();
         ImGui::BeginDisabled(!fs::exists(first.File));
-        if (ImGui::Button(ICON_FA_PLAY "  Sinab ko'rish"))
+        if (ImGui::Button(Tr(ICON_FA_PLAY "  Sinab ko'rish")))
             m_ExternalEditorTest = OpenInExternalEditor(first.File, first.Line, first.Column)
                                        ? std::format(ICON_FA_CHECK "  {} ochildi", first.File.filename().string())
                                        : std::string(ICON_FA_TRIANGLE_EXCLAMATION "  Ishga tushmadi - konsolni ko'ring");

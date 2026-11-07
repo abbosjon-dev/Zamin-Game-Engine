@@ -270,9 +270,10 @@ namespace Zamin {
             m_FocusBuildOutput = false;
         }
         ImGui::SetNextWindowSize(ImVec2(820, 380), ImGuiCond_FirstUseEver);
-        const std::string title = m_Building ? std::string(ICON_FA_SCREWDRIVER_WRENCH "  Kompilyatsiya...###BuildOutput")
-                                  : m_BuildErrors > 0 ? std::format(ICON_FA_SCREWDRIVER_WRENCH "  Kompilyatsiya ({} xato)###BuildOutput", m_BuildErrors)
-                                                      : std::string(ICON_FA_SCREWDRIVER_WRENCH "  Kompilyatsiya###BuildOutput");
+        const std::string title = m_Building ? std::string(Tr(ICON_FA_SCREWDRIVER_WRENCH "  Kompilyatsiya...###BuildOutput"))
+                                  : m_BuildErrors > 0 ? std::format(ICON_FA_SCREWDRIVER_WRENCH "  {} ({} {})###BuildOutput", Tr("Kompilyatsiya"), m_BuildErrors,
+                                                                    Tr("xato"))
+                                                      : std::string(Tr(ICON_FA_SCREWDRIVER_WRENCH "  Kompilyatsiya###BuildOutput"));
         if (!ImGui::Begin(title.c_str(), &m_ShowBuildOutput))
         {
             ImGui::End();
@@ -295,7 +296,7 @@ namespace Zamin {
         // ---- the toolbar: build, the result, severity filters, search
         const bool hasProject = Project::GetActive() != nullptr;
         ImGui::BeginDisabled(!hasProject || m_Building);
-        if (ImGui::Button(ICON_FA_HAMMER "  Kompilyatsiya"))
+        if (ImGui::Button(Tr(ICON_FA_HAMMER "  Kompilyatsiya")))
             BuildScripts(true);
         ImGui::EndDisabled();
         ImGui::SameLine();
@@ -344,7 +345,7 @@ namespace Zamin {
             const ImGuiTabItemFlags problemsFlags = m_BuildOutputTab == 0 ? ImGuiTabItemFlags_SetSelected : 0;
             const ImGuiTabItemFlags outputFlags = m_BuildOutputTab == 1 ? ImGuiTabItemFlags_SetSelected : 0;
             m_BuildOutputTab = -1;
-            if (ImGui::BeginTabItem(std::format(ICON_FA_CIRCLE_EXCLAMATION "  Muammolar ({})###buildProblems", m_BuildErrors + m_BuildWarnings).c_str(),
+            if (ImGui::BeginTabItem(std::format(ICON_FA_CIRCLE_EXCLAMATION "  {} ({})###buildProblems", Tr("Muammolar"), m_BuildErrors + m_BuildWarnings).c_str(),
                                     nullptr, problemsFlags))
             {
                 if (m_BuildDiagnostics.empty())
@@ -385,9 +386,9 @@ namespace Zamin {
                             OpenDiagnostic(d);
                         if (ImGui::BeginPopupContextItem("##diagnosticMenu"))
                         {
-                            if (ImGui::MenuItem(ICON_FA_PEN_TO_SQUARE "  Tashqi muharrirda ochish", nullptr, false, d.HasLocation() || !d.File.empty()))
+                            if (ImGui::MenuItem(Tr(ICON_FA_PEN_TO_SQUARE "  Tashqi muharrirda ochish"), nullptr, false, d.HasLocation() || !d.File.empty()))
                                 OpenDiagnostic(d);
-                            if (ImGui::MenuItem(ICON_FA_COPY "  Xabarni nusxalash"))
+                            if (ImGui::MenuItem(Tr(ICON_FA_COPY "  Xabarni nusxalash")))
                                 ImGui::SetClipboardText(d.Format().c_str());
                             ImGui::EndPopup();
                         }
@@ -460,7 +461,7 @@ namespace Zamin {
                 std::lock_guard lock(m_BuildOutputMutex);
                 lines = m_BuildLog.size();
             }
-            if (ImGui::BeginTabItem(std::format(ICON_FA_TERMINAL "  To'liq chiqish ({} qator)###buildLog", lines).c_str(), nullptr, outputFlags))
+            if (ImGui::BeginTabItem(std::format(ICON_FA_TERMINAL "  {} ({} {})###buildLog", Tr("To'liq chiqish"), lines, Tr("qator")).c_str(), nullptr, outputFlags))
             {
                 if (ImGui::BeginChild("##buildLogText", ImVec2(0, 0), ImGuiChildFlags_None, ImGuiWindowFlags_HorizontalScrollbar))
                 {

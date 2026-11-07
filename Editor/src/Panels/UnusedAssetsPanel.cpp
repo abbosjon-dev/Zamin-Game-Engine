@@ -72,10 +72,10 @@ namespace Zamin {
 
     void UnusedAssetsPanel::DrawToolbar()
     {
-        if (ImGui::Button(ICON_FA_ARROWS_ROTATE "  Qayta skanerlash"))
+        if (ImGui::Button(Tr(ICON_FA_ARROWS_ROTATE "  Qayta skanerlash")))
             Refresh();
         ImGui::SameLine();
-        if (ImGui::Checkbox("Chuqur tahlil", &m_ReachableOnly))
+        if (ImGui::Checkbox(Tr("Chuqur tahlil"), &m_ReachableOnly))
             m_Revision = ~0ull;
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
             UI::Tooltip("O'chiq: hech bir fayl havola qilmaydigan assetlar.\n"
@@ -97,13 +97,13 @@ namespace Zamin {
                     m_Filter.Set(type, on);
             }
             ImGui::Separator();
-            if (ImGui::MenuItem("Hammasi", nullptr, false, m_Filter.IsActive()))
+            if (ImGui::MenuItem(Tr("Hammasi"), nullptr, false, m_Filter.IsActive()))
                 m_Filter.Clear();
             ImGui::EndPopup();
         }
         ImGui::SameLine();
         ImGui::SetNextItemWidth(-FLT_MIN);
-        ImGui::InputTextWithHint("##unusedSearch", ICON_FA_MAGNIFYING_GLASS "  Qidirish (yo'l)", &m_Search);
+        ImGui::InputTextWithHint("##unusedSearch", Tr(ICON_FA_MAGNIFYING_GLASS "  Qidirish (yo'l)"), &m_Search);
 
         if (m_Usage && m_Usage->IsDirty())
             ImGui::TextDisabled(ICON_FA_ARROWS_ROTATE "  Yangilanmoqda...");
@@ -186,12 +186,12 @@ namespace Zamin {
                     UI::Tooltip(std::format("{}\n{}  -  {}", u.Path, AssetFiles::GetTypeName(u.Type), AssetFiles::FormatSize(u.Size)).c_str());
                 if (ImGui::BeginPopupContextItem("##row"))
                 {
-                    if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN "  Kontent brauzerda ko'rsatish") && OnAssetSelected)
+                    if (ImGui::MenuItem(Tr(ICON_FA_FOLDER_OPEN "  Kontent brauzerda ko'rsatish")) && OnAssetSelected)
                         OnAssetSelected(Project::GetAssetFileSystemPath(u.Path));
-                    if (ImGui::MenuItem(ICON_FA_COPY "  Yo'lni nusxalash"))
+                    if (ImGui::MenuItem(Tr(ICON_FA_COPY "  Yo'lni nusxalash")))
                         ImGui::SetClipboardText(u.Path.c_str());
                     ImGui::Separator();
-                    if (ImGui::MenuItem(ICON_FA_TRASH "  O'chirish..."))
+                    if (ImGui::MenuItem(Tr(ICON_FA_TRASH "  O'chirish...")))
                     {
                         m_PendingDelete = { u.Path };
                         m_OpenDeletePopup = true;
@@ -233,7 +233,7 @@ namespace Zamin {
         const auto& missing = m_Usage->Get().GetMissing();
         if (missing.empty())
             return;
-        std::string title = std::format(ICON_FA_LINK_SLASH "  Buzilgan havolalar ({})###missingRefs", missing.size());
+        std::string title = std::format(ICON_FA_LINK_SLASH "  {} ({})###missingRefs", Tr("Buzilgan havolalar"), missing.size());
         if (!ImGui::CollapsingHeader(title.c_str()))
             return;
         for (const MissingAssetReference& m : missing)
@@ -262,7 +262,7 @@ namespace Zamin {
                 m_DeleteUses = m_Usage->Get(true).FindUsesOutside(paths);
             }
         }
-        if (!ImGui::BeginPopupModal(ICON_FA_TRASH "  Ishlatilmagan assetlarni o'chirish###DeleteUnused", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        if (!ImGui::BeginPopupModal(Tr(ICON_FA_TRASH "  Ishlatilmagan assetlarni o'chirish###DeleteUnused"), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
             return;
         if (m_PendingDelete.size() == 1)
             ImGui::Text(ICON_FA_TRIANGLE_EXCLAMATION "  '%s' o'chirilsinmi?", m_PendingDelete.front().c_str());
@@ -283,7 +283,7 @@ namespace Zamin {
         }
         ImGui::TextDisabled("Fayllar .zmeta bilan birga o'chadi. Bu amalni qaytarib bo'lmaydi.");
         ImGui::Spacing();
-        if (ImGui::Button(ICON_FA_TRASH "  O'chirish", ImVec2(140, 0)))
+        if (ImGui::Button(Tr(ICON_FA_TRASH "  O'chirish"), ImVec2(140, 0)))
         {
             std::vector<fs::path> deleted;
             AssetRegistry* registry = Project::GetAssetRegistry();
@@ -313,7 +313,7 @@ namespace Zamin {
             ImGui::CloseCurrentPopup();
         }
         ImGui::SameLine();
-        if (ImGui::Button("Bekor qilish", ImVec2(120, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape, false) || reveal)
+        if (ImGui::Button(Tr("Bekor qilish"), ImVec2(120, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape, false) || reveal)
         {
             m_PendingDelete.clear();
             ImGui::CloseCurrentPopup();
@@ -328,7 +328,7 @@ namespace Zamin {
         if (!*open)
             return;
         ImGui::SetNextWindowSize(ImVec2(640, 460), ImGuiCond_FirstUseEver);
-        if (!ImGui::Begin(ICON_FA_BROOM "  Ishlatilmagan assetlar###UnusedAssets", open))
+        if (!ImGui::Begin(Tr(ICON_FA_BROOM "  Ishlatilmagan assetlar###UnusedAssets"), open))
         {
             ImGui::End();
             return;

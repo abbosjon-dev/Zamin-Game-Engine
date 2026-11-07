@@ -377,7 +377,7 @@ namespace Zamin {
     {
         if (*showHierarchy)
         {
-            if (ImGui::Begin(ICON_FA_LIST "  Ierarxiya###Hierarchy", showHierarchy))
+            if (ImGui::Begin(Tr(ICON_FA_LIST "  Ierarxiya###Hierarchy"), showHierarchy))
                 DrawHierarchy();
             ImGui::End();
         }
@@ -389,7 +389,7 @@ namespace Zamin {
         }
         if (*showInspector)
         {
-            if (ImGui::Begin(ICON_FA_SLIDERS "  Inspektor###Inspector", showInspector))
+            if (ImGui::Begin(Tr(ICON_FA_SLIDERS "  Inspektor###Inspector"), showInspector))
             {
                 if (m_AssetInspector && m_AssetInspector->HasAsset())
                     m_AssetInspector->OnImGuiRender();
@@ -689,70 +689,70 @@ namespace Zamin {
 
     void SceneHierarchyPanel::DrawCreateMenu()
     {
-        if (ImGui::MenuItem(ICON_FA_BOX "  Bo'sh obyekt")) CreateEntityPreset("Empty");
+        if (ImGui::MenuItem(Tr(ICON_FA_BOX "  Bo'sh obyekt"))) CreateEntityPreset("Empty");
         ImGui::Separator();
-        if (ImGui::BeginMenu(ICON_FA_SHAPES "  2D"))
+        if (ImGui::BeginMenu(Tr(ICON_FA_SHAPES "  2D")))
         {
-            if (ImGui::MenuItem(ICON_FA_IMAGE "  Sprite")) CreateEntityPreset("Sprite");
-            if (ImGui::MenuItem(ICON_FA_CIRCLE "  Doira")) CreateEntityPreset("Circle");
-            if (ImGui::MenuItem(ICON_FA_FONT "  Matn")) CreateEntityPreset("Text");
-            if (ImGui::MenuItem(ICON_FA_TABLE_CELLS "  Tilemap")) CreateEntityPreset("Tilemap");
+            if (ImGui::MenuItem(Tr(ICON_FA_IMAGE "  Sprite"))) CreateEntityPreset("Sprite");
+            if (ImGui::MenuItem(Tr(ICON_FA_CIRCLE "  Doira"))) CreateEntityPreset("Circle");
+            if (ImGui::MenuItem(Tr(ICON_FA_FONT "  Matn"))) CreateEntityPreset("Text");
+            if (ImGui::MenuItem(Tr(ICON_FA_TABLE_CELLS "  Tilemap"))) CreateEntityPreset("Tilemap");
             ImGui::Separator();
-            if (ImGui::MenuItem(ICON_FA_BOX "  Fizik quti")) CreateEntityPreset("Physics Box");
-            if (ImGui::MenuItem(ICON_FA_CIRCLE "  Fizik shar")) CreateEntityPreset("Physics Ball");
+            if (ImGui::MenuItem(Tr(ICON_FA_BOX "  Fizik quti"))) CreateEntityPreset("Physics Box");
+            if (ImGui::MenuItem(Tr(ICON_FA_CIRCLE "  Fizik shar"))) CreateEntityPreset("Physics Ball");
             ImGui::EndMenu();
         }
-        if (ImGui::BeginMenu(ICON_FA_CUBE "  3D"))
+        if (ImGui::BeginMenu(Tr(ICON_FA_CUBE "  3D")))
         {
-            if (ImGui::MenuItem(ICON_FA_CUBE "  Kub")) CreateEntityPreset("Cube");
-            if (ImGui::MenuItem(ICON_FA_CIRCLE "  Shar")) CreateEntityPreset("Sphere");
-            if (ImGui::MenuItem(ICON_FA_SQUARE "  Tekislik")) CreateEntityPreset("Plane");
-            if (ImGui::MenuItem(ICON_FA_DRAW_POLYGON "  Silindr")) CreateEntityPreset("Cylinder");
-            if (ImGui::MenuItem(ICON_FA_MOUNTAIN_SUN "  Konus")) CreateEntityPreset("Cone");
-            if (ImGui::MenuItem(ICON_FA_CUBES "  Model (glTF / OBJ)")) CreateEntityPreset("Model");
+            if (ImGui::MenuItem(Tr(ICON_FA_CUBE "  Kub"))) CreateEntityPreset("Cube");
+            if (ImGui::MenuItem(Tr(ICON_FA_CIRCLE "  Shar"))) CreateEntityPreset("Sphere");
+            if (ImGui::MenuItem(Tr(ICON_FA_SQUARE "  Tekislik"))) CreateEntityPreset("Plane");
+            if (ImGui::MenuItem(Tr(ICON_FA_DRAW_POLYGON "  Silindr"))) CreateEntityPreset("Cylinder");
+            if (ImGui::MenuItem(Tr(ICON_FA_MOUNTAIN_SUN "  Konus"))) CreateEntityPreset("Cone");
+            if (ImGui::MenuItem(Tr(ICON_FA_CUBES "  Model (glTF / OBJ)"))) CreateEntityPreset("Model");
             ImGui::Separator();
-            if (ImGui::MenuItem(ICON_FA_ATOM "  Fizik kub")) CreateEntityPreset("Physics Cube");
-            if (ImGui::MenuItem(ICON_FA_ATOM "  Fizik shar")) CreateEntityPreset("Physics Sphere");
-            if (ImGui::MenuItem(ICON_FA_ATOM "  Fizik yer (statik)")) CreateEntityPreset("Physics Ground");
-            if (ImGui::MenuItem(ICON_FA_PERSON_RUNNING "  Qahramon (Character Controller)")) CreateEntityPreset("Character3D");
+            if (ImGui::MenuItem(Tr(ICON_FA_ATOM "  Fizik kub"))) CreateEntityPreset("Physics Cube");
+            if (ImGui::MenuItem(Tr(ICON_FA_ATOM "  Fizik shar"))) CreateEntityPreset("Physics Sphere");
+            if (ImGui::MenuItem(Tr(ICON_FA_ATOM "  Fizik yer (statik)"))) CreateEntityPreset("Physics Ground");
+            if (ImGui::MenuItem(Tr(ICON_FA_PERSON_RUNNING "  Qahramon (Character Controller)"))) CreateEntityPreset("Character3D");
             ImGui::EndMenu();
         }
-        if (ImGui::BeginMenu(ICON_FA_LIGHTBULB "  Yorug'lik"))
+        if (ImGui::BeginMenu(Tr(ICON_FA_LIGHTBULB "  Yorug'lik")))
         {
-            if (ImGui::MenuItem(ICON_FA_SUN "  Quyosh (yo'naltirilgan)")) CreateEntityPreset("DirectionalLight");
-            if (ImGui::MenuItem(ICON_FA_LIGHTBULB "  Nuqtali")) CreateEntityPreset("PointLight");
-            if (ImGui::MenuItem(ICON_FA_BULLHORN "  Spot (konus)")) CreateEntityPreset("SpotLight");
+            if (ImGui::MenuItem(Tr(ICON_FA_SUN "  Quyosh (yo'naltirilgan)"))) CreateEntityPreset("DirectionalLight");
+            if (ImGui::MenuItem(Tr(ICON_FA_LIGHTBULB "  Nuqtali"))) CreateEntityPreset("PointLight");
+            if (ImGui::MenuItem(Tr(ICON_FA_BULLHORN "  Spot (konus)"))) CreateEntityPreset("SpotLight");
             ImGui::EndMenu();
         }
-        if (ImGui::BeginMenu(ICON_FA_CAMERA "  Kamera"))
+        if (ImGui::BeginMenu(Tr(ICON_FA_CAMERA "  Kamera")))
         {
-            if (ImGui::MenuItem(ICON_FA_CAMERA "  Perspektiv (3D)")) CreateEntityPreset("Camera");
-            if (ImGui::MenuItem(ICON_FA_CAMERA "  Ortografik (2D)")) CreateEntityPreset("Camera2D");
+            if (ImGui::MenuItem(Tr(ICON_FA_CAMERA "  Perspektiv (3D)"))) CreateEntityPreset("Camera");
+            if (ImGui::MenuItem(Tr(ICON_FA_CAMERA "  Ortografik (2D)"))) CreateEntityPreset("Camera2D");
             ImGui::EndMenu();
         }
-        if (ImGui::BeginMenu(ICON_FA_WAND_MAGIC_SPARKLES "  Effektlar"))
+        if (ImGui::BeginMenu(Tr(ICON_FA_WAND_MAGIC_SPARKLES "  Effektlar")))
         {
             // The particle preset library: each makes a new entity with that effect.
             if (DrawParticlePresetItems({}))
                 ApplyPendingParticlePreset();
             ImGui::EndMenu();
         }
-        if (ImGui::BeginMenu(ICON_FA_TABLE_CELLS "  UI (ekran)"))
+        if (ImGui::BeginMenu(Tr(ICON_FA_TABLE_CELLS "  UI (ekran)")))
         {
-            if (ImGui::MenuItem(ICON_FA_FONT "  Matn")) CreateEntityPreset("UI Text");
-            if (ImGui::MenuItem(ICON_FA_IMAGE "  Rasm")) CreateEntityPreset("UI Image");
-            if (ImGui::MenuItem(ICON_FA_HAND_POINTER "  Tugma")) CreateEntityPreset("UI Button");
-            if (ImGui::MenuItem(ICON_FA_SLIDERS "  Slayder")) CreateEntityPreset("UI Slider");
-            if (ImGui::MenuItem(ICON_FA_SQUARE_CHECK "  Belgilash (toggle)")) CreateEntityPreset("UI Toggle");
-            if (ImGui::MenuItem(ICON_FA_BARS_PROGRESS "  Progress bar")) CreateEntityPreset("UI Progress");
-            if (ImGui::MenuItem(ICON_FA_I_CURSOR "  Matn maydoni (input)")) CreateEntityPreset("UI Input");
+            if (ImGui::MenuItem(Tr(ICON_FA_FONT "  Matn"))) CreateEntityPreset("UI Text");
+            if (ImGui::MenuItem(Tr(ICON_FA_IMAGE "  Rasm"))) CreateEntityPreset("UI Image");
+            if (ImGui::MenuItem(Tr(ICON_FA_HAND_POINTER "  Tugma"))) CreateEntityPreset("UI Button");
+            if (ImGui::MenuItem(Tr(ICON_FA_SLIDERS "  Slayder"))) CreateEntityPreset("UI Slider");
+            if (ImGui::MenuItem(Tr(ICON_FA_SQUARE_CHECK "  Belgilash (toggle)"))) CreateEntityPreset("UI Toggle");
+            if (ImGui::MenuItem(Tr(ICON_FA_BARS_PROGRESS "  Progress bar"))) CreateEntityPreset("UI Progress");
+            if (ImGui::MenuItem(Tr(ICON_FA_I_CURSOR "  Matn maydoni (input)"))) CreateEntityPreset("UI Input");
             ImGui::Separator();
-            if (ImGui::MenuItem(ICON_FA_EXPAND "  Canvas (ekranga moslashadi)")) CreateEntityPreset("UI Canvas");
-            if (ImGui::MenuItem(ICON_FA_LIST "  Menyu (vertikal layout)")) CreateEntityPreset("UI Menu");
-            if (ImGui::MenuItem(ICON_FA_ARROWS_UP_DOWN "  Scroll view (ro'yxat)")) CreateEntityPreset("UI Scroll View");
+            if (ImGui::MenuItem(Tr(ICON_FA_EXPAND "  Canvas (ekranga moslashadi)"))) CreateEntityPreset("UI Canvas");
+            if (ImGui::MenuItem(Tr(ICON_FA_LIST "  Menyu (vertikal layout)"))) CreateEntityPreset("UI Menu");
+            if (ImGui::MenuItem(Tr(ICON_FA_ARROWS_UP_DOWN "  Scroll view (ro'yxat)"))) CreateEntityPreset("UI Scroll View");
             ImGui::EndMenu();
         }
-        if (ImGui::MenuItem(ICON_FA_VOLUME_HIGH "  Ovoz manbai")) CreateEntityPreset("Audio");
+        if (ImGui::MenuItem(Tr(ICON_FA_VOLUME_HIGH "  Ovoz manbai"))) CreateEntityPreset("Audio");
     }
 
     // ------------------------------------------------------------------ hierarchy
@@ -772,7 +772,7 @@ namespace Zamin {
             ImGui::Separator();
         }
 
-        if (ImGui::BeginMenu(ICON_FA_PLUS "  Bola obyekt yaratish"))
+        if (ImGui::BeginMenu(Tr(ICON_FA_PLUS "  Bola obyekt yaratish")))
         {
             Entity before = entity;
             DrawCreateMenu();
@@ -784,7 +784,7 @@ namespace Zamin {
             }
             ImGui::EndMenu();
         }
-        if (ImGui::MenuItem(ICON_FA_FEATHER "  Nomini o'zgartirish", "F2"))
+        if (ImGui::MenuItem(Tr(ICON_FA_FEATHER "  Nomini o'zgartirish"), "F2"))
         {
             SetSelectedEntity(entity);
             m_RenamingEntity = entity;
@@ -792,19 +792,19 @@ namespace Zamin {
         }
         std::string duplicateLabel = count > 1 ? std::format(ICON_FA_CLONE "  Nusxa olish ({} ta)", count) : std::string(ICON_FA_CLONE "  Nusxa olish");
         if (ImGui::MenuItem(duplicateLabel.c_str(), "Ctrl+D")) m_PendingDuplicate = true;
-        if (ImGui::MenuItem(ICON_FA_BULLSEYE "  Fokus", "F")) { if (OnFocusRequested) OnFocusRequested(entity); }
+        if (ImGui::MenuItem(Tr(ICON_FA_BULLSEYE "  Fokus"), "F")) { if (OnFocusRequested) OnFocusRequested(entity); }
         std::vector<Entity> parented;
         for (Entity e : GetSelectedRoots())
             if (m_Context->GetParent(e))
                 parented.push_back(e);
-        if (!parented.empty() && ImGui::MenuItem(ICON_FA_ARROW_UP "  Ota-onadan ajratish"))
+        if (!parented.empty() && ImGui::MenuItem(Tr(ICON_FA_ARROW_UP "  Ota-onadan ajratish")))
         {
             for (Entity e : parented)
                 if (m_Context->SetParent(e, {}, true))
                     m_Context->SetSiblingIndex(e, -1);
             MarkModified();
         }
-        if (ImGui::MenuItem(ICON_FA_BOX "  Prefab sifatida saqlash") && OnSavePrefabRequested)
+        if (ImGui::MenuItem(Tr(ICON_FA_BOX "  Prefab sifatida saqlash")) && OnSavePrefabRequested)
             OnSavePrefabRequested(entity);
         ImGui::Separator();
         {
@@ -821,7 +821,7 @@ namespace Zamin {
                 SetActiveFromRow(entity, !active);
         }
         ImGui::Separator();
-        if (ImGui::MenuItem(ICON_FA_CHECK_DOUBLE "  Hammasini tanlash", "Ctrl+A")) SelectAll();
+        if (ImGui::MenuItem(Tr(ICON_FA_CHECK_DOUBLE "  Hammasini tanlash"), "Ctrl+A")) SelectAll();
         std::string deleteLabel = count > 1 ? std::format(ICON_FA_TRASH "  O'chirish ({} ta)", count) : std::string(ICON_FA_TRASH "  O'chirish");
         if (ImGui::MenuItem(deleteLabel.c_str(), "Delete")) m_PendingDelete = true;
         ImGui::EndPopup();
@@ -1378,9 +1378,9 @@ namespace Zamin {
         {
             DrawCreateMenu();
             ImGui::Separator();
-            if (ImGui::MenuItem(ICON_FA_EYE "  Hammasini ko'rsatish", "Alt+H", false, m_SceneEditable && m_Context->CountHiddenInEditor() > 0))
+            if (ImGui::MenuItem(Tr(ICON_FA_EYE "  Hammasini ko'rsatish"), "Alt+H", false, m_SceneEditable && m_Context->CountHiddenInEditor() > 0))
                 ShowAll();
-            if (ImGui::MenuItem(ICON_FA_LOCK_OPEN "  Hamma qulflarni ochish", nullptr, false, m_SceneEditable && m_Context->CountLockedInEditor() > 0))
+            if (ImGui::MenuItem(Tr(ICON_FA_LOCK_OPEN "  Hamma qulflarni ochish"), nullptr, false, m_SceneEditable && m_Context->CountLockedInEditor() > 0))
                 UnlockAll();
             ImGui::EndPopup();
         }
@@ -1574,7 +1574,7 @@ namespace Zamin {
         const char* display = ComponentDisplayName(key);
 
         // ---- copy / paste values
-        if (ImGui::MenuItem(ICON_FA_COPY "  Komponentni nusxalash"))
+        if (ImGui::MenuItem(Tr(ICON_FA_COPY "  Komponentni nusxalash")))
         {
             m_ComponentClipboard = SceneSerializer::SerializeComponent(entity, key);
             if (!m_ComponentClipboard.empty())
@@ -1607,13 +1607,13 @@ namespace Zamin {
         const int first = !m_SectionOrder.empty() && m_SectionOrder.front() == ComponentKey<TransformComponent>() ? 1 : 0;
         const int last = (int)m_SectionOrder.size() - 1;
         const bool canMove = m_SceneEditable && index >= first;
-        if (ImGui::MenuItem(ICON_FA_ARROW_UP "  Yuqoriga ko'chirish", nullptr, false, canMove && index > first))
+        if (ImGui::MenuItem(Tr(ICON_FA_ARROW_UP "  Yuqoriga ko'chirish"), nullptr, false, canMove && index > first))
             m_PendingMove = { std::string(key), {}, false, index - 1 };
-        if (ImGui::MenuItem(ICON_FA_ARROW_DOWN "  Pastga ko'chirish", nullptr, false, canMove && index < last))
+        if (ImGui::MenuItem(Tr(ICON_FA_ARROW_DOWN "  Pastga ko'chirish"), nullptr, false, canMove && index < last))
             m_PendingMove = { std::string(key), {}, false, index + 1 };
-        if (ImGui::MenuItem(ICON_FA_ANGLES_UP "  Eng yuqoriga", nullptr, false, canMove && index > first))
+        if (ImGui::MenuItem(Tr(ICON_FA_ANGLES_UP "  Eng yuqoriga"), nullptr, false, canMove && index > first))
             m_PendingMove = { std::string(key), {}, false, first };
-        if (ImGui::MenuItem(ICON_FA_ANGLES_DOWN "  Eng pastga", nullptr, false, canMove && index < last))
+        if (ImGui::MenuItem(Tr(ICON_FA_ANGLES_DOWN "  Eng pastga"), nullptr, false, canMove && index < last))
             m_PendingMove = { std::string(key), {}, false, -1 };
         return changed;
     }
@@ -1724,7 +1724,7 @@ namespace Zamin {
             if (removable)
             {
                 ImGui::Separator();
-                if (ImGui::MenuItem(ICON_FA_TRASH "  Komponentni olib tashlash"))
+                if (ImGui::MenuItem(Tr(ICON_FA_TRASH "  Komponentni olib tashlash")))
                     removeComponent = true;
             }
             ImGui::EndPopup();
@@ -1782,7 +1782,7 @@ namespace Zamin {
         if (!Project::GetActive() || (ext != ".gltf" && ext != ".glb"))
             return false;
         UI::PropertyLabel("");
-        bool clicked = ImGui::Button(ICON_FA_FILE_EXPORT "  Modeldan .zmat yaratib biriktirish", ImVec2(-FLT_MIN, 0));
+        bool clicked = ImGui::Button(Tr(ICON_FA_FILE_EXPORT "  Modeldan .zmat yaratib biriktirish"), ImVec2(-FLT_MIN, 0));
         if (ImGui::IsItemHovered())
             UI::Tooltip("Modelning glTF materiallari .zmat fayllar bo'lib yoziladi (model yonidagi <nom>_Materials papkasiga, "
                         "fayl ichidagi rasmlar bilan) va har bir qism o'z materialiga biriktiriladi. Oldin eksport qilinganlari "
@@ -1833,7 +1833,7 @@ namespace Zamin {
         if (!Project::GetActive())
             return false;
         UI::PropertyLabel("");
-        if (ImGui::Button(ICON_FA_SWATCHBOOK "  Standart material...", ImVec2(-FLT_MIN, 0)) || m_OpenStandardMaterials)
+        if (ImGui::Button(Tr(ICON_FA_SWATCHBOOK "  Standart material..."), ImVec2(-FLT_MIN, 0)) || m_OpenStandardMaterials)
         {
             m_OpenStandardMaterials = false;
             ImGui::OpenPopup("##standardMaterials");
@@ -1922,7 +1922,7 @@ namespace Zamin {
             size_t overridden = std::count_if(c.SubmeshMaterials.begin(), c.SubmeshMaterials.end(), [](const std::string& p) { return !p.empty(); });
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
-            bool open = ImGui::TreeNodeEx("Materiallar###submeshMaterials", ImGuiTreeNodeFlags_SpanAllColumns);
+            bool open = ImGui::TreeNodeEx(Tr("Materiallar###submeshMaterials"), ImGuiTreeNodeFlags_SpanAllColumns);
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Qismlar materiallari: har bir submesh uchun alohida material asset. Bo'sh joy: yuqoridagi material asset, "
                             "u ham bo'lmasa modelning o'z materiali.");
@@ -2005,7 +2005,7 @@ namespace Zamin {
         if (Project::GetActive() && c.Type != PrimitiveMesh::Model)
         {
             UI::PropertyLabel("");
-            bool save = ImGui::Button(ICON_FA_FLOPPY_DISK "  Asset qilib saqlash", ImVec2(-FLT_MIN, 0));
+            bool save = ImGui::Button(Tr(ICON_FA_FLOPPY_DISK "  Asset qilib saqlash"), ImVec2(-FLT_MIN, 0));
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Ichki materialni material asset (.zmat) sifatida Assets/Materials/ ga saqlaydi va mesh'ga biriktiradi - "
                             "keyin uni boshqa obyektlar ham ishlatishi mumkin.");
@@ -2176,11 +2176,11 @@ namespace Zamin {
             if (ImGui::IsWindowAppearing())
                 ImGui::SetKeyboardFocusHere();
             ImGui::SetNextItemWidth(ImGui::GetFontSize() * 16.0f);
-            ImGui::InputTextWithHint("##filter", ICON_FA_MAGNIFYING_GLASS "  Qidirish...", &m_EntityPickerFilter);
+            ImGui::InputTextWithHint("##filter", Tr(ICON_FA_MAGNIFYING_GLASS "  Qidirish..."), &m_EntityPickerFilter);
             ImGui::Separator();
             std::string filter = ToLower(m_EntityPickerFilter);
             ImGui::BeginChild("##list", ImVec2(ImGui::GetFontSize() * 16.0f, ImGui::GetFontSize() * 14.0f), ImGuiChildFlags_None);
-            if (ImGui::Selectable(ICON_FA_XMARK "  (yo'q)", ref.ID == 0))
+            if (ImGui::Selectable(Tr(ICON_FA_XMARK "  (yo'q)"), ref.ID == 0))
             {
                 if (ref.ID) changed = true;
                 ref.ID = 0;
@@ -2279,17 +2279,17 @@ namespace Zamin {
             ImGui::TextDisabled(ICON_FA_OBJECT_GROUP "  %zu ta obyektga qo'llanadi", targets.size());
             ImGui::Separator();
         }
-        if (ImGui::MenuItem(ICON_FA_ARROW_ROTATE_LEFT "  Tiklash (hammasi)"))
+        if (ImGui::MenuItem(Tr(ICON_FA_ARROW_ROTATE_LEFT "  Tiklash (hammasi)")))
             apply([](TransformComponent& t) { t = TransformComponent(); });
-        if (ImGui::MenuItem("      Pozitsiyani tiklash"))
+        if (ImGui::MenuItem(Tr("      Pozitsiyani tiklash")))
             apply([](TransformComponent& t) { t.Translation = glm::vec3(0.0f); });
-        if (ImGui::MenuItem("      Aylanishni tiklash"))
+        if (ImGui::MenuItem(Tr("      Aylanishni tiklash")))
             apply([](TransformComponent& t) { t.Rotation = glm::vec3(0.0f); });
-        if (ImGui::MenuItem("      Masshtabni tiklash"))
+        if (ImGui::MenuItem(Tr("      Masshtabni tiklash")))
             apply([](TransformComponent& t) { t.Scale = glm::vec3(1.0f); });
 
         ImGui::Separator();
-        if (ImGui::MenuItem(ICON_FA_COPY "  Nusxalash"))
+        if (ImGui::MenuItem(Tr(ICON_FA_COPY "  Nusxalash")))
         {
             const TransformComponent& t = entity.GetComponent<TransformComponent>();
             m_TransformClipboard = t;
@@ -2300,13 +2300,13 @@ namespace Zamin {
         }
         const TransformComponent clip = m_PasteTransform;
         const bool canPaste = m_CanPasteTransform;
-        if (ImGui::MenuItem(ICON_FA_PASTE "  Joylash (hammasi)", nullptr, false, canPaste))
+        if (ImGui::MenuItem(Tr(ICON_FA_PASTE "  Joylash (hammasi)"), nullptr, false, canPaste))
             apply([&](TransformComponent& t) { t = clip; });
-        if (ImGui::MenuItem("      Faqat pozitsiyani joylash", nullptr, false, canPaste))
+        if (ImGui::MenuItem(Tr("      Faqat pozitsiyani joylash"), nullptr, false, canPaste))
             apply([&](TransformComponent& t) { t.Translation = clip.Translation; });
-        if (ImGui::MenuItem("      Faqat aylanishni joylash", nullptr, false, canPaste))
+        if (ImGui::MenuItem(Tr("      Faqat aylanishni joylash"), nullptr, false, canPaste))
             apply([&](TransformComponent& t) { t.Rotation = clip.Rotation; });
-        if (ImGui::MenuItem("      Faqat masshtabni joylash", nullptr, false, canPaste))
+        if (ImGui::MenuItem(Tr("      Faqat masshtabni joylash"), nullptr, false, canPaste))
             apply([&](TransformComponent& t) { t.Scale = clip.Scale; });
         if (canPaste)
         {
@@ -2333,7 +2333,7 @@ namespace Zamin {
         ImGui::PushID("localizationKey");
         const float button = ImGui::GetFrameHeight();
         ImGui::SetNextItemWidth(std::max(60.0f, ImGui::GetContentRegionAvail().x - button - ImGui::GetStyle().ItemSpacing.x));
-        changed |= ImGui::InputTextWithHint("##key", "(yo'q: Matn o'zi)", &c.LocalizationKey);
+        changed |= ImGui::InputTextWithHint("##key", Tr("(yo'q: Matn o'zi)"), &c.LocalizationKey);
         ImGui::SameLine();
         if (ImGui::Button(ICON_FA_LANGUAGE, ImVec2(button, 0.0f)))
         {
@@ -2355,7 +2355,7 @@ namespace Zamin {
             if (ImGui::IsWindowAppearing())
                 ImGui::SetKeyboardFocusHere();
             ImGui::SetNextItemWidth(320.0f);
-            ImGui::InputTextWithHint("##filter", ICON_FA_MAGNIFYING_GLASS "  qidirish", &m_LocalizationKeyFilter);
+            ImGui::InputTextWithHint("##filter", Tr(ICON_FA_MAGNIFYING_GLASS "  qidirish"), &m_LocalizationKeyFilter);
             if (keys.empty())
                 ImGui::TextDisabled("Til fayllarida kalit yo'q (Loyiha sozlamalari > Lokalizatsiya)");
             if (ImGui::BeginChild("##list", ImVec2(420.0f, std::min(320.0f, 24.0f * (float)keys.size() + 8.0f))))
@@ -2405,7 +2405,7 @@ namespace Zamin {
         const bool same = std::abs(minDistance - defaults.MinDistance) < 1e-4f && std::abs(maxDistance - defaults.MaxDistance) < 1e-4f;
         ImGui::BeginDisabled(same);
         bool changed = false;
-        if (ImGui::SmallButton(ICON_FA_ROTATE_LEFT "  Standart"))
+        if (ImGui::SmallButton(Tr(ICON_FA_ROTATE_LEFT "  Standart")))
         {
             minDistance = defaults.MinDistance;
             maxDistance = defaults.MaxDistance;
@@ -2674,7 +2674,7 @@ namespace Zamin {
         ImGui::SetNextItemWidth(std::max(60.0f, ImGui::GetContentRegionAvail().x - button - ImGui::GetStyle().ItemSpacing.x));
         if (ImGui::BeginCombo("##collisionLayer", preview.c_str()))
         {
-            if (inherit && ImGui::Selectable("(Rigidbody 2D qatlami)", layer < 0))
+            if (inherit && ImGui::Selectable(Tr("(Rigidbody 2D qatlami)"), layer < 0))
             {
                 layer = -1;
                 changed = true;
@@ -2731,13 +2731,13 @@ namespace Zamin {
         ImGui::SetNextItemWidth(-FLT_MIN);
         if (ImGui::BeginCombo("##layerMask", (ICON_FA_LAYER_GROUP "  " + preview).c_str()))
         {
-            if (ImGui::SmallButton("Hammasi"))
+            if (ImGui::SmallButton(Tr("Hammasi")))
             {
                 changed = mask != CollisionLayers2D::AllLayers;
                 mask = CollisionLayers2D::AllLayers;
             }
             ImGui::SameLine();
-            if (ImGui::SmallButton("Hech biri"))
+            if (ImGui::SmallButton(Tr("Hech biri")))
             {
                 changed = mask != 0;
                 mask = 0;
@@ -2757,7 +2757,7 @@ namespace Zamin {
             if (unnamedBits)
             {
                 bool on = (mask & unnamedBits) == unnamedBits;
-                if (ImGui::Checkbox("Nomsiz qatlamlar", &on))
+                if (ImGui::Checkbox(Tr("Nomsiz qatlamlar"), &on))
                 {
                     mask = on ? (uint16_t)(mask | unnamedBits) : (uint16_t)(mask & ~unnamedBits);
                     changed = true;
@@ -2850,7 +2850,7 @@ namespace Zamin {
         {
             UI::PropertyLabel("");
             ImGui::BeginDisabled(!m_SceneEditable);
-            bool create = ImGui::SmallButton(ICON_FA_PLUS "  Shu qiymatlardan material yaratish");
+            bool create = ImGui::SmallButton(Tr(ICON_FA_PLUS "  Shu qiymatlardan material yaratish"));
             ImGui::EndDisabled();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
                 UI::Tooltip("Quyidagi qiymatlarni Assets/Physics/ ga .zphysmat qilib saqlaydi va shu kolliderga biriktiradi - keyin "
@@ -2928,7 +2928,7 @@ namespace Zamin {
             changed = true;
         }
         UI::PropertyLabel("");
-        if (ImGui::Button(ICON_FA_PLUS "  Nuqta qo'shish", ImVec2(-FLT_MIN, 0)))
+        if (ImGui::Button(Tr(ICON_FA_PLUS "  Nuqta qo'shish"), ImVec2(-FLT_MIN, 0)))
         {
             // Polygons: in the middle of the closing edge; lines: one step further on.
             if (points.empty())
@@ -3017,7 +3017,7 @@ namespace Zamin {
         ImGui::BeginDisabled(!sheet && c.SpriteName.empty());
         if (ImGui::BeginCombo("##frame", preview.c_str(), ImGuiComboFlags_HeightLarge))
         {
-            if (ImGui::Selectable("(butun rasm)", c.SpriteName.empty()))
+            if (ImGui::Selectable(Tr("(butun rasm)"), c.SpriteName.empty()))
             {
                 c.SpriteName.clear();
                 changed = true;
@@ -3123,7 +3123,7 @@ namespace Zamin {
             ImGui::EndDisabled();
         }
 
-        ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText("Saralash");
+        ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText(Tr("Saralash"));
         changed |= DrawSortingLayer(c.SortingLayer, c.SortingOrder);
         if (UI::PropertyBool("Pixel-art (aniq piksellar)", c.PixelArt) && !c.TexturePath.empty())
         {
@@ -3138,7 +3138,7 @@ namespace Zamin {
                         "O'chiq: rasm o'z rangida chiziladi");
 
         // ---- effects: hit flash, outline
-        ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText("Effektlar");
+        ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText(Tr("Effektlar"));
         UI::PropertyLabel("Flash rangi", "Rasm shu rangga aralashadi (oq - urilish chaqnashi). Skriptdan: Flash(rang, soniya)");
         changed |= ImGui::ColorEdit4("##flashColor", &c.FlashColor.x, ImGuiColorEditFlags_AlphaBar);
         UI::PropertyLabel("Flash", "0 - o'chiq, 1 - butunlay flash rangida. Skriptdagi Flash() buning ustidan so'nib boradigan flash o'ynaydi");
@@ -3151,7 +3151,7 @@ namespace Zamin {
             const bool running = m_Context && m_Context->IsRunning();
             UI::PropertyLabel("");
             ImGui::BeginDisabled(!running);
-            if (ImGui::Button(ICON_FA_BOLT "  Sinash"))
+            if (ImGui::Button(Tr(ICON_FA_BOLT "  Sinash")))
                 c.Flash(glm::vec4(glm::vec3(c.FlashColor), 1.0f), 0.3f);
             ImGui::EndDisabled();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
@@ -3208,7 +3208,7 @@ namespace Zamin {
         ImGui::BeginDisabled(!sheet && c.SpriteName.empty());
         if (ImGui::BeginCombo("##frame", preview.c_str(), ImGuiComboFlags_HeightLarge))
         {
-            if (ImGui::Selectable("(butun rasm)", c.SpriteName.empty()))
+            if (ImGui::Selectable(Tr("(butun rasm)"), c.SpriteName.empty()))
             {
                 c.SpriteName.clear();
                 changed = true;
@@ -3396,7 +3396,7 @@ namespace Zamin {
         ImGui::PopTextWrapPos();
         UI::PropertyLabel("");
         ImGui::BeginDisabled(!m_SceneEditable);
-        if (ImGui::SmallButton(ICON_FA_CROSSHAIRS "  Suyakka qo'yish (offset 0)"))
+        if (ImGui::SmallButton(Tr(ICON_FA_CROSSHAIRS "  Suyakka qo'yish (offset 0)")))
         {
             auto& tc = entity.GetComponent<TransformComponent>();
             tc.Translation = glm::vec3(0.0f);
@@ -3480,7 +3480,7 @@ namespace Zamin {
             {
                 ImGui::TextColored(UI::AccentColor(), ICON_FA_CIRCLE_CHECK "  yuklangan (%zu obyekt)", loaded->GetRegistry().view<IDComponent>().size());
                 ImGui::SameLine();
-                if (ImGui::SmallButton("Yopish"))
+                if (ImGui::SmallButton(Tr("Yopish")))
                     m_SceneManager->UnloadSubScene(entity);
                 if (ImGui::IsItemHovered())
                     UI::Tooltip("Sub-sahnani kadr oxirida yopish (UnloadSubScene)");
@@ -3490,7 +3490,7 @@ namespace Zamin {
                 ImGui::TextDisabled("yuklanmagan");
                 ImGui::SameLine();
                 ImGui::BeginDisabled(c.ScenePath.empty());
-                if (ImGui::SmallButton("Yuklash"))
+                if (ImGui::SmallButton(Tr("Yuklash")))
                     m_SceneManager->LoadSubScene(entity);
                 ImGui::EndDisabled();
                 if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
@@ -3611,7 +3611,7 @@ namespace Zamin {
         }
         UI::PropertyLabel("");
         ImGui::BeginDisabled(c.Sounds.empty());
-        if (ImGui::SmallButton(ICON_FA_PLAY "  Qadamni tinglash"))
+        if (ImGui::SmallButton(Tr(ICON_FA_PLAY "  Qadamni tinglash")))
         {
             // Past the mixer at the reference speed, like a step sounds (a new random variation each time).
             const int index = c.PickSound();
@@ -3679,7 +3679,7 @@ namespace Zamin {
             c.Clips.erase(c.Clips.begin() + remove);
         UI::PropertyLabel("");
         ImGui::BeginDisabled(!Project::GetActive() || !m_SceneEditable);
-        if (ImGui::Button(ICON_FA_FILE_CIRCLE_PLUS "  Yangi klip"))
+        if (ImGui::Button(Tr(ICON_FA_FILE_CIRCLE_PLUS "  Yangi klip")))
         {
             // Assets/Animations/<entity name>.zanim (a free name), added and opened in the Animation window.
             std::string name;
@@ -3708,7 +3708,7 @@ namespace Zamin {
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
             UI::Tooltip("Assets/Animations ichida bo'sh .zanim klip yaratiladi, ro'yxatga qo'shiladi va Animatsiya oynasida ochiladi");
         ImGui::SameLine();
-        if (ImGui::Button(ICON_FA_TIMELINE "  Oyna") && OnAnimationWindowRequested)
+        if (ImGui::Button(Tr(ICON_FA_TIMELINE "  Oyna")) && OnAnimationWindowRequested)
             OnAnimationWindowRequested(entity, c.Current >= 0 ? c.Current : 0);
         if (ImGui::IsItemHovered())
             UI::Tooltip("Animatsiya oynasi: treklar, kalit kadrlar, event'lar, ko'rib chiqish");
@@ -3785,7 +3785,7 @@ namespace Zamin {
             changed = true;
         }
         UI::PropertyLabel("");
-        if (ImGui::Button(ICON_FA_PLUS "  Kalit"))
+        if (ImGui::Button(Tr(ICON_FA_PLUS "  Kalit")))
         {
             // In the widest gap, with the colour the gradient has there (nothing changes until it is edited).
             TintAnimation::SortKeys(c.Keys);
@@ -3802,7 +3802,7 @@ namespace Zamin {
             sort = changed = true;
         }
         ImGui::SameLine();
-        if (ImGui::Button(ICON_FA_ARROWS_ROTATE "  Teskari"))
+        if (ImGui::Button(Tr(ICON_FA_ARROWS_ROTATE "  Teskari")))
         {
             for (TintKey& k : c.Keys)
                 k.Time = 1.0f - k.Time;
@@ -4283,7 +4283,7 @@ namespace Zamin {
         UI::PropertyHeader(ICON_FA_PAINTBRUSH "  Bo'yash", "Viewport'da sichqoncha bilan. B - mo'yqalam, R - to'rtburchak, G - to'ldirish, "
                                                          "E - o'chirg'ich, I - tomizg'ich, Esc - chiqish. Shift bosilsa o'chiradi. Ctrl+Z - bekor qilish");
         UI::PropertyLabel("Rejim");
-        ImGui::Checkbox(ICON_FA_PEN "  Viewport'da chizish", &m_TilePaint);
+        ImGui::Checkbox(Tr(ICON_FA_PEN "  Viewport'da chizish"), &m_TilePaint);
         UI::PropertyLabel("Asbob");
         {
             struct ToolButton { TileTool Tool; const char* Icon; const char* Tip; };
@@ -4304,7 +4304,7 @@ namespace Zamin {
             ImGui::TextDisabled("%s", TileToolName(m_TileTool));
         }
         UI::PropertyLabel("");
-        if (ImGui::Button(ICON_FA_ERASER "  Qatlamni tozalash"))
+        if (ImGui::Button(Tr(ICON_FA_ERASER "  Qatlamni tozalash")))
         {
             TilemapLayer& layer = c.Layers[(size_t)m_TileLayer];
             if (std::any_of(layer.Tiles.begin(), layer.Tiles.end(), [](int t) { return t >= 0; }))
@@ -4330,7 +4330,7 @@ namespace Zamin {
             std::string preview = m_TileRule >= 0 ? std::string(ICON_FA_BORDER_ALL "  ") + rules.Rules[(size_t)m_TileRule].Name : std::string("(oddiy plitka)");
             if (ImGui::BeginCombo("##rule", preview.c_str()))
             {
-                if (ImGui::Selectable("(oddiy plitka)", m_TileRule < 0))
+                if (ImGui::Selectable(Tr("(oddiy plitka)"), m_TileRule < 0))
                     m_TileRule = -1;
                 for (int i = 0; i < (int)rules.Rules.size(); i++)
                 {
@@ -4409,7 +4409,7 @@ namespace Zamin {
             ImGui::SetNextItemWidth(ImGui::GetFontSize() * 4.0f);
             ImGui::DragInt("##seqFirst", &m_RuleFirstTile, 0.2f, 0, std::max(0, c.TilesetColumns * c.TilesetRows - 1));
             ImGui::SameLine();
-            if (ImGui::Button("Qo'llash"))
+            if (ImGui::Button(Tr("Qo'llash")))
             {
                 rule = AutoTileRule::Sequential(rule.Name, rule.Mode, m_RuleFirstTile);
                 rulesEdited = true;
@@ -4997,7 +4997,7 @@ namespace Zamin {
         if (!open || !*open)
             return;
         ImGui::SetNextWindowSize(ImVec2(440, 560), ImGuiCond_FirstUseEver);
-        if (!ImGui::Begin(ICON_FA_TABLE_CELLS "  Plitka palitrasi###TilePalette", open))
+        if (!ImGui::Begin(Tr(ICON_FA_TABLE_CELLS "  Plitka palitrasi###TilePalette"), open))
         {
             ImGui::End();
             return;
@@ -5087,7 +5087,7 @@ namespace Zamin {
         if (!c.AutoConfigureConnectedAnchor && m_SceneEditable && m_Context && (!other || other != entity))
         {
             UI::PropertyLabel("");
-            if (ImGui::SmallButton(ICON_FA_LOCATION_CROSSHAIRS "  Langar turgan joyga"))
+            if (ImGui::SmallButton(Tr(ICON_FA_LOCATION_CROSSHAIRS "  Langar turgan joyga")))
             {
                 // Where this body's anchor is now, in the connected body's frame (or the world).
                 glm::vec3 p, r, sc;
@@ -5214,7 +5214,7 @@ namespace Zamin {
         if (!c.AutoConfigureConnectedAnchor && m_SceneEditable && m_Context && (!other || other != entity))
         {
             UI::PropertyLabel("");
-            if (ImGui::SmallButton(ICON_FA_LOCATION_CROSSHAIRS "  Langar turgan joyga"))
+            if (ImGui::SmallButton(Tr(ICON_FA_LOCATION_CROSSHAIRS "  Langar turgan joyga")))
             {
                 // Where this body's anchor is now, in the connected body's frame (or the world).
                 glm::vec3 world = glm::vec3(m_Context->GetWorldTransform(entity) * glm::vec4(c.Anchor, 1.0f));
@@ -5399,7 +5399,7 @@ namespace Zamin {
             changed |= float2("Maks (o'ng-yuqori)", nullptr, c.BoundsMax, 0.1f, 0.0f, 0.0f);
             UI::PropertyLabel("");
             ImGui::BeginDisabled(!m_SceneEditable);
-            if (ImGui::Button(ICON_FA_EXPAND "  Sahna chegaralari") && m_Context)
+            if (ImGui::Button(Tr(ICON_FA_EXPAND "  Sahna chegaralari")) && m_Context)
             {
                 AABB box;
                 if (m_Context->ComputeSceneBounds(box))
@@ -5424,7 +5424,7 @@ namespace Zamin {
 
         UI::PropertyLabel("");
         ImGui::BeginDisabled(!target || target == entity || !m_SceneEditable);
-        if (ImGui::Button(ICON_FA_CROSSHAIRS "  Kamerani nishonga qo'yish") && target && m_Context)
+        if (ImGui::Button(Tr(ICON_FA_CROSSHAIRS "  Kamerani nishonga qo'yish")) && target && m_Context)
         {
             glm::mat4 world = m_Context->GetWorldTransform(entity);
             glm::vec3 targetPosition = m_Context->GetWorldPosition(target);
@@ -5507,7 +5507,7 @@ namespace Zamin {
             }
             UI::PropertyLabel("");
             ImGui::BeginDisabled(!Project::GetActive() || !m_SceneEditable);
-            if (ImGui::Button(ICON_FA_FILE_CIRCLE_PLUS "  Shu kadrlardan klip"))
+            if (ImGui::Button(Tr(ICON_FA_FILE_CIRCLE_PLUS "  Shu kadrlardan klip")))
             {
                 // Assets/Animations/<entity name>.zsanim (a free name) with the frames set below.
                 std::string name;
@@ -5698,7 +5698,7 @@ namespace Zamin {
         const float buttonW = ImGui::GetFrameHeight();
         ImGui::SetNextItemWidth(std::max(40.0f, ImGui::GetContentRegionAvail().x - buttonW - style.ItemSpacing.x));
         std::string toAdd;
-        if (ImGui::InputTextWithHint("##newTag", "Yangi teg (Enter)", &m_NewTagBuffer, ImGuiInputTextFlags_EnterReturnsTrue))
+        if (ImGui::InputTextWithHint("##newTag", Tr("Yangi teg (Enter)"), &m_NewTagBuffer, ImGuiInputTextFlags_EnterReturnsTrue))
         {
             toAdd = TrimTag(m_NewTagBuffer);
             m_NewTagBuffer.clear();
@@ -5996,14 +5996,14 @@ namespace Zamin {
     {
         bool changed = false;
         ImGui::PushID("asm");
-        *isOpen = ImGui::CollapsingHeader(ICON_FA_DIAGRAM_PROJECT "  Animator holat mashinasi");
+        *isOpen = ImGui::CollapsingHeader(Tr(ICON_FA_DIAGRAM_PROJECT "  Animator holat mashinasi"));
         if (!*isOpen)
         {
             ImGui::PopID();
             return false;
         }
         ImGui::Indent(6.0f);
-        if (ImGui::Button(ICON_FA_DIAGRAM_PROJECT "  Graf oynasida ochish") && openGraph)
+        if (ImGui::Button(Tr(ICON_FA_DIAGRAM_PROJECT "  Graf oynasida ochish")) && openGraph)
             openGraph();
         if (ImGui::IsItemHovered())
             UI::Tooltip("Animator grafi: holatlar node'lar, o'tishlar strelkalar - sudrab joylashtirish, o'tish chizish, shartlar");
@@ -6016,7 +6016,7 @@ namespace Zamin {
         changed |= AnimatorEditing::DrawParameters(c, live);
 
         // ---- states: one collapsible row each
-        ImGui::SeparatorText("Holatlar");
+        ImGui::SeparatorText(Tr("Holatlar"));
         int removeState = -1;
         for (int i = 0; i < (int)c.States.size(); i++)
         {
@@ -6033,7 +6033,7 @@ namespace Zamin {
             if (open)
             {
                 changed |= AnimatorEditing::DrawState(c, i, m);
-                if (ImGui::SmallButton(ICON_FA_TRASH "  Holatni o'chirish"))
+                if (ImGui::SmallButton(Tr(ICON_FA_TRASH "  Holatni o'chirish")))
                     removeState = i;
                 ImGui::TreePop();
             }
@@ -6044,13 +6044,13 @@ namespace Zamin {
             AnimatorEditing::RemoveState(c, removeState);
             changed = true;
         }
-        if (ImGui::SmallButton(ICON_FA_PLUS "  Holat"))
+        if (ImGui::SmallButton(Tr(ICON_FA_PLUS "  Holat")))
         {
             AnimatorEditing::AddState(c, m, false, glm::vec2(40.0f + 30.0f * (float)c.States.size(), 40.0f + 60.0f * (float)c.States.size()));
             changed = true;
         }
         ImGui::SameLine();
-        if (ImGui::SmallButton(ICON_FA_SHUFFLE "  Blend tree"))
+        if (ImGui::SmallButton(Tr(ICON_FA_SHUFFLE "  Blend tree")))
         {
             AnimatorEditing::AddState(c, m, true, glm::vec2(40.0f + 30.0f * (float)c.States.size(), 40.0f + 60.0f * (float)c.States.size()));
             changed = true;
@@ -6059,7 +6059,7 @@ namespace Zamin {
             UI::Tooltip("1D blend tree holati: float parametr bo'yicha klipllar aralashadi (masalan Speed: turish / yurish / yugurish)");
 
         // ---- transitions
-        ImGui::SeparatorText("O'tishlar");
+        ImGui::SeparatorText(Tr("O'tishlar"));
         int removeTransition = -1;
         for (int i = 0; i < (int)c.Transitions.size(); i++)
         {
@@ -6070,7 +6070,7 @@ namespace Zamin {
             if (ImGui::TreeNodeEx(label.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding))
             {
                 changed |= AnimatorEditing::DrawTransition(c, i);
-                if (ImGui::SmallButton(ICON_FA_TRASH "  O'tishni o'chirish"))
+                if (ImGui::SmallButton(Tr(ICON_FA_TRASH "  O'tishni o'chirish")))
                     removeTransition = i;
                 ImGui::TreePop();
             }
@@ -6081,7 +6081,7 @@ namespace Zamin {
             c.Transitions.erase(c.Transitions.begin() + removeTransition);
             changed = true;
         }
-        if (!c.States.empty() && ImGui::SmallButton(ICON_FA_PLUS "  O'tish"))
+        if (!c.States.empty() && ImGui::SmallButton(Tr(ICON_FA_PLUS "  O'tish")))
         {
             c.Transitions.push_back({ -1, 0 });
             changed = true;
@@ -6145,7 +6145,7 @@ namespace Zamin {
             ImGui::SameLine();
             ImGui::PushStyleColor(ImGuiCol_Button, UI::AccentDarkColor(1.0f));
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, UI::AccentMidColor());
-            if (ImGui::Button(ICON_FA_PLUS "  Komponent"))
+            if (ImGui::Button(Tr(ICON_FA_PLUS "  Komponent")))
             {
                 m_AddComponentFilter.clear();
                 ImGui::OpenPopup("AddComponent");
@@ -6174,8 +6174,8 @@ namespace Zamin {
                 }
                 ImGui::SetNextItemWidth(220);
                 if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
-                ImGui::InputTextWithHint("##filter", ICON_FA_MAGNIFYING_GLASS "  Qidirish", &m_AddComponentFilter);
-                ImGui::SeparatorText("Render");
+                ImGui::InputTextWithHint("##filter", Tr(ICON_FA_MAGNIFYING_GLASS "  Qidirish"), &m_AddComponentFilter);
+                ImGui::SeparatorText(Tr("Render"));
                 DisplayAddComponentEntry<SpriteRendererComponent>("Sprite Renderer", ICON_FA_IMAGE);
                 DisplayAddComponentEntry<SpriteAnimationComponent>("Sprite Animation", ICON_FA_FILM);
                 DisplayAddComponentEntry<TintAnimationComponent>("Tint Animation (rang)", ICON_FA_PALETTE);
@@ -6186,12 +6186,12 @@ namespace Zamin {
                 DisplayAddComponentEntry<AnimationPlayerComponent>("Animation Player (.zanim kliplar)", ICON_FA_FILM);
                 DisplayAddComponentEntry<BoneAttachmentComponent>("Bone Attachment (suyakka biriktirish)", ICON_FA_PAPERCLIP);
                 DisplayAddComponentEntry<CameraComponent>("Camera", ICON_FA_CAMERA);
-                ImGui::SeparatorText("Yorug'lik");
+                ImGui::SeparatorText(Tr("Yorug'lik"));
                 DisplayAddComponentEntry<DirectionalLightComponent>("Directional Light", ICON_FA_SUN);
                 DisplayAddComponentEntry<PointLightComponent>("Point Light", ICON_FA_LIGHTBULB);
                 DisplayAddComponentEntry<SpotLightComponent>("Spot Light", ICON_FA_BULLHORN);
                 DisplayAddComponentEntry<Light2DComponent>("Light 2D", ICON_FA_FIRE);
-                ImGui::SeparatorText("Fizika 2D");
+                ImGui::SeparatorText(Tr("Fizika 2D"));
                 DisplayAddComponentEntry<Rigidbody2DComponent>("Rigidbody 2D", ICON_FA_ATOM);
                 DisplayAddComponentEntry<BoxCollider2DComponent>("Box Collider 2D", ICON_FA_VECTOR_SQUARE);
                 DisplayAddComponentEntry<CircleCollider2DComponent>("Circle Collider 2D", ICON_FA_CIRCLE_NODES);
@@ -6205,7 +6205,7 @@ namespace Zamin {
                 DisplayAddComponentEntry<PrismaticJoint2DComponent>("Prismatic Joint 2D (sirpanish)", ICON_FA_ARROWS_LEFT_RIGHT);
                 DisplayAddComponentEntry<WeldJoint2DComponent>("Weld Joint 2D (payvand)", ICON_FA_HAMMER);
                 DisplayAddComponentEntry<WheelJoint2DComponent>("Wheel Joint 2D (g'ildirak)", ICON_FA_GEAR);
-                ImGui::SeparatorText("Fizika 3D");
+                ImGui::SeparatorText(Tr("Fizika 3D"));
                 DisplayAddComponentEntry<Rigidbody3DComponent>("Rigidbody 3D", ICON_FA_ATOM);
                 DisplayAddComponentEntry<BoxCollider3DComponent>("Box Collider 3D", ICON_FA_CUBE);
                 DisplayAddComponentEntry<SphereCollider3DComponent>("Sphere Collider 3D", ICON_FA_CIRCLE);
@@ -6218,7 +6218,7 @@ namespace Zamin {
                 DisplayAddComponentEntry<SliderJoint3DComponent>("Slider Joint 3D (sirpanish)", ICON_FA_ARROWS_LEFT_RIGHT);
                 DisplayAddComponentEntry<ConeJoint3DComponent>("Cone Joint 3D (yelka, son: konus)", ICON_FA_BONE);
                 DisplayAddComponentEntry<CharacterController3DComponent>("Character Controller 3D", ICON_FA_PERSON_RUNNING);
-                ImGui::SeparatorText("Effektlar va UI");
+                ImGui::SeparatorText(Tr("Effektlar va UI"));
                 DisplayAddComponentEntry<TilemapComponent>("Tilemap", ICON_FA_TABLE_CELLS);
                 DisplayAddComponentEntry<ParallaxComponent>("Parallax", ICON_FA_MOUNTAIN);
                 DisplayAddComponentEntry<Camera2DFollowComponent>("Camera 2D Follow", ICON_FA_VIDEO);
@@ -6237,7 +6237,7 @@ namespace Zamin {
                 DisplayAddComponentEntry<UIInputFieldComponent>("UI Input Field (matn maydoni)", ICON_FA_I_CURSOR);
                 DisplayAddComponentEntry<UIMaskComponent>("UI Mask (bolalarini to'rtburchakda kesadi)", ICON_FA_CROP);
                 DisplayAddComponentEntry<UIScrollViewComponent>("UI Scroll View (aylantiriladigan ro'yxat)", ICON_FA_ARROWS_UP_DOWN);
-                ImGui::SeparatorText("Boshqa");
+                ImGui::SeparatorText(Tr("Boshqa"));
                 DisplayAddComponentEntry<AudioSourceComponent>("Audio Source", ICON_FA_VOLUME_HIGH);
                 DisplayAddComponentEntry<AudioListenerComponent>("Audio Listener (tinglovchi)", ICON_FA_EAR_LISTEN);
                 DisplayAddComponentEntry<AmbientZoneComponent>("Ambient Zone (hajmdagi fon ovozi)", ICON_FA_TREE);
@@ -6344,7 +6344,7 @@ namespace Zamin {
             UI::PropertyLabel("");
             const bool running = m_Context && m_Context->IsRunning();
             ImGui::BeginDisabled(!running);
-            if (ImGui::Button(ICON_FA_BURST "  Sinash"))
+            if (ImGui::Button(Tr(ICON_FA_BURST "  Sinash")))
                 m_Context->ShakeCamera(entity, 0.7f, 0.6f, 20.0f);
             ImGui::EndDisabled();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
@@ -6503,7 +6503,7 @@ namespace Zamin {
                     }
                     UI::PropertyLabel("");
                     ImGui::BeginDisabled(c.MorphWeights.empty());
-                    if (ImGui::SmallButton(ICON_FA_ROTATE_LEFT "  Modelning o'z og'irliklari"))
+                    if (ImGui::SmallButton(Tr(ICON_FA_ROTATE_LEFT "  Modelning o'z og'irliklari")))
                     {
                         c.ResetMorphWeights();
                         changed = true;
@@ -6513,7 +6513,7 @@ namespace Zamin {
             }
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
-            ImGui::SeparatorText("Material");
+            ImGui::SeparatorText(Tr("Material"));
             changed |= DrawMeshMaterial(entity, c);
             changed |= UI::PropertyBool("Soya tashlaydi", c.CastShadows);
             return changed;
@@ -6527,7 +6527,7 @@ namespace Zamin {
             UI::PropertyLabel("Klip");
             if (ImGui::BeginCombo("##clip", c.Clip.empty() ? "(birinchi)" : c.Clip.c_str()))
             {
-                if (ImGui::Selectable("(birinchi)", c.Clip.empty())) { c.Clip.clear(); changed = true; }
+                if (ImGui::Selectable(Tr("(birinchi)"), c.Clip.empty())) { c.Clip.clear(); changed = true; }
                 if (model)
                     for (const auto& clip : model->GetAnimations())
                         if (ImGui::Selectable(clip.Name.c_str(), clip.Name == c.Clip)) { c.Play(clip.Name, c.Loop, c.Speed); changed = true; }
@@ -6585,7 +6585,7 @@ namespace Zamin {
                 if (c.UsesStateMachine())
                 {
                     UI::PropertyLabel("");
-                    if (ImGui::Button(ICON_FA_DIAGRAM_PROJECT "  Animator grafi") && OnAnimatorGraphRequested)
+                    if (ImGui::Button(Tr(ICON_FA_DIAGRAM_PROJECT "  Animator grafi")) && OnAnimatorGraphRequested)
                         OnAnimatorGraphRequested(entity);
                     if (ImGui::IsItemHovered())
                         UI::Tooltip("Holat mashinasi graf ko'rinishida: node'lar, o'tishlar, jonli holat");
@@ -6645,7 +6645,7 @@ namespace Zamin {
                     }
                     if (ImGui::BeginCombo("##mask", preview.c_str(), ImGuiComboFlags_HeightLarge))
                     {
-                        if (ImGui::Selectable("(butun tana)", l.MaskBones.empty(), ImGuiSelectableFlags_DontClosePopups))
+                        if (ImGui::Selectable(Tr("(butun tana)"), l.MaskBones.empty(), ImGuiSelectableFlags_DontClosePopups))
                         {
                             l.MaskBones.clear();
                             changed = true;
@@ -6689,7 +6689,7 @@ namespace Zamin {
                     changed = true;
                 }
                 UI::PropertyLabel("");
-                if (ImGui::Button(ICON_FA_PLUS "  Qatlam"))
+                if (ImGui::Button(Tr(ICON_FA_PLUS "  Qatlam")))
                 {
                     AnimatorLayer l;
                     l.Name = c.Layers.empty() ? "UpperBody" : std::format("Layer{}", c.Layers.size() + 1);
@@ -6730,7 +6730,7 @@ namespace Zamin {
                 }
                 if (ImGui::BeginCombo("##rootbone", preview.c_str()))
                 {
-                    if (ImGui::Selectable("(avtomatik)", c.RootMotionBone.empty())) { c.RootMotionBone.clear(); changed = true; }
+                    if (ImGui::Selectable(Tr("(avtomatik)"), c.RootMotionBone.empty())) { c.RootMotionBone.clear(); changed = true; }
                     if (skeleton)
                         for (const Joint& j : skeleton->Joints)
                             if (ImGui::Selectable(j.Name.c_str(), j.Name == c.RootMotionBone)) { c.RootMotionBone = j.Name; changed = true; }
@@ -6798,7 +6798,7 @@ namespace Zamin {
                 const float button = ImGui::GetFrameHeight();
                 const float spacing = ImGui::GetStyle().ItemSpacing.x;
                 ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - button - spacing);
-                changed |= ImGui::InputTextWithHint("##name", "nom", &ev.Name);
+                changed |= ImGui::InputTextWithHint("##name", Tr("nom"), &ev.Name);
                 ImGui::SameLine();
                 if (ImGui::Button(ICON_FA_TRASH, ImVec2(button, 0)))
                     removeEvent = i;
@@ -6807,7 +6807,7 @@ namespace Zamin {
                 ImGui::SetNextItemWidth(avail * 0.55f);
                 if (ImGui::BeginCombo("##clip", ev.Clip.empty() ? "(har qanday)" : ev.Clip.c_str()))
                 {
-                    if (ImGui::Selectable("(har qanday)", ev.Clip.empty())) { ev.Clip.clear(); changed = true; }
+                    if (ImGui::Selectable(Tr("(har qanday)"), ev.Clip.empty())) { ev.Clip.clear(); changed = true; }
                     if (model)
                         for (const auto& clip : model->GetAnimations())
                             if (ImGui::Selectable(clip.Name.c_str(), clip.Name == ev.Clip)) { ev.Clip = clip.Name; changed = true; }
@@ -6824,7 +6824,7 @@ namespace Zamin {
                 changed = true;
             }
             UI::PropertyLabel("");
-            if (ImGui::Button(ICON_FA_PLUS "  Event"))
+            if (ImGui::Button(Tr(ICON_FA_PLUS "  Event")))
             {
                 AnimatorEvent ev;
                 ev.Clip = c.Clip;
@@ -7031,7 +7031,7 @@ namespace Zamin {
             if (c.OneWay && !effector && !c.IsSensor && m_SceneEditable)
             {
                 UI::PropertyLabel("");
-                if (ImGui::SmallButton(ICON_FA_TURN_UP "  Platform Effector 2D ga o'tkazish"))
+                if (ImGui::SmallButton(Tr(ICON_FA_TURN_UP "  Platform Effector 2D ga o'tkazish")))
                 {
                     entity.AddComponent<PlatformEffector2DComponent>();
                     c.OneWay = false;
@@ -7082,7 +7082,7 @@ namespace Zamin {
             UI::PropertyLabel("");
             const bool sprite = entity.HasComponent<SpriteRendererComponent>();
             ImGui::BeginDisabled(!sprite || !m_SceneEditable);
-            if (ImGui::Button(ICON_FA_CROP "  Spraytga moslash", ImVec2(-FLT_MIN, 0)))
+            if (ImGui::Button(Tr(ICON_FA_CROP "  Spraytga moslash"), ImVec2(-FLT_MIN, 0)))
                 changed |= FitPolygonToSprite(entity, c);
             ImGui::EndDisabled();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
@@ -7104,7 +7104,7 @@ namespace Zamin {
             if (c.OneSided)
             {
                 UI::PropertyLabel("");
-                if (ImGui::SmallButton(ICON_FA_ARROWS_LEFT_RIGHT "  Tomonini almashtirish"))
+                if (ImGui::SmallButton(Tr(ICON_FA_ARROWS_LEFT_RIGHT "  Tomonini almashtirish")))
                 {
                     std::reverse(c.Points.begin(), c.Points.end());
                     changed = true;
@@ -7797,7 +7797,7 @@ namespace Zamin {
             };
             axisRow(0);
             axisRow(1);
-            if (ImGui::TreeNodeEx("Langar va pivot (qo'lda)", ImGuiTreeNodeFlags_SpanAvailWidth))
+            if (ImGui::TreeNodeEx(Tr("Langar va pivot (qo'lda)"), ImGuiTreeNodeFlags_SpanAvailWidth))
             {
                 glm::vec2 aMin = c.AnchorMin, aMax = c.AnchorMax, pivot = c.Pivot;
                 if (UI::PropertyFloat2("Langar min", aMin, 0.01f) && m_Context)
@@ -7827,7 +7827,7 @@ namespace Zamin {
                 UI::Tooltip("Aka-ukalari orasida chizilish tartibi: kattasi ustida. Bolalar doim otasi ustida chiziladi");
             // The look (not the layout): what UI tweens animate; open by itself when it is not the plain one.
             const bool plainLook = c.Scale == glm::vec2(1.0f) && c.VisualOffset == glm::vec2(0.0f) && c.Alpha == 1.0f;
-            if (ImGui::TreeNodeEx("Ko'rinish (animatsiya)", ImGuiTreeNodeFlags_SpanAvailWidth | (plainLook ? 0 : ImGuiTreeNodeFlags_DefaultOpen)))
+            if (ImGui::TreeNodeEx(Tr("Ko'rinish (animatsiya)"), ImGuiTreeNodeFlags_SpanAvailWidth | (plainLook ? 0 : ImGuiTreeNodeFlags_DefaultOpen)))
             {
                 changed |= UI::PropertyFloat2("Masshtab", c.Scale, 0.01f);
                 if (ImGui::IsItemHovered())
@@ -7841,7 +7841,7 @@ namespace Zamin {
                 if (!plainLook)
                 {
                     UI::PropertyLabel("");
-                    if (ImGui::SmallButton(ICON_FA_ROTATE_LEFT " Asl holiga"))
+                    if (ImGui::SmallButton(Tr(ICON_FA_ROTATE_LEFT " Asl holiga")))
                     {
                         c.Scale = glm::vec2(1.0f);
                         c.VisualOffset = glm::vec2(0.0f);
@@ -7933,7 +7933,7 @@ namespace Zamin {
             {
                 changed |= UI::PropertyFloat("Oraliq", c.Spacing, 0.5f);
                 changed |= UI::PropertyBool("Teskari tartib", c.ReverseArrangement);
-                ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText("Bolalar o'lchami");
+                ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText(Tr("Bolalar o'lchami"));
                 changed |= UI::PropertyBool("Kenglikni boshqarish", c.ControlChildWidth);
                 if (ImGui::IsItemHovered())
                     UI::Tooltip("Guruh bolalar kengligini belgilaydi (UI Layout Element: min / afzal / moslashuvchan; yo'q bo'lsa o'z o'lchami)");
@@ -7959,7 +7959,7 @@ namespace Zamin {
                     changed = true;
                 }
             }
-            ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText("O'z o'lchami");
+            ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText(Tr("O'z o'lchami"));
             changed |= UI::PropertyBool("Kenglik mazmunga mos", c.FitWidth);
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Guruh kengligi bolalari talab qilgan (afzal) o'lchamga teng bo'ladi, pivot atrofida");
@@ -8104,7 +8104,7 @@ namespace Zamin {
             changed |= UI::PropertyColor4("Ustida (hover)", c.HoverColor);
             changed |= UI::PropertyColor4("Bosilgan", c.PressedColor);
             changed |= UI::PropertyBool("Faol", c.Interactable);
-            ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText("Bosilganda");
+            ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText(Tr("Bosilganda"));
             changed |= UI::PropertyString("Xabar nomi", c.ClickMessage);
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Bosilganda shu nomli skript xabari yuboriladi (bo'sh - yo'q): AddMessageHandler(\"Nomi\", ...) yoki OnMessage");
@@ -8158,7 +8158,7 @@ namespace Zamin {
             int direction = (int)c.Direction;
             if (UI::PropertyCombo("Yo'nalish", direction, s_UIDirectionNames, 4)) { c.Direction = (UIDirection)direction; changed = true; }
             changed |= UI::PropertyBool("Faol", c.Interactable);
-            ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText("Ko'rinish");
+            ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText(Tr("Ko'rinish"));
             changed |= UI::PropertyFloat("Yo'lak qalinligi (px)", c.TrackThickness, 0.25f, 0.0f, 1000.0f, "%.1f");
             if (ImGui::IsItemHovered()) UI::Tooltip("0 - butun to'rtburchak qalinligi");
             changed |= UI::PropertyFloat("Tutqich o'lchami (px)", c.HandleSize, 0.25f, 0.0f, 1000.0f, "%.1f");
@@ -8201,7 +8201,7 @@ namespace Zamin {
             if (!c.Group.empty())
                 changed |= UI::PropertyBool("O'chirishga ruxsat", c.AllowSwitchOff);
             changed |= UI::PropertyBool("Faol", c.Interactable);
-            ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText("Ko'rinish");
+            ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText(Tr("Ko'rinish"));
             changed |= UI::PropertyFloat("Quti o'lchami (px)", c.BoxSize, 0.25f, 0.0f, 1000.0f, "%.1f");
             if (ImGui::IsItemHovered()) UI::Tooltip("0 - to'rtburchak balandligi");
             changed |= UI::PropertyFloat("Yozuvgacha oraliq (px)", c.LabelSpacing, 0.25f, 0.0f, 1000.0f, "%.1f");
@@ -8349,7 +8349,7 @@ namespace Zamin {
             changed |= UI::PropertyBool("Faol", c.Interactable);
             changed |= UI::PropertyBool("Faqat o'qish", c.ReadOnly);
             changed |= UI::PropertyBool("Fokusda hammasini tanlash", c.SelectAllOnFocus);
-            ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText("Ko'rinish");
+            ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText(Tr("Ko'rinish"));
             if (UI::PropertyAssetPath("Shrift", c.FontPath, ".ttf;.otf", ICON_FA_FONT))
             {
                 c.FontAsset = c.FontPath.empty() ? Font::GetDefault() : Font::Load(Project::GetAssetFileSystemPath(c.FontPath));
@@ -8529,7 +8529,7 @@ namespace Zamin {
             else
             {
                 UI::PropertyLabel("");
-                if (ImGui::Button(ICON_FA_PLAY "  Eshitish") && !c.Path.empty())
+                if (ImGui::Button(Tr(ICON_FA_PLAY "  Eshitish")) && !c.Path.empty())
                 {
                     SoundParams params;
                     params.Volume = c.Volume;

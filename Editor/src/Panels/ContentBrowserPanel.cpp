@@ -536,7 +536,7 @@ namespace Zamin {
         }
         ImGui::PopItemFlag();
         ImGui::Separator();
-        if (ImGui::MenuItem(ICON_FA_XMARK "  Filtrni tozalash", nullptr, false, filter.IsActive()))
+        if (ImGui::MenuItem(Tr(ICON_FA_XMARK "  Filtrni tozalash"), nullptr, false, filter.IsActive()))
         {
             filter.Clear();
             MarkSettingsModified();
@@ -615,7 +615,7 @@ namespace Zamin {
         // Ctrl+F while the panel has focus.
         if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_F, false))
             ImGui::SetKeyboardFocusHere();
-        if (ImGui::InputTextWithHint("##cbsearch", ICON_FA_MAGNIFYING_GLASS "  Qidirish (yo'l, *.png, t:rasm)", &m_Search))
+        if (ImGui::InputTextWithHint("##cbsearch", Tr(ICON_FA_MAGNIFYING_GLASS "  Qidirish (yo'l, *.png, t:rasm)"), &m_Search))
             m_ListDirty = true;
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal) && !ImGui::IsItemActive())
             UI::Tooltip("Butun yo'l bo'yicha qidiradi (papka nomlari ham hisobga olinadi). Hamma so'zlar mos kelishi kerak:\n"
@@ -679,7 +679,7 @@ namespace Zamin {
         ImGui::TextDisabled("%zu ta fayl (ichki papkalar bilan)", m_Entries.size());
         ImGui::SameLine();
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
-        if (ImGui::SmallButton("Tozalash"))
+        if (ImGui::SmallButton(Tr("Tozalash")))
         {
             filter.Clear();
             MarkSettingsModified();
@@ -700,7 +700,7 @@ namespace Zamin {
         ImGui::TextDisabled("'%s' - %zu ta natija %s", m_Search.c_str(), m_Entries.size(), where.c_str());
         ImGui::SameLine();
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
-        if (!everywhere && ImGui::SmallButton("Butun loyihada qidirish"))
+        if (!everywhere && ImGui::SmallButton(Tr("Butun loyihada qidirish")))
         {
             m_Settings->SearchEverywhere = true;
             m_ListDirty = true;
@@ -708,7 +708,7 @@ namespace Zamin {
         }
         if (!everywhere)
             ImGui::SameLine();
-        if (ImGui::SmallButton(ICON_FA_XMARK "  Tozalash##search"))
+        if (ImGui::SmallButton(Tr(ICON_FA_XMARK "  Tozalash##search")))
         {
             m_Search.clear();
             m_ListDirty = true;
@@ -811,9 +811,9 @@ namespace Zamin {
     {
         const fs::path& path = entry.Path;
         size_t count = std::max<size_t>(1, m_Selection.size());
-        if (entry.IsDirectory && ImGui::MenuItem(ICON_FA_FOLDER_OPEN "  Ochish"))
+        if (entry.IsDirectory && ImGui::MenuItem(Tr(ICON_FA_FOLDER_OPEN "  Ochish")))
             Open(entry);
-        if (entry.Type == AssetType::Scene && ImGui::MenuItem(ICON_FA_EARTH_ASIA "  Sahnani ochish") && OnOpenScene)
+        if (entry.Type == AssetType::Scene && ImGui::MenuItem(Tr(ICON_FA_EARTH_ASIA "  Sahnani ochish")) && OnOpenScene)
             OnOpenScene(path);
         // The project's settings that point to files: the build list, the start scene, the game's icon.
         if (Ref<Project> project = Project::GetActive(); project && !entry.IsDirectory)
@@ -824,14 +824,14 @@ namespace Zamin {
             {
                 const bool listed = std::any_of(config.BuildScenes.begin(), config.BuildScenes.end(),
                                                 [&](const BuildSceneEntry& e) { return e.Path.generic_string() == relative; });
-                if (ImGui::MenuItem(ICON_FA_LIST_OL "  Build ro'yxatiga qo'shish", nullptr, listed, !listed) && Project::AddBuildScene(relative))
+                if (ImGui::MenuItem(Tr(ICON_FA_LIST_OL "  Build ro'yxatiga qo'shish"), nullptr, listed, !listed) && Project::AddBuildScene(relative))
                 {
                     ZM_INFO("Build ro'yxatiga qo'shildi: {} (indeks {})", relative, Project::GetBuildIndex(relative));
                     if (OnProjectSettingsModified)
                         OnProjectSettingsModified();
                 }
                 const bool isStart = config.StartScene.generic_string() == relative;
-                if (ImGui::MenuItem(ICON_FA_HOUSE "  Boshlang'ich sahna qilish", nullptr, isStart, !isStart))
+                if (ImGui::MenuItem(Tr(ICON_FA_HOUSE "  Boshlang'ich sahna qilish"), nullptr, isStart, !isStart))
                 {
                     config.StartScene = relative;
                     config.StartSceneHandle = {};
@@ -843,7 +843,7 @@ namespace Zamin {
             else if (path.extension() == ".png")
             {
                 const bool isIcon = config.Player.Icon.generic_string() == relative;
-                if (ImGui::MenuItem(ICON_FA_IMAGE "  O'yin ikonkasi qilish", nullptr, isIcon, !isIcon))
+                if (ImGui::MenuItem(Tr(ICON_FA_IMAGE "  O'yin ikonkasi qilish"), nullptr, isIcon, !isIcon))
                 {
                     config.Player.Icon = relative;
                     ZM_INFO("O'yin ikonkasi: {}", relative);
@@ -853,16 +853,16 @@ namespace Zamin {
             }
         }
         if (!entry.IsDirectory && ExternalEditor::IsSourceFile(path) && OnOpenSourceFile &&
-            ImGui::MenuItem(ICON_FA_PEN_TO_SQUARE "  Tashqi muharrirda ochish"))
+            ImGui::MenuItem(Tr(ICON_FA_PEN_TO_SQUARE "  Tashqi muharrirda ochish")))
             OnOpenSourceFile(path);
-        if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN "  Tizimda ochish"))
+        if (ImGui::MenuItem(Tr(ICON_FA_FOLDER_OPEN "  Tizimda ochish")))
             Platform::OpenInFileBrowser(path);
-        if (ImGui::MenuItem(ICON_FA_COPY "  Yo'lni nusxalash"))
+        if (ImGui::MenuItem(Tr(ICON_FA_COPY "  Yo'lni nusxalash")))
             ImGui::SetClipboardText(Project::GetAssetRelativePath(path).c_str());
         if (!entry.IsDirectory && AssetHotReload::CanReload(path))
         {
             bool loaded = AssetHotReload::IsLoaded(path);
-            if (ImGui::MenuItem(ICON_FA_ARROWS_ROTATE "  Qayta yuklash", nullptr, false, loaded))
+            if (ImGui::MenuItem(Tr(ICON_FA_ARROWS_ROTATE "  Qayta yuklash"), nullptr, false, loaded))
             {
                 bool failed = false;
                 size_t n = AssetHotReload::ReloadAsset(path, &failed);
@@ -879,7 +879,7 @@ namespace Zamin {
                 UI::Tooltip("Hozir ishlatilmayapti - fayl o'zgarganda avtomatik yangilanadi");
         }
         ImGui::Separator();
-        if (ImGui::MenuItem(ICON_FA_FEATHER "  Nomini o'zgartirish", "F2", false, count == 1 && !IsProtected(path)))
+        if (ImGui::MenuItem(Tr(ICON_FA_FEATHER "  Nomini o'zgartirish"), "F2", false, count == 1 && !IsProtected(path)))
         {
             m_RenameTarget = path;
             m_RenameBuffer = path.filename().string();
@@ -1359,7 +1359,7 @@ namespace Zamin {
     bool ContentBrowserPanel::DrawNewMaterialMenu()
     {
         bool chosen = false;
-        if (ImGui::MenuItem(ICON_FA_FILE "  Bo'sh material"))
+        if (ImGui::MenuItem(Tr(ICON_FA_FILE "  Bo'sh material")))
         {
             CreateMaterial();
             chosen = true;
@@ -1484,37 +1484,37 @@ namespace Zamin {
     {
         if (ImGui::BeginPopupContextWindow("CBContext", ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems))
         {
-            if (ImGui::MenuItem(ICON_FA_FOLDER "  Yangi papka")) { m_NewKind = 0; m_NewName = "NewFolder"; m_OpenNewPopup = true; }
-            if (ImGui::MenuItem(ICON_FA_EARTH_ASIA "  Yangi sahna")) { m_NewKind = 1; m_NewName = "NewScene"; m_OpenNewPopup = true; }
-            if (ImGui::MenuItem(ICON_FA_FILE_CODE "  Yangi C++ skript...") && OnRequestNewScript) OnRequestNewScript();
-            if (ImGui::BeginMenu(ICON_FA_PALETTE "  Yangi material", Project::GetActive() != nullptr))
+            if (ImGui::MenuItem(Tr(ICON_FA_FOLDER "  Yangi papka"))) { m_NewKind = 0; m_NewName = "NewFolder"; m_OpenNewPopup = true; }
+            if (ImGui::MenuItem(Tr(ICON_FA_EARTH_ASIA "  Yangi sahna"))) { m_NewKind = 1; m_NewName = "NewScene"; m_OpenNewPopup = true; }
+            if (ImGui::MenuItem(Tr(ICON_FA_FILE_CODE "  Yangi C++ skript...")) && OnRequestNewScript) OnRequestNewScript();
+            if (ImGui::BeginMenu(Tr(ICON_FA_PALETTE "  Yangi material"), Project::GetActive() != nullptr))
             {
                 DrawNewMaterialMenu();
                 ImGui::EndMenu();
             }
-            if (ImGui::BeginMenu(ICON_FA_GEM "  Yangi fizik material (2D)", Project::GetActive() != nullptr))
+            if (ImGui::BeginMenu(Tr(ICON_FA_GEM "  Yangi fizik material (2D)"), Project::GetActive() != nullptr))
             {
                 DrawNewPhysicsMaterialMenu();
                 ImGui::EndMenu();
             }
-            if (ImGui::MenuItem(ICON_FA_TIMELINE "  Yangi animatsiya klipi", nullptr, false, Project::GetActive() != nullptr))
+            if (ImGui::MenuItem(Tr(ICON_FA_TIMELINE "  Yangi animatsiya klipi"), nullptr, false, Project::GetActive() != nullptr))
                 CreateAnimationClip();
-            if (ImGui::MenuItem(ICON_FA_FILM "  Yangi sprite animatsiya klipi", nullptr, false, Project::GetActive() != nullptr))
+            if (ImGui::MenuItem(Tr(ICON_FA_FILM "  Yangi sprite animatsiya klipi"), nullptr, false, Project::GetActive() != nullptr))
                 CreateSpriteClip();
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip("Tanlangan rasm bo'lsa - uning sprite sheet kadrlaridan");
             ImGui::Separator();
-            if (ImGui::MenuItem(ICON_FA_CHECK_DOUBLE "  Hammasini tanlash", "Ctrl+A", false, !m_Entries.empty()))
+            if (ImGui::MenuItem(Tr(ICON_FA_CHECK_DOUBLE "  Hammasini tanlash"), "Ctrl+A", false, !m_Entries.empty()))
             {
                 m_Selection.clear();
                 for (const AssetEntry& e : m_Entries)
                     m_Selection.push_back(e.Path);
             }
-            if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN "  Fayl menejerida ochish"))
+            if (ImGui::MenuItem(Tr(ICON_FA_FOLDER_OPEN "  Fayl menejerida ochish")))
                 Platform::OpenInFileBrowser(m_CurrentDirectory);
-            if (ImGui::MenuItem(ICON_FA_ARROWS_ROTATE "  Yangilash"))
+            if (ImGui::MenuItem(Tr(ICON_FA_ARROWS_ROTATE "  Yangilash")))
                 Refresh();
-            if (ImGui::MenuItem(ICON_FA_BROOM "  Ishlatilmagan assetlarni topish...", nullptr, false, OnFindUnusedAssets != nullptr))
+            if (ImGui::MenuItem(Tr(ICON_FA_BROOM "  Ishlatilmagan assetlarni topish..."), nullptr, false, OnFindUnusedAssets != nullptr))
                 OnFindUnusedAssets();
             ImGui::Separator();
             ImGui::TextDisabled(ICON_FA_FILE_IMPORT "  Import: fayllarni oynaga tashlang");
@@ -1526,7 +1526,7 @@ namespace Zamin {
             ImGui::OpenPopup("###NewItem");
             m_OpenNewPopup = false;
         }
-        if (ImGui::BeginPopupModal(ICON_FA_FOLDER "  Yaratish###NewItem", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        if (ImGui::BeginPopupModal(Tr(ICON_FA_FOLDER "  Yaratish###NewItem"), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
             const char* titles[] = { "Yangi papka", "Yangi sahna" };
             ImGui::PushFont(ImGuiLayer::GetBoldFont());
@@ -1535,7 +1535,7 @@ namespace Zamin {
             ImGui::SetNextItemWidth(300);
             if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
             bool enter = ImGui::InputText("##name", &m_NewName, ImGuiInputTextFlags_EnterReturnsTrue);
-            if ((ImGui::Button(ICON_FA_CHECK "  Yaratish", ImVec2(140, 0)) || enter) && !m_NewName.empty())
+            if ((ImGui::Button(Tr(ICON_FA_CHECK "  Yaratish"), ImVec2(140, 0)) || enter) && !m_NewName.empty())
             {
                 std::error_code ec;
                 if (m_NewKind == 0)
@@ -1548,20 +1548,20 @@ namespace Zamin {
                 ImGui::CloseCurrentPopup();
             }
             ImGui::SameLine();
-            if (ImGui::Button("Bekor qilish", ImVec2(120, 0)))
+            if (ImGui::Button(Tr("Bekor qilish"), ImVec2(120, 0)))
                 ImGui::CloseCurrentPopup();
             ImGui::EndPopup();
         }
 
         if (m_OpenRenamePopup) { ImGui::OpenPopup("###RenameItem"); m_OpenRenamePopup = false; }
-        if (ImGui::BeginPopupModal(ICON_FA_FEATHER "  Nomini o'zgartirish###RenameItem", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        if (ImGui::BeginPopupModal(Tr(ICON_FA_FEATHER "  Nomini o'zgartirish###RenameItem"), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
             ImGui::TextUnformatted(ICON_FA_FEATHER "  Yangi nom");
             ImGui::SetNextItemWidth(300);
             if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
             bool enter = ImGui::InputText("##rename", &m_RenameBuffer, ImGuiInputTextFlags_EnterReturnsTrue);
             ImGui::TextDisabled("Sahna va prefablardagi havolalar ham yangilanadi.");
-            if ((ImGui::Button(ICON_FA_CHECK "  OK", ImVec2(120, 0)) || enter) && !m_RenameBuffer.empty())
+            if ((ImGui::Button(Tr(ICON_FA_CHECK "  OK"), ImVec2(120, 0)) || enter) && !m_RenameBuffer.empty())
             {
                 if (m_RenameBuffer != m_RenameTarget.filename().string())
                 {
@@ -1572,7 +1572,7 @@ namespace Zamin {
                 ImGui::CloseCurrentPopup();
             }
             ImGui::SameLine();
-            if (ImGui::Button("Bekor qilish", ImVec2(120, 0))) ImGui::CloseCurrentPopup();
+            if (ImGui::Button(Tr("Bekor qilish"), ImVec2(120, 0))) ImGui::CloseCurrentPopup();
             ImGui::EndPopup();
         }
 
@@ -1584,7 +1584,7 @@ namespace Zamin {
             if (m_Usage && Project::GetActive())
                 m_DeleteUses = m_Usage->Get(true).FindUsesOutside(m_PendingDelete);
         }
-        if (ImGui::BeginPopupModal(ICON_FA_TRASH "  O'chirish###ConfirmDelete", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        if (ImGui::BeginPopupModal(Tr(ICON_FA_TRASH "  O'chirish###ConfirmDelete"), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
             if (m_PendingDelete.size() == 1)
                 ImGui::Text(ICON_FA_TRIANGLE_EXCLAMATION "  '%s' o'chirilsinmi?", m_PendingDelete.front().filename().string().c_str());
@@ -1650,7 +1650,7 @@ namespace Zamin {
             ImGui::SameLine();
             if (inUse && ImGui::IsWindowAppearing())
                 ImGui::SetKeyboardFocusHere(); // Enter cancels when something would break
-            if (ImGui::Button("Bekor qilish", ImVec2(120, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape, false) || reveal)
+            if (ImGui::Button(Tr("Bekor qilish"), ImVec2(120, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape, false) || reveal)
             {
                 m_PendingDelete.clear();
                 m_DeleteUses.clear();
@@ -1680,7 +1680,7 @@ namespace Zamin {
         }
         if (!*open)
             return;
-        if (!ImGui::Begin(ICON_FA_FOLDER_OPEN "  Kontent###ContentBrowser", open))
+        if (!ImGui::Begin(Tr(ICON_FA_FOLDER_OPEN "  Kontent###ContentBrowser"), open))
         {
             ImGui::End();
             return;

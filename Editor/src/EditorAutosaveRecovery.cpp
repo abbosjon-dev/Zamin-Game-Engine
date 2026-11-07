@@ -297,11 +297,11 @@ namespace Zamin {
         constexpr const char* id = ICON_FA_LIFE_RING "  Avtomatik saqlangan nusxa###AutosaveRecovery";
         if (m_Recovery.Pending && !m_ShowLauncher)
         {
-            ImGui::OpenPopup(id);
+            ImGui::OpenPopup("###AutosaveRecovery");
             m_Recovery.Pending = false;
         }
         ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-        if (!ImGui::BeginPopupModal(id, nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        if (!ImGui::BeginPopupModal(Tr(id), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
             return;
         if (m_Recovery.CloseRequested)
         {
@@ -358,20 +358,20 @@ namespace Zamin {
         const ImVec2 button(em * 9.5f, 0.0f);
         ImGui::PushStyleColor(ImGuiCol_Button, UI::AccentDarkColor(1.0f));
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, UI::AccentMidColor());
-        if (ImGui::Button(ICON_FA_LIFE_RING "  Tiklash", button))
+        if (ImGui::Button(Tr(ICON_FA_LIFE_RING "  Tiklash"), button))
         {
             RecoverAutosave();
             ImGui::CloseCurrentPopup();
         }
         ImGui::PopStyleColor(2);
         ImGui::SameLine();
-        if (ImGui::Button(ICON_FA_TRASH "  Nusxani o'chirish", button))
+        if (ImGui::Button(Tr(ICON_FA_TRASH "  Nusxani o'chirish"), button))
         {
             DeleteOfferedAutosave();
             ImGui::CloseCurrentPopup();
         }
         ImGui::SameLine();
-        if (ImGui::Button("Keyinroq", button))
+        if (ImGui::Button(Tr("Keyinroq"), button))
         {
             DeferAutosaveRecovery();
             ImGui::CloseCurrentPopup();
@@ -387,8 +387,8 @@ namespace Zamin {
     {
         const float em = ImGui::GetFontSize();
         AutosaveSettings& autosave = m_Preferences.Autosave;
-        ImGui::SeparatorText("Avtomatik saqlash");
-        changed |= ImGui::Checkbox("Saqlanmagan o'zgarishlarning nusxasini avtomatik yozish", &autosave.Enabled);
+        ImGui::SeparatorText(Tr("Avtomatik saqlash"));
+        changed |= ImGui::Checkbox(Tr("Saqlanmagan o'zgarishlarning nusxasini avtomatik yozish"), &autosave.Enabled);
         ImGui::BeginDisabled(!autosave.Enabled);
         ImGui::SetNextItemWidth(em * 14.0f);
         if (ImGui::SliderInt("Har necha daqiqada", &autosave.IntervalMinutes, AutosaveSettings::MinInterval, AutosaveSettings::MaxInterval, "%d daqiqa"))
@@ -413,11 +413,11 @@ namespace Zamin {
             ImGui::SameLine();
             ImGui::TextDisabled("|  papkada %zu ta nusxa", count);
             ImGui::BeginDisabled(m_SceneState != SceneState::Edit);
-            if (ImGui::Button(ICON_FA_FLOPPY_DISK "  Hozir nusxa yozish"))
+            if (ImGui::Button(Tr(ICON_FA_FLOPPY_DISK "  Hozir nusxa yozish")))
                 WriteAutosave(true);
             ImGui::EndDisabled();
             ImGui::SameLine();
-            if (ImGui::Button(ICON_FA_FOLDER_OPEN "  Papkani ochish"))
+            if (ImGui::Button(Tr(ICON_FA_FOLDER_OPEN "  Papkani ochish")))
             {
                 std::error_code ec;
                 fs::create_directories(directory, ec);
@@ -425,7 +425,7 @@ namespace Zamin {
             }
             ImGui::SameLine();
             ImGui::BeginDisabled(count == 0);
-            if (ImGui::Button(ICON_FA_TRASH "  Hammasini o'chirish"))
+            if (ImGui::Button(Tr(ICON_FA_TRASH "  Hammasini o'chirish")))
             {
                 std::error_code ec;
                 fs::remove_all(directory, ec);
@@ -436,19 +436,19 @@ namespace Zamin {
             ImGui::EndDisabled();
         }
 
-        ImGui::SeparatorText("Undo");
-        changed |= ImGui::Checkbox("Tanlov o'zgarishlari ham undo qadami", &m_Preferences.Undo.RecordSelection);
+        ImGui::SeparatorText(Tr("Undo"));
+        changed |= ImGui::Checkbox(Tr("Tanlov o'zgarishlari ham undo qadami"), &m_Preferences.Undo.RecordSelection);
         ImGui::PushTextWrapPos(0.0f);
         ImGui::TextDisabled("Yoqiq: Ctrl+Z oldingi tanlovni qaytaradi. O'chiq: faqat sahna o'zgarishlari qadam bo'ladi "
                             "(ularning undo'si o'sha paytdagi tanlovni baribir qaytaradi).");
         ImGui::PopTextWrapPos();
-        if (ImGui::Button(ICON_FA_CLOCK_ROTATE_LEFT "  Undo tarixi oynasi"))
+        if (ImGui::Button(Tr(ICON_FA_CLOCK_ROTATE_LEFT "  Undo tarixi oynasi")))
         {
             m_ShowUndoHistory = true;
             m_UndoHistoryScroll = true;
         }
 
-        ImGui::SeparatorText("Klaviatura");
+        ImGui::SeparatorText(Tr("Klaviatura"));
         ImGui::Text("%zu ta yorliq, %zu ta o'zgartirilgan", m_Shortcuts.GetAll().size(), m_Shortcuts.CountModified());
         if (size_t conflicts = m_Shortcuts.CountConflicts(); conflicts > 0)
         {

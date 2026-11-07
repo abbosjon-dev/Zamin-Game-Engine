@@ -96,7 +96,7 @@ namespace Zamin {
         }
         else
             ImGui::SetNextWindowSize(ImVec2(900.0f, 520.0f), ImGuiCond_FirstUseEver);
-        const std::string title = std::format(ICON_FA_LANGUAGE "  {}{}###Localization", "Lokalizatsiya", m_Dirty ? " *" : "");
+        const std::string title = std::format(ICON_FA_LANGUAGE "  {}{}###Localization", EditorText::Tr("Lokalizatsiya"), m_Dirty ? " *" : "");
         if (!ImGui::Begin(title.c_str(), show))
         {
             ImGui::End();
@@ -135,26 +135,26 @@ namespace Zamin {
     void LocalizationPanel::DrawToolbar()
     {
         ImGui::BeginDisabled(!m_Dirty);
-        if (ImGui::Button(ICON_FA_FLOPPY_DISK "  Saqlash"))
+        if (ImGui::Button(Tr(ICON_FA_FLOPPY_DISK "  Saqlash")))
             Save();
         ImGui::SameLine();
-        if (ImGui::Button(ICON_FA_ROTATE_LEFT "  Bekor qilish"))
+        if (ImGui::Button(Tr(ICON_FA_ROTATE_LEFT "  Bekor qilish")))
             Load();
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
             UI::Tooltip("Saqlanmagan o'zgarishlarni tashlab, fayllarni qayta o'qish");
         ImGui::SameLine();
         ImGui::SetNextItemWidth(220.0f);
-        ImGui::InputTextWithHint("##filter", ICON_FA_MAGNIFYING_GLASS "  kalit yoki matn", &m_Filter);
+        ImGui::InputTextWithHint("##filter", Tr(ICON_FA_MAGNIFYING_GLASS "  kalit yoki matn"), &m_Filter);
         ImGui::SameLine();
-        ImGui::Checkbox("Faqat yetishmayotganlar", &m_OnlyMissing);
+        ImGui::Checkbox(Tr("Faqat yetishmayotganlar"), &m_OnlyMissing);
 
         // A new key.
         ImGui::SameLine();
         ImGui::SetNextItemWidth(200.0f);
-        const bool enter = ImGui::InputTextWithHint("##newKey", "yangi.kalit", &m_NewKey, ImGuiInputTextFlags_EnterReturnsTrue);
+        const bool enter = ImGui::InputTextWithHint("##newKey", Tr("yangi.kalit"), &m_NewKey, ImGuiInputTextFlags_EnterReturnsTrue);
         ImGui::SameLine();
-        if ((ImGui::Button(ICON_FA_PLUS "  Kalit") || enter) && !m_NewKey.empty())
+        if ((ImGui::Button(Tr(ICON_FA_PLUS "  Kalit")) || enter) && !m_NewKey.empty())
         {
             if (!LocalizationTable::IsValidKey(m_NewKey))
                 m_KeyError = "Kalit noto'g'ri: bo'sh joy, '$' bilan boshlanish yoki '..' bo'lmasin";
@@ -338,15 +338,15 @@ namespace Zamin {
                     }
                     if (ImGui::BeginPopupContextItem("##keyMenu"))
                     {
-                        if (ImGui::MenuItem(ICON_FA_PEN "  Qayta nomlash"))
+                        if (ImGui::MenuItem(Tr(ICON_FA_PEN "  Qayta nomlash")))
                         {
                             m_RenamingKey = key;
                             m_RenameBuffer = key;
                             m_FocusRename = true;
                         }
-                        if (ImGui::MenuItem(ICON_FA_COPY "  Kalitni nusxalash"))
+                        if (ImGui::MenuItem(Tr(ICON_FA_COPY "  Kalitni nusxalash")))
                             ImGui::SetClipboardText(key.c_str());
-                        if (ImGui::MenuItem(ICON_FA_COPY "  Localize(\"...\") nusxalash"))
+                        if (ImGui::MenuItem(Tr(ICON_FA_COPY "  Localize(\"...\") nusxalash")))
                             ImGui::SetClipboardText(std::format("Localize(\"{}\")", key).c_str());
                         ImGui::Separator();
                         const LocalizedString* first = m_Table.Languages.empty() ? nullptr : m_Table.Get(key, m_Table.Languages[0].Language);
@@ -370,7 +370,7 @@ namespace Zamin {
                             m_Dirty = true;
                         }
                         ImGui::Separator();
-                        if (ImGui::MenuItem(ICON_FA_TRASH "  O'chirish (hamma tillardan)"))
+                        if (ImGui::MenuItem(Tr(ICON_FA_TRASH "  O'chirish (hamma tillardan)")))
                             removeKey = key;
                         ImGui::EndPopup();
                     }

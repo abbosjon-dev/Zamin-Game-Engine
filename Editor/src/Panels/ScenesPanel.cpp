@@ -182,7 +182,7 @@ namespace Zamin {
         }
         if (m_DefaultDock)
             ImGui::SetNextWindowDockID(m_DefaultDock, ImGuiCond_FirstUseEver);
-        if (!ImGui::Begin(ICON_FA_CLAPPERBOARD "  Sahnalar###ScenesPanel", open))
+        if (!ImGui::Begin(Tr(ICON_FA_CLAPPERBOARD "  Sahnalar###ScenesPanel"), open))
         {
             ImGui::End();
             return;
@@ -241,7 +241,7 @@ namespace Zamin {
         });
 
         if (m_SceneManager)
-            ImGui::SeparatorText(ICON_FA_FOLDER_OPEN "  Loyiha sahnalari");
+            ImGui::SeparatorText(Tr(ICON_FA_FOLDER_OPEN "  Loyiha sahnalari"));
         DrawSelectedActions();
         if (ImGui::BeginChild("##sceneCards", ImVec2(0, 0), ImGuiChildFlags_None))
         {
@@ -259,9 +259,9 @@ namespace Zamin {
     void ScenesPanel::DrawToolbar()
     {
         ImGui::SetNextItemWidth(std::max(120.0f, ImGui::GetContentRegionAvail().x * 0.35f));
-        ImGui::InputTextWithHint("##sceneSearch", ICON_FA_MAGNIFYING_GLASS "  nom, ta'rif, #teg", &m_Search);
+        ImGui::InputTextWithHint("##sceneSearch", Tr(ICON_FA_MAGNIFYING_GLASS "  nom, ta'rif, #teg"), &m_Search);
         ImGui::SameLine();
-        ImGui::Checkbox("Faqat build", &m_OnlyBuild);
+        ImGui::Checkbox(Tr("Faqat build"), &m_OnlyBuild);
         if (ImGui::IsItemHovered())
             UI::Tooltip("Faqat build ro'yxatidagi sahnalar (Loyiha sozlamalari > Build sahnalar)");
         ImGui::SameLine();
@@ -304,7 +304,7 @@ namespace Zamin {
 
     void ScenesPanel::DrawRuntimeScenes()
     {
-        ImGui::SeparatorText(ICON_FA_PLAY "  O'yinda yuklangan sahnalar");
+        ImGui::SeparatorText(Tr(ICON_FA_PLAY "  O'yinda yuklangan sahnalar"));
         std::vector<Ref<Scene>> scenes = m_SceneManager->GetLoadedScenes();
         if (const Ref<Scene>& persistent = m_SceneManager->GetDontDestroyOnLoadScene())
             scenes.push_back(persistent);
@@ -407,7 +407,7 @@ namespace Zamin {
         if (values > 6)
         {
             ImGui::SetNextItemWidth(-FLT_MIN);
-            ImGui::InputTextWithHint("##stateFilter", ICON_FA_MAGNIFYING_GLASS "  kalit", &m_StateFilter);
+            ImGui::InputTextWithHint("##stateFilter", Tr(ICON_FA_MAGNIFYING_GLASS "  kalit"), &m_StateFilter);
         }
         const ImGuiTableFlags flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_SizingStretchProp;
         if (values > 0 && ImGui::BeginTable("##gameState", 3, flags))
@@ -489,7 +489,7 @@ namespace Zamin {
         ImGui::AlignTextToFramePadding();
         ImGui::TextUnformatted(item->Info.Name.c_str());
         ImGui::SameLine();
-        if (ImGui::Button(ICON_FA_FOLDER_OPEN "  Ochish") && OnOpenScene)
+        if (ImGui::Button(Tr(ICON_FA_FOLDER_OPEN "  Ochish")) && OnOpenScene)
             OnOpenScene(item->Path);
         if (ImGui::IsItemHovered())
             UI::Tooltip(m_SceneManager ? "O'yin to'xtatiladi va sahna editorda ochiladi" : "Editorda ochish");
@@ -497,16 +497,16 @@ namespace Zamin {
         const int entry = FindBuildEntry(item->Relative);
         if (entry < 0)
         {
-            if (ImGui::Button(ICON_FA_PLUS "  Build'ga"))
+            if (ImGui::Button(Tr(ICON_FA_PLUS "  Build'ga")))
                 AddToBuild(item->Relative);
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Build ro'yxatining oxiriga qo'shish (LoadScene(indeks))");
         }
-        else if (ImGui::Button(ICON_FA_MINUS "  Build'dan"))
+        else if (ImGui::Button(Tr(ICON_FA_MINUS "  Build'dan")))
             RemoveFromBuild(item->Relative);
         ImGui::SameLine();
         ImGui::BeginDisabled(IsStartScene(item->Relative));
-        if (ImGui::Button(ICON_FA_HOUSE "  Boshlang'ich"))
+        if (ImGui::Button(Tr(ICON_FA_HOUSE "  Boshlang'ich")))
             SetStartScene(item->Relative);
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
@@ -515,7 +515,7 @@ namespace Zamin {
         {
             ImGui::SameLine();
             bool additive = IsPlayAdditive(item->Relative);
-            if (ImGui::Checkbox("Play bilan", &additive))
+            if (ImGui::Checkbox(Tr("Play bilan"), &additive))
                 SetPlayAdditive(item->Relative, additive);
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Play bosilganda ochiq sahna yonida additiv yuklash (shu sessiya uchun)");
@@ -523,12 +523,12 @@ namespace Zamin {
         if (m_SceneManager)
         {
             ImGui::SameLine();
-            if (ImGui::Button(ICON_FA_LAYER_GROUP "  Additiv"))
+            if (ImGui::Button(Tr(ICON_FA_LAYER_GROUP "  Additiv")))
                 m_SceneManager->LoadSceneAsync(item->Relative, LoadSceneMode::Additive);
             if (ImGui::IsItemHovered())
                 UI::Tooltip("O'yinga qo'shimcha sahna sifatida yuklash (LoadSceneMode::Additive)");
             ImGui::SameLine();
-            if (ImGui::Button(ICON_FA_RIGHT_TO_BRACKET "  Almashtirish"))
+            if (ImGui::Button(Tr(ICON_FA_RIGHT_TO_BRACKET "  Almashtirish")))
                 m_SceneManager->LoadScene(fs::path(item->Relative), LoadSceneMode::Single, SceneTransition::Fade(0.25f));
             if (ImGui::IsItemHovered())
                 UI::Tooltip("O'yinni shu sahnaga o'tkazish (Single, so'nish bilan)");
@@ -578,12 +578,12 @@ namespace Zamin {
         if (!ImGui::BeginPopupContextItem("##sceneMenu"))
             return;
         m_Selected = item.Relative;
-        if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN "  Ochish") && OnOpenScene)
+        if (ImGui::MenuItem(Tr(ICON_FA_FOLDER_OPEN "  Ochish")) && OnOpenScene)
             OnOpenScene(item.Path);
         const int entry = FindBuildEntry(item.Relative);
         if (entry < 0)
         {
-            if (ImGui::MenuItem(ICON_FA_PLUS "  Build ro'yxatiga qo'shish"))
+            if (ImGui::MenuItem(Tr(ICON_FA_PLUS "  Build ro'yxatiga qo'shish")))
                 AddToBuild(item.Relative);
         }
         else
@@ -591,15 +591,15 @@ namespace Zamin {
             const bool enabled = Project::GetActive()->GetConfig().BuildScenes[(size_t)entry].Enabled;
             if (ImGui::MenuItem(enabled ? ICON_FA_TOGGLE_OFF "  Build'da o'chirish" : ICON_FA_TOGGLE_ON "  Build'da yoqish"))
                 SetBuildEnabled(item.Relative, !enabled);
-            if (ImGui::MenuItem(ICON_FA_MINUS "  Build ro'yxatidan olib tashlash"))
+            if (ImGui::MenuItem(Tr(ICON_FA_MINUS "  Build ro'yxatidan olib tashlash")))
                 RemoveFromBuild(item.Relative);
         }
-        if (ImGui::MenuItem(ICON_FA_HOUSE "  Boshlang'ich sahna qilish", nullptr, IsStartScene(item.Relative), !IsStartScene(item.Relative)))
+        if (ImGui::MenuItem(Tr(ICON_FA_HOUSE "  Boshlang'ich sahna qilish"), nullptr, IsStartScene(item.Relative), !IsStartScene(item.Relative)))
             SetStartScene(item.Relative);
         if (!m_SceneManager)
         {
             bool additive = IsPlayAdditive(item.Relative);
-            if (ImGui::MenuItem(ICON_FA_LAYER_GROUP "  Play bilan qo'shimcha yuklash", nullptr, &additive))
+            if (ImGui::MenuItem(Tr(ICON_FA_LAYER_GROUP "  Play bilan qo'shimcha yuklash"), nullptr, &additive))
                 SetPlayAdditive(item.Relative, additive);
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Play bosilganda bu sahna ochiq sahna yonida additiv yuklanadi (masalan, umumiy UI yoki menejerlar sahnasi)");
@@ -607,17 +607,17 @@ namespace Zamin {
         if (m_SceneManager)
         {
             ImGui::Separator();
-            if (ImGui::MenuItem(ICON_FA_LAYER_GROUP "  O'yinga additiv yuklash"))
+            if (ImGui::MenuItem(Tr(ICON_FA_LAYER_GROUP "  O'yinga additiv yuklash")))
                 m_SceneManager->LoadSceneAsync(item.Relative, LoadSceneMode::Additive);
-            if (ImGui::MenuItem(ICON_FA_RIGHT_TO_BRACKET "  O'yinni shu sahnaga o'tkazish"))
+            if (ImGui::MenuItem(Tr(ICON_FA_RIGHT_TO_BRACKET "  O'yinni shu sahnaga o'tkazish")))
                 m_SceneManager->LoadScene(fs::path(item.Relative), LoadSceneMode::Single, SceneTransition::Fade(0.25f));
         }
-        if (ImGui::MenuItem(ICON_FA_CAMERA "  Rasmini chizish") && OnRenderThumbnails)
+        if (ImGui::MenuItem(Tr(ICON_FA_CAMERA "  Rasmini chizish")) && OnRenderThumbnails)
             OnRenderThumbnails({ item.Path });
         ImGui::Separator();
-        if (ImGui::MenuItem(ICON_FA_LOCATION_CROSSHAIRS "  Kontent brauzerda ko'rsatish") && OnRevealScene)
+        if (ImGui::MenuItem(Tr(ICON_FA_LOCATION_CROSSHAIRS "  Kontent brauzerda ko'rsatish")) && OnRevealScene)
             OnRevealScene(item.Path);
-        if (ImGui::MenuItem(ICON_FA_COPY "  Yo'lni nusxalash"))
+        if (ImGui::MenuItem(Tr(ICON_FA_COPY "  Yo'lni nusxalash")))
             ImGui::SetClipboardText(item.Relative.c_str());
         ImGui::EndPopup();
     }

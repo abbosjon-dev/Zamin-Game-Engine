@@ -155,7 +155,7 @@ namespace Zamin::AnimatorEditing {
             c.Parameters.erase(c.Parameters.begin() + remove);
             changed = true;
         }
-        if (ImGui::SmallButton(ICON_FA_PLUS "  Parametr"))
+        if (ImGui::SmallButton(Tr(ICON_FA_PLUS "  Parametr")))
         {
             std::string name = "Param";
             for (int n = (int)c.Parameters.size(); c.FindParameter(name); n++)
@@ -275,7 +275,7 @@ namespace Zamin::AnimatorEditing {
                 st.Motions.erase(st.Motions.begin() + remove);
                 changed = true;
             }
-            if (ImGui::SmallButton(ICON_FA_PLUS "  Motion"))
+            if (ImGui::SmallButton(Tr(ICON_FA_PLUS "  Motion")))
             {
                 AnimatorBlendMotion m;
                 m.Threshold = st.Motions.empty() ? 0.0f : st.Motions.back().Threshold + 1.0f;
@@ -295,7 +295,7 @@ namespace Zamin::AnimatorEditing {
                 changed = true;
             }
             ImGui::SameLine();
-            if (ImGui::SmallButton(ICON_FA_ARROW_DOWN_WIDE_SHORT "  Tartiblash"))
+            if (ImGui::SmallButton(Tr(ICON_FA_ARROW_DOWN_WIDE_SHORT "  Tartiblash")))
             {
                 std::stable_sort(st.Motions.begin(), st.Motions.end(),
                                  [](const AnimatorBlendMotion& a, const AnimatorBlendMotion& b) { return a.Threshold < b.Threshold; });
@@ -407,7 +407,7 @@ namespace Zamin::AnimatorEditing {
             tr.Conditions.erase(tr.Conditions.begin() + remove);
             changed = true;
         }
-        if (ImGui::SmallButton(ICON_FA_PLUS "  Shart"))
+        if (ImGui::SmallButton(Tr(ICON_FA_PLUS "  Shart")))
         {
             AnimatorCondition cd;
             if (!c.Parameters.empty())

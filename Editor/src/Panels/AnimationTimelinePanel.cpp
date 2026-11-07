@@ -811,7 +811,7 @@ namespace Zamin {
         ImGui::SetNextWindowSize(ImVec2(1000.0f, 340.0f), ImGuiCond_FirstUseEver);
         if (m_DefaultDock)
             ImGui::SetNextWindowDockID(m_DefaultDock, ImGuiCond_FirstUseEver);
-        if (!ImGui::Begin(ICON_FA_TIMELINE "  Animatsiya###Animation", show))
+        if (!ImGui::Begin(Tr(ICON_FA_TIMELINE "  Animatsiya###Animation"), show))
         {
             m_Focused = false;
             ImGui::End();
@@ -1338,7 +1338,7 @@ namespace Zamin {
             }
             ImGui::SetCursorScreenPos(ImVec2(list.Min.x + 4.0f, listTop + trackCount * s_RowHeight + 4.0f));
             ImGui::BeginDisabled(!GetPlayer());
-            if (ImGui::SmallButton(ICON_FA_PLUS "  Trek qo'shish"))
+            if (ImGui::SmallButton(Tr(ICON_FA_PLUS "  Trek qo'shish")))
                 m_OpenAddTrack = true;
             ImGui::EndDisabled();
             ImGui::PopClipRect();
@@ -1622,7 +1622,7 @@ namespace Zamin {
             if (m_ContextEvent >= 0 && m_ContextEvent < (int)m_Work.Events.size())
             {
                 ImGui::TextDisabled(ICON_FA_BELL "  %s", m_Work.Events[(size_t)m_ContextEvent].Name.c_str());
-                if (ImGui::MenuItem(ICON_FA_TRASH "  Event'ni o'chirish"))
+                if (ImGui::MenuItem(Tr(ICON_FA_TRASH "  Event'ni o'chirish")))
                 {
                     m_SelectedEvent = m_ContextEvent;
                     DeleteSelection();
@@ -1640,25 +1640,25 @@ namespace Zamin {
                     Commit();
                     EndEdit();
                 };
-                if (ImGui::MenuItem("Step (sakrash)")) setAll([](AnimationKey& k) { k.Interpolation = KeyInterpolation::Step; });
-                if (ImGui::MenuItem("Linear (to'g'ri)")) setAll([](AnimationKey& k) { k.Interpolation = KeyInterpolation::Linear; });
-                if (ImGui::MenuItem("Bezier (silliq)")) setAll([](AnimationKey& k) { k.Interpolation = KeyInterpolation::Bezier; });
+                if (ImGui::MenuItem(Tr("Step (sakrash)"))) setAll([](AnimationKey& k) { k.Interpolation = KeyInterpolation::Step; });
+                if (ImGui::MenuItem(Tr("Linear (to'g'ri)"))) setAll([](AnimationKey& k) { k.Interpolation = KeyInterpolation::Linear; });
+                if (ImGui::MenuItem(Tr("Bezier (silliq)"))) setAll([](AnimationKey& k) { k.Interpolation = KeyInterpolation::Bezier; });
                 ImGui::Separator();
-                if (ImGui::MenuItem("Tangent: avtomatik")) setAll([](AnimationKey& k) { k.TangentMode = KeyTangentMode::Auto; });
-                if (ImGui::MenuItem("Tangent: tekis (flat)")) setAll([](AnimationKey& k) { k.TangentMode = KeyTangentMode::Flat; });
+                if (ImGui::MenuItem(Tr("Tangent: avtomatik"))) setAll([](AnimationKey& k) { k.TangentMode = KeyTangentMode::Auto; });
+                if (ImGui::MenuItem(Tr("Tangent: tekis (flat)"))) setAll([](AnimationKey& k) { k.TangentMode = KeyTangentMode::Flat; });
                 ImGui::Separator();
-                if (ImGui::MenuItem(ICON_FA_TRASH "  O'chirish", "Delete"))
+                if (ImGui::MenuItem(Tr(ICON_FA_TRASH "  O'chirish"), "Delete"))
                     DeleteSelection();
             }
             else
             {
                 ImGui::BeginDisabled(m_ContextTrack < 0);
-                if (ImGui::MenuItem(ICON_FA_KEY "  Shu yerga kalit"))
+                if (ImGui::MenuItem(Tr(ICON_FA_KEY "  Shu yerga kalit")))
                     AddKeys(m_ContextTrack, m_ContextTime);
                 ImGui::EndDisabled();
-                if (ImGui::MenuItem(ICON_FA_BELL "  Shu yerga event"))
+                if (ImGui::MenuItem(Tr(ICON_FA_BELL "  Shu yerga event")))
                     AddEvent(m_ContextTime);
-                if (ImGui::MenuItem(ICON_FA_FLAG "  Klip shu yerda tugaydi"))
+                if (ImGui::MenuItem(Tr(ICON_FA_FLAG "  Klip shu yerda tugaydi")))
                 {
                     BeginEdit();
                     m_Work.Duration = m_ContextTime;
@@ -1706,7 +1706,7 @@ namespace Zamin {
         }
         UI::PropertyLabel("");
         ImGui::BeginDisabled(m_Work.Tracks.empty());
-        if (ImGui::SmallButton("Oxirgi kalitgacha"))
+        if (ImGui::SmallButton(Tr("Oxirgi kalitgacha")))
         {
             BeginEdit();
             m_Work.Duration = m_Work.GetLastKeyTime();
@@ -1747,7 +1747,7 @@ namespace Zamin {
                 UI::EndPropertyGrid();
             }
             ImGui::TextWrapped("Skript: OnAnimationEvent(e) - e.Name, e.Parameter; yoki AddAnimationEventHandler(\"%s\", ...)", ev.Name.c_str());
-            if (ImGui::Button(ICON_FA_TRASH "  O'chirish"))
+            if (ImGui::Button(Tr(ICON_FA_TRASH "  O'chirish")))
                 DeleteSelection();
             return;
         }
@@ -1844,7 +1844,7 @@ namespace Zamin {
                     EndEdit();
                 UI::EndPropertyGrid();
             }
-            if (ImGui::Button(ICON_FA_TRASH "  Kalitni o'chirish"))
+            if (ImGui::Button(Tr(ICON_FA_TRASH "  Kalitni o'chirish")))
                 DeleteSelection();
             return;
         }
@@ -1853,7 +1853,7 @@ namespace Zamin {
             ImGui::TextColored(UI::AccentColor(), ICON_FA_DIAMOND "  %zu ta kalit tanlangan", m_SelectedKeys.size());
             ImGui::Separator();
             ImGui::TextWrapped("Sudrab vaqtini o'zgartiring; o'ng tugma - interpolyatsiya; Delete - o'chirish");
-            if (ImGui::Button(ICON_FA_TRASH "  O'chirish"))
+            if (ImGui::Button(Tr(ICON_FA_TRASH "  O'chirish")))
                 DeleteSelection();
             return;
         }
@@ -1874,7 +1874,7 @@ namespace Zamin {
                 value += std::format("{}{} {:.3f}", c ? "  " : "", ComponentName(track.Property, c), v[c]);
             ImGui::Text("%zu kalit", track.Keys.size());
             ImGui::TextWrapped("%.2f s da: %s", m_Time, value.c_str());
-            if (ImGui::Button(ICON_FA_KEY "  Joriy vaqtda kalit (K)"))
+            if (ImGui::Button(Tr(ICON_FA_KEY "  Joriy vaqtda kalit (K)")))
                 AddKeys(m_SelectedTrack, m_Time);
         }
         ImGui::Dummy(ImVec2(0.0f, 6.0f));

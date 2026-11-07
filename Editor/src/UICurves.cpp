@@ -341,14 +341,14 @@ namespace Zamin::UI {
                     k.Interpolation = (KeyInterpolation)i;
                     changed = true;
                 }
-            if (k.Interpolation == KeyInterpolation::Bezier && ImGui::MenuItem("Tekis (ease)", nullptr, k.TangentMode == KeyTangentMode::Flat))
+            if (k.Interpolation == KeyInterpolation::Bezier && ImGui::MenuItem(Tr("Tekis (ease)"), nullptr, k.TangentMode == KeyTangentMode::Flat))
             {
                 k.TangentMode = k.TangentMode == KeyTangentMode::Flat ? KeyTangentMode::Auto : KeyTangentMode::Flat;
                 PropertyAnimation::UpdateTangents(curve.Keys);
                 changed = true;
             }
             ImGui::Separator();
-            if (ImGui::MenuItem(ICON_FA_TRASH "  O'chirish", nullptr, false, curve.Keys.size() > 1))
+            if (ImGui::MenuItem(Tr(ICON_FA_TRASH "  O'chirish"), nullptr, false, curve.Keys.size() > 1))
             {
                 curve.Keys.erase(curve.Keys.begin() + selected);
                 selected = std::min(selected, (int)curve.Keys.size() - 1);

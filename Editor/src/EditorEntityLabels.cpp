@@ -130,34 +130,34 @@ namespace Zamin {
         const float field = ImGui::GetFontSize() * 10.0f;
         bool changed = false;
         int mode = (int)s.Mode;
-        changed |= ImGui::RadioButton("O'chiq", &mode, (int)EntityLabelMode::Off);
+        changed |= ImGui::RadioButton(Tr("O'chiq"), &mode, (int)EntityLabelMode::Off);
         ImGui::SameLine();
-        changed |= ImGui::RadioButton("Tanlanganlar", &mode, (int)EntityLabelMode::Selected);
+        changed |= ImGui::RadioButton(Tr("Tanlanganlar"), &mode, (int)EntityLabelMode::Selected);
         ImGui::SameLine();
-        changed |= ImGui::RadioButton("Hammasi", &mode, (int)EntityLabelMode::All);
+        changed |= ImGui::RadioButton(Tr("Hammasi"), &mode, (int)EntityLabelMode::All);
         s.Mode = (EntityLabelMode)mode;
         if (s.Mode != EntityLabelMode::Off)
             m_LabelToggleMode = s.Mode;
 
         ImGui::BeginDisabled(s.Mode == EntityLabelMode::Off);
-        changed |= ImGui::Checkbox("Uzoqlashganda xiralashsin", &s.Fade);
+        changed |= ImGui::Checkbox(Tr("Uzoqlashganda xiralashsin"), &s.Fade);
         ImGui::BeginDisabled(!s.Fade);
         ImGui::SetNextItemWidth(field);
         changed |= ImGui::DragFloatRange2("Masofa##fade", &s.FadeStart, &s.FadeEnd, 0.5f, 0.0f, 100000.0f, "%.0f m dan", "%.0f m gacha",
                                           ImGuiSliderFlags_AlwaysClamp);
         if (ImGui::IsItemHovered())
             UI::Tooltip("Kameradan shu masofagacha nom to'liq ko'rinadi, keyin asta yo'qoladi (ortografik ko'rinishda xiralashmaydi)");
-        changed |= ImGui::Checkbox("Tanlanganlar ham xiralashsin", &s.FadeSelected);
+        changed |= ImGui::Checkbox(Tr("Tanlanganlar ham xiralashsin"), &s.FadeSelected);
         ImGui::EndDisabled();
-        changed |= ImGui::Checkbox("Ustma-ust tushganlarini yashirish", &s.HideOverlapping);
+        changed |= ImGui::Checkbox(Tr("Ustma-ust tushganlarini yashirish"), &s.HideOverlapping);
         if (ImGui::IsItemHovered())
             UI::Tooltip("Nomlar bir-birini yopsa, tanlangan, sichqoncha ostidagi va eng yaqini qoladi");
-        changed |= ImGui::Checkbox("Fon", &s.Background);
+        changed |= ImGui::Checkbox(Tr("Fon"), &s.Background);
         ImGui::SetNextItemWidth(field);
         changed |= ImGui::SliderFloat("O'lcham", &s.Scale, EntityLabelSettings::MinScale, EntityLabelSettings::MaxScale, "%.2fx");
         ImGui::SetNextItemWidth(field);
         changed |= ImGui::SliderInt("Ko'pi bilan", &s.MaxLabels, 10, 1000, "%d ta");
-        changed |= ImGui::Checkbox("O'yin rejimida ham (viewport)", &s.ShowInPlay);
+        changed |= ImGui::Checkbox(Tr("O'yin rejimida ham (viewport)"), &s.ShowInPlay);
         ImGui::EndDisabled();
         if (changed)
             s.Sanitize();

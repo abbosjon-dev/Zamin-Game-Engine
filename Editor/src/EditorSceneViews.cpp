@@ -25,7 +25,7 @@ namespace Zamin {
 
         std::string ViewTitle(int extraIndex)
         {
-            return std::format(ICON_FA_CUBE "  Ko'rinish {}###SceneView{}", extraIndex + 2, extraIndex + 2);
+            return std::format(ICON_FA_CUBE "  {} {}###SceneView{}", Tr("Ko'rinish"), extraIndex + 2, extraIndex + 2);
         }
 
         // "Yuqori", "Persp", "Orto" ... for a camera.
@@ -571,14 +571,14 @@ namespace Zamin {
         const ViewAxis current = camera.GetViewAxis();
         const bool locked = index == 0 && m_2DMode;
         ImGui::TextColored(UI::AccentColor(), ICON_FA_CUBE "  Ko'rinish o'qi");
-        if (ImGui::MenuItem(ICON_FA_CUBE "  Erkin (perspektiv)", ShortcutLabel(EditorShortcut::ViewPerspective), !camera.IsOrthographic() && !locked))
+        if (ImGui::MenuItem(Tr(ICON_FA_CUBE "  Erkin (perspektiv)"), ShortcutLabel(EditorShortcut::ViewPerspective), !camera.IsOrthographic() && !locked))
             SetSceneViewAxis(index, ViewAxis::Free);
         ImGui::Separator();
         for (ViewAxis axis : { ViewAxis::Top, ViewAxis::Bottom, ViewAxis::Front, ViewAxis::Back, ViewAxis::Right, ViewAxis::Left })
             if (ImGui::MenuItem(GetViewAxisInfo(axis).Name, ShortcutLabel(AxisShortcut(axis)), current == axis || (locked && axis == ViewAxis::Front)))
                 SetSceneViewAxis(index, axis);
         ImGui::Separator();
-        if (ImGui::MenuItem("Ortografik proyeksiya", ShortcutLabel(EditorShortcut::ViewToggleOrtho), camera.IsOrthographic()))
+        if (ImGui::MenuItem(Tr("Ortografik proyeksiya"), ShortcutLabel(EditorShortcut::ViewToggleOrtho), camera.IsOrthographic()))
             ToggleSceneViewProjection(index);
         if (locked)
             ImGui::TextDisabled("2D rejim: boshqa ko'rinish tanlansa 3D ga o'tiladi");
@@ -890,7 +890,7 @@ namespace Zamin {
         ImGui::SameLine();
         ImGui::TextDisabled("(%s)", index == 0 ? "viewport" : std::format("ko'rinish {}", index + 1).c_str());
 
-        ImGui::SeparatorText("Uchish: o'ng tugma + WASD / QE");
+        ImGui::SeparatorText(Tr("Uchish: o'ng tugma + WASD / QE"));
         float flySpeed = camera.FlySpeed;
         ImGui::SetNextItemWidth(field);
         if (ImGui::SliderFloat("Tezlik", &flySpeed, EditorCameraDefaults::MinFlySpeed, EditorCameraDefaults::MaxFlySpeed, "%.1f m/s",
@@ -908,15 +908,15 @@ namespace Zamin {
             UI::Tooltip(std::format("Tugmalar uzoq bosilsa tezlik oshib boradi: har soniyada shuncha marta qo'shiladi, ko'pi bilan {:g}x",
                                     MaxFlyBoost).c_str());
 
-        ImGui::SeparatorText("Sichqoncha");
+        ImGui::SeparatorText(Tr("Sichqoncha"));
         ImGui::SetNextItemWidth(field);
         other |= ImGui::SliderFloat("Sezgirlik", &c.LookSensitivity, EditorCameraDefaults::MinSensitivity, EditorCameraDefaults::MaxSensitivity,
                                     "%.2fx", ImGuiSliderFlags_Logarithmic);
-        other |= ImGui::Checkbox("Y o'qini teskari qilish", &c.InvertY);
+        other |= ImGui::Checkbox(Tr("Y o'qini teskari qilish"), &c.InvertY);
         if (ImGui::IsItemHovered())
             UI::Tooltip("Sichqoncha yuqoriga - kamera pastga qaraydi (uchishda va aylanib qarashda)");
 
-        ImGui::SeparatorText("Proyeksiya");
+        ImGui::SeparatorText(Tr("Proyeksiya"));
         ImGui::SetNextItemWidth(field);
         other |= ImGui::SliderFloat("Ko'rish burchagi", &c.FOV, EditorCameraDefaults::MinFOV, EditorCameraDefaults::MaxFOV, "%.0f\xc2\xb0");
         other |= ValuePresets("fov", c.FOV, { 30.0f, 45.0f, 60.0f, 75.0f, 90.0f }, "\xc2\xb0");
@@ -927,14 +927,14 @@ namespace Zamin {
         const bool locked = index == 0 && m_2DMode;
         bool ortho = camera.IsOrthographic();
         ImGui::BeginDisabled(locked);
-        if (ImGui::Checkbox("Ortografik (shu ko'rinish)", &ortho))
+        if (ImGui::Checkbox(Tr("Ortografik (shu ko'rinish)"), &ortho))
             ToggleSceneViewProjection(index);
         ImGui::EndDisabled();
         if (locked && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
             UI::Tooltip("2D rejim doim ortografik");
 
         ImGui::Separator();
-        if (ImGui::Button(ICON_FA_ARROW_ROTATE_LEFT "  Standart qiymatlar"))
+        if (ImGui::Button(Tr(ICON_FA_ARROW_ROTATE_LEFT "  Standart qiymatlar")))
         {
             c = EditorCameraDefaults();
             speed = other = true;

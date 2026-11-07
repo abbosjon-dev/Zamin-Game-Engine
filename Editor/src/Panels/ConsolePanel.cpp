@@ -142,7 +142,7 @@ namespace Zamin {
         m_Focused = false;
         if (!*open)
             return;
-        if (!ImGui::Begin(ICON_FA_TERMINAL "  Konsol###Console", open))
+        if (!ImGui::Begin(Tr(ICON_FA_TERMINAL "  Konsol###Console"), open))
         {
             ImGui::End();
             return;
@@ -178,7 +178,7 @@ namespace Zamin {
 
     void ConsolePanel::DrawToolbar()
     {
-        if (UI::ToolbarButton(ICON_FA_ERASER "  Tozalash", "Konsolni tozalash"))
+        if (UI::ToolbarButton(Tr(ICON_FA_ERASER "  Tozalash"), Tr("Konsolni tozalash")))
         {
             Log::Clear();
             m_Selected = UINT64_MAX;
@@ -202,13 +202,13 @@ namespace Zamin {
             ImGui::OpenPopup("##ConsoleOptions");
         if (ImGui::BeginPopup("##ConsoleOptions"))
         {
-            m_PrefsChanged |= ImGui::Checkbox("Avto-skroll (yangi xabarga)", &m_Prefs.AutoScroll);
-            m_PrefsChanged |= ImGui::Checkbox("O'yin boshlanganda tozalash (Play)", &m_Prefs.ClearOnPlay);
-            m_PrefsChanged |= ImGui::Checkbox("Vaqtni ko'rsatish", &m_Prefs.ShowTimestamps);
-            m_PrefsChanged |= ImGui::Checkbox("Bir xil xabarlarni guruhlash", &m_Prefs.Collapse);
+            m_PrefsChanged |= ImGui::Checkbox(Tr("Avto-skroll (yangi xabarga)"), &m_Prefs.AutoScroll);
+            m_PrefsChanged |= ImGui::Checkbox(Tr("O'yin boshlanganda tozalash (Play)"), &m_Prefs.ClearOnPlay);
+            m_PrefsChanged |= ImGui::Checkbox(Tr("Vaqtni ko'rsatish"), &m_Prefs.ShowTimestamps);
+            m_PrefsChanged |= ImGui::Checkbox(Tr("Bir xil xabarlarni guruhlash"), &m_Prefs.Collapse);
             ImGui::Separator();
-            ImGui::Checkbox("Qidiruv: regex (muntazam ifoda)", &m_Regex);
-            ImGui::Checkbox("Qidiruv: katta-kichik harf farqi", &m_CaseSensitive);
+            ImGui::Checkbox(Tr("Qidiruv: regex (muntazam ifoda)"), &m_Regex);
+            ImGui::Checkbox(Tr("Qidiruv: katta-kichik harf farqi"), &m_CaseSensitive);
             ImGui::EndPopup();
         }
         ImGui::SameLine();
@@ -246,7 +246,7 @@ namespace Zamin {
             ImGui::SetNextItemWidth(searchWidth);
             const char* hint = m_Regex ? ICON_FA_MAGNIFYING_GLASS "  Regex (masalan: ^Sahna|xato\\s+\\d+)"
                                        : ICON_FA_MAGNIFYING_GLASS "  Xabarlardan qidirish...";
-            ImGui::InputTextWithHint("##consoleFilter", hint, &m_FilterText);
+            ImGui::InputTextWithHint("##consoleFilter", Tr(hint), &m_FilterText);
             ImGui::PopStyleVar();
             ImGui::PopStyleColor();
             if (invalid && ImGui::IsItemHovered())
@@ -336,16 +336,16 @@ namespace Zamin {
                 if (ImGui::BeginPopupContextItem("##rowMenu"))
                 {
                     m_Selected = id;
-                    if (ImGui::MenuItem(ICON_FA_COPY "  Nusxalash", "Ctrl+C")) CopyRows({ (size_t)r }, false);
-                    if (ImGui::MenuItem(ICON_FA_COPY "  Faqat matnni nusxalash")) CopyRows({ (size_t)r }, true);
-                    if (ImGui::MenuItem(ICON_FA_LIST "  Ko'rinayotganlarning hammasini nusxalash"))
+                    if (ImGui::MenuItem(Tr(ICON_FA_COPY "  Nusxalash"), "Ctrl+C")) CopyRows({ (size_t)r }, false);
+                    if (ImGui::MenuItem(Tr(ICON_FA_COPY "  Faqat matnni nusxalash"))) CopyRows({ (size_t)r }, true);
+                    if (ImGui::MenuItem(Tr(ICON_FA_LIST "  Ko'rinayotganlarning hammasini nusxalash")))
                     {
                         contextRow.resize(m_View.Rows.size());
                         for (size_t i = 0; i < contextRow.size(); i++)
                             contextRow[i] = i;
                     }
                     ImGui::Separator();
-                    if (ImGui::MenuItem(ICON_FA_FILTER "  Shu matn bo'yicha filtrlash"))
+                    if (ImGui::MenuItem(Tr(ICON_FA_FILTER "  Shu matn bo'yicha filtrlash")))
                     {
                         int more = 0;
                         m_FilterText = std::string(FirstLine(first.Text, more));
@@ -425,10 +425,10 @@ namespace Zamin {
             }
             const float buttonW = ImGui::CalcTextSize(ICON_FA_COPY "  Nusxalash").x + ImGui::GetStyle().FramePadding.x * 2.0f;
             ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 8.0f, ImGui::GetWindowContentRegionMax().x - buttonW * 2.0f - 6.0f));
-            if (ImGui::SmallButton(ICON_FA_COPY "  Nusxalash"))
+            if (ImGui::SmallButton(Tr(ICON_FA_COPY "  Nusxalash")))
                 CopyRows({ (size_t)selectedRow }, true);
             ImGui::SameLine();
-            if (ImGui::SmallButton(ICON_FA_XMARK "  Yopish"))
+            if (ImGui::SmallButton(Tr(ICON_FA_XMARK "  Yopish")))
                 m_Selected = UINT64_MAX;
             // Read-only text: a part of it can be selected with the mouse and copied.
             std::string text = m.Text;

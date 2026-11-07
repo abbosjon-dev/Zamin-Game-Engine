@@ -180,7 +180,7 @@ namespace Zamin {
             if (!g.IsDefault())
             {
                 UI::PropertyLabel("");
-                if (ImGui::SmallButton(ICON_FA_ROTATE_LEFT "  Standart (4.1 core)"))
+                if (ImGui::SmallButton(Tr(ICON_FA_ROTATE_LEFT "  Standart (4.1 core)")))
                 {
                     g = GraphicsSettings();
                     changed = true;
@@ -212,7 +212,7 @@ namespace Zamin {
                 InfoRow("Eng ko'p MSAA", std::format("{}x", current.MaxSamples));
                 InfoRow("Anizotropiya", current.MaxAnisotropy > 0.0f ? std::format("{:.0f}x gacha", current.MaxAnisotropy) : std::string("yo'q"));
                 UI::PropertyLabel("");
-                if (ImGui::SmallButton(ICON_FA_COPY "  Nusxa olish"))
+                if (ImGui::SmallButton(Tr(ICON_FA_COPY "  Nusxa olish")))
                 {
                     ImGui::SetClipboardText(std::format("{}\n{} | {} | {}\nGLSL {}\nMSAA {} | sRGB {} | max tekstura {} | max MSAA {} | anizotropiya {:.0f}",
                                                         current.Summary(), current.Vendor, current.Renderer, current.Version, current.ShadingLanguage,
@@ -288,7 +288,7 @@ namespace Zamin {
             if (!t.IsDefault())
             {
                 UI::PropertyLabel("");
-                if (ImGui::SmallButton(ICON_FA_ROTATE_LEFT "  Standart (60 Hz, 5, 1x, 0.1 s)"))
+                if (ImGui::SmallButton(Tr(ICON_FA_ROTATE_LEFT "  Standart (60 Hz, 5, 1x, 0.1 s)")))
                 {
                     t = TimeSettings();
                     changed = true;
@@ -360,7 +360,7 @@ namespace Zamin {
             if (!p.IsDefault())
             {
                 UI::PropertyLabel("");
-                if (ImGui::SmallButton(ICON_FA_ROTATE_LEFT "  Dvigatel standarti (-9.8 / -9.81)"))
+                if (ImGui::SmallButton(Tr(ICON_FA_ROTATE_LEFT "  Dvigatel standarti (-9.8 / -9.81)")))
                 {
                     p = PhysicsDefaults();
                     changed = true;
@@ -390,7 +390,7 @@ namespace Zamin {
         }
 
         ImGui::Spacing();
-        ImGui::SeparatorText(ICON_FA_TABLE_CELLS "  To'qnashuv qatlamlari");
+        ImGui::SeparatorText(Tr(ICON_FA_TABLE_CELLS "  To'qnashuv qatlamlari"));
         DrawPhysicsLayers(config);
     }
 

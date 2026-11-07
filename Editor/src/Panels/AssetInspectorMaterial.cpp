@@ -305,12 +305,12 @@ namespace Zamin {
         ImGui::BeginDisabled(!dirty);
         if (dirty)
             ImGui::PushStyleColor(ImGuiCol_Button, UI::AccentU32(0.75f));
-        if (ImGui::Button(ICON_FA_FLOPPY_DISK "  Saqlash"))
+        if (ImGui::Button(Tr(ICON_FA_FLOPPY_DISK "  Saqlash")))
             SaveMaterial();
         if (dirty)
             ImGui::PopStyleColor();
         ImGui::SameLine();
-        if (ImGui::Button(ICON_FA_ROTATE_LEFT "  Bekor qilish"))
+        if (ImGui::Button(Tr(ICON_FA_ROTATE_LEFT "  Bekor qilish")))
             RevertMaterial();
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))

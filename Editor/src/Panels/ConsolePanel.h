@@ -25,8 +25,11 @@ namespace Zamin {
         void SetPreferences(const ConsolePreferences& preferences) { m_Prefs = preferences; }
         const ConsolePreferences& GetPreferences() const { return m_Prefs; }
         bool ConsumePreferencesChanged();
-        // The options menu changed a logger's level (Log::SetLevel already applied): the editor keeps it.
-        bool ConsumeLogLevelsChanged();
+        // The loggers whose level the options menu changed (Log::SetLevel already applied), as bits
+        // (1 << LogSource): the editor keeps only those (the others may carry a one-off start-up
+        // override, --log-level / ZAMIN_LOG_LEVEL, that must not reach the preferences).
+        uint32_t ConsumeLogLevelsChanged();
+        static constexpr uint32_t LogSourceBit(LogSource source) { return 1u << (uint32_t)source; }
 
         void SetFilterText(const std::string& text) { m_FilterText = text; }
         // The console window (or its search field) had the keyboard focus last frame.
@@ -46,7 +49,7 @@ namespace Zamin {
     private:
         ConsolePreferences m_Prefs;
         bool m_PrefsChanged = false;
-        bool m_LogLevelsChanged = false;
+        uint32_t m_LogLevelsChanged = 0;   // LogSourceBit()s
         bool m_OpenOptions = false;          // automation: the options menu kept open (screenshots)
         bool m_FocusWindow = false;          // automation: the console's window to the front once
         std::string m_FilterText;

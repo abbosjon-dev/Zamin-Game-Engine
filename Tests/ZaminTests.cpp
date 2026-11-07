@@ -37853,6 +37853,71 @@ TEST(SplineComponentsSerializeAndFollow)
     onceScene->OnRuntimeStop();
 }
 
+TEST(SplineFollowerRuntimeStateClearedOnCopy)
+{
+    // A played scene's followers (moved along, a ping-pong on its way back, one finished, one paused)
+    // copied for the next Play (Scene::Copy) or duplicated: the copies start over from StartPosition.
+    auto scene = CreateRef<Scene>();
+    Entity path = scene->CreateEntity("Path");
+    path.AddComponent<SplineComponent>().Path = MakeSpline({ { 0, 0, 0 }, { 4, 0, 0 } }, SplineType::Linear);
+    auto addFollower = [&](const char* name, SplineFollowerComponent::FollowMode mode, float speed) {
+        Entity e = scene->CreateEntity(name);
+        auto& f = e.AddComponent<SplineFollowerComponent>();
+        f.Path.ID = (uint64_t)path.GetUUID();
+        f.Mode = mode;
+        f.Speed = speed;
+        f.StartPosition = 0.25f;
+        return e;
+    };
+    Entity mover = addFollower("Mover", SplineFollowerComponent::FollowMode::Loop, 1.0f);
+    Entity bouncer = addFollower("Bouncer", SplineFollowerComponent::FollowMode::PingPong, 4.0f);
+    Entity finisher = addFollower("Finisher", SplineFollowerComponent::FollowMode::Once, 8.0f);
+    Entity paused = addFollower("Paused", SplineFollowerComponent::FollowMode::Loop, 1.0f);
+    scene->OnRuntimeStart();
+    paused.GetComponent<SplineFollowerComponent>().Pause();
+    for (int i = 0; i < 12; i++)
+        scene->OnUpdateRuntime(0.1f);
+    const auto& m = mover.GetComponent<SplineFollowerComponent>();
+    const auto& b = bouncer.GetComponent<SplineFollowerComponent>();
+    const auto& fin = finisher.GetComponent<SplineFollowerComponent>();
+    const auto& p = paused.GetComponent<SplineFollowerComponent>();
+    CHECK(m.Initialized && m.Playing && m.Distance > 1.0f);
+    CHECK(b.Direction < 0.0f);
+    CHECK(fin.Finished && !fin.Playing);
+    CHECK(p.PlayStateSet && !p.Playing);
+
+    auto checkFresh = [](Entity e) {
+        CHECK(e);
+        if (!e)
+            return;
+        const auto& c = e.GetComponent<SplineFollowerComponent>();
+        CHECK(!c.Initialized && !c.Playing && !c.Finished && !c.PlayStateSet);
+        CHECK(c.Distance == 0.0f && c.Direction == 1.0f);
+        CHECK(c.StartPosition == 0.25f && c.PlayOnStart); // the settings stay
+    };
+    // The play-mode copy (Scene::Copy: the registry-wide reset).
+    auto copy = Scene::Copy(scene);
+    for (const char* name : { "Mover", "Bouncer", "Finisher", "Paused" })
+        checkFresh(copy->FindEntityByName(name));
+    // A duplicate (the per-entity reset).
+    checkFresh(scene->DuplicateEntity(bouncer));
+    checkFresh(scene->DuplicateEntity(finisher));
+    scene->OnRuntimeStop();
+
+    // The copy plays from the start again: placed at a quarter of the path on its first update,
+    // every follower (the one paused before the copy too) playing from PlayOnStart.
+    copy->OnRuntimeStart();
+    copy->OnUpdateRuntime(0.0f);
+    for (const char* name : { "Mover", "Bouncer", "Finisher", "Paused" })
+    {
+        Entity e = copy->FindEntityByName(name);
+        CHECK(e && e.GetComponent<SplineFollowerComponent>().Initialized && e.GetComponent<SplineFollowerComponent>().Playing);
+        CHECK(e && std::abs(e.GetTransform().Translation.x - 1.0f) < 1e-4f);
+        CHECK(e && std::abs(e.GetComponent<SplineFollowerComponent>().Distance - 1.0f) < 1e-4f);
+    }
+    copy->OnRuntimeStop();
+}
+
 TEST(SplineFollowerMovesKinematicBodies)
 {
     // A kinematic 2D platform on a path gets the path's velocity (it carries what stands on it).

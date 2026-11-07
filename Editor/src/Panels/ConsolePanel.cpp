@@ -60,10 +60,10 @@ namespace Zamin {
         return changed;
     }
 
-    bool ConsolePanel::ConsumeLogLevelsChanged()
+    uint32_t ConsolePanel::ConsumeLogLevelsChanged()
     {
-        bool changed = m_LogLevelsChanged;
-        m_LogLevelsChanged = false;
+        const uint32_t changed = m_LogLevelsChanged;
+        m_LogLevelsChanged = 0;
         return changed;
     }
 
@@ -241,7 +241,7 @@ namespace Zamin {
                         if (ImGui::Selectable(Log::LevelDisplayName((LogLevel)l), l == (int)current))
                         {
                             Log::SetLevel(source, (LogLevel)l);
-                            m_LogLevelsChanged = true;
+                            m_LogLevelsChanged |= LogSourceBit(source);
                         }
                     ImGui::EndCombo();
                 }

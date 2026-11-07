@@ -6448,11 +6448,14 @@ namespace Zamin {
             SaveViewSettings();
         if (m_ConsolePanel.ConsumePreferencesChanged())
             MarkPreferencesDirty();
-        if (m_ConsolePanel.ConsumeLogLevelsChanged())
+        if (const uint32_t levels = m_ConsolePanel.ConsumeLogLevelsChanged())
         {
-            // The console's level menu changed a logger's level: kept in the preferences.
-            m_Preferences.Logging.Levels.Engine = Log::GetLevel(LogSource::Engine);
-            m_Preferences.Logging.Levels.App = Log::GetLevel(LogSource::App);
+            // The console's level menu changed a logger's level: only that logger is kept in the
+            // preferences (the other one's live level may be a start-up --log-level override).
+            if (levels & ConsolePanel::LogSourceBit(LogSource::Engine))
+                m_Preferences.Logging.Levels.Engine = Log::GetLevel(LogSource::Engine);
+            if (levels & ConsolePanel::LogSourceBit(LogSource::App))
+                m_Preferences.Logging.Levels.App = Log::GetLevel(LogSource::App);
             MarkPreferencesDirty();
         }
         if (m_PreferencesDirty && !ImGui::IsAnyItemActive())
@@ -10693,13 +10696,26 @@ namespace Zamin {
             MemoryStats::ResetPeaks();
         if (ImGui::IsItemHovered())
             UI::Tooltip("Toifalarning 'eng ko'pi' ustunini hozirgi qiymatga qaytarish");
+        // The scene's own share: one line when it fits the panel, else the particles on a line of
+        // their own (and each line wrapped in a very narrow panel).
         const Scene::MemoryEstimate scene = m_ActiveScene->EstimateMemory();
-        ImGui::TextDisabled("Bu sahna: %llu obyekt, %s", (unsigned long long)scene.Entities, MemoryStats::FormatBytes(scene.Components).c_str());
-        if (scene.Particles > 0)
+        const std::string objects = std::format("Bu sahna: {} obyekt, {}", scene.Entities, MemoryStats::FormatBytes(scene.Components));
+        const std::string particles = scene.Particles > 0 ? std::format("+ {} particle", MemoryStats::FormatBytes(scene.Particles)) : std::string();
+        ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+        ImGui::BeginGroup();
+        const std::string line = particles.empty() ? objects : objects + " " + particles;
+        if (ImGui::CalcTextSize(line.c_str()).x <= ImGui::GetContentRegionAvail().x)
+            ImGui::TextUnformatted(line.c_str());
+        else
         {
-            ImGui::SameLine(0.0f, 4.0f);
-            ImGui::TextDisabled("+ %s particle", MemoryStats::FormatBytes(scene.Particles).c_str());
+            ImGui::TextWrapped("%s", objects.c_str());
+            if (!particles.empty())
+                ImGui::TextWrapped("%s", particles.c_str());
         }
+        ImGui::EndGroup();
+        ImGui::PopStyleColor();
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Faol sahnaning komponentlari va particle'lari egallagan taxminiy xotira (Scene::EstimateMemory)");
     }
 
     void EditorLayer::UI_JobSystemStats()

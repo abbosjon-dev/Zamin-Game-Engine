@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <cmath>
 #include <format>
+#include <utility>
+#include <vector>
 
 namespace Zamin::UI {
 
@@ -198,21 +200,26 @@ namespace Zamin::UI {
 
     // The editor of a key list over [t0, t1] (the view's time span): ParticleCurve (0..1, shown as
     // % of the life) and AnimationCurve (seconds) share it. `emptyValue`: the value a curve without
-    // keys starts from.
-    static bool KeyCurveEditor(std::vector<AnimationKey>& keys, float t0, float t1, bool percent, float valueMin, float valueMax,
+    // keys evaluates to (and starts from once edited).
+    static bool KeyCurveEditor(std::vector<AnimationKey>& target, float t0, float t1, bool percent, float valueMin, float valueMax,
                                float emptyValue)
     {
-        bool changed = false;
-        if (keys.empty())
+        // A curve without keys is shown (and edited) as a flat pair of keys at `emptyValue`, in a
+        // copy: only an actual edit gives the curve those keys. Drawing alone must not change it
+        // (an empty curve stays empty: no modified scene, undo entry or script override).
+        std::vector<AnimationKey> placeholder;
+        const bool empty = target.empty();
+        if (empty)
         {
             AnimationKey a;
             a.Time = t0;
             a.Value.x = emptyValue;
             AnimationKey b = a;
             b.Time = t1;
-            keys = { a, b };
-            changed = true;
+            placeholder = { a, b };
         }
+        std::vector<AnimationKey>& keys = empty ? placeholder : target;
+        bool changed = false;
         if (!(t1 > t0))
             t1 = t0 + 1.0f;
         const float span = t1 - t0;
@@ -472,6 +479,8 @@ namespace Zamin::UI {
             Tooltip("Tanlangan kalitdan keyingisigacha qanday o'tadi");
 
         storage->SetInt(selectedKey, selected);
+        if (empty && changed)
+            target = std::move(placeholder);
         return changed;
     }
 

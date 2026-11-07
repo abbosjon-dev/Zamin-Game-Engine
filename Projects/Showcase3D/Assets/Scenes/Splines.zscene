@@ -327,7 +327,7 @@
       },
       "SplineFollower": {
         "Path": 7900000000000004,
-        "Speed": 6.0,
+        "Speed": 7.5,
         "Mode": "Loop",
         "StartPosition": 0.0,
         "Rotation": "Path3D",
@@ -465,7 +465,7 @@
       },
       "SplineFollower": {
         "Path": 7900000000000004,
-        "Speed": 9.0,
+        "Speed": 7.5,
         "Mode": "Loop",
         "StartPosition": 0.66,
         "Rotation": "Path3D",

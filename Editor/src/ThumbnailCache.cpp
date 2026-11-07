@@ -1,4 +1,5 @@
 #include "ThumbnailCache.h"
+#include <Zamin/Core/Stopwatch.h>
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -308,10 +309,9 @@ namespace Zamin {
             });
         }
 
-        auto start = std::chrono::steady_clock::now();
+        const Stopwatch budget;
         int uploads = 0;
-        while (!m_Ready.empty() && uploads < s_UploadsPerFrame &&
-               std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count() < s_UploadBudgetMs)
+        while (!m_Ready.empty() && uploads < s_UploadsPerFrame && budget.ElapsedMilliseconds() < s_UploadBudgetMs)
         {
             Result result = std::move(m_Ready.front());
             m_Ready.pop_front();

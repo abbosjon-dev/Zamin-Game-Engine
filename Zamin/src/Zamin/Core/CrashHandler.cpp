@@ -6,6 +6,7 @@
 #include "Zamin/Core/Version.h"
 #include "Zamin/Utils/FileSystem.h"
 
+#include <algorithm>
 #include <atomic>
 #include <cstdlib>
 #include <cstring>
@@ -74,6 +75,9 @@ namespace Zamin {
         std::atomic<int> s_Reporting{ 0 };      // 1 while (or after) a report is written
         std::atomic<long> s_ReporterThread{ 0 };
         std::atomic<int> s_ReportDone{ 0 };
+        // Why the program is about to abort (SetAbortReason: a failed assert), named in the report.
+        char s_AbortReason[ArgSize] = {};
+        std::atomic<int> s_AbortReasonSet{ 0 };
 
 #if ZM_CRASH_HANDLER_SUPPORTED
         constexpr int s_Signals[] = { SIGSEGV, SIGABRT, SIGFPE, SIGILL, SIGBUS };
@@ -359,6 +363,11 @@ namespace Zamin {
                 Append(note, sizeof(note), "ushlanmagan istisno - ");
                 Append(note, sizeof(note), exception);
             }
+            else if (signal == SIGABRT && s_AbortReasonSet.load() == 1)
+            {
+                Append(note, sizeof(note), "assert bajarilmadi - ");
+                Append(note, sizeof(note), s_AbortReason);
+            }
             else
             {
                 Append(note, sizeof(note), CrashHandler::GetSignalName(signal));
@@ -619,6 +628,33 @@ namespace Zamin {
 #endif
     }
 
+    void CrashHandler::SetAbortReason(std::string_view reason)
+    {
+        // The first reason stays (another thread failing at the same moment does not overwrite it).
+        int expected = 0;
+        if (reason.empty() || !s_AbortReasonSet.compare_exchange_strong(expected, 2))
+            return;
+        const size_t length = std::min(reason.size(), sizeof(s_AbortReason) - 1);
+        std::memcpy(s_AbortReason, reason.data(), length);
+        s_AbortReason[length] = '\0';
+        // (One line in the report.)
+        for (size_t i = 0; i < length; i++)
+            if (s_AbortReason[i] == '\n' || s_AbortReason[i] == '\r')
+                s_AbortReason[i] = ' ';
+        s_AbortReasonSet.store(1);
+    }
+
+    std::string CrashHandler::GetAbortReason()
+    {
+        return s_AbortReasonSet.load() == 1 ? std::string(s_AbortReason) : std::string();
+    }
+
+    void CrashHandler::ClearAbortReason()
+    {
+        s_AbortReason[0] = '\0';
+        s_AbortReasonSet.store(0);
+    }
+
     fs::path CrashHandler::GetLastReportPath() { return s_LastReport[0] ? fs::path(s_LastReport) : fs::path(); }
 
     // ------------------------------------------------------------------ the report
@@ -640,6 +676,14 @@ namespace Zamin {
             Append(line, sizeof(line), "ushlanmagan C++ istisnosi - ");
             Write(fd, line);
             Write(fd, exception);
+            Write(fd, "\n");
+        }
+        else if (signal == SIGABRT && s_AbortReasonSet.load() == 1)
+        {
+            // abort() after a failed ZM_ASSERT: what failed (the expression, the message, file:line).
+            Append(line, sizeof(line), "assert bajarilmadi - ");
+            Write(fd, line);
+            Write(fd, s_AbortReason);
             Write(fd, "\n");
         }
         else

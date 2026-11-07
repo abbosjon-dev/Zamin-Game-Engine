@@ -4,6 +4,8 @@
 #include <Zamin/ImGui/Icons.h>
 
 #include <algorithm>
+#include <array>
+#include <bit>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -15,6 +17,7 @@
 #include <set>
 #include <thread>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 using namespace Zamin;
@@ -68,10 +71,109 @@ static void ResetCounters() { g_Created = g_Updated = g_Destroyed = g_Collisions
 // ------------------------------------------------------------------ tests
 TEST(UUIDsAreUnique)
 {
-    std::set<uint64_t> ids;
+    // A million ids: none 0, none twice.
+    constexpr size_t N = 1000000;
+    std::vector<uint64_t> ids(N);
+    for (uint64_t& id : ids)
+        id = (uint64_t)UUID();
+    CHECK(std::find(ids.begin(), ids.end(), 0ull) == ids.end());
+
+    // Distribution: every one of the 64 bits is set in half of them (sd 0.0005: 0.005 is 10 sd), the low,
+    // high and a middle byte are spread evenly over 256 values (chi-square, 255 degrees of freedom: mean
+    // 255, sd 22.6 - 400 is past 6 sd), and one id says nothing about the next (they differ in 32 bits).
+    std::array<uint32_t, 64> ones{};
+    std::array<std::array<uint32_t, 256>, 3> bytes{};
+    double xorBits = 0.0;
+    for (size_t i = 0; i < N; i++)
+    {
+        const uint64_t id = ids[i];
+        for (int b = 0; b < 64; b++)
+            ones[(size_t)b] += (uint32_t)((id >> b) & 1u);
+        bytes[0][id & 0xFF]++;
+        bytes[1][(id >> 28) & 0xFF]++;
+        bytes[2][id >> 56]++;
+        if (i > 0)
+            xorBits += (double)std::popcount(id ^ ids[i - 1]);
+    }
+    for (int b = 0; b < 64; b++)
+        CHECK_NEAR((double)ones[(size_t)b] / (double)N, 0.5, 0.005);
+    for (const auto& histogram : bytes)
+    {
+        const double expected = (double)N / 256.0;
+        double chi = 0.0;
+        for (uint32_t count : histogram)
+            chi += ((double)count - expected) * ((double)count - expected) / expected;
+        CHECK(chi < 400.0);
+    }
+    CHECK_NEAR(xorBits / (double)(N - 1), 32.0, 0.05);
+
+    std::sort(ids.begin(), ids.end());
+    CHECK(std::adjacent_find(ids.begin(), ids.end()) == ids.end());
+
+    // Threads (job workers, the scene loader) draw from their own generators: no data race and no thread
+    // repeats another's ids - also against the million above.
+    constexpr int Threads = 8, PerThread = 50000;
+    std::vector<std::vector<uint64_t>> perThread(Threads);
+    std::vector<std::thread> workers;
+    for (int t = 0; t < Threads; t++)
+        workers.emplace_back([&perThread, t] {
+            perThread[(size_t)t].reserve(PerThread);
+            for (int i = 0; i < PerThread; i++)
+                perThread[(size_t)t].push_back((uint64_t)UUID());
+        });
+    for (std::thread& w : workers)
+        w.join();
+    std::vector<uint64_t> all = ids;
+    for (const auto& list : perThread)
+    {
+        CHECK(list.size() == (size_t)PerThread && std::find(list.begin(), list.end(), 0ull) == list.end());
+        all.insert(all.end(), list.begin(), list.end());
+    }
+    std::sort(all.begin(), all.end());
+    CHECK(all.size() == N + (size_t)Threads * PerThread && std::adjacent_find(all.begin(), all.end()) == all.end());
+}
+
+TEST(UUIDTextAndHashing)
+{
+    // Text: 16 lower-case hex digits, read back exactly.
+    CHECK(UUID(255).ToString() == "00000000000000ff" && UUID(0).ToString() == "0000000000000000");
+    CHECK(UUID(UINT64_MAX).ToString() == "ffffffffffffffff" && UUID(0x0123456789ABCDEFull).ToString() == "0123456789abcdef");
     for (int i = 0; i < 10000; i++)
-        ids.insert((uint64_t)UUID());
-    CHECK(ids.size() == 10000);
+    {
+        const UUID id;
+        const std::string text = id.ToString();
+        CHECK(text.size() == 16 && text.find_first_not_of("0123456789abcdef") == std::string::npos);
+        const std::optional<UUID> back = UUID::FromString(text);
+        CHECK(back && (uint64_t)*back == (uint64_t)id);
+    }
+    CHECK(UUID::FromString("FF") && (uint64_t)*UUID::FromString("FF") == 255 && (uint64_t)*UUID::FromString("0x1f") == 31);
+    CHECK(UUID::FromString("  0123456789ABCDEF\n") && (uint64_t)*UUID::FromString("  0123456789ABCDEF\n") == 0x0123456789ABCDEFull);
+    CHECK(!UUID::FromString("") && !UUID::FromString("0x") && !UUID::FromString("12345678901234567") && !UUID::FromString("12g4") &&
+          !UUID::FromString("-1") && !UUID::FromString("1 2"));
+    CHECK(!UUID::FromString("0") && UUID::FromString("0", true) && !UUID::FromString("0", true)->IsValid());
+    const UUID made;
+    CHECK(made.IsValid() && made.GetValue() == (uint64_t)made && !UUID(0).IsValid());
+    // Asset handles are UUIDs with the same text.
+    const AssetHandle handle = AssetHandle::Generate();
+    CHECK(handle.IsValid() && handle.ToString() == UUID(handle.GetValue()).ToString() && AssetHandle::FromString(handle.ToString()) == handle);
+
+    // Hashing: the same as the value's hash (hash tables keep their order), equal ids hash equal, and random
+    // ids spread over the buckets (no bucket of a 100000-element set holds more than a handful).
+    CHECK(std::hash<UUID>()(made) == std::hash<uint64_t>()((uint64_t)made) && std::hash<UUID>()(UUID(made.GetValue())) == std::hash<UUID>()(made));
+    std::unordered_set<UUID> set;
+    std::vector<UUID> kept;
+    for (int i = 0; i < 100000; i++)
+    {
+        kept.emplace_back();
+        set.insert(kept.back());
+    }
+    CHECK(set.size() == kept.size());
+    size_t found = 0, largest = 0;
+    for (const UUID& id : kept)
+        found += set.contains(id) ? 1 : 0;
+    for (size_t b = 0; b < set.bucket_count(); b++)
+        largest = std::max(largest, set.bucket_size(b));
+    CHECK(found == kept.size() && largest <= 16 && !set.contains(UUID(0)));
 }
 
 TEST(EntityLifecycle)
@@ -38808,4 +38910,557 @@ TEST(MemoryStatsScenesAndPoseCaches)
     c = PlayerCommandLine::Parse({ "--jobs", "ko'p" });
     CHECK(!c.Jobs && c.Errors.size() == 1);
     CHECK(PlayerCommandLine::GetHelpText().find("--jobs N") != std::string::npos);
+}
+
+// ---- M19: StringUtils
+TEST(StringUtilsBasics)
+{
+    using namespace StringUtils;
+    // Trimming.
+    CHECK(Trim("  \t a b \r\n") == "a b" && TrimStart("  x ") == "x " && TrimEnd(" x  ") == " x" && Trim("   ").empty() && Trim("").empty());
+    CHECK(Trim("//a/b//", "/") == "a/b" && Trim("\"so'z\"", "\"") == "so'z" && Trim("xxx", "x").empty());
+    // Case: ASCII only, UTF-8 bytes untouched.
+    CHECK(ToLower("Salom DUNYO 42") == "salom dunyo 42" && ToUpper("o'zbek") == "O'ZBEK");
+    CHECK(ToUpper("g\xCA\xBB" "alaba \xD1\x9E") == "G\xCA\xBB" "ALABA \xD1\x9E"); // ʻ and ў stay as they are
+    CHECK(EqualsIgnoreCase("Player", "pLAYER") && !EqualsIgnoreCase("Player", "Players") && EqualsIgnoreCase("", ""));
+    CHECK(CompareIgnoreCase("abc", "ABD") < 0 && CompareIgnoreCase("B", "a") > 0 && CompareIgnoreCase("Ab", "aB") == 0 && CompareIgnoreCase("a", "ab") < 0);
+    CHECK(StartsWithIgnoreCase("Textures/Hero.PNG", "textures/") && EndsWithIgnoreCase("Hero.PNG", ".png") && !EndsWithIgnoreCase("png", ".png"));
+    CHECK(FindIgnoreCase("Sahna YUKLANDI", "yuklandi") == 6 && FindIgnoreCase("abc", "x") == std::string_view::npos && StringUtils::ContainsIgnoreCase("Xato", "AT"));
+    CHECK(FindIgnoreCase("aXaX", "x", 2) == 3 && FindIgnoreCase("ab", "", 1) == 1);
+    CHECK(StartsWith("--fps", "--") && EndsWith("a.zscene", ".zscene") && Contains("abc", "bc") && Contains("abc", 'c') && !Contains("abc", 'd'));
+    CHECK(Count("a,b,,c", ",") == 3 && Count("aaaa", "aa") == 2 && Count("abc", "") == 0);
+
+    // Splitting.
+    CHECK((SplitView("a,b,,c", ',') == std::vector<std::string_view>{ "a", "b", "", "c" }));
+    CHECK((SplitView("a,b,,c,", ',', SplitFlags::SkipEmpty) == std::vector<std::string_view>{ "a", "b", "c" }));
+    CHECK((SplitView(" a , b ,  ", ',', SplitFlags::Trim | SplitFlags::SkipEmpty) == std::vector<std::string_view>{ "a", "b" }));
+    CHECK(SplitView("", ',').size() == 1 && SplitView("", ',', SplitFlags::SkipEmpty).empty());
+    CHECK((SplitView("a::b::c", "::") == std::vector<std::string_view>{ "a", "b", "c" } && SplitView("abc", "") == std::vector<std::string_view>{ "abc" }));
+    CHECK((Split("x;y", ';') == std::vector<std::string>{ "x", "y" } && Split("1--2", "--") == std::vector<std::string>{ "1", "2" }));
+    CHECK((SplitAnyView("a, b;c", ",; ", SplitFlags::SkipEmpty) == std::vector<std::string_view>{ "a", "b", "c" }));
+    CHECK((SplitLines("a\r\nb\rc\n") == std::vector<std::string_view>{ "a", "b", "c" } && SplitLines("a\n\nb") == std::vector<std::string_view>{ "a", "", "b" }));
+    CHECK((SplitLines("").empty() && SplitLines("\n") == std::vector<std::string_view>{ "" }));
+    CHECK((SplitWhitespace("  x\ty   z\n") == std::vector<std::string_view>{ "x", "y", "z" } && SplitWhitespace(" \t ").empty()));
+    std::string_view before, after;
+    CHECK(SplitOnce("engine=warn=x", '=', before, after) && before == "engine" && after == "warn=x" && !SplitOnce("abc", '=', before, after));
+    // Splitting and joining are inverse.
+    const std::string csv = "bir,ikki,,uch";
+    CHECK(Join(Split(csv, ','), ",") == csv && Join(SplitView(csv, ','), ",") == csv);
+
+    // Joining.
+    CHECK((Join(std::vector<std::string>{ "a", "b", "c" }, ", ") == "a, b, c" && Join(std::vector<std::string>{}, ",").empty()));
+    CHECK((Join({ "x", "y" }, "/") == "x/y" && Join(std::vector<const char*>{ "1", "2" }, "+") == "1+2"));
+
+    // Replacing and building.
+    CHECK(Replace("a-b-c", "-", "+") == "a+b-c" && ReplaceAll("a-b-c", "-", "+") == "a+b+c" && ReplaceAll("abc", "", "x") == "abc");
+    CHECK(ReplaceAll("aaa", "a", "aa") == "aaaaaa" && ReplaceAll("o'zbek o'yin", "o'", "oʻ") == "oʻzbek oʻyin");
+    std::string text = "1 2 3 2";
+    CHECK(ReplaceAllInPlace(text, "2", "ikki") == 2 && text == "1 ikki 3 ikki" && ReplaceAllInPlace(text, "x", "y") == 0);
+    CHECK(Repeat("ab", 3) == "ababab" && Repeat("x", 0).empty());
+    CHECK(PadLeft("7", 3, '0') == "007" && PadRight("ab", 4) == "ab  " && PadLeft("abcd", 2) == "abcd");
+    CHECK(PadLeft("\xD1\x9E", 3) == "  \xD1\x9E"); // one code point (two bytes): two spaces
+    CHECK(RemoveAll("1 234-567", " -") == "1234567");
+
+    // Formatting.
+    CHECK((Format("{} + {} = {}", 2, 3, 5) == "2 + 3 = 5" && Format("{:.2f}", 1.005) == "1.00"));
+    CHECK((FormatRuntime("{} va {}", 1, "ikki") == "1 va ikki" && FormatRuntime("buzuq {", 1) == "buzuq {" && FormatRuntime("{} {}", 1) == "{} {}"));
+    CHECK(FormatBytes(512) == "512 B" && FormatBytes(1536) == "1.5 KB" && FormatBytes(300 * 1024) == "300 KB" && FormatBytes(5u * 1024 * 1024 + 300 * 1024) == "5.3 MB");
+    CHECK(FormatBytes(3ull << 30) == "3.0 GB" && FormatBytes(0) == "0 B");
+    for (uint64_t bytes : { 0ull, 1023ull, 1024ull, 99999ull, 123456789ull, 5ull << 40 })
+        CHECK(AssetFiles::FormatSize(bytes) == FormatBytes(bytes)); // the asset browser uses it
+    CHECK(FormatDuration(0.00004) == "40.0 \xC2\xB5s" && FormatDuration(0.00042) == "0.42 ms" && FormatDuration(0.85) == "850 ms");
+    CHECK(FormatDuration(12.4) == "12.4 s" && FormatDuration(185.0) == "3 daq 05 s" && FormatDuration(3720.0) == "1 soat 02 daq");
+    CHECK(FormatDuration(-2.0) == "-2.0 s" && FormatDuration(0.0) == "0.0 \xC2\xB5s");
+    CHECK(FormatThousands(1234567) == "1 234 567" && FormatThousands(-1000, ',') == "-1,000" && FormatThousands(999) == "999" && FormatThousands(0) == "0");
+    CHECK(FormatThousands(INT64_MIN) == "-9 223 372 036 854 775 808");
+    CHECK(ToHex(255) == "ff" && ToHex(255, 4) == "00ff" && ToHex(0) == "0" && ToHex(UINT64_MAX) == "ffffffffffffffff");
+
+    // Numbers: the whole text, no exceptions, no overflow.
+    CHECK(ParseInt<int>("42") == 42 && ParseInt<int>(" -7 ") == -7 && ParseInt<int>("+5") == 5);
+    CHECK(!ParseInt<int>("12a") && !ParseInt<int>("") && !ParseInt<int>("-") && !ParseInt<int>("+-1") && !ParseInt<int>("1 2") && !ParseInt<int>("--1"));
+    CHECK(!ParseInt<int>("2147483648") && ParseInt<int>("-2147483648") == INT32_MIN && ParseInt<int>("2147483647") == INT32_MAX);
+    CHECK(ParseInt<uint8_t>("255") == 255 && !ParseInt<uint8_t>("256") && !ParseInt<uint8_t>("-1") && !ParseInt<unsigned>("-0"));
+    CHECK(ParseInt<int64_t>("-9223372036854775808") == INT64_MIN && !ParseInt<int64_t>("9223372036854775808"));
+    CHECK(ParseInt<int>("ff", 16) == 255 && ParseInt<int>("0x1F", 16) == 31 && ParseInt<uint64_t>("FFFFFFFFFFFFFFFF", 16) == UINT64_MAX);
+    CHECK(ParseFloat<float>("1.5") == 1.5f && ParseFloat<double>("  -2 ") == -2.0 && ParseFloat<double>("1e3") == 1000.0 && ParseFloat<float>(".5") == 0.5f);
+    CHECK(!ParseFloat<float>("1,5") && !ParseFloat<float>("abc") && !ParseFloat<float>("") && !ParseFloat<float>("1e999") && !ParseFloat<double>("2.5x"));
+    CHECK(ParseFloat<double>("+0.25") == 0.25 && !ParseFloat<double>("+-1"));
+    CHECK(ParseBool("true") == true && ParseBool(" Ha ") == true && ParseBool("OFF") == false && ParseBool("yo'q") == false && !ParseBool("balki"));
+    CHECK(ToString(0.1f) == "0.1" && ToString(3) == "3" && ToString(true) == "true" && ToString(-2.5) == "-2.5" && ToString(1e20) == "1e+20");
+    RandomGenerator random(7);
+    for (int i = 0; i < 1000; i++)
+    {
+        const double value = (random.Float() - 0.5) * std::pow(10.0, random.Range(-20, 20));
+        CHECK(ParseFloat<double>(ToString(value)) == value); // the shortest text reads back exactly
+        const int64_t integer = (int64_t)(random.Float() * 2.0e18) - (int64_t)1e18;
+        CHECK(ParseInt<int64_t>(ToString(integer)) == integer);
+    }
+}
+
+TEST(StringUtilsUtf8)
+{
+    using namespace StringUtils;
+    CHECK(Utf8Encode('A') == "A" && Utf8Encode(0x2BB) == "\xCA\xBB" && Utf8Encode(0x40E) == "\xD0\x8E" && Utf8Encode(0x20AC) == "\xE2\x82\xAC");
+    CHECK(Utf8Encode(0x1F600) == "\xF0\x9F\x98\x80" && Utf8Encode(0xD800) == "\xEF\xBF\xBD" && Utf8Encode(0x110000) == "\xEF\xBF\xBD");
+    CHECK(Utf8EncodedSize(0x7F) == 1 && Utf8EncodedSize(0x80) == 2 && Utf8EncodedSize(0xFFFF) == 3 && Utf8EncodedSize(0x10000) == 4);
+
+    // Every code point there is: encoded and decoded back, in the size it says.
+    size_t mismatches = 0;
+    std::string buffer;
+    for (uint32_t cp = 0; cp <= MaxCodepoint; cp++)
+    {
+        if (cp >= 0xD800 && cp <= 0xDFFF)
+            continue;
+        buffer.clear();
+        Utf8Append(buffer, cp);
+        size_t i = 0;
+        if (Utf8Decode(buffer, i) != cp || i != buffer.size() || buffer.size() != Utf8EncodedSize(cp))
+            mismatches++;
+    }
+    CHECK(mismatches == 0);
+
+    // Broken UTF-8: U+FFFD, one byte at a time, never stuck and never past the end.
+    auto decodeAll = [](std::string_view text) {
+        std::vector<uint32_t> out;
+        size_t i = 0;
+        while (i < text.size())
+            out.push_back(Utf8Decode(text, i));
+        return out;
+    };
+    const uint32_t R = ReplacementCharacter;
+    CHECK((decodeAll("\x80") == std::vector<uint32_t>{ R } && decodeAll("\xC3") == std::vector<uint32_t>{ R }));
+    CHECK((decodeAll("\xC3(") == (std::vector<uint32_t>{ R, '(' }) && decodeAll("\xC0\xAF") == (std::vector<uint32_t>{ R, R })));
+    CHECK((decodeAll("\xE0\x80\xAF") == (std::vector<uint32_t>{ R, R, R }) && decodeAll("\xED\xA0\x80") == (std::vector<uint32_t>{ R, R, R })));
+    CHECK((decodeAll("\xF4\x90\x80\x80").size() == 4 && decodeAll("\xFF" "a") == (std::vector<uint32_t>{ R, 'a' })));
+    CHECK(decodeAll("\xE2\x82") == (std::vector<uint32_t>{ R, R })); // cut off at the end
+
+    const std::string word = "O\xCA\xBBzbekiston";  // Oʻzbekiston: 11 code points, 12 bytes
+    CHECK(Utf8Length(word) == 11 && word.size() == 12 && Utf8Length("") == 0 && Utf8Length("\xFF\xFE") == 2);
+    CHECK(Utf8IsValid(word) && Utf8IsValid("\xEF\xBF\xBD") && !Utf8IsValid("a\xFF") && !Utf8IsValid("\xC3") && Utf8IsValid(""));
+    CHECK(Utf8Sanitize("a\xFF" "b") == "a\xEF\xBF\xBD" "b" && Utf8Sanitize(word) == word);
+    const std::string cyrillic = "\xD1\x9E\xD0\xB7\xD0\xB1\xD0\xB5\xD0\xBA"; // ўзбек
+    CHECK(Utf8Truncate(cyrillic, 2) == "\xD1\x9E\xD0\xB7" && Utf8Truncate(cyrillic, 99) == cyrillic && Utf8Truncate(cyrillic, 0).empty());
+    CHECK(Utf8ByteOffset(word, 2) == 3 && Utf8ByteOffset(word, 100) == word.size());
+    const std::u32string wide = Utf8ToUtf32(word);
+    CHECK(wide.size() == 11 && wide[1] == 0x2BB && Utf32ToUtf8(wide) == word);
+
+    // Iterating.
+    std::vector<uint32_t> codepoints;
+    std::vector<size_t> offsets;
+    for (auto it = Utf8View(word).begin(); it != Utf8View(word).end(); ++it)
+    {
+        codepoints.push_back(*it);
+        offsets.push_back(it.Offset());
+    }
+    CHECK(codepoints.size() == 11 && codepoints[1] == 0x2BB && offsets[2] == 3);
+    size_t count = 0;
+    for (uint32_t c : Utf8View(cyrillic))
+        count += c >= 0x400 && c < 0x500 ? 1 : 0;
+    CHECK(count == 5);
+    std::vector<size_t> starts;
+    Utf8ForEach("a\xD1\x9E" "b", [&](uint32_t, size_t at) { starts.push_back(at); });
+    CHECK((starts == (std::vector<size_t>{ 0, 1, 3 })));
+
+    // The text renderer's decoder and the input fields' encoder are these.
+    for (std::string_view sample : { std::string_view(word), std::string_view(cyrillic), std::string_view("\xE2\x80\x99 \xF0\x9F\x98\x80") })
+    {
+        size_t a = 0, b = 0;
+        bool same = true;
+        while (a < sample.size())
+            same &= DecodeUTF8(sample, a) == Utf8Decode(sample, b) && a == b;
+        CHECK(same);
+    }
+    CHECK(TextEdit::ToUTF8(0x2BC) == Utf8Encode(0x2BC) && TextEdit::ToUTF8(0xDFFF) == Utf8Encode(ReplacementCharacter));
+}
+
+// ---- M19: Stopwatch, ScopedLogTimer, Timer
+TEST(StopwatchAndTimers)
+{
+    using namespace std::chrono_literals;
+    Stopwatch watch;
+    CHECK(watch.IsRunning());
+    std::this_thread::sleep_for(20ms);
+    CHECK(watch.ElapsedMilliseconds() >= 20.0 && watch.Elapsed() >= 20ms);
+    watch.Stop();
+    const double stopped = watch.ElapsedMilliseconds();
+    std::this_thread::sleep_for(10ms);
+    CHECK(!watch.IsRunning() && watch.ElapsedMilliseconds() == stopped); // stopped: the time stands
+    CHECK_NEAR(watch.ElapsedMicroseconds(), stopped * 1000.0, 1e-6 * stopped * 1000.0 + 1e-9);
+    CHECK_NEAR(watch.ElapsedSeconds(), stopped / 1000.0, 1e-12);
+    CHECK(watch.ElapsedNanoseconds() >= 20000000);
+    CHECK(watch.Format() == StringUtils::FormatDuration(watch.ElapsedSeconds()));
+    watch.Start();
+    std::this_thread::sleep_for(5ms);
+    CHECK(watch.ElapsedMilliseconds() >= stopped + 5.0); // goes on from where it stood
+    watch.Reset();
+    CHECK(!watch.IsRunning() && watch.ElapsedNanoseconds() == 0 && watch.GetLaps().empty());
+    Stopwatch idle(false);
+    CHECK(!idle.IsRunning() && idle.ElapsedMilliseconds() == 0.0);
+
+    // Laps: each the time since the previous one.
+    watch.Restart();
+    std::this_thread::sleep_for(5ms);
+    const double first = watch.Lap();
+    std::this_thread::sleep_for(8ms);
+    const double second = watch.Lap();
+    CHECK(first >= 5.0 && second >= 8.0 && watch.GetLaps().size() == 2 && watch.GetLaps()[1] == second);
+    CHECK(first + second <= watch.ElapsedMilliseconds() + 1e-6 && watch.GetCurrentLapMilliseconds() <= watch.ElapsedMilliseconds() - first - second + 1e-6);
+
+    // ScopedLogTimer: into a variable, or logged at the scope's end (at its level, for its logger).
+    double measured = -1.0;
+    {
+        ScopedLogTimer timer(&measured);
+        std::this_thread::sleep_for(3ms);
+    }
+    CHECK(measured >= 3.0);
+    const LogLevel minLevel = Log::GetMinLevel();
+    const bool terminal = Log::GetTerminalOutput();
+    Log::SetMinLevel(LogLevel::Trace);
+    Log::SetTerminalOutput(false);
+    auto last = [] {
+        const std::vector<LogMessage> messages = Log::GetMessages();
+        return messages.empty() ? LogMessage{} : messages.back();
+    };
+    uint64_t written = Log::GetTotalWritten();
+    {
+        ZM_CORE_LOG_SCOPE_TIME("Sinov bloki");
+    }
+    CHECK(Log::GetTotalWritten() == written + 1 && last().Text.starts_with("Sinov bloki: ") && last().Level == LogLevel::Info && !last().FromClient);
+    {
+        ZM_LOG_SCOPE_TIME("O'yin bloki");
+    }
+    CHECK(last().Text.starts_with("O'yin bloki: ") && last().FromClient);
+    written = Log::GetTotalWritten();
+    {
+        ZM_LOG_SCOPE_TIME_OVER("Tez blok", 10000.0);   // well under the limit: nothing
+    }
+    {
+        ScopedLogTimer cancelled("Bekor qilingan");
+        cancelled.Cancel();
+    }
+    CHECK(Log::GetTotalWritten() == written);
+    {
+        ScopedLogTimer slow("Sekin blok", 1.0, LogLevel::Warn);
+        std::this_thread::sleep_for(3ms);
+    }
+    CHECK(last().Text.starts_with("Sekin blok: ") && last().Text.find("(chegara 1.00 ms)") != std::string::npos && last().Level == LogLevel::Warn);
+    Log::SetLevel(LogSource::Engine, LogLevel::Error); // the engine's info is not wanted: no message
+    written = Log::GetTotalWritten();
+    {
+        ZM_CORE_LOG_SCOPE_TIME("Yashirin");
+    }
+    CHECK(Log::GetTotalWritten() == written);
+    Log::SetLevel(LogSource::Engine, LogLevel::Trace);
+    Log::SetMinLevel(minLevel);
+    Log::SetTerminalOutput(terminal);
+
+    // Timer: a one-shot countdown on game time.
+    Timer once(1.0f);
+    CHECK(once.Tick(0.4f) == 0 && !once.IsFinished() && once.IsRunning());
+    CHECK_NEAR(once.GetProgress(), 0.4f, 1e-6f);
+    CHECK_NEAR(once.GetRemaining(), 0.6f, 1e-6f);
+    CHECK(once.Tick(0.7f) == 1 && once.IsFinished() && once.JustFinished() && once.GetRemaining() == 0.0f && once.GetElapsed() == 1.0f);
+    CHECK(once.Tick(1.0f) == 0 && !once.JustFinished() && once.GetCompletions() == 1 && once.GetProgress() == 1.0f);
+    once.Restart();
+    CHECK(!once.IsFinished() && once.GetElapsed() == 0.0f);
+    once.Pause();
+    CHECK(once.Tick(5.0f) == 0 && once.GetElapsed() == 0.0f && once.IsPaused() && !once.IsRunning());
+    once.Resume();
+    CHECK(once.Tick(-1.0f) == 0 && once.Tick(std::numeric_limits<float>::quiet_NaN()) == 0 && once.GetElapsed() == 0.0f);
+    once.Restart(0.25f);
+    CHECK(once.GetDuration() == 0.25f && once.Tick(0.25f) == 1);
+    once.SetDuration(2.0f); // longer again: not finished any more
+    CHECK(!once.IsFinished() && once.Tick(1.0f) == 0 && once.Tick(1.0f) == 1);
+    // A cooldown that allows the first use at once.
+    Timer cooldown(0.5f);
+    cooldown.Finish();
+    CHECK(cooldown.IsFinished() && !cooldown.JustFinished());
+
+    // Repeating: a long step fires it several times, the rest carries over.
+    Timer every(0.5f, true);
+    CHECK(every.Tick(1.6f) == 3 && every.JustFinished() && every.GetCompletions() == 3 && !every.IsFinished());
+    CHECK_NEAR(every.GetElapsed(), 0.1f, 1e-5f);
+    CHECK(every.Tick(0.1f) == 0 && !every.JustFinished() && every.Tick(0.35f) == 1);
+    Timer zero(0.0f, true), zeroOnce(0.0f);
+    CHECK(zero.Tick(0.016f) == 1 && zero.Tick(0.016f) == 1 && zeroOnce.Tick(0.016f) == 1 && zeroOnce.IsFinished() && zeroOnce.GetProgress() == 1.0f);
+    Timer negative(-3.0f);
+    CHECK(negative.GetDuration() == 0.0f);
+}
+
+// ---- M19: log levels per logger, the log file's level, --log-level
+TEST(LogLevelsPerLogger)
+{
+    namespace fs = std::filesystem;
+    const LogLevel minLevel = Log::GetMinLevel();
+    const LogLevelSettings levels = LogLevelSettings::GetCurrent();
+    const bool terminal = Log::GetTerminalOutput();
+    Log::SetMinLevel(LogLevel::Trace);
+    Log::SetTerminalOutput(false);
+
+    // Names.
+    CHECK(Log::ParseLevel("trace") == LogLevel::Trace && Log::ParseLevel("Debug") == LogLevel::Trace && Log::ParseLevel(" INFO ") == LogLevel::Info);
+    CHECK(Log::ParseLevel("warning") == LogLevel::Warn && Log::ParseLevel("err") == LogLevel::Error && Log::ParseLevel("fatal") == LogLevel::Critical);
+    CHECK(Log::ParseLevel("off") == LogLevel::Off && Log::ParseLevel("none") == LogLevel::Off && Log::ParseLevel("Xato") == LogLevel::Error);
+    CHECK(Log::ParseLevel("ogohlantirish") == LogLevel::Warn && Log::ParseLevel("3") == LogLevel::Error && !Log::ParseLevel("9") && !Log::ParseLevel("baland"));
+    for (int l = 0; l <= (int)LogLevel::Off; l++)
+        CHECK(Log::ParseLevel(Log::LevelToName((LogLevel)l)) == (LogLevel)l && Log::ParseLevel(Log::LevelDisplayName((LogLevel)l)) == (LogLevel)l);
+
+    // Each logger its own level; below it nothing is written (and nothing is formatted).
+    Log::SetLevel(LogSource::Engine, LogLevel::Warn);
+    CHECK(!Log::IsEnabled(LogLevel::Info, false) && Log::IsEnabled(LogLevel::Info, true) && Log::IsEnabled(LogLevel::Warn, false));
+    uint64_t written = Log::GetTotalWritten();
+    int formatted = 0;
+    auto counted = [&] { return ++formatted; };
+    ZM_CORE_INFO("dvigatel info {}", counted());
+    ZM_CORE_TRACE("dvigatel trace {}", counted());
+    CHECK(Log::GetTotalWritten() == written && formatted == 0);
+    ZM_CORE_WARN("dvigatel ogohlantirishi {}", counted());
+    ZM_INFO("o'yin info {}", counted());
+    CHECK(Log::GetTotalWritten() == written + 2 && formatted == 2);
+    Log::SetLevel(LogSource::App, LogLevel::Off);
+    written = Log::GetTotalWritten();
+    ZM_CRITICAL("o'yin kritik");
+    Log::Write(LogLevel::Critical, true, "to'g'ridan-to'g'ri");
+    CHECK(Log::GetTotalWritten() == written && !Log::IsEnabled(LogLevel::Off, false) && !Log::IsEnabled(LogLevel::Critical, true));
+    // The global minimum is one more threshold over both.
+    Log::SetLevel(LogSource::App, LogLevel::Trace);
+    Log::SetMinLevel(LogLevel::Error);
+    CHECK(!Log::IsEnabled(LogLevel::Warn, true) && Log::IsEnabled(LogLevel::Error, true));
+    Log::SetMinLevel(LogLevel::Trace);
+
+    // Settings and overrides.
+    LogLevelSettings settings;
+    CHECK(settings.IsDefault());
+    settings.Engine = LogLevel::Warn;
+    settings.App = LogLevel::Info;
+    settings.File = LogLevel::Error;
+    settings.Apply();
+    CHECK(LogLevelSettings::GetCurrent() == settings && Log::GetFileLevel() == LogLevel::Error && Log::GetLevel(LogSource::App) == LogLevel::Info);
+    CHECK(settings.Describe() == "dvigatel: Ogohlantirish, o'yin: Ma'lumot, fayl: Xato" && settings.ToSpec() == "engine=warn,app=info,file=error");
+    LogLevelOverride over;
+    CHECK(LogLevelOverride::Parse(settings.ToSpec(), over) && over.Over(LogLevelSettings()) == settings);
+    over = {};
+    CHECK(LogLevelOverride::Parse("warn", over) && over.Engine == LogLevel::Warn && over.App == LogLevel::Warn && !over.File);
+    over = {};
+    CHECK(LogLevelOverride::Parse("engine=error, app=info;file:warn", over) && over.Engine == LogLevel::Error && over.App == LogLevel::Info &&
+          over.File == LogLevel::Warn);
+    over = {};
+    CHECK(LogLevelOverride::Parse("zamin=trace game=off", over) && over.Engine == LogLevel::Trace && over.App == LogLevel::Off);
+    over = {};
+    CHECK(LogLevelOverride::Parse("warn,engine=info", over) && over.Engine == LogLevel::Info && over.App == LogLevel::Warn); // the later wins
+    CHECK(LogLevelOverride::Parse("*=critical", over) && over.Engine == LogLevel::Critical && over.ToSpec() == "engine=critical,app=critical");
+    std::string error;
+    LogLevelOverride untouched;
+    CHECK(!LogLevelOverride::Parse("engine=loud", untouched, &error) && error.find("loud") != std::string::npos && untouched.IsEmpty());
+    CHECK(!LogLevelOverride::Parse("speaker=warn", untouched, &error) && error.find("speaker") != std::string::npos && untouched.IsEmpty());
+    CHECK(!LogLevelOverride::Parse("  ", untouched, &error) && untouched.IsEmpty() && untouched.ToSpec().empty());
+    LogLevelOverride appOnly;
+    appOnly.App = LogLevel::Warn;
+    const LogLevelSettings merged = appOnly.Over(settings);
+    CHECK(merged.Engine == LogLevel::Warn && merged.App == LogLevel::Warn && merged.File == LogLevel::Error);
+    // ZAMIN_LOG_LEVEL.
+    setenv("ZAMIN_LOG_LEVEL", "app=error", 1);
+    CHECK(LogLevelOverride::FromEnvironment().App == LogLevel::Error && !LogLevelOverride::FromEnvironment().Engine);
+    LogLevelSettings{}.Apply();
+    setenv("ZAMIN_LOG_LEVEL", "juda baland", 1);
+    CHECK(LogLevelOverride::FromEnvironment().IsEmpty() && Log::GetMessages().back().Text.find("ZAMIN_LOG_LEVEL") != std::string::npos);
+    unsetenv("ZAMIN_LOG_LEVEL");
+    CHECK(LogLevelOverride::FromEnvironment().IsEmpty());
+
+    // The log file's own level: the console keeps everything, the file gets warnings and up (the
+    // messages from before the file was opened too).
+    const fs::path dir = fs::temp_directory_path() / ("zamin-loglevel-" + std::to_string((uint64_t)UUID()));
+    ZM_INFO("oldin info xabari");
+    ZM_WARN("oldin ogohlantirish xabari");
+    Log::SetFileLevel(LogLevel::Warn);
+    CHECK(LogFile::Open(dir / "game.log"));
+    ZM_INFO("keyin info xabari");
+    ZM_ERROR("keyin xato xabari");
+    LogFile::Close();
+    const std::string text = FileSystem::ReadTextFile(dir / "game.log");
+    CHECK(text.find("oldin ogohlantirish xabari") != std::string::npos && text.find("keyin xato xabari") != std::string::npos);
+    CHECK(text.find("oldin info xabari") == std::string::npos && text.find("keyin info xabari") == std::string::npos);
+    bool inConsole = false;
+    for (const LogMessage& m : Log::GetMessages())
+        inConsole |= m.Text == "keyin info xabari";
+    CHECK(inConsole);
+    Log::SetFileLevel(LogLevel::Trace);
+
+    // The player: --log-level, the project's Log settings.
+    PlayerCommandLine c = PlayerCommandLine::Parse({ "--log-level", "engine=warn,file=error" });
+    CHECK(c.Errors.empty() && c.LogLevels.Engine == LogLevel::Warn && c.LogLevels.File == LogLevel::Error && !c.LogLevels.App);
+    c = PlayerCommandLine::Parse({ "--log-level=off" });
+    CHECK(c.Errors.empty() && c.LogLevels.Engine == LogLevel::Off && c.LogLevels.App == LogLevel::Off);
+    c = PlayerCommandLine::Parse({ "--log-level", "baland" });
+    CHECK(c.Errors.size() == 1 && c.LogLevels.IsEmpty() && c.Errors[0].find("--log-level") != std::string::npos);
+    CHECK(PlayerCommandLine::GetHelpText().find("--log-level") != std::string::npos);
+
+    PlayerSettings player;
+    CHECK(player.ToJson().find("\"Log\"") == std::string::npos); // untouched: not written
+    player.Logging.Levels.App = LogLevel::Warn;
+    player.Logging.Levels.File = LogLevel::Error;
+    player.Logging.WriteFile = false;
+    player.Logging.KeepFiles = 12;
+    PlayerSettings readPlayer;
+    CHECK(player.ToJson().find("\"Log\"") != std::string::npos && PlayerSettings::FromJson(player.ToJson(), readPlayer) && readPlayer == player);
+    CHECK(PlayerSettings::FromJson(R"({ "Log": { "Engine": "nima", "App": "error", "Keep": 1000 } })", readPlayer) &&
+          readPlayer.Logging.Levels.Engine == LogLevel::Trace && readPlayer.Logging.Levels.App == LogLevel::Error &&
+          readPlayer.Logging.KeepFiles == PlayerLogSettings::MaxKeepFiles && readPlayer.Logging.WriteFile);
+    ProjectConfig config;
+    config.Player = player;
+    ProjectConfig readConfig;
+    CHECK(ProjectSerializer::ConfigFromString(ProjectSerializer::ConfigToString(config), readConfig) && readConfig.Player.Logging == player.Logging);
+
+    // The editor's preferences.
+    EditorPreferences prefs;
+    CHECK(prefs.Logging == LogPreferences() && prefs.Logging.WriteFile && prefs.Logging.KeepFiles == 5);
+    prefs.Logging.Levels.Engine = LogLevel::Info;
+    prefs.Logging.WriteFile = false;
+    prefs.Logging.KeepFiles = 3;
+    EditorPreferences readPrefs;
+    CHECK(readPrefs.FromJson(prefs.ToJson()) && readPrefs.Logging == prefs.Logging);
+    CHECK(readPrefs.FromJson(R"({ "ZaminEditorPreferences": 1, "Log": { "App": "loud", "Keep": -4 } })") && readPrefs.Logging.KeepFiles == 1 &&
+          readPrefs.Logging.Levels.App == LogLevel::Trace);
+
+    levels.Apply();
+    Log::SetMinLevel(minLevel);
+    Log::SetTerminalOutput(terminal);
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
+// ---- M19: asserts with messages
+TEST(AssertsWithMessages)
+{
+    namespace fs = std::filesystem;
+    const LogLevel minLevel = Log::GetMinLevel();
+    const bool terminal = Log::GetTerminalOutput();
+    Log::SetMinLevel(LogLevel::Trace);
+    Log::SetTerminalOutput(false);
+    const AssertMode mode = Assert::GetMode();
+
+    std::vector<AssertInfo> failed;
+    Assert::Handler previous = Assert::SetHandler([&](const AssertInfo& info) {
+        failed.push_back(info);
+        return AssertAction::Continue;
+    });
+    CHECK(Assert::HasHandler());
+    Assert::ResetCounts();
+    auto lastMessage = [] { return Log::GetMessages().back(); };
+
+#if ZM_ENABLE_ASSERTS
+    CHECK(Assert::AreAssertsEnabled());
+    // A failed ZM_ASSERT: the expression, the formatted message, file:line and the function; logged as critical.
+    const int value = 5;
+    const int assertLine = __LINE__; ZM_ASSERT(value < 3, "qiymat {} katta (chegara {})", value, 3);
+    CHECK(failed.size() == 1);
+    if (!failed.empty())
+    {
+        const AssertInfo& info = failed.back();
+        CHECK(std::string(info.Expression) == "value < 3" && info.Message == "qiymat 5 katta (chegara 3)" && info.Line == assertLine);
+        CHECK(std::string(Assert::GetFileName(info.File)) == "ZaminTests.cpp" && std::string(info.Function) == "AssertsWithMessages");
+        CHECK(info.Fatal && !info.Core && info.Count == 1);
+        CHECK((info.Describe() == std::format("value < 3 - qiymat 5 katta (chegara 3) (ZaminTests.cpp:{}, AssertsWithMessages)", assertLine)));
+    }
+    CHECK(lastMessage().Level == LogLevel::Critical && lastMessage().FromClient &&
+          lastMessage().Text.starts_with("Assert bajarilmadi: value < 3 - qiymat 5 katta (chegara 3) (ZaminTests.cpp:"));
+    // The engine's, without a message.
+    const int coreLine = __LINE__; ZM_CORE_ASSERT(value == 0);
+    CHECK(failed.size() == 2 && failed.back().Core && failed.back().Message.empty() &&
+          failed.back().Describe() == std::format("value == 0 (ZaminTests.cpp:{}, AssertsWithMessages)", coreLine) && !lastMessage().FromClient);
+    // A check that holds: nothing happens - neither the handler nor the message's arguments.
+    int conditions = 0, arguments = 0;
+    ZM_ASSERT((++conditions, true), "{}", ++arguments);
+    CHECK(failed.size() == 2 && conditions == 1 && arguments == 0);
+    // Old style (a plain message) still compiles and works.
+    ZM_CORE_ASSERT(value > 100, "GLFW ishga tushmadi");
+    CHECK(failed.size() == 3 && failed.back().Message == "GLFW ishga tushmadi");
+#else
+    CHECK(!Assert::AreAssertsEnabled());
+#endif
+
+    // ZM_VERIFY: always evaluated once, its value usable in an if; never fatal.
+    failed.clear();
+    CHECK(ZM_VERIFY(2 + 2 == 4) && failed.empty());
+    int n = 0;
+    const bool ok = ZM_VERIFY(++n == 2, "n = {}", n);
+    CHECK(!ok && n == 1 && failed.size() == 1 && !failed.back().Fatal && failed.back().Message == "n = 1");
+    CHECK(lastMessage().Level == LogLevel::Error && lastMessage().Text.starts_with("Tekshiruv bajarilmadi (ZM_VERIFY): ++n == 2 - n = 1"));
+    // One place failing again and again: counted every time, logged the 1st, 10th, 100th ... time.
+    const uint64_t total = Assert::GetFailureCount();
+    const uint64_t written = Log::GetTotalWritten();
+    int repeatLine = 0;
+    for (int i = 0; i < 25; i++)
+    {
+        repeatLine = __LINE__; ZM_CORE_VERIFY(i < 0, "takror {}", i);
+    }
+    CHECK(Assert::GetFailureCount() == total + 25 && Assert::GetFailureCount(__FILE__, repeatLine) == 25 && failed.back().Count == 25);
+    CHECK(Log::GetTotalWritten() == written + 2 && lastMessage().Text.find("takror 9") != std::string::npos &&
+          lastMessage().Text.ends_with("[10-marta]"));
+    Assert::ResetCounts();
+    CHECK(Assert::GetFailureCount() == 0 && Assert::GetFailureCount(__FILE__, repeatLine) == 0);
+
+    // Modes.
+    CHECK(Assert::ParseMode("abort") == AssertMode::Abort && Assert::ParseMode(" Continue ") == AssertMode::Continue &&
+          Assert::ParseMode("log") == AssertMode::Continue && Assert::ParseMode("BREAK") == AssertMode::Break && Assert::ParseMode("") == AssertMode::Auto);
+    CHECK(!Assert::ParseMode("portla") && std::string(Assert::ModeToString(AssertMode::Abort)) == "abort");
+    // Without a handler the mode decides: Continue only logs.
+    Assert::SetHandler({});
+    CHECK(!Assert::HasHandler());
+    Assert::SetMode(AssertMode::Continue);
+    CHECK(Assert::GetMode() == AssertMode::Continue);
+#if ZM_ENABLE_ASSERTS
+    ZM_ASSERT(n == 99, "faqat log");
+    CHECK(Assert::GetFailureCount() == 1 && lastMessage().Text.find("faqat log") != std::string::npos);
+#endif
+    Assert::SetMode(mode);
+
+    // The crash report names a failed assert as its reason.
+    CHECK(CrashHandler::GetAbortReason().empty());
+    CrashHandler::SetAbortReason("birinchi\nsabab");
+    CrashHandler::SetAbortReason("ikkinchi");
+    CHECK(CrashHandler::GetAbortReason() == "birinchi sabab"); // the first stays, on one line
+    CrashHandlerSettings crash;
+    const fs::path dir = fs::temp_directory_path() / ("zamin-assert-" + std::to_string((uint64_t)UUID()));
+    crash.ReportDirectory = dir / "manual";
+    crash.ShowDialog = false;
+    CrashHandler::Configure(crash);
+    fs::create_directories(dir);
+    const fs::path manual = dir / "manual.txt";
+    const int fd = open(manual.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    CrashHandler::WriteReport(fd, SIGABRT, 0, nullptr, nullptr);
+    close(fd);
+    CHECK(FileSystem::ReadTextFile(manual).find("Sabab: assert bajarilmadi - birinchi sabab\n") != std::string::npos);
+    CrashHandler::ClearAbortReason();
+    CHECK(CrashHandler::GetAbortReason().empty());
+
+#if ZM_ENABLE_ASSERTS
+    // A real one: without a debugger a failed assert aborts, and the crash handler's report says why.
+    crash.ReportDirectory = dir / "abort";
+    const int aborted = RunCrashingChild([&] {
+        CrashHandler::Install(crash);
+        Assert::SetHandler({});
+        Assert::SetMode(AssertMode::Auto);
+        const int lives = 0;
+        ZM_ASSERT(lives > 0, "o'yinchining joni {} - davom etib bo'lmaydi", lives);
+    });
+    CHECK(aborted != -1 && WIFSIGNALED(aborted) && WTERMSIG(aborted) == SIGABRT);
+    const std::string report = FileSystem::ReadTextFile(FindCrashReport(dir / "abort"));
+    CHECK(report.find("Sabab: assert bajarilmadi - lives > 0 - o'yinchining joni 0 - davom etib bo'lmaydi (ZaminTests.cpp:") != std::string::npos);
+    CHECK(report.find("CRITICAL APP: Assert bajarilmadi: lives > 0") != std::string::npos); // the last log lines
+#endif
+    // ZM_VERIFY never aborts, even in Abort mode.
+    const int verified = RunCrashingChild([] {
+        Assert::SetHandler({});
+        Assert::SetMode(AssertMode::Abort);
+        if (!ZM_VERIFY(std::string("a").empty(), "bo'sh emas"))
+            _exit(7);
+    });
+    CHECK(verified != -1 && WIFEXITED(verified) && WEXITSTATUS(verified) == 7);
+
+    Assert::SetHandler(std::move(previous));
+    Log::SetMinLevel(minLevel);
+    Log::SetTerminalOutput(terminal);
+    std::error_code ec;
+    fs::remove_all(dir, ec);
 }

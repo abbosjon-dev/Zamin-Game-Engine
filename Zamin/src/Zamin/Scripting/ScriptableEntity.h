@@ -9,11 +9,14 @@
 #include "Zamin/Core/GameState.h"
 #include "Zamin/Core/Input.h"
 #include "Zamin/Core/Services.h"
+#include "Zamin/Core/Stopwatch.h"
+#include "Zamin/Core/Timer.h"
 #include "Zamin/Core/Timestep.h"
 #include "Zamin/Math/Random.h"
 #include "Zamin/Scripting/EventBus.h"
 #include "Zamin/UI/UIAnimation.h"
 #include "Zamin/UI/UIEvents.h"
+#include "Zamin/Utils/StringUtils.h"
 
 #include <any>
 #include <cstdint>
@@ -854,7 +857,7 @@ namespace Zamin {
         };
         std::vector<NamedAnimationHandler> m_AnimationHandlers;
 
-        struct Timer
+        struct TimerState
         {
             float Remaining = 0.0f, Interval = 0.0f;
             bool Repeat = false;
@@ -871,7 +874,7 @@ namespace Zamin {
         };
         // Timers/tweens created while ticking go to the pending lists so the
         // vectors being iterated never reallocate under a running callback.
-        std::vector<Timer> m_Timers, m_PendingTimers;
+        std::vector<TimerState> m_Timers, m_PendingTimers;
         std::vector<TweenState> m_Tweens, m_PendingTweens;
         bool m_TickingTimers = false;
 

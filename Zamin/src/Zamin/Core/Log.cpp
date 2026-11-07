@@ -1,5 +1,7 @@
 #include "Zamin/Core/Log.h"
 
+#include "Zamin/Utils/StringUtils.h"
+
 #include <atomic>
 #include <chrono>
 #include <cstdio>
@@ -36,7 +38,7 @@ namespace Zamin {
 
         void WriteFileLine(std::FILE* file, const LogMessage& message)
         {
-            if (!file)
+            if (!file || message.Level < Log::GetFileLevel())
                 return;
             const std::string line = Log::FormatFileLine(message);
             std::fwrite(line.data(), 1, line.size(), file);
@@ -55,8 +57,56 @@ namespace Zamin {
             case LogLevel::Warn:     return "WARN";
             case LogLevel::Error:    return "ERROR";
             case LogLevel::Critical: return "CRITICAL";
+            case LogLevel::Off:      return "OFF";
         }
         return "?";
+    }
+
+    const char* Log::LevelToName(LogLevel level)
+    {
+        switch (level)
+        {
+            case LogLevel::Trace:    return "trace";
+            case LogLevel::Info:     return "info";
+            case LogLevel::Warn:     return "warn";
+            case LogLevel::Error:    return "error";
+            case LogLevel::Critical: return "critical";
+            case LogLevel::Off:      return "off";
+        }
+        return "trace";
+    }
+
+    const char* Log::LevelDisplayName(LogLevel level)
+    {
+        switch (level)
+        {
+            case LogLevel::Trace:    return "Trace";
+            case LogLevel::Info:     return "Ma'lumot";
+            case LogLevel::Warn:     return "Ogohlantirish";
+            case LogLevel::Error:    return "Xato";
+            case LogLevel::Critical: return "Kritik";
+            case LogLevel::Off:      return "O'chiq";
+        }
+        return "Trace";
+    }
+
+    std::optional<LogLevel> Log::ParseLevel(std::string_view text)
+    {
+        text = StringUtils::Trim(text);
+        if (text.size() == 1 && text[0] >= '0' && text[0] <= '5')
+            return (LogLevel)(text[0] - '0');
+        static const struct { const char* Name; LogLevel Level; } s_Names[] = {
+            { "trace", LogLevel::Trace }, { "debug", LogLevel::Trace }, { "verbose", LogLevel::Trace }, { "all", LogLevel::Trace },
+            { "info", LogLevel::Info }, { "information", LogLevel::Info }, { "ma'lumot", LogLevel::Info }, { "malumot", LogLevel::Info },
+            { "warn", LogLevel::Warn }, { "warning", LogLevel::Warn }, { "ogohlantirish", LogLevel::Warn },
+            { "error", LogLevel::Error }, { "err", LogLevel::Error }, { "xato", LogLevel::Error },
+            { "critical", LogLevel::Critical }, { "fatal", LogLevel::Critical }, { "kritik", LogLevel::Critical },
+            { "off", LogLevel::Off }, { "none", LogLevel::Off }, { "o'chiq", LogLevel::Off },
+        };
+        for (const auto& entry : s_Names)
+            if (StringUtils::EqualsIgnoreCase(text, entry.Name))
+                return entry.Level;
+        return std::nullopt;
     }
 
     static const char* LevelColor(LogLevel level)
@@ -68,13 +118,14 @@ namespace Zamin {
             case LogLevel::Warn:     return "\033[33m";
             case LogLevel::Error:    return "\033[31m";
             case LogLevel::Critical: return "\033[1;41m";
+            case LogLevel::Off:      return "";
         }
         return "";
     }
 
     void Log::Write(LogLevel level, bool fromClient, std::string text)
     {
-        if (level < s_MinLevel)
+        if (!IsEnabled(level, fromClient))
             return;
 
         auto now = std::chrono::system_clock::now();

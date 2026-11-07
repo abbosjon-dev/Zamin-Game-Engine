@@ -242,6 +242,19 @@ shu nisbatda ko'rsatiladi (o'yin ko'rinishi "Erkin" bo'lsa). Sozlamalar oynasi t
 Oyna kichraytirilganda (minimize) player va editor yangilash va chizishni to'xtatadi: sikl faqat
 hodisalarni kutadi (protsessor band bo'lmaydi), o'yin vaqti o'tmaydi; oyna qaytganda davom etadi.
 
+### Log
+
+Player logi (`"Log": { ... }`, o'zgartirilmagan bo'lsa faylga yozilmaydi). Darajadan pastdagi xabarlar
+yozilmaydi; `ZAMIN_LOG_LEVEL` va `--log-level` bulardan ustun ([runtime.md, 6-bo'lim](runtime.md#6-log-fayllari)).
+
+| Maydon | Kalit | Ma'nosi |
+|---|---|---|
+| Dvigatel | `Engine` | Dvigatel xabarlari (`ZM_CORE_*`): `trace` ... `critical`, `off`; standart `trace` |
+| O'yin skriptlari | `App` | O'yin xabarlari (`ZM_*`); standart `trace` |
+| Log fayli | `WriteFile` | `player-<sana>.log` va `latest.log` yoziladimi (standart: ha; `--log-file` baribir yozadi) |
+| Faylga yoziladigan | `File` | Faylga faqat shu darajadan boshlab (terminalda hammasi); standart `trace` |
+| Saqlanadigan fayllar | `Keep` | Nechta eski log qoladi (1 ... 100, standart 5) |
+
 ### Ikonka
 
 `Icon` - assetlar ichidagi PNG (masalan `Textures/GameIcon.png`). Player oynaga 16, 32, 48, 64, 128, 256 px
@@ -794,9 +807,10 @@ O'yin ichida: **F11** / **Alt+Enter** - to'liq ekran <-> oyna, **F10** - FPS va 
 
 Player har ishga tushganda logni `~/.local/share/<kompaniya>/<o'yin>/logs/player-<sana_vaqt>.log` ga yozadi
 (kompaniya bo'sh bo'lsa `~/.local/share/zamin/<o'yin>/logs`; `$XDG_DATA_HOME` hisobga olinadi). Eng oxirgi
-5 tasi saqlanadi, eskilari o'chiriladi; `latest.log` - doim oxirgi ishga tushish. Fayl boshida o'yin nomi,
+5 tasi (Player > Log > Saqlanadigan fayllar) saqlanadi, eskilari o'chiriladi; `latest.log` - doim oxirgi ishga tushish. Fayl boshida o'yin nomi,
 versiyasi, dvigatel versiyasi, boshlanish vaqti va buyruq qatori yoziladi; fayl ochilishidan oldingi xabarlar
-ham (ishga tushish) yoziladi. Har satr darhol diskka yoziladi - crash bo'lsa ham log to'liq qoladi.
+ham (ishga tushish) yoziladi. Har satr darhol diskka yoziladi - crash bo'lsa ham log to'liq qoladi. Nechta fayl
+saqlanishi, log fayli yozilishi va darajalar: Player > Log (yuqorida).
 API: `LogFile::OpenRotating`, `LogFile::Open`, `LogFile::GetPath`, `LogFile::GetDefaultDirectory`.
 
 ### Crash hisobotlari

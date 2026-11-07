@@ -153,8 +153,14 @@ namespace Zamin {
         Camera.Sanitize();
         Autosave.Sanitize();
         Idle.Sanitize();
+        Logging.Sanitize();
         if (Language != "uz" && Language != "en")
             Language = "uz";
+    }
+
+    void LogPreferences::Sanitize()
+    {
+        KeepFiles = std::clamp(KeepFiles, MinKeepFiles, MaxKeepFiles);
     }
 
     std::string EditorPreferences::ToJson() const
@@ -190,6 +196,13 @@ namespace Zamin {
             { "Info", Console.ShowInfo },
             { "Warn", Console.ShowWarn },
             { "Error", Console.ShowError },
+        };
+        j["Log"] = {
+            { "Engine", Zamin::Log::LevelToName(Logging.Levels.Engine) },
+            { "App", Zamin::Log::LevelToName(Logging.Levels.App) },
+            { "File", Zamin::Log::LevelToName(Logging.Levels.File) },
+            { "WriteFile", Logging.WriteFile },
+            { "Keep", Logging.KeepFiles },
         };
         j["Autosave"] = {
             { "Enabled", Autosave.Enabled },
@@ -255,6 +268,20 @@ namespace Zamin {
             Read(*it, "Info", Console.ShowInfo);
             Read(*it, "Warn", Console.ShowWarn);
             Read(*it, "Error", Console.ShowError);
+        }
+        if (auto it = j.find("Log"); it != j.end() && it->is_object())
+        {
+            auto readLevel = [&](const char* key, LogLevel& level) {
+                if (auto value = it->find(key); value != it->end() && value->is_string())
+                    if (const std::optional<LogLevel> parsed = Zamin::Log::ParseLevel(value->get<std::string>()))
+                        level = *parsed;
+            };
+            readLevel("Engine", Logging.Levels.Engine);
+            readLevel("App", Logging.Levels.App);
+            readLevel("File", Logging.Levels.File);
+            Read(*it, "WriteFile", Logging.WriteFile);
+            if (auto keep = it->find("Keep"); keep != it->end() && keep->is_number())
+                Logging.KeepFiles = (int)std::clamp(keep->get<double>(), (double)LogPreferences::MinKeepFiles, (double)LogPreferences::MaxKeepFiles);
         }
         if (auto it = j.find("Autosave"); it != j.end() && it->is_object())
         {

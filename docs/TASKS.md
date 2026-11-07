@@ -428,11 +428,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 368. Job system / thread pool
 - [x] 369. Parallel for (particle va animatsiya uchun)
 - [x] 370. Xotira statistikasi profiler'da
-- [ ] 371. Log fayl va log darajasi sozlamasi
-- [ ] 372. Assert'larni yaxshilash (xabar bilan)
-- [ ] 373. Timer va Stopwatch utilitalari
-- [ ] 374. String utilitalari (split, trim, format)
-- [ ] 375. UUID generatsiya testi kuchaytirish
+- [x] 371. Log fayl va log darajasi sozlamasi
+- [x] 372. Assert'larni yaxshilash (xabar bilan)
+- [x] 373. Timer va Stopwatch utilitalari
+- [x] 374. String utilitalari (split, trim, format)
+- [x] 375. UUID generatsiya testi kuchaytirish
 - [ ] 376. Fayl tizimi yordamchilari (yo'l normalizatsiya)
 - [ ] 377. Bounding volume yordamchilari (AABB, sfera, ray kesishuvi)
 - [ ] 378. Geometriya testlari (ray-AABB, ray-sfera)

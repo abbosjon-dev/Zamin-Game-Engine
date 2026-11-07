@@ -25,11 +25,14 @@ namespace Zamin {
         void SetPreferences(const ConsolePreferences& preferences) { m_Prefs = preferences; }
         const ConsolePreferences& GetPreferences() const { return m_Prefs; }
         bool ConsumePreferencesChanged();
+        // The options menu changed a logger's level (Log::SetLevel already applied): the editor keeps it.
+        bool ConsumeLogLevelsChanged();
 
         void SetFilterText(const std::string& text) { m_FilterText = text; }
         // The console window (or its search field) had the keyboard focus last frame.
         bool IsFocused() const { return m_Focused; }
-        // Automation (ZAMIN_EDITOR_CONSOLE): "filter=<text>;regex;case;collapse;trace;select=<n>".
+        // Automation (ZAMIN_EDITOR_CONSOLE): "filter=<text>;regex;case;collapse;trace;select=<n>;options"
+        // (options: the options menu open).
         void ApplyAutomation(const std::string& spec);
 
     private:
@@ -43,6 +46,8 @@ namespace Zamin {
     private:
         ConsolePreferences m_Prefs;
         bool m_PrefsChanged = false;
+        bool m_LogLevelsChanged = false;
+        bool m_OpenOptions = false;          // automation: the options menu opens once
         std::string m_FilterText;
         bool m_Regex = false, m_CaseSensitive = false;
         ConsoleTextMatcher m_Matcher;

@@ -60,6 +60,13 @@ namespace Zamin {
         return changed;
     }
 
+    bool ConsolePanel::ConsumeLogLevelsChanged()
+    {
+        bool changed = m_LogLevelsChanged;
+        m_LogLevelsChanged = false;
+        return changed;
+    }
+
     void ConsolePanel::ApplyAutomation(const std::string& spec)
     {
         std::string_view rest(spec);
@@ -82,6 +89,8 @@ namespace Zamin {
                 m_Prefs.ShowTimestamps = false;
             else if (part.starts_with("select="))
                 m_AutomationSelect = std::atoi(std::string(part.substr(7)).c_str());
+            else if (part == "options")
+                m_OpenOptions = true;
         }
     }
 
@@ -198,8 +207,17 @@ namespace Zamin {
             m_PrefsChanged = true;
         }
         ImGui::SameLine();
-        if (UI::ToolbarButton(ICON_FA_GEAR, "Konsol sozlamalari"))
+        // The gear is lit while a logger drops messages below its level (they are not even kept).
+        const LogLevel engineLevel = Log::GetLevel(LogSource::Engine), appLevel = Log::GetLevel(LogSource::App);
+        const bool dropping = engineLevel != LogLevel::Trace || appLevel != LogLevel::Trace;
+        const std::string gearTip = dropping ? std::format("Konsol sozlamalari\nYoziladi: dvigatel - {}, editor/o'yin - {} va yuqori",
+                                                           Log::LevelDisplayName(engineLevel), Log::LevelDisplayName(appLevel))
+                                             : std::string("Konsol sozlamalari (log darajalari ham)");
+        if (UI::ToolbarButton(ICON_FA_GEAR, gearTip.c_str(), dropping) || m_OpenOptions)
+        {
             ImGui::OpenPopup("##ConsoleOptions");
+            m_OpenOptions = false;
+        }
         if (ImGui::BeginPopup("##ConsoleOptions"))
         {
             m_PrefsChanged |= ImGui::Checkbox(Tr("Avto-skroll (yangi xabarga)"), &m_Prefs.AutoScroll);
@@ -209,6 +227,25 @@ namespace Zamin {
             ImGui::Separator();
             ImGui::Checkbox(Tr("Qidiruv: regex (muntazam ifoda)"), &m_Regex);
             ImGui::Checkbox(Tr("Qidiruv: katta-kichik harf farqi"), &m_CaseSensitive);
+            // What is written at all (below the level: not in the console, the terminal or the file).
+            ImGui::SeparatorText(Tr("Yoziladigan darajalar"));
+            auto levelMenu = [&](const char* label, LogSource source) {
+                const LogLevel current = Log::GetLevel(source);
+                ImGui::SetNextItemWidth(ImGui::GetFontSize() * 9.0f);
+                if (ImGui::BeginCombo(label, Log::LevelDisplayName(current)))
+                {
+                    for (int l = (int)LogLevel::Trace; l <= (int)LogLevel::Off; l++)
+                        if (ImGui::Selectable(Log::LevelDisplayName((LogLevel)l), l == (int)current))
+                        {
+                            Log::SetLevel(source, (LogLevel)l);
+                            m_LogLevelsChanged = true;
+                        }
+                    ImGui::EndCombo();
+                }
+            };
+            levelMenu(Tr("Dvigatel (ZAMIN)"), LogSource::Engine);
+            levelMenu(Tr("Editor va o'yin (APP)"), LogSource::App);
+            ImGui::TextDisabled("%s", Tr("Pastrog'i yozilmaydi; log fayli: Sozlamalar > Konsol"));
             ImGui::EndPopup();
         }
         ImGui::SameLine();

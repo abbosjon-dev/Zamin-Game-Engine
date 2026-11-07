@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Zamin/Core/LogSettings.h"
 #include "Zamin/Core/Window.h"
 
 #include <glm/glm.hpp>
@@ -13,6 +14,20 @@
 namespace Zamin {
 
     struct ImageData;
+
+    // The player's log (Project settings > Player > Log): the loggers' and the files' levels, whether
+    // log files are written (~/.local/share/<company>/<product>/logs/player-<date>.log and latest.log)
+    // and how many dated ones are kept. ZAMIN_LOG_LEVEL and --log-level go over the levels, --log-file /
+    // --no-log-file over the files.
+    struct PlayerLogSettings
+    {
+        LogLevelSettings Levels;
+        bool WriteFile = true;
+        int KeepFiles = 5;          // dated logs kept (this run's included)
+
+        static constexpr int MinKeepFiles = 1, MaxKeepFiles = 100;
+        bool operator==(const PlayerLogSettings&) const = default;
+    };
 
     // The game as the player runs it (Project settings > Player): who made it and its version, its
     // window and its icon. Projects without a "Player" section get the defaults - a 1280x720 resizable
@@ -64,6 +79,9 @@ namespace Zamin {
         // A PNG (relative to the assets) for the window and the exported game's desktop entry. Empty:
         // the system's default icon.
         std::filesystem::path Icon;
+
+        // ---- log
+        PlayerLogSettings Logging;
 
         static constexpr const char* DefaultVersion = "1.0.0";
         static constexpr uint32_t MinWindowSize = 160, MaxWindowSize = 7680;

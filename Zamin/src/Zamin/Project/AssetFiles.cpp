@@ -1,4 +1,5 @@
 #include "Zamin/Project/AssetFiles.h"
+#include "Zamin/Utils/StringUtils.h"
 #include "Zamin/Asset/AssetMetadata.h"
 #include "Zamin/Scene/Scene.h"
 #include "Zamin/Utils/FileSystem.h"
@@ -13,12 +14,6 @@
 namespace Zamin {
 
     namespace fs = std::filesystem;
-
-    static std::string Lower(std::string s)
-    {
-        std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return (char)std::tolower(c); });
-        return s;
-    }
 
     // ------------------------------------------------------------------ type filter
     bool AssetTypeFilter::Has(AssetType type) const
@@ -147,7 +142,7 @@ namespace Zamin {
                 i++;
             if (start == i)
                 break;
-            std::string word = Lower(std::string(text.substr(start, i - start)));
+            std::string word = StringUtils::ToLower(std::string(text.substr(start, i - start)));
             std::replace(word.begin(), word.end(), '\\', '/');
 
             // t:<type> / tur:<type>
@@ -165,8 +160,8 @@ namespace Zamin {
                 {
                     AssetType type = (AssetType)t;
                     // The key or a word of the name ("t:skript" finds "C++ skript", "t:hdr" "HDRI muhit").
-                    bool matches = Lower(AssetTypes::GetKey(type)).starts_with(typeName);
-                    std::string name = Lower(AssetTypes::GetName(type));
+                    bool matches = StringUtils::ToLower(AssetTypes::GetKey(type)).starts_with(typeName);
+                    std::string name = StringUtils::ToLower(AssetTypes::GetName(type));
                     for (size_t w = 0; !matches && w < name.size(); w++)
                         if (w == 0 || name[w - 1] == ' ')
                             matches = std::string_view(name).substr(w).starts_with(typeName);
@@ -221,7 +216,7 @@ namespace Zamin {
             return false;
         if (m_Terms.empty())
             return true;
-        std::string path = Lower(std::string(relativePath));
+        std::string path = StringUtils::ToLower(std::string(relativePath));
         std::replace(path.begin(), path.end(), '\\', '/');
         std::vector<std::string_view> segments;
         for (size_t p = 0; p <= path.size();)
@@ -342,17 +337,7 @@ namespace Zamin {
 
     std::string AssetFiles::FormatSize(uintmax_t bytes)
     {
-        if (bytes < 1024)
-            return std::format("{} B", bytes);
-        const char* units[] = { "KB", "MB", "GB", "TB" };
-        double value = (double)bytes / 1024.0;
-        int unit = 0;
-        while (value >= 1024.0 && unit < 3)
-        {
-            value /= 1024.0;
-            unit++;
-        }
-        return value < 10.0 ? std::format("{:.1f} {}", value, units[unit]) : std::format("{:.0f} {}", value, units[unit]);
+        return StringUtils::FormatBytes((uint64_t)bytes);
     }
 
     // ------------------------------------------------------------------ paths
@@ -630,7 +615,7 @@ namespace Zamin {
     std::vector<fs::path> AssetFiles::GetModelDependencies(const fs::path& modelPath)
     {
         std::vector<fs::path> deps;
-        if (Lower(modelPath.extension().string()) != ".gltf")
+        if (StringUtils::ToLower(modelPath.extension().string()) != ".gltf")
             return deps;
         std::string text = FileSystem::ReadTextFile(modelPath);
         if (text.find("\"uri\"") == std::string::npos)
@@ -790,7 +775,7 @@ namespace Zamin {
 
         for (const fs::path& file : files)
         {
-            std::string ext = Lower(file.extension().string());
+            std::string ext = StringUtils::ToLower(file.extension().string());
             size_t replaced = 0;
             std::string text;
             if ((ext == ".zscene" || ext == ".zprefab" || ext == ".zmat" || ext == ".zparticle") && !moves.empty())

@@ -16,28 +16,15 @@ namespace Zamin {
 
     std::string AssetHandle::ToString() const
     {
-        return m_Value ? std::format("{:016x}", m_Value) : std::string();
+        return m_Value ? UUID(m_Value).ToString() : std::string();
     }
 
     std::optional<AssetHandle> AssetHandle::FromString(std::string_view text)
     {
-        if (text.size() > 2 && text[0] == '0' && (text[1] == 'x' || text[1] == 'X'))
-            text.remove_prefix(2);
-        if (text.empty() || text.size() > 16)
-            return std::nullopt;
-        uint64_t value = 0;
-        for (char c : text)
-        {
-            int digit;
-            if (c >= '0' && c <= '9') digit = c - '0';
-            else if (c >= 'a' && c <= 'f') digit = c - 'a' + 10;
-            else if (c >= 'A' && c <= 'F') digit = c - 'A' + 10;
-            else return std::nullopt;
-            value = (value << 4) | (uint64_t)digit;
-        }
-        if (value == 0)
-            return std::nullopt;
-        return AssetHandle(value);
+        // The same text as a UUID (asset handles are UUIDs); 0 is not a handle.
+        if (const std::optional<UUID> id = UUID::FromString(text))
+            return AssetHandle((uint64_t)*id);
+        return std::nullopt;
     }
 
     // ------------------------------------------------------------------ types

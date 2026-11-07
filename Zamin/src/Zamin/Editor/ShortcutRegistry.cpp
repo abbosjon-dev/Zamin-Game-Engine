@@ -1,4 +1,5 @@
 #include "Zamin/Editor/ShortcutRegistry.h"
+#include "Zamin/Utils/StringUtils.h"
 #include "Zamin/Editor/ConsoleFilter.h"
 #include "Zamin/Core/InputActions.h"
 
@@ -24,21 +25,6 @@ namespace Zamin {
             { Key::KPDecimal, "Num ." }, { Key::KPDivide, "Num /" }, { Key::KPMultiply, "Num *" }, { Key::KPSubtract, "Num -" },
             { Key::KPAdd, "Num +" }, { Key::KPEnter, "Num Enter" }, { Key::KPEqual, "Num =" },
         };
-
-        std::string Lower(std::string_view text)
-        {
-            std::string out(text);
-            for (char& c : out)
-                c = (char)std::tolower((unsigned char)c);
-            return out;
-        }
-
-        std::string_view Trim(std::string_view text)
-        {
-            while (!text.empty() && std::isspace((unsigned char)text.front())) text.remove_prefix(1);
-            while (!text.empty() && std::isspace((unsigned char)text.back())) text.remove_suffix(1);
-            return text;
-        }
 
         bool KeyFromAnyName(std::string_view name, Key& out)
         {
@@ -108,7 +94,7 @@ namespace Zamin {
 
     bool KeyChord::Parse(std::string_view text, KeyChord& out)
     {
-        text = Trim(text);
+        text = StringUtils::Trim(text);
         if (text.empty())
         {
             out = KeyChord();
@@ -121,12 +107,12 @@ namespace Zamin {
             const size_t plus = text.find('+');
             if (plus == std::string_view::npos || plus + 1 >= text.size())
                 break;
-            const std::string modifier = Lower(Trim(text.substr(0, plus)));
+            const std::string modifier = StringUtils::ToLower(StringUtils::Trim(text.substr(0, plus)));
             if (modifier == "ctrl" || modifier == "control") chord.Ctrl = true;
             else if (modifier == "shift") chord.Shift = true;
             else if (modifier == "alt") chord.Alt = true;
             else break; // not a modifier: part of the key's name ("Num +" has none before it)
-            text = Trim(text.substr(plus + 1));
+            text = StringUtils::Trim(text.substr(plus + 1));
         }
         Key key;
         if (!KeyFromAnyName(text, key) || IsModifierKey(key))
@@ -342,12 +328,12 @@ namespace Zamin {
 
     bool ShortcutRegistry::MatchesSearch(const ShortcutInfo& s, std::string_view query)
     {
-        query = Trim(query);
+        query = StringUtils::Trim(query);
         while (!query.empty())
         {
             const size_t space = query.find(' ');
             const std::string_view word = query.substr(0, space);
-            query = space == std::string_view::npos ? std::string_view() : Trim(query.substr(space + 1));
+            query = space == std::string_view::npos ? std::string_view() : StringUtils::Trim(query.substr(space + 1));
             if (word.empty())
                 continue;
             const bool found = ContainsIgnoreCase(s.Name, word) || ContainsIgnoreCase(s.Category, word) || ContainsIgnoreCase(s.Id, word) ||

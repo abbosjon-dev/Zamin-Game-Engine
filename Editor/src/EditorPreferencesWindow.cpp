@@ -1,6 +1,6 @@
 // The editor's preferences (Tahrirlash > Sozlamalar): the theme's accent colour and font size, the
-// play-mode tint of the UI, the console's options and the editor camera's defaults, stored per user
-// in preferences.json; the ImGui style made from them.
+// play-mode tint of the UI, the console's options (and the log's levels and file: EditorLogSettings.cpp)
+// and the editor camera's defaults, stored per user in preferences.json; the ImGui style made from them.
 #include "EditorLayer.h"
 #include "UI.h"
 
@@ -72,6 +72,7 @@ namespace Zamin {
             ZM_WARN("Editor sozlamalari o'qilmadi (standart qiymatlar ishlatiladi): {}", path.string());
         m_Preferences.Sanitize();
         m_ConsolePanel.SetPreferences(m_Preferences.Console);
+        ApplyLogPreferences(true);  // the levels (the command line's over them) and the editor's log file
         ApplyCameraDefaults(true);
         ApplyShortcutPreferences(); // rebound keys over the defaults
         EditorText::SetLanguage(EditorText::ParseLanguage(m_Preferences.Language));
@@ -352,6 +353,7 @@ namespace Zamin {
                         m_ConsolePanel.SetPreferences(console);
                         changed = true;
                     }
+                    UI_LogPreferences(changed);
                     break;
                 }
                 case 3:
@@ -432,6 +434,7 @@ namespace Zamin {
         {
             m_Preferences = EditorPreferences();
             m_ConsolePanel.SetPreferences(m_Preferences.Console);
+            ApplyLogPreferences(false);
             ApplyCameraDefaults(true);
             m_Shortcuts.ResetAll();
             EditorText::SetLanguage(EditorText::ParseLanguage(m_Preferences.Language));

@@ -1,4 +1,5 @@
 #include "Zamin/Editor/EditorLayouts.h"
+#include "Zamin/Utils/StringUtils.h"
 #include "Zamin/Editor/EditorAutosave.h"
 #include "Zamin/Editor/RecentFiles.h"
 #include "Zamin/Utils/FileSystem.h"
@@ -28,18 +29,6 @@ namespace Zamin {
         };
         static_assert(std::size(s_BuiltIns) == (size_t)BuiltInLayout::Count);
 
-        std::string Lower(std::string_view text)
-        {
-            std::string out(text);
-            for (char& c : out)
-                c = (char)std::tolower((unsigned char)c);
-            return out;
-        }
-
-        bool EqualsIgnoreCase(std::string_view a, std::string_view b)
-        {
-            return a.size() == b.size() && Lower(a) == Lower(b);
-        }
     }
 
     // ------------------------------------------------------------------ a layout
@@ -113,7 +102,7 @@ namespace Zamin {
             m_SavedAt[name] = layout.SavedAt;
         }
         std::sort(m_Names.begin(), m_Names.end(), [](const std::string& a, const std::string& b) {
-            const std::string la = Lower(a), lb = Lower(b);
+            const std::string la = StringUtils::ToLower(a), lb = StringUtils::ToLower(b);
             return la != lb ? la < lb : a < b;
         });
         return m_Names.size();
@@ -122,7 +111,7 @@ namespace Zamin {
     std::string EditorLayoutLibrary::FindStored(std::string_view name) const
     {
         for (const std::string& stored : m_Names)
-            if (EqualsIgnoreCase(stored, name))
+            if (StringUtils::EqualsIgnoreCase(stored, name))
                 return stored;
         return {};
     }
@@ -323,7 +312,7 @@ namespace Zamin {
     std::optional<BuiltInLayout> EditorLayoutLibrary::FindBuiltIn(std::string_view nameOrKey)
     {
         for (size_t i = 0; i < std::size(s_BuiltIns); i++)
-            if (EqualsIgnoreCase(nameOrKey, s_BuiltIns[i].Key) || EqualsIgnoreCase(nameOrKey, s_BuiltIns[i].Name))
+            if (StringUtils::EqualsIgnoreCase(nameOrKey, s_BuiltIns[i].Key) || StringUtils::EqualsIgnoreCase(nameOrKey, s_BuiltIns[i].Name))
                 return (BuiltInLayout)i;
         return std::nullopt;
     }

@@ -9,7 +9,7 @@
 //   ZaminPlayer [path/to/Game.zproject] [--windowed | --fullscreen | --borderless] [--resolution WxH]
 //               [--monitor N] [--vsync | --no-vsync] [--fps N] [--scene <path | build index | name>]
 //               [--quality <level>] [--lang <code>] [--no-splash] [--gamma G] [--brightness B] [--gl ...] [--msaa N] [--debug-...]
-//               [--log-file <path> | --no-log-file] [--no-crash-handler] [--no-crash-dialog]
+//               [--log-file <path> | --no-log-file] [--log-level <spec>] [--no-crash-handler] [--no-crash-dialog]
 //               [--benchmark N [--benchmark-warmup W] [--benchmark-out <file.json>] [--benchmark-max-avg MS] [--benchmark-max-p95 MS]]
 //   ZaminPlayer --help lists every option; ZaminPlayer --version prints the game's and the engine's versions.
 // --benchmark N: the performance test - N frames timed after a warm-up (average, median, p95, p99), the result
@@ -1225,11 +1225,22 @@ namespace Zamin {
         const SavedDisplaySettings saved = Display::GetSavedSettings();
         SaveData::SetFilePath({}); // the project's own location once it is open (the same file)
 
+        // The log levels: the project's (Project settings > Player > Log), ZAMIN_LOG_LEVEL over them and
+        // --log-level over both - before the log file opens, so that it gets only its level's lines.
+        const PlayerLogSettings& logging = config.Player.Logging;
+        const LogLevelSettings levels = commandLine.LogLevels.Over(LogLevelOverride::FromEnvironment().Over(logging.Levels));
+        levels.Apply();
+        if (!levels.IsDefault())
+            ZM_INFO("Log darajalari: {}", levels.Describe());
+
         // The log file (from here on every message goes there too; the ones before are written first):
-        // --log-file, else ~/.local/share/<company>/<product>/logs/player-<date>.log (the last 5) + latest.log.
+        // --log-file, else ~/.local/share/<company>/<product>/logs/player-<date>.log (the last N, the
+        // project's Log > Keep) + latest.log - unless the project turned the files off.
         const std::string product = config.Player.GetProductName(config.Name);
         const std::filesystem::path logDirectory = LogFile::GetDefaultDirectory(config.Player.CompanyName, product);
-        if (!commandLine.NoLogFile)
+        if (!commandLine.NoLogFile && !logging.WriteFile && commandLine.LogFile.empty())
+            ZM_CORE_INFO("Log fayli o'chiq (Project settings > Player > Log) - log faqat terminalda");
+        if (!commandLine.NoLogFile && (logging.WriteFile || !commandLine.LogFile.empty()))
         {
             std::string command;
             for (int i = 1; i < args.Count; i++)
@@ -1245,7 +1256,7 @@ namespace Zamin {
             std::string logError;
             const bool opened = !commandLine.LogFile.empty()
                                     ? LogFile::Open(commandLine.LogFile, header, &logError)
-                                    : LogFile::OpenRotating({ logDirectory, "player", 5, true, header }, &logError);
+                                    : LogFile::OpenRotating({ logDirectory, "player", logging.KeepFiles, true, header }, &logError);
             if (opened)
                 ZM_INFO("Log fayli: {}", LogFile::GetPath().string());
             else

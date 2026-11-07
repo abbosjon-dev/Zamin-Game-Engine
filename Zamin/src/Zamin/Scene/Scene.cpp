@@ -1,5 +1,6 @@
 #include "Zamin/Scene/Scene.h"
 #include "Zamin/Scene/SceneLoadTiming.h"
+#include "Zamin/Core/Stopwatch.h"
 #include "Zamin/Asset/AssetImporter.h"
 #include "Zamin/Asset/AssetImportLog.h"
 #include "Zamin/Asset/AssetRegistry.h"
@@ -5628,7 +5629,7 @@ namespace Zamin {
     void Scene::UpdateAnimators(Timestep ts, bool editor)
     {
         ZM_PROFILE_SCOPE("Animatsiya");
-        const auto started = std::chrono::steady_clock::now();
+        const Stopwatch watch;
         m_AnimationStats = {};
         // A view was drawn since the last update: what it did not see is off screen.
         const bool viewKnown = m_AnimationViewUpdate == m_AnimationUpdate;
@@ -6042,7 +6043,7 @@ namespace Zamin {
             }
         }
         m_AnimationStats.CacheBytes = GetBakedClipMemory();
-        m_AnimationStats.Milliseconds = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - started).count();
+        m_AnimationStats.Milliseconds = (float)watch.ElapsedMilliseconds();
         for (const auto& fired : firedEvents)
             FireAnimationEvent(GetEntityByUUID(fired.Entity), fired.Event, fired.Clip, true);
     }

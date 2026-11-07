@@ -1,4 +1,5 @@
 #include "UnusedAssetsPanel.h"
+#include "Zamin/Utils/StringUtils.h"
 #include "ContentBrowserPanel.h"
 #include "../AssetUsageCache.h"
 #include "../UI.h"
@@ -13,12 +14,6 @@
 namespace Zamin {
 
     namespace fs = std::filesystem;
-
-    static std::string Lower(std::string s)
-    {
-        std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return (char)std::tolower(c); });
-        return s;
-    }
 
     void UnusedAssetsPanel::Refresh()
     {
@@ -67,7 +62,7 @@ namespace Zamin {
     {
         if (m_Filter.IsActive() && !m_Filter.Matches(asset.Type))
             return false;
-        return m_Search.empty() || Lower(asset.Path).find(Lower(m_Search)) != std::string::npos;
+        return m_Search.empty() || StringUtils::ToLower(asset.Path).find(StringUtils::ToLower(m_Search)) != std::string::npos;
     }
 
     void UnusedAssetsPanel::DrawToolbar()

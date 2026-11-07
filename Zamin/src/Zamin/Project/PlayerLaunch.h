@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Zamin/Core/Display.h"
+#include "Zamin/Core/LogSettings.h"
 #include "Zamin/Core/Window.h"
 #include "Zamin/Project/PlayerBenchmark.h"
 
@@ -42,6 +43,9 @@ namespace Zamin {
         // ~/.local/share/<company>/<product>/logs); --no-log-file none.
         std::string LogFile;
         bool NoLogFile = false;
+        // --log-level <spec>: the loggers' / the log file's levels over the project's and ZAMIN_LOG_LEVEL
+        // ("warn", "engine=error,app=info,file=warn"; LogLevelOverride).
+        LogLevelOverride LogLevels;
         // Crashes: --no-crash-handler leaves fatal signals to the system (a debugger, core dumps);
         // --no-crash-dialog writes the report without showing a window.
         bool NoCrashHandler = false, NoCrashDialog = false;

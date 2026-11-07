@@ -1,4 +1,5 @@
 #include "Zamin/Math/Color.h"
+#include "Zamin/Utils/StringUtils.h"
 
 #include <algorithm>
 #include <cmath>
@@ -102,20 +103,11 @@ namespace Zamin::Color {
             return -1;
         }
 
-        std::string_view Trim(std::string_view s)
-        {
-            while (!s.empty() && (s.front() == ' ' || s.front() == '\t' || s.front() == '\n' || s.front() == '\r'))
-                s.remove_prefix(1);
-            while (!s.empty() && (s.back() == ' ' || s.back() == '\t' || s.back() == '\n' || s.back() == '\r'))
-                s.remove_suffix(1);
-            return s;
-        }
-
     }
 
     std::optional<glm::vec4> FromHex(std::string_view text)
     {
-        text = Trim(text);
+        text = StringUtils::Trim(text);
         if (!text.empty() && text.front() == '#')
             text.remove_prefix(1);
         else if (text.size() > 2 && text[0] == '0' && (text[1] == 'x' || text[1] == 'X'))
@@ -221,7 +213,7 @@ namespace Zamin::Color {
 
     std::optional<glm::vec4> FromName(std::string_view name)
     {
-        const std::string key = NameKey(Trim(name));
+        const std::string key = NameKey(StringUtils::Trim(name));
         for (const NamedColor& n : s_Names)
             if (key == n.Name)
                 return n.Value;

@@ -286,6 +286,8 @@ namespace Zamin {
         DrawPlayerSplash(p);
         ImGui::Spacing();
         DrawPlayerAspect(p);
+        ImGui::Spacing();
+        DrawPlayerLog(config);
 
         if (changed)
         {
@@ -485,6 +487,69 @@ namespace Zamin {
         if (changed)
         {
             p.Sanitize();
+            m_Dirty = true;
+        }
+    }
+
+    void ProjectSettingsPanel::DrawPlayerLog(ProjectConfig& config)
+    {
+        PlayerLogSettings& log = config.Player.Logging;
+        bool changed = false;
+        if (UI::BeginPropertyGrid("playerLog"))
+        {
+            UI::PropertyHeader(ICON_FA_FILE "  Log",
+                               "ZaminPlayer'ning logi: qaysi xabarlar yoziladi va log fayllari. Buyruq qatori ustun: --log-level "
+                               "(masalan warn yoki engine=warn,app=info,file=error), --log-file, --no-log-file; ZAMIN_LOG_LEVEL ham.");
+            auto levelCombo = [&](const char* label, const char* tooltip, LogLevel& level) {
+                UI::PropertyLabel(label, tooltip);
+                ImGui::SetNextItemWidth(-1.0f);
+                if (ImGui::BeginCombo(std::format("##{}", label).c_str(), Log::LevelDisplayName(level)))
+                {
+                    for (int l = (int)LogLevel::Trace; l <= (int)LogLevel::Off; l++)
+                    {
+                        const LogLevel option = (LogLevel)l;
+                        const std::string text = option == LogLevel::Off ? std::string(Log::LevelDisplayName(option))
+                                                                         : std::format("{} va yuqori", Log::LevelDisplayName(option));
+                        if (ImGui::Selectable(text.c_str(), option == level))
+                        {
+                            level = option;
+                            changed = true;
+                        }
+                    }
+                    ImGui::EndCombo();
+                }
+            };
+            levelCombo("Dvigatel", "Dvigatelning xabarlari (ZM_CORE_INFO ...): shu darajadan pastdagilari yozilmaydi", log.Levels.Engine);
+            levelCombo("O'yin skriptlari", "O'yin skriptlarining xabarlari (ZM_INFO, ZM_WARN ...): shu darajadan pastdagilari yozilmaydi",
+                       log.Levels.App);
+            changed |= UI::PropertyBool("Log fayli", log.WriteFile);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("~/.local/share/<kompaniya>/<mahsulot>/logs/player-<sana>.log va latest.log (o'yinchi xatoni yuborishi uchun)");
+            ImGui::BeginDisabled(!log.WriteFile);
+            levelCombo("Faylga yoziladigan", "Log fayliga faqat shu darajadagi va yuqoriroq xabarlar yoziladi (terminalda hammasi)", log.Levels.File);
+            UI::PropertyLabel("Saqlanadigan fayllar", "Eng eski player-<sana>.log fayllari o'chiriladi (shu ishga tushirishniki ham hisobda)");
+            ImGui::SetNextItemWidth(-1.0f);
+            changed |= ImGui::SliderInt("##logKeep", &log.KeepFiles, PlayerLogSettings::MinKeepFiles, 30, "%d ta");
+            ImGui::EndDisabled();
+            UI::PropertyLabel("Papka");
+            const std::filesystem::path folder = LogFile::GetDefaultDirectory(config.Player.CompanyName, config.Player.GetProductName(config.Name));
+            ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+            ImGui::TextWrapped("%s", folder.string().c_str());
+            ImGui::PopStyleColor();
+            std::error_code ec;
+            if (std::filesystem::is_directory(folder, ec))
+            {
+                ImGui::SameLine();
+                if (ImGui::SmallButton(ICON_FA_FOLDER_OPEN "##openLogs"))
+                    Platform::OpenInFileBrowser(folder);
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("Fayl menejerida ochish");
+            }
+            UI::EndPropertyGrid();
+        }
+        if (changed)
+        {
+            config.Player.Sanitize();
             m_Dirty = true;
         }
     }

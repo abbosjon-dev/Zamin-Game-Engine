@@ -1,4 +1,5 @@
 #include "Zamin/Project/PlayerSettings.h"
+#include "Zamin/Utils/StringUtils.h"
 
 #include "Zamin/Utils/Image.h"
 
@@ -17,11 +18,7 @@ namespace Zamin {
 
         std::string Trim(std::string_view s)
         {
-            const size_t b = s.find_first_not_of(" \t\r\n");
-            if (b == std::string_view::npos)
-                return {};
-            const size_t e = s.find_last_not_of(" \t\r\n");
-            return std::string(s.substr(b, e - b + 1));
+            return std::string(StringUtils::Trim(s));
         }
 
     }
@@ -46,6 +43,7 @@ namespace Zamin {
         AspectHeight = std::clamp(AspectHeight, 1u, MaxAspectSide);
         for (int i = 0; i < 3; i++)
             LetterboxColor[i] = std::isfinite(LetterboxColor[i]) ? std::clamp(LetterboxColor[i], 0.0f, 1.0f) : 0.0f;
+        Logging.KeepFiles = std::clamp(Logging.KeepFiles, PlayerLogSettings::MinKeepFiles, PlayerLogSettings::MaxKeepFiles);
     }
 
     PlayerSettings::ViewportRect PlayerSettings::ComputeViewport(uint32_t width, uint32_t height) const
@@ -109,7 +107,7 @@ namespace Zamin {
     {
         static const std::vector<std::string> s_Keys = { "Company", "Product", "Version", "Width", "Height", "WindowMode", "Resizable", "VSync",
                                                          "Title", "VersionInTitle", "TargetFrameRate", "RunInBackground", "FullscreenToggle", "Icon",
-                                                         "Splash", "Aspect" };
+                                                         "Splash", "Aspect", "Log" };
         return s_Keys;
     }
 
@@ -145,6 +143,17 @@ namespace Zamin {
         aspect["Height"] = AspectHeight;
         aspect["BarColor"] = { rounded(LetterboxColor.r, 1000.0), rounded(LetterboxColor.g, 1000.0), rounded(LetterboxColor.b, 1000.0) };
         j["Aspect"] = std::move(aspect);
+        // (Only when changed: projects that never touched it keep their files as they were.)
+        if (!(Logging == PlayerLogSettings()))
+        {
+            ordered_json log;
+            log["Engine"] = Log::LevelToName(Logging.Levels.Engine);
+            log["App"] = Log::LevelToName(Logging.Levels.App);
+            log["File"] = Log::LevelToName(Logging.Levels.File);
+            log["WriteFile"] = Logging.WriteFile;
+            log["Keep"] = Logging.KeepFiles;
+            j["Log"] = std::move(log);
+        }
         return j.dump(4);
     }
 
@@ -204,6 +213,20 @@ namespace Zamin {
                 for (size_t i = 0; i < 3; i++)
                     if ((*it)[i].is_number())
                         s.LetterboxColor[(int)i] = (*it)[i].get<float>();
+        }
+        if (auto log = j.find("Log"); log != j.end() && log->is_object())
+        {
+            auto readLevel = [&](const char* key, LogLevel& level) {
+                if (auto it = log->find(key); it != log->end() && it->is_string())
+                    if (const std::optional<LogLevel> parsed = Log::ParseLevel(it->get<std::string>()))
+                        level = *parsed;
+            };
+            readLevel("Engine", s.Logging.Levels.Engine);
+            readLevel("App", s.Logging.Levels.App);
+            readLevel("File", s.Logging.Levels.File);
+            if (auto it = log->find("WriteFile"); it != log->end() && it->is_boolean()) s.Logging.WriteFile = it->get<bool>();
+            if (auto it = log->find("Keep"); it != log->end() && it->is_number())
+                s.Logging.KeepFiles = (int)std::clamp(it->get<double>(), (double)PlayerLogSettings::MinKeepFiles, (double)PlayerLogSettings::MaxKeepFiles);
         }
         s.Sanitize();
         out = std::move(s);

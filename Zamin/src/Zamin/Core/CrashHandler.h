@@ -83,6 +83,13 @@ namespace Zamin {
         // The dialog's text ("<product> kutilmaganda to'xtadi ... Hisobot: <path>").
         static std::string MakeDialogMessage(const std::filesystem::path& report);
 
+        // Why the program is about to abort (a failed ZM_ASSERT: Assert calls it right before
+        // std::abort()): the report's "Sabab" line names it instead of only SIGABRT. The first reason
+        // set stays; one line (newlines become spaces), at most ~2 KB.
+        static void SetAbortReason(std::string_view reason);
+        static std::string GetAbortReason();   // "" when none was set
+        static void ClearAbortReason();
+
         // The report written by this process ("" before a crash; tests read it in a forked child).
         static std::filesystem::path GetLastReportPath();
     };

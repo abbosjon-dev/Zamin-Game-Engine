@@ -123,6 +123,7 @@ log'ga ogohlantirish bo'lib yoziladi, qolganlari ishlatiladi. `ZaminPlayer --hel
 | `--gl 4.1/4.3/4.5/4.6`, `--msaa N`, `--gl-debug`, `--no-gl-debug`, `--srgb`, `--no-srgb` | OpenGL konteksti |
 | `--no-debug-draw`, `--debug-raycasts`, `--debug-contacts`, `--debug-contact-details`, `--debug-joints`, `--debug-velocities` | Debug chizish (Shipping build'da yo'q) |
 | `--log-file <fayl>`, `--no-log-file` | Log faqat shu faylga / log faylsiz |
+| `--log-level <daraja>` | Log darajalari: `warn` (ikkala logger), `engine=warn,app=info,file=error` (6-bo'lim) |
 | `--no-crash-handler`, `--no-crash-dialog` | Crash hisobotisiz (debugger, core dump) / hisobot bor, oyna yo'q |
 | `--benchmark N` (+ `--benchmark-warmup`, `--benchmark-out`, `--benchmark-max-avg`, `--benchmark-max-p95`) | Ishlash testi (12-bo'lim) |
 | `-v`, `--version` | O'yin va dvigatel versiyasi (8-bo'lim) |
@@ -162,6 +163,35 @@ to'liq qoladi. Satr ko'rinishi: `[14:03:12] ERROR APP: ...` (darajalar: `TRACE`,
 `CRITICAL`; `ZAMIN` - dvigatel, `APP` - o'yin skriptlari). `--log-file <yo'l>` faqat shu faylga yozadi,
 `--no-log-file` log faylsiz (faqat terminal).
 
+### Log darajalari
+
+Ikki logger bor - dvigatelniki (`ZAMIN`, `ZM_CORE_INFO` ...) va o'yinniki (`APP`, `ZM_INFO` ...) - har birining
+o'z eng past darajasi: undan pastdagi xabar hech qayerga yozilmaydi (makros matnni formatlamaydi ham, ya'ni
+o'chirilgan `ZM_CORE_TRACE` deyarli tekin). Log faylining ham o'z darajasi bor: masalan terminalda hammasi,
+faylga faqat ogohlantirish va xatolar. Darajalar: `trace`, `info`, `warn`, `error`, `critical`, `off`.
+
+Qayerdan (har keyingisi oldingisidan ustun):
+
+1. **Project settings > Player > Log**: dvigatel, o'yin skriptlari va faylga yoziladigan daraja, log fayli
+   yoziladimi va nechta eski fayl saqlanadi (standart: hammasi, fayl bor, 5 ta). `.zproject`da
+   `"Player": { "Log": { "Engine": "info", "App": "trace", "File": "warn", "WriteFile": true, "Keep": 5 } }`
+   (o'zgartirilmagan bo'lsa yozilmaydi).
+2. **`ZAMIN_LOG_LEVEL`** muhit o'zgaruvchisi.
+3. **`--log-level`**: `warn` - ikkala logger; `engine=error,app=info,file=warn` - alohida (kalitlar: `engine` /
+   `zamin` / `core`, `app` / `game`, `file`, `all` / `*`; ajratuvchi `,` `;` yoki bo'sh joy).
+
+```
+ZaminPlayer Game.zproject --log-level warn                    # faqat ogohlantirish va xatolar
+ZaminPlayer Game.zproject --log-level engine=warn,file=error  # dvigatel jimroq, faylga faqat xatolar
+ZAMIN_LOG_LEVEL=app=trace ZaminPlayer Game.zproject
+```
+
+Editor: **Sozlamalar > Konsol > Log darajalari / Log fayli** (editorning o'z log fayli:
+`~/.local/share/zamin/editor/logs/editor-<sana>.log` va `latest.log`), konsolning ⚙ menyusida ham darajalar;
+`ZaminEditor <loyiha> --log-level ...` va `ZAMIN_LOG_LEVEL` ishga tushishda sozlamalardan ustun. Kodda:
+`Log::SetLevel(LogSource::Engine, LogLevel::Warn)`, `Log::SetFileLevel(...)`, `LogLevelSettings`,
+`LogLevelOverride::Parse("engine=warn")`.
+
 ## 7. Crash hisobotlari
 
 O'yin qulasa (SIGSEGV, SIGABRT, SIGFPE, SIGILL, SIGBUS yoki ushlanmagan C++ istisnosi) log papkasiga
@@ -184,6 +214,14 @@ oxiri `xmessage`. O'yinchidan shu faylni yuborishni so'rang - unda kommit bor, x
 bilasiz. Signal handler faqat xavfsiz (async-signal-safe) chaqiruvlardan foydalanadi; dastur odatdagi signal
 chiqish kodi bilan tugaydi. `--no-crash-handler` - debugger / core dump uchun, `--no-crash-dialog` - oynasiz.
 Avtomatik ishga tushishlarda (`ZAMIN_MAX_FRAMES`, `--benchmark`) oyna ko'rsatilmaydi.
+
+**Assert'lar.** `ZM_ASSERT(shart, "xabar {}", qiymat)` / `ZM_CORE_ASSERT` Debug build'larda (va
+`-DZAMIN_ASSERTS=ON` bilan yig'ilgan Release'da) tekshiriladi. Bajarilmasa log'ga `CRITICAL` (ifoda, xabar,
+`fayl:qator`, funksiya), keyin: debugger ulangan bo'lsa shu joyda to'xtaydi, aks holda dastur `abort` qiladi va
+crash hisobotining sababi `Sabab: assert bajarilmadi - <ifoda> - <xabar> (Fayl.cpp:123, Funksiya)` bo'ladi.
+`ZM_VERIFY(shart, ...)` har build'da tekshiriladi va natijasini qaytaradi (`if (!ZM_VERIFY(p)) return;`),
+hech qachon dasturni to'xtatmaydi. `ZAMIN_ASSERT=auto|break|abort|continue` xatti-harakatni o'zgartiradi.
+Editorda o'yin skriptidagi `ZM_ASSERT` faqat log'ga yoziladi (editor yopilmaydi).
 
 ## 8. Versiya ma'lumoti
 
@@ -405,6 +443,9 @@ o'zgarmaydi (Release modul `<loyiha>/Build/ExportRelease` da, editor ham shunday
 | `ZAMIN_PLAYER_SPLASH=1` | player | Avtomatik ishga tushishda ham splash |
 | `ZAMIN_FOCUS_LOSS_TEST=<kadr>[:<soni>]` | hammasi | Fokus yo'qolishini taqlid qiladi (fonda pauza) |
 | `ZAMIN_JOBS=N` | hammasi | Vazifalar tizimining ishchi oqimlari (`--jobs`dan ustun; 0 yoki `off` - o'chiq) |
+| `ZAMIN_LOG_LEVEL=<daraja>` | hammasi | Log darajalari (`--log-level` kabi; loyiha / editor sozlamalaridan ustun, `--log-level`dan past) |
+| `ZAMIN_ASSERT=auto/break/abort/continue` | hammasi | Bajarilmagan assert nima qiladi (7-bo'lim) |
+| `ZAMIN_EDITOR_CONSOLE=...;options` | editor | Konsolning sozlamalar menyusi (log darajalari bilan) ochiq |
 | `ZAMIN_EDITOR_STATS=memory` / `jobs` | editor | Statistika panelida Xotira / Vazifalar tizimi bo'limlari ochiq; chiqishda xotira va vazifalar log'ga |
 | `ZAMIN_PLAYER_CRASH_TEST=<kadr>:<segv / abort / fpe / exception>` | player | Ataylab crash |
 | `ZAMIN_CRASH_DIALOG=1` | player | Avtomatik ishga tushishda ham crash oynasi |

@@ -1,4 +1,5 @@
 #include "Zamin/Editor/SceneViews.h"
+#include "Zamin/Utils/StringUtils.h"
 
 #include <glm/gtc/constants.hpp>
 
@@ -24,16 +25,6 @@ namespace Zamin {
             { "Left", "Chap tomondan", "Chap", { 1.0f, 0.0f, 0.0f }, 0.0f, HalfPi },
         };
 
-        bool EqualsIgnoreCase(std::string_view a, std::string_view b)
-        {
-            if (a.size() != b.size())
-                return false;
-            for (size_t i = 0; i < a.size(); i++)
-                if (std::tolower((unsigned char)a[i]) != std::tolower((unsigned char)b[i]))
-                    return false;
-            return true;
-        }
-
         bool Overlaps(const EntityLabelCandidate& a, const EntityLabelCandidate& b)
         {
             constexpr float margin = 1.0f;
@@ -50,7 +41,7 @@ namespace Zamin {
     ViewAxis ViewAxisFromKey(std::string_view key)
     {
         for (size_t i = 0; i < std::size(s_Axes); i++)
-            if (EqualsIgnoreCase(key, s_Axes[i].Key) || EqualsIgnoreCase(key, s_Axes[i].Name) || EqualsIgnoreCase(key, s_Axes[i].Short))
+            if (StringUtils::EqualsIgnoreCase(key, s_Axes[i].Key) || StringUtils::EqualsIgnoreCase(key, s_Axes[i].Name) || StringUtils::EqualsIgnoreCase(key, s_Axes[i].Short))
                 return (ViewAxis)i;
         return ViewAxis::Free;
     }
@@ -139,7 +130,7 @@ namespace Zamin {
     EntityLabelMode EntityLabelSettings::ModeFromKey(std::string_view key, EntityLabelMode fallback)
     {
         for (EntityLabelMode mode : { EntityLabelMode::Off, EntityLabelMode::Selected, EntityLabelMode::All })
-            if (EqualsIgnoreCase(key, GetModeKey(mode)))
+            if (StringUtils::EqualsIgnoreCase(key, GetModeKey(mode)))
                 return mode;
         return fallback;
     }

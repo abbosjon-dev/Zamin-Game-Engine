@@ -22,6 +22,10 @@ option(ZAMIN_BUILD_EXAMPLES "Build example game projects" ON)
 # compiled out. ZAMIN_DEBUG_DRAW: debug drawing in the editor / Development builds.
 option(ZAMIN_SHIPPING      "Shipping build (no development aids)" OFF)
 option(ZAMIN_DEBUG_DRAW    "DebugDraw API (ignored when ZAMIN_SHIPPING)" ON)
+# ZM_ASSERT / ZM_CORE_ASSERT: AUTO - in Debug builds only (NDEBUG decides), ON - also in Release /
+# RelWithDebInfo (a "release with asserts" build: a failed assert writes a crash report), OFF - never.
+set(ZAMIN_ASSERTS "AUTO" CACHE STRING "Asserts: AUTO (Debug only), ON, OFF")
+set_property(CACHE ZAMIN_ASSERTS PROPERTY STRINGS AUTO ON OFF)
 
 include(cmake/Dependencies.cmake)
 

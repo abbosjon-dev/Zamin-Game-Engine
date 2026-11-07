@@ -1,4 +1,5 @@
 #include "Zamin/Project/ExportBuild.h"
+#include "Zamin/Utils/StringUtils.h"
 
 #include "Zamin/Asset/AssetTypes.h"
 #include "Zamin/Project/Project.h"
@@ -141,13 +142,6 @@ namespace Zamin {
             "Binaries", "Textures", "Models", "Audio", "Scenes", "Fonts", "Data", "Other"
         };
 
-        std::string Lower(std::string text)
-        {
-            for (char& c : text)
-                c = (char)std::tolower((unsigned char)c);
-            return text;
-        }
-
         bool IsReportFile(const std::string& relative)
         {
             return relative == ExportReport::JsonFileName || relative == ExportReport::TextFileName || relative == ExportAssets::ReportFileName;
@@ -169,10 +163,10 @@ namespace Zamin {
 
     ExportCategory ExportReport::Categorize(const fs::path& path, bool elf)
     {
-        const std::string name = Lower(path.filename().string());
+        const std::string name = StringUtils::ToLower(path.filename().string());
         if (elf || name.ends_with(".so") || name.find(".so.") != std::string::npos)
             return ExportCategory::Binaries;
-        const std::string extension = Lower(path.extension().string());
+        const std::string extension = StringUtils::ToLower(path.extension().string());
         if (extension == ".bin" || extension == ".gltf" || extension == ".glb")
             return ExportCategory::Models;
         if (extension == ".zsceneb")
@@ -180,7 +174,7 @@ namespace Zamin {
         if (extension == ".png" || extension == ".ico" || extension == ".svg")
         {
             // The game's icons next to the launcher are not the game's textures.
-            const std::string first = path.has_parent_path() ? Lower(path.begin()->string()) : std::string();
+            const std::string first = path.has_parent_path() ? StringUtils::ToLower(path.begin()->string()) : std::string();
             if (first == "icons" || !path.has_parent_path())
                 return ExportCategory::Other;
         }

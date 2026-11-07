@@ -1,4 +1,5 @@
 #include "Zamin/Project/ExportAssets.h"
+#include "Zamin/Utils/StringUtils.h"
 
 #include "Zamin/Asset/AssetReferences.h"
 #include "Zamin/Project/Project.h"
@@ -24,12 +25,6 @@ namespace Zamin {
                 text.pop_back();
             if (text == ".")
                 text.clear();
-            return text;
-        }
-
-        std::string Lower(std::string text)
-        {
-            std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) { return (char)std::tolower(c); });
             return text;
         }
 
@@ -137,7 +132,7 @@ namespace Zamin {
                     it.disable_recursion_pending();
                 continue;
             }
-            if (!it->is_regular_file(fec) || Lower(it->path().extension().string()) == ".zmeta")
+            if (!it->is_regular_file(fec) || StringUtils::ToLower(it->path().extension().string()) == ".zmeta")
                 continue;
             files.push_back(it->path().lexically_relative(root).generic_string());
         }
@@ -160,7 +155,7 @@ namespace Zamin {
         for (const std::string& scene : inputs.BuildScenes)
             if (std::string s = Normalize(scene); !s.empty())
                 buildScenes.insert(std::move(s));
-        auto isScene = [](const std::string& file) { return Lower(fs::path(file).extension().string()) == ".zscene"; };
+        auto isScene = [](const std::string& file) { return StringUtils::ToLower(fs::path(file).extension().string()) == ".zscene"; };
         const bool allScenes = buildScenes.empty();
         auto sceneInGame = [&](const std::string& file) { return allScenes || buildScenes.count(file) != 0; };
 
@@ -185,7 +180,7 @@ namespace Zamin {
         };
         for (const std::string& file : files)
         {
-            const std::string ext = Lower(fs::path(file).extension().string());
+            const std::string ext = StringUtils::ToLower(fs::path(file).extension().string());
             if (alwaysTaken(file))
             {
                 plan.Included.push_back(file);

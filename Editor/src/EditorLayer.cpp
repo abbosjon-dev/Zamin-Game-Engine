@@ -56,14 +56,15 @@ namespace Zamin {
         };
     }
 
-    EditorLayer::EditorLayer(fs::path startupProject)
+    EditorLayer::EditorLayer(fs::path startupProject, LogLevelOverride startupLogLevels)
         : Layer("EditorLayer"), m_StartupProject(std::move(startupProject)),
-          m_EditorCamera(45.0f, 16.0f / 9.0f, 0.1f, 1000.0f)
+          m_EditorCamera(45.0f, 16.0f / 9.0f, 0.1f, 1000.0f), m_StartupLogLevels(std::move(startupLogLevels))
     {
     }
 
     EditorLayer::~EditorLayer()
     {
+        Assert::SetHandler({});
         if (m_BuildThread.joinable()) m_BuildThread.join();
         if (m_ExportThread.joinable()) m_ExportThread.join();
     }
@@ -96,6 +97,7 @@ namespace Zamin {
 
         m_EditorCamera.Focus({ 0.0f, 0.5f, 0.0f }, 14.0f);
         RegisterShortcuts(); // before the preferences: they rebind some of them
+        InstallAssertHandler();
         LoadViewSettings();
         LoadPreferences();
 
@@ -6446,6 +6448,13 @@ namespace Zamin {
             SaveViewSettings();
         if (m_ConsolePanel.ConsumePreferencesChanged())
             MarkPreferencesDirty();
+        if (m_ConsolePanel.ConsumeLogLevelsChanged())
+        {
+            // The console's level menu changed a logger's level: kept in the preferences.
+            m_Preferences.Logging.Levels.Engine = Log::GetLevel(LogSource::Engine);
+            m_Preferences.Logging.Levels.App = Log::GetLevel(LogSource::App);
+            MarkPreferencesDirty();
+        }
         if (m_PreferencesDirty && !ImGui::IsAnyItemActive())
             SavePreferences();
 

@@ -1,4 +1,5 @@
 #include "Zamin/Editor/ConsoleFilter.h"
+#include "Zamin/Utils/StringUtils.h"
 
 #include <algorithm>
 #include <format>
@@ -18,11 +19,7 @@ namespace Zamin {
 
     bool ContainsIgnoreCase(std::string_view text, std::string_view needle)
     {
-        if (needle.empty())
-            return true;
-        auto it = std::search(text.begin(), text.end(), needle.begin(), needle.end(),
-                              [](char a, char b) { return ToLowerAscii(a) == ToLowerAscii(b); });
-        return it != text.end();
+        return StringUtils::ContainsIgnoreCase(text, needle); // (an empty needle is found at 0)
     }
 
     bool ConsoleFilterSettings::AcceptsLevel(LogLevel level) const

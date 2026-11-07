@@ -102,6 +102,8 @@ namespace Zamin {
         void DrawPlayerSplash(PlayerSettings& player);
         // Fixed aspect ratio: the picture's shape, the bars' colour and how windows of other shapes show it.
         void DrawPlayerAspect(PlayerSettings& player);
+        // The player's log: the levels, the log files and how many are kept (PlayerSettings::Logging).
+        void DrawPlayerLog(ProjectConfig& config);
         void DrawDebug(ProjectConfig& config);
         void DrawQuality(ProjectConfig& config);
         void DrawAudio(ProjectConfig& config);

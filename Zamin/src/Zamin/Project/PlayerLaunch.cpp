@@ -70,7 +70,7 @@ namespace Zamin {
         PlayerCommandLine c;
         // Options that take a value (the next argument, or after '=').
         static const char* const s_ValueOptions[] = { "--scene", "--resolution", "--width", "--height", "--monitor", "--fps", "--jobs",
-                                                      "--quality", "--lang", "--language", "--gl", "--msaa", "--log-file",
+                                                      "--quality", "--lang", "--language", "--gl", "--msaa", "--log-file", "--log-level",
                                                       "--crash-dialog", "--gamma", "--brightness", "--benchmark", "--benchmark-warmup",
                                                       "--benchmark-out", "--benchmark-max-avg", "--benchmark-max-p95" };
         for (size_t i = 0; i < args.size(); i++)
@@ -121,6 +121,12 @@ namespace Zamin {
                         c.Errors.push_back("--log-file: fayl yo'li kerak");
                     else
                         c.LogFile = value;
+                }
+                else if (name == "--log-level")
+                {
+                    std::string error;
+                    if (!LogLevelOverride::Parse(value, c.LogLevels, &error))
+                        c.Errors.push_back(std::format("--log-level {}: {}", value, error));
                 }
                 else if (name == "--crash-dialog")
                     c.CrashDialog = value;
@@ -314,6 +320,9 @@ namespace Zamin {
             "  --log-file <fayl>             logni shu faylga yozish (standart: ~/.local/share/<kompaniya>/<o'yin>/logs/\n"
             "                                player-<sana>.log, oxirgi 5 tasi saqlanadi, latest.log - oxirgisi)\n"
             "  --no-log-file                 log faylsiz (faqat terminal)\n"
+            "  --log-level <daraja>          log darajalari: trace, info, warn, error, critical, off - ikkala logger uchun,\n"
+            "                                yoki alohida: engine=warn,app=info,file=error (file - log fayliga yoziladiganlar);\n"
+            "                                loyiha sozlamalari va ZAMIN_LOG_LEVEL dan ustun\n"
             "  --no-crash-handler            crash bo'lganda hisobot yozilmaydi (debugger, core dump uchun)\n"
             "  --no-crash-dialog             crash hisoboti yoziladi, lekin xabar oynasi ko'rsatilmaydi\n"
             "\n"

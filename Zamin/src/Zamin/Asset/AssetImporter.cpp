@@ -1,4 +1,5 @@
 #include "Zamin/Asset/AssetImporter.h"
+#include "Zamin/Utils/StringUtils.h"
 #include "Zamin/Asset/AssetRegistry.h"
 #include "Zamin/Audio/AudioMixer.h"
 #include "Zamin/Project/Project.h"
@@ -11,21 +12,14 @@
 
 namespace Zamin {
 
-    static bool EqualsIgnoreCase(std::string_view a, std::string_view b)
-    {
-        return a.size() == b.size() && std::equal(a.begin(), a.end(), b.begin(), [](char x, char y) {
-            return std::tolower((unsigned char)x) == std::tolower((unsigned char)y);
-        });
-    }
-
     // ------------------------------------------------------------------ names
     const char* AssetImporter::GetFilterKey(TextureFilter filter) { return filter == TextureFilter::Nearest ? "Nearest" : "Linear"; }
     const char* AssetImporter::GetFilterName(TextureFilter filter) { return filter == TextureFilter::Nearest ? "Piksel (nearest)" : "Silliq (linear)"; }
 
     std::optional<TextureFilter> AssetImporter::FilterFromKey(std::string_view key)
     {
-        if (EqualsIgnoreCase(key, "Linear") || EqualsIgnoreCase(key, "Bilinear") || EqualsIgnoreCase(key, "Trilinear")) return TextureFilter::Linear;
-        if (EqualsIgnoreCase(key, "Nearest") || EqualsIgnoreCase(key, "Point")) return TextureFilter::Nearest;
+        if (StringUtils::EqualsIgnoreCase(key, "Linear") || StringUtils::EqualsIgnoreCase(key, "Bilinear") || StringUtils::EqualsIgnoreCase(key, "Trilinear")) return TextureFilter::Linear;
+        if (StringUtils::EqualsIgnoreCase(key, "Nearest") || StringUtils::EqualsIgnoreCase(key, "Point")) return TextureFilter::Nearest;
         return std::nullopt;
     }
 
@@ -51,9 +45,9 @@ namespace Zamin {
 
     std::optional<TextureWrap> AssetImporter::WrapFromKey(std::string_view key)
     {
-        if (EqualsIgnoreCase(key, "Repeat")) return TextureWrap::Repeat;
-        if (EqualsIgnoreCase(key, "Clamp") || EqualsIgnoreCase(key, "ClampToEdge")) return TextureWrap::ClampToEdge;
-        if (EqualsIgnoreCase(key, "Mirror") || EqualsIgnoreCase(key, "MirroredRepeat")) return TextureWrap::MirroredRepeat;
+        if (StringUtils::EqualsIgnoreCase(key, "Repeat")) return TextureWrap::Repeat;
+        if (StringUtils::EqualsIgnoreCase(key, "Clamp") || StringUtils::EqualsIgnoreCase(key, "ClampToEdge")) return TextureWrap::ClampToEdge;
+        if (StringUtils::EqualsIgnoreCase(key, "Mirror") || StringUtils::EqualsIgnoreCase(key, "MirroredRepeat")) return TextureWrap::MirroredRepeat;
         return std::nullopt;
     }
 
@@ -62,8 +56,8 @@ namespace Zamin {
 
     std::optional<ModelUpAxis> AssetImporter::UpAxisFromKey(std::string_view key)
     {
-        if (EqualsIgnoreCase(key, "Y") || EqualsIgnoreCase(key, "Y-up") || EqualsIgnoreCase(key, "YUp")) return ModelUpAxis::Y;
-        if (EqualsIgnoreCase(key, "Z") || EqualsIgnoreCase(key, "Z-up") || EqualsIgnoreCase(key, "ZUp")) return ModelUpAxis::Z;
+        if (StringUtils::EqualsIgnoreCase(key, "Y") || StringUtils::EqualsIgnoreCase(key, "Y-up") || StringUtils::EqualsIgnoreCase(key, "YUp")) return ModelUpAxis::Y;
+        if (StringUtils::EqualsIgnoreCase(key, "Z") || StringUtils::EqualsIgnoreCase(key, "Z-up") || StringUtils::EqualsIgnoreCase(key, "ZUp")) return ModelUpAxis::Z;
         return std::nullopt;
     }
 
@@ -89,9 +83,9 @@ namespace Zamin {
 
     std::optional<AudioLoadMode> AssetImporter::LoadModeFromKey(std::string_view key)
     {
-        if (EqualsIgnoreCase(key, "Auto")) return AudioLoadMode::Auto;
-        if (EqualsIgnoreCase(key, "Decompress") || EqualsIgnoreCase(key, "DecompressOnLoad") || EqualsIgnoreCase(key, "Memory")) return AudioLoadMode::Decompress;
-        if (EqualsIgnoreCase(key, "Stream") || EqualsIgnoreCase(key, "Streaming")) return AudioLoadMode::Stream;
+        if (StringUtils::EqualsIgnoreCase(key, "Auto")) return AudioLoadMode::Auto;
+        if (StringUtils::EqualsIgnoreCase(key, "Decompress") || StringUtils::EqualsIgnoreCase(key, "DecompressOnLoad") || StringUtils::EqualsIgnoreCase(key, "Memory")) return AudioLoadMode::Decompress;
+        if (StringUtils::EqualsIgnoreCase(key, "Stream") || StringUtils::EqualsIgnoreCase(key, "Streaming")) return AudioLoadMode::Stream;
         return std::nullopt;
     }
 

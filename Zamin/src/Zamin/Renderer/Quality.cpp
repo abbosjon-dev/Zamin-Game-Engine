@@ -1,4 +1,5 @@
 #include "Zamin/Renderer/Quality.h"
+#include "Zamin/Utils/StringUtils.h"
 
 #include "Zamin/Core/Log.h"
 #include "Zamin/Core/SaveData.h"
@@ -18,15 +19,6 @@ namespace Zamin {
     namespace {
 
         float FiniteOr(float v, float fallback) { return std::isfinite(v) ? v : fallback; }
-
-        std::string Lower(std::string_view text)
-        {
-            std::string out(text);
-            for (char& c : out)
-                if (c >= 'A' && c <= 'Z')
-                    c = (char)(c - 'A' + 'a');
-            return out;
-        }
 
         const char* FilterName(ShadowFilter filter)
         {
@@ -230,9 +222,9 @@ namespace Zamin {
 
     int QualitySettings::Find(std::string_view name) const
     {
-        const std::string wanted = Lower(name);
+        const std::string wanted = StringUtils::ToLower(name);
         for (size_t i = 0; i < Levels.size(); i++)
-            if (Lower(Levels[i].Name) == wanted)
+            if (StringUtils::ToLower(Levels[i].Name) == wanted)
                 return (int)i;
         return -1;
     }
@@ -263,7 +255,7 @@ namespace Zamin {
             std::string name = base;
             auto taken = [&](const std::string& candidate) {
                 for (size_t j = 0; j < i; j++)
-                    if (Lower(Levels[j].Name) == Lower(candidate))
+                    if (StringUtils::ToLower(Levels[j].Name) == StringUtils::ToLower(candidate))
                         return true;
                 return false;
             };
@@ -314,7 +306,7 @@ namespace Zamin {
                 std::string name = item.value("Name", std::string());
                 // A level named like a built-in one starts from it: its values that are missing in the file.
                 for (const QualityLevel& b : builtIn)
-                    if (Lower(b.Name) == Lower(name))
+                    if (StringUtils::ToLower(b.Name) == StringUtils::ToLower(name))
                         level = b;
                 level.Name = name;
                 auto readBool = [&](const char* key, bool& v) {

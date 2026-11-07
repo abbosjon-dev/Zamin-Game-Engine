@@ -1,4 +1,5 @@
 #include "Zamin/Renderer/Font.h"
+#include "Zamin/Utils/StringUtils.h"
 #include "Zamin/Asset/AssetImportLog.h"
 #include "Zamin/Renderer/Renderer.h"
 #include "Zamin/Utils/FileSystem.h"
@@ -16,13 +17,8 @@ namespace Zamin {
 
     uint32_t DecodeUTF8(std::string_view s, size_t& i)
     {
-        unsigned char c = (unsigned char)s[i++];
-        if (c < 0x80) return c;
-        int extra = (c >= 0xF0) ? 3 : (c >= 0xE0) ? 2 : (c >= 0xC0) ? 1 : 0;
-        uint32_t cp = c & (0x3F >> extra);
-        for (int k = 0; k < extra && i < s.size(); k++)
-            cp = (cp << 6) | ((unsigned char)s[i++] & 0x3F);
-        return cp;
+        // The shared decoder: broken UTF-8 gives U+FFFD (drawn as '?') one byte at a time.
+        return StringUtils::Utf8Decode(s, i);
     }
 
     const Glyph* FontAtlas::Find(uint32_t codepoint) const

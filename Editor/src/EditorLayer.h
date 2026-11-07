@@ -36,7 +36,8 @@ namespace Zamin {
     class EditorLayer : public Layer
     {
     public:
-        explicit EditorLayer(std::filesystem::path startupProject = {});
+        // `startupLogLevels`: ZAMIN_LOG_LEVEL / --log-level, over the preferences' levels at start-up.
+        explicit EditorLayer(std::filesystem::path startupProject = {}, LogLevelOverride startupLogLevels = {});
         ~EditorLayer() override;
 
         void OnAttach() override;
@@ -221,6 +222,15 @@ namespace Zamin {
         // Every view's editor camera takes the preferences' FOV / clip planes, acceleration and mouse
         // settings (and the fly speed: `flySpeed`).
         void ApplyCameraDefaults(bool flySpeed);
+        // ---- the log (EditorLogSettings.cpp): the preferences' levels applied (at start-up with the
+        // command line's / ZAMIN_LOG_LEVEL over them), the editor's log file opened / closed as they say,
+        // the page in Sozlamalar > Konsol, and the assert handler (a game script's failed ZM_ASSERT is
+        // logged and the editor goes on instead of aborting).
+        void ApplyLogPreferences(bool startup);
+        void UpdateEditorLogFile();
+        void UI_LogPreferences(bool& changed);
+        void InstallAssertHandler();
+        static std::filesystem::path GetEditorLogDirectory();
         // The ImGui style follows the preferences and the scene state (the play-mode tint): applied
         // at the start of a frame when something changed.
         void UpdateEditorTheme();
@@ -736,6 +746,7 @@ namespace Zamin {
         bool m_PreferencesDirty = false;
         bool m_ShowPreferences = false;
         int m_PreferencesPage = 0;
+        LogLevelOverride m_StartupLogLevels;    // ZAMIN_LOG_LEVEL / --log-level (shown in the preferences)
         // What the ImGui style was last made from (UpdateEditorTheme applies it again when it differs).
         struct AppliedTheme
         {

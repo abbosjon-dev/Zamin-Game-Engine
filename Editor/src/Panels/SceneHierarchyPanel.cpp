@@ -1,4 +1,5 @@
 #include "SceneHierarchyPanel.h"
+#include "Zamin/Utils/StringUtils.h"
 #include "AssetInspectorPanel.h"
 #include "AnimatorEditing.h"
 #include "../UI.h"
@@ -15,12 +16,6 @@
 #include <set>
 
 namespace Zamin {
-
-    static std::string ToLower(std::string s)
-    {
-        std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return (char)std::tolower(c); });
-        return s;
-    }
 
     static const char* EntityIcon(Entity e)
     {
@@ -1326,7 +1321,7 @@ namespace Zamin {
         UI::SearchBox("HierarchySearch", m_Filter, "Qidirish...  (#teg)");
         ImGui::Spacing();
 
-        std::string filter = ToLower(m_Filter);
+        std::string filter = StringUtils::ToLower(m_Filter);
         m_PendingDelete = false;
         m_PendingDuplicate = false;
         m_RowIndex = 0;
@@ -1413,11 +1408,11 @@ namespace Zamin {
             if (!tags) return false;
             std::string wanted = lowerFilter.substr(1);
             for (const auto& tag : tags->Tags)
-                if (ToLower(tag).find(wanted) != std::string::npos)
+                if (StringUtils::ToLower(tag).find(wanted) != std::string::npos)
                     return true;
             return false;
         }
-        return ToLower(entity.GetName()).find(lowerFilter) != std::string::npos;
+        return StringUtils::ToLower(entity.GetName()).find(lowerFilter) != std::string::npos;
     }
 
     // ------------------------------------------------------------------ inspector
@@ -2041,7 +2036,7 @@ namespace Zamin {
         Entity entity = GetSelectedEntity();
         if (!entity || entity.HasComponent<T>())
             return;
-        if (!m_AddComponentFilter.empty() && ToLower(name).find(ToLower(m_AddComponentFilter)) == std::string::npos)
+        if (!m_AddComponentFilter.empty() && StringUtils::ToLower(name).find(StringUtils::ToLower(m_AddComponentFilter)) == std::string::npos)
             return;
         std::string label = std::string(icon) + "   " + name;
         if (ImGui::MenuItem(label.c_str()))
@@ -2178,7 +2173,7 @@ namespace Zamin {
             ImGui::SetNextItemWidth(ImGui::GetFontSize() * 16.0f);
             ImGui::InputTextWithHint("##filter", Tr(ICON_FA_MAGNIFYING_GLASS "  Qidirish..."), &m_EntityPickerFilter);
             ImGui::Separator();
-            std::string filter = ToLower(m_EntityPickerFilter);
+            std::string filter = StringUtils::ToLower(m_EntityPickerFilter);
             ImGui::BeginChild("##list", ImVec2(ImGui::GetFontSize() * 16.0f, ImGui::GetFontSize() * 14.0f), ImGuiChildFlags_None);
             if (ImGui::Selectable(Tr(ICON_FA_XMARK "  (yo'q)"), ref.ID == 0))
             {
@@ -2191,7 +2186,7 @@ namespace Zamin {
                 for (Entity e : m_Context->GetEntitiesInOrder())
                 {
                     const std::string& entityName = e.GetName();
-                    if (!filter.empty() && ToLower(entityName).find(filter) == std::string::npos)
+                    if (!filter.empty() && StringUtils::ToLower(entityName).find(filter) == std::string::npos)
                         continue;
                     ImGui::PushID((int)(uint32_t)e);
                     std::string label = std::string(EntityIcon(e)) + "  " + entityName;
@@ -5938,11 +5933,11 @@ namespace Zamin {
             for (auto& t : m_Context->GetAllTags())
                 if (std::find(known.begin(), known.end(), t) == known.end())
                     known.push_back(t);
-            std::string filter = ToLower(TrimTag(m_NewTagBuffer));
+            std::string filter = StringUtils::ToLower(TrimTag(m_NewTagBuffer));
             int shown = 0;
             for (const auto& t : known)
             {
-                if (c.Has(t) || (!filter.empty() && ToLower(t).find(filter) == std::string::npos))
+                if (c.Has(t) || (!filter.empty() && StringUtils::ToLower(t).find(filter) == std::string::npos))
                     continue;
                 if (ImGui::Selectable((std::string(ICON_FA_TAG "  ") + t).c_str()))
                 {

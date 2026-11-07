@@ -1,4 +1,5 @@
 #include "ScenesPanel.h"
+#include "Zamin/Utils/StringUtils.h"
 
 #include "../UI.h"
 
@@ -16,14 +17,6 @@ namespace Zamin {
 
     static const ImVec4 s_OldColor{ 0.95f, 0.75f, 0.35f, 1.0f };
     static const ImU32 s_StarColor = IM_COL32(255, 205, 70, 255);
-
-    static std::string Lower(std::string_view s)
-    {
-        std::string out(s);
-        for (char& c : out)
-            c = (char)std::tolower((unsigned char)c);
-        return out;
-    }
 
     static size_t CountEntities(Scene& scene)
     {
@@ -217,7 +210,7 @@ namespace Zamin {
 
         // The project's scenes: the build list's first (in build order), then the others by name.
         std::vector<const Item*> shown;
-        const std::string search = Lower(m_Search);
+        const std::string search = StringUtils::ToLower(m_Search);
         for (const Item& item : m_Items)
         {
             const int build = FindBuildEntry(item.Relative);
@@ -225,9 +218,9 @@ namespace Zamin {
                 continue;
             if (!search.empty())
             {
-                std::string haystack = Lower(item.Relative + " " + item.Info.Name + " " + item.Info.Metadata.Description + " " + item.Info.Metadata.Author);
+                std::string haystack = StringUtils::ToLower(item.Relative + " " + item.Info.Name + " " + item.Info.Metadata.Description + " " + item.Info.Metadata.Author);
                 for (const std::string& tag : item.Info.Metadata.Tags)
-                    haystack += " #" + Lower(tag);
+                    haystack += " #" + StringUtils::ToLower(tag);
                 if (haystack.find(search) == std::string::npos)
                     continue;
             }
@@ -416,10 +409,10 @@ namespace Zamin {
             ImGui::TableSetupColumn("Qiymat", ImGuiTableColumnFlags_WidthStretch, 1.0f);
             ImGui::TableSetupColumn("##persistent", ImGuiTableColumnFlags_WidthFixed, 22.0f);
             ImGui::TableHeadersRow();
-            const std::string filter = Lower(m_StateFilter);
+            const std::string filter = StringUtils::ToLower(m_StateFilter);
             for (const std::string& key : GameState::GetKeys())
             {
-                if (!filter.empty() && Lower(key).find(filter) == std::string::npos)
+                if (!filter.empty() && StringUtils::ToLower(key).find(filter) == std::string::npos)
                     continue;
                 const GameState::Value* value = GameState::Find(key);
                 if (!value)

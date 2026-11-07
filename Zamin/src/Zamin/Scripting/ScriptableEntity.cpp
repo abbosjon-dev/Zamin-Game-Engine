@@ -954,14 +954,14 @@ namespace Zamin {
             return;
         }
         // A callback may be running right now: only flag, erase after the loop.
-        for (Timer& t : m_Timers)
+        for (TimerState& t : m_Timers)
             t.Done = true;
     }
 
     bool ScriptableEntity::IsInvoking() const
     {
         if (!m_PendingTimers.empty()) return true;
-        return std::any_of(m_Timers.begin(), m_Timers.end(), [](const Timer& t) { return !t.Done; });
+        return std::any_of(m_Timers.begin(), m_Timers.end(), [](const TimerState& t) { return !t.Done; });
     }
 
     void ScriptableEntity::Tween(float duration, std::function<void(float)> onUpdate, Ease ease, std::function<void()> onComplete)
@@ -1016,7 +1016,7 @@ namespace Zamin {
         // so references stay valid even when a callback schedules or cancels timers.
         for (size_t i = 0; i < m_Timers.size(); i++)
         {
-            Timer& t = m_Timers[i];
+            TimerState& t = m_Timers[i];
             if (t.Done) continue;
             t.Remaining -= ts;
             if (t.Remaining > 0.0f) continue;
@@ -1038,9 +1038,9 @@ namespace Zamin {
         }
 
         m_TickingTimers = false;
-        std::erase_if(m_Timers, [](const Timer& t) { return t.Done; });
+        std::erase_if(m_Timers, [](const TimerState& t) { return t.Done; });
         std::erase_if(m_Tweens, [](const TweenState& t) { return t.Done; });
-        for (Timer& t : m_PendingTimers) m_Timers.push_back(std::move(t));
+        for (TimerState& t : m_PendingTimers) m_Timers.push_back(std::move(t));
         for (TweenState& t : m_PendingTweens) m_Tweens.push_back(std::move(t));
         m_PendingTimers.clear();
         m_PendingTweens.clear();

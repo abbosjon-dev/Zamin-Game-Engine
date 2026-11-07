@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Zamin/Core/LogSettings.h"
 #include "Zamin/Editor/EditorAutosave.h"
 #include "Zamin/Editor/IdleThrottle.h"
 
@@ -99,6 +100,21 @@ namespace Zamin {
         bool ShowTrace = false, ShowInfo = true, ShowWarn = true, ShowError = true;
     };
 
+    // The editor's log (Sozlamalar > Konsol): the levels of the engine's and the editor's / game's
+    // messages (below them nothing is written: not to the console, the terminal or the file), and the
+    // editor's own log files - ~/.local/share/zamin/editor/logs/editor-<date>.log (the last KeepFiles)
+    // and latest.log, at FileLevel and above. ZAMIN_LOG_LEVEL / ZaminEditor --log-level win at start-up.
+    struct LogPreferences
+    {
+        LogLevelSettings Levels;
+        bool WriteFile = true;
+        int KeepFiles = 5;
+
+        static constexpr int MinKeepFiles = 1, MaxKeepFiles = 100;
+        bool operator==(const LogPreferences&) const = default;
+        void Sanitize();
+    };
+
     // The scene's undo history.
     struct UndoPreferences
     {
@@ -129,6 +145,7 @@ namespace Zamin {
         PlayModeTintSettings PlayTint;
         EditorCameraDefaults Camera;
         ConsolePreferences Console;
+        LogPreferences Logging;
         AutosaveSettings Autosave;
         UndoPreferences Undo;
         LayoutPreferences Layout;

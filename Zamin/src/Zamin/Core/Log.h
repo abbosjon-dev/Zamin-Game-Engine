@@ -1,16 +1,24 @@
 #pragma once
 
+#include <atomic>
+#include <cstdint>
 #include <cstdio>
 #include <format>
 #include <functional>
 #include <mutex>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <deque>
 #include <vector>
 
 namespace Zamin {
 
-    enum class LogLevel : uint8_t { Trace = 0, Info, Warn, Error, Critical };
+    // Off is only a threshold ("nothing"): no message has it.
+    enum class LogLevel : uint8_t { Trace = 0, Info, Warn, Error, Critical, Off };
+
+    // The two loggers: the engine's ("ZAMIN": ZM_CORE_*) and the game's / editor's ("APP": ZM_*).
+    enum class LogSource : uint8_t { Engine = 0, App = 1 };
 
     struct LogMessage
     {
@@ -22,6 +30,12 @@ namespace Zamin {
 
     // Thread-safe logger: writes colored output to the terminal and keeps the
     // last N messages in memory so the editor console can display them.
+    //
+    // Levels (LogLevelSettings: --log-level, ZAMIN_LOG_LEVEL, Project settings > Player > Log, the
+    // editor's Preferences > Konsol): each logger has its minimum level - a message below it is not
+    // written anywhere (and the macros do not even format it); the log files have their own minimum on
+    // top (SetFileLevel: e.g. the terminal and the console show Info, the file only warnings).
+    // SetMinLevel is one more threshold over both loggers (tests silence expected errors with it).
     class Log
     {
     public:
@@ -37,13 +51,34 @@ namespace Zamin {
         static uint64_t GetRevision();
         // How many messages were written since start-up (also those no longer kept).
         static uint64_t GetTotalWritten();
-        static void SetMinLevel(LogLevel level) { s_MinLevel = level; }
-        static LogLevel GetMinLevel() { return s_MinLevel; }
+        static void SetMinLevel(LogLevel level) { s_MinLevel.store(level, std::memory_order_relaxed); }
+        static LogLevel GetMinLevel() { return s_MinLevel.load(std::memory_order_relaxed); }
+        // A logger's minimum level (Trace: everything, Off: nothing).
+        static void SetLevel(LogSource source, LogLevel level) { s_SourceLevels[(int)source].store(level, std::memory_order_relaxed); }
+        static LogLevel GetLevel(LogSource source) { return s_SourceLevels[(int)source].load(std::memory_order_relaxed); }
+        // The minimum level of the lines written to the log files (LogFile); the console and the
+        // terminal still get the others.
+        static void SetFileLevel(LogLevel level) { s_FileLevel.store(level, std::memory_order_relaxed); }
+        static LogLevel GetFileLevel() { return s_FileLevel.load(std::memory_order_relaxed); }
+        // Whether a message of `level` from that logger would be written (the macros ask before formatting).
+        static bool IsEnabled(LogLevel level, bool fromClient)
+        {
+            return level != LogLevel::Off && level >= s_MinLevel.load(std::memory_order_relaxed) &&
+                   level >= s_SourceLevels[fromClient ? 1 : 0].load(std::memory_order_relaxed);
+        }
         // Whether messages are printed to the terminal too (they are always kept for the console).
         static void SetTerminalOutput(bool enabled) { s_TerminalOutput = enabled; }
         static bool GetTerminalOutput() { return s_TerminalOutput; }
 
         static const char* LevelToString(LogLevel level);
+        // "trace", "info", "warn", "error", "critical", "off" (settings files, --log-level).
+        static const char* LevelToName(LogLevel level);
+        // For people: "Trace", "Ma'lumot", "Ogohlantirish", "Xato", "Kritik", "O'chiq".
+        static const char* LevelDisplayName(LogLevel level);
+        // A level by its name (any case): trace / debug / verbose, info, warn / warning, error / err,
+        // critical / fatal, off / none; the Uzbek names (ma'lumot, ogohlantirish, xato, kritik, o'chiq);
+        // or its number 0 ... 5. Nothing for anything else.
+        static std::optional<LogLevel> ParseLevel(std::string_view text);
 
         // ---- files (LogFile opens / rotates them): every message from then on is also written to
         // these (without colours, flushed at once - a crash loses nothing). Attaching first writes the
@@ -66,21 +101,27 @@ namespace Zamin {
         static inline std::mutex s_Mutex;
         static inline std::deque<LogMessage> s_Messages;
         static inline uint64_t s_Revision = 0, s_TotalWritten = 0;
-        static inline LogLevel s_MinLevel = LogLevel::Trace;
+        static inline std::atomic<LogLevel> s_MinLevel{ LogLevel::Trace };
+        static inline std::atomic<LogLevel> s_SourceLevels[2] = { LogLevel::Trace, LogLevel::Trace };
+        static inline std::atomic<LogLevel> s_FileLevel{ LogLevel::Trace };
         static inline bool s_TerminalOutput = true;
         static constexpr size_t MaxMessages = 2000;
     };
 
 }
 
-#define ZM_CORE_TRACE(...)    ::Zamin::Log::Write(::Zamin::LogLevel::Trace,    false, std::format(__VA_ARGS__))
-#define ZM_CORE_INFO(...)     ::Zamin::Log::Write(::Zamin::LogLevel::Info,     false, std::format(__VA_ARGS__))
-#define ZM_CORE_WARN(...)     ::Zamin::Log::Write(::Zamin::LogLevel::Warn,     false, std::format(__VA_ARGS__))
-#define ZM_CORE_ERROR(...)    ::Zamin::Log::Write(::Zamin::LogLevel::Error,    false, std::format(__VA_ARGS__))
-#define ZM_CORE_CRITICAL(...) ::Zamin::Log::Write(::Zamin::LogLevel::Critical, false, std::format(__VA_ARGS__))
+// A message below its logger's level is neither formatted nor written.
+#define ZM_LOG_IMPL(level, client, ...) \
+    (::Zamin::Log::IsEnabled(level, client) ? ::Zamin::Log::Write(level, client, std::format(__VA_ARGS__)) : (void)0)
 
-#define ZM_TRACE(...)    ::Zamin::Log::Write(::Zamin::LogLevel::Trace,    true, std::format(__VA_ARGS__))
-#define ZM_INFO(...)     ::Zamin::Log::Write(::Zamin::LogLevel::Info,     true, std::format(__VA_ARGS__))
-#define ZM_WARN(...)     ::Zamin::Log::Write(::Zamin::LogLevel::Warn,     true, std::format(__VA_ARGS__))
-#define ZM_ERROR(...)    ::Zamin::Log::Write(::Zamin::LogLevel::Error,    true, std::format(__VA_ARGS__))
-#define ZM_CRITICAL(...) ::Zamin::Log::Write(::Zamin::LogLevel::Critical, true, std::format(__VA_ARGS__))
+#define ZM_CORE_TRACE(...)    ZM_LOG_IMPL(::Zamin::LogLevel::Trace,    false, __VA_ARGS__)
+#define ZM_CORE_INFO(...)     ZM_LOG_IMPL(::Zamin::LogLevel::Info,     false, __VA_ARGS__)
+#define ZM_CORE_WARN(...)     ZM_LOG_IMPL(::Zamin::LogLevel::Warn,     false, __VA_ARGS__)
+#define ZM_CORE_ERROR(...)    ZM_LOG_IMPL(::Zamin::LogLevel::Error,    false, __VA_ARGS__)
+#define ZM_CORE_CRITICAL(...) ZM_LOG_IMPL(::Zamin::LogLevel::Critical, false, __VA_ARGS__)
+
+#define ZM_TRACE(...)    ZM_LOG_IMPL(::Zamin::LogLevel::Trace,    true, __VA_ARGS__)
+#define ZM_INFO(...)     ZM_LOG_IMPL(::Zamin::LogLevel::Info,     true, __VA_ARGS__)
+#define ZM_WARN(...)     ZM_LOG_IMPL(::Zamin::LogLevel::Warn,     true, __VA_ARGS__)
+#define ZM_ERROR(...)    ZM_LOG_IMPL(::Zamin::LogLevel::Error,    true, __VA_ARGS__)
+#define ZM_CRITICAL(...) ZM_LOG_IMPL(::Zamin::LogLevel::Critical, true, __VA_ARGS__)

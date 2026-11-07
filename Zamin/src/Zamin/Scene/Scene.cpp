@@ -1816,6 +1816,18 @@ namespace Zamin {
             EditEditorMetadata(entity, [&](EditorMetadataComponent& m) { m.Locked = locked; });
     }
 
+    std::string Scene::GetPrefabSource(Entity entity)
+    {
+        const auto* meta = entity ? entity.TryGetComponent<EditorMetadataComponent>() : nullptr;
+        return meta ? meta->Prefab : std::string();
+    }
+
+    void Scene::SetPrefabSource(Entity entity, const std::string& prefab)
+    {
+        if (entity && GetPrefabSource(entity) != prefab)
+            EditEditorMetadata(entity, [&](EditorMetadataComponent& m) { m.Prefab = prefab; });
+    }
+
     size_t Scene::CountHiddenInEditor()
     {
         size_t count = 0;

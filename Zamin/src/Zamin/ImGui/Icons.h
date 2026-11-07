@@ -216,3 +216,9 @@
 #define ICON_FA_BRUSH "\xef\x95\x9d"            // play-mode tint
 #define ICON_FA_WINDOW_RESTORE "\xef\x8b\x92"   // window layouts
 #define ICON_FA_TABLE_COLUMNS "\xef\x83\x9b"    // extra scene views
+// editor II (M16): scene statistics, external editor, compiler diagnostics, idle throttling
+#define ICON_FA_CHART_PIE "\xef\x88\x80"           // scene statistics
+#define ICON_FA_PEN_TO_SQUARE "\xef\x81\x84"       // open in the external editor
+#define ICON_FA_CIRCLE_EXCLAMATION "\xef\x81\xaa"  // compiler errors
+#define ICON_FA_SCREWDRIVER_WRENCH "\xef\x9f\x99"  // the build (compiler output) window
+#define ICON_FA_LEAF "\xef\x81\xac"                // idle throttling (power saving)

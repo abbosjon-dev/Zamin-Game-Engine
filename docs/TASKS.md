@@ -364,7 +364,7 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 313. Ortografik ko'rinishlar (Top/Front/Right) tugmalari
 - [x] 314. Editor kamerasi tezligi sozlamasi va FOV
 - [x] 315. Viewport'da obyekt nomlarini ko'rsatish
-- [ ] 316. Sahna statistikasi paneli (komponentlar soni)
+- [x] 316. Sahna statistikasi paneli (komponentlar soni)
 - [ ] 317. Editor ichida skript fayllarni ochish (tashqi muharrir)
 - [ ] 318. Kompilyatsiya xatolarini fayl/qator bilan ko'rsatish
 - [ ] 319. Editor yangilanishini kamaytirish (idle bo'lganda FPS cheklash)

@@ -32846,3 +32846,158 @@ TEST(EntityLabelsLayoutAndFade)
     CHECK(ShortenEntityLabel(cyrillic, 8) == cyrillic);
     CHECK(ShortenEntityLabel(cyrillic, 6) == std::string(cyrillic.substr(0, 6)) + "...");
 }
+
+// The scene statistics window's numbers (316): entities (active / inactive, roots, depth), components by
+// type, scripts by class, prefab instances, and the assets the scene names - read from small files
+// written here - with their memory estimates; materials bring their texture maps along.
+TEST(SceneStatisticsCounting)
+{
+    namespace fs = std::filesystem;
+    const fs::path dir = fs::temp_directory_path() / ("zamin-stats-" + std::to_string((uint64_t)UUID()));
+    for (const char* folder : { "Textures", "Models", "Audio", "Materials" })
+        fs::create_directories(dir / folder);
+    std::vector<uint8_t> rgba(64 * 32 * 4, 180), rgb(16 * 16 * 3, 90);
+    CHECK(Image::WritePNG((dir / "Textures/hero.png").string(), 64, 32, 4, rgba.data(), false));
+    CHECK(Image::WritePNG((dir / "Textures/bricks.png").string(), 16, 16, 3, rgb.data(), false));
+    FileSystem::WriteTextFile(dir / "Models/quad.obj", "v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\nvt 0 0\nvt 1 0\nvt 1 1\nvt 0 1\n"
+                                                         "vn 0 0 1\nf 1/1/1 2/2/1 3/3/1\nf 1/1/1 3/3/1 4/4/1\n");
+    FileSystem::WriteTextFile(dir / "Materials/wall.zmat", "{ \"AlbedoMap\": \"Textures/bricks.png\", \"NormalMap\": \"\", \"Roughness\": 0.7 }");
+    {
+        // 1000 frames of 16-bit mono at 8 kHz.
+        std::ofstream wav(dir / "Audio/beep.wav", std::ios::binary);
+        auto u32 = [&](uint32_t v) { wav.write((const char*)&v, 4); };
+        auto u16 = [&](uint16_t v) { wav.write((const char*)&v, 2); };
+        const uint32_t frames = 1000, bytes = frames * 2;
+        wav.write("RIFF", 4); u32(36 + bytes); wav.write("WAVE", 4);
+        wav.write("fmt ", 4); u32(16); u16(1); u16(1); u32(8000); u32(16000); u16(2); u16(16);
+        wav.write("data", 4); u32(bytes);
+        std::vector<int16_t> samples(frames);
+        for (uint32_t i = 0; i < frames; i++)
+            samples[i] = (int16_t)(std::sin((float)i * 0.3f) * 8000.0f);
+        wav.write((const char*)samples.data(), bytes);
+    }
+
+    auto scene = CreateRef<Scene>();
+    Entity root = scene->CreateEntity("Level");
+    Entity hero = scene->CreateEntity("Hero");
+    Entity ghost = scene->CreateEntity("Ghost");
+    Entity wall = scene->CreateEntity("Wall");
+    Entity speaker = scene->CreateEntity("Speaker");
+    Entity brain = scene->CreateEntity("Brain");
+    Entity empty = scene->CreateEntity("EmptyScript");
+    scene->SetParent(hero, root, false);
+    scene->SetParent(ghost, hero, false);
+    hero.AddComponent<SpriteRendererComponent>().TexturePath = "Textures/hero.png";
+    ghost.AddComponent<SpriteRendererComponent>().TexturePath = "Textures/hero.png";
+    ghost.GetComponent<TagComponent>().Active = false;
+    auto& mesh = wall.AddComponent<MeshRendererComponent>();
+    mesh.Type = PrimitiveMesh::Model;
+    mesh.ModelPath = "Models/quad.obj";
+    mesh.MaterialPath = "Materials/wall.zmat";
+    speaker.AddComponent<AudioSourceComponent>().Path = "Audio/beep.wav";
+    hero.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
+    brain.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
+    empty.AddComponent<NativeScriptComponent>();
+    scene->SetPrefabSource(root, "Prefabs/Level.zprefab");
+    scene->SetPrefabSource(wall, "Prefabs/Wall.zprefab");
+    scene->SetHiddenInEditor(speaker, true);
+    scene->GetSettings().EnvironmentMap = "Sky/missing.hdr";
+    CHECK(scene->GetPrefabSource(root) == "Prefabs/Level.zprefab");
+
+    SceneStatisticsCollector collector;
+    SceneStatistics s = collector.Collect(*scene, dir);
+    CHECK(s.Entities == 7);
+    CHECK(s.Inactive == 1 && s.Active == 6 && s.InactiveSelf == 1);
+    CHECK(s.Roots == 5 && s.MaxDepth == 2);
+    CHECK(s.HiddenInEditor == 1 && s.LockedInEditor == 0);
+    CHECK(s.PrefabInstances == 2 && s.Prefabs.size() == 2);
+    CHECK(s.FindPrefab("Prefabs/Wall.zprefab") && s.FindPrefab("Prefabs/Wall.zprefab")->Entities.front() == wall.GetUUID());
+    // Components: every entity's transform; the most used first.
+    CHECK(s.FindComponent("Transform") && s.FindComponent("Transform")->Count() == 7);
+    CHECK(s.Components.front().Key == "Transform");
+    CHECK(s.FindComponent("SpriteRenderer") && s.FindComponent("SpriteRenderer")->Count() == 2);
+    CHECK(s.FindComponent("MeshRenderer")->Count() == 1 && s.FindComponent("AudioSource")->Count() == 1);
+    CHECK(!s.FindComponent("Rigidbody2D"));
+    size_t total = 0;
+    for (const SceneStatsGroup& g : s.Components)
+        total += g.Count();
+    CHECK(total == s.ComponentTotal && s.ComponentTotal == 7 + 2 + 1 + 1 + 3);
+    // Scripts by class ("" = a script component without one); hierarchy order inside a row.
+    CHECK(s.ScriptComponents == 3 && s.Scripts.size() == 2);
+    CHECK(s.Scripts.front().Key == "TestScript" && s.FindScript("TestScript")->Count() == 2);
+    CHECK(s.FindScript("TestScript")->Entities[0] == hero.GetUUID());
+    CHECK(s.FindScript("") && s.FindScript("")->Count() == 1);
+
+    // Assets: the sprite texture (two users, named twice), the model, the material and its map, the
+    // sound and the scene's sky (missing).
+    CHECK(s.Assets.size() == 6);
+    const SceneAssetStats* heroTex = s.FindAsset("Textures/hero.png");
+    CHECK(heroTex && heroTex->Type == AssetType::Texture && heroTex->Exists && heroTex->Entities.size() == 2 && heroTex->Uses == 2);
+    if (heroTex)
+    {
+        CHECK(heroTex->Width == 64 && heroTex->Height == 32 && heroTex->Channels == 4);
+        const bool mips = AssetImporter::GetTextureSettings(dir / "Textures/hero.png").Mipmaps;
+        CHECK(heroTex->Memory == AssetInfo::EstimateTextureMemory(64, 32, 4, mips));
+        CHECK(heroTex->FileSize == (uint64_t)fs::file_size(dir / "Textures/hero.png"));
+        CHECK(heroTex->Components.size() == 1 && heroTex->Components[0] == "SpriteRenderer");
+    }
+    const SceneAssetStats* bricks = s.FindAsset("Textures/bricks.png");
+    CHECK(bricks && bricks->Channels == 3 && bricks->ViaMaterials.size() == 1 && bricks->ViaMaterials[0] == "Materials/wall.zmat");
+    CHECK(bricks && bricks->Entities.size() == 1 && bricks->Entities[0] == wall.GetUUID());
+    const SceneAssetStats* material = s.FindAsset("Materials/wall.zmat");
+    CHECK(material && material->Type == AssetType::Material && material->Memory == 0);
+    const SceneAssetStats* model = s.FindAsset("Models/quad.obj");
+    ModelFileInfo quad = AssetInfo::ReadModel(dir / "Models/quad.obj");
+    CHECK(model && quad.Valid && model->Vertices == quad.Vertices && model->Indices == 6 && model->Submeshes == 1);
+    CHECK(model && model->Memory == EstimateMeshMemory(quad.Vertices, 0, 6));
+    const SceneAssetStats* beep = s.FindAsset("Audio/beep.wav");
+    CHECK(beep && beep->SampleRate == 8000 && beep->AudioChannels == 1 && !beep->Streamed);
+    CHECK(beep && beep->Memory == EstimateAudioMemory(1000, 1, false) && beep->Memory == 4000);
+    CHECK_NEAR(beep ? beep->Duration : 0.0, 0.125, 1e-6);
+    const SceneAssetStats* sky = s.FindAsset("Sky/missing.hdr");
+    CHECK(sky && !sky->Exists && sky->Entities.empty() && sky->Components.size() == 1 && sky->Components[0] == "Settings");
+    CHECK(s.CountAssets(AssetType::Texture) == 2 && s.CountAssets(AssetType::Environment) == 1);
+    CHECK(s.TextureMemory == heroTex->Memory + bricks->Memory);
+    CHECK(s.MeshMemory == model->Memory && s.MeshVertices == quad.Vertices && s.MeshIndices == 6);
+    CHECK(s.AudioMemory == 4000 && s.GetTotalMemory() == s.TextureMemory + s.MeshMemory + s.AudioMemory);
+
+    // The estimates themselves.
+    CHECK(GetTextureBytesPerPixel(1, false) == 1 && GetTextureBytesPerPixel(3, false) == 3 && GetTextureBytesPerPixel(2, false) == 4 &&
+          GetTextureBytesPerPixel(4, true) == 16);
+    CHECK(EstimateMeshMemory(10, 4, 30) == 6 * 32 + 4 * 64 + 30 * 4);
+    CHECK(EstimateMeshMemory(2, 5, 0) == 2 * 64); // never more skinned vertices than vertices
+    CHECK(EstimateAudioMemory(48000, 2, true) == 0 && EstimateAudioMemory(48000, 2, false) == 48000 * 2 * 4);
+
+    // Sorting: by memory (largest first), by name, by users; ties by name.
+    SortSceneAssetStats(s.Assets, SceneStatsColumn::Memory, false);
+    for (size_t i = 1; i < s.Assets.size(); i++)
+        CHECK(s.Assets[i - 1].Memory >= s.Assets[i].Memory);
+    SortSceneAssetStats(s.Assets, SceneStatsColumn::Name, true);
+    CHECK(s.Assets.front().Path == "Audio/beep.wav" && s.Assets.back().Path == "Textures/hero.png");
+    SortSceneAssetStats(s.Assets, SceneStatsColumn::Count, false);
+    CHECK(s.Assets.front().Path == "Textures/hero.png");
+    SortSceneStatsGroups(s.Components, SceneStatsColumn::Name, true);
+    CHECK(s.Components.front().Key == "AudioSource");
+    SortSceneStatsGroups(s.Components, SceneStatsColumn::Count, true);
+    CHECK(s.Components.back().Key == "Transform" && s.Components.front().Key == "AudioSource"); // ties (1 each) by name
+
+    // Counting again reads the files from the cache; a changed file is read again.
+    CHECK(collector.GetCachedFileCount() == 6);
+    SceneStatistics again = collector.Collect(*scene, dir);
+    CHECK(again.TextureMemory == s.TextureMemory && again.Assets.size() == 6);
+    std::vector<uint8_t> bigger(128 * 128 * 4, 7);
+    CHECK(Image::WritePNG((dir / "Textures/hero.png").string(), 128, 128, 4, bigger.data(), false));
+    fs::last_write_time(dir / "Textures/hero.png", fs::last_write_time(dir / "Textures/hero.png") + std::chrono::seconds(2));
+    SceneStatistics changed = collector.Collect(*scene, dir);
+    CHECK(changed.FindAsset("Textures/hero.png") && changed.FindAsset("Textures/hero.png")->Width == 128);
+
+    // The prefab marks are saved with the scene, not into a prefab made from an instance.
+    CHECK(SceneSerializer::SerializeEntities(*scene, { root }, false).find("Prefabs/Level.zprefab") == std::string::npos);
+    std::string text = SceneSerializer(scene).SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    Entity loadedRoot = loaded->FindEntityByName("Level");
+    CHECK(loadedRoot && loaded->GetPrefabSource(loadedRoot) == "Prefabs/Level.zprefab");
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}

@@ -414,6 +414,10 @@ namespace Zamin {
         // Set the entity's own flag (the component is removed again when nothing is left in it).
         void SetHiddenInEditor(Entity entity, bool hidden);
         void SetLockedInEditor(Entity entity, bool locked);
+        // The prefab (relative to Assets) the entity is the root of an instance of ("" = none;
+        // EditorMetadataComponent::Prefab).
+        std::string GetPrefabSource(Entity entity);
+        void SetPrefabSource(Entity entity, const std::string& prefab);
         // Entities with their own flag set.
         size_t CountHiddenInEditor();
         size_t CountLockedInEditor();

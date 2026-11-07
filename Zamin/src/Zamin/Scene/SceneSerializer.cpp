@@ -2,6 +2,7 @@
 #include "Zamin/Asset/AssetImportLog.h"
 #include "Zamin/Asset/AssetRegistry.h"
 #include "Zamin/Physics/CollisionShapes3D.h"
+#include "Zamin/Project/AssetFiles.h"
 #include "Zamin/Project/Project.h"
 #include "Zamin/Renderer/MaterialAsset.h"
 #include "Zamin/Renderer/Renderer.h"
@@ -1593,6 +1594,7 @@ namespace Zamin {
             if (c->Hidden && includeEditorFlags) m["Hidden"] = true;
             if (c->Locked && includeEditorFlags) m["Locked"] = true;
             if (!c->ComponentOrder.empty()) m["ComponentOrder"] = c->ComponentOrder;
+            if (!c->Prefab.empty() && includeEditorFlags) m["Prefab"] = c->Prefab;
             if (!m.empty())
                 e["Editor"] = std::move(m);
         }
@@ -2758,6 +2760,8 @@ namespace Zamin {
                 for (const json& key : *order)
                     if (key.is_string() && std::find(m.ComponentOrder.begin(), m.ComponentOrder.end(), key.get<std::string>()) == m.ComponentOrder.end())
                         m.ComponentOrder.push_back(key.get<std::string>());
+            if (auto prefab = it->find("Prefab"); prefab != it->end() && prefab->is_string())
+                m.Prefab = prefab->get<std::string>();
             if (!m.IsDefault())
                 entity.AddOrReplaceComponent<EditorMetadataComponent>(std::move(m));
         }
@@ -2868,6 +2872,51 @@ namespace Zamin {
         j["ZaminComponent"] = std::string(key);
         j["Data"] = *it;
         return j.dump(2);
+    }
+
+    void SceneSerializer::CollectAssetPaths(const std::vector<Entity>& entities,
+                                            const std::function<void(size_t, std::string_view, const std::string&)>& visit)
+    {
+        AssetReferenceScope assetReferences;
+        std::function<void(const json&, std::string_view, size_t, std::string_view)> walk =
+            [&](const json& node, std::string_view key, size_t index, std::string_view component) {
+                if (node.is_object())
+                {
+                    for (auto it = node.begin(); it != node.end(); ++it)
+                    {
+                        const std::string& k = it.key();
+                        const json& v = it.value();
+                        if (!v.is_string())
+                            walk(v, k, index, component);
+                        else if (!(k.size() > 4 && k.ends_with("UUID")) && AssetFiles::IsAssetPathValue(k, v.get_ref<const std::string&>()))
+                            visit(index, component, v.get_ref<const std::string&>());
+                    }
+                }
+                else if (node.is_array())
+                {
+                    for (const json& item : node)
+                    {
+                        if (item.is_string())
+                        {
+                            if (AssetFiles::IsAssetPathValue(key, item.get_ref<const std::string&>()))
+                                visit(index, component, item.get_ref<const std::string&>());
+                        }
+                        else
+                            walk(item, key, index, component);
+                    }
+                }
+            };
+        for (size_t i = 0; i < entities.size(); i++)
+        {
+            if (!entities[i])
+                continue;
+            json e = SerializeEntity(entities[i], false, false);
+            // The entity's own keys (name, UUID, parent, active) are no components; "Editor" is the
+            // editor's data.
+            for (auto it = e.begin(); it != e.end(); ++it)
+                if ((it->is_object() || it->is_array()) && it.key() != "Editor")
+                    walk(it.value(), it.key(), i, it.key());
+        }
     }
 
     // The copied component's key and data, or false for any other text.

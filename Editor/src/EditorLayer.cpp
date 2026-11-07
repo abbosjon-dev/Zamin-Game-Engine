@@ -807,6 +807,22 @@ namespace Zamin {
                         ZM_WARN("ZAMIN_EDITOR_AUDIO_MIXER: '{}' guruhi yo'q", item.substr(5));
                 }
             }
+            // ZAMIN_EDITOR_SCENE_STATS=<components | scripts | prefabs | assets>[,<asset type key, e.g. Texture>]:
+            // the scene statistics window opens on that tab.
+            if (const char* sceneStats = std::getenv("ZAMIN_EDITOR_SCENE_STATS"))
+            {
+                std::string_view spec(sceneStats);
+                std::string_view tab = spec.substr(0, spec.find(','));
+                static constexpr std::string_view s_Tabs[] = { "components", "scripts", "prefabs", "assets" };
+                m_ShowSceneStatistics = true;
+                m_SceneStatsTab = 0;
+                for (int i = 0; i < 4; i++)
+                    if (tab == s_Tabs[i])
+                        m_SceneStatsTab = i;
+                if (size_t comma = spec.find(','); comma != std::string_view::npos)
+                    if (auto type = AssetTypes::FromKey(spec.substr(comma + 1)))
+                        m_SceneStatsAssetType = (int)*type;
+            }
             // ZAMIN_EDITOR_PROFILER=1: the profiler's own window opens.
             if (const char* profiler = std::getenv("ZAMIN_EDITOR_PROFILER"))
                 m_ShowProfiler = std::string_view(profiler) != "0";
@@ -4144,6 +4160,7 @@ namespace Zamin {
         m_ActiveScene = scene;
         m_ActiveScene->OnViewportResize((uint32_t)m_ViewportSize.x, (uint32_t)m_ViewportSize.y);
         m_GizmoEdit.End();
+        m_SceneStatsDirty = true;
         // Entities kept from the previous scene (it may be freed right after this: undo, stop):
         // the next frame's picking finds them again in this one.
         m_HoveredEntity = {};
@@ -4905,6 +4922,8 @@ namespace Zamin {
         }
         if (parent)
             m_EditorScene->SetParent(root, parent, false);
+        // The instance remembers its prefab (the scene statistics count instances by it).
+        m_EditorScene->SetPrefabSource(root, Project::GetAssetRelativePath(Project::GetAssetFileSystemPath(assetPath)));
         m_SceneHierarchyPanel.SetSelectedEntity(root);
         MarkDirty(std::format("Prefab qo'shildi: {}", root.GetName()));
         return root;
@@ -5348,6 +5367,7 @@ namespace Zamin {
         if (report.IsEmpty())
             return;
         m_AssetUsage.MarkDirty(); // scenes saved, files added / removed / renamed
+        m_SceneStatsDirty = true;  // the files the statistics read may have changed
 
         for (const std::string& problem : report.Problems)
             ZM_WARN("{}", problem);
@@ -5821,6 +5841,7 @@ namespace Zamin {
             m_UnusedAssetsPanel.Refresh(); // opened: a fresh scan (C++ files are not watched)
         m_UnusedAssetsShown = m_ShowUnusedAssets;
         m_UnusedAssetsPanel.OnImGuiRender(&m_ShowUnusedAssets);
+        UI_SceneStatistics();
         m_AssetInspectorPanel.DrawPopups();
         m_ConsolePanel.OnImGuiRender(&m_ShowConsole);
         UI_SceneSettings();
@@ -6079,6 +6100,7 @@ namespace Zamin {
                 m_ScenesPanel.Focus();
             ImGui::MenuItem(ICON_FA_GEAR "  Loyiha sozlamalari", nullptr, &m_ShowProjectSettings);
             ImGui::MenuItem(ICON_FA_CHART_LINE "  Statistika", nullptr, &m_ShowStats);
+            ImGui::MenuItem(ICON_FA_CHART_PIE "  Sahna statistikasi", nullptr, &m_ShowSceneStatistics);
             ImGui::MenuItem(ICON_FA_STOPWATCH "  Profiler", nullptr, &m_ShowProfiler);
             ImGui::MenuItem(ICON_FA_SLIDERS "  Audio Mixer", nullptr, &m_ShowAudioMixer);
             if (ImGui::MenuItem(ICON_FA_TIMELINE "  Animatsiya", nullptr, &m_ShowAnimation) && m_ShowAnimation)

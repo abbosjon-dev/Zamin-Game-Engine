@@ -93,6 +93,7 @@ namespace Zamin {
             if (m_SceneState != SceneState::Edit)
                 return;
             m_SceneDirty = true;
+            m_SceneStatsDirty = true;
             m_PendingUndo = true;
             if (!undoName.empty() && m_PendingUndoName.empty())
                 m_PendingUndoName = undoName;
@@ -418,6 +419,17 @@ namespace Zamin {
         // The selection outline in an extra view's picture.
         void RenderSceneViewOutline(int extraIndex);
 
+        // ---- scene statistics (EditorSceneStats.cpp): Oyna > Sahna statistikasi - entities, components,
+        // scripts, prefab instances and the assets the scene names with memory estimates; a row
+        // selects its entities.
+        void UI_SceneStatistics();
+        // Counts the scene again when it changed (at most twice a second; while playing once a second).
+        void UpdateSceneStatistics(bool force);
+        // Selects the entities of a row in the shown scene (`add`: Ctrl, to the selection); `frame`
+        // flies the camera to them.
+        void SelectStatsEntities(const std::vector<UUID>& ids, bool add, bool frame);
+        void UI_StatsEntityTooltip(const std::vector<UUID>& ids);
+
         // ---- entity names over the scene views (EditorEntityLabels.cpp)
         void UI_EntityLabels(const SceneViewTarget& view, const glm::mat4& viewProjection, const glm::vec3& cameraPosition, bool orthographic);
         void UI_EntityLabelsPopup();
@@ -722,6 +734,20 @@ namespace Zamin {
         bool m_ShowHierarchy = true, m_ShowInspector = true, m_ShowContentBrowser = true, m_ShowConsole = true;
         bool m_ShowSceneSettings = true, m_ShowStats = false, m_ShowImGuiDemo = false, m_ShowProfiler = false;
         bool m_ShowScenes = true;           // the "Sahnalar" window (the project's scenes, the game's loaded ones)
+        // the scene statistics window
+        bool m_ShowSceneStatistics = false;
+        SceneStatisticsCollector m_SceneStatsCollector;
+        SceneStatistics m_SceneStatistics;
+        bool m_SceneStatsDirty = true;
+        double m_SceneStatsTime = -100.0;
+        const Scene* m_SceneStatsScene = nullptr; // the scene the numbers are of
+        int m_SceneStatsTab = -1;           // automation: the tab brought to the front (0..3)
+        int m_SceneStatsAssetType = -1;     // the assets tab's type filter (AssetType; -1: every type)
+        std::string m_SceneStatsSearch;
+        std::string m_SceneStatsPicked;     // the row last clicked ("c:<key>", "s:<class>", "p:<prefab>", "a:<path>")
+        // Each tab's sort (components, scripts, prefabs, assets): the column and ascending.
+        std::array<std::pair<SceneStatsColumn, bool>, 4> m_SceneStatsSort{ { { SceneStatsColumn::Count, false }, { SceneStatsColumn::Count, false },
+                                                                             { SceneStatsColumn::Count, false }, { SceneStatsColumn::Memory, false } } };
         // Automation (ZAMIN_EDITOR_SCENE_SETTINGS): bring the scene settings tab to the front, and
         // scroll it to a section ("post": post-processing).
         bool m_FocusSceneSettings = false;

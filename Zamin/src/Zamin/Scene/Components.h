@@ -2695,8 +2695,12 @@ namespace Zamin {
         // Inspector order of the component headers (scene-file keys, see ComponentKey<T>());
         // empty = the default order. Transform always stays on top.
         std::vector<std::string> ComponentOrder;
+        // The prefab (relative to Assets) this entity is the root of an instance of: set when the
+        // editor places a prefab; copies of the instance keep it, a prefab saved from it does not.
+        // The scene statistics count the instances by it. Empty = no prefab instance.
+        std::string Prefab;
 
-        bool IsDefault() const { return !Hidden && !Locked && ComponentOrder.empty(); }
+        bool IsDefault() const { return !Hidden && !Locked && ComponentOrder.empty() && Prefab.empty(); }
     };
 
     template<typename... Component>

@@ -5,6 +5,7 @@
 #include "Zamin/Scene/SceneMigration.h"
 
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -175,6 +176,13 @@ namespace Zamin {
         // has. False (target unchanged) for any other text. Textures / meshes / fonts are not
         // loaded here: call Scene::ResolveAssets() afterwards.
         static bool DeserializeComponent(const std::string& text, Entity target);
+
+        // The asset paths the entities' components name, as written in scene files (relative to
+        // Assets): `visit(index, component, path)` once per place a path is named - `index` into
+        // `entities`, `component` the component's scene-file key ("SpriteRenderer"). The editor-only
+        // data (EditorMetadataComponent, the prefab an instance came from) is not looked at.
+        static void CollectAssetPaths(const std::vector<Entity>& entities,
+                                      const std::function<void(size_t, std::string_view, const std::string&)>& visit);
 
     private:
         bool DeserializeFromMemory(const uint8_t* data, size_t size);

@@ -6,6 +6,7 @@
 #include "Zamin/Asset/AssetRegistry.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Scene/Components.h"
+#include "Zamin/Scene/ComponentRegistry.h"
 #include "Zamin/Scene/SceneSerializer.h"
 #include "Zamin/Scene/SceneManager.h"
 #include "Zamin/Scene/Parallax.h"
@@ -41,6 +42,7 @@
 #include <cctype>
 #include <chrono>
 #include <cstring>
+#include <format>
 #include <functional>
 #include <limits>
 #include <unordered_set>
@@ -886,79 +888,102 @@ namespace Zamin {
         return copy;
     }
 
-    void Scene::RemapEntityReferences(const std::vector<Entity>& entities, const std::unordered_map<uint64_t, uint64_t>& oldToNew)
+    void Scene::ForEachEntityRef(Entity e, const EntityRefVisitor& visit)
     {
-        for (Entity e : entities)
+        if (!e)
+            return;
+        auto ref = [&](EntityRef& r, std::string_view key, std::string_view field) { visit(r.ID, key, field); };
+        if (auto* follow = e.TryGetComponent<Camera2DFollowComponent>())
+            ref(follow->Target, "Camera2DFollow", "Target");
+        if (auto* follower = e.TryGetComponent<SplineFollowerComponent>())
+            ref(follower->Path, "SplineFollower", "Path");
+        if (auto* grid = e.TryGetComponent<NavGrid2DComponent>())
+            ref(grid->Tilemap, "NavGrid2D", "Tilemap");
+        if (auto* agent = e.TryGetComponent<NavAgentComponent>())
         {
-            auto remap = [&](EntityRef& ref) {
-                if (auto it = oldToNew.find(ref.ID); ref.ID && it != oldToNew.end())
-                    ref.ID = it->second;
-            };
-            if (auto* follow = e.TryGetComponent<Camera2DFollowComponent>())
-                remap(follow->Target);
-            if (auto* follower = e.TryGetComponent<SplineFollowerComponent>())
-                remap(follower->Path);
-            if (auto* grid = e.TryGetComponent<NavGrid2DComponent>())
-                remap(grid->Tilemap);
-            if (auto* agent = e.TryGetComponent<NavAgentComponent>())
-            {
-                remap(agent->Grid);
-                remap(agent->Target);
-            }
-            if (auto* obstacle = e.TryGetComponent<NavObstacleComponent>())
-                remap(obstacle->Grid);
-            if (auto* sight = e.TryGetComponent<SightSensorComponent>())
-                remap(sight->Target);
-            if (auto* patrol = e.TryGetComponent<PatrolPathComponent>())
-                remap(patrol->Route);
-            if (auto* formation = e.TryGetComponent<FormationComponent>())
-                for (EntityRef& member : formation->Members)
-                    remap(member);
-            if (auto* button = e.TryGetComponent<UIButtonComponent>())
-                remap(button->ClickTarget);
-            if (auto* scroll = e.TryGetComponent<UIScrollViewComponent>())
-            {
-                remap(scroll->Content);
-                remap(scroll->Viewport);
-            }
-            if (auto* attachment = e.TryGetComponent<BoneAttachmentComponent>())
-                remap(attachment->Target);
-            if (auto* ps = e.TryGetComponent<ParticleSystemComponent>())
-            {
-                remap(ps->Collision.PlaneEntity);
-                remap(ps->CustomSpace);
-                for (auto& sub : ps->SubEmitters.Emitters)
-                    remap(sub.Emitter);
-            }
-            if (auto* nav = e.TryGetComponent<UINavigationComponent>())
-            {
-                remap(nav->Up);
-                remap(nav->Down);
-                remap(nav->Left);
-                remap(nav->Right);
-            }
-            ForEachJoint2DType([&](auto type) {
-                using T = typename decltype(type)::type;
-                if (auto* joint = e.TryGetComponent<T>())
-                    if (auto it = oldToNew.find(joint->ConnectedBody.ID); joint->ConnectedBody.ID && it != oldToNew.end())
-                        joint->ConnectedBody.ID = it->second;
-            });
-            ForEachJoint3DType([&](auto type) {
-                using T = typename decltype(type)::type;
-                if (auto* joint = e.TryGetComponent<T>())
-                    if (auto it = oldToNew.find(joint->ConnectedBody.ID); joint->ConnectedBody.ID && it != oldToNew.end())
-                        joint->ConnectedBody.ID = it->second;
-            });
-            auto* nsc = e.TryGetComponent<NativeScriptComponent>();
-            if (!nsc) continue;
+            ref(agent->Grid, "NavAgent", "Grid");
+            ref(agent->Target, "NavAgent", "Target");
+        }
+        if (auto* obstacle = e.TryGetComponent<NavObstacleComponent>())
+            ref(obstacle->Grid, "NavObstacle", "Grid");
+        if (auto* sight = e.TryGetComponent<SightSensorComponent>())
+            ref(sight->Target, "SightSensor", "Target");
+        if (auto* patrol = e.TryGetComponent<PatrolPathComponent>())
+            ref(patrol->Route, "PatrolPath", "Route");
+        if (auto* formation = e.TryGetComponent<FormationComponent>())
+            for (size_t i = 0; i < formation->Members.size(); i++)
+                ref(formation->Members[i], "Formation", std::format("Members/{}", i));
+        if (auto* button = e.TryGetComponent<UIButtonComponent>())
+            ref(button->ClickTarget, "UIButton", "ClickTarget");
+        if (auto* scroll = e.TryGetComponent<UIScrollViewComponent>())
+        {
+            ref(scroll->Content, "UIScrollView", "Content");
+            ref(scroll->Viewport, "UIScrollView", "Viewport");
+        }
+        if (auto* attachment = e.TryGetComponent<BoneAttachmentComponent>())
+            ref(attachment->Target, "BoneAttachment", "Target");
+        if (auto* ps = e.TryGetComponent<ParticleSystemComponent>())
+        {
+            ref(ps->Collision.PlaneEntity, "ParticleSystem", "Collision/PlaneEntity");
+            ref(ps->CustomSpace, "ParticleSystem", "CustomSpace");
+            for (size_t i = 0; i < ps->SubEmitters.Emitters.size(); i++)
+                ref(ps->SubEmitters.Emitters[i].Emitter, "ParticleSystem", std::format("SubEmitters/{}/Emitter", i));
+        }
+        if (auto* nav = e.TryGetComponent<UINavigationComponent>())
+        {
+            ref(nav->Up, "UINavigation", "Up");
+            ref(nav->Down, "UINavigation", "Down");
+            ref(nav->Left, "UINavigation", "Left");
+            ref(nav->Right, "UINavigation", "Right");
+        }
+        ForEachJoint2DType([&](auto type) {
+            using T = typename decltype(type)::type;
+            if (auto* joint = e.TryGetComponent<T>())
+                ref(joint->ConnectedBody, ComponentKey<T>(), "ConnectedBody");
+        });
+        ForEachJoint3DType([&](auto type) {
+            using T = typename decltype(type)::type;
+            if (auto* joint = e.TryGetComponent<T>())
+                ref(joint->ConnectedBody, ComponentKey<T>(), "ConnectedBody");
+        });
+        if (auto* nsc = e.TryGetComponent<NativeScriptComponent>())
             for (auto& [name, value] : nsc->Fields)
             {
-                if (value.Type != ScriptFieldType::Entity) continue;
-                EntityRef ref = value.Get<EntityRef>();
-                if (auto it = oldToNew.find(ref.ID); ref.ID && it != oldToNew.end())
-                    value.Set(EntityRef{ it->second });
+                if (value.Type != ScriptFieldType::Entity)
+                    continue;
+                uint64_t id = value.Get<EntityRef>().ID;
+                const uint64_t before = id;
+                visit(id, "NativeScript", "Fields/" + name);
+                if (id != before)
+                    value.Set(EntityRef{ id });
             }
-        }
+    }
+
+    std::vector<std::string> Scene::GetEntityRefSites()
+    {
+        std::vector<std::string> sites = {
+            "Camera2DFollow.Target", "SplineFollower.Path", "NavGrid2D.Tilemap", "NavAgent.Grid", "NavAgent.Target", "NavObstacle.Grid",
+            "SightSensor.Target", "PatrolPath.Route", "Formation.Members[]", "UIButton.ClickTarget", "UIScrollView.Content",
+            "UIScrollView.Viewport", "BoneAttachment.Target", "ParticleSystem.Collision.PlaneEntity", "ParticleSystem.CustomSpace",
+            "ParticleSystem.SubEmitters.Emitters[].Emitter", "UINavigation.Up", "UINavigation.Down", "UINavigation.Left", "UINavigation.Right",
+        };
+        ForEachJoint2DType([&](auto type) { sites.push_back(std::string(ComponentKey<typename decltype(type)::type>()) + ".ConnectedBody"); });
+        ForEachJoint3DType([&](auto type) { sites.push_back(std::string(ComponentKey<typename decltype(type)::type>()) + ".ConnectedBody"); });
+        sites.push_back("NativeScript.Fields[]");
+        return sites;
+    }
+
+    void Scene::RemapEntityReferences(const std::vector<Entity>& entities, const std::unordered_map<uint64_t, uint64_t>& oldToNew, Unmapped unmapped)
+    {
+        for (Entity e : entities)
+            ForEachEntityRef(e, [&](uint64_t& id, std::string_view, std::string_view) {
+                if (!id)
+                    return;
+                if (auto it = oldToNew.find(id); it != oldToNew.end())
+                    id = it->second;
+                else if (unmapped == Unmapped::Clear)
+                    id = 0;
+            });
     }
 
     void Scene::OnEntitiesSpawned(const std::vector<Entity>& entities)
@@ -1131,11 +1156,16 @@ namespace Zamin {
         // Spawned copies start visible and unlocked in the editor, as prefab instances do: a
         // template hidden in the editor's view (parked out of sight) does not hide its clones.
         for (Entity s : spawned)
+        {
             if (s.HasComponent<EditorMetadataComponent>())
             {
                 SetHiddenInEditor(s, false);
                 SetLockedInEditor(s, false);
             }
+            // The editor's prefab links mean nothing for a clone made by the game.
+            if (m_IsRunning && s.HasComponent<PrefabLinkComponent>())
+                s.RemoveComponent<PrefabLinkComponent>();
+        }
         if (m_IsRunning || m_PhysicsWorld || m_PhysicsWorld3D)
             OnEntitiesSpawned(spawned);
         return e;
@@ -1151,7 +1181,11 @@ namespace Zamin {
         }
         std::string text = FileSystem::ReadTextFile(path);
         std::string error;
-        std::vector<Entity> entities = SceneSerializer::DeserializeEntities(*this, text, true, nullptr, &error);
+        // A plain copy: the editor links an instance to its prefab itself (PrefabUtility::InstantiateLinked).
+        SceneSerializer::EntitySetReadOptions options;
+        options.KeepPrefabLinks = false;
+        options.Error = &error;
+        std::vector<Entity> entities = SceneSerializer::DeserializeEntities(*this, text, options);
         if (entities.empty())
         {
             AssetImportLog::Report(path, error.empty() ? std::string("prefabda obyekt yo'q") : error);
@@ -1172,35 +1206,28 @@ namespace Zamin {
         if (!root) return false;
         std::vector<Entity> entities;
         CollectSubtree(*this, root, entities);
-        // Joints connected to a body outside the prefab keep the reference: instances spawned in this
-        // scene join the same body, in another scene it is missing and the joint is not made.
+        // References to entities outside the prefab keep their UUID: instances placed in this scene
+        // point at the same entity, in another scene it is missing (a joint is not made, a target is
+        // empty). Each one is reported.
         std::unordered_set<uint64_t> inside;
         for (Entity e : entities)
             inside.insert((uint64_t)e.GetUUID());
         for (Entity e : entities)
-            ForEachJoint2DType([&](auto type) {
-                using T = typename decltype(type)::type;
-                const auto* joint = e.TryGetComponent<T>();
-                if (!joint || !joint->ConnectedBody.ID || inside.count(joint->ConnectedBody.ID))
+            ForEachEntityRef(e, [&](uint64_t& id, std::string_view key, std::string_view field) {
+                if (!id || inside.count(id))
                     return;
-                Entity other = GetEntityByUUID(joint->ConnectedBody.ID);
-                ZM_CORE_WARN("Prefab {}: '{}' obyektidagi {} prefabdan tashqaridagi '{}' ga ulangan - boshqa sahnalarda u bo'lmaydi "
-                             "va joint yaratilmaydi", path.filename().string(), e.GetName(), Joint2DTypeName(Joint2DTypeOf<T>()),
-                             other ? other.GetName() : std::string("?"));
-            });
-        for (Entity e : entities)
-            ForEachJoint3DType([&](auto type) {
-                using T = typename decltype(type)::type;
-                const auto* joint = e.TryGetComponent<T>();
-                if (!joint || !joint->ConnectedBody.ID || inside.count(joint->ConnectedBody.ID))
-                    return;
-                Entity other = GetEntityByUUID(joint->ConnectedBody.ID);
-                ZM_CORE_WARN("Prefab {}: '{}' obyektidagi {} prefabdan tashqaridagi '{}' ga ulangan - boshqa sahnalarda u bo'lmaydi "
-                             "va joint yaratilmaydi", path.filename().string(), e.GetName(), Joint3DTypeName(Joint3DTypeOf<T>()),
-                             other ? other.GetName() : std::string("?"));
+                Entity other = GetEntityByUUID(id);
+                ZM_CORE_WARN("Prefab {}: '{}' obyektidagi {}.{} tashqi havola (prefabdan tashqarida): '{}' - boshqa sahnalarda u bo'lmaydi",
+                             path.filename().string(), e.GetName(), key, field, other ? other.GetName() : std::string("?"));
             });
         // Instances should not start hidden / locked in the editor: those flags stay in this scene.
-        return FileSystem::WriteTextFile(path, SceneSerializer::SerializeEntities(*this, entities, false));
+        // The saved root is a prefab of its own (its link, if it is an instance, is not written);
+        // prefab instances nested inside it keep theirs.
+        SceneSerializer::EntitySetWriteOptions options;
+        options.HiddenLocked = false;
+        options.PrefabLinks = true;
+        options.RootLink = false;
+        return FileSystem::WriteTextFileAtomic(path, SceneSerializer::SerializeEntities(*this, entities, options));
     }
 
     // ------------------------------------------------------------------ name / tag indices

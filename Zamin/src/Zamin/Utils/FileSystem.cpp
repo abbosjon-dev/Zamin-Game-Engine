@@ -3,6 +3,8 @@
 #include "Zamin/Utils/StringUtils.h"
 
 #include <algorithm>
+#include <chrono>
+#include <format>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
@@ -74,6 +76,43 @@ namespace Zamin {
             return false;
         }
         out << content;
+        return true;
+    }
+
+    bool FileSystem::WriteTextFileAtomic(const std::filesystem::path& path, const std::string& content)
+    {
+        if (path.empty())
+            return false;
+        std::error_code ec;
+        if (path.has_parent_path())
+            std::filesystem::create_directories(path.parent_path(), ec);
+        // A temporary file next to it, then renamed over it: a reader sees the old text or the new one.
+        std::filesystem::path temp = path;
+        temp += std::format(".tmp-{:x}", (uint64_t)std::chrono::steady_clock::now().time_since_epoch().count());
+        {
+            std::ofstream out(temp, std::ios::out | std::ios::binary | std::ios::trunc);
+            if (!out)
+            {
+                ZM_CORE_ERROR("Faylga yozib bo'lmadi: '{}'", path.string());
+                return false;
+            }
+            out << content;
+            out.flush();
+            if (!out)
+            {
+                out.close();
+                std::filesystem::remove(temp, ec);
+                ZM_CORE_ERROR("Faylga yozib bo'lmadi: '{}'", path.string());
+                return false;
+            }
+        }
+        std::filesystem::rename(temp, path, ec);
+        if (ec)
+        {
+            // Some file systems cannot rename over a file: written in place instead.
+            std::filesystem::remove(temp, ec);
+            return WriteTextFile(path, content);
+        }
         return true;
     }
 

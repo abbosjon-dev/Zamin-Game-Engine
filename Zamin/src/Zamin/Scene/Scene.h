@@ -262,10 +262,22 @@ namespace Zamin {
         Entity CreateEntityWithUUID(UUID uuid, const std::string& name = std::string());
         void DestroyEntity(Entity entity);
         Entity DuplicateEntity(Entity entity);
-        // Rewrites EntityRef script fields (and Camera2DFollow targets) of `entities` using an old->new UUID map
-        // (used when a subtree is duplicated / pasted / instantiated with fresh IDs, so
-        // references inside the copied subtree point to the copies).
-        static void RemapEntityReferences(const std::vector<Entity>& entities, const std::unordered_map<uint64_t, uint64_t>& oldToNew);
+        // Rewrites every entity reference of `entities` (each place ForEachEntityRef visits) using an
+        // old->new UUID map (used when a subtree is duplicated / pasted / instantiated with fresh IDs,
+        // so references inside the copied subtree point to the copies). A reference the map does not
+        // have is kept (Unmapped::Keep) or set to none (Unmapped::Clear).
+        enum class Unmapped { Keep, Clear };
+        static void RemapEntityReferences(const std::vector<Entity>& entities, const std::unordered_map<uint64_t, uint64_t>& oldToNew,
+                                          Unmapped unmapped = Unmapped::Keep);
+        // Every place of the entity that refers to another entity by UUID (EntityRef members of the
+        // components, Entity script fields; not the hierarchy): `visit(id, key, field)` with the UUID
+        // (0 = none; it may be changed), the component's scene-file key ("Camera2DFollow") and the
+        // member ("Target", "Members/2", "Collision/PlaneEntity", "Fields/Door").
+        using EntityRefVisitor = std::function<void(uint64_t& id, std::string_view key, std::string_view field)>;
+        static void ForEachEntityRef(Entity entity, const EntityRefVisitor& visit);
+        // The places ForEachEntityRef knows, as "<key>.<member>" ("NavAgent.Target",
+        // "Formation.Members[]", "NativeScript.Fields[]"; the joints by their own keys).
+        static std::vector<std::string> GetEntityRefSites();
 
         void OnRuntimeStart();
         // How long the last OnRuntimeStart took in its heavy parts (the scene load profiler's

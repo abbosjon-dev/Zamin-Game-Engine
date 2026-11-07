@@ -9,6 +9,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 namespace Zamin {
@@ -151,14 +152,45 @@ namespace Zamin {
         const SceneLoadTiming& GetTiming() const { return m_Timing; }
 
         // Entity subsets (prefabs, copy/paste). Parents outside the set become roots.
-        // includeEditorFlags = false (prefabs): the hierarchy's hidden / locked flags are left
-        // out, the inspector component order is kept.
+        // includeEditorFlags = false (prefabs): the hierarchy's hidden / locked flags and the prefab
+        // links are left out, the inspector component order is kept (= EntitySetWriteOptions with
+        // HiddenLocked, PrefabLinks and RootLink off; true: all on).
         static std::string SerializeEntities(Scene& scene, const std::vector<Entity>& entities, bool includeEditorFlags = true);
+        // What an entity set keeps of the editor's data.
+        struct EntitySetWriteOptions
+        {
+            bool HiddenLocked = true;   // the hierarchy's eye / lock flags
+            // Prefab instance links (EditorMetadataComponent::Prefab + PrefabLinkComponent), of the
+            // instances whose root is in the set (a partial copy of an instance is not linked).
+            bool PrefabLinks = true;
+            // Also the instances rooted at one of the set's roots (off: Scene::SavePrefab - a prefab
+            // saved from an instance is a prefab of its own; the nested instances inside it are kept).
+            bool RootLink = true;
+        };
+        static std::string SerializeEntities(Scene& scene, const std::vector<Entity>& entities, const EntitySetWriteOptions& options);
         // Returns created entities, roots first. generateNewUUIDs = true for prefabs/paste.
         // `repairs` receives the asset paths taken from UUIDs (see above).
         // `error` (optional) receives why nothing could be read; the reason is logged only without it.
         static std::vector<Entity> DeserializeEntities(Scene& scene, const std::string& text, bool generateNewUUIDs,
                                                        std::vector<AssetReferenceRepair>* repairs = nullptr, std::string* error = nullptr);
+        struct EntitySetReadOptions
+        {
+            bool GenerateNewUUIDs = true;
+            // File ID -> the UUID to give that entity (when it is free in the scene); the others as
+            // GenerateNewUUIDs says. EntityRefs inside the set follow either way.
+            const std::unordered_map<uint64_t, UUID>* IDMap = nullptr;
+            std::unordered_map<uint64_t, UUID>* IDsOut = nullptr; // file ID -> the UUID it got
+            // The prefab links in the text (off: the entities are plain copies - Scene::InstantiatePrefab,
+            // script Instantiate(path); nested instance markers are not made either).
+            bool KeepPrefabLinks = true;
+            std::vector<AssetReferenceRepair>* Repairs = nullptr;
+            std::string* Error = nullptr;
+        };
+        static std::vector<Entity> DeserializeEntities(Scene& scene, const std::string& text, const EntitySetReadOptions& options);
+        // Whether entities read from now on get their prefab links (PrefabLinkComponent; default on).
+        // The player turns it off: the links are the editor's (the prefab marker itself is still read).
+        static void SetReadPrefabLinks(bool read);
+        static bool GetReadPrefabLinks();
 
         // The name, version, metadata and entity count of a scene file (it is parsed, not loaded).
         // False with `out.Error` when it cannot be read or is not a scene.

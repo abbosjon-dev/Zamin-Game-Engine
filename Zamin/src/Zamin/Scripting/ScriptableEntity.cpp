@@ -150,7 +150,9 @@ namespace Zamin {
         // Create first, then move the root before physics bodies are created.
         std::string text = FileSystem::ReadTextFile(Project::GetAssetFileSystemPath(prefabPath));
         if (text.empty()) return {};
-        std::vector<Entity> entities = SceneSerializer::DeserializeEntities(*scene, text, true);
+        SceneSerializer::EntitySetReadOptions options;
+        options.KeepPrefabLinks = false; // a plain copy (the editor's prefab links are not the game's)
+        std::vector<Entity> entities = SceneSerializer::DeserializeEntities(*scene, text, options);
         if (entities.empty()) return {};
         entities.front().GetComponent<TransformComponent>().Translation = position;
         scene->ResolveAssets();

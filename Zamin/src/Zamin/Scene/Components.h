@@ -3295,6 +3295,38 @@ namespace Zamin {
         bool IsDefault() const { return !Hidden && !Locked && ComponentOrder.empty() && Prefab.empty(); }
     };
 
+    // Editor-only: how an entity of a prefab instance is linked to its prefab file (PrefabUtility,
+    // Scene/Prefab.h). The instance's OWNER is the nearest ancestor-or-self whose
+    // EditorMetadataComponent::Prefab is set (the instance root); every entity of the instance
+    // that came from the prefab carries the ID it has in that .zprefab ("Entity"), so the editor
+    // can tell what the prefab says about it (Apply / Revert / sync after the prefab changed).
+    // Kept in its own component (not in EditorMetadataComponent): the editor's hidden / locked
+    // fast path looks at whether any entity has that one. Saved under the entity's "Editor" key;
+    // the player does not read it (SceneSerializer::SetReadPrefabLinks(false)) and no runtime
+    // system looks at it. An entity of the instance without one (or with PrefabEntity 0) was
+    // added to the instance in the scene.
+    struct PrefabLinkComponent
+    {
+        uint64_t PrefabEntity = 0;                   // "Entity" ID in the owner's .zprefab; 0 = not linked
+        // What the instance changed on this entity, as override paths (Scene/PrefabOverrides.h):
+        // "Tag", "Active", "Parent", "ChildOrder", "SpriteRenderer" (added), "SpriteRenderer/Color",
+        // "NativeScript/Fields/Speed" ... sorted, each once. The prefab's later changes reach every
+        // other value.
+        std::vector<std::string> Overrides;
+        std::vector<std::string> RemovedComponents;  // keys of prefab components this entity no longer has
+        // ---- the owner root only (the prefab's path itself is EditorMetadataComponent::Prefab)
+        UUID PrefabUUID = 0;                         // the prefab's .zmeta UUID (the path found again after a move)
+        uint64_t PrefabHash = 0;                     // PrefabDatabase::ResolvedHash at the last sync (0: unknown)
+        std::vector<uint64_t> RemovedEntities;       // prefab IDs deleted from this instance (the top-most ones)
+
+        bool IsDefault() const
+        {
+            return !PrefabEntity && Overrides.empty() && RemovedComponents.empty() && !(uint64_t)PrefabUUID && !PrefabHash &&
+                   RemovedEntities.empty();
+        }
+        bool HasOverrides() const { return !Overrides.empty() || !RemovedComponents.empty() || !RemovedEntities.empty(); }
+    };
+
     template<typename... Component>
     struct ComponentGroup {};
 
@@ -3317,6 +3349,6 @@ namespace Zamin {
         UILayoutGroupComponent, UILayoutElementComponent, UINavigationComponent, UIAnimationComponent, UIButtonComponent,
         UIImageComponent, UISliderComponent, UIToggleComponent, UIProgressBarComponent, UIInputFieldComponent, UIMaskComponent,
         UIScrollViewComponent, AudioSourceComponent, AudioListenerComponent, AmbientZoneComponent, FootstepsComponent,
-        BoneAttachmentComponent, SubSceneComponent, NativeScriptComponent, EditorMetadataComponent>;
+        BoneAttachmentComponent, SubSceneComponent, NativeScriptComponent, EditorMetadataComponent, PrefabLinkComponent>;
 
 }

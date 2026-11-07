@@ -11,6 +11,7 @@
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Scene/ParticlePresets.h"
 #include "Zamin/Scene/SceneMigrationJson.h"
+#include "Zamin/Scene/SceneSerializerJson.h"
 #include "Zamin/Utils/FileSystem.h"
 
 #include <nlohmann/json.hpp>
@@ -193,6 +194,33 @@ namespace Zamin {
         scope->AddRepair(path, moved);
         return moved;
     }
+
+    // The path of a linked asset (a prefab instance's prefab): like ReadAssetPath (found again by its
+    // UUID after a move outside the editor), but a missing file is not reported - the instance keeps
+    // its data and the editor shows the link as missing.
+    static std::string ReadLinkedAssetPath(const json& object, std::string_view key)
+    {
+        auto pathIt = object.find(key);
+        std::string path = pathIt != object.end() && pathIt->is_string() ? pathIt->get<std::string>() : std::string();
+        AssetReferenceScope* scope = AssetReferenceScope::Get();
+        AssetRegistry* registry = scope ? scope->GetRegistry() : nullptr;
+        if (path.empty() || !registry || scope->LookUp(path).Known)
+            return path;
+        auto handleIt = object.find(UUIDKey(key));
+        std::optional<AssetHandle> handle = handleIt != object.end() && handleIt->is_string()
+            ? AssetHandle::FromString(handleIt->get<std::string>()) : std::nullopt;
+        std::string moved = handle ? registry->GetPath(*handle) : std::string();
+        if (moved.empty() || moved == path)
+            return path;
+        ZM_CORE_INFO("Prefab havolasi UUID orqali tiklandi: '{}' -> '{}'", path, moved);
+        scope->AddRepair(path, moved);
+        return moved;
+    }
+
+    // Prefab data while entities are read: off for the whole game (SetReadPrefabLinks(false)), and
+    // for one DeserializeEntities call that does not keep it (EntitySetReadOptions::KeepPrefabLinks).
+    static std::atomic<bool> s_ReadPrefabLinks = true;
+    static thread_local bool s_SkipPrefabData = false;
 
     // ------------------------------------------------------------------ 2D sorting
     // The sorting layer of a 2D renderer: its ID and, for people reading the file and for a scene
@@ -974,8 +1002,40 @@ namespace Zamin {
     }
 
     // includeEditorFlags: false for prefabs (an instance should not start hidden / locked).
+    // What one entity's JSON includes (SerializeEntity): its parent link, the hierarchy's eye / lock
+    // flags, the prefab its instance came from (EditorMetadataComponent::Prefab) and its prefab link
+    // (PrefabLinkComponent).
+    struct EntityWriteFlags
+    {
+        bool Parent = true;
+        bool HiddenLocked = true;
+        bool PrefabMarker = true;
+        bool PrefabLink = true;
+    };
+
+    static std::string HashToString(uint64_t hash) { return std::format("{:016x}", hash); }
+
+    static uint64_t HashFromString(const json& j)
+    {
+        if (j.is_string())
+            if (auto id = UUID::FromString(j.get<std::string>(), true))
+                return (uint64_t)*id;
+        return 0;
+    }
+
+    static json SerializeEntityImpl(Entity entity, const EntityWriteFlags& flags);
+
     static json SerializeEntity(Entity entity, bool includeParent = true, bool includeEditorFlags = true)
     {
+        EntityWriteFlags flags;
+        flags.Parent = includeParent;
+        flags.HiddenLocked = flags.PrefabMarker = flags.PrefabLink = includeEditorFlags;
+        return SerializeEntityImpl(entity, flags);
+    }
+
+    static json SerializeEntityImpl(Entity entity, const EntityWriteFlags& flags)
+    {
+        const bool includeParent = flags.Parent;
         json e;
         e["Entity"] = (uint64_t)entity.GetUUID();
         e["Tag"] = entity.GetName();
@@ -1790,14 +1850,34 @@ namespace Zamin {
             if (!c->Enabled)
                 e["NativeScript"]["Enabled"] = false; // written only when off: older files stay unchanged
         }
-        if (auto* c = entity.TryGetComponent<EditorMetadataComponent>())
         {
             // Editor-only data, written only when something is set (other files stay unchanged).
             json m = json::object();
-            if (c->Hidden && includeEditorFlags) m["Hidden"] = true;
-            if (c->Locked && includeEditorFlags) m["Locked"] = true;
-            if (!c->ComponentOrder.empty()) m["ComponentOrder"] = c->ComponentOrder;
-            if (!c->Prefab.empty() && includeEditorFlags) m["Prefab"] = c->Prefab;
+            const auto* link = flags.PrefabLink ? entity.TryGetComponent<PrefabLinkComponent>() : nullptr;
+            bool marker = false;
+            if (auto* c = entity.TryGetComponent<EditorMetadataComponent>())
+            {
+                if (c->Hidden && flags.HiddenLocked) m["Hidden"] = true;
+                if (c->Locked && flags.HiddenLocked) m["Locked"] = true;
+                if (!c->ComponentOrder.empty()) m["ComponentOrder"] = c->ComponentOrder;
+                if (!c->Prefab.empty() && flags.PrefabMarker)
+                {
+                    marker = true;
+                    m["Prefab"] = c->Prefab;
+                    WriteAssetHandle(m, "Prefab", c->Prefab);
+                    if (!m.contains("PrefabUUID") && link && (uint64_t)link->PrefabUUID)
+                        m["PrefabUUID"] = link->PrefabUUID.ToString(); // no registry here: the one it was read with
+                }
+            }
+            if (link)
+            {
+                // The instance link (see PrefabLinkComponent); the root's own data with its marker only.
+                if (link->PrefabEntity) m["PrefabEntity"] = link->PrefabEntity;
+                if (!link->Overrides.empty()) m["Overrides"] = link->Overrides;
+                if (!link->RemovedComponents.empty()) m["RemovedComponents"] = link->RemovedComponents;
+                if (marker && link->PrefabHash) m["PrefabHash"] = HashToString(link->PrefabHash);
+                if (marker && !link->RemovedEntities.empty()) m["RemovedEntities"] = link->RemovedEntities;
+            }
             if (!m.empty())
                 e["Editor"] = std::move(m);
         }
@@ -3130,10 +3210,45 @@ namespace Zamin {
                 for (const json& key : *order)
                     if (key.is_string() && std::find(m.ComponentOrder.begin(), m.ComponentOrder.end(), key.get<std::string>()) == m.ComponentOrder.end())
                         m.ComponentOrder.push_back(key.get<std::string>());
-            if (auto prefab = it->find("Prefab"); prefab != it->end() && prefab->is_string())
-                m.Prefab = prefab->get<std::string>();
+            const bool prefabData = !s_SkipPrefabData;
+            if (auto prefab = it->find("Prefab"); prefabData && prefab != it->end() && prefab->is_string())
+                m.Prefab = ReadLinkedAssetPath(*it, "Prefab");
             if (!m.IsDefault())
                 entity.AddOrReplaceComponent<EditorMetadataComponent>(std::move(m));
+            if (prefabData && s_ReadPrefabLinks)
+            {
+                // The prefab instance link (PrefabLinkComponent); the game leaves it out.
+                PrefabLinkComponent link;
+                auto strings = [&](const char* key, std::vector<std::string>& out) {
+                    if (auto list = it->find(key); list != it->end() && list->is_array())
+                        for (const json& item : *list)
+                            if (item.is_string() && !item.get_ref<const std::string&>().empty())
+                                out.push_back(item.get<std::string>());
+                    std::sort(out.begin(), out.end());
+                    out.erase(std::unique(out.begin(), out.end()), out.end());
+                };
+                if (auto id = it->find("PrefabEntity"); id != it->end() && id->is_number_unsigned())
+                    link.PrefabEntity = id->get<uint64_t>();
+                else if (id != it->end() && id->is_number_integer() && id->get<int64_t>() > 0)
+                    link.PrefabEntity = (uint64_t)id->get<int64_t>();
+                strings("Overrides", link.Overrides);
+                strings("RemovedComponents", link.RemovedComponents);
+                if (!m.Prefab.empty())
+                {
+                    if (auto uuid = it->find("PrefabUUID"); uuid != it->end())
+                        link.PrefabUUID = UUID(HashFromString(*uuid));
+                    if (auto hash = it->find("PrefabHash"); hash != it->end())
+                        link.PrefabHash = HashFromString(*hash);
+                    if (auto list = it->find("RemovedEntities"); list != it->end() && list->is_array())
+                        for (const json& item : *list)
+                            if (item.is_number_unsigned() && item.get<uint64_t>())
+                                link.RemovedEntities.push_back(item.get<uint64_t>());
+                    std::sort(link.RemovedEntities.begin(), link.RemovedEntities.end());
+                    link.RemovedEntities.erase(std::unique(link.RemovedEntities.begin(), link.RemovedEntities.end()), link.RemovedEntities.end());
+                }
+                if (!link.IsDefault())
+                    entity.AddOrReplaceComponent<PrefabLinkComponent>(std::move(link));
+            }
         }
     }
 
@@ -4222,6 +4337,8 @@ namespace Zamin {
                 type.Remove(entity);
         if (entity.HasComponent<EditorMetadataComponent>())
             entity.RemoveComponent<EditorMetadataComponent>();
+        if (entity.HasComponent<PrefabLinkComponent>())
+            entity.RemoveComponent<PrefabLinkComponent>();
         entity.GetComponent<TransformComponent>() = TransformComponent();
         entity.GetComponent<TagComponent>().Active = true;
 
@@ -4253,6 +4370,8 @@ namespace Zamin {
                 {
                     if (entity.HasComponent<EditorMetadataComponent>())
                         entity.RemoveComponent<EditorMetadataComponent>();
+                    if (entity.HasComponent<PrefabLinkComponent>())
+                        entity.RemoveComponent<PrefabLinkComponent>();
                 }
                 else if (key != "Active")
                     ComponentRegistry::Remove(entity, key);
@@ -4977,56 +5096,110 @@ namespace Zamin {
 
 namespace Zamin {
 
-    std::string SceneSerializer::SerializeEntities(Scene& scene, const std::vector<Entity>& entities, bool includeEditorFlags)
+    // The instance root an entity belongs to (the nearest ancestor-or-self with a prefab marker).
+    static Entity FindPrefabOwner(Scene& scene, Entity entity)
     {
-        std::unordered_map<uint64_t, bool> inSet;
-        for (Entity e : entities) inSet[(uint64_t)e.GetUUID()] = true;
-        AssetReferenceScope assetReferences;
+        for (Entity e = entity; e;)
+        {
+            if (const auto* meta = e.TryGetComponent<EditorMetadataComponent>(); meta && !meta->Prefab.empty())
+                return e;
+            const UUID parent = e.GetComponent<RelationshipComponent>().Parent;
+            e = (uint64_t)parent ? scene.GetEntityByUUID(parent) : Entity();
+        }
+        return {};
+    }
+
+    static json EntitySetToJson(Scene& scene, const std::vector<Entity>& entities, const SceneSerializer::EntitySetWriteOptions& options)
+    {
+        std::unordered_set<uint64_t> inSet;
+        inSet.reserve(entities.size());
+        for (Entity e : entities)
+            inSet.insert((uint64_t)e.GetUUID());
+        // The set's roots: their parent is not in it.
+        auto isSetRoot = [&](Entity e) {
+            const UUID parent = e.GetComponent<RelationshipComponent>().Parent;
+            return !(uint64_t)parent || !inSet.contains((uint64_t)parent);
+        };
         json list = json::array();
         for (Entity e : entities)
         {
-            json j = SerializeEntity(e, true, includeEditorFlags);
+            EntityWriteFlags flags;
+            flags.HiddenLocked = options.HiddenLocked;
+            flags.PrefabMarker = flags.PrefabLink = false;
+            if (options.PrefabLinks)
+            {
+                // A link is written when its instance root is in the set (a partial copy of an
+                // instance is not linked); without RootLink the set roots' own instances are left
+                // out (Scene::SavePrefab: the saved root is not an instance of anything).
+                Entity owner = FindPrefabOwner(scene, e);
+                const bool ownerWritten = owner && inSet.contains((uint64_t)owner.GetUUID()) && (options.RootLink || !isSetRoot(owner));
+                flags.PrefabLink = ownerWritten;
+                flags.PrefabMarker = ownerWritten && owner == e;
+            }
+            json j = SerializeEntityImpl(e, flags);
             if (j.contains("Parent") && !inSet.count(j["Parent"].get<uint64_t>()))
                 j.erase("Parent");
-            list.push_back(j);
+            list.push_back(std::move(j));
         }
         WriteChildOrder(list, entities);
         json root;
         root["ZaminEntities"] = 1;
-        root["Entities"] = list;
-        return root.dump(2);
+        root["Entities"] = std::move(list);
+        return root;
     }
 
-    std::vector<Entity> SceneSerializer::DeserializeEntities(Scene& scene, const std::string& text, bool generateNewUUIDs,
-                                                             std::vector<AssetReferenceRepair>* repairs, std::string* error)
+    std::string SceneSerializer::SerializeEntities(Scene& scene, const std::vector<Entity>& entities, bool includeEditorFlags)
+    {
+        EntitySetWriteOptions options;
+        if (!includeEditorFlags)
+            options.HiddenLocked = options.PrefabLinks = options.RootLink = false;
+        return SerializeEntities(scene, entities, options);
+    }
+
+    std::string SceneSerializer::SerializeEntities(Scene& scene, const std::vector<Entity>& entities, const EntitySetWriteOptions& options)
+    {
+        AssetReferenceScope assetReferences;
+        return EntitySetToJson(scene, entities, options).dump(2);
+    }
+
+    void SceneSerializer::SetReadPrefabLinks(bool read) { s_ReadPrefabLinks = read; }
+    bool SceneSerializer::GetReadPrefabLinks() { return s_ReadPrefabLinks; }
+
+    // The entities of a parsed entity set (DeserializeEntities); `root` is its root object.
+    static std::vector<Entity> DeserializeEntitySet(Scene& scene, const json& root, const SceneSerializer::EntitySetReadOptions& options)
     {
         std::vector<Entity> created;
-        AssetReferenceScope assetReferences(repairs);
-        if (error)
-            error->clear();
-        json root;
-        try { root = json::parse(text); }
-        catch (const std::exception& e)
-        {
-            if (error)
-                *error = std::format("JSON xatosi: {}", e.what());
-            return created;
-        }
         if (!root.is_object() || !root.contains("Entities") || !root["Entities"].is_array())
         {
-            if (error)
-                *error = "obyektlar ro'yxati (\"Entities\") yo'q";
+            if (options.Error)
+                *options.Error = "obyektlar ro'yxati (\"Entities\") yo'q";
             return created;
         }
+        struct SkipPrefabData
+        {
+            bool Previous = s_SkipPrefabData;
+            explicit SkipPrefabData(bool skip) { s_SkipPrefabData = Previous || skip; }
+            ~SkipPrefabData() { s_SkipPrefabData = Previous; }
+        } skipPrefabData(!options.KeepPrefabLinks);
 
+        std::unordered_map<uint64_t, UUID> remap;
         try
         {
-            std::unordered_map<uint64_t, UUID> remap;
             std::vector<std::pair<Entity, uint64_t>> parents;
             for (const json& e : root["Entities"])
             {
                 uint64_t old = e.value("Entity", (uint64_t)0);
-                UUID id = generateNewUUIDs || !old || scene.GetEntityByUUID(old) ? UUID() : UUID(old);
+                UUID id;
+                bool mapped = false;
+                if (options.IDMap)
+                    if (auto it = options.IDMap->find(old); old && it != options.IDMap->end() && (uint64_t)it->second &&
+                                                            !scene.GetEntityByUUID(it->second))
+                    {
+                        id = it->second;
+                        mapped = true;
+                    }
+                if (!mapped)
+                    id = options.GenerateNewUUIDs || !old || scene.GetEntityByUUID(old) ? UUID() : UUID(old);
                 remap[old] = id;
                 Entity entity = scene.CreateEntityWithUUID(id, e.value("Tag", "Entity"));
                 DeserializeEntityComponents(e, entity);
@@ -5039,7 +5212,7 @@ namespace Zamin {
                 auto it = remap.find(oldParent);
                 if (it == remap.end()) continue;
                 Entity p = scene.GetEntityByUUID(it->second);
-                if (!p) continue;
+                if (!p || p == entity) continue;
                 entity.GetComponent<RelationshipComponent>().Parent = p.GetUUID();
                 p.GetComponent<RelationshipComponent>().Children.push_back(entity.GetUUID());
             }
@@ -5060,10 +5233,15 @@ namespace Zamin {
         }
         catch (const std::exception& ex)
         {
-            if (error)
-                *error = std::format("Entity ma'lumotlari xato: {}", ex.what());
+            if (options.Error)
+                *options.Error = std::format("Entity ma'lumotlari xato: {}", ex.what());
             else
                 ZM_CORE_ERROR("Entity ma'lumotlari xato: {}", ex.what());
+        }
+        if (options.IDsOut)
+        {
+            remap.erase(0);
+            *options.IDsOut = std::move(remap);
         }
         scene.InvalidateActiveCache(); // flags and parents were written directly
         // Roots first
@@ -5071,6 +5249,32 @@ namespace Zamin {
             return !(uint64_t)e.GetComponent<RelationshipComponent>().Parent;
         });
         return created;
+    }
+
+    std::vector<Entity> SceneSerializer::DeserializeEntities(Scene& scene, const std::string& text, bool generateNewUUIDs,
+                                                             std::vector<AssetReferenceRepair>* repairs, std::string* error)
+    {
+        EntitySetReadOptions options;
+        options.GenerateNewUUIDs = generateNewUUIDs;
+        options.Repairs = repairs;
+        options.Error = error;
+        return DeserializeEntities(scene, text, options);
+    }
+
+    std::vector<Entity> SceneSerializer::DeserializeEntities(Scene& scene, const std::string& text, const EntitySetReadOptions& options)
+    {
+        AssetReferenceScope assetReferences(options.Repairs);
+        if (options.Error)
+            options.Error->clear();
+        json root;
+        try { root = json::parse(text); }
+        catch (const std::exception& e)
+        {
+            if (options.Error)
+                *options.Error = std::format("JSON xatosi: {}", e.what());
+            return {};
+        }
+        return DeserializeEntitySet(scene, root, options);
     }
 
     // ------------------------------------------------------------------ particle presets (.zparticle)
@@ -5142,5 +5346,91 @@ namespace Zamin {
         out = std::move(preset);
         return true;
     }
+
+}
+
+// ------------------------------------------------------------------ SceneSerializerJson (engine-internal)
+namespace Zamin::SceneSerializerJson {
+
+    json SerializeEntityJson(Entity entity, const EntityJsonOptions& options)
+    {
+        EntityWriteFlags flags;
+        flags.Parent = options.Parent;
+        flags.HiddenLocked = options.HiddenLocked;
+        flags.PrefabMarker = options.PrefabMarker;
+        flags.PrefabLink = options.PrefabLink;
+        return SerializeEntityImpl(entity, flags);
+    }
+
+    void ReadEntityJson(const json& e, Entity entity) { DeserializeEntityComponents(e, entity); }
+
+    bool ApplyComponentJson(Entity entity, std::string_view key, const json* value, std::string* error)
+    {
+        if (!entity)
+            return false;
+        if (key == "Tag")
+        {
+            if (!value)
+                return false;
+            if (!value->is_string())
+            {
+                if (error)
+                    *error = "Tag matn emas";
+                return false;
+            }
+            entity.SetName(value->get<std::string>());
+            entity.GetScene()->InvalidateNameCache();
+            return true;
+        }
+        if (key == "Active")
+        {
+            const bool active = !value || (value->is_boolean() ? value->get<bool>() : value->is_number() ? value->get<double>() != 0.0 : true);
+            entity.GetComponent<TagComponent>().Active = active;
+            entity.GetScene()->InvalidateActiveCache();
+            return true;
+        }
+        const ComponentTypeInfo* type = ComponentRegistry::Find(key);
+        if (!type)
+            return false;
+        if (!value)
+        {
+            if (key == "Transform")
+                entity.GetComponent<TransformComponent>() = TransformComponent();
+            else
+                type->Remove(entity);
+            return true;
+        }
+        // Read into a scratch entity first: a broken value fails without touching the target.
+        Scene scratch;
+        Entity temp = scratch.CreateEntity("Prefab");
+        try
+        {
+            json e = json::object();
+            e[std::string(key)] = *value;
+            DeserializeEntityComponents(e, temp);
+        }
+        catch (const std::exception& ex)
+        {
+            if (error)
+                *error = ex.what();
+            return false;
+        }
+        if (!type->Has(temp))
+        {
+            if (error)
+                *error = "komponent o'qilmadi";
+            return false;
+        }
+        type->Copy(temp, entity);
+        return true;
+    }
+
+    void WithAssetScope(const std::function<void()>& fn)
+    {
+        AssetReferenceScope scope;
+        fn();
+    }
+
+    std::string DumpIndented(const json& root, size_t sizeHint) { return Zamin::DumpIndented(root, sizeHint); }
 
 }

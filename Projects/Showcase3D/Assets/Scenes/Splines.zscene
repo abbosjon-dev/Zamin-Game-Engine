@@ -1,0 +1,8430 @@
+{
+  "Scene": "Splines",
+  "Version": 4,
+  "Metadata": {
+    "Description": "M19: spline yo'llar (Catmull-Rom halqa, Bezier ko'tarma), Spline Follower vagonlar, shovqin ustunlari, AnimationCurve bilan suzuvchi sharlar, rang g'ildiragi (HSV)",
+    "Author": "Zamin",
+    "Tags": [
+      "spline",
+      "noise",
+      "M19"
+    ]
+  },
+  "Settings": {
+    "DrawSky": true,
+    "SkyTop": [
+      0.26,
+      0.46,
+      0.82
+    ],
+    "SkyHorizon": [
+      0.82,
+      0.86,
+      0.92
+    ],
+    "Ground": [
+      0.33,
+      0.31,
+      0.28
+    ],
+    "Ambient": 0.55,
+    "Exposure": 1.05,
+    "ShadowDistance": 60,
+    "Gravity": [
+      0,
+      -9.8
+    ],
+    "Gravity3D": [
+      0,
+      -9.81,
+      0
+    ],
+    "Post": {
+      "Bloom": true,
+      "BloomThreshold": 1.0,
+      "BloomKnee": 0.5,
+      "BloomIntensity": 0.55,
+      "BloomRadius": 1.0,
+      "Vignette": 0.25,
+      "Saturation": 1.08,
+      "Contrast": 1.05,
+      "Brightness": 0.0,
+      "Tint": [
+        1,
+        1,
+        1
+      ],
+      "Tonemap": 1,
+      "SSAO": true,
+      "SSAORadius": 0.6,
+      "SSAOIntensity": 1.2,
+      "SSAOBias": 0.03,
+      "FXAA": true,
+      "FXAASubpixel": 0.75
+    },
+    "Environment": {
+      "Map": "Textures/sunset.hdr",
+      "Intensity": 0.85,
+      "Rotation": 0.0
+    }
+  },
+  "Entities": [
+    {
+      "Entity": 7900000000000001,
+      "Tag": "Main Camera",
+      "Transform": {
+        "Translation": [
+          0,
+          17.5,
+          23.5
+        ],
+        "Rotation": [
+          -0.66,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Camera": {
+        "ProjectionType": 0,
+        "PerspectiveFOV": 0.85,
+        "PerspectiveNear": 0.1,
+        "PerspectiveFar": 500,
+        "OrthographicSize": 10,
+        "OrthographicNear": -100,
+        "OrthographicFar": 100,
+        "Primary": true,
+        "FixedAspectRatio": false,
+        "ClearColor": [
+          0.1,
+          0.1,
+          0.12,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 7900000000000002,
+      "Tag": "Quyosh",
+      "Transform": {
+        "Translation": [
+          0,
+          10,
+          0
+        ],
+        "Rotation": [
+          -0.85,
+          -0.6,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "DirectionalLight": {
+        "Color": [
+          1.0,
+          0.94,
+          0.86
+        ],
+        "Intensity": 3.0,
+        "CastShadows": true
+      }
+    },
+    {
+      "Entity": 7900000000000003,
+      "Tag": "Yer",
+      "Transform": {
+        "Translation": [
+          0,
+          -0.5,
+          1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          46,
+          1,
+          34
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.3,
+          0.34,
+          0.31,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.92,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "Density": 1.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7900000000000004,
+      "Tag": "Poyga yo'li",
+      "Transform": {
+        "Translation": [
+          0,
+          0.02,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Spline": {
+        "Type": "CatmullRom",
+        "Closed": true,
+        "Alpha": 0.5,
+        "Color": [
+          0.35,
+          0.85,
+          1.0,
+          1.0
+        ],
+        "Points": [
+          [
+            -14,
+            0,
+            -4
+          ],
+          [
+            -9,
+            0,
+            -10
+          ],
+          [
+            0,
+            0,
+            -11
+          ],
+          [
+            10,
+            0,
+            -9
+          ],
+          [
+            15,
+            0,
+            -2
+          ],
+          [
+            12,
+            0,
+            7
+          ],
+          [
+            3,
+            0,
+            9.5
+          ],
+          [
+            -6,
+            0,
+            8
+          ],
+          [
+            -13,
+            0,
+            5
+          ]
+        ]
+      }
+    },
+    {
+      "Entity": 7900000000000005,
+      "Tag": "Vagon 1",
+      "Transform": {
+        "Translation": [
+          -14.0,
+          0.34,
+          -4.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.9,
+          0.6,
+          1.7
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          0.5,
+          0.2,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.2,
+        "Roughness": 0.35,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "SplineFollower": {
+        "Path": 7900000000000004,
+        "Speed": 6.0,
+        "Mode": "Loop",
+        "StartPosition": 0.0,
+        "Rotation": "Path3D",
+        "Offset": [
+          0,
+          0.32,
+          0
+        ],
+        "PlayOnStart": true
+      },
+      "NativeScript": {
+        "Class": "RainbowTint",
+        "Fields": {
+          "Speed": {
+            "Type": "Float",
+            "Value": 0.07
+          },
+          "Phase": {
+            "Type": "Float",
+            "Value": 0.0
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7900000000000006,
+      "Tag": "Vagon 2",
+      "Transform": {
+        "Translation": [
+          9.596,
+          0.34,
+          -9.242
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.9,
+          0.6,
+          1.7
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          0.5,
+          0.2,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.2,
+        "Roughness": 0.35,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "SplineFollower": {
+        "Path": 7900000000000004,
+        "Speed": 7.5,
+        "Mode": "Loop",
+        "StartPosition": 0.33,
+        "Rotation": "Path3D",
+        "Offset": [
+          0,
+          0.32,
+          0
+        ],
+        "PlayOnStart": true
+      },
+      "NativeScript": {
+        "Class": "RainbowTint",
+        "Fields": {
+          "Speed": {
+            "Type": "Float",
+            "Value": 0.07
+          },
+          "Phase": {
+            "Type": "Float",
+            "Value": 0.33
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7900000000000007,
+      "Tag": "Vagon 3",
+      "Transform": {
+        "Translation": [
+          4.584,
+          0.34,
+          9.391
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.9,
+          0.6,
+          1.7
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          0.5,
+          0.2,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.2,
+        "Roughness": 0.35,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "SplineFollower": {
+        "Path": 7900000000000004,
+        "Speed": 9.0,
+        "Mode": "Loop",
+        "StartPosition": 0.66,
+        "Rotation": "Path3D",
+        "Offset": [
+          0,
+          0.32,
+          0
+        ],
+        "PlayOnStart": true
+      },
+      "NativeScript": {
+        "Class": "RainbowTint",
+        "Fields": {
+          "Speed": {
+            "Type": "Float",
+            "Value": 0.07
+          },
+          "Phase": {
+            "Type": "Float",
+            "Value": 0.66
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7900000000000008,
+      "Tag": "Ko'tarma yo'li",
+      "Transform": {
+        "Translation": [
+          18,
+          0.4,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Spline": {
+        "Type": "Bezier",
+        "Closed": false,
+        "Alpha": 0.5,
+        "Color": [
+          1.0,
+          0.75,
+          0.3,
+          1.0
+        ],
+        "Points": [
+          [
+            0,
+            0,
+            -9
+          ],
+          [
+            0,
+            5,
+            0
+          ],
+          [
+            0,
+            0,
+            9
+          ]
+        ],
+        "Handles": [
+          [
+            0,
+            0,
+            -2,
+            0,
+            3,
+            2
+          ],
+          [
+            0,
+            0,
+            -3,
+            0,
+            0,
+            3
+          ],
+          [
+            0,
+            3,
+            -2,
+            0,
+            0,
+            2
+          ]
+        ]
+      }
+    },
+    {
+      "Entity": 7900000000000009,
+      "Tag": "Ko'tarma",
+      "Transform": {
+        "Translation": [
+          18,
+          0.4,
+          -9
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          2.4,
+          0.3,
+          2.4
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.85,
+          0.78,
+          0.7,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.3,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Kinematic",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "Density": 1.0,
+        "IsSensor": false
+      },
+      "SplineFollower": {
+        "Path": 7900000000000008,
+        "Speed": 3.5,
+        "Mode": "PingPong",
+        "StartPosition": 0.0,
+        "Rotation": "None",
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "PlayOnStart": true
+      }
+    },
+    {
+      "Entity": 7900000000000010,
+      "Tag": "Shovqin maydoni",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          -0.5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "NativeScript": {
+        "Class": "NoiseColumns",
+        "Fields": {
+          "Ridged": {
+            "Type": "Bool",
+            "Value": false
+          },
+          "Frequency": {
+            "Type": "Float",
+            "Value": 0.22
+          },
+          "Contrast": {
+            "Type": "Float",
+            "Value": 2.2
+          },
+          "HeightScale": {
+            "Type": "Float",
+            "Value": 3.0
+          },
+          "LowColor": {
+            "Type": "Vec4",
+            "Value": [
+              0.25,
+              0.2,
+              0.9,
+              1.0
+            ]
+          },
+          "HighColor": {
+            "Type": "Vec4",
+            "Value": [
+              1.0,
+              0.55,
+              0.15,
+              1.0
+            ]
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7900000000000011,
+      "Tag": "Ustun 0-0",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -5.1,
+          0.1,
+          -5.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000012,
+      "Tag": "Ustun 0-1",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -5.1,
+          0.1,
+          -4.25
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000013,
+      "Tag": "Ustun 0-2",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -5.1,
+          0.1,
+          -3.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000014,
+      "Tag": "Ustun 0-3",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -5.1,
+          0.1,
+          -2.55
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000015,
+      "Tag": "Ustun 0-4",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -5.1,
+          0.1,
+          -1.7
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000016,
+      "Tag": "Ustun 0-5",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -5.1,
+          0.1,
+          -0.85
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000017,
+      "Tag": "Ustun 0-6",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -5.1,
+          0.1,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000018,
+      "Tag": "Ustun 0-7",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -5.1,
+          0.1,
+          0.85
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000019,
+      "Tag": "Ustun 0-8",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -5.1,
+          0.1,
+          1.7
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000020,
+      "Tag": "Ustun 0-9",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -5.1,
+          0.1,
+          2.55
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000021,
+      "Tag": "Ustun 0-10",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -5.1,
+          0.1,
+          3.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000022,
+      "Tag": "Ustun 0-11",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -5.1,
+          0.1,
+          4.25
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000023,
+      "Tag": "Ustun 0-12",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -5.1,
+          0.1,
+          5.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000024,
+      "Tag": "Ustun 1-0",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -4.25,
+          0.1,
+          -5.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000025,
+      "Tag": "Ustun 1-1",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -4.25,
+          0.1,
+          -4.25
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000026,
+      "Tag": "Ustun 1-2",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -4.25,
+          0.1,
+          -3.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000027,
+      "Tag": "Ustun 1-3",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -4.25,
+          0.1,
+          -2.55
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000028,
+      "Tag": "Ustun 1-4",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -4.25,
+          0.1,
+          -1.7
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000029,
+      "Tag": "Ustun 1-5",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -4.25,
+          0.1,
+          -0.85
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000030,
+      "Tag": "Ustun 1-6",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -4.25,
+          0.1,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000031,
+      "Tag": "Ustun 1-7",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -4.25,
+          0.1,
+          0.85
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000032,
+      "Tag": "Ustun 1-8",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -4.25,
+          0.1,
+          1.7
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000033,
+      "Tag": "Ustun 1-9",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -4.25,
+          0.1,
+          2.55
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000034,
+      "Tag": "Ustun 1-10",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -4.25,
+          0.1,
+          3.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000035,
+      "Tag": "Ustun 1-11",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -4.25,
+          0.1,
+          4.25
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000036,
+      "Tag": "Ustun 1-12",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -4.25,
+          0.1,
+          5.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000037,
+      "Tag": "Ustun 2-0",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -3.4,
+          0.1,
+          -5.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000038,
+      "Tag": "Ustun 2-1",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -3.4,
+          0.1,
+          -4.25
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000039,
+      "Tag": "Ustun 2-2",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -3.4,
+          0.1,
+          -3.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000040,
+      "Tag": "Ustun 2-3",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -3.4,
+          0.1,
+          -2.55
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000041,
+      "Tag": "Ustun 2-4",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -3.4,
+          0.1,
+          -1.7
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000042,
+      "Tag": "Ustun 2-5",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -3.4,
+          0.1,
+          -0.85
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000043,
+      "Tag": "Ustun 2-6",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -3.4,
+          0.1,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000044,
+      "Tag": "Ustun 2-7",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -3.4,
+          0.1,
+          0.85
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000045,
+      "Tag": "Ustun 2-8",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -3.4,
+          0.1,
+          1.7
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000046,
+      "Tag": "Ustun 2-9",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -3.4,
+          0.1,
+          2.55
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000047,
+      "Tag": "Ustun 2-10",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -3.4,
+          0.1,
+          3.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000048,
+      "Tag": "Ustun 2-11",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -3.4,
+          0.1,
+          4.25
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000049,
+      "Tag": "Ustun 2-12",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -3.4,
+          0.1,
+          5.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000050,
+      "Tag": "Ustun 3-0",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -2.55,
+          0.1,
+          -5.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000051,
+      "Tag": "Ustun 3-1",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -2.55,
+          0.1,
+          -4.25
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000052,
+      "Tag": "Ustun 3-2",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -2.55,
+          0.1,
+          -3.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000053,
+      "Tag": "Ustun 3-3",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -2.55,
+          0.1,
+          -2.55
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000054,
+      "Tag": "Ustun 3-4",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -2.55,
+          0.1,
+          -1.7
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000055,
+      "Tag": "Ustun 3-5",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -2.55,
+          0.1,
+          -0.85
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000056,
+      "Tag": "Ustun 3-6",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -2.55,
+          0.1,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000057,
+      "Tag": "Ustun 3-7",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -2.55,
+          0.1,
+          0.85
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000058,
+      "Tag": "Ustun 3-8",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -2.55,
+          0.1,
+          1.7
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000059,
+      "Tag": "Ustun 3-9",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -2.55,
+          0.1,
+          2.55
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000060,
+      "Tag": "Ustun 3-10",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -2.55,
+          0.1,
+          3.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000061,
+      "Tag": "Ustun 3-11",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -2.55,
+          0.1,
+          4.25
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000062,
+      "Tag": "Ustun 3-12",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -2.55,
+          0.1,
+          5.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000063,
+      "Tag": "Ustun 4-0",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -1.7,
+          0.1,
+          -5.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000064,
+      "Tag": "Ustun 4-1",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -1.7,
+          0.1,
+          -4.25
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000065,
+      "Tag": "Ustun 4-2",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -1.7,
+          0.1,
+          -3.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000066,
+      "Tag": "Ustun 4-3",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -1.7,
+          0.1,
+          -2.55
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000067,
+      "Tag": "Ustun 4-4",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -1.7,
+          0.1,
+          -1.7
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000068,
+      "Tag": "Ustun 4-5",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -1.7,
+          0.1,
+          -0.85
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000069,
+      "Tag": "Ustun 4-6",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -1.7,
+          0.1,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000070,
+      "Tag": "Ustun 4-7",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -1.7,
+          0.1,
+          0.85
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000071,
+      "Tag": "Ustun 4-8",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -1.7,
+          0.1,
+          1.7
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000072,
+      "Tag": "Ustun 4-9",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -1.7,
+          0.1,
+          2.55
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000073,
+      "Tag": "Ustun 4-10",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -1.7,
+          0.1,
+          3.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000074,
+      "Tag": "Ustun 4-11",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -1.7,
+          0.1,
+          4.25
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000075,
+      "Tag": "Ustun 4-12",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -1.7,
+          0.1,
+          5.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000076,
+      "Tag": "Ustun 5-0",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -0.85,
+          0.1,
+          -5.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000077,
+      "Tag": "Ustun 5-1",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -0.85,
+          0.1,
+          -4.25
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000078,
+      "Tag": "Ustun 5-2",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -0.85,
+          0.1,
+          -3.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000079,
+      "Tag": "Ustun 5-3",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -0.85,
+          0.1,
+          -2.55
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000080,
+      "Tag": "Ustun 5-4",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -0.85,
+          0.1,
+          -1.7
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000081,
+      "Tag": "Ustun 5-5",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -0.85,
+          0.1,
+          -0.85
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000082,
+      "Tag": "Ustun 5-6",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -0.85,
+          0.1,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000083,
+      "Tag": "Ustun 5-7",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -0.85,
+          0.1,
+          0.85
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000084,
+      "Tag": "Ustun 5-8",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -0.85,
+          0.1,
+          1.7
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000085,
+      "Tag": "Ustun 5-9",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -0.85,
+          0.1,
+          2.55
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000086,
+      "Tag": "Ustun 5-10",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -0.85,
+          0.1,
+          3.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000087,
+      "Tag": "Ustun 5-11",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -0.85,
+          0.1,
+          4.25
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000088,
+      "Tag": "Ustun 5-12",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          -0.85,
+          0.1,
+          5.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000089,
+      "Tag": "Ustun 6-0",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.1,
+          -5.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000090,
+      "Tag": "Ustun 6-1",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.1,
+          -4.25
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000091,
+      "Tag": "Ustun 6-2",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.1,
+          -3.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000092,
+      "Tag": "Ustun 6-3",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.1,
+          -2.55
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000093,
+      "Tag": "Ustun 6-4",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.1,
+          -1.7
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000094,
+      "Tag": "Ustun 6-5",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.1,
+          -0.85
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000095,
+      "Tag": "Ustun 6-6",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.1,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000096,
+      "Tag": "Ustun 6-7",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.1,
+          0.85
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000097,
+      "Tag": "Ustun 6-8",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.1,
+          1.7
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000098,
+      "Tag": "Ustun 6-9",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.1,
+          2.55
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000099,
+      "Tag": "Ustun 6-10",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.1,
+          3.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000100,
+      "Tag": "Ustun 6-11",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.1,
+          4.25
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000101,
+      "Tag": "Ustun 6-12",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.1,
+          5.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000102,
+      "Tag": "Ustun 7-0",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          0.85,
+          0.1,
+          -5.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000103,
+      "Tag": "Ustun 7-1",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          0.85,
+          0.1,
+          -4.25
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000104,
+      "Tag": "Ustun 7-2",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          0.85,
+          0.1,
+          -3.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000105,
+      "Tag": "Ustun 7-3",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          0.85,
+          0.1,
+          -2.55
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000106,
+      "Tag": "Ustun 7-4",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          0.85,
+          0.1,
+          -1.7
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000107,
+      "Tag": "Ustun 7-5",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          0.85,
+          0.1,
+          -0.85
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000108,
+      "Tag": "Ustun 7-6",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          0.85,
+          0.1,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000109,
+      "Tag": "Ustun 7-7",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          0.85,
+          0.1,
+          0.85
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000110,
+      "Tag": "Ustun 7-8",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          0.85,
+          0.1,
+          1.7
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000111,
+      "Tag": "Ustun 7-9",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          0.85,
+          0.1,
+          2.55
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000112,
+      "Tag": "Ustun 7-10",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          0.85,
+          0.1,
+          3.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000113,
+      "Tag": "Ustun 7-11",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          0.85,
+          0.1,
+          4.25
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000114,
+      "Tag": "Ustun 7-12",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          0.85,
+          0.1,
+          5.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000115,
+      "Tag": "Ustun 8-0",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          1.7,
+          0.1,
+          -5.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000116,
+      "Tag": "Ustun 8-1",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          1.7,
+          0.1,
+          -4.25
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000117,
+      "Tag": "Ustun 8-2",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          1.7,
+          0.1,
+          -3.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000118,
+      "Tag": "Ustun 8-3",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          1.7,
+          0.1,
+          -2.55
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000119,
+      "Tag": "Ustun 8-4",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          1.7,
+          0.1,
+          -1.7
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000120,
+      "Tag": "Ustun 8-5",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          1.7,
+          0.1,
+          -0.85
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000121,
+      "Tag": "Ustun 8-6",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          1.7,
+          0.1,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000122,
+      "Tag": "Ustun 8-7",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          1.7,
+          0.1,
+          0.85
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000123,
+      "Tag": "Ustun 8-8",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          1.7,
+          0.1,
+          1.7
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000124,
+      "Tag": "Ustun 8-9",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          1.7,
+          0.1,
+          2.55
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000125,
+      "Tag": "Ustun 8-10",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          1.7,
+          0.1,
+          3.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000126,
+      "Tag": "Ustun 8-11",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          1.7,
+          0.1,
+          4.25
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000127,
+      "Tag": "Ustun 8-12",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          1.7,
+          0.1,
+          5.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000128,
+      "Tag": "Ustun 9-0",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          2.55,
+          0.1,
+          -5.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000129,
+      "Tag": "Ustun 9-1",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          2.55,
+          0.1,
+          -4.25
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000130,
+      "Tag": "Ustun 9-2",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          2.55,
+          0.1,
+          -3.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000131,
+      "Tag": "Ustun 9-3",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          2.55,
+          0.1,
+          -2.55
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000132,
+      "Tag": "Ustun 9-4",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          2.55,
+          0.1,
+          -1.7
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000133,
+      "Tag": "Ustun 9-5",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          2.55,
+          0.1,
+          -0.85
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000134,
+      "Tag": "Ustun 9-6",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          2.55,
+          0.1,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000135,
+      "Tag": "Ustun 9-7",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          2.55,
+          0.1,
+          0.85
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000136,
+      "Tag": "Ustun 9-8",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          2.55,
+          0.1,
+          1.7
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000137,
+      "Tag": "Ustun 9-9",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          2.55,
+          0.1,
+          2.55
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000138,
+      "Tag": "Ustun 9-10",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          2.55,
+          0.1,
+          3.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000139,
+      "Tag": "Ustun 9-11",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          2.55,
+          0.1,
+          4.25
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000140,
+      "Tag": "Ustun 9-12",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          2.55,
+          0.1,
+          5.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000141,
+      "Tag": "Ustun 10-0",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          3.4,
+          0.1,
+          -5.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000142,
+      "Tag": "Ustun 10-1",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          3.4,
+          0.1,
+          -4.25
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000143,
+      "Tag": "Ustun 10-2",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          3.4,
+          0.1,
+          -3.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000144,
+      "Tag": "Ustun 10-3",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          3.4,
+          0.1,
+          -2.55
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000145,
+      "Tag": "Ustun 10-4",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          3.4,
+          0.1,
+          -1.7
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000146,
+      "Tag": "Ustun 10-5",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          3.4,
+          0.1,
+          -0.85
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000147,
+      "Tag": "Ustun 10-6",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          3.4,
+          0.1,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000148,
+      "Tag": "Ustun 10-7",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          3.4,
+          0.1,
+          0.85
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000149,
+      "Tag": "Ustun 10-8",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          3.4,
+          0.1,
+          1.7
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000150,
+      "Tag": "Ustun 10-9",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          3.4,
+          0.1,
+          2.55
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000151,
+      "Tag": "Ustun 10-10",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          3.4,
+          0.1,
+          3.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000152,
+      "Tag": "Ustun 10-11",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          3.4,
+          0.1,
+          4.25
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000153,
+      "Tag": "Ustun 10-12",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          3.4,
+          0.1,
+          5.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000154,
+      "Tag": "Ustun 11-0",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          4.25,
+          0.1,
+          -5.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000155,
+      "Tag": "Ustun 11-1",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          4.25,
+          0.1,
+          -4.25
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000156,
+      "Tag": "Ustun 11-2",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          4.25,
+          0.1,
+          -3.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000157,
+      "Tag": "Ustun 11-3",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          4.25,
+          0.1,
+          -2.55
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000158,
+      "Tag": "Ustun 11-4",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          4.25,
+          0.1,
+          -1.7
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000159,
+      "Tag": "Ustun 11-5",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          4.25,
+          0.1,
+          -0.85
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000160,
+      "Tag": "Ustun 11-6",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          4.25,
+          0.1,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000161,
+      "Tag": "Ustun 11-7",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          4.25,
+          0.1,
+          0.85
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000162,
+      "Tag": "Ustun 11-8",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          4.25,
+          0.1,
+          1.7
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000163,
+      "Tag": "Ustun 11-9",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          4.25,
+          0.1,
+          2.55
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000164,
+      "Tag": "Ustun 11-10",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          4.25,
+          0.1,
+          3.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000165,
+      "Tag": "Ustun 11-11",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          4.25,
+          0.1,
+          4.25
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000166,
+      "Tag": "Ustun 11-12",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          4.25,
+          0.1,
+          5.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000167,
+      "Tag": "Ustun 12-0",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          5.1,
+          0.1,
+          -5.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000168,
+      "Tag": "Ustun 12-1",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          5.1,
+          0.1,
+          -4.25
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000169,
+      "Tag": "Ustun 12-2",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          5.1,
+          0.1,
+          -3.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000170,
+      "Tag": "Ustun 12-3",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          5.1,
+          0.1,
+          -2.55
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000171,
+      "Tag": "Ustun 12-4",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          5.1,
+          0.1,
+          -1.7
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000172,
+      "Tag": "Ustun 12-5",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          5.1,
+          0.1,
+          -0.85
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000173,
+      "Tag": "Ustun 12-6",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          5.1,
+          0.1,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000174,
+      "Tag": "Ustun 12-7",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          5.1,
+          0.1,
+          0.85
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000175,
+      "Tag": "Ustun 12-8",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          5.1,
+          0.1,
+          1.7
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000176,
+      "Tag": "Ustun 12-9",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          5.1,
+          0.1,
+          2.55
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000177,
+      "Tag": "Ustun 12-10",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          5.1,
+          0.1,
+          3.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000178,
+      "Tag": "Ustun 12-11",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          5.1,
+          0.1,
+          4.25
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000179,
+      "Tag": "Ustun 12-12",
+      "Parent": 7900000000000010,
+      "Transform": {
+        "Translation": [
+          5.1,
+          0.1,
+          5.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.78,
+          0.2,
+          0.78
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.45,
+          0.8,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7900000000000180,
+      "Tag": "Suzuvchi shar 1",
+      "Transform": {
+        "Translation": [
+          -6.5,
+          1.4,
+          13.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.9,
+          0.9,
+          0.9
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.95,
+          0.95,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.25,
+        "Emission": [
+          0.4,
+          0.7,
+          1.0
+        ],
+        "EmissionStrength": 0.6
+      },
+      "NativeScript": {
+        "Class": "CurveBob",
+        "Fields": {
+          "Phase": {
+            "Type": "Float",
+            "Value": 0.0
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7900000000000181,
+      "Tag": "Suzuvchi shar 2",
+      "Transform": {
+        "Translation": [
+          -3.9,
+          1.4,
+          13.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.9,
+          0.9,
+          0.9
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.95,
+          0.95,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.25,
+        "Emission": [
+          0.4,
+          0.7,
+          1.0
+        ],
+        "EmissionStrength": 1.0
+      },
+      "NativeScript": {
+        "Class": "CurveBob",
+        "Fields": {
+          "Phase": {
+            "Type": "Float",
+            "Value": 0.45
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7900000000000182,
+      "Tag": "Suzuvchi shar 3",
+      "Transform": {
+        "Translation": [
+          -1.2999999999999998,
+          1.4,
+          13.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.9,
+          0.9,
+          0.9
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.95,
+          0.95,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.25,
+        "Emission": [
+          0.4,
+          0.7,
+          1.0
+        ],
+        "EmissionStrength": 1.4
+      },
+      "NativeScript": {
+        "Class": "CurveBob",
+        "Fields": {
+          "Phase": {
+            "Type": "Float",
+            "Value": 0.9
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7900000000000183,
+      "Tag": "Mayoq",
+      "Transform": {
+        "Translation": [
+          17,
+          1.5,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          0.7,
+          0.3,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.3,
+        "Emission": [
+          1.0,
+          0.6,
+          0.2
+        ],
+        "EmissionStrength": 3.0
+      },
+      "PointLight": {
+        "Color": [
+          1.0,
+          0.7,
+          0.4
+        ],
+        "Intensity": 4.0,
+        "Radius": 6.0
+      },
+      "NativeScript": {
+        "Class": "Orbit",
+        "Fields": {
+          "Radius": {
+            "Type": "Float",
+            "Value": 17.0
+          },
+          "Speed": {
+            "Type": "Float",
+            "Value": 0.35
+          },
+          "Phase": {
+            "Type": "Float",
+            "Value": 0.0
+          },
+          "Height": {
+            "Type": "Float",
+            "Value": 1.5
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7900000000000184,
+      "Tag": "Magnit",
+      "Transform": {
+        "Translation": [
+          0,
+          0.6,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.45,
+          0.45,
+          0.45
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          0.85,
+          0.4,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.6,
+        "Roughness": 0.2,
+        "Emission": [
+          1.0,
+          0.8,
+          0.3
+        ],
+        "EmissionStrength": 1.5
+      },
+      "NativeScript": {
+        "Class": "SplineMagnet",
+        "Fields": {
+          "Rail": {
+            "Type": "Entity",
+            "Value": 7900000000000004
+          },
+          "Target": {
+            "Type": "Entity",
+            "Value": 7900000000000183
+          }
+        }
+      }
+    }
+  ]
+}

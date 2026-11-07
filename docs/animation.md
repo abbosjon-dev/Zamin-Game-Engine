@@ -24,7 +24,9 @@ Mundarija:
 15. [Sprite animatsiya kliplari (.zsanim)](#15-sprite-animatsiya-kliplari-zsanim)
 16. [Samaradorlik: keshlash va kesish](#16-samaradorlik-keshlash-va-kesish)
 17. [Namuna: yaqinlashganda ochiladigan darvoza](#17-namuna-yaqinlashganda-ochiladigan-darvoza)
-18. [Qisqa API ma'lumotnomasi](#18-qisqa-api-malumotnomasi)
+18. [AnimationCurve: skriptdagi egri chiziq](#18-animationcurve-skriptdagi-egri-chiziq)
+19. [Spline yo'llar va Spline Follower](#19-spline-yollar-va-spline-follower)
+20. [Qisqa API ma'lumotnomasi](#20-qisqa-api-malumotnomasi)
 
 ---
 
@@ -579,7 +581,69 @@ rejimisiz ko'rasiz; event'lar qatorida to'rtta event.
 
 ---
 
-## 18. Qisqa API ma'lumotnomasi
+## 18. AnimationCurve: skriptdagi egri chiziq
+
+`AnimationCurve` (`Zamin/Math/AnimationCurve.h`) - vaqt bo'yicha bitta son: kalitlar (vaqt, qiymat, kirish / chiqish
+tangentlari), ular orasida pog'onali / chiziqli / silliq (Bezier) o'tish va birinchi kalitdan oldin / oxirgisidan
+keyin nima bo'lishi (`PreWrap` / `PostWrap`: `Once` - chetki qiymat, `Loop` - takrorlash, `PingPong` - borib-qaytish).
+Kalitlar va arifmetika property kliplar va particle egri chiziqlari bilan bir xil (`Math/CurveKey.h`: `CurveKeys`).
+
+Skript maydoni sifatida inspektorda egri chiziq muharriri bilan tahrirlanadi (kalitni sudrash, ikki marta bosish -
+yangi kalit, o'ng tugma - interpolatsiya / tayyor shakllar, pastda - chetlardagi xatti-harakat) va sahna bilan saqlanadi:
+
+```cpp
+class Hopper : public ScriptableEntity
+{
+public:
+    AnimationCurve Jump = AnimationCurve::EaseInOut(0.0f, 0.0f, 0.4f, 2.0f);
+
+    void OnUpdate(Timestep ts) override
+    {
+        m_Time += (float)ts;
+        Transform().Translation.y = m_Ground + Jump.Evaluate(m_Time);
+    }
+private:
+    float m_Ground = 0.0f, m_Time = 0.0f;
+};
+// ZM_FIELD_RANGE: muharrir kamida shu qiymatlarni ko'rsatadi.
+ZM_REGISTER_SCRIPT(Hopper, ZM_FIELD_RANGE(Hopper, Jump, 0.0f, 2.0f))
+```
+
+Kodda: `AddKey(t, v)`, `AddKey(t)` (egri chiziq qiymati bilan), `RemoveKey`, `MoveKey`, `SetTangents` (qo'lda),
+`SmoothTangents()` / `FlattenTangents()`, `SetInterpolation`, `GetStartTime()` / `GetEndTime()`, `GetMin()` / `GetMax()`,
+tayyorlari: `Constant`, `Linear`, `EaseInOut`. Namuna: Showcase3D `Splines` sahnasi, `CurveBob` skripti.
+
+## 19. Spline yo'llar va Spline Follower
+
+**Spline** komponenti obyektning o'z koordinatalaridagi nuqtalar orqali yo'l: Catmull-Rom (har bir nuqtadan silliq
+o'tadi; `Alpha` 0.5 - centripetal, yaqin nuqtalarda halqa va o'tkir uch bo'lmaydi), Bezier (har nuqtaning ikki
+tutqichi) yoki chiziqli; ochiq yoki yopiq (halqa). Inspektorda "Nuqtalarni tahrirlash" - nuqtalar viewportda
+sudraladi (3D: kameraga qaragan tekislikda, tanlangan nuqtada o'qli gizmo), chiziqqa bosish - yangi nuqta, bo'sh joyga
+ikki marta bosish - oxiriga nuqta, Ctrl + bosish / Delete - o'chirish, Shift - 0.1 qadam; Bezier'da tanlangan
+nuqtaning tutqichlari (Ctrl bilan alohida). Yo'llar editorda doim chiziladi (Ko'rinish > Gizmolar > "Spline yo'llar").
+
+**Spline Follower** obyektni yo'l bo'ylab `Speed` (dunyo birligi / s) tezlikda yurgizadi: `Bir marta`, `Aylanma`
+yoki `Borib-qaytish`; `Burilish` - yo'l bo'ylab qarash (3D: -Z oldinga; 2D: +X yo'l bo'ylab), `Siljish` - yo'lning o'z
+o'qlarida (x o'ngga, y yuqoriga, z yo'l bo'ylab), `Boshlanish` - yo'lning qaysi ulushidan. Kinematik jism tezlik bilan
+suriladi - ustida turgan o'yinchini olib yuradi (Platformer2D `Level2` dagi yoy bo'ylab yuradigan platforma).
+
+```cpp
+auto& follower = GetComponent<SplineFollowerComponent>();
+follower.Speed = 4.0f;
+follower.Pause();          // Play(), Restart()
+float progress = GetScene().GetSplineFollowerProgress(GetEntity());   // 0..1
+
+// Yo'ldan namuna olish (dunyo koordinatalari; masofa - yo'lning o'z birliklarida):
+Entity rail = FindEntity("Poyga yo'li");
+float d = GetScene().GetSplineClosestDistance(rail, playerPosition);  // o'yinchiga eng yaqin nuqta
+glm::vec3 p = GetScene().GetSplinePosition(rail, d);
+glm::vec3 dir = GetScene().GetSplineTangent(rail, d);
+```
+
+Matematikasi `Zamin/Math/Spline.h` da: `Spline::Evaluate(u)` / `EvaluateTangent(u)`, `SplineLengthTable` (masofa <->
+parametr), `FindClosest`, `InsertPoint` (Bezier shakli saqlanadi), `AutoTangents` (Catmull-Rom shaklidagi tutqichlar).
+
+## 20. Qisqa API ma'lumotnomasi
 
 | Nima | API |
 |---|---|
@@ -594,4 +658,5 @@ rejimisiz ko'rasiz; event'lar qatorida to'rtta event.
 | Morph target'lar | `MeshRendererComponent::SetMorphWeight(name / index, w)`, `GetMorphWeight`, `ResetMorphWeights()` |
 | Sprite kliplar | `PlaySpriteClip(name, restart)`, `GetSpriteClip()` |
 | Samaradorlik | `AnimatorComponent::Culling`, `CachePoses`, `PoseCacheRate`, `Culled`; `Scene::GetAnimationStats()` |
+| Egri chiziq va yo'l | `AnimationCurve::Evaluate`, `AddKey`, `SmoothTangents`; `SplineFollowerComponent::Play` / `Pause` / `Restart`; `Scene::GetSplinePosition`, `GetSplineTangent`, `GetSplineLength`, `GetSplineClosestDistance`, `GetSplineFollowerProgress` |
 | Past daraja | `SampleLocalPose`, `BlendLocalPose`, `AddLocalPose`, `ComposeJointMatrices`, `ComputeBlend1DWeights`, `BuildJointMask`, `ExtractRootMotion`, `TrimClip`, `BakeClip` / `SampleBakedPose`, `GetSkinMatrices` (`Zamin/Renderer/Animation.h`, `Model.h`) |

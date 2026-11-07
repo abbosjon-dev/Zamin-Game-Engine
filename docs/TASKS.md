@@ -418,11 +418,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 
 ## M19 Matematika va core
 
-- [ ] 361. Perlin/Simplex shovqin funksiyalari
-- [ ] 362. AnimationCurve turi (kalit nuqtalar, baholash)
-- [ ] 363. Spline yo'llar (Catmull-Rom) va komponent
-- [ ] 364. Spline bo'ylab harakat skripti
-- [ ] 365. Rang utilitalari (HSV, lerp, hex)
+- [x] 361. Perlin/Simplex shovqin funksiyalari
+- [x] 362. AnimationCurve turi (kalit nuqtalar, baholash)
+- [x] 363. Spline yo'llar (Catmull-Rom) va komponent
+- [x] 364. Spline bo'ylab harakat skripti
+- [x] 365. Rang utilitalari (HSV, lerp, hex)
 - [ ] 366. Math utilitalari (Remap, SmoothDamp, MoveTowards, Approximately)
 - [ ] 367. Quaternion yordamchilari (LookRotation, Slerp)
 - [ ] 368. Job system / thread pool

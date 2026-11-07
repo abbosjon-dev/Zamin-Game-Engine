@@ -5463,12 +5463,13 @@ namespace Zamin {
             ImGui::PopStyleColor();
         ImGui::EndDisabled();
 
-        static const char* const types[] = { "Catmull-Rom", "Bezier", "Chiziqli" };
-        static const char* const typeTips[] = { "Har bir nuqtadan silliq o'tadi (tutqichlarsiz)",
-                                                "Har nuqtaning ikki tutqichi egrilikni boshqaradi (viewportda sudraladi)",
-                                                "Nuqtalar to'g'ri chiziqlar bilan ulanadi" };
+        static const char* const types[] = { "Catmull-Rom (silliq)", "Bezier (tutqichli)", "Chiziqli" };
         int type = (int)path.Type;
-        if (UI::PropertySegmented("Turi", type, types, 3, typeTips) && type != (int)path.Type)
+        const bool typeChanged = UI::PropertyCombo("Turi", type, types, 3);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            UI::Tooltip("Catmull-Rom - har bir nuqtadan silliq o'tadi; Bezier - har nuqtaning ikki tutqichi egrilikni boshqaradi "
+                        "(viewportda sudraladi); chiziqli - nuqtalar to'g'ri chiziqlar bilan ulanadi");
+        if (typeChanged && type != (int)path.Type)
         {
             // To Bezier: handles that keep the curve it had.
             if ((SplineType)type == SplineType::Bezier && path.Type == SplineType::CatmullRom)
@@ -5591,15 +5592,16 @@ namespace Zamin {
 
         UI::PropertyLabel("Tezlik", "Dunyo birligi / soniya, yo'l bo'ylab (manfiy - orqaga)");
         changed |= ImGui::DragFloat("##speed", &c.Speed, 0.05f, -1000.0f, 1000.0f, "%.2f");
-        static const char* const modes[] = { "Bir marta", "Aylanma", "Borib-qaytish" };
-        static const char* const modeTips[] = { "Oxiriga yetib to'xtaydi", "Qaytadan boshlaydi (yopiq yo'lda aylanib yuradi)",
-                                                "Uchlarida orqaga qaytadi" };
+        static const char* const modes[] = { "Bir marta", "Aylanma (takror)", "Borib-qaytish" };
         int mode = (int)c.Mode;
-        if (UI::PropertySegmented("Rejim", mode, modes, 3, modeTips))
+        if (UI::PropertyCombo("Rejim", mode, modes, 3))
         {
             c.Mode = (SplineFollowerComponent::FollowMode)mode;
             changed = true;
         }
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            UI::Tooltip("Bir marta - oxiriga yetib to'xtaydi; aylanma - qaytadan boshlaydi (yopiq yo'lda aylanib yuradi); "
+                        "borib-qaytish - uchlarida orqaga qaytadi");
         UI::PropertyLabel("Boshlanish", "Qayerdan boshlaydi: yo'l uzunligining ulushi");
         float start = c.StartPosition * 100.0f;
         if (ImGui::SliderFloat("##start", &start, 0.0f, 100.0f, "%.0f%%", ImGuiSliderFlags_AlwaysClamp))

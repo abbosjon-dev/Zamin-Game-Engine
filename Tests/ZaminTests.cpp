@@ -37850,3 +37850,62 @@ TEST(ColorConversions)
     CHECK(Color::ToPacked(Color::FromPacked(0x12ABEF7Fu)) == 0x12ABEF7Fu);
     CHECK(Color::WithAlpha(Colors::Red, 0.25f) == glm::vec4(1, 0, 0, 0.25f));
 }
+
+// The M19 samples: Showcase3D "Splines" (carts round a Catmull-Rom loop, a lift on a Bezier hump) and the
+// Platformer2D Level2 platform that rides an arc.
+TEST(SplineSampleScenes)
+{
+    namespace fs = std::filesystem;
+    {
+        // Its project active: the scene's environment map is found.
+        auto project = Project::Load(fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Showcase3D" / "Showcase3D.zproject");
+        CHECK(project != nullptr);
+        Project::SetActive(project);
+        ScopeExit noProject{ []() { Project::SetActive(nullptr); } };
+        auto scene = CreateRef<Scene>();
+        CHECK(SceneSerializer(scene).Deserialize(fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Showcase3D" / "Assets" / "Scenes" / "Splines.zscene"));
+        Entity track = scene->FindEntityByName("Poyga yo'li"), cart = scene->FindEntityByName("Vagon 2");
+        Entity lift = scene->FindEntityByName("Ko'tarma"), liftPath = scene->FindEntityByName("Ko'tarma yo'li");
+        CHECK(track && cart && lift && liftPath);
+        if (!(track && cart && lift && liftPath))
+            return;
+        CHECK(track.GetComponent<SplineComponent>().Path.Closed && liftPath.GetComponent<SplineComponent>().Path.Type == SplineType::Bezier);
+        CHECK(scene->GetSplineFollowerPath(cart) == track && scene->GetSplineFollowerPath(lift) == liftPath);
+        // The cart is placed where it starts (a third of the way round).
+        const float length = scene->GetSplineLength(track);
+        CHECK(length > 60.0f);
+        CHECK(glm::length(cart.GetTransform().Translation - (scene->GetSplinePosition(track, length * 0.33f) + glm::vec3(0, 0.32f, 0))) < 0.05f);
+        for (Entity camera : scene->FindEntitiesWith<CameraComponent>())
+            camera.RemoveComponent<CameraComponent>(); // headless: nothing is drawn
+        scene->OnRuntimeStart();
+        for (int i = 0; i < 31; i++)
+            scene->OnUpdateRuntime(1.0f / 30.0f);
+        const auto& f = cart.GetComponent<SplineFollowerComponent>();
+        CHECK(f.Playing && std::abs(f.Distance - (length * 0.33f + 7.5f)) < 0.2f); // 7.5 units in a second
+        CHECK(glm::length(cart.GetTransform().Translation - (scene->GetSplinePosition(track, f.Distance) + glm::vec3(0, 0.32f, 0))) < 0.05f);
+        CHECK(lift.GetTransform().Translation.y > 0.5f); // on its way up the hump
+        scene->OnRuntimeStop();
+    }
+    {
+        auto scene = CreateRef<Scene>();
+        CHECK(SceneSerializer(scene).Deserialize(fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Platformer2D" / "Assets" / "Scenes" / "Level2.zscene"));
+        Entity path = scene->FindEntityByName("Platforma yo'li");
+        Entity platform;
+        for (Entity e : scene->FindEntitiesByName("Platform"))
+            if (e.HasComponent<SplineFollowerComponent>())
+                platform = e;
+        CHECK(path && platform);
+        if (!(path && platform))
+            return;
+        for (Entity camera : scene->FindEntitiesWith<CameraComponent>())
+            camera.RemoveComponent<CameraComponent>();
+        scene->OnRuntimeStart();
+        for (int i = 0; i < 30; i++)
+            scene->OnUpdateRuntime(1.0f / 60.0f);
+        const glm::vec3 p = platform.GetTransform().Translation;
+        CHECK(p.x > 37.5f && p.y > -1.0f); // up the arc
+        auto* body = (b2Body*)platform.GetComponent<Rigidbody2DComponent>().RuntimeBody;
+        CHECK(body && glm::length(PhysicsWorld2D::GetLinearVelocity(body)) > 1.5f);
+        scene->OnRuntimeStop();
+    }
+}

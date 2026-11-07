@@ -1656,11 +1656,65 @@
       }
     },
     {
+      "Entity": 7340001584093101,
+      "Tag": "Platforma yo'li",
+      "Transform": {
+        "Translation": [
+          40,
+          -1,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Spline": {
+        "Type": "CatmullRom",
+        "Closed": false,
+        "Alpha": 0.5,
+        "Color": [
+          1.0,
+          0.75,
+          0.3,
+          1.0
+        ],
+        "Points": [
+          [
+            -2.5,
+            0,
+            0
+          ],
+          [
+            -1.0,
+            1.4,
+            0
+          ],
+          [
+            1.0,
+            1.4,
+            0
+          ],
+          [
+            2.5,
+            0,
+            0
+          ]
+        ]
+      }
+    },
+    {
       "Entity": 7340001584093003,
       "Tag": "Platform",
       "Transform": {
         "Translation": [
-          40,
+          37.5,
           -1,
           0
         ],
@@ -1712,25 +1766,18 @@
         "RestitutionThreshold": 0.5,
         "IsSensor": false
       },
-      "NativeScript": {
-        "Class": "MovingPlatform",
-        "Fields": {
-          "Direction": {
-            "Type": "Vec2",
-            "Value": [
-              1,
-              0
-            ]
-          },
-          "Distance": {
-            "Type": "Float",
-            "Value": 2.5
-          },
-          "Speed": {
-            "Type": "Float",
-            "Value": 1.0
-          }
-        }
+      "SplineFollower": {
+        "Path": 7340001584093101,
+        "Speed": 2.2,
+        "Mode": "PingPong",
+        "StartPosition": 0.0,
+        "Rotation": "None",
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "PlayOnStart": true
       }
     },
     {

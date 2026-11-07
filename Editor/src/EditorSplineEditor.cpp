@@ -351,12 +351,13 @@ namespace Zamin {
                 dl->AddText(at, IM_COL32(235, 240, 245, 255), label.c_str());
             }
         }
-        const char* hint = bezier ? ICON_FA_BEZIER_CURVE "  Spline nuqtalari:  sudrang  |  chiziqqa bosing - yangi nuqta  |  bo'sh joyga ikki marta - oxiriga  |  "
-                                    "Ctrl + bosish / Delete - o'chirish  |  tutqichlar: Ctrl - alohida  |  Shift - 0.1 qadam  |  Esc - tugatish"
-                                  : ICON_FA_BEZIER_CURVE "  Spline nuqtalari:  sudrang  |  chiziqqa bosing - yangi nuqta  |  bo'sh joyga ikki marta - oxiriga  |  "
-                                    "Ctrl + bosish / Delete - o'chirish  |  Shift - 0.1 qadam  |  Esc - tugatish";
+        const char* hint = bezier ? ICON_FA_BEZIER_CURVE "  Sudrang  |  chiziqqa bosish - yangi nuqta  |  2x bosish - oxiriga  |  Ctrl+bosish / Del - o'chirish  |  "
+                                    "tutqich: Ctrl - alohida  |  Shift - 0.1  |  Esc - tugatish"
+                                  : ICON_FA_BEZIER_CURVE "  Sudrang  |  chiziqqa bosish - yangi nuqta  |  2x bosish - oxiriga  |  Ctrl+bosish / Del - o'chirish  |  "
+                                    "Shift - 0.1  |  Esc - tugatish";
         const ImVec2 hintSize = ImGui::CalcTextSize(hint);
-        const ImVec2 hintAt(m_ViewportBounds[0].x + (viewport.x - hintSize.x) * 0.5f, m_ViewportBounds[0].y + 44.0f);
+        // At the bottom of the view (the toolbars are at the top).
+        const ImVec2 hintAt(m_ViewportBounds[0].x + std::max(10.0f, (viewport.x - hintSize.x) * 0.5f), m_ViewportBounds[1].y - hintSize.y - 14.0f);
         dl->AddRectFilled(ImVec2(hintAt.x - 10.0f, hintAt.y - 5.0f), ImVec2(hintAt.x + hintSize.x + 10.0f, hintAt.y + hintSize.y + 5.0f),
                           IM_COL32(16, 20, 26, 215), 6.0f);
         dl->AddText(hintAt, IM_COL32(150, 225, 255, 255), hint);

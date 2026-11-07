@@ -70,7 +70,7 @@ namespace Zamin {
         Textures,     // images (.png, .jpg, .hdr ...)
         Models,       // .gltf, .glb and their .bin buffers, .obj ...
         Audio,        // .wav, .ogg, .mp3, .flac
-        Scenes,       // .zscene, .zsceneb, .zprefab
+        Scenes,       // .zscene, .zsceneb, .znav, .zprefab
         Fonts,        // .ttf, .otf
         Data,         // the rest of the engine's files: materials, clips, presets, .zmeta, the project, JSON ...
         Other,        // launchers, desktop entries, icons, notes

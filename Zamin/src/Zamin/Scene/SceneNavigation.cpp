@@ -21,6 +21,8 @@
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Scene/TilesetProperties.h"
 
+#include <filesystem>
+
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <algorithm>
@@ -448,17 +450,31 @@ namespace Zamin {
         h.Value(c->AgentRadius);
         if (!c->AutoBounds)
             h.Value(GetWorldPosition(entity));
+        // The sources summed: the same level gives the same fingerprint whatever order its entities
+        // are in (the editor's scene and the one loaded from its file).
+        uint64_t sources = 0;
         ForEachNavTilemap(*this, *c, [&](Entity e, const TilemapComponent& tm) {
-            h.Value(GetWorldTransform(e));
-            h.Value(tm.Width);
-            h.Value(tm.Height);
-            h.Value(tm.TileSize);
+            SourceHasher t;
+            t.Value(GetWorldTransform(e));
+            t.Value(tm.Width);
+            t.Value(tm.Height);
+            t.Value(tm.TileSize);
+            t.Bytes(tm.TilesetPath.data(), tm.TilesetPath.size());
+            if (const TilesetProperties* properties = TilesetProperties::Get(tm.TilesetPath))
+                for (TileCollision kind : { TileCollision::None, TileCollision::OneWay })
+                {
+                    const std::vector<int> tiles = properties->GetTilesWith(kind);
+                    t.Value(kind);
+                    if (!tiles.empty())
+                        t.Bytes(tiles.data(), tiles.size() * sizeof(int));
+                }
             for (const TilemapLayer& layer : tm.Layers)
             {
-                h.Value(layer.Collision);
+                t.Value(layer.Collision);
                 if (layer.Collision && !layer.Tiles.empty())
-                    h.Bytes(layer.Tiles.data(), layer.Tiles.size() * sizeof(int));
+                    t.Bytes(layer.Tiles.data(), layer.Tiles.size() * sizeof(int));
             }
+            sources += t.Hash;
         });
         if (c->UseColliders)
         {
@@ -466,15 +482,117 @@ namespace Zamin {
             CollectNavShapes2D(*this, c->LayerMask, c->OneWayBlocks, shapes);
             for (const NavShape2D& shape : shapes)
             {
-                h.Value(shape.Type);
-                h.Value(shape.Center);
-                h.Value(shape.Radius);
-                h.Value(shape.Loop);
+                SourceHasher t;
+                t.Value(shape.Type);
+                t.Value(shape.Center);
+                t.Value(shape.Radius);
+                t.Value(shape.Loop);
                 if (!shape.Points.empty())
-                    h.Bytes(shape.Points.data(), shape.Points.size() * sizeof(glm::vec2));
+                    t.Bytes(shape.Points.data(), shape.Points.size() * sizeof(glm::vec2));
+                sources += t.Hash;
             }
         }
+        h.Value(sources);
         return h.Hash;
+    }
+
+    // What a NavGrid 3D bake reads: its settings and where it is, the collision matrix, and every
+    // active static 3D body - its transform, layer and colliders (a model collider's file by its
+    // path and size) - summed in any order.
+    static uint64_t NavGrid3DSourceHash(Scene& scene, Entity entity)
+    {
+        const auto* c = entity ? entity.TryGetComponent<NavGrid3DComponent>() : nullptr;
+        if (!c)
+            return 0;
+        SourceHasher h;
+        h.Value(scene.GetWorldPosition(entity));
+        h.Value(c->Offset);
+        h.Value(c->Size);
+        h.Value(c->CellSize);
+        h.Value(c->AgentRadius);
+        h.Value(c->AgentHeight);
+        h.Value(c->MaxSlope);
+        h.Value(c->StepHeight);
+        h.Value(c->LayerMask);
+        h.Value(Project::GetCollisionLayers2D().Masks);
+        auto modelFile = [&](SourceHasher& t, const std::string& colliderPath, Entity body) {
+            std::string path = colliderPath;
+            if (path.empty())
+                if (const auto* mr = body.TryGetComponent<MeshRendererComponent>())
+                {
+                    t.Value(mr->Type);
+                    path = mr->ModelPath;
+                }
+            t.Bytes(path.data(), path.size());
+            if (!path.empty())
+            {
+                std::error_code ec;
+                const uintmax_t size = std::filesystem::file_size(Project::GetAssetFileSystemPath(path), ec);
+                t.Value(ec ? (uintmax_t)0 : size);
+            }
+        };
+        uint64_t sources = 0;
+        for (auto e : scene.GetAllEntitiesWith<Rigidbody3DComponent>())
+        {
+            Entity body{ e, &scene };
+            const auto& rb = body.GetComponent<Rigidbody3DComponent>();
+            if (rb.Type != Rigidbody3DComponent::BodyType::Static || !scene.IsActiveInHierarchy(body))
+                continue;
+            SourceHasher t;
+            t.Value(scene.GetWorldTransform(body));
+            t.Value(rb.Layer);
+            if (const auto* b = body.TryGetComponent<BoxCollider3DComponent>())
+            {
+                t.Value(1);
+                t.Value(b->HalfExtents);
+                t.Value(b->Offset);
+                t.Value(b->IsSensor);
+            }
+            if (const auto* sc = body.TryGetComponent<SphereCollider3DComponent>())
+            {
+                t.Value(2);
+                t.Value(sc->Radius);
+                t.Value(sc->Offset);
+                t.Value(sc->IsSensor);
+            }
+            if (const auto* cc = body.TryGetComponent<CapsuleCollider3DComponent>())
+            {
+                t.Value(3);
+                t.Value(cc->Radius);
+                t.Value(cc->HalfHeight);
+                t.Value(cc->Offset);
+                t.Value(cc->IsSensor);
+            }
+            if (const auto* hc = body.TryGetComponent<ConvexHullCollider3DComponent>())
+            {
+                t.Value(4);
+                modelFile(t, hc->ModelPath, body);
+                t.Value(hc->MaxVertices);
+                t.Value(hc->Offset);
+                t.Value(hc->IsSensor);
+            }
+            if (const auto* mc = body.TryGetComponent<MeshCollider3DComponent>())
+            {
+                t.Value(5);
+                modelFile(t, mc->ModelPath, body);
+                t.Value(mc->Offset);
+                t.Value(mc->IsSensor);
+            }
+            sources += t.Hash;
+        }
+        h.Value(sources);
+        return h.Hash;
+    }
+
+    uint64_t Scene::GetNavGridSourceHash(Entity entity, int dimension)
+    {
+        if (!entity || !entity.IsValid())
+            return 0;
+        if (dimension != 2 && entity.HasComponent<NavGrid3DComponent>())
+            return NavGrid3DSourceHash(*this, entity);
+        if (dimension != 3 && entity.HasComponent<NavGrid2DComponent>())
+            return GetNavGrid2DSourceHash(entity);
+        return 0;
     }
 
     bool Scene::BakeNavGrid2D(Entity entity)
@@ -529,6 +647,7 @@ namespace Zamin {
         c->BakeCount++;
         c->SourceHash = GetNavGrid2DSourceHash(entity);
         c->RebuildTimer = 0.0f;
+        c->FromBakeFile = false;
         c->BakeMilliseconds = ElapsedMilliseconds(clock);
         return true;
     }
@@ -600,6 +719,7 @@ namespace Zamin {
         c->Baked = true;
         c->BakeCount++;
         c->BakeBodies = bodies;
+        c->FromBakeFile = false;
         c->BakeMilliseconds = ElapsedMilliseconds(clock);
         return true;
     }
@@ -631,6 +751,77 @@ namespace Zamin {
         return count;
     }
 
+    bool Scene::LoadSavedNavBake(Entity entity, int dimension)
+    {
+        if (!m_NavBakes || m_NavBakes->empty())
+            return false;
+        const uint64_t id = (uint64_t)entity.GetUUID();
+        const NavBakeEntry* saved = nullptr;
+        for (const NavBakeEntry& e : *m_NavBakes)
+            if (e.Grid == id && e.Dimension == dimension && !e.Data.IsEmpty())
+                saved = &e;
+        if (!saved)
+            return false;
+        const auto clock = std::chrono::steady_clock::now();
+        const uint64_t fingerprint = GetNavGridSourceHash(entity, dimension);
+        if (fingerprint != saved->Fingerprint)
+        {
+            ZM_CORE_INFO("Navigatsiya: '{}' grid'ining manbalari .znav saqlangandan beri o'zgargan - qayta yaratiladi", entity.GetName());
+            return false;
+        }
+        if (dimension == 3)
+        {
+            auto& c = entity.GetComponent<NavGrid3DComponent>();
+            c.Grid = saved->Data;
+            c.Baked = c.FromBakeFile = true;
+            c.BakeCount++;
+            c.BakeMilliseconds = ElapsedMilliseconds(clock);
+        }
+        else
+        {
+            auto& c = entity.GetComponent<NavGrid2DComponent>();
+            c.Grid = saved->Data;
+            c.Baked = c.FromBakeFile = true;
+            c.BakeCount++;
+            c.SourceHash = fingerprint; // AutoRebuild compares with it
+            c.RebuildTimer = 0.0f;
+            c.BakeMilliseconds = ElapsedMilliseconds(clock);
+        }
+        return true;
+    }
+
+    NavBakeList Scene::CollectNavBakes()
+    {
+        NavBakeList list;
+        auto add = [&](Entity e, int dimension, const NavGrid& grid) {
+            NavBakeEntry entry;
+            entry.Grid = (uint64_t)e.GetUUID();
+            entry.Dimension = dimension;
+            entry.Fingerprint = GetNavGridSourceHash(e, dimension);
+            entry.Data = grid;
+            entry.Data.ClearCarves();
+            list.push_back(std::move(entry));
+        };
+        std::vector<Entity> grids;
+        for (auto e : m_Registry.view<NavGrid2DComponent>())
+            grids.push_back({ e, this });
+        for (auto e : m_Registry.view<NavGrid3DComponent>())
+            if (!m_Registry.all_of<NavGrid2DComponent>(e))
+                grids.push_back({ e, this });
+        // In UUID order: the same scene writes the same file.
+        std::sort(grids.begin(), grids.end(), [](Entity a, Entity b) { return (uint64_t)a.GetUUID() < (uint64_t)b.GetUUID(); });
+        for (Entity e : grids)
+        {
+            if (!IsActiveInHierarchy(e))
+                continue;
+            if (auto* c = e.TryGetComponent<NavGrid3DComponent>(); c && c->Paths.CacheBake && BakeNavGrid3D(e))
+                add(e, 3, c->Grid);
+            if (auto* c = e.TryGetComponent<NavGrid2DComponent>(); c && c->Paths.CacheBake && BakeNavGrid2D(e))
+                add(e, 2, c->Grid);
+        }
+        return list;
+    }
+
     void Scene::StartNavigation()
     {
         std::vector<Entity> grids;
@@ -638,18 +829,30 @@ namespace Zamin {
             if (m_Registry.get<NavGrid2DComponent>(e).Paths.BakeOnStart)
                 grids.push_back({ e, this });
         for (auto e : m_Registry.view<NavGrid3DComponent>())
-            if (m_Registry.get<NavGrid3DComponent>(e).Paths.BakeOnStart)
+            if (m_Registry.get<NavGrid3DComponent>(e).Paths.BakeOnStart && !m_Registry.all_of<NavGrid2DComponent>(e))
                 grids.push_back({ e, this });
         for (Entity e : grids)
         {
             if (!IsActiveInHierarchy(e))
                 continue;
-            if (auto* c = e.TryGetComponent<NavGrid2DComponent>(); c && c->Paths.BakeOnStart && BakeNavGrid2D(e))
-                ZM_CORE_INFO("Navigatsiya: '{}' 2D grid'i {}x{} katak, {} tasi yuriladigan ({:.1f} ms)", e.GetName(), c->Grid.GetWidth(),
-                             c->Grid.GetHeight(), c->Grid.CountWalkable(), c->BakeMilliseconds);
-            if (auto* c = e.TryGetComponent<NavGrid3DComponent>(); c && c->Paths.BakeOnStart && BakeNavGrid3D(e))
-                ZM_CORE_INFO("Navigatsiya: '{}' 3D grid'i {}x{} katak, {} tasi yuriladigan, {} ta statik jism ({:.1f} ms)", e.GetName(),
-                             c->Grid.GetWidth(), c->Grid.GetHeight(), c->Grid.CountWalkable(), c->BakeBodies, c->BakeMilliseconds);
+            if (auto* c = e.TryGetComponent<NavGrid2DComponent>(); c && c->Paths.BakeOnStart)
+            {
+                if (c->Paths.CacheBake && LoadSavedNavBake(e, 2))
+                    ZM_CORE_INFO("Navigatsiya: '{}' 2D grid'i .znav faylidan olindi: {}x{} katak ({:.1f} ms)", e.GetName(), c->Grid.GetWidth(),
+                                 c->Grid.GetHeight(), c->BakeMilliseconds);
+                else if (BakeNavGrid2D(e))
+                    ZM_CORE_INFO("Navigatsiya: '{}' 2D grid'i {}x{} katak, {} tasi yuriladigan ({:.1f} ms)", e.GetName(), c->Grid.GetWidth(),
+                                 c->Grid.GetHeight(), c->Grid.CountWalkable(), c->BakeMilliseconds);
+            }
+            if (auto* c = e.TryGetComponent<NavGrid3DComponent>(); c && c->Paths.BakeOnStart)
+            {
+                if (c->Paths.CacheBake && LoadSavedNavBake(e, 3))
+                    ZM_CORE_INFO("Navigatsiya: '{}' 3D grid'i .znav faylidan olindi: {}x{} katak ({:.1f} ms)", e.GetName(), c->Grid.GetWidth(),
+                                 c->Grid.GetHeight(), c->BakeMilliseconds);
+                else if (BakeNavGrid3D(e))
+                    ZM_CORE_INFO("Navigatsiya: '{}' 3D grid'i {}x{} katak, {} tasi yuriladigan, {} ta statik jism ({:.1f} ms)", e.GetName(),
+                                 c->Grid.GetWidth(), c->Grid.GetHeight(), c->Grid.CountWalkable(), c->BakeBodies, c->BakeMilliseconds);
+            }
         }
     }
 

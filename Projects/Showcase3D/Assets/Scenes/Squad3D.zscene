@@ -1115,7 +1115,8 @@
         "LayerMask": 65535,
         "Diagonals": true,
         "CutCorners": false,
-        "BakeOnStart": true
+        "BakeOnStart": true,
+        "CacheBake": true
       }
     },
     {

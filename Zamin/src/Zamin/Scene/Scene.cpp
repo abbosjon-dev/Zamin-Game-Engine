@@ -620,6 +620,7 @@ namespace Zamin {
         newScene->m_Settings = other->m_Settings;
         newScene->m_Name = other->m_Name;
         newScene->m_Metadata = other->m_Metadata;
+        newScene->m_NavBakes = other->m_NavBakes; // the saved bakes (shared, read only)
 
         auto& srcRegistry = other->m_Registry;
         auto& dstRegistry = newScene->m_Registry;

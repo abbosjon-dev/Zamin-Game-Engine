@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Zamin/AI/NavBakeFile.h"
 #include "Zamin/Core/MemoryStats.h"
 #include "Zamin/Math/Geometry.h"
 #include "Zamin/Core/Timestep.h"
@@ -572,6 +573,18 @@ namespace Zamin {
         bool BakeNavGrid(Entity entity);
         // Every grid of the scene on an active entity; how many were baked.
         int BakeNavGrids();
+        // ---- saved bakes (AI/NavBakeFile.h: the .znav next to the scene file, NavGridPathSettings::CacheBake)
+        // A fingerprint of everything the entity's grid is baked from - its settings and where it is,
+        // the tilemaps / static colliders it reads (in any order), the collision matrix (3D) -
+        // `dimension` 3 / 2: that component, 0: the 3D one when it has both. 0 without such a grid.
+        uint64_t GetNavGridSourceHash(Entity entity, int dimension = 0);
+        // The saved bakes the scene was loaded with (SceneSerializer reads the .znav); when the game
+        // starts, a grid with CacheBake takes its saved bake while the fingerprint still matches.
+        void SetNavBakes(std::shared_ptr<const NavBakeList> bakes) { m_NavBakes = std::move(bakes); }
+        const std::shared_ptr<const NavBakeList>& GetNavBakes() const { return m_NavBakes; }
+        // The grids with CacheBake (active ones), baked now, with their fingerprints: what the editor
+        // saves into the .znav.
+        NavBakeList CollectNavBakes();
         // The world rectangle around a NavGrid 2D's sources (what AutoBounds uses); false when it has none.
         bool GetNavGrid2DSourceBounds(Entity entity, glm::vec2& min, glm::vec2& max);
         // A fingerprint of what a NavGrid 2D is baked from (its settings, the tilemaps and static
@@ -1271,6 +1284,8 @@ namespace Zamin {
         // ---- navigation (SceneNavigation.cpp)
         // Play start: the grids with BakeOnStart are baked.
         void StartNavigation();
+        // A grid with CacheBake from the saved bakes, when its fingerprint matches; false: bake it.
+        bool LoadSavedNavBake(Entity entity, int dimension);
         // Grids with AutoRebuild bake again when their sources changed (checked a few times a second).
         void UpdateNavGrids(float dt);
         // Agents find their paths and move along them (before physics: bodies by velocity).
@@ -1727,6 +1742,7 @@ namespace Zamin {
         bool m_UISelectionHighlight = false;
         bool m_UINavigationEnabled = true;
         NavFrameStats m_NavFrameStats;
+        std::shared_ptr<const NavBakeList> m_NavBakes; // the .znav the scene was loaded with (shared by copies)
         int m_UINavHeld = -1;                       // the gamepad direction held (-1 none), for repeats
         float m_UINavRepeat = 0.0f;                 // seconds until it repeats
         entt::entity m_UISubmitFlash = entt::null;  // a button submitted by key looks pressed for a moment

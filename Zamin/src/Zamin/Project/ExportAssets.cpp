@@ -191,9 +191,9 @@ namespace Zamin {
                 exclude(file, "build ro'yxatida yo'q");
                 continue;
             }
-            if (ext == ".zsceneb")
+            if (ext == ".zsceneb" || ext == ".znav")
             {
-                // A scene's binary cache goes with its scene.
+                // A scene's binary cache / saved navigation bakes go with its scene.
                 fs::path scene(file);
                 scene.replace_extension(".zscene");
                 if (!sceneInGame(scene.generic_string()))

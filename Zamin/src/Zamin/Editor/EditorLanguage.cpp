@@ -1362,6 +1362,8 @@ namespace Zamin {
             { "Boshliq", "Leader" },
             { "turibdi", "standing" },
             { "marta taqsimlandi", "slot hand-outs" },
+            { "Faylda saqlash (.znav)", "Save to file (.znav)" },
+            { ".znav faylidan o'qildi (manbalar o'zgarmagan)", "read from the .znav file (sources unchanged)" },
             // ---- patrol (Patrol Path)
             { "Nuqtalar", "Points" },
             { "Manba", "Source" },

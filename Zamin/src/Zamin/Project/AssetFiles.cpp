@@ -1,4 +1,5 @@
 #include "Zamin/Project/AssetFiles.h"
+#include "Zamin/AI/NavBakeFile.h"
 #include "Zamin/Utils/StringUtils.h"
 #include "Zamin/Asset/AssetMetadata.h"
 #include "Zamin/Scene/Scene.h"
@@ -717,11 +718,15 @@ namespace Zamin {
     {
         MoveSidecar(AssetMetaFile::GetMetaPath(from), AssetMetaFile::GetMetaPath(to));
         if (from.extension() == ".zscene" && to.extension() == ".zscene")
+        {
             MoveSidecar(SceneMetadata::GetThumbnailPath(from), SceneMetadata::GetThumbnailPath(to));
+            MoveSidecar(NavBakeFile::PathFor(from), NavBakeFile::PathFor(to)); // saved navigation bakes
+        }
         else if (from.extension() == ".zscene")
         {
             std::error_code ec;
             fs::remove(SceneMetadata::GetThumbnailPath(from), ec); // renamed to something that is no scene
+            fs::remove(NavBakeFile::PathFor(from), ec);
         }
     }
 
@@ -941,7 +946,10 @@ namespace Zamin {
         {
             fs::remove(AssetMetaFile::GetMetaPath(path), ec); // the asset's .zmeta goes with it
             if (path.extension() == ".zscene")
+            {
                 fs::remove(SceneMetadata::GetThumbnailPath(path), ec); // and a scene's thumbnail
+                fs::remove(NavBakeFile::PathFor(path), ec);           // and its saved navigation bakes
+            }
         }
         return true;
     }
@@ -989,8 +997,12 @@ namespace Zamin {
                 if (fs::is_regular_file(meta, mec))
                     fs::copy_file(meta, AssetMetaFile::GetMetaPath(to), fs::copy_options::overwrite_existing, mec);
                 if (from.extension() == ".zscene")
+                {
                     if (fs::path thumbnail = SceneMetadata::GetThumbnailPath(from); fs::is_regular_file(thumbnail, mec))
                         fs::copy_file(thumbnail, SceneMetadata::GetThumbnailPath(to), fs::copy_options::overwrite_existing, mec);
+                    if (fs::path bakes = NavBakeFile::PathFor(from); fs::is_regular_file(bakes, mec))
+                        fs::copy_file(bakes, NavBakeFile::PathFor(to), fs::copy_options::overwrite_existing, mec);
+                }
             };
             std::vector<fs::path> deps = GetModelDependencies(src);
             if (deps.empty())

@@ -169,7 +169,7 @@ namespace Zamin {
         const std::string extension = StringUtils::ToLower(path.extension().string());
         if (extension == ".bin" || extension == ".gltf" || extension == ".glb")
             return ExportCategory::Models;
-        if (extension == ".zsceneb")
+        if (extension == ".zsceneb" || extension == ".znav")
             return ExportCategory::Scenes;
         if (extension == ".png" || extension == ".ico" || extension == ".svg")
         {

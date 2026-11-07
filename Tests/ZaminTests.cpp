@@ -43325,3 +43325,219 @@ TEST(FormationSampleScene)
     }
     scene->OnRuntimeStop();
 }
+
+TEST(NavBakeFileFormat)
+{
+    // A 3D grid: blocked cells, costs, floor heights (one without a floor), a step limit; what Nav
+    // Obstacles carve is not saved.
+    NavGrid grid(7, 5, 0.5f, { -1.5f, 2.0f });
+    grid.EnableHeights();
+    grid.SetMaxClimb(0.35f);
+    for (int y = 0; y < 5; y++)
+        for (int x = 0; x < 7; x++)
+            grid.SetFloorHeight(x, y, 0.1f * (float)(x + y));
+    grid.SetFloorHeight(6, 4, std::numeric_limits<float>::quiet_NaN());
+    grid.SetWalkable(6, 4, false);
+    grid.FillRect(2, 1, 3, 2, false);
+    grid.SetCost(0, 0, 3.0f);
+    grid.SetCost(5, 3, 7.5f);
+    grid.Carve({ (uint32_t)grid.Index(0, 4), (uint32_t)grid.Index(1, 4) });
+    std::vector<uint8_t> bytes;
+    NavBakeFile::Encode(grid, bytes);
+    NavGrid back;
+    size_t offset = 0;
+    CHECK(NavBakeFile::Decode(bytes.data(), bytes.size(), offset, back) && offset == bytes.size());
+    CHECK(back.GetWidth() == 7 && back.GetHeight() == 5 && back.GetCellSize() == 0.5f && back.GetOrigin() == glm::vec2(-1.5f, 2.0f));
+    CHECK(back.HasHeights() && back.GetMaxClimb() == 0.35f && back.CountCarved() == 0);
+    bool same = true;
+    for (int y = 0; y < 5; y++)
+        for (int x = 0; x < 7; x++)
+        {
+            same = same && back.IsWalkable(x, y) == grid.IsBakedWalkable(x, y) && back.GetCost(x, y) == grid.GetCost(x, y);
+            const float a = back.GetFloorHeight(x, y), b = grid.GetFloorHeight(x, y);
+            same = same && (a == b || (std::isnan(a) && std::isnan(b)));
+        }
+    CHECK(same && back.IsWalkable(0, 4)); // carved, walkable as baked
+    // A flat grid with no costs writes no costs and no heights.
+    NavGrid flat(64, 64, 1.0f);
+    flat.FillRect(10, 10, 20, 20, false);
+    std::vector<uint8_t> small;
+    NavBakeFile::Encode(flat, small);
+    CHECK(small.size() < 64 * 64 / 8 + 64);
+
+    // A file: several grids, read back the same; broken files are refused.
+    NavBakeList list(2);
+    list[0].Grid = 0x1234;
+    list[0].Dimension = 3;
+    list[0].Fingerprint = 0xABCDEF0123456789ull;
+    list[0].Data = grid;
+    list[1].Grid = 0x99;
+    list[1].Dimension = 2;
+    list[1].Fingerprint = 42;
+    list[1].Data = flat;
+    const std::vector<uint8_t> file = NavBakeFile::Write(list);
+    NavBakeList read;
+    std::string error;
+    CHECK(NavBakeFile::Read(file, read, &error) && read.size() == 2 && error.empty());
+    CHECK(read[0].Grid == 0x1234 && read[0].Dimension == 3 && read[0].Fingerprint == 0xABCDEF0123456789ull && read[0].Data.HasHeights());
+    CHECK(read[1].Data.CountWalkable() == flat.CountWalkable() && !read[1].Data.HasHeights());
+    std::vector<uint8_t> cut(file.begin(), file.end() - 9);
+    CHECK(!NavBakeFile::Read(cut, read, &error) && read.empty() && !error.empty());
+    std::vector<uint8_t> wrong = file;
+    wrong[0] = 'X';
+    CHECK(!NavBakeFile::Read(wrong, read));
+    std::vector<uint8_t> future = file;
+    future[4] = 99; // version
+    CHECK(!NavBakeFile::Read(future, read, &error) && error.find("versiya") != std::string::npos);
+    std::vector<uint8_t> badSize = file;
+    const int32_t huge = NavGrid::MaxSize + 1;
+    std::memcpy(badSize.data() + 12 + 8 + 1 + 8, &huge, sizeof(huge)); // the first grid's width
+    CHECK(!NavBakeFile::Read(badSize, read));
+    CHECK(!NavBakeFile::Read({}, read));
+    CHECK(NavBakeFile::PathFor("Scenes/Level 1.zscene") == std::filesystem::path("Scenes/Level 1.znav"));
+}
+
+TEST(NavBakeSavedWithScene)
+{
+    namespace fs = std::filesystem;
+    TempDirectory temp("zamin-navbake");
+    CHECK(temp.IsValid());
+    const fs::path scenePath = temp.GetPath() / "Level.zscene";
+    // A 2D level: a tilemap wall, a grid that keeps its bake in a file.
+    auto make = [](bool reversed) {
+        auto scene = CreateRef<Scene>();
+        Entity map, nav;
+        auto addMap = [&] {
+            map = scene->CreateEntityWithUUID(UUID(1001), "Map");
+            map.GetTransform().Translation = { -10.0f, -10.0f, 0.0f };
+            auto& tm = map.AddComponent<TilemapComponent>();
+            tm.Width = tm.Height = 20;
+            tm.EnsureSize();
+            for (int y = 2; y < 18; y++)
+                tm.Set(9, y, 0);
+        };
+        auto addNav = [&] {
+            nav = scene->CreateEntityWithUUID(UUID(1002), "Nav");
+            auto& g = nav.AddComponent<NavGrid2DComponent>();
+            g.AgentRadius = 0.3f;
+            g.Paths.CacheBake = true;
+        };
+        if (reversed)
+        {
+            addNav();
+            addMap();
+        }
+        else
+        {
+            addMap();
+            addNav();
+        }
+        return scene;
+    };
+    auto scene = make(false);
+    Entity nav = scene->FindEntityByName("Nav");
+    // The fingerprint does not depend on the order the entities were made in.
+    CHECK(scene->GetNavGridSourceHash(nav) != 0 && scene->GetNavGridSourceHash(nav) == make(true)->GetNavGridSourceHash(make(true)->FindEntityByName("Nav")));
+    CHECK(scene->GetNavGridSourceHash(nav, 3) == 0);
+    CHECK(SceneSerializer(scene).Serialize(scenePath));
+    size_t written = 0;
+    CHECK(SceneSerializer::WriteNavBakes(*scene, scenePath, &written) && written == 1);
+    CHECK(fs::is_regular_file(NavBakeFile::PathFor(scenePath)));
+    CHECK(FileSystem::ReadTextFile(scenePath).find("\"CacheBake\": true") != std::string::npos);
+    const NavGrid fresh = nav.GetComponent<NavGrid2DComponent>().Grid;
+
+    // Loaded: the game takes the saved bake (the same grid).
+    {
+        auto loaded = CreateRef<Scene>();
+        CHECK(SceneSerializer(loaded).Deserialize(scenePath));
+        CHECK(loaded->GetNavBakes() && loaded->GetNavBakes()->size() == 1);
+        loaded->OnRuntimeStart();
+        const auto& c = loaded->FindEntityByName("Nav").GetComponent<NavGrid2DComponent>();
+        CHECK(c.Baked && c.FromBakeFile && c.SourceHash == scene->GetNavGridSourceHash(nav));
+        CHECK(c.Grid.GetWidth() == fresh.GetWidth() && c.Grid.GetOrigin() == fresh.GetOrigin() && c.Grid.GetWalkableData() == fresh.GetWalkableData());
+        // The editor's play copy shares the bakes.
+        CHECK(Scene::Copy(loaded)->GetNavBakes() == loaded->GetNavBakes());
+        loaded->OnRuntimeStop();
+    }
+    // The level changed after the bake was saved (a hole in the wall): baked again.
+    {
+        auto loaded = CreateRef<Scene>();
+        CHECK(SceneSerializer(loaded).Deserialize(scenePath));
+        loaded->FindEntityByName("Map").GetComponent<TilemapComponent>().Set(9, 10, -1);
+        loaded->OnRuntimeStart();
+        const auto& c = loaded->FindEntityByName("Nav").GetComponent<NavGrid2DComponent>();
+        CHECK(c.Baked && !c.FromBakeFile && c.Grid.CountWalkable() > fresh.CountWalkable());
+        loaded->OnRuntimeStop();
+    }
+    // The grid no longer asks for it: baked, the file ignored; saving removes the file.
+    {
+        auto loaded = CreateRef<Scene>();
+        CHECK(SceneSerializer(loaded).Deserialize(scenePath));
+        Entity n = loaded->FindEntityByName("Nav");
+        n.GetComponent<NavGrid2DComponent>().Paths.CacheBake = false;
+        loaded->OnRuntimeStart();
+        CHECK(!n.GetComponent<NavGrid2DComponent>().FromBakeFile && n.GetComponent<NavGrid2DComponent>().Baked);
+        loaded->OnRuntimeStop();
+        CHECK(SceneSerializer(loaded).Serialize(scenePath) && FileSystem::ReadTextFile(scenePath).find("CacheBake") == std::string::npos);
+        CHECK(SceneSerializer::WriteNavBakes(*loaded, scenePath, &written) && written == 0);
+        CHECK(!fs::exists(NavBakeFile::PathFor(scenePath)) && !loaded->GetNavBakes());
+    }
+    // The async loader (SceneManager) reads it too; a broken file only costs the bake.
+    {
+        CHECK(SceneSerializer(scene).Serialize(scenePath) && SceneSerializer::WriteNavBakes(*scene, scenePath));
+        SceneLoadJob job;
+        CHECK(job.Parse(scenePath));
+        auto loaded = CreateRef<Scene>();
+        while (!job.Build(*loaded, 1000.0))
+        {
+        }
+        CHECK(job.GetError().empty() && loaded->GetNavBakes() && loaded->GetNavBakes()->size() == 1);
+        FileSystem::WriteTextFile(NavBakeFile::PathFor(scenePath), "ZNAV broken");
+        auto broken = CreateRef<Scene>();
+        CHECK(SceneSerializer(broken).Deserialize(scenePath) && !broken->GetNavBakes());
+        broken->OnRuntimeStart();
+        CHECK(broken->FindEntityByName("Nav").GetComponent<NavGrid2DComponent>().Baked);
+        broken->OnRuntimeStop();
+    }
+
+    // 3D: static boxes; a moved box changes the fingerprint.
+    {
+        auto s3 = CreateRef<Scene>();
+        auto box = [&](const char* name, glm::vec3 at, glm::vec3 scale) {
+            Entity e = s3->CreateEntity(name);
+            e.GetTransform().Translation = at;
+            e.GetTransform().Scale = scale;
+            e.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Static;
+            e.AddComponent<BoxCollider3DComponent>();
+            return e;
+        };
+        box("Floor", { 0.0f, -0.5f, 0.0f }, { 12.0f, 1.0f, 12.0f });
+        Entity crate = box("Crate", { 1.0f, 0.5f, 0.0f }, { 1.0f, 1.0f, 1.0f });
+        Entity grid3 = s3->CreateEntity("Nav3D");
+        auto& g = grid3.AddComponent<NavGrid3DComponent>();
+        g.Size = { 10.0f, 4.0f, 10.0f };
+        g.Offset = { 0.0f, 1.0f, 0.0f };
+        g.Paths.CacheBake = true;
+        const uint64_t before = s3->GetNavGridSourceHash(grid3);
+        CHECK(before != 0 && before == s3->GetNavGridSourceHash(grid3, 3));
+        crate.GetTransform().Translation.x = 2.0f;
+        CHECK(s3->GetNavGridSourceHash(grid3) != before);
+        crate.GetTransform().Translation.x = 1.0f;
+        CHECK(s3->GetNavGridSourceHash(grid3) == before);
+        crate.GetComponent<BoxCollider3DComponent>().HalfExtents.x = 1.0f;
+        CHECK(s3->GetNavGridSourceHash(grid3) != before);
+        crate.GetComponent<BoxCollider3DComponent>().HalfExtents.x = 0.5f;
+        const fs::path path3 = temp.GetPath() / "Level3D.zscene";
+        CHECK(SceneSerializer(s3).Serialize(path3) && SceneSerializer::WriteNavBakes(*s3, path3, &written) && written == 1);
+        auto loaded = CreateRef<Scene>();
+        CHECK(SceneSerializer(loaded).Deserialize(path3));
+        loaded->OnRuntimeStart();
+        const auto& c = loaded->FindEntityByName("Nav3D").GetComponent<NavGrid3DComponent>();
+        CHECK(c.Baked && c.FromBakeFile && c.Grid.HasHeights());
+        CHECK(c.Grid.GetWalkableData() == grid3.GetComponent<NavGrid3DComponent>().Grid.GetWalkableData());
+        // Agents walk on it as on a baked one.
+        std::vector<glm::vec3> path;
+        CHECK(loaded->FindNavPath({ -3.0f, 0.0f, 0.0f }, { 3.5f, 0.0f, 0.0f }, path) == NavPathStatus::Complete && path.size() >= 2);
+        loaded->OnRuntimeStop();
+    }
+}

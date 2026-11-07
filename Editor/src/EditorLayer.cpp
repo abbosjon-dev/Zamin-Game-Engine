@@ -4621,7 +4621,14 @@ namespace Zamin {
         // The scene's own values, not the Animation window's preview pose.
         m_AnimationPanel.WithoutPreview([&]() { written = serializer.Serialize(path); });
         if (written)
+        {
             ZM_INFO("Sahna saqlandi: {}", path.filename().string());
+            // The grids that keep their bake in a file (NavGrid > Faylda saqlash): baked and written
+            // next to the scene (an old file is removed when none does).
+            size_t bakes = 0;
+            if (SceneSerializer::WriteNavBakes(*scene, path, &bakes) && bakes > 0)
+                ZM_INFO("Navigatsiya: {} ta grid {} fayliga saqlandi", bakes, NavBakeFile::PathFor(path).filename().string());
+        }
     }
 
     // ------------------------------------------------------------------ scene metadata (description, author, tags, thumbnail)

@@ -2754,10 +2754,11 @@ namespace Zamin {
     }
 
     static bool DrawNavGridStatus(Scene* scene, Entity entity, const NavGrid& grid, bool baked, uint32_t bakeCount, float milliseconds,
-                                  const char* extra)
+                                  const char* extra, bool fromFile)
     {
         bool bakedNow = false;
-        UI::PropertyHeader("Grid", "Grid saqlanmaydi: o'yin boshlanganda (Boshida qurish) yoki tugma / skript bilan qayta quriladi");
+        UI::PropertyHeader("Grid", "Grid o'yin boshlanganda (Boshida qurish) yoki tugma / skript bilan quriladi. \"Faylda saqlash\" yoqilsa - "
+                                   "sahna saqlanganda .znav fayliga ham yoziladi va manbalar o'zgarmagan bo'lsa o'yin uni o'qiydi");
         UI::PropertyLabel("Holat");
         if (!baked || grid.IsEmpty())
             ImGui::TextDisabled("%s", Tr("qurilmagan"));
@@ -2768,6 +2769,11 @@ namespace Zamin {
                                 100.0 * (double)walkable / (double)std::max<size_t>(1, grid.GetCellCount()));
             UI::PropertyLabel("");
             ImGui::TextDisabled("%.2f ms, %u marta qurildi%s", milliseconds, bakeCount, extra ? extra : "");
+            if (fromFile)
+            {
+                UI::PropertyLabel("");
+                ImGui::TextColored(ImVec4(0.45f, 0.85f, 1.0f, 1.0f), ICON_FA_FLOPPY_DISK "  %s", Tr(".znav faylidan o'qildi (manbalar o'zgarmagan)"));
+            }
         }
         UI::PropertyLabel("");
         ImGui::BeginDisabled(!scene);
@@ -2795,6 +2801,14 @@ namespace Zamin {
         changed |= UI::PropertyBool("Boshida qurish", paths.BakeOnStart);
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
             UI::Tooltip("O'yin boshlanganda (skriptlardan oldin) quriladi. O'chiq bo'lsa skriptdan: GetScene().BakeNavGrid(entity)");
+        if (paths.BakeOnStart)
+        {
+            changed |= UI::PropertyBool("Faylda saqlash (.znav)", paths.CacheBake);
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                UI::Tooltip("Sahna saqlanganda grid qurilib sahna yonidagi .znav fayliga yoziladi; o'yin uni qurish o'rniga o'qiydi - "
+                            "grid nimadan qurilgan bo'lsa (sozlamalar, tilemap / statik collider'lar) o'zgarmagan bo'lsagina. Katta 3D "
+                            "grid'lar uchun: yuklanish tezlashadi. O'chiq - har safar quriladi (doim yangi)");
+        }
         return changed;
     }
 
@@ -2850,7 +2864,7 @@ namespace Zamin {
             UI::Tooltip("O'yin paytida manbalar o'zgarsa (plitka qo'yilsa / buzilsa, statik collider siljisa) soniyasiga bir necha marta "
                         "tekshirib qayta quradi");
 
-        if (DrawNavGridStatus(m_Context.get(), entity, c.Grid, c.Baked, c.BakeCount, c.BakeMilliseconds, nullptr))
+        if (DrawNavGridStatus(m_Context.get(), entity, c.Grid, c.Baked, c.BakeCount, c.BakeMilliseconds, nullptr, c.FromBakeFile))
             ZM_INFO("NavGrid 2D '{}' qurildi: {}x{} katak, {} tasi yuriladigan", entity.GetName(), c.Grid.GetWidth(), c.Grid.GetHeight(),
                     c.Grid.CountWalkable());
         return changed;
@@ -2915,7 +2929,7 @@ namespace Zamin {
         changed |= DrawNavPathSettings(c.Paths);
 
         const std::string extra = std::format(", {} ta statik jism", c.BakeBodies);
-        if (DrawNavGridStatus(m_Context.get(), entity, c.Grid, c.Baked, c.BakeCount, c.BakeMilliseconds, extra.c_str()))
+        if (DrawNavGridStatus(m_Context.get(), entity, c.Grid, c.Baked, c.BakeCount, c.BakeMilliseconds, extra.c_str(), c.FromBakeFile))
             ZM_INFO("NavGrid 3D '{}' qurildi: {}x{} katak, {} tasi yuriladigan, {} ta statik jism ({:.1f} ms)", entity.GetName(), c.Grid.GetWidth(),
                     c.Grid.GetHeight(), c.Grid.CountWalkable(), c.BakeBodies, c.BakeMilliseconds);
         return changed;

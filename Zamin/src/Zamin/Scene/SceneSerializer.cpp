@@ -1,4 +1,5 @@
 #include "Zamin/Scene/SceneSerializer.h"
+#include "Zamin/AI/NavBakeFile.h"
 #include "Zamin/Asset/AssetImportLog.h"
 #include "Zamin/Asset/AssetRegistry.h"
 #include "Zamin/Physics/CollisionShapes3D.h"
@@ -1546,11 +1547,15 @@ namespace Zamin {
                                { "Tilemap", c->Tilemap.ID }, { "UseColliders", c->UseColliders }, { "LayerMask", c->LayerMask },
                                { "AgentRadius", c->AgentRadius }, { "Diagonals", c->Paths.Diagonals }, { "CutCorners", c->Paths.CutCorners },
                                { "BakeOnStart", c->Paths.BakeOnStart }, { "AutoRebuild", c->AutoRebuild } };
+        if (auto* c = entity.TryGetComponent<NavGrid2DComponent>(); c && c->Paths.CacheBake)
+            e["NavGrid2D"]["CacheBake"] = true; // only when set: other scene files stay as they were
         if (auto* c = entity.TryGetComponent<NavGrid3DComponent>())
             e["NavGrid3D"] = { { "Offset", ToJson(c->Offset) }, { "Size", ToJson(c->Size) }, { "CellSize", c->CellSize },
                                { "AgentRadius", c->AgentRadius }, { "AgentHeight", c->AgentHeight }, { "MaxSlope", c->MaxSlope },
                                { "StepHeight", c->StepHeight }, { "LayerMask", c->LayerMask }, { "Diagonals", c->Paths.Diagonals },
                                { "CutCorners", c->Paths.CutCorners }, { "BakeOnStart", c->Paths.BakeOnStart } };
+        if (auto* c = entity.TryGetComponent<NavGrid3DComponent>(); c && c->Paths.CacheBake)
+            e["NavGrid3D"]["CacheBake"] = true;
         if (auto* c = entity.TryGetComponent<NavAgentComponent>())
             e["NavAgent"] = { { "Grid", c->Grid.ID }, { "Target", c->Target.ID }, { "Speed", c->Speed }, { "Acceleration", c->Acceleration },
                               { "AngularSpeed", c->AngularSpeed }, { "StoppingDistance", c->StoppingDistance }, { "Radius", c->Radius },
@@ -2643,6 +2648,7 @@ namespace Zamin {
             paths.Diagonals = j.value("Diagonals", true);
             paths.CutCorners = j.value("CutCorners", false);
             paths.BakeOnStart = j.value("BakeOnStart", true);
+            paths.CacheBake = j.value("CacheBake", false);
         };
         if (auto it = e.find("NavGrid2D"); it != e.end() && it->is_object())
         {
@@ -3730,6 +3736,31 @@ namespace Zamin {
     static SceneLoadIssue MakeUnreadableIssue(const std::string& reason);
     static std::string SceneDisplayPath(const std::filesystem::path& file);
 
+    // The saved navigation bakes next to a scene file (AI/NavBakeFile.h); null when there are none.
+    static std::shared_ptr<const NavBakeList> ReadNavBakes(const std::filesystem::path& sceneFile)
+    {
+        NavBakeList bakes;
+        if (!NavBakeFile::Load(sceneFile, bakes) || bakes.empty())
+            return nullptr;
+        return std::make_shared<const NavBakeList>(std::move(bakes));
+    }
+
+    bool SceneSerializer::WriteNavBakes(Scene& scene, const std::filesystem::path& sceneFile, size_t* written)
+    {
+        const NavBakeList bakes = scene.CollectNavBakes();
+        if (written)
+            *written = bakes.size();
+        std::string error;
+        if (!NavBakeFile::Save(sceneFile, bakes, &error))
+        {
+            ZM_CORE_ERROR("Navigatsiya: '{}' yozilmadi ({})", NavBakeFile::PathFor(sceneFile).filename().string(), error);
+            return false;
+        }
+        // The scene in memory starts with what was just saved (its next Play reads it like the game).
+        scene.SetNavBakes(bakes.empty() ? nullptr : std::make_shared<const NavBakeList>(bakes));
+        return true;
+    }
+
     bool SceneSerializer::Deserialize(const std::filesystem::path& filepath)
     {
         m_Report.Clear();
@@ -3787,6 +3818,7 @@ namespace Zamin {
             std::filesystem::path stem = filepath.stem();
             m_Scene->SetName(stem.string());
         }
+        m_Scene->SetNavBakes(ReadNavBakes(filepath));
         SceneMigration::LogMigration(SceneDisplayPath(filepath), m_Migration);
         m_Report.Log(); // what was left out (a clean load says nothing)
         return true;
@@ -4672,6 +4704,7 @@ namespace Zamin {
         SceneLoadReport Report;
         SceneMigrationResult Migration;
         SceneLoadTiming Timing;
+        std::shared_ptr<const NavBakeList> NavBakes; // the .znav next to the file (read with it)
 
         const json& Entities() const
         {
@@ -4723,6 +4756,7 @@ namespace Zamin {
                 if (parsed)
                 {
                     SceneMigration::LogMigration(SceneDisplayPath(path), m_Data->Migration);
+                    m_Data->NavBakes = ReadNavBakes(path);
                     return true;
                 }
                 if (!fromCache)
@@ -4912,6 +4946,7 @@ namespace Zamin {
                 LinkSceneHierarchy(scene, d.Loaded, &d.Report);
                 if (scene.GetName().empty() || scene.GetName() == "Untitled")
                     scene.SetName(d.File.empty() ? std::string("Untitled") : d.File.stem().string());
+                scene.SetNavBakes(d.NavBakes);
                 d.Timing.Entities = d.Loaded.size();
                 d.Timing.SceneName = scene.GetName();
                 d.Loaded.clear();

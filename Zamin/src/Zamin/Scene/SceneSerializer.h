@@ -126,6 +126,10 @@ namespace Zamin {
         // Writes the cache of a scene file next to it (migrated to the current format). Any thread:
         // only the file's text is read. False with the reason in `error`.
         static bool WriteBinaryCache(const std::filesystem::path& sceneFile, std::string* error = nullptr);
+        // The saved navigation bakes (AI/NavBakeFile.h): the scene's grids with CacheBake baked now
+        // and written into the .znav next to `sceneFile` (none: the file is removed). Deserialize /
+        // SceneLoadJob read it back with the scene. False when it could not be written.
+        static bool WriteNavBakes(Scene& scene, const std::filesystem::path& sceneFile, size_t* written = nullptr);
         // Whether Deserialize / SceneLoadJob::Parse look for the cache (default on).
         static void SetUseBinaryCache(bool use);
         static bool GetUseBinaryCache();

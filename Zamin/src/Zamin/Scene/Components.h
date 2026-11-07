@@ -1296,6 +1296,10 @@ namespace Zamin {
         bool Diagonals = true;   // 8 neighbours (else 4)
         bool CutCorners = false; // diagonal steps past one blocked side cell (graze corners)
         bool BakeOnStart = true; // baked when the game starts (else: Scene::BakeNavGrid / a script)
+        // The editor saves the bake into the .znav next to the scene file (AI/NavBakeFile.h) and the
+        // game starts with it while what it was baked from is unchanged (else it bakes): for big
+        // grids that take long to bake. Off: baked every time (always up to date).
+        bool CacheBake = false;
     };
 
     // A path-finding grid over a 2D level (the world's XY plane), baked from it: the cells under
@@ -1330,6 +1334,7 @@ namespace Zamin {
         float RebuildTimer = 0.0f;
         uint32_t BakeCount = 0;
         float BakeMilliseconds = 0.0f;
+        bool FromBakeFile = false;        // the last bake came from the scene's .znav file
 
         void ResetRuntime()
         {
@@ -1339,6 +1344,7 @@ namespace Zamin {
             RebuildTimer = 0.0f;
             BakeCount = 0;
             BakeMilliseconds = 0.0f;
+            FromBakeFile = false;
         }
     };
 
@@ -1370,6 +1376,7 @@ namespace Zamin {
         uint32_t BakeCount = 0;
         float BakeMilliseconds = 0.0f;
         int BakeBodies = 0;               // static bodies the last bake saw
+        bool FromBakeFile = false;        // the last bake came from the scene's .znav file
 
         void ResetRuntime()
         {
@@ -1378,6 +1385,7 @@ namespace Zamin {
             BakeCount = 0;
             BakeMilliseconds = 0.0f;
             BakeBodies = 0;
+            FromBakeFile = false;
         }
     };
 

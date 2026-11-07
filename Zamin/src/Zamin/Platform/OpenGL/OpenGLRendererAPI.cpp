@@ -7,31 +7,12 @@
 
 namespace Zamin {
 
-#ifndef NDEBUG
-    static void APIENTRY OpenGLMessageCallback(GLenum, GLenum, GLuint, GLenum severity, GLsizei, const GLchar* message, const void*)
-    {
-        switch (severity)
-        {
-            case GL_DEBUG_SEVERITY_HIGH:   ZM_CORE_ERROR("OpenGL: {}", message); return;
-            case GL_DEBUG_SEVERITY_MEDIUM: ZM_CORE_WARN("OpenGL: {}", message); return;
-            default: return;
-        }
-    }
-#endif
-
     class OpenGLRendererAPI : public RendererAPI
     {
     public:
         void Init() override
         {
-#ifndef NDEBUG
-            if (GLAD_GL_KHR_debug || GLAD_GL_VERSION_4_3)
-            {
-                glEnable(GL_DEBUG_OUTPUT);
-                glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-                glDebugMessageCallback(OpenGLMessageCallback, nullptr);
-            }
-#endif
+            // (A debug context's messages are set up with the context: OpenGLContext::Init.)
             glEnable(GL_BLEND);
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
             glEnable(GL_DEPTH_TEST);
@@ -180,6 +161,21 @@ namespace Zamin {
         {
             glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)m_SavedFramebuffer);
             glViewport(m_SavedViewport[0], m_SavedViewport[1], m_SavedViewport[2], m_SavedViewport[3]);
+        }
+
+        bool IsDrawingToWindow() const override
+        {
+            GLint framebuffer = 0;
+            glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &framebuffer);
+            return framebuffer == 0;
+        }
+
+        void SetFramebufferSRGB(bool enabled) override
+        {
+            if (enabled)
+                glEnable(GL_FRAMEBUFFER_SRGB);
+            else
+                glDisable(GL_FRAMEBUFFER_SRGB);
         }
 
         std::vector<uint8_t> ReadDefaultFramebuffer(uint32_t width, uint32_t height) override

@@ -24,10 +24,10 @@ namespace Zamin {
     public:
         // What callers ask to see (Focus): a category, Tags / SortingLayers are the two pages of
         // "Tags and layers".
-        enum class Tab { Input = 0, SaveData, Tags, General, SortingLayers, PhysicsLayers, BuildScenes, Quality, Audio, Debug, Player };
+        enum class Tab { Input = 0, SaveData, Tags, General, SortingLayers, PhysicsLayers, BuildScenes, Quality, Audio, Debug, Player, Graphics, Time };
 
         // In the order of ProjectSettingsIndex::GetCategories() (titles, search keywords, file sections).
-        enum class Category { General = 0, Player, Quality, Physics, Audio, Input, TagsAndLayers, BuildScenes, Debug, SaveData, Count };
+        enum class Category { General = 0, Player, Quality, Graphics, Time, Physics, Audio, Input, TagsAndLayers, BuildScenes, Debug, SaveData, Count };
 
         void OnImGuiRender(bool* show);
 
@@ -104,8 +104,16 @@ namespace Zamin {
         void DrawTagsAndLayers(ProjectConfig& config);
         void DrawTags(ProjectConfig& config);
         void DrawSortingLayers(ProjectConfig& config);
+        // The default gravity (2D / 3D), then the collision layers below.
+        void DrawPhysics(ProjectConfig& config);
         // The 16 named collision layers (2D and 3D) and the matrix of which pairs collide, presets.
         void DrawPhysicsLayers(ProjectConfig& config);
+        // The player's OpenGL context (version, debug output, MSAA, sRGB) and the editor's own context.
+        void DrawGraphics(ProjectConfig& config);
+        // Fixed step rate, steps a frame, the time scale play starts at, the longest frame; the game's clock.
+        void DrawTime(ProjectConfig& config);
+        // The open scene follows the project's gravity / physics step again (after they changed).
+        void ApplySceneDefaults(const ProjectConfig& config);
         void DrawInputMap(InputActionMap& map);
         bool DrawInputVectors(InputActionMap& map, int openRequest);
         bool DrawBindingList(const char* label, std::vector<InputBinding>& bindings, ListKind kind, int entry, const InputActionMap& map);

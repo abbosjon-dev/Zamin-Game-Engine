@@ -558,10 +558,13 @@ namespace Zamin {
             m_Registry.on_destroy<T>().template connect<&Scene::OnJoint3DDestroyed<T>>(*this);
             m_Registry.on_update<T>().template connect<&Scene::OnJoint3DReplaced<T>>(*this);
         });
+        // A new scene's gravity and physics step are the project's (Project settings > Physics / Time).
+        m_Settings.ApplyProjectDefaults();
     }
 
     Scene::~Scene()
     {
+        Time::ClearGameClock(this);
         if (m_ScriptsRunning)
             StopScripts();
         OnPhysics2DStop();
@@ -2515,8 +2518,14 @@ namespace Zamin {
         m_RuntimeStartTiming = {};
         m_IsRunning = true;
         m_Time = 0.0f;
-        m_TimeScale = m_TimeScaleBeforePause = 1.0f; // the game's clock runs
-        m_UnscaledTime = m_UnscaledDeltaTime = 0.0f;
+        // The game's clock runs at the project's speed (Project settings > Time; 1 without a project).
+        m_TimeScale = m_TimeScaleBeforePause = Project::GetTimeSettings().DefaultTimeScale;
+        if (m_TimeScaleBeforePause <= 0.0f)
+            m_TimeScaleBeforePause = 1.0f; // a game that starts paused resumes at normal speed
+        m_UnscaledTime = m_UnscaledDeltaTime = m_DeltaTime = 0.0f;
+        // Time:: reads this game's clock (the first scene of a SceneManager stays it: they share one).
+        if (!m_SceneManager || !Time::GetGameClock())
+            Time::SetGameClock(this);
         m_QuitRequested = false;
         m_AnimationTime = 0.0;
         if (!m_SceneManager)
@@ -2579,6 +2588,8 @@ namespace Zamin {
     {
         m_IsRunning = false;
         m_TimeScale = m_TimeScaleBeforePause = 1.0f;
+        m_DeltaTime = 0.0f;
+        Time::ClearGameClock(this);
         StopScripts();
         OnPhysics2DStop();
         OnPhysics3DStop();
@@ -4056,6 +4067,36 @@ namespace Zamin {
     }
 
     // ------------------------------------------------------------------ physics settings, 2D sleeping
+    bool SceneSettings::ApplyProjectDefaults(const PhysicsDefaults& physics, const TimeSettings& time)
+    {
+        bool changed = false;
+        if (UseProjectGravity && Gravity != physics.Gravity2D)
+        {
+            Gravity = physics.Gravity2D;
+            changed = true;
+        }
+        if (UseProjectGravity3D && Gravity3D != physics.Gravity3D)
+        {
+            Gravity3D = physics.Gravity3D;
+            changed = true;
+        }
+        if (UseProjectPhysicsStep)
+        {
+            PhysicsStepSettings step;
+            step.StepRate = time.FixedStepRate;
+            step.MaxStepsPerFrame = time.MaxStepsPerFrame;
+            step.Sanitize();
+            if (step != PhysicsStep)
+            {
+                PhysicsStep = step;
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
+    bool SceneSettings::ApplyProjectDefaults() { return ApplyProjectDefaults(Project::GetPhysicsDefaults(), Project::GetTimeSettings()); }
+
     void SceneSettings::PhysicsStepSettings::Sanitize()
     {
         StepRate = std::clamp(StepRate, MinRate, MaxRate);
@@ -4816,6 +4857,12 @@ namespace Zamin {
         for (auto e : scripted)
             if (auto* inst = active(e))
                 inst->OnUpdate(Timestep(0.0f));
+        // Timers and tweens on real time (SetTimersUnscaled) go on while the game is paused - a pause
+        // menu's own fades - for every active script, not only those updated while paused.
+        for (auto e : scripted)
+            if (auto* nsc = m_Registry.valid(e) ? m_Registry.try_get<NativeScriptComponent>(e) : nullptr;
+                nsc && nsc->Instance && nsc->Instance->IsTimersUnscaled() && nsc->Instance->IsActiveForUpdate() && IsActiveInHierarchy({ e, this }))
+                nsc->Instance->TickTimers(m_UnscaledDeltaTime);
         for (auto e : scripted)
             if (auto* inst = active(e))
                 inst->OnLateUpdate(Timestep(0.0f));
@@ -4837,11 +4884,15 @@ namespace Zamin {
         const bool gamePausedBeforeUI = IsGamePaused();
         UpdateUI(ts); // real time: the UI works while the game is paused
         const bool advance = !m_IsPaused || m_StepFrames-- > 0; // the editor's pause / step
+        m_DeltaTime = 0.0f;
         if (advance)
         {
             m_UnscaledDeltaTime = ts;
             m_UnscaledTime += ts;
         }
+        // Time:: reads the game's clock: the first scene a frame updates (SceneManager: they share one).
+        if (m_IsRunning && !m_FrameFollower)
+            Time::SetGameClock(this);
         // A pause from the UI stops the game at once; a resume from it (a pause menu's button) lets it
         // go on from the next frame: this frame's input was the menu's - the gamepad A that pressed
         // "Resume" is often also the game's Jump, and the game's scripts must not see it as a new press.
@@ -4856,6 +4907,7 @@ namespace Zamin {
         else if (advance)
         {
             ts = Timestep((float)ts * m_TimeScale); // the game's time
+            m_DeltaTime = ts;
             m_Time += ts;
             m_AnimationTime += (double)ts;
             // Hit flashes fade with the game's time (paused: they wait).
@@ -4904,9 +4956,10 @@ namespace Zamin {
                 for (auto e : scripted)
                     if (auto* inst = active(e))
                         inst->OnUpdate(ts);
+                // Timers and tweens run on the game's time (or real time: SetTimersUnscaled).
                 for (auto e : scripted)
                     if (auto* inst = active(e))
-                        inst->TickTimers(ts);
+                        inst->TickTimers(inst->IsTimersUnscaled() ? m_UnscaledDeltaTime : (float)ts);
             }
 
             StepPhysics(ts);

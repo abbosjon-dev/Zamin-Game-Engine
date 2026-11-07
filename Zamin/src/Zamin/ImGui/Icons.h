@@ -226,3 +226,7 @@
 #define ICON_FA_BUILDING "\xef\x86\xad"            // company name
 #define ICON_FA_WINDOW_MAXIMIZE "\xef\x8b\x90"     // the player's window
 #define ICON_FA_CODE_BRANCH "\xef\x84\xa6"         // the game's version
+// project settings III (M17): graphics context, time, gravity
+#define ICON_FA_MICROCHIP "\xef\x8b\x9b"           // the graphics (OpenGL context) settings
+#define ICON_FA_GAUGE_SIMPLE "\xef\x98\xa9"        // time scale
+#define ICON_FA_ARROW_DOWN_LONG "\xef\x85\xb5"     // gravity

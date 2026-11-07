@@ -43,6 +43,8 @@ namespace Zamin {
             case Tab::Audio:         m_Category = Category::Audio; break;
             case Tab::Debug:         m_Category = Category::Debug; break;
             case Tab::Player:        m_Category = Category::Player; break;
+            case Tab::Graphics:      m_Category = Category::Graphics; break;
+            case Tab::Time:          m_Category = Category::Time; break;
         }
         // The asked category must be in the list.
         if (!ProjectSettingsIndex::Matches(Info(m_Category), m_Search))
@@ -122,6 +124,10 @@ namespace Zamin {
                 if (m_SceneEditable)
                     AudioEngine::SetMixerSettings(config.Audio);
                 break;
+            case Category::Time:
+            case Category::Physics:
+                ApplySceneDefaults(config);
+                break;
             default:
                 break;
         }
@@ -140,7 +146,9 @@ namespace Zamin {
                 break;
             case Category::Player:        config.Player = s.Player; m_VersionEditing = false; m_IconPreviewPath.clear(); break;
             case Category::Quality:       config.Quality = s.Quality; m_QualityLevel = -1; break;
-            case Category::Physics:       config.CollisionLayers = s.CollisionLayers; break;
+            case Category::Graphics:      config.Graphics = s.Graphics; break;
+            case Category::Time:          config.Time = s.Time; break;
+            case Category::Physics:       config.CollisionLayers = s.CollisionLayers; config.Physics = s.Physics; break;
             case Category::Audio:         config.Audio = s.Audio; break;
             case Category::Input:         config.InputActions = s.InputActions; StopListening(); break;
             case Category::TagsAndLayers:
@@ -393,7 +401,9 @@ namespace Zamin {
             case Category::General:       DrawGeneral(config); break;
             case Category::Player:        DrawPlayer(config); break;
             case Category::Quality:       DrawQuality(config); break;
-            case Category::Physics:       DrawPhysicsLayers(config); break;
+            case Category::Graphics:      DrawGraphics(config); break;
+            case Category::Time:          DrawTime(config); break;
+            case Category::Physics:       DrawPhysics(config); break;
             case Category::Audio:         DrawAudio(config); break;
             case Category::Input:         DrawInputMap(config.InputActions); break;
             case Category::TagsAndLayers: DrawTagsAndLayers(config); break;

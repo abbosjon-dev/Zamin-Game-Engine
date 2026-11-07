@@ -1,18 +1,26 @@
 #include "Zamin/Platform/GLFW/GlfwWindow.h"
 
 #include <algorithm>
+#include <vector>
 
 #include <GLFW/glfw3.h>
 
 namespace Zamin {
 
     static uint8_t s_GLFWWindowCount = 0;
+    // A window is being made with fallbacks: a context the driver cannot make is only a warning then.
+    static bool s_TryingContext = false;
 
     static void GLFWErrorCallback(int error, const char* description)
     {
         // Reading an empty / non-text clipboard (editor paste menus) is not an error.
         if (error == GLFW_FORMAT_UNAVAILABLE)
             return;
+        if (s_TryingContext)
+        {
+            ZM_CORE_WARN("GLFW ({}): {}", error, description);
+            return;
+        }
         ZM_CORE_ERROR("GLFW xatosi ({}): {}", error, description);
     }
 
@@ -36,17 +44,22 @@ namespace Zamin {
             glfwSetErrorCallback(GLFWErrorCallback);
         }
 
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
-        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-        glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
-        if (props.Maximized)
-            glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
-#ifndef NDEBUG
-        glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
-#endif
-
-        glfwWindowHint(GLFW_RESIZABLE, props.Resizable ? GLFW_TRUE : GLFW_FALSE);
+        GraphicsSettings graphics = props.Graphics;
+        graphics.Sanitize();
+        // The window's hints: the context (version, debug output), its framebuffer (MSAA, sRGB) and the window.
+        auto setHints = [&](const GraphicsSettings& g) {
+            glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, g.GLMajor);
+            glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, g.GLMinor);
+            glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+            glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
+            glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, g.WantsDebugContext() ? GLFW_TRUE : GLFW_FALSE);
+            glfwWindowHint(GLFW_SAMPLES, g.MSAASamples);
+            glfwWindowHint(GLFW_SRGB_CAPABLE, g.SRGBFramebuffer ? GLFW_TRUE : GLFW_FALSE);
+            if (props.Maximized)
+                glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
+            glfwWindowHint(GLFW_RESIZABLE, props.Resizable ? GLFW_TRUE : GLFW_FALSE);
+        };
+        setHints(graphics);
         m_Resizable = props.Resizable;
         m_WindowedWidth = (int)std::max(1u, props.Width);
         m_WindowedHeight = (int)std::max(1u, props.Height);
@@ -67,12 +80,50 @@ namespace Zamin {
         if (mode == WindowMode::Borderless)
             glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
 
-        m_Window = glfwCreateWindow((int)m_Data.Width, (int)m_Data.Height, m_Data.Title.c_str(),
-                                    mode == WindowMode::Fullscreen ? primary : nullptr, nullptr);
+        // The driver cannot make the asked context: the same framebuffer (MSAA, sRGB) on OpenGL 4.1, then
+        // the defaults (4.1 core, no MSAA, no sRGB; the debug output as asked).
+        std::vector<GraphicsSettings> attempts = { graphics };
+        if (graphics.GLMajor != GraphicsSettings::DefaultMajor || graphics.GLMinor != GraphicsSettings::DefaultMinor)
+        {
+            GraphicsSettings sameBuffer = graphics;
+            sameBuffer.GLMajor = GraphicsSettings::DefaultMajor;
+            sameBuffer.GLMinor = GraphicsSettings::DefaultMinor;
+            attempts.push_back(sameBuffer);
+        }
+        if (graphics.MSAASamples > 0 || graphics.SRGBFramebuffer)
+        {
+            GraphicsSettings plain;
+            plain.DebugContext = graphics.DebugContext;
+            attempts.push_back(plain);
+        }
+        bool fellBack = false;
+        s_TryingContext = attempts.size() > 1;
+        for (size_t i = 0; i < attempts.size() && !m_Window; i++)
+        {
+            if (i > 0)
+            {
+                ZM_CORE_WARN("OpenGL {} core konteksti (MSAA {}, sRGB {}) yaratilmadi - OpenGL {} (MSAA {}, sRGB {}) bilan qayta urinish",
+                             attempts[i - 1].GetVersionString(), attempts[i - 1].MSAASamples, attempts[i - 1].SRGBFramebuffer ? "ha" : "yo'q",
+                             attempts[i].GetVersionString(), attempts[i].MSAASamples, attempts[i].SRGBFramebuffer ? "ha" : "yo'q");
+                glfwDefaultWindowHints();
+                setHints(attempts[i]);
+                if (mode == WindowMode::Borderless)
+                    glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
+            }
+            s_TryingContext = i + 1 < attempts.size(); // the last attempt's failure is an error
+            m_Window = glfwCreateWindow((int)m_Data.Width, (int)m_Data.Height, m_Data.Title.c_str(),
+                                        mode == WindowMode::Fullscreen ? primary : nullptr, nullptr);
+            if (m_Window)
+            {
+                fellBack = i > 0;
+                graphics = attempts[i];
+            }
+        }
+        s_TryingContext = false;
         glfwDefaultWindowHints();
         if (!m_Window)
         {
-            ZM_CORE_CRITICAL("Oyna yaratilmadi (OpenGL 4.1 core qo'llab-quvvatlanadimi?)");
+            ZM_CORE_CRITICAL("Oyna yaratilmadi (OpenGL {} core qo'llab-quvvatlanadimi?)", graphics.GetVersionString());
             std::exit(1);
         }
         ++s_GLFWWindowCount;
@@ -108,7 +159,9 @@ namespace Zamin {
         m_Data.Width = (uint32_t)w;
         m_Data.Height = (uint32_t)h;
 
-        m_Context = GraphicsContext::Create(m_Window);
+        GraphicsSettings requested = props.Graphics;
+        requested.Sanitize();
+        m_Context = GraphicsContext::Create(m_Window, requested, fellBack);
         m_Context->Init();
 
         glfwSetWindowUserPointer(m_Window, &m_Data);

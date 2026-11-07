@@ -215,6 +215,24 @@ namespace Zamin {
         return GetAssetFileSystemPath(s_ActiveProject->m_Config.Player.Icon);
     }
 
+    const GraphicsSettings& Project::GetGraphicsSettings()
+    {
+        static const GraphicsSettings s_Default;
+        return s_ActiveProject ? s_ActiveProject->m_Config.Graphics : s_Default;
+    }
+
+    const TimeSettings& Project::GetTimeSettings()
+    {
+        static const TimeSettings s_Default;
+        return s_ActiveProject ? s_ActiveProject->m_Config.Time : s_Default;
+    }
+
+    const PhysicsDefaults& Project::GetPhysicsDefaults()
+    {
+        static const PhysicsDefaults s_Default;
+        return s_ActiveProject ? s_ActiveProject->m_Config.Physics : s_Default;
+    }
+
     bool Project::SaveActive(const std::filesystem::path& path)
     {
         if (!s_ActiveProject) return false;
@@ -518,7 +536,8 @@ namespace Zamin {
     static const std::vector<std::string>& KnownSections()
     {
         static const std::vector<std::string> s_Keys = { "Version", "Project", "Player", "BuildScenes", "InputActions", "Tags", "SortingLayers",
-                                                         "CollisionLayers2D", "Audio", "Quality", "DebugDraw" };
+                                                         "CollisionLayers2D", "Physics", "Time", "Audio", "Quality", "Graphics",
+                                                         "DebugDraw" };
         return s_Keys;
     }
 
@@ -606,12 +625,19 @@ namespace Zamin {
         // Written once something differs from the defaults (older files stay as they were).
         if (!c.CollisionLayers.IsDefault())
             j["CollisionLayers2D"] = ToOrdered(c.CollisionLayers.ToJson());
+        // Gravity / time / graphics: written once they differ from the defaults (older files stay as they were).
+        if (!c.Physics.IsDefault())
+            j["Physics"] = ToOrdered(c.Physics.ToJson());
+        if (!c.Time.IsDefault())
+            j["Time"] = ToOrdered(c.Time.ToJson());
         // Written once the mixer differs from the defaults (older files stay as they were).
         if (!c.Audio.IsDefault())
             j["Audio"] = ToOrdered(c.Audio.ToJson());
         // Written once the levels differ from the defaults (older files stay as they were).
         if (!c.Quality.IsDefault())
             j["Quality"] = ToOrdered(c.Quality.ToJson());
+        if (!c.Graphics.IsDefault())
+            j["Graphics"] = ToOrdered(c.Graphics.ToJson());
         ordered_json debug;
         debug["Enabled"] = c.DebugDraw.Enabled;
         debug["Raycasts"] = c.DebugDraw.ShowRaycasts;
@@ -761,6 +787,18 @@ namespace Zamin {
         c.Player = PlayerSettings();
         if (auto it = j.find("Player"); it != j.end() && it->is_object())
             PlayerSettings::FromJson(it->dump(), c.Player);
+        // The OpenGL context (older projects: 4.1 core, no MSAA / sRGB).
+        c.Graphics = GraphicsSettings();
+        if (auto it = j.find("Graphics"); it != j.end() && it->is_object())
+            GraphicsSettings::FromJson(it->dump(), c.Graphics);
+        // Time: step rate, steps a frame, time scale, longest frame (older projects: 60 Hz, 5, 1, 0.1 s).
+        c.Time = TimeSettings();
+        if (auto it = j.find("Time"); it != j.end() && it->is_object())
+            TimeSettings::FromJson(it->dump(), c.Time);
+        // Default gravity (older projects: the engine's).
+        c.Physics = PhysicsDefaults();
+        if (auto it = j.find("Physics"); it != j.end() && it->is_object())
+            PhysicsDefaults::FromJson(it->dump(), c.Physics);
     }
 
     // Migrates, reads, and keeps what is not understood. Throws (nlohmann) on a broken required part.

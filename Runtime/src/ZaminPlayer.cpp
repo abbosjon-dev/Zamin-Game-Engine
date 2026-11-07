@@ -4,7 +4,8 @@
 //   ZaminPlayer [path/to/Game.zproject] [--scene Scenes/Level.zscene | <build index> | <build scene name>]
 //               [--fullscreen | --windowed] [--width W --height H] [--no-vsync] [--quality <level name | index>]
 //               [--no-debug-draw] [--debug-raycasts] [--debug-contacts] [--debug-contact-details] [--debug-joints]
-//               [--debug-velocities]
+//               [--debug-velocities] [--gl <4.1 | 4.3 | 4.5 | 4.6>] [--msaa <0 | 2 | 4 | 8 | 16>] [--gl-debug | --no-gl-debug]
+//               [--srgb | --no-srgb]
 #include <Zamin/Zamin.h>
 #include <Zamin/Core/EntryPoint.h>
 
@@ -540,6 +541,9 @@ namespace Zamin {
         RuntimeLayer::DebugDrawFlags debugDraw;
         bool fullscreen = false, windowed = false, noVSync = false;
         int width = 0, height = 0;
+        // The OpenGL context from the command line (wins over Project settings > Graphics).
+        std::string glVersion;
+        int msaa = -1, glDebug = -1, srgb = -1;
         for (int i = 1; i < args.Count; i++)
         {
             if (!std::strcmp(args[i], "--fullscreen")) fullscreen = true;
@@ -555,6 +559,12 @@ namespace Zamin {
             else if (!std::strcmp(args[i], "--debug-contact-details")) debugDraw.ContactDetails = true;
             else if (!std::strcmp(args[i], "--debug-joints")) debugDraw.Joints = true;
             else if (!std::strcmp(args[i], "--debug-velocities")) debugDraw.Velocities = true;
+            else if (!std::strcmp(args[i], "--gl") && i + 1 < args.Count) glVersion = args[++i];
+            else if (!std::strcmp(args[i], "--msaa") && i + 1 < args.Count) msaa = std::max(0, std::atoi(args[++i]));
+            else if (!std::strcmp(args[i], "--gl-debug")) glDebug = 1;
+            else if (!std::strcmp(args[i], "--no-gl-debug")) glDebug = 0;
+            else if (!std::strcmp(args[i], "--srgb")) srgb = 1;
+            else if (!std::strcmp(args[i], "--no-srgb")) srgb = 0;
             else projectArg = args[i];
         }
 
@@ -582,6 +592,18 @@ namespace Zamin {
         if (noVSync)
             spec.Window.VSync = false;
         s_DisplayFromCommandLine = fullscreen || windowed || noVSync;
+        // The OpenGL context: Project settings > Graphics, then the command line.
+        GraphicsSettings& graphics = spec.Window.Graphics;
+        graphics = config.Graphics;
+        if (!glVersion.empty() && !GraphicsSettings::ParseVersion(glVersion, graphics.GLMajor, graphics.GLMinor))
+            ZM_WARN("--gl {}: bunday OpenGL versiyasi yo'q (bor: 4.1, 4.3, 4.5, 4.6) - loyihaniki qoldi", glVersion);
+        if (msaa >= 0)
+            graphics.MSAASamples = GraphicsSettings::SanitizeSamples(msaa);
+        if (glDebug >= 0)
+            graphics.DebugContext = glDebug ? GraphicsDebugContext::On : GraphicsDebugContext::Off;
+        if (srgb >= 0)
+            graphics.SRGBFramebuffer = srgb == 1;
+        graphics.Sanitize();
         return new ZaminPlayer(spec, project, scene, debugDraw);
     }
 

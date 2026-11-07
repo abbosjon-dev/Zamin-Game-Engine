@@ -706,7 +706,8 @@ namespace Zamin {
         float GetAudioTime(Entity other) const;
         bool SetAudioTime(Entity other, float seconds);
 
-        // ---- time
+        // ---- time (also from anywhere: Time::GetDeltaTime / GetUnscaledDeltaTime / GetFixedDeltaTime /
+        // GetTimeScale / SetTimeScale / GetFrameCount / GetTimeSinceStartup)
         float GetTime() const;
         // The game's clock (Scene::SetTimeScale): 1 normal, 0.5 slow motion, 0 paused - OnUpdate's
         // time, timers, physics and animations follow it; the UI does not. Every loaded scene runs on
@@ -723,6 +724,11 @@ namespace Zamin {
         // one that opens and closes the pause menu. Off by default (set it in OnCreate).
         void SetUpdateWhenPaused(bool enabled) { m_UpdateWhenPaused = enabled; }
         bool IsUpdateWhenPaused() const { return m_UpdateWhenPaused; }
+        // This script's timers and tweens (Invoke, Tween*) run on real time: not slowed by the time scale
+        // and going on while the game is paused (a pause menu's fades, a slow-motion effect's own timer).
+        // Off by default: they follow the game's clock.
+        void SetTimersUnscaled(bool unscaled) { m_TimersUnscaled = unscaled; }
+        bool IsTimersUnscaled() const { return m_TimersUnscaled; }
         // Ends the game (its menu's Quit): the player closes, the editor stops Play.
         void QuitGame();
 
@@ -871,6 +877,7 @@ namespace Zamin {
         int m_EnableTransitions = 0;  // OnEnable/OnDisable delivered by the current (nested) sync
         bool IsActiveForUpdate() const { return m_EnabledState && m_Started && !m_Destroying; }
         bool m_UpdateWhenPaused = false; // OnUpdate also while the game is paused (SetUpdateWhenPaused)
+        bool m_TimersUnscaled = false;   // timers / tweens on real time (SetTimersUnscaled)
 
         Entity m_Entity;
         std::string m_ClassName;

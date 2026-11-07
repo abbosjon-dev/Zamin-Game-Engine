@@ -348,7 +348,7 @@ qizil chiziq bilan ko'rsatiladi.
 alohida yozilgan: `"RootOrder"` (ildiz obyektlar tartibi) va `"ChildOrder"` (bolalar UUID tartibida bo'lmasa).
 Shuning uchun bir xil sahna har doim bir xil matn beradi va diff faqat o'zgargan joyni ko'rsatadi.
 
-**Versiya va migratsiya.** Fayl `"Version": 3` bilan yoziladi. Eskiroq fayl yuklanganda hech narsa o'qilishidan
+**Versiya va migratsiya.** Fayl `"Version": 4` bilan yoziladi. Eskiroq fayl yuklanganda hech narsa o'qilishidan
 oldin migratsiyalar zanjiri ishlaydi (`SceneMigration`):
 
 - **v0 → v1** (versiyasiz fayl): matn ko'rinishidagi ID'lar songa, `"Name"` → `"Tag"`.
@@ -356,6 +356,10 @@ oldin migratsiyalar zanjiri ishlaydi (`SceneMigration`):
   `"Metadata"` qo'shiladi.
 - **v2 → v3**: sub-sahna fayli `SubScene` ichida `"Scene"` / `"SceneUUID"` → `"Path"` / `"PathUUID"` (`"Scene"`
   nom kaliti edi, shuning uchun fayl ko'chirilganda yoki nomi o'zgarganda havola yangilanmasdi).
+- **v3 → v4**: `"Settings"` dagi `"Gravity"` / `"Gravity3D"` faqat sahnaning o'z gravitatsiyasi bo'lsa yoziladi;
+  dvigatelning standart qiymati ((0, -9.8) / (0, -9.81, 0)) olib tashlanadi - bunday sahna loyihaning
+  gravitatsiyasiga ergashadi (Loyiha sozlamalari > Fizika). Fizika qadami (`"PhysicsStep"`) ham shunday: yo'q
+  bo'lsa loyihaniki (Loyiha sozlamalari > Vaqt).
 
 Har fayl versiyasi uchun migratsiya bir marta logga yoziladi. Fayl saqlanganda joriy formatga o'tadi.
 

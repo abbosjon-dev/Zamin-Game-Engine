@@ -4,6 +4,8 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
+#include <initializer_list>
 #include <format>
 #include <mutex>
 #include <unordered_map>
@@ -171,6 +173,40 @@ namespace Zamin {
             return changes;
         }
 
+        // v3 -> v4: the gravity only when the scene has its own. The engine's value - the default every
+        // file had - goes: such a scene follows the project's gravity (the same one without a "Physics"
+        // section in the project).
+        size_t MigrateV3(json& root)
+        {
+            size_t changes = 0;
+            auto settings = root.find("Settings");
+            if (settings == root.end() || !settings->is_object())
+                return changes;
+            auto isDefault = [](const json& value, std::initializer_list<float> engine) {
+                if (!value.is_array() || value.size() != engine.size())
+                    return false;
+                size_t i = 0;
+                for (float e : engine)
+                {
+                    const json& c = value[i++];
+                    if (!c.is_number() || std::abs((float)c.get<double>() - e) > 1e-5f)
+                        return false;
+                }
+                return true;
+            };
+            if (auto g = settings->find("Gravity"); g != settings->end() && isDefault(*g, { 0.0f, -9.8f }))
+            {
+                settings->erase(g);
+                changes++;
+            }
+            if (auto g = settings->find("Gravity3D"); g != settings->end() && isDefault(*g, { 0.0f, -9.81f, 0.0f }))
+            {
+                settings->erase(g);
+                changes++;
+            }
+            return changes;
+        }
+
         struct StepFunction
         {
             SceneMigrationStep Step;
@@ -184,6 +220,7 @@ namespace Zamin {
                 { { 1, 2, "Eski maydonlar: Text \"Centered\" -> AlignH/AlignV, UITransform \"Anchor\" -> AnchorMin/AnchorMax/Pivot; "
                           "sahna metadata (\"Metadata\")" }, &MigrateV1 },
                 { { 2, 3, "Sub-sahna fayli: SubScene \"Scene\" -> \"Path\" (fayl ko'chirilganda havola yangilanadi)" }, &MigrateV2 },
+                { { 3, 4, "Gravitatsiya: dvigatelning standart qiymati olib tashlandi (sahna loyiha gravitatsiyasiga ergashadi)" }, &MigrateV3 },
             };
             return s_Steps;
         }

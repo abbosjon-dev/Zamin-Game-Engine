@@ -4,10 +4,13 @@
 #include "Zamin/Audio/AudioMixer.h"
 #include "Zamin/Core/Base.h"
 #include "Zamin/Core/InputActions.h"
+#include "Zamin/Core/Time.h"
 #include "Zamin/Debug/DebugDraw.h"
 #include "Zamin/Physics/CollisionLayers.h"
+#include "Zamin/Physics/PhysicsDefaults.h"
 #include "Zamin/Project/PlayerSettings.h"
 #include "Zamin/Project/ProjectMigration.h"
+#include "Zamin/Renderer/GraphicsSettings.h"
 #include "Zamin/Renderer/Quality.h"
 #include "Zamin/Scene/SortingLayers.h"
 
@@ -97,6 +100,15 @@ namespace Zamin {
         // version, the window (size, fullscreen / borderless, vsync, title, frame rate limit, running
         // in the background) and the icon. Projects without a "Player" section: the defaults.
         PlayerSettings Player;
+        // The OpenGL context and the window's framebuffer the player asks for (Project settings > Graphics):
+        // version, debug output, MSAA, sRGB. Projects without a "Graphics" section: 4.1 core, debug output
+        // in Debug builds, no MSAA, no sRGB.
+        GraphicsSettings Graphics;
+        // The game's time (Project settings > Time): the physics step rate and the most steps a frame for
+        // the scenes that do not set their own, the time scale play starts at, the longest frame.
+        TimeSettings Time;
+        // The gravity of the scenes that do not set their own (Project settings > Physics).
+        PhysicsDefaults Physics;
 
         // What the file has that this engine does not read (sections of tools, keys of a newer engine):
         // (key, JSON text) in file order, a top-level key as "<key>", one inside "Project" / "Player"
@@ -159,6 +171,10 @@ namespace Zamin {
         static std::string GetProductName();
         // The game's icon as a file system path ("" when none is set).
         static std::filesystem::path GetIconPath();
+        // ---- graphics, time and physics defaults of the active project (the defaults without one)
+        static const GraphicsSettings& GetGraphicsSettings();
+        static const TimeSettings& GetTimeSettings();
+        static const PhysicsDefaults& GetPhysicsDefaults();
 
         // Every asset of the active project with its handle (nullptr without a project). Read from
         // the asset folder on first use (with the snapshot in the cache folder: files moved while the

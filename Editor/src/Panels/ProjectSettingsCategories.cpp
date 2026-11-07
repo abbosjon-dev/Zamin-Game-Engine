@@ -442,8 +442,7 @@ namespace Zamin {
         ImGui::TextWrapped("Fizikaning 16 ta to'qnashuv qatlami 2D va 3D uchun bir xil. Rigidbody 2D (va xohlasa har bir kollider), "
                            "tilemap'lar, Rigidbody 3D va Character Controller 3D bitta qatlamda bo'ladi; ikki kollider faqat quyidagi "
                            "jadvalda belgilangan qatlamlar juftligida bir-biriga tegadi (raycast va overlap so'rovlari ham qatlam "
-                           "niqobini oladi). 2D uchun o'zgarishlar keyingi Play / Simulate'da, 3D uchun darhol qo'llanadi. "
-                           "Gravitatsiya va fizika qadamlari har bir sahnada (Sahna sozlamalari).");
+                           "niqobini oladi). 2D uchun o'zgarishlar keyingi Play / Simulate'da, 3D uchun darhol qo'llanadi.");
         ImGui::Spacing();
 
         // How many 2D / 3D bodies, colliders and tilemaps of the edited scene use each layer.

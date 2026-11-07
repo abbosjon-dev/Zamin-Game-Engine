@@ -382,11 +382,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 328. Boshlang'ich sahna va build sahnalari
 - [x] 329. Kompaniya/o'yin nomi va versiya
 - [x] 330. Loyiha sozlamalari serializatsiyasi
-- [ ] 331. Loyiha sozlamalari testlari
-- [ ] 332. Grafik API va kontekst sozlamalari
-- [ ] 333. Vaqt sozlamalari (fixed timestep, time scale)
-- [ ] 334. Time.timeScale skript API (sekinlashtirish)
-- [ ] 335. Gravitatsiya standart qiymatlari loyiha bo'yicha
+- [x] 331. Loyiha sozlamalari testlari
+- [x] 332. Grafik API va kontekst sozlamalari
+- [x] 333. Vaqt sozlamalari (fixed timestep, time scale)
+- [x] 334. Time.timeScale skript API (sekinlashtirish)
+- [x] 335. Gravitatsiya standart qiymatlari loyiha bo'yicha
 - [ ] 336. Audio standart sozlamalari
 - [ ] 337. Lokalizatsiya: til fayllari (uz, ru, en)
 - [ ] 338. Lokalizatsiya skript API (Localize("key"))

@@ -4,6 +4,8 @@
 #include "Zamin/Core/UUID.h"
 #include "Zamin/Renderer/EditorCamera.h"
 #include "Zamin/Physics/PhysicsTypes.h"
+#include "Zamin/Physics/PhysicsDefaults.h"
+#include "Zamin/Core/Time.h"
 #include "Zamin/Physics/Polygon2D.h"
 #include "Zamin/Renderer/PostProcess.h"
 #include "Zamin/Renderer/MaterialAsset.h"
@@ -99,6 +101,14 @@ namespace Zamin {
         // Physics
         glm::vec2 Gravity{ 0.0f, -9.8f };
         glm::vec3 Gravity3D{ 0.0f, -9.81f, 0.0f };
+        // The scene follows the project's settings (Project settings > Physics / Time) instead of its
+        // own values: its gravity / step settings are then the project's (ApplyProjectDefaults keeps them
+        // so: when the scene is made, loaded, and the project's change). New scenes follow the project;
+        // a scene file keeps its own only when they were set for it. The values above are what the
+        // physics uses either way (a script or a test may still write them straight).
+        bool UseProjectGravity = true;      // Gravity
+        bool UseProjectGravity3D = true;    // Gravity3D
+        bool UseProjectPhysicsStep = true;  // PhysicsStep (the step rate and the most steps a frame)
 
         // Both worlds (2D and 3D) advance in fixed steps of 1 / StepRate seconds: a frame takes as
         // many as its time holds, at most MaxStepsPerFrame - a slower frame drops the rest (the game
@@ -146,6 +156,11 @@ namespace Zamin {
             void Sanitize();
             bool operator==(const Physics3DSettings&) const = default;
         } Physics3D;
+
+        // The project's gravity / physics step into the values that follow it (Use* above). Returns true
+        // when something changed. Without arguments: the active project's (the engine's without one).
+        bool ApplyProjectDefaults(const PhysicsDefaults& physics, const TimeSettings& time);
+        bool ApplyProjectDefaults();
     };
 
     // Tilemaps are drawn (and frustum culled) in square chunks of this many tiles per side.
@@ -950,13 +965,17 @@ namespace Zamin {
         // asked for it (ScriptableEntity::SetUpdateWhenPaused) get OnUpdate / OnLateUpdate (with 0).
         // The UI (widgets, UI tweens, navigation) always runs on real time. A pause from the UI (its
         // click / submit handlers) takes effect in the same frame; a resume from it in the next one, so
-        // the press that closed a pause menu is not also a press for the game. Back to 1 when play
-        // starts and stops. Not the editor's pause (SetPaused), which stops everything.
+        // the press that closed a pause menu is not also a press for the game. Play starts at the
+        // project's DefaultTimeScale (Project settings > Time; 1 without one), stopping goes back to 1.
+        // Time::SetTimeScale reaches it from anywhere. Not the editor's pause (SetPaused), which stops
+        // everything.
         void SetTimeScale(float scale) { m_TimeScale = std::max(0.0f, scale); }
         float GetTimeScale() const { return m_TimeScale; }
         // Time scale 0 (paused) and back to the scale it had before.
         void SetGamePaused(bool paused);
         bool IsGamePaused() const { return m_TimeScale <= 0.0f; }
+        // The last frame's game time (seconds, scaled; 0 while the game or the editor is paused).
+        float GetDeltaTime() const { return m_DeltaTime; }
         // The frame's real time (seconds, not scaled) and the real time since play started.
         float GetUnscaledDeltaTime() const { return m_UnscaledDeltaTime; }
         float GetUnscaledTime() const { return m_UnscaledTime; }
@@ -1475,6 +1494,7 @@ namespace Zamin {
         float m_TimeScaleBeforePause = 1.0f;
         float m_UnscaledDeltaTime = 0.0f;
         float m_UnscaledTime = 0.0f;
+        float m_DeltaTime = 0.0f;
         bool m_QuitRequested = false;
         bool m_ScriptsRunning = false;
         int m_StepFrames = 0;

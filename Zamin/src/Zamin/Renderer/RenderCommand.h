@@ -38,6 +38,8 @@ namespace Zamin {
         static void BindTextureUnit(uint32_t unit, uint32_t id) { s_API->BindTextureUnit(unit, id); }
         static void SaveRenderTarget() { s_API->SaveRenderTarget(); }
         static void RestoreRenderTarget() { s_API->RestoreRenderTarget(); }
+        static bool IsDrawingToWindow() { return s_API->IsDrawingToWindow(); }
+        static void SetFramebufferSRGB(bool enabled) { s_API->SetFramebufferSRGB(enabled); }
 
         static std::vector<uint8_t> ReadDefaultFramebuffer(uint32_t w, uint32_t h) { return s_API->ReadDefaultFramebuffer(w, h); }
 

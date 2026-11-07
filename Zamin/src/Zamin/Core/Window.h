@@ -2,6 +2,7 @@
 
 #include "Zamin/Core/Base.h"
 #include "Zamin/Events/Event.h"
+#include "Zamin/Renderer/GraphicsSettings.h"
 
 #include <functional>
 #include <string>
@@ -38,6 +39,9 @@ namespace Zamin {
         // What SetFullscreen(true) switches to (a window that starts fullscreen / borderless uses that).
         WindowMode FullscreenMode = WindowMode::Fullscreen;
         bool Resizable = true;
+        // The OpenGL context and framebuffer to ask for (version, debug output, MSAA, sRGB). One the driver
+        // cannot make falls back to the defaults (4.1 core, no MSAA / sRGB).
+        GraphicsSettings Graphics;
     };
 
     // Platform-independent window interface.

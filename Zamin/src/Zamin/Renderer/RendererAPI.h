@@ -62,6 +62,10 @@ namespace Zamin {
         virtual void BindTextureUnit(uint32_t unit, uint32_t rendererID) = 0;
         virtual void SaveRenderTarget() = 0;
         virtual void RestoreRenderTarget() = 0;
+        // The draw target now is the window's own framebuffer (no framebuffer object bound).
+        virtual bool IsDrawingToWindow() const = 0;
+        // Writes to an sRGB-capable framebuffer are encoded to sRGB (GL_FRAMEBUFFER_SRGB).
+        virtual void SetFramebufferSRGB(bool enabled) = 0;
 
         virtual std::vector<uint8_t> ReadDefaultFramebuffer(uint32_t width, uint32_t height) = 0;
 

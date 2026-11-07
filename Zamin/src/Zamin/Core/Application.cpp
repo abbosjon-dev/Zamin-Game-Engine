@@ -4,6 +4,7 @@
 #include "Zamin/Core/Profiler.h"
 #include "Zamin/Core/Input.h"
 #include "Zamin/Core/SaveData.h"
+#include "Zamin/Core/Time.h"
 #include "Zamin/Core/Version.h"
 #include "Zamin/Project/Project.h"
 #include "Zamin/Renderer/Renderer.h"
@@ -184,9 +185,10 @@ namespace Zamin {
                     fpsFrames = 0;
                 }
             }
-            Timestep timestep = frameSeconds;
-            if (timestep > 0.1f) // avoid huge steps after stalls (e.g. window drag)
-                timestep = 0.1f;
+            // Huge steps after stalls (e.g. a window drag) count as the project's longest frame
+            // (Project settings > Time; 0.1 s without one).
+            Timestep timestep = std::min(frameSeconds, Time::GetSettings().MaxDeltaTime);
+            Time::OnFrame(timestep);
 
             Profiler::BeginFrame();
             ExecuteMainThreadQueue();

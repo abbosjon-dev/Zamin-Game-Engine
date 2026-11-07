@@ -595,7 +595,12 @@ namespace Zamin {
                     if (std::string_view(tint) == preset.Key)
                         m_Preferences.PlayTint.Color = preset.Color;
             if (std::getenv("ZAMIN_EDITOR_PLAY"))
+            {
                 OnScenePlay();
+                // ZAMIN_EDITOR_TIME_SCALE=<scale>: the game's clock (Time::SetTimeScale) once play started (screenshots).
+                if (const char* scale = std::getenv("ZAMIN_EDITOR_TIME_SCALE"))
+                    Time::SetTimeScale((float)std::atof(scale));
+            }
             if (std::getenv("ZAMIN_EDITOR_STATS"))
                 m_ShowStats = true;
             if (const char* colliders = std::getenv("ZAMIN_EDITOR_COLLIDERS")) // 0: collider outlines off
@@ -955,6 +960,8 @@ namespace Zamin {
                                            : t == "Audio"           ? ProjectSettingsPanel::Tab::Audio
                                            : t == "Debug"           ? ProjectSettingsPanel::Tab::Debug
                                            : t == "Player"          ? ProjectSettingsPanel::Tab::Player
+                                           : t == "Graphics"        ? ProjectSettingsPanel::Tab::Graphics
+                                           : t == "Time"            ? ProjectSettingsPanel::Tab::Time
                                                                     : ProjectSettingsPanel::Tab::Input);
                 // ZAMIN_EDITOR_PROJECT_SETTINGS_RECT="x,y,w,h": the window floats there (screenshots);
                 // ZAMIN_EDITOR_PROJECT_SETTINGS_SEARCH=<text>: the category search.
@@ -9777,8 +9784,37 @@ namespace Zamin {
         }
         if (UI::BeginPropertyGrid("phys"))
         {
+            // "Loyihadan": the value is the project's (Project settings > Physics / Time) and follows it; off:
+            // the scene's own (saved with the scene).
+            auto fromProject = [&](const char* id, bool& useProject, const char* tooltip) {
+                UI::PropertyLabel("Loyihadan", tooltip);
+                ImGui::PushID(id);
+                if (ImGui::Checkbox("##fromProject", &useProject))
+                {
+                    if (useProject)
+                        s.ApplyProjectDefaults();
+                    changed = true;
+                }
+                ImGui::SameLine();
+                if (ImGui::SmallButton(ICON_FA_GEAR))
+                {
+                    m_ShowProjectSettings = true;
+                    m_ProjectSettingsPanel.Focus(id[0] == 's' ? ProjectSettingsPanel::Tab::Time : ProjectSettingsPanel::Tab::PhysicsLayers);
+                }
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("Loyiha sozlamalarida ochish");
+                ImGui::PopID();
+            };
+            fromProject("g2", s.UseProjectGravity, "Belgilangan: 2D gravitatsiya loyihaniki (Loyiha sozlamalari > Fizika) va unga ergashadi; "
+                                                   "olib tashlansa - sahnaning o'zi (sahna bilan saqlanadi)");
+            ImGui::BeginDisabled(s.UseProjectGravity);
             changed |= UI::PropertyFloat2("Gravitatsiya", s.Gravity);
+            ImGui::EndDisabled();
+            fromProject("g3", s.UseProjectGravity3D, "Belgilangan: 3D gravitatsiya loyihaniki (Loyiha sozlamalari > Fizika) va unga ergashadi; "
+                                                     "olib tashlansa - sahnaning o'zi");
+            ImGui::BeginDisabled(s.UseProjectGravity3D);
             changed |= UI::PropertyFloat3("Gravitatsiya (3D)", s.Gravity3D);
+            ImGui::EndDisabled();
             auto sliderInt = [&](const char* label, const char* tooltip, int& value, int min, int max, const char* format) {
                 UI::PropertyLabel(label, tooltip);
                 ImGui::PushID(label);
@@ -9787,13 +9823,18 @@ namespace Zamin {
                 ImGui::PopID();
             };
             auto& step = s.PhysicsStep;
+            fromProject("step", s.UseProjectPhysicsStep, "Belgilangan: qadam chastotasi va kadrdagi qadamlar loyihaniki (Loyiha sozlamalari > Vaqt) "
+                                                         "va unga ergashadi; olib tashlansa - sahnaning o'zi");
+            ImGui::BeginDisabled(s.UseProjectPhysicsStep);
             sliderInt("Qadam chastotasi",
                       "Fizika (2D va 3D) soniyasiga shuncha qat'iy qadam tashlaydi. Ko'proq - tez jismlar va joint'lar aniqroq, "
-                      "lekin qimmatroq. Standart: 60 Hz",
+                      "lekin qimmatroq. Standart: loyihaniki (60 Hz)",
                       step.StepRate, SceneSettings::PhysicsStepSettings::MinRate, SceneSettings::PhysicsStepSettings::MaxRate, "%d Hz");
             sliderInt("Kadrda ko'pi bilan",
-                      "Sekin kadr shuncha qadamdan ortig'ini tashlab yuboradi: o'yin sekinlashadi, lekin orqada qolib ketmaydi. Standart: 5",
+                      "Sekin kadr shuncha qadamdan ortig'ini tashlab yuboradi: o'yin sekinlashadi, lekin orqada qolib ketmaydi. "
+                      "Standart: loyihaniki (5)",
                       step.MaxStepsPerFrame, 1, SceneSettings::PhysicsStepSettings::MaxSteps, "%d qadam");
+            ImGui::EndDisabled();
 
             auto& p2 = s.Physics2D;
             UI::PropertyHeader("Box2D (2D)", "2D jismlar simulyatsiyasining aniqligi va uxlash sozlamalari");
@@ -9861,19 +9902,22 @@ namespace Zamin {
             UI::EndPropertyGrid();
         }
         {
-            const bool standard = s.PhysicsStep == SceneSettings::PhysicsStepSettings() && s.Physics2D == SceneSettings::Physics2DSettings() &&
-                                  s.Physics3D == SceneSettings::Physics3DSettings();
+            // The standard: gravity and step from the project, Box2D / Jolt at their defaults.
+            const bool standard = s.UseProjectGravity && s.UseProjectGravity3D && s.UseProjectPhysicsStep &&
+                                  s.Physics2D == SceneSettings::Physics2DSettings() && s.Physics3D == SceneSettings::Physics3DSettings();
             ImGui::BeginDisabled(standard);
             if (ImGui::Button(ICON_FA_ROTATE_LEFT "  Standart fizika sozlamalari"))
             {
-                s.PhysicsStep = {};
+                s.UseProjectGravity = s.UseProjectGravity3D = s.UseProjectPhysicsStep = true;
+                s.ApplyProjectDefaults();
                 s.Physics2D = {};
                 s.Physics3D = {};
                 changed = true;
             }
             ImGui::EndDisabled();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-                UI::Tooltip("Qadam chastotasi 60 Hz, 5 qadam, 1 sub-qadam, 6 / 2 iteratsiya, 2D va 3D uxlash 0.5 s dan keyin");
+                UI::Tooltip("Gravitatsiya, qadam chastotasi va kadrdagi qadamlar loyihadan (Loyiha sozlamalari > Fizika / Vaqt), 1 sub-qadam, "
+                            "6 / 2 iteratsiya, 2D va 3D uxlash 0.5 s dan keyin");
         }
 
         ImGui::SeparatorText(ICON_FA_CAMERA "  Editor kamerasi");
@@ -10659,10 +10703,21 @@ namespace Zamin {
                                     player.RunInBackground ? "" : ", fonda to'xtaydi");
                 ImGui::TextDisabled("Ikonka: %s  (%s.desktop + %s.png)", player.Icon.empty() ? "yo'q" : player.Icon.generic_string().c_str(),
                                     config.Name.c_str(), config.Name.c_str());
+                const GraphicsSettings& graphics = config.Graphics;
+                ImGui::TextDisabled("Grafika: OpenGL %s core%s%s%s", graphics.GetVersionString().c_str(), graphics.WantsDebugContext() ? ", debug" : "",
+                                    graphics.MSAASamples > 0 ? std::format(", MSAA {}x", graphics.MSAASamples).c_str() : "",
+                                    graphics.SRGBFramebuffer ? ", sRGB" : "");
                 if (ImGui::SmallButton(ICON_FA_GEAR "  Player sozlamalari..."))
                 {
                     m_ShowProjectSettings = true;
                     m_ProjectSettingsPanel.Focus(ProjectSettingsPanel::Tab::Player);
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::SameLine();
+                if (ImGui::SmallButton(ICON_FA_MICROCHIP "  Grafika..."))
+                {
+                    m_ShowProjectSettings = true;
+                    m_ProjectSettingsPanel.Focus(ProjectSettingsPanel::Tab::Graphics);
                     ImGui::CloseCurrentPopup();
                 }
                 // The start scene / build list problems, before the export.

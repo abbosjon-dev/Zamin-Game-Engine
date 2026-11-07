@@ -30839,8 +30839,8 @@ TEST(SceneVersionMigration)
         CHECK(!serializer.GetLoadReport().HasIssues());
         const SceneMigrationResult& m = serializer.GetMigration();
         CHECK(m.FileVersion == 1 && m.Version == SceneMigration::CurrentVersion && m.Migrated() && !m.IsNewer());
-        CHECK(m.Steps.size() == 2 && m.Steps[0].From == 1 && m.Steps[0].To == 2 && m.Steps[1].To == 3 && m.GetChangeCount() == 5);
-        CHECK(m.Summary().find("v1 -> v3") != std::string::npos);
+        CHECK(m.Steps.size() == 3 && m.Steps[0].From == 1 && m.Steps[0].To == 2 && m.Steps[1].To == 3 && m.Steps[2].To == 4 && m.GetChangeCount() == 5);
+        CHECK(m.Summary().find("v1 -> v4") != std::string::npos);
         Entity title = scene->FindEntityByName("Sarlavha"), corner = scene->FindEntityByName("Burchak"), world = scene->FindEntityByName("DunyoMatni");
         CHECK(title && corner && world);
         if (!title || !corner || !world)
@@ -30880,8 +30880,8 @@ TEST(SceneVersionMigration)
         SceneSerializer serializer(scene);
         CHECK(serializer.Deserialize(fixtures / "LegacyV0.zscene"));
         const SceneMigrationResult& m = serializer.GetMigration();
-        CHECK(m.FileVersion == 0 && m.Version == SceneMigration::CurrentVersion && m.Steps.size() == 3);
-        CHECK(m.Steps.size() == 3 && m.Steps[0].Changes == 5 && m.Steps[1].Changes == 1 && m.Steps[2].Changes == 0);
+        CHECK(m.FileVersion == 0 && m.Version == SceneMigration::CurrentVersion && m.Steps.size() == 4);
+        CHECK(m.Steps.size() == 4 && m.Steps[0].Changes == 5 && m.Steps[1].Changes == 1 && m.Steps[2].Changes == 0 && m.Steps[3].Changes == 0);
         Entity parent = scene->GetEntityByUUID(UUID(1001)), child = scene->GetEntityByUUID(UUID(1002)), text = scene->FindEntityByName("Yozuv");
         CHECK(parent && child && text && parent.GetName() == "Ota" && child.GetName() == "Bola");
         if (parent && child && text)
@@ -30902,7 +30902,7 @@ TEST(SceneVersionMigration)
         SceneSerializer serializer(scene);
         CHECK(serializer.DeserializeFromString(v2));
         const SceneMigrationResult& m = serializer.GetMigration();
-        CHECK(m.FileVersion == 2 && m.Steps.size() == 1 && m.Steps[0].From == 2 && m.Steps[0].To == 3 && m.GetChangeCount() == 2);
+        CHECK(m.FileVersion == 2 && m.Steps.size() == 2 && m.Steps[0].From == 2 && m.Steps[0].To == 3 && m.GetChangeCount() == 2);
         Entity room = scene->FindEntityByName("Xona");
         CHECK(scene->GetName() == "Uy" && room && room.HasComponent<SubSceneComponent>());
         if (room && room.HasComponent<SubSceneComponent>())
@@ -33980,9 +33980,10 @@ TEST(SceneFileTagReferences)
 TEST(ProjectSettingsIndexSearch)
 {
     const auto& categories = ProjectSettingsIndex::GetCategories();
-    CHECK(categories.size() == 10);
-    CHECK(ProjectSettingsIndex::Find("Quality") == 2 && ProjectSettingsIndex::Find("tagsandlayers") == 6 && ProjectSettingsIndex::Find("Nope") == -1);
-    CHECK(categories[0].Id == "General" && categories[1].Id == "Player" && categories[9].Id == "SaveData" && categories[9].Sections.empty());
+    CHECK(categories.size() == 12);
+    CHECK(ProjectSettingsIndex::Find("Quality") == 2 && ProjectSettingsIndex::Find("tagsandlayers") == 8 && ProjectSettingsIndex::Find("Nope") == -1);
+    CHECK(ProjectSettingsIndex::Find("graphics") == 3 && ProjectSettingsIndex::Find("Time") == 4 && ProjectSettingsIndex::Find("Physics") == 5);
+    CHECK(categories[0].Id == "General" && categories[1].Id == "Player" && categories[11].Id == "SaveData" && categories[11].Sections.empty());
     // Search: case and the Uzbek apostrophes are ignored.
     CHECK(ProjectSettingsIndex::TextContains("Soya atlasi", "ATLAS") && ProjectSettingsIndex::TextContains("anything", ""));
     CHECK(ProjectSettingsIndex::TextContains("Bog'lanish", "bog\xCA\xBBlan") && ProjectSettingsIndex::TextContains("O\xE2\x80\x99qlar", "o'q"));
@@ -34372,4 +34373,481 @@ TEST(BuildSceneChecksAndStartScene)
     CHECK(kinds(Project::CheckBuildScenes(config, assets)).front() == Kind::NoStartScene && Project::ResolveStartScene(config, assets).empty());
     std::error_code ec;
     fs::remove_all(assets, ec);
+}
+
+// ---------------------------------------------------------------- M17: graphics context, time, default gravity
+TEST(GraphicsContextSettings)
+{
+    GraphicsSettings g;
+    CHECK(g.IsDefault() && g.GLMajor == 4 && g.GLMinor == 1 && g.MSAASamples == 0 && !g.SRGBFramebuffer && g.GetVersionString() == "4.1");
+    CHECK(g.DebugContext == GraphicsDebugContext::Auto && GraphicsSettings::GetSupportedVersions().size() == 4);
+    // Versions: "4.6", "46", "GL 4.3 core"; only the offered ones.
+    int major = 0, minor = 0;
+    CHECK(GraphicsSettings::ParseVersion("4.6", major, minor) && major == 4 && minor == 6);
+    CHECK(GraphicsSettings::ParseVersion("45", major, minor) && minor == 5);
+    CHECK(GraphicsSettings::ParseVersion("GL 4.3 core", major, minor) && minor == 3);
+    CHECK(!GraphicsSettings::ParseVersion("4.2", major, minor) && !GraphicsSettings::ParseVersion("3.3", major, minor));
+    CHECK(!GraphicsSettings::ParseVersion("4.10", major, minor) && !GraphicsSettings::ParseVersion("", major, minor));
+    CHECK(!GraphicsSettings::ParseVersion("4 6", major, minor) && major == 4 && minor == 3); // untouched on failure
+    // MSAA: off or a power of two up to 16.
+    CHECK(GraphicsSettings::SanitizeSamples(0) == 0 && GraphicsSettings::SanitizeSamples(1) == 0 && GraphicsSettings::SanitizeSamples(-4) == 0);
+    CHECK(GraphicsSettings::SanitizeSamples(3) == 2 && GraphicsSettings::SanitizeSamples(4) == 4 && GraphicsSettings::SanitizeSamples(7) == 4);
+    CHECK(GraphicsSettings::SanitizeSamples(8) == 8 && GraphicsSettings::SanitizeSamples(64) == 16);
+    // Debug output: on / off, Auto follows the build.
+    g.DebugContext = GraphicsDebugContext::On;
+    CHECK(g.WantsDebugContext());
+    g.DebugContext = GraphicsDebugContext::Off;
+    CHECK(!g.WantsDebugContext());
+    g.DebugContext = GraphicsDebugContext::Auto;
+#ifdef NDEBUG
+    CHECK(!g.WantsDebugContext());
+#else
+    CHECK(g.WantsDebugContext());
+#endif
+    GraphicsDebugContext mode = GraphicsDebugContext::Auto;
+    CHECK(GraphicsDebugContextFromString("On", mode) && mode == GraphicsDebugContext::On && !GraphicsDebugContextFromString("on", mode));
+    CHECK(std::string(GraphicsDebugContextToString(GraphicsDebugContext::Off)) == "Off");
+    // A broken value: the default.
+    g.GLMinor = 2;
+    g.MSAASamples = 6;
+    g.Sanitize();
+    CHECK(g.GLMinor == 1 && g.MSAASamples == 4);
+
+    // The "Graphics" section: a fixed key order, read back the same; wrong values put right.
+    GraphicsSettings custom;
+    custom.GLMinor = 6;
+    custom.DebugContext = GraphicsDebugContext::Off;
+    custom.MSAASamples = 4;
+    custom.SRGBFramebuffer = true;
+    const std::string text = custom.ToJson();
+    CHECK(text.find("\"OpenGL\": \"4.6\"") < text.find("\"DebugContext\": \"Off\"") && text.find("\"DebugContext\"") < text.find("\"MSAA\": 4"));
+    CHECK(text.find("\"MSAA\"") < text.find("\"SRGBFramebuffer\": true"));
+    GraphicsSettings read;
+    CHECK(GraphicsSettings::FromJson(text, read) && read == custom && !read.IsDefault());
+    CHECK(GraphicsSettings::FromJson(R"({ "OpenGL": "9.9", "DebugContext": "Maybe", "MSAA": 6, "SRGBFramebuffer": "yes" })", read));
+    CHECK(read.GLMajor == 4 && read.GLMinor == 1 && read.DebugContext == GraphicsDebugContext::Auto && read.MSAASamples == 4 && !read.SRGBFramebuffer);
+    CHECK(!GraphicsSettings::FromJson("[1]", read) && !GraphicsSettings::FromJson("nope", read));
+
+    // The window asks for them (WindowProps::Graphics); headless there is no context.
+    WindowProps props;
+    CHECK(props.Graphics.IsDefault());
+    CHECK(!GraphicsContext::GetInfo().Valid);
+    GraphicsContextInfo info;
+    CHECK(info.Summary() == "OpenGL konteksti yo'q");
+    info.Valid = true;
+    info.Major = 4;
+    info.Minor = 6;
+    info.DebugContext = true;
+    info.Samples = 4;
+    info.SRGB = true;
+    CHECK(info.Summary() == "OpenGL 4.6 core (debug, MSAA 4x, sRGB)");
+    info.DebugContext = info.SRGB = info.CoreProfile = false;
+    info.Samples = 0;
+    CHECK(info.Summary() == "OpenGL 4.6 compat");
+}
+
+TEST(TimeSettingsAndClock)
+{
+    TimeSettings t;
+    CHECK(t.IsDefault() && t.FixedStepRate == 60 && t.MaxStepsPerFrame == 5 && t.DefaultTimeScale == 1.0f && t.MaxDeltaTime == 0.1f);
+    CHECK_NEAR(t.GetFixedDeltaTime(), 1.0f / 60.0f, 1e-7f);
+    // The defaults match a scene's own physics step defaults (older scenes behave the same).
+    SceneSettings::PhysicsStepSettings sceneStep;
+    CHECK(sceneStep.StepRate == t.FixedStepRate && sceneStep.MaxStepsPerFrame == t.MaxStepsPerFrame);
+    CHECK(TimeSettings::MinStepRate == SceneSettings::PhysicsStepSettings::MinRate && TimeSettings::MaxStepRate == SceneSettings::PhysicsStepSettings::MaxRate);
+    for (int rate : TimeSettings::GetStepRatePresets())
+        CHECK(rate >= TimeSettings::MinStepRate && rate <= TimeSettings::MaxStepRate);
+    // Into their ranges; NaN to the defaults.
+    t.FixedStepRate = 1000;
+    t.MaxStepsPerFrame = 0;
+    t.DefaultTimeScale = -1.0f;
+    t.MaxDeltaTime = 5.0f;
+    t.Sanitize();
+    CHECK(t.FixedStepRate == 240 && t.MaxStepsPerFrame == 1 && t.DefaultTimeScale == 0.0f && t.MaxDeltaTime == 1.0f);
+    t.DefaultTimeScale = t.MaxDeltaTime = std::numeric_limits<float>::quiet_NaN();
+    t.Sanitize();
+    CHECK(t.DefaultTimeScale == 1.0f && t.MaxDeltaTime == 0.1f);
+
+    // The "Time" section.
+    TimeSettings custom;
+    custom.FixedStepRate = 120;
+    custom.MaxStepsPerFrame = 8;
+    custom.DefaultTimeScale = 0.5f;
+    custom.MaxDeltaTime = 0.05f;
+    const std::string text = custom.ToJson();
+    CHECK(text.find("\"FixedStepRate\": 120") < text.find("\"MaxStepsPerFrame\": 8") && text.find("\"MaxStepsPerFrame\"") < text.find("\"DefaultTimeScale\""));
+    TimeSettings read;
+    CHECK(TimeSettings::FromJson(text, read) && read == custom);
+    CHECK(TimeSettings::FromJson(R"({ "FixedStepRate": 10, "MaxStepsPerFrame": "x", "DefaultTimeScale": 50 })", read));
+    CHECK(read.FixedStepRate == 20 && read.MaxStepsPerFrame == 5 && read.DefaultTimeScale == TimeSettings::MaxTimeScale && read.MaxDeltaTime == 0.1f);
+    CHECK(!TimeSettings::FromJson("5", read) && !TimeSettings::FromJson("{", read));
+
+    // Without a running game: the frame's real time, nothing to scale.
+    CHECK(Time::GetGameClock() == nullptr);
+    const uint64_t frames = Time::GetFrameCount();
+    Time::OnFrame(0.02f);
+    CHECK(Time::GetFrameCount() == frames + 1);
+    CHECK(Time::GetDeltaTime() == 0.02f && Time::GetUnscaledDeltaTime() == 0.02f && Time::GetTimeScale() == 1.0f && !Time::IsPaused());
+    Time::SetTimeScale(0.5f);
+    Time::SetPaused(true);
+    CHECK(Time::GetTimeScale() == 1.0f && !Time::IsPaused());
+    CHECK_NEAR(Time::GetFixedDeltaTime(), 1.0f / 60.0f, 1e-7f);
+    const double since = Time::GetTimeSinceStartup();
+    CHECK(since > 0.0 && Time::GetTimeSinceStartup() >= since);
+    CHECK(&Time::GetSettings() == &Project::GetTimeSettings());
+}
+
+static int g_UnscaledTimerFires = 0, g_ScaledTimerFires = 0;
+static float g_TimeApiDelta = -1.0f, g_TimeApiFixed = -1.0f;
+
+class UnscaledTimerProbe : public ScriptableEntity
+{
+public:
+    void OnCreate() override
+    {
+        SetTimersUnscaled(true);
+        InvokeRepeating(0.3f, 0.3f, [] { g_UnscaledTimerFires++; });
+    }
+    void OnUpdate(Timestep) override
+    {
+        // The static API, read from a script.
+        g_TimeApiDelta = Time::GetDeltaTime();
+        g_TimeApiFixed = Time::GetFixedDeltaTime();
+    }
+};
+ZM_REGISTER_SCRIPT(UnscaledTimerProbe)
+
+class ScaledTimerProbe : public ScriptableEntity
+{
+public:
+    void OnCreate() override { InvokeRepeating(0.3f, 0.3f, [] { g_ScaledTimerFires++; }); }
+};
+ZM_REGISTER_SCRIPT(ScaledTimerProbe)
+
+TEST(TimeApiTimeScaleAndUnscaledTimers)
+{
+    g_UnscaledTimerFires = g_ScaledTimerFires = 0;
+    g_TimeApiDelta = g_TimeApiFixed = -1.0f;
+    // A project: 120 physics steps a second, play starts at half speed.
+    Ref<Project> previous = Project::GetActive();
+    ScopeExit restore{ [previous]() { Project::SetActive(previous); } };
+    auto project = CreateRef<Project>();
+    project->GetConfig().Time.FixedStepRate = 120;
+    project->GetConfig().Time.DefaultTimeScale = 0.5f;
+    Project::SetActive(project);
+    {
+        auto scene = CreateRef<Scene>();
+        CHECK(scene->GetSettings().UseProjectPhysicsStep && scene->GetSettings().PhysicsStep.StepRate == 120);
+        scene->CreateEntity("Unscaled").AddComponent<NativeScriptComponent>().ClassName = "UnscaledTimerProbe";
+        scene->CreateEntity("Scaled").AddComponent<NativeScriptComponent>().ClassName = "ScaledTimerProbe";
+        scene->OnRuntimeStart();
+        CHECK(Time::GetGameClock() == scene.get());
+        CHECK(scene->GetTimeScale() == 0.5f && Time::GetTimeScale() == 0.5f && !Time::IsPaused());
+        CHECK_NEAR(Time::GetFixedDeltaTime(), 1.0f / 120.0f, 1e-7f);
+
+        const float dt = 0.125f; // exact: no drift in the timers
+        auto step = [&](int frames) { for (int i = 0; i < frames; i++) scene->OnUpdateRuntime(dt); };
+        step(3); // real 0.375 s, game 0.1875 s
+        CHECK_NEAR(Time::GetDeltaTime(), 0.0625f, 1e-6f);
+        CHECK_NEAR(Time::GetUnscaledDeltaTime(), 0.125f, 1e-6f);
+        CHECK_NEAR(Time::GetTime(), 0.1875f, 1e-5f);
+        CHECK_NEAR(Time::GetUnscaledTime(), 0.375f, 1e-5f);
+        CHECK_NEAR(g_TimeApiDelta, 0.0625f, 1e-6f);
+        CHECK_NEAR(g_TimeApiFixed, 1.0f / 120.0f, 1e-7f);
+        CHECK(g_UnscaledTimerFires == 1 && g_ScaledTimerFires == 0);
+
+        // Paused from anywhere: the game's time stands still, the unscaled timers go on.
+        Time::SetPaused(true);
+        CHECK(Time::IsPaused() && scene->IsGamePaused() && Time::GetTimeScale() == 0.0f);
+        step(3); // real 0.75 s
+        CHECK(Time::GetDeltaTime() == 0.0f && Time::GetUnscaledDeltaTime() == 0.125f);
+        CHECK_NEAR(Time::GetTime(), 0.1875f, 1e-5f);
+        CHECK(g_UnscaledTimerFires == 2 && g_ScaledTimerFires == 0);
+        Time::SetPaused(false);
+        CHECK(!Time::IsPaused() && Time::GetTimeScale() == 0.5f); // back at the scale it had
+
+        // Fast forward: scaled timers catch up, unscaled ones keep real time.
+        Time::SetTimeScale(2.0f);
+        CHECK(scene->GetTimeScale() == 2.0f);
+        step(2); // game 0.1875 + 0.5, real 1.0
+        CHECK(g_ScaledTimerFires == 2 && g_UnscaledTimerFires == 3);
+        CHECK_NEAR(Time::GetDeltaTime(), 0.25f, 1e-6f);
+        // Into its range.
+        Time::SetTimeScale(100.0f);
+        CHECK(scene->GetTimeScale() == TimeSettings::MaxTimeScale);
+        Time::SetTimeScale(std::numeric_limits<float>::quiet_NaN());
+        CHECK(scene->GetTimeScale() == 1.0f);
+        Time::SetTimeScale(-3.0f);
+        CHECK(scene->GetTimeScale() == 0.0f && Time::IsPaused());
+
+        // Stopped: no clock; the API falls back to real time.
+        scene->OnRuntimeStop();
+        CHECK(Time::GetGameClock() == nullptr && Time::GetTimeScale() == 1.0f);
+        // A project that starts paused resumes at normal speed.
+        project->GetConfig().Time.DefaultTimeScale = 0.0f;
+        scene->OnRuntimeStart();
+        CHECK(Time::IsPaused());
+        Time::SetPaused(false);
+        CHECK(Time::GetTimeScale() == 1.0f);
+        scene->OnRuntimeStop();
+        project->GetConfig().Time.DefaultTimeScale = 0.5f;
+    }
+    // A scene that goes away while it runs leaves no clock behind.
+    {
+        auto temp = CreateRef<Scene>();
+        temp->OnRuntimeStart();
+        CHECK(Time::GetGameClock() == temp.get());
+    }
+    CHECK(Time::GetGameClock() == nullptr);
+
+    // A SceneManager: one clock for every scene of the game (the persistent one too).
+    {
+        SceneManager manager;
+        auto first = CreateRef<Scene>();
+        Entity keeper = first->CreateEntity("Keeper");
+        manager.Start(first);
+        CHECK(first->GetTimeScale() == 0.5f);
+        manager.DontDestroyOnLoad(keeper);
+        manager.ProcessRequests();
+        manager.UpdateScenes(Timestep(1.0f / 60.0f));
+        CHECK(manager.GetDontDestroyOnLoadScene() != nullptr && manager.GetAllScenes().size() == 2);
+        Time::SetTimeScale(0.3f);
+        for (const Ref<Scene>& scene : manager.GetAllScenes())
+            CHECK_NEAR(scene->GetTimeScale(), 0.3f, 1e-6f);
+        CHECK(Time::GetGameClock() != nullptr);
+        manager.Stop();
+    }
+    CHECK(Time::GetGameClock() == nullptr);
+}
+
+TEST(ProjectDefaultGravityAndStep)
+{
+    // The defaults and the "Physics" section.
+    PhysicsDefaults d;
+    CHECK(d.IsDefault() && d.Gravity2D == glm::vec2(0.0f, -9.8f) && d.Gravity3D == glm::vec3(0.0f, -9.81f, 0.0f));
+    PhysicsDefaults moon;
+    moon.Gravity2D = { 0.0f, -1.62f };
+    moon.Gravity3D = { 0.5f, -1.62f, 0.0f };
+    PhysicsDefaults read;
+    CHECK(PhysicsDefaults::FromJson(moon.ToJson(), read) && read == moon && !read.IsDefault());
+    CHECK(PhysicsDefaults::FromJson(R"({ "Gravity2D": [1, "x"], "Gravity3D": [0, -5000, 0] })", read));
+    CHECK(read.Gravity2D == glm::vec2(1.0f, -9.8f) && read.Gravity3D == glm::vec3(0.0f, -PhysicsDefaults::MaxGravity, 0.0f));
+    CHECK(PhysicsDefaults::FromJson(R"({ "Gravity3D": [1, 2, 3, 4] })", read) && read.Gravity3D == PhysicsDefaults::EngineGravity3D);
+    CHECK(!PhysicsDefaults::FromJson("[]", read));
+    int presetCount = 0;
+    const PhysicsDefaults::Preset* presets = PhysicsDefaults::GetPresets(presetCount);
+    CHECK(presetCount >= 4 && presets[0].Strength > 9.0f);
+
+    // A project with its own gravity and step rate.
+    Ref<Project> previous = Project::GetActive();
+    ScopeExit restore{ [previous]() { Project::SetActive(previous); } };
+    auto project = CreateRef<Project>();
+    ProjectConfig& config = project->GetConfig();
+    config.Physics.Gravity2D = { 0.0f, -20.0f };
+    config.Physics.Gravity3D = { 0.0f, -15.0f, 0.0f };
+    config.Time.FixedStepRate = 100;
+    Project::SetActive(project);
+    CHECK(Project::GetPhysicsDefaults().Gravity2D.y == -20.0f && Project::GetTimeSettings().FixedStepRate == 100);
+
+    // New scenes follow it.
+    auto scene = CreateRef<Scene>();
+    const SceneSettings& s = scene->GetSettings();
+    CHECK(s.UseProjectGravity && s.UseProjectGravity3D && s.UseProjectPhysicsStep);
+    CHECK(s.Gravity == glm::vec2(0.0f, -20.0f) && s.Gravity3D.y == -15.0f && s.PhysicsStep.StepRate == 100 && s.PhysicsStep.MaxStepsPerFrame == 5);
+    // Their files do not hold it: they keep following when the project's changes.
+    const std::string followText = SceneSerializer(scene).SerializeToString();
+    CHECK(followText.find("\"Gravity\"") == std::string::npos && followText.find("\"Gravity3D\"") == std::string::npos);
+    CHECK(followText.find("\"PhysicsStep\"") == std::string::npos);
+    config.Physics.Gravity2D = { 0.0f, -30.0f };
+    auto reloaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(reloaded).DeserializeFromString(followText));
+    CHECK(reloaded->GetSettings().UseProjectGravity && reloaded->GetSettings().Gravity.y == -30.0f);
+    // The open scene follows a change at once (whether something changed).
+    CHECK(scene->GetSettings().ApplyProjectDefaults() && s.Gravity.y == -30.0f);
+    CHECK(!scene->GetSettings().ApplyProjectDefaults());
+    // The physics uses it.
+    scene->OnRuntimeStart();
+    CHECK(scene->GetPhysicsWorld2D() && scene->GetPhysicsWorld2D()->GetGravity().y == -30.0f);
+    CHECK_NEAR(Time::GetFixedDeltaTime(), 0.01f, 1e-6f);
+    scene->OnRuntimeStop();
+
+    // A scene's own values: kept in its file and when the project's change.
+    auto own = CreateRef<Scene>();
+    own->GetSettings().UseProjectGravity = false;
+    own->GetSettings().Gravity = { 0.0f, -5.0f };
+    own->GetSettings().UseProjectPhysicsStep = false;
+    own->GetSettings().PhysicsStep.StepRate = 50;
+    const std::string ownText = SceneSerializer(own).SerializeToString();
+    CHECK(ownText.find("\"Gravity\"") != std::string::npos && ownText.find("\"Gravity3D\"") == std::string::npos);
+    CHECK(ownText.find("\"PhysicsStep\"") != std::string::npos);
+    config.Physics.Gravity2D = { 0.0f, -1.0f };
+    config.Time.FixedStepRate = 120;
+    auto ownLoaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(ownLoaded).DeserializeFromString(ownText));
+    const SceneSettings& o = ownLoaded->GetSettings();
+    CHECK(!o.UseProjectGravity && o.Gravity.y == -5.0f && o.UseProjectGravity3D && o.Gravity3D.y == -15.0f);
+    CHECK(!o.UseProjectPhysicsStep && o.PhysicsStep.StepRate == 50);
+    CHECK(!ownLoaded->GetSettings().ApplyProjectDefaults() && o.Gravity.y == -5.0f);
+    // A value written straight (a script, older code) that is not the project's counts as the scene's own.
+    auto direct = CreateRef<Scene>();
+    direct->GetSettings().Gravity = { 0.0f, 0.0f };
+    direct->GetSettings().PhysicsStep.StepRate = 30;
+    auto directLoaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(directLoaded).DeserializeFromString(SceneSerializer(direct).SerializeToString()));
+    CHECK(!directLoaded->GetSettings().UseProjectGravity && directLoaded->GetSettings().Gravity == glm::vec2(0.0f));
+    CHECK(!directLoaded->GetSettings().UseProjectPhysicsStep && directLoaded->GetSettings().PhysicsStep.StepRate == 30);
+
+    // Older files (v3) always had the gravity: the engine's value follows the project, another is the scene's.
+    const std::string v3 = R"({ "Scene": "Eski", "Version": 3, "Settings": { "Gravity": [0, -9.8], "Gravity3D": [0, -9.81, 0] }, "Entities": [] })";
+    auto old = CreateRef<Scene>();
+    SceneSerializer oldReader(old);
+    CHECK(oldReader.DeserializeFromString(v3));
+    CHECK(oldReader.GetMigration().Migrated() && oldReader.GetMigration().Steps.back().To == 4 && oldReader.GetMigration().GetChangeCount() == 2);
+    CHECK(old->GetSettings().UseProjectGravity && old->GetSettings().Gravity.y == -1.0f);
+    CHECK(old->GetSettings().UseProjectGravity3D && old->GetSettings().Gravity3D.y == -15.0f && old->GetSettings().UseProjectPhysicsStep);
+    const std::string v3Own = R"({ "Scene": "Eski", "Version": 3, "Settings": { "Gravity": [0, -20], "Gravity3D": [0, -9.81, 0] }, "Entities": [] })";
+    auto oldOwn = CreateRef<Scene>();
+    CHECK(SceneSerializer(oldOwn).DeserializeFromString(v3Own));
+    CHECK(!oldOwn->GetSettings().UseProjectGravity && oldOwn->GetSettings().Gravity.y == -20.0f && oldOwn->GetSettings().UseProjectGravity3D);
+    std::string migrated = v3;
+    CHECK(SceneMigration::MigrateText(migrated) && migrated.find("\"Gravity") == std::string::npos);
+
+    // Without a project: the engine's values, older scenes as they always were.
+    Project::SetActive(nullptr);
+    CHECK(Project::GetPhysicsDefaults().IsDefault() && Project::GetTimeSettings().IsDefault() && Project::GetGraphicsSettings().IsDefault());
+    auto plain = CreateRef<Scene>();
+    CHECK(plain->GetSettings().Gravity == glm::vec2(0.0f, -9.8f) && plain->GetSettings().Gravity3D.y == -9.81f);
+    CHECK(plain->GetSettings().PhysicsStep.StepRate == 60);
+    auto plainOld = CreateRef<Scene>();
+    CHECK(SceneSerializer(plainOld).DeserializeFromString(v3) && plainOld->GetSettings().Gravity.y == -9.8f);
+}
+
+// Project settings: every section through the file and back, defaults, broken values, the window's categories.
+TEST(ProjectSettingsFullRoundTrip)
+{
+    ProjectConfig config;
+    config.Name = "Toliq";
+    config.StartScene = "Scenes/Menu.zscene";
+    config.ScriptModulePath = "Binaries/libToliq.so";
+    config.Player.CompanyName = "Studiya";
+    config.Player.Version = "2.1.0";
+    config.Player.Mode = WindowMode::Borderless;
+    config.Player.TargetFrameRate = 144;
+    config.BuildScenes = { { "Scenes/Menu.zscene", {}, true }, { "Scenes/Level.zscene", {}, false } };
+    config.Tags = { "Hero", "Boss" };
+    config.SortingLayers.Add("Foreground");
+    CHECK(config.CollisionLayers.ApplyPreset(1));
+    config.Audio.AddGroup("Voice");
+    config.Quality.DefaultLevel = 1;
+    config.Graphics.GLMinor = 6;
+    config.Graphics.MSAASamples = 8;
+    config.Graphics.SRGBFramebuffer = true;
+    config.Time.FixedStepRate = 144;
+    config.Time.MaxStepsPerFrame = 8;
+    config.Time.DefaultTimeScale = 0.75f;
+    config.Time.MaxDeltaTime = 0.05f;
+    config.Physics.Gravity2D = { 0.0f, -20.0f };
+    config.Physics.Gravity3D = { 0.0f, -3.71f, 0.0f };
+    config.DebugDraw.ShowContacts = true;
+    config.ExtraSections = { { "MyTool", "{\"A\":1}" } };
+
+    const std::string text = ProjectSerializer::ConfigToString(config);
+    ProjectConfig read;
+    CHECK(ProjectSerializer::ConfigFromString(text, read));
+    CHECK(read.Name == config.Name && read.StartScene == config.StartScene && read.ScriptModulePath == config.ScriptModulePath);
+    CHECK(read.Player == config.Player && read.BuildScenes == config.BuildScenes && read.Tags == config.Tags);
+    CHECK(read.SortingLayers == config.SortingLayers && read.CollisionLayers == config.CollisionLayers && read.Audio == config.Audio);
+    CHECK(read.Quality == config.Quality && read.Graphics == config.Graphics && read.Time == config.Time && read.Physics == config.Physics);
+    CHECK(read.DebugDraw.ShowContacts && read.ExtraSections == config.ExtraSections);
+    CHECK(ProjectSerializer::InputMapToString(read.InputActions) == ProjectSerializer::InputMapToString(config.InputActions));
+    CHECK(ProjectSerializer::ConfigToString(read) == text); // stable: the same text again
+
+    // A fixed section order, the new ones among them; kept keys at the end.
+    std::vector<size_t> order;
+    for (const char* key : { "\"Version\"", "\"Project\"", "\"Player\"", "\"BuildScenes\"", "\"InputActions\"", "\"Tags\"", "\"SortingLayers\"",
+                             "\"CollisionLayers2D\"", "\"Physics\"", "\"Time\"", "\"Audio\"", "\"Quality\"", "\"Graphics\"", "\"DebugDraw\"", "\"MyTool\"" })
+        order.push_back(text.find(key));
+    for (size_t i = 0; i < order.size(); i++)
+        CHECK(order[i] != std::string::npos && (i == 0 || order[i - 1] < order[i]));
+
+    // Every written section belongs to one category of the settings window (but the file's own keys).
+    const auto& categories = ProjectSettingsIndex::GetCategories();
+    for (const auto& [key, value] : ProjectSerializer::ConfigToSections(config))
+    {
+        if (key == "Version" || key == "Project.EngineVersion" || key == "MyTool")
+            continue;
+        int owners = 0;
+        for (const ProjectSettingsCategory& c : categories)
+            owners += (int)std::count(c.Sections.begin(), c.Sections.end(), key);
+        CHECK(owners == 1);
+    }
+    // A change shows in its own category only.
+    ProjectConfig edited = read;
+    edited.Time.FixedStepRate = 50;
+    auto changed = ProjectSettingsIndex::DiffSections(ProjectSerializer::ConfigToSections(read), ProjectSerializer::ConfigToSections(edited));
+    CHECK(changed == std::vector<std::string>{ "Time" });
+    CHECK(ProjectSettingsIndex::IsChanged(categories[(size_t)ProjectSettingsIndex::Find("Time")], changed));
+    CHECK(!ProjectSettingsIndex::IsChanged(categories[(size_t)ProjectSettingsIndex::Find("Graphics")], changed));
+    edited = read;
+    edited.Physics.Gravity2D.y = -9.0f;
+    changed = ProjectSettingsIndex::DiffSections(ProjectSerializer::ConfigToSections(read), ProjectSerializer::ConfigToSections(edited));
+    CHECK(changed.size() == 1 && ProjectSettingsIndex::IsChanged(categories[(size_t)ProjectSettingsIndex::Find("Physics")], changed));
+    // Back to the defaults: the section goes (a missing key counts as changed).
+    edited = read;
+    edited.Graphics = GraphicsSettings();
+    changed = ProjectSettingsIndex::DiffSections(ProjectSerializer::ConfigToSections(read), ProjectSerializer::ConfigToSections(edited));
+    CHECK(changed == std::vector<std::string>{ "Graphics" });
+    // The search finds the new settings.
+    std::vector<std::string> hits;
+    CHECK(ProjectSettingsIndex::Matches(categories[(size_t)ProjectSettingsIndex::Find("Graphics")], "msaa", &hits) && !hits.empty());
+    CHECK(ProjectSettingsIndex::Matches(categories[(size_t)ProjectSettingsIndex::Find("Time")], "sekinlashtirish", &hits) && !hits.empty());
+    CHECK(ProjectSettingsIndex::Matches(categories[(size_t)ProjectSettingsIndex::Find("Physics")], "gravitatsiya", &hits) && hits.size() >= 3);
+    CHECK(!ProjectSettingsIndex::Matches(categories[(size_t)ProjectSettingsIndex::Find("Audio")], "opengl", &hits));
+
+    // The defaults write none of the optional sections (older files stay as they were).
+    const std::string plain = ProjectSerializer::ConfigToString(ProjectConfig());
+    for (const char* key : { "\"Player\": ", "\"BuildScenes\": ", "\"SortingLayers\": ", "\"CollisionLayers2D\": ", "\"Physics\": ",
+                             "\"Time\": ", "\"Audio\": ", "\"Quality\": ", "\"Graphics\": " })
+        CHECK(plain.find(key) == std::string::npos); // ("Player" is also one of the default tags)
+    // An older file without them: the defaults.
+    ProjectConfig older;
+    older.Time.FixedStepRate = 99; // overwritten by the file's (missing) section
+    CHECK(ProjectSerializer::ConfigFromString(R"({ "Version": 2, "Project": { "Name": "Eski" }, "Tags": [ "A" ] })", older));
+    CHECK(older.Graphics.IsDefault() && older.Time.IsDefault() && older.Physics.IsDefault() && older.Player.IsDefault() && older.ExtraSections.empty());
+    // Wrong values are put into their ranges; a section of the wrong type is left at the defaults.
+    ProjectConfig wrong;
+    CHECK(ProjectSerializer::ConfigFromString(R"({ "Version": 2, "Project": { "Name": "W" },
+        "Graphics": { "OpenGL": "3.3", "MSAA": 100 }, "Time": { "FixedStepRate": 5, "MaxDeltaTime": 0 },
+        "Physics": { "Gravity2D": [0, 99999] } })", wrong));
+    CHECK(wrong.Graphics.GetVersionString() == "4.1" && wrong.Graphics.MSAASamples == 16);
+    CHECK(wrong.Time.FixedStepRate == 20 && wrong.Time.MaxDeltaTime == TimeSettings::MinMaxDeltaTime && wrong.Physics.Gravity2D.y == PhysicsDefaults::MaxGravity);
+    CHECK(ProjectSerializer::ConfigFromString(R"({ "Version": 2, "Project": { "Name": "W" }, "Graphics": [ 4 ], "Time": 5, "Physics": "x" })", wrong));
+    CHECK(wrong.Graphics.IsDefault() && wrong.Time.IsDefault() && wrong.Physics.IsDefault() && wrong.ExtraSections.empty());
+
+    // Through the disk: saved, loaded as the active project, its accessors.
+    namespace fs = std::filesystem;
+    fs::path dir = fs::temp_directory_path() / ("zamin-project-full-" + std::to_string((uint64_t)UUID()));
+    fs::create_directories(dir);
+    FileSystem::WriteTextFile(dir / "Toliq.zproject", text);
+    Ref<Project> previous = Project::GetActive();
+    ScopeExit restore{ [previous, dir]() {
+        Project::SetActive(previous);
+        if (previous)
+            Quality::SetSettings(previous->GetConfig().Quality);
+        else
+            Quality::Reset();
+        if (previous)
+            AudioEngine::SetMixerSettings(previous->GetConfig().Audio);
+        else
+            AudioEngine::SetMixerSettings(AudioSettings());
+        std::error_code ec;
+        fs::remove_all(dir, ec);
+    } };
+    Ref<Project> loaded = Project::Load(dir / "Toliq.zproject");
+    CHECK(loaded && Project::GetActive() == loaded);
+    if (!loaded)
+        return;
+    CHECK(Project::GetGraphicsSettings() == config.Graphics && Project::GetTimeSettings() == config.Time && Project::GetPhysicsDefaults() == config.Physics);
+    CHECK(Time::GetSettings().MaxDeltaTime == 0.05f && Application::GetVersion() == "2.1.0" && Application::GetCompanyName() == "Studiya");
+    CHECK(Project::SaveActive(dir / "Toliq.zproject") && FileSystem::ReadTextFile(dir / "Toliq.zproject") == text);
 }

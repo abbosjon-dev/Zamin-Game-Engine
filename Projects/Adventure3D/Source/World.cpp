@@ -1,5 +1,6 @@
 #include "Adventure.h"
 
+#include <algorithm>
 #include <cmath>
 
 using namespace Zamin;
@@ -55,11 +56,33 @@ void AdventureGame::OnCreate()
 
 void AdventureGame::OnUpdate(Timestep ts)
 {
+    UpdateSlowMotion();
     if (m_WinTimer > 0.0f)
     {
         m_WinTimer -= ts;
         if (m_WinTimer <= 0.0f) LoadScene("Scenes/Island.zscene");
     }
+}
+
+// Slow motion: T / gamepad Y eases the game's clock to SlowMotionScale and back. The ease runs on real time
+// (Time::GetUnscaledDeltaTime): it takes as long whatever the scale is. Physics, animations, particles and
+// timers follow the clock; the camera orbit keys too (they use the scaled time).
+void AdventureGame::UpdateSlowMotion()
+{
+    if (Input::IsKeyJustPressed(Key::T) || Input::IsGamepadButtonJustPressed(GamepadButton::Y))
+    {
+        m_SlowMotion = !m_SlowMotion;
+        ZM_INFO("Sekinlashtirish: {}", m_SlowMotion ? "yoqildi" : "o'chirildi");
+    }
+    if (Time::IsPaused())
+        return;
+    const float target = m_SlowMotion ? std::clamp(SlowMotionScale, 0.05f, 1.0f) : 1.0f;
+    const float scale = Time::GetTimeScale();
+    if (scale == target)
+        return;
+    const float step = Time::GetUnscaledDeltaTime() * SlowMotionEase;
+    Time::SetTimeScale(scale < target ? std::min(target, scale + step) : std::max(target, scale - step));
+    Refresh();
 }
 
 void AdventureGame::Collect()
@@ -79,9 +102,11 @@ void AdventureGame::Refresh()
     {
         text->Text = std::format("Kristallar: {} / {}", m_Collected, m_Total);
         if (m_Total > 0 && m_Collected >= m_Total) text->Text += "   -   G'alaba!";
+        if (const float scale = Time::GetTimeScale(); scale < 0.999f)
+            text->Text += std::format("   -   Sekin: {:.0f}%", scale * 100.0f);
     }
 }
-ZM_REGISTER_SCRIPT(AdventureGame)
+ZM_REGISTER_SCRIPT(AdventureGame, ZM_FIELD(AdventureGame, SlowMotionScale), ZM_FIELD(AdventureGame, SlowMotionEase))
 
 // Kristal: aylanadi, suzadi; o'yinchi yaqinlashsa yig'iladi.
 class Crystal : public ScriptableEntity

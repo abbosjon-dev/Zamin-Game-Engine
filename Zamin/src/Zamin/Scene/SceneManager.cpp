@@ -700,8 +700,9 @@ namespace Zamin {
                 StopScene(it->SceneRef);
             if (m_Persistent)
             {
+                // The project's speed (Project settings > Time), as a scene's play starts.
                 m_Persistent->SetGamePaused(false);
-                m_Persistent->SetTimeScale(1.0f);
+                m_Persistent->SetTimeScale(Project::GetTimeSettings().DefaultTimeScale);
             }
         }
         const Scene* clock = m_Active ? m_Active.get() : nullptr;

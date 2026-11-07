@@ -1,4 +1,5 @@
 #include "Zamin/Renderer/PostProcess.h"
+#include "Zamin/Renderer/GraphicsContext.h"
 #include "Zamin/Renderer/Quality.h"
 #include "Zamin/Renderer/RenderCommand.h"
 #include "Zamin/Renderer/Renderer.h"
@@ -173,6 +174,7 @@ void main()
         // Film grain, shared by the last pass of the picture (the composite, or FXAA after it):
         // value noise of hashed lattice points, a new pattern every frame (u_GrainSeed).
         const char* s_GrainGLSL = R"(
+uniform int u_LinearOutput;    // 1: the window's sRGB framebuffer encodes the picture (it is written linear)
 uniform float u_FilmGrain;     // 0: no grain
 uniform float u_GrainSize;     // output pixels per grain
 uniform int u_GrainSeed;
@@ -196,6 +198,12 @@ float GrainValue(vec2 p, uint seed)
     float a = GrainLattice(c, seed), b = GrainLattice(c + ivec2(1, 0), seed);
     float d = GrainLattice(c + ivec2(0, 1), seed), e = GrainLattice(c + ivec2(1, 1), seed);
     return mix(mix(a, b, f.x), mix(d, e, f.x), f.y);
+}
+// The display colour as the target wants it: as it is, or back to linear for an sRGB framebuffer
+// (the hardware encodes it with the exact sRGB curve).
+vec3 FinalOutput(vec3 color)
+{
+    return u_LinearOutput == 1 ? pow(color, vec3(2.2)) : color;
 }
 // Display colour with grain over it: two noise values (a softer, triangular spread), strongest in
 // the mid tones (dark and bright parts keep their black and white).
@@ -305,7 +313,7 @@ void main()
     color = clamp(color, 0.0, 1.0);
     if (u_ApplyGrain == 1)
         color = ApplyGrain(color, gl_FragCoord.xy);
-    o_Color = vec4(color, 1.0);
+    o_Color = vec4(FinalOutput(color), 1.0);
 }
 )";
 
@@ -341,7 +349,7 @@ void main()
     // flat area: nothing to smooth
     if (lumaRange < max(EDGE_THRESHOLD_MIN, lumaMax * EDGE_THRESHOLD_MAX))
     {
-        o_Color = vec4(ApplyGrain(colorCenter, gl_FragCoord.xy), 1.0);
+        o_Color = vec4(FinalOutput(ApplyGrain(colorCenter, gl_FragCoord.xy)), 1.0);
         return;
     }
 
@@ -421,7 +429,7 @@ void main()
     vec2 finalUV = v_UV;
     if (isHorizontal) finalUV.y += finalOffset * stepLength;
     else finalUV.x += finalOffset * stepLength;
-    o_Color = vec4(ApplyGrain(textureLod(u_Source, finalUV, 0.0).rgb, gl_FragCoord.xy), 1.0);
+    o_Color = vec4(FinalOutput(ApplyGrain(textureLod(u_Source, finalUV, 0.0).rgb, gl_FragCoord.xy)), 1.0);
 }
 )";
 
@@ -982,6 +990,10 @@ void main()
         }
         else if (target)
             target->Bind();
+        // The window's framebuffer is sRGB (Project settings > Graphics): the last pass writes linear
+        // colours and the hardware encodes them.
+        const bool srgbWindow = GraphicsContext::GetInfo().SRGB;
+        const bool compositeToSRGB = srgbWindow && !fxaa && !target && RenderCommand::IsDrawingToWindow();
         RenderCommand::SetBlendMode(BlendMode::None);
         // Grain: a new pattern every frame of a view with a history (a still one otherwise).
         const uint32_t grainFrame = input.History ? input.History->m_Frame++ : 0u;
@@ -1005,6 +1017,7 @@ void main()
         comp->SetFloat("u_ChromaticAberration", lens.ChromaticAberration);
         // Grain on the last pass (FXAA would smooth it away).
         comp->SetInt("u_ApplyGrain", fxaa ? 0 : 1);
+        comp->SetInt("u_LinearOutput", compositeToSRGB ? 1 : 0);
         for (auto* sh : { comp.get(), s_Data->Fxaa.get() })
         {
             sh->Bind();
@@ -1030,7 +1043,11 @@ void main()
             s.SanitizeAutoExposure();
             comp->SetFloat("u_ExposureScale", PostProcessSettings::AutoExposureKey * std::exp2(s.AutoExposureCompensation));
         }
+        if (compositeToSRGB)
+            RenderCommand::SetFramebufferSRGB(true);
         RenderCommand::DrawArrays(3);
+        if (compositeToSRGB)
+            RenderCommand::SetFramebufferSRGB(false);
         stats.DrawCalls++;
 
         // FXAA: the composited picture, anti-aliased into the target.
@@ -1045,7 +1062,13 @@ void main()
             RenderCommand::BindTextureUnit(0, fxaaInput->GetColorAttachmentRendererID(0));
             aa->SetFloat2("u_TexelSize", { 1.0f / outWidth, 1.0f / outHeight });
             aa->SetFloat("u_Subpixel", std::clamp(settings.FXAASubpixel, 0.0f, 1.0f));
+            const bool fxaaToSRGB = srgbWindow && !target && RenderCommand::IsDrawingToWindow();
+            aa->SetInt("u_LinearOutput", fxaaToSRGB ? 1 : 0);
+            if (fxaaToSRGB)
+                RenderCommand::SetFramebufferSRGB(true);
             RenderCommand::DrawArrays(3);
+            if (fxaaToSRGB)
+                RenderCommand::SetFramebufferSRGB(false);
             stats.DrawCalls++;
         }
 

@@ -24,6 +24,9 @@ namespace Zamin {
     //       their current keys only.
     //   3 - a sub-scene's file (SubScene) under "Path" / "PathUUID" instead of "Scene" / "SceneUUID"
     //       ("Scene" is a name key: moving the file did not update the reference).
+    //   4 - the gravity ("Gravity" / "Gravity3D" of "Settings") only when the scene has its own; without
+    //       it the scene follows the project's (Project settings > Physics). Older files always had it:
+    //       the engine's value (0, -9.8) / (0, -9.81, 0) there is taken out (it was the default).
     struct SceneMigrationStep
     {
         int From = 0, To = 0;
@@ -49,7 +52,7 @@ namespace Zamin {
     {
     public:
         // The version scene files are written in.
-        static constexpr int CurrentVersion = 3;
+        static constexpr int CurrentVersion = 4;
 
         // Every step this engine knows, oldest first: From 0 .. CurrentVersion - 1, each To = From + 1.
         static const std::vector<SceneMigrationStep>& GetChain();

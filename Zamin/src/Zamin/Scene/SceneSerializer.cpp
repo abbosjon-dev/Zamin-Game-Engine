@@ -2985,9 +2985,9 @@ namespace Zamin {
             { "Ground", ToJson(s.GroundColor) }, { "Ambient", s.AmbientIntensity }, { "Exposure", s.Exposure },
             { "Sky", { { "Curve", s.Sky.Curve }, { "GroundFade", s.Sky.GroundFade }, { "SunDisc", s.Sky.SunDisc },
                        { "SunSize", s.Sky.SunSize }, { "SunIntensity", s.Sky.SunIntensity }, { "SunGlow", s.Sky.SunGlow } } },
-            { "ShadowDistance", s.ShadowDistance }, { "RenderScale", s.RenderScale }, { "Gravity", ToJson(s.Gravity) },
+            { "ShadowDistance", s.ShadowDistance }, { "RenderScale", s.RenderScale },
             { "Environment", { { "Map", s.EnvironmentMap }, { "Intensity", s.EnvironmentIntensity }, { "Rotation", s.EnvironmentRotation } } },
-            { "Fog", { { "Enabled", s.FogEnabled }, { "Color", ToJson(s.FogColor) }, { "Density", s.FogDensity }, { "HeightFalloff", s.FogHeightFalloff } } }, { "Gravity3D", ToJson(s.Gravity3D) },
+            { "Fog", { { "Enabled", s.FogEnabled }, { "Color", ToJson(s.FogColor) }, { "Density", s.FogDensity }, { "HeightFalloff", s.FogHeightFalloff } } },
             { "Shadows", { { "AtlasSize", s.Shadows.AtlasSize }, { "Filter", (int)s.Shadows.Filter }, { "Cascades", s.Shadows.CascadeCount },
                            { "CascadeSplit", s.Shadows.CascadeSplit }, { "DepthBias", s.Shadows.DepthBias }, { "NormalBias", s.Shadows.NormalBias } } },
             { "Post", {
@@ -3007,9 +3007,23 @@ namespace Zamin {
         if (s.Lighting2D != SceneSettings::Lighting2DSettings())
             root["Settings"]["Lighting2D"] = { { "AmbientColor", ToJson(s.Lighting2D.AmbientColor) },
                                                { "AmbientIntensity", s.Lighting2D.AmbientIntensity } };
-        // Physics step / Box2D settings only when changed (older files stay as they were).
-        if (s.PhysicsStep != SceneSettings::PhysicsStepSettings())
-            root["Settings"]["PhysicsStep"] = { { "Rate", s.PhysicsStep.StepRate }, { "MaxStepsPerFrame", s.PhysicsStep.MaxStepsPerFrame } };
+        // Gravity and the physics step only when the scene has its own (else it follows the project:
+        // Project settings > Physics / Time). A value written straight (a script, a test) that is not the
+        // project's counts as the scene's own.
+        const PhysicsDefaults& physics = Project::GetPhysicsDefaults();
+        if (!s.UseProjectGravity || !SameGravity(s.Gravity, physics.Gravity2D))
+            root["Settings"]["Gravity"] = ToJson(s.Gravity);
+        if (!s.UseProjectGravity3D || !SameGravity(s.Gravity3D, physics.Gravity3D))
+            root["Settings"]["Gravity3D"] = ToJson(s.Gravity3D);
+        {
+            const TimeSettings& time = Project::GetTimeSettings();
+            SceneSettings::PhysicsStepSettings projectStep;
+            projectStep.StepRate = time.FixedStepRate;
+            projectStep.MaxStepsPerFrame = time.MaxStepsPerFrame;
+            projectStep.Sanitize();
+            if (!s.UseProjectPhysicsStep || s.PhysicsStep != projectStep)
+                root["Settings"]["PhysicsStep"] = { { "Rate", s.PhysicsStep.StepRate }, { "MaxStepsPerFrame", s.PhysicsStep.MaxStepsPerFrame } };
+        }
         if (s.Physics2D != SceneSettings::Physics2DSettings())
             root["Settings"]["Physics2D"] = { { "VelocityIterations", s.Physics2D.VelocityIterations },
                                               { "PositionIterations", s.Physics2D.PositionIterations },
@@ -3476,17 +3490,26 @@ namespace Zamin {
             // Older scenes have none: 1 (the picture at the view's own size).
             float renderScale = j.value("RenderScale", 1.0f);
             s.RenderScale = std::isfinite(renderScale) ? std::clamp(renderScale, Renderer::MinRenderScale, Renderer::MaxRenderScale) : 1.0f;
+            // Gravity: the scene's own when the file has it, else the project's (Project settings > Physics).
+            // (Older files always had it: the migration to v4 took the engine's value out of them.)
+            s.UseProjectGravity = !j.contains("Gravity");
+            s.UseProjectGravity3D = !j.contains("Gravity3D");
             s.Gravity = Vec(j, "Gravity", s.Gravity);
             s.Gravity3D = Vec(j, "Gravity3D", s.Gravity3D);
-            // Older scenes have none: 60 steps a second, Box2D's 6 / 2 iterations, one sub-step,
-            // sleeping after 0.5 s. Out-of-range values are clamped.
+            // The physics step: the scene's own when it has the section (older files wrote it only when it
+            // was changed), else the project's (Project settings > Time: 60 steps a second, at most 5 a
+            // frame without one). Box2D: 6 / 2 iterations, one sub-step, sleeping after 0.5 s. Out-of-range
+            // values are clamped.
             s.PhysicsStep = {};
+            s.UseProjectPhysicsStep = true;
             if (auto ps = j.find("PhysicsStep"); ps != j.end() && ps->is_object())
             {
                 s.PhysicsStep.StepRate = ps->value("Rate", s.PhysicsStep.StepRate);
                 s.PhysicsStep.MaxStepsPerFrame = ps->value("MaxStepsPerFrame", s.PhysicsStep.MaxStepsPerFrame);
+                s.UseProjectPhysicsStep = false;
             }
             s.PhysicsStep.Sanitize();
+            s.ApplyProjectDefaults();
             s.Physics2D = {};
             if (auto p2 = j.find("Physics2D"); p2 != j.end() && p2->is_object())
             {

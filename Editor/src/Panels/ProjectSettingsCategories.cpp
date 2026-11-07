@@ -200,7 +200,7 @@ namespace Zamin {
         ImGui::Spacing();
         QualityLevel& level = q.Levels[(size_t)m_QualityLevel];
         ImGui::SeparatorText(std::format("{}  Daraja: {}", ICON_FA_GAUGE_HIGH, level.Name).c_str());
-        if (UI::BeginPropertyGrid("qualityLevel"))
+        if (UI::BeginPropertyGrid("qualityLevel", std::min(ImGui::GetContentRegionAvail().x * 0.42f, ImGui::GetFontSize() * 12.0f)))
         {
             UI::PropertyLabel("Nomi");
             ImGui::InputText("##levelName", &m_QualityNameBuffer);
@@ -473,6 +473,8 @@ namespace Zamin {
             ImGui::OpenPopup("CollisionPresets");
             m_AutomationOpen.clear();
         }
+        // The menu opens under its button.
+        ImGui::SetNextWindowPos(ImVec2(ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y + 2.0f), ImGuiCond_Appearing);
         if (ImGui::BeginPopup("CollisionPresets"))
         {
             for (int i = 0; i < (int)presets.size(); i++)

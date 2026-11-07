@@ -606,6 +606,17 @@ namespace Zamin {
         // longer walkable: a Nav Obstacle moved in). Agents check this themselves when their grid's
         // carving changes and find a new path.
         bool IsNavPathBlocked(Entity agent);
+        // The Nav Agents' last update: how many there were, how many paths they found and how long
+        // that took (on the job system's workers when there were at least NavParallelPathThreshold).
+        struct NavFrameStats
+        {
+            uint32_t Agents = 0;
+            uint32_t PathRequests = 0;
+            float PathMilliseconds = 0.0f;
+            bool Parallel = false;
+        };
+        static constexpr size_t NavParallelPathThreshold = 4;
+        const NavFrameStats& GetNavFrameStats() const { return m_NavFrameStats; }
         // Nav Obstacles carve their cells now (the game does it every frame before the agents move):
         // after moving one from a script, for paths found in the same frame.
         void UpdateNavObstacles();
@@ -1715,6 +1726,7 @@ namespace Zamin {
         entt::entity m_SelectedUI = entt::null;     // keyboard / gamepad navigation
         bool m_UISelectionHighlight = false;
         bool m_UINavigationEnabled = true;
+        NavFrameStats m_NavFrameStats;
         int m_UINavHeld = -1;                       // the gamepad direction held (-1 none), for repeats
         float m_UINavRepeat = 0.0f;                 // seconds until it repeats
         entt::entity m_UISubmitFlash = entt::null;  // a button submitted by key looks pressed for a moment

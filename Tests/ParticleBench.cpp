@@ -19,6 +19,10 @@
 // ZaminBench --serialize [--entities N]: saving and loading a large scene (10 000 entities by
 // default: sprites, bodies, scripts, texts, a hierarchy) in the sample Platformer2D project - the
 // JSON text and the binary cache (.zsceneb), each load stage by stage (SceneLoadTiming).
+//
+// ZaminBench --nav [--agents N] [--grid N] [--frames N] [--jobs N]: navigation instead (NavBench.cpp):
+// the grids' bakes, N path searches at once on one thread and batched over the job system, and a
+// scene of N Nav Agents (200 on a 256 x 256 grid by default).
 #include <Zamin/Zamin.h>
 
 #include <algorithm>
@@ -34,6 +38,8 @@
 
 using namespace Zamin;
 using PS = ParticleSystemComponent;
+
+int RunNavBench(int agents, int size, int frames, int jobs); // NavBench.cpp
 
 namespace {
 
@@ -519,10 +525,22 @@ int main(int argc, char** argv)
     int entities = 10000;
     int jobs = 0;
     int animators = 0;
+    bool nav = false;
+    int navAgents = 200, navGrid = 256;
+    bool framesGiven = false;
     for (int i = 1; i < argc; i++)
     {
         if (!std::strcmp(argv[i], "--frames") && i + 1 < argc)
+        {
             frames = std::max(1, std::atoi(argv[++i]));
+            framesGiven = true;
+        }
+        else if (!std::strcmp(argv[i], "--nav"))
+            nav = true;
+        else if (!std::strcmp(argv[i], "--agents") && i + 1 < argc)
+            navAgents = std::max(1, std::atoi(argv[++i]));
+        else if (!std::strcmp(argv[i], "--grid") && i + 1 < argc)
+            navGrid = std::max(32, std::atoi(argv[++i]));
         else if (!std::strcmp(argv[i], "--scale") && i + 1 < argc)
             scale = std::max(0.01f, (float)std::atof(argv[++i]));
         else if (!std::strcmp(argv[i], "--case") && i + 1 < argc)
@@ -544,10 +562,13 @@ int main(int argc, char** argv)
             std::printf("ZaminBench [--frames N] [--scale X] [--case <nom qismi>] [--profile] [--jobs N]\n"
                         "ZaminBench --animators N [--frames N] [--jobs N]\n"
                         "ZaminBench --queries [--entities N]\n"
-                        "ZaminBench --serialize [--entities N]\n");
+                        "ZaminBench --serialize [--entities N]\n"
+                        "ZaminBench --nav [--agents N] [--grid N] [--frames N] [--jobs N]\n");
             return 1;
         }
     }
+    if (nav)
+        return RunNavBench(navAgents, navGrid, framesGiven ? frames : 300, jobs);
     if (animators > 0)
     {
         if (jobs > 0)

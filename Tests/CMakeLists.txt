@@ -52,8 +52,8 @@ add_custom_target(update_render_references
 
 # Particle benchmark (not part of ctest): times the particle update headless - about 50 000
 # particles per case, the profiler's scopes with --profile. Run build/bin/ZaminBench, or the
-# particle_bench target.
-add_executable(ZaminBench ParticleBench.cpp)
+# particle_bench target (--nav: the navigation benchmark, the nav_bench target).
+add_executable(ZaminBench ParticleBench.cpp NavBench.cpp)
 target_link_libraries(ZaminBench PRIVATE Zamin)
 set_target_properties(ZaminBench PROPERTIES BUILD_RPATH "${CMAKE_BINARY_DIR}/bin")
 # --serialize saves / loads a large scene in the sample Platformer2D project.
@@ -66,6 +66,14 @@ add_custom_target(particle_bench
     DEPENDS ZaminBench
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
     COMMENT "Particle benchmark (ms / kadr)"
+    USES_TERMINAL VERBATIM)
+# Navigation benchmark: 200 Nav Agents on a 256 x 256 grid - the bakes, the path searches on one thread
+# and batched over the job system, ms / frame (ZaminBench --nav).
+add_custom_target(nav_bench
+    COMMAND $<TARGET_FILE:ZaminBench> --nav
+    DEPENDS ZaminBench
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+    COMMENT "Navigatsiya benchmark (yo'l qidirish, agentlar, bake)"
     USES_TERMINAL VERBATIM)
 
 # Player performance test (not part of ctest: it needs a display - xvfb-run without one): the sample games'

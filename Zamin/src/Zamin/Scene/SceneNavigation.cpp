@@ -8,6 +8,7 @@
 #include "Zamin/AI/NavPathSmoothing.h"
 #include "Zamin/AI/NavPathfinder.h"
 #include "Zamin/AI/Steering.h"
+#include "Zamin/Core/JobSystem.h"
 #include "Zamin/Core/Log.h"
 #include "Zamin/Core/Profiler.h"
 #include "Zamin/Math/Math.h"
@@ -798,35 +799,84 @@ namespace Zamin {
     }
 
     // ------------------------------------------------------------------ agents
+    namespace {
+
+        // One agent's path search: what it needs (filled on the main thread), what it found (filled
+        // by whichever thread runs it - only the grid is read, and each thread has its own pathfinder).
+        struct NavPathRequest
+        {
+            NavAgentComponent* Agent = nullptr;
+            const NavGrid* Grid = nullptr;
+            int Dimension = 2;
+            const NavGridPathSettings* Settings = nullptr;
+            glm::vec3 From{ 0.0f }, To{ 0.0f };
+            bool Smooth = true, Spline = false;
+            std::vector<glm::vec3> Path;
+            NavPathStatus Status = NavPathStatus::None;
+        };
+
+        // The bookkeeping of a new search; false when the agent has no baked grid (the path failed).
+        bool PrepareNavPath(NavAgentComponent& a, const NavGrid* grid, int dimension, const NavGridPathSettings* settings, const glm::vec3& from,
+                            NavPathRequest& request)
+        {
+            a.RepathRequested = false;
+            a.RepathTimer = std::max(0.0f, a.RepathInterval);
+            a.PathRequests++;
+            a.PathIndex = 1;
+            if (!grid || !settings)
+            {
+                a.Path.clear();
+                a.PathStatus = NavPathStatus::Failed;
+                a.Remaining = 0.0f;
+                return false;
+            }
+            request.Agent = &a;
+            request.Grid = grid;
+            request.Dimension = dimension;
+            request.Settings = settings;
+            request.From = from;
+            request.To = a.Destination;
+            request.Smooth = a.SmoothPath;
+            request.Spline = a.SplinePath;
+            return true;
+        }
+
+        void RunNavPath(NavPathRequest& r)
+        {
+            r.Status = FindPathOnGrid(*r.Grid, r.Dimension, *r.Settings, r.From, r.To, r.Smooth, r.Spline, r.Path);
+        }
+
+        void ApplyNavPath(NavPathRequest& r)
+        {
+            NavAgentComponent& a = *r.Agent;
+            a.PathStatus = r.Status;
+            a.Path = std::move(r.Path);
+            a.GridRevision = r.Grid->GetRevision();
+            a.CarveRevision = r.Grid->GetCarveRevision();
+            a.Remaining = NavPathSmoothing::GetLength(a.Path);
+            if (a.Path.size() < 2)
+            {
+                // Nothing to walk: there already, or no way to get nearer.
+                a.Arrived = a.PathStatus != NavPathStatus::Failed;
+                a.Path.clear();
+                a.Remaining = 0.0f;
+            }
+            else
+                a.Arrived = false;
+        }
+
+    }
+
     bool Scene::ComputeNavAgentPath(Entity agent, NavAgentComponent& a)
     {
-        a.RepathRequested = false;
-        a.RepathTimer = std::max(0.0f, a.RepathInterval);
-        a.PathRequests++;
-        a.PathIndex = 1;
         int dimension;
         const NavGridPathSettings* settings;
         const NavGrid* grid = GetBakedGrid(GetNavAgentGrid(agent), dimension, settings);
-        if (!grid)
-        {
-            a.Path.clear();
-            a.PathStatus = NavPathStatus::Failed;
-            a.Remaining = 0.0f;
+        NavPathRequest request;
+        if (!PrepareNavPath(a, grid, dimension, settings, GetWorldPosition(agent), request))
             return false;
-        }
-        a.PathStatus = FindPathOnGrid(*grid, dimension, *settings, GetWorldPosition(agent), a.Destination, a.SmoothPath, a.SplinePath, a.Path);
-        a.GridRevision = grid->GetRevision();
-        a.CarveRevision = grid->GetCarveRevision();
-        a.Remaining = NavPathSmoothing::GetLength(a.Path);
-        if (a.Path.size() < 2)
-        {
-            // Nothing to walk: there already, or no way to get nearer.
-            a.Arrived = a.PathStatus != NavPathStatus::Failed;
-            a.Path.clear();
-            a.Remaining = 0.0f;
-        }
-        else
-            a.Arrived = false;
+        RunNavPath(request);
+        ApplyNavPath(request);
         return a.PathStatus != NavPathStatus::Failed;
     }
 
@@ -1052,6 +1102,18 @@ namespace Zamin {
             return;
         ZM_PROFILE_SCOPE("Navigatsiya agentlari");
         std::vector<glm::vec2> plane;
+        // Each active agent's grid this frame (found once: the lookup walks the grids).
+        struct AgentFrame
+        {
+            entt::entity Handle;
+            const NavGrid* Grid;
+            int Dim;
+        };
+        std::vector<AgentFrame> agents;
+        agents.reserve(view.size());
+        std::vector<NavPathRequest> requests;
+
+        // ---- 1: who needs a new path (a target that moved, a blocked path, the repath timer)
         for (auto e : view)
         {
             Entity entity{ e, this };
@@ -1114,8 +1176,46 @@ namespace Zamin {
                 if (a.RepathInterval > 0.0f && a.RepathTimer <= 0.0f && (!a.Arrived || a.Target))
                     repath = true;
                 if (repath)
-                    ComputeNavAgentPath(entity, a);
+                {
+                    NavPathRequest request;
+                    if (PrepareNavPath(a, grid, dimension, settings, GetWorldPosition(entity), request))
+                        requests.push_back(std::move(request));
+                }
             }
+            agents.push_back({ e, grid, dim });
+        }
+
+        // ---- 2: the searches - spread over the job system's workers when there are several (each
+        // thread has its own pathfinder; the grids are only read), applied in the agents' order.
+        m_NavFrameStats = {};
+        m_NavFrameStats.Agents = (uint32_t)agents.size();
+        m_NavFrameStats.PathRequests = (uint32_t)requests.size();
+        if (!requests.empty())
+        {
+            ZM_PROFILE_SCOPE("Navigatsiya yo'llari");
+            const auto clock = std::chrono::steady_clock::now();
+            m_NavFrameStats.Parallel = requests.size() >= NavParallelPathThreshold && JobSystem::IsParallel();
+            if (m_NavFrameStats.Parallel)
+                JobSystem::ParallelFor((uint32_t)requests.size(), 1, [&](uint32_t begin, uint32_t end) {
+                    for (uint32_t i = begin; i < end; i++)
+                        RunNavPath(requests[i]);
+                });
+            else
+                for (NavPathRequest& request : requests)
+                    RunNavPath(request);
+            for (NavPathRequest& request : requests)
+                ApplyNavPath(request);
+            m_NavFrameStats.PathMilliseconds = ElapsedMilliseconds(clock);
+        }
+
+        // ---- 3: walking
+        for (const AgentFrame& frame : agents)
+        {
+            const entt::entity e = frame.Handle;
+            Entity entity{ e, this };
+            auto& a = m_Registry.get<NavAgentComponent>(e);
+            const NavGrid* grid = frame.Grid;
+            const int dim = frame.Dim;
 
             const glm::vec3 position = GetWorldPosition(entity);
             const glm::vec2 p = ToPlane(position, dim);

@@ -334,7 +334,7 @@ namespace Zamin {
         // ---- the Joylashuvlar window
         if (!m_ShowLayouts)
             return;
-        ImGui::SetNextWindowSize(ImVec2(em * 34.0f, em * 26.0f), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(em * 42.0f, em * 28.0f), ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_FirstUseEver, ImVec2(0.5f, 0.5f));
         if (!ImGui::Begin(ICON_FA_WINDOW_RESTORE "  Joylashuvlar###Layouts", &m_ShowLayouts, ImGuiWindowFlags_NoCollapse))
         {
@@ -343,22 +343,33 @@ namespace Zamin {
         }
         const std::string& current = m_Preferences.Layout.Current;
         ImGui::SeparatorText("Editor joylashuvlari");
-        for (int i = 0; i < (int)BuiltInLayout::Count; i++)
+        if (ImGui::BeginTable("##builtins", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH))
         {
-            const BuiltInLayout layout = (BuiltInLayout)i;
-            ImGui::PushID(i);
-            const bool selected = current == EditorLayoutLibrary::GetBuiltInKey(layout);
-            ImGui::AlignTextToFramePadding();
-            if (selected)
-                ImGui::TextColored(UI::AccentColor(), "%s  %s", BuiltInIcon(layout), EditorLayoutLibrary::GetBuiltInName(layout));
-            else
-                ImGui::Text("%s  %s", BuiltInIcon(layout), EditorLayoutLibrary::GetBuiltInName(layout));
-            ImGui::SameLine(em * 9.0f);
-            ImGui::TextDisabled("%s", BuiltInDescription(layout));
-            ImGui::SameLine(ImGui::GetContentRegionMax().x - em * 6.5f);
-            if (ImGui::SmallButton(ICON_FA_CHECK "  Qo'llash"))
-                RequestBuiltInLayout(layout);
-            ImGui::PopID();
+            ImGui::TableSetupColumn("Nomi", ImGuiTableColumnFlags_WidthFixed, em * 8.0f);
+            ImGui::TableSetupColumn("Ta'rif", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableSetupColumn("##apply", ImGuiTableColumnFlags_WidthFixed, em * 6.0f);
+            for (int i = 0; i < (int)BuiltInLayout::Count; i++)
+            {
+                const BuiltInLayout layout = (BuiltInLayout)i;
+                ImGui::PushID(i);
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::AlignTextToFramePadding();
+                if (current == EditorLayoutLibrary::GetBuiltInKey(layout))
+                    ImGui::TextColored(UI::AccentColor(), "%s  %s", BuiltInIcon(layout), EditorLayoutLibrary::GetBuiltInName(layout));
+                else
+                    ImGui::Text("%s  %s", BuiltInIcon(layout), EditorLayoutLibrary::GetBuiltInName(layout));
+                ImGui::TableNextColumn();
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextDisabled("%s", BuiltInDescription(layout));
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip(BuiltInDescription(layout));
+                ImGui::TableNextColumn();
+                if (ImGui::Button(ICON_FA_CHECK "  Qo'llash", ImVec2(-FLT_MIN, 0.0f)))
+                    RequestBuiltInLayout(layout);
+                ImGui::PopID();
+            }
+            ImGui::EndTable();
         }
 
         ImGui::SeparatorText("Saqlanganlar");

@@ -359,11 +359,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 308. So'nggi sahnalar ro'yxati
 - [x] 309. Undo tarixi paneli
 - [x] 310. Selection uchun undo
-- [ ] 311. Editor layout'larini saqlash/yuklash
-- [ ] 312. Bir nechta viewport (yon tomondan/yuqoridan ko'rinish)
-- [ ] 313. Ortografik ko'rinishlar (Top/Front/Right) tugmalari
-- [ ] 314. Editor kamerasi tezligi sozlamasi va FOV
-- [ ] 315. Viewport'da obyekt nomlarini ko'rsatish
+- [x] 311. Editor layout'larini saqlash/yuklash
+- [x] 312. Bir nechta viewport (yon tomondan/yuqoridan ko'rinish)
+- [x] 313. Ortografik ko'rinishlar (Top/Front/Right) tugmalari
+- [x] 314. Editor kamerasi tezligi sozlamasi va FOV
+- [x] 315. Viewport'da obyekt nomlarini ko'rsatish
 - [ ] 316. Sahna statistikasi paneli (komponentlar soni)
 - [ ] 317. Editor ichida skript fayllarni ochish (tashqi muharrir)
 - [ ] 318. Kompilyatsiya xatolarini fayl/qator bilan ko'rsatish

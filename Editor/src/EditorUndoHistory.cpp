@@ -86,7 +86,7 @@ namespace Zamin {
 
     bool EditorLayer::IsEditInProgress() const
     {
-        return ImGui::IsAnyItemActive() || ImGuizmo::IsUsing() || ImGui::IsMouseDown(ImGuiMouseButton_Left);
+        return ImGui::IsAnyItemActive() || ImGuizmo::IsUsingAny() || m_GizmoEdit.IsActive() || ImGui::IsMouseDown(ImGuiMouseButton_Left);
     }
 
     void EditorLayer::CommitUndo()

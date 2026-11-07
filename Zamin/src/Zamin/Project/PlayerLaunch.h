@@ -55,6 +55,9 @@ namespace Zamin {
         // Debug drawing (compiled out of Shipping builds).
         bool NoDebugDraw = false, DebugRaycasts = false, DebugContacts = false, DebugContactDetails = false, DebugJoints = false,
              DebugVelocities = false;
+        // --debug-nav: the navigation overlays (grids, agents' paths, sight cones, patrol rounds);
+        // --debug-nav-cells: the walkable cells too.
+        bool DebugNavigation = false, DebugNavigationCells = false;
         // The OpenGL context (wins over Project settings > Graphics).
         std::string GLVersion;              // --gl 4.1 | 4.3 | 4.5 | 4.6
         int MSAA = -1;                      // --msaa 0 | 2 | 4 | 8 | 16 (-1: not given)

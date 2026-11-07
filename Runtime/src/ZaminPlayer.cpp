@@ -164,6 +164,8 @@ namespace Zamin {
             if (m_CommandLine.DebugContactDetails) debugDraw.ShowContacts = debugDraw.ShowContactDetails = true;
             if (m_CommandLine.DebugJoints) debugDraw.ShowJoints = true;
             if (m_CommandLine.DebugVelocities) debugDraw.ShowVelocities = debugDraw.ShowBodyVelocities = true;
+            if (m_CommandLine.DebugNavigation) debugDraw.ShowNavigation = true;
+            if (m_CommandLine.DebugNavigationCells) debugDraw.ShowNavigationWalkable = true;
 
             if (auto module = Project::GetScriptModulePath(); !module.empty())
                 ScriptEngine::LoadModule(module);

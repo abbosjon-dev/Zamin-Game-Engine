@@ -260,6 +260,10 @@ namespace Zamin {
                 c.DebugJoints = true;
             else if (name == "--debug-velocities")
                 c.DebugVelocities = true;
+            else if (name == "--debug-nav")
+                c.DebugNavigation = true;
+            else if (name == "--debug-nav-cells")
+                c.DebugNavigation = c.DebugNavigationCells = true;
             else if (name == "--gl-debug")
                 c.GLDebug = 1;
             else if (name == "--no-gl-debug")
@@ -315,6 +319,8 @@ namespace Zamin {
             "Debug chizish (Shipping build'da yo'q):\n"
             "  --no-debug-draw               debug chizishni o'chirish\n"
             "  --debug-raycasts, --debug-contacts, --debug-contact-details, --debug-joints, --debug-velocities\n"
+            "  --debug-nav                   navigatsiya: grid'lar, agentlar yo'li, ko'rish konuslari, patrul yo'llari\n"
+            "  --debug-nav-cells             shular va yuriladigan kataklar ham (yashil)\n"
             "\n"
             "Log va xatolar:\n"
             "  --log-file <fayl>             logni shu faylga yozish (standart: ~/.local/share/<kompaniya>/<o'yin>/logs/\n"

@@ -1246,6 +1246,46 @@ namespace Zamin {
         return s && s->RemembersTarget();
     }
 
+    // ------------------------------------------------------------------ patrol
+    bool ScriptableEntity::PausePatrol(bool stop)
+    {
+        return m_Entity.GetScene()->PausePatrol(m_Entity, stop);
+    }
+
+    bool ScriptableEntity::ResumePatrol(bool nearest)
+    {
+        return m_Entity.GetScene()->ResumePatrol(m_Entity, nearest);
+    }
+
+    bool ScriptableEntity::IsPatrolling() const
+    {
+        const auto* c = m_Entity.HasComponent<PatrolPathComponent>() ? &m_Entity.GetComponent<PatrolPathComponent>() : nullptr;
+        return c && c->IsPatrolling();
+    }
+
+    int ScriptableEntity::GetPatrolPoint() const
+    {
+        const auto* c = m_Entity.HasComponent<PatrolPathComponent>() ? &m_Entity.GetComponent<PatrolPathComponent>() : nullptr;
+        return c ? c->Current : -1;
+    }
+
+    glm::vec3 ScriptableEntity::GetPatrolTarget() const
+    {
+        const auto* c = m_Entity.HasComponent<PatrolPathComponent>() ? &m_Entity.GetComponent<PatrolPathComponent>() : nullptr;
+        return c ? c->Target : glm::vec3(0.0f);
+    }
+
+    bool ScriptableEntity::IsWaitingAtPatrolPoint() const
+    {
+        const auto* c = m_Entity.HasComponent<PatrolPathComponent>() ? &m_Entity.GetComponent<PatrolPathComponent>() : nullptr;
+        return c && c->Waiting && c->IsPatrolling();
+    }
+
+    bool ScriptableEntity::SetPatrolPoint(int index)
+    {
+        return m_Entity.GetScene()->SetPatrolWaypoint(m_Entity, index);
+    }
+
     // ------------------------------------------------------------------ AI state machines
     void ScriptableEntity::WatchStateMachine(const StateMachine& machine)
     {

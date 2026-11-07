@@ -107,6 +107,7 @@
 #include "Zamin/AI/NavPathfinder.h"
 #include "Zamin/AI/NavPathSmoothing.h"
 #include "Zamin/AI/NavCarving.h"
+#include "Zamin/AI/NavDebugDraw.h"
 #include "Zamin/AI/Sight.h"
 #include "Zamin/AI/StateMachine.h"
 #include "Zamin/AI/Steering.h"

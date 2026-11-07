@@ -302,7 +302,7 @@ namespace Zamin {
                     ImGui::OpenPopup("##DebugDraw");
                 ImGui::SameLine(0.0f, 0.0f);
                 const bool physicsViews = debug.Enabled && (debug.ShowRaycasts || debug.ShowContacts || debug.ShowJoints ||
-                                                            debug.ShowVelocities || debug.ShowBodyVelocities);
+                                                            debug.ShowVelocities || debug.ShowBodyVelocities || debug.ShowNavigation);
                 if (physicsViews) ImGui::PushStyleColor(ImGuiCol_Text, UI::AccentColor());
                 if (UI::ToolbarButton(ICON_FA_CARET_DOWN "###DebugDrawMenu", "Debug chizish sozlamalari: raycastlar, kontakt nuqtalari, "
                                       "chiziq qalinligi, matn o'lchami", physicsViews, ImVec2(caretWidth, buttonSize)))

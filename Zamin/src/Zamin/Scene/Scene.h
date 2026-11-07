@@ -621,6 +621,27 @@ namespace Zamin {
         // 2 when the viewer looks on the XY plane (2D physics or a 2D grid), else 3.
         int GetSightDimension(Entity viewer);
 
+        // ---- patrol routes (PatrolPathComponent: ScenePatrol.cpp)
+        // The route's waypoints in the world now (its Points - offset from where it started with
+        // RelativeToStart -, Route's children or Route's spline) and each one's wait in seconds
+        // (`waits`: the component's WaitTime where a point has none). False without a Patrol Path or
+        // without points.
+        bool GetPatrolWaypoints(Entity entity, std::vector<glm::vec3>& points, std::vector<float>* waits = nullptr);
+        // Pauses the round (`stop`: a Nav Agent also stops where it is) / goes back to it (to the
+        // point it was heading to; `nearest`: to the nearest one). False without a Patrol Path.
+        bool PausePatrol(Entity entity, bool stop = true);
+        bool ResumePatrol(Entity entity, bool nearest = false);
+        // Sends the patroller to waypoint `index` now (it then goes on from there). False when there
+        // is no such point.
+        bool SetPatrolWaypoint(Entity entity, int index);
+
+        // ---- navigation debug drawing (AI/NavDebugDraw.h)
+        // Queues the navigation overlays into DebugDraw for this frame: the baked grids' blocked /
+        // carved cells, the agents' paths and feelers, the obstacles, the sight cones and the patrol
+        // routes. The game does it every frame while DebugDrawSettings::ShowNavigation is on (the
+        // player's --debug-nav).
+        void DrawNavigationDebug();
+
         // ---- bounds (editor framing: F = selection, Shift+F = whole scene)
         // World-space box around what the entity draws: mesh / model, sprite, circle, text,
         // tilemap. Without any of these it is just the entity's position. False for screen-space
@@ -1236,6 +1257,8 @@ namespace Zamin {
         void OnNavObstacleDestroyed(entt::registry& registry, entt::entity entity);
         // Sight Sensors look for their targets (after physics; OnTargetSpotted / OnTargetLost).
         void UpdateSightSensors(float dt);
+        // Patrollers go round their waypoints (before the agents move; OnPatrolPointReached).
+        void UpdatePatrolPaths(float dt);
         // The obstacle-avoidance push of an agent's feelers (physics rays) for the way it wants to go.
         glm::vec2 ComputeNavAvoidance(Entity agent, struct NavAgentComponent& a, const NavGrid* grid, int dimension, const glm::vec2& desired);
         void UpdateAudio(float ts);

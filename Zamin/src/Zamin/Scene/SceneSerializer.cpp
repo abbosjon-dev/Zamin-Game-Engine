@@ -245,6 +245,8 @@ namespace Zamin {
     static const char* const s_SplineFollowModes[] = { "Once", "Loop", "PingPong" };
     static const char* const s_SplineRotations[] = { "None", "Path3D", "Path2D" };
     static const char* const s_NavObstacleShapes[] = { "Box", "Circle" };
+    static const char* const s_PatrolSources[] = { "Points", "Children", "Spline" };
+    static const char* const s_PatrolModes[] = { "Loop", "PingPong", "Random", "Once" };
     static const char* const s_UIContentTypes[] = { "Standard", "Integer", "Decimal", "Alphanumeric", "Password" };
     static const char* const s_UIScaleModes[] = { "ConstantPixelSize", "ScaleWithScreenSize" };
     static const char* const s_UIScreenMatchModes[] = { "MatchWidthOrHeight", "Expand", "Shrink" };
@@ -1566,6 +1568,23 @@ namespace Zamin {
             e["SightSensor"] = { { "ViewDistance", c->ViewDistance }, { "FieldOfView", c->FieldOfView }, { "NearDistance", c->NearDistance },
                                  { "EyeHeight", c->EyeHeight }, { "Target", c->Target.ID }, { "TargetTag", c->TargetTag },
                                  { "BlockingMask", c->BlockingMask }, { "CheckInterval", c->CheckInterval }, { "MemoryTime", c->MemoryTime } };
+        if (auto* c = entity.TryGetComponent<PatrolPathComponent>())
+        {
+            json points = json::array();
+            for (const PatrolPathComponent::Waypoint& w : c->Points)
+            {
+                // A point is its position; with its own wait [x, y, z, wait].
+                json p = ToJson(w.Position);
+                if (w.Wait >= 0.0f)
+                    p.push_back(w.Wait);
+                points.push_back(std::move(p));
+            }
+            e["PatrolPath"] = { { "Source", EnumName(c->Source, s_PatrolSources) }, { "Points", std::move(points) },
+                                { "RelativeToStart", c->RelativeToStart }, { "Route", c->Route.ID }, { "SplineSpacing", c->SplineSpacing },
+                                { "Mode", EnumName(c->Mode, s_PatrolModes) }, { "WaitTime", c->WaitTime }, { "WaitVariance", c->WaitVariance },
+                                { "ArriveDistance", c->ArriveDistance }, { "Speed", c->Speed }, { "FaceMovement", c->FaceMovement },
+                                { "StartAtNearest", c->StartAtNearest }, { "PlayOnStart", c->PlayOnStart } };
+        }
         if (auto* c = entity.TryGetComponent<ParticleSystemComponent>())
             e["ParticleSystem"] = ParticleSystemToJson(*c);
         if (auto* c = entity.TryGetComponent<UITransformComponent>())
@@ -2701,6 +2720,35 @@ namespace Zamin {
                 c.BlockingMask = (uint16_t)std::clamp(mask->get<int64_t>(), (int64_t)0, (int64_t)0xFFFF);
             c.CheckInterval = std::clamp(Number(j, "CheckInterval", c.CheckInterval), 0.0f, 60.0f);
             c.MemoryTime = std::clamp(Number(j, "MemoryTime", c.MemoryTime), 0.0f, 1e4f);
+        }
+        if (auto it = e.find("PatrolPath"); it != e.end() && it->is_object())
+        {
+            const json& j = *it;
+            auto& c = entity.AddComponent<PatrolPathComponent>();
+            c.Source = EnumFromJson(j, "Source", s_PatrolSources, c.Source);
+            if (auto points = j.find("Points"); points != j.end() && points->is_array())
+                for (const json& p : *points)
+                {
+                    if (!p.is_array() || p.size() < 3 || c.Points.size() >= PatrolPathComponent::MaxWaypoints)
+                        continue;
+                    PatrolPathComponent::Waypoint w;
+                    if (!Numbers(p, &w.Position.x, 3))
+                        continue;
+                    if (p.size() >= 4 && p[3].is_number() && std::isfinite(p[3].get<float>()))
+                        w.Wait = std::clamp(p[3].get<float>(), -1.0f, 1e4f);
+                    c.Points.push_back(w);
+                }
+            c.RelativeToStart = j.value("RelativeToStart", false);
+            c.Route.ID = entityRef(j, "Route");
+            c.SplineSpacing = std::clamp(Number(j, "SplineSpacing", c.SplineSpacing), 0.0f, 1e4f);
+            c.Mode = EnumFromJson(j, "Mode", s_PatrolModes, c.Mode);
+            c.WaitTime = std::clamp(Number(j, "WaitTime", c.WaitTime), 0.0f, 1e4f);
+            c.WaitVariance = std::clamp(Number(j, "WaitVariance", c.WaitVariance), 0.0f, 1e4f);
+            c.ArriveDistance = std::clamp(Number(j, "ArriveDistance", c.ArriveDistance), 0.01f, 1e3f);
+            c.Speed = std::clamp(Number(j, "Speed", c.Speed), 0.0f, 1e4f);
+            c.FaceMovement = j.value("FaceMovement", true);
+            c.StartAtNearest = j.value("StartAtNearest", true);
+            c.PlayOnStart = j.value("PlayOnStart", true);
         }
         if (e.contains("ParticleSystem"))
             ParticleSystemFromJson(e["ParticleSystem"], entity.AddComponent<ParticleSystemComponent>());

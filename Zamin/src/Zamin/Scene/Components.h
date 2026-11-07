@@ -1590,6 +1590,89 @@ namespace Zamin {
         }
     };
 
+    // A round for AI to walk (a guard, an animal, a cart): waypoints - its own Points (world
+    // positions, or offsets from where it starts with RelativeToStart), the children of Route, or
+    // the points of Route's Spline component (SplineSpacing > 0: points that far apart along its
+    // curve). It goes to them one after another - Loop (from the last back to the first), PingPong
+    // (back and forth), Random (any other point) or Once (stops at the last) - and waits WaitTime
+    // (+/- WaitVariance) seconds at each (a point's own Wait when it is >= 0). With a Nav Agent it
+    // walks there on the nav grid (the agent's SetDestination: its speed, avoidance ...); without
+    // one it moves straight at Speed by its transform. Scripts: PausePatrol() / ResumePatrol() (a
+    // chase, then back to the round: the point it was heading to, or the nearest), OnPatrolPointReached.
+    struct PatrolPathComponent
+    {
+        enum class PointSource : uint8_t { Points = 0, Children, Spline };
+        enum class PatrolMode : uint8_t { Loop = 0, PingPong, Random, Once };
+        struct Waypoint
+        {
+            glm::vec3 Position{ 0.0f };
+            float Wait = -1.0f;           // s (< 0: the component's WaitTime)
+            bool operator==(const Waypoint&) const = default;
+        };
+        static constexpr size_t MaxWaypoints = 1024;
+
+        PointSource Source = PointSource::Points;
+        std::vector<Waypoint> Points;
+        bool RelativeToStart = false;     // Points: offsets from where it is when the game starts
+        EntityRef Route;                  // Children / Spline: the entity (not set: the nearest ancestor with a Spline)
+        float SplineSpacing = 0.0f;       // Spline: 0 - its own points; > 0 - points this far apart (world units) along its curve
+        PatrolMode Mode = PatrolMode::Loop;
+        float WaitTime = 1.0f;            // s at each point
+        float WaitVariance = 0.0f;        // s: the wait is WaitTime +/- up to this much
+        float ArriveDistance = 0.25f;     // how near a point counts as reached (planar)
+        float Speed = 2.0f;               // without a Nav Agent: units / s
+        bool FaceMovement = true;         // without a Nav Agent: turns the way it goes (3D: -Z forward; 2D: +X)
+        bool StartAtNearest = true;       // begins at the nearest point (else the first)
+        bool PlayOnStart = true;          // patrols from the start (else: ResumePatrol)
+
+        // runtime (read by scripts; cleared when play starts / stops)
+        int Current = -1;                 // the point it is heading to / waiting at (-1: not started)
+        int Direction = 1;                // PingPong: 1 forwards, -1 back
+        bool Started = false;             // the first update set it up (start position, first point)
+        bool Patrolling = false;          // walking the round (PausePatrol: false)
+        bool Waiting = false;             // at Current, waiting
+        bool Finished = false;            // Once: at the last point
+        bool DestinationIssued = false;   // the agent was sent to Current
+        bool ResumeNearest = false;       // ResumePatrol(true): to the nearest point first
+        bool PatrolStateSet = false;      // PausePatrol / ResumePatrol called (PlayOnStart then does not decide)
+        float WaitTimer = 0.0f;           // s left to wait
+        float StuckTimer = 0.0f;          // s the agent has not got nearer (an unreachable point is skipped)
+        float BestDistance = 0.0f;
+        glm::vec3 StartPosition{ 0.0f };  // where it was when the game started (RelativeToStart)
+        glm::vec3 Target{ 0.0f };         // the world position of Current
+        glm::vec3 IssuedTarget{ 0.0f };   // where the Nav Agent was sent
+        uint32_t Arrivals = 0;            // points reached since play started
+        uint32_t Laps = 0;                // rounds done (Loop: back at the first point; PingPong: at an end)
+        uint32_t Skipped = 0;             // points given up (no path)
+        uint32_t RandomState = 0x9E3779B9u;
+
+        void PausePatrol()
+        {
+            Patrolling = false;
+            PatrolStateSet = true;
+        }
+        // Back to the round: to the point it was heading to (nearest: to the nearest point).
+        void ResumePatrol(bool nearest = false)
+        {
+            Patrolling = PatrolStateSet = true;
+            Finished = false;
+            Waiting = false;
+            DestinationIssued = false;
+            ResumeNearest = nearest;
+        }
+        bool IsPatrolling() const { return Patrolling && !Finished; }
+        void ResetRuntime()
+        {
+            Current = -1;
+            Direction = 1;
+            Started = Patrolling = Waiting = Finished = DestinationIssued = ResumeNearest = PatrolStateSet = false;
+            WaitTimer = StuckTimer = BestDistance = 0.0f;
+            StartPosition = Target = IssuedTarget = glm::vec3(0.0f);
+            Arrivals = Laps = Skipped = 0;
+            RandomState = 0x9E3779B9u;
+        }
+    };
+
     // ------------------------------------------------------------------ particles
     // A particle emitter: the settings of a system simulated by the scene (ParticleSystem.h:
     // ParticleSimulation) and drawn as camera-facing quads / circles. The optional modules
@@ -3137,7 +3220,7 @@ namespace Zamin {
         CircleCollider2DComponent, PolygonCollider2DComponent, EdgeCollider2DComponent, PlatformEffector2DComponent, AreaEffector2DComponent, BuoyancyEffector2DComponent, DistanceJoint2DComponent, RevoluteJoint2DComponent, PrismaticJoint2DComponent, WeldJoint2DComponent,
         WheelJoint2DComponent, Rigidbody3DComponent, BoxCollider3DComponent, SphereCollider3DComponent,
         CapsuleCollider3DComponent, ConvexHullCollider3DComponent, MeshCollider3DComponent, FixedJoint3DComponent, HingeJoint3DComponent, DistanceJoint3DComponent,
-        SliderJoint3DComponent, ConeJoint3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, Camera2DFollowComponent, SplineComponent, SplineFollowerComponent, NavGrid2DComponent, NavGrid3DComponent, NavAgentComponent, NavObstacleComponent, SightSensorComponent, ParticleSystemComponent, UITransformComponent, UICanvasComponent,
+        SliderJoint3DComponent, ConeJoint3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, Camera2DFollowComponent, SplineComponent, SplineFollowerComponent, NavGrid2DComponent, NavGrid3DComponent, NavAgentComponent, NavObstacleComponent, SightSensorComponent, PatrolPathComponent, ParticleSystemComponent, UITransformComponent, UICanvasComponent,
         UILayoutGroupComponent, UILayoutElementComponent, UINavigationComponent, UIAnimationComponent, UIButtonComponent,
         UIImageComponent, UISliderComponent, UIToggleComponent, UIProgressBarComponent, UIInputFieldComponent, UIMaskComponent,
         UIScrollViewComponent, AudioSourceComponent, AudioListenerComponent, AmbientZoneComponent, FootstepsComponent,

@@ -196,6 +196,11 @@ namespace Zamin {
         //   void OnTargetSpotted(Entity target) override { m_AI.SendEvent("spotted"); }
         virtual void OnTargetSpotted(Entity /*target*/) {}
         virtual void OnTargetLost(Entity /*target*/) {}
+        // This entity's Patrol Path reached waypoint `index` (before it waits there). Before the
+        // agents move; also on the event bus as "PatrolPointReached" (payload: the index as int,
+        // sender: this entity).
+        //   void OnPatrolPointReached(int index) override { if (index == 0) PlaySound("Bell"); }
+        virtual void OnPatrolPointReached(int /*index*/) {}
         // Called for every message sent to this entity (SendMessage, Broadcast ...),
         // after the handlers registered with AddMessageHandler for that name.
         virtual void OnMessage(const ScriptMessage& /*message*/) {}
@@ -522,6 +527,21 @@ namespace Zamin {
         Entity GetSeenTarget() const;
         glm::vec3 GetLastSeenPosition() const;
         bool RemembersTarget() const;
+
+        // ---- patrol (Patrol Path on this entity)
+        // Leaves the round (`stop`: the Nav Agent also stops - e.g. a chase starts) / goes back to it:
+        // to the point it was heading to, or with `nearest` to the nearest one. False without a
+        // Patrol Path.
+        bool PausePatrol(bool stop = true);
+        bool ResumePatrol(bool nearest = false);
+        // Walking the round (not paused, not at the end of a Once round).
+        bool IsPatrolling() const;
+        // The waypoint it is heading to / waiting at (-1: none) and where it is in the world.
+        int GetPatrolPoint() const;
+        glm::vec3 GetPatrolTarget() const;
+        bool IsWaitingAtPatrolPoint() const;
+        // Straight to waypoint `index` (it goes on from there).
+        bool SetPatrolPoint(int index);
 
         // ---- AI state machines (AI/StateMachine.h)
         // The inspector shows the machine's state while playing (C++ Skript > AI). The machine must

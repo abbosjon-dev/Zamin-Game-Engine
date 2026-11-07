@@ -43,6 +43,7 @@ namespace Zamin {
             std::vector<DebugDrawLine> Lines;
             std::vector<DebugDrawPoint> Points;
             std::vector<DebugDrawText> Texts;
+            std::vector<DebugDrawQuad> Quads;
             DebugDrawSettings Settings;
             bool WarnedFull = false;
             uint64_t Frame = 1;     // the frame shapes are queued in now
@@ -368,6 +369,30 @@ namespace Zamin {
         s.Texts.push_back({ position, std::string(text), color, size, Duration(duration), depthTest, s.Frame });
     }
 
+    void DebugDraw::Quad(const glm::vec3& p0, const glm::vec3& p1, const glm::vec3& p2, const glm::vec3& p3, const glm::vec4& color,
+                         float duration, bool depthTest)
+    {
+        DebugDrawState& s = State();
+        if (!s.Settings.Enabled || !(color.a > 0.0f) || !Finite(p0) || !Finite(p1) || !Finite(p2) || !Finite(p3) ||
+            !HasRoom(s.Quads.size(), MaxQuads))
+            return;
+        s.Quads.push_back({ { p0, p1, p2, p3 }, color, Duration(duration), depthTest, s.Frame });
+    }
+
+    void DebugDraw::FilledRect(const glm::vec3& center, const glm::vec2& size, const glm::vec4& color, float duration, bool depthTest)
+    {
+        const glm::vec3 h(size.x * 0.5f, size.y * 0.5f, 0.0f);
+        Quad(center + glm::vec3(-h.x, -h.y, 0.0f), center + glm::vec3(h.x, -h.y, 0.0f), center + glm::vec3(h.x, h.y, 0.0f),
+             center + glm::vec3(-h.x, h.y, 0.0f), color, duration, depthTest);
+    }
+
+    void DebugDraw::FilledRectXZ(const glm::vec3& center, const glm::vec2& size, const glm::vec4& color, float duration, bool depthTest)
+    {
+        const glm::vec2 h = size * 0.5f;
+        Quad(center + glm::vec3(-h.x, 0.0f, -h.y), center + glm::vec3(h.x, 0.0f, -h.y), center + glm::vec3(h.x, 0.0f, h.y),
+             center + glm::vec3(-h.x, 0.0f, h.y), color, duration, depthTest);
+    }
+
     // ------------------------------------------------------------------ physics
     bool DebugDraw::IsShowingRaycasts()
     {
@@ -403,6 +428,12 @@ namespace Zamin {
     {
         const DebugDrawSettings& s = State().Settings;
         return s.Enabled && s.ShowBodyVelocities;
+    }
+
+    bool DebugDraw::IsShowingNavigation()
+    {
+        const DebugDrawSettings& s = State().Settings;
+        return s.Enabled && s.ShowNavigation;
     }
 
     void DebugDraw::CharacterVelocity(const glm::vec3& center, const glm::vec3& velocity, const glm::vec3& desired)
@@ -800,6 +831,7 @@ namespace Zamin {
         AgeItems(s.Lines, dt);
         AgeItems(s.Points, dt);
         AgeItems(s.Texts, dt);
+        AgeItems(s.Quads, dt);
         s.GameFrame = ++s.Frame;
     }
 
@@ -816,6 +848,7 @@ namespace Zamin {
         DropPausedFrameItems(s.Lines, s.GameFrame);
         DropPausedFrameItems(s.Points, s.GameFrame);
         DropPausedFrameItems(s.Texts, s.GameFrame);
+        DropPausedFrameItems(s.Quads, s.GameFrame);
         s.Frame++;
     }
 
@@ -827,12 +860,14 @@ namespace Zamin {
         s.Lines.clear();
         s.Points.clear();
         s.Texts.clear();
+        s.Quads.clear();
         s.WarnedFull = false;
     }
 
     const std::vector<DebugDrawLine>& DebugDraw::GetLines() { return State().Lines; }
     const std::vector<DebugDrawPoint>& DebugDraw::GetPoints() { return State().Points; }
     const std::vector<DebugDrawText>& DebugDraw::GetTexts() { return State().Texts; }
+    const std::vector<DebugDrawQuad>& DebugDraw::GetQuads() { return State().Quads; }
 
     DebugDrawSettings& DebugDraw::GetSettings() { return State().Settings; }
 
@@ -884,7 +919,8 @@ layout(location = 0) in vec3 a_A;
 layout(location = 1) in vec3 a_B;
 layout(location = 2) in vec4 a_Color;
 // x: the end (0 at A, 1 at B) / a point's corner x (-1, 1); y: the side (-1, 1) / a point's corner y;
-// z: width / diameter in pixels; w: 0 line, 1 point, + 2 when depth tested.
+// z: width / diameter in pixels; w: 0 line, 1 point, + 2 when depth tested; 4 a filled quad's corner
+// (A as it is), 5 depth tested.
 layout(location = 3) in vec4 a_Params;
 
 uniform mat4 u_ViewProjection;
@@ -900,9 +936,19 @@ const vec4 c_Outside = vec4(2.0, 2.0, 2.0, 1.0); // clipped away
 
 void main()
 {
+    v_Color = a_Color;
+    if (a_Params.w > 3.5)
+    {
+        // A filled quad's corner: no expansion, fully covered (alpha = the colour's).
+        v_DepthTest = a_Params.w > 4.5 ? 1.0 : 0.0;
+        v_Radius = 0.5;
+        v_Length = 0.0;
+        v_Local = vec2(0.0);
+        gl_Position = u_ViewProjection * vec4(a_A, 1.0);
+        return;
+    }
     bool point = mod(a_Params.w, 2.0) > 0.5;
     v_DepthTest = a_Params.w > 1.5 ? 1.0 : 0.0;
-    v_Color = a_Color;
     float radius = max(a_Params.z * 0.5, 0.5);
     float pad = radius + 1.0; // one pixel more for the smooth edge
     v_Radius = radius;
@@ -1196,7 +1242,7 @@ void main()
         DebugDrawState& s = State();
         if (!s.Settings.Enabled || view.Width == 0 || view.Height == 0)
             return;
-        if (s.Lines.empty() && s.Points.empty() && s.Texts.empty())
+        if (s.Lines.empty() && s.Points.empty() && s.Texts.empty() && s.Quads.empty())
             return;
         ZM_PROFILE_SCOPE("DebugDraw");
         if (!EnsureGPU())
@@ -1215,9 +1261,15 @@ void main()
         RenderCommand::SetBlendMode(BlendMode::Premultiplied);
         RenderCommand::BindTextureUnit(0, view.DepthTexture);
 
-        // ---- lines, then points (each in the order they were queued)
-        if (!s.Lines.empty() || !s.Points.empty())
+        // ---- filled quads, then lines, then points (each in the order they were queued)
+        if (!s.Lines.empty() || !s.Points.empty() || !s.Quads.empty())
         {
+            for (const DebugDrawQuad& q : s.Quads)
+            {
+                const float kind = q.DepthTest ? 5.0f : 4.0f;
+                for (const glm::vec3& corner : q.Corners)
+                    g.Shapes.push_back({ corner, corner, q.Color, { 0.0f, 0.0f, 1.0f, kind } });
+            }
             const float width = settings.LineWidth;
             for (const DebugDrawLine& l : s.Lines)
             {

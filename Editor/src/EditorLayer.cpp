@@ -753,6 +753,7 @@ namespace Zamin {
                 if (v.find("details") != std::string_view::npos) d.ShowContactDetails = true;
                 if (v.find("joints") != std::string_view::npos) d.ShowJoints = true;
                 if (v.find("velocities") != std::string_view::npos) d.ShowVelocities = d.ShowBodyVelocities = true;
+                if (v.find("navigation") != std::string_view::npos) d.ShowNavigation = true;
                 if (size_t at = v.find("normallength="); at != std::string_view::npos)
                 {
                     d.NormalLength = std::strtof(std::string(v.substr(at + 13)).c_str(), nullptr);
@@ -3488,52 +3489,29 @@ namespace Zamin {
     }
 
     // ------------------------------------------------------------------ navigation gizmos
-    // A run of cells of one row (cells [x0, x1) of row y) as one quad: on the XY plane (2D grids) or
-    // flat on the floor at `height` (3D grids).
-    static void DrawNavCellRun(const NavGrid& grid, int x0, int x1, int y, bool flat3D, float height, const glm::vec4& color)
+    // The overlay's canvas for the shared navigation drawing (AI/NavDebugDraw.h): Renderer2D lines
+    // and quads on top of the picture, dots facing the camera.
+    class OverlayNavCanvas : public NavDebugCanvas
     {
-        const float cs = grid.GetCellSize();
-        const float inset = cs * 0.04f;
-        const glm::vec2 min = grid.GridToWorld(glm::vec2((float)x0, (float)y)) + inset;
-        const glm::vec2 max = grid.GridToWorld(glm::vec2((float)x1, (float)(y + 1))) - inset;
-        const glm::vec2 center = (min + max) * 0.5f, size = max - min;
-        glm::mat4 transform;
-        if (flat3D)
-            transform = glm::translate(glm::mat4(1.0f), glm::vec3(center.x, height + 0.03f, center.y)) *
-                        glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) *
-                        glm::scale(glm::mat4(1.0f), glm::vec3(size.x, size.y, 1.0f));
-        else
-            transform = glm::translate(glm::mat4(1.0f), glm::vec3(center, 0.01f)) * glm::scale(glm::mat4(1.0f), glm::vec3(size, 1.0f));
-        Renderer2D::DrawQuad(transform, color);
-    }
-
-    // The cells of a baked grid: blocked ones (red) and those Nav Obstacles carve (orange) always,
-    // walkable ones (green) when `walkable`; runs of equal cells (3D: on one floor height) merged into
-    // one quad. 3D cells without a floor are left out.
-    static void DrawNavGridCells(const NavGrid& grid, bool flat3D, bool walkable, float alpha)
-    {
-        const glm::vec4 blockedColor(0.95f, 0.25f, 0.2f, 0.34f * alpha), walkableColor(0.3f, 0.95f, 0.45f, 0.16f * alpha);
-        const glm::vec4 carvedColor(1.0f, 0.6f, 0.12f, 0.5f * alpha);
-        const bool carves = grid.CountCarved() > 0;
-        // 1 walkable, 2 carved (walkable as baked), 0 blocked.
-        auto state = [&](int x, int y) { return grid.IsWalkable(x, y) ? 1 : carves && grid.IsCarved(x, y) && grid.IsBakedWalkable(x, y) ? 2 : 0; };
-        for (int y = 0; y < grid.GetHeight(); y++)
+    public:
+        explicit OverlayNavCanvas(const EditorOverlayView& view) : m_View(view) {}
+        void Line(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color) override { Renderer2D::DrawLine(from, to, color); }
+        void Quad(const glm::vec3& p0, const glm::vec3& p1, const glm::vec3& p2, const glm::vec3& p3, const glm::vec4& color) override
         {
-            int x = 0;
-            while (x < grid.GetWidth())
-            {
-                const int kind = state(x, y);
-                const float h = grid.GetFloorHeight(x, y);
-                int end = x + 1;
-                while (end < grid.GetWidth() && state(end, y) == kind &&
-                       (!flat3D || std::abs(grid.GetFloorHeight(end, y) - h) < 1e-3f || (std::isnan(h) && std::isnan(grid.GetFloorHeight(end, y)))))
-                    end++;
-                if ((kind == 1 ? walkable : true) && (!flat3D || std::isfinite(h)))
-                    DrawNavCellRun(grid, x, end, y, flat3D, flat3D ? h : 0.0f, kind == 1 ? walkableColor : kind == 2 ? carvedColor : blockedColor);
-                x = end;
-            }
+            const glm::vec3 positions[4] = { p0, p1, p2, p3 };
+            const glm::vec4 colors[4] = { color, color, color, color };
+            static const glm::vec2 uvs[4] = { { 0.0f, 0.0f }, { 1.0f, 0.0f }, { 1.0f, 1.0f }, { 0.0f, 1.0f } };
+            Renderer2D::DrawQuadVertices(positions, colors, uvs, nullptr);
         }
-    }
+        void Dot(const glm::vec3& position, float pixels, const glm::vec4& color) override
+        {
+            DrawScreenDot(position, m_View.PixelSize(position) * pixels, color, m_View);
+        }
+        float PixelSize(const glm::vec3& position) const override { return m_View.PixelSize(position); }
+
+    private:
+        const EditorOverlayView& m_View;
+    };
 
     void EditorLayer::DrawNavigationGizmos(const EditorOverlayView& view, const std::unordered_set<entt::entity>& hidden)
     {
@@ -3542,45 +3520,35 @@ namespace Zamin {
             return;
         Scene& scene = *m_ActiveScene;
         const bool editing = m_SceneState == SceneState::Edit;
+        // The game's own navigation drawing (DebugDraw: Debug chizish > Navigatsiya) shows it while
+        // it runs: not twice.
+        if (!editing && DebugDraw::IsShowingNavigation())
+            return;
         // The editor bakes the grids it shows (the game bakes its own when it starts): a 2D grid again
         // when its sources changed (checked a few times a second), a 3D one when its settings did.
         m_NavPreviewTimer -= ImGui::GetIO().DeltaTime;
         const bool check = m_NavPreviewTimer <= 0.0f;
         if (check)
             m_NavPreviewTimer = 0.5f;
-        constexpr size_t maxWalkableCells = 250000;
-
-        for (auto e : scene.GetAllEntitiesWith<NavGrid2DComponent>())
+        if (editing)
         {
-            if (!ShowsGizmo(e, visibility, hidden))
-                continue;
-            Entity entity{ e, &scene };
-            auto& c = entity.GetComponent<NavGrid2DComponent>();
-            if (editing && (!c.Baked || (check && scene.GetNavGrid2DSourceHash(entity) != c.SourceHash)))
-                scene.BakeNavGrid(entity);
-            if (!c.Baked || c.Grid.IsEmpty())
-                continue;
-            const bool selected = m_SceneHierarchyPanel.IsSelected(entity);
-            DrawNavGridCells(c.Grid, false, selected && c.Grid.GetCellCount() <= maxWalkableCells, selected ? 1.0f : 0.6f);
-            const glm::vec2 min = c.Grid.GetOrigin(), max = min + c.Grid.GetSize();
-            const glm::vec4 frame(0.4f, 0.9f, 1.0f, selected ? 0.9f : 0.45f);
-            Renderer2D::DrawLine({ min.x, min.y, 0.0f }, { max.x, min.y, 0.0f }, frame);
-            Renderer2D::DrawLine({ max.x, min.y, 0.0f }, { max.x, max.y, 0.0f }, frame);
-            Renderer2D::DrawLine({ max.x, max.y, 0.0f }, { min.x, max.y, 0.0f }, frame);
-            Renderer2D::DrawLine({ min.x, max.y, 0.0f }, { min.x, min.y, 0.0f }, frame);
-        }
-
-        for (auto e : scene.GetAllEntitiesWith<NavGrid3DComponent>())
-        {
-            if (!ShowsGizmo(e, visibility, hidden))
-                continue;
-            Entity entity{ e, &scene };
-            auto& c = entity.GetComponent<NavGrid3DComponent>();
-            const bool selected = m_SceneHierarchyPanel.IsSelected(entity);
-            const glm::vec3 center = scene.GetWorldPosition(entity) + c.Offset;
-            if (editing && check)
+            for (auto e : scene.GetAllEntitiesWith<NavGrid2DComponent>())
             {
+                if (!ShowsGizmo(e, visibility, hidden))
+                    continue;
+                Entity entity{ e, &scene };
+                auto& c = entity.GetComponent<NavGrid2DComponent>();
+                if (!c.Baked || (check && scene.GetNavGrid2DSourceHash(entity) != c.SourceHash))
+                    scene.BakeNavGrid(entity);
+            }
+            for (auto e : scene.GetAllEntitiesWith<NavGrid3DComponent>())
+            {
+                if (!check || !ShowsGizmo(e, visibility, hidden))
+                    continue;
+                Entity entity{ e, &scene };
+                auto& c = entity.GetComponent<NavGrid3DComponent>();
                 // The settings and where the grid is: baked again when they change.
+                const glm::vec3 center = scene.GetWorldPosition(entity) + c.Offset;
                 uint64_t hash = 1469598103934665603ull;
                 auto mix = [&](const void* data, size_t size) {
                     for (size_t i = 0; i < size; i++)
@@ -3597,143 +3565,15 @@ namespace Zamin {
                     it->second = hash;
                 }
             }
-            // The area's box.
-            const glm::vec3 half = glm::max(c.Size, glm::vec3(0.0f)) * 0.5f;
-            DrawWireBox(glm::translate(glm::mat4(1.0f), center) * glm::scale(glm::mat4(1.0f), half * 2.0f),
-                        glm::vec4(0.4f, 0.9f, 1.0f, selected ? 0.8f : 0.35f));
-            if (c.Baked && !c.Grid.IsEmpty())
-                DrawNavGridCells(c.Grid, true, selected && c.Grid.GetCellCount() <= maxWalkableCells, selected ? 1.0f : 0.6f);
         }
 
-        // Agents: the path ahead (from where the agent is), its corners and the destination.
-        for (auto e : scene.GetAllEntitiesWith<NavAgentComponent>())
-        {
-            if (!ShowsGizmo(e, visibility, hidden))
-                continue;
-            Entity entity{ e, &scene };
-            const auto& a = entity.GetComponent<NavAgentComponent>();
-            const bool selected = m_SceneHierarchyPanel.IsSelected(entity);
-            const glm::vec4 color = a.IsPathPartial() ? glm::vec4(1.0f, 0.75f, 0.3f, 1.0f) : glm::vec4(0.35f, 0.9f, 1.0f, 1.0f);
-            const glm::vec3 lift(0.0f, Scene::GetNavGridDimension(scene.GetNavAgentGrid(entity)) == 3 ? 0.08f : 0.0f, 0.0f);
-            const glm::vec3 position = scene.GetWorldPosition(entity);
-            if (a.HasPath() && a.PathIndex >= 1 && a.PathIndex < (int)a.Path.size())
-            {
-                glm::vec3 from = position + lift;
-                for (size_t i = (size_t)a.PathIndex; i < a.Path.size(); i++)
-                {
-                    const glm::vec3 to = a.Path[i] + lift;
-                    Renderer2D::DrawLine(from, to, color);
-                    const float dot = view.PixelSize(to) * (i + 1 == a.Path.size() ? 9.0f : 5.0f);
-                    DrawScreenDot(to, dot, color, view);
-                    from = to;
-                }
-            }
-            if (a.HasDestination && (selected || !a.Arrived))
-            {
-                const glm::vec3 d = a.Destination + lift;
-                const float size = view.PixelSize(d) * 7.0f;
-                const glm::vec4 cross = a.Arrived ? glm::vec4(0.5f, 1.0f, 0.55f, 0.9f) : color;
-                Renderer2D::DrawLine(d - glm::vec3(size, 0, 0), d + glm::vec3(size, 0, 0), cross);
-                Renderer2D::DrawLine(d - glm::vec3(0, size, 0), d + glm::vec3(0, size, 0), cross);
-                Renderer2D::DrawLine(d - glm::vec3(0, 0, size), d + glm::vec3(0, 0, size), cross);
-            }
-            // Avoidance: the feelers (red where they hit) and the push they gave (yellow).
-            if (a.Avoidance && a.FeelersActive)
-            {
-                for (int i = 0; i < 3; i++)
-                {
-                    const bool hit = (a.FeelerHits >> i) & 1u;
-                    Renderer2D::DrawLine(a.FeelerOrigin, a.FeelerEnds[(size_t)i], hit ? glm::vec4(1.0f, 0.3f, 0.25f, 1.0f) : glm::vec4(0.5f, 0.95f, 0.6f, 0.7f));
-                    if (hit)
-                        DrawScreenDot(a.FeelerEnds[(size_t)i], view.PixelSize(a.FeelerEnds[(size_t)i]) * 6.0f, glm::vec4(1.0f, 0.3f, 0.25f, 1.0f), view);
-                }
-                if (glm::dot(a.AvoidancePush, a.AvoidancePush) > 1e-6f)
-                    Renderer2D::DrawLine(a.FeelerOrigin, a.FeelerOrigin + a.AvoidancePush * 0.5f, glm::vec4(1.0f, 0.9f, 0.2f, 1.0f));
-            }
-        }
-
-        // Nav Obstacles: their footprint (orange; brighter while they carve).
-        for (auto e : scene.GetAllEntitiesWith<NavObstacleComponent>())
-        {
-            if (!ShowsGizmo(e, visibility, hidden))
-                continue;
-            Entity entity{ e, &scene };
-            const auto& c = entity.GetComponent<NavObstacleComponent>();
-            const bool selected = m_SceneHierarchyPanel.IsSelected(entity);
-            const glm::vec4 color(1.0f, 0.62f, 0.15f, c.IsCarving() || selected ? 1.0f : 0.55f);
-            const glm::mat4 world = scene.GetWorldTransform(entity);
-            if (c.Shape == NavObstacleComponent::ShapeType::Box)
-                DrawWireBox(world * glm::translate(glm::mat4(1.0f), c.Center) * glm::scale(glm::mat4(1.0f), glm::max(c.Size, glm::vec3(0.001f))), color);
-            else
-            {
-                // 2D: a circle in the entity's XY plane; 3D: a cylinder along its Y.
-                const bool flat = scene.GetNavGridDimension(scene.FindNavGridEntity(scene.GetWorldPosition(entity))) == 2;
-                const glm::vec3 center(world * glm::vec4(c.Center, 1.0f));
-                const glm::vec3 ax = glm::vec3(world[0]), ay = glm::vec3(world[1]), az = glm::vec3(world[2]);
-                const float sx = glm::length(ax), sy = glm::length(ay), sz = glm::length(az);
-                const glm::vec3 nx = sx > 1e-6f ? ax / sx : glm::vec3(1, 0, 0), ny = sy > 1e-6f ? ay / sy : glm::vec3(0, 1, 0),
-                                nz = sz > 1e-6f ? az / sz : glm::vec3(0, 0, 1);
-                if (flat)
-                    DrawWireCircle(center, nx, ny, c.Radius * std::max(sx, sy), color);
-                else
-                {
-                    const float r = c.Radius * std::max(sx, sz), hh = std::max(0.0f, c.Size.y) * 0.5f * sy;
-                    DrawWireCircle(center - ny * hh, nx, nz, r, color);
-                    DrawWireCircle(center + ny * hh, nx, nz, r, color);
-                    for (int i = 0; i < 4; i++)
-                    {
-                        const float t = glm::half_pi<float>() * (float)i;
-                        const glm::vec3 rim = (nx * std::cos(t) + nz * std::sin(t)) * r;
-                        Renderer2D::DrawLine(center - ny * hh + rim, center + ny * hh + rim, color);
-                    }
-                }
-            }
-        }
-
-        // Sight Sensors: the view cone (yellow; red while it sees a target, with a line to it) and the
-        // near circle.
-        std::vector<glm::vec3> arc;
-        for (auto e : scene.GetAllEntitiesWith<SightSensorComponent>())
-        {
-            if (!ShowsGizmo(e, visibility, hidden))
-                continue;
-            Entity entity{ e, &scene };
-            const auto& c = entity.GetComponent<SightSensorComponent>();
-            SightCone cone;
-            if (!scene.GetSightCone(entity, cone))
-                continue;
-            const bool selected = m_SceneHierarchyPanel.IsSelected(entity);
-            const bool sees = !editing && c.CanSee;
-            const glm::vec4 color = sees ? glm::vec4(1.0f, 0.3f, 0.25f, 1.0f) : glm::vec4(1.0f, 0.85f, 0.25f, selected ? 1.0f : 0.7f);
-            const glm::vec3 up = scene.GetSightDimension(entity) == 3 ? glm::vec3(0.0f, 1.0f, 0.0f) : glm::vec3(0.0f, 0.0f, 1.0f);
-            Sight::GetConeArc(cone, up, std::clamp((int)(cone.FieldOfView / 6.0f), 4, 60), arc);
-            if (cone.FieldOfView < 359.0f)
-            {
-                Renderer2D::DrawLine(cone.Eye, arc.front(), color);
-                Renderer2D::DrawLine(cone.Eye, arc.back(), color);
-            }
-            for (size_t i = 1; i < arc.size(); i++)
-                Renderer2D::DrawLine(arc[i - 1], arc[i], color);
-            if (cone.NearDistance > 0.0f)
-            {
-                const glm::vec3 a(1.0f, 0.0f, 0.0f);
-                const glm::vec3 b = glm::normalize(glm::cross(up, a));
-                DrawWireCircle(cone.Eye, a, b, cone.NearDistance, glm::vec4(color.r, color.g, color.b, color.a * 0.5f));
-            }
-            if (sees)
-                if (Entity target = scene.GetEntityByUUID(c.SeenTarget))
-                    Renderer2D::DrawLine(cone.Eye, scene.GetWorldPosition(target) + (up.y > 0.5f ? glm::vec3(0.0f, 0.9f, 0.0f) : glm::vec3(0.0f)), color);
-            if (!editing && c.HasSeen && !c.CanSee && c.RemembersTarget())
-            {
-                // Where it last saw one (a small cross while it remembers).
-                const glm::vec3 p = c.LastSeenPosition;
-                const float size = view.PixelSize(p) * 6.0f;
-                const glm::vec4 memory(1.0f, 0.6f, 0.3f, 0.9f);
-                Renderer2D::DrawLine(p - glm::vec3(size, 0, 0), p + glm::vec3(size, 0, 0), memory);
-                Renderer2D::DrawLine(p - glm::vec3(0, size, 0), p + glm::vec3(0, size, 0), memory);
-                Renderer2D::DrawLine(p - glm::vec3(0, 0, size), p + glm::vec3(0, 0, size), memory);
-            }
-        }
+        // Grids (selected: their walkable cells too), agents, obstacles, sight cones, patrol rounds.
+        NavDebugOptions options;
+        options.Running = !editing;
+        options.Filter = [&](entt::entity e) { return ShowsGizmo(e, visibility, hidden); };
+        options.Selected = [&](entt::entity e) { return m_SceneHierarchyPanel.IsSelected({ e, &scene }); };
+        OverlayNavCanvas canvas(view);
+        NavDebugDraw::DrawScene(scene, canvas, options);
     }
 
     void EditorLayer::DrawSkeletons(const EditorOverlayView& view, const std::unordered_set<entt::entity>& hidden)
@@ -7666,6 +7506,19 @@ namespace Zamin {
             ImGui::Unindent();
         }
         ImGui::Spacing();
+        ImGui::TextDisabled("AI");
+        changed |= ImGui::Checkbox(Tr(ICON_FA_PERSON_WALKING "  Navigatsiya (o'yin kamerasida)"), &d.ShowNavigation);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("O'yin paytida DebugDraw orqali (ZaminPlayer'dagi --debug-nav kabi): grid kataklari, agentlar yo'li, mo'ylov "
+                        "nurlari, to'siqlar, ko'rish konuslari va patrul yo'llari - sahna bilan chuqurlik testida. Yoqilganda o'yin "
+                        "paytida Gizmo'lar > Navigatsiya o'rniga shu chiziladi");
+        if (d.ShowNavigation)
+        {
+            ImGui::Indent();
+            changed |= ImGui::Checkbox(Tr("Yuriladigan kataklar"), &d.ShowNavigationWalkable);
+            ImGui::Unindent();
+        }
+        ImGui::Spacing();
         ImGui::TextDisabled("Ko'rinish");
         ImGui::SetNextItemWidth(150);
         changed |= ImGui::SliderFloat("Chiziq qalinligi", &d.LineWidth, DebugDrawSettings::MinLineWidth, DebugDrawSettings::MaxLineWidth, "%.1f px");
@@ -7679,8 +7532,8 @@ namespace Zamin {
             UI::Tooltip("Chuqurlik testi bilan chizilgan shakllarning sirt orqasida qolgan qismi: 0 - ko'rinmaydi, 1 - to'liq ko'rinadi");
         ImGui::EndDisabled();
         ImGui::Separator();
-        ImGui::TextDisabled("Navbatda: %zu chiziq, %zu nuqta, %zu matn", DebugDraw::GetLines().size(), DebugDraw::GetPoints().size(),
-                            DebugDraw::GetTexts().size());
+        ImGui::TextDisabled("Navbatda: %zu chiziq, %zu nuqta, %zu matn, %zu yuza", DebugDraw::GetLines().size(), DebugDraw::GetPoints().size(),
+                            DebugDraw::GetTexts().size(), DebugDraw::GetQuads().size());
         if (ImGui::SmallButton(Tr(ICON_FA_BROOM "  Tozalash")))
             DebugDraw::Clear();
         if (changed)

@@ -416,6 +416,8 @@ namespace Zamin {
             { "Velocities", DebugDraw.ShowVelocities },
             { "BodyVelocities", DebugDraw.ShowBodyVelocities },
             { "VelocityScale", Num(DebugDraw.VelocityScale) },
+            { "Navigation", DebugDraw.ShowNavigation },
+            { "NavigationWalkable", DebugDraw.ShowNavigationWalkable },
         };
         j["Gizmos"] = {
             { "CameraFrustums", EditorGizmoSettings::GetKey(Gizmos.CameraFrustums) },
@@ -562,6 +564,8 @@ namespace Zamin {
             Read(*it, "Velocities", DebugDraw.ShowVelocities);
             Read(*it, "BodyVelocities", DebugDraw.ShowBodyVelocities);
             Read(*it, "VelocityScale", DebugDraw.VelocityScale);
+            Read(*it, "Navigation", DebugDraw.ShowNavigation);
+            Read(*it, "NavigationWalkable", DebugDraw.ShowNavigationWalkable);
             DebugDraw.Sanitize();
         }
         if (auto it = j.find("Gizmos"); it != j.end() && it->is_object())

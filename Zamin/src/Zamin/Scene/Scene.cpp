@@ -425,6 +425,7 @@ namespace Zamin {
         for (auto e : registry.view<NavAgentComponent>()) registry.get<NavAgentComponent>(e).ResetRuntime();
         for (auto e : registry.view<NavObstacleComponent>()) registry.get<NavObstacleComponent>(e).ResetRuntime();
         for (auto e : registry.view<SightSensorComponent>()) registry.get<SightSensorComponent>(e).ResetRuntime();
+        for (auto e : registry.view<PatrolPathComponent>()) registry.get<PatrolPathComponent>(e).ResetRuntime();
         for (auto e : registry.view<ParticleSystemComponent>()) registry.get<ParticleSystemComponent>(e).ResetRuntime();
         for (auto e : registry.view<MeshRendererComponent>())
         {
@@ -498,6 +499,7 @@ namespace Zamin {
         if (auto* c = e.TryGetComponent<NavAgentComponent>()) c->ResetRuntime();
         if (auto* c = e.TryGetComponent<NavObstacleComponent>()) c->ResetRuntime(); // the copy's own carving comes at the next update
         if (auto* c = e.TryGetComponent<SightSensorComponent>()) c->ResetRuntime();
+        if (auto* c = e.TryGetComponent<PatrolPathComponent>()) c->ResetRuntime(); // the copy starts its own round where it is
         if (auto* c = e.TryGetComponent<CharacterController3DComponent>()) { c->RuntimeID = 0xffffffff; c->Grounded = false; c->Velocity = glm::vec3(0.0f); }
         if (auto* c = e.TryGetComponent<ParticleSystemComponent>()) { c->ResetRuntime(); c->RandomState ^= (uint32_t)(uint64_t)e.GetUUID(); }
         if (auto* c = e.TryGetComponent<UIButtonComponent>()) c->Hovered = c->Pressed = c->Clicked = false;
@@ -904,6 +906,8 @@ namespace Zamin {
                 remap(obstacle->Grid);
             if (auto* sight = e.TryGetComponent<SightSensorComponent>())
                 remap(sight->Target);
+            if (auto* patrol = e.TryGetComponent<PatrolPathComponent>())
+                remap(patrol->Route);
             if (auto* button = e.TryGetComponent<UIButtonComponent>())
                 remap(button->ClickTarget);
             if (auto* scroll = e.TryGetComponent<UIScrollViewComponent>())
@@ -5032,13 +5036,18 @@ namespace Zamin {
 
             // Nav agents and spline followers move before physics: bodies by velocity, kinematic ones
             // on a path carry what stands on them.
+            // Patrollers pick their next waypoint first (their agents find the path in the same frame).
             UpdateNavGrids(ts);
             UpdateNavObstacles(ts);
+            UpdatePatrolPaths(ts);
             UpdateNavAgents(ts);
             UpdateSplineFollowers(ts);
             StepPhysics(ts);
             // Eyes look where everything is after the step (OnTargetSpotted / OnTargetLost now).
             UpdateSightSensors(ts);
+            // DebugDraw: the navigation overlays where everything is now (ShowNavigation).
+            if (DebugDraw::IsShowingNavigation())
+                DrawNavigationDebug();
             // Property animations write their values before OnLateUpdate (scripts may read or
             // override them there); their events fire now.
             UpdateAnimationPlayers(ts, false);

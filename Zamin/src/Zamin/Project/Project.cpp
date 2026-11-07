@@ -673,6 +673,8 @@ namespace Zamin {
         debug["Velocities"] = c.DebugDraw.ShowVelocities;
         debug["BodyVelocities"] = c.DebugDraw.ShowBodyVelocities;
         debug["VelocityScale"] = c.DebugDraw.VelocityScale;
+        debug["Navigation"] = c.DebugDraw.ShowNavigation;
+        debug["NavigationWalkable"] = c.DebugDraw.ShowNavigationWalkable;
         debug["LineWidth"] = c.DebugDraw.LineWidth;
         debug["TextSize"] = c.DebugDraw.TextSize;
         j["DebugDraw"] = std::move(debug);
@@ -800,6 +802,8 @@ namespace Zamin {
             readBool("Velocities", c.DebugDraw.ShowVelocities);
             readBool("BodyVelocities", c.DebugDraw.ShowBodyVelocities);
             readFloat("VelocityScale", c.DebugDraw.VelocityScale);
+            readBool("Navigation", c.DebugDraw.ShowNavigation);
+            readBool("NavigationWalkable", c.DebugDraw.ShowNavigationWalkable);
             readFloat("LineWidth", c.DebugDraw.LineWidth);
             readFloat("TextSize", c.DebugDraw.TextSize);
             c.DebugDraw.Sanitize();

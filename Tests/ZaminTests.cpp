@@ -6961,10 +6961,11 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<NavAgentComponent>();
     e.AddComponent<NavObstacleComponent>();
     e.AddComponent<SightSensorComponent>();
+    e.AddComponent<PatrolPathComponent>();
     e.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
 
     const auto& types = ComponentRegistry::GetTypes();
-    CHECK(types.size() == 72);
+    CHECK(types.size() == 73);
     CHECK(types.front().Key == "Transform");
     std::vector<std::string> keys = ComponentRegistry::GetKeys(e);
     CHECK(keys.size() == types.size());
@@ -41988,4 +41989,594 @@ TEST(SightScriptCallbacksAndAIComponentsSerialization)
     CHECK(dupDoor && dupDoor.GetComponent<SightSensorComponent>().Target.ID == (uint64_t)dup.GetUUID());
     CHECK(dupDoor && dupDoor.GetComponent<NavObstacleComponent>().Grid == o.Grid); // outside the group: unchanged
     CHECK(ComponentRegistry::Find("NavObstacle") && ComponentRegistry::Find("SightSensor"));
+}
+
+// ------------------------------------------------------------------ M20: patrol routes, navigation debug drawing
+
+TEST(NavRandomGridsSmoothingAndCornerRules)
+{
+    // Random grids: the string-pulled and the spline-rounded paths keep their ends, never cross a
+    // blocked cell and are no longer than the cell path; corner cutting finds paths as cheap as
+    // Dijkstra's under the same rule, and without it no diagonal step grazes a blocked cell.
+    uint32_t seed = 777u;
+    auto next = [&]() { seed = seed * 1664525u + 1013904223u; return seed >> 8; };
+    NavPathfinder astar, dijkstra;
+    int smoothed = 0, cutCompared = 0;
+    for (int trial = 0; trial < 80; trial++)
+    {
+        const int w = 10 + (int)(next() % 30), h = 10 + (int)(next() % 30);
+        NavGrid grid(w, h, 0.5f, { -3.0f, 2.0f });
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+                if (next() % 100 < 25)
+                    grid.SetWalkable(x, y, false);
+        const glm::ivec2 a((int)(next() % w), (int)(next() % h)), b((int)(next() % w), (int)(next() % h));
+        grid.SetWalkable(a.x, a.y, true);
+        grid.SetWalkable(b.x, b.y, true);
+        NavPathOptions options;
+        options.SnapRadius = 0;
+        NavPathResult result;
+        astar.FindPath(grid, a, b, result, options);
+        CHECK(NavPathIsValid(grid, result, true)); // no corner cutting by default
+        if (result.IsComplete() && result.Cells.size() >= 2)
+        {
+            smoothed++;
+            const glm::vec2 start = grid.CellToWorld(a.x, a.y), goal = grid.CellToWorld(b.x, b.y);
+            const std::vector<glm::vec2> points = NavPathSmoothing::ToPoints(grid, result.Cells, &start, &goal);
+            const std::vector<glm::vec2> pulled = NavPathSmoothing::StringPull(grid, points);
+            const std::vector<glm::vec2> curve = NavPathSmoothing::SplineSmooth(grid, pulled, grid.GetCellSize() * 0.5f);
+            CHECK(pulled.front() == start && pulled.back() == goal && curve.front() == start && curve.back() == goal);
+            CHECK(NavPathSmoothing::GetLength(pulled) <= NavPathSmoothing::GetLength(points) + 1e-3f);
+            for (size_t i = 1; i < pulled.size(); i++)
+                CHECK(grid.HasLineOfSight(pulled[i - 1], pulled[i]));
+            for (size_t i = 1; i < curve.size(); i++)
+                CHECK(grid.HasLineOfSight(curve[i - 1], curve[i]));
+        }
+        NavPathOptions cut = options;
+        cut.CutCorners = true;
+        NavPathOptions cutPlain = cut;
+        cutPlain.HeuristicWeight = 0.0f;
+        NavPathResult fast, exact;
+        astar.FindPath(grid, a, b, fast, cut);
+        dijkstra.FindPath(grid, a, b, exact, cutPlain);
+        CHECK(fast.Status == exact.Status);
+        if (exact.IsComplete())
+        {
+            cutCompared++;
+            CHECK_NEAR(fast.Cost, exact.Cost, 1e-3f * std::max(1.0f, exact.Cost));
+            CHECK(fast.Cost <= result.Cost + 1e-3f || !result.IsComplete()); // cutting is never dearer
+        }
+    }
+    CHECK(smoothed > 30 && cutCompared > 30);
+}
+
+TEST(PatrolPathModesAndWaits)
+{
+    // Without a Nav Agent: straight from point to point at Speed. The order of each mode, the waits
+    // (the component's, a point's own, the variance) and where it starts.
+    auto run = [](PatrolPathComponent::PatrolMode mode, int arrivals, std::vector<int>& order, glm::vec3 start = glm::vec3(0.0f),
+                  bool nearest = false) {
+        auto scene = CreateRef<Scene>();
+        Entity e = scene->CreateEntity("Guard");
+        e.GetTransform().Translation = start;
+        auto& c = e.AddComponent<PatrolPathComponent>();
+        c.Points = { { { 0.0f, 0.0f, 0.0f } }, { { 4.0f, 0.0f, 0.0f } }, { { 4.0f, 0.0f, 4.0f } }, { { 0.0f, 0.0f, 4.0f } } };
+        c.Mode = mode;
+        c.WaitTime = 0.0f;
+        c.Speed = 10.0f;
+        c.StartAtNearest = nearest;
+        scene->OnRuntimeStart();
+        uint32_t seen = 0;
+        std::vector<glm::vec3> points;
+        for (int frame = 0; frame < 4000 && (int)order.size() < arrivals && !c.Finished; frame++)
+        {
+            scene->OnUpdateRuntime(1.0f / 60.0f);
+            if (c.Arrivals != seen)
+            {
+                seen = c.Arrivals;
+                order.push_back(c.Current);
+                // It stands at the point it reached.
+                CHECK(scene->GetPatrolWaypoints(e, points) && glm::length(scene->GetWorldPosition(e) - points[(size_t)c.Current]) <= c.ArriveDistance + 1e-4f);
+            }
+        }
+        const bool finished = c.Finished;
+        scene->OnRuntimeStop();
+        return finished;
+    };
+    std::vector<int> order;
+    run(PatrolPathComponent::PatrolMode::Loop, 9, order);
+    CHECK((order == std::vector<int>{ 0, 1, 2, 3, 0, 1, 2, 3, 0 }));
+    order.clear();
+    run(PatrolPathComponent::PatrolMode::PingPong, 8, order);
+    CHECK((order == std::vector<int>{ 0, 1, 2, 3, 2, 1, 0, 1 }));
+    order.clear();
+    CHECK(run(PatrolPathComponent::PatrolMode::Once, 10, order));
+    CHECK((order == std::vector<int>{ 0, 1, 2, 3 }));
+    order.clear();
+    run(PatrolPathComponent::PatrolMode::Random, 40, order);
+    CHECK(order.size() == 40);
+    std::set<int> visited(order.begin(), order.end());
+    CHECK(visited.size() == 4 && *visited.begin() == 0 && *visited.rbegin() == 3);
+    for (size_t i = 1; i < order.size(); i++)
+        CHECK(order[i] != order[i - 1]); // never the point it is at
+    // Nearest first: it starts beside point 2.
+    order.clear();
+    run(PatrolPathComponent::PatrolMode::Loop, 2, order, { 4.2f, 0.0f, 3.6f }, true);
+    CHECK((order == std::vector<int>{ 2, 3 }));
+
+    // Waits: 0.5 s at each point, 1.5 s at point 1; the variance keeps it within its range.
+    auto scene = CreateRef<Scene>();
+    Entity e = scene->CreateEntity("Guard");
+    auto& c = e.AddComponent<PatrolPathComponent>();
+    c.Points = { { { 0.0f, 0.0f, 0.0f } }, { { 2.0f, 0.0f, 0.0f }, 1.5f } };
+    c.WaitTime = 0.5f;
+    c.Speed = 4.0f;
+    c.StartAtNearest = false;
+    std::vector<float> waits;
+    std::vector<glm::vec3> points;
+    CHECK(scene->GetPatrolWaypoints(e, points, &waits) && points.size() == 2 && waits[0] == 0.5f && waits[1] == 1.5f);
+    scene->OnRuntimeStart();
+    const float dt = 1.0f / 60.0f;
+    std::vector<float> waited;
+    float waitedNow = 0.0f;
+    bool wasWaiting = false;
+    for (int frame = 0; frame < 2000 && waited.size() < 4; frame++)
+    {
+        scene->OnUpdateRuntime(dt);
+        if (c.Waiting)
+            waitedNow += dt;
+        else if (wasWaiting)
+        {
+            waited.push_back(waitedNow);
+            waitedNow = 0.0f;
+        }
+        wasWaiting = c.Waiting;
+    }
+    CHECK(waited.size() == 4);
+    if (waited.size() == 4)
+    {
+        CHECK_NEAR(waited[0], 0.5f, dt * 1.5f);
+        CHECK_NEAR(waited[1], 1.5f, dt * 1.5f);
+        CHECK_NEAR(waited[2], 0.5f, dt * 1.5f);
+    }
+    // Facing the way it goes (3D: -Z forward): towards +X is a turn of -90 degrees about Y.
+    c.Points[1].Wait = -1.0f;
+    c.WaitTime = 0.0f;
+    c.WaitVariance = 0.3f;
+    for (int frame = 0; frame < 600; frame++)
+    {
+        scene->OnUpdateRuntime(dt);
+        if (c.Waiting)
+            CHECK(c.WaitTimer <= 0.3f + 1e-4f);
+    }
+    scene->OnRuntimeStop();
+
+    // RelativeToStart: the points are offsets from where it starts; PlayOnStart off: it waits for ResumePatrol.
+    auto relative = CreateRef<Scene>();
+    Entity r = relative->CreateEntity("Cart");
+    r.GetTransform().Translation = { 10.0f, 0.0f, -5.0f };
+    auto& rc = r.AddComponent<PatrolPathComponent>();
+    rc.Points = { { { 0.0f, 0.0f, 0.0f } }, { { 3.0f, 0.0f, 0.0f } } };
+    rc.RelativeToStart = true;
+    rc.PlayOnStart = false;
+    rc.Speed = 6.0f;
+    rc.WaitTime = 0.0f;
+    relative->OnRuntimeStart();
+    for (int frame = 0; frame < 30; frame++)
+        relative->OnUpdateRuntime(dt);
+    CHECK(!rc.IsPatrolling() && rc.Arrivals == 0 && r.GetTransform().Translation == glm::vec3(10.0f, 0.0f, -5.0f));
+    rc.ResumePatrol();
+    // On its way to point 1 (+X), turned to face it (3D: -Z forward, so -90 degrees about Y).
+    for (int frame = 0; frame < 20; frame++)
+        relative->OnUpdateRuntime(dt);
+    CHECK(rc.Current == 1 && !rc.Waiting && std::abs(r.GetTransform().Rotation.y + glm::half_pi<float>()) < 1e-2f);
+    float closest = 100.0f;
+    for (int frame = 0; frame < 120; frame++)
+    {
+        relative->OnUpdateRuntime(dt);
+        closest = std::min(closest, glm::length(r.GetTransform().Translation - glm::vec3(13.0f, 0.0f, -5.0f)));
+    }
+    CHECK(rc.Arrivals >= 2 && closest < 0.3f);
+    // A copy of the running scene starts its own round (the runtime state cleared).
+    Ref<Scene> copy = Scene::Copy(relative);
+    Entity rcCopy = copy->FindEntityByName("Cart");
+    CHECK(rcCopy && rcCopy.GetComponent<PatrolPathComponent>().Arrivals == 0 && !rcCopy.GetComponent<PatrolPathComponent>().Started);
+    CHECK(rcCopy && rcCopy.GetComponent<PatrolPathComponent>().Current == -1);
+    relative->OnRuntimeStop();
+}
+
+TEST(PatrolPathWithNavAgent)
+{
+    // On a 2D grid with a wall: the agent walks round it from point to point; PausePatrol stops it,
+    // ResumePatrol(nearest) takes it back to the nearest point; without a grid the points are skipped.
+    auto scene = CreateRef<Scene>();
+    scene->GetSettings().Gravity = { 0.0f, 0.0f };
+    Entity map = scene->CreateEntity("Map");
+    map.GetTransform().Translation = { -10.0f, -10.0f, 0.0f };
+    auto& tm = map.AddComponent<TilemapComponent>();
+    tm.Width = tm.Height = 20;
+    tm.EnsureSize();
+    for (int y = 0; y < 16; y++)
+        tm.Set(10, y, 0);
+    Entity nav = scene->CreateEntity("Nav");
+    nav.AddComponent<NavGrid2DComponent>().AgentRadius = 0.3f;
+    Entity guard = scene->CreateEntity("Guard");
+    guard.GetTransform().Translation = { -5.0f, -5.0f, 0.0f };
+    auto& agent = guard.AddComponent<NavAgentComponent>();
+    agent.Speed = 6.0f;
+    agent.StoppingDistance = 0.05f;
+    auto& patrol = guard.AddComponent<PatrolPathComponent>();
+    patrol.Points = { { { -5.0f, -5.0f, 0.0f } }, { { 5.0f, -5.0f, 0.0f } } };
+    patrol.WaitTime = 0.2f;
+    patrol.Mode = PatrolPathComponent::PatrolMode::PingPong;
+    scene->OnRuntimeStart();
+    bool crossedWall = false;
+    for (int frame = 0; frame < 2400 && patrol.Arrivals < 3; frame++)
+    {
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+        const glm::vec3 p = scene->GetWorldPosition(guard);
+        if (std::abs(p.x) < 0.05f && p.y < 5.9f)
+            crossedWall = true;
+    }
+    CHECK(patrol.Arrivals == 3 && !crossedWall && patrol.Skipped == 0 && patrol.Laps >= 1);
+    CHECK(agent.PathRequests >= 2 && patrol.IsPatrolling());
+    // Paused: the agent stops and nothing goes on.
+    for (int i = 0; i < 20; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(scene->PausePatrol(guard));
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    const uint32_t arrivals = patrol.Arrivals;
+    CHECK(!patrol.IsPatrolling() && !agent.HasDestination);
+    agent.SetDestination({ -2.0f, 8.0f, 0.0f }); // a chase elsewhere: the patrol leaves it alone
+    for (int i = 0; i < 300; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(patrol.Arrivals == arrivals && glm::length(glm::vec2(scene->GetWorldPosition(guard)) - glm::vec2(-2.0f, 8.0f)) < 0.3f);
+    // Back to the round at the nearest point (the first one: on the same side of the wall).
+    CHECK(scene->ResumePatrol(guard, true));
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(patrol.Current == 0 && agent.HasDestination && glm::length(agent.Destination - glm::vec3(-5.0f, -5.0f, 0.0f)) < 1e-4f);
+    // SetPatrolWaypoint: straight to point 1.
+    CHECK(scene->SetPatrolWaypoint(guard, 1) && !scene->SetPatrolWaypoint(guard, 2));
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(patrol.Current == 1 && glm::length(agent.Destination - glm::vec3(5.0f, -5.0f, 0.0f)) < 1e-4f);
+    scene->OnRuntimeStop();
+
+    // No grid at all: the agent finds no path - each point is given up (after a short wait) and the
+    // round goes on.
+    auto bare = CreateRef<Scene>();
+    Entity lost = bare->CreateEntity("Lost");
+    lost.AddComponent<NavAgentComponent>();
+    auto& lp = lost.AddComponent<PatrolPathComponent>();
+    lp.Points = { { { 3.0f, 0.0f, 0.0f } }, { { -3.0f, 0.0f, 0.0f } } };
+    lp.WaitTime = 0.0f;
+    bare->OnRuntimeStart();
+    for (int i = 0; i < 120; i++)
+        bare->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(lp.Skipped >= 2 && lp.Skipped <= 5 && lp.Arrivals == 0);
+    bare->OnRuntimeStop();
+}
+
+TEST(PatrolPathChildrenAndSplineSources)
+{
+    auto scene = CreateRef<Scene>();
+    Entity route = scene->CreateEntity("Route");
+    route.GetTransform().Translation = { 1.0f, 0.0f, 0.0f };
+    Entity a = scene->CreateEntity("A"), b = scene->CreateEntity("B"), hidden = scene->CreateEntity("C");
+    scene->SetParent(a, route);
+    scene->SetParent(b, route);
+    scene->SetParent(hidden, route);
+    a.GetTransform().Translation = { 0.0f, 0.0f, 2.0f };
+    b.GetTransform().Translation = { 3.0f, 0.0f, 2.0f };
+    hidden.SetActive(false);
+    Entity guard = scene->CreateEntity("Guard");
+    auto& c = guard.AddComponent<PatrolPathComponent>();
+    c.Source = PatrolPathComponent::PointSource::Children;
+    std::vector<glm::vec3> points;
+    CHECK(!scene->GetPatrolWaypoints(guard, points)); // no route yet
+    c.Route.ID = (uint64_t)route.GetUUID();
+    CHECK(scene->GetPatrolWaypoints(guard, points) && points.size() == 2); // the inactive child is left out
+    CHECK(glm::length(points[0] - glm::vec3(1.0f, 0.0f, 2.0f)) < 1e-5f && glm::length(points[1] - glm::vec3(4.0f, 0.0f, 2.0f)) < 1e-5f);
+
+    // A spline: its own points in the world, or points `spacing` apart along it.
+    Entity rail = scene->CreateEntity("Rail");
+    rail.GetTransform().Translation = { 0.0f, 0.0f, 5.0f };
+    auto& spline = rail.AddComponent<SplineComponent>();
+    spline.Path.Type = SplineType::Linear;
+    spline.Path.Points = { { { 0.0f, 0.0f, 0.0f } }, { { 10.0f, 0.0f, 0.0f } } };
+    c.Source = PatrolPathComponent::PointSource::Spline;
+    c.Route.ID = (uint64_t)rail.GetUUID();
+    CHECK(scene->GetPatrolWaypoints(guard, points) && points.size() == 2 && glm::length(points[1] - glm::vec3(10.0f, 0.0f, 5.0f)) < 1e-4f);
+    c.SplineSpacing = 2.5f;
+    CHECK(scene->GetPatrolWaypoints(guard, points) && points.size() == 5);
+    for (size_t i = 0; i < points.size(); i++)
+        CHECK(glm::length(points[i] - glm::vec3(2.5f * (float)i, 0.0f, 5.0f)) < 0.05f);
+    // A closed square: its start is not given twice.
+    spline.Path.Points = { { { 0.0f, 0.0f, 0.0f } }, { { 4.0f, 0.0f, 0.0f } }, { { 4.0f, 0.0f, 4.0f } }, { { 0.0f, 0.0f, 4.0f } } };
+    spline.Path.Closed = true;
+    c.SplineSpacing = 2.0f;
+    CHECK(scene->GetPatrolWaypoints(guard, points) && points.size() == 8);
+    CHECK(glm::length(points.front() - points.back()) > 1.0f);
+    // Not set: the nearest ancestor with a spline (a guard riding along with it).
+    c.Route.ID = 0;
+    c.SplineSpacing = 0.0f;
+    CHECK(!scene->GetPatrolWaypoints(guard, points));
+    scene->SetParent(guard, rail);
+    CHECK(scene->GetPatrolWaypoints(guard, points) && points.size() == 4);
+    // A route of children walked round with the default Loop.
+    c.Source = PatrolPathComponent::PointSource::Children;
+    c.Route.ID = (uint64_t)route.GetUUID();
+    c.WaitTime = 0.0f;
+    c.Speed = 8.0f;
+    scene->OnRuntimeStart();
+    for (int i = 0; i < 240; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(c.Arrivals >= 3 && c.Laps >= 1);
+    scene->OnRuntimeStop();
+}
+
+class PatrolProbe : public ScriptableEntity
+{
+public:
+    std::vector<int> Reached;
+    int BusEvents = 0;
+    void OnCreate() override
+    {
+        Subscribe("PatrolPointReached", [this](const ScriptMessage& m) {
+            if (m.Sender == GetEntity() && m.Is<int>())
+                BusEvents++;
+        });
+    }
+    void OnPatrolPointReached(int index) override
+    {
+        Reached.push_back(index);
+        if (Reached.size() == 2)
+            PausePatrol(); // the script takes over after the second point
+    }
+};
+ZM_REGISTER_SCRIPT(PatrolProbe)
+
+TEST(PatrolScriptApiEventsAndSerialization)
+{
+    auto scene = CreateRef<Scene>();
+    Entity e = scene->CreateEntity("Guard");
+    auto& c = e.AddComponent<PatrolPathComponent>();
+    c.Points = { { { 0.0f, 0.0f, 0.0f } }, { { 2.0f, 0.0f, 0.0f } }, { { 2.0f, 0.0f, 2.0f } } };
+    c.WaitTime = 0.0f;
+    c.Speed = 8.0f;
+    c.StartAtNearest = false;
+    e.AddComponent<NativeScriptComponent>().ClassName = "PatrolProbe";
+    scene->OnRuntimeStart();
+    for (int i = 0; i < 200; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    auto* probe = dynamic_cast<PatrolProbe*>(e.GetComponent<NativeScriptComponent>().Instance);
+    CHECK(probe && (probe->Reached == std::vector<int>{ 0, 1 }) && probe->BusEvents == 2);
+    CHECK(probe && !probe->IsPatrolling() && probe->GetPatrolPoint() == 1);
+    if (probe)
+    {
+        CHECK(probe->SetPatrolPoint(2) && probe->IsPatrolling() && probe->GetPatrolPoint() == 2);
+        CHECK(glm::length(probe->GetPatrolTarget() - glm::vec3(2.0f, 0.0f, 2.0f)) < 1e-5f);
+        for (int i = 0; i < 60; i++)
+            scene->OnUpdateRuntime(1.0f / 60.0f);
+        CHECK(probe->Reached.size() >= 3 && probe->Reached[2] == 2);
+        CHECK(probe->PausePatrol(false) && probe->ResumePatrol(true));
+    }
+    scene->OnRuntimeStop();
+
+    // Saving / loading every setting (a point's own wait too); the runtime state is not saved.
+    auto source = CreateRef<Scene>();
+    Entity group = source->CreateEntity("Group");
+    Entity route = source->CreateEntity("Route");
+    source->SetParent(route, group);
+    Entity guard = source->CreateEntity("Guard");
+    source->SetParent(guard, group);
+    auto& p = guard.AddComponent<PatrolPathComponent>();
+    p.Source = PatrolPathComponent::PointSource::Children;
+    p.Points = { { { 1.0f, 2.0f, 3.0f } }, { { -4.0f, 0.5f, 6.0f }, 2.5f } };
+    p.RelativeToStart = true;
+    p.Route.ID = (uint64_t)route.GetUUID();
+    p.SplineSpacing = 1.25f;
+    p.Mode = PatrolPathComponent::PatrolMode::Random;
+    p.WaitTime = 3.0f;
+    p.WaitVariance = 0.75f;
+    p.ArriveDistance = 0.6f;
+    p.Speed = 4.5f;
+    p.FaceMovement = false;
+    p.StartAtNearest = false;
+    p.PlayOnStart = false;
+    p.Arrivals = 7; // runtime
+    p.Current = 1;
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(SceneSerializer(source).SerializeToString()));
+    Entity lg = loaded->FindEntityByName("Guard");
+    CHECK(lg && lg.HasComponent<PatrolPathComponent>());
+    if (lg)
+    {
+        const auto& l = lg.GetComponent<PatrolPathComponent>();
+        CHECK(l.Source == PatrolPathComponent::PointSource::Children && l.Points == p.Points && l.RelativeToStart && l.Route == p.Route);
+        CHECK(l.SplineSpacing == 1.25f && l.Mode == PatrolPathComponent::PatrolMode::Random && l.WaitTime == 3.0f && l.WaitVariance == 0.75f);
+        CHECK(l.ArriveDistance == 0.6f && l.Speed == 4.5f && !l.FaceMovement && !l.StartAtNearest && !l.PlayOnStart);
+        CHECK(l.Arrivals == 0 && l.Current == -1);
+    }
+    // Defaults survive a round trip; broken points are dropped.
+    auto plain = CreateRef<Scene>();
+    plain->CreateEntity("P").AddComponent<PatrolPathComponent>();
+    std::string text = SceneSerializer(plain).SerializeToString();
+    const size_t at = text.find("\"Points\": []");
+    CHECK(at != std::string::npos);
+    if (at != std::string::npos)
+        text.replace(at, std::string("\"Points\": []").size(), "\"Points\": [[1, 2, 3], [\"x\", 0, 0], [4, 5], [7, 8, 9, 1.5]]");
+    auto again = CreateRef<Scene>();
+    CHECK(SceneSerializer(again).DeserializeFromString(text));
+    Entity pa = again->FindEntityByName("P");
+    CHECK(pa && pa.GetComponent<PatrolPathComponent>().Points.size() == 2);
+    if (pa)
+    {
+        const auto& d = pa.GetComponent<PatrolPathComponent>();
+        CHECK(d.Points[0].Wait < 0.0f && d.Points[1].Wait == 1.5f && d.Points[1].Position == glm::vec3(7.0f, 8.0f, 9.0f));
+        CHECK(d.Mode == PatrolPathComponent::PatrolMode::Loop && d.WaitTime == 1.0f && d.PlayOnStart && d.StartAtNearest && d.FaceMovement);
+    }
+    // Copies: runtime cleared; a duplicated group's route reference follows it.
+    Ref<Scene> copy = Scene::Copy(source);
+    Entity cg = copy->FindEntityByName("Guard");
+    CHECK(cg && cg.GetComponent<PatrolPathComponent>().Arrivals == 0);
+    Entity dup = source->DuplicateEntity(group);
+    Entity dupRoute, dupGuard;
+    if (dup)
+        for (UUID id : dup.GetComponent<RelationshipComponent>().Children)
+        {
+            Entity child = source->GetEntityByUUID(id);
+            (child.GetName() == "Route" ? dupRoute : dupGuard) = child;
+        }
+    CHECK(dupRoute && dupGuard && dupGuard.GetComponent<PatrolPathComponent>().Route.ID == (uint64_t)dupRoute.GetUUID());
+    CHECK(ComponentRegistry::Find("PatrolPath"));
+}
+
+// Records what the shared navigation drawing asks for.
+class RecordingNavCanvas : public NavDebugCanvas
+{
+public:
+    int Lines = 0, Quads = 0, Dots = 0, Texts = 0;
+    void Line(const glm::vec3&, const glm::vec3&, const glm::vec4&) override { Lines++; }
+    void Quad(const glm::vec3&, const glm::vec3&, const glm::vec3&, const glm::vec3&, const glm::vec4&) override { Quads++; }
+    void Dot(const glm::vec3&, float, const glm::vec4&) override { Dots++; }
+    float PixelSize(const glm::vec3&) const override { return 0.01f; }
+    void Text(const glm::vec3&, std::string_view, const glm::vec4&) override { Texts++; }
+    void Reset() { Lines = Quads = Dots = Texts = 0; }
+};
+
+TEST(NavigationDebugDrawing)
+{
+    ResetDebugDraw();
+    // Filled quads in the queue: one-frame ones go with the next game frame, timed ones count down.
+    DebugDraw::Quad({ 0, 0, 0 }, { 1, 0, 0 }, { 1, 1, 0 }, { 0, 1, 0 }, glm::vec4(1.0f, 0.0f, 0.0f, 0.5f));
+    DebugDraw::FilledRect({ 2, 2, 0 }, { 1, 2 }, glm::vec4(0.0f, 1.0f, 0.0f, 0.5f), 1.0f);
+    DebugDraw::FilledRectXZ({ 0, 1, 0 }, { 2, 4 }, glm::vec4(0.0f, 0.0f, 1.0f, 0.5f));
+    DebugDraw::Quad({ 0, 0, 0 }, { NAN, 0, 0 }, { 1, 1, 0 }, { 0, 1, 0 }); // not finite: dropped
+    DebugDraw::Quad({ 0, 0, 0 }, { 1, 0, 0 }, { 1, 1, 0 }, { 0, 1, 0 }, glm::vec4(1.0f, 1.0f, 1.0f, 0.0f)); // invisible: dropped
+    if (DebugDraw::IsCompiledIn())
+    {
+        CHECK(DebugDraw::GetQuads().size() == 3);
+        const DebugDrawQuad& xz = DebugDraw::GetQuads()[2];
+        CHECK(xz.Corners[0] == glm::vec3(-1.0f, 1.0f, -2.0f) && xz.Corners[2] == glm::vec3(1.0f, 1.0f, 2.0f));
+        CHECK(DebugDraw::GetQuads()[1].Corners[0] == glm::vec3(1.5f, 1.0f, 0.0f));
+        DebugDraw::Advance(0.5f);
+        CHECK(DebugDraw::GetQuads().size() == 1);
+        DebugDraw::Hold();
+        CHECK(DebugDraw::GetQuads().size() == 1);
+        DebugDraw::Advance(0.6f);
+        CHECK(DebugDraw::GetQuads().empty());
+        DebugDraw::SetEnabled(false);
+        DebugDraw::FilledRect({ 0, 0, 0 }, { 1, 1 });
+        CHECK(DebugDraw::GetQuads().empty());
+        DebugDraw::SetEnabled(true);
+    }
+    ResetDebugDraw();
+
+    // A 2D level with everything navigation has: a grid (a wall, a carving obstacle), an agent on
+    // its way, a guard's eyes and its patrol round.
+    auto scene = CreateRef<Scene>();
+    scene->GetSettings().Gravity = { 0.0f, 0.0f };
+    Entity map = scene->CreateEntity("Map");
+    map.GetTransform().Translation = { -10.0f, -10.0f, 0.0f };
+    auto& tm = map.AddComponent<TilemapComponent>();
+    tm.Width = tm.Height = 20;
+    tm.EnsureSize();
+    for (int y = 0; y < 16; y++)
+        tm.Set(10, y, 0);
+    Entity nav = scene->CreateEntity("Nav");
+    nav.AddComponent<NavGrid2DComponent>();
+    Entity runner = scene->CreateEntity("Runner");
+    runner.GetTransform().Translation = { -5.0f, -5.0f, 0.0f };
+    runner.AddComponent<NavAgentComponent>();
+    Entity crate = scene->CreateEntity("Crate");
+    crate.GetTransform().Translation = { -6.0f, 4.0f, 0.0f };
+    crate.AddComponent<NavObstacleComponent>();
+    Entity guard = scene->CreateEntity("Guard");
+    guard.GetTransform().Translation = { 4.0f, 6.0f, 0.0f };
+    guard.AddComponent<SightSensorComponent>().CheckInterval = 0.0f;
+    auto& patrol = guard.AddComponent<PatrolPathComponent>();
+    patrol.Points = { { { 4.0f, 6.0f, 0.0f } }, { { 7.0f, 6.0f, 0.0f } }, { { 7.0f, 8.0f, 0.0f } } };
+    scene->OnRuntimeStart();
+    scene->SetNavDestination(runner, { 5.0f, -5.0f, 0.0f });
+
+    // Off: nothing queued by the scene.
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(DebugDraw::GetQuads().empty() && DebugDraw::GetLines().empty());
+    if (DebugDraw::IsCompiledIn())
+    {
+        DebugDraw::GetSettings().ShowNavigation = true;
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+        const size_t blockedQuads = DebugDraw::GetQuads().size();
+        CHECK(blockedQuads > 0 && DebugDraw::GetLines().size() > 20 && !DebugDraw::GetPoints().empty() && !DebugDraw::GetTexts().empty());
+        for (const DebugDrawQuad& q : DebugDraw::GetQuads())
+            CHECK(q.DepthTest && q.TimeLeft == 0.0f);
+        // The walkable cells too: more quads.
+        DebugDraw::GetSettings().ShowNavigationWalkable = true;
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+        CHECK(DebugDraw::GetQuads().size() > blockedQuads);
+        // Every frame anew (one-frame shapes), not piling up.
+        const size_t perFrame = DebugDraw::GetQuads().size();
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+        CHECK(DebugDraw::GetQuads().size() == perFrame);
+    }
+
+    // The shared drawing itself: each part on its own, the filter, a selected grid's walkable cells.
+    RecordingNavCanvas canvas;
+    NavDebugOptions only;
+    only.Grids = only.Agents = only.Obstacles = only.Sight = only.Patrols = false;
+    NavDebugDraw::DrawScene(*scene, canvas, only);
+    CHECK(canvas.Lines == 0 && canvas.Quads == 0 && canvas.Dots == 0);
+    only.Grids = true;
+    NavDebugDraw::DrawScene(*scene, canvas, only);
+    const int gridQuads = canvas.Quads;
+    CHECK(gridQuads > 0 && canvas.Lines == 4 && canvas.Dots == 0); // the cells and the frame
+    canvas.Reset();
+    only.Selected = [&](entt::entity e) { return e == (entt::entity)nav; };
+    NavDebugDraw::DrawScene(*scene, canvas, only);
+    CHECK(canvas.Quads > gridQuads);
+    canvas.Reset();
+    only = NavDebugOptions();
+    only.Grids = only.Agents = only.Obstacles = only.Sight = false;
+    only.Labels = true;
+    NavDebugDraw::DrawScene(*scene, canvas, only);
+    CHECK(canvas.Dots == 3 && canvas.Texts == 3 && canvas.Lines > 3); // three waypoints, numbered
+    canvas.Reset();
+    only.Filter = [&](entt::entity e) { return e != (entt::entity)guard; };
+    NavDebugDraw::DrawScene(*scene, canvas, only);
+    CHECK(canvas.Dots == 0 && canvas.Lines == 0);
+    canvas.Reset();
+    only = NavDebugOptions();
+    only.Grids = only.Obstacles = only.Sight = only.Patrols = false;
+    NavDebugDraw::DrawScene(*scene, canvas, only);
+    CHECK(canvas.Lines >= 2 && canvas.Dots >= 2); // the runner's path and its corners
+    canvas.Reset();
+    only = NavDebugOptions();
+    only.Grids = only.Agents = only.Sight = only.Patrols = false;
+    NavDebugDraw::DrawScene(*scene, canvas, only);
+    CHECK(canvas.Lines == 12); // the crate's box
+    scene->OnRuntimeStop();
+    ResetDebugDraw();
+
+    // The settings are saved (editor view, project) and come from the player's command line.
+    EditorViewSettings view;
+    view.DebugDraw.ShowNavigation = true;
+    view.DebugDraw.ShowNavigationWalkable = true;
+    EditorViewSettings loadedView;
+    CHECK(loadedView.FromJson(view.ToJson()) && loadedView.DebugDraw.ShowNavigation && loadedView.DebugDraw.ShowNavigationWalkable);
+    PlayerCommandLine nav1 = PlayerCommandLine::Parse({ "--debug-nav" });
+    PlayerCommandLine nav2 = PlayerCommandLine::Parse({ "--debug-nav-cells" });
+    CHECK(nav1.Errors.empty() && nav1.DebugNavigation && !nav1.DebugNavigationCells);
+    CHECK(nav2.Errors.empty() && nav2.DebugNavigation && nav2.DebugNavigationCells);
+    CHECK(PlayerCommandLine::GetHelpText().find("--debug-nav") != std::string::npos);
+    namespace fs = std::filesystem;
+    fs::path dir = fs::temp_directory_path() / "zamin_navdebug_project";
+    fs::create_directories(dir);
+    auto project = Project::New();
+    project->GetConfig().Name = "NavDebug";
+    project->GetConfig().DebugDraw.ShowNavigation = true;
+    CHECK(ProjectSerializer(project).Serialize(dir / "Test.zproject"));
+    auto read = Project::New();
+    CHECK(ProjectSerializer(read).Deserialize(dir / "Test.zproject"));
+    CHECK(read->GetConfig().DebugDraw.ShowNavigation && !read->GetConfig().DebugDraw.ShowNavigationWalkable);
+    fs::remove_all(dir);
 }

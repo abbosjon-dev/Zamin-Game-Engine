@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 
+#include <array>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -76,6 +77,13 @@ namespace Zamin {
         bool ShowVelocities = false;
         bool ShowBodyVelocities = false;
         float VelocityScale = 0.25f;
+        // Navigation while the game runs, every frame (Scene::DrawNavigationDebug): the baked NavGrid
+        // 2D / 3D cells (blocked red, carved by Nav Obstacles orange; ShowNavigationWalkable: the
+        // walkable ones green too) and the grid's frame, the Nav Agents' paths, destinations and
+        // feelers, the Nav Obstacles' shapes, the Sight Sensors' cones and the Patrol Paths' rounds.
+        // The player's --debug-nav; in the editor the viewport's Gizmos > Navigatsiya shows the same.
+        bool ShowNavigation = false;
+        bool ShowNavigationWalkable = false;
 
         float LineWidth = 2.0f;   // pixels
         float PointSize = 8.0f;   // pixels (DebugDraw::Point with size 0)
@@ -111,6 +119,16 @@ namespace Zamin {
         glm::vec3 Position{ 0.0f };
         glm::vec4 Color{ 1.0f };
         float Size = 0.0f; // pixels (0: DebugDrawSettings::PointSize)
+        float TimeLeft = 0.0f;
+        bool DepthTest = true;
+        uint64_t Frame = 0;
+    };
+
+    // A filled, flat four-cornered shape (corners in order round it; a navigation cell, an area).
+    struct DebugDrawQuad
+    {
+        std::array<glm::vec3, 4> Corners{};
+        glm::vec4 Color{ 1.0f };
         float TimeLeft = 0.0f;
         bool DepthTest = true;
         uint64_t Frame = 0;
@@ -220,6 +238,15 @@ namespace Zamin {
         // hidden while the point is behind a surface.
         static void Text(const glm::vec3& position, std::string_view text, const glm::vec4& color = DebugColor::White,
                          float duration = 0.0f, bool depthTest = false, float sizePixels = 0.0f);
+        // A filled quad through four corners in order round it (two triangles: 0-1-2, 2-3-0); use a
+        // translucent colour. Drawn before the lines and points.
+        static void Quad(const glm::vec3& p0, const glm::vec3& p1, const glm::vec3& p2, const glm::vec3& p3,
+                         const glm::vec4& color = DebugColor::White, float duration = 0.0f, bool depthTest = true);
+        // A filled rectangle in the XY plane (2D games) / flat on the XZ plane at `center`'s height.
+        static void FilledRect(const glm::vec3& center, const glm::vec2& size, const glm::vec4& color = DebugColor::White,
+                               float duration = 0.0f, bool depthTest = true);
+        static void FilledRectXZ(const glm::vec3& center, const glm::vec2& size, const glm::vec4& color = DebugColor::White,
+                                 float duration = 0.0f, bool depthTest = true);
 
         // ---- engine hooks
         // A physics ray query and its result (shown when ShowRaycasts is on).
@@ -260,6 +287,7 @@ namespace Zamin {
         static bool IsShowingJoints();
         static bool IsShowingVelocities();
         static bool IsShowingBodyVelocities();
+        static bool IsShowingNavigation();
 
         // ---- the queue
         // Game time went on by `deltaTime` seconds (Scene: every frame that is not paused, the
@@ -275,10 +303,12 @@ namespace Zamin {
         static const std::vector<DebugDrawLine>& GetLines();
         static const std::vector<DebugDrawPoint>& GetPoints();
         static const std::vector<DebugDrawText>& GetTexts();
-        // Shapes are dropped (with one warning) when this many lines / points / labels are queued.
+        static const std::vector<DebugDrawQuad>& GetQuads();
+        // Shapes are dropped (with one warning) when this many lines / points / labels / quads are queued.
         static constexpr size_t MaxLines = 262144;
         static constexpr size_t MaxPoints = 65536;
         static constexpr size_t MaxTexts = 4096;
+        static constexpr size_t MaxQuads = 131072;
 
         // ---- settings (runtime toggle)
         // The player starts with the project's settings (and its command line), the editor with
@@ -329,6 +359,10 @@ namespace Zamin {
             static void NavigationPath(const std::vector<glm::vec3>&, const glm::vec4& = DebugColor::Cyan, float = 0.0f, bool = true) {}
             static void Text(const glm::vec3&, std::string_view, const glm::vec4& = DebugColor::White, float = 0.0f, bool = false,
                              float = 0.0f) {}
+            static void Quad(const glm::vec3&, const glm::vec3&, const glm::vec3&, const glm::vec3&, const glm::vec4& = DebugColor::White,
+                             float = 0.0f, bool = true) {}
+            static void FilledRect(const glm::vec3&, const glm::vec2&, const glm::vec4& = DebugColor::White, float = 0.0f, bool = true) {}
+            static void FilledRectXZ(const glm::vec3&, const glm::vec2&, const glm::vec4& = DebugColor::White, float = 0.0f, bool = true) {}
 
             static void PhysicsRaycast(const glm::vec3&, const glm::vec3&, float, const RaycastHit&) {}
             static void PhysicsRaycastAll(const glm::vec3&, const glm::vec3&, float, const std::vector<RaycastHit>&) {}
@@ -348,6 +382,7 @@ namespace Zamin {
             static bool IsShowingJoints() { return false; }
             static bool IsShowingVelocities() { return false; }
             static bool IsShowingBodyVelocities() { return false; }
+            static bool IsShowingNavigation() { return false; }
 
             static void Advance(float) {}
             static void Hold() {}
@@ -356,7 +391,8 @@ namespace Zamin {
             static const std::vector<DebugDrawLine>& GetLines() { static const std::vector<DebugDrawLine> none; return none; }
             static const std::vector<DebugDrawPoint>& GetPoints() { static const std::vector<DebugDrawPoint> none; return none; }
             static const std::vector<DebugDrawText>& GetTexts() { static const std::vector<DebugDrawText> none; return none; }
-            static constexpr size_t MaxLines = 0, MaxPoints = 0, MaxTexts = 0;
+            static const std::vector<DebugDrawQuad>& GetQuads() { static const std::vector<DebugDrawQuad> none; return none; }
+            static constexpr size_t MaxLines = 0, MaxPoints = 0, MaxTexts = 0, MaxQuads = 0;
 
             static DebugDrawSettings& GetSettings()
             {

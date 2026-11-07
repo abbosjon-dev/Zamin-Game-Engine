@@ -533,6 +533,16 @@ namespace Zamin {
         if (d.ShowVelocities || d.ShowBodyVelocities)
             changed |= UI::PropertyFloat("Tezlik o'qi (s)", d.VelocityScale, 0.01f, DebugDrawSettings::MinVelocityScale,
                                          DebugDrawSettings::MaxVelocityScale, "%.2f");
+        changed |= UI::PropertyBool("Navigatsiya", d.ShowNavigation);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("NavGrid'larning yopiq (qizil) va to'siq yopgan (to'q sariq) kataklari, agentlar yo'li va manzili, mo'ylov nurlari, "
+                        "Nav Obstacle shakllari, ko'rish konuslari va patrul yo'llari; --debug-nav bayrog'i ham yoqadi");
+        if (d.ShowNavigation)
+        {
+            changed |= UI::PropertyBool("Yuriladigan kataklar", d.ShowNavigationWalkable);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Yuriladigan kataklar ham (yashil); --debug-nav-cells bayrog'i ham yoqadi");
+        }
         changed |= UI::PropertyFloat("Chiziq qalinligi (px)", d.LineWidth, 0.05f, DebugDrawSettings::MinLineWidth, DebugDrawSettings::MaxLineWidth, "%.1f");
         changed |= UI::PropertyFloat("Matn o'lchami (px)", d.TextSize, 0.1f, DebugDrawSettings::MinTextSize, DebugDrawSettings::MaxTextSize, "%.0f");
         ImGui::EndDisabled();

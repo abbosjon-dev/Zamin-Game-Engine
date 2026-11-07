@@ -3075,6 +3075,189 @@ namespace Zamin {
         return changed;
     }
 
+    bool SceneHierarchyPanel::DrawPatrolPath(Entity entity, PatrolPathComponent& c)
+    {
+        bool changed = false;
+        InactiveComponentNote(entity, "Obyekt nofaol: patrul qilmaydi");
+        const bool hasAgent = entity.HasComponent<NavAgentComponent>();
+
+        UI::PropertyHeader("Nuqtalar", "Patrul nuqtalari qayerdan olinadi. Gizmo'lar > Navigatsiya - yo'l, nuqtalar va hozirgi nishon");
+        int source = (int)c.Source;
+        static const char* const s_Sources[] = { "Ro'yxat", "Bolalar", "Spline" };
+        static const char* const s_SourceTips[] = { "Quyidagi ro'yxatdagi nuqtalar (dunyo koordinatalari yoki boshlang'ich joydan siljish)",
+                                                    "Yo'l obyektining faol bolalari - ierarxiya tartibida (viewportda gizmo bilan suriladi)",
+                                                    "Yo'l obyektining Spline nuqtalari (viewportda Spline tahrirlagichi bilan)" };
+        if (UI::PropertySegmented("Manba", source, s_Sources, 3, s_SourceTips))
+        {
+            c.Source = (PatrolPathComponent::PointSource)source;
+            changed = true;
+        }
+        if (c.Source == PatrolPathComponent::PointSource::Points)
+        {
+            changed |= UI::PropertyBool("Boshlang'ich joydan", c.RelativeToStart);
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                UI::Tooltip("Nuqtalar - o'yin boshlanganda obyekt turgan joydan siljish (prefab nusxalari o'z joyida patrul qiladi); "
+                            "o'chiq - dunyo koordinatalari");
+            int remove = -1;
+            const float button = ImGui::GetFrameHeight();
+            const float waitWidth = 58.0f;
+            for (size_t i = 0; i < c.Points.size(); i++)
+            {
+                ImGui::PushID((int)i);
+                PatrolPathComponent::Waypoint& w = c.Points[i];
+                UI::PropertyLabel(std::format("  {}", i).c_str());
+                const float spacing = ImGui::GetStyle().ItemSpacing.x;
+                ImGui::SetNextItemWidth(std::max(60.0f, ImGui::GetContentRegionAvail().x - button - waitWidth - spacing * 2.0f));
+                changed |= ImGui::DragFloat3("##p", &w.Position.x, 0.02f, 0.0f, 0.0f, "%.2f");
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(waitWidth);
+                if (ImGui::DragFloat("##wait", &w.Wait, 0.02f, -1.0f, 1000.0f, w.Wait < 0.0f ? "kutish" : "%.1f s", ImGuiSliderFlags_AlwaysClamp))
+                {
+                    if (w.Wait < 0.0f)
+                        w.Wait = -1.0f;
+                    changed = true;
+                }
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                    UI::Tooltip("Shu nuqtada kutish (soniya). Chapga oxirigacha sudralsa - umumiy \"Kutish\" qiymati");
+                ImGui::SameLine();
+                if (ImGui::Button(ICON_FA_XMARK, ImVec2(button, 0)))
+                    remove = (int)i;
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                    UI::Tooltip("Nuqtani o'chirish");
+                ImGui::PopID();
+            }
+            if (remove >= 0)
+            {
+                c.Points.erase(c.Points.begin() + remove);
+                changed = true;
+            }
+            UI::PropertyLabel("");
+            ImGui::BeginDisabled(!m_SceneEditable || c.Points.size() >= PatrolPathComponent::MaxWaypoints);
+            if (ImGui::Button(Tr(ICON_FA_PLUS "  Nuqta qo'shish")))
+            {
+                // Past the last point, the way the round goes; the first one where the entity is.
+                PatrolPathComponent::Waypoint w;
+                const size_t n = c.Points.size();
+                if (n >= 2)
+                {
+                    glm::vec3 step = c.Points[n - 1].Position - c.Points[n - 2].Position;
+                    if (glm::length(step) < 1e-3f)
+                        step = glm::vec3(1.0f, 0.0f, 0.0f);
+                    w.Position = c.Points[n - 1].Position + step;
+                }
+                else if (n == 1)
+                    w.Position = c.Points[0].Position + glm::vec3(2.0f, 0.0f, 0.0f);
+                else if (!c.RelativeToStart && m_Context)
+                    w.Position = m_Context->GetWorldPosition(entity);
+                c.Points.push_back(w);
+                changed = true;
+            }
+            ImGui::SameLine();
+            ImGui::BeginDisabled(c.RelativeToStart || !m_Context);
+            if (ImGui::Button(Tr(ICON_FA_LOCATION_CROSSHAIRS "  Obyekt joyi")))
+            {
+                PatrolPathComponent::Waypoint w;
+                w.Position = m_Context->GetWorldPosition(entity);
+                c.Points.push_back(w);
+                changed = true;
+            }
+            ImGui::EndDisabled();
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                UI::Tooltip("Obyekt hozir turgan joyni nuqta qilib qo'shish (uni viewportda surib, yana bosing)");
+            ImGui::EndDisabled();
+        }
+        else
+        {
+            const bool spline = c.Source == PatrolPathComponent::PointSource::Spline;
+            changed |= DrawEntityRefField("Yo'l", c.Route, spline ? "Spline komponentli obyekt (tanlanmasa - Spline komponenti bor eng yaqin ota)"
+                                                                 : "Shu obyektning faol bolalari - patrul nuqtalari (ierarxiya tartibida)");
+            if (spline)
+            {
+                UI::PropertyLabel("Oraliq", "0 - spline'ning o'z nuqtalari; > 0 - egri chiziq bo'ylab shuncha masofada (dunyo birligida) "
+                                            "nuqtalar (egrilik aniqroq kuzatiladi; kutishni 0 qiling)");
+                changed |= ImGui::DragFloat("##spacing", &c.SplineSpacing, 0.02f, 0.0f, 1000.0f, c.SplineSpacing > 0.0f ? "%.2f" : "o'z nuqtalari",
+                                            ImGuiSliderFlags_AlwaysClamp);
+            }
+        }
+        std::vector<glm::vec3> points;
+        if (m_Context)
+            m_Context->GetPatrolWaypoints(entity, points);
+        UI::PropertyLabel("");
+        if (points.empty())
+            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  %s", Tr("Patrul nuqtalari yo'q"));
+        else
+        {
+            float length = 0.0f;
+            for (size_t i = 1; i < points.size(); i++)
+                length += glm::length(points[i] - points[i - 1]);
+            ImGui::TextDisabled("%zu %s, %.1f %s", points.size(), Tr("ta nuqta"), length, Tr("birlik"));
+        }
+
+        UI::PropertyHeader("Patrul");
+        static const char* const s_Modes[] = { "Aylanma (oxiridan boshiga)", "Borib-qaytish", "Tasodifiy nuqta", "Bir marta (oxirida to'xtaydi)" };
+        int mode = (int)c.Mode;
+        if (UI::PropertyCombo("Rejim", mode, s_Modes, 4))
+        {
+            c.Mode = (PatrolPathComponent::PatrolMode)mode;
+            changed = true;
+        }
+        UI::PropertyLabel("Kutish", "Har nuqtada shuncha soniya turadi (nuqtaning o'z qiymati bo'lsa - o'shancha)");
+        changed |= ImGui::DragFloat("##waitTime", &c.WaitTime, 0.02f, 0.0f, 1000.0f, "%.2f s", ImGuiSliderFlags_AlwaysClamp);
+        UI::PropertyLabel("Tasodifiy +/-", "Kutish vaqti har safar shunchagacha ko'p yoki kam bo'ladi (soniya)");
+        changed |= ImGui::DragFloat("##variance", &c.WaitVariance, 0.02f, 0.0f, 1000.0f, "%.2f s", ImGuiSliderFlags_AlwaysClamp);
+        UI::PropertyLabel("Yetish masofasi", "Nuqtaga shuncha yaqinlashsa - yetdi (Nav Agent bilan: uning to'xtash masofasi ham qo'shiladi)");
+        changed |= ImGui::DragFloat("##arrive", &c.ArriveDistance, 0.01f, 0.01f, 100.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+        changed |= UI::PropertyBool("Eng yaqindan", c.StartAtNearest);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            UI::Tooltip("Eng yaqin nuqtadan boshlaydi (o'chiq - birinchisidan)");
+        changed |= UI::PropertyBool("Boshida yurish", c.PlayOnStart);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            UI::Tooltip("O'yin boshlanganda patrulni boshlaydi. O'chiq bo'lsa skriptdan: ResumePatrol()");
+        if (hasAgent)
+        {
+            UI::PropertyLabel("");
+            ImGui::TextDisabled(ICON_FA_PERSON_WALKING "  %s", Tr("Nav Agent bilan yuradi (tezligi - agentniki)"));
+        }
+        else
+        {
+            UI::PropertyLabel("Tezlik", "Nav Agent yo'q: nuqtadan nuqtaga to'g'ri chiziq bo'ylab, birlik / soniya");
+            changed |= ImGui::DragFloat("##speed", &c.Speed, 0.05f, 0.0f, 1000.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+            changed |= UI::PropertyBool("Qarab yurish", c.FaceMovement);
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                UI::Tooltip("Yurgan tomoniga buriladi: 3D - -Z o'qi oldinga, 2D - +X o'qi");
+        }
+
+        if (m_Context && m_Context->IsRunning())
+        {
+            UI::PropertyHeader("Jonli");
+            UI::PropertyLabel("Holat");
+            if (c.Finished)
+                ImGui::TextDisabled("%s", Tr("tugadi (oxirgi nuqtada)"));
+            else if (!c.Patrolling)
+                ImGui::TextColored(ImVec4(1.0f, 0.75f, 0.35f, 1.0f), ICON_FA_PAUSE "  %s", Tr("to'xtatilgan (skript boshqaryapti)"));
+            else if (c.Waiting)
+                ImGui::TextDisabled("%d-%s, %s %.1f s", c.Current, Tr("nuqtada"), Tr("kutyapti"), std::max(0.0f, c.WaitTimer));
+            else
+                ImGui::TextDisabled("%d-%s", c.Current, Tr("nuqtaga yuryapti"));
+            UI::PropertyLabel("Hisob");
+            ImGui::TextDisabled("%u %s, %u %s", c.Arrivals, Tr("yetdi"), c.Laps, Tr("aylana"));
+            if (c.Skipped > 0)
+            {
+                UI::PropertyLabel("");
+                ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), "%u %s", c.Skipped, Tr("nuqtaga yo'l topilmadi (o'tkazib yuborildi)"));
+            }
+            UI::PropertyLabel("");
+            if (ImGui::Button(c.IsPatrolling() ? Tr(ICON_FA_PAUSE "  To'xtatish") : Tr(ICON_FA_PLAY "  Davom etish")))
+                c.IsPatrolling() ? (void)m_Context->PausePatrol(entity) : (void)m_Context->ResumePatrol(entity, true);
+            ImGui::SameLine();
+            ImGui::BeginDisabled(points.empty());
+            if (ImGui::Button(Tr(ICON_FA_FORWARD_STEP "  Keyingi nuqta")))
+                m_Context->SetPatrolWaypoint(entity, points.empty() ? 0 : (std::max(0, c.Current) + 1) % (int)points.size());
+            ImGui::EndDisabled();
+        }
+        return changed;
+    }
+
     bool SceneHierarchyPanel::DrawLayerMask(const char* label, uint16_t& mask, const char* tooltip)
     {
         bool changed = false;
@@ -6843,6 +7026,7 @@ namespace Zamin {
                 DisplayAddComponentEntry<NavAgentComponent>("Nav Agent (yo'l topib yuradi)", ICON_FA_PERSON_WALKING);
                 DisplayAddComponentEntry<NavObstacleComponent>("Nav Obstacle (harakatlanuvchi to'siq)", ICON_FA_CUBE);
                 DisplayAddComponentEntry<SightSensorComponent>("Sight Sensor (ko'rish maydoni)", ICON_FA_EYE);
+                DisplayAddComponentEntry<PatrolPathComponent>("Patrol Path (nuqtalar bo'ylab patrul)", ICON_FA_SHOE_PRINTS);
                 ImGui::SeparatorText(Tr("Effektlar va UI"));
                 DisplayAddComponentEntry<TilemapComponent>("Tilemap", ICON_FA_TABLE_CELLS);
                 DisplayAddComponentEntry<ParallaxComponent>("Parallax", ICON_FA_MOUNTAIN);
@@ -7014,6 +7198,10 @@ namespace Zamin {
 
         AddSection<SightSensorComponent>(ICON_FA_EYE, "Sight Sensor", entity, [&](SightSensorComponent& c) {
             return DrawSightSensor(entity, c);
+        }, true, modified);
+
+        AddSection<PatrolPathComponent>(ICON_FA_SHOE_PRINTS, "Patrol Path", entity, [&](PatrolPathComponent& c) {
+            return DrawPatrolPath(entity, c);
         }, true, modified);
 
         AddSection<SpriteRendererComponent>(ICON_FA_IMAGE, "Sprite Renderer", entity, [&](SpriteRendererComponent& c) {

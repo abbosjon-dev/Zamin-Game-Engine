@@ -17,6 +17,13 @@ namespace Zamin {
 
         std::string FileName(const std::string& path) { return std::filesystem::path(path).filename().string(); }
 
+        // The component's header name (its scene-file key when the inspector has no other name for it).
+        std::string ComponentName(std::string_view key)
+        {
+            const std::string_view name = SceneHierarchyPanel::GetComponentDisplayName(key);
+            return name.empty() || name == "Komponent" ? std::string(key) : std::string(name);
+        }
+
         // Why the instance's prefab cannot be followed ("" when it can).
         std::string PrefabProblem(PrefabDatabase* db, Entity root)
         {
@@ -113,6 +120,12 @@ namespace Zamin {
         }
         if (PrefabUtility::IsAdded(entity))
             mark(ICON_FA_PLUS, s_PrefabAdded, Tr("Prefab nusxasiga qo'shilgan (prefabda yo'q): Apply bilan prefabga qo'shiladi"));
+        // The root of a prefab nested in the instance's prefab.
+        if (const uint64_t local = entity != root && m_Prefabs ? PrefabUtility::GetPrefabEntity(entity) : 0)
+            if (const PrefabDatabase::Template* t = m_Prefabs->Get(PrefabUtility::GetPrefabPath(root)))
+                if (auto nested = t->NestedOwner.find(local); nested != t->NestedOwner.end() && nested->second.Owner == local)
+                    mark(ICON_FA_CUBES, ImVec4(0.55f, 0.72f, 0.95f, 0.85f),
+                         std::format("{}: {}", Tr("Ichma-ich prefab"), nested->second.Prefab));
         if (PrefabUtility::HasOverrides(entity))
         {
             const auto& link = entity.GetComponent<PrefabLinkComponent>();
@@ -224,10 +237,12 @@ namespace Zamin {
             if (const PrefabDatabase::Template* t = m_Prefabs->Get(path); t)
                 if (auto nested = t->NestedOwner.find(local); nested != t->NestedOwner.end())
                 {
-                    ImGui::SameLine();
-                    ImGui::TextDisabled(ICON_FA_CUBES " %s", FileName(nested->second.Prefab).c_str());
+                    // It comes from a prefab nested in this one: its values can go into that one too.
+                    ImGui::TextColored(ImVec4(0.55f, 0.72f, 0.95f, 0.9f), ICON_FA_CUBES "  %s: %s", Tr("Ichma-ich prefabdan"),
+                                       FileName(nested->second.Prefab).c_str());
                     if (ImGui::IsItemHovered())
-                        UI::Tooltip(std::format("{}: {}", Tr("Ichma-ich prefabdan"), nested->second.Prefab).c_str());
+                        UI::Tooltip(std::format("{}\n{}", nested->second.Prefab,
+                                                Tr("Qiymatni o'ng tugma bilan shu prefabga ham qo'llash mumkin")).c_str());
                 }
 
         // [Tanlash] [Brauzerda] [O'zgarishlar (N)] [Qo'llash] [Qaytarish]
@@ -290,11 +305,11 @@ namespace Zamin {
                     case PrefabOverrideInfo::Kind::Value: kind = ICON_FA_PEN; label = change.Path; break;
                     case PrefabOverrideInfo::Kind::AddedComponent:
                         kind = ICON_FA_PLUS;
-                        label = std::format("{} ({})", GetComponentDisplayName(change.Path), Tr("qo'shilgan"));
+                        label = std::format("{} ({})", ComponentName(change.Path).c_str(), Tr("qo'shilgan"));
                         break;
                     case PrefabOverrideInfo::Kind::RemovedComponent:
                         kind = ICON_FA_MINUS;
-                        label = std::format("{} ({})", GetComponentDisplayName(change.Path), Tr("olib tashlangan"));
+                        label = std::format("{} ({})", ComponentName(change.Path).c_str(), Tr("olib tashlangan"));
                         break;
                     case PrefabOverrideInfo::Kind::AddedEntity:
                         kind = ICON_FA_PLUS;
@@ -364,7 +379,7 @@ namespace Zamin {
             dl->AddRectFilled(ImVec2(min.x - 4.0f, min.y), ImVec2(min.x - 1.0f, max.y), UI::AccentU32());
             ImGui::SetCursorScreenPos(ImVec2(min.x + 8.0f, min.y + (height - ImGui::GetFrameHeight()) * 0.5f));
             ImGui::AlignTextToFramePadding();
-            ImGui::TextDisabled(ICON_FA_MINUS "  (%s) %s", Tr("olib tashlangan"), GetComponentDisplayName(key));
+            ImGui::TextDisabled(ICON_FA_MINUS "  (%s) %s", Tr("olib tashlangan"), ComponentName(key).c_str());
             const float buttons = ImGui::GetFrameHeight() * 2.0f + ImGui::GetStyle().ItemSpacing.x + 6.0f;
             ImGui::SameLine(max.x - min.x - buttons);
             ImGui::BeginDisabled(!editable);

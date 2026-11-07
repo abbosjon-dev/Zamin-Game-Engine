@@ -143,7 +143,7 @@ namespace Zamin {
         void ApplyUndoFiles(const std::vector<UndoHistory::FileStep>& files);
         // The editor scene's instances linked (old scenes) and brought up to date with their prefabs;
         // not a user step. True when the scene changed (assets resolved again).
-        bool SyncPrefabInstances();
+        bool SyncPrefabInstances(bool reportIssues = false);
         // What the instances touched by an edit (`before` -> `after` snapshots) differ in from their
         // prefabs is recorded. True when a list changed.
         bool RecordPrefabOverrides(const std::string* before, const std::string& after);

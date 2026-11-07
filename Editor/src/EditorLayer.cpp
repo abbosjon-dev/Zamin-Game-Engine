@@ -4610,7 +4610,7 @@ namespace Zamin {
         // the history starts there; then they follow what their prefabs are now (not a step of its own).
         PrefabUtility::LinkLegacyInstances(*m_EditorScene, m_PrefabDatabase);
         ResetUndoHistory(std::format("Sahna ochildi: {}", path.stem().string()), !m_SceneDirty);
-        if (SyncPrefabInstances())
+        if (SyncPrefabInstances(true))
         {
             m_UndoHistory.ReplaceCurrentScene(TakeSnapshot());
             m_SceneDirty = !m_UndoHistory.IsAtSavedState();

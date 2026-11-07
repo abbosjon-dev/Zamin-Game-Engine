@@ -61,13 +61,14 @@ namespace Zamin {
         }
     }
 
-    bool EditorLayer::SyncPrefabInstances()
+    bool EditorLayer::SyncPrefabInstances(bool reportIssues)
     {
         if (!m_EditorScene || m_SceneState != SceneState::Edit)
             return false;
         PrefabUtility::SyncResult sync = PrefabUtility::SyncScene(*m_EditorScene, m_PrefabDatabase);
-        for (const std::string& issue : sync.Issues)
-            ZM_WARN("Prefab: {}", issue);
+        if (reportIssues)
+            for (const std::string& issue : sync.Issues)
+                ZM_WARN("Prefab nusxasi yangilanmadi: {}", issue);
         if (!sync.Changed && !sync.Linked)
             return false;
         if (sync.Changed)
@@ -329,7 +330,8 @@ namespace Zamin {
 
 
     // ZAMIN_EDITOR_PREFAB="color=<name>,r,g,b;scale=<name>,s;remove=<name>,<Component>;child=<parent>,<name>;
-    // apply=<name>[,<path>[,<target>]];revert=<name>[,<path>];unpack=<name>;changes;fieldmenu=<path>": prefab
+    // create=<name>;save=<name>;select=<name>;top=<name>;move=<name>,x,y,z;instantiate=<prefab>[,<parent>[,<name>]];
+    // apply=<name>[,<path>[,<target>]];revert=<name>[,<path>];unpack=<name>;undo;redo;changes": prefab
     // instance edits made one by one as undo steps (screenshots, checks). "changes" opens the inspector's list.
     void EditorLayer::ApplyPrefabAutomation(std::string_view spec)
     {
@@ -361,6 +363,27 @@ namespace Zamin {
             if (op == "changes")
             {
                 m_SceneHierarchyPanel.OpenPrefabChanges();
+                continue;
+            }
+            if (op == "undo" || op == "redo")
+            {
+                op == "undo" ? Undo() : Redo();
+                continue;
+            }
+            if (op == "instantiate" && !args.empty())
+            {
+                // instantiate=<prefab path>[,<parent>[,<name>]]
+                Entity parent = args.size() >= 2 && !args[1].empty() ? find(args[1]) : Entity();
+                if (Entity root = InstantiatePrefabInEditor(args[0], parent); root && args.size() >= 3)
+                    root.SetName(args[2]);
+                CommitUndo();
+                continue;
+            }
+            if (op == "create" && !args.empty())
+            {
+                m_EditorScene->CreateEntity(args[0]);
+                MarkDirty();
+                CommitUndo();
                 continue;
             }
             if (!e)
@@ -395,6 +418,21 @@ namespace Zamin {
             {
                 Entity child = m_EditorScene->CreateEntity(args[1]);
                 m_EditorScene->SetParent(child, e, false);
+                MarkDirty();
+                CommitUndo();
+            }
+            else if (op == "save")
+                SavePrefab(e);
+            else if (op == "top")
+                m_EditorScene->SetSiblingIndex(e, 0);
+            else if (op == "select")
+            {
+                m_SceneHierarchyPanel.SetSelectedEntity(e);
+                CommitSelectionUndo();
+            }
+            else if (op == "move" && args.size() >= 4)
+            {
+                e.GetComponent<TransformComponent>().Translation = { std::stof(args[1]), std::stof(args[2]), std::stof(args[3]) };
                 MarkDirty();
                 CommitUndo();
             }

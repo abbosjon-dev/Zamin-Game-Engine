@@ -28,6 +28,7 @@
 #include "Zamin/Audio/Audio.h"
 #include "Zamin/Audio/AudioEngine.h"
 #include "Zamin/Math/Math.h"
+#include "Zamin/Math/Quaternion.h"
 #include "Zamin/Utils/FileSystem.h"
 #include "Zamin/Core/Profiler.h"
 #include "Zamin/Core/SaveData.h"
@@ -4722,12 +4723,7 @@ namespace Zamin {
         const float length = glm::length(axis);
         if (length > 1e-6f && std::isfinite(length))
         {
-            const glm::vec3 dir = axis / length;
-            const float cosine = glm::dot(glm::vec3(0.0f, 1.0f, 0.0f), dir);
-            if (cosine < -0.99999f)
-                rotation = glm::angleAxis(glm::pi<float>(), glm::vec3(1.0f, 0.0f, 0.0f));
-            else if (cosine < 0.99999f)
-                rotation = glm::angleAxis(std::acos(std::clamp(cosine, -1.0f, 1.0f)), glm::normalize(glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), dir)));
+            rotation = Math::FromToRotation(glm::vec3(0.0f, 1.0f, 0.0f), axis); // the capsule's Y along the segment
         }
         return PhysicsQueryShape3D::Capsule(radius, std::isfinite(length) ? length * 0.5f : 0.0f);
     }

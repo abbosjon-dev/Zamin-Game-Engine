@@ -3,6 +3,7 @@
 #include "Zamin/Scene/Scene.h"
 
 #include "Zamin/Core/Profiler.h"
+#include "Zamin/Math/Quaternion.h"
 #include "Zamin/Physics/PhysicsWorld2D.h"
 #include "Zamin/Scene/Components.h"
 #include "Zamin/Scene/Entity.h"
@@ -211,7 +212,7 @@ namespace Zamin {
             switch (f.Rotation)
             {
                 case SplineFollowerComponent::RotationMode::Path3D:
-                    rotation = glm::quatLookAt(travel, up);
+                    rotation = Math::LookRotation(travel, up);
                     break;
                 case SplineFollowerComponent::RotationMode::Path2D:
                     rotation = glm::quat(glm::vec3(0.0f, 0.0f, std::atan2(travel.y, travel.x)));

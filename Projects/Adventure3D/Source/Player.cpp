@@ -42,8 +42,7 @@ public:
         glm::vec3 wish = forward * input.y + right * input.x;
         float targetSpeed = glm::length(input) * (run ? RunSpeed : WalkSpeed);
         glm::vec3 targetVelocity = glm::length(wish) > 0.001f ? glm::normalize(wish) * targetSpeed : glm::vec3(0.0f);
-        float k = 1.0f - std::exp(-Acceleration * (float)ts);
-        m_Velocity += (targetVelocity - m_Velocity) * k;
+        m_Velocity = Math::Damp(m_Velocity, targetVelocity, Acceleration, ts); // frame-rate independent
         cc->Move(m_Velocity);
 
         // ---- face the movement direction (model faces +Z)

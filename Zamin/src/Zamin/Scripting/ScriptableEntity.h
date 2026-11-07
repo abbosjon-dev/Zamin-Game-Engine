@@ -1,6 +1,8 @@
 #pragma once
 
 #include "Zamin/Math/Easing.h"
+#include "Zamin/Math/MathUtils.h"
+#include "Zamin/Math/Quaternion.h"
 #include "Zamin/Scene/TintAnimation.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Scene/SceneManager.h"
@@ -81,7 +83,8 @@ namespace Zamin {
     //       void OnUpdate(Zamin::Timestep ts) override { ... }
     //   };
     //   ZM_REGISTER_SCRIPT(Player, ZM_FIELD(Player, Speed))
-    // (Ease / ApplyEase: Zamin/Math/Easing.h)
+    // (Ease / ApplyEase: Zamin/Math/Easing.h; Math::Remap, SmoothDamp, MoveTowards ...:
+    // Zamin/Math/MathUtils.h; Math::LookRotation, Slerp, RotateTowards ...: Zamin/Math/Quaternion.h)
 
     //
     // Lifecycle (in this order):

@@ -58,9 +58,8 @@ public:
         auto& t = Transform();
         glm::vec3 goal = target.GetComponent<TransformComponent>().Translation;
         glm::vec2 desired = { goal.x + Offset.x, std::max(MinY, goal.y + Offset.y) };
-        float k = 1.0f - std::exp(-Smoothness * (float)ts);
-        t.Translation.x += (desired.x - t.Translation.x) * k;
-        t.Translation.y += (desired.y - t.Translation.y) * k;
+        t.Translation.x = Math::Damp(t.Translation.x, desired.x, Smoothness, ts);
+        t.Translation.y = Math::Damp(t.Translation.y, desired.y, Smoothness, ts);
     }
 };
 ZM_REGISTER_SCRIPT(CameraFollow, ZM_FIELD(CameraFollow, Target), ZM_FIELD(CameraFollow, Smoothness),

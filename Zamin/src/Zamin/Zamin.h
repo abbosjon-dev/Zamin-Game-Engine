@@ -127,6 +127,8 @@
 #include "Zamin/Asset/AssetInfo.h"
 #include "Zamin/Asset/AssetReferences.h"
 #include "Zamin/Math/Math.h"
+#include "Zamin/Math/MathUtils.h"
+#include "Zamin/Math/Quaternion.h"
 #include "Zamin/Math/Random.h"
 #include "Zamin/Math/Easing.h"
 #include "Zamin/Math/Noise.h"

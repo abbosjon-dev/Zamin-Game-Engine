@@ -1,4 +1,5 @@
 #include "Zamin/Renderer/Animation.h"
+#include "Zamin/Math/MathUtils.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 #ifndef GLM_ENABLE_EXPERIMENTAL
@@ -127,13 +128,7 @@ namespace Zamin {
     }
 
     // ---- root motion: where the joint is / which way it faces in the model space
-    static float WrapAngle(float a)
-    {
-        constexpr float pi = glm::pi<float>();
-        a = std::fmod(a + pi, 2.0f * pi);
-        if (a < 0.0f) a += 2.0f * pi;
-        return a - pi;
-    }
+    using Math::WrapAngle;
 
     // The joint's parent's global transform in the rest pose (the root's: the skeleton's).
     static glm::mat4 RestParentGlobal(const Skeleton& skeleton, int joint)

@@ -1,4 +1,5 @@
 #include "Zamin/UI/UIScroll.h"
+#include "Zamin/Math/MathUtils.h"
 
 #include <algorithm>
 #include <cmath>
@@ -67,23 +68,7 @@ namespace Zamin::UIScroll {
 
     float SmoothDamp(float current, float target, float& velocity, float smoothTime, float dt)
     {
-        if (dt <= 0.0f)
-            return current;
-        smoothTime = std::max(0.0001f, smoothTime);
-        const float omega = 2.0f / smoothTime;
-        const float x = omega * dt;
-        const float decay = 1.0f / (1.0f + x + 0.48f * x * x + 0.235f * x * x * x);
-        const float change = current - target;
-        const float temp = (velocity + omega * change) * dt;
-        velocity = (velocity - omega * temp) * decay;
-        float output = target + (change + temp) * decay;
-        // Never past the target.
-        if ((target - current > 0.0f) == (output > target))
-        {
-            output = target;
-            velocity = 0.0f;
-        }
-        return output;
+        return Math::SmoothDamp(current, target, velocity, smoothTime, dt);
     }
 
     float Decelerate(float velocity, float rate, float dt)

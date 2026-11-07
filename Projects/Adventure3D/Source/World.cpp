@@ -38,7 +38,7 @@ void OrbitFollowCamera::OnLateUpdate(Timestep ts)
 
     glm::vec3 goal = GetScene().GetWorldPosition(target) + glm::vec3(0.0f, Height, 0.0f);
     if (!m_HasFocus) { m_Focus = goal; m_HasFocus = true; }
-    m_Focus += (goal - m_Focus) * (1.0f - std::exp(-Smoothness * (float)ts));
+    m_Focus = Math::Damp(m_Focus, goal, Smoothness, ts);
 
     glm::vec3 offset = { std::sin(Yaw) * std::cos(Pitch), std::sin(Pitch), std::cos(Yaw) * std::cos(Pitch) };
     auto& t = Transform();

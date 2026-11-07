@@ -37909,3 +37909,328 @@ TEST(SplineSampleScenes)
         scene->OnRuntimeStop();
     }
 }
+
+// ------------------------------------------------------------------ M19: math utilities (366)
+TEST(MathUtilsRanges)
+{
+    CHECK(Math::Clamp01(-2.0f) == 0.0f && Math::Clamp01(0.25f) == 0.25f && Math::Clamp01(3.0f) == 1.0f);
+    CHECK(Math::Lerp(2.0f, 4.0f, 0.5f) == 3.0f && Math::Lerp(2.0f, 4.0f, 2.0f) == 4.0f && Math::LerpUnclamped(2.0f, 4.0f, 2.0f) == 6.0f);
+    CHECK(Math::Lerp(glm::vec3(0.0f), glm::vec3(2.0f, 4.0f, 6.0f), 0.5f) == glm::vec3(1.0f, 2.0f, 3.0f));
+    CHECK(Math::InverseLerp(10.0f, 20.0f, 15.0f) == 0.5f && Math::InverseLerp(10.0f, 20.0f, 30.0f) == 1.0f && Math::InverseLerp(10.0f, 20.0f, 0.0f) == 0.0f);
+    CHECK(Math::InverseLerp(5.0f, 5.0f, 7.0f) == 0.0f && Math::InverseLerpUnclamped(10.0f, 20.0f, 30.0f) == 2.0f);
+    CHECK(Math::InverseLerp(20.0f, 10.0f, 12.5f) == 0.75f); // a backwards range
+    CHECK_NEAR(Math::InverseLerp(glm::vec3(0.0f), glm::vec3(10.0f, 0.0f, 0.0f), glm::vec3(4.0f, 3.0f, -2.0f)), 0.4f, 1e-6f);
+    CHECK(Math::InverseLerp(glm::vec2(1.0f), glm::vec2(1.0f), glm::vec2(4.0f)) == 0.0f);
+    // Remap: not clamped; RemapClamped is; both ranges may run backwards.
+    CHECK(Math::Remap(5.0f, 0.0f, 10.0f, 100.0f, 200.0f) == 150.0f && Math::Remap(15.0f, 0.0f, 10.0f, 100.0f, 200.0f) == 250.0f);
+    CHECK(Math::RemapClamped(15.0f, 0.0f, 10.0f, 100.0f, 200.0f) == 200.0f && Math::RemapClamped(-5.0f, 0.0f, 10.0f, 1.0f, 0.0f) == 1.0f);
+    CHECK_NEAR(Math::Remap(2.0f, 0.0f, 8.0f, 1.0f, 0.0f), 0.75f, 1e-6f);
+    static_assert(Math::Remap(1.0f, 0.0f, 2.0f, 0.0f, 10.0f) == 5.0f && Math::Clamp01(2.0f) == 1.0f);
+    // SmoothStep / SmootherStep: 0 and 1 at the edges, 0.5 in the middle, flat ends, monotonic.
+    CHECK(Math::SmoothStep(0.0f, 1.0f, -1.0f) == 0.0f && Math::SmoothStep(0.0f, 1.0f, 2.0f) == 1.0f && Math::SmoothStep(0.0f, 1.0f, 0.5f) == 0.5f);
+    CHECK_NEAR(Math::SmoothStep(2.0f, 4.0f, 2.5f), 0.15625f, 1e-6f);
+    CHECK(Math::SmootherStep(0.0f, 1.0f, 0.5f) == 0.5f && Math::SmootherStep(0.0f, 1.0f, 0.1f) < Math::SmoothStep(0.0f, 1.0f, 0.1f));
+    CHECK(Math::SmoothStep(1.0f, 1.0f, 0.5f) == 0.0f && Math::SmoothStep(1.0f, 1.0f, 1.5f) == 1.0f);
+    float previous = -1.0f;
+    bool monotonic = true;
+    for (int i = 0; i <= 100; i++)
+    {
+        const float v = Math::SmootherStep(0.0f, 1.0f, i / 100.0f);
+        monotonic &= v >= previous;
+        previous = v;
+    }
+    CHECK(monotonic);
+    CHECK(Math::Sign(-3.0f) == -1.0f && Math::Sign(0.0f) == 0.0f && Math::Sign(0.1f) == 1.0f && Math::SignNonZero(0.0f) == 1.0f);
+    // Comparing: relative to the size of the numbers, absolute near 0.
+    CHECK(Math::Approximately(0.1f + 0.2f, 0.3f) && !Math::Approximately(1.0f, 1.001f) && Math::Approximately(1.0f, 1.001f, 1e-2f));
+    CHECK(Math::Approximately(1e6f, 1e6f + 1.0f) && !Math::Approximately(1e-3f, 2e-3f) && Math::Approximately(0.0f, 1e-6f));
+    CHECK(Math::Approximately(Math::Infinity, Math::Infinity) && !Math::Approximately(Math::Infinity, 1e30f));
+    CHECK(Math::Approximately(glm::vec3(1.0f, 2.0f, 3.0f), glm::vec3(1.0f, 2.0f, 3.000001f)) && !Math::Approximately(glm::vec2(1.0f), glm::vec2(1.0f, 1.1f)));
+    CHECK(Math::Approximately(Math::Deg2Rad * 180.0f, Math::Pi) && Math::Approximately(Math::Rad2Deg * Math::HalfPi, 90.0f));
+}
+
+TEST(MathUtilsWrapping)
+{
+    CHECK(Math::Repeat(7.0f, 5.0f) == 2.0f && Math::Repeat(-1.0f, 5.0f) == 4.0f && Math::Repeat(5.0f, 5.0f) == 0.0f && Math::Repeat(3.0f, 0.0f) == 0.0f);
+    CHECK_NEAR(Math::Repeat(-12.5f, 5.0f), 2.5f, 1e-6f);
+    CHECK(Math::PingPong(3.0f, 5.0f) == 3.0f && Math::PingPong(7.0f, 5.0f) == 3.0f && Math::PingPong(10.0f, 5.0f) == 0.0f && Math::PingPong(-2.0f, 5.0f) == 2.0f);
+    CHECK(Math::PingPong(1.0f, 0.0f) == 0.0f);
+    CHECK(Math::Wrap(370.0f, 0.0f, 360.0f) == 10.0f && Math::Wrap(-1.0f, 1.0f, 4.0f) == 2.0f);
+    // A continuous triangle wave: no jumps.
+    bool continuous = true;
+    for (int i = 1; i < 2000; i++)
+        continuous &= std::abs(Math::PingPong(i * 0.01f - 7.0f, 2.0f) - Math::PingPong((i - 1) * 0.01f - 7.0f, 2.0f)) < 0.0101f;
+    CHECK(continuous);
+
+    // Angles (radians): -Pi..Pi, the short way round.
+    CHECK_NEAR(Math::WrapAngle(3.0f * Math::Pi), -Math::Pi, 1e-5f);
+    CHECK_NEAR(Math::WrapAngle(Math::TwoPi + 0.5f), 0.5f, 1e-5f);
+    CHECK_NEAR(Math::WrapAngle(-Math::TwoPi - 0.5f), -0.5f, 1e-5f);
+    bool wrapped = true;
+    for (int i = -200; i <= 200; i++)
+    {
+        const float a = Math::WrapAngle(i * 0.37f);
+        wrapped &= a >= -Math::Pi && a < Math::Pi && std::abs(std::sin(a) - std::sin(i * 0.37f)) < 1e-4f && std::abs(std::cos(a) - std::cos(i * 0.37f)) < 1e-4f;
+    }
+    CHECK(wrapped);
+    CHECK_NEAR(Math::DeltaAngle(glm::radians(350.0f), glm::radians(10.0f)), glm::radians(20.0f), 1e-5f);
+    CHECK_NEAR(Math::DeltaAngle(glm::radians(10.0f), glm::radians(350.0f)), glm::radians(-20.0f), 1e-5f);
+    CHECK_NEAR(Math::DeltaAngle(0.0f, glm::radians(720.0f + 90.0f)), Math::HalfPi, 1e-5f);
+    CHECK_NEAR(Math::LerpAngle(glm::radians(350.0f), glm::radians(10.0f), 0.5f), glm::radians(360.0f), 1e-5f);
+    CHECK_NEAR(Math::LerpAngle(0.0f, 1.0f, 3.0f), 1.0f, 1e-6f);
+}
+
+TEST(MathUtilsMoveTowards)
+{
+    CHECK(Math::MoveTowards(0.0f, 10.0f, 3.0f) == 3.0f && Math::MoveTowards(9.0f, 10.0f, 3.0f) == 10.0f && Math::MoveTowards(10.0f, 0.0f, 4.0f) == 6.0f);
+    CHECK(Math::MoveTowards(5.0f, 5.0f, 1.0f) == 5.0f && Math::MoveTowards(5.0f, 6.0f, -1.0f) == 4.0f); // a negative step moves away
+    const glm::vec3 v = Math::MoveTowards(glm::vec3(0.0f), glm::vec3(3.0f, 4.0f, 0.0f), 2.5f);
+    CHECK(Math::Approximately(v, glm::vec3(1.5f, 2.0f, 0.0f)));
+    CHECK(Math::MoveTowards(glm::vec2(1.0f), glm::vec2(1.5f, 1.0f), 2.0f) == glm::vec2(1.5f, 1.0f));
+    CHECK(Math::MoveTowards(glm::vec4(1.0f), glm::vec4(1.0f), 0.0f) == glm::vec4(1.0f));
+    // Reaches the target in exactly ceil(distance / step) steps and stays there.
+    glm::vec3 p(0.0f);
+    int steps = 0;
+    while (p != glm::vec3(10.0f, 0.0f, 0.0f) && steps < 100)
+    {
+        p = Math::MoveTowards(p, glm::vec3(10.0f, 0.0f, 0.0f), 0.75f);
+        steps++;
+    }
+    CHECK(steps == 14);
+    // Angles: the short way, landing exactly on the target.
+    CHECK_NEAR(Math::MoveTowardsAngle(glm::radians(350.0f), glm::radians(10.0f), glm::radians(5.0f)), glm::radians(355.0f), 1e-5f);
+    CHECK(Math::MoveTowardsAngle(glm::radians(350.0f), glm::radians(10.0f), glm::radians(30.0f)) == glm::radians(10.0f));
+    CHECK_NEAR(Math::MoveTowardsAngle(0.0f, -Math::HalfPi, 0.5f), -0.5f, 1e-6f);
+}
+
+TEST(MathUtilsSmoothDamp)
+{
+    // Float: gets there smoothly, never overshoots, settles; dt 0 changes nothing.
+    float x = 0.0f, velocity = 0.0f;
+    bool monotonic = true;
+    for (int i = 0; i < 120; i++)
+    {
+        const float next = Math::SmoothDamp(x, 10.0f, velocity, 0.3f, 1.0f / 60.0f);
+        monotonic &= next >= x && next <= 10.0f;
+        x = next;
+    }
+    CHECK(monotonic && std::abs(x - 10.0f) < 0.02f);
+    float frozenVelocity = 3.0f;
+    CHECK(Math::SmoothDamp(4.0f, 10.0f, frozenVelocity, 0.3f, 0.0f) == 4.0f && frozenVelocity == 3.0f);
+    // About half way after a third of the smooth time... and it gets closer the longer it runs.
+    x = 0.0f; velocity = 0.0f;
+    for (int i = 0; i < 18; i++)
+        x = Math::SmoothDamp(x, 1.0f, velocity, 0.3f, 1.0f / 60.0f);
+    CHECK(x > 0.4f && x < 0.9f);
+    // The same at different frame rates (within a few percent).
+    float a = 0.0f, va = 0.0f, b = 0.0f, vb = 0.0f;
+    for (int i = 0; i < 30; i++)
+        a = Math::SmoothDamp(a, 5.0f, va, 0.5f, 1.0f / 30.0f);
+    for (int i = 0; i < 120; i++)
+        b = Math::SmoothDamp(b, 5.0f, vb, 0.5f, 1.0f / 120.0f);
+    CHECK(std::abs(a - b) < 0.05f);
+    // maxSpeed limits the speed.
+    x = 0.0f; velocity = 0.0f;
+    float fastest = 0.0f;
+    for (int i = 0; i < 60; i++)
+    {
+        const float next = Math::SmoothDamp(x, 100.0f, velocity, 0.2f, 1.0f / 60.0f, 5.0f);
+        fastest = std::max(fastest, (next - x) * 60.0f);
+        x = next;
+    }
+    CHECK(fastest <= 5.0f * 1.05f && x > 3.0f && x < 5.5f);
+    // The UI scroll view's spring is the same function.
+    float u = 0.0f, uv = 0.0f, m = 0.0f, mv = 0.0f;
+    for (int i = 0; i < 50; i++)
+    {
+        u = UIScroll::SmoothDamp(u, 100.0f, uv, 0.1f, 1.0f / 60.0f);
+        m = Math::SmoothDamp(m, 100.0f, mv, 0.1f, 1.0f / 60.0f);
+    }
+    CHECK(u == m && uv == mv);
+
+    // Vectors: along the straight line, never past the target, settles.
+    glm::vec3 p(0.0f), pv(0.0f);
+    const glm::vec3 goal(3.0f, -4.0f, 12.0f);
+    bool onLine = true, notPast = true;
+    for (int i = 0; i < 180; i++)
+    {
+        p = Math::SmoothDamp(p, goal, pv, 0.4f, 1.0f / 60.0f);
+        onLine &= glm::length(glm::cross(p, goal)) < 1e-3f;
+        notPast &= glm::dot(goal - p, goal) >= -1e-4f;
+    }
+    CHECK(onLine && notPast && glm::length(goal - p) < 0.05f);
+    glm::vec2 q(10.0f, 0.0f), qv(0.0f);
+    for (int i = 0; i < 30; i++)
+        q = Math::SmoothDamp(q, glm::vec2(0.0f), qv, 0.2f, 1.0f / 30.0f, 2.0f);
+    CHECK(q.x > 7.5f && q.x < 9.0f); // 2 units per second at most
+    // Angles: the short way round.
+    float yaw = glm::radians(350.0f), yawVelocity = 0.0f;
+    for (int i = 0; i < 240; i++)
+        yaw = Math::SmoothDampAngle(yaw, glm::radians(10.0f), yawVelocity, 0.2f, 1.0f / 60.0f);
+    CHECK(std::abs(Math::DeltaAngle(yaw, glm::radians(10.0f))) < 1e-3f && yaw > glm::radians(300.0f));
+
+    // Damp: frame-rate independent exponential smoothing (the samples' 1 - e^(-k dt) pattern).
+    float d30 = 0.0f, d240 = 0.0f;
+    for (int i = 0; i < 30; i++)
+        d30 = Math::Damp(d30, 1.0f, 4.0f, 1.0f / 30.0f);
+    for (int i = 0; i < 240; i++)
+        d240 = Math::Damp(d240, 1.0f, 4.0f, 1.0f / 240.0f);
+    CHECK_NEAR(d30, 1.0f - std::exp(-4.0f), 1e-4f);
+    CHECK_NEAR(d240, d30, 1e-4f);
+    CHECK(Math::Damp(glm::vec2(2.0f), glm::vec2(4.0f), 0.0f, 0.1f) == glm::vec2(2.0f) && Math::Damp(2.0f, 4.0f, 3.0f, 0.0f) == 2.0f);
+    CHECK(Math::Damp(2.0f, 4.0f, Math::Infinity, 0.1f) == 4.0f);
+    const float k = 1.0f - std::exp(-6.0f * 0.016f);
+    CHECK(Math::Damp(1.5f, 7.0f, 6.0f, 0.016f) == 1.5f + (7.0f - 1.5f) * k); // exactly what the samples computed
+}
+
+// ------------------------------------------------------------------ M19: quaternion helpers (367)
+TEST(QuaternionEulerConvention)
+{
+    // ToEuler / FromEuler are the TransformComponent's convention (glm::quat(euler), the gizmo's
+    // DecomposeTransform) both ways, gimbal lock included.
+    RandomGenerator rng(366);
+    bool roundTrip = true, matchesDecompose = true, sameRotation = true;
+    for (int i = 0; i < 2000; i++)
+    {
+        const glm::vec3 euler(rng.Range(-Math::Pi, Math::Pi), rng.Range(-Math::HalfPi + 0.01f, Math::HalfPi - 0.01f), rng.Range(-Math::Pi, Math::Pi));
+        const glm::quat q = Math::FromEuler(euler);
+        roundTrip &= Math::Approximately(Math::ToEuler(q), euler, 2e-3f);
+        TransformComponent t;
+        t.Rotation = euler;
+        glm::vec3 translation, rotation, scale;
+        Math::DecomposeTransform(t.GetTransform(), translation, rotation, scale);
+        matchesDecompose &= Math::Approximately(rotation, Math::ToEuler(q), 2e-3f);
+        // Any rotation comes back as the same rotation.
+        const glm::quat r = glm::normalize(glm::quat(rng.Range(-1.0f, 1.0f), rng.Range(-1.0f, 1.0f), rng.Range(-1.0f, 1.0f), rng.Range(-1.0f, 1.0f)));
+        sameRotation &= Math::Approximately(Math::FromEuler(Math::ToEuler(r)), r, 1e-3f);
+    }
+    CHECK(roundTrip && matchesDecompose && sameRotation);
+    // Gimbal lock (looking straight up / down): still the same rotation, Z is 0.
+    for (float y : { Math::HalfPi, -Math::HalfPi })
+        for (float x : { 0.0f, 0.7f, -2.0f })
+        {
+            const glm::quat q = Math::FromEuler(glm::vec3(x, y, 0.4f));
+            const glm::vec3 e = Math::ToEuler(q);
+            CHECK(e.z == 0.0f && std::abs(std::abs(e.y) - Math::HalfPi) < 1e-3f && Math::Approximately(Math::FromEuler(e), q, 1e-3f));
+        }
+    // The order: X first, then Y, then Z (R = Rz * Ry * Rx).
+    const glm::quat order = Math::AngleAxis(0.3f, glm::vec3(0, 0, 1)) * Math::AngleAxis(0.2f, glm::vec3(0, 1, 0)) * Math::AngleAxis(0.1f, glm::vec3(1, 0, 0));
+    CHECK(Math::Approximately(Math::FromEuler(glm::vec3(0.1f, 0.2f, 0.3f)), order));
+    // Directions are the transform's.
+    TransformComponent t;
+    t.Rotation = glm::vec3(0.4f, -1.1f, 0.25f);
+    const glm::quat q = Math::FromEuler(t.Rotation);
+    CHECK(Math::Approximately(Math::Forward(q), t.GetForward()) && Math::Approximately(Math::Up(q), t.GetUp()) && Math::Approximately(Math::Right(q), t.GetRight()));
+}
+
+TEST(QuaternionLookAndFromTo)
+{
+    // LookRotation: the entity's -Z along the direction, its up as close to the given up as can be.
+    RandomGenerator rng(367);
+    bool looks = true, upright = true, unit = true;
+    for (int i = 0; i < 500; i++)
+    {
+        const glm::vec3 dir = rng.OnUnitSphere() * rng.Range(0.1f, 20.0f);
+        const glm::vec3 up = rng.OnUnitSphere();
+        const glm::quat q = Math::LookRotation(dir, up);
+        looks &= Math::Approximately(Math::Forward(q), glm::normalize(dir), 1e-4f);
+        unit &= std::abs(glm::length(q) - 1.0f) < 1e-5f;
+        // Up is perpendicular to forward and in the plane of forward and the given up (on its side).
+        const glm::vec3 u = Math::Up(q);
+        upright &= std::abs(glm::dot(u, glm::normalize(dir))) < 1e-4f && std::abs(glm::dot(u, glm::cross(glm::normalize(dir), up))) < 1e-3f &&
+                   glm::dot(u, up) >= -1e-4f;
+    }
+    CHECK(looks && upright && unit);
+    CHECK(Math::Approximately(Math::LookRotation(glm::vec3(0, 0, -5)), Math::QuatIdentity));
+    CHECK(Math::Approximately(Math::LookRotation(glm::vec3(0.0f)), Math::QuatIdentity));
+    // Looking straight up / down with +Y up: the up a pitch would give (+Z looking up, -Z looking down), right stays +X.
+    const glm::quat lookUp = Math::LookRotation(glm::vec3(0, 3, 0));
+    const glm::quat lookDown = Math::LookRotation(glm::vec3(0, -1, 0));
+    CHECK(Math::Approximately(Math::Forward(lookUp), glm::vec3(0, 1, 0)) && Math::Approximately(Math::Up(lookUp), glm::vec3(0, 0, 1)) &&
+          Math::Approximately(Math::Right(lookUp), glm::vec3(1, 0, 0)));
+    CHECK(Math::Approximately(Math::Forward(lookDown), glm::vec3(0, -1, 0)) && Math::Approximately(Math::Up(lookDown), glm::vec3(0, 0, -1)) &&
+          Math::Approximately(Math::Right(lookDown), glm::vec3(1, 0, 0)));
+    // LookEuler: the camera angles the samples compute, the same rotation as LookRotation.
+    const glm::vec3 dir = glm::normalize(glm::vec3(-3.0f, 2.0f, 4.0f));
+    const glm::vec3 e = Math::LookEuler(dir * 7.0f);
+    CHECK_NEAR(e.x, std::asin(dir.y), 1e-6f);
+    CHECK_NEAR(e.y, std::atan2(-dir.x, -dir.z), 1e-6f);
+    CHECK(e.z == 0.0f && Math::Approximately(Math::FromEuler(e), Math::LookRotation(dir)));
+    TransformComponent camera;
+    camera.Rotation = Math::ToEuler(Math::LookRotation(dir));
+    CHECK(Math::Approximately(camera.GetForward(), dir));
+
+    // FromToRotation: the shortest arc, opposite directions and zero vectors included.
+    bool turns = true, shortest = true;
+    for (int i = 0; i < 500; i++)
+    {
+        const glm::vec3 from = rng.OnUnitSphere() * 3.0f, to = rng.OnUnitSphere() * 0.5f;
+        const glm::quat q = Math::FromToRotation(from, to);
+        turns &= Math::Approximately(q * glm::normalize(from), glm::normalize(to), 1e-4f);
+        float angle;
+        glm::vec3 axis;
+        Math::ToAngleAxis(q, angle, axis);
+        shortest &= std::abs(angle - Math::Angle(from, to)) < 1e-3f && std::abs(glm::dot(axis, from)) < 1e-3f;
+    }
+    CHECK(turns && shortest);
+    const glm::quat flip = Math::FromToRotation(glm::vec3(0, 1, 0), glm::vec3(0, -2, 0));
+    CHECK(Math::Approximately(flip * glm::vec3(0, 1, 0), glm::vec3(0, -1, 0)) && std::abs(Math::Angle(Math::QuatIdentity, flip) - Math::Pi) < 1e-4f);
+    CHECK(Math::Approximately(Math::FromToRotation(glm::vec3(1, 0, 0), glm::vec3(3, 0, 0)), Math::QuatIdentity));
+    CHECK(Math::Approximately(Math::FromToRotation(glm::vec3(0.0f), glm::vec3(1, 0, 0)), Math::QuatIdentity));
+
+    // AngleAxis / ToAngleAxis, Angle between directions.
+    const glm::quat aa = Math::AngleAxis(1.2f, glm::vec3(0, 0, 5));
+    CHECK(Math::Approximately(aa * glm::vec3(1, 0, 0), glm::vec3(std::cos(1.2f), std::sin(1.2f), 0.0f)));
+    float angle;
+    glm::vec3 axis;
+    Math::ToAngleAxis(aa, angle, axis);
+    CHECK_NEAR(angle, 1.2f, 1e-5f);
+    CHECK(Math::Approximately(axis, glm::vec3(0, 0, 1)));
+    Math::ToAngleAxis(-aa, angle, axis); // the same rotation, still 1.2 about +Z
+    CHECK(std::abs(angle - 1.2f) < 1e-5f && Math::Approximately(axis, glm::vec3(0, 0, 1)));
+    CHECK(Math::Approximately(Math::AngleAxis(2.0f, glm::vec3(0.0f)), Math::QuatIdentity));
+    CHECK_NEAR(Math::Angle(glm::vec3(1, 0, 0), glm::vec3(0, 2, 0)), Math::HalfPi, 1e-6f);
+    CHECK_NEAR(Math::Angle(glm::vec3(1, 0, 0), glm::vec3(-1, 0, 0)), Math::Pi, 1e-6f);
+    CHECK(Math::Angle(glm::vec3(0.0f), glm::vec3(1, 0, 0)) == 0.0f);
+    CHECK_NEAR(Math::SignedAngle(glm::vec3(1, 0, 0), glm::vec3(0, 1, 0), glm::vec3(0, 0, 1)), Math::HalfPi, 1e-6f);
+    CHECK_NEAR(Math::SignedAngle(glm::vec3(1, 0, 0), glm::vec3(0, 1, 0), glm::vec3(0, 0, -1)), -Math::HalfPi, 1e-6f);
+}
+
+TEST(QuaternionSlerpRotateTowards)
+{
+    const glm::quat a = Math::AngleAxis(0.2f, glm::vec3(0, 1, 0));
+    const glm::quat b = Math::AngleAxis(1.4f, glm::vec3(0, 1, 0));
+    // Even speed along the arc; clamped; the ends exact.
+    CHECK(Math::Approximately(Math::Slerp(a, b, 0.5f), Math::AngleAxis(0.8f, glm::vec3(0, 1, 0))));
+    CHECK(Math::Approximately(Math::Slerp(a, b, 0.25f), Math::AngleAxis(0.5f, glm::vec3(0, 1, 0))));
+    CHECK(Math::Approximately(Math::Slerp(a, b, 3.0f), b) && Math::Approximately(Math::Slerp(a, b, -1.0f), a));
+    CHECK(Math::Approximately(Math::SlerpUnclamped(a, b, 1.5f), Math::AngleAxis(2.0f, glm::vec3(0, 1, 0))));
+    // The short way round, even when b is the "other" quaternion of its rotation.
+    CHECK(Math::Approximately(Math::Slerp(a, -b, 0.5f), Math::AngleAxis(0.8f, glm::vec3(0, 1, 0))));
+    const glm::quat nearlyA = Math::AngleAxis(0.2001f, glm::vec3(0, 1, 0));
+    CHECK(Math::Approximately(Math::Slerp(a, nearlyA, 0.5f), Math::AngleAxis(0.20005f, glm::vec3(0, 1, 0))));
+    CHECK(Math::Approximately(Math::Nlerp(a, b, 0.5f), Math::AngleAxis(0.8f, glm::vec3(0, 1, 0)))); // symmetric: the middle is exact
+    // Angle between rotations: 0..Pi, q and -q are the same.
+    CHECK_NEAR(Math::Angle(a, b), 1.2f, 1e-5f);
+    CHECK_NEAR(Math::Angle(a, -b), 1.2f, 1e-5f);
+    CHECK_NEAR(Math::Angle(a, a), 0.0f, 1e-6f);
+    CHECK_NEAR(Math::Angle(Math::QuatIdentity, Math::AngleAxis(1e-3f, glm::vec3(1, 0, 0))), 1e-3f, 1e-6f); // small angles stay exact
+    CHECK(Math::Approximately(a, -a) && !Math::Approximately(a, b));
+    // RotateTowards: at most maxAngle a step, lands exactly on the target.
+    glm::quat current = Math::QuatIdentity;
+    const glm::quat target = Math::LookRotation(glm::vec3(1, 0.5f, 2.0f));
+    const float total = Math::Angle(current, target);
+    int steps = 0;
+    bool limited = true;
+    while (Math::Angle(current, target) > 0.0f && steps < 100)
+    {
+        const glm::quat next = Math::RotateTowards(current, target, 0.1f);
+        limited &= Math::Angle(current, next) <= 0.1f + 1e-4f;
+        current = next;
+        steps++;
+    }
+    CHECK(limited && steps == (int)std::ceil(total / 0.1f) && current == glm::normalize(target));
+    // Turning away stops facing away (Pi from the target).
+    const glm::quat away = Math::RotateTowards(a, b, -10.0f);
+    CHECK_NEAR(Math::Angle(away, b), Math::Pi, 1e-3f);
+}

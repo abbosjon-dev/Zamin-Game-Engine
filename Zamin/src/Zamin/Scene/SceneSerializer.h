@@ -31,7 +31,8 @@ namespace Zamin {
         {
             FileMissing = 0, Unreadable, ParseError, NotAScene,
             BadEntity, BadComponent, UnknownComponent, MissingAsset, DuplicateID, BadHierarchy,
-            NewerVersion   // written by a newer engine (SceneMigration): read as far as it is understood
+            NewerVersion,  // written by a newer engine (SceneMigration): read as far as it is understood
+            Truncated      // the text ends before the file does (recovery: the incomplete end is left out)
         };
         enum class Severity { Warning = 0, Error, Fatal };
 
@@ -112,6 +113,11 @@ namespace Zamin {
         // hierarchy order (files without "RootOrder", written before: in file order).
         std::string SerializeToString();
         bool DeserializeFromString(const std::string& text);
+        // Like DeserializeFromString, but text that does not parse as a whole (a file cut off by a
+        // crash, garbage in the middle) is salvaged first: every entity that parses on its own is
+        // loaded, with the scene's settings when they do (SceneRecovery). The report says what was
+        // recovered and what was left out. False when nothing could be (not a scene at all).
+        bool RecoverFromString(const std::string& text);
 
         // The binary cache (.zsceneb): the same tree as MessagePack behind a small header ("ZMSB",
         // its format, the size of the text it was made from) - smaller and parsed faster than the
@@ -156,6 +162,9 @@ namespace Zamin {
         // links are left out, the inspector component order is kept (= EntitySetWriteOptions with
         // HiddenLocked, PrefabLinks and RootLink off; true: all on).
         static std::string SerializeEntities(Scene& scene, const std::vector<Entity>& entities, bool includeEditorFlags = true);
+        // What an entity set is (its "Kind": a prefab file or entities copied to the clipboard).
+        enum class EntitySetKind : uint8_t { Prefab, Clipboard };
+        static const char* EntitySetKindName(EntitySetKind kind);
         // What an entity set keeps of the editor's data.
         struct EntitySetWriteOptions
         {
@@ -166,11 +175,19 @@ namespace Zamin {
             // Also the instances rooted at one of the set's roots (off: Scene::SavePrefab - a prefab
             // saved from an instance is a prefab of its own; the nested instances inside it are kept).
             bool RootLink = true;
+            // "Version" (SceneMigration::CurrentVersion: older sets are migrated when they are read)
+            // and "Kind".
+            bool Version = true;
+            EntitySetKind Kind = EntitySetKind::Clipboard;
         };
         static std::string SerializeEntities(Scene& scene, const std::vector<Entity>& entities, const EntitySetWriteOptions& options);
         // Returns created entities, roots first. generateNewUUIDs = true for prefabs/paste.
         // `repairs` receives the asset paths taken from UUIDs (see above).
-        // `error` (optional) receives why nothing could be read; the reason is logged only without it.
+        // `error` (optional) receives why nothing could be read (or why a part of it was not); the
+        // reason is logged only without it. An older set is migrated first (SceneMigration: a set
+        // without "Version" is v0). Whatever of each entity can be read is made, as for a scene file:
+        // an entry that is not an entity is skipped, a component that cannot be read is left out,
+        // a parent outside the set (or a parent loop) makes the entity a root.
         static std::vector<Entity> DeserializeEntities(Scene& scene, const std::string& text, bool generateNewUUIDs,
                                                        std::vector<AssetReferenceRepair>* repairs = nullptr, std::string* error = nullptr);
         struct EntitySetReadOptions
@@ -183,6 +200,11 @@ namespace Zamin {
             // The prefab links in the text (off: the entities are plain copies - Scene::InstantiatePrefab,
             // script Instantiate(path); nested instance markers are not made either).
             bool KeepPrefabLinks = true;
+            // Text that does not parse as a whole (cut off, garbage inside): the entities that do are
+            // read (SceneRecovery) - the report says what was left out. Off: such text gives nothing.
+            bool Recover = false;
+            SceneLoadReport* Report = nullptr;          // every problem found (as for a scene file)
+            SceneMigrationResult* Migration = nullptr;  // the set's version and the steps applied
             std::vector<AssetReferenceRepair>* Repairs = nullptr;
             std::string* Error = nullptr;
         };
@@ -222,6 +244,7 @@ namespace Zamin {
 
     private:
         bool DeserializeFromMemory(const uint8_t* data, size_t size);
+        bool DeserializeText(const std::string& text, bool recover);
 
         Ref<Scene> m_Scene;
         std::vector<AssetReferenceRepair> m_RepairedReferences;

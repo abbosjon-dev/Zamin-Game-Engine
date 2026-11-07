@@ -49,6 +49,9 @@ namespace Zamin {
             std::vector<std::string> Deps;       // the prefabs nested in it (and the base), each once
             std::unordered_map<uint64_t, NestedLink> NestedOwner; // ID -> the nested prefab it belongs to
             std::vector<std::string> Issues;     // why it is not linkable, cycles, nesting too deep ...
+            int FileVersion = 0;                 // the format version it was written in (SceneMigration)
+            bool Newer = false;                  // written by a newer engine: read as far as understood, never written
+            size_t LoadErrors = 0;               // entities / components that could not be read (never written back)
 
             uint64_t ParentOf(uint64_t id) const;
             std::vector<uint64_t> ChildrenOf(uint64_t id) const; // in order
@@ -82,7 +85,8 @@ namespace Zamin {
 
         // Writes a prefab file (atomically) and forgets what was read of it. The write is remembered
         // (IsOwnWrite) and, with `undo`, added to it as a FileEdit (nothing when the file already
-        // holds `text`). False when it could not be written.
+        // holds `text`). False when it could not be written - or must not be: a file of a newer
+        // format than this engine knows is never written over (what it does not understand would go).
         bool Write(std::string_view relPath, const std::string& text, std::vector<FileEdit>* undo = nullptr);
         // The text was written by this database (the file watcher's change is the editor's own).
         bool IsOwnWrite(const std::filesystem::path& file, uint64_t contentHash) const;

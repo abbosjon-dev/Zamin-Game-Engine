@@ -9,6 +9,7 @@
 #include "Zamin/Scene/PrefabOverridesJson.h"
 #include "Zamin/Scene/Scene.h"
 #include "Zamin/Scene/SceneSerializer.h"
+#include "Zamin/Scene/SceneMigrationJson.h"
 #include "Zamin/Scene/SceneSerializerJson.h"
 
 #include <algorithm>
@@ -580,6 +581,31 @@ namespace Zamin {
 
         std::string DumpFile(const json& root) { return root.dump(2); }
 
+        // A prefab file's text parsed to be written back: brought to the current format first (the
+        // values patched into it and the ones kept agree), marked as a prefab. False with `error` when
+        // it cannot be read - or must not be written: a newer engine's file would lose what this one
+        // does not understand.
+        bool ParsePrefabFile(const std::string& text, json& out, std::string* error)
+        {
+            out = json::parse(text, nullptr, false);
+            if (out.is_discarded() || !out.is_object())
+            {
+                if (error)
+                    *error = "Prefab fayli o'qilmadi";
+                return false;
+            }
+            const SceneMigrationResult migration = SceneMigrationJson::Migrate(out);
+            if (migration.IsNewer())
+            {
+                if (error)
+                    *error = std::format("Prefab fayli yangiroq formatda (v{}, bu dvigatel v{} gacha biladi): yozilmaydi",
+                                         migration.FileVersion, SceneMigration::CurrentVersion);
+                return false;
+            }
+            out["Kind"] = SceneSerializer::EntitySetKindName(SceneSerializer::EntitySetKind::Prefab);
+            return true;
+        }
+
         // The value at the same reference place of another entity (0 when it has none).
         uint64_t RefAt(Entity e, std::string_view key, std::string_view field)
         {
@@ -779,11 +805,13 @@ namespace Zamin {
             if (!refused.empty())
                 return Fail(refused);
 
-            json oldRoot = json::parse(in.T->Text, nullptr, false);
-            if (oldRoot.is_discarded() || !oldRoot.is_object())
-                return Fail("Prefab fayli o'qilmadi");
+            json oldRoot;
+            std::string parseError;
+            if (!ParsePrefabFile(in.T->Text, oldRoot, &parseError))
+                return Fail(parseError);
             SceneSerializer::EntitySetWriteOptions writeOptions;
             writeOptions.HiddenLocked = false;
+            writeOptions.Kind = SceneSerializer::EntitySetKind::Prefab;
             json written = json::parse(SceneSerializer::SerializeEntities(*local, ordered, writeOptions), nullptr, false);
             if (written.is_discarded())
                 return Fail("Prefab ma'lumotlari yozilmadi");
@@ -1005,8 +1033,11 @@ namespace Zamin {
                 removeComponent = Contains(link.RemovedComponents, path);
             }
 
-            json file = json::parse(qt->Text, nullptr, false);
-            json* dst = file.is_discarded() ? nullptr : FindFileEntity(file, currentLocal);
+            json file;
+            std::string parseError;
+            if (!ParsePrefabFile(qt->Text, file, &parseError))
+                return Fail(std::format("{}: {}", parseError, target));
+            json* dst = FindFileEntity(file, currentLocal);
             if (!dst)
                 return Fail(std::format("Prefab fayli o'qilmadi: {}", target));
             for (const std::string& p : paths)
@@ -1050,8 +1081,8 @@ namespace Zamin {
                 const PrefabDatabase::Template* t = db.Get(file2);
                 if (!t || !t->Readable)
                     continue;
-                json f = json::parse(t->Text, nullptr, false);
-                json* e = f.is_discarded() ? nullptr : FindFileEntity(f, id);
+                json f;
+                json* e = ParsePrefabFile(t->Text, f, nullptr) ? FindFileEntity(f, id) : nullptr;
                 if (!e || !e->contains("Editor"))
                     continue;
                 json& ed = (*e)["Editor"];
@@ -1630,9 +1661,13 @@ namespace Zamin {
             return false;
         if (t->Deps.empty())
             return true; // nothing nested: nothing to bring up to date
-        json file = json::parse(t->Text, nullptr, false);
-        if (file.is_discarded() || !file.is_object())
+        json file;
+        std::string parseError;
+        if (!ParsePrefabFile(t->Text, file, &parseError))
+        {
+            ZM_CORE_WARN("Prefab yangilanmadi ({}): {}", parseError, path);
             return false;
+        }
         // The file as written, read without bringing anything up to date - compared entity by
         // entity with the template (both through the same writer): an unchanged entity keeps its text.
         Scene plain;
@@ -1647,6 +1682,7 @@ namespace Zamin {
             plainOrder.push_back(e);
         SceneSerializer::EntitySetWriteOptions write;
         write.HiddenLocked = false;
+        write.Kind = SceneSerializer::EntitySetKind::Prefab;
         json healed = json::parse(SceneSerializer::SerializeEntities(*t->Entities, healedOrder, write), nullptr, false);
         json unhealed = json::parse(SceneSerializer::SerializeEntities(plain, plainOrder, write), nullptr, false);
         if (healed.is_discarded() || unhealed.is_discarded())

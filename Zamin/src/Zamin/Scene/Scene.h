@@ -262,6 +262,9 @@ namespace Zamin {
         Entity CreateEntityWithUUID(UUID uuid, const std::string& name = std::string());
         void DestroyEntity(Entity entity);
         Entity DuplicateEntity(Entity entity);
+        // The same, and `copied` receives original UUID -> copy UUID for every entity of the subtree
+        // (EntityRefs inside the subtree already point at the copies).
+        Entity DuplicateEntity(Entity entity, std::unordered_map<uint64_t, uint64_t>* copied);
         // Rewrites every entity reference of `entities` (each place ForEachEntityRef visits) using an
         // old->new UUID map (used when a subtree is duplicated / pasted / instantiated with fresh IDs,
         // so references inside the copied subtree point to the copies). A reference the map does not
@@ -1373,7 +1376,8 @@ namespace Zamin {
         Lighting2DData CollectLights2D(const glm::vec2& viewCenter);
     private:
         void DispatchContactEvents(const std::vector<ContactEvent>& events);
-        Entity DuplicateEntityRecursive(Entity entity, UUID newParent);
+        // `copied` (optional) receives original UUID -> copy UUID for every entity made.
+        Entity DuplicateEntityRecursive(Entity entity, UUID newParent, std::unordered_map<uint64_t, uint64_t>* copied = nullptr);
         Entity InstantiateCopy(Entity prefab, const glm::vec3* position);
         void StepPhysics(Timestep ts);
         // DebugDraw: the 2D / 3D contact points with their normals (ShowContacts, ShowContactDetails).

@@ -31009,8 +31009,8 @@ TEST(SceneVersionMigration)
         CHECK(!serializer.GetLoadReport().HasIssues());
         const SceneMigrationResult& m = serializer.GetMigration();
         CHECK(m.FileVersion == 1 && m.Version == SceneMigration::CurrentVersion && m.Migrated() && !m.IsNewer());
-        CHECK(m.Steps.size() == 3 && m.Steps[0].From == 1 && m.Steps[0].To == 2 && m.Steps[1].To == 3 && m.Steps[2].To == 4 && m.GetChangeCount() == 5);
-        CHECK(m.Summary().find("v1 -> v4") != std::string::npos);
+        CHECK(m.Steps.size() == (size_t)SceneMigration::CurrentVersion - 1 && m.Steps[0].From == 1 && m.Steps[0].To == 2 && m.Steps[1].To == 3 && m.Steps[2].To == 4 && m.GetChangeCount() == 5);
+        CHECK(m.Summary().find(std::format("v1 -> v{}", SceneMigration::CurrentVersion)) != std::string::npos);
         Entity title = scene->FindEntityByName("Sarlavha"), corner = scene->FindEntityByName("Burchak"), world = scene->FindEntityByName("DunyoMatni");
         CHECK(title && corner && world);
         if (!title || !corner || !world)
@@ -31050,8 +31050,8 @@ TEST(SceneVersionMigration)
         SceneSerializer serializer(scene);
         CHECK(serializer.Deserialize(fixtures / "LegacyV0.zscene"));
         const SceneMigrationResult& m = serializer.GetMigration();
-        CHECK(m.FileVersion == 0 && m.Version == SceneMigration::CurrentVersion && m.Steps.size() == 4);
-        CHECK(m.Steps.size() == 4 && m.Steps[0].Changes == 5 && m.Steps[1].Changes == 1 && m.Steps[2].Changes == 0 && m.Steps[3].Changes == 0);
+        CHECK(m.FileVersion == 0 && m.Version == SceneMigration::CurrentVersion && m.Steps.size() == (size_t)SceneMigration::CurrentVersion);
+        CHECK(m.Steps.size() == (size_t)SceneMigration::CurrentVersion && m.Steps[0].Changes == 5 && m.Steps[1].Changes == 1 && m.Steps[2].Changes == 0 && m.Steps[3].Changes == 0);
         Entity parent = scene->GetEntityByUUID(UUID(1001)), child = scene->GetEntityByUUID(UUID(1002)), text = scene->FindEntityByName("Yozuv");
         CHECK(parent && child && text && parent.GetName() == "Ota" && child.GetName() == "Bola");
         if (parent && child && text)
@@ -31072,7 +31072,7 @@ TEST(SceneVersionMigration)
         SceneSerializer serializer(scene);
         CHECK(serializer.DeserializeFromString(v2));
         const SceneMigrationResult& m = serializer.GetMigration();
-        CHECK(m.FileVersion == 2 && m.Steps.size() == 2 && m.Steps[0].From == 2 && m.Steps[0].To == 3 && m.GetChangeCount() == 2);
+        CHECK(m.FileVersion == 2 && m.Steps.size() == (size_t)SceneMigration::CurrentVersion - 2 && m.Steps[0].From == 2 && m.Steps[0].To == 3 && m.GetChangeCount() == 2);
         Entity room = scene->FindEntityByName("Xona");
         CHECK(scene->GetName() == "Uy" && room && room.HasComponent<SubSceneComponent>());
         if (room && room.HasComponent<SubSceneComponent>())
@@ -35267,7 +35267,7 @@ TEST(ProjectDefaultGravityAndStep)
     auto old = CreateRef<Scene>();
     SceneSerializer oldReader(old);
     CHECK(oldReader.DeserializeFromString(v3));
-    CHECK(oldReader.GetMigration().Migrated() && oldReader.GetMigration().Steps.back().To == 4 && oldReader.GetMigration().GetChangeCount() == 2);
+    CHECK(oldReader.GetMigration().Migrated() && oldReader.GetMigration().Steps.back().To == SceneMigration::CurrentVersion && oldReader.GetMigration().GetChangeCount() == 2);
     CHECK(old->GetSettings().UseProjectGravity && old->GetSettings().Gravity.y == -1.0f);
     CHECK(old->GetSettings().UseProjectGravity3D && old->GetSettings().Gravity3D.y == -15.0f && old->GetSettings().UseProjectPhysicsStep);
     const std::string v3Own = R"({ "Scene": "Eski", "Version": 3, "Settings": { "Gravity": [0, -20], "Gravity3D": [0, -9.81, 0] }, "Entities": [] })";

@@ -207,6 +207,35 @@ namespace Zamin {
             return changes;
         }
 
+        // v4 -> v5: prefab instance links (an instance's entities linked to their prefab's:
+        // "PrefabEntity", "Overrides" ... under "Editor") - nothing to change in an older file but the
+        // prefab path of an instance root, written with '/' (a path typed on Windows) so that it
+        // matches the prefab's path everywhere (links, moves, the reference index).
+        size_t MigrateV4(json& root)
+        {
+            size_t changes = 0;
+            json* entities = EntityList(root);
+            if (!entities)
+                return changes;
+            for (json& e : *entities)
+            {
+                if (!e.is_object())
+                    continue;
+                auto editor = e.find("Editor");
+                if (editor == e.end() || !editor->is_object())
+                    continue;
+                auto prefab = editor->find("Prefab");
+                if (prefab == editor->end() || !prefab->is_string())
+                    continue;
+                std::string& path = prefab->get_ref<std::string&>();
+                if (path.find('\\') == std::string::npos)
+                    continue;
+                std::replace(path.begin(), path.end(), '\\', '/');
+                changes++;
+            }
+            return changes;
+        }
+
         struct StepFunction
         {
             SceneMigrationStep Step;
@@ -221,6 +250,7 @@ namespace Zamin {
                           "sahna metadata (\"Metadata\")" }, &MigrateV1 },
                 { { 2, 3, "Sub-sahna fayli: SubScene \"Scene\" -> \"Path\" (fayl ko'chirilganda havola yangilanadi)" }, &MigrateV2 },
                 { { 3, 4, "Gravitatsiya: dvigatelning standart qiymati olib tashlandi (sahna loyiha gravitatsiyasiga ergashadi)" }, &MigrateV3 },
+                { { 4, 5, "Prefab bog'lanishlari: Editor.Prefab yo'li '/' bilan; nusxa bog'lanishlari (PrefabEntity/Overrides) qo'shildi" }, &MigrateV4 },
             };
             return s_Steps;
         }
@@ -299,10 +329,16 @@ namespace Zamin {
         return s_Chain;
     }
 
+    // A scene file, or an entity set (a prefab file, copied entities: "ZaminEntities").
+    static bool IsVersionedRoot(const json& root)
+    {
+        return root.is_object() && (root.contains("Scene") || root.contains("ZaminEntities"));
+    }
+
     int SceneMigration::ReadVersion(const std::string& text)
     {
         json root = json::parse(text, nullptr, false);
-        if (root.is_discarded() || !root.is_object() || !root.contains("Scene"))
+        if (root.is_discarded() || !IsVersionedRoot(root))
             return -1;
         return SceneMigrationJson::ReadVersion(root);
     }
@@ -310,7 +346,7 @@ namespace Zamin {
     bool SceneMigration::MigrateText(std::string& text, SceneMigrationResult* result, std::string* error)
     {
         json root = json::parse(text, nullptr, false);
-        if (root.is_discarded() || !root.is_object() || !root.contains("Scene"))
+        if (root.is_discarded() || !IsVersionedRoot(root))
         {
             if (error)
                 *error = root.is_discarded() ? "JSON o'qilmadi" : "sahna fayli emas (\"Scene\" kaliti yo'q)";

@@ -2170,7 +2170,11 @@ namespace Zamin {
         bool changed = false;
 
         Entity target = ref.ID && m_Context ? m_Context->GetEntityByUUID(ref.ID) : Entity();
-        bool missing = ref.ID && !target;
+        // A reference that points outside the prefab (prefab mode: an entity that is not in the
+        // prefab; an instance: an entity outside the instance) is kept as it is, but an Apply does not
+        // write it into the prefab (other scenes do not have that entity).
+        const bool external = ref.ID && IsPrefabExternalReference(ref.ID);
+        bool missing = ref.ID && !target && !external;
 
         float buttonWidth = ImGui::GetFrameHeight();
         float spacing = ImGui::GetStyle().ItemSpacing.x;
@@ -2178,9 +2182,11 @@ namespace Zamin {
         std::string display;
         if (!ref.ID) display = ICON_FA_LINK "  (yo'q)";
         else if (missing) display = ICON_FA_TRIANGLE_EXCLAMATION "  (topilmadi)";
-        else display = std::string(EntityIcon(target)) + "  " + target.GetName();
+        else if (!target) display = std::string(ICON_FA_LINK_SLASH "  ") + Tr("(prefabdan tashqarida)");
+        else display = std::string(external ? ICON_FA_LINK_SLASH "  " : "") + EntityIcon(target) + "  " + target.GetName();
 
         ImVec4 textColor = missing ? ImVec4(0.95f, 0.45f, 0.35f, 1.0f)
+                         : external ? ImVec4(0.95f, 0.75f, 0.35f, 1.0f)
                          : !ref.ID ? ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled)
                          : ImGui::GetStyleColorVec4(ImGuiCol_Text);
         ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
@@ -2194,8 +2200,10 @@ namespace Zamin {
         ImGui::PopStyleVar();
         ImGui::PopStyleColor(2);
         if (ImGui::IsItemHovered())
-            UI::Tooltip(missing ? "Bog'langan obyekt sahnada yo'q. Boshqasini tanlang yoki tozalang"
-                                : "Ierarxiyadan obyektni tortib tashlang yoki bosib tanlang");
+            UI::Tooltip(external ? "Qo'llashda yozilmaydi (prefabdan tashqarida): havola shu sahnada qoladi, prefabga va uning "
+                                   "boshqa nusxalariga o'tmaydi"
+                        : missing ? "Bog'langan obyekt sahnada yo'q. Boshqasini tanlang yoki tozalang"
+                                  : "Ierarxiyadan obyektni tortib tashlang yoki bosib tanlang");
 
         if (ImGui::BeginDragDropTarget())
         {
@@ -2271,6 +2279,28 @@ namespace Zamin {
 
         ImGui::PopID();
         return changed;
+    }
+
+    bool SceneHierarchyPanel::IsPrefabExternalReference(uint64_t id) const
+    {
+        if (!id || !m_Context)
+            return false;
+        Entity target = m_Context->GetEntityByUUID(UUID(id));
+        if (m_PrefabStageMode)
+            return !target; // the prefab's entities are all there is
+        if (!m_PrefabInspector.Entity)
+            return false;
+        Entity root = PrefabUtility::GetInstanceRoot(m_Context->GetEntityByUUID(m_PrefabInspector.Entity));
+        if (!root || !target)
+            return false;
+        for (Entity e = target; e;)
+        {
+            if (e == root)
+                return false;
+            const UUID parent = e.GetComponent<RelationshipComponent>().Parent;
+            e = (uint64_t)parent ? m_Context->GetEntityByUUID(parent) : Entity();
+        }
+        return true;
     }
 
     static std::string TrimTag(const std::string& s)

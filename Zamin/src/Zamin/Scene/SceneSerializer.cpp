@@ -11,6 +11,7 @@
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Scene/ParticlePresets.h"
 #include "Zamin/Scene/SceneMigrationJson.h"
+#include "Zamin/Scene/SceneRecoveryJson.h"
 #include "Zamin/Scene/SceneSerializerJson.h"
 #include "Zamin/Utils/FileSystem.h"
 
@@ -4127,6 +4128,7 @@ namespace Zamin {
             case Kind::DuplicateID: return "Takroriy ID";
             case Kind::BadHierarchy: return "Ierarxiya xato";
             case Kind::NewerVersion: return "Yangiroq format";
+            case Kind::Truncated: return "Fayl oxiri yo'q";
         }
         return "?";
     }
@@ -4279,6 +4281,28 @@ namespace Zamin {
     static SceneLoadIssue MakeNotASceneIssue()
     {
         return MakeIssue(SceneLoadIssue::Kind::NotAScene, SceneLoadIssue::Severity::Fatal, "sahna fayli emas (\"Scene\" kaliti yo'q)");
+    }
+
+    // Text that did not parse, salvaged in part (SceneRecovery): where it broke (an error, no longer
+    // fatal) with what was recovered, the cut-off end, the top-level parts lost.
+    static void ReportSalvage(SceneLoadReport* report, const std::string& text, const std::exception& ex, const SceneRecovery::Result& r)
+    {
+        if (!report)
+            return;
+        SceneLoadIssue issue = MakeParseIssue(text, ex);
+        issue.Level = SceneLoadIssue::Severity::Error;
+        issue.Message += std::format(" - qisman tiklandi: {}", SceneRecovery::Summary(r));
+        report->Add(std::move(issue));
+        if (r.Truncated)
+            report->Add(MakeIssue(SceneLoadIssue::Kind::Truncated, SceneLoadIssue::Severity::Warning,
+                                  "Fayl oxirigacha yozilmagan (uzilib qolgan): oxiridagi to'liq bo'lmagan qism tashlab ketildi"));
+        for (const std::string& key : r.LostKeys)
+        {
+            SceneLoadIssue lost = MakeIssue(SceneLoadIssue::Kind::BadComponent, SceneLoadIssue::Severity::Warning,
+                                            std::format("Fayldagi \"{}\" qismi o'qilmadi: standart qiymatlar olindi", key));
+            lost.Component = key;
+            report->Add(std::move(lost));
+        }
     }
 
     // A scene file as the log names it: relative to the assets when it is one of the project's.
@@ -4657,7 +4681,11 @@ namespace Zamin {
         timing.SceneName = scene.GetName();
     }
 
-    bool SceneSerializer::DeserializeFromString(const std::string& text)
+    bool SceneSerializer::DeserializeFromString(const std::string& text) { return DeserializeText(text, false); }
+
+    bool SceneSerializer::RecoverFromString(const std::string& text) { return DeserializeText(text, true); }
+
+    bool SceneSerializer::DeserializeText(const std::string& text, bool recover)
     {
         m_RepairedReferences.clear();
         m_LastError.clear();
@@ -4680,8 +4708,20 @@ namespace Zamin {
         try { root = json::parse(text); }
         catch (const std::exception& e)
         {
-            m_Timing[SceneLoadTiming::Stage::Parse] = ElapsedMilliseconds(parseStart);
-            return fail(MakeParseIssue(text, e));
+            std::optional<json> salvaged;
+            SceneRecovery::Result recovery;
+            if (recover)
+                salvaged = SceneRecoveryJson::Salvage(text, &recovery);
+            if (!salvaged || salvaged->contains("ZaminEntities"))
+            {
+                m_Timing[SceneLoadTiming::Stage::Parse] = ElapsedMilliseconds(parseStart);
+                return fail(MakeParseIssue(text, e));
+            }
+            ReportSalvage(&m_Report, text, e, recovery);
+            root = std::move(*salvaged);
+            // Cut off before its name (written after "Entities"): a scene all the same.
+            if (!root.contains("Scene"))
+                root["Scene"] = "Tiklangan sahna";
         }
         m_Timing[SceneLoadTiming::Stage::Parse] = ElapsedMilliseconds(parseStart);
         if (!root.is_object() || !root.contains("Scene"))
@@ -5145,15 +5185,28 @@ namespace Zamin {
         WriteChildOrder(list, entities);
         json root;
         root["ZaminEntities"] = 1;
+        if (options.Version)
+        {
+            root["Version"] = SceneMigration::CurrentVersion;
+            root["Kind"] = SceneSerializer::EntitySetKindName(options.Kind);
+        }
         root["Entities"] = std::move(list);
         return root;
+    }
+
+    const char* SceneSerializer::EntitySetKindName(EntitySetKind kind)
+    {
+        return kind == EntitySetKind::Prefab ? "Prefab" : "Clipboard";
     }
 
     std::string SceneSerializer::SerializeEntities(Scene& scene, const std::vector<Entity>& entities, bool includeEditorFlags)
     {
         EntitySetWriteOptions options;
         if (!includeEditorFlags)
+        {
             options.HiddenLocked = options.PrefabLinks = options.RootLink = false;
+            options.Kind = EntitySetKind::Prefab;
+        }
         return SerializeEntities(scene, entities, options);
     }
 
@@ -5166,16 +5219,36 @@ namespace Zamin {
     void SceneSerializer::SetReadPrefabLinks(bool read) { s_ReadPrefabLinks = read; }
     bool SceneSerializer::GetReadPrefabLinks() { return s_ReadPrefabLinks; }
 
-    // The entities of a parsed entity set (DeserializeEntities); `root` is its root object.
-    static std::vector<Entity> DeserializeEntitySet(Scene& scene, const json& root, const SceneSerializer::EntitySetReadOptions& options)
+    // The entities of a parsed entity set (DeserializeEntities); `root` is its root object. It is
+    // migrated to the current version first; then each entry is read as a scene file's entity is
+    // (DeserializeSceneEntity's rules): whatever of it can be read is made, the rest is reported.
+    static std::vector<Entity> DeserializeEntitySet(Scene& scene, json& root, const SceneSerializer::EntitySetReadOptions& options)
     {
         std::vector<Entity> created;
+        SceneLoadReport* report = options.Report;
         if (!root.is_object() || !root.contains("Entities") || !root["Entities"].is_array())
         {
             if (options.Error)
                 *options.Error = "obyektlar ro'yxati (\"Entities\") yo'q";
+            if (report)
+                report->Add(MakeIssue(SceneLoadIssue::Kind::NotAScene, SceneLoadIssue::Severity::Fatal, "obyektlar ro'yxati (\"Entities\") yo'q"));
             return created;
         }
+        // Older sets (and ones without a version: v0) in the current format; a newer one is read as
+        // far as it is understood.
+        SceneMigrationResult migration = MigrateSceneRoot(root, report);
+        if ((migration.Migrated() && migration.GetChangeCount() > 0) || migration.IsNewer())
+        {
+            // Once per set (by its first entity's name) and version: a script may spawn it every frame.
+            std::string first;
+            if (const json& list = root["Entities"]; !list.empty() && list[0].is_object())
+                if (auto tag = list[0].find("Tag"); tag != list[0].end() && tag->is_string())
+                    first = tag->get<std::string>();
+            SceneMigration::LogMigration(std::format("obyektlar to'plami '{}'", first), migration);
+        }
+        if (options.Migration)
+            *options.Migration = migration;
+
         struct SkipPrefabData
         {
             bool Previous = s_SkipPrefabData;
@@ -5183,61 +5256,150 @@ namespace Zamin {
             ~SkipPrefabData() { s_SkipPrefabData = Previous; }
         } skipPrefabData(!options.KeepPrefabLinks);
 
+        struct Made
+        {
+            Entity Handle;
+            const json* Source = nullptr;
+            uint64_t OldParent = 0;
+        };
+        std::vector<Made> made;
         std::unordered_map<uint64_t, UUID> remap;
-        try
+        std::string firstError;
+        AssetReferenceScope* scope = AssetReferenceScope::Get();
+        const json& list = root["Entities"];
+        made.reserve(list.size());
+        size_t index = 0;
+        for (const json& e : list)
         {
-            std::vector<std::pair<Entity, uint64_t>> parents;
-            for (const json& e : root["Entities"])
+            const size_t at = index++;
+            if (!e.is_object())
             {
-                uint64_t old = e.value("Entity", (uint64_t)0);
-                UUID id;
-                bool mapped = false;
-                if (options.IDMap)
-                    if (auto it = options.IDMap->find(old); old && it != options.IDMap->end() && (uint64_t)it->second &&
-                                                            !scene.GetEntityByUUID(it->second))
-                    {
-                        id = it->second;
-                        mapped = true;
-                    }
-                if (!mapped)
-                    id = options.GenerateNewUUIDs || !old || scene.GetEntityByUUID(old) ? UUID() : UUID(old);
+                if (report)
+                    report->EntitiesSkipped++;
+                AddEntityIssue(report, SceneLoadIssue::Kind::BadEntity, SceneLoadIssue::Severity::Error,
+                               std::format("\"Entities\" ro'yxatining {}-yozuvi obyekt emas ({}): o'tkazib yuborildi", at + 1, e.type_name()), {}, 0);
+                if (firstError.empty())
+                    firstError = std::format("{}-yozuv obyekt emas", at + 1);
+                continue;
+            }
+            std::string name = "Entity";
+            if (auto tag = e.find("Tag"); tag != e.end() && tag->is_string())
+                name = tag->get<std::string>();
+            const uint64_t old = ReadEntityID(e, "Entity");
+            if (!old && e.contains("Entity"))
+                AddEntityIssue(report, SceneLoadIssue::Kind::BadEntity, SceneLoadIssue::Severity::Warning,
+                               std::format("'{}' obyektining ID'si xato: yangi ID berildi", name), name, 0);
+            const bool repeated = old && remap.contains(old);
+            if (repeated)
+                AddEntityIssue(report, SceneLoadIssue::Kind::DuplicateID, SceneLoadIssue::Severity::Warning,
+                               std::format("'{}' obyektining ID'si ({}) takrorlangan: yangi ID berildi", name, old), name, old);
+            UUID id;
+            bool mapped = false;
+            if (options.IDMap && !repeated)
+                if (auto it = options.IDMap->find(old); old && it != options.IDMap->end() && (uint64_t)it->second &&
+                                                        !scene.GetEntityByUUID(it->second))
+                {
+                    id = it->second;
+                    mapped = true;
+                }
+            if (!mapped)
+                id = options.GenerateNewUUIDs || !old || repeated || scene.GetEntityByUUID(old) ? UUID() : UUID(old);
+            if (old && !repeated)
                 remap[old] = id;
-                Entity entity = scene.CreateEntityWithUUID(id, e.value("Tag", "Entity"));
+            Entity entity = scene.CreateEntityWithUUID(id, name);
+            const uint64_t newID = (uint64_t)entity.GetUUID();
+            if (scope)
+                scope->SetEntity(&e, name, newID);
+            if (report)
+                for (auto it = e.begin(); it != e.end(); ++it)
+                    if (!IsKnownEntityKey(it.key()))
+                        AddEntityIssue(report, SceneLoadIssue::Kind::UnknownComponent, SceneLoadIssue::Severity::Warning,
+                                       std::format("'{}' obyektida noma'lum komponent '{}': o'tkazib yuborildi", name, it.key()),
+                                       name, newID, it.key());
+            try
+            {
                 DeserializeEntityComponents(e, entity);
-                parents.emplace_back(entity, e.value("Parent", (uint64_t)0));
-                created.push_back(entity);
             }
-            for (auto& [entity, oldParent] : parents)
+            catch (const std::exception& ex)
             {
-                if (!oldParent) continue;
-                auto it = remap.find(oldParent);
-                if (it == remap.end()) continue;
-                Entity p = scene.GetEntityByUUID(it->second);
-                if (!p || p == entity) continue;
-                entity.GetComponent<RelationshipComponent>().Parent = p.GetUUID();
-                p.GetComponent<RelationshipComponent>().Children.push_back(entity.GetUUID());
+                // Each component on its own: the broken ones are left out (reported), the rest stay.
+                if (firstError.empty())
+                    firstError = ex.what();
+                DeserializeComponentsOneByOne(e, entity, report);
             }
-            {
-                size_t i = 0;
-                for (const json& e : root["Entities"])
-                    if (i < created.size())
-                        ApplyChildOrder(created[i++], e, &remap);
-            }
-
-            // EntityRef fields that point inside the pasted set follow the new IDs.
-            std::unordered_map<uint64_t, uint64_t> refs;
-            for (const auto& [old, id] : remap)
-                if (old && old != (uint64_t)id)
-                    refs[old] = (uint64_t)id;
-            if (!refs.empty())
-                Scene::RemapEntityReferences(created, refs);
+            if (scope)
+                scope->SetEntity(nullptr, {}, 0);
+            const uint64_t parent = ReadEntityID(e, "Parent");
+            if (!parent && e.contains("Parent"))
+                AddEntityIssue(report, SceneLoadIssue::Kind::BadHierarchy, SceneLoadIssue::Severity::Warning,
+                               std::format("'{}' obyektining ota obyekti (\"Parent\") xato: ildiz qilib yuklandi", name), name, newID);
+            made.push_back({ entity, &e, parent });
+            created.push_back(entity);
+            if (report)
+                report->EntitiesLoaded++;
         }
-        catch (const std::exception& ex)
+
+        // The hierarchy: parents inside the set (outside it: a root), without loops.
+        for (Made& m : made)
         {
+            if (!m.OldParent)
+                continue;
+            auto it = remap.find(m.OldParent);
+            if (it == remap.end())
+            {
+                // A copy of part of a scene has no parents outside it: one named here means the text
+                // was cut or edited.
+                AddEntityIssue(report, SceneLoadIssue::Kind::BadHierarchy, SceneLoadIssue::Severity::Warning,
+                               std::format("'{}' obyektining ota obyekti ({}) to'plamda yo'q: ildiz qilib yuklandi", m.Handle.GetName(), m.OldParent),
+                               m.Handle.GetName(), (uint64_t)m.Handle.GetUUID());
+                continue;
+            }
+            Entity p = scene.GetEntityByUUID(it->second);
+            if (!p || p == m.Handle)
+                continue;
+            const UUID self = m.Handle.GetUUID();
+            bool loop = false;
+            UUID up = p.GetComponent<RelationshipComponent>().Parent;
+            for (size_t steps = 0; (uint64_t)up && steps <= made.size(); steps++)
+            {
+                if (up == self)
+                {
+                    loop = true;
+                    break;
+                }
+                Entity ancestor = scene.GetEntityByUUID(up);
+                if (!ancestor)
+                    break;
+                up = ancestor.GetComponent<RelationshipComponent>().Parent;
+            }
+            if (loop)
+            {
+                AddEntityIssue(report, SceneLoadIssue::Kind::BadHierarchy, SceneLoadIssue::Severity::Warning,
+                               std::format("'{}' obyekti o'z avlodining farzandi bo'lib qolardi (halqa): ildiz qilib yuklandi", m.Handle.GetName()),
+                               m.Handle.GetName(), (uint64_t)self);
+                continue;
+            }
+            m.Handle.GetComponent<RelationshipComponent>().Parent = p.GetUUID();
+            p.GetComponent<RelationshipComponent>().Children.push_back(self);
+        }
+        for (Made& m : made)
+            ApplyChildOrder(m.Handle, *m.Source, &remap);
+
+        // EntityRef fields that point inside the pasted set follow the new IDs.
+        std::unordered_map<uint64_t, uint64_t> refs;
+        for (const auto& [old, id] : remap)
+            if (old && old != (uint64_t)id)
+                refs[old] = (uint64_t)id;
+        if (!refs.empty())
+            Scene::RemapEntityReferences(created, refs);
+
+        if (!firstError.empty())
+        {
+            // Read in part: the caller hears why (the import log, the paste notice).
             if (options.Error)
-                *options.Error = std::format("Entity ma'lumotlari xato: {}", ex.what());
+                *options.Error = std::format("Entity ma'lumotlari xato: {}", firstError);
             else
-                ZM_CORE_ERROR("Entity ma'lumotlari xato: {}", ex.what());
+                ZM_CORE_ERROR("Entity ma'lumotlari xato: {}", firstError);
         }
         if (options.IDsOut)
         {
@@ -5265,15 +5427,28 @@ namespace Zamin {
     std::vector<Entity> SceneSerializer::DeserializeEntities(Scene& scene, const std::string& text, const EntitySetReadOptions& options)
     {
         AssetReferenceScope assetReferences(options.Repairs);
+        if (options.Report)
+            assetReferences.SetReport(options.Report);
         if (options.Error)
             options.Error->clear();
         json root;
         try { root = json::parse(text); }
         catch (const std::exception& e)
         {
-            if (options.Error)
-                *options.Error = std::format("JSON xatosi: {}", e.what());
-            return {};
+            std::optional<json> salvaged;
+            SceneRecovery::Result recovery;
+            if (options.Recover)
+                salvaged = SceneRecoveryJson::Salvage(text, &recovery);
+            if (!salvaged)
+            {
+                if (options.Report)
+                    options.Report->Add(MakeParseIssue(text, e));
+                if (options.Error)
+                    *options.Error = std::format("JSON xatosi: {}", e.what());
+                return {};
+            }
+            ReportSalvage(options.Report, text, e, recovery);
+            root = std::move(*salvaged);
         }
         return DeserializeEntitySet(scene, root, options);
     }

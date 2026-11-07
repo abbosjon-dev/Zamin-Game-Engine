@@ -838,9 +838,11 @@ namespace Zamin {
                 DestroyEntityRecursive(e);
     }
 
-    Entity Scene::DuplicateEntityRecursive(Entity entity, UUID newParent)
+    Entity Scene::DuplicateEntityRecursive(Entity entity, UUID newParent, std::unordered_map<uint64_t, uint64_t>* copied)
     {
         Entity newEntity = CreateEntity(entity.GetName());
+        if (copied)
+            (*copied)[(uint64_t)entity.GetUUID()] = (uint64_t)newEntity.GetUUID();
         CopyComponentIfExists(AllComponents{}, newEntity, entity);
         ResetRuntimeData(newEntity);
         // The copy keeps the active flag (an inactive template gives inactive clones). It is
@@ -857,7 +859,7 @@ namespace Zamin {
         for (UUID child : children)
             if (Entity c = GetEntityByUUID(child))
             {
-                Entity copy = DuplicateEntityRecursive(c, newEntity.GetUUID());
+                Entity copy = DuplicateEntityRecursive(c, newEntity.GetUUID(), copied);
                 newEntity.GetComponent<RelationshipComponent>().Children.push_back(copy.GetUUID());
             }
         return newEntity;
@@ -865,26 +867,27 @@ namespace Zamin {
 
     static void CollectSubtree(Scene& scene, Entity root, std::vector<Entity>& out);
 
-    Entity Scene::DuplicateEntity(Entity entity)
+    Entity Scene::DuplicateEntity(Entity entity) { return DuplicateEntity(entity, nullptr); }
+
+    Entity Scene::DuplicateEntity(Entity entity, std::unordered_map<uint64_t, uint64_t>* copiedOut)
     {
         UUID parent = entity.GetComponent<RelationshipComponent>().Parent;
-        Entity copy = DuplicateEntityRecursive(entity, parent);
+        // Each original's copy is recorded while it is made (original UUID -> copy UUID), so that
+        // EntityRef fields pointing inside the original subtree point inside the copy - whatever
+        // the hierarchy lists hold (a child UUID with no entity, a child listed twice).
+        std::unordered_map<uint64_t, uint64_t> copied;
+        Entity copy = DuplicateEntityRecursive(entity, parent, &copied);
         if ((uint64_t)parent)
             if (Entity p = GetEntityByUUID(parent))
                 p.GetComponent<RelationshipComponent>().Children.push_back(copy.GetUUID());
-
-        // Both subtrees are created in the same depth-first order: pair them up so that
-        // EntityRef fields pointing inside the original subtree point inside the copy.
-        std::vector<Entity> originals, copies;
-        CollectSubtree(*this, entity, originals);
-        CollectSubtree(*this, copy, copies);
-        if (originals.size() == copies.size())
-        {
-            std::unordered_map<uint64_t, uint64_t> remap;
-            for (size_t i = 0; i < originals.size(); i++)
-                remap[(uint64_t)originals[i].GetUUID()] = (uint64_t)copies[i].GetUUID();
-            RemapEntityReferences(copies, remap);
-        }
+        std::vector<Entity> copies;
+        copies.reserve(copied.size());
+        for (const auto& [original, made] : copied)
+            if (Entity c = GetEntityByUUID(UUID(made)))
+                copies.push_back(c);
+        RemapEntityReferences(copies, copied);
+        if (copiedOut)
+            copiedOut->insert(copied.begin(), copied.end());
         return copy;
     }
 
@@ -1227,6 +1230,7 @@ namespace Zamin {
         options.HiddenLocked = false;
         options.PrefabLinks = true;
         options.RootLink = false;
+        options.Kind = SceneSerializer::EntitySetKind::Prefab;
         return FileSystem::WriteTextFileAtomic(path, SceneSerializer::SerializeEntities(*this, entities, options));
     }
 
@@ -1800,21 +1804,17 @@ namespace Zamin {
         std::unordered_map<uint64_t, uint64_t> remap;
         for (Entity original : tops)
         {
-            Entity copy = DuplicateEntity(original);
+            Entity copy = DuplicateEntity(original, &remap);
             MoveEntityNextTo(copy, original, true, false); // DuplicateEntity appends it last
-            std::vector<Entity> from, to;
-            CollectSubtree(*this, original, from);
+            std::vector<Entity> to;
             CollectSubtree(*this, copy, to);
-            if (from.size() == to.size())
-                for (size_t i = 0; i < from.size(); i++)
-                    remap[(uint64_t)from[i].GetUUID()] = (uint64_t)to[i].GetUUID();
             spawned.insert(spawned.end(), to.begin(), to.end());
             copies.push_back(copy);
         }
         // DuplicateEntity remaps references inside one subtree; references from one duplicated
-        // subtree into another one follow the copies as well.
-        if (copies.size() > 1)
-            RemapEntityReferences(spawned, remap);
+        // subtree into another one follow the copies as well (the map has every copy made, so this
+        // is the same remap for a single copy - it does no harm and keeps one code path).
+        RemapEntityReferences(spawned, remap);
         if (m_IsRunning || m_PhysicsWorld || m_PhysicsWorld3D)
             OnEntitiesSpawned(spawned);
         return copies;

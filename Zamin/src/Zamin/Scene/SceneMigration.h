@@ -27,6 +27,10 @@ namespace Zamin {
     //   4 - the gravity ("Gravity" / "Gravity3D" of "Settings") only when the scene has its own; without
     //       it the scene follows the project's (Project settings > Physics). Older files always had it:
     //       the engine's value (0, -9.8) / (0, -9.81, 0) there is taken out (it was the default).
+    //   5 - prefab instance links ("Editor": "PrefabEntity", "Overrides" ... - the editor's); the prefab
+    //       path of an instance root ("Editor": "Prefab") with '/' only. Entity sets - prefab files and
+    //       copied entities ("ZaminEntities") - say their version too (and "Kind": "Prefab" /
+    //       "Clipboard"); older ones have none (v0) and go through the same chain when they are read.
     struct SceneMigrationStep
     {
         int From = 0, To = 0;
@@ -52,11 +56,12 @@ namespace Zamin {
     {
     public:
         // The version scene files are written in.
-        static constexpr int CurrentVersion = 4;
+        static constexpr int CurrentVersion = 5;
 
         // Every step this engine knows, oldest first: From 0 .. CurrentVersion - 1, each To = From + 1.
         static const std::vector<SceneMigrationStep>& GetChain();
-        // The "Version" of scene file text: 0 when it has none, -1 when the text is not a scene.
+        // The "Version" of scene file text (or of an entity set: a prefab file, copied entities): 0
+        // when it has none, -1 when the text is neither.
         static int ReadVersion(const std::string& text);
         // Brings scene file text to the current version (tools, tests: what loading does, as text).
         // False, with the text untouched and the reason in `error`, when it is not a scene file.

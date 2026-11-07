@@ -238,3 +238,7 @@
 #define ICON_FA_USERS "\xef\x83\x80"               // a formation (a group moving together)
 // prefabs II (M21): links, apply / revert, overrides
 #define ICON_FA_UPLOAD "\xef\x82\x93"              // apply to the prefab
+// prefabs II (M21): prefab mode, recovery
+#define ICON_FA_CHEVRON_RIGHT "\xef\x81\x94"       // the prefab mode breadcrumb separator
+#define ICON_FA_CHEVRON_LEFT "\xef\x81\x93"        // back to the scene (prefab mode)
+#define ICON_FA_TRUCK_MEDICAL "\xef\x83\xb9"       // a broken scene file recovered in part

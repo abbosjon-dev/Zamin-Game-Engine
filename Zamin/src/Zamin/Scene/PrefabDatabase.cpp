@@ -147,7 +147,14 @@ namespace Zamin {
         options.KeepPrefabLinks = true;
         options.IDsOut = &ids;
         options.Error = &error;
+        SceneLoadReport report;
+        SceneMigrationResult migration;
+        options.Report = &report;
+        options.Migration = &migration;
         std::vector<Entity> created = SceneSerializer::DeserializeEntities(*t.Entities, t.Text, options);
+        t.FileVersion = migration.FileVersion;
+        t.Newer = migration.IsNewer();
+        t.LoadErrors = report.Count(SceneLoadIssue::Severity::Error) + report.Count(SceneLoadIssue::Severity::Fatal);
         if (created.empty())
         {
             t.Issues.push_back(error.empty() ? std::string("prefabda obyekt yo'q") : error);
@@ -157,6 +164,9 @@ namespace Zamin {
         t.Readable = true;
         if (!error.empty())
             t.Issues.push_back(error);
+        if (t.Newer)
+            t.Issues.push_back(std::format("yangiroq formatda (v{}, bu dvigatel v{} gacha biladi): o'zgartirib yozilmaydi",
+                                           t.FileVersion, SceneMigration::CurrentVersion));
 
         // Linkable: one root, every entity with an ID of its own.
         bool idsOk = ids.size() == created.size();
@@ -397,6 +407,12 @@ namespace Zamin {
             before = FileSystem::ReadTextFile(file);
         if (before && *before == text)
             return true;
+        if (before && SceneMigration::ReadVersion(*before) > SceneMigration::CurrentVersion)
+        {
+            ZM_CORE_WARN("Prefab fayli yangiroq formatda (v{}, bu dvigatel v{} gacha biladi): ustiga yozilmadi - {}",
+                         SceneMigration::ReadVersion(*before), SceneMigration::CurrentVersion, key);
+            return false;
+        }
         if (!FileSystem::WriteTextFileAtomic(file, text))
             return false;
         m_OwnWrites[FileSystem::NormalizePath(file)] = HashText(text);

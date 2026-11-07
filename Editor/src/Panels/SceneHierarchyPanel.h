@@ -319,6 +319,10 @@ namespace Zamin {
         std::function<void(const PrefabRequest&)> OnPrefabRequest;
         // The inspector's list of the instance's changes opens (automation / screenshots).
         void OpenPrefabChanges() { m_OpenPrefabChanges = true; }
+        // Prefab mode (the scene is a prefab opened on its own): references to entities that are not
+        // in it point outside the prefab (shown as such, not as missing).
+        void SetPrefabStageMode(bool stage) { m_PrefabStageMode = stage; }
+        bool IsPrefabStageMode() const { return m_PrefabStageMode; }
 
     private:
         // Where a hierarchy row drop puts the dragged entities.
@@ -586,6 +590,10 @@ namespace Zamin {
         bool m_SceneEditable = true;
         PrefabDatabase* m_Prefabs = nullptr;
         bool m_OpenPrefabChanges = false;
+        bool m_PrefabStageMode = false;
+        // The reference (an inspected entity's EntityRef) points outside its prefab: an Apply keeps
+        // it out of the prefab file.
+        bool IsPrefabExternalReference(uint64_t id) const;
         // The inspected entity of a prefab instance (this frame): where its values can be applied.
         struct PrefabInspectorState
         {

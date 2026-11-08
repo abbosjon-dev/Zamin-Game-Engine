@@ -995,6 +995,10 @@ float natija beradi (FMA qisqartirish yo'q — Jolt barcha bog'langan target'lar
 
 ## 🎮 Birinchi o'yin
 
+Qadam-baqadam qo'llanmalar (editorda bajarib tekshirilgan, to'liq kod bilan): [2D o'yin](docs/Tutorial-2D.md) va
+[3D o'yin](docs/Tutorial-3D.md). Editor: [docs/Editor.md](docs/Editor.md); komponentlar ma'lumotnomasi:
+[docs/Components.md](docs/Components.md).
+
 1. `ZaminEditor` ni oching → **Yangi loyiha** → nom va joy kiriting → **Yaratish**.
    Loyiha shablondan yaratiladi va C++ skriptlari avtomatik kompilyatsiya qilinadi.
 2. Ierarxiyada `+` → obyekt yarating (masalan *2D → Fizik quti*).
@@ -1019,6 +1023,9 @@ MeningOyinim/
 ---
 
 ## 🧑‍💻 C++ skript yozish
+
+To'liq qo'llanma (hayot sikli, barcha callback'lar, inspektor maydonlari, API ma'lumotnomasi, hot reload):
+[docs/Scripting.md](docs/Scripting.md).
 
 ```cpp
 #include <Zamin/Zamin.h>
@@ -1173,6 +1180,8 @@ Skriptni o'zgartirgach: **Skriptlar → Kompilyatsiya** (`Ctrl+B`) yoki loyihani
 ---
 
 ## ⌨️ Editor boshqaruvi
+
+Barcha oynalar, menyular va yorliqlar: [docs/Editor.md](docs/Editor.md).
 
 | Tugma | Amal |
 |---|---|

@@ -18,6 +18,7 @@ faqat `Tests/*.sh` skriptlarini chaqiradi. Raqamlar va o'lchangan natijalar: [Qu
 | Tezlikka ta'sir qiladigan o'zgarish | `Tests/bench.sh --compare`, `Tests/render_bench.sh`, `Tests/player_bench.sh` | 1-5 daqiqa (Release) |
 | Yangi kod, testlar yetarlimi | `Tests/coverage.sh` (`--gui`) | ~25 daqiqa |
 | Formatlash | `Tests/format_check.sh` (o'zgargan qatorlar) | soniyalar |
+| Hujjatlar, komponent, skript API'si yoki player varianti | `Tests/docs_check.py` (komponent o'zgarsa avval `Tests/docs_components.py --update docs/Components.md`) | ~1 s |
 | Hammasi (GUI testlari bilan) | `ctest --test-dir build` (`-LE gui` - tezkorlari, `-L gui` - editor/eksport) | ~10 daqiqa |
 
 Displey bo'lmasa (SSH, CI) GUI testlari o'zlari `xvfb-run` ni ishlatadi (`sudo apt-get install xvfb`).
@@ -205,12 +206,18 @@ qo'riqlaydi: butun kod bazada o'zgaradigan qatorlar 3.5 % dan oshmasligi kerak (
 - **Shipping DebugDraw:** `Tests/DebugDrawShippingCheck.cpp` DebugDraw API'sini `ZM_DEBUG_DRAW 0` bilan kompilyatsiya
   qiladi (Shipping build'dagi bo'sh funksiyalar) va `ZaminTests` uni chaqiradi.
 - **Namuna o'yinlar** (`Projects/*`) asosiy build'ning bir qismi: engine API'si o'zgarsa ular ham kompilyatsiya qilinadi.
+- **Hujjatlar** (`Tests/docs_check.py`, ctest: `DocsCheck`): Markdown fayllardagi har bir nisbiy havola va rasm
+  mavjud (`#bo'lim` havolalari — GitHub sarlavha langarlari bilan), `AllComponents` dagi har bir komponent
+  [Components.md](Components.md) da hujjatlangan va uning manbadan yaratilgan jadvallari yangi
+  (`Tests/docs_components.py`), `ScriptableEntity` ning har bir ommaviy funksiyasi [Scripting.md](Scripting.md) da
+  tilga olingan, player `--help` dagi har bir variant [Runtime.md](Runtime.md) da bor.
 
 ## ctest
 
 | Test | Label | Nima |
 |---|---|---|
 | `ZaminTests` | - | unit testlar (vaqt hisoboti, JSON va JUnit natijalari `build/TestResults` da) |
+| `DocsCheck` | `docs` | `Tests/docs_check.py` - hujjatlar kod bilan mosligi (10-bo'lim) |
 | `BenchEcsSmoke`, `BenchSerializeSmoke` | `bench` | benchmarklar kichik o'lchamda |
 | `EditorSmoke` | `gui;slow` | `Tests/editor_smoke.sh` |
 | `ScriptHotReload` | `gui;slow` | `Tests/hot_reload_test.sh` |

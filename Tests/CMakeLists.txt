@@ -13,6 +13,16 @@ endif()
 add_test(NAME ZaminTests COMMAND ZaminTests --timing --report ${CMAKE_BINARY_DIR}/TestResults/ZaminTests.json
     --junit ${CMAKE_BINARY_DIR}/TestResults/ZaminTests.xml)
 
+# The documentation stays true to the code (Tests/docs_check.py, label "docs"): every relative link and image of the
+# Markdown files resolves, every component of AllComponents is in docs/Components.md (its generated tables up to
+# date), every public ScriptableEntity function is in docs/Scripting.md, every player option of --help is documented.
+find_package(Python3 COMPONENTS Interpreter)
+if(Python3_Interpreter_FOUND)
+    add_test(NAME DocsCheck COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/Tests/docs_check.py
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+    set_tests_properties(DocsCheck PROPERTIES LABELS "docs")
+endif()
+
 # The new-script templates must always compile: generate them and build them with the engine.
 add_executable(ZaminScriptTemplateGen ScriptTemplateGen.cpp)
 target_link_libraries(ZaminScriptTemplateGen PRIVATE Zamin)

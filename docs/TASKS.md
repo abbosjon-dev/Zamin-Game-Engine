@@ -510,11 +510,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 
 ## M23 Hujjatlar
 
-- [ ] 441. docs/Scripting.md - C++ skriptlar qo'llanmasi
-- [ ] 442. docs/Components.md - barcha komponentlar ma'lumotnomasi
-- [ ] 443. docs/Editor.md - editor qo'llanmasi
-- [ ] 444. docs/Tutorial-2D.md - birinchi 2D o'yin
-- [ ] 445. docs/Tutorial-3D.md - birinchi 3D o'yin
+- [x] 441. docs/Scripting.md - C++ skriptlar qo'llanmasi
+- [x] 442. docs/Components.md - barcha komponentlar ma'lumotnomasi
+- [x] 443. docs/Editor.md - editor qo'llanmasi
+- [x] 444. docs/Tutorial-2D.md - birinchi 2D o'yin
+- [x] 445. docs/Tutorial-3D.md - birinchi 3D o'yin
 - [ ] 446. docs/Physics.md
 - [ ] 447. docs/Rendering.md
 - [ ] 448. docs/Animation.md

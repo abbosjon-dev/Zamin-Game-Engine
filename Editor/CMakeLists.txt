@@ -2,6 +2,4 @@ file(GLOB_RECURSE EDITOR_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/s
 add_executable(ZaminEditor ${EDITOR_SOURCES})
 target_link_libraries(ZaminEditor PRIVATE Zamin nlohmann_json::nlohmann_json)
 set_target_properties(ZaminEditor PROPERTIES BUILD_RPATH "$ORIGIN" INSTALL_RPATH "$ORIGIN")
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(ZaminEditor PRIVATE -Wall -Wno-unused-parameter)
-endif()
+zamin_target_settings(ZaminEditor)

@@ -105,3 +105,13 @@ target_include_directories(miniaudio SYSTEM INTERFACE ${miniaudio_SOURCE_DIR})
 foreach(t glad imgui imguizmo)
     set_target_properties(${t} PROPERTIES POSITION_INDEPENDENT_CODE ON)
 endforeach()
+
+# Vendor headers are system headers for the targets that use them (-isystem): their own warnings are
+# not ours - our targets build with -Wall -Wextra -Wpedantic (zamin_target_settings). miniaudio above
+# is SYSTEM already.
+foreach(t glm glm-header-only EnTT nlohmann_json box2d Jolt glfw glad imgui imguizmo stb tinyobj cgltf)
+    get_target_property(_zm_inc ${t} INTERFACE_INCLUDE_DIRECTORIES)
+    if(_zm_inc)
+        set_target_properties(${t} PROPERTIES INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${_zm_inc}")
+    endif()
+endforeach()

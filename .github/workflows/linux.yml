@@ -8,6 +8,8 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     strategy:
+      # Both compilers run to the end: a picture that differs with one of them only shows up as such.
+      fail-fast: false
       matrix:
         compiler: [ { cc: gcc, cxx: g++ }, { cc: clang, cxx: clang++ } ]
     steps:
@@ -17,7 +19,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ninja-build libgl-dev libx11-dev libxrandr-dev libxinerama-dev \
-            libxcursor-dev libxi-dev libwayland-dev libxkbcommon-dev wayland-protocols xvfb mesa-utils
+            libxcursor-dev libxi-dev libwayland-dev libxkbcommon-dev wayland-protocols xvfb mesa-utils \
+            libgl1-mesa-dri libglx-mesa0
 
       - name: Configure
         env:
@@ -31,14 +34,18 @@ jobs:
       - name: Unit tests
         run: ctest --test-dir build --output-on-failure
 
+      # Mesa's software rasteriser (llvmpipe) in a fixed 1280x720x24 xvfb screen, as locally: Tests/render_tests.sh.
+      # Every case's picture, difference and reference | new | difference strip, report.json and summary.md (also
+      # on the run's page) go to the artefact - for a failed case they show what changed.
       - name: Rendering regression test (reference pictures)
-        run: xvfb-run -a -s "-screen 0 1280x720x24" ./build/bin/ZaminRenderTests --out render-test-output
+        run: Tests/render_tests.sh --save-all --out render-test-output
 
       - uses: actions/upload-artifact@v4
-        if: failure()
+        if: always()
         with:
-          name: render-test-diffs-${{ matrix.compiler.cc }}
+          name: render-tests-${{ matrix.compiler.cc }}
           path: render-test-output/
+          if-no-files-found: warn
 
       - name: Smoke test (headless render)
         run: |

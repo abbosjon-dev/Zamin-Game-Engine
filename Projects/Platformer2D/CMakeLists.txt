@@ -16,3 +16,5 @@ endif()
 
 file(GLOB_RECURSE GAME_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/Source/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/Source/*.h)
 zamin_add_game_module(Platformer2D ${GAME_SOURCES})
+# The sample games are built with the engine's own warnings (cmake/ZaminGame.cmake).
+zamin_target_settings(Platformer2D)

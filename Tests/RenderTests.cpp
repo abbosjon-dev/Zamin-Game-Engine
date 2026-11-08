@@ -3,14 +3,17 @@
 // Needs a GL context, so a display (xvfb in CI) - the unit tests (ZaminTests) stay GL-free.
 //
 //   ZaminRenderTests [--update] [--filter <text>] [--list] [--out <dir>] [--reference <dir>]
-//                    [--threshold <0..255>] [--max-percent <p>]
+//                    [--threshold <0..255>] [--max-percent <p>] [--save-all]
 //
 //   --update        writes the pictures as the new references (after an intended change of the look)
 //   --filter        only the cases whose name contains the text
 //   --threshold     a pixel differs when one colour channel differs by more than this (default 8)
 //   --max-percent   a case fails when more than this share of its pixels differ (default 0.5)
-// On a failure <out>/<name>.png (the new picture) and <name>.diff.png (red: what differs) are
-// written. Exit code 0: every case matched.
+//   --save-all      writes the pictures of the cases that matched too (not only of the failed ones)
+// On a failure <out>/<name>.png (the new picture), <name>.diff.png (red: what differs) and
+// <name>.compare.png (reference | new | difference side by side) are written. Every run writes
+// <out>/report.json (each case's numbers, the GL renderer) and <out>/summary.md (a Markdown table: CI
+// shows it on the run's page). Exit code 0: every case matched.
 #include <Zamin/Zamin.h>
 
 #include <glm/gtc/constants.hpp>
@@ -20,6 +23,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <format>
 #include <functional>
 #include <string>
 #include <vector>
@@ -529,6 +533,93 @@ namespace {
 
     bool Contains(const std::string& text, const std::string& part) { return part.empty() || text.find(part) != std::string::npos; }
 
+    // One case's outcome, for the report.
+    struct CaseResult
+    {
+        std::string Name, Reference, Status, Error; // Status: "ok", "failed", "error", "updated"
+        double DifferentPercent = 0.0, MeanDelta = 0.0;
+        uint64_t DifferentPixels = 0;
+        int MaxDelta = 0;
+        std::vector<std::string> Files;            // the pictures written for it (file names in the output folder)
+    };
+
+    std::string JsonString(const std::string& text)
+    {
+        std::string out = "\"";
+        for (char c : text)
+        {
+            if (c == '"' || c == '\\') { out += '\\'; out += c; }
+            else if ((unsigned char)c < 0x20) out += std::format("\\u{:04x}", (int)(unsigned char)c);
+            else out += c;
+        }
+        return out + "\"";
+    }
+
+    // reference | new | difference side by side, RGBA8 (3 * width x height).
+    std::vector<uint8_t> SideBySide(const std::vector<uint8_t>& expected, const std::vector<uint8_t>& actual, const std::vector<uint8_t>& diff)
+    {
+        const size_t row = (size_t)s_Width * 4;
+        std::vector<uint8_t> out(row * 3 * s_Height, 0);
+        const std::vector<uint8_t>* parts[3] = { &expected, &actual, &diff };
+        for (uint32_t y = 0; y < s_Height; y++)
+            for (size_t p = 0; p < 3; p++)
+                if (parts[p]->size() == row * s_Height)
+                    std::memcpy(&out[(size_t)y * row * 3 + p * row], &(*parts[p])[(size_t)y * row], row);
+        return out;
+    }
+
+    void WriteReport(const fs::path& outDir, const std::vector<CaseResult>& results, int threshold, double maxPercent, bool update)
+    {
+        const GraphicsContextInfo& gl = GraphicsContext::GetInfo();
+        int failed = 0;
+        for (const CaseResult& r : results)
+            failed += r.Status == "failed" || r.Status == "error";
+
+        std::string json = "{\n";
+        json += std::format("  \"Mode\": {},\n  \"Threshold\": {},\n  \"MaxPercent\": {},\n  \"Size\": [{}, {}],\n", JsonString(update ? "update" : "compare"),
+                            threshold, maxPercent, s_Width, s_Height);
+        json += std::format("  \"GL\": {{ \"Vendor\": {}, \"Renderer\": {}, \"Version\": {} }},\n", JsonString(gl.Vendor), JsonString(gl.Renderer),
+                            JsonString(gl.Version));
+        json += std::format("  \"Checked\": {},\n  \"Failed\": {},\n  \"Cases\": [\n", results.size(), failed);
+        for (size_t i = 0; i < results.size(); i++)
+        {
+            const CaseResult& r = results[i];
+            std::string files;
+            for (const std::string& f : r.Files)
+                files += (files.empty() ? "" : ", ") + JsonString(f);
+            json += std::format("    {{ \"Name\": {}, \"Reference\": {}, \"Status\": {}, \"DifferentPercent\": {:.4f}, \"DifferentPixels\": {}, "
+                                "\"MaxDelta\": {}, \"MeanDelta\": {:.4f}, \"Error\": {}, \"Files\": [{}] }}{}\n",
+                                JsonString(r.Name), JsonString(r.Reference), JsonString(r.Status), r.DifferentPercent, r.DifferentPixels, r.MaxDelta,
+                                r.MeanDelta, JsonString(r.Error), files, i + 1 < results.size() ? "," : "");
+        }
+        json += "  ]\n}\n";
+        std::FILE* f = std::fopen((outDir / "report.json").string().c_str(), "wb");
+        if (f)
+        {
+            std::fwrite(json.data(), 1, json.size(), f);
+            std::fclose(f);
+        }
+
+        std::string md = std::format("### Rendering regressiya testi: {} ta holat, {} xato\n\n", results.size(), failed);
+        md += std::format("GL: {} / {} / {}. Chegara: kanal farqi > {}, ruxsat {:.2f}% piksel, {}x{}.\n\n", gl.Vendor, gl.Renderer, gl.Version,
+                          threshold, maxPercent, s_Width, s_Height);
+        md += "| Holat | Natija | Farqli piksellar | Eng katta farq | O'rtacha farq |\n|---|---|---:|---:|---:|\n";
+        for (const CaseResult& r : results)
+        {
+            const char* status = r.Status == "ok" ? "OK" : r.Status == "updated" ? "yangilandi" : "**XATO**";
+            md += std::format("| {} | {} | {:.3f}% | {} | {:.3f} |\n", r.Name, r.Error.empty() ? std::string(status) : std::string(status) + ": " + r.Error,
+                              r.DifferentPercent, r.MaxDelta, r.MeanDelta);
+        }
+        if (failed > 0)
+            md += "\nFarq rasmlari (`<holat>.compare.png`: etalon | yangi | farq) artefaktlarda.\n";
+        f = std::fopen((outDir / "summary.md").string().c_str(), "wb");
+        if (f)
+        {
+            std::fwrite(md.data(), 1, md.size(), f);
+            std::fclose(f);
+        }
+    }
+
     // A window to own the GL context (no ImGui, nothing drawn into it).
     class RenderTestApp : public Application
     {
@@ -540,7 +631,7 @@ namespace {
 
 int main(int argc, char** argv)
 {
-    bool update = false, list = false;
+    bool update = false, list = false, saveAll = false;
     std::string filter;
     fs::path outDir = ZAMIN_RENDER_TEST_OUTPUT;
     fs::path referenceDir = fs::path(ZAMIN_SOURCE_DIR) / "Tests" / "Reference";
@@ -557,11 +648,12 @@ int main(int argc, char** argv)
         else if (arg == "--reference") referenceDir = next();
         else if (arg == "--threshold") threshold = std::atoi(next().c_str());
         else if (arg == "--max-percent") maxPercent = std::atof(next().c_str());
+        else if (arg == "--save-all") saveAll = true;
         else
         {
             std::printf("Noma'lum argument: %s\n"
                         "Foydalanish: ZaminRenderTests [--update] [--filter matn] [--list] [--out papka] [--reference papka]\n"
-                        "                              [--threshold 0..255] [--max-percent foiz]\n", arg.c_str());
+                        "                              [--threshold 0..255] [--max-percent foiz] [--save-all]\n", arg.c_str());
             return 2;
         }
     }
@@ -588,29 +680,49 @@ int main(int argc, char** argv)
     fs::create_directories(outDir, ec);
     if (update)
         fs::create_directories(referenceDir, ec);
+    const GraphicsContextInfo& gl = GraphicsContext::GetInfo();
+    std::printf("GL: %s / %s / %s\n", gl.Vendor.c_str(), gl.Renderer.c_str(), gl.Version.c_str());
 
     int failed = 0, checked = 0;
+    std::vector<CaseResult> results;
     for (const RenderCase& c : cases)
     {
         if (!Contains(c.Name, filter))
             continue;
+        // The previous run's pictures of this case: an output folder (a CI artefact) only shows this run's.
+        for (const char* suffix : { ".png", ".diff.png", ".compare.png" })
+            fs::remove(outDir / (c.Name + suffix), ec);
         checked++;
+        CaseResult& result = results.emplace_back();
+        result.Name = c.Name;
+        result.Reference = c.Reference.empty() ? c.Name : c.Reference;
+        auto write = [&](const std::string& file, uint32_t width, const std::vector<uint8_t>& rgba) {
+            if (rgba.size() == (size_t)width * s_Height * 4 && Image::WritePNG((outDir / file).string(), width, s_Height, 4, rgba.data()))
+                result.Files.push_back(file);
+        };
         std::vector<uint8_t> pixels = Render(c);
         if (pixels.empty())
         {
             std::printf("[XATO] %-16s sahna tayyorlanmadi\n", c.Name.c_str());
+            result.Status = "error";
+            result.Error = "sahna tayyorlanmadi";
             failed++;
             continue;
         }
-        const std::string referenceName = c.Reference.empty() ? c.Name : c.Reference;
+        const std::string referenceName = result.Reference;
         const fs::path reference = referenceDir / (referenceName + ".png");
         if (update && c.Reference.empty())
         {
             if (Image::WritePNG(reference.string(), s_Width, s_Height, 4, pixels.data()))
+            {
                 std::printf("[YANGI] %-16s etalon yozildi: %s\n", c.Name.c_str(), reference.string().c_str());
+                result.Status = "updated";
+            }
             else
             {
                 std::printf("[XATO] %-16s etalon yozilmadi: %s\n", c.Name.c_str(), reference.string().c_str());
+                result.Status = "error";
+                result.Error = "etalon yozilmadi";
                 failed++;
             }
             continue;
@@ -622,7 +734,9 @@ int main(int argc, char** argv)
         {
             std::printf("[XATO] %-16s etalon yo'q yoki o'qilmadi (%s): %s - '--update' bilan yarating\n", c.Name.c_str(),
                         error.c_str(), reference.string().c_str());
-            Image::WritePNG((outDir / (c.Name + ".png")).string(), s_Width, s_Height, 4, pixels.data());
+            write(c.Name + ".png", s_Width, pixels);
+            result.Status = "error";
+            result.Error = "etalon yo'q yoki o'qilmadi";
             failed++;
             continue;
         }
@@ -630,7 +744,9 @@ int main(int argc, char** argv)
         {
             std::printf("[XATO] %-16s etalon o'lchami %ux%u, kutilgan %ux%u\n", c.Name.c_str(), expected.Width, expected.Height,
                         s_Width, s_Height);
-            Image::WritePNG((outDir / (c.Name + ".png")).string(), s_Width, s_Height, 4, pixels.data());
+            write(c.Name + ".png", s_Width, pixels);
+            result.Status = "error";
+            result.Error = std::format("etalon o'lchami {}x{}", expected.Width, expected.Height);
             failed++;
             continue;
         }
@@ -639,16 +755,26 @@ int main(int argc, char** argv)
         const bool ok = diff.GetDifferentPercent() <= maxPercent;
         std::printf("[%s] %-16s farqli piksellar %.3f%% (%llu), eng katta farq %d, o'rtacha %.3f\n", ok ? "OK" : "XATO", c.Name.c_str(),
                     diff.GetDifferentPercent(), (unsigned long long)diff.DifferentPixels, diff.MaxDelta, diff.MeanDelta);
+        result.Status = ok ? "ok" : "failed";
+        result.DifferentPercent = diff.GetDifferentPercent();
+        result.DifferentPixels = diff.DifferentPixels;
+        result.MaxDelta = diff.MaxDelta;
+        result.MeanDelta = diff.MeanDelta;
         if (!ok)
-        {
             failed++;
-            const fs::path actual = outDir / (c.Name + ".png"), diffPath = outDir / (c.Name + ".diff.png");
-            Image::WritePNG(actual.string(), s_Width, s_Height, 4, pixels.data());
-            Image::WritePNG(diffPath.string(), s_Width, s_Height, 4, diff.DiffPixels.data());
-            std::printf("       yangi rasm: %s\n       farq: %s\n", actual.string().c_str(), diffPath.string().c_str());
+        if (!ok || saveAll)
+        {
+            write(c.Name + ".png", s_Width, pixels);
+            write(c.Name + ".diff.png", s_Width, diff.DiffPixels);
+            write(c.Name + ".compare.png", s_Width * 3, SideBySide(expected.Pixels, pixels, diff.DiffPixels));
+            if (!ok)
+                std::printf("       yangi rasm: %s\n       farq: %s\n       solishtirish (etalon | yangi | farq): %s\n",
+                            (outDir / (c.Name + ".png")).string().c_str(), (outDir / (c.Name + ".diff.png")).string().c_str(),
+                            (outDir / (c.Name + ".compare.png")).string().c_str());
         }
     }
 
+    WriteReport(outDir, results, threshold, maxPercent, update);
     delete app;
     if (update)
         std::printf("\n%d ta etalon yangilandi, %d xato\n", checked, failed);

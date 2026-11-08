@@ -1077,10 +1077,12 @@ TEST(ParticleModulesSerialization)
     const std::string text = SceneSerializer(scene).SerializeToString();
     auto loaded = CreateRef<Scene>();
     CHECK(SceneSerializer(loaded).DeserializeFromString(text));
-    const auto& plain = loaded->FindEntityByName("Plain").GetComponent<ParticleSystemComponent>();
+    Entity plainEntity = loaded->FindEntityByName("Plain");
+    const auto& plain = plainEntity.GetComponent<ParticleSystemComponent>();
     CHECK(plain.ColorOverLifetime == ParticleSystemComponent::ColorOverLifetimeModule{} && !plain.SizeOverLifetime.Enabled &&
           plain.Shape == ParticleSystemComponent::EmitterShape::Point && plain.ShapeThickness == 1.0f);
-    const auto& l = loaded->FindEntityByName("Fx").GetComponent<ParticleSystemComponent>();
+    Entity lEntity = loaded->FindEntityByName("Fx");
+    const auto& l = lEntity.GetComponent<ParticleSystemComponent>();
     CHECK(l.Shape == ps.Shape && l.ConeAngle == 33.0f && l.ConeLength == 2.5f && l.ConeFrom == ps.ConeFrom && l.ConeFlat);
     CHECK(l.ShapeThickness == 0.25f && l.EdgeLength == 3.0f && l.AlignToShape);
     CHECK(l.ColorOverLifetime == ps.ColorOverLifetime);
@@ -1725,7 +1727,8 @@ TEST(ParticleModulesSerializationII)
     const std::string text = SceneSerializer(scene).SerializeToString();
     auto loaded = CreateRef<Scene>();
     CHECK(SceneSerializer(loaded).DeserializeFromString(text));
-    const auto& l = loaded->FindEntityByName("Fx").GetComponent<ParticleSystemComponent>();
+    Entity lEntity = loaded->FindEntityByName("Fx");
+    const auto& l = lEntity.GetComponent<ParticleSystemComponent>();
     CHECK(l.Shape == ps.Shape && l.MeshSource == ps.MeshSource && l.MeshPrimitive == ps.MeshPrimitive && l.MeshModelPath == ps.MeshModelPath);
     CHECK(l.MeshMode == ps.MeshMode && !l.MeshAlongNormal && l.MeshNormalOffset == 0.05f);
     CHECK(l.Noise == ps.Noise);
@@ -1733,7 +1736,8 @@ TEST(ParticleModulesSerializationII)
     CHECK(l.SubEmitters == ps.SubEmitters);
     CHECK(l.Trails == ps.Trails && !l.Trails.Enabled);
     CHECK(SceneSerializer(loaded).SerializeToString() == text); // stable
-    const auto& plain = loaded->FindEntityByName("Plain").GetComponent<ParticleSystemComponent>();
+    Entity plainEntity = loaded->FindEntityByName("Plain");
+    const auto& plain = plainEntity.GetComponent<ParticleSystemComponent>();
     CHECK(plain.Noise == ParticleSystemComponent::NoiseModule{} && plain.Collision == ParticleSystemComponent::CollisionModule{} &&
           plain.SubEmitters == ParticleSystemComponent::SubEmittersModule{} && plain.Trails == ParticleSystemComponent::TrailsModule{});
     {
@@ -2348,14 +2352,16 @@ TEST(ParticleMainSerialization)
     const std::string text = SceneSerializer(scene).SerializeToString();
     auto loaded = CreateRef<Scene>();
     CHECK(SceneSerializer(loaded).DeserializeFromString(text));
-    const auto& l = loaded->FindEntityByName("Fx").GetComponent<PS>();
+    Entity lEntity = loaded->FindEntityByName("Fx");
+    const auto& l = lEntity.GetComponent<PS>();
     CHECK(l.Duration == 3.5f && l.StartDelay == 0.25f && l.Prewarm && l.SimulationSpeed == 0.5f);
     CHECK(l.StopActionType == PS::StopAction::Destroy && l.Sorting == PS::SortMode::OldestOnTop);
     CHECK(l.Space == PS::SimulationSpace::Custom && l.CustomSpace.ID == (uint64_t)ship.GetUUID());
     CHECK(l.Burst == 7 && l.Bursts == ps.Bursts);
     CHECK(loaded->FindEntityByName("Local").GetComponent<PS>().Space == PS::SimulationSpace::Local);
     CHECK(SceneSerializer(loaded).SerializeToString() == text); // stable
-    const auto& plain = loaded->FindEntityByName("Plain").GetComponent<PS>();
+    Entity plainEntity = loaded->FindEntityByName("Plain");
+    const auto& plain = plainEntity.GetComponent<PS>();
     const PS d;
     CHECK(plain.Duration == d.Duration && plain.StartDelay == 0.0f && !plain.Prewarm && plain.SimulationSpeed == 1.0f &&
           plain.StopActionType == PS::StopAction::None && plain.Sorting == PS::SortMode::Auto && plain.Space == PS::SimulationSpace::World &&
@@ -2388,7 +2394,8 @@ TEST(ParticleMainSerialization)
     odd.replace(odd.find("\"Probability\": 0.75"), 19, "\"Probability\": 9.00");
     auto oddScene = CreateRef<Scene>();
     CHECK(SceneSerializer(oddScene).DeserializeFromString(odd));
-    const auto& o = oddScene->FindEntityByName("Fx").GetComponent<PS>();
+    Entity oEntity = oddScene->FindEntityByName("Fx");
+    const auto& o = oEntity.GetComponent<PS>();
     CHECK(o.Duration == 0.01f && o.Space == PS::SimulationSpace::Local && o.Bursts.size() == 2 && o.Bursts[1].Probability == 1.0f);
     // Duplicating the ship with its gun: the copy's particles live in the copied ship.
     Entity copy = scene->DuplicateEntity(ship);
@@ -2979,7 +2986,8 @@ TEST(ParticleSampleScenesRoundTrip)
             CHECK(SceneSerializer(loaded).SerializeToString() == first);
             for (auto e : loaded->GetAllEntitiesWith<ParticleSystemComponent>())
             {
-                const auto& a = Entity(e, loaded.get()).GetComponent<ParticleSystemComponent>();
+                Entity aEntity = Entity(e, loaded.get());
+                const auto& a = aEntity.GetComponent<ParticleSystemComponent>();
                 Entity original = scene->GetEntityByUUID(Entity(e, loaded.get()).GetUUID());
                 const auto& b = original.GetComponent<ParticleSystemComponent>();
                 CHECK(a.ColorOverLifetime == b.ColorOverLifetime && a.SizeOverLifetime == b.SizeOverLifetime && a.Trails == b.Trails &&
@@ -10442,14 +10450,16 @@ TEST(AudioRandomVariation)
     CHECK(text.find("PitchRandom") != std::string::npos && text.find("VolumeRandom") != std::string::npos);
     Ref<Scene> loaded = CreateRef<Scene>();
     CHECK(SceneSerializer(loaded).DeserializeFromString(text));
-    const auto& read = loaded->FindEntityByName("Steps").GetComponent<AudioSourceComponent>();
+    Entity readEntity = loaded->FindEntityByName("Steps");
+    const auto& read = readEntity.GetComponent<AudioSourceComponent>();
     CHECK(read.PitchRandom == glm::vec2(0.9f, 1.1f) && read.VolumeRandom == glm::vec2(0.7f, 1.0f));
     a.PitchRandom = a.VolumeRandom = glm::vec2(1.0f);
     CHECK(SceneSerializer(scene).SerializeToString().find("PitchRandom") == std::string::npos);
     Ref<Scene> odd = CreateRef<Scene>();
     CHECK(SceneSerializer(odd).DeserializeFromString(
         R"({"Scene":"Odd","Entities":[{"Entity":1,"Tag":"S","AudioSource":{"Path":"a.wav","PitchRandom":[1.3,0.7],"VolumeRandom":[-1,0.5]}}]})"));
-    const auto& oddSource = odd->FindEntityByName("S").GetComponent<AudioSourceComponent>();
+    Entity oddSourceEntity = odd->FindEntityByName("S");
+    const auto& oddSource = oddSourceEntity.GetComponent<AudioSourceComponent>();
     CHECK(oddSource.PitchRandom == glm::vec2(0.7f, 1.3f) && oddSource.VolumeRandom == glm::vec2(0.0f, 0.5f));
 
     if (!wasAvailable)
@@ -10573,11 +10583,13 @@ TEST(AudioVoiceLimit)
     std::string text = SceneSerializer(scene).SerializeToString();
     Ref<Scene> loaded = CreateRef<Scene>();
     CHECK(SceneSerializer(loaded).DeserializeFromString(text));
-    const auto& back = loaded->FindEntityByName("Bear").GetComponent<AudioSourceComponent>();
+    Entity backEntity = loaded->FindEntityByName("Bear");
+    const auto& back = backEntity.GetComponent<AudioSourceComponent>();
     CHECK(back.MaxInstances == 1 && back.Priority == 90 && back.Steal == AudioStealPolicy::None);
     Ref<Scene> old = CreateRef<Scene>();
     CHECK(SceneSerializer(old).DeserializeFromString(R"({"Scene":"Old","Entities":[{"Entity":1,"Tag":"S","AudioSource":{"Path":"a.wav","Steal":3}}]})"));
-    const auto& oldSource = old->FindEntityByName("S").GetComponent<AudioSourceComponent>();
+    Entity oldSourceEntity = old->FindEntityByName("S");
+    const auto& oldSource = oldSourceEntity.GetComponent<AudioSourceComponent>();
     CHECK(oldSource.MaxInstances == 0 && oldSource.Priority == 128 && oldSource.Steal == AudioStealPolicy::Oldest && oldSource.DopplerFactor == 1.0f);
 
     AudioEngine::StopAll();
@@ -10863,7 +10875,8 @@ TEST(AudioDoppler)
     CHECK(glm::length(a.Velocity) > 9.0f && scene->GetAudioInfo(drone, info) && info.DopplerPitch == 1.0f && info.DopplerFactor == 0.0f);
     // Runtime data does not travel into a copy, nor into the next run.
     Ref<Scene> copy = Scene::Copy(scene);
-    const auto& copied = copy->FindEntityByName("Drone").GetComponent<AudioSourceComponent>();
+    Entity copiedEntity = copy->FindEntityByName("Drone");
+    const auto& copied = copiedEntity.GetComponent<AudioSourceComponent>();
     CHECK(copied.Velocity == glm::vec3(0.0f) && !copied.HasLastPosition && copied.RuntimeHandle == 0 && copied.DopplerFactor == 0.0f);
     // Stopped: the measured velocity goes too (nothing is measured while it is stopped). Moved 2 m and
     // played again, it starts without a Doppler shift and measures from where it starts.
@@ -11213,7 +11226,8 @@ TEST(AudioFades)
     std::string text = SceneSerializer(scene).SerializeToString();
     Ref<Scene> loaded = CreateRef<Scene>();
     CHECK(SceneSerializer(loaded).DeserializeFromString(text));
-    const auto& l = loaded->FindEntityByName("Hum").GetComponent<AudioSourceComponent>();
+    Entity lEntity = loaded->FindEntityByName("Hum");
+    const auto& l = lEntity.GetComponent<AudioSourceComponent>();
     CHECK(l.FadeIn == 0.5f && l.FadeOut == 0.5f);
     a.FadeIn = a.FadeOut = 0.0f;
     CHECK(SceneSerializer(scene).SerializeToString().find("FadeIn") == std::string::npos);
@@ -11738,7 +11752,8 @@ TEST(AudioDirectionalCone)
         CHECK(text.find("\"Cone\"") != std::string::npos && text.find("\"Cone\"") == text.rfind("\"Cone\""));
         auto loaded = CreateRef<Scene>();
         CHECK(SceneSerializer(loaded).DeserializeFromString(text));
-        const auto& b = loaded->FindEntityByName("TV").GetComponent<AudioSourceComponent>();
+        Entity bEntity = loaded->FindEntityByName("TV");
+        const auto& b = bEntity.GetComponent<AudioSourceComponent>();
         CHECK(b.Cone == cone && loaded->FindEntityByName("Plain").GetComponent<AudioSourceComponent>().Cone.IsDefault());
     }
 
@@ -11878,10 +11893,12 @@ TEST(AudioAmbientZones)
         std::string text = SceneSerializer(scene).SerializeToString();
         auto loaded = CreateRef<Scene>();
         CHECK(SceneSerializer(loaded).DeserializeFromString(text));
-        const auto& a = loaded->FindEntityByName("Forest").GetComponent<AmbientZoneComponent>();
+        Entity aEntity = loaded->FindEntityByName("Forest");
+        const auto& a = aEntity.GetComponent<AmbientZoneComponent>();
         CHECK(a.Path == "Audio/forest.wav" && a.Volume == 0.7f && a.Output == "Ambience" && a.Size == glm::vec3(20.0f, 6.0f, 12.0f));
         CHECK(a.BlendDistance == 5.0f && a.FadeTime == 1.5f && a.Priority == 90 && a.Shape == AmbientZoneComponent::ZoneShape::Box && a.Level == 0.0f);
-        const auto& b = loaded->FindEntityByName("Cave").GetComponent<AmbientZoneComponent>();
+        Entity bEntity = loaded->FindEntityByName("Cave");
+        const auto& b = bEntity.GetComponent<AmbientZoneComponent>();
         CHECK(b.Shape == AmbientZoneComponent::ZoneShape::Sphere && b.Radius == 8.0f && b.Stream && b.Priority == 128);
         CHECK(b.Size == glm::vec3(20.0f, 6.0f, 12.0f) && a.Radius == 7.5f);
         CHECK(text.find("\"Radius\"") != std::string::npos && ComponentRegistry::Find("AmbientZone") != nullptr);
@@ -12443,7 +12460,8 @@ TEST(SpotLightComponentRoundTrip)
     broken.replace(at, std::string("\"OuterAngle\": 40.0").size(), "\"OuterAngle\": 60.0");
     auto fixed = CreateRef<Scene>();
     CHECK(SceneSerializer(fixed).DeserializeFromString(broken));
-    const auto& f = fixed->FindEntityByName("Spot").GetComponent<SpotLightComponent>();
+    Entity fEntity = fixed->FindEntityByName("Spot");
+    const auto& f = fEntity.GetComponent<SpotLightComponent>();
     CHECK(f.OuterAngle == 60.0f && f.InnerAngle == 60.0f);
     // The renderer's angles are clamped the same way, whatever the component holds.
     SpotLightComponent wild;
@@ -19283,13 +19301,15 @@ TEST(SpriteFlashAndOutline)
     play->OnRuntimeStop();
     auto loaded = CreateRef<Scene>();
     CHECK(SceneSerializer(loaded).DeserializeFromString(text));
-    const auto& ls = loaded->FindEntityByName("Hero").GetComponent<SpriteRendererComponent>();
+    Entity lsEntity = loaded->FindEntityByName("Hero");
+    const auto& ls = lsEntity.GetComponent<SpriteRendererComponent>();
     CHECK(ls.OutlineThickness == 1.5f && ls.OutlineColor == glm::vec4(0.0f, 0.0f, 0.0f, 1.0f) && ls.FlashAmount == 0.0f && !ls.IsFlashing());
     hero.GetComponent<SpriteRendererComponent>().FlashAmount = 0.4f;
     hero.GetComponent<SpriteRendererComponent>().FlashColor = { 1.0f, 0.0f, 0.0f, 1.0f };
     auto again = CreateRef<Scene>();
     CHECK(SceneSerializer(again).DeserializeFromString(SceneSerializer(scene).SerializeToString()));
-    const auto& as = again->FindEntityByName("Hero").GetComponent<SpriteRendererComponent>();
+    Entity asEntity = again->FindEntityByName("Hero");
+    const auto& as = asEntity.GetComponent<SpriteRendererComponent>();
     CHECK(as.FlashAmount == 0.4f && as.FlashColor == glm::vec4(1.0f, 0.0f, 0.0f, 1.0f) && as.OutlineThickness == 0.0f);
 }
 
@@ -19476,10 +19496,12 @@ TEST(TintAnimationInScene)
     play->OnRuntimeStop();
     auto loaded = CreateRef<Scene>();
     CHECK(SceneSerializer(loaded).DeserializeFromString(text));
-    const auto& lt = loaded->FindEntityByName("Gem").GetComponent<TintAnimationComponent>();
+    Entity ltEntity = loaded->FindEntityByName("Gem");
+    const auto& lt = ltEntity.GetComponent<TintAnimationComponent>();
     CHECK(lt.Keys == tint.Keys && lt.Mode == TintPlayMode::PingPong && lt.Easing == Ease::Linear && lt.Duration == 1.0f &&
           lt.PlayOnStart && !lt.Playing && lt.Elapsed == 0.0f);
-    const auto& lb = loaded->FindEntityByName("Blinker").GetComponent<TintAnimationComponent>();
+    Entity lbEntity = loaded->FindEntityByName("Blinker");
+    const auto& lb = lbEntity.GetComponent<TintAnimationComponent>();
     CHECK(lb.Cycles == 3 && lb.Duration == 0.1f && lb.Keys.size() == 2 && lb.Keys[1].Color.a == 0.0f);
     CHECK(!loaded->FindEntityByName("Idle").GetComponent<TintAnimationComponent>().PlayOnStart);
 }
@@ -19633,9 +19655,11 @@ TEST(Light2DMathAndGathering)
     std::string text = SceneSerializer(scene).SerializeToString();
     auto loaded = CreateRef<Scene>();
     CHECK(SceneSerializer(loaded).DeserializeFromString(text));
-    const auto& l2 = loaded->FindEntityByName("A").GetComponent<Light2DComponent>();
+    Entity l2Entity = loaded->FindEntityByName("A");
+    const auto& l2 = l2Entity.GetComponent<Light2DComponent>();
     CHECK(l2.Intensity == 2.0f && l2.Radius == 3.0f && l2.InnerRadius == 1.0f && l2.Falloff == 3.0f && l2.Flicker == 0.3f && l2.Type == Light2DType::Point);
-    const auto& s2 = loaded->FindEntityByName("Spot").GetComponent<Light2DComponent>();
+    Entity s2Entity = loaded->FindEntityByName("Spot");
+    const auto& s2 = s2Entity.GetComponent<Light2DComponent>();
     CHECK(s2.Type == Light2DType::Spot && s2.SpotAngle == 90.0f && s2.SpotSoftness == 0.0f && s2.Color == glm::vec3(1.0f, 0.0f, 0.0f));
     CHECK(loaded->FindEntityByName("Sprite").GetComponent<SpriteRendererComponent>().Lit && loaded->FindEntityByName("Map").GetComponent<TilemapComponent>().Lit);
     CHECK(loaded->GetSettings().Lighting2D.AmbientIntensity == 2.0f && loaded->GetSettings().Lighting2D.AmbientColor == glm::vec3(0.5f));
@@ -19930,7 +19954,8 @@ TEST(TopDown2DSampleScene)
     for (auto e : scene->GetAllEntitiesWith<TintAnimationComponent>()) { (void)e; tints++; }
     for (auto e : scene->GetAllEntitiesWith<SpriteRendererComponent>())
     {
-        const auto& s = Entity(e, scene.get()).GetComponent<SpriteRendererComponent>();
+        Entity sEntity = Entity(e, scene.get());
+        const auto& s = sEntity.GetComponent<SpriteRendererComponent>();
         lit += s.Lit ? 1 : 0;
         ySorted += s.SortingLayer == objects->ID ? 1 : 0;
     }
@@ -20381,13 +20406,16 @@ TEST(Joint2DSerializeAndRemap)
     CHECK(h.CollideConnected && h.BreakForce == 120.0f && h.BreakTorque == 30.0f);
     CHECK(h.EnableLimit && h.LowerAngle == -80.0f && h.UpperAngle == 10.0f);
     CHECK(h.EnableMotor && h.MotorSpeed == -45.0f && h.MaxMotorTorque == 7.5f && h.JointAngle == 0.0f);
-    const auto& r = loaded->GetEntityByUUID(torso.GetUUID()).GetComponent<DistanceJoint2DComponent>();
+    Entity rEntity = loaded->GetEntityByUUID(torso.GetUUID());
+    const auto& r = rEntity.GetComponent<DistanceJoint2DComponent>();
     CHECK(!r.AutoConfigureDistance && r.Distance == 4.5f && r.MaxDistanceOnly && r.Frequency == 3.0f && r.DampingRatio == 0.4f);
     CHECK(!r.AutoConfigureConnectedAnchor);
-    const auto& p = loaded->GetEntityByUUID(rig.GetUUID()).GetComponent<PrismaticJoint2DComponent>();
+    Entity pEntity = loaded->GetEntityByUUID(rig.GetUUID());
+    const auto& p = pEntity.GetComponent<PrismaticJoint2DComponent>();
     CHECK(p.Axis == glm::vec2(0.0f, 1.0f) && p.EnableLimit && p.LowerTranslation == -0.5f && p.UpperTranslation == 2.0f);
     CHECK(p.EnableMotor && p.MotorSpeed == 1.5f && p.MaxMotorForce == 99.0f && !p.ConnectedBody);
-    const auto& w = loaded->GetEntityByUUID(world.GetUUID()).GetComponent<WeldJoint2DComponent>();
+    Entity wEntity = loaded->GetEntityByUUID(world.GetUUID());
+    const auto& w = wEntity.GetComponent<WeldJoint2DComponent>();
     CHECK(w.Frequency == 5.0f && w.DampingRatio == 0.9f && w.ConnectedAnchor == glm::vec2(1.0f, 2.0f));
     const auto& wh = la.GetComponent<WheelJoint2DComponent>();
     CHECK(wh.ConnectedBody.ID == (uint64_t)rig.GetUUID() && wh.Axis == glm::vec2(0.2f, 1.0f) && wh.Frequency == 6.0f);
@@ -20403,7 +20431,8 @@ TEST(Joint2DSerializeAndRemap)
         if (at != std::string::npos)
             edited.replace(at, std::string("\"LowerAngle\": -80.0").size(), "\"LowerAngle\": 50.0");
         CHECK(SceneSerializer(odd).DeserializeFromString(edited));
-        const auto& oh = odd->GetEntityByUUID(arm.GetUUID()).GetComponent<RevoluteJoint2DComponent>();
+        Entity ohEntity = odd->GetEntityByUUID(arm.GetUUID());
+        const auto& oh = ohEntity.GetComponent<RevoluteJoint2DComponent>();
         CHECK(oh.LowerAngle == 10.0f && oh.UpperAngle == 50.0f);
         Entity bare = odd->CreateEntity("Bare");
         CHECK(SceneSerializer::DeserializeComponent("{\"ZaminComponent\":\"WheelJoint2D\",\"Data\":{}}", bare));
@@ -20650,7 +20679,8 @@ TEST(EdgeCollider2DInScene)
     auto scene = makeScene(true, true);
     auto loaded = CreateRef<Scene>();
     CHECK(SceneSerializer(loaded).DeserializeFromString(SceneSerializer(scene).SerializeToString()));
-    const auto& e = loaded->FindEntityByName("Ground").GetComponent<EdgeCollider2DComponent>();
+    Entity eEntity = loaded->FindEntityByName("Ground");
+    const auto& e = eEntity.GetComponent<EdgeCollider2DComponent>();
     CHECK(e.Loop && e.OneSided && e.Points.size() == 4 && e.Points[2] == glm::vec2(5.0f, -6.0f));
 }
 
@@ -21007,7 +21037,8 @@ TEST(PlatformEffector2DInScene)
     auto scene = makeScene(1.0f, [](PlatformEffector2DComponent& e) { e.SurfaceArc = 120.0f; e.UseSideFriction = true; e.RotationOffset = 15.0f; });
     auto loaded = CreateRef<Scene>();
     CHECK(SceneSerializer(loaded).DeserializeFromString(SceneSerializer(scene).SerializeToString()));
-    const auto& e = loaded->FindEntityByName("Platform").GetComponent<PlatformEffector2DComponent>();
+    Entity eEntity = loaded->FindEntityByName("Platform");
+    const auto& e = eEntity.GetComponent<PlatformEffector2DComponent>();
     CHECK(e.OneWay && e.SurfaceArc == 120.0f && e.UseSideFriction && !e.UseSideBounce && e.RotationOffset == 15.0f);
 }
 
@@ -21150,7 +21181,8 @@ TEST(AreaEffector2DPushesBodies)
         effector.ColliderMask = 0x00F3;
         auto loaded = CreateRef<Scene>();
         CHECK(SceneSerializer(loaded).DeserializeFromString(SceneSerializer(scene).SerializeToString()));
-        const auto& e = loaded->FindEntityByName("Mud").GetComponent<AreaEffector2DComponent>();
+        Entity eEntity = loaded->FindEntityByName("Mud");
+        const auto& e = eEntity.GetComponent<AreaEffector2DComponent>();
         CHECK(e.ForceAngle == 30.0f && e.ForceMagnitude == 0.0f && e.ForceVariation == 1.5f && e.UseGlobalAngle && !e.ScaleWithMass);
         CHECK(e.Drag == 2.0f && e.AngularDrag == 2.0f && e.ColliderMask == 0x00F3);
     }
@@ -21198,7 +21230,8 @@ TEST(BuoyancyEffector2DFloats)
         CHECK_NEAR(Pos2D(stone).y, -1.5f, 0.05f); // denser than water: on the bottom
         CHECK(std::abs(std::sin(plank.GetTransform().Rotation.z)) < 0.15f);
         CHECK(Pos2D(plank).y > 1.6f && Pos2D(plank).y < 2.2f);
-        const auto& b = scene->FindEntityByName("Water").GetComponent<BuoyancyEffector2DComponent>();
+        Entity bEntity = scene->FindEntityByName("Water");
+        const auto& b = bEntity.GetComponent<BuoyancyEffector2DComponent>();
         CHECK(b.AffectedBodies == 5);
         CHECK(b.SubmergedArea > 2.0f);
         scene->OnRuntimeStop();
@@ -21233,7 +21266,8 @@ TEST(BuoyancyEffector2DFloats)
         b.ColliderMask = 0x0101;
         auto loaded = CreateRef<Scene>();
         CHECK(SceneSerializer(loaded).DeserializeFromString(SceneSerializer(scene).SerializeToString()));
-        const auto& l = loaded->FindEntityByName("Water").GetComponent<BuoyancyEffector2DComponent>();
+        Entity lEntity = loaded->FindEntityByName("Water");
+        const auto& l = lEntity.GetComponent<BuoyancyEffector2DComponent>();
         CHECK(l.SurfaceLevel == 2.0f && l.Density == 2.0f && l.LinearDrag == 2.0f && l.AngularDrag == 1.5f);
         CHECK(l.FlowAngle == 180.0f && l.FlowMagnitude == 3.0f && l.FlowVariation == 0.5f && l.ColliderMask == 0x0101);
     }
@@ -21250,8 +21284,8 @@ static std::vector<std::string> EntityNames(const std::vector<Entity>& entities)
 TEST(Overlap2DQueries)
 {
     auto scene = CreateRef<Scene>();
-    Entity wall = MakeZone2D(scene, "Wall", { 0.0f, 0.0f }, { 1.0f, 1.0f }, false);
-    Entity ball = MakeBody2D(scene, "Ball", { 3.0f, 0.0f }, Rigidbody2DComponent::BodyType::Static, 0.5f);
+    MakeZone2D(scene, "Wall", { 0.0f, 0.0f }, { 1.0f, 1.0f }, false);
+    MakeBody2D(scene, "Ball", { 3.0f, 0.0f }, Rigidbody2DComponent::BodyType::Static, 0.5f);
     Entity rock = MakeBody2D(scene, "Rock", { -3.0f, 0.0f }, Rigidbody2DComponent::BodyType::Dynamic, 0.0f);
     rock.GetComponent<Rigidbody2DComponent>().GravityScale = 0.0f;
     rock.AddComponent<PolygonCollider2DComponent>(); // the default pentagon
@@ -22776,17 +22810,20 @@ TEST(Joint3DSerializeAndRemap)
     auto loaded = CreateRef<Scene>();
     CHECK(SceneSerializer(loaded).DeserializeFromString(text));
     CHECK(SceneSerializer(loaded).SerializeToString() == text);
-    const auto& h = loaded->GetEntityByUUID(arm.GetUUID()).GetComponent<HingeJoint3DComponent>();
+    Entity hEntity = loaded->GetEntityByUUID(arm.GetUUID());
+    const auto& h = hEntity.GetComponent<HingeJoint3DComponent>();
     CHECK(h.ConnectedBody.ID == (uint64_t)torso.GetUUID());
     CHECK(h.Anchor == glm::vec3(-0.25f, 0.1f, 0.05f) && h.ConnectedAnchor == glm::vec3(0.3f, 0.2f, -0.1f) && !h.AutoConfigureConnectedAnchor);
     CHECK(h.CollideConnected && h.BreakForce == 120.0f && h.BreakTorque == 30.0f && h.Axis == glm::vec3(1.0f, 0.0f, 0.0f));
     CHECK(h.EnableLimit && h.LowerAngle == -80.0f && h.UpperAngle == 10.0f);
     CHECK(h.EnableMotor && h.MotorSpeed == -45.0f && h.MaxMotorTorque == 7.5f && h.JointAngle == 0.0f);
     CHECK(h.EnableSpring && h.SpringTargetAngle == 20.0f && h.SpringFrequency == 3.0f && h.SpringDamping == 0.25f);
-    const auto& r = loaded->GetEntityByUUID(torso.GetUUID()).GetComponent<DistanceJoint3DComponent>();
+    Entity rEntity = loaded->GetEntityByUUID(torso.GetUUID());
+    const auto& r = rEntity.GetComponent<DistanceJoint3DComponent>();
     CHECK(!r.AutoConfigureDistance && r.MinDistance == 1.5f && r.MaxDistance == 4.5f && r.MaxDistanceOnly);
     CHECK(r.Frequency == 3.0f && r.DampingRatio == 0.4f && !r.AutoConfigureConnectedAnchor);
-    const auto& p = loaded->GetEntityByUUID(rig.GetUUID()).GetComponent<SliderJoint3DComponent>();
+    Entity pEntity = loaded->GetEntityByUUID(rig.GetUUID());
+    const auto& p = pEntity.GetComponent<SliderJoint3DComponent>();
     CHECK(p.Axis == glm::vec3(0.0f, 1.0f, 0.0f) && p.EnableLimit && p.LowerTranslation == -0.5f && p.UpperTranslation == 2.0f);
     CHECK(p.EnableMotor && p.MotorSpeed == 1.5f && p.MaxMotorForce == 99.0f && !p.ConnectedBody);
     Entity lo = loaded->GetEntityByUUID(outside.GetUUID());
@@ -24073,7 +24110,8 @@ TEST(CharacterController3DPushesBodies)
     const std::string text = SceneSerializer(scene).SerializeToString();
     auto loaded = CreateRef<Scene>();
     CHECK(SceneSerializer(loaded).DeserializeFromString(text));
-    const auto& back = loaded->FindEntityByName("Hero").GetComponent<CharacterController3DComponent>();
+    Entity backEntity = loaded->FindEntityByName("Hero");
+    const auto& back = backEntity.GetComponent<CharacterController3DComponent>();
     CHECK(!back.PushBodies && back.PushForce == 750.0f);
 }
 
@@ -26490,7 +26528,8 @@ TEST(UILayoutSerialization)
           ln.HighlightColor == glm::vec4(0.1f, 0.2f, 0.3f, 0.4f));
     const auto& lb = r.GetComponent<UIButtonComponent>();
     CHECK(lb.ClickMessage == "Resume" && lb.ClickTarget.ID == (uint64_t)corner.GetUUID());
-    const auto& lcg = loaded->FindEntityByName("Column").GetComponent<UILayoutGroupComponent>();
+    Entity lcgEntity = loaded->FindEntityByName("Column");
+    const auto& lcg = lcgEntity.GetComponent<UILayoutGroupComponent>();
     CHECK(lcg.Type == UILayoutType::Horizontal && lcg.Spacing == 3.0f && lcg.ReverseArrangement && lcg.ControlChildHeight &&
           lcg.ChildForceExpandWidth && !lcg.ControlChildWidth);
 
@@ -28447,7 +28486,8 @@ TEST(AnimationPlayerPlaysClips)
     std::string text = SceneSerializer(scene).SerializeToString();
     auto loaded = CreateRef<Scene>();
     CHECK(SceneSerializer(loaded).DeserializeFromString(text));
-    const auto& lp = loaded->FindEntityByName("Door").GetComponent<AnimationPlayerComponent>();
+    Entity lpEntity = loaded->FindEntityByName("Door");
+    const auto& lp = lpEntity.GetComponent<AnimationPlayerComponent>();
     CHECK(lp.Clips == player.Clips && lp.PlayOnStart && lp.Speed == 1.0f && lp.Wrap == AnimationPlayerWrap::Clip);
     std::filesystem::remove_all(dir);
 }
@@ -28664,7 +28704,8 @@ TEST(AnimatorBlendTreeSyncsClips)
     std::string text = SceneSerializer(scene).SerializeToString();
     auto loaded = CreateRef<Scene>();
     CHECK(SceneSerializer(loaded).DeserializeFromString(text));
-    const auto& la = loaded->FindEntityByName("Hero").GetComponent<AnimatorComponent>();
+    Entity laEntity = loaded->FindEntityByName("Hero");
+    const auto& la = laEntity.GetComponent<AnimatorComponent>();
     CHECK(la.States.size() == 2 && la.States[0].IsBlendTree() && !la.States[1].IsBlendTree());
     CHECK(la.States[0].BlendParameter == "Speed" && la.States[0].Motions.size() == 2);
     CHECK(la.States[0].Motions[1].Clip == "Run" && la.States[0].Motions[1].Threshold == 1.0f);
@@ -28771,14 +28812,16 @@ TEST(AnimatorLayersMasks)
     scene->OnRuntimeStop();
     // A copy (play starts from one) starts its layers over.
     auto copy = Scene::Copy(scene);
-    const auto& ca = copy->FindEntityByName("Hero").GetComponent<AnimatorComponent>();
+    Entity caEntity = copy->FindEntityByName("Hero");
+    const auto& ca = caEntity.GetComponent<AnimatorComponent>();
     CHECK(ca.Layers[0].CurrentWeight == -1.0f && ca.Layers[0].Time == 0.0f && ca.Layers[0].Clip == "Nod");
 
     // The scene file keeps the layers.
     std::string text = SceneSerializer(scene).SerializeToString();
     auto loaded = CreateRef<Scene>();
     CHECK(SceneSerializer(loaded).DeserializeFromString(text));
-    const auto& la = loaded->FindEntityByName("Hero").GetComponent<AnimatorComponent>();
+    Entity laEntity = loaded->FindEntityByName("Hero");
+    const auto& la = laEntity.GetComponent<AnimatorComponent>();
     CHECK(la.Layers.size() == 1 && la.Layers[0].Name == "Upper" && la.Layers[0].Clip == "Nod");
     CHECK(la.Layers[0].MaskBones == std::vector<std::string>({ "Spine" }) && la.Layers[0].WeightParameter == "Aim");
     CHECK(la.Layers[0].Blend == AnimatorLayerBlend::Additive && la.Layers[0].Weight == 1.0f);
@@ -28877,7 +28920,8 @@ TEST(SpriteClipAssetsPlayWithEvents)
     std::string sceneText = SceneSerializer(scene).SerializeToString();
     auto reloaded = CreateRef<Scene>();
     CHECK(SceneSerializer(reloaded).DeserializeFromString(sceneText));
-    const auto& ra = reloaded->FindEntityByName("Hero").GetComponent<SpriteAnimationComponent>();
+    Entity raEntity = reloaded->FindEntityByName("Hero");
+    const auto& ra = raEntity.GetComponent<SpriteAnimationComponent>();
     CHECK(ra.Clips == anim.Clips && ra.PlayOnStart);
     SpriteClipLibrary::Clear();
     std::filesystem::remove_all(dir);
@@ -29296,7 +29340,8 @@ TEST(BoneAttachmentFollowsJoint)
     std::string text = SceneSerializer(scene).SerializeToString();
     auto loaded = CreateRef<Scene>();
     CHECK(SceneSerializer(loaded).DeserializeFromString(text));
-    const auto& la = loaded->FindEntityByName("Other").GetComponent<BoneAttachmentComponent>();
+    Entity laEntity = loaded->FindEntityByName("Other");
+    const auto& la = laEntity.GetComponent<BoneAttachmentComponent>();
     CHECK(la.Bone == "Hand" && la.Target.ID == (uint64_t)hero.GetUUID() && !la.InheritBoneScale);
     Entity copy = scene->DuplicateEntity(hero);
     Entity copiedSword;
@@ -29375,7 +29420,8 @@ TEST(FootstepsFromAnimationEvents)
     std::string text = SceneSerializer(scene).SerializeToString();
     auto loaded = CreateRef<Scene>();
     CHECK(SceneSerializer(loaded).DeserializeFromString(text));
-    const auto& lc = loaded->FindEntityByName("Hero").GetComponent<FootstepsComponent>();
+    Entity lcEntity = loaded->FindEntityByName("Hero");
+    const auto& lc = lcEntity.GetComponent<FootstepsComponent>();
     CHECK(lc.Sounds == f.Sounds && lc.EventName == "Step" && lc.ReferenceSpeed == 2.5f && !lc.Spatial && lc.Output == "SFX");
     CHECK(lc.PitchRandom == f.PitchRandom && lc.MinInterval == f.MinInterval);
 }
@@ -29820,9 +29866,11 @@ TEST(AnimatorSkipsUnchangedAndCulledPoses)
     std::string text = SceneSerializer(scene).SerializeToString();
     auto loaded = CreateRef<Scene>();
     CHECK(SceneSerializer(loaded).DeserializeFromString(text));
-    const auto& la = loaded->FindEntityByName("Hero").GetComponent<AnimatorComponent>();
+    Entity laEntity = loaded->FindEntityByName("Hero");
+    const auto& la = laEntity.GetComponent<AnimatorComponent>();
     CHECK(la.Culling == AnimatorCulling::CullCompletely && la.CachePoses && la.PoseCacheRate == 24.0f);
-    const auto& lb = loaded->FindEntityByName("Second").GetComponent<AnimatorComponent>();
+    Entity lbEntity = loaded->FindEntityByName("Second");
+    const auto& lb = lbEntity.GetComponent<AnimatorComponent>();
     CHECK(lb.Culling == AnimatorCulling::CullCompletely && !lb.CachePoses && lb.PoseCacheRate == 30.0f);
 }
 
@@ -38689,7 +38737,8 @@ static std::vector<float> ParticleState(Scene& scene)
     std::vector<float> out;
     for (auto e : scene.GetAllEntitiesWith<ParticleSystemComponent>())
     {
-        const auto& ps = Entity(e, &scene).GetComponent<ParticleSystemComponent>();
+        Entity psEntity = Entity(e, &scene);
+        const auto& ps = psEntity.GetComponent<ParticleSystemComponent>();
         out.push_back((float)ps.Particles.size());
         for (const Particle& p : ps.Particles)
             out.insert(out.end(), { p.Position.x, p.Position.y, p.Position.z, p.Velocity.x, p.Velocity.y, p.Velocity.z, p.Life });
@@ -38831,7 +38880,8 @@ TEST(JobSystemAnimatorsMatchSerial)
             if (f == 25 || f == 49) // in the crossfade, after it
                 for (auto e : scene->GetAllEntitiesWith<AnimatorComponent>())
                 {
-                    const auto& a = Entity(e, scene.get()).GetComponent<AnimatorComponent>();
+                    Entity aEntity = Entity(e, scene.get());
+                    const auto& a = aEntity.GetComponent<AnimatorComponent>();
                     out.insert(out.end(), a.JointMatrices.begin(), a.JointMatrices.end());
                     for (const AnimatorLayer& layer : a.Layers)
                         out.push_back(glm::mat4(layer.EffectiveWeight));
@@ -43248,7 +43298,8 @@ TEST(FormationSerializationAndCopies)
         std::string t = SceneSerializer(plain).SerializeToString();
         auto back = CreateRef<Scene>();
         CHECK(SceneSerializer(back).DeserializeFromString(t));
-        const auto& d = back->FindEntityByName("P").GetComponent<FormationComponent>();
+        Entity dEntity = back->FindEntityByName("P");
+        const auto& d = dEntity.GetComponent<FormationComponent>();
         CHECK(d.Shape == FormationShape::Wedge && d.Spacing == 1.5f && d.WedgeAngle == 90.0f && d.Members.empty() && d.AssignNearest);
         const size_t at = t.find("\"Wedge\"");
         CHECK(at != std::string::npos);
@@ -43259,7 +43310,8 @@ TEST(FormationSerializationAndCopies)
             t.replace(angle, 18, "\"WedgeAngle\": 999.0");
         auto bad = CreateRef<Scene>();
         CHECK(SceneSerializer(bad).DeserializeFromString(t));
-        const auto& e = bad->FindEntityByName("P").GetComponent<FormationComponent>();
+        Entity eEntity = bad->FindEntityByName("P");
+        const auto& e = eEntity.GetComponent<FormationComponent>();
         CHECK(e.Shape == FormationShape::Wedge && e.WedgeAngle == 170.0f);
     }
     // A copy of the group: its leader leads the copied members; its runtime is its own.
@@ -43452,7 +43504,8 @@ TEST(NavBakeSavedWithScene)
         CHECK(SceneSerializer(loaded).Deserialize(scenePath));
         CHECK(loaded->GetNavBakes() && loaded->GetNavBakes()->size() == 1);
         loaded->OnRuntimeStart();
-        const auto& c = loaded->FindEntityByName("Nav").GetComponent<NavGrid2DComponent>();
+        Entity cEntity = loaded->FindEntityByName("Nav");
+        const auto& c = cEntity.GetComponent<NavGrid2DComponent>();
         CHECK(c.Baked && c.FromBakeFile && c.SourceHash == scene->GetNavGridSourceHash(nav));
         CHECK(c.Grid.GetWidth() == fresh.GetWidth() && c.Grid.GetOrigin() == fresh.GetOrigin() && c.Grid.GetWalkableData() == fresh.GetWalkableData());
         // The editor's play copy shares the bakes.
@@ -43465,7 +43518,8 @@ TEST(NavBakeSavedWithScene)
         CHECK(SceneSerializer(loaded).Deserialize(scenePath));
         loaded->FindEntityByName("Map").GetComponent<TilemapComponent>().Set(9, 10, -1);
         loaded->OnRuntimeStart();
-        const auto& c = loaded->FindEntityByName("Nav").GetComponent<NavGrid2DComponent>();
+        Entity cEntity = loaded->FindEntityByName("Nav");
+        const auto& c = cEntity.GetComponent<NavGrid2DComponent>();
         CHECK(c.Baked && !c.FromBakeFile && c.Grid.CountWalkable() > fresh.CountWalkable());
         loaded->OnRuntimeStop();
     }
@@ -43532,7 +43586,8 @@ TEST(NavBakeSavedWithScene)
         auto loaded = CreateRef<Scene>();
         CHECK(SceneSerializer(loaded).Deserialize(path3));
         loaded->OnRuntimeStart();
-        const auto& c = loaded->FindEntityByName("Nav3D").GetComponent<NavGrid3DComponent>();
+        Entity cEntity = loaded->FindEntityByName("Nav3D");
+        const auto& c = cEntity.GetComponent<NavGrid3DComponent>();
         CHECK(c.Baked && c.FromBakeFile && c.Grid.HasHeights());
         CHECK(c.Grid.GetWalkableData() == grid3.GetComponent<NavGrid3DComponent>().Grid.GetWalkableData());
         // Agents walk on it as on a baked one.
@@ -43620,12 +43675,15 @@ TEST(NavigationComponentsRoundTrip)
     CHECK(SceneSerializer(binary).DeserializeFromBinary(SceneSerializer(scene).SerializeToBinary()));
     CHECK(SceneSerializer(binary).SerializeToString() == text);
     // A few values checked by hand (a symmetric mistake in writing and reading would pass the above).
-    const auto& lg2 = loaded->FindEntityByName("Grid2").GetComponent<NavGrid2DComponent>();
+    Entity lg2Entity = loaded->FindEntityByName("Grid2");
+    const auto& lg2 = lg2Entity.GetComponent<NavGrid2DComponent>();
     CHECK(!lg2.AutoBounds && lg2.CellSize == 0.25f && lg2.LayerMask == 0x00F3 && lg2.Paths.CutCorners && !lg2.Paths.Diagonals && lg2.Paths.CacheBake);
     CHECK(!lg2.Paths.BakeOnStart && lg2.AutoRebuild && !lg2.Baked);
-    const auto& lg3 = loaded->FindEntityByName("Grid3").GetComponent<NavGrid3DComponent>();
+    Entity lg3Entity = loaded->FindEntityByName("Grid3");
+    const auto& lg3 = lg3Entity.GetComponent<NavGrid3DComponent>();
     CHECK(lg3.Paths.CacheBake && lg3.MaxSlope == 30.0f && lg3.LayerMask == 0x0101 && lg3.Size == glm::vec3(40.0f, 6.0f, 22.0f));
-    const auto& la = loaded->FindEntityByName("Agent").GetComponent<NavAgentComponent>();
+    Entity laEntity = loaded->FindEntityByName("Agent");
+    const auto& la = laEntity.GetComponent<NavAgentComponent>();
     CHECK(la.Grid.ID == (uint64_t)grid3.GetUUID() && la.Avoidance && la.AvoidStatic && la.AvoidanceMask == 0x000F && la.SplinePath && !la.HasDestination);
     CHECK(loaded->FindEntityByName("Obstacle").GetComponent<NavObstacleComponent>().Shape == NavObstacleComponent::ShapeType::Circle);
     CHECK(loaded->FindEntityByName("Eyes").GetComponent<SightSensorComponent>().TargetTag == "Dushman");
@@ -43767,7 +43825,8 @@ TEST(NavSerializationAndFingerprintEdgeCases)
     plain.AddComponent<NavAgentComponent>();
     auto loaded = CreateRef<Scene>();
     CHECK(SceneSerializer(loaded).DeserializeFromString(SceneSerializer(scene).SerializeToString()));
-    const auto& la = loaded->FindEntityByName("Agent").GetComponent<NavAgentComponent>();
+    Entity laEntity = loaded->FindEntityByName("Agent");
+    const auto& la = laEntity.GetComponent<NavAgentComponent>();
     CHECK(!la.Avoidance && la.FeelerLength == 3.0f && la.FeelerAngle == 20.0f && la.AvoidanceMask == 0x0003);
     CHECK(SceneSerializer::SerializeComponent(agent, "NavAgent").find("FeelerLength") != std::string::npos);
     CHECK(SceneSerializer::SerializeComponent(plain, "NavAgent").find("Avoidance") == std::string::npos);

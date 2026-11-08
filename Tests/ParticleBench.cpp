@@ -170,7 +170,8 @@ namespace {
         double sum = 0.0;
         for (auto e : scene.GetAllEntitiesWith<PS>())
         {
-            const auto& ps = Entity(e, &scene).GetComponent<PS>();
+            Entity psEntity = Entity(e, &scene);
+            const auto& ps = psEntity.GetComponent<PS>();
             ParticleSimulation::GetDrawOrder(ps, nullptr, { 20.0f, 6.0f, -15.0f }, { 0.0f, -0.3f, 1.0f }, true, order);
             for (const Particle& p : ps.Particles)
                 sum += ParticleSimulation::GetColor(ps, p).a + ParticleSimulation::GetSize(ps, p);
@@ -274,7 +275,7 @@ namespace {
             sink += (uint32_t)scene->FindEntityByName(names[1]);
         }, 20);
         std::printf("%-44s %11.4f ms\n", "Kadr boshidagi tekshiruv (to'g'ridan-to'g'ri yozuvlar)", check);
-        static volatile size_t s_Sink;
+        [[maybe_unused]] static volatile size_t s_Sink; // a volatile store: the work is not optimised away
         s_Sink = sink;
         return 0;
     }
@@ -656,7 +657,7 @@ int main(int argc, char** argv)
         }
     }
     // A volatile store keeps the drawing work from being optimised away (nothing to print).
-    static volatile double s_Sink;
+    [[maybe_unused]] static volatile double s_Sink;
     s_Sink = sink;
     JobSystem::Shutdown();
     return 0;

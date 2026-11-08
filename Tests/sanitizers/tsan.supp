@@ -1,0 +1,2 @@
+# ThreadSanitizer suppressions (TSAN_OPTIONS=suppressions=...; Tests/sanitize.sh sets it). Only
+# third-party code may be listed here. Format: race:<fn|file|lib>, mutex:..., deadlock:..., called_from_lib:<lib>.

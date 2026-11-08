@@ -3,12 +3,14 @@ target_link_libraries(ZaminTests PRIVATE Zamin)
 # The sample projects are read by some tests (their assets must stay valid).
 target_compile_definitions(ZaminTests PRIVATE ZAMIN_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 set_target_properties(ZaminTests PROPERTIES BUILD_RPATH "${CMAKE_BINARY_DIR}/bin")
+zamin_target_settings(ZaminTests)
 add_test(NAME ZaminTests COMMAND ZaminTests)
 
 # The new-script templates must always compile: generate them and build them with the engine.
 add_executable(ZaminScriptTemplateGen ScriptTemplateGen.cpp)
 target_link_libraries(ZaminScriptTemplateGen PRIVATE Zamin)
 set_target_properties(ZaminScriptTemplateGen PROPERTIES BUILD_RPATH "${CMAKE_BINARY_DIR}/bin")
+zamin_target_settings(ZaminScriptTemplateGen)
 set(ZAMIN_TEMPLATE_DIR ${CMAKE_CURRENT_BINARY_DIR}/ScriptTemplates)
 set(ZAMIN_TEMPLATE_SOURCES ${ZAMIN_TEMPLATE_DIR}/TemplateFullCheck.cpp ${ZAMIN_TEMPLATE_DIR}/TemplateMinimalCheck.cpp
     ${ZAMIN_TEMPLATE_DIR}/ProjectStarterCheck.cpp)
@@ -19,9 +21,7 @@ add_custom_command(OUTPUT ${ZAMIN_TEMPLATE_SOURCES}
     VERBATIM)
 add_library(ZaminScriptTemplateCheck OBJECT ${ZAMIN_TEMPLATE_SOURCES})
 target_link_libraries(ZaminScriptTemplateCheck PRIVATE Zamin)
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(ZaminScriptTemplateCheck PRIVATE -Wall -Wextra)
-endif()
+zamin_target_settings(ZaminScriptTemplateCheck)
 
 # Rendering regression test: renders reference scenes offscreen and compares them with
 # Tests/Reference/*.png. It needs a GL context (a display; xvfb-run in CI), so it is not part of
@@ -32,19 +32,18 @@ target_link_libraries(ZaminRenderTests PRIVATE Zamin)
 target_compile_definitions(ZaminRenderTests PRIVATE ZAMIN_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
     ZAMIN_RENDER_TEST_OUTPUT="${CMAKE_BINARY_DIR}/RenderTests")
 set_target_properties(ZaminRenderTests PROPERTIES BUILD_RPATH "${CMAKE_BINARY_DIR}/bin")
-find_program(ZAMIN_XVFB_RUN xvfb-run)
-set(ZAMIN_RENDER_TEST_RUNNER "")
-if(ZAMIN_XVFB_RUN)
-    set(ZAMIN_RENDER_TEST_RUNNER ${ZAMIN_XVFB_RUN} -a -s "-screen 0 1280x720x24")
-endif()
+zamin_target_settings(ZaminRenderTests)
+# Tests/render_tests.sh runs it the same way locally and in CI: Mesa's software rasteriser (the references
+# are llvmpipe pictures), a fixed xvfb screen without a display, report.json / summary.md and the pictures
+# of the failed cases in build/RenderTests.
 add_custom_target(render_tests
-    COMMAND ${ZAMIN_RENDER_TEST_RUNNER} $<TARGET_FILE:ZaminRenderTests>
+    COMMAND ${CMAKE_COMMAND} -E env ZAMIN_BUILD_DIR=${CMAKE_BINARY_DIR} ${PROJECT_SOURCE_DIR}/Tests/render_tests.sh
     DEPENDS ZaminRenderTests
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
     COMMENT "Rendering regressiya testi (etalon rasmlar bilan solishtirish)"
     USES_TERMINAL VERBATIM)
 add_custom_target(update_render_references
-    COMMAND ${ZAMIN_RENDER_TEST_RUNNER} $<TARGET_FILE:ZaminRenderTests> --update
+    COMMAND ${CMAKE_COMMAND} -E env ZAMIN_BUILD_DIR=${CMAKE_BINARY_DIR} ${PROJECT_SOURCE_DIR}/Tests/render_tests.sh --update
     DEPENDS ZaminRenderTests
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
     COMMENT "Rendering etalon rasmlari qayta yaratilmoqda (Tests/Reference)"
@@ -56,6 +55,7 @@ add_custom_target(update_render_references
 add_executable(ZaminBench ParticleBench.cpp NavBench.cpp PrefabBench.cpp)
 target_link_libraries(ZaminBench PRIVATE Zamin)
 set_target_properties(ZaminBench PROPERTIES BUILD_RPATH "${CMAKE_BINARY_DIR}/bin")
+zamin_target_settings(ZaminBench)
 # --serialize saves / loads a large scene in the sample Platformer2D project.
 target_compile_definitions(ZaminBench PRIVATE ZAMIN_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 if(ZAMIN_OPTIMIZE_PARTICLES_IN_DEBUG)

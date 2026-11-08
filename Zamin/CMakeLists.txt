@@ -69,8 +69,9 @@ set_target_properties(Zamin PROPERTIES
     BUILD_RPATH "$ORIGIN"
     INSTALL_RPATH "$ORIGIN")
 
-target_include_directories(Zamin PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+target_include_directories(Zamin PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>)
+# Vendor headers are system headers for our code: their own warnings are not ours (zamin_target_settings).
+target_include_directories(Zamin SYSTEM PUBLIC
     $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>
     $<BUILD_INTERFACE:${imgui_SOURCE_DIR}/misc/cpp>
     $<BUILD_INTERFACE:${imguizmo_SOURCE_DIR}>)
@@ -101,8 +102,11 @@ target_link_libraries(Zamin PUBLIC glm::glm EnTT::EnTT)
 target_link_libraries(Zamin PRIVATE glad glfw imgui imguizmo box2d Jolt nlohmann_json::nlohmann_json stb tinyobj cgltf miniaudio
     ${CMAKE_DL_LIBS} pthread)
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(Zamin PRIVATE -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers)
+zamin_target_settings(Zamin)
+# A sanitizer build loads the script modules it built itself (cmake/Sanitizers.cmake): from its
+# GameModules folder when the module is there (Project::GetScriptModulePath).
+if(ZAMIN_SANITIZE)
+    target_compile_definitions(Zamin PRIVATE ZAMIN_SANITIZER_MODULE_DIR="${ZAMIN_GAME_MODULE_OUTPUT_DIR}")
 endif()
 # Calls inside the library go to its own functions (not to copies of the same inline / template code
 # in the program that loads it - an unoptimised Debug editor's string or container code, say).
@@ -128,7 +132,22 @@ add_custom_command(TARGET Zamin POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/Resources ${CMAKE_BINARY_DIR}/bin/Resources)
 
 # ---- CMake package so external game projects can build script modules ----
-include(${PROJECT_SOURCE_DIR}/cmake/ZaminGame.cmake)
+# (zamin_add_game_module: cmake/ZaminGame.cmake, included by the root CMakeLists.txt.)
+# A sanitizer build's modules get its sanitizer flags and go to its GameModules folder (not the
+# projects' Binaries, where the regular build's modules are).
+set(ZAMIN_CONFIG_SANITIZER_TARGET "")
+set(ZAMIN_CONFIG_SANITIZER "")
+if(ZAMIN_SANITIZE)
+    set(ZAMIN_CONFIG_SANITIZER_TARGET "set_target_properties(Zamin::Zamin PROPERTIES
+        INTERFACE_COMPILE_OPTIONS \"${ZAMIN_SANITIZER_FLAGS}\"
+        INTERFACE_LINK_OPTIONS \"${ZAMIN_SANITIZER_LINK_FLAGS}\")")
+    set(ZAMIN_CONFIG_SANITIZER "set(ZAMIN_SANITIZE \"${ZAMIN_SANITIZE}\")
+set(ZAMIN_SANITIZER_STRICT_FLAGS \"${ZAMIN_SANITIZER_STRICT_FLAGS}\")
+if(NOT ZAMIN_GAME_MODULE_OUTPUT_DIR)
+    set(ZAMIN_GAME_MODULE_OUTPUT_DIR \"${ZAMIN_GAME_MODULE_OUTPUT_DIR}\")
+endif()
+")
+endif()
 
 get_target_property(_glm_inc glm::glm INTERFACE_INCLUDE_DIRECTORIES)
 get_target_property(_entt_inc EnTT::EnTT INTERFACE_INCLUDE_DIRECTORIES)
@@ -148,7 +167,8 @@ if(NOT TARGET Zamin::Zamin)
         IMPORTED_SONAME \"$<TARGET_FILE_NAME:Zamin>\"
         INTERFACE_INCLUDE_DIRECTORIES \"${ZAMIN_EXPORT_INCLUDES}\"
         INTERFACE_COMPILE_DEFINITIONS \"GLM_FORCE_RADIANS;GLM_ENABLE_EXPERIMENTAL;IMGUI_DEFINE_MATH_OPERATORS;${ZAMIN_BUILD_DEFINITIONS}\")
+    ${ZAMIN_CONFIG_SANITIZER_TARGET}
 endif()
-set(ZAMIN_BIN_DIR \"${CMAKE_BINARY_DIR}/bin\")
+${ZAMIN_CONFIG_SANITIZER}set(ZAMIN_BIN_DIR \"${CMAKE_BINARY_DIR}/bin\")
 include(\"${PROJECT_SOURCE_DIR}/cmake/ZaminGame.cmake\")
 ")

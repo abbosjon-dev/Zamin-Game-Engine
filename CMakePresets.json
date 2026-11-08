@@ -1,0 +1,109 @@
+{
+    "version": 6,
+    "cmakeMinimumRequired": { "major": 3, "minor": 25, "patch": 0 },
+    "configurePresets": [
+        {
+            "name": "debug",
+            "displayName": "Debug (Ninja, build/)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build",
+            "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+        },
+        {
+            "name": "release",
+            "displayName": "Release (Ninja, build-release/)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build-release",
+            "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+        },
+        {
+            "name": "clang",
+            "displayName": "Clang Release (build-clang/)",
+            "inherits": "release",
+            "binaryDir": "${sourceDir}/build-clang",
+            "cacheVariables": { "CMAKE_C_COMPILER": "clang", "CMAKE_CXX_COMPILER": "clang++" }
+        },
+        {
+            "name": "sanitizer-base",
+            "hidden": true,
+            "generator": "Ninja",
+            "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+        },
+        {
+            "name": "asan",
+            "displayName": "AddressSanitizer + LeakSanitizer (build-asan/)",
+            "inherits": "sanitizer-base",
+            "binaryDir": "${sourceDir}/build-asan",
+            "cacheVariables": { "ZAMIN_SANITIZE": "address" }
+        },
+        {
+            "name": "ubsan",
+            "displayName": "UndefinedBehaviorSanitizer (build-ubsan/)",
+            "inherits": "sanitizer-base",
+            "binaryDir": "${sourceDir}/build-ubsan",
+            "cacheVariables": { "ZAMIN_SANITIZE": "undefined" }
+        },
+        {
+            "name": "lsan",
+            "displayName": "LeakSanitizer (build-lsan/)",
+            "inherits": "sanitizer-base",
+            "binaryDir": "${sourceDir}/build-lsan",
+            "cacheVariables": { "ZAMIN_SANITIZE": "leak" }
+        },
+        {
+            "name": "tsan",
+            "displayName": "ThreadSanitizer (build-tsan/)",
+            "inherits": "sanitizer-base",
+            "binaryDir": "${sourceDir}/build-tsan",
+            "cacheVariables": { "ZAMIN_SANITIZE": "thread" }
+        }
+    ],
+    "buildPresets": [
+        { "name": "debug", "configurePreset": "debug" },
+        { "name": "release", "configurePreset": "release" },
+        { "name": "clang", "configurePreset": "clang" },
+        { "name": "asan", "configurePreset": "asan", "targets": [ "ZaminTests" ] },
+        { "name": "ubsan", "configurePreset": "ubsan", "targets": [ "ZaminTests" ] },
+        { "name": "lsan", "configurePreset": "lsan", "targets": [ "ZaminTests" ] },
+        { "name": "tsan", "configurePreset": "tsan", "targets": [ "ZaminTests" ] }
+    ],
+    "testPresets": [
+        {
+            "name": "test-base",
+            "hidden": true,
+            "output": { "outputOnFailure": true }
+        },
+        { "name": "debug", "inherits": "test-base", "configurePreset": "debug" },
+        { "name": "release", "inherits": "test-base", "configurePreset": "release" },
+        { "name": "clang", "inherits": "test-base", "configurePreset": "clang" },
+        {
+            "name": "asan",
+            "inherits": "test-base",
+            "configurePreset": "asan",
+            "environment": {
+                "ASAN_OPTIONS": "detect_leaks=1:halt_on_error=1:strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1:suppressions=${sourceDir}/Tests/sanitizers/asan.supp",
+                "LSAN_OPTIONS": "suppressions=${sourceDir}/Tests/sanitizers/lsan.supp:print_suppressions=0"
+            }
+        },
+        {
+            "name": "ubsan",
+            "inherits": "test-base",
+            "configurePreset": "ubsan",
+            "environment": {
+                "UBSAN_OPTIONS": "print_stacktrace=1:halt_on_error=0:report_error_type=1:suppressions=${sourceDir}/Tests/sanitizers/ubsan.supp"
+            }
+        },
+        {
+            "name": "lsan",
+            "inherits": "test-base",
+            "configurePreset": "lsan",
+            "environment": { "LSAN_OPTIONS": "suppressions=${sourceDir}/Tests/sanitizers/lsan.supp:print_suppressions=0" }
+        },
+        {
+            "name": "tsan",
+            "inherits": "test-base",
+            "configurePreset": "tsan",
+            "environment": { "TSAN_OPTIONS": "halt_on_error=1:second_deadlock_stack=1:suppressions=${sourceDir}/Tests/sanitizers/tsan.supp" }
+        }
+    ]
+}

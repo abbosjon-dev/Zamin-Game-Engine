@@ -1,0 +1,3 @@
+# LeakSanitizer suppressions (LSAN_OPTIONS=suppressions=...; Tests/sanitize.sh sets it, for ASan's leak
+# check at exit and for the standalone LSan build). Only third-party code may be listed here - a leak in
+# Zamin's own code is a bug to fix. Format: leak:<function, file or library name>.

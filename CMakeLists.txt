@@ -27,7 +27,12 @@ option(ZAMIN_DEBUG_DRAW    "DebugDraw API (ignored when ZAMIN_SHIPPING)" ON)
 set(ZAMIN_ASSERTS "AUTO" CACHE STRING "Asserts: AUTO (Debug only), ON, OFF")
 set_property(CACHE ZAMIN_ASSERTS PROPERTY STRINGS AUTO ON OFF)
 
+# Sanitizers (ZAMIN_SANITIZE=address / undefined / leak / thread) before the dependencies: their flags
+# go to every target, the vendor libraries included.
+include(cmake/Sanitizers.cmake)
 include(cmake/Dependencies.cmake)
+# zamin_target_settings (warnings of our own targets), zamin_add_game_module.
+include(cmake/ZaminGame.cmake)
 
 add_subdirectory(Zamin)
 if(ZAMIN_BUILD_EDITOR)

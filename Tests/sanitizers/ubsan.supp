@@ -1,0 +1,4 @@
+# UndefinedBehaviorSanitizer suppressions (UBSAN_OPTIONS=suppressions=...; Tests/sanitize.sh sets it).
+# Zamin's own targets build with -fno-sanitize-recover=all: their reports are always fatal and cannot be
+# suppressed here. Only the vendor libraries' (recoverable) reports can - list each with the reason.
+# Format: <check>:<function, file or library>, e.g. alignment:box2d/src/...

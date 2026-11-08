@@ -10,6 +10,7 @@
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
+#include <cstdlib>
 #include <format>
 #include <stdexcept>
 
@@ -281,7 +282,22 @@ namespace Zamin {
     std::filesystem::path Project::GetScriptModulePath()
     {
         if (!s_ActiveProject || s_ActiveProject->m_Config.ScriptModulePath.empty()) return {};
-        return s_ActiveProject->m_ProjectDirectory / s_ActiveProject->m_Config.ScriptModulePath;
+        const std::filesystem::path path = s_ActiveProject->m_ProjectDirectory / s_ActiveProject->m_Config.ScriptModulePath;
+        // ZAMIN_SCRIPT_MODULE_DIR=<folder>: the module of the same name from that folder. A sanitizer build
+        // (cmake -DZAMIN_SANITIZE=...) writes its instrumented modules to its own GameModules folder - not
+        // to the projects' Binaries, where the regular build's modules are - and loads them from there
+        // when they exist (cmake/Sanitizers.cmake).
+        std::filesystem::path folder;
+        if (const char* dir = std::getenv("ZAMIN_SCRIPT_MODULE_DIR"); dir && *dir)
+            folder = dir;
+#ifdef ZAMIN_SANITIZER_MODULE_DIR
+        else
+            folder = ZAMIN_SANITIZER_MODULE_DIR;
+#endif
+        std::error_code ec;
+        if (!folder.empty() && std::filesystem::is_regular_file(folder / path.filename(), ec))
+            return folder / path.filename();
+        return path;
     }
 
     const InputActionMap& Project::GetInputActionMap()

@@ -1,0 +1,9 @@
+{
+    "UUID": "742198a92c33890f",
+    "Type": "Audio",
+    "Import": {
+        "LoadMode": "Decompress",
+        "Preload": true,
+        "Volume": 1.0
+    }
+}

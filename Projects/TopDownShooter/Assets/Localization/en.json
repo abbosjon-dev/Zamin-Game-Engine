@@ -1,0 +1,47 @@
+{
+    "$name": "English",
+    "menu": {
+        "title": "NEON ARENA",
+        "subtitle": "Top-down shooter  ·  a Zamin Engine sample",
+        "play": "Play",
+        "quit": "Quit",
+        "language": "Language: {0}",
+        "best": "Best: {0}   ·   furthest wave: {1}",
+        "controls": "WASD - move   ·   Mouse - aim   ·   LMB - fire   ·   Space - dash   ·   Esc - pause\nGamepad: left stick - move, right stick - aim and fire, A - dash"
+    },
+    "hud": {
+        "score_label": "SCORE",
+        "wave": "WAVE {0}",
+        "enemies": "Enemies: {0}",
+        "best": "Best: {0}",
+        "dash": "DASH",
+        "demo": "DEMO - autoplay",
+        "combo": "x{0}  combo {1}",
+        "rapid": "RAPID FIRE  {0}",
+        "spread": "TRIPLE SHOT  {0}",
+        "wave_sub": "{0} enemies",
+        "boss_sub": "Tank wave!",
+        "cleared": "WAVE CLEARED",
+        "bonus": "+{0} bonus",
+        "streak": "{0} IN A ROW!",
+        "get_ready": "GET READY"
+    },
+    "pause": {
+        "title": "PAUSED",
+        "resume": "Resume",
+        "restart": "Restart",
+        "menu": "Main menu"
+    },
+    "over": {
+        "title": "GAME OVER",
+        "retry": "Play again",
+        "wave": "Reached wave {0}  ·  {1} enemies down",
+        "record": "NEW RECORD!",
+        "best": "Best: {0}"
+    },
+    "pickup": {
+        "health": "+1 LIFE",
+        "rapid": "RAPID FIRE!",
+        "spread": "TRIPLE SHOT!"
+    }
+}

@@ -1,0 +1,9 @@
+{
+    "UUID": "adc3526d35d4f880",
+    "Type": "Audio",
+    "Import": {
+        "LoadMode": "Stream",
+        "Preload": false,
+        "Volume": 1.0
+    }
+}

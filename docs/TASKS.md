@@ -533,8 +533,8 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 
 ## M24 Namuna o'yinlar
 
-- [ ] 461. Top-down shooter (2D): o'yinchi, o'q otish, dushmanlar
-- [ ] 462. Top-down shooter: to'lqinlar va hisob
+- [x] 461. Top-down shooter (2D): o'yinchi, o'q otish, dushmanlar
+- [x] 462. Top-down shooter: to'lqinlar va hisob
 - [ ] 463. Breakout (2D): raketka, to'p, g'ishtlar
 - [ ] 464. Breakout: bonuslar va darajalar
 - [ ] 465. 3D FPS controller namunasi (sichqoncha bilan qarash)

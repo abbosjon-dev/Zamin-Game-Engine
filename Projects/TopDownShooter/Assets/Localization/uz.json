@@ -1,0 +1,47 @@
+{
+    "$name": "O'zbekcha",
+    "menu": {
+        "title": "NEON MAYDON",
+        "subtitle": "Top-down shooter  ·  Zamin Engine namunasi",
+        "play": "O'ynash",
+        "quit": "Chiqish",
+        "language": "Til: {0}",
+        "best": "Rekord: {0}   ·   eng uzoq to'lqin: {1}",
+        "controls": "WASD - yurish   ·   Sichqoncha - nishon   ·   LKM - otish   ·   Space - siltanish   ·   Esc - pauza\nGamepad: chap stik - yurish, o'ng stik - nishon va otish, A - siltanish"
+    },
+    "hud": {
+        "score_label": "HISOB",
+        "wave": "{0}-TO'LQIN",
+        "enemies": "Dushmanlar: {0}",
+        "best": "Rekord: {0}",
+        "dash": "SILTANISH",
+        "demo": "DEMO - avtomatik o'yin",
+        "combo": "x{0}  kombo {1}",
+        "rapid": "TEZOTAR  {0}",
+        "spread": "UCH O'Q  {0}",
+        "wave_sub": "{0} ta dushman",
+        "boss_sub": "Tank to'lqini!",
+        "cleared": "TO'LQIN TOZALANDI",
+        "bonus": "+{0} bonus",
+        "streak": "{0} TA KETMA-KET!",
+        "get_ready": "TAYYORLANING"
+    },
+    "pause": {
+        "title": "PAUZA",
+        "resume": "Davom etish",
+        "restart": "Qaytadan",
+        "menu": "Bosh menyu"
+    },
+    "over": {
+        "title": "O'YIN TUGADI",
+        "retry": "Qayta o'ynash",
+        "wave": "{0}-to'lqingacha yetdingiz  ·  {1} ta dushman",
+        "record": "YANGI REKORD!",
+        "best": "Rekord: {0}"
+    },
+    "pickup": {
+        "health": "+1 JON",
+        "rapid": "TEZOTAR!",
+        "spread": "UCH O'Q!"
+    }
+}

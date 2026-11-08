@@ -1,0 +1,210 @@
+{
+    "Version": 2,
+    "Project": {
+        "Name": "TopDownShooter",
+        "StartScene": "Scenes/Arena.zscene",
+        "StartSceneUUID": "dd8ceed627d14be2",
+        "AssetDirectory": "Assets",
+        "SourceDirectory": "Source",
+        "ScriptModulePath": "Binaries/libTopDownShooter.so",
+        "EngineVersion": "0.1.0"
+    },
+    "Player": {
+        "Company": "Zamin Studio",
+        "Product": "Neon Maydon",
+        "Version": "1.0.0",
+        "Width": 1280,
+        "Height": 720,
+        "WindowMode": "Windowed",
+        "Resizable": true,
+        "VSync": true,
+        "Title": "",
+        "VersionInTitle": false,
+        "TargetFrameRate": 0,
+        "RunInBackground": true,
+        "Icon": "Textures/GameIcon.png"
+    },
+    "BuildScenes": [
+        {
+            "Path": "Scenes/Arena.zscene",
+            "Enabled": true,
+            "UUID": "dd8ceed627d14be2"
+        }
+    ],
+    "InputActions": {
+        "Actions": [
+            {
+                "Name": "Fire",
+                "Bindings": [
+                    "Mouse:Left",
+                    "Key:J",
+                    "GamepadAxis:RightTrigger+",
+                    "Gamepad:RightBumper"
+                ]
+            },
+            {
+                "Name": "Dash",
+                "Bindings": [
+                    "Key:Space",
+                    "Key:LeftShift",
+                    "Gamepad:A",
+                    "Gamepad:LeftBumper"
+                ]
+            },
+            {
+                "Name": "Pause",
+                "Bindings": [
+                    "Key:Escape",
+                    "Key:P",
+                    "Gamepad:Start"
+                ]
+            }
+        ],
+        "Axes": [
+            {
+                "Name": "MoveX",
+                "Negative": [
+                    "Key:A",
+                    "Gamepad:DPadLeft"
+                ],
+                "Positive": [
+                    "Key:D",
+                    "Gamepad:DPadRight"
+                ],
+                "Deadzone": 0.2,
+                "Invert": false,
+                "GamepadAxis": "LeftX"
+            },
+            {
+                "Name": "MoveY",
+                "Negative": [
+                    "Key:S",
+                    "Gamepad:DPadDown"
+                ],
+                "Positive": [
+                    "Key:W",
+                    "Gamepad:DPadUp"
+                ],
+                "Deadzone": 0.2,
+                "Invert": true,
+                "GamepadAxis": "LeftY"
+            },
+            {
+                "Name": "AimX",
+                "Negative": [
+                    "Key:Left"
+                ],
+                "Positive": [
+                    "Key:Right"
+                ],
+                "Deadzone": 0.2,
+                "Invert": false,
+                "GamepadAxis": "RightX"
+            },
+            {
+                "Name": "AimY",
+                "Negative": [
+                    "Key:Down"
+                ],
+                "Positive": [
+                    "Key:Up"
+                ],
+                "Deadzone": 0.2,
+                "Invert": true,
+                "GamepadAxis": "RightY"
+            }
+        ],
+        "Vectors": [
+            {
+                "Name": "Move",
+                "X": "MoveX",
+                "Y": "MoveY",
+                "Mode": "Clamp",
+                "Deadzone": 0.0
+            },
+            {
+                "Name": "Aim",
+                "X": "AimX",
+                "Y": "AimY",
+                "Mode": "Clamp",
+                "Deadzone": 0.25
+            }
+        ]
+    },
+    "Tags": [
+        "Player",
+        "Enemy",
+        "Pickup"
+    ],
+    "CollisionLayers2D": {
+        "Names": [
+            "Default",
+            "Wall",
+            "Player",
+            "Enemy",
+            "PlayerShot",
+            "EnemyShot",
+            "Pickup",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+        ],
+        "Collisions": [
+            127,
+            61,
+            107,
+            31,
+            11,
+            7,
+            5,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+        ]
+    },
+    "Localization": {
+        "DefaultLanguage": "uz",
+        "Languages": [
+            "uz",
+            "en"
+        ],
+        "Directory": "Localization",
+        "UseSystemLanguage": false
+    },
+    "Audio": {
+        "Groups": [
+            {
+                "Name": "Master",
+                "Volume": 1.0
+            },
+            {
+                "Name": "Music",
+                "Parent": "Master",
+                "Volume": 0.55
+            },
+            {
+                "Name": "SFX",
+                "Parent": "Master",
+                "Volume": 0.9
+            },
+            {
+                "Name": "UI",
+                "Parent": "Master",
+                "Volume": 0.8
+            }
+        ],
+        "StreamThresholdMB": 4.0
+    }
+}

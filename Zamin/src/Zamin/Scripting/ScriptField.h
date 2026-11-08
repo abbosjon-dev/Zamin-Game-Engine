@@ -15,7 +15,7 @@ namespace Zamin {
 
     class ScriptableEntity;
 
-    // Reference to another entity in the scene (set in the inspector by drag & drop).
+    /// Reference to another entity in the scene (set in the inspector by drag & drop).
     struct EntityRef
     {
         uint64_t ID = 0;
@@ -23,9 +23,9 @@ namespace Zamin {
         bool operator==(const EntityRef&) const = default;
     };
 
-    // Enum: any C++ enum member (stored as a 64-bit integer, written back with the
-    // member's own size). Give it option names with ZM_FIELD_ENUM for a dropdown.
-    // Curve: an AnimationCurve (edited with a curve editor).
+    /// Enum: any C++ enum member (stored as a 64-bit integer, written back with the
+    /// member's own size). Give it option names with ZM_FIELD_ENUM for a dropdown.
+    /// Curve: an AnimationCurve (edited with a curve editor).
     enum class ScriptFieldType { None = 0, Float, Int, Bool, Vec2, Vec3, Vec4, String, Entity, Enum, Curve };
 
     const char* ScriptFieldTypeToString(ScriptFieldType type);
@@ -50,7 +50,7 @@ namespace Zamin {
         }
     }
 
-    // Stored value of a field (lives in NativeScriptComponent, serialized with the scene).
+    /// Stored value of a field (lives in NativeScriptComponent, serialized with the scene).
     struct ScriptFieldValue
     {
         ScriptFieldType Type = ScriptFieldType::None;
@@ -77,19 +77,21 @@ namespace Zamin {
             else { static_assert(sizeof(T) <= 16); std::memcpy(Data, &value, sizeof(T)); }
         }
 
-        // Enum values (any underlying type) are kept as int64.
+        /// Enum values (any underlying type) are kept as int64.
         int64_t GetEnum() const { int64_t v; std::memcpy(&v, Data, sizeof(v)); return v; }
         void SetEnum(int64_t value) { Type = ScriptFieldType::Enum; std::memcpy(Data, &value, sizeof(value)); }
 
-        // Copy between this value and a live field. An Enum is treated as int-sized here;
-        // ScriptFieldInfo::Load / Store use the member's real size.
+        /// Copy between this value and a live field. An Enum is treated as int-sized here;
+        /// ScriptFieldInfo::Load / Store use the member's real size.
         void ReadFrom(const void* field);
         void WriteTo(void* field) const;
     };
 
-    // One named value of an enum field (ZM_FIELD_ENUM / ScriptFieldInfo::Options).
-    //   "Idle"            - value = previous value + 1 (0 for the first)
-    //   {"Boss", 10}      - explicit value (an enum constant works too: {"Boss", State::Boss})
+    /// One named value of an enum field (ZM_FIELD_ENUM / ScriptFieldInfo::Options).
+    /// @code
+    ///   "Idle"            - value = previous value + 1 (0 for the first)
+    ///   {"Boss", 10}      - explicit value (an enum constant works too: {"Boss", State::Boss})
+    /// @endcode
     struct ScriptEnumOption
     {
         std::string Name;
@@ -102,29 +104,33 @@ namespace Zamin {
         ScriptEnumOption(const char* name, V value) : Name(name), Value(static_cast<int64_t>(value)), AutoValue(false) {}
     };
 
-    // Field exposed to the editor inspector. The attribute setters only change how the
-    // inspector shows the field and can be chained:
-    //   ZM_FIELD(Player, Speed).Range(0.0f, 20.0f).Tooltip("Yurish tezligi (m/s)")
+    /// Field exposed to the editor inspector. The attribute setters only change how the
+    /// inspector shows the field and can be chained:
+    /// @code
+    ///   ZM_FIELD(Player, Speed).Range(0.0f, 20.0f).Tooltip("Yurish tezligi (m/s)")
+    /// @endcode
     struct ScriptFieldInfo
     {
         std::string Name;
         ScriptFieldType Type = ScriptFieldType::None;
-        void* (*Accessor)(ScriptableEntity*) = nullptr; // returns pointer to the member in an instance
+        void* (*Accessor)(ScriptableEntity*) = nullptr; ///< returns pointer to the member in an instance
 
-        // Enum members: size (bytes) and signedness of the underlying type.
+        /// Enum members: size (bytes) and signedness of the underlying type.
         uint8_t EnumSize = sizeof(int);
         bool EnumSigned = true;
 
-        // ---- inspector attributes
-        std::string DisplayName;    // label (empty = Name)
-        std::string TooltipText;    // shown when hovering the field
-        std::string HeaderText;     // section title drawn above the field
-        bool HasRange = false;      // Float / Int / Vec*: slider limited to [RangeMin, RangeMax]
+        /// @name Inspector attributes
+        /// @{
+        std::string DisplayName;    ///< label (empty = Name)
+        std::string TooltipText;    ///< shown when hovering the field
+        std::string HeaderText;     ///< section title drawn above the field
+        bool HasRange = false;      ///< Float / Int / Vec*: slider limited to [RangeMin, RangeMax]
         float RangeMin = 0.0f, RangeMax = 0.0f;
-        bool IsColor = false;       // Vec3 / Vec4 shown as a color picker
-        bool IsHdr = false;         // color components may go above 1
-        bool IsMultiline = false;   // String: multi-line text box
-        std::vector<ScriptEnumOption> EnumOptions; // Enum (or Int) shown as a dropdown
+        bool IsColor = false;       ///< Vec3 / Vec4 shown as a color picker
+        bool IsHdr = false;         ///< color components may go above 1
+        bool IsMultiline = false;   ///< String: multi-line text box
+        std::vector<ScriptEnumOption> EnumOptions; ///< Enum (or Int) shown as a dropdown
+        /// @}
 
         ScriptFieldInfo& Range(float min, float max);
         ScriptFieldInfo& Tooltip(std::string text);
@@ -132,20 +138,20 @@ namespace Zamin {
         ScriptFieldInfo& Header(std::string text);
         ScriptFieldInfo& Color(bool hdr = false);
         ScriptFieldInfo& Multiline(bool multiline = true);
-        // Auto values continue from the previous option: {"A", "B", {"Z", 10}, "W"} -> 0, 1, 10, 11
+        /// Auto values continue from the previous option: {"A", "B", {"Z", 10}, "W"} -> 0, 1, 10, 11
         ScriptFieldInfo& Options(std::initializer_list<ScriptEnumOption> options);
 
         const std::string& GetDisplayName() const { return DisplayName.empty() ? Name : DisplayName; }
-        // The option with this value (nullptr when the value has no name).
+        /// The option with this value (nullptr when the value has no name).
         const ScriptEnumOption* FindOption(int64_t value) const;
-        // Clamps Float / Int / Vec* values into the range (no-op without one).
+        /// Clamps Float / Int / Vec* values into the range (no-op without one).
         void ClampToRange(ScriptFieldValue& value) const;
 
-        // `in` converted to this field's type: same type, or Int <-> Enum. false otherwise.
+        /// `in` converted to this field's type: same type, or Int <-> Enum. false otherwise.
         bool Convert(const ScriptFieldValue& in, ScriptFieldValue& out) const;
-        // Reads the member of a live instance.
+        /// Reads the member of a live instance.
         void Load(const ScriptableEntity* instance, ScriptFieldValue& out) const;
-        // Writes a (converted) value into the member; false when the type does not fit.
+        /// Writes a (converted) value into the member; false when the type does not fit.
         bool Store(ScriptableEntity* instance, const ScriptFieldValue& value) const;
     };
 

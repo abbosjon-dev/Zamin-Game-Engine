@@ -522,8 +522,8 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 450. docs/Audio.md
 - [ ] 451. docs/Architecture.md - ichki arxitektura
 - [ ] 452. docs/BuildAndExport.md
-- [ ] 453. Doxygen konfiguratsiyasi
-- [ ] 454. API izohlarini header'larda to'ldirish
+- [x] 453. Doxygen konfiguratsiyasi
+- [x] 454. API izohlarini header'larda to'ldirish
 - [ ] 455. FAQ va muammolarni hal qilish
 - [ ] 456. Hissa qo'shish qo'llanmasi (CONTRIBUTING)
 - [ ] 457. CHANGELOG

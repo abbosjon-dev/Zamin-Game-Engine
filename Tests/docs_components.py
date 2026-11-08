@@ -127,7 +127,13 @@ def split_top_level(body):
         if body.startswith("//", i):
             end = body.find("\n", i)
             end = n if end < 0 else end
-            comment = body[i + 2:end].strip()
+            # Doxygen comments read as plain ones: "///", "///<", a member group's "@name" title; its
+            # "@{" / "@}" markers carry no words
+            comment = re.sub(r"^/*<?\s*", "", body[i + 2:end]).strip()
+            comment = re.sub(r"^@name\s+", "", comment)
+            if comment in ("@{", "@}", "@code", "@endcode"):
+                i = end
+                continue
             if stmt.strip():
                 comments.append(comment)
             else:
@@ -190,7 +196,7 @@ def split_top_level(body):
             rest = body[i + 1:line_end]
             trailing = ""
             if "//" in rest:
-                trailing = rest[rest.index("//") + 2:].strip()
+                trailing = re.sub(r"^/*<?\s*", "", rest[rest.index("//") + 2:]).strip()
                 i = line_end
             else:
                 i += 1

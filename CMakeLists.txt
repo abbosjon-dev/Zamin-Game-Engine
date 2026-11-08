@@ -52,3 +52,28 @@ if(ZAMIN_BUILD_TESTS)
     enable_testing()
     add_subdirectory(Tests)
 endif()
+
+# The API reference (Doxygen, the root Doxyfile; docs/BuildAndExport.md): cmake --build build --target docs
+# writes <build>/docs/html/index.html and <build>/docs/doxygen-warnings.log. Not part of the default build.
+find_package(Doxygen QUIET OPTIONAL_COMPONENTS dot)
+if(DOXYGEN_FOUND)
+    # The root Doxyfile with this build's output folder (and no diagrams when Graphviz is missing).
+    if(TARGET Doxygen::dot)
+        set(ZAMIN_DOXYGEN_DOT "HAVE_DOT = YES\nDOT_PATH = \"${DOXYGEN_DOT_EXECUTABLE}\"")
+    else()
+        set(ZAMIN_DOXYGEN_DOT "HAVE_DOT = NO")
+    endif()
+    file(WRITE ${CMAKE_BINARY_DIR}/Doxyfile.build
+        "@INCLUDE = \"${PROJECT_SOURCE_DIR}/Doxyfile\"\n"
+        "PROJECT_NUMBER = ${PROJECT_VERSION}\n"
+        "OUTPUT_DIRECTORY = \"${CMAKE_BINARY_DIR}/docs\"\n"
+        "WARN_LOGFILE = \"${CMAKE_BINARY_DIR}/docs/doxygen-warnings.log\"\n"
+        "${ZAMIN_DOXYGEN_DOT}\n")
+    add_custom_target(docs
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/docs
+        COMMAND Doxygen::doxygen ${CMAKE_BINARY_DIR}/Doxyfile.build
+        COMMAND ${CMAKE_COMMAND} -E echo "API ma'lumotnomasi: ${CMAKE_BINARY_DIR}/docs/html/index.html (ogohlantirishlar: ${CMAKE_BINARY_DIR}/docs/doxygen-warnings.log)"
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+        COMMENT "Doxygen: API ma'lumotnomasi"
+        VERBATIM)
+endif()

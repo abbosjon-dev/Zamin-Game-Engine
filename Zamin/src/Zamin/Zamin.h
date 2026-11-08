@@ -1,6 +1,39 @@
 #pragma once
 
-// Zamin Engine – public API umbrella header (for games and tools).
+/// @file
+/// @brief The public API umbrella header (for games and tools): includes every engine header a game uses.
+
+/**
+ * @mainpage Zamin Engine API reference
+ *
+ * Zamin Engine is a C++20 2D / 3D game engine for Linux: the engine library (`libZamin.so`), the editor
+ * (ZaminEditor), the player that runs exported games (ZaminPlayer) and games whose logic is C++ script
+ * modules (`lib<Game>.so`). This reference is generated from the engine's public headers
+ * (`Zamin/src/Zamin`); the guides - in Uzbek - are the Markdown files of `docs/` (start with
+ * `docs/README.md`; the internal structure is `docs/Architecture.md`).
+ *
+ * Where to start:
+ * - **Scripts**: Zamin::ScriptableEntity (lifecycle, callbacks, the script API), ZM_REGISTER_SCRIPT and
+ *   ZM_FIELD (Zamin/Scripting/ScriptEngine.h), Zamin::Input, Zamin::Time.
+ * - **Scenes**: Zamin::Scene, Zamin::Entity, the components (Zamin/Scene/Components.h),
+ *   Zamin::SceneManager, Zamin::SceneSerializer.
+ * - **Systems**: Zamin::Renderer2D, Zamin::Renderer3D, Zamin::PhysicsWorld2D, Zamin::PhysicsWorld3D,
+ *   Zamin::AudioEngine and Zamin::Audio, Zamin::Project.
+ * - **Programs**: Zamin::Application, Zamin::Layer (Zamin/Core/EntryPoint.h supplies `main`).
+ *
+ * A script:
+ * @code
+ * #include <Zamin/Zamin.h>
+ *
+ * class Spinner : public Zamin::ScriptableEntity
+ * {
+ * public:
+ *     float Speed = 1.5f;
+ *     void OnUpdate(Zamin::Timestep ts) override { Transform().Rotation.y += Speed * ts; }
+ * };
+ * ZM_REGISTER_SCRIPT(Spinner, ZM_FIELD(Spinner, Speed))
+ * @endcode
+ */
 
 #include "Zamin/Core/Base.h"
 #include "Zamin/Core/Log.h"

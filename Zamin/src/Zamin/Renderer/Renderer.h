@@ -1,5 +1,8 @@
 #pragma once
 
+/// @file
+/// @brief Renderer: start-up / shutdown of every renderer, the render scale and the frame statistics.
+
 #include "Zamin/Renderer/RenderCommand.h"
 
 #include <filesystem>
@@ -7,6 +10,8 @@
 
 namespace Zamin {
 
+    /// What the renderers drew since the last Renderer::ResetStats (the editor's statistics, the
+    /// player's `ZAMIN_PLAYER_STATS` log).
     struct RenderStatistics
     {
         uint32_t DrawCalls = 0;
@@ -15,53 +20,62 @@ namespace Zamin {
         uint32_t LineCount = 0;
         uint32_t MeshCount = 0;
         uint32_t TriangleCount = 0;
-        uint32_t TransparentCount = 0; // meshes drawn in the sorted transparent pass (also in MeshCount)
-        uint32_t CulledMeshCount = 0;  // meshes skipped: outside the camera's view (frustum culling)
-        uint32_t InstancedMeshCount = 0;  // meshes drawn as instances (also in MeshCount)
-        uint32_t InstancedDrawCount = 0;  // the instanced draw calls they took (also in DrawCalls)
-        uint32_t ShadowCasterCount = 0;   // shadow caster draws into the cascades (summed over the cascades)
-        uint32_t CulledShadowCasterCount = 0; // shadow caster draws skipped: outside a cascade's volume
-        uint32_t InstancedShadowCasterCount = 0; // shadow caster draws done as instances (also in ShadowCasterCount)
-        uint32_t InstancedShadowDrawCount = 0;   // the instanced draw calls they took (also in DrawCalls)
-        uint32_t SpriteCount = 0;         // 2D objects drawn: sprites, circles, texts, particle systems
-        uint32_t CulledSpriteCount = 0;   // 2D objects skipped: outside the camera's view
-        uint32_t TileChunkCount = 0;      // tilemap chunks drawn (blocks of TilemapChunkSize x TilemapChunkSize tiles)
-        uint32_t CulledTileChunkCount = 0; // tilemap chunks skipped: outside the camera's view
-        uint32_t ParticleCount = 0;       // particles drawn (every system)
-        uint32_t InstancedParticleCount = 0;     // of them drawn as GPU instances (ParticleRenderer)
-        uint32_t InstancedParticleDrawCount = 0; // the instanced draw calls they took (also in DrawCalls)
+        uint32_t TransparentCount = 0; ///< meshes drawn in the sorted transparent pass (also in MeshCount)
+        uint32_t CulledMeshCount = 0;  ///< meshes skipped: outside the camera's view (frustum culling)
+        uint32_t InstancedMeshCount = 0;  ///< meshes drawn as instances (also in MeshCount)
+        uint32_t InstancedDrawCount = 0;  ///< the instanced draw calls they took (also in DrawCalls)
+        uint32_t ShadowCasterCount = 0;   ///< shadow caster draws into the cascades (summed over the cascades)
+        uint32_t CulledShadowCasterCount = 0; ///< shadow caster draws skipped: outside a cascade's volume
+        uint32_t InstancedShadowCasterCount = 0; ///< shadow caster draws done as instances (also in ShadowCasterCount)
+        uint32_t InstancedShadowDrawCount = 0;   ///< the instanced draw calls they took (also in DrawCalls)
+        uint32_t SpriteCount = 0;         ///< 2D objects drawn: sprites, circles, texts, particle systems
+        uint32_t CulledSpriteCount = 0;   ///< 2D objects skipped: outside the camera's view
+        uint32_t TileChunkCount = 0;      ///< tilemap chunks drawn (blocks of TilemapChunkSize x TilemapChunkSize tiles)
+        uint32_t CulledTileChunkCount = 0; ///< tilemap chunks skipped: outside the camera's view
+        uint32_t ParticleCount = 0;       ///< particles drawn (every system)
+        uint32_t InstancedParticleCount = 0;     ///< of them drawn as GPU instances (ParticleRenderer)
+        uint32_t InstancedParticleDrawCount = 0; ///< the instanced draw calls they took (also in DrawCalls)
 
-        // One line for logs (ZAMIN_EDITOR_STATS / ZAMIN_PLAYER_STATS): what was drawn, culled
-        // and instanced.
+        /// One line for logs (ZAMIN_EDITOR_STATS / ZAMIN_PLAYER_STATS): what was drawn, culled
+        /// and instanced.
         std::string Format() const;
-        // A count short enough for an overlay: 950, 12.3K, 1.24M, 2.1B.
+        /// A count short enough for an overlay: 950, 12.3K, 1.24M, 2.1B.
         static std::string FormatCount(uint64_t value);
     };
 
+    /// The renderer as a whole. The renderers themselves are Renderer2D (sprites, text, UI), Renderer3D
+    /// (meshes), ParticleRenderer and PostProcessor; they talk to the GPU only through RenderCommand /
+    /// RendererAPI and the resource interfaces (Shader, Texture2D, Framebuffer, VertexArray ...),
+    /// whose OpenGL implementation is in Platform/OpenGL.
     class Renderer
     {
     public:
+        /// RenderCommand, Renderer2D, Renderer3D, ParticleRenderer and PostProcessor (Application calls it
+        /// once the window and its context exist).
         static void Init();
+        /// Frees the caches (fonts, models, materials, environment maps, meshes, textures) and every
+        /// renderer, in reverse order.
         static void Shutdown();
+        /// The default framebuffer's viewport follows the window (Application calls it on a resize).
         static void OnWindowResize(uint32_t width, uint32_t height);
 
-        static RendererAPI::API GetAPI() { return RendererAPI::GetAPI(); }
+        static RendererAPI::API GetAPI() { return RendererAPI::GetAPI(); }  ///< the graphics API in use (OpenGL)
 
-        // Render scale (SceneSettings::RenderScale): the 3D scene picture is drawn at this many
-        // times the view's size, then scaled to it with linear filtering (below 1: faster and
-        // softer, above 1: supersampled).
+        /// Render scale (SceneSettings::RenderScale): the 3D scene picture is drawn at this many
+        /// times the view's size, then scaled to it with linear filtering (below 1: faster and
+        /// softer, above 1: supersampled).
         static constexpr float MinRenderScale = 0.5f;
         static constexpr float MaxRenderScale = 2.0f;
-        static constexpr uint32_t MaxRenderSize = 8192; // the largest framebuffer side
-        // The size a width x height view is drawn at with `renderScale` (clamped to the range
-        // above): each side rounded, at least 1 pixel; the scale is lowered as needed so that
-        // neither side exceeds MaxRenderSize (the aspect ratio is kept).
+        static constexpr uint32_t MaxRenderSize = 8192; ///< the largest framebuffer side
+        /// The size a width x height view is drawn at with `renderScale` (clamped to the range
+        /// above): each side rounded, at least 1 pixel; the scale is lowered as needed so that
+        /// neither side exceeds MaxRenderSize (the aspect ratio is kept).
         static glm::uvec2 GetRenderResolution(uint32_t width, uint32_t height, float renderScale);
 
-        static RenderStatistics& GetStats() { return s_Stats; }
-        static void ResetStats() { s_Stats = {}; }
+        static RenderStatistics& GetStats() { return s_Stats; }  ///< counted since ResetStats
+        static void ResetStats() { s_Stats = {}; }                ///< the editor / player call it every frame
 
-        // Directory containing engine resources (fonts, icons ...).
+        /// Directory containing engine resources (fonts, icons ...).
         static std::filesystem::path GetResourcesDirectory();
 
     private:

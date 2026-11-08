@@ -7,13 +7,28 @@ vazifa, eng yangisi tepada. Manba — git tarixi: `Tests/changelog.py` commit'la
 `Tests/docs_check.py` (ctest `DocsCheck`) tekshiradi. Commit sarlavhasi `Mnn` bilan boshlanmasa, u oldingi commit'ning
 milestone'iga tegishli; 500 vazifalik rejadan oldingi commit'lar — **M00**, dvigatelning dastlabki versiyasi.
 
-Dvigatel versiyasi: **0.1.0** (`project(Zamin VERSION ...)`, hali reliz qilinmagan). Rejadagi milestone'lar — M24
-"Namuna o'yinlar" va M25 "Optimallashtirish va sayqal" — [docs/TASKS.md](docs/TASKS.md) da. Yangi milestone'ning
+Dvigatel versiyasi: **0.1.0** (`project(Zamin VERSION ...)`, hali reliz qilinmagan). Rejadagi milestone — M25
+"Optimallashtirish va sayqal" — [docs/TASKS.md](docs/TASKS.md) da. Yangi milestone'ning
 vazifalari bajarila boshlaganda unga bo'lim qo'shing ([CONTRIBUTING.md](CONTRIBUTING.md#9-vazifalar-royxati-va-changelog)).
+
+## M24 Namuna o'yinlar
+
+2026-11-08 · vazifalar 461–480 · `5623496` dan boshlab (so'nggi milestone)
+
+- Yangi namuna loyihalar (har biri o'z `.zproject`, `Assets/`, C++ skriptlar moduli `Source/` bilan, ildiz build'da):
+  **Neon Maydon** (`Projects/TopDownShooter`: twin-stick kema, siltanish, 5 xil dushman, to'lqinlar, hisob va kombo,
+  bonuslar), **Zamin Breakout** (`Projects/Breakout`: raketka, Box2D to'p fizikasi, oddiy / qattiq / po'lat / oltin /
+  bomba g'ishtlar, 6 ta bonus, 6 ta daraja) va **FPS Arena** (`Projects/FPSArena`: sichqoncha bilan qarash, yugurish
+  va chidamlilik, sakrash, cho'kkalash, sakratgich, parkur yo'lagi va aylana rekordi).
+- Har bir o'yinda: bosh menyu (orqada bot o'ynaydi), pauza menyusi, o'yin tugashi oynasi, SaveData rekordi, loyiha
+  input action'lari (klaviatura + sichqoncha + gamepad), o'zbekcha / inglizcha matnlar (lokalizatsiya) va demo rejimi
+  (`ZAMIN_DEMO=1` — bot o'ynaydi, jurnalga `Demo: ...` qatorlari yoziladi).
+- Assetlarning hammasi kod bilan yaratiladi: `Tools/samples/gen_*.py` (umumiy `samplekit.py`) teksturalar, sprite
+  atlaslari, normal map'lar, WAV tovushlar va musiqani, sahna va loyiha fayllarini yozadi.
 
 ## M23 Hujjatlar
 
-2026-11-08 · vazifalar 441–460 · `a95a849` dan boshlab (so'nggi milestone)
+2026-11-08 · vazifalar 441–460 · 10 ta commit (`a95a849` … `0ecc1ee`)
 
 - `docs/` fayllari bitta nomlash tartibiga o'tdi (PascalCase: `AI.md`, `Animation.md`, `Core.md`, `Prefabs.md`,
   `ProjectSettings.md`, `Runtime.md`, `Scenes.md`, `Testing.md` ...), barcha havolalar va koddagi izohlar yangilandi.

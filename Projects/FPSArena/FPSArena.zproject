@@ -1,0 +1,174 @@
+{
+    "Version": 2,
+    "Project": {
+        "Name": "FPSArena",
+        "StartScene": "Scenes/Arena.zscene",
+        "StartSceneUUID": "d995ae49c151c48b",
+        "AssetDirectory": "Assets",
+        "SourceDirectory": "Source",
+        "ScriptModulePath": "Binaries/libFPSArena.so",
+        "EngineVersion": "0.1.0"
+    },
+    "Player": {
+        "Company": "Zamin Studio",
+        "Product": "FPS Arena",
+        "Version": "1.0.0",
+        "Width": 1280,
+        "Height": 720,
+        "WindowMode": "Windowed",
+        "Resizable": true,
+        "VSync": true,
+        "Title": "",
+        "VersionInTitle": false,
+        "TargetFrameRate": 0,
+        "RunInBackground": true,
+        "Icon": "Textures/GameIcon.png"
+    },
+    "BuildScenes": [
+        {
+            "Path": "Scenes/Arena.zscene",
+            "Enabled": true,
+            "UUID": "d995ae49c151c48b"
+        }
+    ],
+    "InputActions": {
+        "Actions": [
+            {
+                "Name": "Jump",
+                "Bindings": [
+                    "Key:Space",
+                    "Gamepad:A"
+                ]
+            },
+            {
+                "Name": "Sprint",
+                "Bindings": [
+                    "Key:LeftShift",
+                    "Gamepad:LeftThumb"
+                ]
+            },
+            {
+                "Name": "Crouch",
+                "Bindings": [
+                    "Key:C",
+                    "Key:LeftControl",
+                    "Gamepad:B"
+                ]
+            },
+            {
+                "Name": "Fire",
+                "Bindings": [
+                    "Mouse:Left",
+                    "GamepadAxis:RightTrigger+"
+                ]
+            },
+            {
+                "Name": "Pause",
+                "Bindings": [
+                    "Key:Escape",
+                    "Key:P",
+                    "Gamepad:Start"
+                ]
+            }
+        ],
+        "Axes": [
+            {
+                "Name": "MoveX",
+                "Negative": [
+                    "Key:A",
+                    "Key:Left"
+                ],
+                "Positive": [
+                    "Key:D",
+                    "Key:Right"
+                ],
+                "Deadzone": 0.2,
+                "Invert": false,
+                "GamepadAxis": "LeftX"
+            },
+            {
+                "Name": "MoveY",
+                "Negative": [
+                    "Key:S",
+                    "Key:Down"
+                ],
+                "Positive": [
+                    "Key:W",
+                    "Key:Up"
+                ],
+                "Deadzone": 0.2,
+                "Invert": true,
+                "GamepadAxis": "LeftY"
+            },
+            {
+                "Name": "LookX",
+                "Negative": [],
+                "Positive": [],
+                "Deadzone": 0.12,
+                "Invert": false,
+                "GamepadAxis": "RightX"
+            },
+            {
+                "Name": "LookY",
+                "Negative": [],
+                "Positive": [],
+                "Deadzone": 0.12,
+                "Invert": true,
+                "GamepadAxis": "RightY"
+            }
+        ],
+        "Vectors": [
+            {
+                "Name": "Move",
+                "X": "MoveX",
+                "Y": "MoveY",
+                "Mode": "Clamp",
+                "Deadzone": 0.0
+            },
+            {
+                "Name": "Look",
+                "X": "LookX",
+                "Y": "LookY",
+                "Mode": "Clamp",
+                "Deadzone": 0.0
+            }
+        ]
+    },
+    "Tags": [
+        "Player",
+        "JumpPad"
+    ],
+    "Localization": {
+        "DefaultLanguage": "uz",
+        "Languages": [
+            "uz",
+            "en"
+        ],
+        "Directory": "Localization",
+        "UseSystemLanguage": false
+    },
+    "Audio": {
+        "Groups": [
+            {
+                "Name": "Master",
+                "Volume": 1.0
+            },
+            {
+                "Name": "Music",
+                "Parent": "Master",
+                "Volume": 0.55
+            },
+            {
+                "Name": "SFX",
+                "Parent": "Master",
+                "Volume": 0.9
+            },
+            {
+                "Name": "UI",
+                "Parent": "Master",
+                "Volume": 0.8
+            }
+        ],
+        "StreamThresholdMB": 4.0
+    }
+}

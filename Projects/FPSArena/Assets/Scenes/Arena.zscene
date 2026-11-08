@@ -1,0 +1,7508 @@
+{
+  "Scene": "Arena",
+  "Version": 5,
+  "Settings": {
+    "DrawSky": true,
+    "SkyTop": [
+      0.1,
+      0.2,
+      0.46
+    ],
+    "SkyHorizon": [
+      0.92,
+      0.62,
+      0.42
+    ],
+    "Ground": [
+      0.22,
+      0.2,
+      0.2
+    ],
+    "Ambient": 0.5,
+    "Exposure": 1.0,
+    "ShadowDistance": 60,
+    "Sky": {
+      "Curve": 1.0,
+      "GroundFade": 1.0,
+      "SunDisc": true,
+      "SunSize": 1.0,
+      "SunIntensity": 1.0,
+      "SunGlow": 1.0
+    },
+    "Fog": {
+      "Enabled": true,
+      "Color": [
+        0.62,
+        0.52,
+        0.5
+      ],
+      "Density": 0.0055,
+      "HeightFalloff": 0.1
+    },
+    "Post": {
+      "Tonemap": 1,
+      "Bloom": true,
+      "BloomThreshold": 1.0,
+      "BloomKnee": 0.5,
+      "BloomIntensity": 0.6,
+      "BloomRadius": 1.0,
+      "Vignette": 0.28,
+      "Saturation": 1.1,
+      "Contrast": 1.06,
+      "Brightness": 0.0,
+      "Tint": [
+        1,
+        1,
+        1
+      ],
+      "SSAO": true,
+      "SSAORadius": 0.6,
+      "SSAOIntensity": 1.2,
+      "SSAOBias": 0.03,
+      "FXAA": true
+    },
+    "Gravity3D": [
+      0,
+      -9.81,
+      0
+    ]
+  },
+  "Metadata": {
+    "Description": "FPS Arena: birinchi shaxs boshqaruvi - sichqoncha bilan qarash, yugurish, sakrash, cho'kkalash, sakratgich va parkur yo'lagi",
+    "Author": "Zamin",
+    "Tags": [
+      "namuna",
+      "3D",
+      "fps"
+    ]
+  },
+  "RootOrder": [
+    8830000000000001,
+    8830000000000002,
+    8830000000000058,
+    8830000000000065,
+    8830000000000067,
+    8830000000000068
+  ],
+  "Entities": [
+    {
+      "Entity": 8830000000000001,
+      "Tag": "Quyosh",
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          -0.5585053606381855,
+          0.6108652381980153,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "DirectionalLight": {
+        "Color": [
+          1.0,
+          0.8,
+          0.6
+        ],
+        "Intensity": 3.4,
+        "CastShadows": true
+      }
+    },
+    {
+      "Entity": 8830000000000002,
+      "Tag": "Arena",
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "ChildOrder": [
+        8830000000000003,
+        8830000000000004,
+        8830000000000005,
+        8830000000000006,
+        8830000000000007,
+        8830000000000008,
+        8830000000000009,
+        8830000000000010,
+        8830000000000011,
+        8830000000000012,
+        8830000000000027,
+        8830000000000029,
+        8830000000000031,
+        8830000000000033,
+        8830000000000035,
+        8830000000000037,
+        8830000000000039,
+        8830000000000040,
+        8830000000000041,
+        8830000000000042,
+        8830000000000043,
+        8830000000000044,
+        8830000000000045,
+        8830000000000046,
+        8830000000000047,
+        8830000000000048,
+        8830000000000049,
+        8830000000000050,
+        8830000000000051,
+        8830000000000052,
+        8830000000000053,
+        8830000000000054,
+        8830000000000055,
+        8830000000000057
+      ]
+    },
+    {
+      "Entity": 8830000000000003,
+      "Tag": "Pol",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          0.0,
+          -0.5,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          50.0,
+          1.0,
+          50.0
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "Textures/floor.png",
+        "Tiling": [
+          12.0,
+          12.0
+        ],
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/floor_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.0,
+        "Roughness": 0.85,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.8,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8830000000000004,
+      "Tag": "Devor (shimol)",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          0.0,
+          3.0,
+          -25.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          50.0,
+          6.0,
+          1.0
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "Textures/wall.png",
+        "Tiling": [
+          16.666666666666668,
+          2.0
+        ],
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/wall_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.3,
+        "Roughness": 0.55,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.8,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8830000000000005,
+      "Tag": "Devor (janub)",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          0.0,
+          3.0,
+          25.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          50.0,
+          6.0,
+          1.0
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "Textures/wall.png",
+        "Tiling": [
+          16.666666666666668,
+          2.0
+        ],
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/wall_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.3,
+        "Roughness": 0.55,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.8,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8830000000000006,
+      "Tag": "Devor (g'arb)",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          -25.0,
+          3.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          6.0,
+          50.0
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "Textures/wall.png",
+        "Tiling": [
+          16.666666666666668,
+          2.0
+        ],
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/wall_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.3,
+        "Roughness": 0.55,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.8,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8830000000000007,
+      "Tag": "Devor (sharq)",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          25.0,
+          3.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          6.0,
+          50.0
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "Textures/wall.png",
+        "Tiling": [
+          16.666666666666668,
+          2.0
+        ],
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/wall_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.3,
+        "Roughness": 0.55,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.8,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8830000000000008,
+      "Tag": "Chiroq tasmasi 1",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          0.0,
+          5.6,
+          -24.45
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          46.0,
+          0.12,
+          0.1
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          0.6,
+          0.2,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.0,
+        "Roughness": 0.75,
+        "Emission": [
+          1.0,
+          0.55,
+          0.15
+        ],
+        "EmissionStrength": 6.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      }
+    },
+    {
+      "Entity": 8830000000000009,
+      "Tag": "Chiroq tasmasi 2",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          0.0,
+          5.6,
+          24.45
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          46.0,
+          0.12,
+          0.1
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          0.6,
+          0.2,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.0,
+        "Roughness": 0.75,
+        "Emission": [
+          1.0,
+          0.55,
+          0.15
+        ],
+        "EmissionStrength": 6.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      }
+    },
+    {
+      "Entity": 8830000000000010,
+      "Tag": "Chiroq tasmasi 3",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          -24.45,
+          5.6,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          0.1,
+          0.12,
+          46.0
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          0.6,
+          0.2,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.0,
+        "Roughness": 0.75,
+        "Emission": [
+          1.0,
+          0.55,
+          0.15
+        ],
+        "EmissionStrength": 6.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      }
+    },
+    {
+      "Entity": 8830000000000011,
+      "Tag": "Chiroq tasmasi 4",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          24.45,
+          5.6,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          0.1,
+          0.12,
+          46.0
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          0.6,
+          0.2,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.0,
+        "Roughness": 0.75,
+        "Emission": [
+          1.0,
+          0.55,
+          0.15
+        ],
+        "EmissionStrength": 6.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      }
+    },
+    {
+      "Entity": 8830000000000012,
+      "Tag": "Platforma",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "ChildOrder": [
+        8830000000000013,
+        8830000000000014,
+        8830000000000015,
+        8830000000000016,
+        8830000000000017,
+        8830000000000018,
+        8830000000000019,
+        8830000000000020,
+        8830000000000021,
+        8830000000000022,
+        8830000000000023,
+        8830000000000024,
+        8830000000000025,
+        8830000000000026
+      ]
+    },
+    {
+      "Entity": 8830000000000013,
+      "Tag": "Platforma tanasi",
+      "Parent": 8830000000000012,
+      "Transform": {
+        "Translation": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          10.0,
+          2.0,
+          10.0
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "Textures/wall.png",
+        "Tiling": [
+          3.0,
+          1.0
+        ],
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/wall_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.25,
+        "Roughness": 0.5,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.8,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8830000000000014,
+      "Tag": "Platforma usti",
+      "Parent": 8830000000000012,
+      "Transform": {
+        "Translation": [
+          0.0,
+          2.02,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          10.2,
+          0.06,
+          10.2
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.85,
+          0.88,
+          0.95,
+          1.0
+        ],
+        "AlbedoMap": "Textures/floor.png",
+        "Tiling": [
+          3.0,
+          3.0
+        ],
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/floor_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.0,
+        "Roughness": 0.75,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      }
+    },
+    {
+      "Entity": 8830000000000015,
+      "Tag": "Qiya yo'lak",
+      "Parent": 8830000000000012,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.7919968603062709,
+          -8.5
+        ],
+        "Rotation": [
+          -0.27829965900511133,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          4.0,
+          0.4,
+          7.280109889280518
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.95,
+          0.85,
+          0.7,
+          1.0
+        ],
+        "AlbedoMap": "Textures/floor.png",
+        "Tiling": [
+          1.5,
+          3.0
+        ],
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/floor_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.0,
+        "Roughness": 0.75,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.8,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8830000000000016,
+      "Tag": "Zina 1",
+      "Parent": 8830000000000012,
+      "Transform": {
+        "Translation": [
+          5.25,
+          1.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          0.5,
+          2.0,
+          4.0
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.9,
+          0.9,
+          0.95,
+          1.0
+        ],
+        "AlbedoMap": "Textures/floor.png",
+        "Tiling": [
+          0.3,
+          1.0
+        ],
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/floor_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.0,
+        "Roughness": 0.75,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.8,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8830000000000017,
+      "Tag": "Zina 2",
+      "Parent": 8830000000000012,
+      "Transform": {
+        "Translation": [
+          5.75,
+          0.8571428571428572,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          0.5,
+          1.7142857142857144,
+          4.0
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.9,
+          0.9,
+          0.95,
+          1.0
+        ],
+        "AlbedoMap": "Textures/floor.png",
+        "Tiling": [
+          0.3,
+          1.0
+        ],
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/floor_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.0,
+        "Roughness": 0.75,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.8,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8830000000000018,
+      "Tag": "Zina 3",
+      "Parent": 8830000000000012,
+      "Transform": {
+        "Translation": [
+          6.25,
+          0.7142857142857143,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          0.5,
+          1.4285714285714286,
+          4.0
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.9,
+          0.9,
+          0.95,
+          1.0
+        ],
+        "AlbedoMap": "Textures/floor.png",
+        "Tiling": [
+          0.3,
+          1.0
+        ],
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/floor_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.0,
+        "Roughness": 0.75,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.8,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8830000000000019,
+      "Tag": "Zina 4",
+      "Parent": 8830000000000012,
+      "Transform": {
+        "Translation": [
+          6.75,
+          0.5714285714285714,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          0.5,
+          1.1428571428571428,
+          4.0
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.9,
+          0.9,
+          0.95,
+          1.0
+        ],
+        "AlbedoMap": "Textures/floor.png",
+        "Tiling": [
+          0.3,
+          1.0
+        ],
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/floor_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.0,
+        "Roughness": 0.75,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.8,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8830000000000020,
+      "Tag": "Zina 5",
+      "Parent": 8830000000000012,
+      "Transform": {
+        "Translation": [
+          7.25,
+          0.4285714285714286,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          0.5,
+          0.8571428571428572,
+          4.0
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.9,
+          0.9,
+          0.95,
+          1.0
+        ],
+        "AlbedoMap": "Textures/floor.png",
+        "Tiling": [
+          0.3,
+          1.0
+        ],
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/floor_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.0,
+        "Roughness": 0.75,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.8,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8830000000000021,
+      "Tag": "Zina 6",
+      "Parent": 8830000000000012,
+      "Transform": {
+        "Translation": [
+          7.75,
+          0.2857142857142858,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          0.5,
+          0.5714285714285716,
+          4.0
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.9,
+          0.9,
+          0.95,
+          1.0
+        ],
+        "AlbedoMap": "Textures/floor.png",
+        "Tiling": [
+          0.3,
+          1.0
+        ],
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/floor_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.0,
+        "Roughness": 0.75,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.8,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8830000000000022,
+      "Tag": "Zina 7",
+      "Parent": 8830000000000012,
+      "Transform": {
+        "Translation": [
+          8.25,
+          0.1428571428571429,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          0.5,
+          0.2857142857142858,
+          4.0
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.9,
+          0.9,
+          0.95,
+          1.0
+        ],
+        "AlbedoMap": "Textures/floor.png",
+        "Tiling": [
+          0.3,
+          1.0
+        ],
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/floor_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.0,
+        "Roughness": 0.75,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.8,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8830000000000023,
+      "Tag": "Platforma chirog'i",
+      "Parent": 8830000000000012,
+      "Transform": {
+        "Translation": [
+          -4.6,
+          2.6,
+          -4.6
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          0.25,
+          0.25,
+          0.25
+        ]
+      },
+      "PointLight": {
+        "Color": [
+          1.0,
+          0.6,
+          0.25
+        ],
+        "Intensity": 3.0,
+        "Radius": 6.0
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          0.7,
+          0.4,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.0,
+        "Roughness": 0.6,
+        "Emission": [
+          1.0,
+          0.6,
+          0.25
+        ],
+        "EmissionStrength": 8.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      }
+    },
+    {
+      "Entity": 8830000000000024,
+      "Tag": "Platforma chirog'i",
+      "Parent": 8830000000000012,
+      "Transform": {
+        "Translation": [
+          4.6,
+          2.6,
+          -4.6
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          0.25,
+          0.25,
+          0.25
+        ]
+      },
+      "PointLight": {
+        "Color": [
+          1.0,
+          0.6,
+          0.25
+        ],
+        "Intensity": 3.0,
+        "Radius": 6.0
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          0.7,
+          0.4,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.0,
+        "Roughness": 0.6,
+        "Emission": [
+          1.0,
+          0.6,
+          0.25
+        ],
+        "EmissionStrength": 8.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      }
+    },
+    {
+      "Entity": 8830000000000025,
+      "Tag": "Platforma chirog'i",
+      "Parent": 8830000000000012,
+      "Transform": {
+        "Translation": [
+          -4.6,
+          2.6,
+          4.6
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          0.25,
+          0.25,
+          0.25
+        ]
+      },
+      "PointLight": {
+        "Color": [
+          1.0,
+          0.6,
+          0.25
+        ],
+        "Intensity": 3.0,
+        "Radius": 6.0
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          0.7,
+          0.4,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.0,
+        "Roughness": 0.6,
+        "Emission": [
+          1.0,
+          0.6,
+          0.25
+        ],
+        "EmissionStrength": 8.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      }
+    },
+    {
+      "Entity": 8830000000000026,
+      "Tag": "Platforma chirog'i",
+      "Parent": 8830000000000012,
+      "Transform": {
+        "Translation": [
+          4.6,
+          2.6,
+          4.6
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          0.25,
+          0.25,
+          0.25
+        ]
+      },
+      "PointLight": {
+        "Color": [
+          1.0,
+          0.6,
+          0.25
+        ],
+        "Intensity": 3.0,
+        "Radius": 6.0
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          0.7,
+          0.4,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.0,
+        "Roughness": 0.6,
+        "Emission": [
+          1.0,
+          0.6,
+          0.25
+        ],
+        "EmissionStrength": 8.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      }
+    },
+    {
+      "Entity": 8830000000000027,
+      "Tag": "Ustun 1",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          -8.0,
+          3.0,
+          -10.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.6,
+          6.0,
+          1.6
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "Textures/wall.png",
+        "Tiling": [
+          0.6,
+          2.0
+        ],
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/wall_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.4,
+        "Roughness": 0.45,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.8,
+        "Restitution": 0.0,
+        "IsSensor": false
+      },
+      "ChildOrder": [
+        8830000000000028
+      ]
+    },
+    {
+      "Entity": 8830000000000028,
+      "Tag": "Halqa",
+      "Parent": 8830000000000027,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.15,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.06,
+          0.03,
+          1.06
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.8,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.0,
+        "Roughness": 0.6,
+        "Emission": [
+          0.2,
+          0.75,
+          1.0
+        ],
+        "EmissionStrength": 7.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      }
+    },
+    {
+      "Entity": 8830000000000029,
+      "Tag": "Ustun 2",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          8.0,
+          3.0,
+          -10.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.6,
+          6.0,
+          1.6
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "Textures/wall.png",
+        "Tiling": [
+          0.6,
+          2.0
+        ],
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/wall_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.4,
+        "Roughness": 0.45,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.8,
+        "Restitution": 0.0,
+        "IsSensor": false
+      },
+      "ChildOrder": [
+        8830000000000030
+      ]
+    },
+    {
+      "Entity": 8830000000000030,
+      "Tag": "Halqa",
+      "Parent": 8830000000000029,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.15,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.06,
+          0.03,
+          1.06
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.8,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.0,
+        "Roughness": 0.6,
+        "Emission": [
+          0.2,
+          0.75,
+          1.0
+        ],
+        "EmissionStrength": 7.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      }
+    },
+    {
+      "Entity": 8830000000000031,
+      "Tag": "Ustun 3",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          -18.0,
+          3.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.6,
+          6.0,
+          1.6
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "Textures/wall.png",
+        "Tiling": [
+          0.6,
+          2.0
+        ],
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/wall_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.4,
+        "Roughness": 0.45,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.8,
+        "Restitution": 0.0,
+        "IsSensor": false
+      },
+      "ChildOrder": [
+        8830000000000032
+      ]
+    },
+    {
+      "Entity": 8830000000000032,
+      "Tag": "Halqa",
+      "Parent": 8830000000000031,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.15,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.06,
+          0.03,
+          1.06
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.8,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.0,
+        "Roughness": 0.6,
+        "Emission": [
+          0.2,
+          0.75,
+          1.0
+        ],
+        "EmissionStrength": 7.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      }
+    },
+    {
+      "Entity": 8830000000000033,
+      "Tag": "Ustun 4",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          18.0,
+          3.0,
+          8.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.6,
+          6.0,
+          1.6
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "Textures/wall.png",
+        "Tiling": [
+          0.6,
+          2.0
+        ],
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/wall_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.4,
+        "Roughness": 0.45,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.8,
+        "Restitution": 0.0,
+        "IsSensor": false
+      },
+      "ChildOrder": [
+        8830000000000034
+      ]
+    },
+    {
+      "Entity": 8830000000000034,
+      "Tag": "Halqa",
+      "Parent": 8830000000000033,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.15,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.06,
+          0.03,
+          1.06
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.8,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.0,
+        "Roughness": 0.6,
+        "Emission": [
+          0.2,
+          0.75,
+          1.0
+        ],
+        "EmissionStrength": 7.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      }
+    },
+    {
+      "Entity": 8830000000000035,
+      "Tag": "Ustun 5",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          -8.0,
+          3.0,
+          18.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.6,
+          6.0,
+          1.6
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "Textures/wall.png",
+        "Tiling": [
+          0.6,
+          2.0
+        ],
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/wall_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.4,
+        "Roughness": 0.45,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.8,
+        "Restitution": 0.0,
+        "IsSensor": false
+      },
+      "ChildOrder": [
+        8830000000000036
+      ]
+    },
+    {
+      "Entity": 8830000000000036,
+      "Tag": "Halqa",
+      "Parent": 8830000000000035,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.15,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.06,
+          0.03,
+          1.06
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.8,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.0,
+        "Roughness": 0.6,
+        "Emission": [
+          0.2,
+          0.75,
+          1.0
+        ],
+        "EmissionStrength": 7.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      }
+    },
+    {
+      "Entity": 8830000000000037,
+      "Tag": "Ustun 6",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          6.0,
+          3.0,
+          10.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.6,
+          6.0,
+          1.6
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "Textures/wall.png",
+        "Tiling": [
+          0.6,
+          2.0
+        ],
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/wall_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.4,
+        "Roughness": 0.45,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.8,
+        "Restitution": 0.0,
+        "IsSensor": false
+      },
+      "ChildOrder": [
+        8830000000000038
+      ]
+    },
+    {
+      "Entity": 8830000000000038,
+      "Tag": "Halqa",
+      "Parent": 8830000000000037,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.15,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.06,
+          0.03,
+          1.06
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.8,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.0,
+        "Roughness": 0.6,
+        "Emission": [
+          0.2,
+          0.75,
+          1.0
+        ],
+        "EmissionStrength": 7.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      }
+    },
+    {
+      "Entity": 8830000000000039,
+      "Tag": "Pana 1",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          -14.0,
+          0.7,
+          -16.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          6.0,
+          1.4,
+          0.8
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "Textures/wall.png",
+        "Tiling": [
+          3.4,
+          0.6
+        ],
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/wall_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.2,
+        "Roughness": 0.6,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.8,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8830000000000040,
+      "Tag": "Pana 2",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          16.0,
+          0.7,
+          -15.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          0.8,
+          1.4,
+          6.0
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "Textures/wall.png",
+        "Tiling": [
+          3.4,
+          0.6
+        ],
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/wall_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.2,
+        "Roughness": 0.6,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.8,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8830000000000041,
+      "Tag": "Pana 3",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          -4.0,
+          0.7,
+          12.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          5.0,
+          1.4,
+          0.8
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "Textures/wall.png",
+        "Tiling": [
+          2.9,
+          0.6
+        ],
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/wall_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.2,
+        "Roughness": 0.6,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.8,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8830000000000042,
+      "Tag": "Pana 4",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          18.0,
+          0.7,
+          18.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          4.0,
+          1.4,
+          0.8
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "Textures/wall.png",
+        "Tiling": [
+          2.4,
+          0.6
+        ],
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/wall_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.2,
+        "Roughness": 0.6,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.8,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8830000000000043,
+      "Tag": "Quti 1",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          -19.0,
+          0.6,
+          -18.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.2,
+          1.2,
+          1.2
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "Textures/crate.png",
+        "Tiling": 1.0,
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/crate_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.1,
+        "Roughness": 0.6,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Dynamic",
+        "Mass": 25.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.7,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8830000000000044,
+      "Tag": "Quti 2",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          -17.7,
+          0.6,
+          -18.2
+        ],
+        "Rotation": [
+          0.0,
+          0.2,
+          0.0
+        ],
+        "Scale": [
+          1.2,
+          1.2,
+          1.2
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "Textures/crate.png",
+        "Tiling": 1.0,
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/crate_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.1,
+        "Roughness": 0.6,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Dynamic",
+        "Mass": 25.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.7,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8830000000000045,
+      "Tag": "Quti 3",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          -18.4,
+          1.8,
+          -18.1
+        ],
+        "Rotation": [
+          0.0,
+          0.4,
+          0.0
+        ],
+        "Scale": [
+          1.2,
+          1.2,
+          1.2
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "Textures/crate.png",
+        "Tiling": 1.0,
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/crate_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.1,
+        "Roughness": 0.6,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Dynamic",
+        "Mass": 25.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.7,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8830000000000046,
+      "Tag": "Quti 4",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          19.0,
+          0.6,
+          -3.0
+        ],
+        "Rotation": [
+          0.0,
+          0.6000000000000001,
+          0.0
+        ],
+        "Scale": [
+          1.2,
+          1.2,
+          1.2
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "Textures/crate.png",
+        "Tiling": 1.0,
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/crate_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.1,
+        "Roughness": 0.6,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Dynamic",
+        "Mass": 25.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.7,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8830000000000047,
+      "Tag": "Quti 5",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          19.2,
+          0.6,
+          -1.7
+        ],
+        "Rotation": [
+          0.0,
+          0.8,
+          0.0
+        ],
+        "Scale": [
+          1.2,
+          1.2,
+          1.2
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "Textures/crate.png",
+        "Tiling": 1.0,
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/crate_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.1,
+        "Roughness": 0.6,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Dynamic",
+        "Mass": 25.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.7,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8830000000000048,
+      "Tag": "Quti 6",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          -20.0,
+          0.6,
+          15.0
+        ],
+        "Rotation": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "Scale": [
+          1.2,
+          1.2,
+          1.2
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "Textures/crate.png",
+        "Tiling": 1.0,
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/crate_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.1,
+        "Roughness": 0.6,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Dynamic",
+        "Mass": 25.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.7,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8830000000000049,
+      "Tag": "Quti 7",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          9.0,
+          0.6,
+          19.0
+        ],
+        "Rotation": [
+          0.0,
+          1.2000000000000002,
+          0.0
+        ],
+        "Scale": [
+          1.2,
+          1.2,
+          1.2
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "Textures/crate.png",
+        "Tiling": 1.0,
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/crate_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.1,
+        "Roughness": 0.6,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Dynamic",
+        "Mass": 25.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.7,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8830000000000050,
+      "Tag": "Quti 8",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          10.3,
+          0.6,
+          19.4
+        ],
+        "Rotation": [
+          0.0,
+          1.4000000000000001,
+          0.0
+        ],
+        "Scale": [
+          1.2,
+          1.2,
+          1.2
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "Textures/crate.png",
+        "Tiling": 1.0,
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "Textures/crate_normal.png",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.1,
+        "Roughness": 0.6,
+        "Emission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Dynamic",
+        "Mass": 25.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Friction": 0.7,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8830000000000051,
+      "Tag": "Rangli chiroq 1",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          -18.0,
+          4.0,
+          -18.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "PointLight": {
+        "Color": [
+          0.3,
+          0.6,
+          1.0
+        ],
+        "Intensity": 5.0,
+        "Radius": 14.0
+      }
+    },
+    {
+      "Entity": 8830000000000052,
+      "Tag": "Rangli chiroq 2",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          18.0,
+          4.0,
+          -18.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "PointLight": {
+        "Color": [
+          1.0,
+          0.4,
+          0.3
+        ],
+        "Intensity": 5.0,
+        "Radius": 14.0
+      }
+    },
+    {
+      "Entity": 8830000000000053,
+      "Tag": "Rangli chiroq 3",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          -18.0,
+          4.0,
+          18.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "PointLight": {
+        "Color": [
+          1.0,
+          0.5,
+          0.9
+        ],
+        "Intensity": 5.0,
+        "Radius": 14.0
+      }
+    },
+    {
+      "Entity": 8830000000000054,
+      "Tag": "Rangli chiroq 4",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          18.0,
+          4.0,
+          18.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "PointLight": {
+        "Color": [
+          0.4,
+          1.0,
+          0.6
+        ],
+        "Intensity": 5.0,
+        "Radius": 14.0
+      }
+    },
+    {
+      "Entity": 8830000000000055,
+      "Tag": "Sakratgich",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          -12.0,
+          0.06,
+          12.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          2.6,
+          0.12,
+          2.6
+        ]
+      },
+      "Tags": [
+        "JumpPad"
+      ],
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "Textures/pad.png",
+        "Tiling": 1.0,
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.2,
+        "Roughness": 0.3,
+        "Emission": [
+          0.3,
+          0.9,
+          1.0
+        ],
+        "EmissionStrength": 3.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "ChildOrder": [
+        8830000000000056
+      ]
+    },
+    {
+      "Entity": 8830000000000056,
+      "Tag": "Sakratgich chirog'i",
+      "Parent": 8830000000000055,
+      "Transform": {
+        "Translation": [
+          0.0,
+          8.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "PointLight": {
+        "Color": [
+          0.3,
+          0.85,
+          1.0
+        ],
+        "Intensity": 4.0,
+        "Radius": 7.0
+      }
+    },
+    {
+      "Entity": 8830000000000057,
+      "Tag": "Sakratgich zarralari",
+      "Parent": 8830000000000002,
+      "Transform": {
+        "Translation": [
+          -12.0,
+          0.2,
+          12.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "ParticleSystem": {
+        "Playing": true,
+        "Looping": true,
+        "PlayInEditor": true,
+        "EmissionRate": 22.0,
+        "Burst": 0,
+        "MaxParticles": 200,
+        "Shape": 1,
+        "ShapeRadius": 1.1,
+        "ShapeExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "LifetimeMin": 0.8,
+        "LifetimeMax": 1.4,
+        "SpeedMin": 2.0,
+        "SpeedMax": 4.5,
+        "Direction": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "Spread": 6.0,
+        "Gravity": [
+          0,
+          0,
+          0
+        ],
+        "Drag": 0.0,
+        "AngularVelocityMax": 0.0,
+        "StartColor": [
+          0.4,
+          1.6,
+          2.4,
+          1.0
+        ],
+        "EndColor": [
+          0.2,
+          0.5,
+          1.0,
+          0.0
+        ],
+        "StartSize": 0.14,
+        "EndSize": 0.02,
+        "RenderAsCircle": true,
+        "Additive": true,
+        "WorldSpace": true,
+        "Billboard": true,
+        "Texture": "",
+        "SortingOrder": 0
+      }
+    },
+    {
+      "Entity": 8830000000000058,
+      "Tag": "Parkur",
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "ChildOrder": [
+        8830000000000059,
+        8830000000000060,
+        8830000000000061,
+        8830000000000062,
+        8830000000000063,
+        8830000000000064
+      ]
+    },
+    {
+      "Entity": 8830000000000059,
+      "Tag": "Nuqta 1",
+      "Parent": 8830000000000058,
+      "Transform": {
+        "Translation": [
+          0.0,
+          1.3,
+          -17.0
+        ],
+        "Rotation": [
+          0.7853981633974483,
+          0.0,
+          0.7853981633974483
+        ],
+        "Scale": [
+          0.7,
+          0.7,
+          0.7
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          0.3,
+          0.8,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.1,
+        "Roughness": 0.2,
+        "Emission": [
+          0.3,
+          0.8,
+          1.0
+        ],
+        "EmissionStrength": 4.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "PointLight": {
+        "Color": [
+          0.3,
+          0.8,
+          1.0
+        ],
+        "Intensity": 2.5,
+        "Radius": 5.0
+      }
+    },
+    {
+      "Entity": 8830000000000060,
+      "Tag": "Nuqta 2",
+      "Parent": 8830000000000058,
+      "Transform": {
+        "Translation": [
+          0.0,
+          3.3,
+          -1.5
+        ],
+        "Rotation": [
+          0.7853981633974483,
+          0.0,
+          0.7853981633974483
+        ],
+        "Scale": [
+          0.7,
+          0.7,
+          0.7
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          0.3,
+          0.8,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.1,
+        "Roughness": 0.2,
+        "Emission": [
+          0.3,
+          0.8,
+          1.0
+        ],
+        "EmissionStrength": 4.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "PointLight": {
+        "Color": [
+          0.3,
+          0.8,
+          1.0
+        ],
+        "Intensity": 2.5,
+        "Radius": 5.0
+      }
+    },
+    {
+      "Entity": 8830000000000061,
+      "Tag": "Nuqta 3",
+      "Parent": 8830000000000058,
+      "Transform": {
+        "Translation": [
+          11.0,
+          1.3,
+          0.0
+        ],
+        "Rotation": [
+          0.7853981633974483,
+          0.0,
+          0.7853981633974483
+        ],
+        "Scale": [
+          0.7,
+          0.7,
+          0.7
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          0.3,
+          0.8,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.1,
+        "Roughness": 0.2,
+        "Emission": [
+          0.3,
+          0.8,
+          1.0
+        ],
+        "EmissionStrength": 4.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "PointLight": {
+        "Color": [
+          0.3,
+          0.8,
+          1.0
+        ],
+        "Intensity": 2.5,
+        "Radius": 5.0
+      }
+    },
+    {
+      "Entity": 8830000000000062,
+      "Tag": "Nuqta 4",
+      "Parent": 8830000000000058,
+      "Transform": {
+        "Translation": [
+          13.0,
+          1.3,
+          15.0
+        ],
+        "Rotation": [
+          0.7853981633974483,
+          0.0,
+          0.7853981633974483
+        ],
+        "Scale": [
+          0.7,
+          0.7,
+          0.7
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          0.3,
+          0.8,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.1,
+        "Roughness": 0.2,
+        "Emission": [
+          0.3,
+          0.8,
+          1.0
+        ],
+        "EmissionStrength": 4.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "PointLight": {
+        "Color": [
+          0.3,
+          0.8,
+          1.0
+        ],
+        "Intensity": 2.5,
+        "Radius": 5.0
+      }
+    },
+    {
+      "Entity": 8830000000000063,
+      "Tag": "Nuqta 5",
+      "Parent": 8830000000000058,
+      "Transform": {
+        "Translation": [
+          -12.0,
+          8.0,
+          12.0
+        ],
+        "Rotation": [
+          0.7853981633974483,
+          0.0,
+          0.7853981633974483
+        ],
+        "Scale": [
+          0.7,
+          0.7,
+          0.7
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          0.3,
+          0.8,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.1,
+        "Roughness": 0.2,
+        "Emission": [
+          0.3,
+          0.8,
+          1.0
+        ],
+        "EmissionStrength": 4.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "PointLight": {
+        "Color": [
+          0.3,
+          0.8,
+          1.0
+        ],
+        "Intensity": 2.5,
+        "Radius": 5.0
+      }
+    },
+    {
+      "Entity": 8830000000000064,
+      "Tag": "Nuqta 6",
+      "Parent": 8830000000000058,
+      "Transform": {
+        "Translation": [
+          -17.0,
+          1.3,
+          -8.0
+        ],
+        "Rotation": [
+          0.7853981633974483,
+          0.0,
+          0.7853981633974483
+        ],
+        "Scale": [
+          0.7,
+          0.7,
+          0.7
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          0.3,
+          0.8,
+          1.0,
+          1.0
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "NormalMap": "",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.1,
+        "Roughness": 0.2,
+        "Emission": [
+          0.3,
+          0.8,
+          1.0
+        ],
+        "EmissionStrength": 4.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      },
+      "PointLight": {
+        "Color": [
+          0.3,
+          0.8,
+          1.0
+        ],
+        "Intensity": 2.5,
+        "Radius": 5.0
+      }
+    },
+    {
+      "Entity": 8830000000000065,
+      "Tag": "O'yinchi",
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.05,
+          -20.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "Tags": [
+        "Player"
+      ],
+      "CharacterController3D": {
+        "Radius": 0.38,
+        "Height": 1.8,
+        "MaxSlope": 50.0,
+        "StepHeight": 0.4,
+        "Mass": 70.0,
+        "GravityScale": 1.7,
+        "StickToFloor": true
+      },
+      "AudioListener": {
+        "Enabled": true,
+        "Priority": 0,
+        "TrackVelocity": true
+      },
+      "NativeScript": {
+        "Class": "FirstPersonController",
+        "Fields": {
+          "Head": {
+            "Type": "Entity",
+            "Value": 8830000000000066
+          },
+          "BotRoute": {
+            "Type": "String",
+            "Value": "0,0,-17;0,0,-12;0,2,-5;0,2,0;4.4,2,0;9.5,0,0;11,0,0;13,0,8;13,0,15;2,0,17;-12,0,12;-17,0,2;-17,0,-8;-8,0,-17"
+          }
+        }
+      },
+      "ChildOrder": [
+        8830000000000066
+      ]
+    },
+    {
+      "Entity": 8830000000000066,
+      "Tag": "Bosh",
+      "Parent": 8830000000000065,
+      "Transform": {
+        "Translation": [
+          0.0,
+          1.62,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "Camera": {
+        "ProjectionType": 0,
+        "PerspectiveFOV": 1.1868238913561442,
+        "PerspectiveNear": 0.05,
+        "PerspectiveFar": 400.0,
+        "OrthographicSize": 10,
+        "OrthographicNear": -100,
+        "OrthographicFar": 100,
+        "Primary": true,
+        "FixedAspectRatio": false,
+        "ClearColor": [
+          0.5,
+          0.6,
+          0.75,
+          1.0
+        ],
+        "Shake": {
+          "MaxOffset": [
+            0.08,
+            0.08
+          ],
+          "MaxAngle": 2.5,
+          "Exponent": 2.0
+        }
+      }
+    },
+    {
+      "Entity": 8830000000000067,
+      "Tag": "Game",
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "NativeScript": {
+        "Class": "ArenaGame",
+        "Fields": {
+          "Player": {
+            "Type": "Entity",
+            "Value": 8830000000000065
+          },
+          "Checkpoints": {
+            "Type": "Entity",
+            "Value": 8830000000000058
+          },
+          "JumpPad": {
+            "Type": "Entity",
+            "Value": 8830000000000055
+          },
+          "Hud": {
+            "Type": "Entity",
+            "Value": 8830000000000069
+          },
+          "TimerText": {
+            "Type": "Entity",
+            "Value": 8830000000000073
+          },
+          "BestText": {
+            "Type": "Entity",
+            "Value": 8830000000000074
+          },
+          "ProgressText": {
+            "Type": "Entity",
+            "Value": 8830000000000075
+          },
+          "LapsText": {
+            "Type": "Entity",
+            "Value": 8830000000000076
+          },
+          "SpeedText": {
+            "Type": "Entity",
+            "Value": 8830000000000077
+          },
+          "StateText": {
+            "Type": "Entity",
+            "Value": 8830000000000078
+          },
+          "StaminaBar": {
+            "Type": "Entity",
+            "Value": 8830000000000080
+          },
+          "HintText": {
+            "Type": "Entity",
+            "Value": 8830000000000081
+          },
+          "Banner": {
+            "Type": "Entity",
+            "Value": 8830000000000082
+          },
+          "BannerSub": {
+            "Type": "Entity",
+            "Value": 8830000000000083
+          },
+          "DemoBadge": {
+            "Type": "Entity",
+            "Value": 8830000000000084
+          },
+          "MainMenu": {
+            "Type": "Entity",
+            "Value": 8830000000000085
+          },
+          "PauseMenu": {
+            "Type": "Entity",
+            "Value": 8830000000000096
+          },
+          "MenuBest": {
+            "Type": "Entity",
+            "Value": 8830000000000094
+          },
+          "PlayButton": {
+            "Type": "Entity",
+            "Value": 8830000000000091
+          },
+          "LanguageButton": {
+            "Type": "Entity",
+            "Value": 8830000000000092
+          },
+          "ResumeButton": {
+            "Type": "Entity",
+            "Value": 8830000000000099
+          },
+          "SensitivitySlider": {
+            "Type": "Entity",
+            "Value": 8830000000000101
+          },
+          "SensitivityText": {
+            "Type": "Entity",
+            "Value": 8830000000000100
+          }
+        }
+      },
+      "AudioSource": {
+        "Path": "Audio/ambience.wav",
+        "Volume": 0.5,
+        "Pitch": 1.0,
+        "Loop": true,
+        "PlayOnStart": true,
+        "Spatial": false,
+        "MinDistance": 1.0,
+        "MaxDistance": 30.0,
+        "Output": "Music",
+        "Stream": true
+      }
+    },
+    {
+      "Entity": 8830000000000068,
+      "Tag": "UI",
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.0,
+          0.0
+        ],
+        "AnchorMax": [
+          1.0,
+          1.0
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          0.0,
+          0.0
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UICanvas": {
+        "ScaleMode": "ScaleWithScreenSize",
+        "ScaleFactor": 1.0,
+        "ReferenceResolution": [
+          1920.0,
+          1080.0
+        ],
+        "MatchMode": "MatchWidthOrHeight",
+        "Match": 0.5
+      },
+      "ChildOrder": [
+        8830000000000069,
+        8830000000000085,
+        8830000000000096
+      ]
+    },
+    {
+      "Entity": 8830000000000069,
+      "Tag": "HUD",
+      "Parent": 8830000000000068,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.0,
+          0.0
+        ],
+        "AnchorMax": [
+          1.0,
+          1.0
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          0.0,
+          0.0
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "ChildOrder": [
+        8830000000000070,
+        8830000000000071,
+        8830000000000072,
+        8830000000000073,
+        8830000000000074,
+        8830000000000075,
+        8830000000000076,
+        8830000000000077,
+        8830000000000078,
+        8830000000000079,
+        8830000000000080,
+        8830000000000081,
+        8830000000000082,
+        8830000000000084
+      ]
+    },
+    {
+      "Entity": 8830000000000070,
+      "Tag": "Yuqori fon",
+      "Parent": 8830000000000069,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.0,
+          1.0
+        ],
+        "AnchorMax": [
+          1.0,
+          1.0
+        ],
+        "Pivot": [
+          0.5,
+          1.0
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          0.0,
+          150.0
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          0.0,
+          0.0,
+          0.0,
+          0.32
+        ],
+        "Type": "Simple",
+        "PreserveAspect": false,
+        "PixelArt": false,
+        "RaycastTarget": false,
+        "Texture": ""
+      }
+    },
+    {
+      "Entity": 8830000000000071,
+      "Tag": "Pastki fon",
+      "Parent": 8830000000000069,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.0,
+          0.0
+        ],
+        "AnchorMax": [
+          1.0,
+          0.0
+        ],
+        "Pivot": [
+          0.5,
+          0.0
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          0.0,
+          140.0
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          0.0,
+          0.0,
+          0.0,
+          0.28
+        ],
+        "Type": "Simple",
+        "PreserveAspect": false,
+        "PixelArt": false,
+        "RaycastTarget": false,
+        "Texture": ""
+      }
+    },
+    {
+      "Entity": 8830000000000072,
+      "Tag": "Nishon",
+      "Parent": 8830000000000069,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          44.0,
+          44.0
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          0.85
+        ],
+        "Type": "Simple",
+        "PreserveAspect": true,
+        "PixelArt": false,
+        "RaycastTarget": false,
+        "Texture": "Textures/ui_atlas.png",
+        "Sprite": "crosshair"
+      }
+    },
+    {
+      "Entity": 8830000000000073,
+      "Tag": "Vaqt",
+      "Parent": 8830000000000069,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          1.0
+        ],
+        "AnchorMax": [
+          0.5,
+          1.0
+        ],
+        "Pivot": [
+          0.5,
+          1.0
+        ],
+        "Position": [
+          0.0,
+          -30.0
+        ],
+        "Size": [
+          600.0,
+          70.0
+        ],
+        "FontSize": 60.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "00:00.00",
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8830000000000074,
+      "Tag": "Eng yaxshi vaqt",
+      "Parent": 8830000000000069,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          1.0
+        ],
+        "AnchorMax": [
+          0.5,
+          1.0
+        ],
+        "Pivot": [
+          0.5,
+          1.0
+        ],
+        "Position": [
+          0.0,
+          -100.0
+        ],
+        "Size": [
+          700.0,
+          34.0
+        ],
+        "FontSize": 28.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "",
+        "Color": [
+          1.0,
+          0.8,
+          0.4,
+          0.95
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8830000000000075,
+      "Tag": "Nuqtalar",
+      "Parent": 8830000000000069,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.0,
+          1.0
+        ],
+        "AnchorMax": [
+          0.0,
+          1.0
+        ],
+        "Pivot": [
+          0.0,
+          1.0
+        ],
+        "Position": [
+          50.0,
+          -40.0
+        ],
+        "Size": [
+          600.0,
+          44.0
+        ],
+        "FontSize": 36.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "",
+        "Color": [
+          0.6,
+          0.9,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8830000000000076,
+      "Tag": "Aylanalar",
+      "Parent": 8830000000000069,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.0,
+          1.0
+        ],
+        "AnchorMax": [
+          0.0,
+          1.0
+        ],
+        "Pivot": [
+          0.0,
+          1.0
+        ],
+        "Position": [
+          50.0,
+          -88.0
+        ],
+        "Size": [
+          600.0,
+          34.0
+        ],
+        "FontSize": 28.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "",
+        "Color": [
+          0.85,
+          0.85,
+          0.9,
+          0.85
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8830000000000077,
+      "Tag": "Tezlik",
+      "Parent": 8830000000000069,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.0,
+          0.0
+        ],
+        "AnchorMax": [
+          0.0,
+          0.0
+        ],
+        "Pivot": [
+          0.0,
+          0.0
+        ],
+        "Position": [
+          50.0,
+          86.0
+        ],
+        "Size": [
+          600.0,
+          40.0
+        ],
+        "FontSize": 32.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "",
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8830000000000078,
+      "Tag": "Holat",
+      "Parent": 8830000000000069,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.0,
+          0.0
+        ],
+        "AnchorMax": [
+          0.0,
+          0.0
+        ],
+        "Pivot": [
+          0.0,
+          0.0
+        ],
+        "Position": [
+          50.0,
+          44.0
+        ],
+        "Size": [
+          600.0,
+          34.0
+        ],
+        "FontSize": 26.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "",
+        "Color": [
+          0.75,
+          0.85,
+          1.0,
+          0.9
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8830000000000079,
+      "Tag": "Chidamlilik yorlig'i",
+      "Parent": 8830000000000069,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          1.0,
+          0.0
+        ],
+        "AnchorMax": [
+          1.0,
+          0.0
+        ],
+        "Pivot": [
+          1.0,
+          0.0
+        ],
+        "Position": [
+          -50.0,
+          84.0
+        ],
+        "Size": [
+          300.0,
+          28.0
+        ],
+        "FontSize": 22.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "CHIDAM",
+        "Color": [
+          1.0,
+          0.75,
+          0.4,
+          0.85
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Right",
+        "AlignV": "Middle",
+        "Font": "",
+        "LocalizationKey": "hud.stamina"
+      }
+    },
+    {
+      "Entity": 8830000000000080,
+      "Tag": "Chidamlilik",
+      "Parent": 8830000000000069,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          1.0,
+          0.0
+        ],
+        "AnchorMax": [
+          1.0,
+          0.0
+        ],
+        "Pivot": [
+          1.0,
+          0.0
+        ],
+        "Position": [
+          -50.0,
+          60.0
+        ],
+        "Size": [
+          300.0,
+          14.0
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIProgressBar": {
+        "Value": 1.0,
+        "Direction": "LeftToRight",
+        "BackgroundColor": [
+          0.05,
+          0.06,
+          0.1,
+          0.8
+        ],
+        "FillColor": [
+          1.0,
+          0.65,
+          0.2,
+          1.0
+        ],
+        "UseLowColor": false,
+        "LowColor": [
+          1,
+          0.2,
+          0.2,
+          1
+        ],
+        "Padding": 2.0,
+        "SmoothSpeed": 8.0,
+        "ShowPercentage": false,
+        "TextColor": [
+          1,
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 8830000000000081,
+      "Tag": "Maslahat",
+      "Parent": 8830000000000069,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.0
+        ],
+        "AnchorMax": [
+          0.5,
+          0.0
+        ],
+        "Pivot": [
+          0.5,
+          0.0
+        ],
+        "Position": [
+          0.0,
+          40.0
+        ],
+        "Size": [
+          1400.0,
+          36.0
+        ],
+        "FontSize": 26.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "",
+        "Color": [
+          0.9,
+          0.9,
+          1.0,
+          0.85
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8830000000000082,
+      "Tag": "E'lon",
+      "Parent": 8830000000000069,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          180.0
+        ],
+        "Size": [
+          1400.0,
+          110.0
+        ],
+        "FontSize": 92.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "",
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": ""
+      },
+      "UIAnimation": {
+        "Show": "Pop",
+        "Hide": "Fade",
+        "ShowAtStart": true,
+        "Duration": 0.35,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.0,
+        "PressScale": 1.0,
+        "FeedbackDuration": 0.08
+      },
+      "ChildOrder": [
+        8830000000000083
+      ]
+    },
+    {
+      "Entity": 8830000000000083,
+      "Tag": "E'lon izohi",
+      "Parent": 8830000000000082,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.0
+        ],
+        "AnchorMax": [
+          0.5,
+          0.0
+        ],
+        "Pivot": [
+          0.5,
+          1.0
+        ],
+        "Position": [
+          0.0,
+          -4.0
+        ],
+        "Size": [
+          1200.0,
+          46.0
+        ],
+        "FontSize": 36.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "",
+        "Color": [
+          1.0,
+          0.85,
+          0.6,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8830000000000084,
+      "Tag": "Demo belgisi",
+      "Active": false,
+      "Parent": 8830000000000069,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          1.0,
+          1.0
+        ],
+        "AnchorMax": [
+          1.0,
+          1.0
+        ],
+        "Pivot": [
+          1.0,
+          1.0
+        ],
+        "Position": [
+          -50.0,
+          -40.0
+        ],
+        "Size": [
+          600.0,
+          32.0
+        ],
+        "FontSize": 26.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "DEMO - avtomatik o'yin",
+        "Color": [
+          1.0,
+          0.8,
+          0.35,
+          0.9
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Right",
+        "AlignV": "Middle",
+        "Font": "",
+        "LocalizationKey": "hud.demo"
+      }
+    },
+    {
+      "Entity": 8830000000000085,
+      "Tag": "Bosh menyu",
+      "Parent": 8830000000000068,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.0,
+          0.0
+        ],
+        "AnchorMax": [
+          1.0,
+          1.0
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          0.0,
+          0.0
+        ],
+        "FontSize": 0.0,
+        "Order": 10
+      },
+      "UIImage": {
+        "Color": [
+          0.02,
+          0.02,
+          0.04,
+          0.45
+        ],
+        "Type": "Simple",
+        "PreserveAspect": false,
+        "PixelArt": false,
+        "RaycastTarget": true,
+        "Texture": ""
+      },
+      "UIAnimation": {
+        "Show": "Fade",
+        "Hide": "Fade",
+        "ShowAtStart": true,
+        "Duration": 0.25,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.0,
+        "PressScale": 1.0,
+        "FeedbackDuration": 0.08
+      },
+      "ChildOrder": [
+        8830000000000086,
+        8830000000000089,
+        8830000000000090,
+        8830000000000094,
+        8830000000000095
+      ]
+    },
+    {
+      "Entity": 8830000000000086,
+      "Tag": "Sarlavha",
+      "Parent": 8830000000000085,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          270.0
+        ],
+        "Size": [
+          1700.0,
+          180.0
+        ],
+        "FontSize": 156.0,
+        "Order": 0
+      },
+      "UIAnimation": {
+        "Show": "SlideDown",
+        "Hide": "None",
+        "ShowAtStart": true,
+        "Duration": 0.6,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 120.0,
+        "HoverScale": 1.0,
+        "PressScale": 1.0,
+        "FeedbackDuration": 0.08
+      },
+      "ChildOrder": [
+        8830000000000087,
+        8830000000000088
+      ]
+    },
+    {
+      "Entity": 8830000000000087,
+      "Tag": "Sarlavha soyasi",
+      "Parent": 8830000000000086,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.0,
+          0.0
+        ],
+        "AnchorMax": [
+          1.0,
+          1.0
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          6.0,
+          -7.0
+        ],
+        "Size": [
+          0.0,
+          0.0
+        ],
+        "FontSize": 156.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "FPS ARENA",
+        "Color": [
+          0.45,
+          0.15,
+          0.02,
+          0.9
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": "",
+        "LocalizationKey": "menu.title"
+      }
+    },
+    {
+      "Entity": 8830000000000088,
+      "Tag": "Sarlavha matni",
+      "Parent": 8830000000000086,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.0,
+          0.0
+        ],
+        "AnchorMax": [
+          1.0,
+          1.0
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          0.0,
+          0.0
+        ],
+        "FontSize": 156.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "FPS ARENA",
+        "Color": [
+          1.0,
+          0.8,
+          0.5,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": "",
+        "LocalizationKey": "menu.title"
+      }
+    },
+    {
+      "Entity": 8830000000000089,
+      "Tag": "Taglavha",
+      "Parent": 8830000000000085,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          156.0
+        ],
+        "Size": [
+          1500.0,
+          50.0
+        ],
+        "FontSize": 38.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Birinchi shaxs boshqaruvi  ·  Zamin Engine namunasi",
+        "Color": [
+          1.0,
+          0.92,
+          0.85,
+          0.95
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": "",
+        "LocalizationKey": "menu.subtitle"
+      }
+    },
+    {
+      "Entity": 8830000000000090,
+      "Tag": "Menyu paneli",
+      "Parent": 8830000000000085,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          -110.0
+        ],
+        "Size": [
+          560.0,
+          330.0
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": false,
+        "RaycastTarget": true,
+        "Texture": "Textures/ui_atlas.png",
+        "Sprite": "panel",
+        "BorderScale": 1.0
+      },
+      "UILayoutGroup": {
+        "Type": "Vertical",
+        "Padding": [
+          44.0,
+          44.0,
+          40.0,
+          44.0
+        ],
+        "Alignment": 1,
+        "FitWidth": false,
+        "FitHeight": true,
+        "Spacing": 16.0,
+        "Reverse": false,
+        "ControlWidth": true,
+        "ControlHeight": false,
+        "ExpandWidth": true,
+        "ExpandHeight": false
+      },
+      "UIAnimation": {
+        "Show": "Pop",
+        "Hide": "None",
+        "ShowAtStart": true,
+        "Duration": 0.3,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.0,
+        "PressScale": 1.0,
+        "FeedbackDuration": 0.08
+      },
+      "ChildOrder": [
+        8830000000000091,
+        8830000000000092,
+        8830000000000093
+      ]
+    },
+    {
+      "Entity": 8830000000000091,
+      "Tag": "O'ynash",
+      "Parent": 8830000000000090,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          460.0,
+          72.0
+        ],
+        "FontSize": 32.0,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.85,
+          0.45,
+          0.12,
+          1.0
+        ],
+        "Hover": [
+          1.0,
+          0.62,
+          0.25,
+          1.0
+        ],
+        "Pressed": [
+          0.6,
+          0.3,
+          0.08,
+          1.0
+        ],
+        "Interactable": true,
+        "ClickMessage": "Play",
+        "ClickTarget": 8830000000000067
+      },
+      "UIImage": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": false,
+        "RaycastTarget": true,
+        "Texture": "Textures/ui_atlas.png",
+        "Sprite": "button",
+        "BorderScale": 1.0
+      },
+      "Text": {
+        "Text": "O'ynash",
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": "",
+        "LocalizationKey": "menu.play"
+      },
+      "UINavigation": {
+        "Mode": "Vertical",
+        "Up": 0,
+        "Down": 0,
+        "Left": 0,
+        "Right": 0,
+        "SelectOnEnable": true,
+        "ShowHighlight": true,
+        "HighlightColor": [
+          1.0,
+          0.85,
+          0.3,
+          1.0
+        ]
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "None",
+        "ShowAtStart": true,
+        "Duration": 0.25,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.05,
+        "PressScale": 0.95,
+        "FeedbackDuration": 0.08
+      }
+    },
+    {
+      "Entity": 8830000000000092,
+      "Tag": "Til",
+      "Parent": 8830000000000090,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          460.0,
+          72.0
+        ],
+        "FontSize": 32.0,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.85,
+          0.45,
+          0.12,
+          1.0
+        ],
+        "Hover": [
+          1.0,
+          0.62,
+          0.25,
+          1.0
+        ],
+        "Pressed": [
+          0.6,
+          0.3,
+          0.08,
+          1.0
+        ],
+        "Interactable": true,
+        "ClickMessage": "Language",
+        "ClickTarget": 8830000000000067
+      },
+      "UIImage": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": false,
+        "RaycastTarget": true,
+        "Texture": "Textures/ui_atlas.png",
+        "Sprite": "button",
+        "BorderScale": 1.0
+      },
+      "Text": {
+        "Text": "Til: O'zbekcha",
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": ""
+      },
+      "UINavigation": {
+        "Mode": "Vertical",
+        "Up": 0,
+        "Down": 0,
+        "Left": 0,
+        "Right": 0,
+        "SelectOnEnable": false,
+        "ShowHighlight": true,
+        "HighlightColor": [
+          1.0,
+          0.85,
+          0.3,
+          1.0
+        ]
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "None",
+        "ShowAtStart": true,
+        "Duration": 0.25,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.05,
+        "PressScale": 0.95,
+        "FeedbackDuration": 0.08
+      }
+    },
+    {
+      "Entity": 8830000000000093,
+      "Tag": "Chiqish",
+      "Parent": 8830000000000090,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          460.0,
+          72.0
+        ],
+        "FontSize": 32.0,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.85,
+          0.45,
+          0.12,
+          1.0
+        ],
+        "Hover": [
+          1.0,
+          0.62,
+          0.25,
+          1.0
+        ],
+        "Pressed": [
+          0.6,
+          0.3,
+          0.08,
+          1.0
+        ],
+        "Interactable": true,
+        "ClickMessage": "Quit",
+        "ClickTarget": 8830000000000067
+      },
+      "UIImage": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": false,
+        "RaycastTarget": true,
+        "Texture": "Textures/ui_atlas.png",
+        "Sprite": "button",
+        "BorderScale": 1.0
+      },
+      "Text": {
+        "Text": "Chiqish",
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": "",
+        "LocalizationKey": "menu.quit"
+      },
+      "UINavigation": {
+        "Mode": "Vertical",
+        "Up": 0,
+        "Down": 0,
+        "Left": 0,
+        "Right": 0,
+        "SelectOnEnable": false,
+        "ShowHighlight": true,
+        "HighlightColor": [
+          1.0,
+          0.85,
+          0.3,
+          1.0
+        ]
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "None",
+        "ShowAtStart": true,
+        "Duration": 0.25,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.05,
+        "PressScale": 0.95,
+        "FeedbackDuration": 0.08
+      }
+    },
+    {
+      "Entity": 8830000000000094,
+      "Tag": "Bosh menyu rekordi",
+      "Parent": 8830000000000085,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          -330.0
+        ],
+        "Size": [
+          1200.0,
+          44.0
+        ],
+        "FontSize": 32.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "",
+        "Color": [
+          1.0,
+          0.85,
+          0.4,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8830000000000095,
+      "Tag": "Boshqaruv",
+      "Parent": 8830000000000085,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.0
+        ],
+        "AnchorMax": [
+          0.5,
+          0.0
+        ],
+        "Pivot": [
+          0.5,
+          0.0
+        ],
+        "Position": [
+          0.0,
+          56.0
+        ],
+        "Size": [
+          1800.0,
+          70.0
+        ],
+        "FontSize": 25.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Sichqoncha - qarash   ·   WASD - yurish   ·   Shift - yugurish   ·   Space - sakrash   ·   C / Ctrl - cho'kkalash   ·   Esc - pauza\nGamepad: chap stik - yurish, o'ng stik - qarash, A - sakrash, B - cho'kkalash, chap stik bosish - yugurish",
+        "Color": [
+          0.95,
+          0.9,
+          0.85,
+          0.9
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": "",
+        "LocalizationKey": "menu.controls"
+      }
+    },
+    {
+      "Entity": 8830000000000096,
+      "Tag": "Pauza menyusi",
+      "Active": false,
+      "Parent": 8830000000000068,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.0,
+          0.0
+        ],
+        "AnchorMax": [
+          1.0,
+          1.0
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          0.0,
+          0.0
+        ],
+        "FontSize": 0.0,
+        "Order": 10
+      },
+      "UIImage": {
+        "Color": [
+          0.0,
+          0.01,
+          0.04,
+          0.6
+        ],
+        "Type": "Simple",
+        "PreserveAspect": false,
+        "PixelArt": false,
+        "RaycastTarget": true,
+        "Texture": ""
+      },
+      "UIAnimation": {
+        "Show": "Fade",
+        "Hide": "Fade",
+        "ShowAtStart": true,
+        "Duration": 0.25,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.0,
+        "PressScale": 1.0,
+        "FeedbackDuration": 0.08
+      },
+      "ChildOrder": [
+        8830000000000097
+      ]
+    },
+    {
+      "Entity": 8830000000000097,
+      "Tag": "Pauza paneli",
+      "Parent": 8830000000000096,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          620.0,
+          520.0
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": false,
+        "RaycastTarget": true,
+        "Texture": "Textures/ui_atlas.png",
+        "Sprite": "panel",
+        "BorderScale": 1.0
+      },
+      "UILayoutGroup": {
+        "Type": "Vertical",
+        "Padding": [
+          44.0,
+          44.0,
+          40.0,
+          44.0
+        ],
+        "Alignment": 1,
+        "FitWidth": false,
+        "FitHeight": true,
+        "Spacing": 16.0,
+        "Reverse": false,
+        "ControlWidth": true,
+        "ControlHeight": false,
+        "ExpandWidth": true,
+        "ExpandHeight": false
+      },
+      "UIAnimation": {
+        "Show": "Pop",
+        "Hide": "None",
+        "ShowAtStart": true,
+        "Duration": 0.3,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.0,
+        "PressScale": 1.0,
+        "FeedbackDuration": 0.08
+      },
+      "ChildOrder": [
+        8830000000000098,
+        8830000000000099,
+        8830000000000100,
+        8830000000000101,
+        8830000000000102,
+        8830000000000103
+      ]
+    },
+    {
+      "Entity": 8830000000000098,
+      "Tag": "Pauza sarlavhasi",
+      "Parent": 8830000000000097,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          520.0,
+          80.0
+        ],
+        "FontSize": 60.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "PAUZA",
+        "Color": [
+          1.0,
+          0.8,
+          0.5,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": "",
+        "LocalizationKey": "pause.title"
+      }
+    },
+    {
+      "Entity": 8830000000000099,
+      "Tag": "Davom etish",
+      "Parent": 8830000000000097,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          460.0,
+          72.0
+        ],
+        "FontSize": 32.0,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.85,
+          0.45,
+          0.12,
+          1.0
+        ],
+        "Hover": [
+          1.0,
+          0.62,
+          0.25,
+          1.0
+        ],
+        "Pressed": [
+          0.6,
+          0.3,
+          0.08,
+          1.0
+        ],
+        "Interactable": true,
+        "ClickMessage": "Resume",
+        "ClickTarget": 8830000000000067
+      },
+      "UIImage": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": false,
+        "RaycastTarget": true,
+        "Texture": "Textures/ui_atlas.png",
+        "Sprite": "button",
+        "BorderScale": 1.0
+      },
+      "Text": {
+        "Text": "Davom etish",
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": "",
+        "LocalizationKey": "pause.resume"
+      },
+      "UINavigation": {
+        "Mode": "Vertical",
+        "Up": 0,
+        "Down": 0,
+        "Left": 0,
+        "Right": 0,
+        "SelectOnEnable": true,
+        "ShowHighlight": true,
+        "HighlightColor": [
+          1.0,
+          0.85,
+          0.3,
+          1.0
+        ]
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "None",
+        "ShowAtStart": true,
+        "Duration": 0.25,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.05,
+        "PressScale": 0.95,
+        "FeedbackDuration": 0.08
+      }
+    },
+    {
+      "Entity": 8830000000000100,
+      "Tag": "Sezgirlik yorlig'i",
+      "Parent": 8830000000000097,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          520.0,
+          40.0
+        ],
+        "FontSize": 28.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Sichqoncha sezgirligi: 1.0",
+        "Color": [
+          0.9,
+          0.9,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8830000000000101,
+      "Tag": "Sezgirlik",
+      "Parent": 8830000000000097,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          520.0,
+          44.0
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UISlider": {
+        "Min": 0.25,
+        "Max": 3.0,
+        "Value": 1.0,
+        "WholeNumbers": false,
+        "Direction": "LeftToRight",
+        "Interactable": true,
+        "TrackThickness": 10.0,
+        "HandleSize": 30.0,
+        "Rounded": true,
+        "TrackColor": [
+          0.1,
+          0.12,
+          0.18,
+          1
+        ],
+        "FillColor": [
+          1.0,
+          0.65,
+          0.25,
+          1
+        ],
+        "HandleColor": [
+          1.0,
+          0.95,
+          0.9,
+          1
+        ]
+      },
+      "UINavigation": {
+        "Mode": "Vertical",
+        "Up": 0,
+        "Down": 0,
+        "Left": 0,
+        "Right": 0,
+        "SelectOnEnable": false,
+        "ShowHighlight": true,
+        "HighlightColor": [
+          1.0,
+          0.85,
+          0.3,
+          1.0
+        ]
+      }
+    },
+    {
+      "Entity": 8830000000000102,
+      "Tag": "Qaytadan",
+      "Parent": 8830000000000097,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          460.0,
+          72.0
+        ],
+        "FontSize": 32.0,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.85,
+          0.45,
+          0.12,
+          1.0
+        ],
+        "Hover": [
+          1.0,
+          0.62,
+          0.25,
+          1.0
+        ],
+        "Pressed": [
+          0.6,
+          0.3,
+          0.08,
+          1.0
+        ],
+        "Interactable": true,
+        "ClickMessage": "Restart",
+        "ClickTarget": 8830000000000067
+      },
+      "UIImage": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": false,
+        "RaycastTarget": true,
+        "Texture": "Textures/ui_atlas.png",
+        "Sprite": "button",
+        "BorderScale": 1.0
+      },
+      "Text": {
+        "Text": "Qaytadan",
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": "",
+        "LocalizationKey": "pause.restart"
+      },
+      "UINavigation": {
+        "Mode": "Vertical",
+        "Up": 0,
+        "Down": 0,
+        "Left": 0,
+        "Right": 0,
+        "SelectOnEnable": false,
+        "ShowHighlight": true,
+        "HighlightColor": [
+          1.0,
+          0.85,
+          0.3,
+          1.0
+        ]
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "None",
+        "ShowAtStart": true,
+        "Duration": 0.25,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.05,
+        "PressScale": 0.95,
+        "FeedbackDuration": 0.08
+      }
+    },
+    {
+      "Entity": 8830000000000103,
+      "Tag": "Bosh menyuga",
+      "Parent": 8830000000000097,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          460.0,
+          72.0
+        ],
+        "FontSize": 32.0,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.85,
+          0.45,
+          0.12,
+          1.0
+        ],
+        "Hover": [
+          1.0,
+          0.62,
+          0.25,
+          1.0
+        ],
+        "Pressed": [
+          0.6,
+          0.3,
+          0.08,
+          1.0
+        ],
+        "Interactable": true,
+        "ClickMessage": "Menu",
+        "ClickTarget": 8830000000000067
+      },
+      "UIImage": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": false,
+        "RaycastTarget": true,
+        "Texture": "Textures/ui_atlas.png",
+        "Sprite": "button",
+        "BorderScale": 1.0
+      },
+      "Text": {
+        "Text": "Bosh menyu",
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": "",
+        "LocalizationKey": "pause.menu"
+      },
+      "UINavigation": {
+        "Mode": "Vertical",
+        "Up": 0,
+        "Down": 0,
+        "Left": 0,
+        "Right": 0,
+        "SelectOnEnable": false,
+        "ShowHighlight": true,
+        "HighlightColor": [
+          1.0,
+          0.85,
+          0.3,
+          1.0
+        ]
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "None",
+        "ShowAtStart": true,
+        "Duration": 0.25,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.05,
+        "PressScale": 0.95,
+        "FeedbackDuration": 0.08
+      }
+    }
+  ]
+}

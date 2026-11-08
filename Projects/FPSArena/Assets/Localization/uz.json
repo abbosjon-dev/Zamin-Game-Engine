@@ -1,0 +1,38 @@
+{
+    "$name": "O'zbekcha",
+    "menu": {
+        "title": "FPS ARENA",
+        "subtitle": "Birinchi shaxs boshqaruvi  ·  Zamin Engine namunasi",
+        "play": "O'ynash",
+        "quit": "Chiqish",
+        "language": "Til: {0}",
+        "best": "Eng yaxshi aylana: {0}",
+        "controls": "Sichqoncha - qarash   ·   WASD - yurish   ·   Shift - yugurish   ·   Space - sakrash   ·   C / Ctrl - cho'kkalash   ·   Esc - pauza\nGamepad: chap stik - yurish, o'ng stik - qarash, A - sakrash, B - cho'kkalash, chap stik bosish - yugurish"
+    },
+    "hud": {
+        "demo": "DEMO - avtomatik o'yin",
+        "stamina": "CHIDAM",
+        "progress": "Nuqta {0} / {1}",
+        "laps": "Aylanalar: {0}",
+        "best": "Eng yaxshi: {0}",
+        "speed": "{0:.1f} m/s",
+        "walk": "Yurish",
+        "sprint": "Yugurish",
+        "crouch": "Cho'kkalash",
+        "air": "Havoda",
+        "idle": "Turish",
+        "hint": "Yorqin nuqtalardan ketma-ket o'ting  ·  ko'k doira - sakratgich",
+        "start": "PARKUR",
+        "start_sub": "Yorqin nuqtalardan o'ting",
+        "lap": "AYLANA TUGADI!",
+        "record": "Yangi rekord: {0}",
+        "time": "Vaqt: {0}"
+    },
+    "pause": {
+        "title": "PAUZA",
+        "resume": "Davom etish",
+        "restart": "Qaytadan",
+        "menu": "Bosh menyu",
+        "sensitivity": "Sichqoncha sezgirligi: {0:.2f}"
+    }
+}

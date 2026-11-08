@@ -1,0 +1,38 @@
+{
+    "$name": "English",
+    "menu": {
+        "title": "FPS ARENA",
+        "subtitle": "First-person controller  ·  a Zamin Engine sample",
+        "play": "Play",
+        "quit": "Quit",
+        "language": "Language: {0}",
+        "best": "Best lap: {0}",
+        "controls": "Mouse - look   ·   WASD - move   ·   Shift - sprint   ·   Space - jump   ·   C / Ctrl - crouch   ·   Esc - pause\nGamepad: left stick - move, right stick - look, A - jump, B - crouch, left stick click - sprint"
+    },
+    "hud": {
+        "demo": "DEMO - autoplay",
+        "stamina": "STAMINA",
+        "progress": "Checkpoint {0} / {1}",
+        "laps": "Laps: {0}",
+        "best": "Best: {0}",
+        "speed": "{0:.1f} m/s",
+        "walk": "Walking",
+        "sprint": "Sprinting",
+        "crouch": "Crouching",
+        "air": "Airborne",
+        "idle": "Standing",
+        "hint": "Run through the glowing markers in order  ·  blue disc - jump pad",
+        "start": "PARKOUR",
+        "start_sub": "Run through the glowing markers",
+        "lap": "LAP COMPLETE!",
+        "record": "New record: {0}",
+        "time": "Time: {0}"
+    },
+    "pause": {
+        "title": "PAUSED",
+        "resume": "Resume",
+        "restart": "Restart",
+        "menu": "Main menu",
+        "sensitivity": "Mouse sensitivity: {0:.2f}"
+    }
+}

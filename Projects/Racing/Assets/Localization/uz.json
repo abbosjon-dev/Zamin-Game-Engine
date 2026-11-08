@@ -1,0 +1,39 @@
+{
+    "$name": "O'zbekcha",
+    "menu": {
+        "title": "VODIY POYGASI",
+        "subtitle": "Mashina fizikasi va aylanma trassa  ·  Zamin Engine namunasi",
+        "play": "O'ynash",
+        "quit": "Chiqish",
+        "language": "Til: {0}",
+        "best": "Eng yaxshi aylana: {0}",
+        "controls": "W / strelka yuqoriga - gaz   ·   S - tormoz / orqaga   ·   A / D - rul   ·   Space - qo'l tormozi (drift)   ·   R - trassaga qaytish   ·   Esc - pauza\nGamepad: RT - gaz, LT - tormoz, chap stik - rul, X / A - qo'l tormozi, Y - trassaga qaytish, Start - pauza"
+    },
+    "hud": {
+        "demo": "DEMO - avtomatik o'yin",
+        "lap": "Aylana {0}/{1}",
+        "checkpoint": "Nuqta {0}/{1}",
+        "best": "Rekord: {0}",
+        "kmh": "km/soat",
+        "drift": "DRIFT!",
+        "go": "KETDIK!",
+        "go_sub": "{0} aylana - hammadan oldin keling",
+        "lap_n": "{0}-AYLANA",
+        "last_lap": "OXIRGI AYLANA!",
+        "lap_time": "Aylana vaqti: {0}"
+    },
+    "pause": {
+        "title": "PAUZA",
+        "resume": "Davom etish",
+        "restart": "Qaytadan",
+        "menu": "Bosh menyu"
+    },
+    "results": {
+        "title": "MARRA!",
+        "win": "G'ALABA!",
+        "place": "{0}-o'rin",
+        "times": "Vaqt: {0}  ·  eng yaxshi aylana: {1}",
+        "record": "Yangi aylana rekordi!",
+        "best": "Rekord: {0}"
+    }
+}

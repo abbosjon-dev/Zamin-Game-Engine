@@ -1,0 +1,133 @@
+{
+    "Version": 2,
+    "Project": {
+        "Name": "Racing",
+        "StartScene": "Scenes/Valley.zscene",
+        "StartSceneUUID": "2b2a652b6a5fca09",
+        "AssetDirectory": "Assets",
+        "SourceDirectory": "Source",
+        "ScriptModulePath": "Binaries/libRacing.so",
+        "EngineVersion": "0.1.0"
+    },
+    "Player": {
+        "Company": "Zamin Studio",
+        "Product": "Vodiy Poygasi",
+        "Version": "1.0.0",
+        "Width": 1280,
+        "Height": 720,
+        "WindowMode": "Windowed",
+        "Resizable": true,
+        "VSync": true,
+        "Title": "",
+        "VersionInTitle": false,
+        "TargetFrameRate": 0,
+        "RunInBackground": true,
+        "Icon": "Textures/GameIcon.png"
+    },
+    "BuildScenes": [
+        {
+            "Path": "Scenes/Valley.zscene",
+            "Enabled": true,
+            "UUID": "2b2a652b6a5fca09"
+        }
+    ],
+    "InputActions": {
+        "Actions": [
+            {
+                "Name": "Handbrake",
+                "Bindings": [
+                    "Key:Space",
+                    "Gamepad:X",
+                    "Gamepad:A"
+                ]
+            },
+            {
+                "Name": "Reset",
+                "Bindings": [
+                    "Key:R",
+                    "Gamepad:Y"
+                ]
+            },
+            {
+                "Name": "Pause",
+                "Bindings": [
+                    "Key:Escape",
+                    "Key:P",
+                    "Gamepad:Start"
+                ]
+            }
+        ],
+        "Axes": [
+            {
+                "Name": "Steer",
+                "Negative": [
+                    "Key:A",
+                    "Key:Left"
+                ],
+                "Positive": [
+                    "Key:D",
+                    "Key:Right"
+                ],
+                "Deadzone": 0.15,
+                "Invert": false,
+                "GamepadAxis": "LeftX"
+            },
+            {
+                "Name": "Throttle",
+                "Negative": [],
+                "Positive": [
+                    "Key:W",
+                    "Key:Up"
+                ],
+                "Deadzone": 0.05,
+                "Invert": false,
+                "GamepadAxis": "RightTrigger"
+            },
+            {
+                "Name": "Brake",
+                "Negative": [],
+                "Positive": [
+                    "Key:S",
+                    "Key:Down"
+                ],
+                "Deadzone": 0.05,
+                "Invert": false,
+                "GamepadAxis": "LeftTrigger"
+            }
+        ],
+        "Vectors": []
+    },
+    "Localization": {
+        "DefaultLanguage": "uz",
+        "Languages": [
+            "uz",
+            "en"
+        ],
+        "Directory": "Localization",
+        "UseSystemLanguage": false
+    },
+    "Audio": {
+        "Groups": [
+            {
+                "Name": "Master",
+                "Volume": 1.0
+            },
+            {
+                "Name": "Music",
+                "Parent": "Master",
+                "Volume": 0.55
+            },
+            {
+                "Name": "SFX",
+                "Parent": "Master",
+                "Volume": 0.9
+            },
+            {
+                "Name": "UI",
+                "Parent": "Master",
+                "Volume": 0.8
+            }
+        ],
+        "StreamThresholdMB": 4.0
+    }
+}

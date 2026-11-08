@@ -1,0 +1,39 @@
+{
+    "$name": "English",
+    "menu": {
+        "title": "VALLEY RACE",
+        "subtitle": "Car physics and a circuit  ·  a Zamin Engine sample",
+        "play": "Play",
+        "quit": "Quit",
+        "language": "Language: {0}",
+        "best": "Best lap: {0}",
+        "controls": "W / up - throttle   ·   S - brake / reverse   ·   A / D - steer   ·   Space - handbrake (drift)   ·   R - back on track   ·   Esc - pause\nGamepad: RT - throttle, LT - brake, left stick - steer, X / A - handbrake, Y - back on track, Start - pause"
+    },
+    "hud": {
+        "demo": "DEMO - autoplay",
+        "lap": "Lap {0}/{1}",
+        "checkpoint": "Checkpoint {0}/{1}",
+        "best": "Record: {0}",
+        "kmh": "km/h",
+        "drift": "DRIFT!",
+        "go": "GO!",
+        "go_sub": "{0} laps - beat them all",
+        "lap_n": "LAP {0}",
+        "last_lap": "FINAL LAP!",
+        "lap_time": "Lap time: {0}"
+    },
+    "pause": {
+        "title": "PAUSED",
+        "resume": "Resume",
+        "restart": "Restart",
+        "menu": "Main menu"
+    },
+    "results": {
+        "title": "FINISH!",
+        "win": "VICTORY!",
+        "place": "Place {0}",
+        "times": "Time: {0}  ·  best lap: {1}",
+        "record": "New lap record!",
+        "best": "Record: {0}"
+    }
+}

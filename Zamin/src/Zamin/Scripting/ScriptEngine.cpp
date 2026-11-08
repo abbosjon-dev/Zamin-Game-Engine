@@ -5,8 +5,12 @@
 #include "Zamin/Core/Log.h"
 #include "Zamin/Utils/FileSystem.h"
 
+#include <cerrno>
+#include <string>
+
 #if defined(__linux__) || defined(__APPLE__)
     #include <dlfcn.h>
+    #include <signal.h>
     #include <unistd.h>
 #endif
 
@@ -79,6 +83,35 @@ namespace Zamin {
         ZM_CORE_INFO("Skript moduli yopildi");
     }
 
+    int ScriptEngine::RemoveStaleModuleCopies(const std::filesystem::path& folder)
+    {
+        int removed = 0;
+#if defined(__linux__) || defined(__APPLE__)
+        std::error_code ec;
+        for (auto it = std::filesystem::directory_iterator(folder, ec); !ec && it != std::filesystem::directory_iterator(); it.increment(ec))
+        {
+            // <name>-<pid>-<generation><ext>: the pid is the second number from the end.
+            const std::string stem = it->path().stem().string();
+            const size_t last = stem.rfind('-');
+            const size_t before = last == std::string::npos || last == 0 ? std::string::npos : stem.rfind('-', last - 1);
+            if (before == std::string::npos)
+                continue;
+            const std::string pidText = stem.substr(before + 1, last - before - 1);
+            if (pidText.empty() || pidText.find_first_not_of("0123456789") != std::string::npos || pidText.size() > 9)
+                continue;
+            const pid_t pid = (pid_t)std::stol(pidText);
+            if (pid <= 0 || pid == getpid() || kill(pid, 0) == 0 || errno != ESRCH)
+                continue; // running (or not ours to judge)
+            std::error_code removeError;
+            if (std::filesystem::remove(it->path(), removeError))
+                removed++;
+        }
+#else
+        (void)folder;
+#endif
+        return removed;
+    }
+
     bool ScriptEngine::LoadModule(const std::filesystem::path& path)
     {
         UnloadModule();
@@ -95,6 +128,9 @@ namespace Zamin {
         // and the build system can overwrite the original file.
         std::filesystem::path tmpDir = FileSystem::GetTempDirectory() / "zamin-modules";
         std::filesystem::create_directories(tmpDir, ec);
+        // Copies of runs that crashed or were killed (UnloadModule deletes the others) are not kept for ever.
+        if (const int stale = RemoveStaleModuleCopies(tmpDir); stale > 0)
+            ZM_CORE_INFO("Eski skript moduli nusxalari o'chirildi: {} ta ({})", stale, tmpDir.string());
         std::filesystem::path copy = tmpDir / (path.stem().string() + "-" + std::to_string(getpid()) + "-" +
                                                std::to_string(++s_Module.Generation) + path.extension().string());
         std::filesystem::copy_file(path, copy, std::filesystem::copy_options::overwrite_existing, ec);

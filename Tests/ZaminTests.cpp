@@ -47459,3 +47459,30 @@ TEST(ScriptReloadKeepsFieldValues)
     ScriptRegistry::Unregister("ReloadProbe");
     CHECK(ScriptRegistry::Find("ReloadProbe") == nullptr);
 }
+
+TEST(StaleModuleCopiesRemoved)
+{
+    // The copies LoadModule loads (<name>-<pid>-<n>.so): a process that ended (crashed, killed) left its copy
+    // behind - it goes; the running process's copy and other files stay.
+    const std::filesystem::path dir = FileSystem::GetTempDirectory() / std::format("zamin-module-copies-{}", (uint64_t)UUID());
+    std::filesystem::create_directories(dir);
+    const pid_t child = fork();
+    if (child == 0)
+        _exit(0);
+    CHECK(child > 0);
+    int status = 0;
+    waitpid(child, &status, 0); // ended: its pid is free now
+    auto touch = [&](const std::string& name) { CHECK(FileSystem::WriteTextFile(dir / name, "x")); };
+    touch(std::format("libGame-{}-1.so", child));
+    touch(std::format("libMy-Game-{}-3.so", child));        // a '-' in the name too
+    touch(std::format("libGame-{}-2.so", getpid()));         // this process: in use
+    touch("libGame-notapid-1.so");
+    touch("notes.txt");
+    CHECK(ScriptEngine::RemoveStaleModuleCopies(dir) == 2);
+    CHECK(!std::filesystem::exists(dir / std::format("libGame-{}-1.so", child)));
+    CHECK(!std::filesystem::exists(dir / std::format("libMy-Game-{}-3.so", child)));
+    CHECK(std::filesystem::exists(dir / std::format("libGame-{}-2.so", getpid())));
+    CHECK(std::filesystem::exists(dir / "libGame-notapid-1.so") && std::filesystem::exists(dir / "notes.txt"));
+    CHECK(ScriptEngine::RemoveStaleModuleCopies(dir) == 0);
+    std::filesystem::remove_all(dir);
+}

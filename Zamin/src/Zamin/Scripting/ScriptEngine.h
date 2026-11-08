@@ -47,6 +47,10 @@ namespace Zamin {
 
         // Called before the module is unloaded so live script instances can be destroyed.
         static void SetBeforeUnloadCallback(const std::function<void()>& callback);
+        // The loaded copies (<name>-<pid>-<n>.so in `folder`, LoadModule's) of processes that no longer run -
+        // left behind by a crash or a killed run - are deleted; returns how many. LoadModule does this in the
+        // temporary folder before it copies.
+        static int RemoveStaleModuleCopies(const std::filesystem::path& folder);
     };
 
     struct ScriptRegistrar

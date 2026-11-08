@@ -7,7 +7,7 @@
         "quit": "Chiqish",
         "language": "Til: {0}",
         "best": "Rekord: {0}   ·   eng uzoq daraja: {1}",
-        "controls": "[kb:Sichqoncha / ][MoveX] - raketka   ·   [Action] - to'pni otish, lazer   ·   [Pause] - pauza\n[kb:Gamepad ham ishlaydi - uni ishlatsangiz, ishoralar uning tugmalarini ko'rsatadi][pad:Gamepad - klaviatura yoki sichqoncha ishlatilsa, ishoralar ularga qaytadi]"
+        "controls": "[kb:Sichqoncha / ][MoveX] - raketka   ·   [Action] - to'pni otish, lazer\n[Pause] - pauza\n[kb:Gamepad ham ishlaydi - uni ishlatsangiz, ishoralar uning tugmalarini ko'rsatadi][pad:Gamepad - klaviatura yoki sichqoncha ishlatilsa, ishoralar ularga qaytadi]"
     },
     "input": {
         "key": {

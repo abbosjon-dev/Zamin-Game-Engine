@@ -921,6 +921,14 @@ class UIKit:
         return self.s.entity(name, parent=parent, UITransform=ui_rect(size=size, font=font), Text=ui_text(txt, col, "Center", key=key))
 
 
+def ui_backdrop(scene, name, parent, atlas, pos, size, anchor=(0.5, 0.5), alpha=0.6):
+    """A dark see-through plate with round corners (the atlas's white 'button' frame tinted nearly black) under a line of
+    menu text: the text stays readable over a bright sky, a bloom glow or the game playing behind the menu. Order -1:
+    drawn under its sibling text (and the other siblings)."""
+    return scene.entity(name, parent=parent, UITransform=ui_rect(anchor, None, anchor, pos, size, order=-1),
+                        UIImage=ui_image((0.01, 0.01, 0.03, alpha), atlas, "button", kind="Sliced", border_scale=1.0, raycast=False))
+
+
 def ui_panel_sprites(atlas, fill_top, fill_bottom, rim, glow_col, button_top=(1.0, 1.0, 1.0), button_bottom=(0.78, 0.8, 0.86)):
     """The 'panel' and 'button' 9-slice frames of a sample's atlas."""
     img = image(96, 96)

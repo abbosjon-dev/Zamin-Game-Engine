@@ -496,6 +496,9 @@ def build_scene():
              Text=k.ui_text("BREAKOUT", (0.4, 0.1, 0.8, 0.85), "Center", key="menu.title"))
     s.entity("Sarlavha matni", parent=title, UITransform=k.ui_rect((0, 0), (1, 1), size=(0, 0), font=160),
              Text=k.ui_text("BREAKOUT", (1.0, 0.85, 1.0, 1.0), "Center", key="menu.title"))
+    # dark plates under the subtitle and the control hints (the bricks and the paddle play on behind the menu); the hints
+    # wrap inside the playfield, between its walls
+    k.ui_backdrop(s, "Taglavha foni", main_menu, ATLAS, (0, 158), (880, 62))
     s.entity("Taglavha", parent=main_menu, UITransform=k.ui_rect(pos=(0, 158), size=(1400, 50), font=38),
              Text=k.ui_text("G'ishtlarni sindiring  ·  Zamin Engine namunasi", (0.85, 0.8, 1.0, 0.95), "Center", key="menu.subtitle"))
     menu_panel = ui.panel("Menyu paneli", main_menu, (0, -110), (560, 330))
@@ -504,8 +507,10 @@ def build_scene():
     ui.button("Chiqish", menu_panel, "Chiqish", "menu.quit", "Quit")
     menu_best = s.entity("Bosh menyu rekordi", parent=main_menu, UITransform=k.ui_rect(pos=(0, -330), size=(1200, 44), font=32),
                          Text=k.ui_text("", (1.0, 0.85, 0.4, 1.0), "Center"))
-    s.entity("Boshqaruv", parent=main_menu, UITransform=k.ui_rect((0.5, 0), None, (0.5, 0), (0, 56), (1800, 70), font=25),
-             Text=k.ui_text(k.controls_hint("uz", CONTROLS["uz"]), (0.8, 0.75, 0.95, 0.85), "Center", key="menu.controls", hints=True))
+    k.ui_backdrop(s, "Boshqaruv foni", main_menu, ATLAS, (0, 58), (960, 124), anchor=(0.5, 0), alpha=0.7)
+    s.entity("Boshqaruv", parent=main_menu, UITransform=k.ui_rect((0.5, 0), None, (0.5, 0), (0, 64), (920, 110), font=24),
+             Text=k.ui_text(k.controls_hint("uz", CONTROLS["uz"]), (0.85, 0.8, 1.0, 0.95), "Center", key="menu.controls", wrap=True,
+                            hints=True))
     # pause
     pause_menu = ui.dim("Pauza menyusi", False)
     pause_panel = ui.panel("Pauza paneli", pause_menu, (0, 0), (560, 420))
@@ -544,9 +549,10 @@ def build_scene():
 
 
 # The main menu's controls line: "[Action]" shows the controls bound in the project's input map, of the device in use.
+# Two short lines: the main menu shows them inside the playfield, between its walls.
 CONTROLS = {
-    "uz": "[kb:Sichqoncha / ][MoveX] - raketka   ·   [Action] - to'pni otish, lazer   ·   [Pause] - pauza",
-    "en": "[kb:Mouse / ][MoveX] - paddle   ·   [Action] - launch, laser   ·   [Pause] - pause",
+    "uz": "[kb:Sichqoncha / ][MoveX] - raketka   ·   [Action] - to'pni otish, lazer\n[Pause] - pauza",
+    "en": "[kb:Mouse / ][MoveX] - paddle   ·   [Action] - launch, laser\n[Pause] - pause",
 }
 
 

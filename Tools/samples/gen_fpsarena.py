@@ -516,6 +516,8 @@ def build_scene():
              Text=k.ui_text("FPS ARENA", (0.45, 0.15, 0.02, 0.9), "Center", key="menu.title"))
     s.entity("Sarlavha matni", parent=title, UITransform=k.ui_rect((0, 0), (1, 1), size=(0, 0), font=156),
              Text=k.ui_text("FPS ARENA", (1.0, 0.8, 0.5, 1.0), "Center", key="menu.title"))
+    # dark plates under the subtitle and the control hints: the sun's glow and the gun sit behind them
+    k.ui_backdrop(s, "Taglavha foni", main_menu, ATLAS, (0, 156), (1240, 62))
     s.entity("Taglavha", parent=main_menu, UITransform=k.ui_rect(pos=(0, 156), size=(1500, 50), font=38),
              Text=k.ui_text("Birinchi shaxs boshqaruvi  ·  Zamin Engine namunasi", (1.0, 0.92, 0.85, 0.95), "Center", key="menu.subtitle"))
     menu_panel = ui.panel("Menyu paneli", main_menu, (0, -120), (560, 420))
@@ -525,6 +527,7 @@ def build_scene():
     ui.button("Chiqish", menu_panel, "Chiqish", "menu.quit", "Quit")
     menu_best = s.entity("Bosh menyu rekordi", parent=main_menu, UITransform=k.ui_rect(pos=(0, -372), size=(1400, 44), font=32),
                          Text=k.ui_text("", (1.0, 0.85, 0.4, 1.0), "Center"))
+    k.ui_backdrop(s, "Boshqaruv foni", main_menu, ATLAS, (0, 28), (1880, 94), anchor=(0.5, 0))
     s.entity("Boshqaruv", parent=main_menu, UITransform=k.ui_rect((0.5, 0), None, (0.5, 0), (0, 40), (1850, 70), font=24),
              Text=k.ui_text(UZ_CONTROLS, (0.95, 0.9, 0.85, 0.9), "Center", key="menu.controls", hints=True))
     pause_menu = ui.dim("Pauza menyusi", False)

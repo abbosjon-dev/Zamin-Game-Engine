@@ -35,7 +35,10 @@ darajalarni yechuvchi (BFS) yordamida o'zi yechadi.
   va natija oynasi chiqadi (qadamlar, surishlar, rekord; "Keyingi daraja", "Qaytadan", "Bosh menyu").
 - **Darajalar menyusi**: 10 ta katakli grid. Yechilgan darajalar belgilanadi va har birida eng yaxshi natija ko'rinadi.
 - **Rekordlar** SaveData'da: har daraja uchun eng kam qadam (`Sokoban.Best.<N>`) va oxirgi o'ynalgan daraja
-  (`Sokoban.Level`). "O'ynash" tugmasi birinchi yechilmagan darajani ochadi.
+  (`Sokoban.Level`). "O'ynash" tugmasi o'yinchi oxirgi o'ynagan darajadan boshlab birinchi yechilmaganini ochadi
+  (bosh menyu orqasidagi bot qaysi darajaga yetgani ahamiyatsiz).
+- Qadam animatsiyasi davomida bosilgan tugmalar yo'qolmaydi: keyingi qadam yoki undo navbatda turadi va animatsiya
+  tugashi bilan bajariladi.
 - **Menyular**: bosh menyu (orqada bot darajalarni yechib turadi), darajalar, pauza, natija oynasi.
 
 ## Dvigatelning qaysi imkoniyatlari ko'rsatiladi

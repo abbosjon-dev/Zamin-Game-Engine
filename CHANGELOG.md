@@ -76,6 +76,14 @@ vazifalari bajarila boshlaganda unga bo'lim qo'shing ([CONTRIBUTING.md](CONTRIBU
   `Export.AlwaysInclude: ["Audio/*.wav"]` qo'shildi, `samples_assets.py` endi shuni tekshiradi.
 - [docs/Samples.md](docs/Samples.md) — namuna o'yinlar galereyasi (rasmlar `Tools/samples/make_gallery.py`), rekordlar,
   boshqaruv, testlar, eksport va ishlash tezligi.
+- Ko'rib chiqishdan keyingi tuzatishlar: editor launcher'i so'nggi sahnalar va loyihalarni yana namuna kartalaridan
+  oldin ko'rsatadi (tarix bo'lsa kartalar bir qatorda, **Hammasini ko'rsatish** bilan); Omborchi'da "O'ynash" bosh menyu
+  orqasidagi botning darajasini emas, o'yinchinikini ochadi va qadam animatsiyasi paytidagi bosishlar navbatga turadi
+  (`samples_test.py` `Sokoban/menuwait` holati); Ipak Yo'li magniti kadr tezligiga bog'liq emas; Neon Maydon sichqoncha
+  nishoniga "Fire"ning sichqoncha tugmasi bilan o'tadi; `TextComponent` ishoralari bo'sh `Text`dan keyin ham
+  yangilanadi; Project settings > General tavsif va rasm o'zgarishini ko'radi; to'rt o'yin bosh menyusidagi taglavha
+  va boshqaruv ishoralari ostida to'q plastinka (`samplekit.ui_backdrop`), Breakout ishoralari maydon ichida; clang
+  ogohlantirishlari (ishlatilmagan maydonlar) olib tashlandi.
 - Ishlash tezligi: `Tests/samples_bench.py` (Release, llvmpipe) — kadr vaqti, eng sekin kadr, obyektlar soni, o'yin
   kodining CPU vaqti, byudjetlar; player `--benchmark` eng sekin kadrning profilini, `ZAMIN_PLAYER_STATS` oxirgi
   kadrning sahnasini yozadi, profiler'da post-processing o'tishlari alohida. Topilgan qotishlar tuzatildi: matn

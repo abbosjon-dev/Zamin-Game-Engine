@@ -9,6 +9,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <format>
+#include <string>
 
 namespace Zamin {
 
@@ -51,29 +53,44 @@ namespace Zamin {
         return m_LauncherSamples;
     }
 
-    bool EditorLayer::UI_LauncherSamples()
+    bool EditorLayer::UI_LauncherSamples(bool oneRow)
     {
         const std::vector<ProjectSummary>& samples = GetLauncherSamples();
         if (samples.empty())
             return false;
-        ImGui::PushFont(ImGuiLayer::GetBoldFont());
-        ImGui::TextUnformatted(Tr(ICON_FA_WAND_MAGIC_SPARKLES "  Namuna o'yinlar"));
-        ImGui::PopFont();
-        ImGui::SameLine();
-        ImGui::TextDisabled("(%d)", (int)samples.size());
-        ImGui::Spacing();
 
         // as many cards to a row as fit (at least ~210 px each), pictures 16:9
         const float spacing = 12.0f;
         const float avail = ImGui::GetContentRegionAvail().x;
         const int columns = std::max(1, (int)((avail + spacing) / (210.0f + spacing)));
+        const bool foldable = oneRow || m_LauncherAllSamples;
+        const size_t shown = oneRow ? std::min(samples.size(), (size_t)columns) : samples.size();
+
+        ImGui::PushFont(ImGuiLayer::GetBoldFont());
+        ImGui::TextUnformatted(Tr(ICON_FA_WAND_MAGIC_SPARKLES "  Namuna o'yinlar"));
+        ImGui::PopFont();
+        ImGui::SameLine();
+        ImGui::TextDisabled("(%d)", (int)samples.size());
+        // one row of cards when the launcher also lists the user's own work; the button shows the rest
+        if (foldable && samples.size() > (size_t)columns)
+        {
+            const std::string label = oneRow ? std::format("{} ({})###samplesFold", Tr("Hammasini ko'rsatish"), samples.size())
+                                             : std::format("{}###samplesFold", Tr("Kamroq ko'rsatish"));
+            ImGui::SameLine(std::max(ImGui::GetCursorPosX(), ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x -
+                                                                 ImGui::CalcTextSize(label.c_str(), nullptr, true).x -
+                                                                 ImGui::GetStyle().FramePadding.x * 2.0f));
+            if (ImGui::SmallButton(label.c_str()))
+                m_LauncherAllSamples = oneRow;
+        }
+        ImGui::Spacing();
+
         const float cardW = std::floor((avail - spacing * (float)(columns - 1)) / (float)columns);
         const float imageH = std::floor(cardW * 9.0f / 16.0f);
         const float lineH = ImGui::GetFontSize();
         const float cardH = imageH + lineH * 3.4f + 18.0f;
         ImDrawList* dl = ImGui::GetWindowDrawList();
         const fs::path* picked = nullptr;
-        for (size_t i = 0; i < samples.size(); i++)
+        for (size_t i = 0; i < shown; i++)
         {
             const ProjectSummary& s = samples[i];
             if (i % (size_t)columns != 0)

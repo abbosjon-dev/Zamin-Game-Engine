@@ -95,7 +95,6 @@ private:
     float m_TrackS = 0.0f;
     float m_StuckTimer = 0.0f;
     float m_HitCooldown = 0.0f;
-    uint32_t m_EngineVoice = 0;
 };
 
 class RaceGame : public Zamin::ScriptableEntity

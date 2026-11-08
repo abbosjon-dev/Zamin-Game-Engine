@@ -79,7 +79,6 @@ private:
     float m_StickPrev = 0.0f;
     float m_BotCooldown = 0.0f;
     float m_ShieldTime = 0.0f;
-    bool m_WasGrounded = true;
     Zamin::RandomGenerator m_Rng;
 };
 
@@ -157,7 +156,8 @@ private:
     void SpawnPickup(PickupKind kind, int lane, float z, float y);
     void SpawnCoinRow(int lane, float z0, int count, bool arc);
     void SpawnScenery(float z);
-    void CheckCollisions();
+    // `dt`: the physics sub-step's (scaled) time.
+    void CheckCollisions(float dt);
     void UpdateCamera(float dt);
     void UpdateHud();
     void ShowBanner(const std::string& title, const std::string& subtitle, float seconds);

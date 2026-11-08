@@ -306,7 +306,7 @@ void RunnerGame::OnUpdate(Timestep ts)
         for (int i = 0; i < steps && !r->IsCrashed(); i++)
         {
             r->Tick(dt / (float)steps, dt, i == 0);
-            CheckCollisions();
+            CheckCollisions(dt / (float)steps);
         }
         UpdateWorld(dt);
         if (m_Distance >= m_MilestoneMark)
@@ -565,7 +565,7 @@ int RunnerGame::CountCoins(int lane, float z, float range) const
     return n;
 }
 
-void RunnerGame::CheckCollisions()
+void RunnerGame::CheckCollisions(float dt)
 {
     Runner* r = GetRunner();
     if (!r || r->IsCrashed())
@@ -603,11 +603,12 @@ void RunnerGame::CheckCollisions()
             OnRunnerCrashed();
             return;
         }
-        // pickups; the magnet pulls coins in from the lanes around
+        // pickups; the magnet pulls coins in from the lanes around (by the sub-step's game time: the same pull at
+        // any frame rate, slowed down with the time scale)
         auto& t = item.E.GetComponent<TransformComponent>();
         if (item.Pickup == PickupKind::Coin && m_MagnetTime > 0.0f && item.Z < pz + 1.0f && item.Z > pz - 14.0f)
         {
-            t.Translation = Math::Damp(t.Translation, center, 9.0f, GetUnscaledDeltaTime());
+            t.Translation = Math::Damp(t.Translation, center, 9.0f, dt);
             item.Z = t.Translation.z;
         }
         const glm::vec3 p = t.Translation;

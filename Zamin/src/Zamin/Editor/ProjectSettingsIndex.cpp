@@ -37,9 +37,11 @@ namespace Zamin {
         std::vector<ProjectSettingsCategory> MakeCategories()
         {
             return {
-                { "General", ICON_FA_SLIDERS, "Umumiy", "Loyiha nomi va papkalari.",
-                  { "Loyiha nomi", "Nomi", "Papka", "Loyiha fayli", "Assets papkasi", "Skriptlar papkasi", "Skript moduli", "Boshlang'ich sahna" },
-                  { "Project.Name", "Project.AssetDirectory", "Project.SourceDirectory", "Project.ScriptModulePath" } },
+                { "General", ICON_FA_SLIDERS, "Umumiy", "Loyiha nomi, tavsifi, launcher rasmi va papkalari.",
+                  { "Loyiha nomi", "Nomi", "Tavsif", "Rasm (launcher)", "Launcher", "Thumbnail", "Papka", "Loyiha fayli", "Assets papkasi",
+                    "Skriptlar papkasi", "Skript moduli", "Boshlang'ich sahna" },
+                  { "Project.Name", "Project.Description", "Project.Thumbnail", "Project.AssetDirectory", "Project.SourceDirectory",
+                    "Project.ScriptModulePath" } },
                 { "Player", ICON_FA_WINDOW_MAXIMIZE, "Player",
                   "O'yin player'da qanday ishga tushadi: kompaniya, mahsulot nomi va versiya (SaveData papkasi, "
                   "Application::GetVersion), oyna (o'lcham, to'liq ekran, VSync, sarlavha, FPS cheklovi, fonda ishlash, F11), ikonka, "

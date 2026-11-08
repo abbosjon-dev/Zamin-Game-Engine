@@ -604,6 +604,8 @@ def build_scene():
              Text=k.ui_text("NEON MAYDON", (0.9, 0.1, 0.7, 0.8), "Center", key="menu.title"))
     s.entity("Sarlavha matni", parent=title_root, UITransform=k.ui_rect((0, 0), (1, 1), size=(0, 0), font=156),
              Text=k.ui_text("NEON MAYDON", (0.6, 1.0, 1.0, 1.0), "Center", key="menu.title"))
+    # dark plates under the subtitle and the control hints: the ships' glow behind the menu does not wash them out
+    k.ui_backdrop(s, "Taglavha foni", main_menu, ATLAS, (0, 152), (860, 62))
     s.entity("Taglavha", parent=main_menu, UITransform=k.ui_rect(pos=(0, 152), size=(1400, 50), font=38),
              Text=k.ui_text("Top-down shooter  ·  Zamin Engine namunasi", (0.75, 0.85, 1.0, 0.9), "Center", key="menu.subtitle"))
     menu_panel = panel("Menyu paneli", main_menu, (0, -110), (560, 330))
@@ -612,6 +614,7 @@ def build_scene():
     button("Chiqish", menu_panel, "Chiqish", "menu.quit", "Quit")
     menu_best = s.entity("Bosh menyu rekordi", parent=main_menu, UITransform=k.ui_rect(pos=(0, -330), size=(1200, 44), font=32),
                          Text=k.ui_text("", (1.0, 0.85, 0.35, 1.0), "Center"))
+    k.ui_backdrop(s, "Boshqaruv foni", main_menu, ATLAS, (0, 44), (1340, 94), anchor=(0.5, 0))
     s.entity("Boshqaruv", parent=main_menu, UITransform=k.ui_rect((0.5, 0), None, (0.5, 0), (0, 56), (1800, 70), font=25),
              Text=k.ui_text(k.controls_hint("uz", CONTROLS["uz"]), (0.7, 0.8, 0.95, 0.85), "Center", key="menu.controls", hints=True))
 

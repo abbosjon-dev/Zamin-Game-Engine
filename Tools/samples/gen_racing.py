@@ -512,6 +512,8 @@ def build_scene(pts, normals, dist, total):
              Text=k.ui_text("VODIY POYGASI", (0.35, 0.05, 0.02, 0.9), "Center", key="menu.title"))
     s.entity("Sarlavha matni", parent=title, UITransform=k.ui_rect((0, 0), (1, 1), size=(0, 0), font=140),
              Text=k.ui_text("VODIY POYGASI", (1.0, 0.6, 0.3, 1.0), "Center", key="menu.title"))
+    # dark plates under the subtitle and the control hints: the cars race on behind the menu
+    k.ui_backdrop(s, "Taglavha foni", main_menu, ATLAS, (0, 180), (1100, 62))
     s.entity("Taglavha", parent=main_menu, UITransform=k.ui_rect(pos=(0, 180), size=(1500, 50), font=38),
              Text=k.ui_text(UZ["menu"]["subtitle"], (1.0, 0.95, 0.9, 0.95), "Center", key="menu.subtitle"))
     menu_panel = ui.panel("Menyu paneli", main_menu, (0, -90), (560, 330))
@@ -520,6 +522,7 @@ def build_scene(pts, normals, dist, total):
     ui.button("Chiqish", menu_panel, "Chiqish", "menu.quit", "Quit")
     menu_best = s.entity("Bosh menyu rekordi", parent=main_menu, UITransform=k.ui_rect(pos=(0, -300), size=(1200, 44), font=32),
                          Text=k.ui_text("", (1.0, 0.85, 0.45, 1.0), "Center"))
+    k.ui_backdrop(s, "Boshqaruv foni", main_menu, ATLAS, (0, 38), (1720, 94), anchor=(0.5, 0))
     s.entity("Boshqaruv", parent=main_menu, UITransform=k.ui_rect((0.5, 0), None, (0.5, 0), (0, 50), (1850, 70), font=25),
              Text=k.ui_text(UZ["menu"]["controls"], (0.95, 0.95, 1.0, 0.9), "Center", key="menu.controls", hints=True))
 

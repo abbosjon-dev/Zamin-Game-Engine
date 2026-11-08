@@ -92,7 +92,8 @@ private:
 
     State m_State = State::Menu;
     Sokoban::Board m_Board;
-    int m_Level = 0;
+    int m_Level = 0;                  // the level on the board (the bot's behind the menu, too)
+    int m_PlayerLevel = 0;            // the level the player played last (Play / the levels menu start there)
     bool m_Bot = true;
     bool m_DemoRun = false;
     std::vector<Tile> m_Tiles;
@@ -103,6 +104,7 @@ private:
     Anim m_Anim;
     int m_QueuedDir = -1;
     bool m_QueuedUndo = false;
+    bool m_RepeatQueued = false;      // m_QueuedDir came from a held key's repeat (dropped when the key is let go)
     int m_HeldDir = -1;
     float m_HoldTimer = 0.0f;
     float m_RobotYaw = 0.0f, m_RobotYawGoal = 0.0f;

@@ -281,6 +281,7 @@ _Inspektorda: **Text**; qo'shish: **+ Komponent → Render → Text**; sahna fay
 | `HasLocalizedText` _(faqat o'yin paytida)_ | `bool` | `false` |
 | `HintsVersion` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
 | `HintsSource` _(faqat o'yin paytida)_ | `std::string` | — |
+| `HintsFromText` _(faqat o'yin paytida)_ | `bool` | `false` |
 <!-- /gen:TextComponent -->
 
 ### MeshRendererComponent

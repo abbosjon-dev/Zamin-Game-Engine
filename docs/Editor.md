@@ -42,10 +42,12 @@ Loyihasiz ochilganda (yoki **Fayl → Yangi loyiha...**) **launcher** chiqadi:
   `CMakeLists.txt`, `.gitignore`, til fayllari (`uz`, `en`) va standart input harakatlari. Editor ochilishi bilan C++
   skriptlarni kompilyatsiya qiladi.
 - **Loyihani ochish** — `.zproject` fayl yoki papka yo'li.
+- **So'nggi sahnalar** va **So'nggi loyihalar** — avval o'zingizning ishingiz.
 - **Namuna o'yinlar** — `Projects/` dagi namunalar rasmli kartalarda: loyihaning rasmi (`.zproject`dagi
   `Thumbnail`), nomi (Player'dagi mahsulot nomi) va tavsifi (`Description`); bir bosishda ochiladi. Namunalarning
-  rasmlari o'yinlarning headless skrinshotlaridan `Tools/samples/make_thumbnails.py` bilan olinadi.
-- **So'nggi sahnalar** va **So'nggi loyihalar**.
+  rasmlari o'yinlarning headless skrinshotlaridan `Tools/samples/make_thumbnails.py` bilan olinadi. So'nggi
+  sahna yoki loyiha bo'lsa, kartalar ro'yxatlardan keyin bir qatorda ko'rinadi (**Hammasini ko'rsatish** — hammasi);
+  hali hech narsa ochilmagan bo'lsa, kartalar birinchi turadi.
 
 ![Yangi loyiha editorda](images/editor-new-project.jpg)
 

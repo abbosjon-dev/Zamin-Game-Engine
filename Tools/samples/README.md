@@ -8,7 +8,7 @@ saqlanadi. C++ skriptlar (`Projects/<O'yin>/Source`) esa qo'lda yoziladi va gene
 
 | Fayl | Nima qiladi |
 |---|---|
-| `samplekit.py` | Umumiy vositalar: PNG va WAV yozish (`zlib`, `wave` modullari), barqaror UUID'li `.zmeta`, signed-distance shakllar (yumshoq chet, nur sochish), tikiladigan qiymat shovqini, balandlikdan normal map; ovoz uchun oscillator'lar, ADSR, shovqin, filtrlar, notalar; `SceneBuilder` (engine o'qiydigan `.zscene` JSON) va komponent yordamchilari; `write_project` |
+| `samplekit.py` | Umumiy vositalar: PNG va WAV yozish (`zlib`, `wave` modullari), barqaror UUID'li `.zmeta`, signed-distance shakllar (yumshoq chet, nur sochish), tikiladigan qiymat shovqini, balandlikdan normal map; ovoz uchun oscillator'lar, ADSR, shovqin, filtrlar, notalar; `SceneBuilder` (engine o'qiydigan `.zscene` JSON) va komponent yordamchilari (`ui_backdrop` — menyu matni ostidagi to'q plastinka); `write_project` |
 | `gen_topdownshooter.py` | Neon Maydon: neon sprite atlas, pol va kosmos foni, 15 ta ovoz, sahna |
 | `gen_breakout.py` | Zamin Breakout: g'isht va bonus atlasi, maydon va fon, 15 ta ovoz, sahna |
 | `gen_fpsarena.py` | FPS Arena: beton, metall va quti teksturalari normal map'lari bilan, 22 ta ovoz, arena sahnasi |

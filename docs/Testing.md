@@ -159,7 +159,9 @@ logiga qarab tekshiradi:
   - Vodiy Poygasi: birinchi aylana tugaydi.
 - **menus**: bot yo'q, tugmalarni `ZAMIN_PLAYER_INPUT` bosadi. Bosh menyuda Enter ("O'ynash" tanlangan bo'ladi),
   so'ng Esc — pauza, yana Esc — o'yin davom etadi, keyin pauza menyusidan "Bosh menyu". Omborchi va Ipak Yo'li
-  holatlarida natija oynasi ham ochiladi. O'yinlar har panel uchun jurnalga `Menyu: bosh menyu` / `pauza` /
+  holatlarida natija oynasi ham ochiladi. Omborchi'ning `menuwait` holati bosh menyuda 10 s kutadi (orqadagi bot
+  keyingi darajaga o'tadi), so'ng "O'ynash" o'yinchining 1-darajasini ochishini va qadam animatsiyasi paytida tez
+  bosilgan ikkinchi qadam yo'qolmasligini tekshiradi. O'yinlar har panel uchun jurnalga `Menyu: bosh menyu` / `pauza` /
   `pauza yopildi` / `natijalar` yozadi, test shu qatorlarning tartibini tekshiradi. Platformer2D'da `Menu.zscene` dan
   yuklanish ekrani orqali 1-darajaga o'tiladi.
 - **smoke**: uchta eski namuna (Platformer2D, Showcase3D, Adventure3D) ishga tushadi va sahnasi yuklanadi.

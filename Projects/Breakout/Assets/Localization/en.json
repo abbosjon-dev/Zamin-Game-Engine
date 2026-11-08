@@ -7,7 +7,7 @@
         "quit": "Quit",
         "language": "Language: {0}",
         "best": "Best: {0}   ·   furthest level: {1}",
-        "controls": "[kb:Mouse / ][MoveX] - paddle   ·   [Action] - launch, laser   ·   [Pause] - pause\n[kb:A gamepad works too - use it and the hints show its buttons][pad:Gamepad - use the keyboard or mouse and the hints switch back]"
+        "controls": "[kb:Mouse / ][MoveX] - paddle   ·   [Action] - launch, laser\n[Pause] - pause\n[kb:A gamepad works too - use it and the hints show its buttons][pad:Gamepad - use the keyboard or mouse and the hints switch back]"
     },
     "input": {
         "key": {

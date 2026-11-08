@@ -709,6 +709,8 @@ namespace Zamin {
               "Not part of the exported game." },
             { "Fayl topilmadi", "File not found" },
             { "Namuna o'yinlar", "Sample games" },
+            { "Hali loyiha ochilmagan", "No project opened yet" },
+            { "Kamroq ko'rsatish", "Show less" },
             { "Nom yoki tugma bo'yicha qidirish", "Search by name or key" },
             { "Nomi (masalan Ovozlar)", "Name (e.g. Voices)" },
             { "Qidirish", "Search" },
@@ -818,7 +820,7 @@ namespace Zamin {
             { "Versiya", "Version" },
             { "sRGB framebuffer", "sRGB framebuffer" },
             // ---- project settings: the categories' descriptions
-            { "Loyiha nomi va papkalari.", "The project's name and folders." },
+            { "Loyiha nomi, tavsifi, launcher rasmi va papkalari.", "The project's name, description, launcher picture and folders." },
             { "O'yin player'da qanday ishga tushadi: kompaniya, mahsulot nomi va versiya (SaveData papkasi, Application::GetVersion), oyna (o'lcham, to'liq ekran, VSync, sarlavha, FPS cheklovi, fonda ishlash, F11), ikonka, splash ekran va log (darajalar, log fayllari).", "How the game starts in the player: company, product name and version (SaveData folder, Application::GetVersion), the window (size, full screen, VSync, title, FPS limit, running in the background, F11), the icon, the splash screen and the log (levels, log files)." },
             { "Sifat darajalari: har bir daraja sahnalar so'ragan soya, effekt va render masshtabini cheklaydi. O'yin standart darajada boshlanadi (player: --quality yoki o'yinchi tanlagani).", "Quality levels: each level limits the shadows, effects and render scale the scenes ask for. The game starts at the default level (player: --quality or what the player chose)." },
             { "Player oynasining OpenGL konteksti: versiya (4.1 / 4.3 / 4.5 / 4.6 core), debug konteksti, oyna buferining MSAA va sRGB'si. Oyna yaratilganda qo'llanadi; editor ishlayotgan kontekstni ham ko'rsatadi.", "The player window's OpenGL context: version (4.1 / 4.3 / 4.5 / 4.6 core), debug context, the window buffer's MSAA and sRGB. Applied when the window is created; the editor also shows the context it runs with." },

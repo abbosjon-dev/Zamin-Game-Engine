@@ -12057,33 +12057,55 @@ namespace Zamin {
         };
 
         ImGui::Dummy(ImVec2(0, 14));
-        // The sample games: cards with a picture.
-        if (UI_LauncherSamples())
-        {
+        // A returning user's own work comes first: the scenes opened last (any project: one click opens the project and
+        // the scene) and the recent projects, then the sample games in one row (all of them on request). Without any
+        // history the sample cards come first, all of them.
+        const bool hasHistory = !m_RecentProjects.IsEmpty() || std::ranges::any_of(m_RecentScenes.GetEntries(), [](const RecentFileList::Entry& e) {
+            std::error_code ec;
+            return fs::exists(e.Path, ec);
+        });
+        auto closeLauncher = [&] {
             ImGui::CloseCurrentPopup();
             ImGui::EndChild();
             ImGui::EndPopup();
+        };
+        if (!hasHistory && UI_LauncherSamples(false))
+        {
+            closeLauncher();
             return;
         }
-
-        // The scenes opened last (any project): one click opens the project and the scene.
         if (UI_LauncherRecentScenes())
         {
-            ImGui::CloseCurrentPopup();
-            ImGui::EndChild();
-            ImGui::EndPopup();
+            closeLauncher();
             return;
         }
         ImGui::PushFont(ImGuiLayer::GetBoldFont());
-        ImGui::TextUnformatted(ICON_FA_LIST "  So'nggi loyihalar");
+        ImGui::TextUnformatted(Tr(ICON_FA_LIST "  So'nggi loyihalar"));
         ImGui::PopFont();
         ImGui::Spacing();
         if (m_RecentProjects.IsEmpty())
-            ImGui::TextDisabled("Hali loyiha ochilmagan");
+            ImGui::TextDisabled("%s", Tr("Hali loyiha ochilmagan"));
         for (const RecentFileList::Entry& e : m_RecentProjects.GetEntries())
         {
             const fs::path p(e.Path);
-            if (projectCard(p, ICON_FA_FOLDER)) { if (OpenProject(p)) ImGui::CloseCurrentPopup(); break; }
+            if (projectCard(p, ICON_FA_FOLDER))
+            {
+                if (OpenProject(p))
+                {
+                    closeLauncher();
+                    return;
+                }
+                break;
+            }
+        }
+        if (hasHistory)
+        {
+            ImGui::Dummy(ImVec2(0, 14));
+            if (UI_LauncherSamples(!m_LauncherAllSamples))
+            {
+                closeLauncher();
+                return;
+            }
         }
 
         ImGui::EndChild();

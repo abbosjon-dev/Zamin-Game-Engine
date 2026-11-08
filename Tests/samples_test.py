@@ -161,7 +161,17 @@ def sokoban_menus():
                  env={"ZAMIN_PLAYER_INPUT": keys(*script)}),
             Case("Sokoban", "levels", 120, [levels],
                  env={"ZAMIN_PLAYER_INPUT": keys((30, "Down"), (40, "Enter"), (90, "Escape"))},
-                 note="bosh menyuda Down + Enter: darajalar, Esc: orqaga")]
+                 note="bosh menyuda Down + Enter: darajalar, Esc: orqaga"),
+            # The bot behind the main menu solves level 1 and goes on (about 4 s a level); "Play" pressed after it
+            # still starts the player's level 1, and two quick taps (the second while the first step still moves)
+            # both count: the crate reaches its target in 2 steps.
+            Case("Sokoban", "menuwait", 330, [
+                present("bot orqada 1-darajani yechdi", r"Omborchi: menyu orqasida 2-daraja"),
+                in_order("kutib o'ynash: 1-daraja (botniki emas), tez ikki qadam -> yechildi",
+                         [MAIN_MENU, r"Omborchi: 1-daraja", r"Menyu: natijalar - 1-daraja yechildi, 2 qadam"]),
+                absent("bot darajasi boshlanmadi", r"Omborchi: [2-9]-daraja \("),
+            ], env={"ZAMIN_PLAYER_INPUT": keys((200, "Enter"), (260, "D"), (262, "D"))},
+                note="bosh menyuda 10 s kutish (bot keyingi darajaga o'tadi), Enter, D D (2 kadr oralig'ida)")]
 
 
 def pad_case(game, started, script, checks=(), frames=None, downs=2, menu_at=None, note=""):
@@ -456,7 +466,7 @@ def run_case(case, args, runner, work):
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--game", action="append", default=[], help="only this sample (more than once: several)")
-    parser.add_argument("--kind", action="append", default=[], help="only these cases: demo, menus, levels, level6, smoke, gamepad")
+    parser.add_argument("--kind", action="append", default=[], help="only these cases: demo, menus, levels, menuwait, level6, smoke, gamepad")
     parser.add_argument("--list", action="store_true", help="the cases and their checks")
     parser.add_argument("--build", default=os.environ.get("ZAMIN_BUILD_DIR", os.path.join(ROOT, "build")))
     parser.add_argument("--player", help="ZaminPlayer (default: <build>/bin/ZaminPlayer)")

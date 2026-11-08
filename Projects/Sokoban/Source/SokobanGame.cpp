@@ -36,6 +36,7 @@ void SokobanGame::OnCreate()
     m_Level = std::clamp(SaveData::GetInt("Sokoban.Level", 0), 0, (int)GetLevels().size() - 1);
     if (const char* start = std::getenv("ZAMIN_START_LEVEL"))
         m_Level = std::clamp(std::atoi(start) - 1, 0, (int)GetLevels().size() - 1);
+    m_PlayerLevel = m_Level;
     std::string bests;
     for (int i = 0; i < (int)GetLevels().size(); i++)
         if (const int best = GetBest(i); best > 0)
@@ -48,12 +49,13 @@ void SokobanGame::OnStart()
     auto click = [this] { PlaySound("Audio/ui_click.wav", 0.8f, 1.0f, "UI"); };
     AddMessageHandler("Play", [this, click](const ScriptMessage&) {
         click();
-        // the first level not solved yet (from the last one played)
-        int level = m_Level;
-        for (int i = 0; i < (int)GetLevels().size(); i++)
-            if (GetBest((m_Level + i) % (int)GetLevels().size()) == 0)
+        // the first level not solved yet, from the last one the player played (not the bot behind the menu)
+        const int count = (int)GetLevels().size();
+        int level = m_PlayerLevel;
+        for (int i = 0; i < count; i++)
+            if (GetBest((m_PlayerLevel + i) % count) == 0)
             {
-                level = (m_Level + i) % (int)GetLevels().size();
+                level = (m_PlayerLevel + i) % count;
                 break;
             }
         StartLevel(level, false);
@@ -128,7 +130,7 @@ void SokobanGame::ShowMenu()
     ZM_INFO("Menyu: bosh menyu");
     if (Entity button = Resolve(PlayButton))
         GetScene().SetSelectedUI(button);
-    StartLevel(m_Level, true); // the bot solves it behind the menu
+    StartLevel(m_PlayerLevel, true); // the bot solves it (and the ones after it) behind the menu
     m_State = State::Menu;
     RefreshTexts();
 }
@@ -147,7 +149,7 @@ void SokobanGame::ShowLevels(bool show)
     {
         if (Entity grid = Resolve(LevelGrid))
             if (std::vector<Entity> buttons = GetScene().GetChildren(grid); !buttons.empty())
-                GetScene().SetSelectedUI(buttons[(size_t)std::clamp(m_Level, 0, (int)buttons.size() - 1)]);
+                GetScene().SetSelectedUI(buttons[(size_t)std::clamp(m_PlayerLevel, 0, (int)buttons.size() - 1)]);
     }
     else if (Entity button = Resolve(PlayButton))
         GetScene().SetSelectedUI(button);
@@ -160,7 +162,9 @@ void SokobanGame::StartLevel(int index, bool bot)
     m_Level = std::clamp(index, 0, (int)GetLevels().size() - 1);
     m_Bot = bot || m_DemoRun;
     const bool menu = m_State == State::Menu && bot && !m_DemoRun;
-    if (!menu)
+    if (menu)
+        ZM_INFO("Omborchi: menyu orqasida {}-daraja (bot)", m_Level + 1);
+    else
     {
         m_State = State::Playing;
         SetActiveRef(MainMenu, false);
@@ -171,6 +175,7 @@ void SokobanGame::StartLevel(int index, bool bot)
         GetScene().SetSelectedUI({});
         if (!m_Bot)
         {
+            m_PlayerLevel = m_Level;
             SaveData::SetInt("Sokoban.Level", m_Level);
             ZM_INFO("Omborchi: {}-daraja ({})", m_Level + 1, GetLevels()[(size_t)m_Level].Name);
         }
@@ -182,6 +187,7 @@ void SokobanGame::StartLevel(int index, bool bot)
     m_Anim = {};
     m_QueuedDir = -1;
     m_QueuedUndo = false;
+    m_RepeatQueued = false;
     m_Spin = 0.0f;
     m_CompleteTimer = 0.0f;
     m_BotPath.clear();
@@ -333,27 +339,33 @@ void SokobanGame::OnUpdate(Timestep ts)
     }
     const bool introDone = m_IntroTimer > 0.85f;
 
-    if (introDone && !m_Anim.Active)
+    if (introDone)
     {
         if (m_State == State::Complete || (m_State == State::Menu && m_Board.IsSolved()))
         {
-            // the next level comes by itself for the bot; a person uses the results panel
-            m_CompleteTimer += dt;
-            Entity panel = Resolve(CompleteMenu);
-            if (m_CompleteTimer > 1.0f && m_State == State::Complete && !m_Bot && panel && !panel.IsActive())
+            // (after the last step's animation) the next level comes by itself for the bot; a person uses the results panel
+            if (!m_Anim.Active)
             {
-                SetActiveRef(CompleteMenu, true);
-                ZM_INFO("Menyu: natijalar - {}-daraja yechildi, {} qadam", m_Level + 1, m_Board.GetMoves());
-                if (Entity next = Resolve(NextButton))
-                    GetScene().SetSelectedUI(next);
+                m_CompleteTimer += dt;
+                Entity panel = Resolve(CompleteMenu);
+                if (m_CompleteTimer > 1.0f && m_State == State::Complete && !m_Bot && panel && !panel.IsActive())
+                {
+                    SetActiveRef(CompleteMenu, true);
+                    ZM_INFO("Menyu: natijalar - {}-daraja yechildi, {} qadam", m_Level + 1, m_Board.GetMoves());
+                    if (Entity next = Resolve(NextButton))
+                        GetScene().SetSelectedUI(next);
+                }
+                if (m_Bot && m_CompleteTimer > 2.6f)
+                    StartLevel((m_Level + 1) % (int)GetLevels().size(), true);
             }
-            if (m_Bot && m_CompleteTimer > 2.6f)
-                StartLevel((m_Level + 1) % (int)GetLevels().size(), true);
         }
         else if (m_Bot)
-            UpdateBot(dt);
+        {
+            if (!m_Anim.Active)
+                UpdateBot(dt);
+        }
         else if (m_State == State::Playing)
-            HandleInput(dt);
+            HandleInput(dt); // also while a step moves: presses then wait for it (TryStep / DoUndo queue them)
     }
     UpdateAnimation(dt);
     UpdateCamera(dt, false);
@@ -369,6 +381,9 @@ void SokobanGame::OnUpdate(Timestep ts)
 
 void SokobanGame::HandleInput(float dt)
 {
+    // the last box is on its goal: the step is still moving, then the level is complete
+    if (m_Board.IsSolved())
+        return;
     if (Input::IsActionJustPressed("Undo"))
     {
         DoUndo();
@@ -386,6 +401,10 @@ void SokobanGame::HandleInput(float dt)
         dir = std::abs(move.x) > std::abs(move.y) ? (move.x > 0.0f ? Right : Left) : (move.y > 0.0f ? Up : Down);
     if (dir != m_HeldDir)
     {
+        // a held key's repeat still waiting for the step animation goes when the key is let go / turned; a tap stays
+        if (m_RepeatQueued)
+            m_QueuedDir = -1;
+        m_RepeatQueued = false;
         m_HeldDir = dir;
         m_HoldTimer = 0.0f;
         if (dir >= 0)
@@ -398,6 +417,7 @@ void SokobanGame::HandleInput(float dt)
         if (m_HoldTimer > 0.28f)
         {
             m_HoldTimer -= 0.12f;
+            m_RepeatQueued = m_Anim.Active;
             TryStep(dir);
         }
     }
@@ -475,6 +495,9 @@ void SokobanGame::DoRestart()
     if (m_Board.GetMoves() == 0)
         return;
     m_Board.Reset();
+    m_QueuedDir = -1;
+    m_QueuedUndo = false;
+    m_RepeatQueued = false;
     // everything glides back to where it started
     m_Anim = {};
     m_Anim.Active = true;
@@ -557,6 +580,7 @@ void SokobanGame::UpdateAnimation(float dt)
             {
                 const int dir = m_QueuedDir;
                 m_QueuedDir = -1;
+                m_RepeatQueued = false;
                 TryStep(dir);
             }
         }

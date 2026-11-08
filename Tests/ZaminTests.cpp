@@ -4108,6 +4108,32 @@ TEST(InputActiveDeviceAndTextHints)
     CHECK(SceneSerializer(loaded).DeserializeFromString(json));
     Entity copy = loaded->FindEntityByName("Ishora");
     CHECK(copy && copy.GetComponent<TextComponent>().InputHints && copy.GetComponent<TextComponent>().Text == "[Pause] - pauza");
+
+    // Empty when first expanded (a HUD hint a script fills later, or the inspector's field cleared): the text set
+    // afterwards is still expanded, and cleared again it shows nothing.
+    Input::SetActiveDevice(InputDevice::KeyboardMouse);
+    TextComponent hud;
+    hud.Text = "";
+    hud.InputHints = true;
+    CHECK(hud.UpdateLocalized() && hud.GetDisplayText().empty());
+    CHECK(!hud.UpdateLocalized());
+    hud.Text = "[Jump] - sakrash";
+    CHECK(hud.UpdateLocalized() && hud.GetDisplayText() == "Space - sakrash");
+    CHECK(!hud.UpdateLocalized());
+    hud.Text = "";
+    CHECK(hud.UpdateLocalized() && hud.GetDisplayText().empty());
+    // From the language's string: a change of Text (the fallback) does not matter while the key has a string.
+    std::vector<StringTable> tables(1);
+    tables[0].Language = "uz";
+    tables[0].Strings["hint.jump"] = { "[Jump] - sakra", {} };
+    LocalizationSettings settings;
+    settings.Languages = { "uz" };
+    Localization::SetTables(std::move(tables), settings);
+    hud.LocalizationKey = "hint.jump";
+    CHECK(hud.UpdateLocalized() && hud.GetDisplayText() == "Space - sakra");
+    hud.Text = "boshqa";
+    CHECK(!hud.UpdateLocalized() && hud.GetDisplayText() == "Space - sakra");
+    Localization::Clear();
     Input::ResetState();
     CHECK(Input::GetActiveDevice() == InputDevice::KeyboardMouse);
 }
@@ -34657,6 +34683,23 @@ TEST(ProjectSettingsIndexSearch)
     changed = ProjectSettingsIndex::DiffSections(ProjectSerializer::ConfigToSections(saved), ProjectSerializer::ConfigToSections(edited));
     CHECK(changed.size() == 1 && ProjectSettingsIndex::IsChanged(categories[(size_t)ProjectSettingsIndex::Find("BuildScenes")], changed));
     CHECK(ProjectSettingsIndex::DiffSections(ProjectSerializer::ConfigToSections(saved), ProjectSerializer::ConfigToSections(saved)).empty());
+    // The launcher's description and picture are General's (searchable there too).
+    const ProjectSettingsCategory& general = categories[(size_t)ProjectSettingsIndex::Find("General")];
+    for (auto edit : { +[](ProjectConfig& c) { c.Description = "Bir o'yin"; }, +[](ProjectConfig& c) { c.Thumbnail = "Thumbnail.jpg"; } })
+    {
+        edited = saved;
+        edit(edited);
+        changed = ProjectSettingsIndex::DiffSections(ProjectSerializer::ConfigToSections(saved), ProjectSerializer::ConfigToSections(edited));
+        CHECK(changed.size() == 1 && ProjectSettingsIndex::IsChanged(general, changed));
+    }
+    CHECK(ProjectSettingsIndex::Matches(general, "tavsif", &hits) && ProjectSettingsIndex::Matches(general, "launcher", &hits));
+    // Every section the .zproject writes belongs to a category (the sections a fully set config writes).
+    ProjectConfig full;
+    full.Description = "d";
+    full.Thumbnail = "t.png";
+    for (const auto& [section, text] : ProjectSerializer::ConfigToSections(full))
+        if (section != "Version" && section != "Project.EngineVersion")
+            CHECK(owned.count(section) == 1);
 }
 
 TEST(SemanticVersionParseCompare)

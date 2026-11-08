@@ -217,43 +217,43 @@
           },
           "PauseMenu": {
             "Type": "Entity",
-            "Value": 8810000000000099
+            "Value": 8810000000000101
           },
           "GameOverMenu": {
             "Type": "Entity",
-            "Value": 8810000000000105
+            "Value": 8810000000000107
           },
           "MenuBest": {
             "Type": "Entity",
-            "Value": 8810000000000097
+            "Value": 8810000000000098
           },
           "PlayButton": {
             "Type": "Entity",
-            "Value": 8810000000000094
+            "Value": 8810000000000095
           },
           "LanguageButton": {
             "Type": "Entity",
-            "Value": 8810000000000095
+            "Value": 8810000000000096
           },
           "ResumeButton": {
             "Type": "Entity",
-            "Value": 8810000000000102
+            "Value": 8810000000000104
           },
           "RetryButton": {
             "Type": "Entity",
-            "Value": 8810000000000111
+            "Value": 8810000000000113
           },
           "OverScore": {
             "Type": "Entity",
-            "Value": 8810000000000108
+            "Value": 8810000000000110
           },
           "OverWave": {
             "Type": "Entity",
-            "Value": 8810000000000109
+            "Value": 8810000000000111
           },
           "OverRecord": {
             "Type": "Entity",
-            "Value": 8810000000000110
+            "Value": 8810000000000112
           },
           "ArenaHalfSize": {
             "Type": "Vec2",
@@ -2326,7 +2326,7 @@
         "MatchMode": "MatchWidthOrHeight",
         "Match": 0.5
       },
-      "ChildOrder": [8810000000000068, 8810000000000088, 8810000000000099, 8810000000000105]
+      "ChildOrder": [8810000000000068, 8810000000000088, 8810000000000101, 8810000000000107]
     },
     {
       "Entity": 8810000000000068,
@@ -2948,7 +2948,7 @@
         "PressScale": 1.0,
         "FeedbackDuration": 0.08
       },
-      "ChildOrder": [8810000000000089, 8810000000000092, 8810000000000093, 8810000000000097, 8810000000000098]
+      "ChildOrder": [8810000000000089, 8810000000000092, 8810000000000093, 8810000000000094, 8810000000000098, 8810000000000099, 8810000000000100]
     },
     {
       "Entity": 8810000000000089,
@@ -3043,6 +3043,35 @@
     },
     {
       "Entity": 8810000000000092,
+      "Tag": "Taglavha foni",
+      "Parent": 8810000000000088,
+      "Transform": {
+        "Translation": [0.0, 0.0, 0.0],
+        "Rotation": [0.0, 0.0, 0.0],
+        "Scale": [1.0, 1.0, 1.0]
+      },
+      "UITransform": {
+        "AnchorMin": [0.5, 0.5],
+        "AnchorMax": [0.5, 0.5],
+        "Pivot": [0.5, 0.5],
+        "Position": [0.0, 152.0],
+        "Size": [860.0, 62.0],
+        "FontSize": 0.0,
+        "Order": -1
+      },
+      "UIImage": {
+        "Color": [0.01, 0.01, 0.03, 0.6],
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": false,
+        "RaycastTarget": false,
+        "Texture": "Textures/shooter_atlas.png",
+        "Sprite": "button",
+        "BorderScale": 1.0
+      }
+    },
+    {
+      "Entity": 8810000000000093,
       "Tag": "Taglavha",
       "Parent": 8810000000000088,
       "Transform": {
@@ -3071,7 +3100,7 @@
       }
     },
     {
-      "Entity": 8810000000000093,
+      "Entity": 8810000000000094,
       "Tag": "Menyu paneli",
       "Parent": 8810000000000088,
       "Transform": {
@@ -3124,12 +3153,12 @@
         "PressScale": 1.0,
         "FeedbackDuration": 0.08
       },
-      "ChildOrder": [8810000000000094, 8810000000000095, 8810000000000096]
+      "ChildOrder": [8810000000000095, 8810000000000096, 8810000000000097]
     },
     {
-      "Entity": 8810000000000094,
+      "Entity": 8810000000000095,
       "Tag": "O'ynash",
-      "Parent": 8810000000000093,
+      "Parent": 8810000000000094,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3197,9 +3226,9 @@
       }
     },
     {
-      "Entity": 8810000000000095,
+      "Entity": 8810000000000096,
       "Tag": "Til",
-      "Parent": 8810000000000093,
+      "Parent": 8810000000000094,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3266,9 +3295,9 @@
       }
     },
     {
-      "Entity": 8810000000000096,
+      "Entity": 8810000000000097,
       "Tag": "Chiqish",
-      "Parent": 8810000000000093,
+      "Parent": 8810000000000094,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3336,7 +3365,7 @@
       }
     },
     {
-      "Entity": 8810000000000097,
+      "Entity": 8810000000000098,
       "Tag": "Bosh menyu rekordi",
       "Parent": 8810000000000088,
       "Transform": {
@@ -3364,7 +3393,36 @@
       }
     },
     {
-      "Entity": 8810000000000098,
+      "Entity": 8810000000000099,
+      "Tag": "Boshqaruv foni",
+      "Parent": 8810000000000088,
+      "Transform": {
+        "Translation": [0.0, 0.0, 0.0],
+        "Rotation": [0.0, 0.0, 0.0],
+        "Scale": [1.0, 1.0, 1.0]
+      },
+      "UITransform": {
+        "AnchorMin": [0.5, 0.0],
+        "AnchorMax": [0.5, 0.0],
+        "Pivot": [0.5, 0.0],
+        "Position": [0.0, 44.0],
+        "Size": [1340.0, 94.0],
+        "FontSize": 0.0,
+        "Order": -1
+      },
+      "UIImage": {
+        "Color": [0.01, 0.01, 0.03, 0.6],
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": false,
+        "RaycastTarget": false,
+        "Texture": "Textures/shooter_atlas.png",
+        "Sprite": "button",
+        "BorderScale": 1.0
+      }
+    },
+    {
+      "Entity": 8810000000000100,
       "Tag": "Boshqaruv",
       "Parent": 8810000000000088,
       "Transform": {
@@ -3394,7 +3452,7 @@
       }
     },
     {
-      "Entity": 8810000000000099,
+      "Entity": 8810000000000101,
       "Tag": "Pauza menyusi",
       "Active": false,
       "Parent": 8810000000000067,
@@ -3433,12 +3491,12 @@
         "PressScale": 1.0,
         "FeedbackDuration": 0.08
       },
-      "ChildOrder": [8810000000000100]
+      "ChildOrder": [8810000000000102]
     },
     {
-      "Entity": 8810000000000100,
+      "Entity": 8810000000000102,
       "Tag": "Pauza paneli",
-      "Parent": 8810000000000099,
+      "Parent": 8810000000000101,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3489,12 +3547,12 @@
         "PressScale": 1.0,
         "FeedbackDuration": 0.08
       },
-      "ChildOrder": [8810000000000101, 8810000000000102, 8810000000000103, 8810000000000104]
+      "ChildOrder": [8810000000000103, 8810000000000104, 8810000000000105, 8810000000000106]
     },
     {
-      "Entity": 8810000000000101,
+      "Entity": 8810000000000103,
       "Tag": "Pauza sarlavhasi",
-      "Parent": 8810000000000100,
+      "Parent": 8810000000000102,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3521,9 +3579,9 @@
       }
     },
     {
-      "Entity": 8810000000000102,
+      "Entity": 8810000000000104,
       "Tag": "Davom etish",
-      "Parent": 8810000000000100,
+      "Parent": 8810000000000102,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3591,9 +3649,9 @@
       }
     },
     {
-      "Entity": 8810000000000103,
+      "Entity": 8810000000000105,
       "Tag": "Qaytadan",
-      "Parent": 8810000000000100,
+      "Parent": 8810000000000102,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3661,9 +3719,9 @@
       }
     },
     {
-      "Entity": 8810000000000104,
+      "Entity": 8810000000000106,
       "Tag": "Bosh menyuga",
-      "Parent": 8810000000000100,
+      "Parent": 8810000000000102,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3731,7 +3789,7 @@
       }
     },
     {
-      "Entity": 8810000000000105,
+      "Entity": 8810000000000107,
       "Tag": "O'yin tugadi",
       "Active": false,
       "Parent": 8810000000000067,
@@ -3770,12 +3828,12 @@
         "PressScale": 1.0,
         "FeedbackDuration": 0.08
       },
-      "ChildOrder": [8810000000000106]
+      "ChildOrder": [8810000000000108]
     },
     {
-      "Entity": 8810000000000106,
+      "Entity": 8810000000000108,
       "Tag": "Natija paneli",
-      "Parent": 8810000000000105,
+      "Parent": 8810000000000107,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3826,12 +3884,12 @@
         "PressScale": 1.0,
         "FeedbackDuration": 0.08
       },
-      "ChildOrder": [8810000000000107, 8810000000000108, 8810000000000109, 8810000000000110, 8810000000000111, 8810000000000112]
+      "ChildOrder": [8810000000000109, 8810000000000110, 8810000000000111, 8810000000000112, 8810000000000113, 8810000000000114]
     },
     {
-      "Entity": 8810000000000107,
+      "Entity": 8810000000000109,
       "Tag": "Natija sarlavhasi",
-      "Parent": 8810000000000106,
+      "Parent": 8810000000000108,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3858,9 +3916,9 @@
       }
     },
     {
-      "Entity": 8810000000000108,
+      "Entity": 8810000000000110,
       "Tag": "Natija hisobi",
-      "Parent": 8810000000000106,
+      "Parent": 8810000000000108,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3886,9 +3944,9 @@
       }
     },
     {
-      "Entity": 8810000000000109,
+      "Entity": 8810000000000111,
       "Tag": "Natija to'lqini",
-      "Parent": 8810000000000106,
+      "Parent": 8810000000000108,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3914,9 +3972,9 @@
       }
     },
     {
-      "Entity": 8810000000000110,
+      "Entity": 8810000000000112,
       "Tag": "Natija rekordi",
-      "Parent": 8810000000000106,
+      "Parent": 8810000000000108,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3942,9 +4000,9 @@
       }
     },
     {
-      "Entity": 8810000000000111,
+      "Entity": 8810000000000113,
       "Tag": "Qayta o'ynash",
-      "Parent": 8810000000000106,
+      "Parent": 8810000000000108,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -4012,9 +4070,9 @@
       }
     },
     {
-      "Entity": 8810000000000112,
+      "Entity": 8810000000000114,
       "Tag": "Natija: bosh menyu",
-      "Parent": 8810000000000106,
+      "Parent": 8810000000000108,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],

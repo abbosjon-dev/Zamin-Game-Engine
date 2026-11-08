@@ -1,5 +1,8 @@
 #include "Shooter.h"
 
+#include "Zamin/Core/InputActions.h"
+#include "Zamin/Project/Project.h"
+
 #include <algorithm>
 #include <cmath>
 
@@ -127,6 +130,17 @@ void PlayerShip::OnUpdate(Timestep ts)
         }
 }
 
+// A mouse button bound to "Fire" in the input map is held (whichever one it is: rebinding Fire in Project settings >
+// Input moves the switch to mouse aiming with it; a key or a gamepad button of Fire does not switch).
+static bool FirePressedByMouse()
+{
+    if (const InputAction* fire = Project::GetInputActionMap().FindAction("Fire"))
+        for (const InputBinding& binding : fire->Bindings)
+            if (binding.Source == InputSource::Mouse && Input::IsMouseButtonPressed((MouseButton)binding.Code))
+                return true;
+    return false;
+}
+
 PlayerShip::Controls PlayerShip::ReadInput()
 {
     Controls c;
@@ -134,9 +148,9 @@ PlayerShip::Controls PlayerShip::ReadInput()
     c.Aim = Input::GetVector("Aim");
     c.Fire = Input::IsActionPressed("Fire");
     c.Dash = Input::IsActionJustPressed("Dash");
-    // The mouse aims once it moves or clicks; the stick / arrows take over when they are used.
+    // The mouse aims once it moves or fires with a mouse button; the stick / arrows take over when they are used.
     const glm::vec2 mouse = Input::GetMousePosition();
-    if (glm::distance(mouse, m_LastMouse) > 2.0f || Input::IsMouseButtonPressed(MouseButton::Left))
+    if (glm::distance(mouse, m_LastMouse) > 2.0f || (c.Fire && FirePressedByMouse()))
         m_UsingMouse = true;
     if (glm::length(c.Aim) > 0.3f)
         m_UsingMouse = false;

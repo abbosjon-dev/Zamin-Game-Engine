@@ -8,7 +8,7 @@ M22 "Sifat va testlar" milestone'i oxiridagi holat: hamma raqamlar shu kompyuter
 
 | Ko'rsatkich | Natija |
 |---|---|
-| Unit testlar (`ZaminTests`) | **627 test, 0 xato** - GCC Debug 39 s, ASan 108 s, Clang UBSan 48 s |
+| Unit testlar (`ZaminTests`) | **627 test, 0 xato** - GCC Debug 39 s, ASan 107 s, Clang UBSan 48 s |
 | Rendering etalon testlari | **12 / 12** o'tdi (llvmpipe, 480x270, chegara 0.5 % piksel) |
 | Editor smoke testi | Showcase3D **221 / 221** qadam, Platformer2D **263 / 263** qadam, 0 xato, 0 OpenGL xatosi, 0 ImGui tekshiruvi |
 | Skript hot reload testi | o'tdi (19 s): maydon qiymatlari saqlanadi (`Speed=7.5`, `Count=3`), yangi maydon `Extra=42`, yangi kod ishlaydi, logda xato yo'q |
@@ -40,10 +40,10 @@ dan sekin (ular umumiy vaqtning 60 %).
 
 | Build | Nima ishga tushirildi | Natija | Vaqt |
 |---|---|---|---|
-| ASan + LSan (GCC Debug, `build-asan`) | `ZaminTests` | 627 test, 0 xato, 0 xabar | 108 s |
-| | `ZaminPlayer` Platformer2D / Showcase3D / Adventure3D (60 kadr, xvfb) | 0 xabar | 9 / 26 / 29 s |
-| | `ZaminEditor` Showcase3D (60 kadr) | 0 xabar | 25 s |
-| | editor smoke testi (Showcase3D 221 qadam, Platformer2D 263 qadam) | 0 xato, 0 xabar | 221 + 113 s |
+| ASan + LSan (GCC Debug, `build-asan`) | `ZaminTests` | 627 test, 0 xato, 0 xabar | 107 s |
+| | `ZaminPlayer` Platformer2D / Showcase3D / Adventure3D (60 kadr, xvfb) | 0 xabar | 7 / 17 / 16 s |
+| | `ZaminEditor` Showcase3D (60 kadr) | 0 xabar | 16 s |
+| | editor smoke testi (Showcase3D 221 qadam, Platformer2D 263 qadam) | 0 xato, 0 xabar | 205 s |
 | UBSan (Clang Debug, `build-ubsan`) | `ZaminTests` | 627 test, 0 xato, 0 xabar | 48 s |
 | UBSan (GCC), alohida LSan | `ZaminTests` (avvalgi o'lchov, 421-423) | 0 xabar | |
 | TSan | faqat sozlanishi tekshirilgan | ishga tushirilmagan | |

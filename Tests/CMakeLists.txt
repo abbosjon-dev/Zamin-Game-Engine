@@ -52,7 +52,7 @@ add_custom_target(update_render_references
 # Particle benchmark (not part of ctest): times the particle update headless - about 50 000
 # particles per case, the profiler's scopes with --profile. Run build/bin/ZaminBench, or the
 # particle_bench target (--nav: the navigation benchmark, the nav_bench target).
-add_executable(ZaminBench ParticleBench.cpp NavBench.cpp PrefabBench.cpp)
+add_executable(ZaminBench ParticleBench.cpp NavBench.cpp PrefabBench.cpp RenderBench.cpp)
 target_link_libraries(ZaminBench PRIVATE Zamin)
 set_target_properties(ZaminBench PROPERTIES BUILD_RPATH "${CMAKE_BINARY_DIR}/bin")
 zamin_target_settings(ZaminBench)
@@ -76,6 +76,15 @@ add_custom_target(nav_bench
     COMMENT "Navigatsiya benchmark (yo'l qidirish, agentlar, bake)"
     USES_TERMINAL VERBATIM)
 
+# Rendering benchmark (a GL context: xvfb-run without a display): 10 000 sprites, 1 000 meshes and both together,
+# ms / frame (ZaminBench --render via Tests/render_bench.sh; the baseline is in docs/benchmarks.md).
+add_custom_target(render_bench
+    COMMAND ${CMAKE_COMMAND} -E env ZAMIN_BUILD_DIR=${CMAKE_BINARY_DIR} ${PROJECT_SOURCE_DIR}/Tests/render_bench.sh
+    DEPENDS ZaminBench
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+    COMMENT "Render benchmark (10k sprite, 1k mesh)"
+    USES_TERMINAL VERBATIM)
+
 # Player performance test (not part of ctest: it needs a display - xvfb-run without one): the sample games'
 # start scenes in ZaminPlayer --benchmark, ms / frame (average, median, p95, p99) and FPS per game, the reports
 # in build/PlayerBench. Run the player_bench target or Tests/player_bench.sh (--frames, --max-avg, --max-p95 ...).
@@ -86,8 +95,8 @@ add_custom_target(player_bench
     COMMENT "Player ishlash testi (headless, ms / kadr)"
     USES_TERMINAL VERBATIM)
 # Automatic export test (needs a display too): the editor exports Platformer2D into a temporary folder, the
-# exported game runs headless from its launcher (exit code, log, script module, a moved folder).
-# Run the export_test target or Tests/export_test.sh (--project, --frames, --keep).
+# exported game runs headless from its launcher (exit code, log, script module, a screenshot that shows the game,
+# a moved folder). Run the export_test target, ctest -L gui or Tests/export_test.sh (--project, --frames, --keep).
 add_custom_target(export_test
     COMMAND ${CMAKE_COMMAND} -E env ZAMIN_BUILD_DIR=${CMAKE_BINARY_DIR} ${PROJECT_SOURCE_DIR}/Tests/export_test.sh
     DEPENDS ZaminPlayer
@@ -103,3 +112,39 @@ foreach(game Platformer2D Showcase3D Adventure3D)
         add_dependencies(export_test ${game})
     endif()
 endforeach()
+
+# The editor smoke test (every window, page, menu and popup for a few frames; errors, OpenGL error flags and
+# failed ImGui checks fail it) and the script hot reload test (a module built by the editor, changed, built again
+# outside it and reloaded; the field values survive): Tests/editor_smoke.sh, Tests/hot_reload_test.sh.
+add_custom_target(editor_smoke
+    COMMAND ${CMAKE_COMMAND} -E env ZAMIN_BUILD_DIR=${CMAKE_BINARY_DIR} ${PROJECT_SOURCE_DIR}/Tests/editor_smoke.sh
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+    COMMENT "Editor smoke testi (barcha oynalar, menyular, popup'lar)"
+    USES_TERMINAL VERBATIM)
+add_custom_target(hot_reload_test
+    COMMAND ${CMAKE_COMMAND} -E env ZAMIN_BUILD_DIR=${CMAKE_BINARY_DIR} ${PROJECT_SOURCE_DIR}/Tests/hot_reload_test.sh
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+    COMMENT "Skript hot reload testi"
+    USES_TERMINAL VERBATIM)
+if(TARGET ZaminEditor)
+    add_dependencies(editor_smoke ZaminEditor)
+    add_dependencies(hot_reload_test ZaminEditor)
+endif()
+foreach(game Platformer2D Showcase3D)
+    if(TARGET ${game})
+        add_dependencies(editor_smoke ${game})
+    endif()
+endforeach()
+
+# The same three in ctest with the label "gui": they run the editor / the exported game (xvfb-run without a
+# display) and take minutes - ctest -L gui runs them, ctest -LE gui only the quick ones (CI's unit test step).
+if(TARGET ZaminEditor AND TARGET ZaminPlayer AND ZAMIN_BUILD_EXAMPLES)
+    add_test(NAME EditorSmoke COMMAND ${PROJECT_SOURCE_DIR}/Tests/editor_smoke.sh WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+    add_test(NAME ScriptHotReload COMMAND ${PROJECT_SOURCE_DIR}/Tests/hot_reload_test.sh WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+    add_test(NAME ExportTest COMMAND ${PROJECT_SOURCE_DIR}/Tests/export_test.sh WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+    set_tests_properties(EditorSmoke ScriptHotReload ExportTest PROPERTIES
+        LABELS "gui;slow"
+        ENVIRONMENT "ZAMIN_BUILD_DIR=${CMAKE_BINARY_DIR}"
+        TIMEOUT 1800
+        RUN_SERIAL TRUE)
+endif()

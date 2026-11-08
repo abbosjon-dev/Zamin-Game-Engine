@@ -31,8 +31,9 @@ jobs:
       - name: Build
         run: cmake --build build --parallel
 
+      # The quick tests; the ones labelled "gui" (they run the editor / the exported game) have steps of their own.
       - name: Unit tests
-        run: ctest --test-dir build --output-on-failure
+        run: ctest --test-dir build --output-on-failure -LE gui
 
       # Mesa's software rasteriser (llvmpipe) in a fixed 1280x720x24 xvfb screen, as locally: Tests/render_tests.sh.
       # Every case's picture, difference and reference | new | difference strip, report.json and summary.md (also
@@ -45,6 +46,33 @@ jobs:
         with:
           name: render-tests-${{ matrix.compiler.cc }}
           path: render-test-output/
+          if-no-files-found: warn
+
+      # Every window, page, menu and popup of the editor for a few frames (Showcase3D, Platformer2D): an error in
+      # the log, an OpenGL error (debug context) or a failed ImGui check fails it. Logs and some steps' pictures.
+      - name: Editor smoke test (every panel)
+        run: Tests/editor_smoke.sh --shots --out editor-smoke
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: editor-smoke-${{ matrix.compiler.cc }}
+          path: editor-smoke/
+          if-no-files-found: warn
+
+      # A script module built by the editor, changed and built again while it runs: reloaded, the fields kept.
+      - name: Script hot reload test
+        run: Tests/hot_reload_test.sh
+
+      # Platformer2D exported by the editor; the exported game runs headless (benchmark, a screenshot), also moved.
+      - name: Export test
+        run: Tests/export_test.sh --out export-test
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: export-test-${{ matrix.compiler.cc }}
+          path: export-test/
           if-no-files-found: warn
 
       - name: Smoke test (headless render)

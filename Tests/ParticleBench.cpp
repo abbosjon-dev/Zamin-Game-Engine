@@ -27,6 +27,10 @@
 // ZaminBench --nav [--agents N] [--grid N] [--frames N] [--jobs N]: navigation instead (NavBench.cpp):
 // the grids' bakes, N path searches at once on one thread and batched over the job system, and a
 // scene of N Nav Agents (200 on a 256 x 256 grid by default).
+//
+// ZaminBench --render [--sprites N] [--meshes N] [--frames N] [--case ...] [--json <file>]: drawing instead
+// (RenderBench.cpp, a GL context: xvfb-run without a display; Tests/render_bench.sh) - 10 000 sprites, 1 000
+// meshes (instanced and not) and both in one scene, ms / frame on the CPU and with the GPU.
 #include <Zamin/Zamin.h>
 
 #include <algorithm>
@@ -45,6 +49,7 @@ using PS = ParticleSystemComponent;
 
 int RunNavBench(int agents, int size, int frames, int jobs); // NavBench.cpp
 int RunPrefabBench(int instances, const char* jsonFile);   // PrefabBench.cpp
+int RunRenderBench(int argc, char** argv);                  // RenderBench.cpp
 
 namespace {
 
@@ -537,6 +542,10 @@ int main(int argc, char** argv)
     bool nav = false;
     int navAgents = 200, navGrid = 256;
     bool framesGiven = false;
+    // Drawing (a window, a GL context) parses its own options.
+    for (int i = 1; i < argc; i++)
+        if (!std::strcmp(argv[i], "--render"))
+            return RunRenderBench(argc, argv);
     for (int i = 1; i < argc; i++)
     {
         if (!std::strcmp(argv[i], "--frames") && i + 1 < argc)
@@ -579,7 +588,8 @@ int main(int argc, char** argv)
                         "ZaminBench --queries [--entities N]\n"
                         "ZaminBench --serialize [--entities N]\n"
                         "ZaminBench --serialize --prefabs [--instances N] [--json <fayl>]\n"
-                        "ZaminBench --nav [--agents N] [--grid N] [--frames N] [--jobs N]\n");
+                        "ZaminBench --nav [--agents N] [--grid N] [--frames N] [--jobs N]\n"
+                        "ZaminBench --render [--sprites N] [--meshes N] [--frames N] [--case <nom qismi>] [--json <fayl>]\n");
             return 1;
         }
     }

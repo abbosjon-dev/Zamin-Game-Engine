@@ -437,6 +437,10 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     (yoki R, o'zi ham har 2 soniyada) `Prefabs/Ragdoll.zprefab` tashlanadi: 11 bo'lak, chegarali va ishqalanishli 10 ta
     sharnir, tana qismlari "Ragdoll", qo'l-oyoqlar "RagdollLimb" qatlamida (o'zaro to'qnashmaydi); zinapoya, chegarali
     ko'prik, motorli rotor, arg'imchoq, uxlab turgan quti minorasi va zanjirli mayatnik; 2 sub-qadam
+  - **Determinizm** (2D va 3D): bir xil sahna har safar bit-bit bir xil simulyatsiya beradi - ikki marta, faylga saqlab
+    o'qilgandan keyin va obyektlari boshqa tartibda yaratilgan bo'lsa ham (`PhysicsDeterminism2D/3D` testlari). Jismlar,
+    joint'lar va personajlar sahna tartibida yaratiladi, editorning Play nusxasi (`Scene::Copy`) ierarxiya tartibida -
+    fayldan o'qilgan sahna kabi: editorda o'ynalgan va eksport qilingan o'yin bir xil harakat qiladi
 - **3D fizika** (Jolt Physics): Rigidbody3D, Box/Sphere/Capsule collider, trigger'lar, to'qnashuvlar
   - **Convex Hull Collider 3D**: obyektning Mesh Renderer'idagi model / primitiv (yoki tanlangan `.gltf/.glb/.obj`)
     vertekslaridan qavariq qobiq, ko'pi bilan "Maks. burchaklar" (4..256) - ko'proq bo'lsa eng chetdagi nuqtalar
@@ -883,8 +887,13 @@ Boshqa barcha kutubxonalar (GLFW, GLM, EnTT, ImGui, ImGuizmo, Box2D, Jolt, nlohm
 ./build/bin/ZaminPlayer Projects/Platformer2D    # o'yinni editor'siz ishga tushirish
 ./build/bin/ZaminPlayer Projects/Showcase3D --scene Scenes/DebugDraw.zscene --debug-raycasts --debug-contacts --debug-velocities
 ./build/bin/ZaminPlayer Projects/Adventure3D --borderless --monitor 1 --fps 60   # hamma variantlar: --help
-ctest --test-dir build                           # unit testlar
+ctest --test-dir build -LE gui                   # unit testlar (tezkorlari)
+ctest --test-dir build -L gui                    # editor smoke, skript hot reload, eksport testlari (bir necha daqiqa)
 Tests/render_tests.sh                            # rendering regressiya testi (display kerak; yo'q bo'lsa xvfb-run)
+Tests/editor_smoke.sh --shots                    # editorning barcha oyna/menyu/popup'lari (xvfb ostida)
+Tests/hot_reload_test.sh                         # skript modulini qayta kompilyatsiya + hot reload
+Tests/export_test.sh                             # eksport + eksport qilingan o'yin headless (skrinshot bilan)
+Tests/render_bench.sh                            # 10 000 sprite, 1 000 mesh: ms / kadr (docs/benchmarks.md)
 Tests/sanitize.sh address                        # unit testlar AddressSanitizer + LeakSanitizer bilan (build-asan)
 Tests/sanitize.sh undefined                      # UndefinedBehaviorSanitizer bilan (build-ubsan)
 ```
@@ -902,6 +911,24 @@ ekrani. Har ishga tushishda `build/RenderTests/report.json` (har holat raqamlari
 jadval — GitHub Actions uni ish sahifasiga chiqaradi) yoziladi; yiqilgan holat uchun `<nom>.compare.png` (etalon | yangi |
 farq yonma-yon) ham. `--save-all` o'tgan holatlar rasmlarini ham yozadi (CI artefaktlari: `render-tests-gcc`,
 `render-tests-clang`). Boshqa build (masalan Clang): `ZAMIN_BUILD_DIR=build-clang Tests/render_tests.sh`.
+
+**Editor smoke testi** (`ZAMIN_EDITOR_OPEN_ALL_PANELS=1`, `Editor/src/EditorSmokeTest.cpp`, `Tests/editor_smoke.sh`):
+editor har bir oynani (alohida va hammasini birga), katta oynalarning har sahifasini (loyiha sozlamalari kategoriyalari,
+editor sozlamalari, sahna statistikasi, sahna sozlamalari bo'limlari), har bir asosiy menyu va ichki menyuni, viewport
+popup'larini, so'rov oynalarini (Zamin haqida, launcher, yangi skript, o'yinni build qilish, joylashuvni saqlash, kontent
+brauzerining yaratish / nomini o'zgartirish / o'chirish so'rovlari), sahnadagi har bir obyektni tanlab, har bir komponent
+inspektorini (vaqtinchalik obyektga navbat bilan qo'shib), har bir asset turining inspektorini, sprite muharririni, prefab
+rejimini, tayyor joylashuvlarni, Play / Pauza / Simulate'ni bir necha kadrdan ochadi. Shu orada logga yozilgan xatolar
+(OpenGL debug chiqishi — `ZAMIN_GL_DEBUG=1` debug kontekst so'raydi —, ImGui tekshiruvlari va editorning o'z xatolari) va
+OpenGL xato bayroqlari (har kadr `glGetError`) sanaladi: biror xato bo'lsa editor 1 kodi bilan yopiladi. ImGui'ning
+`IM_ASSERT` tekshiruvlari har bir build'da saqlanadi (`Zamin/ImGui/ImGuiConfig.h`): bajarilmagani logga xato bo'lib
+yoziladi (Debug'da dastur to'xtaydi), shuning uchun Release CI'da ham ushlanadi. Loyiha nusxasi bilan ishlaydi; loyihaga
+hech narsa yozilmaydi. **Hot reload testi** (`Tests/hot_reload_test.sh`, `Tests/Fixtures/HotReload`): editor yo'q modulni
+o'zi kompilyatsiya qilib o'ynaydi, test manba kodini o'zgartirib modulni editor ishlab turganda tashqarida qayta build
+qiladi, editor uni qayta yuklaydi va yana o'ynaydi — yangi kod sahnadagi maydon qiymatlari bilan ishlaydi. Tashqarida
+yozilayotgan modul endi u o'zgarmay qolgandan keyingina yuklanadi (linker uni joyida yozadi). **Eksport testi** eksport
+qilingan o'yinni skrinshot bilan ham ishga tushiradi (`Tests/png_check.py`: o'lcham, bir xil rang emasligi). Uchala test
+`ctest -L gui` bilan va CI'da alohida qadamlar sifatida (artefaktlari bilan) ishlaydi.
 
 **Sanitizer build'lar** (`-DZAMIN_SANITIZE=address|undefined|leak|thread`, `cmake/Sanitizers.cmake`; `CMakePresets.json`da
 `asan`, `ubsan`, `lsan`, `tsan` presetlari): bayroqlar build'ning barcha target'lariga (vendor kutubxonalarga ham) va

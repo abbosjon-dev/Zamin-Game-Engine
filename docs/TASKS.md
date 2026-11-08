@@ -492,11 +492,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 423. Xotira oqishini tekshirish (LeakSanitizer)
 - [x] 424. Ogohlantirishlarni tozalash (-Wall -Wextra -Wpedantic)
 - [x] 425. Renderer uchun headless skrinshot testlari CI'da
-- [ ] 426. Editor smoke test (barcha panellar ochiladi)
-- [ ] 427. Skript hot reload avtomatik testi
-- [ ] 428. Eksport avtomatik testi
-- [ ] 429. Fizika determinizm testi
-- [ ] 430. Performance benchmark (10k sprite, 1k mesh)
+- [x] 426. Editor smoke test (barcha panellar ochiladi)
+- [x] 427. Skript hot reload avtomatik testi
+- [x] 428. Eksport avtomatik testi
+- [x] 429. Fizika determinizm testi
+- [x] 430. Performance benchmark (10k sprite, 1k mesh)
 - [ ] 431. ECS benchmark
 - [ ] 432. Serializatsiya benchmark
 - [ ] 433. Test framework: test nomlari bo'yicha filtr

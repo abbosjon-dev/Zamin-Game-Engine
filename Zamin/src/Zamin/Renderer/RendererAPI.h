@@ -73,6 +73,8 @@ namespace Zamin {
         // none): how many, their names into `names` (", " between them). The editor's smoke test
         // checks them every frame - they say a call failed even without a debug context.
         virtual uint32_t PopErrors(std::string* names) = 0;
+        // Waits until the GPU has done everything asked of it so far (benchmarks: a frame's whole time).
+        virtual void Finish() = 0;
 
         static API GetAPI() { return s_API; }
         static Scope<RendererAPI> Create();

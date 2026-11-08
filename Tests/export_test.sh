@@ -6,12 +6,15 @@
 #   2. <Game>.sh --version answers with the game's name and the engine's version;
 #   3. the exported game runs its start scene for some frames (ZaminPlayer --benchmark, from the launcher):
 #      exit code 0, its log has no errors, the script module loaded, the benchmark report was written;
-#   4. the folder still runs after it was moved elsewhere (relocatable launcher), and its desktop entry's icon
+#   4. it runs again headless with a screenshot of its last frame (ZAMIN_MAX_FRAMES, ZAMIN_SCREENSHOT): exit code
+#      0, a 1280x720 PNG that shows the game (Tests/png_check.py: not one flat colour);
+#   5. the folder still runs after it was moved elsewhere (relocatable launcher), and its desktop entry's icon
 #      then points into the new place (the launcher rewrites it).
 #   Tests/export_test.sh                             Platformer2D, 120 frames
 #   Tests/export_test.sh --project Projects/Adventure3D --frames 60
 #   Tests/export_test.sh --keep                      keep the temporary folder (the export, the logs)
 #   Tests/export_test.sh --work /tmp/zamin-export    use (and keep) that folder
+#   Tests/export_test.sh --out DIR                   the logs, reports and the screenshot copied there (CI artefacts)
 # The editor and the game run with a HOME of their own inside the work folder. The project itself is left as
 # it is (the export builds the script module in Release in <project>/Build/ExportRelease, as the editor does).
 # Exit code: 0 when every check passed, 1 when one failed, 2 when the editor / player are missing.
@@ -23,13 +26,15 @@ project="$root/Projects/Platformer2D"
 frames=120
 keep=0
 work=""
+out=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --project) project="$2"; shift 2 ;;
         --frames) frames="$2"; shift 2 ;;
         --keep) keep=1; shift ;;
         --work) work="$2"; keep=1; shift 2 ;;
-        -h|--help) sed -n '2,19p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        --out) out="$2"; shift 2 ;;
+        -h|--help) sed -n '2,22p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "noma'lum variant: $1 (--help)" >&2; exit 2 ;;
     esac
 done
@@ -137,7 +142,24 @@ else
     if grep -q "Sahna yuklash vaqti\|Ishlash testi: " "$player_log"; then pass "boshlang'ich sahna yuklandi"; else fail "boshlang'ich sahna yuklanmadi"; fi
 fi
 
-# 4. Moved elsewhere, it still starts (the launcher finds its files next to itself).
+# 4. Headless again, its last frame saved: the picture shows the game (not a black or empty window).
+shot="$work/game.png"
+rm -f "$shot"
+HOME="$work/home" ZAMIN_MAX_FRAMES=90 ZAMIN_SCREENSHOT="$shot" "${runner[@]}" "$launcher" --windowed --resolution 1280x720 \
+    --log-file "$work/player-shot.log" >"$work/player-shot-stdout.log" 2>&1
+code=$?
+if [[ $code -eq 0 ]]; then pass "eksport qilingan o'yin skrinshot bilan ishladi (chiqish kodi 0)"; else fail "skrinshotli ishga tushirish: chiqish kodi $code"; fi
+if [[ ! -f "$shot" ]]; then
+    fail "skrinshot yozilmadi: $shot"
+elif check="$(python3 "$root/Tests/png_check.py" "$shot" --size 1280x720 --min-colors 32 --min-stddev 4 2>&1)"; then
+    pass "skrinshot: $(echo "$check" | head -n 1 | sed 's|^.*: ||')"
+else
+    fail "skrinshot: $(echo "$check" | tr '\n' ' ')"
+fi
+errors="$(log_errors "$work/player-shot.log")"
+[[ -n "$errors" ]] && { fail "skrinshotli ishga tushirish logida xatolar:"; echo "$errors" | head -n 5 | sed 's/^/           /'; }
+
+# 5. Moved elsewhere, it still starts (the launcher finds its files next to itself).
 mv "$export_dir" "$work/moved"
 version="$(HOME="$work/home" "$work/moved/$name.sh" --version 2>&1)"
 if [[ $? -eq 0 && "$version" == *"$product"* ]]; then pass "boshqa papkaga ko'chirilgandan keyin ham ishga tushadi"; else fail "ko'chirilgan papkadan ishga tushmadi: $version"; fi
@@ -151,6 +173,13 @@ if grep -q '^Icon=' "$desktop" 2>/dev/null; then
     fi
 fi
 mv "$work/moved" "$export_dir"
+
+# The logs, reports and the picture for whoever looks later (CI artefacts).
+if [[ -n "$out" ]]; then
+    mkdir -p "$out"
+    cp -f "$work"/*.log "$work/game.png" "$bench" "$export_dir/export-report.json" "$export_dir/export-report.txt" "$out/" 2>/dev/null
+    echo "  natijalar: $out"
+fi
 
 echo
 if [[ $failures -eq 0 ]]; then

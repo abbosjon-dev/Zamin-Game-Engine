@@ -1566,6 +1566,9 @@ namespace Zamin {
         if (m_HotReloadTestCloseIn > 0 && --m_HotReloadTestCloseIn == 0)
         {
             ZM_INFO("ZAMIN_EDITOR_HOT_RELOAD_TEST: tugadi ({} marta yuklandi)", m_HotReloadTestLoads);
+            // ZAMIN_SCREENSHOT: this last frame's picture (the run ends here, not at ZAMIN_MAX_FRAMES).
+            if (const char* shot = std::getenv("ZAMIN_SCREENSHOT"))
+                Application::Get().RequestScreenshot(shot);
             Application::Get().Close();
         }
         ProcessAssetChanges();

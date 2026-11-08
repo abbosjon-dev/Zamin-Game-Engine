@@ -191,6 +191,8 @@ namespace Zamin {
             return pixels;
         }
 
+        void Finish() override { glFinish(); }
+
         uint32_t PopErrors(std::string* names) override
         {
             uint32_t count = 0;

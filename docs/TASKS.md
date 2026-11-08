@@ -543,11 +543,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 468. Endless runner (3D)
 - [x] 469. Racing (oddiy mashina fizikasi)
 - [x] 470. Namunalarni launcher'da ko'rsatish (rasm bilan)
-- [ ] 471. Har bir namuna uchun README
-- [ ] 472. Namunalar uchun headless testlar
-- [ ] 473. Namuna assetlari (procedural)
-- [ ] 474. Namunalarda ovozlar (procedural wav)
-- [ ] 475. Namunalarda UI menyular
+- [x] 471. Har bir namuna uchun README
+- [x] 472. Namunalar uchun headless testlar
+- [x] 473. Namuna assetlari (procedural)
+- [x] 474. Namunalarda ovozlar (procedural wav)
+- [x] 475. Namunalarda UI menyular
 - [ ] 476. Namunalarda SaveData (rekord)
 - [ ] 477. Namunalarda input action'lar
 - [ ] 478. Namunalarni eksport qilib tekshirish

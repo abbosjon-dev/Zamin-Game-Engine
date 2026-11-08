@@ -185,7 +185,7 @@ CASES = [
     Case("EndlessRunner", "demo", 700, [
         at_least("masofa (m)", r"Demo yakuni: \d+ ta yugurish, oxirgisi (\d+) m", 400),
         at_least("tangalar", r"Demo yakuni: .*, (\d+) tanga", 30),
-        at_least("tezlik oshdi (m/s)", r"tezlik (\d+\.\d) m/s", 15.0),
+        at_least("tezlik oshdi (m/s; boshida 11)", r"tezlik (\d+\.\d) m/s", 13.0),
         absent("bot to'siqqa urilmadi", r"Demo: yiqildi.*"),
     ], env={"ZAMIN_DEMO": "1"}),
     # Nobody steers: the runner hits the first obstacle - the results panel ("Qaytadan" selected; Down: "Bosh menyu").

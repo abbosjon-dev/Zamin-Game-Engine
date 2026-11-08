@@ -33,7 +33,30 @@ vazifalari bajarila boshlaganda unga bo'lim qo'shing ([CONTRIBUTING.md](CONTRIBU
   `Thumbnail` kalitlari (Project settings > General; `ProjectSerializer::ReadSummary`), rasmlar o'yinlarning haqiqiy
   headless skrinshotlaridan `Tools/samples/make_thumbnails.py` bilan olinadi.
 - Assetlarning hammasi kod bilan yaratiladi: `Tools/samples/gen_*.py` (umumiy `samplekit.py`) teksturalar, sprite
-  atlaslari, normal map'lar, `.obj` trassa meshlari, WAV tovushlar va musiqani, sahna va loyiha fayllarini yozadi.
+  atlaslari, normal map'lar, `.obj` trassa meshlari, WAV tovushlar va musiqani, sahna va loyiha fayllarini yozadi
+  ([Tools/samples/README.md](Tools/samples/README.md)). Sahnalar ixcham JSON'da (raqamlar ro'yxati bir qatorda).
+  Har bir o'yinning assetlari 2 MiB dan kichik (Vodiy Poygasi 2.2 MB dan 1.9 MiB ga tushdi).
+- Har bir namunaning (to'qqizalasining) `README.md` fayli bor: boshqaruv, o'yin, ko'rsatilgan imkoniyatlar, kod
+  bo'ylab sayohat, assetlar va testlar.
+- Namuna o'yinlar testlari (ctest label `samples`): `Tests/samples_test.py` har o'yinni `ZaminPlayer` da headless
+  ishga tushiradi va to'rt xil holatni tekshiradi:
+  - demo: bot o'ynaydi, jurnal natija bo'lganini ko'rsatadi (hisob, to'lqin, daraja, aylana, masofa, undo);
+  - menyular: `ZAMIN_PLAYER_INPUT` bosh menyu → o'yin → pauza → davom → bosh menyu oqimidan o'tadi, ba'zi o'yinlarda
+    natija oynasi ham ochiladi;
+  - smoke: eski namunalar ishga tushadi;
+  - har ishga tushirishda: chiqish kodi, logda xato yo'q, skript moduli yuklangan, rasm bir xil rangdan iborat emas.
+
+  `Tests/samples_assets.py` (`SampleAssets`) budjet, `.zmeta`, PNG / WAV va ishoralarni tekshiradi, `--regen` bilan
+  generator natijasini baytma-bayt solishtiradi.
+- Engine: `Time::SetCaptureFrameRate` / `ZAMIN_CAPTURE_FPS` — o'yin soati qat'iy (har kadr aniq 1/N s), shuning uchun
+  testlar har kompyuterda bir xil o'tadi. `Input::SimulateKey` — simulyatsiya qilingan tugmani klaviaturani
+  so'rash o'chirib yubormaydi. Player'ning `ZAMIN_PLAYER_INPUT` skripti shu bilan tugmani haqiqatan bosib turadi va
+  `hold=` / `release=` amallarini qo'llaydi.
+- Menyular: har o'yin panellari uchun jurnalga `Menyu: ...` yoziladi. Tuzatishlar:
+  - Ipak Yo'li va Vodiy Poygasi bosh menyusida "O'ynash" tanlanmay qolardi, endi Enter / A bilan boshlanadi;
+  - Vodiy Poygasida start sanog'ida ham pauza qilish mumkin;
+  - Neon Maydon o'yin tugaganda ovoz chiqaradi;
+  - Ipak Yo'li boti sakrash nuqtasini tezlik va to'siq uzunligidan hisoblaydi.
 
 ## M23 Hujjatlar
 

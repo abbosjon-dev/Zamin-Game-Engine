@@ -15,7 +15,7 @@ namespace Zamin {
     namespace {
         const char* RuleText(const std::string& rule)
         {
-            if (rule == "R1") return "O'yin nomlagan prefab topilmadi";
+            if (rule == "R1") return "Nomlangan prefab yo'q";
             if (rule == "R2") return "Prefab o'qilmadi";
             if (rule == "R3") return "Yangiroq format";
             if (rule == "R4") return "ID / ildiz / ierarxiya";
@@ -58,7 +58,7 @@ namespace Zamin {
             return;
         const PrefabExportResult& r = m_PrefabCheck;
         const ImGuiViewport* viewport = ImGui::GetMainViewport();
-        ImGui::SetNextWindowSize(ImVec2(std::min(860.0f, viewport->WorkSize.x - 40.0f), std::min(520.0f, viewport->WorkSize.y - 30.0f)), ImGuiCond_Appearing);
+        ImGui::SetNextWindowSize(ImVec2(std::min(940.0f, viewport->WorkSize.x - 40.0f), std::min(520.0f, viewport->WorkSize.y - 30.0f)), ImGuiCond_Appearing);
         ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + viewport->WorkSize.x * 0.5f, viewport->WorkPos.y + viewport->WorkSize.y * 0.5f),
                                 ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
         if (!ImGui::Begin(Tr(ICON_FA_BOX "  Prefab tekshiruvi###PrefabCheck"), &m_ShowPrefabCheck, ImGuiWindowFlags_NoCollapse))
@@ -103,8 +103,8 @@ namespace Zamin {
         {
             ImGui::TableSetupScrollFreeze(0, 1);
             ImGui::TableSetupColumn("##level", ImGuiTableColumnFlags_WidthFixed, 22.0f);
-            ImGui::TableSetupColumn(Tr("Qoida"), ImGuiTableColumnFlags_WidthFixed, 190.0f);
-            ImGui::TableSetupColumn(Tr("Fayl"), ImGuiTableColumnFlags_WidthFixed, 200.0f);
+            ImGui::TableSetupColumn(Tr("Qoida"), ImGuiTableColumnFlags_WidthFixed, 235.0f);
+            ImGui::TableSetupColumn(Tr("Fayl"), ImGuiTableColumnFlags_WidthFixed, 190.0f);
             ImGui::TableSetupColumn(Tr("Tafsilot"), ImGuiTableColumnFlags_WidthStretch);
             ImGui::TableHeadersRow();
             for (size_t i = 0; i < r.Issues.size(); i++)

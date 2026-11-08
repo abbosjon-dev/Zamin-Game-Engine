@@ -437,6 +437,15 @@ namespace Zamin {
             result.Baked[file] = std::move(text);
             result.Stripped++;
         }
+        // Errors first, then warnings, then the notes; by rule (R1 ... R10), then by file.
+        auto ruleNumber = [](const std::string& rule) { return rule.size() > 1 && rule[0] == 'R' ? std::atoi(rule.c_str() + 1) : 100; };
+        std::stable_sort(result.Issues.begin(), result.Issues.end(), [&](const PrefabExportIssue& a, const PrefabExportIssue& b) {
+            if (a.Level != b.Level)
+                return a.Level > b.Level;
+            if (ruleNumber(a.Rule) != ruleNumber(b.Rule))
+                return ruleNumber(a.Rule) < ruleNumber(b.Rule);
+            return a.File < b.File;
+        });
         if (result.Updated)
             add(Severity::Info, "Info", std::string(),
                 std::format("{} ta sahna/prefab eksportda yangilandi (eskirgan nusxalar; asl fayllar o'zgarmaydi)", result.Updated));

@@ -1566,7 +1566,7 @@ namespace Zamin {
             { "Hech qanday muammo topilmadi", "No problems found" },
             { "Tafsilot", "Details" },
             { "Qayta tekshirish", "Check again" },
-            { "O'yin nomlagan prefab topilmadi", "A prefab the game names is missing" },
+            { "Nomlangan prefab yo'q", "A named prefab is missing" },
             { "Prefab o'qilmadi", "Prefab could not be read" },
             { "Yangiroq format", "Newer format" },
             { "ID / ildiz / ierarxiya", "IDs / roots / hierarchy" },

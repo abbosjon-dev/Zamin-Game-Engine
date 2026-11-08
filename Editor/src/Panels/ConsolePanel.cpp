@@ -91,6 +91,8 @@ namespace Zamin {
                 m_AutomationSelect = std::atoi(std::string(part.substr(7)).c_str());
             else if (part == "options")
                 m_OpenOptions = m_FocusWindow = true; // (a docked console behind another tab comes to the front)
+            else if (part == "focus")
+                m_FocusWindow = true;
         }
     }
 

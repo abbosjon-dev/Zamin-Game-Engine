@@ -458,7 +458,7 @@ namespace Zamin {
     // create=<name>;save=<name>;select=<name>;top=<name>;move=<name>,x,y,z;instantiate=<prefab>[,<parent>[,<name>]];
     // apply=<name>[,<path>[,<target>]];revert=<name>[,<path>];unpack=<name>;undo;redo;changes;open=<prefab>[,<name>];
     // stagesave;stageclose[=<levels kept>];variant=<prefab>;savevariant=<name>[,<prefab>];place=<prefab>[|...],x,y[,shift];rename=<name>,<new name>;
-    // copy=<name>;copyprefab=<prefab>;paste[=<next to>];check":
+    // copy=<name>;copyprefab=<prefab>;paste[=<next to>];check;extwrite=<prefab>,<file>":
     // prefab instance edits made one by one as undo steps (screenshots,
     // checks). "changes" opens the inspector's list; "open" opens a prefab in prefab mode (the entity of an
     // instance named second is selected there), "stagesave" / "stageclose" save / leave it.
@@ -489,6 +489,15 @@ namespace Zamin {
             const std::string_view op = item.substr(0, eq);
             const std::vector<std::string> args = split(eq == std::string_view::npos ? std::string() : std::string(item.substr(eq + 1)));
             Entity e = args.empty() ? Entity() : find(args[0]);
+            // extwrite=<prefab>,<file>: the file's text written over the prefab as another program would
+            // (not through the prefab database): the hot reload sees an outside change.
+            if (op == "extwrite" && args.size() >= 2)
+            {
+                const std::string text = FileSystem::ReadTextFile(args[1]);
+                if (!text.empty())
+                    FileSystem::WriteTextFile(Project::GetAssetFileSystemPath(args[0]), text);
+                continue;
+            }
             if (op == "check")
             {
                 RunPrefabCheck(); // "Prefab'larni tekshirish"

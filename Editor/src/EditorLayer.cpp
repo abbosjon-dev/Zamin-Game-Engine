@@ -584,7 +584,7 @@ namespace Zamin {
                     view.Sanitize();
                 }
             }
-            // ZAMIN_EDITOR_CONSOLE="filter=<text>;regex;case;collapse;trace;notime;select=<row>": the console's
+            // ZAMIN_EDITOR_CONSOLE="filter=<text>;regex;case;collapse;trace;notime;select=<row>;options;focus": the console's
             // search and options (not saved).
             if (const char* console = std::getenv("ZAMIN_EDITOR_CONSOLE"))
                 m_ConsolePanel.ApplyAutomation(console);

@@ -348,7 +348,7 @@ qizil chiziq bilan ko'rsatiladi.
 alohida yozilgan: `"RootOrder"` (ildiz obyektlar tartibi) va `"ChildOrder"` (bolalar UUID tartibida bo'lmasa).
 Shuning uchun bir xil sahna har doim bir xil matn beradi va diff faqat o'zgargan joyni ko'rsatadi.
 
-**Versiya va migratsiya.** Fayl `"Version": 4` bilan yoziladi. Eskiroq fayl yuklanganda hech narsa o'qilishidan
+**Versiya va migratsiya.** Fayl `"Version": 5` bilan yoziladi (`SceneMigration::CurrentVersion`). Eskiroq fayl yuklanganda hech narsa o'qilishidan
 oldin migratsiyalar zanjiri ishlaydi (`SceneMigration`):
 
 - **v0 → v1** (versiyasiz fayl): matn ko'rinishidagi ID'lar songa, `"Name"` → `"Tag"`.
@@ -360,8 +360,12 @@ oldin migratsiyalar zanjiri ishlaydi (`SceneMigration`):
   dvigatelning standart qiymati ((0, -9.8) / (0, -9.81, 0)) olib tashlanadi - bunday sahna loyihaning
   gravitatsiyasiga ergashadi (Loyiha sozlamalari > Fizika). Fizika qadami (`"PhysicsStep"`) ham shunday: yo'q
   bo'lsa loyihaniki (Loyiha sozlamalari > Vaqt).
+- **v4 → v5**: prefab nusxasi bog'lanishlari (`"Editor"` ichida `PrefabEntity`, `Overrides` ...) qo'shildi;
+  `Editor.Prefab` yo'lidagi `\` → `/`. Batafsil: [prefabs.md](prefabs.md#13-versiya-va-migratsiya).
 
-Har fayl versiyasi uchun migratsiya bir marta logga yoziladi. Fayl saqlanganda joriy formatga o'tadi.
+Prefab (`.zprefab`) va nusxalash buferi ham shu zanjirdan o'tadi (`"Version"`, `"Kind"`; versiyasizi — v0). Har
+fayl versiyasi uchun migratsiya bir marta logga yoziladi (hech narsa o'zgarmagan bo'lsa yozilmaydi). Fayl
+saqlanganda joriy formatga o'tadi; yangiroq versiyali prefab ustiga editor yozmaydi.
 
 **Metadata va rasm.** `SceneMetadata`: ta'rif, muallif, teglar (`Scene::GetMetadata()`). Editor sahnani saqlaganda
 uning birlamchi kamerasidan rasm chizadi va yonidagi yashirin faylga yozadi (`.Level1.zscene.png`, 320×180) —
@@ -583,7 +587,9 @@ bo'limi ochiq).
 `SceneVersionMigration`, `SceneMetadataAndThumbnail`, `ServicesRegistry`, `GlobalGameState`,
 `SceneLoadTimingBreakdown`, `SceneBinaryCache`, `LargeSceneSerialization`, `SubScenes` va hammasini birga
 sinaydigan `SceneManagementFlow` (menyu → fonda so'nish bilan daraja → uning sub-sahnasi, doimiy menejer,
-GameState, servislar, hodisalar, vaqt).
+GameState, servislar, hodisalar, vaqt). Prefab va serializatsiya testlari (`ZAMIN_TESTS=Prefab`; bog'lanish,
+override, Apply / Revert, ichma-ich, variantlar, hot reload, bufer, eksport tekshiruvi) ro'yxati:
+[prefabs.md](prefabs.md#18-testlar).
 
 ```bash
 ZAMIN_TESTS=Scene ./build/bin/ZaminTests        # nomida "Scene" bor testlar
@@ -634,7 +640,6 @@ keyingi tez yo'l byudjet ichida.
 - Sub-sahna joyi yuklanishda bir marta qo'llanadi; egasi o'chirilsa, sub-sahna qoladi (uni `UnloadSubScene` bilan
   yoping). Editor sub-sahnaning o'z sub-sahnalarini ko'rsatmaydi (o'yinda ular yuklanadi).
 - Binar kesh JSON tahlilini tezlashtiradi; obyektlarni yaratish vaqti o'zgarmaydi.
-- Migratsiyalar faqat sahna fayllariga qo'llanadi (prefab va bufer matni eski kalitlarni o'zi o'qiydi).
 
 ---
 

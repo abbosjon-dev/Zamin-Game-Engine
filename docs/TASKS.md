@@ -479,11 +479,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 413. Prefab variantlari (asosiy prefabdan meros)
 - [x] 414. Prefab thumbnail
 - [x] 415. Prefab'ni kontent brauzerdan sahnaga ko'p marta sudrash
-- [ ] 416. Prefab o'zgarishi hot reload
-- [ ] 417. Prefab serializatsiya testlari
-- [ ] 418. Clipboard formatini prefab bilan birlashtirish
-- [ ] 419. Sahna eksportida prefab'larni tekshirish
-- [ ] 420. Prefab hujjatlari
+- [x] 416. Prefab o'zgarishi hot reload
+- [x] 417. Prefab serializatsiya testlari
+- [x] 418. Clipboard formatini prefab bilan birlashtirish
+- [x] 419. Sahna eksportida prefab'larni tekshirish
+- [x] 420. Prefab hujjatlari
 
 ## M22 Sifat va testlar
 

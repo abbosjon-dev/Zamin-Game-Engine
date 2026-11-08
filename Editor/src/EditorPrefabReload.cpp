@@ -71,12 +71,16 @@ namespace Zamin {
         if (reload.IsEmpty() && !all)
             return; // the editor's own writes, touched files
         for (const std::string& path : reload.Changed)
-        {
-            ZM_INFO("Prefab tashqarida o'zgardi: {}", path);
             PrefabCache::Invalidate(Project::GetAssetFileSystemPath(path));
-        }
+        // A removed prefab the open scene still has instances of (a rename in the content browser moved
+        // them to the new path already: nothing to say then).
         for (const std::string& path : reload.Removed)
-            ZM_WARN("Prefab fayli o'chirildi: {} - uning nusxalari ma'lumotlarini saqlaydi", path);
+            for (entt::entity id : m_EditorScene->GetAllEntitiesWith<EditorMetadataComponent>())
+                if (Entity e{ id, m_EditorScene.get() }; PrefabUtility::IsInstanceRoot(e) && PrefabDatabase::NormalizePath(PrefabUtility::GetPrefabPath(e)) == path)
+                {
+                    ZM_WARN("Prefab fayli o'chirildi: {} - uning nusxalari ma'lumotlarini saqlaydi", path);
+                    break;
+                }
         for (const std::string& path : reload.Failed)
             ZM_WARN("Prefab yangilanmadi (ichidagi prefab o'zgardi, lekin fayl o'qilmadi yoki yangiroq formatda): {}", path);
         for (const std::string& path : reload.Rewritten)
@@ -84,7 +88,8 @@ namespace Zamin {
         if (!reload.Rewritten.empty())
         {
             m_ContentBrowserPanel.Refresh();
-            ZM_INFO("{} ta bog'liq prefab fayli yangilandi", reload.Rewritten.size());
+            ZM_INFO("Prefab tashqarida o'zgardi ({}): {} ta bog'liq prefab fayli yangilandi", reload.Changed.empty() ? std::string("?") : reload.Changed.front(),
+                    reload.Rewritten.size());
         }
 
         // A prefab open in prefab mode: its file was changed (outside, or rewritten because a prefab
@@ -122,6 +127,8 @@ namespace Zamin {
         const std::string what = reload.Changed.size() == 1 ? StemOf(reload.Changed.front())
                                : reload.Changed.empty() ? Tr("prefablar")
                                : std::format("{} {}", reload.Changed.size(), Tr("ta prefab"));
+        for (const std::string& path : reload.Changed)
+            ZM_INFO("Prefab tashqarida o'zgardi: {}", path);
         ZM_INFO("Prefab yangilandi: {} - sahnada {} ta nusxa yangilandi", what, sync.Changed);
         ShowViewportMessage(std::format(ICON_FA_ROTATE "  {}: {} ({} {})", Tr("Prefab yangilandi"), what, sync.Changed, Tr("nusxa")));
     }

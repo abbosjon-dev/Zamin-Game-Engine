@@ -51,26 +51,28 @@
 namespace Zamin {
 
     // ------------------------------------------------------------------ copy helpers
+    // (source entity, its copy) pairs in the order the copy's pools are to have.
+    using EntityCopyOrder = std::vector<std::pair<entt::entity, entt::entity>>;
+
+    // Every component of these types, pool by pool, emplaced in `order`: each pool of the copy is in that order,
+    // whatever order the source's pool is in (a view walks a pool newest-first, so copying by a view would have
+    // reversed every pool, and an editor scene's pools are in the order its components were added).
     template<typename... Component>
-    static void CopyComponent(entt::registry& dst, entt::registry& src, const std::unordered_map<UUID, entt::entity>& enttMap)
+    static void CopyComponent(entt::registry& dst, const entt::registry& src, const EntityCopyOrder& order)
     {
         ([&]() {
-            auto view = src.view<Component>();
-            for (auto srcEntity : view)
-            {
-                UUID uuid = src.get<IDComponent>(srcEntity).ID;
-                auto it = enttMap.find(uuid);
-                if (it == enttMap.end()) continue;
-                dst.emplace_or_replace<Component>(it->second, view.template get<Component>(srcEntity));
-            }
+            const auto* storage = src.storage<Component>();
+            if (!storage || storage->empty()) return;
+            for (const auto& [srcEntity, dstEntity] : order)
+                if (storage->contains(srcEntity))
+                    dst.emplace_or_replace<Component>(dstEntity, storage->get(srcEntity));
         }(), ...);
     }
 
     template<typename... Component>
-    static void CopyComponent(ComponentGroup<Component...>, entt::registry& dst, entt::registry& src,
-                              const std::unordered_map<UUID, entt::entity>& enttMap)
+    static void CopyComponent(ComponentGroup<Component...>, entt::registry& dst, const entt::registry& src, const EntityCopyOrder& order)
     {
-        CopyComponent<Component...>(dst, src, enttMap);
+        CopyComponent<Component...>(dst, src, order);
     }
 
     template<typename... Component>
@@ -627,19 +629,23 @@ namespace Zamin {
 
         auto& srcRegistry = other->m_Registry;
         auto& dstRegistry = newScene->m_Registry;
-        std::unordered_map<UUID, entt::entity> enttMap;
 
-        // Made in hierarchy order, as a scene read from its file is (SceneSerializer): the copy the editor
-        // plays has the scene order the exported game has, whatever order the scene was built up in
-        // (the order scripts run in, physics bodies are made in - the same simulation in both).
-        for (Entity e : other->GetEntitiesInHierarchyOrder())
+        // Made in hierarchy order, as a scene read from its file is (SceneSerializer: an entity and then its
+        // components, in the file's order): the IDs and every component pool of the copy the editor plays are
+        // in the order the exported game's are, whatever order the scene was built up in - the systems that
+        // walk a pool (scripts' callbacks, animators, agents, the physics bodies made) meet the entities in
+        // the same order in both.
+        const std::vector<Entity> ordered = other->GetEntitiesInHierarchyOrder();
+        EntityCopyOrder order;
+        order.reserve(ordered.size());
+        for (Entity e : ordered)
         {
             Entity newEntity = newScene->CreateEntityWithUUID(e.GetUUID(), e.GetName());
             newEntity.GetComponent<TagComponent>().Active = e.IsActive();
-            enttMap[e.GetUUID()] = (entt::entity)newEntity;
+            order.emplace_back((entt::entity)e, (entt::entity)newEntity);
         }
 
-        CopyComponent(AllComponents{}, dstRegistry, srcRegistry, enttMap);
+        CopyComponent(AllComponents{}, dstRegistry, srcRegistry, order);
         ResetRuntimeData(dstRegistry);
         return newScene;
     }

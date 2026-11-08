@@ -8,7 +8,7 @@ fayllarga test umuman tegmaydi. Raqam o'zi maqsad emas - u testlar yetmagan joyl
 ```bash
 Tests/coverage.sh                    # build-cov (coverage build), ZaminTests, hisobot: build-cov/Coverage
 Tests/coverage.sh --gui              # + ZaminPlayer (3 namuna o'yin, headless) va editor smoke testi (xvfb)
-Tests/coverage.sh --html             # + har fayl uchun HTML hisobot (gcovr o'rnatilgan bo'lsa: pip install gcovr)
+Tests/coverage.sh --html             # + har fayl uchun HTML hisobot (gcovr o'rnatilgan bo'lsa: pipx install gcovr)
 Tests/coverage.sh --filter "Prefab*" # faqat ba'zi testlar (ZaminTests --filter)
 Tests/coverage.sh --min-engine 55    # engine qatorlar qamrovi 55 % dan past bo'lsa 1 kodi bilan tugaydi
 Tests/coverage.sh --report-only      # faqat hisobot, oxirgi ishga tushirish qoldirgan sanoqlardan
@@ -23,7 +23,9 @@ Skript nima qiladi:
    -fprofile-update=atomic` bilan kompilyatsiya qilinadi; vendor kutubxonalar (Box2D, Jolt, ImGui, ...) yo'q, shuning
    uchun hisobot faqat bizning kodimiz haqida. `-O0` - qator sanoqlari manbaga mos (particle fayllari ham, odatdagi
    Debug'dagi `-O2` siz); atomik sanoqlar - vazifalar tizimining ishchi oqimlari ham engine kodini bajaradi. O'yin
-   modullari sanitizer build'dagidek `build-cov/GameModules` ga yoziladi.
+   modullari sanitizer build'dagidek `build-cov/GameModules` ga yoziladi va build'ning o'z dasturlari (`build-cov/bin`)
+   ularni o'sha yerdan yuklaydi; coverage editor build qiladigan skriptlar (hot reload) ham `build-cov/ZaminConfig.cmake`
+   orqali o'sha papkaga, sanoqlar bilan yoziladi - odatdagi build'ning `Binaries` dagi moduliga tegmaydi.
 2. Har ishga tushishda eski `.gcda` sanoqlari o'chiriladi, keyin **`ZaminTests`** (barcha testlar) ishlaydi;
    `--gui` bilan player va editor ham.
 3. **`Tests/coverage_report.py`** (faqat standart kutubxona) har `.gcda` uchun `gcov --json-format` ni parallel

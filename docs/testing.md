@@ -24,16 +24,17 @@ Displey bo'lmasa (SSH, CI) GUI testlari o'zlari `xvfb-run` ni ishlatadi (`sudo a
 
 ## 1. Unit testlar - `ZaminTests`
 
-`Tests/ZaminTests.cpp` (+ `Tests/TestFramework.h/.cpp`): **627 test**, GPU va oynasiz (headless) ishlaydi - engine
+`Tests/ZaminTests.cpp` (+ `Tests/TestFramework.h/.cpp`): **628 test**, GPU va oynasiz (headless) ishlaydi - engine
 kutubxonasi (`libZamin.so`) bilan bog'langan oddiy dastur. Sahna, ECS, serializatsiya, prefab'lar, skriptlar va
 ularning maydonlari, 2D/3D fizika, animatsiya, particle'lar, UI, audio, navigatsiya va AI, loyiha sozlamalari, player
 sozlamalari, editor mantiqi (panelsiz qismlari), matematika va yordamchi kutubxonalar. To'liq ro'yxat - quyida,
 [ilovada](#ilova-barcha-unit-testlar).
 
 ```bash
-./build/bin/ZaminTests                         # hammasi; oxirgi qator: "627 test, 0 xato"
+./build/bin/ZaminTests                         # hammasi; oxirgi qator: "628 test, 0 xato"
 ./build/bin/ZaminTests Prefab*                 # glob (katta-kichik harf farqsiz); *, ? siz - nomning bir qismi
 ./build/bin/ZaminTests --filter "Scene*:-*Fuzz*"   # bir nechta namuna (: yoki ,), '-' bilan chiqarib tashlash
+./build/bin/ZaminTests Prefab* -Physics*       # xuddi shunday alohida argumentlar bilan ("-x" kabi bitta harf - parametr)
 ./build/bin/ZaminTests --list                  # faqat nomlar
 ./build/bin/ZaminTests --timing --slowest 20   # vaqt hisoboti: jami, o'rtacha, mediana, eng sekinlari, taqsimot
 ./build/bin/ZaminTests --report r.json --junit r.xml --fail-fast
@@ -241,6 +242,7 @@ saqlaydi: tuzatish olib tashlansa test yiqiladi.
 |---|---|---|
 | `AudioMixerGroupTeardown` | bir nechta bola guruhli mixer guruhi o'chirilganda miniaudio faqat birinchi kiruvchi tugunni ajratardi, qolganlari o'chirilgan xotirani o'qirdi (`AudioEngine::Shutdown` da yiqilish) | AddressSanitizer |
 | `PhysicsDeterminism2D`, `PhysicsDeterminism3D` | Box2D / Jolt jismlari komponent hovuzi tartibida yaratilardi: editorda o'ynalgan sahna va fayldan yuklangan (eksport qilingan) xuddi shu sahna boshqacha simulyatsiya qilinardi | determinizm testi (bit darajasida taqqoslash) |
+| `PlayCopyRunsScriptsInFileOrder`, `PhysicsDeterminism2D/3D` (o'yindagidek, nusxasiz) | `Scene::Copy` komponent hovuzlarini view orqali (eng yangisidan) ko'chirardi: editorda Play bosilganda skriptlar (`OnCreate` ... `OnLateUpdate`), animator va agentlar eksport qilingan o'yindagiga teskari tartibda ishlardi | review (testlar fayldan o'qilgan sahnani ham nusxa orqali o'ynardi) |
 | `DeferredDestroyOnceEachAndLinear` | `DestroyEntityDeferred` takrorni butun navbatdan qidirardi: bir kadrda minglab `Destroy` kvadratik (10 000 ta - 525 ms) | ECS benchmark |
 | `ScriptReloadKeepsFieldValues` | hot reload'dan keyin sahnadagi skript maydonlari qiymatlari saqlanishi | hot reload testi |
 | `StaleModuleCopiesRemoved` | yiqilgan / to'xtatilgan jarayonlar skript moduli nusxalari `/tmp/zamin-modules` da to'planardi (423 MB) | hot reload testi |
@@ -264,7 +266,7 @@ qamrovi topdi).
 Bo'lim nomi - `Tests/ZaminTests.cpp` dagi bo'lim sarlavhasi (kod izohi, ingliz tilida).
 
 <!-- test-catalog:begin -->
-_`Tests/test_catalog.py --update docs/testing.md` yaratgan: 627 ta unit test, 92 ta bo'lim (`Tests/ZaminTests.cpp` dagi tartibda). Bitta testni ishga tushirish: `./build/bin/ZaminTests <Nom>`._
+_`Tests/test_catalog.py --update docs/testing.md` yaratgan: 628 ta unit test, 93 ta bo'lim (`Tests/ZaminTests.cpp` dagi tartibda). Bitta testni ishga tushirish: `./build/bin/ZaminTests <Nom>`._
 
 | # | Bo'lim | Testlar | Nomlari |
 |---|---|---|---|
@@ -359,5 +361,6 @@ _`Tests/test_catalog.py --update docs/testing.md` yaratgan: 627 ta unit test, 92
 | 89 | M21 batch B: prefab mode, references, versions, recovery | 6 | `EntityRefVisitorCoverage`, `PrefabEntityRefRemap`, `EntitySetVersionMigration`, `EntitySetPartialLoad`, `SceneSalvage`, `PrefabStageRoundTrip` |
 | 90 | serialization fuzz (411) | 10 | `SerializationFuzz`, `PrefabCacheReads`, `LargeSceneLinkedInstances`, `PrefabVariants`, `PrefabPlacementAndThumbs`, `PrefabHotReloadSync`, `ClipboardPrefabFormat`, `PrefabExportValidation`, `PrefabFieldLabelsExist`, `PrefabDamagedFileNotWritten` |
 | 91 | physics determinism (Box2D, Jolt) | 2 | `PhysicsDeterminism2D`, `PhysicsDeterminism3D` |
-| 92 | script hot reload (in-process) | 3 | `ScriptReloadKeepsFieldValues`, `StaleModuleCopiesRemoved`, `DeferredDestroyOnceEachAndLinear` |
+| 92 | editor Play copy (the exported game's order) | 1 | `PlayCopyRunsScriptsInFileOrder` |
+| 93 | script hot reload (in-process) | 3 | `ScriptReloadKeepsFieldValues`, `StaleModuleCopiesRemoved`, `DeferredDestroyOnceEachAndLinear` |
 <!-- test-catalog:end -->

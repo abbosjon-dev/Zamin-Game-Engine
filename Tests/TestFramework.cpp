@@ -256,7 +256,8 @@ namespace ZaminTest {
                "  namuna, --filter <namuna>, -f   faqat nomi mos testlar. * va ? bilan - butun nomga glob (Prefab*),\n"
                "                                  ularsiz - nomida shu matn bor testlar; katta-kichik harf farqsiz.\n"
                "                                  Bir nechtasi ':' yoki ',' bilan; '-' bilan boshlangani chiqarib\n"
-               "                                  tashlaydi (\"Scene*:-*Fuzz*\"). ZAMIN_TESTS muhit o'zgaruvchisi ham.\n"
+               "                                  tashlaydi (\"Scene*:-*Fuzz*\" yoki alohida: Scene* -*Fuzz*).\n"
+               "                                  ZAMIN_TESTS muhit o'zgaruvchisi ham.\n"
                "  --exclude <namuna>              mos testlarni chiqarib tashlash\n"
                "  --list, -l                      testlar nomlari (har qatorda bittasi), hech narsa ishga tushmaydi\n"
                "  --timing, -t                    vaqt hisoboti: eng sekin testlar, jami, taqsimot\n"
@@ -339,6 +340,8 @@ namespace ZaminTest {
             }
             else if (!arg.empty() && arg.front() != '-')
                 out.Filter.Add(arg); // a pattern
+            else if (arg.size() > 2 && arg[1] != '-')
+                out.Filter.Add(arg); // "-Physics*": a pattern that excludes (a short option is "-" and one letter)
             else
             {
                 error = std::format("noma'lum parametr: {}", arg);

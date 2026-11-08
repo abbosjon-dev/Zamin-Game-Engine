@@ -1,5 +1,5 @@
 # Code coverage builds: cmake -B build-cov -DZAMIN_COVERAGE=ON (Tests/coverage.sh configures, builds, runs the
-# unit tests and writes the report per module with Tools/coverage_report.py).
+# unit tests and writes the report per module with Tests/coverage_report.py).
 #
 # Only our own targets are instrumented (zamin_target_settings in ZaminGame.cmake: the engine, editor, player,
 # tests, benchmarks and the sample game modules); the vendor libraries are not, so the report is about our code.
@@ -8,7 +8,8 @@
 # worker threads run engine code too.
 #
 # Like a sanitizer build, a coverage build writes the sample games' script modules to <build>/GameModules (not to
-# the projects' Binaries folders, where the regular build's modules are) and loads them from there.
+# the projects' Binaries folders, where the regular build's modules are) and its programs load them from there;
+# the modules its editor builds (find_package(Zamin): <build>/ZaminConfig.cmake) go there too, with the counters.
 option(ZAMIN_COVERAGE "Code coverage (gcov) for our targets" OFF)
 
 set(ZAMIN_COVERAGE_FLAGS "")

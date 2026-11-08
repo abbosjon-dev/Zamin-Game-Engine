@@ -86,12 +86,15 @@ Eng kam qamralgan engine modullari (unit testlar): `Zamin/Platform` 8.2 % (oyna,
 ## Ogohlantirishlar
 
 Bizning target'lar (engine, editor, player, testlar, benchmarklar, namuna o'yin modullari) `-Wall -Wextra -Wpedantic`
-bilan, vendor sarlavhalari `-isystem` orqali; `-Wno-missing-field-initializers` faqat (sozlamalar struct'larining
-birinchi maydonlarini sanash ataylab qilingan, ~70 joy).
+bilan, vendor sarlavhalari `-isystem` orqali (bizning `Zamin/src` hech qayerda tizim papkasi emas - aks holda engine
+sarlavhalaridagi ogohlantirishlar engine'ning o'z fayllarida yashirinardi; `cmake/Dependencies.cmake` buni tekshiradi);
+`-Wno-missing-field-initializers` faqat (sozlamalar struct'larining birinchi maydonlarini sanash ataylab qilingan, ~70 joy).
 
 | Build | Qadam | Ogohlantirish |
 |---|---|---|
 | GCC 13 Debug (`build/`) | to'liq | 0 |
+| GCC 13 Debug (`build/`), `Zamin/src` endi engine fayllarida ham `-I` (avval ImGui orqali `-isystem` edi) | to'liq qayta build (498 fayl) | 0 |
+| Clang 18 Release, xuddi shu holatda | engine (`libZamin`, 193 fayl) | 0 |
 | GCC 13 Debug + ASan (`build-asan`, bu o'lchov) | 517 (engine, editor, player, testlar, 3 modul, vendor) | 0 |
 | Clang 18 Debug + UBSan (`build-ubsan`, bu o'lchov) | 432 (engine, testlar, vendor) | 0 |
 | GCC Release, Clang Release (424-vazifa o'lchovi) | to'liq | 0 |

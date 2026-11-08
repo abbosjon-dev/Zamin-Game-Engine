@@ -7,7 +7,7 @@
 #   Tests/coverage.sh                     build-cov, ZaminTests, the report in build-cov/Coverage
 #   Tests/coverage.sh --gui               + ZaminPlayer (3 sample games) and Tests/editor_smoke.sh in the same build
 #   Tests/coverage.sh --filter "Prefab*"  only some tests (ZaminTests --filter)
-#   Tests/coverage.sh --html              also an HTML report per file (gcovr, when it is installed: pip install gcovr)
+#   Tests/coverage.sh --html              also an HTML report per file (gcovr, when it is installed: pipx install gcovr)
 #   Tests/coverage.sh --no-build          the build as it is (counters reset, the tests run again)
 #   Tests/coverage.sh --report-only       only the report again, from the counters the last run left
 #   Tests/coverage.sh --build DIR --out DIR --min-engine 50 --clean
@@ -143,7 +143,7 @@ if [[ $html -eq 1 ]]; then
             --html-details "$out/html/index.html" -j 4 >"$out/gcovr.log" 2>&1 \
             || { echo "gcovr xatosi (log: $out/gcovr.log)"; tail -n 5 "$out/gcovr.log"; }
     else
-        echo "gcovr o'rnatilmagan (pip install gcovr): HTML hisobot yo'q, Markdown / JSON hisobot bor"
+        echo "gcovr o'rnatilmagan (pipx install gcovr): HTML hisobot yo'q, Markdown / JSON hisobot bor"
     fi
 fi
 

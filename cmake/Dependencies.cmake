@@ -76,16 +76,21 @@ add_library(imgui OBJECT
     ${imgui_SOURCE_DIR}/misc/cpp/imgui_stdlib.cpp
     ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
     ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp)
-target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends ${PROJECT_SOURCE_DIR}/Zamin/src)
+target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
 target_link_libraries(imgui PUBLIC glfw)
 # Our ImGui options (Zamin/ImGui/ImGuiConfig.h): IM_ASSERT kept in every build, a failed check logged as an
 # error. Everything that includes imgui.h gets the same (Zamin's public definitions, ZaminConfig.cmake).
+# Zamin/src is on ImGui's (and ImGuizmo's) own include path only - PRIVATE: as a PUBLIC directory of imgui it
+# would be one of the system directories below for the engine's sources, and the warnings in the engine's own
+# headers would be hidden there (our targets have Zamin/src from the Zamin target).
+target_include_directories(imgui PRIVATE ${PROJECT_SOURCE_DIR}/Zamin/src)
 set(ZAMIN_IMGUI_CONFIG "IMGUI_USER_CONFIG=<Zamin/ImGui/ImGuiConfig.h>")
 target_compile_definitions(imgui PUBLIC IMGUI_DEFINE_MATH_OPERATORS ${ZAMIN_IMGUI_CONFIG})
 
 # ImGuizmo (transform gizmos)
 add_library(imguizmo OBJECT ${imguizmo_SOURCE_DIR}/ImGuizmo.cpp)
 target_include_directories(imguizmo PUBLIC ${imguizmo_SOURCE_DIR})
+target_include_directories(imguizmo PRIVATE ${PROJECT_SOURCE_DIR}/Zamin/src) # ImGuiConfig.h (above)
 target_link_libraries(imguizmo PUBLIC imgui)
 
 # stb (image loading)
@@ -111,10 +116,17 @@ endforeach()
 
 # Vendor headers are system headers for the targets that use them (-isystem): their own warnings are
 # not ours - our targets build with -Wall -Wextra -Wpedantic (zamin_target_settings). miniaudio above
-# is SYSTEM already.
+# is SYSTEM already. Only the vendor targets' interface directories: none of them is ours (Zamin/src stays
+# a plain -I directory everywhere, checked below).
 foreach(t glm glm-header-only EnTT nlohmann_json box2d Jolt glfw glad imgui imguizmo stb tinyobj cgltf)
     get_target_property(_zm_inc ${t} INTERFACE_INCLUDE_DIRECTORIES)
     if(_zm_inc)
+        foreach(_zm_ours Zamin Editor Runtime Tests Projects)
+            string(FIND "${_zm_inc}" "${PROJECT_SOURCE_DIR}/${_zm_ours}/" _zm_at)
+            if(NOT _zm_at EQUAL -1)
+                message(FATAL_ERROR "${t}: ${_zm_ours}/ papkasi tizim (-isystem) papkasi bo'lib qolardi: ${_zm_inc}")
+            endif()
+        endforeach()
         set_target_properties(${t} PROPERTIES INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${_zm_inc}")
     endif()
 endforeach()

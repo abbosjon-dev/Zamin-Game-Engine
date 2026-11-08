@@ -186,7 +186,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ninja-build libgl-dev libx11-dev libxrandr-dev libxinerama-dev \
             libxcursor-dev libxi-dev libwayland-dev libxkbcommon-dev wayland-protocols
-          pip install --user gcovr
+          # gcovr (the HTML report per file) with pipx: the runner's Python is externally managed (PEP 668), a plain
+          # pip install is refused there. Without gcovr Tests/coverage.sh still writes the Markdown / JSON report.
+          pipx install gcovr || sudo apt-get install -y gcovr || echo "::warning::gcovr o'rnatilmadi: HTML hisobotsiz"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH" # pipx's default bin folder (the runner's own is on PATH already)
 
       - name: Code coverage (gcov)
         run: Tests/coverage.sh --html --out coverage-report

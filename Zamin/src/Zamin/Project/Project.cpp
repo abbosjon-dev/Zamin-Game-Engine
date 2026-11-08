@@ -283,18 +283,19 @@ namespace Zamin {
     {
         if (!s_ActiveProject || s_ActiveProject->m_Config.ScriptModulePath.empty()) return {};
         const std::filesystem::path path = s_ActiveProject->m_ProjectDirectory / s_ActiveProject->m_Config.ScriptModulePath;
-        // ZAMIN_SCRIPT_MODULE_DIR=<folder>: the module of the same name from that folder. A sanitizer build
-        // (cmake -DZAMIN_SANITIZE=...) writes its instrumented modules to its own GameModules folder - not
-        // to the projects' Binaries, where the regular build's modules are - and loads them from there
-        // when they exist (cmake/Sanitizers.cmake).
+        // ZAMIN_SCRIPT_MODULE_DIR=<folder>: the module of the same name from that folder. A sanitizer or coverage
+        // build (cmake -DZAMIN_SANITIZE=... / -DZAMIN_COVERAGE=ON) writes its instrumented modules to its own
+        // GameModules folder - not to the projects' Binaries, where the regular build's modules are - and its
+        // programs (<build>/bin) load them from there when they exist (cmake/Sanitizers.cmake, Coverage.cmake);
+        // a game exported from it is elsewhere and loads the module it ships.
         std::filesystem::path folder;
+        std::error_code ec;
         if (const char* dir = std::getenv("ZAMIN_SCRIPT_MODULE_DIR"); dir && *dir)
             folder = dir;
 #ifdef ZAMIN_SANITIZER_MODULE_DIR
-        else
+        else if (std::filesystem::equivalent(FileSystem::GetExecutableDirectory(), ZAMIN_SANITIZER_BIN_DIR, ec))
             folder = ZAMIN_SANITIZER_MODULE_DIR;
 #endif
-        std::error_code ec;
         if (!folder.empty() && std::filesystem::is_regular_file(folder / path.filename(), ec))
             return folder / path.filename();
         return path;

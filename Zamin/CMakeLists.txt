@@ -111,9 +111,11 @@ if(ZAMIN_SANITIZER_STRICT_FLAGS)
         PROPERTIES COMPILE_OPTIONS -fsanitize-recover=all)
 endif()
 # A sanitizer or coverage build loads the script modules it built itself (cmake/Sanitizers.cmake,
-# cmake/Coverage.cmake): from its GameModules folder when the module is there (Project::GetScriptModulePath).
+# cmake/Coverage.cmake): from its GameModules folder when the module is there (Project::GetScriptModulePath) -
+# in the build's own programs (<build>/bin) only: a game exported from such a build loads the module it ships.
 if(ZAMIN_SANITIZE OR ZAMIN_COVERAGE)
-    target_compile_definitions(Zamin PRIVATE ZAMIN_SANITIZER_MODULE_DIR="${ZAMIN_GAME_MODULE_OUTPUT_DIR}")
+    target_compile_definitions(Zamin PRIVATE ZAMIN_SANITIZER_MODULE_DIR="${ZAMIN_GAME_MODULE_OUTPUT_DIR}"
+        ZAMIN_SANITIZER_BIN_DIR="${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 endif()
 # Calls inside the library go to its own functions (not to copies of the same inline / template code
 # in the program that loads it - an unoptimised Debug editor's string or container code, say).
@@ -140,20 +142,27 @@ add_custom_command(TARGET Zamin POST_BUILD
 
 # ---- CMake package so external game projects can build script modules ----
 # (zamin_add_game_module: cmake/ZaminGame.cmake, included by the root CMakeLists.txt.)
-# A sanitizer build's modules get its sanitizer flags and go to its GameModules folder (not the
-# projects' Binaries, where the regular build's modules are).
+# A sanitizer or coverage build's modules - the editor's script builds and hot reload too - are built as the root
+# build's are (its sanitizer flags / gcov's counters for zamin_target_settings) and go to its GameModules folder,
+# where it loads them from (not the projects' Binaries, where the regular build's modules are).
 set(ZAMIN_CONFIG_SANITIZER_TARGET "")
 set(ZAMIN_CONFIG_SANITIZER "")
+set(_zm_config_module_dir "if(NOT ZAMIN_GAME_MODULE_OUTPUT_DIR)
+    set(ZAMIN_GAME_MODULE_OUTPUT_DIR \"${ZAMIN_GAME_MODULE_OUTPUT_DIR}\")
+endif()
+")
 if(ZAMIN_SANITIZE)
     set(ZAMIN_CONFIG_SANITIZER_TARGET "set_target_properties(Zamin::Zamin PROPERTIES
         INTERFACE_COMPILE_OPTIONS \"${ZAMIN_SANITIZER_FLAGS}\"
         INTERFACE_LINK_OPTIONS \"${ZAMIN_SANITIZER_LINK_FLAGS}\")")
     set(ZAMIN_CONFIG_SANITIZER "set(ZAMIN_SANITIZE \"${ZAMIN_SANITIZE}\")
 set(ZAMIN_SANITIZER_STRICT_FLAGS \"${ZAMIN_SANITIZER_STRICT_FLAGS}\")
-if(NOT ZAMIN_GAME_MODULE_OUTPUT_DIR)
-    set(ZAMIN_GAME_MODULE_OUTPUT_DIR \"${ZAMIN_GAME_MODULE_OUTPUT_DIR}\")
-endif()
-")
+${_zm_config_module_dir}")
+elseif(ZAMIN_COVERAGE)
+    set(ZAMIN_CONFIG_SANITIZER "set(ZAMIN_COVERAGE ON)
+set(ZAMIN_COVERAGE_FLAGS \"${ZAMIN_COVERAGE_FLAGS}\")
+set(ZAMIN_COVERAGE_LINK_FLAGS \"${ZAMIN_COVERAGE_LINK_FLAGS}\")
+${_zm_config_module_dir}")
 endif()
 
 get_target_property(_glm_inc glm::glm INTERFACE_INCLUDE_DIRECTORIES)

@@ -16,6 +16,7 @@
 #include <fstream>
 #include <functional>
 #include <limits>
+#include <map>
 #include <set>
 #include <thread>
 #include <unordered_map>
@@ -126,9 +127,14 @@ TEST(TestFrameworkOptions)
     ZaminTest::RunnerOptions more;
     CHECK(parse({ "-f", "Audio*", "--exclude", "AudioMixer*", "-t", "-h" }, more, error) && more.Timing && more.Help && more.Slowest == 10);
     CHECK(more.Filter.Describe() == "Audio*, -AudioMixer*");
+    // A positional pattern that begins with '-' excludes (longer than a short option's "-x").
+    ZaminTest::RunnerOptions positional;
+    CHECK(parse({ "Prefab*", "-Physics*", "--list", "-*Fuzz:Scene*" }, positional, error) && positional.List);
+    CHECK(positional.Filter.Describe() == "Prefab*, Scene*, -Physics*, -*Fuzz");
+    CHECK(positional.Filter.Matches("PrefabCache") && !positional.Filter.Matches("PhysicsDeterminism2D") && !positional.Filter.Matches("SceneFuzz"));
     // Mistakes: an unknown option, a missing or bad value.
     for (std::vector<const char*> bad : { std::vector<const char*>{ "--bogus" }, { "--slowest" }, { "--slowest", "0" }, { "--slowest=x" },
-                                          { "--filter" }, { "--junit" }, { "-" } })
+                                          { "--filter" }, { "--junit" }, { "-" }, { "-y" }, { "--Physics*" } })
     {
         ZaminTest::RunnerOptions o;
         std::string e;
@@ -47275,10 +47281,11 @@ static float DeterminismFrameTime(int frame)
     return s_Times[frame % 5];
 }
 
-// Plays the scene like the editor (a copy of it) for `frames` frames; the transforms at the end.
-static PhysicsSnapshot RunPhysicsScene(const Ref<Scene>& source, int frames, PhysicsSnapshot* halfway = nullptr)
+// Plays the scene for `frames` frames like the editor (a copy of it) or, `asPlayer`, like the exported game (the
+// scene read from its file played itself: `source` is changed); the transforms at the end.
+static PhysicsSnapshot RunPhysicsScene(const Ref<Scene>& source, int frames, PhysicsSnapshot* halfway = nullptr, bool asPlayer = false)
 {
-    Ref<Scene> scene = Scene::Copy(source);
+    Ref<Scene> scene = asPlayer ? source : Scene::Copy(source);
     scene->OnRuntimeStart();
     for (int i = 0; i < frames; i++)
     {
@@ -47456,11 +47463,20 @@ static void CheckPhysicsDeterminism(const std::function<Ref<Scene>(bool)>& make,
 
     // Saved and read back (what the player and the next editor session start from).
     const std::string text = SceneSerializer(source).SerializeToString();
-    auto loaded = CreateRef<Scene>();
-    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    auto load = [](const std::string& from) {
+        auto scene = CreateRef<Scene>();
+        CHECK(SceneSerializer(scene).DeserializeFromString(from));
+        return scene;
+    };
+    Ref<Scene> loaded = load(text);
     diff = PhysicsSnapshotDiff(first, RunPhysicsScene(loaded, frames));
     if (!diff.empty())
         std::printf("    saqlab o'qilgandan keyin: %s\n", diff.c_str());
+    CHECK(diff.empty());
+    // The exported game plays the scene it read itself (no copy): the same simulation.
+    diff = PhysicsSnapshotDiff(first, RunPhysicsScene(load(text), frames, nullptr, true));
+    if (!diff.empty())
+        std::printf("    o'yindagidek (nusxasiz): %s\n", diff.c_str());
     CHECK(diff.empty());
 
     // The same entities made in reverse order (the same file): the same simulation.
@@ -47474,10 +47490,10 @@ static void CheckPhysicsDeterminism(const std::function<Ref<Scene>(bool)>& make,
     if (!diff.empty())
         std::printf("    teskari tartibda: %s\n", diff.c_str());
     CHECK(diff.empty());
-    // And its file read back.
-    auto reversedLoaded = CreateRef<Scene>();
-    CHECK(SceneSerializer(reversedLoaded).DeserializeFromString(SceneSerializer(reversed).SerializeToString()));
-    CHECK(PhysicsSnapshotDiff(first, RunPhysicsScene(reversedLoaded, frames)).empty());
+    // And its file read back, played by the editor and by the game.
+    const std::string reversedText = SceneSerializer(reversed).SerializeToString();
+    CHECK(PhysicsSnapshotDiff(first, RunPhysicsScene(load(reversedText), frames)).empty());
+    CHECK(PhysicsSnapshotDiff(first, RunPhysicsScene(load(reversedText), frames, nullptr, true)).empty());
 }
 
 TEST(PhysicsDeterminism2D)
@@ -47502,6 +47518,78 @@ TEST(PhysicsDeterminism3D)
         scene->GetSettings().Physics3D.AllowSleep = false;
         return scene;
     }, 200);
+}
+
+// ------------------------------------------------------------------ editor Play copy (the exported game's order)
+// Every component pool's entities as UUIDs, in the pool's order (the order the systems that walk a pool meet them).
+static std::map<entt::id_type, std::vector<uint64_t>> PoolOrders(Scene& scene)
+{
+    std::map<entt::id_type, std::vector<uint64_t>> orders;
+    entt::registry& registry = scene.GetRegistry();
+    for (auto&& [id, pool] : registry.storage())
+    {
+        if (pool.empty() || id == entt::type_hash<entt::entity>::value())
+            continue;
+        std::vector<uint64_t>& order = orders[id];
+        for (auto it = pool.rbegin(); it != pool.rend(); ++it) // oldest first
+            if (auto* idc = registry.valid(*it) ? registry.try_get<IDComponent>(*it) : nullptr)
+                order.push_back((uint64_t)idc->ID);
+    }
+    return orders;
+}
+
+// The editor plays a copy of the scene (Scene::Copy), the exported game the scene it read from the file: the scripts
+// (and every system that walks a component pool) run in the same order in both - the copy's pools are in hierarchy
+// order, as the file read back is, whatever order the editor's scene was built up in.
+TEST(PlayCopyRunsScriptsInFileOrder)
+{
+    auto scene = CreateRef<Scene>();
+    Entity a = scene->CreateEntity("A");
+    Entity b = scene->CreateEntity("B");
+    Entity c = scene->CreateEntity("C");
+    Entity d = scene->CreateEntity("D");
+    // Built up out of order: the scripts added C, A, D, B; the hierarchy B, C, A (D under A).
+    for (Entity e : { c, a, d, b })
+    {
+        auto& nsc = e.AddComponent<NativeScriptComponent>();
+        nsc.ClassName = "LifeScript";
+        nsc.Fields["Mode"].Set(0);
+    }
+    for (Entity e : { b, a })
+        e.AddComponent<CircleRendererComponent>();
+    scene->SetParent(d, a, false);
+    scene->SetSiblingIndex(b, 0);
+    scene->SetSiblingIndex(c, 1);
+    CHECK(Names(scene->GetEntitiesInHierarchyOrder()) == "B,C,A,D");
+
+    const std::string text = SceneSerializer(scene).SerializeToString();
+    auto load = [&]() {
+        auto loaded = CreateRef<Scene>();
+        CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+        return loaded;
+    };
+    // Two frames and the stop: every callback, by entity.
+    auto play = [](const Ref<Scene>& s) {
+        g_Life.clear();
+        s->OnRuntimeStart();
+        s->OnUpdateRuntime(1.0f / 60.0f);
+        s->OnUpdateRuntime(1.0f / 60.0f);
+        s->OnRuntimeStop();
+        return g_Life;
+    };
+
+    const std::vector<std::string> player = play(load()); // the exported game: the file's scene itself
+    CHECK(player.size() >= 4 * 7);
+    CHECK(player.size() >= 4 && player[0] == "B:Create" && player[1] == "C:Create" && player[2] == "A:Create" && player[3] == "D:Create");
+    CHECK(play(Scene::Copy(load())) == player); // the editor's Play after the scene was opened
+    CHECK(play(Scene::Copy(scene)) == player);  // ... and on the scene as it was built up
+    CHECK(play(Scene::Copy(Scene::Copy(scene))) == player);
+
+    // Every pool, not only the scripts': the copy's pools are the file's.
+    Ref<Scene> loaded = load();
+    const auto fromFile = PoolOrders(*loaded);
+    CHECK(fromFile.size() >= 5 && PoolOrders(*Scene::Copy(loaded)) == fromFile && PoolOrders(*Scene::Copy(scene)) == fromFile);
+    g_Life.clear();
 }
 
 // ------------------------------------------------------------------ script hot reload (in-process)

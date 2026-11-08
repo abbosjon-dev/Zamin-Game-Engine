@@ -10,8 +10,8 @@
 #
 # A sanitizer build writes the sample games' script modules to <build>/GameModules (ZaminGame.cmake:
 # ZAMIN_GAME_MODULE_OUTPUT_DIR), not to the projects' Binaries folders where the regular build's
-# modules are - a regular editor cannot load an instrumented module. Run the sanitizer player / editor
-# with ZAMIN_SCRIPT_MODULE_DIR=<build>/GameModules to load those (Project::GetScriptModulePath).
+# modules are - a regular editor cannot load an instrumented module. The build's own programs (<build>/bin) load
+# them from there when they exist (Project::GetScriptModulePath; ZAMIN_SCRIPT_MODULE_DIR=<folder> overrides it).
 set(ZAMIN_SANITIZE "" CACHE STRING "Sanitizers: address, undefined, leak, thread (a list), empty = none")
 
 set(ZAMIN_SANITIZER_FLAGS "")

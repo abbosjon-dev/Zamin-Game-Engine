@@ -4,7 +4,8 @@
 //   ZaminTests                         every test; the output ends with "N test, M xato"
 //   ZaminTests --list [patterns]       the names only (one per line), nothing runs
 //   ZaminTests Prefab* -Physics*       a pattern with * / ? is a glob over the whole name, one without them
-//   ZaminTests --filter "Scene*:-*Fuzz" matches the names that contain it; '-' excludes; case-insensitive
+//   ZaminTests --filter "Scene*:-*Fuzz" matches the names that contain it; '-' excludes (a positional "-X" of
+//                                      more than one letter is a pattern, "-x" an option); case-insensitive
 //   ZaminTests --timing --slowest 20   the time report (slowest tests, totals, a histogram)
 //   ZaminTests --report r.json --junit r.xml   the results for CI (JSON, JUnit XML)
 #pragma once

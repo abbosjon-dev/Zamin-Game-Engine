@@ -120,16 +120,20 @@ if [[ "$diff_out" != diff* && "$diff_out" != *$'\n'diff* ]]; then
     exit 0
 fi
 
-# The changed lines of each hunk, as lines of the current file ("@@ -a,b +c,d @@" starts at line c; the context
-# lines around a change are left out).
+# The changed lines of each hunk, as lines of the current file (the context lines around a change are left out).
+# git clang-format --diff compares the working tree (the "-" side) with the formatted file (the "+" side), so the
+# current file's numbering is the "-" side's: "@@ -a,b +c,d @@" starts at line a, and only "-" and context lines
+# advance it. A "-" line is that line; an added line replaces the "-" lines before it or, added alone, counts as
+# the line it follows.
 hunks="$(awk '
-    function flush() { if (first > 0) print f ":" first ":" last; first = 0 }
+    function flush() { if (first > 0) print f ":" first ":" last; first = 0; last = 0 }
     /^diff --git / { flush(); next }
     /^\+\+\+ / { f = substr($0, 7); next }
     /^--- / { next }
-    /^@@ / { flush(); split($3, p, ","); n = substr(p[1], 2) + 0; next }
+    /^@@ / { flush(); split($2, p, ","); n = substr(p[1], 2) + 0; next }
     /^ / { n++; next }
-    /^[-+]/ { line = (n > 0 ? n : 1); if (first == 0) first = line; last = line; if (substr($0, 1, 1) == "+") n++; next }
+    /^-/ { line = (n > 0 ? n : 1); if (first == 0) first = line; last = line; n++; next }
+    /^\+/ { line = (n > 1 ? n - 1 : 1); if (first == 0) first = line; if (line > last) last = line; next }
     END { flush() }' <<<"$diff_out")"
 count="$(grep -c . <<<"$hunks")"
 if [[ $github -eq 1 ]]; then

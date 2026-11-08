@@ -979,8 +979,9 @@ qilingan o'yinni skrinshot bilan ham ishga tushiradi (`Tests/png_check.py`: o'lc
 `asan`, `ubsan`, `lsan`, `tsan` presetlari): bayroqlar build'ning barcha target'lariga (vendor kutubxonalarga ham) va
 `ZaminConfig.cmake` orqali tashqarida build qilinadigan o'yin modullariga beriladi; bizning koddagi har qanday UBSan
 xabari fatal (`-fno-sanitize-recover=all`). Sanitizer build namuna o'yinlar modullarini loyihaning `Binaries` papkasiga
-emas, o'zining `GameModules` papkasiga yozadi va o'sha yerdan yuklaydi (`ZAMIN_SCRIPT_MODULE_DIR=<papka>` bilan istalgan
-build'da). `Tests/sanitize.sh <address|undefined|leak|thread> [--smoke] [--compiler clang] [--clean]` alohida papkada
+emas, o'zining `GameModules` papkasiga yozadi va build'ning o'z dasturlari (`<build>/bin`) o'sha yerdan yuklaydi
+(`ZAMIN_SCRIPT_MODULE_DIR=<papka>` bilan istalgan build'da); editor build qiladigan skriptlar ham u yerga yoziladi,
+eksport qilingan o'yin esa o'z modulini yuklaydi. Coverage build (`-DZAMIN_COVERAGE=ON`) ham xuddi shunday. `Tests/sanitize.sh <address|undefined|leak|thread> [--smoke] [--compiler clang] [--clean]` alohida papkada
 build qiladi, `ZaminTests`ni (`--smoke` bilan player va editor'ni ham xvfb ostida) ishga tushiradi va testlar o'tsa ham
 har qanday sanitizer xabarida yiqiladi. Uchinchi tomon kodining shovqini `Tests/sanitizers/*.supp` fayllarida
 (izohlari bilan); bizning koddagi xato hech qachon u yerga yozilmaydi — tuzatiladi.

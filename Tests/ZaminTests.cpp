@@ -383,6 +383,23 @@ TEST(ProjectTemplate)
     CHECK(loaded && loaded->GetConfig().Name == "TestGame");
     CHECK(Project::GetScriptModulePath().filename() == "libTestGame.so");
 
+    // ZAMIN_SCRIPT_MODULE_DIR: the module of the same name from another folder (a sanitizer build's own
+    // modules) - only when it is there, otherwise the project's.
+    {
+        const char* previous = std::getenv("ZAMIN_SCRIPT_MODULE_DIR");
+        const std::string saved = previous ? previous : "";
+        const std::filesystem::path modules = dir / "OtherModules";
+        ::setenv("ZAMIN_SCRIPT_MODULE_DIR", modules.c_str(), 1);
+        const std::filesystem::path projectModule = Project::GetScriptModulePath();
+        CHECK(projectModule.parent_path().filename() == "Binaries" && projectModule.filename() == "libTestGame.so");
+        FileSystem::WriteTextFile(modules / "libTestGame.so", "x");
+        CHECK(Project::GetScriptModulePath() == modules / "libTestGame.so");
+        if (previous)
+            ::setenv("ZAMIN_SCRIPT_MODULE_DIR", saved.c_str(), 1);
+        else
+            ::unsetenv("ZAMIN_SCRIPT_MODULE_DIR");
+    }
+
     auto scene = CreateRef<Scene>();
     CHECK(SceneSerializer(scene).Deserialize(Project::GetAssetFileSystemPath("Scenes/Main.zscene")));
     CHECK((bool)scene->GetPrimaryCameraEntity());

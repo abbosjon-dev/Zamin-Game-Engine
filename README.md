@@ -915,7 +915,8 @@ har qanday sanitizer xabarida yiqiladi. Uchinchi tomon kodining shovqini `Tests/
 
 **Ogohlantirishlar:** bizning target'lar (engine, editor, player, testlar va benchmarklar, namuna o'yin modullari)
 `-Wall -Wextra -Wpedantic` bilan build qilinadi (`zamin_target_settings`, `cmake/ZaminGame.cmake`), vendor sarlavhalari
-`-isystem` orqali ulanadi. Build GCC va Clang bilan ogohlantirishsiz.
+`-isystem` orqali ulanadi. Build GCC va Clang bilan ogohlantirishsiz. `-ffp-contract=off`: GCC va Clang build'lari bir xil
+float natija beradi (FMA qisqartirish yo'q — Jolt barcha bog'langan target'larga `-mfma` beradi; Clang avval qisqartirardi).
 
 ---
 

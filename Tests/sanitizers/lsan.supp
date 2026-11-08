@@ -1,3 +1,17 @@
 # LeakSanitizer suppressions (LSAN_OPTIONS=suppressions=...; Tests/sanitize.sh sets it, for ASan's leak
 # check at exit and for the standalone LSan build). Only third-party code may be listed here - a leak in
 # Zamin's own code is a bug to fix. Format: leak:<function, file or library name>.
+
+# miniaudio 0.11.21, PulseAudio backend: when no PulseAudio server answers (CI, containers, xvfb) the failed
+# pa_context_connect() path frees the main loop but never pa_context_unref()s the context (miniaudio.h,
+# ma_init_pa_mainloop_and_pa_context__pulse) - the context and its memory pool stay allocated.
+leak:ma_init_pa_mainloop_and_pa_context__pulse
+# miniaudio's JACK backend probe dlopen()s libjack; with no JACK server it is closed again and the objects
+# libjack's static constructors made (operator new in dl-init) are left behind.
+leak:ma_context_init__jack
+# Mesa llvmpipe (Ubuntu 24.04, Mesa 25.2): glGenerateMipmap() on a texture leaves two 56-byte blocks (calloc)
+# that the driver never frees - everything else it allocated is freed when the context goes. The driver is
+# unloaded at glfwTerminate(), so its own frames cannot be named in the report; the only named frame is the
+# one that called GL. OpenGLTexture2D::SetData itself allocates nothing (it only calls glTexSubImage2D /
+# glGenerateMipmap), so this cannot hide a leak of ours.
+leak:Zamin::OpenGLTexture2D::SetData

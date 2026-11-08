@@ -3,6 +3,8 @@
 #include <Zamin/Editor/EditorLanguage.h>
 #include <Zamin/ImGui/Icons.h>
 
+#include "TestFramework.h"
+
 #include <algorithm>
 #include <array>
 #include <bit>
@@ -22,13 +24,11 @@
 
 using namespace Zamin;
 
-// ------------------------------------------------------------------ mini framework
-struct TestCase { const char* Name; std::function<void()> Fn; };
-static std::vector<TestCase>& Tests() { static std::vector<TestCase> t; return t; }
-static int s_Failures = 0;
-struct Registrar { Registrar(const char* n, std::function<void()> f) { Tests().push_back({ n, std::move(f) }); } };
+// ------------------------------------------------------------------ mini framework (TestFramework.h: the
+// registry, filters by name, the timing report; ZaminTests --help)
+struct Registrar { Registrar(const char* n, std::function<void()> f) { ZaminTest::Registry().push_back({ n, std::move(f) }); } };
 #define TEST(name) static void name(); static Registrar s_reg_##name(#name, name); static void name()
-#define CHECK(cond) do { if (!(cond)) { std::printf("    FAIL %s:%d: %s\n", __FILE__, __LINE__, #cond); s_Failures++; } } while (0)
+#define CHECK(cond) do { if (!(cond)) ZaminTest::CheckFailed(__FILE__, __LINE__, #cond); } while (0)
 #define CHECK_NEAR(a, b, eps) CHECK(std::abs((a) - (b)) <= (eps))
 
 // ------------------------------------------------------------------ test scripts
@@ -67,6 +67,115 @@ private:
 ZM_REGISTER_SCRIPT(SpawnerScript)
 
 static void ResetCounters() { g_Created = g_Updated = g_Destroyed = g_Collisions = 0; g_SeenSpeed = 0.0f; g_SeenName.clear(); }
+
+// ------------------------------------------------------------------ the framework itself (TestFramework.h)
+TEST(TestFrameworkPatterns)
+{
+    using ZaminTest::MatchPattern;
+    // With a wildcard: a glob over the whole name.
+    CHECK(MatchPattern("Prefab*", "PrefabCache") && !MatchPattern("Prefab*", "MyPrefab"));
+    CHECK(MatchPattern("*Prefab*", "MyPrefabCache") && MatchPattern("*Cache", "PrefabCache") && !MatchPattern("*Cache", "CacheX"));
+    CHECK(MatchPattern("Pre?ab", "Prefab") && !MatchPattern("Pre?ab", "Prefabs") && !MatchPattern("Pre?ab", "Preab"));
+    CHECK(MatchPattern("a*b*c", "aXXbYc") && !MatchPattern("a*b*c", "aXbY") && MatchPattern("*ab", "aaab") && MatchPattern("a*a*a", "aaaa"));
+    CHECK(MatchPattern("*", "") && MatchPattern("**", "x") && !MatchPattern("?", ""));
+    // Without one: the names that contain it (as ZAMIN_TESTS); never case-sensitive.
+    CHECK(MatchPattern("Physics", "PhysicsDeterminism2D") && MatchPattern("Determinism", "PhysicsDeterminism3D") && !MatchPattern("Physic2", "Physics2D"));
+    CHECK(MatchPattern("prefab*", "PrefabCache") && MatchPattern("PREFABCACHE", "PrefabCache") && MatchPattern("", "Anything"));
+
+    ZaminTest::TestFilter filter;
+    CHECK(filter.IsEmpty() && filter.Matches("Anything"));
+    filter.Add("Scene*:-*Fuzz*, Prefab*");
+    filter.Add(" -Slow* ");
+    CHECK(filter.GetIncluded().size() == 2 && filter.GetExcluded().size() == 2);
+    CHECK(filter.Describe() == "Scene*, Prefab*, -*Fuzz*, -Slow*");
+    CHECK(filter.Matches("SceneCopy") && filter.Matches("PrefabCache") && !filter.Matches("SceneFuzz") && !filter.Matches("SerializationFuzz"));
+    CHECK(!filter.Matches("AudioMixer") && !filter.Matches("SlowPrefab"));
+    ZaminTest::TestFilter excludeOnly;
+    excludeOnly.Add("-*Fuzz*");
+    CHECK(excludeOnly.Matches("PrefabCache") && !excludeOnly.Matches("SerializationFuzz") && excludeOnly.Describe() == "-*Fuzz*");
+
+    std::vector<ZaminTest::TestCase> tests = { { "SceneA", {} }, { "PrefabB", {} }, { "SceneFuzz", {} }, { "Audio", {} } };
+    CHECK((ZaminTest::SelectTests(tests, filter) == std::vector<size_t>{ 0, 1 }));
+    CHECK(ZaminTest::SelectTests(tests, ZaminTest::TestFilter()).size() == 4);
+
+    // The real registry: this test is in it, and no two names differ only in case (the filters ignore it).
+    ZaminTest::TestFilter self;
+    self.Add("TestFrameworkPatterns");
+    CHECK(ZaminTest::SelectTests(ZaminTest::Registry(), self).size() == 1);
+    std::set<std::string> lowered;
+    for (const ZaminTest::TestCase& t : ZaminTest::Registry())
+    {
+        std::string name = t.Name;
+        std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c) { return (char)std::tolower(c); });
+        CHECK(lowered.insert(name).second);
+    }
+}
+
+TEST(TestFrameworkOptions)
+{
+    auto parse = [](std::vector<const char*> args, ZaminTest::RunnerOptions& out, std::string& error) {
+        return ZaminTest::ParseOptions((int)args.size(), args.data(), out, error);
+    };
+    ZaminTest::RunnerOptions options;
+    std::string error;
+    CHECK(parse({ "--list", "Prefab*", "--filter=-*Fuzz", "--slowest", "5", "--junit", "out/r.xml", "--report=r.json", "-x" }, options, error));
+    CHECK(error.empty() && options.List && options.Timing && options.Slowest == 5 && options.FailFast && !options.Help);
+    CHECK(options.JUnitReport == "out/r.xml" && options.JsonReport == "r.json" && options.Filter.Describe() == "Prefab*, -*Fuzz");
+    ZaminTest::RunnerOptions defaults;
+    CHECK(parse({}, defaults, error) && !defaults.List && !defaults.Timing && defaults.Slowest == 10 && defaults.Filter.IsEmpty());
+    ZaminTest::RunnerOptions more;
+    CHECK(parse({ "-f", "Audio*", "--exclude", "AudioMixer*", "-t", "-h" }, more, error) && more.Timing && more.Help && more.Slowest == 10);
+    CHECK(more.Filter.Describe() == "Audio*, -AudioMixer*");
+    // Mistakes: an unknown option, a missing or bad value.
+    for (std::vector<const char*> bad : { std::vector<const char*>{ "--bogus" }, { "--slowest" }, { "--slowest", "0" }, { "--slowest=x" },
+                                          { "--filter" }, { "--junit" }, { "-" } })
+    {
+        ZaminTest::RunnerOptions o;
+        std::string e;
+        CHECK(!parse(bad, o, e) && !e.empty());
+    }
+    ZaminTest::RunnerOptions o;
+    std::string e;
+    CHECK(!parse({ "--slowest" }, o, e) && e.find("--slowest") != std::string::npos);
+    CHECK(ZaminTest::Usage().find("--filter") != std::string::npos && ZaminTest::Usage().find("--timing") != std::string::npos);
+}
+
+TEST(TestFrameworkReports)
+{
+    CHECK(ZaminTest::FormatDuration(0.4231) == "0.42 ms" && ZaminTest::FormatDuration(12.34) == "12.3 ms");
+    CHECK(ZaminTest::FormatDuration(152.3) == "152 ms" && ZaminTest::FormatDuration(2500.0) == "2.50 s");
+
+    ZaminTest::RunSummary run;
+    run.Registered = 10;
+    run.Filter = "Scene*";
+    run.Timestamp = "2026-11-08T12:00:00Z";
+    run.TotalMilliseconds = 1300.0;
+    run.Results.push_back({ "Fast", 2.0, 0, {}, {} });
+    run.Results.push_back({ "Slow", 1200.0, 2, { "x.cpp:1: a < b", "x.cpp:2: \"q\"" }, {} });
+    run.Results.push_back({ "Thrower", 30.0, 1, {}, "bad <thing> & co" });
+    CHECK(run.CountFailures() == 3 && run.CountFailedTests() == 2);
+
+    const std::string timing = ZaminTest::FormatTimingReport(run, 2);
+    CHECK(timing.find("3 test") != std::string::npos && timing.find("Eng sekin 2 test") != std::string::npos);
+    const size_t slow = timing.find("Slow"), thrower = timing.find("Thrower");
+    CHECK(slow != std::string::npos && thrower != std::string::npos && slow < thrower); // slowest first
+    CHECK(timing.find("Fast") == std::string::npos);                                   // only the 2 slowest
+    CHECK(timing.find("(XATO)") != std::string::npos && timing.find("Taqsimot:") != std::string::npos);
+    CHECK(timing.find("1.20 s") != std::string::npos && timing.find(">= 1 s: 1") != std::string::npos && timing.find("1-10 ms: 1") != std::string::npos);
+
+    const std::string json = ZaminTest::FormatJsonReport(run);
+    CHECK(json.find("\"Ran\": 3") != std::string::npos && json.find("\"Registered\": 10") != std::string::npos);
+    CHECK(json.find("\"FailedTests\": 2") != std::string::npos && json.find("\"Failures\": 3,") != std::string::npos);
+    CHECK(json.find("{ \"Name\": \"Fast\", \"Ms\": 2.000, \"Passed\": true, \"Failures\": 0 }") != std::string::npos);
+    CHECK(json.find("\"x.cpp:2: \\\"q\\\"\"") != std::string::npos && json.find("\"Exception\": \"bad <thing> & co\"") != std::string::npos);
+
+    const std::string xml = ZaminTest::FormatJUnitReport(run, "ZaminTests");
+    CHECK(xml.starts_with("<?xml") && xml.find("tests=\"3\" failures=\"1\" errors=\"1\"") != std::string::npos);
+    CHECK(xml.find("<testcase name=\"Fast\" classname=\"ZaminTests\" time=\"0.002\"/>") != std::string::npos);
+    CHECK(xml.find("<failure message=\"2 ta tekshiruv o&apos;tmadi\"") != std::string::npos && xml.find("x.cpp:1: a &lt; b") != std::string::npos);
+    CHECK(xml.find("<error message=\"istisno: bad &lt;thing&gt; &amp; co\"") != std::string::npos);
+    CHECK(xml.find("&quot;q&quot;") != std::string::npos && xml.find("timestamp=\"2026-11-08T12:00:00Z\"") != std::string::npos);
+}
 
 // ------------------------------------------------------------------ tests
 TEST(UUIDsAreUnique)
@@ -24810,24 +24919,12 @@ TEST(PhysicsDebug3DSampleScene)
     scene->OnRuntimeStop();
 }
 
-int main()
+// ZaminTests [--filter <pattern>] [--list] [--timing] [--slowest N] [--report r.json] [--junit r.xml] ...
+// (ZaminTest::Usage); ZAMIN_TESTS=<part of a name> still chooses tests too.
+int main(int argc, char** argv)
 {
     Log::SetMinLevel(LogLevel::Error);
-    // ZAMIN_TESTS=<part of a name>: only the tests whose names contain it (while working on them).
-    const char* only = std::getenv("ZAMIN_TESTS");
-    int index = 0;
-    size_t ran = 0;
-    for (auto& t : Tests())
-    {
-        if (only && *only && !std::strstr(t.Name, only))
-            continue;
-        int before = s_Failures;
-        t.Fn();
-        ran++;
-        std::printf("[%2d] %-32s %s\n", ++index, t.Name, s_Failures == before ? "OK" : "FAILED");
-    }
-    std::printf("\n%zu test, %d xato\n", ran, s_Failures);
-    return s_Failures == 0 ? 0 : 1;
+    return ZaminTest::RunMain(argc, argv);
 }
 
 // The Showcase3D sample's Audio scene: a listener walking between two music zones, a humming shrine in
@@ -46096,8 +46193,7 @@ TEST(SerializationFuzz)
     const auto start = std::chrono::steady_clock::now();
     size_t saved = 0;
     auto failed = [&](const std::string& input, const std::string& why, const std::string& name) {
-        std::printf("    FAIL fuzz %s: %s\n", name.c_str(), why.c_str());
-        s_Failures++;
+        ZaminTest::Fail(std::format("fuzz {}: {}", name, why));
         if (saved++ < 5)
         {
             std::error_code ec;
@@ -46124,8 +46220,7 @@ TEST(SerializationFuzz)
             const std::string input = FileSystem::ReadTextFile(file);
             if (std::string why = RunFuzzCase(input, ragdoll, temp.GetPath(), db, rng); !why.empty())
             {
-                std::printf("    FAIL fuzz %s: %s\n", file.filename().string().c_str(), why.c_str());
-                s_Failures++;
+                ZaminTest::Fail(std::format("fuzz {}: {}", file.filename().string(), why));
             }
             replayed++;
         }

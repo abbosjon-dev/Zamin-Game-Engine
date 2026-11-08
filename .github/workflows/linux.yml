@@ -35,6 +35,14 @@ jobs:
       - name: Unit tests
         run: ctest --test-dir build --output-on-failure -LE gui
 
+      # Every unit test's result and time (JSON and JUnit XML, written by ZaminTests --report / --junit under ctest).
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unit-tests-${{ matrix.compiler.cc }}
+          path: build/TestResults/
+          if-no-files-found: warn
+
       # Mesa's software rasteriser (llvmpipe) in a fixed 1280x720x24 xvfb screen, as locally: Tests/render_tests.sh.
       # Every case's picture, difference and reference | new | difference strip, report.json and summary.md (also
       # on the run's page) go to the artefact - for a failed case they show what changed.

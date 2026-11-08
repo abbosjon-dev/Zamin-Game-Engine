@@ -1,10 +1,13 @@
-add_executable(ZaminTests ZaminTests.cpp DebugDrawShippingCheck.cpp)
+add_executable(ZaminTests ZaminTests.cpp TestFramework.cpp DebugDrawShippingCheck.cpp)
 target_link_libraries(ZaminTests PRIVATE Zamin)
 # The sample projects are read by some tests (their assets must stay valid).
 target_compile_definitions(ZaminTests PRIVATE ZAMIN_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 set_target_properties(ZaminTests PROPERTIES BUILD_RPATH "${CMAKE_BINARY_DIR}/bin")
 zamin_target_settings(ZaminTests)
-add_test(NAME ZaminTests COMMAND ZaminTests)
+# ctest also writes the results with every test's time (build/TestResults: JSON, JUnit XML for CI) and prints the
+# time report (the slowest tests). ZaminTests --help: filters by name (--filter Prefab*, --list) and the other options.
+add_test(NAME ZaminTests COMMAND ZaminTests --timing --report ${CMAKE_BINARY_DIR}/TestResults/ZaminTests.json
+    --junit ${CMAKE_BINARY_DIR}/TestResults/ZaminTests.xml)
 
 # The new-script templates must always compile: generate them and build them with the engine.
 add_executable(ZaminScriptTemplateGen ScriptTemplateGen.cpp)

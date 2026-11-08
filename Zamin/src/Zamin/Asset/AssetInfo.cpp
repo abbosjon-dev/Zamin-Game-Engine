@@ -5,10 +5,7 @@
 #include <stb_image.h>
 #include <cgltf.h>
 
-// Same configuration as the implementation in AudioEngine.cpp.
-#define MA_NO_ENCODING
-#define MA_NO_GENERATION
-#include <miniaudio.h>
+#include "Zamin/Audio/Miniaudio.h"
 
 #include <algorithm>
 #include <cctype>

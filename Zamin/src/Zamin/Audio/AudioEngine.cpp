@@ -5,10 +5,7 @@
 #include "Zamin/Core/Log.h"
 #include "Zamin/Core/MemoryStats.h"
 
-#define MINIAUDIO_IMPLEMENTATION
-#define MA_NO_ENCODING
-#define MA_NO_GENERATION
-#include <miniaudio.h>
+#include "Zamin/Audio/Miniaudio.h"
 
 #include <algorithm>
 #include <array>

@@ -2,3 +2,10 @@
 # Zamin's own targets build with -fno-sanitize-recover=all: their reports are always fatal and cannot be
 # suppressed here. Only the vendor libraries' (recoverable) reports can - list each with the reason.
 # Format: <check>:<function, file or library>, e.g. alignment:box2d/src/...
+
+# miniaudio 0.11.21 (compiled in Zamin/src/Zamin/Audio/MiniaudioImpl.cpp, recoverable like a vendor library):
+# its MurmurHash3 (ma_hash_32, hashing a sound's file name in the resource manager) walks the blocks with a
+# negative index, ma_offset_ptr(blocks, i * sizeof(block)): the negative int becomes a huge size_t and the pointer
+# addition wraps around - pointer-overflow by the letter of the standard, the right address in practice. Found by
+# Clang's UBSan (GCC's does not instrument this form); the engine itself does no such arithmetic.
+pointer-overflow:miniaudio.h

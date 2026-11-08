@@ -8,9 +8,9 @@ faqat `Tests/*.sh` skriptlarini chaqiradi. Raqamlar va o'lchangan natijalar: [qu
 
 | O'zgarish | Ishga tushiring | Vaqt (Debug, 4 vCPU) |
 |---|---|---|
-| Har qanday o'zgarish (commit oldidan) | `cmake --build build && ./build/bin/ZaminTests` (oxiri `N test, 0 xato`) | ~1.5 daqiqa |
+| Har qanday o'zgarish (commit oldidan) | `cmake --build build && ./build/bin/ZaminTests` (oxiri `N test, 0 xato`) | ~40 s |
 | Faqat bir qism | `./build/bin/ZaminTests "Prefab*"`, `--filter "Scene*:-*Fuzz*"`, `--list` | soniyalar |
-| Rendering, shader, post effektlar | `Tests/render_tests.sh` | ~1 daqiqa |
+| Rendering, shader, post effektlar | `Tests/render_tests.sh` | soniyalar |
 | Editor UI (panel, menyu, popup, inspektor) | `Tests/editor_smoke.sh` | ~3 daqiqa |
 | Skript tizimi, modul yuklash | `Tests/hot_reload_test.sh` | ~20 s |
 | Eksport, player, ishga tushirish skripti | `Tests/export_test.sh` (bitta o'yin), `Tests/package_games.sh` (uchala o'yin + paketlar) | 1-5 daqiqa |
@@ -154,7 +154,13 @@ Tests/sanitize.sh address --filter Prefab --clean  # faqat ba'zi testlar; build 
 ```
 
 `<log papka>/summary.md` har bir ishga tushirishni (natija, vaqt, log) sanaydi. CI'da `sanitizers` job: `asan`
-(`--smoke --editor-smoke`) va `ubsan-clang`.
+(`--smoke --editor-smoke`) va `ubsan-clang`. Clang bilan sanitizer runtime'lari alohida paket:
+`sudo apt-get install libclang-rt-18-dev` (skript u yo'qligini aytadi).
+
+Uchinchi tomon kodining implementatsiyasi bizning target ichida kompilyatsiya qilinsa (masalan miniaudio -
+`Zamin/src/Zamin/Audio/MiniaudioImpl.cpp`), u o'z translation unit'ida turadi va sanitizer build'da vendor kutubxona kabi
+tiklanadigan (`-fsanitize-recover=all`, `Zamin/CMakeLists.txt`) - shunda uning xabari `ubsan.supp` da izohi bilan
+bostiriladi, engine kodining har xabari esa fatal qoladi.
 
 ## 7. Benchmarklar regressiya sifatida
 

@@ -130,12 +130,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # libclang-rt-18-dev: Clang's sanitizer runtimes (without it clang++ -fsanitize=undefined does not link).
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y ninja-build libgl-dev libx11-dev libxrandr-dev libxinerama-dev \
             libxcursor-dev libxi-dev libwayland-dev libxkbcommon-dev wayland-protocols xvfb mesa-utils \
-            libgl1-mesa-dri libglx-mesa0
+            libgl1-mesa-dri libglx-mesa0 libclang-rt-18-dev
 
       - name: Sanitizer (${{ matrix.name }})
         run: Tests/sanitize.sh ${{ matrix.mode }} ${{ matrix.args }} --log-dir sanitizer-logs

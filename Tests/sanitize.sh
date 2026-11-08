@@ -70,6 +70,23 @@ if [[ -z "$log_dir" ]]; then
     [[ $clean -eq 1 ]] && log_dir="$build-logs"
 fi
 
+# ---- Clang's sanitizer runtimes are a package of their own on Debian / Ubuntu (libclang-rt-<N>-dev) ------------
+if [[ "$compiler" == clang ]] && command -v clang >/dev/null 2>&1; then
+    case "$mode" in
+        address) rt=asan ;;
+        undefined) rt=ubsan_standalone ;;
+        leak) rt=lsan ;;
+        thread) rt=tsan ;;
+    esac
+    rt_dir="$(clang --print-runtime-dir 2>/dev/null)"
+    if [[ -n "$rt_dir" && ! -e "$rt_dir/libclang_rt.$rt-$(uname -m).a" && ! -e "$rt_dir/libclang_rt.$rt.a" ]]; then
+        clang_major="$(clang -dumpversion | cut -d. -f1)"
+        echo "Clang'ning $mode sanitizer runtime'i topilmadi ($rt_dir/libclang_rt.$rt-$(uname -m).a):" >&2
+        echo "  sudo apt-get install libclang-rt-$clang_major-dev" >&2
+        exit 2
+    fi
+fi
+
 # ---- configure + build ----------------------------------------------------------------------------------------
 if [[ $do_build -eq 1 ]]; then
     if [[ ! -f "$build/CMakeCache.txt" ]]; then

@@ -502,11 +502,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 433. Test framework: test nomlari bo'yicha filtr
 - [x] 434. Test framework: vaqt hisoboti
 - [x] 435. Code coverage hisoboti (gcov)
-- [ ] 436. clang-format konfiguratsiyasi
-- [ ] 437. CI: sanitizer job
-- [ ] 438. CI: artefaktlar (player build)
-- [ ] 439. Regressiya testlari ro'yxati hujjati
-- [ ] 440. Sifat hisoboti
+- [x] 436. clang-format konfiguratsiyasi
+- [x] 437. CI: sanitizer job
+- [x] 438. CI: artefaktlar (player build)
+- [x] 439. Regressiya testlari ro'yxati hujjati
+- [x] 440. Sifat hisoboti
 
 ## M23 Hujjatlar
 

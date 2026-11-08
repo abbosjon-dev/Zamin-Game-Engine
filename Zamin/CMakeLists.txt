@@ -103,6 +103,13 @@ target_link_libraries(Zamin PRIVATE glad glfw imgui imguizmo box2d Jolt nlohmann
     ${CMAKE_DL_LIBS} pthread)
 
 zamin_target_settings(Zamin)
+# miniaudio's implementation is third-party code in a translation unit of its own: in a sanitizer build its
+# UndefinedBehaviorSanitizer reports stay recoverable like the vendor libraries' (Tests/sanitizers/ubsan.supp lists
+# them with the reason); the rest of the engine keeps -fno-sanitize-recover=all.
+if(ZAMIN_SANITIZER_STRICT_FLAGS)
+    set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/Audio/MiniaudioImpl.cpp
+        PROPERTIES COMPILE_OPTIONS -fsanitize-recover=all)
+endif()
 # A sanitizer or coverage build loads the script modules it built itself (cmake/Sanitizers.cmake,
 # cmake/Coverage.cmake): from its GameModules folder when the module is there (Project::GetScriptModulePath).
 if(ZAMIN_SANITIZE OR ZAMIN_COVERAGE)

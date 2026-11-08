@@ -5261,9 +5261,10 @@ namespace Zamin {
     // The entities of a parsed entity set (DeserializeEntities); `root` is its root object. It is
     // migrated to the current version first; then each entry is read as a scene file's entity is
     // (DeserializeSceneEntity's rules): whatever of it can be read is made, the rest is reported.
-    static std::vector<Entity> DeserializeEntitySet(Scene& scene, json& root, const SceneSerializer::EntitySetReadOptions& options)
+    // An entity set's root brought to the current format (older sets and ones without a version: v0;
+    // a newer one is read as far as it is understood). False (with the error) when it is not one.
+    static bool PrepareEntitySet(json& root, const SceneSerializer::EntitySetReadOptions& options, SceneMigrationResult& migration)
     {
-        std::vector<Entity> created;
         SceneLoadReport* report = options.Report;
         if (!root.is_object() || !root.contains("Entities") || !root["Entities"].is_array())
         {
@@ -5271,11 +5272,9 @@ namespace Zamin {
                 *options.Error = "obyektlar ro'yxati (\"Entities\") yo'q";
             if (report)
                 report->Add(MakeIssue(SceneLoadIssue::Kind::NotAScene, SceneLoadIssue::Severity::Fatal, "obyektlar ro'yxati (\"Entities\") yo'q"));
-            return created;
+            return false;
         }
-        // Older sets (and ones without a version: v0) in the current format; a newer one is read as
-        // far as it is understood.
-        SceneMigrationResult migration = MigrateSceneRoot(root, report);
+        migration = MigrateSceneRoot(root, report);
         if ((migration.Migrated() && migration.GetChangeCount() > 0) || migration.IsNewer())
         {
             // Once per set (by its first entity's name) and version: a script may spawn it every frame.
@@ -5285,8 +5284,26 @@ namespace Zamin {
                     first = tag->get<std::string>();
             SceneMigration::LogMigration(std::format("obyektlar to'plami '{}'", first), migration);
         }
+        return true;
+    }
+
+    static std::vector<Entity> ReadEntitySet(Scene& scene, const json& root, const SceneSerializer::EntitySetReadOptions& options);
+
+    static std::vector<Entity> DeserializeEntitySet(Scene& scene, json& root, const SceneSerializer::EntitySetReadOptions& options)
+    {
+        SceneMigrationResult migration;
+        if (!PrepareEntitySet(root, options, migration))
+            return {};
         if (options.Migration)
             *options.Migration = migration;
+        return ReadEntitySet(scene, root, options);
+    }
+
+    // The entities of a set already in the current format (PrepareEntitySet).
+    static std::vector<Entity> ReadEntitySet(Scene& scene, const json& root, const SceneSerializer::EntitySetReadOptions& options)
+    {
+        std::vector<Entity> created;
+        SceneLoadReport* report = options.Report;
 
         struct SkipPrefabData
         {
@@ -5305,7 +5322,7 @@ namespace Zamin {
         std::unordered_map<uint64_t, UUID> remap;
         std::string firstError;
         AssetReferenceScope* scope = AssetReferenceScope::Get();
-        const json& list = root["Entities"];
+        const json& list = root.at("Entities");
         made.reserve(list.size());
         size_t index = 0;
         for (const json& e : list)
@@ -5647,5 +5664,22 @@ namespace Zamin::SceneSerializerJson {
     }
 
     std::string DumpIndented(const json& root, size_t sizeHint) { return Zamin::DumpIndented(root, sizeHint); }
+
+    bool PrepareEntitySet(json& root, const SceneSerializer::EntitySetReadOptions& options, SceneMigrationResult& migration)
+    {
+        if (options.Error)
+            options.Error->clear();
+        return Zamin::PrepareEntitySet(root, options, migration);
+    }
+
+    std::vector<Entity> ReadEntitySet(Scene& scene, const json& root, const SceneSerializer::EntitySetReadOptions& options)
+    {
+        AssetReferenceScope assetReferences(options.Repairs);
+        if (options.Report)
+            assetReferences.SetReport(options.Report);
+        if (options.Error)
+            options.Error->clear();
+        return Zamin::ReadEntitySet(scene, root, options);
+    }
 
 }

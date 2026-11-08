@@ -7,6 +7,7 @@
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Scene/Components.h"
 #include "Zamin/Scene/ComponentRegistry.h"
+#include "Zamin/Scene/PrefabCache.h"
 #include "Zamin/Scene/SceneSerializer.h"
 #include "Zamin/Scene/SceneManager.h"
 #include "Zamin/Scene/Parallax.h"
@@ -1176,19 +1177,19 @@ namespace Zamin {
 
     Entity Scene::InstantiatePrefab(const std::filesystem::path& path)
     {
+        std::string error, unreadable;
+        // A plain copy: the editor links an instance to its prefab itself (PrefabUtility::InstantiateLinked).
+        // The file is read and parsed once (PrefabCache), not for every spawn.
+        SceneSerializer::EntitySetReadOptions options;
+        options.KeepPrefabLinks = false;
+        options.Error = &error;
+        std::vector<Entity> entities = PrefabCache::Instantiate(*this, path, options, &unreadable);
         // A missing / broken prefab is reported once (a script may spawn it every frame).
-        if (std::string unreadable = AssetImportLog::CheckReadable(path); !unreadable.empty())
+        if (!unreadable.empty())
         {
             AssetImportLog::Report(path, unreadable);
             return {};
         }
-        std::string text = FileSystem::ReadTextFile(path);
-        std::string error;
-        // A plain copy: the editor links an instance to its prefab itself (PrefabUtility::InstantiateLinked).
-        SceneSerializer::EntitySetReadOptions options;
-        options.KeepPrefabLinks = false;
-        options.Error = &error;
-        std::vector<Entity> entities = SceneSerializer::DeserializeEntities(*this, text, options);
         if (entities.empty())
         {
             AssetImportLog::Report(path, error.empty() ? std::string("prefabda obyekt yo'q") : error);

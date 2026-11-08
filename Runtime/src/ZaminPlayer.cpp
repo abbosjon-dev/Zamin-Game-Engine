@@ -1179,6 +1179,8 @@ namespace Zamin {
         {
             // The editor's prefab links (PrefabLinkComponent) are not the game's: never read here.
             SceneSerializer::SetReadPrefabLinks(false);
+            // The game's files do not change while it runs: a prefab file is looked at once (PrefabCache).
+            PrefabCache::SetCheckForChanges(false);
             PushLayer(new RuntimeLayer(std::move(project), std::move(commandLine), std::move(launch)));
         }
     };

@@ -79,6 +79,7 @@
 #include "Zamin/Scene/ComponentRegistry.h"
 #include "Zamin/Scene/SceneSerializer.h"
 #include "Zamin/Scene/Prefab.h"
+#include "Zamin/Scene/PrefabCache.h"
 #include "Zamin/Scene/PrefabDatabase.h"
 #include "Zamin/Scene/PrefabOverrides.h"
 #include "Zamin/Scene/SceneRecovery.h"

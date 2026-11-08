@@ -2,6 +2,7 @@
 #include "Zamin/Audio/Audio.h"
 #include "Zamin/Audio/AudioEngine.h"
 #include "Zamin/Project/Project.h"
+#include "Zamin/Scene/PrefabCache.h"
 #include "Zamin/Scene/SceneSerializer.h"
 #include "Zamin/Utils/FileSystem.h"
 
@@ -147,12 +148,11 @@ namespace Zamin {
     Entity ScriptableEntity::Instantiate(const std::string& prefabPath, const glm::vec3& position)
     {
         Scene* scene = m_Entity.GetScene();
-        // Create first, then move the root before physics bodies are created.
-        std::string text = FileSystem::ReadTextFile(Project::GetAssetFileSystemPath(prefabPath));
-        if (text.empty()) return {};
+        // Create first, then move the root before physics bodies are created. The file is read and
+        // parsed once (PrefabCache), not for every spawn.
         SceneSerializer::EntitySetReadOptions options;
         options.KeepPrefabLinks = false; // a plain copy (the editor's prefab links are not the game's)
-        std::vector<Entity> entities = SceneSerializer::DeserializeEntities(*scene, text, options);
+        std::vector<Entity> entities = PrefabCache::Instantiate(*scene, Project::GetAssetFileSystemPath(prefabPath), options);
         if (entities.empty()) return {};
         entities.front().GetComponent<TransformComponent>().Translation = position;
         scene->ResolveAssets();

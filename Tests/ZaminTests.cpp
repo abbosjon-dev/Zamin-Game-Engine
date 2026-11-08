@@ -45464,12 +45464,14 @@ namespace {
                 case 3: // a parent loop (or its own parent)
                     if (Value* a = pickEntity(), *b = pickEntity(); a && b)
                     {
-                        Value* ida = a->Find("Entity");
-                        Value* idb = b->Find("Entity");
+                        const Value* ida = a->Find("Entity");
+                        const Value* idb = b->Find("Entity");
                         if (ida && idb)
                         {
-                            a->Set("Parent", *idb);
-                            b->Set("Parent", *ida);
+                            // Copied first: setting a key may move the other's members.
+                            Value first = *ida, second = *idb;
+                            a->Set("Parent", std::move(second));
+                            b->Set("Parent", std::move(first));
                         }
                     }
                     break;
@@ -45959,4 +45961,135 @@ TEST(SerializationFuzz)
     // The samples themselves were never written.
     CHECK(FileSystem::ReadTextFile(source / "Projects/Platformer2D/Assets/Scenes/Menu.zscene") == samples[0].Text);
     CHECK(FileSystem::ReadTextFile(source / "Projects/Platformer2D/Assets/Prefabs/Ragdoll.zprefab") == samples[2].Text);
+}
+
+// The runtime's parsed prefab cache (412): a prefab spawned again and again is read and parsed once;
+// a changed file is read again (unless the player turned the check off); a missing or broken one is
+// never cached and its error is reported once, as before.
+TEST(PrefabCacheReads)
+{
+    namespace fs = std::filesystem;
+    TempDirectory temp("zamin-prefab-cache");
+    PrefabFixture prefab(temp.GetPath());
+    PrefabCache::Clear();
+    PrefabCache::ResetStats();
+    auto scene = CreateRef<Scene>();
+    Entity first;
+    for (int i = 0; i < 25; i++)
+    {
+        Entity e = scene->InstantiatePrefab(prefab.File);
+        CHECK(e && e.GetName() == "Enemy" && scene->GetChildren(e).size() == 2);
+        if (i == 0)
+            first = e;
+        else if (e && first)
+            CHECK(e.GetUUID() != first.GetUUID()); // every spawn its own entities
+    }
+    CHECK(PrefabCache::GetStats().Reads == 1 && PrefabCache::GetStats().Hits == 24);
+    // References inside each copy still point into that copy.
+    Entity last = scene->InstantiatePrefab(prefab.File);
+    CHECK(last && last.GetComponent<Camera2DFollowComponent>().Target.ID == (uint64_t)ChildNamed(*scene, last, "Weapon").GetUUID());
+    // The same as reading the file every time.
+    {
+        auto plain = CreateRef<Scene>();
+        SceneSerializer::EntitySetReadOptions options;
+        options.KeepPrefabLinks = false;
+        options.GenerateNewUUIDs = false;
+        std::vector<Entity> a = SceneSerializer::DeserializeEntities(*plain, FileSystem::ReadTextFile(prefab.File), options);
+        auto cached = CreateRef<Scene>();
+        std::vector<Entity> b = PrefabCache::Instantiate(*cached, prefab.File, options);
+        CHECK(a.size() == 3 && b.size() == 3);
+        CHECK(SceneSerializer::SerializeEntities(*plain, a) == SceneSerializer::SerializeEntities(*cached, b));
+    }
+    // The file changes: read again (time and size are looked at).
+    prefab.Enemy.SetName("Boss");
+    prefab.Enemy.GetComponent<SpriteRendererComponent>().Color = { 0.0f, 0.0f, 1.0f, 1.0f };
+    CHECK(prefab.Save());
+    const uint64_t readsBefore = PrefabCache::GetStats().Reads;
+    Entity boss = scene->InstantiatePrefab(prefab.File);
+    CHECK(boss && boss.GetName() == "Boss" && PrefabCache::GetStats().Reads == readsBefore + 1);
+    // The player's way: a file is looked at the first time only.
+    PrefabCache::SetCheckForChanges(false);
+    ScopeExit checkAgain{ []() { PrefabCache::SetCheckForChanges(true); } };
+    prefab.Enemy.SetName("Changed meanwhile");
+    CHECK(prefab.Save());
+    Entity stale = scene->InstantiatePrefab(prefab.File);
+    CHECK(stale && stale.GetName() == "Boss");
+    PrefabCache::Invalidate(prefab.File); // the editor's own writes say so
+    Entity fresh = scene->InstantiatePrefab(prefab.File);
+    CHECK(fresh && fresh.GetName() == "Changed meanwhile");
+    PrefabCache::SetCheckForChanges(true);
+
+    // Missing / broken files are never cached; their error is logged once (AssetImportLog), and a
+    // fixed file loads at once.
+    const LogLevel level = Log::GetMinLevel();
+    Log::SetMinLevel(LogLevel::Off);
+    ScopeExit restoreLog{ [level]() { Log::SetMinLevel(level); } };
+    const fs::path broken = temp.GetPath() / "Prefabs" / "Broken.zprefab";
+    FileSystem::WriteTextFile(broken, "{ \"ZaminEntities\": 1, \"Entities\": [ { \"Entity\": 1, ");
+    const size_t entriesBefore = PrefabCache::GetStats().Entries;
+    for (int i = 0; i < 3; i++)
+    {
+        CHECK(!scene->InstantiatePrefab(broken));
+        CHECK(!scene->InstantiatePrefab(temp.GetPath() / "Prefabs" / "Gone.zprefab"));
+    }
+    CHECK(PrefabCache::GetStats().Entries == entriesBefore);
+    CHECK(AssetImportLog::Find(broken) && AssetImportLog::Find(broken)->Reason.starts_with("JSON xatosi"));
+    CHECK(AssetImportLog::Find(temp.GetPath() / "Prefabs" / "Gone.zprefab")->Reason == "fayl topilmadi");
+    FileSystem::WriteTextFile(broken, R"({"ZaminEntities":1,"Entities":[{"Entity":1,"Tag":"Tuzatildi"}]})");
+    Entity fixed = scene->InstantiatePrefab(broken);
+    CHECK(fixed && fixed.GetName() == "Tuzatildi" && !AssetImportLog::HasError(broken));
+    // A file of an older format is brought up to date once, when it is read.
+    FileSystem::WriteTextFile(broken, R"({"ZaminEntities":1,"Version":1,"Entities":[{"Entity":1,"Tag":"Eski","Text":{"Text":"a","Centered":true}}]})");
+    SceneSerializer::EntitySetReadOptions options;
+    SceneMigrationResult migration;
+    options.Migration = &migration;
+    std::vector<Entity> old = PrefabCache::Instantiate(*scene, broken, options);
+    CHECK(old.size() == 1 && migration.FileVersion == 1 && migration.Migrated());
+    std::vector<Entity> again = PrefabCache::Instantiate(*scene, broken, options);
+    CHECK(again.size() == 1 && migration.FileVersion == 1);
+    AssetImportLog::ClearAll();
+    PrefabCache::Clear();
+}
+
+// A scene of many linked prefab instances (nested prefabs inside) saves and loads to the same text
+// with every link kept, and needs no sync afterwards (the hashes match).
+TEST(LargeSceneLinkedInstances)
+{
+    TempDirectory temp("zamin-prefab-large");
+    PrefabFixture weapon(temp.GetPath(), "Gun");
+    PrefabFixture enemy(temp.GetPath());
+    PrefabDatabase db(temp.GetPath());
+    Entity nested = PrefabUtility::InstantiateLinked(*enemy.Source, db, weapon.Rel(), enemy.Weapon);
+    CHECK(nested && enemy.Save());
+    db.Invalidate(enemy.Rel());
+    auto scene = CreateRef<Scene>();
+    scene->SetName("Linked");
+    for (int i = 0; i < 150; i++)
+    {
+        Entity root = PrefabUtility::InstantiateLinked(*scene, db, enemy.Rel());
+        CHECK(root);
+        if (!root)
+            return;
+        root.GetComponent<TransformComponent>().Translation = { (float)i, 0.0f, 0.0f };
+        if (i % 10 == 0)
+        {
+            root.GetComponent<TransformComponent>().Scale = glm::vec3(2.0f);
+            PrefabUtility::RecordOverrides(root, db);
+        }
+    }
+    CHECK(scene->GetRegistry().view<IDComponent>().size() == 150 * 6);
+    const std::string text = SceneSerializer(scene).SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    SceneSerializer reader(loaded);
+    CHECK(reader.DeserializeFromString(text) && !reader.GetLoadReport().HasIssues());
+    CHECK(SceneSerializer(loaded).SerializeToString() == text);
+    CHECK(loaded->GetAllEntitiesWith<PrefabLinkComponent>().size() == 150 * 6);
+    PrefabUtility::SyncResult sync = PrefabUtility::SyncScene(*loaded, db);
+    CHECK(sync.Instances == 150 && sync.Changed == 0 && sync.Linked == 0);
+    size_t withOverrides = 0;
+    for (Entity e : loaded->GetEntitiesInHierarchyOrder())
+        if (PrefabUtility::IsInstanceRoot(e) && !loaded->GetParent(e))
+            withOverrides += PrefabUtility::GetOverrides(e).empty() ? 0 : 1;
+    CHECK(withOverrides == 15);
+    CHECK(SceneSerializer(loaded).SerializeToString() == text);
 }

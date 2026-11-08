@@ -20,6 +20,10 @@
 // default: sprites, bodies, scripts, texts, a hierarchy) in the sample Platformer2D project - the
 // JSON text and the binary cache (.zsceneb), each load stage by stage (SceneLoadTiming).
 //
+// ZaminBench --serialize --prefabs [--instances N] [--json <file>]: linked prefab instances instead
+// (PrefabBench.cpp): N instances of a 20-entity prefab with a nested one (1000 by default) and of the
+// sample GameMenu - saving / loading linked against unlinked, syncing, overrides, Apply, PrefabCache.
+//
 // ZaminBench --nav [--agents N] [--grid N] [--frames N] [--jobs N]: navigation instead (NavBench.cpp):
 // the grids' bakes, N path searches at once on one thread and batched over the job system, and a
 // scene of N Nav Agents (200 on a 256 x 256 grid by default).
@@ -40,6 +44,7 @@ using namespace Zamin;
 using PS = ParticleSystemComponent;
 
 int RunNavBench(int agents, int size, int frames, int jobs); // NavBench.cpp
+int RunPrefabBench(int instances, const char* jsonFile);   // PrefabBench.cpp
 
 namespace {
 
@@ -522,6 +527,9 @@ int main(int argc, char** argv)
     bool profile = false;
     bool queries = false;
     bool serialize = false;
+    bool prefabs = false;
+    int instances = 1000;
+    const char* jsonFile = nullptr;
     int entities = 10000;
     int jobs = 0;
     int animators = 0;
@@ -551,6 +559,12 @@ int main(int argc, char** argv)
             queries = true;
         else if (!std::strcmp(argv[i], "--serialize"))
             serialize = true;
+        else if (!std::strcmp(argv[i], "--prefabs"))
+            prefabs = true;
+        else if (!std::strcmp(argv[i], "--instances") && i + 1 < argc)
+            instances = std::max(2, std::atoi(argv[++i]));
+        else if (!std::strcmp(argv[i], "--json") && i + 1 < argc)
+            jsonFile = argv[++i];
         else if (!std::strcmp(argv[i], "--entities") && i + 1 < argc)
             entities = std::max(10, std::atoi(argv[++i]));
         else if (!std::strcmp(argv[i], "--animators") && i + 1 < argc)
@@ -563,6 +577,7 @@ int main(int argc, char** argv)
                         "ZaminBench --animators N [--frames N] [--jobs N]\n"
                         "ZaminBench --queries [--entities N]\n"
                         "ZaminBench --serialize [--entities N]\n"
+                        "ZaminBench --serialize --prefabs [--instances N] [--json <fayl>]\n"
                         "ZaminBench --nav [--agents N] [--grid N] [--frames N] [--jobs N]\n");
             return 1;
         }
@@ -577,6 +592,8 @@ int main(int argc, char** argv)
     }
     if (queries)
         return RunQueryBench(entities);
+    if (serialize && prefabs)
+        return RunPrefabBench(instances, jsonFile);
     if (serialize)
         return RunSerializeBench(entities);
     const int particles = (int)(50000.0f * scale);

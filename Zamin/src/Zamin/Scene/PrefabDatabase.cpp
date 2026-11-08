@@ -5,6 +5,7 @@
 #include "Zamin/Scene/Components.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Scene/Prefab.h"
+#include "Zamin/Scene/PrefabCache.h"
 #include "Zamin/Scene/Scene.h"
 #include "Zamin/Scene/SceneSerializer.h"
 #include "Zamin/Utils/FileSystem.h"
@@ -416,6 +417,7 @@ namespace Zamin {
         if (!FileSystem::WriteTextFileAtomic(file, text))
             return false;
         m_OwnWrites[FileSystem::NormalizePath(file)] = HashText(text);
+        PrefabCache::Invalidate(file); // a game started from the editor spawns the new text
         if (undo)
             undo->push_back({ key, std::move(before), text });
         Invalidate(key);

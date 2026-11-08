@@ -5,6 +5,7 @@
 // files only). The prefab code (Scene/Prefab.cpp) compares and merges entities through it.
 
 #include "Zamin/Scene/Entity.h"
+#include "Zamin/Scene/SceneSerializer.h"
 
 #include <nlohmann/json.hpp>
 
@@ -40,6 +41,13 @@ namespace Zamin::SceneSerializerJson {
     // Runs `fn` with the active project's asset registry looked up for the writes and reads inside
     // it (the "<key>UUID" next to asset paths), as one scene (de)serialization does.
     void WithAssetScope(const std::function<void()>& fn);
+
+    // An entity set (a prefab, the clipboard) parsed once and read any number of times (PrefabCache):
+    // PrepareEntitySet brings the parsed root to the current format (false, with options.Error /
+    // options.Report, when it is not an entity set); ReadEntitySet then makes its entities as
+    // SceneSerializer::DeserializeEntities does, without changing the root.
+    bool PrepareEntitySet(nlohmann::json& root, const SceneSerializer::EntitySetReadOptions& options, SceneMigrationResult& migration);
+    std::vector<Entity> ReadEntitySet(Scene& scene, const nlohmann::json& root, const SceneSerializer::EntitySetReadOptions& options);
 
     // `root` as indented text (what json::dump(2) gives, written faster).
     std::string DumpIndented(const nlohmann::json& root, size_t sizeHint = 4096);

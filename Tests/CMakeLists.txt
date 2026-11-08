@@ -53,7 +53,7 @@ add_custom_target(update_render_references
 # Particle benchmark (not part of ctest): times the particle update headless - about 50 000
 # particles per case, the profiler's scopes with --profile. Run build/bin/ZaminBench, or the
 # particle_bench target (--nav: the navigation benchmark, the nav_bench target).
-add_executable(ZaminBench ParticleBench.cpp NavBench.cpp)
+add_executable(ZaminBench ParticleBench.cpp NavBench.cpp PrefabBench.cpp)
 target_link_libraries(ZaminBench PRIVATE Zamin)
 set_target_properties(ZaminBench PROPERTIES BUILD_RPATH "${CMAKE_BINARY_DIR}/bin")
 # --serialize saves / loads a large scene in the sample Platformer2D project.

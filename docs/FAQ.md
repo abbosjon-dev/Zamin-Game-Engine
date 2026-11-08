@@ -152,7 +152,12 @@ Modul fayli (`Binaries/lib<O'yin>.so`) hali yo'q - kompilyatsiya qiling.
 
 > `Skriptlarni kompilyatsiya qilishda xato: <N> xato, <M> ogohlantirish (Oyna > Kompilyatsiya)`
 
-**Oyna → Kompilyatsiya** oynasida har xato fayl va qatori bilan; bosilsa tashqi muharrirda o'sha qatorda ochiladi. Kompilyator
+**Oyna → Kompilyatsiya** oynasida har xato fayl va qatori bilan; bosilsa tashqi muharrirda o'sha qatorda ochiladi.
+
+![Kompilyatsiya oynasi: ikki xato - yozuv xatosi va ZM_FIELD_COLOR noto'g'ri turdagi maydonga](images/compile-errors-editor.jpg)
+
+*GCC'ning haqiqiy chiqishi: maydon nomidagi xato (`Spead`) va `float` maydonga `ZM_FIELD_COLOR`.*
+ Kompilyator
 xabarlari inglizcha (GCC / Clang). Kompilyatsiya ketayotganda qayta bosilsa:
 
 > `Kompilyatsiya allaqachon ketmoqda...`
@@ -197,6 +202,8 @@ turlar - [Scripting.md, 4](Scripting.md#4-inspektor-maydonlari-zm_field). Noto'g
 masalan:
 
 > `ZM_FIELD_RANGE: maydon float, int, glm::vec2, glm::vec3, glm::vec4 yoki AnimationCurve bo'lishi kerak`
+
+> `ZM_FIELD_COLOR: maydon glm::vec3 yoki glm::vec4 bo'lishi kerak`
 
 ### O'yin osilib qoldi yoki xabarlar tashlab yuborildi
 

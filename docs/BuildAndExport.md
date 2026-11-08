@@ -239,6 +239,8 @@ cmake --build build --target docs      # yoki CMake orqali: <build>/docs/html/in
   (`ScriptableEntity`, `Scene`, `Entity`, komponentlar, `SceneManager` ...).
 - `Doxyfile` dagi `PROJECT_NUMBER` CMake'dagi dvigatel versiyasiga teng bo'lishi kerak - `ctest -L docs` tekshiradi.
 
+![Doxygen ma'lumotnomasi: ScriptableEntity klassi sahifasi - callback'lar izohlari bilan](images/doxygen-api-reference.jpg)
+
 O'zbekcha qo'llanmalar - [docs/](.) dagi Markdown fayllar; ma'lumotnoma ularni to'ldiradi, almashtirmaydi.
 
 ## 8. O'yinni eksport qilish (editor)
@@ -273,6 +275,10 @@ fonda ishlaydi (editor javob berib turadi):
    joyidami.
 8. **Eksport hisoboti** oynasi: jami hajm, turlar bo'yicha, eng katta fayllar, chiqarib tashlangan assetlar,
    ogohlantirish va xatolar (`export-report.json`, `export-report.txt`; keyin ham **Fayl → Eksport hisoboti**).
+
+![Eksport hisoboti oynasi: Platformer2D - jami hajm, turlar bo'yicha, eng katta fayllar, chiqarib tashlangan assetlar](images/export-report-editor.jpg)
+
+*Platformer2D eksportidan keyingi **Eksport hisoboti** oynasi (`ZAMIN_EDITOR_EXPORT_REPORT=<papka>` bilan qayta ochilgan).*
 
 Log'da shunday ko'rinadi (Platformer2D, Debug dvigatel build'idan):
 

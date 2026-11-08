@@ -848,6 +848,9 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
 
 ## 🔧 Build qilish (Linux)
 
+To'liq qo'llanma - CMake variantlari, presetlar, o'yin skript modulini build qilish, eksport va tarqatish, API
+ma'lumotnomasi (Doxygen): [docs/BuildAndExport.md](docs/BuildAndExport.md). Savollar va xabarlar: [docs/FAQ.md](docs/FAQ.md).
+
 ### Talablar
 - C++20 kompilyator (GCC 13+ yoki Clang 17+), CMake 3.20+, Ninja (ixtiyoriy)
 - OpenGL 4.1+ drayveri
@@ -1213,6 +1216,9 @@ Barcha oynalar, menyular va yorliqlar: [docs/Editor.md](docs/Editor.md).
 ---
 
 ## 🏗️ Arxitektura
+
+Batafsil (asosiy sikl, sahna kadri, skript moduli, renderer, oqimlar, editor, player, yangi komponent qo'shish):
+[docs/Architecture.md](docs/Architecture.md).
 
 ```
 Zamin/src/Zamin/

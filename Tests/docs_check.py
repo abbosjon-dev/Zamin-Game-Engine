@@ -14,6 +14,10 @@ Checks:
   4. player   - every command line option of the player's --help (Zamin/src/Zamin/Project/PlayerLaunch.cpp,
                 PlayerCommandLine::GetHelpText) is in the player / export documentation (docs/Runtime.md,
                 docs/BuildAndExport.md when it exists).
+  5. messages - every log / UI message quoted in docs/FAQ.md (a blockquote that is one code span: > `...`) is a string
+                of the sources (Zamin/src, Editor/src, Runtime/src), "<...>" standing for a formatted value ({}, %s).
+  6. build    - every ZAMIN_* CMake option / cache variable (CMakeLists.txt, cmake/*.cmake, Zamin/CMakeLists.txt) is in
+                docs/BuildAndExport.md, and the Doxyfile's PROJECT_NUMBER is the engine's version (project(Zamin VERSION)).
 Standard library only.
 """
 import argparse
@@ -205,6 +209,78 @@ def check_player_flags():
     notes.append(f"player variantlari: {len(flags)} ta")
 
 
+# ------------------------------------------------------------------ 5. quoted messages
+def source_strings():
+    """Every string literal of the engine, the editor and the player; adjacent literals ("a" "b") joined."""
+    literal = r'"(?:[^"\\\n]|\\.)*"'
+    joined = re.compile(literal + r'(?:\s*' + literal + r')*')
+    out = []
+    for base in ("Zamin/src", "Editor/src", "Runtime/src"):
+        for dirpath, _, files in os.walk(os.path.join(ROOT, base)):
+            for name in files:
+                if not name.endswith((".cpp", ".h")):
+                    continue
+                text = read(os.path.join(dirpath, name))
+                for m in joined.finditer(text):
+                    parts = re.findall(literal, m.group(0))
+                    out.append("".join(p[1:-1] for p in parts))
+    return out
+
+
+def check_faq_messages():
+    doc_path = os.path.join(ROOT, "docs", "FAQ.md")
+    if not os.path.exists(doc_path):
+        return
+    strings = source_strings()
+    count = 0
+    for lineno, line in enumerate(read(doc_path).splitlines(), 1):
+        m = re.match(r"^>\s*`([^`]+)`\s*$", line)
+        if not m:
+            continue
+        count += 1
+        message = m.group(1)
+        # "<...>": a value the program formats in ({}, {:.1f}, {0}, %s, %zu) - or the same text literally.
+        pattern = ""
+        pos = 0
+        for ph in re.finditer(r"<[^<>]+>", message):
+            pattern += re.escape(message[pos:ph.start()])
+            pattern += r"(?:\{[^{}]*\}|%[-+ #0-9.]*[a-z]+|" + re.escape(ph.group(0)) + ")"
+            pos = ph.end()
+        pattern += re.escape(message[pos:])
+        rx = re.compile(pattern)
+        if not any(rx.search(s) for s in strings):
+            problem(f"docs/FAQ.md:{lineno}: xabar manba kodda topilmadi: {message}")
+    notes.append(f"FAQ xabarlari: {count} ta")
+
+
+# ------------------------------------------------------------------ 6. build options
+def check_build_options():
+    doc_path = os.path.join(ROOT, "docs", "BuildAndExport.md")
+    if not os.path.exists(doc_path):
+        return
+    doc = read(doc_path)
+    files = [os.path.join(ROOT, "CMakeLists.txt"), os.path.join(ROOT, "Zamin", "CMakeLists.txt")]
+    cmake_dir = os.path.join(ROOT, "cmake")
+    files += [os.path.join(cmake_dir, n) for n in sorted(os.listdir(cmake_dir)) if n.endswith(".cmake")]
+    options = []
+    for path in files:
+        text = read(path)
+        for m in re.finditer(r"^\s*option\(\s*(ZAMIN_\w+)|^\s*set\(\s*(ZAMIN_\w+)[^)]*\bCACHE\b", text, re.M):
+            name = m.group(1) or m.group(2)
+            if name not in options:
+                options.append(name)
+    for name in options:
+        if not re.search(r"(?<![\w])" + re.escape(name) + r"(?![\w])", doc):
+            problem(f"docs/BuildAndExport.md: CMake varianti hujjatlanmagan: {name}")
+    version = re.search(r"project\(\s*Zamin\s+VERSION\s+([0-9.]+)", read(os.path.join(ROOT, "CMakeLists.txt")))
+    doxyfile = os.path.join(ROOT, "Doxyfile")
+    if os.path.exists(doxyfile) and version:
+        number = re.search(r"^PROJECT_NUMBER\s*=\s*(\S+)", read(doxyfile), re.M)
+        if not number or number.group(1) != version.group(1):
+            problem(f"Doxyfile: PROJECT_NUMBER ({number.group(1) if number else '-'}) dvigatel versiyasi emas ({version.group(1)})")
+    notes.append(f"CMake variantlari: {len(options)} ta")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--verbose", action="store_true")
@@ -213,6 +289,8 @@ def main():
     check_components()
     check_scripting()
     check_player_flags()
+    check_faq_messages()
+    check_build_options()
     for p in problems:
         print(p)
     if args.verbose or not problems:

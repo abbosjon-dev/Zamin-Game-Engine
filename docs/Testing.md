@@ -210,7 +210,11 @@ qo'riqlaydi: butun kod bazada o'zgaradigan qatorlar 3.5 % dan oshmasligi kerak (
   mavjud (`#bo'lim` havolalari — GitHub sarlavha langarlari bilan), `AllComponents` dagi har bir komponent
   [Components.md](Components.md) da hujjatlangan va uning manbadan yaratilgan jadvallari yangi
   (`Tests/docs_components.py`), `ScriptableEntity` ning har bir ommaviy funksiyasi [Scripting.md](Scripting.md) da
-  tilga olingan, player `--help` dagi har bir variant [Runtime.md](Runtime.md) da bor.
+  tilga olingan, player `--help` dagi har bir variant [Runtime.md](Runtime.md) yoki
+  [BuildAndExport.md](BuildAndExport.md) da bor, [FAQ.md](FAQ.md) da keltirilgan har bir log / UI xabari (`` > `...` ``
+  ko'rinishidagi qator; `<...>` - formatlanadigan qiymat) manba kodda aynan shunday yozilgan, har bir `ZAMIN_*` CMake
+  varianti [BuildAndExport.md](BuildAndExport.md) da hujjatlangan va `Doxyfile` dagi `PROJECT_NUMBER` dvigatel
+  versiyasiga teng.
 - **Hujjatlardagi kod** (`Tests/docs_snippets.py`, ctest: `DocsSnippets`): `README.md` va `docs/*.md` dagi butun skript
   klasslari (`class X : public ScriptableEntity` ... `};` bo'lgan ```` ```cpp ```` bloklari) namuna o'yinlar skriptlari
   bilan bir xil kompilyator va bayroqlar bilan (`build/compile_commands.json`) `-fsyntax-only` kompilyatsiya qilinadi;

@@ -1,0 +1,11 @@
+{
+    "Version": 2,
+    "Project": {
+        "Name": "HotReload",
+        "StartScene": "Scenes/Main.zscene",
+        "AssetDirectory": "Assets",
+        "SourceDirectory": "Source",
+        "ScriptModulePath": "Binaries/libHotReload.so",
+        "EngineVersion": "0.1.0"
+    }
+}

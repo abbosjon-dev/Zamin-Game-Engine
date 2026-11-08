@@ -4,6 +4,7 @@
 #include "Zamin/Renderer/VertexArray.h"
 
 #include <glm/glm.hpp>
+#include <string>
 #include <vector>
 
 namespace Zamin {
@@ -68,6 +69,10 @@ namespace Zamin {
         virtual void SetFramebufferSRGB(bool enabled) = 0;
 
         virtual std::vector<uint8_t> ReadDefaultFramebuffer(uint32_t width, uint32_t height) = 0;
+        // The API's error flags raised since the last call, cleared (OpenGL: glGetError until it says
+        // none): how many, their names into `names` (", " between them). The editor's smoke test
+        // checks them every frame - they say a call failed even without a debug context.
+        virtual uint32_t PopErrors(std::string* names) = 0;
 
         static API GetAPI() { return s_API; }
         static Scope<RendererAPI> Create();

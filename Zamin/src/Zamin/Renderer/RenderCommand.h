@@ -42,6 +42,7 @@ namespace Zamin {
         static void SetFramebufferSRGB(bool enabled) { s_API->SetFramebufferSRGB(enabled); }
 
         static std::vector<uint8_t> ReadDefaultFramebuffer(uint32_t w, uint32_t h) { return s_API->ReadDefaultFramebuffer(w, h); }
+        static uint32_t PopErrors(std::string* names = nullptr) { return s_API ? s_API->PopErrors(names) : 0; }
 
     private:
         static inline Scope<RendererAPI> s_API;

@@ -76,9 +76,12 @@ add_library(imgui OBJECT
     ${imgui_SOURCE_DIR}/misc/cpp/imgui_stdlib.cpp
     ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
     ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp)
-target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
+target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends ${PROJECT_SOURCE_DIR}/Zamin/src)
 target_link_libraries(imgui PUBLIC glfw)
-target_compile_definitions(imgui PUBLIC IMGUI_DEFINE_MATH_OPERATORS)
+# Our ImGui options (Zamin/ImGui/ImGuiConfig.h): IM_ASSERT kept in every build, a failed check logged as an
+# error. Everything that includes imgui.h gets the same (Zamin's public definitions, ZaminConfig.cmake).
+set(ZAMIN_IMGUI_CONFIG "IMGUI_USER_CONFIG=<Zamin/ImGui/ImGuiConfig.h>")
+target_compile_definitions(imgui PUBLIC IMGUI_DEFINE_MATH_OPERATORS ${ZAMIN_IMGUI_CONFIG})
 
 # ImGuizmo (transform gizmos)
 add_library(imguizmo OBJECT ${imguizmo_SOURCE_DIR}/ImGuizmo.cpp)

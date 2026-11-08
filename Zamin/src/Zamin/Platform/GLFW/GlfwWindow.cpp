@@ -1,7 +1,9 @@
 #include "Zamin/Platform/GLFW/GlfwWindow.h"
 
 #include <algorithm>
+#include <cstdlib>
 #include <format>
+#include <string_view>
 #include <vector>
 
 #include <GLFW/glfw3.h>
@@ -27,6 +29,16 @@ namespace Zamin {
 
     Scope<Window> Window::Create(const WindowProps& props) { return CreateScope<GlfwWindow>(props); }
 
+    // ZAMIN_GL_DEBUG=1: a debug context whatever the settings say (the driver's errors in the log - the
+    // editor's smoke test and CI runs count them, also in Release builds); 0: none.
+    static GraphicsSettings WithEnvironment(GraphicsSettings settings)
+    {
+        if (const char* debug = std::getenv("ZAMIN_GL_DEBUG"); debug && *debug)
+            settings.DebugContext = std::string_view(debug) == "0" ? GraphicsDebugContext::Off : GraphicsDebugContext::On;
+        settings.Sanitize();
+        return settings;
+    }
+
     GlfwWindow::GlfwWindow(const WindowProps& props)
     {
         m_Data.Title = props.Title;
@@ -45,8 +57,7 @@ namespace Zamin {
             glfwSetErrorCallback(GLFWErrorCallback);
         }
 
-        GraphicsSettings graphics = props.Graphics;
-        graphics.Sanitize();
+        GraphicsSettings graphics = WithEnvironment(props.Graphics);
         // The window's hints: the context (version, debug output), its framebuffer (MSAA, sRGB) and the window.
         auto setHints = [&](const GraphicsSettings& g) {
             glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, g.GLMajor);
@@ -203,8 +214,7 @@ namespace Zamin {
         m_Data.Width = (uint32_t)w;
         m_Data.Height = (uint32_t)h;
 
-        GraphicsSettings requested = props.Graphics;
-        requested.Sanitize();
+        GraphicsSettings requested = WithEnvironment(props.Graphics);
         m_Context = GraphicsContext::Create(m_Window, requested, fellBack);
         m_Context->Init();
 

@@ -363,6 +363,15 @@ namespace Zamin {
     //   ZAMIN_SCREENSHOT=path.png    save the back buffer at the last frame
     void Application::HandleAutomation()
     {
+        if (!m_ScreenshotRequest.empty())
+        {
+            const std::string path = std::move(m_ScreenshotRequest);
+            m_ScreenshotRequest.clear();
+            const uint32_t w = m_Window->GetFramebufferWidth(), h = m_Window->GetFramebufferHeight();
+            std::vector<uint8_t> pixels = RenderCommand::ReadDefaultFramebuffer(w, h);
+            if (Image::WritePNG(path, w, h, 4, pixels.data(), true))
+                ZM_CORE_INFO("Screenshot saqlandi: {}", path);
+        }
         static const char* maxFramesEnv = std::getenv("ZAMIN_MAX_FRAMES");
         if (!maxFramesEnv)
             return;

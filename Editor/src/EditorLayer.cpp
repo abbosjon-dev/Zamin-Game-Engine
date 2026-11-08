@@ -1,4 +1,5 @@
 #include "EditorLayer.h"
+#include "EditorSmokeTest.h"
 #include "UI.h"
 
 #include <Zamin/Utils/PlatformUtils.h>
@@ -627,7 +628,8 @@ namespace Zamin {
                 OpenPrefabStage(open);
             if (const char* prefab = std::getenv("ZAMIN_EDITOR_PREFAB"))
                 ApplyPrefabAutomation(prefab);
-            // ZAMIN_EDITOR_MENU=<Fayl|Tahrirlash|Ko'rinish|Oyna|Yordam>[/recent|/layout|/views]: that main menu kept open (screenshots).
+            // ZAMIN_EDITOR_MENU=<Fayl|Tahrirlash|Ko'rinish|Obyekt|Skriptlar|Oyna|Yordam>[/recent|/layout|/views]: that main
+            // menu kept open (screenshots).
             if (const char* menu = std::getenv("ZAMIN_EDITOR_MENU"))
                 m_OpenMenu = menu;
             // ZAMIN_EDITOR_ABOUT=1: the "Zamin haqida" window (the engine's version, commit and build).
@@ -1173,6 +1175,11 @@ namespace Zamin {
             if (viewSettingsBefore.ToJson() != m_ViewSettings.ToJson())
                 m_ViewSettingsOverride = ViewSettingsOverride{ viewSettingsBefore, m_ViewSettings };
         }
+        // ZAMIN_EDITOR_OPEN_ALL_PANELS=1: the smoke test (EditorSmokeTest.cpp) begins once the other hooks
+        // (ZAMIN_EDITOR_SCENE ...) have had a few frames.
+        if (frame == 10)
+            if (const char* smoke = std::getenv("ZAMIN_EDITOR_OPEN_ALL_PANELS"); smoke && *smoke && std::string_view(smoke) != "0")
+                StartSmokeTest();
 
         // ZAMIN_EDITOR_CAMERA_SHAKE="intensity,duration,frequency[,frame]": the game camera shakes at that
         // frame (30; after ZAMIN_EDITOR_PLAY has started the game), the same call as a script's ShakeCamera.
@@ -1550,6 +1557,17 @@ namespace Zamin {
         TakeFinishedExportReport();
 
         CheckModuleHotReload(ts);
+        if (m_HotReloadTestPlay && !m_Building)
+        {
+            m_HotReloadTestPlay = false;
+            if (m_SceneState == SceneState::Edit)
+                OnScenePlay();
+        }
+        if (m_HotReloadTestCloseIn > 0 && --m_HotReloadTestCloseIn == 0)
+        {
+            ZM_INFO("ZAMIN_EDITOR_HOT_RELOAD_TEST: tugadi ({} marta yuklandi)", m_HotReloadTestLoads);
+            Application::Get().Close();
+        }
         ProcessAssetChanges();
         ProcessPrefabReloads();
         m_SceneThumbnails.Update();
@@ -6223,9 +6241,19 @@ namespace Zamin {
             return;
         if (m_SceneState != SceneState::Edit)
             OnSceneStop();
-        if (ScriptEngine::LoadModule(module))
+        const bool loaded = ScriptEngine::LoadModule(module);
+        if (loaded)
             ZM_INFO("Skriptlar qayta yuklandi (hot reload) " ICON_FA_CHECK);
         m_SceneHierarchyPanel.OnScriptsReloaded();
+        // ZAMIN_EDITOR_HOT_RELOAD_TEST=<frames> (Tests/hot_reload_test.sh): the game plays again after every load
+        // of the module (the first build, then each hot reload); <frames> frames after the first hot reload the
+        // editor closes.
+        if (const char* test = std::getenv("ZAMIN_EDITOR_HOT_RELOAD_TEST"); test && loaded)
+        {
+            m_HotReloadTestPlay = true;
+            if (++m_HotReloadTestLoads >= 2)
+                m_HotReloadTestCloseIn = std::max(1, std::atoi(test));
+        }
     }
 
     void EditorLayer::CheckModuleHotReload(Timestep ts)
@@ -6241,6 +6269,17 @@ namespace Zamin {
         auto time = fs::last_write_time(module, ec);
         if (!ec && (!ScriptEngine::IsModuleLoaded() || time != ScriptEngine::GetLoadedModuleWriteTime()))
         {
+            // Built outside the editor (an IDE, cmake --build): the linker writes the file in place, so a change
+            // is loaded only once the file stayed the same (time and size) for one more poll - a module read
+            // half written would not load, and the old one is unloaded by then.
+            const uintmax_t size = fs::file_size(module, ec);
+            if (ec || time != m_ChangedModuleTime || size != m_ChangedModuleSize)
+            {
+                m_ChangedModuleTime = time;
+                m_ChangedModuleSize = ec ? 0 : size;
+                m_HotReloadTimer = 0.6f; // looked at again in 0.4 s
+                return;
+            }
             ZM_INFO("Skript moduli o'zgardi - qayta yuklanmoqda");
             ReloadScriptModule();
         }
@@ -6674,6 +6713,8 @@ namespace Zamin {
     // ================================================================== ImGui
     void EditorLayer::OnImGuiRender()
     {
+        // The smoke test's next step (ZAMIN_EDITOR_OPEN_ALL_PANELS), before anything is drawn.
+        UpdateSmokeTest();
         // ---- keyboard shortcuts (EditorShortcuts.cpp; ignored while typing)
         HandleShortcuts();
         // Prefab mode: prefabs asked to open / levels to leave (before the panels draw the scene).
@@ -6950,6 +6991,8 @@ namespace Zamin {
 
         UI_ViewMenu();
 
+        if (m_OpenMenu.starts_with("Obyekt"))
+            ImGui::OpenPopup(Tr("Obyekt"));
         if (ImGui::BeginMenu(Tr("Obyekt")))
         {
             if (m_SceneState == SceneState::Edit)
@@ -6959,6 +7002,8 @@ namespace Zamin {
             ImGui::EndMenu();
         }
 
+        if (m_OpenMenu.starts_with("Skriptlar"))
+            ImGui::OpenPopup(Tr("Skriptlar"));
         if (ImGui::BeginMenu(Tr("Skriptlar")))
         {
             if (ImGui::MenuItem(Tr(ICON_FA_HAMMER "  Kompilyatsiya + qayta yuklash"), ShortcutLabel(EditorShortcut::BuildScripts), false, hasProject && !m_Building)) BuildScripts(true);

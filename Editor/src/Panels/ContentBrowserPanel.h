@@ -53,6 +53,25 @@ namespace Zamin {
         const std::vector<std::filesystem::path>& GetDraggedPaths() const { return m_DragPaths; }
         // Asks to delete these files / folders (the confirmation lists what still uses them).
         void RequestDelete(std::vector<std::filesystem::path> paths) { m_PendingDelete = std::move(paths); }
+        // The "Yaratish" prompt (0: a folder, 1: a scene) / the rename prompt for a file, as their menu
+        // items open them; CancelPrompts: every prompt closed unanswered (the editor's smoke test).
+        void RequestNewItem(int kind)
+        {
+            m_NewKind = kind == 1 ? 1 : 0;
+            m_NewName = m_NewKind == 1 ? "NewScene" : "NewFolder";
+            m_OpenNewPopup = true;
+        }
+        void RequestRename(const std::filesystem::path& path)
+        {
+            m_RenameTarget = path;
+            m_RenameBuffer = path.filename().string();
+            m_OpenRenamePopup = true;
+        }
+        void CancelPrompts()
+        {
+            m_PendingDelete.clear();
+            m_OpenNewPopup = m_OpenRenamePopup = false;
+        }
         // "Yangi material": a material asset with default values under a free name ("NewMaterial",
         // "NewMaterial_1"...) in the open folder - Assets/Materials when the open folder is outside
         // the asset folder - selected and shown in the inspector. Returns the file (empty on failure).

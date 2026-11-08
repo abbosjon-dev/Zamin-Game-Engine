@@ -1,0 +1,26 @@
+{
+    "Scene": "Main",
+    "Version": 5,
+    "Entities": [
+        {
+            "Entity": 4242000000000001,
+            "Tag": "Camera",
+            "Transform": { "Translation": [0, 0, 10], "Rotation": [0, 0, 0], "Scale": [1, 1, 1] },
+            "Camera": { "ProjectionType": 1, "OrthographicSize": 10, "OrthographicNear": -100, "OrthographicFar": 100, "Primary": true }
+        },
+        {
+            "Entity": 4242000000000002,
+            "Tag": "Probe",
+            "Transform": { "Translation": [0, 0, 0], "Rotation": [0, 0, 0], "Scale": [1, 1, 1] },
+            "SpriteRenderer": { "Color": [0.2, 0.7, 1.0, 1.0] },
+            "NativeScript": {
+                "Class": "HotReloadProbe",
+                "Fields": {
+                    "Count": { "Type": "Int", "Value": 3 },
+                    "Label": { "Type": "String", "Value": "saqlangan" },
+                    "Speed": { "Type": "Float", "Value": 7.5 }
+                }
+            }
+        }
+    ]
+}

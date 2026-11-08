@@ -4,6 +4,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <format>
+#include <string>
+#include <string_view>
 
 namespace Zamin {
 
@@ -186,6 +189,31 @@ namespace Zamin {
             glPixelStorei(GL_PACK_ALIGNMENT, 1);
             glReadPixels(0, 0, (GLsizei)width, (GLsizei)height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
             return pixels;
+        }
+
+        uint32_t PopErrors(std::string* names) override
+        {
+            uint32_t count = 0;
+            // (At most a handful: a context that is lost keeps answering GL_CONTEXT_LOST.)
+            for (GLenum error = glGetError(); error != GL_NO_ERROR && count < 16; error = glGetError(), count++)
+            {
+                if (!names)
+                    continue;
+                const char* name = "?";
+                switch (error)
+                {
+                    case GL_INVALID_ENUM: name = "GL_INVALID_ENUM"; break;
+                    case GL_INVALID_VALUE: name = "GL_INVALID_VALUE"; break;
+                    case GL_INVALID_OPERATION: name = "GL_INVALID_OPERATION"; break;
+                    case GL_INVALID_FRAMEBUFFER_OPERATION: name = "GL_INVALID_FRAMEBUFFER_OPERATION"; break;
+                    case GL_OUT_OF_MEMORY: name = "GL_OUT_OF_MEMORY"; break;
+                    default: break;
+                }
+                if (!names->empty())
+                    *names += ", ";
+                *names += name == std::string_view("?") ? std::format("0x{:04x}", error) : std::string(name);
+            }
+            return count;
         }
 
     private:

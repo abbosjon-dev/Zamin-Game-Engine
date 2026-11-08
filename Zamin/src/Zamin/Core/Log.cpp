@@ -139,6 +139,12 @@ namespace Zamin {
         char timeBuf[16];
         std::strftime(timeBuf, sizeof(timeBuf), "%H:%M:%S", &tm);
 
+        // The terminal output line by line also when it goes to a file or a pipe (CI logs, the test scripts that
+        // read it while the program runs): stdout is fully buffered then, and what a crash leaves in the buffer is
+        // lost. (Set before the first message is written.)
+        static const bool s_LineBuffered = [] { return std::setvbuf(stdout, nullptr, _IOLBF, 0) == 0; }();
+        (void)s_LineBuffered;
+
         std::lock_guard lock(s_Mutex);
         if (s_TerminalOutput)
             std::fprintf(level >= LogLevel::Error ? stderr : stdout, "%s[%s] %s: %s\033[0m\n",

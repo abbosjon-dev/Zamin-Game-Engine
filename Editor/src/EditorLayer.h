@@ -32,6 +32,8 @@
 namespace Zamin {
 
     struct EditorOverlayView;
+    struct EditorSmokeStep;
+    struct EditorSmokeTest;
 
     class EditorLayer : public Layer
     {
@@ -45,6 +47,7 @@ namespace Zamin {
         void OnUpdate(Timestep ts) override;
         void OnImGuiRender() override;
         void OnEvent(Event& e) override;
+        void OnRunEnded() override;
 
     private:
         enum class SceneState { Edit = 0, Play = 1, Simulate = 2 };
@@ -127,6 +130,16 @@ namespace Zamin {
         void UI_UndoHistory();
         // ZAMIN_EDITOR_UNDO: steps made one by one for automation (see the OnUpdate hook).
         void ApplyUndoAutomation(std::string_view spec);
+        // ---- the smoke test (EditorSmokeTest.cpp, ZAMIN_EDITOR_OPEN_ALL_PANELS=1): every window, page, menu
+        // and popup opened in turn for a few frames; errors (log, OpenGL, ImGui checks) counted, exit code 1.
+        void StartSmokeTest();
+        std::vector<EditorSmokeStep> BuildSmokeSteps();
+        void UpdateSmokeTest(); // each frame, before the UI is drawn
+        void CollectSmokeErrors();
+        void RecordSmokeFailure(std::string message);
+        void RestoreSmokeState();
+        void FinishSmokeTest(bool completed);
+        std::unique_ptr<EditorSmokeTest> m_SmokeTest;
 
         // ---- clipboard / prefabs
         void CopySelectedEntity();
@@ -1001,6 +1014,14 @@ namespace Zamin {
         bool m_ReloadAfterBuild = true;
         bool m_AutoReload = true;
         float m_HotReloadTimer = 0.0f;
+        // A changed module seen by the last poll: reloaded once it stays the same (the linker writes it in place).
+        std::filesystem::file_time_type m_ChangedModuleTime{};
+        uintmax_t m_ChangedModuleSize = 0;
+        // ZAMIN_EDITOR_HOT_RELOAD_TEST (Tests/hot_reload_test.sh): module loads seen, play on the next frame,
+        // frames left before the editor closes (0: not counting).
+        int m_HotReloadTestLoads = 0;
+        bool m_HotReloadTestPlay = false;
+        int m_HotReloadTestCloseIn = 0;
         float m_BuildStartTime = 0.0f;
         // the build's messages: written by the build thread under the mutex, read by the window
         enum class BuildResult { None, Running, Succeeded, Failed };

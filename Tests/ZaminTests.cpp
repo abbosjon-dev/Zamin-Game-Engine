@@ -47400,3 +47400,62 @@ TEST(PhysicsDeterminism3D)
         return scene;
     }, 200);
 }
+
+// ------------------------------------------------------------------ script hot reload (in-process)
+// What Tests/hot_reload_test.sh checks end to end (a real module built, changed, built again and reloaded by the
+// editor), here without a compiler: the class is registered again with another field set, as a reloaded module does.
+struct ReloadProbeV1 : ScriptableEntity
+{
+    float Speed = 1.0f;
+    std::string Label = "standart";
+    int Removed = 0;   // gone in version 2
+};
+
+struct ReloadProbeV2 : ScriptableEntity
+{
+    float Speed = 1.0f;
+    std::string Label = "standart";
+    int Extra = 42;    // new in version 2
+};
+
+TEST(ScriptReloadKeepsFieldValues)
+{
+    ScriptRegistry::Register({ "ReloadProbe", []() -> ScriptableEntity* { return new ReloadProbeV1(); },
+                               { ZM_FIELD(ReloadProbeV1, Speed), ZM_FIELD(ReloadProbeV1, Label), ZM_FIELD(ReloadProbeV1, Removed) } });
+    auto scene = CreateRef<Scene>();
+    Entity e = scene->CreateEntity("Probe");
+    auto& nsc = e.AddComponent<NativeScriptComponent>();
+    nsc.ClassName = "ReloadProbe";
+    nsc.Fields["Speed"].Set(7.5f);
+    nsc.Fields["Label"].Set(std::string("saqlangan"));
+    nsc.Fields["Removed"].Set(5);
+
+    auto run = [&](auto check) {
+        Ref<Scene> play = Scene::Copy(scene);
+        play->OnRuntimeStart();
+        play->OnUpdateRuntime(1.0f / 60.0f);
+        Entity p = play->FindEntityByName("Probe");
+        auto* instance = p ? p.GetComponent<NativeScriptComponent>().Instance : nullptr;
+        CHECK(instance != nullptr);
+        if (instance)
+            check(instance);
+        play->OnRuntimeStop();
+    };
+    run([](ScriptableEntity* s) {
+        auto* v1 = dynamic_cast<ReloadProbeV1*>(s);
+        CHECK(v1 && v1->Speed == 7.5f && v1->Label == "saqlangan" && v1->Removed == 5);
+    });
+
+    // The module is reloaded: version 2 of the class (one field gone, one new).
+    ScriptRegistry::Unregister("ReloadProbe");
+    ScriptRegistry::Register({ "ReloadProbe", []() -> ScriptableEntity* { return new ReloadProbeV2(); },
+                               { ZM_FIELD(ReloadProbeV2, Speed), ZM_FIELD(ReloadProbeV2, Label), ZM_FIELD(ReloadProbeV2, Extra) } });
+    run([](ScriptableEntity* s) {
+        auto* v2 = dynamic_cast<ReloadProbeV2*>(s);
+        CHECK(v2 && v2->Speed == 7.5f && v2->Label == "saqlangan" && v2->Extra == 42);
+    });
+    // The value of the field version 2 does not have is kept (it comes back with a version that has it).
+    CHECK(nsc.Fields.count("Removed") == 1 && nsc.Fields["Removed"].Get<int>() == 5);
+    ScriptRegistry::Unregister("ReloadProbe");
+    CHECK(ScriptRegistry::Find("ReloadProbe") == nullptr);
+}

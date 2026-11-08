@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <functional>
 #include <mutex>
+#include <string>
 #include <vector>
 
 namespace Zamin {
@@ -48,6 +49,9 @@ namespace Zamin {
         // performance test (2: it could not run, 3: a limit was exceeded).
         void SetExitCode(int code) { m_ExitCode = code; }
         int GetExitCode() const { return m_ExitCode; }
+        // The window's picture at the end of this frame (once the UI is drawn, before the buffers swap) into
+        // a PNG file - automation (the editor's smoke test); ZAMIN_SCREENSHOT is the last frame's.
+        void RequestScreenshot(std::string path) { m_ScreenshotRequest = std::move(path); }
 
         void PushLayer(Layer* layer);
         void PushOverlay(Layer* layer);
@@ -134,6 +138,7 @@ namespace Zamin {
         LayerStack m_LayerStack;
         bool m_Running = true;
         int m_ExitCode = 0;
+        std::string m_ScreenshotRequest;
         bool m_Minimized = false;
         bool m_ZeroSize = false;   // the last resize made the window 0 x 0
         float m_LastFrameTime = 0.0f;

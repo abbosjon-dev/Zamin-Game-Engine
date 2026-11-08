@@ -76,6 +76,17 @@ namespace Zamin {
     {
         if (relPath.empty())
             return {};
+        // Already normal (what this database hands out, every instance's path): nothing to parse.
+        // Only '/' separators, no "//", no "." / ".." parts, no '/' at the end.
+        bool simple = relPath.front() != '.' && relPath.back() != '/';
+        for (size_t i = 0; simple && i < relPath.size(); i++)
+        {
+            const char c = relPath[i];
+            if (c == '\\' || (c == '/' && i + 1 < relPath.size() && (relPath[i + 1] == '/' || relPath[i + 1] == '.')))
+                simple = false;
+        }
+        if (simple)
+            return std::string(relPath);
         std::string path = FileSystem::NormalizePath(fs::path(std::string(relPath)));
         return path == "." ? std::string() : path;
     }

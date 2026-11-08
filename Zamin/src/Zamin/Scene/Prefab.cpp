@@ -173,6 +173,22 @@ namespace Zamin {
             return roots;
         }
 
+        // Every link has an instance (the cheap check before NormalizeLinks): each linked entity is an
+        // instance root itself or its parent is linked too - followed up, every chain ends at a root.
+        bool LinksHaveOwners(Scene& scene)
+        {
+            for (auto handle : scene.GetAllEntitiesWith<PrefabLinkComponent>())
+            {
+                Entity e(handle, &scene);
+                if (HasMarker(e))
+                    continue;
+                Entity parent = ParentOf(e);
+                if (!parent || (!parent.HasComponent<PrefabLinkComponent>() && !HasMarker(parent)))
+                    return false;
+            }
+            return true;
+        }
+
         // An up-to-date instance without the full bookkeeping: every prefab entity there once,
         // nothing linked that the prefab no longer has (an instance that deleted entities is looked at
         // in full).
@@ -221,11 +237,31 @@ namespace Zamin {
 
         // The entities `locals` as the prefab makes them for this instance (references to the
         // prefab's entities pointing at the instance's ones).
+        // One scene kept for BuildClean (a scene of its own for every instance synced costs more than
+        // the entities it holds). Never torn down: it lives as long as the program.
+        Scene& CleanScratch()
+        {
+            thread_local Scene* s_Scene = new Scene();
+            return *s_Scene;
+        }
+
         void BuildClean(const Instance& in, const std::vector<uint64_t>& locals, std::unordered_map<uint64_t, json>& out)
         {
-            Scene scratch;
+            Scene& scratch = CleanScratch();
             std::vector<std::pair<uint64_t, Entity>> made;
             made.reserve(locals.size());
+            struct Emptied
+            {
+                Scene& S;
+                std::vector<std::pair<uint64_t, Entity>>& Made;
+                ~Emptied()
+                {
+                    // Each on its own (the parents are set, the children lists are not).
+                    for (auto& [local, e] : Made)
+                        if (e.IsValid())
+                            S.DestroyEntity(e);
+                }
+            } emptied{ scratch, made };
             for (uint64_t local : locals)
             {
                 Entity src = in.T->Entities->GetEntityByUUID(UUID(local));
@@ -279,7 +315,15 @@ namespace Zamin {
             return order;
         }
 
-        bool RecordOverridesImpl(Instance& in)
+        // What a sync already worked out for the instance (its prefab entities as the prefab makes them,
+        // the entities it did not touch as they are): recording right after it reuses them.
+        struct SyncedJson
+        {
+            const std::unordered_map<uint64_t, json>* Clean = nullptr;
+            const std::unordered_map<uint64_t, json>* Current = nullptr;
+        };
+
+        bool RecordOverridesImpl(Instance& in, const SyncedJson& synced = {})
         {
             bool changed = false;
             for (Entity dup : in.Duplicates)
@@ -293,8 +337,10 @@ namespace Zamin {
             for (uint64_t local : in.T->Order)
                 if (in.Linked.contains(local))
                     locals.push_back(local);
-            std::unordered_map<uint64_t, json> clean;
-            BuildClean(in, locals, clean);
+            std::unordered_map<uint64_t, json> built;
+            if (!synced.Clean)
+                BuildClean(in, locals, built);
+            const std::unordered_map<uint64_t, json>& clean = synced.Clean ? *synced.Clean : built;
             for (uint64_t local : locals)
             {
                 Entity e = in.Linked[local];
@@ -302,7 +348,11 @@ namespace Zamin {
                 if (c == clean.end())
                     continue;
                 std::vector<std::string> paths, removed;
-                PO::DiffPaths(c->second, SceneSerializerJson::SerializeEntityJson(e, s_CompareOptions), e == in.Root, paths, removed);
+                const json* cached = nullptr;
+                if (synced.Current)
+                    if (auto it = synced.Current->find(local); it != synced.Current->end())
+                        cached = &it->second;
+                PO::DiffPaths(c->second, cached ? *cached : SceneSerializerJson::SerializeEntityJson(e, s_CompareOptions), e == in.Root, paths, removed);
                 const std::vector<uint64_t> order = LinkedChildOrder(in, e, local);
                 if (order != TemplateOrder(in, local, order))
                 {
@@ -455,19 +505,24 @@ namespace Zamin {
             }
 
             // The values of the ones it has: the prefab's, except where the instance changed them.
+            std::unordered_map<uint64_t, json> untouched; // entities whose values stayed (recording reuses their JSON)
+            bool structural = !created.empty();
             for (uint64_t local : locals)
             {
                 if (created.contains(local))
                     continue;
                 Entity e = in.Linked[local];
-                const json current = SceneSerializerJson::SerializeEntityJson(e, s_CompareOptions);
+                json current = SceneSerializerJson::SerializeEntityJson(e, s_CompareOptions);
                 std::vector<std::string> orphans;
                 const auto& link = e.GetComponent<PrefabLinkComponent>();
                 const json merged = PO::Merge(clean[local], current, link.Overrides, link.RemovedComponents, e == in.Root, &orphans);
                 for (const std::string& path : orphans)
                     ZM_CORE_WARN("Prefab {}: '{}' obyektining '{}' o'zgarishi eskirdi (prefabda bu qism yo'q) - olib tashlandi", in.T->Path,
                                  e.GetName(), path);
-                changed |= ApplyDifferences(e, merged, current);
+                if (ApplyDifferences(e, merged, current))
+                    changed = true;
+                else
+                    untouched.emplace(local, std::move(current));
             }
 
             // Parents (unless the instance moved the entity to another one of its own).
@@ -491,6 +546,7 @@ namespace Zamin {
                 {
                     scene.SetParent(e, p->second, false);
                     changed = true;
+                    structural = true;
                 }
             }
 
@@ -529,6 +585,7 @@ namespace Zamin {
                 in.Linked.erase(local);
                 scene.DestroyEntity(e);
                 changed = true;
+                structural = true;
             }
 
             // The prefab's child order (unless the instance has its own).
@@ -550,7 +607,15 @@ namespace Zamin {
                 changed = true;
             }
             Collect(in);
-            changed |= RecordOverridesImpl(in);
+            // Nothing made, removed or moved: the prefab's JSON is the same, and so is the instance's
+            // for the entities the sync did not write to.
+            SyncedJson synced;
+            if (!structural)
+            {
+                synced.Clean = &clean;
+                synced.Current = &untouched;
+            }
+            changed |= RecordOverridesImpl(in, synced);
             scene.InvalidateActiveCache();
             return changed;
         }
@@ -1529,7 +1594,9 @@ namespace Zamin {
         if (scene.GetAllEntitiesWith<EditorMetadataComponent>().empty())
             return result; // no prefab instance at all
         result.Linked = LinkLegacyInstances(scene, db);
-        NormalizeLinks(scene);
+        // Links without an instance go (a prefab ID used twice in one instance is settled by its sync).
+        if (!LinksHaveOwners(scene))
+            NormalizeLinks(scene);
         const std::vector<UUID> roots = InstanceRoots(scene);
         std::vector<std::string> filter;
         if (prefabs)

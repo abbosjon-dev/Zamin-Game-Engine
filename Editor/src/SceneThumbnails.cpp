@@ -13,13 +13,33 @@ namespace Zamin {
             return false;
         // Drawn at 720p and scaled down: the UI and the text are as large as in a game window.
         const uint32_t width = SceneMetadata::ThumbnailWidth * 4, height = SceneMetadata::ThumbnailHeight * 4;
+        std::vector<uint8_t> flipped;
+        if (!RenderPixels(source, fallback, width, height, false, flipped, scenePath))
+            return false;
+        const ThumbnailImage small = AssetThumbnails::Downscale(flipped.data(), width, height, SceneMetadata::ThumbnailWidth);
+        if (!small.IsValid())
+            return false;
+        const fs::path file = SceneMetadata::GetThumbnailPath(scenePath);
+        if (!Image::WritePNG(file.string(), small.Width, small.Height, 4, small.Pixels.data()))
+        {
+            ZM_WARN("Sahna rasmi yozilmadi: {}", file.string());
+            return false;
+        }
+        return true;
+    }
+
+    bool SceneThumbnails::RenderPixels(const Ref<Scene>& source, const EditorCamera* fallback, uint32_t width, uint32_t height, bool forceFallback,
+                                       std::vector<uint8_t>& flipped, const fs::path& scenePath, float warmUp)
+    {
+        if (!source || width == 0 || height == 0)
+            return false;
         // A copy: drawing at the thumbnail's size changes the cameras' aspect and the UI layout.
         Ref<Scene> scene = Scene::Copy(source);
         scene->ResolveAssets();
         scene->OnViewportResize(width, height);
 
         Scene::RuntimeView view;
-        const bool gameCamera = scene->GetRuntimeView(view);
+        const bool gameCamera = !forceFallback && scene->GetRuntimeView(view);
         if (!gameCamera && !fallback)
             return false;
         EditorCamera camera;
@@ -31,7 +51,7 @@ namespace Zamin {
         // A copy starts with no particles: its effects as they look a while after they start.
         const glm::vec3 viewer = gameCamera ? view.Position : camera.GetPosition();
         scene->SetParticleViewer(viewer);
-        scene->SimulateParticles(ParticleWarmUpSeconds);
+        scene->SimulateParticles(warmUp);
 
         const glm::uvec2 size = gameCamera ? scene->GetRuntimeRenderResolution(width, height)
                                            : Renderer::GetRenderResolution(width, height, scene->GetSettings().RenderScale);
@@ -67,7 +87,7 @@ namespace Zamin {
             if (!c.LoadOnStart || c.ScenePath.empty() || !scene->IsActiveInHierarchy(host))
                 continue;
             const fs::path file = Project::GetAssetFileSystemPath(c.ScenePath);
-            if (file.lexically_normal() == scenePath.lexically_normal())
+            if (!scenePath.empty() && file.lexically_normal() == scenePath.lexically_normal())
                 continue; // itself
             Ref<Scene> sub = CreateRef<Scene>();
             if (!SceneSerializer(sub).Deserialize(file))
@@ -119,20 +139,11 @@ namespace Zamin {
         const size_t row = (size_t)width * 4;
         if (pixels.size() != row * height)
             return false;
-        std::vector<uint8_t> flipped(pixels.size());
+        flipped.resize(pixels.size());
         for (uint32_t y = 0; y < height; y++)
             std::memcpy(&flipped[(size_t)y * row], &pixels[(size_t)(height - 1 - y) * row], row);
         for (size_t i = 3; i < flipped.size(); i += 4)
             flipped[i] = 255;
-        const ThumbnailImage small = AssetThumbnails::Downscale(flipped.data(), width, height, SceneMetadata::ThumbnailWidth);
-        if (!small.IsValid())
-            return false;
-        const fs::path file = SceneMetadata::GetThumbnailPath(scenePath);
-        if (!Image::WritePNG(file.string(), small.Width, small.Height, 4, small.Pixels.data()))
-        {
-            ZM_WARN("Sahna rasmi yozilmadi: {}", file.string());
-            return false;
-        }
         return true;
     }
 

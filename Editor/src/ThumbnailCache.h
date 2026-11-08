@@ -15,8 +15,9 @@
 namespace Zamin {
 
     // The content browser's thumbnails: small GPU textures of images, HDR maps and fonts (decoded
-    // and scaled down on a background thread) and of models and materials (rendered on the main
-    // thread, one a frame - a material on a sphere with MaterialPreview). They are kept in memory by
+    // and scaled down on a background thread) and of models, materials and prefabs (rendered on the
+    // main thread, one a frame - a material on a sphere with MaterialPreview, a prefab placed in a
+    // scene of its own and drawn from the view that suits it: PrefabPlacement::ChooseThumbnailView). They are kept in memory by
     // path and file version - asked for again only when the file's size or time changes (for a
     // material also one of its textures) - and saved under the project's ".zamin/Thumbnails", so a
     // project shows them at once the next time it opens. A material that is loaded follows its edits
@@ -74,6 +75,7 @@ namespace Zamin {
             State Status = State::Waiting;
             uint64_t LastUsed = 0;          // frame
             bool Material = false;
+            bool Prefab = false;
             // Materials: their textures (ThumbnailDiskCache::MakeKey), the loaded material the
             // picture follows (when something has it loaded) and the revision it was drawn at.
             std::vector<std::string> Dependencies;
@@ -106,6 +108,9 @@ namespace Zamin {
         void WorkerLoop();
         void Upload(Entry& entry, const ThumbnailImage& image);
         bool RenderModel(const std::filesystem::path& path, ThumbnailImage& out);
+        bool RenderPrefab(const std::filesystem::path& path, ThumbnailImage& out);
+        // A prefab's picture also shows its assets (textures, models, fonts ...): their files.
+        static std::vector<std::filesystem::path> PrefabDependencies(const std::filesystem::path& path);
         // `matchesFile`: the picture shows what the file holds (not unsaved edits) - it may be saved.
         bool RenderMaterial(Entry& entry, ThumbnailImage& out, bool& matchesFile);
         // Live materials that changed since they were drawn are queued to be drawn again.

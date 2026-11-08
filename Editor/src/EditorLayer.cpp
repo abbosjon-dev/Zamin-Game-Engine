@@ -136,6 +136,9 @@ namespace Zamin {
         m_SceneHierarchyPanel.OnOpenPrefabRequested = [this](const std::string& prefab, uint64_t focus) { RequestPrefabStage(prefab, focus); };
         m_ContentBrowserPanel.OnOpenPrefab = [this](const fs::path& p) { RequestPrefabStage(Project::GetAssetRelativePath(p)); };
         m_ContentBrowserPanel.OnCreatePrefabVariant = [this](const fs::path& p) { m_PrefabVariantRequests.push_back(Project::GetAssetRelativePath(p)); };
+        m_ContentBrowserPanel.IsPrefabVariant = [this](const fs::path& p) {
+            return Project::GetActive() && !PrefabUtility::GetVariantBase(m_PrefabDatabase, Project::GetAssetRelativePath(p)).empty();
+        };
         m_AssetInspectorPanel.OnCreatePrefabVariant = [this](const fs::path& p) { m_PrefabVariantRequests.push_back(Project::GetAssetRelativePath(p)); };
         m_AssetInspectorPanel.OnOpenPrefab = [this](const fs::path& p) { RequestPrefabStage(Project::GetAssetRelativePath(p)); };
         m_SceneHierarchyPanel.OnProjectSettingsModified = [this]() { m_ProjectSettingsPanel.MarkDirty(); };

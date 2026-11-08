@@ -1,4 +1,5 @@
 #include "ThumbnailCache.h"
+#include "SceneThumbnails.h"
 #include <Zamin/Core/Stopwatch.h>
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -18,8 +19,9 @@ namespace Zamin {
     // Jobs nobody asked for in this many frames (scrolled away, another folder) are dropped.
     static constexpr uint64_t s_ForgetAfterFrames = 90;
 
-    // Bump when material thumbnails are drawn differently (saved ones are made again).
+    // Bump when material / prefab thumbnails are drawn differently (saved ones are made again).
     static constexpr int64_t s_MaterialThumbnailVersion = 3;
+    static constexpr int64_t s_PrefabThumbnailVersion = 1;
 
     static double NowSeconds()
     {
@@ -46,7 +48,8 @@ namespace Zamin {
     bool ThumbnailCache::CanHaveThumbnail(const fs::path& path)
     {
         AssetType type = AssetTypes::FromPath(path);
-        return AssetThumbnails::CanGenerate(path) || type == AssetType::Model || type == AssetType::Material || type == AssetType::Scene;
+        return AssetThumbnails::CanGenerate(path) || type == AssetType::Model || type == AssetType::Material || type == AssetType::Scene ||
+               type == AssetType::Prefab;
     }
 
     void ThumbnailCache::SetCacheDirectory(const fs::path& directory)
@@ -92,6 +95,7 @@ namespace Zamin {
             entry.Stamp = stamp;
             entry.Status = State::Waiting;
             entry.Material = AssetTypes::FromPath(path) == AssetType::Material;
+            entry.Prefab = AssetTypes::FromPath(path) == AssetType::Prefab;
             Request(key, entry);
         }
         else if (entry.Material)
@@ -168,12 +172,22 @@ namespace Zamin {
             // How materials are drawn is part of it, too: a new look makes saved pictures out of date.
             entry.DiskStamp.Time ^= (int64_t)s_MaterialThumbnailVersion * 0x5BD1E995;
         }
+        else if (entry.Prefab)
+        {
+            // A prefab's picture shows its textures, models, fonts ...: their versions are in the stamp.
+            entry.Dependencies.clear();
+            const std::vector<fs::path> files = PrefabDependencies(entry.Path);
+            for (const fs::path& file : files)
+                entry.Dependencies.push_back(ThumbnailDiskCache::MakeKey(file));
+            entry.DiskStamp = entry.Stamp.WithDependencies(files);
+            entry.DiskStamp.Time ^= (int64_t)s_PrefabThumbnailVersion * 0x2F7A3D61;
+        }
         Job job;
         job.Key = key;
         job.Path = entry.Path;
         job.Stamp = entry.Stamp;
         job.DiskStamp = entry.DiskStamp;
-        job.Render = AssetTypes::FromPath(entry.Path) == AssetType::Model || entry.Material;
+        job.Render = AssetTypes::FromPath(entry.Path) == AssetType::Model || entry.Material || entry.Prefab;
         {
             std::lock_guard lock(m_Mutex);
             std::erase_if(m_Jobs, [&](const Job& j) { return j.Key == key && j.Save.Pixels.empty(); }); // an older version's
@@ -193,8 +207,8 @@ namespace Zamin {
         std::vector<std::string> gone;
         for (auto& [k, entry] : m_Entries)
         {
-            // A texture of a material (or a folder holding one) changed: the material is drawn again.
-            if (entry.Material && std::any_of(entry.Dependencies.begin(), entry.Dependencies.end(), [&](const std::string& d) {
+            // A texture of a material / an asset of a prefab (or a folder holding one) changed: drawn again.
+            if ((entry.Material || entry.Prefab) && std::any_of(entry.Dependencies.begin(), entry.Dependencies.end(), [&](const std::string& d) {
                     return d == fileKey || d.starts_with(filePrefix);
                 }))
                 entry.Stamp = {};
@@ -366,7 +380,9 @@ namespace Zamin {
             }
             ThumbnailImage image;
             bool save = true;
-            bool rendered = entry.Material ? RenderMaterial(entry, image, save) : RenderModel(entry.Path, image);
+            bool rendered = entry.Material ? RenderMaterial(entry, image, save)
+                          : entry.Prefab   ? RenderPrefab(entry.Path, image)
+                                           : RenderModel(entry.Path, image);
             bool redraw = entry.Redraw;
             entry.Redraw = false;
             if (rendered)
@@ -540,6 +556,148 @@ namespace Zamin {
         size_t row = (size_t)Size * 4;
         for (uint32_t y = 0; y < Size; y++)
             std::copy_n(pixels.data() + (size_t)(Size - 1 - y) * row, row, out.Pixels.data() + (size_t)y * row);
+        return true;
+    }
+
+    std::vector<fs::path> ThumbnailCache::PrefabDependencies(const fs::path& path)
+    {
+        std::vector<fs::path> files;
+        Scene scratch;
+        SceneSerializer::EntitySetReadOptions options;
+        options.KeepPrefabLinks = false;
+        const std::vector<Entity> entities = PrefabCache::Instantiate(scratch, path, options);
+        SceneSerializer::CollectAssetPaths(entities, [&](size_t, std::string_view, const std::string& asset) {
+            const fs::path file = Project::GetAssetFileSystemPath(asset);
+            if (std::find(files.begin(), files.end(), file) == files.end())
+                files.push_back(file);
+        });
+        return files;
+    }
+
+    bool ThumbnailCache::RenderPrefab(const fs::path& path, ThumbnailImage& out)
+    {
+        // The textures and models loaded for the picture only go again afterwards (see RenderModel).
+        const uint64_t textureSerial = TextureLibrary::GetLoadSerial();
+        std::vector<fs::path> models;
+        for (const fs::path& file : PrefabDependencies(path))
+            if (AssetTypes::FromPath(file) == AssetType::Model && !Model::IsFileLoaded(file))
+                models.push_back(file);
+        bool drawn = false;
+        PrefabThumbnailView kind = PrefabThumbnailView::View2D;
+        std::vector<uint8_t> pixels;
+        uint32_t width = Size * 3, height = Size * 3;
+        glm::uvec4 crop(0, 0, 0, 0); // x0, y0, x1, y1 (top row first); empty: the whole picture
+        {
+            // One plain instance in a scene of its own (not running: its scripts do nothing).
+            Ref<Scene> scene = CreateRef<Scene>();
+            Entity root = scene->InstantiatePrefab(path);
+            if (root)
+            {
+                kind = PrefabPlacement::ChooseThumbnailView(*scene);
+                auto& settings = scene->GetSettings();
+                settings.DrawSky = false; // the prefab on the browser's dark backdrop
+                if (kind == PrefabThumbnailView::View3D && scene->GetAllEntitiesWith<DirectionalLightComponent>().empty())
+                {
+                    // Lit like the model thumbnails (a sun from above-left) when it brings no sun.
+                    Entity sun = scene->CreateEntity("Thumbnail Sun");
+                    sun.AddComponent<DirectionalLightComponent>().Intensity = 2.6f;
+                    sun.GetComponent<TransformComponent>().Rotation = { glm::radians(-50.0f), glm::radians(-35.0f), 0.0f };
+                }
+                // A UI prefab is laid out on a game-like (16:9) screen and letterboxed into the square.
+                if (kind == PrefabThumbnailView::UI)
+                {
+                    width = Size * 4;
+                    height = Size * 4 * 9 / 16;
+                }
+                EditorCamera camera(35.0f, (float)width / (float)height, 0.01f, 2000.0f);
+                camera.SetViewportSize((float)width, (float)height);
+                if (kind == PrefabThumbnailView::View3D)
+                    camera.SetOrientation(0.42f, -0.62f); // three quarters, from above
+                else
+                {
+                    camera.SetOrthographic(true);
+                    camera.SetOrientation(0.0f, 0.0f);
+                }
+                camera.SetViewState(camera.ComputeFrameState(PrefabPlacement::ThumbnailBounds(*scene), 1.12f));
+                // A UI prefab: the part of the screen its elements cover (a full-screen backdrop not
+                // counted), so a menu fills the tile instead of a screen with a small menu on it.
+                if (kind == PrefabThumbnailView::UI)
+                {
+                    scene->OnViewportResize(width, height);
+                    std::vector<UIRect> rects;
+                    const float viewArea = (float)width * (float)height;
+                    for (auto handle : scene->GetAllEntitiesWith<UITransformComponent>())
+                    {
+                        Entity e(handle, scene.get());
+                        if (!scene->IsActiveInHierarchy(e) ||
+                            !(e.HasComponent<UIImageComponent>() || e.HasComponent<TextComponent>() || e.HasComponent<UIButtonComponent>() ||
+                              e.HasComponent<SpriteRendererComponent>()))
+                            continue;
+                        const UIRect r = scene->GetUIScreenRect(e);
+                        const glm::vec2 size = r.GetSize();
+                        if (size.x <= 0.5f || size.y <= 0.5f || size.x * size.y > viewArea * 0.8f)
+                            continue;
+                        rects.push_back(r);
+                    }
+                    // The largest element (the menu's panel) and what lies on it: a version label in a
+                    // corner of the screen is left out.
+                    glm::vec2 lo(FLT_MAX), hi(-FLT_MAX);
+                    if (!rects.empty())
+                    {
+                        const UIRect main = *std::max_element(rects.begin(), rects.end(), [](const UIRect& a, const UIRect& b) {
+                            return a.GetSize().x * a.GetSize().y < b.GetSize().x * b.GetSize().y;
+                        });
+                        for (const UIRect& r : rects)
+                            if (r.Max.x >= main.Min.x && r.Min.x <= main.Max.x && r.Max.y >= main.Min.y && r.Min.y <= main.Max.y)
+                            {
+                                lo = glm::min(lo, r.Min);
+                                hi = glm::max(hi, r.Max);
+                            }
+                    }
+                    if (lo.x < hi.x && lo.y < hi.y)
+                    {
+                        const glm::vec2 pad = (hi - lo) * 0.06f + glm::vec2(4.0f);
+                        lo = glm::max(lo - pad, glm::vec2(0.0f));
+                        hi = glm::min(hi + pad, glm::vec2((float)width, (float)height));
+                        crop = { (uint32_t)lo.x, (uint32_t)((float)height - hi.y), (uint32_t)std::ceil(hi.x), (uint32_t)std::ceil((float)height - lo.y) };
+                    }
+                }
+                // Effects that play once are shown early (a burst is over after a second or two).
+                float warmUp = SceneThumbnails::ParticleWarmUpSeconds;
+                for (auto handle : scene->GetAllEntitiesWith<ParticleSystemComponent>())
+                    if (!Entity(handle, scene.get()).GetComponent<ParticleSystemComponent>().Looping)
+                        warmUp = 0.18f;
+                drawn = SceneThumbnails::RenderPixels(scene, &camera, width, height, true, pixels, {}, warmUp);
+            }
+        }
+        TextureLibrary::ReleaseUnused(textureSerial);
+        for (const fs::path& model : models)
+            Model::ReleaseIfUnused(model);
+        if (!drawn)
+            return false;
+        // The part shown (a UI prefab's elements), scaled to fit the square, centred on the backdrop's colour.
+        const uint8_t backdrop[4] = { pixels[0], pixels[1], pixels[2], 255 };
+        if (crop.z > crop.x && crop.w > crop.y && crop.z <= width && crop.w <= height && (crop.z - crop.x < width || crop.w - crop.y < height))
+        {
+            const uint32_t cw = crop.z - crop.x, ch = crop.w - crop.y;
+            std::vector<uint8_t> part((size_t)cw * ch * 4);
+            for (uint32_t y = 0; y < ch; y++)
+                std::copy_n(pixels.data() + ((size_t)(crop.y + y) * width + crop.x) * 4, (size_t)cw * 4, part.data() + (size_t)y * cw * 4);
+            pixels = std::move(part);
+            width = cw;
+            height = ch;
+        }
+        const ThumbnailImage small = AssetThumbnails::Downscale(pixels.data(), width, height, Size);
+        if (!small.IsValid())
+            return false;
+        out.Width = out.Height = Size;
+        out.Pixels.assign((size_t)Size * Size * 4, 0);
+        for (size_t i = 0; i < out.Pixels.size(); i += 4)
+            std::copy_n(backdrop, 4, out.Pixels.data() + i);
+        const uint32_t x0 = (Size - small.Width) / 2, y0 = (Size - small.Height) / 2;
+        for (uint32_t y = 0; y < small.Height && y0 + y < Size; y++)
+            std::copy_n(small.Pixels.data() + (size_t)y * small.Width * 4, (size_t)std::min(small.Width, Size - x0) * 4,
+                        out.Pixels.data() + ((size_t)(y0 + y) * Size + x0) * 4);
         return true;
     }
 

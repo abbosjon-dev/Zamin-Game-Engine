@@ -22,6 +22,12 @@ namespace Zamin {
         // drawn or written. The scene itself is not touched (a copy is drawn; its particle systems
         // run ParticleWarmUpSeconds first, as the scene view plays them - else they would be empty).
         static bool Render(const Ref<Scene>& scene, const std::filesystem::path& scenePath, const EditorCamera* fallback);
+        // The same picture as pixels (width x height RGBA8, the top row first, opaque) - `forceFallback`:
+        // through `fallback` even when the scene has a camera of its own (a prefab's picture shows the
+        // prefab, not what a camera inside it sees). `scenePath`: the scene's own file (its sub-scenes
+        // that are this file are not drawn again). `warmUp`: seconds the particle systems run first.
+        static bool RenderPixels(const Ref<Scene>& scene, const EditorCamera* fallback, uint32_t width, uint32_t height, bool forceFallback,
+                                 std::vector<uint8_t>& out, const std::filesystem::path& scenePath = {}, float warmUp = ParticleWarmUpSeconds);
 
         // The thumbnail of a scene file as a texture (nullptr without one): loaded once per version
         // of the picture file (its size and time are checked at most every few frames).

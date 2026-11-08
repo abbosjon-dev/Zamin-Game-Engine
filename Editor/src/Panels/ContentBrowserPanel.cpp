@@ -938,17 +938,32 @@ namespace Zamin {
             ImVec2 iconMin(cursor.x + 6, cursor.y + 6);
             ImVec2 iconMax(cursor.x + size - 6, cursor.y + size - 6);
             Ref<Texture2D> thumb = GetThumbnail(entry);
+            const bool variant = entry.Type == AssetType::Prefab && IsPrefabVariant && IsPrefabVariant(path);
             if (thumb)
                 DrawThumbnail(thumb, iconMin, iconMax, 4.0f);
             else
             {
                 ImU32 color;
-                const char* icon = IconFor(entry.Type, color);
+                const char* icon = variant ? ICON_FA_CLONE : IconFor(entry.Type, color);
+                if (variant)
+                    IconFor(entry.Type, color);
                 ImFont* font = ImGuiLayer::GetLargeIconFont();
                 float iconSize = (size - 12) * 0.62f;
                 ImVec2 textSize = font->CalcTextSizeA(iconSize, FLT_MAX, 0.0f, icon);
                 ImVec2 pos(cursor.x + (size - textSize.x) * 0.5f, cursor.y + (size - textSize.y) * 0.5f);
                 dl->AddText(font, iconSize, pos, color, icon);
+            }
+            if (thumb && entry.Type == AssetType::Prefab)
+            {
+                // A prefab's picture: a box badge (a variant: the clone badge) in its corner.
+                const char* badge = variant ? ICON_FA_CLONE : ICON_FA_BOX;
+                const float badgeSize = std::clamp(size * 0.2f, 11.0f, 18.0f);
+                ImFont* font = ImGui::GetFont();
+                const ImVec2 textSize = font->CalcTextSizeA(badgeSize, FLT_MAX, 0.0f, badge);
+                const ImVec2 bMax(iconMax.x - 1.0f, iconMax.y - 1.0f);
+                const ImVec2 bMin(bMax.x - textSize.x - 6.0f, bMax.y - textSize.y - 4.0f);
+                dl->AddRectFilled(bMin, bMax, IM_COL32(22, 26, 34, 225), 4.0f);
+                dl->AddText(font, badgeSize, ImVec2(bMin.x + 3.0f, bMin.y + 2.0f), IM_COL32(93, 169, 255, 255), badge);
             }
 
             if (FindEntryError(path))

@@ -93,3 +93,31 @@ jobs:
         with:
           name: screenshots-${{ matrix.compiler.cc }}
           path: "*.png"
+
+  # Code coverage (gcov): a coverage build of its own (cmake/Coverage.cmake: our targets only), the unit tests in it
+  # and the report per module (Tests/coverage_report.py) - on the run's page and as an artefact (the HTML per file too).
+  coverage:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgl-dev libx11-dev libxrandr-dev libxinerama-dev \
+            libxcursor-dev libxi-dev libwayland-dev libxkbcommon-dev wayland-protocols
+          pip install --user gcovr
+
+      - name: Code coverage (gcov)
+        run: Tests/coverage.sh --html --out coverage-report
+
+      - name: Coverage summary
+        if: always()
+        run: cat coverage-report/coverage-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage-report/
+          if-no-files-found: warn

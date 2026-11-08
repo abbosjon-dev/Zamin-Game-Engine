@@ -501,7 +501,7 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 432. Serializatsiya benchmark
 - [x] 433. Test framework: test nomlari bo'yicha filtr
 - [x] 434. Test framework: vaqt hisoboti
-- [ ] 435. Code coverage hisoboti (gcov)
+- [x] 435. Code coverage hisoboti (gcov)
 - [ ] 436. clang-format konfiguratsiyasi
 - [ ] 437. CI: sanitizer job
 - [ ] 438. CI: artefaktlar (player build)

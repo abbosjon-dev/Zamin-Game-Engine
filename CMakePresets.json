@@ -56,6 +56,13 @@
             "inherits": "sanitizer-base",
             "binaryDir": "${sourceDir}/build-tsan",
             "cacheVariables": { "ZAMIN_SANITIZE": "thread" }
+        },
+        {
+            "name": "coverage",
+            "displayName": "Code coverage, gcov (build-cov/; Tests/coverage.sh)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build-cov",
+            "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "ZAMIN_COVERAGE": "ON", "ZAMIN_OPTIMIZE_PARTICLES_IN_DEBUG": "OFF" }
         }
     ],
     "buildPresets": [
@@ -65,7 +72,8 @@
         { "name": "asan", "configurePreset": "asan", "targets": [ "ZaminTests" ] },
         { "name": "ubsan", "configurePreset": "ubsan", "targets": [ "ZaminTests" ] },
         { "name": "lsan", "configurePreset": "lsan", "targets": [ "ZaminTests" ] },
-        { "name": "tsan", "configurePreset": "tsan", "targets": [ "ZaminTests" ] }
+        { "name": "tsan", "configurePreset": "tsan", "targets": [ "ZaminTests" ] },
+        { "name": "coverage", "configurePreset": "coverage", "targets": [ "ZaminTests" ] }
     ],
     "testPresets": [
         {

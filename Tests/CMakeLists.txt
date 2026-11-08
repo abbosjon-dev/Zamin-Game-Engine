@@ -4,6 +4,10 @@ target_link_libraries(ZaminTests PRIVATE Zamin)
 target_compile_definitions(ZaminTests PRIVATE ZAMIN_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 set_target_properties(ZaminTests PROPERTIES BUILD_RPATH "${CMAKE_BINARY_DIR}/bin")
 zamin_target_settings(ZaminTests)
+# A coverage build: the tests that measure a speedup skip that check (gcov's counters are shared by the threads).
+if(ZAMIN_COVERAGE)
+    target_compile_definitions(ZaminTests PRIVATE ZAMIN_COVERAGE_BUILD=1)
+endif()
 # ctest also writes the results with every test's time (build/TestResults: JSON, JUnit XML for CI) and prints the
 # time report (the slowest tests). ZaminTests --help: filters by name (--filter Prefab*, --list) and the other options.
 add_test(NAME ZaminTests COMMAND ZaminTests --timing --report ${CMAKE_BINARY_DIR}/TestResults/ZaminTests.json

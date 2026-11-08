@@ -897,6 +897,7 @@ Tests/hot_reload_test.sh                         # skript modulini qayta kompily
 Tests/export_test.sh                             # eksport + eksport qilingan o'yin headless (skrinshot bilan)
 Tests/render_bench.sh                            # 10 000 sprite, 1 000 mesh: ms / kadr (docs/benchmarks.md)
 Tests/bench.sh --compare                         # ECS, serializatsiya, prefab benchmarklari + boshlang'ich natija bilan solishtirish
+Tests/coverage.sh [--gui] [--html]               # kod qamrovi (gcov, build-cov): modullar bo'yicha hisobot (docs/coverage.md)
 Tests/sanitize.sh address                        # unit testlar AddressSanitizer + LeakSanitizer bilan (build-asan)
 Tests/sanitize.sh undefined                      # UndefinedBehaviorSanitizer bilan (build-ubsan)
 ```
@@ -915,6 +916,12 @@ komponentlar, view'lar, qidiruv, ierarxiya, `Scene::Copy`, o'chirish turlari, o'
 `--render`. `Tests/bench.sh` ularni JSON natijalari bilan ishga tushiradi va `--compare` bilan `Tests/Baselines/` dagi
 Release boshlang'ich natijasi bilan solishtiradi (`Tests/bench_compare.py`). ECS benchmark topgan xato tuzatildi:
 skriptlarning `Destroy` navbati takrorlanishni butun navbatdan qidirardi (bir kadrda minglab o'chirish kvadratik edi).
+
+**Kod qamrovi** ([docs/coverage.md](docs/coverage.md)): `-DZAMIN_COVERAGE=ON` (`cmake/Coverage.cmake`, `coverage`
+preset) faqat bizning target'larni `--coverage -O0` bilan build qiladi; `Tests/coverage.sh` alohida `build-cov` papkasida
+build qiladi, unit testlarni (`--gui` bilan player va editor smoke testini ham) ishga tushiradi va
+`Tests/coverage_report.py` gcov ma'lumotlarini modullar bo'yicha jamlaydi (qatorlar, funksiyalar, eng kam qamralgan
+fayllar; `--html` - gcovr bilan har fayl). CI'da alohida `coverage` job.
 
 **Rendering regressiya testi** (`ZaminRenderTests`, `Tests/RenderTests.cpp`): bir nechta etalon sahna (PBR + soyalar +
 nuqtali/spot yorug'lik, materiallar, bir nechta quyosh va osmon, barcha post effektlar, debug ko'rinish, 2D, Showcase3D va

@@ -360,11 +360,15 @@ namespace Zamin {
                     samples.emplace(type, it->path()); // the first of each type (directory order)
             }
         }
+        // The inspector's tab is brought to the front for these steps: the windows opened above share its dock node,
+        // and a hidden tab draws nothing (the coverage report showed the inspectors never ran - Tests/coverage.sh --gui).
+        auto showInspector = []() { ImGui::SetWindowFocus("###Inspector"); };
         for (const auto& [type, path] : samples)
-            add(std::format("Asset inspektori: {} ({})", AssetTypes::GetName(type), path.filename().string()), [this, path]() {
+            add(std::format("Asset inspektori: {} ({})", AssetTypes::GetName(type), path.filename().string()), [this, path, showInspector]() {
                 m_ContentBrowserPanel.Reveal({ path });
                 m_AssetInspectorPanel.SetAsset(path);
                 m_SceneHierarchyPanel.AcknowledgeSelection();
+                showInspector();
             }, [this]() { m_AssetInspectorPanel.Clear(); });
         if (auto any = samples.begin(); any != samples.end())
         {
@@ -396,20 +400,22 @@ namespace Zamin {
         for (Entity entity : entities)
         {
             const UUID id = entity.GetUUID();
-            add(std::format("Tanlov: '{}'", entity.GetName()), [this, id]() {
+            add(std::format("Tanlov: '{}'", entity.GetName()), [this, id, showInspector]() {
                 m_ShowAnimation = m_ShowAnimatorGraph = true;
                 if (Entity e = m_ActiveScene->GetEntityByUUID(id))
                     m_SceneHierarchyPanel.SetSelectedEntity(e);
+                showInspector();
             }, [this]() { m_SceneHierarchyPanel.SetSelectedEntity({}); }, 2);
         }
         add("Tanlov: hammasi", [this]() { m_SceneHierarchyPanel.GetSelection().Set(m_ActiveScene->GetEntitiesInHierarchyOrder()); },
             [this]() { m_SceneHierarchyPanel.SetSelectedEntity({}); }, 4);
 
         // ---- every component's inspector section: a temporary entity gets each in turn
-        add("Komponentlar: vaqtinchalik obyekt", [this]() {
+        add("Komponentlar: vaqtinchalik obyekt", [this, showInspector]() {
             Entity e = m_ActiveScene->CreateEntity("ZaminSmokeTest");
             m_SmokeTest->TempEntity = e.GetUUID();
             m_SceneHierarchyPanel.SetSelectedEntity(e);
+            showInspector();
         }, {}, 2);
         ForEachComponentType(AllComponents{}, [&](auto type) {
             using T = typename decltype(type)::type;

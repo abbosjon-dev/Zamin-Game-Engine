@@ -38820,7 +38820,15 @@ TEST(JobSystemSpeedupAndStats)
     const double parallel = time(true);
     std::printf("    vazifalar tizimi: 1 oqim %.1f ms, 4 oqim %.1f ms (%.2fx)\n", serial, parallel, serial / parallel);
     CHECK(out == expected); // the same results
-    if (std::thread::hardware_concurrency() >= 2)
+#if defined(ZAMIN_COVERAGE_BUILD)
+    // A coverage build's gcov counters are updated atomically by every thread that runs the same code (the noise
+    // function here): the threads fight over them and there is no speedup to measure - the results and the
+    // statistics are still checked.
+    const bool measureSpeedup = false;
+#else
+    const bool measureSpeedup = std::thread::hardware_concurrency() >= 2;
+#endif
+    if (measureSpeedup)
         CHECK(parallel < serial * 0.85);
 
     // Statistics: per thread; the frame's numbers after EndFrame.

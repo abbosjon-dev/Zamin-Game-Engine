@@ -606,7 +606,8 @@ def main():
     axes = [k.axis("MoveX", ["Key:A", "Key:Left", "Gamepad:DPadLeft"], ["Key:D", "Key:Right", "Gamepad:DPadRight"], "LeftX", deadzone=0.15)]
     k.write_project(PROJECT, NAME, "Zamin Breakout", "Scenes/Breakout.zscene", uuid, "1.0.0", [("Scenes/Breakout.zscene", uuid)], actions,
                     axes, [], [], {"names": LAYERS, "matrix": k.collision_matrix(LAYERS, PAIRS)},
-                    description="2D Breakout: raketka, Box2D to'p fizikasi, 5 xil g'isht, 6 ta bonus, 6 ta daraja, kombo va rekord")
+                    description="2D Breakout: raketka, Box2D to'p fizikasi, 5 xil g'isht, 6 ta bonus, 6 ta daraja, kombo va rekord",
+                    extra=k.export_always_include(["Audio/*.wav"]))
     k.write_module_cmake(PROJECT, NAME, "Zamin namuna o'yini: Breakout - C++ skriptlar moduli (libBreakout.so)")
     print("Breakout: tayyor")
 

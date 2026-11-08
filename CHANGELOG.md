@@ -70,7 +70,10 @@ vazifalari bajarila boshlaganda unga bo'lim qo'shing ([CONTRIBUTING.md](CONTRIBU
   `stick=LeftX,0.8`); `samples_test.py` ning `gamepad` holatlari olti o'yinni faqat gamepad bilan o'ynatadi,
   `samples_assets.py` input xaritasini tekshiradi (har harakatda klaviatura va gamepad, skriptlar faqat xaritadan).
 - Eksport: `Tests/samples_export.py` (ctest `SampleExports`) to'qqiz namunani editor bilan eksport qiladi
-  (`export_test.sh`) va eksport qilingan o'yinlarni `samples_test.py --exported` bilan o'ynatadi.
+  (`export_test.sh`) va eksport qilingan o'yinlarni `samples_test.py --exported` bilan o'ynatadi. U topgan xato:
+  Neon Maydon va Zamin Breakout ovozlarni qisqa nomi bilan chaqiradi (`Sfx("hit")`), eksport esa ularni
+  ishlatilmagan deb tashlab ketardi — eksport qilingan o'yinda ovoz yo'q edi. Ikki loyihaga
+  `Export.AlwaysInclude: ["Audio/*.wav"]` qo'shildi, `samples_assets.py` endi shuni tekshiradi.
 - [docs/Samples.md](docs/Samples.md) — namuna o'yinlar galereyasi (rasmlar `Tools/samples/make_gallery.py`), rekordlar,
   boshqaruv, testlar, eksport va ishlash tezligi.
 - Ishlash tezligi: `Tests/samples_bench.py` (Release, llvmpipe) — kadr vaqti, eng sekin kadr, obyektlar soni, o'yin

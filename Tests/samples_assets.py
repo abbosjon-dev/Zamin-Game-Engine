@@ -18,7 +18,8 @@ Checks for each game (Projects/<Game>):
   5. sounds     - every WAV is 16-bit PCM, mono or stereo, 11 025 ... 48 000 Hz; not silent, not clipped (procedural
                   sounds from samplekit.write_wav are normalised below full scale).
   6. references - every asset a scene, the project file or a script names (Textures/..., Audio/..., Models/...,
-                  Sfx("name") -> Audio/name.wav) exists; every sound and texture is used by something.
+                  Sfx("name") -> Audio/name.wav) exists; every sound and texture is used by something; a sound named
+                  only by its short name is in the project's Export.AlwaysInclude (or the export leaves it out).
   7. --regen    - a generator run gives exactly the committed files, and every committed asset is one it writes.
   8. input      - the project's input map: every action has a keyboard / mouse binding and a gamepad binding, every
                   axis a gamepad stick or buttons and keys (but the mouse-only ones listed in MOUSE_AXES); every
@@ -188,12 +189,15 @@ def check_game(game, verbose):
     for where, text in texts + sources:
         for m in path_ref.finditer(text):
             target = m.group(1)
+            if "*" in target:
+                continue  # an Export.AlwaysInclude pattern, not a file
             referenced.add(target)
             if not os.path.exists(os.path.join(assets, target)):
                 problem(game, f"{where} {target} ga ishora qiladi - fayl yo'q")
     # Sfx("name") / PlaySound(std::format("Audio/{}.wav", name)): every lower-case string literal of a script that
     # uses that pattern which is a sound's name counts as a use.
     sound_names = {os.path.splitext(rel(p, assets))[0][len("Audio/"):] for p in data_files if rel(p, assets).startswith("Audio/")}
+    literal = set(referenced)  # named with their whole path: the export's scan of the sources finds them
     for where, text in sources:
         literals = set(re.findall(r'"([a-z0-9_]+)"', text))
         for name in literals & sound_names:
@@ -205,6 +209,16 @@ def check_game(game, verbose):
         name = rel(p, assets)
         if name.startswith(("Audio/", "Textures/")) and name not in referenced:
             problem(game, f"{name} hech qayerda ishlatilmaydi")
+    # The export leaves out what nothing names (ExcludeUnusedAssets): a sound a script names only by its short name
+    # (Sfx("hit") -> "Audio/hit.wav" made at runtime) must be in the project's Export.AlwaysInclude, or the exported
+    # game cannot load it.
+    with open(os.path.join(project, f"{game}.zproject"), encoding="utf-8") as f:
+        export = json.load(f).get("Export", {})
+    patterns = export.get("AlwaysInclude", []) if export.get("ExcludeUnusedAssets", True) else ["*"]
+    for target in sorted(referenced - literal):
+        if target.startswith("Audio/") and not any(export_includes(target, pat) for pat in patterns):
+            problem(game, f"{target}: skript uni nomi bilan chaqiradi (Sfx), lekin eksport uni olmaydi - loyihaning "
+                          f"Export.AlwaysInclude'iga qo'shing (masalan \"Audio/*.wav\")")
     # 8. input
     n_actions, n_axes, n_vectors = check_input(game, project, sources, assets)
     if verbose:
@@ -212,6 +226,15 @@ def check_game(game, verbose):
         print(f"  {game:15} {total / 1048576:.2f} MiB ({kinds}); ovozlar {sound_seconds:.1f} s; input: {n_actions} harakat, "
               f"{n_axes} o'q, {n_vectors} vektor")
     return {"files": len(data_files), "bytes": total, "sound_seconds": round(sound_seconds, 1)}
+
+
+def export_includes(path, pattern):
+    """ExportAssets::MatchesInclude: the file itself, inside the folder, or a '*' pattern ('*' within a name)."""
+    pattern = pattern.strip().strip("/")
+    if path == pattern or path.startswith(pattern + "/") or pattern == "*":
+        return True
+    regex = "".join("[^/]*" if c == "*" else re.escape(c) for c in pattern)
+    return re.fullmatch(regex, path) is not None
 
 
 def binding_device(binding):

@@ -839,6 +839,14 @@ def write_project(project_dir, name, product, start_scene, start_uuid, version="
     write_json(os.path.join(project_dir, f"{name}.zproject"), proj)
 
 
+def export_always_include(patterns):
+    """The .zproject's "Export" section (the engine's defaults) with files the export takes even though nothing names
+    them literally - a script's Sfx("hit") builds "Audio/hit.wav" at runtime, the export's scan of the sources cannot
+    see it (Tests/samples_assets.py checks every such sound is covered)."""
+    return {"Export": {"ExcludeUnusedAssets": True, "AlwaysInclude": list(patterns), "ReleaseScriptModule": True,
+                       "StripBinaries": True}}
+
+
 def collision_matrix(names, pairs):
     """16 bitmasks: layer i collides with layer j for each (a, b) in pairs (names), both ways."""
     index = {n: i for i, n in enumerate(names)}

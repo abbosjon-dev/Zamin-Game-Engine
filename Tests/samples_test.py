@@ -333,6 +333,10 @@ def game_command(case, args):
     project = os.path.join(ROOT, "Projects", case.game)
     if args.exported:
         name = project_name(project, case.game)
+        # Tests/samples_export.py leaves each export in <out>/<Game>/export (export_test.sh's work folder layout).
+        for folder in (os.path.join(args.exported, case.game, "export"), os.path.join(args.exported, case.game)):
+            if os.path.isfile(os.path.join(folder, name + ".sh")):
+                return [os.path.join(folder, name + ".sh")]
         return [os.path.join(args.exported, case.game, name + ".sh")]
     return [args.player, project]
 
@@ -462,7 +466,7 @@ def main():
     parser.add_argument("--resolution", default="960x540")
     parser.add_argument("--timeout", type=int, default=900, help="seconds a run may take")
     parser.add_argument("--no-records", action="store_true", help="skip the record runs after the demos")
-    parser.add_argument("--exported", help="run the exported games in this folder (<dir>/<Game>/<Name>.sh) instead of "
+    parser.add_argument("--exported", help="run the exported games in this folder (<dir>/<Game>/[export/]<Name>.sh) instead of "
                                            "ZaminPlayer with the projects (Tests/samples_export.py)")
     args = parser.parse_args()
 

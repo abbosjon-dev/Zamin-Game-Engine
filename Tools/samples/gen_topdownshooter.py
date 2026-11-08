@@ -724,7 +724,8 @@ def main():
                {"Name": "Aim", "X": "AimX", "Y": "AimY", "Mode": "Clamp", "Deadzone": 0.25}]
     k.write_project(PROJECT, NAME, "Neon Maydon", "Scenes/Arena.zscene", uuid, "1.0.0", [("Scenes/Arena.zscene", uuid)], actions, axes,
                     vectors, ["Player", "Enemy", "Pickup"], {"names": LAYERS, "matrix": k.collision_matrix(LAYERS, PAIRS)},
-                    description="2D twin-stick shooter: neon maydon, 5 xil dushman, to'lqinlar, kombo, bonuslar, 2D yorug'lik va zarralar")
+                    description="2D twin-stick shooter: neon maydon, 5 xil dushman, to'lqinlar, kombo, bonuslar, 2D yorug'lik va zarralar",
+                    extra=k.export_always_include(["Audio/*.wav"]))
     k.write_module_cmake(PROJECT, NAME, "Zamin namuna o'yini: Neon Maydon (top-down shooter) - C++ skriptlar moduli (libTopDownShooter.so)")
     print("TopDownShooter: tayyor")
 

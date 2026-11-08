@@ -530,7 +530,10 @@ kiritilganlar yoziladi.
 ```
 
 Skript asset nomini o'zi yasasa (`"Levels/Level" + n + ".zscene"`), uni "Doim kiritish"ga qo'shing (`*`
-istalgan qismga mos keladi). `ExcludeUnusedAssets: false` - hamma fayl kiradi (build ro'yxatidan tashqari
+istalgan qismga mos keladi). Masalan Neon Maydon va Zamin Breakout ovozlarni qisqa nomi bilan chaqiradi
+(`Sfx("hit")` → `"Audio/hit.wav"` ish vaqtida yasaladi), shuning uchun ularning loyihasida `"AlwaysInclude":
+[ "Audio/*.wav" ]` bor — busiz eksport qilingan o'yinda ovozlar topilmaydi (buni `Tests/samples_export.py` topgan,
+`Tests/samples_assets.py` endi tekshiradi). `ExcludeUnusedAssets: false` - hamma fayl kiradi (build ro'yxatidan tashqari
 sahnalardan boshqa). Bo'lim standartdan farq qilganda yoziladi.
 
 ### Eksport: Release skript moduli va strip

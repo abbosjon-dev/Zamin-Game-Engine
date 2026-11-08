@@ -166,7 +166,35 @@ eksport qiladi va eksport qilingan o'yinni o'yinchi qanday olsa shunday tekshira
 boshqa papkaga ko'chirish), keyin eksportdagi `<O'yin>.sh` bilan `samples_test.py --exported` holatlari — olti yangi
 o'yinning bot demosi (rekord bilan) va eski namunalarning smoke'i.
 
-<!-- exports -->
+```bash
+python3 Tests/samples_export.py                       # hammasi (~40 daqiqa); natija: build/SampleExports/exports.md
+python3 Tests/samples_export.py --game Racing         # bitta o'yin
+python3 Tests/samples_test.py --exported build/SampleExports --kind gamepad   # boshqa holatlar eksportdagi o'yinda
+```
+
+### Natija (2026-11-08, Debug engine, eksport qilingan Release skript modullari)
+
+| Namuna | Eksport | Hajmi | Fayllar | Kadr (o'rtacha) | Eksportdagi o'yin |
+|---|---|---:|---:|---:|---|
+| Neon Maydon | OK | 44.2 MiB | 66 | 54.7 ms | demo + rekord OK |
+| Zamin Breakout | OK | 43.9 MiB | 66 | 56.0 ms | demo + rekord OK |
+| FPS Arena | OK | 44.3 MiB | 92 | 243.7 ms | demo + rekord OK |
+| Omborchi | OK | 44.1 MiB | 68 | 264.3 ms | demo + rekord OK |
+| Ipak Yo'li | OK | 43.9 MiB | 72 | 267.9 ms | demo + rekord OK |
+| Vodiy Poygasi | OK | 44.7 MiB | 70 | 221.6 ms | demo + rekord OK |
+| Platformer2D | OK | 45.1 MiB | 125 | 28.2 ms | smoke OK |
+| Showcase3D | OK | 49.5 MiB | 202 | 188.0 ms | smoke OK |
+| Adventure3D | OK | 43.1 MiB | 50 | 158.8 ms | smoke OK |
+
+Hajmning ~40 MiB i — player va dvigatel (Debug build'dan eksport: strip qilingan bo'lsa ham kattaroq); o'yinning o'zi
+1–5 MiB. Kadr vaqti — `export_test.sh` ning 60 kadrlik o'lchovi (Debug dvigatel, bosh menyu, 1280x720, llvmpipe).
+
+**Eksport topgan xato.** Birinchi eksportda Neon Maydon va Zamin Breakout eksportdagi o'yinda ovoz chiqarmasdi:
+ular ovozni qisqa nomi bilan chaqiradi (`Sfx("hit")` → `"Audio/hit.wav"` ish vaqtida yasaladi), eksport esa C++
+satrlarida to'liq yo'l ko'rmagani uchun WAV fayllarni "ishlatilmagan" deb tashlab ketardi (`excluded-assets.txt`).
+Ikkala loyihaga `"Export": { "AlwaysInclude": [ "Audio/*.wav" ] }` qo'shildi
+([ProjectSettings.md](ProjectSettings.md#eksport-ishlatilmagan-assetlar)), `Tests/samples_assets.py` esa endi qisqa
+nom bilan chaqiriladigan har ovoz eksportga kirishini tekshiradi.
 
 ## Ishlash tezligi
 

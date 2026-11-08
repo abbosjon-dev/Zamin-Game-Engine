@@ -208,5 +208,13 @@
             }
         ],
         "StreamThresholdMB": 4.0
+    },
+    "Export": {
+        "ExcludeUnusedAssets": true,
+        "AlwaysInclude": [
+            "Audio/*.wav"
+        ],
+        "ReleaseScriptModule": true,
+        "StripBinaries": true
     }
 }

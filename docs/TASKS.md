@@ -548,11 +548,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 473. Namuna assetlari (procedural)
 - [x] 474. Namunalarda ovozlar (procedural wav)
 - [x] 475. Namunalarda UI menyular
-- [ ] 476. Namunalarda SaveData (rekord)
-- [ ] 477. Namunalarda input action'lar
-- [ ] 478. Namunalarni eksport qilib tekshirish
-- [ ] 479. Namunalar galereyasi (docs)
-- [ ] 480. Namunalar performance tekshiruvi
+- [x] 476. Namunalarda SaveData (rekord)
+- [x] 477. Namunalarda input action'lar
+- [x] 478. Namunalarni eksport qilib tekshirish
+- [x] 479. Namunalar galereyasi (docs)
+- [x] 480. Namunalar performance tekshiruvi
 
 ## M25 Optimallashtirish va sayqal
 

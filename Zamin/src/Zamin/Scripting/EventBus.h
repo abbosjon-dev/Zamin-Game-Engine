@@ -38,26 +38,31 @@ namespace Zamin {
         template<typename T>
         T Get(T fallback = T{}) const
         {
-            if (const T* v = std::any_cast<T>(&Payload))
-                return *v;
-            if constexpr (std::is_arithmetic_v<T>)
+            if constexpr (std::is_same_v<T, std::string>)
+                return GetString(std::move(fallback));
+            else
             {
-                if (auto* v = std::any_cast<int>(&Payload))      return static_cast<T>(*v);
-                if (auto* v = std::any_cast<float>(&Payload))    return static_cast<T>(*v);
-                if (auto* v = std::any_cast<double>(&Payload))   return static_cast<T>(*v);
-                if (auto* v = std::any_cast<bool>(&Payload))     return static_cast<T>(*v);
-                if (auto* v = std::any_cast<int64_t>(&Payload))  return static_cast<T>(*v);
-                if (auto* v = std::any_cast<uint32_t>(&Payload)) return static_cast<T>(*v);
-                if (auto* v = std::any_cast<uint64_t>(&Payload)) return static_cast<T>(*v);
+                if (const T* v = std::any_cast<T>(&Payload))
+                    return *v;
+                if constexpr (std::is_arithmetic_v<T>)
+                {
+                    if (auto* v = std::any_cast<int>(&Payload))      return static_cast<T>(*v);
+                    if (auto* v = std::any_cast<float>(&Payload))    return static_cast<T>(*v);
+                    if (auto* v = std::any_cast<double>(&Payload))   return static_cast<T>(*v);
+                    if (auto* v = std::any_cast<bool>(&Payload))     return static_cast<T>(*v);
+                    if (auto* v = std::any_cast<int64_t>(&Payload))  return static_cast<T>(*v);
+                    if (auto* v = std::any_cast<uint32_t>(&Payload)) return static_cast<T>(*v);
+                    if (auto* v = std::any_cast<uint64_t>(&Payload)) return static_cast<T>(*v);
+                }
+                return fallback;
             }
-            else if constexpr (std::is_same_v<T, std::string>)
-            {
-                if (auto* v = std::any_cast<const char*>(&Payload)) return *v ? std::string(*v) : fallback;
-                if (auto* v = std::any_cast<char*>(&Payload))       return *v ? std::string(*v) : fallback;
-                if (auto* v = std::any_cast<std::string_view>(&Payload)) return std::string(*v);
-            }
-            return fallback;
         }
+
+        // The payload as a string: a std::string, a string literal / char pointer or a std::string_view;
+        // `fallback` otherwise. Out of line (EventBus.cpp): inlined where the message was made with a string
+        // literal, GCC -O2 followed std::any's impossible std::string branch into the literal and warned
+        // (-Warray-bounds) in the caller's code.
+        std::string GetString(std::string fallback = {}) const;
     };
 
     using MessageHandler = std::function<void(const ScriptMessage&)>;

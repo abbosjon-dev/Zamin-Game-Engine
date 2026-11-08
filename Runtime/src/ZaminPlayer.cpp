@@ -642,7 +642,11 @@ namespace Zamin {
             const std::string_view kind = colon + 1;
             ZM_WARN("ZAMIN_PLAYER_CRASH_TEST: ataylab crash ({}) - {}-kadr", kind, at);
             if (kind == "segv")
-                *(volatile int*)(uintptr_t)8 = 1; // a real invalid write
+            {
+                // A real invalid write, through a volatile pointer (a constant address made GCC -O2 warn).
+                volatile int* volatile invalid = reinterpret_cast<volatile int*>((uintptr_t)8);
+                *invalid = 1;
+            }
             else if (kind == "abort")
                 std::abort();
             else if (kind == "fpe")

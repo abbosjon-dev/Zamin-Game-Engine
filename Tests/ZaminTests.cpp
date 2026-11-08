@@ -36204,7 +36204,8 @@ TEST(CrashHandlerReports)
     const int segv = RunCrashingChild([&] {
         CrashHandler::Install(settings);
         ZM_INFO("bola jarayon marker");
-        *(volatile int*)(uintptr_t)8 = 1;
+        volatile int* volatile invalid = reinterpret_cast<volatile int*>((uintptr_t)8); // not a constant: no GCC -O2 bounds warning
+        *invalid = 1;
     });
     CHECK(segv != -1 && WIFSIGNALED(segv) && WTERMSIG(segv) == SIGSEGV);
     const fs::path segvReport = FindCrashReport(dir / "segv");

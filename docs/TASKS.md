@@ -487,11 +487,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 
 ## M22 Sifat va testlar
 
-- [ ] 421. AddressSanitizer bilan build va testlar
-- [ ] 422. UndefinedBehaviorSanitizer bilan testlar
-- [ ] 423. Xotira oqishini tekshirish (LeakSanitizer)
-- [ ] 424. Ogohlantirishlarni tozalash (-Wall -Wextra -Wpedantic)
-- [ ] 425. Renderer uchun headless skrinshot testlari CI'da
+- [x] 421. AddressSanitizer bilan build va testlar
+- [x] 422. UndefinedBehaviorSanitizer bilan testlar
+- [x] 423. Xotira oqishini tekshirish (LeakSanitizer)
+- [x] 424. Ogohlantirishlarni tozalash (-Wall -Wextra -Wpedantic)
+- [x] 425. Renderer uchun headless skrinshot testlari CI'da
 - [ ] 426. Editor smoke test (barcha panellar ochiladi)
 - [ ] 427. Skript hot reload avtomatik testi
 - [ ] 428. Eksport avtomatik testi

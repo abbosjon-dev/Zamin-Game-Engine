@@ -5,6 +5,19 @@
 
 namespace Zamin {
 
+    std::string ScriptMessage::GetString(std::string fallback) const
+    {
+        if (const auto* v = std::any_cast<std::string>(&Payload))
+            return *v;
+        if (const auto* v = std::any_cast<const char*>(&Payload))
+            return *v ? std::string(*v) : fallback;
+        if (const auto* v = std::any_cast<char*>(&Payload))
+            return *v ? std::string(*v) : fallback;
+        if (const auto* v = std::any_cast<std::string_view>(&Payload))
+            return std::string(*v);
+        return fallback;
+    }
+
     SubscriptionID EventBus::Subscribe(std::string eventName, MessageHandler handler, uint64_t owner)
     {
         if (eventName.empty() || !handler)

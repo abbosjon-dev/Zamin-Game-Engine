@@ -102,7 +102,11 @@ namespace Zamin {
                 if (s > 1e-5f && s < sweep - 1e-5f)
                     corners[cornerCount++] = s;
             }
-            std::sort(corners, corners + cornerCount);
+            // At most four: an insertion sort (std::sort's unrolled path over this small array made GCC -O2
+            // warn about indices it never reaches).
+            for (int i = 1; i < cornerCount; i++)
+                for (int j = i; j > 0 && corners[j] < corners[j - 1]; j--)
+                    std::swap(corners[j], corners[j - 1]);
             for (int k = 0; k < cornerCount; k++)
                 cuts[count++] = corners[k];
             cuts[count++] = sweep;

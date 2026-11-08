@@ -93,7 +93,8 @@ namespace Zamin {
     void Platform::OpenInFileBrowser(const std::filesystem::path& path)
     {
         std::string cmd = "xdg-open " + ShellQuote(path.string()) + " >/dev/null 2>&1 &";
-        std::system(cmd.c_str());
+        if (std::system(cmd.c_str()) != 0)
+            ZM_CORE_WARN("Fayl brauzeri ochilmadi: {}", path.string());
     }
 
     int Platform::RunCommand(const std::string& command, std::string* output)

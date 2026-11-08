@@ -372,7 +372,7 @@ qamrovi topdi).
 Bo'lim nomi - `Tests/ZaminTests.cpp` dagi bo'lim sarlavhasi (kod izohi, ingliz tilida).
 
 <!-- test-catalog:begin -->
-_`Tests/test_catalog.py --update docs/Testing.md` yaratgan: 634 ta unit test, 93 ta bo'lim (`Tests/ZaminTests.cpp` dagi tartibda). Bitta testni ishga tushirish: `./build/bin/ZaminTests <Nom>`._
+_`Tests/test_catalog.py --update docs/Testing.md` yaratgan: 644 ta unit test, 94 ta bo'lim (`Tests/ZaminTests.cpp` dagi tartibda). Bitta testni ishga tushirish: `./build/bin/ZaminTests <Nom>`._
 
 | # | Bo'lim | Testlar | Nomlari |
 |---|---|---|---|
@@ -469,4 +469,5 @@ _`Tests/test_catalog.py --update docs/Testing.md` yaratgan: 634 ta unit test, 93
 | 91 | physics determinism (Box2D, Jolt) | 2 | `PhysicsDeterminism2D`, `PhysicsDeterminism3D` |
 | 92 | editor Play copy (the exported game's order) | 1 | `PlayCopyRunsScriptsInFileOrder` |
 | 93 | script hot reload (in-process) | 3 | `ScriptReloadKeepsFieldValues`, `StaleModuleCopiesRemoved`, `DeferredDestroyOnceEachAndLinear` |
+| 94 | M25: optimization (tasks 481-487) | 10 | `BatchOrderGroupsDrawsThatDoNotOverlap`, `BatchOrderKeepsOverlappingDrawsInOrder`, `BatchOrderRandomScenesKeepEveryOverlap`, `WorldTransformCacheFollowsChanges`, `SteadyFramesMakeNoHeapAllocations`, `FontKerningIsOptInAndNarrowsPairs`, `FontAtlasCacheGivesTheSameAtlas`, `AsyncLoaderWorkOnWorkersFinishOnMainThread`, `AsyncLoaderStartupModeFollowsCaptures`, `ModelLoadedOnWorkerKeepsGpuWorkForMainThread` |
 <!-- test-catalog:end -->

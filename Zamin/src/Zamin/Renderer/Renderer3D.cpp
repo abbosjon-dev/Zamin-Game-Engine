@@ -907,61 +907,116 @@ void main()
         return seed ^ (value + 0x9e3779b97f4a7c15ull + (seed << 6) + (seed >> 2));
     }
 
-    // Groups of `count` items: items that `same` says draw alike (and `canGroup` allows) join the
-    // first open group of their kind; `hash` must be equal for items `same` accepts.
-    template<typename CanGroup, typename Hash, typename Same>
-    static std::vector<std::vector<size_t>> GroupInstances(size_t count, uint32_t maxPerDraw, CanGroup canGroup, Hash hash, Same same)
+    // Batches of instances, flat: Items[Offsets[b] .. Offsets[b + 1]) is batch b. Kept between frames with
+    // its scratch (the passes group every frame: no allocations once they have grown).
+    struct FlatBatches
     {
-        std::vector<std::vector<size_t>> batches;
-        batches.reserve(count);
-        std::unordered_map<size_t, std::vector<size_t>> open; // hash -> groups of that hash
+        std::vector<size_t> Items, Offsets;
+        std::vector<size_t> Next, Head, Tail, Size; // a linked list of items per batch while grouping
+        std::vector<std::pair<size_t, size_t>> Table; // open addressing: (hash, batch + 1), 0 = empty
+
+        size_t Count() const { return Offsets.empty() ? 0 : Offsets.size() - 1; }
+        std::span<const size_t> Batch(size_t b) const { return { Items.data() + Offsets[b], Offsets[b + 1] - Offsets[b] }; }
+    };
+
+    // Groups of `count` items: items that `same` says draw alike (and `canGroup` allows) join the
+    // first open group of their kind; `hash` must be equal for items `same` accepts. Batches come in
+    // the order of their first item, their items in order.
+    template<typename CanGroup, typename Hash, typename Same>
+    static void GroupInstances(size_t count, uint32_t maxPerDraw, CanGroup canGroup, Hash hash, Same same, FlatBatches& out)
+    {
+        constexpr size_t None = ~size_t(0);
         maxPerDraw = std::max(maxPerDraw, 1u);
+        out.Next.assign(count, None);
+        out.Head.clear();
+        out.Tail.clear();
+        out.Size.clear();
+        size_t tableSize = 16;
+        while (tableSize < count * 2)
+            tableSize *= 2;
+        out.Table.assign(tableSize, { 0, 0 });
+        const size_t mask = tableSize - 1;
+        auto newBatch = [&](size_t i) {
+            out.Head.push_back(i);
+            out.Tail.push_back(i);
+            out.Size.push_back(1);
+            return out.Head.size() - 1;
+        };
         for (size_t i = 0; i < count; i++)
         {
             if (!canGroup(i))
             {
-                batches.push_back({ i });
+                newBatch(i);
                 continue;
             }
-            std::vector<size_t>& groups = open[hash(i)];
-            bool placed = false;
-            for (size_t g : groups)
-                if (batches[g].size() < maxPerDraw && same(batches[g][0], i))
+            const size_t h = hash(i);
+            // The batches of this hash in the order they were made (linear probing keeps it): the first
+            // that is not full and draws alike takes it; an empty slot ends the chain - a new batch.
+            for (size_t slot = h & mask;; slot = (slot + 1) & mask)
+            {
+                auto& entry = out.Table[slot];
+                if (entry.second == 0)
                 {
-                    batches[g].push_back(i);
-                    placed = true;
+                    entry = { h, newBatch(i) + 1 };
                     break;
                 }
-            if (!placed)
-            {
-                groups.push_back(batches.size());
-                batches.push_back({ i });
+                const size_t b = entry.second - 1;
+                if (entry.first == h && out.Size[b] < maxPerDraw && same(out.Head[b], i))
+                {
+                    out.Next[out.Tail[b]] = i;
+                    out.Tail[b] = i;
+                    out.Size[b]++;
+                    break;
+                }
             }
         }
-        return batches;
+        out.Items.clear();
+        out.Offsets.clear();
+        out.Offsets.push_back(0);
+        for (size_t b = 0; b < out.Head.size(); b++)
+        {
+            for (size_t i = out.Head[b]; i != None; i = out.Next[i])
+                out.Items.push_back(i);
+            out.Offsets.push_back(out.Items.size());
+        }
     }
 
-    std::vector<std::vector<size_t>> Renderer3D::BuildInstanceBatches(const std::vector<InstanceCandidate>& items, uint32_t maxPerDraw)
+    static void BuildInstanceBatchesFlat(const std::vector<Renderer3D::InstanceCandidate>& items, uint32_t maxPerDraw, FlatBatches& out)
     {
-        const bool instancing = IsInstancingEnabled();
-        return GroupInstances(
+        const bool instancing = Renderer3D::IsInstancingEnabled();
+        GroupInstances(
             items.size(), maxPerDraw,
             [&](size_t i) {
-                const InstanceCandidate& c = items[i];
+                const Renderer3D::InstanceCandidate& c = items[i];
                 return instancing && c.MeshKey && c.Mat && !c.Skinned && c.Mat->BlendMode != MaterialBlendMode::Transparent;
             },
             [&](size_t i) {
-                const InstanceCandidate& c = items[i];
+                const Renderer3D::InstanceCandidate& c = items[i];
                 size_t h = std::hash<const void*>()(c.MeshKey);
                 h = HashCombine(h, std::hash<const void*>()(c.Mat->AlbedoMap.get()));
                 h = HashCombine(h, (size_t)c.Mat->BlendMode * 2 + (c.Mirrored ? 1 : 0));
                 return h;
             },
             [&](size_t a, size_t b) {
-                const InstanceCandidate& x = items[a];
-                const InstanceCandidate& y = items[b];
-                return x.MeshKey == y.MeshKey && x.Mirrored == y.Mirrored && SameInstanceMaterial(*x.Mat, *y.Mat);
-            });
+                const Renderer3D::InstanceCandidate& x = items[a];
+                const Renderer3D::InstanceCandidate& y = items[b];
+                return x.MeshKey == y.MeshKey && x.Mirrored == y.Mirrored && Renderer3D::SameInstanceMaterial(*x.Mat, *y.Mat);
+            },
+            out);
+    }
+
+    std::vector<std::vector<size_t>> Renderer3D::BuildInstanceBatches(const std::vector<InstanceCandidate>& items, uint32_t maxPerDraw)
+    {
+        FlatBatches flat;
+        BuildInstanceBatchesFlat(items, maxPerDraw, flat);
+        std::vector<std::vector<size_t>> batches;
+        batches.reserve(flat.Count());
+        for (size_t b = 0; b < flat.Count(); b++)
+        {
+            std::span<const size_t> batch = flat.Batch(b);
+            batches.emplace_back(batch.begin(), batch.end());
+        }
+        return batches;
     }
 
     void ShadowSettings::Sanitize()
@@ -1225,7 +1280,7 @@ void main()
     }
 
     // The per-instance data of these queued meshes into the instance buffer.
-    static void UploadInstances(const std::vector<size_t>& queueIndices, const std::vector<size_t>* indexMap)
+    static void UploadInstances(std::span<const size_t> queueIndices, const std::vector<size_t>* indexMap)
     {
         auto& data = s_Data->InstanceScratch;
         data.clear();
@@ -1239,7 +1294,7 @@ void main()
 
     // Queued meshes that share the mesh, the material and the facing, with one instanced call
     // (`group` indexes `indexMap`, which holds queue indices).
-    static void DrawInstancedGroup(const std::vector<size_t>& group, const std::vector<size_t>& indexMap, bool mirrored)
+    static void DrawInstancedGroup(std::span<const size_t> group, const std::vector<size_t>& indexMap, bool mirrored)
     {
         auto& stats = Renderer::GetStats();
         const DrawItem& first = s_Data->Queue[indexMap[group[0]]];
@@ -1284,14 +1339,17 @@ void main()
         // Editor view: meshes drawn as their triangle edges only (see the ID pass below).
         const bool wireOnly = env.Wireframe == WireframeMode::Wire && !s_Data->Queue.empty();
         // How each queued mesh is drawn (pass, culling, shadow), once for every pass below.
-        std::vector<SurfaceState> states;
+        // (These lists are kept between frames: a frame allocates nothing once they have grown.)
+        static std::vector<SurfaceState> states;
+        states.clear();
         states.reserve(s_Data->Queue.size());
         for (const DrawItem& item : s_Data->Queue)
             states.push_back(GetSurfaceState(item.Mat, item.Transform, item.CastShadows));
 
         // Frustum culling: what the camera sees (the shadow casters are culled per cascade below).
         const bool culling = s_Data->FrustumCulling;
-        std::vector<uint8_t> visible(s_Data->Queue.size(), 1);
+        static std::vector<uint8_t> visible;
+        visible.assign(s_Data->Queue.size(), 1);
         if (culling)
         {
             const Frustum cameraFrustum = Frustum::FromViewProjection(viewProj);
@@ -1318,7 +1376,8 @@ void main()
             RenderCommand::SetDepthWrite(true);
             RenderCommand::Clear();
             const uint32_t tile = cascades.TileSize;
-            std::vector<size_t> casters;
+            static std::vector<size_t> casters;
+            casters.clear();
             for (int c = 0; c < cascades.Count; c++)
             {
                 RenderCommand::SetViewport((c % cascades.AtlasTiles) * tile, (c / cascades.AtlasTiles) * tile, tile, tile);
@@ -1347,7 +1406,8 @@ void main()
                 // Casters with the same mesh (and cutout material) in one instanced draw: depth
                 // only, so the order does not change the result.
                 const bool instancing = s_Data->Instancing;
-                auto batches = GroupInstances(
+                static FlatBatches batches; // (kept between frames: no allocations)
+                GroupInstances(
                     casters.size(), MaxInstancesPerDraw,
                     [&](size_t k) { return instancing && !s_Data->Queue[casters[k]].MeshRef->IsSkinned(); },
                     [&](size_t k) {
@@ -1359,9 +1419,11 @@ void main()
                         bool alpha = states[casters[x]].AlphaTestedShadow;
                         return alpha == states[casters[y]].AlphaTestedShadow &&
                                SameShadowCaster(s_Data->Queue[casters[x]], s_Data->Queue[casters[y]], alpha);
-                    });
-                for (const std::vector<size_t>& batch : batches)
+                    },
+                    batches);
+                for (size_t b = 0; b < batches.Count(); b++)
                 {
+                    const std::span<const size_t> batch = batches.Batch(b);
                     const DrawItem& item = s_Data->Queue[casters[batch[0]]];
                     const SurfaceState& state = states[casters[batch[0]]];
                     bool skinned = item.MeshRef->IsSkinned();
@@ -1505,8 +1567,8 @@ void main()
             RenderCommand::SetWireframe(wireOnly);
             // Meshes that share the mesh, the material and the facing are drawn as instances of one
             // call (in the order of the first of them; alone they are drawn as before).
-            std::vector<size_t> passItems;
-            std::vector<InstanceCandidate> candidates;
+            static std::vector<size_t> passItems;
+            static std::vector<InstanceCandidate> candidates;
             for (SurfaceState::Pass pass : { SurfaceState::Pass::Opaque, SurfaceState::Pass::Cutout })
             {
                 passItems.clear();
@@ -1518,8 +1580,11 @@ void main()
                     passItems.push_back(i);
                     candidates.push_back({ item.MeshRef.get(), &item.Mat, item.MeshRef->IsSkinned(), states[i].Mirrored });
                 }
-                for (const std::vector<size_t>& batch : BuildInstanceBatches(candidates))
+                static FlatBatches batches;
+                BuildInstanceBatchesFlat(candidates, MaxInstancesPerDraw, batches);
+                for (size_t b = 0; b < batches.Count(); b++)
                 {
+                    const std::span<const size_t> batch = batches.Batch(b);
                     const SurfaceState& state = states[passItems[batch[0]]];
                     RenderCommand::SetCullMode(state.Cull);
                     if (batch.size() == 1)
@@ -1586,7 +1651,8 @@ void main()
         // behind them stays visible). Output is premultiplied by alpha.
         ZM_PROFILE_SCOPE("Shaffof sirtlar");
         std::vector<TransparentSortItem> sortItems;
-        std::vector<size_t> transparent;
+        static std::vector<size_t> transparent;
+        transparent.clear();
         s_Data->LastTransparent.clear();
         s_Data->LastTransparentViewProjection = viewProj;
         for (size_t i = 0; i < s_Data->Queue.size(); i++)

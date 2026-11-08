@@ -16,6 +16,9 @@
 //                     game's level, its pickups and labels look like to the batcher: each change of kind or a 17th
 //                     texture draws the batch)
 //   mixed2d-sorted    the same with BatchOrder off (the sorted order as it is): what it saves
+// --case loading: the textures and models of Projects/Showcase3D loaded at once (Load) and in the background
+// (AsyncLoader: LoadAsync, then frames with AsyncLoader::Update until everything is there) - how long the main thread
+// is blocked, the longest frame of it and the time until all is loaded.
 // For each: the CPU time of the frame (until everything is submitted) and the whole frame (glFinish: the GPU
 // done too) - average, median, p95, min, max ms - and what was drawn (draw calls, quads, meshes, instanced,
 // triangles). --json writes them (render-bench.json: the baseline in docs/Benchmarks.md was made with it).
@@ -272,6 +275,79 @@ namespace {
 
 }
 
+namespace {
+
+    // The image and model files of a project's assets.
+    void CollectLoadables(const std::filesystem::path& root, std::vector<std::filesystem::path>& images, std::vector<std::filesystem::path>& models)
+    {
+        std::error_code ec;
+        for (auto it = std::filesystem::recursive_directory_iterator(root, ec); !ec && it != std::filesystem::recursive_directory_iterator();
+             it.increment(ec))
+        {
+            if (!it->is_regular_file())
+                continue;
+            const std::string ext = FileSystem::GetExtension(it->path());
+            if (ext == ".png" || ext == ".jpg" || ext == ".jpeg")
+                images.push_back(it->path());
+            else if (ext == ".gltf" || ext == ".glb")
+                models.push_back(it->path());
+        }
+        std::sort(images.begin(), images.end());
+        std::sort(models.begin(), models.end());
+    }
+
+    // ZaminBench --render --case loading (see the top of the file).
+    void RunLoadingBench(Window& window)
+    {
+        using Clock = std::chrono::steady_clock;
+        auto ms = [](Clock::time_point a, Clock::time_point b) { return std::chrono::duration<double, std::milli>(b - a).count(); };
+        std::vector<std::filesystem::path> images, models;
+        CollectLoadables(std::filesystem::path(ZAMIN_SOURCE_DIR) / "Projects" / "Showcase3D" / "Assets", images, models);
+        std::printf("\nYuklash (Showcase3D): %zu rasm, %zu model\n", images.size(), models.size());
+        for (int round = 0; round < 2; round++)
+        {
+            const bool async = round == 1;
+            TextureLibrary::Clear();
+            Model::ClearCache();
+            AsyncLoader::SetEnabled(async);
+            AsyncLoader::ResetStats();
+            std::vector<Ref<Texture2D>> textures;
+            std::vector<Ref<Model>> loaded;
+            const auto start = Clock::now();
+            for (const auto& file : images)
+                textures.push_back(async ? TextureLibrary::LoadAsync(file) : TextureLibrary::Load(file));
+            for (const auto& file : models)
+                loaded.push_back(async ? Model::LoadAsync(file) : Model::Load(file));
+            const auto issued = Clock::now();
+            double longestFrame = ms(start, issued), blocked = ms(start, issued);
+            int frames = 0;
+            while (AsyncLoader::GetPendingCount() || AsyncLoader::GetPendingUploadCount())
+            {
+                const auto frameStart = Clock::now();
+                AsyncLoader::Update(4.0);
+                const double frameMs = ms(frameStart, Clock::now());
+                blocked += frameMs;
+                longestFrame = std::max(longestFrame, frameMs);
+                window.OnUpdate();
+                frames++;
+            }
+            RenderCommand::Finish();
+            const double total = ms(start, Clock::now());
+            size_t ready = 0;
+            for (const auto& t : textures)
+                ready += t && t->IsReady() ? 1 : 0;
+            for (const auto& m : loaded)
+                ready += m && !m->IsLoading() ? 1 : 0;
+            std::printf("  %-10s asosiy oqim band %.1f ms (eng uzun kadr %.1f ms, %d kadr), hammasi tayyor %.1f ms, tayyor %zu / %zu\n",
+                        async ? "fon (async)" : "darhol", blocked, longestFrame, frames, total, ready, textures.size() + loaded.size());
+        }
+        AsyncLoader::SetEnabled(false);
+        TextureLibrary::Clear();
+        Model::ClearCache();
+    }
+
+}
+
 int RunRenderBench(int argc, char** argv)
 {
     int sprites = 10000, meshes = 1000, frames = 120;
@@ -330,6 +406,13 @@ int RunRenderBench(int argc, char** argv)
     PostProcessHistory history;
 
     std::vector<RenderBenchResult> results;
+    if (only == "loading")
+    {
+        RunLoadingBench(window);
+        target.reset();
+        delete app;
+        return 0;
+    }
     for (const RenderBenchCase& c : MakeRenderCases())
     {
         if (!only.empty() && std::string(c.Name).find(only) == std::string::npos)

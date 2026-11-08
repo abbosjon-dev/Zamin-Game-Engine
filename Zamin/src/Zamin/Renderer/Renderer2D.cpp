@@ -558,6 +558,19 @@ void main()
 
     void Renderer2D::StartBatch() { ResetBatch(); }
 
+    // The uniform names made once: a name past 15 characters as a temporary std::string would be a heap
+    // allocation at every batch drawn (task 482).
+    namespace Uniform {
+        const std::string ViewProjection = "u_ViewProjection";
+        const std::string LinearTextures = "u_LinearTextures";
+        const std::string DisplayOutput = "u_DisplayOutput";
+        const std::string LightCount = "u_LightCount";
+        const std::string Ambient = "u_Ambient2D";
+        const std::string LightPosRadius = "u_LightPosRadius";
+        const std::string LightColor = "u_LightColor";
+        const std::string LightSpot = "u_LightSpot";
+    }
+
     // The 2D lights into a quad / text shader's uniforms (the shader is bound).
     static void UploadLighting(Shader& shader)
     {
@@ -571,11 +584,11 @@ void main()
             color[(size_t)i] = { light.Color, light.Falloff };
             spot[(size_t)i] = light.Spot ? glm::vec4(light.Direction, light.CosOuter, light.CosInner) : glm::vec4(1.0f, 0.0f, -2.0f, -2.0f);
         }
-        shader.SetInt("u_LightCount", count);
-        shader.SetFloat3("u_Ambient2D", l.Ambient);
-        shader.SetFloat4Array("u_LightPosRadius", posRadius.data(), (uint32_t)count);
-        shader.SetFloat4Array("u_LightColor", color.data(), (uint32_t)count);
-        shader.SetFloat4Array("u_LightSpot", spot.data(), (uint32_t)count);
+        shader.SetInt(Uniform::LightCount, count);
+        shader.SetFloat3(Uniform::Ambient, l.Ambient);
+        shader.SetFloat4Array(Uniform::LightPosRadius, posRadius.data(), (uint32_t)count);
+        shader.SetFloat4Array(Uniform::LightColor, color.data(), (uint32_t)count);
+        shader.SetFloat4Array(Uniform::LightSpot, spot.data(), (uint32_t)count);
     }
 
     // Each kind of the batch drawn and taken out of it (the next draw starts that kind afresh).
@@ -604,9 +617,9 @@ void main()
                     linearTextures |= 1 << i;
             }
         shader->Bind();
-        shader->SetMat4("u_ViewProjection", s_Data->ViewProjection);
-        shader->SetInt("u_LinearTextures", linearTextures);
-        shader->SetInt("u_DisplayOutput", s_Data->DisplayOutput);
+        shader->SetMat4(Uniform::ViewProjection, s_Data->ViewProjection);
+        shader->SetInt(Uniform::LinearTextures, linearTextures);
+        shader->SetInt(Uniform::DisplayOutput, s_Data->DisplayOutput);
         bool& lightingDirty = s_Data->TextBatch ? s_Data->TextLightingDirty : s_Data->LightingDirty;
         if (lightingDirty)
         {
@@ -627,8 +640,8 @@ void main()
         uint32_t dataSize = (uint32_t)((uint8_t*)s_Data->CircleVertexBufferPtr - (uint8_t*)s_Data->CircleVertexBufferBase);
         s_Data->CircleVertexBuffer->SetData(s_Data->CircleVertexBufferBase, dataSize);
         s_Data->CircleShader->Bind();
-        s_Data->CircleShader->SetMat4("u_ViewProjection", s_Data->ViewProjection);
-        s_Data->CircleShader->SetInt("u_DisplayOutput", s_Data->DisplayOutput);
+        s_Data->CircleShader->SetMat4(Uniform::ViewProjection, s_Data->ViewProjection);
+        s_Data->CircleShader->SetInt(Uniform::DisplayOutput, s_Data->DisplayOutput);
         RenderCommand::DrawIndexed(s_Data->CircleVertexArray, s_Data->CircleIndexCount);
         Renderer::GetStats().DrawCalls++;
         s_Data->CircleIndexCount = 0;
@@ -642,8 +655,8 @@ void main()
         uint32_t dataSize = (uint32_t)((uint8_t*)s_Data->LineVertexBufferPtr - (uint8_t*)s_Data->LineVertexBufferBase);
         s_Data->LineVertexBuffer->SetData(s_Data->LineVertexBufferBase, dataSize);
         s_Data->LineShader->Bind();
-        s_Data->LineShader->SetMat4("u_ViewProjection", s_Data->ViewProjection);
-        s_Data->LineShader->SetInt("u_DisplayOutput", s_Data->DisplayOutput);
+        s_Data->LineShader->SetMat4(Uniform::ViewProjection, s_Data->ViewProjection);
+        s_Data->LineShader->SetInt(Uniform::DisplayOutput, s_Data->DisplayOutput);
         RenderCommand::SetLineWidth(s_Data->LineWidth);
         RenderCommand::DrawLines(s_Data->LineVertexArray, s_Data->LineVertexCount);
         Renderer::GetStats().DrawCalls++;

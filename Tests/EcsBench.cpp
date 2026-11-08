@@ -306,6 +306,15 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
                                           sink += (double)s.Entities[i].GetComponent<TransformComponent>().Translation.y;
                                   }),
                n);
+    // The per-frame loops' way since task 484: the component's pool looked up once (HotStorages), not per entity.
+    report.Add("Scene.PoolGet", "Transform pool'i bir marta olinib (kesh), har biriga get",
+               Median<SceneState>(runs, full,
+                                  [&](SceneState& s) {
+                                      auto& pool = s.World->GetRegistry().storage<TransformComponent>();
+                                      for (Entity e : s.Entities)
+                                          sink += (double)pool.get((entt::entity)e).Translation.y;
+                                  }),
+               n);
     report.Add("Scene.TryGetComponent", "Entity::TryGetComponent<Rigidbody2D> (20 % bor)",
                Median<SceneState>(runs, full,
                                   [&sink](SceneState& s) {

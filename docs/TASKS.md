@@ -556,13 +556,13 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 
 ## M25 Optimallashtirish va sayqal
 
-- [ ] 481. Renderer2D batching optimallashtirish (kamroq flush)
-- [ ] 482. Kadrlararo ajratmalarni kamaytirish (per-frame allocations)
-- [ ] 483. World transform keshlash (dirty flag)
-- [ ] 484. ECS view'larni keshlash
-- [ ] 485. Font atlas keshlash va kerning
-- [ ] 486. Tekstura yuklashni fon oqimida (async)
-- [ ] 487. Model yuklashni fon oqimida
+- [x] 481. Renderer2D batching optimallashtirish (kamroq flush)
+- [x] 482. Kadrlararo ajratmalarni kamaytirish (per-frame allocations)
+- [x] 483. World transform keshlash (dirty flag)
+- [x] 484. ECS view'larni keshlash
+- [x] 485. Font atlas keshlash va kerning
+- [x] 486. Tekstura yuklashni fon oqimida (async)
+- [x] 487. Model yuklashni fon oqimida
 - [ ] 488. Shader'larni keshlash (program binary)
 - [ ] 489. Uniform'larni UBO'ga ko'chirish
 - [ ] 490. Shadow pass'da culling

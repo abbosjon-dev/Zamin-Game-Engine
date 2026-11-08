@@ -22,20 +22,20 @@ namespace Zamin {
         void Bind() const override { glUseProgram(m_RendererID); }
         void Unbind() const override { glUseProgram(0); }
 
-        void SetInt(const std::string& name, int value) override { glUniform1i(Loc(name), value); }
-        void SetIntArray(const std::string& name, const int* values, uint32_t count) override { glUniform1iv(Loc(name), (GLsizei)count, values); }
-        void SetFloat(const std::string& name, float value) override { glUniform1f(Loc(name), value); }
-        void SetFloat2(const std::string& name, const glm::vec2& v) override { glUniform2f(Loc(name), v.x, v.y); }
-        void SetFloat3(const std::string& name, const glm::vec3& v) override { glUniform3f(Loc(name), v.x, v.y, v.z); }
-        void SetFloat4(const std::string& name, const glm::vec4& v) override { glUniform4f(Loc(name), v.x, v.y, v.z, v.w); }
-        void SetFloat4Array(const std::string& name, const glm::vec4* values, uint32_t count) override
+        void SetInt(std::string_view name, int value) override { glUniform1i(Loc(name), value); }
+        void SetIntArray(std::string_view name, const int* values, uint32_t count) override { glUniform1iv(Loc(name), (GLsizei)count, values); }
+        void SetFloat(std::string_view name, float value) override { glUniform1f(Loc(name), value); }
+        void SetFloat2(std::string_view name, const glm::vec2& v) override { glUniform2f(Loc(name), v.x, v.y); }
+        void SetFloat3(std::string_view name, const glm::vec3& v) override { glUniform3f(Loc(name), v.x, v.y, v.z); }
+        void SetFloat4(std::string_view name, const glm::vec4& v) override { glUniform4f(Loc(name), v.x, v.y, v.z, v.w); }
+        void SetFloat4Array(std::string_view name, const glm::vec4* values, uint32_t count) override
         {
             glUniform4fv(Loc(name), (GLsizei)count, glm::value_ptr(values[0]));
         }
-        void SetMat3(const std::string& name, const glm::mat3& m) override { glUniformMatrix3fv(Loc(name), 1, GL_FALSE, glm::value_ptr(m)); }
-        void SetMat4(const std::string& name, const glm::mat4& m) override { glUniformMatrix4fv(Loc(name), 1, GL_FALSE, glm::value_ptr(m)); }
+        void SetMat3(std::string_view name, const glm::mat3& m) override { glUniformMatrix3fv(Loc(name), 1, GL_FALSE, glm::value_ptr(m)); }
+        void SetMat4(std::string_view name, const glm::mat4& m) override { glUniformMatrix4fv(Loc(name), 1, GL_FALSE, glm::value_ptr(m)); }
 
-        void SetMat4Array(const std::string& name, const glm::mat4* m, uint32_t count) override
+        void SetMat4Array(std::string_view name, const glm::mat4* m, uint32_t count) override
         {
             glUniformMatrix4fv(Loc(name), (GLsizei)count, GL_FALSE, glm::value_ptr(m[0]));
         }
@@ -44,15 +44,22 @@ namespace Zamin {
         bool IsValid() const override { return m_RendererID != 0; }
 
     private:
-        GLint Loc(const std::string& name)
+        GLint Loc(std::string_view name)
         {
-            auto it = m_LocationCache.find(name);
+            auto it = m_LocationCache.find(name); // (no std::string made to look it up)
             if (it != m_LocationCache.end())
                 return it->second;
-            GLint location = glGetUniformLocation(m_RendererID, name.c_str());
-            m_LocationCache[name] = location;
+            std::string key(name);
+            GLint location = glGetUniformLocation(m_RendererID, key.c_str());
+            m_LocationCache.emplace(std::move(key), location);
             return location;
         }
+
+        struct NameHash
+        {
+            using is_transparent = void;
+            size_t operator()(std::string_view name) const { return std::hash<std::string_view>()(name); }
+        };
 
         static GLuint CompileStage(GLenum type, const std::string& source, const std::string& shaderName)
         {
@@ -115,7 +122,7 @@ namespace Zamin {
     private:
         uint32_t m_RendererID = 0;
         std::string m_Name;
-        std::unordered_map<std::string, GLint> m_LocationCache;
+        std::unordered_map<std::string, GLint, NameHash, std::equal_to<>> m_LocationCache;
     };
 
     Ref<Shader> Shader::Create(const std::string& name, const std::string& vertexSrc, const std::string& fragmentSrc)

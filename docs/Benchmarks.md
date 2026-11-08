@@ -161,6 +161,87 @@ Qanday o'qish kerak: yuklash vaqtining ~60 % i JSON tahlili (binar kesh uni ~3 m
 o'yin `.zsceneb` dan yuklaydi); qolgani obyektlarni yaratish. Eng qimmat komponentlar - ParticleSystem (barcha
 modullar sozlamalari) va MeshRenderer (material); obyektning o'zi (4 majburiy komponent) yuklashda eng katta ulush.
 
+## M25 optimallashtirish: oldin va keyin
+
+Muhit: yuqoridagi kompyuter, **Release** (`build-m25rel`), llvmpipe, xvfb. "Oldin" - M25 boshidagi commit (`37d2916`)
+build'i, "keyin" - 481-487 vazifalaridan keyingi build; ikkalasi bir xil benchmark kodi bilan (oldingi build'ning
+`ZaminBench` va `libZamin.so` nusxasi saqlab qo'yilgan edi). llvmpipe ostidagi og'ir 3D holatlar ±10 % tebranadi, shuning
+uchun vaqtlar juft-juft (oldin, keyin, oldin, keyin) o'lchandi. Yangi o'lchovlar:
+
+- `ZaminBench --render`: har holat uchun **ajratma / kadr** (kadr yuborilguncha `operator new` chaqiruvlari,
+  `Tests/AllocCounter.h`; `ZAMIN_ALLOC_TRACE=<n>` ularning chaqiruv steklarini chiqaradi), 2D batch'lar nega erta
+  chizilgani (`Flush2DTextures` / `Flush2DKind` / `Flush2DState`) va `BatchOrder` ko'chirgan chizishlar; yangi
+  `mixed2d` holati (1 000 katak: 24 teksturali sprite, doira, matn navbatma-navbat, chuqurlik bo'yicha aralashgan) va
+  uning `BatchOrder` siz nusxasi `mixed2d-sorted`; `--case loading` - fon yuklash.
+- `ZaminBench --ecs`: UpdateRuntime kadrlarining ajratmalari, `GetWorldTransform` qayta so'ralganda va ildizlar
+  siljiganda, komponent pool'idan to'g'ridan-to'g'ri o'qish.
+- `ZaminBench --fonts` (`Tests/FontBench.cpp`): shrift atlasini rasterlash va diskdagi keshdan o'qish, glif qidirish,
+  kerning bilan va kerningsiz matn joylash.
+
+### 2D batching (481)
+
+`mixed2d`, bitta build, `BatchOrder` o'chiq / yoqiq:
+
+| | Draw call | Batch bo'linishi (tur / tekstura / holat) | CPU ms (o'rtacha) | Kadr ms, GPU bilan |
+|---|---:|---|---:|---:|
+| `BatchOrder` siz (saralangan tartib) | 670 | 667 / 0 / 0 | 15.98 | 22.95 |
+| `BatchOrder` bilan | **65** | 62 / 0 / 0 (431 chizish ko'chirildi) | **10.14** | **17.03** |
+
+Rasm o'zgarmaydi: faqat ekranda ustma-ust tushmaydigan chizishlar suriladi (`ZaminRenderTests` 12/12, farq 0);
+24 teksturali sprite qatori bo'lganda (eski `mixed2d` varianti) 22 ta "17-tekstura" bo'linishi teksturaga guruhlash bilan
+yo'qoladi. `sprites` (10 000 sprite, 3 draw call) o'zgarmadi - u yerda batch allaqachon bitta edi.
+
+### Kadrlararo ajratmalar (482)
+
+| Holat | Oldin (ajratma / kadr) | Keyin | Nima o'zgardi |
+|---|---:|---:|---|
+| `sprites` (10 000) | 10 023 | **2** | dunyo transformlari kadr uchun `unordered_map` da emas, sahna keshida; 2D ro'yxati saqlanadi |
+| `meshes` (1 000, instancing) | 1 504 | **6** | instancing guruhlari tekis ro'yxatda (`FlatBatches`), `EndScene` ro'yxatlari saqlanadi |
+| `meshes-noinst` | 7 105 | **6** | + shader uniform nomlari `std::string_view` (16+ belgili nom har chaqiruvda `std::string` edi) |
+| `combined` | 11 522 | **7** | yuqoridagilarning hammasi |
+| `mixed2d` (eski variant) | 2 998 | **2** | + matn joylash keshi (`TextComponent::GetWorldLayout`), Renderer2D uniform nomlari |
+| ECS: bo'sh kadr / 1 000 skript / 500+500 obyekt | 0 / 11 / 1 518 | 0 / 11 / 1 518 | (UpdateRuntime: obyekt yaratish va o'chirish o'z tabiati bilan ajratadi) |
+
+Vaqt (juft o'lchov): `meshes-noinst` CPU 149.0 / 149.6 -> 141.4 / 142.7 ms (~5 %); `sprites` 25.0 / 25.2 -> 24.6 / 25.3 ms
+(shovqin ichida - u yerda vaqtni rasterizatsiya oladi). Qaytmasligi uchun `SteadyFramesMakeNoHeapAllocations` testi:
+qizdirilgan sahna kadri (300 obyekt, ierarxiya) `UpdateRuntime` + `GetWorldTransform` da birorta ham ajratma qilmaydi.
+
+### Dunyo transformi keshi va pool'lar (483, 484)
+
+| Amal (10 000 obyekt, chuqurlik 2) | Oldin ns / ta | Keyin ns / ta |
+|---|---:|---:|
+| `GetWorldTransform` birinchi marta | 221 | 125 |
+| `GetWorldTransform` yana, hech narsa qimirlamagan | 221 (har safar hisoblanardi) | **33** |
+| guruh ildizlari siljigandan keyin | 221 | 114 |
+| `Entity::GetComponent<Transform>` (har safar pool qidiruvi) / pool bir marta olinib | 6.6 | **1.7** |
+
+Kesh obyektning Translation / Rotation / Scale qiymatini, ota-onasini va ota-onasining versiyasini solishtiradi - skript
+`Transform()` ga to'g'ridan-to'g'ri yozsa ham, ota-ona almashsa ham, obyekt o'chib uning o'rni qayta ishlatilsa ham to'g'ri
+(`WorldTransformCacheFollowsChanges`). Suyakka biriktirilganlar (animator pozasi) va ishchi oqimlar keshsiz hisoblaydi.
+Render tsikllari (`RenderScene` 2D qismi) komponent pool'larini bir marta oladi (`Scene::HotStorages`).
+
+### Shriftlar (485)
+
+| | Oldin | Keyin |
+|---|---:|---:|
+| Asosiy atlas (2048 px, 600+ glif, 2x2) | 45.0 ms rasterlash | **2.4 ms** keshdan o'qish (1.87 MB fayl) |
+| Glif qidirish | 4.46 ns (hash xarita) | 3.46 ns (to'g'ridan-to'g'ri jadval; Debug: 65.6 -> 13.0) |
+| Matn joylash, 24 px, so'z o'rash | 16.6 ns / belgi | 15.9 ns / belgi kerning bilan (juftlik keshi) |
+| "AVATAR To'p Yer" kengligi, 24 px | 171.5 px | 161.2 px kerning yoqilganda (AV -0.062 em) |
+
+Kerning odatda o'chiq - render rasmlari o'zgarmadi; shrift `.zmeta` sida `"Import": { "Kerning": true }` yoqadi.
+
+### Fon yuklash (486, 487)
+
+`ZaminBench --render --case loading`: Showcase3D'ning 27 rasmi va 4 modeli (bo'sh keshdan):
+
+| | Asosiy oqim band | Eng uzun kadr | Hammasi tayyor |
+|---|---:|---:|---:|
+| Darhol (`Load`) | 103.8 ms | 103.8 ms (bitta kadr) | 103.8 ms |
+| Fonda (`LoadAsync` + `AsyncLoader::Update(4 ms)`) | 39.1 ms (9 kadrga bo'lingan) | **6.9 ms** | **50.3 ms** |
+
+Dekodlash va glTF tahlili 3 ishchi oqimda parallel ketadi; asosiy oqimda faqat GPU'ga yuklash qoladi.
+
 ## Natijalarni saqlash va solishtirish (`Tests/bench.sh`)
 
 `Tests/bench.sh` headless benchmarklarni (ECS, serializatsiya, prefablar) ishga tushiradi va natijalarni
@@ -189,5 +270,6 @@ ZAMIN_BUILD_DIR=build-release Tests/bench.sh --update-baseline
 | `ZaminBench --queries` | sahna qidiruvlari (nom, teg, komponent indekslari) |
 | `ZaminBench --serialize --prefabs` | bog'langan prefab nusxalari (saqlash, yuklash, sinxronlash, Apply; `Tests/Baselines/prefabs-release.json`) |
 | `ZaminBench --nav` | navigatsiya (bake, yo'l qidirish, Nav Agent'lar) |
+| `ZaminBench --fonts` | shrift atlasi: rasterlash va diskdagi kesh, glif qidirish, kerning bilan matn joylash |
 | `Tests/player_bench.sh` | namuna o'yinlarning boshlang'ich sahnalari ZaminPlayer'da (ms / kadr, p95, p99) |
 | `Tests/samples_bench.py` | to'qqiz namuna o'yin bot o'ynayotganda: kadr vaqti, eng sekin kadr va uning profili, obyektlar soni, o'yin kodining CPU vaqti, byudjetlar (`--check`) — natija va topilgan muammolar: [Samples.md](Samples.md#ishlash-tezligi) |

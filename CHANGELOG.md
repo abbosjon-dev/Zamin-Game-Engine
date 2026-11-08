@@ -11,9 +11,27 @@ Dvigatel versiyasi: **0.1.0** (`project(Zamin VERSION ...)`, hali reliz qilinmag
 "Optimallashtirish va sayqal" — [docs/TASKS.md](docs/TASKS.md) da. Yangi milestone'ning
 vazifalari bajarila boshlaganda unga bo'lim qo'shing ([CONTRIBUTING.md](CONTRIBUTING.md#9-vazifalar-royxati-va-changelog)).
 
+## M25 Optimallashtirish va sayqal
+
+2026-11-08 · vazifalar 481–500 · `670faf9` dan boshlab (so'nggi milestone)
+
+- **2D batch tartibi** (`BatchOrder`): ekranda ustma-ust tushmaydigan sprite / doira / matnlar o'z turidagi batch yoniga
+  ko'chiriladi (rasm bir xil), ko'p teksturali sprite qatorlari tekstura bo'yicha guruhlanadi; batch nega erta chizilgani
+  statistikasi (`Flush2DTextures`, `Flush2DKind`, `Flush2DState`). `mixed2d` benchmark: 670 -> 65 draw call.
+- **Kadrlararo ajratmalar**: `Tests/AllocCounter` (operator new hisoblagichi, `ZAMIN_ALLOC_TRACE`) bilan o'lchab
+  kamaytirildi - 10 000 sprite kadri 10 023 -> 2 ajratma, 1 000 mesh 1 504 -> 6 (instancing'siz 7 105 -> 6): dunyo
+  transformi keshi, 2D ro'yxatlar va instancing guruhlari kadrlar orasida saqlanadi, shader uniform nomlari
+  `std::string_view`, matn joylash keshi.
+- **Dunyo transformi keshi** (o'zgarishni qiymatlarni solishtirib topadi, ierarxiyaga mos) va komponent pool'lari keshi:
+  `GetWorldTransform` qayta so'ralganda 221 -> 33 ns.
+- **Shriftlar**: yasalgan atlaslar diskda (`FontAtlasCache`: 45 ms rasterlash o'rniga 2.4 ms o'qish), glif jadvali,
+  ixtiyoriy **kerning** (GPOS juftliklari, `.zmeta` `Import.Kerning`, shrift inspektorida belgi).
+- **Fon yuklash** (`AsyncLoader`): `TextureLibrary::LoadAsync`, `Model::LoadAsync` - fayl ishchi oqimda o'qiladi,
+  GPU'ga asosiy oqimda har kadr ~4 ms; editor sahnalarni shunday ochadi, avtomatik suratlar darhol yuklaydi.
+
 ## M24 Namuna o'yinlar
 
-2026-11-08 · vazifalar 461–480 · `5623496` dan boshlab (so'nggi milestone)
+2026-11-08 · vazifalar 461–480 · 18 ta commit (`5623496` … `37d2916`)
 
 - Yangi namuna loyihalar (har biri o'z `.zproject`, `Assets/`, C++ skriptlar moduli `Source/` bilan, ildiz build'da):
   **Neon Maydon** (`Projects/TopDownShooter`: twin-stick kema, siltanish, 5 xil dushman, to'lqinlar, hisob va kombo,

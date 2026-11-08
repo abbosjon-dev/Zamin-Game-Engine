@@ -286,6 +286,12 @@ JobSystem::Wait(build);                                                // kutayo
 - **O'chirish** (hamma ish chaqirgan oqimda, tartib bilan): `JobSystem::SetEnabled(false)`, `ZAMIN_JOBS=0`,
   playerda `--jobs 0`, `ApplicationSpecification::JobWorkers`. Profilerda ishlar "Ishchi N" tugunlari ostida.
 
+**Fon yuklash** (`Zamin/Asset/AsyncLoader.h`) shu tizim ustida: `AsyncLoader::Enqueue(nom, ish, tugatish)` — `ish`
+ishchi oqimda (GPU va sahnaga tegmaydi), `tugatish` asosiy oqimda `AsyncLoader::Update(byudjet_ms)` ichida (ilova har
+kadr chaqiradi). Ishchi oqimda yasalgan tekstura va meshlar GPU obyektisiz qoladi (`AsyncLoader::DeferGPU`) va `Update`
+ularni byudjet ichida yuklaydi. `Wait(id)`, `WaitAll()` — kutish; o'chiq bo'lsa (`SetEnabled(false)`, testlar va
+`ZAMIN_SCREENSHOT` / `ZAMIN_MAX_FRAMES`) `LoadAsync` lar darhol yuklaydi.
+
 ## 10. Xotira statistikasi (MemoryStats)
 
 `Zamin/Core/MemoryStats.h`. Kategoriyalar: teksturalar, render buferlari, mesh buferlari, audio, sahnalar,

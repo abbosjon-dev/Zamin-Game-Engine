@@ -430,6 +430,19 @@ void OnMessage(const ScriptMessage& m) override
   cutout) bitta `glDrawElementsInstanced` chaqiruvida; soya kaskadlarida ham. Ko'p bir xil obyekt uchun material
   **nusxasi** emas, umumiy asset ishlating — nusxalar instancing'ni buzadi.
 - **Animatsiya kesish** — ko'rinmaydigan modellar pozalanmaydi ([Animation.md](Animation.md#16-samaradorlik-keshlash-va-kesish)).
+- **2D batch tartibi** (`BatchOrder`) — saralangan 2D ro'yxatda sprite, doira va matnlar navbatma-navbat kelsa, har
+  almashuv Renderer2D batch'ini chizdirardi. Endi ekranda **ustma-ust tushmaydigan** chizishlar o'z turidagi oldingisi
+  yoniga ko'chiriladi (bir-birini yopadiganlarning tartibi o'zgarmaydi — rasm bit-bitgacha bir xil); 15 tadan ko'p
+  tekstura ishlatgan sprite qatorlari teksturasi bo'yicha guruhlanadi. Statistika: `Flush2DTextures`, `Flush2DKind`,
+  `Flush2DState` (batch nega erta chizildi) va `Reordered2DCount`; solishtirish uchun `BatchOrder::SetEnabled(false)`.
+  O'lchov: [Benchmarks.md](Benchmarks.md#m25-optimallashtirish-oldin-va-keyin).
+- **Dunyo transformi keshi** — `Scene::GetWorldTransform` natijasi saqlanadi va faqat obyektning Translation /
+  Rotation / Scale qiymati, ota-onasi yoki ota-onasining dunyo transformi o'zgarganda qayta hisoblanadi (skript
+  `Transform()` ga to'g'ridan-to'g'ri yozsa ham sezadi); chizish va fizika har kadr shu keshdan o'qiydi.
+- **Fon yuklash** (`AsyncLoader`) — editorda sahna ochilganda tekstura va modellar ishchi oqimlarda o'qiladi, GPU'ga
+  asosiy oqimda har kadr ~4 ms yuklanadi; shu payt tekstura o'rnida shaffof belgi, model esa chizilmaydi
+  (`TextureLibrary::LoadAsync`, `Model::LoadAsync`, `IsReady()` / `IsLoading()`). Avtomatik suratlar
+  (`ZAMIN_SCREENSHOT`, `ZAMIN_MAX_FRAMES`) va player odatda darhol yuklaydi; `ZAMIN_ASYNC_LOAD=0 / 1` majburlaydi.
 - **Render masshtabi** — sekin GPU'da 0.75 ham sezilarli tezlashtiradi.
 - **Sifat darajalari** (*Loyiha sozlamalari > Sifat*, `Quality`): sahna so'ragan soya, SSAO, bloom, FXAA, avto ekspozitsiya,
   render masshtabi va tekstura o'lchamini cheklaydi (Low / Medium / High / Ultra yoki o'zingizniki). O'yindagi menyudan:

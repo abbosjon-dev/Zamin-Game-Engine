@@ -76,6 +76,13 @@ def in_order(description, patterns):
     return (description, check)
 
 
+def absent(description, pattern):
+    def check(text):
+        m = re.search(pattern, text)
+        return not m, (m.group(0)[:90] if m else "yo'q")
+    return (description, check)
+
+
 def present(description, pattern):
     def check(text):
         m = re.search(pattern, text)
@@ -162,13 +169,13 @@ CASES = [
     # ---- FPS Arena
     Case("FPSArena", "demo", 700, [
         at_least("parkur aylanalari", r"Demo yakuni: (\d+) ta aylana", 1),
-        count_at_least("nazorat nuqtalari", r"Demo: \d+-nuqta", 4),
-        at_least("urilgan nishonlar", r"(\d+) ta nishon urildi", 5, last=True),
+        count_at_least("nazorat nuqtalari", r"Demo: \d+-nuqta", 6),
+        at_least("urilgan nishonlar", r"(\d+) ta nishon urildi", 4, last=True),
         at_least("ochko", r"ochko (\d+), aniqlik", 100, last=True),
     ], env={"ZAMIN_DEMO": "1"}),
     menu_case("FPSArena", r"FPS Arena: o'yin boshlandi \(parkur\)", downs=3),
     # ---- Omborchi (Sokoban)
-    Case("Sokoban", "demo", 700, [
+    Case("Sokoban", "demo", 800, [
         count_at_least("yechilgan darajalar", r"Demo: \d+-daraja yechildi", 3),
         count_at_least("yechuvchi yechim topdi", r"Demo: \d+-daraja yechimi topildi", 3),
         count_at_least("orqaga qaytarish (undo)", r"Demo: orqaga qaytarildi \(undo\)", 1),
@@ -176,9 +183,10 @@ CASES = [
     *sokoban_menus(),
     # ---- Ipak Yo'li (endless runner)
     Case("EndlessRunner", "demo", 700, [
-        at_least("masofa (m)", r"Demo: (\d+) m, ", 250),
-        at_least("tangalar", r"(\d+) tanga", 10, last=True),
-        at_least("tezlik oshdi (m/s)", r"tezlik (\d+\.\d) m/s", 13.0),
+        at_least("masofa (m)", r"Demo yakuni: \d+ ta yugurish, oxirgisi (\d+) m", 400),
+        at_least("tangalar", r"Demo yakuni: .*, (\d+) tanga", 30),
+        at_least("tezlik oshdi (m/s)", r"tezlik (\d+\.\d) m/s", 15.0),
+        absent("bot to'siqqa urilmadi", r"Demo: yiqildi.*"),
     ], env={"ZAMIN_DEMO": "1"}),
     # Nobody steers: the runner hits the first obstacle - the results panel ("Qaytadan" selected; Down: "Bosh menyu").
     Case("EndlessRunner", "menus", 420, [
@@ -195,6 +203,12 @@ CASES = [
     menu_case("Racing", r"Vodiy Poygasi: poyga boshlandi"),
     # ---- the older samples
     Case("Platformer2D", "smoke", 150, [present("sahna yuklandi", r"Sahna yuklash vaqti")]),
+    # Menu.zscene: Enter on "O'ynash" - the loading screen loads Level1 in the background and switches; Esc: pause.
+    Case("Platformer2D", "menus", 200, [
+        in_order("menyu -> yuklanish ekrani -> 1-daraja -> pauza",
+                 [r"O'yin menyusi: '.*' ochilmoqda", r"Yuklanish ekrani: 'Scenes/Level1.zscene' tayyor", r"O'yinchi tayyor", r"APP: Pauza"]),
+    ], env={"ZAMIN_PLAYER_INPUT": keys((30, "Enter"), (150, "Escape"))}, scene="Scenes/Menu.zscene",
+        note="Menu.zscene dan: O'ynash -> Loading -> Level1 (fon oqimida yuklash), Esc - pauza"),
     Case("Showcase3D", "smoke", 120, [present("sahna yuklandi", r"Sahna yuklash vaqti")]),
     Case("Adventure3D", "smoke", 150, [present("qahramon tayyor", r"Qahramon tayyor")]),
 ]

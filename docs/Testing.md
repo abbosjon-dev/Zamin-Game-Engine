@@ -14,6 +14,7 @@ faqat `Tests/*.sh` skriptlarini chaqiradi. Raqamlar va o'lchangan natijalar: [Qu
 | Editor UI (panel, menyu, popup, inspektor) | `Tests/editor_smoke.sh` | ~3 daqiqa |
 | Skript tizimi, modul yuklash | `Tests/hot_reload_test.sh` | ~20 s |
 | Eksport, player, ishga tushirish skripti | `Tests/export_test.sh` (bitta o'yin), `Tests/package_games.sh` (uchala o'yin + paketlar) | 1-5 daqiqa |
+| Namuna o'yin (skript, sahna, generator) yoki ular ishlatadigan engine qismi | `Tests/samples_test.py --game <O'yin>` (hammasi: argumentsiz), `Tests/samples_assets.py --regen` | 1-4 daqiqa bir o'yinga, ~20 daqiqa hammasi; ~20 s |
 | Xotira, ko'rsatkichlar, egalik | `Tests/sanitize.sh address --smoke` (`--editor-smoke`), `Tests/sanitize.sh undefined` | 20-40 daqiqa (build bilan) |
 | Tezlikka ta'sir qiladigan o'zgarish | `Tests/bench.sh --compare`, `Tests/render_bench.sh`, `Tests/player_bench.sh` | 1-5 daqiqa (Release) |
 | Yangi kod, testlar yetarlimi | `Tests/coverage.sh` (`--gui`) | ~25 daqiqa |
@@ -25,7 +26,7 @@ Displey bo'lmasa (SSH, CI) GUI testlari o'zlari `xvfb-run` ni ishlatadi (`sudo a
 
 ## 1. Unit testlar - `ZaminTests`
 
-`Tests/ZaminTests.cpp` (+ `Tests/TestFramework.h/.cpp`): **628 test**, GPU va oynasiz (headless) ishlaydi - engine
+`Tests/ZaminTests.cpp` (+ `Tests/TestFramework.h/.cpp`): **631 test**, GPU va oynasiz (headless) ishlaydi - engine
 kutubxonasi (`libZamin.so`) bilan bog'langan oddiy dastur. Sahna, ECS, serializatsiya, prefab'lar, skriptlar va
 ularning maydonlari, 2D/3D fizika, animatsiya, particle'lar, UI, audio, navigatsiya va AI, loyiha sozlamalari, player
 sozlamalari, editor mantiqi (panelsiz qismlari), matematika va yordamchi kutubxonalar. To'liq ro'yxat - quyida,
@@ -143,6 +144,58 @@ Tests/export_test.sh --project Projects/Adventure3D --frames 60 --keep
 Tests/package_games.sh --out dist                      # uchala o'yin -> dist/*.tar.gz
 ```
 
+## 5a. Namuna o'yinlar testi
+
+`Tests/samples_test.py` to'qqizala namunani `ZaminPlayer` da headless ishga tushiradi (displey bo'lmasa xvfb) va
+logiga qarab tekshiradi:
+
+- **demo**: oltita M24 o'yini `ZAMIN_DEMO=1` bilan ishga tushadi va ularni bot o'ynaydi. Jurnaldagi `Demo: ...`
+  qatorlari natija bo'lishini ko'rsatishi kerak:
+  - Neon Maydon: hisob, o'ldirilgan dushmanlar, 2-to'lqin, kombo;
+  - Breakout: 1-daraja tugab, 2-daraja boshlanadi (`level6` holati: `ZAMIN_START_LEVEL=6` bilan oxirgi daraja);
+  - FPS Arena: parkur aylanasi, nazorat nuqtalari, urilgan nishonlar;
+  - Omborchi: kamida 3 ta yechilgan daraja va undo;
+  - Ipak Yo'li: kamida 400 m masofa, bot hech narsaga urilmaydi;
+  - Vodiy Poygasi: birinchi aylana tugaydi.
+- **menus**: bot yo'q, tugmalarni `ZAMIN_PLAYER_INPUT` bosadi. Bosh menyuda Enter ("O'ynash" tanlangan bo'ladi),
+  so'ng Esc — pauza, yana Esc — o'yin davom etadi, keyin pauza menyusidan "Bosh menyu". Omborchi va Ipak Yo'li
+  holatlarida natija oynasi ham ochiladi. O'yinlar har panel uchun jurnalga `Menyu: bosh menyu` / `pauza` /
+  `pauza yopildi` / `natijalar` yozadi, test shu qatorlarning tartibini tekshiradi. Platformer2D'da `Menu.zscene` dan
+  yuklanish ekrani orqali 1-darajaga o'tiladi.
+- **smoke**: uchta eski namuna (Platformer2D, Showcase3D, Adventure3D) ishga tushadi va sahnasi yuklanadi.
+
+Har bir ishga tushirishda yana quyidagilar tekshiriladi:
+
+- chiqish kodi 0;
+- logda `ERROR` / `CRITICAL` qatori yo'q;
+- skript moduli yuklangan;
+- oxirgi kadr rasmi bir xil rangdan iborat emas (`Tests/png_check.py`).
+
+O'yin soati qat'iy: `ZAMIN_CAPTURE_FPS=20` (`--capture-fps`) bilan har kadr aniq 1/20 s
+(`Time::SetCaptureFrameRate`), shuning uchun N kadr har kompyuterda bir xil o'yin vaqtiga teng. Botlar
+urug'langan tasodifiy sonlar bilan o'ynaydi, demak natija sekin yoki tez kompyuterda bir xil chiqadi. Har ishga
+tushirish yangi `HOME` bilan bo'ladi (saqlangan rekord va sozlamalar yo'q). Hisobot `report.json` ga yoziladi,
+`--out` papkasida loglar va rasmlar qoladi.
+
+`Tests/samples_assets.py` (displeysiz, ~1 s) oltita M24 o'yinining protsedurali assetlarini tekshiradi:
+
+- `Assets/` hajmi 2 MiB dan oshmaydi;
+- har asset `.zmeta` ga ega, UUID'lar takrorlanmaydi;
+- PNG va WAV fayllar to'g'ri: 16-bit PCM, jim emas, kesilmagan;
+- sahna, loyiha fayli va skriptlar nomlagan har bir fayl mavjud, har ovoz va tekstura biror joyda ishlatiladi.
+
+`--regen` bilan har generator (`Tools/samples/gen_*.py`) vaqtinchalik papkaga (`ZAMIN_SAMPLES_OUT`) ishga tushiriladi
+va natija repozitoriydagi fayllar bilan baytma-bayt solishtiriladi. Bu assetlar haqiqatan generatordan chiqqanini
+va qayta hosil qilinishini isbotlaydi (numpy kerak).
+
+```bash
+Tests/samples_test.py                              # hammasi (~20 daqiqa, llvmpipe)
+Tests/samples_test.py --game Racing --kind menus   # bitta o'yinning bitta holati
+Tests/samples_test.py --list                       # holatlar va tekshiruvlar
+Tests/samples_test.py --out build/SampleTests --frames-scale 2
+Tests/samples_assets.py --regen --verbose          # assetlar jadvali + generatorlar bilan solishtirish
+```
+
 ## 6. Sanitizerlar
 
 `Tests/sanitize.sh <address|undefined|leak|thread>` alohida papkada (`build-asan`, `build-ubsan`, ...) sanitizer bilan
@@ -241,9 +294,12 @@ qo'riqlaydi: butun kod bazada o'zgaradigan qatorlar 3.5 % dan oshmasligi kerak (
 | `EditorSmoke` | `gui;slow` | `Tests/editor_smoke.sh` |
 | `ScriptHotReload` | `gui;slow` | `Tests/hot_reload_test.sh` |
 | `ExportTest` | `gui;slow` | `Tests/export_test.sh` (Platformer2D) |
+| `SampleAssets` | `samples` | `Tests/samples_assets.py` - namuna o'yinlarning protsedurali assetlari |
+| `Sample<O'yin>` (9 ta: `SampleTopDownShooter` ... `SampleAdventure3D`) | `samples;gui;slow` | `Tests/samples_test.py --game <O'yin>` (loglar va rasmlar `build/SampleTests/<O'yin>`) |
 
 `ctest --test-dir build -LE gui` - tezkorlari (CI'dagi "Unit tests" qadami), `ctest --test-dir build -L gui` - GUI
-testlari (ketma-ket, displey yoki xvfb kerak).
+testlari (ketma-ket, displey yoki xvfb kerak), `ctest --test-dir build -L samples` - namuna o'yinlar (yoki
+`cmake --build build --target samples_test`).
 
 ## CI (`.github/workflows/linux.yml`)
 

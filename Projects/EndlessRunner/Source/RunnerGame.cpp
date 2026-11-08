@@ -524,6 +524,7 @@ RunnerGame::Hazard RunnerGame::FindHazard(int lane, float z, float range) const
             best.Found = true;
             best.Distance = d;
             best.Kind = item.Obstacle;
+            best.Length = item.Length;
             best.AllLanes = item.Lane == AllLanes;
         }
     }

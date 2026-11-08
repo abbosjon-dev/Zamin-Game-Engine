@@ -13,7 +13,17 @@ renderer RHI interfeyslari orqasida, platformaga xos kod `Platform/` papkasida (
 |---|---|---|
 | ![Platformer2D](docs/images/game-platformer2d.jpg) | ![Showcase3D](docs/images/game-showcase3d.jpg) | ![Adventure3D](docs/images/game-adventure3d.jpg) |
 
-*Uchala namuna o'yin `Projects/` papkasida; rasmlar `ZaminPlayer` dan headless olingan.*
+*Namuna o'yinlar `Projects/` papkasida; rasmlar `ZaminPlayer` dan headless olingan. Har bir namunaning README'si
+bor (boshqaruv, ko'rsatilgan imkoniyatlar, kod bo'ylab sayohat):*
+[Neon Maydon](Projects/TopDownShooter/README.md) ·
+[Zamin Breakout](Projects/Breakout/README.md) ·
+[FPS Arena](Projects/FPSArena/README.md) ·
+[Omborchi](Projects/Sokoban/README.md) ·
+[Ipak Yo'li](Projects/EndlessRunner/README.md) ·
+[Vodiy Poygasi](Projects/Racing/README.md) ·
+[Platformer2D](Projects/Platformer2D/README.md) ·
+[Showcase3D](Projects/Showcase3D/README.md) ·
+[Adventure3D](Projects/Adventure3D/README.md)
 
 ---
 

@@ -111,7 +111,10 @@ Runner::Controls Runner::ThinkBot(float dt)
         }
     }
     // the obstacle straight ahead (in the lane it is in and the one it moves to): jump a fence or a cart that cannot
-    // be avoided, slide under a gate. The jump clears 1.1 m from ~0.12 s to ~0.55 s after take-off.
+    // be avoided, slide under a gate. The jump clears 1.1 m from ~0.13 s to ~0.52 s after take-off: the obstacle's
+    // middle should pass under the middle of that window, so the take-off point depends on the speed and on how
+    // long the obstacle is (a cart is longer than a fence) - and on the frame: the first frame within half a frame's
+    // run of that point (with short frames the old fixed lead jumped too early and landed on a cart's far end).
     const int next = std::clamp(m_Lane + c.Lane, -1, 1);
     RunnerGame::Hazard h = game->FindHazard(m_Lane, m_Z, speed * 0.6f + 3.0f);
     if (next != m_Lane)
@@ -119,7 +122,8 @@ Runner::Controls Runner::ThinkBot(float dt)
             h = other;
     if (h.Found && IsGrounded())
     {
-        if ((h.Kind == ObstacleKind::Fence || h.Kind == ObstacleKind::Cart) && h.Distance < speed * 0.36f + 0.6f)
+        const float takeOff = std::max(0.0f, speed * 0.328f - h.Length * 0.5f) + speed * dt * 0.5f;
+        if ((h.Kind == ObstacleKind::Fence || h.Kind == ObstacleKind::Cart) && h.Distance <= takeOff)
             c.Jump = true;
         if (h.Kind == ObstacleKind::Gate && h.Distance < speed * 0.25f + 1.2f)
             c.Slide = true;

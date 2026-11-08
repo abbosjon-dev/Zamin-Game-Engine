@@ -118,6 +118,7 @@ public:
         bool Found = false;
         ObstacleKind Kind = ObstacleKind::Cart;
         float Distance = 1e9f;    // from the runner's front to the obstacle's near end
+        float Length = 0.0f;      // along the road
         bool AllLanes = false;
     };
     Hazard FindHazard(int lane, float z, float range) const;

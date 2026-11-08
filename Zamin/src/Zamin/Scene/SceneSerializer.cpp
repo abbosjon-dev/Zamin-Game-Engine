@@ -22,6 +22,7 @@
 #include <cctype>
 #include <chrono>
 #include <cmath>
+#include <cfloat>
 #include <cstring>
 #include <fstream>
 #include <stdexcept>
@@ -1034,7 +1035,44 @@ namespace Zamin {
         return SerializeEntityImpl(entity, flags);
     }
 
+    // The JSON writer writes an infinite or NaN float as null, which no reader takes back (the value -
+    // its whole component - would be gone the next time the file is read): a value that became
+    // infinite (a huge number such as 1e308 read into a float, a computation) is written as the
+    // largest float of its sign instead, NaN as 0.
+    static void ClampNonFinite(json& j)
+    {
+        switch (j.type())
+        {
+            case json::value_t::number_float:
+            {
+                double& v = j.get_ref<json::number_float_t&>();
+                if (!std::isfinite(v))
+                    v = std::isnan(v) ? 0.0 : v > 0.0 ? (double)FLT_MAX : -(double)FLT_MAX;
+                break;
+            }
+            case json::value_t::object:
+                for (auto& [key, value] : j.get_ref<json::object_t&>())
+                    ClampNonFinite(value);
+                break;
+            case json::value_t::array:
+                for (json& item : j.get_ref<json::array_t&>())
+                    ClampNonFinite(item);
+                break;
+            default:
+                break;
+        }
+    }
+
+    static json SerializeEntityValues(Entity entity, const EntityWriteFlags& flags);
+
     static json SerializeEntityImpl(Entity entity, const EntityWriteFlags& flags)
+    {
+        json e = SerializeEntityValues(entity, flags);
+        ClampNonFinite(e);
+        return e;
+    }
+
+    static json SerializeEntityValues(Entity entity, const EntityWriteFlags& flags)
     {
         const bool includeParent = flags.Parent;
         json e;
@@ -3555,6 +3593,7 @@ namespace Zamin {
         json rootOrder = json::array();
         for (Entity e : scene.GetRootEntities())
             rootOrder.push_back((uint64_t)e.GetUUID());
+        ClampNonFinite(root); // the settings (the entities are clamped as they are written)
         root["RootOrder"] = std::move(rootOrder);
         root["Entities"] = std::move(entities);
         return root;

@@ -45124,3 +45124,839 @@ TEST(PrefabStageRoundTrip)
     CHECK(PrefabUtility::LoadStage(*broken, db, "Prefabs/Broken.zprefab", &recoveredReport, true) && !recoveredReport.Failed() && recoveredReport.HasIssues());
     CHECK(!PrefabUtility::LoadStage(*CreateRef<Scene>(), db, "Prefabs/Absent.zprefab"));
 }
+
+// ------------------------------------------------------------------ serialization fuzz (411)
+// A small JSON tree of its own (the engine's JSON library is not part of its public headers): read
+// tolerant of nothing, written back exactly (numbers and strings keep their text), so the fuzzer can
+// cut, swap and break the sample files structurally.
+namespace FuzzJson {
+
+    struct Value
+    {
+        enum class Type : uint8_t { Null, Bool, Number, String, Array, Object };
+        Type T = Type::Null;
+        bool B = false;
+        std::string Text;                                    // a number as written; a string's raw (escaped) content
+        std::vector<Value> Items;                            // an array
+        std::vector<std::pair<std::string, Value>> Members;  // an object (raw keys)
+
+        static Value Num(std::string text) { Value v; v.T = Type::Number; v.Text = std::move(text); return v; }
+        static Value Str(std::string text) { Value v; v.T = Type::String; v.Text = std::move(text); return v; }
+        static Value Boolean(bool b) { Value v; v.T = Type::Bool; v.B = b; return v; }
+        static Value Arr() { Value v; v.T = Type::Array; return v; }
+        static Value Obj() { Value v; v.T = Type::Object; return v; }
+        Value* Find(std::string_view key)
+        {
+            if (T == Type::Object)
+                for (auto& [k, v] : Members)
+                    if (k == key)
+                        return &v;
+            return nullptr;
+        }
+        void Set(const std::string& key, Value v)
+        {
+            if (Value* existing = Find(key))
+                *existing = std::move(v);
+            else
+                Members.emplace_back(key, std::move(v));
+        }
+    };
+
+    struct Parser
+    {
+        std::string_view S;
+        size_t P = 0;
+        int Depth = 0;
+
+        void Skip()
+        {
+            while (P < S.size() && (S[P] == ' ' || S[P] == '\n' || S[P] == '\r' || S[P] == '\t'))
+                P++;
+        }
+        bool String(std::string& out)
+        {
+            if (P >= S.size() || S[P] != '"')
+                return false;
+            const size_t start = ++P;
+            while (P < S.size() && S[P] != '"')
+                P += S[P] == '\\' ? 2 : 1;
+            if (P >= S.size())
+                return false;
+            out.assign(S.substr(start, P - start));
+            P++;
+            return true;
+        }
+        bool Parse(Value& v)
+        {
+            Skip();
+            if (P >= S.size() || Depth > 4000)
+                return false;
+            const char c = S[P];
+            if (c == '{' || c == '[')
+            {
+                const bool object = c == '{';
+                v.T = object ? Value::Type::Object : Value::Type::Array;
+                P++;
+                Skip();
+                if (P < S.size() && S[P] == (object ? '}' : ']'))
+                {
+                    P++;
+                    return true;
+                }
+                Depth++;
+                while (true)
+                {
+                    Skip();
+                    Value item;
+                    std::string key;
+                    if (object)
+                    {
+                        if (!String(key))
+                            return false;
+                        Skip();
+                        if (P >= S.size() || S[P] != ':')
+                            return false;
+                        P++;
+                    }
+                    if (!Parse(item))
+                        return false;
+                    if (object)
+                        v.Members.emplace_back(std::move(key), std::move(item));
+                    else
+                        v.Items.push_back(std::move(item));
+                    Skip();
+                    if (P < S.size() && S[P] == ',')
+                    {
+                        P++;
+                        continue;
+                    }
+                    if (P < S.size() && S[P] == (object ? '}' : ']'))
+                    {
+                        P++;
+                        Depth--;
+                        return true;
+                    }
+                    return false;
+                }
+            }
+            if (c == '"')
+            {
+                v.T = Value::Type::String;
+                return String(v.Text);
+            }
+            for (const char* word : { "true", "false", "null" })
+                if (S.substr(P, std::strlen(word)) == word)
+                {
+                    v.T = word[0] == 'n' ? Value::Type::Null : Value::Type::Bool;
+                    v.B = word[0] == 't';
+                    P += std::strlen(word);
+                    return true;
+                }
+            const size_t start = P;
+            while (P < S.size() && (std::isdigit((unsigned char)S[P]) || S[P] == '-' || S[P] == '+' || S[P] == '.' || S[P] == 'e' || S[P] == 'E'))
+                P++;
+            if (P == start)
+                return false;
+            v.T = Value::Type::Number;
+            v.Text.assign(S.substr(start, P - start));
+            return true;
+        }
+    };
+
+    bool Parse(std::string_view text, Value& out)
+    {
+        Parser p{ text };
+        if (!p.Parse(out))
+            return false;
+        p.Skip();
+        return p.P == text.size();
+    }
+
+    void Dump(const Value& v, std::string& out, bool pretty, int indent = 0)
+    {
+        auto newline = [&](int level) {
+            if (!pretty)
+                return;
+            out += '\n';
+            out.append((size_t)level * 2, ' ');
+        };
+        switch (v.T)
+        {
+            case Value::Type::Null: out += "null"; break;
+            case Value::Type::Bool: out += v.B ? "true" : "false"; break;
+            case Value::Type::Number: out += v.Text; break;
+            case Value::Type::String: out += '"'; out += v.Text; out += '"'; break;
+            case Value::Type::Array:
+            case Value::Type::Object:
+            {
+                const bool object = v.T == Value::Type::Object;
+                out += object ? '{' : '[';
+                const size_t count = object ? v.Members.size() : v.Items.size();
+                for (size_t i = 0; i < count; i++)
+                {
+                    if (i)
+                        out += ',';
+                    newline(indent + 1);
+                    if (object)
+                    {
+                        out += '"';
+                        out += v.Members[i].first;
+                        out += pretty ? "\": " : "\":";
+                        Dump(v.Members[i].second, out, pretty, indent + 1);
+                    }
+                    else
+                        Dump(v.Items[i], out, pretty, indent + 1);
+                }
+                if (count)
+                    newline(indent);
+                out += object ? '}' : ']';
+                break;
+            }
+        }
+    }
+
+    std::string Dump(const Value& v, bool pretty)
+    {
+        std::string out;
+        Dump(v, out, pretty);
+        return out;
+    }
+
+    void CollectKeys(const Value& v, std::set<std::string>& keys)
+    {
+        for (const auto& [k, m] : v.Members)
+        {
+            keys.insert(k);
+            CollectKeys(m, keys);
+        }
+        for (const Value& item : v.Items)
+            CollectKeys(item, keys);
+    }
+
+}
+
+namespace {
+
+    // splitmix64: the same numbers on every platform for a seed.
+    struct FuzzRandom
+    {
+        uint64_t State;
+        uint64_t Next()
+        {
+            uint64_t z = (State += 0x9E3779B97F4A7C15ull);
+            z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ull;
+            z = (z ^ (z >> 27)) * 0x94D049BB133111EBull;
+            return z ^ (z >> 31);
+        }
+        size_t Below(size_t n) { return n ? (size_t)(Next() % n) : 0; }
+        bool Chance(int percent) { return (int)Below(100) < percent; }
+    };
+
+    struct FuzzMutator
+    {
+        using Value = FuzzJson::Value;
+        FuzzRandom& Rng;
+        const std::vector<std::string>& Keys;
+
+        Value Scalar()
+        {
+            static const char* const s_Numbers[] = { "0", "-0", "1", "-1", "2", "7", "0.5", "-0.0001", "1e308", "-1e308", "1e-320", "3.5e38", "-3.5e38",
+                                                     "9223372036854775807", "-9223372036854775808", "18446744073709551615", "18446744073709551616",
+                                                     "123456789012345678901234567890", "4294967296", "-2147483649", "65536", "1e400", "1.5", "-7.25" };
+            static const char* const s_Strings[] = { "", "x", "Entity", "Prefabs/GameMenu.zprefab", "Prefabs/Missing.zprefab", "../outside.zprefab",
+                                                     "/abs/path.png", "Textures/coin.png", "\\u0000a", "\\\\", "\\\"q\\\"", "ffffffffffffffff",
+                                                     "e23d68ebead3b2a7", "zz", "Dynamic", "Static", "Box", "Sphere", "Prefab", "Clipboard", "Transform",
+                                                     "NativeScript/Fields/Speed", "SpriteRenderer/Color", "Tag", "Parent", "ChildOrder", "\\u00e9\\u4e2d",
+                                                     "Int", "Float", "Bool", "String", "Vec3", "Entity", "Color" };
+            switch (Rng.Below(5))
+            {
+                case 0: return Value();
+                case 1: return Value::Boolean(Rng.Chance(50));
+                case 2: return Value::Num(s_Numbers[Rng.Below(std::size(s_Numbers))]);
+                case 3: return Value::Num(std::to_string((int64_t)Rng.Next() >> Rng.Below(64)));
+                default:
+                    if (Rng.Chance(3))
+                        return Value::Str(std::string(200 + Rng.Below(800), 'a'));
+                    return Value::Str(s_Strings[Rng.Below(std::size(s_Strings))]);
+            }
+        }
+
+        Value Tree(int depth)
+        {
+            if (depth <= 0 || Rng.Chance(40))
+                return Scalar();
+            Value v = Rng.Chance(50) ? Value::Obj() : Value::Arr();
+            const size_t count = Rng.Below(5);
+            for (size_t i = 0; i < count; i++)
+            {
+                if (v.T == Value::Type::Object)
+                    v.Members.emplace_back(Keys.empty() ? std::string("k") : Keys[Rng.Below(Keys.size())], Tree(depth - 1));
+                else
+                    v.Items.push_back(Tree(depth - 1));
+            }
+            return v;
+        }
+
+        static void Collect(Value& v, std::vector<Value*>& all, std::vector<Value*>& objects, std::vector<Value*>& numbers)
+        {
+            all.push_back(&v);
+            if (v.T == Value::Type::Object)
+                objects.push_back(&v);
+            if (v.T == Value::Type::Number)
+                numbers.push_back(&v);
+            for (auto& [k, m] : v.Members)
+                Collect(m, all, objects, numbers);
+            for (Value& item : v.Items)
+                Collect(item, all, objects, numbers);
+        }
+
+        std::vector<Value*> Entities(Value& root)
+        {
+            std::vector<Value*> out;
+            if (Value* list = root.Find("Entities"); list && list->T == Value::Type::Array)
+                for (Value& e : list->Items)
+                    if (e.T == Value::Type::Object)
+                        out.push_back(&e);
+            return out;
+        }
+
+        // A copy with a window of a few of the file's entities (the rest dropped: dangling parents, a
+        // root order naming entities that are gone) - keeps every input small.
+        Value Slice(const Value& root, size_t keep)
+        {
+            Value out = Value::Obj();
+            for (const auto& [key, value] : root.Members)
+            {
+                if (key != "Entities" || value.T != Value::Type::Array || value.Items.size() <= keep)
+                {
+                    out.Members.emplace_back(key, value);
+                    continue;
+                }
+                Value list = Value::Arr();
+                const size_t start = Rng.Below(value.Items.size() - keep + 1);
+                list.Items.assign(value.Items.begin() + (ptrdiff_t)start, value.Items.begin() + (ptrdiff_t)(start + keep));
+                out.Members.emplace_back(key, std::move(list));
+            }
+            return out;
+        }
+
+        void Mutate(Value& root)
+        {
+            std::vector<Value*> all, objects, numbers;
+            Collect(root, all, objects, numbers);
+            std::vector<Value*> entities = Entities(root);
+            auto pickEntity = [&]() { return entities.empty() ? nullptr : entities[Rng.Below(entities.size())]; };
+            switch (Rng.Below(13))
+            {
+                case 0: // a key deleted
+                    if (Value* o = objects.empty() ? nullptr : objects[Rng.Below(objects.size())]; o && !o->Members.empty())
+                        o->Members.erase(o->Members.begin() + (ptrdiff_t)Rng.Below(o->Members.size()));
+                    break;
+                case 1: // a value of another type
+                    if (!all.empty())
+                        *all[Rng.Below(all.size())] = Rng.Chance(60) ? Scalar() : Tree(3);
+                    break;
+                case 2: // an ID used twice
+                    if (Value* a = pickEntity(), *b = pickEntity(); a && b)
+                        if (Value* id = b->Find("Entity"))
+                            a->Set("Entity", *id);
+                    break;
+                case 3: // a parent loop (or its own parent)
+                    if (Value* a = pickEntity(), *b = pickEntity(); a && b)
+                    {
+                        Value* ida = a->Find("Entity");
+                        Value* idb = b->Find("Entity");
+                        if (ida && idb)
+                        {
+                            a->Set("Parent", *idb);
+                            b->Set("Parent", *ida);
+                        }
+                    }
+                    break;
+                case 4: // extreme numbers
+                    for (size_t i = 0, n = 1 + Rng.Below(4); i < n && !numbers.empty(); i++)
+                        *numbers[Rng.Below(numbers.size())] = Scalar();
+                    break;
+                case 5: // deep nesting
+                    if (!all.empty())
+                    {
+                        Value* at = all[Rng.Below(all.size())];
+                        Value inner = std::move(*at);
+                        const size_t depth = 50 + Rng.Below(1200);
+                        for (size_t i = 0; i < depth; i++)
+                        {
+                            Value wrap = Rng.Chance(50) ? Value::Arr() : Value::Obj();
+                            if (wrap.T == Value::Type::Array)
+                                wrap.Items.push_back(std::move(inner));
+                            else
+                                wrap.Members.emplace_back("a", std::move(inner));
+                            inner = std::move(wrap);
+                        }
+                        *at = std::move(inner);
+                    }
+                    break;
+                case 6: // broken prefab link keys
+                    if (Value* e = pickEntity())
+                    {
+                        static const char* const s_LinkKeys[] = { "Prefab", "PrefabUUID", "PrefabEntity", "PrefabHash", "Overrides",
+                                                                  "RemovedComponents", "RemovedEntities", "Hidden", "Locked", "ComponentOrder" };
+                        Value editor = Rng.Chance(85) ? Value::Obj() : Scalar();
+                        for (const char* key : s_LinkKeys)
+                            if (editor.T == Value::Type::Object && Rng.Chance(45))
+                                editor.Members.emplace_back(key, Rng.Chance(50) ? Scalar() : Tree(2));
+                        e->Set("Editor", std::move(editor));
+                    }
+                    break;
+                case 7: // the entities in another order
+                    if (Value* list = root.Find("Entities"); list && list->T == Value::Type::Array)
+                        for (size_t i = list->Items.size(); i > 1; i--)
+                            std::swap(list->Items[i - 1], list->Items[Rng.Below(i)]);
+                    break;
+                case 8: // an entity twice
+                    if (Value* e = pickEntity())
+                        root.Find("Entities")->Items.push_back(*e);
+                    break;
+                case 9: // a key renamed (a component's values under another component's key)
+                    if (Value* o = objects.empty() ? nullptr : objects[Rng.Below(objects.size())]; o && !o->Members.empty() && !Keys.empty())
+                        o->Members[Rng.Below(o->Members.size())].first = Keys[Rng.Below(Keys.size())];
+                    break;
+                case 10: // a parent that is not there
+                    if (Value* e = pickEntity())
+                        e->Set("Parent", Rng.Chance(50) ? Value::Num(std::to_string(Rng.Next() >> 1)) : Scalar());
+                    break;
+                case 11: // a random key added somewhere
+                    if (Value* o = objects.empty() ? nullptr : objects[Rng.Below(objects.size())]; o && !Keys.empty())
+                        o->Members.emplace_back(Keys[Rng.Below(Keys.size())], Tree(3));
+                    break;
+                default: // a whole entity of random keys
+                    if (Value* list = root.Find("Entities"); list && list->T == Value::Type::Array)
+                    {
+                        Value e = Value::Obj();
+                        e.Members.emplace_back("Entity", Value::Num(std::to_string(1 + Rng.Below(40))));
+                        for (size_t i = 0, n = Rng.Below(6); i < n && !Keys.empty(); i++)
+                            e.Members.emplace_back(Keys[Rng.Below(Keys.size())], Tree(3));
+                        list->Items.push_back(std::move(e));
+                    }
+                    break;
+            }
+        }
+
+        // Cut, garbage, a flipped or lost character: text that does not parse (or parses differently).
+        void MutateText(std::string& text)
+        {
+            if (text.empty())
+                return;
+            switch (Rng.Below(5))
+            {
+                case 0: text.resize(Rng.Below(text.size())); break;
+                case 1:
+                {
+                    static const char* const s_Garbage[] = { "}}]]", "{{{", "\"", ",,", "\\", "nul", "\x01\x02", "]", "{\"Entity\":", "1e", "\xff\xfe" };
+                    text.insert(Rng.Below(text.size() + 1), s_Garbage[Rng.Below(std::size(s_Garbage))]);
+                    break;
+                }
+                case 2: text[Rng.Below(text.size())] = (char)(32 + Rng.Below(95)); break;
+                case 3:
+                {
+                    const size_t at = Rng.Below(text.size());
+                    text.erase(at, 1 + Rng.Below(std::min<size_t>(64, text.size() - at)));
+                    break;
+                }
+                default: text.erase(Rng.Below(text.size()), 1); break;
+            }
+        }
+    };
+
+    // The scene's hierarchy agrees with itself: every parent there and naming the entity among its
+    // children, every child there and naming it as its parent, no child twice, no loops; every entity
+    // found by its UUID.
+    bool HierarchyConsistent(Scene& scene, std::string& why)
+    {
+        const size_t count = scene.GetRegistry().view<IDComponent>().size();
+        for (auto handle : scene.GetRegistry().view<IDComponent>())
+        {
+            Entity e(handle, &scene);
+            const UUID id = e.GetUUID();
+            if (scene.GetEntityByUUID(id) != e)
+                return why = std::format("'{}' UUID'si bo'yicha topilmadi", e.GetName()), false;
+            const auto& rel = e.GetComponent<RelationshipComponent>();
+            if ((uint64_t)rel.Parent)
+            {
+                Entity parent = scene.GetEntityByUUID(rel.Parent);
+                if (!parent)
+                    return why = std::format("'{}' ota obyekti yo'q", e.GetName()), false;
+                const auto& siblings = parent.GetComponent<RelationshipComponent>().Children;
+                if (std::count(siblings.begin(), siblings.end(), id) != 1)
+                    return why = std::format("'{}' ota obyektining farzandlari ro'yxatida emas (yoki ikki marta)", e.GetName()), false;
+            }
+            std::unordered_set<uint64_t> seen;
+            for (UUID child : rel.Children)
+            {
+                Entity c = scene.GetEntityByUUID(child);
+                if (!c)
+                    return why = std::format("'{}' farzandi yo'q", e.GetName()), false;
+                if (c.GetComponent<RelationshipComponent>().Parent != id)
+                    return why = std::format("'{}' farzandi '{}' boshqa ota obyektni ko'rsatadi", e.GetName(), c.GetName()), false;
+                if (!seen.insert((uint64_t)child).second)
+                    return why = std::format("'{}' farzandi ikki marta", e.GetName()), false;
+            }
+            size_t steps = 0;
+            for (UUID up = rel.Parent; (uint64_t)up; steps++)
+            {
+                if (steps > count)
+                    return why = std::format("'{}' ota obyektlari halqa", e.GetName()), false;
+                Entity p = scene.GetEntityByUUID(up);
+                up = p ? p.GetComponent<RelationshipComponent>().Parent : UUID(0);
+            }
+        }
+        return true;
+    }
+
+    std::vector<Entity> HierarchyOrder(Scene& scene)
+    {
+        std::vector<Entity> out;
+        for (Entity e : scene.GetEntitiesInHierarchyOrder())
+            out.push_back(e);
+        return out;
+    }
+
+    // ZAMIN_FUZZ_DUMP=<folder>: the two texts of a failed round trip are written there (first.txt, second.txt).
+    void FuzzDumpPair(const std::string& first, const std::string& second)
+    {
+        if (const char* dir = std::getenv("ZAMIN_FUZZ_DUMP"); dir && *dir)
+        {
+            FileSystem::WriteTextFile(std::filesystem::path(dir) / "first.txt", first);
+            FileSystem::WriteTextFile(std::filesystem::path(dir) / "second.txt", second);
+        }
+    }
+
+    // One input through every reader. Returns what went wrong ("" when nothing did).
+    std::string RunFuzzCase(const std::string& text, const std::string& basePrefab, const std::filesystem::path& assets, PrefabDatabase& db,
+                            FuzzRandom& rng)
+    {
+        std::string why;
+        const size_t objects = (size_t)std::count(text.begin(), text.end(), '{');
+        auto checkScene = [&](Scene& scene, const char* stage) {
+            if (!HierarchyConsistent(scene, why))
+                return why = std::format("{}: {}", stage, why), false;
+            return true;
+        };
+        try
+        {
+            // ---- a scene file
+            {
+                auto scene = CreateRef<Scene>();
+                SceneSerializer reader(scene);
+                const bool loaded = reader.DeserializeFromString(text);
+                if (!checkScene(*scene, "sahna"))
+                    return why;
+                if (scene->GetRegistry().view<IDComponent>().size() > objects)
+                    return "sahna: kirishdagidan ko'p obyekt";
+                if (loaded)
+                {
+                    const std::string first = SceneSerializer(scene).SerializeToString();
+                    auto again = CreateRef<Scene>();
+                    if (!SceneSerializer(again).DeserializeFromString(first))
+                        return "sahna: saqlangani qayta yuklanmadi";
+                    if (const std::string second = SceneSerializer(again).SerializeToString(); second != first)
+                    {
+                        FuzzDumpPair(first, second);
+                        return "sahna: Serialize(Load(Serialize(Load(x)))) != Serialize(Load(x))";
+                    }
+                    // Its binary cache, cut or with a byte changed.
+                    std::vector<uint8_t> bytes = rng.Chance(50) ? SceneSerializer(scene).SerializeToBinary() : std::vector<uint8_t>();
+                    if (!bytes.empty())
+                    {
+                        if (rng.Chance(50))
+                            bytes.resize(rng.Below(bytes.size()));
+                        else
+                            bytes[rng.Below(bytes.size())] ^= (uint8_t)(1 + rng.Below(255));
+                        auto binary = CreateRef<Scene>();
+                        SceneSerializer(binary).DeserializeFromBinary(bytes);
+                        if (!checkScene(*binary, "binar kesh"))
+                            return why;
+                    }
+                }
+                // Text that is not a scene as a whole: what can be salvaged of it.
+                if (!loaded)
+                {
+                    auto recovered = CreateRef<Scene>();
+                    SceneSerializer(recovered).RecoverFromString(text);
+                    if (!checkScene(*recovered, "sahna (tiklash)"))
+                        return why;
+                }
+            }
+
+            // ---- an entity set (a prefab, the clipboard)
+            {
+                SceneSerializer::EntitySetReadOptions options;
+                options.GenerateNewUUIDs = rng.Chance(30);
+                options.KeepPrefabLinks = rng.Chance(70);
+                options.Recover = rng.Chance(40);
+                SceneLoadReport report;
+                SceneMigrationResult migration;
+                std::string error;
+                if (rng.Chance(70))
+                {
+                    options.Report = &report;
+                    options.Migration = &migration;
+                }
+                options.Error = &error;
+                auto scene = CreateRef<Scene>();
+                std::vector<Entity> made = SceneSerializer::DeserializeEntities(*scene, text, options);
+                if (!checkScene(*scene, "obyektlar to'plami"))
+                    return why;
+                if (made.size() > objects || made.size() != scene->GetRegistry().view<IDComponent>().size())
+                    return "obyektlar to'plami: obyektlar soni noto'g'ri";
+                if (!made.empty())
+                {
+                    SceneSerializer::EntitySetWriteOptions write;
+                    write.Kind = SceneSerializer::EntitySetKind::Prefab;
+                    const std::string first = SceneSerializer::SerializeEntities(*scene, HierarchyOrder(*scene), write);
+                    SceneSerializer::EntitySetReadOptions same;
+                    same.GenerateNewUUIDs = false;
+                    auto again = CreateRef<Scene>();
+                    if (SceneSerializer::DeserializeEntities(*again, first, same).size() != made.size())
+                        return "obyektlar to'plami: saqlangani qayta yuklanmadi";
+                    if (const std::string second = SceneSerializer::SerializeEntities(*again, HierarchyOrder(*again), write); second != first)
+                    {
+                        FuzzDumpPair(first, second);
+                        return "obyektlar to'plami: Serialize(Load(Serialize(Load(x)))) != Serialize(Load(x))";
+                    }
+                }
+            }
+
+            // ---- the migration chain, the salvage
+            {
+                std::string copy = text;
+                SceneMigrationResult result;
+                std::string error;
+                SceneMigration::MigrateText(copy, &result, &error);
+                (void)SceneMigration::ReadVersion(text);
+                SceneRecovery::Result salvage = SceneRecovery::Salvage(text);
+                if (salvage.Recovered)
+                {
+                    auto scene = CreateRef<Scene>();
+                    SceneSerializer::EntitySetReadOptions options;
+                    SceneSerializer::DeserializeEntities(*scene, salvage.Text, options);
+                    SceneSerializer(CreateRef<Scene>()).DeserializeFromString(salvage.Text);
+                    if (!checkScene(*scene, "tiklangan matn"))
+                        return why;
+                }
+            }
+
+            // ---- prefab instances when their prefab file changes into this text
+            if (!basePrefab.empty())
+            {
+                const std::filesystem::path file = assets / "Prefabs" / "Fuzz.zprefab";
+                FileSystem::WriteTextFile(file, basePrefab);
+                db.Invalidate("Prefabs/Fuzz.zprefab");
+                auto scene = CreateRef<Scene>();
+                Entity a = PrefabUtility::InstantiateLinked(*scene, db, "Prefabs/Fuzz.zprefab");
+                Entity b = PrefabUtility::InstantiateLinked(*scene, db, "Prefabs/Fuzz.zprefab");
+                // An override and an added child on one of them.
+                if (a)
+                {
+                    a.GetComponent<TransformComponent>().Scale = glm::vec3(2.0f);
+                    Entity added = scene->CreateEntity("Qo'shilgan");
+                    scene->SetParent(added, a, false);
+                    PrefabUtility::RecordOverrides(a, db);
+                }
+                FileSystem::WriteTextFile(file, text);
+                db.Invalidate("Prefabs/Fuzz.zprefab");
+                (void)db.Get("Prefabs/Fuzz.zprefab");
+                (void)db.ResolvedHash("Prefabs/Fuzz.zprefab");
+                PrefabUtility::SyncScene(*scene, db);
+                if (!checkScene(*scene, "prefab nusxalari (sinxron)"))
+                    return why;
+                PrefabUtility::RecordOverrides(*scene, {}, true, db);
+                if (b && b.IsValid() && rng.Chance(25))
+                {
+                    PrefabUtility::Revert(b, PrefabScope::Instance, {}, db);
+                    if (!checkScene(*scene, "prefab nusxasi (revert)"))
+                        return why;
+                }
+                if (a && a.IsValid() && rng.Chance(15))
+                {
+                    PrefabUtility::Apply(a, PrefabScope::Instance, {}, db);
+                    if (!checkScene(*scene, "prefab nusxasi (apply)"))
+                        return why;
+                }
+                PrefabUtility::InstantiateLinked(*scene, db, "Prefabs/Fuzz.zprefab");
+                if (!checkScene(*scene, "prefab nusxasi (yangi)"))
+                    return why;
+                auto stage = CreateRef<Scene>();
+                SceneLoadReport report;
+                if (PrefabUtility::LoadStage(*stage, db, "Prefabs/Fuzz.zprefab", &report, rng.Chance(50)))
+                {
+                    std::string error;
+                    (void)PrefabUtility::SerializeStage(*stage, db, &error);
+                }
+                if (!checkScene(*stage, "prefab rejimi"))
+                    return why;
+            }
+        }
+        catch (const std::exception& e)
+        {
+            return std::format("istisno chiqib ketdi: {}", e.what());
+        }
+        catch (...)
+        {
+            return "noma'lum istisno chiqib ketdi";
+        }
+        return {};
+    }
+
+}
+
+// Random JSON and broken copies of the sample files (Menu.zscene, GameMenu.zprefab, Ragdoll.zprefab ...)
+// through every reader: scene, binary cache, recovery, entity sets, the migration chain, the salvage,
+// prefab instances following a changed prefab file, prefab mode. Nothing may throw out of them, the
+// hierarchy they leave must agree with itself, no more entities may come out than went in, and what
+// a load gives must save and load to the same text. ZAMIN_FUZZ_SEED / ZAMIN_FUZZ_ITERATIONS (500 by
+// default) choose the run; the seed is printed. A failing input is saved to Tests/Fixtures/Fuzz/,
+// and every file there is run first (cases found earlier stay fixed).
+TEST(SerializationFuzz)
+{
+    namespace fs = std::filesystem;
+    const fs::path source(ZAMIN_SOURCE_DIR);
+    const fs::path fixtures = source / "Tests" / "Fixtures" / "Fuzz";
+    const char* seedText = std::getenv("ZAMIN_FUZZ_SEED");
+    const char* iterationsText = std::getenv("ZAMIN_FUZZ_ITERATIONS");
+    const uint64_t seed = seedText && *seedText ? std::strtoull(seedText, nullptr, 0) : 0x5A4D2111ull;
+    const int iterations = iterationsText && *iterationsText ? std::max(0, std::atoi(iterationsText)) : 500;
+    std::printf("    fuzz: seed=0x%llx, %d marta\n", (unsigned long long)seed, iterations);
+
+    struct Sample
+    {
+        std::string Text;
+        bool Prefab = false;
+        FuzzJson::Value Tree;
+    };
+    std::vector<Sample> samples;
+    std::set<std::string> keySet;
+    for (const char* rel : { "Projects/Platformer2D/Assets/Scenes/Menu.zscene", "Projects/Platformer2D/Assets/Prefabs/GameMenu.zprefab",
+                             "Projects/Platformer2D/Assets/Prefabs/Ragdoll.zprefab", "Projects/Platformer2D/Assets/Prefabs/CoinSparkle.zprefab",
+                             "Projects/Showcase3D/Assets/Prefabs/Ragdoll3D.zprefab", "Projects/Showcase3D/Assets/Prefabs/Ball.zprefab",
+                             "Projects/Adventure3D/Assets/Prefabs/CrystalBurst.zprefab", "Projects/Platformer2D/Assets/Scenes/Level1.zscene" })
+    {
+        Sample s;
+        s.Text = FileSystem::ReadTextFile(source / rel);
+        s.Prefab = std::string_view(rel).ends_with(".zprefab");
+        CHECK(!s.Text.empty() && FuzzJson::Parse(s.Text, s.Tree));
+        CHECK(FuzzJson::Dump(s.Tree, false).size() < s.Text.size()); // read back as a tree
+        FuzzJson::CollectKeys(s.Tree, keySet);
+        samples.push_back(std::move(s));
+    }
+    const std::vector<std::string> keys(keySet.begin(), keySet.end());
+    CHECK(keys.size() > 100);
+
+    // The fuzzer's prefab instances live in a project folder of their own.
+    TempDirectory temp("zamin-fuzz");
+    fs::create_directories(temp.GetPath() / "Prefabs");
+    PrefabDatabase db(temp.GetPath());
+    db.SetRecheckInterval(0.0);
+    const std::string ragdoll = samples[2].Text;
+
+    const LogLevel level = Log::GetMinLevel();
+    Log::SetMinLevel(LogLevel::Off); // thousands of broken inputs: their reports are not printed
+    ScopeExit restoreLog{ [level]() { Log::SetMinLevel(level); } };
+    const auto start = std::chrono::steady_clock::now();
+    size_t saved = 0;
+    auto failed = [&](const std::string& input, const std::string& why, const std::string& name) {
+        std::printf("    FAIL fuzz %s: %s\n", name.c_str(), why.c_str());
+        s_Failures++;
+        if (saved++ < 5)
+        {
+            std::error_code ec;
+            fs::create_directories(fixtures, ec);
+            const fs::path file = fixtures / std::format("{}.txt", name);
+            FileSystem::WriteTextFile(file, input);
+            std::printf("    kirish saqlandi: %s\n", file.string().c_str());
+        }
+    };
+
+    // Cases found before.
+    size_t replayed = 0;
+    std::error_code ec;
+    if (fs::is_directory(fixtures, ec))
+    {
+        std::vector<fs::path> files;
+        for (const auto& entry : fs::directory_iterator(fixtures, ec))
+            if (entry.is_regular_file())
+                files.push_back(entry.path());
+        std::sort(files.begin(), files.end());
+        for (const fs::path& file : files)
+        {
+            FuzzRandom rng{ PrefabDatabase::HashText(file.filename().string()) };
+            const std::string input = FileSystem::ReadTextFile(file);
+            if (std::string why = RunFuzzCase(input, ragdoll, temp.GetPath(), db, rng); !why.empty())
+            {
+                std::printf("    FAIL fuzz %s: %s\n", file.filename().string().c_str(), why.c_str());
+                s_Failures++;
+            }
+            replayed++;
+        }
+    }
+
+    FuzzRandom rng{ seed };
+    FuzzMutator mutator{ rng, keys };
+    size_t parsedInputs = 0;
+    for (int i = 0; i < iterations; i++)
+    {
+        std::string input;
+        std::string basePrefab;
+        const size_t pick = rng.Below(10);
+        if (pick < 8)
+        {
+            const Sample& sample = samples[rng.Below(samples.size())];
+            FuzzJson::Value tree = mutator.Slice(sample.Tree, 1 + rng.Below(8));
+            for (size_t m = 0, n = rng.Below(4); m < n; m++)
+                mutator.Mutate(tree);
+            input = FuzzJson::Dump(tree, rng.Chance(60));
+            if (rng.Chance(25))
+                mutator.MutateText(input);
+            if (sample.Prefab && rng.Chance(60))
+            {
+                basePrefab = FuzzJson::Dump(mutator.Slice(sample.Tree, 2 + rng.Below(10)), true);
+            }
+        }
+        else
+        {
+            // Random JSON (sometimes shaped like a scene or a prefab).
+            FuzzJson::Value tree = mutator.Tree(4);
+            if (rng.Chance(70))
+            {
+                FuzzJson::Value root = FuzzJson::Value::Obj();
+                root.Members.emplace_back(rng.Chance(50) ? "Scene" : "ZaminEntities", rng.Chance(50) ? FuzzJson::Value::Str("Fuzz") : mutator.Scalar());
+                FuzzJson::Value list = FuzzJson::Value::Arr();
+                for (size_t e = 0, n = rng.Below(6); e < n; e++)
+                {
+                    FuzzJson::Value entity = FuzzJson::Value::Obj();
+                    entity.Members.emplace_back("Entity", FuzzJson::Value::Num(std::to_string(1 + rng.Below(8))));
+                    if (rng.Chance(50))
+                        entity.Members.emplace_back("Parent", FuzzJson::Value::Num(std::to_string(1 + rng.Below(8))));
+                    for (size_t k = 0, nk = rng.Below(5); k < nk; k++)
+                        entity.Members.emplace_back(keys[rng.Below(keys.size())], mutator.Tree(3));
+                    list.Items.push_back(std::move(entity));
+                }
+                root.Members.emplace_back("Entities", std::move(list));
+                if (rng.Chance(30))
+                    root.Members.emplace_back("Version", mutator.Scalar());
+                tree = std::move(root);
+            }
+            input = FuzzJson::Dump(tree, rng.Chance(50));
+            if (rng.Chance(30))
+                basePrefab = ragdoll;
+        }
+        FuzzJson::Value check;
+        parsedInputs += FuzzJson::Parse(input, check) ? 1 : 0;
+        if (std::string why = RunFuzzCase(input, basePrefab, temp.GetPath(), db, rng); !why.empty())
+            failed(input, why, std::format("fail-{:x}-{}", seed, i));
+    }
+    const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+    std::printf("    fuzz: %zu oldingi holat, %d kirish (%zu tasi to'g'ri JSON), %.2f s\n", replayed, iterations, parsedInputs, seconds);
+    // The samples themselves were never written.
+    CHECK(FileSystem::ReadTextFile(source / "Projects/Platformer2D/Assets/Scenes/Menu.zscene") == samples[0].Text);
+    CHECK(FileSystem::ReadTextFile(source / "Projects/Platformer2D/Assets/Prefabs/Ragdoll.zprefab") == samples[2].Text);
+}

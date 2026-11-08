@@ -1,0 +1,81 @@
+{
+  "ZaminEntities": 1,
+  "Entities": [
+    {
+      "Entity": 12345,
+      "Tag": "Ball",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.2,
+          0.75,
+          0.95,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.3,
+        "Roughness": 0.3,
+        "Emission": [
+          0.1,
+          0.5,
+          0.8
+        ],
+        "EmissionStrength": 0.6
+      },
+      "Rigidbody3D": {
+        "BodyType": "Dynamic",
+        "Mass": 2.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "SphereCollider3D": {
+        "Radius": 1e308,
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": -7.25,
+        "Restitution": false,
+        "IsSensor": false
+      },
+      "NativeScript": {
+        "Class": "Lifetime",
+        "Fields": {
+          "Seconds": {
+            "Type": "Float",
+            "Value": 10.0
+          }
+        }
+      }
+    },
+    {
+      "Entity": 5,
+      "ScaleFactor": -454107328,
+      "AutoExposureSpeed": false,
+      "Font": null
+    }
+  ]
+}

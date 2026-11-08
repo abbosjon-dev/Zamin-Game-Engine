@@ -114,9 +114,10 @@ vaqt: [ProjectSettings.md](ProjectSettings.md#7-vaqt-va-time-api) (`Time::GetFix
 
 ## 3. 2D jismlar va collider'lar
 
-**Tez boshlash.** *Ierarxiya > Yaratish > 2D > Fizik quti* (yoki *Fizik shar*): Sprite / Circle Renderer + Rigidbody 2D
-(Dynamic) + Box / Circle Collider 2D tayyor obyekt. Yer uchun shu obyektning **Turi**ni `Static` qiling va masshtabini
-cho'zing. ▶ bosing — quti tushib yerda to'xtaydi.
+**Tez boshlash.** *Obyekt > 2D > Fizik quti* (yoki *Fizik shar*; shu menyu ierarxiyadagi **+** tugmasida va bo'sh
+joyda o'ng tugma bilan ham ochiladi): Sprite / Circle Renderer + Rigidbody 2D (Dynamic) + Box / Circle Collider 2D tayyor
+obyekt. Yer uchun shu obyektning **Turi**ni `Static` qiling va masshtabini cho'zing. ▶ bosing — quti tushib yerda
+to'xtaydi.
 
 **Rigidbody 2D** (`Rigidbody2DComponent`): `Type`, `FixedRotation` (**Aylanmasin** — platformer qahramoni ag'darilmasin),
 `GravityScale` (0 — uchadi, 2 — og'irroq tushadi), `LinearDamping` / `AngularDamping` (havo qarshiligi), `Bullet` (tez kichik
@@ -257,7 +258,7 @@ sichqoncha yoki R — yangi ragdoll).
 
 ## 6. 3D jismlar va collider'lar
 
-**Tez boshlash.** *Ierarxiya > Yaratish > 3D > Fizik kub* (yoki *Fizik shar*, *Fizik yer (statik)*): mesh + Rigidbody 3D +
+**Tez boshlash.** *Obyekt > 3D > Fizik kub* (yoki *Fizik shar*, *Fizik yer (statik)*): mesh + Rigidbody 3D +
 mos collider.
 
 **Rigidbody 3D** (`Rigidbody3DComponent`): `Type`, `Mass` (kg), `LinearDamping` / `AngularDamping`, `GravityFactor`,
@@ -329,7 +330,7 @@ tegirmon, payvandlangan L, qiyalikdan dumalaydigan qavariq qobiqlar).
 Qahramon uchun Rigidbody 3D o'rniga **Character Controller 3D** (`CharacterController3DComponent`, Jolt CharacterVirtual):
 kapsula qiyaliklar (`MaxSlope`, gradus) va zinapoyalar (`StepHeight`) bo'ylab yuradi, devorlarga sirpanadi, harakatlanuvchi
 platformada turadi, gravitatsiyani o'zi qo'llaydi (`GravityScale`). Obyekt pozitsiyasi — **oyoq** nuqtasi. Yaratish:
-*Ierarxiya > Yaratish > 3D > Qahramon (Character Controller)*.
+*Obyekt > 3D > Qahramon (Character Controller)*.
 
 | Maydon | Ma'nosi |
 |---|---|

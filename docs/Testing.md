@@ -55,7 +55,8 @@ TEST(MyFeatureWorks)
 ```
 
 - Testlar GPU'siz: tekstura, mesh, shrift, shader yaratmang. Asosiy kamerasi (`Primary`) bo'lmagan sahna chizilmaydi,
-  shuning uchun `UpdateRuntime` / `UpdateEditor` headless xavfsiz.
+  shuning uchun `OnUpdateRuntime` (`UpdateRuntime` + `RenderRuntime`) headless xavfsiz. Tahrir rejimi kadri
+  `OnUpdateEditor` editor kamerasidan chizadi; testlarda uning chizmaydigan yarmi `UpdateEditorAnimation` ishlatiladi.
 - `CHECK` xatosi testni yiqitadi, qolgan testlar ishlayveradi; testdan chiqib ketgan istisno ham testni yiqitadi.
 - Tasodifiy sonlar uchun belgilangan seed; vaqtga bog'liq tekshiruvlar (tezlanish, chiziqli o'sish) ehtiyot chegarasi
   bilan va coverage build'da (`ZAMIN_COVERAGE_BUILD`) o'tkazib yuboriladi.

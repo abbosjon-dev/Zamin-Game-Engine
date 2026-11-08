@@ -43,8 +43,10 @@ Mundarija:
 
 - **Dvigatel** — miniaudio (`AudioEngine`, `Zamin/Audio/AudioEngine.h`); skriptlar uchun soddaroq kirish — `Audio`
   klassi (`Zamin/Audio/Audio.h`) va `ScriptableEntity` ning `PlaySound` / `PlayAudio` ... funksiyalari.
-- **Formatlar**: WAV, MP3, FLAC. `.ogg` fayllar audio asset sifatida ko'rinadi, lekin OGG Vorbis dekoderi yo'q —
-  konsolda `OGG Vorbis dekoderi yo'q (WAV, MP3 yoki FLAC ishlating)` chiqadi.
+- **Formatlar**: WAV, MP3, FLAC. `.ogg` fayllar audio asset sifatida ko'rinadi, lekin OGG Vorbis dekoderi yo'q:
+  asset inspektori va to'lqin ko'rinishida `OGG Vorbis dekoderi yo'q (WAV, MP3 yoki FLAC ishlating)` yoziladi, ijro
+  etishga urinilganda esa konsolda (fayl o'zgarmaguncha bir marta) `Audio yuklanmadi: '<fayl>' - audio fayl o'qilmadi -
+  WAV, MP3 yoki FLAC bo'lishi kerak (miniaudio: <sabab>)` chiqadi.
 - **Yo'llar** — loyihaning `Assets` papkasiga nisbatan: `"Audio/Chime.wav"`.
 - **Handle** — har ijro etilgan ovozning raqami (`uint32_t`, 0 — chalinmadi). `PlaySound` uni qaytaradi; u bilan
   ovozni to'xtatish, so'ndirish, balandligini o'zgartirish mumkin (`AudioEngine::Stop`, `SetVolume` ...).

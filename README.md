@@ -1,8 +1,8 @@
 # 🌍 Zamin Engine
 
 **Zamin** — C++20 da yozilgan 2D/3D o'yin dvigateli (game engine). Editor'i Unity/Unreal uslubida, o'yin mantiqi esa
-**C++ skriptlarda** yoziladi: editor skriptlarni o'zi kompilyatsiya qiladi va o'yinni to'xtatmasdan qayta yuklaydi
-(hot reload). Interfeys va hujjatlar o'zbek tilida.
+**C++ skriptlarda** yoziladi: editor skriptlarni o'zi kompilyatsiya qiladi va editorni qayta ishga tushirmasdan
+qayta yuklaydi (hot reload). Interfeys va hujjatlar o'zbek tilida.
 
 Hozircha **Linux** qo'llab-quvvatlanadi (OpenGL 4.1 core). Windows, macOS, Android va iOS keyingi bosqichlarda:
 renderer RHI interfeyslari orqasida, platformaga xos kod `Platform/` papkasida ([Architecture.md](docs/Architecture.md)).
@@ -140,8 +140,9 @@ ZM_REGISTER_SCRIPT(Player,
     ZM_FIELD(Player, JumpImpulse))
 ```
 
-Skriptni o'zgartirgach **Skriptlar → Kompilyatsiya + qayta yuklash** (`Ctrl+B`) — o'yin to'xtamasdan yangi kod bilan
-ishlaydi. Hayot sikli, barcha callback'lar va API ma'lumotnomasi: [Scripting.md](docs/Scripting.md); komponentlar:
+Skriptni o'zgartirgach **Skriptlar → Kompilyatsiya + qayta yuklash** (`Ctrl+B`) — modul editorni yopmasdan qayta
+yuklanadi. O'yin rejimi (Play) bo'lsa, u avval to'xtatiladi; inspektordagi maydon qiymatlari saqlanadi va yangi kod ular
+bilan ishlaydi. Hayot sikli, barcha callback'lar va API ma'lumotnomasi: [Scripting.md](docs/Scripting.md); komponentlar:
 [Components.md](docs/Components.md).
 
 ---

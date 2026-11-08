@@ -348,23 +348,23 @@ Batafsil: [Editor.md](Editor.md).
     (prewarm bilan / siz tutun, portlashlar jadvali favvorasi, kechikish bilan halqalar to'lqini, 9000 particle'li
     instanced galaktika sekin harakatda, kema fazosidagi uchqunlar, o'zini yo'q qiladigan bir martalik mushak)
   - **Particle preset'lari kutubxonasi**: 9 ta tayyor effekt (olov, tutun, uchqunlar, yomg'ir, qor, sehr, portlash,
-    chang, mushak) - inspektordagi **Preset** menyusidan, Ierarxiya > Yaratish > Effektlar'dan yoki `ParticlePresets`
-    API'dan; tizim (sub-emitter shablonlari bilan) **`.zparticle`** fayl sifatida saqlanadi (Assets/Particles, "Preset
-    sifatida saqlash") va menyudan, Kontent oynasidan viewport / ierarxiya / Preset tugmasiga tashlab qo'llanadi;
-    shablonlar bola obyekt bo'lib yaratiladi, sahnaga tegishli havolalar (boshqa obyekt fazosi, tekislik obyekti)
-    saqlanmaydi. **Ob-havo (Kamera atrofida moduli)**: emitter asosiy kamera bilan (editorda - sahna ko'rinishi
-    kamerasi bilan) yuradi, kamera ortda qoldirgan particle'lar quti bo'ylab oldinga o'raladi - yomg'ir tomchilari
-    yerga tegib sachraydi (to'qnashuv sub-emitteri), qor shovqin bilan aylanib tushadi; kameraga juda yaqin particle'lar
-    so'nadi ("Yaqinda so'nish", standart 4 birlik - ob'ektiv yonidagi tomchi ekran bo'ylab chiziq bo'lmaydi). Chizish moduli: **tezlik
-    bo'ylab cho'zilgan billboardlar** (yomg'ir chiziqlari, uchqunlar). Inspektor Unity'dagidek modullarga bo'lingan
-    (Asosiy, Emissiya, Shakl, Kamera atrofida, Tezlik, Tezlik chegarasi, Rang, O'lcham, Shovqin, To'qnashuv,
-    Sub-emitterlar, Tekstura sheet, Iz, Chizish) - har birida yoqish katagi, "faqat yoqilganlar" filtri va "Modul
-    qo'shish"; Ijro / Pauza (qotib qoladi) / Qayta / To'xtatish tugmalari inspektorda va tanlangan tizim uchun viewport
-    burchagidagi panelda (particle soni, sub-emitterlar bilan, sikl vaqti). Namuna: Showcase3D
-    `Scenes/ParticlesIV.zscene` (preset'lar qatori, loyihaning `Particles/Gulxan.zparticle` preset'i, kamera atrofidagi
-    yomg'ir, o'chiq qor). **Performance**: `build/bin/ZaminBench` (yoki `particle_bench` target) ~50 000 particle'ni
-    headless simulyatsiya qilib har holat uchun ms / kadr chiqaradi (`--profile` - profiler bo'limlari); particle
-    simulyatsiyasi Debug build'da ham `-O2` bilan kompilyatsiya qilinadi (`ZAMIN_OPTIMIZE_PARTICLES_IN_DEBUG`)
+    chang, mushak) - inspektordagi **Preset** menyusidan, **Obyekt > Effektlar** menyusidan (yoki ierarxiyadagi **+**
+    tugmasidan) yoki `ParticlePresets` API'dan; tizim (sub-emitter shablonlari bilan) **`.zparticle`** fayl sifatida
+    saqlanadi (Assets/Particles, "Preset sifatida saqlash") va menyudan, Kontent oynasidan viewport / ierarxiya / Preset
+    tugmasiga tashlab qo'llanadi; shablonlar bola obyekt bo'lib yaratiladi, sahnaga tegishli havolalar (boshqa obyekt
+    fazosi, tekislik obyekti) saqlanmaydi. **Ob-havo (Kamera atrofida moduli)**: emitter asosiy kamera bilan (editorda -
+    sahna ko'rinishi kamerasi bilan) yuradi, kamera ortda qoldirgan particle'lar quti bo'ylab oldinga o'raladi - yomg'ir
+    tomchilari yerga tegib sachraydi (to'qnashuv sub-emitteri), qor shovqin bilan aylanib tushadi; kameraga juda yaqin
+    particle'lar so'nadi ("Yaqinda so'nish", standart 4 birlik - ob'ektiv yonidagi tomchi ekran bo'ylab chiziq
+    bo'lmaydi). Chizish moduli: **tezlik bo'ylab cho'zilgan billboardlar** (yomg'ir chiziqlari, uchqunlar). Inspektor
+    Unity'dagidek modullarga bo'lingan (Asosiy, Emissiya, Shakl, Kamera atrofida, Tezlik, Tezlik chegarasi, Rang,
+    O'lcham, Shovqin, To'qnashuv, Sub-emitterlar, Tekstura sheet, Iz, Chizish) - har birida yoqish katagi, "faqat
+    yoqilganlar" filtri va "Modul qo'shish"; Ijro / Pauza (qotib qoladi) / Qayta / To'xtatish tugmalari inspektorda va
+    tanlangan tizim uchun viewport burchagidagi panelda (particle soni, sub-emitterlar bilan, sikl vaqti). Namuna:
+    Showcase3D `Scenes/ParticlesIV.zscene` (preset'lar qatori, loyihaning `Particles/Gulxan.zparticle` preset'i, kamera
+    atrofidagi yomg'ir, o'chiq qor). **Performance**: `build/bin/ZaminBench` (yoki `particle_bench` target) ~50 000
+    particle'ni headless simulyatsiya qilib har holat uchun ms / kadr chiqaradi (`--profile` - profiler bo'limlari);
+    particle simulyatsiyasi Debug build'da ham `-O2` bilan kompilyatsiya qilinadi (`ZAMIN_OPTIMIZE_PARTICLES_IN_DEBUG`)
   - **Sprite animatsiya** (sprite sheet), pixel-art filtr, FlipX/FlipY
 - **2D fizika** (Box2D, `PhysicsWorld2D`): dinamik/statik/kinematik jismlar, box/circle collider, trigger'lar, to'qnashuv callback'lari
   (2D va 3D fizika qo'llanmasi: [docs/Physics.md](Physics.md))

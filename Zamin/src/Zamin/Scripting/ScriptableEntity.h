@@ -191,7 +191,7 @@ namespace Zamin {
         /// "UISliderChanged" (float), "UIToggleChanged" (bool), "UITextChanged" / "UITextSubmitted" /
         /// "UITextEndEdit" (std::string).
         /// @code
-        ///   void OnValueChanged(float volume) override { AudioEngine::SetBusVolume("Music", volume); }
+        ///   void OnValueChanged(float volume) override { Audio::SetGroupVolume("Music", volume); }
         /// @endcode
         virtual void OnValueChanged(float /*value*/) {}                 ///< UI Slider: dragged / clicked to a new value
         virtual void OnToggleChanged(bool /*isOn*/) {}                  ///< UI Toggle: switched (also off by its group)
@@ -231,7 +231,7 @@ namespace Zamin {
         /// agents move; also on the event bus as "PatrolPointReached" (payload: the index as int,
         /// sender: this entity).
         /// @code
-        ///   void OnPatrolPointReached(int index) override { if (index == 0) PlaySound("Bell"); }
+        ///   void OnPatrolPointReached(int index) override { if (index == 0) PlaySound("Audio/bell.wav"); }
         /// @endcode
         virtual void OnPatrolPointReached(int /*index*/) {}
         /// Called for every message sent to this entity (SendMessage, Broadcast ...),

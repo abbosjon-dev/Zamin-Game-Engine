@@ -283,8 +283,11 @@ Asosiy quyosh **Cascaded Shadow Maps** bilan soya tashlaydi (texel snapping — 
 | Filtr (`Filter`, `ShadowFilter`) | `Hard`, `PCF3x3`, `PCF5x5`, `Poisson` (16 nuqta) | `PCF3x3` |
 | Kaskadlar (`CascadeCount`) | 1 ... 4 (bitta kaskad butun atlasni oladi; ortografik kamera — bitta) | 3 |
 | Taqsimot (`CascadeSplit`) | 0 teng ... 1 logarifmik (kameraga yaqinda aniqroq) | 0.75 |
-| Soya masofasi (`ShadowDistance`) | metr | 40 |
 | `DepthBias`, `NormalBias` | "akne" va soya uzilishi orasidagi muvozanat | 0.0005, 1.0 |
+
+Shu bo'limdagi **Soya masofasi** (kameradan shu masofagacha soya chiziladi; metr, standart 40) `ShadowSettings` ning
+maydoni emas, sahna sozlamalarining o'zida: `SceneSettings::ShadowDistance` (skriptda
+`GetScene().GetSettings().ShadowDistance`). Faol sifat darajasi uni `ShadowDistanceScale` ga ko'paytiradi.
 
 Mesh Renderer'ning `CastShadows` i o'chiq mesh soya tashlamaydi; `Cutout` materiallar teshikli soya beradi, `Transparent`
 — soyasiz. Soyalar har kaskad hajmi bo'yicha alohida kesiladi va instancing bilan chiziladi. Faol sifat darajasi bu

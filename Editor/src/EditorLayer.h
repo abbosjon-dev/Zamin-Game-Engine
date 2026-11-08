@@ -394,6 +394,9 @@ namespace Zamin {
         void ReportExcludedAssets(const ExportAssetPlan& plan, const std::string& gameName, const std::filesystem::path& outputDirectory);
         // The export report window (EditorExportReport.cpp); the report the export thread handed over.
         void UI_ExportReportWindow();
+        // "Prefab'larni tekshirish" (EditorPrefabCheck.cpp): the export's prefab check on its own.
+        void RunPrefabCheck();
+        void UI_PrefabCheckWindow();
         void TakeFinishedExportReport();
         // The report of an export folder (export-report.json) into the window; false when there is none.
         bool OpenExportReport(const std::filesystem::path& outputDirectory);
@@ -1152,6 +1155,8 @@ namespace Zamin {
         std::unique_ptr<ExportReport> m_PendingExportReport;
         ExportReport m_ExportReport;
         bool m_HasExportReport = false, m_ShowExportReport = false;
+        PrefabExportResult m_PrefabCheck;                 // the last "Prefab'larni tekshirish"
+        bool m_PrefabCheckDone = false, m_ShowPrefabCheck = false;
     };
 
 }

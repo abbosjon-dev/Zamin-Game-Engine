@@ -34,6 +34,9 @@ namespace Zamin {
         // and local symbols (strip --strip-unneeded): much smaller; a crash report still names the
         // exported functions.
         bool StripBinaries = true;
+        // The prefab check's warnings (PrefabExport: external references, unknown components, ...) fail
+        // the export like its errors do.
+        bool PrefabWarningsAsErrors = false;
 
         bool operator==(const ExportSettings&) const = default;
         bool IsDefault() const { return *this == ExportSettings(); }
@@ -89,7 +92,8 @@ namespace Zamin {
                                                       std::vector<std::string>* notes = nullptr);
         // The plan for the active project (its build scenes, Export settings and language folder); empty
         // without a project. `scenes`: CollectScenes' list.
-        static ExportAssetPlan PlanForActiveProject(std::vector<std::string>* scenes = nullptr, std::vector<std::string>* notes = nullptr);
+        static ExportAssetPlan PlanForActiveProject(std::vector<std::string>* scenes = nullptr, std::vector<std::string>* notes = nullptr,
+                                                    AssetReferenceIndex* index = nullptr);
         // `path` (asset-relative) matches an AlwaysInclude entry: the file itself, inside the folder, or the
         // '*' pattern.
         static bool MatchesInclude(std::string_view path, std::string_view pattern);

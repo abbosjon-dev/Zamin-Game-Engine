@@ -67,6 +67,8 @@ namespace Zamin {
         j["AlwaysInclude"] = AlwaysInclude;
         j["ReleaseScriptModule"] = ReleaseScriptModule;
         j["StripBinaries"] = StripBinaries;
+        if (PrefabWarningsAsErrors)
+            j["PrefabWarningsAsErrors"] = true;
         return j.dump(4);
     }
 
@@ -88,6 +90,8 @@ namespace Zamin {
             s.ReleaseScriptModule = it->get<bool>();
         if (auto it = j.find("StripBinaries"); it != j.end() && it->is_boolean())
             s.StripBinaries = it->get<bool>();
+        if (auto it = j.find("PrefabWarningsAsErrors"); it != j.end() && it->is_boolean())
+            s.PrefabWarningsAsErrors = it->get<bool>();
         out = std::move(s);
         return true;
     }
@@ -269,13 +273,14 @@ namespace Zamin {
         return scenes;
     }
 
-    ExportAssetPlan ExportAssets::PlanForActiveProject(std::vector<std::string>* scenes, std::vector<std::string>* notes)
+    ExportAssetPlan ExportAssets::PlanForActiveProject(std::vector<std::string>* scenes, std::vector<std::string>* notes, AssetReferenceIndex* indexOut)
     {
         Ref<Project> project = Project::GetActive();
         if (!project)
             return {};
         const ProjectConfig& config = project->GetConfig();
-        AssetReferenceIndex index;
+        AssetReferenceIndex local;
+        AssetReferenceIndex& index = indexOut ? *indexOut : local;
         index.BuildForActiveProject();
         ExportAssetInputs inputs;
         inputs.BuildScenes = CollectScenes(config, Project::GetAssetDirectory(), notes);

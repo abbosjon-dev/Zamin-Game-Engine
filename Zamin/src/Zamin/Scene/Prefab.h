@@ -100,6 +100,9 @@ namespace Zamin {
         static size_t RecordOverrides(Scene& scene, const std::vector<UUID>& touched, bool entitiesRemoved, PrefabDatabase& db);
         // Everything the instance changed, entity by entity (removed entities last).
         static std::vector<PrefabOverrideInfo> GetOverrides(Entity root);
+        // Overrides of parts the prefab no longer has (a sync drops them): "<entity>: <path>" each.
+        // Read only (the export's check).
+        static std::vector<std::string> FindOrphanOverrides(Entity root, PrefabDatabase& db);
 
         // ---- following the prefab
         // The instance as its prefab makes it, with its overrides kept: values, components,

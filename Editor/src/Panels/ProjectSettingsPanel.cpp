@@ -912,6 +912,10 @@ namespace Zamin {
             changed |= UI::PropertyBool("Faqat ishlatilganlar", e.ExcludeUnusedAssets);
             if (ImGui::IsItemHovered())
                 UI::Tooltip("O'chirilsa, Assets papkasidagi hamma fayl eksportga kiradi (build ro'yxatida yo'q sahnalardan tashqari)");
+            changed |= UI::PropertyBool("Prefab ogohlantirishlari - xato", e.PrefabWarningsAsErrors);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip(Tr("Eksportdagi prefab tekshiruvining ogohlantirishlari (tashqi havolalar, noma'lum komponentlar, eskirgan "
+                               "o'zgarishlar ...) ham eksportni muvaffaqiyatsiz qiladi"));
             UI::PropertyLabel("Doim kiritish", "Fayl yoki papka (Assets ichida); * istalgan qism: \"Levels/*.zscene\", \"Data/*\"");
             int remove = -1;
             for (size_t i = 0; i < e.AlwaysInclude.size(); i++)

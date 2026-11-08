@@ -46560,3 +46560,245 @@ TEST(ClipboardPrefabFormat)
     CHECK(EntityClipboard::Paste(*scene, &db, "{\"ZaminTransform\":1}").Entities.empty());
     CHECK(EntityClipboard::Paste(*scene, &db, "{\"ZaminEntities\":1,\"Entities\":[1,2").Entities.empty());
 }
+
+TEST(PrefabExportValidation)
+{
+    namespace fs = std::filesystem;
+    TempDirectory temp("zamin-prefab-export");
+    const fs::path assets = temp.GetPath() / "Assets";
+    fs::create_directories(assets / "Scenes");
+    fs::create_directories(temp.GetPath() / "Source");
+    PrefabFixture prefab(assets);
+    auto write = [&](const char* rel, const std::string& text) { CHECK(FileSystem::WriteTextFile(assets / rel, text)); };
+    // One fixture per rule.
+    write("Prefabs/Broken.zprefab", "{ \"ZaminEntities\": 1, \"Entities\": [ {");                                              // R2
+    write("Prefabs/Newer.zprefab", R"({"ZaminEntities":1,"Version":99,"Kind":"Prefab","Entities":[{"Entity":1,"Tag":"N"}]})"); // R3
+    write("Prefabs/TwoRoots.zprefab", R"({"ZaminEntities":1,"Entities":[{"Entity":1,"Tag":"A"},{"Entity":2,"Tag":"B"}]})");    // R4
+    write("Prefabs/NoID.zprefab", R"({"ZaminEntities":1,"Entities":[{"Tag":"A"}]})");                                          // R4
+    write("Prefabs/Unknown.zprefab", R"({"ZaminEntities":1,"Entities":[{"Entity":1,"Tag":"A","Wobble":{"Speed":2}}]})");       // R5
+    write("Prefabs/External.zprefab",
+          R"({"ZaminEntities":1,"Entities":[{"Entity":1,"Tag":"Kamera","Camera2DFollow":{"Target":999}},)"
+          R"({"Entity":2,"Parent":1,"Tag":"Bo'g'in","Rigidbody2D":{},"RevoluteJoint2D":{"ConnectedBody":777}}]})");             // R6
+    write("Prefabs/Sprite.zprefab",
+          R"({"ZaminEntities":1,"Entities":[{"Entity":1,"Tag":"S","SpriteRenderer":{"Texture":"Prefabs/yoq.png"}}]})");        // R7
+    write("Prefabs/Nested.zprefab",
+          R"({"ZaminEntities":1,"Entities":[{"Entity":1,"Tag":"P"},{"Entity":2,"Parent":1,"Tag":"Q",)"
+          R"("Editor":{"Prefab":"Prefabs/NoSuch.zprefab","PrefabEntity":1}}]})");                                            // R8
+    write("Prefabs/LoopA.zprefab",
+          R"({"ZaminEntities":1,"Entities":[{"Entity":1,"Tag":"A"},{"Entity":2,"Parent":1,"Tag":"B","Editor":{"Prefab":"Prefabs/LoopB.zprefab","PrefabEntity":1}}]})");
+    write("Prefabs/LoopB.zprefab",
+          R"({"ZaminEntities":1,"Entities":[{"Entity":1,"Tag":"B"},{"Entity":2,"Parent":1,"Tag":"A","Editor":{"Prefab":"Prefabs/LoopA.zprefab","PrefabEntity":1}}]})"); // R9
+    write("../Source/Game.cpp", "void Spawn() { Instantiate(\"Prefabs/Gone.zprefab\"); }\n");                             // R1 (code)
+
+    // Scenes: a script field naming a missing prefab (R1), a legacy instance of a prefab that is gone (R8)
+    // and one of a prefab that cannot be linked (R10), a linked instance with an override of a part the
+    // prefab does not have (R10) - and one older than its prefab (brought up to date in the copy).
+    PrefabDatabase db(assets);
+    auto scene = CreateRef<Scene>();
+    scene->SetName("Bosh");
+    Entity spawner = scene->CreateEntity("Spawner");
+    {
+        auto& script = spawner.AddComponent<NativeScriptComponent>();
+        script.ClassName = "Spawner";
+        ScriptFieldValue field;
+        field.Set(std::string("Prefabs/Missing.zprefab"));
+        script.Fields["Prefab"] = field;
+    }
+    Entity lost = scene->CreateEntity("Lost");
+    scene->SetPrefabSource(lost, "Prefabs/Lost.zprefab");
+    Entity two = scene->CreateEntity("Two");
+    scene->SetPrefabSource(two, "Prefabs/TwoRoots.zprefab");
+    Entity stale = PrefabUtility::InstantiateLinked(*scene, db, prefab.Rel());
+    Entity orphaned = PrefabUtility::InstantiateLinked(*scene, db, prefab.Rel());
+    CHECK(stale && orphaned);
+    if (!stale || !orphaned)
+        return;
+    stale.SetName("Eskirgan");
+    orphaned.SetName("Yetim");
+    ChildNamed(*scene, orphaned, "Weapon").GetComponent<PrefabLinkComponent>().Overrides = { "UIImage/Color" };
+    const std::string sceneText = SceneSerializer(scene).SerializeToString();
+    write("Scenes/Bosh.zscene", sceneText);
+    // A plain scene (no prefab links): copied as it is.
+    write("Scenes/Plain.zscene", R"({"Scene":"Plain","Version":5,"Entities":[{"Entity":5,"Tag":"A"}]})");
+    // The prefab changes after the scene was saved: its instances are stale.
+    prefab.Weapon.GetComponent<SpriteRendererComponent>().Color = { 0.9f, 0.1f, 0.1f, 1.0f };
+    CHECK(prefab.Save());
+    db.Invalidate(prefab.Rel());
+
+    AssetReferenceIndex index;
+    AssetReferenceIndex::Sources sources;
+    sources.AssetDirectory = assets;
+    sources.ProjectDirectory = temp.GetPath();
+    sources.SourceDirectory = temp.GetPath() / "Source";
+    index.Build(sources);
+    ExportAssetInputs inputs;
+    inputs.Settings.ExcludeUnusedAssets = false; // every prefab goes (unused ones too)
+    const ExportAssetPlan plan = ExportAssets::Plan(index, inputs);
+    const std::string sourceBefore = FileSystem::ReadTextFile(assets / "Scenes/Bosh.zscene");
+    PrefabExportResult r = PrefabExport::Prepare(plan, db, &index);
+    auto has = [&](const char* rule, std::string_view file, std::string_view text = {}) {
+        for (const PrefabExportIssue& i : r.Issues)
+            if (i.Rule == rule && i.File == file && i.Message.find(text) != std::string::npos)
+                return true;
+        return false;
+    };
+    auto level = [&](const char* rule) {
+        for (const PrefabExportIssue& i : r.Issues)
+            if (i.Rule == rule)
+                return i.Level;
+        return PrefabExportIssue::Severity::Info;
+    };
+    using S = PrefabExportIssue::Severity;
+    CHECK(has("R1", "Scenes/Bosh.zscene", "Prefabs/Missing.zprefab") && level("R1") == S::Error);
+    CHECK(has("R1", "Source/Game.cpp", "Prefabs/Gone.zprefab"));
+    CHECK(has("R2", "Prefabs/Broken.zprefab") && level("R2") == S::Error);
+    CHECK(has("R3", "Prefabs/Newer.zprefab", "v99") && level("R3") == S::Error);
+    CHECK(has("R4", "Prefabs/TwoRoots.zprefab", "2 ta ildiz") && has("R4", "Prefabs/NoID.zprefab") && level("R4") == S::Warning);
+    CHECK(has("R5", "Prefabs/Unknown.zprefab", "Wobble") && level("R5") == S::Warning);
+    CHECK(has("R6", "Prefabs/External.zprefab", "Camera2DFollow.Target") && has("R6", "Prefabs/External.zprefab", "RevoluteJoint2D.ConnectedBody"));
+    CHECK(has("R7", "Prefabs/Sprite.zprefab", "Prefabs/yoq.png") && level("R7") == S::Warning);
+    CHECK(has("R8", "Prefabs/Nested.zprefab", "Prefabs/NoSuch.zprefab") && has("R8", "Scenes/Bosh.zscene", "Prefabs/Lost.zprefab"));
+    CHECK(level("R8") == S::Warning);
+    CHECK(has("R9", "Prefabs/LoopA.zprefab") && has("R9", "Prefabs/LoopB.zprefab") && level("R9") == S::Error);
+    CHECK(std::count_if(r.Issues.begin(), r.Issues.end(), [](const PrefabExportIssue& i) { return i.Rule == "R9"; }) == 2);
+    CHECK(has("R10", "Scenes/Bosh.zscene", "UIImage/Color") && has("R10", "Scenes/Bosh.zscene", "'Two'") && level("R10") == S::Warning);
+    CHECK(!has("R6", prefab.Rel()) && !has("R4", prefab.Rel())); // the good prefab: nothing
+    CHECK(r.HasErrors() && r.PrefabsChecked >= 10 && r.Count(S::Info) == 1 && r.Updated == 1);
+    CHECK(r.Summary().find("tekshirildi") != std::string::npos);
+
+    // The copies: the scene without its links (the stale instance up to date), the plain one untouched,
+    // the source files unchanged.
+    CHECK(FileSystem::ReadTextFile(assets / "Scenes/Bosh.zscene") == sourceBefore);
+    CHECK(r.Baked.contains("Scenes/Bosh.zscene") && !r.Baked.contains("Scenes/Plain.zscene") && r.Stripped == r.Baked.size());
+    const std::string baked = r.Baked["Scenes/Bosh.zscene"];
+    for (const char* key : { "\"PrefabEntity\"", "\"PrefabHash\"", "\"PrefabUUID\"", "\"Overrides\"", "\"RemovedEntities\"", "Prefabs/Enemy.zprefab" })
+        CHECK(baked.find(key) == std::string::npos);
+    auto exported = CreateRef<Scene>();
+    CHECK(SceneSerializer(exported).DeserializeFromString(baked));
+    // The same as the source synced, minus its links.
+    auto expected = CreateRef<Scene>();
+    CHECK(SceneSerializer(expected).DeserializeFromString(sourceBefore));
+    PrefabUtility::SyncScene(*expected, db);
+    for (Entity e : expected->GetEntitiesInOrder())
+    {
+        if (e.HasComponent<PrefabLinkComponent>())
+            e.RemoveComponent<PrefabLinkComponent>();
+        expected->SetPrefabSource(e, "");
+    }
+    CHECK(SceneSerializer(exported).SerializeToString() == SceneSerializer(expected).SerializeToString());
+    bool red = false;
+    for (Entity e : exported->GetEntitiesInOrder())
+        red |= e.GetName() == "Weapon" && e.GetComponent<SpriteRendererComponent>().Color == glm::vec4(0.9f, 0.1f, 0.1f, 1.0f);
+    CHECK(red && exported->GetAllEntitiesWith<PrefabLinkComponent>().empty());
+    // A prefab with a nested prefab: written flat, without links.
+    {
+        auto ps = CreateRef<Scene>();
+        Entity outer = ps->CreateEntity("Outer");
+        CHECK(PrefabUtility::InstantiateLinked(*ps, db, prefab.Rel(), outer));
+        CHECK(ps->SavePrefab(outer, assets / "Prefabs" / "Outer.zprefab"));
+        index.Build(sources);
+        const ExportAssetPlan plan2 = ExportAssets::Plan(index, inputs);
+        PrefabExportResult r2 = PrefabExport::Prepare(plan2, db, &index);
+        CHECK(r2.Baked.contains("Prefabs/Outer.zprefab"));
+        const std::string flat = r2.Baked["Prefabs/Outer.zprefab"];
+        CHECK(flat.find("PrefabEntity") == std::string::npos && flat.find("Prefabs/Enemy.zprefab") == std::string::npos && flat.find("Weapon") != std::string::npos);
+        auto check = CreateRef<Scene>();
+        SceneSerializer::EntitySetReadOptions options;
+        CHECK(SceneSerializer::DeserializeEntities(*check, flat, options).size() == 4);
+    }
+    // StripLinks on its own.
+    std::string text = R"({"Entities":[{"Entity":1,"Editor":{"Prefab":"P.zprefab","PrefabEntity":3,"Hidden":true}},{"Entity":2,"Editor":{"Overrides":["Tag"]}}]})";
+    CHECK(PrefabExport::StripLinks(text) && text.find("Prefab") == std::string::npos && text.find("Hidden") != std::string::npos &&
+          text.find("Overrides") == std::string::npos);
+    CHECK(!PrefabExport::StripLinks(text) && !PrefabExport::StripLinks(std::string("nope").assign("nope")));
+    // The setting that makes warnings fail the export.
+    ExportSettings settings;
+    settings.PrefabWarningsAsErrors = true;
+    ExportSettings back;
+    CHECK(ExportSettings::FromJson(settings.ToJson(), back) && back.PrefabWarningsAsErrors && !back.IsDefault());
+    CHECK(ExportSettings().ToJson().find("PrefabWarningsAsErrors") == std::string::npos);
+
+    // The sample projects: no errors, no warnings (their exported Menu.zscene has no prefab links).
+    for (const char* name : { "Platformer2D", "Showcase3D", "Adventure3D" })
+    {
+        const fs::path project = fs::path(ZAMIN_SOURCE_DIR) / "Projects" / name;
+        AssetReferenceIndex sampleIndex;
+        AssetReferenceIndex::Sources sampleSources;
+        sampleSources.AssetDirectory = project / "Assets";
+        sampleSources.ProjectDirectory = project;
+        sampleSources.SourceDirectory = project / "Source";
+        sampleIndex.Build(sampleSources);
+        PrefabDatabase sampleDb(project / "Assets");
+        PrefabExportResult sample = PrefabExport::Prepare(ExportAssets::Plan(sampleIndex, {}), sampleDb, &sampleIndex);
+        CHECK(sample.Issues.empty() && sample.PrefabsChecked >= 1);
+        for (const PrefabExportIssue& i : sample.Issues)
+            printf("    %s %s: %s\n", i.Rule.c_str(), i.File.c_str(), i.Message.c_str());
+        if (std::string_view(name) == "Platformer2D")
+        {
+            CHECK(sample.Baked.size() == 1 && sample.Baked.contains("Scenes/Menu.zscene") && sample.Updated == 0);
+            const std::string menu = sample.Baked["Scenes/Menu.zscene"];
+            CHECK(menu.find("\"Prefab\": \"Prefabs/GameMenu.zprefab\"") == std::string::npos && menu.size() + 200 > FileSystem::ReadTextFile(project / "Assets/Scenes/Menu.zscene").size());
+        }
+    }
+}
+
+TEST(PrefabFieldLabelsExist)
+{
+    // Every inspector row the prefab markers know names a value the component's scene-file JSON has
+    // (its default values written as a scene writes them).
+    using Adder = std::function<void(Entity)>;
+    const std::unordered_map<std::string_view, Adder> add = {
+        { "Transform", [](Entity) {} },
+        { "SpriteRenderer", [](Entity e) { e.AddComponent<SpriteRendererComponent>(); } },
+        { "CircleRenderer", [](Entity e) { e.AddComponent<CircleRendererComponent>(); } },
+        { "Text", [](Entity e) { e.AddComponent<TextComponent>(); } },
+        { "Camera", [](Entity e) { e.AddComponent<CameraComponent>(); } },
+        { "MeshRenderer", [](Entity e) { e.AddComponent<MeshRendererComponent>(); } },
+        { "Rigidbody2D", [](Entity e) { e.AddComponent<Rigidbody2DComponent>(); } },
+        { "Rigidbody3D", [](Entity e) { e.AddComponent<Rigidbody3DComponent>(); } },
+        { "BoxCollider2D", [](Entity e) { e.AddComponent<BoxCollider2DComponent>(); } },
+        { "CircleCollider2D", [](Entity e) { e.AddComponent<CircleCollider2DComponent>(); } },
+        { "BoxCollider3D", [](Entity e) { e.AddComponent<BoxCollider3DComponent>(); } },
+        { "SphereCollider3D", [](Entity e) { e.AddComponent<SphereCollider3DComponent>(); } },
+        { "UITransform", [](Entity e) { e.AddComponent<UITransformComponent>(); } },
+        { "UIImage", [](Entity e) { e.AddComponent<UIImageComponent>(); } },
+        { "DirectionalLight", [](Entity e) { e.AddComponent<DirectionalLightComponent>(); } },
+        { "PointLight", [](Entity e) { e.AddComponent<PointLightComponent>(); } },
+        { "SpotLight", [](Entity e) { e.AddComponent<SpotLightComponent>(); } },
+        { "AudioSource", [](Entity e) { e.AddComponent<AudioSourceComponent>(); } },
+    };
+    std::set<std::pair<std::string, std::string>> seen;
+    CHECK(PrefabFieldLabels::GetAll().size() >= 40);
+    const std::string writer = FileSystem::ReadTextFile(std::filesystem::path(ZAMIN_SOURCE_DIR) / "Zamin/src/Zamin/Scene/SceneSerializer.cpp");
+    CHECK(!writer.empty());
+    for (const PrefabFieldLabel& label : PrefabFieldLabels::GetAll())
+    {
+        // Each row once per component, found by Find, its path inside its component.
+        CHECK(seen.emplace(std::string(label.Component), std::string(label.Label)).second);
+        CHECK(PrefabFieldLabels::Find(label.Component, label.Label) == label.Path);
+        const std::vector<std::string> parts = PrefabOverrides::SplitPath(label.Path);
+        CHECK(parts.size() >= 2 && parts[0] == label.Component);
+        auto adder = add.find(label.Component);
+        CHECK(adder != add.end());
+        if (adder == add.end() || parts.size() < 2)
+            continue;
+        auto scene = CreateRef<Scene>();
+        Entity e = scene->CreateEntity("E");
+        adder->second(e);
+        CHECK(ComponentRegistry::Has(e, label.Component));
+        const std::string text = SceneSerializer::SerializeEntities(*scene, { e });
+        const size_t at = text.find(std::format("\"{}\": {{", label.Component));
+        CHECK(at != std::string::npos);
+        bool found = at != std::string::npos;
+        for (size_t i = 1; found && i < parts.size(); i++)
+            found = text.find(std::format("\"{}\":", parts[i]), at) != std::string::npos;
+        // A value written only when it is not the default (UITransform "Alpha", Text "WordWrap" ...):
+        // a key the scene writer has.
+        if (!found)
+            found = writer.find(std::format("[\"{}\"] = ", parts.back())) != std::string::npos;
+        if (!found)
+            printf("    yo'q: %s (%s)\n", std::string(label.Path).c_str(), std::string(label.Label).c_str());
+        CHECK(found);
+    }
+    CHECK(PrefabFieldLabels::Find("SpriteRenderer", "Yo'q qator").empty() && PrefabFieldLabels::Find("Yo'q", "Rang").empty());
+}

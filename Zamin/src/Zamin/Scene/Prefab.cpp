@@ -1539,6 +1539,38 @@ namespace Zamin {
         return changed;
     }
 
+    std::vector<std::string> PrefabUtility::FindOrphanOverrides(Entity root, PrefabDatabase& db)
+    {
+        std::vector<std::string> out;
+        Instance in;
+        if (!Prepare(root, db, in))
+            return out;
+        std::vector<uint64_t> locals;
+        for (auto& [local, e] : in.Linked)
+            if (HasTemplateEntity(*in.T, local) && !in.Removed.contains(local))
+                if (const auto* link = e.TryGetComponent<PrefabLinkComponent>(); link && !link->Overrides.empty())
+                    locals.push_back(local);
+        if (locals.empty())
+            return out;
+        std::sort(locals.begin(), locals.end());
+        std::unordered_map<uint64_t, json> clean;
+        BuildClean(in, locals, clean);
+        for (uint64_t local : locals)
+        {
+            Entity e = in.Linked[local];
+            auto c = clean.find(local);
+            if (c == clean.end())
+                continue;
+            const auto& link = e.GetComponent<PrefabLinkComponent>();
+            std::vector<std::string> orphans;
+            PO::Merge(c->second, SceneSerializerJson::SerializeEntityJson(e, s_CompareOptions), link.Overrides, link.RemovedComponents, e == in.Root,
+                      &orphans);
+            for (const std::string& path : orphans)
+                out.push_back(std::format("{}: {}", e.GetName(), path));
+        }
+        return out;
+    }
+
     std::vector<PrefabOverrideInfo> PrefabUtility::GetOverrides(Entity root)
     {
         std::vector<PrefabOverrideInfo> out;

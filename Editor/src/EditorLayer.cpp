@@ -6359,9 +6359,33 @@ namespace Zamin {
         // code name, the folders always taken - the rest stays out (Project settings > Build scenes > Export).
         // Planned here, on this thread (the registry).
         std::vector<std::string> buildScenes, notes;
-        const ExportAssetPlan assetPlan = ExportAssets::PlanForActiveProject(&buildScenes, &notes);
+        AssetReferenceIndex referenceIndex;
+        const ExportAssetPlan assetPlan = ExportAssets::PlanForActiveProject(&buildScenes, &notes, &referenceIndex);
         for (const std::string& note : notes)
             ZM_INFO("Eksport: {}", note);
+        // The prefabs the game gets are checked (R1-R10, docs/prefabs.md), and the scenes / prefabs that
+        // hold the editor's prefab links are exported without them (instances older than their prefabs
+        // brought up to date in the copy; the project's files stay as they are). Here, on this thread
+        // (the editor's prefab database); the export thread only writes the texts.
+        std::map<std::string, std::string> bakedFiles;
+        {
+            PrefabExportResult prefabCheck = PrefabExport::Prepare(assetPlan, m_PrefabDatabase, &referenceIndex);
+            for (const PrefabExportIssue& issue : prefabCheck.Issues)
+            {
+                std::string message = issue.File.empty() ? std::format("prefab: {}", issue.Message)
+                                                         : std::format("prefab ({}, {}): {}", issue.Rule, issue.File, issue.Message);
+                if (issue.Level == PrefabExportIssue::Severity::Error ||
+                    (issue.Level == PrefabExportIssue::Severity::Warning && exportSettings.PrefabWarningsAsErrors))
+                    fail(std::move(message));
+                else if (issue.Level == PrefabExportIssue::Severity::Warning)
+                    warn(std::move(message));
+                else
+                    ZM_INFO("Eksport: {}", message);
+            }
+            ZM_INFO("Eksport: {}{}", prefabCheck.Summary(),
+                    prefabCheck.Stripped ? std::format(" ({} ta faylning prefab bog'lanishlari olib tashlandi)", prefabCheck.Stripped) : std::string());
+            bakedFiles = std::move(prefabCheck.Baked);
+        }
         const bool binaryScenes = m_BuildGameBinaryScenes;
         // The exported game reads its asset registry from one file (made here, on this thread) - without the
         // assets left out.
@@ -6409,7 +6433,18 @@ namespace Zamin {
                     fs::remove_all(assets, e);
                 for (const std::string& file : assetPlan.Included)
                 {
-                    copy(projectDir / assetRel / file, assets / file);
+                    if (auto baked = bakedFiles.find(file); baked != bakedFiles.end())
+                    {
+                        // Without the editor's prefab links (and up to date with its prefabs).
+                        fs::create_directories((assets / file).parent_path(), e);
+                        if (!FileSystem::WriteTextFile(assets / file, baked->second))
+                        {
+                            fail(std::format("yozilmadi: {}", (assets / file).string()));
+                            ok = false;
+                        }
+                    }
+                    else
+                        copy(projectDir / assetRel / file, assets / file);
                     const fs::path meta = projectDir / assetRel / (file + ".zmeta");
                     if (fs::exists(meta, e))
                         copy(meta, assets / (file + ".zmeta"));
@@ -6830,6 +6865,11 @@ namespace Zamin {
                 else if (!OpenExportReport(m_BuildGameOutput.empty() ? Project::GetProjectDirectory() / "Build" / "Game" : fs::path(m_BuildGameOutput)))
                     ZM_WARN("Eksport hisoboti yo'q: avval o'yinni build qiling (Fayl > O'yinni build qilish)");
             }
+            if (ImGui::MenuItem(Tr(ICON_FA_BOX "  Prefab'larni tekshirish"), nullptr, false, hasProject && !m_Exporting))
+                RunPrefabCheck();
+            if (ImGui::IsItemHovered())
+                UI::Tooltip(Tr("Eksport qiladigan tekshiruv: o'yinga kiradigan prefablar (topilmaganlari, buzilganlari, tashqi havolalar, "
+                               "sikllar ...) va eksportda bog'lanishlarisiz yoziladigan sahnalar"));
             ImGui::Separator();
             if (ImGui::MenuItem(Tr(ICON_FA_XMARK "  Chiqish"), "Alt+F4")) Application::Get().Close();
             ImGui::EndMenu();
@@ -11714,6 +11754,11 @@ namespace Zamin {
                                     ? "strip --strip-unneeded: debug ma'lumotlari va lokal simvollar olib tashlanadi - fayllar bir necha marta "
                                       "kichrayadi. Crash hisobotida eksport qilingan funksiya nomlari qoladi."
                                     : "strip dasturi topilmadi (binutils paketi) - binarlar o'zgarmaydi");
+                if (ImGui::Checkbox(Tr("Prefab ogohlantirishlari xato hisoblansin"), &exportSettings.PrefabWarningsAsErrors))
+                    m_ProjectSettingsPanel.MarkDirty();
+                ImGui::SameLine();
+                if (ImGui::SmallButton(Tr(ICON_FA_BOX "  Prefab'larni tekshirish")))
+                    RunPrefabCheck();
                 if (!m_BuildAssetPreviewValid)
                 {
                     m_BuildAssetPreview = ExportAssets::PlanForActiveProject();
@@ -11797,6 +11842,7 @@ namespace Zamin {
 
         // ---- the export's report (opens when an export ends)
         UI_ExportReportWindow();
+        UI_PrefabCheckWindow();
 
         // ---- about
         if (m_ShowAbout) { ImGui::OpenPopup("###About"); m_ShowAbout = false; }

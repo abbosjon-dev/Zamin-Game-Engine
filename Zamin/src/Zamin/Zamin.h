@@ -141,6 +141,7 @@
 #include "Zamin/Project/AssetFiles.h"
 #include "Zamin/Project/ExportAssets.h"
 #include "Zamin/Project/ExportBuild.h"
+#include "Zamin/Project/PrefabExport.h"
 #include "Zamin/Asset/AssetTypes.h"
 #include "Zamin/Asset/AssetMetadata.h"
 #include "Zamin/Asset/AssetRegistry.h"

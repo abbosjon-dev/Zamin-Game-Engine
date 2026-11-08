@@ -1,0 +1,40 @@
+{
+    "$name": "English",
+    "menu": {
+        "title": "SILK ROAD",
+        "subtitle": "An endless run  ·  a Zamin Engine sample",
+        "play": "Play",
+        "quit": "Quit",
+        "language": "Language: {0}",
+        "best": "Record: {0} points  ·  longest: {1} m",
+        "controls": "A / D or arrows - change lanes   ·   Space / W - jump   ·   S - slide   ·   Esc - pause\nGamepad: D-pad / LB / RB / left stick - lanes, A - jump, B - slide, Start - pause"
+    },
+    "hud": {
+        "demo": "DEMO - autoplay",
+        "distance": "{0} m",
+        "coins": "Coins: {0}",
+        "speed": "{0} km/h",
+        "best": "Record: {0}",
+        "go": "RUN!",
+        "go_sub": "Jump the carts, slide under the carpets",
+        "milestone": "{0} m!",
+        "faster": "Faster now",
+        "magnet": "Magnet: the coins come to you!",
+        "shield": "Shield: one hit forgiven",
+        "magnet_time": "Magnet {0} s",
+        "shield_time": "Shield {0} s"
+    },
+    "pause": {
+        "title": "PAUSED",
+        "resume": "Resume",
+        "restart": "Restart",
+        "menu": "Main menu"
+    },
+    "over": {
+        "title": "YOU FELL!",
+        "score": "Score: {0}",
+        "stats": "{0} m  ·  {1} coins",
+        "record": "New record!",
+        "best": "Record: {0}"
+    }
+}

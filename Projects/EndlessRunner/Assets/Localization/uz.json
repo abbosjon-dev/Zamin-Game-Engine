@@ -1,0 +1,40 @@
+{
+    "$name": "O'zbekcha",
+    "menu": {
+        "title": "IPAK YO'LI",
+        "subtitle": "Cheksiz yugurish  ·  Zamin Engine namunasi",
+        "play": "O'ynash",
+        "quit": "Chiqish",
+        "language": "Til: {0}",
+        "best": "Rekord: {0} ochko  ·  eng uzoq: {1} m",
+        "controls": "A / D yoki strelkalar - yo'lak almashtirish   ·   Space / W - sakrash   ·   S - sirpanish   ·   Esc - pauza\nGamepad: D-pad / LB / RB / chap stik - yo'lak, A - sakrash, B - sirpanish, Start - pauza"
+    },
+    "hud": {
+        "demo": "DEMO - avtomatik o'yin",
+        "distance": "{0} m",
+        "coins": "Tanga: {0}",
+        "speed": "{0} km/soat",
+        "best": "Rekord: {0}",
+        "go": "YUGUR!",
+        "go_sub": "Aravalardan sakrang, gilam ostidan sirpaning",
+        "milestone": "{0} m!",
+        "faster": "Tezlik oshdi",
+        "magnet": "Magnit: tangalar o'zi keladi!",
+        "shield": "Qalqon: bitta zarbadan saqlaydi",
+        "magnet_time": "Magnit {0} s",
+        "shield_time": "Qalqon {0} s"
+    },
+    "pause": {
+        "title": "PAUZA",
+        "resume": "Davom etish",
+        "restart": "Qaytadan",
+        "menu": "Bosh menyu"
+    },
+    "over": {
+        "title": "YIQILDINGIZ!",
+        "score": "Ochko: {0}",
+        "stats": "{0} m  ·  {1} tanga",
+        "record": "Yangi rekord!",
+        "best": "Rekord: {0}"
+    }
+}

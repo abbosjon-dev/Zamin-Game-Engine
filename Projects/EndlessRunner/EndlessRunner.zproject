@@ -1,0 +1,125 @@
+{
+    "Version": 2,
+    "Project": {
+        "Name": "EndlessRunner",
+        "StartScene": "Scenes/SilkRoad.zscene",
+        "StartSceneUUID": "c8bc8bad682a26d6",
+        "AssetDirectory": "Assets",
+        "SourceDirectory": "Source",
+        "ScriptModulePath": "Binaries/libEndlessRunner.so",
+        "EngineVersion": "0.1.0"
+    },
+    "Player": {
+        "Company": "Zamin Studio",
+        "Product": "Ipak Yo'li",
+        "Version": "1.0.0",
+        "Width": 1280,
+        "Height": 720,
+        "WindowMode": "Windowed",
+        "Resizable": true,
+        "VSync": true,
+        "Title": "",
+        "VersionInTitle": false,
+        "TargetFrameRate": 0,
+        "RunInBackground": true,
+        "Icon": "Textures/GameIcon.png"
+    },
+    "BuildScenes": [
+        {
+            "Path": "Scenes/SilkRoad.zscene",
+            "Enabled": true,
+            "UUID": "c8bc8bad682a26d6"
+        }
+    ],
+    "InputActions": {
+        "Actions": [
+            {
+                "Name": "Left",
+                "Bindings": [
+                    "Key:A",
+                    "Key:Left",
+                    "Gamepad:DPadLeft",
+                    "Gamepad:LeftBumper"
+                ]
+            },
+            {
+                "Name": "Right",
+                "Bindings": [
+                    "Key:D",
+                    "Key:Right",
+                    "Gamepad:DPadRight",
+                    "Gamepad:RightBumper"
+                ]
+            },
+            {
+                "Name": "Jump",
+                "Bindings": [
+                    "Key:Space",
+                    "Key:W",
+                    "Key:Up",
+                    "Gamepad:A"
+                ]
+            },
+            {
+                "Name": "Slide",
+                "Bindings": [
+                    "Key:S",
+                    "Key:Down",
+                    "Gamepad:B"
+                ]
+            },
+            {
+                "Name": "Pause",
+                "Bindings": [
+                    "Key:Escape",
+                    "Key:P",
+                    "Gamepad:Start"
+                ]
+            }
+        ],
+        "Axes": [
+            {
+                "Name": "Steer",
+                "Negative": [],
+                "Positive": [],
+                "Deadzone": 0.25,
+                "Invert": false,
+                "GamepadAxis": "LeftX"
+            }
+        ],
+        "Vectors": []
+    },
+    "Localization": {
+        "DefaultLanguage": "uz",
+        "Languages": [
+            "uz",
+            "en"
+        ],
+        "Directory": "Localization",
+        "UseSystemLanguage": false
+    },
+    "Audio": {
+        "Groups": [
+            {
+                "Name": "Master",
+                "Volume": 1.0
+            },
+            {
+                "Name": "Music",
+                "Parent": "Master",
+                "Volume": 0.55
+            },
+            {
+                "Name": "SFX",
+                "Parent": "Master",
+                "Volume": 0.9
+            },
+            {
+                "Name": "UI",
+                "Parent": "Master",
+                "Volume": 0.8
+            }
+        ],
+        "StreamThresholdMB": 4.0
+    }
+}

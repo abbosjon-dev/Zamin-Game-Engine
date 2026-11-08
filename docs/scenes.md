@@ -589,7 +589,39 @@ GameState, servislar, hodisalar, vaqt).
 ZAMIN_TESTS=Scene ./build/bin/ZaminTests        # nomida "Scene" bor testlar
 ./build/bin/ZaminBench --serialize               # katta sahna saqlash / yuklash
 ./build/bin/ZaminBench --queries                 # qidiruv indekslari
+./build/bin/ZaminBench --serialize --prefabs     # bog'langan prefab nusxalari (--instances N, --json fayl)
 ```
+
+**Serializatsiya fuzz testi** (`SerializationFuzz`): tasodifiy JSON va namuna fayllarining (`Menu.zscene`,
+`Level1.zscene`, barcha `.zprefab`) buzilgan nusxalari — kesilgan matn, turi almashgan qiymat, o'chirilgan kalit,
+takrorlangan ID, ota obyekt halqasi, juda katta / manfiy sonlar, chuqur ichma-ichlik, buzilgan prefab bog'lanishlari —
+har bir o'quvchidan o'tadi: sahna, binar kesh, tiklash (`RecoverFromString`), obyektlar to'plami (prefab, bufer),
+migratsiya zanjiri, `SceneRecovery::Salvage`, prefab fayli o'zgarganda nusxalar sinxroni, prefab rejimi. Shartlar:
+hech qanday istisno tashqariga chiqmaydi; ierarxiya o'zaro mos (ota obyekt farzandlari ro'yxatida, halqa yo'q);
+kirishdagidan ko'p obyekt chiqmaydi; `Serialize(Load(Serialize(Load(x))))` = `Serialize(Load(x))`.
+`ZAMIN_FUZZ_SEED` (seed chop etiladi), `ZAMIN_FUZZ_ITERATIONS` (standart 500, ~3 s). Xato topilgan kirish
+`Tests/Fixtures/Fuzz/` ga yoziladi va keyingi har ishga tushishda birinchi tekshiriladi. Fuzz test topgan xato:
+cheksiz float (`1e308` float maydonga o'qilganda) `null` bo'lib yozilar va qayta o'qilmas edi — endi eng katta float
+qiymati bo'lib yoziladi (NaN: 0). 20 000 iteratsiya AddressSanitizer bilan toza o'tadi.
+
+**Prefab benchmark** (`ZaminBench --serialize --prefabs`): 20 obyektli sintetik prefab (ichida boshqa prefab, ichki
+havolalar), 1000 ta bog'langan nusxa (20 000 obyekt), o'ndan biri 3 ta override bilan; namunaviy `GameMenu`
+(44 UI obyekt) ×100. Release, mediana:
+
+| | Enemy ×1000 | GameMenu ×100 | Byudjet |
+|---|---|---|---|
+| `SyncScene`: hammasi yangi (hash tez yo'li) | 4.8 ms | 0.8 ms | ≤ 5 ms |
+| `SyncScene`: majburiy qayta sinxron | 397 ms | 200 ms | ≤ 300 ms (20k obyekt) |
+| `RecordOverrides`: bitta obyekt | 0.014 ms | 0.031 ms | ≤ 0.2 ms |
+| Bog'lanish baytlari (fayldagi ulushi) | 8.7 % | 3.3 % | ≤ 10 % |
+| Yuklashga qo'shimcha (JSON) | 10.8 % | 7.3 % | ≤ 5 % |
+| Apply → hamma nusxalar | 462 ms | 218 ms | — |
+| `Instantiate(path)` ×1000: har safar o'qib / `PrefabCache` | 283 / 111 ms | 1079 / 328 ms | — |
+
+Majburiy qayta sinxron va yuklashdagi qo'shimcha byudjetdan oshadi: sinxron har nusxa obyektini prefab va nusxa JSON'i
+sifatida solishtiradi (20 000 obyektni ikki marta yozish ~300 ms), bog'lanishlar esa har obyektga kichik
+`"Editor"` obyektini qo'shadi. Ikkalasi faqat prefab o'zgarganda / sahna ochilganda ishlaydi; har undo / redo dan
+keyingi tez yo'l byudjet ichida.
 
 ---
 

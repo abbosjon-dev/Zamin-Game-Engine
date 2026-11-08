@@ -474,11 +474,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 408. Dublikat qilishda EntityRef'larni ichki xaritalash
 - [x] 409. Sahna fayli versiyasi va migratsiya
 - [x] 410. Buzilgan sahna faylini tiklash (qisman yuklash)
-- [ ] 411. Serializatsiya fuzz testi (tasodifiy JSON)
-- [ ] 412. Katta sahnalar serializatsiya benchmark
-- [ ] 413. Prefab variantlari (asosiy prefabdan meros)
-- [ ] 414. Prefab thumbnail
-- [ ] 415. Prefab'ni kontent brauzerdan sahnaga ko'p marta sudrash
+- [x] 411. Serializatsiya fuzz testi (tasodifiy JSON)
+- [x] 412. Katta sahnalar serializatsiya benchmark
+- [x] 413. Prefab variantlari (asosiy prefabdan meros)
+- [x] 414. Prefab thumbnail
+- [x] 415. Prefab'ni kontent brauzerdan sahnaga ko'p marta sudrash
 - [ ] 416. Prefab o'zgarishi hot reload
 - [ ] 417. Prefab serializatsiya testlari
 - [ ] 418. Clipboard formatini prefab bilan birlashtirish

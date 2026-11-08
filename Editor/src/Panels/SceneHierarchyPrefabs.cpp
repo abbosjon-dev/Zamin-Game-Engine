@@ -252,9 +252,11 @@ namespace Zamin {
         if (m_Prefabs)
             if (const std::vector<std::string> chain = PrefabUtility::GetVariantChain(*m_Prefabs, path); chain.size() > 1)
             {
+                const std::string base = std::format(ICON_FA_CLONE " ({}: {})", Tr("variant"), std::filesystem::path(chain[1]).stem().string());
                 ImGui::SameLine();
-                ImGui::TextColored(ImVec4(s_PrefabBlue.x, s_PrefabBlue.y, s_PrefabBlue.z, 0.75f), ICON_FA_CLONE " (%s: %s)", Tr("variant"),
-                                   std::filesystem::path(chain[1]).stem().string().c_str());
+                if (ImGui::GetContentRegionAvail().x < ImGui::CalcTextSize(base.c_str()).x)
+                    ImGui::NewLine();
+                ImGui::TextColored(ImVec4(s_PrefabBlue.x, s_PrefabBlue.y, s_PrefabBlue.z, 0.75f), "%s", base.c_str());
                 if (ImGui::IsItemHovered())
                 {
                     std::string tip = Tr("Variant zanjiri:");
@@ -273,9 +275,11 @@ namespace Zamin {
             if (const PrefabDatabase::Template* t = m_Prefabs->Get(path); t)
                 if (auto nested = t->NestedOwner.find(local); nested != t->NestedOwner.end())
                 {
-                    // It comes from a prefab nested in this one: its values can go into that one too.
-                    ImGui::TextColored(ImVec4(0.55f, 0.72f, 0.95f, 0.9f), ICON_FA_CUBES "  %s: %s", Tr("Ichma-ich prefabdan"),
-                                       FileName(nested->second.Prefab).c_str());
+                    // It comes from a prefab nested in this one (a variant: from its base): its values can go
+                    // into that one too.
+                    const bool fromBase = t->IsVariant && nested->second.Owner == t->Root;
+                    ImGui::TextColored(ImVec4(0.55f, 0.72f, 0.95f, 0.9f), "%s  %s: %s", fromBase ? ICON_FA_CLONE : ICON_FA_CUBES,
+                                       fromBase ? Tr("Asosiy prefabdan") : Tr("Ichma-ich prefabdan"), FileName(nested->second.Prefab).c_str());
                     if (ImGui::IsItemHovered())
                         UI::Tooltip(std::format("{}\n{}", nested->second.Prefab,
                                                 Tr("Qiymatni o'ng tugma bilan shu prefabga ham qo'llash mumkin")).c_str());

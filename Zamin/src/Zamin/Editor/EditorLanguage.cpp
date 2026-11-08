@@ -1531,6 +1531,7 @@ namespace Zamin {
             { "Prefab qo'yildi", "Prefab placed" },
             { "Prefab qo'yish rejimi: bosing - qo'yiladi, Esc yoki o'ng tugma - chiqish", "Prefab placing: click to place, Esc or right-click to stop" },
             { "Joylanadi", "Placing" },
+            { "Asosiy prefabdan", "From the base prefab" },
             { "Bosing: qo'yish  -  Esc / o'ng tugma: chiqish", "Click: place  -  Esc / right-click: stop" },
             { "ta qo'yildi", "placed" },
         };

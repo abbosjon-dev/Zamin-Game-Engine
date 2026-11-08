@@ -577,8 +577,8 @@ void SokobanGame::StyleBoxesAndGoals(bool)
         if (auto* mr = box.TryGetComponent<MeshRendererComponent>())
         {
             mr->Mat.Emission = on ? glm::vec3(0.25f, 1.0f, 0.45f) : glm::vec3(0.0f);
-            mr->Mat.EmissionStrength = on ? 0.55f : 0.0f;
-            mr->Mat.Albedo = on ? glm::vec4(0.8f, 1.0f, 0.8f, 1.0f) : glm::vec4(1.0f);
+            mr->Mat.EmissionStrength = on ? 0.18f : 0.0f;
+            mr->Mat.Albedo = on ? glm::vec4(0.75f, 1.0f, 0.75f, 1.0f) : glm::vec4(1.0f);
         }
     }
     for (auto& [cell, goal] : m_GoalEntities)

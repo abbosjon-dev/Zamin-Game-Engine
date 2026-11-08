@@ -7,7 +7,33 @@
         "quit": "Chiqish",
         "language": "Til: {0}",
         "best": "Rekord: {0}   ·   eng uzoq daraja: {1}",
-        "controls": "Sichqoncha / A,D / strelkalar - raketka   ·   Space / LKM - to'pni otish, lazer   ·   Esc - pauza\nGamepad: chap stik - raketka, A - otish, Start - pauza"
+        "controls": "[kb:Sichqoncha / ][MoveX] - raketka   ·   [Action] - to'pni otish, lazer   ·   [Pause] - pauza\n[kb:Gamepad ham ishlaydi - uni ishlatsangiz, ishoralar uning tugmalarini ko'rsatadi][pad:Gamepad - klaviatura yoki sichqoncha ishlatilsa, ishoralar ularga qaytadi]"
+    },
+    "input": {
+        "key": {
+            "Arrows": "strelkalar",
+            "Left": "chap strelka",
+            "Right": "o'ng strelka",
+            "Up": "yuqori strelka",
+            "Down": "past strelka"
+        },
+        "mouse": {
+            "Left": "LKM",
+            "Right": "PKM",
+            "Middle": "o'rta tugma"
+        },
+        "stick": {
+            "Left": "chap stik",
+            "Right": "o'ng stik"
+        },
+        "pad": {
+            "DPad": "D-pad",
+            "DPadLeft": "D-pad chap",
+            "DPadRight": "D-pad o'ng",
+            "DPadUp": "D-pad yuqori",
+            "DPadDown": "D-pad past",
+            "LeftThumb": "chap stik bosish"
+        }
     },
     "hud": {
         "score_label": "HISOB",

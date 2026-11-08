@@ -7,7 +7,33 @@
         "quit": "Quit",
         "language": "Language: {0}",
         "best": "Best: {0}   ·   furthest level: {1}",
-        "controls": "Mouse / A,D / arrows - paddle   ·   Space / LMB - launch, laser   ·   Esc - pause\nGamepad: left stick - paddle, A - launch, Start - pause"
+        "controls": "[kb:Mouse / ][MoveX] - paddle   ·   [Action] - launch, laser   ·   [Pause] - pause\n[kb:A gamepad works too - use it and the hints show its buttons][pad:Gamepad - use the keyboard or mouse and the hints switch back]"
+    },
+    "input": {
+        "key": {
+            "Arrows": "arrows",
+            "Left": "Left",
+            "Right": "Right",
+            "Up": "Up",
+            "Down": "Down"
+        },
+        "mouse": {
+            "Left": "LMB",
+            "Right": "RMB",
+            "Middle": "MMB"
+        },
+        "stick": {
+            "Left": "left stick",
+            "Right": "right stick"
+        },
+        "pad": {
+            "DPad": "D-pad",
+            "DPadLeft": "D-pad left",
+            "DPadRight": "D-pad right",
+            "DPadUp": "D-pad up",
+            "DPadDown": "D-pad down",
+            "LeftThumb": "left stick click"
+        }
     },
     "hud": {
         "score_label": "SCORE",

@@ -68,6 +68,7 @@ public:
     Zamin::Entity SpawnBullet(const glm::vec2& position, const glm::vec2& direction, bool fromPlayer, float speedScale = 1.0f);
     void SpawnSwarmers(const glm::vec2& center, int count);
     void OnEnemyKilled(Enemy& enemy, bool scored);
+    void OnPlayerFired() { m_ShotsFired++; }
     void OnPlayerHurt(const glm::vec2& position);
     void OnPlayerDied(const glm::vec2& position);
     void OnPickupCollected(PickupKind kind, const glm::vec2& position);
@@ -101,6 +102,7 @@ private:
     void OpenPause();
     void ClosePause();
     void GameOver();
+    void SubmitRecords(const char* when);
 
     void UpdateWaves(float dt);
     void StartWave(int wave);
@@ -142,11 +144,13 @@ private:
     int m_Combo = 0;
     float m_ComboTimer = 0.0f;
     int m_Kills = 0;
+    int m_ShotsFired = 0;
     int m_BestCombo = 0;
     int m_BestScore = 0;
     int m_BestWave = 0;
     int m_Sessions = 0;
     bool m_NewRecord = false;
+    bool m_RecordPending = false; // a scored game runs: its result is submitted once it ends or is left
     Zamin::RandomGenerator m_Rng{ 1234 };
 };
 
@@ -341,5 +345,7 @@ namespace NeonUtil {
     }
     // 12500 -> "12 500"
     std::string FormatScore(int value);
+    // ZAMIN_DEMO_RECORDS=1: a demo run's results count as records too (tests).
+    bool DemoRecords();
 
 }

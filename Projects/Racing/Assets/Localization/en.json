@@ -7,7 +7,33 @@
         "quit": "Quit",
         "language": "Language: {0}",
         "best": "Best lap: {0}",
-        "controls": "W / up - throttle   ·   S - brake / reverse   ·   A / D - steer   ·   Space - handbrake (drift)   ·   R - back on track   ·   Esc - pause\nGamepad: RT - throttle, LT - brake, left stick - steer, X / A - handbrake, Y - back on track, Start - pause"
+        "controls": "[Throttle] - throttle   ·   [Brake] - brake / reverse   ·   [Steer] - steer   ·   [Handbrake] - handbrake (drift)   ·   [Reset] - back on track   ·   [Pause] - pause\n[kb:A gamepad works too - use it and the hints show its buttons][pad:Gamepad - use the keyboard or mouse and the hints switch back]"
+    },
+    "input": {
+        "key": {
+            "Arrows": "arrows",
+            "Left": "Left",
+            "Right": "Right",
+            "Up": "Up",
+            "Down": "Down"
+        },
+        "mouse": {
+            "Left": "LMB",
+            "Right": "RMB",
+            "Middle": "MMB"
+        },
+        "stick": {
+            "Left": "left stick",
+            "Right": "right stick"
+        },
+        "pad": {
+            "DPad": "D-pad",
+            "DPadLeft": "D-pad left",
+            "DPadRight": "D-pad right",
+            "DPadUp": "D-pad up",
+            "DPadDown": "D-pad down",
+            "LeftThumb": "left stick click"
+        }
     },
     "hud": {
         "demo": "DEMO - autoplay",

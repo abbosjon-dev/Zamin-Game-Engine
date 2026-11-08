@@ -262,6 +262,7 @@ _Inspektorda: **Text**; qo'shish: **+ Komponent → Render → Text**; sahna fay
 |---|---|---|
 | `Text` | `std::string` | `"Matn"` |
 | `LocalizationKey` | `std::string` | — |
+| `InputHints` | `bool` | `false` |
 | `Color` | `glm::vec4` | `{ 1.0f }` |
 | `Kerning` | `float` | `0.0f` |
 | `LineSpacing` | `float` | `0.0f` |
@@ -278,6 +279,8 @@ _Inspektorda: **Text**; qo'shish: **+ Komponent → Render → Text**; sahna fay
 | `LocalizedFor` _(faqat o'yin paytida)_ | `std::string` | — |
 | `LocalizedVersion` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
 | `HasLocalizedText` _(faqat o'yin paytida)_ | `bool` | `false` |
+| `HintsVersion` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
+| `HintsSource` _(faqat o'yin paytida)_ | `std::string` | — |
 <!-- /gen:TextComponent -->
 
 ### MeshRendererComponent

@@ -719,13 +719,45 @@ def ui_image(col=(1, 1, 1, 1), texture="", frame=None, kind="Simple", border_sca
     return i
 
 
-def ui_text(text, col=(1, 1, 1, 1), h="Center", vert="Middle", key=None, wrap=False):
+def ui_text(text, col=(1, 1, 1, 1), h="Center", vert="Middle", key=None, wrap=False, hints=False):
     t = {"Text": text, "Color": color(*col), "Kerning": 0.0, "LineSpacing": 0.0, "AlignH": h, "AlignV": vert, "Font": ""}
     if key:
         t["LocalizationKey"] = key
+    if hints:
+        t["InputHints"] = True  # "[Action]" -> the controls of the device in use (TextComponent::InputHints)
     if wrap:
         t["WordWrap"] = True
     return t
+
+
+# The control names of the "[Action]" hints (Input::ExpandBindings) in the games' language files ("input.<id>" keys).
+# English repeats the engine's own names: a key missing in a language falls back to the default language (Uzbek).
+INPUT_NAMES = {
+    "uz": {"key": {"Arrows": "strelkalar", "Left": "chap strelka", "Right": "o'ng strelka", "Up": "yuqori strelka",
+                   "Down": "past strelka"},
+           "mouse": {"Left": "LKM", "Right": "PKM", "Middle": "o'rta tugma"},
+           "stick": {"Left": "chap stik", "Right": "o'ng stik"},
+           "pad": {"DPad": "D-pad", "DPadLeft": "D-pad chap", "DPadRight": "D-pad o'ng", "DPadUp": "D-pad yuqori",
+                   "DPadDown": "D-pad past", "LeftThumb": "chap stik bosish"}},
+    "en": {"key": {"Arrows": "arrows", "Left": "Left", "Right": "Right", "Up": "Up", "Down": "Down"},
+           "mouse": {"Left": "LMB", "Right": "RMB", "Middle": "MMB"},
+           "stick": {"Left": "left stick", "Right": "right stick"},
+           "pad": {"DPad": "D-pad", "DPadLeft": "D-pad left", "DPadRight": "D-pad right", "DPadUp": "D-pad up",
+                   "DPadDown": "D-pad down", "LeftThumb": "left stick click"}},
+}
+
+# The second line of every game's controls hint: the hints follow the device the player uses.
+DEVICE_NOTE = {
+    "uz": "[kb:Gamepad ham ishlaydi - uni ishlatsangiz, ishoralar uning tugmalarini ko'rsatadi]"
+          "[pad:Gamepad - klaviatura yoki sichqoncha ishlatilsa, ishoralar ularga qaytadi]",
+    "en": "[kb:A gamepad works too - use it and the hints show its buttons]"
+          "[pad:Gamepad - use the keyboard or mouse and the hints switch back]",
+}
+
+
+def controls_hint(lang, line):
+    """A main menu's controls text: the game's line of "[Action] - what it does" hints and the device note."""
+    return line + "\n" + DEVICE_NOTE[lang]
 
 
 def ui_button(normal, hover, pressed, message="", target=0):

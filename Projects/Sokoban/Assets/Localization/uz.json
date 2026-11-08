@@ -8,7 +8,33 @@
         "quit": "Chiqish",
         "language": "Til: {0}",
         "progress": "Yechilgan darajalar: {0} / {1}",
-        "controls": "WASD / strelkalar - yurish (qutini itarish)   ·   Z / Backspace - orqaga   ·   R - qaytadan   ·   Esc - pauza\nGamepad: D-pad / chap stik - yurish, X - orqaga, Y - qaytadan, Start - pauza"
+        "controls": "[Move] - yurish (qutini itarish)   ·   [Undo] - orqaga   ·   [Restart] - qaytadan   ·   [Pause] - pauza\n[kb:Gamepad ham ishlaydi - uni ishlatsangiz, ishoralar uning tugmalarini ko'rsatadi][pad:Gamepad - klaviatura yoki sichqoncha ishlatilsa, ishoralar ularga qaytadi]"
+    },
+    "input": {
+        "key": {
+            "Arrows": "strelkalar",
+            "Left": "chap strelka",
+            "Right": "o'ng strelka",
+            "Up": "yuqori strelka",
+            "Down": "past strelka"
+        },
+        "mouse": {
+            "Left": "LKM",
+            "Right": "PKM",
+            "Middle": "o'rta tugma"
+        },
+        "stick": {
+            "Left": "chap stik",
+            "Right": "o'ng stik"
+        },
+        "pad": {
+            "DPad": "D-pad",
+            "DPadLeft": "D-pad chap",
+            "DPadRight": "D-pad o'ng",
+            "DPadUp": "D-pad yuqori",
+            "DPadDown": "D-pad past",
+            "LeftThumb": "chap stik bosish"
+        }
     },
     "hud": {
         "demo": "DEMO - avtomatik o'yin",

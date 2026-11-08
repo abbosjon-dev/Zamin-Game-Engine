@@ -4,6 +4,7 @@
 #include "Zamin/AI/NavGrid.h"
 #include "Zamin/AI/NavPathfinder.h"
 #include "Zamin/Audio/AudioMixer.h"
+#include "Zamin/Core/Input.h"
 #include "Zamin/Core/UUID.h"
 #include "Zamin/Localization/Localization.h"
 #include "Zamin/Math/Spline.h"
@@ -345,6 +346,10 @@ namespace Zamin {
         /// current language and follows a language change by itself (Localization); Text is shown when
         /// no language has the key. "" = Text as it is.
         std::string LocalizationKey;
+        /// Control hints: every "[Name]" of an input action / axis / vector of the project's map is shown as the
+        /// controls bound to it, of the device the player uses - "[Jump] - sakrash" reads "Space - sakrash" with
+        /// the keyboard and "A - sakrash" with a gamepad, and changes when the player switches (Input::ExpandBindings).
+        bool InputHints = false;
         glm::vec4 Color{ 1.0f };
         float Kerning = 0.0f;       ///< em added after every character
         float LineSpacing = 0.0f;   ///< em added to every line's height
@@ -358,31 +363,47 @@ namespace Zamin {
         uint32_t SortingLayer = 0;
         int SortingOrder = 1000; ///< text draws over the sprites of its layer unless told otherwise
 
-        /// Runtime: the localized string for LocalizationKey (UpdateLocalized), never saved.
+        /// Runtime: the localized string for LocalizationKey and / or Text with its control hints
+        /// (UpdateLocalized), never saved.
         std::string LocalizedText;
         std::string LocalizedFor;   ///< the key it was looked up for
         uint64_t LocalizedVersion = 0;
         bool HasLocalizedText = false;
+        uint64_t HintsVersion = 0;  ///< Input::GetActiveDeviceVersion the hints were expanded for (0: none)
+        std::string HintsSource;    ///< Text the hints were expanded from (when no language has the key)
 
-        /// What is drawn: the localized string when the key has one, else Text.
+        /// What is drawn: the localized string when the key has one, else Text (with InputHints expanded).
         const std::string& GetDisplayText() const { return HasLocalizedText ? LocalizedText : Text; }
-        /// Looks the key up again when the language (Localization::GetVersion) or the key changed.
-        /// True when the shown text may have changed.
+        /// Looks the key up again when the language (Localization::GetVersion) or the key changed, and
+        /// expands the control hints again when the device in use changed. True when the shown text may
+        /// have changed.
         bool UpdateLocalized()
         {
-            if (LocalizationKey.empty())
+            if (LocalizationKey.empty() && !InputHints)
             {
-                if (!HasLocalizedText && LocalizedFor.empty())
+                if (!HasLocalizedText && LocalizedFor.empty() && HintsVersion == 0)
                     return false;
                 ResetLocalized();
                 return true;
             }
             const uint64_t version = Localization::GetVersion();
-            if (version == LocalizedVersion && LocalizedFor == LocalizationKey)
+            const uint64_t hints = InputHints ? Input::GetActiveDeviceVersion() : 0;
+            if (version == LocalizedVersion && LocalizedFor == LocalizationKey && hints == HintsVersion &&
+                (!InputHints || HintsSource.empty() || HintsSource == Text))
                 return false;
             LocalizedVersion = version;
             LocalizedFor = LocalizationKey;
-            const std::string* text = Localization::Find(LocalizationKey);
+            HintsVersion = hints;
+            const std::string* text = LocalizationKey.empty() ? nullptr : Localization::Find(LocalizationKey);
+            if (InputHints)
+            {
+                // From the language's string, else from Text (watched: a script may change it).
+                HintsSource = text ? std::string() : Text;
+                LocalizedText = Input::ExpandBindings(text ? *text : Text);
+                HasLocalizedText = true;
+                return true;
+            }
+            HintsSource.clear();
             HasLocalizedText = text != nullptr;
             LocalizedText = text ? *text : std::string();
             return true;
@@ -393,6 +414,8 @@ namespace Zamin {
             LocalizedFor.clear();
             LocalizedVersion = 0;
             HasLocalizedText = false;
+            HintsVersion = 0;
+            HintsSource.clear();
         }
 
         TextLayoutSettings GetLayoutSettings() const { return { AlignH, AlignV, WordWrap, Overflow, Kerning, LineSpacing }; }

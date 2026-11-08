@@ -7563,6 +7563,9 @@ namespace Zamin {
         AddSection<TextComponent>(ICON_FA_FONT, "Text", entity, [&](TextComponent& c) {
             bool changed = UI::PropertyString("Matn", c.Text, true);
             changed |= DrawLocalizationKey(c);
+            changed |= UI::PropertyBool("Boshqaruv ishoralari", c.InputHints);
+            ImGui::SetItemTooltip("%s", Tr("Matndagi [Nom] - loyiha input xaritasidagi harakat, o'q yoki vektor - o'yinchi ishlatayotgan "
+                                           "qurilmaning tugmalari bilan ko'rinadi: klaviaturada \"Space\", gamepad'da \"A\""));
             changed |= UI::PropertyColor4("Rang", c.Color);
             changed |= UI::PropertyFloat("Harf oralig'i", c.Kerning, 0.005f);
             changed |= UI::PropertyFloat("Qator oralig'i", c.LineSpacing, 0.01f);

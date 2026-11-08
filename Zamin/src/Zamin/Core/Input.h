@@ -14,6 +14,7 @@ namespace Zamin {
     struct InputAction;
     struct InputAxis;
     struct InputVector;
+    enum class InputDevice : uint8_t;
 
     /// One step of typing (Input::GetTextInput): a typed character, or a key press for editing -
     /// Backspace, arrows, Enter, Ctrl+C ... (the keyboard's auto-repeat included).
@@ -88,6 +89,27 @@ namespace Zamin {
         static glm::vec2 GetAxis2D(std::string_view horizontal = "Horizontal", std::string_view vertical = "Vertical");
         /// A composite 2D axis of the map ("Move": its X and Y axes, radial deadzone and mode).
         static glm::vec2 GetVector(std::string_view vector);
+        /// @}
+
+        /// @name Hints of the device in use
+        /// On-screen hints follow the device the player uses: the last one that did something - a key,
+        /// a mouse button, the wheel or a mouse move of a few pixels (KeyboardMouse), a gamepad button or a
+        /// stick / trigger pushed past half way (Gamepad). It starts as KeyboardMouse.
+        /// @{
+        static InputDevice GetActiveDevice();
+        /// Sets it (tests, a game's own "controller hints" setting); the next input changes it again.
+        static void SetActiveDevice(InputDevice device);
+        /// Counts the device changes (a text that shows hints redraws when it changed).
+        static uint64_t GetActiveDeviceVersion();
+        /// The controls bound to an action, axis or vector of the project's map, for a hint: "Space / W",
+        /// "A, D / Arrows", "Left stick" (DescribeInputBindings in InputActions.h; a game's language files
+        /// rename controls with "input.<id>" keys).
+        static std::string GetBindingText(std::string_view name, InputDevice device);
+        static std::string GetBindingText(std::string_view name);   ///< of the active device
+        /// `text` with every "[Name]" of the map's actions / axes / vectors replaced by its controls:
+        /// "[Jump] - sakrash" -> "Space - sakrash" (keyboard) / "A - sakrash" (gamepad).
+        static std::string ExpandBindings(std::string_view text, InputDevice device);
+        static std::string ExpandBindings(std::string_view text);  ///< for the active device
         /// @}
 
         /// The same queries for a specific action / axis definition (editor preview, tools, tests).

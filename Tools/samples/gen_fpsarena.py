@@ -526,7 +526,7 @@ def build_scene():
     menu_best = s.entity("Bosh menyu rekordi", parent=main_menu, UITransform=k.ui_rect(pos=(0, -372), size=(1400, 44), font=32),
                          Text=k.ui_text("", (1.0, 0.85, 0.4, 1.0), "Center"))
     s.entity("Boshqaruv", parent=main_menu, UITransform=k.ui_rect((0.5, 0), None, (0.5, 0), (0, 40), (1850, 70), font=24),
-             Text=k.ui_text(UZ_CONTROLS, (0.95, 0.9, 0.85, 0.9), "Center", key="menu.controls"))
+             Text=k.ui_text(UZ_CONTROLS, (0.95, 0.9, 0.85, 0.9), "Center", key="menu.controls", hints=True))
     pause_menu = ui.dim("Pauza menyusi", False)
     pause_panel = ui.panel("Pauza paneli", pause_menu, (0, 0), (620, 520))
     ui.label("Pauza sarlavhasi", pause_panel, "PAUZA", (520, 80), 60, (1.0, 0.8, 0.5, 1.0), "pause.title")
@@ -568,13 +568,11 @@ def build_scene():
     return s
 
 
-UZ_CONTROLS = ("Sichqoncha - qarash   ·   chap tugma - otish   ·   R - qayta o'qlash   ·   WASD - yurish   ·   Shift - yugurish   ·   "
-               "Space - sakrash   ·   C / Ctrl - cho'kkalash   ·   Esc - pauza\n"
-               "Gamepad: chap stik - yurish, o'ng stik - qarash, RT / RB - otish, X - qayta o'qlash, A - sakrash, B - cho'kkalash, "
-               "chap stik bosish - yugurish")
-EN_CONTROLS = ("Mouse - look   ·   left button - fire   ·   R - reload   ·   WASD - move   ·   Shift - sprint   ·   Space - jump   ·   "
-               "C / Ctrl - crouch   ·   Esc - pause\n"
-               "Gamepad: left stick - move, right stick - look, RT / RB - fire, X - reload, A - jump, B - crouch, left stick click - sprint")
+# The main menu's controls line: "[Action]" shows the controls bound in the project's input map, of the device in use.
+UZ_CONTROLS = k.controls_hint("uz", "[Look|Sichqoncha] - qarash   ·   [Fire] - otish   ·   [Reload] - qayta o'qlash   ·   [Move] - yurish   ·   "
+                                    "[Sprint] - yugurish   ·   [Jump] - sakrash   ·   [Crouch] - cho'kkalash   ·   [Pause] - pauza")
+EN_CONTROLS = k.controls_hint("en", "[Look|Mouse] - look   ·   [Fire] - fire   ·   [Reload] - reload   ·   [Move] - move   ·   "
+                                    "[Sprint] - sprint   ·   [Jump] - jump   ·   [Crouch] - crouch   ·   [Pause] - pause")
 
 
 def write_localization():
@@ -583,6 +581,7 @@ def write_localization():
         "menu": {"title": "FPS ARENA", "subtitle": "Birinchi shaxs boshqaruvi va nishonga otish  ·  Zamin Engine namunasi", "play": "Parkur",
                  "range": "Nishon otish", "quit": "Chiqish", "language": "Til: {0}", "best": "Eng yaxshi aylana: {0}",
                  "best_range": "Nishon otish rekordi: {0}", "controls": UZ_CONTROLS},
+        "input": k.INPUT_NAMES["uz"],
         "hud": {"demo": "DEMO - avtomatik o'yin", "stamina": "CHIDAM", "progress": "Nuqta {0} / {1}", "laps": "Aylanalar: {0}",
                 "best": "Eng yaxshi: {0}", "speed": "{0:.1f} m/s", "walk": "Yurish", "sprint": "Yugurish", "crouch": "Cho'kkalash",
                 "air": "Havoda", "idle": "Turish",
@@ -601,6 +600,7 @@ def write_localization():
         "menu": {"title": "FPS ARENA", "subtitle": "First-person controller and target shooting  ·  a Zamin Engine sample", "play": "Parkour",
                  "range": "Target range", "quit": "Quit", "language": "Language: {0}", "best": "Best lap: {0}", "best_range": "Target range record: {0}",
                  "controls": EN_CONTROLS},
+        "input": k.INPUT_NAMES["en"],
         "hud": {"demo": "DEMO - autoplay", "stamina": "STAMINA", "progress": "Checkpoint {0} / {1}", "laps": "Laps: {0}", "best": "Best: {0}",
                 "speed": "{0:.1f} m/s", "walk": "Walking", "sprint": "Sprinting", "crouch": "Crouching", "air": "Airborne", "idle": "Standing",
                 "hint": "Run through the glowing markers in order  ·  shoot targets for points  ·  blue disc - jump pad",

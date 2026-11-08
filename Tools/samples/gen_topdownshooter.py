@@ -613,9 +613,7 @@ def build_scene():
     menu_best = s.entity("Bosh menyu rekordi", parent=main_menu, UITransform=k.ui_rect(pos=(0, -330), size=(1200, 44), font=32),
                          Text=k.ui_text("", (1.0, 0.85, 0.35, 1.0), "Center"))
     s.entity("Boshqaruv", parent=main_menu, UITransform=k.ui_rect((0.5, 0), None, (0.5, 0), (0, 56), (1800, 70), font=25),
-             Text=k.ui_text("WASD - yurish   ·   Sichqoncha - nishon   ·   LKM - otish   ·   Space - siltanish   ·   Esc - pauza\n"
-                            "Gamepad: chap stik - yurish, o'ng stik - nishon va otish, A - siltanish",
-                            (0.7, 0.8, 0.95, 0.85), "Center", key="menu.controls"))
+             Text=k.ui_text(k.controls_hint("uz", CONTROLS["uz"]), (0.7, 0.8, 0.95, 0.85), "Center", key="menu.controls", hints=True))
 
     # pause
     pause_menu = dim("Pauza menyusi", False)
@@ -659,13 +657,21 @@ def build_scene():
     return s
 
 
+# The main menu's controls line: "[Action]" shows the controls bound in the project's input map, of the device in use.
+CONTROLS = {
+    "uz": "[Move] - yurish   ·   [kb:Sichqoncha / ][Aim] - nishon[pad: va otish]   ·   [Fire] - otish   ·   [Dash] - siltanish   ·   "
+          "[Pause] - pauza",
+    "en": "[Move] - move   ·   [kb:Mouse / ][Aim] - aim[pad: and fire]   ·   [Fire] - fire   ·   [Dash] - dash   ·   [Pause] - pause",
+}
+
+
 def write_localization():
     uz = {
         "$name": "O'zbekcha",
         "menu": {"title": "NEON MAYDON", "subtitle": "Top-down shooter  ·  Zamin Engine namunasi", "play": "O'ynash", "quit": "Chiqish",
                  "language": "Til: {0}", "best": "Rekord: {0}   ·   eng uzoq to'lqin: {1}",
-                 "controls": "WASD - yurish   ·   Sichqoncha - nishon   ·   LKM - otish   ·   Space - siltanish   ·   Esc - pauza\n"
-                             "Gamepad: chap stik - yurish, o'ng stik - nishon va otish, A - siltanish"},
+                 "controls": k.controls_hint("uz", CONTROLS["uz"])},
+        "input": k.INPUT_NAMES["uz"],
         "hud": {"score_label": "HISOB", "wave": "{0}-TO'LQIN", "enemies": "Dushmanlar: {0}", "best": "Rekord: {0}", "dash": "SILTANISH",
                 "demo": "DEMO - avtomatik o'yin", "combo": "x{0}  kombo {1}", "rapid": "TEZOTAR  {0}", "spread": "UCH O'Q  {0}",
                 "wave_sub": "{0} ta dushman", "boss_sub": "Tank to'lqini!", "cleared": "TO'LQIN TOZALANDI", "bonus": "+{0} bonus",
@@ -679,8 +685,8 @@ def write_localization():
         "$name": "English",
         "menu": {"title": "NEON ARENA", "subtitle": "Top-down shooter  ·  a Zamin Engine sample", "play": "Play", "quit": "Quit",
                  "language": "Language: {0}", "best": "Best: {0}   ·   furthest wave: {1}",
-                 "controls": "WASD - move   ·   Mouse - aim   ·   LMB - fire   ·   Space - dash   ·   Esc - pause\n"
-                             "Gamepad: left stick - move, right stick - aim and fire, A - dash"},
+                 "controls": k.controls_hint("en", CONTROLS["en"])},
+        "input": k.INPUT_NAMES["en"],
         "hud": {"score_label": "SCORE", "wave": "WAVE {0}", "enemies": "Enemies: {0}", "best": "Best: {0}", "dash": "DASH",
                 "demo": "DEMO - autoplay", "combo": "x{0}  combo {1}", "rapid": "RAPID FIRE  {0}", "spread": "TRIPLE SHOT  {0}",
                 "wave_sub": "{0} enemies", "boss_sub": "Tank wave!", "cleared": "WAVE CLEARED", "bonus": "+{0} bonus",

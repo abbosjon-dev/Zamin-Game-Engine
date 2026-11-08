@@ -181,8 +181,11 @@ namespace Zamin {
             // ("Down", "Enter", "Tab": pressed in that frame, released in the next), "hold=W" / "release=W"
             // (a key held from that frame until its release: driving, running), "mouse=x,y" (the
             // game's mouse at window px from the top-left from then on), "click" (the left button for
-            // one frame), "down" / "up" (the left button held from then on / let go: drags) or
-            // "scroll=dy" / "scroll=dx,dy" (the mouse wheel in that frame, notches).
+            // one frame), "down" / "up" (the left button held from then on / let go: drags),
+            // "scroll=dy" / "scroll=dx,dy" (the mouse wheel in that frame, notches), or a simulated gamepad
+            // (gamepad 0, connected by its first item): "pad=A" (a button pressed for one frame),
+            // "padhold=A" / "padrelease=A" (held until released), "stick=LeftX,0.8" (an axis at that value
+            // from then on; triggers 0..1).
             if (const char* input = std::getenv("ZAMIN_PLAYER_INPUT"))
             {
                 std::string_view rest = input;
@@ -430,6 +433,9 @@ namespace Zamin {
             for (Key key : m_ReleaseKeys)
                 Input::SimulateKey(key, false);
             m_ReleaseKeys.clear();
+            for (GamepadButton button : m_ReleaseButtons)
+                Input::SimulateGamepadButton(0, button, false);
+            m_ReleaseButtons.clear();
             m_ScriptedClick = false;
             m_ScriptedScroll = glm::vec2(0.0f);
             for (const auto& [frame, action] : m_ScriptedInput)
@@ -461,6 +467,35 @@ namespace Zamin {
                 else if ((action.starts_with("hold=") || action.starts_with("release=")) &&
                          KeyFromString(std::string_view(action).substr(action.find('=') + 1), key))
                     Input::SimulateKey(key, action.starts_with("hold=")); // held across frames until released
+                else if (action.starts_with("pad=") || action.starts_with("padhold=") || action.starts_with("padrelease="))
+                {
+                    GamepadButton button{};
+                    if (GamepadButtonFromString(std::string_view(action).substr(action.find('=') + 1), button))
+                    {
+                        Input::SimulateGamepadConnected(0, true);
+                        Input::SimulateGamepadButton(0, button, !action.starts_with("padrelease="));
+                        if (action.starts_with("pad="))
+                            m_ReleaseButtons.push_back(button); // a tap: released in the next frame
+                    }
+                    else
+                        ZM_WARN("ZAMIN_PLAYER_INPUT: noma'lum gamepad tugmasi '{}'", action);
+                }
+                else if (action.starts_with("stick="))
+                {
+                    const std::string_view spec = std::string_view(action).substr(6);
+                    const size_t comma = spec.find(',');
+                    GamepadAxis axis{};
+                    if (comma != std::string_view::npos && GamepadAxisFromString(spec.substr(0, comma), axis))
+                    {
+                        float value = std::clamp((float)std::atof(std::string(spec.substr(comma + 1)).c_str()), -1.0f, 1.0f);
+                        if (axis == GamepadAxis::LeftTrigger || axis == GamepadAxis::RightTrigger)
+                            value = std::max(value, 0.0f) * 2.0f - 1.0f; // triggers read -1 (released) .. 1
+                        Input::SimulateGamepadConnected(0, true);
+                        Input::SimulateGamepadAxis(0, axis, value);
+                    }
+                    else
+                        ZM_WARN("ZAMIN_PLAYER_INPUT: noma'lum gamepad o'qi '{}'", action);
+                }
                 else if (KeyFromString(action, key))
                 {
                     // a tap: held for one frame (the platform's keyboard poll does not undo it)
@@ -497,6 +532,17 @@ namespace Zamin {
             if (std::getenv("ZAMIN_PLAYER_STATS"))
             {
                 ZM_INFO("Render statistikasi (oxirgi kadr): {}", Renderer::GetStats().Format());
+                // What the last frame's scene holds (the performance check of the samples quotes it).
+                if (m_Scenes && m_Scenes->GetActiveScene())
+                {
+                    SceneStatisticsCollector collector;
+                    const SceneStatistics stats = collector.Collect(*m_Scenes->GetActiveScene());
+                    std::string top;
+                    for (size_t i = 0; i < stats.Components.size() && i < 8; i++)
+                        top += std::format("{}{} {}", top.empty() ? "" : ", ", stats.Components[i].Key, stats.Components[i].Count());
+                    ZM_INFO("Sahna (oxirgi kadr): {} obyekt ({} faol), {} komponent, {} skript; eng ko'p: {}", stats.Entities, stats.Active,
+                            stats.ComponentTotal, stats.ScriptComponents, top);
+                }
                 // The real frame times (frame pacing: --fps, vsync).
                 const FrameTimeHistory& frames = Application::Get().GetFrameTimeHistory();
                 const FrameTimeHistory::Summary summary = frames.Summarize();
@@ -973,6 +1019,7 @@ namespace Zamin {
         // ZAMIN_PLAYER_INPUT
         std::vector<std::pair<int, std::string>> m_ScriptedInput;
         std::vector<Key> m_ReleaseKeys;
+        std::vector<GamepadButton> m_ReleaseButtons; // scripted gamepad taps, released in the next frame
         glm::vec2 m_ScriptedMouse{ 0.0f };
         bool m_HasScriptedMouse = false, m_ScriptedClick = false, m_ScriptedHold = false;
         glm::vec2 m_ScriptedScroll{ 0.0f };

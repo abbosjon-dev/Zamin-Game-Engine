@@ -12,10 +12,20 @@ using namespace Zamin;
 // yoyi, ba'zan bonus (magnit, qalqon); yo'l chetida manzara (minoralar, palmalar, qum tepalari, uylar, ravoqlar).
 // Orqada qolganlari o'chiriladi. Yo'l va qum tekisliklari yuguruvchi bilan siljiydi, teksturasi esa joyida turadi
 // (UV siljishi) - cheksiz yo'l. Tezlik masofa bilan StartSpeed'dan MaxSpeed'gacha oshadi.
-// Hisob: masofa + tanga x 10; rekord SaveData "EndlessRunner.Best" / "EndlessRunner.BestDistance".
-// Demo: ZAMIN_DEMO=1 (yoki AutoDemo) - bot yuguradi, jurnalga "Demo: ..." yoziladi; yiqilsa yangi yugurish.
+// Hisob: masofa + tanga x 10; rekord SaveData "EndlessRunner.Best" / "EndlessRunner.BestDistance" (SaveData::
+// SubmitRecord): yugurish tugaganda, pauzadan chiqib ketilganda yoki o'yin yopilganda.
+// Demo: ZAMIN_DEMO=1 (yoki AutoDemo) - bot yuguradi, jurnalga "Demo: ..." yoziladi; yiqilsa yangi yugurish;
+// ZAMIN_DEMO_RECORDS=1 bilan demo natijasi ham rekordga yoziladi (testlar).
 
 static constexpr int AllLanes = -2;
+
+// ZAMIN_DEMO_RECORDS=1: a demo run's results count as records too (the headless tests check that a record is written
+// and read back the next time; normally the bot never touches the player's records).
+static bool DemoRecords()
+{
+    const char* value = std::getenv("ZAMIN_DEMO_RECORDS");
+    return value && *value && std::string_view(value) != "0";
+}
 
 void RunnerGame::OnCreate()
 {
@@ -25,6 +35,7 @@ void RunnerGame::OnCreate()
     m_DemoRun = AutoDemo || (demo && *demo && std::string_view(demo) != "0");
     m_BestScore = SaveData::GetInt("EndlessRunner.Best", 0);
     m_BestDistance = SaveData::GetFloat("EndlessRunner.BestDistance", 0.0f);
+    ZM_INFO("Rekordlar: ochko {}, {:.0f} m", m_BestScore, m_BestDistance);
     m_Rng.SetSeed(20261108ull);
 }
 
@@ -54,6 +65,7 @@ void RunnerGame::OnStart()
 
 void RunnerGame::OnDestroy()
 {
+    SubmitRecords("o'yin yopildi");
     if (m_DemoRun)
         ZM_INFO("Demo yakuni: {} ta yugurish, oxirgisi {:.0f} m, {} tanga, ochko {}", m_Runs, m_Distance, m_Coins, GetScore());
     SaveData::Save();
@@ -93,6 +105,7 @@ void RunnerGame::ClearWorld()
 
 void RunnerGame::StartRun(bool bot)
 {
+    SubmitRecords("qaytadan boshlandi");
     if (IsGamePaused())
         ResumeGame();
     SetTimeScale(1.0f);
@@ -121,6 +134,7 @@ void RunnerGame::StartRun(bool bot)
     m_DemoLogMark = 250.0f;
     m_MilestoneMark = 500.0f;
     m_Runs++;
+    m_RecordPending = m_State != State::Menu && (!m_Bot || (m_DemoRun && DemoRecords()));
     if (Runner* r = GetRunner())
         r->ResetRunner(m_Bot);
     // the first stretch of world at once
@@ -144,6 +158,7 @@ void RunnerGame::StartRun(bool bot)
 
 void RunnerGame::ShowMenu()
 {
+    SubmitRecords("bosh menyuga qaytildi"); // a run left from the pause menu still counts
     if (IsGamePaused())
         ResumeGame();
     m_State = State::Menu;
@@ -213,16 +228,7 @@ void RunnerGame::GameOver()
     m_State = State::GameOver;
     SetTimeScale(1.0f);
     const int score = GetScore();
-    const bool record = !m_Bot && score > m_BestScore;
-    if (!m_Bot)
-    {
-        if (record)
-            m_BestScore = score;
-        m_BestDistance = std::max(m_BestDistance, m_Distance);
-        SaveData::SetInt("EndlessRunner.Best", m_BestScore);
-        SaveData::SetFloat("EndlessRunner.BestDistance", m_BestDistance);
-        SaveData::Save();
-    }
+    const bool record = SubmitRecords("yugurish tugadi");
     SetText(OverScore, Localize("over.score", score));
     SetText(OverStats, Localize("over.stats", (int)m_Distance, m_Coins));
     SetText(OverRecord, record ? Localize("over.record") : Localize("over.best", m_BestScore));
@@ -232,6 +238,25 @@ void RunnerGame::GameOver()
         GetScene().SetSelectedUI(button);
     m_OverTimer = 0.0f;
     RefreshTexts();
+}
+
+// The result of a scored run (a player's, or a demo's with ZAMIN_DEMO_RECORDS): once, when it ends or is left.
+bool RunnerGame::SubmitRecords(const char* when)
+{
+    if (!m_RecordPending)
+        return false;
+    m_RecordPending = false;
+    const int score = GetScore();
+    const bool record = score > 0 && SaveData::SubmitRecord("EndlessRunner.Best", score);
+    if (record)
+    {
+        m_BestScore = score;
+        ZM_INFO("Yangi rekord: ochko {} ({:.0f} m, {} tanga; {})", score, m_Distance, m_Coins, when);
+    }
+    if (m_Distance > 0.0f && SaveData::SubmitRecord("EndlessRunner.BestDistance", m_Distance))
+        m_BestDistance = m_Distance;
+    SaveData::Save();
+    return record;
 }
 
 // ---------------------------------------------------------------------------------------- update

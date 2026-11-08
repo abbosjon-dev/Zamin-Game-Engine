@@ -9,6 +9,10 @@ namespace Zamin {
 
     enum class SaveValueType { None = 0, Int, Float, String, Bool };
 
+    // Which value of a record wins (SaveData::SubmitRecord): the bigger one (scores, levels reached) or the
+    // smaller one (lap times, moves).
+    enum class RecordOrder { Higher = 0, Lower };
+
     // Persistent key / value storage for game data (settings, records, progress), like
     // Unity's PlayerPrefs. Values live in memory and are written as JSON to
     //     $XDG_DATA_HOME/zamin/<product>/savedata.json   (default ~/.local/share/zamin/<product>/)
@@ -32,6 +36,17 @@ namespace Zamin {
         static float GetFloat(std::string_view key, float defaultValue = 0.0f);
         static std::string GetString(std::string_view key, std::string_view defaultValue = {});
         static bool GetBool(std::string_view key, bool defaultValue = false);
+
+        // Records (high scores, best times): stores `value` under `key` when it beats the value saved there -
+        // or nothing (no number) is saved there yet - and returns whether it did, i.e. whether it is a new
+        // record. A record saved as Int and one saved as Float compare as numbers; NaN never wins. Written to
+        // the file by the next Save(), like any other value.
+        //     if (SaveData::SubmitRecord("Game.BestScore", score)) ShowBanner("Yangi rekord!");
+        //     SaveData::SubmitRecord("Game.BestLap", lapSeconds, RecordOrder::Lower);
+        static bool SubmitRecord(std::string_view key, int value, RecordOrder order = RecordOrder::Higher);
+        static bool SubmitRecord(std::string_view key, float value, RecordOrder order = RecordOrder::Higher);
+        // Whether `value` would be a new record under `key` (SubmitRecord without storing it).
+        static bool IsNewRecord(std::string_view key, double value, RecordOrder order = RecordOrder::Higher);
 
         static bool HasKey(std::string_view key);
         static SaveValueType GetType(std::string_view key);

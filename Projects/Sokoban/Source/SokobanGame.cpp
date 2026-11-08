@@ -13,11 +13,20 @@ using namespace Sokoban;
 // (konfetti, robot aylanadi, natija oynasi: keyingi / qaytadan / menyu) -> ... -> hammasi yechildi.
 // Boshqaruv (Loyiha sozlamalari > Input): "Move" vektori (WASD / strelkalar / D-pad / chap stik - bosib turilsa
 // takrorlanadi), "Undo" (Z / Backspace / gamepad X), "Restart" (R / gamepad Y), "Pause" (Esc / P / Start).
-// Rekord: har daraja uchun eng kam qadam (SaveData "Sokoban.Best.N"), oxirgi o'ynalgan daraja "Sokoban.Level".
+// Rekord: har daraja uchun eng kam qadam (SaveData::SubmitRecord "Sokoban.Best.N", RecordOrder::Lower), keyingi
+// o'ynaladigan daraja "Sokoban.Level".
 // Demo: ZAMIN_DEMO=1 (yoki AutoDemo) - bot har darajani yechuvchi bilan yechadi (ikkinchi darajadan boshlab bir
 // noto'g'ri qadam qo'yib, uni orqaga qaytaradi - undo ham ko'rinsin); jurnalga "Demo: ..." yoziladi.
 
 static constexpr char UndoLetter = 'z';
+
+// ZAMIN_DEMO_RECORDS=1: the demo bot's solutions count as records too (the headless tests check that a record is
+// written and read back the next time; normally the bot never touches the player's records).
+static bool DemoRecords()
+{
+    const char* value = std::getenv("ZAMIN_DEMO_RECORDS");
+    return value && *value && std::string_view(value) != "0";
+}
 
 void SokobanGame::OnCreate()
 {
@@ -27,6 +36,11 @@ void SokobanGame::OnCreate()
     m_Level = std::clamp(SaveData::GetInt("Sokoban.Level", 0), 0, (int)GetLevels().size() - 1);
     if (const char* start = std::getenv("ZAMIN_START_LEVEL"))
         m_Level = std::clamp(std::atoi(start) - 1, 0, (int)GetLevels().size() - 1);
+    std::string bests;
+    for (int i = 0; i < (int)GetLevels().size(); i++)
+        if (const int best = GetBest(i); best > 0)
+            bests += std::format("{}{}-daraja {}", bests.empty() ? "" : ", ", i + 1, best);
+    ZM_INFO("Rekordlar: {}/{} daraja yechilgan{}{}", CountSolved(), GetLevels().size(), bests.empty() ? "" : " - qadamlar: ", bests);
 }
 
 void SokobanGame::OnStart()
@@ -256,13 +270,15 @@ void SokobanGame::LevelComplete()
     const bool menu = m_State == State::Menu;
     const int moves = m_Board.GetMoves(), pushes = m_Board.GetPushes();
     const int best = GetBest(m_Level);
-    const bool record = !m_Bot && (best == 0 || moves < best);
-    if (record)
+    const bool scored = !m_Bot || (m_DemoRun && !menu && DemoRecords());
+    const bool record = scored && SaveData::SubmitRecord(std::format("Sokoban.Best.{}", m_Level + 1), moves, RecordOrder::Lower);
+    if (scored)
     {
-        SaveData::SetInt(std::format("Sokoban.Best.{}", m_Level + 1), moves);
-        SaveData::SetInt("Sokoban.Level", (m_Level + 1) % (int)GetLevels().size());
+        SaveData::SetInt("Sokoban.Level", (m_Level + 1) % (int)GetLevels().size()); // the next one, the next time
         SaveData::Save();
     }
+    if (record)
+        ZM_INFO("Yangi rekord: {}-daraja {} qadam{}", m_Level + 1, moves, best > 0 ? std::format(" (avvalgi {})", best) : std::string());
     if (!menu)
         m_State = State::Complete;
     m_CompleteTimer = 0.0f;

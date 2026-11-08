@@ -340,6 +340,19 @@ Skriptning o'yin ko'rinishiga bog'liq yordamchilari (piksel, chap-yuqori burchak
 Kursor: `Cursor::SetLockMode(CursorLockMode::Locked)` (sichqoncha bilan qarash — `Input::GetMouseDelta()`),
 `Cursor::SetVisible(false)`, `Cursor::SetImage("Textures/crosshair.png", { 16, 16 })`.
 
+**Boshqaruv ishoralari** — o'yin ekranidagi "qaysi tugma nima qiladi" matni input xaritasidan olinadi va o'yinchi
+ishlatayotgan qurilmaga moslashadi. `Input::GetActiveDevice()` — oxirgi ishlatilgan qurilma (`InputDevice::KeyboardMouse`:
+tugma, sichqoncha tugmasi, g'ildirak yoki bir necha piksel siljish; `InputDevice::Gamepad`: gamepad tugmasi yoki stik /
+trigger yarmidan ko'proq bosilsa); almashganda logga `Kiritish qurilmasi: gamepad` yoziladi.
+`Input::GetBindingText("Jump")` — shu qurilmaning bog'lanishlari (`"Space / W"`, gamepad'da `"A"`; o'q: `"A, D / Arrows"`,
+`"Left stick / D-pad"`; vektor: `"WASD"`), `Input::ExpandBindings("[Jump] - sakrash")` — matndagi har `[Nom]` o'rniga.
+`[Nom|matn]` — shu qurilmada bog'lanish bo'lmasa `matn` (`[Look|Sichqoncha]`), `[kb:matn]` / `[pad:matn]` — matn faqat
+klaviatura / faqat gamepad uchun. Matn komponentining **Boshqaruv ishoralari** (`InputHints`) belgisi buni o'zi qiladi va
+qurilma almashganda matnni yangilaydi ([UI.md](UI.md)). Tugma nomlari o'yinning til fayllarida `input.<id>` kalitlari bilan
+o'zgartiriladi: `input.key.Arrows` → `strelkalar`, `input.mouse.Left` → `LKM`, `input.stick.Left` → `chap stik`,
+`input.pad.DPad` (id'lar: `key.<Key>`, `mouse.<Button>`, `pad.<Button>`, `stick.Left/Right`, `pad.LeftTrigger/RightTrigger`).
+Namuna o'yinlarning bosh menyulari shunday ([Samples.md](Samples.md)).
+
 ## 9. Fizika va so'rovlar
 
 To'liq qo'llanma (jismlar, collider'lar, joint'lar, qatlamlar, sozlamalar, namunalar): [Physics.md](Physics.md).
@@ -606,6 +619,19 @@ avtomatik yoziladi.
 SaveData::SetInt("TotalCoins", SaveData::GetInt("TotalCoins") + 1);
 ```
 
+Rekordlar uchun `SaveData::SubmitRecord(kalit, natija)` — natija saqlanganidan yaxshi bo'lsa (yoki hali hech narsa
+saqlanmagan bo'lsa) uni yozadi va `true` qaytaradi; `RecordOrder::Lower` — kichigi yaxshi (aylana vaqti, qadamlar).
+`IsNewRecord(kalit, natija)` — yozmasdan tekshiradi. Faylga keyingi `Save()` yozadi:
+
+```cpp
+if (SaveData::SubmitRecord("Neon.BestScore", m_Score))
+    ShowBanner(Localize("over.record"));                               // "YANGI REKORD!"
+SaveData::SubmitRecord("Racing.BestLap", lapSeconds, RecordOrder::Lower);
+SaveData::Save();
+```
+
+Olti M24 namuna o'yin rekordlarini shunday saqlaydi ([Samples.md](Samples.md#rekordlar-savedata)).
+
 **Lokalizatsiya** — `Localize("menu.start")`, `Localize("hud.score", score)` (`{0}` o'rniga), `LocalizePlural(...)`;
 til almashsa `OnLanguageChanged` keladi. Til fayllari: `Assets/Localization/<til>.json` ([ProjectSettings.md](ProjectSettings.md)).
 
@@ -687,6 +713,7 @@ Release'da `ZM_ASSERT` tekshirilmaydi va `DebugDraw` (Shipping build'da) chizilm
 | `Projects/Adventure3D/Source/Player.cpp` | Uchinchi shaxs qahramon: Character Controller 3D, Animator parametrlari |
 | `Projects/Adventure3D/Source/Guard.cpp`, `World.cpp` | Qorovul AI, kristallar, darvoza animatsiyasi |
 | [Tutorial-2D.md](Tutorial-2D.md), [Tutorial-3D.md](Tutorial-3D.md) | Noldan qadam-baqadam o'yin va to'liq kod |
+| [Samples.md](Samples.md) | Olti M24 namuna o'yin: shooter, Breakout, FPS, Sokoban, endless runner, poyga — menyular, rekordlar, gamepad |
 
 ## 23. Ko'p uchraydigan xatolar
 

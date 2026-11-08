@@ -992,6 +992,11 @@ namespace Zamin {
             { "Qalinlik", "Thickness" },
             { "Yumshoqlik", "Softness" },
             { "Harf oralig'i", "Letter spacing" },
+            { "Boshqaruv ishoralari", "Control hints" },
+            { "Matndagi [Nom] - loyiha input xaritasidagi harakat, o'q yoki vektor - o'yinchi ishlatayotgan "
+              "qurilmaning tugmalari bilan ko'rinadi: klaviaturada \"Space\", gamepad'da \"A\"",
+              "A [Name] in the text - an action, axis or vector of the project's input map - shows the controls of the "
+              "device the player uses: \"Space\" with the keyboard, \"A\" with a gamepad" },
             { "Qator oralig'i", "Line spacing" },
             { "Kenglik (o'rash)", "Width (wrap)" },
             { "O'rash", "Word wrap" },

@@ -226,6 +226,39 @@ namespace Zamin {
 
     bool SaveData::HasKey(std::string_view key) { return Find(key) != nullptr; }
 
+    bool SaveData::IsNewRecord(std::string_view key, double value, RecordOrder order)
+    {
+        if (std::isnan(value))
+            return false;
+        const Value* v = Find(key);
+        double saved = 0.0;
+        if (const int* i = v ? std::get_if<int>(v) : nullptr)
+            saved = *i;
+        else if (const float* f = v ? std::get_if<float>(v) : nullptr)
+            saved = *f;
+        else
+            return true; // nothing (or not a number) saved there: the first result is the record
+        if (std::isnan(saved))
+            return true;
+        return order == RecordOrder::Higher ? value > saved : value < saved;
+    }
+
+    bool SaveData::SubmitRecord(std::string_view key, int value, RecordOrder order)
+    {
+        if (!IsNewRecord(key, value, order))
+            return false;
+        SetInt(key, value);
+        return true;
+    }
+
+    bool SaveData::SubmitRecord(std::string_view key, float value, RecordOrder order)
+    {
+        if (!IsNewRecord(key, value, order))
+            return false;
+        SetFloat(key, value);
+        return true;
+    }
+
     SaveValueType SaveData::GetType(std::string_view key)
     {
         const Value* v = Find(key);

@@ -10,9 +10,18 @@ using namespace Zamin;
 // Poyga: to'rt mashina (o'yinchi va uch raqib - botlar) start chizig'i orqasidan chiqadi. Start svetofori: beshta
 // chiroq birin-ketin yonadi, so'ng hammasi o'chadi - GO! Trassa CheckpointCount bo'lakka bo'lingan: nuqtalardan
 // tartib bilan o'tib start chizig'ini kesib o'tilsa - aylana. Laps aylanadan keyin marra; o'rinlar trassa bo'ylab
-// bosib o'tilgan masofa bo'yicha. Rekord: eng yaxshi aylana (SaveData "Racing.BestLap"). Mashinalar bir-biriga
+// bosib o'tilgan masofa bo'yicha. Rekord: eng yaxshi aylana (SaveData::SubmitRecord "Racing.BestLap", har aylana
+// tugaganda; ZAMIN_DEMO_RECORDS=1 bilan demo boti ham - testlar). Mashinalar bir-biriga
 // urilsa itarishadi. Bosh menyu orqasida to'rt bot poyga qiladi. Demo: ZAMIN_DEMO=1 (yoki AutoDemo) - o'yinchi
 // mashinasini bot haydaydi, jurnalga "Demo: ..." yoziladi; marradan keyin yangi poyga.
+
+// ZAMIN_DEMO_RECORDS=1: a demo run's laps count as records too (the headless tests check that a record is written and
+// read back the next time; normally the bots never touch the player's records).
+static bool DemoRecords()
+{
+    const char* value = std::getenv("ZAMIN_DEMO_RECORDS");
+    return value && *value && std::string_view(value) != "0";
+}
 
 void RaceGame::OnCreate()
 {
@@ -21,6 +30,7 @@ void RaceGame::OnCreate()
     const char* demo = std::getenv("ZAMIN_DEMO");
     m_DemoRun = AutoDemo || (demo && *demo && std::string_view(demo) != "0");
     m_BestLap = SaveData::GetFloat("Racing.BestLap", 0.0f);
+    ZM_INFO("Rekordlar: eng yaxshi aylana {}", m_BestLap > 0.0f ? FormatTime(m_BestLap) : std::string("-"));
     if (!m_Track.Parse(TrackPoints))
         ZM_ERROR("Vodiy Poygasi: trassa nuqtalari o'qilmadi (TrackPoints)");
 }
@@ -82,6 +92,7 @@ void RaceGame::StartRace(bool bot)
         ResumeGame();
     Audio::SetGroupLowPass("Music", 0.0f);
     m_Bot = bot || m_DemoRun;
+    m_LapRecord = false;
     if (m_State != State::Menu || !bot || m_DemoRun)
     {
         m_State = State::Countdown;
@@ -167,13 +178,7 @@ void RaceGame::FinishRace()
     m_State = State::Finished;
     m_FinishTimer = 0.0f;
     car->SetDriver(Car::Driver::Bot); // a cool-down lap by itself
-    const bool record = !m_Bot && car->BestLap > 0.0f && (m_BestLap <= 0.0f || car->BestLap < m_BestLap);
-    if (record)
-    {
-        m_BestLap = car->BestLap;
-        SaveData::SetFloat("Racing.BestLap", m_BestLap);
-        SaveData::Save();
-    }
+    const bool record = m_LapRecord; // set when the lap was done (LapCompleted)
     PlaySound("Audio/finish.wav", 0.9f);
     SetText(ResultsTitle, Localize(car->FinishPlace == 1 ? "results.win" : "results.title"));
     SetText(ResultsPlace, Localize("results.place", car->FinishPlace));
@@ -323,13 +328,26 @@ void RaceGame::UpdateProgress(Car& car)
             car.BestLap = car.LapTime;
         if (player && m_DemoRun)
             ZM_INFO("Demo: {}-aylana - vaqt {}, o'rin {}/4", car.Lap, FormatTime(car.LapTime), PlaceOf(car));
+        // The lap record: the player's laps in a race (a demo's too with ZAMIN_DEMO_RECORDS).
+        const bool scored = player && m_State == State::Racing && (!m_Bot || (m_DemoRun && DemoRecords()));
+        const bool record = scored && SaveData::SubmitRecord("Racing.BestLap", car.LapTime, RecordOrder::Lower);
+        if (record)
+        {
+            m_BestLap = car.LapTime;
+            m_LapRecord = true;
+            SaveData::Save();
+            ZM_INFO("Yangi rekord: aylana {}", FormatTime(car.LapTime));
+            RefreshTexts();
+        }
         if (player && m_State == State::Racing)
         {
             PlaySound("Audio/lap.wav", 0.8f, 1.0f, "UI");
+            const std::string time = record ? Localize("results.record") + "  " + FormatTime(car.LapTime)
+                                            : Localize("hud.lap_time", FormatTime(car.LapTime));
             if (car.Lap == Laps - 1)
-                ShowBanner(Localize("hud.last_lap"), Localize("hud.lap_time", FormatTime(car.LapTime)), 2.0f);
+                ShowBanner(Localize("hud.last_lap"), time, 2.0f);
             else if (car.Lap < Laps)
-                ShowBanner(Localize("hud.lap_n", car.Lap + 1, Laps), Localize("hud.lap_time", FormatTime(car.LapTime)), 2.0f);
+                ShowBanner(Localize("hud.lap_n", car.Lap + 1, Laps), time, 2.0f);
             StyleCheckpoints();
         }
         car.LapTime = 0.0f;

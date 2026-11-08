@@ -1,4 +1,5 @@
 #include "Zamin/Core/InputActions.h"
+#include "Zamin/Localization/Localization.h"
 
 #include <algorithm>
 #include <array>
@@ -228,6 +229,275 @@ namespace Zamin {
             case InputSource::GamepadAxis:   return std::format("Gamepad {} {}", GamepadAxisToString((GamepadAxis)b.Code), b.Direction < 0 ? '-' : '+');
         }
         return {};
+    }
+
+    // ------------------------------------------------------------------ hints
+    namespace {
+
+        // A hint label: the game's "input.<id>" string when its language files have one, else `fallback`.
+        std::string HintLabel(std::string_view id, std::string_view fallback)
+        {
+            if (const std::string* text = Localization::Find(std::format("input.{}", id)))
+                return *text;
+            return std::string(fallback);
+        }
+
+        const char* DefaultKeyHint(Key key)
+        {
+            switch (key)
+            {
+                case Key::Escape:       return "Esc";
+                case Key::Backspace:    return "Backspace";
+                case Key::LeftShift:
+                case Key::RightShift:   return "Shift";
+                case Key::LeftControl:
+                case Key::RightControl: return "Ctrl";
+                case Key::LeftAlt:
+                case Key::RightAlt:     return "Alt";
+                case Key::PageUp:       return "PgUp";
+                case Key::PageDown:     return "PgDn";
+                default:                return KeyToString(key);
+            }
+        }
+
+        const char* DefaultPadHint(GamepadButton button)
+        {
+            switch (button)
+            {
+                case GamepadButton::LeftBumper:  return "LB";
+                case GamepadButton::RightBumper: return "RB";
+                case GamepadButton::LeftThumb:   return "L3";
+                case GamepadButton::RightThumb:  return "R3";
+                case GamepadButton::DPadUp:      return "D-pad Up";
+                case GamepadButton::DPadRight:   return "D-pad Right";
+                case GamepadButton::DPadDown:    return "D-pad Down";
+                case GamepadButton::DPadLeft:    return "D-pad Left";
+                default:                         return GamepadButtonToString(button);
+            }
+        }
+
+        bool IsKey(const InputBinding& b, Key key) { return b.Source == InputSource::Key && b.Code == (int)key; }
+        bool IsDPad(const InputBinding& b)
+        {
+            return b.Source == InputSource::GamepadButton && b.Code >= (int)GamepadButton::DPadUp && b.Code <= (int)GamepadButton::DPadLeft;
+        }
+        bool IsArrow(const InputBinding& b)
+        {
+            return IsKey(b, Key::Left) || IsKey(b, Key::Right) || IsKey(b, Key::Up) || IsKey(b, Key::Down);
+        }
+
+        void AddUnique(std::vector<std::string>& items, std::string item)
+        {
+            if (!item.empty() && std::find(items.begin(), items.end(), item) == items.end())
+                items.push_back(std::move(item));
+        }
+
+        std::string Join(const std::vector<std::string>& items, std::string_view separator)
+        {
+            std::string out;
+            for (const std::string& item : items)
+            {
+                if (!out.empty())
+                    out += separator;
+                out += item;
+            }
+            return out;
+        }
+
+        std::vector<InputBinding> OfDevice(const std::vector<InputBinding>& bindings, InputDevice device)
+        {
+            std::vector<InputBinding> out;
+            for (const InputBinding& b : bindings)
+                if (IsInputBindingOfDevice(b, device))
+                    out.push_back(b);
+            return out;
+        }
+
+        // A stick's name for an analog axis (both axes of a stick share it); "" for none.
+        std::string StickHint(int axisCode)
+        {
+            if (axisCode < 0 || axisCode >= GamepadAxisCount)
+                return {};
+            return InputHintName(InputBinding::FromGamepadAxis((GamepadAxis)axisCode, 1));
+        }
+
+        // An axis' controls of one device: its sides paired up ("A, D"), arrows and D-pad pairs by one
+        // name, its stick.
+        void DescribeAxis(const InputAxis& axis, InputDevice device, std::vector<std::string>& out)
+        {
+            const std::vector<InputBinding> negative = OfDevice(axis.Negative, device), positive = OfDevice(axis.Positive, device);
+            if (device == InputDevice::Gamepad)
+                AddUnique(out, StickHint(axis.GamepadAxisCode));
+            const size_t pairs = std::min(negative.size(), positive.size());
+            for (size_t i = 0; i < pairs; i++)
+            {
+                const InputBinding& n = negative[i];
+                const InputBinding& p = positive[i];
+                if (IsArrow(n) && IsArrow(p))
+                    AddUnique(out, HintLabel("key.Arrows", "Arrows"));
+                else if (IsDPad(n) && IsDPad(p))
+                    AddUnique(out, HintLabel("pad.DPad", "D-pad"));
+                else if (n.Source == InputSource::GamepadAxis && p.Source == InputSource::GamepadAxis && n.Code == p.Code)
+                    AddUnique(out, StickHint(n.Code)); // both halves of one stick axis
+                else
+                    AddUnique(out, std::format("{}, {}", InputHintName(n), InputHintName(p)));
+            }
+            // Unpaired controls of a lopsided axis.
+            for (size_t i = pairs; i < negative.size(); i++)
+                AddUnique(out, InputHintName(negative[i]));
+            for (size_t i = pairs; i < positive.size(); i++)
+                AddUnique(out, InputHintName(positive[i]));
+        }
+
+        // A vector: four letter keys as one word ("WASD"), arrows and D-pads by one name, else both axes.
+        void DescribeVector(const InputActionMap& map, const InputVector& vector, InputDevice device, std::vector<std::string>& out)
+        {
+            const InputAxis* x = map.FindAxis(vector.XAxis);
+            const InputAxis* y = map.FindAxis(vector.YAxis);
+            if (!x || !y)
+            {
+                if (x) DescribeAxis(*x, device, out);
+                if (y) DescribeAxis(*y, device, out);
+                return;
+            }
+            if (device == InputDevice::Gamepad)
+            {
+                AddUnique(out, StickHint(x->GamepadAxisCode));
+                AddUnique(out, StickHint(y->GamepadAxisCode));
+            }
+            const std::vector<InputBinding> left = OfDevice(x->Negative, device), right = OfDevice(x->Positive, device);
+            const std::vector<InputBinding> down = OfDevice(y->Negative, device), up = OfDevice(y->Positive, device);
+            const size_t sets = std::min({ left.size(), right.size(), down.size(), up.size() });
+            for (size_t i = 0; i < sets; i++)
+            {
+                const InputBinding* four[] = { &up[i], &left[i], &down[i], &right[i] };
+                if (std::all_of(std::begin(four), std::end(four), [](const InputBinding* b) { return IsArrow(*b); }))
+                    AddUnique(out, HintLabel("key.Arrows", "Arrows"));
+                else if (std::all_of(std::begin(four), std::end(four), [](const InputBinding* b) { return IsDPad(*b); }))
+                    AddUnique(out, HintLabel("pad.DPad", "D-pad"));
+                else
+                {
+                    std::string word, listed;
+                    bool letters = true;
+                    for (const InputBinding* b : four)
+                    {
+                        const std::string name = InputHintName(*b);
+                        letters = letters && b->Source == InputSource::Key && name.size() == 1;
+                        word += name;
+                        listed += (listed.empty() ? "" : ", ") + name;
+                    }
+                    AddUnique(out, letters ? word : listed);
+                }
+            }
+            if (sets == 0)
+            {
+                DescribeAxis(*x, device, out);
+                DescribeAxis(*y, device, out);
+            }
+        }
+
+    }
+
+    const char* InputDeviceToString(InputDevice device)
+    {
+        return device == InputDevice::Gamepad ? "Gamepad" : "KeyboardMouse";
+    }
+
+    bool IsInputBindingOfDevice(const InputBinding& binding, InputDevice device)
+    {
+        const bool pad = binding.Source == InputSource::GamepadButton || binding.Source == InputSource::GamepadAxis;
+        return pad == (device == InputDevice::Gamepad);
+    }
+
+    std::string InputHintName(const InputBinding& b)
+    {
+        switch (b.Source)
+        {
+            case InputSource::Key:
+            {
+                const char* name = KeyToString((Key)b.Code);
+                return HintLabel(std::format("key.{}", name), DefaultKeyHint((Key)b.Code));
+            }
+            case InputSource::Mouse:
+            {
+                static constexpr const char* s_Short[] = { "LMB", "RMB", "MMB" };
+                const char* name = MouseButtonToString((MouseButton)b.Code);
+                const std::string fallback = b.Code >= 0 && b.Code < 3 ? s_Short[b.Code] : std::format("Mouse {}", b.Code + 1);
+                return HintLabel(std::format("mouse.{}", name), fallback);
+            }
+            case InputSource::GamepadButton:
+            {
+                const GamepadButton button = (GamepadButton)b.Code;
+                return HintLabel(std::format("pad.{}", GamepadButtonToString(button)), DefaultPadHint(button));
+            }
+            case InputSource::GamepadAxis:
+            {
+                const GamepadAxis axis = (GamepadAxis)b.Code;
+                if (axis == GamepadAxis::LeftTrigger)
+                    return HintLabel("pad.LeftTrigger", "LT");
+                if (axis == GamepadAxis::RightTrigger)
+                    return HintLabel("pad.RightTrigger", "RT");
+                const bool left = axis == GamepadAxis::LeftX || axis == GamepadAxis::LeftY;
+                return left ? HintLabel("stick.Left", "Left stick") : HintLabel("stick.Right", "Right stick");
+            }
+        }
+        return {};
+    }
+
+    std::string DescribeInputBindings(const InputActionMap& map, std::string_view name, InputDevice device, std::string_view separator)
+    {
+        std::vector<std::string> items;
+        if (const InputAction* action = map.FindAction(name))
+        {
+            for (const InputBinding& b : OfDevice(action->Bindings, device))
+                AddUnique(items, InputHintName(b));
+        }
+        else if (const InputAxis* axis = map.FindAxis(name))
+            DescribeAxis(*axis, device, items);
+        else if (const InputVector* vector = map.FindVector(name))
+            DescribeVector(map, *vector, device, items);
+        return Join(items, separator);
+    }
+
+    std::string ExpandInputBindings(const InputActionMap& map, std::string_view text, InputDevice device)
+    {
+        std::string out;
+        out.reserve(text.size() + 16);
+        size_t at = 0;
+        while (at < text.size())
+        {
+            const size_t open = text.find('[', at);
+            const size_t close = open == std::string_view::npos ? open : text.find(']', open + 1);
+            if (close == std::string_view::npos)
+                break;
+            std::string_view name = text.substr(open + 1, close - open - 1);
+            out.append(text.substr(at, open - at));
+            at = close + 1;
+            // "[kb:text]" / "[pad:text]": text for one device only.
+            if (name.starts_with("kb:") || name.starts_with("pad:"))
+            {
+                const bool pad = name.starts_with("pad:");
+                if (pad == (device == InputDevice::Gamepad))
+                    out.append(name.substr(pad ? 4 : 3));
+                continue;
+            }
+            // "[Name|fallback]": the fallback when nothing of the device is bound.
+            std::string_view fallback = "-";
+            if (const size_t bar = name.find('|'); bar != std::string_view::npos)
+            {
+                fallback = name.substr(bar + 1);
+                name = name.substr(0, bar);
+            }
+            if (!name.empty() && (map.FindAction(name) || map.FindAxis(name) || map.FindVector(name)))
+            {
+                const std::string controls = DescribeInputBindings(map, name, device);
+                out += controls.empty() ? std::string(fallback) : controls;
+            }
+            else
+                out.append(text.substr(open, close - open + 1)); // not a name of the map: as it was
+        }
+        out.append(text.substr(std::min(at, text.size())));
+        return out;
     }
 
     // ------------------------------------------------------------------ map

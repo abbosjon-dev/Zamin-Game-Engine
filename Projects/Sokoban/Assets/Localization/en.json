@@ -8,7 +8,33 @@
         "quit": "Quit",
         "language": "Language: {0}",
         "progress": "Levels solved: {0} / {1}",
-        "controls": "WASD / arrows - move (push a crate)   ·   Z / Backspace - undo   ·   R - restart   ·   Esc - pause\nGamepad: D-pad / left stick - move, X - undo, Y - restart, Start - pause"
+        "controls": "[Move] - move (push a crate)   ·   [Undo] - undo   ·   [Restart] - restart   ·   [Pause] - pause\n[kb:A gamepad works too - use it and the hints show its buttons][pad:Gamepad - use the keyboard or mouse and the hints switch back]"
+    },
+    "input": {
+        "key": {
+            "Arrows": "arrows",
+            "Left": "Left",
+            "Right": "Right",
+            "Up": "Up",
+            "Down": "Down"
+        },
+        "mouse": {
+            "Left": "LMB",
+            "Right": "RMB",
+            "Middle": "MMB"
+        },
+        "stick": {
+            "Left": "left stick",
+            "Right": "right stick"
+        },
+        "pad": {
+            "DPad": "D-pad",
+            "DPadLeft": "D-pad left",
+            "DPadRight": "D-pad right",
+            "DPadUp": "D-pad up",
+            "DPadDown": "D-pad down",
+            "LeftThumb": "left stick click"
+        }
     },
     "hud": {
         "demo": "DEMO - autoplay",

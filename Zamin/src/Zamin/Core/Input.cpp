@@ -28,6 +28,9 @@ namespace Zamin {
 
         InputState& State() { return Internal::GetInputState(); }
 
+        InputDevice s_ActiveDevice = InputDevice::KeyboardMouse;
+        uint64_t s_ActiveDeviceVersion = 1;
+
         const ButtonState* KeyState(Key key)
         {
             int code = (int)key;
@@ -376,6 +379,8 @@ namespace Zamin {
     }
 
     // ------------------------------------------------------------------ frame state
+    static void TrackActiveDevice(const Internal::InputState& s);
+
     void Input::Update()
     {
         InputState& s = State();
@@ -399,12 +404,74 @@ namespace Zamin {
             slot.Previous = slot.Current;
             slot.Current = slot.Live;
         }
+        TrackActiveDevice(s);
     }
 
     void Input::ResetState()
     {
         State() = InputState{};
+        s_ActiveDevice = InputDevice::KeyboardMouse;
+        s_ActiveDeviceVersion++;
     }
+
+    // ------------------------------------------------------------------ device in use
+    // What the player did this frame: KeyboardMouse / Gamepad when one of them was used (both: the
+    // gamepad, a mouse resting on the table moves a little by itself), else unchanged.
+    static void TrackActiveDevice(const InputState& s)
+    {
+        bool keyboard = false, gamepad = false;
+        for (int code = Internal::InputFirstKey; code < Internal::InputKeyCount && !keyboard; code++)
+            keyboard = s.Keys[code].Pressed || (s.Keys[code].Down && !s.Keys[code].WasDown);
+        for (const ButtonState& b : s.Mouse)
+            keyboard = keyboard || b.Pressed || (b.Down && !b.WasDown);
+        if (s.Scroll != glm::vec2(0.0f))
+            keyboard = true;
+        const glm::vec2 moved = s.MousePosition - s.MousePrevious;
+        if (std::abs(moved.x) + std::abs(moved.y) > 4.0f)
+            keyboard = true;
+        for (const auto& slot : s.Gamepads)
+        {
+            if (!slot.Current.Connected)
+                continue;
+            for (int b = 0; b < GamepadButtonCount && !gamepad; b++)
+                gamepad = slot.Current.Buttons[b] && !slot.Previous.Buttons[b];
+            for (int a = 0; a < GamepadAxisCount && !gamepad; a++)
+                gamepad = std::abs(AxisValue01(slot.Current, a)) > 0.5f && std::abs(AxisValue01(slot.Previous, a)) <= 0.5f;
+        }
+        const InputDevice device = gamepad ? InputDevice::Gamepad : keyboard ? InputDevice::KeyboardMouse : s_ActiveDevice;
+        if (device != s_ActiveDevice)
+        {
+            s_ActiveDevice = device;
+            s_ActiveDeviceVersion++;
+            ZM_CORE_INFO("Kiritish qurilmasi: {}", device == InputDevice::Gamepad ? "gamepad" : "klaviatura va sichqoncha");
+        }
+    }
+
+    InputDevice Input::GetActiveDevice() { return s_ActiveDevice; }
+
+    void Input::SetActiveDevice(InputDevice device)
+    {
+        if (device == s_ActiveDevice)
+            return;
+        s_ActiveDevice = device;
+        s_ActiveDeviceVersion++;
+    }
+
+    uint64_t Input::GetActiveDeviceVersion() { return s_ActiveDeviceVersion; }
+
+    std::string Input::GetBindingText(std::string_view name, InputDevice device)
+    {
+        return DescribeInputBindings(Project::GetInputActionMap(), name, device);
+    }
+
+    std::string Input::GetBindingText(std::string_view name) { return GetBindingText(name, s_ActiveDevice); }
+
+    std::string Input::ExpandBindings(std::string_view text, InputDevice device)
+    {
+        return ExpandInputBindings(Project::GetInputActionMap(), text, device);
+    }
+
+    std::string Input::ExpandBindings(std::string_view text) { return ExpandBindings(text, s_ActiveDevice); }
 
     static bool KeyLive(Key key)
     {

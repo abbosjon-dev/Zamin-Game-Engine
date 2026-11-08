@@ -435,7 +435,7 @@ def build_scene():
     menu_best = s.entity("Bosh menyu rekordi", parent=main_menu, UITransform=k.ui_rect(pos=(0, -300), size=(1200, 44), font=32),
                          Text=k.ui_text("", (1.0, 0.9, 0.5, 1.0), "Center"))
     s.entity("Boshqaruv", parent=main_menu, UITransform=k.ui_rect((0.5, 0), None, (0.5, 0), (0, 50), (1800, 70), font=25),
-             Text=k.ui_text(UZ["menu"]["controls"], (1.0, 0.95, 0.9, 0.9), "Center", key="menu.controls"))
+             Text=k.ui_text(UZ["menu"]["controls"], (1.0, 0.95, 0.9, 0.9), "Center", key="menu.controls", hints=True))
 
     pause_menu = ui.dim("Pauza menyusi", False)
     pause_panel = ui.panel("Pauza paneli", pause_menu, (0, 0), (620, 460))
@@ -474,8 +474,9 @@ UZ = {
     "$name": "O'zbekcha",
     "menu": {"title": "IPAK YO'LI", "subtitle": "Cheksiz yugurish  ·  Zamin Engine namunasi", "play": "O'ynash", "quit": "Chiqish",
              "language": "Til: {0}", "best": "Rekord: {0} ochko  ·  eng uzoq: {1} m",
-             "controls": "A / D yoki strelkalar - yo'lak almashtirish   ·   Space / W - sakrash   ·   S - sirpanish   ·   Esc - pauza\n"
-                         "Gamepad: D-pad / LB / RB / chap stik - yo'lak, A - sakrash, B - sirpanish, Start - pauza"},
+             "controls": k.controls_hint("uz", "[Steer|][pad: yoki ][Left] - chapga, [Right] - o'ngga   ·   [Jump] - sakrash   ·   "
+                                               "[Slide] - sirpanish   ·   [Pause] - pauza")},
+    "input": k.INPUT_NAMES["uz"],
     "hud": {"demo": "DEMO - avtomatik o'yin", "distance": "{0} m", "coins": "Tanga: {0}", "speed": "{0} km/soat", "best": "Rekord: {0}",
             "go": "YUGUR!", "go_sub": "Aravalardan sakrang, gilam ostidan sirpaning", "milestone": "{0} m!", "faster": "Tezlik oshdi",
             "magnet": "Magnit: tangalar o'zi keladi!", "shield": "Qalqon: bitta zarbadan saqlaydi", "magnet_time": "Magnit {0} s",
@@ -487,8 +488,9 @@ EN = {
     "$name": "English",
     "menu": {"title": "SILK ROAD", "subtitle": "An endless run  ·  a Zamin Engine sample", "play": "Play", "quit": "Quit",
              "language": "Language: {0}", "best": "Record: {0} points  ·  longest: {1} m",
-             "controls": "A / D or arrows - change lanes   ·   Space / W - jump   ·   S - slide   ·   Esc - pause\n"
-                         "Gamepad: D-pad / LB / RB / left stick - lanes, A - jump, B - slide, Start - pause"},
+             "controls": k.controls_hint("en", "[Steer|][pad: or ][Left] - left, [Right] - right   ·   [Jump] - jump   ·   "
+                                               "[Slide] - slide   ·   [Pause] - pause")},
+    "input": k.INPUT_NAMES["en"],
     "hud": {"demo": "DEMO - autoplay", "distance": "{0} m", "coins": "Coins: {0}", "speed": "{0} km/h", "best": "Record: {0}", "go": "RUN!",
             "go_sub": "Jump the carts, slide under the carpets", "milestone": "{0} m!", "faster": "Faster now",
             "magnet": "Magnet: the coins come to you!", "shield": "Shield: one hit forgiven", "magnet_time": "Magnet {0} s",

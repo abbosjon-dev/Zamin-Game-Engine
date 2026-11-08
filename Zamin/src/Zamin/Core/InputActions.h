@@ -13,6 +13,9 @@ namespace Zamin {
     // Physical input a binding listens to.
     enum class InputSource : uint8_t { Key = 0, Mouse, GamepadButton, GamepadAxis };
 
+    // The two kinds of controls a player uses (on-screen hints: Input::GetActiveDevice).
+    enum class InputDevice : uint8_t { KeyboardMouse = 0, Gamepad };
+
     // One physical control: a key, a mouse button, a gamepad button, or one half of a
     // gamepad axis (Direction +1 / -1). A gamepad axis acts as a button when
     // value * Direction > 0.5 (triggers are mapped from -1..1 to 0..1 first).
@@ -140,5 +143,27 @@ namespace Zamin {
     bool InputBindingFromString(std::string_view text, InputBinding& out);
     // Short label for the UI: "Space", "Sichqoncha Left", "Gamepad A", "LeftX +"
     std::string InputBindingDisplayName(const InputBinding& binding);
+
+    // ---- on-screen hints ("[Jump] - sakrash" -> "Space - sakrash" / "A - sakrash")
+    const char* InputDeviceToString(InputDevice device);       // "KeyboardMouse", "Gamepad"
+    // Whether the binding is a control of that device (keys and mouse buttons / gamepad buttons and axes).
+    bool IsInputBindingOfDevice(const InputBinding& binding, InputDevice device);
+    // The name a hint shows for one control: "Space", "Esc", "Shift", "LMB", "A", "LB", "Start", "D-pad Up",
+    // "Left stick", "RT" ... A game renames any of them in its language files with "input.<id>" keys, ids:
+    // "key.<Key>" (key.Escape, key.Left), "mouse.<Button>" (mouse.Left), "pad.<Button>" (pad.Start,
+    // pad.DPadUp), "stick.Left" / "stick.Right" (a stick's X or Y axis), "pad.LeftTrigger" / "pad.RightTrigger";
+    // and for pairs: "key.Arrows" (Left + Right, Up + Down or all four), "pad.DPad" (two or four D-pad buttons).
+    std::string InputHintName(const InputBinding& binding);
+    // The controls of one device bound to an action, an axis or a vector of `map` (looked up in that order)
+    // as hint text: an action lists its bindings ("Space / W"); an axis pairs its sides ("A, D / Arrows") and
+    // names its stick ("Left stick / D-pad"); a vector joins its two axes ("WASD / Arrows", "Left stick").
+    // Repeated names are listed once. Empty when nothing of that device is bound (or no such name).
+    std::string DescribeInputBindings(const InputActionMap& map, std::string_view name, InputDevice device,
+                                      std::string_view separator = " / ");
+    // `text` with every "[Name]" of an action / axis / vector of `map` replaced by DescribeInputBindings
+    // (localized hint lines); other brackets are left as they are. A name nothing of that device is bound to
+    // reads "-", or the text after a bar: "[Look|Sichqoncha]". "[kb:text]" / "[pad:text]" show their text only
+    // for the keyboard and mouse / only for a gamepad: "[kb:Sichqoncha / ][Aim] - nishon".
+    std::string ExpandInputBindings(const InputActionMap& map, std::string_view text, InputDevice device);
 
 }

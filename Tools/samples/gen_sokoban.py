@@ -416,7 +416,7 @@ def build_scene():
     progress = s.entity("Yechilganlar", parent=main_menu, UITransform=k.ui_rect(pos=(0, -340), size=(1200, 44), font=32),
                         Text=k.ui_text("", (1.0, 0.85, 0.4, 1.0), "Center"))
     s.entity("Boshqaruv", parent=main_menu, UITransform=k.ui_rect((0.5, 0), None, (0.5, 0), (0, 50), (1800, 70), font=25),
-             Text=k.ui_text(UZ["menu"]["controls"], (0.95, 0.9, 0.85, 0.9), "Center", key="menu.controls"))
+             Text=k.ui_text(UZ["menu"]["controls"], (0.95, 0.9, 0.85, 0.9), "Center", key="menu.controls", hints=True))
 
     levels_menu = ui.dim("Darajalar menyusi", False, 0.55)
     levels_panel = ui.panel("Darajalar paneli", levels_menu, (0, 0), (900, 600))
@@ -468,8 +468,9 @@ UZ = {
     "$name": "O'zbekcha",
     "menu": {"title": "OMBORCHI", "subtitle": "Sokoban - qutilarni joyiga itaring  ·  Zamin Engine namunasi", "play": "O'ynash",
              "levels": "Darajalar", "quit": "Chiqish", "language": "Til: {0}", "progress": "Yechilgan darajalar: {0} / {1}",
-             "controls": "WASD / strelkalar - yurish (qutini itarish)   ·   Z / Backspace - orqaga   ·   R - qaytadan   ·   Esc - pauza\n"
-                         "Gamepad: D-pad / chap stik - yurish, X - orqaga, Y - qaytadan, Start - pauza"},
+             "controls": k.controls_hint("uz", "[Move] - yurish (qutini itarish)   ·   [Undo] - orqaga   ·   [Restart] - qaytadan   ·   "
+                                               "[Pause] - pauza")},
+    "input": k.INPUT_NAMES["uz"],
     "hud": {"demo": "DEMO - avtomatik o'yin", "level": "{0}-DARAJA", "level_name": "{0}-daraja  ·  {1}", "moves": "Qadamlar: {0}",
             "pushes": "Surishlar: {0}", "boxes": "Qutilar: {0} / {1}", "best": "Rekord: {0} qadam", "no_best": "Rekord: hali yo'q",
             "hint": "Hamma qutilarni yorqin doiralarga itaring  ·  Z - orqaga  ·  R - qaytadan  ·  Esc - pauza", "solved": "YECHILDI!",
@@ -483,8 +484,9 @@ EN = {
     "$name": "English",
     "menu": {"title": "WAREHOUSE KEEPER", "subtitle": "Sokoban - push every crate into place  ·  a Zamin Engine sample", "play": "Play",
              "levels": "Levels", "quit": "Quit", "language": "Language: {0}", "progress": "Levels solved: {0} / {1}",
-             "controls": "WASD / arrows - move (push a crate)   ·   Z / Backspace - undo   ·   R - restart   ·   Esc - pause\n"
-                         "Gamepad: D-pad / left stick - move, X - undo, Y - restart, Start - pause"},
+             "controls": k.controls_hint("en", "[Move] - move (push a crate)   ·   [Undo] - undo   ·   [Restart] - restart   ·   "
+                                               "[Pause] - pause")},
+    "input": k.INPUT_NAMES["en"],
     "hud": {"demo": "DEMO - autoplay", "level": "LEVEL {0}", "level_name": "Level {0}  ·  {1}", "moves": "Moves: {0}", "pushes": "Pushes: {0}",
             "boxes": "Crates: {0} / {1}", "best": "Record: {0} moves", "no_best": "Record: none yet",
             "hint": "Push every crate onto a glowing ring  ·  Z - undo  ·  R - restart  ·  Esc - pause", "solved": "SOLVED!",

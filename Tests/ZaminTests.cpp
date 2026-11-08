@@ -3957,6 +3957,161 @@ TEST(InputKeyAndMouseFrames)
     CHECK(!Input::IsKeyPressed(Key::A) && !Input::IsGamepadConnected(0));
 }
 
+TEST(InputBindingHints)
+{
+    // Hint text from a map: actions list their controls, axes pair their sides, vectors join their axes;
+    // only the asked device's controls; repeated names once; "[Name]" expanded, other brackets kept.
+    using B = InputBinding;
+    InputActionMap map;
+    map.Actions = {
+        { "Jump", { B::FromKey(Key::Space), B::FromKey(Key::W), B::FromGamepadButton(GamepadButton::A) } },
+        { "Fire", { B::FromMouse(MouseButton::Left), B::FromKey(Key::LeftControl), B::FromKey(Key::RightControl),
+                    B::FromGamepadAxis(GamepadAxis::RightTrigger, 1), B::FromGamepadButton(GamepadButton::RightBumper) } },
+        { "Pause", { B::FromKey(Key::Escape), B::FromGamepadButton(GamepadButton::Start) } },
+        { "KeysOnly", { B::FromKey(Key::Tab) } },
+    };
+    InputAxis x;
+    x.Name = "MoveX";
+    x.Negative = { B::FromKey(Key::A), B::FromKey(Key::Left), B::FromGamepadButton(GamepadButton::DPadLeft) };
+    x.Positive = { B::FromKey(Key::D), B::FromKey(Key::Right), B::FromGamepadButton(GamepadButton::DPadRight) };
+    x.GamepadAxisCode = (int)GamepadAxis::LeftX;
+    InputAxis y;
+    y.Name = "MoveY";
+    y.Negative = { B::FromKey(Key::S), B::FromKey(Key::Down), B::FromGamepadButton(GamepadButton::DPadDown) };
+    y.Positive = { B::FromKey(Key::W), B::FromKey(Key::Up), B::FromGamepadButton(GamepadButton::DPadUp) };
+    y.GamepadAxisCode = (int)GamepadAxis::LeftY;
+    InputAxis steer;
+    steer.Name = "Steer";
+    steer.Negative = { B::FromKey(Key::Q), B::FromGamepadAxis(GamepadAxis::RightX, -1) };
+    steer.Positive = { B::FromKey(Key::E), B::FromGamepadAxis(GamepadAxis::RightX, 1) };
+    map.Axes = { x, y, steer };
+    InputVector move;
+    move.Name = "Move";
+    move.XAxis = "MoveX";
+    move.YAxis = "MoveY";
+    map.Vectors = { move };
+
+    Localization::Clear();
+    const InputDevice kb = InputDevice::KeyboardMouse, pad = InputDevice::Gamepad;
+    CHECK(DescribeInputBindings(map, "Jump", kb) == "Space / W" && DescribeInputBindings(map, "Jump", pad) == "A");
+    CHECK(DescribeInputBindings(map, "Fire", kb) == "LMB / Ctrl" && DescribeInputBindings(map, "Fire", pad) == "RT / RB");
+    CHECK(DescribeInputBindings(map, "Pause", kb, ", ") == "Esc" && DescribeInputBindings(map, "Pause", pad) == "Start");
+    CHECK(DescribeInputBindings(map, "KeysOnly", pad).empty() && DescribeInputBindings(map, "Nope", kb).empty());
+    CHECK(DescribeInputBindings(map, "MoveX", kb) == "A, D / Arrows");
+    CHECK(DescribeInputBindings(map, "MoveX", pad) == "Left stick / D-pad");
+    CHECK(DescribeInputBindings(map, "Steer", kb) == "Q, E" && DescribeInputBindings(map, "Steer", pad) == "Right stick");
+    CHECK(DescribeInputBindings(map, "Move", kb) == "WASD / Arrows" && DescribeInputBindings(map, "Move", pad) == "Left stick / D-pad");
+    CHECK(IsInputBindingOfDevice(B::FromMouse(MouseButton::Right), kb) && IsInputBindingOfDevice(B::FromGamepadAxis(GamepadAxis::LeftY, -1), pad));
+    CHECK(!IsInputBindingOfDevice(B::FromKey(Key::A), pad) && std::string(InputDeviceToString(pad)) == "Gamepad");
+    CHECK(InputHintName(B::FromKey(Key::LeftShift)) == "Shift" && InputHintName(B::FromGamepadButton(GamepadButton::LeftThumb)) == "L3");
+    CHECK(InputHintName(B::FromGamepadButton(GamepadButton::DPadUp)) == "D-pad Up" && InputHintName(B::FromMouse(MouseButton::Button4)) == "Mouse 5");
+
+    CHECK(ExpandInputBindings(map, "[Jump] - sakrash   [Pause] - pauza", kb) == "Space / W - sakrash   Esc - pauza");
+    CHECK(ExpandInputBindings(map, "[Jump] - sakrash   [Pause] - pauza", pad) == "A - sakrash   Start - pauza");
+    CHECK(ExpandInputBindings(map, "[Move]: yurish, [x] va [ ] [Jump", kb) == "WASD / Arrows: yurish, [x] va [ ] [Jump");
+    CHECK(ExpandInputBindings(map, "[KeysOnly] (gamepad: yo'q)", pad) == "- (gamepad: yo'q)");
+    CHECK(ExpandInputBindings(map, "", kb).empty() && ExpandInputBindings(map, "[]", kb) == "[]");
+    // A fallback for a device without bindings; text for one device only.
+    CHECK(ExpandInputBindings(map, "[KeysOnly|sichqoncha] - qarash", pad) == "sichqoncha - qarash");
+    CHECK(ExpandInputBindings(map, "[KeysOnly|sichqoncha] - qarash", kb) == "Tab - qarash");
+    CHECK(ExpandInputBindings(map, "[kb:Sichqoncha / ][Steer] - nishon", kb) == "Sichqoncha / Q, E - nishon");
+    CHECK(ExpandInputBindings(map, "[kb:Sichqoncha / ][Steer] - nishon", pad) == "Right stick - nishon");
+    CHECK(ExpandInputBindings(map, "[kb:klaviatura][pad:gamepad]", pad) == "gamepad" && ExpandInputBindings(map, "[kb:klaviatura][pad:gamepad]", kb) == "klaviatura");
+    CHECK(ExpandInputBindings(map, "[Nope|x]", kb) == "[Nope|x]");
+
+    // A game's language files rename controls ("input.<id>").
+    std::vector<StringTable> tables(1);
+    tables[0].Language = "uz";
+    tables[0].Strings["input.key.Arrows"] = { "strelkalar", {} };
+    tables[0].Strings["input.mouse.Left"] = { "LKM", {} };
+    tables[0].Strings["input.stick.Left"] = { "chap stik", {} };
+    tables[0].Strings["input.pad.DPad"] = { "krestovina", {} };
+    tables[0].Strings["input.key.Space"] = { "Probel", {} };
+    LocalizationSettings settings;
+    settings.Languages = { "uz" };
+    Localization::SetTables(std::move(tables), settings);
+    CHECK(DescribeInputBindings(map, "MoveX", kb) == "A, D / strelkalar");
+    CHECK(DescribeInputBindings(map, "Move", pad) == "chap stik / krestovina");
+    CHECK(ExpandInputBindings(map, "[Fire] - otish, [Jump] - sakrash", kb) == "LKM / Ctrl - otish, Probel / W - sakrash");
+    Localization::Clear();
+}
+
+TEST(InputActiveDeviceAndTextHints)
+{
+    // The device in use follows the last input: a gamepad button or a stick past half - Gamepad; a key, a mouse
+    // button or a mouse move - KeyboardMouse. A text with InputHints shows the controls of that device.
+    Project::SetActive(nullptr); // the default map: Jump = Space / Gamepad A, Pause = Escape / Start
+    Localization::Clear();
+    Input::ResetState();
+    NextFrame();
+    CHECK(Input::GetActiveDevice() == InputDevice::KeyboardMouse);
+    CHECK(Input::GetBindingText("Jump") == "Space" && Input::GetBindingText("Jump", InputDevice::Gamepad) == "A");
+    CHECK(Input::ExpandBindings("[Pause] - pauza", InputDevice::Gamepad) == "Start - pauza");
+
+    auto scene = CreateRef<Scene>();
+    Entity e = scene->CreateEntity("Ishora");
+    auto& text = e.AddComponent<TextComponent>();
+    text.Text = "[Jump] - sakrash";
+    CHECK(!text.UpdateLocalized() && text.GetDisplayText() == "[Jump] - sakrash"); // InputHints off: as it is
+    text.InputHints = true;
+    CHECK(text.UpdateLocalized() && text.GetDisplayText() == "Space - sakrash");
+    CHECK(!text.UpdateLocalized()); // nothing changed
+
+    const uint64_t version = Input::GetActiveDeviceVersion();
+    Input::SimulateGamepadConnected(0, true);
+    NextFrame();
+    CHECK(Input::GetActiveDevice() == InputDevice::KeyboardMouse); // connected only: nothing pressed yet
+    Input::SimulateGamepadButton(0, GamepadButton::A, true);
+    NextFrame();
+    CHECK(Input::GetActiveDevice() == InputDevice::Gamepad && Input::GetActiveDeviceVersion() > version);
+    CHECK(Input::GetBindingText("Jump") == "A");
+    CHECK(text.UpdateLocalized() && text.GetDisplayText() == "A - sakrash");
+    Input::SimulateGamepadButton(0, GamepadButton::A, false);
+    NextFrame();
+    NextFrame();
+    CHECK(Input::GetActiveDevice() == InputDevice::Gamepad); // stays until another device is used
+
+    // A key: back to the keyboard.
+    Input::SimulateKey(Key::E, true);
+    NextFrame();
+    CHECK(Input::GetActiveDevice() == InputDevice::KeyboardMouse);
+    CHECK(text.UpdateLocalized() && text.GetDisplayText() == "Space - sakrash");
+    Input::SimulateKey(Key::E, false);
+    NextFrame();
+    // A stick pushed past half: the gamepad again; a small drift does not count.
+    Input::SimulateGamepadAxis(0, GamepadAxis::LeftX, 0.3f);
+    NextFrame();
+    CHECK(Input::GetActiveDevice() == InputDevice::KeyboardMouse);
+    Input::SimulateGamepadAxis(0, GamepadAxis::LeftX, -0.9f);
+    NextFrame();
+    CHECK(Input::GetActiveDevice() == InputDevice::Gamepad);
+    // A mouse move of a few pixels: the keyboard and mouse.
+    Input::OnMouseMovedEvent(200.0f, 140.0f);
+    NextFrame();
+    Input::OnMouseMovedEvent(260.0f, 150.0f);
+    NextFrame();
+    CHECK(Input::GetActiveDevice() == InputDevice::KeyboardMouse);
+
+    // A script changes the text: the hints follow it; set by hand, the device stays until used.
+    text.Text = "[Pause] - pauza";
+    CHECK(text.UpdateLocalized() && text.GetDisplayText() == "Esc - pauza");
+    Input::SetActiveDevice(InputDevice::Gamepad);
+    CHECK(text.UpdateLocalized() && text.GetDisplayText() == "Start - pauza");
+    // Hints off again: the text as it is.
+    text.InputHints = false;
+    CHECK(text.UpdateLocalized() && text.GetDisplayText() == "[Pause] - pauza");
+
+    // Saved and loaded with the scene.
+    text.InputHints = true;
+    const std::string json = SceneSerializer(scene).SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(json));
+    Entity copy = loaded->FindEntityByName("Ishora");
+    CHECK(copy && copy.GetComponent<TextComponent>().InputHints && copy.GetComponent<TextComponent>().Text == "[Pause] - pauza");
+    Input::ResetState();
+    CHECK(Input::GetActiveDevice() == InputDevice::KeyboardMouse);
+}
+
 TEST(InputSimulatedKeys)
 {
     // A simulated key (the player's ZAMIN_PLAYER_INPUT): held until released, with both edges once, an axis reads
@@ -4323,6 +4478,41 @@ TEST(SaveDataValuesAndFile)
     CHECK(!SaveData::HasKey("Arr") && !SaveData::HasKey("Null"));
     CHECK(SaveData::GetFloat("F") == 2.5f && SaveData::GetString("S") == "ok" && !SaveData::GetBool("B", true));
 
+    SaveData::SetFilePath({});
+    std::error_code ec;
+    std::filesystem::remove_all(dir, ec);
+}
+
+TEST(SaveDataSubmitRecord)
+{
+    // Records: the first result is the record; a better one replaces it, a worse or equal one does not;
+    // Lower for times / moves; Int and Float saves compare as numbers; a non-number key is replaced.
+    auto dir = std::filesystem::temp_directory_path() / ("zamin-record-" + std::to_string((uint64_t)UUID()));
+    SaveData::SetFilePath(dir / "save.json");
+    CHECK(SaveData::IsNewRecord("Best", 0.0) && SaveData::SubmitRecord("Best", 120));
+    CHECK(SaveData::GetInt("Best") == 120 && SaveData::GetType("Best") == SaveValueType::Int);
+    CHECK(!SaveData::SubmitRecord("Best", 120) && !SaveData::SubmitRecord("Best", 80) && SaveData::GetInt("Best") == 120);
+    CHECK(SaveData::IsNewRecord("Best", 121.0) && !SaveData::IsNewRecord("Best", 119.5));
+    CHECK(SaveData::SubmitRecord("Best", 250) && SaveData::GetInt("Best") == 250);
+    // A float result against an int record (and the other way round).
+    CHECK(!SaveData::SubmitRecord("Best", 249.5f) && SaveData::SubmitRecord("Best", 250.5f));
+    CHECK(SaveData::GetType("Best") == SaveValueType::Float && SaveData::GetFloat("Best") == 250.5f);
+    CHECK(!SaveData::SubmitRecord("Best", 250) && SaveData::SubmitRecord("Best", 251) && SaveData::GetInt("Best") == 251);
+    // Lower is better: lap times.
+    CHECK(SaveData::SubmitRecord("Lap", 31.25f, RecordOrder::Lower));
+    CHECK(!SaveData::SubmitRecord("Lap", 33.0f, RecordOrder::Lower) && !SaveData::SubmitRecord("Lap", 31.25f, RecordOrder::Lower));
+    CHECK(SaveData::SubmitRecord("Lap", 29.5f, RecordOrder::Lower) && SaveData::GetFloat("Lap") == 29.5f);
+    CHECK(SaveData::SubmitRecord("Moves", 40, RecordOrder::Lower) && SaveData::SubmitRecord("Moves", 38, RecordOrder::Lower));
+    CHECK(!SaveData::SubmitRecord("Moves", 38, RecordOrder::Lower) && SaveData::GetInt("Moves") == 38);
+    // NaN never wins; a string under the key is no record (the first number replaces it).
+    CHECK(!SaveData::SubmitRecord("Lap", std::nanf(""), RecordOrder::Lower) && SaveData::GetFloat("Lap") == 29.5f);
+    SaveData::SetString("Name", "Abbos");
+    CHECK(SaveData::SubmitRecord("Name", 5) && SaveData::GetInt("Name") == 5);
+    // Saved like any other value, back after a reload.
+    CHECK(SaveData::Save() && SaveData::Reload());
+    CHECK(SaveData::GetFloat("Lap") == 29.5f && SaveData::GetInt("Moves") == 38 && SaveData::GetInt("Best") == 251);
+    CHECK(!SaveData::SubmitRecord("Best", 200));
+    SaveData::DeleteAll();
     SaveData::SetFilePath({});
     std::error_code ec;
     std::filesystem::remove_all(dir, ec);

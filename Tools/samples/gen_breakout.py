@@ -505,8 +505,7 @@ def build_scene():
     menu_best = s.entity("Bosh menyu rekordi", parent=main_menu, UITransform=k.ui_rect(pos=(0, -330), size=(1200, 44), font=32),
                          Text=k.ui_text("", (1.0, 0.85, 0.4, 1.0), "Center"))
     s.entity("Boshqaruv", parent=main_menu, UITransform=k.ui_rect((0.5, 0), None, (0.5, 0), (0, 56), (1800, 70), font=25),
-             Text=k.ui_text("Sichqoncha / A,D / strelkalar - raketka   ·   Space / LKM - to'pni otish, lazer   ·   Esc - pauza\n"
-                            "Gamepad: chap stik - raketka, A - otish, Start - pauza", (0.8, 0.75, 0.95, 0.85), "Center", key="menu.controls"))
+             Text=k.ui_text(k.controls_hint("uz", CONTROLS["uz"]), (0.8, 0.75, 0.95, 0.85), "Center", key="menu.controls", hints=True))
     # pause
     pause_menu = ui.dim("Pauza menyusi", False)
     pause_panel = ui.panel("Pauza paneli", pause_menu, (0, 0), (560, 420))
@@ -544,13 +543,20 @@ def build_scene():
     return s
 
 
+# The main menu's controls line: "[Action]" shows the controls bound in the project's input map, of the device in use.
+CONTROLS = {
+    "uz": "[kb:Sichqoncha / ][MoveX] - raketka   ·   [Action] - to'pni otish, lazer   ·   [Pause] - pauza",
+    "en": "[kb:Mouse / ][MoveX] - paddle   ·   [Action] - launch, laser   ·   [Pause] - pause",
+}
+
+
 def write_localization():
     uz = {
         "$name": "O'zbekcha",
         "menu": {"title": "BREAKOUT", "subtitle": "G'ishtlarni sindiring  ·  Zamin Engine namunasi", "play": "O'ynash", "quit": "Chiqish",
                  "language": "Til: {0}", "best": "Rekord: {0}   ·   eng uzoq daraja: {1}",
-                 "controls": "Sichqoncha / A,D / strelkalar - raketka   ·   Space / LKM - to'pni otish, lazer   ·   Esc - pauza\n"
-                             "Gamepad: chap stik - raketka, A - otish, Start - pauza"},
+                 "controls": k.controls_hint("uz", CONTROLS["uz"])},
+        "input": k.INPUT_NAMES["uz"],
         "hud": {"score_label": "HISOB", "best_label": "REKORD", "lives_label": "JONLAR", "level_label": "DARAJA",
                 "powerups_label": "BONUSLAR", "demo": "DEMO - avtomatik o'yin", "level": "{0} / {1}", "bricks": "G'ishtlar: {0}",
                 "combo": "KOMBO x{0}", "serve": "Space / sichqoncha - to'pni otish", "level_banner": "{0}-DARAJA",
@@ -567,8 +573,8 @@ def write_localization():
         "$name": "English",
         "menu": {"title": "BREAKOUT", "subtitle": "Smash the bricks  ·  a Zamin Engine sample", "play": "Play", "quit": "Quit",
                  "language": "Language: {0}", "best": "Best: {0}   ·   furthest level: {1}",
-                 "controls": "Mouse / A,D / arrows - paddle   ·   Space / LMB - launch, laser   ·   Esc - pause\n"
-                             "Gamepad: left stick - paddle, A - launch, Start - pause"},
+                 "controls": k.controls_hint("en", CONTROLS["en"])},
+        "input": k.INPUT_NAMES["en"],
         "hud": {"score_label": "SCORE", "best_label": "BEST", "lives_label": "LIVES", "level_label": "LEVEL", "powerups_label": "POWER-UPS",
                 "demo": "DEMO - autoplay", "level": "{0} / {1}", "bricks": "Bricks: {0}", "combo": "COMBO x{0}",
                 "serve": "Space / mouse - launch the ball", "level_banner": "LEVEL {0}", "level_clear": "LEVEL CLEAR!",

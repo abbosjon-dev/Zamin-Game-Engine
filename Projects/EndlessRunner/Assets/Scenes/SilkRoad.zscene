@@ -4104,14 +4104,15 @@
         "Order": 0
       },
       "Text": {
-        "Text": "A / D yoki strelkalar - yo'lak almashtirish   ·   Space / W - sakrash   ·   S - sirpanish   ·   Esc - pauza\nGamepad: D-pad / LB / RB / chap stik - yo'lak, A - sakrash, B - sirpanish, Start - pauza",
+        "Text": "[Steer|][pad: yoki ][Left] - chapga, [Right] - o'ngga   ·   [Jump] - sakrash   ·   [Slide] - sirpanish   ·   [Pause] - pauza\n[kb:Gamepad ham ishlaydi - uni ishlatsangiz, ishoralar uning tugmalarini ko'rsatadi][pad:Gamepad - klaviatura yoki sichqoncha ishlatilsa, ishoralar ularga qaytadi]",
         "Color": [1.0, 0.95, 0.9, 0.9],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
         "AlignH": "Center",
         "AlignV": "Middle",
         "Font": "",
-        "LocalizationKey": "menu.controls"
+        "LocalizationKey": "menu.controls",
+        "InputHints": true
       }
     },
     {

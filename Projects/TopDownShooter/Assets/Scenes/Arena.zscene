@@ -3382,14 +3382,15 @@
         "Order": 0
       },
       "Text": {
-        "Text": "WASD - yurish   ·   Sichqoncha - nishon   ·   LKM - otish   ·   Space - siltanish   ·   Esc - pauza\nGamepad: chap stik - yurish, o'ng stik - nishon va otish, A - siltanish",
+        "Text": "[Move] - yurish   ·   [kb:Sichqoncha / ][Aim] - nishon[pad: va otish]   ·   [Fire] - otish   ·   [Dash] - siltanish   ·   [Pause] - pauza\n[kb:Gamepad ham ishlaydi - uni ishlatsangiz, ishoralar uning tugmalarini ko'rsatadi][pad:Gamepad - klaviatura yoki sichqoncha ishlatilsa, ishoralar ularga qaytadi]",
         "Color": [0.7, 0.8, 0.95, 0.85],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
         "AlignH": "Center",
         "AlignV": "Middle",
         "Font": "",
-        "LocalizationKey": "menu.controls"
+        "LocalizationKey": "menu.controls",
+        "InputHints": true
       }
     },
     {

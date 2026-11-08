@@ -20,6 +20,11 @@ Checks for each game (Projects/<Game>):
   6. references - every asset a scene, the project file or a script names (Textures/..., Audio/..., Models/...,
                   Sfx("name") -> Audio/name.wav) exists; every sound and texture is used by something.
   7. --regen    - a generator run gives exactly the committed files, and every committed asset is one it writes.
+  8. input      - the project's input map: every action has a keyboard / mouse binding and a gamepad binding, every
+                  axis a gamepad stick or buttons and keys (but the mouse-only ones listed in MOUSE_AXES); every
+                  action / axis / vector the scripts read is in the map and every one in the map is read; the scripts
+                  never poll the keyboard or a gamepad directly (only the mouse, for aiming / looking); the main menu's
+                  controls hint (InputHints) names only the map's actions, in both languages.
 Standard library only (numpy for --regen). Exit code: 0 when every check holds, 1 otherwise.
 """
 import argparse
@@ -42,6 +47,10 @@ MAX_PICTURE_SIDE = 2048
 MAX_SOUND_SECONDS = 20.0
 
 problems = []
+
+# Axes the keyboard and mouse drive with the mouse itself (Input::GetMouseDelta / the cursor), not with keys - or, in
+# the runner, with the Left / Right actions.
+MOUSE_AXES = {"FPSArena": {"LookX", "LookY"}, "EndlessRunner": {"Steer"}}
 
 
 def problem(game, text):
@@ -196,10 +205,76 @@ def check_game(game, verbose):
         name = rel(p, assets)
         if name.startswith(("Audio/", "Textures/")) and name not in referenced:
             problem(game, f"{name} hech qayerda ishlatilmaydi")
+    # 8. input
+    n_actions, n_axes, n_vectors = check_input(game, project, sources, assets)
     if verbose:
         kinds = ", ".join(f"{ext or '-'} {n} ta {size / 1024:.0f} KB" for ext, (n, size) in sorted(by_kind.items()))
-        print(f"  {game:15} {total / 1048576:.2f} MiB ({kinds}); ovozlar {sound_seconds:.1f} s")
+        print(f"  {game:15} {total / 1048576:.2f} MiB ({kinds}); ovozlar {sound_seconds:.1f} s; input: {n_actions} harakat, "
+              f"{n_axes} o'q, {n_vectors} vektor")
     return {"files": len(data_files), "bytes": total, "sound_seconds": round(sound_seconds, 1)}
+
+
+def binding_device(binding):
+    source = binding.split(":", 1)[0]
+    return "pad" if source in ("Gamepad", "GamepadAxis") else "kb" if source in ("Key", "Mouse") else None
+
+
+def check_input(game, project, sources, assets):
+    """8. input: the map covers both devices, the scripts use only the map (and the mouse), the hints name map entries."""
+    with open(os.path.join(project, f"{game}.zproject"), encoding="utf-8") as f:
+        inputs = json.load(f).get("InputActions", {})
+    actions = {a["Name"]: a.get("Bindings", []) for a in inputs.get("Actions", [])}
+    axes = {a["Name"]: a for a in inputs.get("Axes", [])}
+    vectors = {v["Name"]: v for v in inputs.get("Vectors", [])}
+    if not actions:
+        problem(game, "input xaritasida harakat yo'q")
+    for name, bindings in actions.items():
+        devices = {binding_device(b) for b in bindings}
+        if "kb" not in devices:
+            problem(game, f"input: '{name}' harakatida klaviatura / sichqoncha bog'lanishi yo'q")
+        if "pad" not in devices:
+            problem(game, f"input: '{name}' harakatida gamepad bog'lanishi yo'q")
+    for name, axis in axes.items():
+        sides = axis.get("Negative", []) + axis.get("Positive", [])
+        devices = {binding_device(b) for b in sides}
+        if "pad" not in devices and not axis.get("GamepadAxis"):
+            problem(game, f"input: '{name}' o'qida gamepad stigi ham, tugmasi ham yo'q")
+        if "kb" not in devices and name not in MOUSE_AXES.get(game, set()):
+            problem(game, f"input: '{name}' o'qida klaviatura tugmasi yo'q")
+    for name, vector in vectors.items():
+        for key in ("X", "Y"):
+            if vector.get(key) not in axes:
+                problem(game, f"input: '{name}' vektorining {key} o'qi ('{vector.get(key)}') xaritada yo'q")
+    read = set()
+    for where, text in sources:
+        for m in re.finditer(r'Input::(IsAction\w*|GetAxis2D|GetAxis|GetVector)\("([^"]+)"', text):
+            kind, name = m.group(1), m.group(2)
+            read.add(name)
+            known = actions if kind.startswith("IsAction") else axes if kind == "GetAxis" else vectors if kind == "GetVector" else axes
+            if name not in known:
+                problem(game, f"{where}: Input::{kind}(\"{name}\") - xaritada bunday nom yo'q")
+        for m in re.finditer(r'Input::(IsKey\w*|IsGamepad\w*|GetGamepadAxis|IsAnyKeyJustPressed)\(', text):
+            problem(game, f"{where}: Input::{m.group(1)} - skript tugmani to'g'ridan-to'g'ri o'qiydi (input xaritasidagi harakatdan foydalaning)")
+    used_axes = read | {vectors[v][k] for v in read if v in vectors for k in ("X", "Y")}
+    for name in list(actions) + list(axes) + list(vectors):
+        if name not in read and name not in used_axes:
+            problem(game, f"input: '{name}' xaritada bor, lekin skriptlar uni o'qimaydi")
+    # The main menu's controls hint: "[Name]" of the map only (a typo would show as it is), in every language.
+    names = set(actions) | set(axes) | set(vectors)
+    for lang in ("uz", "en"):
+        path = os.path.join(assets, "Localization", f"{lang}.json")
+        if not os.path.exists(path):
+            continue
+        with open(path, encoding="utf-8") as f:
+            controls = json.load(f).get("menu", {}).get("controls", "")
+        if not controls:
+            problem(game, f"Localization/{lang}.json: menu.controls (boshqaruv ishorasi) yo'q")
+        for token in re.findall(r"\[([^\]]*)\]", controls):
+            if token.startswith(("kb:", "pad:")):
+                continue
+            if token.split("|", 1)[0] not in names:
+                problem(game, f"Localization/{lang}.json: menu.controls dagi [{token}] input xaritasida yo'q")
+    return len(actions), len(axes), len(vectors)
 
 
 def regen(game):

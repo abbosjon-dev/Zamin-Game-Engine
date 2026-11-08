@@ -1191,6 +1191,8 @@ namespace Zamin {
                 e["Text"]["MaxWidth"] = c->MaxWidth;
             if (!c->LocalizationKey.empty())
                 e["Text"]["LocalizationKey"] = c->LocalizationKey;
+            if (c->InputHints)
+                e["Text"]["InputHints"] = true;
             WriteAssetHandle(e["Text"], "Font", c->FontPath);
             if (c->SortingOrder != 1000)
                 e["Text"]["SortingOrder"] = c->SortingOrder;
@@ -2096,6 +2098,7 @@ namespace Zamin {
             c.MaxWidth = j.value("MaxWidth", 0.0f);
             if (auto key = j.find("LocalizationKey"); key != j.end() && key->is_string())
                 c.LocalizationKey = key->get<std::string>();
+            c.InputHints = j.value("InputHints", false);
             c.FontPath = ReadAssetPath(j, "Font");
             c.SortingOrder = j.value("SortingOrder", 1000);
             c.SortingLayer = ReadSortingLayer(j);

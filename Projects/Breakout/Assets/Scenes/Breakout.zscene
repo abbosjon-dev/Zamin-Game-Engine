@@ -2641,14 +2641,15 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Sichqoncha / A,D / strelkalar - raketka   ·   Space / LKM - to'pni otish, lazer   ·   Esc - pauza\nGamepad: chap stik - raketka, A - otish, Start - pauza",
+        "Text": "[kb:Sichqoncha / ][MoveX] - raketka   ·   [Action] - to'pni otish, lazer   ·   [Pause] - pauza\n[kb:Gamepad ham ishlaydi - uni ishlatsangiz, ishoralar uning tugmalarini ko'rsatadi][pad:Gamepad - klaviatura yoki sichqoncha ishlatilsa, ishoralar ularga qaytadi]",
         "Color": [0.8, 0.75, 0.95, 0.85],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
         "AlignH": "Center",
         "AlignV": "Middle",
         "Font": "",
-        "LocalizationKey": "menu.controls"
+        "LocalizationKey": "menu.controls",
+        "InputHints": true
       }
     },
     {

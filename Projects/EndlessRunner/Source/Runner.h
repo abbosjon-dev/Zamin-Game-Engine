@@ -148,6 +148,7 @@ private:
     void OpenPause();
     void ClosePause();
     void GameOver();
+    bool SubmitRecords(const char* when); // true: a new record
     void ClearWorld();
 
     void UpdateWorld(float dt);
@@ -184,6 +185,7 @@ private:
     float m_MagnetTime = 0.0f, m_ShieldTime = 0.0f;
     int m_BestScore = 0;
     float m_BestDistance = 0.0f;
+    bool m_RecordPending = false; // a scored run goes on: its result is submitted once it ends or is left
     float m_CrashTimer = 0.0f;
     float m_OverTimer = 0.0f;
     float m_BannerTimer = 0.0f;

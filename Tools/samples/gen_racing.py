@@ -521,7 +521,7 @@ def build_scene(pts, normals, dist, total):
     menu_best = s.entity("Bosh menyu rekordi", parent=main_menu, UITransform=k.ui_rect(pos=(0, -300), size=(1200, 44), font=32),
                          Text=k.ui_text("", (1.0, 0.85, 0.45, 1.0), "Center"))
     s.entity("Boshqaruv", parent=main_menu, UITransform=k.ui_rect((0.5, 0), None, (0.5, 0), (0, 50), (1850, 70), font=25),
-             Text=k.ui_text(UZ["menu"]["controls"], (0.95, 0.95, 1.0, 0.9), "Center", key="menu.controls"))
+             Text=k.ui_text(UZ["menu"]["controls"], (0.95, 0.95, 1.0, 0.9), "Center", key="menu.controls", hints=True))
 
     pause_menu = ui.dim("Pauza menyusi", False)
     pause_panel = ui.panel("Pauza paneli", pause_menu, (0, 0), (620, 460))
@@ -557,9 +557,9 @@ UZ = {
     "$name": "O'zbekcha",
     "menu": {"title": "VODIY POYGASI", "subtitle": "Mashina fizikasi va aylanma trassa  ·  Zamin Engine namunasi", "play": "O'ynash",
              "quit": "Chiqish", "language": "Til: {0}", "best": "Eng yaxshi aylana: {0}",
-             "controls": "W / strelka yuqoriga - gaz   ·   S - tormoz / orqaga   ·   A / D - rul   ·   Space - qo'l tormozi (drift)   ·   "
-                         "R - trassaga qaytish   ·   Esc - pauza\n"
-                         "Gamepad: RT - gaz, LT - tormoz, chap stik - rul, X / A - qo'l tormozi, Y - trassaga qaytish, Start - pauza"},
+             "controls": k.controls_hint("uz", "[Throttle] - gaz   ·   [Brake] - tormoz / orqaga   ·   [Steer] - rul   ·   "
+                                               "[Handbrake] - qo'l tormozi (drift)   ·   [Reset] - trassaga qaytish   ·   [Pause] - pauza")},
+    "input": k.INPUT_NAMES["uz"],
     "hud": {"demo": "DEMO - avtomatik o'yin", "lap": "Aylana {0}/{1}", "checkpoint": "Nuqta {0}/{1}", "best": "Rekord: {0}", "kmh": "km/soat",
             "drift": "DRIFT!", "go": "KETDIK!", "go_sub": "{0} aylana - hammadan oldin keling", "lap_n": "{0}-AYLANA",
             "last_lap": "OXIRGI AYLANA!", "lap_time": "Aylana vaqti: {0}"},
@@ -571,9 +571,9 @@ EN = {
     "$name": "English",
     "menu": {"title": "VALLEY RACE", "subtitle": "Car physics and a circuit  ·  a Zamin Engine sample", "play": "Play", "quit": "Quit",
              "language": "Language: {0}", "best": "Best lap: {0}",
-             "controls": "W / up - throttle   ·   S - brake / reverse   ·   A / D - steer   ·   Space - handbrake (drift)   ·   R - back on track   ·   "
-                         "Esc - pause\n"
-                         "Gamepad: RT - throttle, LT - brake, left stick - steer, X / A - handbrake, Y - back on track, Start - pause"},
+             "controls": k.controls_hint("en", "[Throttle] - throttle   ·   [Brake] - brake / reverse   ·   [Steer] - steer   ·   "
+                                               "[Handbrake] - handbrake (drift)   ·   [Reset] - back on track   ·   [Pause] - pause")},
+    "input": k.INPUT_NAMES["en"],
     "hud": {"demo": "DEMO - autoplay", "lap": "Lap {0}/{1}", "checkpoint": "Checkpoint {0}/{1}", "best": "Record: {0}", "kmh": "km/h",
             "drift": "DRIFT!", "go": "GO!", "go_sub": "{0} laps - beat them all", "lap_n": "LAP {0}", "last_lap": "FINAL LAP!",
             "lap_time": "Lap time: {0}"},

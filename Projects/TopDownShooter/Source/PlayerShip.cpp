@@ -158,6 +158,7 @@ void PlayerShip::Fire()
     else
         game->SpawnBullet(muzzle, Rotate(m_Aim, rng.Range(-jitter, jitter)), true);
     m_Velocity -= m_Aim * 0.5f; // recoil
+    game->OnPlayerFired();
     game->SparksAt(muzzle, { 0.3f, 0.9f, 1.0f }, 2);
     game->Sfx("shoot", 0.28f, rng.Range(0.94f, 1.08f));
 }

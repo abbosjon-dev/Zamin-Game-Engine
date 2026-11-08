@@ -182,6 +182,7 @@ Text komponenti (`TextComponent`) UI obyektda to'rtburchak ichida chiziladi:
 | `LineSpacing`, `Kerning` | qator va harf oralig'i (em) |
 | `Color`, `FontPath` | rang, shrift (bo'sh — dvigatel shrifti) |
 | `LocalizationKey` | til fayllaridan olinadigan matn ([ProjectSettings.md](ProjectSettings.md#13-lokalizatsiya)) |
+| `InputHints` (inspektorda **Boshqaruv ishoralari**) | matndagi `[Nom]` — loyiha input xaritasidagi harakat / o'q / vektor — o'yinchi ishlatayotgan qurilmaning tugmalari bilan ko'rinadi |
 
 Matn balandligi — UI Transform'ning `FontSize` i (0 — to'rtburchak balandligi). Shriftlar har bir piksel o'lchami uchun
 alohida atlasda yasaladi: kichik yozuv ham, katta sarlavha ham tiniq; UI matni butun piksellarga joylanadi. Dunyodagi
@@ -189,6 +190,18 @@ matn (UI Transform'siz) obyekt nuqtasi atrofida tekislanadi, o'rash `MaxWidth` b
 `TextLayout::Layout(...)` (`Zamin/UI/TextLayout.h`, testlar uchun ham).
 
 Til almashganda kalitli matnlar o'zi yangilanadi; skript yasagan matnlarni `OnLanguageChanged` da qayta yozing.
+
+**Boshqaruv ishoralari.** `InputHints` yoqilgan matnda `[Jump] - sakrash` klaviatura bilan `Space - sakrash`,
+gamepad bilan `A - sakrash` bo'lib ko'rinadi va o'yinchi qurilmani almashtirsa o'zi yangilanadi (`Input::GetActiveDevice`).
+Bog'lanishlar Loyiha sozlamalari → Input'dan olinadi, ya'ni tugma qayta bog'lansa ishora ham o'zgaradi. `[Look|Sichqoncha]` —
+qurilmada bog'lanish bo'lmasa qavs ichidagi matn, `[kb:...]` / `[pad:...]` — matn faqat klaviatura / gamepad uchun.
+Lokalizatsiya kaliti bilan birga ishlaydi (shablon til faylida); tugma nomlari tilga `input.<id>` kalitlari bilan moslanadi
+(`input.key.Arrows`: "strelkalar"). Batafsil: [Scripting.md](Scripting.md#8-input). Misol — namuna o'yinlarning bosh menyusi:
+
+```json
+"menu": { "controls": "[Move] - yurish   ·   [Fire] - otish   ·   [Pause] - pauza" },
+"input": { "key": { "Arrows": "strelkalar" }, "mouse": { "Left": "LKM" }, "stick": { "Left": "chap stik" } }
+```
 
 ---
 
@@ -510,6 +523,6 @@ Asosiylari: `UIRectLayoutMath`, `UIHierarchyLayout`, `UICanvasScaleMath`, `UICan
 | Navigatsiya | `Scene::SetSelectedUI`, `GetSelectedUI`, `NavigateUI` (`UINavDirection`), `SubmitUI`, `CancelUI`, `SetUINavigationEnabled` |
 | Animatsiya | `UIScaleTo`, `UIFadeTo`, `UIMoveTo`, `UIPunchScale`, `TweenUI`, `CancelUITweens`, `ShowUI`, `HideUI`; `Scene::TweenUI` (`UITweenProperty`, `UITweenOptions`, `UITweenLoop`), `PunchUIScale`, `CancelUITween`, `IsUITweening` |
 | Scroll / maska | `Scene::GetScrollPosition`, `SetScrollPosition`, `ScrollBy`, `ScrollIntoView`, `GetScrollContent`, `GetUIClipRect` |
-| Matn | `TextComponent` (`AlignH`, `AlignV`, `WordWrap`, `Overflow`, `LineSpacing`, `LocalizationKey`), `TextLayout::Layout` |
+| Matn | `TextComponent` (`AlignH`, `AlignV`, `WordWrap`, `Overflow`, `LineSpacing`, `LocalizationKey`, `InputHints`), `TextLayout::Layout`, `Input::ExpandBindings` |
 | Matn kiritish | `Input::GetTextInput`, `Input::GetClipboardText`, `Input::SetClipboardText` |
 | Vaqt | `PauseGame`, `ResumeGame`, `IsGamePaused`, `SetUpdateWhenPaused`, `SetTimersUnscaled`, `GetUnscaledDeltaTime` |

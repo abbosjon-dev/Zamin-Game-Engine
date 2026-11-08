@@ -7,7 +7,33 @@
         "quit": "Quit",
         "language": "Language: {0}",
         "best": "Record: {0} points  ·  longest: {1} m",
-        "controls": "A / D or arrows - change lanes   ·   Space / W - jump   ·   S - slide   ·   Esc - pause\nGamepad: D-pad / LB / RB / left stick - lanes, A - jump, B - slide, Start - pause"
+        "controls": "[Steer|][pad: or ][Left] - left, [Right] - right   ·   [Jump] - jump   ·   [Slide] - slide   ·   [Pause] - pause\n[kb:A gamepad works too - use it and the hints show its buttons][pad:Gamepad - use the keyboard or mouse and the hints switch back]"
+    },
+    "input": {
+        "key": {
+            "Arrows": "arrows",
+            "Left": "Left",
+            "Right": "Right",
+            "Up": "Up",
+            "Down": "Down"
+        },
+        "mouse": {
+            "Left": "LMB",
+            "Right": "RMB",
+            "Middle": "MMB"
+        },
+        "stick": {
+            "Left": "left stick",
+            "Right": "right stick"
+        },
+        "pad": {
+            "DPad": "D-pad",
+            "DPadLeft": "D-pad left",
+            "DPadRight": "D-pad right",
+            "DPadUp": "D-pad up",
+            "DPadDown": "D-pad down",
+            "LeftThumb": "left stick click"
+        }
     },
     "hud": {
         "demo": "DEMO - autoplay",

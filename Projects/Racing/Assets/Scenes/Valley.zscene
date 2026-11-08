@@ -15979,14 +15979,15 @@
         "Order": 0
       },
       "Text": {
-        "Text": "W / strelka yuqoriga - gaz   ·   S - tormoz / orqaga   ·   A / D - rul   ·   Space - qo'l tormozi (drift)   ·   R - trassaga qaytish   ·   Esc - pauza\nGamepad: RT - gaz, LT - tormoz, chap stik - rul, X / A - qo'l tormozi, Y - trassaga qaytish, Start - pauza",
+        "Text": "[Throttle] - gaz   ·   [Brake] - tormoz / orqaga   ·   [Steer] - rul   ·   [Handbrake] - qo'l tormozi (drift)   ·   [Reset] - trassaga qaytish   ·   [Pause] - pauza\n[kb:Gamepad ham ishlaydi - uni ishlatsangiz, ishoralar uning tugmalarini ko'rsatadi][pad:Gamepad - klaviatura yoki sichqoncha ishlatilsa, ishoralar ularga qaytadi]",
         "Color": [0.95, 0.95, 1.0, 0.9],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
         "AlignH": "Center",
         "AlignV": "Middle",
         "Font": "",
-        "LocalizationKey": "menu.controls"
+        "LocalizationKey": "menu.controls",
+        "InputHints": true
       }
     },
     {

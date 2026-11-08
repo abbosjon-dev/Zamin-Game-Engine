@@ -155,6 +155,7 @@ private:
     float m_FinishTimer = 0.0f;
     int m_FinishedCount = 0;
     float m_BestLap = 0.0f;
+    bool m_LapRecord = false; // a lap of this race set the lap record
     float m_BannerTimer = 0.0f;
     float m_Fov = 60.0f;
     float m_CamYaw = 0.0f;

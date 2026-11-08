@@ -11,12 +11,22 @@ using namespace NeonUtil;
 // O'yin oqimi. Holatlar: Menu (bosh menyu; orqada bot o'ynaydi - "attract" rejimi), Playing, Paused, GameOver.
 // To'lqinlar: e'lon -> dushmanlar portallardan chiqadi -> hammasi o'ldirilsa "to'lqin tozalandi" va bonus.
 // Hisob: har bir dushman o'z ochkosi x kombo ko'paytuvchisi (ketma-ket o'ldirishlar, ComboWindow ichida).
-// Rekord SaveData'da ("Neon.BestScore", "Neon.BestWave"). Demo: ZAMIN_DEMO=1 (yoki AutoDemo) - bot o'ynaydi,
-// HUD'da DEMO belgisi, jurnalga "Demo: ..." qatorlari yoziladi (headless testlar shularni tekshiradi).
+// Rekord SaveData'da ("Neon.BestScore", "Neon.BestWave", SaveData::SubmitRecord): o'yin tugaganda, pauzadan bosh
+// menyuga yoki qaytadan boshlanganda va o'yin yopilganda ham hisoblanadi. Bot (menyu orqasidagi) rekord qo'ymaydi.
+// Demo: ZAMIN_DEMO=1 (yoki AutoDemo) - bot o'ynaydi, HUD'da DEMO belgisi, jurnalga "Demo: ..." qatorlari yoziladi
+// (headless testlar shularni tekshiradi); ZAMIN_DEMO_RECORDS=1 bilan demo natijasi ham rekordga yoziladi (testlar).
 
 ShooterGame* ShooterGame::s_Instance = nullptr;
 
 namespace NeonUtil {
+
+    // ZAMIN_DEMO_RECORDS=1: a demo run's results are saved as records too (the headless tests check that a record
+    // is written and read back the next time; normally the bot never touches the player's records).
+    bool DemoRecords()
+    {
+        const char* value = std::getenv("ZAMIN_DEMO_RECORDS");
+        return value && *value && std::string_view(value) != "0";
+    }
 
     std::string FormatScore(int value)
     {
@@ -41,6 +51,7 @@ void ShooterGame::OnCreate()
     m_DemoRun = AutoDemo || (demo && *demo && std::string_view(demo) != "0");
     m_BestScore = SaveData::GetInt("Neon.BestScore", 0);
     m_BestWave = SaveData::GetInt("Neon.BestWave", 0);
+    ZM_INFO("Rekordlar: hisob {}, {}-to'lqin", m_BestScore, m_BestWave);
     // The pool of explosion lights (children of the effects group).
     if (Entity group = Resolve(FlashLights))
         for (Entity child : GetScene().GetDescendants(group))
@@ -74,6 +85,7 @@ void ShooterGame::OnStart()
 
 void ShooterGame::OnDestroy()
 {
+    SubmitRecords("o'yin yopildi");
     if (m_DemoRun)
         LogDemo("yakuni");
     Cursor::SetVisible(true);
@@ -120,8 +132,10 @@ void ShooterGame::StartSession(bool bot, bool demoRun)
     m_Combo = 0;
     m_ComboTimer = 0.0f;
     m_Kills = 0;
+    m_ShotsFired = 0;
     m_BestCombo = 0;
     m_NewRecord = false;
+    m_RecordPending = !bot || (demoRun && DemoRecords());
     m_RestartTimer = -1.0f;
     m_DeathTimer = -1.0f;
     m_DemoLogTimer = 0.0f;
@@ -159,6 +173,7 @@ void ShooterGame::ClearWorld()
 
 void ShooterGame::ShowMenu()
 {
+    SubmitRecords("bosh menyuga qaytildi"); // a game left from the pause menu still counts
     if (IsGamePaused())
         ResumeGame();
     Audio::SetGroupLowPass("Music", 0.0f);
@@ -178,6 +193,7 @@ void ShooterGame::ShowMenu()
 
 void ShooterGame::StartGame()
 {
+    SubmitRecords("qaytadan boshlandi");
     if (IsGamePaused())
         ResumeGame();
     Audio::SetGroupLowPass("Music", 0.0f);
@@ -223,22 +239,7 @@ void ShooterGame::GameOver()
 {
     m_State = State::GameOver;
     SetTimeScale(1.0f);
-    const bool scored = !m_Bot;
-    if (scored)
-    {
-        if (m_Score > m_BestScore)
-        {
-            m_BestScore = m_Score;
-            m_NewRecord = true;
-            SaveData::SetInt("Neon.BestScore", m_BestScore);
-        }
-        if (m_Wave > m_BestWave)
-        {
-            m_BestWave = m_Wave;
-            SaveData::SetInt("Neon.BestWave", m_BestWave);
-        }
-        SaveData::Save();
-    }
+    SubmitRecords("o'yin tugadi");
     SetText(OverScore, FormatScore(m_Score));
     SetText(OverWave, Localize("over.wave", m_Wave, m_Kills));
     SetText(OverRecord, m_NewRecord ? Localize("over.record") : Localize("over.best", FormatScore(m_BestScore)));
@@ -789,6 +790,24 @@ void ShooterGame::SetActiveRef(const EntityRef& ref, bool active)
 {
     if (Entity e = Resolve(ref); e && e.IsActive() != active)
         e.SetActive(active);
+}
+
+// The result of a scored game (a player's, or a demo's with ZAMIN_DEMO_RECORDS): once, when it ends or is left.
+void ShooterGame::SubmitRecords(const char* when)
+{
+    if (!m_RecordPending)
+        return;
+    m_RecordPending = false;
+    ZM_INFO("Neon Maydon: natija ({}) - hisob {}, {}-to'lqin, {} ta dushman, {} ta o'q", when, m_Score, m_Wave, m_Kills, m_ShotsFired);
+    if (m_Score > 0 && SaveData::SubmitRecord("Neon.BestScore", m_Score))
+    {
+        m_BestScore = m_Score;
+        m_NewRecord = true;
+        ZM_INFO("Yangi rekord: hisob {} ({}-to'lqin; {})", m_Score, m_Wave, when);
+    }
+    if (m_Wave > 0 && SaveData::SubmitRecord("Neon.BestWave", m_Wave))
+        m_BestWave = m_Wave;
+    SaveData::Save();
 }
 
 void ShooterGame::LogDemo(const char* reason)

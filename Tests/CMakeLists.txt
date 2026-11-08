@@ -215,10 +215,12 @@ endif()
 
 # The sample games (label "samples"). SampleAssets (quick, no display): the six generated games' assets - budget,
 # .zmeta, PNG / WAV, references (Tests/samples_assets.py; --regen compares with the generators' output, needs numpy).
-# Sample<Game> (also "gui;slow": ZaminPlayer under xvfb, 1-4 minutes each): its bot demo makes progress (score,
-# waves, levels, laps ...), its menus work with keys, it runs without errors and shows a picture
-# (Tests/samples_test.py --game <Game>; logs and screenshots in build/SampleTests/<Game>). ctest -L samples runs them,
-# the samples_test target all of them in one go.
+# Sample<Game> (also "gui;slow": ZaminPlayer under xvfb, 1-5 minutes each): its bot demo makes progress (score,
+# waves, levels, laps ...) and saves a record the next run reads back, its menus work with keys and with a gamepad,
+# it runs without errors and shows a picture (Tests/samples_test.py --game <Game>; logs and screenshots in
+# build/SampleTests/<Game>). ctest -L samples runs them, the samples_test target all of them in one go.
+# SampleExports ("samples;gui;slow", ~40 minutes): every sample exported by the editor and its exported build played
+# headless (Tests/samples_export.py: export_test.sh + samples_test.py --exported; build/SampleExports).
 if(Python3_Interpreter_FOUND)
     add_test(NAME SampleAssets COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/Tests/samples_assets.py
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
@@ -236,6 +238,16 @@ if(TARGET ZaminPlayer AND ZAMIN_BUILD_EXAMPLES AND Python3_Interpreter_FOUND)
             TIMEOUT 1800
             RUN_SERIAL TRUE)
     endforeach()
+    if(TARGET ZaminEditor)
+        add_test(NAME SampleExports COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/Tests/samples_export.py
+            --out ${CMAKE_BINARY_DIR}/SampleExports
+            WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+        set_tests_properties(SampleExports PROPERTIES
+            LABELS "samples;gui;slow"
+            ENVIRONMENT "ZAMIN_BUILD_DIR=${CMAKE_BINARY_DIR}"
+            TIMEOUT 5400
+            RUN_SERIAL TRUE)
+    endif()
     add_custom_target(samples_test
         COMMAND ${CMAKE_COMMAND} -E env ZAMIN_BUILD_DIR=${CMAKE_BINARY_DIR}
             ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/Tests/samples_test.py --out ${CMAKE_BINARY_DIR}/SampleTests

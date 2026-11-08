@@ -8,7 +8,7 @@
 using namespace Zamin;
 
 // Arena o'yini, ikki rejim:
-//  - Parkur: yorqin nuqtalardan ketma-ket o'tish, aylana vaqti va rekord (SaveData "FPSArena.BestLap"); yo'l
+//  - Parkur: yorqin nuqtalardan ketma-ket o'tish, aylana vaqti va rekord (SaveData::SubmitRecord "FPSArena.BestLap"); yo'l
 //    bo'yidagi nishonlarni otish ochko beradi.
 //  - Nishon otish: RangeSeconds soniyalik raund - nishonlar tezroq qaytadi, ochko (markaz - x2, ketma-ket tegishlar
 //    seriyasi - x4 gacha), aniqlik, rekord (SaveData "FPSArena.BestRange"); oxirida natijalar oynasi.
@@ -23,6 +23,14 @@ static constexpr float SpawnYaw = glm::pi<float>(); // facing +Z (into the arena
 static const glm::vec3 RangeSpawn{ 0.0f, 2.1f, 3.0f };  // on the central platform, facing north
 static constexpr float RangeYaw = 0.0f;
 
+// ZAMIN_DEMO_RECORDS=1: a demo run's results count as records too (the headless tests check that a record is written
+// and read back the next time; normally the bot never touches the player's records).
+static bool DemoRecords()
+{
+    const char* value = std::getenv("ZAMIN_DEMO_RECORDS");
+    return value && *value && std::string_view(value) != "0";
+}
+
 void ArenaGame::OnCreate()
 {
     s_Instance = this;
@@ -33,6 +41,7 @@ void ArenaGame::OnCreate()
     m_BestLap = SaveData::GetFloat("FPSArena.BestLap", 0.0f);
     m_BestRange = SaveData::GetInt("FPSArena.BestRange", 0);
     m_Sensitivity = SaveData::GetFloat("FPSArena.Sensitivity", 1.0f);
+    ZM_INFO("Rekordlar: eng yaxshi aylana {}, nishon otish {}", m_BestLap > 0.0f ? FormatTime(m_BestLap) : std::string("-"), m_BestRange);
     if (Entity group = Resolve(Checkpoints))
         m_Points = GetScene().GetChildren(group);
     if (Entity group = Resolve(Popups))
@@ -206,12 +215,13 @@ void ArenaGame::ClosePause()
 void ArenaGame::EndRange()
 {
     m_State = State::Results;
-    const bool record = !m_Bot && m_Score > m_BestRange;
+    const bool scored = !m_Bot || (m_DemoRun && DemoRecords());
+    const bool record = scored && m_Score > 0 && SaveData::SubmitRecord("FPSArena.BestRange", m_Score);
     if (record)
     {
         m_BestRange = m_Score;
-        SaveData::SetInt("FPSArena.BestRange", m_BestRange);
         SaveData::Save();
+        ZM_INFO("Yangi rekord: nishon otish {} ochko", m_Score);
     }
     PlaySound("Audio/lap.wav", 0.8f);
     SetText(ResultsTitle, Localize("results.title"));
@@ -394,12 +404,13 @@ void ArenaGame::ReachCheckpoint()
     {
         // a whole lap
         m_Laps++;
-        const bool record = !m_Bot && m_State == State::Playing && (m_BestLap <= 0.0f || m_LapTime < m_BestLap);
+        const bool scored = (!m_Bot || (m_DemoRun && DemoRecords())) && m_State == State::Playing;
+        const bool record = scored && SaveData::SubmitRecord("FPSArena.BestLap", m_LapTime, RecordOrder::Lower);
         if (record)
         {
             m_BestLap = m_LapTime;
-            SaveData::SetFloat("FPSArena.BestLap", m_BestLap);
             SaveData::Save();
+            ZM_INFO("Yangi rekord: aylana {}", FormatTime(m_LapTime));
         }
         PlaySound("Audio/lap.wav", 0.8f);
         ShowBanner(Localize("hud.lap"), record ? Localize("hud.record", FormatTime(m_LapTime)) : Localize("hud.time", FormatTime(m_LapTime)), 2.5f);

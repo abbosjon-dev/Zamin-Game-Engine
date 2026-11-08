@@ -12,11 +12,19 @@ using namespace BreakoutUtil;
 // Darajalar Levels.cpp'dagi qatorlardan quriladi (g'isht shabloni Instantiate qilinadi, qatorma-qator paydo bo'ladi).
 // Hisob: g'isht ochkosi x kombo (raketkaga tegmasdan ketma-ket singan g'ishtlar). Bonuslar (taxminan har 7-g'ishtdan):
 // keng raketka, uchta to'p, sekin to'p, olov to'pi, lazer, +1 jon. Rekord SaveData'da ("Breakout.BestScore",
-// "Breakout.BestLevel"). Demo: ZAMIN_DEMO=1 (yoki AutoDemo) - bot o'ynaydi, jurnalga "Demo: ..." yoziladi.
+// "Breakout.BestLevel", SaveData::SubmitRecord): o'yin tugaganda, pauzadan chiqib ketilganda yoki o'yin yopilganda.
+// Demo: ZAMIN_DEMO=1 (yoki AutoDemo) - bot o'ynaydi, jurnalga "Demo: ..." yoziladi; ZAMIN_DEMO_RECORDS=1 bilan demo
+// natijasi ham rekordga yoziladi (testlar).
 
 BreakoutGame* BreakoutGame::s_Instance = nullptr;
 
 namespace BreakoutUtil {
+
+    bool DemoRecords()
+    {
+        const char* value = std::getenv("ZAMIN_DEMO_RECORDS");
+        return value && *value && std::string_view(value) != "0";
+    }
 
     std::string FormatScore(int value)
     {
@@ -66,6 +74,7 @@ void BreakoutGame::OnCreate()
     m_DemoRun = AutoDemo || (demo && *demo && std::string_view(demo) != "0");
     m_BestScore = SaveData::GetInt("Breakout.BestScore", 0);
     m_BestLevel = SaveData::GetInt("Breakout.BestLevel", 0);
+    ZM_INFO("Rekordlar: hisob {}, {}-daraja", m_BestScore, m_BestLevel);
     if (const char* level = std::getenv("ZAMIN_START_LEVEL"))
         StartLevel = std::atoi(level);
 }
@@ -95,6 +104,7 @@ void BreakoutGame::OnStart()
 
 void BreakoutGame::OnDestroy()
 {
+    SubmitRecords("o'yin yopildi");
     if (m_DemoRun)
         LogDemo("yakuni");
     Cursor::SetVisible(true);
@@ -141,6 +151,7 @@ void BreakoutGame::StartSession(bool bot, bool demoRun, int level)
     m_BricksBroken = 0;
     m_LevelsCleared = 0;
     m_NewRecord = false;
+    m_RecordPending = !bot || (demoRun && DemoRecords());
     m_RestartTimer = -1.0f;
     m_DemoLogTimer = 0.0f;
     m_Sessions++;
@@ -226,6 +237,7 @@ void BreakoutGame::ServeBall()
 
 void BreakoutGame::ShowMenu()
 {
+    SubmitRecords("bosh menyuga qaytildi"); // a game left from the pause menu still counts
     if (IsGamePaused())
         ResumeGame();
     Audio::SetGroupLowPass("Music", 0.0f);
@@ -244,6 +256,7 @@ void BreakoutGame::ShowMenu()
 
 void BreakoutGame::StartGame()
 {
+    SubmitRecords("qaytadan boshlandi");
     if (IsGamePaused())
         ResumeGame();
     Audio::SetGroupLowPass("Music", 0.0f);
@@ -288,21 +301,7 @@ void BreakoutGame::EndGame(bool victory)
 {
     m_State = State::GameOver;
     const int reached = m_Level + 1;
-    if (!m_Bot)
-    {
-        if (m_Score > m_BestScore)
-        {
-            m_BestScore = m_Score;
-            m_NewRecord = true;
-            SaveData::SetInt("Breakout.BestScore", m_BestScore);
-        }
-        if (reached > m_BestLevel)
-        {
-            m_BestLevel = reached;
-            SaveData::SetInt("Breakout.BestLevel", m_BestLevel);
-        }
-        SaveData::Save();
-    }
+    SubmitRecords(victory ? "g'alaba" : "o'yin tugadi");
     SetText(OverTitle, Localize(victory ? "over.victory" : "over.title"));
     if (Entity title = Resolve(OverTitle))
         if (auto* t = title.TryGetComponent<TextComponent>())
@@ -893,6 +892,24 @@ std::vector<Ball*> BreakoutGame::LiveBalls() const
     std::vector<Ball*> balls = Live<Ball>(*this);
     std::erase_if(balls, [](Ball* b) { return b->IsLost(); });
     return balls;
+}
+
+// The result of a scored game (a player's, or a demo's with ZAMIN_DEMO_RECORDS): once, when it ends or is left.
+void BreakoutGame::SubmitRecords(const char* when)
+{
+    if (!m_RecordPending)
+        return;
+    m_RecordPending = false;
+    const int reached = m_Level + 1;
+    if (m_Score > 0 && SaveData::SubmitRecord("Breakout.BestScore", m_Score))
+    {
+        m_BestScore = m_Score;
+        m_NewRecord = true;
+        ZM_INFO("Yangi rekord: hisob {} ({}-daraja; {})", m_Score, reached, when);
+    }
+    if (SaveData::SubmitRecord("Breakout.BestLevel", reached))
+        m_BestLevel = reached;
+    SaveData::Save();
 }
 
 void BreakoutGame::LogDemo(const char* reason)

@@ -14,7 +14,7 @@ faqat `Tests/*.sh` skriptlarini chaqiradi. Raqamlar va o'lchangan natijalar: [Qu
 | Editor UI (panel, menyu, popup, inspektor) | `Tests/editor_smoke.sh` | ~3 daqiqa |
 | Skript tizimi, modul yuklash | `Tests/hot_reload_test.sh` | ~20 s |
 | Eksport, player, ishga tushirish skripti | `Tests/export_test.sh` (bitta o'yin), `Tests/package_games.sh` (uchala o'yin + paketlar) | 1-5 daqiqa |
-| Namuna o'yin (skript, sahna, generator) yoki ular ishlatadigan engine qismi | `Tests/samples_test.py --game <O'yin>` (hammasi: argumentsiz), `Tests/samples_assets.py --regen` | 1-4 daqiqa bir o'yinga, ~20 daqiqa hammasi; ~20 s |
+| Namuna o'yin (skript, sahna, generator) yoki ular ishlatadigan engine qismi | `Tests/samples_test.py --game <O'yin>` (hammasi: argumentsiz), `Tests/samples_assets.py --regen` | 1-5 daqiqa bir o'yinga, ~30 daqiqa hammasi; ~20 s |
 | Xotira, ko'rsatkichlar, egalik | `Tests/sanitize.sh address --smoke` (`--editor-smoke`), `Tests/sanitize.sh undefined` | 20-40 daqiqa (build bilan) |
 | Tezlikka ta'sir qiladigan o'zgarish | `Tests/bench.sh --compare`, `Tests/render_bench.sh`, `Tests/player_bench.sh` | 1-5 daqiqa (Release) |
 | Yangi kod, testlar yetarlimi | `Tests/coverage.sh` (`--gui`) | ~25 daqiqa |
@@ -163,6 +163,15 @@ logiga qarab tekshiradi:
   `pauza yopildi` / `natijalar` yozadi, test shu qatorlarning tartibini tekshiradi. Platformer2D'da `Menu.zscene` dan
   yuklanish ekrani orqali 1-darajaga o'tiladi.
 - **smoke**: uchta eski namuna (Platformer2D, Showcase3D, Adventure3D) ishga tushadi va sahnasi yuklanadi.
+- **rekord** (har `demo` dan keyin): demo `ZAMIN_DEMO_RECORDS=1` bilan o'ynaydi, ya'ni botning natijasi ham rekord
+  bo'ladi. Jurnalda `Yangi rekord: ...` bo'lishi va o'yinning SaveData fayli (`savedata.json`, ishga tushirishning
+  `HOME` ida) rekord kalitlarini saqlashi kerak. So'ng o'sha `HOME` bilan qisqa ikkinchi ishga tushirish (botsiz)
+  `Rekordlar: ...` qatorida xuddi shu qiymatni o'qiydi va bosh menyuni ochadi (`--no-records` — o'tkazib yuborish).
+- **gamepad**: oltita o'yin faqat simulyatsiya qilingan gamepad bilan (`ZAMIN_PLAYER_INPUT`: `pad=A`, `padhold=` /
+  `padrelease=`, `stick=LeftX,0.8`). Bosh menyuda A, o'yinning o'z boshqaruvi (stiklar, tugmalar, triggerlar), Start —
+  pauza va qaytish, D-pad pastga + A — bosh menyu. Ishoralar gamepad'ga o'tishi (`Kiritish qurilmasi: gamepad`,
+  klaviaturaga qaytmasdan) va o'yinda natija bo'lishi tekshiriladi: Neon Maydon'da RT bilan o'q otilgan, Breakout'da
+  g'isht singan, Omborchi'da 1-daraja D-pad bilan yechilgan, Ipak Yo'li'da masofa — rekord bo'lib yozilgan.
 
 Har bir ishga tushirishda yana quyidagilar tekshiriladi:
 
@@ -194,7 +203,19 @@ Tests/samples_test.py --game Racing --kind menus   # bitta o'yinning bitta holat
 Tests/samples_test.py --list                       # holatlar va tekshiruvlar
 Tests/samples_test.py --out build/SampleTests --frames-scale 2
 Tests/samples_assets.py --regen --verbose          # assetlar jadvali + generatorlar bilan solishtirish
+Tests/samples_export.py --game Breakout            # eksport qilib, eksportdagi o'yinni o'ynatib tekshirish
+ZAMIN_BUILD_DIR=build-release Tests/samples_bench.py   # ishlash tezligi (Release, llvmpipe)
 ```
+
+`Tests/samples_assets.py` input xaritasini ham tekshiradi: har harakatning klaviatura / sichqoncha va gamepad
+bog'lanishi bor, skriptlar o'qiydigan har harakat / o'q / vektor xaritada bor va xaritadagi har biri o'qiladi,
+skriptlar klaviatura yoki gamepad'ni to'g'ridan-to'g'ri so'ramaydi, bosh menyudagi boshqaruv ishorasi faqat
+xaritadagi nomlarni ishlatadi.
+
+`Tests/samples_export.py` (ctest `SampleExports`) to'qqiz namunani editor bilan eksport qiladi (`Tests/export_test.sh`)
+va eksport qilingan o'yinlarni (`<eksport>/<O'yin>.sh`) `samples_test.py --exported` bilan o'ynatadi: olti o'yinning
+demo + rekord holatlari va eski namunalarning smoke'i. `Tests/samples_bench.py` har namunaning kadr vaqtini, sahnadagi
+obyektlar sonini va eng qimmat qismlarini o'lchaydi ([Samples.md](Samples.md#ishlash-tezligi)).
 
 ## 6. Sanitizerlar
 
@@ -296,6 +317,7 @@ qo'riqlaydi: butun kod bazada o'zgaradigan qatorlar 3.5 % dan oshmasligi kerak (
 | `ExportTest` | `gui;slow` | `Tests/export_test.sh` (Platformer2D) |
 | `SampleAssets` | `samples` | `Tests/samples_assets.py` - namuna o'yinlarning protsedurali assetlari |
 | `Sample<O'yin>` (9 ta: `SampleTopDownShooter` ... `SampleAdventure3D`) | `samples;gui;slow` | `Tests/samples_test.py --game <O'yin>` (loglar va rasmlar `build/SampleTests/<O'yin>`) |
+| `SampleExports` | `samples;gui;slow` | `Tests/samples_export.py` - har namuna eksport qilinadi va eksportdagi o'yin headless o'ynatiladi (`build/SampleExports`) |
 
 `ctest --test-dir build -LE gui` - tezkorlari (CI'dagi "Unit tests" qadami), `ctest --test-dir build -L gui` - GUI
 testlari (ketma-ket, displey yoki xvfb kerak), `ctest --test-dir build -L samples` - namuna o'yinlar (yoki
@@ -348,7 +370,7 @@ qamrovi topdi).
 Bo'lim nomi - `Tests/ZaminTests.cpp` dagi bo'lim sarlavhasi (kod izohi, ingliz tilida).
 
 <!-- test-catalog:begin -->
-_`Tests/test_catalog.py --update docs/Testing.md` yaratgan: 631 ta unit test, 93 ta bo'lim (`Tests/ZaminTests.cpp` dagi tartibda). Bitta testni ishga tushirish: `./build/bin/ZaminTests <Nom>`._
+_`Tests/test_catalog.py --update docs/Testing.md` yaratgan: 634 ta unit test, 93 ta bo'lim (`Tests/ZaminTests.cpp` dagi tartibda). Bitta testni ishga tushirish: `./build/bin/ZaminTests <Nom>`._
 
 | # | Bo'lim | Testlar | Nomlari |
 |---|---|---|---|
@@ -358,7 +380,7 @@ _`Tests/test_catalog.py --update docs/Testing.md` yaratgan: 631 ta unit test, 93
 | 4 | EntityRef fields | 2 | `EntityRefSerialization`, `EntityRefRemapOnCopy` |
 | 5 | timers (Invoke) | 1 | `InvokeTimers` |
 | 6 | tweens / easing | 2 | `EasingFunctions`, `TweensRunAndChain` |
-| 7 | input action map | 10 | `InputActionMapDefaults`, `InputBindingNames`, `InputActionMapSerialization`, `ProjectInputMapRoundTrip`, `InputKeyAndMouseFrames`, `InputSimulatedKeys`, `InputActionQueries`, `InputAxes`, `SaveDataValuesAndFile`, `SaveDataProjectLocation` |
+| 7 | input action map | 13 | `InputActionMapDefaults`, `InputBindingNames`, `InputActionMapSerialization`, `ProjectInputMapRoundTrip`, `InputKeyAndMouseFrames`, `InputBindingHints`, `InputActiveDeviceAndTextHints`, `InputSimulatedKeys`, `InputActionQueries`, `InputAxes`, `SaveDataValuesAndFile`, `SaveDataSubmitRecord`, `SaveDataProjectLocation` |
 | 8 | M01: Random | 3 | `RandomDeterminism`, `RandomRanges`, `RandomGeometry` |
 | 9 | M01: tags | 2 | `TagsQueries`, `ProjectTagList` |
 | 10 | M01: messages / events | 3 | `ScriptMessages`, `EventBusBasics`, `EventBusInScene` |

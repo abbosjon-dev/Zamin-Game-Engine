@@ -9,7 +9,33 @@
         "language": "Til: {0}",
         "best": "Eng yaxshi aylana: {0}",
         "best_range": "Nishon otish rekordi: {0}",
-        "controls": "Sichqoncha - qarash   ·   chap tugma - otish   ·   R - qayta o'qlash   ·   WASD - yurish   ·   Shift - yugurish   ·   Space - sakrash   ·   C / Ctrl - cho'kkalash   ·   Esc - pauza\nGamepad: chap stik - yurish, o'ng stik - qarash, RT / RB - otish, X - qayta o'qlash, A - sakrash, B - cho'kkalash, chap stik bosish - yugurish"
+        "controls": "[Look|Sichqoncha] - qarash   ·   [Fire] - otish   ·   [Reload] - qayta o'qlash   ·   [Move] - yurish   ·   [Sprint] - yugurish   ·   [Jump] - sakrash   ·   [Crouch] - cho'kkalash   ·   [Pause] - pauza\n[kb:Gamepad ham ishlaydi - uni ishlatsangiz, ishoralar uning tugmalarini ko'rsatadi][pad:Gamepad - klaviatura yoki sichqoncha ishlatilsa, ishoralar ularga qaytadi]"
+    },
+    "input": {
+        "key": {
+            "Arrows": "strelkalar",
+            "Left": "chap strelka",
+            "Right": "o'ng strelka",
+            "Up": "yuqori strelka",
+            "Down": "past strelka"
+        },
+        "mouse": {
+            "Left": "LKM",
+            "Right": "PKM",
+            "Middle": "o'rta tugma"
+        },
+        "stick": {
+            "Left": "chap stik",
+            "Right": "o'ng stik"
+        },
+        "pad": {
+            "DPad": "D-pad",
+            "DPadLeft": "D-pad chap",
+            "DPadRight": "D-pad o'ng",
+            "DPadUp": "D-pad yuqori",
+            "DPadDown": "D-pad past",
+            "LeftThumb": "chap stik bosish"
+        }
     },
     "hud": {
         "demo": "DEMO - avtomatik o'yin",

@@ -96,6 +96,7 @@ private:
     void OpenPause();
     void ClosePause();
     void EndGame(bool victory);
+    void SubmitRecords(const char* when);
     void UpdateBot(float dt);
     void UpdatePowerTimers(float dt);
     void UpdateHud(float realDt);
@@ -132,6 +133,7 @@ private:
     int m_BestScore = 0;
     int m_BestLevel = 0;
     bool m_NewRecord = false;
+    bool m_RecordPending = false; // a scored game runs: its result is submitted once it ends or is left
     int m_Sessions = 0;
     float m_WideTime = 0.0f, m_SlowTime = 0.0f, m_FireTime = 0.0f, m_LaserTime = 0.0f;
     float m_LaserCooldown = 0.0f;
@@ -285,5 +287,7 @@ namespace BreakoutUtil {
         return all;
     }
     std::string FormatScore(int value);
+    // ZAMIN_DEMO_RECORDS=1: a demo run's results count as records too (tests).
+    bool DemoRecords();
 
 }

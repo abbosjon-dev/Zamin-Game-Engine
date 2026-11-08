@@ -100,7 +100,7 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
 
 **Dvigatel**
 - ECS arxitektura (EnTT), UUID, JSON sahna formati (`.zscene`)
-- **Renderer** (OpenGL 4.1 core, RHI abstraksiya qatlami orqasida):
+- **Renderer** (OpenGL 4.1 core, RHI abstraksiya qatlami orqasida) — batafsil qo'llanma: [docs/Rendering.md](docs/Rendering.md):
   - 2D batch renderer: sprite, tekstura, doira, chiziq, **matn** (UTF-8, lotin/kirill, `oʻ gʻ`)
   - **Sprite atlas va Sprite muharriri** (Oyna > Sprite muharriri, yoki rasm inspektoridagi / Sprite Renderer'dagi ✂
     tugma): teksturani grid bo'yicha kesish (katak o'lchami yoki ustun/qator soni, siljish, oraliq, bo'sh kataklarni
@@ -372,6 +372,7 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     simulyatsiyasi Debug build'da ham `-O2` bilan kompilyatsiya qilinadi (`ZAMIN_OPTIMIZE_PARTICLES_IN_DEBUG`)
   - **Sprite animatsiya** (sprite sheet), pixel-art filtr, FlipX/FlipY
 - **2D fizika** (Box2D, `PhysicsWorld2D`): dinamik/statik/kinematik jismlar, box/circle collider, trigger'lar, to'qnashuv callback'lari
+  (2D va 3D fizika qo'llanmasi: [docs/Physics.md](docs/Physics.md))
   - **Polygon Collider 2D**: istalgan ko'pburchak (obyekt masshtabi bilan); botiq yoki 8 tadan ko'p burchakli shakl
     quloq kesish (ear clipping) bilan uchburchaklarga bo'linib, ko'pi bilan 8 burchakli qavariq bo'laklarga qayta
     birlashtiriladi (Hertel-Mehlhorn, `Polygon2D::Decompose`), o'zini kesib o'tgani qavariq qobiq bilan. Inspektorda
@@ -570,6 +571,7 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     plitka yoki **sudrab bir nechta plitkali mo'yqalam** tanlash (mo'yqalam, to'rtburchak va to'ldirish uni choksiz
     takrorlaydi); belgilar (collision yo'q, bir tomonlama, animatsiya). Inspektor kengligida yoki alohida **Oyna > Plitka
     palitrasi** oynasida. Fizik colliderlar ko'rinishida tilemap qutilari (bir tomonlamalari pushti, strelka bilan)
+- **Audio** qo'llanmasi (manbalar, mixer, musiqa, 3D, filtrlar, zonalar, profiler): [docs/Audio.md](docs/Audio.md)
 - **3D (spatial) ovoz**: masofaga qarab so'nish; tinglovchi — **Audio Listener** komponenti (bir nechtasidan faol va eng katta
   ustuvorlikdagisi; ixtiyoriy tezlik o'lchash — Doppler uchun), u bo'lmasa asosiy kamera
 - **Audio mixer**: guruhlar (bus) — Master > Music, SFX, UI va loyihaning o'z guruhlari (ota guruh bilan, masalan
@@ -645,7 +647,7 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   to'xtatilgan / ijro etilmagan, daraja); viewport statistika overlay'ida **Audio** bo'limi (o'ng tugma > Audio).
   Hisoblagichlar Play boshlanganda nollanadi. API: `AudioEngine::GetProfile()`, `ResetProfileCounters()`,
   `GetVoiceHistory()`; player `ZAMIN_PLAYER_STATS=1` bilan chiqishda va F10 bilan audio profilini log'ga yozadi
-- **Ekran UI** (HUD): ekranga bog'langan matn/rasm/tugmalar, `OnClick()`
+- **Ekran UI** (HUD): ekranga bog'langan matn/rasm/tugmalar, `OnClick()` — qo'llanma: [docs/UI.md](docs/UI.md)
   - **UI ierarxiyasi** (RectTransform modeli): UI obyektning bolasi ota to'rtburchagiga nisbatan joylashadi (oddiy obyekt
     ostidagisi — ekranga). **Langar min/max** (0..1): bitta nuqtaga bog'lash (9 ta tayyor nuqta) yoki **cho'zish** —
     chapdan o'ngga, pastdan yuqoriga, butun ota (yuqori/pastki panel, fon); cho'zilgan o'qda inspektor Chap | O'ng
@@ -838,7 +840,7 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   `StateMachine` va behavior tree (`BehaviorTreeBuilder`, inspektorda jonli daraxt), navigatsiya gizmo'si va
   `--debug-nav`, vazifalar tizimida guruhlangan yo'l qidirish (`ZaminBench --nav`), bake'ni `.znav` faylida saqlash
   - Batafsil qo'llanma: [docs/AI.md](docs/AI.md) — har tizim misollar bilan, namuna sahnalar (Chase2D, AI3D, Squad3D, Island)
-- **Audio** (miniaudio): wav/mp3/flac/ogg
+- **Audio** (miniaudio): WAV, MP3, FLAC (OGG Vorbis dekoderi yo'q)
 - **C++ skriptlar**: `ScriptableEntity` + `ZM_REGISTER_SCRIPT`, o'yin moduli `.so` sifatida yuklanadi, hot reload
 - Zamin Player — eksport qilingan o'yinlarni ishga tushiruvchi runtime
 
@@ -997,7 +999,8 @@ float natija beradi (FMA qisqartirish yo'q — Jolt barcha bog'langan target'lar
 
 Qadam-baqadam qo'llanmalar (editorda bajarib tekshirilgan, to'liq kod bilan): [2D o'yin](docs/Tutorial-2D.md) va
 [3D o'yin](docs/Tutorial-3D.md). Editor: [docs/Editor.md](docs/Editor.md); komponentlar ma'lumotnomasi:
-[docs/Components.md](docs/Components.md).
+[docs/Components.md](docs/Components.md). Tizimlar bo'yicha qo'llanmalar: [fizika](docs/Physics.md),
+[rendering](docs/Rendering.md), [animatsiya](docs/Animation.md), [UI](docs/UI.md), [audio](docs/Audio.md).
 
 1. `ZaminEditor` ni oching → **Yangi loyiha** → nom va joy kiriting → **Yaratish**.
    Loyiha shablondan yaratiladi va C++ skriptlari avtomatik kompilyatsiya qilinadi.
@@ -1039,7 +1042,7 @@ public:
 
     void OnCreate() override { ZM_INFO("Salom, {}!", GetName()); }
 
-    void OnUpdate(Timestep ts) override
+    void OnUpdate(Timestep) override
     {
         glm::vec2 v = GetVelocity();                 // Rigidbody2D
         v.x = Input::GetAxis("Horizontal") * Speed;  // A/D, strelkalar, gamepad
@@ -1121,7 +1124,7 @@ Foydali API:
 | UI animatsiya | `UIScaleTo({1.1f, 1.1f}, 0.2f)`, `UIFadeTo(0.0f, 0.3f, Ease::OutQuad, onComplete)`, `UIMoveTo({0, 40}, 0.4f)`, `UIPunchScale(0.2f)`, `TweenUI(UITweenProperty::Color, rang, sek, { .Loop = UITweenLoop::PingPong })`, `CancelUITweens()`, `ShowUI(panel)`, `HideUI(panel)` |
 | Havolalar | `EntityRef Target;` maydoni + `Resolve(Target)` → `Entity` |
 | Audio manba | `PlayAudio()` (obyektning `AudioSourceComponent`'ini boshidan chaladi; obyekt nofaol bo'lsa yoki ovozlar limiti rad etsa `false`), `StopAudio()`, `PauseAudio()` / `ResumeAudio()`, `IsAudioPlaying()` / `IsAudioPaused()`, `SetAudioVolume(v)`, `SetAudioPitch(p)`, `GetAudioTime()` / `SetAudioTime(s)`, `GetAudioLength()`; so'nish bilan — `PlayAudio(fadeIn)`, `StopAudio(fadeOut)`, `FadeAudio(volume, sekund)`, `GetAudioFade()`; filtr — `SetAudioLowPass(hz)`, `SetAudioHighPass(hz)`; boshqa obyektniki — `PauseAudio(entity)` va h.k.; `PlaySound(path, SoundParams)` — tasodifiy oraliq, ustuvorlik, nusxalar limiti, 3D o'rni, FadeIn, filtr bilan |
-| Musiqa va mixer | `Audio::PlayMusic("Audio/theme.ogg", 1.0f)`, `Audio::CrossfadeTo("Audio/boss.ogg", 2.0f)`, `Audio::StopMusic(fade)`, `PauseMusic()` / `ResumeMusic()`, `GetMusic()`, `SetMusicVolume(v)`; `Audio::SetGroupVolume("SFX", 0.5f)`, `SetGroupMuted("Music", true)`, `SetGroupLowPass("SFX", 500)`, `ResetMixer()`; `Audio::SaveSettings()` / `LoadSettings()` — o'yinchi sozlamalari (SaveData); `Audio::GetClipLength(path)`, `Audio::Preload(path)`; `PlaySound(path, vol, pitch, "UI")` — guruh bilan |
+| Musiqa va mixer | `Audio::PlayMusic("Audio/theme.wav", 1.0f)`, `Audio::CrossfadeTo("Audio/boss.wav", 2.0f)`, `Audio::StopMusic(fade)`, `PauseMusic()` / `ResumeMusic()`, `GetMusic()`, `SetMusicVolume(v)`; `Audio::SetGroupVolume("SFX", 0.5f)`, `SetGroupMuted("Music", true)`, `SetGroupLowPass("SFX", 500)`, `ResetMixer()`; `Audio::SaveSettings()` / `LoadSettings()` — o'yinchi sozlamalari (SaveData); `Audio::GetClipLength(path)`, `Audio::Preload(path)`; `PlaySound(path, vol, pitch, "UI")` — guruh bilan |
 | Debug chizish | `DebugDraw::Line(a, b, DebugColor::Red)`, `Ray(o, dir)`, `Arrow(a, b)`, `Box(center, half)` / `Box(center, half, quat)` / `Box(worldTransform)`, `Bounds(aabb)`, `Rect(c, size)`, `WireSphere(c, r)`, `Circle(c, normal, r)`, `Cross(p, size)`, `Point(p)`, `Axes(transform)`, `Path(points)`, `NavigationPath(points)`, `Text(p, "matn")` — oxirgi parametrlar: rang, `duration` (soniya, 0 = bir kadr), `depthTest` |
 | Sahnalar | `LoadScene("Scenes/Level2.zscene")`, `LoadScene(path, LoadSceneMode::Additive)`, `LoadScene(path, SceneTransition::Fade(0.5f))`, `LoadScene(2)` (build indeksi), `auto op = LoadSceneAsync(path)` → `op->GetProgress()`, `op->SetAllowSceneActivation(false)`, `op->IsReady()`; `UnloadScene("HUD")`, `DontDestroyOnLoad()` / `DontDestroyOnLoad(entity)`, `LoadSubScene()` / `UnloadSubScene()` / `GetSubScene()`, `GetSceneManager()` (`GetActiveScene`, `GetLoadedScenes`, `FindEntityByName`) |
 | Global holat | `GameState::Increment("Coins")`, `GameState::GetInt("Coins")`, `GameState::SetBool("Door.Open", true)`, `WatchGameState("Coins", [this](std::string_view) { ... })`, `GameState::SetPersistent("Best")` + `GameState::Save()` / `Load()`; servislar: `Services::Register<Inventory>()`, `GetService<Inventory>()`, `GetOrCreateService<QuestLog>()` |

@@ -18,7 +18,7 @@ faqat `Tests/*.sh` skriptlarini chaqiradi. Raqamlar va o'lchangan natijalar: [Qu
 | Tezlikka ta'sir qiladigan o'zgarish | `Tests/bench.sh --compare`, `Tests/render_bench.sh`, `Tests/player_bench.sh` | 1-5 daqiqa (Release) |
 | Yangi kod, testlar yetarlimi | `Tests/coverage.sh` (`--gui`) | ~25 daqiqa |
 | Formatlash | `Tests/format_check.sh` (o'zgargan qatorlar) | soniyalar |
-| Hujjatlar, komponent, skript API'si yoki player varianti | `Tests/docs_check.py` (komponent o'zgarsa avval `Tests/docs_components.py --update docs/Components.md`) | ~1 s |
+| Hujjatlar, komponent, skript API'si yoki player varianti | `Tests/docs_check.py` (komponent o'zgarsa avval `Tests/docs_components.py --update docs/Components.md`), `Tests/docs_snippets.py` | ~1 s, ~5 s |
 | Hammasi (GUI testlari bilan) | `ctest --test-dir build` (`-LE gui` - tezkorlari, `-L gui` - editor/eksport) | ~10 daqiqa |
 
 Displey bo'lmasa (SSH, CI) GUI testlari o'zlari `xvfb-run` ni ishlatadi (`sudo apt-get install xvfb`).
@@ -211,6 +211,11 @@ qo'riqlaydi: butun kod bazada o'zgaradigan qatorlar 3.5 % dan oshmasligi kerak (
   [Components.md](Components.md) da hujjatlangan va uning manbadan yaratilgan jadvallari yangi
   (`Tests/docs_components.py`), `ScriptableEntity` ning har bir ommaviy funksiyasi [Scripting.md](Scripting.md) da
   tilga olingan, player `--help` dagi har bir variant [Runtime.md](Runtime.md) da bor.
+- **Hujjatlardagi kod** (`Tests/docs_snippets.py`, ctest: `DocsSnippets`): `README.md` va `docs/*.md` dagi butun skript
+  klasslari (`class X : public ScriptableEntity` ... `};` bo'lgan ```` ```cpp ```` bloklari) namuna o'yinlar skriptlari
+  bilan bir xil kompilyator va bayroqlar bilan (`build/compile_commands.json`) `-fsyntax-only` kompilyatsiya qilinadi;
+  ogohlantirish ham xato hisoblanadi, xabar Markdown fayl va qatoriga ko'rsatiladi. Kod bo'laklari (butun klass
+  emas) tekshirilmaydi.
 
 ## ctest
 
@@ -218,6 +223,7 @@ qo'riqlaydi: butun kod bazada o'zgaradigan qatorlar 3.5 % dan oshmasligi kerak (
 |---|---|---|
 | `ZaminTests` | - | unit testlar (vaqt hisoboti, JSON va JUnit natijalari `build/TestResults` da) |
 | `DocsCheck` | `docs` | `Tests/docs_check.py` - hujjatlar kod bilan mosligi (10-bo'lim) |
+| `DocsSnippets` | `docs` | `Tests/docs_snippets.py` - hujjatlardagi skript klasslari kompilyatsiya bo'ladi |
 | `BenchEcsSmoke`, `BenchSerializeSmoke` | `bench` | benchmarklar kichik o'lchamda |
 | `EditorSmoke` | `gui;slow` | `Tests/editor_smoke.sh` |
 | `ScriptHotReload` | `gui;slow` | `Tests/hot_reload_test.sh` |

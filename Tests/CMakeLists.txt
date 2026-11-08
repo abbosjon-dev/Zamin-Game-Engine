@@ -21,6 +21,12 @@ if(Python3_Interpreter_FOUND)
     add_test(NAME DocsCheck COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/Tests/docs_check.py
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
     set_tests_properties(DocsCheck PROPERTIES LABELS "docs")
+    # The whole script classes of the documentation compile (Tests/docs_snippets.py): with the flags the build uses
+    # for the sample projects' scripts (compile_commands.json), -fsyntax-only, warnings count as errors.
+    add_test(NAME DocsSnippets COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/Tests/docs_snippets.py
+        --build ${CMAKE_BINARY_DIR}
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+    set_tests_properties(DocsSnippets PROPERTIES LABELS "docs")
 endif()
 
 # The new-script templates must always compile: generate them and build them with the engine.

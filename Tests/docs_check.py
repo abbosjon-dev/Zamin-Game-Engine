@@ -61,10 +61,14 @@ def markdown_files():
     return files
 
 
+def strip_fences(text):
+    """Fenced code blocks (their lines kept as empty lines)."""
+    return re.sub(r"^```.*?^```", lambda m: "\n" * m.group(0).count("\n"), text, flags=re.S | re.M)
+
+
 def strip_code(text):
     """Fenced code blocks and inline code are not links."""
-    text = re.sub(r"^```.*?^```", lambda m: "\n" * m.group(0).count("\n"), text, flags=re.S | re.M)
-    return re.sub(r"`[^`\n]*`", "", text)
+    return re.sub(r"`[^`\n]*`", "", strip_fences(text))
 
 
 def github_slug(heading):
@@ -90,7 +94,8 @@ _anchor_cache = {}
 def anchors(path):
     if path not in _anchor_cache:
         found, counts = set(), {}
-        for line in strip_code(read(path)).splitlines():
+        # Headings keep their inline code: GitHub's anchor has its text (github_slug drops the backticks).
+        for line in strip_fences(read(path)).splitlines():
             m = re.match(r"^(#{1,6})\s+(.*?)\s*#*\s*$", line)
             if not m:
                 continue

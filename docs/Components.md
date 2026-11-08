@@ -125,6 +125,8 @@ _Inspektorda: **Teglar**; qo'shish: **+ Komponent → Boshqa → Teglar (Tags)**
 
 ## 2. Render
 
+Qo'llanma: [Rendering.md](Rendering.md) (kamera, 2D, 3D, materiallar), animatsiya — [Animation.md](Animation.md).
+
 ### SpriteRendererComponent
 
 2D to'rtburchak tasvir: rang (`Color`) va tekstura (`TexturePath`, `Assets` ga nisbatan) yoki teksturaning nomlangan
@@ -417,6 +419,8 @@ _Inspektorda: **Camera**; qo'shish: **+ Komponent → Render → Camera**; sahna
 
 ## 3. Yorug'lik
 
+Qo'llanma: [Rendering.md](Rendering.md#9-yorugliklar).
+
 ### DirectionalLightComponent
 
 Quyosh kabi parallel nurlar: obyektning oldinga (-Z) yo'nalishi bo'yicha. `Color`, `Intensity`, `CastShadows`
@@ -497,6 +501,7 @@ fizik dunyoga qo'shilmaydi. Tortishish va qadam sozlamalari — **Sahna sozlamal
 `Friction`, `Restitution` (sakrovchanlik), `RestitutionThreshold`, `IsSensor` (inspektorda **Trigger (sensor)** —
 to'qnashmaydi, `OnTriggerBegin` / `OnTriggerEnd` beradi), `MaterialPath` (`.zphysmat` fizik material — bo'lsa yuqoridagi
 qiymatlar o'rniga), `Layer` (-1 — jismning qatlami).
+Qo'llanma (sozlamalar, skript API, so'rovlar, namunalar): [Physics.md](Physics.md).
 
 ### Rigidbody2DComponent
 
@@ -621,7 +626,7 @@ _Inspektorda: **Edge Collider 2D**; qo'shish: **+ Komponent → Fizika 2D → Ed
 Obyekt collider'larini (yoki tilemap plitkalarini) platformaga aylantiradi: `OneWay` — pastdan / yondan o'tiladi,
 ustiga qo'niladi (`SurfaceArc` gradus ichida to'qnashadi; 180 — klassik bir tomonlama platforma), `RotationOffset`,
 yon tomondagi ishqalanish / sakrash (`UseSideFriction`, `UseSideBounce`, `SideArc`). Namuna:
-`Projects/Platformer2D/Assets/Scenes/Effectors2D.zscene`.
+`Projects/Platformer2D/Assets/Scenes/Shapes2D.zscene`. Batafsil: [Physics.md](Physics.md#4-2d-effektorlar-platforma-shamol-suv).
 
 <!-- gen:PlatformEffector2DComponent -->
 _Inspektorda: **Platform Effector 2D**; qo'shish: **+ Komponent → Fizika 2D → Platform Effector 2D (bir tomonlama)**; sahna faylida: `"PlatformEffector2D"`._
@@ -856,6 +861,7 @@ _Jadval boshidagi maydonlar `Joint2DComponentBase` dan meros._
 masalan Static jism + sensor collider). Collider'larning umumiy maydonlari: `Offset`, `Friction`, `Restitution`,
 `IsSensor` (**Trigger (sensor)**), `MaterialPath` (`.zphysmat`). O'lchamlar transform masshtabiga ko'paytiriladi.
 Qahramon uchun jism o'rniga `CharacterController3DComponent`.
+Qo'llanma: [Physics.md](Physics.md#6-3d-jismlar-va-colliderlar).
 
 ### Rigidbody3DComponent
 
@@ -1651,7 +1657,7 @@ _Inspektorda: **Particle System**; qo'shish: **+ Komponent → Effektlar va UI �
 
 UI Transform bor obyektlar dunyoda emas, ekranda sahna ustida chiziladi (Sprite, Circle, Text va UI vidjetlari).
 Tayyor elementlar: **Obyekt → UI (ekran)** (Matn, Rasm, Tugma, Slayder, Belgilash, Progress bar, Matn maydoni, Canvas,
-Menyu, Scroll view). Skript hodisalari va animatsiyalari: [Scripting.md](Scripting.md#15-ui).
+Menyu, Scroll view). Qo'llanma: [UI.md](UI.md); skript hodisalari va animatsiyalari: [Scripting.md](Scripting.md#15-ui).
 
 ### UITransformComponent
 
@@ -2026,9 +2032,11 @@ _Inspektorda: **UI Scroll View**; qo'shish: **+ Komponent → Effektlar va UI �
 
 ## 9. Audio
 
+Qo'llanma: [Audio.md](Audio.md).
+
 ### AudioSourceComponent
 
-Obyektning ovozi: `Path` (`.wav`, `.mp3`, `.flac`, `.ogg`, `Assets` ga nisbatan), `Volume`, `Pitch`, `Loop`,
+Obyektning ovozi: `Path` (`.wav`, `.mp3`, `.flac`, `Assets` ga nisbatan; OGG Vorbis dekoderi yo'q), `Volume`, `Pitch`, `Loop`,
 `PlayOnStart`, `Spatial` (3D: tinglovchiga nisbatan ovoz va panorama; `MinDistance`, `MaxDistance`), `Output` (mixer
 guruhi: SFX, Music, UI ... — **Oyna → Audio Mixer**), `Stream`, tasodifiy oraliqlar (`VolumeRandom`, `PitchRandom`),
 ovozlar limiti (`Priority`, `MaxInstances`, `Steal`), Doppler, `FadeIn` / `FadeOut`, filtr, yo'nalish konusi

@@ -2,8 +2,11 @@
 
 Bu hujjat Zamin'dagi animatsiya tizimini tushuntiradi: property kliplar va Animatsiya oynasi (timeline), skelet
 animatsiyasi va Animator (holat mashinasi, blend tree, qatlamlar), event'lar, root motion, suyakka biriktirish,
-morph target'lar, sprite kliplar va samaradorlik (keshlash, kesish). Har bo'limda C++ skript misollari bor
-(`#include <Zamin/Zamin.h>`, `using namespace Zamin;`).
+morph target'lar, sprite animatsiyasi va kliplar, tint (rang) animatsiyasi, skript tween'lari, AnimationCurve va
+spline yo'llar, samaradorlik (keshlash, kesish), testlar va ko'p uchraydigan muammolar. Har bo'limda C++ skript
+misollari bor (`#include <Zamin/Zamin.h>`, `using namespace Zamin;`). Komponentlarning to'liq maydonlari —
+[Components.md](Components.md#2-render); UI animatsiyalari — [UI.md](UI.md#10-ui-animatsiyalari); particle'larning
+tekstura sheet (flipbook) moduli — [Rendering.md](Rendering.md#13-particle-tizimi).
 
 Mundarija:
 
@@ -21,12 +24,18 @@ Mundarija:
 12. [Morph target'lar (blend shape'lar)](#12-morph-targetlar-blend-shapelar)
 13. [glTF kliplarini kesish va bo'lish](#13-gltf-kliplarini-kesish-va-bolish)
 14. [Bir nechta skin](#14-bir-nechta-skin)
-15. [Sprite animatsiya kliplari (.zsanim)](#15-sprite-animatsiya-kliplari-zsanim)
+15. [Sprite animatsiyasi va kliplar (.zsanim)](#15-sprite-animatsiyasi-va-kliplar-zsanim)
 16. [Samaradorlik: keshlash va kesish](#16-samaradorlik-keshlash-va-kesish)
 17. [Namuna: yaqinlashganda ochiladigan darvoza](#17-namuna-yaqinlashganda-ochiladigan-darvoza)
 18. [AnimationCurve: skriptdagi egri chiziq](#18-animationcurve-skriptdagi-egri-chiziq)
 19. [Spline yo'llar va Spline Follower](#19-spline-yollar-va-spline-follower)
-20. [Qisqa API ma'lumotnomasi](#20-qisqa-api-malumotnomasi)
+20. [Tint animatsiyasi (rang)](#20-tint-animatsiyasi-rang)
+21. [Skript tween'lari](#21-skript-tweenlari)
+22. [UI animatsiyalari](#22-ui-animatsiyalari)
+23. [Namuna sahnalar](#23-namuna-sahnalar)
+24. [Ko'p uchraydigan muammolar](#24-kop-uchraydigan-muammolar)
+25. [Testlar](#25-testlar)
+26. [Qisqa API ma'lumotnomasi](#26-qisqa-api-malumotnomasi)
 
 ---
 
@@ -43,6 +52,19 @@ Ikkalasida ham **event'lar** bor (klipning ma'lum nuqtasida skriptga xabar), ikk
 ko'rib chiqiladi (Animatsiya oynasida vaqtni surib).
 
 Uchinchisi — 2D uchun **sprite animatsiyasi** (sprite sheet kadrlari, `.zsanim` kliplar), 15-bo'limda.
+
+**Qaysi vositani tanlash:**
+
+| Vazifa | Vosita | Bo'lim |
+|---|---|---|
+| Eshik, lift, mayoq, sahnadagi "kesma" — oldindan chizilgan harakat | Animation Player + `.zanim` | [2](#2-property-kliplar-zanim)-[4](#4-animation-player-va-skriptlar) |
+| Personaj yurishi, yugurishi, sakrashi (glTF) | Animator (+ holat mashinasi, blend tree) | [5](#5-skelet-animatsiyasi-va-animator)-[8](#8-qatlamlar-va-avatar-maska) |
+| 2D personaj kadrlari | Sprite Animation (+ `.zsanim`) | [15](#15-sprite-animatsiyasi-va-kliplar-zsanim) |
+| Miltillash, rang pulsatsiyasi (2D) | Tint Animation | [20](#20-tint-animatsiyasi-rang) |
+| Koddan "shu yerga 0.3 s da bor", "so'n" | `TweenPosition`, `TweenScale`, `TweenColor`, `FadeTo`, `Tween` | [21](#21-skript-tweenlari) |
+| Menyu paydo bo'lishi, tugma "sakrashi" | UI Animation, `UIScaleTo` ... | [22](#22-ui-animatsiyalari) |
+| Yo'l bo'ylab yurish (platforma, poyezd) | Spline + Spline Follower | [19](#19-spline-yollar-va-spline-follower) |
+| Skript qiymati vaqt bo'yicha (sakrash balandligi) | `AnimationCurve` | [18](#18-animationcurve-skriptdagi-egri-chiziq) |
 
 ---
 
@@ -106,6 +128,21 @@ tashqarida o'zgartirilsa o'ynab turgan obyektlarda darhol yangilanadi.
 
 **Oyna > Animatsiya**. Animation Player'li obyekt tanlansa uning klipi ochiladi (`.zanim` ni kontent brauzerda ikki marta
 bosish ham shu).
+
+**Birinchi klip — qadam-baqadam** (masalan ko'tariladigan platforma):
+
+1. Obyektni tanlang, **Oyna > Animatsiya**. Unda Animation Player bo'lmasa oynadagi **"Platforma" ga Animation Player va yangi
+   klip** tugmasi komponentni qo'shadi va `Assets/Animations/Platforma.zanim` ni yaratadi (yoki kontent brauzerda o'ng tugma →
+   **Yangi animatsiya klipi** va uni Animation Player'ning `Clips` ro'yxatiga qo'shing).
+2. **+ Trek qo'shish** → obyekt (o'zi yoki bolasi) → `Transform.Position`.
+3. **Yozish** (●) ni yoqing. Vaqt chizg'ichida 0 ni bosing — platforma joyida turgan holatda kalit qo'ying (ikki marta
+   bosish); vaqtni 2 s ga suring va platformani gizmo bilan yuqoriga ko'taring — kalit o'zi qo'yiladi.
+4. Klip sozlamalarida tugash rejimini `PingPong` qiling, ▶ — sahna ko'rinishida play rejimisiz ko'rib chiqing.
+5. `Ctrl+S` (klipni saqlash). Animation Player'da **Avto boshlash** yoqiq bo'lsa o'yinda o'zi o'ynaydi; skriptdan —
+   `PlayAnimation("Platforma")` (4-bo'lim).
+
+Kinematik jismni (Rigidbody 2D / 3D `Kinematic`) shunday animatsiya qilsangiz ustida turgan qahramon birga ko'tariladi
+([Physics.md](Physics.md#1-asosiy-tushunchalar)).
 
 - **Treklar ro'yxati**: `+ Trek qo'shish` — obyekt (yo'l avtomatik) va uning xususiyatlari ro'yxatidan.
 - **Dope sheet**: kalitlar romblar; sudrab ko'chirish, ikki marta bosish — yangi kalit, `Delete` — o'chirish, o'ng tugma —
@@ -297,6 +334,9 @@ public:
     {
         ZM_INFO("{} klipida '{}' (t={:.2f}, skelet: {})", e.Clip, e.Name, e.Time, e.Skeletal);
     }
+
+private:
+    void DealDamage(const std::string& weapon) { ZM_INFO("Zarba: {}", weapon); }
 };
 ```
 
@@ -413,9 +453,37 @@ va ikkala uchini bog'lagan oltin arqon — uch skin, bitta Animator.
 
 ---
 
-## 15. Sprite animatsiya kliplari (.zsanim)
+## 15. Sprite animatsiyasi va kliplar (.zsanim)
 
-2D uchun: **Sprite Animation** komponenti kadrlarni (sprite sheet'dagi nomlangan kadrlar yoki grid) FPS bilan o'ynaydi.
+2D uchun: **Sprite Animation** komponenti (`SpriteAnimationComponent`, *+ Komponent → Render → Sprite Animation*) Sprite
+Renderer teksturasining kadrlarini FPS bilan o'ynaydi. Kadrlar uch xil beriladi:
+
+- **Grid** — tekstura `Columns` x `Rows` kataklarga bo'linadi (chapdan o'ngga, yuqoridan pastga raqamlanadi), `StartFrame`
+  dan `FrameCount` ta kadr, `FPS`, `Loop`;
+- **Nomlangan kadrlar** — `Frames` ro'yxati (sprite sheet'dagi nomlar, **Oyna > Sprite muharriri** da kesiladi; inspektorda
+  `run_0, run_1, ...` ketma-ketliklari bitta tanlov bilan);
+- **Kliplar** — `Clips` ro'yxatidagi `.zsanim` assetlar (pastda).
+
+Skriptdan:
+
+```cpp
+// Platformer2D PlayerController: sprite sheet panjarasidagi holatlar.
+if (auto* anim = TryGetComponent<SpriteAnimationComponent>())
+{
+    if (m_GroundContacts == 0)             anim->Play(8, 1, 1.0f, true);   // sakrash: 8-kadr
+    else if (std::abs(velocity.x) > 0.5f)  anim->Play(4, 4, 12.0f, true);  // yugurish: 4..7, 12 kadr/s
+    else                                   anim->Play(0, 2, 3.0f, true);   // turish: 0..1
+}
+if (auto* sprite = TryGetComponent<SpriteRendererComponent>(); sprite && dir != 0.0f)
+    sprite->FlipX = dir < 0.0f;                                            // chapga qaraganda aks
+
+PlaySpriteSequence("run", 12.0f);   // nomlangan "run_0", "run_1", ... (Sprite Animation bo'lmasa qo'shiladi)
+SetSprite("idle");                  // bitta nomlangan kadr ("" - butun rasm)
+anim->PlayFrames({ "hit_0", "hit_1" }, 15.0f, false);
+```
+
+`Play` shu kadrlar allaqachon o'ynayotgan bo'lsa ularni qayta boshlamaydi — har kadr chaqirish xavfsiz.
+
 Kliplar asset sifatida — `.zsanim`:
 
 ```json
@@ -643,7 +711,117 @@ glm::vec3 dir = GetScene().GetSplineTangent(rail, d);
 Matematikasi `Zamin/Math/Spline.h` da: `Spline::Evaluate(u)` / `EvaluateTangent(u)`, `SplineLengthTable` (masofa <->
 parametr), `FindClosest`, `InsertPoint` (Bezier shakli saqlanadi), `AutoTangents` (Catmull-Rom shaklidagi tutqichlar).
 
-## 20. Qisqa API ma'lumotnomasi
+## 20. Tint animatsiyasi (rang)
+
+**Tint Animation** (`TintAnimationComponent`, *+ Komponent → Render → Tint Animation (rang)*) 2D renderer (Sprite, Circle,
+Text, Tilemap) va Light 2D rangini gradient bo'yicha o'zgartiradi: chiziladigan rang = renderer rangi x gradient rangi
+(renderer'ning o'z `Color` i o'zgarmaydi).
+
+| Maydon | Ma'nosi |
+|---|---|
+| `Keys` (`TintKey`: vaqt 0..1 + rang) | gradient |
+| `Duration` | bir o'tish, soniya |
+| `Mode` (`TintPlayMode`): `Once`, `Loop`, `PingPong` | tugash rejimi |
+| `Easing` (`Ease`) | vaqt egri chizig'i |
+| `Cycles` | Loop / PingPong: shuncha sikl (0 — cheksiz) |
+| `StartOffset` | boshlanish siljishi — bir xil nusxalar bir vaqtda miltillamasin |
+| `PlayOnStart` | o'yin boshida |
+
+Inspektorda gradient chizig'i va "Sahnada ko'rish". Skriptdan:
+
+```cpp
+PlayTint();                                                   // komponentning o'zini qayta boshlash
+PlayTint({ 1.0f, 1.0f, 1.0f, 0.2f }, 0.08f, TintPlayMode::PingPong, 6);   // 6 marta miltillash (komponent bo'lmasa qo'shiladi)
+StopTint();                                                   // joyida to'xtaydi; StopTint(true) - birinchi rangga
+bool on = IsTintPlaying();
+```
+
+Qisqa bir martalik chaqnash uchun `Flash(color, seconds)` qulayroq ([Rendering.md](Rendering.md#14-skriptdan-rang-effektlar-kamera)).
+Namuna: Platformer2D `Scenes/TopDown2D.zscene` (fonarlar, gulxan, kristallar).
+
+---
+
+## 21. Skript tween'lari
+
+Kod bilan qisqa silliq o'zgarishlar — animatsiya asseti kerak emas. Hammasi o'yin vaqtida (`SetTimeScale` ga ergashadi,
+pauzada kutadi; `SetTimersUnscaled(true)` — haqiqiy vaqtda), skript o'chirilsa to'xtab turadi:
+
+```cpp
+TweenPosition(GetWorldPosition() + glm::vec3(0.0f, 2.0f, 0.0f), 0.5f, Ease::OutBack);   // 0.5 s da 2 birlik yuqoriga
+TweenScale(glm::vec3(1.3f), 0.2f);                                                    // standart Ease::OutBack
+TweenColor({ 1.0f, 0.3f, 0.3f, 1.0f }, 0.25f);                                        // 2D renderer rangi
+FadeTo(0.0f, 0.5f, Ease::OutQuad, [this] { Destroy(); });                             // so'nib yo'qolish
+
+// Umumiy: t (0..1, easing bilan) har kadr keladi.
+const float from = Transform().Rotation.y;
+Tween(1.0f, [this, from](float t) { Transform().Rotation.y = from + t * glm::two_pi<float>(); },
+      Ease::InOutCubic, [] { ZM_INFO("Aylanib bo'ldi"); });
+
+CancelTweens();             // hammasi joyida to'xtaydi
+bool busy = IsTweening();
+```
+
+Easing turlari (`Ease`, `Zamin/Math/Easing.h`): `Linear`, `InQuad`, `OutQuad`, `InOutQuad`, `OutCubic`, `InOutCubic`, `OutBack`,
+`OutElastic`, `OutBounce`; qiymatning o'zi — `ApplyEase(ease, t)`. Tween dinamik jismni emas, transformni o'zgartiradi —
+fizik jismlar uchun tezlik yoki kinematik tur ishlating. Taymerlar va tween'lar haqida: [Scripting.md](Scripting.md#10-vaqt-taymerlar-tween).
+
+---
+
+## 22. UI animatsiyalari
+
+Ekran UI uchun alohida, **UI vaqtida** (o'yin pauzasida ham) ishlaydigan tween'lar (`UIScaleTo`, `UIFadeTo`, `UIMoveTo`,
+`UIPunchScale`, `Scene::TweenUI`) va **UI Animation** komponenti (paydo bo'lish / yashirish presetlari, ustiga kelganda va
+bosilganda masshtab) — [UI.md](UI.md#10-ui-animatsiyalari). UI xususiyatlari (`UITransform.Position`, `Size`, `Scale`, `Alpha`,
+`UIImage.Color`) property kliplarda ham animatsiya qilinadi (2-bo'lim).
+
+---
+
+## 23. Namuna sahnalar
+
+| Loyiha / sahna | Nima ko'rsatadi | Skriptlar |
+|---|---|---|
+| Showcase3D `Scenes/Animation.zscene` | property kliplar (mayoq, eshik), glTF Animator event'lari | `AnimationEventDemo` |
+| Showcase3D `Scenes/Animator.zscene` | blend tree, "Har qanday holat" trigger'i, maskali qatlam, morph target'lar, suyakka biriktirish | `AnimatorDemo`, `BlendShapeDemo` |
+| Showcase3D `Scenes/Olomon.zscene` | 168 ta animator: poza keshi, kesish | `AnimationStatsDemo`, `SweepCamera` |
+| Showcase3D `Scenes/Splines.zscene` | spline yo'llar, AnimationCurve | `CurveBob`, `SplineMagnet` |
+| Adventure3D `Scenes/Island.zscene` | robot (Idle / Walk / Run blend tree, qadam tovushlari, qo'ldagi fonar), darvoza | `ThirdPersonController`, `ProximityDoor` |
+| Platformer2D `Scenes/Level1.zscene` | grid sprite animatsiyasi | `PlayerController` |
+| Platformer2D `Scenes/TopDown2D.zscene` | `.zsanim` kliplar, tint animatsiyalar | `TopDownController` |
+
+---
+
+## 24. Ko'p uchraydigan muammolar
+
+| Belgi | Sabab va yechim |
+|---|---|
+| Animation Player o'ynamaydi | `Clips` bo'sh yoki klip topilmadi (Animatsiya oynasi: "Klip yuklanmadi"), **Avto boshlash** o'chiq va skript `PlayAnimation` chaqirmagan, yoki obyekt nofaol |
+| Trek ishlamaydi (qiymat o'zgarmaydi) | Trekning yo'li (`Path`) bola nomiga mos emas — bola qayta nomlangan; Animatsiya oynasida trek qizil ko'rinadi |
+| Animator modelni harakatlantirmaydi | Mesh Renderer'dagi model skinned emas yoki klip nomi noto'g'ri (`""` — birinchisi); holat mashinasida boshlang'ich holat yo'q |
+| Oyoqlar yerda sirpanadi | Blend tree chegaralarini yurish tezligiga moslang (`Speed` parametri skript tezligi bilan bir birlikda) |
+| Model obyektdan uzoqlashib, keyin orqaga sakraydi | Klipda ildiz siljishi bor — **Root motion > Qo'llash** (10-bo'lim) |
+| Event ikki marta keladi | Bir event ikki klipda (crossfade) — `Footsteps` `MinInterval` bilan birlashtiradi; o'zingizniki uchun vaqtni tekshiring |
+| Editorda animatsiya ko'rinmaydi | Animator: **Editorda ko'rsatish** (`PlayInEditor`); property klip: Animatsiya oynasida vaqtni suring |
+| Ko'p personaj sekin | `Culling = CullPose`, `CachePoses` (16-bo'lim); Statistika oynasi > Animatsiya |
+
+---
+
+## 25. Testlar
+
+```bash
+./build/bin/ZaminTests "*Anim*:*Tint*:*Tween*:*Skin*:*Morph*:*Bone*:*Footstep*:*Clip*:*Blend*:*Pose*:*Spline*:*Curve*"
+```
+
+Asosiylari: `PropertyClipInterpolation`, `PropertyClipFileRoundtrip`, `PropertyClipAnimatesEveryProperty`,
+`AnimationPlayerPlaysClips`, `AnimationPlayerPlayFromTurnsRound`, `AnimationEventsFireOnce`, `AnimationEventsExactlyOnceInScene`,
+`SkeletalPoseEvaluation`, `AnimatorStateMachine`, `BlendTree1DWeights`, `AnimatorBlendTreeSyncsClips`, `AnimatorLayersMasks`,
+`RootMotionExtraction`, `BoneAttachmentFollowsJoint`, `MorphTargetsApplyWeights`, `MultipleSkinsInOneGLTF`,
+`AnimationClipTrimming`, `AnimationPoseCache`, `AnimatorSkipsUnchangedAndCulledPoses`, `SpriteAnimationFrames`,
+`SpriteClipAssetsPlayWithEvents`, `TintGradientAndPhases`, `TintAnimationInScene`, `TweensRunAndChain`,
+`FootstepsFromAnimationEvents`, `AnimationCurveEvaluateAndWrap`, `SplineEvaluation`. Katalog: [Testing.md](Testing.md).
+
+---
+
+## 26. Qisqa API ma'lumotnomasi
 
 | Nima | API |
 |---|---|
@@ -656,7 +834,10 @@ parametr), `FindClosest`, `InsertPoint` (Bezier shakli saqlanadi), `AutoTangents
 | Event'lar | `OnAnimationEvent(const AnimationEventInfo&)` (`Name`, `Parameter`, `Clip`, `Time`, `Source`, `Skeletal`), `AddAnimationEventHandler(name, fn)`, event bus: `"AnimationEvent"` |
 | Root motion | `ApplyRootMotion`, `RootMotionBone`, `RootMotionVelocity`, `RootMotionTurnRate` |
 | Morph target'lar | `MeshRendererComponent::SetMorphWeight(name / index, w)`, `GetMorphWeight`, `ResetMorphWeights()` |
+| Sprite animatsiya | `SpriteAnimationComponent::Play(start, count, fps, loop)`, `PlayFrames(frames, fps, loop)`; `PlaySpriteSequence(prefix, fps, loop)`, `SetSprite(name)` |
 | Sprite kliplar | `PlaySpriteClip(name, restart)`, `GetSpriteClip()` |
+| Tint | `TintAnimationComponent` (`Keys`, `Duration`, `Mode`, `Easing`, `Cycles`, `StartOffset`), `PlayTint`, `StopTint`, `IsTintPlaying` |
+| Tween'lar | `Tween(duration, fn, ease, onComplete)`, `TweenPosition`, `TweenScale`, `TweenColor`, `FadeTo`, `CancelTweens`, `IsTweening`; `Ease`, `ApplyEase` |
 | Samaradorlik | `AnimatorComponent::Culling`, `CachePoses`, `PoseCacheRate`, `Culled`; `Scene::GetAnimationStats()` |
 | Egri chiziq va yo'l | `AnimationCurve::Evaluate`, `AddKey`, `SmoothTangents`; `SplineFollowerComponent::Play` / `Pause` / `Restart`; `Scene::GetSplinePosition`, `GetSplineTangent`, `GetSplineLength`, `GetSplineClosestDistance`, `GetSplineFollowerProgress` |
 | Past daraja | `SampleLocalPose`, `BlendLocalPose`, `AddLocalPose`, `ComposeJointMatrices`, `ComputeBlend1DWeights`, `BuildJointMask`, `ExtractRootMotion`, `TrimClip`, `BakeClip` / `SampleBakedPose`, `GetSkinMatrices` (`Zamin/Renderer/Animation.h`, `Model.h`) |

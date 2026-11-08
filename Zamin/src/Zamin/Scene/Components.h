@@ -3039,7 +3039,7 @@ namespace Zamin {
     // ------------------------------------------------------------------ audio
     struct AudioSourceComponent
     {
-        std::string Path;     // relative to assets (.wav / .mp3 / .flac / .ogg)
+        std::string Path;     // relative to assets (.wav / .mp3 / .flac; .ogg has no decoder)
         float Volume = 1.0f;
         float Pitch = 1.0f;
         bool Loop = false;

@@ -515,11 +515,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 443. docs/Editor.md - editor qo'llanmasi
 - [x] 444. docs/Tutorial-2D.md - birinchi 2D o'yin
 - [x] 445. docs/Tutorial-3D.md - birinchi 3D o'yin
-- [ ] 446. docs/Physics.md
-- [ ] 447. docs/Rendering.md
-- [ ] 448. docs/Animation.md
-- [ ] 449. docs/UI.md
-- [ ] 450. docs/Audio.md
+- [x] 446. docs/Physics.md
+- [x] 447. docs/Rendering.md
+- [x] 448. docs/Animation.md
+- [x] 449. docs/UI.md
+- [x] 450. docs/Audio.md
 - [ ] 451. docs/Architecture.md - ichki arxitektura
 - [ ] 452. docs/BuildAndExport.md
 - [ ] 453. Doxygen konfiguratsiyasi

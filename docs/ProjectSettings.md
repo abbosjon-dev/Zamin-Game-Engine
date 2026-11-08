@@ -455,7 +455,7 @@ loyihaning min / max masofasi bilan yaratiladi; inspektor ularning ostida loyiha
 
 ```cpp
 // Masofalarsiz: loyiha standarti
-PlaySoundAt("Audio/explosion.wav", GetTransform().Translation);
+PlaySoundAt("Audio/explosion.wav", GetWorldPosition());
 
 // Kodda o'qish
 const AudioSpatialSettings& spatial = Audio::GetSpatialDefaults();
@@ -644,7 +644,7 @@ class Hud : public ScriptableEntity
 {
 public:
     void OnCreate() override { Refresh(); }
-    void OnLanguageChanged(const std::string& language) override { Refresh(); }
+    void OnLanguageChanged(const std::string& /*language*/) override { Refresh(); }
 
 private:
     void Refresh()

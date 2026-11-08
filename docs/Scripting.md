@@ -325,6 +325,8 @@ Kursor: `Cursor::SetLockMode(CursorLockMode::Locked)` (sichqoncha bilan qarash �
 
 ## 9. Fizika va so'rovlar
 
+To'liq qo'llanma (jismlar, collider'lar, joint'lar, qatlamlar, sozlamalar, namunalar): [Physics.md](Physics.md).
+
 **2D** (obyektda `Rigidbody2DComponent`): `GetVelocity()`, `SetVelocity(v)`, `ApplyImpulse(i)`, `ApplyForce(f)`,
 `SetPosition2D(p)` (jismni ham ko'chiradi), `DropThroughPlatforms(seconds)` (bir tomonlama platformadan tushish),
 uxlash: `IsSleeping()`, `WakeUp()`, `PutToSleep()` va boshqa obyekt uchun `IsSleeping(other)`, `WakeUp(other)`.
@@ -479,6 +481,8 @@ Batafsil: [Scenes.md](Scenes.md).
 
 ## 13. Audio
 
+To'liq qo'llanma (mixer, musiqa, 3D, filtrlar, limitlar, zonalar, profiler): [Audio.md](Audio.md).
+
 Bir martalik ovozlar (qaytaradi: `AudioEngine` handle'i, 0 — chalinmadi):
 
 ```cpp
@@ -495,11 +499,13 @@ Obyektning **Audio Source** komponenti: `PlayAudio()` / `PlayAudio(fadeIn)`, `St
 `FadeAudio(volume, seconds)`, `GetAudioFade()`, `SetAudioLowPass(hz)`, `SetAudioHighPass(hz)`. Ko'pchiligining boshqa
 obyekt uchun `(Entity other, ...)` varianti bor.
 
-Musiqa va mixer — `Audio` klassi: `Audio::PlayMusic("Audio/theme.ogg")`, `Audio::CrossfadeTo("Audio/boss.ogg", 2.0f)`,
+Musiqa va mixer — `Audio` klassi: `Audio::PlayMusic("Audio/theme.wav")`, `Audio::CrossfadeTo("Audio/boss.wav", 2.0f)`,
 `Audio::StopMusic()`, `Audio::SetGroupVolume("SFX", 0.5f)`, `Audio::SetGroupMuted("Music", true)`,
 `Audio::SaveSettings()` / `LoadSettings()`.
 
 ## 14. Grafika, rang va effektlar
+
+To'liq qo'llanma (kameralar, materiallar, yorug'lik, soyalar, post-processing, particle'lar): [Rendering.md](Rendering.md).
 
 - **Material** (`MeshRendererComponent`): `GetMaterial()` — shu obyektning o'z nusxasi (boshqalarga ta'sir qilmaydi),
   `GetMaterial(submesh)`, `GetSharedMaterial()` (umumiy `.zmat` — hammaga ta'sir qiladi), `SetSharedMaterial(path)`,
@@ -523,6 +529,8 @@ Musiqa va mixer — `Audio` klassi: `Audio::PlayMusic("Audio/theme.ogg")`, `Audi
   `DebugDraw::WireSphere(c, r)`, `DebugDraw::Text(p, "matn")` ...
 
 ## 15. UI
+
+To'liq qo'llanma (langarlar, Canvas, layout, vidjetlar, hodisalar, navigatsiya, scroll view): [UI.md](UI.md).
 
 UI obyektlari (**UI Transform** komponenti) uchun animatsiyalar o'yin pauzasida ham yuradi; har biri tween ID'sini
 qaytaradi (0 — UI Transform yo'q):

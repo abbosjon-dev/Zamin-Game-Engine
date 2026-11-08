@@ -285,7 +285,7 @@ Yangi sahnaning o'z skriptlari ham `OnSceneLoaded` ni oladi: `OnCreate` dan keyi
 void OnSceneLoaded(const SceneEventInfo& scene) override
 {
     if (scene.BuildIndex == 3)
-        Audio::CrossfadeTo("Audio/boss.ogg");
+        Audio::CrossfadeTo("Audio/boss.wav");
 }
 ```
 

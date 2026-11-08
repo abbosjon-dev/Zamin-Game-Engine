@@ -134,6 +134,7 @@ transform bilan) yoki transform'ning o'zini (3D'da grid poli ustida, `BaseOffset
 ```cpp
 class Guard : public ScriptableEntity
 {
+public:
     void OnUpdate(Timestep) override
     {
         if (CanSeeTarget())
@@ -141,6 +142,10 @@ class Guard : public ScriptableEntity
         else if (!IsMoving())
             SetDestination(m_Points[m_Next++ % m_Points.size()]);
     }
+
+private:
+    std::vector<glm::vec3> m_Points{ { 0, 0, 0 }, { 8, 0, 0 }, { 8, 0, 8 } };   // patrul nuqtalari
+    size_t m_Next = 0;
 };
 ```
 

@@ -46,7 +46,7 @@ public:
     void OnCreate() override { g_Created++; g_SeenSpeed = Speed; g_SeenName = Label; }
     void OnUpdate(Timestep ts) override { g_Updated++; Transform().Translation.x += Speed * (float)ts; }
     void OnDestroy() override { g_Destroyed++; }
-    void OnCollisionBegin(Entity other) override { g_Collisions++; }
+    void OnCollisionBegin(Entity /*other*/) override { g_Collisions++; }
 };
 ZM_REGISTER_SCRIPT(TestScript, ZM_FIELD(TestScript, Speed), ZM_FIELD(TestScript, Label), ZM_FIELD(TestScript, Offset))
 

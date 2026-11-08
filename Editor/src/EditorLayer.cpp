@@ -4366,7 +4366,7 @@ namespace Zamin {
         });
     }
 
-    bool EditorLayer::OnKeyPressed(KeyPressedEvent& e)
+    bool EditorLayer::OnKeyPressed(KeyPressedEvent& /*e*/)
     {
         // Global shortcuts are handled in OnImGuiRender (so they respect text input).
         return false;

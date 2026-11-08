@@ -3,17 +3,15 @@
 # and the sample games' script modules (never the vendor libraries): all of GCC's / Clang's warnings
 # (-Wall -Wextra -Wpedantic) and, in a sanitizer build (cmake/Sanitizers.cmake), fatal
 # UndefinedBehaviorSanitizer reports. A game's own module can opt in the same way.
-#   -Wno-unused-parameter: overridden virtual callbacks (OnUpdate(Timestep ts), OnEvent(Event& e),
-#   OnCollisionBegin(Entity other) ...) and callback signatures keep their parameter names as
-#   documentation although many implementations do not need them.
 #   -Wno-missing-field-initializers: aggregate initialisation of settings / descriptor structs lists the
-#   leading members only, the rest keep their default member initialisers on purpose.
+#   leading members only on purpose - the rest keep their default member initialisers ({ "Ambience",
+#   "SFX" } for an AudioGroupSettings; about 70 such places, Clang warns on each).
 # -ffp-contract=off: no fused multiply-add contraction, so a GCC and a Clang build compute the same floats
 # (Jolt's flags give every target that links it -mfma; GCC's ISO mode never contracts, Clang did by default -
 # a rotation's angle to itself was not 0 and the same particle emitter drew other particles).
 function(zamin_target_settings target)
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-        target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic -Wno-unused-parameter -Wno-missing-field-initializers
+        target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic -Wno-missing-field-initializers
             -ffp-contract=off)
     endif()
     if(ZAMIN_SANITIZER_STRICT_FLAGS)

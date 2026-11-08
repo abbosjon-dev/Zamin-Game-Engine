@@ -10869,8 +10869,8 @@
           0.0
         ],
         "Scale": [
-          0.022,
-          0.022,
+          0.03,
+          0.03,
           1.0
         ]
       },
@@ -10902,7 +10902,7 @@
           2.6,
           4.0
         ],
-        "EmissionStrength": 6.0,
+        "EmissionStrength": 1.2,
         "Shader": "Lit",
         "BlendMode": "Opaque",
         "AlphaCutoff": 0.5,
@@ -10915,7 +10915,7 @@
         "Fields": {
           "Lifetime": {
             "Type": "Float",
-            "Value": 0.09
+            "Value": 0.12
           }
         }
       }
@@ -11315,7 +11315,7 @@
           0.85,
           1.0
         ],
-        "EmissionStrength": 2.5,
+        "EmissionStrength": 1.3,
         "Shader": "Lit",
         "BlendMode": "Opaque",
         "AlphaCutoff": 0.5,
@@ -11373,7 +11373,7 @@
           0.85,
           1.0
         ],
-        "EmissionStrength": 2.5,
+        "EmissionStrength": 1.3,
         "Shader": "Lit",
         "BlendMode": "Opaque",
         "AlphaCutoff": 0.5,
@@ -11431,7 +11431,7 @@
           0.85,
           1.0
         ],
-        "EmissionStrength": 2.5,
+        "EmissionStrength": 1.3,
         "Shader": "Lit",
         "BlendMode": "Opaque",
         "AlphaCutoff": 0.5,
@@ -11489,7 +11489,7 @@
           0.85,
           1.0
         ],
-        "EmissionStrength": 2.5,
+        "EmissionStrength": 1.3,
         "Shader": "Lit",
         "BlendMode": "Opaque",
         "AlphaCutoff": 0.5,
@@ -11547,7 +11547,7 @@
           0.85,
           1.0
         ],
-        "EmissionStrength": 2.5,
+        "EmissionStrength": 1.3,
         "Shader": "Lit",
         "BlendMode": "Opaque",
         "AlphaCutoff": 0.5,
@@ -11663,7 +11663,7 @@
           0.5,
           0.15
         ],
-        "EmissionStrength": 4.0,
+        "EmissionStrength": 1.6,
         "Shader": "Lit",
         "BlendMode": "Opaque",
         "AlphaCutoff": 0.5,

@@ -196,7 +196,8 @@ public:
     float PushImpulse = 9.0f;           // what a shot gives a dynamic body
 
     void OnCreate() override;
-    void OnUpdate(Zamin::Timestep ts) override;
+    // after the controller has turned the view this frame: the shot goes where the camera now looks
+    void OnLateUpdate(Zamin::Timestep ts) override;
 
     void SetFireEnabled(bool enabled) { m_FireEnabled = enabled; }
     void Refill();

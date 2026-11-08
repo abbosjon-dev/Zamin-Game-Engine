@@ -49,7 +49,7 @@ Target* Blaster::FindTarget(Entity hit) const
     return nullptr;
 }
 
-void Blaster::OnUpdate(Timestep ts)
+void Blaster::OnLateUpdate(Timestep ts)
 {
     const float dt = ts;
     FirstPersonController* fpc = GetScript<FirstPersonController>(Resolve(Player));

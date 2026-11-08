@@ -439,9 +439,9 @@ def build_scene():
         StartSize=0.07, EndSize=0.0))
     impact_light = s.entity("Tegish chirog'i", parent=fx, pos=(0, -50, 0), PointLight=k.point_light((0.4, 0.75, 1.0), 0.0, 5.0))
     templates = s.entity("Shablonlar", active=False)
-    tracer = s.entity("Nur izi", parent=templates, scale=(0.022, 0.022, 1),
-                      MeshRenderer=k.mesh("Cube", (0.5, 0.9, 1.0, 1), emission=(0.5, 2.6, 4.0), emission_strength=6.0, cast_shadows=False),
-                      NativeScript=k.script("TracerFx", Lifetime=0.09))
+    tracer = s.entity("Nur izi", parent=templates, scale=(0.03, 0.03, 1),
+                      MeshRenderer=k.mesh("Cube", (0.5, 0.9, 1.0, 1), emission=(0.5, 2.6, 4.0), emission_strength=1.2, cast_shadows=False),
+                      NativeScript=k.script("TracerFx", Lifetime=0.12))
 
     # ---- player: the capsule (feet at its origin) with the head / camera
     player = s.entity("O'yinchi", pos=(0, 0.05, -20), Tags=["Player"], CharacterController3D=k.character3d(0.38, 1.8, 50.0, 0.4, 1.7),
@@ -457,16 +457,16 @@ def build_scene():
     s.entity("Stvol", parent=gun, pos=(0, 0.015, -0.3), rot=(math.radians(90), 0, 0), scale=(0.05, 0.34, 0.05),
              MeshRenderer=k.mesh("Cylinder", (0.22, 0.23, 0.27, 1), 0.35, 0.7, cast_shadows=False))
     s.entity("Energiya", parent=gun, pos=(0.047, 0.01, 0.0), scale=(0.006, 0.04, 0.3),
-             MeshRenderer=k.mesh("Cube", (0.4, 0.9, 1.0, 1), emission=(0.3, 0.85, 1.0), emission_strength=2.5, cast_shadows=False))
+             MeshRenderer=k.mesh("Cube", (0.4, 0.9, 1.0, 1), emission=(0.3, 0.85, 1.0), emission_strength=1.3, cast_shadows=False))
     s.entity("Energiya 2", parent=gun, pos=(-0.047, 0.01, 0.0), scale=(0.006, 0.04, 0.3),
-             MeshRenderer=k.mesh("Cube", (0.4, 0.9, 1.0, 1), emission=(0.3, 0.85, 1.0), emission_strength=2.5, cast_shadows=False))
+             MeshRenderer=k.mesh("Cube", (0.4, 0.9, 1.0, 1), emission=(0.3, 0.85, 1.0), emission_strength=1.3, cast_shadows=False))
     for j, z in enumerate((-0.2, -0.3, -0.4)):
         s.entity(f"Halqa {j + 1}", parent=gun, pos=(0, 0.015, z), rot=(math.radians(90), 0, 0), scale=(0.072, 0.022, 0.072),
-                 MeshRenderer=k.mesh("Cylinder", (0.4, 0.9, 1.0, 1), emission=(0.3, 0.85, 1.0), emission_strength=2.5, cast_shadows=False))
+                 MeshRenderer=k.mesh("Cylinder", (0.4, 0.9, 1.0, 1), emission=(0.3, 0.85, 1.0), emission_strength=1.3, cast_shadows=False))
     s.entity("Dasta", parent=gun, pos=(0, -0.11, 0.13), rot=(-0.3, 0, 0), scale=(0.065, 0.17, 0.08),
              MeshRenderer=k.mesh("Cube", dark, 0.6, 0.3, cast_shadows=False))
     s.entity("Mo'ljal", parent=gun, pos=(0, 0.1, -0.06), scale=(0.025, 0.03, 0.07),
-             MeshRenderer=k.mesh("Cube", (1, 0.55, 0.2, 1), emission=(1.0, 0.5, 0.15), emission_strength=4.0, cast_shadows=False))
+             MeshRenderer=k.mesh("Cube", (1, 0.55, 0.2, 1), emission=(1.0, 0.5, 0.15), emission_strength=1.6, cast_shadows=False))
     muzzle = s.entity("Stvol uchi", parent=gun, pos=(0, 0.015, -0.49), PointLight=k.point_light((0.4, 0.85, 1.0), 0.0, 6.0))
     flash = s.entity("Chaqnash", parent=muzzle, scale=(0.0001, 0.0001, 0.0001),
                      MeshRenderer=k.mesh("Sphere", (0.8, 0.95, 1.0, 1), emission=(0.6, 0.9, 1.0), emission_strength=25.0, cast_shadows=False))

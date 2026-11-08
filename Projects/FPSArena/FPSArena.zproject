@@ -59,7 +59,15 @@
                 "Name": "Fire",
                 "Bindings": [
                     "Mouse:Left",
-                    "GamepadAxis:RightTrigger+"
+                    "GamepadAxis:RightTrigger+",
+                    "Gamepad:RightBumper"
+                ]
+            },
+            {
+                "Name": "Reload",
+                "Bindings": [
+                    "Key:R",
+                    "Gamepad:X"
                 ]
             },
             {

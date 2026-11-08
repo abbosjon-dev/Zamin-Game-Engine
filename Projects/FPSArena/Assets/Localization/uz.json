@@ -2,12 +2,14 @@
     "$name": "O'zbekcha",
     "menu": {
         "title": "FPS ARENA",
-        "subtitle": "Birinchi shaxs boshqaruvi  ·  Zamin Engine namunasi",
-        "play": "O'ynash",
+        "subtitle": "Birinchi shaxs boshqaruvi va nishonga otish  ·  Zamin Engine namunasi",
+        "play": "Parkur",
+        "range": "Nishon otish",
         "quit": "Chiqish",
         "language": "Til: {0}",
         "best": "Eng yaxshi aylana: {0}",
-        "controls": "Sichqoncha - qarash   ·   WASD - yurish   ·   Shift - yugurish   ·   Space - sakrash   ·   C / Ctrl - cho'kkalash   ·   Esc - pauza\nGamepad: chap stik - yurish, o'ng stik - qarash, A - sakrash, B - cho'kkalash, chap stik bosish - yugurish"
+        "best_range": "Nishon otish rekordi: {0}",
+        "controls": "Sichqoncha - qarash   ·   chap tugma - otish   ·   R - qayta o'qlash   ·   WASD - yurish   ·   Shift - yugurish   ·   Space - sakrash   ·   C / Ctrl - cho'kkalash   ·   Esc - pauza\nGamepad: chap stik - yurish, o'ng stik - qarash, RT / RB - otish, X - qayta o'qlash, A - sakrash, B - cho'kkalash, chap stik bosish - yugurish"
     },
     "hud": {
         "demo": "DEMO - avtomatik o'yin",
@@ -21,12 +23,23 @@
         "crouch": "Cho'kkalash",
         "air": "Havoda",
         "idle": "Turish",
-        "hint": "Yorqin nuqtalardan ketma-ket o'ting  ·  ko'k doira - sakratgich",
+        "hint": "Yorqin nuqtalardan ketma-ket o'ting  ·  nishonlarni otib ochko yig'ing  ·  ko'k doira - sakratgich",
+        "hint_range": "Nishonlarni otib yiqiting  ·  markaz - x2  ·  ketma-ket tegishlar seriyasi - x4 gacha",
         "start": "PARKUR",
         "start_sub": "Yorqin nuqtalardan o'ting",
         "lap": "AYLANA TUGADI!",
         "record": "Yangi rekord: {0}",
-        "time": "Vaqt: {0}"
+        "time": "Vaqt: {0}",
+        "weapon": "BLASTER",
+        "score": "Ochko: {0}",
+        "streak": "Seriya x{0}",
+        "reloading": "Qayta o'qlanmoqda...",
+        "targets": "Nishonlar: {0}",
+        "accuracy": "Aniqlik: {0}%",
+        "bullseye": "MARKAZ! +{0}",
+        "range": "NISHON OTISH",
+        "range_sub": "{0} soniya - imkon qadar ko'p nishon",
+        "best_range": "Rekord: {0}"
     },
     "pause": {
         "title": "PAUZA",
@@ -34,5 +47,12 @@
         "restart": "Qaytadan",
         "menu": "Bosh menyu",
         "sensitivity": "Sichqoncha sezgirligi: {0:.2f}"
+    },
+    "results": {
+        "title": "VAQT TUGADI!",
+        "score": "Ochko: {0}",
+        "stats": "{0} ta nishon  ·  aniqlik {1}%  ·  eng uzun seriya {2}",
+        "record": "Yangi rekord!",
+        "best": "Rekord: {0}"
     }
 }

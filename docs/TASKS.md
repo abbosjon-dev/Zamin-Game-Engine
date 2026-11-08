@@ -538,7 +538,7 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 463. Breakout (2D): raketka, to'p, g'ishtlar
 - [x] 464. Breakout: bonuslar va darajalar
 - [x] 465. 3D FPS controller namunasi (sichqoncha bilan qarash)
-- [ ] 466. FPS: nishonlar va otish (raycast)
+- [x] 466. FPS: nishonlar va otish (raycast)
 - [ ] 467. Puzzle o'yin (match-3 yoki sokoban)
 - [ ] 468. Endless runner (3D)
 - [ ] 469. Racing (oddiy mashina fizikasi)

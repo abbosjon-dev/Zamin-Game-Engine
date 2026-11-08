@@ -2,12 +2,14 @@
     "$name": "English",
     "menu": {
         "title": "FPS ARENA",
-        "subtitle": "First-person controller  ·  a Zamin Engine sample",
-        "play": "Play",
+        "subtitle": "First-person controller and target shooting  ·  a Zamin Engine sample",
+        "play": "Parkour",
+        "range": "Target range",
         "quit": "Quit",
         "language": "Language: {0}",
         "best": "Best lap: {0}",
-        "controls": "Mouse - look   ·   WASD - move   ·   Shift - sprint   ·   Space - jump   ·   C / Ctrl - crouch   ·   Esc - pause\nGamepad: left stick - move, right stick - look, A - jump, B - crouch, left stick click - sprint"
+        "best_range": "Target range record: {0}",
+        "controls": "Mouse - look   ·   left button - fire   ·   R - reload   ·   WASD - move   ·   Shift - sprint   ·   Space - jump   ·   C / Ctrl - crouch   ·   Esc - pause\nGamepad: left stick - move, right stick - look, RT / RB - fire, X - reload, A - jump, B - crouch, left stick click - sprint"
     },
     "hud": {
         "demo": "DEMO - autoplay",
@@ -21,12 +23,23 @@
         "crouch": "Crouching",
         "air": "Airborne",
         "idle": "Standing",
-        "hint": "Run through the glowing markers in order  ·  blue disc - jump pad",
+        "hint": "Run through the glowing markers in order  ·  shoot targets for points  ·  blue disc - jump pad",
+        "hint_range": "Knock the targets down  ·  bullseye - x2  ·  a streak of hits - up to x4",
         "start": "PARKOUR",
         "start_sub": "Run through the glowing markers",
         "lap": "LAP COMPLETE!",
         "record": "New record: {0}",
-        "time": "Time: {0}"
+        "time": "Time: {0}",
+        "weapon": "BLASTER",
+        "score": "Score: {0}",
+        "streak": "Streak x{0}",
+        "reloading": "Reloading...",
+        "targets": "Targets: {0}",
+        "accuracy": "Accuracy: {0}%",
+        "bullseye": "BULLSEYE! +{0}",
+        "range": "TARGET RANGE",
+        "range_sub": "{0} seconds - as many targets as you can",
+        "best_range": "Record: {0}"
     },
     "pause": {
         "title": "PAUSED",
@@ -34,5 +47,12 @@
         "restart": "Restart",
         "menu": "Main menu",
         "sensitivity": "Mouse sensitivity: {0:.2f}"
+    },
+    "results": {
+        "title": "TIME'S UP!",
+        "score": "Score: {0}",
+        "stats": "{0} targets  ·  accuracy {1}%  ·  longest streak {2}",
+        "record": "New record!",
+        "best": "Record: {0}"
     }
 }

@@ -23,20 +23,39 @@ void FirstPersonController::OnCreate()
     m_Stamina = StaminaSeconds;
     m_Eye = EyeHeight;
     m_Fov = FieldOfView;
-    ParseRoute();
+    m_Routes[0] = ParseRoute(BotRoute);
+    m_Routes[1] = ParseRoute(BotRangeRoute);
+    m_Route = m_Routes[0];
 }
 
-void FirstPersonController::ParseRoute()
+std::vector<glm::vec3> FirstPersonController::ParseRoute(const std::string& text)
 {
-    m_Route.clear();
-    std::stringstream points(BotRoute);
+    std::vector<glm::vec3> route;
+    std::stringstream points(text);
     std::string item;
     while (std::getline(points, item, ';'))
     {
         glm::vec3 p(0.0f);
         if (std::sscanf(item.c_str(), "%f,%f,%f", &p.x, &p.y, &p.z) == 3)
-            m_Route.push_back(p);
+            route.push_back(p);
     }
+    return route;
+}
+
+void FirstPersonController::UseRoute(int route)
+{
+    m_Route = m_Routes[std::clamp(route, 0, 1)];
+    if (m_Route.empty())
+        m_Route = m_Routes[0];
+    m_RouteIndex = 0;
+}
+
+void FirstPersonController::AddRecoil(float pitchRadians, float yawRadians)
+{
+    // the kick is applied at once; most of it eases back by itself (m_RecoilPitch)
+    m_Pitch = std::clamp(m_Pitch + pitchRadians, glm::radians(-85.0f), glm::radians(85.0f));
+    m_Yaw += yawRadians;
+    m_RecoilPitch += pitchRadians * 0.75f;
 }
 
 void FirstPersonController::ResetTo(const glm::vec3& position, float yaw, bool bot)
@@ -51,6 +70,8 @@ void FirstPersonController::ResetTo(const glm::vec3& position, float yaw, bool b
     m_Distance = 0.0f;
     m_RouteIndex = 0;
     m_StuckTimer = 0.0f;
+    m_RecoilPitch = 0.0f;
+    m_AimPoint.reset();
     SetPosition3D(position);
     if (auto* cc = TryGetComponent<CharacterController3DComponent>())
     {
@@ -101,9 +122,11 @@ void FirstPersonController::OnUpdate(Timestep ts)
 
     Controls c = m_Bot ? ThinkBot(dt) : ReadInput(dt);
 
-    // ---- look: the body turns (yaw), the head nods (pitch)
+    // ---- look: the body turns (yaw), the head nods (pitch); a shot's kick eases back down
     m_Yaw += c.Look.x;
-    m_Pitch = std::clamp(m_Pitch + c.Look.y, glm::radians(-85.0f), glm::radians(85.0f));
+    const float recover = m_RecoilPitch * std::min(1.0f, 7.0f * dt);
+    m_RecoilPitch -= recover;
+    m_Pitch = std::clamp(m_Pitch + c.Look.y - recover, glm::radians(-85.0f), glm::radians(85.0f));
     Transform().Rotation = { 0.0f, m_Yaw, 0.0f };
 
     // ---- stance and stamina
@@ -201,8 +224,13 @@ void FirstPersonController::UpdateCamera(float dt, bool grounded, float speed01)
 
     // crouch eye height, landing dip (a spring)
     m_Eye = Math::Damp(m_Eye, m_Crouching ? CrouchEyeHeight : EyeHeight, 12.0f, dt);
-    m_LandDipVelocity += (-m_LandDip * 90.0f - m_LandDipVelocity * 12.0f) * dt;
-    m_LandDip += m_LandDipVelocity * dt;
+    for (float left = std::min(dt, 0.25f); left > 0.0f; left -= 1.0f / 240.0f)
+    {
+        // small steps: a slow frame cannot make the spring blow up
+        const float h = std::min(left, 1.0f / 240.0f);
+        m_LandDipVelocity += (-m_LandDip * 90.0f - m_LandDipVelocity * 12.0f) * h;
+        m_LandDip += m_LandDipVelocity * h;
+    }
 
     // strafing leans the view a little
     const glm::vec3 forward3 = Transform().GetForward();
@@ -242,17 +270,31 @@ FirstPersonController::Controls FirstPersonController::ThinkBot(float dt)
     auto* cc = TryGetComponent<CharacterController3DComponent>();
     const bool rising = m_PadLaunch && cc && cc->VerticalVelocity > 0.0f;
 
-    // turn towards the waypoint (the move is mostly "forward"), glancing around a little
+    // turn towards the waypoint (the move is mostly "forward"), glancing around a little - or, with a
+    // target to shoot (the weapon sets the aim point), towards that, quicker; the walk goes on regardless
     const glm::vec3 next = m_Route[m_RouteIndex];
     const glm::vec2 dir(next.x - m_Position.x, next.z - m_Position.z);
-    if (glm::length(dir) > 0.05f)
+    const glm::vec3 eye = m_Head ? GetScene().GetWorldPosition(m_Head) : m_Position + glm::vec3(0.0f, EyeHeight, 0.0f);
+    if (m_AimPoint && !rising)
     {
-        // the body's forward is -Z turned by yaw: yaw = atan2(-x, -z)
-        const float goalYaw = std::atan2(-dir.x, -dir.y) + std::sin(m_BotTime * 0.7f) * 0.18f;
-        c.Look.x = Math::DeltaAngle(m_Yaw, goalYaw) * std::min(1.0f, 5.0f * dt);
+        const glm::vec3 to = *m_AimPoint - eye;
+        const float flat = glm::length(glm::vec2(to.x, to.z));
+        // the body's forward is -Z turned by yaw: yaw = atan2(-x, -z); the head's pitch: up is positive
+        const float goalYaw = std::atan2(-to.x, -to.z);
+        const float goalPitch = std::atan2(to.y, std::max(flat, 0.01f));
+        c.Look.x = Math::DeltaAngle(m_Yaw, goalYaw) * std::min(1.0f, 9.0f * dt);
+        c.Look.y = (goalPitch - m_Pitch) * std::min(1.0f, 9.0f * dt);
     }
-    const float goalPitch = rising ? glm::radians(-25.0f) : std::sin(m_BotTime * 0.45f) * glm::radians(6.0f) - glm::radians(3.0f);
-    c.Look.y = (goalPitch - m_Pitch) * std::min(1.0f, 3.0f * dt);
+    else
+    {
+        if (glm::length(dir) > 0.05f)
+        {
+            const float goalYaw = std::atan2(-dir.x, -dir.y) + std::sin(m_BotTime * 0.7f) * 0.18f;
+            c.Look.x = Math::DeltaAngle(m_Yaw, goalYaw) * std::min(1.0f, 5.0f * dt);
+        }
+        const float goalPitch = rising ? glm::radians(-25.0f) : std::sin(m_BotTime * 0.45f) * glm::radians(6.0f) - glm::radians(3.0f);
+        c.Look.y = (goalPitch - m_Pitch) * std::min(1.0f, 3.0f * dt);
+    }
 
     // walk forward (sideways a bit while it turns); sprint on the straights
     const glm::vec3 fwd3 = Transform().GetForward();
@@ -294,4 +336,5 @@ ZM_REGISTER_SCRIPT(FirstPersonController,
     ZM_FIELD_RANGE(FirstPersonController, EyeHeight, 0.5f, 2.2f),
     ZM_FIELD_RANGE(FirstPersonController, CrouchEyeHeight, 0.3f, 2.0f),
     ZM_FIELD_RANGE(FirstPersonController, HeadBob, 0.0f, 0.2f),
-    ZM_FIELD(FirstPersonController, BotRoute).Header("Bot").Tooltip("Botning yo'l nuqtalari: \"x,y,z;x,y,z;...\""))
+    ZM_FIELD(FirstPersonController, BotRoute).Header("Bot").Tooltip("Botning yo'l nuqtalari: \"x,y,z;x,y,z;...\""),
+    ZM_FIELD(FirstPersonController, BotRangeRoute).Tooltip("Botning \"Nishon otish\" rejimidagi yo'li (kichik aylana)"))

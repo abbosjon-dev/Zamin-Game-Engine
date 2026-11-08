@@ -9,6 +9,11 @@ Komponentlarning to'liq maydonlari: [Components.md](Components.md#9-audio). Loyi
 chegarasi, ovozlar limiti, 3D masofa modeli): [ProjectSettings.md](ProjectSettings.md#9-audio-standartlari). Misollar
 `#include <Zamin/Zamin.h>` va `using namespace Zamin;` bilan.
 
+![Audio sahnasi va Audio Mixer oynasi](images/audio-mixer-editor.jpg)
+
+*Showcase3D `Scenes/Audio.zscene` editorda (Play): musiqa zonalari, Doppler, radio filtri, karnay konusi; pastda **Audio Mixer** —
+guruhlar, daraja o'lchagichlari, hozirgi musiqa.*
+
 Mundarija:
 
 1. [Asosiy tushunchalar](#1-asosiy-tushunchalar)

@@ -8,6 +8,11 @@ misollari bor (`#include <Zamin/Zamin.h>`, `using namespace Zamin;`). Komponentl
 [Components.md](Components.md#2-render); UI animatsiyalari — [UI.md](UI.md#10-ui-animatsiyalari); particle'larning
 tekstura sheet (flipbook) moduli — [Rendering.md](Rendering.md#13-particle-tizimi).
 
+![Animatsiya oynasi: darvoza klipi](images/animation-timeline-editor.jpg)
+
+*Adventure3D `Darvoza` tanlangan: pastda **Animatsiya** oynasi (treklar, kalitlar, event'lar qatori, klip sozlamalari),
+inspektorda Animation Player va `ProximityDoor` skripti.*
+
 Mundarija:
 
 1. [Ikki xil animatsiya](#1-ikki-xil-animatsiya)

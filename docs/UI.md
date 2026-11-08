@@ -8,6 +8,11 @@ editorda UI bilan ishlash va pauza menyusi namunasi — C++ skript misollari bil
 Komponentlarning to'liq maydonlari: [Components.md](Components.md#8-ui-ekran-interfeysi). Misollar `#include <Zamin/Zamin.h>`
 va `using namespace Zamin;` bilan.
 
+![UI Layout sahnasi editorda](images/ui-layout-editor.jpg)
+
+*Platformer2D `Scenes/UILayout.zscene`: tanlangan `Menyu` ning to'rtburchak gizmo'si, inspektorda UI Transform (langar) va
+vertikal UI Layout Group; yuqori / pastki panellar cho'zilgan langar bilan.*
+
 Mundarija:
 
 1. [Asosiy tushunchalar](#1-asosiy-tushunchalar)

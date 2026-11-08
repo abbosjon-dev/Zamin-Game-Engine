@@ -11,6 +11,11 @@ Komponentlarning to'liq maydonlari: [Components.md](Components.md#2-render) (ren
 kliplar, skelet) — [Animation.md](Animation.md), ekran UI — [UI.md](UI.md). Misollar `#include <Zamin/Zamin.h>` va
 `using namespace Zamin;` bilan.
 
+![Material galereyasi](images/rendering-material-gallery.jpg)
+
+*Showcase3D `Scenes/MaterialGallery.zscene` (player): PBR va standart materiallar, Cutout panjara va barglar, shaffof shar va
+oynalar, nurlanish + bloom, ikki tomonlama sirtlar.*
+
 Mundarija:
 
 1. [Umumiy ko'rinish](#1-umumiy-korinish)

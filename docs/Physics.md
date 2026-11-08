@@ -9,6 +9,11 @@ Komponentlarning to'liq maydonlari (turi, standart qiymati) [Components.md](Comp
 va [Fizika 3D](Components.md#5-fizika-3d). Skript API'ning umumiy qo'llanmasi — [Scripting.md](Scripting.md). Bu yerdagi
 misollar `#include <Zamin/Zamin.h>` va `using namespace Zamin;` bilan yozilgan.
 
+![Fizika debug ko'rinishi: kontakt nuqtalari, joint yuklari, uxlayotgan jismlar](images/physics-debug-editor.jpg)
+
+*Showcase3D `Scenes/PhysicsDebug3D.zscene` editorda (Play): Debug chizish — kontaktlar va ularning qiymatlari, joint'lar yuki,
+uxlayotgan jismlar xira.*
+
 Mundarija:
 
 1. [Asosiy tushunchalar](#1-asosiy-tushunchalar)

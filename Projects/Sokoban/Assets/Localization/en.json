@@ -1,0 +1,46 @@
+{
+    "$name": "English",
+    "menu": {
+        "title": "WAREHOUSE KEEPER",
+        "subtitle": "Sokoban - push every crate into place  ·  a Zamin Engine sample",
+        "play": "Play",
+        "levels": "Levels",
+        "quit": "Quit",
+        "language": "Language: {0}",
+        "progress": "Levels solved: {0} / {1}",
+        "controls": "WASD / arrows - move (push a crate)   ·   Z / Backspace - undo   ·   R - restart   ·   Esc - pause\nGamepad: D-pad / left stick - move, X - undo, Y - restart, Start - pause"
+    },
+    "hud": {
+        "demo": "DEMO - autoplay",
+        "level": "LEVEL {0}",
+        "level_name": "Level {0}  ·  {1}",
+        "moves": "Moves: {0}",
+        "pushes": "Pushes: {0}",
+        "boxes": "Crates: {0} / {1}",
+        "best": "Record: {0} moves",
+        "no_best": "Record: none yet",
+        "hint": "Push every crate onto a glowing ring  ·  Z - undo  ·  R - restart  ·  Esc - pause",
+        "solved": "SOLVED!",
+        "solved_sub": "{0} moves  ·  {1} pushes",
+        "all_done": "ALL SOLVED!"
+    },
+    "levels": {
+        "title": "LEVELS",
+        "back": "Back",
+        "moves": "{0} moves"
+    },
+    "pause": {
+        "title": "PAUSED",
+        "resume": "Resume",
+        "restart": "Restart",
+        "menu": "Main menu"
+    },
+    "complete": {
+        "title": "LEVEL {0} SOLVED!",
+        "all": "EVERY LEVEL SOLVED!",
+        "stats": "{0} moves  ·  {1} pushes",
+        "record": "New record!",
+        "best": "Record: {0} moves",
+        "next": "Next level"
+    }
+}

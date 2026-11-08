@@ -1,0 +1,137 @@
+{
+    "Version": 2,
+    "Project": {
+        "Name": "Sokoban",
+        "StartScene": "Scenes/Warehouse.zscene",
+        "StartSceneUUID": "43279b48662685b4",
+        "AssetDirectory": "Assets",
+        "SourceDirectory": "Source",
+        "ScriptModulePath": "Binaries/libSokoban.so",
+        "EngineVersion": "0.1.0"
+    },
+    "Player": {
+        "Company": "Zamin Studio",
+        "Product": "Omborchi",
+        "Version": "1.0.0",
+        "Width": 1280,
+        "Height": 720,
+        "WindowMode": "Windowed",
+        "Resizable": true,
+        "VSync": true,
+        "Title": "",
+        "VersionInTitle": false,
+        "TargetFrameRate": 0,
+        "RunInBackground": true,
+        "Icon": "Textures/GameIcon.png"
+    },
+    "BuildScenes": [
+        {
+            "Path": "Scenes/Warehouse.zscene",
+            "Enabled": true,
+            "UUID": "43279b48662685b4"
+        }
+    ],
+    "InputActions": {
+        "Actions": [
+            {
+                "Name": "Undo",
+                "Bindings": [
+                    "Key:Z",
+                    "Key:Backspace",
+                    "Gamepad:X"
+                ]
+            },
+            {
+                "Name": "Restart",
+                "Bindings": [
+                    "Key:R",
+                    "Gamepad:Y"
+                ]
+            },
+            {
+                "Name": "Pause",
+                "Bindings": [
+                    "Key:Escape",
+                    "Key:P",
+                    "Gamepad:Start"
+                ]
+            }
+        ],
+        "Axes": [
+            {
+                "Name": "MoveX",
+                "Negative": [
+                    "Key:A",
+                    "Key:Left",
+                    "Gamepad:DPadLeft"
+                ],
+                "Positive": [
+                    "Key:D",
+                    "Key:Right",
+                    "Gamepad:DPadRight"
+                ],
+                "Deadzone": 0.4,
+                "Invert": false,
+                "GamepadAxis": "LeftX"
+            },
+            {
+                "Name": "MoveY",
+                "Negative": [
+                    "Key:S",
+                    "Key:Down",
+                    "Gamepad:DPadDown"
+                ],
+                "Positive": [
+                    "Key:W",
+                    "Key:Up",
+                    "Gamepad:DPadUp"
+                ],
+                "Deadzone": 0.4,
+                "Invert": true,
+                "GamepadAxis": "LeftY"
+            }
+        ],
+        "Vectors": [
+            {
+                "Name": "Move",
+                "X": "MoveX",
+                "Y": "MoveY",
+                "Mode": "Clamp",
+                "Deadzone": 0.0
+            }
+        ]
+    },
+    "Localization": {
+        "DefaultLanguage": "uz",
+        "Languages": [
+            "uz",
+            "en"
+        ],
+        "Directory": "Localization",
+        "UseSystemLanguage": false
+    },
+    "Audio": {
+        "Groups": [
+            {
+                "Name": "Master",
+                "Volume": 1.0
+            },
+            {
+                "Name": "Music",
+                "Parent": "Master",
+                "Volume": 0.55
+            },
+            {
+                "Name": "SFX",
+                "Parent": "Master",
+                "Volume": 0.9
+            },
+            {
+                "Name": "UI",
+                "Parent": "Master",
+                "Volume": 0.8
+            }
+        ],
+        "StreamThresholdMB": 4.0
+    }
+}

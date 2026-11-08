@@ -1,0 +1,46 @@
+{
+    "$name": "O'zbekcha",
+    "menu": {
+        "title": "OMBORCHI",
+        "subtitle": "Sokoban - qutilarni joyiga itaring  ·  Zamin Engine namunasi",
+        "play": "O'ynash",
+        "levels": "Darajalar",
+        "quit": "Chiqish",
+        "language": "Til: {0}",
+        "progress": "Yechilgan darajalar: {0} / {1}",
+        "controls": "WASD / strelkalar - yurish (qutini itarish)   ·   Z / Backspace - orqaga   ·   R - qaytadan   ·   Esc - pauza\nGamepad: D-pad / chap stik - yurish, X - orqaga, Y - qaytadan, Start - pauza"
+    },
+    "hud": {
+        "demo": "DEMO - avtomatik o'yin",
+        "level": "{0}-DARAJA",
+        "level_name": "{0}-daraja  ·  {1}",
+        "moves": "Qadamlar: {0}",
+        "pushes": "Surishlar: {0}",
+        "boxes": "Qutilar: {0} / {1}",
+        "best": "Rekord: {0} qadam",
+        "no_best": "Rekord: hali yo'q",
+        "hint": "Hamma qutilarni yorqin doiralarga itaring  ·  Z - orqaga  ·  R - qaytadan  ·  Esc - pauza",
+        "solved": "YECHILDI!",
+        "solved_sub": "{0} qadam  ·  {1} surish",
+        "all_done": "HAMMASI YECHILDI!"
+    },
+    "levels": {
+        "title": "DARAJALAR",
+        "back": "Orqaga",
+        "moves": "{0} qadam"
+    },
+    "pause": {
+        "title": "PAUZA",
+        "resume": "Davom etish",
+        "restart": "Qaytadan",
+        "menu": "Bosh menyu"
+    },
+    "complete": {
+        "title": "{0}-DARAJA YECHILDI!",
+        "all": "BARCHA DARAJALAR YECHILDI!",
+        "stats": "{0} qadam  ·  {1} surish",
+        "record": "Yangi rekord!",
+        "best": "Rekord: {0} qadam",
+        "next": "Keyingi daraja"
+    }
+}

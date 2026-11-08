@@ -47124,3 +47124,279 @@ TEST(PrefabDamagedFileNotWritten)
     CHECK(db.CountLoadErrors(P) > 0 && !db.Write(P, R"({"ZaminEntities":1,"Entities":[{"Entity":1,"Tag":"Enemy"}]})"));
     Log::SetMinLevel(logLevel);
 }
+
+// ------------------------------------------------------------------ physics determinism (Box2D, Jolt)
+// The simulated transforms as bits, by UUID: two runs agree only when every float is the very same.
+struct PhysicsSnapshot
+{
+    std::vector<std::string> Names;   // one per entity, UUID order
+    std::vector<uint32_t> Bits;       // 6 per entity: Translation xyz, Rotation xyz
+};
+
+static PhysicsSnapshot TakePhysicsSnapshot(Ref<Scene>& scene)
+{
+    std::vector<Entity> bodies;
+    for (Entity e : scene->GetEntitiesInOrder())
+        if (e.HasComponent<Rigidbody2DComponent>() || e.HasComponent<Rigidbody3DComponent>() || e.HasComponent<CharacterController3DComponent>())
+            bodies.push_back(e);
+    std::sort(bodies.begin(), bodies.end(), [](Entity a, Entity b) { return (uint64_t)a.GetUUID() < (uint64_t)b.GetUUID(); });
+    PhysicsSnapshot s;
+    for (Entity e : bodies)
+    {
+        const TransformComponent& t = e.GetTransform();
+        s.Names.push_back(e.GetName());
+        for (float f : { t.Translation.x, t.Translation.y, t.Translation.z, t.Rotation.x, t.Rotation.y, t.Rotation.z })
+            s.Bits.push_back(std::bit_cast<uint32_t>(f));
+    }
+    return s;
+}
+
+// "" when the two are bit for bit the same, else the first float that differs (for the failure's message).
+static std::string PhysicsSnapshotDiff(const PhysicsSnapshot& a, const PhysicsSnapshot& b)
+{
+    if (a.Names != b.Names || a.Bits.size() != b.Bits.size())
+        return std::format("boshqa obyektlar ({} / {})", a.Names.size(), b.Names.size());
+    static const char* s_Fields[] = { "Translation.x", "Translation.y", "Translation.z", "Rotation.x", "Rotation.y", "Rotation.z" };
+    for (size_t i = 0; i < a.Bits.size(); i++)
+        if (a.Bits[i] != b.Bits[i])
+            return std::format("'{}' {}: {:.9g} != {:.9g}", a.Names[i / 6], s_Fields[i % 6], std::bit_cast<float>(a.Bits[i]),
+                               std::bit_cast<float>(b.Bits[i]));
+    return {};
+}
+
+// Frame times that do not divide the fixed step: some frames take 0, 1 or 2 steps (the accumulator and
+// the interpolation between steps are part of what has to repeat).
+static float DeterminismFrameTime(int frame)
+{
+    static const float s_Times[] = { 1.0f / 60.0f, 1.0f / 47.0f, 1.0f / 144.0f, 1.0f / 30.0f, 1.0f / 75.0f };
+    return s_Times[frame % 5];
+}
+
+// Plays the scene like the editor (a copy of it) for `frames` frames; the transforms at the end.
+static PhysicsSnapshot RunPhysicsScene(const Ref<Scene>& source, int frames, PhysicsSnapshot* halfway = nullptr)
+{
+    Ref<Scene> scene = Scene::Copy(source);
+    scene->OnRuntimeStart();
+    for (int i = 0; i < frames; i++)
+    {
+        scene->OnUpdateRuntime(DeterminismFrameTime(i));
+        if (halfway && i == frames / 2)
+            *halfway = TakePhysicsSnapshot(scene);
+    }
+    PhysicsSnapshot s = TakePhysicsSnapshot(scene);
+    scene->OnRuntimeStop();
+    return s;
+}
+
+// Runs the steps (each makes one entity with the next UUID) in order or in reverse, then puts the bodies
+// under three groups (in UUID order, round robin) and the groups in UUID order: the same scene (the same
+// file) either way, only made in another order - its scene order (the ID pool's) differs from the
+// hierarchy's in the reversed one, as in a scene the editor built up over time.
+static void MakeInOrder(Ref<Scene>& scene, std::vector<std::function<void()>>& steps, bool reversed, uint64_t groupBase)
+{
+    for (uint64_t g = 0; g < 3; g++)
+        steps.insert(steps.begin() + (std::ptrdiff_t)g, [scene, groupBase, g]() { scene->CreateEntityWithUUID(UUID(groupBase + g), std::format("Grupa{}", g)); });
+    if (reversed)
+        std::reverse(steps.begin(), steps.end());
+    for (auto& step : steps)
+        step();
+    std::vector<Entity> byID = scene->GetEntitiesInOrder();
+    std::sort(byID.begin(), byID.end(), [](Entity a, Entity b) { return (uint64_t)a.GetUUID() < (uint64_t)b.GetUUID(); });
+    int index = 0;
+    for (Entity e : byID)
+        if ((uint64_t)e.GetUUID() < groupBase || (uint64_t)e.GetUUID() >= groupBase + 3)
+            scene->SetParent(e, scene->GetEntityByUUID(UUID(groupBase + (uint64_t)(index++ % 3))), false);
+    for (uint64_t g = 0; g < 3; g++)
+        scene->SetSiblingIndex(scene->GetEntityByUUID(UUID(groupBase + g)), (int)g);
+}
+
+// The same entities (the same UUIDs and values) made in file order or in reverse: a scene the editor built
+// up over time and the same scene read back from its file differ only in that.
+static Ref<Scene> MakeDeterminismScene2D(bool reversed)
+{
+    auto scene = CreateRef<Scene>();
+    std::vector<std::function<void()>> steps;
+    uint64_t next = 0x2D00;
+    auto body = [&](std::string name, glm::vec2 p, float angle, Rigidbody2DComponent::BodyType type, std::function<void(Entity)> shape) {
+        const uint64_t id = next++;
+        steps.push_back([scene, id, name, p, angle, type, shape]() {
+            Entity e = scene->CreateEntityWithUUID(UUID(id), name);
+            e.GetTransform().Translation = { p.x, p.y, 0.0f };
+            e.GetTransform().Rotation.z = angle;
+            e.AddComponent<Rigidbody2DComponent>().Type = type;
+            shape(e);
+        });
+    };
+    auto box = [](glm::vec2 half, float friction = 0.6f) {
+        return [half, friction](Entity e) {
+            auto& b = e.AddComponent<BoxCollider2DComponent>();
+            b.Size = half;
+            b.Friction = friction;
+        };
+    };
+    auto circle = [](float radius, float restitution) {
+        return [radius, restitution](Entity e) {
+            auto& c = e.AddComponent<CircleCollider2DComponent>();
+            c.Radius = radius;
+            c.Restitution = restitution;
+        };
+    };
+    using T = Rigidbody2DComponent::BodyType;
+    body("Ground", { 0.0f, -0.5f }, 0.0f, T::Static, box({ 30.0f, 0.5f }));
+    body("Ramp", { -8.0f, 3.0f }, -0.35f, T::Static, box({ 4.0f, 0.2f }, 0.1f));
+    // A pyramid of boxes (4-3-2-1) that the balls knock over.
+    for (int row = 0; row < 4; row++)
+        for (int i = 0; i < 4 - row; i++)
+            body(std::format("Box{}{}", row, i), { (float)i - 1.5f + 0.5f * row, 0.5f + (float)row }, 0.0f, T::Dynamic, box({ 0.5f, 0.5f }));
+    for (int i = 0; i < 6; i++)
+        body(std::format("Ball{}", i), { -9.0f + 0.7f * (float)i, 6.0f + 1.3f * (float)i }, 0.0f, T::Dynamic, circle(0.3f + 0.05f * (float)i, 0.3f));
+    // A chain of links with a heavy end, swinging from a static hook (revolute joints).
+    body("Hook", { 6.0f, 9.0f }, 0.0f, T::Static, box({ 0.2f, 0.2f }));
+    for (int i = 0; i < 6; i++)
+    {
+        const uint64_t self = next, previous = next - 1;
+        body(std::format("Link{}", i), { 6.0f + 0.5f * (float)i + 0.25f, 9.0f }, 0.0f, T::Dynamic, [previous, i](Entity e) {
+            e.AddComponent<BoxCollider2DComponent>().Size = { 0.25f, 0.05f };
+            auto& j = e.AddComponent<RevoluteJoint2DComponent>();
+            j.ConnectedBody.ID = UUID(previous);
+            j.Anchor = { -0.25f, 0.0f };
+            if (i == 5)
+                e.GetComponent<BoxCollider2DComponent>().Density = 8.0f;
+        });
+        (void)self;
+    }
+    // A spinning bullet that crosses the pyramid.
+    body("Bullet", { -14.0f, 1.0f }, 0.3f, T::Dynamic, [](Entity e) {
+        e.GetComponent<Rigidbody2DComponent>().Bullet = true;
+        e.AddComponent<CircleCollider2DComponent>().Radius = 0.2f;
+    });
+    MakeInOrder(scene, steps, reversed, 0x2DF0);
+    return scene;
+}
+
+static Ref<Scene> MakeDeterminismScene3D(bool reversed)
+{
+    auto scene = CreateRef<Scene>();
+    std::vector<std::function<void()>> steps;
+    uint64_t next = 0x3D00;
+    auto body = [&](std::string name, glm::vec3 p, glm::vec3 rotation, Rigidbody3DComponent::BodyType type, std::function<void(Entity)> shape) {
+        const uint64_t id = next++;
+        steps.push_back([scene, id, name, p, rotation, type, shape]() {
+            Entity e = scene->CreateEntityWithUUID(UUID(id), name);
+            e.GetTransform().Translation = p;
+            e.GetTransform().Rotation = rotation;
+            e.AddComponent<Rigidbody3DComponent>().Type = type;
+            shape(e);
+        });
+    };
+    auto box = [](glm::vec3 half) { return [half](Entity e) { e.AddComponent<BoxCollider3DComponent>().HalfExtents = half; }; };
+    using T = Rigidbody3DComponent::BodyType;
+    body("Floor", { 0.0f, -0.5f, 0.0f }, glm::vec3(0.0f), T::Static, box({ 20.0f, 0.5f, 20.0f }));
+    // A leaning tower of boxes.
+    for (int i = 0; i < 8; i++)
+        body(std::format("Crate{}", i), { 0.08f * (float)i, 0.5f + 1.02f * (float)i, 0.0f }, { 0.0f, 0.2f * (float)i, 0.0f }, T::Dynamic, box(glm::vec3(0.5f)));
+    // Spheres and capsules rained on it, a little to one side.
+    for (int i = 0; i < 6; i++)
+        body(std::format("Drop{}", i), { -0.6f + 0.25f * (float)i, 10.0f + 1.5f * (float)i, 0.3f * (float)(i % 3) - 0.3f }, { 0.4f * (float)i, 0.0f, 0.7f },
+             T::Dynamic, [i](Entity e) {
+                 if (i % 2 == 0)
+                     e.AddComponent<SphereCollider3DComponent>().Radius = 0.35f;
+                 else
+                 {
+                     auto& c = e.AddComponent<CapsuleCollider3DComponent>();
+                     c.Radius = 0.25f;
+                     c.HalfHeight = 0.4f;
+                 }
+                 e.GetComponent<Rigidbody3DComponent>().Mass = 2.0f + (float)i;
+             });
+    // A pendulum (hinge) and a wheel turned by its motor that pushes the boxes it reaches.
+    body("Pendulum", { 6.0f, 4.0f, 0.0f }, glm::vec3(0.0f), T::Dynamic, [](Entity e) {
+        e.AddComponent<BoxCollider3DComponent>().HalfExtents = { 0.3f, 0.3f, 0.3f };
+        auto& h = e.AddComponent<HingeJoint3DComponent>();
+        h.Anchor = { -2.0f, 0.0f, 0.0f };
+        h.Axis = { 0.0f, 0.0f, 1.0f };
+    });
+    body("Wheel", { -5.0f, 1.0f, 0.0f }, glm::vec3(0.0f), T::Dynamic, [](Entity e) {
+        e.AddComponent<SphereCollider3DComponent>().Radius = 1.0f;
+        auto& h = e.AddComponent<HingeJoint3DComponent>();
+        h.Axis = { 0.0f, 0.0f, 1.0f };
+        h.EnableMotor = true;
+        h.MotorSpeed = -120.0f;
+        h.MaxMotorTorque = 50.0f;
+    });
+    // A character that falls onto the floor and stands there.
+    {
+        const uint64_t id = next++;
+        steps.push_back([scene, id]() {
+            Entity e = scene->CreateEntityWithUUID(UUID(id), "Character");
+            e.GetTransform().Translation = { 3.0f, 3.0f, 3.0f };
+            e.AddComponent<CharacterController3DComponent>();
+        });
+    }
+    MakeInOrder(scene, steps, reversed, 0x3DF0);
+    return scene;
+}
+
+// The scene stepped twice, from its file, made in another order: the very same transforms every time.
+static void CheckPhysicsDeterminism(const std::function<Ref<Scene>(bool)>& make, int frames)
+{
+    Ref<Scene> source = make(false);
+    PhysicsSnapshot halfway, halfwayAgain;
+    const PhysicsSnapshot first = RunPhysicsScene(source, frames, &halfway);
+    const PhysicsSnapshot again = RunPhysicsScene(source, frames, &halfwayAgain);
+    // (It moved: the snapshot is of a simulation, not of the scene as it was made.)
+    CHECK(first.Bits != TakePhysicsSnapshot(source).Bits && halfway.Bits != first.Bits);
+    std::string diff = PhysicsSnapshotDiff(first, again);
+    if (!diff.empty())
+        std::printf("    ikkinchi marta: %s\n", diff.c_str());
+    CHECK(diff.empty() && PhysicsSnapshotDiff(halfway, halfwayAgain).empty());
+
+    // Saved and read back (what the player and the next editor session start from).
+    const std::string text = SceneSerializer(source).SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    diff = PhysicsSnapshotDiff(first, RunPhysicsScene(loaded, frames));
+    if (!diff.empty())
+        std::printf("    saqlab o'qilgandan keyin: %s\n", diff.c_str());
+    CHECK(diff.empty());
+
+    // The same entities made in reverse order (the same file): the same simulation.
+    Ref<Scene> reversed = make(true);
+    CHECK(SceneSerializer(reversed).SerializeToString() == text);
+    // (The editor's copy is in hierarchy order, as the file read back is: the scripts, bodies and joints
+    // of both are made in the same order.)
+    CHECK(Names(reversed->GetEntitiesInOrder()) != Names(loaded->GetEntitiesInOrder()));
+    CHECK(Names(Scene::Copy(reversed)->GetEntitiesInOrder()) == Names(loaded->GetEntitiesInOrder()));
+    diff = PhysicsSnapshotDiff(first, RunPhysicsScene(reversed, frames));
+    if (!diff.empty())
+        std::printf("    teskari tartibda: %s\n", diff.c_str());
+    CHECK(diff.empty());
+    // And its file read back.
+    auto reversedLoaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(reversedLoaded).DeserializeFromString(SceneSerializer(reversed).SerializeToString()));
+    CHECK(PhysicsSnapshotDiff(first, RunPhysicsScene(reversedLoaded, frames)).empty());
+}
+
+TEST(PhysicsDeterminism2D)
+{
+    CheckPhysicsDeterminism(MakeDeterminismScene2D, 300);
+    // Sub-steps and more solver iterations: deterministic as well.
+    CheckPhysicsDeterminism([](bool reversed) {
+        Ref<Scene> scene = MakeDeterminismScene2D(reversed);
+        scene->GetSettings().Physics2D.SubSteps = 3;
+        scene->GetSettings().Physics2D.VelocityIterations = 10;
+        scene->GetSettings().PhysicsStep.StepRate = 90;
+        return scene;
+    }, 200);
+}
+
+TEST(PhysicsDeterminism3D)
+{
+    CheckPhysicsDeterminism(MakeDeterminismScene3D, 300);
+    CheckPhysicsDeterminism([](bool reversed) {
+        Ref<Scene> scene = MakeDeterminismScene3D(reversed);
+        scene->GetSettings().PhysicsStep.StepRate = 120;
+        scene->GetSettings().Physics3D.AllowSleep = false;
+        return scene;
+    }, 200);
+}

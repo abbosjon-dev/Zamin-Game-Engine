@@ -256,6 +256,8 @@ namespace Zamin {
         Scene();
         ~Scene();
 
+        // A copy with the same UUIDs (the editor's Play / Simulate), its entities made in hierarchy order
+        // like a scene read from its file: the copy plays as the exported game does.
         static Ref<Scene> Copy(const Ref<Scene>& other);
 
         Entity CreateEntity(const std::string& name = std::string());
@@ -1552,6 +1554,11 @@ namespace Zamin {
         LightSet GatherLights(const glm::vec3& viewPosition, const std::unordered_set<entt::entity>& skipped);
         // Entities by their scene order (the order of the ID pool, as the hierarchy lists them).
         void SortInSceneOrder(std::vector<entt::entity>& entities);
+        std::vector<entt::entity> InSceneOrder(std::vector<entt::entity> entities)
+        {
+            SortInSceneOrder(entities);
+            return entities;
+        }
         // The main directional light of these (in scene order): the first that casts shadows, else the first.
         entt::entity PickSun(const std::vector<entt::entity>& directionalLights);
 

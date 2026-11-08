@@ -629,7 +629,10 @@ namespace Zamin {
         auto& dstRegistry = newScene->m_Registry;
         std::unordered_map<UUID, entt::entity> enttMap;
 
-        for (Entity e : other->GetEntitiesInOrder())
+        // Made in hierarchy order, as a scene read from its file is (SceneSerializer): the copy the editor
+        // plays has the scene order the exported game has, whatever order the scene was built up in
+        // (the order scripts run in, physics bodies are made in - the same simulation in both).
+        for (Entity e : other->GetEntitiesInHierarchyOrder())
         {
             Entity newEntity = newScene->CreateEntityWithUUID(e.GetUUID(), e.GetName());
             newEntity.GetComponent<TagComponent>().Active = e.IsActive();
@@ -3042,6 +3045,19 @@ namespace Zamin {
     }
 
     // ------------------------------------------------------------------ physics 2D
+    // The entities of a view in scene order (see InSceneOrder in Scene.h). The physics worlds get
+    // their bodies, joints and characters in this order: Box2D and Jolt solve in creation order, so
+    // the same scene simulates the very same whatever order its components were added in.
+    template<typename View>
+    static std::vector<entt::entity> ViewEntities(const View& view)
+    {
+        std::vector<entt::entity> entities;
+        entities.reserve(view.size());
+        for (auto e : view)
+            entities.push_back(e);
+        return entities;
+    }
+
     void Scene::OnPhysics2DStart()
     {
         if (m_PhysicsWorld)
@@ -3055,9 +3071,9 @@ namespace Zamin {
         m_ScriptForceTime2D = 0.0f;
         m_PhysicsMaterialRevision = PhysicsMaterialLibrary::GetRevision();
 
-        for (auto e : m_Registry.view<Rigidbody2DComponent>())
+        for (entt::entity e : InSceneOrder(ViewEntities(m_Registry.view<Rigidbody2DComponent>())))
             CreatePhysicsBody({ e, this });
-        for (auto e : m_Registry.view<TilemapComponent>())
+        for (entt::entity e : InSceneOrder(ViewEntities(m_Registry.view<TilemapComponent>())))
             CreateTilemapBody({ e, this });
         SyncJoints2D(); // once every body exists
         m_ReportedMissingJointBodies.clear();
@@ -3221,11 +3237,12 @@ namespace Zamin {
     {
         if (!m_PhysicsWorld)
             return;
+        std::vector<entt::entity> missing;
         ForEachJoint2DType([&](auto type) {
             using T = typename decltype(type)::type;
+            missing.clear();
             for (auto e : m_Registry.view<T>())
             {
-                Entity entity{ e, this };
                 auto& joint = m_Registry.get<T>(e);
                 if (joint.RuntimeJoint && joint.RuntimeConnected != joint.ConnectedBody.ID)
                 {
@@ -3234,12 +3251,16 @@ namespace Zamin {
                     joint.RuntimeJoint = nullptr;
                 }
                 if (joint.RuntimeJoint)
-                {
                     m_PhysicsWorld->UpdateJoint((b2Joint*)joint.RuntimeJoint, MakeJoint2DDesc(joint));
-                    continue;
-                }
-                if (joint.Broken)
-                    continue;
+                else if (!joint.Broken)
+                    missing.push_back(e);
+            }
+            // The joints not made yet in scene order (Box2D solves them in creation order: see ViewEntities).
+            SortInSceneOrder(missing);
+            for (entt::entity e : missing)
+            {
+                Entity entity{ e, this };
+                auto& joint = m_Registry.get<T>(e);
                 b2Body* body = GetBody2D(entity, false);
                 if (!body)
                     continue; // no Rigidbody 2D, inactive, or the world is not running it yet
@@ -3401,11 +3422,12 @@ namespace Zamin {
             const auto* rb = e.TryGetComponent<Rigidbody3DComponent>();
             return rb ? rb->RuntimeBodyID : PhysicsJoint3DDesc::NoBody;
         };
+        std::vector<entt::entity> missing;
         ForEachJoint3DType([&](auto type) {
             using T = typename decltype(type)::type;
+            missing.clear();
             for (auto e : m_Registry.view<T>())
             {
-                Entity entity{ e, this };
                 auto& joint = m_Registry.get<T>(e);
                 if (joint.RuntimeJoint && joint.RuntimeConnected != joint.ConnectedBody.ID)
                 {
@@ -3414,12 +3436,16 @@ namespace Zamin {
                     joint.RuntimeJoint = 0;
                 }
                 if (joint.RuntimeJoint)
-                {
                     m_PhysicsWorld3D->UpdateJoint(joint.RuntimeJoint, MakeJoint3DDesc(joint));
-                    continue;
-                }
-                if (joint.Broken)
-                    continue;
+                else if (!joint.Broken)
+                    missing.push_back(e);
+            }
+            // The joints not made yet in scene order (Jolt solves them in creation order: see ViewEntities).
+            SortInSceneOrder(missing);
+            for (entt::entity e : missing)
+            {
+                Entity entity{ e, this };
+                auto& joint = m_Registry.get<T>(e);
                 const uint32_t body = bodyOf(entity);
                 if (body == PhysicsJoint3DDesc::NoBody)
                     continue; // no Rigidbody 3D, inactive, or the world is not running it yet
@@ -3723,10 +3749,10 @@ namespace Zamin {
         if (m_Registry.view<Rigidbody3DComponent>().empty() && m_Registry.view<CharacterController3DComponent>().empty())
             return; // don't spin up Jolt for 2D-only scenes
         MakePhysicsWorld3D();
-        for (auto e : m_Registry.view<Rigidbody3DComponent>())
+        for (entt::entity e : InSceneOrder(ViewEntities(m_Registry.view<Rigidbody3DComponent>())))
             CreatePhysicsBody3D({ e, this });
         m_PhysicsWorld3D->OptimizeBroadPhase();
-        for (auto e : m_Registry.view<CharacterController3DComponent>())
+        for (entt::entity e : InSceneOrder(ViewEntities(m_Registry.view<CharacterController3DComponent>())))
             CreateCharacter3D({ e, this });
         m_JointBreaks3D.clear();
         SyncJoints3D(); // once every body exists

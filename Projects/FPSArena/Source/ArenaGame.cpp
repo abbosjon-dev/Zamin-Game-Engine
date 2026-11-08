@@ -154,6 +154,7 @@ void ArenaGame::ShowMenu()
     SetActiveRef(ResultsMenu, false);
     SetActiveRef(Hud, false);
     SetActiveRef(MainMenu, true);
+    ZM_INFO("Menyu: bosh menyu");
     if (Entity button = Resolve(PlayButton))
         GetScene().SetSelectedUI(button);
     StartSession(true); // the bot runs the course (and shoots) behind the menu
@@ -182,6 +183,7 @@ void ArenaGame::OpenPause()
     m_State = State::Paused;
     PauseGame();
     SetActiveRef(PauseMenu, true);
+    ZM_INFO("Menyu: pauza");
     if (Entity button = Resolve(ResumeButton))
         GetScene().SetSelectedUI(button);
     Audio::SetGroupLowPass("Music", 800.0f);
@@ -194,6 +196,7 @@ void ArenaGame::ClosePause()
         return;
     m_State = State::Playing;
     SetActiveRef(PauseMenu, false);
+    ZM_INFO("Menyu: pauza yopildi");
     GetScene().SetSelectedUI({});
     Audio::SetGroupLowPass("Music", 0.0f);
     ResumeGame();
@@ -216,6 +219,7 @@ void ArenaGame::EndRange()
     SetText(ResultsStats, Localize("results.stats", m_TargetsDown, GetAccuracy(), m_BestStreak));
     SetText(ResultsRecord, record ? Localize("results.record") : Localize("results.best", m_BestRange));
     SetActiveRef(ResultsMenu, true);
+    ZM_INFO("Menyu: natijalar - ochko {}, {} ta nishon", m_Score, m_TargetsDown);
     if (Entity button = Resolve(RetryButton))
         GetScene().SetSelectedUI(button);
     m_ResultsTimer = 0.0f;

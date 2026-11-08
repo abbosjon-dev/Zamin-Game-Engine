@@ -81,6 +81,21 @@ namespace Zamin {
         /// The project's settings (the defaults without a project).
         static const TimeSettings& GetSettings();
 
+        /// A fixed frame rate for the game's clock (frame capture, recordings, headless tests): with `fps` > 0
+        /// every frame counts exactly 1 / fps seconds, however long it really took - the game runs slower or
+        /// faster than real time, but the same way on every computer (N frames are always N / fps seconds of
+        /// game time). 0 (the default) is the real time again. Also the environment variable
+        /// ZAMIN_CAPTURE_FPS=N when the application starts. At most MaxCaptureFrameRate.
+        /// @code
+        ///   Time::SetCaptureFrameRate(30);   // a video frame by frame: 30 game frames per second of film
+        /// @endcode
+        static constexpr int MaxCaptureFrameRate = 1000;
+        static void SetCaptureFrameRate(int fps);
+        static int GetCaptureFrameRate();
+        /// The time a frame counts (seconds): 1 / capture frame rate when one is set, otherwise the real time
+        /// limited to TimeSettings::MaxDeltaTime (a negative / NaN time is 0).
+        static float ComputeFrameDelta(float realSeconds);
+
         /// @name Engine side
         /// @{
         /// Application: a frame begins (`unscaledDelta`: its real time, already limited).

@@ -20,6 +20,8 @@ namespace Zamin {
             static_assert(InputKeyCount == GLFW_KEY_LAST + 1);
             for (int key = InputFirstKey; key < InputKeyCount; key++)
             {
+                if (state.Keys[key].Simulated)
+                    continue; // a test holds it (Input::SimulateKey)
                 int s = glfwGetKey(window, key);
                 state.Keys[key].Live = s == GLFW_PRESS || s == GLFW_REPEAT;
             }

@@ -151,9 +151,11 @@ void RunnerGame::ShowMenu()
     SetActiveRef(PauseMenu, false);
     SetActiveRef(GameOverMenu, false);
     SetActiveRef(MainMenu, true);
+    ZM_INFO("Menyu: bosh menyu");
+    StartRun(true); // the bot runs behind the menu
+    // (after StartRun, which clears the selection: Enter / A start the game from the keyboard / a gamepad)
     if (Entity button = Resolve(PlayButton))
         GetScene().SetSelectedUI(button);
-    StartRun(true); // the bot runs behind the menu
     RefreshTexts();
 }
 
@@ -162,6 +164,7 @@ void RunnerGame::OpenPause()
     m_State = State::Paused;
     PauseGame();
     SetActiveRef(PauseMenu, true);
+    ZM_INFO("Menyu: pauza");
     if (Entity button = Resolve(ResumeButton))
         GetScene().SetSelectedUI(button);
     Audio::SetGroupLowPass("Music", 800.0f);
@@ -173,6 +176,7 @@ void RunnerGame::ClosePause()
         return;
     m_State = State::Playing;
     SetActiveRef(PauseMenu, false);
+    ZM_INFO("Menyu: pauza yopildi");
     GetScene().SetSelectedUI({});
     Audio::SetGroupLowPass("Music", 0.0f);
     ResumeGame();
@@ -223,6 +227,7 @@ void RunnerGame::GameOver()
     SetText(OverStats, Localize("over.stats", (int)m_Distance, m_Coins));
     SetText(OverRecord, record ? Localize("over.record") : Localize("over.best", m_BestScore));
     SetActiveRef(GameOverMenu, true);
+    ZM_INFO("Menyu: natijalar - ochko {}, {:.0f} m, {} tanga", score, m_Distance, m_Coins);
     if (Entity button = Resolve(RetryButton))
         GetScene().SetSelectedUI(button);
     m_OverTimer = 0.0f;

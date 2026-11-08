@@ -50,6 +50,15 @@ namespace Zamin {
             JobSystem::Init(m_Specification.JobWorkers > 0 ? (uint32_t)m_Specification.JobWorkers : 0u);
         else
             ZM_CORE_INFO("Vazifalar tizimi o'chiq: hamma ish asosiy oqimda");
+        // ZAMIN_CAPTURE_FPS=N: every frame is 1 / N s of game time (headless tests progress the same way on
+        // every computer, frame-by-frame recordings).
+        if (const char* capture = std::getenv("ZAMIN_CAPTURE_FPS"); capture && *capture)
+        {
+            const int fps = std::atoi(capture);
+            Time::SetCaptureFrameRate(fps);
+            if (Time::GetCaptureFrameRate() > 0)
+                ZM_CORE_INFO("O'yin vaqti qat'iy: har kadr 1/{} s (ZAMIN_CAPTURE_FPS)", Time::GetCaptureFrameRate());
+        }
 
         if (m_Specification.EnableImGui)
         {
@@ -290,8 +299,9 @@ namespace Zamin {
                 }
             }
             // Huge steps after stalls (e.g. a window drag) count as the project's longest frame
-            // (Project settings > Time; 0.1 s without one).
-            Timestep timestep = std::min(frameSeconds, Time::GetSettings().MaxDeltaTime);
+            // (Project settings > Time; 0.1 s without one) - or every frame is exactly 1 / N s
+            // (Time::SetCaptureFrameRate, ZAMIN_CAPTURE_FPS: recordings, tests).
+            Timestep timestep = Time::ComputeFrameDelta(frameSeconds);
             Time::OnFrame(timestep);
 
             Profiler::BeginFrame();

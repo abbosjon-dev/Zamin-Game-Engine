@@ -212,3 +212,40 @@ if(TARGET ZaminEditor AND TARGET ZaminPlayer AND ZAMIN_BUILD_EXAMPLES)
         TIMEOUT 1800
         RUN_SERIAL TRUE)
 endif()
+
+# The sample games (label "samples"). SampleAssets (quick, no display): the six generated games' assets - budget,
+# .zmeta, PNG / WAV, references (Tests/samples_assets.py; --regen compares with the generators' output, needs numpy).
+# Sample<Game> (also "gui;slow": ZaminPlayer under xvfb, 1-4 minutes each): its bot demo makes progress (score,
+# waves, levels, laps ...), its menus work with keys, it runs without errors and shows a picture
+# (Tests/samples_test.py --game <Game>; logs and screenshots in build/SampleTests/<Game>). ctest -L samples runs them,
+# the samples_test target all of them in one go.
+if(Python3_Interpreter_FOUND)
+    add_test(NAME SampleAssets COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/Tests/samples_assets.py
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+    set_tests_properties(SampleAssets PROPERTIES LABELS "samples")
+endif()
+if(TARGET ZaminPlayer AND ZAMIN_BUILD_EXAMPLES AND Python3_Interpreter_FOUND)
+    set(ZAMIN_SAMPLE_GAMES TopDownShooter Breakout FPSArena Sokoban EndlessRunner Racing Platformer2D Showcase3D Adventure3D)
+    foreach(game ${ZAMIN_SAMPLE_GAMES})
+        add_test(NAME Sample${game} COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/Tests/samples_test.py --game ${game}
+            --out ${CMAKE_BINARY_DIR}/SampleTests/${game}
+            WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+        set_tests_properties(Sample${game} PROPERTIES
+            LABELS "samples;gui;slow"
+            ENVIRONMENT "ZAMIN_BUILD_DIR=${CMAKE_BINARY_DIR}"
+            TIMEOUT 1800
+            RUN_SERIAL TRUE)
+    endforeach()
+    add_custom_target(samples_test
+        COMMAND ${CMAKE_COMMAND} -E env ZAMIN_BUILD_DIR=${CMAKE_BINARY_DIR}
+            ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/Tests/samples_test.py --out ${CMAKE_BINARY_DIR}/SampleTests
+        DEPENDS ZaminPlayer
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+        COMMENT "Namuna o'yinlar testi (demo bot, menyular, headless)"
+        USES_TERMINAL VERBATIM)
+    foreach(game ${ZAMIN_SAMPLE_GAMES})
+        if(TARGET ${game})
+            add_dependencies(samples_test ${game})
+        endif()
+    endforeach()
+endif()

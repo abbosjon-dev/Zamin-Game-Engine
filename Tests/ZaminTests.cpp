@@ -3957,6 +3957,48 @@ TEST(InputKeyAndMouseFrames)
     CHECK(!Input::IsKeyPressed(Key::A) && !Input::IsGamepadConnected(0));
 }
 
+TEST(InputSimulatedKeys)
+{
+    // A simulated key (the player's ZAMIN_PLAYER_INPUT): held until released, with both edges once, an axis reads
+    // it, UI navigation / text input get the press like a real key's.
+    Project::SetActive(nullptr); // the default map: "Horizontal" A/Left - D/Right
+    Input::ResetState();
+    NextFrame();
+    CHECK(!Input::IsKeySimulated(Key::D) && Input::GetAxis("Horizontal") == 0.0f);
+    Input::SimulateKey(Key::D, true);
+    CHECK(Input::IsKeySimulated(Key::D) && !Input::IsKeyPressed(Key::D)); // from the next frame on
+    NextFrame();
+    CHECK(Input::IsKeyPressed(Key::D) && Input::IsKeyJustPressed(Key::D) && Input::GetAxis("Horizontal") == 1.0f);
+    bool sawKey = false;
+    for (const TextInputEvent& e : Input::GetTextInput())
+        sawKey |= e.KeyCode == Key::D;
+    CHECK(sawKey);
+    // Held over several frames; pressing it again is no second press.
+    Input::SimulateKey(Key::D, true);
+    NextFrame();
+    NextFrame();
+    CHECK(Input::IsKeyPressed(Key::D) && !Input::IsKeyJustPressed(Key::D) && Input::GetAxis("Horizontal") == 1.0f);
+    Input::SimulateKey(Key::D, false);
+    CHECK(!Input::IsKeySimulated(Key::D));
+    NextFrame();
+    CHECK(!Input::IsKeyPressed(Key::D) && Input::IsKeyJustReleased(Key::D) && Input::GetAxis("Horizontal") == 0.0f);
+    // A one-frame tap (pressed, released after the next Update): both edges, the axis for that one frame.
+    Input::SimulateKey(Key::A, true);
+    NextFrame();
+    CHECK(Input::IsKeyJustPressed(Key::A) && Input::GetAxis("Horizontal") == -1.0f);
+    Input::SimulateKey(Key::A, false);
+    NextFrame();
+    CHECK(Input::IsKeyJustReleased(Key::A) && Input::GetAxis("Horizontal") == 0.0f);
+    // Codes outside the key range are ignored; ResetState() lets every key go.
+    Input::SimulateKey((Key)60000, true);
+    CHECK(!Input::IsKeySimulated((Key)60000));
+    Input::SimulateKey(Key::W, true);
+    Input::ResetState();
+    CHECK(!Input::IsKeySimulated(Key::W));
+    NextFrame();
+    CHECK(!Input::IsKeyPressed(Key::W));
+}
+
 TEST(InputActionQueries)
 {
     Project::SetActive(nullptr); // default map: Jump = Space / Gamepad A, Fire = Mouse Left / LeftControl / RightTrigger
@@ -35297,6 +35339,33 @@ TEST(TimeSettingsAndClock)
     const double since = Time::GetTimeSinceStartup();
     CHECK(since > 0.0 && Time::GetTimeSinceStartup() >= since);
     CHECK(&Time::GetSettings() == &Project::GetTimeSettings());
+}
+
+TEST(TimeCaptureFrameRate)
+{
+    // Without a capture rate: the real time, limited to the project's longest frame; nonsense counts as 0.
+    CHECK(Time::GetCaptureFrameRate() == 0);
+    CHECK_NEAR(Time::ComputeFrameDelta(0.02f), 0.02f, 1e-7f);
+    CHECK_NEAR(Time::ComputeFrameDelta(3.0f), Time::GetSettings().MaxDeltaTime, 1e-7f);
+    CHECK(Time::ComputeFrameDelta(-1.0f) == 0.0f && Time::ComputeFrameDelta(std::numeric_limits<float>::quiet_NaN()) == 0.0f);
+    CHECK_NEAR(Time::ComputeFrameDelta(std::numeric_limits<float>::infinity()), Time::GetSettings().MaxDeltaTime, 1e-7f);
+    // With one: every frame is exactly 1 / fps, a slow frame and a fast one alike (headless tests, recordings).
+    Time::SetCaptureFrameRate(30);
+    CHECK(Time::GetCaptureFrameRate() == 30);
+    CHECK_NEAR(Time::ComputeFrameDelta(0.5f), 1.0f / 30.0f, 1e-7f);
+    CHECK_NEAR(Time::ComputeFrameDelta(0.001f), 1.0f / 30.0f, 1e-7f);
+    CHECK_NEAR(Time::ComputeFrameDelta(std::numeric_limits<float>::quiet_NaN()), 1.0f / 30.0f, 1e-7f);
+    // 600 frames are 20 s of game time whatever the computer: what the sample game tests count on.
+    float total = 0.0f;
+    for (int i = 0; i < 600; i++)
+        total += Time::ComputeFrameDelta(i % 2 ? 0.2f : 0.004f);
+    CHECK_NEAR(total, 20.0f, 1e-3f);
+    // Into its range; 0 is the real time again.
+    Time::SetCaptureFrameRate(100000);
+    CHECK(Time::GetCaptureFrameRate() == Time::MaxCaptureFrameRate);
+    Time::SetCaptureFrameRate(-5);
+    CHECK(Time::GetCaptureFrameRate() == 0);
+    CHECK_NEAR(Time::ComputeFrameDelta(0.05f), 0.05f, 1e-7f);
 }
 
 static int g_UnscaledTimerFires = 0, g_ScaledTimerFires = 0;

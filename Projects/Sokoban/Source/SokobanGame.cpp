@@ -111,6 +111,7 @@ void SokobanGame::ShowMenu()
     SetActiveRef(LevelsMenu, false);
     SetActiveRef(Hud, false);
     SetActiveRef(MainMenu, true);
+    ZM_INFO("Menyu: bosh menyu");
     if (Entity button = Resolve(PlayButton))
         GetScene().SetSelectedUI(button);
     StartLevel(m_Level, true); // the bot solves it behind the menu
@@ -121,6 +122,10 @@ void SokobanGame::ShowMenu()
 void SokobanGame::ShowLevels(bool show)
 {
     SetActiveRef(LevelsMenu, show);
+    if (show)
+        ZM_INFO("Menyu: darajalar");
+    else if (m_State == State::Menu)
+        ZM_INFO("Menyu: bosh menyu");
     if (m_State == State::Menu)
         SetActiveRef(MainMenu, !show);
     RefreshLevelButtons();
@@ -228,6 +233,7 @@ void SokobanGame::OpenPause()
     m_State = State::Paused;
     PauseGame();
     SetActiveRef(PauseMenu, true);
+    ZM_INFO("Menyu: pauza");
     if (Entity button = Resolve(ResumeButton))
         GetScene().SetSelectedUI(button);
     Audio::SetGroupLowPass("Music", 900.0f);
@@ -239,6 +245,7 @@ void SokobanGame::ClosePause()
         return;
     m_State = State::Playing;
     SetActiveRef(PauseMenu, false);
+    ZM_INFO("Menyu: pauza yopildi");
     GetScene().SetSelectedUI({});
     Audio::SetGroupLowPass("Music", 0.0f);
     ResumeGame();
@@ -320,6 +327,7 @@ void SokobanGame::OnUpdate(Timestep ts)
             if (m_CompleteTimer > 1.0f && m_State == State::Complete && !m_Bot && panel && !panel.IsActive())
             {
                 SetActiveRef(CompleteMenu, true);
+                ZM_INFO("Menyu: natijalar - {}-daraja yechildi, {} qadam", m_Level + 1, m_Board.GetMoves());
                 if (Entity next = Resolve(NextButton))
                     GetScene().SetSelectedUI(next);
             }

@@ -498,4 +498,24 @@ namespace Zamin {
         SimulatedPad(id).Axes[(int)axis] = std::clamp(value, -1.0f, 1.0f);
     }
 
+    void Input::SimulateKey(Key key, bool pressed)
+    {
+        int code = (int)key;
+        if (code < Internal::InputFirstKey || code >= Internal::InputKeyCount)
+            return;
+        auto& state = State().Keys[code];
+        if (state.Simulated == pressed && state.Live == pressed)
+            return; // already so: no second event
+        // Held: the poll leaves it pressed. Released: the poll follows the real key again (released too, as far
+        // as the release event is concerned - the next Update() sees the key go up).
+        state.Simulated = pressed;
+        OnKeyEvent(key, pressed);
+    }
+
+    bool Input::IsKeySimulated(Key key)
+    {
+        int code = (int)key;
+        return code >= Internal::InputFirstKey && code < Internal::InputKeyCount && State().Keys[code].Simulated;
+    }
+
 }

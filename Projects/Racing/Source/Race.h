@@ -147,6 +147,7 @@ private:
     static inline RaceGame* s_Instance = nullptr;
     Track m_Track;
     State m_State = State::Menu;
+    State m_PausedFrom = State::Racing; // where the pause menu goes back to
     bool m_Bot = true;
     bool m_DemoRun = false;
     float m_Countdown = 0.0f;

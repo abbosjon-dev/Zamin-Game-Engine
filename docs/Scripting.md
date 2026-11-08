@@ -408,6 +408,9 @@ Joint'lar va boshqa fizik sozlamalar komponentlar orqali (`GetComponent<Revolute
   `GetUnscaledDeltaTime()` — haqiqiy kadr vaqti. Pauza menyusini boshqaradigan skript `OnCreate` da
   `SetUpdateWhenPaused(true)` qiladi; taymer/tween'larni haqiqiy vaqtda yurgizish — `SetTimersUnscaled(true)`.
 - `QuitGame()` — o'yindan chiqish (player yopiladi, editorda Play to'xtaydi).
+- Qat'iy kadr vaqti: `Time::SetCaptureFrameRate(30)` — har kadr haqiqiy vaqtdan qat'i nazar aniq 1/30 s (kadrma-kadr
+  video yozish, testlar; `0` — yana haqiqiy vaqt). Muhit o'zgaruvchisi `ZAMIN_CAPTURE_FPS=N` ham shunday qiladi
+  (`Tests/samples_test.py` namuna o'yinlarni shu bilan ishlatadi).
 
 **Taymerlar** (asosiy oqimda, `OnUpdate`'dan keyin; callback ichidan ham chaqirish xavfsiz): `Invoke(sekund, fn)`,
 `InvokeRepeating(kechikish, interval, fn)`, `CancelInvokes()`, `IsInvoking()`.

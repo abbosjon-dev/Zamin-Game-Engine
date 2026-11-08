@@ -443,7 +443,8 @@ o'zgarmaydi (Release modul `<loyiha>/Build/ExportRelease` da, editor ham shunday
 |---|---|---|
 | `ZAMIN_MAX_FRAMES=N` | hammasi | N kadrdan keyin yopiladi; FPS cheklanmaydi, splash va crash oynasi yo'q |
 | `ZAMIN_SCREENSHOT=fayl.png` | hammasi | Oxirgi kadr rasmi |
-| `ZAMIN_PLAYER_INPUT="<kadr>:<amal>;..."` | player | Tugmalar (`Down`, `Enter` ...), `mouse=x,y`, `click`, `down` / `up`, `scroll=dy` |
+| `ZAMIN_PLAYER_INPUT="<kadr>:<amal>;..."` | player | Tugmalar (`Down`, `Enter` ... - bir kadr bosiladi), `hold=W` / `release=W` (tugma qo'yib yuborilguncha bosib turiladi), `mouse=x,y`, `click`, `down` / `up`, `scroll=dy` |
+| `ZAMIN_CAPTURE_FPS=N` | hammasi | O'yin vaqti qat'iy: har kadr aniq 1/N s (`Time::SetCaptureFrameRate`) - N kadr har kompyuterda bir xil o'yin vaqti (testlar, kadrma-kadr yozib olish) |
 | `ZAMIN_PLAYER_STATS=1` | player | Chiqishda render statistikasi, kadr vaqtlari, profiler, audio, sahna yuklash vaqtlari |
 | `ZAMIN_PLAYER_SPLASH=1` | player | Avtomatik ishga tushishda ham splash |
 | `ZAMIN_FOCUS_LOSS_TEST=<kadr>[:<soni>]` | hammasi | Fokus yo'qolishini taqlid qiladi (fonda pauza) |

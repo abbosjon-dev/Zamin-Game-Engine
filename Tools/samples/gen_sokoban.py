@@ -20,7 +20,7 @@ import samplekit as k  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 NAME = "Sokoban"
-PROJECT = os.path.join(ROOT, "Projects", NAME)
+PROJECT = k.project_dir(NAME)  # Projects/<NAME> (or $ZAMIN_SAMPLES_OUT/<NAME>: Tests/samples_assets.py --regen)
 ASSETS = os.path.join(PROJECT, "Assets")
 ATLAS = "Textures/ui_atlas.png"
 LEVEL_COUNT = 10
@@ -30,7 +30,7 @@ LEVEL_COUNT = 10
 
 def read_levels():
     """The level maps of Source/Levels.cpp (raw string literals R"(...)")."""
-    with open(os.path.join(PROJECT, "Source", "Levels.cpp"), encoding="utf-8") as f:
+    with open(os.path.join(ROOT, "Projects", NAME, "Source", "Levels.cpp"), encoding="utf-8") as f:
         text = f.read()
     return [m.strip("\n") for m in re.findall(r'R"\((.*?)\)"', text, re.S)]
 

@@ -17,7 +17,7 @@ import samplekit as k  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 NAME = "Breakout"
-PROJECT = os.path.join(ROOT, "Projects", NAME)
+PROJECT = k.project_dir(NAME)  # Projects/<NAME> (or $ZAMIN_SAMPLES_OUT/<NAME>: Tests/samples_assets.py --regen)
 ASSETS = os.path.join(PROJECT, "Assets")
 ATLAS = "Textures/breakout_atlas.png"
 

@@ -43,6 +43,37 @@ def write_json(path, data, indent=4):
     write_text(path, json.dumps(data, indent=indent, ensure_ascii=False) + "\n")
 
 
+def dumps_compact(value, indent=2, level=0):
+    """JSON like json.dumps(indent=2), but a list of plain values (numbers, strings, booleans) stays on one line:
+    "Translation": [0.0, 1.5, 0.0]. A scene of a few hundred entities is a fifth smaller and still diffs well;
+    the engine reads it like any JSON (and writes its own layout when the editor saves it)."""
+    pad = " " * (indent * level)
+    inner = " " * (indent * (level + 1))
+    if isinstance(value, dict):
+        if not value:
+            return "{}"
+        items = [f"{inner}{json.dumps(k, ensure_ascii=False)}: {dumps_compact(v, indent, level + 1)}" for k, v in value.items()]
+        return "{\n" + ",\n".join(items) + "\n" + pad + "}"
+    if isinstance(value, (list, tuple)):
+        if not value:
+            return "[]"
+        if all(not isinstance(v, (dict, list, tuple)) for v in value):
+            return "[" + ", ".join(json.dumps(v, ensure_ascii=False) for v in value) + "]"
+        items = [inner + dumps_compact(v, indent, level + 1) for v in value]
+        return "[\n" + ",\n".join(items) + "\n" + pad + "]"
+    return json.dumps(value, ensure_ascii=False)
+
+
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
+
+def project_dir(name):
+    """Where a generator writes its project: Projects/<name> of the repository, or <ZAMIN_SAMPLES_OUT>/<name> when that
+    environment variable is set (Tests/samples_assets.py --regen generates there and compares with the repository)."""
+    out = os.environ.get("ZAMIN_SAMPLES_OUT")
+    return os.path.join(os.path.abspath(out), name) if out else os.path.join(REPO_ROOT, "Projects", name)
+
+
 def stable_uuid(key):
     """16 hex digits derived from `key` (an asset's path): the same file keeps its UUID run after run."""
     return hashlib.sha1(key.encode("utf-8")).hexdigest()[:16]
@@ -436,7 +467,7 @@ class SceneBuilder:
         return root
 
     def save(self, assets_dir, rel_path, project):
-        write_json(os.path.join(assets_dir, rel_path), self.to_json(), indent=2)
+        write_text(os.path.join(assets_dir, rel_path), dumps_compact(self.to_json()) + "\n")
         return write_zmeta(assets_dir, rel_path, "Scene", {}, project)
 
 
@@ -754,7 +785,8 @@ def write_project(project_dir, name, product, start_scene, start_uuid, version="
     }
     if description:
         proj["Project"]["Description"] = description
-    if os.path.isfile(os.path.join(project_dir, "Thumbnail.jpg")):
+    # (the repository's picture also counts when generating elsewhere: ZAMIN_SAMPLES_OUT)
+    if any(os.path.isfile(os.path.join(d, "Thumbnail.jpg")) for d in (project_dir, os.path.join(REPO_ROOT, "Projects", name))):
         proj["Project"]["Thumbnail"] = "Thumbnail.jpg"
     if tags_:
         proj["Tags"] = list(tags_)

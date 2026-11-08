@@ -178,7 +178,8 @@ namespace Zamin {
             if (std::getenv("ZAMIN_PLAYER_NO_INSTANCING"))
                 Renderer3D::SetInstancing(false);
             // ZAMIN_PLAYER_INPUT="<frame>:<action>;..." plays input in (screenshots, CI): a key name
-            // ("Down", "Enter", "Tab": pressed in that frame, released in the next), "mouse=x,y" (the
+            // ("Down", "Enter", "Tab": pressed in that frame, released in the next), "hold=W" / "release=W"
+            // (a key held from that frame until its release: driving, running), "mouse=x,y" (the
             // game's mouse at window px from the top-left from then on), "click" (the left button for
             // one frame), "down" / "up" (the left button held from then on / let go: drags) or
             // "scroll=dy" / "scroll=dx,dy" (the mouse wheel in that frame, notches).
@@ -427,7 +428,7 @@ namespace Zamin {
         void PlayScriptedInput()
         {
             for (Key key : m_ReleaseKeys)
-                Input::OnKeyEvent(key, false);
+                Input::SimulateKey(key, false);
             m_ReleaseKeys.clear();
             m_ScriptedClick = false;
             m_ScriptedScroll = glm::vec2(0.0f);
@@ -457,9 +458,13 @@ namespace Zamin {
                     else
                         m_ScriptedScroll = { 0.0f, (float)std::atof(action.c_str() + 7) };
                 }
+                else if ((action.starts_with("hold=") || action.starts_with("release=")) &&
+                         KeyFromString(std::string_view(action).substr(action.find('=') + 1), key))
+                    Input::SimulateKey(key, action.starts_with("hold=")); // held across frames until released
                 else if (KeyFromString(action, key))
                 {
-                    Input::OnKeyEvent(key, true);
+                    // a tap: held for one frame (the platform's keyboard poll does not undo it)
+                    Input::SimulateKey(key, true);
                     m_ReleaseKeys.push_back(key);
                 }
                 else

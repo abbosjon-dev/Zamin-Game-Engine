@@ -68,6 +68,20 @@ namespace Zamin {
         Scene* s_GameClock = nullptr;
         float s_FrameDelta = 0.0f;
         uint64_t s_FrameCount = 0;
+        int s_CaptureFrameRate = 0;
+    }
+
+    void Time::SetCaptureFrameRate(int fps) { s_CaptureFrameRate = std::clamp(fps, 0, MaxCaptureFrameRate); }
+
+    int Time::GetCaptureFrameRate() { return s_CaptureFrameRate; }
+
+    float Time::ComputeFrameDelta(float realSeconds)
+    {
+        if (s_CaptureFrameRate > 0)
+            return 1.0f / (float)s_CaptureFrameRate;
+        if (std::isnan(realSeconds) || realSeconds < 0.0f)
+            return 0.0f;
+        return std::min(realSeconds, GetSettings().MaxDeltaTime);
     }
 
     float Time::GetDeltaTime() { return s_GameClock ? s_GameClock->GetDeltaTime() : s_FrameDelta; }

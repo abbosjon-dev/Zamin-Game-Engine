@@ -168,6 +168,7 @@ void ShooterGame::ShowMenu()
     SetActiveRef(Hud, false);
     SetActiveRef(MainMenu, true);
     SetActiveRef(Reticle, false);
+    ZM_INFO("Menyu: bosh menyu");
     Cursor::SetVisible(true);
     if (Entity button = Resolve(PlayButton))
         GetScene().SetSelectedUI(button);
@@ -198,6 +199,7 @@ void ShooterGame::OpenPause()
     m_State = State::Paused;
     PauseGame();
     SetActiveRef(PauseMenu, true);
+    ZM_INFO("Menyu: pauza");
     if (Entity button = Resolve(ResumeButton))
         GetScene().SetSelectedUI(button);
     Audio::SetGroupLowPass("Music", 900.0f);
@@ -210,6 +212,7 @@ void ShooterGame::ClosePause()
         return;
     m_State = State::Playing;
     SetActiveRef(PauseMenu, false);
+    ZM_INFO("Menyu: pauza yopildi");
     GetScene().SetSelectedUI({});
     Audio::SetGroupLowPass("Music", 0.0f);
     Cursor::SetVisible(m_Bot);
@@ -240,6 +243,8 @@ void ShooterGame::GameOver()
     SetText(OverWave, Localize("over.wave", m_Wave, m_Kills));
     SetText(OverRecord, m_NewRecord ? Localize("over.record") : Localize("over.best", FormatScore(m_BestScore)));
     SetActiveRef(GameOverMenu, true);
+    ZM_INFO("Menyu: natijalar - hisob {}, {}-to'lqin", m_Score, m_Wave);
+    Sfx("gameover", 0.9f);
     SetActiveRef(Reticle, false);
     Cursor::SetVisible(true);
     if (Entity button = Resolve(RetryButton))

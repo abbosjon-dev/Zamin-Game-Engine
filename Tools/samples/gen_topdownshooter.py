@@ -17,7 +17,7 @@ import samplekit as k  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 NAME = "TopDownShooter"
-PROJECT = os.path.join(ROOT, "Projects", NAME)
+PROJECT = k.project_dir(NAME)  # Projects/<NAME> (or $ZAMIN_SAMPLES_OUT/<NAME>: Tests/samples_assets.py --regen)
 ASSETS = os.path.join(PROJECT, "Assets")
 
 ARENA_W, ARENA_H = 19.0, 11.0  # half extents of the playable floor (units)

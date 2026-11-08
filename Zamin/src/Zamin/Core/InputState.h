@@ -23,6 +23,7 @@ namespace Zamin::Internal {
         bool PendingRelease = false; // release event since the last Update()
         bool Pressed = false;        // press event between the previous and this frame
         bool Released = false;       // release event between the previous and this frame
+        bool Simulated = false;      // held by Input::SimulateKey: the platform poll does not overwrite Live
 
         void OnEvent(bool pressed)
         {

@@ -292,7 +292,7 @@ qamrovi topdi).
 Bo'lim nomi - `Tests/ZaminTests.cpp` dagi bo'lim sarlavhasi (kod izohi, ingliz tilida).
 
 <!-- test-catalog:begin -->
-_`Tests/test_catalog.py --update docs/Testing.md` yaratgan: 629 ta unit test, 93 ta bo'lim (`Tests/ZaminTests.cpp` dagi tartibda). Bitta testni ishga tushirish: `./build/bin/ZaminTests <Nom>`._
+_`Tests/test_catalog.py --update docs/Testing.md` yaratgan: 631 ta unit test, 93 ta bo'lim (`Tests/ZaminTests.cpp` dagi tartibda). Bitta testni ishga tushirish: `./build/bin/ZaminTests <Nom>`._
 
 | # | Bo'lim | Testlar | Nomlari |
 |---|---|---|---|
@@ -302,7 +302,7 @@ _`Tests/test_catalog.py --update docs/Testing.md` yaratgan: 629 ta unit test, 93
 | 4 | EntityRef fields | 2 | `EntityRefSerialization`, `EntityRefRemapOnCopy` |
 | 5 | timers (Invoke) | 1 | `InvokeTimers` |
 | 6 | tweens / easing | 2 | `EasingFunctions`, `TweensRunAndChain` |
-| 7 | input action map | 9 | `InputActionMapDefaults`, `InputBindingNames`, `InputActionMapSerialization`, `ProjectInputMapRoundTrip`, `InputKeyAndMouseFrames`, `InputActionQueries`, `InputAxes`, `SaveDataValuesAndFile`, `SaveDataProjectLocation` |
+| 7 | input action map | 10 | `InputActionMapDefaults`, `InputBindingNames`, `InputActionMapSerialization`, `ProjectInputMapRoundTrip`, `InputKeyAndMouseFrames`, `InputSimulatedKeys`, `InputActionQueries`, `InputAxes`, `SaveDataValuesAndFile`, `SaveDataProjectLocation` |
 | 8 | M01: Random | 3 | `RandomDeterminism`, `RandomRanges`, `RandomGeometry` |
 | 9 | M01: tags | 2 | `TagsQueries`, `ProjectTagList` |
 | 10 | M01: messages / events | 3 | `ScriptMessages`, `EventBusBasics`, `EventBusInScene` |
@@ -357,7 +357,7 @@ _`Tests/test_catalog.py --update docs/Testing.md` yaratgan: 629 ta unit test, 93
 | 59 | M15: scene management end to end | 1 | `SceneManagementFlow` |
 | 60 | M16 Editor II | 15 | `ConsoleFilterAndCollapse`, `GameViewResolutionLayout`, `EditorPreferencesSettings`, `ShortcutRegistryLookup`, `RecentFilesMRU`, `EditorAutosaveRecovery`, `UndoHistoryNamingAndJumps`, `EditorLayoutLibraryFiles`, `SceneViewAxesAndCamera`, `EntityLabelsLayoutAndFade`, `SceneStatisticsCounting`, `ExternalEditorCommands`, `CompilerOutputParsing`, `IdleThrottleDecision`, `EditorIIPureLogic` |
 | 61 | M17: project settings (quality, input, layers) | 21 | `QualityLevelLimits`, `QualitySettingsJson`, `QualityRuntimeLevel`, `ProjectQualityAndSections`, `InputVectorsComposite`, `InputBindingConflicts`, `CollisionLayerPresets`, `SceneFileTagReferences`, `ProjectSettingsIndexSearch`, `SemanticVersionParseCompare`, `PlayerSettingsSerialization`, `PlayerCommandLineParser`, `PlayerLaunchSettingsPrecedence`, `PlayerSettingsFullscreenToggleAndSplash`, `FramePacingPlanAndPacer`, `SplashTimelineAndLogo`, `InputAnyKeyAndMonitorPlacement`, `PlayerCompanySaveDataAndVersion`, `GameIconImagesAndDesktopEntry`, `ProjectFileMigrationAndUnknownKeys`, `BuildSceneChecksAndStartScene` |
-| 62 | M17: graphics context, time, default gravity | 6 | `GraphicsContextSettings`, `TimeSettingsAndClock`, `TimeApiTimeScaleAndUnscaledTimers`, `ProjectDescriptionThumbnailAndSummary`, `ProjectDefaultGravityAndStep`, `ProjectSettingsFullRoundTrip` |
+| 62 | M17: graphics context, time, default gravity | 7 | `GraphicsContextSettings`, `TimeSettingsAndClock`, `TimeCaptureFrameRate`, `TimeApiTimeScaleAndUnscaledTimers`, `ProjectDescriptionThumbnailAndSummary`, `ProjectDefaultGravityAndStep`, `ProjectSettingsFullRoundTrip` |
 | 63 | M17: audio defaults, localization, editor language | 7 | `AudioSpatialDefaults`, `LocalizationStringFiles`, `LocalizationLookupFormatPlural`, `LocalizationTableEditingAndFiles`, `LocalizedTextComponentAndScripts`, `ProjectLocalizationSettings`, `EditorLanguageStrings` |
 | 64 | M18: the player's log file and crash reports | 2 | `PlayerLogFileRotation`, `CrashHandlerReports` |
 | 65 | M18: the cursor API for scripts | 1 | `CursorApiForScripts` |

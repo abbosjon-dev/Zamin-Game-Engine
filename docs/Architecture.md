@@ -185,7 +185,8 @@ layer'larni `OnDetach` qilib o'chiradi.
 hamma so'rov bir xil javob oladi, "JustPressed" aniq bir kadr rost. Nomlangan harakatlar va o'qlar
 (`IsActionPressed("Jump")`, `GetAxis("Horizontal")`, `GetVector("Move")`) loyiha faylidagi input xaritasidan
 (Project settings > Input). Oynasiz (testlar) `Input::OnKeyEvent` / `SimulateGamepad*` yagona manba - input
-headless taqlid qilinadi.
+headless taqlid qilinadi. Oyna bor paytda `Input::SimulateKey` bosilgan tugmani qo'yib yuborilguncha ushlab turadi
+(klaviaturani so'rash uni o'chirmaydi) - player'ning `ZAMIN_PLAYER_INPUT` skripti shu bilan ishlaydi.
 
 ## 5. Sahna va ECS
 

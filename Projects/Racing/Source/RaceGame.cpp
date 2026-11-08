@@ -127,17 +127,21 @@ void RaceGame::ShowMenu()
     SetActiveRef(PauseMenu, false);
     SetActiveRef(ResultsMenu, false);
     SetActiveRef(MainMenu, true);
+    ZM_INFO("Menyu: bosh menyu");
+    StartRace(true); // the bots race behind the menu
+    // (after StartRace, which clears the selection: Enter / A start the race from the keyboard / a gamepad)
     if (Entity button = Resolve(PlayButton))
         GetScene().SetSelectedUI(button);
-    StartRace(true); // the bots race behind the menu
     RefreshTexts();
 }
 
 void RaceGame::OpenPause()
 {
+    m_PausedFrom = m_State; // the start lights or the race
     m_State = State::Paused;
     PauseGame();
     SetActiveRef(PauseMenu, true);
+    ZM_INFO("Menyu: pauza");
     if (Entity button = Resolve(ResumeButton))
         GetScene().SetSelectedUI(button);
     Audio::SetGroupLowPass("Music", 800.0f);
@@ -147,8 +151,9 @@ void RaceGame::ClosePause()
 {
     if (m_State != State::Paused)
         return;
-    m_State = State::Racing;
+    m_State = m_PausedFrom;
     SetActiveRef(PauseMenu, false);
+    ZM_INFO("Menyu: pauza yopildi");
     GetScene().SetSelectedUI({});
     Audio::SetGroupLowPass("Music", 0.0f);
     ResumeGame();
@@ -175,6 +180,7 @@ void RaceGame::FinishRace()
     SetText(ResultsTimes, Localize("results.times", FormatTime(car->RaceTime), FormatTime(car->BestLap)));
     SetText(ResultsRecord, record ? Localize("results.record") : m_BestLap > 0.0f ? Localize("results.best", FormatTime(m_BestLap)) : std::string());
     SetActiveRef(ResultsMenu, true);
+    ZM_INFO("Menyu: natijalar - {}-o'rin, vaqt {}", car->FinishPlace, FormatTime(car->RaceTime));
     if (Entity button = Resolve(RetryButton))
         GetScene().SetSelectedUI(button);
     if (m_DemoRun)
@@ -191,7 +197,7 @@ void RaceGame::OnUpdate(Timestep ts)
     m_Time += realDt;
     if (Input::IsActionJustPressed("Pause"))
     {
-        if (m_State == State::Racing && !m_DemoRun)
+        if ((m_State == State::Racing || m_State == State::Countdown) && !m_DemoRun)
             OpenPause();
         else if (m_State == State::Paused)
             ClosePause();

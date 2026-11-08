@@ -234,6 +234,7 @@ void BreakoutGame::ShowMenu()
     SetActiveRef(GameOverMenu, false);
     SetActiveRef(Hud, false);
     SetActiveRef(MainMenu, true);
+    ZM_INFO("Menyu: bosh menyu");
     Cursor::SetVisible(true);
     if (Entity button = Resolve(PlayButton))
         GetScene().SetSelectedUI(button);
@@ -263,6 +264,7 @@ void BreakoutGame::OpenPause()
     m_State = State::Paused;
     PauseGame();
     SetActiveRef(PauseMenu, true);
+    ZM_INFO("Menyu: pauza");
     if (Entity button = Resolve(ResumeButton))
         GetScene().SetSelectedUI(button);
     Audio::SetGroupLowPass("Music", 900.0f);
@@ -275,6 +277,7 @@ void BreakoutGame::ClosePause()
         return;
     m_State = State::Playing;
     SetActiveRef(PauseMenu, false);
+    ZM_INFO("Menyu: pauza yopildi");
     GetScene().SetSelectedUI({});
     Audio::SetGroupLowPass("Music", 0.0f);
     Cursor::SetVisible(m_Bot);
@@ -308,6 +311,7 @@ void BreakoutGame::EndGame(bool victory)
     SetText(OverLevel, Localize("over.level", reached, m_BricksBroken));
     SetText(OverRecord, m_NewRecord ? Localize("over.record") : Localize("over.best", FormatScore(m_BestScore)));
     SetActiveRef(GameOverMenu, true);
+    ZM_INFO("Menyu: natijalar ({}) - hisob {}, {}-daraja", victory ? "g'alaba" : "o'yin tugadi", m_Score, reached);
     Cursor::SetVisible(true);
     if (Entity button = Resolve(RetryButton))
         GetScene().SetSelectedUI(button);

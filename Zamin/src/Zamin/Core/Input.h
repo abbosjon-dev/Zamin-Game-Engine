@@ -140,6 +140,12 @@ namespace Zamin {
         static void SimulateGamepadConnected(int id, bool connected);
         static void SimulateGamepadButton(int id, GamepadButton button, bool pressed);
         static void SimulateGamepadAxis(int id, GamepadAxis axis, float value);
+        /// Simulated key (tests / automation: the player's ZAMIN_PLAYER_INPUT): pressed, it stays held - the
+        /// window's keyboard poll leaves it alone - until released here (or ResetState()); a press and a release
+        /// are events like a real key's (JustPressed / JustReleased, UI navigation, text input). Visible after
+        /// the next Update().
+        static void SimulateKey(Key key, bool pressed);
+        static bool IsKeySimulated(Key key);
     };
 
 }

@@ -46329,3 +46329,136 @@ TEST(PrefabPlacementAndThumbs)
     CHECK(PrefabCache::GetStats().Reads == 1 && PrefabCache::GetStats().Hits == 9);
     PrefabCache::Clear();
 }
+
+TEST(PrefabHotReloadSync)
+{
+    namespace fs = std::filesystem;
+    TempDirectory temp("zamin-prefab-reload");
+    PrefabDatabase db(temp.GetPath());
+    db.SetRecheckInterval(1000.0); // only CheckFile (the watcher) tells the database a file changed
+    // Q (Weapon) nested in P (Enemy) nested in R (Squad): a change of Q rewrites P, then R.
+    auto qs = CreateRef<Scene>();
+    Entity qWeapon = qs->CreateEntity("Weapon");
+    qWeapon.AddComponent<SpriteRendererComponent>().Color = { 0.25f, 0.25f, 0.25f, 1.0f };
+    Entity qMuzzle = qs->CreateEntity("Muzzle");
+    qMuzzle.AddComponent<CircleRendererComponent>().Color = { 1.0f, 1.0f, 1.0f, 1.0f };
+    qs->SetParent(qMuzzle, qWeapon, false);
+    const fs::path qFile = temp.GetPath() / "Prefabs" / "Weapon.zprefab";
+    CHECK(qs->SavePrefab(qWeapon, qFile));
+    auto ps = CreateRef<Scene>();
+    Entity pEnemy = ps->CreateEntity("Enemy");
+    CHECK(PrefabUtility::InstantiateLinked(*ps, db, "Prefabs/Weapon.zprefab", pEnemy));
+    const fs::path pFile = temp.GetPath() / "Prefabs" / "Enemy.zprefab";
+    CHECK(ps->SavePrefab(pEnemy, pFile));
+    auto rs = CreateRef<Scene>();
+    Entity rSquad = rs->CreateEntity("Squad");
+    CHECK(PrefabUtility::InstantiateLinked(*rs, db, "Prefabs/Enemy.zprefab", rSquad));
+    const fs::path rFile = temp.GetPath() / "Prefabs" / "Squad.zprefab";
+    CHECK(rs->SavePrefab(rSquad, rFile));
+    CHECK(db.GetDependents("Prefabs/Weapon.zprefab") == (std::vector<std::string>{ "Prefabs/Enemy.zprefab", "Prefabs/Squad.zprefab" }));
+
+    // An open scene: a squad, and a weapon of its own with its colour changed (an override).
+    auto scene = CreateRef<Scene>();
+    Entity squad = PrefabUtility::InstantiateLinked(*scene, db, "Prefabs/Squad.zprefab");
+    Entity weapon = PrefabUtility::InstantiateLinked(*scene, db, "Prefabs/Weapon.zprefab");
+    CHECK(squad && weapon);
+    if (!squad || !weapon)
+        return;
+    weapon.GetComponent<SpriteRendererComponent>().Color = { 0.0f, 0.0f, 1.0f, 1.0f };
+    PrefabUtility::RecordOverrides(weapon, db);
+    auto muzzleOf = [&](Entity root) {
+        for (Entity e : scene->GetDescendants(root))
+            if (e.GetName() == "Muzzle")
+                return e;
+        return Entity();
+    };
+    Entity squadMuzzle = muzzleOf(squad), weaponMuzzle = muzzleOf(weapon);
+    CHECK(squadMuzzle && weaponMuzzle);
+    // The first look at a file: a change (its instances are checked, nothing differs).
+    PrefabUtility::ReloadResult first = PrefabUtility::ReloadFiles(db, { "Prefabs/Weapon.zprefab" });
+    CHECK(first.Changed == std::vector<std::string>{ "Prefabs/Weapon.zprefab" } && first.Rewritten.empty() && first.Files.empty());
+    CHECK(PrefabUtility::SyncScene(*scene, db, &first.Affected).Changed == 0);
+
+    // Q changes outside the editor: P and R are rewritten in that order, the scene follows.
+    const std::string pBefore = FileSystem::ReadTextFile(pFile), rBefore = FileSystem::ReadTextFile(rFile);
+    qMuzzle.GetComponent<CircleRendererComponent>().Color = { 1.0f, 0.0f, 0.0f, 1.0f };
+    CHECK(qs->SavePrefab(qWeapon, qFile));
+    PrefabUtility::ReloadResult r = PrefabUtility::ReloadFiles(db, { "Prefabs\\Weapon.zprefab" });
+    CHECK(r.Changed == std::vector<std::string>{ "Prefabs/Weapon.zprefab" } && r.Removed.empty() && r.Failed.empty());
+    CHECK(r.Rewritten == (std::vector<std::string>{ "Prefabs/Enemy.zprefab", "Prefabs/Squad.zprefab" }) && r.Files.size() == 2);
+    CHECK(r.Affected == (std::vector<std::string>{ "Prefabs/Weapon.zprefab", "Prefabs/Enemy.zprefab", "Prefabs/Squad.zprefab" }));
+    CHECK(FileSystem::ReadTextFile(pFile) != pBefore && FileSystem::ReadTextFile(rFile) != rBefore);
+    CHECK(r.Files.size() == 2 && r.Files[0].Path == "Prefabs/Enemy.zprefab" && r.Files[0].Before && *r.Files[0].Before == pBefore);
+    CHECK(FileSystem::ReadTextFile(rFile).find("\"Color\": [\n") != std::string::npos || FileSystem::ReadTextFile(rFile).find("Color") != std::string::npos);
+    PrefabUtility::SyncResult sync = PrefabUtility::SyncScene(*scene, db, &r.Affected);
+    CHECK(sync.Changed == 2 && sync.Issues.empty());
+    CHECK(squadMuzzle.GetComponent<CircleRendererComponent>().Color == glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+    CHECK(weaponMuzzle.GetComponent<CircleRendererComponent>().Color == glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+    CHECK(weapon.GetComponent<SpriteRendererComponent>().Color == glm::vec4(0.0f, 0.0f, 1.0f, 1.0f)); // its own colour stays
+    CHECK(OverridesOf(weapon) == std::vector<std::string>{ "SpriteRenderer/Color" });
+    // A fresh read of R (as another editor session would) has the new colour: the rewrite is flat.
+    {
+        auto check = CreateRef<Scene>();
+        Entity copy = check->InstantiatePrefab(rFile);
+        bool red = false;
+        for (Entity e : check->GetDescendants(copy))
+            red |= e.GetName() == "Muzzle" && e.GetComponent<CircleRendererComponent>().Color == glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
+        CHECK(red);
+    }
+
+    // Idempotent: the same report again, the watcher's reports of the rewrites (own writes), a touch.
+    PrefabUtility::ReloadResult again = PrefabUtility::ReloadFiles(db, { "Prefabs/Weapon.zprefab" });
+    CHECK(again.IsEmpty() && again.Changed.empty() && again.Rewritten.empty() && again.Ignored.size() == 1);
+    PrefabUtility::ReloadResult own = PrefabUtility::ReloadFiles(db, { "Prefabs/Enemy.zprefab", "Prefabs/Squad.zprefab" });
+    CHECK(own.IsEmpty() && own.Ignored.size() == 2);
+    std::error_code ec;
+    const fs::file_time_type qTime = fs::last_write_time(qFile, ec);
+    fs::last_write_time(qFile, qTime + std::chrono::seconds(5), ec);
+    CHECK(db.CheckFile("Prefabs/Weapon.zprefab") == PrefabDatabase::FileChange::None);
+    CHECK(PrefabUtility::SyncScene(*scene, db).Changed == 0);
+    // The editor's own write is not a change either.
+    const std::string qText = FileSystem::ReadTextFile(qFile);
+    std::string qEdited = qText;
+    const size_t at = qEdited.find("0.25");
+    CHECK(at != std::string::npos);
+    qEdited.replace(at, 4, "0.75");
+    CHECK(db.Write("Prefabs/Weapon.zprefab", qEdited) && db.CheckFile("Prefabs/Weapon.zprefab") == PrefabDatabase::FileChange::None);
+    CHECK(db.Write("Prefabs/Weapon.zprefab", qText));
+
+    // A change that kept the file's size and time is found by its text (the database had not noticed).
+    const fs::file_time_type sameTime = fs::last_write_time(qFile, ec);
+    const std::string reread = db.Get("Prefabs/Weapon.zprefab")->Text;
+    CHECK(reread == qText);
+    CHECK(FileSystem::WriteTextFile(qFile, qEdited));
+    fs::last_write_time(qFile, sameTime, ec);
+    CHECK(fs::file_size(qFile, ec) == qText.size());
+    CHECK(db.Get("Prefabs/Weapon.zprefab")->Text == qText); // stale: time and size look the same
+    CHECK(db.CheckFile("Prefabs/Weapon.zprefab") == PrefabDatabase::FileChange::Changed);
+    CHECK(db.Get("Prefabs/Weapon.zprefab")->Text == qEdited);
+    CHECK(db.CheckFile("Prefabs/Weapon.zprefab") == PrefabDatabase::FileChange::None);
+    std::vector<std::string> only{ "Prefabs/Weapon.zprefab" };
+    for (const std::string& dependent : db.GetDependents("Prefabs/Weapon.zprefab"))
+        PrefabUtility::SyncPrefabFile(db, dependent);
+    only.push_back("Prefabs/Enemy.zprefab");
+    only.push_back("Prefabs/Squad.zprefab");
+    PrefabUtility::SyncScene(*scene, db, &only);
+    CHECK_NEAR(weapon.GetComponent<SpriteRendererComponent>().Color.r, 0.0f, 1e-6f); // overridden: stays
+    bool squadWeapon = false;
+    for (Entity e : scene->GetDescendants(squad))
+        if (e.GetName() == "Weapon")
+            squadWeapon = std::abs(e.GetComponent<SpriteRendererComponent>().Color.r - 0.75f) < 1e-6f;
+    CHECK(squadWeapon);
+
+    // Removed: reported, the instances keep what they have (shown as missing).
+    fs::remove(qFile, ec);
+    PrefabUtility::ReloadResult removed = PrefabUtility::ReloadFiles(db, { "Prefabs/Weapon.zprefab" });
+    CHECK(removed.Removed == std::vector<std::string>{ "Prefabs/Weapon.zprefab" } && removed.Changed.empty());
+    CHECK(std::find(removed.Affected.begin(), removed.Affected.end(), "Prefabs/Weapon.zprefab") != removed.Affected.end());
+    sync = PrefabUtility::SyncScene(*scene, db, &removed.Affected);
+    CHECK(!sync.Issues.empty() && weaponMuzzle && weaponMuzzle.GetComponent<CircleRendererComponent>().Color == glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+    CHECK(PrefabUtility::IsInstanceRoot(weapon) && OverridesOf(weapon) == std::vector<std::string>{ "SpriteRenderer/Color" });
+    CHECK(PrefabUtility::ReloadFiles(db, { "Prefabs/Weapon.zprefab" }).IsEmpty()); // still gone: nothing new
+    // Back again: added.
+    CHECK(FileSystem::WriteTextFile(qFile, qText));
+    CHECK(db.CheckFile("Prefabs/Weapon.zprefab") == PrefabDatabase::FileChange::Added);
+}

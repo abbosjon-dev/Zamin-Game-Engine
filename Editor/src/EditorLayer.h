@@ -152,6 +152,9 @@ namespace Zamin {
         // The editor scene's instances linked (old scenes) and brought up to date with their prefabs;
         // not a user step. True when the scene changed (assets resolved again).
         bool SyncPrefabInstances(bool reportIssues = false);
+        // ---- prefab hot reload (EditorPrefabReload.cpp): prefab files changed outside the editor
+        void QueuePrefabReload(const std::filesystem::path& file);
+        void ProcessPrefabReloads();
         // What the instances touched by an edit (`before` -> `after` snapshots) differ in from their
         // prefabs is recorded. True when a list changed.
         bool RecordPrefabOverrides(const std::string* before, const std::string& after);
@@ -1078,6 +1081,11 @@ namespace Zamin {
             bool ExternalChange = false;                  // changed outside while there were unsaved edits
         };
         std::vector<PrefabStageLevel> m_PrefabStages;
+        // Prefab files the file watcher reported (relative to the assets): handled in Edit mode (a
+        // change while playing waits for Stop - the running game is never touched).
+        std::vector<std::string> m_PendingPrefabReloads;
+        bool m_PrefabReloadAll = false;                   // prefabs moved outside: every instance looked at
+        bool m_PrefabReloadNoticeShown = false;           // "o'yin to'xtagach yangilanadi" said once per run
         struct PrefabStageOpenRequest
         {
             std::string Prefab;

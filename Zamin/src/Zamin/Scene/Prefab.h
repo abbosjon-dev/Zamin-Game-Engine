@@ -138,6 +138,27 @@ namespace Zamin {
         // changes something). False when it cannot be read or written.
         static bool SyncPrefabFile(PrefabDatabase& db, std::string_view relPath, std::vector<FileEdit>* edits = nullptr);
 
+        // ---- hot reload: prefab files changed outside the editor (a text editor, version control)
+        struct ReloadResult
+        {
+            std::vector<std::string> Changed;     // prefab files whose text changed (outside the editor)
+            std::vector<std::string> Removed;     // prefab files gone (their instances keep their data)
+            std::vector<std::string> Ignored;     // the editor's own writes, touched files with the same text
+            std::vector<std::string> Rewritten;   // prefabs made of the changed ones, brought up to date on disk (in this order)
+            std::vector<std::string> Failed;      // such prefabs that could not be brought up to date (unreadable, newer format)
+            std::vector<std::string> Affected;    // Changed + Removed + every prefab made of them: the instances to sync
+            std::vector<FileEdit> Files;          // the rewrites
+
+            bool IsEmpty() const { return Affected.empty(); }
+        };
+        // Looks at the prefab files the file watcher reported (PrefabDatabase::CheckFile: own writes
+        // and touches are not changes), forgets what was read of the changed ones and rewrites the
+        // prefabs that nest them (or are their variants) - each after the ones it is made of, only
+        // when its text changes (own writes: the watcher's next report of them is ignored). Calling it
+        // again for the same files changes nothing. The scene's instances are not touched: SyncScene
+        // with Affected afterwards (never on a running scene).
+        static ReloadResult ReloadFiles(PrefabDatabase& db, const std::vector<std::string>& relPaths);
+
         // ---- variants: a prefab made of another one (its base). Its root is an instance of the base
         // in its own file (the root link written), so it follows the base - every entity, value and
         // child the variant did not change - and adds its own changes on top. Variants of variants

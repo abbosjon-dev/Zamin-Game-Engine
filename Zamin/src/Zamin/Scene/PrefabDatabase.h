@@ -90,6 +90,13 @@ namespace Zamin {
         bool Write(std::string_view relPath, const std::string& text, std::vector<FileEdit>* undo = nullptr);
         // The text was written by this database (the file watcher's change is the editor's own).
         bool IsOwnWrite(const std::filesystem::path& file, uint64_t contentHash) const;
+        // What became of a prefab file since this database last looked at it with CheckFile (or wrote
+        // it): the file watcher said it changed. The file's text is read and hashed - a change that
+        // kept its time and size is found, a touch that kept its text is not one. A file never looked
+        // at before counts as changed (its instances are checked; that changes nothing when they are
+        // up to date). The template of a changed / added / removed file is forgotten (read again).
+        enum class FileChange : uint8_t { None, Changed, Added, Removed, OwnWrite };
+        FileChange CheckFile(std::string_view relPath);
         // Forgets the file's template (and the hashes of everything): read again when asked.
         void Invalidate(std::string_view relPath);
         void Clear();
@@ -111,6 +118,12 @@ namespace Zamin {
         std::unordered_map<std::string, std::unique_ptr<Entry>> m_Entries;
         std::unordered_map<std::string, uint64_t> m_Hashes;
         std::unordered_map<std::string, uint64_t> m_OwnWrites;          // file (normalized) -> content hash
+        struct SeenFile
+        {
+            bool Exists = false;
+            uint64_t Hash = 0;
+        };
+        std::unordered_map<std::string, SeenFile> m_Seen;               // CheckFile / Write: the text last seen
         std::unordered_map<std::string, std::vector<std::string>> m_Uses; // prefab -> the prefabs nested in it
         bool m_ScanValid = false;
         std::unordered_set<std::string> m_Building;                     // templates being built (cycles)

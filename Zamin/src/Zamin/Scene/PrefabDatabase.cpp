@@ -428,6 +428,7 @@ namespace Zamin {
         if (!FileSystem::WriteTextFileAtomic(file, text))
             return false;
         m_OwnWrites[FileSystem::NormalizePath(file)] = HashText(text);
+        m_Seen[key] = { true, HashText(text) };
         PrefabCache::Invalidate(file); // a game started from the editor spawns the new text
         if (undo)
             undo->push_back({ key, std::move(before), text });
@@ -439,6 +440,42 @@ namespace Zamin {
     {
         auto it = m_OwnWrites.find(FileSystem::NormalizePath(file));
         return it != m_OwnWrites.end() && it->second == contentHash;
+    }
+
+    PrefabDatabase::FileChange PrefabDatabase::CheckFile(std::string_view relPath)
+    {
+        const std::string key = NormalizePath(relPath);
+        if (key.empty())
+            return FileChange::None;
+        const fs::path file = ToFileSystemPath(key);
+        std::error_code ec;
+        auto seen = m_Seen.find(key);
+        const bool known = seen != m_Seen.end();
+        const SeenFile before = known ? seen->second : SeenFile{};
+        if (!fs::is_regular_file(file, ec))
+        {
+            m_Seen[key] = { false, 0 };
+            m_OwnWrites.erase(FileSystem::NormalizePath(file));
+            if (known && !before.Exists)
+                return FileChange::None;
+            Invalidate(key);
+            return FileChange::Removed;
+        }
+        const uint64_t hash = HashText(FileSystem::ReadTextFile(file));
+        m_Seen[key] = { true, hash };
+        if (known && before.Exists && before.Hash == hash)
+            return FileChange::None; // touched (or written back as it was)
+        // The editor's last write of it (not seen yet, e.g. after Clear) - any other text means that
+        // write is history: the same text coming back later (version control) is a change then.
+        auto own = m_OwnWrites.find(FileSystem::NormalizePath(file));
+        if (own != m_OwnWrites.end())
+        {
+            if (own->second == hash)
+                return FileChange::OwnWrite;
+            m_OwnWrites.erase(own);
+        }
+        Invalidate(key);
+        return known && !before.Exists ? FileChange::Added : FileChange::Changed;
     }
 
     void PrefabDatabase::Invalidate(std::string_view relPath)
@@ -469,6 +506,7 @@ namespace Zamin {
     void PrefabDatabase::Clear()
     {
         m_Entries.clear();
+        m_Seen.clear();
         m_Hashes.clear();
         m_Uses.clear();
         m_ScanValid = false;

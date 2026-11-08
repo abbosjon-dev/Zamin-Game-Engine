@@ -1550,6 +1550,7 @@ namespace Zamin {
 
         CheckModuleHotReload(ts);
         ProcessAssetChanges();
+        ProcessPrefabReloads();
         m_SceneThumbnails.Update();
         ProcessThumbnailQueue();
 
@@ -5916,7 +5917,14 @@ namespace Zamin {
         }
         for (const auto* list : { &report.Added, &report.Modified, &report.Removed })
             for (const fs::path& p : *list)
+            {
                 m_ContentBrowserPanel.InvalidateThumbnail(p);
+                if (p.extension() == ".zprefab")
+                    QueuePrefabReload(p); // its instances follow (in Edit mode)
+            }
+        for (const auto& [from, to] : report.Moved)
+            if (fs::path(to).extension() == ".zprefab" || fs::path(from).extension() == ".zprefab")
+                m_PrefabReloadAll = true;
         if (report.HasStructureChanges() || !report.Modified.empty())
             m_ContentBrowserPanel.MarkListDirty(); // new / gone files, sizes and dates
 

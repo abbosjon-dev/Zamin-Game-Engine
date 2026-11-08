@@ -46248,3 +46248,84 @@ TEST(PrefabVariants)
     CHECK(variantInstance.GetComponent<SpriteRendererComponent>().Color == blue && scene->GetChildren(variantInstance).size() == 2);
     CHECK(bossInstance.GetComponent<SpriteRendererComponent>().Color == blue && baseInstance.IsValid() && scene->GetChildren(baseInstance).size() == 2);
 }
+
+// Placing prefabs and their pictures (414, 415): the row several dropped prefabs are laid out in, the
+// names their instances get, the view each sample prefab's thumbnail is taken from, and that placing
+// one again and again reads its file once.
+TEST(PrefabPlacementAndThumbs)
+{
+    namespace fs = std::filesystem;
+    // ---- the row: centred on the hit, along the camera's right, spaced by the widest
+    const std::vector<glm::vec3> one = PrefabPlacement::Layout(1, glm::vec3(2.0f, 0.0f, 3.0f), glm::vec3(5.0f, 0.0f, 0.0f), 2.0f);
+    CHECK(one.size() == 1 && one[0] == glm::vec3(2.0f, 0.0f, 3.0f));
+    const std::vector<glm::vec3> three = PrefabPlacement::Layout(3, glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 2.0f), 1.5f);
+    CHECK(three.size() == 3);
+    if (three.size() == 3)
+    {
+        CHECK_NEAR(three[0].z, -1.5f, 1e-6f);
+        CHECK_NEAR(three[1].z, 0.0f, 1e-6f);
+        CHECK_NEAR(three[2].z, 1.5f, 1e-6f);
+    }
+    const std::vector<glm::vec3> four = PrefabPlacement::Layout(4, glm::vec3(1.0f, 2.0f, 0.0f), glm::vec3(0.0f), 1.0f); // no axis: x
+    CHECK(four.size() == 4 && four[0] == glm::vec3(-0.5f, 2.0f, 0.0f) && four[3] == glm::vec3(2.5f, 2.0f, 0.0f));
+    CHECK(PrefabPlacement::Layout(0, glm::vec3(0.0f), glm::vec3(1.0f, 0.0f, 0.0f), 1.0f).empty());
+    CHECK_NEAR(PrefabPlacement::Spacing({ 1.0f, 3.0f, 2.0f }), 3.6f, 1e-5f);
+    CHECK_NEAR(PrefabPlacement::Spacing({}), 1.0f, 1e-6f);
+    CHECK_NEAR(PrefabPlacement::Spacing({ 0.1f }, 0.5f), 0.5f, 1e-6f);
+
+    // ---- names of their own
+    std::set<std::string> names{ "Enemy", "Enemy (2)", "Coin" };
+    auto taken = [&](std::string_view n) { return names.contains(std::string(n)); };
+    CHECK(PrefabPlacement::UniqueName("Boss", taken) == "Boss");
+    CHECK(PrefabPlacement::UniqueName("Enemy", taken) == "Enemy (3)");
+    CHECK(PrefabPlacement::UniqueName("Enemy (2)", taken) == "Enemy (3)");
+    names.insert("Enemy (3)");
+    CHECK(PrefabPlacement::UniqueName("Enemy", taken) == "Enemy (4)");
+    CHECK(PrefabPlacement::UniqueName("Coin", nullptr) == "Coin");
+
+    // ---- the thumbnail view of every sample prefab (read without their assets: no GPU here)
+    const fs::path projects = fs::path(ZAMIN_SOURCE_DIR) / "Projects";
+    const std::pair<const char*, PrefabThumbnailView> samples[] = {
+        { "Platformer2D/Assets/Prefabs/GameMenu.zprefab", PrefabThumbnailView::UI },
+        { "Platformer2D/Assets/Prefabs/Ragdoll.zprefab", PrefabThumbnailView::View2D },
+        { "Platformer2D/Assets/Prefabs/CoinSparkle.zprefab", PrefabThumbnailView::View2D },
+        { "Showcase3D/Assets/Prefabs/Ball.zprefab", PrefabThumbnailView::View3D },
+        { "Showcase3D/Assets/Prefabs/Ragdoll3D.zprefab", PrefabThumbnailView::View3D },
+        { "Adventure3D/Assets/Prefabs/CrystalBurst.zprefab", PrefabThumbnailView::View3D },
+    };
+    for (const auto& [file, view] : samples)
+    {
+        auto scene = CreateRef<Scene>();
+        SceneSerializer::EntitySetReadOptions options;
+        options.KeepPrefabLinks = false;
+        const std::vector<Entity> made = SceneSerializer::DeserializeEntities(*scene, FileSystem::ReadTextFile(projects / file), options);
+        CHECK(!made.empty());
+        CHECK(PrefabPlacement::ChooseThumbnailView(*scene) == view);
+        const AABB box = PrefabPlacement::ThumbnailBounds(*scene);
+        CHECK(box.Min.x < box.Max.x && box.Min.y < box.Max.y);
+    }
+    {
+        auto empty = CreateRef<Scene>();
+        CHECK(PrefabPlacement::ChooseThumbnailView(*empty) == PrefabThumbnailView::View2D);
+        const AABB box = PrefabPlacement::ThumbnailBounds(*empty);
+        CHECK(box.Min == glm::vec3(-1.0f) && box.Max == glm::vec3(1.0f));
+    }
+
+    // ---- placed again and again: read once (the editor's template, the game's PrefabCache)
+    TempDirectory temp("zamin-prefab-place");
+    PrefabFixture prefab(temp.GetPath());
+    PrefabDatabase db(temp.GetPath());
+    auto scene = CreateRef<Scene>();
+    const PrefabDatabase::Template* t = db.Get(prefab.Rel());
+    for (int i = 0; i < 10; i++)
+        CHECK(PrefabUtility::InstantiateLinked(*scene, db, prefab.Rel()));
+    CHECK(db.Get(prefab.Rel()) == t && t->Text == FileSystem::ReadTextFile(prefab.File));
+    PrefabCache::Clear();
+    PrefabCache::ResetStats();
+    SceneSerializer::EntitySetReadOptions options;
+    options.KeepPrefabLinks = false;
+    for (int i = 0; i < 10; i++)
+        CHECK(PrefabCache::Instantiate(*scene, prefab.File, options).size() == 3);
+    CHECK(PrefabCache::GetStats().Reads == 1 && PrefabCache::GetStats().Hits == 9);
+    PrefabCache::Clear();
+}

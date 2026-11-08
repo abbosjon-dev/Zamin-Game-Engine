@@ -31,7 +31,18 @@ namespace Zamin::PrefabPlacement {
         std::vector<Entity> roots = scene.GetRootEntities();
         AABB bounds;
         if (scene.ComputeBounds(roots, bounds))
+        {
+            // A point (an effect before it starts, a mesh whose model is not loaded): half a unit
+            // around it on the flat axes.
+            for (int axis = 0; axis < 3; axis++)
+                if (bounds.Max[axis] - bounds.Min[axis] < 1e-4f)
+                {
+                    const float c = (bounds.Min[axis] + bounds.Max[axis]) * 0.5f;
+                    bounds.Min[axis] = c - 0.5f;
+                    bounds.Max[axis] = c + 0.5f;
+                }
             return bounds;
+        }
         // Nothing that draws has a size yet: the entities' places, a unit around them.
         AABB around = AABB::Empty();
         for (Entity e : scene.GetEntitiesInHierarchyOrder())

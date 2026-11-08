@@ -164,7 +164,27 @@ namespace Zamin {
             m_ShowAudioMixer = true;
             m_AudioMixerPanel.Focus();
         };
-        m_SceneHierarchyPanel.OnPrefabDropped = [this](const fs::path& p, Entity parent) { InstantiatePrefabInEditor(p, parent); };
+        m_SceneHierarchyPanel.OnPrefabDropped = [this](const fs::path& p, Entity parent) {
+            // Every prefab the drag carries, below the row it was dropped on (one undo step).
+            const UUID parentID = parent ? parent.GetUUID() : UUID(0);
+            std::vector<Entity> placed;
+            for (const std::string& prefab : GetDroppedPrefabs(Project::GetAssetRelativePath(Project::GetAssetFileSystemPath(p))))
+            {
+                Entity under = (uint64_t)parentID ? m_EditorScene->GetEntityByUUID(parentID) : Entity();
+                if (Entity root = InstantiatePrefabInEditor(prefab, under))
+                {
+                    root.SetName(PrefabPlacement::UniqueName(root.GetName(), [&](std::string_view name) {
+                        for (Entity other : m_EditorScene->FindEntitiesByName(name))
+                            if (other != root)
+                                return true;
+                        return false;
+                    }));
+                    placed.push_back(root);
+                }
+            }
+            if (placed.size() > 1)
+                m_SceneHierarchyPanel.GetSelection().Set(placed, placed.front());
+        };
         m_SceneHierarchyPanel.OnOpenScriptSource = [this](const std::string& className) { OpenScriptClassSource(className); };
         m_ContentBrowserPanel.OnOpenSourceFile = [this](const fs::path& file) { OpenInExternalEditor(file); };
         m_SceneHierarchyPanel.OnAnimationWindowRequested = [this](Entity e, int clip) {
@@ -4352,6 +4372,10 @@ namespace Zamin {
 
     bool EditorLayer::OnMouseButtonPressed(MouseButtonPressedEvent& e)
     {
+        // Prefab placing: a click in the viewport places the prefabs again (nothing is selected).
+        if (e.GetMouseButton() == MouseButton::Left && m_ViewportHovered && m_PrefabPlacing.Active && !m_GizmoHovered && !m_NavigatorHovered)
+            if (HandlePrefabPlacingClick())
+                return true;
         if (e.GetMouseButton() == MouseButton::Left && m_ViewportHovered && m_SceneState != SceneState::Play)
         {
             bool alt = Input::IsKeyPressed(Key::LeftAlt) || Input::IsKeyPressed(Key::RightAlt);
@@ -7180,7 +7204,14 @@ namespace Zamin {
             if (active && active->IsDataType("CONTENT_BROWSER_ITEM") && AssetFiles::GetType((const char*)active->Data) == AssetType::Material)
                 UpdateMaterialDrag((const char*)active->Data);
             else if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM"))
-                DropAssetOnViewport((const char*)payload->Data);
+            {
+                // Prefabs: every one dragged, at the mouse (Ctrl: their saved places, Shift: keep placing).
+                const std::string dropped((const char*)payload->Data);
+                if (AssetFiles::GetType(dropped) == AssetType::Prefab && m_SceneState == SceneState::Edit)
+                    DropPrefabsOnViewport(GetDroppedPrefabs(dropped));
+                else
+                    DropAssetOnViewport(dropped);
+            }
             ImGui::EndDragDropTarget();
         }
         // Screenshots / CI (no drag source): ZAMIN_EDITOR_MATERIAL_DRAG="Materials/Gold.zmat>Entity"
@@ -7235,6 +7266,7 @@ namespace Zamin {
             }
         }
         UI_MaterialSlotPopup();
+        UI_PrefabPlacing();
         // The drag is over (dropped elsewhere or cancelled): the material is not held any more.
         if (!m_MaterialDrag.Active && !ImGui::GetDragDropPayload() && !ImGui::IsPopupOpen("##materialSlots"))
         {

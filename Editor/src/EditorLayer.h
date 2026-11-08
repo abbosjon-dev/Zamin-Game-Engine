@@ -133,6 +133,14 @@ namespace Zamin {
         void PasteEntity();
         void SavePrefab(Entity entity);
         Entity InstantiatePrefabInEditor(const std::filesystem::path& assetPath, Entity parent);
+        // ---- placing prefabs (EditorPrefabPlacement.cpp): every prefab a drag carries, at the mouse
+        std::vector<std::string> GetDroppedPrefabs(const std::string& payload);
+        bool PrefabDropPoint(glm::vec3& point);
+        std::vector<Entity> PlacePrefabsAtMouse(const std::vector<std::string>& prefabs, bool keepSaved);
+        void DropPrefabsOnViewport(const std::vector<std::string>& prefabs);
+        void StartPrefabPlacing(const std::vector<std::string>& prefabs);
+        bool HandlePrefabPlacingClick();
+        void UI_PrefabPlacing();
         // ---- prefab instances (EditorPrefabs.cpp): linked to their prefab, Apply / Revert / Unpack
         void QueuePrefabRequest(const PrefabRequest& request) { m_PrefabRequests.push_back(request); }
         void ProcessPrefabRequests();
@@ -1044,6 +1052,13 @@ namespace Zamin {
             bool Open = false;
         } m_PrefabSaveKind;                               // save an instance: a prefab of its own, or a variant?
         std::vector<std::string> m_PrefabVariantRequests; // "Variant yaratish" asked while the panels draw
+        struct PrefabPlacing
+        {
+            std::vector<std::string> Prefabs;             // placed by every click in the viewport
+            bool Active = false;
+            size_t Placed = 0;
+        } m_PrefabPlacing;                                // Shift at a drop: "prefab qo'yish rejimi"
+        std::optional<ImVec2> m_PrefabPlaceAt;            // automation: the "mouse" placing uses (screen px)
         // prefab mode
         struct PrefabStageLevel
         {

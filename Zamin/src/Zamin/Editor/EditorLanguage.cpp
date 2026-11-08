@@ -1527,6 +1527,12 @@ namespace Zamin {
               "The new prefab inherits from the base prefab: its changes reach the variant too. Base" },
             { "Asl prefab", "Original prefab" },
             { "Mustaqil prefab: asosiy prefab bilan bog'lanmaydi", "A prefab of its own: not linked to the base prefab" },
+            { "ta prefab qo'yildi", "prefabs placed" },
+            { "Prefab qo'yildi", "Prefab placed" },
+            { "Prefab qo'yish rejimi: bosing - qo'yiladi, Esc yoki o'ng tugma - chiqish", "Prefab placing: click to place, Esc or right-click to stop" },
+            { "Joylanadi", "Placing" },
+            { "Bosing: qo'yish  -  Esc / o'ng tugma: chiqish", "Click: place  -  Esc / right-click: stop" },
+            { "ta qo'yildi", "placed" },
         };
 
         struct Table

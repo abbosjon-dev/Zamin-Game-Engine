@@ -48,6 +48,9 @@ namespace Zamin {
         void InvalidateThumbnail(const std::filesystem::path& path) { m_Thumbnails.Invalidate(path); }
         ThumbnailCache& GetThumbnails() { return m_Thumbnails; }
         const std::vector<std::filesystem::path>& GetSelection() const { return m_Selection; }
+        // What the drag from this panel carries (its multi-selection; empty when nothing is dragged
+        // from it). The payload names one of them.
+        const std::vector<std::filesystem::path>& GetDraggedPaths() const { return m_DragPaths; }
         // Asks to delete these files / folders (the confirmation lists what still uses them).
         void RequestDelete(std::vector<std::filesystem::path> paths) { m_PendingDelete = std::move(paths); }
         // "Yangi material": a material asset with default values under a free name ("NewMaterial",

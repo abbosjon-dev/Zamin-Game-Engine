@@ -457,7 +457,8 @@ namespace Zamin {
     // ZAMIN_EDITOR_PREFAB="color=<name>,r,g,b;scale=<name>,s;remove=<name>,<Component>;child=<parent>,<name>;
     // create=<name>;save=<name>;select=<name>;top=<name>;move=<name>,x,y,z;instantiate=<prefab>[,<parent>[,<name>]];
     // apply=<name>[,<path>[,<target>]];revert=<name>[,<path>];unpack=<name>;undo;redo;changes;open=<prefab>[,<name>];
-    // stagesave;stageclose[=<levels kept>];variant=<prefab>;savevariant=<name>[,<prefab>]": prefab instance edits made one by one as undo steps (screenshots,
+    // stagesave;stageclose[=<levels kept>];variant=<prefab>;savevariant=<name>[,<prefab>];place=<prefab>[|...],x,y[,shift]":
+    // prefab instance edits made one by one as undo steps (screenshots,
     // checks). "changes" opens the inspector's list; "open" opens a prefab in prefab mode (the entity of an
     // instance named second is selected there), "stagesave" / "stageclose" save / leave it.
     void EditorLayer::ApplyPrefabAutomation(std::string_view spec)
@@ -522,6 +523,32 @@ namespace Zamin {
                 if (Entity root = InstantiatePrefabInEditor(args[0], parent); root && args.size() >= 3)
                     root.SetName(args[2]);
                 CommitUndo();
+                continue;
+            }
+            // place=<prefab>[|<prefab>...],<x>,<y>[,shift]: prefabs dropped onto the viewport at that point of it
+            // (0..1 across / down), as a multi-selection dragged from the content browser; "shift" stays in
+            // placing mode (the point is kept for its hint).
+            if (op == "place" && args.size() >= 3)
+            {
+                std::vector<std::string> prefabs;
+                for (size_t start = 0; start <= args[0].size();)
+                {
+                    const size_t bar = args[0].find('|', start);
+                    const std::string one = args[0].substr(start, bar == std::string::npos ? std::string::npos : bar - start);
+                    if (!one.empty())
+                        prefabs.push_back(PrefabDatabase::NormalizePath(one));
+                    if (bar == std::string::npos)
+                        break;
+                    start = bar + 1;
+                }
+                const float fx = std::stof(args[1]), fy = std::stof(args[2]);
+                m_PrefabPlaceAt = ImVec2(m_ViewportBounds[0].x + (m_ViewportBounds[1].x - m_ViewportBounds[0].x) * fx,
+                                         m_ViewportBounds[0].y + (m_ViewportBounds[1].y - m_ViewportBounds[0].y) * fy);
+                PlacePrefabsAtMouse(prefabs, false);
+                if (args.size() >= 4 && args[3] == "shift")
+                    StartPrefabPlacing(prefabs);
+                else
+                    m_PrefabPlaceAt.reset();
                 continue;
             }
             if (op == "variant" && !args.empty())

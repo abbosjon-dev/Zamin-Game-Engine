@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """The unit tests' catalogue (Tests/ZaminTests.cpp): every TEST(...) under the section comment it stands in
-("// ---------- title" / "// ---- title"), with the count per section - the list in docs/testing.md.
+("// ---------- title" / "// ---- title"), with the count per section - the list in docs/Testing.md.
 
     Tests/test_catalog.py                       the catalogue as Markdown on stdout
-    Tests/test_catalog.py --update docs/testing.md   rewrite the part between the markers in that file
-    Tests/test_catalog.py --check docs/testing.md    exit code 1 when that part is out of date (a test added,
+    Tests/test_catalog.py --update docs/Testing.md   rewrite the part between the markers in that file
+    Tests/test_catalog.py --check docs/Testing.md    exit code 1 when that part is out of date (a test added,
                                                     renamed or removed without --update)
 The markers: "<!-- test-catalog:begin -->" and "<!-- test-catalog:end -->". Standard library only; it reads the
 source, nothing has to be built.
@@ -47,7 +47,7 @@ def catalogue():
 def markdown(sections):
     total = sum(len(n) for _, n in sections)
     out = [BEGIN,
-           f"_`Tests/test_catalog.py --update docs/testing.md` yaratgan: {total} ta unit test, {len(sections)} ta bo'lim "
+           f"_`Tests/test_catalog.py --update docs/Testing.md` yaratgan: {total} ta unit test, {len(sections)} ta bo'lim "
            "(`Tests/ZaminTests.cpp` dagi tartibda). Bitta testni ishga tushirish: `./build/bin/ZaminTests <Nom>`._",
            "",
            "| # | Bo'lim | Testlar | Nomlari |",

@@ -29,7 +29,7 @@ namespace Zamin {
     using Severity = PrefabExportIssue::Severity;
 
     namespace {
-        // The editor's prefab link keys under an entity's "Editor" (docs/prefabs.md).
+        // The editor's prefab link keys under an entity's "Editor" (docs/Prefabs.md).
         constexpr const char* s_LinkKeys[] = { "Prefab", "PrefabUUID", "PrefabEntity", "PrefabHash", "Overrides", "RemovedComponents", "RemovedEntities" };
 
         bool IsPrefabPath(std::string_view value)

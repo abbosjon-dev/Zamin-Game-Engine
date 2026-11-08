@@ -3,7 +3,7 @@
 # GPU instancing) and both in one scene, drawn the way the player draws them, ms per frame on the CPU and with the
 # GPU (glFinish). A GL context is needed: under xvfb (a fixed 1600x900x24 screen) when there is no display, and
 # always with Mesa's software rasteriser (llvmpipe), so that the numbers compare between machines and with the
-# baseline in docs/benchmarks.md (a GPU: ZAMIN_RENDER_BENCH_GPU=1).
+# baseline in docs/Benchmarks.md (a GPU: ZAMIN_RENDER_BENCH_GPU=1).
 #   Tests/render_bench.sh                          every case, 120 frames, 1280x720
 #   Tests/render_bench.sh --sprites 20000 --meshes 2000 --frames 300
 #   Tests/render_bench.sh --case meshes            only the cases whose name has this

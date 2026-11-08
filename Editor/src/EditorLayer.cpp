@@ -6419,7 +6419,7 @@ namespace Zamin {
         const ExportAssetPlan assetPlan = ExportAssets::PlanForActiveProject(&buildScenes, &notes, &referenceIndex);
         for (const std::string& note : notes)
             ZM_INFO("Eksport: {}", note);
-        // The prefabs the game gets are checked (R1-R10, docs/prefabs.md), and the scenes / prefabs that
+        // The prefabs the game gets are checked (R1-R10, docs/Prefabs.md), and the scenes / prefabs that
         // hold the editor's prefab links are exported without them (instances older than their prefabs
         // brought up to date in the copy; the project's files stay as they are). Here, on this thread
         // (the editor's prefab database); the export thread only writes the texts.

@@ -2,7 +2,7 @@
 
 M22 "Sifat va testlar" milestone'i oxiridagi holat: hamma raqamlar shu kompyuterda haqiqatan o'lchangan (2026-11-08,
 4 vCPU, 15 GB RAM, Ubuntu 24.04, GCC 13.3, Clang 18.1, Mesa llvmpipe - GPU yo'q). Testlar va ularni ishga tushirish:
-[testing.md](testing.md).
+[Testing.md](Testing.md).
 
 ## Qisqacha
 
@@ -70,7 +70,7 @@ Milestone davomida sanitizerlar topgan va tuzatilgan xatolar:
 
 ## Kod qamrovi
 
-`Tests/coverage.sh` (GCC, `--coverage -O0`), 2026-11-08 (batafsil: [coverage.md](coverage.md)):
+`Tests/coverage.sh` (GCC, `--coverage -O0`), 2026-11-08 (batafsil: [Coverage.md](Coverage.md)):
 
 | Qism | Unit testlar | `--gui` bilan (player, editor smoke) |
 |---|---|---|
@@ -123,7 +123,7 @@ oladigan chaqiruvlarda yopuvchi qavsni oxirgi ifoda qatoriga tortardi (`...; }, 
 
 ## Benchmarklar (Release boshlang'ich natijalari)
 
-Batafsil: [benchmarks.md](benchmarks.md). Rendering - llvmpipe (dasturiy rasterizator), shuning uchun mutlaq ms
+Batafsil: [Benchmarks.md](Benchmarks.md). Rendering - llvmpipe (dasturiy rasterizator), shuning uchun mutlaq ms
 haqiqiy GPU'dagidan ancha katta; raqamlar o'zgarishlarni solishtirish uchun.
 
 | Benchmark | Natija |

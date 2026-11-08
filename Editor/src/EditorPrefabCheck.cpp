@@ -1,5 +1,5 @@
 // "Prefab'larni tekshirish" (Fayl menu, the Build dialog): the export's prefab check (PrefabExport,
-// rules R1-R10 of docs/prefabs.md) run on its own - what an export would report about the prefabs the
+// rules R1-R10 of docs/Prefabs.md) run on its own - what an export would report about the prefabs the
 // game gets, and which scenes / prefabs it would write without their prefab links (or bring up to date).
 #include "EditorLayer.h"
 #include "UI.h"

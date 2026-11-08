@@ -10,7 +10,7 @@
 #                                                                a number slower by more than 25 % fails the run
 #   Tests/bench.sh --update-baseline                             the results become the new baseline
 #   Tests/bench.sh --out DIR                                     the results somewhere else
-# The baselines are machine-dependent: compare on the computer they were made on (docs/benchmarks.md has where
+# The baselines are machine-dependent: compare on the computer they were made on (docs/Benchmarks.md has where
 # they come from), or make them again there first. Exit code: 0 - ran (and no regression), 1 - a benchmark failed
 # or got slower, 2 - ZaminBench missing / bad arguments.
 set -uo pipefail

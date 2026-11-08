@@ -16,7 +16,7 @@ namespace Zamin {
     {
         enum class Severity : uint8_t { Info, Warning, Error };
         Severity Level = Severity::Warning;
-        std::string Rule;      // "R1" ... "R10" (docs/prefabs.md)
+        std::string Rule;      // "R1" ... "R10" (docs/Prefabs.md)
         std::string File;      // the scene / prefab / source file it is about (asset-relative; code: project-relative)
         std::string Message;   // Uzbek, for the report
     };
@@ -41,7 +41,7 @@ namespace Zamin {
 
     // The prefab part of an export (the editor's Build and "Prefab'larni tekshirish"). Main thread
     // only, before the export thread starts: it reads the prefabs through the editor's PrefabDatabase.
-    // Rules (docs/prefabs.md):
+    // Rules (docs/Prefabs.md):
     //   R1  a prefab the game names is missing (a scene's / prefab's script field, a C++ string literal:
     //       Instantiate would give nothing)                                                    error
     //   R2  a prefab does not parse / has no entities (partly unreadable: warning)              error

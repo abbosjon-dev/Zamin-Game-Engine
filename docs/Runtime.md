@@ -4,7 +4,7 @@ Bu qo'llanma o'yinni editordan tashqarida ishga tushiradigan **Zamin Player** (`
 ishga tushirish, buyruq qatori, sozlamalar qayerdan olinishi, log va crash hisobotlari, versiya ma'lumoti, kursor
 va ekran API'lari, o'yin menyusi namunasi, eksport qilingan o'yin papkasi, hamda playerni avtomatik sinash
 (ishlash testi va eksport testi). Loyiha sozlamalarining o'zi (oyna, splash, sifat, til ...) batafsil
-[project-settings.md](project-settings.md) da, sahnalar oqimi [scenes.md](scenes.md) da.
+[ProjectSettings.md](ProjectSettings.md) da, sahnalar oqimi [Scenes.md](Scenes.md) da.
 
 ## Mundarija
 
@@ -32,7 +32,7 @@ va ekran API'lari, o'yin menyusi namunasi, eksport qilingan o'yin papkasi, hamda
 
 `ZaminPlayer` - o'yinning o'zi: editorsiz, ImGui'siz, faqat o'yin oynasi. U `.zproject` faylini ochadi, skript
 modulini (`lib<O'yin>.so`) yuklaydi va boshlang'ich sahnani `SceneManager` orqali ishga tushiradi (qo'shimcha
-sahnalar, `DontDestroyOnLoad`, fonda yuklash, o'tishlar - [scenes.md](scenes.md)).
+sahnalar, `DontDestroyOnLoad`, fonda yuklash, o'tishlar - [Scenes.md](Scenes.md)).
 
 ```bash
 # Ishlab chiqish paytida: loyiha fayli yoki papkasi
@@ -146,7 +146,7 @@ log'ga ogohlantirish bo'lib yoziladi, qolganlari ishlatiladi. `ZaminPlayer --hel
 - **FPS cheklovi** (`TargetFrameRate` / `--fps`) VSync bilan birga ishlaydi: monitor chastotasini bo'ladigan
   cheklovni VSync o'zi ushlaydi, boshqalarini aniq jadvalli kutish (uyqu + qisqa aylanish).
 
-Batafsil: [project-settings.md, 4-bo'lim](project-settings.md#4-player-oyna-nom-versiya-ikonka).
+Batafsil: [ProjectSettings.md, 4-bo'lim](ProjectSettings.md#4-player-oyna-nom-versiya-ikonka).
 
 ## 6. Log fayllari
 
@@ -349,7 +349,7 @@ Editorda **Fayl > O'yinni build qilish...** o'yinni papkaga eksport qiladi:
 
 - **Ishlatilmagan assetlar chiqarib tashlanadi**: build sahnalari va ular orqali kerak bo'lgan hamma narsa
   (prefablar, materiallar, modellar, kliplar), loyiha fayli va C++ kodidagi `"..."` satrlarida tilga olingan fayllar,
-  `Resources/`, til fayllari va "Doim kiritish" ro'yxati. Batafsil: [project-settings.md, 12-bo'lim](project-settings.md#12-build-sahnalar).
+  `Resources/`, til fayllari va "Doim kiritish" ro'yxati. Batafsil: [ProjectSettings.md, 12-bo'lim](ProjectSettings.md#12-build-sahnalar).
 - **Skript moduli Release'da** alohida build papkasida (`<loyiha>/Build/ExportRelease`) qayta kompilyatsiya
   qilinadi; binarlar `strip` qilinadi (~218 MB -> ~37 MB). Ikkalasini o'chirsa bo'ladi.
 - **Eksport o'zini tekshiradi** (`ExportFiles::CheckExportFolder`): ishga tushirish skripti (bajarish huquqi bilan),

@@ -13,7 +13,7 @@
 //   combined          the sprites (on a wall behind) and the meshes in one scene
 // For each: the CPU time of the frame (until everything is submitted) and the whole frame (glFinish: the GPU
 // done too) - average, median, p95, min, max ms - and what was drawn (draw calls, quads, meshes, instanced,
-// triangles). --json writes them (render-bench.json: the baseline in docs/benchmarks.md was made with it).
+// triangles). --json writes them (render-bench.json: the baseline in docs/Benchmarks.md was made with it).
 #include <Zamin/Zamin.h>
 
 #include <algorithm>

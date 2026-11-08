@@ -8,7 +8,7 @@
 //   - what each component costs: 1 000 entities that have only it, saved and loaded, less an entity without
 //     one (ns and bytes per component).
 // Every number is the median of 3 runs (5 for the component table). The linked prefab instances have a
-// benchmark of their own (--serialize --prefabs, PrefabBench.cpp); docs/benchmarks.md has the baseline.
+// benchmark of their own (--serialize --prefabs, PrefabBench.cpp); docs/Benchmarks.md has the baseline.
 #include <Zamin/Zamin.h>
 
 #include <algorithm>

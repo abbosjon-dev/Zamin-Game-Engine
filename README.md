@@ -35,7 +35,7 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   ostiga, Shift — qo'yish rejimi); nusxalar prefabga **bog'langan** (o'zgarishlar inspektorda belgilanadi, Apply / Revert har
   darajada, bog'lanishni uzish), ichma-ich prefab'lar va **variantlar**, **prefab rejimi** (alohida tahrirlash), prefab fayli
   tashqarida o'zgarsa nusxalar yangilanadi (hot reload), undo prefab fayllari bilan, nusxalash buferi bog'lanishni saqlaydi,
-  kontent brauzerda prefab rasmlari, eksportda tekshiruv (R1-R10) — batafsil: [docs/prefabs.md](docs/prefabs.md)
+  kontent brauzerda prefab rasmlari, eksportda tekshiruv (R1-R10) — batafsil: [docs/Prefabs.md](docs/Prefabs.md)
 - 2D sahnalar uchun avtomatik ortografik kamera, 3D collider'larni wireframe ko'rinishda chizish
 - Zamonaviy qorong'i tema, Inter shrifti, Font Awesome ikonkalari, o'zbekcha interfeys
 - Gizmo'lar (ko'chirish / aylantirish / masshtab), sichqoncha bilan obyekt tanlash (picking)
@@ -294,7 +294,7 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     umuman to'xtaydi; **pozalarni keshlash** (klip belgilangan kadr/s da oldindan namuna olinadi, model animatorlari ulashadi,
     step kalitlar aniq). Statistika oynasida **Animatsiya** bo'limi, profiler'da `Animatsiya/Pozalar`, `Scene::GetAnimationStats()`.
     Namuna: Showcase3D `Scenes/Olomon.zscene` (168 tentakl, buriladigan kamera)
-  - Batafsil qo'llanma: [docs/animation.md](docs/animation.md) — kliplar, timeline, Animator, blend tree, qatlamlar, event'lar,
+  - Batafsil qo'llanma: [docs/Animation.md](docs/Animation.md) — kliplar, timeline, Animator, blend tree, qatlamlar, event'lar,
     root motion, biriktirish, morph target'lar, samaradorlik, kod misollari bilan
   - **Post-processing**: SSAO (ambient occlusion), bloom (**rangi** — porlash shu rangga ko'paytiriladi; **linza changi** —
     yorqin yorug'likning keng porlashi protsedural chang/dog' teksturasini yoritadi), vinyetka, kontrast/to'yinganlik/rang
@@ -803,14 +803,14 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   (progress bar) → 1-daraja, `GameSession` (DontDestroyOnLoad: musiqa; tangalar, darajalar va rekord `GameState` da,
   darajalar statistikasi `SessionStats` servisida; HUD `WatchGameState` bilan yangilanadi); `Scenes/SubScenes.zscene`
   (bitta `Parts/Camp.zscene` bo'lagi uch joyda, uchinchisi skript bilan keyinroq)
-  - Prefab'lar: [docs/prefabs.md](docs/prefabs.md) — nusxa va bog'lanish, override'lar, Apply / Revert, ichma-ich prefab'lar,
+  - Prefab'lar: [docs/Prefabs.md](docs/Prefabs.md) — nusxa va bog'lanish, override'lar, Apply / Revert, ichma-ich prefab'lar,
     variantlar, prefab rejimi, havolalar, hot reload, undo, bufer, fayl formati va versiya, tiklash, eksport qoidalari R1-R10
-  - Batafsil qo'llanma: [docs/scenes.md](docs/scenes.md) — yuklash rejimlari, DontDestroyOnLoad, fonda yuklash, o'tishlar,
+  - Batafsil qo'llanma: [docs/Scenes.md](docs/Scenes.md) — yuklash rejimlari, DontDestroyOnLoad, fonda yuklash, o'tishlar,
     build ro'yxati, hodisalar, qidiruv, xatolar, fayl formati, global holat, sub-sahnalar, profiler, binar kesh, kod misollari bilan
 - **Loyiha sozlamalari** (Oyna → Loyiha sozlamalari, bo'limlar va qidiruv): player oynasi, ikonka, kompaniya / mahsulot / versiya,
   sifat darajalari (Low..Ultra), OpenGL konteksti, vaqt (`Time::SetTimeScale`), standart gravitatsiya, audio standartlari (3D masofa
   modeli), lokalizatsiya (`Assets/Localization/<til>.json`, `Localize("key")`, Text komponenti kaliti), editor tili (o'zbek / ingliz)
-  - Batafsil qo'llanma: [docs/project-settings.md](docs/project-settings.md) — har sozlama, `.zproject` formati, player buyruq qatori, kod misollari
+  - Batafsil qo'llanma: [docs/ProjectSettings.md](docs/ProjectSettings.md) — har sozlama, `.zproject` formati, player buyruq qatori, kod misollari
 - **Player** (`ZaminPlayer`): oyna sozlamalari ustunlik tartibi bilan (buyruq qatori > o'yinchi saqlagani > loyiha), F11 / Alt+Enter
   bilan to'liq ekran (oyna avvalgi joyiga qaytadi, oyna turgan monitorda), FPS cheklovi (`--fps`, VSync bilan kelishilgan: 30 FPS
   60 Hz da VSync intervali 2, boshqalari uyqu + aylanish jadvali), Zamin logotipli splash ekran (birinchi sahna fonda yuklanadi,
@@ -822,7 +822,7 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   p95, p99 ms, JSON, chegaralar - `Tests/player_bench.sh`), avtomatik eksport testi (`Tests/export_test.sh`: editor eksporti,
   eksport qilingan o'yin xvfb'da), qayta ishlatiladigan o'yin menyusi (`Prefabs/GameMenu.zprefab`: O'ynash / Sozlamalar -
   ekran o'lchami, to'liq ekran, VSync, sifat, gamma, ovoz, til / Chiqish)
-  - Batafsil qo'llanma: [docs/runtime.md](docs/runtime.md) — player, buyruq qatori, sozlamalar ustunligi, eksport, log, crash
+  - Batafsil qo'llanma: [docs/Runtime.md](docs/Runtime.md) — player, buyruq qatori, sozlamalar ustunligi, eksport, log, crash
     hisobotlari, versiya, ekran va kursor API, o'yin menyusi, ishlash va eksport testlari
 - **Matematika va core**: son utilitalari (`Remap`, `SmoothDamp`, `MoveTowards`, burchaklar), kvaternionlar
   (`LookRotation`, `Slerp`, `RotateTowards`), geometriya (`AABB`, `Sphere`, `Ray`, `Plane`, `Frustum`; ray-AABB /
@@ -830,14 +830,14 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   (fBm, ridged), `AnimationCurve`, spline'lar, ranglar (HSV/HSL, hex, sRGB), vazifalar tizimi (`JobSystem::ParallelFor`),
   xotira statistikasi, log darajalari, xabarli assert'lar, `Stopwatch` / `Timer`, `StringUtils`, fayl yo'llari
   (`NormalizePath`, `SafeJoin`, vaqtinchalik papkalar)
-  - Batafsil qo'llanma: [docs/core.md](docs/core.md) — har modul API'si misollar bilan, Showcase3D'dagi `Geometry` sahnasi
+  - Batafsil qo'llanma: [docs/Core.md](docs/Core.md) — har modul API'si misollar bilan, Showcase3D'dagi `Geometry` sahnasi
 - **Navigatsiya va AI**: NavGrid 2D (tilemap / collider'lardan) va 3D (nurlar bilan pol), A* (binar heap, qisman yo'llar),
   string pulling va spline silliqlash, Nav Agent (`SetDestination`, nishon ortidan, nurlar bilan to'siqdan qochish),
   Nav Obstacle (grid'ni dinamik o'yish, qayta yo'l), steering (seek / flee / arrive / wander / pursue / evade / suruv),
   Sight Sensor (ko'rish konusi va chizig'i, `OnTargetSpotted`), Patrol Path, Formation (qator / kolonna / pona / doira),
   `StateMachine` va behavior tree (`BehaviorTreeBuilder`, inspektorda jonli daraxt), navigatsiya gizmo'si va
   `--debug-nav`, vazifalar tizimida guruhlangan yo'l qidirish (`ZaminBench --nav`), bake'ni `.znav` faylida saqlash
-  - Batafsil qo'llanma: [docs/ai.md](docs/ai.md) — har tizim misollar bilan, namuna sahnalar (Chase2D, AI3D, Squad3D, Island)
+  - Batafsil qo'llanma: [docs/AI.md](docs/AI.md) — har tizim misollar bilan, namuna sahnalar (Chase2D, AI3D, Squad3D, Island)
 - **Audio** (miniaudio): wav/mp3/flac/ogg
 - **C++ skriptlar**: `ScriptableEntity` + `ZM_REGISTER_SCRIPT`, o'yin moduli `.so` sifatida yuklanadi, hot reload
 - Zamin Player — eksport qilingan o'yinlarni ishga tushiruvchi runtime
@@ -896,18 +896,18 @@ Tests/editor_smoke.sh --shots                    # editorning barcha oyna/menyu/
 Tests/hot_reload_test.sh                         # skript modulini qayta kompilyatsiya + hot reload
 Tests/export_test.sh                             # eksport + eksport qilingan o'yin headless (skrinshot bilan)
 Tests/package_games.sh --out dist                # uchala namuna o'yin: eksport + tekshiruv + <Nom>-<versiya>-linux-x86_64.tar.gz
-Tests/render_bench.sh                            # 10 000 sprite, 1 000 mesh: ms / kadr (docs/benchmarks.md)
+Tests/render_bench.sh                            # 10 000 sprite, 1 000 mesh: ms / kadr (docs/Benchmarks.md)
 Tests/bench.sh --compare                         # ECS, serializatsiya, prefab benchmarklari + boshlang'ich natija bilan solishtirish
-Tests/coverage.sh [--gui] [--html]               # kod qamrovi (gcov, build-cov): modullar bo'yicha hisobot (docs/coverage.md)
+Tests/coverage.sh [--gui] [--html]               # kod qamrovi (gcov, build-cov): modullar bo'yicha hisobot (docs/Coverage.md)
 Tests/sanitize.sh address                        # unit testlar AddressSanitizer + LeakSanitizer bilan (build-asan)
 Tests/sanitize.sh address --smoke --editor-smoke # + 3 o'yin, editor va editor smoke testi ASan ostida (CI'dagi asan job)
 Tests/sanitize.sh undefined --compiler clang     # UndefinedBehaviorSanitizer bilan, Clang (build-ubsan; CI'dagi ubsan-clang)
 Tests/format_check.sh [--base main] [--fix]      # clang-format faqat o'zgargan qatorlarda (.clang-format - mavjud uslub)
 ```
 
-Barcha testlar, ular nimani qo'riqlashi va qachon ishga tushirilishi - [docs/testing.md](docs/testing.md) (unit testlar
+Barcha testlar, ular nimani qo'riqlashi va qachon ishga tushirilishi - [docs/Testing.md](docs/Testing.md) (unit testlar
 ro'yxati bilan); o'lchangan natijalar (testlar soni, qamrov, sanitizerlar, benchmarklar, ogohlantirishlar) -
-[docs/quality.md](docs/quality.md).
+[docs/Quality.md](docs/Quality.md).
 
 **Kod uslubi** (`.clang-format`, clang-format 17+): mavjud uslubni tasvirlaydi - 4 bo'shliq, qavslar yangi qatorda
 (`namespace Zamin {` bundan mustasno, ichi chekinish bilan), `Type* name`, `template<typename T>`, `{ 1.0f, 2.0f }`, ustun
@@ -930,14 +930,14 @@ taqsimot), `--report r.json` va `--junit r.xml` natijalarni faylga yozadi (ctest
 yozadi, CI artefakt qilib yuklaydi), `--fail-fast` birinchi xatoda to'xtaydi. Testdan chiqib ketgan istisno testni
 yiqitadi, qolganlari ishlayveradi. Oxirgi qator har doim `N test, M xato`.
 
-**Benchmarklar** ([docs/benchmarks.md](docs/benchmarks.md)): `ZaminBench --ecs` (sahna API'si va EnTT: yaratish,
+**Benchmarklar** ([docs/Benchmarks.md](docs/Benchmarks.md)): `ZaminBench --ecs` (sahna API'si va EnTT: yaratish,
 komponentlar, view'lar, qidiruv, ierarxiya, `Scene::Copy`, o'chirish turlari, o'yin kadrlari), `ZaminBench --serialize`
 (2D va 3D katta sahnalar JSON / binar kesh, nusxalash / joylash, har komponent narxi), `--serialize --prefabs`,
 `--render`. `Tests/bench.sh` ularni JSON natijalari bilan ishga tushiradi va `--compare` bilan `Tests/Baselines/` dagi
 Release boshlang'ich natijasi bilan solishtiradi (`Tests/bench_compare.py`). ECS benchmark topgan xato tuzatildi:
 skriptlarning `Destroy` navbati takrorlanishni butun navbatdan qidirardi (bir kadrda minglab o'chirish kvadratik edi).
 
-**Kod qamrovi** ([docs/coverage.md](docs/coverage.md)): `-DZAMIN_COVERAGE=ON` (`cmake/Coverage.cmake`, `coverage`
+**Kod qamrovi** ([docs/Coverage.md](docs/Coverage.md)): `-DZAMIN_COVERAGE=ON` (`cmake/Coverage.cmake`, `coverage`
 preset) faqat bizning target'larni `--coverage -O0` bilan build qiladi; `Tests/coverage.sh` alohida `build-cov` papkasida
 build qiladi, unit testlarni (`--gui` bilan player va editor smoke testini ham) ishga tushiradi va
 `Tests/coverage_report.py` gcov ma'lumotlarini modullar bo'yicha jamlaydi (qatorlar, funksiyalar, eng kam qamralgan

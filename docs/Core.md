@@ -218,13 +218,13 @@ Particle turbulentligi, kamera silkinishi va 2D chiroq miltillashi ham shu modul
 - **`AnimationCurve`** (`Math/AnimationCurve.h`) - vaqt bo'yicha bitta son: kalitlar, Bezier tangentlar,
   `PreWrap` / `PostWrap` (`Once`, `Loop`, `PingPong`), `Evaluate(t)`, `AddKey`, `SmoothTangents`,
   `AnimationCurve::Linear / EaseInOut / Constant`. Skript maydoni (`ZM_FIELD`) sifatida inspektorda tahrirlanadi.
-  Batafsil: [animation.md, 18-bo'lim](animation.md#18-animationcurve-skriptdagi-egri-chiziq).
+  Batafsil: [Animation.md, 18-bo'lim](Animation.md#18-animationcurve-skriptdagi-egri-chiziq).
 - **Easing** (`Math/Easing.h`) - `ApplyEase(Ease::OutBack, t)`: `Linear`, `InQuad`, `OutQuad`, `InOutQuad`,
   `OutCubic`, `InOutCubic`, `OutBack`, `OutElastic`, `OutBounce` (0 -> 0, 1 -> 1).
 - **Spline** (`Math/Spline.h`) - Catmull-Rom (centripetal), Bezier va to'g'ri chiziq; `Evaluate(u)`,
   `EvaluateTangent`, `FindClosest(point)`, `InsertPoint`, `AutoTangents`; masofa <-> parametr jadvali
   `SplineLengthTable`. `SplineComponent` va `SplineFollowerComponent` bilan sahnada. Batafsil:
-  [animation.md, 19-bo'lim](animation.md#19-spline-yollar-va-spline-follower).
+  [Animation.md, 19-bo'lim](Animation.md#19-spline-yollar-va-spline-follower).
 
 ## 7. Ranglar (Color)
 
@@ -300,7 +300,7 @@ Darajalar: `Trace`, `Info`, `Warn`, `Error`, `Critical`, `Off`. Har logger o'z m
 (`Log::SetLevel(LogSource::Engine, LogLevel::Warn)`), log faylining darajasi alohida (`Log::SetFileLevel`).
 Darajadan pastdagi xabar umuman formatlanmaydi (arzon). Sozlash tartibi (keyingisi ustun):
 Loyiha sozlamalari > Player > Log, `ZAMIN_LOG_LEVEL`, `--log-level` (`warn` yoki `engine=warn,app=info,file=error`).
-Editorda: Sozlamalar > Log va konsolning tishli g'ildirak menyusi. Log fayllari: [runtime.md](runtime.md#6-log-fayllari).
+Editorda: Sozlamalar > Log va konsolning tishli g'ildirak menyusi. Log fayllari: [Runtime.md](Runtime.md#6-log-fayllari).
 
 ## 12. Assert va Verify
 

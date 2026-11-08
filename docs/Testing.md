@@ -2,7 +2,7 @@
 
 Zamin Engine'dagi barcha avtomatik tekshiruvlar, ular nimani qo'riqlashi va qanday ishga tushirilishi. Har bir test
 mahalliy kompyuterda ham, CI'da ham (`.github/workflows/linux.yml`) **bir xil skript** bilan ishlaydi: CI qadamlari
-faqat `Tests/*.sh` skriptlarini chaqiradi. Raqamlar va o'lchangan natijalar: [quality.md](quality.md).
+faqat `Tests/*.sh` skriptlarini chaqiradi. Raqamlar va o'lchangan natijalar: [Quality.md](Quality.md).
 
 ## Qachon nimani ishga tushirish
 
@@ -60,7 +60,7 @@ TEST(MyFeatureWorks)
   bilan va coverage build'da (`ZAMIN_COVERAGE_BUILD`) o'tkazib yuboriladi.
 - Fayl yozadigan testlar `std::filesystem::temp_directory_path()` ostida o'z papkasini ishlatadi va uni o'chiradi.
 - Namuna loyihalarni (`Projects/*`) o'qiydigan testlar bor (`ZAMIN_SOURCE_DIR`): namunalar assetlari yaroqli qolishi kerak.
-- Yangi test qo'shilgandan keyin ro'yxatni yangilang: `Tests/test_catalog.py --update docs/testing.md`.
+- Yangi test qo'shilgandan keyin ro'yxatni yangilang: `Tests/test_catalog.py --update docs/Testing.md`.
 
 `ctest` `ZaminTests` ni `--timing --report build/TestResults/ZaminTests.json --junit build/TestResults/ZaminTests.xml`
 bilan ishga tushiradi; CI bu fayllarni `unit-tests-<kompilyator>` artefakti qilib yuklaydi.
@@ -172,12 +172,12 @@ bostiriladi, engine kodining har xabari esa fatal qoladi.
 | `Tests/render_bench.sh --max-avg 200` | 10 000 sprite, 1 000 mesh (instancing bilan / siz), ikkalasi | ms / kadr |
 | `Tests/player_bench.sh --max-avg 50 --max-p95 80` | namuna o'yinlarning boshlang'ich sahnalari ZaminPlayer'da | ms / kadr |
 
-Boshlang'ich natijalar: [benchmarks.md](benchmarks.md).
+Boshlang'ich natijalar: [Benchmarks.md](Benchmarks.md).
 
 ## 8. Kod qamrovi
 
 `Tests/coverage.sh [--gui] [--html]` (`-DZAMIN_COVERAGE=ON`, `build-cov`), hisobot modullar bo'yicha
-(`Tests/coverage_report.py`): [coverage.md](coverage.md).
+(`Tests/coverage_report.py`): [Coverage.md](Coverage.md).
 
 ## 9. Formatlash - `clang-format`
 
@@ -266,7 +266,7 @@ qamrovi topdi).
 Bo'lim nomi - `Tests/ZaminTests.cpp` dagi bo'lim sarlavhasi (kod izohi, ingliz tilida).
 
 <!-- test-catalog:begin -->
-_`Tests/test_catalog.py --update docs/testing.md` yaratgan: 628 ta unit test, 93 ta bo'lim (`Tests/ZaminTests.cpp` dagi tartibda). Bitta testni ishga tushirish: `./build/bin/ZaminTests <Nom>`._
+_`Tests/test_catalog.py --update docs/Testing.md` yaratgan: 628 ta unit test, 93 ta bo'lim (`Tests/ZaminTests.cpp` dagi tartibda). Bitta testni ishga tushirish: `./build/bin/ZaminTests <Nom>`._
 
 | # | Bo'lim | Testlar | Nomlari |
 |---|---|---|---|

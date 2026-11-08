@@ -97,7 +97,7 @@ add_custom_target(bench
     USES_TERMINAL VERBATIM)
 
 # Rendering benchmark (a GL context: xvfb-run without a display): 10 000 sprites, 1 000 meshes and both together,
-# ms / frame (ZaminBench --render via Tests/render_bench.sh; the baseline is in docs/benchmarks.md).
+# ms / frame (ZaminBench --render via Tests/render_bench.sh; the baseline is in docs/Benchmarks.md).
 add_custom_target(render_bench
     COMMAND ${CMAKE_COMMAND} -E env ZAMIN_BUILD_DIR=${CMAKE_BINARY_DIR} ${PROJECT_SOURCE_DIR}/Tests/render_bench.sh
     DEPENDS ZaminBench

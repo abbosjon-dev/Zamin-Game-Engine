@@ -436,7 +436,7 @@ faqat birinchi marta tekshiradi. O'qilmagan fayl xatosi bir marta aytiladi va ke
 ## 17. Ishlash tezligi
 
 `ZaminBench --serialize --prefabs [--instances N] [--json fayl]` (Release, mediana; batafsil:
-[scenes.md](scenes.md#18-testlar-va-benchmark)):
+[Scenes.md](Scenes.md#18-testlar-va-benchmark)):
 
 | O'lchov | Natija | Byudjet |
 |---|---|---|

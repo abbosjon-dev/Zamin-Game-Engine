@@ -245,7 +245,7 @@ hodisalarni kutadi (protsessor band bo'lmaydi), o'yin vaqti o'tmaydi; oyna qaytg
 ### Log
 
 Player logi (`"Log": { ... }`, o'zgartirilmagan bo'lsa faylga yozilmaydi). Darajadan pastdagi xabarlar
-yozilmaydi; `ZAMIN_LOG_LEVEL` va `--log-level` bulardan ustun ([runtime.md, 6-bo'lim](runtime.md#6-log-fayllari)).
+yozilmaydi; `ZAMIN_LOG_LEVEL` va `--log-level` bulardan ustun ([Runtime.md, 6-bo'lim](Runtime.md#6-log-fayllari)).
 
 | Maydon | Kalit | Ma'nosi |
 |---|---|---|
@@ -495,7 +495,7 @@ glm::vec2 move = Input::GetVector("Move");
 `"BuildScenes"`: o'yin quriladigan sahnalar tartib bilan. Yoqilganlari build indeksini oladi (0, 1, 2 ...;
 `LoadScene(int)`), eksport faqat ularni (va boshlang'ich sahnani) oladi. Oyna muammolarni ko'rsatadi:
 boshlang'ich sahna yo'q / ro'yxatda emas / o'chirilgan, fayl topilmadi, takroriy sahna. Batafsil:
-[docs/scenes.md, 7-bo'lim](scenes.md#7-build-sahnalar-royxati-va-indekslar).
+[docs/Scenes.md, 7-bo'lim](Scenes.md#7-build-sahnalar-royxati-va-indekslar).
 
 ### Eksport: ishlatilmagan assetlar
 
@@ -773,7 +773,7 @@ Qisqartirilgan misol (Platformer2D asosida; `Physics`, `Time`, `Quality`, `Graph
 
 ## 18. Player buyruq qatori
 
-Player, eksport, log, crash, versiya, ishlash va eksport testlari haqida to'liq qo'llanma: [runtime.md](runtime.md).
+Player, eksport, log, crash, versiya, ishlash va eksport testlari haqida to'liq qo'llanma: [Runtime.md](Runtime.md).
 
 ```
 ZaminPlayer [O'yin.zproject | loyiha papkasi] [variantlar]     # hammasi: ZaminPlayer --help
@@ -798,7 +798,7 @@ ogohlantirish bilan log'ga yoziladi, qolganlari ishlatiladi.
 | `--no-debug-draw`, `--debug-raycasts`, `--debug-contacts`, `--debug-contact-details`, `--debug-joints`, `--debug-velocities`, `--debug-nav`, `--debug-nav-cells` | Debug chizish | Loyihaning debug sozlamalari |
 | `--log-file <fayl>`, `--no-log-file` | Log faqat shu faylga / log faylsiz | Standart log papkasi |
 | `--no-crash-handler`, `--no-crash-dialog` | Crash hisobotisiz (debugger, core dump) / hisobot bor, oyna yo'q | - |
-| `--benchmark N` (`--benchmark-warmup`, `--benchmark-out`, `--benchmark-max-avg`, `--benchmark-max-p95`) | Ishlash testi: N kadr o'lchanadi (o'rtacha, mediana, p95, p99), JSON, chiqish kodi ([runtime.md](runtime.md#12-ishlash-testi-headless)) | Splash, FPS cheklovi, VSync |
+| `--benchmark N` (`--benchmark-warmup`, `--benchmark-out`, `--benchmark-max-avg`, `--benchmark-max-p95`) | Ishlash testi: N kadr o'lchanadi (o'rtacha, mediana, p95, p99), JSON, chiqish kodi ([Runtime.md](Runtime.md#12-ishlash-testi-headless)) | Splash, FPS cheklovi, VSync |
 | `-v`, `--version` | O'yin va dvigatel versiyasi (kommit, build sanasi) - oynasiz | - |
 | `-h`, `--help` | Hamma variantlar va ustunlik tartibi | - |
 
@@ -880,7 +880,7 @@ aylantirganda kursorni bloklaydi.
 | `PauseInBackgroundAudioOutput` | Audio chiqishi pauzasi: tovush joyida turadi, keyin davom etadi |
 | `DisplayGammaAndBrightness` | Gamma / yorqinlik formulasi, diapazonlar, saqlash, `--gamma` / `--brightness` |
 | `DisplayResolutionSettings` | Ekran o'lchamlari ro'yxati, saqlash, ustunlik (buyruq qatori > saqlangan > loyiha) |
-| `PlayerBenchmarkStatsAndLimits`, `ExportFolderSelfCheck`, `BuildInfoAndVersionText`, `GameMenuSampleScene` | Ishlash testi, eksport tekshiruvi, versiya, o'yin menyusi ([runtime.md](runtime.md#16-testlar)) |
+| `PlayerBenchmarkStatsAndLimits`, `ExportFolderSelfCheck`, `BuildInfoAndVersionText`, `GameMenuSampleScene` | Ishlash testi, eksport tekshiruvi, versiya, o'yin menyusi ([Runtime.md](Runtime.md#16-testlar)) |
 
 ---
 

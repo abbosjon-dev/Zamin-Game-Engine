@@ -13,7 +13,7 @@
 # New files must be known to git (git add, or git add -N) to be checked. vendor/ is never formatted
 # (vendor/.clang-format: DisableFormat). CLANG_FORMAT=<binary> picks clang-format (17 or newer; 18 by default).
 # Some house conventions cannot be expressed in clang-format (several short statements on one line, one-line short
-# enums - docs/quality.md); a suggestion on such a line may be ignored, which is why --github only warns.
+# enums - docs/Quality.md); a suggestion on such a line may be ignored, which is why --github only warns.
 # Exit code: 0 formatted, 1 lines to change (the diff is printed), 2 bad usage / clang-format missing.
 set -uo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

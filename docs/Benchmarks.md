@@ -121,7 +121,7 @@ Qanday o'qish kerak:
   obyekt narxi ayiriladi - bitta komponent qancha ns va bayt qo'shadi.
 
 Bog'langan prefab nusxalari alohida: `ZaminBench --serialize --prefabs` (`Tests/PrefabBench.cpp`,
-[prefabs.md](prefabs.md#17-ishlash-tezligi)).
+[Prefabs.md](Prefabs.md#17-ishlash-tezligi)).
 
 ### Boshlang'ich natija (2026-11-08)
 

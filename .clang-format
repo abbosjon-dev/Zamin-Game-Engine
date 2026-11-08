@@ -3,7 +3,7 @@
 # It describes the style the code is already written in - it is NOT meant to reformat the code base: run
 # Tests/format_check.sh, which formats only the lines you changed (git clang-format). Measured on the whole code
 # base (Tests/format_check.sh --stats): about 3 % of the lines would change, mostly the few house conventions
-# clang-format cannot express (see docs/quality.md):
+# clang-format cannot express (see docs/Quality.md):
 #   - several short statements on one line ("a.X = 1; a.Y = 2;"), also in one-line functions and blocks;
 #   - short enums on one line ("enum class Mode { A = 0, B };") - with braces on their own line clang-format
 #     expands every enum;

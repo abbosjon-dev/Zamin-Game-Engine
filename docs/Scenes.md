@@ -361,7 +361,7 @@ oldin migratsiyalar zanjiri ishlaydi (`SceneMigration`):
   gravitatsiyasiga ergashadi (Loyiha sozlamalari > Fizika). Fizika qadami (`"PhysicsStep"`) ham shunday: yo'q
   bo'lsa loyihaniki (Loyiha sozlamalari > Vaqt).
 - **v4 → v5**: prefab nusxasi bog'lanishlari (`"Editor"` ichida `PrefabEntity`, `Overrides` ...) qo'shildi;
-  `Editor.Prefab` yo'lidagi `\` → `/`. Batafsil: [prefabs.md](prefabs.md#13-versiya-va-migratsiya).
+  `Editor.Prefab` yo'lidagi `\` → `/`. Batafsil: [Prefabs.md](Prefabs.md#13-versiya-va-migratsiya).
 
 Prefab (`.zprefab`) va nusxalash buferi ham shu zanjirdan o'tadi (`"Version"`, `"Kind"`; versiyasizi — v0). Har
 fayl versiyasi uchun migratsiya bir marta logga yoziladi (hech narsa o'zgarmagan bo'lsa yozilmaydi). Fayl
@@ -562,7 +562,7 @@ bo'limi ochiq).
 
 `Projects/Platformer2D` (`Source/SceneFlow.cpp`):
 
-- **Menu.zscene** — `GameMenu` (`Prefabs/GameMenu.zprefab` nusxasi): "O'ynash" tugmasi yuklanish ekraniga so'nib o'tadi, "Sozlamalar" (ekran o'lchami, to'liq ekran, VSync, sifat, gamma, ovoz, til), "Chiqish" ([runtime.md](runtime.md#10-oyin-menyusi-namunasi)).
+- **Menu.zscene** — `GameMenu` (`Prefabs/GameMenu.zprefab` nusxasi): "O'ynash" tugmasi yuklanish ekraniga so'nib o'tadi, "Sozlamalar" (ekran o'lchami, to'liq ekran, VSync, sifat, gamma, ovoz, til), "Chiqish" ([Runtime.md](Runtime.md#10-oyin-menyusi-namunasi)).
   `GameSession` shu yerda yaratiladi va `DontDestroyOnLoad` bilan butun o'yin davomida yashaydi: musiqani uzmaydi,
   tangalar va darajalarni `GameState` da, darajalar bo'yicha statistikani `SessionStats` servisida yig'adi,
   rekordni `SaveData` ga saqlaydi; HUD faqat darajalarda ko'rinadi (`OnActiveSceneChanged`).
@@ -589,7 +589,7 @@ bo'limi ochiq).
 sinaydigan `SceneManagementFlow` (menyu → fonda so'nish bilan daraja → uning sub-sahnasi, doimiy menejer,
 GameState, servislar, hodisalar, vaqt). Prefab va serializatsiya testlari (`ZAMIN_TESTS=Prefab`; bog'lanish,
 override, Apply / Revert, ichma-ich, variantlar, hot reload, bufer, eksport tekshiruvi) ro'yxati:
-[prefabs.md](prefabs.md#18-testlar).
+[Prefabs.md](Prefabs.md#18-testlar).
 
 ```bash
 ZAMIN_TESTS=Scene ./build/bin/ZaminTests        # nomida "Scene" bor testlar

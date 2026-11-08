@@ -4,7 +4,7 @@
 // next to the bare EnTT registry underneath (no names, ids, scene order or hierarchy) for comparison; then
 // runtime frames of a scene that size: idle, with N / 10 scripts, and spawning / destroying 500 entities a
 // frame. Every number is the median of 3 runs (a fresh scene each), in ms, with the cost per item in ns.
-// docs/benchmarks.md has the baseline.
+// docs/Benchmarks.md has the baseline.
 #include <Zamin/Zamin.h>
 
 #include <algorithm>

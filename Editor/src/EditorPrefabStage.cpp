@@ -36,8 +36,9 @@ namespace Zamin {
             return merged;
         }
 
-        // A prefab of UI / sprites is edited in the 2D view, one with meshes in 3D.
-        bool LooksLike2D(Scene& scene)
+        // A prefab of UI / sprites is edited in the 2D view, one with meshes in 3D; one with neither
+        // (an effect, an empty group) in the view of the scene it was opened from (`otherwise`).
+        bool LooksLike2D(Scene& scene, bool otherwise)
         {
             bool flat = false;
             for (Entity e : scene.GetEntitiesInOrder())
@@ -48,7 +49,7 @@ namespace Zamin {
                         e.HasComponent<CircleRendererComponent>() || e.HasComponent<TilemapComponent>() ||
                         e.HasComponent<Rigidbody2DComponent>();
             }
-            return flat;
+            return flat || otherwise;
         }
 
         bool ReadFileState(const fs::path& file, uint64_t& hash, fs::file_time_type& time)
@@ -119,6 +120,7 @@ namespace Zamin {
         level.OuterCamera = m_EditorCamera.GetViewState();
         level.Outer2D = m_2DMode;
         level.OuterDirty = m_SceneDirty;
+        level.OverwriteDamaged = recover; // recovered: the original was backed up when it was asked
         ReadFileState(Project::GetAssetFileSystemPath(prefab), level.FileHash, level.FileTime);
         level.NextCheck = ImGui::GetTime() + 1.0;
         m_PrefabStages.push_back(std::move(level));
@@ -135,8 +137,11 @@ namespace Zamin {
         Entity selected = focus ? m_EditorScene->GetEntityByUUID(UUID(focus)) : Entity();
         m_SceneHierarchyPanel.SetSelectedEntity(selected ? selected : root);
         ResetUndoHistory(std::format("Prefab ochildi: {}", FileName(prefab)), !recover);
-        Set2DMode(LooksLike2D(*m_EditorScene));
-        FrameAll();
+        Set2DMode(LooksLike2D(*m_EditorScene, m_PrefabStages.back().Outer2D));
+        // Framed on what it shows in the world. UI is drawn over the view in screen space wherever
+        // the camera is: a prefab of UI only has nothing to frame (and is not "nothing visible").
+        if (AABB bounds; m_ActiveScene->ComputeSceneBounds(bounds))
+            FrameAll();
         ZM_INFO("Prefab rejimi: {}", prefab);
         UpdateWindowTitle();
         return true;
@@ -148,9 +153,16 @@ namespace Zamin {
             return false;
         CommitUndo(); // the file gets the history's current state
         PrefabStageLevel& level = m_PrefabStages.back();
+        // A file whose load reported errors: what could not be read is only there - asked first.
+        if (!level.OverwriteDamaged)
+            if (const size_t errors = m_PrefabDatabase.CountLoadErrors(level.Prefab); errors > 0)
+            {
+                m_PrefabStageDamagedPrompt = errors;
+                return false;
+            }
         std::vector<FileEdit> edits;
         std::string error;
-        if (!PrefabUtility::SaveStage(*m_EditorScene, m_PrefabDatabase, level.Prefab, &edits, &error))
+        if (!PrefabUtility::SaveStage(*m_EditorScene, m_PrefabDatabase, level.Prefab, &edits, &error, level.OverwriteDamaged))
         {
             ZM_WARN("Prefab saqlanmadi ({}): {}", level.Prefab, error);
             ShowViewportMessage(std::format(ICON_FA_TRIANGLE_EXCLAMATION "  {}: {}", Tr("Saqlanmadi"), error));
@@ -350,9 +362,69 @@ namespace Zamin {
         ApplyUndoSelection(selection);
         m_SceneDirty = false;
         level.ExternalChange = false;
+        level.OverwriteDamaged = false; // a new file: saving over what it could not read is asked again
+        if (report.HasIssues())
+            ShowSceneLoadReport(report);
         ReadFileState(Project::GetAssetFileSystemPath(level.Prefab), level.FileHash, level.FileTime);
         ResetUndoHistory(std::format("Prefab qayta o'qildi: {}", FileName(level.Prefab)), true);
         ShowViewportMessage(std::format(ICON_FA_ROTATE "  {}: {}", Tr("Prefab fayli o'zgardi, qayta o'qildi"), FileName(level.Prefab)));
+        UpdateWindowTitle();
+    }
+
+    void EditorLayer::OnPrefabStageAssetsMoved(const AssetFiles::MoveResult& result, const std::function<size_t(std::string&)>& remap,
+                                               const std::function<bool(std::string&)>& remapPath)
+    {
+        std::error_code ec;
+        for (PrefabStageLevel& level : m_PrefabStages)
+        {
+            // The prefab edited (or its folder) moved: saving writes the file where it is now.
+            if (remapPath(level.Prefab))
+                ZM_INFO("Prefab rejimidagi prefab ko'chirildi: {}", level.Prefab);
+            // The scene (or prefab) waiting below: in memory with its unsaved state, its history.
+            if (level.OuterScene)
+            {
+                std::string text = SceneSerializer(level.OuterScene).SerializeToString();
+                if (remap(text) > 0)
+                {
+                    Ref<Scene> scene = CreateRef<Scene>();
+                    if (SceneSerializer(scene).DeserializeFromString(text))
+                    {
+                        scene->ResolveAssets();
+                        level.OuterScene = scene;
+                    }
+                }
+            }
+            level.OuterHistory.RewriteScenes([&](std::string& snapshot) { remap(snapshot); }, [&](std::string& path) { remapPath(path); });
+            level.OuterAutosaved.reset(); // the next copy has the new paths
+            // What saving this level wrote (the outer step carries it when it closes).
+            for (FileEdit& edit : level.Files)
+            {
+                remapPath(edit.Path);
+                if (edit.Before)
+                    remap(*edit.Before);
+                remap(edit.After);
+            }
+            // The scene file the first level returns to (or its folder) moved.
+            if (!level.OuterPath.empty())
+            {
+                const fs::path current = fs::weakly_canonical(level.OuterPath, ec);
+                const fs::path moved = result.MapPath(current);
+                if (moved != current)
+                {
+                    // Its safety copy went under the old path: the next one goes under the new one.
+                    if (Project::GetActive())
+                    {
+                        const fs::path autosave = EditorAutosave::GetFilePath(Project::GetProjectDirectory(), Project::GetAssetRelativePath(level.OuterPath));
+                        if (m_SessionAutosaves.erase(autosave.lexically_normal().string()) > 0)
+                            fs::remove(autosave, ec);
+                    }
+                    level.OuterPath = moved;
+                }
+            }
+            // The file may have been rewritten with the move (paths in it): the editor's own change,
+            // not one made outside.
+            ReadFileState(Project::GetAssetFileSystemPath(level.Prefab), level.FileHash, level.FileTime);
+        }
         UpdateWindowTitle();
     }
 
@@ -523,6 +595,39 @@ namespace Zamin {
             ImGui::EndPopup();
         }
 
+        // ---- saving over a prefab file whose load reported errors: backed up first?
+        if (m_PrefabStageDamagedPrompt && IsInPrefabStage() && !ImGui::IsPopupOpen(Tr("Prefab faylining ba'zi qismlari o'qilmagan###PrefabStageDamaged")))
+            ImGui::OpenPopup(Tr("Prefab faylining ba'zi qismlari o'qilmagan###PrefabStageDamaged"));
+        if (ImGui::BeginPopupModal(Tr("Prefab faylining ba'zi qismlari o'qilmagan###PrefabStageDamaged"), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            const std::string name = IsInPrefabStage() ? FileName(m_PrefabStages.back().Prefab) : std::string();
+            ImGui::TextUnformatted(std::format("'{}': {} {}", name, m_PrefabStageDamagedPrompt, Tr("ta obyekt yoki komponent o'qilmagan (yuklash hisobotida).")).c_str());
+            ImGui::TextDisabled("%s", Tr("Saqlansa, ular fayldan butunlay yo'qoladi. Asl fayl avval .bak nusxa sifatida saqlab qo'yiladi."));
+            ImGui::Spacing();
+            if (ImGui::Button(Tr(ICON_FA_FLOPPY_DISK "  Zaxira nusxa bilan saqlash")) && IsInPrefabStage())
+            {
+                PrefabStageLevel& level = m_PrefabStages.back();
+                fs::path backup;
+                if (SceneRecovery::WriteBackup(Project::GetAssetFileSystemPath(level.Prefab), &backup))
+                {
+                    ZM_INFO("Prefab faylining asl nusxasi saqlandi: {}", backup.filename().string());
+                    level.OverwriteDamaged = true;
+                    SavePrefabStage();
+                }
+                else
+                    ShowViewportMessage(std::format(ICON_FA_TRIANGLE_EXCLAMATION "  {}: {}", Tr("Zaxira nusxa yozilmadi, saqlanmadi"), FileName(level.Prefab)));
+                m_PrefabStageDamagedPrompt = 0;
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button(Tr("Bekor qilish")) || !IsInPrefabStage())
+            {
+                m_PrefabStageDamagedPrompt = 0;
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
+
         // ---- saving a prefab with several roots: under a new one?
         if (m_PrefabStageWrapPrompt && IsInPrefabStage() && !ImGui::IsPopupOpen(Tr("Prefabda bitta ildiz bo'lishi kerak###PrefabStageWrap")))
             ImGui::OpenPopup(Tr("Prefabda bitta ildiz bo'lishi kerak###PrefabStageWrap"));
@@ -554,7 +659,10 @@ namespace Zamin {
             ImGui::EndPopup();
         }
         if (!IsInPrefabStage())
+        {
             m_PrefabStageWrapPrompt = false;
+            m_PrefabStageDamagedPrompt = 0;
+        }
     }
 
 }

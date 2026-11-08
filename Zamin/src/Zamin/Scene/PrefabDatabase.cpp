@@ -407,7 +407,35 @@ namespace Zamin {
         return false;
     }
 
-    bool PrefabDatabase::Write(std::string_view relPath, const std::string& text, std::vector<FileEdit>* undo)
+    size_t PrefabDatabase::CountLoadErrors(std::string_view relPath)
+    {
+        const std::string key = NormalizePath(relPath);
+        if (key.empty())
+            return 0;
+        const fs::path file = ToFileSystemPath(key);
+        std::error_code ec;
+        if (!fs::is_regular_file(file, ec))
+            return 0;
+        return CountLoadErrors(key, FileSystem::ReadTextFile(file));
+    }
+
+    size_t PrefabDatabase::CountLoadErrors(const std::string& key, const std::string& text)
+    {
+        // The template read from this very text knows it already.
+        if (auto it = m_Entries.find(key); it != m_Entries.end() && it->second && it->second->Built && it->second->Exists &&
+                                           !m_Building.contains(key) && it->second->T.Text == text)
+            return it->second->T.LoadErrors;
+        Scene scratch;
+        SceneSerializer::EntitySetReadOptions options;
+        options.GenerateNewUUIDs = false;
+        options.KeepPrefabLinks = true;
+        SceneLoadReport report;
+        options.Report = &report;
+        SceneSerializer::DeserializeEntities(scratch, text, options);
+        return report.Count(SceneLoadIssue::Severity::Error) + report.Count(SceneLoadIssue::Severity::Fatal);
+    }
+
+    bool PrefabDatabase::Write(std::string_view relPath, const std::string& text, std::vector<FileEdit>* undo, bool overwriteDamaged)
     {
         const std::string key = NormalizePath(relPath);
         if (key.empty())
@@ -425,6 +453,13 @@ namespace Zamin {
                          SceneMigration::ReadVersion(*before), SceneMigration::CurrentVersion, key);
             return false;
         }
+        // What could not be read of it is only in the file: a text made from the rest would lose it.
+        if (before && !overwriteDamaged)
+            if (const size_t errors = CountLoadErrors(key, *before); errors > 0)
+            {
+                ZM_CORE_WARN("Prefab faylining {} ta qismi o'qilmagan: ustiga yozilmadi (ular yo'qolardi) - {}", errors, key);
+                return false;
+            }
         if (!FileSystem::WriteTextFileAtomic(file, text))
             return false;
         m_OwnWrites[FileSystem::NormalizePath(file)] = HashText(text);

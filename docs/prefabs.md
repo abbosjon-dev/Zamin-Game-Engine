@@ -356,8 +356,15 @@ qachon yozilmaydi (Apply, prefab rejimi, hot reload ham).
   komponent tashlab ketiladi, noma'lum kalitlar va takroriy ID'lar xabar qilinadi, tashqaridagi ota yoki ota
   halqasi obyektni ildizga aylantiradi.
 - JSON'i buzilgan sahna ochilganda editor so'raydi: *Qisman tiklash?* Rozi bo'linsa fayl
-  `<nom>.zscene.corrupt-<vaqt>.bak` ga nusxalanadi, o'qiladigan qismi yuklanadi va *Prefab nusxalarini tiklash*
-  taklif qilinadi (nusxalarning yo'qolgan obyektlari prefabdan qayta yaratiladi).
+  `<nom>.zscene.corrupt-<vaqt>.bak` ga nusxalanadi va o'qiladigan qismi yuklanadi. Nusxalarning buzilgan
+  qismda qolgan obyektlari darhol prefabdan qayta yaratiladi (har ochilgan sahnadagi sinxron); nusxada
+  ataylab o'chirilgan obyektlar (`RemovedEntities`) o'chirilganicha qoladi — ularni kerak bo'lsa Prefab
+  menyusidagi *O'chirilganlarni tiklash* qaytaradi.
+- O'qishda xato bergan prefab fayli (o'qilmagan komponent yoki obyekt, buzilgan JSON) ustiga yozilmaydi:
+  Apply, ichidagi prefab o'zgargandagi yangilash va bog'liq prefablarni qayta yozish rad etiladi (o'qilmagan
+  qismlar yo'qolardi). Prefab rejimida saqlashda so'raladi: *Zaxira nusxa bilan saqlash* — asl fayl avval
+  `.bak` ga nusxalanadi. Undo/redo esa yozilgan matnni aynan qaytaradi (`PrefabDatabase::CountLoadErrors`,
+  `Write(..., overwriteDamaged)`).
 - Kodda: `SceneSerializer::RecoverFromString`, `EntitySetReadOptions::Recover`.
 
 ---
@@ -439,6 +446,7 @@ faqat birinchi marta tekshiradi. O'qilmagan fayl xatosi bir marta aytiladi va ke
 | Majburiy qayta sinxron, 20 000 obyekt | 397 ms | ≤ 300 ms (oshadi) |
 | Yuklashga qo'shimcha (JSON) | 10.8 % / 7.3 % (GameMenu) | ≤ 5 % (oshadi) |
 | `Instantiate(path)` ×1000: keshsiz / `PrefabCache` | 283 / 111 ms | — |
+| `PrefabExport::Prepare` (eksport tekshiruvi + bog'lanishsiz nusxa), 20 000 obyektli sahna | 676 ms | — |
 
 Majburiy sinxron va yuklashdagi qo'shimcha faqat prefab o'zgarganda / sahna ochilganda ishlaydi; o'yin
 (player) bog'lanishlarni o'qimaydi va eksport ularni olib tashlaydi, shuning uchun o'yinga ta'siri yo'q.
@@ -454,9 +462,10 @@ Majburiy sinxron va yuklashdagi qo'shimcha faqat prefab o'zgarganda / sahna ochi
 | `PrefabLinkSerialization` | bog'lanish kalitlari sahna va buferda; eski fayl o'qiladi; player bog'lanishni o'qimaydi |
 | `PrefabInstantiateLinked` | bog'langan nusxa, ID'lar, hash; bog'lanmaydigan prefab |
 | `PrefabLegacyLinkMenuScene` | Platformer2D `Menu.zscene`: 44/44, 0 override, fayllar baytma-bayt o'zgarmaydi |
-| `PrefabOverrideDetection`, `PrefabApplyPropagate`, `PrefabRevertLevels`, `PrefabSyncStructural` | override'lar, Apply, Revert, tuzilma sinxroni |
+| `PrefabOverrideDetection`, `PrefabApplyPropagate`, `PrefabRevertLevels`, `PrefabSyncStructural` | override'lar, Apply, Revert (qo'shilgan obyekt ostiga ko'chirilgan prefab obyekti UUID'i bilan qoladi), tuzilma sinxroni |
 | `PrefabNested`, `PrefabVariants` | ichma-ich prefab'lar, sikl, variant zanjiri |
-| `PrefabUndoFileEdits` | Apply undo / redo fayllari bilan |
+| `PrefabUndoFileEdits` | Apply undo / redo fayllari bilan; asset ko'chirilganda qadam fayllarining yo'llari ham |
+| `PrefabDamagedFileNotWritten` | o'qishda xato bergan prefab fayli Apply / sinxron / prefab rejimida ustiga yozilmaydi (rozilik bilan — yoziladi) |
 | `PrefabEntityRefRemap`, `EntityRefVisitorCoverage` | havolalar jadvali (§8) |
 | `EntitySetVersionMigration`, `EntitySetPartialLoad`, `SceneSalvage`, `SerializationFuzz` | versiya, qisman o'qish, tiklash, fuzz |
 | `PrefabStageRoundTrip` | prefab rejimi: o'zgarishsiz saqlash baytma-bayt bir xil |

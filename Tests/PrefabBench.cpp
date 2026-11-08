@@ -5,7 +5,8 @@
 // Timed: the scene saved / loaded (JSON and the binary cache) linked against unlinked, DeserializeEntities
 // (the old call against the reporting one), SyncScene (the up-to-date fast path, a forced resync after
 // the prefab changed), RecordOverrides, an Apply that reaches every instance, linking old instances,
-// Scene::Copy, Instantiate(path) read every time against PrefabCache. The budgets are printed next to
+// Scene::Copy, Instantiate(path) read every time against PrefabCache, PrefabExport::Prepare (the export's
+// checks and the scene's copy without links). The budgets are printed next to
 // the numbers (they are meant for a Release build).
 #include <Zamin/Zamin.h>
 
@@ -312,7 +313,31 @@ namespace {
             report.Add(k + ".InstantiateUncached", "Instantiate(path) x1000: har safar o'qib", uncached);
             report.Add(k + ".InstantiateCached", std::format("Instantiate(path) x1000: PrefabCache ({} o'qish)", stats.Reads), cached);
         }
-        std::printf("  %-54s %10s\n", "PrefabExport::Prepare (419)", "-");
+
+        // ---- 9. PrefabExport::Prepare (419): the checks of an export and the scene's copy written
+        // without its links, the scene saved where the export finds it (removed after)
+        {
+            const fs::path sceneFile = assets / "Scenes" / (k + ".zscene");
+            fs::create_directories(sceneFile.parent_path());
+            if (FileSystem::WriteTextFile(sceneFile, SceneSerializer(scene).SerializeToString()))
+            {
+                AssetReferenceIndex index;
+                AssetReferenceIndex::Sources sources;
+                sources.AssetDirectory = assets;
+                sources.ProjectDirectory = assets.parent_path();
+                index.Build(sources);
+                ExportAssetInputs inputs;
+                inputs.Settings.ExcludeUnusedAssets = false; // every scene and prefab of the folder
+                const ExportAssetPlan plan = ExportAssets::Plan(index, inputs);
+                PrefabExportResult prepared;
+                const double prepareMs = Median(3, [&]() { prepared = PrefabExport::Prepare(plan, db, &index); });
+                report.Add(k + ".ExportPrepare",
+                           std::format("PrefabExport::Prepare (419): {} prefab, {} nusxa fayl", prepared.PrefabsChecked, prepared.Baked.size()),
+                           prepareMs);
+            }
+            std::error_code ec;
+            fs::remove(sceneFile, ec);
+        }
     }
 
 }

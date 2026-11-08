@@ -1705,10 +1705,57 @@ namespace Zamin {
         auto it = std::find(targets.begin(), targets.end(), goal);
         if (it == targets.end())
             return Fail(std::format("{} bu obyekt uchun qo'llash maqsadi emas", goal));
+        // A file that could not all be read is never written (what was not read would be lost).
+        if (const size_t errors = db.CountLoadErrors(goal); errors > 0)
+            return Fail(std::format("Prefab faylining {} ta qismi o'qilmagan: unga yozilmaydi (avval faylni tuzating) - {}", errors, goal));
         Prepare(root, db, in); // GetApplyTargets may have read the files again
         if (it == targets.begin())
             return ApplyOwn(in, entity, scope, path, db);
         return ApplyNested(in, entity, scope, path, goal, db);
+    }
+
+    namespace {
+        // Entities of `in`'s prefab that are in `entities` (a subtree, parents first) below an entity
+        // the instance added: moved back under their prefab parent (the nearest one the instance has
+        // outside what is listed, else the root), their own "Parent" change dropped - they stay when
+        // the added entities are destroyed. How many moved.
+        size_t KeepLinkedOutOf(Instance& in, const std::vector<Entity>& entities)
+        {
+            Scene& scene = *in.Root.GetScene();
+            // The instance's own linked entities (not those of instances placed inside it: their
+            // links are to their own prefabs, and they go with what they were placed below).
+            std::unordered_set<entt::entity> linked;
+            for (Entity m : in.Members)
+                if (LocalOf(m))
+                    linked.insert((entt::entity)m);
+            std::unordered_set<entt::entity> listed;
+            for (Entity e : entities)
+                listed.insert((entt::entity)e);
+            size_t moved = 0;
+            for (Entity e : entities)
+            {
+                if (!e.IsValid() || e == in.Root || !linked.contains((entt::entity)e))
+                    continue;
+                const uint64_t local = LocalOf(e);
+                Entity parent = ParentOf(e);
+                if (!parent || parent == in.Root || linked.contains((entt::entity)parent))
+                    continue; // below an entity of the prefab: it goes with it (or stays)
+                Entity target;
+                for (uint64_t p = in.T->ParentOf(local); p && !target; p = in.T->ParentOf(p))
+                    if (auto it = in.Linked.find(p); it != in.Linked.end() && it->second.IsValid() && !listed.contains((entt::entity)it->second))
+                        target = it->second;
+                scene.SetParent(e, target ? target : in.Root, false);
+                std::erase(e.GetComponent<PrefabLinkComponent>().Overrides, std::string("Parent"));
+                // What moved with it is no longer below the added entities.
+                std::vector<Entity> sub;
+                CollectSubtree(e, sub);
+                for (Entity s2 : sub)
+                    if (linked.contains((entt::entity)s2))
+                        listed.erase((entt::entity)s2);
+                moved++;
+            }
+            return moved;
+        }
     }
 
     bool PrefabUtility::Revert(Entity entity, PrefabScope scope, std::string_view path, PrefabDatabase& db)
@@ -1734,6 +1781,12 @@ namespace Zamin {
             for (Entity e : full)
                 if (e != root && !members.contains((entt::entity)e) && members.contains((entt::entity)ParentOf(e)))
                     addedTop.push_back(e);
+            // The prefab's own entities the instance moved below an added one stay (their UUIDs:
+            // references to them hold); only what was added goes.
+            std::vector<Entity> doomed;
+            for (Entity e : addedTop)
+                CollectSubtree(e, doomed);
+            changed |= KeepLinkedOutOf(in, doomed) > 0;
             for (Entity e : addedTop)
                 if (e.IsValid())
                 {
@@ -1752,8 +1805,15 @@ namespace Zamin {
         }
         else if (scope == PrefabScope::Entity && IsAdded(entity))
         {
+            // The added entity with what was added below it; entities of the prefab moved below it
+            // go back to their prefab parents first (kept with their UUIDs), then the instance is synced.
+            std::vector<Entity> subtree;
+            CollectSubtree(entity, subtree);
+            const size_t kept = KeepLinkedOutOf(in, subtree);
             scene.DestroyEntity(entity);
-            return true;
+            if (!kept)
+                return true;
+            changed = true;
         }
         else
         {
@@ -2109,7 +2169,8 @@ namespace Zamin {
         return SceneSerializer::SerializeEntities(stage, ordered, options);
     }
 
-    bool PrefabUtility::SaveStage(Scene& stage, PrefabDatabase& db, std::string_view relPath, std::vector<FileEdit>* edits, std::string* error)
+    bool PrefabUtility::SaveStage(Scene& stage, PrefabDatabase& db, std::string_view relPath, std::vector<FileEdit>* edits, std::string* error,
+                                  bool overwriteDamaged)
     {
         auto fail = [&](std::string message) {
             if (error)
@@ -2124,6 +2185,9 @@ namespace Zamin {
         if (const PrefabDatabase::Template* t = db.Get(path); t && t->Newer)
             return fail(std::format("Prefab fayli yangiroq formatda (v{}, bu dvigatel v{} gacha biladi): yozilmaydi", t->FileVersion,
                                     SceneMigration::CurrentVersion));
+        if (!overwriteDamaged)
+            if (const size_t errors = db.CountLoadErrors(path); errors > 0)
+                return fail(std::format("Prefab faylining {} ta qismi o'qilmagan: saqlansa ular yo'qoladi", errors));
         // A prefab nested in it must not be made of it.
         for (Entity e : stage.GetEntitiesInHierarchyOrder())
         {
@@ -2137,7 +2201,7 @@ namespace Zamin {
         if (text.empty())
             return false;
         const size_t before = edits ? edits->size() : 0;
-        if (!db.Write(path, text, edits))
+        if (!db.Write(path, text, edits, overwriteDamaged))
             return fail(std::format("Prefab fayliga yozib bo'lmadi: {}", path));
         // The prefabs made of it follow (their files too).
         if (!edits || edits->size() > before)

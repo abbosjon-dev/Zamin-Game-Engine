@@ -2,8 +2,9 @@
 // recover what parses. Recovery never changes the broken file before the user saves: it is first copied
 // aside (<name>.zscene.corrupt-<YYYYMMDD-HHMMSS>.bak), then every entity that parses on its own is
 // loaded (SceneSerializer::RecoverFromString) with the report of what was left out. The scene keeps
-// its path and is unsaved. Prefab instances that lost entities with the broken part can take them back
-// from their prefabs (structure only: nothing else of theirs changes).
+// its path and is unsaved. Prefab instances that lost entities with the broken part get them back from
+// their prefabs at once (the sync every opened scene gets: an entity of the prefab that the instance
+// neither has nor deliberately deleted is made again); what the user deleted on purpose stays deleted.
 #include "EditorLayer.h"
 #include "UI.h"
 
@@ -58,16 +59,17 @@ namespace Zamin {
         m_AssetUsage.MarkDirty();
         PrefabUtility::LinkLegacyInstances(*m_EditorScene, m_PrefabDatabase);
         ResetUndoHistory(std::format("Sahna qisman tiklandi: {}", path.stem().string()), false);
+        // Prefab instances missing entities of their prefab that were in the lost part: the sync makes
+        // them again (those listed as deleted in the instance were deleted on purpose and stay so).
+        const size_t linkedBefore = m_EditorScene->GetAllEntitiesWith<PrefabLinkComponent>().size();
         if (SyncPrefabInstances(true))
             m_UndoHistory.ReplaceCurrentScene(TakeSnapshot());
+        const size_t linkedAfter = m_EditorScene->GetAllEntitiesWith<PrefabLinkComponent>().size();
+        if (linkedAfter > linkedBefore)
+            ZM_INFO("Prefab nusxalarining buzilgan qismda qolgan {} ta obyekti prefabdan qayta yaratildi", linkedAfter - linkedBefore);
         m_SceneDirty = true; // the file still holds the broken text
         ShowSceneLoadReport(report);
         m_ShowLoadReport = true;
-        // Prefab instances missing entities of their prefab (they were in the lost part): offered back.
-        for (Entity e : m_EditorScene->GetEntitiesInHierarchyOrder())
-            if (PrefabUtility::IsInstanceRoot(e))
-                if (const auto* link = e.TryGetComponent<PrefabLinkComponent>(); link && !link->RemovedEntities.empty())
-                    m_RecoveredPrefabsPrompt = true;
         const size_t entities = m_EditorScene->GetAllEntitiesWith<IDComponent>().size();
         ZM_WARN("Sahna qisman tiklandi: {} ({} obyekt) - tekshirib, saqlang", path.filename().string(), entities);
         ShowViewportMessage(std::format(ICON_FA_TRUCK_MEDICAL "  {}: {} ({} {})", Tr("Sahna qisman tiklandi"), path.filename().string(),
@@ -107,37 +109,6 @@ namespace Zamin {
             if (ImGui::Button(Tr("Bekor qilish")))
             {
                 m_SceneRecoverPrompt.clear();
-                ImGui::CloseCurrentPopup();
-            }
-            ImGui::EndPopup();
-        }
-
-        // ---- recovered: prefab instances that lost entities
-        if (m_RecoveredPrefabsPrompt && !ImGui::IsPopupOpen(Tr("Prefab nusxalarini tiklash###RecoverPrefabs")))
-            ImGui::OpenPopup(Tr("Prefab nusxalarini tiklash###RecoverPrefabs"));
-        if (ImGui::BeginPopupModal(Tr("Prefab nusxalarini tiklash###RecoverPrefabs"), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
-        {
-            ImGui::TextUnformatted(Tr("Ba'zi prefab nusxalarida prefabdagi obyektlar yo'q (buzilgan qismda qolgan bo'lishi mumkin)."));
-            ImGui::TextDisabled("%s", Tr("Tiklansa, ular prefabdan qayta yaratiladi; nusxalarning boshqa o'zgarishlari qoladi."));
-            ImGui::Spacing();
-            if (ImGui::Button(Tr(ICON_FA_ROTATE_RIGHT "  Prefab nusxalarini tiklash")) && m_EditorScene)
-            {
-                size_t restored = 0;
-                for (Entity e : m_EditorScene->GetEntitiesInHierarchyOrder())
-                    if (PrefabUtility::IsInstanceRoot(e))
-                        restored += PrefabUtility::RestoreRemoved(e, m_PrefabDatabase);
-                if (restored)
-                {
-                    m_EditorScene->ResolveAssets();
-                    MarkDirty(std::format("Prefab nusxalari tiklandi ({} obyekt)", restored));
-                }
-                m_RecoveredPrefabsPrompt = false;
-                ImGui::CloseCurrentPopup();
-            }
-            ImGui::SameLine();
-            if (ImGui::Button(Tr("Kerak emas")))
-            {
-                m_RecoveredPrefabsPrompt = false;
                 ImGui::CloseCurrentPopup();
             }
             ImGui::EndPopup();

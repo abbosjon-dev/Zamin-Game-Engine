@@ -121,8 +121,11 @@ namespace Zamin {
         // Keeps only the current state, as the new Initial one named `name`.
         void ClearHistory(std::string name, double time = 0.0);
 
-        // Changes every scene text (paths in them moved with the assets); a shared text once.
-        void RewriteScenes(const std::function<void(std::string&)>& rewrite);
+        // Changes every scene text (paths in them moved with the assets); a shared text once. The
+        // files the steps wrote follow too: their texts through `rewrite`, their paths (relative to
+        // the assets) through `rewritePath` - a prefab renamed after an Apply is what Undo writes.
+        void RewriteScenes(const std::function<void(std::string&)>& rewrite,
+                           const std::function<void(std::string&)>& rewritePath = {});
 
     private:
         void Trim();

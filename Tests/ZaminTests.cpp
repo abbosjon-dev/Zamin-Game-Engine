@@ -44288,6 +44288,47 @@ TEST(PrefabRevertLevels)
     scene->SetParent(gem, weapon, false);
     const UUID gemID = gem.GetUUID();
     CHECK(PrefabUtility::Revert(gem, PrefabScope::Entity, {}, db) && !scene->GetEntityByUUID(gemID));
+    // An entity of the prefab moved below an added one (a "Parent" change inside the instance)
+    // stays when the added one goes - on its own or with the whole instance - with its UUID (a
+    // reference to it holds) and its prefab parent back.
+    {
+        Entity holder = scene->CreateEntity("Holder");
+        scene->SetParent(holder, a, false);
+        scene->SetParent(weapon, holder, false);
+        Entity spark = scene->CreateEntity("Spark"); // added to the moved one: it stays with it
+        scene->SetParent(spark, weapon, false);
+        PrefabUtility::RecordOverrides(a, db);
+        CHECK(OverridesOf(weapon) == std::vector<std::string>{ "Parent" });
+        const UUID holderID = holder.GetUUID(), sparkID = spark.GetUUID();
+        CHECK(PrefabUtility::Revert(holder, PrefabScope::Entity, {}, db));
+        CHECK(!scene->GetEntityByUUID(holderID) && scene->GetEntityByUUID(sparkID) == spark && scene->GetParent(spark) == weapon);
+        CHECK(scene->GetEntityByUUID(weaponID) == weapon && scene->GetParent(weapon) == a && OverridesOf(weapon).empty());
+        CHECK(PrefabUtility::GetMembers(a).size() == 4 && a.GetComponent<PrefabLinkComponent>().RemovedEntities.empty());
+        // The whole instance: what was added goes (Spark too), Weapon stays.
+        holder = scene->CreateEntity("Holder");
+        scene->SetParent(holder, a, false);
+        scene->SetParent(weapon, holder, false);
+        PrefabUtility::RecordOverrides(a, db);
+        const UUID holder2 = holder.GetUUID();
+        CHECK(PrefabUtility::Revert(a, PrefabScope::Instance, {}, db));
+        CHECK(!scene->GetEntityByUUID(holder2) && !scene->GetEntityByUUID(sparkID));
+        CHECK(scene->GetEntityByUUID(weaponID) == weapon && scene->GetParent(weapon) == a);
+        CHECK(PrefabUtility::GetOverrides(a).empty() && PrefabUtility::GetMembers(a).size() == 3);
+        // Its children of the prefab order: as the prefab has them.
+        const std::vector<Entity> children = scene->GetChildren(a);
+        CHECK(children.size() == 2 && children[0] == weapon && children[1].GetName() == "Shield");
+        // An instance placed below an added entity goes with it (its entities are its own prefab's).
+        Entity box = scene->CreateEntity("Box");
+        scene->SetParent(box, a, false);
+        Entity inner = PrefabUtility::InstantiateLinked(*scene, db, prefab.Rel(), box);
+        CHECK(inner && PrefabUtility::IsInstanceRoot(inner));
+        const UUID boxID = box.GetUUID(), innerID = inner ? inner.GetUUID() : UUID(0);
+        const size_t before = scene->GetAllEntitiesWith<IDComponent>().size();
+        PrefabUtility::RecordOverrides(a, db);
+        CHECK(PrefabUtility::Revert(box, PrefabScope::Entity, {}, db));
+        CHECK(!scene->GetEntityByUUID(boxID) && !scene->GetEntityByUUID(innerID) && scene->GetAllEntitiesWith<IDComponent>().size() + 4 == before);
+        CHECK(PrefabUtility::GetMembers(a).size() == 3 && scene->GetChildren(a).size() == 2);
+    }
     // Unpack: plain entities.
     CHECK(PrefabUtility::Unpack(a) == 3 && !PrefabUtility::IsInstanceRoot(a) && !weapon.HasComponent<PrefabLinkComponent>());
 }
@@ -44465,6 +44506,20 @@ TEST(PrefabUndoFileEdits)
             text = "yangi2";
     });
     CHECK(history.GetEntries()[1].Files[0].After == "yangi2");
+    CHECK(history.GetEntries()[1].Files[0].Path == "Prefabs/A.zprefab"); // no path rewrite given: kept
+    // An asset move (the prefab renamed, its folder moved): the steps' files follow, so Undo / Redo
+    // write the file where it is now - not a stale copy at the old path.
+    history.RewriteScenes([](std::string&) {}, [](std::string& path) {
+        if (auto mapped = AssetFiles::RemapPath(path, "Prefabs/A.zprefab", "Prefabs/Foe.zprefab"))
+            path = *mapped;
+        else if (auto folder = AssetFiles::RemapPath(path, "Prefabs", "Units"))
+            path = *folder;
+    });
+    CHECK(history.GetEntries()[1].Files[0].Path == "Prefabs/Foe.zprefab");
+    CHECK(history.GetEntries()[2].Files[0].Path == "Units/B.zprefab");
+    CHECK(history.GetEntries()[1].Files[0].Before == std::optional<std::string>("eski") && history.GetEntries()[1].Files[0].After == "yangi2");
+    move = history.JumpTo(0);
+    CHECK(move.Files.size() == 2 && move.Files[0].Edit->Path == "Units/B.zprefab" && move.Files[1].Edit->Path == "Prefabs/Foe.zprefab");
 
     // The database's writes: atomic, remembered (an outside change is not its own), undoable.
     TempDirectory temp("zamin-prefab");
@@ -46801,4 +46856,96 @@ TEST(PrefabFieldLabelsExist)
         CHECK(found);
     }
     CHECK(PrefabFieldLabels::Find("SpriteRenderer", "Yo'q qator").empty() && PrefabFieldLabels::Find("Yo'q", "Rang").empty());
+}
+
+TEST(PrefabDamagedFileNotWritten)
+{
+    // A prefab file whose load reported errors (a component that cannot be read, an entry that is
+    // not an entity) is never written from what was read of it: Apply, the update after a nested
+    // prefab changed and a prefab mode save would drop the unread parts for good. The exact text an
+    // undo step holds, and a save the user chose (its original backed up), still write.
+    namespace fs = std::filesystem;
+    const LogLevel logLevel = Log::GetMinLevel();
+    Log::SetMinLevel(LogLevel::Critical); // the read problems below are expected
+    TempDirectory temp("zamin-prefab-damaged");
+    PrefabDatabase db(temp.GetPath());
+    // Weapon, nested in Enemy (which also has an Armor child).
+    auto qs = CreateRef<Scene>();
+    Entity qWeapon = qs->CreateEntity("Weapon");
+    qWeapon.AddComponent<CircleRendererComponent>().Color = { 1.0f, 1.0f, 1.0f, 1.0f };
+    const fs::path qFile = temp.GetPath() / "Prefabs" / "Weapon.zprefab";
+    CHECK(qs->SavePrefab(qWeapon, qFile));
+    auto ps = CreateRef<Scene>();
+    Entity pEnemy = ps->CreateEntity("Enemy");
+    Entity armor = ps->CreateEntity("Armor");
+    ps->SetParent(armor, pEnemy, false);
+    CHECK(PrefabUtility::InstantiateLinked(*ps, db, "Prefabs/Weapon.zprefab", pEnemy));
+    const fs::path pFile = temp.GetPath() / "Prefabs" / "Enemy.zprefab";
+    CHECK(ps->SavePrefab(pEnemy, pFile));
+    const std::string P = "Prefabs/Enemy.zprefab";
+    CHECK(db.CountLoadErrors(P) == 0 && db.CountLoadErrors("Prefabs/Weapon.zprefab") == 0 && db.CountLoadErrors("Prefabs/Yoq.zprefab") == 0);
+
+    // Damaged outside: Armor's sprite is not an object, one entry is not an entity.
+    std::string damaged = FileSystem::ReadTextFile(pFile);
+    const size_t tag = damaged.find("\"Tag\": \"Armor\"");
+    const size_t list = damaged.find("\"Entities\": [");
+    CHECK(tag != std::string::npos && list != std::string::npos);
+    if (tag == std::string::npos || list == std::string::npos)
+    {
+        Log::SetMinLevel(logLevel);
+        return;
+    }
+    damaged.insert(tag + std::string("\"Tag\": \"Armor\"").size(), ", \"SpriteRenderer\": \"qizil\"");
+    damaged.insert(list + std::string("\"Entities\": [").size(), " 5,");
+    CHECK(FileSystem::WriteTextFile(pFile, damaged));
+    db.Invalidate(P);
+    const PrefabDatabase::Template* t = db.Get(P);
+    CHECK(t && t->Readable && t->LoadErrors >= 2 && db.CountLoadErrors(P) == t->LoadErrors);
+
+    // Apply (the whole instance: its entity list would replace the file's) is refused.
+    auto scene = CreateRef<Scene>();
+    Entity enemy = PrefabUtility::InstantiateLinked(*scene, db, P);
+    CHECK(enemy);
+    if (!enemy)
+    {
+        Log::SetMinLevel(logLevel);
+        return;
+    }
+    enemy.GetComponent<TransformComponent>().Scale = { 3.0f, 3.0f, 3.0f };
+    PrefabUtility::RecordOverrides(enemy, db);
+    PrefabApplyResult r = PrefabUtility::Apply(enemy, PrefabScope::Instance, {}, db);
+    CHECK(!r.Applied && r.Error.find("o'qilmagan") != std::string::npos && r.Files.empty());
+    r = PrefabUtility::Apply(enemy, PrefabScope::Field, "Transform/Scale", db);
+    CHECK(!r.Applied && FileSystem::ReadTextFile(pFile) == damaged);
+
+    // The nested Weapon changes: Enemy's template follows in memory, its file is not rewritten.
+    qWeapon.GetComponent<CircleRendererComponent>().Color = { 1.0f, 0.0f, 0.0f, 1.0f };
+    CHECK(qs->SavePrefab(qWeapon, qFile));
+    db.Invalidate("Prefabs/Weapon.zprefab");
+    std::vector<FileEdit> edits;
+    CHECK(!PrefabUtility::SyncPrefabFile(db, P, &edits) && edits.empty() && FileSystem::ReadTextFile(pFile) == damaged);
+    // Nor by a plain write.
+    CHECK(!db.Write(P, R"({"ZaminEntities":1,"Entities":[{"Entity":1,"Tag":"Enemy"}]})", &edits) && edits.empty());
+    CHECK(FileSystem::ReadTextFile(pFile) == damaged);
+
+    // Prefab mode: what could be read opens (reported); saving asks first (refused without consent).
+    auto stage = CreateRef<Scene>();
+    SceneLoadReport report;
+    Entity root = PrefabUtility::LoadStage(*stage, db, P, &report);
+    CHECK(root && report.Count(SceneLoadIssue::Severity::Error) >= 2);
+    if (root)
+        root.GetComponent<TransformComponent>().Translation = { 1.0f, 0.0f, 0.0f };
+    std::string error;
+    CHECK(!PrefabUtility::SaveStage(*stage, db, P, &edits, &error) && error.find("o'qilmagan") != std::string::npos && edits.empty());
+    CHECK(FileSystem::ReadTextFile(pFile) == damaged);
+    // The user chose to save over it: written (undoable), clean from then on.
+    CHECK(PrefabUtility::SaveStage(*stage, db, P, &edits, &error, true) && edits.size() == 1 && edits[0].Before == std::optional<std::string>(damaged));
+    CHECK(FileSystem::ReadTextFile(pFile) != damaged && db.CountLoadErrors(P) == 0);
+    // Undo puts the exact text back (over a clean file: an ordinary write).
+    CHECK(db.Write(P, damaged, nullptr, true) && FileSystem::ReadTextFile(pFile) == damaged && db.CountLoadErrors(P) >= 2);
+    // A file whose JSON does not parse at all is not written over either.
+    CHECK(FileSystem::WriteTextFile(pFile, "{ \"ZaminEntities\": 1, \"Entities\": [ {"));
+    db.Invalidate(P);
+    CHECK(db.CountLoadErrors(P) > 0 && !db.Write(P, R"({"ZaminEntities":1,"Entities":[{"Entity":1,"Tag":"Enemy"}]})"));
+    Log::SetMinLevel(logLevel);
 }

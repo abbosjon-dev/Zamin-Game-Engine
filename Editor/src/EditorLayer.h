@@ -192,6 +192,12 @@ namespace Zamin {
         // with unsaved edits shows the banner.
         void CheckPrefabStageFile();
         void ReloadPrefabStage();
+        // Assets were moved / renamed (OnAssetsMoved): every level's prefab path, the scenes waiting
+        // below the levels (their undo histories and the files their steps wrote) and the scene file
+        // they return to follow, so saving / leaving writes where the files are now. `remap` rewrites
+        // the asset paths in a scene / prefab text, `remapPath` an asset-relative path itself.
+        void OnPrefabStageAssetsMoved(const AssetFiles::MoveResult& result, const std::function<size_t(std::string&)>& remap,
+                                      const std::function<bool(std::string&)>& remapPath);
         void UI_PrefabStageBar(ImVec2 at, float width);
         float GetPrefabStageBarHeight() const;
         void UI_PrefabStagePopups();
@@ -1084,6 +1090,7 @@ namespace Zamin {
             std::filesystem::file_time_type FileTime{};
             double NextCheck = 0.0;
             bool ExternalChange = false;                  // changed outside while there were unsaved edits
+            bool OverwriteDamaged = false;                // its file could not all be read: saved over it anyway (the original backed up)
         };
         std::vector<PrefabStageLevel> m_PrefabStages;
         // Prefab files the file watcher reported (relative to the assets): handled in Edit mode (a
@@ -1107,8 +1114,8 @@ namespace Zamin {
         } m_PrefabStageLeave;
         std::string m_PrefabStageRecoverPrompt;           // a prefab that could not be read: "Qisman tiklash?"
         std::filesystem::path m_SceneRecoverPrompt;       // a scene file that does not parse: "Qisman tiklash?"
-        bool m_RecoveredPrefabsPrompt = false;            // recovered: "Prefab nusxalarini tiklash?"
         bool m_PrefabStageWrapPrompt = false;             // several roots: "Yangi ildizga o'rash?"
+        size_t m_PrefabStageDamagedPrompt = 0;            // saving over a file not all read (its errors): "Zaxira bilan saqlash?"
 
         // keyboard shortcuts
         ShortcutRegistry m_Shortcuts;

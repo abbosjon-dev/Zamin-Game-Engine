@@ -231,7 +231,7 @@ namespace Zamin {
         m_Current = 0;
     }
 
-    void UndoHistory::RewriteScenes(const std::function<void(std::string&)>& rewrite)
+    void UndoHistory::RewriteScenes(const std::function<void(std::string&)>& rewrite, const std::function<void(std::string&)>& rewritePath)
     {
         std::unordered_map<const std::string*, std::shared_ptr<const std::string>> rewritten;
         auto get = [&](const std::shared_ptr<const std::string>& scene) -> std::shared_ptr<const std::string> {
@@ -251,6 +251,8 @@ namespace Zamin {
             e.Scene = get(e.Scene);
             for (FileEdit& file : e.Files)
             {
+                if (rewritePath)
+                    rewritePath(file.Path);
                 if (file.Before)
                     rewrite(*file.Before);
                 rewrite(file.After);

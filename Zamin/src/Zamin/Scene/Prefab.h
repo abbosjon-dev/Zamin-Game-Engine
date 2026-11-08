@@ -201,10 +201,12 @@ namespace Zamin {
         static std::string SerializeStage(Scene& stage, PrefabDatabase& db, std::string* error = nullptr);
         // Writes the stage into the prefab (PrefabDatabase::Write: atomic, `edits` for undo) and
         // brings the prefabs made of it up to date (their files too). Refused (false, `error`): more
-        // than one root, a nested prefab that is made of this one (a cycle), a file of a newer format.
+        // than one root, a nested prefab that is made of this one (a cycle), a file of a newer format,
+        // a file whose load reported errors (PrefabDatabase::CountLoadErrors: what could not be read
+        // would be lost) unless `overwriteDamaged` (the user chose so, the original backed up).
         // True without writing when the file holds that text already.
         static bool SaveStage(Scene& stage, PrefabDatabase& db, std::string_view relPath, std::vector<FileEdit>* edits = nullptr,
-                              std::string* error = nullptr);
+                              std::string* error = nullptr, bool overwriteDamaged = false);
     };
 
 }

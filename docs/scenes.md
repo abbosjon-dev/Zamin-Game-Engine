@@ -623,6 +623,7 @@ havolalar), 1000 ta bog'langan nusxa (20 000 obyekt), o'ndan biri 3 ta override 
 | Yuklashga qo'shimcha (JSON) | 10.8 % | 7.3 % | ≤ 5 % |
 | Apply → hamma nusxalar | 462 ms | 218 ms | — |
 | `Instantiate(path)` ×1000: har safar o'qib / `PrefabCache` | 283 / 111 ms | 1079 / 328 ms | — |
+| `PrefabExport::Prepare` (tekshiruv + sahnaning bog'lanishsiz nusxasi) | 676 ms | 285 ms | — |
 
 Majburiy qayta sinxron va yuklashdagi qo'shimcha byudjetdan oshadi: sinxron har nusxa obyektini prefab va nusxa JSON'i
 sifatida solishtiradi (20 000 obyektni ikki marta yozish ~300 ms), bog'lanishlar esa har obyektga kichik

@@ -86,8 +86,15 @@ namespace Zamin {
         // Writes a prefab file (atomically) and forgets what was read of it. The write is remembered
         // (IsOwnWrite) and, with `undo`, added to it as a FileEdit (nothing when the file already
         // holds `text`). False when it could not be written - or must not be: a file of a newer
-        // format than this engine knows is never written over (what it does not understand would go).
-        bool Write(std::string_view relPath, const std::string& text, std::vector<FileEdit>* undo = nullptr);
+        // format than this engine knows is never written over (what it does not understand would go),
+        // nor is one whose entities / components could not all be read (CountLoadErrors: a text made
+        // from what was read would drop the rest for good) unless `overwriteDamaged` - the exact text
+        // an undo step holds, or a damaged prefab the user chose to save over (its original backed up).
+        bool Write(std::string_view relPath, const std::string& text, std::vector<FileEdit>* undo = nullptr, bool overwriteDamaged = false);
+        // Entities / components of the prefab file as it is on disk now that could not be read
+        // (Error / Fatal issues of its load: a component that throws, an entry that is not an
+        // entity, JSON that does not parse). 0: none, or no file.
+        size_t CountLoadErrors(std::string_view relPath);
         // The text was written by this database (the file watcher's change is the editor's own).
         bool IsOwnWrite(const std::filesystem::path& file, uint64_t contentHash) const;
         // What became of a prefab file since this database last looked at it with CheckFile (or wrote
@@ -110,6 +117,7 @@ namespace Zamin {
     private:
         struct Entry;
         Entry* Load(const std::string& path);
+        size_t CountLoadErrors(const std::string& key, const std::string& text);
         void BuildTemplate(Entry& entry, const std::string& path);
         void ScanDependencies();
         uint64_t ResolvedHashImpl(const std::string& path, std::unordered_set<std::string>& visiting);

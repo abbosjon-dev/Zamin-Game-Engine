@@ -6070,6 +6070,16 @@ namespace Zamin {
                 return AssetFiles::RemapAssetReference(key, value, moves);
             });
         };
+        // An asset-relative path itself (a prefab file an undo step wrote, a prefab mode level's prefab).
+        auto remapPath = [&](std::string& path) {
+            for (const auto& [from, to] : moves)
+                if (auto mapped = AssetFiles::RemapPath(path, from, to))
+                {
+                    path = *mapped;
+                    return true;
+                }
+            return false;
+        };
 
         if (!moves.empty() && m_EditorScene)
         {
@@ -6088,11 +6098,15 @@ namespace Zamin {
                     ZM_INFO("Ochiq sahnada {} ta havola yangilandi", n);
                 }
             }
-            // Undo / redo snapshots and the entity clipboard use the new paths, too.
-            m_UndoHistory.RewriteScenes([&](std::string& snapshot) { remap(snapshot); });
+            // Undo / redo snapshots (and the prefab files their steps wrote) and the entity
+            // clipboard use the new paths, too.
+            m_UndoHistory.RewriteScenes([&](std::string& snapshot) { remap(snapshot); }, [&](std::string& path) { remapPath(path); });
             m_AutosavedScene.reset(); // the next copy has the new paths
             remap(m_Clipboard);
         }
+        // Prefab mode: the prefabs open, the scenes waiting below them and the scene file they return to.
+        if (IsInPrefabStage())
+            OnPrefabStageAssetsMoved(result, remap, remapPath);
 
         // The open scene file itself (or its folder) moved.
         if (!m_EditorScenePath.empty())

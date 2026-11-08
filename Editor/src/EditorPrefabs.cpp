@@ -49,7 +49,7 @@ namespace Zamin {
                 ZM_WARN("Fayl tashqarida o'zgargan: {} - undo/redo uni ustiga yozdi", edit.Path);
             const std::optional<std::string>& text = step.Undo ? edit.Before : std::optional<std::string>(edit.After);
             if (text)
-                m_PrefabDatabase.Write(edit.Path, *text);
+                m_PrefabDatabase.Write(edit.Path, *text, nullptr, true); // the exact text the step holds
             else
             {
                 fs::remove(file, ec);
@@ -191,11 +191,13 @@ namespace Zamin {
                     }
                 }
                 m_PrefabRevertConfirm.Open = false;
+                // Read before reverting: an added entity reverted on its own is destroyed.
+                const std::string entityName = entity.GetName();
                 if (!PrefabUtility::Revert(entity, request.Scope, request.Path, m_PrefabDatabase))
                     return;
                 m_EditorScene->ResolveAssets();
                 MarkDirty(request.Scope == PrefabScope::Instance ? std::format("Prefab nusxasi asliga qaytarildi: {}", rootName)
-                          : std::format("Asliga qaytarildi: {} ({})", request.Path.empty() ? entity.GetName() : request.Path, rootName));
+                          : std::format("Asliga qaytarildi: {} ({})", request.Path.empty() ? entityName : request.Path, rootName));
                 break;
             }
             case PrefabRequest::Op::RestoreRemoved:
@@ -458,7 +460,7 @@ namespace Zamin {
     // create=<name>;save=<name>;select=<name>;top=<name>;move=<name>,x,y,z;instantiate=<prefab>[,<parent>[,<name>]];
     // apply=<name>[,<path>[,<target>]];revert=<name>[,<path>];unpack=<name>;undo;redo;changes;open=<prefab>[,<name>];
     // stagesave;stageclose[=<levels kept>];variant=<prefab>;savevariant=<name>[,<prefab>];place=<prefab>[|...],x,y[,shift];rename=<name>,<new name>;
-    // copy=<name>;copyprefab=<prefab>;paste[=<next to>];check;extwrite=<prefab>,<file>":
+    // copy=<name>;copyprefab=<prefab>;paste[=<next to>];check;extwrite=<prefab>,<file>;assetrename=<asset path>,<new file name>":
     // prefab instance edits made one by one as undo steps (screenshots,
     // checks). "changes" opens the inspector's list; "open" opens a prefab in prefab mode (the entity of an
     // instance named second is selected there), "stagesave" / "stageclose" save / leave it.
@@ -501,6 +503,17 @@ namespace Zamin {
             if (op == "check")
             {
                 RunPrefabCheck(); // "Prefab'larni tekshirish"
+                continue;
+            }
+            // assetrename=<asset path>,<new file name>: renamed as in the content browser (references follow).
+            if (op == "assetrename" && args.size() >= 2)
+            {
+                AssetFiles::MoveResult result = AssetFiles::Rename(Project::GetAssetFileSystemPath(args[0]), args[1], Project::GetAssetDirectory(),
+                                                                   Project::GetSourceDirectory());
+                for (const std::string& error : result.Errors)
+                    ZM_WARN("Nomi o'zgartirilmadi: {}", error);
+                m_ContentBrowserPanel.Refresh();
+                OnAssetsMoved(result);
                 continue;
             }
             if (op == "changes")

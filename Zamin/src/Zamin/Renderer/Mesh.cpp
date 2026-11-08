@@ -1,4 +1,5 @@
 #include "Zamin/Renderer/Mesh.h"
+#include "Zamin/Asset/AsyncLoader.h"
 #include "Zamin/Asset/AssetImportLog.h"
 
 #define TINYOBJLOADER_IMPLEMENTATION
@@ -22,45 +23,88 @@ namespace Zamin {
 
     Mesh::Mesh(const std::vector<MeshVertex>& vertices, const std::vector<uint32_t>& indices)
     {
-        m_VertexArray = VertexArray::Create();
-        Ref<VertexBuffer> vb = VertexBuffer::Create(vertices.data(), (uint32_t)(vertices.size() * sizeof(MeshVertex)));
-        vb->SetLayout({
-            { ShaderDataType::Float3, "a_Position" },
-            { ShaderDataType::Float3, "a_Normal" },
-            { ShaderDataType::Float2, "a_TexCoord" },
-        });
-        m_VertexArray->AddVertexBuffer(vb);
-        m_IndexBuffer = IndexBuffer::Create(indices.data(), (uint32_t)indices.size());
-        m_VertexArray->SetIndexBuffer(m_IndexBuffer);
-        m_VertexBuffer = vb;
         m_IndexCount = (uint32_t)indices.size();
         m_VertexCount = (uint32_t)vertices.size();
-
         BoundsOf(vertices, m_Bounds);
+        if (AsyncLoader::IsDeferringGPU())
+        {
+            m_Pending = CreateScope<PendingData>();
+            m_Pending->Vertices = vertices;
+            m_Pending->Indices = indices;
+            AsyncLoader::QueueUpload(this, [this] { EnsureUploaded(); });
+            return;
+        }
+        Upload(&vertices, nullptr, indices);
     }
 
     Mesh::Mesh(const std::vector<SkinnedVertex>& vertices, const std::vector<uint32_t>& indices) : m_Skinned(true)
     {
+        m_IndexCount = (uint32_t)indices.size();
+        m_VertexCount = (uint32_t)vertices.size();
+        BoundsOf(vertices, m_Bounds);
+        if (AsyncLoader::IsDeferringGPU())
+        {
+            m_Pending = CreateScope<PendingData>();
+            m_Pending->SkinnedVertices = vertices;
+            m_Pending->Indices = indices;
+            AsyncLoader::QueueUpload(this, [this] { EnsureUploaded(); });
+            return;
+        }
+        Upload(nullptr, &vertices, indices);
+    }
+
+    Mesh::~Mesh()
+    {
+        if (m_Pending)
+            AsyncLoader::CancelUpload(this);
+    }
+
+    void Mesh::EnsureUploaded() const
+    {
+        if (!m_Pending)
+            return;
+        Scope<PendingData> pending = std::move(m_Pending);
+        AsyncLoader::CancelUpload(this); // (when it is not the queue that runs it)
+        Mesh& self = const_cast<Mesh&>(*this);
+        if (m_Skinned)
+            self.Upload(nullptr, &pending->SkinnedVertices, pending->Indices);
+        else
+            self.Upload(&pending->Vertices, nullptr, pending->Indices);
+    }
+
+    void Mesh::Upload(const std::vector<MeshVertex>* vertices, const std::vector<SkinnedVertex>* skinned, const std::vector<uint32_t>& indices)
+    {
         m_VertexArray = VertexArray::Create();
-        Ref<VertexBuffer> vb = VertexBuffer::Create(vertices.data(), (uint32_t)(vertices.size() * sizeof(SkinnedVertex)));
-        vb->SetLayout({
-            { ShaderDataType::Float3, "a_Position" },
-            { ShaderDataType::Float3, "a_Normal" },
-            { ShaderDataType::Float2, "a_TexCoord" },
-            { ShaderDataType::Int4,   "a_Joints" },
-            { ShaderDataType::Float4, "a_Weights" },
-        });
+        Ref<VertexBuffer> vb;
+        if (skinned)
+        {
+            vb = VertexBuffer::Create(skinned->data(), (uint32_t)(skinned->size() * sizeof(SkinnedVertex)));
+            vb->SetLayout({
+                { ShaderDataType::Float3, "a_Position" },
+                { ShaderDataType::Float3, "a_Normal" },
+                { ShaderDataType::Float2, "a_TexCoord" },
+                { ShaderDataType::Int4,   "a_Joints" },
+                { ShaderDataType::Float4, "a_Weights" },
+            });
+        }
+        else
+        {
+            vb = VertexBuffer::Create(vertices->data(), (uint32_t)(vertices->size() * sizeof(MeshVertex)));
+            vb->SetLayout({
+                { ShaderDataType::Float3, "a_Position" },
+                { ShaderDataType::Float3, "a_Normal" },
+                { ShaderDataType::Float2, "a_TexCoord" },
+            });
+        }
         m_VertexArray->AddVertexBuffer(vb);
         m_IndexBuffer = IndexBuffer::Create(indices.data(), (uint32_t)indices.size());
         m_VertexArray->SetIndexBuffer(m_IndexBuffer);
         m_VertexBuffer = vb;
-        m_IndexCount = (uint32_t)indices.size();
-        m_VertexCount = (uint32_t)vertices.size();
-        BoundsOf(vertices, m_Bounds);
     }
 
     bool Mesh::UpdateVertices(const std::vector<MeshVertex>& vertices)
     {
+        EnsureUploaded();
         if (m_Skinned || vertices.size() != m_VertexCount || !m_VertexBuffer)
             return false;
         m_VertexBuffer->StreamData(vertices.data(), (uint32_t)(vertices.size() * sizeof(MeshVertex)));
@@ -71,6 +115,7 @@ namespace Zamin {
 
     bool Mesh::UpdateVertices(const std::vector<SkinnedVertex>& vertices)
     {
+        EnsureUploaded();
         if (!m_Skinned || vertices.size() != m_VertexCount || !m_VertexBuffer)
             return false;
         m_VertexBuffer->StreamData(vertices.data(), (uint32_t)(vertices.size() * sizeof(SkinnedVertex)));
@@ -114,6 +159,11 @@ namespace Zamin {
         if (m_Geometry)
             return *m_Geometry;
         m_Geometry = CreateScope<MeshGeometry>();
+        if (m_Pending) // not uploaded yet: from the vertices it keeps
+        {
+            *m_Geometry = m_Skinned ? MeshGeometry::FromVertices(m_Pending->SkinnedVertices) : MeshGeometry::FromVertices(m_Pending->Vertices);
+            return *m_Geometry;
+        }
         if (!m_VertexBuffer || m_VertexCount == 0)
             return *m_Geometry;
         if (m_Skinned)
@@ -133,6 +183,7 @@ namespace Zamin {
 
     const Ref<VertexArray>& Mesh::GetInstancedVertexArray(const Ref<VertexBuffer>& instanceBuffer) const
     {
+        EnsureUploaded();
         if (!m_InstancedVertexArray || m_InstanceBuffer != instanceBuffer)
         {
             // The same vertex and index buffers as the plain vertex array (locations 0..2), then

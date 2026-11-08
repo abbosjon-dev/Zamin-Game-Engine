@@ -1023,19 +1023,24 @@ void main()
 
         float x = 0.0f, y = 0.0f;
         const float lineAdvance = font->GetLineHeight() + params.LineSpacing;
+        const bool pairs = font->IsKerningEnabled(); // the font's kerning pairs (FontImportSettings::Kerning)
+        uint32_t previous = 0;
 
         size_t i = 0;
         while (i < text.size())
         {
             uint32_t cp = DecodeUTF8(text, i);
             if (cp == '\r') continue;
-            if (cp == '\n') { x = 0.0f; y -= lineAdvance; continue; }
+            if (cp == '\n') { x = 0.0f; y -= lineAdvance; previous = 0; continue; }
             if (cp == '\t') cp = ' ';
 
             const Glyph* g = font->GetGlyph(cp);
             if (!g) continue;
             const Glyph* q = sized.Find(cp);
             if (!q) q = g;
+            if (pairs && previous)
+                x += font->GetKerning(previous, cp);
+            previous = cp;
 
             if (q->X1 > q->X0)
             {
@@ -1085,15 +1090,20 @@ void main()
         // The same layout as DrawString.
         float x = 0.0f, y = 0.0f;
         const float lineAdvance = font->GetLineHeight() + params.LineSpacing;
+        const bool pairs = font->IsKerningEnabled();
+        uint32_t previous = 0;
         size_t i = 0;
         while (i < text.size())
         {
             uint32_t cp = DecodeUTF8(text, i);
             if (cp == '\r') continue;
-            if (cp == '\n') { x = 0.0f; y -= lineAdvance; continue; }
+            if (cp == '\n') { x = 0.0f; y -= lineAdvance; previous = 0; continue; }
             if (cp == '\t') cp = ' ';
             const Glyph* g = font->GetGlyph(cp);
             if (!g) continue;
+            if (pairs && previous)
+                x += font->GetKerning(previous, cp);
+            previous = cp;
             if (g->X1 > g->X0)
             {
                 box.Encapsulate(glm::vec3(x + std::min(g->X0, g->X1), y + std::min(g->Y0, g->Y1), 0.0f));
@@ -1109,13 +1119,20 @@ void main()
         if (!font) return { 0.0f, 0.0f };
         float x = 0.0f, maxX = 0.0f;
         int lines = 1;
+        const bool pairs = font->IsKerningEnabled();
+        uint32_t previous = 0;
         size_t i = 0;
         while (i < text.size())
         {
             uint32_t cp = DecodeUTF8(text, i);
-            if (cp == '\n') { maxX = std::max(maxX, x); x = 0.0f; lines++; continue; }
+            if (cp == '\n') { maxX = std::max(maxX, x); x = 0.0f; lines++; previous = 0; continue; }
             if (const Glyph* g = font->GetGlyph(cp))
+            {
+                if (pairs && previous)
+                    x += font->GetKerning(previous, cp);
+                previous = cp;
                 x += g->Advance + params.Kerning;
+            }
         }
         maxX = std::max(maxX, x);
         return { maxX, lines * (font->GetLineHeight() + params.LineSpacing) };

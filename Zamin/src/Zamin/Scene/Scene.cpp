@@ -562,9 +562,35 @@ namespace Zamin {
     }
 
     // ------------------------------------------------------------------ scene
-    Scene::Scene()
-        : m_EventBus(std::make_shared<EventBus>())
+    struct Scene::HotStorages
     {
+        entt::storage_for_t<TransformComponent>* Transform = nullptr;
+        entt::storage_for_t<RelationshipComponent>* Relationship = nullptr;
+        entt::storage_for_t<BoneAttachmentComponent>* BoneAttachment = nullptr;
+        entt::storage_for_t<SpriteRendererComponent>* Sprite = nullptr;
+        entt::storage_for_t<SpriteAnimationComponent>* SpriteAnimation = nullptr;
+        entt::storage_for_t<CircleRendererComponent>* Circle = nullptr;
+        entt::storage_for_t<TextComponent>* Text = nullptr;
+        entt::storage_for_t<TilemapComponent>* Tilemap = nullptr;
+        entt::storage_for_t<UITransformComponent>* UITransform = nullptr;
+        entt::storage_for_t<ParallaxComponent>* Parallax = nullptr;
+        entt::storage_for_t<TintAnimationComponent>* Tint = nullptr;
+    };
+
+    Scene::Scene()
+        : m_Hot(std::make_shared<HotStorages>()), m_EventBus(std::make_shared<EventBus>())
+    {
+        m_Hot->Transform = &m_Registry.storage<TransformComponent>();
+        m_Hot->Relationship = &m_Registry.storage<RelationshipComponent>();
+        m_Hot->BoneAttachment = &m_Registry.storage<BoneAttachmentComponent>();
+        m_Hot->Sprite = &m_Registry.storage<SpriteRendererComponent>();
+        m_Hot->SpriteAnimation = &m_Registry.storage<SpriteAnimationComponent>();
+        m_Hot->Circle = &m_Registry.storage<CircleRendererComponent>();
+        m_Hot->Text = &m_Registry.storage<TextComponent>();
+        m_Hot->Tilemap = &m_Registry.storage<TilemapComponent>();
+        m_Hot->UITransform = &m_Registry.storage<UITransformComponent>();
+        m_Hot->Parallax = &m_Registry.storage<ParallaxComponent>();
+        m_Hot->Tint = &m_Registry.storage<TintAnimationComponent>();
         // Every way of adding / replacing / removing a name or the tags goes through these signals
         // (Entity::SetName / AddTag / RemoveTag use patch -> on_update): the indices follow at once.
         m_Registry.on_construct<TagComponent>().connect<&Scene::OnNameConstructed>(*this);
@@ -2392,15 +2418,15 @@ namespace Zamin {
     const glm::mat4& Scene::CachedWorldTransform(entt::entity e, uint64_t& version, int depth)
     {
         static constexpr int s_MaxCachedDepth = 256;
-        const auto& tc = m_Registry.get<TransformComponent>(e);
-        const UUID parentID = m_Registry.get<RelationshipComponent>(e).Parent;
+        const auto& tc = m_Hot->Transform->get(e);
+        const UUID parentID = m_Hot->Relationship->get(e).Parent;
         const uint32_t index = (uint32_t)entt::to_entity(e);
         if (index >= m_WorldCache.size())
             m_WorldCache.resize(std::max<size_t>((size_t)index + 1, m_Registry.storage<entt::entity>().size()));
         // A bone attachment follows its model's pose (the animator moves it) and a hierarchy this
         // deep is a broken one: made every time, with a fresh version so what is below them is
         // made again too (kept in the entry: the reference stays valid like a cached one).
-        if (depth >= s_MaxCachedDepth || m_Registry.all_of<BoneAttachmentComponent>(e))
+        if (depth >= s_MaxCachedDepth || m_Hot->BoneAttachment->contains(e))
         {
             m_WorldCacheStats.Uncached++;
             const glm::mat4 world = depth >= s_MaxCachedDepth ? ComputeWorldTransform(e) : GetParentWorldTransform({ e, this }) * tc.GetTransform();
@@ -2505,7 +2531,7 @@ namespace Zamin {
         if (auto* text = entity.TryGetComponent<TextComponent>(); text && text->FontAsset)
         {
             // The lines as the text is laid out (see the editor's selection outline).
-            const UIRect box = text->LayoutWorld().GetBounds();
+            const UIRect box = text->GetWorldLayout().GetBounds();
             add(glm::vec3(box.Min, 0.0f), glm::vec3(box.Max, 0.0f));
         }
         if (auto* tm = entity.TryGetComponent<TilemapComponent>()) // the position is the bottom-left corner
@@ -5395,14 +5421,16 @@ namespace Zamin {
     {
         if (!entity)
             return;
+        // In the background when AsyncLoader is on (the editor opening a scene): placeholders until the
+        // workers have decoded them (TextureLibrary::LoadAsync / Model::LoadAsync); else at once.
         if (auto* sprite = entity.TryGetComponent<SpriteRendererComponent>())
             sprite->Texture = sprite->TexturePath.empty() ? nullptr
-                : TextureLibrary::Load(Project::GetAssetFileSystemPath(sprite->TexturePath), sprite->PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
+                : TextureLibrary::LoadAsync(Project::GetAssetFileSystemPath(sprite->TexturePath), sprite->PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
         if (auto* mr = entity.TryGetComponent<MeshRendererComponent>())
             ResolveMeshRenderer(*mr);
         if (auto* tm = entity.TryGetComponent<TilemapComponent>())
             tm->Tileset = tm->TilesetPath.empty() ? nullptr
-                : TextureLibrary::Load(Project::GetAssetFileSystemPath(tm->TilesetPath), tm->PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
+                : TextureLibrary::LoadAsync(Project::GetAssetFileSystemPath(tm->TilesetPath), tm->PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
         if (auto* text = entity.TryGetComponent<TextComponent>())
             text->FontAsset = text->FontPath.empty() ? Font::GetDefault() : Font::Load(Project::GetAssetFileSystemPath(text->FontPath));
         if (auto* image = entity.TryGetComponent<UIImageComponent>())
@@ -7123,7 +7151,7 @@ namespace Zamin {
         if (mr.Type == PrimitiveMesh::Model)
         {
             mr.MeshAsset = nullptr;
-            mr.ModelAsset = mr.ModelPath.empty() ? nullptr : Model::Load(Project::GetAssetFileSystemPath(mr.ModelPath));
+            mr.ModelAsset = mr.ModelPath.empty() ? nullptr : Model::LoadAsync(Project::GetAssetFileSystemPath(mr.ModelPath));
         }
         else
         {
@@ -7503,11 +7531,11 @@ namespace Zamin {
             const uint32_t slot = (uint32_t)entt::to_entity(e);
             if (slot < worldMemo.size() && worldMemoFrame[slot] == memoFrame)
                 return worldMemo[slot];
-            glm::mat4 local = m_Registry.get<TransformComponent>(e).GetTransform();
-            UUID parent = m_Registry.get<RelationshipComponent>(e).Parent;
+            glm::mat4 local = m_Hot->Transform->get(e).GetTransform();
+            UUID parent = m_Hot->Relationship->get(e).Parent;
             Entity boneTarget;
             glm::mat4 bone;
-            if (m_Registry.all_of<BoneAttachmentComponent>(e) && s_AttachmentDepth < s_MaxAttachmentDepth &&
+            if (m_Hot->BoneAttachment->contains(e) && s_AttachmentDepth < s_MaxAttachmentDepth &&
                 GetBoneAttachmentLocal({ e, this }, boneTarget, bone))
             {
                 // On a bone: the bone (as its model is posed this frame) in place of the parent.
@@ -7521,7 +7549,7 @@ namespace Zamin {
                 if (pit != m_EntityMap.end() && m_Registry.valid(pit->second))
                     local = world(pit->second) * local;
             }
-            if (const auto* p = m_Registry.try_get<ParallaxComponent>(e))
+            if (const auto* p = m_Hot->Parallax->contains(e) ? &m_Hot->Parallax->get(e) : nullptr)
             {
                 glm::vec2 offset = ParallaxMath::GetOffset(glm::vec2(cameraPosition), glm::vec2(local[3]), p->Factor);
                 local = glm::translate(glm::mat4(1.0f), glm::vec3(offset, 0.0f)) * local;
@@ -7714,12 +7742,12 @@ namespace Zamin {
         // Parallax sprites that repeat fill the view with copies (never culled as one quad).
         auto repeats = [&](entt::entity e) -> const ParallaxComponent* {
             if (!parallax) return nullptr;
-            const auto* p = m_Registry.try_get<ParallaxComponent>(e);
+            const auto* p = m_Hot->Parallax->contains(e) ? &m_Hot->Parallax->get(e) : nullptr;
             return p && (p->RepeatX || p->RepeatY) ? p : nullptr;
         };
 
         // Screen-space UI is drawn by RenderUI; hidden / inactive entities not at all.
-        auto notWorld2D = [&](entt::entity e) { return m_Registry.all_of<UITransformComponent>(e) || skip(e); };
+        auto notWorld2D = [&](entt::entity e) { return m_Hot->UITransform->contains(e) || skip(e); };
         // Frustum culling: what lies entirely outside the camera's view is not drawn (tilemaps
         // chunk by chunk, see below).
         auto& stats = Renderer::GetStats();
@@ -7735,11 +7763,11 @@ namespace Zamin {
         {
             if (notWorld2D(e))
                 continue;
-            const auto& s = m_Registry.get<SpriteRendererComponent>(e);
+            const auto& s = m_Hot->Sprite->get(e);
             AABB bounds = AABB::Empty();
             if (!repeats(e))
             {
-                const auto* anim = m_Registry.try_get<SpriteAnimationComponent>(e);
+                const auto* anim = m_Hot->SpriteAnimation->contains(e) ? &m_Hot->SpriteAnimation->get(e) : nullptr;
                 glm::mat4 rect = s.DrawMode == SpriteDrawMode::Simple && !needsRegistry(s, anim)
                                ? world(e) : world(e) * GetSpriteRectTransform(s, anim, needsRegistry(s, anim) ? registry() : nullptr);
                 bounds = Renderer2D::GetQuadBounds(rect);
@@ -7758,14 +7786,14 @@ namespace Zamin {
             const AABB bounds = Renderer2D::GetQuadBounds(world(e));
             if (seen(bounds))
             {
-                const auto& c = m_Registry.get<CircleRendererComponent>(e);
+                const auto& c = m_Hot->Circle->get(e);
                 items.push_back({ keyOf(e, c.SortingLayer, c.SortingOrder), 1, e, 0, bounds, 2u });
             }
         }
         for (auto e : m_Registry.view<TransformComponent, TextComponent>())
         {
             if (notWorld2D(e)) continue;
-            auto& text = m_Registry.get<TextComponent>(e);
+            auto& text = m_Hot->Text->get(e);
             if (!text.FontAsset)
                 text.FontAsset = Font::GetDefault();
             AABB bounds = AABB::Empty();
@@ -7774,7 +7802,7 @@ namespace Zamin {
                 // The lines' box, as the draw below lays them out.
                 if (text.GetDisplayText().empty())
                     continue; // nothing to draw
-                const TextLayoutResult& layout = text.LayoutWorld();
+                const TextLayoutResult& layout = text.GetWorldLayout();
                 const UIRect box = layout.GetBounds();
                 if (culling2D && !seen(TransformAABB(AABB{ glm::vec3(box.Min, 0.0f), glm::vec3(box.Max, 0.0f) }, world(e))))
                     continue;
@@ -7790,7 +7818,7 @@ namespace Zamin {
             if (!notWorld2D(e))
             {
                 // Every visible tile layer: at the tilemap's order plus its own (list order breaks ties).
-                const auto& tm = m_Registry.get<TilemapComponent>(e);
+                const auto& tm = m_Hot->Tilemap->get(e);
                 for (int layer = 0; layer < (int)tm.Layers.size(); layer++)
                 {
                     const TilemapLayer& l = tm.Layers[(size_t)layer];
@@ -7837,8 +7865,7 @@ namespace Zamin {
         // 2D lights for the Lit renderers (only looked up when one is Lit).
         bool anyLit = false;
         for (const Item2D& item : items)
-            if ((item.Kind == 0 && m_Registry.get<SpriteRendererComponent>(item.Handle).Lit) ||
-                (item.Kind == 4 && m_Registry.get<TilemapComponent>(item.Handle).Lit))
+            if ((item.Kind == 0 && m_Hot->Sprite->get(item.Handle).Lit) || (item.Kind == 4 && m_Hot->Tilemap->get(item.Handle).Lit))
             {
                 anyLit = true;
                 break;
@@ -7846,9 +7873,9 @@ namespace Zamin {
         if (anyLit)
             Renderer2D::SetLighting(GatherLights2D(world, glm::vec2(cameraPosition), culling2D ? &frustum2D : nullptr, hidden));
         // Tint animations multiply the renderer's colour.
-        const bool tints = !m_Registry.view<TintAnimationComponent>().empty();
+        const bool tints = !m_Hot->Tint->empty();
         auto tintOf = [&](entt::entity e) {
-            const auto* tint = tints ? m_Registry.try_get<TintAnimationComponent>(e) : nullptr;
+            const auto* tint = tints && m_Hot->Tint->contains(e) ? &m_Hot->Tint->get(e) : nullptr;
             return tint ? tint->GetColor() : glm::vec4(1.0f);
         };
         // Pixel-perfect camera: drawn at whole pixels (the transform stays).
@@ -7868,16 +7895,16 @@ namespace Zamin {
             const Item2D& item = items[itemIndex];
             const glm::mat4& transform = world(item.Handle);
             int id = (int)(uint32_t)item.Handle;
-            Renderer2D::SetLit(anyLit && ((item.Kind == 0 && m_Registry.get<SpriteRendererComponent>(item.Handle).Lit) ||
-                                          (item.Kind == 4 && m_Registry.get<TilemapComponent>(item.Handle).Lit)));
+            Renderer2D::SetLit(anyLit && ((item.Kind == 0 && m_Hot->Sprite->get(item.Handle).Lit) ||
+                                          (item.Kind == 4 && m_Hot->Tilemap->get(item.Handle).Lit)));
             if (item.Kind == 0)
             {
-                auto& s = m_Registry.get<SpriteRendererComponent>(item.Handle);
+                auto& s = m_Hot->Sprite->get(item.Handle);
                 glm::mat4 t = snapped(transform);
                 const glm::vec4 color = s.Color * tintOf(item.Handle);
                 if (s.FlipX || s.FlipY)
                     t = t * glm::scale(glm::mat4(1.0f), { s.FlipX ? -1.0f : 1.0f, s.FlipY ? -1.0f : 1.0f, 1.0f });
-                const auto* anim = m_Registry.try_get<SpriteAnimationComponent>(item.Handle);
+                const auto* anim = m_Hot->SpriteAnimation->contains(item.Handle) ? &m_Hot->SpriteAnimation->get(item.Handle) : nullptr;
                 const AssetRegistry* sheets = needsRegistry(s, anim) ? registry() : nullptr;
                 const ParallaxComponent* repeat = repeats(item.Handle);
                 if (!repeat)
@@ -7909,14 +7936,14 @@ namespace Zamin {
             }
             else if (item.Kind == 1)
             {
-                auto& c = m_Registry.get<CircleRendererComponent>(item.Handle);
+                auto& c = m_Hot->Circle->get(item.Handle);
                 Renderer2D::DrawCircle(transform, c.Color * tintOf(item.Handle), c.Thickness, c.Fade, id);
             }
             else if (item.Kind == 2)
             {
                 auto& text = m_Registry.get<TextComponent>(item.Handle);
                 Renderer2D::TextParams params{ text.Color * tintOf(item.Handle), text.Kerning, text.LineSpacing };
-                TextLayout::Draw(text.GetDisplayText(), text.LayoutWorld(), text.FontAsset, 1.0f, transform, params, id);
+                TextLayout::Draw(text.GetDisplayText(), text.GetWorldLayout(), text.FontAsset, 1.0f, transform, params, id);
             }
             else if (item.Kind == 4)
             {

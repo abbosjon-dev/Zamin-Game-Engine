@@ -24,6 +24,15 @@ namespace Zamin {
         return !FontPtr || FontPtr->HasGlyph(codepoint);
     }
 
+    bool TextMetrics::HasKerning() const { return FontPtr && FontPtr->IsKerningEnabled(); }
+
+    float TextMetrics::Kern(uint32_t left, uint32_t right) const
+    {
+        if (!FontPtr)
+            return 0.0f;
+        return FontPtr->GetKerning(left == '\t' ? ' ' : left, right == '\t' ? ' ' : right);
+    }
+
     TextMetrics TextMetrics::Of(const Font* font)
     {
         TextMetrics m;
@@ -42,9 +51,10 @@ namespace Zamin {
         struct Char
         {
             size_t Begin, End; // bytes
-            float Advance;     // px (kerning included)
+            float Advance;     // px (the extra kerning setting included)
             bool Space;        // a place to break (the spaces go with the break)
             bool BreakAfter;   // a hyphen: the line may end after it
+            float Kern = 0.0f; // px: the font's kerning with the character before it (only when it is not the line's first)
         };
 
         bool IsSpace(uint32_t cp) { return cp == ' ' || cp == '\t' || cp == 0x3000; }
@@ -56,7 +66,7 @@ namespace Zamin {
                 end--;
             float w = 0.0f;
             for (size_t k = begin; k < end; k++)
-                w += chars[k].Advance;
+                w += chars[k].Advance + (k > begin ? chars[k].Kern : 0.0f);
             return w;
         }
 
@@ -86,12 +96,17 @@ namespace Zamin {
         {
             float w = 0.0f;
             size_t i = 0;
+            const bool pairs = metrics.HasKerning();
+            uint32_t previous = 0;
             while (i < text.size())
             {
                 const uint32_t cp = DecodeUTF8(text, i);
                 if (cp == '\r' || cp == '\n')
                     continue;
                 w += (metrics.Advance(cp) + kerning) * px;
+                if (pairs && previous)
+                    w += metrics.Kern(previous, cp) * px;
+                previous = cp;
             }
             return w;
         }
@@ -108,6 +123,7 @@ namespace Zamin {
             const float lineAdvance = (metrics.LineHeight + settings.LineSpacing) * px;
             const std::string_view dots = GetEllipsis(metrics);
             result.EllipsisWidth = MeasureWidth(dots, metrics, px, settings.Kerning);
+            const bool pairs = metrics.HasKerning(); // the font's kerning pairs (off: the layout as it always was)
 
             // ---- lines: every paragraph ('\n'), wrapped at the box's width
             std::vector<Char> chars;
@@ -117,6 +133,7 @@ namespace Zamin {
             {
                 // One paragraph.
                 chars.clear();
+                uint32_t previous = 0;
                 const size_t paragraphBegin = i;
                 more = false;
                 while (i < text.size())
@@ -131,6 +148,9 @@ namespace Zamin {
                     if (cp == '\r')
                         continue;
                     chars.push_back({ begin, i, (metrics.Advance(cp) + settings.Kerning) * px, IsSpace(cp), cp == '-' || cp == 0x2013 });
+                    if (pairs && previous)
+                        chars.back().Kern = metrics.Kern(previous, cp) * px;
+                    previous = cp;
                 }
                 if (chars.empty())
                 {
@@ -153,20 +173,21 @@ namespace Zamin {
                         while (k < n)
                         {
                             const Char& c = chars[k];
+                            const float advance = c.Advance + (k > start ? c.Kern : 0.0f);
                             if (c.Space)
                             {
                                 if (content) // spaces a line starts with are no place to break
                                     lastBreak = k;
-                                w += c.Advance;
+                                w += advance;
                                 k++;
                                 continue;
                             }
-                            if (w + c.Advance > maxWidth + 0.01f && k > start)
+                            if (w + advance > maxWidth + 0.01f && k > start)
                             {
                                 overflow = true;
                                 break;
                             }
-                            w += c.Advance;
+                            w += advance;
                             k++;
                             content = true;
                             if (c.BreakAfter && k < n)
@@ -199,14 +220,20 @@ namespace Zamin {
                     do { k--; } while (k > line.Begin && ((unsigned char)text[k] & 0xC0) == 0x80);
                     size_t j = k;
                     const uint32_t cp = DecodeUTF8(text, j);
-                    line.Width -= (metrics.Advance(cp) + settings.Kerning) * px;
                     line.End = k;
+                    if (pairs) // the pair it had with the character before goes too
+                        line.Width = MeasureWidth(text.substr(line.Begin, line.End - line.Begin), metrics, px, settings.Kerning);
+                    else
+                        line.Width -= (metrics.Advance(cp) + settings.Kerning) * px;
                     result.Truncated = true;
                 }
                 while (line.End > line.Begin && (text[line.End - 1] == ' ' || text[line.End - 1] == '\t'))
                 {
                     line.End--;
-                    line.Width -= (metrics.Advance(' ') + settings.Kerning) * px;
+                    if (pairs)
+                        line.Width = MeasureWidth(text.substr(line.Begin, line.End - line.Begin), metrics, px, settings.Kerning);
+                    else
+                        line.Width -= (metrics.Advance(' ') + settings.Kerning) * px;
                 }
                 line.Width = std::max(0.0f, line.Width);
             };
@@ -241,7 +268,10 @@ namespace Zamin {
                         size_t end = line.End;
                         while (end > line.Begin && (text[end - 1] == ' ' || text[end - 1] == '\t'))
                             end--;
-                        line.Width -= (float)(line.End - end) * (metrics.Advance(' ') + settings.Kerning) * px;
+                        if (pairs)
+                            line.Width = MeasureWidth(text.substr(line.Begin, end - line.Begin), metrics, px, settings.Kerning);
+                        else
+                            line.Width -= (float)(line.End - end) * (metrics.Advance(' ') + settings.Kerning) * px;
                         line.End = end;
                     }
 

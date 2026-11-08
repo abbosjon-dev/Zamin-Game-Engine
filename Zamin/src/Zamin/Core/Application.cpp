@@ -1,4 +1,5 @@
 #include "Zamin/Core/Application.h"
+#include "Zamin/Asset/AsyncLoader.h"
 
 #include "Zamin/ImGui/ImGuiLayer.h"
 #include "Zamin/Core/BuildInfo.h"
@@ -78,6 +79,7 @@ namespace Zamin {
     Application::~Application()
     {
         SaveData::Save(); // unsaved game data (PlayerPrefs) is never lost on exit
+        AsyncLoader::WaitAll(); // background loads finished while the GPU is still there
         JobSystem::Shutdown();
         AudioEngine::Shutdown();
         Renderer::Shutdown();
@@ -307,6 +309,12 @@ namespace Zamin {
             Profiler::BeginFrame();
             JobSystem::EndFrame();
             ExecuteMainThreadQueue();
+            // Background loads: what the workers decoded goes onto the GPU (a few ms a frame).
+            if (AsyncLoader::GetPendingCount() || AsyncLoader::GetPendingUploadCount())
+            {
+                ZM_PROFILE_SCOPE("Fon yuklashlari");
+                AsyncLoader::Update(4.0);
+            }
             // Snapshot keyboard / mouse / gamepads once per frame (JustPressed, actions, axes).
             Input::Update();
             // The game's cursor (hidden / locked / its picture) as its wishes, the focus and a pause say.

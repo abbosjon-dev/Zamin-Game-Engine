@@ -237,6 +237,13 @@ namespace Zamin {
         // .gltf / .glb (meshes, node transforms, PBR materials + textures) or .obj, imported with
         // the file's .zmeta settings (AssetImporter::GetModelSettings). Cached by path.
         static Ref<Model> Load(const std::filesystem::path& path);
+        // The same in the background (AsyncLoader on; off: Load): an empty model is returned at once
+        // (IsLoading: no submeshes - it draws nothing) and the file is parsed on a worker - meshes,
+        // skeleton, clips, its images decoded; the main thread uploads them and moves them into that
+        // same object (GetRevision goes up, like a reload). A Load of the file meanwhile waits for it.
+        static Ref<Model> LoadAsync(const std::filesystem::path& path);
+        // Being loaded in the background (LoadAsync).
+        bool IsLoading() const { return m_Loading; }
         // A model of a skeleton and its clips only - no meshes, no file, not cached: procedural
         // rigs and tests (needs no GPU).
         static Ref<Model> CreateSkeletal(Skeleton skeleton, std::vector<AnimationClip> animations);
@@ -293,6 +300,7 @@ namespace Zamin {
         mutable std::vector<std::vector<PoseCacheEntry>> m_PoseCache; // per clip of m_Animations: one per rate (GetBakedClip)
         mutable uint64_t m_PoseCacheUses = 0;
         uint64_t m_Revision = 0;
+        bool m_Loading = false;
         friend class ModelLoader;
     };
 

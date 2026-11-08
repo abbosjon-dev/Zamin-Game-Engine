@@ -182,6 +182,7 @@
 #include "Zamin/Asset/AssetHotReload.h"
 #include "Zamin/Asset/AssetImporter.h"
 #include "Zamin/Asset/AssetImportLog.h"
+#include "Zamin/Asset/AsyncLoader.h"
 #include "Zamin/Asset/AssetThumbnails.h"
 #include "Zamin/Asset/AssetInfo.h"
 #include "Zamin/Asset/AssetReferences.h"

@@ -36,6 +36,8 @@ namespace Zamin {
         TextOverflow Overflow = TextOverflow::Overflow;
         float Kerning = 0.0f;              // em added after every character
         float LineSpacing = 0.0f;          // em added to every line's height
+
+        bool operator==(const TextLayoutSettings&) const = default;
     };
 
     // Font metrics in em (1 = the font size): the font's, else a stand-in (every character 0.55 em
@@ -47,6 +49,9 @@ namespace Zamin {
 
         float Advance(uint32_t codepoint) const;
         bool HasGlyph(uint32_t codepoint) const;
+        // The font's kerning between two characters (em; 0 without a font or with its kerning off).
+        float Kern(uint32_t left, uint32_t right) const;
+        bool HasKerning() const;
         static TextMetrics Of(const Font* font);
     };
 

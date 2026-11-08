@@ -2494,6 +2494,28 @@ namespace Zamin {
             ImGui::Text("%.3f", font->GetLineHeight());
             UI::PropertyLabel("Ascent / descent");
             ImGui::Text("%.3f / %.3f", font->GetAscent(), font->GetDescent());
+            UI::PropertyHeader(Tr("Import"));
+            UI::PropertyLabel("Kerning", Tr("Shriftning o'z harf juftliklari (AV, To, Ye): ular orasidagi bo'sh joy to'g'rilanadi. O'chiq: matn "
+                                            "avvalgidek, faqat harflar kengligi bilan joylashadi (.zmeta: Import.Kerning)."));
+            bool kerning = font->IsKerningEnabled();
+            if (ImGui::Checkbox("##fontKerning", &kerning))
+            {
+                AssetRegistry* registry = GetRegistry();
+                const AssetMetadata* meta = registry ? registry->Find(m_Path) : nullptr;
+                if (meta)
+                {
+                    AssetImportSettings import = meta->Import; // keys of other tools stay
+                    FontImportSettings settings = AssetImporter::ReadFontSettings(import);
+                    settings.Kerning = kerning;
+                    AssetImporter::WriteFontSettings(settings, import);
+                    if (registry->SetImportSettings(meta->Handle, import))
+                        ZM_INFO("Import sozlamalari saqlandi: {} (kerning {})", meta->RelativePath, kerning ? "yoqildi" : "o'chirildi");
+                }
+                font->SetKerningEnabled(kerning); // texts lay out again with it from the next frame
+            }
+            UI::PropertyLabel(Tr("Juftlik namunasi"), Tr("Kerning yoqilganda shu juftliklar orasiga qo'shiladigan masofa (em)."));
+            ImGui::Text("AV %+.3f  To %+.3f  Ye %+.3f", font->IsKerningEnabled() ? font->GetKerning('A', 'V') : 0.0f,
+                        font->IsKerningEnabled() ? font->GetKerning('T', 'o') : 0.0f, font->IsKerningEnabled() ? font->GetKerning('Y', 'e') : 0.0f);
             UI::EndPropertyGrid();
         }
     }

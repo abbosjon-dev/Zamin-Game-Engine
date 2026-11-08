@@ -78,35 +78,40 @@ namespace AllocCounter {
 
 #if ZAMIN_ALLOC_COUNTER
 // malloc / free underneath, like the default ones (the aligned forms are left to the library: they pair with its
-// aligned delete).
-void* operator new(std::size_t size)
+// aligned delete). Never inlined: inlined, the compiler would see free() on what operator new returned.
+#if defined(__GNUC__)
+#define ZAMIN_ALLOC_NOINLINE __attribute__((noinline))
+#else
+#define ZAMIN_ALLOC_NOINLINE
+#endif
+ZAMIN_ALLOC_NOINLINE void* operator new(std::size_t size)
 {
     AllocCounter::Note(size);
     if (void* p = std::malloc(size ? size : 1))
         return p;
     throw std::bad_alloc();
 }
-void* operator new[](std::size_t size)
+ZAMIN_ALLOC_NOINLINE void* operator new[](std::size_t size)
 {
     AllocCounter::Note(size);
     if (void* p = std::malloc(size ? size : 1))
         return p;
     throw std::bad_alloc();
 }
-void* operator new(std::size_t size, const std::nothrow_t&) noexcept
+ZAMIN_ALLOC_NOINLINE void* operator new(std::size_t size, const std::nothrow_t&) noexcept
 {
     AllocCounter::Note(size);
     return std::malloc(size ? size : 1);
 }
-void* operator new[](std::size_t size, const std::nothrow_t&) noexcept
+ZAMIN_ALLOC_NOINLINE void* operator new[](std::size_t size, const std::nothrow_t&) noexcept
 {
     AllocCounter::Note(size);
     return std::malloc(size ? size : 1);
 }
-void operator delete(void* p) noexcept { std::free(p); }
-void operator delete[](void* p) noexcept { std::free(p); }
-void operator delete(void* p, std::size_t) noexcept { std::free(p); }
-void operator delete[](void* p, std::size_t) noexcept { std::free(p); }
-void operator delete(void* p, const std::nothrow_t&) noexcept { std::free(p); }
-void operator delete[](void* p, const std::nothrow_t&) noexcept { std::free(p); }
+ZAMIN_ALLOC_NOINLINE void operator delete(void* p) noexcept { std::free(p); }
+ZAMIN_ALLOC_NOINLINE void operator delete[](void* p) noexcept { std::free(p); }
+ZAMIN_ALLOC_NOINLINE void operator delete(void* p, std::size_t) noexcept { std::free(p); }
+ZAMIN_ALLOC_NOINLINE void operator delete[](void* p, std::size_t) noexcept { std::free(p); }
+ZAMIN_ALLOC_NOINLINE void operator delete(void* p, const std::nothrow_t&) noexcept { std::free(p); }
+ZAMIN_ALLOC_NOINLINE void operator delete[](void* p, const std::nothrow_t&) noexcept { std::free(p); }
 #endif

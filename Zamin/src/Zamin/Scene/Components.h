@@ -440,6 +440,36 @@ namespace Zamin {
             }
             return TextLayout::Layout(GetDisplayText(), TextMetrics::Of(FontAsset.get()), 1.0f, box, GetLayoutSettings());
         }
+        /// LayoutWorld kept until the text, its font (or the font's glyphs / kerning) or the layout settings
+        /// change: a text drawn every frame is laid out once (task 482).
+        const TextLayoutResult& GetWorldLayout() const
+        {
+            const std::string& text = GetDisplayText();
+            const Font* font = FontAsset.get();
+            const uint64_t revision = font ? font->GetRevision() : 0;
+            const TextLayoutSettings settings = GetLayoutSettings();
+            if (!WorldLayoutValid || WorldLayoutFont != font || WorldLayoutRevision != revision || WorldLayoutWidth != MaxWidth ||
+                !(WorldLayoutSettings == settings) || WorldLayoutText != text)
+            {
+                WorldLayout = LayoutWorld();
+                WorldLayoutText = text;
+                WorldLayoutFont = font;
+                WorldLayoutRevision = revision;
+                WorldLayoutWidth = MaxWidth;
+                WorldLayoutSettings = settings;
+                WorldLayoutValid = true;
+            }
+            return WorldLayout;
+        }
+
+        /// Runtime: GetWorldLayout's cache, never saved.
+        mutable TextLayoutResult WorldLayout;
+        mutable std::string WorldLayoutText;
+        mutable const Font* WorldLayoutFont = nullptr;
+        mutable uint64_t WorldLayoutRevision = 0;
+        mutable float WorldLayoutWidth = 0.0f;
+        mutable TextLayoutSettings WorldLayoutSettings;
+        mutable bool WorldLayoutValid = false;
     };
 
     /// A 3D mesh drawn by Renderer3D: a primitive (Type) or a model file (ModelPath with Type Model),

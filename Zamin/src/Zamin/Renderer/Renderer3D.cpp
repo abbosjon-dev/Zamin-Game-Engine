@@ -1168,17 +1168,25 @@ void main()
     }
 
     // The material's uniforms of the mesh shader (and its textures bound).
+    // A material's map that can be sampled: nullptr for none, and for one still loading in the
+    // background (AsyncLoader) - the material looks as it would without it until it is there.
+    static const Texture2D* ReadyMap(const Ref<Texture2D>& map) { return map && map->IsReady() ? map.get() : nullptr; }
+
     static void ApplyMaterial(Shader& shader, const Material& m, bool mirrored)
     {
-        (m.AlbedoMap ? m.AlbedoMap : s_Data->WhiteTexture)->Bind(0);
-        (m.NormalMap ? m.NormalMap : s_Data->WhiteTexture)->Bind(2);
-        (m.MetalRoughMap ? m.MetalRoughMap : s_Data->WhiteTexture)->Bind(3);
-        (m.EmissiveMap ? m.EmissiveMap : s_Data->WhiteTexture)->Bind(4);
-        shader.SetInt("u_HasNormalMap", m.NormalMap ? 1 : 0);
-        shader.SetInt("u_HasMetalRoughMap", m.MetalRoughMap ? 1 : 0);
-        shader.SetInt("u_HasEmissiveMap", m.EmissiveMap ? 1 : 0);
-        shader.SetInt("u_AlbedoSRGB", !m.AlbedoMap || m.AlbedoMap->GetSpecification().SRGB ? 1 : 0);
-        shader.SetInt("u_EmissiveSRGB", !m.EmissiveMap || m.EmissiveMap->GetSpecification().SRGB ? 1 : 0);
+        const Texture2D* albedo = ReadyMap(m.AlbedoMap);
+        const Texture2D* normal = ReadyMap(m.NormalMap);
+        const Texture2D* metalRough = ReadyMap(m.MetalRoughMap);
+        const Texture2D* emissive = ReadyMap(m.EmissiveMap);
+        (albedo ? albedo : s_Data->WhiteTexture.get())->Bind(0);
+        (normal ? normal : s_Data->WhiteTexture.get())->Bind(2);
+        (metalRough ? metalRough : s_Data->WhiteTexture.get())->Bind(3);
+        (emissive ? emissive : s_Data->WhiteTexture.get())->Bind(4);
+        shader.SetInt("u_HasNormalMap", normal ? 1 : 0);
+        shader.SetInt("u_HasMetalRoughMap", metalRough ? 1 : 0);
+        shader.SetInt("u_HasEmissiveMap", emissive ? 1 : 0);
+        shader.SetInt("u_AlbedoSRGB", !albedo || albedo->GetSpecification().SRGB ? 1 : 0);
+        shader.SetInt("u_EmissiveSRGB", !emissive || emissive->GetSpecification().SRGB ? 1 : 0);
         shader.SetFloat("u_NormalStrength", m.NormalStrength);
         shader.SetFloat4("u_Albedo", m.Albedo);
         shader.SetFloat2("u_Tiling", m.Tiling);

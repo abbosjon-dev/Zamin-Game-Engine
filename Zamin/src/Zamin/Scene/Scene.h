@@ -2020,6 +2020,11 @@ namespace Zamin {
         float m_ScrollbarGrab = 0.0f;               ///< where on the handle a dragged scrollbar was taken
 
         std::unordered_map<UUID, entt::entity> m_EntityMap;
+        /// The pools of the components the per-frame loops read for every entity, looked up once (task
+        /// 484): `m_Registry.get<T>(e)` finds T's pool in a hash map each time; these are those pools
+        /// (EnTT keeps a pool where it is for the registry's life, cleared or not).
+        struct HotStorages; // (Scene.cpp: Transform, Relationship, BoneAttachment, sprites, texts ...)
+        std::shared_ptr<HotStorages> m_Hot;
         /// World transform cache (GetWorldTransform), by entity index: the local values, the parent
         /// and the parent's version its World was made from. Version grows whenever World is made
         /// again, so a child sees that its parent's changed by comparing one number.

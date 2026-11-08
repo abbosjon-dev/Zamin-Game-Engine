@@ -74,6 +74,9 @@ namespace Zamin {
     {
         // The editor gives every asset a .zmeta file (UUID, import settings); the player only reads them.
         AssetRegistry::SetWriteMetaFilesByDefault(true);
+        // Scenes open with their textures and models loading in the background (placeholders meanwhile);
+        // automated captures load at once so their pictures stay the same (ZAMIN_ASYNC_LOAD=0 / 1 decides).
+        AsyncLoader::SetEnabled(AsyncLoader::GetStartupMode(true));
         // The game's cursor wishes reach the editor's window only while the game view has the focus.
         Cursor::BindWindow(&Application::Get().GetWindow());
         Cursor::SetHostActive(false);
@@ -11152,6 +11155,19 @@ namespace Zamin {
         else
             ImGui::TextDisabled("ishga tushmagan (ZAMIN_JOBS=0)");
         ImGui::Text("Oxirgi kadr: %llu vazifa, %llu parallel for", (unsigned long long)frame.Jobs, (unsigned long long)frame.ParallelFors);
+        // Background loads (AsyncLoader): textures and models decoded on the workers, uploaded a few ms a frame.
+        {
+            const AsyncLoader::Stats loads = AsyncLoader::GetStats();
+            ImGui::Text("%s: %s, %zu %s, %zu %s", Tr("Fon yuklashlari"), AsyncLoader::IsEnabled() ? Tr("yoqilgan") : Tr("o'chiq"),
+                        AsyncLoader::GetPendingCount(), Tr("kutmoqda"), AsyncLoader::GetPendingUploadCount(), Tr("GPU'ga yuklash navbatda"));
+            if (ImGui::IsItemHovered())
+                UI::Tooltip(Tr("Sahna ochilganda tekstura va modellar ishchi oqimlarda o'qiladi, GPU'ga asosiy oqimda har kadr bir necha ms "
+                               "yuklanadi (shu payt o'rniga shaffof belgi). Avtomatik suratlar (ZAMIN_SCREENSHOT / ZAMIN_MAX_FRAMES) darhol "
+                               "yuklaydi; ZAMIN_ASYNC_LOAD=0 / 1 bilan o'zgartiriladi."));
+            ImGui::TextDisabled("%s: %llu, %s %.1f ms, %s %.1f ms, %s %.1f ms", Tr("Jami"), (unsigned long long)loads.Finished, Tr("ishchilarda"),
+                                loads.WorkMilliseconds, Tr("yuklash"), loads.UploadMilliseconds + loads.FinishMilliseconds, Tr("eng uzun kadr"),
+                                loads.LongestUpdateMilliseconds);
+        }
         // Per thread: its jobs and how long they took (a bar against the frame's time).
         const float frameMs = std::max(0.001f, Application::Get().GetFrameTime());
         if (!frame.Threads.empty() &&

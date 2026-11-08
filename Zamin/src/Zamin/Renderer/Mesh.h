@@ -44,11 +44,24 @@ namespace Zamin {
     class Mesh
     {
     public:
+        /// Made on a thread that defers GPU work (AsyncLoader::DeferGPU: a model loaded in the
+        /// background) the mesh keeps its vertices and is uploaded by the main thread later -
+        /// AsyncLoader::Update, or the first GetVertexArray, whichever comes first.
         Mesh(const std::vector<MeshVertex>& vertices, const std::vector<uint32_t>& indices);
         Mesh(const std::vector<SkinnedVertex>& vertices, const std::vector<uint32_t>& indices);
+        ~Mesh();
         bool IsSkinned() const { return m_Skinned; }
 
-        const Ref<VertexArray>& GetVertexArray() const { return m_VertexArray; }
+        /// Its GPU buffers exist (false while a deferred mesh waits for its upload).
+        bool IsUploaded() const { return m_VertexArray != nullptr; }
+        /// Uploads a deferred mesh now (main thread; nothing to do for the others).
+        void EnsureUploaded() const;
+        const Ref<VertexArray>& GetVertexArray() const
+        {
+            if (m_Pending)
+                EnsureUploaded();
+            return m_VertexArray;
+        }
         // The mesh's vertices and indices plus `instanceBuffer` (per-instance attributes from
         // location 3 on) for instanced draws; made on first use, again when the buffer changes.
         // Not for skinned meshes (their joints take locations 3 and 4).
@@ -75,6 +88,15 @@ namespace Zamin {
         AABB m_Bounds;
         bool m_Skinned = false;
         mutable Scope<MeshGeometry> m_Geometry;
+        /// A deferred mesh's data until it is uploaded.
+        struct PendingData
+        {
+            std::vector<MeshVertex> Vertices;
+            std::vector<SkinnedVertex> SkinnedVertices;
+            std::vector<uint32_t> Indices;
+        };
+        mutable Scope<PendingData> m_Pending;
+        void Upload(const std::vector<MeshVertex>* vertices, const std::vector<SkinnedVertex>* skinned, const std::vector<uint32_t>& indices);
     };
 
     enum class PrimitiveMesh { Cube = 0, Sphere, Plane, Cylinder, Cone, Model };

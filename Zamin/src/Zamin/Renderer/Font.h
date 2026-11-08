@@ -3,6 +3,7 @@
 #include "Zamin/Renderer/Texture.h"
 
 #include <filesystem>
+#include <memory>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
@@ -26,8 +27,54 @@ namespace Zamin {
         std::unordered_map<uint32_t, Glyph> Glyphs;
         uint64_t LastUse = 0; // sized atlases: when it was last asked for (the least recently used goes first)
 
+        // '?' for a character it does not have (nullptr without one).
         const Glyph* Find(uint32_t codepoint) const;
+        // Glyphs into the direct lookup Find uses for the characters below LookupSize (after Glyphs changed).
+        void BuildLookup();
+        static constexpr uint32_t LookupSize = 0x2030; // Latin, Cyrillic, punctuation: every range the atlases bake
+    private:
+        std::vector<Glyph> m_Dense;        // the glyphs below LookupSize
+        std::vector<uint16_t> m_Lookup;    // codepoint -> index into m_Dense + 1 (0: none)
+        const Glyph* m_Fallback = nullptr; // '?'
     };
+
+    // How a font file is imported: the "Import" object of its .zmeta file (AssetImporter):
+    //   font: { "Kerning": false }
+    struct FontImportSettings
+    {
+        // The font's own kerning pairs (its kern / GPOS tables: "AV", "To", "Ye" set closer). Off by
+        // default: text keeps the layout it always had (the glyphs' advances only).
+        bool Kerning = false;
+        bool operator==(const FontImportSettings&) const = default;
+    };
+
+    // The rasterized glyphs of one atlas without its texture (what FontAtlasCache keeps on disk).
+    struct FontAtlasBake
+    {
+        uint32_t Width = 0, Height = 0;
+        std::vector<uint8_t> Pixels;                   // R8, bottom row first (OpenGL's convention)
+        std::unordered_map<uint32_t, Glyph> Glyphs;
+    };
+
+    // Baked font atlases on disk (the user cache directory): the same font file baked with the same
+    // settings is read back instead of rasterized again - a font's first use at startup and every new
+    // text size (task 485). Keyed by the file's contents and the bake settings; files are written
+    // atomically, a broken or foreign one is ignored (and baked again).
+    namespace FontAtlasCache {
+        // "": off (always baked). Default: <user cache>/zamin/FontAtlases (ZAMIN_FONT_CACHE=0 switches it off).
+        void SetDirectory(const std::filesystem::path& directory);
+        const std::filesystem::path& GetDirectory();
+        uint64_t MakeKey(const std::vector<uint8_t>& ttf, float pixelHeight, int oversampleH, int oversampleV, int fixedSize, bool mips);
+        bool Load(uint64_t key, FontAtlasBake& out);
+        bool Store(uint64_t key, const FontAtlasBake& bake);
+        struct Stats
+        {
+            uint64_t Hits = 0, Misses = 0, Stores = 0;
+            double LoadMilliseconds = 0.0, BakeMilliseconds = 0.0;
+        };
+        const Stats& GetStats();
+        void ResetStats();
+    }
 
     // TrueType font baked into texture atlases (stb_truetype).
     // Covers Latin, Latin Extended (o'zbek: Oʻ, Gʻ), Cyrillic.
@@ -39,6 +86,9 @@ namespace Zamin {
     {
     public:
         explicit Font(const std::filesystem::path& path, float pixelHeight = 64.0f);
+        // The metrics, glyph boxes and kerning only - no GPU textures (tests and tools without a GL context).
+        static Ref<Font> CreateHeadless(const std::filesystem::path& path, float pixelHeight = 64.0f);
+        ~Font();
 
         // Metrics (and the main atlas's quads): the same whatever size the text is drawn at.
         const Glyph* GetGlyph(uint32_t codepoint) const; // '?' for a character the font does not have
@@ -47,7 +97,7 @@ namespace Zamin {
         float GetAscent() const { return m_Ascent; }
         float GetDescent() const { return m_Descent; }
         float GetLineHeight() const { return m_LineHeight; }
-        bool IsLoaded() const { return m_Main.Texture != nullptr; }
+        bool IsLoaded() const { return m_Loaded; }
         const std::filesystem::path& GetPath() const { return m_Path; }
 
         // The atlas to draw text `pixelSize` screen pixels high (1 em) with: one baked at
@@ -59,6 +109,14 @@ namespace Zamin {
         // Reads the file again into this font (same object; the atlas texture is updated in
         // place). False - and the old glyphs stay - when it cannot be read.
         bool Reload();
+
+        // ---- kerning (FontImportSettings::Kerning): the space the font's own pairs add between two
+        // characters, in em (negative: closer); 0 when it is off or the pair has none. Main thread.
+        void SetKerningEnabled(bool enabled);
+        bool IsKerningEnabled() const { return m_Kerning; }
+        float GetKerning(uint32_t left, uint32_t right) const;
+        // Grows when the glyphs or the kerning change (Reload, SetKerningEnabled): cached layouts are out of date.
+        uint64_t GetRevision() const { return m_Revision; }
 
         // The size the atlas for text `pixelSize` px high is baked at: the nearest of a ladder of
         // sizes (whole pixels for small text, coarser steps further up) that is not much smaller;
@@ -83,6 +141,7 @@ namespace Zamin {
         static void ClearCache();
 
     private:
+        Font(const std::filesystem::path& path, float pixelHeight, bool textures);
         bool Build(bool reload);
 
     private:
@@ -93,6 +152,12 @@ namespace Zamin {
         std::vector<FontAtlas> m_Sized;
         uint64_t m_UseCounter = 0;
         float m_Ascent = 0.8f, m_Descent = -0.2f, m_LineHeight = 1.2f;
+        bool m_Textures = true;  // false: CreateHeadless
+        bool m_Loaded = false;
+        bool m_Kerning = false;
+        uint64_t m_Revision = 0;
+        struct KerningData;      // the font's tables (stb_truetype) and the pairs asked for so far
+        std::unique_ptr<KerningData> m_KerningData;
     };
 
     // Decodes the next UTF-8 codepoint from `s` starting at index `i` (advances i).

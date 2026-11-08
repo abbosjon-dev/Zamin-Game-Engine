@@ -7,6 +7,8 @@
 #include "AllocCounter.inl" // the operator new counting hook (AllocCounter.h)
 
 #include <algorithm>
+#include <atomic>
+#include <optional>
 #include <array>
 #include <bit>
 #include <chrono>
@@ -48315,4 +48317,239 @@ TEST(SteadyFramesMakeNoHeapAllocations)
     }
     scene->OnRuntimeStop();
     CHECK(allocations == 0);
+}
+
+TEST(FontKerningIsOptInAndNarrowsPairs)
+{
+    const std::filesystem::path file = std::filesystem::path(ZAMIN_SOURCE_DIR) / "Resources" / "fonts" / "Inter-SemiBold.ttf";
+    const std::filesystem::path cache = FileSystem::CreateTempDirectory("zamin-font-cache");
+    const std::filesystem::path previous = FontAtlasCache::GetDirectory();
+    FontAtlasCache::SetDirectory(cache);
+    Ref<Font> font = Font::CreateHeadless(file);
+    CHECK(font != nullptr);
+    if (!font)
+        return;
+    CHECK(font->IsLoaded());
+    CHECK(font->GetAtlasTexture() == nullptr); // headless: no GPU texture
+    // Off by default: no pair moves, the layout is the one it always was.
+    CHECK(!font->IsKerningEnabled());
+    CHECK(font->GetKerning('A', 'V') == 0.0f);
+    const TextMetrics metrics = TextMetrics::Of(font.get());
+    const float plain = TextLayout::MeasureWidth("AVATAR To", metrics, 32.0f, 0.0f);
+    const uint64_t revision = font->GetRevision();
+    font->SetKerningEnabled(true);
+    CHECK(font->GetRevision() != revision);
+    const float av = font->GetKerning('A', 'V');
+    CHECK(av < 0.0f);           // Inter sets "AV" closer
+    CHECK(av > -0.3f);          // (an em fraction)
+    CHECK(font->GetKerning('A', 'V') == av); // cached
+    CHECK(font->GetKerning('o', 'o') == 0.0f || std::abs(font->GetKerning('o', 'o')) < 0.05f);
+    const float kerned = TextLayout::MeasureWidth("AVATAR To", metrics, 32.0f, 0.0f);
+    CHECK(kerned < plain - 1.0f);
+    // The layout's line width is the sum DrawString walks: the same as MeasureWidth.
+    TextLayoutResult layout = TextLayout::Layout("AVATAR To", metrics, 32.0f, UIRect{}, TextLayoutSettings{});
+    CHECK(layout.Lines.size() == 1);
+    CHECK_NEAR(layout.Lines[0].Width, kerned, 1e-3f);
+    // Wrapped: a line that starts after a break gets no pair with the character before the break.
+    TextLayoutSettings wrap;
+    wrap.WordWrap = true;
+    TextLayoutResult wrapped = TextLayout::Layout("AV AV AV AV AV AV", metrics, 32.0f, UIRect{ { 0.0f, 0.0f }, { 90.0f, 400.0f } }, wrap);
+    CHECK(wrapped.Lines.size() > 1);
+    for (const TextLine& line : wrapped.Lines)
+        CHECK_NEAR(line.Width, TextLayout::MeasureWidth(std::string_view("AV AV AV AV AV AV").substr(line.Begin, line.End - line.Begin), metrics, 32.0f, 0.0f),
+                   1e-3f);
+    // The import setting.
+    AssetImportSettings import;
+    CHECK(!AssetImporter::ReadFontSettings(import).Kerning);
+    FontImportSettings settings;
+    settings.Kerning = true;
+    AssetImporter::WriteFontSettings(settings, import);
+    CHECK(AssetImporter::ReadFontSettings(import).Kerning);
+    FontAtlasCache::SetDirectory(previous);
+    std::error_code ec;
+    std::filesystem::remove_all(cache, ec);
+}
+
+TEST(FontAtlasCacheGivesTheSameAtlas)
+{
+    const std::filesystem::path file = std::filesystem::path(ZAMIN_SOURCE_DIR) / "Resources" / "fonts" / "Inter-SemiBold.ttf";
+    const std::filesystem::path cache = FileSystem::CreateTempDirectory("zamin-font-cache");
+    const std::filesystem::path previous = FontAtlasCache::GetDirectory();
+    FontAtlasCache::SetDirectory(cache);
+    FontAtlasCache::ResetStats();
+    Ref<Font> baked = Font::CreateHeadless(file); // rasterized, stored
+    CHECK(baked != nullptr);
+    CHECK(FontAtlasCache::GetStats().Stores == 1);
+    CHECK(FontAtlasCache::GetStats().Hits == 0);
+    Ref<Font> cached = Font::CreateHeadless(file); // read back
+    CHECK(cached != nullptr);
+    CHECK(FontAtlasCache::GetStats().Hits == 1);
+    if (baked && cached)
+    {
+        // Every glyph exactly as rasterized.
+        const FontAtlas& a = baked->GetMainAtlas();
+        const FontAtlas& b = cached->GetMainAtlas();
+        CHECK(a.Glyphs.size() == b.Glyphs.size());
+        bool same = a.Glyphs.size() == b.Glyphs.size();
+        for (const auto& [codepoint, g] : a.Glyphs)
+        {
+            auto it = b.Glyphs.find(codepoint);
+            same = same && it != b.Glyphs.end() && std::memcmp(&g, &it->second, sizeof(Glyph)) == 0;
+        }
+        CHECK(same);
+        CHECK(cached->GetLineHeight() == baked->GetLineHeight());
+        // The direct lookup finds what the map has, and '?' for what it does not.
+        CHECK(a.Find('A') == &*a.Find('A'));
+        CHECK(std::memcmp(a.Find('A'), &a.Glyphs.at('A'), sizeof(Glyph)) == 0);
+        CHECK(std::memcmp(a.Find(0x0416), &a.Glyphs.at(0x0416), sizeof(Glyph)) == 0); // Cyrillic
+        CHECK(std::memcmp(a.Find(0x4E2D), &a.Glyphs.at('?'), sizeof(Glyph)) == 0);     // not baked: '?'
+    }
+    // A broken cache file is ignored (baked again).
+    for (const auto& entry : std::filesystem::directory_iterator(cache))
+        FileSystem::WriteTextFile(entry.path(), "buzilgan");
+    FontAtlasCache::ResetStats();
+    CHECK(Font::CreateHeadless(file) != nullptr);
+    CHECK(FontAtlasCache::GetStats().Hits == 0);
+    CHECK(FontAtlasCache::GetStats().Misses == 1);
+    // Off: nothing is read or written.
+    FontAtlasCache::SetDirectory({});
+    FontAtlasCache::ResetStats();
+    CHECK(Font::CreateHeadless(file) != nullptr);
+    CHECK(FontAtlasCache::GetStats().Stores == 0);
+    FontAtlasCache::SetDirectory(previous);
+    std::error_code ec;
+    std::filesystem::remove_all(cache, ec);
+}
+
+TEST(AsyncLoaderWorkOnWorkersFinishOnMainThread)
+{
+    JobSystem::Init(2);
+    const auto mainThread = std::this_thread::get_id();
+    std::vector<int> finished;
+    std::atomic<int> worked{ 0 };
+    std::atomic<bool> deferred{ true };
+    std::vector<uint64_t> ids;
+    for (int i = 0; i < 6; i++)
+        ids.push_back(AsyncLoader::Enqueue(std::format("yuk {}", i),
+                                           [&, i] {
+                                               std::this_thread::sleep_for(std::chrono::milliseconds(2 * (6 - i)));
+                                               if (!AsyncLoader::IsDeferringGPU())
+                                                   deferred = false; // a worker never makes GPU objects
+                                               worked++;
+                                           },
+                                           [&, i] {
+                                               CHECK(std::this_thread::get_id() == mainThread);
+                                               finished.push_back(i);
+                                           }));
+    CHECK(!AsyncLoader::IsDeferringGPU()); // (the main thread itself is not)
+    // A Load of one of them waits for it alone.
+    AsyncLoader::Wait(ids[3]);
+    CHECK(std::find(finished.begin(), finished.end(), 3) != finished.end());
+    CHECK(!AsyncLoader::IsPending(ids[3]));
+    // Update finishes what is done; WaitAll the rest.
+    for (int frame = 0; frame < 200 && AsyncLoader::GetPendingCount() > 0; frame++)
+    {
+        AsyncLoader::Update(100.0);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    AsyncLoader::WaitAll();
+    CHECK(AsyncLoader::GetPendingCount() == 0);
+    CHECK(worked == 6);
+    CHECK(deferred);
+    CHECK(finished.size() == 6);
+    std::vector<int> sorted(finished);
+    std::sort(sorted.begin(), sorted.end());
+    CHECK(sorted == std::vector<int>({ 0, 1, 2, 3, 4, 5 }));
+
+    // The upload queue: run in order within the budget, cancelled by an owner that goes first.
+    int a = 0, b = 0, c = 0;
+    AsyncLoader::QueueUpload(&a, [&] { a++; });
+    AsyncLoader::QueueUpload(&b, [&] { b++; });
+    AsyncLoader::QueueUpload(&c, [&] { c++; });
+    CHECK(AsyncLoader::GetPendingUploadCount() == 3);
+    AsyncLoader::CancelUpload(&b);
+    CHECK(AsyncLoader::RunUpload(&c));
+    CHECK(!AsyncLoader::RunUpload(&c)); // ran once
+    AsyncLoader::Update(0.0);          // one at least, even with no budget
+    CHECK(a == 1 && b == 0 && c == 1);
+    CHECK(AsyncLoader::GetPendingUploadCount() == 0);
+    JobSystem::Shutdown();
+}
+
+TEST(AsyncLoaderStartupModeFollowsCaptures)
+{
+    auto unset = [](const char* name) { unsetenv(name); };
+    const char* names[] = { "ZAMIN_ASYNC_LOAD", "ZAMIN_SCREENSHOT", "ZAMIN_MAX_FRAMES" };
+    std::vector<std::optional<std::string>> saved;
+    for (const char* name : names)
+    {
+        const char* v = std::getenv(name);
+        saved.push_back(v ? std::optional<std::string>(v) : std::nullopt);
+        unset(name);
+    }
+    CHECK(AsyncLoader::GetStartupMode(true));
+    CHECK(!AsyncLoader::GetStartupMode(false));
+    setenv("ZAMIN_MAX_FRAMES", "60", 1);
+    CHECK(!AsyncLoader::GetStartupMode(true)); // a capture: the same picture whatever the workers do
+    setenv("ZAMIN_ASYNC_LOAD", "1", 1);
+    CHECK(AsyncLoader::GetStartupMode(false)); // asked for explicitly
+    setenv("ZAMIN_ASYNC_LOAD", "0", 1);
+    CHECK(!AsyncLoader::GetStartupMode(true));
+    for (size_t i = 0; i < std::size(names); i++)
+    {
+        if (saved[i])
+            setenv(names[i], saved[i]->c_str(), 1);
+        else
+            unset(names[i]);
+    }
+    // Off (the default in tests): LoadAsync is Load.
+    CHECK(!AsyncLoader::IsEnabled());
+}
+
+TEST(ModelLoadedOnWorkerKeepsGpuWorkForMainThread)
+{
+    // What a background model load does on its worker: the file parsed, meshes and textures made without their
+    // GPU objects (queued for AsyncLoader::Update) - headless here, nothing is uploaded.
+    const std::filesystem::path file = std::filesystem::path(ZAMIN_SOURCE_DIR) / "Projects" / "Showcase3D" / "Assets" / "Models" / "CrystalShrine.gltf";
+    const size_t uploadsBefore = AsyncLoader::GetPendingUploadCount();
+    const uint64_t serial = TextureLibrary::GetLoadSerial();
+    {
+        Ref<Model> model;
+        {
+            AsyncLoader::DeferGPU defer;
+            model = Model::Load(file);
+        }
+        CHECK(model != nullptr);
+        if (model)
+        {
+            CHECK(model->GetSubMeshes().size() == 2);
+            size_t textures = 0;
+            for (const Model::SubMesh& sub : model->GetSubMeshes())
+            {
+                CHECK(sub.MeshRef != nullptr);
+                if (!sub.MeshRef)
+                    continue;
+                CHECK(!sub.MeshRef->IsUploaded());
+                CHECK(sub.MeshRef->GetVertexCount() > 0);
+                CHECK(sub.MeshRef->GetGeometry().GetVertexCount() == sub.MeshRef->GetVertexCount()); // from the kept vertices
+                CHECK(sub.MeshRef->GetBounds().IsValid());
+                for (const Ref<Texture2D>* map : { &sub.Mat.AlbedoMap, &sub.Mat.NormalMap })
+                    if (*map)
+                    {
+                        CHECK(!(*map)->IsReady()); // decoded, waiting for the main thread
+                        CHECK((*map)->IsLoaded());
+                        CHECK((*map)->GetRendererID() == 0);
+                        textures++;
+                    }
+            }
+            CHECK(textures >= 2);
+            CHECK(model->GetBounds().IsValid());
+            CHECK(AsyncLoader::GetPendingUploadCount() >= uploadsBefore + 4); // 2 meshes + 2 textures (shared ones once)
+        }
+        model.reset();
+        CHECK(Model::ReleaseIfUnused(file));
+    }
+    // Gone before their upload: they leave the queue (nothing would upload into a freed object).
+    TextureLibrary::ReleaseUnused(serial);
+    CHECK(AsyncLoader::GetPendingUploadCount() == uploadsBefore);
 }

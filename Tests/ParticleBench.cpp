@@ -56,6 +56,7 @@ int RunNavBench(int agents, int size, int frames, int jobs); // NavBench.cpp
 int RunPrefabBench(int instances, const char* jsonFile);   // PrefabBench.cpp
 int RunRenderBench(int argc, char** argv);                  // RenderBench.cpp
 int RunEcsBench(int entities, int frames, const char* jsonFile); // EcsBench.cpp
+int RunFontBench(const char* jsonFile);                         // FontBench.cpp
 int RunSerializeBench(int entities, const char* jsonFile, const std::string& content); // SerializeBench.cpp
 
 namespace {
@@ -388,6 +389,7 @@ int main(int argc, char** argv)
     int animators = 0;
     bool nav = false;
     bool ecs = false;
+    bool fonts = false;
     std::string content = "all";
     int navAgents = 200, navGrid = 256;
     bool framesGiven = false;
@@ -406,6 +408,8 @@ int main(int argc, char** argv)
             nav = true;
         else if (!std::strcmp(argv[i], "--ecs"))
             ecs = true;
+        else if (!std::strcmp(argv[i], "--fonts"))
+            fonts = true;
         else if (!std::strcmp(argv[i], "--agents") && i + 1 < argc)
             navAgents = std::max(1, std::atoi(argv[++i]));
         else if (!std::strcmp(argv[i], "--grid") && i + 1 < argc)
@@ -444,12 +448,15 @@ int main(int argc, char** argv)
                         "ZaminBench --serialize --prefabs [--instances N] [--json <fayl>]\n"
                         "ZaminBench --nav [--agents N] [--grid N] [--frames N] [--jobs N]\n"
                         "ZaminBench --ecs [--entities N] [--frames N] [--json <fayl>]\n"
+                        "ZaminBench --fonts [--json <fayl>]\n"
                         "ZaminBench --render [--sprites N] [--meshes N] [--frames N] [--case <nom qismi>] [--json <fayl>]\n");
             return 1;
         }
     }
     if (ecs)
         return RunEcsBench(entities, framesGiven ? frames : 60, jsonFile);
+    if (fonts)
+        return RunFontBench(jsonFile);
     if (nav)
         return RunNavBench(navAgents, navGrid, framesGiven ? frames : 300, jobs);
     if (animators > 0)

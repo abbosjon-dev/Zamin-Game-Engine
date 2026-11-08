@@ -23,8 +23,17 @@ vazifalari bajarila boshlaganda unga bo'lim qo'shing ([CONTRIBUTING.md](CONTRIBU
 - Har bir o'yinda: bosh menyu (orqada bot o'ynaydi), pauza menyusi, o'yin tugashi oynasi, SaveData rekordi, loyiha
   input action'lari (klaviatura + sichqoncha + gamepad), o'zbekcha / inglizcha matnlar (lokalizatsiya) va demo rejimi
   (`ZAMIN_DEMO=1` — bot o'ynaydi, jurnalga `Demo: ...` qatorlari yoziladi).
+- **FPS Arena**ga raycast bilan otish qo'shildi (Blaster: o'q-dori, qayta o'qlash, tepki, nur izi, uchqunlar), nishonlar
+  (turg'un, sirpanuvchi, chiquvchi, uchar dron) va 60 soniyalik "Nishon otish" rejimi (markaz x2, seriya, aniqlik, rekord).
+- Yana uchta namuna: **Omborchi** (`Projects/Sokoban`: 3D Sokoban, 10 ta daraja, orqaga qaytarish, darajalar menyusi,
+  BFS yechuvchi bot), **Ipak Yo'li** (`Projects/EndlessRunner`: 3D cheksiz yugurish - uch yo'lak, sakrash, sirpanish,
+  protsedurali to'siqlar, tangalar, magnit va qalqon, oshib boruvchi tezlik) va **Vodiy Poygasi** (`Projects/Racing`:
+  arkada mashina fizikasi - rul, ilashish va drift, aylanma trassa, nazorat nuqtalari, aylana vaqti, 3 ta bot raqib).
+- Editor launcher'i namuna o'yinlarni rasmli kartalar bilan ko'rsatadi: `.zproject`ning yangi `Description` va
+  `Thumbnail` kalitlari (Project settings > General; `ProjectSerializer::ReadSummary`), rasmlar o'yinlarning haqiqiy
+  headless skrinshotlaridan `Tools/samples/make_thumbnails.py` bilan olinadi.
 - Assetlarning hammasi kod bilan yaratiladi: `Tools/samples/gen_*.py` (umumiy `samplekit.py`) teksturalar, sprite
-  atlaslari, normal map'lar, WAV tovushlar va musiqani, sahna va loyiha fayllarini yozadi.
+  atlaslari, normal map'lar, `.obj` trassa meshlari, WAV tovushlar va musiqani, sahna va loyiha fayllarini yozadi.
 
 ## M23 Hujjatlar
 

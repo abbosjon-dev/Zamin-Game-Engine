@@ -739,7 +739,9 @@ def axis(name, negative, positive, gamepad_axis="", invert=False, deadzone=0.2):
 
 
 def write_project(project_dir, name, product, start_scene, start_uuid, version="1.0.0", build_scenes=(), actions=(), axes=(),
-                  vectors=(), tags_=(), layers=None, localization=("uz", "en"), audio_groups=None, extra=None):
+                  vectors=(), tags_=(), layers=None, localization=("uz", "en"), audio_groups=None, extra=None, description=""):
+    """The .zproject. `description`: the launcher's text; the launcher's picture is Thumbnail.jpg next to the project
+    (made from a real screenshot by Tools/samples/make_thumbnails.py) - named here when it exists."""
     proj = {
         "Version": 2,
         "Project": {"Name": name, "StartScene": start_scene, "StartSceneUUID": start_uuid, "AssetDirectory": "Assets",
@@ -750,6 +752,10 @@ def write_project(project_dir, name, product, start_scene, start_uuid, version="
         "BuildScenes": [{"Path": p, "Enabled": True, "UUID": u} for p, u in build_scenes],
         "InputActions": {"Actions": [{"Name": n, "Bindings": b} for n, b in actions], "Axes": list(axes), "Vectors": list(vectors)},
     }
+    if description:
+        proj["Project"]["Description"] = description
+    if os.path.isfile(os.path.join(project_dir, "Thumbnail.jpg")):
+        proj["Project"]["Thumbnail"] = "Thumbnail.jpg"
     if tags_:
         proj["Tags"] = list(tags_)
     if layers:

@@ -7,7 +7,9 @@
         "AssetDirectory": "Assets",
         "SourceDirectory": "Source",
         "ScriptModulePath": "Binaries/libFPSArena.so",
-        "EngineVersion": "0.1.0"
+        "EngineVersion": "0.1.0",
+        "Description": "3D birinchi shaxs: sichqoncha bilan qarash, yugurish, sakrash, parkur yo'lagi; raycast bilan otish, nishonlar va 60 soniyalik raund",
+        "Thumbnail": "Thumbnail.jpg"
     },
     "Player": {
         "Company": "Zamin Studio",

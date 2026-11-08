@@ -11938,7 +11938,7 @@ namespace Zamin {
     void EditorLayer::UI_Launcher()
     {
         ImGuiViewport* vp = ImGui::GetMainViewport();
-        ImVec2 size(std::min(980.0f, vp->WorkSize.x - 40), std::min(620.0f, vp->WorkSize.y - 40));
+        ImVec2 size(std::min(1220.0f, vp->WorkSize.x - 40), std::min(800.0f, vp->WorkSize.y - 40));
         ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x + vp->WorkSize.x * 0.5f, vp->WorkPos.y + vp->WorkSize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
         ImGui::SetNextWindowSize(size, ImGuiCond_Always);
         ImGui::OpenPopup("##Launcher");
@@ -12057,6 +12057,15 @@ namespace Zamin {
         };
 
         ImGui::Dummy(ImVec2(0, 14));
+        // The sample games: cards with a picture.
+        if (UI_LauncherSamples())
+        {
+            ImGui::CloseCurrentPopup();
+            ImGui::EndChild();
+            ImGui::EndPopup();
+            return;
+        }
+
         // The scenes opened last (any project): one click opens the project and the scene.
         if (UI_LauncherRecentScenes())
         {
@@ -12065,31 +12074,6 @@ namespace Zamin {
             ImGui::EndPopup();
             return;
         }
-        std::vector<fs::path> examples;
-        {
-            fs::path exe = FileSystem::GetExecutableDirectory();
-            for (const fs::path& base : { exe / ".." / ".." / "Projects", exe / ".." / "Projects", exe / "Projects" })
-            {
-                std::error_code ec;
-                if (!fs::exists(base, ec)) continue;
-                for (auto& dir : fs::directory_iterator(base, ec))
-                    for (auto& f : fs::directory_iterator(dir.path(), ec))
-                        if (f.path().extension() == ".zproject")
-                            examples.push_back(fs::weakly_canonical(f.path()));
-                break;
-            }
-        }
-        if (!examples.empty())
-        {
-            ImGui::PushFont(ImGuiLayer::GetBoldFont());
-            ImGui::TextUnformatted(ICON_FA_WAND_MAGIC_SPARKLES "  Namuna o'yinlar");
-            ImGui::PopFont();
-            ImGui::Spacing();
-            for (auto& ex : examples)
-                if (projectCard(ex, ICON_FA_GAMEPAD)) { if (OpenProject(ex)) ImGui::CloseCurrentPopup(); break; }
-            ImGui::Dummy(ImVec2(0, 10));
-        }
-
         ImGui::PushFont(ImGuiLayer::GetBoldFont());
         ImGui::TextUnformatted(ICON_FA_LIST "  So'nggi loyihalar");
         ImGui::PopFont();

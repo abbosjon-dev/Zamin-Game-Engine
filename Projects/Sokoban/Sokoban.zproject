@@ -7,7 +7,9 @@
         "AssetDirectory": "Assets",
         "SourceDirectory": "Source",
         "ScriptModulePath": "Binaries/libSokoban.so",
-        "EngineVersion": "0.1.0"
+        "EngineVersion": "0.1.0",
+        "Description": "3D Sokoban: qutilarni joyiga itaring - 10 ta daraja, orqaga qaytarish (undo), darajalar menyusi va yechuvchi bot",
+        "Thumbnail": "Thumbnail.jpg"
     },
     "Player": {
         "Company": "Zamin Studio",

@@ -580,7 +580,7 @@ namespace Zamin {
     static const std::vector<std::string>& KnownProjectKeys()
     {
         static const std::vector<std::string> s_Keys = { "Name", "StartScene", "StartSceneUUID", "AssetDirectory", "SourceDirectory",
-                                                         "ScriptModulePath", "EngineVersion" };
+                                                         "ScriptModulePath", "EngineVersion", "Description", "Thumbnail" };
         return s_Keys;
     }
 
@@ -630,6 +630,11 @@ namespace Zamin {
         project["SourceDirectory"] = c.SourceDirectory.generic_string();
         project["ScriptModulePath"] = c.ScriptModulePath.generic_string();
         project["EngineVersion"] = ZM_ENGINE_VERSION;
+        // (only when set: older files stay as they were)
+        if (!c.Description.empty())
+            project["Description"] = c.Description;
+        if (!c.Thumbnail.empty())
+            project["Thumbnail"] = c.Thumbnail.generic_string();
         AppendExtras(project, c, "Project");
         j["Project"] = std::move(project);
         // Written once something differs from the defaults (older files stay as they were).
@@ -753,6 +758,8 @@ namespace Zamin {
         c.AssetDirectory = p.value("AssetDirectory", "Assets");
         c.SourceDirectory = p.value("SourceDirectory", "Source");
         c.ScriptModulePath = p.value("ScriptModulePath", "");
+        c.Description = p.contains("Description") && p["Description"].is_string() ? p["Description"].get<std::string>() : std::string();
+        c.Thumbnail = p.contains("Thumbnail") && p["Thumbnail"].is_string() ? p["Thumbnail"].get<std::string>() : std::string();
         // Build scenes (older projects: none - every scene, no build indices).
         c.BuildScenes.clear();
         if (auto it = j.find("BuildScenes"); it != j.end() && it->is_array())
@@ -906,6 +913,49 @@ namespace Zamin {
                 ZM_CORE_ERROR("Loyiha sozlamalari o'qilmadi: {}", e.what());
             return false;
         }
+    }
+
+    std::optional<ProjectSummary> ProjectSerializer::SummaryFromString(const std::string& text, const std::filesystem::path& projectFile)
+    {
+        // Only the few keys the launcher shows; a file that does not parse or has no "Project" is not one.
+        const json j = json::parse(text, nullptr, false);
+        if (j.is_discarded() || !j.is_object())
+            return std::nullopt;
+        const auto project = j.find("Project");
+        if (project == j.end() || !project->is_object())
+            return std::nullopt;
+        auto str = [](const json& o, const char* key) {
+            const auto it = o.find(key);
+            return it != o.end() && it->is_string() ? it->get<std::string>() : std::string();
+        };
+        ProjectSummary summary;
+        summary.ProjectFile = projectFile;
+        summary.Name = str(*project, "Name");
+        if (summary.Name.empty())
+            summary.Name = projectFile.stem().string();
+        summary.Description = str(*project, "Description");
+        if (const auto player = j.find("Player"); player != j.end() && player->is_object())
+        {
+            summary.Product = str(*player, "Product");
+            summary.Company = str(*player, "Company");
+            summary.Version = str(*player, "Version");
+        }
+        if (const std::string thumbnail = str(*project, "Thumbnail"); !thumbnail.empty())
+        {
+            std::error_code ec;
+            const std::filesystem::path path = projectFile.parent_path() / thumbnail;
+            if (std::filesystem::is_regular_file(path, ec))
+                summary.Thumbnail = path;
+        }
+        return summary;
+    }
+
+    std::optional<ProjectSummary> ProjectSerializer::ReadSummary(const std::filesystem::path& projectFile)
+    {
+        const std::string text = FileSystem::ReadTextFile(projectFile);
+        if (text.empty())
+            return std::nullopt;
+        return SummaryFromString(text, projectFile);
     }
 
     bool ProjectSerializer::Deserialize(const std::filesystem::path& filepath)

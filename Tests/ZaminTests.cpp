@@ -35422,6 +35422,66 @@ TEST(TimeApiTimeScaleAndUnscaledTimers)
     CHECK(Time::GetGameClock() == nullptr);
 }
 
+TEST(ProjectDescriptionThumbnailAndSummary)
+{
+    // The launcher's description and picture: written only when set, read back, kept out of ExtraSections.
+    ProjectConfig config;
+    CHECK(ProjectSerializer::ConfigFromString(R"({ "Version": 2, "Project": { "Name": "Plain" } })", config));
+    CHECK(config.Description.empty() && config.Thumbnail.empty());
+    std::string text = ProjectSerializer::ConfigToString(config);
+    CHECK(text.find("\"Description\"") == std::string::npos && text.find("\"Thumbnail\"") == std::string::npos);
+    config.Description = "Qutilarni joyiga itaring";
+    config.Thumbnail = "Thumbnail.jpg";
+    text = ProjectSerializer::ConfigToString(config);
+    CHECK(text.find("\"Description\": \"Qutilarni joyiga itaring\"") != std::string::npos);
+    CHECK(text.find("\"Thumbnail\": \"Thumbnail.jpg\"") != std::string::npos);
+    CHECK(text.find("\"EngineVersion\"") < text.find("\"Description\"")); // after the engine's own keys, inside "Project"
+    ProjectConfig back;
+    CHECK(ProjectSerializer::ConfigFromString(text, back));
+    CHECK(back.Description == config.Description && back.Thumbnail == config.Thumbnail && back.ExtraSections.empty());
+    // the wrong type is ignored, not an error
+    CHECK(ProjectSerializer::ConfigFromString(R"({ "Version": 2, "Project": { "Name": "X", "Description": 5, "Thumbnail": [] } })", back));
+    CHECK(back.Description.empty() && back.Thumbnail.empty());
+
+    // The summary: name, product, description; the picture only when its file is there.
+    const std::filesystem::path dir = std::filesystem::temp_directory_path() / "zamin_project_summary_test";
+    std::filesystem::remove_all(dir);
+    std::filesystem::create_directories(dir);
+    const std::filesystem::path file = dir / "Game.zproject";
+    const std::string json = R"({ "Version": 2, "Project": { "Name": "Game", "Description": "Bir o'yin", "Thumbnail": "Thumbnail.jpg" },
+                                  "Player": { "Product": "Zo'r O'yin", "Company": "Studio", "Version": "1.2.0" } })";
+    auto summary = ProjectSerializer::SummaryFromString(json, file);
+    CHECK(summary.has_value());
+    CHECK(summary->Name == "Game" && summary->Product == "Zo'r O'yin" && summary->GetDisplayName() == "Zo'r O'yin");
+    CHECK(summary->Company == "Studio" && summary->Version == "1.2.0" && summary->Description == "Bir o'yin");
+    CHECK(summary->Thumbnail.empty()); // no such file yet
+    FileSystem::WriteTextFile(dir / "Thumbnail.jpg", "not really a picture");
+    FileSystem::WriteTextFile(file, json);
+    summary = ProjectSerializer::ReadSummary(file);
+    CHECK(summary.has_value() && summary->Thumbnail == dir / "Thumbnail.jpg" && summary->ProjectFile == file);
+    // no product: the project's name; no name: the file's
+    summary = ProjectSerializer::SummaryFromString(R"({ "Project": { } })", dir / "Bare.zproject");
+    CHECK(summary.has_value() && summary->Name == "Bare" && summary->GetDisplayName() == "Bare" && summary->Description.empty());
+    // not a project
+    CHECK(!ProjectSerializer::SummaryFromString("nope", file).has_value());
+    CHECK(!ProjectSerializer::SummaryFromString(R"({ "Name": "flat" })", file).has_value());
+    CHECK(!ProjectSerializer::ReadSummary(dir / "missing.zproject").has_value());
+    std::filesystem::remove_all(dir);
+
+    // Every sample project has a description and a picture for the launcher.
+    const std::filesystem::path projects = std::filesystem::path(ZAMIN_SOURCE_DIR) / "Projects";
+    int samples = 0;
+    for (const auto& entry : std::filesystem::directory_iterator(projects))
+        for (const auto& f : std::filesystem::directory_iterator(entry.path()))
+            if (f.path().extension() == ".zproject")
+            {
+                auto s = ProjectSerializer::ReadSummary(f.path());
+                CHECK(s.has_value() && !s->Description.empty() && !s->Thumbnail.empty());
+                samples++;
+            }
+    CHECK(samples >= 9);
+}
+
 TEST(ProjectDefaultGravityAndStep)
 {
     // The defaults and the "Physics" section.

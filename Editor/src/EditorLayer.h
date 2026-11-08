@@ -82,6 +82,10 @@ namespace Zamin {
         void UI_RecentScenesMenu();
         // The launcher's "So'nggi sahnalar" cards (true: one was opened).
         bool UI_LauncherRecentScenes();
+        // The launcher's sample games: cards with a picture, name and description (true: one was opened).
+        bool UI_LauncherSamples();
+        // The sample projects next to the editor (Projects/*/<Name>.zproject), read again every few seconds.
+        const std::vector<ProjectSummary>& GetLauncherSamples();
 
         // ---- scenes
         void NewScene();
@@ -1005,6 +1009,9 @@ namespace Zamin {
         std::string m_NewProjectName = "MeningOyinim";
         std::string m_NewProjectLocation;
         std::string m_OpenProjectPath;
+        std::vector<ProjectSummary> m_LauncherSamples;
+        double m_LauncherSamplesTime = -1.0;     // when they were last looked for
+        std::unordered_map<std::string, Ref<Texture2D>> m_LauncherThumbnails; // by file path (nullptr: could not be read)
 
         // script build
         std::thread m_BuildThread;

@@ -292,7 +292,7 @@ qamrovi topdi).
 Bo'lim nomi - `Tests/ZaminTests.cpp` dagi bo'lim sarlavhasi (kod izohi, ingliz tilida).
 
 <!-- test-catalog:begin -->
-_`Tests/test_catalog.py --update docs/Testing.md` yaratgan: 628 ta unit test, 93 ta bo'lim (`Tests/ZaminTests.cpp` dagi tartibda). Bitta testni ishga tushirish: `./build/bin/ZaminTests <Nom>`._
+_`Tests/test_catalog.py --update docs/Testing.md` yaratgan: 629 ta unit test, 93 ta bo'lim (`Tests/ZaminTests.cpp` dagi tartibda). Bitta testni ishga tushirish: `./build/bin/ZaminTests <Nom>`._
 
 | # | Bo'lim | Testlar | Nomlari |
 |---|---|---|---|
@@ -357,7 +357,7 @@ _`Tests/test_catalog.py --update docs/Testing.md` yaratgan: 628 ta unit test, 93
 | 59 | M15: scene management end to end | 1 | `SceneManagementFlow` |
 | 60 | M16 Editor II | 15 | `ConsoleFilterAndCollapse`, `GameViewResolutionLayout`, `EditorPreferencesSettings`, `ShortcutRegistryLookup`, `RecentFilesMRU`, `EditorAutosaveRecovery`, `UndoHistoryNamingAndJumps`, `EditorLayoutLibraryFiles`, `SceneViewAxesAndCamera`, `EntityLabelsLayoutAndFade`, `SceneStatisticsCounting`, `ExternalEditorCommands`, `CompilerOutputParsing`, `IdleThrottleDecision`, `EditorIIPureLogic` |
 | 61 | M17: project settings (quality, input, layers) | 21 | `QualityLevelLimits`, `QualitySettingsJson`, `QualityRuntimeLevel`, `ProjectQualityAndSections`, `InputVectorsComposite`, `InputBindingConflicts`, `CollisionLayerPresets`, `SceneFileTagReferences`, `ProjectSettingsIndexSearch`, `SemanticVersionParseCompare`, `PlayerSettingsSerialization`, `PlayerCommandLineParser`, `PlayerLaunchSettingsPrecedence`, `PlayerSettingsFullscreenToggleAndSplash`, `FramePacingPlanAndPacer`, `SplashTimelineAndLogo`, `InputAnyKeyAndMonitorPlacement`, `PlayerCompanySaveDataAndVersion`, `GameIconImagesAndDesktopEntry`, `ProjectFileMigrationAndUnknownKeys`, `BuildSceneChecksAndStartScene` |
-| 62 | M17: graphics context, time, default gravity | 5 | `GraphicsContextSettings`, `TimeSettingsAndClock`, `TimeApiTimeScaleAndUnscaledTimers`, `ProjectDefaultGravityAndStep`, `ProjectSettingsFullRoundTrip` |
+| 62 | M17: graphics context, time, default gravity | 6 | `GraphicsContextSettings`, `TimeSettingsAndClock`, `TimeApiTimeScaleAndUnscaledTimers`, `ProjectDescriptionThumbnailAndSummary`, `ProjectDefaultGravityAndStep`, `ProjectSettingsFullRoundTrip` |
 | 63 | M17: audio defaults, localization, editor language | 7 | `AudioSpatialDefaults`, `LocalizationStringFiles`, `LocalizationLookupFormatPlural`, `LocalizationTableEditingAndFiles`, `LocalizedTextComponentAndScripts`, `ProjectLocalizationSettings`, `EditorLanguageStrings` |
 | 64 | M18: the player's log file and crash reports | 2 | `PlayerLogFileRotation`, `CrashHandlerReports` |
 | 65 | M18: the cursor API for scripts | 1 | `CursorApiForScripts` |

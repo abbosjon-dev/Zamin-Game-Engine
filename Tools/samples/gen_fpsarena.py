@@ -642,7 +642,9 @@ def main():
     vectors = [{"Name": "Move", "X": "MoveX", "Y": "MoveY", "Mode": "Clamp", "Deadzone": 0.0},
                {"Name": "Look", "X": "LookX", "Y": "LookY", "Mode": "Clamp", "Deadzone": 0.0}]
     k.write_project(PROJECT, NAME, "FPS Arena", "Scenes/Arena.zscene", uuid, "1.0.0", [("Scenes/Arena.zscene", uuid)], actions, axes,
-                    vectors, ["Player", "JumpPad"])
+                    vectors, ["Player", "JumpPad"],
+                    description="3D birinchi shaxs: sichqoncha bilan qarash, yugurish, sakrash, parkur yo'lagi; raycast bilan otish, "
+                                "nishonlar va 60 soniyalik raund")
     k.write_module_cmake(PROJECT, NAME, "Zamin namuna o'yini: FPS Arena - C++ skriptlar moduli (libFPSArena.so)")
     print("FPSArena: tayyor")
 

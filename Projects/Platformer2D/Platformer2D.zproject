@@ -7,7 +7,9 @@
         "AssetDirectory": "Assets",
         "SourceDirectory": "Source",
         "ScriptModulePath": "Binaries/libPlatformer2D.so",
-        "EngineVersion": "0.1.0"
+        "EngineVersion": "0.1.0",
+        "Description": "2D platformer: tilemap, harakatlanuvchi platformalar, dushmanlar, tangalar, parallaks fon va 2D yorug'lik",
+        "Thumbnail": "Thumbnail.jpg"
     },
     "Player": {
         "Company": "Zamin Studio",

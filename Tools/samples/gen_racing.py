@@ -604,7 +604,8 @@ def main():
         k.axis("Throttle", [], ["Key:W", "Key:Up"], "RightTrigger", deadzone=0.05),
         k.axis("Brake", [], ["Key:S", "Key:Down"], "LeftTrigger", deadzone=0.05),
     ]
-    k.write_project(PROJECT, NAME, "Vodiy Poygasi", "Scenes/Valley.zscene", uuid, "1.0.0", [("Scenes/Valley.zscene", uuid)], actions, axes)
+    k.write_project(PROJECT, NAME, "Vodiy Poygasi", "Scenes/Valley.zscene", uuid, "1.0.0", [("Scenes/Valley.zscene", uuid)], actions, axes,
+                    description="3D poyga: mashina fizikasi (rul, ilashish, drift), aylanma trassa, nazorat nuqtalari, aylana vaqti, 3 ta raqib")
     k.write_module_cmake(PROJECT, NAME, "Zamin namuna o'yini: Vodiy Poygasi (racing) - C++ skriptlar moduli (libRacing.so)")
     print("Racing: tayyor")
 

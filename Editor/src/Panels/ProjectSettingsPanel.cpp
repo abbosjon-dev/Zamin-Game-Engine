@@ -145,6 +145,8 @@ namespace Zamin {
         {
             case Category::General:
                 config.Name = s.Name;
+                config.Description = s.Description;
+                config.Thumbnail = s.Thumbnail;
                 config.AssetDirectory = s.AssetDirectory;
                 config.SourceDirectory = s.SourceDirectory;
                 config.ScriptModulePath = s.ScriptModulePath;
@@ -444,6 +446,29 @@ namespace Zamin {
                 c.Name = name;
                 m_Dirty = true;
             }
+        }
+        UI::PropertyLabel("Tavsif", "O'yin haqida bir-ikki jumla - editor launcher'ida loyiha kartasida ko'rinadi");
+        std::string description = c.Description;
+        if (ImGui::InputTextMultiline("##description", &description, ImVec2(-1.0f, ImGui::GetTextLineHeight() * 3.2f)) && description != c.Description)
+        {
+            c.Description = description;
+            m_Dirty = true;
+        }
+        UI::PropertyLabel("Rasm (launcher)", "Loyiha kartasidagi rasm: loyiha papkasiga nisbatan yo'l (PNG / JPG, taxminan 16:9), masalan "
+                                             "Thumbnail.jpg. Eksport qilingan o'yinga kirmaydi.");
+        std::string thumbnail = c.Thumbnail.generic_string();
+        if ((ImGui::InputTextWithHint("##thumbnail", "Thumbnail.jpg", &thumbnail, ImGuiInputTextFlags_EnterReturnsTrue) ||
+             ImGui::IsItemDeactivatedAfterEdit()) &&
+            thumbnail != c.Thumbnail.generic_string())
+        {
+            c.Thumbnail = thumbnail;
+            m_Dirty = true;
+        }
+        if (!c.Thumbnail.empty())
+        {
+            std::error_code ec;
+            if (!std::filesystem::is_regular_file(Project::GetProjectDirectory() / c.Thumbnail, ec))
+                ImGui::TextColored(ImVec4(0.95f, 0.6f, 0.3f, 1.0f), "%s", Tr("Fayl topilmadi"));
         }
         UI::PropertyLabel("O'yin", "Player bo'limidagi mahsulot nomi, versiya va kompaniya (Application::GetProductName / GetVersion)");
         ImGui::Text("%s %s%s", c.Player.GetProductName(c.Name).c_str(), c.Player.Version.c_str(),

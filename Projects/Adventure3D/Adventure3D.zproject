@@ -7,7 +7,9 @@
         "AssetDirectory": "Assets",
         "SourceDirectory": "Source",
         "ScriptModulePath": "Binaries/libAdventure3D.so",
-        "EngineVersion": "0.1.0"
+        "EngineVersion": "0.1.0",
+        "Description": "3D sarguzasht: orol, uchinchi shaxs qahramoni, NPC'lar (patrul, ko'rish, quvish), suv va kun yorug'ligi",
+        "Thumbnail": "Thumbnail.jpg"
     },
     "Player": {
         "Company": "",

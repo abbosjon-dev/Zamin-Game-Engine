@@ -20,6 +20,7 @@
 #include "Zamin/Scene/SortingLayers.h"
 
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -74,6 +75,12 @@ namespace Zamin {
         std::filesystem::path AssetDirectory = "Assets";  ///< relative to project dir
         std::filesystem::path SourceDirectory = "Source"; ///< C++ gameplay scripts
         std::filesystem::path ScriptModulePath;           ///< relative to project dir, e.g. Binaries/libGame.so
+        /// A line or two about the game, shown with the project in the editor's launcher (Project
+        /// settings > General). "" = none.
+        std::string Description;
+        /// A picture of the game for the launcher's card (relative to the project dir, e.g.
+        /// `Thumbnail.jpg`; a PNG / JPG of about 16:9). "" = none. Not part of an exported game.
+        std::filesystem::path Thumbnail;
         /// Named input actions / axes (Project settings > Input). Projects without
         /// an "InputActions" section get the defaults (Jump, Fire, Horizontal, Vertical ...).
         InputActionMap InputActions = InputActionMap::CreateDefault();
@@ -249,6 +256,21 @@ namespace Zamin {
         static inline Ref<Project> s_ActiveProject;
     };
 
+    /// What the launcher shows about a project without opening it (ProjectSerializer::ReadSummary).
+    struct ProjectSummary
+    {
+        std::string Name;                    ///< ProjectConfig::Name
+        std::string Product;                 ///< Player.Product ("" when the file has none)
+        std::string Company;
+        std::string Version;                 ///< Player.Version
+        std::string Description;
+        std::filesystem::path Thumbnail;     ///< absolute; "" when there is none or the file is missing
+        std::filesystem::path ProjectFile;   ///< the .zproject it was read from
+
+        /// The name to show: the product name, else the project's name.
+        const std::string& GetDisplayName() const { return Product.empty() ? Name : Product; }
+    };
+
     class ProjectSerializer
     {
     public:
@@ -268,6 +290,11 @@ namespace Zamin {
         /// A section that is not written (left at its defaults) is not listed. The project settings
         /// window compares them with the saved file to show which categories changed.
         static std::vector<std::pair<std::string, std::string>> ConfigToSections(const ProjectConfig& config);
+
+        /// A .zproject's name, product, description and thumbnail - read quickly, nothing is loaded or
+        /// activated (the launcher's project cards). Nullopt when the file is not a readable project.
+        static std::optional<ProjectSummary> ReadSummary(const std::filesystem::path& projectFile);
+        static std::optional<ProjectSummary> SummaryFromString(const std::string& text, const std::filesystem::path& projectFile);
 
         /// The "InputActions" section on its own (JSON), used by tests and the editor.
         static std::string InputMapToString(const InputActionMap& map);

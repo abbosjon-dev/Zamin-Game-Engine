@@ -522,7 +522,8 @@ def main():
     ]
     vectors = [{"Name": "Move", "X": "MoveX", "Y": "MoveY", "Mode": "Clamp", "Deadzone": 0.0}]
     k.write_project(PROJECT, NAME, "Omborchi", "Scenes/Warehouse.zscene", uuid, "1.0.0", [("Scenes/Warehouse.zscene", uuid)], actions, axes,
-                    vectors)
+                    vectors, description="3D Sokoban: qutilarni joyiga itaring - 10 ta daraja, orqaga qaytarish (undo), "
+                                         "darajalar menyusi va yechuvchi bot")
     k.write_module_cmake(PROJECT, NAME, "Zamin namuna o'yini: Omborchi (Sokoban) - C++ skriptlar moduli (libSokoban.so)")
     print("Sokoban: tayyor")
 

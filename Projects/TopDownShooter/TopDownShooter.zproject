@@ -7,7 +7,9 @@
         "AssetDirectory": "Assets",
         "SourceDirectory": "Source",
         "ScriptModulePath": "Binaries/libTopDownShooter.so",
-        "EngineVersion": "0.1.0"
+        "EngineVersion": "0.1.0",
+        "Description": "2D twin-stick shooter: neon maydon, 5 xil dushman, to'lqinlar, kombo, bonuslar, 2D yorug'lik va zarralar",
+        "Thumbnail": "Thumbnail.jpg"
     },
     "Player": {
         "Company": "Zamin Studio",

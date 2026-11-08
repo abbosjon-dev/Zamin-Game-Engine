@@ -7,7 +7,9 @@
         "AssetDirectory": "Assets",
         "SourceDirectory": "Source",
         "ScriptModulePath": "Binaries/libEndlessRunner.so",
-        "EngineVersion": "0.1.0"
+        "EngineVersion": "0.1.0",
+        "Description": "3D cheksiz yugurish: uch yo'lak, sakrash va sirpanish, protsedurali to'siqlar, tangalar, oshib boruvchi tezlik",
+        "Thumbnail": "Thumbnail.jpg"
     },
     "Player": {
         "Company": "Zamin Studio",

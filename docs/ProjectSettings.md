@@ -94,6 +94,8 @@ Gamepad A ...) va takroriy bog'lanishlar ogohlantirishi.*
 | Maydon | `.zproject` kaliti | Ma'nosi |
 |---|---|---|
 | Nomi | `Project.Name` | Loyiha nomi (mahsulot nomi bo'sh bo'lsa o'yin nomi ham shu) |
+| Tavsif | `Project.Description` | O'yin haqida bir-ikki jumla - editor launcher'idagi loyiha kartasida |
+| Rasm (launcher) | `Project.Thumbnail` | Kartadagi rasm: loyiha papkasiga nisbatan yo'l (PNG / JPG, ~16:9); eksportga kirmaydi |
 | Assets papkasi | `Project.AssetDirectory` | Assetlar papkasi (standart `Assets`) |
 | Skriptlar papkasi | `Project.SourceDirectory` | C++ skriptlar (standart `Source`) |
 | Skript moduli | `Project.ScriptModulePath` | Kompilyatsiya qilingan modul (`Binaries/lib<Nom>.so`) |

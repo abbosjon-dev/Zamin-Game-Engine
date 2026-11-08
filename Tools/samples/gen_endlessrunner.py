@@ -515,7 +515,8 @@ def main():
         ("Pause", ["Key:Escape", "Key:P", "Gamepad:Start"]),
     ]
     axes = [k.axis("Steer", [], [], "LeftX", deadzone=0.25)]
-    k.write_project(PROJECT, NAME, "Ipak Yo'li", "Scenes/SilkRoad.zscene", uuid, "1.0.0", [("Scenes/SilkRoad.zscene", uuid)], actions, axes)
+    k.write_project(PROJECT, NAME, "Ipak Yo'li", "Scenes/SilkRoad.zscene", uuid, "1.0.0", [("Scenes/SilkRoad.zscene", uuid)], actions, axes,
+                    description="3D cheksiz yugurish: uch yo'lak, sakrash va sirpanish, protsedurali to'siqlar, tangalar, oshib boruvchi tezlik")
     k.write_module_cmake(PROJECT, NAME, "Zamin namuna o'yini: Ipak Yo'li (endless runner) - C++ skriptlar moduli (libEndlessRunner.so)")
     print("EndlessRunner: tayyor")
 

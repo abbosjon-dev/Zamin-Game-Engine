@@ -1,0 +1,3 @@
+# Third-party code keeps its own formatting: clang-format (and an editor's format-on-save) leaves it alone.
+DisableFormat: true
+SortIncludes: Never

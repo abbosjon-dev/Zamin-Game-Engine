@@ -15,6 +15,9 @@
 #   Tests/export_test.sh --keep                      keep the temporary folder (the export, the logs)
 #   Tests/export_test.sh --work /tmp/zamin-export    use (and keep) that folder
 #   Tests/export_test.sh --out DIR                   the logs, reports and the screenshot copied there (CI artefacts)
+#   Tests/export_test.sh --package DIR               when every check passed: the tested export packed as
+#                                                    DIR/<Name>-<version>-linux-<arch>.tar.gz (+ .sha256; unpacked
+#                                                    again and started from there), a row in DIR/packages.md
 # The editor and the game run with a HOME of their own inside the work folder. The project itself is left as
 # it is (the export builds the script module in Release in <project>/Build/ExportRelease, as the editor does).
 # Exit code: 0 when every check passed, 1 when one failed, 2 when the editor / player are missing.
@@ -27,6 +30,7 @@ frames=120
 keep=0
 work=""
 out=""
+package=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --project) project="$2"; shift 2 ;;
@@ -34,7 +38,8 @@ while [[ $# -gt 0 ]]; do
         --keep) keep=1; shift ;;
         --work) work="$2"; keep=1; shift 2 ;;
         --out) out="$2"; shift 2 ;;
-        -h|--help) sed -n '2,22p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        --package) package="$2"; shift 2 ;;
+        -h|--help) sed -n '2,23p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "noma'lum variant: $1 (--help)" >&2; exit 2 ;;
     esac
 done
@@ -179,6 +184,40 @@ if [[ -n "$out" ]]; then
     mkdir -p "$out"
     cp -f "$work"/*.log "$work/game.png" "$bench" "$export_dir/export-report.json" "$export_dir/export-report.txt" "$out/" 2>/dev/null
     echo "  natijalar: $out"
+fi
+
+# The tested export as a player build (CI artefact): a tar.gz keeps the files' executable bits, which an artefact's
+# zip does not. It is unpacked again and its launcher started from there.
+if [[ -n "$package" && $failures -eq 0 ]]; then
+    mkdir -p "$package"
+    package="$(cd "$package" && pwd)"
+    game_version="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("Player", {}).get("Version", "") or "0.0.0")' "$project_file" 2>/dev/null)"
+    archive="$name-${game_version:-0.0.0}-linux-$(uname -m).tar.gz"
+    mkdir -p "$work/package"
+    mv "$export_dir" "$work/package/$name"
+    # Reproducible-ish: sorted names, no owner names.
+    tar -C "$work/package" --sort=name --owner=0 --group=0 --numeric-owner -czf "$package/$archive" "$name"
+    code=$?
+    mv "$work/package/$name" "$export_dir"
+    if [[ $code -ne 0 ]]; then
+        fail "paket yaratilmadi: $package/$archive"
+    else
+        (cd "$package" && sha256sum "$archive" >"$archive.sha256")
+        files="$(tar -tzf "$package/$archive" | grep -vc '/$')"
+        size="$(du -h "$package/$archive" | cut -f1)"
+        rm -rf "$work/unpacked" && mkdir -p "$work/unpacked"
+        tar -C "$work/unpacked" -xzf "$package/$archive"
+        version="$(HOME="$work/home" "$work/unpacked/$name/$name.sh" --version 2>&1)"
+        if [[ $? -eq 0 && "$version" == *"$product"* ]]; then
+            pass "paket: $archive ($size, $files fayl) - ochilgandan keyin ishga tushadi"
+            [[ -f "$package/packages.md" ]] || printf '| O%syin | Versiya | Paket | Hajmi | Fayllar | SHA-256 |\n|---|---|---|---|---|---|\n' "'" >"$package/packages.md"
+            echo "| $product | $game_version | \`$archive\` | $size | $files | \`$(cut -c1-16 "$package/$archive.sha256")\` |" >>"$package/packages.md"
+        else
+            fail "paket ochilgandan keyin ishga tushmadi: $version"
+            rm -f "$package/$archive" "$package/$archive.sha256"
+        fi
+        rm -rf "$work/unpacked"
+    fi
 fi
 
 echo

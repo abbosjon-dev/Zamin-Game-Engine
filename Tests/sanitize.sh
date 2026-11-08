@@ -8,18 +8,21 @@
 #   Tests/sanitize.sh leak                  standalone LeakSanitizer (no ASan): build-lsan
 #   Tests/sanitize.sh thread                ThreadSanitizer: build-tsan
 #   Tests/sanitize.sh address --smoke       also ZaminPlayer (Platformer2D, Showcase3D, Adventure3D) and ZaminEditor
+#   Tests/sanitize.sh address --editor-smoke   also the editor smoke test (Tests/editor_smoke.sh: every window, menu,
+#                                           popup and inspector of Showcase3D and Platformer2D) under the sanitizer
 #   Tests/sanitize.sh undefined --compiler clang --build-dir build-ubsan-clang
 #   Tests/sanitize.sh address --filter Prefab   only the tests whose names contain the text (ZAMIN_TESTS)
 #   Tests/sanitize.sh address --no-build    run what is built
 #   Tests/sanitize.sh address --clean       delete the build folder afterwards (it is large)
 # Options: --build-type Debug|RelWithDebInfo (Debug), --jobs N, --frames N (smoke frames, 60), --log-dir DIR
 # (<build>/SanitizerLogs; <build>-logs with --clean). ZAMIN_CMAKE_ARGS: more arguments for the first configure.
+# <log dir>/summary.md lists every run (also on the GitHub Actions run's page when GITHUB_STEP_SUMMARY is set).
 # Exit code: 0 clean, 1 a test failed or a sanitizer reported, 2 bad usage / the build failed.
 set -uo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 supp="$root/Tests/sanitizers"
 
-usage() { sed -n '2,18p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,20p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 if [[ $# -lt 1 ]]; then usage; exit 2; fi
 mode="$1"; shift
 case "$mode" in
@@ -36,6 +39,7 @@ compiler=""
 build_type=Debug
 jobs="$(nproc 2>/dev/null || echo 4)"
 smoke=0
+editor_smoke=0
 do_build=1
 clean=0
 frames=60
@@ -48,6 +52,7 @@ while [[ $# -gt 0 ]]; do
         --build-type) build_type="$2"; shift 2 ;;
         --jobs) jobs="$2"; shift 2 ;;
         --smoke) smoke=1; shift ;;
+        --editor-smoke) editor_smoke=1; shift ;;
         --no-build) do_build=0; shift ;;
         --clean) clean=1; shift ;;
         --frames) frames="$2"; shift 2 ;;
@@ -90,6 +95,7 @@ if [[ $do_build -eq 1 ]]; then
     fi
     targets=(ZaminTests)
     [[ $smoke -eq 1 ]] && targets+=(ZaminPlayer ZaminEditor Platformer2D Showcase3D Adventure3D)
+    [[ $smoke -eq 0 && $editor_smoke -eq 1 ]] && targets+=(ZaminEditor Platformer2D Showcase3D)
     echo "== Build: ${targets[*]}"
     if ! cmake --build "$build" --parallel "$jobs" --target "${targets[@]}"; then
         echo "build muvaffaqiyatsiz" >&2
@@ -114,16 +120,19 @@ export TSAN_OPTIONS="halt_on_error=1:second_deadlock_stack=1:suppressions=$supp/
 export ZAMIN_SCRIPT_MODULE_DIR="$build/GameModules"
 
 failures=0
-# check <name> <exit code> <log>: a failed run, a sanitizer report or an unsuppressed vendor report.
+rows=()
+# check <name> <exit code> <log> <seconds>: a failed run, a sanitizer report or an unsuppressed vendor report.
 check() {
-    local name="$1" code="$2" log="$3" reports
+    local name="$1" code="$2" log="$3" secs="${4:-?}" reports
     reports="$(grep -cE "ERROR: (AddressSanitizer|LeakSanitizer)|WARNING: ThreadSanitizer|runtime error:|SUMMARY: (Address|Leak|Thread|UndefinedBehavior)Sanitizer" "$log")"
     if [[ "$code" -ne 0 || "$reports" -ne 0 ]]; then
         echo "[XATO] $name: chiqish kodi $code, sanitizer xabarlari $reports - $log"
         grep -E -m 20 -A 12 "ERROR: (AddressSanitizer|LeakSanitizer)|WARNING: ThreadSanitizer|runtime error:" "$log" | head -n 80
         failures=$((failures + 1))
+        rows+=("| $name | XATO (kod $code, $reports ta xabar) | $secs s | \`$(basename "$log")\` |")
     else
         echo "[OK] $name ($log)"
+        rows+=("| $name | OK | $secs s | \`$(basename "$log")\` |")
     fi
 }
 
@@ -134,14 +143,15 @@ start=$(date +%s)
 (cd "$root" && ZAMIN_TESTS="$filter" "$build/bin/ZaminTests") >"$test_log" 2>&1
 code=$?
 tail -n 1 "$test_log"
-echo "   $(( $(date +%s) - start )) s"
+secs=$(( $(date +%s) - start ))
+echo "   $secs s"
 if [[ $code -eq 0 ]] && ! tail -n 1 "$test_log" | grep -qE "^[0-9]+ test, 0 xato$"; then
     code=1
 fi
-check ZaminTests "$code" "$test_log"
+check "ZaminTests ($(tail -n 1 "$test_log"))" "$code" "$test_log" "$secs"
 
 # ---- headless smoke: the player (the sample games) and the editor -----------------------------------------------
-if [[ $smoke -eq 1 ]]; then
+if [[ $smoke -eq 1 || $editor_smoke -eq 1 ]]; then
     runner=()
     if [[ -z "${DISPLAY:-}" ]]; then
         if ! command -v xvfb-run >/dev/null 2>&1; then
@@ -152,25 +162,55 @@ if [[ $smoke -eq 1 ]]; then
     fi
     export HOME="$log_dir/home"  # fresh settings / logs, the user's are left alone
     mkdir -p "$HOME"
+fi
+if [[ $smoke -eq 1 ]]; then
     # Mesa / X11 / fontconfig / ALSA keep caches and singletons until exit: lsan.supp lists them.
     for game in Platformer2D Showcase3D Adventure3D; do
         log="$log_dir/Player-$game.log"
         echo "== ZaminPlayer $game"
+        start=$(date +%s)
         (cd "$root" && ZAMIN_MAX_FRAMES="$frames" "${runner[@]}" "$build/bin/ZaminPlayer" "Projects/$game") >"$log" 2>&1
-        check "ZaminPlayer $game" $? "$log"
+        check "ZaminPlayer $game" $? "$log" $(( $(date +%s) - start ))
     done
     log="$log_dir/Editor-Showcase3D.log"
     echo "== ZaminEditor Showcase3D"
+    start=$(date +%s)
     (cd "$root" && ZAMIN_MAX_FRAMES="$frames" "${runner[@]}" "$build/bin/ZaminEditor" Projects/Showcase3D) >"$log" 2>&1
-    check "ZaminEditor Showcase3D" $? "$log"
+    check "ZaminEditor Showcase3D" $? "$log" $(( $(date +%s) - start ))
+fi
+# ---- the editor smoke test (every window / menu / popup / inspector) under the sanitizer --------------------------
+if [[ $editor_smoke -eq 1 ]]; then
+    smoke_dir="$log_dir/EditorSmoke"
+    echo "== Editor smoke testi (Showcase3D, Platformer2D)"
+    start=$(date +%s)
+    ZAMIN_BUILD_DIR="$build" "$root/Tests/editor_smoke.sh" --out "$smoke_dir" "$root/Projects/Showcase3D" "$root/Projects/Platformer2D" \
+        >"$log_dir/EditorSmoke.log" 2>&1
+    code=$?
+    grep -E "\[(OK|XATO)\]" "$log_dir/EditorSmoke.log" | sed 's/^ */   /'
+    # The script's own verdict (exit code) and every project's editor log searched for sanitizer reports.
+    reports_log="$log_dir/EditorSmoke-all.log"
+    cat "$log_dir/EditorSmoke.log" "$smoke_dir"/*.log >"$reports_log" 2>/dev/null
+    check "Editor smoke testi" "$code" "$reports_log" $(( $(date +%s) - start ))
 fi
 
 echo
 if [[ $failures -eq 0 ]]; then
-    echo "Sanitizer ($mode): xato yo'q"
+    verdict="Sanitizer ($mode): xato yo'q"
 else
-    echo "Sanitizer ($mode): $failures ta xato"
+    verdict="Sanitizer ($mode): $failures ta xato"
 fi
+echo "$verdict"
+{
+    echo "### $verdict"
+    echo
+    echo "Build: \`$(basename "$build")\` ($build_type${compiler:+, $compiler}), $(date -u '+%Y-%m-%d %H:%M UTC')"
+    echo
+    echo "| Ishga tushirish | Natija | Vaqt | Log |"
+    echo "|---|---|---|---|"
+    printf '%s\n' "${rows[@]}"
+} >"$log_dir/summary.md"
+[[ -n "${GITHUB_STEP_SUMMARY:-}" ]] && cat "$log_dir/summary.md" >>"$GITHUB_STEP_SUMMARY"
+echo "Hisobot: $log_dir/summary.md"
 if [[ $clean -eq 1 ]]; then
     rm -rf "$build"
     echo "build papkasi o'chirildi: $build"

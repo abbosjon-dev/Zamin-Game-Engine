@@ -1,0 +1,87 @@
+# Zamin Engine C++ style for clang-format (17 or newer; checked with clang-format 18).
+#
+# It describes the style the code is already written in - it is NOT meant to reformat the code base: run
+# Tests/format_check.sh, which formats only the lines you changed (git clang-format). Measured on the whole code
+# base (Tests/format_check.sh --stats): about 3 % of the lines would change, mostly the few house conventions
+# clang-format cannot express (see docs/quality.md):
+#   - several short statements on one line ("a.X = 1; a.Y = 2;"), also in one-line functions and blocks;
+#   - short enums on one line ("enum class Mode { A = 0, B };") - with braces on their own line clang-format
+#     expands every enum;
+#   - several enumerators / list items per line in a long hand-wrapped list;
+#   - hand-aligned columns (case labels, comments, chained ?: conditions).
+Language: Cpp
+BasedOnStyle: LLVM
+Standard: c++20
+
+# 4 spaces, no tabs; no column limit: the hand-made line breaks are kept (lines run to ~120-160 columns).
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ContinuationIndentWidth: 4
+ColumnLimit: 0
+ReflowComments: false
+MaxEmptyLinesToKeep: 2
+
+# Braces on their own line (Allman) - except "namespace Zamin {", whose contents are indented.
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterCaseLabel: true
+  AfterClass: true
+  AfterControlStatement: Always
+  AfterEnum: true
+  AfterFunction: true
+  AfterNamespace: false
+  AfterStruct: true
+  AfterUnion: true
+  AfterExternBlock: true
+  BeforeCatch: true
+  BeforeElse: true
+  BeforeLambdaBody: false
+  BeforeWhile: false
+  IndentBraces: false
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+NamespaceIndentation: All
+FixNamespaceComments: false
+
+# "public:" at the class's own column; "case" indented inside "switch".
+AccessModifierOffset: -4
+EmptyLineBeforeAccessModifier: Leave
+IndentCaseLabels: true
+
+# Short functions, ifs, loops, lambdas, case labels and blocks may stay on one line.
+AllowShortFunctionsOnASingleLine: All
+AllowShortIfStatementsOnASingleLine: AllIfsAndElse
+AllowShortLoopsOnASingleLine: true
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortBlocksOnASingleLine: Always
+AllowShortLambdasOnASingleLine: All
+# A lambda's body is indented from the enclosing block (with "Signature", clang-format 18 pulls the closing brace of
+# a lambda onto its last statement's line when a call takes several multi-line lambdas: "...; }, [this]() {").
+LambdaBodyIndentation: OuterScope
+AllowShortEnumsOnASingleLine: true
+# Consecutive one-line "case X: return ...;" are aligned.
+AlignConsecutiveShortCaseStatements:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: false
+  AlignCaseColons: false
+
+# "Type* name", "const T& value"; "template<typename T>" (no space), on its own line when the declaration is.
+PointerAlignment: Left
+ReferenceAlignment: Left
+DerivePointerAlignment: false
+SpaceAfterTemplateKeyword: false
+AlwaysBreakTemplateDeclarations: MultiLine
+
+# "{ 1.0f, 2.0f }" - spaces inside braced lists.
+Cpp11BracedListStyle: false
+
+# Trailing comments keep their hand-made alignment; nested preprocessor directives are indented before the "#".
+AlignTrailingComments:
+  Kind: Leave
+IndentPPDirectives: BeforeHash
+
+# Include groups keep their order (they are grouped by hand: own headers, engine, vendor, standard library).
+SortIncludes: Never

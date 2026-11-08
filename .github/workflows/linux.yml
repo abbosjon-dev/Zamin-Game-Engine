@@ -72,16 +72,32 @@ jobs:
       - name: Script hot reload test
         run: Tests/hot_reload_test.sh
 
-      # Platformer2D exported by the editor; the exported game runs headless (benchmark, a screenshot), also moved.
-      - name: Export test
-        run: Tests/export_test.sh --out export-test
+      # The three sample games exported by the editor, each tested the way a player gets it (Tests/export_test.sh:
+      # --version, a timed run, a headless run with a screenshot, moved elsewhere) and only then packed as
+      # <Name>-<version>-linux-x86_64.tar.gz + .sha256 (unpacked again and started): this commit's player builds.
+      # A tar.gz keeps the launcher's and the player's executable bits, which an artefact's zip would drop.
+      - name: Export test + player builds
+        run: Tests/package_games.sh --out player-builds
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: export-test-${{ matrix.compiler.cc }}
-          path: export-test/
+          path: |
+            player-builds/logs/
+            player-builds/summary.md
           if-no-files-found: warn
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: player-builds-${{ matrix.compiler.cc }}
+          path: |
+            player-builds/*.tar.gz
+            player-builds/*.sha256
+            player-builds/packages.md
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
 
       - name: Smoke test (headless render)
         run: |
@@ -93,6 +109,69 @@ jobs:
         with:
           name: screenshots-${{ matrix.compiler.cc }}
           path: "*.png"
+
+  # Sanitizers (Tests/sanitize.sh, cmake -DZAMIN_SANITIZE=..., a Debug build of its own): AddressSanitizer with
+  # LeakSanitizer at exit - the unit tests, the three games and the editor headless, and the editor smoke test (every
+  # window, menu, popup and inspector) - and UndefinedBehaviorSanitizer with Clang (every report in our code fatal).
+  # Any report fails the job, even when the tests pass; third-party noise is listed in Tests/sanitizers/*.supp.
+  sanitizers:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: asan
+            mode: address
+            args: --smoke --editor-smoke
+          - name: ubsan-clang
+            mode: undefined
+            args: --compiler clang
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgl-dev libx11-dev libxrandr-dev libxinerama-dev \
+            libxcursor-dev libxi-dev libwayland-dev libxkbcommon-dev wayland-protocols xvfb mesa-utils \
+            libgl1-mesa-dri libglx-mesa0
+
+      - name: Sanitizer (${{ matrix.name }})
+        run: Tests/sanitize.sh ${{ matrix.mode }} ${{ matrix.args }} --log-dir sanitizer-logs
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sanitizer-${{ matrix.name }}
+          path: sanitizer-logs/
+          if-no-files-found: warn
+
+  # clang-format (.clang-format: the code base's existing style) on the lines this push / pull request changed only;
+  # advisory - a warning annotation per hunk and the diff on the run's page (some house conventions, such as several
+  # short statements on one line, cannot be expressed in clang-format). The second step guards .clang-format itself:
+  # the whole code base must stay within 3.5 % of it.
+  format:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install clang-format
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format-18
+
+      - name: clang-format (changed lines)
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [[ -z "$BASE" || "$BASE" =~ ^0+$ ]] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then BASE=HEAD~1; fi
+          Tests/format_check.sh --base "$BASE" --github
+
+      - name: .clang-format against the code base
+        run: Tests/format_check.sh --stats --max-percent 3.5
 
   # Code coverage (gcov): a coverage build of its own (cmake/Coverage.cmake: our targets only), the unit tests in it
   # and the report per module (Tests/coverage_report.py) - on the run's page and as an artefact (the HTML per file too).

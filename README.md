@@ -895,12 +895,32 @@ Tests/render_tests.sh                            # rendering regressiya testi (d
 Tests/editor_smoke.sh --shots                    # editorning barcha oyna/menyu/popup'lari (xvfb ostida)
 Tests/hot_reload_test.sh                         # skript modulini qayta kompilyatsiya + hot reload
 Tests/export_test.sh                             # eksport + eksport qilingan o'yin headless (skrinshot bilan)
+Tests/package_games.sh --out dist                # uchala namuna o'yin: eksport + tekshiruv + <Nom>-<versiya>-linux-x86_64.tar.gz
 Tests/render_bench.sh                            # 10 000 sprite, 1 000 mesh: ms / kadr (docs/benchmarks.md)
 Tests/bench.sh --compare                         # ECS, serializatsiya, prefab benchmarklari + boshlang'ich natija bilan solishtirish
 Tests/coverage.sh [--gui] [--html]               # kod qamrovi (gcov, build-cov): modullar bo'yicha hisobot (docs/coverage.md)
 Tests/sanitize.sh address                        # unit testlar AddressSanitizer + LeakSanitizer bilan (build-asan)
-Tests/sanitize.sh undefined                      # UndefinedBehaviorSanitizer bilan (build-ubsan)
+Tests/sanitize.sh address --smoke --editor-smoke # + 3 o'yin, editor va editor smoke testi ASan ostida (CI'dagi asan job)
+Tests/sanitize.sh undefined --compiler clang     # UndefinedBehaviorSanitizer bilan, Clang (build-ubsan; CI'dagi ubsan-clang)
+Tests/format_check.sh [--base main] [--fix]      # clang-format faqat o'zgargan qatorlarda (.clang-format - mavjud uslub)
 ```
+
+Barcha testlar, ular nimani qo'riqlashi va qachon ishga tushirilishi - [docs/testing.md](docs/testing.md) (unit testlar
+ro'yxati bilan); o'lchangan natijalar (testlar soni, qamrov, sanitizerlar, benchmarklar, ogohlantirishlar) -
+[docs/quality.md](docs/quality.md).
+
+**Kod uslubi** (`.clang-format`, clang-format 17+): mavjud uslubni tasvirlaydi - 4 bo'shliq, qavslar yangi qatorda
+(`namespace Zamin {` bundan mustasno, ichi chekinish bilan), `Type* name`, `template<typename T>`, `{ 1.0f, 2.0f }`, ustun
+chegarasi yo'q (qo'lda bo'lingan qatorlar saqlanadi), include tartibi o'zgarmaydi. Kod bazasi butunlay qayta
+formatlanmaydi: `Tests/format_check.sh` faqat o'zgargan qatorlarni tekshiradi (`--fix` - joyida tuzatadi, `--files` -
+butun fayl), `--stats` butun kod baza konfiguratsiyadan qanchalik farq qilishini o'lchaydi (3.1 % qator; farqning
+asosiy qismi - clang-format ifodalay olmaydigan odatlar: bir qatorda bir nechta qisqa ifoda, bir qatorli qisqa enum).
+`vendor/` hech qachon formatlanmaydi. CI'dagi `format` job ogohlantiruvchi.
+
+**CI artefaktlari:** har push / pull request'da `build` job uchala namuna o'yinni eksport qiladi, o'yinchi oladigan
+holatda tekshiradi va **o'yin build'i** sifatida yuklaydi (`player-builds-gcc`, `player-builds-clang`: `.tar.gz` +
+`.sha256`, 14 kun) - paket ochilib, `<O'yin>.sh` bilan darhol ishga tushadi. `sanitizers` job ASan (testlar, 3 o'yin,
+editor, editor smoke testi) va Clang UBSan bilan; loglari `sanitizer-asan`, `sanitizer-ubsan-clang` artefaktlarida.
 
 **Unit test framework** (`Tests/TestFramework.h`): `ZaminTests [namuna ...]` - `*`/`?` bilan namuna butun nomga
 glob (`Prefab*`), ularsiz nomning bir qismi (`ZAMIN_TESTS` muhit o'zgaruvchisi kabi), katta-kichik harf farqsiz; bir

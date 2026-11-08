@@ -126,12 +126,37 @@ add_custom_target(export_test
 if(TARGET ZaminEditor)
     add_dependencies(export_test ZaminEditor)
 endif()
+# The player builds of the three sample games (CI artefacts): each exported, tested as above and packed as
+# <Name>-<version>-linux-<arch>.tar.gz + .sha256 in build/PlayerBuilds (Tests/package_games.sh --out DIR).
+add_custom_target(package_games
+    COMMAND ${CMAKE_COMMAND} -E env ZAMIN_BUILD_DIR=${CMAKE_BINARY_DIR} ${PROJECT_SOURCE_DIR}/Tests/package_games.sh
+    DEPENDS ZaminPlayer
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+    COMMENT "O'yin build'lari: eksport, tekshiruv, tar.gz paketlar"
+    USES_TERMINAL VERBATIM)
+if(TARGET ZaminEditor)
+    add_dependencies(package_games ZaminEditor)
+endif()
 foreach(game Platformer2D Showcase3D Adventure3D)
     if(TARGET ${game})
         add_dependencies(player_bench ${game})
         add_dependencies(export_test ${game})
+        add_dependencies(package_games ${game})
     endif()
 endforeach()
+
+# clang-format on the lines changed against HEAD (.clang-format: the existing style; the code base is not reformatted
+# as a whole) and how far the whole code base is from it: Tests/format_check.sh --help.
+add_custom_target(format_check
+    COMMAND ${PROJECT_SOURCE_DIR}/Tests/format_check.sh
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+    COMMENT "clang-format: o'zgargan qatorlar"
+    USES_TERMINAL VERBATIM)
+add_custom_target(format_stats
+    COMMAND ${PROJECT_SOURCE_DIR}/Tests/format_check.sh --stats --top 20
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+    COMMENT "clang-format: butun kod baza .clang-format dan qanchalik farq qiladi"
+    USES_TERMINAL VERBATIM)
 
 # The editor smoke test (every window, page, menu and popup for a few frames; errors, OpenGL error flags and
 # failed ImGui checks fail it) and the script hot reload test (a module built by the editor, changed, built again

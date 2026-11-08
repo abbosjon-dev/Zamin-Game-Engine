@@ -51,8 +51,8 @@ Mundarija:
 - **Mixer guruhi** — har ovoz biror guruhda chalinadi (Master > Music, SFX, UI va loyihaning o'z guruhlari).
 - **2D / 3D ovoz** — oddiy ovoz hamma joyda bir xil eshitiladi; **3D (spatial)** ovozning balandligi va chap / o'ng
   tomoni tinglovchidan qayerdaligiga bog'liq.
-- **Qachon ishlaydi** — Audio Source'lar Play (va player) paytida chalinadi; tahrir rejimida asset inspektori va
-  Audio Mixer orqali eshitib ko'rish mumkin. Kadrda audio eng oxirida yangilanadi (transformlar tayyor bo'lgach).
+- **Qachon ishlaydi** — Audio Source'lar Play (va player) paytida chalinadi; tahrir rejimida faylni asset inspektorida
+  eshitib ko'rish mumkin ([14-bo'lim](#14-audio-fayllar-va-import-sozlamalari)). Kadrda audio eng oxirida yangilanadi (transformlar tayyor bo'lgach).
 - **Qurilmasiz** (headless, CI): `Audio qurilmasi topilmadi - ovoz o'chirilgan` — o'yin ishlayveradi, ovozlar
   chalinmaydi (Audio Mixer oynasida "Audio qurilmasi yo'q - faqat sozlash").
 - **Nofaol obyekt** — ovozi to'xtaydi; qayta yoqilganda **Boshida ijro** belgilangan manba boshidan chalinadi.

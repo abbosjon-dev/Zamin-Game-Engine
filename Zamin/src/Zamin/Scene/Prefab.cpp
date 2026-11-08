@@ -150,6 +150,52 @@ namespace Zamin {
             }
         }
 
+        // The scene's instance roots (from the entities with editor data, not a walk over every entity),
+        // outer instances before the ones placed inside them (then by UUID: the same order every time).
+        std::vector<UUID> InstanceRoots(Scene& scene)
+        {
+            std::vector<std::pair<int, uint64_t>> keyed;
+            for (auto handle : scene.GetAllEntitiesWith<EditorMetadataComponent>())
+            {
+                Entity e(handle, &scene);
+                if (!HasMarker(e))
+                    continue;
+                int depth = 0;
+                for (Entity p = ParentOf(e); p && depth < 4096; p = ParentOf(p))
+                    depth++;
+                keyed.emplace_back(depth, (uint64_t)e.GetUUID());
+            }
+            std::sort(keyed.begin(), keyed.end());
+            std::vector<UUID> roots;
+            roots.reserve(keyed.size());
+            for (const auto& [depth, id] : keyed)
+                roots.push_back(UUID(id));
+            return roots;
+        }
+
+        // An up-to-date instance without the full bookkeeping: every prefab entity there once,
+        // nothing linked that the prefab no longer has (an instance that deleted entities is looked at
+        // in full).
+        bool IsCompleteQuick(Entity root, const PrefabDatabase::Template& t)
+        {
+            std::vector<Entity> members;
+            members.reserve(t.Order.size() + 4);
+            CollectMembers(root, members);
+            std::unordered_set<uint64_t> seen;
+            seen.reserve(members.size());
+            size_t linked = 0;
+            for (Entity e : members)
+            {
+                const uint64_t local = LocalOf(e);
+                if (!local)
+                    continue;
+                if (!seen.insert(local).second || !HasTemplateEntity(t, local))
+                    return false;
+                linked++;
+            }
+            return linked == t.Order.size();
+        }
+
         bool IsLinkedRoot(Entity root, const PrefabDatabase::Template* t)
         {
             const auto* link = root.TryGetComponent<PrefabLinkComponent>();
@@ -1255,11 +1301,7 @@ namespace Zamin {
         if (scene.IsRunning())
             return 0;
         size_t linked = 0;
-        std::vector<UUID> roots;
-        for (Entity e : scene.GetEntitiesInHierarchyOrder())
-            if (HasMarker(e))
-                roots.push_back(e.GetUUID());
-        for (UUID id : roots)
+        for (UUID id : InstanceRoots(scene))
         {
             Entity root = scene.GetEntityByUUID(id);
             if (!root)
@@ -1317,45 +1359,75 @@ namespace Zamin {
 
     size_t PrefabUtility::NormalizeLinks(Scene& scene, const std::vector<Entity>* created)
     {
+        if (scene.GetAllEntitiesWith<PrefabLinkComponent>().empty())
+            return 0;
         size_t removed = 0;
         std::unordered_set<entt::entity> fresh;
         if (created)
             for (Entity e : *created)
                 fresh.insert((entt::entity)e);
-        std::vector<Entity> linked;
-        for (auto handle : scene.GetAllEntitiesWith<PrefabLinkComponent>())
-            linked.emplace_back(handle, &scene);
-        std::unordered_map<entt::entity, std::vector<Entity>> byOwner;
-        for (Entity e : linked)
+        // Every entity's instance (the nearest ancestor-or-self with a prefab), top-down: a parent
+        // comes before its children in hierarchy order.
+        const std::vector<Entity> order = scene.GetEntitiesInHierarchyOrder();
+        std::unordered_map<entt::entity, entt::entity> ownerOf;
+        ownerOf.reserve(order.size());
+        std::vector<entt::entity> owners(order.size(), entt::entity(entt::null));
+        for (size_t i = 0; i < order.size(); i++)
         {
-            Entity owner = GetInstanceRoot(e);
-            const auto& link = e.GetComponent<PrefabLinkComponent>();
-            if (!owner || link.IsDefault())
-            {
-                e.RemoveComponent<PrefabLinkComponent>();
-                removed++;
-                continue;
-            }
-            byOwner[(entt::entity)owner].push_back(e);
+            Entity e = order[i];
+            entt::entity owner = entt::null;
+            if (HasMarker(e))
+                owner = (entt::entity)e;
+            else if (Entity parent = ParentOf(e))
+                if (auto it = ownerOf.find((entt::entity)parent); it != ownerOf.end())
+                    owner = it->second;
+            ownerOf.emplace((entt::entity)e, owner);
+            owners[i] = owner;
         }
-        for (auto& [ownerHandle, list] : byOwner)
+        // A link with no instance means nothing; within an instance, the ones that were there first
+        // keep their IDs (then the copies, in hierarchy order).
+        struct PairHash
         {
-            Entity owner(ownerHandle, &scene);
-            std::vector<Entity> members;
-            CollectMembers(owner, members);
-            std::unordered_map<uint64_t, Entity> keep;
-            // The ones that were there first keep their IDs (then the copies, in hierarchy order).
-            for (int pass = 0; pass < 2; pass++)
-                for (Entity e : members)
+            size_t operator()(const std::pair<entt::entity, uint64_t>& p) const
+            {
+                return std::hash<uint64_t>()(p.second * 0x9E3779B97F4A7C15ull ^ (uint64_t)(uint32_t)p.first);
+            }
+        };
+        std::unordered_set<std::pair<entt::entity, uint64_t>, PairHash> taken;
+        for (int pass = 0; pass < 2; pass++)
+            for (size_t i = 0; i < order.size(); i++)
+            {
+                Entity e = order[i];
+                auto* link = e.TryGetComponent<PrefabLinkComponent>();
+                if (!link)
+                    continue;
+                if (pass == 0 && (owners[i] == entt::null || link->IsDefault()))
                 {
-                    const uint64_t local = LocalOf(e);
-                    if (!local || fresh.contains((entt::entity)e) != (pass == 1))
-                        continue;
-                    if (!keep.emplace(local, e).second)
-                    {
-                        e.RemoveComponent<PrefabLinkComponent>();
-                        removed++;
-                    }
+                    e.RemoveComponent<PrefabLinkComponent>();
+                    removed++;
+                    continue;
+                }
+                const uint64_t local = link->PrefabEntity;
+                if (!local || fresh.contains((entt::entity)e) != (pass == 1))
+                    continue;
+                if (!taken.emplace(owners[i], local).second)
+                {
+                    e.RemoveComponent<PrefabLinkComponent>();
+                    removed++;
+                }
+            }
+        // Links on entities outside the hierarchy walk (none in a consistent scene) mean nothing either.
+        if (order.size() != scene.GetRegistry().view<IDComponent>().size())
+        {
+            std::vector<Entity> stray;
+            for (auto handle : scene.GetAllEntitiesWith<PrefabLinkComponent>())
+                if (!ownerOf.contains(handle))
+                    stray.emplace_back(handle, &scene);
+            for (Entity e : stray)
+                if (!GetInstanceRoot(e))
+                {
+                    e.RemoveComponent<PrefabLinkComponent>();
+                    removed++;
                 }
         }
         return removed;
@@ -1438,6 +1510,11 @@ namespace Zamin {
             return false;
         const std::string path = PrefabDatabase::NormalizePath(MarkerOf(root));
         const uint64_t hash = db.ResolvedHash(path);
+        // Up to date (the common case after an undo): nothing to look at in full.
+        if (!force && hash)
+            if (const auto* link = root.TryGetComponent<PrefabLinkComponent>(); link && link->PrefabHash == hash && link->RemovedEntities.empty())
+                if (const PrefabDatabase::Template* t = db.Get(path); t && t->Readable && t->Linkable && IsLinkedRoot(root, t) && IsCompleteQuick(root, *t))
+                    return false;
         Instance in;
         if (!Prepare(root, db, in))
             return false;
@@ -1449,12 +1526,11 @@ namespace Zamin {
         SyncResult result;
         if (scene.IsRunning())
             return result;
+        if (scene.GetAllEntitiesWith<EditorMetadataComponent>().empty())
+            return result; // no prefab instance at all
         result.Linked = LinkLegacyInstances(scene, db);
         NormalizeLinks(scene);
-        std::vector<UUID> roots;
-        for (Entity e : scene.GetEntitiesInHierarchyOrder())
-            if (HasMarker(e))
-                roots.push_back(e.GetUUID());
+        const std::vector<UUID> roots = InstanceRoots(scene);
         std::vector<std::string> filter;
         if (prefabs)
             for (const std::string& p : *prefabs)
@@ -1716,6 +1792,152 @@ namespace Zamin {
         if (ok)
             ZM_CORE_INFO("Prefab yangilandi (ichidagi prefab o'zgardi): {}", path);
         return ok;
+    }
+
+    // ------------------------------------------------------------------ variants
+    namespace {
+        // The prefab file text of the subtree under `root`: depth-first, the links kept (its root's
+        // own too when `rootLink`: a variant). References to entities outside it are reported (they
+        // keep their UUIDs, as Scene::SavePrefab does).
+        std::string SerializePrefabSubtree(Entity root, bool rootLink, const std::string& path)
+        {
+            Scene& scene = *root.GetScene();
+            std::vector<Entity> entities;
+            CollectSubtree(root, entities);
+            std::unordered_set<uint64_t> inside;
+            for (Entity e : entities)
+                inside.insert((uint64_t)e.GetUUID());
+            for (Entity e : entities)
+                Scene::ForEachEntityRef(e, [&](uint64_t& id, std::string_view key, std::string_view field) {
+                    if (!id || inside.contains(id))
+                        return;
+                    Entity other = scene.GetEntityByUUID(UUID(id));
+                    ZM_CORE_WARN("Prefab {}: '{}' obyektidagi {}.{} tashqi havola (prefabdan tashqarida): '{}' - boshqa sahnalarda u bo'lmaydi",
+                                 std::filesystem::path(path).filename().string(), e.GetName(), key, field, other ? other.GetName() : std::string("?"));
+                });
+            SceneSerializer::EntitySetWriteOptions options;
+            options.HiddenLocked = false;
+            options.PrefabLinks = true;
+            options.RootLink = rootLink;
+            options.Kind = SceneSerializer::EntitySetKind::Prefab;
+            return SceneSerializer::SerializeEntities(scene, entities, options);
+        }
+
+        bool FileExists(PrefabDatabase& db, const std::string& path)
+        {
+            std::error_code ec;
+            return std::filesystem::exists(db.ToFileSystemPath(path), ec);
+        }
+    }
+
+    std::string PrefabUtility::CreateVariant(PrefabDatabase& db, std::string_view basePath, std::string_view variantPath,
+                                             std::vector<FileEdit>* edits, std::string* error)
+    {
+        auto fail = [&](std::string message) {
+            if (error)
+                *error = std::move(message);
+            return std::string();
+        };
+        const std::string base = PrefabDatabase::NormalizePath(basePath);
+        const PrefabDatabase::Template* t = db.Get(base);
+        if (!t || !t->Readable)
+            return fail(std::format("Prefab o'qilmadi: {}", base));
+        if (!t->Linkable)
+            return fail(std::format("Prefabdan variant yaratib bo'lmaydi (bitta ildiz va takrorlanmas ID kerak): {}", base));
+        if (t->Newer)
+            return fail(std::format("Prefab yangiroq formatda (v{}): {}", t->FileVersion, base));
+        const std::filesystem::path baseFile(base);
+        const std::string wanted = PrefabDatabase::NormalizePath(
+            (baseFile.parent_path() / (baseFile.stem().string() + " Variant.zprefab")).generic_string());
+        const std::string path = variantPath.empty() ? MakeUniquePath(db, wanted) : PrefabDatabase::NormalizePath(variantPath);
+        if (path.empty() || path == base)
+            return fail("Variant fayli nomi noto'g'ri");
+        if (FileExists(db, path))
+            return fail(std::format("Bu nomli fayl bor: {}", path));
+        // A clean instance of the base (new IDs: the variant's own), its root link written.
+        Scene scratch;
+        Entity root = InstantiateLinked(scratch, db, base);
+        if (!root || !IsLinkedRoot(root, db.Get(base)))
+            return fail(std::format("Prefab o'qilmadi: {}", base));
+        root.SetName(std::filesystem::path(path).stem().string()); // the root's name is the instance's own: no override
+        if (!db.Write(path, SerializePrefabSubtree(root, true, path), edits))
+            return fail(std::format("Prefab fayliga yozib bo'lmadi: {}", path));
+        ZM_CORE_INFO("Prefab varianti yaratildi: {} ({} asosida)", path, base);
+        return path;
+    }
+
+    bool PrefabUtility::SaveAsVariant(Entity root, PrefabDatabase& db, std::string_view variantPath, std::vector<FileEdit>* edits,
+                                      std::string* error)
+    {
+        auto fail = [&](std::string message) {
+            if (error)
+                *error = std::move(message);
+            return false;
+        };
+        if (!root || !root.IsValid())
+            return fail("Obyekt yo'q");
+        if (root.GetScene()->IsRunning())
+            return fail("O'yin paytida prefabga yozilmaydi");
+        if (!IsInstanceRoot(root))
+            return fail("Bu obyekt prefab nusxasining ildizi emas");
+        Instance in;
+        if (!Prepare(root, db, in))
+            return fail(std::format("Prefab bog'lanmagan yoki o'qilmadi: {}", GetPrefabPath(root)));
+        const std::string base = in.T->Path;
+        const std::string path = PrefabDatabase::NormalizePath(variantPath);
+        if (path.empty() || path == base)
+            return fail("Variant fayli nomi noto'g'ri");
+        if (FileExists(db, path))
+            return fail(std::format("Bu nomli fayl bor: {}", path));
+        // The instance as it is (its changes in its lists) is the variant; its UUIDs are its IDs.
+        RecordOverridesImpl(in);
+        if (!db.Write(path, SerializePrefabSubtree(root, true, path), edits))
+            return fail(std::format("Prefab fayliga yozib bo'lmadi: {}", path));
+        LinkSource(root, path, db);
+        ZM_CORE_INFO("Nusxa variant sifatida saqlandi: {} ({} asosida)", path, base);
+        return true;
+    }
+
+    std::string PrefabUtility::GetVariantBase(PrefabDatabase& db, std::string_view relPath)
+    {
+        const PrefabDatabase::Template* t = db.Get(relPath);
+        return t && t->Readable && t->IsVariant ? t->Base : std::string();
+    }
+
+    std::vector<std::string> PrefabUtility::GetVariantChain(PrefabDatabase& db, std::string_view relPath)
+    {
+        std::vector<std::string> chain;
+        std::string current = PrefabDatabase::NormalizePath(relPath);
+        while (!current.empty() && chain.size() <= (size_t)PrefabDatabase::MaxDepth &&
+               std::find(chain.begin(), chain.end(), current) == chain.end())
+        {
+            chain.push_back(current);
+            current = GetVariantBase(db, current);
+        }
+        return chain;
+    }
+
+    void PrefabUtility::RefreshPrefabUUID(Entity root)
+    {
+        if (auto* link = IsInstanceRoot(root) ? root.TryGetComponent<PrefabLinkComponent>() : nullptr)
+            if (const UUID id = LookUpPrefabUUID(GetPrefabPath(root)); (uint64_t)id)
+                link->PrefabUUID = id;
+    }
+
+    std::string PrefabUtility::MakeUniquePath(PrefabDatabase& db, std::string_view wanted)
+    {
+        const std::string path = PrefabDatabase::NormalizePath(wanted);
+        if (path.empty() || !FileExists(db, path))
+            return path;
+        const std::filesystem::path p(path);
+        for (int i = 1; i < 10000; i++)
+        {
+            const std::string candidate =
+                PrefabDatabase::NormalizePath((p.parent_path() / std::format("{} ({}){}", p.stem().string(), i, p.extension().string())).generic_string());
+            if (!FileExists(db, candidate))
+                return candidate;
+        }
+        return {};
     }
 
     // ------------------------------------------------------------------ prefab mode

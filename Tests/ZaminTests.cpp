@@ -46093,3 +46093,158 @@ TEST(LargeSceneLinkedInstances)
     CHECK(withOverrides == 15);
     CHECK(SceneSerializer(loaded).SerializeToString() == text);
 }
+
+// Prefab variants (413): a variant follows its base except where it changes something; variants of
+// variants; Apply into the base from the variant's prefab mode and from a variant instance; an
+// instance saved as a variant; a variant whose base is gone still places.
+TEST(PrefabVariants)
+{
+    namespace fs = std::filesystem;
+    TempDirectory temp("zamin-prefab-variant");
+    PrefabFixture prefab(temp.GetPath());
+    PrefabDatabase db(temp.GetPath());
+    db.SetRecheckInterval(0.0);
+    const std::string base = prefab.Rel();
+    const glm::vec4 red(1.0f, 0.0f, 0.0f, 1.0f), blue(0.0f, 0.0f, 1.0f, 1.0f), green(0.0f, 1.0f, 0.0f, 1.0f);
+
+    // ---- a new variant: nothing changed, its root an instance of the base in its own file
+    std::vector<FileEdit> edits;
+    std::string error;
+    const std::string variant = PrefabUtility::CreateVariant(db, base, {}, &edits, &error);
+    CHECK(variant == "Prefabs/Enemy Variant.zprefab" && error.empty() && edits.size() == 1 && !edits[0].Before);
+    CHECK(PrefabUtility::GetVariantBase(db, variant) == base && PrefabUtility::GetVariantBase(db, base).empty());
+    const PrefabDatabase::Template* vt = db.Get(variant);
+    CHECK(vt && vt->Readable && vt->Linkable && vt->IsVariant && vt->Base == base && vt->Order.size() == 3);
+    CHECK(PrefabUtility::CreateVariant(db, base) == "Prefabs/Enemy Variant (1).zprefab"); // made unique
+    CHECK(PrefabUtility::CreateVariant(db, base, variant, nullptr, &error).empty() && error.find("bor") != std::string::npos);
+    CHECK(PrefabUtility::CreateVariant(db, "Prefabs/Missing.zprefab", {}, nullptr, &error).empty());
+    // The game reads it as it is (flat: no base needed).
+    {
+        auto game = CreateRef<Scene>();
+        Entity e = game->InstantiatePrefab(temp.GetPath() / variant);
+        CHECK(e && e.GetName() == "Enemy Variant" && game->GetChildren(e).size() == 2 && !e.HasComponent<PrefabLinkComponent>());
+    }
+
+    auto scene = CreateRef<Scene>();
+    Entity baseInstance = PrefabUtility::InstantiateLinked(*scene, db, base);
+    Entity variantInstance = PrefabUtility::InstantiateLinked(*scene, db, variant);
+    CHECK(baseInstance && variantInstance && PrefabUtility::GetPrefabPath(variantInstance) == variant);
+    if (!baseInstance || !variantInstance)
+        return;
+    CHECK(variantInstance.GetName() == "Enemy Variant" && PrefabUtility::GetOverrides(variantInstance).empty());
+    CHECK(variantInstance.GetComponent<SpriteRendererComponent>().Color == red);
+    // Apply targets of a variant's entity: the variant, then its base.
+    Entity variantWeapon = ChildNamed(*scene, variantInstance, "Weapon");
+    CHECK(PrefabUtility::GetApplyTargets(variantWeapon, db) == (std::vector<std::string>{ variant, base }));
+
+    // ---- the variant changes a value in its prefab mode
+    {
+        auto stage = CreateRef<Scene>();
+        Entity root = PrefabUtility::LoadStage(*stage, db, variant);
+        CHECK(root && PrefabUtility::IsInstanceRoot(root) && PrefabUtility::GetPrefabPath(root) == base);
+        root.GetComponent<SpriteRendererComponent>().Color = blue;
+        CHECK(PrefabUtility::SaveStage(*stage, db, variant, nullptr, &error));
+    }
+    CHECK(FileSystem::ReadTextFile(temp.GetPath() / variant).find("SpriteRenderer/Color") != std::string::npos);
+    PrefabUtility::SyncScene(*scene, db);
+    CHECK(variantInstance.GetComponent<SpriteRendererComponent>().Color == blue);
+    CHECK(baseInstance.GetComponent<SpriteRendererComponent>().Color == red);
+    CHECK(PrefabUtility::GetOverrides(variantInstance).empty()); // the variant's value, not the instance's
+
+    // ---- a variant of the variant
+    const std::string variant2 = PrefabUtility::CreateVariant(db, variant, "Prefabs/Boss.zprefab");
+    CHECK(variant2 == "Prefabs/Boss.zprefab");
+    CHECK(PrefabUtility::GetVariantChain(db, variant2) == (std::vector<std::string>{ variant2, variant, base }));
+    CHECK(db.GetDependents(base) == (std::vector<std::string>{ "Prefabs/Enemy Variant (1).zprefab", variant, variant2 }) ||
+          db.GetDependents(base) == (std::vector<std::string>{ variant, "Prefabs/Enemy Variant (1).zprefab", variant2 }));
+    Entity bossInstance = PrefabUtility::InstantiateLinked(*scene, db, variant2);
+    CHECK(bossInstance && bossInstance.GetComponent<SpriteRendererComponent>().Color == blue && bossInstance.GetName() == "Boss");
+
+    // ---- the base changes (its prefab mode): every variant follows, except where it changed the value
+    {
+        auto stage = CreateRef<Scene>();
+        Entity root = PrefabUtility::LoadStage(*stage, db, base);
+        CHECK(root);
+        if (root)
+        {
+            root.GetComponent<SpriteRendererComponent>().Color = green;          // the variant has its own colour
+            ChildNamed(*stage, root, "Weapon").GetComponent<SpriteRendererComponent>().Color = green;
+            ChildNamed(*stage, root, "Shield").AddComponent<CircleRendererComponent>().Thickness = 0.5f;
+            edits.clear();
+            CHECK(PrefabUtility::SaveStage(*stage, db, base, &edits, &error));
+            // The base, then the variants made of it (the variant before its own variant).
+            std::vector<std::string> written;
+            for (const FileEdit& e : edits)
+                written.push_back(e.Path);
+            CHECK(written.size() == 4 && written[0] == base && written.back() == variant2);
+        }
+    }
+    PrefabUtility::SyncScene(*scene, db);
+    CHECK(baseInstance.GetComponent<SpriteRendererComponent>().Color == green);
+    CHECK(variantInstance.GetComponent<SpriteRendererComponent>().Color == blue);  // kept
+    CHECK(bossInstance.GetComponent<SpriteRendererComponent>().Color == blue);
+    CHECK(ChildNamed(*scene, variantInstance, "Weapon").GetComponent<SpriteRendererComponent>().Color == green);
+    CHECK(ChildNamed(*scene, bossInstance, "Weapon").GetComponent<SpriteRendererComponent>().Color == green);
+    CHECK(ChildNamed(*scene, bossInstance, "Shield").HasComponent<CircleRendererComponent>());
+    // On disk too (the game reads the variant files as they are).
+    {
+        auto game = CreateRef<Scene>();
+        Entity e = game->InstantiatePrefab(temp.GetPath() / variant2);
+        CHECK(e && ChildNamed(*game, e, "Shield").HasComponent<CircleRendererComponent>());
+        CHECK(e && e.GetComponent<SpriteRendererComponent>().Color == blue);
+    }
+
+    // ---- Apply into the base from the variant's prefab mode
+    {
+        auto stage = CreateRef<Scene>();
+        Entity root = PrefabUtility::LoadStage(*stage, db, variant);
+        Entity weapon = root ? ChildNamed(*stage, root, "Weapon") : Entity();
+        CHECK(weapon);
+        if (weapon)
+        {
+            weapon.GetComponent<TransformComponent>().Scale = glm::vec3(2.0f);
+            PrefabUtility::RecordOverrides(root, db);
+            PrefabApplyResult applied = PrefabUtility::Apply(weapon, PrefabScope::Field, "Transform/Scale", db);
+            CHECK(applied.Applied && applied.Target == base);
+        }
+    }
+    PrefabUtility::SyncScene(*scene, db);
+    CHECK(ChildNamed(*scene, baseInstance, "Weapon").GetComponent<TransformComponent>().Scale == glm::vec3(2.0f));
+    CHECK(ChildNamed(*scene, bossInstance, "Weapon").GetComponent<TransformComponent>().Scale == glm::vec3(2.0f));
+    // ... and from a variant instance in a scene (its value goes to the base; the variant inherits it).
+    Entity shield = ChildNamed(*scene, variantInstance, "Shield");
+    shield.GetComponent<CircleRendererComponent>().Thickness = 0.9f;
+    PrefabUtility::RecordOverrides(variantInstance, db);
+    PrefabApplyResult toBase = PrefabUtility::Apply(shield, PrefabScope::Field, "CircleRenderer/Thickness", db, base);
+    CHECK(toBase.Applied && toBase.Target == base);
+    CHECK_NEAR(ChildNamed(*scene, baseInstance, "Shield").GetComponent<CircleRendererComponent>().Thickness, 0.9f, 1e-6f);
+    CHECK(OverridesOf(shield).empty());
+
+    // ---- an instance saved as a variant: its changes go into the new file, nothing is left changed
+    Entity other = PrefabUtility::InstantiateLinked(*scene, db, base);
+    CHECK(other);
+    other.GetComponent<TransformComponent>().Scale = glm::vec3(3.0f);
+    scene->DestroyEntity(ChildNamed(*scene, other, "Shield"));
+    PrefabUtility::RecordOverrides(other, db);
+    CHECK(PrefabUtility::GetOverrides(other).size() == 2);
+    edits.clear();
+    CHECK(PrefabUtility::SaveAsVariant(other, db, "Prefabs/Big Enemy.zprefab", &edits, &error) && edits.size() == 1);
+    CHECK(PrefabUtility::GetPrefabPath(other) == "Prefabs/Big Enemy.zprefab" && PrefabUtility::GetOverrides(other).empty());
+    CHECK(PrefabUtility::GetVariantBase(db, "Prefabs/Big Enemy.zprefab") == base);
+    CHECK(!PrefabUtility::SaveAsVariant(other, db, "Prefabs/Big Enemy.zprefab", nullptr, &error)); // the file is there
+    CHECK(!PrefabUtility::SaveAsVariant(scene->CreateEntity("Plain"), db, "Prefabs/Plain.zprefab", nullptr, &error));
+    Entity big = PrefabUtility::InstantiateLinked(*scene, db, "Prefabs/Big Enemy.zprefab");
+    CHECK(big && big.GetComponent<TransformComponent>().Scale == glm::vec3(3.0f) && !ChildNamed(*scene, big, "Shield"));
+    CHECK(big && ChildNamed(*scene, big, "Weapon"));
+
+    // ---- a variant whose base is gone still places (its file has everything)
+    fs::remove(prefab.File);
+    db.Invalidate(base);
+    Entity orphan = PrefabUtility::InstantiateLinked(*scene, db, variant);
+    CHECK(orphan && scene->GetChildren(orphan).size() == 2 && orphan.GetComponent<SpriteRendererComponent>().Color == blue);
+    CHECK(PrefabUtility::GetVariantBase(db, variant) == base);
+    // Syncing keeps the variants' instances as they are (the base's own instances stay too, unlinkable now).
+    PrefabUtility::SyncScene(*scene, db);
+    CHECK(variantInstance.GetComponent<SpriteRendererComponent>().Color == blue && scene->GetChildren(variantInstance).size() == 2);
+    CHECK(bossInstance.GetComponent<SpriteRendererComponent>().Color == blue && baseInstance.IsValid() && scene->GetChildren(baseInstance).size() == 2);
+}

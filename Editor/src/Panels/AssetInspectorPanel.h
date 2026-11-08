@@ -56,6 +56,7 @@ namespace Zamin {
         std::function<void(const std::filesystem::path&)> OnOpenScene;
         // A prefab (absolute path) to edit in prefab mode.
         std::function<void(const std::filesystem::path&)> OnOpenPrefab;
+        std::function<void(const std::filesystem::path&)> OnCreatePrefabVariant; // "Variant yaratish" on a prefab
         // Scenes: the open scene's file (its metadata is edited in the scene settings) and asking for
         // the scene settings' metadata section.
         std::function<bool(const std::filesystem::path&)> IsOpenScene;
@@ -301,6 +302,7 @@ namespace Zamin {
             std::vector<std::string> Classes;
             std::string Error;
             SceneFileInfo Scene;            // scenes: name, format version, metadata
+            std::string VariantOf;          // prefabs: the base of a variant (its root's prefab)
         } m_Summary;
         SceneThumbnails* m_SceneThumbnails = nullptr;
         struct FolderSummary

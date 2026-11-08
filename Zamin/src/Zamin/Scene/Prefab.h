@@ -138,6 +138,31 @@ namespace Zamin {
         // changes something). False when it cannot be read or written.
         static bool SyncPrefabFile(PrefabDatabase& db, std::string_view relPath, std::vector<FileEdit>* edits = nullptr);
 
+        // ---- variants: a prefab made of another one (its base). Its root is an instance of the base
+        // in its own file (the root link written), so it follows the base - every entity, value and
+        // child the variant did not change - and adds its own changes on top. Variants of variants
+        // make a chain (up to PrefabDatabase::MaxDepth). Its file is flat like every prefab's (the
+        // game reads it as it is).
+        // A new variant of `base` with nothing changed yet, written to `variantPath` ("": "<Base>
+        // Variant.zprefab" next to the base, made unique); its root is named after its file. The path
+        // written, "" with `error` when it cannot be made (the base unreadable, the file there already).
+        static std::string CreateVariant(PrefabDatabase& db, std::string_view base, std::string_view variantPath = {},
+                                         std::vector<FileEdit>* edits = nullptr, std::string* error = nullptr);
+        // What the instance changed becomes a new variant of its prefab (`variantPath`, the instance's
+        // UUIDs as its IDs) and the instance becomes the variant's first instance (nothing changed
+        // left). False with `error` when it cannot be (not linked, the file there already ...).
+        static bool SaveAsVariant(Entity root, PrefabDatabase& db, std::string_view variantPath, std::vector<FileEdit>* edits = nullptr,
+                                  std::string* error = nullptr);
+        // The prefab's base when it is a variant ("" when it is not one).
+        static std::string GetVariantBase(PrefabDatabase& db, std::string_view relPath);
+        // The prefab, then its base, the base's base ... (each once; a missing base ends it).
+        static std::vector<std::string> GetVariantChain(PrefabDatabase& db, std::string_view relPath);
+        // `wanted` when no file is there, else "<stem> (1).zprefab", "<stem> (2).zprefab" ...
+        static std::string MakeUniquePath(PrefabDatabase& db, std::string_view wanted);
+        // The root's PrefabUUID looked up again (the project's registry knows a just-written file's
+        // .zmeta now).
+        static void RefreshPrefabUUID(Entity root);
+
         // ---- prefab mode (the editor opens a prefab on its own, as a scene of its own)
         // The prefab's entities into the empty `stage` with their IDs in the file as UUIDs (what it
         // saves keeps them), the prefabs nested in it as linked instances brought up to date with

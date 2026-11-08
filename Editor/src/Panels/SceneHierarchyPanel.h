@@ -18,12 +18,12 @@ namespace Zamin {
     // has drawn: the scene may change under it). The entity is held by UUID.
     struct PrefabRequest
     {
-        enum class Op : uint8_t { Apply, Revert, RestoreRemoved, Unpack, UnpackCompletely, ShowInBrowser };
+        enum class Op : uint8_t { Apply, Revert, RestoreRemoved, Unpack, UnpackCompletely, ShowInBrowser, SaveAsVariant, CreateVariant };
         Op Operation = Op::Apply;
         UUID Entity = 0;
         PrefabScope Scope = PrefabScope::Instance;
         std::string Path;     // the component key / the override path (Component / Field)
-        std::string Target;   // the prefab to apply to ("": the instance's own)
+        std::string Target;   // the prefab to apply to ("": the instance's own); SaveAsVariant: the new file ("": a free name)
     };
 
     // Hierarchy (entity list) + Inspector (component editor).
@@ -396,6 +396,8 @@ namespace Zamin {
         // The row's prefab marks (a changed / added entity) at its right end; the label colour.
         void DrawPrefabRowMarks(Entity entity, const ImVec2& rowMin, const ImVec2& rowMax);
         bool GetPrefabRowColor(Entity entity, ImVec4& color);
+        // The row's icon: a variant's instance root shows the variant icon.
+        const char* GetRowIcon(Entity entity);
         // The bar under the inspector's name: the prefab, its changes, Apply / Revert.
         void DrawPrefabBar(Entity entity);
         // The prefab components the instance removed, as ghost headers (Revert / apply the removal).

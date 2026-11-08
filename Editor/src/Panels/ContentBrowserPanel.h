@@ -86,6 +86,8 @@ namespace Zamin {
         std::function<void(const std::filesystem::path&)> OnOpenAnimation;
         // A .zprefab was double-clicked: it opens in prefab mode.
         std::function<void(const std::filesystem::path&)> OnOpenPrefab;
+        // "Variant yaratish" on a prefab: a new prefab made of it.
+        std::function<void(const std::filesystem::path&)> OnCreatePrefabVariant;
         // A C++ source / header (double click, "Tashqi muharrirda ochish"): opened in the external editor.
         std::function<void(const std::filesystem::path&)> OnOpenSourceFile;
         // An item was clicked: the file or folder the selection is about now (empty when the

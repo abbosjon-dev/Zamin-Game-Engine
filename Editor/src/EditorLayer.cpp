@@ -135,6 +135,8 @@ namespace Zamin {
         // Prefab mode: a prefab opened on its own (the hierarchy / inspector, the content browser, the asset inspector).
         m_SceneHierarchyPanel.OnOpenPrefabRequested = [this](const std::string& prefab, uint64_t focus) { RequestPrefabStage(prefab, focus); };
         m_ContentBrowserPanel.OnOpenPrefab = [this](const fs::path& p) { RequestPrefabStage(Project::GetAssetRelativePath(p)); };
+        m_ContentBrowserPanel.OnCreatePrefabVariant = [this](const fs::path& p) { m_PrefabVariantRequests.push_back(Project::GetAssetRelativePath(p)); };
+        m_AssetInspectorPanel.OnCreatePrefabVariant = [this](const fs::path& p) { m_PrefabVariantRequests.push_back(Project::GetAssetRelativePath(p)); };
         m_AssetInspectorPanel.OnOpenPrefab = [this](const fs::path& p) { RequestPrefabStage(Project::GetAssetRelativePath(p)); };
         m_SceneHierarchyPanel.OnProjectSettingsModified = [this]() { m_ProjectSettingsPanel.MarkDirty(); };
         m_SceneHierarchyPanel.SetFoldState(&m_ViewSettings.Inspector); // open / collapsed inspector headers, per user
@@ -5387,6 +5389,14 @@ namespace Zamin {
                 request.Operation = PrefabRequest::Op::Apply;
                 request.Entity = entity.GetUUID();
                 RunPrefabRequest(request);
+                return;
+            }
+            // An instance of another prefab: a prefab of its own, or a variant of that one? (asked)
+            const PrefabDatabase::Template* instanceOf =
+                PrefabUtility::IsInstanceRoot(entity) && !PrefabUtility::IsLegacyInstance(entity) ? m_PrefabDatabase.Get(PrefabUtility::GetPrefabPath(entity)) : nullptr;
+            if (instanceOf && instanceOf->Readable && instanceOf->Linkable)
+            {
+                m_PrefabSaveKind = { entity.GetUUID(), path, PrefabUtility::GetPrefabPath(entity), true };
                 return;
             }
             // Another prefab of that name: asked first (it is not replaced silently).

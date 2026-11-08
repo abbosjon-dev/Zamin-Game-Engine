@@ -819,6 +819,10 @@ namespace Zamin {
             OnOpenScene(path);
         if (entry.Type == AssetType::Prefab && ImGui::MenuItem(Tr(ICON_FA_PEN_TO_SQUARE "  Prefab rejimida ochish")) && OnOpenPrefab)
             OnOpenPrefab(path);
+        if (entry.Type == AssetType::Prefab && ImGui::MenuItem(Tr(ICON_FA_CLONE "  Variant yaratish")) && OnCreatePrefabVariant)
+            OnCreatePrefabVariant(path);
+        if (entry.Type == AssetType::Prefab && ImGui::IsItemHovered())
+            UI::Tooltip(Tr("Shu prefabdan meros oluvchi yangi prefab (prefab rejimida ochiladi)"));
         // The project's settings that point to files: the build list, the start scene, the game's icon.
         if (Ref<Project> project = Project::GetActive(); project && !entry.IsDirectory)
         {

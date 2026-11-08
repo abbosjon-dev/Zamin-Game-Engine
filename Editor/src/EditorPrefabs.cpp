@@ -105,6 +105,13 @@ namespace Zamin {
 
     void EditorLayer::ProcessPrefabRequests()
     {
+        if (!m_PrefabVariantRequests.empty())
+        {
+            std::vector<std::string> variants = std::move(m_PrefabVariantRequests);
+            m_PrefabVariantRequests.clear();
+            for (const std::string& base : variants)
+                CreatePrefabVariant(base);
+        }
         if (m_PrefabRequests.empty())
             return;
         std::vector<PrefabRequest> requests = std::move(m_PrefabRequests);
@@ -209,9 +216,84 @@ namespace Zamin {
                 ZM_INFO("Prefab bog'lanishi uzildi: {} ({}){}", rootName, prefab, completely ? " - ichidagi nusxalar bilan" : "");
                 break;
             }
+            case PrefabRequest::Op::SaveAsVariant:
+                SaveInstanceAsVariant(root, request.Target);
+                break;
+            case PrefabRequest::Op::CreateVariant:
+                CreatePrefabVariant(prefab);
+                break;
             case PrefabRequest::Op::ShowInBrowser:
                 break;
         }
+    }
+
+    void EditorLayer::CreatePrefabVariant(const std::string& basePrefab)
+    {
+        if (!Project::GetActive())
+            return;
+        if (m_SceneState != SceneState::Edit)
+        {
+            ShowViewportMessage(Tr(ICON_FA_CLONE "  O'yin rejimida variant yaratilmaydi"));
+            return;
+        }
+        std::string base = PrefabDatabase::NormalizePath(basePrefab);
+        if (fs::path(base).is_absolute())
+            base = PrefabDatabase::NormalizePath(Project::GetAssetRelativePath(base));
+        CommitUndo();
+        std::vector<FileEdit> files;
+        std::string error;
+        const std::string variant = PrefabUtility::CreateVariant(m_PrefabDatabase, base, {}, &files, &error);
+        if (variant.empty())
+        {
+            ZM_WARN("Variant yaratilmadi ({}): {}", base, error);
+            ShowViewportMessage(std::format(ICON_FA_TRIANGLE_EXCLAMATION "  {}: {}", Tr("Variant yaratilmadi"), error));
+            return;
+        }
+        // A .zmeta at once (instances keep the variant's UUID); undoing the step removes the file.
+        if (AssetRegistry* registry = Project::GetAssetRegistry())
+            registry->OnFileAdded(Project::GetAssetFileSystemPath(variant));
+        m_ContentBrowserPanel.Refresh();
+        CommitPrefabStep(std::format("Variant yaratildi: {}", FileName(variant)), std::move(files));
+        ZM_INFO("Prefab varianti yaratildi: {} ({} asosida)", variant, base);
+        ShowViewportMessage(std::format(ICON_FA_CLONE "  {}: {} ({})", Tr("Variant yaratildi"), FileName(variant), FileName(base)));
+        RequestPrefabStage(variant);
+    }
+
+    void EditorLayer::SaveInstanceAsVariant(Entity root, std::string path)
+    {
+        if (!root || !PrefabUtility::IsInstanceRoot(root) || !Project::GetActive())
+            return;
+        if (m_SceneState != SceneState::Edit)
+        {
+            ShowViewportMessage(Tr(ICON_FA_CLONE "  O'yin rejimida variant yaratilmaydi"));
+            return;
+        }
+        const std::string base = PrefabUtility::GetPrefabPath(root);
+        if (path.empty())
+        {
+            const fs::path b(base);
+            path = PrefabUtility::MakeUniquePath(m_PrefabDatabase, (b.parent_path() / (b.stem().string() + " Variant.zprefab")).generic_string());
+        }
+        CommitUndo();
+        const UUID id = root.GetUUID();
+        std::vector<FileEdit> files;
+        std::string error;
+        if (!PrefabUtility::SaveAsVariant(root, m_PrefabDatabase, path, &files, &error))
+        {
+            ZM_WARN("Variant saqlanmadi ({}): {}", root.GetName(), error);
+            ShowViewportMessage(std::format(ICON_FA_TRIANGLE_EXCLAMATION "  {}: {}", Tr("Variant saqlanmadi"), error));
+            return;
+        }
+        if (AssetRegistry* registry = Project::GetAssetRegistry())
+            registry->OnFileAdded(Project::GetAssetFileSystemPath(path));
+        if (Entity e = m_EditorScene->GetEntityByUUID(id))
+            PrefabUtility::RefreshPrefabUUID(e);
+        m_ContentBrowserPanel.Refresh();
+        const std::string name = root.GetName();
+        CommitPrefabStep(std::format("Variant sifatida saqlandi: {} \xe2\x86\x92 {}", name, FileName(path)), std::move(files));
+        ZM_INFO("'{}' variant sifatida saqlandi: {} ({} asosida)", name, path, base);
+        ShowViewportMessage(std::format(ICON_FA_CLONE "  {}: {} ({})", Tr("Variant saqlandi"), FileName(path), FileName(base)));
+        m_SceneHierarchyPanel.SetSelectedEntity(m_EditorScene->GetEntityByUUID(id));
     }
 
     void EditorLayer::WritePrefab(Entity entity, const fs::path& path)
@@ -298,6 +380,49 @@ namespace Zamin {
             ImGui::EndPopup();
         }
 
+        // ---- Save an instance as a prefab: a prefab of its own, or a variant of its prefab
+        if (m_PrefabSaveKind.Open)
+        {
+            ImGui::OpenPopup(Tr("Prefab sifatida saqlash###PrefabSaveKind"));
+            m_PrefabSaveKind.Open = false;
+        }
+        if (ImGui::BeginPopupModal(Tr("Prefab sifatida saqlash###PrefabSaveKind"), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            Entity entity = m_EditorScene ? m_EditorScene->GetEntityByUUID(m_PrefabSaveKind.Entity) : Entity();
+            const std::string file = m_PrefabSaveKind.Path.filename().string();
+            ImGui::TextUnformatted(std::format("'{}'", entity ? entity.GetName() : std::string("?")).c_str());
+            ImGui::TextDisabled("%s %s", Tr("Prefab nusxasi:"), FileName(m_PrefabSaveKind.Base).c_str());
+            ImGui::Spacing();
+            const std::string variantPath = entity ? PrefabUtility::MakeUniquePath(m_PrefabDatabase, Project::GetAssetRelativePath(m_PrefabSaveKind.Path))
+                                                   : std::string();
+            const std::string variantLabel = std::format(ICON_FA_CLONE "  {}: {}", Tr("Variant"), FileName(variantPath));
+            if (ImGui::Button(variantLabel.c_str()) && entity)
+            {
+                SaveInstanceAsVariant(entity, variantPath);
+                ImGui::CloseCurrentPopup();
+            }
+            if (ImGui::IsItemHovered())
+                UI::Tooltip(std::format("{} {}", Tr("Yangi prefab asosiy prefabdan meros oladi: uning o'zgarishlari variantga ham o'tadi. Asosi:"),
+                                        FileName(m_PrefabSaveKind.Base)).c_str());
+            ImGui::SameLine();
+            const std::string ownLabel = std::format(ICON_FA_BOX "  {}: {}", Tr("Asl prefab"), file);
+            if (ImGui::Button(ownLabel.c_str()) && entity)
+            {
+                std::error_code ec;
+                if (fs::exists(m_PrefabSaveKind.Path, ec))
+                    m_PrefabOverwrite = { entity.GetUUID(), m_PrefabSaveKind.Path, true };
+                else
+                    WritePrefab(entity, m_PrefabSaveKind.Path);
+                ImGui::CloseCurrentPopup();
+            }
+            if (ImGui::IsItemHovered())
+                UI::Tooltip(Tr("Mustaqil prefab: asosiy prefab bilan bog'lanmaydi"));
+            ImGui::SameLine();
+            if (ImGui::Button(Tr("Bekor qilish")) || !entity)
+                ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+        }
+
         // ---- Revert the whole instance: the added entities go
         if (m_PrefabRevertConfirm.Open && !ImGui::IsPopupOpen(Tr("Prefab nusxasini asliga qaytarish###PrefabRevert")))
             ImGui::OpenPopup(Tr("Prefab nusxasini asliga qaytarish###PrefabRevert"));
@@ -332,7 +457,7 @@ namespace Zamin {
     // ZAMIN_EDITOR_PREFAB="color=<name>,r,g,b;scale=<name>,s;remove=<name>,<Component>;child=<parent>,<name>;
     // create=<name>;save=<name>;select=<name>;top=<name>;move=<name>,x,y,z;instantiate=<prefab>[,<parent>[,<name>]];
     // apply=<name>[,<path>[,<target>]];revert=<name>[,<path>];unpack=<name>;undo;redo;changes;open=<prefab>[,<name>];
-    // stagesave;stageclose[=<levels kept>]": prefab instance edits made one by one as undo steps (screenshots,
+    // stagesave;stageclose[=<levels kept>];variant=<prefab>;savevariant=<name>[,<prefab>]": prefab instance edits made one by one as undo steps (screenshots,
     // checks). "changes" opens the inspector's list; "open" opens a prefab in prefab mode (the entity of an
     // instance named second is selected there), "stagesave" / "stageclose" save / leave it.
     void EditorLayer::ApplyPrefabAutomation(std::string_view spec)
@@ -399,6 +524,12 @@ namespace Zamin {
                 CommitUndo();
                 continue;
             }
+            if (op == "variant" && !args.empty())
+            {
+                // variant=<prefab path>: a new variant of it (opened in prefab mode)
+                CreatePrefabVariant(args[0]);
+                continue;
+            }
             if (op == "create" && !args.empty())
             {
                 m_EditorScene->CreateEntity(args[0]);
@@ -443,6 +574,8 @@ namespace Zamin {
             }
             else if (op == "save")
                 SavePrefab(e);
+            else if (op == "savevariant")
+                SaveInstanceAsVariant(e, args.size() >= 2 ? args[1] : std::string()); // savevariant=<name>[,<prefab path>]
             else if (op == "top")
                 m_EditorScene->SetSiblingIndex(e, 0);
             else if (op == "select")

@@ -93,6 +93,14 @@ namespace Zamin {
         return false;
     }
 
+    const char* SceneHierarchyPanel::GetRowIcon(Entity entity)
+    {
+        const char* icon = GetEntityIcon(entity);
+        if (m_Prefabs && PrefabUtility::IsInstanceRoot(entity) && !PrefabUtility::GetVariantBase(*m_Prefabs, PrefabUtility::GetPrefabPath(entity)).empty())
+            return ICON_FA_CLONE;
+        return icon;
+    }
+
     void SceneHierarchyPanel::DrawPrefabRowMarks(Entity entity, const ImVec2& rowMin, const ImVec2& rowMax)
     {
         Entity root = PrefabUtility::GetInstanceRoot(entity);
@@ -193,6 +201,16 @@ namespace Zamin {
         if (ImGui::MenuItem(Tr(ICON_FA_ROTATE_RIGHT "  O'chirilganlarni tiklash"), nullptr, false, editable && removed))
             RequestPrefab(PrefabRequest::Op::RestoreRemoved, root);
         ImGui::Separator();
+        // Variants: the instance's changes as a new prefab made of this one; a new empty variant.
+        if (ImGui::MenuItem(Tr(ICON_FA_CLONE "  Variant sifatida saqlash"), nullptr, false, editable))
+            RequestPrefab(PrefabRequest::Op::SaveAsVariant, root);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            UI::Tooltip(std::format("{} {}", Tr("Nusxaning o'zgarishlari yangi variant prefabga yoziladi (asosi:"), FileName(path) + ")").c_str());
+        if (ImGui::MenuItem(Tr(ICON_FA_CLONE "  Variant yaratish"), nullptr, false, m_SceneEditable && PrefabProblem(m_Prefabs, root).empty() && !legacy))
+            RequestPrefab(PrefabRequest::Op::CreateVariant, root);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            UI::Tooltip(Tr("Shu prefabdan meros oluvchi yangi prefab (prefab rejimida ochiladi)"));
+        ImGui::Separator();
         if (ImGui::MenuItem(Tr(ICON_FA_LINK_SLASH "  Bog'lanishni uzish"), nullptr, false, m_SceneEditable))
             RequestPrefab(PrefabRequest::Op::Unpack, root);
         if (ImGui::IsItemHovered())
@@ -230,6 +248,22 @@ namespace Zamin {
         ImGui::PopStyleColor();
         if (ImGui::IsItemHovered())
             UI::Tooltip(problem.empty() ? path.c_str() : std::format("{}\n{}", path, problem).c_str());
+        // A variant: what it is made of (the whole chain in the tooltip).
+        if (m_Prefabs)
+            if (const std::vector<std::string> chain = PrefabUtility::GetVariantChain(*m_Prefabs, path); chain.size() > 1)
+            {
+                ImGui::SameLine();
+                ImGui::TextColored(ImVec4(s_PrefabBlue.x, s_PrefabBlue.y, s_PrefabBlue.z, 0.75f), ICON_FA_CLONE " (%s: %s)", Tr("variant"),
+                                   std::filesystem::path(chain[1]).stem().string().c_str());
+                if (ImGui::IsItemHovered())
+                {
+                    std::string tip = Tr("Variant zanjiri:");
+                    for (size_t i = 0; i < chain.size(); i++)
+                        tip += std::format("\n{}{}", std::string(i * 2, ' '), chain[i]);
+                    tip += std::format("\n{}", Tr("Asosdagi o'zgarishlar variantga ham o'tadi (variant o'zgartirgan qiymatlardan tashqari)"));
+                    UI::Tooltip(tip.c_str());
+                }
+            }
         if (entity != root)
         {
             ImGui::SameLine();

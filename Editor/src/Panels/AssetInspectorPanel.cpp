@@ -618,6 +618,14 @@ namespace Zamin {
                 OnOpenPrefab(m_Path);
             if (ImGui::IsItemHovered())
                 UI::Tooltip(Tr("Prefabni alohida ochib tahrirlash (saqlanganda barcha nusxalari yangilanadi)"));
+            if (OnCreatePrefabVariant)
+            {
+                ImGui::SameLine();
+                if (ImGui::SmallButton(Tr(ICON_FA_CLONE "  Variant yaratish")))
+                    OnCreatePrefabVariant(m_Path);
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip(Tr("Shu prefabdan meros oluvchi yangi prefab (prefab rejimida ochiladi)"));
+            }
         }
         ImGui::EndGroup();
         ImGui::Separator();
@@ -2283,7 +2291,14 @@ namespace Zamin {
                             continue;
                         m_Summary.Entities++;
                         if (!e.contains("Parent"))
+                        {
                             m_Summary.Roots.push_back(e.value("Tag", std::string("Entity")));
+                            // A variant: its root is an instance of its base.
+                            if (auto editor = e.find("Editor"); m_Type == AssetType::Prefab && m_Summary.Roots.size() == 1 && editor != e.end() &&
+                                                                editor->is_object())
+                                if (auto prefab = editor->find("Prefab"); prefab != editor->end() && prefab->is_string())
+                                    m_Summary.VariantOf = prefab->get<std::string>();
+                        }
                         for (auto c = e.begin(); c != e.end(); ++c)
                             if (c.value().is_object())
                                 components[c.key()]++;
@@ -2306,6 +2321,14 @@ namespace Zamin {
             UI::PropertyHeader("Ma'lumot");
             UI::PropertyLabel("Obyektlar");
             ImGui::Text("%zu", m_Summary.Entities);
+            if (!m_Summary.VariantOf.empty())
+            {
+                UI::PropertyLabel("Variant");
+                ImGui::TextColored(ImVec4(0.365f, 0.663f, 1.0f, 1.0f), ICON_FA_CLONE "  %s", std::filesystem::path(m_Summary.VariantOf).filename().string().c_str());
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip(std::format("{}\n{}", m_Summary.VariantOf,
+                                            Tr("Asosdagi o'zgarishlar variantga ham o'tadi (variant o'zgartirgan qiymatlardan tashqari)")).c_str());
+            }
             UI::PropertyLabel(m_Type == AssetType::Prefab ? "Ildiz" : "Ildiz obyektlar");
             std::string roots;
             for (size_t i = 0; i < m_Summary.Roots.size() && i < 12; i++)

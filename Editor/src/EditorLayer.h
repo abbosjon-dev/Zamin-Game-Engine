@@ -148,6 +148,10 @@ namespace Zamin {
         // prefabs is recorded. True when a list changed.
         bool RecordPrefabOverrides(const std::string* before, const std::string& after);
         void WritePrefab(Entity entity, const std::filesystem::path& path);
+        // A new variant of the prefab (written, an undo step that carries the file, opened in prefab mode).
+        void CreatePrefabVariant(const std::string& basePrefab);
+        // The instance root saved as a new variant of its prefab (`path`: "" - "<prefab> Variant.zprefab", made unique).
+        void SaveInstanceAsVariant(Entity root, std::string path = {});
         void UI_PrefabPopups();
         // ZAMIN_EDITOR_PREFAB: prefab instance edits made as steps (screenshots, checks).
         void ApplyPrefabAutomation(std::string_view spec);
@@ -1032,6 +1036,14 @@ namespace Zamin {
             std::vector<std::string> Added;               // the added entities a full revert deletes
             bool Open = false;
         } m_PrefabRevertConfirm;
+        struct PrefabSaveKindPrompt
+        {
+            UUID Entity = 0;
+            std::filesystem::path Path;                   // the file "Asl prefab" writes
+            std::string Base;                             // the prefab the entity is an instance of
+            bool Open = false;
+        } m_PrefabSaveKind;                               // save an instance: a prefab of its own, or a variant?
+        std::vector<std::string> m_PrefabVariantRequests; // "Variant yaratish" asked while the panels draw
         // prefab mode
         struct PrefabStageLevel
         {

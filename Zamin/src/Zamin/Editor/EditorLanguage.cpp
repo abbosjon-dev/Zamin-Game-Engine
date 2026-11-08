@@ -1507,6 +1507,26 @@ namespace Zamin {
             { "(prefabdan tashqarida)", "(outside the prefab)" },
             { "Qo'llashda yozilmaydi (prefabdan tashqarida): havola shu sahnada qoladi, prefabga va uning boshqa nusxalariga o'tmaydi",
               "Not written by Apply (outside the prefab): the reference stays in this scene, it does not go to the prefab or its other instances" },
+            // ---- prefab variants, thumbnails, placing (M21)
+            { "Variant sifatida saqlash", "Save as variant" },
+            { "Nusxaning o'zgarishlari yangi variant prefabga yoziladi (asosi", "The instance's overrides go into a new variant prefab (base" },
+            { "Variant yaratish", "Create variant" },
+            { "Shu prefabdan meros oluvchi yangi prefab (prefab rejimida ochiladi)", "A new prefab that inherits from this one (opens in prefab mode)" },
+            { "variant", "variant" },
+            { "Variant", "Variant" },
+            { "Variant zanjiri", "Variant chain" },
+            { "Asosdagi o'zgarishlar variantga ham o'tadi (variant o'zgartirgan qiymatlardan tashqari)",
+              "Changes to the base reach the variant too (except the values the variant changed)" },
+            { "O'yin rejimida variant yaratilmaydi", "Variants are not made in play mode" },
+            { "Variant yaratilmadi", "Variant not created" },
+            { "Variant yaratildi", "Variant created" },
+            { "Variant saqlanmadi", "Variant not saved" },
+            { "Variant saqlandi", "Variant saved" },
+            { "Prefab nusxasi", "Prefab instance" },
+            { "Yangi prefab asosiy prefabdan meros oladi: uning o'zgarishlari variantga ham o'tadi. Asosi",
+              "The new prefab inherits from the base prefab: its changes reach the variant too. Base" },
+            { "Asl prefab", "Original prefab" },
+            { "Mustaqil prefab: asosiy prefab bilan bog'lanmaydi", "A prefab of its own: not linked to the base prefab" },
         };
 
         struct Table

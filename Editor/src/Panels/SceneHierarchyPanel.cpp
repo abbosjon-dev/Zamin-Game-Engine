@@ -889,7 +889,7 @@ namespace Zamin {
                 color.w *= 0.42f;
             ImGui::PushStyleColor(ImGuiCol_Text, color);
         }
-        std::string label = std::string(EntityIcon(entity)) + "  " + tag;
+        std::string label = std::string(GetRowIcon(entity)) + "  " + tag;
         bool open = ImGui::TreeNodeEx("##node", flags, "%s", label.c_str());
         if (dimmed)
             ImGui::PopStyleColor();

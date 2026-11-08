@@ -150,7 +150,7 @@ har qanday sanitizer xabarida yiqiladi. Uchinchi tomon kodining shovqini izohlar
 
 ```bash
 Tests/sanitize.sh address --smoke --editor-smoke   # ASan + LSan: testlar, 3 o'yin, editor, editor smoke testi
-Tests/sanitize.sh undefined --compiler clang       # UBSan (bizning koddagi har xabar fatal), Clang bilan
+Tests/sanitize.sh undefined --compiler clang       # UBSan (bizning koddagi har xabar fatal: -fno-sanitize-recover=all), Clang
 Tests/sanitize.sh leak                             # alohida LeakSanitizer
 Tests/sanitize.sh address --filter Prefab --clean  # faqat ba'zi testlar; build papkasi oxirida o'chiriladi
 ```
@@ -199,8 +199,11 @@ qo'riqlaydi: butun kod bazada o'zgaradigan qatorlar 3.5 % dan oshmasligi kerak (
 
 ## 10. Kompilyatsiya tekshiruvlari
 
-- **Ogohlantirishlar:** bizning target'lar `-Wall -Wextra -Wpedantic` bilan (`zamin_target_settings`); build GCC va
-  Clang bilan ogohlantirishsiz bo'lishi shart.
+- **Ogohlantirishlar:** bizning target'lar (engine, editor, player, testlar va benchmarklar, namuna o'yin modullari)
+  `-Wall -Wextra -Wpedantic` bilan (`zamin_target_settings`, `cmake/ZaminGame.cmake`), vendor sarlavhalari `-isystem`
+  orqali ulanadi; build GCC va Clang bilan ogohlantirishsiz bo'lishi shart. `-ffp-contract=off`: GCC va Clang build'lari
+  bir xil float natija beradi (FMA qisqartirish yo'q — Jolt barcha bog'langan target'larga `-mfma` beradi; Clang avval
+  qisqartirardi).
 - **Skript shablonlari:** `ZaminScriptTemplateGen` editorning "Yangi skript" shablonlarini yaratadi va ular engine bilan
   birga kompilyatsiya qilinadi (`ZaminScriptTemplateCheck`) - shablon buzilsa build yiqiladi.
 - **Shipping DebugDraw:** `Tests/DebugDrawShippingCheck.cpp` DebugDraw API'sini `ZM_DEBUG_DRAW 0` bilan kompilyatsiya
@@ -214,7 +217,12 @@ qo'riqlaydi: butun kod bazada o'zgaradigan qatorlar 3.5 % dan oshmasligi kerak (
   [BuildAndExport.md](BuildAndExport.md) da bor, [FAQ.md](FAQ.md) da keltirilgan har bir log / UI xabari (`` > `...` ``
   ko'rinishidagi qator; `<...>` - formatlanadigan qiymat) manba kodda aynan shunday yozilgan, har bir `ZAMIN_*` CMake
   varianti [BuildAndExport.md](BuildAndExport.md) da hujjatlangan va `Doxyfile` dagi `PROJECT_NUMBER` dvigatel
-  versiyasiga teng.
+  versiyasiga teng. Shuningdek: shu hujjat oxiridagi unit testlar katalogi yangi (`Tests/test_catalog.py`),
+  [CHANGELOG.md](../CHANGELOG.md) git tarixiga mos — tarixdagi va vazifasi bajarilgan har bir milestone'ning bo'limi
+  bor, bo'lim ostidagi qator (sana, vazifalar, commit'lar soni va oralig'i) `Tests/changelog.py` chiqargani bilan bir
+  xil, tilga olingan har bir commit mavjud —, [hujjatlar indeksi](README.md) `docs/` dagi har bir hujjatga va
+  `CONTRIBUTING.md`, `CHANGELOG.md` ga havola beradi, `docs/images/` dagi har bir rasm biror hujjatda ishlatilgan,
+  400 KB dan va 1280 px kenglikdan oshmaydi.
 - **Hujjatlardagi kod** (`Tests/docs_snippets.py`, ctest: `DocsSnippets`): `README.md` va `docs/*.md` dagi butun skript
   klasslari (`class X : public ScriptableEntity` ... `};` bo'lgan ```` ```cpp ```` bloklari) namuna o'yinlar skriptlari
   bilan bir xil kompilyator va bayroqlar bilan (`build/compile_commands.json`) `-fsyntax-only` kompilyatsiya qilinadi;

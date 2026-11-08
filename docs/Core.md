@@ -226,6 +226,11 @@ Particle turbulentligi, kamera silkinishi va 2D chiroq miltillashi ham shu modul
   `SplineLengthTable`. `SplineComponent` va `SplineFollowerComponent` bilan sahnada. Batafsil:
   [Animation.md, 19-bo'lim](Animation.md#19-spline-yollar-va-spline-follower).
 
+![Spline editorda](images/core-splines-editor.jpg)
+
+*Showcase3D `Scenes/Splines.zscene`: `Poyga yo'li` obyekti tanlangan — Catmull-Rom halqa (viewport'dagi ingichka chiziq),
+uning bo'ylab vagonlar (`SplineFollowerComponent`); inspektorda Spline bo'limi: turi, uzunligi va 9 ta nuqta.*
+
 ## 7. Ranglar (Color)
 
 `Zamin/Math/Color.h`, `Zamin::Color`. Ranglar `glm::vec4` (0..1, sRGB, alfa bilan).
@@ -250,6 +255,10 @@ glm::vec4 hp = Color::LerpHSV(Color::FromHex("#e53935").value(), Color::FromHex(
 `Random::Rotation()`, `Random::Gaussian()`, `Random::Pick(items)` - global generator. Takrorlanadigan ketma-ketlik
 uchun o'z generatoringiz: `RandomGenerator rng(seed); rng.Range(0.0f, 1.0f); rng.InsideBox(min, max);
 rng.WeightedIndex(weights); rng.Shuffle(list);`.
+
+Boshqa global funksiyalar: `Random::Int(1, 6)` (ikkala chegara ham kiradi), `Random::InsideCircle(r)`,
+`Random::InsideSphere(r)`, `Random::OnSphere(r)`, `Random::Shuffle(v)`, `Random::SetSeed(42)`. Generator - PCG32: bir xil
+`seed` har qanday kompyuterda bir xil ketma-ketlik beradi (darajalarni qayta yaratish, replay uchun qulay).
 
 ## 9. Vazifalar tizimi (JobSystem)
 

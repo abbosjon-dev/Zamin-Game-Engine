@@ -34,7 +34,7 @@ Har bir tizimning batafsil "muammolar" bo'limi ham bor: [Scripting.md, 23](Scrip
 
 C++20 da yozilgan 2D va 3D o'yin dvigateli: editor (`ZaminEditor`), o'yinni editorsiz ishga tushiruvchi player
 (`ZaminPlayer`) va C++ skriptli o'yinlar. Hozir **Linux** (x86_64, OpenGL 4.1+). Windows, macOS va mobil
-platformalar yo'l xaritasida (README), hali yo'q.
+platformalar [yo'l xaritasida](Features.md#yol-xaritasi), hali yo'q.
 
 ### O'yin mantig'i qanday tilda yoziladi?
 
@@ -55,7 +55,7 @@ O'yinning o'z tillari alohida - Project settings > Localization ([ProjectSetting
 
 ### Litsenziya qanday? O'yinimni sotsam bo'ladimi?
 
-Dvigatel - MIT ([LICENSE](../LICENSE)). Uchinchi tomon kutubxonalari va shriftlarning litsenziyalari README'ning
+Dvigatel - MIT ([LICENSE](../LICENSE)). Uchinchi tomon kutubxonalari va shriftlarning litsenziyalari [README](../README.md#-uchinchi-tomon-kutubxonalari)'ning
 oxirida (MIT, zlib, Public Domain, SIL OFL); o'yiningiz bilan birga tarqatiladigan shriftlar litsenziyalari
 `Resources/fonts/` da.
 

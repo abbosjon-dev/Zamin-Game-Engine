@@ -556,6 +556,11 @@ Avtomatlashtirish (skrinshotlar, CI) uchun muhit o'zgaruvchilari: `ZAMIN_EDITOR_
 `ZAMIN_EDITOR_LOAD_REPORT`, `ZAMIN_EDITOR_FOCUS`, `ZAMIN_EDITOR_STATS=load` (Statistika oynasi, yuklash vaqti
 bo'limi ochiq).
 
+![Sahnalar oynasi](images/scenes-panel-editor.jpg)
+
+*Platformer2D'ning **Sahnalar** oynasi (pastki panel): sahna kartalari rasmi va build indeksi (`#0` Menu, `#1` Loading,
+`#2` Level1 ...) bilan, qidiruv va "Faqat build" filtri.*
+
 ---
 
 ## 17. Namuna: Platformer2D sahnalar oqimi

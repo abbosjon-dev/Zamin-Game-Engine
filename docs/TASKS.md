@@ -525,11 +525,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 453. Doxygen konfiguratsiyasi
 - [x] 454. API izohlarini header'larda to'ldirish
 - [x] 455. FAQ va muammolarni hal qilish
-- [ ] 456. Hissa qo'shish qo'llanmasi (CONTRIBUTING)
-- [ ] 457. CHANGELOG
-- [ ] 458. Rasmli qo'llanmalar (skrinshotlar)
-- [ ] 459. README yangilash
-- [ ] 460. Hujjatlar indeksi
+- [x] 456. Hissa qo'shish qo'llanmasi (CONTRIBUTING)
+- [x] 457. CHANGELOG
+- [x] 458. Rasmli qo'llanmalar (skrinshotlar)
+- [x] 459. README yangilash
+- [x] 460. Hujjatlar indeksi
 
 ## M24 Namuna o'yinlar
 

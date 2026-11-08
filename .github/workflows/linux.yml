@@ -13,7 +13,10 @@ jobs:
       matrix:
         compiler: [ { cc: gcc, cxx: g++ }, { cc: clang, cxx: clang++ } ]
     steps:
+      # The whole history: DocsCheck compares CHANGELOG.md with it (Tests/changelog.py).
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install dependencies
         run: |

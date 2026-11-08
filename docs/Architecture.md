@@ -159,6 +159,11 @@ Sikl tugagach (oyna yopildi, `Close()`, `ZAMIN_MAX_FRAMES`) har layer'ning `OnRu
 `SaveData::Save()`, `JobSystem::Shutdown()`, `AudioEngine::Shutdown()`, `Renderer::Shutdown()`, so'ng layer stack
 layer'larni `OnDetach` qilib o'chiradi.
 
+![Profiler o'yin rejimida](images/profiler-play-editor.jpg)
+
+*Editorda Play, **Oyna > Profiler**: kadr bo'limlari daraxti — `Kadr` → `Layer'lar (update)` → `Sahna` → `Skriptlar` ...
+(`ZM_PROFILE_SCOPE` bilan belgilangan), har birining jami va o'z vaqti (ms). Daraxt yuqoridagi sikl bosqichlarini takrorlaydi.*
+
 ### Layer'lar
 
 `LayerStack` ikki qismli: oddiy layer'lar (`PushLayer`) va ularning ustidagi overlay'lar (`PushOverlay`, masalan

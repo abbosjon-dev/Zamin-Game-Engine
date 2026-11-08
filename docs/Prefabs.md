@@ -204,6 +204,11 @@ std::vector<std::string> chain = PrefabUtility::GetVariantChain(db, variant);   
 Prefabni alohida, o'z sahnasidek tahrirlash: kontent brauzerda ikki marta bosish, ierarxiya / inspektor *Prefab
 rejimida ochish*, asset inspektori. Ochiq sahna (tarixi, tanlovi, kamerasi, saqlanmagan holati) kutib turadi.
 
+![Prefab rejimi](images/prefab-mode-editor.jpg)
+
+*Showcase3D `Prefabs/Ragdoll3D.zprefab` prefab rejimida: viewport ustida yo'l (`Sahna "Showcase"` → prefab), **Saqlash** va
+**Yopish**; ierarxiyada faqat prefab obyektlari.*
+
 - Viewport ustida yo'l: `◀ Sahna "Level1" › Enemy.zprefab › Weapon.zprefab` — [Saqlash] (Ctrl+S) va [Yopish].
   Ichidagi prefab nusxasi ildiziga ikki marta bosish bir daraja chuqurroq ochadi.
 - Obyektlar fayldagi ID'larni UUID sifatida oladi — o'zgarishsiz saqlash aynan o'sha baytlarni yozadi.

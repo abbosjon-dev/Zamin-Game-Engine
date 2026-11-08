@@ -366,6 +366,11 @@ strelkasi, a'zodan joyiga chiziq; joyida turgani yashil).
 - **O'yin**: Loyiha sozlamalari > Debug chizish > Navigatsiya, yoki player'da `--debug-nav` (`--debug-nav-cells` -
   yuriladigan kataklar ham). Kodda: `Scene::DrawNavigationDebug()`.
 
+![Navigatsiya gizmo'si o'yin rejimida](images/ai-navigation-play.jpg)
+
+*Showcase3D `Scenes/AI3D.zscene` editorda Play rejimida, Gizmo'lar > **Navigatsiya** yoqilgan: agentlarning yo'llari
+(havorang chiziqlar va burilish nuqtalari), ko'rish konusi (to'q sariq yoy), qo'ra ichidagi qo'ylar suruvi.*
+
 ## 15. Ishlash tezligi va benchmark
 
 Nav Agent'larning yo'l qidiruvlari **vazifalar tizimida guruhlab** bajariladi: har kadr avval qaysi agentlarga yangi

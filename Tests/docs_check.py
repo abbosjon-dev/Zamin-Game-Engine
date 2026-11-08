@@ -18,6 +18,11 @@ Checks:
                 of the sources (Zamin/src, Editor/src, Runtime/src), "<...>" standing for a formatted value ({}, %s).
   6. build    - every ZAMIN_* CMake option / cache variable (CMakeLists.txt, cmake/*.cmake, Zamin/CMakeLists.txt) is in
                 docs/BuildAndExport.md, and the Doxyfile's PROJECT_NUMBER is the engine's version (project(Zamin VERSION)).
+  7. catalog  - the unit test list in docs/Testing.md is up to date (Tests/test_catalog.py).
+  8. changelog - CHANGELOG.md has a section for every milestone of the git history and every milestone with a finished
+                task, its summary line matches the history, every commit it names exists (Tests/changelog.py).
+  9. index    - docs/README.md links every document of docs/ and CONTRIBUTING.md, CHANGELOG.md.
+ 10. images   - every file of docs/images is used by a Markdown file, is at most 400 KB and at most 1280 px wide.
 Standard library only.
 """
 import argparse
@@ -30,7 +35,9 @@ import unicodedata
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.dont_write_bytecode = True  # no __pycache__ next to the scripts
 sys.path.insert(0, os.path.join(ROOT, "Tests"))
+import changelog  # noqa: E402
 import docs_components  # noqa: E402
+import test_catalog  # noqa: E402
 
 problems = []
 notes = []
@@ -281,6 +288,103 @@ def check_build_options():
     notes.append(f"CMake variantlari: {len(options)} ta")
 
 
+# ------------------------------------------------------------------ 7. unit test catalogue
+def check_test_catalog():
+    doc_path = os.path.join(ROOT, "docs", "Testing.md")
+    text = read(doc_path)
+    if test_catalog.BEGIN not in text:
+        problem("docs/Testing.md: unit testlar katalogi belgilari yo'q")
+        return
+    sections = test_catalog.catalogue()
+    if test_catalog.replace_block(text, test_catalog.markdown(sections)) != text:
+        problem("docs/Testing.md: unit testlar ro'yxati eskirgan - Tests/test_catalog.py --update docs/Testing.md")
+    notes.append(f"unit testlar katalogi: {sum(len(n) for _, n in sections)} ta test")
+
+
+# ------------------------------------------------------------------ 8. changelog
+def check_changelog():
+    found = []
+    notes.append(changelog.check(os.path.join(ROOT, "CHANGELOG.md"), found))
+    for p in found:
+        problem(p)
+
+
+# ------------------------------------------------------------------ 9. documentation index
+def check_index():
+    index_path = os.path.join(ROOT, "docs", "README.md")
+    if not os.path.exists(index_path):
+        problem("docs/README.md (hujjatlar indeksi) yo'q")
+        return
+    text = strip_code(read(index_path))
+    linked = set()
+    for m in _link.finditer(text):
+        target = m.group(1).partition("#")[0]
+        if target and not re.match(r"^[a-z][a-z0-9+.-]*:", target, re.I):
+            linked.add(os.path.normpath(os.path.join(ROOT, "docs", target)))
+    wanted = [os.path.join(ROOT, "docs", n) for n in sorted(os.listdir(os.path.join(ROOT, "docs")))
+              if n.endswith(".md") and n != "README.md"]
+    wanted += [os.path.join(ROOT, n) for n in ("CONTRIBUTING.md", "CHANGELOG.md") if os.path.exists(os.path.join(ROOT, n))]
+    for path in wanted:
+        if os.path.normpath(path) not in linked:
+            problem(f"docs/README.md: {rel(path)} indeksda yo'q")
+    notes.append(f"indeks: {len(wanted)} ta hujjat")
+
+
+# ------------------------------------------------------------------ 10. images
+MAX_IMAGE_BYTES = 400 * 1024
+MAX_IMAGE_WIDTH = 1280
+
+
+def image_width(path):
+    """Pixel width of a PNG or JPEG (None when the format is not recognised)."""
+    with open(path, "rb") as fh:
+        data = fh.read()
+    if data[:8] == b"\x89PNG\r\n\x1a\n" and len(data) >= 24:
+        return int.from_bytes(data[16:20], "big")
+    if data[:2] == b"\xff\xd8":
+        i = 2
+        while i + 9 < len(data):
+            if data[i] != 0xFF:
+                i += 1
+                continue
+            marker = data[i + 1]
+            if marker in (0xD8, 0x01) or 0xD0 <= marker <= 0xD7:
+                i += 2
+                continue
+            length = int.from_bytes(data[i + 2:i + 4], "big")
+            if marker in (0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF):
+                return int.from_bytes(data[i + 7:i + 9], "big")
+            i += 2 + length
+    return None
+
+
+def check_images():
+    folder = os.path.join(ROOT, "docs", "images")
+    if not os.path.isdir(folder):
+        return
+    used = set()
+    for md in markdown_files():
+        text = strip_code(read(md))
+        for target in [m.group(1) for m in _link.finditer(text)] + [m.group(1) for m in _html_src.finditer(text)]:
+            used.add(os.path.normpath(os.path.join(os.path.dirname(md), target.partition("#")[0])))
+    names = sorted(n for n in os.listdir(folder) if not n.startswith("."))
+    total = 0
+    for name in names:
+        path = os.path.join(folder, name)
+        size = os.path.getsize(path)
+        total += size
+        if os.path.normpath(path) not in used:
+            problem(f"docs/images/{name}: hech bir hujjatda ishlatilmagan")
+        if size > MAX_IMAGE_BYTES:
+            problem(f"docs/images/{name}: {size // 1024} KB - {MAX_IMAGE_BYTES // 1024} KB dan katta (siqing yoki JPG qiling)")
+        width = image_width(path)
+        if width is None:
+            problem(f"docs/images/{name}: PNG yoki JPEG emas")
+        elif width > MAX_IMAGE_WIDTH:
+            problem(f"docs/images/{name}: kengligi {width} px - {MAX_IMAGE_WIDTH} px dan katta")
+    notes.append(f"rasmlar: {len(names)} ta, {total // 1024} KB")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--verbose", action="store_true")
@@ -291,6 +395,10 @@ def main():
     check_player_flags()
     check_faq_messages()
     check_build_options()
+    check_test_catalog()
+    check_changelog()
+    check_index()
+    check_images()
     for p in problems:
         print(p)
     if args.verbose or not problems:

@@ -59,6 +59,11 @@ qiymatlarini oladi - ular o'zini avvalgidek tutadi.
 
 *Oyna > Loyiha sozlamalari* (yoki *Fayl > Loyiha sozlamalari...*). Oyna bo'limlarga ajratilgan:
 
+![Loyiha sozlamalari: Input](images/project-settings-input.jpg)
+
+*Platformer2D loyiha sozlamalari, **Input** bo'limi: chapda bo'limlar ro'yxati, o'ngda harakatlar (`Jump` — Space, W, Up,
+Gamepad A ...) va takroriy bog'lanishlar ogohlantirishi.*
+
 | Bo'lim | Nima bor |
 |---|---|
 | **Umumiy** | Loyiha nomi, papkalar, skript moduli, boshlang'ich sahna |

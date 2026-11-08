@@ -61,7 +61,7 @@ Milestone davomida sanitizerlar topgan va tuzatilgan xatolar:
 1. **ASan, use-after-free** - mixer guruhini (bir nechta bola guruh / tovush bilan) o'chirish va `AudioEngine::Shutdown`:
    miniaudio'ning `ma_node_uninit` faqat birinchi kiruvchi tugunni ajratardi. `DetachAllInputs` bilan tuzatildi,
    `AudioMixerGroupTeardown` testi.
-2. **UBSan** - test enum'ida yaroqsiz qiymat (enum oralig'idan tashqari); README'da `ZM_FIELD_ENUM` qoidasi.
+2. **UBSan** - test enum'ida yaroqsiz qiymat (enum oralig'idan tashqari); [Scripting.md](Scripting.md#4-inspektor-maydonlari-zm_field) da `ZM_FIELD_ENUM` qoidasi.
 3. **Clang UBSan, pointer-overflow** (bu o'lchov) - miniaudio implementatsiyasi engine'ning `AudioEngine.cpp` ichida
    kompilyatsiya qilinardi, shuning uchun uchinchi tomon kodining xabari ham bizning kodimizniki kabi fatal edi (testlar
    150-testda to'xtardi). Implementatsiya o'z translation unit'iga ko'chirildi (`Zamin/src/Zamin/Audio/MiniaudioImpl.cpp`,

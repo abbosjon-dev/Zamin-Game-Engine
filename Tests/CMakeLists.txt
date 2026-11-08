@@ -16,7 +16,9 @@ add_test(NAME ZaminTests COMMAND ZaminTests --timing --report ${CMAKE_BINARY_DIR
 # The documentation stays true to the code (Tests/docs_check.py, label "docs"): every relative link and image of the
 # Markdown files resolves, every component of AllComponents is in docs/Components.md (its generated tables up to
 # date), every public ScriptableEntity function is in docs/Scripting.md, every player option of --help is documented,
-# every message quoted in docs/FAQ.md is in the sources, every ZAMIN_* CMake option is in docs/BuildAndExport.md.
+# every message quoted in docs/FAQ.md is in the sources, every ZAMIN_* CMake option is in docs/BuildAndExport.md,
+# the unit test catalogue of docs/Testing.md is current, CHANGELOG.md matches the git history (Tests/changelog.py),
+# docs/README.md indexes every document and every image of docs/images is used, <= 400 KB and <= 1280 px wide.
 find_package(Python3 COMPONENTS Interpreter)
 if(Python3_Interpreter_FOUND)
     add_test(NAME DocsCheck COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/Tests/docs_check.py

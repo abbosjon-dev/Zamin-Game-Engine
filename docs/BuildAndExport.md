@@ -26,7 +26,7 @@ Player'ning o'zi (buyruq qatori, log, crash hisobotlari) - [Runtime.md](Runtime.
 
 ## 1. Talablar
 
-- Linux x86_64 (Windows va macOS hali yo'q - README'dagi yo'l xaritasi).
+- Linux x86_64 (Windows va macOS hali yo'q - [yo'l xaritasi](Features.md#yol-xaritasi)).
 - C++20 kompilyator: **GCC 13+** yoki **Clang 17+**; **CMake 3.20+** (presetlar uchun 3.25+); Ninja tavsiya
   qilinadi (ixtiyoriy); `git` (bog'liqliklar birinchi configure'da yuklab olinadi).
 - **OpenGL 4.1+** drayveri, X11 yoki Wayland dev paketlari.
@@ -84,10 +84,32 @@ Namuna o'yinlarning skript modullari ham shu build'da yasaladi: `Projects/<O'yin
 
 ```bash
 ./build/bin/ZaminEditor                          # launcher (loyiha tanlash / yaratish)
-./build/bin/ZaminEditor Projects/Platformer2D    # loyihani to'g'ridan-to'g'ri ochish
-./build/bin/ZaminPlayer Projects/Adventure3D     # o'yinni editorsiz
+./build/bin/ZaminEditor Projects/Platformer2D    # namuna 2D o'yinni to'g'ridan-to'g'ri ochish
+./build/bin/ZaminEditor Projects/Showcase3D      # namuna 3D sahnalar
+./build/bin/ZaminEditor Projects/Adventure3D     # uchinchi shaxs 3D o'yin
+./build/bin/ZaminPlayer Projects/Platformer2D    # o'yinni editorsiz
+./build/bin/ZaminPlayer Projects/Showcase3D --scene Scenes/DebugDraw.zscene --debug-raycasts --debug-contacts --debug-velocities
+./build/bin/ZaminPlayer Projects/Adventure3D --borderless --monitor 1 --fps 60   # hamma variantlar: --help
 ctest --test-dir build -LE gui                   # tezkor testlar (unit, benchmark smoke, hujjatlar)
+./build/bin/ZaminTests --filter "Prefab*" --timing   # nom bo'yicha filtr (glob, '-' chiqarib tashlaydi), vaqt hisoboti
+./build/bin/ZaminTests --list                    # testlar nomlari; --help: --slowest N, --fail-fast, --report, --junit
+ctest --test-dir build -L gui                    # editor smoke, skript hot reload, eksport testlari (bir necha daqiqa)
+Tests/render_tests.sh                            # rendering regressiya testi (display kerak; yo'q bo'lsa xvfb-run)
+Tests/editor_smoke.sh --shots                    # editorning barcha oyna/menyu/popup'lari (xvfb ostida)
+Tests/hot_reload_test.sh                         # skript modulini qayta kompilyatsiya + hot reload
+Tests/export_test.sh                             # eksport + eksport qilingan o'yin headless (skrinshot bilan)
+Tests/package_games.sh --out dist                # uchala namuna o'yin: eksport + tekshiruv + <Nom>-<versiya>-linux-x86_64.tar.gz
+Tests/render_bench.sh                            # 10 000 sprite, 1 000 mesh: ms / kadr (Benchmarks.md)
+Tests/bench.sh --compare                         # ECS, serializatsiya, prefab benchmarklari + boshlang'ich natija bilan solishtirish
+Tests/coverage.sh [--gui] [--html]               # kod qamrovi (gcov, build-cov): modullar bo'yicha hisobot (Coverage.md)
+Tests/sanitize.sh address                        # unit testlar AddressSanitizer + LeakSanitizer bilan (build-asan)
+Tests/sanitize.sh address --smoke --editor-smoke # + 3 o'yin, editor va editor smoke testi ASan ostida (CI'dagi asan job)
+Tests/sanitize.sh undefined --compiler clang     # UndefinedBehaviorSanitizer bilan, Clang (build-ubsan; CI'dagi ubsan-clang)
+Tests/format_check.sh [--base main] [--fix]      # clang-format faqat o'zgargan qatorlarda (.clang-format - mavjud uslub)
 ```
+
+Har bir test nimani qo'riqlashi va qachon ishga tushirilishi - [Testing.md](Testing.md); o'lchangan natijalar -
+[Quality.md](Quality.md).
 
 Manba fayllar `CONFIGURE_DEPENDS` glob bilan yig'iladi: yangi `.cpp` / `.h` qo'shgandan keyin CMake'ni qayta
 ishga tushiring (`cmake -S . -B build`) - build buni odatda o'zi sezadi. Build `-Wall -Wextra -Wpedantic` bilan

@@ -77,6 +77,10 @@ Mundarija:
 **Skriptlar** menyusining pastida modulda ro'yxatdan o'tgan hamma klasslar ko'rinadi (yonida maydonlar soni);
 bosilganda klass kodi ochiladi.
 
+![Yangi C++ skript oynasi](images/scripting-new-script-dialog.jpg)
+
+*Skriptlar → Yangi C++ skript...: klass nomi (fayl `Source/EnemyAI.cpp` bo'ladi) va shablon — To'liq yoki Minimal.*
+
 ## 3. Skript fayli tuzilishi
 
 Yangi loyihaning `Source/Scripts.cpp` faylidagi eng oddiy skript:
@@ -113,6 +117,12 @@ ZM_REGISTER_SCRIPT(Rotator, ZM_FIELD_TOOLTIP(Rotator, Speed, "Har bir o'q atrofi
 `ZM_REGISTER_SCRIPT(Klass, ...)` ichida sanalgan a'zolar inspektorda **C++ Skript** bo'limida chiqadi. Qiymatlar
 sahna faylida (`"NativeScript": { "Class": ..., "Fields": {...} }`) saqlanadi va o'yin boshlanganda nusxaga yoziladi —
 koddagi boshlang'ich qiymat faqat inspektorda o'zgartirilmagan maydon uchun ishlaydi.
+
+![Skript maydonlari inspektorda](images/scripting-inspector-fields.jpg)
+
+*Adventure3D'da `Player` tanlangan: **C++ Skript** bo'limida `ThirdPersonController` klassi (yonida kodni ochish tugmasi) va
+`ZM_FIELD` bilan ro'yxatdan o'tgan maydonlari — `WalkSpeed`, `RunSpeed`, `JumpSpeed`, `TurnSpeed` (`float`) va `Camera`
+(`std::string`, kamera obyektining nomi).*
 
 Qo'llab-quvvatlanadigan turlar (`ScriptFieldType`): `float`, `int`, `bool`, `glm::vec2`, `glm::vec3`, `glm::vec4`,
 `std::string`, `EntityRef` (boshqa obyektga havola), `AnimationCurve` (egri chiziq muharriri bilan) va istalgan `enum` /
@@ -153,6 +163,8 @@ Variantlarning qiymati avvalgisidan bittaga ortadi (`{"A", "B", {"Z", 10}, "W"}`
 (`{"Boss", 10}`) enum'ning haqiqiy qiymati bo'lishi kerak — asosiy turi berilmagan enum faqat o'z qiymatlari
 oralig'ini saqlay oladi (aniq tur bering: `enum class Mode : int`). Maydon turi `int` ↔ `enum` o'zgarsa, sahnadagi
 qiymat saqlanib qoladi.
+Bunday qiymatdan tashqari son aniqlanmagan xatti-harakat (UBSan topadi). Oddiy `ZM_FIELD` bilan `glm::vec4` maydon
+inspektorda 4 ta son sifatida ko'rinadi — rang uchun `ZM_FIELD_COLOR` ishlating.
 
 **Havola (`EntityRef`)** — boshqa obyektga ishora. Inspektorda ierarxiyadan obyektni maydonga sudrab qo'yiladi yoki
 ro'yxatdan tanlanadi; kodda `Resolve(ref)` bilan `Entity` olinadi (topilmasa bo'sh `Entity`). Obyekt nusxalanganda yoki
@@ -193,7 +205,8 @@ chaqirilmaydi). `HasStarted()` — `OnStart` o'tganmi.
 `SetActive` qaytishidan oldin `OnDisable` oladi (avval ota, keyin bolalar), ularning fizik jismlari dunyodan chiqadi,
 hech narsasi chizilmaydi; qayta yoqilganda `OnEnable` keladi. `IsActive()` — o'z belgisi, `IsActiveInHierarchy()` —
 ota-onalari bilan, `IsActiveAndEnabled()` — skript ham yoqilgan va obyekt ham faol. O'yin boshida nofaol obyekt
-skripti faqat `OnCreate` oladi; `OnEnable` / `OnStart` u faol bo'lganda keladi.
+skripti faqat `OnCreate` oladi; `OnEnable` / `OnStart` u faol bo'lganda keladi. Obyekt o'chganda uning ovozi
+`OnDisable` dan keyin to'xtaydi, yoqilganda esa `OnEnable` dan oldin boshlanadi.
 
 Hodisa callback'lari (to'qnashuv, trigger, xabar, `OnClick` ...) o'chirilgan skriptga ham keladi — u o'zini javoban
 yoqishi mumkin. Xabarlar va hodisalar shinasi nofaol obyekt skriptiga ham yetadi, `OnClick` esa kelmaydi (nofaol
@@ -257,7 +270,8 @@ if (auto* sprite = TryGetComponent<SpriteRendererComponent>(); sprite && dir != 
 `GetScriptClassName()` (nusxa qaysi klassdan yaratilgan).
 
 **Qidirish.** `FindEntity("Nom")` — birinchi shu nomli obyekt (keshlangan, har kadr chaqirish arzon), avval shu
-sahnada, keyin boshqa yuklangan sahnalarda; `FindEntities("Nom")` — hammasi. Teglar (**Teglar** komponenti):
+sahnada, keyin boshqa yuklangan sahnalarda; `FindEntities("Nom")` — hammasi. Nomni `SetName` bilan o'zgartiring:
+`TagComponent::Tag` ga to'g'ridan-to'g'ri yozish keshda keyingi kadrda seziladi. Teglar (**Teglar** komponenti):
 `HasTag("Enemy")`, `AddTag(...)`, `RemoveTag(...)`, `FindEntitiesWithTag("Enemy")`, `FindEntityWithTag(...)`.
 Tur bo'yicha: `FindObjectsOfType<T>()` / `FindObjectOfType<T>()` — `T` komponent yoki skript klassi bo'lishi mumkin:
 
@@ -289,7 +303,10 @@ belgisi bilan); `Instantiate("Prefabs/Ball.zprefab", position)` — prefab asset
 ## 8. Input
 
 Nomlangan harakatlar va o'qlar **Loyiha sozlamalari → Input** oynasida tugma, sichqoncha yoki gamepad'ga bog'lanadi
-va `.zproject` da saqlanadi ([ProjectSettings.md](ProjectSettings.md)). Yangi loyihadagi standartlar:
+va `.zproject` da saqlanadi ([ProjectSettings.md](ProjectSettings.md)); oynada har harakat / o'qning jonli holati
+ko'rinadi. O'q qiymati: manfiy / musbat tugmalar (-1 / +1) va gamepad o'qi (deadzone'dan keyin 0..1 ga qayta
+masshtablanadi) — kattarog'i olinadi; gamepad bog'lanishlari ulangan barcha gamepad'larni tinglaydi. Yangi loyihadagi
+standartlar:
 
 | Nom | Turi | Bog'lanishlar |
 |---|---|---|
@@ -525,8 +542,10 @@ To'liq qo'llanma (kameralar, materiallar, yorug'lik, soyalar, post-processing, p
 - **Kamera**: `ShakeCamera(intensity, duration, frequency)`, `StopCameraShake()`, `SetCameraTarget(entity, snap)`
   (asosiy kameraning Camera 2D Follow nishoni).
 - **Particle**: `EmitParticles(n)`.
-- **Debug chizish** (faqat ko'rish uchun; Shipping build'da yo'q): `DebugDraw::Line(a, b, DebugColor::Red)`,
-  `DebugDraw::WireSphere(c, r)`, `DebugDraw::Text(p, "matn")` ...
+- **Debug chizish** (faqat ko'rish uchun; Shipping build'da yo'q): `DebugDraw::Line(a, b, DebugColor::Red)`, `Ray(o, dir)`,
+  `Arrow(a, b)`, `Box(center, half)` / `Box(center, half, quat)` / `Box(worldTransform)`, `Bounds(aabb)`, `Rect(c, size)`,
+  `WireSphere(c, r)`, `Circle(c, normal, r)`, `Cross(p, size)`, `Point(p)`, `Axes(transform)`, `Path(points)`,
+  `NavigationPath(points)`, `Text(p, "matn")` — oxirgi parametrlar: rang, `duration` (soniya, 0 = bir kadr), `depthTest`.
 
 ## 15. UI
 

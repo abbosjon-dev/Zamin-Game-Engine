@@ -7,7 +7,7 @@ UI matni, kamera kuzatishi, o'yinni sinash va eksport qilish.
 
 ![Tayyor o'yin](images/tutorial-2d-game.jpg)
 
-Kerak bo'ladi: build qilingan Zamin ([README](../README.md#-build-qilish-linux)) va 30-40 daqiqa. Editor haqida umumiy
+Kerak bo'ladi: build qilingan Zamin ([BuildAndExport.md](BuildAndExport.md#2-dvigatelni-build-qilish)) va 30-40 daqiqa. Editor haqida umumiy
 ma'lumot: [Editor.md](Editor.md); skriptlar: [Scripting.md](Scripting.md); komponentlar: [Components.md](Components.md).
 
 > Bu qo'llanmadagi qadamlar va skriptlar haqiqiy loyihada bajarib tekshirilgan: loyiha editorda yaratildi, skriptlar

@@ -21,6 +21,11 @@ Skriptdan foydalanish: `GetComponent<T>()`, `TryGetComponent<T>()`, `HasComponen
 **+ Komponent** (qidiruv maydoni bor); komponent sarlavhasidagi tishli g'ildirak menyusi — **Komponentni
 nusxalash**, joylash, **Yuqoriga / Pastga ko'chirish**, **Komponentni olib tashlash**.
 
+![Inspektordagi komponentlar](images/components-inspector.jpg)
+
+*Adventure3D `Player` obyektining komponentlari inspektorda: Transform, Mesh Renderer (`Models/Robot.gltf` modeli) va
+boshqalar; yuqorida faollik belgisi, nom va **+ Komponent** tugmasi.*
+
 Mundarija:
 
 1. [Asosiy](#1-asosiy) — ID, nom, Transform, ierarxiya, teglar

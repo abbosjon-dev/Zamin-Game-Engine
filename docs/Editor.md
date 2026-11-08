@@ -208,6 +208,11 @@ sozlamalari va ko'rinishini ko'rsatadi.
 - Har bir asset yonida `.zmeta` fayli (UUID va import sozlamalari) — uni versiya nazoratiga qo'shing; nomni editorda
   o'zgartirsangiz havolalar buzilmaydi.
 
+![Asset inspektori](images/editor-asset-inspector.jpg)
+
+*Kontent brauzerda `Assets/Models/Robot.gltf` tanlangan: inspektor modelni aylanadigan 3D ko'rinishda (animatsiyalarni
+o'ynatish bilan), yo'li, UUID'si va ma'lumotlari (submeshlar, uchburchaklar, skelet) bilan ko'rsatadi.*
+
 ## 8. O'yin rejimi: Play, Simulate, Pauza
 
 - **O'ynash** (`Ctrl+P`, yoki `Shift+Escape` — to'xtatish): sahna nusxasi yaratiladi va o'yin shu nusxada ishlaydi —

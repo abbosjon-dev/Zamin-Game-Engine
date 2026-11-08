@@ -301,6 +301,11 @@ qaytaradi.
 Platformer2D'da qayta ishlatiladigan menyu bor: **`Prefabs/GameMenu.zprefab`** va uning skripti
 **`GameMenu`** (`Projects/Platformer2D/Source/GameMenu.cpp`). `Menu.zscene` (bosh menyu) shu prefabning nusxasi.
 
+![O'yin menyusi](images/runtime-game-menu.jpg)
+
+*`ZaminPlayer Projects/Platformer2D --scene Scenes/Menu.zscene`: `GameMenu` prefabining bosh menyusi — O'ynash,
+Sozlamalar, Chiqish; pastki burchakda o'yin versiyasi.*
+
 - **Asosiy panel**: o'yin nomi, "O'ynash" (`PlayScene` ga so'nib o'tadi), "Sozlamalar", "Chiqish"; ekran burchagida
   o'yin versiyasi.
 - **Sozlamalar paneli**: ekran o'lchami, to'liq ekran, VSync, grafika sifati, gamma, ovoz (umumiy, musiqa,

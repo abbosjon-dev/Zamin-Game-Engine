@@ -259,7 +259,7 @@ namespace Zamin {
         /// OnSceneLoaded. Also on the event bus: "SceneLoaded" / "SceneUnloaded" (payload SceneEventInfo),
         /// "ActiveSceneChanged" (payload ActiveSceneChange).
         /// @code
-        ///   void OnSceneLoaded(const SceneEventInfo& scene) override { if (scene.BuildIndex == 3) PlayMusic("Audio/boss.ogg"); }
+        ///   void OnSceneLoaded(const SceneEventInfo& scene) override { if (scene.BuildIndex == 3) Audio::PlayMusic("Audio/boss.wav"); }
         /// @endcode
         virtual void OnSceneLoaded(const SceneEventInfo& /*scene*/) {}
         virtual void OnSceneUnloaded(const SceneEventInfo& /*scene*/) {}
@@ -911,7 +911,7 @@ namespace Zamin {
         /// @}
 
         /// @name Audio
-        /// Audio (music and the mixer groups: the Audio class, e.g. Audio::CrossfadeTo("Audio/boss.ogg"))
+        /// Audio (music and the mixer groups: the Audio class, e.g. Audio::CrossfadeTo("Audio/boss.wav"))
         /// A one-shot sound in a mixer group (SFX, UI, ... ; an unknown name: SFX). The PlaySound
         /// overloads return the AudioEngine handle (0: not played) and OnSoundFinished tells this
         /// script when the sound ends.

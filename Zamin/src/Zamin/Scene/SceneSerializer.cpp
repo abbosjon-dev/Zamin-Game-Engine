@@ -5255,6 +5255,12 @@ namespace Zamin {
         return EntitySetToJson(scene, entities, options).dump(2);
     }
 
+    json SceneSerializerJson::EntitySetToJson(Scene& scene, const std::vector<Entity>& entities, const SceneSerializer::EntitySetWriteOptions& options)
+    {
+        AssetReferenceScope assetReferences;
+        return Zamin::EntitySetToJson(scene, entities, options);
+    }
+
     void SceneSerializer::SetReadPrefabLinks(bool read) { s_ReadPrefabLinks = read; }
     bool SceneSerializer::GetReadPrefabLinks() { return s_ReadPrefabLinks; }
 

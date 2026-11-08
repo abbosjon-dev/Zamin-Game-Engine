@@ -132,6 +132,8 @@ namespace Zamin {
         void CopySelectedEntity();
         void PasteEntity();
         void SavePrefab(Entity entity);
+        // A prefab file to the clipboard (Origin): Ctrl+V places a linked instance of it.
+        void CopyPrefabToClipboard(const std::filesystem::path& prefab);
         Entity InstantiatePrefabInEditor(const std::filesystem::path& assetPath, Entity parent);
         // ---- placing prefabs (EditorPrefabPlacement.cpp): every prefab a drag carries, at the mouse
         std::vector<std::string> GetDroppedPrefabs(const std::string& payload);

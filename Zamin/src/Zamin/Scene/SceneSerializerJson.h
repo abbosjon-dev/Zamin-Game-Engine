@@ -49,6 +49,10 @@ namespace Zamin::SceneSerializerJson {
     bool PrepareEntitySet(nlohmann::json& root, const SceneSerializer::EntitySetReadOptions& options, SceneMigrationResult& migration);
     std::vector<Entity> ReadEntitySet(Scene& scene, const nlohmann::json& root, const SceneSerializer::EntitySetReadOptions& options);
 
+    // An entity set's document as SceneSerializer::SerializeEntities writes it (before it is text):
+    // the clipboard adds its own keys to it.
+    nlohmann::json EntitySetToJson(Scene& scene, const std::vector<Entity>& entities, const SceneSerializer::EntitySetWriteOptions& options);
+
     // `root` as indented text (what json::dump(2) gives, written faster).
     std::string DumpIndented(const nlohmann::json& root, size_t sizeHint = 4096);
 

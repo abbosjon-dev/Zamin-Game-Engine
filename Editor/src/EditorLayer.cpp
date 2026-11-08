@@ -136,6 +136,7 @@ namespace Zamin {
         m_SceneHierarchyPanel.OnOpenPrefabRequested = [this](const std::string& prefab, uint64_t focus) { RequestPrefabStage(prefab, focus); };
         m_ContentBrowserPanel.OnOpenPrefab = [this](const fs::path& p) { RequestPrefabStage(Project::GetAssetRelativePath(p)); };
         m_ContentBrowserPanel.OnCreatePrefabVariant = [this](const fs::path& p) { m_PrefabVariantRequests.push_back(Project::GetAssetRelativePath(p)); };
+        m_ContentBrowserPanel.OnCopyPrefab = [this](const fs::path& p) { CopyPrefabToClipboard(p); };
         m_ContentBrowserPanel.IsPrefabVariant = [this](const fs::path& p) {
             return Project::GetActive() && !PrefabUtility::GetVariantBase(m_PrefabDatabase, Project::GetAssetRelativePath(p)).empty();
         };
@@ -5352,48 +5353,69 @@ namespace Zamin {
     }
 
     // ================================================================== clipboard / prefabs
-    static void CollectSubtree(Scene& scene, Entity root, std::vector<Entity>& out)
-    {
-        out.push_back(root);
-        for (UUID child : root.GetComponent<RelationshipComponent>().Children)
-            if (Entity c = scene.GetEntityByUUID(child))
-                CollectSubtree(scene, c, out);
-    }
-
     void EditorLayer::CopySelectedEntity()
     {
         std::vector<Entity> roots = m_SceneHierarchyPanel.GetSelectedRoots();
         if (roots.empty()) return;
-        std::vector<Entity> entities;
-        for (Entity root : roots)
-            CollectSubtree(*m_ActiveScene, root, entities);
-        m_Clipboard = SceneSerializer::SerializeEntities(*m_ActiveScene, entities);
+        // The clipboard text is a prefab file's document ("Kind": "Clipboard"): whole instances keep
+        // their links, the roots their place in the world (EntityClipboard).
+        m_Clipboard = EntityClipboard::Copy(*m_ActiveScene, roots);
         ImGui::SetClipboardText(m_Clipboard.c_str());
+        size_t count = 0;
+        for (Entity root : roots)
+            count += 1 + m_ActiveScene->GetDescendants(root).size();
         if (roots.size() == 1)
-            ZM_INFO("Nusxalandi: {} ({} obyekt)", roots.front().GetName(), entities.size());
+            ZM_INFO("Nusxalandi: {} ({} obyekt)", roots.front().GetName(), count);
         else
-            ZM_INFO("Nusxalandi: {} ta tanlangan ({} obyekt)", roots.size(), entities.size());
+            ZM_INFO("Nusxalandi: {} ta tanlangan ({} obyekt)", roots.size(), count);
+    }
+
+    void EditorLayer::CopyPrefabToClipboard(const fs::path& prefab)
+    {
+        if (!Project::GetActive())
+            return;
+        const std::string rel = PrefabDatabase::NormalizePath(Project::GetAssetRelativePath(prefab));
+        std::string error;
+        std::string text = EntityClipboard::CopyPrefab(m_PrefabDatabase, rel, &error);
+        if (text.empty())
+        {
+            ZM_WARN("Prefab nusxalanmadi ({}): {}", rel, error);
+            m_ContentBrowserPanel.ShowNotice(std::format("{}: {}", Tr("Prefab nusxalanmadi"), error), true);
+            return;
+        }
+        m_Clipboard = std::move(text);
+        ImGui::SetClipboardText(m_Clipboard.c_str());
+        ZM_INFO("Prefab nusxalandi: {} (Ctrl+V - bog'langan nusxa joylanadi)", rel);
+        m_ContentBrowserPanel.ShowNotice(std::format("{}: {}", Tr("Prefab nusxalandi"), prefab.filename().string()));
     }
 
     void EditorLayer::PasteEntity()
     {
         if (m_SceneState != SceneState::Edit) return;
         const char* text = ImGui::GetClipboardText();
-        std::string data = (text && std::string_view(text).find("\"ZaminEntities\"") != std::string_view::npos) ? text : m_Clipboard;
+        std::string data = (text && EntityClipboard::IsEntityText(text)) ? text : m_Clipboard;
         if (data.empty()) return;
-        auto entities = SceneSerializer::DeserializeEntities(*m_EditorScene, data, true);
-        if (entities.empty()) return;
-        // A pasted instance stays one; a pasted part of an instance (outside it now) is plain.
-        PrefabUtility::NormalizeLinks(*m_EditorScene, &entities);
+        // Next to the selection (its siblings), where they were in the world; a copied prefab as a
+        // linked instance of it.
+        Entity sibling = m_SceneHierarchyPanel.GetSelectedEntity();
+        if (sibling && sibling.GetScene() != m_EditorScene.get())
+            sibling = {};
+        EntityClipboard::PasteResult pasted = EntityClipboard::Paste(*m_EditorScene, &m_PrefabDatabase, data, sibling);
+        if (pasted.Entities.empty())
+        {
+            if (!pasted.Error.empty())
+                ZM_WARN("Joylanmadi: {}", pasted.Error);
+            return;
+        }
         m_EditorScene->ResolveAssets();
-        // Every pasted root is selected (the list comes roots first).
-        std::vector<Entity> roots;
-        for (Entity e : entities)
-            if (!m_EditorScene->GetParent(e))
-                roots.push_back(e);
-        m_SceneHierarchyPanel.GetSelection().Set(roots, roots.empty() ? entities.front() : roots.front());
-        Entity first = roots.empty() ? entities.front() : roots.front();
-        MarkDirty(roots.size() > 1 ? std::format("Joylandi: {} (+{})", first.GetName(), roots.size() - 1) : std::format("Joylandi: {}", first.GetName()));
+        // Every pasted root is selected.
+        std::vector<Entity>& roots = pasted.Roots;
+        Entity first = roots.empty() ? pasted.Entities.front() : roots.front();
+        m_SceneHierarchyPanel.GetSelection().Set(roots, first);
+        if (!pasted.Origin.empty())
+            MarkDirty(std::format("Prefab joylandi: {}", first.GetName()));
+        else
+            MarkDirty(roots.size() > 1 ? std::format("Joylandi: {} (+{})", first.GetName(), roots.size() - 1) : std::format("Joylandi: {}", first.GetName()));
     }
 
     void EditorLayer::SavePrefab(Entity entity)

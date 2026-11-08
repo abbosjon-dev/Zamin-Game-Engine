@@ -141,7 +141,16 @@ namespace Zamin {
             m_ShowUndoHistory = !m_ShowUndoHistory;
             m_UndoHistoryScroll = true;
         });
-        m_Shortcuts.Bind(E::Copy, [this]() { CopySelectedEntity(); });
+        m_Shortcuts.Bind(E::Copy, [this]() {
+            // In the content browser with a prefab selected: the prefab (pasted as a linked instance).
+            if (m_ContentBrowserPanel.IsFocused())
+            {
+                if (const std::filesystem::path prefab = m_ContentBrowserPanel.GetSelectedPrefab(); !prefab.empty())
+                    CopyPrefabToClipboard(prefab);
+                return;
+            }
+            CopySelectedEntity();
+        });
         m_Shortcuts.Bind(E::Paste, [this]() { PasteEntity(); });
         m_Shortcuts.Bind(E::Duplicate, [this]() { DuplicateSelectedEntity(); });
         m_Shortcuts.Bind(E::Preferences, [this]() { m_ShowPreferences = !m_ShowPreferences; });

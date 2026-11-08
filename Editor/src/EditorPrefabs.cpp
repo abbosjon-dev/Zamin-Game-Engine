@@ -457,7 +457,8 @@ namespace Zamin {
     // ZAMIN_EDITOR_PREFAB="color=<name>,r,g,b;scale=<name>,s;remove=<name>,<Component>;child=<parent>,<name>;
     // create=<name>;save=<name>;select=<name>;top=<name>;move=<name>,x,y,z;instantiate=<prefab>[,<parent>[,<name>]];
     // apply=<name>[,<path>[,<target>]];revert=<name>[,<path>];unpack=<name>;undo;redo;changes;open=<prefab>[,<name>];
-    // stagesave;stageclose[=<levels kept>];variant=<prefab>;savevariant=<name>[,<prefab>];place=<prefab>[|...],x,y[,shift];rename=<name>,<new name>":
+    // stagesave;stageclose[=<levels kept>];variant=<prefab>;savevariant=<name>[,<prefab>];place=<prefab>[|...],x,y[,shift];rename=<name>,<new name>;
+    // copy=<name>;copyprefab=<prefab>;paste[=<next to>]":
     // prefab instance edits made one by one as undo steps (screenshots,
     // checks). "changes" opens the inspector's list; "open" opens a prefab in prefab mode (the entity of an
     // instance named second is selected there), "stagesave" / "stageclose" save / leave it.
@@ -551,6 +552,22 @@ namespace Zamin {
                     m_PrefabPlaceAt.reset();
                 continue;
             }
+            // copyprefab=<prefab>: the prefab to the clipboard (as the content browser copies it);
+            // paste[=<entity>]: Ctrl+V next to that entity (else the selection)
+            if (op == "copyprefab" && !args.empty())
+            {
+                CopyPrefabToClipboard(Project::GetAssetFileSystemPath(args[0]));
+                continue;
+            }
+            if (op == "paste")
+            {
+                if (Entity next = args.empty() || args[0].empty() ? Entity() : find(args[0]))
+                    m_SceneHierarchyPanel.SetSelectedEntity(next);
+                ImGui::SetClipboardText(m_Clipboard.c_str());
+                PasteEntity();
+                CommitUndo();
+                continue;
+            }
             if (op == "variant" && !args.empty())
             {
                 // variant=<prefab path>: a new variant of it (opened in prefab mode)
@@ -601,6 +618,11 @@ namespace Zamin {
             }
             else if (op == "save")
                 SavePrefab(e);
+            else if (op == "copy")
+            {
+                m_SceneHierarchyPanel.SetSelectedEntity(e); // copy=<name>: Ctrl+C on it
+                CopySelectedEntity();
+            }
             else if (op == "savevariant")
                 SaveInstanceAsVariant(e, args.size() >= 2 ? args[1] : std::string()); // savevariant=<name>[,<prefab path>]
             else if (op == "top")

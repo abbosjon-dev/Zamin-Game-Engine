@@ -373,6 +373,14 @@ namespace Zamin {
         SelectOnly(path);
     }
 
+    fs::path ContentBrowserPanel::GetSelectedPrefab() const
+    {
+        for (const fs::path& p : m_Selection)
+            if (AssetFiles::GetType(p) == AssetType::Prefab)
+                return p;
+        return {};
+    }
+
     std::vector<fs::path> ContentBrowserPanel::GetSelectionInOrder() const
     {
         std::vector<fs::path> out;
@@ -823,6 +831,10 @@ namespace Zamin {
             OnCreatePrefabVariant(path);
         if (entry.Type == AssetType::Prefab && ImGui::IsItemHovered())
             UI::Tooltip(Tr("Shu prefabdan meros oluvchi yangi prefab (prefab rejimida ochiladi)"));
+        if (entry.Type == AssetType::Prefab && ImGui::MenuItem(Tr(ICON_FA_COPY "  Nusxalash (sahnaga joylash uchun)"), "Ctrl+C") && OnCopyPrefab)
+            OnCopyPrefab(path);
+        if (entry.Type == AssetType::Prefab && ImGui::IsItemHovered())
+            UI::Tooltip(Tr("Joylanganda (Ctrl+V) prefabning bog'langan nusxasi tanlangan obyekt yoniga qo'yiladi"));
         // The project's settings that point to files: the build list, the start scene, the game's icon.
         if (Ref<Project> project = Project::GetActive(); project && !entry.IsDirectory)
         {
@@ -1701,6 +1713,7 @@ namespace Zamin {
             m_DragPaths.clear();
             m_DropCheckFolder.clear();
         }
+        m_Focused = false;
         if (!*open)
             return;
         if (!ImGui::Begin(Tr(ICON_FA_FOLDER_OPEN "  Kontent###ContentBrowser"), open))
@@ -1709,6 +1722,7 @@ namespace Zamin {
             return;
         }
         m_Visible = true;
+        m_Focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
         m_WindowMin = ImGui::GetWindowPos();
         m_WindowMax = ImVec2(m_WindowMin.x + ImGui::GetWindowWidth(), m_WindowMin.y + ImGui::GetWindowHeight());
 

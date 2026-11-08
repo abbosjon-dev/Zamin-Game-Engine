@@ -91,6 +91,12 @@ namespace Zamin {
         std::function<void(const std::filesystem::path&)> OnOpenPrefab;
         // "Variant yaratish" on a prefab: a new prefab made of it.
         std::function<void(const std::filesystem::path&)> OnCreatePrefabVariant;
+        // "Nusxalash" on a prefab (or Ctrl+C on one): the clipboard gets it, pasted as a linked instance.
+        std::function<void(const std::filesystem::path&)> OnCopyPrefab;
+        // Whether the panel had the keyboard focus last frame (Ctrl+C copies its prefab then).
+        bool IsFocused() const { return m_Focused; }
+        // The prefab Ctrl+C copies (the selected one; "" when no prefab is selected).
+        std::filesystem::path GetSelectedPrefab() const;
         // Whether a prefab file is a variant (its tile's badge).
         std::function<bool(const std::filesystem::path&)> IsPrefabVariant;
         // A C++ source / header (double click, "Tashqi muharrirda ochish"): opened in the external editor.
@@ -187,6 +193,7 @@ namespace Zamin {
 
         // drag & drop moves
         std::vector<std::filesystem::path> m_DragPaths; // what the current drag carries
+        bool m_Focused = false;
         bool m_DragStarted = false;
         std::filesystem::path m_DropCheckFolder;        // CheckMoveAll cache of the hovered folder
         std::string m_DropCheckReason;

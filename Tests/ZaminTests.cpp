@@ -46462,3 +46462,101 @@ TEST(PrefabHotReloadSync)
     CHECK(FileSystem::WriteTextFile(qFile, qText));
     CHECK(db.CheckFile("Prefabs/Weapon.zprefab") == PrefabDatabase::FileChange::Added);
 }
+
+TEST(ClipboardPrefabFormat)
+{
+    namespace fs = std::filesystem;
+    TempDirectory temp("zamin-prefab-clipboard");
+    PrefabFixture prefab(temp.GetPath());
+    PrefabDatabase db(temp.GetPath());
+    auto scene = CreateRef<Scene>();
+    Entity holder = scene->CreateEntity("Holder");
+    holder.GetComponent<TransformComponent>().Translation = { 10.0f, 0.0f, 0.0f };
+    Entity enemy = PrefabUtility::InstantiateLinked(*scene, db, prefab.Rel(), holder);
+    CHECK(enemy);
+    if (!enemy)
+        return;
+    enemy.GetComponent<TransformComponent>().Translation = { 2.0f, 3.0f, 0.0f };
+    Entity weapon = ChildNamed(*scene, enemy, "Weapon");
+    weapon.GetComponent<SpriteRendererComponent>().Color = { 0.0f, 1.0f, 0.0f, 1.0f };
+    scene->SetLockedInEditor(weapon, true);
+    PrefabUtility::RecordOverrides(enemy, db);
+    CHECK(OverridesOf(weapon) == std::vector<std::string>{ "SpriteRenderer/Color" });
+
+    // One document for prefabs and the clipboard: "Kind" and "Version", the links of a whole instance,
+    // the hidden / locked flags, the root's place in the world (it had a parent).
+    const std::string text = EntityClipboard::Copy(*scene, { enemy });
+    CHECK(text.find("\"ZaminEntities\": 1") != std::string::npos && text.find("\"Kind\": \"Clipboard\"") != std::string::npos);
+    CHECK(text.find(std::format("\"Version\": {}", SceneMigration::CurrentVersion)) != std::string::npos);
+    CHECK(text.find("\"PrefabEntity\"") != std::string::npos && text.find("\"Locked\": true") != std::string::npos);
+    CHECK(text.find("\"World\"") != std::string::npos && EntityClipboard::IsEntityText(text) && EntityClipboard::GetOrigin(text).empty());
+    // The prefab file is the same document (Kind "Prefab", no editor flags).
+    const std::string file = FileSystem::ReadTextFile(prefab.File);
+    CHECK(file.find("\"Kind\": \"Prefab\"") != std::string::npos && file.find("\"World\"") == std::string::npos);
+
+    // Pasted next to the selection (a top-level entity): a linked instance with a new root UUID, its
+    // override and lock kept, where it was in the world.
+    Entity anchor = scene->CreateEntity("Anchor");
+    Entity after = scene->CreateEntity("After");
+    EntityClipboard::PasteResult pasted = EntityClipboard::Paste(*scene, &db, text, anchor);
+    CHECK(pasted.Error.empty() && pasted.Roots.size() == 1 && pasted.Entities.size() == 3 && pasted.Origin.empty());
+    Entity copy = pasted.Roots.empty() ? Entity() : pasted.Roots.front();
+    CHECK(copy && copy != enemy && copy.GetUUID() != enemy.GetUUID() && PrefabUtility::IsInstanceRoot(copy));
+    if (!copy)
+        return;
+    CHECK(!scene->GetParent(copy) && scene->GetSiblingIndex(copy) == scene->GetSiblingIndex(anchor) + 1 &&
+          scene->GetSiblingIndex(after) == scene->GetSiblingIndex(copy) + 1);
+    CHECK_NEAR(copy.GetComponent<TransformComponent>().Translation.x, 12.0f, 1e-5f);
+    CHECK_NEAR(copy.GetComponent<TransformComponent>().Translation.y, 3.0f, 1e-5f);
+    Entity copyWeapon = ChildNamed(*scene, copy, "Weapon");
+    CHECK(copyWeapon && copyWeapon != weapon && PrefabUtility::GetPrefabEntity(copyWeapon) == (uint64_t)prefab.Weapon.GetUUID());
+    CHECK(copyWeapon && OverridesOf(copyWeapon) == std::vector<std::string>{ "SpriteRenderer/Color" } && scene->IsLockedInEditor(copyWeapon));
+    CHECK(copy.GetComponent<Camera2DFollowComponent>().Target.ID == (uint64_t)copyWeapon.GetUUID()); // the reference follows
+    CHECK(!PrefabUtility::RecordOverrides(copy, db) && OverridesOf(copy).empty()); // the root's place is the instance's own
+    CHECK(PrefabUtility::SyncScene(*scene, db).Changed == 0);
+    // Pasted next to the original (below the same parent): its values as they were, exactly.
+    pasted = EntityClipboard::Paste(*scene, &db, text, enemy);
+    CHECK(pasted.Roots.size() == 1 && scene->GetParent(pasted.Roots.front()) == holder);
+    CHECK(pasted.Roots.front().GetComponent<TransformComponent>().Translation == glm::vec3(2.0f, 3.0f, 0.0f));
+    CHECK(scene->GetSiblingIndex(pasted.Roots.front()) == scene->GetSiblingIndex(enemy) + 1);
+
+    // A part of an instance (its child alone) is pasted as plain entities.
+    const std::string part = EntityClipboard::Copy(*scene, { weapon });
+    CHECK(part.find("PrefabEntity") == std::string::npos);
+    pasted = EntityClipboard::Paste(*scene, &db, part);
+    CHECK(pasted.Roots.size() == 1 && !pasted.Roots.front().HasComponent<PrefabLinkComponent>() && !PrefabUtility::GetInstanceRoot(pasted.Roots.front()));
+    CHECK_NEAR(pasted.Roots.front().GetComponent<TransformComponent>().Translation.x, 12.5f, 1e-5f); // 10 + 2 + 0.5 in the world
+
+    // A prefab copied from the content browser (Origin): pasted as a linked instance of the file.
+    const std::string asset = EntityClipboard::CopyPrefab(db, prefab.Rel());
+    CHECK(asset.find("\"Origin\"") != std::string::npos && EntityClipboard::GetOrigin(asset) == prefab.Rel());
+    CHECK(asset.find("\"Kind\": \"Clipboard\"") != std::string::npos && EntityClipboard::CopyPrefab(db, "Prefabs/Missing.zprefab").empty());
+    pasted = EntityClipboard::Paste(*scene, &db, asset, holder);
+    CHECK(pasted.Origin == prefab.Rel() && pasted.Roots.size() == 1 && pasted.Entities.size() == 3);
+    Entity placed = pasted.Roots.empty() ? Entity() : pasted.Roots.front();
+    CHECK(placed && PrefabUtility::IsInstanceRoot(placed) && !PrefabUtility::IsLegacyInstance(placed) && !scene->GetParent(placed));
+    CHECK(placed && placed.GetComponent<PrefabLinkComponent>().PrefabHash == db.ResolvedHash(prefab.Rel()));
+    CHECK(placed && scene->GetSiblingIndex(placed) == scene->GetSiblingIndex(holder) + 1);
+    // Its prefab gone: the entities in the text, not linked to anything that is not there.
+    std::string orphan = asset;
+    const size_t at = orphan.find(prefab.Rel());
+    orphan.replace(at, prefab.Rel().size(), "Prefabs/Gone.zprefab");
+    pasted = EntityClipboard::Paste(*scene, &db, orphan);
+    CHECK(pasted.Origin.empty() && pasted.Roots.size() == 1 && pasted.Entities.size() == 3);
+    // Without a database (no project): the text's entities.
+    pasted = EntityClipboard::Paste(*scene, nullptr, asset);
+    CHECK(pasted.Origin.empty() && pasted.Entities.size() == 3);
+
+    // Older clipboard text (M20: no version, no kind) and a prefab file's text paste as before.
+    const std::string old = R"({"ZaminEntities":1,"Entities":[{"Entity":5,"Tag":"Eski","Transform":{"Translation":[1,2,3],"Rotation":[0,0,0],"Scale":[1,1,1]}},)"
+                            R"({"Entity":6,"Parent":5,"Tag":"Bola","Editor":{"Hidden":true}}]})";
+    pasted = EntityClipboard::Paste(*scene, &db, old);
+    CHECK(pasted.Roots.size() == 1 && pasted.Entities.size() == 2 && pasted.Roots.front().GetName() == "Eski");
+    CHECK(pasted.Roots.front().GetComponent<TransformComponent>().Translation == glm::vec3(1.0f, 2.0f, 3.0f));
+    CHECK(pasted.Entities.size() == 2 && scene->IsHiddenInEditor(pasted.Entities[1], false));
+    pasted = EntityClipboard::Paste(*scene, &db, file);
+    CHECK(pasted.Roots.size() == 1 && pasted.Entities.size() == 3 && !PrefabUtility::IsInstanceRoot(pasted.Roots.front()));
+    // Not entities: nothing.
+    CHECK(EntityClipboard::Paste(*scene, &db, "{\"ZaminTransform\":1}").Entities.empty());
+    CHECK(EntityClipboard::Paste(*scene, &db, "{\"ZaminEntities\":1,\"Entities\":[1,2").Entities.empty());
+}

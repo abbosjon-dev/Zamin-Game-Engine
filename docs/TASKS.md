@@ -535,8 +535,8 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 
 - [x] 461. Top-down shooter (2D): o'yinchi, o'q otish, dushmanlar
 - [x] 462. Top-down shooter: to'lqinlar va hisob
-- [ ] 463. Breakout (2D): raketka, to'p, g'ishtlar
-- [ ] 464. Breakout: bonuslar va darajalar
+- [x] 463. Breakout (2D): raketka, to'p, g'ishtlar
+- [x] 464. Breakout: bonuslar va darajalar
 - [ ] 465. 3D FPS controller namunasi (sichqoncha bilan qarash)
 - [ ] 466. FPS: nishonlar va otish (raycast)
 - [ ] 467. Puzzle o'yin (match-3 yoki sokoban)

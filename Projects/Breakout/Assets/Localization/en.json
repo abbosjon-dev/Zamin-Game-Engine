@@ -1,0 +1,64 @@
+{
+    "$name": "English",
+    "menu": {
+        "title": "BREAKOUT",
+        "subtitle": "Smash the bricks  ·  a Zamin Engine sample",
+        "play": "Play",
+        "quit": "Quit",
+        "language": "Language: {0}",
+        "best": "Best: {0}   ·   furthest level: {1}",
+        "controls": "Mouse / A,D / arrows - paddle   ·   Space / LMB - launch, laser   ·   Esc - pause\nGamepad: left stick - paddle, A - launch, Start - pause"
+    },
+    "hud": {
+        "score_label": "SCORE",
+        "best_label": "BEST",
+        "lives_label": "LIVES",
+        "level_label": "LEVEL",
+        "powerups_label": "POWER-UPS",
+        "demo": "DEMO - autoplay",
+        "level": "{0} / {1}",
+        "bricks": "Bricks: {0}",
+        "combo": "COMBO x{0}",
+        "serve": "Space / mouse - launch the ball",
+        "level_banner": "LEVEL {0}",
+        "level_clear": "LEVEL CLEAR!",
+        "level_bonus": "+{0} bonus",
+        "ball_lost": "BALL LOST",
+        "lives_left": "Lives: {0}",
+        "wide": "WIDE  {0}",
+        "slow": "SLOW  {0}",
+        "fire": "FIRE  {0}",
+        "laser": "LASER  {0}",
+        "loop": "Loop {0}: faster!"
+    },
+    "level": {
+        "1": "Rainbow",
+        "2": "Pyramid",
+        "3": "Castle",
+        "4": "Chessboard",
+        "5": "Heart",
+        "6": "Labyrinth"
+    },
+    "pause": {
+        "title": "PAUSED",
+        "resume": "Resume",
+        "restart": "Restart",
+        "menu": "Main menu"
+    },
+    "over": {
+        "title": "GAME OVER",
+        "victory": "VICTORY!",
+        "retry": "Play again",
+        "level": "Level {0}  ·  {1} bricks",
+        "record": "NEW RECORD!",
+        "best": "Best: {0}"
+    },
+    "powerup": {
+        "wide": "WIDE PADDLE",
+        "multi": "THREE BALLS!",
+        "slow": "SLOW BALL",
+        "fire": "FIREBALL!",
+        "laser": "LASER!",
+        "life": "+1 LIFE"
+    }
+}

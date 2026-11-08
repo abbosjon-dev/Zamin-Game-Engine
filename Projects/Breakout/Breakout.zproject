@@ -1,0 +1,147 @@
+{
+    "Version": 2,
+    "Project": {
+        "Name": "Breakout",
+        "StartScene": "Scenes/Breakout.zscene",
+        "StartSceneUUID": "a134458893c29129",
+        "AssetDirectory": "Assets",
+        "SourceDirectory": "Source",
+        "ScriptModulePath": "Binaries/libBreakout.so",
+        "EngineVersion": "0.1.0"
+    },
+    "Player": {
+        "Company": "Zamin Studio",
+        "Product": "Zamin Breakout",
+        "Version": "1.0.0",
+        "Width": 1280,
+        "Height": 720,
+        "WindowMode": "Windowed",
+        "Resizable": true,
+        "VSync": true,
+        "Title": "",
+        "VersionInTitle": false,
+        "TargetFrameRate": 0,
+        "RunInBackground": true,
+        "Icon": "Textures/GameIcon.png"
+    },
+    "BuildScenes": [
+        {
+            "Path": "Scenes/Breakout.zscene",
+            "Enabled": true,
+            "UUID": "a134458893c29129"
+        }
+    ],
+    "InputActions": {
+        "Actions": [
+            {
+                "Name": "Action",
+                "Bindings": [
+                    "Key:Space",
+                    "Mouse:Left",
+                    "Key:Up",
+                    "Key:W",
+                    "Gamepad:A",
+                    "GamepadAxis:RightTrigger+"
+                ]
+            },
+            {
+                "Name": "Pause",
+                "Bindings": [
+                    "Key:Escape",
+                    "Key:P",
+                    "Gamepad:Start"
+                ]
+            }
+        ],
+        "Axes": [
+            {
+                "Name": "MoveX",
+                "Negative": [
+                    "Key:A",
+                    "Key:Left",
+                    "Gamepad:DPadLeft"
+                ],
+                "Positive": [
+                    "Key:D",
+                    "Key:Right",
+                    "Gamepad:DPadRight"
+                ],
+                "Deadzone": 0.15,
+                "Invert": false,
+                "GamepadAxis": "LeftX"
+            }
+        ],
+        "Vectors": []
+    },
+    "CollisionLayers2D": {
+        "Names": [
+            "Default",
+            "Wall",
+            "Ball",
+            "Brick",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+        ],
+        "Collisions": [
+            15,
+            5,
+            11,
+            5,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+        ]
+    },
+    "Localization": {
+        "DefaultLanguage": "uz",
+        "Languages": [
+            "uz",
+            "en"
+        ],
+        "Directory": "Localization",
+        "UseSystemLanguage": false
+    },
+    "Audio": {
+        "Groups": [
+            {
+                "Name": "Master",
+                "Volume": 1.0
+            },
+            {
+                "Name": "Music",
+                "Parent": "Master",
+                "Volume": 0.55
+            },
+            {
+                "Name": "SFX",
+                "Parent": "Master",
+                "Volume": 0.9
+            },
+            {
+                "Name": "UI",
+                "Parent": "Master",
+                "Volume": 0.8
+            }
+        ],
+        "StreamThresholdMB": 4.0
+    }
+}

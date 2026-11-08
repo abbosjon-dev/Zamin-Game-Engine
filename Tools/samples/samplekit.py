@@ -242,7 +242,7 @@ class Atlas:
         h, w = picture.shape[:2]
         if not border:
             # a glow that reaches the frame's edge would show the quad's square: fade it out there
-            picture = edge_fade(picture.copy(), max(2.0, min(w, h) * 0.08))
+            picture = edge_fade(picture.copy(), max(3.0, min(w, h) * 0.12))
         if self.x + w > self.img.shape[1]:
             self.x = 0
             self.y += self.row_h + self.pad

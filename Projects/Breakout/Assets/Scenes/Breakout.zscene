@@ -1,0 +1,6113 @@
+{
+  "Scene": "Breakout",
+  "Version": 5,
+  "Settings": {
+    "DrawSky": false,
+    "Ambient": 0.6,
+    "Exposure": 1.0,
+    "Gravity": [
+      0.0,
+      0.0
+    ],
+    "Post": {
+      "Tonemap": 1,
+      "Bloom": true,
+      "BloomThreshold": 0.85,
+      "BloomKnee": 0.55,
+      "BloomIntensity": 0.75,
+      "BloomRadius": 1.0,
+      "Vignette": 0.32,
+      "ChromaticAberration": 0.08,
+      "FilmGrain": 0.03,
+      "Saturation": 1.12,
+      "Contrast": 1.06,
+      "Brightness": 0.0,
+      "Tint": [
+        1,
+        1,
+        1
+      ],
+      "FXAA": false
+    },
+    "Lighting2D": {
+      "AmbientColor": [
+        0.75,
+        0.75,
+        0.95
+      ],
+      "AmbientIntensity": 0.7
+    }
+  },
+  "Metadata": {
+    "Description": "Zamin Breakout: raketka, to'p fizikasi, g'ishtlar, bonuslar va 6 ta daraja",
+    "Author": "Zamin",
+    "Tags": [
+      "namuna",
+      "2D",
+      "arkada"
+    ]
+  },
+  "RootOrder": [
+    8820000000000001,
+    8820000000000002,
+    8820000000000003,
+    8820000000000004,
+    8820000000000005,
+    8820000000000012,
+    8820000000000016,
+    8820000000000019,
+    8820000000000046
+  ],
+  "Entities": [
+    {
+      "Entity": 8820000000000001,
+      "Tag": "Main Camera",
+      "Transform": {
+        "Translation": [
+          0.0,
+          -0.6,
+          10.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "Camera": {
+        "ProjectionType": 1,
+        "PerspectiveFOV": 0.7854,
+        "PerspectiveNear": 0.1,
+        "PerspectiveFar": 1000,
+        "OrthographicSize": 25.0,
+        "OrthographicNear": -100,
+        "OrthographicFar": 100,
+        "Primary": true,
+        "FixedAspectRatio": false,
+        "ClearColor": [
+          0.02,
+          0.02,
+          0.05,
+          1.0
+        ]
+      }
+    },
+    {
+      "Entity": 8820000000000002,
+      "Tag": "Game",
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "NativeScript": {
+        "Class": "BreakoutGame",
+        "Fields": {
+          "Paddle": {
+            "Type": "Entity",
+            "Value": 8820000000000012
+          },
+          "Bricks": {
+            "Type": "Entity",
+            "Value": 8820000000000011
+          },
+          "BrickTemplate": {
+            "Type": "Entity",
+            "Value": 8820000000000020
+          },
+          "BallTemplate": {
+            "Type": "Entity",
+            "Value": 8820000000000022
+          },
+          "WidePowerUp": {
+            "Type": "Entity",
+            "Value": 8820000000000025
+          },
+          "MultiPowerUp": {
+            "Type": "Entity",
+            "Value": 8820000000000028
+          },
+          "SlowPowerUp": {
+            "Type": "Entity",
+            "Value": 8820000000000031
+          },
+          "FirePowerUp": {
+            "Type": "Entity",
+            "Value": 8820000000000034
+          },
+          "LaserPowerUp": {
+            "Type": "Entity",
+            "Value": 8820000000000037
+          },
+          "LifePowerUp": {
+            "Type": "Entity",
+            "Value": 8820000000000040
+          },
+          "BeamTemplate": {
+            "Type": "Entity",
+            "Value": 8820000000000043
+          },
+          "RingTemplate": {
+            "Type": "Entity",
+            "Value": 8820000000000044
+          },
+          "PopupTemplate": {
+            "Type": "Entity",
+            "Value": 8820000000000045
+          },
+          "Shards": {
+            "Type": "Entity",
+            "Value": 8820000000000017
+          },
+          "Sparks": {
+            "Type": "Entity",
+            "Value": 8820000000000018
+          },
+          "Hud": {
+            "Type": "Entity",
+            "Value": 8820000000000047
+          },
+          "ScoreText": {
+            "Type": "Entity",
+            "Value": 8820000000000049
+          },
+          "BestText": {
+            "Type": "Entity",
+            "Value": 8820000000000051
+          },
+          "Lives": {
+            "Type": "Entity",
+            "Value": 8820000000000053
+          },
+          "ComboText": {
+            "Type": "Entity",
+            "Value": 8820000000000060
+          },
+          "LevelText": {
+            "Type": "Entity",
+            "Value": 8820000000000062
+          },
+          "LevelNameText": {
+            "Type": "Entity",
+            "Value": 8820000000000063
+          },
+          "BricksText": {
+            "Type": "Entity",
+            "Value": 8820000000000064
+          },
+          "PowerText": {
+            "Type": "Entity",
+            "Value": 8820000000000066
+          },
+          "HintText": {
+            "Type": "Entity",
+            "Value": 8820000000000067
+          },
+          "Banner": {
+            "Type": "Entity",
+            "Value": 8820000000000068
+          },
+          "BannerSub": {
+            "Type": "Entity",
+            "Value": 8820000000000069
+          },
+          "DemoBadge": {
+            "Type": "Entity",
+            "Value": 8820000000000070
+          },
+          "MainMenu": {
+            "Type": "Entity",
+            "Value": 8820000000000071
+          },
+          "PauseMenu": {
+            "Type": "Entity",
+            "Value": 8820000000000082
+          },
+          "GameOverMenu": {
+            "Type": "Entity",
+            "Value": 8820000000000088
+          },
+          "MenuBest": {
+            "Type": "Entity",
+            "Value": 8820000000000080
+          },
+          "PlayButton": {
+            "Type": "Entity",
+            "Value": 8820000000000077
+          },
+          "LanguageButton": {
+            "Type": "Entity",
+            "Value": 8820000000000078
+          },
+          "ResumeButton": {
+            "Type": "Entity",
+            "Value": 8820000000000085
+          },
+          "RetryButton": {
+            "Type": "Entity",
+            "Value": 8820000000000094
+          },
+          "OverTitle": {
+            "Type": "Entity",
+            "Value": 8820000000000090
+          },
+          "OverScore": {
+            "Type": "Entity",
+            "Value": 8820000000000091
+          },
+          "OverLevel": {
+            "Type": "Entity",
+            "Value": 8820000000000092
+          },
+          "OverRecord": {
+            "Type": "Entity",
+            "Value": 8820000000000093
+          },
+          "FieldHalfWidth": {
+            "Type": "Float",
+            "Value": 10.5
+          },
+          "FieldTop": {
+            "Type": "Float",
+            "Value": 11.0
+          },
+          "FieldBottom": {
+            "Type": "Float",
+            "Value": -12.5
+          }
+        }
+      },
+      "AudioSource": {
+        "Path": "Audio/music.wav",
+        "Volume": 0.6,
+        "Pitch": 1.0,
+        "Loop": true,
+        "PlayOnStart": true,
+        "Spatial": false,
+        "MinDistance": 1.0,
+        "MaxDistance": 30.0,
+        "Output": "Music",
+        "Stream": true
+      }
+    },
+    {
+      "Entity": 8820000000000003,
+      "Tag": "Fon",
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          -2.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          48.0,
+          27.0,
+          1.0
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Texture": "Textures/backdrop.png",
+        "Tiling": 1.0,
+        "SortingOrder": -100,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      }
+    },
+    {
+      "Entity": 8820000000000004,
+      "Tag": "Fon zarralari",
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "ParticleSystem": {
+        "Playing": true,
+        "Looping": true,
+        "PlayInEditor": true,
+        "EmissionRate": 3.0,
+        "Burst": 0,
+        "MaxParticles": 80,
+        "Shape": 3,
+        "ShapeRadius": 0.5,
+        "ShapeExtents": [
+          24.0,
+          14.0,
+          0.0
+        ],
+        "LifetimeMin": 8.0,
+        "LifetimeMax": 14.0,
+        "SpeedMin": 0.05,
+        "SpeedMax": 0.25,
+        "Direction": [
+          0,
+          1,
+          0
+        ],
+        "Spread": 180.0,
+        "Gravity": [
+          0,
+          0,
+          0
+        ],
+        "Drag": 0.0,
+        "AngularVelocityMax": 0.0,
+        "StartColor": [
+          0.8,
+          0.6,
+          1.0,
+          0.25
+        ],
+        "EndColor": [
+          0.4,
+          0.7,
+          1.0,
+          0.0
+        ],
+        "StartSize": 0.5,
+        "EndSize": 0.2,
+        "RenderAsCircle": true,
+        "Additive": true,
+        "WorldSpace": true,
+        "Billboard": true,
+        "Texture": "",
+        "SortingOrder": -90,
+        "Prewarm": true
+      }
+    },
+    {
+      "Entity": 8820000000000005,
+      "Tag": "Maydon",
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "ChildOrder": [
+        8820000000000006,
+        8820000000000007,
+        8820000000000008,
+        8820000000000009,
+        8820000000000010,
+        8820000000000011
+      ]
+    },
+    {
+      "Entity": 8820000000000006,
+      "Tag": "Maydon foni",
+      "Parent": 8820000000000005,
+      "Transform": {
+        "Translation": [
+          0.0,
+          -0.75,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          0.92
+        ],
+        "Texture": "Textures/field.png",
+        "Tiling": 1.0,
+        "SortingOrder": -60,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false,
+        "Lit": true,
+        "DrawMode": "Tiled",
+        "Size": [
+          21.0,
+          23.5
+        ],
+        "PixelsPerUnit": 48.0
+      }
+    },
+    {
+      "Entity": 8820000000000007,
+      "Tag": "Chap devor",
+      "Parent": 8820000000000005,
+      "Transform": {
+        "Translation": [
+          -11.0,
+          -0.75,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Texture": "Textures/breakout_atlas.png",
+        "Tiling": 1.0,
+        "SortingOrder": -5,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false,
+        "Sprite": "frame",
+        "DrawMode": "Sliced",
+        "Size": [
+          1.0,
+          24.5
+        ],
+        "PixelsPerUnit": 40.0
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "FixedRotation": true,
+        "GravityScale": 0.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.0,
+        "Bullet": false,
+        "Layer": 1
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "Density": 1.0,
+        "Friction": 0.0,
+        "Restitution": 1.0,
+        "RestitutionThreshold": 0.0,
+        "IsSensor": false,
+        "Size": [
+          1.0,
+          24.5
+        ]
+      }
+    },
+    {
+      "Entity": 8820000000000008,
+      "Tag": "O'ng devor",
+      "Parent": 8820000000000005,
+      "Transform": {
+        "Translation": [
+          11.0,
+          -0.75,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Texture": "Textures/breakout_atlas.png",
+        "Tiling": 1.0,
+        "SortingOrder": -5,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false,
+        "Sprite": "frame",
+        "DrawMode": "Sliced",
+        "Size": [
+          1.0,
+          24.5
+        ],
+        "PixelsPerUnit": 40.0
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "FixedRotation": true,
+        "GravityScale": 0.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.0,
+        "Bullet": false,
+        "Layer": 1
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "Density": 1.0,
+        "Friction": 0.0,
+        "Restitution": 1.0,
+        "RestitutionThreshold": 0.0,
+        "IsSensor": false,
+        "Size": [
+          1.0,
+          24.5
+        ]
+      }
+    },
+    {
+      "Entity": 8820000000000009,
+      "Tag": "Yuqori devor",
+      "Parent": 8820000000000005,
+      "Transform": {
+        "Translation": [
+          0.0,
+          11.5,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Texture": "Textures/breakout_atlas.png",
+        "Tiling": 1.0,
+        "SortingOrder": -5,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false,
+        "Sprite": "frame",
+        "DrawMode": "Sliced",
+        "Size": [
+          23.0,
+          1.0
+        ],
+        "PixelsPerUnit": 40.0
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "FixedRotation": true,
+        "GravityScale": 0.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.0,
+        "Bullet": false,
+        "Layer": 1
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "Density": 1.0,
+        "Friction": 0.0,
+        "Restitution": 1.0,
+        "RestitutionThreshold": 0.0,
+        "IsSensor": false,
+        "Size": [
+          23.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "Entity": 8820000000000010,
+      "Tag": "Chegara",
+      "Parent": 8820000000000005,
+      "Transform": {
+        "Translation": [
+          0.0,
+          -11.9,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          21.0,
+          0.06,
+          1.0
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          1.4,
+          0.3,
+          0.6,
+          0.55
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": -50,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      }
+    },
+    {
+      "Entity": 8820000000000011,
+      "Tag": "G'ishtlar",
+      "Parent": 8820000000000005,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "Entity": 8820000000000012,
+      "Tag": "Raketka",
+      "Transform": {
+        "Translation": [
+          0.0,
+          -10.5,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "Light2D": {
+        "Type": "Point",
+        "Color": [
+          0.4,
+          0.9,
+          1.0
+        ],
+        "Intensity": 0.8,
+        "Radius": 5.5,
+        "InnerRadius": 0.5,
+        "Falloff": 1.8,
+        "SpotAngle": 60.0,
+        "SpotSoftness": 0.3,
+        "Flicker": 0.0,
+        "FlickerSpeed": 8.0
+      },
+      "NativeScript": {
+        "Class": "PaddleController",
+        "Fields": {
+          "Speed": {
+            "Type": "Float",
+            "Value": 26.0
+          },
+          "Width": {
+            "Type": "Float",
+            "Value": 3.2
+          }
+        }
+      },
+      "ChildOrder": [
+        8820000000000013,
+        8820000000000014,
+        8820000000000015
+      ]
+    },
+    {
+      "Entity": 8820000000000013,
+      "Tag": "Visual",
+      "Parent": 8820000000000012,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          3.2,
+          0.7,
+          1.0
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          1.1,
+          1.15,
+          1.25,
+          1.0
+        ],
+        "Texture": "Textures/breakout_atlas.png",
+        "Tiling": 1.0,
+        "SortingOrder": 20,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false,
+        "Sprite": "paddle"
+      }
+    },
+    {
+      "Entity": 8820000000000014,
+      "Tag": "Lazer (chap)",
+      "Active": false,
+      "Parent": 8820000000000012,
+      "Transform": {
+        "Translation": [
+          -1.25,
+          0.38,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          0.36,
+          0.45,
+          1.0
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          1.2,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Texture": "Textures/breakout_atlas.png",
+        "Tiling": 1.0,
+        "SortingOrder": 19,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false,
+        "Sprite": "turret"
+      }
+    },
+    {
+      "Entity": 8820000000000015,
+      "Tag": "Lazer (o'ng)",
+      "Active": false,
+      "Parent": 8820000000000012,
+      "Transform": {
+        "Translation": [
+          1.25,
+          0.38,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          0.36,
+          0.45,
+          1.0
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          1.2,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Texture": "Textures/breakout_atlas.png",
+        "Tiling": 1.0,
+        "SortingOrder": 19,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false,
+        "Sprite": "turret"
+      }
+    },
+    {
+      "Entity": 8820000000000016,
+      "Tag": "Effektlar",
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "ChildOrder": [
+        8820000000000017,
+        8820000000000018
+      ]
+    },
+    {
+      "Entity": 8820000000000017,
+      "Tag": "Parchalar",
+      "Parent": 8820000000000016,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "ParticleSystem": {
+        "Playing": true,
+        "Looping": true,
+        "PlayInEditor": true,
+        "EmissionRate": 0.0,
+        "Burst": 0,
+        "MaxParticles": 1500,
+        "Shape": 3,
+        "ShapeRadius": 0.5,
+        "ShapeExtents": [
+          0.7,
+          0.25,
+          0.0
+        ],
+        "LifetimeMin": 0.5,
+        "LifetimeMax": 1.1,
+        "SpeedMin": 2.0,
+        "SpeedMax": 7.0,
+        "Direction": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "Spread": 75.0,
+        "Gravity": [
+          0.0,
+          -18.0,
+          0.0
+        ],
+        "Drag": 0.6,
+        "AngularVelocityMax": 8.0,
+        "StartColor": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "EndColor": [
+          1.0,
+          1.0,
+          1.0,
+          0.0
+        ],
+        "StartSize": 0.24,
+        "EndSize": 0.06,
+        "RenderAsCircle": false,
+        "Additive": true,
+        "WorldSpace": true,
+        "Billboard": true,
+        "Texture": "",
+        "SortingOrder": 30
+      }
+    },
+    {
+      "Entity": 8820000000000018,
+      "Tag": "Uchqunlar",
+      "Parent": 8820000000000016,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "ParticleSystem": {
+        "Playing": true,
+        "Looping": true,
+        "PlayInEditor": true,
+        "EmissionRate": 0.0,
+        "Burst": 0,
+        "MaxParticles": 800,
+        "Shape": 0,
+        "ShapeRadius": 0.5,
+        "ShapeExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "LifetimeMin": 0.1,
+        "LifetimeMax": 0.3,
+        "SpeedMin": 3.0,
+        "SpeedMax": 9.0,
+        "Direction": [
+          0,
+          1,
+          0
+        ],
+        "Spread": 180.0,
+        "Gravity": [
+          0,
+          0,
+          0
+        ],
+        "Drag": 4.0,
+        "AngularVelocityMax": 0.0,
+        "StartColor": [
+          2.0,
+          2.0,
+          2.0,
+          1.0
+        ],
+        "EndColor": [
+          1.0,
+          0.8,
+          0.5,
+          0.0
+        ],
+        "StartSize": 0.14,
+        "EndSize": 0.0,
+        "RenderAsCircle": true,
+        "Additive": true,
+        "WorldSpace": true,
+        "Billboard": true,
+        "Texture": "",
+        "SortingOrder": 31
+      }
+    },
+    {
+      "Entity": 8820000000000019,
+      "Tag": "Shablonlar",
+      "Active": false,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "ChildOrder": [
+        8820000000000020,
+        8820000000000022,
+        8820000000000025,
+        8820000000000028,
+        8820000000000031,
+        8820000000000034,
+        8820000000000037,
+        8820000000000040,
+        8820000000000043,
+        8820000000000044,
+        8820000000000045
+      ]
+    },
+    {
+      "Entity": 8820000000000020,
+      "Tag": "G'isht",
+      "Parent": 8820000000000019,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "FixedRotation": true,
+        "GravityScale": 0.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.0,
+        "Bullet": false,
+        "Layer": 3
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "Density": 1.0,
+        "Friction": 0.0,
+        "Restitution": 1.0,
+        "RestitutionThreshold": 0.0,
+        "IsSensor": false,
+        "Size": [
+          1.5,
+          0.6
+        ]
+      },
+      "NativeScript": {
+        "Class": "Brick",
+        "Fields": {}
+      },
+      "ChildOrder": [
+        8820000000000021
+      ]
+    },
+    {
+      "Entity": 8820000000000021,
+      "Tag": "Visual",
+      "Parent": 8820000000000020,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.5,
+          0.6,
+          1.0
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Texture": "Textures/breakout_atlas.png",
+        "Tiling": 1.0,
+        "SortingOrder": 10,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false,
+        "Sprite": "brick"
+      }
+    },
+    {
+      "Entity": 8820000000000022,
+      "Tag": "To'p",
+      "Parent": 8820000000000019,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": true,
+        "GravityScale": 0.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.0,
+        "Bullet": true,
+        "Layer": 2
+      },
+      "CircleCollider2D": {
+        "Offset": [
+          0.0,
+          0.0
+        ],
+        "Density": 1.0,
+        "Friction": 0.0,
+        "Restitution": 1.0,
+        "RestitutionThreshold": 0.0,
+        "IsSensor": false,
+        "Radius": 0.28
+      },
+      "Light2D": {
+        "Type": "Point",
+        "Color": [
+          0.6,
+          0.85,
+          1.0
+        ],
+        "Intensity": 1.1,
+        "Radius": 5.0,
+        "InnerRadius": 0.4,
+        "Falloff": 1.8,
+        "SpotAngle": 60.0,
+        "SpotSoftness": 0.3,
+        "Flicker": 0.0,
+        "FlickerSpeed": 8.0
+      },
+      "NativeScript": {
+        "Class": "Ball",
+        "Fields": {
+          "Speed": {
+            "Type": "Float",
+            "Value": 13.0
+          },
+          "MaxSpeed": {
+            "Type": "Float",
+            "Value": 22.0
+          }
+        }
+      },
+      "ChildOrder": [
+        8820000000000023,
+        8820000000000024
+      ]
+    },
+    {
+      "Entity": 8820000000000023,
+      "Tag": "Visual",
+      "Parent": 8820000000000022,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          0.75,
+          0.75,
+          1.0
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          1.3,
+          1.35,
+          1.45,
+          1.0
+        ],
+        "Texture": "Textures/breakout_atlas.png",
+        "Tiling": 1.0,
+        "SortingOrder": 25,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false,
+        "Sprite": "ball"
+      }
+    },
+    {
+      "Entity": 8820000000000024,
+      "Tag": "Iz",
+      "Parent": 8820000000000022,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "ParticleSystem": {
+        "Playing": true,
+        "Looping": true,
+        "PlayInEditor": true,
+        "EmissionRate": 55.0,
+        "Burst": 0,
+        "MaxParticles": 120,
+        "Shape": 0,
+        "ShapeRadius": 0.5,
+        "ShapeExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "LifetimeMin": 0.22,
+        "LifetimeMax": 0.35,
+        "SpeedMin": 0.0,
+        "SpeedMax": 0.3,
+        "Direction": [
+          0,
+          1,
+          0
+        ],
+        "Spread": 180.0,
+        "Gravity": [
+          0,
+          0,
+          0
+        ],
+        "Drag": 0.0,
+        "AngularVelocityMax": 0.0,
+        "StartColor": [
+          0.5,
+          1.1,
+          1.8,
+          0.8
+        ],
+        "EndColor": [
+          0.3,
+          0.2,
+          1.0,
+          0.0
+        ],
+        "StartSize": 0.42,
+        "EndSize": 0.05,
+        "RenderAsCircle": true,
+        "Additive": true,
+        "WorldSpace": true,
+        "Billboard": true,
+        "Texture": "",
+        "SortingOrder": 24
+      }
+    },
+    {
+      "Entity": 8820000000000025,
+      "Tag": "Bonus: Keng",
+      "Parent": 8820000000000019,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "Light2D": {
+        "Type": "Point",
+        "Color": [
+          0.35,
+          0.8,
+          1.0
+        ],
+        "Intensity": 0.7,
+        "Radius": 2.5,
+        "InnerRadius": 0.0,
+        "Falloff": 2.0,
+        "SpotAngle": 60.0,
+        "SpotSoftness": 0.3,
+        "Flicker": 0.0,
+        "FlickerSpeed": 8.0
+      },
+      "NativeScript": {
+        "Class": "PowerUp",
+        "Fields": {
+          "Kind": {
+            "Type": "Enum",
+            "Value": 0
+          },
+          "FallSpeed": {
+            "Type": "Float",
+            "Value": 4.5
+          }
+        }
+      },
+      "ChildOrder": [
+        8820000000000026,
+        8820000000000027
+      ]
+    },
+    {
+      "Entity": 8820000000000026,
+      "Tag": "Visual",
+      "Parent": 8820000000000025,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.5,
+          0.64,
+          1.0
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.4725,
+          1.08,
+          1.35,
+          1.0
+        ],
+        "Texture": "Textures/breakout_atlas.png",
+        "Tiling": 1.0,
+        "SortingOrder": 22,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false,
+        "Sprite": "capsule"
+      }
+    },
+    {
+      "Entity": 8820000000000027,
+      "Tag": "Harf",
+      "Parent": 8820000000000025,
+      "Transform": {
+        "Translation": [
+          0.0,
+          -0.02,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          0.62,
+          0.62,
+          1.0
+        ]
+      },
+      "Text": {
+        "Text": "K",
+        "Color": [
+          0.06,
+          0.05,
+          0.12,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": "",
+        "SortingOrder": 1023
+      }
+    },
+    {
+      "Entity": 8820000000000028,
+      "Tag": "Bonus: Ko'p to'p",
+      "Parent": 8820000000000019,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "Light2D": {
+        "Type": "Point",
+        "Color": [
+          0.45,
+          1.0,
+          0.5
+        ],
+        "Intensity": 0.7,
+        "Radius": 2.5,
+        "InnerRadius": 0.0,
+        "Falloff": 2.0,
+        "SpotAngle": 60.0,
+        "SpotSoftness": 0.3,
+        "Flicker": 0.0,
+        "FlickerSpeed": 8.0
+      },
+      "NativeScript": {
+        "Class": "PowerUp",
+        "Fields": {
+          "Kind": {
+            "Type": "Enum",
+            "Value": 1
+          },
+          "FallSpeed": {
+            "Type": "Float",
+            "Value": 4.5
+          }
+        }
+      },
+      "ChildOrder": [
+        8820000000000029,
+        8820000000000030
+      ]
+    },
+    {
+      "Entity": 8820000000000029,
+      "Tag": "Visual",
+      "Parent": 8820000000000028,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.5,
+          0.64,
+          1.0
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.6075,
+          1.35,
+          0.675,
+          1.0
+        ],
+        "Texture": "Textures/breakout_atlas.png",
+        "Tiling": 1.0,
+        "SortingOrder": 22,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false,
+        "Sprite": "capsule"
+      }
+    },
+    {
+      "Entity": 8820000000000030,
+      "Tag": "Harf",
+      "Parent": 8820000000000028,
+      "Transform": {
+        "Translation": [
+          0.0,
+          -0.02,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          0.62,
+          0.62,
+          1.0
+        ]
+      },
+      "Text": {
+        "Text": "x3",
+        "Color": [
+          0.06,
+          0.05,
+          0.12,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": "",
+        "SortingOrder": 1023
+      }
+    },
+    {
+      "Entity": 8820000000000031,
+      "Tag": "Bonus: Sekin",
+      "Parent": 8820000000000019,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "Light2D": {
+        "Type": "Point",
+        "Color": [
+          1.0,
+          0.85,
+          0.3
+        ],
+        "Intensity": 0.7,
+        "Radius": 2.5,
+        "InnerRadius": 0.0,
+        "Falloff": 2.0,
+        "SpotAngle": 60.0,
+        "SpotSoftness": 0.3,
+        "Flicker": 0.0,
+        "FlickerSpeed": 8.0
+      },
+      "NativeScript": {
+        "Class": "PowerUp",
+        "Fields": {
+          "Kind": {
+            "Type": "Enum",
+            "Value": 2
+          },
+          "FallSpeed": {
+            "Type": "Float",
+            "Value": 4.5
+          }
+        }
+      },
+      "ChildOrder": [
+        8820000000000032,
+        8820000000000033
+      ]
+    },
+    {
+      "Entity": 8820000000000032,
+      "Tag": "Visual",
+      "Parent": 8820000000000031,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.5,
+          0.64,
+          1.0
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          1.35,
+          1.1475,
+          0.405,
+          1.0
+        ],
+        "Texture": "Textures/breakout_atlas.png",
+        "Tiling": 1.0,
+        "SortingOrder": 22,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false,
+        "Sprite": "capsule"
+      }
+    },
+    {
+      "Entity": 8820000000000033,
+      "Tag": "Harf",
+      "Parent": 8820000000000031,
+      "Transform": {
+        "Translation": [
+          0.0,
+          -0.02,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          0.62,
+          0.62,
+          1.0
+        ]
+      },
+      "Text": {
+        "Text": "S",
+        "Color": [
+          0.06,
+          0.05,
+          0.12,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": "",
+        "SortingOrder": 1023
+      }
+    },
+    {
+      "Entity": 8820000000000034,
+      "Tag": "Bonus: Olov",
+      "Parent": 8820000000000019,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "Light2D": {
+        "Type": "Point",
+        "Color": [
+          1.0,
+          0.45,
+          0.2
+        ],
+        "Intensity": 0.7,
+        "Radius": 2.5,
+        "InnerRadius": 0.0,
+        "Falloff": 2.0,
+        "SpotAngle": 60.0,
+        "SpotSoftness": 0.3,
+        "Flicker": 0.0,
+        "FlickerSpeed": 8.0
+      },
+      "NativeScript": {
+        "Class": "PowerUp",
+        "Fields": {
+          "Kind": {
+            "Type": "Enum",
+            "Value": 3
+          },
+          "FallSpeed": {
+            "Type": "Float",
+            "Value": 4.5
+          }
+        }
+      },
+      "ChildOrder": [
+        8820000000000035,
+        8820000000000036
+      ]
+    },
+    {
+      "Entity": 8820000000000035,
+      "Tag": "Visual",
+      "Parent": 8820000000000034,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.5,
+          0.64,
+          1.0
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          1.35,
+          0.6075,
+          0.27,
+          1.0
+        ],
+        "Texture": "Textures/breakout_atlas.png",
+        "Tiling": 1.0,
+        "SortingOrder": 22,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false,
+        "Sprite": "capsule"
+      }
+    },
+    {
+      "Entity": 8820000000000036,
+      "Tag": "Harf",
+      "Parent": 8820000000000034,
+      "Transform": {
+        "Translation": [
+          0.0,
+          -0.02,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          0.62,
+          0.62,
+          1.0
+        ]
+      },
+      "Text": {
+        "Text": "O",
+        "Color": [
+          0.06,
+          0.05,
+          0.12,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": "",
+        "SortingOrder": 1023
+      }
+    },
+    {
+      "Entity": 8820000000000037,
+      "Tag": "Bonus: Lazer",
+      "Parent": 8820000000000019,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "Light2D": {
+        "Type": "Point",
+        "Color": [
+          1.0,
+          0.3,
+          0.45
+        ],
+        "Intensity": 0.7,
+        "Radius": 2.5,
+        "InnerRadius": 0.0,
+        "Falloff": 2.0,
+        "SpotAngle": 60.0,
+        "SpotSoftness": 0.3,
+        "Flicker": 0.0,
+        "FlickerSpeed": 8.0
+      },
+      "NativeScript": {
+        "Class": "PowerUp",
+        "Fields": {
+          "Kind": {
+            "Type": "Enum",
+            "Value": 4
+          },
+          "FallSpeed": {
+            "Type": "Float",
+            "Value": 4.5
+          }
+        }
+      },
+      "ChildOrder": [
+        8820000000000038,
+        8820000000000039
+      ]
+    },
+    {
+      "Entity": 8820000000000038,
+      "Tag": "Visual",
+      "Parent": 8820000000000037,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.5,
+          0.64,
+          1.0
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          1.35,
+          0.405,
+          0.6075,
+          1.0
+        ],
+        "Texture": "Textures/breakout_atlas.png",
+        "Tiling": 1.0,
+        "SortingOrder": 22,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false,
+        "Sprite": "capsule"
+      }
+    },
+    {
+      "Entity": 8820000000000039,
+      "Tag": "Harf",
+      "Parent": 8820000000000037,
+      "Transform": {
+        "Translation": [
+          0.0,
+          -0.02,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          0.62,
+          0.62,
+          1.0
+        ]
+      },
+      "Text": {
+        "Text": "L",
+        "Color": [
+          0.06,
+          0.05,
+          0.12,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": "",
+        "SortingOrder": 1023
+      }
+    },
+    {
+      "Entity": 8820000000000040,
+      "Tag": "Bonus: Jon",
+      "Parent": 8820000000000019,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "Light2D": {
+        "Type": "Point",
+        "Color": [
+          1.0,
+          0.45,
+          0.85
+        ],
+        "Intensity": 0.7,
+        "Radius": 2.5,
+        "InnerRadius": 0.0,
+        "Falloff": 2.0,
+        "SpotAngle": 60.0,
+        "SpotSoftness": 0.3,
+        "Flicker": 0.0,
+        "FlickerSpeed": 8.0
+      },
+      "NativeScript": {
+        "Class": "PowerUp",
+        "Fields": {
+          "Kind": {
+            "Type": "Enum",
+            "Value": 5
+          },
+          "FallSpeed": {
+            "Type": "Float",
+            "Value": 4.5
+          }
+        }
+      },
+      "ChildOrder": [
+        8820000000000041,
+        8820000000000042
+      ]
+    },
+    {
+      "Entity": 8820000000000041,
+      "Tag": "Visual",
+      "Parent": 8820000000000040,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.5,
+          0.64,
+          1.0
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          1.35,
+          0.6075,
+          1.1475,
+          1.0
+        ],
+        "Texture": "Textures/breakout_atlas.png",
+        "Tiling": 1.0,
+        "SortingOrder": 22,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false,
+        "Sprite": "capsule"
+      }
+    },
+    {
+      "Entity": 8820000000000042,
+      "Tag": "Harf",
+      "Parent": 8820000000000040,
+      "Transform": {
+        "Translation": [
+          0.0,
+          -0.02,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          0.62,
+          0.62,
+          1.0
+        ]
+      },
+      "Text": {
+        "Text": "+1",
+        "Color": [
+          0.06,
+          0.05,
+          0.12,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": "",
+        "SortingOrder": 1023
+      }
+    },
+    {
+      "Entity": 8820000000000043,
+      "Tag": "Lazer nuri",
+      "Parent": 8820000000000019,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          2.6,
+          0.6,
+          0.8,
+          1.0
+        ],
+        "Texture": "Textures/breakout_atlas.png",
+        "Tiling": 1.0,
+        "SortingOrder": 21,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false,
+        "Sprite": "beam"
+      },
+      "NativeScript": {
+        "Class": "FxAnimator",
+        "Fields": {
+          "Lifetime": {
+            "Type": "Float",
+            "Value": 0.18
+          },
+          "StartScale": {
+            "Type": "Float",
+            "Value": 1.0
+          },
+          "EndScale": {
+            "Type": "Float",
+            "Value": 1.0
+          },
+          "FadeOut": {
+            "Type": "Float",
+            "Value": 0.18
+          },
+          "KeepScale": {
+            "Type": "Bool",
+            "Value": true
+          }
+        }
+      }
+    },
+    {
+      "Entity": 8820000000000044,
+      "Tag": "Halqa",
+      "Parent": 8820000000000019,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          2.0,
+          2.0,
+          2.0,
+          1.0
+        ],
+        "Texture": "Textures/breakout_atlas.png",
+        "Tiling": 1.0,
+        "SortingOrder": 29,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false,
+        "Sprite": "ring"
+      },
+      "NativeScript": {
+        "Class": "FxAnimator",
+        "Fields": {
+          "Lifetime": {
+            "Type": "Float",
+            "Value": 0.4
+          },
+          "StartScale": {
+            "Type": "Float",
+            "Value": 0.4
+          },
+          "EndScale": {
+            "Type": "Float",
+            "Value": 3.2
+          },
+          "FadeOut": {
+            "Type": "Float",
+            "Value": 0.4
+          }
+        }
+      }
+    },
+    {
+      "Entity": 8820000000000045,
+      "Tag": "Ochko",
+      "Parent": 8820000000000019,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          1.0
+        ]
+      },
+      "Text": {
+        "Text": "+10",
+        "Color": [
+          1.0,
+          1.0,
+          0.7,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": "",
+        "SortingOrder": 1100
+      },
+      "NativeScript": {
+        "Class": "FxAnimator",
+        "Fields": {
+          "Lifetime": {
+            "Type": "Float",
+            "Value": 0.8
+          },
+          "StartScale": {
+            "Type": "Float",
+            "Value": 0.6
+          },
+          "EndScale": {
+            "Type": "Float",
+            "Value": 1.0
+          },
+          "Rise": {
+            "Type": "Float",
+            "Value": 1.4
+          },
+          "FadeOut": {
+            "Type": "Float",
+            "Value": 0.3
+          },
+          "Pop": {
+            "Type": "Bool",
+            "Value": true
+          }
+        }
+      }
+    },
+    {
+      "Entity": 8820000000000046,
+      "Tag": "UI",
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.0,
+          0.0
+        ],
+        "AnchorMax": [
+          1.0,
+          1.0
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          0.0,
+          0.0
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UICanvas": {
+        "ScaleMode": "ScaleWithScreenSize",
+        "ScaleFactor": 1.0,
+        "ReferenceResolution": [
+          1920.0,
+          1080.0
+        ],
+        "MatchMode": "MatchWidthOrHeight",
+        "Match": 0.5
+      },
+      "ChildOrder": [
+        8820000000000047,
+        8820000000000071,
+        8820000000000082,
+        8820000000000088
+      ]
+    },
+    {
+      "Entity": 8820000000000047,
+      "Tag": "HUD",
+      "Parent": 8820000000000046,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.0,
+          0.0
+        ],
+        "AnchorMax": [
+          1.0,
+          1.0
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          0.0,
+          0.0
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "ChildOrder": [
+        8820000000000048,
+        8820000000000049,
+        8820000000000050,
+        8820000000000051,
+        8820000000000052,
+        8820000000000053,
+        8820000000000060,
+        8820000000000061,
+        8820000000000062,
+        8820000000000063,
+        8820000000000064,
+        8820000000000065,
+        8820000000000066,
+        8820000000000067,
+        8820000000000068,
+        8820000000000070
+      ]
+    },
+    {
+      "Entity": 8820000000000048,
+      "Tag": "Hisob yorlig'i",
+      "Parent": 8820000000000047,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.0,
+          1.0
+        ],
+        "AnchorMax": [
+          0.0,
+          1.0
+        ],
+        "Pivot": [
+          0.0,
+          1.0
+        ],
+        "Position": [
+          60.0,
+          -70.0
+        ],
+        "Size": [
+          420.0,
+          32.0
+        ],
+        "FontSize": 28.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "HISOB",
+        "Color": [
+          0.75,
+          0.6,
+          1.0,
+          0.9
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Font": "",
+        "LocalizationKey": "hud.score_label"
+      }
+    },
+    {
+      "Entity": 8820000000000049,
+      "Tag": "Hisob",
+      "Parent": 8820000000000047,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.0,
+          1.0
+        ],
+        "AnchorMax": [
+          0.0,
+          1.0
+        ],
+        "Pivot": [
+          0.0,
+          1.0
+        ],
+        "Position": [
+          58.0,
+          -104.0
+        ],
+        "Size": [
+          460.0,
+          80.0
+        ],
+        "FontSize": 70.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "0",
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8820000000000050,
+      "Tag": "Rekord yorlig'i",
+      "Parent": 8820000000000047,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.0,
+          1.0
+        ],
+        "AnchorMax": [
+          0.0,
+          1.0
+        ],
+        "Pivot": [
+          0.0,
+          1.0
+        ],
+        "Position": [
+          60.0,
+          -210.0
+        ],
+        "Size": [
+          420.0,
+          30.0
+        ],
+        "FontSize": 26.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "REKORD",
+        "Color": [
+          0.75,
+          0.6,
+          1.0,
+          0.9
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Font": "",
+        "LocalizationKey": "hud.best_label"
+      }
+    },
+    {
+      "Entity": 8820000000000051,
+      "Tag": "Rekord",
+      "Parent": 8820000000000047,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.0,
+          1.0
+        ],
+        "AnchorMax": [
+          0.0,
+          1.0
+        ],
+        "Pivot": [
+          0.0,
+          1.0
+        ],
+        "Position": [
+          60.0,
+          -242.0
+        ],
+        "Size": [
+          420.0,
+          50.0
+        ],
+        "FontSize": 42.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "0",
+        "Color": [
+          1.0,
+          0.85,
+          0.4,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8820000000000052,
+      "Tag": "Jonlar yorlig'i",
+      "Parent": 8820000000000047,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.0,
+          1.0
+        ],
+        "AnchorMax": [
+          0.0,
+          1.0
+        ],
+        "Pivot": [
+          0.0,
+          1.0
+        ],
+        "Position": [
+          60.0,
+          -330.0
+        ],
+        "Size": [
+          420.0,
+          30.0
+        ],
+        "FontSize": 26.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "JONLAR",
+        "Color": [
+          0.75,
+          0.6,
+          1.0,
+          0.9
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Font": "",
+        "LocalizationKey": "hud.lives_label"
+      }
+    },
+    {
+      "Entity": 8820000000000053,
+      "Tag": "Jonlar",
+      "Parent": 8820000000000047,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.0,
+          1.0
+        ],
+        "AnchorMax": [
+          0.0,
+          1.0
+        ],
+        "Pivot": [
+          0.0,
+          1.0
+        ],
+        "Position": [
+          60.0,
+          -368.0
+        ],
+        "Size": [
+          420.0,
+          48.0
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UILayoutGroup": {
+        "Type": "Horizontal",
+        "Padding": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Alignment": 3,
+        "FitWidth": false,
+        "FitHeight": false,
+        "Spacing": 8.0,
+        "Reverse": false,
+        "ControlWidth": false,
+        "ControlHeight": false,
+        "ExpandWidth": false,
+        "ExpandHeight": false
+      },
+      "ChildOrder": [
+        8820000000000054,
+        8820000000000055,
+        8820000000000056,
+        8820000000000057,
+        8820000000000058,
+        8820000000000059
+      ]
+    },
+    {
+      "Entity": 8820000000000054,
+      "Tag": "Jon 1",
+      "Parent": 8820000000000053,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          40.0,
+          40.0
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Type": "Simple",
+        "PreserveAspect": true,
+        "PixelArt": false,
+        "RaycastTarget": false,
+        "Texture": "Textures/breakout_atlas.png",
+        "Sprite": "ball_icon"
+      }
+    },
+    {
+      "Entity": 8820000000000055,
+      "Tag": "Jon 2",
+      "Parent": 8820000000000053,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          40.0,
+          40.0
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Type": "Simple",
+        "PreserveAspect": true,
+        "PixelArt": false,
+        "RaycastTarget": false,
+        "Texture": "Textures/breakout_atlas.png",
+        "Sprite": "ball_icon"
+      }
+    },
+    {
+      "Entity": 8820000000000056,
+      "Tag": "Jon 3",
+      "Parent": 8820000000000053,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          40.0,
+          40.0
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Type": "Simple",
+        "PreserveAspect": true,
+        "PixelArt": false,
+        "RaycastTarget": false,
+        "Texture": "Textures/breakout_atlas.png",
+        "Sprite": "ball_icon"
+      }
+    },
+    {
+      "Entity": 8820000000000057,
+      "Tag": "Jon 4",
+      "Parent": 8820000000000053,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          40.0,
+          40.0
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Type": "Simple",
+        "PreserveAspect": true,
+        "PixelArt": false,
+        "RaycastTarget": false,
+        "Texture": "Textures/breakout_atlas.png",
+        "Sprite": "ball_icon"
+      }
+    },
+    {
+      "Entity": 8820000000000058,
+      "Tag": "Jon 5",
+      "Parent": 8820000000000053,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          40.0,
+          40.0
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Type": "Simple",
+        "PreserveAspect": true,
+        "PixelArt": false,
+        "RaycastTarget": false,
+        "Texture": "Textures/breakout_atlas.png",
+        "Sprite": "ball_icon"
+      }
+    },
+    {
+      "Entity": 8820000000000059,
+      "Tag": "Jon 6",
+      "Parent": 8820000000000053,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          40.0,
+          40.0
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Type": "Simple",
+        "PreserveAspect": true,
+        "PixelArt": false,
+        "RaycastTarget": false,
+        "Texture": "Textures/breakout_atlas.png",
+        "Sprite": "ball_icon"
+      }
+    },
+    {
+      "Entity": 8820000000000060,
+      "Tag": "Kombo",
+      "Parent": 8820000000000047,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.0,
+          1.0
+        ],
+        "AnchorMax": [
+          0.0,
+          1.0
+        ],
+        "Pivot": [
+          0.0,
+          1.0
+        ],
+        "Position": [
+          60.0,
+          -450.0
+        ],
+        "Size": [
+          440.0,
+          46.0
+        ],
+        "FontSize": 38.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "",
+        "Color": [
+          1.0,
+          0.75,
+          0.35,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8820000000000061,
+      "Tag": "Daraja yorlig'i",
+      "Parent": 8820000000000047,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          1.0,
+          1.0
+        ],
+        "AnchorMax": [
+          1.0,
+          1.0
+        ],
+        "Pivot": [
+          1.0,
+          1.0
+        ],
+        "Position": [
+          -60.0,
+          -70.0
+        ],
+        "Size": [
+          420.0,
+          32.0
+        ],
+        "FontSize": 28.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "DARAJA",
+        "Color": [
+          0.75,
+          0.6,
+          1.0,
+          0.9
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Right",
+        "AlignV": "Middle",
+        "Font": "",
+        "LocalizationKey": "hud.level_label"
+      }
+    },
+    {
+      "Entity": 8820000000000062,
+      "Tag": "Daraja",
+      "Parent": 8820000000000047,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          1.0,
+          1.0
+        ],
+        "AnchorMax": [
+          1.0,
+          1.0
+        ],
+        "Pivot": [
+          1.0,
+          1.0
+        ],
+        "Position": [
+          -58.0,
+          -104.0
+        ],
+        "Size": [
+          420.0,
+          80.0
+        ],
+        "FontSize": 70.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "1 / 6",
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Right",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8820000000000063,
+      "Tag": "Daraja nomi",
+      "Parent": 8820000000000047,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          1.0,
+          1.0
+        ],
+        "AnchorMax": [
+          1.0,
+          1.0
+        ],
+        "Pivot": [
+          1.0,
+          1.0
+        ],
+        "Position": [
+          -60.0,
+          -186.0
+        ],
+        "Size": [
+          440.0,
+          40.0
+        ],
+        "FontSize": 32.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "",
+        "Color": [
+          0.8,
+          0.9,
+          1.0,
+          0.9
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Right",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8820000000000064,
+      "Tag": "G'ishtlar",
+      "Parent": 8820000000000047,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          1.0,
+          1.0
+        ],
+        "AnchorMax": [
+          1.0,
+          1.0
+        ],
+        "Pivot": [
+          1.0,
+          1.0
+        ],
+        "Position": [
+          -60.0,
+          -232.0
+        ],
+        "Size": [
+          440.0,
+          34.0
+        ],
+        "FontSize": 26.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "",
+        "Color": [
+          0.75,
+          0.75,
+          0.9,
+          0.8
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Right",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8820000000000065,
+      "Tag": "Bonuslar yorlig'i",
+      "Parent": 8820000000000047,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          1.0,
+          1.0
+        ],
+        "AnchorMax": [
+          1.0,
+          1.0
+        ],
+        "Pivot": [
+          1.0,
+          1.0
+        ],
+        "Position": [
+          -60.0,
+          -330.0
+        ],
+        "Size": [
+          420.0,
+          30.0
+        ],
+        "FontSize": 26.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "BONUSLAR",
+        "Color": [
+          0.75,
+          0.6,
+          1.0,
+          0.9
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Right",
+        "AlignV": "Middle",
+        "Font": "",
+        "LocalizationKey": "hud.powerups_label"
+      }
+    },
+    {
+      "Entity": 8820000000000066,
+      "Tag": "Bonuslar",
+      "Parent": 8820000000000047,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          1.0,
+          1.0
+        ],
+        "AnchorMax": [
+          1.0,
+          1.0
+        ],
+        "Pivot": [
+          1.0,
+          1.0
+        ],
+        "Position": [
+          -60.0,
+          -368.0
+        ],
+        "Size": [
+          460.0,
+          200.0
+        ],
+        "FontSize": 30.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "",
+        "Color": [
+          0.7,
+          1.0,
+          0.8,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Right",
+        "AlignV": "Top",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8820000000000067,
+      "Tag": "Maslahat",
+      "Parent": 8820000000000047,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.0
+        ],
+        "AnchorMax": [
+          0.5,
+          0.0
+        ],
+        "Pivot": [
+          0.5,
+          0.0
+        ],
+        "Position": [
+          0.0,
+          40.0
+        ],
+        "Size": [
+          1000.0,
+          40.0
+        ],
+        "FontSize": 30.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "",
+        "Color": [
+          0.85,
+          0.85,
+          1.0,
+          0.9
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8820000000000068,
+      "Tag": "E'lon",
+      "Parent": 8820000000000047,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          80.0
+        ],
+        "Size": [
+          1200.0,
+          120.0
+        ],
+        "FontSize": 100.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "",
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": ""
+      },
+      "UIAnimation": {
+        "Show": "Pop",
+        "Hide": "Fade",
+        "ShowAtStart": true,
+        "Duration": 0.35,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.0,
+        "PressScale": 1.0,
+        "FeedbackDuration": 0.08
+      },
+      "ChildOrder": [
+        8820000000000069
+      ]
+    },
+    {
+      "Entity": 8820000000000069,
+      "Tag": "E'lon izohi",
+      "Parent": 8820000000000068,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.0
+        ],
+        "AnchorMax": [
+          0.5,
+          0.0
+        ],
+        "Pivot": [
+          0.5,
+          1.0
+        ],
+        "Position": [
+          0.0,
+          -6.0
+        ],
+        "Size": [
+          1100.0,
+          50.0
+        ],
+        "FontSize": 38.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "",
+        "Color": [
+          0.85,
+          0.8,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8820000000000070,
+      "Tag": "Demo belgisi",
+      "Active": false,
+      "Parent": 8820000000000047,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          1.0
+        ],
+        "AnchorMax": [
+          0.5,
+          1.0
+        ],
+        "Pivot": [
+          0.5,
+          1.0
+        ],
+        "Position": [
+          0.0,
+          -14.0
+        ],
+        "Size": [
+          900.0,
+          34.0
+        ],
+        "FontSize": 26.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "DEMO - avtomatik o'yin",
+        "Color": [
+          1.0,
+          0.8,
+          0.35,
+          0.9
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": "",
+        "LocalizationKey": "hud.demo"
+      }
+    },
+    {
+      "Entity": 8820000000000071,
+      "Tag": "Bosh menyu",
+      "Parent": 8820000000000046,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.0,
+          0.0
+        ],
+        "AnchorMax": [
+          1.0,
+          1.0
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          0.0,
+          0.0
+        ],
+        "FontSize": 0.0,
+        "Order": 10
+      },
+      "UIImage": {
+        "Color": [
+          0.03,
+          0.0,
+          0.06,
+          0.55
+        ],
+        "Type": "Simple",
+        "PreserveAspect": false,
+        "PixelArt": false,
+        "RaycastTarget": true,
+        "Texture": ""
+      },
+      "UIAnimation": {
+        "Show": "Fade",
+        "Hide": "Fade",
+        "ShowAtStart": true,
+        "Duration": 0.25,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.0,
+        "PressScale": 1.0,
+        "FeedbackDuration": 0.08
+      },
+      "ChildOrder": [
+        8820000000000072,
+        8820000000000075,
+        8820000000000076,
+        8820000000000080,
+        8820000000000081
+      ]
+    },
+    {
+      "Entity": 8820000000000072,
+      "Tag": "Sarlavha",
+      "Parent": 8820000000000071,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          270.0
+        ],
+        "Size": [
+          1700.0,
+          180.0
+        ],
+        "FontSize": 160.0,
+        "Order": 0
+      },
+      "UIAnimation": {
+        "Show": "SlideDown",
+        "Hide": "None",
+        "ShowAtStart": true,
+        "Duration": 0.6,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 120.0,
+        "HoverScale": 1.0,
+        "PressScale": 1.0,
+        "FeedbackDuration": 0.08
+      },
+      "ChildOrder": [
+        8820000000000073,
+        8820000000000074
+      ]
+    },
+    {
+      "Entity": 8820000000000073,
+      "Tag": "Sarlavha soyasi",
+      "Parent": 8820000000000072,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.0,
+          0.0
+        ],
+        "AnchorMax": [
+          1.0,
+          1.0
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          6.0,
+          -7.0
+        ],
+        "Size": [
+          0.0,
+          0.0
+        ],
+        "FontSize": 160.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "BREAKOUT",
+        "Color": [
+          0.4,
+          0.1,
+          0.8,
+          0.85
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": "",
+        "LocalizationKey": "menu.title"
+      }
+    },
+    {
+      "Entity": 8820000000000074,
+      "Tag": "Sarlavha matni",
+      "Parent": 8820000000000072,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.0,
+          0.0
+        ],
+        "AnchorMax": [
+          1.0,
+          1.0
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          0.0,
+          0.0
+        ],
+        "FontSize": 160.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "BREAKOUT",
+        "Color": [
+          1.0,
+          0.85,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": "",
+        "LocalizationKey": "menu.title"
+      }
+    },
+    {
+      "Entity": 8820000000000075,
+      "Tag": "Taglavha",
+      "Parent": 8820000000000071,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          158.0
+        ],
+        "Size": [
+          1400.0,
+          50.0
+        ],
+        "FontSize": 38.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "G'ishtlarni sindiring  ·  Zamin Engine namunasi",
+        "Color": [
+          0.85,
+          0.8,
+          1.0,
+          0.95
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": "",
+        "LocalizationKey": "menu.subtitle"
+      }
+    },
+    {
+      "Entity": 8820000000000076,
+      "Tag": "Menyu paneli",
+      "Parent": 8820000000000071,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          -110.0
+        ],
+        "Size": [
+          560.0,
+          330.0
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": false,
+        "RaycastTarget": true,
+        "Texture": "Textures/breakout_atlas.png",
+        "Sprite": "panel",
+        "BorderScale": 1.0
+      },
+      "UILayoutGroup": {
+        "Type": "Vertical",
+        "Padding": [
+          44.0,
+          44.0,
+          40.0,
+          44.0
+        ],
+        "Alignment": 1,
+        "FitWidth": false,
+        "FitHeight": true,
+        "Spacing": 16.0,
+        "Reverse": false,
+        "ControlWidth": true,
+        "ControlHeight": false,
+        "ExpandWidth": true,
+        "ExpandHeight": false
+      },
+      "UIAnimation": {
+        "Show": "Pop",
+        "Hide": "None",
+        "ShowAtStart": true,
+        "Duration": 0.3,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.0,
+        "PressScale": 1.0,
+        "FeedbackDuration": 0.08
+      },
+      "ChildOrder": [
+        8820000000000077,
+        8820000000000078,
+        8820000000000079
+      ]
+    },
+    {
+      "Entity": 8820000000000077,
+      "Tag": "O'ynash",
+      "Parent": 8820000000000076,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          460.0,
+          72.0
+        ],
+        "FontSize": 32.0,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.45,
+          0.22,
+          0.75,
+          1.0
+        ],
+        "Hover": [
+          0.65,
+          0.38,
+          1.0,
+          1.0
+        ],
+        "Pressed": [
+          0.3,
+          0.14,
+          0.5,
+          1.0
+        ],
+        "Interactable": true,
+        "ClickMessage": "Play",
+        "ClickTarget": 8820000000000002
+      },
+      "UIImage": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": false,
+        "RaycastTarget": true,
+        "Texture": "Textures/breakout_atlas.png",
+        "Sprite": "button",
+        "BorderScale": 1.0
+      },
+      "Text": {
+        "Text": "O'ynash",
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": "",
+        "LocalizationKey": "menu.play"
+      },
+      "UINavigation": {
+        "Mode": "Vertical",
+        "Up": 0,
+        "Down": 0,
+        "Left": 0,
+        "Right": 0,
+        "SelectOnEnable": true,
+        "ShowHighlight": true,
+        "HighlightColor": [
+          1.0,
+          0.85,
+          0.3,
+          1.0
+        ]
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "None",
+        "ShowAtStart": true,
+        "Duration": 0.25,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.05,
+        "PressScale": 0.95,
+        "FeedbackDuration": 0.08
+      }
+    },
+    {
+      "Entity": 8820000000000078,
+      "Tag": "Til",
+      "Parent": 8820000000000076,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          460.0,
+          72.0
+        ],
+        "FontSize": 32.0,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.45,
+          0.22,
+          0.75,
+          1.0
+        ],
+        "Hover": [
+          0.65,
+          0.38,
+          1.0,
+          1.0
+        ],
+        "Pressed": [
+          0.3,
+          0.14,
+          0.5,
+          1.0
+        ],
+        "Interactable": true,
+        "ClickMessage": "Language",
+        "ClickTarget": 8820000000000002
+      },
+      "UIImage": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": false,
+        "RaycastTarget": true,
+        "Texture": "Textures/breakout_atlas.png",
+        "Sprite": "button",
+        "BorderScale": 1.0
+      },
+      "Text": {
+        "Text": "Til: O'zbekcha",
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": ""
+      },
+      "UINavigation": {
+        "Mode": "Vertical",
+        "Up": 0,
+        "Down": 0,
+        "Left": 0,
+        "Right": 0,
+        "SelectOnEnable": false,
+        "ShowHighlight": true,
+        "HighlightColor": [
+          1.0,
+          0.85,
+          0.3,
+          1.0
+        ]
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "None",
+        "ShowAtStart": true,
+        "Duration": 0.25,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.05,
+        "PressScale": 0.95,
+        "FeedbackDuration": 0.08
+      }
+    },
+    {
+      "Entity": 8820000000000079,
+      "Tag": "Chiqish",
+      "Parent": 8820000000000076,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          460.0,
+          72.0
+        ],
+        "FontSize": 32.0,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.45,
+          0.22,
+          0.75,
+          1.0
+        ],
+        "Hover": [
+          0.65,
+          0.38,
+          1.0,
+          1.0
+        ],
+        "Pressed": [
+          0.3,
+          0.14,
+          0.5,
+          1.0
+        ],
+        "Interactable": true,
+        "ClickMessage": "Quit",
+        "ClickTarget": 8820000000000002
+      },
+      "UIImage": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": false,
+        "RaycastTarget": true,
+        "Texture": "Textures/breakout_atlas.png",
+        "Sprite": "button",
+        "BorderScale": 1.0
+      },
+      "Text": {
+        "Text": "Chiqish",
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": "",
+        "LocalizationKey": "menu.quit"
+      },
+      "UINavigation": {
+        "Mode": "Vertical",
+        "Up": 0,
+        "Down": 0,
+        "Left": 0,
+        "Right": 0,
+        "SelectOnEnable": false,
+        "ShowHighlight": true,
+        "HighlightColor": [
+          1.0,
+          0.85,
+          0.3,
+          1.0
+        ]
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "None",
+        "ShowAtStart": true,
+        "Duration": 0.25,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.05,
+        "PressScale": 0.95,
+        "FeedbackDuration": 0.08
+      }
+    },
+    {
+      "Entity": 8820000000000080,
+      "Tag": "Bosh menyu rekordi",
+      "Parent": 8820000000000071,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          -330.0
+        ],
+        "Size": [
+          1200.0,
+          44.0
+        ],
+        "FontSize": 32.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "",
+        "Color": [
+          1.0,
+          0.85,
+          0.4,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8820000000000081,
+      "Tag": "Boshqaruv",
+      "Parent": 8820000000000071,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.0
+        ],
+        "AnchorMax": [
+          0.5,
+          0.0
+        ],
+        "Pivot": [
+          0.5,
+          0.0
+        ],
+        "Position": [
+          0.0,
+          56.0
+        ],
+        "Size": [
+          1800.0,
+          70.0
+        ],
+        "FontSize": 25.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Sichqoncha / A,D / strelkalar - raketka   ·   Space / LKM - to'pni otish, lazer   ·   Esc - pauza\nGamepad: chap stik - raketka, A - otish, Start - pauza",
+        "Color": [
+          0.8,
+          0.75,
+          0.95,
+          0.85
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": "",
+        "LocalizationKey": "menu.controls"
+      }
+    },
+    {
+      "Entity": 8820000000000082,
+      "Tag": "Pauza menyusi",
+      "Active": false,
+      "Parent": 8820000000000046,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.0,
+          0.0
+        ],
+        "AnchorMax": [
+          1.0,
+          1.0
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          0.0,
+          0.0
+        ],
+        "FontSize": 0.0,
+        "Order": 10
+      },
+      "UIImage": {
+        "Color": [
+          0.0,
+          0.01,
+          0.04,
+          0.6
+        ],
+        "Type": "Simple",
+        "PreserveAspect": false,
+        "PixelArt": false,
+        "RaycastTarget": true,
+        "Texture": ""
+      },
+      "UIAnimation": {
+        "Show": "Fade",
+        "Hide": "Fade",
+        "ShowAtStart": true,
+        "Duration": 0.25,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.0,
+        "PressScale": 1.0,
+        "FeedbackDuration": 0.08
+      },
+      "ChildOrder": [
+        8820000000000083
+      ]
+    },
+    {
+      "Entity": 8820000000000083,
+      "Tag": "Pauza paneli",
+      "Parent": 8820000000000082,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          560.0,
+          420.0
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": false,
+        "RaycastTarget": true,
+        "Texture": "Textures/breakout_atlas.png",
+        "Sprite": "panel",
+        "BorderScale": 1.0
+      },
+      "UILayoutGroup": {
+        "Type": "Vertical",
+        "Padding": [
+          44.0,
+          44.0,
+          40.0,
+          44.0
+        ],
+        "Alignment": 1,
+        "FitWidth": false,
+        "FitHeight": true,
+        "Spacing": 16.0,
+        "Reverse": false,
+        "ControlWidth": true,
+        "ControlHeight": false,
+        "ExpandWidth": true,
+        "ExpandHeight": false
+      },
+      "UIAnimation": {
+        "Show": "Pop",
+        "Hide": "None",
+        "ShowAtStart": true,
+        "Duration": 0.3,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.0,
+        "PressScale": 1.0,
+        "FeedbackDuration": 0.08
+      },
+      "ChildOrder": [
+        8820000000000084,
+        8820000000000085,
+        8820000000000086,
+        8820000000000087
+      ]
+    },
+    {
+      "Entity": 8820000000000084,
+      "Tag": "Pauza sarlavhasi",
+      "Parent": 8820000000000083,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          460.0,
+          80.0
+        ],
+        "FontSize": 60.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "PAUZA",
+        "Color": [
+          0.9,
+          0.8,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": "",
+        "LocalizationKey": "pause.title"
+      }
+    },
+    {
+      "Entity": 8820000000000085,
+      "Tag": "Davom etish",
+      "Parent": 8820000000000083,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          460.0,
+          72.0
+        ],
+        "FontSize": 32.0,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.45,
+          0.22,
+          0.75,
+          1.0
+        ],
+        "Hover": [
+          0.65,
+          0.38,
+          1.0,
+          1.0
+        ],
+        "Pressed": [
+          0.3,
+          0.14,
+          0.5,
+          1.0
+        ],
+        "Interactable": true,
+        "ClickMessage": "Resume",
+        "ClickTarget": 8820000000000002
+      },
+      "UIImage": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": false,
+        "RaycastTarget": true,
+        "Texture": "Textures/breakout_atlas.png",
+        "Sprite": "button",
+        "BorderScale": 1.0
+      },
+      "Text": {
+        "Text": "Davom etish",
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": "",
+        "LocalizationKey": "pause.resume"
+      },
+      "UINavigation": {
+        "Mode": "Vertical",
+        "Up": 0,
+        "Down": 0,
+        "Left": 0,
+        "Right": 0,
+        "SelectOnEnable": true,
+        "ShowHighlight": true,
+        "HighlightColor": [
+          1.0,
+          0.85,
+          0.3,
+          1.0
+        ]
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "None",
+        "ShowAtStart": true,
+        "Duration": 0.25,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.05,
+        "PressScale": 0.95,
+        "FeedbackDuration": 0.08
+      }
+    },
+    {
+      "Entity": 8820000000000086,
+      "Tag": "Qaytadan",
+      "Parent": 8820000000000083,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          460.0,
+          72.0
+        ],
+        "FontSize": 32.0,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.45,
+          0.22,
+          0.75,
+          1.0
+        ],
+        "Hover": [
+          0.65,
+          0.38,
+          1.0,
+          1.0
+        ],
+        "Pressed": [
+          0.3,
+          0.14,
+          0.5,
+          1.0
+        ],
+        "Interactable": true,
+        "ClickMessage": "Restart",
+        "ClickTarget": 8820000000000002
+      },
+      "UIImage": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": false,
+        "RaycastTarget": true,
+        "Texture": "Textures/breakout_atlas.png",
+        "Sprite": "button",
+        "BorderScale": 1.0
+      },
+      "Text": {
+        "Text": "Qaytadan",
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": "",
+        "LocalizationKey": "pause.restart"
+      },
+      "UINavigation": {
+        "Mode": "Vertical",
+        "Up": 0,
+        "Down": 0,
+        "Left": 0,
+        "Right": 0,
+        "SelectOnEnable": false,
+        "ShowHighlight": true,
+        "HighlightColor": [
+          1.0,
+          0.85,
+          0.3,
+          1.0
+        ]
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "None",
+        "ShowAtStart": true,
+        "Duration": 0.25,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.05,
+        "PressScale": 0.95,
+        "FeedbackDuration": 0.08
+      }
+    },
+    {
+      "Entity": 8820000000000087,
+      "Tag": "Bosh menyuga",
+      "Parent": 8820000000000083,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          460.0,
+          72.0
+        ],
+        "FontSize": 32.0,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.45,
+          0.22,
+          0.75,
+          1.0
+        ],
+        "Hover": [
+          0.65,
+          0.38,
+          1.0,
+          1.0
+        ],
+        "Pressed": [
+          0.3,
+          0.14,
+          0.5,
+          1.0
+        ],
+        "Interactable": true,
+        "ClickMessage": "Menu",
+        "ClickTarget": 8820000000000002
+      },
+      "UIImage": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": false,
+        "RaycastTarget": true,
+        "Texture": "Textures/breakout_atlas.png",
+        "Sprite": "button",
+        "BorderScale": 1.0
+      },
+      "Text": {
+        "Text": "Bosh menyu",
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": "",
+        "LocalizationKey": "pause.menu"
+      },
+      "UINavigation": {
+        "Mode": "Vertical",
+        "Up": 0,
+        "Down": 0,
+        "Left": 0,
+        "Right": 0,
+        "SelectOnEnable": false,
+        "ShowHighlight": true,
+        "HighlightColor": [
+          1.0,
+          0.85,
+          0.3,
+          1.0
+        ]
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "None",
+        "ShowAtStart": true,
+        "Duration": 0.25,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.05,
+        "PressScale": 0.95,
+        "FeedbackDuration": 0.08
+      }
+    },
+    {
+      "Entity": 8820000000000088,
+      "Tag": "O'yin tugadi",
+      "Active": false,
+      "Parent": 8820000000000046,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.0,
+          0.0
+        ],
+        "AnchorMax": [
+          1.0,
+          1.0
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          0.0,
+          0.0
+        ],
+        "FontSize": 0.0,
+        "Order": 10
+      },
+      "UIImage": {
+        "Color": [
+          0.0,
+          0.01,
+          0.04,
+          0.6
+        ],
+        "Type": "Simple",
+        "PreserveAspect": false,
+        "PixelArt": false,
+        "RaycastTarget": true,
+        "Texture": ""
+      },
+      "UIAnimation": {
+        "Show": "Fade",
+        "Hide": "Fade",
+        "ShowAtStart": true,
+        "Duration": 0.25,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.0,
+        "PressScale": 1.0,
+        "FeedbackDuration": 0.08
+      },
+      "ChildOrder": [
+        8820000000000089
+      ]
+    },
+    {
+      "Entity": 8820000000000089,
+      "Tag": "Natija paneli",
+      "Parent": 8820000000000088,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          660.0,
+          560.0
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": false,
+        "RaycastTarget": true,
+        "Texture": "Textures/breakout_atlas.png",
+        "Sprite": "panel",
+        "BorderScale": 1.0
+      },
+      "UILayoutGroup": {
+        "Type": "Vertical",
+        "Padding": [
+          44.0,
+          44.0,
+          40.0,
+          44.0
+        ],
+        "Alignment": 1,
+        "FitWidth": false,
+        "FitHeight": true,
+        "Spacing": 16.0,
+        "Reverse": false,
+        "ControlWidth": true,
+        "ControlHeight": false,
+        "ExpandWidth": true,
+        "ExpandHeight": false
+      },
+      "UIAnimation": {
+        "Show": "Pop",
+        "Hide": "None",
+        "ShowAtStart": true,
+        "Duration": 0.3,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.0,
+        "PressScale": 1.0,
+        "FeedbackDuration": 0.08
+      },
+      "ChildOrder": [
+        8820000000000090,
+        8820000000000091,
+        8820000000000092,
+        8820000000000093,
+        8820000000000094,
+        8820000000000095
+      ]
+    },
+    {
+      "Entity": 8820000000000090,
+      "Tag": "Natija sarlavhasi",
+      "Parent": 8820000000000089,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          580.0,
+          80.0
+        ],
+        "FontSize": 64.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "O'YIN TUGADI",
+        "Color": [
+          1.0,
+          0.45,
+          0.55,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8820000000000091,
+      "Tag": "Natija hisobi",
+      "Parent": 8820000000000089,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          580.0,
+          90.0
+        ],
+        "FontSize": 84.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "0",
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8820000000000092,
+      "Tag": "Natija darajasi",
+      "Parent": 8820000000000089,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          580.0,
+          40.0
+        ],
+        "FontSize": 30.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "",
+        "Color": [
+          0.8,
+          0.85,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8820000000000093,
+      "Tag": "Natija rekordi",
+      "Parent": 8820000000000089,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          580.0,
+          44.0
+        ],
+        "FontSize": 34.0,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "",
+        "Color": [
+          1.0,
+          0.85,
+          0.4,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8820000000000094,
+      "Tag": "Qayta o'ynash",
+      "Parent": 8820000000000089,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          460.0,
+          72.0
+        ],
+        "FontSize": 32.0,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.45,
+          0.22,
+          0.75,
+          1.0
+        ],
+        "Hover": [
+          0.65,
+          0.38,
+          1.0,
+          1.0
+        ],
+        "Pressed": [
+          0.3,
+          0.14,
+          0.5,
+          1.0
+        ],
+        "Interactable": true,
+        "ClickMessage": "Restart",
+        "ClickTarget": 8820000000000002
+      },
+      "UIImage": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": false,
+        "RaycastTarget": true,
+        "Texture": "Textures/breakout_atlas.png",
+        "Sprite": "button",
+        "BorderScale": 1.0
+      },
+      "Text": {
+        "Text": "Qayta o'ynash",
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": "",
+        "LocalizationKey": "over.retry"
+      },
+      "UINavigation": {
+        "Mode": "Vertical",
+        "Up": 0,
+        "Down": 0,
+        "Left": 0,
+        "Right": 0,
+        "SelectOnEnable": true,
+        "ShowHighlight": true,
+        "HighlightColor": [
+          1.0,
+          0.85,
+          0.3,
+          1.0
+        ]
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "None",
+        "ShowAtStart": true,
+        "Duration": 0.25,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.05,
+        "PressScale": 0.95,
+        "FeedbackDuration": 0.08
+      }
+    },
+    {
+      "Entity": 8820000000000095,
+      "Tag": "Natija: bosh menyu",
+      "Parent": 8820000000000089,
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          460.0,
+          72.0
+        ],
+        "FontSize": 32.0,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.45,
+          0.22,
+          0.75,
+          1.0
+        ],
+        "Hover": [
+          0.65,
+          0.38,
+          1.0,
+          1.0
+        ],
+        "Pressed": [
+          0.3,
+          0.14,
+          0.5,
+          1.0
+        ],
+        "Interactable": true,
+        "ClickMessage": "Menu",
+        "ClickTarget": 8820000000000002
+      },
+      "UIImage": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": false,
+        "RaycastTarget": true,
+        "Texture": "Textures/breakout_atlas.png",
+        "Sprite": "button",
+        "BorderScale": 1.0
+      },
+      "Text": {
+        "Text": "Bosh menyu",
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": "",
+        "LocalizationKey": "pause.menu"
+      },
+      "UINavigation": {
+        "Mode": "Vertical",
+        "Up": 0,
+        "Down": 0,
+        "Left": 0,
+        "Right": 0,
+        "SelectOnEnable": false,
+        "ShowHighlight": true,
+        "HighlightColor": [
+          1.0,
+          0.85,
+          0.3,
+          1.0
+        ]
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "None",
+        "ShowAtStart": true,
+        "Duration": 0.25,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.05,
+        "PressScale": 0.95,
+        "FeedbackDuration": 0.08
+      }
+    }
+  ]
+}

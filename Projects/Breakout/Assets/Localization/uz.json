@@ -1,0 +1,64 @@
+{
+    "$name": "O'zbekcha",
+    "menu": {
+        "title": "BREAKOUT",
+        "subtitle": "G'ishtlarni sindiring  ·  Zamin Engine namunasi",
+        "play": "O'ynash",
+        "quit": "Chiqish",
+        "language": "Til: {0}",
+        "best": "Rekord: {0}   ·   eng uzoq daraja: {1}",
+        "controls": "Sichqoncha / A,D / strelkalar - raketka   ·   Space / LKM - to'pni otish, lazer   ·   Esc - pauza\nGamepad: chap stik - raketka, A - otish, Start - pauza"
+    },
+    "hud": {
+        "score_label": "HISOB",
+        "best_label": "REKORD",
+        "lives_label": "JONLAR",
+        "level_label": "DARAJA",
+        "powerups_label": "BONUSLAR",
+        "demo": "DEMO - avtomatik o'yin",
+        "level": "{0} / {1}",
+        "bricks": "G'ishtlar: {0}",
+        "combo": "KOMBO x{0}",
+        "serve": "Space / sichqoncha - to'pni otish",
+        "level_banner": "{0}-DARAJA",
+        "level_clear": "DARAJA TUGADI!",
+        "level_bonus": "+{0} bonus",
+        "ball_lost": "TO'P YO'QOLDI",
+        "lives_left": "Jonlar: {0}",
+        "wide": "KENG  {0}",
+        "slow": "SEKIN  {0}",
+        "fire": "OLOV  {0}",
+        "laser": "LAZER  {0}",
+        "loop": "{0}-aylana: tezroq!"
+    },
+    "level": {
+        "1": "Kamalak",
+        "2": "Piramida",
+        "3": "Qal'a",
+        "4": "Shaxmat",
+        "5": "Yurak",
+        "6": "Labirint"
+    },
+    "pause": {
+        "title": "PAUZA",
+        "resume": "Davom etish",
+        "restart": "Qaytadan",
+        "menu": "Bosh menyu"
+    },
+    "over": {
+        "title": "O'YIN TUGADI",
+        "victory": "G'ALABA!",
+        "retry": "Qayta o'ynash",
+        "level": "{0}-daraja  ·  {1} ta g'isht",
+        "record": "YANGI REKORD!",
+        "best": "Rekord: {0}"
+    },
+    "powerup": {
+        "wide": "KENG RAKETKA",
+        "multi": "UCHTA TO'P!",
+        "slow": "SEKIN TO'P",
+        "fire": "OLOV TO'PI!",
+        "laser": "LAZER!",
+        "life": "+1 JON"
+    }
+}

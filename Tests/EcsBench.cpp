@@ -7,6 +7,8 @@
 // docs/Benchmarks.md has the baseline.
 #include <Zamin/Zamin.h>
 
+#include "AllocCounter.inl" // the operator new counting hook of the whole ZaminBench (AllocCounter.h)
+
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
@@ -44,6 +46,7 @@ namespace {
     struct EcsReport
     {
         std::vector<EcsRow> Rows;
+        std::vector<std::pair<std::string, double>> Allocations; // heap allocations per frame (AllocCounter)
 
         void Section(const char* title) { std::printf("\n%s\n", title); }
 
@@ -64,7 +67,15 @@ namespace {
                                    r.Items > 0 ? r.Ms * 1e6 / (double)r.Items : 0.0, r.PerFrame ? ", \"PerFrame\": true" : "",
                                    i + 1 < Rows.size() ? "," : "");
             }
-            return out + "  }\n}\n";
+            out += "  }";
+            if (!Allocations.empty())
+            {
+                out += ",\n  \"AllocationsPerFrame\": {\n";
+                for (size_t i = 0; i < Allocations.size(); i++)
+                    out += std::format("    \"{}\": {:.2f}{}\n", Allocations[i].first, Allocations[i].second, i + 1 < Allocations.size() ? "," : "");
+                out += "  }";
+            }
+            return out + "\n}\n";
         }
     };
 
@@ -348,6 +359,36 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
                                           sink += (double)s.World->GetWorldTransform(e)[3].x;
                                   }),
                n);
+    // Asked again with nothing moved (what a frame's systems do: physics, audio, lights, drawing ...), then with
+    // every group's root moved (its children's world transforms change with it).
+    report.Add("Scene.WorldTransformAgain", "GetWorldTransform yana (hech narsa qimirlamagan)",
+               Median<SceneState>(runs,
+                                  [count]() {
+                                      SceneState s = MakeScene(count, true, true);
+                                      for (Entity e : s.Entities)
+                                          (void)s.World->GetWorldTransform(e);
+                                      return s;
+                                  },
+                                  [&sink](SceneState& s) {
+                                      for (Entity e : s.Entities)
+                                          sink += (double)s.World->GetWorldTransform(e)[3].x;
+                                  }),
+               n);
+    report.Add("Scene.WorldTransformMoved", "GetWorldTransform guruh ildizlari siljigandan keyin",
+               Median<SceneState>(runs,
+                                  [count]() {
+                                      SceneState s = MakeScene(count, true, true);
+                                      for (Entity e : s.Entities)
+                                          (void)s.World->GetWorldTransform(e);
+                                      for (size_t i = 0; i < s.Entities.size(); i += 10)
+                                          s.Entities[i].GetTransform().Translation.x += 1.0f;
+                                      return s;
+                                  },
+                                  [&sink](SceneState& s) {
+                                      for (Entity e : s.Entities)
+                                          sink += (double)s.World->GetWorldTransform(e)[3].x;
+                                  }),
+               n);
     report.Add("Scene.HierarchyOrder", "GetEntitiesInHierarchyOrder",
                Median<SceneState>(runs, grouped, [&sink](SceneState& s) { sink += (double)s.World->GetEntitiesInHierarchyOrder().size(); }), n);
     report.Add("Scene.GetChildren", "GetChildren har bir guruhga",
@@ -422,6 +463,8 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
     // ---- runtime frames of a scene this size (no camera: nothing is drawn, the update only)
     report.Section(std::format("O'yin kadri (UpdateRuntime, {} kadr o'rtachasi; kamerasiz - faqat yangilash)", frames).c_str());
     const float dt = 1.0f / 60.0f;
+    // The heap allocations of the frames themselves (UpdateRuntime; the beforeFrame work not counted), per frame.
+    double framesAllocs = 0.0;
     auto runFrames = [&](SceneState& s, const std::function<void(int)>& beforeFrame) {
         s.World->OnRuntimeStart();
         for (int f = 0; f < 10; f++) // warm up (the scripts' first frames, the caches)
@@ -430,16 +473,26 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
                 beforeFrame(-1 - f);
             s.World->UpdateRuntime(Timestep(dt));
         }
+        uint64_t allocs = 0;
         const auto start = Clock::now();
         for (int f = 0; f < frames; f++)
         {
             if (beforeFrame)
                 beforeFrame(f);
+            AllocCounter::Scope counting;
             s.World->UpdateRuntime(Timestep(dt));
+            allocs += counting.Count();
         }
         const double perFrame = Ms(start) / (double)frames;
+        framesAllocs = (double)allocs / (double)frames;
         s.World->OnRuntimeStop();
         return perFrame;
+    };
+    auto noteAllocs = [&](const char* key) {
+        if (!AllocCounter::Available())
+            return;
+        std::printf("  %-58s %10.1f ajratma / kadr\n", "  (UpdateRuntime ichidagi heap ajratmalari)", framesAllocs);
+        report.Allocations.emplace_back(key, framesAllocs);
     };
     auto noBodies = [count]() {
         SceneState s = MakeScene(count, false, true);
@@ -456,6 +509,7 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
         }
         std::sort(times.begin(), times.end());
         report.Add("Frame.Idle", "bo'sh kadr: spritelar, ierarxiya (fizikasiz, skriptsiz)", times[1], n, true);
+        noteAllocs("Frame.Idle");
     }
     const size_t scripts = std::max<size_t>(1, n / 10);
     {
@@ -472,6 +526,7 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
         }
         std::sort(times.begin(), times.end());
         report.Add("Frame.Scripts", std::format("{} skript OnUpdate (har biri Transform'ni o'zgartiradi)", scripts), times[1], scripts, true);
+        noteAllocs("Frame.Scripts");
     }
     const int churn = 500;
     {
@@ -507,6 +562,7 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
         report.Add("Frame.ChurnSpawn", std::format("  shundan {} Instantiate (o'yin davomida)", churn), spawnTimes[1], (size_t)churn, true);
         report.Add("Frame.ChurnRest", std::format("  qolgani: kadr yangilanishi va {} Destroy", churn), times[1] - spawnTimes[1], (size_t)churn,
                    true);
+        noteAllocs("Frame.Churn");
     }
     s_Sink = sink;
 

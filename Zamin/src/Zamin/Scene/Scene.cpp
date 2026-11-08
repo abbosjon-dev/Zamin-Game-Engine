@@ -2366,11 +2366,86 @@ namespace Zamin {
 
     glm::mat4 Scene::GetWorldTransform(Entity entity)
     {
-        glm::mat4 local = entity.GetComponent<TransformComponent>().GetTransform();
-        if (entity.HasComponent<BoneAttachmentComponent>())
+        if (JobSystem::IsWorkerThread())
+            return ComputeWorldTransform((entt::entity)entity); // the cache is the main thread's
+        uint64_t version = 0;
+        return CachedWorldTransform((entt::entity)entity, version);
+    }
+
+    glm::mat4 Scene::ComputeWorldTransform(entt::entity e)
+    {
+        Entity entity{ e, this };
+        const glm::mat4 local = m_Registry.get<TransformComponent>(e).GetTransform();
+        if (m_Registry.all_of<BoneAttachmentComponent>(e))
             return GetParentWorldTransform(entity) * local;
         Entity parent = GetParent(entity);
-        return parent ? GetWorldTransform(parent) * local : local;
+        return parent ? ComputeWorldTransform((entt::entity)parent) * local : local;
+    }
+
+    void Scene::ReserveWorldCache()
+    {
+        const size_t slots = m_Registry.storage<entt::entity>().size();
+        if (m_WorldCache.size() < slots)
+            m_WorldCache.resize(slots);
+    }
+
+    const glm::mat4& Scene::CachedWorldTransform(entt::entity e, uint64_t& version, int depth)
+    {
+        static constexpr int s_MaxCachedDepth = 256;
+        const auto& tc = m_Registry.get<TransformComponent>(e);
+        const UUID parentID = m_Registry.get<RelationshipComponent>(e).Parent;
+        const uint32_t index = (uint32_t)entt::to_entity(e);
+        if (index >= m_WorldCache.size())
+            m_WorldCache.resize(std::max<size_t>((size_t)index + 1, m_Registry.storage<entt::entity>().size()));
+        // A bone attachment follows its model's pose (the animator moves it) and a hierarchy this
+        // deep is a broken one: made every time, with a fresh version so what is below them is
+        // made again too (kept in the entry: the reference stays valid like a cached one).
+        if (depth >= s_MaxCachedDepth || m_Registry.all_of<BoneAttachmentComponent>(e))
+        {
+            m_WorldCacheStats.Uncached++;
+            const glm::mat4 world = depth >= s_MaxCachedDepth ? ComputeWorldTransform(e) : GetParentWorldTransform({ e, this }) * tc.GetTransform();
+            WorldCacheEntry& entry = m_WorldCache[index]; // (after the parent's: that may grow the cache)
+            entry = WorldCacheEntry{};
+            entry.Handle = entt::null; // never a hit
+            entry.World = world;
+            entry.Version = ++m_WorldCacheVersion;
+            version = entry.Version;
+            return entry.World;
+        }
+        // The parent (its world first: that may grow the cache, so the entry is looked up after).
+        entt::entity parent = entt::null;
+        uint64_t parentVersion = 0;
+        glm::mat4 parentWorld(1.0f);
+        if ((uint64_t)parentID)
+        {
+            const WorldCacheEntry& known = m_WorldCache[index];
+            if (known.Handle == e && known.ParentID == parentID && m_Registry.valid(known.Parent))
+                parent = known.Parent;
+            else if (auto it = m_EntityMap.find(parentID); it != m_EntityMap.end() && m_Registry.valid(it->second))
+                parent = it->second;
+            if (parent != entt::null)
+                parentWorld = CachedWorldTransform(parent, parentVersion, depth + 1);
+        }
+        WorldCacheEntry& entry = m_WorldCache[index];
+        if (entry.Handle == e && entry.ParentID == parentID && entry.Parent == parent && entry.ParentVersion == parentVersion &&
+            entry.Translation == tc.Translation && entry.Rotation == tc.Rotation && entry.Scale == tc.Scale)
+        {
+            m_WorldCacheStats.Hits++;
+            version = entry.Version;
+            return entry.World;
+        }
+        m_WorldCacheStats.Recomputed++;
+        entry.Handle = e;
+        entry.Parent = parent;
+        entry.ParentID = parentID;
+        entry.ParentVersion = parentVersion;
+        entry.Translation = tc.Translation;
+        entry.Rotation = tc.Rotation;
+        entry.Scale = tc.Scale;
+        entry.World = parent != entt::null ? parentWorld * tc.GetTransform() : tc.GetTransform();
+        entry.Version = ++m_WorldCacheVersion;
+        version = entry.Version;
+        return entry.World;
     }
 
     glm::vec3 Scene::GetWorldPosition(Entity entity) { return glm::vec3(GetWorldTransform(entity)[3]); }
@@ -7294,17 +7369,140 @@ namespace Zamin {
         return mesh;
     }
 
+    size_t Scene::OrderForBatching(const glm::mat4& viewProjection, float pixelSnap)
+    {
+        const std::vector<RenderItem2D>& items = m_RenderItems2D;
+        std::vector<uint32_t>& order = m_RenderOrder2D;
+        // Nothing to win with one kind of draw and textures that fit one batch.
+        uint32_t firstBatch = 0;
+        bool mixed = false;
+        uint32_t textures[17];
+        uint32_t textureCount = 0;
+        for (const RenderItem2D& item : items)
+        {
+            if (item.Batch == 0)
+                continue;
+            if (firstBatch == 0)
+                firstBatch = item.Batch;
+            else if (item.Batch != firstBatch)
+                mixed = true;
+            if (item.Kind == 0 && textureCount <= 16 && std::find(textures, textures + textureCount, item.Texture) == textures + textureCount)
+                textures[textureCount++] = item.Texture;
+        }
+        constexpr uint32_t SpriteTextureSlots = 15; // Renderer2D's 16 slots, one is the white texture
+        if (!mixed && textureCount <= SpriteTextureSlots)
+            return 0;
+
+        // Each draw's rectangle on the target in pixels (2 px margin; pixel snapping moves sprites up to a snap step).
+        const glm::ivec4 viewport = RenderCommand::GetViewport();
+        const glm::vec2 half = glm::vec2((float)std::max(1, viewport.z), (float)std::max(1, viewport.w)) * 0.5f;
+        const bool affine = viewProjection[0][3] == 0.0f && viewProjection[1][3] == 0.0f && viewProjection[2][3] == 0.0f &&
+                            viewProjection[3][3] == 1.0f;
+        std::vector<BatchOrderItem>& batch = m_BatchItems2D;
+        batch.resize(items.size());
+        for (size_t i = 0; i < items.size(); i++)
+        {
+            const RenderItem2D& item = items[i];
+            BatchOrderItem& b = batch[i];
+            b = BatchOrderItem{};
+            if (!item.Bounds.IsValid())
+                continue; // unknown extent: stays, and nothing passes it
+            AABB box = item.Bounds;
+            if (pixelSnap > 0.0f)
+            {
+                box.Min -= glm::vec3(pixelSnap, pixelSnap, 0.0f);
+                box.Max += glm::vec3(pixelSnap, pixelSnap, 0.0f);
+            }
+            glm::vec2 lo(std::numeric_limits<float>::max()), hi(-std::numeric_limits<float>::max());
+            bool ok = true;
+            if (affine)
+            {
+                // An orthographic camera: the centre through the matrix, the extents through its absolute value.
+                const glm::vec3 c = box.GetCenter(), e = box.GetExtents();
+                const glm::vec4 pc = viewProjection * glm::vec4(c, 1.0f);
+                const glm::vec2 ext = glm::vec2(std::abs(viewProjection[0][0]) * e.x + std::abs(viewProjection[1][0]) * e.y + std::abs(viewProjection[2][0]) * e.z,
+                                                std::abs(viewProjection[0][1]) * e.x + std::abs(viewProjection[1][1]) * e.y + std::abs(viewProjection[2][1]) * e.z);
+                lo = glm::vec2(pc) - ext;
+                hi = glm::vec2(pc) + ext;
+            }
+            else
+                for (int k = 0; k < 8 && ok; k++)
+                {
+                    const glm::vec4 p = viewProjection * glm::vec4(box.GetCorner(k), 1.0f);
+                    if (!(p.w > 1e-5f))
+                        ok = false; // (partly) behind the camera
+                    else
+                    {
+                        lo = glm::min(lo, glm::vec2(p) / p.w);
+                        hi = glm::max(hi, glm::vec2(p) / p.w);
+                    }
+                }
+            if (!ok || !std::isfinite(lo.x) || !std::isfinite(lo.y) || !std::isfinite(hi.x) || !std::isfinite(hi.y))
+                continue;
+            b.Min = (lo + 1.0f) * half - 2.0f;
+            b.Max = (hi + 1.0f) * half + 2.0f;
+            b.Batch = item.Batch;
+        }
+        size_t moved = mixed ? BatchOrder::Order(batch, order) : 0;
+
+        // Runs of sprites with more textures than a batch holds: grouped by texture inside the run.
+        if (textureCount > SpriteTextureSlots)
+        {
+            for (size_t i = 0; i < items.size(); i++)
+                if (batch[i].Batch == 1)
+                    batch[i].Batch = items[i].Texture; // (only the run's sprites are looked at)
+            size_t runBegin = 0;
+            while (runBegin < order.size())
+            {
+                if (items[order[runBegin]].Kind != 0 || batch[order[runBegin]].Batch == 0)
+                {
+                    runBegin++;
+                    continue;
+                }
+                size_t runEnd = runBegin;
+                uint32_t seen[17];
+                uint32_t distinct = 0;
+                while (runEnd < order.size() && items[order[runEnd]].Kind == 0 && batch[order[runEnd]].Batch != 0)
+                {
+                    const uint32_t texture = items[order[runEnd]].Texture;
+                    if (distinct <= SpriteTextureSlots && std::find(seen, seen + distinct, texture) == seen + distinct)
+                        seen[distinct++] = texture;
+                    runEnd++;
+                }
+                if (distinct > SpriteTextureSlots)
+                    moved += BatchOrder::OrderRange(batch, order, runBegin, runEnd);
+                runBegin = runEnd;
+            }
+        }
+        return moved;
+    }
+
     void Scene::RenderScene(const glm::mat4& view, const glm::mat4& projection, const glm::vec3& cameraPosition,
                             const SceneRenderOptions& options)
     {
         // Parallax layers move with the camera that draws (their children with them).
         const bool parallax = options.Parallax && !m_Registry.view<ParallaxComponent>().empty();
-        // World transforms (memoized for this frame).
-        std::unordered_map<entt::entity, glm::mat4> worldCache;
-        worldCache.reserve(m_Registry.view<TransformComponent>().size());
+        // World transforms: the scene's cache (made again only for what moved); room for every
+        // entity first, so the references it hands out stay valid while the frame is drawn. With
+        // parallax layers the camera moves them (and their children): memoized for this frame.
+        ReserveWorldCache();
+        std::vector<glm::mat4>& worldMemo = m_ParallaxWorldMemo;
+        std::vector<uint64_t>& worldMemoFrame = m_ParallaxWorldMemoFrame;
+        const uint64_t memoFrame = ++m_ParallaxWorldMemoSerial;
+        if (parallax && worldMemo.size() < m_WorldCache.size())
+        {
+            worldMemo.resize(m_WorldCache.size());
+            worldMemoFrame.resize(m_WorldCache.size(), 0);
+        }
         std::function<const glm::mat4&(entt::entity)> world = [&](entt::entity e) -> const glm::mat4& {
-            auto it = worldCache.find(e);
-            if (it != worldCache.end()) return it->second;
+            if (!parallax)
+            {
+                uint64_t version = 0;
+                return CachedWorldTransform(e, version);
+            }
+            const uint32_t slot = (uint32_t)entt::to_entity(e);
+            if (slot < worldMemo.size() && worldMemoFrame[slot] == memoFrame)
+                return worldMemo[slot];
             glm::mat4 local = m_Registry.get<TransformComponent>(e).GetTransform();
             UUID parent = m_Registry.get<RelationshipComponent>(e).Parent;
             Entity boneTarget;
@@ -7323,13 +7521,19 @@ namespace Zamin {
                 if (pit != m_EntityMap.end() && m_Registry.valid(pit->second))
                     local = world(pit->second) * local;
             }
-            if (parallax)
-                if (const auto* p = m_Registry.try_get<ParallaxComponent>(e))
-                {
-                    glm::vec2 offset = ParallaxMath::GetOffset(glm::vec2(cameraPosition), glm::vec2(local[3]), p->Factor);
-                    local = glm::translate(glm::mat4(1.0f), glm::vec3(offset, 0.0f)) * local;
-                }
-            return worldCache.emplace(e, local).first->second;
+            if (const auto* p = m_Registry.try_get<ParallaxComponent>(e))
+            {
+                glm::vec2 offset = ParallaxMath::GetOffset(glm::vec2(cameraPosition), glm::vec2(local[3]), p->Factor);
+                local = glm::translate(glm::mat4(1.0f), glm::vec3(offset, 0.0f)) * local;
+            }
+            if (slot >= worldMemo.size())
+            {
+                worldMemo.resize((size_t)slot + 1);
+                worldMemoFrame.resize((size_t)slot + 1, 0);
+            }
+            worldMemoFrame[slot] = memoFrame;
+            worldMemo[slot] = local;
+            return worldMemo[slot];
         };
 
         // Inactive entities (and everything below them) are never drawn and their lights do not
@@ -7471,14 +7675,18 @@ namespace Zamin {
 
         // ---------------- 2D (sorted back-to-front for correct blending)
         ZM_PROFILE_SCOPE("2D va UI");
-        struct Item2D
-        {
-            SortKey2D Key;
-            int Kind; // 0 sprite, 1 circle, 2 text, 3 particles, 4 tilemap
-            entt::entity Handle;
-            int Layer = 0; // tilemaps: the tile layer (each visible one is sorted on its own)
+        using Item2D = RenderItem2D;
+        std::vector<Item2D>& items = m_RenderItems2D;
+        items.clear();
+        // BatchOrder (fewer batches): the batch a draw goes into - sprites, circles, texts of one font.
+        const bool reorder2D = BatchOrder::IsEnabled();
+        m_BatchFonts2D.clear();
+        auto fontBatch = [&](const void* font) {
+            auto it = std::find(m_BatchFonts2D.begin(), m_BatchFonts2D.end(), font);
+            if (it == m_BatchFonts2D.end())
+                it = m_BatchFonts2D.insert(m_BatchFonts2D.end(), font);
+            return 3u + (uint32_t)(it - m_BatchFonts2D.begin());
         };
-        std::vector<Item2D> items;
         auto depthOf = [&](entt::entity e) { return (view * world(e)[3]).z; };
         const SortingLayerList& sortingLayers = Project::GetSortingLayers();
         // Y-sorted layers (top-down games): the sort point is the entity's world position - of
@@ -7528,38 +7736,55 @@ namespace Zamin {
             if (notWorld2D(e))
                 continue;
             const auto& s = m_Registry.get<SpriteRendererComponent>(e);
+            AABB bounds = AABB::Empty();
             if (!repeats(e))
             {
                 const auto* anim = m_Registry.try_get<SpriteAnimationComponent>(e);
                 glm::mat4 rect = s.DrawMode == SpriteDrawMode::Simple && !needsRegistry(s, anim)
                                ? world(e) : world(e) * GetSpriteRectTransform(s, anim, needsRegistry(s, anim) ? registry() : nullptr);
-                if (!seen(Renderer2D::GetQuadBounds(rect)))
+                bounds = Renderer2D::GetQuadBounds(rect);
+                if (!seen(bounds))
                     continue;
             }
-            items.push_back({ keyOf(e, s.SortingLayer, s.SortingOrder), 0, e });
+            // An outline grows the quad past the sprite's rectangle: such a sprite is not moved.
+            const bool movable = bounds.IsValid() && !(s.OutlineThickness > 0.0f && s.OutlineColor.a > 0.0f);
+            items.push_back({ keyOf(e, s.SortingLayer, s.SortingOrder), 0, e, 0, movable ? bounds : AABB::Empty(), movable ? 1u : 0u,
+                              s.Texture ? s.Texture->GetRendererID() + 1 : 1 });
         }
         for (auto e : m_Registry.view<TransformComponent, CircleRendererComponent>())
-            if (!notWorld2D(e) && seen(Renderer2D::GetQuadBounds(world(e))))
+        {
+            if (notWorld2D(e))
+                continue;
+            const AABB bounds = Renderer2D::GetQuadBounds(world(e));
+            if (seen(bounds))
             {
                 const auto& c = m_Registry.get<CircleRendererComponent>(e);
-                items.push_back({ keyOf(e, c.SortingLayer, c.SortingOrder), 1, e });
+                items.push_back({ keyOf(e, c.SortingLayer, c.SortingOrder), 1, e, 0, bounds, 2u });
             }
+        }
         for (auto e : m_Registry.view<TransformComponent, TextComponent>())
         {
             if (notWorld2D(e)) continue;
             auto& text = m_Registry.get<TextComponent>(e);
             if (!text.FontAsset)
                 text.FontAsset = Font::GetDefault();
-            if (culling2D)
+            AABB bounds = AABB::Empty();
+            if (culling2D || reorder2D)
             {
                 // The lines' box, as the draw below lays them out.
                 if (text.GetDisplayText().empty())
                     continue; // nothing to draw
-                const UIRect box = text.LayoutWorld().GetBounds();
-                if (!seen(TransformAABB(AABB{ glm::vec3(box.Min, 0.0f), glm::vec3(box.Max, 0.0f) }, world(e))))
+                const TextLayoutResult& layout = text.LayoutWorld();
+                const UIRect box = layout.GetBounds();
+                if (culling2D && !seen(TransformAABB(AABB{ glm::vec3(box.Min, 0.0f), glm::vec3(box.Max, 0.0f) }, world(e))))
                     continue;
+                // Glyphs may reach a little past their advances and lines (overhangs, accents): a margin
+                // of a third of a line for BatchOrder.
+                const float margin = 0.35f * (layout.Lines.empty() ? box.GetHeight() : box.GetHeight() / (float)layout.Lines.size());
+                bounds = TransformAABB(AABB{ glm::vec3(box.Min - glm::vec2(margin), 0.0f), glm::vec3(box.Max + glm::vec2(margin), 0.0f) }, world(e));
             }
-            items.push_back({ keyOf(e, text.SortingLayer, text.SortingOrder), 2, e });
+            items.push_back({ keyOf(e, text.SortingLayer, text.SortingOrder), 2, e, 0, bounds,
+                              bounds.IsValid() ? fontBatch(text.FontAsset.get()) : 0u });
         }
         for (auto e : m_Registry.view<TransformComponent, TilemapComponent>())
             if (!notWorld2D(e))
@@ -7570,7 +7795,7 @@ namespace Zamin {
                 {
                     const TilemapLayer& l = tm.Layers[(size_t)layer];
                     if (l.Visible && l.Opacity > 0.0f)
-                        items.push_back({ keyOf(e, tm.SortingLayer, tm.SortingOrder + l.SortingOrder), 4, e, layer });
+                        items.push_back({ keyOf(e, tm.SortingLayer, tm.SortingOrder + l.SortingOrder), 4, e, layer, AABB::Empty(), 0u });
                 }
             }
         for (auto e : m_Registry.view<TransformComponent, ParticleSystemComponent>())
@@ -7579,7 +7804,7 @@ namespace Zamin {
             if (ps.Particles.empty() || !ps.RendererEnabled || skip(e)) continue;
             if (culling2D && !seen(GetParticleBounds(ps, ps.IsLocalSpace() && !ps.FollowActive ? world(e) : GetParticleSpace({ e, this }, ps))))
                 continue;
-            items.push_back({ keyOf(e, ps.SortingLayer, ps.SortingOrder), 3, e });
+            items.push_back({ keyOf(e, ps.SortingLayer, ps.SortingOrder), 3, e, 0, AABB::Empty(), 0u });
         }
         for (const Item2D& item : items)
             if (item.Kind != 4)
@@ -7600,6 +7825,14 @@ namespace Zamin {
             return SortKey2D::Less(a.Key, b.Key); // layer, (Y), order in the layer, then farther first
         });
         const glm::mat4 viewProjection = projection * view;
+        // Fewer batches: draws brought next to others of their batch where they overlap nothing in between
+        // (BatchOrder; the picture stays the same).
+        std::vector<uint32_t>& order = m_RenderOrder2D;
+        order.resize(items.size());
+        for (size_t i = 0; i < items.size(); i++)
+            order[i] = (uint32_t)i;
+        if (reorder2D)
+            stats.Reordered2DCount += (uint32_t)OrderForBatching(viewProjection, options.PixelSnap);
 
         // 2D lights for the Lit renderers (only looked up when one is Lit).
         bool anyLit = false;
@@ -7630,8 +7863,9 @@ namespace Zamin {
         };
 
         Renderer2D::BeginScene(projection * view);
-        for (const auto& item : items)
+        for (uint32_t itemIndex : order)
         {
+            const Item2D& item = items[itemIndex];
             const glm::mat4& transform = world(item.Handle);
             int id = (int)(uint32_t)item.Handle;
             Renderer2D::SetLit(anyLit && ((item.Kind == 0 && m_Registry.get<SpriteRendererComponent>(item.Handle).Lit) ||

@@ -11,10 +11,17 @@
 //                     shadows and a point light, a perspective camera - instanced as usual
 //   meshes-noinst     the same with GPU instancing off (what instancing saves)
 //   combined          the sprites (on a wall behind) and the meshes in one scene
+//   mixed2d           N / 10 cells of a grid that take turns: a sprite (one of 24 textures), a circle, a text - each
+//                     cell a little nearer than the one before, so the depth sort makes them take turns (what a 2D
+//                     game's level, its pickups and labels look like to the batcher: each change of kind or a 17th
+//                     texture draws the batch)
+//   mixed2d-sorted    the same with BatchOrder off (the sorted order as it is): what it saves
 // For each: the CPU time of the frame (until everything is submitted) and the whole frame (glFinish: the GPU
 // done too) - average, median, p95, min, max ms - and what was drawn (draw calls, quads, meshes, instanced,
 // triangles). --json writes them (render-bench.json: the baseline in docs/Benchmarks.md was made with it).
 #include <Zamin/Zamin.h>
+
+#include "AllocCounter.h"
 
 #include <algorithm>
 #include <chrono>
@@ -39,6 +46,7 @@ namespace {
         const char* Description;
         std::function<Ref<Scene>(int sprites, int meshes)> Build;
         bool Instancing = true;
+        bool Reorder = true; // BatchOrder in the 2D pass (off: the sorted order as it is)
     };
 
     struct RenderBenchResult
@@ -47,6 +55,7 @@ namespace {
         int Entities = 0;
         double CpuAverage = 0, CpuMedian = 0, CpuP95 = 0;
         double FrameAverage = 0, FrameMedian = 0, FrameP95 = 0, FrameMin = 0, FrameMax = 0;
+        double AllocationsPerFrame = 0; // heap allocations while the frame is submitted (AllocCounter)
         RenderStatistics Stats;
     };
 
@@ -107,6 +116,7 @@ namespace {
 
     // The textures the sprites use (made once the GL context exists, released before it goes).
     std::vector<Ref<Texture2D>> s_Textures;
+    std::vector<Ref<Texture2D>> s_MixedTextures; // the mixed2d case's 24
 
     // N sprites on a square of side ~sqrt(N) (z: the wall's depth in the combined scene).
     void AddSprites(const Ref<Scene>& scene, int count, float z, float scale)
@@ -195,6 +205,45 @@ namespace {
                               AddSprites(scene, sprites, -side * 0.6f, 0.45f);
                               return scene;
                           } });
+        auto mixed2d = [](int sprites, int) {
+            auto scene = CreateRef<Scene>();
+            const int cells = std::max(3, sprites / 10);
+            const int side = std::max(1, (int)std::ceil(std::sqrt((float)cells)));
+            AddCamera(scene, true, { 0.0f, 0.0f, 10.0f }, glm::vec3(0.0f), (float)side * 1.3f);
+            std::vector<Ref<Texture2D>>& mixed = s_MixedTextures;
+            if (mixed.empty())
+                for (int k = 0; k < 24; k++)
+                {
+                    TextureSpecification spec;
+                    spec.Width = spec.Height = 16;
+                    Ref<Texture2D> texture = Texture2D::Create(spec);
+                    std::vector<uint32_t> pixels(16 * 16);
+                    for (int y = 0; y < 16; y++)
+                        for (int x = 0; x < 16; x++)
+                            pixels[(size_t)y * 16 + x] = 0xFF000000u | (uint32_t)((x * 16 + k * 10) & 255) << 8 | (uint32_t)((y * 16 + k * 37) & 255);
+                    texture->SetData(pixels.data(), (uint32_t)(pixels.size() * sizeof(uint32_t)));
+                    mixed.push_back(texture);
+                }
+            for (int i = 0; i < cells; i++)
+            {
+                Entity e = scene->CreateEntity("Cell");
+                // Each cell a little nearer: the depth sort puts sprite, circle and text after each other.
+                e.GetTransform().Translation = { ((float)(i % side) - side * 0.5f) * 1.2f, ((float)(i / side) - side * 0.5f) * 1.2f, (float)i * 0.001f };
+                if (i % 3 == 0)
+                    e.AddComponent<SpriteRendererComponent>().Texture = mixed[(size_t)(i / 3) % mixed.size()];
+                else if (i % 3 == 1)
+                    e.AddComponent<CircleRendererComponent>().Color = { 0.9f, 0.5f, 0.2f, 1.0f };
+                else
+                {
+                    auto& text = e.AddComponent<TextComponent>();
+                    text.Text = std::to_string(i % 100);
+                    e.GetTransform().Scale = glm::vec3(0.5f);
+                }
+            }
+            return scene;
+        };
+        cases.push_back({ "mixed2d", "sprite / doira / matn navbatma-navbat (24 tekstura)", mixed2d });
+        cases.push_back({ "mixed2d-sorted", "o'sha sahna BatchOrder'siz (saralangan tartib)", mixed2d, true, false });
         return cases;
     }
 
@@ -289,14 +338,18 @@ int RunRenderBench(int argc, char** argv)
         scene->OnViewportResize(w, h);
         scene->OnRuntimeStart();
         Renderer3D::SetInstancing(c.Instancing);
+        BatchOrder::SetEnabled(c.Reorder);
         RenderBenchResult result;
         result.Name = c.Name;
         result.Entities = (int)scene->GetEntitiesInOrder().size();
         std::vector<double> cpu, total;
+        uint64_t allocations = 0;
         const float dt = 1.0f / 60.0f;
         for (int frame = -20; frame < frames; frame++) // 20 frames to warm up (shaders, uploads, caches)
         {
             Renderer::ResetStats();
+            AllocCounter::SetEnabled(frame >= 0);
+            const uint64_t allocationsBefore = AllocCounter::GetCount();
             const auto start = std::chrono::steady_clock::now();
             target->Bind();
             RenderCommand::SetDepthTest(true);
@@ -320,6 +373,8 @@ int RunRenderBench(int argc, char** argv)
             input.History = &history;
             PostProcessor::Apply(input, scene->GetSettings().Post, nullptr);
             const auto submitted = std::chrono::steady_clock::now();
+            AllocCounter::SetEnabled(false);
+            allocations += AllocCounter::GetCount() - allocationsBefore;
             RenderCommand::Finish();
             const auto finished = std::chrono::steady_clock::now();
             if (frame == frames - 1)
@@ -339,6 +394,7 @@ int RunRenderBench(int argc, char** argv)
         }
         scene->OnRuntimeStop();
         Renderer3D::SetInstancing(true);
+        BatchOrder::SetEnabled(true);
         result.CpuAverage = Average(cpu);
         result.CpuMedian = Percentile(cpu, 0.5);
         result.CpuP95 = Percentile(cpu, 0.95);
@@ -347,11 +403,16 @@ int RunRenderBench(int argc, char** argv)
         result.FrameP95 = Percentile(total, 0.95);
         result.FrameMin = *std::min_element(total.begin(), total.end());
         result.FrameMax = *std::max_element(total.begin(), total.end());
+        result.AllocationsPerFrame = (double)allocations / (double)std::max(1, frames);
         const RenderStatistics& s = result.Stats;
-        std::printf("%-14s %8d | %7.2f / %7.2f / %7.2f | %7.2f / %7.2f / %7.2f / %7.2f | %u chaqiriq, %u kvad, %u mesh (%u instans), %s uchburchak\n",
+        std::printf("%-14s %8d | %7.2f / %7.2f / %7.2f | %7.2f / %7.2f / %7.2f / %7.2f | %u chaqiriq, %u kvad, %u mesh (%u instans), %s uchburchak, "
+                    "%.1f ajratma / kadr\n",
                     c.Name, result.Entities, result.CpuAverage, result.CpuMedian, result.CpuP95, result.FrameAverage, result.FrameMedian,
                     result.FrameP95, result.FrameMax, s.DrawCalls, s.QuadCount, s.MeshCount, s.InstancedMeshCount,
-                    RenderStatistics::FormatCount(s.TriangleCount).c_str());
+                    RenderStatistics::FormatCount(s.TriangleCount).c_str(), result.AllocationsPerFrame);
+        if (s.Flush2DTextures + s.Flush2DKind + s.Flush2DState + s.Reordered2DCount > 0)
+            std::printf("%-14s %8s   2D batch bo'linishi: tekstura %u, tur %u, holat %u; BatchOrder ko'chirgan %u\n", "", "", s.Flush2DTextures,
+                        s.Flush2DKind, s.Flush2DState, s.Reordered2DCount);
         results.push_back(result);
     }
 
@@ -365,15 +426,18 @@ int RunRenderBench(int argc, char** argv)
             const RenderBenchResult& r = results[i];
             out << std::format("    {{ \"Name\": \"{}\", \"Entities\": {}, \"CpuMs\": {{ \"Average\": {:.3f}, \"Median\": {:.3f}, \"P95\": {:.3f} }}, "
                                "\"FrameMs\": {{ \"Average\": {:.3f}, \"Median\": {:.3f}, \"P95\": {:.3f}, \"Min\": {:.3f}, \"Max\": {:.3f} }}, "
-                               "\"DrawCalls\": {}, \"Quads\": {}, \"Meshes\": {}, \"InstancedMeshes\": {}, \"Triangles\": {} }}{}\n",
+                               "\"DrawCalls\": {}, \"Quads\": {}, \"Meshes\": {}, \"InstancedMeshes\": {}, \"Triangles\": {}, \"AllocationsPerFrame\": {:.1f}, "
+                               "\"Flush2D\": {{ \"Textures\": {}, \"Kind\": {}, \"State\": {} }}, \"Reordered2D\": {} }}{}\n",
                                r.Name, r.Entities, r.CpuAverage, r.CpuMedian, r.CpuP95, r.FrameAverage, r.FrameMedian, r.FrameP95, r.FrameMin,
                                r.FrameMax, r.Stats.DrawCalls, r.Stats.QuadCount, r.Stats.MeshCount, r.Stats.InstancedMeshCount,
-                               r.Stats.TriangleCount, i + 1 < results.size() ? "," : "");
+                               r.Stats.TriangleCount, r.AllocationsPerFrame, r.Stats.Flush2DTextures, r.Stats.Flush2DKind, r.Stats.Flush2DState,
+                               r.Stats.Reordered2DCount, i + 1 < results.size() ? "," : "");
         }
         out << "  ]\n}\n";
         std::printf("\nNatija: %s\n", json.c_str());
     }
     s_Textures.clear();
+    s_MixedTextures.clear();
     target.reset();
     delete app;
     return results.empty() ? 1 : 0;

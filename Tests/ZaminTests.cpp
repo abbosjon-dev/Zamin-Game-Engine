@@ -4,6 +4,7 @@
 #include <Zamin/ImGui/Icons.h>
 
 #include "TestFramework.h"
+#include "AllocCounter.inl" // the operator new counting hook (AllocCounter.h)
 
 #include <algorithm>
 #include <array>
@@ -48101,4 +48102,217 @@ TEST(DeferredDestroyOnceEachAndLinear)
     const auto [large, leftLarge] = timeFlush(20000);
     CHECK(leftSmall == 0 && leftLarge == 0);
     CHECK(large < small * 40.0 + 5.0);
+}
+
+// ---------------------------------------------------------------- M25: optimization (tasks 481-487)
+namespace {
+    BatchOrderItem BatchRect(uint32_t batch, float x0, float y0, float x1, float y1)
+    {
+        BatchOrderItem item;
+        item.Batch = batch;
+        item.Min = { x0, y0 };
+        item.Max = { x1, y1 };
+        return item;
+    }
+
+    // Every pair that overlaps keeps its order in `order` (what keeps the picture the same).
+    bool OverlapsKeepOrder(const std::vector<BatchOrderItem>& items, const std::vector<uint32_t>& order)
+    {
+        std::vector<size_t> position(items.size());
+        for (size_t i = 0; i < order.size(); i++)
+            position[order[i]] = i;
+        for (size_t a = 0; a < items.size(); a++)
+            for (size_t b = a + 1; b < items.size(); b++)
+            {
+                const bool unknown = !items[a].HasBounds() || !items[b].HasBounds();
+                if ((unknown || items[a].Overlaps(items[b])) && position[a] > position[b])
+                    return false;
+            }
+        return true;
+    }
+}
+
+TEST(BatchOrderGroupsDrawsThatDoNotOverlap)
+{
+    // Sprite, circle, text in turns, side by side (nothing overlaps): grouped into three runs.
+    std::vector<BatchOrderItem> items;
+    for (int i = 0; i < 30; i++)
+        items.push_back(BatchRect(1u + (uint32_t)(i % 3), (float)i * 10.0f, 0.0f, (float)i * 10.0f + 8.0f, 8.0f));
+    std::vector<uint32_t> order;
+    const size_t moved = BatchOrder::Order(items, order);
+    CHECK(order.size() == items.size());
+    CHECK(moved > 0);
+    CHECK(BatchOrder::CountSwitches(items, order) == 3);
+    std::vector<uint32_t> sorted(order);
+    std::sort(sorted.begin(), sorted.end());
+    for (size_t i = 0; i < sorted.size(); i++)
+        CHECK(sorted[i] == i); // every draw once
+    // The same kind keeps its own order.
+    for (size_t i = 1; i < order.size(); i++)
+        if (items[order[i]].Batch == items[order[i - 1]].Batch)
+            CHECK(order[i] > order[i - 1]);
+    CHECK(OverlapsKeepOrder(items, order));
+}
+
+TEST(BatchOrderKeepsOverlappingDrawsInOrder)
+{
+    // A stack: sprite A, a circle over it, sprite B over both - B may not pass the circle.
+    std::vector<BatchOrderItem> items = { BatchRect(1, 0, 0, 10, 10), BatchRect(2, 2, 2, 8, 8), BatchRect(1, 4, 4, 12, 12),
+                                          BatchRect(1, 50, 50, 60, 60) }; // the last overlaps nothing: joins A
+    std::vector<uint32_t> order;
+    BatchOrder::Order(items, order);
+    CHECK(OverlapsKeepOrder(items, order));
+    CHECK(order == std::vector<uint32_t>({ 0, 3, 1, 2 }));
+    // A draw of unknown extent (a particle system, a tilemap) is a wall nothing passes.
+    std::vector<BatchOrderItem> walled = { BatchRect(1, 0, 0, 1, 1), BatchRect(2, 5, 5, 6, 6), BatchOrderItem{}, BatchRect(1, 9, 9, 10, 10) };
+    BatchOrder::Order(walled, order);
+    CHECK(order == std::vector<uint32_t>({ 0, 1, 2, 3 }));
+    // Batch 0: stays where it is, others pass it only where they do not overlap it.
+    std::vector<BatchOrderItem> fixed = { BatchRect(1, 0, 0, 1, 1), BatchRect(0, 5, 5, 6, 6), BatchRect(1, 9, 9, 10, 10), BatchRect(1, 5, 5, 6, 6) };
+    BatchOrder::Order(fixed, order);
+    CHECK(order == std::vector<uint32_t>({ 0, 2, 1, 3 }));
+    CHECK(OverlapsKeepOrder(fixed, order));
+    // Off: the order as it is.
+    BatchOrder::SetEnabled(false);
+    BatchOrder::Order(items, order);
+    CHECK(order == std::vector<uint32_t>({ 0, 1, 2, 3 }));
+    BatchOrder::SetEnabled(true);
+}
+
+TEST(BatchOrderRandomScenesKeepEveryOverlap)
+{
+    // Random draws (some overlapping, some walls): the order is a permutation and overlapping pairs never swap.
+    uint32_t state = 12345u;
+    auto next = [&]() {
+        state = state * 1664525u + 1013904223u;
+        return (float)(state >> 8) / (float)(1u << 24);
+    };
+    for (int round = 0; round < 40; round++)
+    {
+        std::vector<BatchOrderItem> items;
+        const int count = 20 + round * 3;
+        for (int i = 0; i < count; i++)
+        {
+            if (next() < 0.05f)
+            {
+                items.push_back(BatchOrderItem{}); // unknown extent
+                continue;
+            }
+            const float x = next() * 400.0f, y = next() * 300.0f, w = 5.0f + next() * 60.0f, h = 5.0f + next() * 60.0f;
+            items.push_back(BatchRect((uint32_t)(next() * 4.0f), x, y, x + w, y + h));
+        }
+        std::vector<uint32_t> order;
+        BatchOrder::Order(items, order, 8 + (uint32_t)round);
+        CHECK(order.size() == items.size());
+        std::vector<uint32_t> sorted(order);
+        std::sort(sorted.begin(), sorted.end());
+        bool permutation = true;
+        for (size_t i = 0; i < sorted.size(); i++)
+            permutation = permutation && sorted[i] == i;
+        CHECK(permutation);
+        CHECK(OverlapsKeepOrder(items, order));
+        std::vector<uint32_t> identity(items.size());
+        for (size_t i = 0; i < identity.size(); i++)
+            identity[i] = (uint32_t)i;
+        CHECK(BatchOrder::CountSwitches(items, order) <= BatchOrder::CountSwitches(items, identity));
+    }
+}
+
+TEST(WorldTransformCacheFollowsChanges)
+{
+    auto scene = CreateRef<Scene>();
+    Entity root = scene->CreateEntity("Root");
+    Entity child = scene->CreateEntity("Child");
+    Entity grandchild = scene->CreateEntity("Grandchild");
+    scene->SetParent(child, root, false);
+    scene->SetParent(grandchild, child, false);
+    root.GetTransform().Translation = { 1.0f, 0.0f, 0.0f };
+    child.GetTransform().Translation = { 0.0f, 2.0f, 0.0f };
+    child.GetTransform().Rotation = { 0.0f, 0.0f, glm::radians(90.0f) };
+    grandchild.GetTransform().Translation = { 3.0f, 0.0f, 0.0f };
+    auto reference = [&](Entity e) {
+        // The uncached definition: the parents' local transforms multiplied up the chain.
+        glm::mat4 m = e.GetTransform().GetTransform();
+        for (Entity p = scene->GetParent(e); p; p = scene->GetParent(p))
+            m = p.GetTransform().GetTransform() * m;
+        return m;
+    };
+    auto same = [](const glm::mat4& a, const glm::mat4& b) {
+        for (int c = 0; c < 4; c++)
+            for (int r = 0; r < 4; r++)
+                if (std::abs(a[c][r] - b[c][r]) > 1e-5f)
+                    return false;
+        return true;
+    };
+    CHECK(same(scene->GetWorldTransform(grandchild), reference(grandchild)));
+    scene->ResetWorldTransformStats();
+    // Asked again with nothing changed: from the cache (the whole chain).
+    CHECK(same(scene->GetWorldTransform(grandchild), reference(grandchild)));
+    CHECK(scene->GetWorldTransformStats().Recomputed == 0);
+    CHECK(scene->GetWorldTransformStats().Hits == 3);
+    // A write straight into the root's Transform reaches the grandchild.
+    root.GetTransform().Translation.x = -4.0f;
+    CHECK(same(scene->GetWorldTransform(grandchild), reference(grandchild)));
+    CHECK_NEAR(scene->GetWorldPosition(grandchild).x, -4.0f, 1e-4f);
+    root.GetTransform().Scale = glm::vec3(2.0f);
+    CHECK(same(scene->GetWorldTransform(grandchild), reference(grandchild)));
+    child.GetTransform().Rotation.z = 0.0f;
+    CHECK(same(scene->GetWorldTransform(grandchild), reference(grandchild)));
+    // Another parent: the cache sees the hierarchy change.
+    Entity other = scene->CreateEntity("Other");
+    other.GetTransform().Translation = { 0.0f, 0.0f, 10.0f };
+    scene->SetParent(grandchild, other, false);
+    CHECK(same(scene->GetWorldTransform(grandchild), reference(grandchild)));
+    CHECK_NEAR(scene->GetWorldPosition(grandchild).z, 10.0f, 1e-4f);
+    scene->SetParent(grandchild, Entity(), false);
+    CHECK(same(scene->GetWorldTransform(grandchild), grandchild.GetTransform().GetTransform()));
+    // An entity destroyed and its slot reused: a new entity never gets the old one's world.
+    scene->SetParent(grandchild, other, false);
+    (void)scene->GetWorldTransform(grandchild);
+    scene->DestroyEntity(grandchild);
+    Entity reused = scene->CreateEntity("Reused");
+    reused.GetTransform().Translation = { 7.0f, 0.0f, 0.0f };
+    CHECK_NEAR(scene->GetWorldPosition(reused).x, 7.0f, 1e-5f);
+    // Scene::Copy (the editor's play copy) gives the same world transforms.
+    Ref<Scene> copy = Scene::Copy(scene);
+    Entity copiedChild = copy->FindEntityByName("Child");
+    CHECK(copiedChild);
+    CHECK(same(copy->GetWorldTransform(copiedChild), scene->GetWorldTransform(child)));
+    // SetWorldTransform round trip through the cache.
+    const glm::mat4 target = glm::translate(glm::mat4(1.0f), glm::vec3(5.0f, 6.0f, 7.0f));
+    scene->SetWorldTransform(child, target);
+    CHECK(same(scene->GetWorldTransform(child), target));
+}
+
+TEST(SteadyFramesMakeNoHeapAllocations)
+{
+    if (!AllocCounter::Available())
+        return; // AddressSanitizer brings its own operator new
+    // A running scene that only moves (sprites, a hierarchy, a script per tenth entity, an animated tint): once its
+    // first frames are done, a frame allocates nothing (UpdateRuntime; headless - no camera, nothing drawn).
+    auto scene = CreateRef<Scene>();
+    std::vector<Entity> entities;
+    for (int i = 0; i < 300; i++)
+    {
+        Entity e = scene->CreateEntity(std::format("E{}", i));
+        e.GetTransform().Translation = { (float)i, 0.0f, 0.0f };
+        e.AddComponent<SpriteRendererComponent>();
+        if (i % 10 != 0)
+            scene->SetParent(e, entities[(size_t)(i / 10) * 10], false);
+        entities.push_back(e);
+    }
+    scene->OnRuntimeStart();
+    for (int f = 0; f < 10; f++)
+        scene->OnUpdateRuntime(Timestep(1.0f / 60.0f));
+    uint64_t allocations = 0;
+    for (int f = 0; f < 20; f++)
+    {
+        entities[(size_t)f].GetTransform().Translation.y += 0.1f; // something moves
+        AllocCounter::Scope counting;
+        scene->OnUpdateRuntime(Timestep(1.0f / 60.0f));
+        (void)scene->GetWorldTransform(entities[(size_t)f + 1]);
+        allocations += counting.Count();
+    }
+    scene->OnRuntimeStop();
+    CHECK(allocations == 0);
 }

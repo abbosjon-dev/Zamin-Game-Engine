@@ -88,11 +88,12 @@ namespace Zamin {
     {
         return std::format("draw call {}, uchburchak {} | mesh: {} chizildi, {} kesildi, {} instanced ({} chaqiruv), {} shaffof | "
                            "soya: {} chizildi, {} kesildi, {} instanced ({} chaqiruv) | 2D: {} chizildi, {} kesildi | tile bo'laklari: "
-                           "{} chizildi, {} kesildi | quad {}, doira {}, chiziq {} | particle {} ({} instanced, {} chaqiruv)",
+                           "{} chizildi, {} kesildi | quad {}, doira {}, chiziq {} | particle {} ({} instanced, {} chaqiruv) | "
+                           "2D batch bo'linishi: tekstura {}, tur {}, holat {}; tartibi o'zgargan {}",
                            DrawCalls, TriangleCount, MeshCount, CulledMeshCount, InstancedMeshCount, InstancedDrawCount, TransparentCount,
                            ShadowCasterCount, CulledShadowCasterCount, InstancedShadowCasterCount, InstancedShadowDrawCount, SpriteCount,
                            CulledSpriteCount, TileChunkCount, CulledTileChunkCount, QuadCount, CircleCount, LineCount, ParticleCount,
-                           InstancedParticleCount, InstancedParticleDrawCount);
+                           InstancedParticleCount, InstancedParticleDrawCount, Flush2DTextures, Flush2DKind, Flush2DState, Reordered2DCount);
     }
 
     std::filesystem::path Renderer::GetResourcesDirectory()

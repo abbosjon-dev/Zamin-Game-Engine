@@ -671,6 +671,8 @@ void main()
     {
         if (!s_Data->TextBatch)
             return;
+        if (s_Data->QuadIndexCount)
+            Renderer::GetStats().Flush2DKind++;
         FlushQuads();
         s_Data->TextBatch = false;
         s_Data->TextAtlas = nullptr;
@@ -687,6 +689,7 @@ void main()
 
         if (s_Data->TextureSlotIndex >= Renderer2DData::MaxTextureSlots)
         {
+            Renderer::GetStats().Flush2DTextures++;
             Renderer2D::Flush();
             ResetBatch();
         }
@@ -703,7 +706,10 @@ void main()
     static void BeginQuads()
     {
         if (s_Data->CircleIndexCount)
+        {
+            Renderer::GetStats().Flush2DKind++;
             FlushCircles();
+        }
         BeginSprites();
     }
 
@@ -711,9 +717,14 @@ void main()
     static void BeginText(const Ref<Texture2D>& atlas)
     {
         if (s_Data->CircleIndexCount)
+        {
+            Renderer::GetStats().Flush2DKind++;
             FlushCircles();
+        }
         if (s_Data->TextBatch && s_Data->TextAtlas == atlas)
             return;
+        if (s_Data->QuadIndexCount)
+            Renderer::GetStats().Flush2DKind++;
         FlushQuads();
         s_Data->TextBatch = true;
         s_Data->TextAtlas = atlas;
@@ -862,8 +873,13 @@ void main()
         Renderer::GetStats().QuadCount++;
     }
 
+    // Something is waiting to be drawn (a state change draws it first).
+    static bool HasPending() { return s_Data->QuadIndexCount || s_Data->CircleIndexCount || s_Data->LineVertexCount; }
+
     void Renderer2D::SetClipRect(bool enabled, const glm::vec2& min01, const glm::vec2& max01)
     {
+        if (HasPending())
+            Renderer::GetStats().Flush2DState++;
         Flush();
         RenderCommand::SetScissor(enabled, min01, max01);
     }
@@ -873,7 +889,10 @@ void main()
         if (s_Data->CircleIndexCount >= Renderer2DData::MaxIndices)
             NextBatch();
         if (s_Data->QuadIndexCount)
+        {
+            Renderer::GetStats().Flush2DKind++;
             FlushQuads(); // keeps the submission order (see BeginQuads)
+        }
 
         for (int i = 0; i < 4; i++)
         {
@@ -929,6 +948,8 @@ void main()
 
     void Renderer2D::SetBlendMode(BlendMode mode)
     {
+        if (HasPending())
+            Renderer::GetStats().Flush2DState++;
         NextBatch();
         RenderCommand::SetBlendMode(mode);
     }
@@ -938,6 +959,8 @@ void main()
         if (s_Data->LightingSet && s_Data->Lighting == lighting)
             return;
         // What was submitted before was meant for the old lights.
+        if (s_Data->QuadIndexCount)
+            Renderer::GetStats().Flush2DState++;
         FlushQuads();
         s_Data->Lighting = lighting;
         if (s_Data->Lighting.Lights.size() > (size_t)Light2DMath::MaxLights)
@@ -954,6 +977,8 @@ void main()
     {
         if ((s_Data->DisplayOutput == 1) == display)
             return;
+        if (HasPending())
+            Renderer::GetStats().Flush2DState++;
         Flush(); // what is pending was meant for the other output
         s_Data->DisplayOutput = display ? 1 : 0;
     }

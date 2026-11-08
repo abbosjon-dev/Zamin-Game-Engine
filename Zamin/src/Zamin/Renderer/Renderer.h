@@ -35,6 +35,11 @@ namespace Zamin {
         uint32_t ParticleCount = 0;       ///< particles drawn (every system)
         uint32_t InstancedParticleCount = 0;     ///< of them drawn as GPU instances (ParticleRenderer)
         uint32_t InstancedParticleDrawCount = 0; ///< the instanced draw calls they took (also in DrawCalls)
+        /// Renderer2D batches drawn before the scene's end, by why (each is one more draw call):
+        uint32_t Flush2DTextures = 0;   ///< a 17th texture (16 slots, one is white)
+        uint32_t Flush2DKind = 0;       ///< sprites / text / circles took turns (another shader or text atlas)
+        uint32_t Flush2DState = 0;      ///< blend mode, clip rectangle, 2D lights or output changed
+        uint32_t Reordered2DCount = 0;  ///< 2D draws BatchOrder moved next to their batch (they overlap nothing they passed)
 
         /// One line for logs (ZAMIN_EDITOR_STATS / ZAMIN_PLAYER_STATS): what was drawn, culled
         /// and instanced.

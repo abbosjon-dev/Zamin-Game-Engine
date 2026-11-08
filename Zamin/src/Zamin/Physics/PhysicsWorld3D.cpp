@@ -54,13 +54,12 @@ namespace Zamin {
     namespace {
 
         // Jolt's object layer of a body: its collision layer (0..15, CollisionLayers2D) times two, plus
-        // one for a moving (dynamic / kinematic) body. Static bodies never collide with each other.
+        // one for a moving (dynamic / kinematic) body - Count * 2 object layers, 0 is layer 0 static.
+        // Static bodies never collide with each other.
         namespace Layers
         {
             static constexpr int Count = 16;
-            static constexpr JPH::ObjectLayer NON_MOVING = 0; // layer 0, static
             static constexpr JPH::ObjectLayer MOVING = 1;     // layer 0, moving
-            static constexpr JPH::ObjectLayer NUM_LAYERS = Count * 2;
 
             inline JPH::ObjectLayer Make(int layer, bool moving)
             {

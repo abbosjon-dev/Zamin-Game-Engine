@@ -36,7 +36,6 @@ namespace Zamin {
         std::string m_NewGroupName;
         std::string m_NewGroupParent = AudioSettings::Master;
         std::string m_NewGroupError;
-        bool m_OpenAddPopup = false;
     };
 
 }

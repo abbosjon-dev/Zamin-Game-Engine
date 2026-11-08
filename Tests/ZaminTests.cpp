@@ -5477,7 +5477,10 @@ public:
     enum class Tiny : uint8_t { A = 0, B = 1, Max = 255 };
     enum class Signed8 : int8_t { Minus = -100, Zero = 0, Plus = 100 };
     enum class Wide : int64_t { Low = -(1ll << 40), High = 1ll << 40 };
-    enum Plain { PlainA, PlainB, PlainC }; // unscoped, int-sized
+    // Unscoped, int-sized. Its enumerators cover the field's options (10, 11): without a fixed underlying type an
+    // enum may only hold values in its enumerators' bit range - a stored 10 in { 0, 1, 2 } was undefined
+    // behaviour (UndefinedBehaviorSanitizer: "load of value 10, which is not a valid value for type 'Plain'").
+    enum Plain { PlainA, PlainB, PlainC, PlainTenth = 10, PlainEleventh };
 
     uint8_t GuardBefore = 0xAB;
     Tiny Small = Tiny::B;
@@ -9966,6 +9969,72 @@ TEST(InactiveAudioSourcesStop)
     CHECK(AudioEngine::GetPlayingCount() == 0);
     if (!wasAvailable)
         AudioEngine::Shutdown();
+    std::filesystem::remove_all(dir);
+}
+
+// Mixer groups with several child groups and sounds are removed while the engine runs, then the engine shuts
+// down with nested groups. Every node sending into a destroyed group is detached from it first: miniaudio's own
+// uninit detached only the first one, and the others then read the freed group (found by AddressSanitizer -
+// Tests/sanitize.sh address - in AudioEngine::Shutdown with three groups under one parent).
+TEST(AudioMixerGroupTeardown)
+{
+    const bool wasAvailable = AudioEngine::IsAvailable();
+    const AudioSettings original = AudioEngine::GetMixerSettings();
+    AudioEngine::Init(true);
+    CHECK(AudioEngine::IsAvailable());
+    if (!AudioEngine::IsAvailable())
+        return;
+    const auto dir = std::filesystem::temp_directory_path() / ("zamin-audio-groups-" + std::to_string((uint64_t)UUID()));
+    std::filesystem::create_directories(dir);
+    const std::string wav = (dir / "tone.wav").string();
+    WriteTestWav(wav, 1.0f);
+
+    // Ambience with three children under SFX, each child playing a looped sound.
+    AudioSettings mixer;
+    mixer.Groups.push_back({ "Ambience", AudioSettings::SFX });
+    for (const char* child : { "Wind", "Birds", "Water" })
+        mixer.Groups.push_back({ child, "Ambience" });
+    AudioEngine::SetMixerSettings(mixer);
+    CHECK(AudioEngine::HasGroup("Ambience") && AudioEngine::HasGroup("Wind") && AudioEngine::HasGroup("Water"));
+    std::vector<uint32_t> sounds;
+    for (const char* group : { "Ambience", "Wind", "Birds", "Water", "Ambience" })
+    {
+        SoundParams params;
+        params.Loop = true;
+        params.Group = group;
+        sounds.push_back(AudioEngine::Play(wav, params));
+    }
+    for (uint32_t handle : sounds)
+        CHECK(handle != 0 && AudioEngine::IsPlaying(handle));
+    AudioEngine::Update(0.016f);
+
+    // Ambience goes (its sounds move to SFX, its children are re-parented), the children stay.
+    AudioSettings without = mixer;
+    without.Groups.erase(std::find_if(without.Groups.begin(), without.Groups.end(), [](const AudioGroupSettings& g) { return g.Name == "Ambience"; }));
+    for (AudioGroupSettings& g : without.Groups)
+        if (g.Parent == "Ambience")
+            g.Parent = AudioSettings::SFX;
+    AudioEngine::SetMixerSettings(without);
+    AudioEngine::Update(0.016f);
+    CHECK(!AudioEngine::HasGroup("Ambience") && AudioEngine::HasGroup("Birds"));
+    CHECK(AudioEngine::GetSoundGroup(sounds[0]) == AudioSettings::SFX && AudioEngine::GetSoundGroup(sounds[2]) == "Birds");
+    for (uint32_t handle : sounds)
+        CHECK(AudioEngine::IsPlaying(handle));
+
+    // Back again, nested three deep, then the whole engine goes with its sounds still playing.
+    mixer.Groups.push_back({ "Gusts", "Wind" });
+    AudioEngine::SetMixerSettings(mixer);
+    SoundParams gust;
+    gust.Loop = true;
+    gust.Group = "Gusts";
+    CHECK(AudioEngine::Play(wav, gust) != 0);
+    AudioEngine::Update(0.016f);
+    AudioEngine::Shutdown();
+    CHECK(!AudioEngine::IsAvailable());
+
+    AudioEngine::SetMixerSettings(original);
+    if (wasAvailable)
+        AudioEngine::Init(true);
     std::filesystem::remove_all(dir);
 }
 
@@ -36089,7 +36158,10 @@ TEST(CrashHandlerReports)
     CHECK(CrashHandler::ReadReport(file, summary));
     CHECK(summary.Application == "Sinov Player" && summary.Product == "Sinov O'yini" && summary.Version == "2.1.0");
     CHECK(summary.Reason.starts_with("SIGSEGV") && summary.LogFile == "/tmp/sinov.log" && summary.Engine.starts_with("Zamin Engine"));
-    CHECK(!summary.Backtrace.empty() && summary.Backtrace[0].find("Zamin::CrashHandler::WriteReport(") != std::string::npos);
+    // The handler's own frame comes first - after a sanitizer's backtrace() interceptor in a sanitizer build.
+    const size_t firstFrames = std::min<size_t>(summary.Backtrace.size(), 2);
+    CHECK(std::any_of(summary.Backtrace.begin(), summary.Backtrace.begin() + (ptrdiff_t)firstFrames,
+                      [](const std::string& line) { return line.find("Zamin::CrashHandler::WriteReport(") != std::string::npos; }));
     CHECK(!summary.LastLog.empty() && summary.LastLog.back().find("crash sinovi marker 7") != std::string::npos);
     CHECK(!CrashHandler::ReadReport(dir / "yoq.txt", summary));
 
@@ -38974,8 +39046,13 @@ TEST(MemoryStatsProcess)
     CHECK(self.Valid && self.Resident > 1024 * 1024 && self.PeakResident >= self.Resident && self.Virtual >= self.Resident);
     // More memory in use shows up in the next read (touched pages).
     std::vector<uint8_t> block(64u * 1024 * 1024, 1);
+    // Every page written through a volatile pointer: an optimiser may drop an allocation nothing reads
+    // (Clang -O2 removed the whole block, the read below folded to a constant).
+    volatile uint8_t* pages = block.data();
+    for (size_t i = 0; i < block.size(); i += 4096)
+        pages[i] = 2;
     const MemoryStats::ProcessMemory bigger = MemoryStats::GetProcessMemory(0.0);
-    CHECK(bigger.Resident > self.Resident + 32u * 1024 * 1024 && block[12345] == 1);
+    CHECK(bigger.Resident > self.Resident + 32u * 1024 * 1024 && pages[12288] == 2);
     CHECK(MemoryStats::GetProcessMemory(60.0).Resident == bigger.Resident); // cached within the age
 #endif
 }
@@ -45245,6 +45322,8 @@ TEST(PrefabStageRoundTrip)
 // cut, swap and break the sample files structurally.
 namespace FuzzJson {
 
+    struct Member;
+
     struct Value
     {
         enum class Type : uint8_t { Null, Bool, Number, String, Array, Object };
@@ -45252,29 +45331,48 @@ namespace FuzzJson {
         bool B = false;
         std::string Text;                                    // a number as written; a string's raw (escaped) content
         std::vector<Value> Items;                            // an array
-        std::vector<std::pair<std::string, Value>> Members;  // an object (raw keys)
+        std::vector<Member> Members;                         // an object (raw keys)
 
-        static Value Num(std::string text) { Value v; v.T = Type::Number; v.Text = std::move(text); return v; }
-        static Value Str(std::string text) { Value v; v.T = Type::String; v.Text = std::move(text); return v; }
-        static Value Boolean(bool b) { Value v; v.T = Type::Bool; v.B = b; return v; }
-        static Value Arr() { Value v; v.T = Type::Array; return v; }
-        static Value Obj() { Value v; v.T = Type::Object; return v; }
-        Value* Find(std::string_view key)
-        {
-            if (T == Type::Object)
-                for (auto& [k, v] : Members)
-                    if (k == key)
-                        return &v;
-            return nullptr;
-        }
-        void Set(const std::string& key, Value v)
-        {
-            if (Value* existing = Find(key))
-                *existing = std::move(v);
-            else
-                Members.emplace_back(key, std::move(v));
-        }
+        static Value Num(std::string text);
+        static Value Str(std::string text);
+        static Value Boolean(bool b);
+        static Value Arr();
+        static Value Obj();
+        Value* Find(std::string_view key);
+        void Set(const std::string& key, Value v);
     };
+
+    // An object's member. Not std::pair<std::string, Value>: Clang (with libstdc++) instantiates that pair while
+    // it defines Value's own default constructor - the pair's constructors ask whether Value is default
+    // constructible - and fails on the cycle. Its functions are defined here, where both types are complete.
+    struct Member
+    {
+        std::string first;  // the raw (escaped) key
+        Value second;
+    };
+
+    Value Value::Num(std::string text) { Value v; v.T = Type::Number; v.Text = std::move(text); return v; }
+    Value Value::Str(std::string text) { Value v; v.T = Type::String; v.Text = std::move(text); return v; }
+    Value Value::Boolean(bool b) { Value v; v.T = Type::Bool; v.B = b; return v; }
+    Value Value::Arr() { Value v; v.T = Type::Array; return v; }
+    Value Value::Obj() { Value v; v.T = Type::Object; return v; }
+
+    Value* Value::Find(std::string_view key)
+    {
+        if (T == Type::Object)
+            for (auto& [k, v] : Members)
+                if (k == key)
+                    return &v;
+        return nullptr;
+    }
+
+    void Value::Set(const std::string& key, Value v)
+    {
+        if (Value* existing = Find(key))
+            *existing = std::move(v);
+        else
+            Members.emplace_back(key, std::move(v));
+    }
 
     struct Parser
     {

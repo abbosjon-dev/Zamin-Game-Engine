@@ -8,9 +8,13 @@
 #   documentation although many implementations do not need them.
 #   -Wno-missing-field-initializers: aggregate initialisation of settings / descriptor structs lists the
 #   leading members only, the rest keep their default member initialisers on purpose.
+# -ffp-contract=off: no fused multiply-add contraction, so a GCC and a Clang build compute the same floats
+# (Jolt's flags give every target that links it -mfma; GCC's ISO mode never contracts, Clang did by default -
+# a rotation's angle to itself was not 0 and the same particle emitter drew other particles).
 function(zamin_target_settings target)
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-        target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic -Wno-unused-parameter -Wno-missing-field-initializers)
+        target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic -Wno-unused-parameter -Wno-missing-field-initializers
+            -ffp-contract=off)
     endif()
     if(ZAMIN_SANITIZER_STRICT_FLAGS)
         target_compile_options(${target} PRIVATE ${ZAMIN_SANITIZER_STRICT_FLAGS})

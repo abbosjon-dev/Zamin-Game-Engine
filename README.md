@@ -885,6 +885,8 @@ Boshqa barcha kutubxonalar (GLFW, GLM, EnTT, ImGui, ImGuizmo, Box2D, Jolt, nlohm
 ./build/bin/ZaminPlayer Projects/Adventure3D --borderless --monitor 1 --fps 60   # hamma variantlar: --help
 ctest --test-dir build                           # unit testlar
 Tests/render_tests.sh                            # rendering regressiya testi (display kerak; yo'q bo'lsa xvfb-run)
+Tests/sanitize.sh address                        # unit testlar AddressSanitizer + LeakSanitizer bilan (build-asan)
+Tests/sanitize.sh undefined                      # UndefinedBehaviorSanitizer bilan (build-ubsan)
 ```
 
 **Rendering regressiya testi** (`ZaminRenderTests`, `Tests/RenderTests.cpp`): bir nechta etalon sahna (PBR + soyalar +
@@ -894,7 +896,26 @@ Platformer2D namunalari, editor tanlash konturi) 480x270 o'lchamda offscreen chi
 `build/RenderTests/` ga yangi rasm hamda farq rasmi (`<nom>.diff.png`, farqlar qizil) yoziladi. Ko'rinish ataylab
 o'zgartirilganda etalonlar `Tests/render_tests.sh --update` yoki `cmake --build build --target update_render_references`
 bilan qayta yaratiladi; `--filter`, `--list` ham bor. `render_tests` CMake target'i testni ishga tushiradi. Unit testlar
-(`ZaminTests`) GPU'siz qoladi.
+(`ZaminTests`) GPU'siz qoladi. Skript mahalliy kompyuterda ham, CI'da ham bir xil ishlaydi: har doim Mesa'ning dasturiy
+rasterizatori (llvmpipe — etalonlar shu bilan olingan; GPU'li kompyuterda ham), display bo'lmasa qat'iy 1280x720x24 xvfb
+ekrani. Har ishga tushishda `build/RenderTests/report.json` (har holat raqamlari, GL renderer) va `summary.md` (Markdown
+jadval — GitHub Actions uni ish sahifasiga chiqaradi) yoziladi; yiqilgan holat uchun `<nom>.compare.png` (etalon | yangi |
+farq yonma-yon) ham. `--save-all` o'tgan holatlar rasmlarini ham yozadi (CI artefaktlari: `render-tests-gcc`,
+`render-tests-clang`). Boshqa build (masalan Clang): `ZAMIN_BUILD_DIR=build-clang Tests/render_tests.sh`.
+
+**Sanitizer build'lar** (`-DZAMIN_SANITIZE=address|undefined|leak|thread`, `cmake/Sanitizers.cmake`; `CMakePresets.json`da
+`asan`, `ubsan`, `lsan`, `tsan` presetlari): bayroqlar build'ning barcha target'lariga (vendor kutubxonalarga ham) va
+`ZaminConfig.cmake` orqali tashqarida build qilinadigan o'yin modullariga beriladi; bizning koddagi har qanday UBSan
+xabari fatal (`-fno-sanitize-recover=all`). Sanitizer build namuna o'yinlar modullarini loyihaning `Binaries` papkasiga
+emas, o'zining `GameModules` papkasiga yozadi va o'sha yerdan yuklaydi (`ZAMIN_SCRIPT_MODULE_DIR=<papka>` bilan istalgan
+build'da). `Tests/sanitize.sh <address|undefined|leak|thread> [--smoke] [--compiler clang] [--clean]` alohida papkada
+build qiladi, `ZaminTests`ni (`--smoke` bilan player va editor'ni ham xvfb ostida) ishga tushiradi va testlar o'tsa ham
+har qanday sanitizer xabarida yiqiladi. Uchinchi tomon kodining shovqini `Tests/sanitizers/*.supp` fayllarida
+(izohlari bilan); bizning koddagi xato hech qachon u yerga yozilmaydi — tuzatiladi.
+
+**Ogohlantirishlar:** bizning target'lar (engine, editor, player, testlar va benchmarklar, namuna o'yin modullari)
+`-Wall -Wextra -Wpedantic` bilan build qilinadi (`zamin_target_settings`, `cmake/ZaminGame.cmake`), vendor sarlavhalari
+`-isystem` orqali ulanadi. Build GCC va Clang bilan ogohlantirishsiz.
 
 ---
 
@@ -1046,7 +1067,7 @@ ZM_REGISTER_SCRIPT(Enemy,
     ZM_FIELD(Enemy, Notes).Header("Boshqa").Label("Izohlar").Multiline())
 ```
 
-Atributlar zanjir qilib qo'shiladi: `.Range(min, max)`, `.Tooltip("...")`, `.Header("Bo'lim")`, `.Label("Nom")`, `.Color(hdr)`, `.Multiline()`, `.Options({...})`. `ZM_FIELD_ENUM` `int` maydon uchun ham ishlaydi. Maydon turi `int` ↔ `enum` o'zgarsa, sahnadagi qiymat saqlanib qoladi. Oddiy `glm::vec4` endi 4 ta son sifatida ko'rinadi — rang uchun `ZM_FIELD_COLOR` ishlating.
+Atributlar zanjir qilib qo'shiladi: `.Range(min, max)`, `.Tooltip("...")`, `.Header("Bo'lim")`, `.Label("Nom")`, `.Color(hdr)`, `.Multiline()`, `.Options({...})`. `ZM_FIELD_ENUM` `int` maydon uchun ham ishlaydi. Aniq qiymatli variant (`{"Boss", 10}`) enum'ning o'z qiymati bo'lishi kerak (yoki enum'ga tur bering: `enum class Mode : int`) — asosiy turi berilmagan enum faqat o'z qiymatlari oralig'idagi sonni saqlay oladi, boshqasi aniqlanmagan xatti-harakat (UBSan topadi). Maydon turi `int` ↔ `enum` o'zgarsa, sahnadagi qiymat saqlanib qoladi. Oddiy `glm::vec4` endi 4 ta son sifatida ko'rinadi — rang uchun `ZM_FIELD_COLOR` ishlating.
 
 Yangi skript: **Skriptlar → Yangi C++ skript** (yoki Kontent brauzerida o'ng tugma). **To'liq** shablonda hamma callback'lar misollar bilan va har xil maydon turlari bor, **Minimal** — faqat `OnCreate`/`OnUpdate`. Oyna klass nomini darhol tekshiradi: C++ kalit so'zlari va `using namespace Zamin` bilan to'qnashadigan nomlar (`Camera`, `Entity`, `Input` ...) qabul qilinmaydi — masalan `CameraController` deb nomlang.
 

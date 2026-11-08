@@ -247,8 +247,31 @@ namespace Zamin {
             return g ? (ma_node*)g->Group.get() : ma_engine_get_endpoint(s_Engine);
         }
 
+        // Detaches every node that sends into `node`. miniaudio 0.11.21's ma_node_uninit() detaches only the
+        // first node attached to each of its input buses (its loop follows the "next" pointer the detach has
+        // just cleared): the others - a group's child groups, its sounds - would keep pointing at the freed
+        // node, and detaching or destroying them later read freed memory (found by AddressSanitizer:
+        // AudioEngine::Shutdown with Ambience and other groups under SFX).
+        void DetachAllInputs(ma_node* node)
+        {
+            ma_node_base* base = (ma_node_base*)node;
+            for (ma_uint32 bus = 0; bus < ma_node_get_input_bus_count(node); bus++)
+            {
+                ma_node_input_bus& input = base->pInputBuses[bus];
+                while (ma_node_output_bus* first = (ma_node_output_bus*)input.head.pNext)
+                {
+                    ma_node_detach_output_bus(first->pNode, first->outputBusIndex);
+                    if ((ma_node_output_bus*)input.head.pNext == first)
+                        break; // could not be detached: never loop forever
+                }
+            }
+        }
+
         void DestroyGroup(MixerGroup& g)
         {
+            // Inputs first (child groups, sounds), so no node is left attached to a freed one.
+            if (g.Group)
+                DetachAllInputs((ma_node*)g.Group.get());
             if (g.Meter)
                 ma_node_uninit(&g.Meter->Base, nullptr);
             if (g.Filter)

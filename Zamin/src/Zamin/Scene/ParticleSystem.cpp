@@ -400,15 +400,22 @@ namespace Zamin {
                     local = { std::cos(a) * r, std::sin(a) * r, 0.0f };
                     break;
                 }
+                // The random numbers are drawn one statement at a time: the order a call's arguments (or an
+                // operator's operands) are evaluated in is up to the compiler, and GCC and Clang drew the same
+                // numbers for different axes - the same emitter and seed gave other particles.
                 case Shape::Sphere:
                 {
                     const float inner3 = inner * inner * inner;
-                    local = RandomInCone({ 0, 1, 0 }, 180.0f, rng) * (std::cbrt(inner3 + (1.0f - inner3) * Random01(rng)) * ps.ShapeRadius);
+                    const float radius = std::cbrt(inner3 + (1.0f - inner3) * Random01(rng)) * ps.ShapeRadius;
+                    local = RandomInCone({ 0, 1, 0 }, 180.0f, rng) * radius;
                     break;
                 }
                 case Shape::Box:
-                    local = (glm::vec3(Random01(rng), Random01(rng), Random01(rng)) * 2.0f - 1.0f) * ps.ShapeExtents;
+                {
+                    const float z = Random01(rng), y = Random01(rng), x = Random01(rng);
+                    local = (glm::vec3(x, y, z) * 2.0f - 1.0f) * ps.ShapeExtents;
                     break;
+                }
                 case Shape::Edge:
                     local = { (Random01(rng) - 0.5f) * ps.EdgeLength, 0.0f, 0.0f };
                     break;

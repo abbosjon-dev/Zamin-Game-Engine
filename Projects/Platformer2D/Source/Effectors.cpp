@@ -30,7 +30,10 @@ public:
         if (m_Time < AutoInterval)
             return;
         m_Time = 0.0f;
-        Blast(AutoCenter + glm::vec2(Random::Range(-AutoSpread.x, AutoSpread.x), Random::Range(-AutoSpread.y, AutoSpread.y)));
+        // One draw per statement: the order of a call's arguments is up to the compiler.
+        const float x = Random::Range(-AutoSpread.x, AutoSpread.x);
+        const float y = Random::Range(-AutoSpread.y, AutoSpread.y);
+        Blast(AutoCenter + glm::vec2(x, y));
     }
 
 private:

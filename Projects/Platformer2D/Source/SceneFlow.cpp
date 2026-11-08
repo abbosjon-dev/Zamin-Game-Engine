@@ -139,7 +139,7 @@ public:
 
     void OnEnable() override
     {
-        m_Subscription = Subscribe("CoinCollected", [this](const ScriptMessage&) {
+        m_Subscription = Subscribe("CoinCollected", [](const ScriptMessage&) {
             GameState::Increment("Session.Coins");
             GetOrCreateService<SessionStats>().AddCoin(GameState::GetString("Session.Level"));
         });

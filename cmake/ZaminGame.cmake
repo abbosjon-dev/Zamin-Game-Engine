@@ -17,6 +17,11 @@ function(zamin_target_settings target)
     if(ZAMIN_SANITIZER_STRICT_FLAGS)
         target_compile_options(${target} PRIVATE ${ZAMIN_SANITIZER_STRICT_FLAGS})
     endif()
+    # A coverage build (cmake/Coverage.cmake): gcov's counters in our targets, not in the vendor libraries.
+    if(ZAMIN_COVERAGE_FLAGS)
+        target_compile_options(${target} PRIVATE ${ZAMIN_COVERAGE_FLAGS})
+        target_link_options(${target} PRIVATE ${ZAMIN_COVERAGE_LINK_FLAGS})
+    endif()
 endfunction()
 
 # zamin_add_game_module(<name> <sources...>)

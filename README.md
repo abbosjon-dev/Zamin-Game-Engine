@@ -887,16 +887,34 @@ Boshqa barcha kutubxonalar (GLFW, GLM, EnTT, ImGui, ImGuizmo, Box2D, Jolt, nlohm
 ./build/bin/ZaminPlayer Projects/Platformer2D    # o'yinni editor'siz ishga tushirish
 ./build/bin/ZaminPlayer Projects/Showcase3D --scene Scenes/DebugDraw.zscene --debug-raycasts --debug-contacts --debug-velocities
 ./build/bin/ZaminPlayer Projects/Adventure3D --borderless --monitor 1 --fps 60   # hamma variantlar: --help
-ctest --test-dir build -LE gui                   # unit testlar (tezkorlari)
+ctest --test-dir build -LE gui                   # unit testlar (tezkorlari) + benchmarklar kichik o'lchamda (-L bench)
+./build/bin/ZaminTests --filter "Prefab*" --timing   # nom bo'yicha filtr (glob, '-' chiqarib tashlaydi), vaqt hisoboti
+./build/bin/ZaminTests --list                    # testlar nomlari; --help: --slowest N, --fail-fast, --report, --junit
 ctest --test-dir build -L gui                    # editor smoke, skript hot reload, eksport testlari (bir necha daqiqa)
 Tests/render_tests.sh                            # rendering regressiya testi (display kerak; yo'q bo'lsa xvfb-run)
 Tests/editor_smoke.sh --shots                    # editorning barcha oyna/menyu/popup'lari (xvfb ostida)
 Tests/hot_reload_test.sh                         # skript modulini qayta kompilyatsiya + hot reload
 Tests/export_test.sh                             # eksport + eksport qilingan o'yin headless (skrinshot bilan)
 Tests/render_bench.sh                            # 10 000 sprite, 1 000 mesh: ms / kadr (docs/benchmarks.md)
+Tests/bench.sh --compare                         # ECS, serializatsiya, prefab benchmarklari + boshlang'ich natija bilan solishtirish
 Tests/sanitize.sh address                        # unit testlar AddressSanitizer + LeakSanitizer bilan (build-asan)
 Tests/sanitize.sh undefined                      # UndefinedBehaviorSanitizer bilan (build-ubsan)
 ```
+
+**Unit test framework** (`Tests/TestFramework.h`): `ZaminTests [namuna ...]` - `*`/`?` bilan namuna butun nomga
+glob (`Prefab*`), ularsiz nomning bir qismi (`ZAMIN_TESTS` muhit o'zgaruvchisi kabi), katta-kichik harf farqsiz; bir
+nechtasi `:` yoki `,` bilan, `-` bilan boshlangani chiqarib tashlaydi (`"Scene*:-*Fuzz*"`). `--list` faqat nomlarni
+chiqaradi. Har test qatorida uning vaqti; `--timing` / `--slowest N` vaqt hisoboti (eng sekin testlar, ulushi,
+taqsimot), `--report r.json` va `--junit r.xml` natijalarni faylga yozadi (ctest ularni `build/TestResults` ga
+yozadi, CI artefakt qilib yuklaydi), `--fail-fast` birinchi xatoda to'xtaydi. Testdan chiqib ketgan istisno testni
+yiqitadi, qolganlari ishlayveradi. Oxirgi qator har doim `N test, M xato`.
+
+**Benchmarklar** ([docs/benchmarks.md](docs/benchmarks.md)): `ZaminBench --ecs` (sahna API'si va EnTT: yaratish,
+komponentlar, view'lar, qidiruv, ierarxiya, `Scene::Copy`, o'chirish turlari, o'yin kadrlari), `ZaminBench --serialize`
+(2D va 3D katta sahnalar JSON / binar kesh, nusxalash / joylash, har komponent narxi), `--serialize --prefabs`,
+`--render`. `Tests/bench.sh` ularni JSON natijalari bilan ishga tushiradi va `--compare` bilan `Tests/Baselines/` dagi
+Release boshlang'ich natijasi bilan solishtiradi (`Tests/bench_compare.py`). ECS benchmark topgan xato tuzatildi:
+skriptlarning `Destroy` navbati takrorlanishni butun navbatdan qidirardi (bir kadrda minglab o'chirish kvadratik edi).
 
 **Rendering regressiya testi** (`ZaminRenderTests`, `Tests/RenderTests.cpp`): bir nechta etalon sahna (PBR + soyalar +
 nuqtali/spot yorug'lik, materiallar, bir nechta quyosh va osmon, barcha post effektlar, debug ko'rinish, 2D, Showcase3D va

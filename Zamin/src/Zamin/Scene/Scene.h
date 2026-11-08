@@ -1785,7 +1785,8 @@ namespace Zamin {
         float m_ScrollbarGrab = 0.0f;               // where on the handle a dragged scrollbar was taken
 
         std::unordered_map<UUID, entt::entity> m_EntityMap;
-        std::vector<UUID> m_DestroyQueue;
+        std::vector<UUID> m_DestroyQueue;            // DestroyEntityDeferred, in the order asked
+        std::unordered_set<UUID> m_DestroyQueued;    // the same ids (once each)
 
         // FindEntityByName / FindEntitiesWithTag indices (see EntityIndex).
         EntityIndex m_NameIndex, m_TagIndex;

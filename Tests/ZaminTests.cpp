@@ -47581,3 +47581,66 @@ TEST(StaleModuleCopiesRemoved)
     CHECK(ScriptEngine::RemoveStaleModuleCopies(dir) == 0);
     std::filesystem::remove_all(dir);
 }
+
+// Scripts' Destroy (DestroyEntityDeferred): every entity once however often it is asked, the queue's check for a
+// repeat is a set (thousands destroyed in one frame stayed quadratic before: a search of the whole queue each).
+TEST(DeferredDestroyOnceEachAndLinear)
+{
+    ResetCounters();
+    auto scene = CreateRef<Scene>();
+    std::vector<Entity> scripted;
+    for (int i = 0; i < 4; i++)
+    {
+        Entity e = scene->CreateEntity(std::format("S{}", i));
+        e.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
+        scripted.push_back(e);
+    }
+    scene->SetParent(scripted[2], scripted[1]); // a child queued with its parent
+    scene->OnRuntimeStart();
+    scene->UpdateRuntime(Timestep(1.0f / 60.0f));
+    CHECK(g_Created == 4);
+    for (int k = 0; k < 3; k++)
+        scene->DestroyEntityDeferred(scripted[0]); // three times
+    scene->DestroyEntityDeferred(scripted[2]);
+    scene->DestroyEntityDeferred(scripted[1]);
+    scene->DestroyEntityDeferred(scripted[1]);
+    CHECK(scripted[0].IsValid()); // waits for the frame's end
+    scene->UpdateRuntime(Timestep(1.0f / 60.0f));
+    CHECK(g_Destroyed == 3 && !scripted[0].IsValid() && !scripted[1].IsValid() && !scripted[2].IsValid() && scripted[3].IsValid());
+    // The queue starts empty again: the next frame's request is honoured (and only that one).
+    Entity late = scene->CreateEntity("Late");
+    scene->DestroyEntityDeferred(late);
+    scene->DestroyEntityDeferred(scripted[3]);
+    scene->UpdateRuntime(Timestep(1.0f / 60.0f));
+    CHECK(g_Destroyed == 4 && !late.IsValid() && !scripted[3].IsValid());
+    scene->UpdateRuntime(Timestep(1.0f / 60.0f));
+    CHECK(g_Destroyed == 4);
+    scene->OnRuntimeStop();
+
+    // Linear: 10x the entities queued in a frame take about 10x as long (a quadratic queue took ~100x).
+    auto timeFlush = [](int count) {
+        auto s = CreateRef<Scene>();
+        std::vector<Entity> all;
+        for (int i = 0; i < count; i++)
+            all.push_back(s->CreateEntity("E"));
+        s->OnRuntimeStart();
+        const auto start = std::chrono::steady_clock::now();
+        for (Entity e : all)
+        {
+            s->DestroyEntityDeferred(e);
+            s->DestroyEntityDeferred(e); // a repeat costs nothing
+        }
+        s->UpdateRuntime(Timestep(1.0f / 60.0f));
+        const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+        size_t left = 0;
+        for (Entity e : all)
+            left += e.IsValid() ? 1 : 0;
+        s->OnRuntimeStop();
+        return std::pair<double, size_t>(ms, left);
+    };
+    timeFlush(1000); // warm up the allocator
+    const auto [small, leftSmall] = timeFlush(2000);
+    const auto [large, leftLarge] = timeFlush(20000);
+    CHECK(leftSmall == 0 && leftLarge == 0);
+    CHECK(large < small * 40.0 + 5.0);
+}

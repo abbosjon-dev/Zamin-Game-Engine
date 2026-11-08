@@ -30,6 +30,8 @@ set_property(CACHE ZAMIN_ASSERTS PROPERTY STRINGS AUTO ON OFF)
 # Sanitizers (ZAMIN_SANITIZE=address / undefined / leak / thread) before the dependencies: their flags
 # go to every target, the vendor libraries included.
 include(cmake/Sanitizers.cmake)
+# Code coverage (ZAMIN_COVERAGE=ON: gcov counters in our targets only; Tests/coverage.sh).
+include(cmake/Coverage.cmake)
 include(cmake/Dependencies.cmake)
 # zamin_target_settings (warnings of our own targets), zamin_add_game_module.
 include(cmake/ZaminGame.cmake)

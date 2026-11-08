@@ -820,8 +820,9 @@ namespace Zamin {
     void Scene::DestroyEntityDeferred(Entity entity)
     {
         if (!entity) return;
+        // Once each; a set, not a search of the queue: thousands destroyed in one frame stay linear.
         UUID id = entity.GetUUID();
-        if (std::find(m_DestroyQueue.begin(), m_DestroyQueue.end(), id) == m_DestroyQueue.end())
+        if (m_DestroyQueued.insert(id).second)
             m_DestroyQueue.push_back(id);
     }
 
@@ -829,6 +830,7 @@ namespace Zamin {
     {
         auto queue = std::move(m_DestroyQueue);
         m_DestroyQueue.clear();
+        m_DestroyQueued.clear(); // what the destroyed ones' OnDestroy queues waits for the next flush
         if (queue.empty())
             return;
         std::vector<entt::entity> order;

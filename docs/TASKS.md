@@ -497,10 +497,10 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 428. Eksport avtomatik testi
 - [x] 429. Fizika determinizm testi
 - [x] 430. Performance benchmark (10k sprite, 1k mesh)
-- [ ] 431. ECS benchmark
-- [ ] 432. Serializatsiya benchmark
-- [ ] 433. Test framework: test nomlari bo'yicha filtr
-- [ ] 434. Test framework: vaqt hisoboti
+- [x] 431. ECS benchmark
+- [x] 432. Serializatsiya benchmark
+- [x] 433. Test framework: test nomlari bo'yicha filtr
+- [x] 434. Test framework: vaqt hisoboti
 - [ ] 435. Code coverage hisoboti (gcov)
 - [ ] 436. clang-format konfiguratsiyasi
 - [ ] 437. CI: sanitizer job

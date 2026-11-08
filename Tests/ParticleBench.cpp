@@ -16,9 +16,10 @@
 // by component type) on N entities (10 000 by default) - the indices against a scan over every
 // entity, and a frame that spawns, finds and destroys (the index is kept, not rebuilt).
 //
-// ZaminBench --serialize [--entities N]: saving and loading a large scene (10 000 entities by
-// default: sprites, bodies, scripts, texts, a hierarchy) in the sample Platformer2D project - the
-// JSON text and the binary cache (.zsceneb), each load stage by stage (SceneLoadTiming).
+// ZaminBench --serialize [--entities N] [--content 2d|3d|all] [--json <file>]: saving and loading large
+// scenes instead (SerializeBench.cpp; 10 000 entities by default) in the sample Platformer2D project: a 2D
+// and a 3D scene - the JSON text and the binary cache (.zsceneb), each load stage by stage (SceneLoadTiming) -,
+// copy / paste of a 1 000-entity selection and what each component costs to save and load.
 //
 // ZaminBench --serialize --prefabs [--instances N] [--json <file>]: linked prefab instances instead
 // (PrefabBench.cpp): N instances of a 20-entity prefab with a nested one (1000 by default) and of the
@@ -27,6 +28,10 @@
 // ZaminBench --nav [--agents N] [--grid N] [--frames N] [--jobs N]: navigation instead (NavBench.cpp):
 // the grids' bakes, N path searches at once on one thread and batched over the job system, and a
 // scene of N Nav Agents (200 on a 256 x 256 grid by default).
+//
+// ZaminBench --ecs [--entities N] [--frames N] [--json <file>]: the entity-component system instead (EcsBench.cpp):
+// creating, components, views, lookups, the hierarchy, Scene::Copy, destroying (10 000 entities by default) next
+// to the bare EnTT registry, and runtime frames of a scene that size (idle, scripts, spawning / destroying).
 //
 // ZaminBench --render [--sprites N] [--meshes N] [--frames N] [--case ...] [--json <file>]: drawing instead
 // (RenderBench.cpp, a GL context: xvfb-run without a display; Tests/render_bench.sh) - 10 000 sprites, 1 000
@@ -50,6 +55,8 @@ using PS = ParticleSystemComponent;
 int RunNavBench(int agents, int size, int frames, int jobs); // NavBench.cpp
 int RunPrefabBench(int instances, const char* jsonFile);   // PrefabBench.cpp
 int RunRenderBench(int argc, char** argv);                  // RenderBench.cpp
+int RunEcsBench(int entities, int frames, const char* jsonFile); // EcsBench.cpp
+int RunSerializeBench(int entities, const char* jsonFile, const std::string& content); // SerializeBench.cpp
 
 namespace {
 
@@ -285,166 +292,6 @@ namespace {
         return 0;
     }
 
-    // ---- saving / loading a large scene (--serialize)
-    void FillLargeScene(Scene& scene, int count)
-    {
-        static const char* textures[] = { "Textures/coin.png", "Textures/boulder.png", "Textures/crystal.png", "Textures/bushes.png",
-                                          "Textures/player.png" };
-        Entity group;
-        for (int i = 0; i < count; i++)
-        {
-            Entity e = scene.CreateEntity(std::format("Obyekt {}", i));
-            auto& t = e.GetComponent<TransformComponent>();
-            t.Translation = { (float)(i % 100) * 1.5f, (float)(i / 100) * 1.25f, 0.0f };
-            t.Rotation.z = (float)(i % 13) * 0.1f;
-            t.Scale = glm::vec3(1.0f + (float)(i % 3) * 0.25f);
-            if (i % 10 == 0)
-                group = e; // a parent of the next nine
-            else if (group)
-                scene.SetParent(e, group);
-            if (i % 10 != 0)
-            {
-                auto& sprite = e.AddComponent<SpriteRendererComponent>();
-                sprite.TexturePath = textures[i % 5];
-                sprite.Color = { 1.0f, 0.9f, 0.8f, 1.0f };
-                sprite.PixelArt = true;
-            }
-            if (i % 5 == 0)
-            {
-                e.AddComponent<Rigidbody2DComponent>().Type = i % 2 ? Rigidbody2DComponent::BodyType::Dynamic : Rigidbody2DComponent::BodyType::Static;
-                e.AddComponent<BoxCollider2DComponent>();
-            }
-            if (i % 20 == 3)
-            {
-                auto& nsc = e.AddComponent<NativeScriptComponent>();
-                nsc.ClassName = "Coin";
-                ScriptFieldValue value;
-                value.Set(10 + i % 7);
-                nsc.Fields["Value"] = value;
-                ScriptFieldValue speed;
-                speed.Set(2.5f);
-                nsc.Fields["SpinSpeed"] = speed;
-            }
-            if (i % 50 == 7)
-                e.AddComponent<TextComponent>().Text = std::format("Matn {}", i);
-            if (i % 7 == 0)
-                e.AddTag("Pickup");
-        }
-    }
-
-    struct SerializeRun
-    {
-        double SaveMs = 0.0, WriteMs = 0.0, LoadMs = 0.0, BinarySaveMs = 0.0, BinaryLoadMs = 0.0;
-        size_t TextBytes = 0, BinaryBytes = 0;
-        SceneLoadTiming Text, Binary;
-    };
-
-    int RunSerializeBench(int count)
-    {
-        namespace fs = std::filesystem;
-        const fs::path root = fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Platformer2D";
-        Ref<Project> project = Project::Load(root / "Platformer2D.zproject");
-        if (!project)
-        {
-            std::printf("Platformer2D loyihasi ochilmadi: %s\n", root.string().c_str());
-            return 1;
-        }
-        Project::SetActive(project);
-        SceneLoadProfiler::SetLogging(false);
-        Log::SetMinLevel(LogLevel::Error);
-        const fs::path dir = fs::temp_directory_path() / std::format("zamin-serialize-bench-{}", (uint64_t)UUID());
-        fs::create_directories(dir);
-        const fs::path textFile = dir / "Large.zscene";
-        const fs::path binaryFile = dir / "Large.zsceneb";
-
-        auto source = CreateRef<Scene>();
-        source->SetName("Large");
-        FillLargeScene(*source, count);
-#if defined(NDEBUG)
-        const char* build = "Release";
-#else
-        const char* build = "Debug";
-#endif
-        std::printf("Zamin sahna serializatsiyasi benchmark: %d obyekt (%s)\n\n", count, build);
-        const int runs = 3;
-        std::vector<SerializeRun> results;
-        std::string text;
-        for (int run = 0; run < runs; run++)
-        {
-            SerializeRun r;
-            auto clock = std::chrono::steady_clock::now();
-            text = SceneSerializer(source).SerializeToString();
-            r.SaveMs = ElapsedMilliseconds(clock);
-            r.TextBytes = text.size();
-            clock = std::chrono::steady_clock::now();
-            FileSystem::WriteTextFile(textFile, text);
-            r.WriteMs = ElapsedMilliseconds(clock);
-
-            clock = std::chrono::steady_clock::now();
-            {
-                std::vector<uint8_t> bytes = SceneSerializer(source).SerializeToBinary();
-                r.BinarySaveMs = ElapsedMilliseconds(clock);
-                r.BinaryBytes = bytes.size();
-                FileSystem::WriteBinaryFile(binaryFile, bytes.data(), bytes.size());
-            }
-
-            auto loaded = CreateRef<Scene>();
-            SceneSerializer textLoader(loaded);
-            clock = std::chrono::steady_clock::now();
-            if (!textLoader.Deserialize(textFile))
-                std::printf("JSON yuklanmadi: %s\n", textLoader.GetLastError().c_str());
-            r.LoadMs = ElapsedMilliseconds(clock);
-            r.Text = textLoader.GetTiming();
-
-            auto fromBinary = CreateRef<Scene>();
-            SceneSerializer binaryLoader(fromBinary);
-            clock = std::chrono::steady_clock::now();
-            if (!binaryLoader.Deserialize(binaryFile))
-                std::printf("Binar kesh yuklanmadi: %s\n", binaryLoader.GetLastError().c_str());
-            r.BinaryLoadMs = ElapsedMilliseconds(clock);
-            r.Binary = binaryLoader.GetTiming();
-            if (run == 0)
-            {
-                // Both give the same scene as the source (saved again: the same text).
-                const bool same = SceneSerializer(loaded).SerializeToString() == text && SceneSerializer(fromBinary).SerializeToString() == text;
-                std::printf("Tekshiruv: JSON va binar keshdan yuklangan sahna qayta saqlanganda bir xil matn: %s\n\n", same ? "ha" : "YO'Q");
-            }
-            results.push_back(std::move(r));
-        }
-        // The middle run of each number (the median of three).
-        auto median = [&](auto get) {
-            std::vector<double> v;
-            for (const SerializeRun& r : results)
-                v.push_back(get(r));
-            std::sort(v.begin(), v.end());
-            return v[v.size() / 2];
-        };
-        std::printf("%-40s %12s\n", "Amal (3 marta, mediana)", "vaqt");
-        std::printf("%-40s %9.1f ms   (%.1f MB)\n", "Saqlash: JSON matn (SerializeToString)", median([](const SerializeRun& r) { return r.SaveMs; }),
-                    (double)results[0].TextBytes / (1024.0 * 1024.0));
-        std::printf("%-40s %9.1f ms\n", "  faylga yozish", median([](const SerializeRun& r) { return r.WriteMs; }));
-        std::printf("%-40s %9.1f ms   (%.1f MB)\n", "Saqlash: binar kesh (MessagePack)", median([](const SerializeRun& r) { return r.BinarySaveMs; }),
-                    (double)results[0].BinaryBytes / (1024.0 * 1024.0));
-        std::printf("%-40s %9.1f ms\n", "Yuklash: JSON matn (Deserialize)", median([](const SerializeRun& r) { return r.LoadMs; }));
-        for (size_t s = 0; s < SceneLoadTiming::StageCount; s++)
-        {
-            const double ms = median([&](const SerializeRun& r) { return r.Text.Milliseconds[s]; });
-            if (ms >= 0.05)
-                std::printf("  %-38s %9.1f ms\n", SceneLoadTiming::StageName((SceneLoadTiming::Stage)s), ms);
-        }
-        std::printf("%-40s %9.1f ms\n", "Yuklash: binar kesh (Deserialize)", median([](const SerializeRun& r) { return r.BinaryLoadMs; }));
-        for (size_t s = 0; s < SceneLoadTiming::StageCount; s++)
-        {
-            const double ms = median([&](const SerializeRun& r) { return r.Binary.Milliseconds[s]; });
-            if (ms >= 0.05)
-                std::printf("  %-38s %9.1f ms\n", SceneLoadTiming::StageName((SceneLoadTiming::Stage)s), ms);
-        }
-        std::error_code ec;
-        fs::remove_all(dir, ec);
-        Project::SetActive(nullptr);
-        return 0;
-    }
-
     // ---- animators: `count` skinned animators (a 40-bone chain, a blend tree and a layer each),
     // the pose sampling per frame - on the workers with --jobs.
     int RunAnimatorBench(int count, int frames)
@@ -540,6 +387,8 @@ int main(int argc, char** argv)
     int jobs = 0;
     int animators = 0;
     bool nav = false;
+    bool ecs = false;
+    std::string content = "all";
     int navAgents = 200, navGrid = 256;
     bool framesGiven = false;
     // Drawing (a window, a GL context) parses its own options.
@@ -555,6 +404,8 @@ int main(int argc, char** argv)
         }
         else if (!std::strcmp(argv[i], "--nav"))
             nav = true;
+        else if (!std::strcmp(argv[i], "--ecs"))
+            ecs = true;
         else if (!std::strcmp(argv[i], "--agents") && i + 1 < argc)
             navAgents = std::max(1, std::atoi(argv[++i]));
         else if (!std::strcmp(argv[i], "--grid") && i + 1 < argc)
@@ -575,6 +426,9 @@ int main(int argc, char** argv)
             instances = std::max(2, std::atoi(argv[++i]));
         else if (!std::strcmp(argv[i], "--json") && i + 1 < argc)
             jsonFile = argv[++i];
+        else if (!std::strcmp(argv[i], "--content") && i + 1 < argc && (!std::strcmp(argv[i + 1], "2d") || !std::strcmp(argv[i + 1], "3d") ||
+                                                                      !std::strcmp(argv[i + 1], "all")))
+            content = argv[++i];
         else if (!std::strcmp(argv[i], "--entities") && i + 1 < argc)
             entities = std::max(10, std::atoi(argv[++i]));
         else if (!std::strcmp(argv[i], "--animators") && i + 1 < argc)
@@ -586,13 +440,16 @@ int main(int argc, char** argv)
             std::printf("ZaminBench [--frames N] [--scale X] [--case <nom qismi>] [--profile] [--jobs N]\n"
                         "ZaminBench --animators N [--frames N] [--jobs N]\n"
                         "ZaminBench --queries [--entities N]\n"
-                        "ZaminBench --serialize [--entities N]\n"
+                        "ZaminBench --serialize [--entities N] [--content 2d|3d|all] [--json <fayl>]\n"
                         "ZaminBench --serialize --prefabs [--instances N] [--json <fayl>]\n"
                         "ZaminBench --nav [--agents N] [--grid N] [--frames N] [--jobs N]\n"
+                        "ZaminBench --ecs [--entities N] [--frames N] [--json <fayl>]\n"
                         "ZaminBench --render [--sprites N] [--meshes N] [--frames N] [--case <nom qismi>] [--json <fayl>]\n");
             return 1;
         }
     }
+    if (ecs)
+        return RunEcsBench(entities, framesGiven ? frames : 60, jsonFile);
     if (nav)
         return RunNavBench(navAgents, navGrid, framesGiven ? frames : 300, jobs);
     if (animators > 0)
@@ -606,7 +463,7 @@ int main(int argc, char** argv)
     if (serialize && prefabs)
         return RunPrefabBench(instances, jsonFile);
     if (serialize)
-        return RunSerializeBench(entities);
+        return RunSerializeBench(entities, jsonFile, content);
     const int particles = (int)(50000.0f * scale);
 #if defined(NDEBUG)
     const char* build = "Release";

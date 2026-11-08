@@ -103,9 +103,9 @@ target_link_libraries(Zamin PRIVATE glad glfw imgui imguizmo box2d Jolt nlohmann
     ${CMAKE_DL_LIBS} pthread)
 
 zamin_target_settings(Zamin)
-# A sanitizer build loads the script modules it built itself (cmake/Sanitizers.cmake): from its
-# GameModules folder when the module is there (Project::GetScriptModulePath).
-if(ZAMIN_SANITIZE)
+# A sanitizer or coverage build loads the script modules it built itself (cmake/Sanitizers.cmake,
+# cmake/Coverage.cmake): from its GameModules folder when the module is there (Project::GetScriptModulePath).
+if(ZAMIN_SANITIZE OR ZAMIN_COVERAGE)
     target_compile_definitions(Zamin PRIVATE ZAMIN_SANITIZER_MODULE_DIR="${ZAMIN_GAME_MODULE_OUTPUT_DIR}")
 endif()
 # Calls inside the library go to its own functions (not to copies of the same inline / template code

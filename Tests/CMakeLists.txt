@@ -55,7 +55,7 @@ add_custom_target(update_render_references
 # Particle benchmark (not part of ctest): times the particle update headless - about 50 000
 # particles per case, the profiler's scopes with --profile. Run build/bin/ZaminBench, or the
 # particle_bench target (--nav: the navigation benchmark, the nav_bench target).
-add_executable(ZaminBench ParticleBench.cpp NavBench.cpp PrefabBench.cpp RenderBench.cpp)
+add_executable(ZaminBench ParticleBench.cpp NavBench.cpp PrefabBench.cpp RenderBench.cpp EcsBench.cpp SerializeBench.cpp)
 target_link_libraries(ZaminBench PRIVATE Zamin)
 set_target_properties(ZaminBench PROPERTIES BUILD_RPATH "${CMAKE_BINARY_DIR}/bin")
 zamin_target_settings(ZaminBench)
@@ -77,6 +77,19 @@ add_custom_target(nav_bench
     DEPENDS ZaminBench
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
     COMMENT "Navigatsiya benchmark (yo'l qidirish, agentlar, bake)"
+    USES_TERMINAL VERBATIM)
+
+# The headless benchmarks keep working: quick runs at small sizes under ctest (label "bench"; they fail when a
+# benchmark's own check fails - what --serialize reads back must be what it saved). The numbers are not checked
+# there: Tests/bench.sh --compare does that against Tests/Baselines (a Release build on the baseline's computer).
+add_test(NAME BenchEcsSmoke COMMAND ZaminBench --ecs --entities 1000 --frames 5)
+add_test(NAME BenchSerializeSmoke COMMAND ZaminBench --serialize --entities 1000)
+set_tests_properties(BenchEcsSmoke BenchSerializeSmoke PROPERTIES LABELS "bench" TIMEOUT 600)
+add_custom_target(bench
+    COMMAND ${CMAKE_COMMAND} -E env ZAMIN_BUILD_DIR=${CMAKE_BINARY_DIR} ${PROJECT_SOURCE_DIR}/Tests/bench.sh
+    DEPENDS ZaminBench
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+    COMMENT "Headless benchmarklar (ECS, serializatsiya, prefablar) JSON natijalari bilan"
     USES_TERMINAL VERBATIM)
 
 # Rendering benchmark (a GL context: xvfb-run without a display): 10 000 sprites, 1 000 meshes and both together,

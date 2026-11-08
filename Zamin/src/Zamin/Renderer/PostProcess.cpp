@@ -97,17 +97,22 @@ layout(location = 0) out vec4 o_Color;
 in vec2 v_UV;
 uniform sampler2D u_Depth;
 uniform mat4 u_Projection;
-uniform mat4 u_InvProjection;
+// The perspective projection's terms (P00, P11, P22, P32) and its centre offset (P20, P21): a view position from a
+// depth in a few operations instead of a matrix inverse per sample (the same result for a perspective matrix).
+uniform vec4 u_ProjParams;
+uniform vec2 u_ProjOffset;
 uniform vec2 u_TexelSize;   // of the depth texture
 uniform float u_Radius;
 uniform float u_Bias;
 uniform float u_Intensity;
 
+float ViewZ(float depth) { return -u_ProjParams.w / ((depth * 2.0 - 1.0) + u_ProjParams.z); }
+
 vec3 ViewPos(vec2 uv)
 {
-    float d = texture(u_Depth, uv).r;
-    vec4 p = u_InvProjection * vec4(uv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0);
-    return p.xyz / p.w;
+    float z = ViewZ(texture(u_Depth, uv).r);
+    vec2 ndc = uv * 2.0 - 1.0;
+    return vec3(-z * (ndc + u_ProjOffset) / u_ProjParams.xy, z);
 }
 
 float Hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
@@ -146,7 +151,7 @@ void main()
         vec4 offset = u_Projection * vec4(S, 1.0);
         offset.xy = offset.xy / offset.w * 0.5 + 0.5;
         if (offset.x < 0.0 || offset.x > 1.0 || offset.y < 0.0 || offset.y > 1.0) continue;
-        float sceneZ = ViewPos(offset.xy).z;
+        float sceneZ = ViewZ(texture(u_Depth, offset.xy).r); // only its depth is needed
         float range = smoothstep(0.0, 1.0, u_Radius / max(abs(P.z - sceneZ), 1e-4));
         occlusion += (sceneZ >= S.z + u_Bias ? 1.0 : 0.0) * range;
     }
@@ -867,6 +872,7 @@ void main()
         bool ssao = settings.SSAO && depthTexture != 0 && projection[3][3] == 0.0f;
         if (ssao)
         {
+            ZM_PROFILE_SCOPE("SSAO");
             uint32_t hw = std::max(1u, width / 2), hh = std::max(1u, height / 2);
             const Ref<Framebuffer> ao = GetSizedTarget(s_Data->AO, hw, hh);
             const Ref<Framebuffer> aoBlur = GetSizedTarget(s_Data->AOBlur, hw, hh);
@@ -877,7 +883,8 @@ void main()
             sh->SetInt("u_Depth", 0);
             RenderCommand::BindTextureUnit(0, depthTexture);
             sh->SetMat4("u_Projection", projection);
-            sh->SetMat4("u_InvProjection", glm::inverse(projection));
+            sh->SetFloat4("u_ProjParams", { projection[0][0], projection[1][1], projection[2][2], projection[3][2] });
+            sh->SetFloat2("u_ProjOffset", { projection[2][0], projection[2][1] });
             // Normals are rebuilt from depths one output pixel apart (at least one texel): with the
             // render scale above 1, neighbouring texels are so close that the depth buffer's
             // precision would show as stripes on flat surfaces.
@@ -900,6 +907,7 @@ void main()
         uint32_t bloomTexture = 0, bloomWideTexture = 0;
         if (settings.Bloom)
         {
+            ZM_PROFILE_SCOPE("Bloom");
             // The same glow at every render scale: one level more for each doubling of the picture
             // over the output size (the widest level stays the same size on screen).
             int levels = s_MipCount;
@@ -1054,6 +1062,7 @@ void main()
         // FXAA: the composited picture, anti-aliased into the target.
         if (fxaa)
         {
+            ZM_PROFILE_SCOPE("FXAA");
             RenderCommand::RestoreRenderTarget();
             if (target)
                 target->Bind();

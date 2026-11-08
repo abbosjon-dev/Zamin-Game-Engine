@@ -24,6 +24,7 @@ Bosh sahifa — [README](../README.md).
 | [Editor.md](Editor.md) | Editor: launcher, oynalar, menyular, viewport, inspektor, kontent brauzer, Play rejimi, yorliqlar, avtomatlashtirish |
 | [FAQ.md](FAQ.md) | Ko'p beriladigan savollar va muammolar — dvigatelning haqiqiy xabarlari bilan |
 | [Features.md](Features.md) | Imkoniyatlarning to'liq, batafsil ro'yxati (editor, dvigatel), editor boshqaruvi, yo'l xaritasi |
+| [Samples.md](Samples.md) | Namuna o'yinlar galereyasi: to'qqiz o'yin rasmlari, nimalarni ko'rsatadi, rekordlar, boshqaruv va gamepad, testlar, eksport, ishlash tezligi |
 
 ## O'yin yaratish
 

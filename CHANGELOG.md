@@ -57,6 +57,28 @@ vazifalari bajarila boshlaganda unga bo'lim qo'shing ([CONTRIBUTING.md](CONTRIBU
   - Vodiy Poygasida start sanog'ida ham pauza qilish mumkin;
   - Neon Maydon o'yin tugaganda ovoz chiqaradi;
   - Ipak Yo'li boti sakrash nuqtasini tezlik va to'siq uzunligidan hisoblaydi.
+- Rekordlar: `SaveData::SubmitRecord(kalit, natija[, RecordOrder::Lower])` va `IsNewRecord` — natija yaxshiroq bo'lsa
+  yoziladi. Olti o'yin rekordini shu bilan saqlaydi: o'yin tugaganda, pauzadan chiqib ketilganda, qaytadan
+  boshlanganda va o'yin yopilganda ham (Vodiy Poygasi — har aylanada). Jurnalga `Rekordlar: ...` / `Yangi rekord: ...`
+  yoziladi; `ZAMIN_DEMO_RECORDS=1` bilan demo natijasi ham rekord bo'ladi. `samples_test.py` har demodan keyin rekord
+  SaveData fayliga yozilganini va keyingi ishga tushirishda o'qilganini tekshiradi.
+- Boshqaruv ishoralari: `Input::GetActiveDevice` (oxirgi ishlatilgan qurilma, almashganda `Kiritish qurilmasi: ...`),
+  `Input::GetBindingText`, `Input::ExpandBindings` (`[Jump]`, `[Look|Sichqoncha]`, `[kb:...]`, `[pad:...]`) va matn
+  komponentining **Boshqaruv ishoralari** (`InputHints`) belgisi: matn input xaritasidagi tugmalarni ko'rsatadi va
+  qurilma almashganda yangilanadi; tugma nomlari til fayllaridagi `input.<id>` kalitlari bilan. Olti o'yinning bosh
+  menyusi shunday. Player'ning `ZAMIN_PLAYER_INPUT` simulyatsiya qilingan gamepad'ni ham bosadi (`pad=A`, `padhold=`,
+  `stick=LeftX,0.8`); `samples_test.py` ning `gamepad` holatlari olti o'yinni faqat gamepad bilan o'ynatadi,
+  `samples_assets.py` input xaritasini tekshiradi (har harakatda klaviatura va gamepad, skriptlar faqat xaritadan).
+- Eksport: `Tests/samples_export.py` (ctest `SampleExports`) to'qqiz namunani editor bilan eksport qiladi
+  (`export_test.sh`) va eksport qilingan o'yinlarni `samples_test.py --exported` bilan o'ynatadi.
+- [docs/Samples.md](docs/Samples.md) — namuna o'yinlar galereyasi (rasmlar `Tools/samples/make_gallery.py`), rekordlar,
+  boshqaruv, testlar, eksport va ishlash tezligi.
+- Ishlash tezligi: `Tests/samples_bench.py` (Release, llvmpipe) — kadr vaqti, eng sekin kadr, obyektlar soni, o'yin
+  kodining CPU vaqti, byudjetlar; player `--benchmark` eng sekin kadrning profilini, `ZAMIN_PLAYER_STATS` oxirgi
+  kadrning sahnasini yozadi, profiler'da post-processing o'tishlari alohida. Topilgan qotishlar tuzatildi: matn
+  `Renderer2D` da o'z batch'ida bitta sampler'li shader bilan chiziladi (yangi shrift atlasi 16 slotli sprite
+  shaderini drayverga qayta kompilyatsiya qildirmaydi — Breakout'da eng sekin kadr 2993 → 141 ms), shrift atlaslari
+  16 tagacha saqlanadi, SSAO ko'rinish nuqtasini matritsa teskarisisiz tiklaydi.
 
 ## M23 Hujjatlar
 

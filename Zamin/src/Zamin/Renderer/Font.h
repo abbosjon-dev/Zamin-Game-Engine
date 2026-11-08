@@ -67,7 +67,9 @@ namespace Zamin {
         static float GetAtlasPixelSize(float pixelSize);
         static constexpr float MinAtlasPixelSize = 5.0f;
         static constexpr float MaxAtlasPixelSize = 128.0f;
-        static constexpr size_t MaxSizedAtlases = 8;
+        // A game's UI uses a dozen sizes or so (HUD, menus, banners): fewer slots would bake the same sizes again
+        // and again as banners come and go (each bake a hitch of several ms).
+        static constexpr size_t MaxSizedAtlases = 16;
         // Sized atlases on (default) / off (everything from the main atlas, as before them).
         static void SetSizedAtlasesEnabled(bool enabled);
         static bool AreSizedAtlasesEnabled();

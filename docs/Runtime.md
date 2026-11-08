@@ -443,9 +443,10 @@ o'zgarmaydi (Release modul `<loyiha>/Build/ExportRelease` da, editor ham shunday
 |---|---|---|
 | `ZAMIN_MAX_FRAMES=N` | hammasi | N kadrdan keyin yopiladi; FPS cheklanmaydi, splash va crash oynasi yo'q |
 | `ZAMIN_SCREENSHOT=fayl.png` | hammasi | Oxirgi kadr rasmi |
-| `ZAMIN_PLAYER_INPUT="<kadr>:<amal>;..."` | player | Tugmalar (`Down`, `Enter` ... - bir kadr bosiladi), `hold=W` / `release=W` (tugma qo'yib yuborilguncha bosib turiladi), `mouse=x,y`, `click`, `down` / `up`, `scroll=dy` |
+| `ZAMIN_PLAYER_INPUT="<kadr>:<amal>;..."` | player | Tugmalar (`Down`, `Enter` ... - bir kadr bosiladi), `hold=W` / `release=W` (tugma qo'yib yuborilguncha bosib turiladi), `mouse=x,y`, `click`, `down` / `up`, `scroll=dy`; simulyatsiya qilingan gamepad (0-gamepad, birinchi amali ulaydi): `pad=A` (bir kadr), `padhold=A` / `padrelease=A`, `stick=LeftX,0.8` (o'q shu qiymatda qoladi; triggerlar 0..1) |
+| `ZAMIN_DEMO=1`, `ZAMIN_DEMO_RECORDS=1`, `ZAMIN_START_LEVEL=N` | namuna o'yinlar | Bot o'ynaydi; botning natijasi ham rekord bo'ladi (testlar); shu darajadan ([Samples.md](Samples.md#demo-rejim)) |
 | `ZAMIN_CAPTURE_FPS=N` | hammasi | O'yin vaqti qat'iy: har kadr aniq 1/N s (`Time::SetCaptureFrameRate`) - N kadr har kompyuterda bir xil o'yin vaqti (testlar, kadrma-kadr yozib olish) |
-| `ZAMIN_PLAYER_STATS=1` | player | Chiqishda render statistikasi, kadr vaqtlari, profiler, audio, sahna yuklash vaqtlari |
+| `ZAMIN_PLAYER_STATS=1` | player | Chiqishda render statistikasi, oxirgi kadr sahnasi (obyektlar, eng ko'p komponentlar), kadr vaqtlari, profiler, audio, sahna yuklash vaqtlari |
 | `ZAMIN_PLAYER_SPLASH=1` | player | Avtomatik ishga tushishda ham splash |
 | `ZAMIN_FOCUS_LOSS_TEST=<kadr>[:<soni>]` | hammasi | Fokus yo'qolishini taqlid qiladi (fonda pauza) |
 | `ZAMIN_JOBS=N` | hammasi | Vazifalar tizimining ishchi oqimlari (`--jobs`dan ustun; 0 yoki `off` - o'chiq) |

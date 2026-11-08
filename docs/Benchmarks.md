@@ -190,3 +190,4 @@ ZAMIN_BUILD_DIR=build-release Tests/bench.sh --update-baseline
 | `ZaminBench --serialize --prefabs` | bog'langan prefab nusxalari (saqlash, yuklash, sinxronlash, Apply; `Tests/Baselines/prefabs-release.json`) |
 | `ZaminBench --nav` | navigatsiya (bake, yo'l qidirish, Nav Agent'lar) |
 | `Tests/player_bench.sh` | namuna o'yinlarning boshlang'ich sahnalari ZaminPlayer'da (ms / kadr, p95, p99) |
+| `Tests/samples_bench.py` | to'qqiz namuna o'yin bot o'ynayotganda: kadr vaqti, eng sekin kadr va uning profili, obyektlar soni, o'yin kodining CPU vaqti, byudjetlar (`--check`) — natija va topilgan muammolar: [Samples.md](Samples.md#ishlash-tezligi) |

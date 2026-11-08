@@ -311,6 +311,13 @@ namespace Zamin {
             {
                 const double frameMs = std::chrono::duration<double, std::milli>(start - m_LastFrameStart).count();
                 const double updateMs = std::chrono::duration<double, std::milli>(end - start).count();
+                // The slowest measured frame's profile (Profiler::GetLastFrame is that frame now): where a hitch went.
+                if (!m_Benchmark.IsWarmingUp() && frameMs > m_SlowestFrameMs)
+                {
+                    m_SlowestFrameMs = frameMs;
+                    m_SlowestFrameIndex = m_Benchmark.GetMeasuredFrames();
+                    m_SlowestFrameProfile = Profiler::FormatTree(Profiler::GetLastFrame(), 0.5f);
+                }
                 if (m_Benchmark.AddFrame(frameMs, updateMs))
                     FinishBenchmark();
             }
@@ -343,6 +350,9 @@ namespace Zamin {
                 result.Passed = false;
                 result.Failures.insert(result.Failures.begin(), std::string(failure));
             }
+            if (m_SlowestFrameMs > 0.0)
+                ZM_INFO("Ishlash testi: eng sekin kadr #{} - {:.1f} ms (profiler, 0.5 ms dan kattalari):\n{}", m_SlowestFrameIndex + 1,
+                        m_SlowestFrameMs, m_SlowestFrameProfile);
             const std::string text = PlayerBenchmark::Describe(result);
             if (result.Passed)
                 ZM_INFO("{}", text);
@@ -993,6 +1003,9 @@ namespace Zamin {
         PlayerBenchmark m_Benchmark;
         Clock::time_point m_AttachTime{}, m_LastFrameStart{};
         bool m_HasLastFrameStart = false, m_BenchmarkFinished = false, m_QuitRequested = false;
+        double m_SlowestFrameMs = 0.0;      // --benchmark: the slowest measured frame and its profiler tree
+        int m_SlowestFrameIndex = 0;
+        std::string m_SlowestFrameProfile;
         double m_LoadSeconds = 0.0;
         // The splash screen and the first scene loading behind it; then the cover the game fades in from.
         SplashScreen m_Splash;

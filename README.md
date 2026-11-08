@@ -13,8 +13,13 @@ renderer RHI interfeyslari orqasida, platformaga xos kod `Platform/` papkasida (
 |---|---|---|
 | ![Platformer2D](docs/images/game-platformer2d.jpg) | ![Showcase3D](docs/images/game-showcase3d.jpg) | ![Adventure3D](docs/images/game-adventure3d.jpg) |
 
-*Namuna o'yinlar `Projects/` papkasida; rasmlar `ZaminPlayer` dan headless olingan. Har bir namunaning README'si
-bor (boshqaruv, ko'rsatilgan imkoniyatlar, kod bo'ylab sayohat):*
+| Neon Maydon | Vodiy Poygasi | Ipak Yo'li |
+|---|---|---|
+| ![Neon Maydon](docs/images/sample-topdownshooter.jpg) | ![Vodiy Poygasi](docs/images/sample-racing.jpg) | ![Ipak Yo'li](docs/images/sample-endlessrunner.jpg) |
+
+*Namuna o'yinlar `Projects/` papkasida; rasmlar `ZaminPlayer` dan headless olingan. Hammasi bir sahifada:
+**[namuna o'yinlar galereyasi](docs/Samples.md)**. Har bir namunaning README'si bor (boshqaruv, ko'rsatilgan
+imkoniyatlar, kod bo'ylab sayohat):*
 [Neon Maydon](Projects/TopDownShooter/README.md) ·
 [Zamin Breakout](Projects/Breakout/README.md) ·
 [FPS Arena](Projects/FPSArena/README.md) ·
@@ -164,7 +169,7 @@ To'liq ro'yxat: **[docs/README.md](docs/README.md)** (hujjatlar indeksi).
 | Boshlash | Qo'llanmalar | Ma'lumotnoma va ichki tuzilma |
 |---|---|---|
 | [2D qo'llanma](docs/Tutorial-2D.md), [3D qo'llanma](docs/Tutorial-3D.md) | [Rendering](docs/Rendering.md), [Fizika](docs/Physics.md), [Animatsiya](docs/Animation.md) | [Komponentlar](docs/Components.md), [Imkoniyatlar](docs/Features.md) |
-| [Editor](docs/Editor.md) | [Audio](docs/Audio.md), [UI](docs/UI.md), [Sahnalar](docs/Scenes.md), [Prefab'lar](docs/Prefabs.md) | [Arxitektura](docs/Architecture.md), [Core](docs/Core.md) |
+| [Editor](docs/Editor.md), [Namuna o'yinlar](docs/Samples.md) | [Audio](docs/Audio.md), [UI](docs/UI.md), [Sahnalar](docs/Scenes.md), [Prefab'lar](docs/Prefabs.md) | [Arxitektura](docs/Architecture.md), [Core](docs/Core.md) |
 | [C++ skriptlar](docs/Scripting.md) | [AI](docs/AI.md), [Loyiha sozlamalari](docs/ProjectSettings.md), [Player](docs/Runtime.md) | [Build va eksport](docs/BuildAndExport.md), [FAQ](docs/FAQ.md) |
 
 API ma'lumotnomasi (Doxygen): `cmake --build build --target docs` → `build/docs/html/index.html`

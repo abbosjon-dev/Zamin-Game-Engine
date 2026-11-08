@@ -75,7 +75,13 @@ flat in float v_OutlineWidth;
 flat in float v_Lit;
 in vec2 v_WorldPos;
 
+// TEXT_ATLAS (the text program): one sampler, the font atlas in slot 0 - a small shader whose variants the driver
+// compiles fast (a software rasterizer compiles one per combination of bound textures: the 16-slot one stalls).
+#ifdef TEXT_ATLAS
+uniform sampler2D u_Textures[1];
+#else
 uniform sampler2D u_Textures[16];
+#endif
 uniform int u_LinearTextures; // bit per slot: the texture holds linear values (import setting sRGB off)
 uniform int u_DisplayOutput;  // 1: written as display (sRGB) colour - drawn over the finished picture
 
@@ -115,6 +121,11 @@ vec3 Lighting2D(vec2 p)
     return light;
 }
 
+#ifdef TEXT_ATLAS
+vec4 SampleTexture(int index, vec2 uv) { return texture(u_Textures[0], uv); }
+vec4 SampleTextureLod(int index, vec2 uv) { return textureLod(u_Textures[0], uv, 0.0); }
+vec2 TextureSize(int index) { return vec2(textureSize(u_Textures[0], 0)); }
+#else
 vec4 SampleTexture(int index, vec2 uv)
 {
     switch (index)
@@ -186,6 +197,7 @@ vec2 TextureSize(int index)
     }
     return vec2(1.0);
 }
+#endif
 
 bool InsideRect(vec2 p) { return all(greaterThanEqual(p, v_UVRect.xy)) && all(lessThanEqual(p, v_UVRect.zw)); }
 
@@ -363,6 +375,7 @@ void main()
             Ref<VertexArray> QuadVertexArray;
             Ref<VertexBuffer> QuadVertexBuffer;
             Ref<Shader> QuadShader;
+            Ref<Shader> TextShader;         // the quad shader with one sampler (TEXT_ATLAS): text batches
             Ref<Texture2D> WhiteTexture;
 
             Ref<VertexArray> CircleVertexArray;
@@ -392,7 +405,14 @@ void main()
             // 2D lighting: what lit quads get (uploaded with the next quad draw that follows a change)
             float CurrentLit = 0.0f;
             Lighting2DData Lighting;
-            bool LightingDirty = true;
+            bool LightingSet = false;
+            bool LightingDirty = true;      // the quad shader's light uniforms are out of date
+            bool TextLightingDirty = true;  // the text shader's
+
+            // The pending quads are text glyphs of one atlas (the text shader) or sprites (the quad shader): the two
+            // never share a batch - switching draws what is pending first, so the order of submission is kept.
+            bool TextBatch = false;
+            Ref<Texture2D> TextAtlas;
 
             std::array<Ref<Texture2D>, MaxTextureSlots> TextureSlots;
             uint32_t TextureSlotIndex = 1; // 0 = white texture
@@ -482,6 +502,14 @@ void main()
 
         // Shaders
         s_Data->QuadShader = Shader::Create("Renderer2D_Quad", s_QuadVS, s_QuadFS);
+        {
+            std::string textFS = s_QuadFS;
+            textFS.insert(textFS.find('\n') + 1, "#define TEXT_ATLAS 1\n");
+            s_Data->TextShader = Shader::Create("Renderer2D_Text", s_QuadVS, textFS);
+            const int slot = 0;
+            s_Data->TextShader->Bind();
+            s_Data->TextShader->SetIntArray("u_Textures", &slot, 1);
+        }
         s_Data->CircleShader = Shader::Create("Renderer2D_Circle", s_CircleVS, s_CircleFS);
         s_Data->LineShader = Shader::Create("Renderer2D_Line", s_LineVS, s_LineFS);
 
@@ -530,8 +558,8 @@ void main()
 
     void Renderer2D::StartBatch() { ResetBatch(); }
 
-    // The 2D lights into the quad shader's uniforms (the shader is bound).
-    static void UploadLighting()
+    // The 2D lights into a quad / text shader's uniforms (the shader is bound).
+    static void UploadLighting(Shader& shader)
     {
         const Lighting2DData& l = s_Data->Lighting;
         const int count = std::min((int)l.Lights.size(), Light2DMath::MaxLights);
@@ -543,13 +571,11 @@ void main()
             color[(size_t)i] = { light.Color, light.Falloff };
             spot[(size_t)i] = light.Spot ? glm::vec4(light.Direction, light.CosOuter, light.CosInner) : glm::vec4(1.0f, 0.0f, -2.0f, -2.0f);
         }
-        Shader& shader = *s_Data->QuadShader;
         shader.SetInt("u_LightCount", count);
         shader.SetFloat3("u_Ambient2D", l.Ambient);
         shader.SetFloat4Array("u_LightPosRadius", posRadius.data(), (uint32_t)count);
         shader.SetFloat4Array("u_LightColor", color.data(), (uint32_t)count);
         shader.SetFloat4Array("u_LightSpot", spot.data(), (uint32_t)count);
-        s_Data->LightingDirty = false;
     }
 
     // Each kind of the batch drawn and taken out of it (the next draw starts that kind afresh).
@@ -560,18 +586,33 @@ void main()
         uint32_t dataSize = (uint32_t)((uint8_t*)s_Data->QuadVertexBufferPtr - (uint8_t*)s_Data->QuadVertexBufferBase);
         s_Data->QuadVertexBuffer->SetData(s_Data->QuadVertexBufferBase, dataSize);
         int linearTextures = 0;
-        for (uint32_t i = 0; i < s_Data->TextureSlotIndex; i++)
+        Shader* shader = s_Data->QuadShader.get();
+        if (s_Data->TextBatch)
         {
-            s_Data->TextureSlots[i]->Bind(i);
-            if (!s_Data->TextureSlots[i]->GetSpecification().SRGB)
-                linearTextures |= 1 << i;
+            // Glyphs: their atlas in slot 0 of the one-sampler text shader.
+            const Ref<Texture2D>& atlas = s_Data->TextAtlas ? s_Data->TextAtlas : s_Data->WhiteTexture;
+            atlas->Bind(0);
+            if (!atlas->GetSpecification().SRGB)
+                linearTextures = 1;
+            shader = s_Data->TextShader.get();
         }
-        s_Data->QuadShader->Bind();
-        s_Data->QuadShader->SetMat4("u_ViewProjection", s_Data->ViewProjection);
-        s_Data->QuadShader->SetInt("u_LinearTextures", linearTextures);
-        s_Data->QuadShader->SetInt("u_DisplayOutput", s_Data->DisplayOutput);
-        if (s_Data->LightingDirty)
-            UploadLighting();
+        else
+            for (uint32_t i = 0; i < s_Data->TextureSlotIndex; i++)
+            {
+                s_Data->TextureSlots[i]->Bind(i);
+                if (!s_Data->TextureSlots[i]->GetSpecification().SRGB)
+                    linearTextures |= 1 << i;
+            }
+        shader->Bind();
+        shader->SetMat4("u_ViewProjection", s_Data->ViewProjection);
+        shader->SetInt("u_LinearTextures", linearTextures);
+        shader->SetInt("u_DisplayOutput", s_Data->DisplayOutput);
+        bool& lightingDirty = s_Data->TextBatch ? s_Data->TextLightingDirty : s_Data->LightingDirty;
+        if (lightingDirty)
+        {
+            UploadLighting(*shader);
+            lightingDirty = false;
+        }
         RenderCommand::DrawIndexed(s_Data->QuadVertexArray, s_Data->QuadIndexCount);
         Renderer::GetStats().DrawCalls++;
         s_Data->QuadIndexCount = 0;
@@ -625,8 +666,19 @@ void main()
     }
 
     // ------------------------------------------------------------------ quads
+    // Sprites from here on: pending text glyphs are drawn first (the two never share a batch).
+    static void BeginSprites()
+    {
+        if (!s_Data->TextBatch)
+            return;
+        FlushQuads();
+        s_Data->TextBatch = false;
+        s_Data->TextAtlas = nullptr;
+    }
+
     static float GetTextureIndex(const Ref<Texture2D>& texture)
     {
+        BeginSprites();
         if (!texture)
             return 0.0f;
         for (uint32_t i = 1; i < s_Data->TextureSlotIndex; i++)
@@ -652,6 +704,19 @@ void main()
     {
         if (s_Data->CircleIndexCount)
             FlushCircles();
+        BeginSprites();
+    }
+
+    // Text glyphs of `atlas` from here on: pending sprites, or glyphs of another atlas, are drawn first.
+    static void BeginText(const Ref<Texture2D>& atlas)
+    {
+        if (s_Data->CircleIndexCount)
+            FlushCircles();
+        if (s_Data->TextBatch && s_Data->TextAtlas == atlas)
+            return;
+        FlushQuads();
+        s_Data->TextBatch = true;
+        s_Data->TextAtlas = atlas;
     }
 
     static void SubmitQuad(const glm::mat4& transform, const glm::vec4& color, float texIndex, float tiling,
@@ -870,14 +935,15 @@ void main()
 
     void Renderer2D::SetLighting(const Lighting2DData& lighting)
     {
-        if (!s_Data->LightingDirty && s_Data->Lighting == lighting)
+        if (s_Data->LightingSet && s_Data->Lighting == lighting)
             return;
         // What was submitted before was meant for the old lights.
         FlushQuads();
         s_Data->Lighting = lighting;
         if (s_Data->Lighting.Lights.size() > (size_t)Light2DMath::MaxLights)
             s_Data->Lighting.Lights.resize((size_t)Light2DMath::MaxLights);
-        s_Data->LightingDirty = true;
+        s_Data->LightingSet = true;
+        s_Data->LightingDirty = s_Data->TextLightingDirty = true;
     }
 
     const Lighting2DData& Renderer2D::GetLighting() { return s_Data->Lighting; }
@@ -924,11 +990,11 @@ void main()
     {
         if (!font || !font->IsLoaded())
             return;
-        BeginQuads();
         // Glyph pictures from the atlas baked nearest the size the text has on the target; the
         // layout (advances) always from the font's metrics, so it does not depend on the size.
         const FontAtlas& sized = font->GetAtlas(GetTextPixelSize(transform));
         const Ref<Texture2D>& atlas = sized.Texture;
+        BeginText(atlas);
 
         float x = 0.0f, y = 0.0f;
         const float lineAdvance = font->GetLineHeight() + params.LineSpacing;
@@ -949,8 +1015,8 @@ void main()
             if (q->X1 > q->X0)
             {
                 if (s_Data->QuadIndexCount >= Renderer2DData::MaxIndices)
-                    NextBatch();
-                float texIndex = GetTextureIndex(atlas);
+                    NextBatch(); // (the text batch goes on: same atlas, same shader)
+                const float texIndex = 0.0f; // the text shader's one slot
 
                 glm::vec4 corners[4] = {
                     { x + q->X0, y + q->Y0, 0.0f, 1.0f },

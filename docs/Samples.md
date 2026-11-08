@@ -170,7 +170,62 @@ o'yinning bot demosi (rekord bilan) va eski namunalarning smoke'i.
 
 ## Ishlash tezligi
 
-<!-- bench -->
+`Tests/samples_bench.py` har namunani `ZaminPlayer --benchmark` bilan headless o'lchaydi: yangi o'yinlarda bot o'ynaydi
+(`ZAMIN_DEMO=1`, qat'iy o'yin soati `ZAMIN_CAPTURE_FPS=30` — har ishga tushirishda o'yinning bir xil lahzalari), 90 ta
+isitish kadridan keyin 300 kadr o'lchanadi. `ZAMIN_PLAYER_STATS` bilan player chiqishda oxirgi kadrning sahnasini
+(obyektlar, eng ko'p komponentlar), chizilganlarni va profiler daraxtini yozadi; `--benchmark` esa eng sekin kadrning
+profilini ham ("Ishlash testi: eng sekin kadr ...").
+
+```bash
+cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DZAMIN_BUILD_EDITOR=OFF -DZAMIN_BUILD_TESTS=OFF \
+      -DZAMIN_GAME_MODULE_OUTPUT_DIR=$PWD/build-release/GameModules     # o'yin modullari o'z papkasiga
+cmake --build build-release
+ZAMIN_BUILD_DIR=build-release python3 Tests/samples_bench.py --check   # jadval: build-release/SampleBench/samples-bench.md
+```
+
+### Natija (2026-11-08)
+
+Muhit: 4 vCPU Intel Xeon @ 2.10 GHz, GPU yo'q — Mesa 25.2.8 llvmpipe (dasturiy rasterizator), xvfb, oyna 1280x720,
+GCC 13.3, **Release** build. "O'yin kodi" — kadrdagi skriptlar, fizika, particle'lar, animatsiya va audio (CPU);
+"Eng qimmat qismlar" — oxirgi kadrning profiler daraxtidan; byudjet — shu kompyuterdagi kadr vaqti + ~15% (regressiya
+chegarasi), yana har o'yinda eng sekin kadr ≤ 1000 ms va o'yin kodi ≤ 3 ms (`--check`).
+
+| Namuna | Tur | Obyekt (faol) | Draw call | Uchburchak / quad | Kadr o'rtacha | p95 | Eng sekin | FPS | O'yin kodi (CPU) | Byudjet | Eng qimmat qismlar (ms) |
+|---|---|---:|---:|---|---:|---:|---:|---:|---:|---|---|
+| TopDownShooter | 2D | 124 (69) | 30 | 0 / 219 | 53.3 ms | 62.9 ms | 784 ms | 19 | 0.20 ms | 65 ms: OK | Post-processing 31.3, Bloom 27.7, Sahnalar (chizish) 1.1, Skriptlar 0.1 |
+| Breakout | 2D | 223 (164) | 31 | 0 / 267 | 44.9 ms | 50.6 ms | 141 ms | 22 | 0.23 ms | 55 ms: OK | Post-processing 25.1, Bloom 21.6, Sahnalar (chizish) 1.3, Skriptlar 0.1 |
+| FPSArena | 3D | 251 (213) | 67 | 11816 / 207 | 123.5 ms | 152.1 ms | 197 ms | 8 | 0.55 ms | 145 ms: OK | Post-processing 103.7, SSAO 77.0, Sahnalar (chizish) 23.4, Bloom 13.2 |
+| Sokoban | 3D | 219 (172) | 53 | 6782 / 208 | 127.6 ms | 141.0 ms | 468 ms | 8 | 0.08 ms | 150 ms: OK | Post-processing 97.4, SSAO 72.4, Sahnalar (chizish) 15.2, Bloom 12.1 |
+| EndlessRunner | 3D | 502 (403) | 74 | 155284 / 50 | 155.5 ms | 183.9 ms | 213 ms | 6 | 0.15 ms | 180 ms: OK | Post-processing 85.5, SSAO 60.7, Sahnalar (chizish) 57.8, Bloom 12.0 |
+| Racing | 3D | 552 (525) | 69 | 21672 / 64 | 112.9 ms | 132.8 ms | 209 ms | 9 | 0.11 ms | 135 ms: OK | Post-processing 71.0, SSAO 41.7, Sahnalar (chizish) 23.2, Bloom 16.8 |
+| Platformer2D | 2D | 108 (60) | 8 | 0 / 115 | 11.1 ms | 12.5 ms | 16 ms | 90 | 0.03 ms | 15 ms: OK | Post-processing 4.0, Sahnalar (chizish) 0.3, Fizika 0.0, Skriptlar 0.0 |
+| Showcase3D | 3D | 48 (48) | 84 | 20010 / 39 | 99.3 ms | 110.3 ms | 140 ms | 10 | 0.41 ms | 125 ms: OK | Post-processing 70.5, SSAO 55.5, Sahnalar (chizish) 16.7, Bloom 11.5 |
+| Adventure3D | 3D | 73 (72) | 62 | 10658 / 151 | 148.7 ms | 169.7 ms | 198 ms | 7 | 0.45 ms | 185 ms: OK | Post-processing 113.6, SSAO 98.8, Sahnalar (chizish) 19.5, Bloom 11.2 |
+
+Qanday o'qish kerak:
+
+- **Kadrni rasterizatsiya oladi, o'yin kodi emas.** Har o'yinda skriptlar, fizika, particle'lar va animatsiya birga
+  kadrda 0.03–0.55 ms. Qolgani — piksellarni CPU'da bo'yash (llvmpipe): 3D sahnaning PBR yoritilishi va soyalari,
+  SSAO, bloom, 2D yorug'liklar (Neon Maydon va Breakout'da har piksel uchun 20+ ta 2D chiroq). Haqiqiy GPU'da hamma
+  namuna 60 FPS dan ancha tez ishlaydi.
+- **Vaqt qayerda ko'rinishi.** llvmpipe chizishni kechiktiradi va rasm birinchi o'qilganda bajaradi: 3D sahnaning
+  bo'yalishi "SSAO" ichida (u chuqurlikni birinchi o'qiydi), 2D sahnaniki "Bloom" ichida ko'rinadi. Profiler'da endi
+  post-processing o'tishlari alohida (`SSAO`, `Bloom`, `FXAA`).
+- **Obyektlar soni kichik** (48–552): ECS yangilanishi va sahna bo'ylab yurish kadrda sezilmaydi; eng ko'pi Vodiy
+  Poygasi (552 — trassa bo'laklari, daraxtlar, to'siqlar) va Ipak Yo'li (502 — oldinda qurilgan dunyo, uchburchaklar
+  eng ko'p: 155K).
+
+### Topilgan va tuzatilgan muammolar
+
+| Muammo | Sabab | Tuzatish | Natija (o'rtacha / eng sekin kadr) |
+|---|---|---|---|
+| O'yin o'rtasida 0.5–3 soniyalik qotishlar (banner, ochko yozuvi chiqqanda) | Har yangi shrift o'lchami (task 232) — yangi atlas tekstura; u 2D batch'ning 16 ta slotli shaderiga kirganda drayver shaderni shu teksturalar to'plami uchun qaytadan kompilyatsiya qiladi (llvmpipe'da har "variant" ~1-2 s) | Matn o'z batch'ida, bitta sampler'li shader bilan chiziladi (`Renderer2D`: `TEXT_ATLAS` dasturi) — uning varianti bitta, sprite'lar shaderi esa endi shrift atlaslarini ko'rmaydi | Breakout 66.0 / 2993 → **44.9 / 141 ms**; Neon Maydon 63.1 / 2317 → **53.3 / 784 ms**; FPS Arena 129.9 / 1614 → **123.5 / 197 ms** |
+| Bir xil o'lchamdagi shrift atlasini qayta-qayta yasash | Atlaslar 8 ta bilan cheklangan edi, o'yin UI'si esa ~12 o'lcham ishlatadi: 2 s ishlatilmagan atlas o'chib, banner yana chiqqanda qayta yasalardi (har biri 4-20 ms) | `Font::MaxSizedAtlases` 16 | qayta yasash yo'q |
+| SSAO har namunada (piksel boshiga 16 ta matritsa teskarisi) | Ko'rinish nuqtasi har namunada `inverse(projection)` × vec4 bilan tiklanardi | Perspektiv proyeksiya hadlaridan bir necha amal bilan (natija o'sha) | ~3% (llvmpipe'da asosiy vaqt sahnaning o'zida) |
+
+Qolgan bir martalik qotishlar (Neon Maydon ~0.8 s, Omborchi ~0.45 s — yangi sprite / material birinchi chizilganda
+shader varianti) faqat llvmpipe'da sezilarli; o'yin davomida takrorlanmaydi. Oldingi o'lchovlar bilan solishtirish
+uchun jadvalni shu kompyuterda qayta oling ([Benchmarks.md](Benchmarks.md)).
 
 ## Rasmlarni yangilash
 

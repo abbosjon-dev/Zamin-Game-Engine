@@ -284,7 +284,11 @@ rejimi** (UI rang tusi), **Konsol**, **Editor kamerasi** (tezlik, FOV, Y o'qi), 
 joriysini nom bilan saqlash va boshqarish.
 
 **Til**: editor interfeysi o'zbekcha yoki inglizcha (**Sozlamalar → Ko'rinish**). O'yin matnlarining tili alohida —
-[ProjectSettings.md](ProjectSettings.md).
+[ProjectSettings.md](ProjectSettings.md). Matnlar `Tr("...")` orqali o'tadi (o'zbekchasi kalit, inglizchasi
+`EditorLanguage.cpp` jadvalida; `UI::PropertyLabel` / `PropertyHeader` / `Property*` yorliqlarini o'zi tarjima
+qiladi). `ZaminTests` dagi `EditorTranslationKeysComplete` testi editor kodidagi har bunday yorliqning inglizchasi
+borligini tekshiradi va yo'qlarini fayl nomi bilan chiqaradi; yangi yorliq qo'shganda jadvalga juftini ham qo'shing.
+Uzun izohlar (tooltiplar, `TextDisabled` maslahatlari) hozircha faqat o'zbekcha.
 
 ## 13. Klaviatura yorliqlari
 

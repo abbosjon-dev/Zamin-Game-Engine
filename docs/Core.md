@@ -360,6 +360,15 @@ if (reload.Tick(ts)) Reload();          // tugagan kadrda true; Timer(0.5f, true
 `Stopwatch`: `Start`, `Stop`, `Reset`, `Restart`, `ElapsedMilliseconds / Microseconds / Nanoseconds`, `Lap`,
 `GetLaps`. Profiler uchun alohida: `ZM_PROFILE_SCOPE("Nom")` (Profiler oynasida ierarxik ko'rinadi).
 
+**Ishga tushish vaqti** (`Core/StartupTimer.h`): `Application` dvigatel kutubxonasi yuklangandan birinchi kadr
+ekranga chiqquncha vaqtni o'lchaydi va bir marta logga yozadi - `Ishga tushish: birinchi kadr 670 ms (dvigatel 182,
+layer'lar 88, birinchi kadr 422 ms; jarayon boshidan ~680 ms), RAM 325 MB (eng ko'pi 341 MB)`. Qismlari: dvigatel
+(oyna va GL konteksti, `Renderer::Init`, audio, ImGui), layer'lar (`OnAttach`: loyiha, sahna, editor panellari),
+birinchi kadrning o'zi; jarayon boshlanishi `/proc/self/stat` dan (10 ms aniqlik). `StartupTimer::Get()` natijani
+beradi (editorning Statistika paneli "Xotira" bo'limida ko'rsatadi). `ZAMIN_STARTUP_PROFILE=1` ishga tushish
+paytidagi profiler daraxtini (u ham `ZM_PROFILE_SCOPE` lar bilan yig'iladi) va birinchi kadrning daraxtini chiqaradi;
+`Tests/startup_bench.py` buni bir necha marta o'lchab, ikki build'ni solishtiradi ([Benchmarks.md](Benchmarks.md#ishga-tushish-vaqti-495)).
+
 ## 14. Matn yordamchilari (StringUtils)
 
 `Zamin/Utils/StringUtils.h`, `Zamin::StringUtils`. Locale'ga bog'liq emas, istisno tashlamaydi.

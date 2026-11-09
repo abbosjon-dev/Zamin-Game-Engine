@@ -255,6 +255,35 @@ Qolgan bir martalik qotishlar (Neon Maydon ~0.8 s, Omborchi ~0.45 s — yangi sp
 shader varianti) faqat llvmpipe'da sezilarli; o'yin davomida takrorlanmaydi. Oldingi o'lchovlar bilan solishtirish
 uchun jadvalni shu kompyuterda qayta oling ([Benchmarks.md](Benchmarks.md)).
 
+
+### M25 tekshiruvi (2026-11-09)
+
+Xuddi shu muhit va buyruq, M25 optimallashtirishlaridan keyin. llvmpipe og'ir 3D'da 60 FPS ga yetmaydi — shuning
+uchun 60 FPS talabi **CPU vaqti** bo'yicha tekshirildi: namunalar 284x160 oynada (piksellar 1280x720 ning 5 %)
+o'lchandi, 3D'lar `--quality Low` bilan ham (SSAO yo'q, kichik soya xaritalari). Qolgan vaqt — dvigatelning CPU ishi
+(o'yin kodi, sahna, culling, batching, chizish buyruqlari) va llvmpipe'ning vertex ishi birga, ya'ni dvigatel CPU
+vaqtining yuqori chegarasi. Rasterizatsiya (GPU ishi) — chapdagi 1280x720 ustunlar bilan farqi.
+
+| Namuna | 1280x720: kadr o'rtacha / p95 | FPS | O'yin kodi (CPU) | Kichik oyna: kadr o'rtacha / p95 | CPU ≤ 16.6 ms |
+|---|---:|---:|---:|---:|---|
+| TopDownShooter (2D) | 62.4 / 73.8 ms | 16 | 0.23 ms | 9.3 / 8.0 ms* | ha |
+| Breakout (2D) | 48.9 / 58.1 ms | 20 | 0.18 ms | 7.5 / 9.2 ms | ha |
+| Platformer2D (2D) | 12.5 / 15.8 ms | 80 | 0.04 ms | 1.9 / 2.3 ms | ha |
+| FPSArena | 131.6 / 175.2 ms | 8 | 0.40 ms | 8.5 / 11.5 ms (Low) | ha |
+| Sokoban | 131.5 / 157.2 ms | 8 | 0.08 ms | 9.7 / 9.3 ms* (Low) | ha |
+| Racing | 109.4 / 124.0 ms | 9 | 0.16 ms | 12.7 / 21.2 ms (Low) | o'rtacha ha, p95 yo'q |
+| Showcase3D | 108.4 / 132.5 ms | 9 | 0.39 ms | 10.3 / 11.6 ms (Low) | ha |
+| Adventure3D | 152.9 / 176.1 ms | 7 | 0.50 ms | 10.5 / 12.7 ms (Low) | ha |
+| EndlessRunner | 145.2 / 169.1 ms | 7 | 0.11 ms | 26.6 / 32.0 ms (Low) | **yo'q** (155K uchburchak) |
+
+\* o'rtacha bitta uzun kadr tufayli p95 dan katta: birinchi o'yinda katta matnning shrift atlasi rasterlanadi
+(TopDownShooter ~0.8 s, keyingi ishga tushirishlarda diskdagi keshdan — eng sekin kadr 866 -> 148 ms).
+
+Xulosa: o'yin kodi hamma joyda ≤ 0.55 ms; 2D namunalar va beshta 3D namuna CPU bo'yicha 60 FPS byudjetiga sig'adi.
+Ipak Yo'li (EndlessRunner) sig'maydi — uning 155K uchburchagining vertex ishi llvmpipe'da CPU'da bajariladi (LOD
+kerak). 1280x720 dagi kadrning qolgani — piksellarni bo'yash (SSAO, bloom), u haqiqiy GPU'da videokartada bo'ladi.
+Batafsil tahlil: [Performance.md](Performance.md).
+
 ## Rasmlarni yangilash
 
 - `python3 Tools/samples/make_gallery.py` — shu sahifadagi o'yin rasmlari (`docs/images/sample-*.jpg`, 960x540);

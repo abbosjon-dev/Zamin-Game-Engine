@@ -570,9 +570,9 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 492. Animatsiya baholashni parallellashtirish
 - [x] 493. Editor UI performance (katta ierarxiyalar - clipper)
 - [x] 494. Kontent brauzer katta papkalar (clipper)
-- [ ] 495. Start vaqtini qisqartirish
-- [ ] 496. Xotira ishlatilishini kamaytirish
-- [ ] 497. Barcha namunalar 60 FPS tekshiruvi
-- [ ] 498. Profiler orqali bottleneck hisobot
-- [ ] 499. Oxirgi sayqal: UI matnlari va tarjimalar
+- [x] 495. Start vaqtini qisqartirish
+- [x] 496. Xotira ishlatilishini kamaytirish
+- [x] 497. Barcha namunalar 60 FPS tekshiruvi
+- [x] 498. Profiler orqali bottleneck hisobot
+- [x] 499. Oxirgi sayqal: UI matnlari va tarjimalar
 - [ ] 500. Yakuniy regressiya va barcha testlar

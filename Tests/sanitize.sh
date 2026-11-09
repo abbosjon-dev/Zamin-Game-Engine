@@ -5,6 +5,7 @@
 # Tests/sanitizers/*.supp does not list - not only on a failed test.
 #   Tests/sanitize.sh address               ASan (+ LeakSanitizer at exit): build-asan
 #   Tests/sanitize.sh undefined             UBSan, every report in our code fatal: build-ubsan
+#   Tests/sanitize.sh address,undefined     ASan and UBSan in one build: build-asan-ubsan
 #   Tests/sanitize.sh leak                  standalone LeakSanitizer (no ASan): build-lsan
 #   Tests/sanitize.sh thread                ThreadSanitizer: build-tsan
 #   Tests/sanitize.sh address --smoke       also ZaminPlayer (Platformer2D, Showcase3D, Adventure3D) and ZaminEditor
@@ -22,12 +23,13 @@ set -uo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 supp="$root/Tests/sanitizers"
 
-usage() { sed -n '2,20p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,21p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 if [[ $# -lt 1 ]]; then usage; exit 2; fi
 mode="$1"; shift
 case "$mode" in
     address|asan) mode=address; short=asan ;;
     undefined|ubsan) mode=undefined; short=ubsan ;;
+    address,undefined|undefined,address|asan-ubsan) mode="address,undefined"; short=asan-ubsan ;;
     leak|lsan) mode=leak; short=lsan ;;
     thread|tsan) mode=thread; short=tsan ;;
     -h|--help) usage; exit 0 ;;

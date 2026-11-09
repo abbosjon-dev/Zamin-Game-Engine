@@ -1855,7 +1855,7 @@ namespace Zamin {
             { "Xotirada", "In memory" },
             { "Yaqinda so'nish", "Near fade" },
             { "Yer", "Ground" },
-            { "Yerga o'tish", "Ground transition" },
+            { "Yerga o'tish", "Ground blend" },
             { "Yopiq (halqa)", "Closed (loop)" },
             { "Yorqinlik", "Brightness" },
             { "Yorug'lik (Lit)", "Lit" },
@@ -1863,10 +1863,11 @@ namespace Zamin {
             { "Yuklash usuli", "Load mode" },
             { "Yuqori o'q", "Up axis" },
             { "Zenit egriligi", "Zenith curve" },
-            { "chiqish", "output" },
-            { "kirish", "input" },
+            { "chiqish", "out" },
+            { "kirish", "in" },
             { "kutish", "wait" },
             { "sRGB (rang)", "sRGB (color)" },
+            { "Ishga tushish", "Start-up" },
         };
 
         struct Table

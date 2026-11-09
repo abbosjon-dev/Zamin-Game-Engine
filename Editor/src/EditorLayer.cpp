@@ -3,6 +3,7 @@
 #include "UI.h"
 
 #include <Zamin/Utils/PlatformUtils.h>
+#include <Zamin/Core/StartupTimer.h>
 #include <Zamin/Utils/FileSystem.h>
 
 #include <imgui.h>
@@ -11151,6 +11152,16 @@ namespace Zamin {
             UI::PropertyLabel("Dvigatel jami", "Dvigatel modullari o'zi hisoblagan xotira (quyidagi toifalar yig'indisi). GPU xotirasi "
                                                "(teksturalar, buferlar) drayverga qarab RAM'da ham, videokartada ham bo'lishi mumkin");
             ImGui::Text("%s", MemoryStats::FormatBytes(tracked).c_str());
+            // How long the editor took to show its first frame (StartupTimer) and the RAM it had then.
+            if (const StartupTimer::Timings& startup = StartupTimer::Get(); startup.Done)
+            {
+                UI::PropertyLabel("Ishga tushish", "Dvigatel yuklangandan birinchi kadr ekranga chiqquncha: dvigatel (oyna, GL, renderer, "
+                                                   "audio), layer'lar (loyiha, sahna, editor panellari) va birinchi kadrning o'zi. "
+                                                   "ZAMIN_STARTUP_PROFILE=1 logga batafsil daraxtini yozadi");
+                ImGui::Text("%.0f ms", startup.TotalMs);
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip(StartupTimer::Describe(startup).c_str());
+            }
             UI::EndPropertyGrid();
         }
         // The categories: bytes and objects (the peak in the tooltip), and a bar of each one's share.

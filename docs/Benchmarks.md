@@ -315,6 +315,67 @@ bo'lsa (suyak qutilari < 2 048) bitta oqimda qoladi - aks holda parallel ishning
 Ierarxiyaning qolgan 0.85 ms i - 10 000 qatorli tekis ro'yxatni yig'ish (ochiq / yopiq holat, Shift bilan oraliq
 tanlash uchun hamma qator); qolgan kadr vaqti llvmpipe'ning viewport chizishi. O'lchov: `ZAMIN_EDITOR_PANEL_TIMES=1`.
 
+### Ishga tushish vaqti (495)
+
+Yangi o'lchov: `StartupTimer` har dasturda dvigatel kutubxonasi yuklangandan birinchi kadr ekranga chiqquncha vaqtni
+logga yozadi (`Ishga tushish: birinchi kadr 670 ms (dvigatel 182, layer'lar 88, birinchi kadr 422 ms; jarayon boshidan
+~680 ms), RAM ...`), editorning Statistika panelida ham ko'rinadi; `ZAMIN_STARTUP_PROFILE=1` ishga tushish va birinchi
+kadrning profiler daraxtini chiqaradi. `Tests/startup_bench.py` editor va player'ni bir kadr bilan 5 marta ochadi
+(oldin bir marta isitadi: shader / shrift keshlari) va medianani beradi; "jarayon" - tashqaridan o'lchangan exec ->
+chiqish vaqti (yopilish ham ichida), uni har qanday build beradi, shuning uchun "oldin" (`14e8435`, 488-494 dan
+keyingi build, nusxasi saqlab qo'yilgan) bilan shu ustun solishtiriladi. Release, llvmpipe, `ZAMIN_MAX_FRAMES=1`
+(avtomatik rejim: fon yuklash o'chiq).
+
+| Dastur, loyiha | Jarayon, oldin (mediana) | Jarayon, keyin (mediana) | Birinchi kadr, keyin (dvigatel / layer'lar / 1-kadr) |
+|---|---:|---:|---|
+| Editor, Showcase3D | 1 094 ms | **750 ms** | 670 ms (182 / 88 / 422) |
+| Editor, Platformer2D | 783 ms | **540 ms** | 469 ms (189 / 66 / 208) |
+| Player, Showcase3D | 587 ms | 578 ms | 538 ms (217 / 70 / 276) |
+| Player, Adventure3D | 561 ms | 589 ms | 551 ms (225 / 66 / 243) |
+| Player, Platformer2D | 365 ms | 382 ms | 345 ms (220 / 60 / 60) |
+
+Editorni interaktiv holatdagidek (`ZAMIN_ASYNC_LOAD=1`, sahna rasmlari fonda) ochganda birinchi kadr: Showcase3D
+648 ms, Platformer2D 456 ms. Player qatorlari o'zgarmadi (farq shovqin ichida, ±30 ms) - ularning vaqti quyida
+"qolganlar"da.
+
+Profil (Showcase3D editori, oldin) nimani ko'rsatdi va nima qilindi:
+
+| Joy | Oldin | Keyin | Nima qilindi |
+|---|---:|---:|---|
+| ImGui shrift atlasi (birinchi kadr, "UI (ImGui)" o'zi) | 236 ms | 60-70 ms | atlasga faqat editor ishlatadigan 225 ta Font Awesome ikonkasi (Icons.h dan, `IconRanges.inl`, `Tools/gen_icon_ranges.py`) - oldin to'rt shriftning har biriga butun blok (~1 400 glif); faqat ikonka chiziladigan katta shriftga matndan faqat ASCII |
+| Sahnalar paneli, sahna fayllari | 27 ms | 6 ms | har `.zscene` ning JSON'i ishchi oqimlarda parallel o'qiladi (`JobSystem::ParallelFor`) |
+| Sahnalar paneli, kartalar (rasm) | 44 ms | 19 ms* | sahna rasmlari ishchi oqimda ochiladi, GPU'ga tayyor bo'lganda (fon yuklash yoqiq bo'lsa) |
+| Player: boshlang'ich sahna rasmlari | ketma-ket | parallel | `SceneManager::LoadNow` sahna nomlagan rasmlarni oldindan parallel o'qiydi (`TextureLibrary::Predecode`), keyin tartib bilan yuklaydi |
+
+\* ishchi oqimlar bilan bitta 4 yadroli CPU'da raqobatlashgani uchun asosiy oqim vaqti to'liq yo'qolmaydi.
+
+Qolganlar (o'lchangan, tuzatilmagan): oyna va GL konteksti 52-68 ms, `Renderer3D::Init` 63-70 ms (25 ta shader
+dasturi binary keshdan - llvmpipe kodni baribir qayta yaratadi), birinchi kadrda SSAO ~80 ms (drayver shader
+variantlarini birinchi chizishda kompilyatsiya qiladi), shriftlar 17-43 ms (2048x2048 atlasni GPU'ga yuborish va
+mipmap'lari). Batafsil: [Performance.md](Performance.md).
+
+### Xotira (496)
+
+RAM - jarayonning RSS (`/proc/self/statm`), "eng ko'pi" - VmHWM; "dvigatel" - modullar o'zi hisoblagan xotira
+(`MemoryStats`: teksturalar, render buferlari, mesh buferlari ...; llvmpipe'da GPU xotirasi ham RAM'da). Editor:
+`ZAMIN_EDITOR_STATS=1`, 30 kadr; player: `ZAMIN_PLAYER_STATS=1` (yangi: chiqishda "Xotira: ..." qatori), 60 kadr.
+
+| Dastur, loyiha | RAM oldin (eng ko'pi) | RAM keyin (eng ko'pi) | Dvigatel hisoblagani |
+|---|---:|---:|---|
+| Editor, Showcase3D | 451 MB (467 MB) | **325 MB (341 MB)** | 40 MB (teksturalar 29, render buferlari 10.8) |
+| Editor, Platformer2D | 367 MB (447 MB) | **242 MB (322 MB)** | 30 MB (teksturalar 19, render buferlari 10.8) |
+| Player, Showcase3D | - | 262 MB (277 MB) | 32 MB (teksturalar 22, render buferlari 10.6) |
+| Player, Adventure3D | - | 183 MB (263 MB) | 18 MB (teksturalar 7.5, render buferlari 10.6) |
+| Player, Platformer2D | - | 159 MB (239 MB) | 20 MB (teksturalar 9.4, render buferlari 10.6) |
+
+Editor ~125 MB kam ishlatadi: ImGui atlasi endi 2048x2048 (ikonkalar va katta shrift qisqargani uchun; oldingisi
+ancha katta edi, uning alpha + RGBA nusxalari CPU'da va teksturasi llvmpipe'da RAM'da turardi) va atlasning CPU
+nusxalari teksturaga yuborilgach bo'shatiladi (`ImFontAtlas::ClearTexData`, logda "Editor shrift atlasi: 2048x2048
+(4 ta shrift); CPU nusxasi bo'shatildi"). Player'da ImGui yo'q: uning xotirasi o'zgarmadi; teksturalar CPU nusxasini
+saqlamaydi (yuborilgach bo'shatiladi), shriftlarda faqat TTF fayli qoladi (o'lchamli atlaslar va kerning uchun).
+Player'larda birinchi kadr paytida ~80 MB vaqtinchalik o'sish bor (eng ko'pi - hozirgisi; ikkinchi kadrdayoq
+qaytadi), manbai aniqlanmadi (kadr ichida, ehtimol drayver).
+
 ## Natijalarni saqlash va solishtirish (`Tests/bench.sh`)
 
 `Tests/bench.sh` headless benchmarklarni (ECS, serializatsiya, prefablar) ishga tushiradi va natijalarni
@@ -344,5 +405,6 @@ ZAMIN_BUILD_DIR=build-release Tests/bench.sh --update-baseline
 | `ZaminBench --serialize --prefabs` | bog'langan prefab nusxalari (saqlash, yuklash, sinxronlash, Apply; `Tests/Baselines/prefabs-release.json`) |
 | `ZaminBench --nav` | navigatsiya (bake, yo'l qidirish, Nav Agent'lar) |
 | `ZaminBench --fonts` | shrift atlasi: rasterlash va diskdagi kesh, glif qidirish, kerning bilan matn joylash |
+| `Tests/startup_bench.py` | editor va player ishga tushish vaqti: birinchi kadrgacha (dvigatel / layer'lar / 1-kadr) va jarayon vaqti, ikki build solishtirish (`--bin`, `--module-dir`) |
 | `Tests/player_bench.sh` | namuna o'yinlarning boshlang'ich sahnalari ZaminPlayer'da (ms / kadr, p95, p99) |
 | `Tests/samples_bench.py` | to'qqiz namuna o'yin bot o'ynayotganda: kadr vaqti, eng sekin kadr va uning profili, obyektlar soni, o'yin kodining CPU vaqti, byudjetlar (`--check`) — natija va topilgan muammolar: [Samples.md](Samples.md#ishlash-tezligi) |

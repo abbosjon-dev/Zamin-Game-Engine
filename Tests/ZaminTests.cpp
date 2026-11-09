@@ -48990,9 +48990,9 @@ TEST(EditorTranslationKeysComplete)
     // (PropertyLabel / PropertyHeader / Property* / TextCentered) has an English text: a new label
     // without one stays Uzbek in the English editor, and this test names it.
     static const std::set<std::string> translating = { "Tr", "TextCentered", "PropertyLabel", "PropertyHeader", "PropertyAssetPath",
-                                                      "PropertyBool", "PropertyColor3", "PropertyColor4", "PropertyCombo", "PropertyCurve",
-                                                      "PropertyEmission", "PropertyFloat", "PropertyFloat2", "PropertyFloat3", "PropertyFloat4",
-                                                      "PropertyGradient", "PropertyInt", "PropertySegmented", "PropertySlider", "PropertyString" };
+                                                       "PropertyBool", "PropertyColor3", "PropertyColor4", "PropertyCombo", "PropertyCurve",
+                                                       "PropertyEmission", "PropertyFloat", "PropertyFloat2", "PropertyFloat3", "PropertyFloat4",
+                                                       "PropertyGradient", "PropertyInt", "PropertySegmented", "PropertySlider", "PropertyString" };
     const auto isWord = [](char c) { return std::isalnum((unsigned char)c) || c == '_'; };
     std::vector<std::string> missing;
     size_t labels = 0, files = 0;

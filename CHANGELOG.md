@@ -37,6 +37,19 @@ vazifalari bajarila boshlaganda unga bo'lim qo'shing ([CONTRIBUTING.md](CONTRIBU
 - **Parallel**: bitta katta particle tizimi bo'laklarda ishchi oqimlarda, animatorlar ko'rinishini belgilash parallel
   (natija bir xil). **Editor**: ierarxiya va kontent brauzer katakchalari `ImGuiListClipper` bilan (10 000 obyekt,
   5 000 fayl).
+- **Ishga tushish vaqti** (`StartupTimer`, `ZAMIN_STARTUP_PROFILE`, `Tests/startup_bench.py`): editor va player
+  birinchi kadrgacha vaqtni va uning qismlarini yozadi. Editor atlasida faqat ishlatilgan ikonkalar
+  (`IconRanges.inl`, `Tools/gen_icon_ranges.py`), Sahnalar paneli fayllarni parallel o'qiydi va rasmlarni fonda
+  ochadi, player sahna rasmlarini parallel oldindan o'qiydi: editor (Showcase3D) 1 094 -> 750 ms.
+- **Xotira**: ImGui atlasining CPU nusxalari bo'shatiladi, atlas kichraydi - editor RAM 451 -> 325 MB; player
+  chiqishda xotirani yozadi (`ZAMIN_PLAYER_STATS`), Statistika panelida ishga tushish vaqti.
+- **Namunalar tekshiruvi va hisobot**: 60 FPS talabi CPU vaqti bo'yicha (kichik oyna, Low) - 8 / 9 namuna 16.6 ms
+  ichida, EndlessRunner yo'q (155K uchburchak); [docs/Performance.md](docs/Performance.md) - profiler yozuvlaridan
+  eng og'ir joylar, tuzatilganlar, qolgan cheklovlar.
+- **Tarjimalar**: 259 ta yangi inglizcha juft, terminologiya (color), `EditorTranslationKeysComplete` testi
+  (editor kodidagi har tarjima qilinadigan yorliqning inglizchasi bor).
+- **Yakuniy regressiya**: gcc Debug / Release, clang, ASan + UBSan (`Tests/sanitize.sh address,undefined`), barcha
+  test to'plamlari - [docs/Quality.md](docs/Quality.md).
 
 ## M24 Namuna o'yinlar
 

@@ -1,4 +1,5 @@
 #include "Zamin/Renderer/Renderer.h"
+#include "Zamin/Core/Profiler.h"
 #include "Zamin/Renderer/ShaderCache.h"
 #include "Zamin/Renderer/DisplayPass.h"
 #include "Zamin/Renderer/Quality.h"
@@ -24,11 +25,26 @@ namespace Zamin {
 
     void Renderer::Init()
     {
-        RenderCommand::Init();
-        Renderer2D::Init();
-        Renderer3D::Init();
-        ParticleRenderer::Init();
-        PostProcessor::Init();
+        {
+            ZM_PROFILE_SCOPE("RenderCommand::Init");
+            RenderCommand::Init();
+        }
+        {
+            ZM_PROFILE_SCOPE("Renderer2D::Init");
+            Renderer2D::Init();
+        }
+        {
+            ZM_PROFILE_SCOPE("Renderer3D::Init");
+            Renderer3D::Init();
+        }
+        {
+            ZM_PROFILE_SCOPE("ParticleRenderer::Init");
+            ParticleRenderer::Init();
+        }
+        {
+            ZM_PROFILE_SCOPE("PostProcessor::Init");
+            PostProcessor::Init();
+        }
         const ShaderCache::Stats& shaders = ShaderCache::GetStats();
         ZM_CORE_INFO("Shader'lar: {} ta keshdan ({:.1f} ms), {} ta kompilyatsiya ({:.1f} ms){}", shaders.Hits, shaders.LoadMilliseconds,
                      shaders.Misses, shaders.CompileMilliseconds,

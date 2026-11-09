@@ -2,6 +2,7 @@
 #include <Zamin/Zamin.h>
 #include <Zamin/Editor/EditorLanguage.h>
 #include <Zamin/ImGui/Icons.h>
+#include <Zamin/Core/StartupTimer.h>
 
 #include "TestFramework.h"
 #include "AllocCounter.inl" // the operator new counting hook (AllocCounter.h)
@@ -48853,4 +48854,198 @@ TEST(AnimatorVisibilityMarkedInParallelMatchesSerial)
     CHECK(parallelSeen == serialSeen);
     CHECK(parallelPosed == serialPosed && parallelCulled == serialCulled);
     JobSystem::Shutdown();
+}
+
+// ---- M25: start-up time, editor font icons, translations (tasks 495, 496, 499)
+
+TEST(StartupTimerParsesProcessStartTime)
+{
+    uint64_t ticks = 0;
+    // Field 22 (starttime) after the program's name, which can hold spaces and parentheses.
+    CHECK(StartupTimer::ParseStartTicks("1234 (Zamin Player (x)) S 1 1234 1234 0 -1 4194560 100 0 0 0 5 3 0 0 20 0 9 0 98765 123456 789\n", ticks));
+    CHECK(ticks == 98765);
+    CHECK(!StartupTimer::ParseStartTicks("1234 (a) S 1 2 3", ticks)); // too few fields
+    CHECK(!StartupTimer::ParseStartTicks("no parentheses here", ticks));
+    CHECK(!StartupTimer::ParseStartTicks("1 (a) S 1 1 1 0 -1 0 0 0 0 0 0 0 0 0 20 0 1 0 12x4 5", ticks)); // not a number
+    // This process: started a moment ago (well under a day), as the boot clock sees it.
+    const double age = StartupTimer::ReadProcessAgeMs();
+    CHECK(age >= 0.0 && age < 24.0 * 3600.0 * 1000.0);
+    CHECK(StartupTimer::Now() >= 0.0);
+    // No application ran here: nothing measured.
+    CHECK(!StartupTimer::Get().Done);
+    StartupTimer::Timings t;
+    t.TotalMs = 612.4;
+    t.EngineMs = 180.0;
+    t.LayersMs = 70.0;
+    t.FirstFrameMs = 362.0;
+    t.ProcessMs = 11.0;
+    const std::string text = StartupTimer::Describe(t);
+    CHECK(text.starts_with("612 ms (dvigatel 180, layer'lar 70, birinchi kadr 362 ms; jarayon boshidan ~623 ms)"));
+    CHECK_NEAR(t.FromProcessStartMs(), 623.4, 1e-9);
+    t.ProcessMs = -1.0; // unknown: the process part is left out
+    CHECK(StartupTimer::Describe(t).find("jarayon") == std::string::npos);
+}
+
+namespace {
+    // The codepoint of a UTF-8 string of one character ("\xef\x80\x93" -> U+F013); 0 for anything else.
+    uint32_t DecodeOneCodepoint(const std::string& s)
+    {
+        const auto b = [&](size_t i) { return (uint32_t)(unsigned char)s[i]; };
+        if (s.size() == 1 && b(0) < 0x80)
+            return b(0);
+        if (s.size() == 2 && (b(0) & 0xE0) == 0xC0)
+            return (b(0) & 0x1F) << 6 | (b(1) & 0x3F);
+        if (s.size() == 3 && (b(0) & 0xF0) == 0xE0)
+            return (b(0) & 0x0F) << 12 | (b(1) & 0x3F) << 6 | (b(2) & 0x3F);
+        return 0;
+    }
+
+    // A C++ string literal's body ("a\"b\x41") as the bytes it stands for.
+    std::string UnescapeLiteral(std::string_view body)
+    {
+        std::string out;
+        for (size_t i = 0; i < body.size(); i++)
+        {
+            if (body[i] != '\\' || i + 1 >= body.size())
+            {
+                out += body[i];
+                continue;
+            }
+            const char c = body[++i];
+            if (c == 'n')
+                out += '\n';
+            else if (c == 't')
+                out += '\t';
+            else if (c == 'x')
+            {
+                uint32_t value = 0;
+                size_t digits = 0;
+                while (i + 1 < body.size() && digits < 2 && std::isxdigit((unsigned char)body[i + 1]))
+                {
+                    const char h = body[++i];
+                    value = value * 16 + (uint32_t)(std::isdigit((unsigned char)h) ? h - '0' : std::tolower((unsigned char)h) - 'a' + 10);
+                    digits++;
+                }
+                out += (char)value;
+            }
+            else
+                out += c; // \" \\ \'
+        }
+        return out;
+    }
+}
+
+TEST(IconGlyphRangesCoverIconsHeader)
+{
+    // The editor bakes only these icons (IconRanges.inl, made by Tools/gen_icon_ranges.py): every icon of
+    // Icons.h must be in them, or it would draw as "?".
+    static const uint32_t ranges[] = {
+#include "Zamin/ImGui/IconRanges.inl"
+        0,
+    };
+    const size_t count = std::size(ranges) - 1;
+    CHECK(count % 2 == 0 && count > 100);
+    for (size_t i = 0; i + 1 < count; i += 2)
+    {
+        CHECK(ranges[i] <= ranges[i + 1]);
+        CHECK(ranges[i] >= ICON_MIN_FA && ranges[i + 1] <= ICON_MAX_FA);
+        if (i + 2 < count)
+            CHECK(ranges[i + 1] < ranges[i + 2]); // sorted, not overlapping
+    }
+    const auto covered = [&](uint32_t cp) {
+        for (size_t i = 0; i + 1 < count; i += 2)
+            if (cp >= ranges[i] && cp <= ranges[i + 1])
+                return true;
+        return false;
+    };
+    CHECK(covered(DecodeOneCodepoint(ICON_FA_GEAR)) && covered(DecodeOneCodepoint(ICON_FA_PLAY)) && covered(DecodeOneCodepoint(ICON_FA_EARTH_ASIA)));
+    std::ifstream header(std::filesystem::path(ZAMIN_SOURCE_DIR) / "Zamin" / "src" / "Zamin" / "ImGui" / "Icons.h");
+    CHECK(header.good());
+    std::string line;
+    int icons = 0;
+    std::vector<std::string> missing;
+    while (std::getline(header, line))
+    {
+        if (!line.starts_with("#define ICON_FA_"))
+            continue;
+        const size_t open = line.find('"'), close = line.find('"', open + 1);
+        if (open == std::string::npos || close == std::string::npos)
+            continue;
+        const uint32_t cp = DecodeOneCodepoint(UnescapeLiteral(std::string_view(line).substr(open + 1, close - open - 1)));
+        if (cp < ICON_MIN_FA || cp > ICON_MAX_FA)
+            continue; // not a Font Awesome glyph (the text font draws it)
+        icons++;
+        if (!covered(cp))
+            missing.push_back(line);
+    }
+    for (const std::string& m : missing)
+        std::printf("    ikonka IconRanges.inl'da yo'q (Tools/gen_icon_ranges.py): %s\n", m.c_str());
+    CHECK(icons > 100);
+    CHECK(missing.empty());
+}
+
+TEST(EditorTranslationKeysComplete)
+{
+    // Every literal label the editor's code gives Tr() or a UI helper that translates its label
+    // (PropertyLabel / PropertyHeader / Property* / TextCentered) has an English text: a new label
+    // without one stays Uzbek in the English editor, and this test names it.
+    static const std::set<std::string> translating = { "Tr", "TextCentered", "PropertyLabel", "PropertyHeader", "PropertyAssetPath",
+                                                      "PropertyBool", "PropertyColor3", "PropertyColor4", "PropertyCombo", "PropertyCurve",
+                                                      "PropertyEmission", "PropertyFloat", "PropertyFloat2", "PropertyFloat3", "PropertyFloat4",
+                                                      "PropertyGradient", "PropertyInt", "PropertySegmented", "PropertySlider", "PropertyString" };
+    const auto isWord = [](char c) { return std::isalnum((unsigned char)c) || c == '_'; };
+    std::vector<std::string> missing;
+    size_t labels = 0, files = 0;
+    for (const auto& entry : std::filesystem::recursive_directory_iterator(std::filesystem::path(ZAMIN_SOURCE_DIR) / "Editor" / "src"))
+    {
+        const std::string ext = entry.path().extension().string();
+        if (!entry.is_regular_file() || (ext != ".cpp" && ext != ".h"))
+            continue;
+        files++;
+        std::ifstream in(entry.path(), std::ios::binary);
+        const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        for (size_t paren = text.find('('); paren != std::string::npos; paren = text.find('(', paren + 1))
+        {
+            size_t begin = paren;
+            while (begin > 0 && isWord(text[begin - 1]))
+                begin--;
+            if (begin == paren || !translating.contains(text.substr(begin, paren - begin)))
+                continue;
+            size_t at = paren + 1;
+            const auto skipSpace = [&]() {
+                while (at < text.size() && std::isspace((unsigned char)text[at]))
+                    at++;
+            };
+            // Icons before the text: ICON_FA_GEAR "  Sozlamalar".
+            for (skipSpace(); text.compare(at, 8, "ICON_FA_") == 0; skipSpace())
+                while (at < text.size() && isWord(text[at]))
+                    at++;
+            std::string value;
+            bool any = false;
+            while (at < text.size() && text[at] == '"')
+            {
+                size_t end = at + 1;
+                while (end < text.size() && text[end] != '"')
+                    end += text[end] == '\\' ? 2 : 1;
+                value += UnescapeLiteral(std::string_view(text).substr(at + 1, end - at - 1));
+                at = end + 1;
+                any = true;
+                skipSpace();
+            }
+            if (!any || at >= text.size() || (text[at] != ')' && text[at] != ','))
+                continue; // made at run time (a variable, a call, a literal followed by an icon or a +)
+            const std::string core(EditorText::Split(value).Core);
+            if (std::none_of(core.begin(), core.end(), [](char c) { return std::isalpha((unsigned char)c); }))
+                continue; // "##id", "%s", numbers
+            labels++;
+            if (!EditorText::HasTranslation(core))
+                missing.push_back(entry.path().filename().string() + ": " + core);
+        }
+    }
+    std::sort(missing.begin(), missing.end());
+    missing.erase(std::unique(missing.begin(), missing.end()), missing.end());
+    for (const std::string& m : missing)
+        std::printf("    inglizchasi yo'q: %s\n", m.c_str());
+    CHECK(files > 50 && labels > 1000);
+    CHECK(missing.empty());
 }

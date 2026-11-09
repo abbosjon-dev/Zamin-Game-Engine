@@ -2,6 +2,7 @@
 #include "Zamin/Asset/AssetImportLog.h"
 #include "Zamin/Audio/AudioEngine.h"
 #include "Zamin/Core/Profiler.h"
+#include "Zamin/Core/JobSystem.h"
 #include "Zamin/Debug/DebugDraw.h"
 #include "Zamin/Project/Project.h"
 #include "Zamin/Renderer/RenderCommand.h"
@@ -344,6 +345,35 @@ namespace Zamin {
         m_EventBus->Emit("ActiveSceneChanged", ActiveSceneChange{ previous, current });
     }
 
+    // The images a scene file names that are not loaded yet, decoded ahead (TextureLibrary::Predecode).
+    static std::vector<fs::path> PredecodeSceneImages(const fs::path& file)
+    {
+        std::vector<fs::path> decode;
+        if (!JobSystem::IsParallel())
+            return decode;
+        SceneLoadJob probe; // the file's JSON again (a fraction of a millisecond next to the images)
+        if (!probe.Parse(file))
+            return decode;
+        for (const std::string& image : probe.CollectImagePaths())
+        {
+            fs::path path = Project::GetAssetFileSystemPath(image);
+            std::error_code ec;
+            if (fs::is_regular_file(path, ec) && !TextureLibrary::IsLoaded(path))
+                decode.push_back(std::move(path));
+        }
+        if (decode.size() < 2)
+        {
+            decode.clear(); // one image: nothing to do side by side
+            return decode;
+        }
+        ZM_PROFILE_SCOPE("Rasmlarni oldindan o'qish");
+        JobSystem::ParallelFor((uint32_t)decode.size(), 1, [&](uint32_t begin, uint32_t end) {
+            for (uint32_t i = begin; i < end; i++)
+                TextureLibrary::Predecode(decode[i]);
+        });
+        return decode;
+    }
+
     Ref<Scene> SceneManager::LoadNow(const fs::path& path, std::string* error, SceneLoadTiming* timing)
     {
         const fs::path file = ToAssetFile(ResolveScenePath(path));
@@ -365,7 +395,12 @@ namespace Zamin {
             return nullptr;
         }
         const auto assets = std::chrono::steady_clock::now();
+        // The images the scene names are decoded on the job system's workers first, side by side (they were
+        // decoded one after the other inside ResolveAssets: most of a scene's start-up, task 495); the
+        // uploads below then only send them to the GPU, in the same order as before.
+        std::vector<fs::path> decoded = PredecodeSceneImages(file);
         scene->ResolveAssets();
+        TextureLibrary::DropPredecoded(decoded); // what no component took
         if (timing)
         {
             (*timing)[SceneLoadTiming::Stage::Assets] += ElapsedMilliseconds(assets);

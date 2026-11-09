@@ -4515,7 +4515,13 @@ namespace Zamin {
         SaveAssetRegistryCache(true);
         DiscardSessionAutosave(); // the previous project's scene is left
         m_PrefabDatabase.Clear(); // the previous project's prefabs
-        if (!Project::Load(projectFile))
+        ZM_PROFILE_SCOPE("Loyihani ochish");
+        bool loaded = false;
+        {
+            ZM_PROFILE_SCOPE("Project::Load");
+            loaded = Project::Load(projectFile) != nullptr;
+        }
+        if (!loaded)
         {
             ZM_ERROR("Loyiha ochilmadi: {}", path.string());
             return false;
@@ -4525,12 +4531,16 @@ namespace Zamin {
         m_ProjectSettingsPanel.OnProjectChanged();
         AddRecentProject(projectFile);
         m_ShowLauncher = false;
-        StartAssetWatcher(); // the asset registry first (missing .zmeta files are written), then the watcher
+        {
+            ZM_PROFILE_SCOPE("Asset registry + kuzatuvchi");
+            StartAssetWatcher(); // the asset registry first (missing .zmeta files are written), then the watcher
+        }
 
         ScriptEngine::UnloadModule();
         fs::path module = Project::GetScriptModulePath();
         if (!module.empty())
         {
+            ZM_PROFILE_SCOPE("Skript moduli");
             if (fs::exists(module))
                 ScriptEngine::LoadModule(module);
             else if (fs::exists(Project::GetProjectDirectory() / "CMakeLists.txt"))
@@ -4546,8 +4556,11 @@ namespace Zamin {
 
         auto& config = Project::GetActive()->GetConfig();
         fs::path startScene = Project::GetAssetFileSystemPath(config.StartScene);
-        if (config.StartScene.empty() || !OpenScene(startScene))
-            NewScene();
+        {
+            ZM_PROFILE_SCOPE("Boshlang'ich sahna");
+            if (config.StartScene.empty() || !OpenScene(startScene))
+                NewScene();
+        }
         // A scene that was never saved has its copy under a name of its own.
         if (!m_Recovery.Pending)
             CheckAutosaveRecovery({});
@@ -6746,25 +6759,40 @@ namespace Zamin {
             HandleFileDrop(dropped, m_PendingFileDropPos);
         }
 
-        UI_MenuBar();
+        {
+            ZM_PROFILE_SCOPE("Menyu");
+            UI_MenuBar();
+        }
         UI_StatusBar();
         UI_DockSpace();
 
         m_SceneHierarchyPanel.SetSceneEditable(m_SceneState == SceneState::Edit);
-        m_SceneHierarchyPanel.OnImGuiRender(&m_ShowHierarchy, &m_ShowInspector);
+        {
+            ZM_PROFILE_SCOPE("Ierarxiya + inspektor");
+            m_SceneHierarchyPanel.OnImGuiRender(&m_ShowHierarchy, &m_ShowInspector);
+        }
         ProcessPrefabRequests(); // Apply / Revert asked in the hierarchy / inspector (the panel is drawn)
         UI_PrefabPopups();
         UI_PrefabStagePopups();
         UI_SceneRecoveryPopups();
-        m_ContentBrowserPanel.OnImGuiRender(&m_ShowContentBrowser);
+        {
+            ZM_PROFILE_SCOPE("Kontent brauzer");
+            m_ContentBrowserPanel.OnImGuiRender(&m_ShowContentBrowser);
+        }
         if (m_ShowUnusedAssets && !m_UnusedAssetsShown)
             m_UnusedAssetsPanel.Refresh(); // opened: a fresh scan (C++ files are not watched)
         m_UnusedAssetsShown = m_ShowUnusedAssets;
         m_UnusedAssetsPanel.OnImGuiRender(&m_ShowUnusedAssets);
-        UI_SceneStatistics();
+        {
+            ZM_PROFILE_SCOPE("Sahna statistikasi");
+            UI_SceneStatistics();
+        }
         UI_BuildOutput();
         m_AssetInspectorPanel.DrawPopups();
-        m_ConsolePanel.OnImGuiRender(&m_ShowConsole);
+        {
+            ZM_PROFILE_SCOPE("Konsol");
+            m_ConsolePanel.OnImGuiRender(&m_ShowConsole);
+        }
         UI_SceneSettings();
         m_ScenesPanel.SetSceneManager(m_SceneState == SceneState::Play ? m_RuntimeScenes.get() : nullptr);
         m_ScenesPanel.SetShownScene(m_ActiveScene.get());
@@ -6776,7 +6804,10 @@ namespace Zamin {
         }
         if (ImGuiWindow* content = ImGui::FindWindowByName("###ContentBrowser"); content && content->DockId)
             m_ScenesPanel.SetDefaultDock(content->DockId); // first opened: a tab next to the content browser
-        m_ScenesPanel.OnImGuiRender(&m_ShowScenes);
+        {
+            ZM_PROFILE_SCOPE("Sahnalar paneli");
+            m_ScenesPanel.OnImGuiRender(&m_ShowScenes);
+        }
         // ZAMIN_EDITOR_FOCUS=<window id, e.g. ContentBrowser / Console / ScenesPanel>: that window's tab in
         // front (screenshots), from frame 8 on for a few frames (docked tabs settle first).
         if (static int focusFrames = 0; focusFrames < 12)
@@ -6785,7 +6816,10 @@ namespace Zamin {
         m_ProjectSettingsPanel.SetScene(m_EditorScene); // tag counts / renames apply to the saved scene
         m_ProjectSettingsPanel.SetOpenScenePath(m_EditorScenePath.empty() ? fs::path() : fs::path(Project::GetAssetRelativePath(m_EditorScenePath)));
         m_ProjectSettingsPanel.SetSceneEditable(m_SceneState == SceneState::Edit);
-        m_ProjectSettingsPanel.OnImGuiRender(&m_ShowProjectSettings);
+        {
+            ZM_PROFILE_SCOPE("Loyiha sozlamalari");
+            m_ProjectSettingsPanel.OnImGuiRender(&m_ShowProjectSettings);
+        }
         m_SpriteEditorPanel.OnImGuiRender(&m_ShowSpriteEditor);
         m_AnimationPanel.SetContext(m_ActiveScene, m_SceneState == SceneState::Edit);
         m_AnimationPanel.SetSelection(m_SceneHierarchyPanel.GetSelectedEntity());
@@ -6802,9 +6836,15 @@ namespace Zamin {
         m_LocalizationPanel.SetScene(m_ActiveScene);
         m_LocalizationPanel.OnImGuiRender(&m_ShowLocalization);
         m_SceneHierarchyPanel.DrawTilePaletteWindow(&m_ShowTilePalette);
-        UI_Stats();
+        {
+            ZM_PROFILE_SCOPE("Statistika paneli");
+            UI_Stats();
+        }
         UI_ProfilerWindow();
-        UI_Viewport();
+        {
+            ZM_PROFILE_SCOPE("Viewport");
+            UI_Viewport();
+        }
         UI_SceneViews();
         if (m_MaximizeOnPlay && m_SceneState == SceneState::Play)
             UI_MaximizedGame();

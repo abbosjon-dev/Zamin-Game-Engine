@@ -154,6 +154,14 @@ namespace Zamin {
             return nullptr;
         auto [it, inserted] = m_Textures.try_emplace(file.string());
         Entry& entry = it->second;
+        if (entry.Pending)
+        {
+            if (!entry.Pending->Job.IsDone())
+                return entry.Texture; // the old picture (or none) until the new one is decoded
+            const std::shared_ptr<PendingImage> done = std::move(entry.Pending);
+            entry.Texture = done->Loaded ? CreateTexture(done->Image) : nullptr;
+            return entry.Texture;
+        }
         if (!inserted && m_Frame < entry.CheckedFrame + 30)
             return entry.Texture;
         entry.CheckedFrame = m_Frame;
@@ -174,12 +182,22 @@ namespace Zamin {
         entry.Size = size;
         entry.Time = time;
         entry.Missing = false;
-        ImageData image;
-        if (!Image::Load(file.string(), image, 4, false))
+        // In the background where the editor loads assets so (not in automated captures: their pictures stay
+        // the same frame by frame) and the job system has workers; else at once.
+        if (AsyncLoader::IsEnabled() && JobSystem::IsParallel())
         {
-            entry.Texture = nullptr;
-            return nullptr;
+            auto pending = std::make_shared<PendingImage>();
+            pending->Job = JobSystem::Schedule([pending, path = file.string()]() { pending->Loaded = Image::Load(path, pending->Image, 4, false); });
+            entry.Pending = std::move(pending);
+            return entry.Texture;
         }
+        ImageData image;
+        entry.Texture = Image::Load(file.string(), image, 4, false) ? CreateTexture(image) : nullptr;
+        return entry.Texture;
+    }
+
+    Ref<Texture2D> SceneThumbnails::CreateTexture(const ImageData& image)
+    {
         TextureSpecification spec;
         spec.Width = image.Width;
         spec.Height = image.Height;
@@ -189,7 +207,6 @@ namespace Zamin {
         spec.GenerateMips = true;
         Ref<Texture2D> texture = Texture2D::Create(spec);
         texture->SetData(image.Pixels.data(), (uint32_t)image.Pixels.size());
-        entry.Texture = texture;
         return texture;
     }
 

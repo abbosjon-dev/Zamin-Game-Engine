@@ -3,6 +3,7 @@
 #include <Zamin/Zamin.h>
 
 #include <filesystem>
+#include <memory>
 #include <string>
 #include <unordered_map>
 
@@ -39,9 +40,20 @@ namespace Zamin {
         void Update() { m_Frame++; }
 
     private:
+        static Ref<Texture2D> CreateTexture(const ImageData& image);
+
+        // A picture being decoded on a job system worker (the Scenes panel's first draw decoded every
+        // scene's picture on the main thread: start-up time, task 495).
+        struct PendingImage
+        {
+            ImageData Image;
+            bool Loaded = false;
+            JobHandle Job;
+        };
         struct Entry
         {
             Ref<Texture2D> Texture;
+            std::shared_ptr<PendingImage> Pending;
             uintmax_t Size = 0;
             std::filesystem::file_time_type Time{};
             uint64_t CheckedFrame = 0;

@@ -5427,12 +5427,18 @@ namespace Zamin {
             sprite->Texture = sprite->TexturePath.empty() ? nullptr
                 : TextureLibrary::LoadAsync(Project::GetAssetFileSystemPath(sprite->TexturePath), sprite->PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
         if (auto* mr = entity.TryGetComponent<MeshRendererComponent>())
+        {
+            ZM_PROFILE_SCOPE("Mesh va materiallar");
             ResolveMeshRenderer(*mr);
+        }
         if (auto* tm = entity.TryGetComponent<TilemapComponent>())
             tm->Tileset = tm->TilesetPath.empty() ? nullptr
                 : TextureLibrary::LoadAsync(Project::GetAssetFileSystemPath(tm->TilesetPath), tm->PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
         if (auto* text = entity.TryGetComponent<TextComponent>())
+        {
+            ZM_PROFILE_SCOPE("Shriftlar");
             text->FontAsset = text->FontPath.empty() ? Font::GetDefault() : Font::Load(Project::GetAssetFileSystemPath(text->FontPath));
+        }
         if (auto* image = entity.TryGetComponent<UIImageComponent>())
             image->Texture = image->TexturePath.empty() ? nullptr
                 : TextureLibrary::Load(Project::GetAssetFileSystemPath(image->TexturePath), image->PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);

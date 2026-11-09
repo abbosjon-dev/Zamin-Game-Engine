@@ -54,7 +54,12 @@ namespace Zamin {
         void OnAttach() override
         {
             m_AttachTime = Clock::now();
-            if (!Project::Load(m_ProjectPath))
+            bool projectLoaded = false;
+            {
+                ZM_PROFILE_SCOPE("Project::Load");
+                projectLoaded = Project::Load(m_ProjectPath) != nullptr;
+            }
+            if (!projectLoaded)
             {
                 ZM_CRITICAL("Loyiha yuklanmadi: {}", m_ProjectPath.string());
                 if (m_Benchmark.IsEnabled())
@@ -168,7 +173,10 @@ namespace Zamin {
             if (m_CommandLine.DebugNavigationCells) debugDraw.ShowNavigationWalkable = true;
 
             if (auto module = Project::GetScriptModulePath(); !module.empty())
+            {
+                ZM_PROFILE_SCOPE("Skript moduli");
                 ScriptEngine::LoadModule(module);
+            }
 
             // Automation (comparisons, CI): ZAMIN_PLAYER_NO_CULLING=1 / ZAMIN_PLAYER_NO_INSTANCING=1 turn the
             // renderer's frustum culling / GPU instancing off; ZAMIN_PLAYER_STATS=1 logs the last frame's
@@ -253,6 +261,7 @@ namespace Zamin {
             }
             else
             {
+                ZM_PROFILE_SCOPE("Boshlang'ich sahna");
                 std::string error;
                 if (!m_Scenes->Start(scenePath, &error))
                 {
@@ -542,6 +551,16 @@ namespace Zamin {
             if (std::getenv("ZAMIN_PLAYER_STATS"))
             {
                 ZM_INFO("Render statistikasi (oxirgi kadr): {}", Renderer::GetStats().Format());
+                {
+                    // The process's memory and what the engine holds of it (task 496: measured per sample).
+                    const MemoryStats::ProcessMemory process = MemoryStats::GetProcessMemory(0.0);
+                    std::string categories;
+                    for (size_t i = 0; i < MemoryCategoryCount; i++)
+                        if (const MemoryStats::Category c = MemoryStats::Get((MemoryCategory)i); c.Bytes > 0)
+                            categories += std::format(", {} {}", MemoryStats::GetName((MemoryCategory)i), MemoryStats::FormatBytes(c.Bytes));
+                    ZM_INFO("Xotira: RAM {} (eng ko'pi {}), dvigatel {}{}", MemoryStats::FormatBytes(process.Resident),
+                            MemoryStats::FormatBytes(process.PeakResident), MemoryStats::FormatBytes(MemoryStats::GetTrackedTotal()), categories);
+                }
                 // What the last frame's scene holds (the performance check of the samples quotes it).
                 if (m_Scenes && m_Scenes->GetActiveScene())
                 {

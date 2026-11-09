@@ -28,6 +28,15 @@ vazifalari bajarila boshlaganda unga bo'lim qo'shing ([CONTRIBUTING.md](CONTRIBU
   ixtiyoriy **kerning** (GPOS juftliklari, `.zmeta` `Import.Kerning`, shrift inspektorida belgi).
 - **Fon yuklash** (`AsyncLoader`): `TextureLibrary::LoadAsync`, `Model::LoadAsync` - fayl ishchi oqimda o'qiladi,
   GPU'ga asosiy oqimda har kadr ~4 ms; editor sahnalarni shunday ochadi, avtomatik suratlar darhol yuklaydi.
+- **Shader keshi** (`ShaderCache`): bog'langan dasturlar program binary sifatida `~/.cache/zamin/ShaderBinaries` da
+  (kalit: manba matni + drayver; rad etilgan fayl o'chiriladi, formati yo'q drayverda har safar kompilyatsiya).
+- **Kadr uniform buferi**: mesh shader'larining kamera / yorug'lik / soya / tuman / osmon qiymatlari bitta std140
+  blokda (`ZaminFrame`, `UniformBuffer`, `Shader::BindUniformBlock`) - har kadr bitta yuklash.
+- **Soya o'tishida kesish**: soyasi kamera ko'radigan joyga tusha olmaydigan tashlovchilar ham chizilmaydi
+  (`Renderer3D::ShadowReachesVolume`), kaskadlar bo'yicha statistika.
+- **Parallel**: bitta katta particle tizimi bo'laklarda ishchi oqimlarda, animatorlar ko'rinishini belgilash parallel
+  (natija bir xil). **Editor**: ierarxiya va kontent brauzer katakchalari `ImGuiListClipper` bilan (10 000 obyekt,
+  5 000 fayl).
 
 ## M24 Namuna o'yinlar
 

@@ -372,6 +372,19 @@ namespace Zamin {
 
     void EditorLayer::OnDetach()
     {
+        // ZAMIN_EDITOR_PANEL_TIMES: what the hierarchy's list and the content browser's grid took per
+        // frame (automation: their clippers measured on a large scene / folder).
+        if (std::getenv("ZAMIN_EDITOR_PANEL_TIMES"))
+        {
+            const auto& list = m_SceneHierarchyPanel.GetListTiming();
+            const auto& grid = m_ContentBrowserPanel.GetGridTiming();
+            ZM_INFO("Panel vaqtlari: ierarxiya {} qator ({} tasi chizildi), o'rtacha {:.3f} ms, eng ko'pi {:.3f} ms ({} kadr); kontent "
+                    "brauzer {} element ({} tasi chizildi), o'rtacha {:.3f} ms, eng ko'pi {:.3f} ms ({} kadr){}",
+                    list.Rows, list.DrawnRows, list.Frames ? list.TotalMilliseconds / (double)list.Frames : 0.0, list.MaxMilliseconds,
+                    list.Frames, grid.Items, grid.DrawnItems, grid.Frames ? grid.TotalMilliseconds / (double)grid.Frames : 0.0,
+                    grid.MaxMilliseconds, grid.Frames,
+                    list.DrawnRows < list.Rows || grid.DrawnItems < grid.Items ? "" : " - hammasi chizildi");
+        }
         // ZAMIN_EDITOR_STATS: the last frame's numbers in the log as well (automation / CI).
         if (std::getenv("ZAMIN_EDITOR_STATS"))
         {

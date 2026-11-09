@@ -442,6 +442,11 @@ namespace Zamin {
         /// as long as the scene was drawn at all since the last one (a scene nobody draws, a headless
         /// run: nothing is culled).
         void MarkVisibleAnimators(const glm::mat4& viewProjection);
+        /// From this many animators to look at - whose skinned meshes take at least this many joint
+        /// boxes together (less is cheaper on one thread) - MarkVisibleAnimators works out their posed
+        /// bounds on the job system's workers (the same marks either way).
+        static constexpr size_t ParallelVisibilityThreshold = 32;
+        static constexpr size_t ParallelVisibilityJointBoxes = 2048;
         /// @}
 
         /// The entity with this UUID (a hash lookup), or an invalid one.
@@ -2097,6 +2102,8 @@ namespace Zamin {
         std::unordered_set<entt::entity> m_InactiveInHierarchy;
         std::vector<entt::entity> m_InactiveOrder;
         bool m_ActiveCacheDirty = true;
+        std::vector<entt::entity> m_VisibilityScratch;   // MarkVisibleAnimators (kept: no allocations per frame)
+        std::vector<glm::mat4> m_VisibilityWorlds;
         uint64_t m_ActiveCacheFrame = ~0ull;
         /// The inactive entities the running physics / scripts were last brought in line with.
         std::vector<entt::entity> m_AppliedInactive;

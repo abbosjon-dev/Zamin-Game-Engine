@@ -282,7 +282,10 @@ JobSystem::Wait(build);                                                // kutayo
   `ScheduleParallelFor(...)`, `GetThreadIndex()` (oqim uchun alohida xotira), `GetStats()` / `GetLastFrameStats()`.
 - **Qoida**: ishchi oqimdagi ish boshqa bir vaqtda ishlayotgan ishlar yozadigan narsaga tegmasin (sahna registri,
   renderer, fizika, skriptlar). Dvigatel faqat ajratilgan ma'lumotdagi ishlarni parallel qiladi: mustaqil particle
-  tizimlari va animator pozalari; natija bir oqimdagi bilan bit-bitgacha bir xil.
+  tizimlari, **bitta katta tizimning particle'lari** (`ParticleSimulation::ParallelThreshold` = 4 096 tadan boshlab
+  2 048 talik bo'laklarda; dunyo to'qnashuvi, to'qnashuv hodisalari yoki izlar bo'lsa bitta oqimda), animator pozalari va
+  animatorlarning ko'rinishini belgilash (`Scene::MarkVisibleAnimators`, 32 tadan boshlab); natija bir oqimdagi bilan
+  bit-bitgacha bir xil.
 - **O'chirish** (hamma ish chaqirgan oqimda, tartib bilan): `JobSystem::SetEnabled(false)`, `ZAMIN_JOBS=0`,
   playerda `--jobs 0`, `ApplicationSpecification::JobWorkers`. Profilerda ishlar "Ishchi N" tugunlari ostida.
 

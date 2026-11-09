@@ -926,9 +926,7 @@ namespace Zamin {
 
         ImU32 accent = UI::AccentU32();
         bool recursive = IsRecursiveListing();
-        for (const AssetEntry& entry : m_Entries)
-        {
-            ImGui::TableNextColumn();
+        auto drawTile = [&](const AssetEntry& entry) {
             const fs::path& path = entry.Path;
             ImGui::PushID(path.string().c_str());
 
@@ -1027,8 +1025,53 @@ namespace Zamin {
 
             HandleItemInteraction(entry);
             ImGui::PopID();
+        };
+        // Only the rows of tiles on screen are drawn (ImGuiListClipper over the grid's rows; the
+        // row height is measured from the first one): a folder of 5 000 files costs what its
+        // visible tiles do (task 494). The row of the selection is drawn too when it is to be
+        // scrolled to. ZAMIN_EDITOR_NO_CLIPPER=1 draws every tile (to compare).
+        const auto start = std::chrono::steady_clock::now();
+        const int count = (int)m_Entries.size();
+        const int rows = (count + columns - 1) / columns;
+        size_t drawn = 0;
+        auto drawRow = [&](int row) {
+            ImGui::TableNextRow();
+            for (int c = 0; c < columns; c++)
+            {
+                const int index = row * columns + c;
+                if (index >= count)
+                    break;
+                ImGui::TableSetColumnIndex(c);
+                drawTile(m_Entries[(size_t)index]);
+                drawn++;
+            }
+        };
+        const char* noClipper = std::getenv("ZAMIN_EDITOR_NO_CLIPPER");
+        if (noClipper && *noClipper && std::string_view(noClipper) != "0")
+            for (int row = 0; row < rows; row++)
+                drawRow(row);
+        else
+        {
+            ImGuiListClipper clipper;
+            clipper.Begin(rows);
+            if (m_ScrollToSelection)
+                for (int i = 0; i < count; i++)
+                    if (IsSelected(m_Entries[(size_t)i].Path))
+                    {
+                        clipper.IncludeItemByIndex(i / columns);
+                        break;
+                    }
+            while (clipper.Step())
+                for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++)
+                    drawRow(row);
         }
         ImGui::EndTable();
+        const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+        m_GridTiming.Items = m_Entries.size();
+        m_GridTiming.DrawnItems = drawn;
+        m_GridTiming.TotalMilliseconds += ms;
+        m_GridTiming.MaxMilliseconds = std::max(m_GridTiming.MaxMilliseconds, ms);
+        m_GridTiming.Frames++;
     }
 
     void ContentBrowserPanel::DrawList()

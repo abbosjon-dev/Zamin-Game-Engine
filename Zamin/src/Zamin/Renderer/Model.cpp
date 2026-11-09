@@ -1355,11 +1355,21 @@ namespace Zamin {
         return &baked;
     }
 
-    Ref<Model> Model::CreateSkeletal(Skeleton skeleton, std::vector<AnimationClip> animations)
+    Ref<Model> Model::CreateSkeletal(Skeleton skeleton, std::vector<AnimationClip> animations, std::vector<SubMesh> subMeshes)
     {
         auto model = CreateRef<Model>();
         model->m_Skeleton = std::move(skeleton);
         model->m_Animations = std::move(animations);
+        model->m_SubMeshes = std::move(subMeshes);
+        bool any = false;
+        for (const SubMesh& sub : model->m_SubMeshes)
+            if (sub.MeshRef)
+            {
+                const AABB& b = sub.MeshRef->GetBounds();
+                model->m_Bounds.Min = any ? glm::min(model->m_Bounds.Min, b.Min) : b.Min;
+                model->m_Bounds.Max = any ? glm::max(model->m_Bounds.Max, b.Max) : b.Max;
+                any = true;
+            }
         return model;
     }
 

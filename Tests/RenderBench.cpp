@@ -10,6 +10,8 @@
 //   meshes            N primitives (cubes, spheres, cylinders, cones; 8 materials) on a ground with the sun's
 //                     shadows and a point light, a perspective camera - instanced as usual
 //   meshes-noinst     the same with GPU instancing off (what instancing saves)
+//   meshes-allshadow  the same with the shadow casters culled by the cascades' volumes only (what culling them by
+//                     the view saves: Renderer3D::SetShadowReceiverCulling)
 //   combined          the sprites (on a wall behind) and the meshes in one scene
 //   mixed2d           N / 10 cells of a grid that take turns: a sprite (one of 24 textures), a circle, a text - each
 //                     cell a little nearer than the one before, so the depth sort makes them take turns (what a 2D
@@ -50,6 +52,7 @@ namespace {
         std::function<Ref<Scene>(int sprites, int meshes)> Build;
         bool Instancing = true;
         bool Reorder = true; // BatchOrder in the 2D pass (off: the sorted order as it is)
+        bool ShadowReceiverCulling = true; // casters whose shadow misses the view left out (Renderer3D)
     };
 
     struct RenderBenchResult
@@ -200,6 +203,7 @@ namespace {
         };
         cases.push_back({ "meshes", "meshlar (soyali quyosh, nuqtali chiroq, instancing)", meshes });
         cases.push_back({ "meshes-noinst", "o'sha meshlar instancing'siz", meshes, false });
+        cases.push_back({ "meshes-allshadow", "o'sha meshlar, soya tashlovchilar faqat kaskad hajmi bo'yicha kesilganda", meshes, true, true, false });
         cases.push_back({ "combined", "spritelar (orqadagi devorda) va meshlar bitta sahnada", [](int sprites, int count) {
                               auto scene = CreateRef<Scene>();
                               const float side = std::ceil(std::sqrt((float)count)) * 1.6f;
@@ -422,6 +426,7 @@ int RunRenderBench(int argc, char** argv)
         scene->OnRuntimeStart();
         Renderer3D::SetInstancing(c.Instancing);
         BatchOrder::SetEnabled(c.Reorder);
+        Renderer3D::SetShadowReceiverCulling(c.ShadowReceiverCulling);
         RenderBenchResult result;
         result.Name = c.Name;
         result.Entities = (int)scene->GetEntitiesInOrder().size();
@@ -478,6 +483,7 @@ int RunRenderBench(int argc, char** argv)
         scene->OnRuntimeStop();
         Renderer3D::SetInstancing(true);
         BatchOrder::SetEnabled(true);
+        Renderer3D::SetShadowReceiverCulling(true);
         result.CpuAverage = Average(cpu);
         result.CpuMedian = Percentile(cpu, 0.5);
         result.CpuP95 = Percentile(cpu, 0.95);
@@ -493,6 +499,11 @@ int RunRenderBench(int argc, char** argv)
                     c.Name, result.Entities, result.CpuAverage, result.CpuMedian, result.CpuP95, result.FrameAverage, result.FrameMedian,
                     result.FrameP95, result.FrameMax, s.DrawCalls, s.QuadCount, s.MeshCount, s.InstancedMeshCount,
                     RenderStatistics::FormatCount(s.TriangleCount).c_str(), result.AllocationsPerFrame);
+        if (s.ShadowCasterCount + s.CulledShadowCasterCount > 0)
+            std::printf("%-14s %8s   soya: %u chizildi, %u kesildi (%u ko'rinmas soya), kaskadlar %u/%u/%u/%u; uniform bufer %u (%u bayt)\n", "", "",
+                        s.ShadowCasterCount, s.CulledShadowCasterCount, s.CulledShadowByViewCount, s.CascadeShadowCasters[0],
+                        s.CascadeShadowCasters[1], s.CascadeShadowCasters[2], s.CascadeShadowCasters[3], s.UniformBufferUploads,
+                        s.UniformBufferBytes);
         if (s.Flush2DTextures + s.Flush2DKind + s.Flush2DState + s.Reordered2DCount > 0)
             std::printf("%-14s %8s   2D batch bo'linishi: tekstura %u, tur %u, holat %u; BatchOrder ko'chirgan %u\n", "", "", s.Flush2DTextures,
                         s.Flush2DKind, s.Flush2DState, s.Reordered2DCount);

@@ -1453,6 +1453,61 @@ void main()
                a.Mat.Tiling == b.Mat.Tiling && a.Mat.Offset == b.Mat.Offset;
     }
 
+    // The frame's values for every mesh shader: one upload of the ZaminFrame block.
+    static void UploadFrameUniforms(const SceneEnvironment& env, const glm::mat4& viewProj, const CascadeData& cascades,
+                                    const ShadowSettings& shadowSettings, const SkySettings& skySettings, bool shadows,
+                                    const LocalLightArrays& localLights, const ExtraSunArrays& extraSuns, RenderStatistics& stats)
+    {
+        FrameUniforms& f = s_Data->Frame;
+        f.ViewProjection = viewProj;
+        f.View = s_Data->View;
+        for (int c = 0; c < ShadowSettings::MaxCascades; c++)
+            f.LightSpaces[c] = cascades.LightSpace[c];
+        f.CascadeSplits = { cascades.Splits[0], cascades.Splits[1], cascades.Splits[2], cascades.Splits[3] };
+        f.CascadeTexelWorld = { cascades.TexelWorld[0], cascades.TexelWorld[1], cascades.TexelWorld[2], cascades.TexelWorld[3] };
+        f.Camera = glm::vec4(s_Data->CameraPosition, 0.0f);
+        f.Shadow = { cascades.Count, cascades.AtlasTiles, (int)shadowSettings.Filter, shadows ? 1 : 0 };
+        f.ShadowParams = { shadowSettings.DepthBias, shadowSettings.NormalBias, 1.0f / (float)s_Data->ShadowMapSize, 0.0f };
+        f.Lights = { env.HasSun ? 1 : 0, (int)extraSuns.Count, (int)localLights.Count, 0 };
+        f.SunDirection = glm::vec4(glm::normalize(env.Sun.Direction), 0.0f);
+        f.SunRadiance = glm::vec4(env.Sun.Color * env.Sun.Intensity, 0.0f);
+        f.Flags = { env.FogEnabled ? 1 : 0, env.EnvMap ? 1 : 0, 0, 0 };
+        f.Fog = glm::vec4(env.FogColor, env.FogDensity);
+        f.Env.w = env.FogHeightFalloff;
+        if (env.EnvMap)
+        {
+            // (Without a map the shader does not read these: they keep what they had.)
+            f.Env.x = env.EnvMap->GetMaxLod();
+            f.Env.y = env.EnvIntensity;
+            f.Env.z = env.EnvRotation;
+            const auto& sh = env.EnvMap->GetSH();
+            for (int i = 0; i < 9; i++)
+                f.SH[i] = glm::vec4(sh[i], 0.0f);
+        }
+        f.Sky = glm::vec4(env.SkyTopColor, skySettings.Curve);
+        f.Horizon = glm::vec4(env.SkyHorizonColor, skySettings.GroundFade);
+        f.Ground = glm::vec4(env.GroundColor, env.AmbientIntensity);
+        f.Exposure = glm::vec4(env.Exposure, 0.0f, 0.0f, 0.0f);
+        for (uint32_t i = 0; i < extraSuns.Count; i++)
+        {
+            f.ExtraSunDirection[i] = extraSuns.Direction[i];
+            f.ExtraSunRadiance[i] = extraSuns.Radiance[i];
+        }
+        for (uint32_t i = 0; i < localLights.Count; i++)
+        {
+            f.LightPosRange[i] = localLights.PosRange[i];
+            f.LightRadiance[i] = localLights.Radiance[i];
+            f.LightDirCos[i] = localLights.DirCos[i];
+        }
+        // Uploaded as far as the lights in use go (the shader reads no slot past the counts): the
+        // position and radiance arrays whole, the cone array up to its last used slot.
+        const size_t used = localLights.Count > 0 ? offsetof(FrameUniforms, LightDirCos) + sizeof(glm::vec4) * localLights.Count
+                                                  : offsetof(FrameUniforms, LightPosRange);
+        s_Data->FrameUniformBuffer->SetData(&f, (uint32_t)used);
+        stats.UniformBufferUploads++;
+        stats.UniformBufferBytes += (uint32_t)used;
+    }
+
     void Renderer3D::EndScene()
     {
         auto& env = s_Data->Environment;
@@ -1613,61 +1668,11 @@ void main()
           ZM_PROFILE_SCOPE("Asosiy o'tish (opaque)");
           const LocalLightArrays localLights = PackLocalLights(env);
           const ExtraSunArrays extraSuns = PackExtraSuns(env);
-          {
-            // The frame's values: one upload for every mesh shader (the ZaminFrame block).
-            FrameUniforms& f = s_Data->Frame;
-            f.ViewProjection = viewProj;
-            f.View = s_Data->View;
-            for (int c = 0; c < ShadowSettings::MaxCascades; c++)
-                f.LightSpaces[c] = cascades.LightSpace[c];
-            f.CascadeSplits = { cascades.Splits[0], cascades.Splits[1], cascades.Splits[2], cascades.Splits[3] };
-            f.CascadeTexelWorld = { cascades.TexelWorld[0], cascades.TexelWorld[1], cascades.TexelWorld[2], cascades.TexelWorld[3] };
-            f.Camera = glm::vec4(s_Data->CameraPosition, 0.0f);
-            f.Shadow = { cascades.Count, cascades.AtlasTiles, (int)shadowSettings.Filter, shadows ? 1 : 0 };
-            f.ShadowParams = { shadowSettings.DepthBias, shadowSettings.NormalBias, 1.0f / (float)s_Data->ShadowMapSize, 0.0f };
-            f.Lights = { env.HasSun ? 1 : 0, (int)extraSuns.Count, (int)localLights.Count, 0 };
-            f.SunDirection = glm::vec4(glm::normalize(env.Sun.Direction), 0.0f);
-            f.SunRadiance = glm::vec4(env.Sun.Color * env.Sun.Intensity, 0.0f);
-            f.Flags = { env.FogEnabled ? 1 : 0, env.EnvMap ? 1 : 0, 0, 0 };
-            f.Fog = glm::vec4(env.FogColor, env.FogDensity);
-            f.Env.w = env.FogHeightFalloff;
-            if (env.EnvMap)
-            {
-                // (Without a map the shader does not read these: they keep what they had.)
-                f.Env.x = env.EnvMap->GetMaxLod();
-                f.Env.y = env.EnvIntensity;
-                f.Env.z = env.EnvRotation;
-                const auto& sh = env.EnvMap->GetSH();
-                for (int i = 0; i < 9; i++)
-                    f.SH[i] = glm::vec4(sh[i], 0.0f);
-            }
-            f.Sky = glm::vec4(env.SkyTopColor, skySettings.Curve);
-            f.Horizon = glm::vec4(env.SkyHorizonColor, skySettings.GroundFade);
-            f.Ground = glm::vec4(env.GroundColor, env.AmbientIntensity);
-            f.Exposure = glm::vec4(env.Exposure, 0.0f, 0.0f, 0.0f);
-            for (uint32_t i = 0; i < extraSuns.Count; i++)
-            {
-                f.ExtraSunDirection[i] = extraSuns.Direction[i];
-                f.ExtraSunRadiance[i] = extraSuns.Radiance[i];
-            }
-            for (uint32_t i = 0; i < localLights.Count; i++)
-            {
-                f.LightPosRange[i] = localLights.PosRange[i];
-                f.LightRadiance[i] = localLights.Radiance[i];
-                f.LightDirCos[i] = localLights.DirCos[i];
-            }
-            // Uploaded as far as the lights in use go (the shader reads no slot past the counts): the
-            // position and radiance arrays whole, the cone array up to its last used slot.
-            const size_t used = localLights.Count > 0 ? offsetof(FrameUniforms, LightDirCos) + sizeof(glm::vec4) * localLights.Count
-                                                      : offsetof(FrameUniforms, LightPosRange);
-            s_Data->FrameUniformBuffer->SetData(&f, (uint32_t)used);
-            stats.UniformBufferUploads++;
-            stats.UniformBufferBytes += (uint32_t)used;
-          }
+          UploadFrameUniforms(env, viewProj, cascades, shadowSettings, skySettings, shadows, localLights, extraSuns, stats);
           for (auto& shader : { s_Data->MeshShader, s_Data->SkinnedMeshShader, s_Data->InstancedMeshShader })
           {
-            shader->Bind();
-            shader->SetInt("u_DebugView", (int)env.DebugView);
+              shader->Bind();
+              shader->SetInt("u_DebugView", (int)env.DebugView);
           }
             RenderCommand::BindTextureUnit(1, s_Data->ShadowMap->GetDepthAttachmentRendererID());
             (env.EnvMap ? env.EnvMap->GetTexture() : s_Data->WhiteTexture)->Bind(5);

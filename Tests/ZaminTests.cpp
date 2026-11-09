@@ -48702,3 +48702,155 @@ TEST(ShadowCastersCulledByWhatTheCameraSees)
     CHECK(!Renderer3D::IsShadowReceiverCullingEnabled());
     Renderer3D::SetShadowReceiverCulling(true);
 }
+
+TEST(LargeParticleSystemSteppedInPiecesMatchesSerial)
+{
+    // One system far above ParallelThreshold, with the modules a piece may run (noise, velocity
+    // over lifetime, the speed limit, a collision plane without events) - split over the workers
+    // with the same particles as on one thread; with collision events it stays on one thread.
+    using PS = ParticleSystemComponent;
+    auto make = [](bool events) {
+        auto scene = CreateRef<Scene>();
+        Entity e = scene->CreateEntity("Katta tizim");
+        auto& ps = e.AddComponent<PS>();
+        ps.MaxParticles = 20000;
+        ps.EmissionRate = 30000.0f;
+        ps.LifetimeMin = 0.6f;
+        ps.LifetimeMax = 1.2f;
+        ps.Shape = PS::EmitterShape::Sphere;
+        ps.ShapeRadius = 1.0f;
+        ps.Gravity = { 0.0f, -6.0f, 0.0f };
+        ps.Drag = 0.2f;
+        ps.RandomState = 0xBEEFu;
+        ps.Noise.Enabled = true;
+        ps.Noise.Octaves = 2;
+        ps.VelocityOverLifetime.Enabled = true;
+        ps.VelocityOverLifetime.Orbital = { 0.0f, 0.8f, 0.0f };
+        ps.VelocityOverLifetime.Radial = 0.2f;
+        ps.LimitVelocity.Enabled = true;
+        ps.LimitVelocity.MaxSpeed = 6.0f;
+        ps.Collision.Enabled = true; // the plane
+        ps.Collision.Bounce = 0.4f;
+        if (events)
+        {
+            // A sub-emitter on collisions: the step adds to the system's event list.
+            Entity templ = scene->CreateEntity("Shablon");
+            auto& tp = templ.AddComponent<PS>();
+            tp.EmissionEnabled = false;
+            tp.MaxParticles = 500;
+            tp.LifetimeMin = tp.LifetimeMax = 0.2f;
+            auto& source = e.GetComponent<PS>();
+            source.SubEmitters.Enabled = true;
+            PS::SubEmitter sub;
+            sub.Emitter.ID = (uint64_t)templ.GetUUID();
+            sub.Trigger = PS::SubEmitter::TriggerType::Collision;
+            sub.Count = 1;
+            source.SubEmitters.Emitters = { sub };
+        }
+        return scene;
+    };
+    auto run = [&](bool events) {
+        Ref<Scene> scene = make(events);
+        scene->OnRuntimeStart();
+        for (int i = 0; i < 40; i++)
+            scene->OnUpdateRuntime(1.0f / 60.0f);
+        std::vector<float> state = ParticleState(*scene);
+        scene->OnRuntimeStop();
+        return state;
+    };
+    JobSystem::Shutdown();
+    const uint64_t serialSteps = ParticleSimulation::GetParallelStepCount();
+    const std::vector<float> serial = run(false);
+    CHECK(ParticleSimulation::GetParallelStepCount() == serialSteps); // no workers: never split
+    CHECK(serial.size() > (size_t)ParticleSimulation::ParallelThreshold * 7);
+
+    JobSystem::Init(3);
+    const uint64_t before = ParticleSimulation::GetParallelStepCount();
+    const std::vector<float> parallel = run(false);
+    CHECK(ParticleSimulation::GetParallelStepCount() >= before + 30); // split in (nearly) every frame
+    CHECK(parallel == serial);
+    // Collision events: the event list is shared - on one thread, the same either way.
+    const uint64_t withEvents = ParticleSimulation::GetParallelStepCount();
+    const std::vector<float> eventsParallel = run(true);
+    CHECK(ParticleSimulation::GetParallelStepCount() == withEvents);
+    JobSystem::Shutdown();
+    CHECK(eventsParallel == run(true));
+}
+
+// A skinned column along a joint chain (a ring of 4 vertices per joint, each ring on its joint): a
+// mesh made without GPU objects (AsyncLoader::DeferGPU) - its bounds and joints are what the
+// animators' visibility test reads.
+static Ref<Mesh> MakeSkinnedColumnMesh(int joints)
+{
+    std::vector<SkinnedVertex> vertices;
+    std::vector<uint32_t> indices;
+    for (int j = 0; j < joints; j++)
+        for (int k = 0; k < 4; k++)
+        {
+            SkinnedVertex v{};
+            const float angle = (float)k * 1.5707963f;
+            v.Position = { 0.1f * std::cos(angle), 0.25f * (float)j, 0.1f * std::sin(angle) };
+            v.Normal = { std::cos(angle), 0.0f, std::sin(angle) };
+            v.Joints = glm::ivec4(j, 0, 0, 0);
+            v.Weights = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
+            vertices.push_back(v);
+        }
+    for (int j = 0; j + 1 < joints; j++)
+        for (int k = 0; k < 4; k++)
+        {
+            const uint32_t a = (uint32_t)(j * 4 + k), b = (uint32_t)(j * 4 + (k + 1) % 4);
+            indices.insert(indices.end(), { a, b, a + 4, b, b + 4, a + 4 });
+        }
+    AsyncLoader::DeferGPU deferred;
+    return CreateRef<Mesh>(vertices, indices);
+}
+
+TEST(AnimatorVisibilityMarkedInParallelMatchesSerial)
+{
+    // Many culled animators with skinned meshes in a row, a camera that sees part of it: the same ones
+    // are marked seen (and posed) with the workers as on one thread.
+    Ref<Model> rig = MakeJobSkeletonModel(12);
+    Model::SubMesh column;
+    column.MeshRef = MakeSkinnedColumnMesh(12);
+    CHECK(column.MeshRef->IsSkinned() && !column.MeshRef->IsUploaded());
+    Ref<Model> model = Model::CreateSkeletal(rig->GetSkeleton(), rig->GetAnimations(), { column });
+    CHECK(model->GetBounds().IsValid());
+    auto run = [&] {
+        auto scene = CreateRef<Scene>();
+        for (int i = 0; i < 96; i++)
+        {
+            Entity e = scene->CreateEntity(std::format("Qahramon {}", i));
+            e.GetTransform().Translation = { (float)i * 1.5f, 0.0f, 0.0f };
+            auto& mr = e.AddComponent<MeshRendererComponent>();
+            mr.Type = PrimitiveMesh::Model;
+            mr.ModelAsset = model;
+            auto& a = e.AddComponent<AnimatorComponent>();
+            a.Clip = std::format("Klip{}", i % 4);
+            a.Culling = i % 5 == 0 ? AnimatorCulling::AlwaysAnimate : AnimatorCulling::CullPose;
+        }
+        const glm::mat4 viewProjection = glm::ortho(-1.0f, 60.0f, -5.0f, 5.0f, 0.1f, 50.0f) *
+                                         glm::lookAt(glm::vec3(0.0f, 0.0f, 10.0f), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        scene->OnRuntimeStart();
+        std::vector<uint64_t> seen;
+        uint32_t posed = 0, culled = 0;
+        for (int f = 0; f < 6; f++)
+        {
+            scene->OnUpdateRuntime(1.0f / 60.0f);
+            scene->MarkVisibleAnimators(viewProjection);
+            posed += scene->GetAnimationStats().Posed;
+            culled += scene->GetAnimationStats().Culled;
+        }
+        for (auto e : scene->GetAllEntitiesWith<AnimatorComponent>())
+            seen.push_back(Entity(e, scene.get()).GetComponent<AnimatorComponent>().VisibleFrame);
+        scene->OnRuntimeStop();
+        return std::tuple(seen, posed, culled);
+    };
+    JobSystem::Shutdown();
+    const auto [serialSeen, serialPosed, serialCulled] = run();
+    CHECK(serialCulled > 0 && serialPosed > 0); // part of the row is off screen
+    JobSystem::Init(3);
+    const auto [parallelSeen, parallelPosed, parallelCulled] = run();
+    CHECK(parallelSeen == serialSeen);
+    CHECK(parallelPosed == serialPosed && parallelCulled == serialCulled);
+    JobSystem::Shutdown();
+}

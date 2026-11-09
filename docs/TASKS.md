@@ -563,13 +563,13 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 485. Font atlas keshlash va kerning
 - [x] 486. Tekstura yuklashni fon oqimida (async)
 - [x] 487. Model yuklashni fon oqimida
-- [ ] 488. Shader'larni keshlash (program binary)
-- [ ] 489. Uniform'larni UBO'ga ko'chirish
-- [ ] 490. Shadow pass'da culling
-- [ ] 491. Particle simulyatsiyasini parallellashtirish
-- [ ] 492. Animatsiya baholashni parallellashtirish
-- [ ] 493. Editor UI performance (katta ierarxiyalar - clipper)
-- [ ] 494. Kontent brauzer katta papkalar (clipper)
+- [x] 488. Shader'larni keshlash (program binary)
+- [x] 489. Uniform'larni UBO'ga ko'chirish
+- [x] 490. Shadow pass'da culling
+- [x] 491. Particle simulyatsiyasini parallellashtirish
+- [x] 492. Animatsiya baholashni parallellashtirish
+- [x] 493. Editor UI performance (katta ierarxiyalar - clipper)
+- [x] 494. Kontent brauzer katta papkalar (clipper)
 - [ ] 495. Start vaqtini qisqartirish
 - [ ] 496. Xotira ishlatilishini kamaytirish
 - [ ] 497. Barcha namunalar 60 FPS tekshiruvi

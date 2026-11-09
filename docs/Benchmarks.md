@@ -242,6 +242,79 @@ Kerning odatda o'chiq - render rasmlari o'zgarmadi; shrift `.zmeta` sida `"Impor
 
 Dekodlash va glTF tahlili 3 ishchi oqimda parallel ketadi; asosiy oqimda faqat GPU'ga yuklash qoladi.
 
+### Shader keshi (488)
+
+488-494 uchun "oldin" - shu vazifalardan oldingi commit (`c253510`) ning Release build'i, "keyin" - ulardan keyingisi;
+ikkalasi ham `build-m25rel` sozlamalari bilan, bir kompyuterda ketma-ket.
+
+Showcase3D player'i ishga tushganda dvigatelning 25 ta shader dasturi (`Renderer::Init` logidagi `Shader'lar: ...`
+qatori; ishga tushishning qolgan qismi - sahna, teksturalar - o'zgarmagan). "Oldin" - keshsiz (`ZAMIN_SHADER_CACHE=0`,
+eski yo'l bilan bir xil: har safar kompilyatsiya + link):
+
+| Mesa'ning o'z disk keshi | Oldin (kompilyatsiya) | Keyin, birinchi ishga tushish (kompilyatsiya + saqlash) | Keyin, keyingilari (binary'dan) |
+|---|---:|---:|---:|
+| o'chiq (`MESA_SHADER_CACHE_DISABLE=true`) | 253 ms | 263 ms | **74-91 ms** |
+| yoqiq (odatiy) | 72 ms | 69 ms | 64-66 ms |
+
+llvmpipe binary formatini beradi (`GL_NUM_PROGRAM_BINARY_FORMATS` = 1), lekin dasturni binary'dan olganda ham LLVM
+kodini qayta yasaydi - shuning uchun 3 baravar, 10 baravar emas; Mesa o'z keshi yoqiq bo'lsa u allaqachon ko'p ishni
+tejaydi. Haqiqiy GPU drayverlarida (o'z keshi bo'lmasa yoki tozalanganda) foyda shu "o'chiq" qatoriga yaqin. 25 ta fayl
+548 KB. Formati yo'q drayver uchun mantiq `ShaderCacheStoresProgramBinaries` testida tekshiriladi.
+
+### Kadr uniform buferi (489)
+
+Mesh shader'larining kadr qiymatlari: oldin har bir mesh dasturiga (oddiy, skinned, instanced) 49-66 ta `glUniform*`
+chaqiruvi (IBL bo'lsa 9 ta `u_SH[i]` nomi har kadr `std::string` bilan yasalardi) - kadrga 147-198 chaqiruv; keyin bitta
+`glBufferSubData` (ishlatilgan qismi: `meshes` holatida 1 904 bayt) + har dasturga bitta `u_DebugView`. Sampler
+uniformlari (`u_AlbedoMap` ...) `Init` da bir marta. Vaqt farqi llvmpipe shovqini ichida (bu chaqiruvlar kadrga bir
+marta, chizishga emas); rasm bir xil (`ZaminRenderTests` 12/12, farqlar avvalgidek).
+
+### Soya o'tishida kesish (490)
+
+`ZaminBench --render --case meshes` (1 000 mesh, 4 kaskad, quyosh soyasi):
+
+| | Soya chizishlari | Kesilgan (shundan "ko'rinmas soya") | Draw call (instancing'siz holat) | CPU ms (`meshes`, o'rtacha) |
+|---|---:|---:|---:|---:|
+| Oldin (`c253510` build'i: faqat kaskad hajmi bo'yicha) | 1 024 | 1 979 (-) | 2 027 | 156.5 |
+| Keyin, `meshes-allshadow` (o'sha build, ko'rinish bo'yicha kesish o'chiq) | 1 024 | 1 979 (0) | - | 146.5 |
+| Keyin | **323** | 2 680 (**701**) | **1 326** | **126.0** |
+
+Kaskadlar bo'yicha (keyin): 1 / 1 / 321 / 0 tashlovchi (oldin 1 / 22 / 1001 / 0). Rasm o'zgarmaydi: test konservativ
+(normal siljishi va filtr uchun zaxira bilan) - render testlari 12/12, farq oldingidek.
+
+### Parallel particle va animatsiya (491, 492)
+
+Ilgari (369) mustaqil **tizimlar** ishchi oqimlarga taqsimlanardi - bitta katta tizim baribir bitta oqimda edi. Endi
+tizim ichidagi particle'lar ham 2 048 talik bo'laklarda (4 096 dan boshlab; dunyo to'qnashuvi, to'qnashuv hodisalari
+va izlarsiz). `ZaminBench --case "Bitta katta tizim"` (bitta tizim, ~49 000 particle, shovqin 2 oktava):
+
+| | 1 oqim (oldingi xatti-harakat) | 3 ishchi + asosiy oqim |
+|---|---:|---:|
+| Kadr, o'rtacha | 12.2 ms | **4.0 ms** (3.1x) |
+
+(Oldingi build'da bu holat yo'q edi; bitta tizim u yerda `parallelSystems.size() > 1` sharti bilan doim bitta oqimda
+ishlardi - "1 oqim" ustuni shu yo'l.) Ko'p tizimli holatlar o'zgarmadi (`Shovqin`: 3.46 -> 3.43 ms, `Oddiy` 0.17 ms).
+
+Animatsiya: pozalar (369) avvalgidek ishchi oqimlarda (`--animators 300`: 3.2 ms -> 1.0-1.2 ms, 3 ishchi bilan, oldin
+ham, keyin ham). Yangi - animatorlarning ko'rinishini belgilash (`MarkVisibleAnimators`: har skinned mesh qutisini
+har suyak bilan siljitish) ham parallel; 300 ta 40 suyakli skinned mesh, CullPose: **0.196 -> 0.114 ms**. Ish kichik
+bo'lsa (suyak qutilari < 2 048) bitta oqimda qoladi - aks holda parallel ishning o'zi qimmatroq (meshsiz rig'da
+0.031 ms bitta oqimda, 0.066 ms parallel bo'lardi). Natija bit-bitgacha bir xil: `LargeParticleSystemSteppedInPiecesMatchesSerial`,
+`AnimatorVisibilityMarkedInParallelMatchesSerial`.
+
+### Editor: katta ierarxiya va papka (493, 494)
+
+10 000 obyektli sahna (1 000 guruh x 9 bola, hammasi ochiq) va 5 000 faylli papka, Release editor, 1600x900, xvfb:
+
+| | Ierarxiya ro'yxati, ms / kadr | Kontent brauzer katakchalari, ms / kadr | Editor kadri (status satri) |
+|---|---:|---:|---:|
+| Oldin (`c253510` editori) | - | - | 42.7 ms (23 FPS) |
+| Clipper'siz (`ZAMIN_EDITOR_NO_CLIPPER=1`, hammasi chiziladi) | 10.8 (10 000 qator) | 7.8 (5 000 katak) | 44.0 ms |
+| Keyin (`ImGuiListClipper`) | **0.85** (27 qator chiziladi) | **0.06** (18 katak) | **24.7 ms (41 FPS)** |
+
+Ierarxiyaning qolgan 0.85 ms i - 10 000 qatorli tekis ro'yxatni yig'ish (ochiq / yopiq holat, Shift bilan oraliq
+tanlash uchun hamma qator); qolgan kadr vaqti llvmpipe'ning viewport chizishi. O'lchov: `ZAMIN_EDITOR_PANEL_TIMES=1`.
+
 ## Natijalarni saqlash va solishtirish (`Tests/bench.sh`)
 
 `Tests/bench.sh` headless benchmarklarni (ECS, serializatsiya, prefablar) ishga tushiradi va natijalarni
@@ -266,7 +339,7 @@ ZAMIN_BUILD_DIR=build-release Tests/bench.sh --update-baseline
 | Dastur | Nima o'lchaydi |
 |---|---|
 | `ZaminBench` (`particle_bench` target) | particle tizimlari (~50 000 particle), `--jobs N`, `--profile` |
-| `ZaminBench --animators N` | skinned animator'lar pozasi |
+| `ZaminBench --animators N` | skinned animator'lar pozasi, so'ng Animator culling bilan ko'rinishni belgilash (`MarkVisibleAnimators`) |
 | `ZaminBench --queries` | sahna qidiruvlari (nom, teg, komponent indekslari) |
 | `ZaminBench --serialize --prefabs` | bog'langan prefab nusxalari (saqlash, yuklash, sinxronlash, Apply; `Tests/Baselines/prefabs-release.json`) |
 | `ZaminBench --nav` | navigatsiya (bake, yo'l qidirish, Nav Agent'lar) |

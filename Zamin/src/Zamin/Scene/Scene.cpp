@@ -6284,43 +6284,71 @@ namespace Zamin {
         m_AnimationViewUpdate = m_AnimationUpdate;
         const uint64_t stamp = m_AnimationUpdate;
         const Frustum frustum = Frustum::FromViewProjection(viewProjection);
-        static thread_local std::vector<glm::mat4> palette;
+        // The animators still to look at; their bounds (every joint moves the bind box) on the
+        // workers when there are many (task 492) - each writes only its own animator's stamp.
+        std::vector<entt::entity>& pending = m_VisibilityScratch;
+        pending.clear();
         for (auto e : m_Registry.view<AnimatorComponent, MeshRendererComponent>())
         {
-            auto& anim = m_Registry.get<AnimatorComponent>(e);
+            const auto& anim = m_Registry.get<AnimatorComponent>(e);
             if (anim.Culling == AnimatorCulling::AlwaysAnimate || anim.VisibleFrame == stamp)
                 continue;
-            const auto& mr = m_Registry.get<MeshRendererComponent>(e);
-            if (!mr.ModelAsset)
+            if (!m_Registry.get<MeshRendererComponent>(e).ModelAsset)
                 continue;
-            // The model as it was posed (skinned bounds: the bind box moved by each joint),
-            // a little larger - its next pose may reach further.
-            const Model& model = *mr.ModelAsset;
-            AABB bounds;
-            bool any = false;
-            const auto& subs = model.GetSubMeshes();
-            for (size_t i = 0; i < subs.size(); i++)
-            {
-                if (!subs[i].MeshRef)
-                    continue;
-                AABB b = subs[i].MeshRef->GetBounds();
-                if (subs[i].MeshRef->IsSkinned() && !anim.JointMatrices.empty())
-                {
-                    const auto& joints = model.GetSubMeshJoints(i, anim.JointMatrices, palette);
-                    b = SkinnedBounds(b, joints.data(), joints.size());
-                }
-                bounds.Min = any ? glm::min(bounds.Min, b.Min) : b.Min;
-                bounds.Max = any ? glm::max(bounds.Max, b.Max) : b.Max;
-                any = true;
-            }
-            if (!any)
-                bounds = model.GetBounds();
-            const glm::vec3 margin = (bounds.Max - bounds.Min) * 0.1f + glm::vec3(0.05f);
-            bounds.Min -= margin;
-            bounds.Max += margin;
-            if (frustum.Intersects(TransformAABB(bounds, GetWorldTransform({ e, this }))))
-                anim.VisibleFrame = stamp;
+            pending.push_back(e);
         }
+        // The world transforms first, here (the cache is filled on the main thread only), and how
+        // much there is to do: every skinned submesh moves its box by each joint.
+        std::vector<glm::mat4>& worlds = m_VisibilityWorlds;
+        worlds.resize(pending.size());
+        size_t jointBoxes = 0;
+        for (size_t i = 0; i < pending.size(); i++)
+        {
+            worlds[i] = GetWorldTransform({ pending[i], this });
+            const size_t joints = m_Registry.get<AnimatorComponent>(pending[i]).JointMatrices.size();
+            for (const auto& sub : m_Registry.get<MeshRendererComponent>(pending[i]).ModelAsset->GetSubMeshes())
+                jointBoxes += sub.MeshRef && sub.MeshRef->IsSkinned() ? joints : 0;
+        }
+        auto mark = [this, &pending, &worlds, &frustum, stamp](uint32_t begin, uint32_t end) {
+            static thread_local std::vector<glm::mat4> palette;
+            for (uint32_t k = begin; k < end; k++)
+            {
+                const entt::entity e = pending[k];
+                auto& anim = m_Registry.get<AnimatorComponent>(e);
+                const auto& mr = m_Registry.get<MeshRendererComponent>(e);
+                // The model as it was posed (skinned bounds: the bind box moved by each joint),
+                // a little larger - its next pose may reach further.
+                const Model& model = *mr.ModelAsset;
+                AABB bounds;
+                bool any = false;
+                const auto& subs = model.GetSubMeshes();
+                for (size_t i = 0; i < subs.size(); i++)
+                {
+                    if (!subs[i].MeshRef)
+                        continue;
+                    AABB b = subs[i].MeshRef->GetBounds();
+                    if (subs[i].MeshRef->IsSkinned() && !anim.JointMatrices.empty())
+                    {
+                        const auto& joints = model.GetSubMeshJoints(i, anim.JointMatrices, palette);
+                        b = SkinnedBounds(b, joints.data(), joints.size());
+                    }
+                    bounds.Min = any ? glm::min(bounds.Min, b.Min) : b.Min;
+                    bounds.Max = any ? glm::max(bounds.Max, b.Max) : b.Max;
+                    any = true;
+                }
+                if (!any)
+                    bounds = model.GetBounds();
+                const glm::vec3 margin = (bounds.Max - bounds.Min) * 0.1f + glm::vec3(0.05f);
+                bounds.Min -= margin;
+                bounds.Max += margin;
+                if (frustum.Intersects(TransformAABB(bounds, worlds[k])))
+                    anim.VisibleFrame = stamp;
+            }
+        };
+        if (pending.size() >= ParallelVisibilityThreshold && jointBoxes >= ParallelVisibilityJointBoxes && JobSystem::IsParallel())
+            JobSystem::ParallelFor((uint32_t)pending.size(), 8, mark);
+        else
+            mark(0, (uint32_t)pending.size());
     }
 
     void Scene::CollectAnimatorEvents(Entity entity, const AnimatorComponent& anim, const AnimationClip& clip, float localTime, float delta,

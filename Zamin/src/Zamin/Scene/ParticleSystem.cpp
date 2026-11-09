@@ -1,10 +1,12 @@
 #include "Zamin/Scene/ParticleSystem.h"
 #include "Zamin/Scene/Components.h"
 #include "Zamin/Math/Noise.h"
+#include "Zamin/Core/JobSystem.h"
 
 #include <glm/gtc/constants.hpp>
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <limits>
 #include <unordered_map>
@@ -300,6 +302,9 @@ namespace Zamin {
     }
 
     namespace ParticleSimulation {
+
+        static std::atomic<uint64_t> s_ParallelSteps{ 0 };
+        uint64_t GetParallelStepCount() { return s_ParallelSteps.load(std::memory_order_relaxed); }
 
         using Shape = ParticleSystemComponent::EmitterShape;
 
@@ -764,6 +769,28 @@ namespace Zamin {
             return glm::vec4(normal, glm::dot(normal, point));
         }
 
+        // fn(particle) for every particle of `ps`: with the job system in pieces of ParallelGrain on
+        // the workers when the system has at least ParallelThreshold of them and `independent` (fn
+        // writes only the particle it is given) - the same results, every particle's step is its own.
+        template<typename Fn>
+        static void ForEachParticle(ParticleSystemComponent& ps, bool independent, const Fn& fn)
+        {
+            auto& particles = ps.Particles;
+            const uint32_t count = (uint32_t)particles.size();
+            if (independent && count >= ParallelThreshold && JobSystem::IsParallel())
+            {
+                Particle* data = particles.data();
+                JobSystem::ParallelFor(count, ParallelGrain, [data, &fn](uint32_t begin, uint32_t end) {
+                    for (uint32_t i = begin; i < end; i++)
+                        fn(data[i]);
+                });
+                s_ParallelSteps.fetch_add(1, std::memory_order_relaxed);
+                return;
+            }
+            for (Particle& p : particles)
+                fn(p);
+        }
+
         // The particles that died go (their trail slots free, a death event each when wanted).
         static void RemoveDead(ParticleSystemComponent& ps, bool deaths)
         {
@@ -799,14 +826,14 @@ namespace Zamin {
             PrepareTrails(ps);
             if (!vol.Enabled && !limit.Enabled && !noise.Enabled && !collision.Enabled && !ps.Trails.Enabled && events == 0)
             {
-                for (auto& p : ps.Particles)
-                {
-                    p.Velocity += ps.Gravity * ts;
+                const glm::vec3 gravity = ps.Gravity;
+                ForEachParticle(ps, true, [=](Particle& p) {
+                    p.Velocity += gravity * ts;
                     p.Velocity *= drag;
                     p.Position += p.Velocity * ts;
                     p.Rotation += p.AngularVelocity * ts;
                     p.Life -= ts;
-                }
+                });
                 std::erase_if(ps.Particles, [](const Particle& p) { return p.Life <= 0.0f; });
                 return;
             }
@@ -886,8 +913,10 @@ namespace Zamin {
             const auto& trails = ps.Trails;
             const float minDistance2 = std::max(0.0f, trails.MinVertexDistance) * std::max(0.0f, trails.MinVertexDistance);
 
-            for (auto& p : ps.Particles)
-            {
+            // Each particle on its own: in pieces on the workers for a large system, unless the step
+            // touches what the particles share (the world's colliders, the event list, the trail pool).
+            const bool independent = !worldCollision && !(planeCollision && collisionEvents) && !trails.Enabled;
+            ForEachParticle(ps, independent, [&](Particle& p) {
                 const float age = std::clamp(p.GetAge01(), 0.0f, 1.0f);
                 p.Velocity += ps.Gravity * ts;
                 p.Velocity *= drag;
@@ -1004,7 +1033,7 @@ namespace Zamin {
                             pool.Push(p.Trail, p.Position, ps.Time);
                     }
                 }
-            }
+            });
             RemoveDead(ps, Wants(events, ParticleEvent::Type::Death));
         }
 

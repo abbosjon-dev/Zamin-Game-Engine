@@ -443,6 +443,23 @@ void OnMessage(const ScriptMessage& m) override
   asosiy oqimda har kadr ~4 ms yuklanadi; shu payt tekstura o'rnida shaffof belgi, model esa chizilmaydi
   (`TextureLibrary::LoadAsync`, `Model::LoadAsync`, `IsReady()` / `IsLoading()`). Avtomatik suratlar
   (`ZAMIN_SCREENSHOT`, `ZAMIN_MAX_FRAMES`) va player odatda darhol yuklaydi; `ZAMIN_ASYNC_LOAD=0 / 1` majburlaydi.
+- **Shader keshi** (`ShaderCache`, program binary) — bog'langan shader dasturlari `~/.cache/zamin/ShaderBinaries` ga
+  yoziladi va keyingi ishga tushishda kompilyatsiya o'rniga drayverga qaytariladi (`GL_ARB_get_program_binary`, OpenGL 4.1
+  da bor). Kalit — dastur nomi, ikkala manba matni va drayver (ishlab chiqaruvchi, renderer, versiya): shader o'zgarsa
+  yoki drayver yangilansa eski fayl o'qilmaydi; drayver rad etgan fayl o'chiriladi va dastur manbadan kompilyatsiya
+  qilinadi; drayver binary formatini bermasa (`GL_NUM_PROGRAM_BINARY_FORMATS` = 0) har safar kompilyatsiya. Statistika
+  oynasida "Shader keshi" qatori, logda `Shader'lar: N ta keshdan ...`; `ZAMIN_SHADER_CACHE=0` — o'chiq.
+- **Kadr uniform buferi** — mesh shader'larining kadr qiymatlari (kamera, kaskadlar, quyosh va boshqa yorug'liklar,
+  tuman, osmon, IBL) bitta std140 uniform blokda (`ZaminFrame`, `UniformBuffer`): `EndScene` uni bir marta yuklaydi,
+  uchala mesh dasturi (oddiy, skinned, instanced) undan o'qiydi — avval har dasturga ~50 tadan `glUniform` chaqiruvi edi.
+  OpenGL 4.1 da `layout(binding)` yo'q, shuning uchun blok `Shader::BindUniformBlock` (`glUniformBlockBinding`) bilan
+  ulanadi.
+- **Soya o'tishida kesish** — kaskad hajmidan tashqaridagi soya tashlovchilardan tashqari, kaskad ichida bo'lsa ham
+  soyasi kamera shu kaskad chuqurligida ko'radigan joyga **tusha olmaydiganlari** ham chizilmaydi (kamera orqasidagi,
+  ko'rinish chetidagi obyektlar): tashlovchining qutisi yorug'lik yo'nalishi bo'ylab cho'ziladi va kameraning shu kaskad
+  oralig'idagi hajmi bilan solishtiriladi (filtr va normal siljishi uchun zaxira bilan) — rasm o'zgarmaydi.
+  Statistika: kaskadlar bo'yicha chizilgan / kesilgan va "ko'rinmas soya" soni (`CascadeShadowCasters`,
+  `CulledShadowByViewCount`); `Renderer3D::SetShadowReceiverCulling(false)` — solishtirish uchun.
 - **Render masshtabi** — sekin GPU'da 0.75 ham sezilarli tezlashtiradi.
 - **Sifat darajalari** (*Loyiha sozlamalari > Sifat*, `Quality`): sahna so'ragan soya, SSAO, bloom, FXAA, avto ekspozitsiya,
   render masshtabi va tekstura o'lchamini cheklaydi (Low / Medium / High / Ultra yoki o'zingizniki). O'yindagi menyudan:

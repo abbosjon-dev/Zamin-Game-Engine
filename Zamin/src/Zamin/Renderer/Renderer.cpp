@@ -32,9 +32,9 @@ namespace Zamin {
         const ShaderCache::Stats& shaders = ShaderCache::GetStats();
         ZM_CORE_INFO("Shader'lar: {} ta keshdan ({:.1f} ms), {} ta kompilyatsiya ({:.1f} ms){}", shaders.Hits, shaders.LoadMilliseconds,
                      shaders.Misses, shaders.CompileMilliseconds,
-                     ShaderCache::IsAvailable()                ? std::string()
-                     : ShaderCache::GetDirectory().empty()     ? std::string(" - binary kesh o'chiq")
-                                                               : std::string(" - drayver program binary'ni qo'llamaydi"));
+                     ShaderCache::IsAvailable()            ? std::string()
+                     : ShaderCache::GetDirectory().empty() ? std::string(" - binary kesh o'chiq")
+                                                           : std::string(" - drayver program binary'ni qo'llamaydi"));
     }
 
     void Renderer::Shutdown()

@@ -140,6 +140,8 @@ assetlar, Sprite muharriri, Plitka palitrasi, Undo tarixi, Ko'rinishlar (qo'shim
   tahrirlash mumkin). Nofaol obyektlar xira ko'rinadi.
 - **Qidirish**: nom bo'yicha; `#Enemy` — shu tegli obyektlar.
 - Prefab nusxalari alohida belgi va rang bilan ko'rinadi ([Prefabs.md](Prefabs.md)).
+- Katta sahnalar: ierarxiya ko'rinadigan qatorlarni tekis ro'yxat qiladi va faqat ekrandagilarini chizadi
+  (`ImGuiListClipper`) — 10 000 obyektli sahnada ham ro'yxat ekrandagi ~30 qator narxida.
 
 ## 5. Viewport
 
@@ -205,6 +207,9 @@ sozlamalari va ko'rinishini ko'rsatadi.
 - Loyiha papkasi bo'ylab navigatsiya (`Enter` — ochish, `Backspace` — yuqori papka, yo'l satri), katakcha / ro'yxat
   ko'rinishi, katakcha o'lchami (`Ctrl` + g'ildirak), rasm, model, material, prefab va sahnalar uchun kichik rasmlar.
 - **Qidirish** (`Ctrl+F`): nom, `*.png`, `t:rasm` kabi tur filtrlari; filtr tugmasi.
+- Katta papkalar: katakcha ko'rinishida faqat ekrandagi qatorlar chiziladi (ro'yxat ko'rinishi kabi `ImGuiListClipper`) —
+  5 000 faylli papka ham sekinlashtirmaydi. Avtomatlashtirish: `ZAMIN_EDITOR_PANEL_TIMES=1` chiqishda ierarxiya ro'yxati
+  va katakchalar vaqtini logga yozadi, `ZAMIN_EDITOR_NO_CLIPPER=1` solishtirish uchun hammasini chizadi.
 - Bo'sh joyga o'ng tugma: **Yangi papka**, **Yangi sahna**, **Yangi C++ skript...**, **Yangi animatsiya klipi**,
   **Yangi sprite animatsiya klipi** va boshqalar. Faylga o'ng tugma: nomini o'zgartirish (`F2`), o'chirish (`Delete`),
   sahna uchun **Boshlang'ich sahna qilish** va hokazo.

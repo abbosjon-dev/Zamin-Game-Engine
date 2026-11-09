@@ -246,7 +246,9 @@ namespace Zamin {
         bool IsLoading() const { return m_Loading; }
         // A model of a skeleton and its clips only - no meshes, no file, not cached: procedural
         // rigs and tests (needs no GPU).
-        static Ref<Model> CreateSkeletal(Skeleton skeleton, std::vector<AnimationClip> animations);
+        // `subMeshes`: meshes to go with it (their bounds become the model's) - e.g. skinned meshes made
+        // without GPU objects (AsyncLoader::DeferGPU) for benchmarks.
+        static Ref<Model> CreateSkeletal(Skeleton skeleton, std::vector<AnimationClip> animations, std::vector<SubMesh> subMeshes = {});
         // The materials of a model file as the importer makes them - values and modes (glTF
         // alphaMode OPAQUE / MASK -> Cutout with alphaCutoff / BLEND -> Transparent, doubleSided,
         // KHR_materials_unlit) without their textures, in the file's material order (.obj: one

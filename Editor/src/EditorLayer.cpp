@@ -10967,17 +10967,18 @@ namespace Zamin {
                 drawnCulled(stats.ShadowCasterCount, stats.CulledShadowCasterCount);
                 if (stats.ShadowCasterCount + stats.CulledShadowCasterCount > 0)
                 {
-                    UI::PropertyLabel("Kaskadlar bo'yicha", "Har kaskadga chizilgan / kesilgan soya tashlovchilar. Kesilganlar orasida "
-                                                            "kaskad hajmi ichida bo'lsa ham soyasi kamera ko'radigan joyga (shu kaskad "
-                                                            "chuqurligida) tusha olmaydiganlari bor - masalan kamera orqasidagilar");
+                    UI::PropertyLabel("Kaskadlar", "Har kaskadga chizilgan / kesilgan soya tashlovchilar (1-kaskaddan boshlab). "
+                                                   "Kesilganlar orasida kaskad hajmi ichida bo'lsa ham soyasi kamera ko'radigan joyga "
+                                                   "(shu kaskad chuqurligida) tusha olmaydiganlari bor - masalan kamera orqasidagilar");
                     std::string cascades;
                     for (int c = 0; c < 4; c++)
                         if (stats.CascadeShadowCasters[c] + stats.CascadeCulledShadowCasters[c] > 0)
-                            cascades += std::format("{}{}: {}/{}", cascades.empty() ? "" : "  ", c + 1, stats.CascadeShadowCasters[c],
+                            cascades += std::format("{}{}/{}", cascades.empty() ? "" : " ", stats.CascadeShadowCasters[c],
                                                     stats.CascadeCulledShadowCasters[c]);
                     ImGui::TextUnformatted(cascades.c_str());
-                    ImGui::SameLine(0.0f, 6.0f);
-                    ImGui::TextDisabled("(%u ko'rinmas soya)", stats.CulledShadowByViewCount);
+                    UI::PropertyLabel("Ko'rinmas soya", "Kaskad hajmida, lekin soyasi kamera ko'radigan joyga tusha olmagani uchun "
+                                                        "chizilmagan soya tashlovchilar (kaskadlar bo'yicha yig'indi)");
+                    ImGui::Text("%u", stats.CulledShadowByViewCount);
                 }
                 UI::PropertyLabel("Soya instanced", "Kaskadlarga bir xil mesh (cutout bo'lsa, bir xil tekstura va chegara) bilan "
                                                     "instanced chizilgan soya tashlovchilar / chaqiruvlar");
@@ -11004,9 +11005,13 @@ namespace Zamin {
                     ImGui::Text("%u / %u", shaders.Hits, shaders.Hits + shaders.Misses);
                     ImGui::SameLine(0.0f, 6.0f);
                     if (ShaderCache::IsAvailable())
-                        ImGui::TextDisabled("(keshdan %.0f ms, kompilyatsiya %.0f ms)", shaders.LoadMilliseconds, shaders.CompileMilliseconds);
+                        ImGui::TextDisabled("(%.0f ms)", shaders.LoadMilliseconds + shaders.CompileMilliseconds);
                     else
                         ImGui::TextDisabled("%s", ShaderCache::GetDirectory().empty() ? "(o'chiq)" : "(drayver qo'llamaydi)");
+                    if (ImGui::IsItemHovered())
+                        UI::Tooltip(std::format("Keshdan: {} ta, {:.1f} ms; kompilyatsiya: {} ta, {:.1f} ms", shaders.Hits, shaders.LoadMilliseconds,
+                                                shaders.Misses, shaders.CompileMilliseconds)
+                                        .c_str());
                 }
                 UI::PropertyLabel("Quadlar"); ImGui::Text("%u", stats.QuadCount);
                 UI::PropertyLabel("Doiralar"); ImGui::Text("%u", stats.CircleCount);

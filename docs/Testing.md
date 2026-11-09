@@ -249,6 +249,7 @@ bostiriladi, engine kodining har xabari esa fatal qoladi.
 | `Tests/bench.sh --compare` | ECS, serializatsiya, prefab benchmarklari; `Tests/Baselines/*-release.json` bilan solishtirish (`Tests/bench_compare.py`) | sezilarli sekinlashish |
 | `Tests/render_bench.sh --max-avg 200` | 10 000 sprite, 1 000 mesh (instancing bilan / siz), ikkalasi | ms / kadr |
 | `Tests/player_bench.sh --max-avg 50 --max-p95 80` | namuna o'yinlarning boshlang'ich sahnalari ZaminPlayer'da | ms / kadr |
+| `Tests/startup_bench.py` | editor va player ishga tushish vaqti (birinchi kadrgacha, qismlari bilan), ikki build'ni solishtirish | ms (mediana) |
 
 Boshlang'ich natijalar: [Benchmarks.md](Benchmarks.md).
 

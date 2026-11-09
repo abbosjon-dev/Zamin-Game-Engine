@@ -23,7 +23,7 @@ to'plamlari Debug build'da, bir vaqtda boshqa build'lar ham ishlab turgan (shuni
 | Skript hot reload (`ScriptHotReload`) | o'tdi (21 s) - birinchi ishga tushirishda yiqildi, tuzatildi (pastda) |
 | Eksport testi (`ExportTest`) | o'tdi (137 s) |
 | Namuna o'yinlar (`ctest -L samples`: `SampleAssets` + 9 o'yin) | **10 / 10** o'tdi |
-| Eksport qilingan namunalar (`SampleExports`) | tekshirilmoqda |
+| Eksport qilingan namunalar (`SampleExports`) | **9 / 9** namuna eksport qilindi va eksport qilingan papkadan o'ynaldi (6 ta bot demo, 3 ta smoke; 891 s) |
 | Fizika determinizmi (Box2D, Jolt) | `ZaminTests` ichida, hamma build'da o'tdi |
 | Formatlash (`Tests/format_check.sh --base 14e8435`) | o'zgargan qatorlarda 2 bo'lak tuzatildi, endi toza |
 | Kod hajmi | 528 C++ fayl (vendor'siz): engine 385 fayl / 122 600 qator, editor 57 900, testlar 53 800, o'yinlar 14 900 |

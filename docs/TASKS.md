@@ -575,4 +575,4 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 497. Barcha namunalar 60 FPS tekshiruvi
 - [x] 498. Profiler orqali bottleneck hisobot
 - [x] 499. Oxirgi sayqal: UI matnlari va tarjimalar
-- [ ] 500. Yakuniy regressiya va barcha testlar
+- [x] 500. Yakuniy regressiya va barcha testlar

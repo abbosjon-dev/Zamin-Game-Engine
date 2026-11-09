@@ -35,7 +35,7 @@ namespace Zamin {
     private:
         std::vector<Glyph> m_Dense;        // the glyphs below LookupSize
         std::vector<uint16_t> m_Lookup;    // codepoint -> index into m_Dense + 1 (0: none)
-        const Glyph* m_Fallback = nullptr; // '?'
+        uint16_t m_Fallback = 0;           // '?' (an index like m_Lookup's: the atlas may be copied or moved)
     };
 
     // How a font file is imported: the "Import" object of its .zmeta file (AssetImporter):

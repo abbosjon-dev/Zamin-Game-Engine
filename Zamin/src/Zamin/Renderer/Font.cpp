@@ -30,8 +30,8 @@ namespace Zamin {
     {
         if (codepoint < m_Lookup.size())
         {
-            const uint16_t index = m_Lookup[codepoint];
-            return index ? &m_Dense[index - 1u] : m_Fallback;
+            const uint16_t index = m_Lookup[codepoint] ? m_Lookup[codepoint] : m_Fallback;
+            return index ? &m_Dense[index - 1u] : nullptr;
         }
         if (m_Lookup.empty()) // (made by hand, without BuildLookup)
         {
@@ -42,7 +42,9 @@ namespace Zamin {
             return it != Glyphs.end() ? &it->second : nullptr;
         }
         auto it = Glyphs.find(codepoint);
-        return it != Glyphs.end() ? &it->second : m_Fallback;
+        if (it != Glyphs.end())
+            return &it->second;
+        return m_Fallback ? &m_Dense[m_Fallback - 1u] : nullptr;
     }
 
     void FontAtlas::BuildLookup()
@@ -55,7 +57,7 @@ namespace Zamin {
                 m_Dense.push_back(glyph);
                 m_Lookup[codepoint] = (uint16_t)m_Dense.size();
             }
-        m_Fallback = m_Lookup['?'] ? &m_Dense[m_Lookup['?'] - 1u] : nullptr;
+        m_Fallback = m_Lookup['?'];
     }
 
     // ------------------------------------------------------------------ atlas cache

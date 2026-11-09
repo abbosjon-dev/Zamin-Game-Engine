@@ -44,10 +44,17 @@ vazifalari bajarila boshlaganda unga bo'lim qo'shing ([CONTRIBUTING.md](CONTRIBU
 - **Xotira**: ImGui atlasining CPU nusxalari bo'shatiladi, atlas kichraydi - editor RAM 451 -> 325 MB; player
   chiqishda xotirani yozadi (`ZAMIN_PLAYER_STATS`), Statistika panelida ishga tushish vaqti.
 - **Namunalar tekshiruvi va hisobot**: 60 FPS talabi CPU vaqti bo'yicha (kichik oyna, Low) - 8 / 9 namuna 16.6 ms
-  ichida, EndlessRunner yo'q (155K uchburchak); [docs/Performance.md](docs/Performance.md) - profiler yozuvlaridan
+  ichida edi, EndlessRunner yo'q (155K uchburchak) - **primitivlar LOD'i** (ekranda kichik shar / silindr / konus
+  soddaroq nusxada) bilan 67K uchburchak, o'rtacha 23 -> 15.3 ms; [docs/Performance.md](docs/Performance.md) - profiler yozuvlaridan
   eng og'ir joylar, tuzatilganlar, qolgan cheklovlar.
 - **Tarjimalar**: 259 ta yangi inglizcha juft, terminologiya (color), `EditorTranslationKeysComplete` testi
   (editor kodidagi har tarjima qilinadigan yorliqning inglizchasi bor).
+- **Tekshiruvdan keyingi tuzatishlar**: fon yuklashda ishchi oqim asset registry'ni o'qimaydi (import sozlamalari
+  yuklash paytida asosiy oqimda), navbatdagi GPU yuklash teksturasini ushlab turadi va GL obyektlari faqat asosiy
+  oqimda o'chiriladi, `Reload` / `Reimport` davom etayotgan yuklashni kutadi; o'qib bo'lmagan fon teksturasini sprite va
+  tilemap qo'yib yuboradi (qora emas); prefab va sahna rasmlari to'liq yuklangan assetlar bilan chiziladi
+  (`AsyncLoader::Immediate`); `LoadNow` rasmlarni ikki marta dekodlamaydi; `Tests/bench.sh --compare` sekin ko'ringan
+  benchmarkni qayta o'lchaydi (`--repeat`); `build/` dan boshqa build papkalari o'yin modullarini o'z `GameModules/` iga yozadi.
 - **Yakuniy regressiya**: gcc Debug / Release, clang, ASan + UBSan (`Tests/sanitize.sh address,undefined`), barcha
   test to'plamlari - [docs/Quality.md](docs/Quality.md).
 

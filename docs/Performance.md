@@ -51,7 +51,8 @@ Namunalarning oxirgi kadrlari profilidan (1280x720, 300 kadr o'rtachasi; `Tests/
 **CPU vaqti (vazifa 497).** Rasterizatsiyani deyarli olib tashlash uchun namunalar 284x160 oynada o'lchandi (3D
 namunalar `--quality Low` bilan ham: SSAO yo'q, soya xaritalari kichik): qolgan kadr vaqti — dvigatelning CPU ishi
 va llvmpipe'ning vertex ishi birga, ya'ni dvigatel ishining yuqori chegarasi. 2D: 1.9–9.3 ms, 3D: 8.5–12.7 ms —
-16.6 ms (60 FPS) ichida; faqat EndlessRunner 26.6 ms (155K uchburchakning vertex ishi). Jadval:
+16.6 ms (60 FPS) ichida; EndlessRunner 26.6 ms edi (155K uchburchakning vertex ishi) - primitivlar LOD'i bilan
+15.1-15.5 ms (67K uchburchak; p95 hali 19-20 ms). Jadval:
 [Samples.md](Samples.md#m25-tekshiruvi-2026-11-09).
 
 **Eng sekin kadrlar.** TopDownShooter'da birinchi o'yinda bitta ~0.8 s lik kadr bor: katta matn (to'lqin banneri)
@@ -96,8 +97,10 @@ yo'llar bitta oqimli natija bilan bit-bitgacha solishtiriladi.
 1. **Rasterizatsiya (GPU yo'q).** llvmpipe'da 3D namunalar 7–10 FPS, 2D'lar 16–80 FPS. Eng qimmati SSAO o'tishi
    (ichida sahnaning o'zi bo'yaladi). Yechimlar: haqiqiy GPU; SSAO ni yarim o'lchamda hisoblash; sifat darajasi
    Low (SSAO o'chiq) — 3D namunalar 284x160 da 100+ FPS.
-2. **EndlessRunner geometriyasi.** 155K uchburchak: sifat Low va kichik oynada ham 26.6 ms. LOD (uzoqdagi
-   bo'laklar soddaroq) yoki masofa bo'yicha kesish kerak.
+2. **EndlessRunner geometriyasi.** 155K uchburchak: sifat Low va kichik oynada ham 22.7-26.6 ms edi. Tuzatildi:
+   ekranda kichik shar / silindr / konus segmentlari yarmi yoki choragi bo'lgan nusxasini chizadi
+   (`MeshLibrary::GetPrimitiveLOD`) - 67K uchburchak, o'rtacha 15.1-15.5 ms. Qolgani: p95 19-20 ms (bo'laklar
+   paydo bo'lgan kadrlar); uzoqdagi bo'laklarni masofa bo'yicha kesish keyingi qadam.
 3. **Yangi o'lchamdagi shrift atlasi.** Birinchi ishga tushirishda katta matnning birinchi chizilishi ~0.8 s
    (keyingi safarlar diskdagi keshdan). Yechim: o'lchamli atlaslarni ishchi oqimda tayyorlash yoki glif to'plamini
    matnga qarab cheklash.

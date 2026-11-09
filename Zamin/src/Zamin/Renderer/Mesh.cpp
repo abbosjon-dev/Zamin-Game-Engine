@@ -3,6 +3,8 @@
 #include "Zamin/Asset/AssetImportLog.h"
 
 #include <algorithm>
+#include <cstdlib>
+#include <cstring>
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
@@ -336,7 +338,12 @@ namespace Zamin {
 
     int MeshLibrary::GetPrimitiveLOD(PrimitiveMesh type, float screenFraction)
     {
-        if (!IsCurved(type))
+        // ZAMIN_PRIMITIVE_LOD=0: always the full mesh (to compare, docs/Samples.md).
+        static const bool s_Enabled = [] {
+            const char* env = std::getenv("ZAMIN_PRIMITIVE_LOD");
+            return !env || std::strcmp(env, "0") != 0;
+        }();
+        if (!s_Enabled || !IsCurved(type))
             return 0;
         return screenFraction >= 0.06f ? 0 : screenFraction >= 0.015f ? 1 : 2;
     }

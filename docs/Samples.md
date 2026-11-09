@@ -274,14 +274,17 @@ vaqtining yuqori chegarasi. Rasterizatsiya (GPU ishi) — chapdagi 1280x720 ustu
 | Racing | 109.4 / 124.0 ms | 9 | 0.16 ms | 12.7 / 21.2 ms (Low) | o'rtacha ha, p95 yo'q |
 | Showcase3D | 108.4 / 132.5 ms | 9 | 0.39 ms | 10.3 / 11.6 ms (Low) | ha |
 | Adventure3D | 152.9 / 176.1 ms | 7 | 0.50 ms | 10.5 / 12.7 ms (Low) | ha |
-| EndlessRunner | 145.2 / 169.1 ms | 7 | 0.11 ms | 26.6 / 32.0 ms (Low) | **yo'q** (155K uchburchak) |
+| EndlessRunner | 145.2 / 169.1 ms | 7 | 0.11 ms | 26.6 / 32.0 ms (Low) -> **15.1-15.5 / 18.7-20.3 ms** primitivlar LOD'i bilan | o'rtacha ha, p95 yo'q |
 
 \* o'rtacha bitta uzun kadr tufayli p95 dan katta: birinchi o'yinda katta matnning shrift atlasi rasterlanadi
 (TopDownShooter ~0.8 s, keyingi ishga tushirishlarda diskdagi keshdan — eng sekin kadr 866 -> 148 ms).
 
 Xulosa: o'yin kodi hamma joyda ≤ 0.55 ms; 2D namunalar va beshta 3D namuna CPU bo'yicha 60 FPS byudjetiga sig'adi.
-Ipak Yo'li (EndlessRunner) sig'maydi — uning 155K uchburchagining vertex ishi llvmpipe'da CPU'da bajariladi (LOD
-kerak). 1280x720 dagi kadrning qolgani — piksellarni bo'yash (SSAO, bloom), u haqiqiy GPU'da videokartada bo'ladi.
+Ipak Yo'li (EndlessRunner) sig'magan edi — 155K uchburchagining vertex ishi llvmpipe'da CPU'da bajariladi. Endi
+uzoqdagi shar / silindr / konuslar soddaroq nusxasini chizadi (primitivlar LOD'i, [Rendering.md](Rendering.md#15-samaradorlik-va-sifat-darajalari)):
+kadr uchburchaklari 155K -> 67K. Release build, 284x160, Low, navbatma-navbat 3 juft o'lchov (`ZAMIN_PRIMITIVE_LOD=0` -
+LOD'siz): LOD'siz o'rtacha 22.7-24.1 ms (p95 28.9-31.4), LOD bilan **15.1-15.5 ms** (p95 18.7-20.3) - o'rtacha 60 FPS
+byudjetiga sig'adi, eng sekin 5 % kadrlar hali 19-20 ms (Racing kabi). 1280x720 dagi kadrning qolgani — piksellarni bo'yash (SSAO, bloom), u haqiqiy GPU'da videokartada bo'ladi.
 Batafsil tahlil: [Performance.md](Performance.md).
 
 ## Rasmlarni yangilash

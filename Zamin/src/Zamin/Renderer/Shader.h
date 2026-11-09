@@ -29,6 +29,10 @@ namespace Zamin {
         virtual void SetMat4(std::string_view name, const glm::mat4& value) = 0;
         virtual void SetMat4Array(std::string_view name, const glm::mat4* values, uint32_t count) = 0;
 
+        // Links the program's std140 uniform block `block` to a UniformBuffer's binding point; false
+        // when the program has no such block (the compiler drops one it does not use).
+        virtual bool BindUniformBlock(std::string_view block, uint32_t binding) = 0;
+
         virtual const std::string& GetName() const = 0;
         virtual bool IsValid() const = 0;
 

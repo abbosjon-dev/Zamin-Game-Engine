@@ -16504,7 +16504,7 @@ TEST(RenderStatsSummary)
     std::string line = stats.Format();
     CHECK(line.find("draw call 12") != std::string::npos);
     CHECK(line.find("mesh: 30 chizildi, 7 kesildi, 20 instanced (3 chaqiruv)") != std::string::npos);
-    CHECK(line.find("soya: 55 chizildi, 9 kesildi, 40 instanced (4 chaqiruv)") != std::string::npos);
+    CHECK(line.find("soya: 55 chizildi, 9 kesildi (0 ko'rinmas soya), 40 instanced (4 chaqiruv)") != std::string::npos);
     CHECK(line.find("2D: 14 chizildi, 86 kesildi") != std::string::npos);
     CHECK(line.find("tile bo'laklari: 2 chizildi, 10 kesildi") != std::string::npos);
     // A new frame starts from zero.
@@ -48552,4 +48552,153 @@ TEST(ModelLoadedOnWorkerKeepsGpuWorkForMainThread)
     // Gone before their upload: they leave the queue (nothing would upload into a freed object).
     TextureLibrary::ReleaseUnused(serial);
     CHECK(AsyncLoader::GetPendingUploadCount() == uploadsBefore);
+}
+
+TEST(ShaderCacheStoresProgramBinaries)
+{
+    const std::filesystem::path cache = FileSystem::CreateTempDirectory("zamin-shader-cache");
+    const std::filesystem::path previous = ShaderCache::GetDirectory();
+    const int previousFormats = ShaderCache::GetBinaryFormatCount();
+    ShaderCache::SetDirectory(cache);
+    // The key: every part counts (name, both stages, the driver), and where one ends.
+    const uint64_t key = ShaderCache::MakeKey("Quad", "void main(){}", "out vec4 c; void main(){}", "Mesa|llvmpipe|4.5");
+    CHECK(key == ShaderCache::MakeKey("Quad", "void main(){}", "out vec4 c; void main(){}", "Mesa|llvmpipe|4.5"));
+    CHECK(key != ShaderCache::MakeKey("Quad2", "void main(){}", "out vec4 c; void main(){}", "Mesa|llvmpipe|4.5"));
+    CHECK(key != ShaderCache::MakeKey("Quad", "void main(){ }", "out vec4 c; void main(){}", "Mesa|llvmpipe|4.5"));
+    CHECK(key != ShaderCache::MakeKey("Quad", "void main(){}", "out vec4 c;  void main(){}", "Mesa|llvmpipe|4.5"));
+    CHECK(key != ShaderCache::MakeKey("Quad", "void main(){}", "out vec4 c; void main(){}", "Mesa|llvmpipe|4.6")); // driver update
+    CHECK(ShaderCache::MakeKey("ab", "c", "", "") != ShaderCache::MakeKey("a", "bc", "", ""));
+
+    // No binary formats (a driver without them): unavailable - every program is compiled.
+    ShaderCache::SetBinaryFormatCount(0);
+    CHECK(!ShaderCache::IsAvailable());
+    ShaderCache::SetBinaryFormatCount(1);
+    CHECK(ShaderCache::IsAvailable());
+
+    // Stored and read back exactly.
+    std::vector<uint8_t> binary(3000);
+    for (size_t i = 0; i < binary.size(); i++)
+        binary[i] = (uint8_t)(i * 31 + 7);
+    ShaderCache::ResetStats();
+    uint32_t format = 0;
+    std::vector<uint8_t> read;
+    CHECK(!ShaderCache::Load(key, format, read)); // nothing yet
+    CHECK(ShaderCache::Store(key, 0x8E21u, binary));
+    CHECK(ShaderCache::GetStats().Stores == 1);
+    CHECK(std::filesystem::exists(ShaderCache::GetFile(key)));
+    CHECK(ShaderCache::Load(key, format, read));
+    CHECK(format == 0x8E21u);
+    CHECK(read == binary);
+    // Another key does not read it; no temporary file is left behind.
+    CHECK(!ShaderCache::Load(key + 1, format, read));
+    size_t files = 0;
+    for (const auto& entry : std::filesystem::directory_iterator(cache))
+        files += entry.path().extension() == ".zshb" ? 1 : 0;
+    CHECK(files == 1);
+
+    // A damaged file (one byte changed, cut short, foreign) is not given to the driver.
+    std::vector<uint8_t> file = FileSystem::ReadBinaryFile(ShaderCache::GetFile(key));
+    CHECK(file.size() == binary.size() + 32);
+    file.back() ^= 0x5A;
+    FileSystem::WriteBinaryFile(ShaderCache::GetFile(key), file.data(), file.size());
+    read.clear();
+    CHECK(!ShaderCache::Load(key, format, read));
+    CHECK(read.empty());
+    file.back() ^= 0x5A;
+    file.resize(file.size() - 10);
+    FileSystem::WriteBinaryFile(ShaderCache::GetFile(key), file.data(), file.size());
+    CHECK(!ShaderCache::Load(key, format, read));
+    FileSystem::WriteTextFile(ShaderCache::GetFile(key), "buzilgan");
+    CHECK(!ShaderCache::Load(key, format, read));
+    // Refused by the driver: the file goes.
+    CHECK(ShaderCache::Store(key, 1u, binary));
+    ShaderCache::Remove(key);
+    CHECK(!std::filesystem::exists(ShaderCache::GetFile(key)));
+    CHECK(!ShaderCache::Load(key, format, read));
+
+    // The oldest files go beyond MaxFiles.
+    for (size_t i = 0; i < ShaderCache::MaxFiles + 3; i++)
+        CHECK(ShaderCache::Store(1000 + i, 1u, binary));
+    files = 0;
+    for (const auto& entry : std::filesystem::directory_iterator(cache))
+        files += entry.path().extension() == ".zshb" ? 1 : 0;
+    CHECK(files == ShaderCache::MaxFiles);
+    CHECK(ShaderCache::Load(1000 + ShaderCache::MaxFiles + 2, format, read)); // the newest stays
+
+    // Off: nothing is read or written.
+    ShaderCache::SetDirectory({});
+    CHECK(!ShaderCache::IsAvailable());
+    CHECK(!ShaderCache::Store(key, 1u, binary));
+    CHECK(!ShaderCache::Load(1000 + ShaderCache::MaxFiles + 2, format, read));
+
+    // The outcome counters the program-making code adds to.
+    ShaderCache::ResetStats();
+    ShaderCache::RecordHit(1.5);
+    ShaderCache::RecordMiss(20.0);
+    ShaderCache::RecordMiss(10.0);
+    ShaderCache::RecordRejected();
+    CHECK(ShaderCache::GetStats().Hits == 1);
+    CHECK(ShaderCache::GetStats().Misses == 2);
+    CHECK(ShaderCache::GetStats().Rejected == 1);
+    CHECK_NEAR(ShaderCache::GetStats().CompileMilliseconds, 30.0, 1e-9);
+    CHECK_NEAR(ShaderCache::GetStats().LoadMilliseconds, 1.5, 1e-9);
+    ShaderCache::ResetStats();
+
+    ShaderCache::SetDirectory(previous);
+    ShaderCache::SetBinaryFormatCount(previousFormats);
+    std::error_code ec;
+    std::filesystem::remove_all(cache, ec);
+}
+
+TEST(ShadowCastersCulledByWhatTheCameraSees)
+{
+    // A camera at the origin looking down -Z (60 degrees, 0.1 .. 100).
+    const glm::mat4 view(1.0f);
+    const glm::mat4 projection = glm::perspective(glm::radians(60.0f), 16.0f / 9.0f, 0.1f, 100.0f);
+    const glm::mat4 viewProjection = projection * view;
+    const Frustum all = Renderer3D::GetShadowReceiverVolume(view, viewProjection, 0.0f, 100.0f, 0.0f);
+    auto box = [](glm::vec3 center, float half) { return AABB{ center - glm::vec3(half), center + glm::vec3(half) }; };
+    const glm::vec3 down(0.0f, -1.0f, 0.0f);
+
+    CHECK(Renderer3D::ShadowReachesVolume(box({ 0.0f, 0.0f, -10.0f }, 1.0f), down, 50.0f, all));    // in view
+    CHECK(!Renderer3D::ShadowReachesVolume(box({ 0.0f, 5.0f, 20.0f }, 1.0f), down, 50.0f, all));    // behind the camera
+    CHECK(!Renderer3D::ShadowReachesVolume(box({ 80.0f, 0.0f, -10.0f }, 1.0f), down, 50.0f, all));  // far beside the view
+    // Above the view (outside the camera's frustum itself): its shadow falls into it.
+    CHECK(Renderer3D::ShadowReachesVolume(box({ 0.0f, 40.0f, -10.0f }, 1.0f), down, 50.0f, all));
+    CHECK(!Renderer3D::ShadowReachesVolume(box({ 0.0f, 40.0f, -10.0f }, 1.0f), down, 5.0f, all));   // not that far down
+    CHECK(!Renderer3D::ShadowReachesVolume(box({ 0.0f, 40.0f, -10.0f }, 1.0f), -down, 50.0f, all)); // light from below: away from it
+
+    // A low sun shining forward: a caster behind the camera throws its shadow into the view.
+    const glm::vec3 low = glm::normalize(glm::vec3(0.0f, -0.2f, -1.0f));
+    CHECK(Renderer3D::ShadowReachesVolume(box({ 0.0f, 0.5f, 5.0f }, 1.0f), low, 40.0f, all));
+    CHECK(!Renderer3D::ShadowReachesVolume(box({ 0.0f, 0.5f, 5.0f }, 1.0f), low, 1.0f, all));
+
+    // The cascade's depth range: a caster 50 deep shadows nothing the first 10 units show.
+    const Frustum nearSlice = Renderer3D::GetShadowReceiverVolume(view, viewProjection, 0.0f, 10.0f, 0.0f);
+    const Frustum farSlice = Renderer3D::GetShadowReceiverVolume(view, viewProjection, 40.0f, 60.0f, 0.0f);
+    CHECK(!Renderer3D::ShadowReachesVolume(box({ 0.0f, 0.0f, -50.0f }, 1.0f), down, 50.0f, nearSlice));
+    CHECK(Renderer3D::ShadowReachesVolume(box({ 0.0f, 0.0f, -50.0f }, 1.0f), down, 50.0f, farSlice));
+    CHECK(Renderer3D::ShadowReachesVolume(box({ 0.0f, 0.0f, -5.0f }, 1.0f), down, 50.0f, nearSlice));
+    CHECK(!Renderer3D::ShadowReachesVolume(box({ 0.0f, 0.0f, -5.0f }, 1.0f), down, 50.0f, farSlice));
+    // The margin keeps a caster just past the slice's end (the filter / normal offset reach over).
+    CHECK(!Renderer3D::ShadowReachesVolume(box({ 0.0f, 0.0f, -10.6f }, 0.5f), down, 50.0f, nearSlice));
+    CHECK(Renderer3D::ShadowReachesVolume(box({ 0.0f, 0.0f, -10.6f }, 0.5f), down, 50.0f,
+                                          Renderer3D::GetShadowReceiverVolume(view, viewProjection, 0.0f, 10.0f, 0.2f)));
+
+    // A moved and turned camera: the same answers in its own frame.
+    const glm::mat4 cameraWorld = glm::translate(glm::mat4(1.0f), glm::vec3(30.0f, 2.0f, -7.0f)) *
+                                  glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    const glm::mat4 movedView = glm::inverse(cameraWorld);
+    const Frustum moved = Renderer3D::GetShadowReceiverVolume(movedView, projection * movedView, 0.0f, 10.0f, 0.0f);
+    const glm::vec3 forward = -glm::vec3(cameraWorld[2]);
+    const glm::vec3 eye(cameraWorld[3]);
+    CHECK(Renderer3D::ShadowReachesVolume(box(eye + forward * 5.0f, 1.0f), down, 50.0f, moved));
+    CHECK(!Renderer3D::ShadowReachesVolume(box(eye - forward * 5.0f, 1.0f), down, 50.0f, moved));
+    CHECK(!Renderer3D::ShadowReachesVolume(box(eye + forward * 30.0f, 1.0f), down, 50.0f, moved)); // past this slice
+    // An empty box casts nothing; the switch.
+    CHECK(!Renderer3D::ShadowReachesVolume(AABB::Empty(), down, 50.0f, all));
+    CHECK(Renderer3D::IsShadowReceiverCullingEnabled());
+    Renderer3D::SetShadowReceiverCulling(false);
+    CHECK(!Renderer3D::IsShadowReceiverCullingEnabled());
+    Renderer3D::SetShadowReceiverCulling(true);
 }

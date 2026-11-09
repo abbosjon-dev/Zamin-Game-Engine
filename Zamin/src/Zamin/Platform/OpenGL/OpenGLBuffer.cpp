@@ -194,4 +194,42 @@ namespace Zamin {
 
     Ref<VertexArray> VertexArray::Create() { return CreateRef<OpenGLVertexArray>(); }
 
+    class OpenGLUniformBuffer : public UniformBuffer
+    {
+    public:
+        OpenGLUniformBuffer(uint32_t size, uint32_t binding) : m_Size(size), m_Binding(binding)
+        {
+            glGenBuffers(1, &m_RendererID);
+            glBindBuffer(GL_UNIFORM_BUFFER, m_RendererID);
+            glBufferData(GL_UNIFORM_BUFFER, size, nullptr, GL_DYNAMIC_DRAW);
+            glBindBufferBase(GL_UNIFORM_BUFFER, binding, m_RendererID);
+            m_Memory.Set(size);
+        }
+
+        ~OpenGLUniformBuffer() override { glDeleteBuffers(1, &m_RendererID); }
+
+        void SetData(const void* data, uint32_t size, uint32_t offset) override
+        {
+            if (!data || (uint64_t)offset + size > m_Size)
+                return;
+            glBindBuffer(GL_UNIFORM_BUFFER, m_RendererID);
+            glBufferSubData(GL_UNIFORM_BUFFER, offset, size, data);
+            glBindBufferBase(GL_UNIFORM_BUFFER, m_Binding, m_RendererID);
+            m_Uploaded += size;
+        }
+
+        uint32_t GetBinding() const override { return m_Binding; }
+        uint32_t GetSize() const override { return m_Size; }
+        uint64_t GetUploadedBytes() const override { return m_Uploaded; }
+
+    private:
+        uint32_t m_RendererID = 0;
+        uint32_t m_Size = 0;
+        uint32_t m_Binding = 0;
+        uint64_t m_Uploaded = 0;
+        TrackedMemory m_Memory{ MemoryCategory::Meshes };
+    };
+
+    Ref<UniformBuffer> UniformBuffer::Create(uint32_t size, uint32_t binding) { return CreateRef<OpenGLUniformBuffer>(size, binding); }
+
 }

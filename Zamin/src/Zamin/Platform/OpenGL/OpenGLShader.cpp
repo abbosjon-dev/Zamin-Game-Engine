@@ -1,12 +1,37 @@
 #include "Zamin/Renderer/Shader.h"
+#include "Zamin/Renderer/GraphicsContext.h"
+#include "Zamin/Renderer/ShaderCache.h"
 #include "Zamin/Utils/FileSystem.h"
 
 #include <glad/glad.h>
 #include <glm/gtc/type_ptr.hpp>
 
+#include <chrono>
 #include <vector>
 
 namespace Zamin {
+
+    // What the driver offers for program binaries, asked once (the first shader made).
+    static void QueryProgramBinarySupport()
+    {
+        static bool s_Queried = false;
+        if (s_Queried)
+            return;
+        s_Queried = true;
+        GLint formats = 0;
+        glGetIntegerv(GL_NUM_PROGRAM_BINARY_FORMATS, &formats);
+        while (glGetError() != GL_NO_ERROR) {} // (a driver without the query: no binaries)
+        ShaderCache::SetBinaryFormatCount(formats);
+        const GraphicsContextInfo& info = GraphicsContext::GetInfo();
+        auto text = [](GLenum name) {
+            const GLubyte* s = glGetString(name);
+            return s ? std::string((const char*)s) : std::string();
+        };
+        ShaderCache::SetDriver(info.Valid ? info.Vendor + "|" + info.Renderer + "|" + info.Version
+                                          : text(GL_VENDOR) + "|" + text(GL_RENDERER) + "|" + text(GL_VERSION));
+        if (formats <= 0)
+            ZM_CORE_INFO("Shader keshi: drayver program binary formatini bermaydi - shader'lar har safar kompilyatsiya qilinadi");
+    }
 
     class OpenGLShader : public Shader
     {
@@ -14,7 +39,20 @@ namespace Zamin {
         OpenGLShader(const std::string& name, const std::string& vertexSrc, const std::string& fragmentSrc)
             : m_Name(name)
         {
-            Compile(vertexSrc, fragmentSrc);
+            QueryProgramBinarySupport();
+            const auto start = std::chrono::steady_clock::now();
+            auto elapsed = [&] { return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count(); };
+            const bool cached = ShaderCache::IsAvailable();
+            const uint64_t key = cached ? ShaderCache::MakeKey(name, vertexSrc, fragmentSrc, ShaderCache::GetDriver()) : 0;
+            if (cached && LoadBinary(key))
+            {
+                ShaderCache::RecordHit(elapsed());
+                return;
+            }
+            Compile(vertexSrc, fragmentSrc, cached);
+            if (cached && m_RendererID)
+                StoreBinary(key);
+            ShaderCache::RecordMiss(elapsed());
         }
 
         ~OpenGLShader() override { if (m_RendererID) glDeleteProgram(m_RendererID); }
@@ -38,6 +76,18 @@ namespace Zamin {
         void SetMat4Array(std::string_view name, const glm::mat4* m, uint32_t count) override
         {
             glUniformMatrix4fv(Loc(name), (GLsizei)count, GL_FALSE, glm::value_ptr(m[0]));
+        }
+
+        bool BindUniformBlock(std::string_view block, uint32_t binding) override
+        {
+            if (!m_RendererID)
+                return false;
+            const std::string name(block);
+            const GLuint index = glGetUniformBlockIndex(m_RendererID, name.c_str());
+            if (index == GL_INVALID_INDEX)
+                return false;
+            glUniformBlockBinding(m_RendererID, index, binding);
+            return true;
         }
 
         const std::string& GetName() const override { return m_Name; }
@@ -84,7 +134,48 @@ namespace Zamin {
             return shader;
         }
 
-        void Compile(const std::string& vertexSrc, const std::string& fragmentSrc)
+        // The program from the binary ShaderCache has for `key`: false when there is none or the
+        // driver does not take it (that file goes; the program is compiled from source then).
+        bool LoadBinary(uint64_t key)
+        {
+            uint32_t format = 0;
+            std::vector<uint8_t> binary;
+            if (!ShaderCache::Load(key, format, binary))
+                return false;
+            GLuint program = glCreateProgram();
+            glProgramBinary(program, (GLenum)format, binary.data(), (GLsizei)binary.size());
+            GLint ok = 0;
+            glGetProgramiv(program, GL_LINK_STATUS, &ok);
+            while (glGetError() != GL_NO_ERROR) {} // (an unknown format reports GL_INVALID_ENUM)
+            if (!ok)
+            {
+                glDeleteProgram(program);
+                ShaderCache::Remove(key);
+                ShaderCache::RecordRejected();
+                ZM_CORE_WARN("Shader '{}': saqlangan binary drayverga to'g'ri kelmadi - qayta kompilyatsiya qilinadi", m_Name);
+                return false;
+            }
+            m_RendererID = program;
+            return true;
+        }
+
+        void StoreBinary(uint64_t key) const
+        {
+            GLint length = 0;
+            glGetProgramiv(m_RendererID, GL_PROGRAM_BINARY_LENGTH, &length);
+            if (length <= 0)
+                return;
+            std::vector<uint8_t> binary((size_t)length);
+            GLenum format = 0;
+            GLsizei written = 0;
+            glGetProgramBinary(m_RendererID, length, &written, &format, binary.data());
+            if (written <= 0)
+                return;
+            binary.resize((size_t)written);
+            ShaderCache::Store(key, (uint32_t)format, binary);
+        }
+
+        void Compile(const std::string& vertexSrc, const std::string& fragmentSrc, bool retrievable)
         {
             GLuint vs = CompileStage(GL_VERTEX_SHADER, vertexSrc, m_Name);
             GLuint fs = CompileStage(GL_FRAGMENT_SHADER, fragmentSrc, m_Name);
@@ -98,6 +189,8 @@ namespace Zamin {
             GLuint program = glCreateProgram();
             glAttachShader(program, vs);
             glAttachShader(program, fs);
+            if (retrievable)
+                glProgramParameteri(program, GL_PROGRAM_BINARY_RETRIEVABLE_HINT, GL_TRUE); // (before the link)
             glLinkProgram(program);
 
             GLint ok = 0;

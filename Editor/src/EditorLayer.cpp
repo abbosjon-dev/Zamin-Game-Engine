@@ -10952,6 +10952,20 @@ namespace Zamin {
                 UI::PropertyLabel("Soya chizishlari", "Soya tashlovchilar kaskadlarga (kaskadlar bo'yicha yig'indi; qavsda kaskad "
                                                       "hajmidan tashqarida qolib kesilganlari)");
                 drawnCulled(stats.ShadowCasterCount, stats.CulledShadowCasterCount);
+                if (stats.ShadowCasterCount + stats.CulledShadowCasterCount > 0)
+                {
+                    UI::PropertyLabel("Kaskadlar bo'yicha", "Har kaskadga chizilgan / kesilgan soya tashlovchilar. Kesilganlar orasida "
+                                                            "kaskad hajmi ichida bo'lsa ham soyasi kamera ko'radigan joyga (shu kaskad "
+                                                            "chuqurligida) tusha olmaydiganlari bor - masalan kamera orqasidagilar");
+                    std::string cascades;
+                    for (int c = 0; c < 4; c++)
+                        if (stats.CascadeShadowCasters[c] + stats.CascadeCulledShadowCasters[c] > 0)
+                            cascades += std::format("{}{}: {}/{}", cascades.empty() ? "" : "  ", c + 1, stats.CascadeShadowCasters[c],
+                                                    stats.CascadeCulledShadowCasters[c]);
+                    ImGui::TextUnformatted(cascades.c_str());
+                    ImGui::SameLine(0.0f, 6.0f);
+                    ImGui::TextDisabled("(%u ko'rinmas soya)", stats.CulledShadowByViewCount);
+                }
                 UI::PropertyLabel("Soya instanced", "Kaskadlarga bir xil mesh (cutout bo'lsa, bir xil tekstura va chegara) bilan "
                                                     "instanced chizilgan soya tashlovchilar / chaqiruvlar");
                 instanced(stats.InstancedShadowCasterCount, stats.InstancedShadowDrawCount);
@@ -10964,6 +10978,23 @@ namespace Zamin {
                 UI::PropertyLabel("Particle'lar", "Chizilgan particle'lar; qavsda GPU instancing bilan chizilganlari / ular olgan "
                                                   "chaqiruvlar (3D billboardlar: har tizim bitta chaqiruvda)");
                 ImGui::Text("%u  (%u / %u)", stats.ParticleCount, stats.InstancedParticleCount, stats.InstancedParticleDrawCount);
+                UI::PropertyLabel("Uniform buferlar", "Kadrning kamera, yorug'lik va soya qiymatlari mesh shader'lariga bitta std140 "
+                                                      "uniform bufer (ZaminFrame) bilan bir marta yuklanadi");
+                ImGui::Text("%u", stats.UniformBufferUploads);
+                ImGui::SameLine(0.0f, 6.0f);
+                ImGui::TextDisabled("(%u bayt)", stats.UniformBufferBytes);
+                {
+                    const ShaderCache::Stats& shaders = ShaderCache::GetStats();
+                    UI::PropertyLabel("Shader keshi", "Bog'langan shader dasturlari diskda (program binary): keyingi ishga tushishda "
+                                                      "kompilyatsiya qilinmay o'qiladi. Kalit - manba matni va drayver; "
+                                                      "ZAMIN_SHADER_CACHE=0 - o'chiq");
+                    ImGui::Text("%u / %u", shaders.Hits, shaders.Hits + shaders.Misses);
+                    ImGui::SameLine(0.0f, 6.0f);
+                    if (ShaderCache::IsAvailable())
+                        ImGui::TextDisabled("(keshdan %.0f ms, kompilyatsiya %.0f ms)", shaders.LoadMilliseconds, shaders.CompileMilliseconds);
+                    else
+                        ImGui::TextDisabled("%s", ShaderCache::GetDirectory().empty() ? "(o'chiq)" : "(drayver qo'llamaydi)");
+                }
                 UI::PropertyLabel("Quadlar"); ImGui::Text("%u", stats.QuadCount);
                 UI::PropertyLabel("Doiralar"); ImGui::Text("%u", stats.CircleCount);
                 UI::PropertyLabel("Chiziqlar"); ImGui::Text("%u", stats.LineCount);

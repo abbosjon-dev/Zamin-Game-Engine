@@ -131,4 +131,21 @@ namespace Zamin {
         static Ref<IndexBuffer> Create(const uint32_t* indices, uint32_t count);
     };
 
+    // A std140 uniform block's data on the GPU, bound to one binding point (glBindBufferBase): the
+    // per-frame values many shaders share are uploaded once instead of set on each program. A shader
+    // links its block to the point with Shader::BindUniformBlock (OpenGL 4.1 has no layout(binding)).
+    class UniformBuffer
+    {
+    public:
+        virtual ~UniformBuffer() = default;
+        // `size` bytes from `offset` (the buffer is bound to its point again too).
+        virtual void SetData(const void* data, uint32_t size, uint32_t offset = 0) = 0;
+        virtual uint32_t GetBinding() const = 0;
+        virtual uint32_t GetSize() const = 0;
+        // Bytes uploaded / SetData calls so far (the renderer statistics).
+        virtual uint64_t GetUploadedBytes() const = 0;
+
+        static Ref<UniformBuffer> Create(uint32_t size, uint32_t binding);
+    };
+
 }

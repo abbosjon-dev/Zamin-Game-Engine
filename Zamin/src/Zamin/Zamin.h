@@ -73,6 +73,7 @@
 #include "Zamin/Renderer/Texture.h"
 #include "Zamin/Renderer/Shader.h"
 #include "Zamin/Renderer/Font.h"
+#include "Zamin/Renderer/ShaderCache.h"
 #include "Zamin/Renderer/Mesh.h"
 #include "Zamin/Renderer/Frustum.h"
 #include "Zamin/Renderer/EditorCamera.h"

@@ -25,7 +25,10 @@ namespace Zamin {
         uint32_t InstancedMeshCount = 0;  ///< meshes drawn as instances (also in MeshCount)
         uint32_t InstancedDrawCount = 0;  ///< the instanced draw calls they took (also in DrawCalls)
         uint32_t ShadowCasterCount = 0;   ///< shadow caster draws into the cascades (summed over the cascades)
-        uint32_t CulledShadowCasterCount = 0; ///< shadow caster draws skipped: outside a cascade's volume
+        uint32_t CulledShadowCasterCount = 0; ///< shadow caster draws skipped: outside a cascade's volume, or (below) shadowing nothing seen
+        uint32_t CulledShadowByViewCount = 0; ///< of those: inside the cascade, but their shadow cannot reach what the camera sees in it
+        uint32_t CascadeShadowCasters[4]{};    ///< ShadowCasterCount per cascade
+        uint32_t CascadeCulledShadowCasters[4]{}; ///< CulledShadowCasterCount per cascade
         uint32_t InstancedShadowCasterCount = 0; ///< shadow caster draws done as instances (also in ShadowCasterCount)
         uint32_t InstancedShadowDrawCount = 0;   ///< the instanced draw calls they took (also in DrawCalls)
         uint32_t SpriteCount = 0;         ///< 2D objects drawn: sprites, circles, texts, particle systems
@@ -40,6 +43,8 @@ namespace Zamin {
         uint32_t Flush2DKind = 0;       ///< sprites / text / circles took turns (another shader or text atlas)
         uint32_t Flush2DState = 0;      ///< blend mode, clip rectangle, 2D lights or output changed
         uint32_t Reordered2DCount = 0;  ///< 2D draws BatchOrder moved next to their batch (they overlap nothing they passed)
+        uint32_t UniformBufferUploads = 0; ///< per-frame uniform blocks uploaded (Renderer3D's ZaminFrame: one per 3D scene)
+        uint32_t UniformBufferBytes = 0;   ///< the bytes they took
 
         /// One line for logs (ZAMIN_EDITOR_STATS / ZAMIN_PLAYER_STATS): what was drawn, culled
         /// and instanced.

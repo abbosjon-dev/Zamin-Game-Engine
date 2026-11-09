@@ -75,8 +75,9 @@ namespace Zamin {
             {
                 s_State.Initialized = true;
                 const char* env = std::getenv("ZAMIN_FONT_CACHE");
-                if (!(env && std::strcmp(env, "0") == 0))
-                    s_State.Directory = FileSystem::GetUserCacheDirectory() / "FontAtlases";
+                const std::filesystem::path cache = FileSystem::GetUserCacheDirectory();
+                if (!(env && std::strcmp(env, "0") == 0) && !cache.empty())
+                    s_State.Directory = cache / "zamin" / "FontAtlases";
             }
             return s_State;
         }

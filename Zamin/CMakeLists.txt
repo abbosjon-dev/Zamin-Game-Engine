@@ -110,12 +110,17 @@ if(ZAMIN_SANITIZER_STRICT_FLAGS)
     set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/Audio/MiniaudioImpl.cpp
         PROPERTIES COMPILE_OPTIONS -fsanitize-recover=all)
 endif()
-# A sanitizer or coverage build loads the script modules it built itself (cmake/Sanitizers.cmake,
-# cmake/Coverage.cmake): from its GameModules folder when the module is there (Project::GetScriptModulePath) -
-# in the build's own programs (<build>/bin) only: a game exported from such a build loads the module it ships.
-if(ZAMIN_SANITIZE OR ZAMIN_COVERAGE)
+# A build that writes the sample games' modules elsewhere (a sanitizer or coverage build: cmake/Sanitizers.cmake,
+# cmake/Coverage.cmake; any build tree but build/: the root CMakeLists.txt) loads the script modules it built itself:
+# from that folder when the module is there (Project::GetScriptModulePath) - in the build's own programs
+# (<build>/bin) only: a game exported from such a build loads the module it ships. Outside a sanitizer or coverage
+# build the project's own module wins when it is newer (the editor's script compile writes that one: hot reload).
+if(ZAMIN_GAME_MODULE_OUTPUT_DIR)
     target_compile_definitions(Zamin PRIVATE ZAMIN_SANITIZER_MODULE_DIR="${ZAMIN_GAME_MODULE_OUTPUT_DIR}"
         ZAMIN_SANITIZER_BIN_DIR="${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
+    if(NOT ZAMIN_SANITIZE AND NOT ZAMIN_COVERAGE)
+        target_compile_definitions(Zamin PRIVATE ZAMIN_BUILD_MODULE_PREFER_NEWER=1)
+    endif()
 endif()
 # Calls inside the library go to its own functions (not to copies of the same inline / template code
 # in the program that loads it - an unoptimised Debug editor's string or container code, say).

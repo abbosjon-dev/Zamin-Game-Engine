@@ -2,6 +2,8 @@
 #include "Zamin/Asset/AsyncLoader.h"
 #include "Zamin/Asset/AssetImportLog.h"
 
+#include <algorithm>
+
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
 
@@ -326,6 +328,38 @@ namespace Zamin {
 
     static std::unordered_map<int, Ref<Mesh>> s_Primitives;
     static std::unordered_map<std::string, Ref<Mesh>> s_Models;
+
+    static bool IsCurved(PrimitiveMesh type)
+    {
+        return type == PrimitiveMesh::Sphere || type == PrimitiveMesh::Cylinder || type == PrimitiveMesh::Cone;
+    }
+
+    int MeshLibrary::GetPrimitiveLOD(PrimitiveMesh type, float screenFraction)
+    {
+        if (!IsCurved(type))
+            return 0;
+        return screenFraction >= 0.06f ? 0 : screenFraction >= 0.015f ? 1 : 2;
+    }
+
+    Ref<Mesh> MeshLibrary::GetPrimitive(PrimitiveMesh type, int lod)
+    {
+        lod = std::clamp(lod, 0, 2);
+        if (lod == 0 || !IsCurved(type))
+            return GetPrimitive(type);
+        const int key = (int)type + 16 * lod;
+        if (auto it = s_Primitives.find(key); it != s_Primitives.end())
+            return it->second;
+        std::vector<MeshVertex> vertices;
+        std::vector<uint32_t> indices;
+        const uint32_t divisor = lod == 1 ? 2 : 4;
+        if (type == PrimitiveMesh::Sphere)
+            GenerateSphere(vertices, indices, 48 / divisor, 24 / divisor);
+        else
+            GenerateCylinder(vertices, indices, type == PrimitiveMesh::Cone ? 0.0f : 0.5f, 40 / divisor);
+        Ref<Mesh> mesh = CreateRef<Mesh>(vertices, indices);
+        s_Primitives[key] = mesh;
+        return mesh;
+    }
 
     Ref<Mesh> MeshLibrary::GetPrimitive(PrimitiveMesh type)
     {

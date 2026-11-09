@@ -32,6 +32,15 @@ set_property(CACHE ZAMIN_ASSERTS PROPERTY STRINGS AUTO ON OFF)
 include(cmake/Sanitizers.cmake)
 # Code coverage (ZAMIN_COVERAGE=ON: gcov counters in our targets only; Tests/coverage.sh).
 include(cmake/Coverage.cmake)
+# The sample games' script modules: the main build tree (build/) writes them to Projects/<game>/Binaries, where
+# the projects name them. Any other build tree of the engine (build-release, build-clang, a benchmark build...) writes
+# them to its own <build>/GameModules and its programs load them from there (Project::GetScriptModulePath) - so
+# building it never overwrites the main build's modules with ones of another build type or RUNPATH.
+# ZAMIN_GAME_MODULE_OUTPUT_DIR set by hand decides over both.
+if(NOT ZAMIN_GAME_MODULE_OUTPUT_DIR AND NOT CMAKE_BINARY_DIR STREQUAL "${CMAKE_SOURCE_DIR}/build")
+    set(ZAMIN_GAME_MODULE_OUTPUT_DIR ${CMAKE_BINARY_DIR}/GameModules)
+    message(STATUS "Zamin: o'yin modullari bu build papkasida: ${ZAMIN_GAME_MODULE_OUTPUT_DIR}")
+endif()
 include(cmake/Dependencies.cmake)
 # zamin_target_settings (warnings of our own targets), zamin_add_game_module.
 include(cmake/ZaminGame.cmake)

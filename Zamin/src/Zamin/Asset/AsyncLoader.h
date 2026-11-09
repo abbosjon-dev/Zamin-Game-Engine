@@ -40,6 +40,20 @@ namespace Zamin {
         static void Wait(uint64_t id);
         /// Every load and upload finished (a capture, a test, the editor before it saves a thumbnail).
         static void WaitAll();
+
+        /// Main thread: within its scope LoadAsync loads at once (like Load), and what is loading already
+        /// is finished first (WaitAll) - a picture drawn now (a prefab's or a scene's thumbnail, saved to
+        /// disk) shows the real models and textures, not placeholders. The previous mode comes back after.
+        class Immediate
+        {
+        public:
+            Immediate();
+            ~Immediate();
+            Immediate(const Immediate&) = delete;
+            Immediate& operator=(const Immediate&) = delete;
+        private:
+            bool m_Previous;
+        };
         static bool IsPending(uint64_t id);
         static size_t GetPendingCount();       ///< loads not finished yet
         static size_t GetPendingUploadCount(); ///< GPU uploads waiting

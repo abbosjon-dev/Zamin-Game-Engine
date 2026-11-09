@@ -111,6 +111,10 @@ namespace Zamin {
         static Ref<Texture2D> LoadAsync(const std::filesystem::path& path, TextureFilter filter = TextureFilter::Linear);
         // Textures of LoadAsync still loading.
         static size_t GetLoadingCount();
+        // Grows each time a texture of LoadAsync turns out unreadable. What holds such a texture (a
+        // sprite, a tilemap) lets go of it when it sees this change (Scene, before it draws): as if Load
+        // had given nullptr - the sprite draws its colour alone, the tilemap asks for its tileset again.
+        static uint64_t GetFailedLoadSerial();
         // Settings a file is loaded with (its import settings, adjusted for the pixel-art copy).
         static TextureImportSettings GetLoadSettings(const std::filesystem::path& path, bool pixelArt = false);
         // Re-reads a file into every cached texture made from it (each filter variant), in place,

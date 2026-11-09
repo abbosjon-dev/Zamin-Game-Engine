@@ -10,6 +10,7 @@
 #include "Zamin/Core/JobSystem.h"
 
 #include <algorithm>
+#include <atomic>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
@@ -110,12 +111,14 @@ namespace Zamin {
             int Anisotropy = 1;
             int SkippedMips = 0;
             std::unordered_set<OpenGLTexture2D*> ImageTextures; // alive, made from an image (file / memory)
+            std::mutex Mutex; // ImageTextures: the main thread adds and walks them, the last owner (any thread) removes one
         };
 
+        // Never destroyed: textures of static caches leave it as the program ends.
         SamplingQuality& Sampling()
         {
-            static SamplingQuality s_Sampling;
-            return s_Sampling;
+            static SamplingQuality* s_Sampling = new SamplingQuality();
+            return *s_Sampling;
         }
 
         // The GPU's most anisotropic samples (1: no support), asked once.
@@ -145,21 +148,46 @@ namespace Zamin {
         }
     }
 
-    // What a texture still loading binds: one transparent pixel (made on first use, main thread).
+    // One pixel of this colour (made on first use, main thread).
+    static GLuint MakePixelTexture(const uint8_t (&pixel)[4])
+    {
+        GLuint id = 0;
+        glGenTextures(1, &id);
+        glBindTexture(GL_TEXTURE_2D, id);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixel);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        return id;
+    }
+
+    // What a texture still loading binds: one transparent pixel.
     static GLuint PlaceholderTexture()
     {
-        static GLuint s_Placeholder = 0;
-        if (!s_Placeholder)
-        {
-            const uint8_t pixel[4] = { 255, 255, 255, 0 };
-            glGenTextures(1, &s_Placeholder);
-            glBindTexture(GL_TEXTURE_2D, s_Placeholder);
-            glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixel);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        }
+        static GLuint s_Placeholder = MakePixelTexture({ 255, 255, 255, 0 });
         return s_Placeholder;
+    }
+
+    // What a texture whose file could not be read binds: one white pixel - it draws like no texture
+    // (the colour alone), not black.
+    static GLuint MissingTexture()
+    {
+        static GLuint s_Missing = MakePixelTexture({ 255, 255, 255, 255 });
+        return s_Missing;
+    }
+
+    // A texture object freed: at once on the main thread; one whose last owner is a job system worker
+    // (a model read in the background and dropped) is freed by the main thread's AsyncLoader::Update -
+    // a worker has no GL context.
+    static int s_DeferredDeleteOwner = 0;
+    static void DeleteTextureObject(GLuint id)
+    {
+        if (!JobSystem::IsWorkerThread())
+        {
+            glDeleteTextures(1, &id);
+            return;
+        }
+        AsyncLoader::QueueUpload(&s_DeferredDeleteOwner, [id] { glDeleteTextures(1, &id); });
     }
 
     class OpenGLTexture2D : public Texture2D
@@ -185,11 +213,29 @@ namespace Zamin {
             }
             if (AsyncLoader::IsDeferringGPU()) // a worker (a model loaded in the background): the main thread uploads
             {
-                Defer(std::move(image));
+                Defer(std::move(image)); // (queued by Create, QueueDeferredUpload)
                 return;
             }
             Upload(*image);
             AssetImportLog::Clear(path);
+        }
+
+        // TextureLibrary::Load on a worker (DeferGPU: a model read in the background): the file decoded
+        // now, uploaded by the main thread - which reads the file's import settings then too: the asset
+        // registry is the main thread's, a worker never looks into it. Its upload is queued by the
+        // library once the texture is in the cache (a copy that lost the race to another thread is
+        // dropped by the worker with nothing of the GPU's made).
+        struct OnWorker {};
+        OpenGLTexture2D(OnWorker, const std::string& path, bool pixelArt) : m_Path(path), m_FromFile(true), m_SettingsLater(pixelArt ? 1 : 0)
+        {
+            m_FromImage = true;
+            auto image = std::make_unique<GLDecodedImage>();
+            if (!TakePredecoded(path, *image) && !Decode(path, *image))
+            {
+                AssetImportLog::Report(path, image->Error); // once per file version
+                return;
+            }
+            Defer(std::move(image));
         }
 
         // A file decoded by a worker later (TextureLibrary::LoadAsync): nothing read yet.
@@ -225,14 +271,34 @@ namespace Zamin {
             Upload(*image);
         }
 
+        // The last owner may be a worker (a model read in the background that it dropped): a queued
+        // upload holds its texture (QueueDeferredUpload), so it is never freed while one runs, and its
+        // GL object goes through DeleteTextureObject.
         ~OpenGLTexture2D() override
         {
             if (m_Pending)
                 AsyncLoader::CancelUpload(this);
             if (m_InSampling)
+            {
+                std::lock_guard lock(Sampling().Mutex);
                 Sampling().ImageTextures.erase(this);
+            }
             if (m_RendererID)
-                glDeleteTextures(1, &m_RendererID);
+                DeleteTextureObject(m_RendererID);
+        }
+
+        // A texture a worker made (Defer, not uploaded yet): its upload queued for AsyncLoader::Update.
+        // The queue holds the texture until the upload has run (main thread).
+        static void QueueDeferredUpload(const Ref<OpenGLTexture2D>& texture)
+        {
+            if (texture->m_Pending && texture->m_PendingImage && !texture->m_UploadQueued)
+            {
+                texture->m_UploadQueued = true;
+                AsyncLoader::QueueUpload(texture.get(), [texture] {
+                    if (texture.use_count() > 1) // (nothing but the queue holds it any more: not uploaded, freed here)
+                        texture->FinishLoading();
+                });
+            }
         }
 
         bool IsReady() const override { return !m_Pending; }
@@ -255,6 +321,7 @@ namespace Zamin {
                 return m_Loaded;
             AsyncLoader::CancelUpload(this);
             m_Pending = false;
+            ResolveSettingsLater();
             std::unique_ptr<GLDecodedImage> image = std::move(m_PendingImage);
             if (!image || !image->Pixels)
             {
@@ -286,6 +353,7 @@ namespace Zamin {
                 return false;
             }
             bool changed = !(settings == GetImportSettings());
+            m_SettingsLater = -1; // (the settings given here win over the lookup a worker's texture would make at its upload)
             ApplySettings(settings);
             if (Reload(error))
                 return true;
@@ -302,7 +370,13 @@ namespace Zamin {
                 return false;
             }
             if (m_Pending)
-                FinishLoading(); // (read again below)
+            {
+                // A LoadAsync decode may be under way on a worker (it writes the pending pixels): waited
+                // for first, then finished (read again below).
+                WaitForAsyncLoad(this);
+                FinishLoading();
+            }
+            ResolveSettingsLater();
             GLDecodedImage image;
             if (!Decode(m_Path, image))
             {
@@ -317,11 +391,7 @@ namespace Zamin {
             m_Specification.Width = image.Width;
             m_Specification.Height = image.Height;
             m_Specification.Format = image.Format;
-            if (m_FromImage && !m_InSampling)
-            {
-                Sampling().ImageTextures.insert(this);
-                m_InSampling = true;
-            }
+            AddToSampling();
             if (!m_RendererID)
                 Allocate();       // the first load had failed
             else if (resized)
@@ -337,11 +407,7 @@ namespace Zamin {
         // The decoded pixels into a new GPU texture (main thread).
         void Upload(const GLDecodedImage& image)
         {
-            if (m_FromImage && !m_InSampling)
-            {
-                Sampling().ImageTextures.insert(this); // the quality level's sampling from the start (and on reloads)
-                m_InSampling = true;
-            }
+            AddToSampling(); // the quality level's sampling from the start (and on reloads)
             m_Specification.Width = image.Width;
             m_Specification.Height = image.Height;
             m_Specification.Format = image.Format;
@@ -350,13 +416,13 @@ namespace Zamin {
             m_Loaded = true;
         }
 
-        // Made by a worker: the pixels kept for the main thread's AsyncLoader::Update.
+        // Made by a worker: the pixels kept for the main thread's AsyncLoader::Update (the upload is
+        // queued by whoever holds the texture: QueueDeferredUpload).
         void Defer(std::unique_ptr<GLDecodedImage> image)
         {
             m_PendingImage = std::move(image);
             m_Pending = true;
             m_Loaded = true;
-            AsyncLoader::QueueUpload(this, [this] { FinishLoading(); });
         }
 
         const TextureSpecification& GetSpecification() const override { return m_Specification; }
@@ -392,12 +458,34 @@ namespace Zamin {
         void Bind(uint32_t slot) const override
         {
             glActiveTexture(GL_TEXTURE0 + slot);
-            glBindTexture(GL_TEXTURE_2D, m_RendererID ? m_RendererID : (m_Pending ? PlaceholderTexture() : 0u));
+            glBindTexture(GL_TEXTURE_2D, m_RendererID ? m_RendererID : (m_Pending ? PlaceholderTexture() : MissingTexture()));
         }
 
         bool operator==(const Texture& other) const override { return m_RendererID == other.GetRendererID(); }
 
     private:
+        // Main thread: in the quality level's list (SetSamplingQuality walks it).
+        void AddToSampling()
+        {
+            if (!m_FromImage || m_InSampling)
+                return;
+            std::lock_guard lock(Sampling().Mutex);
+            Sampling().ImageTextures.insert(this);
+            m_InSampling = true;
+        }
+
+        // Main thread: the import settings of a texture a worker made (OnWorker), read now.
+        void ResolveSettingsLater()
+        {
+            if (m_SettingsLater < 0)
+                return;
+            ApplySettings(TextureLibrary::GetLoadSettings(m_Path, m_SettingsLater == 1));
+            m_SettingsLater = -1;
+        }
+
+        // A LoadAsync load of this texture under way: its decode waited for and its finish run (main thread).
+        static void WaitForAsyncLoad(const Texture2D* texture);
+
         void ApplySettings(const TextureImportSettings& settings)
         {
             m_Specification.Filter = settings.Filter;
@@ -469,11 +557,14 @@ namespace Zamin {
         TextureSpecification m_Specification;
         std::string m_Path;
         uint32_t m_RendererID = 0;
-        bool m_Loaded = false;
+        // (atomic: a worker reading the cache asks whether a texture the main thread is finishing is loaded)
+        std::atomic<bool> m_Loaded{ false };
         bool m_FromFile = false; // m_Path is a file (not the name of an image decoded from memory)
         bool m_FromImage = false; // read from an image (a file or memory): takes the quality level's sampling
         bool m_InSampling = false; // in Sampling().ImageTextures (from its first upload on: main thread)
-        bool m_Pending = false;    // still loading (IsReady false)
+        std::atomic<bool> m_Pending{ false }; // still loading (IsReady false)
+        bool m_UploadQueued = false;          // QueueDeferredUpload done
+        int8_t m_SettingsLater = -1;          // OnWorker: its import settings read at the upload (1: the pixel-art copy)
         std::unique_ptr<GLDecodedImage> m_PendingImage; // its pixels, decoded, not uploaded yet
         std::string m_PendingError;
         TrackedMemory m_Memory{ MemoryCategory::Textures };
@@ -489,10 +580,14 @@ namespace Zamin {
             return;
         q.Anisotropy = anisotropy;
         q.SkippedMips = skippedMips;
-        if (q.ImageTextures.empty())
-            return;
+        {
+            std::lock_guard lock(q.Mutex);
+            if (q.ImageTextures.empty())
+                return;
+        }
         GLint bound = 0;
         glGetIntegerv(GL_TEXTURE_BINDING_2D, &bound);
+        std::lock_guard lock(q.Mutex);
         for (OpenGLTexture2D* texture : q.ImageTextures)
             texture->ApplyQualitySampling();
         glBindTexture(GL_TEXTURE_2D, (GLuint)bound);
@@ -507,13 +602,21 @@ namespace Zamin {
         TextureImportSettings settings;
         settings.Filter = filter;
         settings.Mipmaps = filter != TextureFilter::Nearest;
-        return CreateRef<OpenGLTexture2D>(path, settings);
+        return Create(path, settings);
     }
-    Ref<Texture2D> Texture2D::Create(const std::string& path, const TextureImportSettings& settings) { return CreateRef<OpenGLTexture2D>(path, settings); }
+    Ref<Texture2D> Texture2D::Create(const std::string& path, const TextureImportSettings& settings)
+    {
+        auto t = CreateRef<OpenGLTexture2D>(path, settings);
+        OpenGLTexture2D::QueueDeferredUpload(t); // (made by a worker)
+        return t;
+    }
     Ref<Texture2D> Texture2D::CreateFromMemory(const void* data, size_t size, const std::string& name)
     {
         auto t = CreateRef<OpenGLTexture2D>(data, size, name);
-        return t->IsLoaded() ? t : nullptr;
+        if (!t->IsLoaded())
+            return nullptr;
+        OpenGLTexture2D::QueueDeferredUpload(t); // (made by a worker: a model's embedded image)
+        return t;
     }
 
     // ---------------------------------------------------------------- TextureLibrary
@@ -528,6 +631,16 @@ namespace Zamin {
     static std::recursive_mutex s_TextureCacheMutex;
     // LoadAsync's textures still loading: their AsyncLoader loads (main thread).
     static std::unordered_map<const Texture2D*, uint64_t> s_AsyncLoads;
+    // LoadAsync's textures that turned out unreadable (GetFailedLoadSerial).
+    static uint64_t s_FailedLoadSerial = 0;
+
+    void OpenGLTexture2D::WaitForAsyncLoad(const Texture2D* texture)
+    {
+        if (JobSystem::IsWorkerThread() || AsyncLoader::IsDeferringGPU())
+            return;
+        if (auto it = s_AsyncLoads.find(texture); it != s_AsyncLoads.end())
+            AsyncLoader::Wait(it->second); // its decode, then its finish (the upload)
+    }
 
     static std::string CanonicalFile(const std::filesystem::path& path);
 
@@ -547,7 +660,8 @@ namespace Zamin {
     // A texture of the cache that is still loading, finished now (main thread) - a Load must give a ready one.
     static void FinishNow(const Ref<Texture2D>& texture)
     {
-        if (!texture || texture->IsReady() || AsyncLoader::IsDeferringGPU() || JobSystem::IsWorkerThread())
+        // (the thread first: a worker never reads what the main thread is finishing)
+        if (!texture || AsyncLoader::IsDeferringGPU() || JobSystem::IsWorkerThread() || texture->IsReady())
             return;
         if (auto it = s_AsyncLoads.find(texture.get()); it != s_AsyncLoads.end())
         {
@@ -578,15 +692,20 @@ namespace Zamin {
         if (!AssetImportLog::ShouldRetry(file))
             return nullptr;
 
-        // Decoded outside the lock (a worker may be decoding another file meanwhile).
-        Ref<Texture2D> texture = Texture2D::Create(file, GetLoadSettings(file, pixelArt));
+        // Decoded outside the lock (a worker may be decoding another file meanwhile). On a worker (a model
+        // read in the background) the import settings are read by the main thread at the upload.
+        const bool worker = AsyncLoader::IsDeferringGPU();
+        Ref<OpenGLTexture2D> texture = worker ? CreateRef<OpenGLTexture2D>(OpenGLTexture2D::OnWorker{}, file, pixelArt)
+                                              : CreateRef<OpenGLTexture2D>(file, GetLoadSettings(file, pixelArt));
         if (!texture->IsLoaded())
             return nullptr;
         std::lock_guard lock(s_TextureCacheMutex);
         auto [it, added] = s_TextureCache.try_emplace(key, CachedTexture{ texture, s_LoadSerial + 1 });
-        if (added)
-            ++s_LoadSerial;
-        return it->second.Texture; // (another thread's copy of the file when it came first)
+        if (!added)
+            return it->second.Texture; // another thread's copy of the file came first (ours made nothing on the GPU)
+        ++s_LoadSerial;
+        OpenGLTexture2D::QueueDeferredUpload(texture); // (a worker's: the main thread uploads it)
+        return texture;
     }
 
     Ref<Texture2D> TextureLibrary::LoadAsync(const std::filesystem::path& path, TextureFilter filter)
@@ -610,7 +729,9 @@ namespace Zamin {
                 s_AsyncLoads.erase(raw);
                 if (!texture->FinishLoading())
                 {
-                    // Unreadable: out of the cache, like a Load that failed (reported once per file version).
+                    // Unreadable: out of the cache, like a Load that failed (reported once per file version);
+                    // what took the texture meanwhile (sprites, tilemaps) lets go of it (GetFailedLoadSerial).
+                    s_FailedLoadSerial++;
                     std::lock_guard lock(s_TextureCacheMutex);
                     if (auto it = s_TextureCache.find(key); it != s_TextureCache.end() && it->second.Texture.get() == raw)
                         s_TextureCache.erase(it);
@@ -622,6 +743,7 @@ namespace Zamin {
     }
 
     size_t TextureLibrary::GetLoadingCount() { return s_AsyncLoads.size(); }
+    uint64_t TextureLibrary::GetFailedLoadSerial() { return s_FailedLoadSerial; }
 
     static std::string CanonicalFile(const std::filesystem::path& path)
     {
@@ -635,13 +757,18 @@ namespace Zamin {
         std::string file = CanonicalFile(path);
         size_t reloaded = 0;
         std::string error;
-        std::lock_guard lock(s_TextureCacheMutex);
-        for (auto& [key, cached] : s_TextureCache)
+        // The file's textures first, then read again outside the lock: one still loading in the background
+        // is waited for, and the loads finished meanwhile change the cache.
+        std::vector<std::pair<Ref<Texture2D>, bool>> textures; // (texture, the pixel-art copy)
         {
-            const Ref<Texture2D>& texture = cached.Texture;
-            if (texture->GetPath() != file)
-                continue;
-            bool pixelArt = key.ends_with(s_PixelArtSuffix);
+            std::lock_guard lock(s_TextureCacheMutex);
+            for (const auto& [key, cached] : s_TextureCache)
+                if (cached.Texture->GetPath() == file)
+                    textures.emplace_back(cached.Texture, key.ends_with(s_PixelArtSuffix));
+        }
+        for (const auto& [texture, pixelArt] : textures)
+        {
+            FinishNow(texture);
             if (error.empty() && texture->Reimport(GetLoadSettings(file, pixelArt), &error)) // a file that failed once is not read again
                 reloaded++;
             else if (failed)
@@ -699,10 +826,24 @@ namespace Zamin {
 
     size_t TextureLibrary::ReleaseUnused(uint64_t since)
     {
-        std::lock_guard lock(s_TextureCacheMutex);
-        return std::erase_if(s_TextureCache, [&](const auto& item) {
-            return item.second.Serial > since && item.second.Texture.use_count() == 1; // only the cache has it
-        });
+        std::vector<Ref<Texture2D>> released; // freed outside the lock
+        {
+            std::lock_guard lock(s_TextureCacheMutex);
+            std::erase_if(s_TextureCache, [&](const auto& item) {
+                if (item.second.Serial <= since)
+                    return false;
+                // Only the cache has it - and its own upload, for one a worker made that is still queued.
+                const auto* texture = static_cast<const OpenGLTexture2D*>(item.second.Texture.get());
+                const long queued = texture->m_Pending && texture->m_UploadQueued ? 1 : 0;
+                if (item.second.Texture.use_count() != 1 + queued)
+                    return false;
+                released.push_back(item.second.Texture);
+                return true;
+            });
+        }
+        for (const Ref<Texture2D>& texture : released)
+            AsyncLoader::CancelUpload(texture.get()); // (not uploaded for nothing)
+        return released.size();
     }
 
     void TextureLibrary::Clear()

@@ -48477,6 +48477,66 @@ TEST(AsyncLoaderWorkOnWorkersFinishOnMainThread)
     JobSystem::Shutdown();
 }
 
+TEST(AsyncLoaderImmediateFinishesLoadsAndRestoresMode)
+{
+    // A thumbnail drawn now: what is loading is finished first and LoadAsync loads at once in the scope.
+    JobSystem::Init(2);
+    const bool before = AsyncLoader::IsEnabled();
+    AsyncLoader::SetEnabled(true);
+    std::atomic<int> worked{ 0 };
+    int finished = 0, uploaded = 0;
+    for (int i = 0; i < 3; i++)
+        AsyncLoader::Enqueue("yuk", [&] { std::this_thread::sleep_for(std::chrono::milliseconds(3)); worked++; }, [&] { finished++; });
+    AsyncLoader::QueueUpload(&uploaded, [&] { uploaded++; });
+    {
+        AsyncLoader::Immediate immediate;
+        CHECK(!AsyncLoader::IsEnabled());
+        CHECK(worked == 3 && finished == 3 && uploaded == 1);
+        CHECK(AsyncLoader::GetPendingCount() == 0 && AsyncLoader::GetPendingUploadCount() == 0);
+        {
+            AsyncLoader::Immediate nested; // (nothing left to wait for)
+            CHECK(!AsyncLoader::IsEnabled());
+        }
+        CHECK(!AsyncLoader::IsEnabled());
+    }
+    CHECK(AsyncLoader::IsEnabled()); // the mode it found comes back
+    AsyncLoader::SetEnabled(before);
+    JobSystem::Shutdown();
+}
+
+TEST(PrimitiveLODForSmallCurvedMeshes)
+{
+    // The level by the part of the view a primitive's radius covers; flat primitives always draw themselves.
+    CHECK(MeshLibrary::GetPrimitiveLOD(PrimitiveMesh::Sphere, 0.5f) == 0);
+    CHECK(MeshLibrary::GetPrimitiveLOD(PrimitiveMesh::Sphere, 0.06f) == 0);
+    CHECK(MeshLibrary::GetPrimitiveLOD(PrimitiveMesh::Sphere, 0.05f) == 1);
+    CHECK(MeshLibrary::GetPrimitiveLOD(PrimitiveMesh::Cylinder, 0.015f) == 1);
+    CHECK(MeshLibrary::GetPrimitiveLOD(PrimitiveMesh::Cone, 0.01f) == 2);
+    CHECK(MeshLibrary::GetPrimitiveLOD(PrimitiveMesh::Cube, 0.001f) == 0);
+    CHECK(MeshLibrary::GetPrimitiveLOD(PrimitiveMesh::Plane, 0.001f) == 0);
+    // The coarser copies: a quarter and a sixteenth of a sphere's triangles, half and a quarter of a cylinder's
+    // segments - same unit size (made without the GPU here: DeferGPU keeps their vertices).
+    std::vector<MeshVertex> vertices;
+    std::vector<uint32_t> sphere, cylinder;
+    MeshLibrary::GeneratePrimitive(PrimitiveMesh::Sphere, vertices, sphere);
+    MeshLibrary::GeneratePrimitive(PrimitiveMesh::Cylinder, vertices, cylinder);
+    const size_t uploadsBefore = AsyncLoader::GetPendingUploadCount();
+    {
+        AsyncLoader::DeferGPU defer;
+        Ref<Mesh> sphere1 = MeshLibrary::GetPrimitive(PrimitiveMesh::Sphere, 1);
+        Ref<Mesh> sphere2 = MeshLibrary::GetPrimitive(PrimitiveMesh::Sphere, 2);
+        Ref<Mesh> cylinder2 = MeshLibrary::GetPrimitive(PrimitiveMesh::Cylinder, 2);
+        CHECK(sphere1 == MeshLibrary::GetPrimitive(PrimitiveMesh::Sphere, 1)); // cached
+        CHECK(sphere1->GetIndexCount() * 4 == (uint32_t)sphere.size());
+        CHECK(sphere2->GetIndexCount() * 16 == (uint32_t)sphere.size());
+        CHECK(cylinder2->GetIndexCount() * 4 == (uint32_t)cylinder.size());
+        CHECK_NEAR(sphere2->GetBounds().Max.y, 0.5f, 1e-5f);
+        CHECK_NEAR(cylinder2->GetBounds().Max.x, 0.5f, 1e-5f);
+        MeshLibrary::Clear();
+    }
+    CHECK(AsyncLoader::GetPendingUploadCount() == uploadsBefore); // (freed before their upload: nothing left to upload)
+}
+
 TEST(AsyncLoaderStartupModeFollowsCaptures)
 {
     auto unset = [](const char* name) { unsetenv(name); };

@@ -107,6 +107,13 @@ namespace Zamin {
     {
     public:
         static Ref<Mesh> GetPrimitive(PrimitiveMesh type);
+        // A coarser copy of a curved primitive (sphere, cylinder, cone) for one that is small in the view:
+        // lod 1 - half its segments, 2 - a quarter. The primitive itself for lod 0 and for the flat ones.
+        static Ref<Mesh> GetPrimitive(PrimitiveMesh type, int lod);
+        // Which copy a curved primitive whose radius is `screenFraction` of half the view's height draws:
+        // 0 from 6 % on, 1 from 1.5 %, else 2 - the outline stays within ~0.3 px of the full mesh's at 1080p
+        // (a sphere far away: 576 or 144 triangles instead of 2 304). 0 for the other primitives.
+        static int GetPrimitiveLOD(PrimitiveMesh type, float screenFraction);
         // The geometry of a primitive (no GPU): unit size, centered, counter-clockwise front faces
         // seen from outside (single-sided materials cull the others).
         static void GeneratePrimitive(PrimitiveMesh type, std::vector<MeshVertex>& vertices, std::vector<uint32_t>& indices);

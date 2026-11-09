@@ -373,7 +373,7 @@ qamrovi topdi).
 Bo'lim nomi - `Tests/ZaminTests.cpp` dagi bo'lim sarlavhasi (kod izohi, ingliz tilida).
 
 <!-- test-catalog:begin -->
-_`Tests/test_catalog.py --update docs/Testing.md` yaratgan: 651 ta unit test, 95 ta bo'lim (`Tests/ZaminTests.cpp` dagi tartibda). Bitta testni ishga tushirish: `./build/bin/ZaminTests <Nom>`._
+_`Tests/test_catalog.py --update docs/Testing.md` yaratgan: 653 ta unit test, 95 ta bo'lim (`Tests/ZaminTests.cpp` dagi tartibda). Bitta testni ishga tushirish: `./build/bin/ZaminTests <Nom>`._
 
 | # | Bo'lim | Testlar | Nomlari |
 |---|---|---|---|
@@ -470,6 +470,6 @@ _`Tests/test_catalog.py --update docs/Testing.md` yaratgan: 651 ta unit test, 95
 | 91 | physics determinism (Box2D, Jolt) | 2 | `PhysicsDeterminism2D`, `PhysicsDeterminism3D` |
 | 92 | editor Play copy (the exported game's order) | 1 | `PlayCopyRunsScriptsInFileOrder` |
 | 93 | script hot reload (in-process) | 3 | `ScriptReloadKeepsFieldValues`, `StaleModuleCopiesRemoved`, `DeferredDestroyOnceEachAndLinear` |
-| 94 | M25: optimization (tasks 481-487) | 14 | `BatchOrderGroupsDrawsThatDoNotOverlap`, `BatchOrderKeepsOverlappingDrawsInOrder`, `BatchOrderRandomScenesKeepEveryOverlap`, `WorldTransformCacheFollowsChanges`, `SteadyFramesMakeNoHeapAllocations`, `FontKerningIsOptInAndNarrowsPairs`, `FontAtlasCacheGivesTheSameAtlas`, `AsyncLoaderWorkOnWorkersFinishOnMainThread`, `AsyncLoaderStartupModeFollowsCaptures`, `ModelLoadedOnWorkerKeepsGpuWorkForMainThread`, `ShaderCacheStoresProgramBinaries`, `ShadowCastersCulledByWhatTheCameraSees`, `LargeParticleSystemSteppedInPiecesMatchesSerial`, `AnimatorVisibilityMarkedInParallelMatchesSerial` |
+| 94 | M25: optimization (tasks 481-487) | 16 | `BatchOrderGroupsDrawsThatDoNotOverlap`, `BatchOrderKeepsOverlappingDrawsInOrder`, `BatchOrderRandomScenesKeepEveryOverlap`, `WorldTransformCacheFollowsChanges`, `SteadyFramesMakeNoHeapAllocations`, `FontKerningIsOptInAndNarrowsPairs`, `FontAtlasCacheGivesTheSameAtlas`, `AsyncLoaderWorkOnWorkersFinishOnMainThread`, `AsyncLoaderImmediateFinishesLoadsAndRestoresMode`, `PrimitiveLODForSmallCurvedMeshes`, `AsyncLoaderStartupModeFollowsCaptures`, `ModelLoadedOnWorkerKeepsGpuWorkForMainThread`, `ShaderCacheStoresProgramBinaries`, `ShadowCastersCulledByWhatTheCameraSees`, `LargeParticleSystemSteppedInPiecesMatchesSerial`, `AnimatorVisibilityMarkedInParallelMatchesSerial` |
 | 95 | M25: start-up time, editor font icons, translations (tasks 495, 496, 499) | 3 | `StartupTimerParsesProcessStartTime`, `IconGlyphRangesCoverIconsHeader`, `EditorTranslationKeysComplete` |
 <!-- test-catalog:end -->

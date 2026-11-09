@@ -133,7 +133,7 @@ ogohlantirishsiz bo'lishi kerak (`zamin_target_settings`, `cmake/ZaminGame.cmake
 | `ZAMIN_COVERAGE` | `OFF` | gcov hisoblagichlari (faqat bizning target'larda) - 12-bo'lim |
 | `ZAMIN_OPTIMIZE_SERIALIZER_IN_DEBUG` | `ON` | Debug'da ham sahna serializatori `-O2` bilan (katta sahnalar bir necha marta tez); debugger'da qadamlash uchun `OFF` |
 | `ZAMIN_OPTIMIZE_PARTICLES_IN_DEBUG` | `ON` | Debug'da ham particle simulyatsiyasi `-O2` bilan (~30x tez); debugger uchun `OFF` |
-| `ZAMIN_GAME_MODULE_OUTPUT_DIR` | bo'sh | O'yin modullari `Projects/<O'yin>/Binaries` o'rniga shu papkaga yoziladi (eksport, sanitizer build'lari shuni ishlatadi) |
+| `ZAMIN_GAME_MODULE_OUTPUT_DIR` | bo'sh (`build/` dan boshqa build papkasida: `<build>/GameModules`) | O'yin modullari `Projects/<O'yin>/Binaries` o'rniga shu papkaga yoziladi va build'ning o'z dasturlari (`<build>/bin`) ularni o'sha yerdan yuklaydi (loyihaning moduli yangiroq bo'lsa - editor kompilyatsiyasi - u). Asosiy `build/` papkasi modullarni `Binaries/` ga yozadi; ikkinchi build (Release, Clang, benchmark) ularning ustiga yozmaydi |
 
 Masalan - faqat dvigatel va player, Shipping:
 

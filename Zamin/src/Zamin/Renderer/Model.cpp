@@ -1445,6 +1445,11 @@ namespace Zamin {
 
     bool Model::Reimport(const ModelImportSettings& settings, std::string* error)
     {
+        // Still loading in the background (LoadAsync): that load - read with the settings of its start - is
+        // finished first, or its finish would put the old result over this one later.
+        if (m_Loading)
+            if (auto load = s_ModelLoads.find(this); load != s_ModelLoads.end())
+                AsyncLoader::Wait(load->second);
         std::string reason;
         Ref<Model> fresh = ModelLoader::LoadFile(m_Path, settings, reason);
         if (!fresh)

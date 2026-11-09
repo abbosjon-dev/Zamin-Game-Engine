@@ -1870,6 +1870,9 @@ namespace Zamin {
     public:
         /// Looks up the mesh / model, the material assets and the inline material's textures.
         static void ResolveMeshRenderer(struct MeshRendererComponent& mr);
+        /// Sprites' and tilemaps' textures of a background load (LoadAsync) that turned out unreadable:
+        /// let go of (as if Load had given nullptr) once one failed since the last look. Before a frame is drawn.
+        void DropFailedTextures();
         /// Only the material assets (MaterialPath, SubmeshMaterials) and inline textures: no GPU mesh.
         static void ResolveMeshMaterials(struct MeshRendererComponent& mr);
         /// What a mesh renderer draws with. A primitive (modelMaterial = null): its material asset,
@@ -1990,6 +1993,8 @@ namespace Zamin {
         glm::mat4 m_LastView{ 1.0f };
         Ref<class EnvironmentMap> m_EnvMap;
         std::string m_EnvMapPath;
+        /// TextureLibrary::GetFailedLoadSerial when the scene last let go of its textures that failed (DropFailedTextures).
+        uint64_t m_SeenFailedTextureLoads = 0;
         bool m_MouseDown = false, m_MouseWasDown = false;
         bool m_UIDeferred = false;
         /// The UI widget the mouse button went down on (button, toggle, slider, input field): a click

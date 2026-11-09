@@ -183,6 +183,14 @@ namespace Zamin {
         }
     }
 
+    AsyncLoader::Immediate::Immediate() : m_Previous(S().Enabled)
+    {
+        WaitAll();
+        S().Enabled = false;
+    }
+
+    AsyncLoader::Immediate::~Immediate() { S().Enabled = m_Previous; }
+
     bool AsyncLoader::IsPending(uint64_t id)
     {
         const State& s = S();
@@ -210,9 +218,23 @@ namespace Zamin {
 
     void AsyncLoader::CancelUpload(const void* owner)
     {
-        std::lock_guard lock(S().UploadMutex);
-        auto& uploads = S().Uploads;
-        uploads.erase(std::remove_if(uploads.begin(), uploads.end(), [owner](const Upload& u) { return u.Owner == owner; }), uploads.end());
+        // Let go of after the queue is whole again: an upload may hold its owner (a texture), whose destructor
+        // then cancels again.
+        std::vector<Upload> cancelled;
+        {
+            std::lock_guard lock(S().UploadMutex);
+            auto& uploads = S().Uploads;
+            for (auto it = uploads.begin(); it != uploads.end();)
+            {
+                if (it->Owner != owner)
+                {
+                    ++it;
+                    continue;
+                }
+                cancelled.push_back(std::move(*it));
+                it = uploads.erase(it);
+            }
+        }
     }
 
     bool AsyncLoader::RunUpload(const void* owner)

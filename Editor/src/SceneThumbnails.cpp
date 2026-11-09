@@ -33,6 +33,9 @@ namespace Zamin {
     {
         if (!source || width == 0 || height == 0)
             return false;
+        // The scene's models and textures loaded now (also those still loading in the background since the
+        // scene opened), not placeholders: the picture is drawn in this frame and saved.
+        AsyncLoader::Immediate immediate;
         // A copy: drawing at the thumbnail's size changes the cameras' aspect and the UI layout.
         Ref<Scene> scene = Scene::Copy(source);
         scene->ResolveAssets();

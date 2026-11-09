@@ -1,5 +1,6 @@
 #include "Zamin/Scene/SceneManager.h"
 #include "Zamin/Asset/AssetImportLog.h"
+#include "Zamin/Asset/AsyncLoader.h"
 #include "Zamin/Audio/AudioEngine.h"
 #include "Zamin/Core/Profiler.h"
 #include "Zamin/Core/JobSystem.h"
@@ -349,7 +350,9 @@ namespace Zamin {
     static std::vector<fs::path> PredecodeSceneImages(const fs::path& file)
     {
         std::vector<fs::path> decode;
-        if (!JobSystem::IsParallel())
+        // With background loading (the editor's play mode) ResolveAssets only queues the images: the workers
+        // decode them side by side anyway, after DropPredecoded - decoding them here too would do it twice.
+        if (!JobSystem::IsParallel() || AsyncLoader::IsEnabled())
             return decode;
         SceneLoadJob probe; // the file's JSON again (a fraction of a millisecond next to the images)
         if (!probe.Parse(file))
@@ -1145,14 +1148,16 @@ namespace Zamin {
                     op.JoinWorker();
                     if (op.m_WorkerFailed)
                         return fail(op.m_Job->GetError());
-                    // The images that are not loaded yet are decoded ahead on the worker.
-                    for (const std::string& image : op.m_Images)
-                    {
-                        fs::path file = Project::GetAssetFileSystemPath(image);
-                        std::error_code ec;
-                        if (fs::is_regular_file(file, ec) && !TextureLibrary::IsLoaded(file))
-                            op.m_Decode.push_back(file);
-                    }
+                    // The images that are not loaded yet are decoded ahead on the worker (not with background
+                    // loading on: the entities' LoadAsync decodes them on the job system's workers instead).
+                    if (!AsyncLoader::IsEnabled())
+                        for (const std::string& image : op.m_Images)
+                        {
+                            fs::path file = Project::GetAssetFileSystemPath(image);
+                            std::error_code ec;
+                            if (fs::is_regular_file(file, ec) && !TextureLibrary::IsLoaded(file))
+                                op.m_Decode.push_back(file);
+                        }
                     if (op.m_Decode.empty())
                     {
                         op.m_Stage = Stage::Building;

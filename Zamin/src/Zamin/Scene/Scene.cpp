@@ -5417,6 +5417,22 @@ namespace Zamin {
         m_EnvMapPath.clear(); // the environment map is looked up again when the scene is drawn next
     }
 
+    void Scene::DropFailedTextures()
+    {
+        const uint64_t serial = TextureLibrary::GetFailedLoadSerial();
+        if (serial == m_SeenFailedTextureLoads)
+            return;
+        m_SeenFailedTextureLoads = serial;
+        // A sprite then draws its colour alone (not the white pixel of a texture with no picture, sized 0 x 0),
+        // a tilemap asks for its tileset again each frame - read once the file changes (like after a Load that failed).
+        for (auto e : m_Registry.view<SpriteRendererComponent>())
+            if (auto& sprite = m_Registry.get<SpriteRendererComponent>(e); sprite.Texture && !sprite.Texture->IsLoaded())
+                sprite.Texture = nullptr;
+        for (auto e : m_Registry.view<TilemapComponent>())
+            if (auto& tm = m_Registry.get<TilemapComponent>(e); tm.Tileset && !tm.Tileset->IsLoaded())
+                tm.Tileset = nullptr;
+    }
+
     void Scene::ResolveEntityAssets(Entity entity)
     {
         if (!entity)
@@ -7542,6 +7558,7 @@ namespace Zamin {
     void Scene::RenderScene(const glm::mat4& view, const glm::mat4& projection, const glm::vec3& cameraPosition,
                             const SceneRenderOptions& options)
     {
+        DropFailedTextures(); // (a texture loaded in the background that could not be read)
         // Parallax layers move with the camera that draws (their children with them).
         const bool parallax = options.Parallax && !m_Registry.view<ParallaxComponent>().empty();
         // World transforms: the scene's cache (made again only for what moved); room for every
@@ -7685,6 +7702,30 @@ namespace Zamin {
         // What this view sees of the animated models: the others may skip posing (Animator culling).
         MarkVisibleAnimators(projection * view);
         Renderer3D::BeginScene(view, projection, cameraPosition, env);
+        // Curved primitives that are small in this view draw a coarser copy (MeshLibrary::GetPrimitiveLOD):
+        // the outline within a fraction of a pixel, a quarter of the vertices or less - the vertex work of a
+        // scene full of far domes and coins (task 497; the shadow passes draw the same copy).
+        const bool perspectiveView = projection[3][3] == 0.0f;
+        const float viewScale = std::abs(projection[1][1]);
+        auto primitiveMesh = [&](const MeshRendererComponent& mr, const glm::mat4& transform) -> Ref<Mesh> {
+            if (MeshLibrary::GetPrimitiveLOD(mr.Type, 0.0f) == 0)
+                return mr.MeshAsset; // not a curved primitive
+            const float scale = std::max({ glm::length(glm::vec3(transform[0])), glm::length(glm::vec3(transform[1])),
+                                           glm::length(glm::vec3(transform[2])) });
+            const float radius = 0.5f * scale;
+            float fraction = radius * viewScale;
+            if (perspectiveView)
+            {
+                const float distance = glm::length(glm::vec3(transform[3]) - cameraPosition) - radius;
+                if (distance <= 0.0f)
+                    return mr.MeshAsset;
+                fraction /= distance;
+            }
+            const int lod = MeshLibrary::GetPrimitiveLOD(mr.Type, fraction);
+            if (lod == 0 || mr.MeshAsset != MeshLibrary::GetPrimitive(mr.Type))
+                return mr.MeshAsset; // (a mesh of its own: as it is)
+            return MeshLibrary::GetPrimitive(mr.Type, lod);
+        };
         for (auto e : m_Registry.view<TransformComponent, MeshRendererComponent>())
         {
             if (skip(e)) continue;
@@ -7725,7 +7766,8 @@ namespace Zamin {
                 const Material& m = options.MaterialPreview && e == options.MaterialPreviewEntity ? options.MaterialPreview->GetMaterial()
                                   : mr.MaterialInstance ? mr.MaterialInstance->GetMaterial()
                                   : mr.MaterialRef ? mr.MaterialRef->GetMaterial() : mr.Mat;
-                Renderer3D::SubmitMesh(mr.MeshAsset, world(e), m, (int)(uint32_t)e, mr.CastShadows);
+                const glm::mat4& transform = world(e);
+                Renderer3D::SubmitMesh(primitiveMesh(mr, transform), transform, m, (int)(uint32_t)e, mr.CastShadows);
             }
         }
         if (options.ShowGrid)

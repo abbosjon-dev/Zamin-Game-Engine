@@ -163,7 +163,9 @@ modullar sozlamalari) va MeshRenderer (material); obyektning o'zi (4 majburiy ko
 
 ## M25 optimallashtirish: oldin va keyin
 
-Muhit: yuqoridagi kompyuter, **Release** (`build-m25rel`), llvmpipe, xvfb. "Oldin" - M25 boshidagi commit (`37d2916`)
+Muhit: yuqoridagi kompyuter, **Release** (`build-m25rel`: `cmake -S . -B build-m25rel -G Ninja -DCMAKE_BUILD_TYPE=Release`;
+asosiy `build/` dan boshqa build papkalari o'yin modullarini endi o'zining `GameModules/` iga yozadi va o'z dasturlari
+ularni o'sha yerdan yuklaydi - `Projects/*/Binaries` dagi asosiy build modullari ustiga yozilmaydi), llvmpipe, xvfb. "Oldin" - M25 boshidagi commit (`37d2916`)
 build'i, "keyin" - 481-487 vazifalaridan keyingi build; ikkalasi bir xil benchmark kodi bilan (oldingi build'ning
 `ZaminBench` va `libZamin.so` nusxasi saqlab qo'yilgan edi). llvmpipe ostidagi og'ir 3D holatlar ±10 % tebranadi, shuning
 uchun vaqtlar juft-juft (oldin, keyin, oldin, keyin) o'lchandi. Yangi o'lchovlar:
@@ -226,10 +228,14 @@ Render tsikllari (`RenderScene` 2D qismi) komponent pool'larini bir marta oladi 
 |---|---:|---:|
 | Asosiy atlas (2048 px, 600+ glif, 2x2) | 45.0 ms rasterlash | **2.4 ms** keshdan o'qish (1.87 MB fayl) |
 | Glif qidirish | 4.46 ns (hash xarita) | 3.46 ns (to'g'ridan-to'g'ri jadval; Debug: 65.6 -> 13.0) |
-| Matn joylash, 24 px, so'z o'rash | 16.6 ns / belgi | 15.9 ns / belgi kerning bilan (juftlik keshi) |
+| Matn joylash, 24 px, so'z o'rash (kerning'siz) | 16.6 ns / belgi | 11.5 ns / belgi |
+| Matn joylash, 24 px, so'z o'rash, kerning bilan | - (kerning yo'q edi) | 15.7 ns / belgi (juftlik keshi) |
 | "AVATAR To'p Yer" kengligi, 24 px | 171.5 px | 161.2 px kerning yoqilganda (AV -0.062 em) |
 
-Kerning odatda o'chiq - render rasmlari o'zgarmadi; shrift `.zmeta` sida `"Import": { "Kerning": true }` yoqadi.
+Ikki matn joylash qatori bir xil yangi Release build'da `ZaminBench --fonts` bilan qayta o'lchangan: kerning'ning
+o'zi belgiga ~37 % qo'shadi (11.5 -> 15.7 ns), kerning'siz yangi yo'l eskisidan ~30 % tez (avvalgi jadvaldagi
+"15.9 ns kerning bilan" eski build'ning kerning'siz 16.6 ns i bilan solishtirilgan edi - bu kerning narxini
+yashirardi). Kerning odatda o'chiq - render rasmlari o'zgarmadi; shrift `.zmeta` sida `"Import": { "Kerning": true }` yoqadi.
 
 ### Fon yuklash (486, 487)
 
@@ -286,11 +292,21 @@ Kaskadlar bo'yicha (keyin): 1 / 1 / 321 / 0 tashlovchi (oldin 1 / 22 / 1001 / 0)
 
 Ilgari (369) mustaqil **tizimlar** ishchi oqimlarga taqsimlanardi - bitta katta tizim baribir bitta oqimda edi. Endi
 tizim ichidagi particle'lar ham 2 048 talik bo'laklarda (4 096 dan boshlab; dunyo to'qnashuvi, to'qnashuv hodisalari
-va izlarsiz). `ZaminBench --case "Bitta katta tizim"` (bitta tizim, ~49 000 particle, shovqin 2 oktava):
+va izlarsiz). Bitta tizim, ~49 000 particle, shovqin 2 oktava; `ZaminBench` standart holda bitta oqimda ishlaydi
+(`--jobs 0`), ishchi oqimlar soni `--jobs` bilan beriladi:
 
-| | 1 oqim (oldingi xatti-harakat) | 3 ishchi + asosiy oqim |
+```bash
+build-m25rel/bin/ZaminBench --case "Bitta katta tizim"            # 1 oqim ("bitta oqim")
+build-m25rel/bin/ZaminBench --case "Bitta katta tizim" --jobs 3   # 3 ishchi + asosiy oqim
+```
+
+| | 1 oqim (`--jobs 0`, oldingi xatti-harakat) | 3 ishchi + asosiy oqim (`--jobs 3`) |
 |---|---:|---:|
-| Kadr, o'rtacha | 12.2 ms | **4.0 ms** (3.1x) |
+| Kadr, o'rtacha (bo'sh kompyuter) | 12.2 ms | **4.0 ms** (3.1x) |
+| Qayta o'lchash (kompyuter yuklangan, reviewer) | 11.8-12.3 ms | eng tezi 3.50 ms, o'rtacha 7.64 ms |
+
+Parallel holat boshqa jarayonlar bilan yadrolarni bo'lishadi: kompyuter band bo'lsa o'rtacha vaqt eng tezidan
+ancha uzoqlashadi (bitta oqim deyarli o'zgarmaydi).
 
 (Oldingi build'da bu holat yo'q edi; bitta tizim u yerda `parallelSystems.size() > 1` sharti bilan doim bitta oqimda
 ishlardi - "1 oqim" ustuni shu yo'l.) Ko'p tizimli holatlar o'zgarmadi (`Shovqin`: 3.46 -> 3.43 ms, `Oddiy` 0.17 ms).
@@ -383,12 +399,16 @@ qaytadi), manbai aniqlanmadi (kadr ichida, ehtimol drayver).
 `Tests/Baselines/<nom>-<build turi>.json` bilan `Tests/bench_compare.py` orqali solishtiradi: biror raqam
 `--tolerance` (standart 25 %) dan va birlikning shovqin chegarasidan (ms 0.5, kadr ms 0.2, ns 100, bayt 16, % 2)
 ko'proq yomonlashsa skript 1 kodi bilan tugaydi. Fayl I/O qatorlari (`Noisy`) ko'rsatiladi, lekin hisobga olinmaydi.
+Bitta o'lchov band kompyuterda (boshqa jarayon, disk keshi) bir nechta raqamni 25 % dan ko'proq sekinlashtirishi
+mumkin (bu kompyuterda bir ishga tushirishda 79 tadan 20 tasi, keyingisida 1 tasi - kod o'zgarmagan): shuning uchun
+sekinroq ko'ringan benchmark yana ishga tushiriladi (`--repeat`, standart jami 3 marta) va har raqamning eng yaxshi
+natijasi solishtiriladi - haqiqiy sekinlashish har ishga tushirishda ko'rinadi. `--repeat 1` - bitta o'lchov.
 `--update-baseline` natijalarni yangi boshlang'ich natija qiladi. Boshlang'ich natijalar shu sahifadagi kompyuterda
 olingan: boshqa kompyuterda avval `--update-baseline` bilan o'sha yerda yarating, keyin o'zgarishni solishtiring.
 
 ```bash
 cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build build-release --target ZaminBench
-ZAMIN_BUILD_DIR=build-release Tests/bench.sh --compare      # o'zgarish tezlikni yomonlashtirdimi?
+ZAMIN_BUILD_DIR=build-release Tests/bench.sh --compare      # o'zgarish tezlikni yomonlashtirdimi? (shubhalisi 3 marta)
 ZAMIN_BUILD_DIR=build-release Tests/bench.sh --update-baseline
 ```
 

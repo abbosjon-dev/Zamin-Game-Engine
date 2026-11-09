@@ -429,6 +429,10 @@ void OnMessage(const ScriptMessage& m) override
 - **GPU instancing** — bir xil mesh + bir xil material (shader oladigan hamma qiymatlar teng, skinned emas, opaque /
   cutout) bitta `glDrawElementsInstanced` chaqiruvida; soya kaskadlarida ham. Ko'p bir xil obyekt uchun material
   **nusxasi** emas, umumiy asset ishlating — nusxalar instancing'ni buzadi.
+- **Primitivlarning LOD'i** — shar, silindr va konus ekranda kichik bo'lsa (radiusi ko'rinish balandligi yarmining
+  6 % idan kam) segmentlari yarmi, 1.5 % dan kam bo'lsa choragi bo'lgan nusxasi chiziladi (`MeshLibrary::GetPrimitive(type,
+  lod)`, `GetPrimitiveLOD`): 1080p'da chegara 0.3 pikseldan kam o'zgaradi, uzoqdagi shar 2 304 o'rniga 576 / 144
+  uchburchak. Soya o'tishlari ham shu nusxani chizadi. Ipak Yo'li namunasida kadr uchburchaklari 119K -> 53K.
 - **Animatsiya kesish** — ko'rinmaydigan modellar pozalanmaydi ([Animation.md](Animation.md#16-samaradorlik-keshlash-va-kesish)).
 - **2D batch tartibi** (`BatchOrder`) — saralangan 2D ro'yxatda sprite, doira va matnlar navbatma-navbat kelsa, har
   almashuv Renderer2D batch'ini chizdirardi. Endi ekranda **ustma-ust tushmaydigan** chizishlar o'z turidagi oldingisi

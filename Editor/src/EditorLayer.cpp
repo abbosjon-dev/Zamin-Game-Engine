@@ -6,6 +6,8 @@
 #include <Zamin/Core/StartupTimer.h>
 #include <Zamin/Utils/FileSystem.h>
 
+#include <fstream>
+
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <imgui_stdlib.h>
@@ -6289,6 +6291,28 @@ namespace Zamin {
         }
     }
 
+    // A shared library the linker has finished writing: the ELF header's section header table (which
+    // GNU ld / gold / lld write last) lies inside the file. A busy machine can stall the linker for longer
+    // than the polls below, with the size unchanged in between: such a file failed to load ("file too
+    // short"). Not an ELF file (another platform's module): true - the loader decides.
+    static bool IsElfFileComplete(const fs::path& file, uintmax_t size)
+    {
+        unsigned char header[64] = {};
+        std::ifstream in(file, std::ios::binary);
+        if (!in.read(reinterpret_cast<char*>(header), sizeof(header)))
+            return false; // not even the header yet
+        if (header[0] != 0x7F || header[1] != 'E' || header[2] != 'L' || header[3] != 'F' || header[4] != 2 || header[5] != 1)
+            return true; // not a 64-bit little-endian ELF file
+        const auto read = [&](size_t at, size_t bytes) {
+            uint64_t value = 0;
+            for (size_t i = 0; i < bytes; i++)
+                value |= (uint64_t)header[at + i] << (8 * i);
+            return value;
+        };
+        const uint64_t sectionTable = read(0x28, 8), entrySize = read(0x3A, 2), entries = read(0x3C, 2);
+        return sectionTable + entrySize * entries <= size;
+    }
+
     void EditorLayer::CheckModuleHotReload(Timestep ts)
     {
         m_HotReloadTimer += ts;
@@ -6306,7 +6330,7 @@ namespace Zamin {
             // is loaded only once the file stayed the same (time and size) for one more poll - a module read
             // half written would not load, and the old one is unloaded by then.
             const uintmax_t size = fs::file_size(module, ec);
-            if (ec || time != m_ChangedModuleTime || size != m_ChangedModuleSize)
+            if (ec || time != m_ChangedModuleTime || size != m_ChangedModuleSize || !IsElfFileComplete(module, size))
             {
                 m_ChangedModuleTime = time;
                 m_ChangedModuleSize = ec ? 0 : size;

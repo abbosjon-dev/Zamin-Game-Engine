@@ -15,3 +15,10 @@ leak:ma_context_init__jack
 # one that called GL. OpenGLTexture2D::SetData itself allocates nothing (it only calls glTexSubImage2D /
 # glGenerateMipmap), so this cannot hide a leak of ours.
 leak:Zamin::OpenGLTexture2D::SetData
+# Mesa GLX (Ubuntu 24.04, Mesa 25.2.8-0ubuntu0.24.04.4): the extension-string query
+# retains a 128-byte driver allocation after glfwTerminate. CI's complete stack ends
+# at GLFW extensionSupportedGLX -> glXQueryExtensionsString; that helper allocates
+# nothing itself. Match this vendor query only, never Zamin/GlfwWindow or all of Mesa.
+# The local .2 Mesa package does not reproduce it; an intentional application leak
+# remains visible with this suppression. Evidence: ASan run 42877104904 artifacts.
+leak:extensionSupportedGLX

@@ -56,3 +56,16 @@ function(zamin_add_game_module name)
         target_compile_options(${name} PRIVATE -fno-gnu-unique)
     endif()
 endfunction()
+
+# Require complete engine DSOs in regular builds. Clang's sanitizer runtimes are
+# supplied by the final executable, not the instrumented shared library link.
+# --no-undefined (like -z defs) would reject those expected runtime references.
+# https://clang.llvm.org/docs/AddressSanitizer.html#usage
+function(zamin_check_shared_library_symbols target)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND ZAMIN_SANITIZE)
+            return()
+        endif()
+        target_link_options(${target} PRIVATE -Wl,--no-undefined)
+    endif()
+endfunction()

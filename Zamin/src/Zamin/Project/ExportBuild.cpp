@@ -71,6 +71,9 @@ namespace Zamin {
         std::string command = "cmake -S " + ShellQuote(ProjectDirectory.string()) + " -B " + ShellQuote(BuildDirectory.string());
         if (fresh && Ninja)
             command += " -G Ninja";
+        const fs::path compilerCache = EngineDirectory / "ZaminModuleCompiler.cmake";
+        if (fs::is_regular_file(compilerCache, ec))
+            command += " -C " + ShellQuote(compilerCache.string());
         command += " -DCMAKE_BUILD_TYPE=Release";
         command += " " + ShellQuote("-DCMAKE_CXX_FLAGS_RELEASE=" + OptimizationFlags);
         command += " " + ShellQuote("-DCMAKE_C_FLAGS_RELEASE=" + OptimizationFlags);

@@ -267,3 +267,21 @@ Linux Release / GCC 13.3 / Mesa llvmpipe tekshiruvi:
 - FoliageWorkshop va Platformer2D eksportlari: Player, screenshot, relocation; native eksportda 26 skript klassi yuklandi.
 
 Dalillar lokal `build-review/IntegrationReview/` da; bu natijalar physical GPU yoki boshqa OS/drayverlar uchun frame-time acceptance o'rnini bosmaydi.
+
+
+### CI compiler/sanitizer kuzatuvi — 2026-11-10
+
+`69140f2` push'idan keyingi Actions `42877104904` lokal GCC tekshiruvlari qamramagan
+holatlarni ko'rsatdi: Clang sanitizer DSO link'idagi `--no-undefined` va yangi native
+modulning standart GCC bilan konfiguratsiyasi. Sanitizer DSO'larida faqat Clang runtime
+reference'lariga mos siyosat ishlatiladi; oddiy build'ning no-undefined himoyasi saqlanadi.
+`SanitizerSharedLink` Clang ASan/UBSan/combined executable'da ishga tushish va real overflow
+aniqlanishini tasdiqladi. Production export command'i haqiqiy Clang SDK konfiguratsiyasi bilan
+kompilyatorni tanladi, explicit noto'g'ri GCC override esa ABI gate tomonidan rad etildi.
+
+ASan artefaktidagi 128-byte leak stack'i GLFW `extensionSupportedGLX` orqali
+`glXQueryExtensionsString` ga boradi (Mesa `25.2.8-0ubuntu0.24.04.4`). Faqat shu vendor
+query uchun LSan istisnosi kiritildi; Zamin/GlfwWindow yoki barcha Mesa allocation'lari
+istisno qilinmaydi. Lokal `.2` Mesa paketidagi minimal GLFW probe bu leak'ni chiqarmadi;
+shu istisno ostida ataylab qoldirilgan 713-byte application allocation baribir LSan
+hisobotiga tushdi. Yangi CI natijasi alohida qayd etiladi.

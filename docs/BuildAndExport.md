@@ -394,6 +394,19 @@ Versiya, kompaniya va mahsulot nomi, ikonka, splash, oyna sozlamalari - Project 
   hamma target'larga (vendor kutubxonalarga ham) va `ZaminConfig.cmake` orqali tashqi o'yin modullariga beriladi.
   Bunday build o'yin modullarini loyihaning `Binaries/` iga emas, o'zining `GameModules/` papkasiga yozadi va o'z
   dasturlari o'sha yerdan yuklaydi. Qulay yo'l - `Tests/sanitize.sh address [--smoke] [--editor-smoke]`.
+Yangi native modul konfiguratsiyasi engine build'idagi `ZaminModuleCompiler.cmake` initial-cache
+faylini `-C` orqali o'qiydi: F7 va eksport engine ishlatgan C/C++ kompilyatorini tanlaydi.
+Bu `project()` dan oldin bajariladi; mavjud CMake cache yoki aniq berilgan compiler
+qiymati almashtirilmaydi. Kompilyatorni almashtirayotgan loyihada yangi build papkasidan
+foydalaning. Mos kelmagan kompilyatorni SDK ABI tekshiruvi rad etishda davom etadi.
+
+Clang sanitizer build'larida runtime yakuniy executable tomonidan ulanadi: instrumentlangan engine
+shared library'larida `--no-undefined` qo'llanmaydi. Oddiy build'larda engine va UI'siz kutubxona
+uchun bu tekshiruv saqlanadi. `SanitizerSharedLink` CTest'i production CMake qoidasini kichik
+ASan/UBSan DSO va consumer bilan tekshiradi, haqiqiy overflow aniqlanishi hamda oddiy build'da
+noto'g'ri application symbol rad etilishini tasdiqlaydi. Clang yoki compiler-rt bo'lmasa bu
+qo'shimcha test o'tkazib yuboriladi.
+
 - **Coverage**: `-DZAMIN_COVERAGE=ON` (preset `coverage`) - faqat bizning target'lar `--coverage -O0` bilan;
   `Tests/coverage.sh [--gui] [--html]` ([Coverage.md](Coverage.md)).
 

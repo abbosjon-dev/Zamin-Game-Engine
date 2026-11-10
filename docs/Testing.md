@@ -493,3 +493,10 @@ SDK va profiling tekshiruvlari: `ctest --test-dir build-review -R 'ModuleABILoad
 
 
 Packed foliage qo'shimcha GL oracle'i: `ZaminFoliageRenderTests --require-gpu` (GL 4.3+) va `MESA_GL_VERSION_OVERRIDE=4.1 MESA_GLSL_VERSION_OVERRIDE=410 ZaminFoliageRenderTests` (CPU fallback). Har birini `LIBGL_ALWAYS_SOFTWARE=1 LP_NUM_THREADS=2 xvfb-run -a` ostida ishga tushiring. 4096 instance va 5 kamera: CPU/GPU count/pixel, LOD hysteresis, input upload cache, multi-part indirect command, backend switch, shadow/picking/wire va noto'g'ri winding/LOD'ni rad etish. [Foliage namunasi](../Projects/FoliageWorkshop/README.md) va [cheklovlar](Terrain.md#packed-foliage-va-ikki-model-lod).
+
+
+`SanitizerSharedLink` (Linux + Clang/compiler-rt) production CMake shared-library siyosatini
+kichik alohida loyihada tekshiradi: Clang ASan, UBSan va ikkalasi bilan DSO/consumer link,
+normal ishga tushish, haqiqiy signed overflow aniqlanishi va oddiy Clang build'da yo'q
+application symbol rad etilishi. Clang/compiler-rt yo'q bo'lsa skip; `ctest -R SanitizerSharedLink`
+yoki `python3 Tests/sanitizer_link_test.py --compiler /usr/bin/clang++-18`.

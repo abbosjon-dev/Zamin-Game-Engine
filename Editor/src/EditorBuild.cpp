@@ -53,6 +53,12 @@ namespace Zamin {
         std::vector<std::string> configure{ "cmake", "-S", projectDir.string(), "-B", buildDir.string(),
             "-DCMAKE_BUILD_TYPE=Release", "-DZamin_DIR=" + engineCMakeDir.string() };
         if (ninja) { configure.push_back("-G"); configure.push_back("Ninja"); }
+        const fs::path compilerCache = engineCMakeDir / "ZaminModuleCompiler.cmake";
+        if (fs::is_regular_file(compilerCache))
+        {
+            configure.push_back("-C");
+            configure.push_back(compilerCache.string());
+        }
         const std::vector<std::string> build{ "cmake", "--build", buildDir.string(), "--parallel" };
 
         m_Building = true;

@@ -292,6 +292,14 @@ int main(int argc, char** argv)
         Renderer::ResetStats();
         p.Draw(RenderDebugView::Lit, WireframeMode::Off, false, true);
         Check(Renderer::GetStats().ShadowCasterCount > 0, "terrain casts sun shadow");
+        // Exercise the failure path as well as successful shader-cache loads.
+        auto invalidProgram = Shader::Create("Integration_LinkMismatch",
+            "#version 410 core\nout vec3 LinkData; void main(){ LinkData=vec3(1); gl_Position=vec4(0,0,0,1); }",
+            "#version 410 core\nin vec2 LinkData; out vec4 Color; void main(){ Color=vec4(LinkData,0,1); }");
+        Check(invalidProgram && !invalidProgram->IsValid(), "mismatched shader stages rejected");
+        invalidProgram.reset();
+        Check(RenderCommand::PopErrors() == 0, "failed program cleanup leaves GL error state clean");
+        Check(glm::length(p.Draw(RenderDebugView::Albedo, WireframeMode::Off, false, true)) > 0, "valid terrain still draws after link failure");
         std::printf("PASS: terrain GPU blend, ORM, normals, AO, picking, wire, native bindings, control cache, resize, UV/LOD seams, reload recovery, shadow resize, safe fallback\n");
     }
     catch (const std::exception& e)

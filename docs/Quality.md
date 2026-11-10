@@ -250,3 +250,20 @@ regressiyasi o'tdi. Loglar va JSON/JUnit hisobotlar `build-review/Audit/` da.
 707/707 unit va 12/12 reference render regressiyasi o'tdi. Native fixture mos/mos emas/belgisiz/strip qilingan modullarni tekshirdi; mos kelmagan modul konstruktorlari bajarilmadi, failed dlopen oldingi klass registry'sini saqladi. Ko'chirilgan SDK configure bo'ldi; uning headeri yoki toolchain'i o'zgartirilganda aniq xato bilan rad etildi. Editor hot reload yangi maydon default'i va oldingi qiymatlarni saqladi. Native Platformer2D eksporti 26 klass bilan ishladi, screenshot va relocation o'tdi; mos kelmagan modul bilan eksport `Succeeded=false` chiqardi.
 
 GL 4.1 GPU timestamp suite 34 completed sample, 1 pending, 0 dropped qayd etdi; bu software Mesa correctness dalili. Foliage API: region/offset, world normal (nonuniform parent), lock/hidden, invalid/runtime holat, hierarchy/save/copy testlari. Haqiqiy editorda 89 ildiz reproject va Undo/Redo o'tdi. Root/module/diagnostika/profiler screenshot va loglari `build-review/SDKQuality/` da. Alohida GPU foliage culling/LOD va physical GPU byudjeti keyingi paketda.
+
+
+## Upstream integratsiyasi — 2026-11-10
+
+GitHub `main` dagi `7f71a6c` gacha bo'lgan 13 commit lokal terrain, foliage, visual graph, C++ muharriri va SDK/ABI ishlari bilan merge qilindi. Asl tarix va ikkala yo'nalish saqlandi. Terrain shader'i ham upstream `ZaminFrame` UBO'sidan foydalanadi; upstream ELF linker-completion tekshiruvi ko'chirilgan build/hot-reload kodiga qo'shildi. Yangi UI kalitlari tarjima coverage'iga kiritildi. Shader link xatosida nol program'dan detach qilish bartaraf etildi; keyingi terrain draw va toza GL error state regressiyada tekshirildi. Visual graph GUI testi sekin software render'da pointer va tugma holatlari kuzatilishi uchun vaqt ajratadi; tugun, Undo/Redo va typed wire assert'lari saqlangan.
+
+Linux Release / GCC 13.3 / Mesa llvmpipe tekshiruvi:
+
+- 730/730 unit; barcha 8 ta GUI'siz CTest (hujjat/snippet, bench smoke, sample assets, native ABI va SDK manifest) o'tdi.
+- 12/12 reference render; GL 4.3 foliage compute va GL 4.1 CPU fallback, 4096 instance / besh kamera / asosiy tasvirlarda 0 pixel farqi.
+- GL 4.1 terrain PBR/cache/reload/shadow resize va shader link failure recovery; GPU profiler va UI'siz runtime.
+- Showcase3D 224/224 va Platformer2D 266/266 editor qadami: 0 GL/ImGui xatosi.
+- Visual graph haqiqiy node/wire/Undo/Redo GUI testi va C++ muharriri typing/save/completion/build/error navigation/recovery testi.
+- Haqiqiy native hot reload v1→v2: maydonlar saqlandi va sahna fayli o'zgarmadi.
+- FoliageWorkshop va Platformer2D eksportlari: Player, screenshot, relocation; native eksportda 26 skript klassi yuklandi.
+
+Dalillar lokal `build-review/IntegrationReview/` da; bu natijalar physical GPU yoki boshqa OS/drayverlar uchun frame-time acceptance o'rnini bosmaydi.

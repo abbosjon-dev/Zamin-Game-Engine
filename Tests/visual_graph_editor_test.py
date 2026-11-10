@@ -13,7 +13,10 @@ shutil.copytree(repo/'Projects/VisualWorkshop',project,ignore=shutil.ignore_patt
 env=dict(os.environ,HOME=str(work/'home'),ZAMIN_EDITOR_VISUAL_GRAPH='Scripts/Move2D.zgraph',ZAMIN_EDITOR_SELECT='Player',ZAMIN_MAX_FRAMES='10000')
 log=(work/'editor.log').open('w');app=subprocess.Popen([str(build/'bin/ZaminEditor'),str(project/'VisualWorkshop.zproject')],env=env,stdout=log,stderr=subprocess.STDOUT)
 def x(*args):subprocess.run(['xdotool',*map(str,args)],check=True,stdout=subprocess.DEVNULL)
-def click(px,py):x('mousemove',px,py);x('click',1);time.sleep(1.2)
+def click(px,py):
+ # Give GLFW a frame to observe the pointer before the button event on slow software renders.
+ x('mousemove',px,py);time.sleep(.6)
+ x('mousedown',1);time.sleep(1);x('mouseup',1);time.sleep(1.2)
 def read():return json.loads((project/'Assets/Scripts/Move2D.zgraph').read_text())
 def save():click(473,140);time.sleep(1.2)
 try:
@@ -27,7 +30,7 @@ try:
   time.sleep(.4)
  else:raise RuntimeError('Graph window did not become ready')
  time.sleep(1)
- click(150,233);x('key','ctrl+a');x('type','--clearmodifiers','--delay','30','Constant.Number');time.sleep(1.2);click(155,283);save()
+ click(150,233);x('keydown','ctrl');time.sleep(.3);x('key','a');time.sleep(.3);x('keyup','ctrl');time.sleep(.3);x('type','--clearmodifiers','--delay','180','Constant.Number');time.sleep(1.2);click(155,283);save()
  j=read();assert len(j['Nodes'])==12,len(j['Nodes']);assert j['Nodes'][-1]['Kind']=='Constant.Number';print('UI: add node + save passed',flush=True)
  click(531,140);save();assert len(read()['Nodes'])==11;print('UI: undo passed',flush=True)
  click(585,140);save();assert len(read()['Nodes'])==12;print('UI: redo passed',flush=True)

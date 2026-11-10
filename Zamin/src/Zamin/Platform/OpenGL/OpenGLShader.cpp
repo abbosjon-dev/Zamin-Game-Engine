@@ -205,8 +205,13 @@ namespace Zamin {
                 glDeleteProgram(program);
                 program = 0;
             }
-            glDetachShader(program, vs);
-            glDetachShader(program, fs);
+            // A failed link already deleted the program. Detaching from zero would
+            // introduce GL_INVALID_VALUE and contaminate subsequent valid draws.
+            if (program)
+            {
+                glDetachShader(program, vs);
+                glDetachShader(program, fs);
+            }
             glDeleteShader(vs);
             glDeleteShader(fs);
             m_RendererID = program;

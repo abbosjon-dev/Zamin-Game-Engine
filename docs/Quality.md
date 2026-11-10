@@ -308,3 +308,35 @@ Tekshiruvlar:
 Dalillar: lokal `build-review/WorldManifestReview/`; shu yerda mavjud 4096 instance'li FoliageWorkshop editorining
 screenshot'i ham bor. Manifest metadata qismi UI ko'rinishini o'zgartirmaydi. Navbat: bounded async IO/decode,
 versiyali cancel/unload va main-thread activation/residency byudjetlari.
+
+
+## World-cell CPU staging v1 — 2026-11-10
+
+`WorldCellLoader` manifestdan dependency closure oladi; 1–4 xususiy worker bilan bounded `.zscene` IO,
+SAX preflight va `SceneLoadJob` parse/migratsiyasini bajaradi. Avlodli so‘rov, stale-result discard,
+input reservation, failure propagation va explicit retry bor. `Poll` tayyor natijalarni son bo‘yicha
+cheklab e’lon qiladi; `TakeReady` mos avloddagi job’ni caller’ga uzatadi. Bu runtime activation/unload,
+texture decode/upload yoki haqiqiy RAM/VRAM residency boshqaruvi emas; input reservation va DOM/scratch
+xotirasi alohida tushunchalar. Chegaralar va shutdown/cancellation cheklovlari [Terrain.md](Terrain.md) da.
+
+Tekshiruvlar:
+
+- Umumiy Release build: barcha targetlar va `ZaminStandalone`; **744/744 unit**, **9/9 GUI'siz CTest**.
+- To‘qqiz yangi test GCC va Clang 18 probe’da `-Wall -Wextra -Wpedantic -Werror` bilan o‘tdi.
+- Worker staging, avlod/cancel/retry, dependency failure, bitta reservation bilan backpressure,
+  100 marta kamera talabi almashishi va pending worker bilan destruktsiya tekshirildi.
+- Buzilgan/katta JSON, node/entity/nesting chegaralari, duplicate key, kelajak versiyasi,
+  symlink, FIFO, directory va asset root almashtirilishi regressiyalari o‘tdi.
+- Haqiqiy Platformer2D Level1 (eski v1 → v5 migratsiya, 108 entity) va FoliageWorkshop Forest
+  (v5, 5 entity / 4096 packed instance) worker’da parse qilindi; natijalar oddiy scene parser bilan mos,
+  staging davomida entity/GPU faollashtirilmadi.
+- To‘qqiz test yangi loader/probe kodining ASan+UBSan build’ida o‘tdi: 0 sanitizer xabari.
+  Link qilingan mavjud engine kutubxonasi instrumentlanmagan; butun engine sanitizer tekshiruvi yangi CI’da alohida yuradi.
+- UI’siz runtime DSO’ga link qilingan alohida probe: worker staging → generation transfer → main-thread scene build o‘tdi.
+- TSan probe shu muhitda natija bermadi; minimal hello dasturi ham runtime startida
+  `FATAL: ThreadSanitizer: unexpected memory mapping` chiqardi. TSan coverage da’vo qilinmaydi.
+
+Oldingi `06d6055` push’ining [GitHub CI](https://github.com/abbosjon-dev/Zamin-Game-Engine/actions/runs/42886580325)
+barcha 6 job’i muvaffaqiyatli tugagan. Ushbu paketning yangi remote CI natijasi alohida baholanadi.
+Dalillar: lokal `build-review/WorldCellLoaderReview/`. Keyingi ish: main-thread activation/upload byudjeti,
+physics/script lifecycle va faol kataklarni xavfsiz unload qilish.

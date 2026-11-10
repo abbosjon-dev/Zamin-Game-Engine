@@ -40,7 +40,7 @@ namespace Zamin {
     // the asset registry, where dropped files are imported to). Other = unknown.
     enum class AssetType : uint8_t
     {
-        Folder = 0, Scene, Prefab, Texture, Model, Audio, Font, Environment, Material, PhysicsMaterial, Animation, SpriteAnimation, ParticlePreset, Script, Project, Other,
+        Folder = 0, Scene, Prefab, Texture, Model, Audio, Font, Environment, Material, PhysicsMaterial, Animation, SpriteAnimation, ParticlePreset, Script, Project, Other, VisualGraph,
         Count
     };
 

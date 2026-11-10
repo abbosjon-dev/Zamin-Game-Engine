@@ -1191,6 +1191,7 @@ namespace Zamin {
         std::string m_ClassName;
         uint64_t m_OwnerID = 0; ///< entity UUID, also known after the entity's components are gone
         friend class Scene;
+        friend class VisualGraphHost;
     };
 
 }

@@ -42,6 +42,13 @@ set(CPP_RTTI_ENABLED ON CACHE BOOL "" FORCE)
 set(DEBUG_RENDERER_IN_DEBUG_AND_RELEASE OFF CACHE BOOL "" FORCE)
 set(PROFILER_IN_DEBUG_AND_RELEASE OFF CACHE BOOL "" FORCE)
 set(USE_ASSERTS OFF CACHE BOOL "" FORCE)
+# Jolt's defaults propagate AVX/FMA options to the engine. Keep exports portable by
+# default; an optimized build explicitly opts into the complete AVX2 CPU requirement.
+foreach(feature SSE4_1 SSE4_2 AVX AVX2 LZCNT TZCNT F16C FMADD)
+    set(USE_${feature} ${ZAMIN_ENABLE_AVX2} CACHE BOOL "Zamin CPU profile" FORCE)
+endforeach()
+set(USE_AVX512 OFF CACHE BOOL "Zamin never requires AVX512" FORCE)
+
 FetchContent_Declare(JoltPhysics GIT_REPOSITORY https://github.com/jrouwe/JoltPhysics.git GIT_TAG v5.2.0 GIT_SHALLOW TRUE SOURCE_SUBDIR Build)
 
 FetchContent_MakeAvailable(glfw glm entt json box2d JoltPhysics)
@@ -56,6 +63,9 @@ FetchContent_Declare(cgltf GIT_REPOSITORY https://github.com/jkuhlmann/cgltf.git
 FetchContent_Declare(tinyobj  GIT_REPOSITORY https://github.com/tinyobjloader/tinyobjloader.git GIT_TAG v2.0.0rc13 GIT_SHALLOW TRUE)
 
 foreach(dep imgui imguizmo stb tinyobj miniaudio cgltf)
+    if(NOT ZAMIN_WITH_IMGUI AND (dep STREQUAL "imgui" OR dep STREQUAL "imguizmo"))
+        continue()
+    endif()
     FetchContent_GetProperties(${dep})
     if(NOT ${dep}_POPULATED)
         FetchContent_Populate(${dep})
@@ -66,6 +76,7 @@ endforeach()
 add_library(glad OBJECT ${PROJECT_SOURCE_DIR}/vendor/glad/src/glad.c)
 target_include_directories(glad PUBLIC ${PROJECT_SOURCE_DIR}/vendor/glad/include)
 
+if(ZAMIN_WITH_IMGUI)
 # Dear ImGui (docking) + GLFW/OpenGL3 backends
 add_library(imgui OBJECT
     ${imgui_SOURCE_DIR}/imgui.cpp
@@ -93,6 +104,8 @@ target_include_directories(imguizmo PUBLIC ${imguizmo_SOURCE_DIR})
 target_include_directories(imguizmo PRIVATE ${PROJECT_SOURCE_DIR}/Zamin/src) # ImGuiConfig.h (above)
 target_link_libraries(imguizmo PUBLIC imgui)
 
+endif()
+
 # stb (image loading)
 add_library(stb INTERFACE)
 target_include_directories(stb INTERFACE ${stb_SOURCE_DIR})
@@ -110,7 +123,11 @@ target_include_directories(cgltf INTERFACE ${cgltf_SOURCE_DIR})
 add_library(miniaudio INTERFACE)
 target_include_directories(miniaudio SYSTEM INTERFACE ${miniaudio_SOURCE_DIR})
 
-foreach(t glad imgui imguizmo)
+set(_zm_pic_targets glad)
+if(ZAMIN_WITH_IMGUI)
+    list(APPEND _zm_pic_targets imgui imguizmo)
+endif()
+foreach(t ${_zm_pic_targets})
     set_target_properties(${t} PROPERTIES POSITION_INDEPENDENT_CODE ON)
 endforeach()
 
@@ -119,6 +136,9 @@ endforeach()
 # is SYSTEM already. Only the vendor targets' interface directories: none of them is ours (Zamin/src stays
 # a plain -I directory everywhere, checked below).
 foreach(t glm glm-header-only EnTT nlohmann_json box2d Jolt glfw glad imgui imguizmo stb tinyobj cgltf)
+    if(NOT TARGET ${t})
+        continue()
+    endif()
     get_target_property(_zm_inc ${t} INTERFACE_INCLUDE_DIRECTORIES)
     if(_zm_inc)
         foreach(_zm_ours Zamin Editor Runtime Tests Projects)

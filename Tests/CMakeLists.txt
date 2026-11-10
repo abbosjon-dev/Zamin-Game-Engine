@@ -1,7 +1,12 @@
-add_executable(ZaminTests ZaminTests.cpp TestFramework.cpp DebugDrawShippingCheck.cpp)
-target_link_libraries(ZaminTests PRIVATE Zamin)
+add_executable(ZaminTests ZaminTests.cpp PackedFoliageTests.cpp ModuleABITests.cpp TerrainFoliageTests.cpp CodeDocumentTests.cpp VisualGraphTests.cpp TerrainTests.cpp TerrainLODTests.cpp TilemapVisibilityTests.cpp SafetyTests.cpp EditorServicesTests.cpp TestFramework.cpp DebugDrawShippingCheck.cpp)
+target_link_libraries(ZaminTests PRIVATE Zamin ZaminEditorSupport)
 # The sample projects are read by some tests (their assets must stay valid).
 target_compile_definitions(ZaminTests PRIVATE ZAMIN_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
+add_executable(ZaminSavePermissionProbe SavePermissionProbe.cpp)
+target_link_libraries(ZaminSavePermissionProbe PRIVATE Zamin)
+zamin_target_settings(ZaminSavePermissionProbe)
+add_dependencies(ZaminTests ZaminSavePermissionProbe)
+target_compile_definitions(ZaminTests PRIVATE ZAMIN_SAVE_PERMISSION_PROBE="$<TARGET_FILE:ZaminSavePermissionProbe>")
 set_target_properties(ZaminTests PROPERTIES BUILD_RPATH "${CMAKE_BINARY_DIR}/bin")
 zamin_target_settings(ZaminTests)
 # A coverage build: the tests that measure a speedup skip that check (gcov's counters are shared by the threads).
@@ -54,7 +59,7 @@ zamin_target_settings(ZaminScriptTemplateCheck)
 # ctest - run it with the render_tests target (update_render_references writes new references
 # after an intended change of the look), Tests/render_tests.sh, or the executable itself.
 add_executable(ZaminRenderTests RenderTests.cpp)
-target_link_libraries(ZaminRenderTests PRIVATE Zamin)
+target_link_libraries(ZaminRenderTests PRIVATE Zamin ZaminEditorSupport)
 target_compile_definitions(ZaminRenderTests PRIVATE ZAMIN_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
     ZAMIN_RENDER_TEST_OUTPUT="${CMAKE_BINARY_DIR}/RenderTests")
 set_target_properties(ZaminRenderTests PROPERTIES BUILD_RPATH "${CMAKE_BINARY_DIR}/bin")
@@ -261,3 +266,47 @@ if(TARGET ZaminPlayer AND ZAMIN_BUILD_EXAMPLES AND Python3_Interpreter_FOUND)
         endif()
     endforeach()
 endif()
+
+# Pixel-oracle terrain shader/cache checks, requires GL (xvfb-run in CI).
+add_executable(ZaminTerrainSurfaceTests TerrainSurfaceRenderTests.cpp)
+target_link_libraries(ZaminTerrainSurfaceTests PRIVATE Zamin)
+set_target_properties(ZaminTerrainSurfaceTests PROPERTIES BUILD_RPATH "${CMAKE_BINARY_DIR}/bin")
+zamin_target_settings(ZaminTerrainSurfaceTests)
+
+# Real SDK-produced DSOs: no GL needed, constructor gates and transactional hot reload.
+foreach(probe ZaminABIGood ZaminABINext ZaminABIBroken)
+    zamin_add_game_module(${probe} Fixtures/ModuleABI/Probe.cpp)
+    set_target_properties(${probe} PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/ModuleABI"
+        LIBRARY_OUTPUT_DIRECTORY_DEBUG "${CMAKE_CURRENT_BINARY_DIR}/ModuleABI"
+        LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_CURRENT_BINARY_DIR}/ModuleABI")
+    zamin_target_settings(${probe})
+endforeach()
+target_compile_definitions(ZaminABINext PRIVATE PROBE_VALUE=29)
+target_compile_definitions(ZaminABIBroken PRIVATE PROBE_UNRESOLVED=1 PROBE_VALUE=99)
+add_library(ZaminABIMissing SHARED Fixtures/ModuleABI/Probe.cpp)
+target_link_libraries(ZaminABIMissing PRIVATE Zamin)
+target_compile_definitions(ZaminABIMissing PRIVATE PROBE_VALUE=77)
+set_target_properties(ZaminABIMissing PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/ModuleABI")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_compile_options(ZaminABIMissing PRIVATE -fno-gnu-unique)
+endif()
+add_executable(ZaminModuleABITests ModuleABILoadTests.cpp)
+target_link_libraries(ZaminModuleABITests PRIVATE Zamin)
+zamin_target_settings(ZaminModuleABITests)
+add_dependencies(ZaminModuleABITests ZaminABIGood ZaminABINext ZaminABIBroken ZaminABIMissing)
+add_test(NAME ModuleABILoad COMMAND ZaminModuleABITests $<TARGET_FILE:ZaminABIGood> $<TARGET_FILE:ZaminABINext> $<TARGET_FILE:ZaminABIMissing> $<TARGET_FILE:ZaminABIBroken>)
+
+add_executable(ZaminGPUProfilerTests GPUProfilerRenderTests.cpp)
+target_link_libraries(ZaminGPUProfilerTests PRIVATE Zamin)
+zamin_target_settings(ZaminGPUProfilerTests)
+
+if(Python3_Interpreter_FOUND)
+    add_test(NAME SDKManifest COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/Tests/sdk_manifest_test.py --build ${CMAKE_BINARY_DIR})
+    set_tests_properties(SDKManifest PROPERTIES LABELS "sdk" TIMEOUT 180)
+endif()
+
+add_executable(ZaminFoliageRenderTests FoliageRenderTests.cpp)
+target_link_libraries(ZaminFoliageRenderTests PRIVATE Zamin)
+target_include_directories(ZaminFoliageRenderTests PRIVATE ${PROJECT_SOURCE_DIR}/vendor/glad/include)
+zamin_target_settings(ZaminFoliageRenderTests)

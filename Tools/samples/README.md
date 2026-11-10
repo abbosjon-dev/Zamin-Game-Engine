@@ -14,6 +14,7 @@ saqlanadi. C++ skriptlar (`Projects/<O'yin>/Source`) esa qo'lda yoziladi va gene
 | `gen_fpsarena.py` | FPS Arena: beton, metall va quti teksturalari normal map'lari bilan, 22 ta ovoz, arena sahnasi |
 | `gen_sokoban.py` | Omborchi: g'isht, quti, pol teksturalari, 10 ta ovoz, sahna; `Levels.cpp` dagi har bir darajani yechib ko'radi |
 | `gen_endlessrunner.py` | Ipak Yo'li: yo'l, g'isht, qum, koshin, gilam teksturalari, 11 ta ovoz, sahna |
+| `gen_terrain_materials.py` | MapWorkshop uchun 12 ta seamless albedo/normal/ORM test xaritasi; Python standard library, sahna UUID havolalari |
 | `gen_racing.py` | Vodiy Poygasi: Catmull-Rom trassa va undan yasalgan `road.obj`, `kerbs.obj`, `barriers.obj`, teksturalar, 10 ta ovoz, sahna |
 | `make_thumbnails.py` | Launcher rasmlari (`Projects/*/Thumbnail.jpg`): o'yinlarning headless skrinshotlaridan |
 

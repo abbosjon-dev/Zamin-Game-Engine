@@ -390,7 +390,7 @@ namespace Zamin {
             JumpToUndoState(clicked);
 
         ImGui::TextDisabled("%zu o'zgarish, %zu tanlash  |  %.1f MB", m_UndoHistory.CountEdits(), m_UndoHistory.CountSelections(),
-                            (double)m_UndoHistory.GetMemoryUsage() / (1024.0 * 1024.0));
+                            (double)m_UndoHistory.GetRetainedBytes() / (1024.0 * 1024.0));
         ImGui::End();
     }
 

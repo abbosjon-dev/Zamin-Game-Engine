@@ -85,7 +85,7 @@ namespace Zamin {
         for (bool* flag : { &m_ShowHierarchy, &m_ShowInspector, &m_ShowContentBrowser, &m_ShowConsole, &m_ShowSceneSettings, &m_ShowScenes,
                             &m_ShowProjectSettings, &m_ShowStats, &m_ShowSceneStatistics, &m_ShowBuildOutput, &m_ShowProfiler,
                             &m_ShowAudioMixer, &m_ShowLocalization, &m_ShowAnimation, &m_ShowAnimatorGraph, &m_ShowUnusedAssets,
-                            &m_ShowSpriteEditor, &m_ShowTilePalette, &m_ShowUndoHistory, &m_ShowPreferences, &m_ShowShortcuts,
+                            &m_ShowSpriteEditor, &m_ShowTerrain, &m_ShowTilePalette, &m_ShowUndoHistory, &m_ShowPreferences, &m_ShowShortcuts,
                             &m_ShowLayouts, &m_ShowImGuiDemo, &m_ShowPrefabCheck, &m_ShowExportReport, &m_ShowLoadReport, &m_ShowLauncher })
             t.SavedFlags.emplace_back(flag, *flag);
         for (const SceneViewSettings& view : m_ViewSettings.SceneViews)
@@ -238,14 +238,30 @@ namespace Zamin {
         // ---- every window on its own (the others as they were)
         struct WindowEntry { const char* Name; bool* Flag; };
         const WindowEntry windows[] = {
-            { "Ierarxiya", &m_ShowHierarchy }, { "Inspektor", &m_ShowInspector }, { "Kontent", &m_ShowContentBrowser },
-            { "Konsol", &m_ShowConsole }, { "Sahna sozlamalari", &m_ShowSceneSettings }, { "Sahnalar", &m_ShowScenes },
-            { "Loyiha sozlamalari", &m_ShowProjectSettings }, { "Statistika", &m_ShowStats }, { "Sahna statistikasi", &m_ShowSceneStatistics },
-            { "Kompilyatsiya natijalari", &m_ShowBuildOutput }, { "Profiler", &m_ShowProfiler }, { "Audio Mixer", &m_ShowAudioMixer },
-            { "Lokalizatsiya", &m_ShowLocalization }, { "Animatsiya", &m_ShowAnimation }, { "Animator grafi", &m_ShowAnimatorGraph },
-            { "Ishlatilmagan assetlar", &m_ShowUnusedAssets }, { "Sprite muharriri", &m_ShowSpriteEditor }, { "Plitka palitrasi", &m_ShowTilePalette },
-            { "Undo tarixi", &m_ShowUndoHistory }, { "Sozlamalar", &m_ShowPreferences }, { "Klaviatura yorliqlari", &m_ShowShortcuts },
-            { "Joylashuvlar", &m_ShowLayouts }, { "ImGui demo", &m_ShowImGuiDemo },
+            { "Ierarxiya", &m_ShowHierarchy },
+            { "Inspektor", &m_ShowInspector },
+            { "Kontent", &m_ShowContentBrowser },
+            { "Konsol", &m_ShowConsole },
+            { "Sahna sozlamalari", &m_ShowSceneSettings },
+            { "Sahnalar", &m_ShowScenes },
+            { "Loyiha sozlamalari", &m_ShowProjectSettings },
+            { "Statistika", &m_ShowStats },
+            { "Sahna statistikasi", &m_ShowSceneStatistics },
+            { "Kompilyatsiya natijalari", &m_ShowBuildOutput },
+            { "Profiler", &m_ShowProfiler },
+            { "Audio Mixer", &m_ShowAudioMixer },
+            { "Lokalizatsiya", &m_ShowLocalization },
+            { "Animatsiya", &m_ShowAnimation },
+            { "Animator grafi", &m_ShowAnimatorGraph },
+            { "Ishlatilmagan assetlar", &m_ShowUnusedAssets },
+            { "Sprite muharriri", &m_ShowSpriteEditor },
+            { "Plitka palitrasi", &m_ShowTilePalette },
+            { "Map Terrain", &m_ShowTerrain },
+            { "Undo tarixi", &m_ShowUndoHistory },
+            { "Sozlamalar", &m_ShowPreferences },
+            { "Klaviatura yorliqlari", &m_ShowShortcuts },
+            { "Joylashuvlar", &m_ShowLayouts },
+            { "ImGui demo", &m_ShowImGuiDemo },
         };
         for (const WindowEntry& w : windows)
         {

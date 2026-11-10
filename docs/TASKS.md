@@ -1,6 +1,173 @@
 # Zamin Engine — 500 ta vazifa rejasi
 
-Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada.
+Dastlabki M01–M25 milestone'lari 20 tadan vazifa tutadi. `[x]` — bajarilgan, `[ ]` — rejada.
+Quyida yangi 2D/3D mahsulot bosqichlari ham alohida yuritiladi.
+
+## Faol yo'nalish: professional 2D va 3D engine
+
+2026-11-09: maqsad — 2D va 3D birinchi darajali bo'lgan umumiy engine. Unreal darajasidagi kenglik,
+ishonchlilik va ishlab chiqish qulayligi uzoq muddatli nishon; hozir bu tenglikka erishilgani da'vo qilinmaydi.
+Quyidagi bosqichlar mahsulotga tayyor natija va tekshiruv mezoni bilan yuritiladi. Pastdagi dastlabki 500 vazifa
+saqlanadi; ulardagi belgi yangi imkoniyatning ishlayotganiga dalil o'rnini bosmaydi.
+
+| Bosqich | Natija | Tugallash mezoni | Holat |
+|---|---|---|---|
+| P0 Ishonchli asos | Atomik save, tiklash, xavfsiz build, chegaralangan Undo, CPU profili, ajratilgan runtime | Save xatosida ma'lumot yo'qolmasligi, zararli papka nomi bajarilmasligi, UI'siz Player, SSE2 sinovi | Auditdagi 7 band bajarilgan; boshlang'ich dalil 645 unit / 12 render / 265 editor qadam |
+| P1 2D/3D katta xarita render asosi | Terrain patch LOD, yoriqsiz qo'shni chegaralar, qisman GPU mesh yangilash; tilemap ierarxik culling | Geometriya kamayishi, LOD o'tish/hysteresis, collision aniqligi, 2D ko'rinish va chizish tartibi oracle bilan mos | Bajarildi (2026-11-10): 656 unit / 12 render / 265 editor qadam; o‘lchovlar quyida |
+| P2 Kontent sifati va mualliflik | Terrain GPU qatlamlari/PBR, normal/roughness, atlas/cook, foliage, 2D palette/animation qulayligi | Haqiqiy assetli 2D/3D sahnalar, import/export/undo roundtrip, tekstura xotira byudjeti | GPU terrain v1 yakunlandi; qolgan kontent ishlari rejada |
+| P3 Dunyo va asset streaming | Disk kataklari, async load/unload, data layers, HLOD, floating origin, asset residency | Tez harakatda/cancel/reload'da yo'qolmagan obyektlar, chegaralangan RAM/VRAM, main thread'da og'ir IO yo'q | Rejada |
+| P4 Rendererning keyingi avlodi | GPU timer v1 mavjud; render graph, Vulkan, temporal AA/upscaling, katta sahna visibility va yoritish | Drayver/physical GPU matritsasi, HDR/alpha/picking/shadow regressiyalari, reference hardware byudjeti | Rejada; virtual geometry va dinamik GI — alohida tadqiqot |
+| P5 Gameplay, animatsiya, fizika va UI | Mavjud 2D/3D tizimlarini production darajasida birlashtirish, katta kontent va gameplay workflow | Ikki tugallangan vertical slice, saqlash/yuklash, controller, animatsiya/fizika stress, UI input/scale testlari | Visual Script va C++ muharriri v1 qo'shildi; qolgan ishlar rejada |
+| P6 Tarmoq va kengaytirish | Server authority, replication, latency compensation, plagin SDK/ABI, xavfsiz hot reload | Yo'qotilgan paket, kechikish, reconnect, versiya mos kelmasligi va plagin unload sinovlari | Rejada |
+| P7 Platforma, release va mahsulot | Linux/Windows, keyin macOS; cook/package/update/crash telemetry; editor/launcher yagona auth | Toza mashinada install/export/run, talablar va litsenziyalar, imzolangan release va rollback sinovi | Rejada |
+| P8 Yakuniy sifat darvozasi | Hujjatlar, ko'chirish yo'li, ikki namunaviy o'yin va profiling hisobotlari | Uzoq sessiya, resurs sizishi, recovery/fuzz, reference sahnalarda barqaror frame time va foydalanish sinovi | Rejada |
+
+### Yakunlangan paket — packed foliage GPU culling va LOD
+
+- [x] Bitta komponentda 65536 tagacha statik instance, ikki model/mesh LOD, tint va ko'rish masofasi.
+- [x] OpenGL 4.3 compute + SSBO compaction + indirect draw; OpenGL 4.1 CPU culling/instancing fallback.
+- [x] LOD hysteresis, konservativ birlashgan bounds, kamera harakatida statik input qayta yuklanmasligi.
+- [x] Asinxron GPU visibility hisoblari va CPU/GPU buffer hajmi; rendering yo'lida blocking readback yo'q.
+- [x] Scene/prefab/copy/undo serialization, model UUID havolalari, inspektor va parent terrain sirtiga joylash.
+- [x] CPU/GPU image/count oracle, shadow/picking/wire va ikkala capability holatini yakuniy tekshirish.
+- [x] Zich demo sahna, screenshot, eksport va regressiyalar.
+
+V1 chegaralari: statik opaque/cutout meshlar, 128 part/LOD; bitta komponent picking ID. Soya yaqin LOD'dagi barcha instance'larni konservativ chizadi; alohida GPU shadow culling yo'q. Ko'rinadigan selection konturi ID buferidan olinadi; packed occluded silhouette chizilmaydi. Collider/gameplay entity'lari har instance uchun yaratilmaydi. HLOD/streaming alohida bosqich.
+
+Tekshiruv (2026-11-10): 711/711 unit, 12/12 reference render; GL 4.3 compute va GL 4.1 CPU oracle (4096 instance, besh kamera, asosiy tasvirlarda 0 pixel farqi), multi-part draw, shadow/picking/wire va backend switch o'tdi. Birinchi nazorat ko'rinishida 491520 o'rniga 54756 triangle; kamera source upload sonini o'zgartirmadi. FoliageWorkshop 4096 instance/5 entity bilan save/reload, eksport, Player screenshot va relocation'dan o'tdi; ikki OBJ va 12 PBR xaritasi paketga kirdi. Legacy terrain reproject packed root'ni siljitmasligi CPU regressiyasida tekshirildi. SDK 2 test va UI'siz runtime o'tdi. Dalillar: `build-review/PackedFoliage/`. Mesa llvmpipe natijalari physical GPU tezlik bahosi emas.
+
+### Keyingi paket — dunyo kataklari va streaming asosi
+
+- [ ] 2D tilemap va 3D terrain uchun umumiy world-cell manifest, barqaror UUID va dependency chegaralari.
+- [ ] Main thread'dan tashqarida bounded IO/decode; versiyali load/unload/cancel holatlari.
+- [ ] Main thread'da belgilangan upload/activation byudjeti; fizika va script lifecycle'ini xavfsiz ulash/ajratish.
+- [ ] RAM/VRAM residency limiti; tez kamera harakati, qaytish, bekor qilish va yo'q/buzilgan katak regressiyalari.
+- [ ] Ko'p katakli demo, save/reload/export, qayta bajariladigan kamera yo'li va RSS/frame-time hisobotlari.
+
+Packed foliage uchun qoladigan acceptance: GPU shadow culling, individual instance authoring/Undo, billboards/HLOD, physical GPU va OS/driver matritsasi. Mavjud v1 bularni tugallangan deb belgilamaydi.
+
+
+### SDK himoyasi, profiling va foliage muallifligi v1 — bajarilgan paket
+
+1. **SDK/modul mosligi:** SDK headerlari va toolchain fingerprint'i, modul ichidagi ELF ABI record, `dlopen`dan oldingi bounded parser. Belgisiz, buzilgan yoki mos kelmagan modul rad etiladi; ishlab turgan modul saqlanadi. SDK headeri o'zgargan bo'lsa avval engine qayta build qilinadi.
+2. **Regressiya va editor diagnostikasi:** mos/noto'g'ri/eski/strip qilingan ELF, malformed chegaralari, constructor bajarilmasligi, ishlayotgan modulni saqlash, SDK orqali build/hot reload va eksport. Editor screenshot bilan holat ko'rsatiladi.
+3. **Profiling:** mavjud CPU/frame/memory hisoblagichlarini tekshirish; GPU timer query va frame-time ko'rinishi; takrorlanadigan 2D/3D benchmark sahnalari. VPS correctness va physical GPU performance dalillari alohida yuritiladi.
+4. **Foliage:** mavjud instancing yo'lini o'lchash; zichlik/LOD/culling va terrain sculpt'dan keyin obyektlarni sirtga qayta joylash. Kichik va zich map sinovlari, save/load/undo va screenshot.
+5. **Yakun:** tegishli CPU/GL/SDK/editor/export testlari; hujjatlar va natijalarni yangilash. Keyingi paketlar streaming, gameplay authoring va ikki tugallangan o'yin mezonlari bo'yicha davom etadi.
+
+- [x] SDK fingerprint va bounded ELF preflight.
+- [x] Xato reload'da ishlayotgan modulni/klass registry'sini saqlash va aniq diagnostika.
+- [x] Real SDK/modul/hot reload/export regressiyasi va screenshot.
+- [x] Asinxron GPU timeline profiling v1; physical GPU acceptance hali ochiq.
+- [x] Foliage sirtga moslash v1: manual, brush bilan avtomatik, offset/normal, lock/hidden, Undo/Redo.
+- [ ] Alohida GPU foliage culling/LOD/HLOD va zich sahna benchmark'i.
+
+Tekshiruv (2026-11-10): 707/707 unit, 12/12 reference render, GL 4.1 terrain va GPU timer sinovlari; SDK native load + ko'chirilgan SDK manifest testlari; haqiqiy editor hot reload; 26 skript klassli Platformer2D eksport/screenshot/relocation; mos bo'lmagan modul eksportini rad etish; UI'siz runtime. Foliage editori 89 ildizni yangiladi, Undo/Redo o'tdi. GUI'dagi native legacy nomzodning konstruktori bajarilmadi; o'zgarmagan nomzod doimiy qayta urinishga tushmadi. Hisobotlar `build-review/SDKQuality/` da.
+
+**SDK paketidan keyingi ish:** packed foliage GPU/CPU culling va model LOD v1 yuqoridagi paketda bajarildi. Dense scene eksporti va correctness oracle'lari shu yerda qayd etiladi. Physical GPU frame-time/RSS byudjeti hali alohida acceptance talab qiladi; undan keyingi dunyo bosqichi async tile streaming.
+
+### P1 — yakunlangan ish paketi
+
+- [x] 32×32 katakli terrain render bo'laklari va masofaga bog'liq LOD.
+- [x] Qo'shni bo'laklar farqi ko'pi bilan bir daraja; mayda chetlar yirik chetga geometrik moslanadi.
+- [x] LOD chegarasida 15% hysteresis; ortografik ko'rinishda to'liq detal.
+- [x] O'zgargan balandlik va normal ta'sir qiladigan bo'laklargina qayta quriladi.
+- [x] Bo'yash geometriyani qayta qurmaydi; collision/raycast to'liq heightfield aniqligida qoladi.
+- [x] LOD sozlamalari sahna/prefab/copy/undo orqali saqlanadi; editor haqiqiy hisoblagichlarni ko'rsatadi.
+- [x] Katta 2D tilemap visibility hududlarni ierarxik tekshiradi va oldingi row-major tartibni saqlaydi.
+- [x] Aylangan, akslantirilgan va perspektiv 2D holatlar to'liq tekshiruv oracle'i bilan mos.
+- [x] CPU algoritm testlari, haqiqiy GL cache/sculpt testi, save/reload, render va editor regressiyasi.
+- [x] Geometriya va AABB tekshiruvi soni bilan qayta bajariladigan o'lchov; FPS bilan aralashtirilmaydi.
+
+### Visual Script — foydalanuvchi so'rovi, 2026-11-10
+
+- [x] `.zgraph` format, typed katalog, tekshiruv va indekslangan bounded VM.
+- [x] Node/pin/wire muharriri, qidiruv, pan/zoom/fit, xato diagnostikasi, atomik save, 64 holatli undo/redo.
+- [x] Lifecycle, collision/trigger/UI/AI hodisalari; input, transform, 2D/3D fizika, prefab/audio/animation/UI amallari.
+- [x] O'zgaruvchilar, nusxa overrides, shart/sequence/loop/break/delay va nomlangan funksiyalar.
+- [x] Native host, aks ettirilgan C++ maydon ko'prigi, messages; C++ modulisiz ishlash.
+- [x] Breakpoint, pause/step/continue, watch va cheklangan execution trace.
+- [x] Asset registry / content browser / inspector / reference scan va rename integratsiyasi.
+- [x] `VisualWorkshop` 2D/3D namunasi va [qo'llanma](VisualScripting.md).
+- [ ] Parametr/return qiymatli funksiyalar, array/struct/enum/curve pinlari, macro/collapse va inheritance.
+- [ ] RPC/replication tugunlari, to'liq native metod reflection, bytecode/native cook va katta graph profiling.
+
+### Ichki C++ kod muharriri — 2026-11-10
+
+- [x] Editor ichida tablar, source ro'yxati, C++ ranglari, monospace font, qator raqamlari va auto-indent.
+- [x] Find/replace, undo/redo, 265 API nom/signatura katalogi, Ctrl+Space va gameplay snippet'lari.
+- [x] Inspektor/content browser/compiler manbasini ichki oynada ochish; read-only SDK fayllari.
+- [x] Builddan oldin save-all, F7 build/hot reload, error line/column navigatsiyasi.
+- [x] Atomik save, tashqi o'zgarish konflikti, UTF-8/BOM/CRLF, bounded undo va crash recovery.
+- [x] 9 fayl-himoya testi, 691 umumiy unit, haqiqiy keyboard/build/error/recovery GUI sinovi.
+- [ ] clangd/LSP orqali semantic completion, go-to-definition, project rename va live type diagnostics.
+
+### P2 — GPU terrain materiallari, 2026-11-10
+
+- [x] 512×512 runtime bake o'rniga GPU'da to'rtta linear albedo qatlami va resolution'ga mos RGBA32F control.
+- [x] Har qatlamga tangent normal, ORM, normal strength, roughness/metallic/occlusion va metrga bog'liq UV.
+- [x] Mavjud lighting/shadow/fog/debug/picking/wire yo'llariga ulash; normal mesh materiallari alohida qoladi.
+- [x] TextureLibrary import/cache/reload, xavfsiz asset yo'llari, yo'q xarita fallback'i va control hisoblagichlari.
+- [x] Serializer asset handle'lari, legacy default'lar va editor boshqaruvlari.
+- [x] 696/696 CPU, 12/12 render, GL 4.1 pixel/cache sinovlari, editor va MapWorkshop export/relocation tekshiruvi.
+- [x] Packed foliage instancing/culling va ikki model LOD v1 (yuqoridagi paket).
+- [ ] Atlas/cook, terrain tile streaming va 2D kontent workflow ishlari.
+
+P2 dalillari: 12 ta source PBR teksturasi export reachability orqali paketga kirdi; eksport qilingan Player 12 o'lchov kadri, screenshot va boshqa papkaga ko'chirish tekshiruvidan o'tdi. Editor 67600 byte control, 1 upload, 0 missing map ko'rsatdi. GL testi LOD UV mosligi, normal/ORM/AO, picking/wire, native mesh binding, qayta import, xavfsiz yo'llar va 120 validation kadrida upload bo'lmasligini tasdiqladi. Shadow atlas resize'da render target yo'qolishi va paint float tebranishi tuzatildi. CI'da GPU test qadami qo'shildi; bu sessiyada testlar lokal VPS/Mesa llvmpipe'da bajarildi. Physical GPU, Windows/macOS va to'liq professional parity hali tasdiqlanmagan.
+
+### Unity / Unreal / Godot sifatiga chiqish mezonlari
+
+Bu engine'lar bilan tenglik bitta imkoniyat yoki kod hajmi bilan belgilanmaydi. Har yo'nalishda foydalanuvchi bajara oladigan ish, takrorlanadigan test va ochiq cheklov ko'rsatiladi; tasdiqlanmagan foiz berilmaydi.
+
+| Yo'nalish | Zamin'dagi holat | Qabul qilish uchun keyingi dalil |
+|---|---|---|
+| 2D | Tilemap, sprite, animatsiya, Box2D, UI va katta map visibility mavjud | Tugallangan 2D o'yin; atlas/residency, input/UI va stress profili |
+| 3D xarita | Heightfield authoring, collision, patch LOD; GPU PBR qatlamlari GL/editor/export sinovlaridan o'tdi | Haqiqiy assetli map, foliage/streaming va physical GPU frame-time byudjeti |
+| Gameplay authoring | C++ muharriri va typed visual graph v1 mavjud | Funksiya argument/return, murakkab type'lar, LSP, katta graph/debug workflow |
+| Dunyo | Render bo'laklari mavjud; disk streaming rejalashtirilgan | Chegaralangan RAM/VRAM bilan async load/unload/cancel va katta dunyo testi |
+| Jamoaviy tarmoq | Multiplayer production acceptance hali bajarilmagan | Authoritative replication, latency/loss/reconnect testlari, xavfsizlik va kuzatuv |
+| Mahsulot sifati | Linux testlar va eksport workflow mavjud | Native SDK ABI gate mavjud; OS/driver matritsasi, crash/recovery va uzoq sessiya |
+
+Taqqoslash mezonlari uchun rasmiy manbalar: [Unity Terrain Layer](https://docs.unity.com/en-us/engine/6000.6/manual/creating-environments/script-terrain/terrain-textures/class-terrain-layer), [Unreal Landscape Materials](https://dev.epicgames.com/documentation/unreal-engine/landscape-materials-in-unreal-engine), [Godot MultiMesh](https://docs.godotengine.org/en/stable/classes/class_multimesh.html). Hozirgi GPU terrain bosqichi bu mahsulotlarning barcha imkoniyatlariga tenglik da'vosi emas.
+
+### P2–P8 uchun zarur ishlar
+
+**2D:** tile render cache va dirty regions, katta atlaslar va texture residency, animated tile yangilanishi,
+terrain/auto-tile chegaralari, collision chunk rebake, navigation, sprite/animation/UI profiling. Mavjud culling,
+layer, auto-tile, Box2D, UI va animatsiya imkoniyatlari qayta yozilmaydi; kamchiliklari dalil bilan kuchaytiriladi.
+
+**3D terrain va foliage:** mavjud GPU qatlamlarini katta assetlarda tekshirish, texture arrays/material variantlari, screen-space
+error LOD va o'tishlarni silliqlash, terrain tile biriktirish, import/export formatlari, road/spline asboblari,
+GPU instancing/culling, zichlik maskalari, asset LOD/HLOD, tahrirdan keyin foliage'ni sirtga qayta joylash,
+async collider cooking va navmesh yangilash. Voxel/cave — heightfield'dan alohida tizim.
+
+**Umumiy kontent:** qayta importda havolalarni saqlash, cook va deterministik cache kalitlari, buzilgan fayllar,
+compressed paketlar, locale/shader variantlari, asset pipeline rollback'i va versiyalangan serialization; SDK ABI gate v1 qo'shildi.
+Engine komponentlari o'zgarsa eski C++ modullarni tekshirish/qayta build qilish avtomatik va tushunarli bo'lishi kerak.
+
+**Gameplay:** character/controller, kamera, input remap/gamepad, AI/navigation, animation state/transition,
+root motion/IK/retarget workflow, audio mixer/streaming, timeline/VFX va saqlash tizimlarini bir o'yin
+jarayonida sinash. Mavjud funksiyalar uchun 'bor' degan belgi production sifatiga tenglashtirilmaydi.
+
+**Multiplayer:** authoritative server, bandwidth budget, snapshot/interpolation, prediction/reconciliation,
+physics ownership, replication relevancy, matchmaking/session, host migration talabini alohida belgilash,
+reconnect va hisob xizmatlari. Avval transport va threat model tanlanadi; client server vakolatini bermaydi.
+
+**Editor/launcher auth:** oldingi talab bo'yicha Zamin yagona hisobi bilan majburiy login rejalashtirilgan.
+Native client ichiga server sirini joylamaslik, browser-based PKCE, OS secret store, sessiya bekor qilish va
+xizmat uzilgandagi xatti-harakat aniq belgilanadi. Bu engine yadrosining render/fizika sikliga kiritilmaydi.
+
+**Performance va release:** 2D/3D uchun seed/scene/settings versiyasi biriktirilgan benchmarklar; CPU/GPU frame time,
+p95/p99, RAM/VRAM, yuklanish va draw/triangle hisoblagichlari. 60 FPS/16.7 ms maqsadi reference physical GPU
+va sahna byudjeti tanlangandan keyin tekshiriladi. VPS llvmpipe sinovi haqiqiy GPU unumdorligi dalili emas.
+Har bir bosqich correctness, sanitizer/recovery, regressiya, eksport va hujjat darvozasidan o'tadi.
+
+Unreal'dagi terrain komponentlari va ularning LOD birligi — [Epic Landscape texnik qo'llanmasi](https://dev.epicgames.com/documentation/en-us/unreal-engine/landscape-technical-guide-in-unreal-engine)
+bo'yicha taqqoslash manbasi. Disk kataklarini manbaga yaqinlik bo'yicha yuklash tushunchasi —
+[Epic World Partition qo'llanmasi](https://dev.epicgames.com/documentation/en-us/unreal-engine/world-partition-in-unreal-engine).
+Zamin P1 render bo'laklari disk streaming'i emas; u P3 da alohida bajariladi.
+
+---
 
 ## M01 Skript va gameplay API
 

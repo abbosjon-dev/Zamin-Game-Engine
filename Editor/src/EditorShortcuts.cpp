@@ -298,6 +298,7 @@ namespace Zamin {
 
     void EditorLayer::HandleShortcuts()
     {
+        if (m_CodeEditorPanel.IsFocused()) return;
         // Not while typing (into the editor, or into the game's input field), nor while the
         // shortcuts window waits for keys.
         const ImGuiIO& io = ImGui::GetIO();

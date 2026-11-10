@@ -1,11 +1,15 @@
 # Zamin Engine: C++ skriptlar qo'llanmasi
 
-O'yin mantig'i Zamin'da C++ da yoziladi: har bir skript `ScriptableEntity` dan meros olgan klass, u sahnadagi obyektga
+Kodsiz node mantig'i uchun [Visual Script](VisualScripting.md) mavjud. Ushbu qo'llanma C++ yo'lini yoritadi:
+
+O'yin mantig'i C++ da ham yoziladi: har bir skript `ScriptableEntity` dan meros olgan klass, u sahnadagi obyektga
 **C++ Script** komponenti orqali ulanadi. Bu qo'llanma skript yaratishdan tortib hayot sikli, inspektor maydonlari,
 hodisalar, fizika, input, sahnalar, audio, hot reload va eksportgacha hammasini tushuntiradi. Har bir funksiya nomi
 `Zamin/src/Zamin/Scripting/ScriptableEntity.h` dagi haqiqiy API; misollar namuna loyihalardan
 (`Projects/Platformer2D`, `Projects/Showcase3D`, `Projects/Adventure3D`) yoki
 [2D](Tutorial-2D.md) / [3D](Tutorial-3D.md) qo'llanmalaridan olingan va kompilyatsiya qilib sinalgan.
+
+Skriptni engine ichida tahrirlash, build va diagnostika uchun [Kod muharriri](CodeEditor.md) qo'llanmasi mavjud.
 
 Kod misollari `#include <Zamin/Zamin.h>` va `using namespace Zamin;` bilan yoziladi.
 
@@ -69,7 +73,7 @@ Mundarija:
      rang, havola) yoki **Minimal** (faqat `OnCreate` va `OnUpdate`, bitta maydon).
    - **Yaratish** — `Source/<Nom>.cpp` yoziladi va skriptlar darhol kompilyatsiya qilinadi.
 3. Obyektni tanlang → inspektorda **+ Komponent → Boshqa → C++ Script** → **Klass** ro'yxatidan klassni tanlang.
-   Klass yonidagi qalam tugmasi uning kodini tashqi muharrirda ochadi (**Tahrirlash → Sozlamalar** dagi tashqi
+   Klass yonidagi qalam tugmasi uning kodini ichki [Kod muharririda](CodeEditor.md) ochadi (ixtiyoriy tashqi
    muharrir; `Source` dagi `ZM_REGISTER_SCRIPT` bo'yicha topiladi).
 4. **▶ O'ynash** (`Ctrl+P`). Skriptning `ZM_INFO(...)` xabarlari **Konsol** panelida chiqadi.
 5. Kodni o'zgartirgach **Skriptlar → Kompilyatsiya + qayta yuklash** (`Ctrl+B`). Batafsil: [20-bo'lim](#20-kompilyatsiya-va-hot-reload).
@@ -677,19 +681,29 @@ global holat (`GameState`, `Services`).
   `cmake -DCMAKE_BUILD_TYPE=Release -DZamin_DIR=<engine>` (birinchi marta) va `cmake --build Build --parallel`
   ni fonda ishga tushiradi. Muvaffaqiyatli bo'lsa modul qayta yuklanadi.
 - **Oyna → Kompilyatsiya** (yoki **Skriptlar → Kompilyatsiya natijalari**) — **Muammolar** (xato va ogohlantirishlar
-  ro'yxati; bosilganda fayl shu qatorda tashqi muharrirda ochiladi) va **To'liq chiqish**. Holat qatorida oxirgi
+  ro'yxati; bosilganda fayl shu qatorda ichki kod muharririda ochiladi) va **To'liq chiqish**. Holat qatorida oxirgi
   kompilyatsiya natijasi ko'rinadi.
 - **Skriptlar → Avtomatik hot-reload** (standart yoqilgan) — modul fayli editordan tashqarida (IDE, terminalda
   `cmake --build`) o'zgarsa, editor uni o'zi qayta yuklaydi. Linker faylni joyida yozgani uchun, yangi modul fayl
   o'zgarmay qolgandan keyingina yuklanadi. **Skriptlar → Modulni qayta yuklash** — qo'lda.
 - Modul yuklashdan oldin vaqtinchalik faylga nusxalanadi, shuning uchun asl `.so` ni editor ochiq turganda qayta
   build qilish mumkin.
-- Qayta yuklashda o'yin rejimi to'xtatiladi (`Stop`), skript nusxalari yo'q qilinadi; inspektordagi maydon qiymatlari
+- Muvaffaqiyatli qayta yuklashda o'yin rejimi to'xtatiladi (`Stop`), skript nusxalari yo'q qilinadi; inspektordagi maydon qiymatlari
   sahnada saqlangani uchun yangi kod ular bilan ishlaydi. Maydon nomi o'zgarsa, eski qiymat yangi maydonga o'tmaydi.
 - Terminalda build: `cmake -S <loyiha> -B <loyiha>/Build -DZamin_DIR=<engine>/build && cmake --build <loyiha>/Build`.
   Namuna loyihalar engine bilan birga build qilinadi (ildizdagi `CMakeLists.txt`). Sanitizer va coverage build'lari
   namuna modullarini o'zining `GameModules` papkasiga yozadi; dasturlar modulni boshqa papkadan
   `ZAMIN_SCRIPT_MODULE_DIR=<papka>` bilan yuklaydi ([Testing.md](Testing.md)).
+
+### Native SDK / ABI mosligi
+
+`zamin_add_game_module` modulga `.zamin_abi` yozuvini qo'shadi: SDK va uning GLM/EnTT/JSON headerlari, toolchain va engine ABI ta'riflarining SHA-256 fingerprint'i; standart kutubxona/GLM o'lcham, alignment va ayrim ABI flaglari. Tekshiruv konservativ: SDK headeridagi o'zgarish qayta build talab qilishi mumkin.
+
+Yuklovchi vaqtinchalik nusxaning ELF64 x86-64 yozuvini **dlopen'dan oldin** tekshiradi. Belgisiz/eski, buzilgan yoki mos kelmagan modul rad etiladi; uning konstruktori bajarilmaydi. `dlopen` xatosida ham ishlayotgan modul va klass metadata'si saqlanadi. Muvaffaqiyatli nomzodning registratsiyalari vaqtincha ajratiladi; eski modul to'liq yopilgach yangi klasslar ulanadi. Avtomatik watcher o'zgarmagan xato nomzodni har soniyada qayta yuklamaydi.
+
+**SDK headerlari o'zgardi** xabari chiqsa avval engine'ni, so'ng loyiha skriptlarini qayta build qiling. Boshqa compiler/toolchain bo'lsa xabar konfiguratsiyada chiqadi. Qo'lda `.so` yig'ish o'rniga SDK'ning `zamin_add_game_module` helper'idan foydalaning. Editor eksportda nusxalangan native modulni ham tekshiradi; mos bo'lmagan modul bilan eksport muvaffaqiyatli deb belgilanmaydi. *Oyna → Sahna statistikasi → Skriptlar* engine fingerprint'i va nomzodning mosligini ko'rsatadi.
+
+Bu yozuv native kodga imzo yoki sandbox bermaydi. API asosiy oqimda ishlatiladi; C++ konstruktori/destruktori o'zi qilgan tashqi ta'sirlar uchun umumiy rollback kafolati yo'q.
 
 ## 21. Eksport qilingan o'yinda skriptlar
 

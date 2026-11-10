@@ -191,3 +191,19 @@ ZAMIN_BUILD_DIR=build-release Tests/bench.sh --update-baseline
 | `ZaminBench --nav` | navigatsiya (bake, yo'l qidirish, Nav Agent'lar) |
 | `Tests/player_bench.sh` | namuna o'yinlarning boshlang'ich sahnalari ZaminPlayer'da (ms / kadr, p95, p99) |
 | `Tests/samples_bench.py` | to'qqiz namuna o'yin bot o'ynayotganda: kadr vaqti, eng sekin kadr va uning profili, obyektlar soni, o'yin kodining CPU vaqti, byudjetlar (`--check`) — natija va topilgan muammolar: [Samples.md](Samples.md#ishlash-tezligi) |
+
+
+## P1 xarita render workload'i (2026-11-10)
+
+- Terrain: 257×257 nuqta, 256×256 m, 64 ta 32×32 katakli bo'lak; to'liq 131072, uzoq LOD 128 uchburchak.
+- 2D: 4096×4096 katak, 65536 render bo'lagi, 24×24 birlik ortografik ko'rinish; oldingi 65536 leaf test o'rniga
+  119 hierarchy/leaf bounds testi, 4 ko'ringan bo'lak. Yopiq xarita bir root testida chiqarildi.
+- To'g'rilik: 656 unit / 12 render / 265 editor qadam, transform/reference va manifold testlari, GL cache tekshiruvi.
+
+Player o'lchovi: bir xil saqlangan terrain, kamera `(128,4096,128)`, far clip 10000, 1280×720, VSync o'chirilgan,
+10 warmup + 60 o'lchangan kadr, har variant 3 marta. Backend — Mesa llvmpipe, 2 worker, VPS software rendering.
+Uch run o'rtachalarining mediani: **LOD on 65.074 ms**, **LOD off 127.637 ms**. Off run'lari 100.319–132.567 ms
+oralig'ida o'zgargan; bu virtual muhitdagi cheklangan o'lchov. Haqiqiy GPU yoki barcha sahnalar uchun tezlik
+va'dasi emas. To'liq frame va percentile hisobotlari `build-review/Professional/lod-benchmark.json` va
+`lod-on-*.json` / `lod-off-*.json` da. Generic benchmark CLI — [Runtime](Runtime.md); CPU workload
+regressiyalari `TerrainLODTests` va `TilemapVisibilityTests` fayllarida.

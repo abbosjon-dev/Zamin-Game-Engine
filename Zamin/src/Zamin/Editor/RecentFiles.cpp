@@ -147,7 +147,7 @@ namespace Zamin {
 
     bool RecentFileList::Save(const std::filesystem::path& path) const
     {
-        return FileSystem::WriteTextFile(path, ToJson());
+        return FileSystem::WriteTextFileAtomic(path, ToJson());
     }
 
     bool RecentFileList::Load(const std::filesystem::path& path)

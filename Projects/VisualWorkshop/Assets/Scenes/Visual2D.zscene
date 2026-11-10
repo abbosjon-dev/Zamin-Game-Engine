@@ -1,0 +1,403 @@
+{
+  "Version": 2,
+  "Scene": "Visual 2D",
+  "Entities": [
+    {
+      "Entity": 100,
+      "Tag": "Camera",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          12
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Camera": {
+        "Primary": true,
+        "ProjectionType": 1,
+        "OrthographicSize": 12,
+        "OrthographicNear": -100,
+        "OrthographicFar": 100,
+        "ClearColor": [
+          0.025,
+          0.035,
+          0.065,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 101,
+      "Tag": "Player",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.8,
+          0.8,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.56,
+          0.3,
+          1,
+          1
+        ]
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "GravityScale": 0,
+        "FixedRotation": true
+      },
+      "BoxCollider2D": {
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "IsSensor": false
+      },
+      "NativeScript": {
+        "Class": "Zamin.VisualGraph",
+        "Enabled": true,
+        "Fields": {
+          "Graph": {
+            "Type": "String",
+            "Value": "Scripts/Move2D.zgraph"
+          }
+        }
+      }
+    },
+    {
+      "Entity": 110,
+      "Tag": "Trigger pad",
+      "Transform": {
+        "Translation": [
+          -3,
+          1,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.3,
+          1.3,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.1,
+          0.8,
+          0.65,
+          1
+        ]
+      },
+      "BoxCollider2D": {
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "IsSensor": true
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static"
+      }
+    },
+    {
+      "Entity": 111,
+      "Tag": "Trigger pad",
+      "Transform": {
+        "Translation": [
+          3,
+          1,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.3,
+          1.3,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.1,
+          0.8,
+          0.65,
+          1
+        ]
+      },
+      "BoxCollider2D": {
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "IsSensor": true
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static"
+      }
+    },
+    {
+      "Entity": 112,
+      "Tag": "Trigger pad",
+      "Transform": {
+        "Translation": [
+          0,
+          -2,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.3,
+          1.3,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.1,
+          0.8,
+          0.65,
+          1
+        ]
+      },
+      "BoxCollider2D": {
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "IsSensor": true
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static"
+      }
+    },
+    {
+      "Entity": 120,
+      "Tag": "Wall",
+      "Transform": {
+        "Translation": [
+          0,
+          -4,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          16,
+          0.3,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.16,
+          0.23,
+          0.4,
+          1
+        ]
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static"
+      },
+      "BoxCollider2D": {
+        "Size": [
+          0.5,
+          0.5
+        ]
+      }
+    },
+    {
+      "Entity": 121,
+      "Tag": "Wall",
+      "Transform": {
+        "Translation": [
+          0,
+          4,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          16,
+          0.3,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.16,
+          0.23,
+          0.4,
+          1
+        ]
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static"
+      },
+      "BoxCollider2D": {
+        "Size": [
+          0.5,
+          0.5
+        ]
+      }
+    },
+    {
+      "Entity": 122,
+      "Tag": "Wall",
+      "Transform": {
+        "Translation": [
+          -8,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.3,
+          8,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.16,
+          0.23,
+          0.4,
+          1
+        ]
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static"
+      },
+      "BoxCollider2D": {
+        "Size": [
+          0.5,
+          0.5
+        ]
+      }
+    },
+    {
+      "Entity": 123,
+      "Tag": "Wall",
+      "Transform": {
+        "Translation": [
+          8,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.3,
+          8,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.16,
+          0.23,
+          0.4,
+          1
+        ]
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static"
+      },
+      "BoxCollider2D": {
+        "Size": [
+          0.5,
+          0.5
+        ]
+      }
+    },
+    {
+      "Entity": 130,
+      "Tag": "Instructions",
+      "Transform": {
+        "Translation": [
+          -7,
+          4.7,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.42,
+          0.42,
+          1
+        ]
+      },
+      "Text": {
+        "Text": "VISUAL SCRIPT / 2D   |   WASD to move   |   Touch a green pad",
+        "Color": [
+          0.8,
+          0.85,
+          1,
+          1
+        ]
+      }
+    }
+  ],
+  "RootOrder": [
+    100,
+    101,
+    110,
+    111,
+    112,
+    120,
+    121,
+    122,
+    123,
+    130
+  ],
+  "Settings": {}
+}

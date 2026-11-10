@@ -68,6 +68,8 @@ namespace Zamin {
         std::function<void(const std::filesystem::path&)> OnOpenSpriteEditor;
         // "Animatsiya oynasida ochish" of a .zanim clip.
         std::function<void(const std::filesystem::path&)> OnOpenAnimation;
+        std::function<void(const std::filesystem::path&)> OnOpenVisualGraph;
+        std::function<void(const std::filesystem::path&)> OnOpenCode;
 
         // Models: writes the file's materials as .zmat files (Model::ExportMaterials) into the
         // default folder next to it. False when nothing could be exported (the reason is shown).

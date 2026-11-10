@@ -1,3 +1,4 @@
+#include "Zamin/Scripting/Visual/VisualGraph.h"
 #include "AssetInspectorPanel.h"
 #include "ContentBrowserPanel.h"
 #include "SceneHierarchyPanel.h"
@@ -517,6 +518,11 @@ namespace Zamin {
             case AssetType::Scene:
             case AssetType::Prefab:      DrawSceneFile(); break;
             case AssetType::Font:        DrawFont(); break;
+            case AssetType::VisualGraph:
+                if(ImGui::Button("Visual Script muharririda ochish") && OnOpenVisualGraph)OnOpenVisualGraph(m_Path);
+                try {auto graph=Visual::Graph::Load(m_Path);ImGui::Text("%zu nodes / %zu links / %zu variables",graph.Nodes.size(),graph.Links.size(),graph.Variables.size());for(auto&d:graph.Validate())ImGui::TextWrapped("Node %u: %s",d.Node,d.Message.c_str());}
+                catch(const std::exception&e){ImGui::TextWrapped("%s",e.what());}
+                break;
             case AssetType::Script:      DrawScript(); break;
             case AssetType::Material:    DrawMaterial(); break;
             case AssetType::PhysicsMaterial: DrawPhysicsMaterial(); break;
@@ -2500,6 +2506,12 @@ namespace Zamin {
 
     void AssetInspectorPanel::DrawScript()
     {
+        if(ImGui::Button("Kod muharririda ochish")&&OnOpenCode)OnOpenCode(m_Path);
+        std::error_code sourceSizeError;
+        if(std::filesystem::file_size(m_Path,sourceSizeError)>1024*1024&&!sourceSizeError){
+            ImGui::TextDisabled("Source preview is limited to 1 MB");
+            return;
+        }
         if (!m_Summary.Read)
         {
             m_Summary.Read = true;

@@ -236,7 +236,7 @@ o'ynatish bilan), yo'li, UUID'si va ma'lumotlari (submeshlar, uchburchaklar, ske
 xabarni nusxalash (`Ctrl+C`). Log darajalari va log fayli — **Sozlamalar → Log** ([Core.md](Core.md)).
 
 **Kompilyatsiya** oynasi (**Oyna → Kompilyatsiya**): **Muammolar** — xato va ogohlantirishlar ro'yxati (bosilganda
-fayl shu qatorda tashqi muharrirda ochiladi), **To'liq chiqish** — CMake va kompilyator chiqishi. Batafsil:
+fayl shu qatorda [ichki kod muharririda](CodeEditor.md) ochiladi), **To'liq chiqish** — CMake va kompilyator chiqishi. Batafsil:
 [Scripting.md](Scripting.md#20-kompilyatsiya-va-hot-reload).
 
 ## 10. Boshqa oynalar

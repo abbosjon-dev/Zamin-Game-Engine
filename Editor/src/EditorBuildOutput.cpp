@@ -162,6 +162,7 @@ namespace Zamin {
             m_BuildWarnings = m_BuildParser.GetWarningCount();
             m_BuildShownRevision = m_BuildOutputRevision;
         }
+        m_CodeEditorPanel.SetDiagnostics(m_BuildDiagnostics);
         m_BuildResult = succeeded ? BuildResult::Succeeded : BuildResult::Failed;
         m_BuildSeconds = seconds;
         WakeEditor();
@@ -213,7 +214,7 @@ namespace Zamin {
             ZM_WARN("Fayl topilmadi: {}", diagnostic.File);
             return;
         }
-        OpenInExternalEditor(file, diagnostic.Line, diagnostic.Column);
+        OpenInCodeEditor(file, diagnostic.Line, diagnostic.Column);
     }
 
     void EditorLayer::UI_BuildStatusBadge()
@@ -384,7 +385,7 @@ namespace Zamin {
                             OpenDiagnostic(d);
                         if (ImGui::BeginPopupContextItem("##diagnosticMenu"))
                         {
-                            if (ImGui::MenuItem(Tr(ICON_FA_PEN_TO_SQUARE "  Tashqi muharrirda ochish"), nullptr, false, d.HasLocation() || !d.File.empty()))
+                            if (ImGui::MenuItem(Tr(ICON_FA_PEN_TO_SQUARE "  Kod muharririda ochish"), nullptr, false, d.HasLocation() || !d.File.empty()))
                                 OpenDiagnostic(d);
                             if (ImGui::MenuItem(Tr(ICON_FA_COPY "  Xabarni nusxalash")))
                                 ImGui::SetClipboardText(d.Format().c_str());
@@ -407,7 +408,7 @@ namespace Zamin {
                         const std::string file = ShownFile(d.File);
                         ImGui::TextDisabled("%s", file.c_str());
                         if (!file.empty() && ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-                            UI::Tooltip(std::format("{}\nIkki marta bosing: tashqi muharrirda ochish", d.File).c_str());
+                            UI::Tooltip(std::format("{}\nIkki marta bosing: ichki kod muharririda ochish", d.File).c_str());
                         ImGui::TableSetColumnIndex(2);
                         if (d.Line > 0)
                             ImGui::TextDisabled(d.Column > 0 ? "%d:%d" : "%d", d.Line, d.Column);

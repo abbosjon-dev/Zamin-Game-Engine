@@ -25,6 +25,16 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     list(APPEND ZAMIN_SOURCES ${ZAMIN_PLATFORM_SOURCES})
 endif()
 
+# Editor services form a separate library. Player-only builds do not compile them.
+file(GLOB ZAMIN_EDITOR_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/Editor/*.cpp)
+list(APPEND ZAMIN_EDITOR_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/Renderer/EditorCamera.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/Renderer/EditorViewSettings.cpp)
+list(REMOVE_ITEM ZAMIN_SOURCES ${ZAMIN_EDITOR_SOURCES})
+if(NOT ZAMIN_WITH_IMGUI)
+    list(FILTER ZAMIN_SOURCES EXCLUDE REGEX "/ImGui/[^/]+\\.cpp$")
+endif()
+
 # Names declared in namespace Zamin: a script class named like one of them would clash with
 # `using namespace Zamin;` (the new-script dialog rejects such names).
 file(GLOB_RECURSE ZAMIN_HEADERS CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/*.h)
@@ -49,7 +59,15 @@ if(ZAMIN_OPTIMIZE_SERIALIZER_IN_DEBUG AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Cla
     set_source_files_properties(${ZAMIN_SERIALIZER_SOURCE} PROPERTIES COMPILE_OPTIONS "$<$<CONFIG:Debug>:-O2>")
 endif()
 
-add_library(Zamin SHARED ${ZAMIN_SOURCES} ${ZAMIN_ENGINE_NAMES})
+# Compile common engine code once. The editor-enabled and UI-free libraries share these
+# objects; only Application and the optional overlay depend on ImGui.
+set(ZAMIN_APPLICATION_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/Core/Application.cpp)
+set(ZAMIN_COMMON_SOURCES ${ZAMIN_SOURCES})
+list(REMOVE_ITEM ZAMIN_COMMON_SOURCES ${ZAMIN_APPLICATION_SOURCE})
+list(FILTER ZAMIN_COMMON_SOURCES EXCLUDE REGEX "/ImGui/[^/]+\\.cpp$")
+set(ZAMIN_FRONTEND_SOURCES ${ZAMIN_SOURCES})
+list(REMOVE_ITEM ZAMIN_FRONTEND_SOURCES ${ZAMIN_COMMON_SOURCES})
+add_library(Zamin SHARED ${ZAMIN_FRONTEND_SOURCES} ${ZAMIN_ENGINE_NAMES})
 add_library(Zamin::Zamin ALIAS Zamin)
 target_include_directories(Zamin PRIVATE ${ZAMIN_GENERATED_DIR})
 
@@ -71,12 +89,18 @@ set_target_properties(Zamin PROPERTIES
 
 target_include_directories(Zamin PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>)
 # Vendor headers are system headers for our code: their own warnings are not ours (zamin_target_settings).
-target_include_directories(Zamin SYSTEM PUBLIC
-    $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>
-    $<BUILD_INTERFACE:${imgui_SOURCE_DIR}/misc/cpp>
-    $<BUILD_INTERFACE:${imguizmo_SOURCE_DIR}>)
-
-target_compile_definitions(Zamin PUBLIC GLM_FORCE_RADIANS GLM_ENABLE_EXPERIMENTAL IMGUI_DEFINE_MATH_OPERATORS ${ZAMIN_IMGUI_CONFIG})
+target_compile_definitions(Zamin PUBLIC GLM_FORCE_RADIANS GLM_ENABLE_EXPERIMENTAL)
+if(ZAMIN_WITH_IMGUI)
+    target_include_directories(Zamin SYSTEM PUBLIC
+        $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>
+        $<BUILD_INTERFACE:${imgui_SOURCE_DIR}/misc/cpp>
+        $<BUILD_INTERFACE:${imguizmo_SOURCE_DIR}>)
+    target_compile_definitions(Zamin PUBLIC IMGUI_DEFINE_MATH_OPERATORS ${ZAMIN_IMGUI_CONFIG})
+    target_compile_definitions(Zamin PRIVATE ZAMIN_WITH_IMGUI=1)
+    target_link_libraries(Zamin PRIVATE imgui imguizmo)
+else()
+    target_compile_definitions(Zamin PRIVATE ZAMIN_WITH_IMGUI=0)
+endif()
 
 # Debug drawing (Zamin/Debug/DebugDraw.h): on in the editor and Development builds, compiled out
 # (empty inline calls) in Shipping builds. The game modules get the same setting.
@@ -96,13 +120,55 @@ elseif(ZAMIN_ASSERTS_MODE STREQUAL "OFF")
 endif()
 target_compile_definitions(Zamin PUBLIC ${ZAMIN_BUILD_DEFINITIONS})
 
+# Conservative SDK identity: all public source/dependency headers, compiler and ABI definitions.
+include(${PROJECT_SOURCE_DIR}/cmake/ModuleABI.cmake)
+set(ZAMIN_SDK_ABI_ROOTS "${CMAKE_CURRENT_SOURCE_DIR}/src;${glm_SOURCE_DIR}/glm;${entt_SOURCE_DIR}/src;${json_SOURCE_DIR}/include")
+set(ZAMIN_SDK_ABI_TOOLCHAIN "${CMAKE_CXX_COMPILER_ID}|${CMAKE_CXX_COMPILER_VERSION}|${CMAKE_SYSTEM_PROCESSOR}|${CMAKE_SIZEOF_VOID_P}|cxx20")
+set(ZAMIN_SDK_ABI_DEFINITIONS "GLM_FORCE_RADIANS;GLM_ENABLE_EXPERIMENTAL;${ZAMIN_BUILD_DEFINITIONS}")
+zamin_compute_sdk_fingerprint(ZAMIN_SDK_ABI_FINGERPRINT)
+file(CONFIGURE OUTPUT "${ZAMIN_GENERATED_DIR}/ZaminModuleABI.inc"
+    CONTENT "#define ZAMIN_SDK_ABI_FINGERPRINT \"${ZAMIN_SDK_ABI_FINGERPRINT}\"\n" @ONLY)
+# Game subdirectories and the exported SDK consume exactly this engine build identity.
+foreach(variable ZAMIN_SDK_ABI_ROOTS ZAMIN_SDK_ABI_TOOLCHAIN ZAMIN_SDK_ABI_DEFINITIONS ZAMIN_SDK_ABI_FINGERPRINT)
+    set(${variable} "${${variable}}" PARENT_SCOPE)
+endforeach()
+
 # Header-only libraries exposed through the public API.
 target_link_libraries(Zamin PUBLIC glm::glm EnTT::EnTT)
+# VisualGraph.h exposes JSON values; consumers need the header-only dependency.
+# Keep implementation dependency order stable for the shared core object target.
+target_link_libraries(Zamin INTERFACE nlohmann_json::nlohmann_json)
 # Implementation details (compiled into libZamin.so).
-target_link_libraries(Zamin PRIVATE glad glfw imgui imguizmo box2d Jolt nlohmann_json::nlohmann_json stb tinyobj cgltf miniaudio
+target_link_libraries(Zamin PRIVATE glad glfw box2d Jolt nlohmann_json::nlohmann_json stb tinyobj cgltf miniaudio
     ${CMAKE_DL_LIBS} pthread)
 
 zamin_target_settings(Zamin)
+add_library(ZaminCoreObjects OBJECT ${ZAMIN_COMMON_SOURCES})
+set_target_properties(ZaminCoreObjects PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_include_directories(ZaminCoreObjects PRIVATE "$<TARGET_PROPERTY:Zamin,INCLUDE_DIRECTORIES>")
+target_compile_definitions(ZaminCoreObjects PRIVATE "$<TARGET_PROPERTY:Zamin,COMPILE_DEFINITIONS>")
+target_compile_options(ZaminCoreObjects PRIVATE "$<TARGET_PROPERTY:Zamin,COMPILE_OPTIONS>")
+set(ZAMIN_CORE_DEPENDENCIES glad glfw glm::glm EnTT::EnTT box2d Jolt nlohmann_json::nlohmann_json stb tinyobj cgltf miniaudio ${CMAKE_DL_LIBS} pthread)
+target_link_libraries(ZaminCoreObjects PRIVATE ${ZAMIN_CORE_DEPENDENCIES})
+add_custom_target(ZaminEngineNames DEPENDS ${ZAMIN_ENGINE_NAMES})
+add_dependencies(ZaminCoreObjects ZaminBuildInfo ZaminEngineNames)
+target_sources(Zamin PRIVATE $<TARGET_OBJECTS:ZaminCoreObjects>)
+# A real UI-free shared library for the runtime regression check, with no editor/ImGui symbols.
+# The standard ZAMIN_WITH_IMGUI=OFF build uses the same frontend and common sources.
+if(ZAMIN_BUILD_TESTS AND ZAMIN_WITH_IMGUI)
+    add_library(ZaminStandalone SHARED EXCLUDE_FROM_ALL ${ZAMIN_APPLICATION_SOURCE} $<TARGET_OBJECTS:ZaminCoreObjects>)
+    target_include_directories(ZaminStandalone PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_compile_definitions(ZaminStandalone PRIVATE GLM_FORCE_RADIANS GLM_ENABLE_EXPERIMENTAL ${ZAMIN_BUILD_DEFINITIONS} ZAMIN_WITH_IMGUI=0)
+    target_link_libraries(ZaminStandalone PRIVATE ${ZAMIN_CORE_DEPENDENCIES})
+    set_target_properties(ZaminStandalone PROPERTIES OUTPUT_NAME Zamin LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/runtime-check BUILD_RPATH "$ORIGIN")
+    zamin_target_settings(ZaminStandalone)
+endif()
+if(ZAMIN_BUILD_EDITOR OR ZAMIN_BUILD_TESTS)
+    add_library(ZaminEditorSupport STATIC ${ZAMIN_EDITOR_SOURCES})
+    target_link_libraries(ZaminEditorSupport PUBLIC Zamin PRIVATE nlohmann_json::nlohmann_json)
+    zamin_target_settings(ZaminEditorSupport)
+endif()
+
 # miniaudio's implementation is third-party code in a translation unit of its own: in a sanitizer build its
 # UndefinedBehaviorSanitizer reports stay recoverable like the vendor libraries' (Tests/sanitizers/ubsan.supp lists
 # them with the reason); the rest of the engine keeps -fno-sanitize-recover=all.
@@ -120,7 +186,10 @@ endif()
 # Calls inside the library go to its own functions (not to copies of the same inline / template code
 # in the program that loads it - an unoptimised Debug editor's string or container code, say).
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    target_link_options(Zamin PRIVATE -Wl,-Bsymbolic-functions)
+    target_link_options(Zamin PRIVATE -Wl,-Bsymbolic-functions -Wl,--no-undefined)
+    if(TARGET ZaminStandalone)
+        target_link_options(ZaminStandalone PRIVATE -Wl,--no-undefined)
+    endif()
 endif()
 
 # The particle simulation and the loops that hand particles to the renderer run for every particle
@@ -169,11 +238,15 @@ get_target_property(_glm_inc glm::glm INTERFACE_INCLUDE_DIRECTORIES)
 get_target_property(_entt_inc EnTT::EnTT INTERFACE_INCLUDE_DIRECTORIES)
 set(ZAMIN_EXPORT_INCLUDES
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
-    "${imgui_SOURCE_DIR}"
-    "${imgui_SOURCE_DIR}/misc/cpp"
-    "${imguizmo_SOURCE_DIR}"
+    "${json_SOURCE_DIR}/include"
     "${glm_SOURCE_DIR}"
     "${entt_SOURCE_DIR}/src")
+set(ZAMIN_EXPORT_DEFINITIONS "GLM_FORCE_RADIANS;GLM_ENABLE_EXPERIMENTAL;${ZAMIN_BUILD_DEFINITIONS}")
+if(ZAMIN_WITH_IMGUI)
+    list(APPEND ZAMIN_EXPORT_INCLUDES "${imgui_SOURCE_DIR}" "${imgui_SOURCE_DIR}/misc/cpp" "${imguizmo_SOURCE_DIR}")
+    list(APPEND ZAMIN_EXPORT_DEFINITIONS IMGUI_DEFINE_MATH_OPERATORS "${ZAMIN_IMGUI_CONFIG}")
+endif()
+
 file(GENERATE OUTPUT ${CMAKE_BINARY_DIR}/ZaminConfig.cmake CONTENT
 "# Generated by Zamin Engine build. Use: find_package(Zamin CONFIG)
 if(NOT TARGET Zamin::Zamin)
@@ -182,9 +255,14 @@ if(NOT TARGET Zamin::Zamin)
         IMPORTED_LOCATION \"$<TARGET_FILE:Zamin>\"
         IMPORTED_SONAME \"$<TARGET_FILE_NAME:Zamin>\"
         INTERFACE_INCLUDE_DIRECTORIES \"${ZAMIN_EXPORT_INCLUDES}\"
-        INTERFACE_COMPILE_DEFINITIONS \"GLM_FORCE_RADIANS;GLM_ENABLE_EXPERIMENTAL;IMGUI_DEFINE_MATH_OPERATORS;${ZAMIN_IMGUI_CONFIG};${ZAMIN_BUILD_DEFINITIONS}\")
+        INTERFACE_COMPILE_DEFINITIONS \"${ZAMIN_EXPORT_DEFINITIONS}\")
     ${ZAMIN_CONFIG_SANITIZER_TARGET}
 endif()
 ${ZAMIN_CONFIG_SANITIZER}set(ZAMIN_BIN_DIR \"${CMAKE_BINARY_DIR}/bin\")
+set(ZAMIN_SDK_ABI_ROOTS \"${ZAMIN_SDK_ABI_ROOTS}\")
+set(ZAMIN_SDK_ABI_TOOLCHAIN \"${ZAMIN_SDK_ABI_TOOLCHAIN}\")
+set(ZAMIN_SDK_ABI_DEFINITIONS \"${ZAMIN_SDK_ABI_DEFINITIONS}\")
+set(ZAMIN_SDK_ABI_FINGERPRINT \"${ZAMIN_SDK_ABI_FINGERPRINT}\")
+include(\"${PROJECT_SOURCE_DIR}/cmake/ModuleABI.cmake\")
 include(\"${PROJECT_SOURCE_DIR}/cmake/ZaminGame.cmake\")
 ")

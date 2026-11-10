@@ -1,4 +1,6 @@
 #include "Zamin/Scripting/ScriptEngine.h"
+#include "Zamin/Scripting/ModuleABI.h"
+#include "Zamin/Scripting/Visual/VisualGraphHost.h"
 #include "Zamin/Core/GameState.h"
 #include "Zamin/Core/Services.h"
 #include "Zamin/Scripting/ScriptableEntity.h"
@@ -15,19 +17,25 @@
 #endif
 
 namespace Zamin {
+    namespace {
+        // A new module's static registrars must not replace the working module's metadata
+        // until dlopen succeeds and the old module has finished its unload callback.
+        std::map<std::string, ScriptClassInfo>* s_StagedRegistry = nullptr;
+        bool s_LoadingModule = false;
+    }
 
     static std::map<std::string, ScriptClassInfo>& Registry()
     {
-        static std::map<std::string, ScriptClassInfo> registry;
+        static std::map<std::string, ScriptClassInfo> registry = {{"Zamin.VisualGraph", MakeVisualGraphClassInfo()}};
         return registry;
     }
 
     void ScriptRegistry::Register(const ScriptClassInfo& info)
     {
-        Registry()[info.Name] = info;
+        if (info.Name != "Zamin.VisualGraph") (s_StagedRegistry ? *s_StagedRegistry : Registry())[info.Name] = info;
     }
 
-    void ScriptRegistry::Unregister(const std::string& name) { Registry().erase(name); }
+    void ScriptRegistry::Unregister(const std::string& name) { if (name != "Zamin.VisualGraph") (s_StagedRegistry ? *s_StagedRegistry : Registry()).erase(name); }
 
     const ScriptClassInfo* ScriptRegistry::Find(const std::string& name)
     {
@@ -114,8 +122,8 @@ namespace Zamin {
 
     bool ScriptEngine::LoadModule(const std::filesystem::path& path)
     {
-        UnloadModule();
-
+        if (s_LoadingModule) { ZM_CORE_ERROR("Modul yuklash ichida yana modul yuklash mumkin emas"); return false; }
+        struct LoadingGuard { LoadingGuard(){s_LoadingModule=true;} ~LoadingGuard(){s_LoadingModule=false;} } loading;
         std::error_code ec;
         if (!std::filesystem::exists(path, ec))
         {
@@ -133,6 +141,8 @@ namespace Zamin {
             ZM_CORE_INFO("Eski skript moduli nusxalari o'chirildi: {} ta ({})", stale, tmpDir.string());
         std::filesystem::path copy = tmpDir / (path.stem().string() + "-" + std::to_string(getpid()) + "-" +
                                                std::to_string(++s_Module.Generation) + path.extension().string());
+        const auto sourceWriteTime = std::filesystem::last_write_time(path, ec);
+        if (ec) return false;
         std::filesystem::copy_file(path, copy, std::filesystem::copy_options::overwrite_existing, ec);
         if (ec)
         {
@@ -140,20 +150,40 @@ namespace Zamin {
             return false;
         }
 
-        size_t before = ScriptRegistry::GetAll().size();
-        void* handle = dlopen(copy.c_str(), RTLD_NOW | RTLD_LOCAL);
+        // dlopen runs static constructors. Reject incompatible bytes before executing any of them,
+        // and before destroying the working module or its live instances.
+        auto compatibility = ModuleABI::Inspect(copy);
+        if (!compatibility.Compatible())
+        {
+            ZM_CORE_ERROR("Skript moduli rad etildi: {}: {} (engine={}, modul={})", path.filename().string(), compatibility.Message,
+                          compatibility.EngineFingerprint.substr(0,12), compatibility.ModuleFingerprint.substr(0,12));
+            std::filesystem::remove(copy, ec);
+            return false;
+        }
+        std::map<std::string, ScriptClassInfo> staged;
+        void* handle = nullptr;
+        {
+            struct RegistrationGuard {
+                explicit RegistrationGuard(std::map<std::string, ScriptClassInfo>& target){s_StagedRegistry=&target;}
+                ~RegistrationGuard(){s_StagedRegistry=nullptr;}
+            } registration(staged);
+            handle = dlopen(copy.c_str(), RTLD_NOW | RTLD_LOCAL);
+        }
         if (!handle)
         {
             ZM_CORE_ERROR("Skript moduli yuklanmadi: {}", dlerror());
             std::filesystem::remove(copy, ec);
             return false;
         }
+        UnloadModule();
+        const size_t classCount = staged.size();
+        for (auto& [name, info] : staged) Registry()[name] = std::move(info);
         s_Module.Handle = handle;
         s_Module.Path = path;
         s_Module.LoadedCopy = copy;
-        s_Module.WriteTime = std::filesystem::last_write_time(path, ec);
+        s_Module.WriteTime = sourceWriteTime;
         ZM_CORE_INFO("Skript moduli yuklandi: {} ({} ta skript klassi)", path.filename().string(),
-                     ScriptRegistry::GetAll().size() - before);
+                     classCount);
         return true;
 #else
         ZM_CORE_ERROR("Bu platformada skript modullari hali qo'llab-quvvatlanmaydi");

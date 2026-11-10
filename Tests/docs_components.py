@@ -18,7 +18,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 COMPONENTS_H = os.path.join(ROOT, "Zamin", "src", "Zamin", "Scene", "Components.h")
 INSPECTOR_CPP = [os.path.join(ROOT, "Editor", "src", "Panels", f) for f in
-                 ("SceneHierarchyPanel.cpp", "SceneHierarchyParticles.cpp", "SceneHierarchyPrefabs.cpp")]
+                 ("SceneHierarchyPanel.cpp", "SceneComponentInspector.cpp", "SceneComponentFields.cpp", "SceneHierarchyParticles.cpp", "SceneHierarchyPrefabs.cpp")]
 SERIALIZER_CPP = os.path.join(ROOT, "Zamin", "src", "Zamin", "Scene", "SceneSerializer.cpp")
 
 # Components every entity has (not in AllComponents, documented too).
@@ -249,7 +249,7 @@ def members(body):
                                   "private:", "protected:", "constexpr ")):
             continue
         s = re.sub(r"^(public|private|protected):\s*", "", s)
-        if "(" in s.split("=")[0].split("{")[0]:
+        if re.search(r"\boperator\b", s) or "(" in s.split("=")[0].split("{")[0]:
             continue  # a function declaration / constructor
         m = _member.match(s)
         if not m:
@@ -376,7 +376,7 @@ def block(name, struct_body, sections, menu, keys, serialized):
 
 
 def generate():
-    raw = read(COMPONENTS_H)
+    raw = read(COMPONENTS_H) + "\n" + read(os.path.join(ROOT,"Zamin","src","Zamin","Scene","Terrain.h")) + "\n" + read(os.path.join(ROOT,"Zamin","src","Zamin","Scene","Foliage.h"))
     text = strip_comments_keep_lines(raw)
     names = ALWAYS + all_components(text)
     sections, menu = inspector_info()

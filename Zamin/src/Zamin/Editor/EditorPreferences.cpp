@@ -1,4 +1,5 @@
 #include "Zamin/Editor/EditorPreferences.h"
+#include "Zamin/Math/ThemeColors.h"
 #include "Zamin/Utils/FileSystem.h"
 
 #include <nlohmann/json.hpp>
@@ -94,12 +95,12 @@ namespace Zamin {
     // ------------------------------------------------------------------ theme
     glm::vec3 EditorThemeSettings::GetHoverShade(const glm::vec3& accent)
     {
-        return glm::clamp(glm::mix(accent, glm::vec3(1.0f), 0.18f), glm::vec3(0.0f), glm::vec3(1.0f));
+        return ThemeColors::Hover(accent);
     }
 
     glm::vec3 EditorThemeSettings::GetDarkShade(const glm::vec3& accent)
     {
-        return glm::clamp(accent * 0.68f, glm::vec3(0.0f), glm::vec3(1.0f));
+        return ThemeColors::Pressed(accent);
     }
 
     std::span<const ColorPreset> EditorThemeSettings::GetAccentPresets() { return s_AccentPresets; }
@@ -317,7 +318,7 @@ namespace Zamin {
 
     bool EditorPreferences::Save(const std::filesystem::path& path) const
     {
-        return FileSystem::WriteTextFile(path, ToJson());
+        return FileSystem::WriteTextFileAtomic(path, ToJson());
     }
 
     bool EditorPreferences::Load(const std::filesystem::path& path)

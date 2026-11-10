@@ -1,0 +1,10 @@
+{
+    "UUID": "70413eb27d2a1c9f",
+    "Type": "Texture",
+    "Import": {
+        "Filter": "Linear",
+        "Wrap": "Repeat",
+        "Mipmaps": true,
+        "sRGB": true
+    }
+}

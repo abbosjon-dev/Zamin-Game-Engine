@@ -183,3 +183,40 @@ Tests/coverage.sh --gui --clean
 Tests/format_check.sh --stats --top 20
 Tests/bench.sh --compare; Tests/render_bench.sh
 ```
+
+
+## Dastlabki auditdagi yetti band
+
+1. Scene save xatosi dirty/history/autosave holatini tozalamaydi; eksport saqlanmagan sahna bilan davom etmaydi.
+2. Scene va project konfiguratsiyasi atomik yoziladi, flush/close xatolari tekshiriladi; almashtirish xatosida eski fayl saqlanadi.
+3. Editor skript build'i `RunProcess(argv)` orqali, shell'siz ishga tushadi. Papka nomidagi `$()` yoki backtick bajarilmaydi.
+4. Noto'liq yoki takrorlangan shader stage'lari nazorat qilinadi: log va bo'sh shader, `std::out_of_range` emas.
+5. Undo uchun standart 128 MiB saqlanadigan ma'lumot chegarasi bor. Scene nusxalari, prefab fayl tahrirlari,
+   nomlar va tanlovlar hisoblanadi; allocator overhead'i va vaqtinchalik serializer xotirasi bu limitga kirmaydi.
+   Joriy holatning o'zi limitdan katta bo'lsa, u yagona holat sifatida qoladi. Saqlangan eski snapshot weak reference bilan eslanadi.
+6. Editor xizmatlari alohida kutubxonaga, katta inspektor/build modullari va editor unit testlari alohida fayllarga ajratildi.
+   Monolit `EditorLayer.cpp` va qolgan asosiy test faylini keyingi o'zgarishlarda yana maydalash mumkin; bu refaktor butun kod bazasini qayta yozmaydi.
+7. Standart CPU profili x86-64/SSE2. AVX2/FMA faqat aniq opt-in bilan; [talablar](BuildAndExport.md#cpu-profili-va-editor-xizmatlarisiz-runtime).
+
+Regressiyalar: `SafetyTests.cpp`, `EditorServicesTests.cpp`, `TerrainTests.cpp`. `ZAMIN_EDITOR_TERRAIN=test`
+haqiqiy editor ichida save xatosidan keyin dirty, history va autosave saqlanishini ham tekshiradi.
+
+
+Tekshiruv natijalari (2026-11-09): 645/645 unit test, 12/12 render holati, editor smoke 265/265
+(OpenGL/ImGui xatosi 0), docs check 0 muammo. `ZAMIN_EDITOR_TERRAIN=test` save xatosida dirty/history/autosave
+saqlanishini tasdiqladi. ImGui'siz `ZaminStandalone` kutubxonasida haqiqiy Player 271 obyektli map'ni ochdi.
+Hot reload bo'shliq, apostrof va `$()` bor papkada ikki skript versiyasi bilan o'tdi; shell marker fayli yaralmadi.
+QEMU x86-64/SSE2 (SSE3/SSE4/AVX/AVX2/FMA/F16C/BMI/ABM/POPCNT o'chirilgan) ostida Jolt terrain collision
+regressiyasi o'tdi. Loglar va JSON/JUnit hisobotlar `build-review/Audit/` da.
+
+
+### GPU terrain PBR — 2026-11-10
+
+696/696 unit, 12/12 reference render va OpenGL 4.1 pixel-oracle terrain sinovi o'tdi. Soya atlasi resize'idan oldin caller framebuffer saqlanadi; float paint normallashishi takroriy validation'da control upload chaqirmaydi. Editor to'rtta albedo/normal/ORM qatlamini yukladi, 271 obyektli map ImGui'siz runtime'da ishladi. Export reachability barcha 12 source xaritasini oldi; Player screenshot va ko'chirilgan papkada ishga tushish tekshiruvlaridan o'tdi. Native SDK sample modullari qayta yig'ildi. Hisobotlar `build-review/TerrainPBR/` da; GPU drayverlar matritsasi va katta dunyo performance acceptance hali ochiq.
+
+
+### SDK ABI, GPU profiling va foliage authoring — 2026-11-10
+
+707/707 unit va 12/12 reference render regressiyasi o'tdi. Native fixture mos/mos emas/belgisiz/strip qilingan modullarni tekshirdi; mos kelmagan modul konstruktorlari bajarilmadi, failed dlopen oldingi klass registry'sini saqladi. Ko'chirilgan SDK configure bo'ldi; uning headeri yoki toolchain'i o'zgartirilganda aniq xato bilan rad etildi. Editor hot reload yangi maydon default'i va oldingi qiymatlarni saqladi. Native Platformer2D eksporti 26 klass bilan ishladi, screenshot va relocation o'tdi; mos kelmagan modul bilan eksport `Succeeded=false` chiqardi.
+
+GL 4.1 GPU timestamp suite 34 completed sample, 1 pending, 0 dropped qayd etdi; bu software Mesa correctness dalili. Foliage API: region/offset, world normal (nonuniform parent), lock/hidden, invalid/runtime holat, hierarchy/save/copy testlari. Haqiqiy editorda 89 ildiz reproject va Undo/Redo o'tdi. Root/module/diagnostika/profiler screenshot va loglari `build-review/SDKQuality/` da. Alohida GPU foliage culling/LOD va physical GPU byudjeti keyingi paketda.

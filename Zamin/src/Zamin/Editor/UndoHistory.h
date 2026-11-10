@@ -72,7 +72,12 @@ namespace Zamin {
 
         // At most `maxEdits` scene steps and `maxSelections` selection steps are kept (the oldest
         // ones drop off; the first state left becomes where undo stops).
-        explicit UndoHistory(size_t maxEdits = 100, size_t maxSelections = 200);
+        static constexpr size_t DefaultMemoryBudget = 128 * 1024 * 1024;
+        explicit UndoHistory(size_t maxEdits = 100, size_t maxSelections = 200, size_t memoryBudget = DefaultMemoryBudget);
+        void SetMemoryBudget(size_t bytes);
+        size_t GetMemoryBudget() const { return m_MemoryBudget; }
+        // Unique scene texts, file edits, names and selections; allocator overhead is excluded.
+        size_t GetRetainedBytes() const;
 
         // Only `scene` (Initial). `saved`: it is what the scene's file holds.
         void Reset(std::string scene, UndoSelection selection, std::string name, double time = 0.0, bool saved = true);
@@ -133,8 +138,8 @@ namespace Zamin {
     private:
         std::vector<Entry> m_Entries;
         size_t m_Current = 0;
-        std::shared_ptr<const std::string> m_Saved;
-        size_t m_MaxEdits, m_MaxSelections;
+        std::weak_ptr<const std::string> m_Saved;
+        size_t m_MaxEdits, m_MaxSelections, m_MemoryBudget;
     };
 
     // What changed between two scene snapshots (SceneSerializer texts): entities added, removed

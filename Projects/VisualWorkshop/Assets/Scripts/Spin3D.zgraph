@@ -1,0 +1,152 @@
+{
+  "Format": "Zamin.VisualGraph",
+  "Version": 1,
+  "Nodes": [
+    {
+      "ID": 1,
+      "Kind": "Event.Update",
+      "X": 30,
+      "Y": 20,
+      "Inputs": {},
+      "Breakpoint": false
+    },
+    {
+      "ID": 2,
+      "Kind": "Get.Number",
+      "X": 30,
+      "Y": 160,
+      "Inputs": {
+        "Name": "Speed"
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 3,
+      "Kind": "Multiply",
+      "X": 290,
+      "Y": 150,
+      "Inputs": {},
+      "Breakpoint": false
+    },
+    {
+      "ID": 4,
+      "Kind": "Get.Number",
+      "X": 30,
+      "Y": 310,
+      "Inputs": {
+        "Name": "Angle"
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 5,
+      "Kind": "Add",
+      "X": 550,
+      "Y": 220,
+      "Inputs": {},
+      "Breakpoint": false
+    },
+    {
+      "ID": 6,
+      "Kind": "Set.Number",
+      "X": 550,
+      "Y": 20,
+      "Inputs": {
+        "Name": "Angle"
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 7,
+      "Kind": "Get.Number",
+      "X": 290,
+      "Y": 420,
+      "Inputs": {
+        "Name": "Angle"
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 8,
+      "Kind": "MakeVec3",
+      "X": 820,
+      "Y": 320,
+      "Inputs": {},
+      "Breakpoint": false
+    },
+    {
+      "ID": 9,
+      "Kind": "SetRotation",
+      "X": 820,
+      "Y": 20,
+      "Inputs": {},
+      "Breakpoint": false
+    }
+  ],
+  "Links": [
+    {
+      "From": 1,
+      "Output": "Then",
+      "To": 6,
+      "Input": "In"
+    },
+    {
+      "From": 1,
+      "Output": "Delta",
+      "To": 3,
+      "Input": "A"
+    },
+    {
+      "From": 2,
+      "Output": "Value",
+      "To": 3,
+      "Input": "B"
+    },
+    {
+      "From": 3,
+      "Output": "Value",
+      "To": 5,
+      "Input": "B"
+    },
+    {
+      "From": 4,
+      "Output": "Value",
+      "To": 5,
+      "Input": "A"
+    },
+    {
+      "From": 5,
+      "Output": "Value",
+      "To": 6,
+      "Input": "Value"
+    },
+    {
+      "From": 6,
+      "Output": "Then",
+      "To": 9,
+      "Input": "In"
+    },
+    {
+      "From": 7,
+      "Output": "Value",
+      "To": 8,
+      "Input": "Y"
+    },
+    {
+      "From": 8,
+      "Output": "Value",
+      "To": 9,
+      "Input": "Vector"
+    }
+  ],
+  "Variables": {
+    "Speed": {
+      "Type": "Number",
+      "Default": 1.2
+    },
+    "Angle": {
+      "Type": "Number",
+      "Default": 0
+    }
+  }
+}

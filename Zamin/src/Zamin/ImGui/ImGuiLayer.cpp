@@ -1,6 +1,6 @@
 #include "Zamin/ImGui/ImGuiLayer.h"
 #include "Zamin/ImGui/Icons.h"
-#include "Zamin/Editor/EditorPreferences.h"
+#include "Zamin/Math/ThemeColors.h"
 #include "Zamin/Core/Application.h"
 #include "Zamin/Renderer/Renderer.h"
 
@@ -60,6 +60,13 @@ namespace Zamin {
         s_BoldFont = AddFontWithIcons(io, fonts / "Inter-Bold.ttf", base, base * 0.9f);
         s_TitleFont = AddFontWithIcons(io, fonts / "Inter-Bold.ttf", base * 1.6f, base * 1.4f);
         s_LargeIconFont = AddFontWithIcons(io, fonts / "Inter-Regular.ttf", base * 3.0f, base * 3.0f);
+        ImFontConfig codeFont;
+        codeFont.SizePixels=base;codeFont.OversampleH=1;codeFont.OversampleV=1;codeFont.PixelSnapH=true;
+        std::snprintf(codeFont.Name,sizeof(codeFont.Name),"ZaminCode");
+        static const ImWchar codeRanges[]={0x0020,0x024f,0x0400,0x052f,0x2000,0x206f,0};
+        if(std::filesystem::exists(fonts/"DejaVuSansMono.ttf"))
+            io.Fonts->AddFontFromFileTTF((fonts/"DejaVuSansMono.ttf").string().c_str(),base,&codeFont,codeRanges);
+        else io.Fonts->AddFontDefault(&codeFont);
         m_BuiltFontSize = m_FontSize;
     }
 
@@ -172,8 +179,8 @@ namespace Zamin {
         const ImVec4 bg3     = ImVec4(0.165f, 0.180f, 0.212f, 1.0f);
         const ImVec4 bg4     = ImVec4(0.215f, 0.235f, 0.275f, 1.0f);
         // The accent's lighter (hovered) and darker (pressed) shades follow it.
-        const glm::vec3 hover = EditorThemeSettings::GetHoverShade(s_Accent);
-        const glm::vec3 dark = EditorThemeSettings::GetDarkShade(s_Accent);
+        const glm::vec3 hover = ThemeColors::Hover(s_Accent);
+        const glm::vec3 dark = ThemeColors::Pressed(s_Accent);
         const ImVec4 accent  = ImVec4(s_Accent.r, s_Accent.g, s_Accent.b, 1.0f);
         const ImVec4 accentH = ImVec4(hover.r, hover.g, hover.b, 1.0f);
         const ImVec4 accentD = ImVec4(dark.r, dark.g, dark.b, 1.0f);

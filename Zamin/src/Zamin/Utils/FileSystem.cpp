@@ -76,6 +76,13 @@ namespace Zamin {
             return false;
         }
         out << content;
+        out.flush();
+        out.close();
+        if (!out)
+        {
+            ZM_CORE_ERROR("Fayl to'liq yozilmadi: '{}'", path.string());
+            return false;
+        }
         return true;
     }
 
@@ -98,9 +105,9 @@ namespace Zamin {
             }
             out << content;
             out.flush();
+            out.close();
             if (!out)
             {
-                out.close();
                 std::filesystem::remove(temp, ec);
                 ZM_CORE_ERROR("Faylga yozib bo'lmadi: '{}'", path.string());
                 return false;
@@ -109,9 +116,10 @@ namespace Zamin {
         std::filesystem::rename(temp, path, ec);
         if (ec)
         {
-            // Some file systems cannot rename over a file: written in place instead.
+            // Preserve the original on every failure: never truncate it as a fallback.
             std::filesystem::remove(temp, ec);
-            return WriteTextFile(path, content);
+            ZM_CORE_ERROR("Fayl atomik almashtirilmadi: '{}'", path.string());
+            return false;
         }
         return true;
     }

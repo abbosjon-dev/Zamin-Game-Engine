@@ -51,10 +51,12 @@ testlar va o'yinlarning skript modullari.
 
 | Target | Nima | Manba |
 |---|---|---|
-| `Zamin` (`libZamin.so`) | Dvigatel: hamma tizimlar va vendor kutubxonalar (GLFW, glad, ImGui, ImGuizmo, Box2D, Jolt, miniaudio, cgltf, stb, tinyobjloader, nlohmann/json) ichida | `Zamin/src/Zamin` |
-| `ZaminEditor` | Editor (ImGui docking) | `Editor/src` |
+| `Zamin` (`libZamin.so`) | Dvigatel va vendor kutubxonalar; ImGui/ImGuizmo faqat `ZAMIN_WITH_IMGUI=ON` bo‘lsa. Editor xizmatlari kirmaydi | `Zamin/src/Zamin` |
+| `ZaminCoreObjects` | Ikki frontend uchun umumiy engine OBJECT kodi | `Zamin/src/Zamin` |
+| `ZaminEditorSupport` | Editor xizmatlari: Undo, sozlamalar, til, autosave, diagnostika va boshqalar | `Zamin/src/Zamin/Editor` |
+| `ZaminEditor` | Editor (ImGui docking), `Zamin` va `ZaminEditorSupport` bilan link qilinadi | `Editor/src` |
 | `ZaminPlayer` | Eksport qilingan o'yinlarni ishga tushiruvchi runtime | `Runtime/src/ZaminPlayer.cpp` |
-| `ZaminTests` | Headless unit testlar (GPU'siz) | `Tests/ZaminTests.cpp`, `Tests/TestFramework.*` |
+| `ZaminTests` | Headless unit testlar (GPU'siz) | `Tests/*Tests.cpp`, `Tests/TestFramework.*`, `Tests/TestAssertions.h` |
 | `ZaminRenderTests` | Rendering regressiya testi (etalon rasmlar bilan) | `Tests/RenderTests.cpp` |
 | `ZaminBench` | Benchmarklar (`--ecs`, `--serialize`, `--render` ...) | `Tests/*Bench.cpp` |
 | `ZaminScriptTemplateGen` | Yangi skript shablonlarini tekshirish uchun yordamchi | `Tests/ScriptTemplateGen.cpp` |
@@ -492,3 +494,16 @@ Dvigatelga yangi komponent qo'shganda shu joylar o'zgaradi (hammasi kodda shu no
 
 Bog'liq hujjatlar: [BuildAndExport.md](BuildAndExport.md) (build va eksport), [Testing.md](Testing.md) (testlar),
 [Quality.md](Quality.md) (o'lchangan sifat), [FAQ.md](FAQ.md) (savollar va muammolar).
+
+
+Editor'dagi build/hot reload va eksport `Editor/src/EditorBuild.cpp` da. Ierarxiya daraxti
+`SceneHierarchyPanel.cpp`, inspektor tuzilishi `SceneComponentInspector.cpp`, komponentlarga xos
+maydonlar `SceneComponentFields.cpp` ga ajratilgan. Editor xizmatlarining unit testlari alohida
+`Tests/EditorServicesTests.cpp` da; xavfsizlik va saqlash regressiyalari `Tests/SafetyTests.cpp` da.
+
+`Renderer/EditorCamera.cpp` va `Renderer/EditorViewSettings.cpp` ham `ZaminEditorSupport` da yig'iladi.
+Runtime kutubxonasining linker'i yechilmagan symbol'larni rad etadi (`--no-undefined`); editor xizmatlariga
+yashirin bog'liqlik yangi build'dayoq aniqlanadi.
+
+Player profiler'i ishlatadigan `SceneStatisticsCollector` umumiy engine xizmatidir: implementatsiya
+`Scene/SceneStatistics.cpp` da. Eski header yo'li `Editor/SceneStatistics.h` moslik uchun saqlangan.

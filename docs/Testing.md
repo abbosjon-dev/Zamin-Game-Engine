@@ -372,7 +372,7 @@ qamrovi topdi).
 Bo'lim nomi - `Tests/ZaminTests.cpp` dagi bo'lim sarlavhasi (kod izohi, ingliz tilida).
 
 <!-- test-catalog:begin -->
-_`Tests/test_catalog.py --update docs/Testing.md` yaratgan: 634 ta unit test, 93 ta bo'lim (`Tests/ZaminTests.cpp` dagi tartibda). Bitta testni ishga tushirish: `./build/bin/ZaminTests <Nom>`._
+_`Tests/test_catalog.py --update docs/Testing.md` yaratgan: 711 ta unit test, 102 ta bo'lim (`ZaminTests` targetidagi fayllar tartibida). Bitta testni ishga tushirish: `./build/bin/ZaminTests <Nom>`._
 
 | # | Bo'lim | Testlar | Nomlari |
 |---|---|---|---|
@@ -435,38 +435,58 @@ _`Tests/test_catalog.py --update docs/Testing.md` yaratgan: 634 ta unit test, 93
 | 57 | M15: scene management | 6 | `SceneManagerAdditiveScenes`, `SceneManagerDontDestroyOnLoad`, `SceneManagerAsyncLoad`, `SceneManagerStartFromBackgroundLoad`, `SceneManagerFadeTransition`, `BuildSceneList` |
 | 58 | M15: scene events, build index, queries, load errors, stable files | 15 | `SceneEventsOrder`, `LoadSceneByBuildIndex`, `SceneQueryIndices`, `SceneLoadErrors`, `SceneSaveDeterministic`, `SceneVersionMigration`, `SceneMetadataAndThumbnail`, `ServicesRegistry`, `GlobalGameState`, `SceneLoadTimingBreakdown`, `SceneBinaryCache`, `LargeSceneSerialization`, `SubScenes`, `SubSceneFileMoveUpdatesReference`, `ReadTextFileFolder` |
 | 59 | M15: scene management end to end | 1 | `SceneManagementFlow` |
-| 60 | M16 Editor II | 15 | `ConsoleFilterAndCollapse`, `GameViewResolutionLayout`, `EditorPreferencesSettings`, `ShortcutRegistryLookup`, `RecentFilesMRU`, `EditorAutosaveRecovery`, `UndoHistoryNamingAndJumps`, `EditorLayoutLibraryFiles`, `SceneViewAxesAndCamera`, `EntityLabelsLayoutAndFade`, `SceneStatisticsCounting`, `ExternalEditorCommands`, `CompilerOutputParsing`, `IdleThrottleDecision`, `EditorIIPureLogic` |
-| 61 | M17: project settings (quality, input, layers) | 21 | `QualityLevelLimits`, `QualitySettingsJson`, `QualityRuntimeLevel`, `ProjectQualityAndSections`, `InputVectorsComposite`, `InputBindingConflicts`, `CollisionLayerPresets`, `SceneFileTagReferences`, `ProjectSettingsIndexSearch`, `SemanticVersionParseCompare`, `PlayerSettingsSerialization`, `PlayerCommandLineParser`, `PlayerLaunchSettingsPrecedence`, `PlayerSettingsFullscreenToggleAndSplash`, `FramePacingPlanAndPacer`, `SplashTimelineAndLogo`, `InputAnyKeyAndMonitorPlacement`, `PlayerCompanySaveDataAndVersion`, `GameIconImagesAndDesktopEntry`, `ProjectFileMigrationAndUnknownKeys`, `BuildSceneChecksAndStartScene` |
-| 62 | M17: graphics context, time, default gravity | 7 | `GraphicsContextSettings`, `TimeSettingsAndClock`, `TimeCaptureFrameRate`, `TimeApiTimeScaleAndUnscaledTimers`, `ProjectDescriptionThumbnailAndSummary`, `ProjectDefaultGravityAndStep`, `ProjectSettingsFullRoundTrip` |
-| 63 | M17: audio defaults, localization, editor language | 7 | `AudioSpatialDefaults`, `LocalizationStringFiles`, `LocalizationLookupFormatPlural`, `LocalizationTableEditingAndFiles`, `LocalizedTextComponentAndScripts`, `ProjectLocalizationSettings`, `EditorLanguageStrings` |
-| 64 | M18: the player's log file and crash reports | 2 | `PlayerLogFileRotation`, `CrashHandlerReports` |
-| 65 | M18: the cursor API for scripts | 1 | `CursorApiForScripts` |
-| 66 | M18: window size changes, a fixed aspect ratio (letterbox) | 1 | `PlayerViewportFixedAspect` |
-| 67 | M18: the export leaves out unused assets | 11 | `ExportExcludesUnusedAssets`, `ExportReleaseModuleAndStrip`, `ExportDesktopEntryRelocatableAndIcons`, `ExportReportSizesAndFiles`, `PauseInBackgroundAudioOutput`, `DisplayGammaAndBrightness`, `PlayerBenchmarkStatsAndLimits`, `BuildInfoAndVersionText`, `ExportFolderSelfCheck`, `DisplayResolutionSettings`, `GameMenuSampleScene` |
-| 68 | M19: noise | 2 | `NoiseRangeContinuityDeterminism`, `NoiseFractalsAndTiling` |
-| 69 | M19: AnimationCurve | 2 | `AnimationCurveEvaluateAndWrap`, `AnimationCurveScriptField` |
-| 70 | M19: splines | 5 | `SplineEvaluation`, `SplineArcLengthAndClosest`, `SplineComponentsSerializeAndFollow`, `SplineFollowerRuntimeStateClearedOnCopy`, `SplineFollowerMovesKinematicBodies` |
-| 71 | M19: colours | 2 | `ColorConversions`, `SplineSampleScenes` |
-| 72 | M19: math utilities (366) | 4 | `MathUtilsRanges`, `MathUtilsWrapping`, `MathUtilsMoveTowards`, `MathUtilsSmoothDamp` |
-| 73 | M19: quaternion helpers (367) | 3 | `QuaternionEulerConvention`, `QuaternionLookAndFromTo`, `QuaternionSlerpRotateTowards` |
-| 74 | M19: job system (368) | 4 | `JobSystemInlineWithoutWorkers`, `JobSystemParallelForCorrectness`, `JobSystemDependencies`, `JobSystemSpeedupAndStats` |
-| 75 | M19: parallel particles and animators (369) | 2 | `JobSystemParticlesMatchSerial`, `JobSystemAnimatorsMatchSerial` |
-| 76 | M19: memory statistics (370) | 3 | `MemoryStatsCategories`, `MemoryStatsProcess`, `MemoryStatsScenesAndPoseCaches` |
-| 77 | M19: StringUtils | 2 | `StringUtilsBasics`, `StringUtilsUtf8` |
-| 78 | M19: Stopwatch, ScopedLogTimer, Timer | 1 | `StopwatchAndTimers` |
-| 79 | M19: log levels per logger, the log file's level, --log-level | 1 | `LogLevelsPerLogger` |
-| 80 | M19: asserts with messages | 9 | `AssertsWithMessages`, `FileSystemLexicalPaths`, `FileSystemDiskPathsAndFolders`, `GeometryBoundingVolumes`, `GeometryRayAABBAndSphere`, `GeometryRayPlaneAndTriangle`, `GeometryOverlapsAndClosestPoints`, `MathPropertiesRandomized`, `GeometrySampleScene` |
-| 81 | navigation (M20) | 16 | `NavGridBasics`, `NavAStarOptimalAgainstDijkstra`, `NavAStarCornersAndNeighbours`, `NavPartialPaths`, `NavLineOfSightAndErosion`, `NavStringPullingAndSpline`, `NavGridBuilderShapes`, `NavGridFromTilemap`, `NavGrid2DBakeInScene`, `NavGrid3DBakeOnColliders`, `NavAgent2DWalksToDestination`, `NavAgentFollowsTargetAndRepaths`, `NavAgent3DWithCharacterController`, `NavComponentsSerializationAndCopies`, `NavScriptApi`, `NavSampleScene3D` |
-| 82 | M20: dynamic obstacles (386) | 3 | `NavGridCarving`, `NavObstacleCarvesAndAgentsRepath`, `NavObstacle3DOnFloor` |
-| 83 | M20: steering (387) | 1 | `SteeringBehaviours` |
-| 84 | M20: obstacle avoidance (388) | 2 | `SteeringFeelers`, `NavAgentAvoidsMovingBodies` |
-| 85 | M20: AI state machine (389) | 1 | `AIStateMachineTransitions` |
-| 86 | M20: sight (390) | 4 | `SightConeMath`, `SightSensor2DWithWalls`, `SightSensor3DWithWalls`, `SightScriptCallbacksAndAIComponentsSerialization` |
-| 87 | M20: patrol routes, navigation debug drawing | 21 | `NavRandomGridsSmoothingAndCornerRules`, `PatrolPathModesAndWaits`, `PatrolPathWithNavAgent`, `PatrolPathChildrenAndSplineSources`, `PatrolScriptApiEventsAndSerialization`, `NavigationDebugDrawing`, `PatrolSampleScenes`, `BehaviorTreeComposites`, `BehaviorTreeDecoratorsParallelAndBlackboard`, `FormationSlotsAndAssignment`, `FormationMembersFollowTheLeader`, `FormationWithNavAgentsOnGrid`, `FormationSerializationAndCopies`, `FormationSampleScene`, `NavBakeFileFormat`, `NavBakeSavedWithScene`, `NavigationComponentsRoundTrip`, `NavAgentTargetPauseAndResume`, `NavGridStartBakesLateAndSpawned`, `NavSerializationAndFingerprintEdgeCases`, `FormationMembersKeepUpWhileWalking` |
-| 88 | M21: prefab links, overrides, apply / revert, nesting | 9 | `PrefabLinkSerialization`, `PrefabInstantiateLinked`, `PrefabLegacyLinkMenuScene`, `PrefabOverrideDetection`, `PrefabApplyPropagate`, `PrefabRevertLevels`, `PrefabSyncStructural`, `PrefabNested`, `PrefabUndoFileEdits` |
-| 89 | M21 batch B: prefab mode, references, versions, recovery | 6 | `EntityRefVisitorCoverage`, `PrefabEntityRefRemap`, `EntitySetVersionMigration`, `EntitySetPartialLoad`, `SceneSalvage`, `PrefabStageRoundTrip` |
-| 90 | serialization fuzz (411) | 10 | `SerializationFuzz`, `PrefabCacheReads`, `LargeSceneLinkedInstances`, `PrefabVariants`, `PrefabPlacementAndThumbs`, `PrefabHotReloadSync`, `ClipboardPrefabFormat`, `PrefabExportValidation`, `PrefabFieldLabelsExist`, `PrefabDamagedFileNotWritten` |
-| 91 | physics determinism (Box2D, Jolt) | 2 | `PhysicsDeterminism2D`, `PhysicsDeterminism3D` |
-| 92 | editor Play copy (the exported game's order) | 1 | `PlayCopyRunsScriptsInFileOrder` |
-| 93 | script hot reload (in-process) | 3 | `ScriptReloadKeepsFieldValues`, `StaleModuleCopiesRemoved`, `DeferredDestroyOnceEachAndLinear` |
+| 60 | M17: project settings (quality, input, layers) | 21 | `QualityLevelLimits`, `QualitySettingsJson`, `QualityRuntimeLevel`, `ProjectQualityAndSections`, `InputVectorsComposite`, `InputBindingConflicts`, `CollisionLayerPresets`, `SceneFileTagReferences`, `ProjectSettingsIndexSearch`, `SemanticVersionParseCompare`, `PlayerSettingsSerialization`, `PlayerCommandLineParser`, `PlayerLaunchSettingsPrecedence`, `PlayerSettingsFullscreenToggleAndSplash`, `FramePacingPlanAndPacer`, `SplashTimelineAndLogo`, `InputAnyKeyAndMonitorPlacement`, `PlayerCompanySaveDataAndVersion`, `GameIconImagesAndDesktopEntry`, `ProjectFileMigrationAndUnknownKeys`, `BuildSceneChecksAndStartScene` |
+| 61 | M17: graphics context, time, default gravity | 7 | `GraphicsContextSettings`, `TimeSettingsAndClock`, `TimeCaptureFrameRate`, `TimeApiTimeScaleAndUnscaledTimers`, `ProjectDescriptionThumbnailAndSummary`, `ProjectDefaultGravityAndStep`, `ProjectSettingsFullRoundTrip` |
+| 62 | M17: audio defaults, localization, editor language | 7 | `AudioSpatialDefaults`, `LocalizationStringFiles`, `LocalizationLookupFormatPlural`, `LocalizationTableEditingAndFiles`, `LocalizedTextComponentAndScripts`, `ProjectLocalizationSettings`, `EditorLanguageStrings` |
+| 63 | M18: the player's log file and crash reports | 2 | `PlayerLogFileRotation`, `CrashHandlerReports` |
+| 64 | M18: the cursor API for scripts | 1 | `CursorApiForScripts` |
+| 65 | M18: window size changes, a fixed aspect ratio (letterbox) | 1 | `PlayerViewportFixedAspect` |
+| 66 | M18: the export leaves out unused assets | 11 | `ExportExcludesUnusedAssets`, `ExportReleaseModuleAndStrip`, `ExportDesktopEntryRelocatableAndIcons`, `ExportReportSizesAndFiles`, `PauseInBackgroundAudioOutput`, `DisplayGammaAndBrightness`, `PlayerBenchmarkStatsAndLimits`, `BuildInfoAndVersionText`, `ExportFolderSelfCheck`, `DisplayResolutionSettings`, `GameMenuSampleScene` |
+| 67 | M19: noise | 2 | `NoiseRangeContinuityDeterminism`, `NoiseFractalsAndTiling` |
+| 68 | M19: AnimationCurve | 2 | `AnimationCurveEvaluateAndWrap`, `AnimationCurveScriptField` |
+| 69 | M19: splines | 5 | `SplineEvaluation`, `SplineArcLengthAndClosest`, `SplineComponentsSerializeAndFollow`, `SplineFollowerRuntimeStateClearedOnCopy`, `SplineFollowerMovesKinematicBodies` |
+| 70 | M19: colours | 2 | `ColorConversions`, `SplineSampleScenes` |
+| 71 | M19: math utilities (366) | 4 | `MathUtilsRanges`, `MathUtilsWrapping`, `MathUtilsMoveTowards`, `MathUtilsSmoothDamp` |
+| 72 | M19: quaternion helpers (367) | 3 | `QuaternionEulerConvention`, `QuaternionLookAndFromTo`, `QuaternionSlerpRotateTowards` |
+| 73 | M19: job system (368) | 4 | `JobSystemInlineWithoutWorkers`, `JobSystemParallelForCorrectness`, `JobSystemDependencies`, `JobSystemSpeedupAndStats` |
+| 74 | M19: parallel particles and animators (369) | 2 | `JobSystemParticlesMatchSerial`, `JobSystemAnimatorsMatchSerial` |
+| 75 | M19: memory statistics (370) | 3 | `MemoryStatsCategories`, `MemoryStatsProcess`, `MemoryStatsScenesAndPoseCaches` |
+| 76 | M19: StringUtils | 2 | `StringUtilsBasics`, `StringUtilsUtf8` |
+| 77 | M19: Stopwatch, ScopedLogTimer, Timer | 1 | `StopwatchAndTimers` |
+| 78 | M19: log levels per logger, the log file's level, --log-level | 1 | `LogLevelsPerLogger` |
+| 79 | M19: asserts with messages | 9 | `AssertsWithMessages`, `FileSystemLexicalPaths`, `FileSystemDiskPathsAndFolders`, `GeometryBoundingVolumes`, `GeometryRayAABBAndSphere`, `GeometryRayPlaneAndTriangle`, `GeometryOverlapsAndClosestPoints`, `MathPropertiesRandomized`, `GeometrySampleScene` |
+| 80 | navigation (M20) | 16 | `NavGridBasics`, `NavAStarOptimalAgainstDijkstra`, `NavAStarCornersAndNeighbours`, `NavPartialPaths`, `NavLineOfSightAndErosion`, `NavStringPullingAndSpline`, `NavGridBuilderShapes`, `NavGridFromTilemap`, `NavGrid2DBakeInScene`, `NavGrid3DBakeOnColliders`, `NavAgent2DWalksToDestination`, `NavAgentFollowsTargetAndRepaths`, `NavAgent3DWithCharacterController`, `NavComponentsSerializationAndCopies`, `NavScriptApi`, `NavSampleScene3D` |
+| 81 | M20: dynamic obstacles (386) | 3 | `NavGridCarving`, `NavObstacleCarvesAndAgentsRepath`, `NavObstacle3DOnFloor` |
+| 82 | M20: steering (387) | 1 | `SteeringBehaviours` |
+| 83 | M20: obstacle avoidance (388) | 2 | `SteeringFeelers`, `NavAgentAvoidsMovingBodies` |
+| 84 | M20: AI state machine (389) | 1 | `AIStateMachineTransitions` |
+| 85 | M20: sight (390) | 4 | `SightConeMath`, `SightSensor2DWithWalls`, `SightSensor3DWithWalls`, `SightScriptCallbacksAndAIComponentsSerialization` |
+| 86 | M20: patrol routes, navigation debug drawing | 21 | `NavRandomGridsSmoothingAndCornerRules`, `PatrolPathModesAndWaits`, `PatrolPathWithNavAgent`, `PatrolPathChildrenAndSplineSources`, `PatrolScriptApiEventsAndSerialization`, `NavigationDebugDrawing`, `PatrolSampleScenes`, `BehaviorTreeComposites`, `BehaviorTreeDecoratorsParallelAndBlackboard`, `FormationSlotsAndAssignment`, `FormationMembersFollowTheLeader`, `FormationWithNavAgentsOnGrid`, `FormationSerializationAndCopies`, `FormationSampleScene`, `NavBakeFileFormat`, `NavBakeSavedWithScene`, `NavigationComponentsRoundTrip`, `NavAgentTargetPauseAndResume`, `NavGridStartBakesLateAndSpawned`, `NavSerializationAndFingerprintEdgeCases`, `FormationMembersKeepUpWhileWalking` |
+| 87 | M21: prefab links, overrides, apply / revert, nesting | 9 | `PrefabLinkSerialization`, `PrefabInstantiateLinked`, `PrefabLegacyLinkMenuScene`, `PrefabOverrideDetection`, `PrefabApplyPropagate`, `PrefabRevertLevels`, `PrefabSyncStructural`, `PrefabNested`, `PrefabUndoFileEdits` |
+| 88 | M21 batch B: prefab mode, references, versions, recovery | 6 | `EntityRefVisitorCoverage`, `PrefabEntityRefRemap`, `EntitySetVersionMigration`, `EntitySetPartialLoad`, `SceneSalvage`, `PrefabStageRoundTrip` |
+| 89 | serialization fuzz (411) | 10 | `SerializationFuzz`, `PrefabCacheReads`, `LargeSceneLinkedInstances`, `PrefabVariants`, `PrefabPlacementAndThumbs`, `PrefabHotReloadSync`, `ClipboardPrefabFormat`, `PrefabExportValidation`, `PrefabFieldLabelsExist`, `PrefabDamagedFileNotWritten` |
+| 90 | physics determinism (Box2D, Jolt) | 2 | `PhysicsDeterminism2D`, `PhysicsDeterminism3D` |
+| 91 | editor Play copy (the exported game's order) | 1 | `PlayCopyRunsScriptsInFileOrder` |
+| 92 | script hot reload (in-process) | 3 | `ScriptReloadKeepsFieldValues`, `StaleModuleCopiesRemoved`, `DeferredDestroyOnceEachAndLinear` |
+| 93 | PackedFoliageTests.cpp | 4 | `PackedFoliageDistanceFrustumAndHysteresis`, `PackedFoliageValidationAndDeterministicPlacement`, `PackedFoliageSaveLoadCopyAndBounds`, `PackedFoliageProjectsWithoutBreakingRootTransform` |
+| 94 | ModuleABITests.cpp | 6 | `ModuleABIValidRecordAndFingerprintMismatch`, `ModuleABIRejectsLayoutAndFlagMismatch`, `ModuleABIRejectsMissingOrMalformedRecord`, `ModuleABIRejectsELFOverflowTruncationAndWrongArchitecture`, `ModuleABIRejectsMalformedSectionRanges`, `ModuleABIMutatedRecordsAreBounded` |
+| 95 | TerrainFoliageTests.cpp | 5 | `TerrainFoliageReprojectsTaggedRootsAndKeepsHierarchy`, `TerrainFoliageRegionOffsetBoundsAndEditorLocks`, `TerrainFoliageAlignsWorldNormalUnderNonuniformParent`, `TerrainFoliageRejectsInvalidRuntimeAndSingularInputs`, `TerrainFoliageReprojectSerializesAndCopiesIndependently` |
+| 96 | CodeDocumentTests.cpp | 9 | `CodeDocumentPreservesUnicodeBomCrlfAndFinalNewline`, `CodeDocumentConflictsNeverSilentlyOverwrite`, `CodeDocumentRecoveryKeepsOriginalConflictBaseline`, `CodeDocumentUndoToSavedRemovesStaleRecovery`, `CodeDocumentRejectsBinaryInvalidUtf8AndOversizedEdits`, `CodeDocumentSearchReplaceIsNonOverlappingAndBounded`, `CodeDocumentProjectBoundaryAndSymlinkEscape`, `CodeDocumentFailedAtomicSaveKeepsDraft`, `CodeDocumentDamagedRecoveryDoesNotBlockSource` |
+| 97 | VisualGraphTests.cpp | 26 | `VisualGraphTypedRoundTrip`, `VisualGraphRejectsInvalidPinsAndCycles`, `VisualGraphVariableTypesChecked`, `VisualGraphForLoopReadsFreshVariables`, `VisualGraphDelayKeepsLoopContinuation`, `VisualGraphSequenceWaitsForDelayedBranch`, `VisualGraphBranchChoosesOnePath`, `VisualGraphInfiniteExecutionIsBounded`, `VisualGraphNonFiniteMathFailsAtNode`, `VisualGraphInstancesAndOverridesAreIsolated`, `VisualGraphDebugPauseStepAndContinue`, `VisualGraphEventPayloadDrivesDataPins`, `VisualGraphVectorBridgeReceivesScaledDelta`, `VisualGraphRejectsUnsupportedFormats`, `VisualGraphBuiltinCannotBeUnregistered`, `VisualGraphNativeHostLifecycleWithoutCppModule`, `VisualGraphFunctionsResumeAfterDelayAndReturnToCaller`, `VisualGraphFunctionNamesAreValidated`, `VisualGraphWhileReevaluatesConditionAndBreakCompletes`, `VisualGraphWritesAndReadsReflectedCppFields`, `VisualGraphPendingWorkIsBoundedAndStopCancelsDelay`, `VisualGraphExplicitNullEntityDoesNotMoveSelf`, `VisualGraphCatalogHasTypedDefaultsAndUniquePins`, `VisualGraphBridgeCanReturnSeveralTypedOutputs`, `VisualGraphSampleAssetsRemainReachableInExport`, `VisualGraphTargetsEntitiesInOtherLoadedScenes` |
+| 98 | TerrainTests.cpp | 10 | `TerrainBrushesAndNormalizedPaint`, `TerrainWeightValidationDoesNotDriftAcrossFrames`, `TerrainGeometryRaycastAndSeeds`, `TerrainSerializationCopyAndHeightmap`, `TerrainPBRSerializationAndCopy`, `TerrainPBRInvalidValuesAreSanitized`, `TerrainLegacyLayersKeepPBRDefaults`, `TerrainPBRReferencesFollowRenameAndExportReachability`, `TerrainJoltCollisionAndPlayCopy`, `TerrainSceneWriteFailurePreservesOriginal` |
+| 99 | terrain patch geometry and distance LOD | 8 | `TerrainPatchCoverageAndWinding`, `TerrainDistanceLODAndTransformInvariance`, `TerrainMixedLODEdgesRemainClosed`, `TerrainLODHysteresisAndOrthographicQuality`, `TerrainBoundaryNormalsAndInvalidPatches`, `TerrainCollisionRemainsFullResolutionAcrossLOD`, `TerrainStitchedCornersPreserveAreaAndTopology`, `TerrainPartialPatchesBalanceAndRemainManifold` |
+| 100 | large 2D tilemap hierarchical visibility | 3 | `TilemapHierarchyMatchesConservativeReference`, `TilemapLargeMapPrunesWithoutFullScan`, `TilemapFullViewAndNoFrustumKeepRowOrder` |
+| 101 | audit regression tests | 6 | `ProcessLiteralArgumentsAndOutput`, `ProcessDrainsOutputAndReapsOnCallbackFailure`, `IncompleteShaderFilesDoNotCrash`, `UndoMemoryBudgetAndSavedState`, `UndoBudgetIncludesFileEditsAndRewrite`, `AtomicSavePermissionFailureKeepsOriginal` |
+| 102 | M16 Editor II | 15 | `ConsoleFilterAndCollapse`, `GameViewResolutionLayout`, `EditorPreferencesSettings`, `ShortcutRegistryLookup`, `RecentFilesMRU`, `EditorAutosaveRecovery`, `UndoHistoryNamingAndJumps`, `EditorLayoutLibraryFiles`, `SceneViewAxesAndCamera`, `EntityLabelsLayoutAndFade`, `SceneStatisticsCounting`, `ExternalEditorCommands`, `CompilerOutputParsing`, `IdleThrottleDecision`, `EditorIIPureLogic` |
 <!-- test-catalog:end -->
+
+
+## Terrain map regressiyasi
+
+`Tests/TerrainTests.cpp`: `TerrainBrushesAndNormalizedPaint`, `TerrainGeometryRaycastAndSeeds`, `TerrainSerializationCopyAndHeightmap`, `TerrainJoltCollisionAndPlayCopy`, `TerrainSceneWriteFailurePreservesOriginal`. Cho'tka cheklovlari, CCW mesh, sirtga mos raycast, mustaqil copy/cache, saqlash, R16 va Jolt to'qnashuvi tekshiriladi.
+
+
+SDK va profiling tekshiruvlari: `ctest --test-dir build-review -R 'ModuleABILoad|SDKManifest' --output-on-failure`; GL kontekstida `ZaminGPUProfilerTests` va `ZaminTerrainSurfaceTests`. `Tests/sdk_manifest_test.py --build build-review` engine source'ini o'zgartirmay ko'chirilgan SDK headerlari va compiler mismatch'ini tekshiradi. `ZAMIN_EDITOR_TERRAIN=foliage-test` faqat test loyiha nusxasida reproject/Undo/Redo tekshiruvini bajaradi.
+
+
+Packed foliage qo'shimcha GL oracle'i: `ZaminFoliageRenderTests --require-gpu` (GL 4.3+) va `MESA_GL_VERSION_OVERRIDE=4.1 MESA_GLSL_VERSION_OVERRIDE=410 ZaminFoliageRenderTests` (CPU fallback). Har birini `LIBGL_ALWAYS_SOFTWARE=1 LP_NUM_THREADS=2 xvfb-run -a` ostida ishga tushiring. 4096 instance va 5 kamera: CPU/GPU count/pixel, LOD hysteresis, input upload cache, multi-part indirect command, backend switch, shadow/picking/wire va noto'g'ri winding/LOD'ni rad etish. [Foliage namunasi](../Projects/FoliageWorkshop/README.md) va [cheklovlar](Terrain.md#packed-foliage-va-ikki-model-lod).

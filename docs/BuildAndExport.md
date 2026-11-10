@@ -126,6 +126,8 @@ ogohlantirishsiz bo'lishi kerak (`zamin_target_settings`, `cmake/ZaminGame.cmake
 | `ZAMIN_BUILD_RUNTIME` | `ON` | Player (`ZaminPlayer`) |
 | `ZAMIN_BUILD_TESTS` | `ON` | Unit testlar, rendering testi, benchmarklar, ctest |
 | `ZAMIN_BUILD_EXAMPLES` | `ON` | Namuna o'yinlarning skript modullari (`Projects/*`) |
+| `ZAMIN_WITH_IMGUI` | editor yoqilganiga bog'liq | ImGui overlay; editor uchun majburiy, runtime-only yangi build'da `OFF` |
+| `ZAMIN_ENABLE_AVX2` | `OFF` | Jolt va engine CPU profili: `OFF` — x86-64/SSE2, `ON` — AVX2/FMA/BMI1/LZCNT/POPCNT/F16C talab qiladi |
 | `ZAMIN_SHIPPING` | `OFF` | Yakuniy o'yin build'i: ishlab chiqish yordamchilari (debug chizish - `DebugDraw`, player'ning `--debug-*` variantlari) kompilyatsiyadan chiqariladi; `BuildInfo::Shipping` |
 | `ZAMIN_DEBUG_DRAW` | `ON` | Debug chizish API'si (`ZAMIN_SHIPPING` bo'lsa e'tiborsiz) |
 | `ZAMIN_ASSERTS` | `AUTO` | `ZM_ASSERT` / `ZM_CORE_ASSERT`: `AUTO` - faqat Debug'da, `ON` - Release'da ham (bajarilmagani crash hisobotini yozadi), `OFF` - hech qachon |
@@ -139,7 +141,7 @@ Masalan - faqat dvigatel va player, Shipping:
 
 ```bash
 cmake -S . -B build-ship -G Ninja -DCMAKE_BUILD_TYPE=Release -DZAMIN_SHIPPING=ON \
-      -DZAMIN_BUILD_EDITOR=OFF -DZAMIN_BUILD_TESTS=OFF -DZAMIN_BUILD_EXAMPLES=OFF
+      -DZAMIN_BUILD_EDITOR=OFF -DZAMIN_BUILD_TESTS=OFF -DZAMIN_BUILD_EXAMPLES=OFF -DZAMIN_WITH_IMGUI=OFF
 cmake --build build-ship
 ```
 
@@ -411,3 +413,25 @@ Natijalar va ularni qachon ishlatish - [Testing.md, 6-bo'lim](Testing.md#6-sanit
 | O'yinda biror asset yo'q (eksportdan keyin) | Fayl nomi kodda yasalgan bo'lsa (`"Level" + n`), eksport uni topa olmaydi - "Doim kiritish" ro'yxatiga qo'shing; `excluded-assets.txt` ga qarang |
 
 Ko'proq savollar va xabarlar matni bilan - [FAQ.md](FAQ.md).
+
+
+## CPU profili va editor xizmatlarisiz runtime
+
+Standart x86-64 build SSE2 bazasida yig'iladi. Jolt'ning AVX, AVX2, FMA, SSE4, F16C va bit-operation
+tezlashtirish bayroqlari o'z-o'zidan yoqilmaydi. `-DZAMIN_ENABLE_AVX2=ON` ularni aniq yoqadi;
+bunday distributiv uchun AVX2, FMA, BMI1, LZCNT, POPCNT va F16C bor CPU kerak. `-march=native` kabi
+qo'shimcha toolchain bayroqlari bu minimal talabni oshirishi mumkin.
+
+`ZAMIN_BUILD_EDITOR=OFF` va `ZAMIN_WITH_IMGUI=OFF` bilan runtime-only build editor utilitalari,
+Dear ImGui yoki ImGuizmo'ni kompilyatsiya/link qilmaydi. CMake cache'da oldingi overlay qiymati qolgan
+bo'lsa `-DZAMIN_WITH_IMGUI=OFF` ni aniq bering. C++ o'yin modullarining SDK'si editor xizmatlariga bog'liq emas.
+
+Editor va testlar `ZaminEditorSupport` statik kutubxonasini ishlatadi. Umumiy engine kodi `ZaminCoreObjects`
+OBJECT targetida bir marta yig'iladi. Test build'ida `cmake --build build-review --target ZaminStandalone`
+ImGui'siz haqiqiy `build-review/bin/runtime-check/libZamin.so` hosil qiladi. `LD_LIBRARY_PATH` bilan
+shu kutubxonada `ZaminPlayer` ni ishga tushirish runtime chegarasini sinashga xizmat qiladi.
+
+
+### Native modul SDK mosligi
+
+SDK consumer'lari `zamin_add_game_module` orqali quriladi. Helper `.zamin_abi` yozuvini yaratadi va engine'ga tegishli SDK header fingerprint/toolchain'ini konfiguratsiyada tekshiradi. SDK fayllari o'zgargan bo'lsa avval engine'ni qayta build qiling, keyin loyiha build'ini qayta konfiguratsiya qiling. To'g'ridan-to'g'ri qo'lda yaratilgan eski `.so` yuklanmaydi. Loader xato nomzodga o'tishdan oldin ishlayotgan modulni saqlaydi; eksport ham nusxalangan modulning mosligini tekshiradi. Tafsilotlar: [Scripting.md](Scripting.md#native-sdk--abi-mosligi).

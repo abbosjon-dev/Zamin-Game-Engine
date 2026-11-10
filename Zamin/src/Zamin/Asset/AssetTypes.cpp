@@ -54,6 +54,7 @@ namespace Zamin {
         { AssetType::Script, "C++ skript", "Script", "", false },
         { AssetType::Project, "Loyiha", "Project", "", false },
         { AssetType::Other, "Boshqa", "Other", "", false },
+        { AssetType::VisualGraph, "Visual skript", "VisualGraph", "Scripts", true },
     } };
 
     static const std::array<std::vector<std::string_view>, (size_t)AssetType::Count>& ExtensionTable()
@@ -75,6 +76,7 @@ namespace Zamin {
             { ".cpp", ".h", ".hpp", ".cc", ".c", ".inl" },                // Script
             { ".zproject" },                                              // Project
             {},                                                           // Other
+            { ".zgraph" },                                                // VisualGraph
         } };
         return s_Extensions;
     }

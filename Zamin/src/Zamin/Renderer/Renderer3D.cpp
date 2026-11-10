@@ -4,6 +4,8 @@
 #include "Zamin/Renderer/Renderer.h"
 #include "Zamin/Renderer/Shader.h"
 #include "Zamin/Renderer/Framebuffer.h"
+#include "Zamin/Renderer/TerrainSurface.h"
+#include "Zamin/Renderer/FoliageBatch.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -90,6 +92,7 @@ uniform int u_EntityID;
 #define MAX_LOCAL_LIGHTS 32
 
 uniform vec4 u_Albedo;
+#ifndef TERRAIN
 uniform sampler2D u_AlbedoMap;
 uniform sampler2D u_NormalMap;
 uniform sampler2D u_MetalRoughMap; // glTF layout: G = roughness, B = metallic
@@ -99,6 +102,15 @@ uniform int u_HasMetalRoughMap;
 uniform int u_HasEmissiveMap;
 uniform int u_AlbedoSRGB;   // 0: the albedo / emissive map holds linear values (import setting sRGB off)
 uniform int u_EmissiveSRGB;
+#else
+uniform sampler2D u_TerrainWeights;
+uniform sampler2D u_LayerAlbedo[4], u_LayerNormal[4], u_LayerMask[4];
+uniform vec3 u_LayerColor[4];
+uniform vec4 u_LayerPBR[4]; // roughness, metallic, occlusion, normal strength
+uniform float u_LayerTiling[4];
+uniform int u_LayerSRGB[4];
+uniform vec2 u_TerrainSize, u_WeightUV;
+#endif
 uniform float u_NormalStrength;
 uniform vec2 u_Tiling;
 uniform vec2 u_Offset;
@@ -351,6 +363,29 @@ void FinishDebug(vec3 color, float alpha)
 void main()
 {
     vec2 uv = v_TexCoord * u_Tiling + u_Offset;
+#ifdef TERRAIN
+    vec4 weights = max(texture(u_TerrainWeights, v_TexCoord * u_WeightUV.x + u_WeightUV.y), vec4(0.0));
+    float sum = dot(weights, vec4(1.0));
+    weights = sum > 0.000001 ? weights / sum : vec4(1,0,0,0);
+    vec3 terrainAlbedo = vec3(0), terrainNormal = vec3(0);
+    vec3 terrainPBR = vec3(0);
+    for (int i = 0; i < 4; ++i)
+    {
+        vec2 layerUV = v_TexCoord * u_TerrainSize * u_LayerTiling[i];
+        vec3 color = texture(u_LayerAlbedo[i], layerUV).rgb;
+        if (u_LayerSRGB[i] == 1) color = toLinear(color);
+        terrainAlbedo += weights[i] * toLinear(u_LayerColor[i]) * color;
+        vec3 normal = texture(u_LayerNormal[i], layerUV).xyz * 2.0 - 1.0;
+        normal.xy *= u_LayerPBR[i].w;
+        normal.z = max(normal.z, 0.0001);
+        terrainNormal += weights[i] * normalize(normal);
+        vec3 orm = texture(u_LayerMask[i], layerUV).rgb;
+        terrainPBR += weights[i] * vec3(clamp(u_LayerPBR[i].x * orm.g, 0.04, 1.0),
+                                      clamp(u_LayerPBR[i].y * orm.b, 0.0, 1.0),
+                                      clamp(u_LayerPBR[i].z * orm.r, 0.0, 1.0));
+    }
+    float alpha = 1.0;
+#else
     vec4 texColor = texture(u_AlbedoMap, uv);
     vec3 texLinear = u_AlbedoSRGB == 1 ? toLinear(texColor.rgb) : texColor.rgb;
     float alpha = clamp(u_Albedo.a * texColor.a, 0.0, 1.0);
@@ -359,24 +394,31 @@ void main()
     // nothing left to draw (a fully faded surface that does not keep its highlights)
     if (u_BlendMode == 2 && u_PreserveSpecular == 0 && alpha < 0.002)
         discard;
+#endif
     if (u_DebugView == 6)
     {
         o_Color = u_DebugColor;
         o_EntityID = ENTITY_ID;
         return;
     }
+#ifdef TERRAIN
+    vec3 albedo = terrainAlbedo;
+#else
     vec3 albedo = toLinear(u_Albedo.rgb) * texLinear;
+#endif
     if (u_DebugView == 3)
     {
         FinishDebug(albedo, alpha);
         return;
     }
     vec3 emission = u_Emission;
+    #ifndef TERRAIN
     if (u_HasEmissiveMap == 1)
     {
         vec3 emissiveTex = texture(u_EmissiveMap, uv).rgb;
         emission *= u_EmissiveSRGB == 1 ? toLinear(emissiveTex) : emissiveTex;
     }
+    #endif
     if (u_Unlit == 1 && u_DebugView != 2)
     {
         if (u_DebugView == 1) // no lights: as if fully lit
@@ -387,6 +429,10 @@ void main()
             Finish(albedo * u_Exposure, emission * u_Exposure, alpha);
         return;
     }
+#ifdef TERRAIN
+    float roughness = terrainPBR.x, metallic = terrainPBR.y, occlusion = terrainPBR.z;
+#else
+    float occlusion = 1.0;
     float metallic = clamp(u_Metallic, 0.0, 1.0);
     float roughness = clamp(u_Roughness, 0.04, 1.0);
     if (u_HasMetalRoughMap == 1)
@@ -395,6 +441,7 @@ void main()
         roughness = clamp(roughness * mr.g, 0.04, 1.0);
         metallic = clamp(metallic * mr.b, 0.0, 1.0);
     }
+    #endif
     if (u_DebugView == 4 || u_DebugView == 5)
     {
         FinishDebug(toLinear(vec3(u_DebugView == 4 ? roughness : metallic)), alpha);
@@ -405,6 +452,10 @@ void main()
     bool frontFacing = gl_FrontFacing != (u_Mirrored == 1);
     vec3 N = normalize(v_Normal);
     if (!frontFacing) N = -N;
+#ifdef TERRAIN
+    vec3 V0 = u_CameraPos - v_WorldPos;
+    N = normalize(CotangentFrame(N, -V0, v_TexCoord * u_TerrainSize) * normalize(terrainNormal));
+#else
     if (u_HasNormalMap == 1)
     {
         vec3 tn = texture(u_NormalMap, uv).xyz * 2.0 - 1.0;
@@ -412,6 +463,7 @@ void main()
         vec3 V0 = u_CameraPos - v_WorldPos;
         N = normalize(CotangentFrame(N, -V0, uv) * tn);
     }
+    #endif
     if (u_DebugView == 2)
     {
         FinishDebug(toLinear(N * 0.5 + 0.5), alpha);
@@ -470,8 +522,8 @@ void main()
         irradiance = mix(toLinear(u_GroundColor), mix(toLinear(u_HorizonColor), toLinear(u_SkyColor), 0.5), N.y * 0.5 + 0.5);
         specularEnv = SkyRadiance(R, roughness) * F * mix(1.0, 0.35, roughness);
     }
-    diffuse += kD * albedo * irradiance * u_Ambient;
-    specular += specularEnv * u_Ambient + emission;
+    diffuse += kD * albedo * irradiance * u_Ambient * occlusion;
+    specular += specularEnv * u_Ambient * occlusion + emission;
     Finish(diffuse * u_Exposure, specular * u_Exposure, alpha);
 }
 )";
@@ -513,12 +565,12 @@ void main()
 )";
 
         // Shader source with the variant's defines after the #version line.
-        std::string Variant(const char* src, bool skinned, bool alphaTest = false, bool instanced = false)
+        std::string Variant(const char* src, bool skinned, bool alphaTest = false, bool instanced = false, bool terrain = false)
         {
             std::string s(src);
             size_t eol = s.find('\n');
             std::string defs = "\n#define MAX_JOINTS " + std::to_string(MaxJoints) + "\n" + (skinned ? "#define SKINNED\n" : "") +
-                               (alphaTest ? "#define ALPHA_TEST\n" : "") + (instanced ? "#define INSTANCED\n" : "");
+                               (alphaTest ? "#define ALPHA_TEST\n" : "") + (instanced ? "#define INSTANCED\n" : "") + (terrain ? "#define TERRAIN\n" : "");
             return s.substr(0, eol) + defs + s.substr(eol + 1);
         }
 
@@ -705,6 +757,9 @@ void main()
             bool CastShadows;
             std::vector<glm::mat4> Joints; // skinned meshes only
             AABB WorldBounds;              // what frustum culling tests
+            Ref<TerrainSurface> Surface;
+            Ref<FoliageBatch> Foliage;
+            uint32_t FoliageLOD=0;
         };
 
         // What an instanced draw takes per instance (the instance buffer's layout).
@@ -718,7 +773,7 @@ void main()
 
         struct Renderer3DData
         {
-            Ref<Shader> MeshShader, SkinnedMeshShader, InstancedMeshShader;
+            Ref<Shader> MeshShader, SkinnedMeshShader, InstancedMeshShader, TerrainShader;
             Ref<Shader> ShadowShader, SkinnedShadowShader, InstancedShadowShader;
             Ref<Shader> CutoutShadowShader, SkinnedCutoutShadowShader, InstancedCutoutShadowShader; // alpha tested casters
             Ref<Shader> SkyShader;
@@ -755,6 +810,7 @@ void main()
     void Renderer3D::Init()
     {
         s_Data = new Renderer3DData();
+        s_Data->TerrainShader = Shader::Create("Renderer3D_Terrain", Variant(s_MeshVS, false), Variant(s_MeshFS, false, false, false, true));
         s_Data->MeshShader = Shader::Create("Renderer3D_PBR", Variant(s_MeshVS, false), s_MeshFS);
         s_Data->SkinnedMeshShader = Shader::Create("Renderer3D_PBR_Skinned", Variant(s_MeshVS, true), s_MeshFS);
         s_Data->ShadowShader = Shader::Create("Renderer3D_Shadow", Variant(s_ShadowVS, false), s_ShadowFS);
@@ -786,7 +842,7 @@ void main()
         BufferLayout instanceLayout({
             { ShaderDataType::Mat4, "a_InstanceModel" },
             { ShaderDataType::Mat3, "a_InstanceNormalMatrix" },
-            { ShaderDataType::Int,  "a_InstanceEntityID" },
+            { ShaderDataType::Int, "a_InstanceEntityID" },
         });
         s_Data->InstanceBuffer->SetLayout(instanceLayout.SetPerInstance(true));
         s_Data->InstanceScratch.reserve(MaxInstancesPerDraw);
@@ -863,6 +919,26 @@ void main()
         }
         item.WorldBounds = GetWorldBounds(*mesh, transform, mesh->IsSkinned() ? &item.Joints : nullptr);
         s_Data->Queue.push_back(std::move(item));
+    }
+
+    void Renderer3D::SubmitTerrain(const Ref<Mesh>& mesh, const glm::mat4& transform,
+                                   const Ref<TerrainSurface>& surface, int entityID, bool castShadows)
+    {
+        if (!mesh || mesh->IsSkinned() || !surface || !surface->Weights) return;
+        SubmitMesh(mesh, transform, Material{}, entityID, castShadows);
+        s_Data->Queue.back().Surface = surface;
+    }
+
+    void Renderer3D::SubmitFoliage(const Ref<FoliageBatch>& batch)
+    {
+        if(!batch||!batch->GetStats().Instances)return;
+        for(uint32_t lod=0;lod<2;++lod)for(const auto& part:batch->Parts[lod])
+        {
+            if(!part.Geometry||part.Geometry->IsSkinned())continue;
+            DrawItem item{part.Geometry,glm::mat4(1),part.Mat,batch->EntityID,batch->CastShadows&&lod==0,{},{}};
+            if(batch->Mirrored)item.Transform[0][0]=-1;
+            item.WorldBounds=batch->Bounds;item.Foliage=batch;item.FoliageLOD=lod;s_Data->Queue.push_back(std::move(item));
+        }
     }
 
     AABB Renderer3D::GetWorldBounds(const Mesh& mesh, const glm::mat4& transform, const std::vector<glm::mat4>* joints)
@@ -947,21 +1023,21 @@ void main()
         return GroupInstances(
             items.size(), maxPerDraw,
             [&](size_t i) {
-                const InstanceCandidate& c = items[i];
-                return instancing && c.MeshKey && c.Mat && !c.Skinned && c.Mat->BlendMode != MaterialBlendMode::Transparent;
-            },
+            const InstanceCandidate& c = items[i];
+            return instancing && c.MeshKey && c.Mat && !c.Skinned && c.Mat->BlendMode != MaterialBlendMode::Transparent;
+        },
             [&](size_t i) {
-                const InstanceCandidate& c = items[i];
-                size_t h = std::hash<const void*>()(c.MeshKey);
-                h = HashCombine(h, std::hash<const void*>()(c.Mat->AlbedoMap.get()));
-                h = HashCombine(h, (size_t)c.Mat->BlendMode * 2 + (c.Mirrored ? 1 : 0));
-                return h;
-            },
+            const InstanceCandidate& c = items[i];
+            size_t h = std::hash<const void*>()(c.MeshKey);
+            h = HashCombine(h, std::hash<const void*>()(c.Mat->AlbedoMap.get()));
+            h = HashCombine(h, (size_t)c.Mat->BlendMode * 2 + (c.Mirrored ? 1 : 0));
+            return h;
+        },
             [&](size_t a, size_t b) {
-                const InstanceCandidate& x = items[a];
-                const InstanceCandidate& y = items[b];
-                return x.MeshKey == y.MeshKey && x.Mirrored == y.Mirrored && SameInstanceMaterial(*x.Mat, *y.Mat);
-            });
+            const InstanceCandidate& x = items[a];
+            const InstanceCandidate& y = items[b];
+            return x.MeshKey == y.MeshKey && x.Mirrored == y.Mirrored && SameInstanceMaterial(*x.Mat, *y.Mat);
+        });
     }
 
     void ShadowSettings::Sanitize()
@@ -1193,6 +1269,34 @@ void main()
         shader.SetInt("u_Mirrored", mirrored ? 1 : 0);
     }
 
+    // Fifteen texture units including the shared shadow atlas (1) and environment (5),
+    // within the OpenGL 4.1 minimum of sixteen fragment texture units.
+    static void ApplyTerrain(Shader& shader, const TerrainSurface& surface)
+    {
+        surface.Weights->Bind(0);
+        shader.SetInt("u_TerrainWeights", 0);
+        shader.SetFloat2("u_TerrainSize", surface.LocalSize);
+        shader.SetFloat2("u_WeightUV", surface.WeightUV);
+        constexpr int albedoUnits[] = { 2, 3, 4, 6 };
+        for (size_t i = 0; i < 4; ++i)
+        {
+            auto suffix = "[" + std::to_string(i) + "]";
+            auto bind = [&](const Ref<Texture2D>& texture, const char* uniform, int unit) {
+                (texture ? texture : s_Data->WhiteTexture)->Bind(unit);
+                shader.SetInt(std::string(uniform) + suffix, unit);
+            };
+            bind(surface.Albedo[i], "u_LayerAlbedo", albedoUnits[i]);
+            bind(surface.Normal[i], "u_LayerNormal", int(7 + i));
+            bind(surface.Mask[i], "u_LayerMask", int(11 + i));
+            const auto& layer = surface.Layers[i];
+            shader.SetFloat3("u_LayerColor" + suffix, layer.Color);
+            shader.SetFloat("u_LayerTiling" + suffix, layer.Tiling);
+            shader.SetInt("u_LayerSRGB" + suffix, !surface.Albedo[i] || surface.Albedo[i]->GetSpecification().SRGB ? 1 : 0);
+            shader.SetFloat4("u_LayerPBR" + suffix, { layer.Roughness, layer.Metallic, layer.Occlusion,
+                                                      surface.Normal[i] ? layer.NormalStrength : 0.0f });
+        }
+    }
+
     static glm::mat3 NormalMatrix(const glm::mat4& transform) { return glm::transpose(glm::inverse(glm::mat3(transform))); }
 
     // One queued mesh with its material (the main pass shader's per-frame uniforms are set).
@@ -1201,10 +1305,22 @@ void main()
     {
         auto& stats = Renderer::GetStats();
         bool skinned = item.MeshRef->IsSkinned();
-        auto& shader = skinned ? s_Data->SkinnedMeshShader : s_Data->MeshShader;
+        auto& shader = item.Foliage ? s_Data->InstancedMeshShader : item.Surface ? s_Data->TerrainShader : (skinned ? s_Data->SkinnedMeshShader : s_Data->MeshShader);
         shader->Bind();
         if (skinned) shader->SetMat4Array("u_Joints", item.Joints.data(), (uint32_t)item.Joints.size());
         ApplyMaterial(*shader, item.Mat, mirrored);
+        if (item.Surface) ApplyTerrain(*shader, *item.Surface);
+        if(item.Foliage)
+        {
+            if(!item.Foliage->Draw(item.MeshRef,item.FoliageLOD))return;
+            stats.DrawCalls++;stats.InstancedDrawCount++;
+            if(countMesh&&!item.Foliage->GetStats().GPU)
+            {
+                const auto& counts=item.Foliage->GetStats();auto count=item.FoliageLOD?counts.Far:counts.Near;
+                stats.MeshCount+=count;stats.InstancedMeshCount+=count;stats.TriangleCount+=count*item.MeshRef->GetTriangleCount();
+            }
+            return;
+        }
         shader->SetMat4("u_Model", item.Transform);
         shader->SetMat3("u_NormalMatrix", NormalMatrix(item.Transform));
         shader->SetInt("u_EntityID", item.EntityID);
@@ -1299,13 +1415,14 @@ void main()
         if (shadows)
         {
             ZM_PROFILE_SCOPE("Soyalar");
+            // Resize recreates and unbinds the atlas FBO. Save the caller target first.
+            RenderCommand::SaveRenderTarget();
             if (s_Data->ShadowMapSize != shadowSettings.AtlasSize)
             {
                 s_Data->ShadowMapSize = shadowSettings.AtlasSize;
                 s_Data->ShadowMap->Resize(s_Data->ShadowMapSize, s_Data->ShadowMapSize);
             }
             cascades = ComputeCascades(env, s_Data->CameraPosition, s_Data->View, s_Data->Projection);
-            RenderCommand::SaveRenderTarget();
             s_Data->ShadowMap->Bind();
             RenderCommand::SetDepthWrite(true);
             RenderCommand::Clear();
@@ -1341,26 +1458,26 @@ void main()
                 const bool instancing = s_Data->Instancing;
                 auto batches = GroupInstances(
                     casters.size(), MaxInstancesPerDraw,
-                    [&](size_t k) { return instancing && !s_Data->Queue[casters[k]].MeshRef->IsSkinned(); },
+                    [&](size_t k) { return instancing && !s_Data->Queue[casters[k]].MeshRef->IsSkinned() && !s_Data->Queue[casters[k]].Foliage; },
                     [&](size_t k) {
-                        const DrawItem& item = s_Data->Queue[casters[k]];
-                        size_t h = std::hash<const void*>()(item.MeshRef.get());
-                        return HashCombine(h, states[casters[k]].AlphaTestedShadow ? std::hash<const void*>()(item.Mat.AlbedoMap.get()) : 0);
-                    },
+                    const DrawItem& item = s_Data->Queue[casters[k]];
+                    size_t h = std::hash<const void*>()(item.MeshRef.get());
+                    return HashCombine(h, states[casters[k]].AlphaTestedShadow ? std::hash<const void*>()(item.Mat.AlbedoMap.get()) : 0);
+                },
                     [&](size_t x, size_t y) {
-                        bool alpha = states[casters[x]].AlphaTestedShadow;
-                        return alpha == states[casters[y]].AlphaTestedShadow &&
-                               SameShadowCaster(s_Data->Queue[casters[x]], s_Data->Queue[casters[y]], alpha);
-                    });
+                    bool alpha = states[casters[x]].AlphaTestedShadow;
+                    return alpha == states[casters[y]].AlphaTestedShadow &&
+                           SameShadowCaster(s_Data->Queue[casters[x]], s_Data->Queue[casters[y]], alpha);
+                });
                 for (const std::vector<size_t>& batch : batches)
                 {
                     const DrawItem& item = s_Data->Queue[casters[batch[0]]];
                     const SurfaceState& state = states[casters[batch[0]]];
                     bool skinned = item.MeshRef->IsSkinned();
-                    bool instanced = batch.size() > 1;
-                    auto& sh = instanced ? (state.AlphaTestedShadow ? s_Data->InstancedCutoutShadowShader : s_Data->InstancedShadowShader)
-                             : state.AlphaTestedShadow ? (skinned ? s_Data->SkinnedCutoutShadowShader : s_Data->CutoutShadowShader)
-                                                       : (skinned ? s_Data->SkinnedShadowShader : s_Data->ShadowShader);
+                    bool instanced = batch.size() > 1 || bool(item.Foliage);
+                    auto& sh = instanced                 ? (state.AlphaTestedShadow ? s_Data->InstancedCutoutShadowShader : s_Data->InstancedShadowShader)
+                               : state.AlphaTestedShadow ? (skinned ? s_Data->SkinnedCutoutShadowShader : s_Data->CutoutShadowShader)
+                                                         : (skinned ? s_Data->SkinnedShadowShader : s_Data->ShadowShader);
                     sh->Bind();
                     if (skinned) sh->SetMat4Array("u_Joints", item.Joints.data(), (uint32_t)item.Joints.size());
                     if (!instanced) sh->SetMat4("u_Model", item.Transform);
@@ -1375,6 +1492,13 @@ void main()
                     }
                     if (instanced)
                     {
+                        if(item.Foliage)
+                        {
+                            item.Foliage->Draw(item.MeshRef,0,true);
+                            auto count=item.Foliage->GetStats().Instances;
+                            stats.ShadowCasterCount+=count-1;stats.InstancedShadowDrawCount++;stats.InstancedShadowCasterCount+=count;stats.DrawCalls++;
+                            continue;
+                        }
                         UploadInstances(batch, &casters);
                         RenderCommand::DrawIndexedInstanced(item.MeshRef->GetInstancedVertexArray(s_Data->InstanceBuffer),
                                                             item.MeshRef->GetIndexCount(), (uint32_t)batch.size());
@@ -1389,75 +1513,80 @@ void main()
             RenderCommand::RestoreRenderTarget();
         }
 
+        // Packed foliage compacts camera-visible instances once, after conservative shadow draws.
+        std::unordered_set<FoliageBatch*> preparedFoliage;
+        for(const auto& item:s_Data->Queue)if(item.Foliage&&preparedFoliage.insert(item.Foliage.get()).second)
+            item.Foliage->Cull(Frustum::FromViewProjection(viewProj),s_Data->CameraPosition,culling);
+
         // ---------------- main pass
         if (!s_Data->Queue.empty())
         {
-          ZM_PROFILE_SCOPE("Asosiy o'tish (opaque)");
-          const LocalLightArrays localLights = PackLocalLights(env);
-          const ExtraSunArrays extraSuns = PackExtraSuns(env);
-          for (auto& shader : { s_Data->MeshShader, s_Data->SkinnedMeshShader, s_Data->InstancedMeshShader })
-          {
-            shader->Bind();
-            shader->SetMat4("u_ViewProjection", viewProj);
-            shader->SetMat4("u_View", s_Data->View);
-            shader->SetMat4Array("u_LightSpaces", cascades.LightSpace, ShadowSettings::MaxCascades);
-            shader->SetFloat4("u_CascadeSplits", { cascades.Splits[0], cascades.Splits[1], cascades.Splits[2], cascades.Splits[3] });
-            shader->SetFloat4("u_CascadeTexelWorld", { cascades.TexelWorld[0], cascades.TexelWorld[1], cascades.TexelWorld[2], cascades.TexelWorld[3] });
-            shader->SetInt("u_CascadeCount", cascades.Count);
-            shader->SetInt("u_ShadowAtlasTiles", cascades.AtlasTiles);
-            shader->SetInt("u_ShadowFilter", (int)shadowSettings.Filter);
-            shader->SetFloat("u_ShadowDepthBias", shadowSettings.DepthBias);
-            shader->SetFloat("u_ShadowNormalBias", shadowSettings.NormalBias);
-            shader->SetInt("u_UseIBL", env.EnvMap ? 1 : 0);
-            shader->SetInt("u_EnvMap", 5);
-            if (env.EnvMap)
+            ZM_PROFILE_SCOPE("Asosiy o'tish (opaque)");
+            const LocalLightArrays localLights = PackLocalLights(env);
+            const ExtraSunArrays extraSuns = PackExtraSuns(env);
+            for (auto& shader : { s_Data->MeshShader, s_Data->SkinnedMeshShader, s_Data->InstancedMeshShader, s_Data->TerrainShader })
             {
-                shader->SetFloat("u_EnvMaxLod", env.EnvMap->GetMaxLod());
-                shader->SetFloat("u_EnvIntensity", env.EnvIntensity);
-                shader->SetFloat("u_EnvRotation", env.EnvRotation);
-                const auto& sh = env.EnvMap->GetSH();
-                for (int i = 0; i < 9; i++)
-                    shader->SetFloat3("u_SH[" + std::to_string(i) + "]", sh[i]);
-            }
-            shader->SetInt("u_FogEnabled", env.FogEnabled ? 1 : 0);
-            shader->SetFloat3("u_FogColor", env.FogColor);
-            shader->SetFloat("u_FogDensity", env.FogDensity);
-            shader->SetFloat("u_FogHeightFalloff", env.FogHeightFalloff);
-            shader->SetFloat3("u_CameraPos", s_Data->CameraPosition);
-            shader->SetInt("u_HasSun", env.HasSun ? 1 : 0);
-            shader->SetFloat3("u_SunDirection", glm::normalize(env.Sun.Direction));
-            shader->SetFloat3("u_SunRadiance", env.Sun.Color * env.Sun.Intensity);
-            shader->SetInt("u_ExtraSunCount", (int)extraSuns.Count);
-            if (extraSuns.Count > 0)
-            {
-                shader->SetFloat4Array("u_ExtraSunDirection", extraSuns.Direction, extraSuns.Count);
-                shader->SetFloat4Array("u_ExtraSunRadiance", extraSuns.Radiance, extraSuns.Count);
-            }
-            shader->SetInt("u_ShadowsEnabled", shadows ? 1 : 0);
-            shader->SetFloat("u_ShadowTexel", 1.0f / (float)s_Data->ShadowMapSize);
-            shader->SetFloat3("u_SkyColor", env.SkyTopColor);
-            shader->SetFloat3("u_HorizonColor", env.SkyHorizonColor);
-            shader->SetFloat3("u_GroundColor", env.GroundColor);
-            shader->SetFloat("u_SkyCurve", skySettings.Curve);
-            shader->SetFloat("u_GroundFade", skySettings.GroundFade);
-            shader->SetFloat("u_Ambient", env.AmbientIntensity);
-            shader->SetFloat("u_Exposure", env.Exposure);
+                shader->Bind();
+                shader->SetMat4("u_ViewProjection", viewProj);
+                shader->SetMat4("u_View", s_Data->View);
+                shader->SetMat4Array("u_LightSpaces", cascades.LightSpace, ShadowSettings::MaxCascades);
+                shader->SetFloat4("u_CascadeSplits", { cascades.Splits[0], cascades.Splits[1], cascades.Splits[2], cascades.Splits[3] });
+                shader->SetFloat4("u_CascadeTexelWorld", { cascades.TexelWorld[0], cascades.TexelWorld[1], cascades.TexelWorld[2], cascades.TexelWorld[3] });
+                shader->SetInt("u_CascadeCount", cascades.Count);
+                shader->SetInt("u_ShadowAtlasTiles", cascades.AtlasTiles);
+                shader->SetInt("u_ShadowFilter", (int)shadowSettings.Filter);
+                shader->SetFloat("u_ShadowDepthBias", shadowSettings.DepthBias);
+                shader->SetFloat("u_ShadowNormalBias", shadowSettings.NormalBias);
+                shader->SetInt("u_UseIBL", env.EnvMap ? 1 : 0);
+                shader->SetInt("u_EnvMap", 5);
+                if (env.EnvMap)
+                {
+                    shader->SetFloat("u_EnvMaxLod", env.EnvMap->GetMaxLod());
+                    shader->SetFloat("u_EnvIntensity", env.EnvIntensity);
+                    shader->SetFloat("u_EnvRotation", env.EnvRotation);
+                    const auto& sh = env.EnvMap->GetSH();
+                    for (int i = 0; i < 9; i++)
+                        shader->SetFloat3("u_SH[" + std::to_string(i) + "]", sh[i]);
+                }
+                shader->SetInt("u_FogEnabled", env.FogEnabled ? 1 : 0);
+                shader->SetFloat3("u_FogColor", env.FogColor);
+                shader->SetFloat("u_FogDensity", env.FogDensity);
+                shader->SetFloat("u_FogHeightFalloff", env.FogHeightFalloff);
+                shader->SetFloat3("u_CameraPos", s_Data->CameraPosition);
+                shader->SetInt("u_HasSun", env.HasSun ? 1 : 0);
+                shader->SetFloat3("u_SunDirection", glm::normalize(env.Sun.Direction));
+                shader->SetFloat3("u_SunRadiance", env.Sun.Color * env.Sun.Intensity);
+                shader->SetInt("u_ExtraSunCount", (int)extraSuns.Count);
+                if (extraSuns.Count > 0)
+                {
+                    shader->SetFloat4Array("u_ExtraSunDirection", extraSuns.Direction, extraSuns.Count);
+                    shader->SetFloat4Array("u_ExtraSunRadiance", extraSuns.Radiance, extraSuns.Count);
+                }
+                shader->SetInt("u_ShadowsEnabled", shadows ? 1 : 0);
+                shader->SetFloat("u_ShadowTexel", 1.0f / (float)s_Data->ShadowMapSize);
+                shader->SetFloat3("u_SkyColor", env.SkyTopColor);
+                shader->SetFloat3("u_HorizonColor", env.SkyHorizonColor);
+                shader->SetFloat3("u_GroundColor", env.GroundColor);
+                shader->SetFloat("u_SkyCurve", skySettings.Curve);
+                shader->SetFloat("u_GroundFade", skySettings.GroundFade);
+                shader->SetFloat("u_Ambient", env.AmbientIntensity);
+                shader->SetFloat("u_Exposure", env.Exposure);
 
-            shader->SetInt("u_LocalLightCount", (int)localLights.Count);
-            if (localLights.Count > 0)
-            {
-                shader->SetFloat4Array("u_LightPosRange", localLights.PosRange, localLights.Count);
-                shader->SetFloat4Array("u_LightRadiance", localLights.Radiance, localLights.Count);
-                shader->SetFloat4Array("u_LightDirCos", localLights.DirCos, localLights.Count);
-            }
+                shader->SetInt("u_LocalLightCount", (int)localLights.Count);
+                if (localLights.Count > 0)
+                {
+                    shader->SetFloat4Array("u_LightPosRange", localLights.PosRange, localLights.Count);
+                    shader->SetFloat4Array("u_LightRadiance", localLights.Radiance, localLights.Count);
+                    shader->SetFloat4Array("u_LightDirCos", localLights.DirCos, localLights.Count);
+                }
 
-            shader->SetInt("u_DebugView", (int)env.DebugView);
-            shader->SetInt("u_AlbedoMap", 0);
-            shader->SetInt("u_ShadowMap", 1);
-            shader->SetInt("u_NormalMap", 2);
-            shader->SetInt("u_MetalRoughMap", 3);
-            shader->SetInt("u_EmissiveMap", 4);
-          }
+                shader->SetInt("u_DebugView", (int)env.DebugView);
+                shader->SetInt("u_AlbedoMap", 0);
+                shader->SetInt("u_ShadowMap", 1);
+                shader->SetInt("u_NormalMap", 2);
+                shader->SetInt("u_MetalRoughMap", 3);
+                shader->SetInt("u_EmissiveMap", 4);
+            }
             RenderCommand::BindTextureUnit(1, s_Data->ShadowMap->GetDepthAttachmentRendererID());
             (env.EnvMap ? env.EnvMap->GetTexture() : s_Data->WhiteTexture)->Bind(5);
 
@@ -1468,7 +1597,7 @@ void main()
             // attachment is kept as it is while the edges, the sky and the grid are drawn.
             if (wireOnly)
             {
-                for (auto& shader : { s_Data->MeshShader, s_Data->SkinnedMeshShader })
+                for (auto& shader : { s_Data->MeshShader, s_Data->SkinnedMeshShader, s_Data->TerrainShader, s_Data->InstancedMeshShader })
                 {
                     shader->Bind();
                     shader->SetInt("u_DebugView", 6);
@@ -1485,7 +1614,7 @@ void main()
                 RenderCommand::SetColorWrite(0, true);
                 RenderCommand::ClearDepth();
                 RenderCommand::SetColorWrite(1, false);
-                for (auto& shader : { s_Data->MeshShader, s_Data->SkinnedMeshShader })
+                for (auto& shader : { s_Data->MeshShader, s_Data->SkinnedMeshShader, s_Data->TerrainShader, s_Data->InstancedMeshShader })
                 {
                     shader->Bind();
                     shader->SetInt("u_DebugView", (int)env.DebugView);
@@ -1508,7 +1637,7 @@ void main()
                     if (!visible[i] || states[i].Queue != pass) continue;
                     const DrawItem& item = s_Data->Queue[i];
                     passItems.push_back(i);
-                    candidates.push_back({ item.MeshRef.get(), &item.Mat, item.MeshRef->IsSkinned(), states[i].Mirrored });
+                    candidates.push_back({ item.MeshRef.get(), &item.Mat, item.MeshRef->IsSkinned() || bool(item.Surface) || bool(item.Foliage), states[i].Mirrored });
                 }
                 for (const std::vector<size_t>& batch : BuildInstanceBatches(candidates))
                 {
@@ -1627,7 +1756,7 @@ void main()
         // towards the camera so they win the depth test against their own surfaces)
         if (env.Wireframe == WireframeMode::ShadedWire && !s_Data->Queue.empty())
         {
-            for (auto& shader : { s_Data->MeshShader, s_Data->SkinnedMeshShader })
+            for (auto& shader : { s_Data->MeshShader, s_Data->SkinnedMeshShader, s_Data->TerrainShader, s_Data->InstancedMeshShader })
             {
                 shader->Bind();
                 shader->SetInt("u_DebugView", 6);
@@ -1657,6 +1786,9 @@ void main()
             {
                 if (!s_Data->CaptureIDs.contains(item.EntityID))
                     continue;
+                // Visible packed selection comes from the exact entity-ID attachment. Avoid
+                // thousands of CPU-expanded silhouette draws; occluded packed outlines are omitted.
+                if(item.Foliage)continue;
                 CapturedDraw draw;
                 draw.MeshRef = item.MeshRef;
                 draw.Transform = item.Transform;

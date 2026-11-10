@@ -4,6 +4,7 @@
 // their memory. The tables sort by any column; a row selects its entities (Ctrl: adds them),
 // a double click frames them.
 #include "EditorLayer.h"
+#include <Zamin/Scripting/ModuleABI.h>
 #include "UI.h"
 
 #include <imgui.h>
@@ -320,6 +321,18 @@ namespace Zamin {
             // ---- scripts
             if (ImGui::BeginTabItem(std::format(ICON_FA_CODE "  Skriptlar ({})###statsScripts", s.Scripts.size()).c_str(), nullptr, tabFlags(1)))
             {
+                ImGui::Text("Engine SDK: %s",ModuleABI::EngineFingerprint().substr(0,16).c_str());
+                auto candidate=Project::GetScriptModulePath();
+                if(!candidate.empty())
+                {
+                    static std::filesystem::path checkedPath;static std::filesystem::file_time_type checkedTime{};
+                    static ModuleABIReport checked;std::error_code ec;auto time=std::filesystem::last_write_time(candidate,ec);
+                    if(checkedPath!=candidate||checkedTime!=time||ec)
+                    {checkedPath=candidate;checkedTime=time;checked=ModuleABI::Inspect(candidate);}
+                    ImGui::TextWrapped("%s",checked.Message.c_str());
+                    if(ScriptEngine::IsModuleLoaded())ImGui::TextDisabled("Ishlayotgan modul: %s",ScriptEngine::GetModulePath().filename().c_str());
+                }
+                ImGui::Separator();
                 if (s.Scripts.empty())
                     ImGui::TextDisabled("Sahnada C++ skript komponenti yo'q");
                 else if (ImGui::BeginTable("##statsScriptTable", 4, s_TableFlags))
@@ -353,7 +366,7 @@ namespace Zamin {
                         if (ImGui::BeginPopupContextItem("##scriptRow"))
                         {
                             if (ImGui::MenuItem(Tr(ICON_FA_PEN_TO_SQUARE "  Kodini ochish"), nullptr, false, source.IsValid()))
-                                OpenInExternalEditor(source.File, source.Line, source.Column);
+                                OpenInCodeEditor(source.File, source.Line, source.Column);
                             if (ImGui::MenuItem(Tr(ICON_FA_OBJECT_GROUP "  Obyektlarni tanlash")))
                                 SelectStatsEntities(g.Entities, false, false);
                             ImGui::EndPopup();
@@ -365,9 +378,9 @@ namespace Zamin {
                         {
                             const std::string where = std::format(ICON_FA_PEN_TO_SQUARE "  {}:{}", source.File.filename().string(), source.Line);
                             if (ImGui::SmallButton(where.c_str()))
-                                OpenInExternalEditor(source.File, source.Line, source.Column);
+                                OpenInCodeEditor(source.File, source.Line, source.Column);
                             if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-                                UI::Tooltip(std::format("{}\nTashqi muharrirda ochish", source.File.string()).c_str());
+                                UI::Tooltip(std::format("{}\nKod muharririda ochish", source.File.string()).c_str());
                         }
                         else
                             ImGui::TextDisabled("%s", g.Key.empty() ? "-" : "topilmadi");

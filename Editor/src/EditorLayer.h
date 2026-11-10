@@ -13,6 +13,8 @@
 #include "Panels/SpriteEditorPanel.h"
 #include "Panels/AnimationTimelinePanel.h"
 #include "Panels/AnimatorGraphPanel.h"
+#include "Panels/VisualGraphPanel.h"
+#include "Panels/CodeEditorPanel.h"
 #include "Panels/ScenesPanel.h"
 #include "AssetUsageCache.h"
 #include "SceneThumbnails.h"
@@ -94,7 +96,7 @@ namespace Zamin {
         bool OpenScene(const std::filesystem::path& path);
         void SaveScene();
         void SaveSceneAs();
-        void SerializeScene(const Ref<Scene>& scene, const std::filesystem::path& path);
+        bool SerializeScene(const Ref<Scene>& scene, const std::filesystem::path& path);
         // `newView`: another scene or another view of it (open, play, stop, a level switch) - the
         // viewport's auto exposure starts over. False for the same scene rebuilt (undo, references).
         void SetActiveScene(const Ref<Scene>& scene, bool newView = true);
@@ -385,6 +387,7 @@ namespace Zamin {
 
         // ---- the external code editor (EditorExternalTools.cpp): C++ files open in the user's own
         // editor (Sozlamalar > Tashqi muharrir; $VISUAL / $EDITOR, VS Code, xdg-open by default).
+        bool OpenInCodeEditor(const std::filesystem::path& file, int line = 0, int column = 0);
         bool OpenInExternalEditor(const std::filesystem::path& file, int line = 0, int column = 0);
         // A script class's source (found in the project's Source folder by its ZM_REGISTER_SCRIPT).
         bool OpenScriptClassSource(const std::string& className);
@@ -797,6 +800,26 @@ namespace Zamin {
             int Changed = 0;
             glm::ivec2 Origin{ 0 }; // where the brush pattern repeats from (its top-left at the first cell)
         } m_TileStroke;
+        void UI_Terrain();
+        void UpdateTerrainPainting(Timestep ts);
+        void DrawTerrainPreview();
+        void ApplyTerrainAutomation();
+        Entity TerrainEntity();
+        Entity CreateTerrainMap();
+        bool TerrainMouseHit(Entity entity, TerrainHit& hit);
+        void ScatterTerrainObjects(Entity entity, glm::vec2 center, bool erase);
+        bool m_ShowTerrain = false, m_TerrainPainting = false, m_TerrainStroke = false, m_TerrainAlign = false;
+        UUID m_TerrainID = 0;
+        glm::vec2 m_TerrainSize{ 64 };
+        int m_TerrainResolution = 65, m_TerrainTool = 0, m_TerrainObject = 0, m_TerrainDensity = 4, m_TerrainSeed = 42;
+        uint32_t m_TerrainRandom = 42;
+        int m_TerrainPlaced = 0;
+        float m_TerrainBase = 8, m_TerrainSpacing = 3, m_TerrainScaleMin = 0.8f, m_TerrainScaleMax = 1.3f, m_TerrainMaxSlope = 35, m_TerrainAmplitude = 14, m_TerrainFrequency = 0.045f;
+        double m_TerrainLastStamp = -1;
+        TerrainBrushSettings m_TerrainBrush;
+        glm::vec2 m_TerrainPreviousCenter{ 0 };
+        bool m_TerrainHasPrevious = false;
+        std::string m_TerrainMessage, m_TerrainPrefab;
         bool m_ShowTilePalette = false;     // Oyna > Plitka palitrasi
         bool m_TileHoverOverride = false;   // automation: the preview cell below instead of the mouse
         bool m_TileDragHeld = false;        // automation: a rectangle stroke stays held (its preview shows)
@@ -959,6 +982,10 @@ namespace Zamin {
         SpriteEditorPanel m_SpriteEditorPanel;
         AnimationTimelinePanel m_AnimationPanel;
         bool m_ShowAnimation = false;
+        CodeEditorPanel m_CodeEditorPanel;
+        bool m_ShowCodeEditor = false;
+        VisualGraphPanel m_VisualGraphPanel;
+        bool m_ShowVisualGraph = false;
         AnimatorGraphPanel m_AnimatorGraphPanel;
         bool m_ShowAnimatorGraph = false;
         bool m_AnimatorGraphInViewport = false;   // automation: docked over the viewport (screenshots)

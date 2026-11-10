@@ -125,20 +125,44 @@ namespace Zamin {
 
     Ref<Shader> Shader::Create(const std::string& filepath)
     {
-        std::string source = FileSystem::ReadTextFile(filepath);
+        const std::string source = FileSystem::ReadTextFile(filepath);
         std::string vertex, fragment;
-        const std::string token = "#type";
-        size_t pos = source.find(token);
-        while (pos != std::string::npos)
+        bool haveVertex = false, haveFragment = false;
+        size_t position = 0;
+        std::string* stage = nullptr;
+        auto fail = [&](const char* message) -> Ref<Shader> {
+            ZM_CORE_ERROR("Shader '{}': {}", filepath, message);
+            return nullptr;
+        };
+        while (position < source.size())
         {
-            size_t eol = source.find_first_of("\r\n", pos);
-            std::string type = source.substr(pos + token.size() + 1, eol - pos - token.size() - 1);
-            size_t next = source.find_first_not_of("\r\n", eol);
-            pos = source.find(token, next);
-            std::string body = source.substr(next, pos == std::string::npos ? std::string::npos : pos - next);
-            if (type.starts_with("vertex")) vertex = body;
-            else if (type.starts_with("fragment") || type.starts_with("pixel")) fragment = body;
+            const size_t end = source.find('\n', position);
+            std::string line = source.substr(position, end == std::string::npos ? end : end - position);
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            const size_t start = line.find_first_not_of(" \t");
+            if (start != std::string::npos && line.compare(start, 5, "#type") == 0)
+            {
+                auto type = line.substr(start + 5);
+                const auto first = type.find_first_not_of(" \t"), last = type.find_last_not_of(" \t");
+                type = first == std::string::npos ? "" : type.substr(first, last - first + 1);
+                if (type == "vertex")
+                {
+                    if (haveVertex) return fail("Duplicate vertex stage");
+                    haveVertex = true; stage = &vertex;
+                }
+                else if (type == "fragment" || type == "pixel")
+                {
+                    if (haveFragment) return fail("Duplicate fragment stage");
+                    haveFragment = true; stage = &fragment;
+                }
+                else return fail("Unknown or missing shader stage");
+            }
+            else if (stage) *stage += line + "\n";
+            if (end == std::string::npos) break;
+            position = end + 1;
         }
+        if (!haveVertex || !haveFragment || vertex.find_first_not_of(" \t\r\n") == std::string::npos || fragment.find_first_not_of(" \t\r\n") == std::string::npos)
+            return fail("Both vertex and fragment stages must have source");
         std::string name = std::filesystem::path(filepath).stem().string();
         return CreateRef<OpenGLShader>(name, vertex, fragment);
     }

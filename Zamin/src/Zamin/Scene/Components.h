@@ -15,6 +15,8 @@
 #include "Zamin/Renderer/Model.h"
 #include "Zamin/Renderer/Font.h"
 #include "Zamin/Renderer/SpriteSheet.h"
+#include "Zamin/Scene/Terrain.h"
+#include "Zamin/Scene/Foliage.h"
 #include "Zamin/Scene/Camera2D.h"
 #include "Zamin/Scene/ParticleSystem.h"
 #include "Zamin/Scene/PixelPerfect.h"
@@ -3432,15 +3434,14 @@ namespace Zamin {
 
     /// Every component that is copied/serialized with an entity (IDComponent & TagComponent are handled separately).
     using AllComponents = ComponentGroup<RelationshipComponent, TagsComponent, TransformComponent, SpriteRendererComponent,
-        SpriteAnimationComponent, TintAnimationComponent, CircleRendererComponent, TextComponent, MeshRendererComponent, AnimatorComponent, AnimationPlayerComponent, CameraComponent,
-        DirectionalLightComponent, PointLightComponent, SpotLightComponent, Light2DComponent, Rigidbody2DComponent, BoxCollider2DComponent,
-        CircleCollider2DComponent, PolygonCollider2DComponent, EdgeCollider2DComponent, PlatformEffector2DComponent, AreaEffector2DComponent, BuoyancyEffector2DComponent, DistanceJoint2DComponent, RevoluteJoint2DComponent, PrismaticJoint2DComponent, WeldJoint2DComponent,
-        WheelJoint2DComponent, Rigidbody3DComponent, BoxCollider3DComponent, SphereCollider3DComponent,
-        CapsuleCollider3DComponent, ConvexHullCollider3DComponent, MeshCollider3DComponent, FixedJoint3DComponent, HingeJoint3DComponent, DistanceJoint3DComponent,
-        SliderJoint3DComponent, ConeJoint3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, Camera2DFollowComponent, SplineComponent, SplineFollowerComponent, NavGrid2DComponent, NavGrid3DComponent, NavAgentComponent, NavObstacleComponent, SightSensorComponent, PatrolPathComponent, FormationComponent, ParticleSystemComponent, UITransformComponent, UICanvasComponent,
-        UILayoutGroupComponent, UILayoutElementComponent, UINavigationComponent, UIAnimationComponent, UIButtonComponent,
-        UIImageComponent, UISliderComponent, UIToggleComponent, UIProgressBarComponent, UIInputFieldComponent, UIMaskComponent,
-        UIScrollViewComponent, AudioSourceComponent, AudioListenerComponent, AmbientZoneComponent, FootstepsComponent,
-        BoneAttachmentComponent, SubSceneComponent, NativeScriptComponent, EditorMetadataComponent, PrefabLinkComponent>;
-
+                                         SpriteAnimationComponent, TintAnimationComponent, CircleRendererComponent, TextComponent, MeshRendererComponent, TerrainComponent, FoliageComponent, AnimatorComponent, AnimationPlayerComponent, CameraComponent,
+                                         DirectionalLightComponent, PointLightComponent, SpotLightComponent, Light2DComponent, Rigidbody2DComponent, BoxCollider2DComponent,
+                                         CircleCollider2DComponent, PolygonCollider2DComponent, EdgeCollider2DComponent, PlatformEffector2DComponent, AreaEffector2DComponent, BuoyancyEffector2DComponent, DistanceJoint2DComponent, RevoluteJoint2DComponent, PrismaticJoint2DComponent, WeldJoint2DComponent,
+                                         WheelJoint2DComponent, Rigidbody3DComponent, BoxCollider3DComponent, SphereCollider3DComponent,
+                                         CapsuleCollider3DComponent, ConvexHullCollider3DComponent, MeshCollider3DComponent, FixedJoint3DComponent, HingeJoint3DComponent, DistanceJoint3DComponent,
+                                         SliderJoint3DComponent, ConeJoint3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, Camera2DFollowComponent, SplineComponent, SplineFollowerComponent, NavGrid2DComponent, NavGrid3DComponent, NavAgentComponent, NavObstacleComponent, SightSensorComponent, PatrolPathComponent, FormationComponent, ParticleSystemComponent, UITransformComponent, UICanvasComponent,
+                                         UILayoutGroupComponent, UILayoutElementComponent, UINavigationComponent, UIAnimationComponent, UIButtonComponent,
+                                         UIImageComponent, UISliderComponent, UIToggleComponent, UIProgressBarComponent, UIInputFieldComponent, UIMaskComponent,
+                                         UIScrollViewComponent, AudioSourceComponent, AudioListenerComponent, AmbientZoneComponent, FootstepsComponent,
+                                         BoneAttachmentComponent, SubSceneComponent, NativeScriptComponent, EditorMetadataComponent, PrefabLinkComponent>;
 }

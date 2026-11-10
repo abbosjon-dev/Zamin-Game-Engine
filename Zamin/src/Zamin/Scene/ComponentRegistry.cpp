@@ -26,6 +26,8 @@ namespace Zamin {
             MakeTypeInfo<CircleRendererComponent>(),
             MakeTypeInfo<TextComponent>(),
             MakeTypeInfo<MeshRendererComponent>(),
+            MakeTypeInfo<TerrainComponent>(),
+            MakeTypeInfo<FoliageComponent>(),
             MakeTypeInfo<AnimatorComponent>(),
             MakeTypeInfo<AnimationPlayerComponent>(),
             MakeTypeInfo<BoneAttachmentComponent>(),

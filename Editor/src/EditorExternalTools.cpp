@@ -14,6 +14,15 @@ namespace fs = std::filesystem;
 
 namespace Zamin {
 
+    bool EditorLayer::OpenInCodeEditor(const fs::path& file,int line,int column)
+    {
+        m_ShowCodeEditor=true;
+        m_CodeEditorPanel.SetProject(Project::GetProjectDirectory(),Project::GetCacheDirectory());
+        const bool opened=m_CodeEditorPanel.Open(file,line,column);
+        if(!opened) ZM_WARN("Kod muharririda fayl ochilmadi: {}",file.string());
+        return opened;
+    }
+
     bool EditorLayer::OpenInExternalEditor(const fs::path& file, int line, int column)
     {
         const std::string& command = m_Preferences.ExternalEditor.Command;
@@ -59,15 +68,15 @@ namespace Zamin {
             ZM_WARN("'{}' klassi Source papkasida topilmadi (ZM_REGISTER_SCRIPT({}) qidirildi)", className, className);
             return false;
         }
-        return OpenInExternalEditor(source.File, source.Line, source.Column);
+        return OpenInCodeEditor(source.File, source.Line, source.Column);
     }
 
     void EditorLayer::UI_ExternalEditorPreferences(bool& changed)
     {
         ExternalEditorPreferences& prefs = m_Preferences.ExternalEditor;
         ImGui::SeparatorText(Tr("Tashqi kod muharriri"));
-        ImGui::TextWrapped("C++ skriptlar (inspektordagi " ICON_FA_PEN_TO_SQUARE " tugmasi, kontent brauzerda .cpp / .h fayllar) va "
-                           "kompilyatsiya xatolari shu dastur bilan, kerakli qatorda ochiladi.");
+        ImGui::TextWrapped("C++ skriptlar va kompilyatsiya xatolari ichki Kod muharririda ochiladi. "
+                           "Undagi 'External editor' tugmasi uchun shu tashqi dasturni tanlang.");
         ImGui::Spacing();
         const std::string automatic = ExternalEditor::GetDefaultCommand();
         bool useDefault = prefs.Command.empty();

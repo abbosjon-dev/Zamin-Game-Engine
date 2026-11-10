@@ -1,3 +1,4 @@
+#include <Zamin/Renderer/GPUProfiler.h>
 #include "EditorLayer.h"
 #include "EditorSmokeTest.h"
 #include "UI.h"
@@ -35,7 +36,6 @@ namespace Zamin {
         return dir;
     }
 
-    static std::string Quote(const fs::path& p) { return "\"" + p.string() + "\""; }
 
     namespace {
         // The scene view's debug views, in RenderDebugView order.
@@ -188,7 +188,16 @@ namespace Zamin {
                 m_SceneHierarchyPanel.GetSelection().Set(placed, placed.front());
         };
         m_SceneHierarchyPanel.OnOpenScriptSource = [this](const std::string& className) { OpenScriptClassSource(className); };
-        m_ContentBrowserPanel.OnOpenSourceFile = [this](const fs::path& file) { OpenInExternalEditor(file); };
+        m_VisualGraphPanel.OnModified = [this]() { MarkDirty(); };
+        auto openVisualGraph = [this](const fs::path& file) { m_ShowVisualGraph = true; m_VisualGraphPanel.Open(file); };
+        m_ContentBrowserPanel.OnOpenVisualGraph = openVisualGraph;
+        m_AssetInspectorPanel.OnOpenVisualGraph = openVisualGraph;
+        m_SceneHierarchyPanel.OnVisualGraphRequested = openVisualGraph;
+        m_ContentBrowserPanel.OnOpenSourceFile = [this](const fs::path& file) { OpenInCodeEditor(file); };
+        m_AssetInspectorPanel.OnOpenCode = [this](const fs::path& file) { OpenInCodeEditor(file); };
+        m_CodeEditorPanel.OnBuild = [this]() { BuildScripts(true); };
+        m_CodeEditorPanel.OnNewScript = [this]() { m_NewScriptName="MyScript";m_OpenNewScriptPopup=true; };
+        m_CodeEditorPanel.OnExternalOpen = [this](const fs::path& file,int line,int column) { OpenInExternalEditor(file,line,column); };
         m_SceneHierarchyPanel.OnAnimationWindowRequested = [this](Entity e, int clip) {
             m_ShowAnimation = true;
             m_AnimationPanel.SetContext(m_ActiveScene, m_SceneState == SceneState::Edit);
@@ -295,6 +304,7 @@ namespace Zamin {
             OpenScene(file);
         };
         m_SceneHierarchyPanel.OnSpriteEditorRequested = [this](const std::string& texture) { OpenSpriteEditor(texture); };
+        m_SceneHierarchyPanel.OnTerrainWindowRequested = [this]() {m_ShowTerrain=true;Set2DMode(false); };
         m_SceneHierarchyPanel.OnTilePaletteWindowRequested = [this]() {
             m_ShowTilePalette = true;
             ImGui::SetWindowFocus("###TilePalette");
@@ -369,6 +379,7 @@ namespace Zamin {
 
     void EditorLayer::OnDetach()
     {
+        m_CodeEditorPanel.FlushRecovery();
         // ZAMIN_EDITOR_STATS: the last frame's numbers in the log as well (automation / CI).
         if (std::getenv("ZAMIN_EDITOR_STATS"))
         {
@@ -418,6 +429,7 @@ namespace Zamin {
     // ================================================================== update
     void EditorLayer::OnUpdate(Timestep ts)
     {
+        ApplyTerrainAutomation();
         // The UI's look (accent, font size, the play-mode tint) between two frames.
         UpdateEditorTheme();
         // A saved window layout chosen last frame (ImGui takes window settings between frames).
@@ -521,6 +533,14 @@ namespace Zamin {
                     m_AnimatorGraphPanel.SelectTransition(number("transition="));
                 m_AnimatorGraphInViewport = v.find("viewport") != std::string_view::npos;
                 m_AnimatorGraphPanel.Focus();
+            }
+            if (const char* source = std::getenv("ZAMIN_EDITOR_CODE")) {
+                const auto file=FileSystem::SafeJoin(Project::GetProjectDirectory(),source);
+                if(!file.empty()) OpenInCodeEditor(file);
+            }
+            if (const char* graph = std::getenv("ZAMIN_EDITOR_VISUAL_GRAPH")) {
+                m_ShowVisualGraph = true;
+                m_VisualGraphPanel.Open(Project::GetAssetFileSystemPath(graph));
             }
             // ZAMIN_EDITOR_ASSET=<path relative to Assets>: the asset inspector shows that file.
             if (const char* asset = std::getenv("ZAMIN_EDITOR_ASSET"))
@@ -1694,6 +1714,7 @@ namespace Zamin {
             switch (m_SceneState)
             {
                 case SceneState::Edit:
+                    UpdateTerrainPainting(ts);
                     UpdateTilePainting();
                     UpdateTilePreview(options);
                     m_EditorCamera.OnUpdate(ts, cameraInput);
@@ -4216,6 +4237,7 @@ namespace Zamin {
                 rect(glm::min(follow.BoundsMin, follow.BoundsMax), glm::max(follow.BoundsMin, follow.BoundsMax), glm::vec4(1.0f, 0.55f, 0.15f, 0.9f));
         }
 
+        DrawTerrainPreview();
         // Tilemap bounds + hovered cell
         if (Entity selected = m_SceneHierarchyPanel.GetSelectedEntity(); selected && selected.IsValid() && selected.HasComponent<TilemapComponent>() && !hidden.contains(selected))
         {
@@ -4395,6 +4417,7 @@ namespace Zamin {
 
     bool EditorLayer::OnMouseButtonPressed(MouseButtonPressedEvent& e)
     {
+        if (e.GetMouseButton() == MouseButton::Left && m_ViewportHovered && m_ShowTerrain && m_TerrainPainting && m_SceneState == SceneState::Edit && !Input::IsKeyPressed(Key::LeftAlt)) return true;
         // Prefab placing: a click in the viewport places the prefabs again (nothing is selected).
         if (e.GetMouseButton() == MouseButton::Left && m_ViewportHovered && m_PrefabPlacing.Active && !m_GizmoHovered && !m_NavigatorHovered)
             if (HandlePrefabPlacingClick())
@@ -4413,7 +4436,7 @@ namespace Zamin {
                 m_GizmoAltDrag = true;
                 m_GizmoAltDuplicatePending = true;
             }
-            if (!alt && !overGizmo && !m_SceneHierarchyPanel.IsTilePainting() && !IsViewportHandleEditing())
+            if (!alt && !overGizmo && !m_SceneHierarchyPanel.IsTilePainting() && !(m_ShowTerrain && m_TerrainPainting) && !IsViewportHandleEditing())
             {
                 // Ctrl+click toggles, Shift+click adds to the selection. A click on a locked
                 // entity goes through it: the next frame picks again without the locked ones
@@ -4716,7 +4739,7 @@ namespace Zamin {
         return true;
     }
 
-    void EditorLayer::SerializeScene(const Ref<Scene>& scene, const fs::path& path)
+    bool EditorLayer::SerializeScene(const Ref<Scene>& scene, const fs::path& path)
     {
         SceneSerializer serializer(scene);
         bool written = false;
@@ -4731,6 +4754,7 @@ namespace Zamin {
             if (SceneSerializer::WriteNavBakes(*scene, path, &bakes) && bakes > 0)
                 ZM_INFO("Navigatsiya: {} ta grid {} fayliga saqlandi", bakes, NavBakeFile::PathFor(path).filename().string());
         }
+        return written;
     }
 
     // ------------------------------------------------------------------ scene metadata (description, author, tags, thumbnail)
@@ -4877,7 +4901,7 @@ namespace Zamin {
             return;
         }
         CommitUndo(); // the history's current state is what the file gets
-        SerializeScene(m_EditorScene, m_EditorScenePath);
+        if (!SerializeScene(m_EditorScene, m_EditorScenePath)) return;
         m_UndoHistory.MarkSaved();
         // The file has everything now: its safety copy (this session's or an older one) goes.
         if (const fs::path autosave = GetAutosavePath(); !autosave.empty())
@@ -6177,542 +6201,6 @@ namespace Zamin {
     }
 
     // ================================================================== scripts
-    void EditorLayer::BuildScripts(bool reloadAfter)
-    {
-        if (m_Building)
-        {
-            ZM_WARN("Kompilyatsiya allaqachon ketmoqda...");
-            return;
-        }
-        auto project = Project::GetActive();
-        if (!project)
-        {
-            ZM_WARN("Avval loyiha oching");
-            return;
-        }
-        fs::path projectDir = Project::GetProjectDirectory();
-        if (!fs::exists(projectDir / "CMakeLists.txt"))
-            Project::WriteBuildFiles(projectDir, project->GetConfig().Name);
-
-        if (m_BuildThread.joinable()) m_BuildThread.join();
-
-        fs::path buildDir = projectDir / "Build";
-        fs::path engineCMakeDir = FileSystem::GetExecutableDirectory().parent_path();
-        bool ninja = std::system("command -v ninja >/dev/null 2>&1") == 0;
-        bool needsConfigure = !fs::exists(buildDir / "CMakeCache.txt");
-
-        std::string configure = "cmake -S " + Quote(projectDir) + " -B " + Quote(buildDir) + (ninja ? " -G Ninja" : "") +
-                                " -DCMAKE_BUILD_TYPE=Release -DZamin_DIR=" + Quote(engineCMakeDir);
-        std::string build = "cmake --build " + Quote(buildDir) + " --parallel";
-        std::string command = (needsConfigure ? configure + " 2>&1 && " : "") + build + " 2>&1";
-
-        m_Building = true;
-        m_ReloadAfterBuild = reloadAfter;
-        m_BuildStartTime = Platform::GetTime();
-        BeginBuildOutput(buildDir);
-        ZM_INFO("C++ skriptlar kompilyatsiya qilinmoqda: {}", project->GetConfig().Name);
-
-        m_BuildThread = std::thread([this, command]() {
-            FILE* pipe = popen(command.c_str(), "r");
-            bool ok = false;
-            if (pipe)
-            {
-                char line[2048];
-                while (fgets(line, sizeof(line), pipe))
-                {
-                    std::string s(line);
-                    while (!s.empty() && (s.back() == '\n' || s.back() == '\r')) s.pop_back();
-                    AddBuildOutputLine(s); // the "Kompilyatsiya" window's messages
-                    if (s.empty()) continue;
-                    if (s.find("error") != std::string::npos || s.find("Error") != std::string::npos) ZM_ERROR("{}", s);
-                    else if (s.find("warning") != std::string::npos) ZM_WARN("{}", s);
-                    else ZM_TRACE("{}", s);
-                }
-                int status = pclose(pipe);
-                ok = status == 0;
-            }
-            m_BuildSucceeded = ok;
-            m_Building = false;
-            m_BuildFinished = true;
-        });
-    }
-
-    void EditorLayer::ReloadScriptModule()
-    {
-        fs::path module = Project::GetScriptModulePath();
-        if (module.empty())
-            return;
-        if (m_SceneState != SceneState::Edit)
-            OnSceneStop();
-        const bool loaded = ScriptEngine::LoadModule(module);
-        if (loaded)
-            ZM_INFO("Skriptlar qayta yuklandi (hot reload) " ICON_FA_CHECK);
-        m_SceneHierarchyPanel.OnScriptsReloaded();
-        // ZAMIN_EDITOR_HOT_RELOAD_TEST=<frames> (Tests/hot_reload_test.sh): the game plays again after every load
-        // of the module (the first build, then each hot reload); <frames> frames after the first hot reload the
-        // editor closes.
-        if (const char* test = std::getenv("ZAMIN_EDITOR_HOT_RELOAD_TEST"); test && loaded)
-        {
-            m_HotReloadTestPlay = true;
-            if (++m_HotReloadTestLoads >= 2)
-                m_HotReloadTestCloseIn = std::max(1, std::atoi(test));
-        }
-    }
-
-    void EditorLayer::CheckModuleHotReload(Timestep ts)
-    {
-        m_HotReloadTimer += ts;
-        if (m_HotReloadTimer < 1.0f || !m_AutoReload || m_Building)
-            return;
-        m_HotReloadTimer = 0.0f;
-        fs::path module = Project::GetScriptModulePath();
-        std::error_code ec;
-        if (module.empty() || !fs::exists(module, ec))
-            return;
-        auto time = fs::last_write_time(module, ec);
-        if (!ec && (!ScriptEngine::IsModuleLoaded() || time != ScriptEngine::GetLoadedModuleWriteTime()))
-        {
-            // Built outside the editor (an IDE, cmake --build): the linker writes the file in place, so a change
-            // is loaded only once the file stayed the same (time and size) for one more poll - a module read
-            // half written would not load, and the old one is unloaded by then.
-            const uintmax_t size = fs::file_size(module, ec);
-            if (ec || time != m_ChangedModuleTime || size != m_ChangedModuleSize)
-            {
-                m_ChangedModuleTime = time;
-                m_ChangedModuleSize = ec ? 0 : size;
-                m_HotReloadTimer = 0.6f; // looked at again in 0.4 s
-                return;
-            }
-            ZM_INFO("Skript moduli o'zgardi - qayta yuklanmoqda");
-            ReloadScriptModule();
-        }
-    }
-
-    bool EditorLayer::CreateScriptClass(const std::string& className, ScriptTemplateKind kind)
-    {
-        if (!Project::GetActive()) return false;
-        if (std::string problem = ScriptTemplate::ValidateClassName(className); !problem.empty())
-        {
-            ZM_ERROR("Skript yaratilmadi: {}", problem);
-            return false;
-        }
-        if (ScriptRegistry::Find(className))
-        {
-            ZM_WARN("'{}' klassi allaqachon mavjud (skript modulida ro'yxatdan o'tgan)", className);
-            return false;
-        }
-        fs::path file = Project::GetSourceDirectory() / (className + ".cpp");
-        if (fs::exists(file))
-        {
-            ZM_WARN("Fayl allaqachon mavjud: {}", file.string());
-            return false;
-        }
-        if (!FileSystem::WriteTextFile(file, ScriptTemplate::Generate(className, kind)))
-        {
-            ZM_ERROR("Fayl yozilmadi: {}", file.string());
-            return false;
-        }
-        ZM_INFO("Yangi skript yaratildi ({} shablon): {}", ScriptTemplate::GetKindName(kind), file.string());
-        BuildScripts(true);
-        return true;
-    }
-
-    // ================================================================== export
-    void EditorLayer::ReportExcludedAssets(const ExportAssetPlan& plan, const std::string& gameName, const fs::path& outputDirectory)
-    {
-        const fs::path report = outputDirectory / ExportAssets::ReportFileName;
-        std::error_code ec;
-        if (plan.Excluded.empty())
-        {
-            fs::remove(report, ec);
-            ZM_INFO("Eksport: {} ta asset fayli ({}), hammasi ishlatiladi", plan.Included.size(), ExportAssets::FormatSize(plan.IncludedBytes));
-            return;
-        }
-        ZM_INFO("Eksport: {} ta asset fayli ({}); {} tasi chiqarib tashlandi ({}) - ro'yxat: {}", plan.Included.size(),
-                ExportAssets::FormatSize(plan.IncludedBytes), plan.Excluded.size(), ExportAssets::FormatSize(plan.ExcludedBytes), report.string());
-        const size_t shown = std::min<size_t>(plan.Excluded.size(), 12);
-        for (size_t i = 0; i < shown; i++)
-            ZM_INFO("    - {} ({}, {})", plan.Excluded[i].Path, ExportAssets::FormatSize(plan.Excluded[i].Size), plan.Excluded[i].Reason);
-        if (plan.Excluded.size() > shown)
-            ZM_INFO("    ... va yana {} ta", plan.Excluded.size() - shown);
-        FileSystem::WriteTextFile(report, plan.FormatReport(gameName));
-    }
-
-    void EditorLayer::BuildGame(const fs::path& outputDirectory)
-    {
-        auto project = Project::GetActive();
-        if (!project || m_Exporting) return;
-        if (m_SceneState != SceneState::Edit) OnSceneStop();
-        if (m_SceneDirty) SaveScene();
-        m_ProjectSettingsPanel.SaveIfDirty(); // the exported game reads the .zproject (input map)
-
-        const auto started = std::chrono::steady_clock::now();
-        std::string name = project->GetConfig().Name;
-        const PlayerSettings player = project->GetConfig().Player;
-        const std::string productName = player.GetProductName(name);
-        // The report the export ends with (the window, export-report.json / .txt): what went wrong is
-        // collected here and on the export thread.
-        auto report = std::make_shared<ExportReport>();
-        {
-            std::error_code ec;
-            report->Game = productName;
-            report->Version = player.Version;
-            report->Company = player.CompanyName;
-            report->OutputDirectory = fs::absolute(outputDirectory, ec).lexically_normal().string();
-            const std::time_t now = std::time(nullptr);
-            std::tm tm{};
-            localtime_r(&now, &tm);
-            char date[32];
-            std::strftime(date, sizeof(date), "%Y-%m-%d %H:%M:%S", &tm);
-            report->Date = date;
-        }
-        // (Only the export thread uses these from here on: the main thread reads the report once it is handed over.)
-        auto warn = [report](std::string message) {
-            ZM_WARN("Eksport: {}", message);
-            report->Warnings.push_back(std::move(message));
-        };
-        auto fail = [report](std::string message) {
-            ZM_ERROR("Eksport: {}", message);
-            report->Errors.push_back(std::move(message));
-        };
-        // The start scene and the build list: what would break the game is an error, the rest warnings.
-        for (const BuildSceneIssue& issue : Project::CheckBuildScenes(project->GetConfig(), Project::GetAssetDirectory()))
-        {
-            if (issue.Error)
-                fail(issue.Message);
-            else
-                warn(issue.Message);
-        }
-        const fs::path iconFile = Project::GetIconPath();
-        if (!iconFile.empty())
-        {
-            ImageData icon;
-            std::string error;
-            if (!GameIcon::Load(iconFile, icon, &error))
-                warn(std::format("o'yin ikonkasi o'qilmadi ({}) - .desktop faylida ikonka bo'lmaydi", error));
-        }
-        fs::path projectDir = Project::GetProjectDirectory();
-        fs::path projectFile = Project::GetProjectFilePath();
-        fs::path modulePath = Project::GetScriptModulePath();
-        fs::path moduleRel = project->GetConfig().ScriptModulePath;
-        fs::path assetRel = project->GetConfig().AssetDirectory;
-        fs::path exeDir = FileSystem::GetExecutableDirectory();
-        const ExportSettings exportSettings = project->GetConfig().Export;
-        // The script module in Release (-O2) in a build folder of its own: needs the project's CMakeLists.txt
-        // (written like BuildScripts does for a project without one) and its sources.
-        std::error_code sourcesError;
-        const bool hasSources = !modulePath.empty() && fs::is_directory(Project::GetSourceDirectory(), sourcesError);
-        if (exportSettings.ReleaseScriptModule && hasSources && !fs::exists(projectDir / "CMakeLists.txt"))
-            Project::WriteBuildFiles(projectDir, name);
-        ExportModuleBuild moduleBuild;
-        moduleBuild.ProjectDirectory = projectDir;
-        moduleBuild.BuildDirectory = ExportModuleBuild::DefaultBuildDirectory(projectDir);
-        moduleBuild.EngineDirectory = exeDir.parent_path();
-        moduleBuild.OutputDirectory = moduleBuild.BuildDirectory / "bin";
-        moduleBuild.Ninja = std::system("command -v ninja >/dev/null 2>&1") == 0;
-        // Which assets go: with a build list only its enabled scenes, the start scene and their sub-scenes;
-        // then what they lead to (prefabs, materials, models, clips ...), what the project file and the C++
-        // code name, the folders always taken - the rest stays out (Project settings > Build scenes > Export).
-        // Planned here, on this thread (the registry).
-        std::vector<std::string> buildScenes, notes;
-        AssetReferenceIndex referenceIndex;
-        const ExportAssetPlan assetPlan = ExportAssets::PlanForActiveProject(&buildScenes, &notes, &referenceIndex);
-        for (const std::string& note : notes)
-            ZM_INFO("Eksport: {}", note);
-        // The prefabs the game gets are checked (R1-R10, docs/Prefabs.md), and the scenes / prefabs that
-        // hold the editor's prefab links are exported without them (instances older than their prefabs
-        // brought up to date in the copy; the project's files stay as they are). Here, on this thread
-        // (the editor's prefab database); the export thread only writes the texts.
-        std::map<std::string, std::string> bakedFiles;
-        {
-            PrefabExportResult prefabCheck = PrefabExport::Prepare(assetPlan, m_PrefabDatabase, &referenceIndex);
-            for (const PrefabExportIssue& issue : prefabCheck.Issues)
-            {
-                std::string message = issue.File.empty() ? std::format("prefab: {}", issue.Message)
-                                                         : std::format("prefab ({}, {}): {}", issue.Rule, issue.File, issue.Message);
-                if (issue.Level == PrefabExportIssue::Severity::Error ||
-                    (issue.Level == PrefabExportIssue::Severity::Warning && exportSettings.PrefabWarningsAsErrors))
-                    fail(std::move(message));
-                else if (issue.Level == PrefabExportIssue::Severity::Warning)
-                    warn(std::move(message));
-                else
-                    ZM_INFO("Eksport: {}", message);
-            }
-            ZM_INFO("Eksport: {}{}", prefabCheck.Summary(),
-                    prefabCheck.Stripped ? std::format(" ({} ta faylning prefab bog'lanishlari olib tashlandi)", prefabCheck.Stripped) : std::string());
-            bakedFiles = std::move(prefabCheck.Baked);
-        }
-        const bool binaryScenes = m_BuildGameBinaryScenes;
-        // The exported game reads its asset registry from one file (made here, on this thread) - without the
-        // assets left out.
-        std::string registryText;
-        if (AssetRegistry* registry = Project::GetAssetRegistry())
-        {
-            AssetRegistry::Snapshot snapshot = registry->GetSnapshot();
-            std::erase_if(snapshot, [&](const AssetRegistry::SnapshotEntry& e) { return assetPlan.IsExcluded(e.Path); });
-            registryText = AssetRegistry::SerializeSnapshot(snapshot);
-        }
-
-        if (m_ExportThread.joinable()) m_ExportThread.join();
-        m_Exporting = true;
-        m_ExportThread = std::thread([=, this]() {
-            std::error_code ec;
-            auto copyOpts = fs::copy_options::recursive | fs::copy_options::overwrite_existing;
-            fs::create_directories(outputDirectory / "Game", ec);
-
-            bool ok = true;
-            auto copy = [&](const fs::path& from, const fs::path& to) {
-                std::error_code e;
-                if (!fs::exists(from)) { fail(std::format("topilmadi: {}", from.string())); ok = false; return; }
-                fs::create_directories(to.parent_path(), e);
-                fs::copy(from, to, copyOpts, e);
-                if (e) { fail(std::format("nusxalashda xato {}: {}", from.string(), e.message())); ok = false; }
-            };
-
-            // The binaries: the player, the engine (and later the script module) - stripped below.
-            std::vector<fs::path> binaries;
-            copy(exeDir / "ZaminPlayer", outputDirectory / "ZaminPlayer");
-            binaries.push_back(outputDirectory / "ZaminPlayer");
-            for (auto& entry : fs::directory_iterator(exeDir, ec))
-                if (entry.path().filename().string().starts_with("libZamin"))
-                {
-                    copy(entry.path(), outputDirectory / entry.path().filename());
-                    binaries.push_back(outputDirectory / entry.path().filename());
-                }
-            copy(exeDir / "Resources", outputDirectory / "Resources");
-            copy(projectFile, outputDirectory / "Game" / projectFile.filename());
-            {
-                // The assets of the plan, each with its .zmeta (a folder exported before loses what is left out now).
-                const fs::path assets = outputDirectory / "Game" / assetRel;
-                std::error_code e;
-                if (!fs::exists(assets, e) || !fs::equivalent(assets, projectDir / assetRel, e))
-                    fs::remove_all(assets, e);
-                for (const std::string& file : assetPlan.Included)
-                {
-                    if (auto baked = bakedFiles.find(file); baked != bakedFiles.end())
-                    {
-                        // Without the editor's prefab links (and up to date with its prefabs).
-                        fs::create_directories((assets / file).parent_path(), e);
-                        if (!FileSystem::WriteTextFile(assets / file, baked->second))
-                        {
-                            fail(std::format("yozilmadi: {}", (assets / file).string()));
-                            ok = false;
-                        }
-                    }
-                    else
-                        copy(projectDir / assetRel / file, assets / file);
-                    const fs::path meta = projectDir / assetRel / (file + ".zmeta");
-                    if (fs::exists(meta, e))
-                        copy(meta, assets / (file + ".zmeta"));
-                }
-                if (!buildScenes.empty())
-                    ZM_INFO("Eksport: build ro'yxatidagi {} ta sahna", buildScenes.size());
-                ReportExcludedAssets(assetPlan, name, outputDirectory);
-            }
-            if (binaryScenes)
-            {
-                // Every scene of the game also as a binary cache next to it (smaller, already in the
-                // current format): the player reads that one instead (SceneSerializer).
-                const fs::path assets = outputDirectory / "Game" / assetRel;
-                size_t written = 0, textBytes = 0, binaryBytes = 0;
-                for (auto it = fs::recursive_directory_iterator(assets, ec); !ec && it != fs::recursive_directory_iterator(); it.increment(ec))
-                {
-                    if (it->path().extension() != ".zscene")
-                        continue;
-                    std::string error;
-                    std::error_code e;
-                    if (SceneSerializer::WriteBinaryCache(it->path(), &error))
-                    {
-                        written++;
-                        textBytes += (size_t)fs::file_size(it->path(), e);
-                        binaryBytes += (size_t)fs::file_size(SceneSerializer::GetBinaryCachePath(it->path()), e);
-                    }
-                    else
-                        warn(std::format("sahnaning binar keshi yozilmadi ({}): {}", error, it->path().filename().string()));
-                }
-                if (written)
-                    ZM_INFO("Eksport: {} ta sahna binar keshga yozildi ({:.1f} KB -> {:.1f} KB)", written, (double)textBytes / 1024.0,
-                            (double)binaryBytes / 1024.0);
-            }
-            if (!registryText.empty() && !FileSystem::WriteTextFile(outputDirectory / "Game" / Project::BuildAssetRegistryFile, registryText))
-            {
-                fail("asset registri yozilmadi");
-                ok = false;
-            }
-
-            // The script module: compiled again in Release (-O2, its own build folder) - the editor's module
-            // when that is off or fails. (None at all: the game is exported without scripts - a warning.)
-            bool moduleExported = false;
-            if (!modulePath.empty())
-            {
-                fs::path module = modulePath;
-                std::string how = "editor moduli nusxalandi";
-                if (exportSettings.ReleaseScriptModule && hasSources)
-                {
-                    ZM_INFO("Eksport: skript moduli Release'da kompilyatsiya qilinmoqda ({}): {}", moduleBuild.OptimizationFlags,
-                            moduleBuild.BuildDirectory.string());
-                    const auto buildStart = std::chrono::steady_clock::now();
-                    std::string firstError;
-                    auto onLine = [&](const std::string& line) {
-                        if (line.empty())
-                            return;
-                        if (firstError.empty() && (line.find("error") != std::string::npos || line.find("Error") != std::string::npos))
-                            firstError = line;
-                        ZM_TRACE("{}", line);
-                    };
-                    int code = RunShellCommand(moduleBuild.MakeConfigureCommand(), onLine);
-                    if (code == 0)
-                        code = RunShellCommand(moduleBuild.MakeBuildCommand(), onLine);
-                    // lib<Name>.so: the project's module name, else the only module the build made.
-                    fs::path built = moduleBuild.OutputDirectory / modulePath.filename();
-                    std::error_code e;
-                    if (code == 0 && !fs::exists(built, e))
-                        for (const auto& entry : fs::directory_iterator(moduleBuild.OutputDirectory, e))
-                            if (entry.path().extension() == ".so")
-                                built = entry.path();
-                    const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - buildStart).count();
-                    if (code == 0 && fs::exists(built, e))
-                    {
-                        module = built;
-                        how = std::format("Release ({}), {:.1f} s da kompilyatsiya qilindi", moduleBuild.OptimizationFlags, seconds);
-                        ZM_INFO("Eksport: skript moduli {} ({})", how, ExportAssets::FormatSize(fs::file_size(built, e)));
-                    }
-                    else
-                    {
-                        how = "editor moduli nusxalandi (Release kompilyatsiya bo'lmadi)";
-                        warn(std::format("skript moduli Release'da kompilyatsiya qilinmadi{} - editor moduli nusxalandi",
-                                         firstError.empty() ? std::format(" (chiqish kodi {})", code) : ": " + firstError));
-                    }
-                }
-                if (fs::exists(module))
-                {
-                    copy(module, outputDirectory / "Game" / moduleRel);
-                    binaries.push_back(outputDirectory / "Game" / moduleRel);
-                    report->ScriptModule = how;
-                    moduleExported = true;
-                }
-                else
-                {
-                    warn("skript moduli topilmadi - o'yin skriptlarsiz eksport qilinadi");
-                    report->ScriptModule = "yo'q (skriptsiz)";
-                }
-            }
-            else
-                report->ScriptModule = "yo'q (loyihada skript moduli yo'q)";
-
-            // The binaries without their debug information and local symbols (much smaller).
-            if (exportSettings.StripBinaries)
-            {
-                if (!BinaryStrip::IsAvailable())
-                    warn("strip dasturi topilmadi (binutils) - binarlar kichraytirilmadi");
-                else
-                {
-                    uintmax_t before = 0, after = 0;
-                    size_t stripped = 0;
-                    for (const fs::path& binary : binaries)
-                    {
-                        std::error_code e;
-                        if (!fs::is_regular_file(binary, e) || !BinaryStrip::IsElfFile(binary))
-                            continue;
-                        const StripResult result = BinaryStrip::Strip(binary);
-                        if (!result.Ok)
-                        {
-                            warn(std::format("strip: {} - {}", binary.filename().string(), result.Error));
-                            continue;
-                        }
-                        before += result.SizeBefore;
-                        after += result.SizeAfter;
-                        stripped++;
-                    }
-                    report->StrippedBytes = before > after ? before - after : 0;
-                    if (stripped)
-                        ZM_INFO("Eksport: strip - {} ta binar {} -> {}", stripped, ExportAssets::FormatSize(before), ExportAssets::FormatSize(after));
-                }
-            }
-
-            // (It also points the desktop entry next to it at the icon in the folder it runs from: below.)
-            fs::path launcher = outputDirectory / (name + ".sh");
-            FileSystem::WriteTextFile(launcher, ExportFiles::MakeLauncherScript("Game/" + projectFile.filename().string(), name + ".desktop",
-                                                                                iconFile.empty() ? std::string() : name + ".png"));
-            fs::permissions(launcher, fs::perms::owner_all | fs::perms::group_read | fs::perms::group_exec |
-                                          fs::perms::others_read | fs::perms::others_exec, ec);
-
-            // The game's icon next to the launcher (the PNG as it is, and icons/hicolor/<size>/apps/<id>.png in
-            // every size up to its own) and a desktop entry that works wherever the folder goes (its Exec runs
-            // the launcher next to the entry itself; the icon path is where the game was exported to - the
-            // launcher points it at the new place when the game starts from there).
-            // install-desktop-entry.sh puts the game into the application menus for wherever the folder is
-            // (absolute paths, the icons into the user's icon theme).
-            const std::string entryId = ExportFiles::MakeDesktopEntryId(name);
-            const fs::path absoluteOut = fs::absolute(outputDirectory, ec);
-            fs::path exportedIcon;
-            fs::remove_all(outputDirectory / "icons", ec); // the sizes of an earlier export
-            if (!iconFile.empty())
-            {
-                ImageData icon;
-                if (GameIcon::Load(iconFile, icon))
-                {
-                    exportedIcon = absoluteOut / (name + ".png");
-                    copy(iconFile, exportedIcon);
-                    std::string iconError;
-                    const std::vector<uint32_t> sizes = ExportFiles::WriteIconSet(icon, outputDirectory, entryId, &iconError);
-                    if (sizes.empty())
-                        warn(std::format("ikonka o'lchamlari yozilmadi: {}", iconError));
-                    else
-                        ZM_INFO("Eksport: ikonka {} o'lchamda ({} ... {} px, icons/hicolor)", sizes.size(), sizes.front(), sizes.back());
-                }
-            }
-            if (!FileSystem::WriteTextFile(outputDirectory / (name + ".desktop"),
-                                           ExportFiles::MakeRelocatableDesktopEntry(productName, player, launcher.filename().string(), exportedIcon)))
-            {
-                fail(std::format("{}.desktop yozilmadi", name));
-                ok = false;
-            }
-            else
-                fs::permissions(outputDirectory / (name + ".desktop"), fs::perms::owner_exec | fs::perms::group_exec | fs::perms::others_exec,
-                                fs::perm_options::add, ec);
-            const fs::path installScript = outputDirectory / ExportFiles::DesktopInstallScriptName;
-            if (!FileSystem::WriteTextFile(installScript,
-                                           ExportFiles::MakeDesktopInstallScript(productName, player, launcher.filename().string(),
-                                                                                 exportedIcon.empty() ? std::string() : exportedIcon.filename().string(),
-                                                                                 entryId)))
-            {
-                fail(std::format("{} yozilmadi", ExportFiles::DesktopInstallScriptName));
-                ok = false;
-            }
-            else
-                fs::permissions(installScript, fs::perms::owner_all | fs::perms::group_read | fs::perms::group_exec | fs::perms::others_read |
-                                                   fs::perms::others_exec, ec);
-
-            // The folder checks itself: everything the exported game needs to start is there (the launcher, the
-            // player, the engine, the project, its start / build scenes, the registry, the script module - when
-            // one was exported: a game exported without scripts was a warning above).
-            for (const std::string& problem : ExportFiles::CheckExportFolder(outputDirectory, name, moduleExported))
-            {
-                fail(std::format("eksport to'liq emas - {}", problem));
-                ok = false;
-            }
-
-            // The report: what the folder holds now, what was left out, how long it took and what went wrong.
-            report->SetExcluded(assetPlan);
-            report->ScanDirectory(outputDirectory);
-            report->Seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
-            report->Succeeded = ok && report->Errors.empty();
-            if (!report->Write(outputDirectory))
-                ZM_WARN("Eksport hisoboti yozilmadi: {}", (outputDirectory / ExportReport::JsonFileName).string());
-            ZM_INFO("Eksport hisoboti: {} ta fayl, {} ({} ogohlantirish, {} xato) - {}", report->FileCount, ExportAssets::FormatSize(report->TotalBytes),
-                    report->Warnings.size(), report->Errors.size(), (outputDirectory / ExportReport::TextFileName).string());
-
-            if (report->Succeeded) ZM_INFO("O'yin eksport qilindi " ICON_FA_ROCKET " {}  (ishga tushirish: {})", outputDirectory.string(), launcher.string());
-            else ZM_ERROR("O'yinni eksport qilishda xatolar bo'ldi");
-            {
-                std::lock_guard<std::mutex> lock(m_ExportReportMutex);
-                m_PendingExportReport = std::make_unique<ExportReport>(*report);
-            }
-            m_Exporting = false;
-        });
-    }
-
     // ================================================================== ImGui
     void EditorLayer::OnImGuiRender()
     {
@@ -6781,11 +6269,18 @@ namespace Zamin {
         if (ImGuiWindow* dock = ImGui::FindWindowByName(m_AnimatorGraphInViewport ? "###Viewport" : "###ContentBrowser"); dock && dock->DockId)
             m_AnimatorGraphPanel.SetDefaultDock(dock->DockId); // first opened: a tab next to the content browser
         m_AnimatorGraphPanel.OnImGuiRender(&m_ShowAnimatorGraph);
+        auto visualSelection = m_SceneHierarchyPanel.GetSelectedEntity();
+        m_VisualGraphPanel.SetContext(m_ActiveScene, m_SceneState == SceneState::Edit, visualSelection ? (uint64_t)visualSelection.GetUUID() : 0);
+        m_VisualGraphPanel.OnImGuiRender(&m_ShowVisualGraph);
+        m_CodeEditorPanel.SetProject(Project::GetProjectDirectory(),Project::GetCacheDirectory());
+        m_CodeEditorPanel.SetBuildRunning(m_Building);
+        m_CodeEditorPanel.OnImGuiRender(&m_ShowCodeEditor);
         m_AudioMixerPanel.SetPlaying(m_SceneState == SceneState::Play);
         m_AudioMixerPanel.OnImGuiRender(&m_ShowAudioMixer);
         m_LocalizationPanel.SetScene(m_ActiveScene);
         m_LocalizationPanel.OnImGuiRender(&m_ShowLocalization);
         m_SceneHierarchyPanel.DrawTilePaletteWindow(&m_ShowTilePalette);
+        UI_Terrain();
         UI_Stats();
         UI_ProfilerWindow();
         UI_Viewport();
@@ -7009,6 +6504,7 @@ namespace Zamin {
             ImGui::OpenPopup(Tr("Skriptlar"));
         if (ImGui::BeginMenu(Tr("Skriptlar")))
         {
+            ImGui::MenuItem("Kod muharriri",nullptr,&m_ShowCodeEditor);
             if (ImGui::MenuItem(Tr(ICON_FA_HAMMER "  Kompilyatsiya + qayta yuklash"), ShortcutLabel(EditorShortcut::BuildScripts), false, hasProject && !m_Building)) BuildScripts(true);
             if (ImGui::MenuItem(Tr(ICON_FA_ARROWS_ROTATE "  Modulni qayta yuklash"), nullptr, false, hasProject)) ReloadScriptModule();
             ImGui::MenuItem(Tr(ICON_FA_BOLT "  Avtomatik hot-reload"), nullptr, &m_AutoReload);
@@ -7056,6 +6552,8 @@ namespace Zamin {
                 m_LocalizationPanel.Focus();
             if (ImGui::MenuItem(Tr(ICON_FA_TIMELINE "  Animatsiya"), nullptr, &m_ShowAnimation) && m_ShowAnimation)
                 m_AnimationPanel.Focus();
+            ImGui::MenuItem("Kod muharriri", nullptr, &m_ShowCodeEditor);
+            ImGui::MenuItem("Visual Script", nullptr, &m_ShowVisualGraph);
             if (ImGui::MenuItem(Tr(ICON_FA_DIAGRAM_PROJECT "  Animator grafi"), nullptr, &m_ShowAnimatorGraph) && m_ShowAnimatorGraph)
                 m_AnimatorGraphPanel.Focus();
             ImGui::MenuItem(Tr(ICON_FA_BROOM "  Ishlatilmagan assetlar"), nullptr, &m_ShowUnusedAssets, hasProject);
@@ -7068,6 +6566,7 @@ namespace Zamin {
                     m_SpriteEditorPanel.Open(Project::GetAssetRelativePath(m_AssetInspectorPanel.GetPath()));
             }
             ImGui::MenuItem(Tr(ICON_FA_TABLE_CELLS "  Plitka palitrasi"), nullptr, &m_ShowTilePalette);
+            ImGui::MenuItem("Map tayyorlash (Terrain)", nullptr, &m_ShowTerrain);
             if (ImGui::MenuItem(Tr(ICON_FA_CLOCK_ROTATE_LEFT "  Undo tarixi"), ShortcutLabel(EditorShortcut::UndoHistory), &m_ShowUndoHistory) && m_ShowUndoHistory)
                 m_UndoHistoryScroll = true;
             ImGui::Separator();
@@ -11393,7 +10892,7 @@ namespace Zamin {
     {
         if (header)
         {
-            const bool open = ImGui::CollapsingHeader(Tr(ICON_FA_STOPWATCH "  Profiler (CPU, ms)"), ImGuiTreeNodeFlags_DefaultOpen |
+            const bool open = ImGui::CollapsingHeader(Tr(ICON_FA_STOPWATCH "  Profiler (CPU/GPU, ms)"), ImGuiTreeNodeFlags_DefaultOpen |
                                                       ImGuiTreeNodeFlags_AllowOverlap);
             ImGui::SameLine(ImGui::GetContentRegionMax().x - ImGui::GetFrameHeight());
             if (UI::ToolbarButton(ICON_FA_UP_RIGHT_AND_DOWN_LEFT_FROM_CENTER "###profilerWindow", "Profiler'ni alohida oynada ochish",
@@ -11402,6 +10901,16 @@ namespace Zamin {
             if (!open)
                 return;
         }
+        const auto& gpu=GPUProfiler::GetStats();bool gpuEnabled=gpu.Enabled;
+        if(ImGui::Checkbox("GPU vaqtini o'lchash",&gpuEnabled))GPUProfiler::SetEnabled(gpuEnabled);
+        if(!gpu.Supported)ImGui::TextDisabled("GPU timer hali mavjud emas");
+        else if(!gpu.CompletedSamples)ImGui::TextDisabled("GPU natijasi kutilmoqda (%u pending)",gpu.PendingQueries);
+        else {
+            ImGui::Text("GPU: %.2f ms | o'rtacha %.2f ms",gpu.LastMilliseconds,gpu.AverageMilliseconds);
+            ImGui::TextDisabled("Min/max: %.2f / %.2f ms | pending %u | o'tkazilgan %llu",gpu.MinimumMilliseconds,gpu.MaximumMilliseconds,gpu.PendingQueries,(unsigned long long)gpu.DroppedSamples);
+            if(ImGui::IsItemHovered())UI::Tooltip("GPU timeline, asinxron o'lchov. Swap/vsync va FPS limiter kirmaydi. Natija bir necha kadr kechikadi.");
+        }
+        ImGui::Separator();
         ImGui::Checkbox(Tr("O'rtacha"), &m_ProfilerAverage);
         if (ImGui::IsItemHovered())
             UI::Tooltip("Har bo'limning vaqti so'nggi kadrlar bo'yicha silliqlangan (aks holda faqat oxirgi kadr - sakraydi)");

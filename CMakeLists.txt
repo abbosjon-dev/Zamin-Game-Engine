@@ -18,6 +18,11 @@ option(ZAMIN_BUILD_EDITOR  "Build Zamin Editor"          ON)
 option(ZAMIN_BUILD_RUNTIME "Build Zamin Player (runtime)" ON)
 option(ZAMIN_BUILD_TESTS   "Build Zamin unit tests"      ON)
 option(ZAMIN_BUILD_EXAMPLES "Build example game projects" ON)
+option(ZAMIN_WITH_IMGUI "Include the ImGui overlay (required by the editor)" ${ZAMIN_BUILD_EDITOR})
+option(ZAMIN_ENABLE_AVX2 "Require AVX2/FMA/BMI/F16C CPUs instead of the portable x86-64 baseline" OFF)
+if(ZAMIN_BUILD_EDITOR AND NOT ZAMIN_WITH_IMGUI)
+    message(FATAL_ERROR "ZAMIN_BUILD_EDITOR requires ZAMIN_WITH_IMGUI=ON")
+endif()
 # Shipping: the final game build - debug drawing (DebugDraw) and other development aids are
 # compiled out. ZAMIN_DEBUG_DRAW: debug drawing in the editor / Development builds.
 option(ZAMIN_SHIPPING      "Shipping build (no development aids)" OFF)

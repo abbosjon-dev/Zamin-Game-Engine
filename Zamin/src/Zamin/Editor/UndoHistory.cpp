@@ -13,8 +13,8 @@
 namespace Zamin {
 
     // ================================================================== history
-    UndoHistory::UndoHistory(size_t maxEdits, size_t maxSelections)
-        : m_MaxEdits(std::max<size_t>(maxEdits, 1)), m_MaxSelections(maxSelections)
+    UndoHistory::UndoHistory(size_t maxEdits, size_t maxSelections, size_t memoryBudget)
+        : m_MaxEdits(std::max<size_t>(maxEdits, 1)), m_MaxSelections(maxSelections), m_MemoryBudget(memoryBudget)
     {
     }
 
@@ -49,6 +49,7 @@ namespace Zamin {
         for (Entry& e : m_Entries)
             if (e.Scene == old)
                 e.Scene = updated;
+        Trim();
     }
 
     bool UndoHistory::CommitEdit(std::string scene, UndoSelection selection, std::string name, double time, std::vector<FileEdit> files)
@@ -113,11 +114,26 @@ namespace Zamin {
             else if (next.Kind == UndoEntryKind::Selection) selections--;
             drop++;
         }
-        if (drop == 0)
-            return;
-        m_Entries.erase(m_Entries.begin(), m_Entries.begin() + (std::ptrdiff_t)drop);
-        m_Current -= drop;
-        m_Entries.front().Kind = UndoEntryKind::Initial;
+        if (drop)
+        {
+            m_Entries.erase(m_Entries.begin(), m_Entries.begin() + (std::ptrdiff_t)drop);
+            m_Current -= drop;
+            m_Entries.front().Kind = UndoEntryKind::Initial;
+            m_Entries.front().Files.clear();
+        }
+        // Keep the current state even when it alone exceeds the budget. Redo states can also
+        // be dropped when lowering the budget or rewriting assets while the cursor is in the past.
+        while (m_Entries.size() > 1 && GetRetainedBytes() > m_MemoryBudget)
+        {
+            if (m_Current > 0)
+            {
+                m_Entries.erase(m_Entries.begin());
+                --m_Current;
+                m_Entries.front().Kind = UndoEntryKind::Initial;
+                m_Entries.front().Files.clear();
+            }
+            else m_Entries.pop_back();
+        }
     }
 
     UndoHistory::Move UndoHistory::JumpTo(size_t index)
@@ -195,6 +211,24 @@ namespace Zamin {
         return bytes;
     }
 
+    void UndoHistory::SetMemoryBudget(size_t bytes)
+    {
+        m_MemoryBudget = bytes;
+        Trim();
+    }
+
+    size_t UndoHistory::GetRetainedBytes() const
+    {
+        size_t bytes = GetMemoryUsage();
+        for (const Entry& e : m_Entries)
+        {
+            bytes += e.Name.size() + e.Selection.Entities.size() * sizeof(uint64_t);
+            for (const FileEdit& file : e.Files)
+                bytes += file.Path.size() + file.After.size() + (file.Before ? file.Before->size() : 0);
+        }
+        return bytes;
+    }
+
     void UndoHistory::MarkSaved()
     {
         m_Saved = m_Entries.empty() ? nullptr : m_Entries[m_Current].Scene;
@@ -204,18 +238,20 @@ namespace Zamin {
 
     bool UndoHistory::IsAtSavedState() const
     {
-        if (!m_Saved || m_Entries.empty())
+        auto saved = m_Saved.lock();
+        if (!saved || m_Entries.empty())
             return false;
         const auto& scene = m_Entries[m_Current].Scene;
-        return scene == m_Saved || (scene && *scene == *m_Saved);
+        return scene == saved || (scene && *scene == *saved);
     }
 
     bool UndoHistory::IsSavedState(size_t index) const
     {
-        if (!m_Saved || index >= m_Entries.size())
+        auto saved = m_Saved.lock();
+        if (!saved || index >= m_Entries.size())
             return false;
         const auto& scene = m_Entries[index].Scene;
-        return scene == m_Saved || (scene && *scene == *m_Saved);
+        return scene == saved || (scene && *scene == *saved);
     }
 
     void UndoHistory::ClearHistory(std::string name, double time)
@@ -225,6 +261,7 @@ namespace Zamin {
         Entry current = m_Entries[m_Current];
         current.Name = std::move(name);
         current.Kind = UndoEntryKind::Initial;
+        current.Files.clear();
         current.Time = time;
         m_Entries.clear();
         m_Entries.push_back(std::move(current));
@@ -233,6 +270,7 @@ namespace Zamin {
 
     void UndoHistory::RewriteScenes(const std::function<void(std::string&)>& rewrite, const std::function<void(std::string&)>& rewritePath)
     {
+        auto saved = m_Saved.lock();
         std::unordered_map<const std::string*, std::shared_ptr<const std::string>> rewritten;
         auto get = [&](const std::shared_ptr<const std::string>& scene) -> std::shared_ptr<const std::string> {
             if (!scene)
@@ -258,7 +296,8 @@ namespace Zamin {
                 rewrite(file.After);
             }
         }
-        m_Saved = get(m_Saved);
+        m_Saved = get(saved);
+        Trim();
     }
 
     // ================================================================== snapshot diff

@@ -28,6 +28,9 @@ Bosh sahifa — [README](../README.md).
 
 ## O'yin yaratish
 
+- [Terrain.md](Terrain.md): 3D map, relyef cho'tkalari, teksturalar, o'rmon/prefab ekish va heightmap.
+
+
 | Hujjat | Nima haqida |
 |---|---|
 | [Scripting.md](Scripting.md) | C++ skriptlar: `ScriptableEntity`, `ZM_FIELD` maydonlari, hayot sikli, callback'lar, API ma'lumotnomasi, hot reload |
@@ -92,3 +95,7 @@ Qo'llanmalardagi rasmlar — editor va player'dan headless olingan haqiqiy skrin
 | [<img src="images/scenes-panel-editor.jpg" width="300" alt="Sahnalar oynasi">](Scenes.md#16-editorda-sahnalar)<br>[Sahnalar oynasi](Scenes.md#16-editorda-sahnalar) | [<img src="images/prefab-mode-editor.jpg" width="300" alt="Prefab rejimi">](Prefabs.md#7-prefab-rejimi)<br>[Prefab rejimi](Prefabs.md#7-prefab-rejimi) | [<img src="images/ai-navigation-play.jpg" width="300" alt="Navigatsiya">](AI.md#14-debug-chizish)<br>[Navigatsiya gizmo'si](AI.md#14-debug-chizish) |
 | [<img src="images/project-settings-input.jpg" width="300" alt="Loyiha sozlamalari">](ProjectSettings.md#2-loyiha-sozlamalari-oynasi)<br>[Loyiha sozlamalari: Input](ProjectSettings.md#2-loyiha-sozlamalari-oynasi) | [<img src="images/core-splines-editor.jpg" width="300" alt="Spline">](Core.md#6-animationcurve-easing-va-spline)<br>[Spline'lar](Core.md#6-animationcurve-easing-va-spline) | [<img src="images/runtime-game-menu.jpg" width="300" alt="O'yin menyusi">](Runtime.md#10-oyin-menyusi-namunasi)<br>[O'yin menyusi (player)](Runtime.md#10-oyin-menyusi-namunasi) |
 | [<img src="images/profiler-play-editor.jpg" width="300" alt="Profiler">](Architecture.md#3-dastur-hayoti-va-asosiy-sikl)<br>[Profiler va asosiy sikl](Architecture.md#3-dastur-hayoti-va-asosiy-sikl) | [<img src="images/export-report-editor.jpg" width="300" alt="Eksport hisoboti">](BuildAndExport.md)<br>[Eksport hisoboti](BuildAndExport.md) | [<img src="images/compile-errors-editor.jpg" width="300" alt="Kompilyatsiya xatolari">](FAQ.md)<br>[Kompilyatsiya xatolari](FAQ.md) |
+
+- [Visual Script — kodsiz 2D/3D gameplay](VisualScripting.md)
+
+- [Ichki C++ kod muharriri](CodeEditor.md)

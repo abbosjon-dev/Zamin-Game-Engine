@@ -1,0 +1,178 @@
+{
+  "Format": "Zamin.VisualGraph",
+  "Version": 1,
+  "Nodes": [
+    {
+      "ID": 1,
+      "Kind": "Event.Update",
+      "X": 30,
+      "Y": 20,
+      "Inputs": {},
+      "Breakpoint": false
+    },
+    {
+      "ID": 2,
+      "Kind": "Axis",
+      "X": 30,
+      "Y": 150,
+      "Inputs": {
+        "Name": "Horizontal"
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 3,
+      "Kind": "Axis",
+      "X": 30,
+      "Y": 270,
+      "Inputs": {
+        "Name": "Vertical"
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 4,
+      "Kind": "MakeVec2",
+      "X": 290,
+      "Y": 150,
+      "Inputs": {},
+      "Breakpoint": false
+    },
+    {
+      "ID": 5,
+      "Kind": "Get.Number",
+      "X": 290,
+      "Y": 320,
+      "Inputs": {
+        "Name": "Speed"
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 6,
+      "Kind": "ScaleVec2",
+      "X": 550,
+      "Y": 150,
+      "Inputs": {},
+      "Breakpoint": false
+    },
+    {
+      "ID": 7,
+      "Kind": "SetVelocity2D",
+      "X": 820,
+      "Y": 20,
+      "Inputs": {},
+      "Breakpoint": false
+    },
+    {
+      "ID": 8,
+      "Kind": "Event.TriggerBegin",
+      "X": 30,
+      "Y": 490,
+      "Inputs": {},
+      "Breakpoint": false
+    },
+    {
+      "ID": 9,
+      "Kind": "SetSpriteColor",
+      "X": 290,
+      "Y": 490,
+      "Inputs": {
+        "Color": [
+          1,
+          0.55,
+          0.2,
+          1
+        ]
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 10,
+      "Kind": "Delay",
+      "X": 550,
+      "Y": 490,
+      "Inputs": {
+        "Seconds": 0.4
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 11,
+      "Kind": "SetSpriteColor",
+      "X": 820,
+      "Y": 490,
+      "Inputs": {
+        "Color": [
+          0.56,
+          0.3,
+          1,
+          1
+        ]
+      },
+      "Breakpoint": false
+    }
+  ],
+  "Links": [
+    {
+      "From": 1,
+      "Output": "Then",
+      "To": 7,
+      "Input": "In"
+    },
+    {
+      "From": 2,
+      "Output": "Value",
+      "To": 4,
+      "Input": "X"
+    },
+    {
+      "From": 3,
+      "Output": "Value",
+      "To": 4,
+      "Input": "Y"
+    },
+    {
+      "From": 4,
+      "Output": "Value",
+      "To": 6,
+      "Input": "Vector"
+    },
+    {
+      "From": 5,
+      "Output": "Value",
+      "To": 6,
+      "Input": "Scale"
+    },
+    {
+      "From": 6,
+      "Output": "Value",
+      "To": 7,
+      "Input": "Vector"
+    },
+    {
+      "From": 8,
+      "Output": "Then",
+      "To": 9,
+      "Input": "In"
+    },
+    {
+      "From": 9,
+      "Output": "Then",
+      "To": 10,
+      "Input": "In"
+    },
+    {
+      "From": 10,
+      "Output": "Then",
+      "To": 11,
+      "Input": "In"
+    }
+  ],
+  "Variables": {
+    "Speed": {
+      "Type": "Number",
+      "Default": 4.0
+    }
+  }
+}

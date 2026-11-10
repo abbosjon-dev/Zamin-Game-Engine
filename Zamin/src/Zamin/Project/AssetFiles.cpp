@@ -400,7 +400,7 @@ namespace Zamin {
         // Keys of scene / prefab files whose strings are names or text, never asset paths: an
         // entity called "Player" must stay "Player" when the folder Assets/Player is renamed.
         static constexpr std::string_view NameKeys[] = {
-            "Tag", "Tags", "Scene", "Name", "Class", "ComponentOrder", "ZaminComponent", "Text", "Type",
+            "Tag", "Tags", "Scene", "Name", "Class", "Kind", "Format", "Output", "Input", "ComponentOrder", "ZaminComponent", "Text", "Type",
             "Mesh", "BodyType", "Clip", "DefaultState", "SpeedParameter", "Parameter", "From", "To", "ClickMessage",
         };
         if (value.empty() || std::find(std::begin(NameKeys), std::end(NameKeys), key) != std::end(NameKeys))
@@ -782,7 +782,7 @@ namespace Zamin {
             std::string ext = StringUtils::ToLower(file.extension().string());
             size_t replaced = 0;
             std::string text;
-            if ((ext == ".zscene" || ext == ".zprefab" || ext == ".zmat" || ext == ".zparticle") && !moves.empty())
+            if ((ext == ".zscene" || ext == ".zprefab" || ext == ".zmat" || ext == ".zparticle" || ext == ".zgraph") && !moves.empty())
             {
                 text = FileSystem::ReadTextFile(file);
                 bool mentioned = std::any_of(moves.begin(), moves.end(), [&](const RelativeMove& m) { return text.find(m.From) != std::string::npos; });

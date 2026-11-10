@@ -723,7 +723,7 @@ namespace Zamin {
                 if (meta && meta->HasMetaFile)
                     entry.Handle = meta->Handle;
             }
-        if (!FileSystem::WriteTextFile(filepath, ConfigToJson(c).dump(4)))
+        if (!FileSystem::WriteTextFileAtomic(filepath, ConfigToJson(c).dump(4)))
             return false;
         c.FileVersion = ProjectMigration::CurrentVersion; // the file is in the current format now
         return true;

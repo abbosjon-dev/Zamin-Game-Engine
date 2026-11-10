@@ -1198,6 +1198,35 @@ namespace Zamin {
                 e["Text"]["SortingOrder"] = c->SortingOrder;
             WriteSortingLayer(e["Text"], c->SortingLayer);
         }
+        if(auto* c=entity.TryGetComponent<FoliageComponent>())
+        {
+            c->Sanitize();auto& j=e["Foliage"];
+            j={{"NearType",PrimitiveMeshToString(c->NearType)},{"FarType",PrimitiveMeshToString(c->FarType)},{"NearModel",c->NearModel},{"FarModel",c->FarModel},{"Tint",ToJson(c->Tint)},
+               {"LODDistance",c->Settings.LODDistance},{"CullDistance",c->Settings.CullDistance},{"Hysteresis",c->Settings.Hysteresis},{"Backend",int(c->Settings.Backend)},{"CastShadows",c->CastShadows}};
+            WriteAssetHandle(j,"NearModel",c->NearModel);WriteAssetHandle(j,"FarModel",c->FarModel);j["Instances"]=json::array();
+            for(const auto& instance:c->Instances)j["Instances"].push_back({{"Position",ToJson(instance.Position)},{"Rotation",ToJson(instance.Rotation)},{"Scale",instance.Scale}});
+        }
+        if (auto* c = entity.TryGetComponent<TerrainComponent>())
+        {
+            c->EnsureSize();
+            auto& j = e["Terrain"];
+            j = { { "Resolution", c->Resolution }, { "Size", ToJson(c->Size) }, { "HeightLimit", c->HeightLimit }, { "Collision", c->Collision }, { "Heights", c->Heights } };
+            j["LODEnabled"] = c->LODEnabled;
+            j["LODDistanceScale"] = c->LODDistanceScale;
+            j["Layers"] = json::array();
+            for (const auto& layer : c->Layers)
+            {
+                json l = { { "Color", ToJson(layer.Color) }, { "Texture", layer.TexturePath }, { "Tiling", layer.Tiling }, { "NormalMap", layer.NormalMapPath }, { "MaskMap", layer.MaskMapPath },
+                           { "Roughness", layer.Roughness }, { "Metallic", layer.Metallic }, { "Occlusion", layer.Occlusion }, { "NormalStrength", layer.NormalStrength } };
+                WriteAssetHandle(l, "Texture", layer.TexturePath);
+                WriteAssetHandle(l, "NormalMap", layer.NormalMapPath);
+                WriteAssetHandle(l, "MaskMap", layer.MaskMapPath);
+                j["Layers"].push_back(l);
+            }
+            j["Paint"] = json::array();
+            for (size_t i = 0; i < c->Weights.size(); ++i)
+                if (c->Weights[i] != glm::vec4(1, 0, 0, 0)) j["Paint"].push_back({ { "Index", i }, { "Weight", ToJson(c->Weights[i]) } });
+        }
         if (auto* c = entity.TryGetComponent<MeshRendererComponent>())
         {
             json& j = e["MeshRenderer"];
@@ -2102,6 +2131,61 @@ namespace Zamin {
             c.FontPath = ReadAssetPath(j, "Font");
             c.SortingOrder = j.value("SortingOrder", 1000);
             c.SortingLayer = ReadSortingLayer(j);
+        }
+        if(e.contains("Foliage"))
+        {
+            const auto& j=e["Foliage"];auto instances=j.value("Instances",json::array());
+            if(!instances.is_array()||instances.size()>FoliageBatch::MaxInstances)throw std::runtime_error("Foliage instance limit exceeded");
+            auto& c=entity.AddComponent<FoliageComponent>();c.NearType=PrimitiveMeshFromString(j.value("NearType",std::string("Cone")));c.FarType=PrimitiveMeshFromString(j.value("FarType",std::string("Cube")));
+            c.NearModel=ReadAssetPath(j,"NearModel");c.FarModel=ReadAssetPath(j,"FarModel");c.Tint=Vec(j,"Tint",c.Tint);c.Settings.LODDistance=j.value("LODDistance",40.f);c.Settings.CullDistance=j.value("CullDistance",180.f);c.Settings.Hysteresis=j.value("Hysteresis",.1f);c.Settings.Backend=FoliageBackend(j.value("Backend",0));c.CastShadows=j.value("CastShadows",true);
+            for(const auto& item:instances)c.Instances.push_back({Vec(item,"Position",glm::vec3(0)),Vec(item,"Rotation",glm::vec3(0)),item.value("Scale",1.f)});
+            c.Sanitize();
+        }
+        if (e.contains("Terrain"))
+        {
+            const auto& j = e["Terrain"];
+            auto& c = entity.AddComponent<TerrainComponent>();
+            c.Resolution = j.value("Resolution", 65u);
+            if (c.Resolution < 2 || c.Resolution > TerrainComponent::MaxResolution) throw std::runtime_error("Terrain resolution is outside 2..257");
+            c.Size = Vec(j, "Size", glm::vec2(64));
+            c.HeightLimit = j.value("HeightLimit", 128.0f);
+            c.Collision = j.value("Collision", true);
+            c.LODEnabled = j.value("LODEnabled", true);
+            c.LODDistanceScale = j.value("LODDistanceScale", 2.0f);
+            const size_t count = size_t(c.Resolution) * c.Resolution;
+            if (j.contains("Heights"))
+            {
+                const auto& heights = j["Heights"];
+                if (!heights.is_array() || heights.size() != count) throw std::runtime_error("Terrain height count does not match resolution");
+                c.Heights = heights.get<std::vector<float>>();
+            }
+            c.EnsureSize();
+            if (j.contains("Layers") && j["Layers"].is_array())
+                for (size_t i = 0; i < std::min(size_t(4), j["Layers"].size()); ++i)
+                {
+                    const auto& l = j["Layers"][i];
+                    c.Layers[i].Color = Vec(l, "Color", c.Layers[i].Color);
+                    c.Layers[i].TexturePath = ReadAssetPath(l, "Texture");
+                    c.Layers[i].Tiling = l.value("Tiling", 0.25f);
+                    c.Layers[i].NormalMapPath = ReadAssetPath(l, "NormalMap");
+                    c.Layers[i].MaskMapPath = ReadAssetPath(l, "MaskMap");
+                    c.Layers[i].Roughness = l.value("Roughness", 0.95f);
+                    c.Layers[i].Metallic = l.value("Metallic", 0.0f);
+                    c.Layers[i].Occlusion = l.value("Occlusion", 1.0f);
+                    c.Layers[i].NormalStrength = l.value("NormalStrength", 1.0f);
+                }
+            c.EnsureSize();
+            if (j.contains("Paint"))
+            {
+                if (!j["Paint"].is_array() || j["Paint"].size() > count) throw std::runtime_error("Terrain paint data is too large");
+                for (const auto& p : j["Paint"])
+                {
+                    size_t i = p.at("Index").get<size_t>();
+                    if (i >= count) throw std::runtime_error("Terrain paint index is invalid");
+                    c.Weights[i] = Vec(p, "Weight", glm::vec4(1, 0, 0, 0));
+                }
+            }
+            c.EnsureSize();
         }
         if (e.contains("MeshRenderer"))
         {
@@ -3899,7 +3983,7 @@ namespace Zamin {
     {
         if (m_Scene->GetName().empty() || m_Scene->GetName() == "Untitled")
             m_Scene->SetName(filepath.stem().string());
-        return FileSystem::WriteTextFile(filepath, SerializeToString());
+        return FileSystem::WriteTextFileAtomic(filepath, SerializeToString());
     }
 
     static SceneLoadIssue MakeUnreadableIssue(const std::string& reason);

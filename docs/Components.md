@@ -2173,7 +2173,7 @@ qiymatlari, sahnada saqlanadi), `Enabled` (**Faol**). O'yin paytida `Instance` �
 [Scripting.md](Scripting.md).
 
 <!-- gen:NativeScriptComponent -->
-_Inspektorda: **C++ Skript**; qo'shish: **+ Komponent → Boshqa → C++ Script**; sahna faylida: `"NativeScript"`._
+_Inspektorda: **Skript (C++ / Visual)**; qo'shish: **+ Komponent → Boshqa → Script / Visual graph**; sahna faylida: `"NativeScript"`._
 
 | Maydon | Tur | Standart |
 |---|---|---|
@@ -2253,3 +2253,46 @@ _inspektor menyusida yo'q (editor / tizim o'zi qo'shadi); sahna faylida: `"Edito
 | `PrefabHash` | `uint64_t` | `0` |
 | `RemovedEntities` | `std::vector<uint64_t>` | — |
 <!-- /gen:PrefabLinkComponent -->
+
+
+### TerrainComponent
+
+3D heightfield: `Resolution` (2..257), `Size` (X/Z, metr), `HeightLimit`, `Heights`, to'rtta `Layers` va `Weights`, `Collision`. Sahna kaliti `Terrain`. Runtime GPU va collider cache'lari serializatsiya qilinmaydi va nusxalar o'rtasida bo'lishilmaydi. Editor: **Obyekt → 3D → Terrain / map**, **Oyna → Map tayyorlash (Terrain)**. [To'liq qo'llanma](Terrain.md).
+
+<!-- gen:TerrainComponent -->
+_Inspektorda: **Terrain**; qo'shish: **+ Komponent → Render → Terrain / map**; sahna faylida: `"Terrain"`._
+
+| Maydon | Tur | Standart |
+|---|---|---|
+| `Resolution` | `uint32_t` | `65` |
+| `Size` | `glm::vec2` | `{ 64.0f }` |
+| `HeightLimit` | `float` | `128.0f` |
+| `Collision` | `bool` | `true` |
+| `LODEnabled` | `bool` | `true` |
+| `LODDistanceScale` | `float` | `2.0f` |
+| `Heights` | `std::vector<float>` | — |
+| `Weights` | `std::vector<glm::vec4>` | — |
+| `Layers` | `std::array<TerrainLayer, 4>` | `{ { { { 0.25f, 0.46f, 0.17f }, "", 0.25f }, { { 0.40f, 0.27f, 0.15f }, "", 0.25f }, { { 0.46f, 0.47f, 0.49f }, "", 0.25f }, { { 0.78f, 0.68f, 0.43f }, "", 0.25f } } }` |
+| `GeometryRevision` | `uint64_t` | `1` |
+| `PaintRevision` | `uint64_t` | `1` |
+<!-- /gen:TerrainComponent -->
+
+
+### FoliageComponent
+
+Packed statik foliage: bitta entity ichida 65536 tagacha transform, yaqin/uzoq mesh yoki model, tint, LOD/cull masofasi, hysteresis va GPU/CPU backend. Opaque/cutout statik submeshlar qo'llanadi. Bitta component picking ID; alohida instance collision yoki gameplay entity'lari yaratilmaydi. Model asset havolalari, instance transformlari va sozlamalar sahnada saqlanadi; runtime cache nusxalar orasida bo'lishilmaydi.
+
+<!-- gen:FoliageComponent -->
+_Inspektorda: **Packed foliage**; qo'shish: **+ Komponent → Render → Packed foliage**; sahna faylida: `"Foliage"`._
+
+| Maydon | Tur | Standart |
+|---|---|---|
+| `NearType` | `PrimitiveMesh` | `PrimitiveMesh::Cone` |
+| `FarType` | `PrimitiveMesh` | `PrimitiveMesh::Cube` |
+| `NearModel` | `std::string` | — |
+| `FarModel` | `std::string` | — |
+| `Tint` | `glm::vec4` | `{ .3f, .6f, .18f, 1 }` |
+| `Settings` | `FoliageSettings` | — |
+| `CastShadows` | `bool` | `true` |
+| `Instances` | `std::vector<FoliageInstance>` | — |
+<!-- /gen:FoliageComponent -->

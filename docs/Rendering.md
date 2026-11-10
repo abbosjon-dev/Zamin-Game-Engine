@@ -6,6 +6,8 @@ materiallar va `.zmat` assetlari, shaffoflik, yorug'liklar, soyalar, osmon va HD
 tizimi, samaradorlik (culling, instancing, render masshtabi, sifat darajalari), editor ko'rinish rejimlari, statistika
 va testlar — editorda va C++ skriptda.
 
+Terrain: GPU albedo/normal/ORM qatlamlari, bo'yash, control cache va patch LOD — [Terrain qo'llanmasi](Terrain.md).
+
 Komponentlarning to'liq maydonlari: [Components.md](Components.md#2-render) (render), [yorug'lik](Components.md#3-yoruglik),
 [effektlar va 2D yordamchilar](Components.md#7-effektlar-va-2d-yordamchilar). Animatsiya (sprite kliplar, tint, property
 kliplar, skelet) — [Animation.md](Animation.md), ekran UI — [UI.md](UI.md). Misollar `#include <Zamin/Zamin.h>` va
@@ -453,7 +455,8 @@ Solishtirish uchun o'chirish: `ZAMIN_EDITOR_NO_CULLING=1`, `ZAMIN_EDITOR_NO_INST
   chizilgan / kesilgan / instanced meshlar, soya chizishlari, 2D obyektlar, tile bo'laklari, particle'lar
   (`Renderer::GetStats()` — `RenderStatistics`). `ZAMIN_EDITOR_STATS=1` / `ZAMIN_PLAYER_STATS=1` chiqishda oxirgi kadr
   statistikasini logga yozadi.
-- **Profiler** (*Oyna > Profiler*): `Render`, `3D`, `2D va UI`, post-processing bo'limlari vaqti.
+- **Profiler** (*Oyna > Profiler*): CPU'dagi `Render`, `3D`, `2D va UI`, post-processing bo'limlari hamda asinxron GPU timeline vaqti. GPU qatori oxirgi, 120 natijadagi o'rtacha/min/max, pending va o'tkazilgan o'lchovlarni ko'rsatadi. Sakkizta timestamp juftligi ishlatiladi; tayyor bo'lmagan natija kutilmaydi, pool to'lsa o'lchov o'tkaziladi. Natija bir necha kadr kechikadi, swap/vsync va FPS limiter markerlar tashqarisida. GPU timeline CPU topshirish oralig'idagi bo'sh vaqtni ham qamrab olishi mumkin; bu GPU busy foizi emas. Mesa llvmpipe natijasi physical GPU bahosi sifatida ishlatilmaydi.
+  C++ API: `Zamin/Renderer/GPUProfiler.h`; asosiy GL oqimida `GetStats()` va `SetEnabled()`; Application Begin/End/Shutdown'ni o'zi boshqaradi. `ZaminGPUProfilerTests` haqiqiy GL 4.1 kontekstida timer, toggle va bounded queue'ni tekshiradi.
 
 Editor haqida batafsil: [Editor.md](Editor.md#5-viewport).
 
@@ -520,3 +523,13 @@ Editor haqida batafsil: [Editor.md](Editor.md#5-viewport).
 | Particle'lar | `ParticleSystemComponent` (`Play`, `Pause`, `Stop`, `Restart`, `IsEmitting`), `EmitParticles`, `Scene::EmitParticles`, `ParticlePresets`, `OnParticlesFinished` |
 | Past daraja | `Renderer2D::BeginScene` / `DrawQuad` / `DrawCircle` / `DrawLine` / `DrawString` / `EndScene`, `Renderer3D::SubmitMesh`, `SetFrustumCulling`, `SetInstancing`, `Renderer::GetStats` (`RenderStatistics`) |
 | Sifat | `Quality::SetLevel`, `GetLevel`, `GetLevelCount`, `GetLevelName`, `SaveSettings` |
+
+
+## Katta 2D tilemap ko'rinishi
+
+`GetVisibleTilemapChunks` kichik xaritalarda to'g'ridan-to'g'ri tekshiradi. 64 tadan ko'p bo'lak bo'lsa,
+katta hududlar chegarasi ierarxik tekshiriladi: butunlay ko'rinmaydigan qism bir tekshiruvda chiqariladi,
+to'liq ko'rinadigan qism esa alohida leaf testlarisiz olinadi. Yakuniy bo'laklar oldingi row-major tartibida
+chiziladi. Frustum bo'lmasa hamma bo'lak olinadi. Aylantirish, manfiy tile size va perspektiv kamera saqlanadi.
+`GetVisibleTilemapChunksWithStats` qo'shimcha bounds-test hisoblagichini beradi. Bu CPU visibility yaxshilanishi;
+asset streaming yoki statik tile GPU cache qo'shilgani degani emas.

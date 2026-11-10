@@ -393,7 +393,7 @@ namespace Zamin {
         for (const fs::path& file : files)
         {
             std::string ext = FileSystem::GetExtension(file);
-            if (ext == ".zscene" || ext == ".zprefab" || ext == ".zmat" || ext == ".zparticle" || ext == ".zanim" || ext == ".zsanim" ||
+            if (ext == ".zscene" || ext == ".zprefab" || ext == ".zmat" || ext == ".zparticle" || ext == ".zgraph" || ext == ".zanim" || ext == ".zsanim" ||
                 ext == ".zphysmat")
                 ScanJson(file, ReadText(file));
             else if (ext == ".gltf")

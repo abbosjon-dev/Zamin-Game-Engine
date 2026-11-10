@@ -7,6 +7,10 @@ qayta yuklaydi (hot reload). Interfeys va hujjatlar o'zbek tilida.
 Hozircha **Linux** qo'llab-quvvatlanadi (OpenGL 4.1 core). Windows, macOS, Android va iOS keyingi bosqichlarda:
 renderer RHI interfeyslari orqasida, platformaga xos kod `Platform/` papkasida ([Architecture.md](docs/Architecture.md)).
 
+Standart x86-64 build uchun **SSE2** yetarli; AVX2/FMA majburiy emas. `-DZAMIN_ENABLE_AVX2=ON` bilan
+tezlashtirilgan build tanlansa, CPU AVX2, FMA, BMI1, LZCNT, POPCNT va F16C'ni qo'llashi kerak.
+Bunday build eski CPU uchun tarqatilmaydi. [Build va runtime sozlamalari](docs/BuildAndExport.md).
+
 ![Zamin Editor: Showcase3D sahnasi, tanlangan obyekt va inspektor](docs/images/editor-showcase3d.jpg)
 
 | Platformer2D | Showcase3D | Adventure3D |
@@ -42,6 +46,10 @@ imkoniyatlar, kod bo'ylab sayohat):*
 - **Rendering** — 2D batch renderer (sprite atlas, 9-slice, tilemap, 2D yorug'lik, pixel-perfect) va PBR 3D (glTF,
   `.zmat` materiallar, cascaded soyalar, HDRI osmon va IBL, SSAO, bloom, avto ekspozitsiya), particle tizimi —
   [Rendering.md](docs/Rendering.md)
+- **Terrain / map** — sculpt va bo'yash, to'rtta GPU albedo/normal/ORM qatlami, metrga bog'liq tiling, patch LOD,
+  heightmap va Jolt collision; `MapWorkshop` namunasi — [Terrain.md](docs/Terrain.md)
+- **Packed foliage** — 65536 tagacha statik instance/komponent, ikki model LOD, GPU compute culling (GL 4.3)
+  va CPU fallback (GL 4.1); [4096 daraxtli FoliageWorkshop](Projects/FoliageWorkshop/README.md). GPU shadow culling va streaming hali rejada.
 - **Fizika** — 2D (Box2D) va 3D (Jolt): collider'lar, joint'lar, effektorlar, Character Controller, so'rovlar,
   to'qnashuv qatlamlari, determinizm — [Physics.md](docs/Physics.md)
 - **Animatsiya** — property kliplar va timeline, skelet animatsiya, Animator (holat mashinasi, blend tree, qatlamlar),

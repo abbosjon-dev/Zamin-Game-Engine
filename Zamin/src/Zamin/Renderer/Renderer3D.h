@@ -17,6 +17,8 @@
 
 namespace Zamin {
 
+    struct TerrainSurface;
+    class FoliageBatch;
     struct DirectionalLight
     {
         glm::vec3 Direction{ -0.4f, -1.0f, -0.3f }; ///< direction the light travels
@@ -62,12 +64,23 @@ namespace Zamin {
     /// Meshes drawn as their triangle edges: Wire - only the edges (in the view's colors; the
     /// entity IDs for picking still cover the whole faces), ShadedWire - the normal picture with
     /// dark edges over it.
-    enum class WireframeMode : uint8_t { Off = 0, Wire, ShadedWire };
+    enum class WireframeMode : uint8_t
+    {
+        Off = 0,
+        Wire,
+        ShadedWire
+    };
 
     /// How the edge of a sun shadow is softened: Hard - one (hardware bilinear) comparison,
     /// PCF3x3 / PCF5x5 - a grid of comparisons one texel apart, Poisson - 16 comparisons spread
     /// over a disc (softer than 5x5 for fewer samples).
-    enum class ShadowFilter : uint8_t { Hard = 0, PCF3x3, PCF5x5, Poisson };
+    enum class ShadowFilter : uint8_t
+    {
+        Hard = 0,
+        PCF3x3,
+        PCF5x5,
+        Poisson
+    };
     constexpr int ShadowFilterCount = 4;
 
     /// Quality of the sun's cascaded shadow maps (SceneSettings::Shadows). The defaults are the
@@ -167,7 +180,12 @@ namespace Zamin {
     /// How the renderer draws one mesh with its material (the pass, culling, blending, shadow).
     struct SurfaceState
     {
-        enum class Pass : uint8_t { Opaque = 0, Cutout, Transparent };
+        enum class Pass : uint8_t
+        {
+            Opaque = 0,
+            Cutout,
+            Transparent
+        };
 
         Pass Queue = Pass::Opaque;
         /// Faces culled in the main pass. Double-sided: none (a double-sided transparent surface
@@ -283,6 +301,10 @@ namespace Zamin {
         /// pose of a skinned mesh; `entityID`: the editor's picking ID (-1 none).
         static void SubmitMesh(const Ref<Mesh>& mesh, const glm::mat4& transform, const Material& material,
                                int entityID = -1, bool castShadows = true, const std::vector<glm::mat4>* joints = nullptr);
+        /// An opaque terrain mesh with shared control/albedo/normal/ORM inputs.
+        static void SubmitTerrain(const Ref<Mesh>& mesh, const glm::mat4& transform, const Ref<TerrainSurface>& surface,
+                                  int entityID = -1, bool castShadows = true);
+        static void SubmitFoliage(const Ref<FoliageBatch>& batch);
         /// The editor grid, drawn by EndScene after the opaque surfaces and the sky and before the
         /// transparent ones (so it shows through glass instead of being drawn over it).
         static void SubmitGrid(int plane = 0, const GridSettings& settings = {});

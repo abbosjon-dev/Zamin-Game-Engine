@@ -275,6 +275,7 @@ namespace Zamin {
         }
         void SetTilePropertiesOpen(bool open) { m_TilePropertiesOpen = open; }
         std::function<void()> OnTilePaletteWindowRequested;
+        std::function<void()> OnTerrainWindowRequested;
 
         std::function<void(Entity)> OnFocusRequested;
         std::function<void()> OnSceneModified;
@@ -313,6 +314,7 @@ namespace Zamin {
         std::function<void(const std::string&)> OnOpenScriptSource;
         // The Animator graph window for this entity's state machine.
         std::function<void(Entity)> OnAnimatorGraphRequested;
+        std::function<void(const std::filesystem::path&)> OnVisualGraphRequested;
         // Prefab instances: their links are shown (rows, the inspector's prefab bar, changed values);
         // Apply / Revert / Unpack go through OnPrefabRequest.
         void SetPrefabDatabase(PrefabDatabase* db) { m_Prefabs = db; }

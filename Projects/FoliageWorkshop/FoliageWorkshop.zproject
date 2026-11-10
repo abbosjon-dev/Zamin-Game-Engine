@@ -1,0 +1,19 @@
+{
+    "Version": 2,
+    "Project": {
+        "Name": "FoliageWorkshop",
+        "StartScene": "Scenes/Forest.zscene",
+        "AssetDirectory": "Assets",
+        "SourceDirectory": "Source",
+        "ScriptModulePath": "",
+        "EngineVersion": "0.1.0",
+        "Description": "4096 packed daraxt: ikki model LOD, GPU compute culling va OpenGL 4.1 CPU fallback.",
+        "Thumbnail": "Thumbnail.png"
+    },
+    "Player": {
+        "Product": "Zamin Foliage Workshop",
+        "Width": 1280,
+        "Height": 720,
+        "VSync": true
+    }
+}

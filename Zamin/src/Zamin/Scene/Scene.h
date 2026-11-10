@@ -185,6 +185,9 @@ namespace Zamin {
     /// the number of the others. No GPU needed.
     std::vector<TilemapChunk> GetVisibleTilemapChunks(const TilemapComponent& tilemap, const glm::mat4& world, const Frustum* frustum,
                                                       uint32_t* culled = nullptr);
+    /// Instrumented visibility query: adds the number of tested hierarchy/leaf bounds.
+    std::vector<TilemapChunk> GetVisibleTilemapChunksWithStats(const TilemapComponent& tilemap, const glm::mat4& world, const Frustum* frustum,
+                                                      uint32_t* culled, uint32_t* boundsTested);
 
     struct SceneRenderOptions
     {

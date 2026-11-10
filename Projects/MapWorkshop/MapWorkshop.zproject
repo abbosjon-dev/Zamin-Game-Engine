@@ -1,0 +1,19 @@
+{
+    "Version": 2,
+    "Project": {
+        "Name": "MapWorkshop",
+        "StartScene": "Scenes/Map.zscene",
+        "AssetDirectory": "Assets",
+        "SourceDirectory": "Source",
+        "ScriptModulePath": "",
+        "EngineVersion": "0.1.0",
+        "Description": "Terrain map tayyorlash: relyef, yo'l, daraxt va collider'lar. O'yin mantiqi keyingi bosqichda.",
+        "Thumbnail": "Thumbnail.png"
+    },
+    "Player": {
+        "Product": "Zamin Map Workshop",
+        "Width": 1280,
+        "Height": 720,
+        "VSync": true
+    }
+}

@@ -1,3 +1,4 @@
+#include "Zamin/Scripting/Visual/VisualGraph.h"
 #include "ContentBrowserPanel.h"
 #include "../AssetUsageCache.h"
 #include "../UI.h"
@@ -33,6 +34,7 @@ namespace Zamin {
             case AssetType::Animation:   color = IM_COL32(255, 170, 90, 255); return ICON_FA_TIMELINE;
             case AssetType::SpriteAnimation: color = IM_COL32(255, 140, 170, 255); return ICON_FA_FILM;
             case AssetType::ParticlePreset: color = IM_COL32(255, 190, 90, 255); return ICON_FA_WAND_MAGIC_SPARKLES;
+            case AssetType::VisualGraph: color = IM_COL32(184, 131, 255, 255); return ICON_FA_DIAGRAM_PROJECT;
             case AssetType::Script:      color = IM_COL32(100, 160, 240, 255); return ICON_FA_FILE_CODE;
             case AssetType::Project:     color = UI::AccentU32(); return ICON_FA_GAMEPAD;
             default:                     return ICON_FA_FILE;
@@ -734,6 +736,8 @@ namespace Zamin {
         }
         else if (entry.Type == AssetType::Scene && OnOpenScene)
             OnOpenScene(entry.Path);
+        else if (entry.Type == AssetType::VisualGraph && OnOpenVisualGraph)
+            OnOpenVisualGraph(entry.Path);
         else if (entry.Type == AssetType::Animation && OnOpenAnimation)
             OnOpenAnimation(entry.Path);
         else if (entry.Type == AssetType::Prefab && OnOpenPrefab)
@@ -873,7 +877,7 @@ namespace Zamin {
             }
         }
         if (!entry.IsDirectory && ExternalEditor::IsSourceFile(path) && OnOpenSourceFile &&
-            ImGui::MenuItem(Tr(ICON_FA_PEN_TO_SQUARE "  Tashqi muharrirda ochish")))
+            ImGui::MenuItem(Tr(ICON_FA_PEN_TO_SQUARE "  Kod muharririda ochish")))
             OnOpenSourceFile(path);
         if (ImGui::MenuItem(Tr(ICON_FA_FOLDER_OPEN "  Tizimda ochish")))
             Platform::OpenInFileBrowser(path);
@@ -1534,6 +1538,19 @@ namespace Zamin {
             }
             if (ImGui::MenuItem(Tr(ICON_FA_TIMELINE "  Yangi animatsiya klipi"), nullptr, false, Project::GetActive() != nullptr))
                 CreateAnimationClip();
+            if (ImGui::MenuItem("Yangi visual skript (.zgraph)", nullptr, false, Project::GetActive() != nullptr))
+            {
+                const auto assets = Project::GetAssetDirectory();
+                const auto folder = FileSystem::IsSubPathOnDisk(m_CurrentDirectory, assets) ? m_CurrentDirectory : assets / "Scripts";
+                auto file = AssetFiles::MakeUniquePath(folder, "NewGraph.zgraph");
+                if (Visual::Graph::Example().Save(file)) {
+                    if (auto* registry = Project::GetAssetRegistry()) registry->OnFileAdded(file);
+                    m_ListDirty = true;
+                    if (OnFilesChanged) OnFilesChanged();
+                    Reveal({ file });
+                    if (OnOpenVisualGraph) OnOpenVisualGraph(file);
+                } else ShowNotice("Visual skript saqlanmadi", true);
+            }
             if (ImGui::MenuItem(Tr(ICON_FA_FILM "  Yangi sprite animatsiya klipi"), nullptr, false, Project::GetActive() != nullptr))
                 CreateSpriteClip();
             if (ImGui::IsItemHovered())

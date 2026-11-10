@@ -20,27 +20,33 @@ BEGIN = "<!-- test-catalog:begin -->"
 END = "<!-- test-catalog:end -->"
 
 _section = re.compile(r"^// -{4,}\s+(.+?)\s*$")
-_test = re.compile(r"^TEST\((\w+)\)")
+_test = re.compile(r"^\s*TEST\((\w+)\)")
 
 
 def catalogue():
     sections = []  # [title, [names]]
-    title = "Asosiy"
-    for line in open(SOURCE, encoding="utf-8"):
-        m = _section.match(line)
-        if m:
-            text = m.group(1).rstrip(":").strip()
-            # The framework's own banner lines are no sections of tests.
-            if not text.lower().startswith(("mini framework", "test scripts", "tests")):
-                title = text
-            elif text.lower().startswith("tests"):
-                title = "Asosiy (sahna, skriptlar, fizika, prefab, particle)"
+    cmake = open(os.path.join(ROOT, "Tests", "CMakeLists.txt"), encoding="utf-8").read()
+    target = re.search(r"add_executable\(ZaminTests\s+([^)]*)\)", cmake).group(1)
+    for filename in target.split():
+        if not filename.endswith("Tests.cpp"):
             continue
-        m = _test.match(line)
-        if m:
-            if not sections or sections[-1][0] != title:
-                sections.append([title, []])
-            sections[-1][1].append(m.group(1))
+        source = os.path.join(ROOT, "Tests", filename)
+        title = os.path.basename(source)
+        for line in open(source, encoding="utf-8"):
+            m = _section.match(line)
+            if m:
+                text = m.group(1).rstrip(":").strip()
+                # The framework's own banner lines are no sections of tests.
+                if not text.lower().startswith(("mini framework", "test scripts", "tests")):
+                    title = text
+                elif text.lower().startswith("tests"):
+                    title = "Asosiy (sahna, skriptlar, fizika, prefab, particle)"
+                continue
+            m = _test.match(line)
+            if m:
+                if not sections or sections[-1][0] != title:
+                    sections.append([title, []])
+                sections[-1][1].append(m.group(1))
     return sections
 
 
@@ -48,7 +54,7 @@ def markdown(sections):
     total = sum(len(n) for _, n in sections)
     out = [BEGIN,
            f"_`Tests/test_catalog.py --update docs/Testing.md` yaratgan: {total} ta unit test, {len(sections)} ta bo'lim "
-           "(`Tests/ZaminTests.cpp` dagi tartibda). Bitta testni ishga tushirish: `./build/bin/ZaminTests <Nom>`._",
+           "(`ZaminTests` targetidagi fayllar tartibida). Bitta testni ishga tushirish: `./build/bin/ZaminTests <Nom>`._",
            "",
            "| # | Bo'lim | Testlar | Nomlari |",
            "|---|---|---|---|"]

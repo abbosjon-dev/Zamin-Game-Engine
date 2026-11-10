@@ -1,3 +1,4 @@
+#include "Zamin/Scene/TerrainLOD.h"
 #include "Zamin/Scene/Scene.h"
 #include "Zamin/Scene/SceneLoadTiming.h"
 #include "Zamin/Core/Stopwatch.h"
@@ -2403,6 +2404,14 @@ namespace Zamin {
             fn(min, max);
             any = true;
         };
+        if(auto* foliage=entity.TryGetComponent<FoliageComponent>())
+        {auto bounds=FoliageTools::LocalBounds(*foliage);if(bounds.IsValid())add(bounds.Min,bounds.Max);}
+        if (auto* t = entity.TryGetComponent<TerrainComponent>())
+        {
+            t->EnsureSize();
+            auto bounds = std::minmax_element(t->Heights.begin(), t->Heights.end());
+            add({ 0, *bounds.first, 0 }, { t->Size.x, *bounds.second, t->Size.y });
+        }
         if (auto* mr = entity.TryGetComponent<MeshRendererComponent>())
         {
             if (mr->Type == PrimitiveMesh::Model)
@@ -2535,7 +2544,7 @@ namespace Zamin {
     static bool HasWorldVisual(Entity e)
     {
         return !e.HasComponent<UITransformComponent>() &&
-               (e.HasComponent<MeshRendererComponent>() || e.HasComponent<SpriteRendererComponent>() ||
+               (e.HasComponent<TerrainComponent>() || e.HasComponent<FoliageComponent>() || e.HasComponent<MeshRendererComponent>() || e.HasComponent<SpriteRendererComponent>() ||
                 e.HasComponent<CircleRendererComponent>() || e.HasComponent<TextComponent>() ||
                 e.HasComponent<TilemapComponent>() || e.HasComponent<ParticleSystemComponent>());
     }
@@ -3904,7 +3913,7 @@ namespace Zamin {
             else if (!quiet)
                 ZM_CORE_WARN("'{}': Convex Hull Collider 3D qurilmadi - {}", entity.GetName(), error);
         }
-        if (auto* c = entity.TryGetComponent<MeshCollider3DComponent>())
+        if (auto* c = entity.TryGetComponent<MeshCollider3DComponent>(); c && (!entity.HasComponent<TerrainComponent>() || entity.GetComponent<TerrainComponent>().Collision))
         {
             std::string error;
             if (rb.Type == Rigidbody3DComponent::BodyType::Dynamic)
@@ -3983,6 +3992,11 @@ namespace Zamin {
             if (error)
                 *error = "Mesh Collider 3D yo'q";
             return nullptr;
+        }
+        if (auto* terrain = entity.TryGetComponent<TerrainComponent>())
+        {
+            terrain->EnsureSize();
+            return terrain->Collision ? TerrainTools::GetCollisionMesh(*terrain) : nullptr;
         }
         std::string modelPath;
         PrimitiveMesh primitive;
@@ -5271,6 +5285,8 @@ namespace Zamin {
             estimate.Components = (uint64_t)ids->size() * (sizeof(IDComponent) + sizeof(TagComponent)); // every entity has both
         }
         estimate.Components += ComponentBytes(m_Registry, AllComponents{});
+        if(const auto* foliage=m_Registry.storage<FoliageComponent>())
+            for(const auto& c:*foliage)estimate.Components+=c.Instances.capacity()*sizeof(FoliageInstance);
         if (const auto* animators = m_Registry.storage<AnimatorComponent>())
             for (const AnimatorComponent& a : *animators)
                 estimate.Components += (uint64_t)a.JointMatrices.capacity() * sizeof(glm::mat4) + (uint64_t)a.MorphWeights.capacity() * sizeof(float);
@@ -7208,30 +7224,7 @@ namespace Zamin {
     }
 
     // ------------------------------------------------------------------ rendering
-    std::vector<TilemapChunk> GetVisibleTilemapChunks(const TilemapComponent& tilemap, const glm::mat4& world, const Frustum* frustum,
-                                                      uint32_t* culled)
-    {
-        std::vector<TilemapChunk> visible;
-        const int width = std::max(1, tilemap.Width), height = std::max(1, tilemap.Height);
-        const float size = tilemap.TileSize;
-        for (int y0 = 0; y0 < height; y0 += TilemapChunkSize)
-            for (int x0 = 0; x0 < width; x0 += TilemapChunkSize)
-            {
-                TilemapChunk chunk{ x0, y0, std::min(x0 + TilemapChunkSize, width), std::min(y0 + TilemapChunkSize, height) };
-                if (frustum)
-                {
-                    // The tiles' quads cover [x * size, (x + 1) * size] (a negative size mirrors them).
-                    glm::vec3 a(chunk.X0 * size, chunk.Y0 * size, 0.0f), b(chunk.X1 * size, chunk.Y1 * size, 0.0f);
-                    if (!frustum->Intersects(TransformAABB(AABB{ glm::min(a, b), glm::max(a, b) }, world)))
-                    {
-                        if (culled) (*culled)++;
-                        continue;
-                    }
-                }
-                visible.push_back(chunk);
-            }
-        return visible;
-    }
+
 
     Ref<Mesh> Scene::GetMorphedMesh(entt::entity e, MeshRendererComponent& mr, size_t index)
     {
@@ -7461,6 +7454,20 @@ namespace Zamin {
                                   : mr.MaterialRef ? mr.MaterialRef->GetMaterial() : mr.Mat;
                 Renderer3D::SubmitMesh(mr.MeshAsset, world(e), m, (int)(uint32_t)e, mr.CastShadows);
             }
+        }
+        for(auto e:m_Registry.view<TransformComponent,FoliageComponent>())
+        {
+            if(skip(e))continue;
+            if(auto batch=FoliageTools::Prepare(m_Registry.get<FoliageComponent>(e),world(e),int(uint32_t(e))))Renderer3D::SubmitFoliage(batch);
+        }
+        for (auto e : m_Registry.view<TransformComponent, TerrainComponent>())
+        {
+            if (skip(e)) continue;
+            auto& terrain = m_Registry.get<TerrainComponent>(e);
+            terrain.EnsureSize();
+            auto surface = TerrainTools::GetSurface(terrain);
+            for (const auto& patch : TerrainTools::GetRenderPatches(terrain, world(e), cameraPosition, std::abs(projection[3][3]) > 0.5f))
+                if (patch && surface) Renderer3D::SubmitTerrain(patch, world(e), surface, (int)(uint32_t)e, true);
         }
         if (options.ShowGrid)
             Renderer3D::SubmitGrid(options.GridPlane, options.Grid); // under the transparent surfaces

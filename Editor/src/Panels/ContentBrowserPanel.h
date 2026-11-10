@@ -106,6 +106,7 @@ namespace Zamin {
         std::function<void(const std::filesystem::path&)> OnOpenScene;
         // A .zanim clip was double-clicked: the Animation window opens it.
         std::function<void(const std::filesystem::path&)> OnOpenAnimation;
+        std::function<void(const std::filesystem::path&)> OnOpenVisualGraph;
         // A .zprefab was double-clicked: it opens in prefab mode.
         std::function<void(const std::filesystem::path&)> OnOpenPrefab;
         // "Variant yaratish" on a prefab: a new prefab made of it.

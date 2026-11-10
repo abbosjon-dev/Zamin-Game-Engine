@@ -1,6 +1,9 @@
 #include "Zamin/Core/Application.h"
+#include "Zamin/Renderer/GPUProfiler.h"
 
+#if ZAMIN_WITH_IMGUI
 #include "Zamin/ImGui/ImGuiLayer.h"
+#endif
 #include "Zamin/Core/BuildInfo.h"
 #include "Zamin/Core/Profiler.h"
 #include "Zamin/Core/Cursor.h"
@@ -60,11 +63,16 @@ namespace Zamin {
                 ZM_CORE_INFO("O'yin vaqti qat'iy: har kadr 1/{} s (ZAMIN_CAPTURE_FPS)", Time::GetCaptureFrameRate());
         }
 
+#if ZAMIN_WITH_IMGUI
         if (m_Specification.EnableImGui)
         {
             m_ImGuiLayer = new ImGuiLayer();
             PushOverlay(m_ImGuiLayer);
         }
+#else
+        if (m_Specification.EnableImGui)
+            ZM_CORE_WARN("ImGui is disabled in this runtime build");
+#endif
         // ZAMIN_FOCUS_LOSS_TEST=<frame>[:<frames>]: from that frame on the window counts as not focused (for
         // that many paused frames, else until the end): the pause in the background under automation.
         if (const char* test = std::getenv("ZAMIN_FOCUS_LOSS_TEST"))
@@ -80,6 +88,7 @@ namespace Zamin {
         SaveData::Save(); // unsaved game data (PlayerPrefs) is never lost on exit
         JobSystem::Shutdown();
         AudioEngine::Shutdown();
+        GPUProfiler::Shutdown();
         Renderer::Shutdown();
     }
 
@@ -305,6 +314,7 @@ namespace Zamin {
             Time::OnFrame(timestep);
 
             Profiler::BeginFrame();
+            GPUProfiler::BeginFrame();
             JobSystem::EndFrame();
             ExecuteMainThreadQueue();
             // Snapshot keyboard / mouse / gamepads once per frame (JustPressed, actions, axes).
@@ -325,6 +335,7 @@ namespace Zamin {
                         layer->OnUpdate(timestep);
                 }
 
+#if ZAMIN_WITH_IMGUI
                 if (m_ImGuiLayer)
                 {
                     ZM_PROFILE_SCOPE("UI (ImGui)");
@@ -337,8 +348,10 @@ namespace Zamin {
                     ZM_PROFILE_SCOPE("ImGui chizish");
                     m_ImGuiLayer->End();
                 }
+#endif
             }
 
+            GPUProfiler::EndFrame();
             m_FrameCount++;
             HandleAutomation();
             {

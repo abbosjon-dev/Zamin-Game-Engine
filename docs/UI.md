@@ -185,7 +185,11 @@ Text komponenti (`TextComponent`) UI obyektda to'rtburchak ichida chiziladi:
 | `InputHints` (inspektorda **Boshqaruv ishoralari**) | matndagi `[Nom]` — loyiha input xaritasidagi harakat / o'q / vektor — o'yinchi ishlatayotgan qurilmaning tugmalari bilan ko'rinadi |
 
 Matn balandligi — UI Transform'ning `FontSize` i (0 — to'rtburchak balandligi). Shriftlar har bir piksel o'lchami uchun
-alohida atlasda yasaladi: kichik yozuv ham, katta sarlavha ham tiniq; UI matni butun piksellarga joylanadi. Dunyodagi
+alohida atlasda yasaladi: kichik yozuv ham, katta sarlavha ham tiniq; UI matni butun piksellarga joylanadi. Yasalgan
+atlaslar diskda saqlanadi (`~/.cache/zamin/FontAtlases`, `FontAtlasCache`; `ZAMIN_FONT_CACHE=0` — o'chiq): keyingi ishga
+tushirishda shrift rasterlanmaydi, o'qiladi. **Kerning** — shriftning o'z harf juftliklari ("AV", "To", "Ye" yaqinroq)
+odatda o'chiq (matn avvalgidek joylashadi); shrift asseti inspektorida **Kerning** belgisi yoki `.zmeta` da
+`"Import": { "Kerning": true }` yoqadi (`Font::SetKerningEnabled`, `Font::GetKerning`). Dunyodagi
 matn (UI Transform'siz) obyekt nuqtasi atrofida tekislanadi, o'rash `MaxWidth` bo'yicha. Joylashtirish hisobining o'zi:
 `TextLayout::Layout(...)` (`Zamin/UI/TextLayout.h`, testlar uchun ham).
 

@@ -282,9 +282,18 @@ JobSystem::Wait(build);                                                // kutayo
   `ScheduleParallelFor(...)`, `GetThreadIndex()` (oqim uchun alohida xotira), `GetStats()` / `GetLastFrameStats()`.
 - **Qoida**: ishchi oqimdagi ish boshqa bir vaqtda ishlayotgan ishlar yozadigan narsaga tegmasin (sahna registri,
   renderer, fizika, skriptlar). Dvigatel faqat ajratilgan ma'lumotdagi ishlarni parallel qiladi: mustaqil particle
-  tizimlari va animator pozalari; natija bir oqimdagi bilan bit-bitgacha bir xil.
+  tizimlari, **bitta katta tizimning particle'lari** (`ParticleSimulation::ParallelThreshold` = 4 096 tadan boshlab
+  2 048 talik bo'laklarda; dunyo to'qnashuvi, to'qnashuv hodisalari yoki izlar bo'lsa bitta oqimda), animator pozalari va
+  animatorlarning ko'rinishini belgilash (`Scene::MarkVisibleAnimators`, 32 tadan boshlab); natija bir oqimdagi bilan
+  bit-bitgacha bir xil.
 - **O'chirish** (hamma ish chaqirgan oqimda, tartib bilan): `JobSystem::SetEnabled(false)`, `ZAMIN_JOBS=0`,
   playerda `--jobs 0`, `ApplicationSpecification::JobWorkers`. Profilerda ishlar "Ishchi N" tugunlari ostida.
+
+**Fon yuklash** (`Zamin/Asset/AsyncLoader.h`) shu tizim ustida: `AsyncLoader::Enqueue(nom, ish, tugatish)` — `ish`
+ishchi oqimda (GPU va sahnaga tegmaydi), `tugatish` asosiy oqimda `AsyncLoader::Update(byudjet_ms)` ichida (ilova har
+kadr chaqiradi). Ishchi oqimda yasalgan tekstura va meshlar GPU obyektisiz qoladi (`AsyncLoader::DeferGPU`) va `Update`
+ularni byudjet ichida yuklaydi. `Wait(id)`, `WaitAll()` — kutish; o'chiq bo'lsa (`SetEnabled(false)`, testlar va
+`ZAMIN_SCREENSHOT` / `ZAMIN_MAX_FRAMES`) `LoadAsync` lar darhol yuklaydi.
 
 ## 10. Xotira statistikasi (MemoryStats)
 
@@ -350,6 +359,15 @@ if (reload.Tick(ts)) Reload();          // tugagan kadrda true; Timer(0.5f, true
 
 `Stopwatch`: `Start`, `Stop`, `Reset`, `Restart`, `ElapsedMilliseconds / Microseconds / Nanoseconds`, `Lap`,
 `GetLaps`. Profiler uchun alohida: `ZM_PROFILE_SCOPE("Nom")` (Profiler oynasida ierarxik ko'rinadi).
+
+**Ishga tushish vaqti** (`Core/StartupTimer.h`): `Application` dvigatel kutubxonasi yuklangandan birinchi kadr
+ekranga chiqquncha vaqtni o'lchaydi va bir marta logga yozadi - `Ishga tushish: birinchi kadr 670 ms (dvigatel 182,
+layer'lar 88, birinchi kadr 422 ms; jarayon boshidan ~680 ms), RAM 325 MB (eng ko'pi 341 MB)`. Qismlari: dvigatel
+(oyna va GL konteksti, `Renderer::Init`, audio, ImGui), layer'lar (`OnAttach`: loyiha, sahna, editor panellari),
+birinchi kadrning o'zi; jarayon boshlanishi `/proc/self/stat` dan (10 ms aniqlik). `StartupTimer::Get()` natijani
+beradi (editorning Statistika paneli "Xotira" bo'limida ko'rsatadi). `ZAMIN_STARTUP_PROFILE=1` ishga tushish
+paytidagi profiler daraxtini (u ham `ZM_PROFILE_SCOPE` lar bilan yig'iladi) va birinchi kadrning daraxtini chiqaradi;
+`Tests/startup_bench.py` buni bir necha marta o'lchab, ikki build'ni solishtiradi ([Benchmarks.md](Benchmarks.md#ishga-tushish-vaqti-495)).
 
 ## 14. Matn yordamchilari (StringUtils)
 

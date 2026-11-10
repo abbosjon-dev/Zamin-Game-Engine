@@ -19,6 +19,7 @@
 #include "Zamin/Renderer/SpriteSheet.h"
 #include "Zamin/Renderer/Lighting2D.h"
 #include "Zamin/Renderer/Animation.h"
+#include "Zamin/Renderer/BatchOrder.h"
 #include "Zamin/Scene/PropertyAnimation.h"
 #include "Zamin/Scene/SortingLayers.h"
 #include "Zamin/Scene/PixelPerfect.h"
@@ -444,6 +445,11 @@ namespace Zamin {
         /// as long as the scene was drawn at all since the last one (a scene nobody draws, a headless
         /// run: nothing is culled).
         void MarkVisibleAnimators(const glm::mat4& viewProjection);
+        /// From this many animators to look at - whose skinned meshes take at least this many joint
+        /// boxes together (less is cheaper on one thread) - MarkVisibleAnimators works out their posed
+        /// bounds on the job system's workers (the same marks either way).
+        static constexpr size_t ParallelVisibilityThreshold = 32;
+        static constexpr size_t ParallelVisibilityJointBoxes = 2048;
         /// @}
 
         /// The entity with this UUID (a hash lookup), or an invalid one.
@@ -630,8 +636,22 @@ namespace Zamin {
         /// @}
 
         /// The entity's transform in the world: its parent's world transform (a bone's, with a
-        /// BoneAttachmentComponent) times its own.
+        /// BoneAttachmentComponent) times its own. Cached (see WorldTransformStats): made again
+        /// only when the entity's Translation / Rotation / Scale, its parent or the parent's world
+        /// transform changed since it was last asked for - writes straight into a
+        /// TransformComponent need no notification.
         glm::mat4 GetWorldTransform(Entity entity);
+        /// What the world transform cache did since the scene was made (or ResetWorldTransformStats).
+        struct WorldTransformStats
+        {
+            uint64_t Hits = 0;        ///< answered from the cache
+            uint64_t Recomputed = 0;  ///< made again (first time, or something it depends on changed)
+            uint64_t Uncached = 0;    ///< bone attachments (and broken, too deep hierarchies): made every time
+        };
+        const WorldTransformStats& GetWorldTransformStats() const { return m_WorldCacheStats; }
+        void ResetWorldTransformStats() { m_WorldCacheStats = {}; }
+        /// Forgets every cached world transform (nothing needs it: changes are noticed).
+        void InvalidateWorldTransforms() { m_WorldCache.clear(); }
         /// Sets local transform so that the entity ends up at `world`.
         void SetWorldTransform(Entity entity, const glm::mat4& world);
         /// The space the entity's Transform is in: its bone's (BoneAttachmentComponent), else its
@@ -1853,6 +1873,9 @@ namespace Zamin {
     public:
         /// Looks up the mesh / model, the material assets and the inline material's textures.
         static void ResolveMeshRenderer(struct MeshRendererComponent& mr);
+        /// Sprites' and tilemaps' textures of a background load (LoadAsync) that turned out unreadable:
+        /// let go of (as if Load had given nullptr) once one failed since the last look. Before a frame is drawn.
+        void DropFailedTextures();
         /// Only the material assets (MaterialPath, SubmeshMaterials) and inline textures: no GPU mesh.
         static void ResolveMeshMaterials(struct MeshRendererComponent& mr);
         /// What a mesh renderer draws with. A primitive (modelMaterial = null): its material asset,
@@ -1973,6 +1996,8 @@ namespace Zamin {
         glm::mat4 m_LastView{ 1.0f };
         Ref<class EnvironmentMap> m_EnvMap;
         std::string m_EnvMapPath;
+        /// TextureLibrary::GetFailedLoadSerial when the scene last let go of its textures that failed (DropFailedTextures).
+        uint64_t m_SeenFailedTextureLoads = 0;
         bool m_MouseDown = false, m_MouseWasDown = false;
         bool m_UIDeferred = false;
         /// The UI widget the mouse button went down on (button, toggle, slider, input field): a click
@@ -2008,6 +2033,59 @@ namespace Zamin {
         float m_ScrollbarGrab = 0.0f;               ///< where on the handle a dragged scrollbar was taken
 
         std::unordered_map<UUID, entt::entity> m_EntityMap;
+        /// The pools of the components the per-frame loops read for every entity, looked up once (task
+        /// 484): `m_Registry.get<T>(e)` finds T's pool in a hash map each time; these are those pools
+        /// (EnTT keeps a pool where it is for the registry's life, cleared or not).
+        struct HotStorages; // (Scene.cpp: Transform, Relationship, BoneAttachment, sprites, texts ...)
+        std::shared_ptr<HotStorages> m_Hot;
+        /// World transform cache (GetWorldTransform), by entity index: the local values, the parent
+        /// and the parent's version its World was made from. Version grows whenever World is made
+        /// again, so a child sees that its parent's changed by comparing one number.
+        struct WorldCacheEntry
+        {
+            entt::entity Handle = entt::null;   ///< the entity (index + version) the entry is of
+            entt::entity Parent = entt::null;   ///< ParentID resolved
+            UUID ParentID = 0;
+            uint64_t ParentVersion = 0;
+            uint64_t Version = 0;
+            glm::vec3 Translation{ 0.0f }, Rotation{ 0.0f }, Scale{ 1.0f };
+            glm::mat4 World{ 1.0f };
+        };
+        std::vector<WorldCacheEntry> m_WorldCache;
+        uint64_t m_WorldCacheVersion = 0;
+        WorldTransformStats m_WorldCacheStats;
+        /// The cached world transform of `e` (valid until the cache next grows: ReserveWorldCache
+        /// first when references are kept); `version` gets the entry's version (a fresh one each time
+        /// for what is not cached).
+        const glm::mat4& CachedWorldTransform(entt::entity e, uint64_t& version, int depth = 0);
+        /// Room in the cache for every entity there is (references stay valid while none is created).
+        void ReserveWorldCache();
+        /// GetWorldTransform without the cache (job system workers: the cache is the main thread's).
+        glm::mat4 ComputeWorldTransform(entt::entity e);
+        /// RenderScene with parallax layers: their (and their children's) world transforms for the
+        /// camera that draws, by entity index, valid where the frame number matches.
+        std::vector<glm::mat4> m_ParallaxWorldMemo;
+        std::vector<uint64_t> m_ParallaxWorldMemoFrame;
+        uint64_t m_ParallaxWorldMemoSerial = 0;
+        /// RenderScene's 2D draw list (kept between frames: no allocations once it has grown).
+        struct RenderItem2D
+        {
+            SortKey2D Key;
+            int Kind = 0;               ///< 0 sprite, 1 circle, 2 text, 3 particles, 4 tilemap
+            entt::entity Handle = entt::null;
+            int Layer = 0;              ///< tilemaps: the tile layer (each visible one is sorted on its own)
+            AABB Bounds = AABB::Empty(); ///< world box for BatchOrder (empty: it is not moved)
+            uint32_t Batch = 0;         ///< BatchOrderItem::Batch (0: not moved)
+            uint32_t Texture = 0;       ///< sprites: their texture's renderer id + 1 (BatchOrder's texture pass)
+        };
+        std::vector<RenderItem2D> m_RenderItems2D;
+        std::vector<uint32_t> m_RenderOrder2D;
+        std::vector<BatchOrderItem> m_BatchItems2D;
+        std::vector<const void*> m_BatchFonts2D;
+        /// m_RenderOrder2D (the sorted order of m_RenderItems2D) reordered by BatchOrder for fewer
+        /// Renderer2D batches: by kind (sprites / circles / texts of a font), then sprites by texture
+        /// where a run of them uses more textures than a batch holds. Returns how many draws moved.
+        size_t OrderForBatching(const glm::mat4& viewProjection, float pixelSnap);
         std::vector<UUID> m_DestroyQueue;            ///< DestroyEntityDeferred, in the order asked
         std::unordered_set<UUID> m_DestroyQueued;    ///< the same ids (once each)
 
@@ -2032,6 +2110,8 @@ namespace Zamin {
         std::unordered_set<entt::entity> m_InactiveInHierarchy;
         std::vector<entt::entity> m_InactiveOrder;
         bool m_ActiveCacheDirty = true;
+        std::vector<entt::entity> m_VisibilityScratch;   // MarkVisibleAnimators (kept: no allocations per frame)
+        std::vector<glm::mat4> m_VisibilityWorlds;
         uint64_t m_ActiveCacheFrame = ~0ull;
         /// The inactive entities the running physics / scripts were last brought in line with.
         std::vector<entt::entity> m_AppliedInactive;

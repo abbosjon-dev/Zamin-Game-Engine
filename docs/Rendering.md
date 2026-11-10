@@ -431,7 +431,41 @@ void OnMessage(const ScriptMessage& m) override
 - **GPU instancing** — bir xil mesh + bir xil material (shader oladigan hamma qiymatlar teng, skinned emas, opaque /
   cutout) bitta `glDrawElementsInstanced` chaqiruvida; soya kaskadlarida ham. Ko'p bir xil obyekt uchun material
   **nusxasi** emas, umumiy asset ishlating — nusxalar instancing'ni buzadi.
+- **Primitivlarning LOD'i** — shar, silindr va konus ekranda kichik bo'lsa (radiusi ko'rinish balandligi yarmining
+  6 % idan kam) segmentlari yarmi, 1.5 % dan kam bo'lsa choragi bo'lgan nusxasi chiziladi (`MeshLibrary::GetPrimitive(type,
+  lod)`, `GetPrimitiveLOD`): 1080p'da chegara 0.3 pikseldan kam o'zgaradi, uzoqdagi shar 2 304 o'rniga 576 / 144
+  uchburchak. Soya o'tishlari ham shu nusxani chizadi. Ipak Yo'li namunasida kadr uchburchaklari 119K -> 53K.
 - **Animatsiya kesish** — ko'rinmaydigan modellar pozalanmaydi ([Animation.md](Animation.md#16-samaradorlik-keshlash-va-kesish)).
+- **2D batch tartibi** (`BatchOrder`) — saralangan 2D ro'yxatda sprite, doira va matnlar navbatma-navbat kelsa, har
+  almashuv Renderer2D batch'ini chizdirardi. Endi ekranda **ustma-ust tushmaydigan** chizishlar o'z turidagi oldingisi
+  yoniga ko'chiriladi (bir-birini yopadiganlarning tartibi o'zgarmaydi — rasm bit-bitgacha bir xil); 15 tadan ko'p
+  tekstura ishlatgan sprite qatorlari teksturasi bo'yicha guruhlanadi. Statistika: `Flush2DTextures`, `Flush2DKind`,
+  `Flush2DState` (batch nega erta chizildi) va `Reordered2DCount`; solishtirish uchun `BatchOrder::SetEnabled(false)`.
+  O'lchov: [Benchmarks.md](Benchmarks.md#m25-optimallashtirish-oldin-va-keyin).
+- **Dunyo transformi keshi** — `Scene::GetWorldTransform` natijasi saqlanadi va faqat obyektning Translation /
+  Rotation / Scale qiymati, ota-onasi yoki ota-onasining dunyo transformi o'zgarganda qayta hisoblanadi (skript
+  `Transform()` ga to'g'ridan-to'g'ri yozsa ham sezadi); chizish va fizika har kadr shu keshdan o'qiydi.
+- **Fon yuklash** (`AsyncLoader`) — editorda sahna ochilganda tekstura va modellar ishchi oqimlarda o'qiladi, GPU'ga
+  asosiy oqimda har kadr ~4 ms yuklanadi; shu payt tekstura o'rnida shaffof belgi, model esa chizilmaydi
+  (`TextureLibrary::LoadAsync`, `Model::LoadAsync`, `IsReady()` / `IsLoading()`). Avtomatik suratlar
+  (`ZAMIN_SCREENSHOT`, `ZAMIN_MAX_FRAMES`) va player odatda darhol yuklaydi; `ZAMIN_ASYNC_LOAD=0 / 1` majburlaydi.
+- **Shader keshi** (`ShaderCache`, program binary) — bog'langan shader dasturlari `~/.cache/zamin/ShaderBinaries` ga
+  yoziladi va keyingi ishga tushishda kompilyatsiya o'rniga drayverga qaytariladi (`GL_ARB_get_program_binary`, OpenGL 4.1
+  da bor). Kalit — dastur nomi, ikkala manba matni va drayver (ishlab chiqaruvchi, renderer, versiya): shader o'zgarsa
+  yoki drayver yangilansa eski fayl o'qilmaydi; drayver rad etgan fayl o'chiriladi va dastur manbadan kompilyatsiya
+  qilinadi; drayver binary formatini bermasa (`GL_NUM_PROGRAM_BINARY_FORMATS` = 0) har safar kompilyatsiya. Statistika
+  oynasida "Shader keshi" qatori, logda `Shader'lar: N ta keshdan ...`; `ZAMIN_SHADER_CACHE=0` — o'chiq.
+- **Kadr uniform buferi** — mesh shader'larining kadr qiymatlari (kamera, kaskadlar, quyosh va boshqa yorug'liklar,
+  tuman, osmon, IBL) bitta std140 uniform blokda (`ZaminFrame`, `UniformBuffer`): `EndScene` uni bir marta yuklaydi,
+  uchala mesh dasturi (oddiy, skinned, instanced) undan o'qiydi — avval har dasturga ~50 tadan `glUniform` chaqiruvi edi.
+  OpenGL 4.1 da `layout(binding)` yo'q, shuning uchun blok `Shader::BindUniformBlock` (`glUniformBlockBinding`) bilan
+  ulanadi.
+- **Soya o'tishida kesish** — kaskad hajmidan tashqaridagi soya tashlovchilardan tashqari, kaskad ichida bo'lsa ham
+  soyasi kamera shu kaskad chuqurligida ko'radigan joyga **tusha olmaydiganlari** ham chizilmaydi (kamera orqasidagi,
+  ko'rinish chetidagi obyektlar): tashlovchining qutisi yorug'lik yo'nalishi bo'ylab cho'ziladi va kameraning shu kaskad
+  oralig'idagi hajmi bilan solishtiriladi (filtr va normal siljishi uchun zaxira bilan) — rasm o'zgarmaydi.
+  Statistika: kaskadlar bo'yicha chizilgan / kesilgan va "ko'rinmas soya" soni (`CascadeShadowCasters`,
+  `CulledShadowByViewCount`); `Renderer3D::SetShadowReceiverCulling(false)` — solishtirish uchun.
 - **Render masshtabi** — sekin GPU'da 0.75 ham sezilarli tezlashtiradi.
 - **Sifat darajalari** (*Loyiha sozlamalari > Sifat*, `Quality`): sahna so'ragan soya, SSAO, bloom, FXAA, avto ekspozitsiya,
   render masshtabi va tekstura o'lchamini cheklaydi (Low / Medium / High / Ultra yoki o'zingizniki). O'yindagi menyudan:

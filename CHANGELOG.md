@@ -11,9 +11,56 @@ Dvigatel versiyasi: **0.1.0** (`project(Zamin VERSION ...)`, hali reliz qilinmag
 "Optimallashtirish va sayqal" — [docs/TASKS.md](docs/TASKS.md) da. Yangi milestone'ning
 vazifalari bajarila boshlaganda unga bo'lim qo'shing ([CONTRIBUTING.md](CONTRIBUTING.md#9-vazifalar-royxati-va-changelog)).
 
+## M25 Optimallashtirish va sayqal
+
+2026-11-08 · vazifalar 481–500 · `670faf9` dan boshlab (so'nggi milestone)
+
+- **2D batch tartibi** (`BatchOrder`): ekranda ustma-ust tushmaydigan sprite / doira / matnlar o'z turidagi batch yoniga
+  ko'chiriladi (rasm bir xil), ko'p teksturali sprite qatorlari tekstura bo'yicha guruhlanadi; batch nega erta chizilgani
+  statistikasi (`Flush2DTextures`, `Flush2DKind`, `Flush2DState`). `mixed2d` benchmark: 670 -> 65 draw call.
+- **Kadrlararo ajratmalar**: `Tests/AllocCounter` (operator new hisoblagichi, `ZAMIN_ALLOC_TRACE`) bilan o'lchab
+  kamaytirildi - 10 000 sprite kadri 10 023 -> 2 ajratma, 1 000 mesh 1 504 -> 6 (instancing'siz 7 105 -> 6): dunyo
+  transformi keshi, 2D ro'yxatlar va instancing guruhlari kadrlar orasida saqlanadi, shader uniform nomlari
+  `std::string_view`, matn joylash keshi.
+- **Dunyo transformi keshi** (o'zgarishni qiymatlarni solishtirib topadi, ierarxiyaga mos) va komponent pool'lari keshi:
+  `GetWorldTransform` qayta so'ralganda 221 -> 33 ns.
+- **Shriftlar**: yasalgan atlaslar diskda (`FontAtlasCache`: 45 ms rasterlash o'rniga 2.4 ms o'qish), glif jadvali,
+  ixtiyoriy **kerning** (GPOS juftliklari, `.zmeta` `Import.Kerning`, shrift inspektorida belgi).
+- **Fon yuklash** (`AsyncLoader`): `TextureLibrary::LoadAsync`, `Model::LoadAsync` - fayl ishchi oqimda o'qiladi,
+  GPU'ga asosiy oqimda har kadr ~4 ms; editor sahnalarni shunday ochadi, avtomatik suratlar darhol yuklaydi.
+- **Shader keshi** (`ShaderCache`): bog'langan dasturlar program binary sifatida `~/.cache/zamin/ShaderBinaries` da
+  (kalit: manba matni + drayver; rad etilgan fayl o'chiriladi, formati yo'q drayverda har safar kompilyatsiya).
+- **Kadr uniform buferi**: mesh shader'larining kamera / yorug'lik / soya / tuman / osmon qiymatlari bitta std140
+  blokda (`ZaminFrame`, `UniformBuffer`, `Shader::BindUniformBlock`) - har kadr bitta yuklash.
+- **Soya o'tishida kesish**: soyasi kamera ko'radigan joyga tusha olmaydigan tashlovchilar ham chizilmaydi
+  (`Renderer3D::ShadowReachesVolume`), kaskadlar bo'yicha statistika.
+- **Parallel**: bitta katta particle tizimi bo'laklarda ishchi oqimlarda, animatorlar ko'rinishini belgilash parallel
+  (natija bir xil). **Editor**: ierarxiya va kontent brauzer katakchalari `ImGuiListClipper` bilan (10 000 obyekt,
+  5 000 fayl).
+- **Ishga tushish vaqti** (`StartupTimer`, `ZAMIN_STARTUP_PROFILE`, `Tests/startup_bench.py`): editor va player
+  birinchi kadrgacha vaqtni va uning qismlarini yozadi. Editor atlasida faqat ishlatilgan ikonkalar
+  (`IconRanges.inl`, `Tools/gen_icon_ranges.py`), Sahnalar paneli fayllarni parallel o'qiydi va rasmlarni fonda
+  ochadi, player sahna rasmlarini parallel oldindan o'qiydi: editor (Showcase3D) 1 094 -> 750 ms.
+- **Xotira**: ImGui atlasining CPU nusxalari bo'shatiladi, atlas kichraydi - editor RAM 451 -> 325 MB; player
+  chiqishda xotirani yozadi (`ZAMIN_PLAYER_STATS`), Statistika panelida ishga tushish vaqti.
+- **Namunalar tekshiruvi va hisobot**: 60 FPS talabi CPU vaqti bo'yicha (kichik oyna, Low) - 8 / 9 namuna 16.6 ms
+  ichida edi, EndlessRunner yo'q (155K uchburchak) - **primitivlar LOD'i** (ekranda kichik shar / silindr / konus
+  soddaroq nusxada) bilan 67K uchburchak, o'rtacha 23 -> 15.3 ms; [docs/Performance.md](docs/Performance.md) - profiler yozuvlaridan
+  eng og'ir joylar, tuzatilganlar, qolgan cheklovlar.
+- **Tarjimalar**: 259 ta yangi inglizcha juft, terminologiya (color), `EditorTranslationKeysComplete` testi
+  (editor kodidagi har tarjima qilinadigan yorliqning inglizchasi bor).
+- **Tekshiruvdan keyingi tuzatishlar**: fon yuklashda ishchi oqim asset registry'ni o'qimaydi (import sozlamalari
+  yuklash paytida asosiy oqimda), navbatdagi GPU yuklash teksturasini ushlab turadi va GL obyektlari faqat asosiy
+  oqimda o'chiriladi, `Reload` / `Reimport` davom etayotgan yuklashni kutadi; o'qib bo'lmagan fon teksturasini sprite va
+  tilemap qo'yib yuboradi (qora emas); prefab va sahna rasmlari to'liq yuklangan assetlar bilan chiziladi
+  (`AsyncLoader::Immediate`); `LoadNow` rasmlarni ikki marta dekodlamaydi; `Tests/bench.sh --compare` sekin ko'ringan
+  benchmarkni qayta o'lchaydi (`--repeat`); `build/` dan boshqa build papkalari o'yin modullarini o'z `GameModules/` iga yozadi.
+- **Yakuniy regressiya**: gcc Debug / Release, clang, ASan + UBSan (`Tests/sanitize.sh address,undefined`), barcha
+  test to'plamlari - [docs/Quality.md](docs/Quality.md).
+
 ## M24 Namuna o'yinlar
 
-2026-11-08 · vazifalar 461–480 · `5623496` dan boshlab (so'nggi milestone)
+2026-11-08 · vazifalar 461–480 · 18 ta commit (`5623496` … `37d2916`)
 
 - Yangi namuna loyihalar (har biri o'z `.zproject`, `Assets/`, C++ skriptlar moduli `Source/` bilan, ildiz build'da):
   **Neon Maydon** (`Projects/TopDownShooter`: twin-stick kema, siltanish, 5 xil dushman, to'lqinlar, hisob va kombo,

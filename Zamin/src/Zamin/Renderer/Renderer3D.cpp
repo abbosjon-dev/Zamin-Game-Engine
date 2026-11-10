@@ -6,10 +6,12 @@
 #include "Zamin/Renderer/Framebuffer.h"
 #include "Zamin/Renderer/TerrainSurface.h"
 #include "Zamin/Renderer/FoliageBatch.h"
+#include "Zamin/Renderer/Buffer.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <algorithm>
+#include <cstddef>
 #include <cmath>
 #include <functional>
 #include <unordered_map>
@@ -43,8 +45,7 @@ uniform mat3 u_NormalMatrix;
 #define NORMAL_MATRIX u_NormalMatrix
 #endif
 
-uniform mat4 u_ViewProjection;
-uniform mat4 u_View;
+// u_ViewProjection, u_View: the ZaminFrame uniform block (FrameBlockGLSL).
 
 out vec3 v_WorldPos;
 out vec3 v_Normal;
@@ -123,36 +124,11 @@ uniform float u_AlphaCutoff;  // cutout: alpha below this is not drawn
 uniform int u_PreserveSpecular; // transparent: highlights, reflections and emission do not fade with alpha
 uniform int u_Mirrored;       // the transform has a negative scale: the mesh's front faces wind the other way
 
-uniform vec3 u_CameraPos;
-uniform int u_HasSun;
-uniform vec3 u_SunDirection;
-uniform vec3 u_SunRadiance;
-// More directional lights (no shadows): xyz the direction they travel / their radiance.
+// The camera, the lights, the shadows, fog, sky and environment of the frame: the ZaminFrame
+// uniform block (FrameBlockGLSL, uploaded once per frame for every mesh shader).
 #define MAX_EXTRA_SUNS 3
-uniform int u_ExtraSunCount;
-uniform vec4 u_ExtraSunDirection[MAX_EXTRA_SUNS];
-uniform vec4 u_ExtraSunRadiance[MAX_EXTRA_SUNS];
-uniform int u_ShadowsEnabled;
 uniform sampler2DShadow u_ShadowMap;
-uniform float u_ShadowTexel;     // atlas texel size (uv)
-uniform mat4 u_LightSpaces[4];
-uniform vec4 u_CascadeSplits;     // view depth where each cascade ends
-uniform vec4 u_CascadeTexelWorld; // world size of a shadow texel per cascade
-uniform int u_CascadeCount;
-uniform int u_ShadowAtlasTiles;   // cascade tiles per atlas side (1 or 2)
-uniform int u_ShadowFilter;       // 0 hard, 1 PCF 3x3, 2 PCF 5x5, 3 Poisson disc (16)
-uniform float u_ShadowDepthBias;
-uniform float u_ShadowNormalBias;
-uniform int u_FogEnabled;
-uniform vec3 u_FogColor;
-uniform float u_FogDensity;
-uniform float u_FogHeightFalloff;
-uniform int u_UseIBL;
 uniform sampler2D u_EnvMap;
-uniform float u_EnvMaxLod;
-uniform float u_EnvIntensity;
-uniform float u_EnvRotation;
-uniform vec3 u_SH[9];
 
 vec2 EquirectUV(vec3 d)
 {
@@ -165,26 +141,15 @@ vec3 EvalSH(vec3 n)
 {
     float c = cos(u_EnvRotation), s = sin(u_EnvRotation);
     n = vec3(c * n.x - s * n.z, n.y, s * n.x + c * n.z);
-    return max(u_SH[0] * 0.282095
-         + u_SH[1] * 0.488603 * n.y + u_SH[2] * 0.488603 * n.z + u_SH[3] * 0.488603 * n.x
-         + u_SH[4] * 1.092548 * n.x * n.y + u_SH[5] * 1.092548 * n.y * n.z + u_SH[6] * 0.315392 * (3.0 * n.z * n.z - 1.0)
-         + u_SH[7] * 1.092548 * n.x * n.z + u_SH[8] * 0.546274 * (n.x * n.x - n.y * n.y), vec3(0.0));
+    return max(u_SH[0].xyz * 0.282095
+         + u_SH[1].xyz * 0.488603 * n.y + u_SH[2].xyz * 0.488603 * n.z + u_SH[3].xyz * 0.488603 * n.x
+         + u_SH[4].xyz * 1.092548 * n.x * n.y + u_SH[5].xyz * 1.092548 * n.y * n.z + u_SH[6].xyz * 0.315392 * (3.0 * n.z * n.z - 1.0)
+         + u_SH[7].xyz * 1.092548 * n.x * n.z + u_SH[8].xyz * 0.546274 * (n.x * n.x - n.y * n.y), vec3(0.0));
 }
 
-// Point and spot lights. Point lights have no direction (zero) and a cone that lets everything
-// through (cosines -2 / -1).
-uniform int u_LocalLightCount;
-uniform vec4 u_LightPosRange[MAX_LOCAL_LIGHTS];  // xyz position, w range
-uniform vec4 u_LightRadiance[MAX_LOCAL_LIGHTS];  // rgb color x intensity, w cos(inner angle)
-uniform vec4 u_LightDirCos[MAX_LOCAL_LIGHTS];    // xyz direction the light travels, w cos(outer angle)
+// Point and spot lights (the frame block): point lights have no direction (zero) and a cone that
+// lets everything through (cosines -2 / -1).
 
-uniform vec3 u_SkyColor;
-uniform vec3 u_HorizonColor;
-uniform vec3 u_GroundColor;
-uniform float u_SkyCurve;      // the gradient: horizon -> zenith exponent
-uniform float u_GroundFade;    // the gradient: how fast the ground colour takes over below the horizon
-uniform float u_Ambient;
-uniform float u_Exposure;
 // Editor view: 0 lit, 1 lighting only, 2 normals, 3 albedo, 4 roughness, 5 metallic,
 // 6 a flat color (u_DebugColor: the edges of the shaded wireframe view).
 uniform int u_DebugView;
@@ -574,6 +539,109 @@ void main()
             return s.substr(0, eol) + defs + s.substr(eol + 1);
         }
 
+        // The per-frame values of the mesh shaders as one std140 uniform block (task 489): uploaded once
+        // per EndScene instead of ~50 glUniform calls on each of the three mesh programs. Every
+        // member is a vec4 / ivec4 / mat4 (no std140 padding rules to get wrong); the names the
+        // shader code always used are kept (arrays as they were, single values through #defines).
+        // The same text goes into the vertex and the fragment stage (a block must match in both).
+        const char* s_FrameBlockGLSL = R"(
+layout(std140) uniform ZaminFrame
+{
+    mat4 u_ViewProjection;
+    mat4 u_View;
+    mat4 u_LightSpaces[4];
+    vec4 u_CascadeSplits;     // view depth where each cascade ends
+    vec4 u_CascadeTexelWorld; // world size of a shadow texel per cascade
+    vec4 zf_Camera;           // xyz camera position
+    ivec4 zf_Shadow;          // x cascades, y tiles per atlas side (1 or 2), z filter (0 hard, 1 PCF 3x3, 2 PCF 5x5, 3 Poisson), w enabled
+    vec4 zf_ShadowParams;     // x depth bias, y normal bias, z atlas texel size (uv)
+    ivec4 zf_Lights;          // x has a sun, y extra suns, z local lights
+    vec4 zf_SunDirection;     // xyz
+    vec4 zf_SunRadiance;      // xyz
+    ivec4 zf_Flags;           // x fog, y image based lighting
+    vec4 zf_Fog;              // xyz colour, w density
+    vec4 zf_Env;              // x max lod, y intensity, z rotation, w fog height falloff
+    vec4 zf_Sky;              // xyz zenith colour, w curve (horizon -> zenith exponent)
+    vec4 zf_Horizon;          // xyz horizon colour, w ground fade
+    vec4 zf_Ground;           // xyz ground colour, w ambient
+    vec4 zf_Exposure;         // x exposure
+    vec4 u_SH[9];             // irradiance (xyz)
+    vec4 u_ExtraSunDirection[3]; // more directional lights (no shadows): the direction they travel
+    vec4 u_ExtraSunRadiance[3];
+    vec4 u_LightPosRange[32]; // xyz position, w range
+    vec4 u_LightRadiance[32]; // rgb color x intensity, w cos(inner angle)
+    vec4 u_LightDirCos[32];   // xyz direction the light travels, w cos(outer angle)
+};
+#define u_CameraPos zf_Camera.xyz
+#define u_CascadeCount zf_Shadow.x
+#define u_ShadowAtlasTiles zf_Shadow.y
+#define u_ShadowFilter zf_Shadow.z
+#define u_ShadowsEnabled zf_Shadow.w
+#define u_ShadowDepthBias zf_ShadowParams.x
+#define u_ShadowNormalBias zf_ShadowParams.y
+#define u_ShadowTexel zf_ShadowParams.z
+#define u_HasSun zf_Lights.x
+#define u_ExtraSunCount zf_Lights.y
+#define u_LocalLightCount zf_Lights.z
+#define u_SunDirection zf_SunDirection.xyz
+#define u_SunRadiance zf_SunRadiance.xyz
+#define u_FogEnabled zf_Flags.x
+#define u_UseIBL zf_Flags.y
+#define u_FogColor zf_Fog.xyz
+#define u_FogDensity zf_Fog.w
+#define u_EnvMaxLod zf_Env.x
+#define u_EnvIntensity zf_Env.y
+#define u_EnvRotation zf_Env.z
+#define u_FogHeightFalloff zf_Env.w
+#define u_SkyColor zf_Sky.xyz
+#define u_SkyCurve zf_Sky.w
+#define u_HorizonColor zf_Horizon.xyz
+#define u_GroundFade zf_Horizon.w
+#define u_GroundColor zf_Ground.xyz
+#define u_Ambient zf_Ground.w
+#define u_Exposure zf_Exposure.x
+)";
+
+        // The block's C++ side (the same order and sizes).
+        struct FrameUniforms
+        {
+            glm::mat4 ViewProjection{ 1.0f };
+            glm::mat4 View{ 1.0f };
+            glm::mat4 LightSpaces[ShadowSettings::MaxCascades]{};
+            glm::vec4 CascadeSplits{ 0.0f };
+            glm::vec4 CascadeTexelWorld{ 0.0f };
+            glm::vec4 Camera{ 0.0f };
+            glm::ivec4 Shadow{ 0 };
+            glm::vec4 ShadowParams{ 0.0f };
+            glm::ivec4 Lights{ 0 };
+            glm::vec4 SunDirection{ 0.0f };
+            glm::vec4 SunRadiance{ 0.0f };
+            glm::ivec4 Flags{ 0 };
+            glm::vec4 Fog{ 0.0f };
+            glm::vec4 Env{ 0.0f };
+            glm::vec4 Sky{ 0.0f };
+            glm::vec4 Horizon{ 0.0f };
+            glm::vec4 Ground{ 0.0f };
+            glm::vec4 Exposure{ 0.0f };
+            glm::vec4 SH[9]{};
+            glm::vec4 ExtraSunDirection[Renderer3D::MaxDirectionalLights - 1]{};
+            glm::vec4 ExtraSunRadiance[Renderer3D::MaxDirectionalLights - 1]{};
+            glm::vec4 LightPosRange[Renderer3D::MaxLocalLights]{};
+            glm::vec4 LightRadiance[Renderer3D::MaxLocalLights]{};
+            glm::vec4 LightDirCos[Renderer3D::MaxLocalLights]{};
+        };
+        static_assert(ShadowSettings::MaxCascades == 4 && Renderer3D::MaxDirectionalLights - 1 == 3 && Renderer3D::MaxLocalLights == 32,
+                      "s_FrameBlockGLSL has these sizes");
+        static_assert(sizeof(FrameUniforms) == 64 * 6 + 16 * (15 + 9 + 3 + 3 + 32 * 3), "std140: vec4 / mat4 members only, no padding");
+        constexpr uint32_t FrameBlockBinding = 0;
+
+        // `src` with the frame block after its #version line.
+        std::string WithFrameBlock(const std::string& src)
+        {
+            const size_t eol = src.find('\n');
+            return src.substr(0, eol + 1) + s_FrameBlockGLSL + src.substr(eol + 1);
+        }
+
         // Depth only; cutout casters drop the texels a cutout surface does not draw (the shadow has
         // the same holes as the surface).
         const char* s_ShadowFS = R"(#version 410 core
@@ -774,6 +842,8 @@ void main()
         struct Renderer3DData
         {
             Ref<Shader> MeshShader, SkinnedMeshShader, InstancedMeshShader, TerrainShader;
+            Ref<UniformBuffer> FrameUniformBuffer; // the ZaminFrame block of the mesh shaders
+            FrameUniforms Frame;                   // what it holds
             Ref<Shader> ShadowShader, SkinnedShadowShader, InstancedShadowShader;
             Ref<Shader> CutoutShadowShader, SkinnedCutoutShadowShader, InstancedCutoutShadowShader; // alpha tested casters
             Ref<Shader> SkyShader;
@@ -810,22 +880,37 @@ void main()
     void Renderer3D::Init()
     {
         s_Data = new Renderer3DData();
-        s_Data->TerrainShader = Shader::Create("Renderer3D_Terrain", Variant(s_MeshVS, false), Variant(s_MeshFS, false, false, false, true));
-        s_Data->MeshShader = Shader::Create("Renderer3D_PBR", Variant(s_MeshVS, false), s_MeshFS);
-        s_Data->SkinnedMeshShader = Shader::Create("Renderer3D_PBR_Skinned", Variant(s_MeshVS, true), s_MeshFS);
+        s_Data->TerrainShader = Shader::Create("Renderer3D_Terrain", WithFrameBlock(Variant(s_MeshVS, false)), WithFrameBlock(Variant(s_MeshFS, false, false, false, true)));
+        s_Data->MeshShader = Shader::Create("Renderer3D_PBR", WithFrameBlock(Variant(s_MeshVS, false)), WithFrameBlock(s_MeshFS));
+        s_Data->SkinnedMeshShader = Shader::Create("Renderer3D_PBR_Skinned", WithFrameBlock(Variant(s_MeshVS, true)), WithFrameBlock(s_MeshFS));
         s_Data->ShadowShader = Shader::Create("Renderer3D_Shadow", Variant(s_ShadowVS, false), s_ShadowFS);
         s_Data->SkinnedShadowShader = Shader::Create("Renderer3D_Shadow_Skinned", Variant(s_ShadowVS, true), s_ShadowFS);
         s_Data->CutoutShadowShader = Shader::Create("Renderer3D_Shadow_Cutout", Variant(s_ShadowVS, false, true),
                                                     Variant(s_ShadowFS, false, true));
         s_Data->SkinnedCutoutShadowShader = Shader::Create("Renderer3D_Shadow_Cutout_Skinned", Variant(s_ShadowVS, true, true),
                                                            Variant(s_ShadowFS, true, true));
-        s_Data->InstancedMeshShader = Shader::Create("Renderer3D_PBR_Instanced", Variant(s_MeshVS, false, false, true),
-                                                     Variant(s_MeshFS, false, false, true));
+        s_Data->InstancedMeshShader = Shader::Create("Renderer3D_PBR_Instanced", WithFrameBlock(Variant(s_MeshVS, false, false, true)),
+                                                     WithFrameBlock(Variant(s_MeshFS, false, false, true)));
         s_Data->InstancedShadowShader = Shader::Create("Renderer3D_Shadow_Instanced", Variant(s_ShadowVS, false, false, true), s_ShadowFS);
         s_Data->InstancedCutoutShadowShader = Shader::Create("Renderer3D_Shadow_Cutout_Instanced", Variant(s_ShadowVS, false, true, true),
                                                              Variant(s_ShadowFS, false, true));
         s_Data->SkyShader = Shader::Create("Renderer3D_Sky", s_SkyVS, s_SkyFS);
         s_Data->GridShader = Shader::Create("Editor_Grid", s_GridVS, s_GridFS);
+
+        // The mesh shaders read the frame's values from one uniform buffer; their texture units never change.
+        s_Data->FrameUniformBuffer = UniformBuffer::Create((uint32_t)sizeof(FrameUniforms), FrameBlockBinding);
+        for (auto& shader : { s_Data->MeshShader, s_Data->SkinnedMeshShader, s_Data->InstancedMeshShader, s_Data->TerrainShader })
+        {
+            if (!shader->BindUniformBlock("ZaminFrame", FrameBlockBinding))
+                ZM_CORE_ERROR("Shader '{}': ZaminFrame uniform bloki topilmadi", shader->GetName());
+            shader->Bind();
+            shader->SetInt("u_AlbedoMap", 0);
+            shader->SetInt("u_ShadowMap", 1);
+            shader->SetInt("u_NormalMap", 2);
+            shader->SetInt("u_MetalRoughMap", 3);
+            shader->SetInt("u_EmissiveMap", 4);
+            shader->SetInt("u_EnvMap", 5);
+        }
 
         TextureSpecification spec;
         spec.GenerateMips = false;
@@ -954,6 +1039,48 @@ void main()
         return view == RenderDebugView::Lit || view == RenderDebugView::LightingOnly;
     }
 
+    static bool s_ShadowReceiverCulling = true;
+
+    void Renderer3D::SetShadowReceiverCulling(bool enabled) { s_ShadowReceiverCulling = enabled; }
+    bool Renderer3D::IsShadowReceiverCullingEnabled() { return s_ShadowReceiverCulling; }
+
+    Frustum Renderer3D::GetShadowReceiverVolume(const glm::mat4& view, const glm::mat4& viewProjection, float nearDepth, float farDepth,
+                                                float margin)
+    {
+        Frustum volume = Frustum::FromViewProjection(viewProjection);
+        for (glm::vec4& plane : volume.Planes)
+            plane.w += margin;
+        // View depth = -(view * p).z; the view matrix is rigid, its third row a unit vector.
+        const glm::vec3 row(view[0][2], view[1][2], view[2][2]);
+        const float length = glm::length(row);
+        if (length > 1e-6f)
+        {
+            const glm::vec3 n = row / length;
+            const float w = view[3][2] / length;
+            // depth - near >= 0  and  far - depth >= 0 (both pushed out by the margin too)
+            volume.Planes[4] = glm::vec4(-n, -w - nearDepth + margin);
+            volume.Planes[5] = glm::vec4(n, w + farDepth + margin);
+        }
+        return volume;
+    }
+
+    bool Renderer3D::ShadowReachesVolume(const AABB& caster, const glm::vec3& lightDirection, float reach, const Frustum& receivers)
+    {
+        if (caster.Min.x > caster.Max.x || caster.Min.y > caster.Max.y || caster.Min.z > caster.Max.z)
+            return false;
+        const glm::vec3 sweep = lightDirection * std::max(0.0f, reach);
+        for (const glm::vec4& plane : receivers.Planes)
+        {
+            // The box's corner furthest along the normal, then the sweep's end if it goes further.
+            const glm::vec3 n(plane);
+            const glm::vec3 corner(n.x >= 0.0f ? caster.Max.x : caster.Min.x, n.y >= 0.0f ? caster.Max.y : caster.Min.y,
+                                   n.z >= 0.0f ? caster.Max.z : caster.Min.z);
+            if (glm::dot(n, corner) + std::max(0.0f, glm::dot(n, sweep)) + plane.w < 0.0f)
+                return false;
+        }
+        return true;
+    }
+
     void Renderer3D::SetFrustumCulling(bool enabled)
     {
         if (s_Data) s_Data->FrustumCulling = enabled;
@@ -983,61 +1110,116 @@ void main()
         return seed ^ (value + 0x9e3779b97f4a7c15ull + (seed << 6) + (seed >> 2));
     }
 
-    // Groups of `count` items: items that `same` says draw alike (and `canGroup` allows) join the
-    // first open group of their kind; `hash` must be equal for items `same` accepts.
-    template<typename CanGroup, typename Hash, typename Same>
-    static std::vector<std::vector<size_t>> GroupInstances(size_t count, uint32_t maxPerDraw, CanGroup canGroup, Hash hash, Same same)
+    // Batches of instances, flat: Items[Offsets[b] .. Offsets[b + 1]) is batch b. Kept between frames with
+    // its scratch (the passes group every frame: no allocations once they have grown).
+    struct FlatBatches
     {
-        std::vector<std::vector<size_t>> batches;
-        batches.reserve(count);
-        std::unordered_map<size_t, std::vector<size_t>> open; // hash -> groups of that hash
+        std::vector<size_t> Items, Offsets;
+        std::vector<size_t> Next, Head, Tail, Size; // a linked list of items per batch while grouping
+        std::vector<std::pair<size_t, size_t>> Table; // open addressing: (hash, batch + 1), 0 = empty
+
+        size_t Count() const { return Offsets.empty() ? 0 : Offsets.size() - 1; }
+        std::span<const size_t> Batch(size_t b) const { return { Items.data() + Offsets[b], Offsets[b + 1] - Offsets[b] }; }
+    };
+
+    // Groups of `count` items: items that `same` says draw alike (and `canGroup` allows) join the
+    // first open group of their kind; `hash` must be equal for items `same` accepts. Batches come in
+    // the order of their first item, their items in order.
+    template<typename CanGroup, typename Hash, typename Same>
+    static void GroupInstances(size_t count, uint32_t maxPerDraw, CanGroup canGroup, Hash hash, Same same, FlatBatches& out)
+    {
+        constexpr size_t None = ~size_t(0);
         maxPerDraw = std::max(maxPerDraw, 1u);
+        out.Next.assign(count, None);
+        out.Head.clear();
+        out.Tail.clear();
+        out.Size.clear();
+        size_t tableSize = 16;
+        while (tableSize < count * 2)
+            tableSize *= 2;
+        out.Table.assign(tableSize, { 0, 0 });
+        const size_t mask = tableSize - 1;
+        auto newBatch = [&](size_t i) {
+            out.Head.push_back(i);
+            out.Tail.push_back(i);
+            out.Size.push_back(1);
+            return out.Head.size() - 1;
+        };
         for (size_t i = 0; i < count; i++)
         {
             if (!canGroup(i))
             {
-                batches.push_back({ i });
+                newBatch(i);
                 continue;
             }
-            std::vector<size_t>& groups = open[hash(i)];
-            bool placed = false;
-            for (size_t g : groups)
-                if (batches[g].size() < maxPerDraw && same(batches[g][0], i))
+            const size_t h = hash(i);
+            // The batches of this hash in the order they were made (linear probing keeps it): the first
+            // that is not full and draws alike takes it; an empty slot ends the chain - a new batch.
+            for (size_t slot = h & mask;; slot = (slot + 1) & mask)
+            {
+                auto& entry = out.Table[slot];
+                if (entry.second == 0)
                 {
-                    batches[g].push_back(i);
-                    placed = true;
+                    entry = { h, newBatch(i) + 1 };
                     break;
                 }
-            if (!placed)
-            {
-                groups.push_back(batches.size());
-                batches.push_back({ i });
+                const size_t b = entry.second - 1;
+                if (entry.first == h && out.Size[b] < maxPerDraw && same(out.Head[b], i))
+                {
+                    out.Next[out.Tail[b]] = i;
+                    out.Tail[b] = i;
+                    out.Size[b]++;
+                    break;
+                }
             }
         }
-        return batches;
+        out.Items.clear();
+        out.Offsets.clear();
+        out.Offsets.push_back(0);
+        for (size_t b = 0; b < out.Head.size(); b++)
+        {
+            for (size_t i = out.Head[b]; i != None; i = out.Next[i])
+                out.Items.push_back(i);
+            out.Offsets.push_back(out.Items.size());
+        }
+    }
+
+    static void BuildInstanceBatchesFlat(const std::vector<Renderer3D::InstanceCandidate>& items, uint32_t maxPerDraw, FlatBatches& out)
+    {
+        const bool instancing = Renderer3D::IsInstancingEnabled();
+        GroupInstances(
+            items.size(), maxPerDraw,
+            [&](size_t i) {
+                const Renderer3D::InstanceCandidate& c = items[i];
+                return instancing && c.MeshKey && c.Mat && !c.Skinned && c.Mat->BlendMode != MaterialBlendMode::Transparent;
+            },
+            [&](size_t i) {
+                const Renderer3D::InstanceCandidate& c = items[i];
+                size_t h = std::hash<const void*>()(c.MeshKey);
+                h = HashCombine(h, std::hash<const void*>()(c.Mat->AlbedoMap.get()));
+                h = HashCombine(h, (size_t)c.Mat->BlendMode * 2 + (c.Mirrored ? 1 : 0));
+                return h;
+            },
+            [&](size_t a, size_t b) {
+                const Renderer3D::InstanceCandidate& x = items[a];
+                const Renderer3D::InstanceCandidate& y = items[b];
+                return x.MeshKey == y.MeshKey && x.Mirrored == y.Mirrored && Renderer3D::SameInstanceMaterial(*x.Mat, *y.Mat);
+            },
+            out);
     }
 
     std::vector<std::vector<size_t>> Renderer3D::BuildInstanceBatches(const std::vector<InstanceCandidate>& items, uint32_t maxPerDraw)
     {
-        const bool instancing = IsInstancingEnabled();
-        return GroupInstances(
-            items.size(), maxPerDraw,
-            [&](size_t i) {
-            const InstanceCandidate& c = items[i];
-            return instancing && c.MeshKey && c.Mat && !c.Skinned && c.Mat->BlendMode != MaterialBlendMode::Transparent;
-        },
-            [&](size_t i) {
-            const InstanceCandidate& c = items[i];
-            size_t h = std::hash<const void*>()(c.MeshKey);
-            h = HashCombine(h, std::hash<const void*>()(c.Mat->AlbedoMap.get()));
-            h = HashCombine(h, (size_t)c.Mat->BlendMode * 2 + (c.Mirrored ? 1 : 0));
-            return h;
-        },
-            [&](size_t a, size_t b) {
-            const InstanceCandidate& x = items[a];
-            const InstanceCandidate& y = items[b];
-            return x.MeshKey == y.MeshKey && x.Mirrored == y.Mirrored && SameInstanceMaterial(*x.Mat, *y.Mat);
-        });
+        FlatBatches flat;
+        BuildInstanceBatchesFlat(items, maxPerDraw, flat);
+        std::vector<std::vector<size_t>> batches;
+        batches.reserve(flat.Count());
+        for (size_t b = 0; b < flat.Count(); b++)
+        {
+            std::span<const size_t> batch = flat.Batch(b);
+            batches.emplace_back(batch.begin(), batch.end());
+        }
+        return batches;
     }
 
     void ShadowSettings::Sanitize()
@@ -1105,6 +1287,7 @@ void main()
         glm::mat4 LightSpace[ShadowSettings::MaxCascades]{ glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f) };
         float Splits[ShadowSettings::MaxCascades]{ 0.0f, 0.0f, 0.0f, 0.0f };
         float TexelWorld[ShadowSettings::MaxCascades]{ 0.05f, 0.05f, 0.05f, 0.05f };
+        float Depth[ShadowSettings::MaxCascades]{ 0.0f, 0.0f, 0.0f, 0.0f }; // the light-space box's depth (how far a shadow can reach)
     };
 
     static glm::mat4 FitLightToSphere(const glm::vec3& dir, const glm::vec3& center, float radius, float cascadeSize, float& texelWorld)
@@ -1140,6 +1323,7 @@ void main()
             glm::vec3 forward = -glm::vec3(glm::inverse(view)[2]);
             float half = env.ShadowDistance * 0.5f;
             c.LightSpace[0] = FitLightToSphere(dir, cameraPos + forward * half, half, cascadeSize, c.TexelWorld[0]);
+            c.Depth[0] = half * 3.0f + 60.0f; // (FitLightToSphere: back + 2 radii)
             c.Splits[0] = env.ShadowDistance * 2.0f;
             return c;
         }
@@ -1179,6 +1363,7 @@ void main()
             radius = std::ceil(radius * 16.0f) / 16.0f;
 
             c.LightSpace[i] = FitLightToSphere(dir, center, radius, cascadeSize, c.TexelWorld[i]);
+            c.Depth[i] = radius * 3.0f + 60.0f;
             c.Splits[i] = split;
             prev = split;
         }
@@ -1244,17 +1429,25 @@ void main()
     }
 
     // The material's uniforms of the mesh shader (and its textures bound).
+    // A material's map that can be sampled: nullptr for none, and for one still loading in the
+    // background (AsyncLoader) - the material looks as it would without it until it is there.
+    static const Texture2D* ReadyMap(const Ref<Texture2D>& map) { return map && map->IsReady() ? map.get() : nullptr; }
+
     static void ApplyMaterial(Shader& shader, const Material& m, bool mirrored)
     {
-        (m.AlbedoMap ? m.AlbedoMap : s_Data->WhiteTexture)->Bind(0);
-        (m.NormalMap ? m.NormalMap : s_Data->WhiteTexture)->Bind(2);
-        (m.MetalRoughMap ? m.MetalRoughMap : s_Data->WhiteTexture)->Bind(3);
-        (m.EmissiveMap ? m.EmissiveMap : s_Data->WhiteTexture)->Bind(4);
-        shader.SetInt("u_HasNormalMap", m.NormalMap ? 1 : 0);
-        shader.SetInt("u_HasMetalRoughMap", m.MetalRoughMap ? 1 : 0);
-        shader.SetInt("u_HasEmissiveMap", m.EmissiveMap ? 1 : 0);
-        shader.SetInt("u_AlbedoSRGB", !m.AlbedoMap || m.AlbedoMap->GetSpecification().SRGB ? 1 : 0);
-        shader.SetInt("u_EmissiveSRGB", !m.EmissiveMap || m.EmissiveMap->GetSpecification().SRGB ? 1 : 0);
+        const Texture2D* albedo = ReadyMap(m.AlbedoMap);
+        const Texture2D* normal = ReadyMap(m.NormalMap);
+        const Texture2D* metalRough = ReadyMap(m.MetalRoughMap);
+        const Texture2D* emissive = ReadyMap(m.EmissiveMap);
+        (albedo ? albedo : s_Data->WhiteTexture.get())->Bind(0);
+        (normal ? normal : s_Data->WhiteTexture.get())->Bind(2);
+        (metalRough ? metalRough : s_Data->WhiteTexture.get())->Bind(3);
+        (emissive ? emissive : s_Data->WhiteTexture.get())->Bind(4);
+        shader.SetInt("u_HasNormalMap", normal ? 1 : 0);
+        shader.SetInt("u_HasMetalRoughMap", metalRough ? 1 : 0);
+        shader.SetInt("u_HasEmissiveMap", emissive ? 1 : 0);
+        shader.SetInt("u_AlbedoSRGB", !albedo || albedo->GetSpecification().SRGB ? 1 : 0);
+        shader.SetInt("u_EmissiveSRGB", !emissive || emissive->GetSpecification().SRGB ? 1 : 0);
         shader.SetFloat("u_NormalStrength", m.NormalStrength);
         shader.SetFloat4("u_Albedo", m.Albedo);
         shader.SetFloat2("u_Tiling", m.Tiling);
@@ -1333,7 +1526,7 @@ void main()
     }
 
     // The per-instance data of these queued meshes into the instance buffer.
-    static void UploadInstances(const std::vector<size_t>& queueIndices, const std::vector<size_t>* indexMap)
+    static void UploadInstances(std::span<const size_t> queueIndices, const std::vector<size_t>* indexMap)
     {
         auto& data = s_Data->InstanceScratch;
         data.clear();
@@ -1347,7 +1540,7 @@ void main()
 
     // Queued meshes that share the mesh, the material and the facing, with one instanced call
     // (`group` indexes `indexMap`, which holds queue indices).
-    static void DrawInstancedGroup(const std::vector<size_t>& group, const std::vector<size_t>& indexMap, bool mirrored)
+    static void DrawInstancedGroup(std::span<const size_t> group, const std::vector<size_t>& indexMap, bool mirrored)
     {
         auto& stats = Renderer::GetStats();
         const DrawItem& first = s_Data->Queue[indexMap[group[0]]];
@@ -1376,6 +1569,61 @@ void main()
                a.Mat.Tiling == b.Mat.Tiling && a.Mat.Offset == b.Mat.Offset;
     }
 
+    // The frame's values for every mesh shader: one upload of the ZaminFrame block.
+    static void UploadFrameUniforms(const SceneEnvironment& env, const glm::mat4& viewProj, const CascadeData& cascades,
+                                    const ShadowSettings& shadowSettings, const SkySettings& skySettings, bool shadows,
+                                    const LocalLightArrays& localLights, const ExtraSunArrays& extraSuns, RenderStatistics& stats)
+    {
+        FrameUniforms& f = s_Data->Frame;
+        f.ViewProjection = viewProj;
+        f.View = s_Data->View;
+        for (int c = 0; c < ShadowSettings::MaxCascades; c++)
+            f.LightSpaces[c] = cascades.LightSpace[c];
+        f.CascadeSplits = { cascades.Splits[0], cascades.Splits[1], cascades.Splits[2], cascades.Splits[3] };
+        f.CascadeTexelWorld = { cascades.TexelWorld[0], cascades.TexelWorld[1], cascades.TexelWorld[2], cascades.TexelWorld[3] };
+        f.Camera = glm::vec4(s_Data->CameraPosition, 0.0f);
+        f.Shadow = { cascades.Count, cascades.AtlasTiles, (int)shadowSettings.Filter, shadows ? 1 : 0 };
+        f.ShadowParams = { shadowSettings.DepthBias, shadowSettings.NormalBias, 1.0f / (float)s_Data->ShadowMapSize, 0.0f };
+        f.Lights = { env.HasSun ? 1 : 0, (int)extraSuns.Count, (int)localLights.Count, 0 };
+        f.SunDirection = glm::vec4(glm::normalize(env.Sun.Direction), 0.0f);
+        f.SunRadiance = glm::vec4(env.Sun.Color * env.Sun.Intensity, 0.0f);
+        f.Flags = { env.FogEnabled ? 1 : 0, env.EnvMap ? 1 : 0, 0, 0 };
+        f.Fog = glm::vec4(env.FogColor, env.FogDensity);
+        f.Env.w = env.FogHeightFalloff;
+        if (env.EnvMap)
+        {
+            // (Without a map the shader does not read these: they keep what they had.)
+            f.Env.x = env.EnvMap->GetMaxLod();
+            f.Env.y = env.EnvIntensity;
+            f.Env.z = env.EnvRotation;
+            const auto& sh = env.EnvMap->GetSH();
+            for (int i = 0; i < 9; i++)
+                f.SH[i] = glm::vec4(sh[i], 0.0f);
+        }
+        f.Sky = glm::vec4(env.SkyTopColor, skySettings.Curve);
+        f.Horizon = glm::vec4(env.SkyHorizonColor, skySettings.GroundFade);
+        f.Ground = glm::vec4(env.GroundColor, env.AmbientIntensity);
+        f.Exposure = glm::vec4(env.Exposure, 0.0f, 0.0f, 0.0f);
+        for (uint32_t i = 0; i < extraSuns.Count; i++)
+        {
+            f.ExtraSunDirection[i] = extraSuns.Direction[i];
+            f.ExtraSunRadiance[i] = extraSuns.Radiance[i];
+        }
+        for (uint32_t i = 0; i < localLights.Count; i++)
+        {
+            f.LightPosRange[i] = localLights.PosRange[i];
+            f.LightRadiance[i] = localLights.Radiance[i];
+            f.LightDirCos[i] = localLights.DirCos[i];
+        }
+        // Uploaded as far as the lights in use go (the shader reads no slot past the counts): the
+        // position and radiance arrays whole, the cone array up to its last used slot.
+        const size_t used = localLights.Count > 0 ? offsetof(FrameUniforms, LightDirCos) + sizeof(glm::vec4) * localLights.Count
+                                                  : offsetof(FrameUniforms, LightPosRange);
+        s_Data->FrameUniformBuffer->SetData(&f, (uint32_t)used);
+        stats.UniformBufferUploads++;
+        stats.UniformBufferBytes += (uint32_t)used;
+    }
+
     void Renderer3D::EndScene()
     {
         auto& env = s_Data->Environment;
@@ -1392,14 +1640,17 @@ void main()
         // Editor view: meshes drawn as their triangle edges only (see the ID pass below).
         const bool wireOnly = env.Wireframe == WireframeMode::Wire && !s_Data->Queue.empty();
         // How each queued mesh is drawn (pass, culling, shadow), once for every pass below.
-        std::vector<SurfaceState> states;
+        // (These lists are kept between frames: a frame allocates nothing once they have grown.)
+        static std::vector<SurfaceState> states;
+        states.clear();
         states.reserve(s_Data->Queue.size());
         for (const DrawItem& item : s_Data->Queue)
             states.push_back(GetSurfaceState(item.Mat, item.Transform, item.CastShadows));
 
         // Frustum culling: what the camera sees (the shadow casters are culled per cascade below).
         const bool culling = s_Data->FrustumCulling;
-        std::vector<uint8_t> visible(s_Data->Queue.size(), 1);
+        static std::vector<uint8_t> visible;
+        visible.assign(s_Data->Queue.size(), 1);
         if (culling)
         {
             const Frustum cameraFrustum = Frustum::FromViewProjection(viewProj);
@@ -1427,7 +1678,8 @@ void main()
             RenderCommand::SetDepthWrite(true);
             RenderCommand::Clear();
             const uint32_t tile = cascades.TileSize;
-            std::vector<size_t> casters;
+            static std::vector<size_t> casters;
+            casters.clear();
             for (int c = 0; c < cascades.Count; c++)
             {
                 RenderCommand::SetViewport((c % cascades.AtlasTiles) * tile, (c / cascades.AtlasTiles) * tile, tile, tile);
@@ -1439,6 +1691,16 @@ void main()
                 }
                 // The cascade's box (the light's orthographic view): casters outside it would be clipped.
                 const Frustum cascadeFrustum = Frustum::FromViewProjection(cascades.LightSpace[c]);
+                // What the camera sees where the shader reads this cascade (its depth range; the
+                // margin covers the normal offset and the filter's reach): a caster whose shadow
+                // cannot get there draws nothing anyone sees.
+                const bool byView = culling && s_ShadowReceiverCulling;
+                const float margin = cascades.TexelWorld[c] * (shadowSettings.NormalBias * 3.5f + 4.0f);
+                const Frustum receivers = byView ? GetShadowReceiverVolume(s_Data->View, viewProj, c == 0 ? 0.0f : cascades.Splits[c - 1],
+                                                                           cascades.Splits[c], margin)
+                                                 : Frustum{};
+                const glm::vec3 lightDir = glm::normalize(env.Sun.Direction);
+                const uint32_t culledBefore = stats.CulledShadowCasterCount;
                 casters.clear();
                 for (size_t i = 0; i < s_Data->Queue.size(); i++)
                 {
@@ -1450,13 +1712,22 @@ void main()
                         stats.CulledShadowCasterCount++;
                         continue;
                     }
+                    if (byView && !ShadowReachesVolume(s_Data->Queue[i].WorldBounds, lightDir, cascades.Depth[c], receivers))
+                    {
+                        stats.CulledShadowCasterCount++;
+                        stats.CulledShadowByViewCount++;
+                        continue;
+                    }
                     casters.push_back(i);
                 }
                 stats.ShadowCasterCount += (uint32_t)casters.size();
+                stats.CascadeShadowCasters[c] += (uint32_t)casters.size();
+                stats.CascadeCulledShadowCasters[c] += stats.CulledShadowCasterCount - culledBefore;
                 // Casters with the same mesh (and cutout material) in one instanced draw: depth
                 // only, so the order does not change the result.
                 const bool instancing = s_Data->Instancing;
-                auto batches = GroupInstances(
+                static FlatBatches batches; // (kept between frames: no allocations)
+                GroupInstances(
                     casters.size(), MaxInstancesPerDraw,
                     [&](size_t k) { return instancing && !s_Data->Queue[casters[k]].MeshRef->IsSkinned() && !s_Data->Queue[casters[k]].Foliage; },
                     [&](size_t k) {
@@ -1465,12 +1736,14 @@ void main()
                     return HashCombine(h, states[casters[k]].AlphaTestedShadow ? std::hash<const void*>()(item.Mat.AlbedoMap.get()) : 0);
                 },
                     [&](size_t x, size_t y) {
-                    bool alpha = states[casters[x]].AlphaTestedShadow;
-                    return alpha == states[casters[y]].AlphaTestedShadow &&
-                           SameShadowCaster(s_Data->Queue[casters[x]], s_Data->Queue[casters[y]], alpha);
-                });
-                for (const std::vector<size_t>& batch : batches)
+                        bool alpha = states[casters[x]].AlphaTestedShadow;
+                        return alpha == states[casters[y]].AlphaTestedShadow &&
+                               SameShadowCaster(s_Data->Queue[casters[x]], s_Data->Queue[casters[y]], alpha);
+                    },
+                    batches);
+                for (size_t b = 0; b < batches.Count(); b++)
                 {
+                    const std::span<const size_t> batch = batches.Batch(b);
                     const DrawItem& item = s_Data->Queue[casters[batch[0]]];
                     const SurfaceState& state = states[casters[batch[0]]];
                     bool skinned = item.MeshRef->IsSkinned();
@@ -1521,72 +1794,15 @@ void main()
         // ---------------- main pass
         if (!s_Data->Queue.empty())
         {
-            ZM_PROFILE_SCOPE("Asosiy o'tish (opaque)");
-            const LocalLightArrays localLights = PackLocalLights(env);
-            const ExtraSunArrays extraSuns = PackExtraSuns(env);
-            for (auto& shader : { s_Data->MeshShader, s_Data->SkinnedMeshShader, s_Data->InstancedMeshShader, s_Data->TerrainShader })
-            {
-                shader->Bind();
-                shader->SetMat4("u_ViewProjection", viewProj);
-                shader->SetMat4("u_View", s_Data->View);
-                shader->SetMat4Array("u_LightSpaces", cascades.LightSpace, ShadowSettings::MaxCascades);
-                shader->SetFloat4("u_CascadeSplits", { cascades.Splits[0], cascades.Splits[1], cascades.Splits[2], cascades.Splits[3] });
-                shader->SetFloat4("u_CascadeTexelWorld", { cascades.TexelWorld[0], cascades.TexelWorld[1], cascades.TexelWorld[2], cascades.TexelWorld[3] });
-                shader->SetInt("u_CascadeCount", cascades.Count);
-                shader->SetInt("u_ShadowAtlasTiles", cascades.AtlasTiles);
-                shader->SetInt("u_ShadowFilter", (int)shadowSettings.Filter);
-                shader->SetFloat("u_ShadowDepthBias", shadowSettings.DepthBias);
-                shader->SetFloat("u_ShadowNormalBias", shadowSettings.NormalBias);
-                shader->SetInt("u_UseIBL", env.EnvMap ? 1 : 0);
-                shader->SetInt("u_EnvMap", 5);
-                if (env.EnvMap)
-                {
-                    shader->SetFloat("u_EnvMaxLod", env.EnvMap->GetMaxLod());
-                    shader->SetFloat("u_EnvIntensity", env.EnvIntensity);
-                    shader->SetFloat("u_EnvRotation", env.EnvRotation);
-                    const auto& sh = env.EnvMap->GetSH();
-                    for (int i = 0; i < 9; i++)
-                        shader->SetFloat3("u_SH[" + std::to_string(i) + "]", sh[i]);
-                }
-                shader->SetInt("u_FogEnabled", env.FogEnabled ? 1 : 0);
-                shader->SetFloat3("u_FogColor", env.FogColor);
-                shader->SetFloat("u_FogDensity", env.FogDensity);
-                shader->SetFloat("u_FogHeightFalloff", env.FogHeightFalloff);
-                shader->SetFloat3("u_CameraPos", s_Data->CameraPosition);
-                shader->SetInt("u_HasSun", env.HasSun ? 1 : 0);
-                shader->SetFloat3("u_SunDirection", glm::normalize(env.Sun.Direction));
-                shader->SetFloat3("u_SunRadiance", env.Sun.Color * env.Sun.Intensity);
-                shader->SetInt("u_ExtraSunCount", (int)extraSuns.Count);
-                if (extraSuns.Count > 0)
-                {
-                    shader->SetFloat4Array("u_ExtraSunDirection", extraSuns.Direction, extraSuns.Count);
-                    shader->SetFloat4Array("u_ExtraSunRadiance", extraSuns.Radiance, extraSuns.Count);
-                }
-                shader->SetInt("u_ShadowsEnabled", shadows ? 1 : 0);
-                shader->SetFloat("u_ShadowTexel", 1.0f / (float)s_Data->ShadowMapSize);
-                shader->SetFloat3("u_SkyColor", env.SkyTopColor);
-                shader->SetFloat3("u_HorizonColor", env.SkyHorizonColor);
-                shader->SetFloat3("u_GroundColor", env.GroundColor);
-                shader->SetFloat("u_SkyCurve", skySettings.Curve);
-                shader->SetFloat("u_GroundFade", skySettings.GroundFade);
-                shader->SetFloat("u_Ambient", env.AmbientIntensity);
-                shader->SetFloat("u_Exposure", env.Exposure);
-
-                shader->SetInt("u_LocalLightCount", (int)localLights.Count);
-                if (localLights.Count > 0)
-                {
-                    shader->SetFloat4Array("u_LightPosRange", localLights.PosRange, localLights.Count);
-                    shader->SetFloat4Array("u_LightRadiance", localLights.Radiance, localLights.Count);
-                    shader->SetFloat4Array("u_LightDirCos", localLights.DirCos, localLights.Count);
-                }
-
-                shader->SetInt("u_DebugView", (int)env.DebugView);
-                shader->SetInt("u_AlbedoMap", 0);
-                shader->SetInt("u_ShadowMap", 1);
-                shader->SetInt("u_NormalMap", 2);
-                shader->SetInt("u_MetalRoughMap", 3);
-                shader->SetInt("u_EmissiveMap", 4);
-            }
+          ZM_PROFILE_SCOPE("Asosiy o'tish (opaque)");
+          const LocalLightArrays localLights = PackLocalLights(env);
+          const ExtraSunArrays extraSuns = PackExtraSuns(env);
+          UploadFrameUniforms(env, viewProj, cascades, shadowSettings, skySettings, shadows, localLights, extraSuns, stats);
+          for (auto& shader : { s_Data->MeshShader, s_Data->SkinnedMeshShader, s_Data->InstancedMeshShader, s_Data->TerrainShader })
+          {
+              shader->Bind();
+              shader->SetInt("u_DebugView", (int)env.DebugView);
+          }
             RenderCommand::BindTextureUnit(1, s_Data->ShadowMap->GetDepthAttachmentRendererID());
             (env.EnvMap ? env.EnvMap->GetTexture() : s_Data->WhiteTexture)->Bind(5);
 
@@ -1626,8 +1842,8 @@ void main()
             RenderCommand::SetWireframe(wireOnly);
             // Meshes that share the mesh, the material and the facing are drawn as instances of one
             // call (in the order of the first of them; alone they are drawn as before).
-            std::vector<size_t> passItems;
-            std::vector<InstanceCandidate> candidates;
+            static std::vector<size_t> passItems;
+            static std::vector<InstanceCandidate> candidates;
             for (SurfaceState::Pass pass : { SurfaceState::Pass::Opaque, SurfaceState::Pass::Cutout })
             {
                 passItems.clear();
@@ -1639,8 +1855,11 @@ void main()
                     passItems.push_back(i);
                     candidates.push_back({ item.MeshRef.get(), &item.Mat, item.MeshRef->IsSkinned() || bool(item.Surface) || bool(item.Foliage), states[i].Mirrored });
                 }
-                for (const std::vector<size_t>& batch : BuildInstanceBatches(candidates))
+                static FlatBatches batches;
+                BuildInstanceBatchesFlat(candidates, MaxInstancesPerDraw, batches);
+                for (size_t b = 0; b < batches.Count(); b++)
                 {
+                    const std::span<const size_t> batch = batches.Batch(b);
                     const SurfaceState& state = states[passItems[batch[0]]];
                     RenderCommand::SetCullMode(state.Cull);
                     if (batch.size() == 1)
@@ -1707,7 +1926,8 @@ void main()
         // behind them stays visible). Output is premultiplied by alpha.
         ZM_PROFILE_SCOPE("Shaffof sirtlar");
         std::vector<TransparentSortItem> sortItems;
-        std::vector<size_t> transparent;
+        static std::vector<size_t> transparent;
+        transparent.clear();
         s_Data->LastTransparent.clear();
         s_Data->LastTransparentViewProjection = viewProj;
         for (size_t i = 0; i < s_Data->Queue.size(); i++)

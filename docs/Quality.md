@@ -1,10 +1,40 @@
 # Sifat hisoboti
 
-M22 "Sifat va testlar" milestone'i oxiridagi holat: hamma raqamlar shu kompyuterda haqiqatan o'lchangan (2026-11-08,
-4 vCPU, 15 GB RAM, Ubuntu 24.04, GCC 13.3, Clang 18.1, Mesa llvmpipe - GPU yo'q). Testlar va ularni ishga tushirish:
-[Testing.md](Testing.md).
+Ikki o'lchov: avval loyihaning **yakuniy regressiyasi** (M25, 500-vazifa, 2026-11-09), so'ng M22 "Sifat va testlar"
+milestone'i oxiridagi batafsil hisobot (sanitizerlar, qamrov, formatlash statistikasi). Hamma raqamlar shu kompyuterda
+haqiqatan o'lchangan (4 vCPU, 15 GB RAM, Ubuntu 24.04, GCC 13.3, Clang 18.1, Mesa llvmpipe - GPU yo'q). Testlar va
+ularni ishga tushirish: [Testing.md](Testing.md); ishlash tezligi: [Performance.md](Performance.md).
 
-## Qisqacha
+## Yakuniy regressiya (M25, 2026-11-09)
+
+Hamma 500 vazifadan keyin (`c2b82dd` + hot reload tuzatishi). Har build noldan yoki to'liq sozlangan holda; ctest
+to'plamlari Debug build'da, bir vaqtda boshqa build'lar ham ishlab turgan (shuning uchun vaqtlar odatdagidan uzun).
+
+| Tekshiruv | Natija |
+|---|---|
+| GCC 13 Debug (`build/`) | build: **0** ogohlantirish; `ZaminTests` **651 test, 0 xato** (53 s) |
+| GCC 13 Release (alohida build papkasi, to'liq: engine, editor, player, testlar, benchmark, 9 o'yin moduli) | build: **0** ogohlantirish; `ZaminTests` **651 / 0** (12 s) |
+| Clang 18 Debug (`build-clang`, to'liq: 437 qadam) | build: **0** ogohlantirish; `ZaminTests` **651 / 0** (38 s) |
+| ASan + UBSan (GCC Debug, `Tests/sanitize.sh address,undefined`) | `ZaminTests` **651 / 0, 0 sanitizer xabari** (198 s) |
+| Rendering etalonlari (`Tests/render_tests.sh`) | **12 / 12** - GCC Debug, GCC Release va Clang build'larida |
+| Hujjatlar (`DocsCheck`, `DocsSnippets`) | 0 muammo (29 hujjat, 35 rasm); hujjat kodi: 25 skript klassi, 12 fayl kompilyatsiya qilindi |
+| Benchmark smoke (`BenchEcsSmoke`, `BenchSerializeSmoke`) | o'tdi |
+| Editor smoke testi (`EditorSmoke`) | Showcase3D **221 / 221**, Platformer2D **263 / 263** qadam, 0 xato, 0 OpenGL bayrog'i, 0 ImGui tekshiruvi |
+| Skript hot reload (`ScriptHotReload`) | o'tdi (21 s) - birinchi ishga tushirishda yiqildi, tuzatildi (pastda) |
+| Eksport testi (`ExportTest`) | o'tdi (137 s) |
+| Namuna o'yinlar (`ctest -L samples`: `SampleAssets` + 9 o'yin) | **10 / 10** o'tdi |
+| Eksport qilingan namunalar (`SampleExports`) | **9 / 9** namuna eksport qilindi va eksport qilingan papkadan o'ynaldi (6 ta bot demo, 3 ta smoke; 891 s) |
+| Fizika determinizmi (Box2D, Jolt) | `ZaminTests` ichida, hamma build'da o'tdi |
+| Formatlash (`Tests/format_check.sh --base 14e8435`) | o'zgargan qatorlarda 2 bo'lak tuzatildi, endi toza |
+| Kod hajmi | 528 C++ fayl (vendor'siz): engine 385 fayl / 122 600 qator, editor 57 900, testlar 53 800, o'yinlar 14 900 |
+
+**Regressiyada topilgan xato.** `ScriptHotReload` og'ir yuklama ostida (bir vaqtda ikki build) yiqildi: editor modul
+faylini linker hali yozib bo'lmasdan o'qidi - `Skript moduli yuklanmadi: ... file too short`, keyingi so'rovda
+yuklandi, lekin logdagi xato testni yiqitdi. Fayl hajmi va vaqti ikki so'rov (0.4 s) davomida o'zgarmasligi yetmas
+ekan: linker shuncha to'xtab qolishi mumkin. Endi editor ELF sarlavhasidagi bo'limlar jadvali (linker oxirida yozadi)
+fayl ichida ekanini ham tekshiradi (`IsElfFileComplete`, `EditorLayer.cpp`); qayta ishga tushirishda test o'tdi.
+
+## M22 hisoboti: qisqacha
 
 | Ko'rsatkich | Natija |
 |---|---|

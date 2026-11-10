@@ -17,11 +17,15 @@ namespace Zamin {
 
     ImGuiLayer::ImGuiLayer() : Layer("ImGuiLayer") {}
 
-    static ImFont* AddFontWithIcons(ImGuiIO& io, const std::filesystem::path& file, float size, float iconSize)
+    // `textOnlyAscii`: a font only icons are drawn with (the large one: content browser tiles, empty states) gets
+    // just the ASCII letters of its text font - the rest of Latin and Cyrillic at 3x the size was most of the
+    // atlas's pixels (start-up time, task 495).
+    static ImFont* AddFontWithIcons(ImGuiIO& io, const std::filesystem::path& file, float size, float iconSize, bool textOnlyAscii = false)
     {
         if (!std::filesystem::exists(file))
             return io.Fonts->AddFontDefault();
 
+        static const ImWchar asciiRanges[] = { 0x0020, 0x007E, 0 };
         static const ImWchar ranges[] = {
             0x0020, 0x00FF, // Basic Latin + Latin-1
             0x0100, 0x017F, // Latin Extended-A
@@ -34,12 +38,17 @@ namespace Zamin {
         ImFontConfig cfg;
         cfg.OversampleH = 2;
         cfg.OversampleV = 2;
-        ImFont* font = io.Fonts->AddFontFromFileTTF(file.string().c_str(), size, &cfg, ranges);
+        ImFont* font = io.Fonts->AddFontFromFileTTF(file.string().c_str(), size, &cfg, textOnlyAscii ? asciiRanges : ranges);
 
         std::filesystem::path iconFile = Renderer::GetResourcesDirectory() / "fonts" / "fa-solid-900.ttf";
         if (std::filesystem::exists(iconFile))
         {
-            static const ImWchar iconRanges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
+            // Only the icons the editor uses (Icons.h): baking Font Awesome's whole block into four fonts was most
+            // of the first frame (~1400 glyphs each, oversampled).
+            static const ImWchar iconRanges[] = {
+#include "Zamin/ImGui/IconRanges.inl"
+                0,
+            };
             ImFontConfig iconCfg;
             iconCfg.MergeMode = true;
             iconCfg.PixelSnapH = true;
@@ -59,7 +68,7 @@ namespace Zamin {
         io.FontDefault = AddFontWithIcons(io, fonts / "Inter-Regular.ttf", base, base * 0.9f);
         s_BoldFont = AddFontWithIcons(io, fonts / "Inter-Bold.ttf", base, base * 0.9f);
         s_TitleFont = AddFontWithIcons(io, fonts / "Inter-Bold.ttf", base * 1.6f, base * 1.4f);
-        s_LargeIconFont = AddFontWithIcons(io, fonts / "Inter-Regular.ttf", base * 3.0f, base * 3.0f);
+        s_LargeIconFont = AddFontWithIcons(io, fonts / "Inter-Regular.ttf", base * 3.0f, base * 3.0f, true);
         ImFontConfig codeFont;
         codeFont.SizePixels=base;codeFont.OversampleH=1;codeFont.OversampleV=1;codeFont.PixelSnapH=true;
         std::snprintf(codeFont.Name,sizeof(codeFont.Name),"ZaminCode");
@@ -122,6 +131,13 @@ namespace Zamin {
             ImGui_ImplOpenGL3_CreateFontsTexture();
         }
         ImGui_ImplOpenGL3_NewFrame();
+        // The atlas's pixels are on the GPU once the backend made its texture (in its first NewFrame): the CPU
+        // copies (alpha + RGBA, several MB) are let go (task 496). A new font size bakes them again above.
+        if (ImFontAtlas* atlas = ImGui::GetIO().Fonts; atlas->TexPixelsAlpha8 || atlas->TexPixelsRGBA32)
+        {
+            ZM_CORE_INFO("Editor shrift atlasi: {}x{} ({} ta shrift); CPU nusxasi bo'shatildi", atlas->TexWidth, atlas->TexHeight, atlas->Fonts.Size);
+            atlas->ClearTexData();
+        }
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
         ImGuizmo::BeginFrame();

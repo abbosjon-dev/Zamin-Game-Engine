@@ -288,17 +288,33 @@ namespace Zamin {
         // GameModules folder - not to the projects' Binaries, where the regular build's modules are - and its
         // programs (<build>/bin) load them from there when they exist (cmake/Sanitizers.cmake, Coverage.cmake);
         // a game exported from it is elsewhere and loads the module it ships.
+        // A build tree other than build/ does the same with its own GameModules folder (the root CMakeLists.txt) - there
+        // the project's module wins when it is newer: the editor's script compile writes that one (hot reload).
         std::filesystem::path folder;
+        bool preferNewer = false;
         std::error_code ec;
         if (const char* dir = std::getenv("ZAMIN_SCRIPT_MODULE_DIR"); dir && *dir)
             folder = dir;
 #ifdef ZAMIN_SANITIZER_MODULE_DIR
         else if (std::filesystem::equivalent(FileSystem::GetExecutableDirectory(), ZAMIN_SANITIZER_BIN_DIR, ec))
+        {
             folder = ZAMIN_SANITIZER_MODULE_DIR;
+#ifdef ZAMIN_BUILD_MODULE_PREFER_NEWER
+            preferNewer = true;
 #endif
-        if (!folder.empty() && std::filesystem::is_regular_file(folder / path.filename(), ec))
-            return folder / path.filename();
-        return path;
+        }
+#endif
+        if (folder.empty() || !std::filesystem::is_regular_file(folder / path.filename(), ec))
+            return path;
+        const std::filesystem::path own = folder / path.filename();
+        if (preferNewer && std::filesystem::is_regular_file(path, ec))
+        {
+            const auto projectTime = std::filesystem::last_write_time(path, ec);
+            const bool newer = !ec && projectTime > std::filesystem::last_write_time(own, ec);
+            if (newer && !ec)
+                return path;
+        }
+        return own;
     }
 
     const InputActionMap& Project::GetInputActionMap()

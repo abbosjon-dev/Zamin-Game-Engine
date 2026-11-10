@@ -576,6 +576,9 @@ namespace Zamin {
 
     bool ThumbnailCache::RenderPrefab(const fs::path& path, ThumbnailImage& out)
     {
+        // The prefab's models and textures loaded now, not placeholders: the picture is drawn in this
+        // frame and kept on disk (a model that finished later would not draw it again).
+        AsyncLoader::Immediate immediate;
         // The textures and models loaded for the picture only go again afterwards (see RenderModel).
         const uint64_t textureSerial = TextureLibrary::GetLoadSerial();
         std::vector<fs::path> models;

@@ -63,6 +63,13 @@ namespace Zamin {
         // Decode an encoded image (png/jpg/...) from memory, e.g. textures embedded in .glb files.
         static Ref<Texture2D> CreateFromMemory(const void* data, size_t size, const std::string& debugName = {});
 
+        // false while it is being loaded in the background (TextureLibrary::LoadAsync, a model loaded by
+        // a worker): it draws as a transparent placeholder pixel, its size is 1 x 1 until the upload.
+        virtual bool IsReady() const { return true; }
+        // Main thread: a texture still loading finishes now (its decode waited for, its upload done);
+        // false when it could not be read. Nothing to do (true) for a ready one.
+        virtual bool FinishLoading() { return true; }
+
         // Reads the file again into this texture (same GPU object, so everything that holds it
         // shows the new pixels; the size may change). False - and the old pixels stay - when the
         // file cannot be read or the texture was not made from a file: the reason goes to `error`,
@@ -97,6 +104,17 @@ namespace Zamin {
         // pixel-art sprites and tilemaps ask for (nearest filtering, no mipmaps; wrap and color
         // space still from the import settings).
         static Ref<Texture2D> Load(const std::filesystem::path& path, TextureFilter filter = TextureFilter::Linear);
+        // The same in the background (AsyncLoader on; off: Load): the texture is returned at once - a
+        // placeholder (IsReady false) - and decoded on a worker, uploaded by the main thread's
+        // AsyncLoader::Update. A Load of the file meanwhile finishes it first. nullptr for a file
+        // that failed before (and did not change); one that turns out unreadable reports it then.
+        static Ref<Texture2D> LoadAsync(const std::filesystem::path& path, TextureFilter filter = TextureFilter::Linear);
+        // Textures of LoadAsync still loading.
+        static size_t GetLoadingCount();
+        // Grows each time a texture of LoadAsync turns out unreadable. What holds such a texture (a
+        // sprite, a tilemap) lets go of it when it sees this change (Scene, before it draws): as if Load
+        // had given nullptr - the sprite draws its colour alone, the tilemap asks for its tileset again.
+        static uint64_t GetFailedLoadSerial();
         // Settings a file is loaded with (its import settings, adjusted for the pixel-art copy).
         static TextureImportSettings GetLoadSettings(const std::filesystem::path& path, bool pixelArt = false);
         // Re-reads a file into every cached texture made from it (each filter variant), in place,

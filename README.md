@@ -64,6 +64,8 @@ imkoniyatlar, kod bo'ylab sayohat):*
   buyruq qatori — [Runtime.md](docs/Runtime.md), [BuildAndExport.md](docs/BuildAndExport.md)
 - **Sifat** — headless unit testlar, rendering regressiya testi, editor smoke testi, sanitizerlar, kod qamrovi,
   benchmarklar, hujjatlar tekshiruvi — [Testing.md](docs/Testing.md), [Quality.md](docs/Quality.md)
+- **Ishlash tezligi** — batching, keshlar, fonda yuklash, shader keshi, parallel particle / animatsiya, ishga
+  tushish vaqti va xotira o'lchovlari — [Performance.md](docs/Performance.md), [Benchmarks.md](docs/Benchmarks.md)
 
 **To'liq ro'yxat** (har bir imkoniyat tafsilotlari bilan): [docs/Features.md](docs/Features.md).
 
@@ -189,6 +191,10 @@ API ma'lumotnomasi (Doxygen): `cmake --build build --target docs` → `build/doc
 
 Build, kod uslubi, testlar, commit qoidalari va hujjatlar: [CONTRIBUTING.md](CONTRIBUTING.md). O'zgarishlar tarixi
 milestone'lar bo'yicha: [CHANGELOG.md](CHANGELOG.md); reja: [docs/TASKS.md](docs/TASKS.md).
+
+**Holat:** rejadagi 500 ta vazifaning hammasi (25 milestone, M01–M25) bajarilgan — [docs/TASKS.md](docs/TASKS.md).
+Yakuniy regressiya (gcc Debug / Release, clang, unit va render testlari, namunalar, editor smoke, hot reload, eksport,
+ASan + UBSan) natijalari: [docs/Quality.md](docs/Quality.md).
 
 ## 📦 Uchinchi tomon kutubxonalari
 

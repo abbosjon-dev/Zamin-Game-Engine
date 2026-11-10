@@ -72,6 +72,7 @@ API ma'lumotnomasi (Doxygen, header'lardagi izohlardan): `cmake --build build --
 | [Quality.md](Quality.md) | Sifat hisoboti: testlar, sanitizerlar, qamrov, ogohlantirishlar, formatlash va benchmarklarning o'lchangan natijalari |
 | [Coverage.md](Coverage.md) | Kod qamrovi (gcov): build, hisobot, modullar bo'yicha natijalar |
 | [Benchmarks.md](Benchmarks.md) | Benchmark dasturlari va Release boshlang'ich natijalari, solishtirish |
+| [Performance.md](Performance.md) | Ishlash tezligi hisoboti: profiler yozuvlaridan eng og'ir joylar, M25 da tuzatilganlar, qolgan cheklovlar |
 
 ## Loyiha
 

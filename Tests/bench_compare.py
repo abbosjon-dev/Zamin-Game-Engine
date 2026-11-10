@@ -3,6 +3,11 @@
 got slower (or bigger) than the tolerance allows. Standard library only.
 
     Tests/bench_compare.py Tests/Baselines/ecs-release.json build-release/Bench/ecs.json [--tolerance 25] [--min-abs X] [--markdown f.md]
+    Tests/bench_compare.py <baseline> run1.json run2.json run3.json    several runs: each number's best of them
+
+Several runs of the same build (Tests/bench.sh --compare runs again when one looks slower): each number is the best
+of them (the smallest; the largest for throughputs) - a real regression is slower in every run, a busy computer
+(another process, the disk cache) only in some.
 
 The files are the "Results" maps of `ZaminBench --ecs / --serialize / --serialize --prefabs --json <file>`: each key
 has "Ms" (the ECS benchmark) or "Value" + "Unit". Lower is better for every unit (ms, ns, MB, B, %) except the
@@ -36,17 +41,33 @@ def load(path):
     return data, results
 
 
+def best_of(runs):
+    """The runs of one build merged: per key the best value (lower is better, higher for ".../s")."""
+    data, merged = runs[0]
+    merged = dict(merged)
+    for _, results in runs[1:]:
+        for key, (value, unit, noisy) in results.items():
+            if key not in merged:
+                merged[key] = (value, unit, noisy)
+                continue
+            old = merged[key][0]
+            better = value > old if unit.endswith("/s") else value < old
+            if better:
+                merged[key] = (value, unit, noisy)
+    return data, merged
+
+
 def main():
     parser = argparse.ArgumentParser(description="ZaminBench natijalarini boshlang'ich natija bilan solishtirish")
     parser.add_argument("baseline")
-    parser.add_argument("current")
+    parser.add_argument("current", nargs="+", help="yangi natija(lar); bir nechta bo'lsa har raqamning eng yaxshisi")
     parser.add_argument("--tolerance", type=float, default=25.0, help="ruxsat etilgan sekinlashish, foiz (standart 25)")
     parser.add_argument("--min-abs", type=float, default=None, help="bundan kichik farq hisobga olinmaydi (o'z birligida; standart birlikka qarab)")
     parser.add_argument("--markdown", help="jadvalni Markdown faylga ham yozish")
     args = parser.parse_args()
 
     base_data, base = load(args.baseline)
-    cur_data, cur = load(args.current)
+    cur_data, cur = best_of([load(path) for path in args.current])
     notes = []
     if base_data.get("Build") != cur_data.get("Build"):
         notes.append(f"build turlari farq qiladi: {base_data.get('Build')} va {cur_data.get('Build')} - raqamlar solishtirilmaydi")
@@ -79,7 +100,8 @@ def main():
 
     width = max([len(r[0]) for r in rows] + [10])
     floor_text = f"{args.min_abs:g}" if args.min_abs is not None else "birlikka qarab"
-    print(f"Boshlang'ich: {args.baseline}\nYangi:        {args.current}\nChegara: {args.tolerance:g} % (va farq > {floor_text})\n")
+    current = args.current[0] if len(args.current) == 1 else f"{', '.join(args.current)} (har raqamning eng yaxshisi)"
+    print(f"Boshlang'ich: {args.baseline}\nYangi:        {current}\nChegara: {args.tolerance:g} % (va farq > {floor_text})\n")
     for note in notes:
         print(f"Diqqat: {note}")
     print(f"{'Kalit':<{width}}  {'avval':>12}  {'hozir':>12}  {'birlik':<7}  {'farq':>8}")

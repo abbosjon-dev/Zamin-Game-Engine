@@ -138,6 +138,16 @@ namespace Zamin {
         // "Ishlatilmagan assetlarni topish" in the panel's menu.
         std::function<void()> OnFindUnusedAssets;
 
+        // The tile grid as drawn: entries, tiles drawn last frame, the time it took (automation:
+        // ZAMIN_EDITOR_PANEL_TIMES).
+        struct GridTiming
+        {
+            size_t Items = 0, DrawnItems = 0;
+            double TotalMilliseconds = 0.0, MaxMilliseconds = 0.0;
+            uint64_t Frames = 0;
+        };
+        const GridTiming& GetGridTiming() const { return m_GridTiming; }
+
     private:
         Ref<Texture2D> GetThumbnail(const AssetEntry& entry);
         // The thumbnail fitted into a box (the aspect kept), drawn into the window's draw list.
@@ -239,6 +249,7 @@ namespace Zamin {
         std::filesystem::path m_RenameTarget;
         std::string m_RenameBuffer;
         bool m_OpenRenamePopup = false;
+        GridTiming m_GridTiming;
     };
 
 }

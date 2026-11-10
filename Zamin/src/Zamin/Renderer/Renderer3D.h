@@ -284,6 +284,24 @@ namespace Zamin {
         static std::vector<std::vector<size_t>> BuildInstanceBatches(const std::vector<InstanceCandidate>& items,
                                                                      uint32_t maxPerDraw = MaxInstancesPerDraw);
 
+        /// Shadow pass culling by what the camera sees (task 490; on by default, with frustum
+        /// culling): a caster inside a cascade's volume is still left out of it when no point the
+        /// camera sees in that cascade's depth range can be in its shadow - the caster swept along
+        /// the light's direction misses the view (casters behind the camera, beside the view, or
+        /// whose shadow falls on what another cascade draws). The picture stays the same: the test
+        /// is conservative and keeps a margin for the filter and the normal offset.
+        static void SetShadowReceiverCulling(bool enabled);
+        static bool IsShadowReceiverCullingEnabled();  ///< see SetShadowReceiverCulling
+        /// The volume whose points may receive the shadows of one cascade: the camera's view
+        /// (`viewProjection`) between view depths `nearDepth` and `farDepth`, every plane pushed
+        /// out by `margin` world units. No GPU needed.
+        static Frustum GetShadowReceiverVolume(const glm::mat4& view, const glm::mat4& viewProjection, float nearDepth, float farDepth,
+                                               float margin);
+        /// Whether `caster` can shadow anything in `receivers`: the box moved up to `reach` along
+        /// `lightDirection` (where the light travels; unit length) touches the volume - exact per
+        /// plane, conservative like Frustum::Intersects. No GPU needed.
+        static bool ShadowReachesVolume(const AABB& caster, const glm::vec3& lightDirection, float reach, const Frustum& receivers);
+
         /// Where the shadow cascades of a perspective camera end (view depths): `count` splits
         /// between `nearDepth` and `farDepth`, a mix of even and logarithmic spacing (`split`
         /// from 0 to 1). The last one is (up to rounding) `farDepth`. No GPU needed.

@@ -1,4 +1,6 @@
 #include "Zamin/Renderer/Renderer.h"
+#include "Zamin/Core/Profiler.h"
+#include "Zamin/Renderer/ShaderCache.h"
 #include "Zamin/Renderer/DisplayPass.h"
 #include "Zamin/Renderer/Quality.h"
 #include "Zamin/Debug/DebugDraw.h"
@@ -23,11 +25,32 @@ namespace Zamin {
 
     void Renderer::Init()
     {
-        RenderCommand::Init();
-        Renderer2D::Init();
-        Renderer3D::Init();
-        ParticleRenderer::Init();
-        PostProcessor::Init();
+        {
+            ZM_PROFILE_SCOPE("RenderCommand::Init");
+            RenderCommand::Init();
+        }
+        {
+            ZM_PROFILE_SCOPE("Renderer2D::Init");
+            Renderer2D::Init();
+        }
+        {
+            ZM_PROFILE_SCOPE("Renderer3D::Init");
+            Renderer3D::Init();
+        }
+        {
+            ZM_PROFILE_SCOPE("ParticleRenderer::Init");
+            ParticleRenderer::Init();
+        }
+        {
+            ZM_PROFILE_SCOPE("PostProcessor::Init");
+            PostProcessor::Init();
+        }
+        const ShaderCache::Stats& shaders = ShaderCache::GetStats();
+        ZM_CORE_INFO("Shader'lar: {} ta keshdan ({:.1f} ms), {} ta kompilyatsiya ({:.1f} ms){}", shaders.Hits, shaders.LoadMilliseconds,
+                     shaders.Misses, shaders.CompileMilliseconds,
+                     ShaderCache::IsAvailable()            ? std::string()
+                     : ShaderCache::GetDirectory().empty() ? std::string(" - binary kesh o'chiq")
+                                                           : std::string(" - drayver program binary'ni qo'llamaydi"));
     }
 
     void Renderer::Shutdown()
@@ -87,12 +110,14 @@ namespace Zamin {
     std::string RenderStatistics::Format() const
     {
         return std::format("draw call {}, uchburchak {} | mesh: {} chizildi, {} kesildi, {} instanced ({} chaqiruv), {} shaffof | "
-                           "soya: {} chizildi, {} kesildi, {} instanced ({} chaqiruv) | 2D: {} chizildi, {} kesildi | tile bo'laklari: "
-                           "{} chizildi, {} kesildi | quad {}, doira {}, chiziq {} | particle {} ({} instanced, {} chaqiruv)",
+                           "soya: {} chizildi, {} kesildi ({} ko'rinmas soya), {} instanced ({} chaqiruv) | 2D: {} chizildi, {} kesildi | tile bo'laklari: "
+                           "{} chizildi, {} kesildi | quad {}, doira {}, chiziq {} | particle {} ({} instanced, {} chaqiruv) | "
+                           "2D batch bo'linishi: tekstura {}, tur {}, holat {}; tartibi o'zgargan {} | uniform bufer {} ({} bayt)",
                            DrawCalls, TriangleCount, MeshCount, CulledMeshCount, InstancedMeshCount, InstancedDrawCount, TransparentCount,
-                           ShadowCasterCount, CulledShadowCasterCount, InstancedShadowCasterCount, InstancedShadowDrawCount, SpriteCount,
+                           ShadowCasterCount, CulledShadowCasterCount, CulledShadowByViewCount, InstancedShadowCasterCount, InstancedShadowDrawCount, SpriteCount,
                            CulledSpriteCount, TileChunkCount, CulledTileChunkCount, QuadCount, CircleCount, LineCount, ParticleCount,
-                           InstancedParticleCount, InstancedParticleDrawCount);
+                           InstancedParticleCount, InstancedParticleDrawCount, Flush2DTextures, Flush2DKind, Flush2DState, Reordered2DCount,
+                           UniformBufferUploads, UniformBufferBytes);
     }
 
     std::filesystem::path Renderer::GetResourcesDirectory()

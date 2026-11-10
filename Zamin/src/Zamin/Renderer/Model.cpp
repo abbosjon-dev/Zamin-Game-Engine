@@ -1,4 +1,6 @@
 #include "Zamin/Renderer/Model.h"
+#include "Zamin/Asset/AsyncLoader.h"
+#include "Zamin/Core/JobSystem.h"
 #include "Zamin/Renderer/Texture.h"
 #include "Zamin/Asset/AssetImportLog.h"
 #include "Zamin/Asset/AssetImporter.h"
@@ -1353,19 +1355,41 @@ namespace Zamin {
         return &baked;
     }
 
-    Ref<Model> Model::CreateSkeletal(Skeleton skeleton, std::vector<AnimationClip> animations)
+    Ref<Model> Model::CreateSkeletal(Skeleton skeleton, std::vector<AnimationClip> animations, std::vector<SubMesh> subMeshes)
     {
         auto model = CreateRef<Model>();
         model->m_Skeleton = std::move(skeleton);
         model->m_Animations = std::move(animations);
+        model->m_SubMeshes = std::move(subMeshes);
+        bool any = false;
+        for (const SubMesh& sub : model->m_SubMeshes)
+            if (sub.MeshRef)
+            {
+                const AABB& b = sub.MeshRef->GetBounds();
+                model->m_Bounds.Min = any ? glm::min(model->m_Bounds.Min, b.Min) : b.Min;
+                model->m_Bounds.Max = any ? glm::max(model->m_Bounds.Max, b.Max) : b.Max;
+                any = true;
+            }
         return model;
     }
+
+    // LoadAsync's models still loading: their AsyncLoader loads (main thread).
+    static std::unordered_map<const Model*, uint64_t> s_ModelLoads;
 
     Ref<Model> Model::Load(const std::filesystem::path& path)
     {
         std::string key = path.string();
         if (auto it = s_ModelCache.find(key); it != s_ModelCache.end())
+        {
+            if (it->second && it->second->m_Loading)
+                if (auto load = s_ModelLoads.find(it->second.get()); load != s_ModelLoads.end())
+                {
+                    AsyncLoader::Wait(load->second); // parsed on a worker: finished now
+                    it = s_ModelCache.find(key);
+                    return it != s_ModelCache.end() ? it->second : nullptr;
+                }
             return it->second;
+        }
 
         std::string error;
         Ref<Model> model = ModelLoader::LoadFile(path, AssetImporter::GetModelSettings(path), error);
@@ -1377,8 +1401,55 @@ namespace Zamin {
         return model;
     }
 
+    Ref<Model> Model::LoadAsync(const std::filesystem::path& path)
+    {
+        if (!AsyncLoader::IsEnabled() || AsyncLoader::IsDeferringGPU() || JobSystem::IsWorkerThread())
+            return Load(path);
+        std::string key = path.string();
+        if (auto it = s_ModelCache.find(key); it != s_ModelCache.end())
+            return it->second;
+        Ref<Model> model = CreateRef<Model>();
+        model->m_Path = path;
+        model->m_Loading = true;
+        s_ModelCache[key] = model;
+        struct Result
+        {
+            Ref<Model> Loaded;
+            std::string Error;
+        };
+        auto result = std::make_shared<Result>();
+        const ModelImportSettings settings = AssetImporter::GetModelSettings(path); // (the asset registry is the main thread's)
+        const uint64_t id = AsyncLoader::Enqueue(
+            key, [path, settings, result] { result->Loaded = ModelLoader::LoadFile(path, settings, result->Error); },
+            [model, result, key] {
+                s_ModelLoads.erase(model.get());
+                model->m_Loading = false;
+                if (!result->Loaded)
+                {
+                    AssetImportLog::Report(model->m_Path, result->Error);
+                    if (auto it = s_ModelCache.find(key); it != s_ModelCache.end() && it->second == model)
+                        it->second = nullptr; // a failed file is not read again until it changes (ReloadFile)
+                    return;
+                }
+                // Its meshes onto the GPU before anything draws them (the textures follow in AsyncLoader::Update).
+                for (const SubMesh& sub : result->Loaded->m_SubMeshes)
+                    if (sub.MeshRef)
+                        sub.MeshRef->EnsureUploaded();
+                ModelLoader::Replace(*model, std::move(*result->Loaded));
+                AssetImportLog::Clear(model->m_Path);
+            });
+        if (AsyncLoader::IsPending(id))
+            s_ModelLoads[model.get()] = id;
+        return model;
+    }
+
     bool Model::Reimport(const ModelImportSettings& settings, std::string* error)
     {
+        // Still loading in the background (LoadAsync): that load - read with the settings of its start - is
+        // finished first, or its finish would put the old result over this one later.
+        if (m_Loading)
+            if (auto load = s_ModelLoads.find(this); load != s_ModelLoads.end())
+                AsyncLoader::Wait(load->second);
         std::string reason;
         Ref<Model> fresh = ModelLoader::LoadFile(m_Path, settings, reason);
         if (!fresh)
@@ -1469,6 +1540,11 @@ namespace Zamin {
         return true;
     }
 
-    void Model::ClearCache() { s_ModelCache.clear(); }
+    void Model::ClearCache()
+    {
+        AsyncLoader::WaitAll(); // (the loads' finishes look the cache up)
+        s_ModelCache.clear();
+        s_ModelLoads.clear();
+    }
 
 }

@@ -219,6 +219,19 @@ namespace Zamin {
         }
     }
 
+    // ------------------------------------------------------------------ fonts
+    FontImportSettings AssetImporter::ReadFontSettings(const AssetImportSettings& import)
+    {
+        FontImportSettings s;
+        s.Kerning = import.GetBool("Kerning", s.Kerning);
+        return s;
+    }
+
+    void AssetImporter::WriteFontSettings(const FontImportSettings& settings, AssetImportSettings& import)
+    {
+        import.SetBool("Kerning", settings.Kerning);
+    }
+
     // ------------------------------------------------------------------ lookups
     static const AssetMetadata* FindInActiveProject(const std::filesystem::path& file)
     {
@@ -244,6 +257,12 @@ namespace Zamin {
     {
         const AssetMetadata* meta = FindInActiveProject(file);
         return meta ? ReadAudioSettings(meta->Import) : AudioClipSettings{};
+    }
+
+    FontImportSettings AssetImporter::GetFontSettings(const std::filesystem::path& file)
+    {
+        const AssetMetadata* meta = FindInActiveProject(file);
+        return meta ? ReadFontSettings(meta->Import) : FontImportSettings{};
     }
 
 }

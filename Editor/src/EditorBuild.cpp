@@ -10,6 +10,7 @@
 #include <chrono>
 #include <ctime>
 #include <format>
+#include <fstream>
 
 namespace Zamin {
     namespace fs = std::filesystem;
@@ -107,6 +108,23 @@ namespace Zamin {
         }
     }
 
+    // Keep the upstream linker-completion check alongside the ABI preflight: a stable
+    // file size alone does not mean that the linker has written the section table yet.
+    static bool IsElfFileComplete(const fs::path& file, uintmax_t size)
+    {
+        unsigned char header[64]{};
+        std::ifstream in(file, std::ios::binary);
+        if (!in.read(reinterpret_cast<char*>(header), sizeof(header))) return false;
+        if (header[0] != 0x7f || header[1] != 'E' || header[2] != 'L' || header[3] != 'F' || header[4] != 2 || header[5] != 1) return true;
+        const auto read = [&](size_t at, size_t bytes) {
+            uint64_t value = 0;
+            for (size_t i=0; i<bytes; ++i) value |= uint64_t(header[at+i]) << (8*i);
+            return value;
+        };
+        const uint64_t table = read(0x28,8), entrySize = read(0x3a,2), count = read(0x3c,2);
+        return table <= size && entrySize * count <= size - table;
+    }
+
     void EditorLayer::CheckModuleHotReload(Timestep ts)
     {
         m_HotReloadTimer += ts;
@@ -127,7 +145,7 @@ namespace Zamin {
             // is loaded only once the file stayed the same (time and size) for one more poll - a module read
             // half written would not load. Failed candidates now keep the old module alive.
             const uintmax_t size = fs::file_size(module, ec);
-            if (ec || time != m_ChangedModuleTime || size != m_ChangedModuleSize)
+            if (ec || time != m_ChangedModuleTime || size != m_ChangedModuleSize || !IsElfFileComplete(module, size))
             {
                 m_ChangedModuleTime = time;
                 m_ChangedModuleSize = ec ? 0 : size;

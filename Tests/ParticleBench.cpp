@@ -40,6 +40,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -56,6 +57,7 @@ int RunNavBench(int agents, int size, int frames, int jobs); // NavBench.cpp
 int RunPrefabBench(int instances, const char* jsonFile);   // PrefabBench.cpp
 int RunRenderBench(int argc, char** argv);                  // RenderBench.cpp
 int RunEcsBench(int entities, int frames, const char* jsonFile); // EcsBench.cpp
+int RunFontBench(const char* jsonFile);                         // FontBench.cpp
 int RunSerializeBench(int entities, const char* jsonFile, const std::string& content); // SerializeBench.cpp
 
 namespace {
@@ -111,6 +113,13 @@ namespace {
                                   ps.LimitVelocity.MaxSpeed = 2.0f;
                               });
                           } });
+        cases.push_back({ "Bitta katta tizim", "bitta tizimda hamma particle'lar, shovqin bilan (tizim ichida bo'laklab parallel)",
+                          [](Scene& s, int n) {
+            Grid(s, n, 1, [](PS& ps, int) {
+                ps.Noise.Enabled = true;
+                ps.Noise.Octaves = 2;
+            });
+        } });
         cases.push_back({ "Shovqin", "shovqin turbulentligi (2 oktava)",
                           [](Scene& s, int n) {
                               Grid(s, n, 50, [](PS& ps, int) {
@@ -292,9 +301,37 @@ namespace {
         return 0;
     }
 
+    // A skinned column along a joint chain (a ring of 4 vertices per joint, each ring on its joint): a
+    // mesh made without GPU objects (AsyncLoader::DeferGPU) - its bounds and joints are what the
+    // animators' visibility test reads.
+    static Ref<Mesh> MakeSkinnedColumn(int joints)
+    {
+        std::vector<SkinnedVertex> vertices;
+        std::vector<uint32_t> indices;
+        for (int j = 0; j < joints; j++)
+            for (int k = 0; k < 4; k++)
+            {
+                SkinnedVertex v{};
+                const float angle = (float)k * 1.5707963f;
+                v.Position = { 0.1f * std::cos(angle), 0.25f * (float)j, 0.1f * std::sin(angle) };
+                v.Normal = { std::cos(angle), 0.0f, std::sin(angle) };
+                v.Joints = glm::ivec4(j, 0, 0, 0);
+                v.Weights = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
+                vertices.push_back(v);
+            }
+        for (int j = 0; j + 1 < joints; j++)
+            for (int k = 0; k < 4; k++)
+            {
+                const uint32_t a = (uint32_t)(j * 4 + k), b = (uint32_t)(j * 4 + (k + 1) % 4);
+                indices.insert(indices.end(), { a, b, a + 4, b, b + 4, a + 4 });
+            }
+        AsyncLoader::DeferGPU deferred;
+        return CreateRef<Mesh>(vertices, indices);
+    }
+
     // ---- animators: `count` skinned animators (a 40-bone chain, a blend tree and a layer each),
     // the pose sampling per frame - on the workers with --jobs.
-    int RunAnimatorBench(int count, int frames)
+    int RunAnimatorBench(int count, int frames, bool profile)
     {
         Log::SetMinLevel(LogLevel::Error);
         const int joints = 40;
@@ -328,7 +365,10 @@ namespace {
             }
             clips.push_back(std::move(clip));
         }
-        Ref<Model> model = Model::CreateSkeletal(skeleton, clips);
+        // A skinned mesh on the chain (no GPU objects): the visibility test moves its box by every joint.
+        Model::SubMesh column;
+        column.MeshRef = MakeSkinnedColumn(joints);
+        Ref<Model> model = Model::CreateSkeletal(skeleton, clips, { column });
         auto scene = CreateRef<Scene>();
         for (int i = 0; i < count; i++)
         {
@@ -349,22 +389,58 @@ namespace {
             upper.Weight = 0.5f;
             upper.MaskBones = { "Bone20" };
             a.Layers = { upper };
+            // (Spread along X: the culling pass below has a camera see half of them.)
+            e.GetTransform().Translation = { (float)i * 2.0f, 0.0f, 0.0f };
         }
+        // The camera: looking down -Z at the first half of the row.
+        const float half = (float)count;
+        const glm::mat4 viewProjection = glm::ortho(-1.0f, half, -5.0f, 15.0f, 0.1f, 100.0f) *
+                                         glm::lookAt(glm::vec3(0.0f, 0.0f, 20.0f), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
         scene->OnRuntimeStart();
         for (int i = 0; i < 10; i++)
             scene->OnUpdateRuntime(1.0f / 60.0f);
-        std::vector<double> times;
+        std::vector<double> times, culledTimes, visibility;
         for (int i = 0; i < frames; i++)
         {
+            if (profile && i == frames - 1)
+                Profiler::BeginFrame();
             const auto start = std::chrono::steady_clock::now();
             scene->OnUpdateRuntime(1.0f / 60.0f);
             times.push_back(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count());
         }
         const FrameTimeStats stats = FrameTimeStats::Compute(times);
+        const uint32_t posed = scene->GetAnimationStats().Posed;
+        std::string tree;
+        if (profile)
+        {
+            Profiler::BeginFrame();
+            tree = Profiler::FormatTree(Profiler::GetLastFrame(), 0.01f);
+        }
+        // Then with Animator culling (CullPose): what the camera sees is marked after every update
+        // (RenderScene does it for each view) - the posed bounds of every animator - and only those are posed.
+        for (auto e : scene->GetAllEntitiesWith<AnimatorComponent>())
+            Entity(e, scene.get()).GetComponent<AnimatorComponent>().Culling = AnimatorCulling::CullPose;
+        for (int i = 0; i < frames; i++)
+        {
+            const auto start = std::chrono::steady_clock::now();
+            scene->OnUpdateRuntime(1.0f / 60.0f);
+            culledTimes.push_back(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count());
+            const auto seen = std::chrono::steady_clock::now();
+            scene->MarkVisibleAnimators(viewProjection);
+            visibility.push_back(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - seen).count());
+        }
+        const FrameTimeStats culledStats = FrameTimeStats::Compute(culledTimes);
+        const FrameTimeStats seenStats = FrameTimeStats::Compute(visibility);
         std::printf("Animator benchmark: %d animator (%d suyak, blend tree + qatlam), %d kadr, %s\n", count, joints, frames,
                     JobSystem::IsParallel() ? std::format("vazifalar tizimi: {} ishchi oqim", JobSystem::GetWorkerCount()).c_str() : "bitta oqim");
         std::printf("  kadr: o'rtacha %.2f ms, mediana %.2f ms, eng kam %.2f ms (pozalar: %u)\n", stats.Average, stats.Median, stats.Min,
-                    (unsigned)scene->GetAnimationStats().Posed);
+                    (unsigned)posed);
+        std::printf("  culling bilan: kadr o'rtacha %.2f ms (pozalar: %u, kamera ko'rmagani: %u), ko'rinishni belgilash "
+                    "(MarkVisibleAnimators) o'rtacha %.3f ms, eng kam %.3f ms\n",
+                    culledStats.Average, (unsigned)scene->GetAnimationStats().Posed, (unsigned)scene->GetAnimationStats().Culled,
+                    seenStats.Average, seenStats.Min);
+        if (profile)
+            std::printf("%s\n", tree.c_str());
         scene->OnRuntimeStop();
         JobSystem::Shutdown();
         return 0;
@@ -388,6 +464,7 @@ int main(int argc, char** argv)
     int animators = 0;
     bool nav = false;
     bool ecs = false;
+    bool fonts = false;
     std::string content = "all";
     int navAgents = 200, navGrid = 256;
     bool framesGiven = false;
@@ -406,6 +483,8 @@ int main(int argc, char** argv)
             nav = true;
         else if (!std::strcmp(argv[i], "--ecs"))
             ecs = true;
+        else if (!std::strcmp(argv[i], "--fonts"))
+            fonts = true;
         else if (!std::strcmp(argv[i], "--agents") && i + 1 < argc)
             navAgents = std::max(1, std::atoi(argv[++i]));
         else if (!std::strcmp(argv[i], "--grid") && i + 1 < argc)
@@ -444,19 +523,22 @@ int main(int argc, char** argv)
                         "ZaminBench --serialize --prefabs [--instances N] [--json <fayl>]\n"
                         "ZaminBench --nav [--agents N] [--grid N] [--frames N] [--jobs N]\n"
                         "ZaminBench --ecs [--entities N] [--frames N] [--json <fayl>]\n"
+                        "ZaminBench --fonts [--json <fayl>]\n"
                         "ZaminBench --render [--sprites N] [--meshes N] [--frames N] [--case <nom qismi>] [--json <fayl>]\n");
             return 1;
         }
     }
     if (ecs)
         return RunEcsBench(entities, framesGiven ? frames : 60, jsonFile);
+    if (fonts)
+        return RunFontBench(jsonFile);
     if (nav)
         return RunNavBench(navAgents, navGrid, framesGiven ? frames : 300, jobs);
     if (animators > 0)
     {
         if (jobs > 0)
             JobSystem::Init((uint32_t)jobs);
-        return RunAnimatorBench(animators, frames);
+        return RunAnimatorBench(animators, frames, profile);
     }
     if (queries)
         return RunQueryBench(entities);

@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <cmath>
 #include <format>
 #include <set>
@@ -823,11 +824,47 @@ namespace Zamin {
         ImGui::EndPopup();
     }
 
-    void SceneHierarchyPanel::DrawEntityNode(Entity entity, int depth)
+    bool SceneHierarchyPanel::IsRowOpen(Entity entity) const
+    {
+        // The id the row's tree node has (DrawEntityNode: PushID(entity), "##node"); open by default.
+        ImGui::PushID((int)(uint32_t)(entt::entity)entity);
+        const ImGuiID id = ImGui::GetID("##node");
+        ImGui::PopID();
+        return ImGui::GetStateStorage()->GetInt(id, 1) != 0;
+    }
+
+    void SceneHierarchyPanel::BuildHierarchyRows(const std::string& filter)
+    {
+        m_Rows.clear();
+        if (!filter.empty())
+        {
+            for (Entity entity : m_Context->GetEntitiesInOrder())
+                if (MatchesFilter(entity, filter))
+                    m_Rows.push_back({ entity, 0, false });
+            return;
+        }
+        // Depth first: a row, then (when it is open) its children.
+        auto add = [&](auto& self, Entity entity, int depth) -> void {
+            const auto& children = entity.GetComponent<RelationshipComponent>().Children;
+            m_Rows.push_back({ entity, depth, !children.empty() });
+            if (children.empty() || !IsRowOpen(entity))
+                return;
+            for (UUID child : children)
+                if (Entity c = m_Context->GetEntityByUUID(child))
+                    self(self, c, depth + 1);
+        };
+        for (Entity entity : m_Context->GetEntitiesInOrder())
+        {
+            if ((uint64_t)entity.GetComponent<RelationshipComponent>().Parent && m_Context->GetParent(entity))
+                continue; // under its parent
+            add(add, entity, 0);
+        }
+    }
+
+    void SceneHierarchyPanel::DrawEntityNode(Entity entity, int depth, bool hasChildren)
     {
         entt::entity handle = entity;
         const std::string& tag = entity.GetName(); // not used after the context menu (see below)
-        bool hasChildren = !entity.GetComponent<RelationshipComponent>().Children.empty() && m_Filter.empty();
         bool selected = IsSelected(entity);
         bool primary = selected && GetSelectedEntity() == entity;
         bool hiddenInView = m_Context->IsHiddenInEditor(entity);
@@ -836,7 +873,10 @@ namespace Zamin {
         bool inactive = inactiveSelf || !m_Context->IsActiveInHierarchy(entity);
 
         ImGui::PushID((int)(uint32_t)handle);
-        m_VisibleRows.push_back(entity);
+        // The tree's depth as indentation (the rows are a flat list: no tree node pushes another level).
+        const float indent = (float)depth * ImGui::GetStyle().IndentSpacing;
+        if (indent > 0.0f)
+            ImGui::Indent(indent);
 
         ImVec2 min = ImGui::GetCursorScreenPos();
         ImVec2 max = ImVec2(min.x + ImGui::GetContentRegionAvail().x, min.y + ImGui::GetFrameHeight());
@@ -856,6 +896,8 @@ namespace Zamin {
             }
             else if (!ImGui::IsItemActive() && ImGui::IsMouseClicked(0))
                 m_RenamingEntity = entt::null;
+            if (indent > 0.0f)
+                ImGui::Unindent(indent);
             ImGui::PopID();
             return;
         }
@@ -864,7 +906,7 @@ namespace Zamin {
         Ref<Scene> subScene = m_Filter.empty() && GetSubScene && entity.HasComponent<SubSceneComponent>() ? GetSubScene(entity) : nullptr;
         ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick |
                                    ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding |
-                                   ImGuiTreeNodeFlags_DefaultOpen;
+                                   ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_NoTreePushOnOpen;
         if (!hasChildren && !subScene) flags |= ImGuiTreeNodeFlags_Leaf;
         if (selected) flags |= ImGuiTreeNodeFlags_Selected;
 
@@ -956,20 +998,16 @@ namespace Zamin {
             DrawPrefabRowMarks(entity, rowMin, rowMax);
         }
 
-        if (open)
+        // (Its children are the next rows of the list.) A sub-scene's content right under it.
+        if (open && subScene && alive && entity.HasComponent<SubSceneComponent>())
         {
-            if (hasChildren && alive)
-            {
-                // A copy: may be modified by drag & drop.
-                std::vector<UUID> copy = entity.GetComponent<RelationshipComponent>().Children;
-                for (UUID child : copy)
-                    if (Entity c = m_Context->GetEntityByUUID(child))
-                        DrawEntityNode(c, depth + 1);
-            }
-            if (subScene && alive && entity.HasComponent<SubSceneComponent>())
-                DrawSubSceneRows(entity, subScene);
-            ImGui::TreePop();
+            const float spacing = ImGui::GetStyle().IndentSpacing;
+            ImGui::Indent(spacing);
+            DrawSubSceneRows(entity, subScene);
+            ImGui::Unindent(spacing);
         }
+        if (indent > 0.0f)
+            ImGui::Unindent(indent);
         ImGui::PopID();
     }
 
@@ -1372,16 +1410,62 @@ namespace Zamin {
         m_GutterX = ImGui::GetCursorScreenPos().x;
         const float gutterWidth = ImGui::GetFrameHeight() * 2.0f + 2.0f;
         ImGui::Indent(gutterWidth);
-        for (Entity entity : m_Context->GetEntitiesInOrder())
         {
-            if (filter.empty())
+            // The rows that show, as a flat list; only those on screen are drawn (ImGuiListClipper):
+            // a scene of 10 000 entities costs what the visible ones do. A sub-scene host shows its
+            // sub-scene's rows under it (another height): then every row is drawn.
+            const auto start = std::chrono::steady_clock::now();
+            BuildHierarchyRows(filter);
+            m_VisibleRows.clear();
+            m_VisibleRows.reserve(m_Rows.size());
+            const char* noClipper = std::getenv("ZAMIN_EDITOR_NO_CLIPPER");
+            bool uniform = !(noClipper && *noClipper && std::string_view(noClipper) != "0");
+            int keep = -1, dragged = -1; // the row being renamed / dragged is drawn even off screen
+            const ImGuiPayload* payload = ImGui::GetDragDropPayload();
+            const uint64_t draggedID = payload && payload->IsDataType("HIERARCHY_ENTITY") ? *(const uint64_t*)payload->Data : 0;
+            const bool subScenes = GetSubScene && filter.empty() && !m_Context->GetRegistry().view<SubSceneComponent>().empty();
+            for (size_t i = 0; i < m_Rows.size(); i++)
             {
-                if ((uint64_t)entity.GetComponent<RelationshipComponent>().Parent && m_Context->GetParent(entity))
-                    continue; // drawn by its parent
+                const Entity e = m_Rows[i].E;
+                m_VisibleRows.push_back(e);
+                if (uniform && subScenes && e.HasComponent<SubSceneComponent>())
+                    uniform = false;
+                if ((entt::entity)e == m_RenamingEntity)
+                    keep = (int)i;
+                if (draggedID && (uint64_t)e.GetUUID() == draggedID)
+                    dragged = (int)i;
             }
-            else if (!MatchesFilter(entity, filter))
-                continue;
-            DrawEntityNode(entity, 0);
+            size_t drawn = 0;
+            auto drawRow = [&](size_t i) {
+                const HierarchyRow row = m_Rows[i];
+                if (!row.E.IsValid())
+                    return; // destroyed by an earlier row's menu this frame
+                if (uniform)
+                    m_RowIndex = (int)i; // (the stripes: every other row of the whole list)
+                DrawEntityNode(row.E, row.Depth, row.HasChildren);
+                drawn++;
+            };
+            if (uniform)
+            {
+                ImGuiListClipper clipper;
+                clipper.Begin((int)m_Rows.size(), ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y);
+                if (keep >= 0)
+                    clipper.IncludeItemByIndex(keep);
+                if (dragged >= 0)
+                    clipper.IncludeItemByIndex(dragged);
+                while (clipper.Step())
+                    for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
+                        drawRow((size_t)i);
+            }
+            else
+                for (size_t i = 0; i < m_Rows.size(); i++)
+                    drawRow(i); // (the stripes count the sub-scene rows too)
+            const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+            m_ListTiming.Rows = m_Rows.size();
+            m_ListTiming.DrawnRows = drawn;
+            m_ListTiming.TotalMilliseconds += ms;
+            m_ListTiming.MaxMilliseconds = std::max(m_ListTiming.MaxMilliseconds, ms);
+            m_ListTiming.Frames++;
         }
         ImGui::Unindent(gutterWidth);
         ImGui::PopStyleVar(2);

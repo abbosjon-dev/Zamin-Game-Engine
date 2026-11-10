@@ -1,5 +1,6 @@
 #include "Zamin/Core/Application.h"
 #include "Zamin/Renderer/GPUProfiler.h"
+#include "Zamin/Asset/AsyncLoader.h"
 
 #if ZAMIN_WITH_IMGUI
 #include "Zamin/ImGui/ImGuiLayer.h"
@@ -10,6 +11,7 @@
 #include "Zamin/Core/Input.h"
 #include "Zamin/Core/JobSystem.h"
 #include "Zamin/Core/SaveData.h"
+#include "Zamin/Core/StartupTimer.h"
 #include "Zamin/Core/Time.h"
 #include "Zamin/Core/Version.h"
 #include "Zamin/Project/Project.h"
@@ -35,6 +37,7 @@ namespace Zamin {
     {
         ZM_CORE_ASSERT(!s_Instance, "Application already exists!");
         s_Instance = this;
+        StartupTimer::OnApplicationCreating(); // the time to the first frame (logged once it is shown)
 
         if (!m_Specification.WorkingDirectory.empty())
             std::filesystem::current_path(m_Specification.WorkingDirectory);
@@ -44,11 +47,20 @@ namespace Zamin {
         WindowProps props = m_Specification.Window;
         if (props.Title.empty())
             props.Title = m_Specification.Name;
-        m_Window = Window::Create(props);
+        {
+            ZM_PROFILE_SCOPE("Oyna va GL konteksti");
+            m_Window = Window::Create(props);
+        }
         m_Window->SetEventCallback(ZM_BIND_EVENT_FN(OnEvent));
 
-        Renderer::Init();
-        AudioEngine::Init();
+        {
+            ZM_PROFILE_SCOPE("Renderer::Init");
+            Renderer::Init();
+        }
+        {
+            ZM_PROFILE_SCOPE("AudioEngine::Init");
+            AudioEngine::Init();
+        }
         if (m_Specification.JobWorkers != 0 || std::getenv("ZAMIN_JOBS"))
             JobSystem::Init(m_Specification.JobWorkers > 0 ? (uint32_t)m_Specification.JobWorkers : 0u);
         else
@@ -66,6 +78,7 @@ namespace Zamin {
 #if ZAMIN_WITH_IMGUI
         if (m_Specification.EnableImGui)
         {
+            ZM_PROFILE_SCOPE("ImGui");
             m_ImGuiLayer = new ImGuiLayer();
             PushOverlay(m_ImGuiLayer);
         }
@@ -81,11 +94,13 @@ namespace Zamin {
             if (const char* colon = std::strchr(test, ':'))
                 m_FocusLossTestFrames = std::max(0, std::atoi(colon + 1));
         }
+        StartupTimer::OnApplicationCreated();
     }
 
     Application::~Application()
     {
         SaveData::Save(); // unsaved game data (PlayerPrefs) is never lost on exit
+        AsyncLoader::WaitAll(); // background loads finished while the GPU is still there
         JobSystem::Shutdown();
         AudioEngine::Shutdown();
         GPUProfiler::Shutdown();
@@ -95,6 +110,7 @@ namespace Zamin {
     void Application::PushLayer(Layer* layer)
     {
         m_LayerStack.PushLayer(layer);
+        ZM_PROFILE_SCOPE("Layer::OnAttach");
         layer->OnAttach();
     }
 
@@ -313,10 +329,20 @@ namespace Zamin {
             Timestep timestep = Time::ComputeFrameDelta(frameSeconds);
             Time::OnFrame(timestep);
 
+            if (m_FrameCount == 0)
+                StartupTimer::OnRunStarted(); // the start-up's profiler scope ends: it is the "frame" BeginFrame closes
             Profiler::BeginFrame();
             GPUProfiler::BeginFrame();
+            if (m_FrameCount <= 1)
+                StartupTimer::OnProfileReady(); // the start-up's scopes, then the first frame's
             JobSystem::EndFrame();
             ExecuteMainThreadQueue();
+            // Background loads: what the workers decoded goes onto the GPU (a few ms a frame).
+            if (AsyncLoader::GetPendingCount() || AsyncLoader::GetPendingUploadCount())
+            {
+                ZM_PROFILE_SCOPE("Fon yuklashlari");
+                AsyncLoader::Update(4.0);
+            }
             // Snapshot keyboard / mouse / gamepads once per frame (JustPressed, actions, axes).
             Input::Update();
             // The game's cursor (hidden / locked / its picture) as its wishes, the focus and a pause say.
@@ -359,6 +385,8 @@ namespace Zamin {
                 ZM_PROFILE_SCOPE("Oyna (swap, hodisalar)");
                 m_Window->OnUpdate();
             }
+            if (m_FrameCount == 1)
+                StartupTimer::OnFirstFrameShown();
             // The game's frame rate limit (Project settings > Player, ZaminPlayer --fps) with vsync.
             if (m_Running && !IsAutomationRun())
                 PaceFrame();

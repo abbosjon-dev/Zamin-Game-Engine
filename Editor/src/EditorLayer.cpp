@@ -4,7 +4,10 @@
 #include "UI.h"
 
 #include <Zamin/Utils/PlatformUtils.h>
+#include <Zamin/Core/StartupTimer.h>
 #include <Zamin/Utils/FileSystem.h>
+
+#include <fstream>
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -74,6 +77,9 @@ namespace Zamin {
     {
         // The editor gives every asset a .zmeta file (UUID, import settings); the player only reads them.
         AssetRegistry::SetWriteMetaFilesByDefault(true);
+        // Scenes open with their textures and models loading in the background (placeholders meanwhile);
+        // automated captures load at once so their pictures stay the same (ZAMIN_ASYNC_LOAD=0 / 1 decides).
+        AsyncLoader::SetEnabled(AsyncLoader::GetStartupMode(true));
         // The game's cursor wishes reach the editor's window only while the game view has the focus.
         Cursor::BindWindow(&Application::Get().GetWindow());
         Cursor::SetHostActive(false);
@@ -380,6 +386,19 @@ namespace Zamin {
     void EditorLayer::OnDetach()
     {
         m_CodeEditorPanel.FlushRecovery();
+        // ZAMIN_EDITOR_PANEL_TIMES: what the hierarchy's list and the content browser's grid took per
+        // frame (automation: their clippers measured on a large scene / folder).
+        if (std::getenv("ZAMIN_EDITOR_PANEL_TIMES"))
+        {
+            const auto& list = m_SceneHierarchyPanel.GetListTiming();
+            const auto& grid = m_ContentBrowserPanel.GetGridTiming();
+            ZM_INFO("Panel vaqtlari: ierarxiya {} qator ({} tasi chizildi), o'rtacha {:.3f} ms, eng ko'pi {:.3f} ms ({} kadr); kontent "
+                    "brauzer {} element ({} tasi chizildi), o'rtacha {:.3f} ms, eng ko'pi {:.3f} ms ({} kadr){}",
+                    list.Rows, list.DrawnRows, list.Frames ? list.TotalMilliseconds / (double)list.Frames : 0.0, list.MaxMilliseconds,
+                    list.Frames, grid.Items, grid.DrawnItems, grid.Frames ? grid.TotalMilliseconds / (double)grid.Frames : 0.0,
+                    grid.MaxMilliseconds, grid.Frames,
+                    list.DrawnRows < list.Rows || grid.DrawnItems < grid.Items ? "" : " - hammasi chizildi");
+        }
         // ZAMIN_EDITOR_STATS: the last frame's numbers in the log as well (automation / CI).
         if (std::getenv("ZAMIN_EDITOR_STATS"))
         {
@@ -4522,7 +4541,13 @@ namespace Zamin {
         SaveAssetRegistryCache(true);
         DiscardSessionAutosave(); // the previous project's scene is left
         m_PrefabDatabase.Clear(); // the previous project's prefabs
-        if (!Project::Load(projectFile))
+        ZM_PROFILE_SCOPE("Loyihani ochish");
+        bool loaded = false;
+        {
+            ZM_PROFILE_SCOPE("Project::Load");
+            loaded = Project::Load(projectFile) != nullptr;
+        }
+        if (!loaded)
         {
             ZM_ERROR("Loyiha ochilmadi: {}", path.string());
             return false;
@@ -4532,12 +4557,16 @@ namespace Zamin {
         m_ProjectSettingsPanel.OnProjectChanged();
         AddRecentProject(projectFile);
         m_ShowLauncher = false;
-        StartAssetWatcher(); // the asset registry first (missing .zmeta files are written), then the watcher
+        {
+            ZM_PROFILE_SCOPE("Asset registry + kuzatuvchi");
+            StartAssetWatcher(); // the asset registry first (missing .zmeta files are written), then the watcher
+        }
 
         ScriptEngine::UnloadModule();
         fs::path module = Project::GetScriptModulePath();
         if (!module.empty())
         {
+            ZM_PROFILE_SCOPE("Skript moduli");
             if (fs::exists(module))
                 ScriptEngine::LoadModule(module);
             else if (fs::exists(Project::GetProjectDirectory() / "CMakeLists.txt"))
@@ -4553,8 +4582,11 @@ namespace Zamin {
 
         auto& config = Project::GetActive()->GetConfig();
         fs::path startScene = Project::GetAssetFileSystemPath(config.StartScene);
-        if (config.StartScene.empty() || !OpenScene(startScene))
-            NewScene();
+        {
+            ZM_PROFILE_SCOPE("Boshlang'ich sahna");
+            if (config.StartScene.empty() || !OpenScene(startScene))
+                NewScene();
+        }
         // A scene that was never saved has its copy under a name of its own.
         if (!m_Recovery.Pending)
             CheckAutosaveRecovery({});
@@ -6218,25 +6250,40 @@ namespace Zamin {
             HandleFileDrop(dropped, m_PendingFileDropPos);
         }
 
-        UI_MenuBar();
+        {
+            ZM_PROFILE_SCOPE("Menyu");
+            UI_MenuBar();
+        }
         UI_StatusBar();
         UI_DockSpace();
 
         m_SceneHierarchyPanel.SetSceneEditable(m_SceneState == SceneState::Edit);
-        m_SceneHierarchyPanel.OnImGuiRender(&m_ShowHierarchy, &m_ShowInspector);
+        {
+            ZM_PROFILE_SCOPE("Ierarxiya + inspektor");
+            m_SceneHierarchyPanel.OnImGuiRender(&m_ShowHierarchy, &m_ShowInspector);
+        }
         ProcessPrefabRequests(); // Apply / Revert asked in the hierarchy / inspector (the panel is drawn)
         UI_PrefabPopups();
         UI_PrefabStagePopups();
         UI_SceneRecoveryPopups();
-        m_ContentBrowserPanel.OnImGuiRender(&m_ShowContentBrowser);
+        {
+            ZM_PROFILE_SCOPE("Kontent brauzer");
+            m_ContentBrowserPanel.OnImGuiRender(&m_ShowContentBrowser);
+        }
         if (m_ShowUnusedAssets && !m_UnusedAssetsShown)
             m_UnusedAssetsPanel.Refresh(); // opened: a fresh scan (C++ files are not watched)
         m_UnusedAssetsShown = m_ShowUnusedAssets;
         m_UnusedAssetsPanel.OnImGuiRender(&m_ShowUnusedAssets);
-        UI_SceneStatistics();
+        {
+            ZM_PROFILE_SCOPE("Sahna statistikasi");
+            UI_SceneStatistics();
+        }
         UI_BuildOutput();
         m_AssetInspectorPanel.DrawPopups();
-        m_ConsolePanel.OnImGuiRender(&m_ShowConsole);
+        {
+            ZM_PROFILE_SCOPE("Konsol");
+            m_ConsolePanel.OnImGuiRender(&m_ShowConsole);
+        }
         UI_SceneSettings();
         m_ScenesPanel.SetSceneManager(m_SceneState == SceneState::Play ? m_RuntimeScenes.get() : nullptr);
         m_ScenesPanel.SetShownScene(m_ActiveScene.get());
@@ -6248,7 +6295,10 @@ namespace Zamin {
         }
         if (ImGuiWindow* content = ImGui::FindWindowByName("###ContentBrowser"); content && content->DockId)
             m_ScenesPanel.SetDefaultDock(content->DockId); // first opened: a tab next to the content browser
-        m_ScenesPanel.OnImGuiRender(&m_ShowScenes);
+        {
+            ZM_PROFILE_SCOPE("Sahnalar paneli");
+            m_ScenesPanel.OnImGuiRender(&m_ShowScenes);
+        }
         // ZAMIN_EDITOR_FOCUS=<window id, e.g. ContentBrowser / Console / ScenesPanel>: that window's tab in
         // front (screenshots), from frame 8 on for a few frames (docked tabs settle first).
         if (static int focusFrames = 0; focusFrames < 12)
@@ -6257,7 +6307,10 @@ namespace Zamin {
         m_ProjectSettingsPanel.SetScene(m_EditorScene); // tag counts / renames apply to the saved scene
         m_ProjectSettingsPanel.SetOpenScenePath(m_EditorScenePath.empty() ? fs::path() : fs::path(Project::GetAssetRelativePath(m_EditorScenePath)));
         m_ProjectSettingsPanel.SetSceneEditable(m_SceneState == SceneState::Edit);
-        m_ProjectSettingsPanel.OnImGuiRender(&m_ShowProjectSettings);
+        {
+            ZM_PROFILE_SCOPE("Loyiha sozlamalari");
+            m_ProjectSettingsPanel.OnImGuiRender(&m_ShowProjectSettings);
+        }
         m_SpriteEditorPanel.OnImGuiRender(&m_ShowSpriteEditor);
         m_AnimationPanel.SetContext(m_ActiveScene, m_SceneState == SceneState::Edit);
         m_AnimationPanel.SetSelection(m_SceneHierarchyPanel.GetSelectedEntity());
@@ -6281,9 +6334,15 @@ namespace Zamin {
         m_LocalizationPanel.OnImGuiRender(&m_ShowLocalization);
         m_SceneHierarchyPanel.DrawTilePaletteWindow(&m_ShowTilePalette);
         UI_Terrain();
-        UI_Stats();
+        {
+            ZM_PROFILE_SCOPE("Statistika paneli");
+            UI_Stats();
+        }
         UI_ProfilerWindow();
-        UI_Viewport();
+        {
+            ZM_PROFILE_SCOPE("Viewport");
+            UI_Viewport();
+        }
         UI_SceneViews();
         if (m_MaximizeOnPlay && m_SceneState == SceneState::Play)
             UI_MaximizedGame();
@@ -10448,6 +10507,21 @@ namespace Zamin {
                 UI::PropertyLabel("Soya chizishlari", "Soya tashlovchilar kaskadlarga (kaskadlar bo'yicha yig'indi; qavsda kaskad "
                                                       "hajmidan tashqarida qolib kesilganlari)");
                 drawnCulled(stats.ShadowCasterCount, stats.CulledShadowCasterCount);
+                if (stats.ShadowCasterCount + stats.CulledShadowCasterCount > 0)
+                {
+                    UI::PropertyLabel("Kaskadlar", "Har kaskadga chizilgan / kesilgan soya tashlovchilar (1-kaskaddan boshlab). "
+                                                   "Kesilganlar orasida kaskad hajmi ichida bo'lsa ham soyasi kamera ko'radigan joyga "
+                                                   "(shu kaskad chuqurligida) tusha olmaydiganlari bor - masalan kamera orqasidagilar");
+                    std::string cascades;
+                    for (int c = 0; c < 4; c++)
+                        if (stats.CascadeShadowCasters[c] + stats.CascadeCulledShadowCasters[c] > 0)
+                            cascades += std::format("{}{}/{}", cascades.empty() ? "" : " ", stats.CascadeShadowCasters[c],
+                                                    stats.CascadeCulledShadowCasters[c]);
+                    ImGui::TextUnformatted(cascades.c_str());
+                    UI::PropertyLabel("Ko'rinmas soya", "Kaskad hajmida, lekin soyasi kamera ko'radigan joyga tusha olmagani uchun "
+                                                        "chizilmagan soya tashlovchilar (kaskadlar bo'yicha yig'indi)");
+                    ImGui::Text("%u", stats.CulledShadowByViewCount);
+                }
                 UI::PropertyLabel("Soya instanced", "Kaskadlarga bir xil mesh (cutout bo'lsa, bir xil tekstura va chegara) bilan "
                                                     "instanced chizilgan soya tashlovchilar / chaqiruvlar");
                 instanced(stats.InstancedShadowCasterCount, stats.InstancedShadowDrawCount);
@@ -10460,6 +10534,27 @@ namespace Zamin {
                 UI::PropertyLabel("Particle'lar", "Chizilgan particle'lar; qavsda GPU instancing bilan chizilganlari / ular olgan "
                                                   "chaqiruvlar (3D billboardlar: har tizim bitta chaqiruvda)");
                 ImGui::Text("%u  (%u / %u)", stats.ParticleCount, stats.InstancedParticleCount, stats.InstancedParticleDrawCount);
+                UI::PropertyLabel("Uniform buferlar", "Kadrning kamera, yorug'lik va soya qiymatlari mesh shader'lariga bitta std140 "
+                                                      "uniform bufer (ZaminFrame) bilan bir marta yuklanadi");
+                ImGui::Text("%u", stats.UniformBufferUploads);
+                ImGui::SameLine(0.0f, 6.0f);
+                ImGui::TextDisabled("(%u bayt)", stats.UniformBufferBytes);
+                {
+                    const ShaderCache::Stats& shaders = ShaderCache::GetStats();
+                    UI::PropertyLabel("Shader keshi", "Bog'langan shader dasturlari diskda (program binary): keyingi ishga tushishda "
+                                                      "kompilyatsiya qilinmay o'qiladi. Kalit - manba matni va drayver; "
+                                                      "ZAMIN_SHADER_CACHE=0 - o'chiq");
+                    ImGui::Text("%u / %u", shaders.Hits, shaders.Hits + shaders.Misses);
+                    ImGui::SameLine(0.0f, 6.0f);
+                    if (ShaderCache::IsAvailable())
+                        ImGui::TextDisabled("(%.0f ms)", shaders.LoadMilliseconds + shaders.CompileMilliseconds);
+                    else
+                        ImGui::TextDisabled("%s", ShaderCache::GetDirectory().empty() ? "(o'chiq)" : "(drayver qo'llamaydi)");
+                    if (ImGui::IsItemHovered())
+                        UI::Tooltip(std::format("Keshdan: {} ta, {:.1f} ms; kompilyatsiya: {} ta, {:.1f} ms", shaders.Hits, shaders.LoadMilliseconds,
+                                                shaders.Misses, shaders.CompileMilliseconds)
+                                        .c_str());
+                }
                 UI::PropertyLabel("Quadlar"); ImGui::Text("%u", stats.QuadCount);
                 UI::PropertyLabel("Doiralar"); ImGui::Text("%u", stats.CircleCount);
                 UI::PropertyLabel("Chiziqlar"); ImGui::Text("%u", stats.LineCount);
@@ -10558,6 +10653,16 @@ namespace Zamin {
             UI::PropertyLabel("Dvigatel jami", "Dvigatel modullari o'zi hisoblagan xotira (quyidagi toifalar yig'indisi). GPU xotirasi "
                                                "(teksturalar, buferlar) drayverga qarab RAM'da ham, videokartada ham bo'lishi mumkin");
             ImGui::Text("%s", MemoryStats::FormatBytes(tracked).c_str());
+            // How long the editor took to show its first frame (StartupTimer) and the RAM it had then.
+            if (const StartupTimer::Timings& startup = StartupTimer::Get(); startup.Done)
+            {
+                UI::PropertyLabel("Ishga tushish", "Dvigatel yuklangandan birinchi kadr ekranga chiqquncha: dvigatel (oyna, GL, renderer, "
+                                                   "audio), layer'lar (loyiha, sahna, editor panellari) va birinchi kadrning o'zi. "
+                                                   "ZAMIN_STARTUP_PROFILE=1 logga batafsil daraxtini yozadi");
+                ImGui::Text("%.0f ms", startup.TotalMs);
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip(StartupTimer::Describe(startup).c_str());
+            }
             UI::EndPropertyGrid();
         }
         // The categories: bytes and objects (the peak in the tooltip), and a bar of each one's share.
@@ -10651,6 +10756,19 @@ namespace Zamin {
         else
             ImGui::TextDisabled("ishga tushmagan (ZAMIN_JOBS=0)");
         ImGui::Text("Oxirgi kadr: %llu vazifa, %llu parallel for", (unsigned long long)frame.Jobs, (unsigned long long)frame.ParallelFors);
+        // Background loads (AsyncLoader): textures and models decoded on the workers, uploaded a few ms a frame.
+        {
+            const AsyncLoader::Stats loads = AsyncLoader::GetStats();
+            ImGui::Text("%s: %s, %zu %s, %zu %s", Tr("Fon yuklashlari"), AsyncLoader::IsEnabled() ? Tr("yoqilgan") : Tr("o'chiq"),
+                        AsyncLoader::GetPendingCount(), Tr("kutmoqda"), AsyncLoader::GetPendingUploadCount(), Tr("GPU'ga yuklash navbatda"));
+            if (ImGui::IsItemHovered())
+                UI::Tooltip(Tr("Sahna ochilganda tekstura va modellar ishchi oqimlarda o'qiladi, GPU'ga asosiy oqimda har kadr bir necha ms "
+                               "yuklanadi (shu payt o'rniga shaffof belgi). Avtomatik suratlar (ZAMIN_SCREENSHOT / ZAMIN_MAX_FRAMES) darhol "
+                               "yuklaydi; ZAMIN_ASYNC_LOAD=0 / 1 bilan o'zgartiriladi."));
+            ImGui::TextDisabled("%s: %llu, %s %.1f ms, %s %.1f ms, %s %.1f ms", Tr("Jami"), (unsigned long long)loads.Finished, Tr("ishchilarda"),
+                                loads.WorkMilliseconds, Tr("yuklash"), loads.UploadMilliseconds + loads.FinishMilliseconds, Tr("eng uzun kadr"),
+                                loads.LongestUpdateMilliseconds);
+        }
         // Per thread: its jobs and how long they took (a bar against the frame's time).
         const float frameMs = std::max(0.001f, Application::Get().GetFrameTime());
         if (!frame.Threads.empty() &&

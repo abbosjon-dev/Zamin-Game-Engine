@@ -225,6 +225,15 @@ namespace Zamin {
         // The particles' space in the world (positions -> world): the emitter (Local), the
         // environment's (Custom); false for world space (identity).
         bool GetSpaceToWorld(const ParticleSystemComponent& ps, const glm::mat4& emitterWorld, const ParticleEnvironment* environment, glm::mat4& out);
+        // A system with at least this many particles is stepped in pieces of ParallelGrain on the
+        // job system's workers (task 491) - unless the step touches what its particles share
+        // (world collisions, collision events, trails). Every particle's step is its own: the same
+        // results with any number of threads.
+        constexpr uint32_t ParallelThreshold = 4096;
+        constexpr uint32_t ParallelGrain = 2048;
+        // How many Integrate calls were split so far (statistics, tests).
+        uint64_t GetParallelStepCount();
+
         // Forces, velocity over lifetime, speed limit, noise, motion, collisions, trails and ageing;
         // the dead ones are removed. Events for the sub-emitters go to ps.Events.
         void Integrate(ParticleSystemComponent& ps, const glm::mat4& emitterWorld, float dt, const ParticleEnvironment* environment = nullptr);

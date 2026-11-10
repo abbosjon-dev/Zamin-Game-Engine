@@ -388,7 +388,18 @@ namespace Zamin {
         bool PeekTransformClipboard(TransformComponent& out);
 
         void DrawComponents(Entity entity);
-        void DrawEntityNode(Entity entity, int depth);
+        // One row of the hierarchy (the tree is drawn as a flat list of the rows that show: only
+        // those on screen are drawn - ImGuiListClipper, task 493). `open`: its children follow it.
+        struct HierarchyRow
+        {
+            Entity E;
+            int Depth = 0;
+            bool HasChildren = false;
+        };
+        // The rows that show, in order: the roots and the children of open rows (filtered: the matches).
+        void BuildHierarchyRows(const std::string& filter);
+        bool IsRowOpen(Entity entity) const;
+        void DrawEntityNode(Entity entity, int depth, bool hasChildren);
         void DrawEntityContextMenu(Entity entity);
         // ---- prefab instances (SceneHierarchyPrefabs.cpp)
         void RequestPrefab(PrefabRequest::Op op, Entity entity, PrefabScope scope = PrefabScope::Instance, std::string path = {},
@@ -538,6 +549,19 @@ namespace Zamin {
         void DrawOtherRuntimeScenes();
         EntitySelection m_Selection;
         std::vector<Entity> m_VisibleRows;   // hierarchy rows in display order (Shift+click ranges)
+        std::vector<HierarchyRow> m_Rows;    // the same with their depth (BuildHierarchyRows)
+    public:
+        // The hierarchy's list as drawn: rows in it, rows drawn last frame, the time it took (automation:
+        // ZAMIN_EDITOR_PANEL_TIMES; ZAMIN_EDITOR_NO_CLIPPER=1 draws every row, to compare).
+        struct ListTiming
+        {
+            size_t Rows = 0, DrawnRows = 0;
+            double TotalMilliseconds = 0.0, MaxMilliseconds = 0.0;
+            uint64_t Frames = 0;
+        };
+        const ListTiming& GetListTiming() const { return m_ListTiming; }
+    private:
+        ListTiming m_ListTiming;
         PendingClick m_PendingClick;
         PendingDrop m_PendingDrop;
         Entity m_ClickedSelected;            // pressed on an already selected row: decided on release

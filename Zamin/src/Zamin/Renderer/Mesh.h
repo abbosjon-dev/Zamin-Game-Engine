@@ -44,11 +44,24 @@ namespace Zamin {
     class Mesh
     {
     public:
+        /// Made on a thread that defers GPU work (AsyncLoader::DeferGPU: a model loaded in the
+        /// background) the mesh keeps its vertices and is uploaded by the main thread later -
+        /// AsyncLoader::Update, or the first GetVertexArray, whichever comes first.
         Mesh(const std::vector<MeshVertex>& vertices, const std::vector<uint32_t>& indices);
         Mesh(const std::vector<SkinnedVertex>& vertices, const std::vector<uint32_t>& indices);
+        ~Mesh();
         bool IsSkinned() const { return m_Skinned; }
 
-        const Ref<VertexArray>& GetVertexArray() const { return m_VertexArray; }
+        /// Its GPU buffers exist (false while a deferred mesh waits for its upload).
+        bool IsUploaded() const { return m_VertexArray != nullptr; }
+        /// Uploads a deferred mesh now (main thread; nothing to do for the others).
+        void EnsureUploaded() const;
+        const Ref<VertexArray>& GetVertexArray() const
+        {
+            if (m_Pending)
+                EnsureUploaded();
+            return m_VertexArray;
+        }
         // The mesh's vertices and indices plus `instanceBuffer` (per-instance attributes from
         // location 3 on) for instanced draws; made on first use, again when the buffer changes.
         // Not for skinned meshes (their joints take locations 3 and 4).
@@ -75,6 +88,15 @@ namespace Zamin {
         AABB m_Bounds;
         bool m_Skinned = false;
         mutable Scope<MeshGeometry> m_Geometry;
+        /// A deferred mesh's data until it is uploaded.
+        struct PendingData
+        {
+            std::vector<MeshVertex> Vertices;
+            std::vector<SkinnedVertex> SkinnedVertices;
+            std::vector<uint32_t> Indices;
+        };
+        mutable Scope<PendingData> m_Pending;
+        void Upload(const std::vector<MeshVertex>* vertices, const std::vector<SkinnedVertex>* skinned, const std::vector<uint32_t>& indices);
     };
 
     enum class PrimitiveMesh { Cube = 0, Sphere, Plane, Cylinder, Cone, Model };
@@ -85,6 +107,13 @@ namespace Zamin {
     {
     public:
         static Ref<Mesh> GetPrimitive(PrimitiveMesh type);
+        // A coarser copy of a curved primitive (sphere, cylinder, cone) for one that is small in the view:
+        // lod 1 - half its segments, 2 - a quarter. The primitive itself for lod 0 and for the flat ones.
+        static Ref<Mesh> GetPrimitive(PrimitiveMesh type, int lod);
+        // Which copy a curved primitive whose radius is `screenFraction` of half the view's height draws:
+        // 0 from 6 % on, 1 from 1.5 %, else 2 - the outline stays within ~0.3 px of the full mesh's at 1080p
+        // (a sphere far away: 576 or 144 triangles instead of 2 304). 0 for the other primitives.
+        static int GetPrimitiveLOD(PrimitiveMesh type, float screenFraction);
         // The geometry of a primitive (no GPU): unit size, centered, counter-clockwise front faces
         // seen from outside (single-sided materials cull the others).
         static void GeneratePrimitive(PrimitiveMesh type, std::vector<MeshVertex>& vertices, std::vector<uint32_t>& indices);

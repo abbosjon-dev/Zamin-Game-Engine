@@ -161,6 +161,237 @@ Qanday o'qish kerak: yuklash vaqtining ~60 % i JSON tahlili (binar kesh uni ~3 m
 o'yin `.zsceneb` dan yuklaydi); qolgani obyektlarni yaratish. Eng qimmat komponentlar - ParticleSystem (barcha
 modullar sozlamalari) va MeshRenderer (material); obyektning o'zi (4 majburiy komponent) yuklashda eng katta ulush.
 
+## M25 optimallashtirish: oldin va keyin
+
+Muhit: yuqoridagi kompyuter, **Release** (`build-m25rel`: `cmake -S . -B build-m25rel -G Ninja -DCMAKE_BUILD_TYPE=Release`;
+asosiy `build/` dan boshqa build papkalari o'yin modullarini endi o'zining `GameModules/` iga yozadi va o'z dasturlari
+ularni o'sha yerdan yuklaydi - `Projects/*/Binaries` dagi asosiy build modullari ustiga yozilmaydi), llvmpipe, xvfb. "Oldin" - M25 boshidagi commit (`37d2916`)
+build'i, "keyin" - 481-487 vazifalaridan keyingi build; ikkalasi bir xil benchmark kodi bilan (oldingi build'ning
+`ZaminBench` va `libZamin.so` nusxasi saqlab qo'yilgan edi). llvmpipe ostidagi og'ir 3D holatlar ±10 % tebranadi, shuning
+uchun vaqtlar juft-juft (oldin, keyin, oldin, keyin) o'lchandi. Yangi o'lchovlar:
+
+- `ZaminBench --render`: har holat uchun **ajratma / kadr** (kadr yuborilguncha `operator new` chaqiruvlari,
+  `Tests/AllocCounter.h`; `ZAMIN_ALLOC_TRACE=<n>` ularning chaqiruv steklarini chiqaradi), 2D batch'lar nega erta
+  chizilgani (`Flush2DTextures` / `Flush2DKind` / `Flush2DState`) va `BatchOrder` ko'chirgan chizishlar; yangi
+  `mixed2d` holati (1 000 katak: 24 teksturali sprite, doira, matn navbatma-navbat, chuqurlik bo'yicha aralashgan) va
+  uning `BatchOrder` siz nusxasi `mixed2d-sorted`; `--case loading` - fon yuklash.
+- `ZaminBench --ecs`: UpdateRuntime kadrlarining ajratmalari, `GetWorldTransform` qayta so'ralganda va ildizlar
+  siljiganda, komponent pool'idan to'g'ridan-to'g'ri o'qish.
+- `ZaminBench --fonts` (`Tests/FontBench.cpp`): shrift atlasini rasterlash va diskdagi keshdan o'qish, glif qidirish,
+  kerning bilan va kerningsiz matn joylash.
+
+### 2D batching (481)
+
+`mixed2d`, bitta build, `BatchOrder` o'chiq / yoqiq:
+
+| | Draw call | Batch bo'linishi (tur / tekstura / holat) | CPU ms (o'rtacha) | Kadr ms, GPU bilan |
+|---|---:|---|---:|---:|
+| `BatchOrder` siz (saralangan tartib) | 670 | 667 / 0 / 0 | 15.98 | 22.95 |
+| `BatchOrder` bilan | **65** | 62 / 0 / 0 (431 chizish ko'chirildi) | **10.14** | **17.03** |
+
+Rasm o'zgarmaydi: faqat ekranda ustma-ust tushmaydigan chizishlar suriladi (`ZaminRenderTests` 12/12, farq 0);
+24 teksturali sprite qatori bo'lganda (eski `mixed2d` varianti) 22 ta "17-tekstura" bo'linishi teksturaga guruhlash bilan
+yo'qoladi. `sprites` (10 000 sprite, 3 draw call) o'zgarmadi - u yerda batch allaqachon bitta edi.
+
+### Kadrlararo ajratmalar (482)
+
+| Holat | Oldin (ajratma / kadr) | Keyin | Nima o'zgardi |
+|---|---:|---:|---|
+| `sprites` (10 000) | 10 023 | **2** | dunyo transformlari kadr uchun `unordered_map` da emas, sahna keshida; 2D ro'yxati saqlanadi |
+| `meshes` (1 000, instancing) | 1 504 | **6** | instancing guruhlari tekis ro'yxatda (`FlatBatches`), `EndScene` ro'yxatlari saqlanadi |
+| `meshes-noinst` | 7 105 | **6** | + shader uniform nomlari `std::string_view` (16+ belgili nom har chaqiruvda `std::string` edi) |
+| `combined` | 11 522 | **7** | yuqoridagilarning hammasi |
+| `mixed2d` (eski variant) | 2 998 | **2** | + matn joylash keshi (`TextComponent::GetWorldLayout`), Renderer2D uniform nomlari |
+| ECS: bo'sh kadr / 1 000 skript / 500+500 obyekt | 0 / 11 / 1 518 | 0 / 11 / 1 518 | (UpdateRuntime: obyekt yaratish va o'chirish o'z tabiati bilan ajratadi) |
+
+Vaqt (juft o'lchov): `meshes-noinst` CPU 149.0 / 149.6 -> 141.4 / 142.7 ms (~5 %); `sprites` 25.0 / 25.2 -> 24.6 / 25.3 ms
+(shovqin ichida - u yerda vaqtni rasterizatsiya oladi). Qaytmasligi uchun `SteadyFramesMakeNoHeapAllocations` testi:
+qizdirilgan sahna kadri (300 obyekt, ierarxiya) `UpdateRuntime` + `GetWorldTransform` da birorta ham ajratma qilmaydi.
+
+### Dunyo transformi keshi va pool'lar (483, 484)
+
+| Amal (10 000 obyekt, chuqurlik 2) | Oldin ns / ta | Keyin ns / ta |
+|---|---:|---:|
+| `GetWorldTransform` birinchi marta | 221 | 125 |
+| `GetWorldTransform` yana, hech narsa qimirlamagan | 221 (har safar hisoblanardi) | **33** |
+| guruh ildizlari siljigandan keyin | 221 | 114 |
+| `Entity::GetComponent<Transform>` (har safar pool qidiruvi) / pool bir marta olinib | 6.6 | **1.7** |
+
+Kesh obyektning Translation / Rotation / Scale qiymatini, ota-onasini va ota-onasining versiyasini solishtiradi - skript
+`Transform()` ga to'g'ridan-to'g'ri yozsa ham, ota-ona almashsa ham, obyekt o'chib uning o'rni qayta ishlatilsa ham to'g'ri
+(`WorldTransformCacheFollowsChanges`). Suyakka biriktirilganlar (animator pozasi) va ishchi oqimlar keshsiz hisoblaydi.
+Render tsikllari (`RenderScene` 2D qismi) komponent pool'larini bir marta oladi (`Scene::HotStorages`).
+
+### Shriftlar (485)
+
+| | Oldin | Keyin |
+|---|---:|---:|
+| Asosiy atlas (2048 px, 600+ glif, 2x2) | 45.0 ms rasterlash | **2.4 ms** keshdan o'qish (1.87 MB fayl) |
+| Glif qidirish | 4.46 ns (hash xarita) | 3.46 ns (to'g'ridan-to'g'ri jadval; Debug: 65.6 -> 13.0) |
+| Matn joylash, 24 px, so'z o'rash (kerning'siz) | 16.6 ns / belgi | 11.5 ns / belgi |
+| Matn joylash, 24 px, so'z o'rash, kerning bilan | - (kerning yo'q edi) | 15.7 ns / belgi (juftlik keshi) |
+| "AVATAR To'p Yer" kengligi, 24 px | 171.5 px | 161.2 px kerning yoqilganda (AV -0.062 em) |
+
+Ikki matn joylash qatori bir xil yangi Release build'da `ZaminBench --fonts` bilan qayta o'lchangan: kerning'ning
+o'zi belgiga ~37 % qo'shadi (11.5 -> 15.7 ns), kerning'siz yangi yo'l eskisidan ~30 % tez (avvalgi jadvaldagi
+"15.9 ns kerning bilan" eski build'ning kerning'siz 16.6 ns i bilan solishtirilgan edi - bu kerning narxini
+yashirardi). Kerning odatda o'chiq - render rasmlari o'zgarmadi; shrift `.zmeta` sida `"Import": { "Kerning": true }` yoqadi.
+
+### Fon yuklash (486, 487)
+
+`ZaminBench --render --case loading`: Showcase3D'ning 27 rasmi va 4 modeli (bo'sh keshdan):
+
+| | Asosiy oqim band | Eng uzun kadr | Hammasi tayyor |
+|---|---:|---:|---:|
+| Darhol (`Load`) | 103.8 ms | 103.8 ms (bitta kadr) | 103.8 ms |
+| Fonda (`LoadAsync` + `AsyncLoader::Update(4 ms)`) | 39.1 ms (9 kadrga bo'lingan) | **6.9 ms** | **50.3 ms** |
+
+Dekodlash va glTF tahlili 3 ishchi oqimda parallel ketadi; asosiy oqimda faqat GPU'ga yuklash qoladi.
+
+### Shader keshi (488)
+
+488-494 uchun "oldin" - shu vazifalardan oldingi commit (`c253510`) ning Release build'i, "keyin" - ulardan keyingisi;
+ikkalasi ham `build-m25rel` sozlamalari bilan, bir kompyuterda ketma-ket.
+
+Showcase3D player'i ishga tushganda dvigatelning 25 ta shader dasturi (`Renderer::Init` logidagi `Shader'lar: ...`
+qatori; ishga tushishning qolgan qismi - sahna, teksturalar - o'zgarmagan). "Oldin" - keshsiz (`ZAMIN_SHADER_CACHE=0`,
+eski yo'l bilan bir xil: har safar kompilyatsiya + link):
+
+| Mesa'ning o'z disk keshi | Oldin (kompilyatsiya) | Keyin, birinchi ishga tushish (kompilyatsiya + saqlash) | Keyin, keyingilari (binary'dan) |
+|---|---:|---:|---:|
+| o'chiq (`MESA_SHADER_CACHE_DISABLE=true`) | 253 ms | 263 ms | **74-91 ms** |
+| yoqiq (odatiy) | 72 ms | 69 ms | 64-66 ms |
+
+llvmpipe binary formatini beradi (`GL_NUM_PROGRAM_BINARY_FORMATS` = 1), lekin dasturni binary'dan olganda ham LLVM
+kodini qayta yasaydi - shuning uchun 3 baravar, 10 baravar emas; Mesa o'z keshi yoqiq bo'lsa u allaqachon ko'p ishni
+tejaydi. Haqiqiy GPU drayverlarida (o'z keshi bo'lmasa yoki tozalanganda) foyda shu "o'chiq" qatoriga yaqin. 25 ta fayl
+548 KB. Formati yo'q drayver uchun mantiq `ShaderCacheStoresProgramBinaries` testida tekshiriladi.
+
+### Kadr uniform buferi (489)
+
+Mesh shader'larining kadr qiymatlari: oldin har bir mesh dasturiga (oddiy, skinned, instanced) 49-66 ta `glUniform*`
+chaqiruvi (IBL bo'lsa 9 ta `u_SH[i]` nomi har kadr `std::string` bilan yasalardi) - kadrga 147-198 chaqiruv; keyin bitta
+`glBufferSubData` (ishlatilgan qismi: `meshes` holatida 1 904 bayt) + har dasturga bitta `u_DebugView`. Sampler
+uniformlari (`u_AlbedoMap` ...) `Init` da bir marta. Vaqt farqi llvmpipe shovqini ichida (bu chaqiruvlar kadrga bir
+marta, chizishga emas); rasm bir xil (`ZaminRenderTests` 12/12, farqlar avvalgidek).
+
+### Soya o'tishida kesish (490)
+
+`ZaminBench --render --case meshes` (1 000 mesh, 4 kaskad, quyosh soyasi):
+
+| | Soya chizishlari | Kesilgan (shundan "ko'rinmas soya") | Draw call (instancing'siz holat) | CPU ms (`meshes`, o'rtacha) |
+|---|---:|---:|---:|---:|
+| Oldin (`c253510` build'i: faqat kaskad hajmi bo'yicha) | 1 024 | 1 979 (-) | 2 027 | 156.5 |
+| Keyin, `meshes-allshadow` (o'sha build, ko'rinish bo'yicha kesish o'chiq) | 1 024 | 1 979 (0) | - | 146.5 |
+| Keyin | **323** | 2 680 (**701**) | **1 326** | **126.0** |
+
+Kaskadlar bo'yicha (keyin): 1 / 1 / 321 / 0 tashlovchi (oldin 1 / 22 / 1001 / 0). Rasm o'zgarmaydi: test konservativ
+(normal siljishi va filtr uchun zaxira bilan) - render testlari 12/12, farq oldingidek.
+
+### Parallel particle va animatsiya (491, 492)
+
+Ilgari (369) mustaqil **tizimlar** ishchi oqimlarga taqsimlanardi - bitta katta tizim baribir bitta oqimda edi. Endi
+tizim ichidagi particle'lar ham 2 048 talik bo'laklarda (4 096 dan boshlab; dunyo to'qnashuvi, to'qnashuv hodisalari
+va izlarsiz). Bitta tizim, ~49 000 particle, shovqin 2 oktava; `ZaminBench` standart holda bitta oqimda ishlaydi
+(`--jobs 0`), ishchi oqimlar soni `--jobs` bilan beriladi:
+
+```bash
+build-m25rel/bin/ZaminBench --case "Bitta katta tizim"            # 1 oqim ("bitta oqim")
+build-m25rel/bin/ZaminBench --case "Bitta katta tizim" --jobs 3   # 3 ishchi + asosiy oqim
+```
+
+| | 1 oqim (`--jobs 0`, oldingi xatti-harakat) | 3 ishchi + asosiy oqim (`--jobs 3`) |
+|---|---:|---:|
+| Kadr, o'rtacha (bo'sh kompyuter) | 12.2 ms | **4.0 ms** (3.1x) |
+| Qayta o'lchash (kompyuter yuklangan, reviewer) | 11.8-12.3 ms | eng tezi 3.50 ms, o'rtacha 7.64 ms |
+
+Parallel holat boshqa jarayonlar bilan yadrolarni bo'lishadi: kompyuter band bo'lsa o'rtacha vaqt eng tezidan
+ancha uzoqlashadi (bitta oqim deyarli o'zgarmaydi).
+
+(Oldingi build'da bu holat yo'q edi; bitta tizim u yerda `parallelSystems.size() > 1` sharti bilan doim bitta oqimda
+ishlardi - "1 oqim" ustuni shu yo'l.) Ko'p tizimli holatlar o'zgarmadi (`Shovqin`: 3.46 -> 3.43 ms, `Oddiy` 0.17 ms).
+
+Animatsiya: pozalar (369) avvalgidek ishchi oqimlarda (`--animators 300`: 3.2 ms -> 1.0-1.2 ms, 3 ishchi bilan, oldin
+ham, keyin ham). Yangi - animatorlarning ko'rinishini belgilash (`MarkVisibleAnimators`: har skinned mesh qutisini
+har suyak bilan siljitish) ham parallel; 300 ta 40 suyakli skinned mesh, CullPose: **0.196 -> 0.114 ms**. Ish kichik
+bo'lsa (suyak qutilari < 2 048) bitta oqimda qoladi - aks holda parallel ishning o'zi qimmatroq (meshsiz rig'da
+0.031 ms bitta oqimda, 0.066 ms parallel bo'lardi). Natija bit-bitgacha bir xil: `LargeParticleSystemSteppedInPiecesMatchesSerial`,
+`AnimatorVisibilityMarkedInParallelMatchesSerial`.
+
+### Editor: katta ierarxiya va papka (493, 494)
+
+10 000 obyektli sahna (1 000 guruh x 9 bola, hammasi ochiq) va 5 000 faylli papka, Release editor, 1600x900, xvfb:
+
+| | Ierarxiya ro'yxati, ms / kadr | Kontent brauzer katakchalari, ms / kadr | Editor kadri (status satri) |
+|---|---:|---:|---:|
+| Oldin (`c253510` editori) | - | - | 42.7 ms (23 FPS) |
+| Clipper'siz (`ZAMIN_EDITOR_NO_CLIPPER=1`, hammasi chiziladi) | 10.8 (10 000 qator) | 7.8 (5 000 katak) | 44.0 ms |
+| Keyin (`ImGuiListClipper`) | **0.85** (27 qator chiziladi) | **0.06** (18 katak) | **24.7 ms (41 FPS)** |
+
+Ierarxiyaning qolgan 0.85 ms i - 10 000 qatorli tekis ro'yxatni yig'ish (ochiq / yopiq holat, Shift bilan oraliq
+tanlash uchun hamma qator); qolgan kadr vaqti llvmpipe'ning viewport chizishi. O'lchov: `ZAMIN_EDITOR_PANEL_TIMES=1`.
+
+### Ishga tushish vaqti (495)
+
+Yangi o'lchov: `StartupTimer` har dasturda dvigatel kutubxonasi yuklangandan birinchi kadr ekranga chiqquncha vaqtni
+logga yozadi (`Ishga tushish: birinchi kadr 670 ms (dvigatel 182, layer'lar 88, birinchi kadr 422 ms; jarayon boshidan
+~680 ms), RAM ...`), editorning Statistika panelida ham ko'rinadi; `ZAMIN_STARTUP_PROFILE=1` ishga tushish va birinchi
+kadrning profiler daraxtini chiqaradi. `Tests/startup_bench.py` editor va player'ni bir kadr bilan 5 marta ochadi
+(oldin bir marta isitadi: shader / shrift keshlari) va medianani beradi; "jarayon" - tashqaridan o'lchangan exec ->
+chiqish vaqti (yopilish ham ichida), uni har qanday build beradi, shuning uchun "oldin" (`14e8435`, 488-494 dan
+keyingi build, nusxasi saqlab qo'yilgan) bilan shu ustun solishtiriladi. Release, llvmpipe, `ZAMIN_MAX_FRAMES=1`
+(avtomatik rejim: fon yuklash o'chiq).
+
+| Dastur, loyiha | Jarayon, oldin (mediana) | Jarayon, keyin (mediana) | Birinchi kadr, keyin (dvigatel / layer'lar / 1-kadr) |
+|---|---:|---:|---|
+| Editor, Showcase3D | 1 094 ms | **750 ms** | 670 ms (182 / 88 / 422) |
+| Editor, Platformer2D | 783 ms | **540 ms** | 469 ms (189 / 66 / 208) |
+| Player, Showcase3D | 587 ms | 578 ms | 538 ms (217 / 70 / 276) |
+| Player, Adventure3D | 561 ms | 589 ms | 551 ms (225 / 66 / 243) |
+| Player, Platformer2D | 365 ms | 382 ms | 345 ms (220 / 60 / 60) |
+
+Editorni interaktiv holatdagidek (`ZAMIN_ASYNC_LOAD=1`, sahna rasmlari fonda) ochganda birinchi kadr: Showcase3D
+648 ms, Platformer2D 456 ms. Player qatorlari o'zgarmadi (farq shovqin ichida, ±30 ms) - ularning vaqti quyida
+"qolganlar"da.
+
+Profil (Showcase3D editori, oldin) nimani ko'rsatdi va nima qilindi:
+
+| Joy | Oldin | Keyin | Nima qilindi |
+|---|---:|---:|---|
+| ImGui shrift atlasi (birinchi kadr, "UI (ImGui)" o'zi) | 236 ms | 60-70 ms | atlasga faqat editor ishlatadigan 225 ta Font Awesome ikonkasi (Icons.h dan, `IconRanges.inl`, `Tools/gen_icon_ranges.py`) - oldin to'rt shriftning har biriga butun blok (~1 400 glif); faqat ikonka chiziladigan katta shriftga matndan faqat ASCII |
+| Sahnalar paneli, sahna fayllari | 27 ms | 6 ms | har `.zscene` ning JSON'i ishchi oqimlarda parallel o'qiladi (`JobSystem::ParallelFor`) |
+| Sahnalar paneli, kartalar (rasm) | 44 ms | 19 ms* | sahna rasmlari ishchi oqimda ochiladi, GPU'ga tayyor bo'lganda (fon yuklash yoqiq bo'lsa) |
+| Player: boshlang'ich sahna rasmlari | ketma-ket | parallel | `SceneManager::LoadNow` sahna nomlagan rasmlarni oldindan parallel o'qiydi (`TextureLibrary::Predecode`), keyin tartib bilan yuklaydi |
+
+\* ishchi oqimlar bilan bitta 4 yadroli CPU'da raqobatlashgani uchun asosiy oqim vaqti to'liq yo'qolmaydi.
+
+Qolganlar (o'lchangan, tuzatilmagan): oyna va GL konteksti 52-68 ms, `Renderer3D::Init` 63-70 ms (25 ta shader
+dasturi binary keshdan - llvmpipe kodni baribir qayta yaratadi), birinchi kadrda SSAO ~80 ms (drayver shader
+variantlarini birinchi chizishda kompilyatsiya qiladi), shriftlar 17-43 ms (2048x2048 atlasni GPU'ga yuborish va
+mipmap'lari). Batafsil: [Performance.md](Performance.md).
+
+### Xotira (496)
+
+RAM - jarayonning RSS (`/proc/self/statm`), "eng ko'pi" - VmHWM; "dvigatel" - modullar o'zi hisoblagan xotira
+(`MemoryStats`: teksturalar, render buferlari, mesh buferlari ...; llvmpipe'da GPU xotirasi ham RAM'da). Editor:
+`ZAMIN_EDITOR_STATS=1`, 30 kadr; player: `ZAMIN_PLAYER_STATS=1` (yangi: chiqishda "Xotira: ..." qatori), 60 kadr.
+
+| Dastur, loyiha | RAM oldin (eng ko'pi) | RAM keyin (eng ko'pi) | Dvigatel hisoblagani |
+|---|---:|---:|---|
+| Editor, Showcase3D | 451 MB (467 MB) | **325 MB (341 MB)** | 40 MB (teksturalar 29, render buferlari 10.8) |
+| Editor, Platformer2D | 367 MB (447 MB) | **242 MB (322 MB)** | 30 MB (teksturalar 19, render buferlari 10.8) |
+| Player, Showcase3D | - | 262 MB (277 MB) | 32 MB (teksturalar 22, render buferlari 10.6) |
+| Player, Adventure3D | - | 183 MB (263 MB) | 18 MB (teksturalar 7.5, render buferlari 10.6) |
+| Player, Platformer2D | - | 159 MB (239 MB) | 20 MB (teksturalar 9.4, render buferlari 10.6) |
+
+Editor ~125 MB kam ishlatadi: ImGui atlasi endi 2048x2048 (ikonkalar va katta shrift qisqargani uchun; oldingisi
+ancha katta edi, uning alpha + RGBA nusxalari CPU'da va teksturasi llvmpipe'da RAM'da turardi) va atlasning CPU
+nusxalari teksturaga yuborilgach bo'shatiladi (`ImFontAtlas::ClearTexData`, logda "Editor shrift atlasi: 2048x2048
+(4 ta shrift); CPU nusxasi bo'shatildi"). Player'da ImGui yo'q: uning xotirasi o'zgarmadi; teksturalar CPU nusxasini
+saqlamaydi (yuborilgach bo'shatiladi), shriftlarda faqat TTF fayli qoladi (o'lchamli atlaslar va kerning uchun).
+Player'larda birinchi kadr paytida ~80 MB vaqtinchalik o'sish bor (eng ko'pi - hozirgisi; ikkinchi kadrdayoq
+qaytadi), manbai aniqlanmadi (kadr ichida, ehtimol drayver).
+
 ## Natijalarni saqlash va solishtirish (`Tests/bench.sh`)
 
 `Tests/bench.sh` headless benchmarklarni (ECS, serializatsiya, prefablar) ishga tushiradi va natijalarni
@@ -168,12 +399,16 @@ modullar sozlamalari) va MeshRenderer (material); obyektning o'zi (4 majburiy ko
 `Tests/Baselines/<nom>-<build turi>.json` bilan `Tests/bench_compare.py` orqali solishtiradi: biror raqam
 `--tolerance` (standart 25 %) dan va birlikning shovqin chegarasidan (ms 0.5, kadr ms 0.2, ns 100, bayt 16, % 2)
 ko'proq yomonlashsa skript 1 kodi bilan tugaydi. Fayl I/O qatorlari (`Noisy`) ko'rsatiladi, lekin hisobga olinmaydi.
+Bitta o'lchov band kompyuterda (boshqa jarayon, disk keshi) bir nechta raqamni 25 % dan ko'proq sekinlashtirishi
+mumkin (bu kompyuterda bir ishga tushirishda 79 tadan 20 tasi, keyingisida 1 tasi - kod o'zgarmagan): shuning uchun
+sekinroq ko'ringan benchmark yana ishga tushiriladi (`--repeat`, standart jami 3 marta) va har raqamning eng yaxshi
+natijasi solishtiriladi - haqiqiy sekinlashish har ishga tushirishda ko'rinadi. `--repeat 1` - bitta o'lchov.
 `--update-baseline` natijalarni yangi boshlang'ich natija qiladi. Boshlang'ich natijalar shu sahifadagi kompyuterda
 olingan: boshqa kompyuterda avval `--update-baseline` bilan o'sha yerda yarating, keyin o'zgarishni solishtiring.
 
 ```bash
 cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build build-release --target ZaminBench
-ZAMIN_BUILD_DIR=build-release Tests/bench.sh --compare      # o'zgarish tezlikni yomonlashtirdimi?
+ZAMIN_BUILD_DIR=build-release Tests/bench.sh --compare      # o'zgarish tezlikni yomonlashtirdimi? (shubhalisi 3 marta)
 ZAMIN_BUILD_DIR=build-release Tests/bench.sh --update-baseline
 ```
 
@@ -185,10 +420,12 @@ ZAMIN_BUILD_DIR=build-release Tests/bench.sh --update-baseline
 | Dastur | Nima o'lchaydi |
 |---|---|
 | `ZaminBench` (`particle_bench` target) | particle tizimlari (~50 000 particle), `--jobs N`, `--profile` |
-| `ZaminBench --animators N` | skinned animator'lar pozasi |
+| `ZaminBench --animators N` | skinned animator'lar pozasi, so'ng Animator culling bilan ko'rinishni belgilash (`MarkVisibleAnimators`) |
 | `ZaminBench --queries` | sahna qidiruvlari (nom, teg, komponent indekslari) |
 | `ZaminBench --serialize --prefabs` | bog'langan prefab nusxalari (saqlash, yuklash, sinxronlash, Apply; `Tests/Baselines/prefabs-release.json`) |
 | `ZaminBench --nav` | navigatsiya (bake, yo'l qidirish, Nav Agent'lar) |
+| `ZaminBench --fonts` | shrift atlasi: rasterlash va diskdagi kesh, glif qidirish, kerning bilan matn joylash |
+| `Tests/startup_bench.py` | editor va player ishga tushish vaqti: birinchi kadrgacha (dvigatel / layer'lar / 1-kadr) va jarayon vaqti, ikki build solishtirish (`--bin`, `--module-dir`) |
 | `Tests/player_bench.sh` | namuna o'yinlarning boshlang'ich sahnalari ZaminPlayer'da (ms / kadr, p95, p99) |
 | `Tests/samples_bench.py` | to'qqiz namuna o'yin bot o'ynayotganda: kadr vaqti, eng sekin kadr va uning profili, obyektlar soni, o'yin kodining CPU vaqti, byudjetlar (`--check`) — natija va topilgan muammolar: [Samples.md](Samples.md#ishlash-tezligi) |
 

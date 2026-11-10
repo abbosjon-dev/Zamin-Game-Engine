@@ -2,10 +2,14 @@
 #include <Zamin/Zamin.h>
 #include <Zamin/Editor/EditorLanguage.h>
 #include <Zamin/ImGui/Icons.h>
+#include <Zamin/Core/StartupTimer.h>
 
 #include "TestFramework.h"
+#include "AllocCounter.inl" // the operator new counting hook (AllocCounter.h)
 
 #include <algorithm>
+#include <atomic>
+#include <optional>
 #include <array>
 #include <bit>
 #include <chrono>
@@ -16500,7 +16504,7 @@ TEST(RenderStatsSummary)
     std::string line = stats.Format();
     CHECK(line.find("draw call 12") != std::string::npos);
     CHECK(line.find("mesh: 30 chizildi, 7 kesildi, 20 instanced (3 chaqiruv)") != std::string::npos);
-    CHECK(line.find("soya: 55 chizildi, 9 kesildi, 40 instanced (4 chaqiruv)") != std::string::npos);
+    CHECK(line.find("soya: 55 chizildi, 9 kesildi (0 ko'rinmas soya), 40 instanced (4 chaqiruv)") != std::string::npos);
     CHECK(line.find("2D: 14 chizildi, 86 kesildi") != std::string::npos);
     CHECK(line.find("tile bo'laklari: 2 chizildi, 10 kesildi") != std::string::npos);
     // A new frame starts from zero.
@@ -46344,4 +46348,1007 @@ TEST(DeferredDestroyOnceEachAndLinear)
     const auto [large, leftLarge] = timeFlush(20000);
     CHECK(leftSmall == 0 && leftLarge == 0);
     CHECK(large < small * 40.0 + 5.0);
+}
+
+// ---------------------------------------------------------------- M25: optimization (tasks 481-487)
+namespace {
+    BatchOrderItem BatchRect(uint32_t batch, float x0, float y0, float x1, float y1)
+    {
+        BatchOrderItem item;
+        item.Batch = batch;
+        item.Min = { x0, y0 };
+        item.Max = { x1, y1 };
+        return item;
+    }
+
+    // Every pair that overlaps keeps its order in `order` (what keeps the picture the same).
+    bool OverlapsKeepOrder(const std::vector<BatchOrderItem>& items, const std::vector<uint32_t>& order)
+    {
+        std::vector<size_t> position(items.size());
+        for (size_t i = 0; i < order.size(); i++)
+            position[order[i]] = i;
+        for (size_t a = 0; a < items.size(); a++)
+            for (size_t b = a + 1; b < items.size(); b++)
+            {
+                const bool unknown = !items[a].HasBounds() || !items[b].HasBounds();
+                if ((unknown || items[a].Overlaps(items[b])) && position[a] > position[b])
+                    return false;
+            }
+        return true;
+    }
+}
+
+TEST(BatchOrderGroupsDrawsThatDoNotOverlap)
+{
+    // Sprite, circle, text in turns, side by side (nothing overlaps): grouped into three runs.
+    std::vector<BatchOrderItem> items;
+    for (int i = 0; i < 30; i++)
+        items.push_back(BatchRect(1u + (uint32_t)(i % 3), (float)i * 10.0f, 0.0f, (float)i * 10.0f + 8.0f, 8.0f));
+    std::vector<uint32_t> order;
+    const size_t moved = BatchOrder::Order(items, order);
+    CHECK(order.size() == items.size());
+    CHECK(moved > 0);
+    CHECK(BatchOrder::CountSwitches(items, order) == 3);
+    std::vector<uint32_t> sorted(order);
+    std::sort(sorted.begin(), sorted.end());
+    for (size_t i = 0; i < sorted.size(); i++)
+        CHECK(sorted[i] == i); // every draw once
+    // The same kind keeps its own order.
+    for (size_t i = 1; i < order.size(); i++)
+        if (items[order[i]].Batch == items[order[i - 1]].Batch)
+            CHECK(order[i] > order[i - 1]);
+    CHECK(OverlapsKeepOrder(items, order));
+}
+
+TEST(BatchOrderKeepsOverlappingDrawsInOrder)
+{
+    // A stack: sprite A, a circle over it, sprite B over both - B may not pass the circle.
+    std::vector<BatchOrderItem> items = { BatchRect(1, 0, 0, 10, 10), BatchRect(2, 2, 2, 8, 8), BatchRect(1, 4, 4, 12, 12),
+                                          BatchRect(1, 50, 50, 60, 60) }; // the last overlaps nothing: joins A
+    std::vector<uint32_t> order;
+    BatchOrder::Order(items, order);
+    CHECK(OverlapsKeepOrder(items, order));
+    CHECK(order == std::vector<uint32_t>({ 0, 3, 1, 2 }));
+    // A draw of unknown extent (a particle system, a tilemap) is a wall nothing passes.
+    std::vector<BatchOrderItem> walled = { BatchRect(1, 0, 0, 1, 1), BatchRect(2, 5, 5, 6, 6), BatchOrderItem{}, BatchRect(1, 9, 9, 10, 10) };
+    BatchOrder::Order(walled, order);
+    CHECK(order == std::vector<uint32_t>({ 0, 1, 2, 3 }));
+    // Batch 0: stays where it is, others pass it only where they do not overlap it.
+    std::vector<BatchOrderItem> fixed = { BatchRect(1, 0, 0, 1, 1), BatchRect(0, 5, 5, 6, 6), BatchRect(1, 9, 9, 10, 10), BatchRect(1, 5, 5, 6, 6) };
+    BatchOrder::Order(fixed, order);
+    CHECK(order == std::vector<uint32_t>({ 0, 2, 1, 3 }));
+    CHECK(OverlapsKeepOrder(fixed, order));
+    // Off: the order as it is.
+    BatchOrder::SetEnabled(false);
+    BatchOrder::Order(items, order);
+    CHECK(order == std::vector<uint32_t>({ 0, 1, 2, 3 }));
+    BatchOrder::SetEnabled(true);
+}
+
+TEST(BatchOrderRandomScenesKeepEveryOverlap)
+{
+    // Random draws (some overlapping, some walls): the order is a permutation and overlapping pairs never swap.
+    uint32_t state = 12345u;
+    auto next = [&]() {
+        state = state * 1664525u + 1013904223u;
+        return (float)(state >> 8) / (float)(1u << 24);
+    };
+    for (int round = 0; round < 40; round++)
+    {
+        std::vector<BatchOrderItem> items;
+        const int count = 20 + round * 3;
+        for (int i = 0; i < count; i++)
+        {
+            if (next() < 0.05f)
+            {
+                items.push_back(BatchOrderItem{}); // unknown extent
+                continue;
+            }
+            const float x = next() * 400.0f, y = next() * 300.0f, w = 5.0f + next() * 60.0f, h = 5.0f + next() * 60.0f;
+            items.push_back(BatchRect((uint32_t)(next() * 4.0f), x, y, x + w, y + h));
+        }
+        std::vector<uint32_t> order;
+        BatchOrder::Order(items, order, 8 + (uint32_t)round);
+        CHECK(order.size() == items.size());
+        std::vector<uint32_t> sorted(order);
+        std::sort(sorted.begin(), sorted.end());
+        bool permutation = true;
+        for (size_t i = 0; i < sorted.size(); i++)
+            permutation = permutation && sorted[i] == i;
+        CHECK(permutation);
+        CHECK(OverlapsKeepOrder(items, order));
+        std::vector<uint32_t> identity(items.size());
+        for (size_t i = 0; i < identity.size(); i++)
+            identity[i] = (uint32_t)i;
+        CHECK(BatchOrder::CountSwitches(items, order) <= BatchOrder::CountSwitches(items, identity));
+    }
+}
+
+TEST(WorldTransformCacheFollowsChanges)
+{
+    auto scene = CreateRef<Scene>();
+    Entity root = scene->CreateEntity("Root");
+    Entity child = scene->CreateEntity("Child");
+    Entity grandchild = scene->CreateEntity("Grandchild");
+    scene->SetParent(child, root, false);
+    scene->SetParent(grandchild, child, false);
+    root.GetTransform().Translation = { 1.0f, 0.0f, 0.0f };
+    child.GetTransform().Translation = { 0.0f, 2.0f, 0.0f };
+    child.GetTransform().Rotation = { 0.0f, 0.0f, glm::radians(90.0f) };
+    grandchild.GetTransform().Translation = { 3.0f, 0.0f, 0.0f };
+    auto reference = [&](Entity e) {
+        // The uncached definition: the parents' local transforms multiplied up the chain.
+        glm::mat4 m = e.GetTransform().GetTransform();
+        for (Entity p = scene->GetParent(e); p; p = scene->GetParent(p))
+            m = p.GetTransform().GetTransform() * m;
+        return m;
+    };
+    auto same = [](const glm::mat4& a, const glm::mat4& b) {
+        for (int c = 0; c < 4; c++)
+            for (int r = 0; r < 4; r++)
+                if (std::abs(a[c][r] - b[c][r]) > 1e-5f)
+                    return false;
+        return true;
+    };
+    CHECK(same(scene->GetWorldTransform(grandchild), reference(grandchild)));
+    scene->ResetWorldTransformStats();
+    // Asked again with nothing changed: from the cache (the whole chain).
+    CHECK(same(scene->GetWorldTransform(grandchild), reference(grandchild)));
+    CHECK(scene->GetWorldTransformStats().Recomputed == 0);
+    CHECK(scene->GetWorldTransformStats().Hits == 3);
+    // A write straight into the root's Transform reaches the grandchild.
+    root.GetTransform().Translation.x = -4.0f;
+    CHECK(same(scene->GetWorldTransform(grandchild), reference(grandchild)));
+    CHECK_NEAR(scene->GetWorldPosition(grandchild).x, -4.0f, 1e-4f);
+    root.GetTransform().Scale = glm::vec3(2.0f);
+    CHECK(same(scene->GetWorldTransform(grandchild), reference(grandchild)));
+    child.GetTransform().Rotation.z = 0.0f;
+    CHECK(same(scene->GetWorldTransform(grandchild), reference(grandchild)));
+    // Another parent: the cache sees the hierarchy change.
+    Entity other = scene->CreateEntity("Other");
+    other.GetTransform().Translation = { 0.0f, 0.0f, 10.0f };
+    scene->SetParent(grandchild, other, false);
+    CHECK(same(scene->GetWorldTransform(grandchild), reference(grandchild)));
+    CHECK_NEAR(scene->GetWorldPosition(grandchild).z, 10.0f, 1e-4f);
+    scene->SetParent(grandchild, Entity(), false);
+    CHECK(same(scene->GetWorldTransform(grandchild), grandchild.GetTransform().GetTransform()));
+    // An entity destroyed and its slot reused: a new entity never gets the old one's world.
+    scene->SetParent(grandchild, other, false);
+    (void)scene->GetWorldTransform(grandchild);
+    scene->DestroyEntity(grandchild);
+    Entity reused = scene->CreateEntity("Reused");
+    reused.GetTransform().Translation = { 7.0f, 0.0f, 0.0f };
+    CHECK_NEAR(scene->GetWorldPosition(reused).x, 7.0f, 1e-5f);
+    // Scene::Copy (the editor's play copy) gives the same world transforms.
+    Ref<Scene> copy = Scene::Copy(scene);
+    Entity copiedChild = copy->FindEntityByName("Child");
+    CHECK(copiedChild);
+    CHECK(same(copy->GetWorldTransform(copiedChild), scene->GetWorldTransform(child)));
+    // SetWorldTransform round trip through the cache.
+    const glm::mat4 target = glm::translate(glm::mat4(1.0f), glm::vec3(5.0f, 6.0f, 7.0f));
+    scene->SetWorldTransform(child, target);
+    CHECK(same(scene->GetWorldTransform(child), target));
+}
+
+TEST(SteadyFramesMakeNoHeapAllocations)
+{
+    if (!AllocCounter::Available())
+        return; // AddressSanitizer brings its own operator new
+    // A running scene that only moves (sprites, a hierarchy, a script per tenth entity, an animated tint): once its
+    // first frames are done, a frame allocates nothing (UpdateRuntime; headless - no camera, nothing drawn).
+    auto scene = CreateRef<Scene>();
+    std::vector<Entity> entities;
+    for (int i = 0; i < 300; i++)
+    {
+        Entity e = scene->CreateEntity(std::format("E{}", i));
+        e.GetTransform().Translation = { (float)i, 0.0f, 0.0f };
+        e.AddComponent<SpriteRendererComponent>();
+        if (i % 10 != 0)
+            scene->SetParent(e, entities[(size_t)(i / 10) * 10], false);
+        entities.push_back(e);
+    }
+    scene->OnRuntimeStart();
+    for (int f = 0; f < 10; f++)
+        scene->OnUpdateRuntime(Timestep(1.0f / 60.0f));
+    uint64_t allocations = 0;
+    for (int f = 0; f < 20; f++)
+    {
+        entities[(size_t)f].GetTransform().Translation.y += 0.1f; // something moves
+        AllocCounter::Scope counting;
+        scene->OnUpdateRuntime(Timestep(1.0f / 60.0f));
+        (void)scene->GetWorldTransform(entities[(size_t)f + 1]);
+        allocations += counting.Count();
+    }
+    scene->OnRuntimeStop();
+    CHECK(allocations == 0);
+}
+
+TEST(FontKerningIsOptInAndNarrowsPairs)
+{
+    const std::filesystem::path file = std::filesystem::path(ZAMIN_SOURCE_DIR) / "Resources" / "fonts" / "Inter-SemiBold.ttf";
+    const std::filesystem::path cache = FileSystem::CreateTempDirectory("zamin-font-cache");
+    const std::filesystem::path previous = FontAtlasCache::GetDirectory();
+    FontAtlasCache::SetDirectory(cache);
+    Ref<Font> font = Font::CreateHeadless(file);
+    CHECK(font != nullptr);
+    if (!font)
+        return;
+    CHECK(font->IsLoaded());
+    CHECK(font->GetAtlasTexture() == nullptr); // headless: no GPU texture
+    // Off by default: no pair moves, the layout is the one it always was.
+    CHECK(!font->IsKerningEnabled());
+    CHECK(font->GetKerning('A', 'V') == 0.0f);
+    const TextMetrics metrics = TextMetrics::Of(font.get());
+    const float plain = TextLayout::MeasureWidth("AVATAR To", metrics, 32.0f, 0.0f);
+    const uint64_t revision = font->GetRevision();
+    font->SetKerningEnabled(true);
+    CHECK(font->GetRevision() != revision);
+    const float av = font->GetKerning('A', 'V');
+    CHECK(av < 0.0f);           // Inter sets "AV" closer
+    CHECK(av > -0.3f);          // (an em fraction)
+    CHECK(font->GetKerning('A', 'V') == av); // cached
+    CHECK(font->GetKerning('o', 'o') == 0.0f || std::abs(font->GetKerning('o', 'o')) < 0.05f);
+    const float kerned = TextLayout::MeasureWidth("AVATAR To", metrics, 32.0f, 0.0f);
+    CHECK(kerned < plain - 1.0f);
+    // The layout's line width is the sum DrawString walks: the same as MeasureWidth.
+    TextLayoutResult layout = TextLayout::Layout("AVATAR To", metrics, 32.0f, UIRect{}, TextLayoutSettings{});
+    CHECK(layout.Lines.size() == 1);
+    CHECK_NEAR(layout.Lines[0].Width, kerned, 1e-3f);
+    // Wrapped: a line that starts after a break gets no pair with the character before the break.
+    TextLayoutSettings wrap;
+    wrap.WordWrap = true;
+    TextLayoutResult wrapped = TextLayout::Layout("AV AV AV AV AV AV", metrics, 32.0f, UIRect{ { 0.0f, 0.0f }, { 90.0f, 400.0f } }, wrap);
+    CHECK(wrapped.Lines.size() > 1);
+    for (const TextLine& line : wrapped.Lines)
+        CHECK_NEAR(line.Width, TextLayout::MeasureWidth(std::string_view("AV AV AV AV AV AV").substr(line.Begin, line.End - line.Begin), metrics, 32.0f, 0.0f),
+                   1e-3f);
+    // The import setting.
+    AssetImportSettings import;
+    CHECK(!AssetImporter::ReadFontSettings(import).Kerning);
+    FontImportSettings settings;
+    settings.Kerning = true;
+    AssetImporter::WriteFontSettings(settings, import);
+    CHECK(AssetImporter::ReadFontSettings(import).Kerning);
+    FontAtlasCache::SetDirectory(previous);
+    std::error_code ec;
+    std::filesystem::remove_all(cache, ec);
+}
+
+TEST(FontAtlasCacheGivesTheSameAtlas)
+{
+    const std::filesystem::path file = std::filesystem::path(ZAMIN_SOURCE_DIR) / "Resources" / "fonts" / "Inter-SemiBold.ttf";
+    const std::filesystem::path cache = FileSystem::CreateTempDirectory("zamin-font-cache");
+    const std::filesystem::path previous = FontAtlasCache::GetDirectory();
+    FontAtlasCache::SetDirectory(cache);
+    FontAtlasCache::ResetStats();
+    Ref<Font> baked = Font::CreateHeadless(file); // rasterized, stored
+    CHECK(baked != nullptr);
+    CHECK(FontAtlasCache::GetStats().Stores == 1);
+    CHECK(FontAtlasCache::GetStats().Hits == 0);
+    Ref<Font> cached = Font::CreateHeadless(file); // read back
+    CHECK(cached != nullptr);
+    CHECK(FontAtlasCache::GetStats().Hits == 1);
+    if (baked && cached)
+    {
+        // Every glyph exactly as rasterized.
+        const FontAtlas& a = baked->GetMainAtlas();
+        const FontAtlas& b = cached->GetMainAtlas();
+        CHECK(a.Glyphs.size() == b.Glyphs.size());
+        bool same = a.Glyphs.size() == b.Glyphs.size();
+        for (const auto& [codepoint, g] : a.Glyphs)
+        {
+            auto it = b.Glyphs.find(codepoint);
+            same = same && it != b.Glyphs.end() && std::memcmp(&g, &it->second, sizeof(Glyph)) == 0;
+        }
+        CHECK(same);
+        CHECK(cached->GetLineHeight() == baked->GetLineHeight());
+        // The direct lookup finds what the map has, and '?' for what it does not.
+        CHECK(a.Find('A') == &*a.Find('A'));
+        CHECK(std::memcmp(a.Find('A'), &a.Glyphs.at('A'), sizeof(Glyph)) == 0);
+        CHECK(std::memcmp(a.Find(0x0416), &a.Glyphs.at(0x0416), sizeof(Glyph)) == 0); // Cyrillic
+        CHECK(std::memcmp(a.Find(0x4E2D), &a.Glyphs.at('?'), sizeof(Glyph)) == 0);     // not baked: '?'
+    }
+    // A broken cache file is ignored (baked again).
+    for (const auto& entry : std::filesystem::directory_iterator(cache))
+        FileSystem::WriteTextFile(entry.path(), "buzilgan");
+    FontAtlasCache::ResetStats();
+    CHECK(Font::CreateHeadless(file) != nullptr);
+    CHECK(FontAtlasCache::GetStats().Hits == 0);
+    CHECK(FontAtlasCache::GetStats().Misses == 1);
+    // Off: nothing is read or written.
+    FontAtlasCache::SetDirectory({});
+    FontAtlasCache::ResetStats();
+    CHECK(Font::CreateHeadless(file) != nullptr);
+    CHECK(FontAtlasCache::GetStats().Stores == 0);
+    FontAtlasCache::SetDirectory(previous);
+    std::error_code ec;
+    std::filesystem::remove_all(cache, ec);
+}
+
+TEST(AsyncLoaderWorkOnWorkersFinishOnMainThread)
+{
+    JobSystem::Init(2);
+    const auto mainThread = std::this_thread::get_id();
+    std::vector<int> finished;
+    std::atomic<int> worked{ 0 };
+    std::atomic<bool> deferred{ true };
+    std::vector<uint64_t> ids;
+    for (int i = 0; i < 6; i++)
+        ids.push_back(AsyncLoader::Enqueue(std::format("yuk {}", i),
+                                           [&, i] {
+                                               std::this_thread::sleep_for(std::chrono::milliseconds(2 * (6 - i)));
+                                               if (!AsyncLoader::IsDeferringGPU())
+                                                   deferred = false; // a worker never makes GPU objects
+                                               worked++;
+                                           },
+                                           [&, i] {
+                                               CHECK(std::this_thread::get_id() == mainThread);
+                                               finished.push_back(i);
+                                           }));
+    CHECK(!AsyncLoader::IsDeferringGPU()); // (the main thread itself is not)
+    // A Load of one of them waits for it alone.
+    AsyncLoader::Wait(ids[3]);
+    CHECK(std::find(finished.begin(), finished.end(), 3) != finished.end());
+    CHECK(!AsyncLoader::IsPending(ids[3]));
+    // Update finishes what is done; WaitAll the rest.
+    for (int frame = 0; frame < 200 && AsyncLoader::GetPendingCount() > 0; frame++)
+    {
+        AsyncLoader::Update(100.0);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    AsyncLoader::WaitAll();
+    CHECK(AsyncLoader::GetPendingCount() == 0);
+    CHECK(worked == 6);
+    CHECK(deferred);
+    CHECK(finished.size() == 6);
+    std::vector<int> sorted(finished);
+    std::sort(sorted.begin(), sorted.end());
+    CHECK(sorted == std::vector<int>({ 0, 1, 2, 3, 4, 5 }));
+
+    // The upload queue: run in order within the budget, cancelled by an owner that goes first.
+    int a = 0, b = 0, c = 0;
+    AsyncLoader::QueueUpload(&a, [&] { a++; });
+    AsyncLoader::QueueUpload(&b, [&] { b++; });
+    AsyncLoader::QueueUpload(&c, [&] { c++; });
+    CHECK(AsyncLoader::GetPendingUploadCount() == 3);
+    AsyncLoader::CancelUpload(&b);
+    CHECK(AsyncLoader::RunUpload(&c));
+    CHECK(!AsyncLoader::RunUpload(&c)); // ran once
+    AsyncLoader::Update(0.0);          // one at least, even with no budget
+    CHECK(a == 1 && b == 0 && c == 1);
+    CHECK(AsyncLoader::GetPendingUploadCount() == 0);
+    JobSystem::Shutdown();
+}
+
+TEST(AsyncLoaderImmediateFinishesLoadsAndRestoresMode)
+{
+    // A thumbnail drawn now: what is loading is finished first and LoadAsync loads at once in the scope.
+    JobSystem::Init(2);
+    const bool before = AsyncLoader::IsEnabled();
+    AsyncLoader::SetEnabled(true);
+    std::atomic<int> worked{ 0 };
+    int finished = 0, uploaded = 0;
+    for (int i = 0; i < 3; i++)
+        AsyncLoader::Enqueue("yuk", [&] { std::this_thread::sleep_for(std::chrono::milliseconds(3)); worked++; }, [&] { finished++; });
+    AsyncLoader::QueueUpload(&uploaded, [&] { uploaded++; });
+    {
+        AsyncLoader::Immediate immediate;
+        CHECK(!AsyncLoader::IsEnabled());
+        CHECK(worked == 3 && finished == 3 && uploaded == 1);
+        CHECK(AsyncLoader::GetPendingCount() == 0 && AsyncLoader::GetPendingUploadCount() == 0);
+        {
+            AsyncLoader::Immediate nested; // (nothing left to wait for)
+            CHECK(!AsyncLoader::IsEnabled());
+        }
+        CHECK(!AsyncLoader::IsEnabled());
+    }
+    CHECK(AsyncLoader::IsEnabled()); // the mode it found comes back
+    AsyncLoader::SetEnabled(before);
+    JobSystem::Shutdown();
+}
+
+TEST(PrimitiveLODForSmallCurvedMeshes)
+{
+    // The level by the part of the view a primitive's radius covers; flat primitives always draw themselves.
+    CHECK(MeshLibrary::GetPrimitiveLOD(PrimitiveMesh::Sphere, 0.5f) == 0);
+    CHECK(MeshLibrary::GetPrimitiveLOD(PrimitiveMesh::Sphere, 0.06f) == 0);
+    CHECK(MeshLibrary::GetPrimitiveLOD(PrimitiveMesh::Sphere, 0.05f) == 1);
+    CHECK(MeshLibrary::GetPrimitiveLOD(PrimitiveMesh::Cylinder, 0.015f) == 1);
+    CHECK(MeshLibrary::GetPrimitiveLOD(PrimitiveMesh::Cone, 0.01f) == 2);
+    CHECK(MeshLibrary::GetPrimitiveLOD(PrimitiveMesh::Cube, 0.001f) == 0);
+    CHECK(MeshLibrary::GetPrimitiveLOD(PrimitiveMesh::Plane, 0.001f) == 0);
+    // The coarser copies: a quarter and a sixteenth of a sphere's triangles, half and a quarter of a cylinder's
+    // segments - same unit size (made without the GPU here: DeferGPU keeps their vertices).
+    std::vector<MeshVertex> vertices;
+    std::vector<uint32_t> sphere, cylinder;
+    MeshLibrary::GeneratePrimitive(PrimitiveMesh::Sphere, vertices, sphere);
+    MeshLibrary::GeneratePrimitive(PrimitiveMesh::Cylinder, vertices, cylinder);
+    const size_t uploadsBefore = AsyncLoader::GetPendingUploadCount();
+    {
+        AsyncLoader::DeferGPU defer;
+        Ref<Mesh> sphere1 = MeshLibrary::GetPrimitive(PrimitiveMesh::Sphere, 1);
+        Ref<Mesh> sphere2 = MeshLibrary::GetPrimitive(PrimitiveMesh::Sphere, 2);
+        Ref<Mesh> cylinder2 = MeshLibrary::GetPrimitive(PrimitiveMesh::Cylinder, 2);
+        CHECK(sphere1 == MeshLibrary::GetPrimitive(PrimitiveMesh::Sphere, 1)); // cached
+        CHECK(sphere1->GetIndexCount() * 4 == (uint32_t)sphere.size());
+        CHECK(sphere2->GetIndexCount() * 16 == (uint32_t)sphere.size());
+        CHECK(cylinder2->GetIndexCount() * 4 == (uint32_t)cylinder.size());
+        CHECK_NEAR(sphere2->GetBounds().Max.y, 0.5f, 1e-5f);
+        CHECK_NEAR(cylinder2->GetBounds().Max.x, 0.5f, 1e-5f);
+        MeshLibrary::Clear();
+    }
+    CHECK(AsyncLoader::GetPendingUploadCount() == uploadsBefore); // (freed before their upload: nothing left to upload)
+}
+
+TEST(AsyncLoaderStartupModeFollowsCaptures)
+{
+    auto unset = [](const char* name) { unsetenv(name); };
+    const char* names[] = { "ZAMIN_ASYNC_LOAD", "ZAMIN_SCREENSHOT", "ZAMIN_MAX_FRAMES" };
+    std::vector<std::optional<std::string>> saved;
+    for (const char* name : names)
+    {
+        const char* v = std::getenv(name);
+        saved.push_back(v ? std::optional<std::string>(v) : std::nullopt);
+        unset(name);
+    }
+    CHECK(AsyncLoader::GetStartupMode(true));
+    CHECK(!AsyncLoader::GetStartupMode(false));
+    setenv("ZAMIN_MAX_FRAMES", "60", 1);
+    CHECK(!AsyncLoader::GetStartupMode(true)); // a capture: the same picture whatever the workers do
+    setenv("ZAMIN_ASYNC_LOAD", "1", 1);
+    CHECK(AsyncLoader::GetStartupMode(false)); // asked for explicitly
+    setenv("ZAMIN_ASYNC_LOAD", "0", 1);
+    CHECK(!AsyncLoader::GetStartupMode(true));
+    for (size_t i = 0; i < std::size(names); i++)
+    {
+        if (saved[i])
+            setenv(names[i], saved[i]->c_str(), 1);
+        else
+            unset(names[i]);
+    }
+    // Off (the default in tests): LoadAsync is Load.
+    CHECK(!AsyncLoader::IsEnabled());
+}
+
+TEST(ModelLoadedOnWorkerKeepsGpuWorkForMainThread)
+{
+    // What a background model load does on its worker: the file parsed, meshes and textures made without their
+    // GPU objects (queued for AsyncLoader::Update) - headless here, nothing is uploaded.
+    const std::filesystem::path file = std::filesystem::path(ZAMIN_SOURCE_DIR) / "Projects" / "Showcase3D" / "Assets" / "Models" / "CrystalShrine.gltf";
+    const size_t uploadsBefore = AsyncLoader::GetPendingUploadCount();
+    const uint64_t serial = TextureLibrary::GetLoadSerial();
+    {
+        Ref<Model> model;
+        {
+            AsyncLoader::DeferGPU defer;
+            model = Model::Load(file);
+        }
+        CHECK(model != nullptr);
+        if (model)
+        {
+            CHECK(model->GetSubMeshes().size() == 2);
+            size_t textures = 0;
+            for (const Model::SubMesh& sub : model->GetSubMeshes())
+            {
+                CHECK(sub.MeshRef != nullptr);
+                if (!sub.MeshRef)
+                    continue;
+                CHECK(!sub.MeshRef->IsUploaded());
+                CHECK(sub.MeshRef->GetVertexCount() > 0);
+                CHECK(sub.MeshRef->GetGeometry().GetVertexCount() == sub.MeshRef->GetVertexCount()); // from the kept vertices
+                CHECK(sub.MeshRef->GetBounds().IsValid());
+                for (const Ref<Texture2D>* map : { &sub.Mat.AlbedoMap, &sub.Mat.NormalMap })
+                    if (*map)
+                    {
+                        CHECK(!(*map)->IsReady()); // decoded, waiting for the main thread
+                        CHECK((*map)->IsLoaded());
+                        CHECK((*map)->GetRendererID() == 0);
+                        textures++;
+                    }
+            }
+            CHECK(textures >= 2);
+            CHECK(model->GetBounds().IsValid());
+            CHECK(AsyncLoader::GetPendingUploadCount() >= uploadsBefore + 4); // 2 meshes + 2 textures (shared ones once)
+        }
+        model.reset();
+        CHECK(Model::ReleaseIfUnused(file));
+    }
+    // Gone before their upload: they leave the queue (nothing would upload into a freed object).
+    TextureLibrary::ReleaseUnused(serial);
+    CHECK(AsyncLoader::GetPendingUploadCount() == uploadsBefore);
+}
+
+TEST(ShaderCacheStoresProgramBinaries)
+{
+    const std::filesystem::path cache = FileSystem::CreateTempDirectory("zamin-shader-cache");
+    const std::filesystem::path previous = ShaderCache::GetDirectory();
+    const int previousFormats = ShaderCache::GetBinaryFormatCount();
+    ShaderCache::SetDirectory(cache);
+    // The key: every part counts (name, both stages, the driver), and where one ends.
+    const uint64_t key = ShaderCache::MakeKey("Quad", "void main(){}", "out vec4 c; void main(){}", "Mesa|llvmpipe|4.5");
+    CHECK(key == ShaderCache::MakeKey("Quad", "void main(){}", "out vec4 c; void main(){}", "Mesa|llvmpipe|4.5"));
+    CHECK(key != ShaderCache::MakeKey("Quad2", "void main(){}", "out vec4 c; void main(){}", "Mesa|llvmpipe|4.5"));
+    CHECK(key != ShaderCache::MakeKey("Quad", "void main(){ }", "out vec4 c; void main(){}", "Mesa|llvmpipe|4.5"));
+    CHECK(key != ShaderCache::MakeKey("Quad", "void main(){}", "out vec4 c;  void main(){}", "Mesa|llvmpipe|4.5"));
+    CHECK(key != ShaderCache::MakeKey("Quad", "void main(){}", "out vec4 c; void main(){}", "Mesa|llvmpipe|4.6")); // driver update
+    CHECK(ShaderCache::MakeKey("ab", "c", "", "") != ShaderCache::MakeKey("a", "bc", "", ""));
+
+    // No binary formats (a driver without them): unavailable - every program is compiled.
+    ShaderCache::SetBinaryFormatCount(0);
+    CHECK(!ShaderCache::IsAvailable());
+    ShaderCache::SetBinaryFormatCount(1);
+    CHECK(ShaderCache::IsAvailable());
+
+    // Stored and read back exactly.
+    std::vector<uint8_t> binary(3000);
+    for (size_t i = 0; i < binary.size(); i++)
+        binary[i] = (uint8_t)(i * 31 + 7);
+    ShaderCache::ResetStats();
+    uint32_t format = 0;
+    std::vector<uint8_t> read;
+    CHECK(!ShaderCache::Load(key, format, read)); // nothing yet
+    CHECK(ShaderCache::Store(key, 0x8E21u, binary));
+    CHECK(ShaderCache::GetStats().Stores == 1);
+    CHECK(std::filesystem::exists(ShaderCache::GetFile(key)));
+    CHECK(ShaderCache::Load(key, format, read));
+    CHECK(format == 0x8E21u);
+    CHECK(read == binary);
+    // Another key does not read it; no temporary file is left behind.
+    CHECK(!ShaderCache::Load(key + 1, format, read));
+    size_t files = 0;
+    for (const auto& entry : std::filesystem::directory_iterator(cache))
+        files += entry.path().extension() == ".zshb" ? 1 : 0;
+    CHECK(files == 1);
+
+    // A damaged file (one byte changed, cut short, foreign) is not given to the driver.
+    std::vector<uint8_t> file = FileSystem::ReadBinaryFile(ShaderCache::GetFile(key));
+    CHECK(file.size() == binary.size() + 32);
+    file.back() ^= 0x5A;
+    FileSystem::WriteBinaryFile(ShaderCache::GetFile(key), file.data(), file.size());
+    read.clear();
+    CHECK(!ShaderCache::Load(key, format, read));
+    CHECK(read.empty());
+    file.back() ^= 0x5A;
+    file.resize(file.size() - 10);
+    FileSystem::WriteBinaryFile(ShaderCache::GetFile(key), file.data(), file.size());
+    CHECK(!ShaderCache::Load(key, format, read));
+    FileSystem::WriteTextFile(ShaderCache::GetFile(key), "buzilgan");
+    CHECK(!ShaderCache::Load(key, format, read));
+    // Refused by the driver: the file goes.
+    CHECK(ShaderCache::Store(key, 1u, binary));
+    ShaderCache::Remove(key);
+    CHECK(!std::filesystem::exists(ShaderCache::GetFile(key)));
+    CHECK(!ShaderCache::Load(key, format, read));
+
+    // The oldest files go beyond MaxFiles.
+    for (size_t i = 0; i < ShaderCache::MaxFiles + 3; i++)
+        CHECK(ShaderCache::Store(1000 + i, 1u, binary));
+    files = 0;
+    for (const auto& entry : std::filesystem::directory_iterator(cache))
+        files += entry.path().extension() == ".zshb" ? 1 : 0;
+    CHECK(files == ShaderCache::MaxFiles);
+    CHECK(ShaderCache::Load(1000 + ShaderCache::MaxFiles + 2, format, read)); // the newest stays
+
+    // Off: nothing is read or written.
+    ShaderCache::SetDirectory({});
+    CHECK(!ShaderCache::IsAvailable());
+    CHECK(!ShaderCache::Store(key, 1u, binary));
+    CHECK(!ShaderCache::Load(1000 + ShaderCache::MaxFiles + 2, format, read));
+
+    // The outcome counters the program-making code adds to.
+    ShaderCache::ResetStats();
+    ShaderCache::RecordHit(1.5);
+    ShaderCache::RecordMiss(20.0);
+    ShaderCache::RecordMiss(10.0);
+    ShaderCache::RecordRejected();
+    CHECK(ShaderCache::GetStats().Hits == 1);
+    CHECK(ShaderCache::GetStats().Misses == 2);
+    CHECK(ShaderCache::GetStats().Rejected == 1);
+    CHECK_NEAR(ShaderCache::GetStats().CompileMilliseconds, 30.0, 1e-9);
+    CHECK_NEAR(ShaderCache::GetStats().LoadMilliseconds, 1.5, 1e-9);
+    ShaderCache::ResetStats();
+
+    ShaderCache::SetDirectory(previous);
+    ShaderCache::SetBinaryFormatCount(previousFormats);
+    std::error_code ec;
+    std::filesystem::remove_all(cache, ec);
+}
+
+TEST(ShadowCastersCulledByWhatTheCameraSees)
+{
+    // A camera at the origin looking down -Z (60 degrees, 0.1 .. 100).
+    const glm::mat4 view(1.0f);
+    const glm::mat4 projection = glm::perspective(glm::radians(60.0f), 16.0f / 9.0f, 0.1f, 100.0f);
+    const glm::mat4 viewProjection = projection * view;
+    const Frustum all = Renderer3D::GetShadowReceiverVolume(view, viewProjection, 0.0f, 100.0f, 0.0f);
+    auto box = [](glm::vec3 center, float half) { return AABB{ center - glm::vec3(half), center + glm::vec3(half) }; };
+    const glm::vec3 down(0.0f, -1.0f, 0.0f);
+
+    CHECK(Renderer3D::ShadowReachesVolume(box({ 0.0f, 0.0f, -10.0f }, 1.0f), down, 50.0f, all));    // in view
+    CHECK(!Renderer3D::ShadowReachesVolume(box({ 0.0f, 5.0f, 20.0f }, 1.0f), down, 50.0f, all));    // behind the camera
+    CHECK(!Renderer3D::ShadowReachesVolume(box({ 80.0f, 0.0f, -10.0f }, 1.0f), down, 50.0f, all));  // far beside the view
+    // Above the view (outside the camera's frustum itself): its shadow falls into it.
+    CHECK(Renderer3D::ShadowReachesVolume(box({ 0.0f, 40.0f, -10.0f }, 1.0f), down, 50.0f, all));
+    CHECK(!Renderer3D::ShadowReachesVolume(box({ 0.0f, 40.0f, -10.0f }, 1.0f), down, 5.0f, all));   // not that far down
+    CHECK(!Renderer3D::ShadowReachesVolume(box({ 0.0f, 40.0f, -10.0f }, 1.0f), -down, 50.0f, all)); // light from below: away from it
+
+    // A low sun shining forward: a caster behind the camera throws its shadow into the view.
+    const glm::vec3 low = glm::normalize(glm::vec3(0.0f, -0.2f, -1.0f));
+    CHECK(Renderer3D::ShadowReachesVolume(box({ 0.0f, 0.5f, 5.0f }, 1.0f), low, 40.0f, all));
+    CHECK(!Renderer3D::ShadowReachesVolume(box({ 0.0f, 0.5f, 5.0f }, 1.0f), low, 1.0f, all));
+
+    // The cascade's depth range: a caster 50 deep shadows nothing the first 10 units show.
+    const Frustum nearSlice = Renderer3D::GetShadowReceiverVolume(view, viewProjection, 0.0f, 10.0f, 0.0f);
+    const Frustum farSlice = Renderer3D::GetShadowReceiverVolume(view, viewProjection, 40.0f, 60.0f, 0.0f);
+    CHECK(!Renderer3D::ShadowReachesVolume(box({ 0.0f, 0.0f, -50.0f }, 1.0f), down, 50.0f, nearSlice));
+    CHECK(Renderer3D::ShadowReachesVolume(box({ 0.0f, 0.0f, -50.0f }, 1.0f), down, 50.0f, farSlice));
+    CHECK(Renderer3D::ShadowReachesVolume(box({ 0.0f, 0.0f, -5.0f }, 1.0f), down, 50.0f, nearSlice));
+    CHECK(!Renderer3D::ShadowReachesVolume(box({ 0.0f, 0.0f, -5.0f }, 1.0f), down, 50.0f, farSlice));
+    // The margin keeps a caster just past the slice's end (the filter / normal offset reach over).
+    CHECK(!Renderer3D::ShadowReachesVolume(box({ 0.0f, 0.0f, -10.6f }, 0.5f), down, 50.0f, nearSlice));
+    CHECK(Renderer3D::ShadowReachesVolume(box({ 0.0f, 0.0f, -10.6f }, 0.5f), down, 50.0f,
+                                          Renderer3D::GetShadowReceiverVolume(view, viewProjection, 0.0f, 10.0f, 0.2f)));
+
+    // A moved and turned camera: the same answers in its own frame.
+    const glm::mat4 cameraWorld = glm::translate(glm::mat4(1.0f), glm::vec3(30.0f, 2.0f, -7.0f)) *
+                                  glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    const glm::mat4 movedView = glm::inverse(cameraWorld);
+    const Frustum moved = Renderer3D::GetShadowReceiverVolume(movedView, projection * movedView, 0.0f, 10.0f, 0.0f);
+    const glm::vec3 forward = -glm::vec3(cameraWorld[2]);
+    const glm::vec3 eye(cameraWorld[3]);
+    CHECK(Renderer3D::ShadowReachesVolume(box(eye + forward * 5.0f, 1.0f), down, 50.0f, moved));
+    CHECK(!Renderer3D::ShadowReachesVolume(box(eye - forward * 5.0f, 1.0f), down, 50.0f, moved));
+    CHECK(!Renderer3D::ShadowReachesVolume(box(eye + forward * 30.0f, 1.0f), down, 50.0f, moved)); // past this slice
+    // An empty box casts nothing; the switch.
+    CHECK(!Renderer3D::ShadowReachesVolume(AABB::Empty(), down, 50.0f, all));
+    CHECK(Renderer3D::IsShadowReceiverCullingEnabled());
+    Renderer3D::SetShadowReceiverCulling(false);
+    CHECK(!Renderer3D::IsShadowReceiverCullingEnabled());
+    Renderer3D::SetShadowReceiverCulling(true);
+}
+
+TEST(LargeParticleSystemSteppedInPiecesMatchesSerial)
+{
+    // One system far above ParallelThreshold, with the modules a piece may run (noise, velocity
+    // over lifetime, the speed limit, a collision plane without events) - split over the workers
+    // with the same particles as on one thread; with collision events it stays on one thread.
+    using PS = ParticleSystemComponent;
+    auto make = [](bool events) {
+        auto scene = CreateRef<Scene>();
+        Entity e = scene->CreateEntity("Katta tizim");
+        auto& ps = e.AddComponent<PS>();
+        ps.MaxParticles = 20000;
+        ps.EmissionRate = 30000.0f;
+        ps.LifetimeMin = 0.6f;
+        ps.LifetimeMax = 1.2f;
+        ps.Shape = PS::EmitterShape::Sphere;
+        ps.ShapeRadius = 1.0f;
+        ps.Gravity = { 0.0f, -6.0f, 0.0f };
+        ps.Drag = 0.2f;
+        ps.RandomState = 0xBEEFu;
+        ps.Noise.Enabled = true;
+        ps.Noise.Octaves = 2;
+        ps.VelocityOverLifetime.Enabled = true;
+        ps.VelocityOverLifetime.Orbital = { 0.0f, 0.8f, 0.0f };
+        ps.VelocityOverLifetime.Radial = 0.2f;
+        ps.LimitVelocity.Enabled = true;
+        ps.LimitVelocity.MaxSpeed = 6.0f;
+        ps.Collision.Enabled = true; // the plane
+        ps.Collision.Bounce = 0.4f;
+        if (events)
+        {
+            // A sub-emitter on collisions: the step adds to the system's event list.
+            Entity templ = scene->CreateEntity("Shablon");
+            auto& tp = templ.AddComponent<PS>();
+            tp.EmissionEnabled = false;
+            tp.MaxParticles = 500;
+            tp.LifetimeMin = tp.LifetimeMax = 0.2f;
+            auto& source = e.GetComponent<PS>();
+            source.SubEmitters.Enabled = true;
+            PS::SubEmitter sub;
+            sub.Emitter.ID = (uint64_t)templ.GetUUID();
+            sub.Trigger = PS::SubEmitter::TriggerType::Collision;
+            sub.Count = 1;
+            source.SubEmitters.Emitters = { sub };
+        }
+        return scene;
+    };
+    auto run = [&](bool events) {
+        Ref<Scene> scene = make(events);
+        scene->OnRuntimeStart();
+        for (int i = 0; i < 40; i++)
+            scene->OnUpdateRuntime(1.0f / 60.0f);
+        std::vector<float> state = ParticleState(*scene);
+        scene->OnRuntimeStop();
+        return state;
+    };
+    JobSystem::Shutdown();
+    const uint64_t serialSteps = ParticleSimulation::GetParallelStepCount();
+    const std::vector<float> serial = run(false);
+    CHECK(ParticleSimulation::GetParallelStepCount() == serialSteps); // no workers: never split
+    CHECK(serial.size() > (size_t)ParticleSimulation::ParallelThreshold * 7);
+
+    JobSystem::Init(3);
+    const uint64_t before = ParticleSimulation::GetParallelStepCount();
+    const std::vector<float> parallel = run(false);
+    CHECK(ParticleSimulation::GetParallelStepCount() >= before + 30); // split in (nearly) every frame
+    CHECK(parallel == serial);
+    // Collision events: the event list is shared - on one thread, the same either way.
+    const uint64_t withEvents = ParticleSimulation::GetParallelStepCount();
+    const std::vector<float> eventsParallel = run(true);
+    CHECK(ParticleSimulation::GetParallelStepCount() == withEvents);
+    JobSystem::Shutdown();
+    CHECK(eventsParallel == run(true));
+}
+
+// A skinned column along a joint chain (a ring of 4 vertices per joint, each ring on its joint): a
+// mesh made without GPU objects (AsyncLoader::DeferGPU) - its bounds and joints are what the
+// animators' visibility test reads.
+static Ref<Mesh> MakeSkinnedColumnMesh(int joints)
+{
+    std::vector<SkinnedVertex> vertices;
+    std::vector<uint32_t> indices;
+    for (int j = 0; j < joints; j++)
+        for (int k = 0; k < 4; k++)
+        {
+            SkinnedVertex v{};
+            const float angle = (float)k * 1.5707963f;
+            v.Position = { 0.1f * std::cos(angle), 0.25f * (float)j, 0.1f * std::sin(angle) };
+            v.Normal = { std::cos(angle), 0.0f, std::sin(angle) };
+            v.Joints = glm::ivec4(j, 0, 0, 0);
+            v.Weights = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
+            vertices.push_back(v);
+        }
+    for (int j = 0; j + 1 < joints; j++)
+        for (int k = 0; k < 4; k++)
+        {
+            const uint32_t a = (uint32_t)(j * 4 + k), b = (uint32_t)(j * 4 + (k + 1) % 4);
+            indices.insert(indices.end(), { a, b, a + 4, b, b + 4, a + 4 });
+        }
+    AsyncLoader::DeferGPU deferred;
+    return CreateRef<Mesh>(vertices, indices);
+}
+
+TEST(AnimatorVisibilityMarkedInParallelMatchesSerial)
+{
+    // Many culled animators with skinned meshes in a row, a camera that sees part of it: the same ones
+    // are marked seen (and posed) with the workers as on one thread.
+    Ref<Model> rig = MakeJobSkeletonModel(12);
+    Model::SubMesh column;
+    column.MeshRef = MakeSkinnedColumnMesh(12);
+    CHECK(column.MeshRef->IsSkinned() && !column.MeshRef->IsUploaded());
+    Ref<Model> model = Model::CreateSkeletal(rig->GetSkeleton(), rig->GetAnimations(), { column });
+    CHECK(model->GetBounds().IsValid());
+    auto run = [&] {
+        auto scene = CreateRef<Scene>();
+        for (int i = 0; i < 96; i++)
+        {
+            Entity e = scene->CreateEntity(std::format("Qahramon {}", i));
+            e.GetTransform().Translation = { (float)i * 1.5f, 0.0f, 0.0f };
+            auto& mr = e.AddComponent<MeshRendererComponent>();
+            mr.Type = PrimitiveMesh::Model;
+            mr.ModelAsset = model;
+            auto& a = e.AddComponent<AnimatorComponent>();
+            a.Clip = std::format("Klip{}", i % 4);
+            a.Culling = i % 5 == 0 ? AnimatorCulling::AlwaysAnimate : AnimatorCulling::CullPose;
+        }
+        const glm::mat4 viewProjection = glm::ortho(-1.0f, 60.0f, -5.0f, 5.0f, 0.1f, 50.0f) *
+                                         glm::lookAt(glm::vec3(0.0f, 0.0f, 10.0f), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        scene->OnRuntimeStart();
+        std::vector<uint64_t> seen;
+        uint32_t posed = 0, culled = 0;
+        for (int f = 0; f < 6; f++)
+        {
+            scene->OnUpdateRuntime(1.0f / 60.0f);
+            scene->MarkVisibleAnimators(viewProjection);
+            posed += scene->GetAnimationStats().Posed;
+            culled += scene->GetAnimationStats().Culled;
+        }
+        for (auto e : scene->GetAllEntitiesWith<AnimatorComponent>())
+            seen.push_back(Entity(e, scene.get()).GetComponent<AnimatorComponent>().VisibleFrame);
+        scene->OnRuntimeStop();
+        return std::tuple(seen, posed, culled);
+    };
+    JobSystem::Shutdown();
+    const auto [serialSeen, serialPosed, serialCulled] = run();
+    CHECK(serialCulled > 0 && serialPosed > 0); // part of the row is off screen
+    JobSystem::Init(3);
+    const auto [parallelSeen, parallelPosed, parallelCulled] = run();
+    CHECK(parallelSeen == serialSeen);
+    CHECK(parallelPosed == serialPosed && parallelCulled == serialCulled);
+    JobSystem::Shutdown();
+}
+
+// ---- M25: start-up time, editor font icons, translations (tasks 495, 496, 499)
+
+TEST(StartupTimerParsesProcessStartTime)
+{
+    uint64_t ticks = 0;
+    // Field 22 (starttime) after the program's name, which can hold spaces and parentheses.
+    CHECK(StartupTimer::ParseStartTicks("1234 (Zamin Player (x)) S 1 1234 1234 0 -1 4194560 100 0 0 0 5 3 0 0 20 0 9 0 98765 123456 789\n", ticks));
+    CHECK(ticks == 98765);
+    CHECK(!StartupTimer::ParseStartTicks("1234 (a) S 1 2 3", ticks)); // too few fields
+    CHECK(!StartupTimer::ParseStartTicks("no parentheses here", ticks));
+    CHECK(!StartupTimer::ParseStartTicks("1 (a) S 1 1 1 0 -1 0 0 0 0 0 0 0 0 0 20 0 1 0 12x4 5", ticks)); // not a number
+    // This process: started a moment ago (well under a day), as the boot clock sees it.
+    const double age = StartupTimer::ReadProcessAgeMs();
+    CHECK(age >= 0.0 && age < 24.0 * 3600.0 * 1000.0);
+    CHECK(StartupTimer::Now() >= 0.0);
+    // No application ran here: nothing measured.
+    CHECK(!StartupTimer::Get().Done);
+    StartupTimer::Timings t;
+    t.TotalMs = 612.4;
+    t.EngineMs = 180.0;
+    t.LayersMs = 70.0;
+    t.FirstFrameMs = 362.0;
+    t.ProcessMs = 11.0;
+    const std::string text = StartupTimer::Describe(t);
+    CHECK(text.starts_with("612 ms (dvigatel 180, layer'lar 70, birinchi kadr 362 ms; jarayon boshidan ~623 ms)"));
+    CHECK_NEAR(t.FromProcessStartMs(), 623.4, 1e-9);
+    t.ProcessMs = -1.0; // unknown: the process part is left out
+    CHECK(StartupTimer::Describe(t).find("jarayon") == std::string::npos);
+}
+
+namespace {
+    // The codepoint of a UTF-8 string of one character ("\xef\x80\x93" -> U+F013); 0 for anything else.
+    uint32_t DecodeOneCodepoint(const std::string& s)
+    {
+        const auto b = [&](size_t i) { return (uint32_t)(unsigned char)s[i]; };
+        if (s.size() == 1 && b(0) < 0x80)
+            return b(0);
+        if (s.size() == 2 && (b(0) & 0xE0) == 0xC0)
+            return (b(0) & 0x1F) << 6 | (b(1) & 0x3F);
+        if (s.size() == 3 && (b(0) & 0xF0) == 0xE0)
+            return (b(0) & 0x0F) << 12 | (b(1) & 0x3F) << 6 | (b(2) & 0x3F);
+        return 0;
+    }
+
+    // A C++ string literal's body ("a\"b\x41") as the bytes it stands for.
+    std::string UnescapeLiteral(std::string_view body)
+    {
+        std::string out;
+        for (size_t i = 0; i < body.size(); i++)
+        {
+            if (body[i] != '\\' || i + 1 >= body.size())
+            {
+                out += body[i];
+                continue;
+            }
+            const char c = body[++i];
+            if (c == 'n')
+                out += '\n';
+            else if (c == 't')
+                out += '\t';
+            else if (c == 'x')
+            {
+                uint32_t value = 0;
+                size_t digits = 0;
+                while (i + 1 < body.size() && digits < 2 && std::isxdigit((unsigned char)body[i + 1]))
+                {
+                    const char h = body[++i];
+                    value = value * 16 + (uint32_t)(std::isdigit((unsigned char)h) ? h - '0' : std::tolower((unsigned char)h) - 'a' + 10);
+                    digits++;
+                }
+                out += (char)value;
+            }
+            else
+                out += c; // \" \\ \'
+        }
+        return out;
+    }
+}
+
+TEST(IconGlyphRangesCoverIconsHeader)
+{
+    // The editor bakes only these icons (IconRanges.inl, made by Tools/gen_icon_ranges.py): every icon of
+    // Icons.h must be in them, or it would draw as "?".
+    static const uint32_t ranges[] = {
+#include "Zamin/ImGui/IconRanges.inl"
+        0,
+    };
+    const size_t count = std::size(ranges) - 1;
+    CHECK(count % 2 == 0 && count > 100);
+    for (size_t i = 0; i + 1 < count; i += 2)
+    {
+        CHECK(ranges[i] <= ranges[i + 1]);
+        CHECK(ranges[i] >= ICON_MIN_FA && ranges[i + 1] <= ICON_MAX_FA);
+        if (i + 2 < count)
+            CHECK(ranges[i + 1] < ranges[i + 2]); // sorted, not overlapping
+    }
+    const auto covered = [&](uint32_t cp) {
+        for (size_t i = 0; i + 1 < count; i += 2)
+            if (cp >= ranges[i] && cp <= ranges[i + 1])
+                return true;
+        return false;
+    };
+    CHECK(covered(DecodeOneCodepoint(ICON_FA_GEAR)) && covered(DecodeOneCodepoint(ICON_FA_PLAY)) && covered(DecodeOneCodepoint(ICON_FA_EARTH_ASIA)));
+    std::ifstream header(std::filesystem::path(ZAMIN_SOURCE_DIR) / "Zamin" / "src" / "Zamin" / "ImGui" / "Icons.h");
+    CHECK(header.good());
+    std::string line;
+    int icons = 0;
+    std::vector<std::string> missing;
+    while (std::getline(header, line))
+    {
+        if (!line.starts_with("#define ICON_FA_"))
+            continue;
+        const size_t open = line.find('"'), close = line.find('"', open + 1);
+        if (open == std::string::npos || close == std::string::npos)
+            continue;
+        const uint32_t cp = DecodeOneCodepoint(UnescapeLiteral(std::string_view(line).substr(open + 1, close - open - 1)));
+        if (cp < ICON_MIN_FA || cp > ICON_MAX_FA)
+            continue; // not a Font Awesome glyph (the text font draws it)
+        icons++;
+        if (!covered(cp))
+            missing.push_back(line);
+    }
+    for (const std::string& m : missing)
+        std::printf("    ikonka IconRanges.inl'da yo'q (Tools/gen_icon_ranges.py): %s\n", m.c_str());
+    CHECK(icons > 100);
+    CHECK(missing.empty());
+}
+
+TEST(EditorTranslationKeysComplete)
+{
+    // Every literal label the editor's code gives Tr() or a UI helper that translates its label
+    // (PropertyLabel / PropertyHeader / Property* / TextCentered) has an English text: a new label
+    // without one stays Uzbek in the English editor, and this test names it.
+    static const std::set<std::string> translating = { "Tr", "TextCentered", "PropertyLabel", "PropertyHeader", "PropertyAssetPath",
+                                                       "PropertyBool", "PropertyColor3", "PropertyColor4", "PropertyCombo", "PropertyCurve",
+                                                       "PropertyEmission", "PropertyFloat", "PropertyFloat2", "PropertyFloat3", "PropertyFloat4",
+                                                       "PropertyGradient", "PropertyInt", "PropertySegmented", "PropertySlider", "PropertyString" };
+    const auto isWord = [](char c) { return std::isalnum((unsigned char)c) || c == '_'; };
+    std::vector<std::string> missing;
+    size_t labels = 0, files = 0;
+    for (const auto& entry : std::filesystem::recursive_directory_iterator(std::filesystem::path(ZAMIN_SOURCE_DIR) / "Editor" / "src"))
+    {
+        const std::string ext = entry.path().extension().string();
+        if (!entry.is_regular_file() || (ext != ".cpp" && ext != ".h"))
+            continue;
+        files++;
+        std::ifstream in(entry.path(), std::ios::binary);
+        const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        for (size_t paren = text.find('('); paren != std::string::npos; paren = text.find('(', paren + 1))
+        {
+            size_t begin = paren;
+            while (begin > 0 && isWord(text[begin - 1]))
+                begin--;
+            if (begin == paren || !translating.contains(text.substr(begin, paren - begin)))
+                continue;
+            size_t at = paren + 1;
+            const auto skipSpace = [&]() {
+                while (at < text.size() && std::isspace((unsigned char)text[at]))
+                    at++;
+            };
+            // Icons before the text: ICON_FA_GEAR "  Sozlamalar".
+            for (skipSpace(); text.compare(at, 8, "ICON_FA_") == 0; skipSpace())
+                while (at < text.size() && isWord(text[at]))
+                    at++;
+            std::string value;
+            bool any = false;
+            while (at < text.size() && text[at] == '"')
+            {
+                size_t end = at + 1;
+                while (end < text.size() && text[end] != '"')
+                    end += text[end] == '\\' ? 2 : 1;
+                value += UnescapeLiteral(std::string_view(text).substr(at + 1, end - at - 1));
+                at = end + 1;
+                any = true;
+                skipSpace();
+            }
+            if (!any || at >= text.size() || (text[at] != ')' && text[at] != ','))
+                continue; // made at run time (a variable, a call, a literal followed by an icon or a +)
+            const std::string core(EditorText::Split(value).Core);
+            if (std::none_of(core.begin(), core.end(), [](char c) { return std::isalpha((unsigned char)c); }))
+                continue; // "##id", "%s", numbers
+            labels++;
+            if (!EditorText::HasTranslation(core))
+                missing.push_back(entry.path().filename().string() + ": " + core);
+        }
+    }
+    std::sort(missing.begin(), missing.end());
+    missing.erase(std::unique(missing.begin(), missing.end()), missing.end());
+    for (const std::string& m : missing)
+        std::printf("    inglizchasi yo'q: %s\n", m.c_str());
+    CHECK(files > 50 && labels > 1000);
+    CHECK(missing.empty());
 }

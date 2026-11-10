@@ -558,6 +558,19 @@ void main()
 
     void Renderer2D::StartBatch() { ResetBatch(); }
 
+    // The uniform names made once: a name past 15 characters as a temporary std::string would be a heap
+    // allocation at every batch drawn (task 482).
+    namespace Uniform {
+        const std::string ViewProjection = "u_ViewProjection";
+        const std::string LinearTextures = "u_LinearTextures";
+        const std::string DisplayOutput = "u_DisplayOutput";
+        const std::string LightCount = "u_LightCount";
+        const std::string Ambient = "u_Ambient2D";
+        const std::string LightPosRadius = "u_LightPosRadius";
+        const std::string LightColor = "u_LightColor";
+        const std::string LightSpot = "u_LightSpot";
+    }
+
     // The 2D lights into a quad / text shader's uniforms (the shader is bound).
     static void UploadLighting(Shader& shader)
     {
@@ -571,11 +584,11 @@ void main()
             color[(size_t)i] = { light.Color, light.Falloff };
             spot[(size_t)i] = light.Spot ? glm::vec4(light.Direction, light.CosOuter, light.CosInner) : glm::vec4(1.0f, 0.0f, -2.0f, -2.0f);
         }
-        shader.SetInt("u_LightCount", count);
-        shader.SetFloat3("u_Ambient2D", l.Ambient);
-        shader.SetFloat4Array("u_LightPosRadius", posRadius.data(), (uint32_t)count);
-        shader.SetFloat4Array("u_LightColor", color.data(), (uint32_t)count);
-        shader.SetFloat4Array("u_LightSpot", spot.data(), (uint32_t)count);
+        shader.SetInt(Uniform::LightCount, count);
+        shader.SetFloat3(Uniform::Ambient, l.Ambient);
+        shader.SetFloat4Array(Uniform::LightPosRadius, posRadius.data(), (uint32_t)count);
+        shader.SetFloat4Array(Uniform::LightColor, color.data(), (uint32_t)count);
+        shader.SetFloat4Array(Uniform::LightSpot, spot.data(), (uint32_t)count);
     }
 
     // Each kind of the batch drawn and taken out of it (the next draw starts that kind afresh).
@@ -604,9 +617,9 @@ void main()
                     linearTextures |= 1 << i;
             }
         shader->Bind();
-        shader->SetMat4("u_ViewProjection", s_Data->ViewProjection);
-        shader->SetInt("u_LinearTextures", linearTextures);
-        shader->SetInt("u_DisplayOutput", s_Data->DisplayOutput);
+        shader->SetMat4(Uniform::ViewProjection, s_Data->ViewProjection);
+        shader->SetInt(Uniform::LinearTextures, linearTextures);
+        shader->SetInt(Uniform::DisplayOutput, s_Data->DisplayOutput);
         bool& lightingDirty = s_Data->TextBatch ? s_Data->TextLightingDirty : s_Data->LightingDirty;
         if (lightingDirty)
         {
@@ -627,8 +640,8 @@ void main()
         uint32_t dataSize = (uint32_t)((uint8_t*)s_Data->CircleVertexBufferPtr - (uint8_t*)s_Data->CircleVertexBufferBase);
         s_Data->CircleVertexBuffer->SetData(s_Data->CircleVertexBufferBase, dataSize);
         s_Data->CircleShader->Bind();
-        s_Data->CircleShader->SetMat4("u_ViewProjection", s_Data->ViewProjection);
-        s_Data->CircleShader->SetInt("u_DisplayOutput", s_Data->DisplayOutput);
+        s_Data->CircleShader->SetMat4(Uniform::ViewProjection, s_Data->ViewProjection);
+        s_Data->CircleShader->SetInt(Uniform::DisplayOutput, s_Data->DisplayOutput);
         RenderCommand::DrawIndexed(s_Data->CircleVertexArray, s_Data->CircleIndexCount);
         Renderer::GetStats().DrawCalls++;
         s_Data->CircleIndexCount = 0;
@@ -642,8 +655,8 @@ void main()
         uint32_t dataSize = (uint32_t)((uint8_t*)s_Data->LineVertexBufferPtr - (uint8_t*)s_Data->LineVertexBufferBase);
         s_Data->LineVertexBuffer->SetData(s_Data->LineVertexBufferBase, dataSize);
         s_Data->LineShader->Bind();
-        s_Data->LineShader->SetMat4("u_ViewProjection", s_Data->ViewProjection);
-        s_Data->LineShader->SetInt("u_DisplayOutput", s_Data->DisplayOutput);
+        s_Data->LineShader->SetMat4(Uniform::ViewProjection, s_Data->ViewProjection);
+        s_Data->LineShader->SetInt(Uniform::DisplayOutput, s_Data->DisplayOutput);
         RenderCommand::SetLineWidth(s_Data->LineWidth);
         RenderCommand::DrawLines(s_Data->LineVertexArray, s_Data->LineVertexCount);
         Renderer::GetStats().DrawCalls++;
@@ -671,6 +684,8 @@ void main()
     {
         if (!s_Data->TextBatch)
             return;
+        if (s_Data->QuadIndexCount)
+            Renderer::GetStats().Flush2DKind++;
         FlushQuads();
         s_Data->TextBatch = false;
         s_Data->TextAtlas = nullptr;
@@ -687,6 +702,7 @@ void main()
 
         if (s_Data->TextureSlotIndex >= Renderer2DData::MaxTextureSlots)
         {
+            Renderer::GetStats().Flush2DTextures++;
             Renderer2D::Flush();
             ResetBatch();
         }
@@ -703,7 +719,10 @@ void main()
     static void BeginQuads()
     {
         if (s_Data->CircleIndexCount)
+        {
+            Renderer::GetStats().Flush2DKind++;
             FlushCircles();
+        }
         BeginSprites();
     }
 
@@ -711,9 +730,14 @@ void main()
     static void BeginText(const Ref<Texture2D>& atlas)
     {
         if (s_Data->CircleIndexCount)
+        {
+            Renderer::GetStats().Flush2DKind++;
             FlushCircles();
+        }
         if (s_Data->TextBatch && s_Data->TextAtlas == atlas)
             return;
+        if (s_Data->QuadIndexCount)
+            Renderer::GetStats().Flush2DKind++;
         FlushQuads();
         s_Data->TextBatch = true;
         s_Data->TextAtlas = atlas;
@@ -862,8 +886,13 @@ void main()
         Renderer::GetStats().QuadCount++;
     }
 
+    // Something is waiting to be drawn (a state change draws it first).
+    static bool HasPending() { return s_Data->QuadIndexCount || s_Data->CircleIndexCount || s_Data->LineVertexCount; }
+
     void Renderer2D::SetClipRect(bool enabled, const glm::vec2& min01, const glm::vec2& max01)
     {
+        if (HasPending())
+            Renderer::GetStats().Flush2DState++;
         Flush();
         RenderCommand::SetScissor(enabled, min01, max01);
     }
@@ -873,7 +902,10 @@ void main()
         if (s_Data->CircleIndexCount >= Renderer2DData::MaxIndices)
             NextBatch();
         if (s_Data->QuadIndexCount)
+        {
+            Renderer::GetStats().Flush2DKind++;
             FlushQuads(); // keeps the submission order (see BeginQuads)
+        }
 
         for (int i = 0; i < 4; i++)
         {
@@ -929,6 +961,8 @@ void main()
 
     void Renderer2D::SetBlendMode(BlendMode mode)
     {
+        if (HasPending())
+            Renderer::GetStats().Flush2DState++;
         NextBatch();
         RenderCommand::SetBlendMode(mode);
     }
@@ -938,6 +972,8 @@ void main()
         if (s_Data->LightingSet && s_Data->Lighting == lighting)
             return;
         // What was submitted before was meant for the old lights.
+        if (s_Data->QuadIndexCount)
+            Renderer::GetStats().Flush2DState++;
         FlushQuads();
         s_Data->Lighting = lighting;
         if (s_Data->Lighting.Lights.size() > (size_t)Light2DMath::MaxLights)
@@ -954,6 +990,8 @@ void main()
     {
         if ((s_Data->DisplayOutput == 1) == display)
             return;
+        if (HasPending())
+            Renderer::GetStats().Flush2DState++;
         Flush(); // what is pending was meant for the other output
         s_Data->DisplayOutput = display ? 1 : 0;
     }
@@ -998,19 +1036,24 @@ void main()
 
         float x = 0.0f, y = 0.0f;
         const float lineAdvance = font->GetLineHeight() + params.LineSpacing;
+        const bool pairs = font->IsKerningEnabled(); // the font's kerning pairs (FontImportSettings::Kerning)
+        uint32_t previous = 0;
 
         size_t i = 0;
         while (i < text.size())
         {
             uint32_t cp = DecodeUTF8(text, i);
             if (cp == '\r') continue;
-            if (cp == '\n') { x = 0.0f; y -= lineAdvance; continue; }
+            if (cp == '\n') { x = 0.0f; y -= lineAdvance; previous = 0; continue; }
             if (cp == '\t') cp = ' ';
 
             const Glyph* g = font->GetGlyph(cp);
             if (!g) continue;
             const Glyph* q = sized.Find(cp);
             if (!q) q = g;
+            if (pairs && previous)
+                x += font->GetKerning(previous, cp);
+            previous = cp;
 
             if (q->X1 > q->X0)
             {
@@ -1060,15 +1103,20 @@ void main()
         // The same layout as DrawString.
         float x = 0.0f, y = 0.0f;
         const float lineAdvance = font->GetLineHeight() + params.LineSpacing;
+        const bool pairs = font->IsKerningEnabled();
+        uint32_t previous = 0;
         size_t i = 0;
         while (i < text.size())
         {
             uint32_t cp = DecodeUTF8(text, i);
             if (cp == '\r') continue;
-            if (cp == '\n') { x = 0.0f; y -= lineAdvance; continue; }
+            if (cp == '\n') { x = 0.0f; y -= lineAdvance; previous = 0; continue; }
             if (cp == '\t') cp = ' ';
             const Glyph* g = font->GetGlyph(cp);
             if (!g) continue;
+            if (pairs && previous)
+                x += font->GetKerning(previous, cp);
+            previous = cp;
             if (g->X1 > g->X0)
             {
                 box.Encapsulate(glm::vec3(x + std::min(g->X0, g->X1), y + std::min(g->Y0, g->Y1), 0.0f));
@@ -1084,13 +1132,20 @@ void main()
         if (!font) return { 0.0f, 0.0f };
         float x = 0.0f, maxX = 0.0f;
         int lines = 1;
+        const bool pairs = font->IsKerningEnabled();
+        uint32_t previous = 0;
         size_t i = 0;
         while (i < text.size())
         {
             uint32_t cp = DecodeUTF8(text, i);
-            if (cp == '\n') { maxX = std::max(maxX, x); x = 0.0f; lines++; continue; }
+            if (cp == '\n') { maxX = std::max(maxX, x); x = 0.0f; lines++; previous = 0; continue; }
             if (const Glyph* g = font->GetGlyph(cp))
+            {
+                if (pairs && previous)
+                    x += font->GetKerning(previous, cp);
+                previous = cp;
                 x += g->Advance + params.Kerning;
+            }
         }
         maxX = std::max(maxX, x);
         return { maxX, lines * (font->GetLineHeight() + params.LineSpacing) };

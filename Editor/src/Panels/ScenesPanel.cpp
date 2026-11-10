@@ -41,6 +41,7 @@ namespace Zamin {
         const fs::path assets = Project::GetAssetDirectory();
         std::error_code ec;
         bool added = false;
+        std::vector<size_t> toRead; // new / changed files: read below, in parallel
         for (auto it = fs::recursive_directory_iterator(assets, fs::directory_options::skip_permission_denied, ec);
              !ec && it != fs::recursive_directory_iterator(); it.increment(ec))
         {
@@ -73,11 +74,20 @@ namespace Zamin {
             {
                 found->Size = size;
                 found->Time = time;
-                SceneSerializer::ReadSceneInfo(path, found->Info);
+                toRead.push_back((size_t)(found - m_Items.begin()));
             }
             else if (fs::path thumbnail = SceneMetadata::GetThumbnailPath(path); found->Info.Thumbnail.empty() && fs::is_regular_file(thumbnail, fec))
                 found->Info.Thumbnail = thumbnail; // drawn after the scene was read
         }
+        // Each file's JSON parsed on the job system's workers (the panel's first draw read every scene of the
+        // project one after the other: most of its time at start-up, task 495).
+        JobSystem::ParallelFor((uint32_t)toRead.size(), 1, [&](uint32_t begin, uint32_t end) {
+            for (uint32_t i = begin; i < end; i++)
+            {
+                Item& item = m_Items[toRead[i]];
+                SceneSerializer::ReadSceneInfo(item.Path, item.Info);
+            }
+        });
         std::erase_if(m_Items, [](const Item& item) { return !item.Seen; });
         if (added || force)
             std::sort(m_Items.begin(), m_Items.end(), [](const Item& a, const Item& b) { return AssetFiles::CompareNames(a.Relative, b.Relative) < 0; });
@@ -186,7 +196,10 @@ namespace Zamin {
             ImGui::End();
             return;
         }
-        Refresh(false);
+        {
+            ZM_PROFILE_SCOPE("Sahna fayllari");
+            Refresh(false);
+        }
         DrawToolbar();
         if (m_SceneManager)
         {
@@ -243,7 +256,10 @@ namespace Zamin {
             else if (m_ListView)
                 DrawList(shown);
             else
+            {
+                ZM_PROFILE_SCOPE("Sahna kartalari");
                 DrawCards(shown);
+            }
         }
         ImGui::EndChild();
         ImGui::End();

@@ -15,7 +15,7 @@ saqlanadi; ulardagi belgi yangi imkoniyatning ishlayotganiga dalil o'rnini bosma
 | P0 Ishonchli asos | Atomik save, tiklash, xavfsiz build, chegaralangan Undo, CPU profili, ajratilgan runtime | Save xatosida ma'lumot yo'qolmasligi, zararli papka nomi bajarilmasligi, UI'siz Player, SSE2 sinovi | Auditdagi 7 band bajarilgan; boshlang'ich dalil 645 unit / 12 render / 265 editor qadam |
 | P1 2D/3D katta xarita render asosi | Terrain patch LOD, yoriqsiz qo'shni chegaralar, qisman GPU mesh yangilash; tilemap ierarxik culling | Geometriya kamayishi, LOD o'tish/hysteresis, collision aniqligi, 2D ko'rinish va chizish tartibi oracle bilan mos | Bajarildi (2026-11-10): 656 unit / 12 render / 265 editor qadam; o‘lchovlar quyida |
 | P2 Kontent sifati va mualliflik | Terrain GPU qatlamlari/PBR, normal/roughness, atlas/cook, foliage, 2D palette/animation qulayligi | Haqiqiy assetli 2D/3D sahnalar, import/export/undo roundtrip, tekstura xotira byudjeti | GPU terrain v1 yakunlandi; qolgan kontent ishlari rejada |
-| P3 Dunyo va asset streaming | Disk kataklari, async load/unload, data layers, HLOD, floating origin, asset residency | Tez harakatda/cancel/reload'da yo'qolmagan obyektlar, chegaralangan RAM/VRAM, main thread'da og'ir IO yo'q | Rejada |
+| P3 Dunyo va asset streaming | Disk kataklari, async load/unload, data layers, HLOD, floating origin, asset residency | Tez harakatda/cancel/reload'da yo'qolmagan obyektlar, chegaralangan RAM/VRAM, main thread'da og'ir IO yo'q | Boshlangan: manifest v1; runtime streaming rejada |
 | P4 Rendererning keyingi avlodi | GPU timer v1 mavjud; render graph, Vulkan, temporal AA/upscaling, katta sahna visibility va yoritish | Drayver/physical GPU matritsasi, HDR/alpha/picking/shadow regressiyalari, reference hardware byudjeti | Rejada; virtual geometry va dinamik GI — alohida tadqiqot |
 | P5 Gameplay, animatsiya, fizika va UI | Mavjud 2D/3D tizimlarini production darajasida birlashtirish, katta kontent va gameplay workflow | Ikki tugallangan vertical slice, saqlash/yuklash, controller, animatsiya/fizika stress, UI input/scale testlari | Visual Script va C++ muharriri v1 qo'shildi; qolgan ishlar rejada |
 | P6 Tarmoq va kengaytirish | Server authority, replication, latency compensation, plagin SDK/ABI, xavfsiz hot reload | Yo'qotilgan paket, kechikish, reconnect, versiya mos kelmasligi va plagin unload sinovlari | Rejada |
@@ -38,7 +38,7 @@ Tekshiruv (2026-11-10): 711/711 unit, 12/12 reference render; GL 4.3 compute va 
 
 ### Keyingi paket — dunyo kataklari va streaming asosi
 
-- [ ] 2D tilemap va 3D terrain uchun umumiy world-cell manifest, barqaror UUID va dependency chegaralari.
+- [x] 2D tilemap va 3D terrain uchun umumiy world-cell manifest, barqaror UUID va dependency chegaralari. `.zworld` v1 metadata, bounded parse, atomik save va xavfsiz scene yo‘llari; editor/runtime streaming hali ulanmagan.
 - [ ] Main thread'dan tashqarida bounded IO/decode; versiyali load/unload/cancel holatlari.
 - [ ] Main thread'da belgilangan upload/activation byudjeti; fizika va script lifecycle'ini xavfsiz ulash/ajratish.
 - [ ] RAM/VRAM residency limiti; tez kamera harakati, qaytish, bekor qilish va yo'q/buzilgan katak regressiyalari.
@@ -124,7 +124,7 @@ Bu engine'lar bilan tenglik bitta imkoniyat yoki kod hajmi bilan belgilanmaydi. 
 | 2D | Tilemap, sprite, animatsiya, Box2D, UI va katta map visibility mavjud | Tugallangan 2D o'yin; atlas/residency, input/UI va stress profili |
 | 3D xarita | Heightfield authoring, collision, patch LOD; GPU PBR qatlamlari GL/editor/export sinovlaridan o'tdi | Haqiqiy assetli map, foliage/streaming va physical GPU frame-time byudjeti |
 | Gameplay authoring | C++ muharriri va typed visual graph v1 mavjud | Funksiya argument/return, murakkab type'lar, LSP, katta graph/debug workflow |
-| Dunyo | Render bo'laklari mavjud; disk streaming rejalashtirilgan | Chegaralangan RAM/VRAM bilan async load/unload/cancel va katta dunyo testi |
+| Dunyo | Render bo'laklari va bounded world-cell manifest mavjud; disk streaming rejalashtirilgan | Chegaralangan RAM/VRAM bilan async load/unload/cancel va katta dunyo testi |
 | Jamoaviy tarmoq | Multiplayer production acceptance hali bajarilmagan | Authoritative replication, latency/loss/reconnect testlari, xavfsizlik va kuzatuv |
 | Mahsulot sifati | Linux testlar va eksport workflow mavjud | Native SDK ABI gate mavjud; OS/driver matritsasi, crash/recovery va uzoq sessiya |
 

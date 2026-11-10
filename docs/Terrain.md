@@ -153,3 +153,14 @@ LIBGL_ALWAYS_SOFTWARE=1 LP_NUM_THREADS=2 MESA_GL_VERSION_OVERRIDE=4.1 MESA_GLSL_
 Oracle 4096 instance, beshta kamera holati va CPU/GPU piksel/son mosligini, hysteresis, source upload cache, picking, wire/shaded-wire, shadow va backend almashtirishni tekshiradi. Bu Mesa correctness sinovi; physical GPU tezligi uchun dalil emas.
 
 V1 tekshiruvi: 711/711 unit, 12/12 reference render, GL 4.3/4.1 foliage oracle, SDK compatibility va UI'siz runtime o'tdi. `FoliageWorkshop` qayta ochildi, eksport qilindi va boshqa papkadan ishga tushdi. 4096 instance'li nazorat ko'rinishida 491520 o'rniga 54756 triangle chizildi; kamera input upload'ini ko'paytirmadi. Bu geometriya va correctness o'lchovi; physical GPU frame-time acceptance hali alohida. Dalillar `build-review/PackedFoliage/` da.
+
+
+## World-cell manifest — streaming uchun metadata asosi
+
+`Zamin/Scene/WorldManifest.h` dagi `WorldManifest` 2D va 3D xaritalarni umumiy formatda tavsiflaydi. XY kataklar 2D uchun, XZ yoki XYZ esa 3D uchun ishlatiladi. `.zworld` JSON faylining `Format` qiymati `ZaminWorld`, `Version` qiymati `1`; `Name`, `Origin`, `CellSize` va `Cells` majburiy. Har katakda 16 hex belgili, nol bo‘lmagan `ID`, butun sonli uchta `Coordinate`, `Layer`, asset ildiziga nisbatan `.zscene` `Scene` yo‘li, `CPUBytes`, `GPUBytes` va `Dependencies` UUID ro‘yxati bor.
+
+Bir qatlamda koordinatalar takrorlanmaydi; boshqa qatlamlar bir joyda ustma-ust turishi mumkin. `DependencyOrder` bog‘liqliklarni avval, tayyor kataklarni esa manifestdagi indeks tartibida qaytaradi. Yo‘q, takroriy, o‘ziga bog‘langan va siklli dependency rad etiladi. `Bounds` double aniqlikdagi metadata AABB beradi; rendererning floating-origin tizimi hali yo‘q. `DeclaredMemory` faqat muallif bergan CPU/GPU taxminlarini jamlaydi; haqiqiy residency yoki VRAM o‘lchovi emas.
+
+`Deserialize` va `Load` xato paytida oldingi manifestni saqlaydi; `Serialize` ham chiqish matnini xatoda almashtirmaydi. `Save` avval tekshiradi, keyin faylni atomik almashtiradi. Parse alohida worker thread’da mustaqil obyektga bajarilishi mumkin; bir obyektning o‘ziga parallel yozish uchun tashqi sinxronlash kerak. Chegaralar: 8 MiB fayl, 32 JSON nesting darajasi, 4096 katak, har katakka 64 dependency, koordinata o‘qlarida ±1 000 000, har CPU/GPU taxmini uchun 1 TiB. JSON kaliti takrorlansa ham rad etiladi.
+
+`ResolveScene(assets, cell)` traversal, mutlaq yo‘l va diskdagi symlink orqali ildizdan chiqishni tekshiradi. Yo‘q scene uchun xavfsiz yo‘l qaytishi mumkin: keyingi loader IO xatosini alohida qaytarishi shart. Bu tekshiruv va kelajakdagi fayl ochish orasida disk o‘zgarishini bloklamaydi. Manifest yuklash hech qanday entity, collider, script yoki GPU resurs yaratmaydi. Hozircha editor paneli, AssetRegistry/export ulanishi, async load/unload/cancel, activation byudjeti va residency boshqaruvi navbatda; `.zworld` mavjud sahnalarni avtomatik stream qilmaydi.

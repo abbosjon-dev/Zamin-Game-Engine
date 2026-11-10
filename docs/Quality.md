@@ -284,4 +284,27 @@ ASan artefaktidagi 128-byte leak stack'i GLFW `extensionSupportedGLX` orqali
 query uchun LSan istisnosi kiritildi; Zamin/GlfwWindow yoki barcha Mesa allocation'lari
 istisno qilinmaydi. Lokal `.2` Mesa paketidagi minimal GLFW probe bu leak'ni chiqarmadi;
 shu istisno ostida ataylab qoldirilgan 713-byte application allocation baribir LSan
-hisobotiga tushdi. Yangi CI natijasi alohida qayd etiladi.
+hisobotiga tushdi. `63a6f67` uchun [Actions 42882285887](https://github.com/abbosjon-dev/Zamin-Game-Engine/actions/runs/42882285887) da
+Clang Release (render/editor/hot reload/export bilan), Clang UBSan, GCC ASan (player/editor va barcha
+panel smoke bilan), coverage va format job'lari muvaffaqiyatli tugadi. To‘liq matritsaning natijasi shu run sahifasida.
+
+
+## World-cell manifest v1 — 2026-11-10
+
+P3 ning birinchi qismi: 2D/3D uchun umumiy `.zworld` metadata, double bounds, qatlam koordinatalari,
+barqaror UUID va deterministik dependency tartibi. Fayl/katak/dependency/nesting chegaralari, takroriy JSON
+kalitlari, cycle va traversal/symlink tekshiruvi; parse xatosida oldingi obyekt saqlanadi, save atomik.
+Bu bosqich entity/GPU faollashtirish, runtime streaming, editor paneli yoki eksport integratsiyasini o‘z ichiga olmaydi.
+
+Tekshiruvlar:
+
+- Asosiy Release build: engine, barcha targetlar va `ZaminStandalone` muvaffaqiyatli build qilindi.
+- Umumiy unit suite: **735/735**; GUI'siz CTest: **9/9**, shu jumladan docs/snippet, SDK/ABI va sanitizer link regressiyasi.
+- Beshta yangi manifest testi GCC va Clang 18 standalone probe'da o'tdi; Clang `-Wall -Wextra -Wpedantic -Werror` bilan kompilyatsiya qilindi.
+- Xuddi shu besh test ASan+UBSan bilan instrumentlangan yangi manifest/parser kodida o'tdi; 0 sanitizer xabari. Probe mavjud, instrumentlanmagan engine kutubxonasining UUID/FileSystem funksiyalariga link qilindi; bu butun engine sanitizer build'i emas.
+- 4096 katakli teskari tartibdagi dependency zanjiri, limitdan katta/buzilgan kirish, atomik fayl IO, symlink escape, worker parse va xatoda oldingi holatni saqlash tekshirildi.
+- Haqiqiy UI'siz runtime kutubxonasiga link qilingan probe: roundtrip va failed-load preservation o'tdi.
+
+Dalillar: lokal `build-review/WorldManifestReview/`; shu yerda mavjud 4096 instance'li FoliageWorkshop editorining
+screenshot'i ham bor. Manifest metadata qismi UI ko'rinishini o'zgartirmaydi. Navbat: bounded async IO/decode,
+versiyali cancel/unload va main-thread activation/residency byudjetlari.

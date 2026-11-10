@@ -15,6 +15,11 @@ namespace Zamin {
 
         // The editor's English texts, keyed by the Uzbek ones (their core: no icon, no "...", no id).
         const Entry s_English[] = {
+            // Terrain/foliage and the embedded C++ editor share the upstream translation checks.
+            { "Kod muharririda ochish", "Open in code editor" },
+            { "Profiler (CPU/GPU, ms)", "Profiler (CPU/GPU, ms)" },
+            { "Yaqin model", "Near model" },
+            { "Uzoq model", "Far model" },
             // ---- main menu: File
             { "Fayl", "File" },
             { "Yangi loyiha", "New project" },

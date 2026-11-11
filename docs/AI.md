@@ -518,8 +518,8 @@ revision o‘zgarsa `Stale`, qayta SetRoute kerak. Complete va partial oxiri alo
 `Arrived`/`PartialEnd`; noto‘g‘ri link ID, negative/NaN distance harakat qilmaydi. Caller actor transform,
 collision sweep, fizik controller va animatsiyani o‘zi qo‘llaydi. Demo teleport'i collision controller emas.
 
-Mavjud `NavAgentComponent` va `Scene::FindNavPath` dense mosaic yo‘lidan foydalanishda davom etadi;
-ular portal eventlarini bajarmaydi. Katta gap/explicit traversal uchun yangi atlas/follower API ishlatiladi.
+Default `NavAgentComponent` va `Scene::FindNavPath` dense mosaic yo‘lidan foydalanadi.
+NavAgent uchun yangi opt-in WorldNavigation rejimi quyida; atlas/follower API ham alohida mavjud.
 Sparse route smoothing portalni o‘chirib yubormasligi uchun bu API unsmoothed nuqtalar qaytaradi.
 Bu grid navigation: polygon navmesh yoki ko‘p qavatli navmesh emas.
 
@@ -531,3 +531,41 @@ editor route panelini tekshiradi; yangi workflow Linux GCC/Clang CI'ga ham ulang
 Snapshot build owner thread'da sinxron nusxalaydi; incremental bake hali alohida ish.
 Katta float koordinatalarda cell centre va qo‘shni qadam aniqligi yetmasa build rad etiladi;
 katta world uchun floating origin hali kerak bo‘lishi mumkin.
+
+## NavAgent world atlas rejimi
+
+NavAgent inspector'da **World navigation** yoki graph'dagi **SetWorldDestination** sparse atlas
+rejimini yoqadi. Default eski grid rejimi saqlangan. World rejimida Grid havolasi ishlatilmaydi;
+streaming anchor sahna va NavigationMode 2/3 talab qilinadi. WorldMaxExpanded 1..1048576 (default
+16384) har query expansion limitidir. Query hozir owner thread'da sinxron, umumiy hard frame budget emas.
+Start/goal snapping radius 0: loaded walkable maydondan tashqaridagi start Failed. Partial oxirida
+Arrived=true, PathStatus=Partial. Path so‘nggi haqiqiy manzilga boradi; ordinary replan boshlang‘ich
+katak markaziga qaytmaydi. Harakat unsmoothed corner route; legacy LookAhead/Smooth/Spline/Avoidance
+world rejimida qo‘llanmaydi. Speed/Acceleration/AutoBraking/StoppingDistance/UpdateRotation ishlaydi.
+
+Agent nuqtalarni haqiqiy transform/physics pozitsiyasidan tekshiradi. Controller devorga urilganda
+predicted cursor davom etmaydi, portalga yaqinlashgan deb belgilanmaydi. Rigidbody walking velocity
+orqali; 3D transform/kinematic floor height va BaseOffset orqali. CharacterController oyoq koordinatasini
+ishlatadi, BaseOffset unga qo‘llanmaydi. Controller yurish va gravity/grounding'ni o‘z fizikasida bajaradi.
+
+Portal kirishida PendingTraversalLink, AtlasRevision, TraversalTicket, TraversalEntry va TraversalExit
+mavjud; Velocity nol, IsMoving=false. Ticket yangi nonzero UUID bo‘lib, bekor qilingan so‘rovni yoki
+oldingi sessiyadan qolgan tokenni yangi so‘rovga qo‘llashni oldini oladi. Bu gameplay identifikatori,
+auth token yoki kriptografik avtorizatsiya emas. Link/revision/ticket uchalasi completion bilan yuboriladi:
+Scene::CompleteNavTraversal(entity, link, revision, ticket), yoki ScriptableEntity::CompleteNavTraversal.
+GetNavTraversalLink nol bo‘lsa pending yo‘q yoki atlas eskirgan; tokenlar NavAgent runtime fields'da.
+CancelNavTraversal va Stop pending so‘rovni bekor qiladi. Topology/carve/links o‘zgarsa eski completion
+rad etiladi, agent stop/replan qiladi. Serialize/copy/start/stop ticket/path holatini saqlamaydi.
+
+Completion explicit teleport: transforms va live CharacterController uchun. Controller exit kapsulasi
+collision-layer mask bilan, triggers'siz va kichik floor contact tolerance bilan tekshiriladi. Band exit,
+wrong scene/token, entry'dan uzoqlashgan actor yoki yo‘qolgan atlas pozitsiyani o‘zgartirmaydi. Rigidbody
+bor agentlar yuradi, lekin shape-clearance traversal hali yo‘q: completion false. Jump/elevator animatsiya
+controller'i bu API tomonidan yaratilmaydi; caller completion vaqtini belgilaydi. Kechiktirilgan graph
+so‘rovi event payload'dagi Link/Revision/Ticket'ni saqlashi kerak, yangi query'dan token o‘qib almashtirmaydi.
+
+WorldWorkshop2D/3D'da **B** haqiqiy agent + Visual Graph demo'si, **N** avvalgi kinematic route preview.
+Anchor'dagi World traversal actor built-in Zamin.VisualGraph bilan ishlaydi; 3D actor CharacterController
+kapsulasi bilan yuradi. Graph Message → SetWorldDestination, NavTraversalRequested → Delay →
+CompleteNavTraversal → Success branch ishlatadi. Unloaded demo maydonida persistent actor gravity'si
+namuna driver'i tomonidan muzlatiladi; navigation o‘zi vertikal gravity'ni bekor qilmaydi.

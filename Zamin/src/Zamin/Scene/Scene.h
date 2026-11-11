@@ -747,6 +747,11 @@ namespace Zamin {
         /// A Nav Agent's path to `destination`, found at once (the agent then walks it). False without a
         /// Nav Agent, a baked grid, or when no path was found (it then stays where it is).
         bool SetNavDestination(Entity agent, const glm::vec3& destination);
+        /// World navigation handshake. Link, atlas revision and request ticket form the completion token.
+        /// Completion is an explicit teleport; a live character's exit capsule must be clear.
+        uint64_t GetNavTraversalLink(Entity agent);
+        bool CompleteNavTraversal(Entity agent, uint64_t link, uint64_t revision, uint64_t ticket);
+        bool CancelNavTraversal(Entity agent);
         /// Whether something blocks the agent's path ahead now (a cell of a corner-to-corner segment no
         /// longer walkable: a Nav Obstacle moved in). Agents check this themselves when their grid's
         /// carving changes and find a new path.
@@ -1548,6 +1553,9 @@ namespace Zamin {
         bool BakeNavGrid3D(Entity entity);
         /// The agent's path to its Destination, found now.
         bool ComputeNavAgentPath(Entity agent, struct NavAgentComponent& a);
+        bool ComputeWorldNavAgentPath(Entity agent, struct NavAgentComponent& a);
+        void UpdateWorldNavAgents(float dt);
+        void ApplyWorldNavVelocity(Entity entity, const glm::vec3& velocity, int dimension, float dt);
         /// Nav Obstacles carve their cells into the grids they overlap (incrementally, before the agents
         /// move); `dt` counts towards CarveOnlyStationary.
         void UpdateNavObstacles(float dt);

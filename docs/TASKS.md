@@ -22,6 +22,31 @@ saqlanadi; ulardagi belgi yangi imkoniyatning ishlayotganiga dalil o'rnini bosma
 | P7 Platforma, release va mahsulot | Linux/Windows, keyin macOS; cook/package/update/crash telemetry; editor/launcher yagona auth | Toza mashinada install/export/run, talablar va litsenziyalar, imzolangan release va rollback sinovi | Rejada |
 | P8 Yakuniy sifat darvozasi | Hujjatlar, ko'chirish yo'li, ikki namunaviy o'yin va profiling hisobotlari | Uzoq sessiya, resurs sizishi, recovery/fuzz, reference sahnalarda barqaror frame time va foydalanish sinovi | Rejada |
 
+### Yakunlangan katta paket — NavAgent, controller va Visual Graph traversal
+
+- [x] NavAgent opt-in sparse atlas, bounded query, actual-position corner tracking, stale replan.
+- [x] Character controller collision, safe exit occupancy, revision/link completion token va cancel.
+- [x] Serialize/copy/reset, C++ API, inspector runtime holati.
+- [x] Visual Graph world destination, traversal state/event, complete/cancel va success outputs.
+- [x] 2D/3D haqiqiy agent/graph demo, runtime screenshot, regression va native export.
+- [x] Test dalillari, hujjatlar, upstream merge tekshiruvi va main push.
+
+7d12f4a remote CI: format, GCC, Clang, ASan, UBSan va coverage to‘liq yashil.
+
+Mahalliy dalillar (2026-11-11): 820/820 unit (10 yangi), 10/10 headless CTest, 12/12 render,
+490/490 editor smoke qadam, GL 4.1 residency GPU; Clang 18 syntax-only -Werror 12 fayl.
+Agent/VM TU va testlar instrumentlangan targeted ASan/UBSan probe: 78/78; shared engine normal
+build, bu to‘liq engine sanitizer run’i emas. Fixed capture 30 bilan 2D/3D Player 420 kadrdan uchta
+haqiqiy traversal/arrival, disable/unload/return; har editor 120 kadrdan 10-node/14-link graph preview.
+Ikkala native export ham 420 kadr, agent/graph oracle, screenshot va relocation’dan o‘tdi.
+Tarjima lug‘atidagi yangi inspector keys va float overflow oldidan mode mutatsiyasi regressiyasi tuzatildi.
+Dalillar: `build-review/AgentTraversalPackage/`. Yangi remote CI push’dan keyin alohida kuzatiladi.
+
+Scope: opt-in sequential world queries, per-query expansion cap; corner route. Character exit
+occupancy checked; Rigidbody traversal completion, world local avoidance/smoothing, jump/elevator
+animation va async query scheduling keyingi ishlar. Transform/controller BaseOffset farqi hisobga olingan.
+
+
 ### Yakunlangan katta paket — sparse navigation va traversal workflow
 
 - [x] Faqat yuklangan tile hajmiga bog‘liq immutable atlas; bounded va deterministik route query.

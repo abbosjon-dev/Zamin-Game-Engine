@@ -50,6 +50,7 @@ namespace Zamin {
     private:
         Visual::Value Bridge(const std::string&, const std::map<std::string, Visual::Value>&);
         bool m_Reported = false;
+        uint64_t m_TraversalLink = 0, m_TraversalRevision = 0;
     };
     ScriptClassInfo MakeVisualGraphClassInfo();
 }

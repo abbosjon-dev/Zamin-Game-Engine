@@ -182,8 +182,9 @@ namespace Zamin {
                     for (size_t i = (size_t)a.PathIndex; i < a.Path.size(); i++)
                     {
                         const glm::vec3 to = a.Path[i] + lift;
-                        canvas.Line(from, to, color);
-                        canvas.Dot(to, i + 1 == a.Path.size() ? 9.0f : 5.0f, color);
+                        const auto segmentColor = a.WorldNavigation && i < a.PathLinks.size() && a.PathLinks[i] ? glm::vec4(.8f, .3f, 1.f, 1.f) : color;
+                        canvas.Line(from, to, segmentColor);
+                        canvas.Dot(to, i + 1 == a.Path.size() ? 9.0f : 5.0f, segmentColor);
                         from = to;
                     }
                 }

@@ -68,16 +68,27 @@ namespace Zamin::Visual {
     {
         static const auto catalog = [] {std::map<std::string,Definition> c;
 auto add=[&](std::string key,std::string category,std::vector<Pin> in,std::vector<Pin> out,bool pure=false){c[key]={key,category,std::move(in),std::move(out),pure};};
-for(auto name:{"Create","Enable","Start","Disable","Destroy","Update","LateUpdate","CollisionBegin","CollisionEnd","TriggerBegin","TriggerEnd","Click","PointerEnter","PointerExit","PointerDown","PointerUp","PointerClick","Select","Deselect","Cancel","ValueChanged","ToggleChanged","TextChanged","TextSubmit","TextEndEdit","ScrollChanged","ParticlesFinished","TargetSpotted","TargetLost","PatrolPointReached","Message","AnimationEvent","LanguageChanged","SceneLoaded","SceneUnloaded","ActiveSceneChanged","SoundFinished","JointBreak","JointBreak3D"})
- { std::string event=name;std::vector<Pin> outputs{E("Then")};
- if(event=="Update"||event=="LateUpdate")outputs.push_back(N("Delta"));
- if(event.starts_with("Collision")||event.starts_with("Trigger")||event.starts_with("Target")||event.starts_with("Pointer")||event=="Message")outputs.push_back(EntityPin("Other"));
- if(event=="ValueChanged"||event=="PatrolPointReached"||event=="Message"||event=="AnimationEvent"||event.starts_with("Scene")||event.starts_with("Joint"))outputs.push_back(N("Number"));
- if(event=="ToggleChanged"||event.starts_with("Pointer")||event=="SoundFinished")outputs.push_back(B("Bool"));
- if(event.starts_with("Text")||event=="Message"||event=="AnimationEvent"||event=="LanguageChanged"||event.find("Scene")!=std::string::npos||event=="SoundFinished")outputs.push_back(S("Text"));
- if(event=="Message")outputs.push_back(S("Payload"));
- if(event.starts_with("Pointer")||event=="ScrollChanged")outputs.push_back(V("Vector",2));
- add("Event."+event,"Events",{},outputs); }
+for (auto name : { "Create", "Enable", "Start", "Disable", "Destroy", "Update", "LateUpdate", "CollisionBegin", "CollisionEnd", "TriggerBegin", "TriggerEnd", "Click", "PointerEnter", "PointerExit", "PointerDown", "PointerUp", "PointerClick", "Select", "Deselect", "Cancel", "ValueChanged", "ToggleChanged", "TextChanged", "TextSubmit", "TextEndEdit", "ScrollChanged", "ParticlesFinished", "TargetSpotted", "TargetLost", "PatrolPointReached", "Message", "AnimationEvent", "LanguageChanged", "SceneLoaded", "SceneUnloaded", "ActiveSceneChanged", "SoundFinished", "JointBreak", "JointBreak3D", "NavTraversalRequested" })
+{
+    std::string event = name;
+    std::vector<Pin> outputs{ E("Then") };
+    if (event == "Update" || event == "LateUpdate") outputs.push_back(N("Delta"));
+    if (event.starts_with("Collision") || event.starts_with("Trigger") || event.starts_with("Target") || event.starts_with("Pointer") || event == "Message") outputs.push_back(EntityPin("Other"));
+    if (event == "ValueChanged" || event == "PatrolPointReached" || event == "Message" || event == "AnimationEvent" || event.starts_with("Scene") || event.starts_with("Joint")) outputs.push_back(N("Number"));
+    if (event == "ToggleChanged" || event.starts_with("Pointer") || event == "SoundFinished") outputs.push_back(B("Bool"));
+    if (event.starts_with("Text") || event == "Message" || event == "AnimationEvent" || event == "LanguageChanged" || event.find("Scene") != std::string::npos || event == "SoundFinished") outputs.push_back(S("Text"));
+    if (event == "Message") outputs.push_back(S("Payload"));
+    if (event == "NavTraversalRequested")
+    {
+        outputs.push_back(S("Link"));
+        outputs.push_back(S("Revision"));
+        outputs.push_back(S("Ticket"));
+        outputs.push_back(V("Entry"));
+        outputs.push_back(V("Exit"));
+    }
+    if (event.starts_with("Pointer") || event == "ScrollChanged") outputs.push_back(V("Vector", 2));
+    add("Event." + event, "Events", {}, outputs);
+}
 add("Function","Functions",{S("Name","MyFunction")},{E("Then")});
 add("Call","Functions",{E("In"),S("Name","MyFunction")},{E("Then")});
 add("Branch","Flow",{E("In"),B("Condition")},{E("True"),E("False")});
@@ -133,6 +144,11 @@ for(auto name:{"SaveGameState","LoadGameState"})add(name,"Save",{E("In")},{E("Th
 for(auto type:{Type::Number,Type::Bool,Type::String}){std::string suffix=TypeName(type);Value d=type==Type::Number?Value(0.):type==Type::Bool?Value(false):Value("");add("ReadState."+suffix,"Save",{S("Key"),{"Default",type,d}},{{"Value",type,d}},true);add("WriteState."+suffix,"Save",{E("In"),S("Key"),{"Value",type,d},B("Persistent",true)},{E("Then")});}
 for(auto name:{"Raycast2D","Raycast3D"})add(name,"Physics queries",{V("Origin"),V("Direction"),N("Distance",100)},{B("Hit"),EntityPin("Entity"),V("Point"),V("Normal"),N("Distance")},true);
 add("SetDestination","Navigation",{E("In"),EntityPin(),V("Position")},{E("Then")});
+add("SetWorldDestination", "Navigation", { E("In"), EntityPin(), V("Position") }, { E("Then"), B("Success") });
+add("NavTraversalState", "Navigation", { EntityPin() }, { B("Pending"), S("Link"), S("Revision"), S("Ticket"), V("Entry"), V("Exit"), S("Status") }, true);
+add("CompleteNavTraversal", "Navigation", { E("In"), EntityPin(), S("Link"), S("Revision"), S("Ticket") }, { E("Then"), B("Success") });
+add("CancelNavTraversal", "Navigation", { E("In"), EntityPin() }, { E("Then"), B("Success") });
+
 add("StopMoving","Navigation",{E("In"),EntityPin(),B("Immediate",true)},{E("Then")});
 for(auto name:{"IsMoving","HasArrived"})add(name,"Navigation",{EntityPin()},{B("Value")},true);
 add("RemainingDistance","Navigation",{EntityPin()},{N("Value")},true);
@@ -643,6 +659,11 @@ return c; }();
                         for (auto& p : Catalog().at(k).Inputs)
                             if (p.Kind != Type::Exec) args[p.Name] = in(p.Name.c_str());
                         Value result = m_Bridge(k, args);
+                        if (k == "SetWorldDestination" || k == "CompleteNavTraversal" || k == "CancelNavTraversal")
+                        {
+                            Require(Matches(Type::Bool, result), "Invalid navigation operation result");
+                            t.Results[n->ID] = { { "Success", result } };
+                        }
                         if (k == "SpawnPrefab")
                         {
                             Require(Matches(Type::Entity, result), "Invalid spawned entity");

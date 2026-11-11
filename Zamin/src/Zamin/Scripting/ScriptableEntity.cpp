@@ -1177,6 +1177,10 @@ namespace Zamin {
         return m_Entity.GetScene()->SetNavDestination(m_Entity, destination);
     }
 
+    uint64_t ScriptableEntity::GetNavTraversalLink() const { return GetScene().GetNavTraversalLink(GetEntity()); }
+    bool ScriptableEntity::CompleteNavTraversal(uint64_t link, uint64_t revision, uint64_t ticket) { return GetScene().CompleteNavTraversal(GetEntity(), link, revision, ticket); }
+    bool ScriptableEntity::CancelNavTraversal() { return GetScene().CancelNavTraversal(GetEntity()); }
+
     bool ScriptableEntity::SetDestination(const glm::vec2& destination)
     {
         return SetDestination(glm::vec3(destination, GetWorldPosition().z));

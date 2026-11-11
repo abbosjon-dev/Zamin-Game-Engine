@@ -451,3 +451,38 @@ TEST(VisualGraphTargetsEntitiesInOtherLoadedScenes)
     Project::SetActive(prior);
     std::filesystem::remove_all(root);
 }
+
+TEST(VisualGraphTraversalTokensKeepFullUnsignedPrecisionAndSuccessOutput)
+{
+    Graph graph;
+    graph.Variables["Success"] = { Type::Bool, false };
+    graph.Nodes = { { 1, "Event.NavTraversalRequested" }, { 2, "CompleteNavTraversal" }, { 3, "Set.Bool", 0, 0, { { "Name", "Success" } } } };
+    graph.Links = { { 1, "Then", 2, "In" }, { 1, "Link", 2, "Link" }, { 1, "Revision", 2, "Revision" }, { 1, "Ticket", 2, "Ticket" }, { 2, "Then", 3, "In" }, { 2, "Success", 3, "Value" } };
+    CHECK(graph.Validate().empty());
+    Machine vm;
+    int calls = 0;
+    CHECK(vm.Load(graph, [&](const std::string& name, const auto& args) -> Value {
+        CHECK(name == "CompleteNavTraversal");
+        CHECK(args.at("Link") == std::to_string(UINT64_MAX));
+        CHECK(args.at("Revision") == "9007199254740993");
+        CHECK(args.at("Ticket") == "9007199254740995");
+        ++calls;
+        return true;
+    }));
+    vm.Event("NavTraversalRequested", { { "Link", std::to_string(UINT64_MAX) }, { "Revision", "9007199254740993" }, { "Ticket", "9007199254740995" }, { "Entry", { 0, 0, 0 } }, { "Exit", { 100, 0, 0 } } });
+    CHECK(vm.Error().empty() && calls == 1 && vm.Variables().at("Success") == true);
+}
+TEST(VisualGraphWorldDestinationFailureAndCancelReturnBooleans)
+{
+    for (const auto* kind : { "SetWorldDestination", "CancelNavTraversal" })
+    {
+        Graph graph;
+        graph.Variables["Success"] = { Type::Bool, true };
+        graph.Nodes = { { 1, "Event.Start" }, { 2, kind }, { 3, "Set.Bool", 0, 0, { { "Name", "Success" } } } };
+        graph.Links = { { 1, "Then", 2, "In" }, { 2, "Then", 3, "In" }, { 2, "Success", 3, "Value" } };
+        Machine vm;
+        CHECK(vm.Load(graph, [](const std::string&, const auto&) -> Value { return false; }));
+        vm.Event("Start");
+        CHECK(vm.Error().empty() && vm.Variables().at("Success") == false);
+    }
+}

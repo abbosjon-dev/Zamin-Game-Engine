@@ -1696,11 +1696,7 @@ namespace Zamin {
         if (auto* c = entity.TryGetComponent<NavGrid3DComponent>(); c && c->Paths.CacheBake)
             e["NavGrid3D"]["CacheBake"] = true;
         if (auto* c = entity.TryGetComponent<NavAgentComponent>())
-            e["NavAgent"] = { { "Grid", c->Grid.ID }, { "Target", c->Target.ID }, { "Speed", c->Speed }, { "Acceleration", c->Acceleration },
-                              { "AngularSpeed", c->AngularSpeed }, { "StoppingDistance", c->StoppingDistance }, { "Radius", c->Radius },
-                              { "LookAhead", c->LookAhead }, { "RepathInterval", c->RepathInterval }, { "BaseOffset", c->BaseOffset },
-                              { "AutoBraking", c->AutoBraking }, { "SmoothPath", c->SmoothPath }, { "SplinePath", c->SplinePath },
-                              { "UpdateRotation", c->UpdateRotation } };
+            e["NavAgent"] = { { "WorldNavigation", c->WorldNavigation }, { "WorldMaxExpanded", c->WorldMaxExpanded }, { "Grid", c->Grid.ID }, { "Target", c->Target.ID }, { "Speed", c->Speed }, { "Acceleration", c->Acceleration }, { "AngularSpeed", c->AngularSpeed }, { "StoppingDistance", c->StoppingDistance }, { "Radius", c->Radius }, { "LookAhead", c->LookAhead }, { "RepathInterval", c->RepathInterval }, { "BaseOffset", c->BaseOffset }, { "AutoBraking", c->AutoBraking }, { "SmoothPath", c->SmoothPath }, { "SplinePath", c->SplinePath }, { "UpdateRotation", c->UpdateRotation } };
         // Avoidance: when it is on or any of its settings is not the default (scene files without it stay
         // as they were; what was set while it is off survives save / copy / undo).
         if (auto* c = entity.TryGetComponent<NavAgentComponent>(); c && (c->Avoidance || c->AvoidStatic || NavAvoidanceChanged(*c)))
@@ -2903,6 +2899,8 @@ namespace Zamin {
         {
             const json& j = *it;
             auto& c = entity.AddComponent<NavAgentComponent>();
+            c.WorldNavigation = j.value("WorldNavigation", false);
+            c.WorldMaxExpanded = uint32_t(std::clamp(Number(j, "WorldMaxExpanded", float(c.WorldMaxExpanded)), 1.f, 1048576.f));
             c.Grid.ID = entityRef(j, "Grid");
             c.Target.ID = entityRef(j, "Target");
             c.Speed = std::clamp(Number(j, "Speed", c.Speed), 0.0f, 1e4f);

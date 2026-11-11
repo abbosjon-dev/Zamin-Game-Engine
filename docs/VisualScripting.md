@@ -94,3 +94,20 @@ Sinov `xdotool` va ImageMagick `import` vositasini talab qiladi; asl namunani o'
 Haqiqiy X11/ImGui amallarida node qo'shish, save, undo/redo, typed sim va noto'g'ri simni rad etish tekshirildi.
 UI'siz Player'da 3D aylanish, 2D fizik trigger → graph → GameState → disk save zanjiri ishladi.
 Bu sinovlar Linux/Mesa dasturiy rendering muhitida bajarildi; boshqa platformalar yoki fizik GPU sertifikati emas.
+
+## World navigation va traversal
+
+- **SetWorldDestination**: NavAgent'ni world atlas rejimiga o‘tkazadi; Position world Vec3,
+  Success Complete/Partial route topilganini bildiradi. Failed uchun false. Target default Self.
+- **NavTraversalState** (pure): Pending, Link/Revision/Ticket (aniq String), Entry/Exit (Vec3), Status.
+  UUID'lar Number emas: 2^53 dan katta qiymatlar ham yaxlitlanmaydi.
+- **Event.NavTraversalRequested**: Self agent entry'ga kelganda bir marta, har yangi ticket uchun;
+  Link, Revision, Ticket, Entry, Exit payload. VM paused bo‘lsa event mavjud queue qoidalariga amal qiladi.
+- **CompleteNavTraversal**: event'dan Link/Revision/Ticket va Target; Success bool. Xarita o‘zgarishi,
+  cancel, band controller exit yoki noto‘g‘ri token false beradi. Keyin Branch bilan retry/cancel tanlanadi.
+- **CancelNavTraversal**: pending so‘rovni bekor qilib agentni to‘xtatadi; Success bool.
+
+Delay task event tokenlarini o‘zi bilan saqlaydi. Kechikishdan keyin NavTraversalState'dan yangi token
+olib eski action'ga qo‘llash o‘rniga event pinlarini complete'ga ulang. Bu explicit teleport handshake;
+character yurishi fizikaga bog‘liq, controller exit band bo‘lsa ko‘chmaydi. Rigidbody traversal completion
+hozir qo‘llanmaydi. Namuna: WorldWorkshop2D/3D `Scripts/WorldTraversal.zgraph`, B tugmasi bilan.

@@ -1,5 +1,6 @@
 #include <Zamin/Zamin.h>
 #include "NavigationProbe.h"
+#include "WorldAgentProbe.h"
 #include <Zamin/Scene/WorldStreaming.h>
 #include <cstdlib>
 #include <Zamin/AI/NavPathfinder.h>
@@ -28,9 +29,11 @@ public:
             if (Input::IsKeyPressed(Key::S)) focus.y += false ? speed : -speed;
         }
         if (std::getenv("ZAMIN_WORLD_CHECKPOINT_TEST")) focus = m_Frame >= 180 && m_Frame < 300 ? glm::vec2(1000) : glm::vec2(16, 9);
-        if (std::getenv("ZAMIN_WORLD_NAVIGATION_TEST")) focus = m_Frame >= 240 && m_Frame < 300 ? glm::vec2(1000) : glm::vec2(24, 9);
+        if (std::getenv("ZAMIN_WORLD_NAVIGATION_TEST") || std::getenv("ZAMIN_WORLD_AGENT_TEST")) focus = m_Frame >= 240 && m_Frame < 300 ? glm::vec2(1000) : glm::vec2(24, 9);
         t.Translation = false ? glm::vec3(focus.x, 28, focus.y + 28) : glm::vec3(focus.x, focus.y, 50);
         TickCheckpoint();
+        if (auto* manager = GetScene().GetSceneManager())
+            if (auto* world = manager->GetWorldStreaming()) m_WorldAgent.Tick(GetScene(), *world, false, m_Frame);
         if (auto* manager = GetScene().GetSceneManager())
             if (auto* world = manager->GetWorldStreaming()) m_Navigation.Tick(GetScene(), *world, false, m_Frame, float(ts));
         if (m_Frame % 60 == 0)
@@ -62,6 +65,7 @@ public:
     }
 private:
     NavigationProbe m_Navigation;
+    WorldAgentProbe m_WorldAgent;
     bool m_F5 = false, m_F9 = false;
     UUID m_Edited{ 0 }, m_Removed{ 0 }, m_Spawned{ 0 };
     float m_SavedX = 0;

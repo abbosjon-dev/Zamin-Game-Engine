@@ -1,3 +1,4 @@
+#include <Zamin/Scripting/Visual/VisualGraphHost.h>
 #include <Zamin/Scene/WorldStreaming.h>
 #include <Zamin/Scene/WorldCheckpoint.h>
 #include <Zamin/Scene/SceneManager.h>
@@ -904,4 +905,314 @@ TEST(WorldStreamingNavigationLinkDefinitionRejectsMalformedTransactionally)
     CHECK(FileSystem::WriteTextFile(file, doc.dump()));
     CHECK(!WorldStreaming::LoadDefinition(file, manifest, policy, error));
     CHECK(policy.NavigationMaxCells == 777);
+}
+
+namespace {
+    void ConfigureWorldAgent(WorldFixture& f, bool threeD = false)
+    {
+        f.Policy.NavigationMode = threeD ? 3 : 2;
+        f.Policy.AxisMask = threeD ? 5 : 3;
+        f.Policy.LoadRadius = 100000;
+        f.Policy.UnloadRadius = 100001;
+        f.Policy.MaxResidentCells = 3;
+        f.Policy.NavigationLinks = { { 501, { 2.5f, 5.5f }, { 40002.5f, 5.5f }, 1, true, true },
+                                     { 502, { 40005.5f, 5.5f }, { 80002.5f, 5.5f }, 1, true, true } };
+        for (size_t i = 0; i < f.Manifest.Cells.size(); ++i)
+        {
+            auto& cell = f.Manifest.Cells[i];
+            cell.Coordinate.x = int(i * 4000);
+            auto scene = CreateRef<Scene>();
+            auto entity = scene->CreateEntityWithUUID(UUID(100 + i), "Agent navigation tile");
+            if (threeD)
+            {
+                entity.GetTransform().Translation = { 5, 1, 5 };
+                auto& grid = entity.AddComponent<NavGrid3DComponent>();
+                grid.Size = { 10, 4, 10 };
+                grid.CellSize = 1;
+                grid.AgentRadius = .2f;
+                auto floor = scene->CreateEntityWithUUID(UUID(200 + i), "Agent floor");
+                floor.GetTransform().Translation = { 5, -.1f, 5 };
+                floor.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Static;
+                floor.AddComponent<BoxCollider3DComponent>().HalfExtents = { 5, .1f, 5 };
+            }
+            else
+            {
+                entity.GetTransform().Translation = { 5, 5, 0 };
+                auto& grid = entity.AddComponent<NavGrid2DComponent>();
+                grid.AutoBounds = false;
+                grid.Size = { 10, 10 };
+                grid.CellSize = 1;
+                grid.AgentRadius = 0;
+                grid.UseColliders = grid.UseTilemaps = false;
+            }
+            CHECK(FileSystem::WriteTextFile(f.Assets / cell.ScenePath, SceneSerializer(scene).SerializeToString()));
+        }
+        f.Save();
+    }
+    bool StepAgent(SceneManager& manager, const std::function<bool()>& condition, int frames = 300)
+    {
+        for (int i = 0; i < frames; ++i)
+        {
+            manager.UpdateScenes(Timestep(1.f / 60));
+            if (condition()) return true;
+        }
+        return condition();
+    }
+    Entity WorldAgent(Scene& scene, bool controller = false)
+    {
+        Scene staged;
+        auto entity = staged.CreateEntityWithUUID(UUID(90001), "Traversal actor");
+        entity.GetTransform().Translation = controller ? glm::vec3(1.5f, .02f, 5.5f) : glm::vec3(1.5f, 5.5f, 0);
+        auto& a = entity.AddComponent<NavAgentComponent>();
+        a.WorldNavigation = true;
+        a.Speed = 12;
+        a.Acceleration = 0;
+        a.RepathInterval = 0;
+        a.UpdateRotation = false;
+        if (controller)
+        {
+            auto& cc = entity.AddComponent<CharacterController3DComponent>();
+            cc.Radius = .2f;
+            cc.Height = 1.2f;
+        }
+        std::string error;
+        CHECK(scene.ImportStagedCell(staged, error).size() == 1);
+        return scene.GetEntityByUUID(UUID(90001));
+    }
+    Entity AgentWall(Scene& scene, glm::vec3 position, glm::vec3 size)
+    {
+        Scene staged;
+        auto wall = staged.CreateEntity("Controller wall");
+        const auto id = wall.GetUUID();
+        wall.GetTransform().Translation = position;
+        wall.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Static;
+        wall.AddComponent<BoxCollider3DComponent>().HalfExtents = size;
+        std::string error;
+        CHECK(scene.ImportStagedCell(staged, error).size() == 1);
+        return scene.GetEntityByUUID(id);
+    }
+}
+TEST(WorldNavAgentWalksPortalsAndRequiresExactCompletionToken)
+{
+    WorldFixture f;
+    ConfigureWorldAgent(f);
+    SceneManager manager;
+    auto scene = f.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 300; }));
+    auto entity = WorldAgent(*scene);
+    auto& a = entity.GetComponent<NavAgentComponent>();
+    CHECK(scene->SetNavDestination(entity, { 80005.5f, 5.5f, 0 }));
+    CHECK(StepAgent(manager, [&] { return scene->GetNavTraversalLink(entity) == 501; }));
+    const auto entry = scene->GetWorldPosition(entity);
+    const auto ticket = a.TraversalTicket;
+    CHECK(!a.IsMoving() && !a.Arrived && ticket);
+    Scene foreign;
+    auto copy = foreign.CreateEntityWithUUID(entity.GetUUID());
+    copy.AddComponent<NavAgentComponent>() = a;
+    CHECK(!scene->GetNavTraversalLink(copy));
+    CHECK(!scene->CompleteNavTraversal(copy, 501, a.AtlasRevision, ticket));
+    CHECK(!scene->SetNavDestination(copy, { 1, 2, 0 }));
+    CHECK(!scene->CompleteNavTraversal(entity, 502, a.AtlasRevision, ticket));
+    CHECK(!scene->CompleteNavTraversal(entity, 501, a.AtlasRevision + 1, ticket));
+    CHECK(!scene->CompleteNavTraversal(entity, 501, a.AtlasRevision, ticket + 1));
+    CHECK(scene->GetWorldPosition(entity) == entry);
+    CHECK(scene->CompleteNavTraversal(entity, 501, a.AtlasRevision, ticket));
+    CHECK(!scene->CompleteNavTraversal(entity, 501, a.AtlasRevision, ticket));
+    CHECK_NEAR(scene->GetWorldPosition(entity).x, 40002.5f, .001);
+    CHECK(StepAgent(manager, [&] { return scene->GetNavTraversalLink(entity) == 502; }));
+    CHECK(scene->CompleteNavTraversal(entity, 502, a.AtlasRevision, a.TraversalTicket));
+    CHECK(StepAgent(manager, [&] { return a.Arrived; }));
+    CHECK(a.TraversalCompletions == 2 && a.PathStatus == NavPathStatus::Complete);
+    CHECK_NEAR(scene->GetWorldPosition(entity).x, 80005.5f, .15);
+    manager.Stop();
+}
+TEST(WorldNavAgentStaleAndCancelledRequestsCannotCompleteLater)
+{
+    WorldFixture f;
+    ConfigureWorldAgent(f);
+    SceneManager manager;
+    auto scene = f.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 300; }));
+    auto entity = WorldAgent(*scene);
+    auto& a = entity.GetComponent<NavAgentComponent>();
+    CHECK(scene->SetNavDestination(entity, { 40005.5f, 5.5f, 0 }));
+    CHECK(StepAgent(manager, [&] { return scene->GetNavTraversalLink(entity) == 501; }));
+    const auto revision = a.AtlasRevision, ticket = a.TraversalTicket;
+    std::string error;
+    CHECK(world->SetNavigationLinks(f.Policy.NavigationLinks, error));
+    manager.ProcessRequests();
+    CHECK(!scene->GetNavTraversalLink(entity));
+    CHECK(!scene->CompleteNavTraversal(entity, 501, revision, ticket));
+    CHECK(StepAgent(manager, [&] { return scene->GetNavTraversalLink(entity) == 501; }));
+    CHECK(a.BlockedRepaths > 0 && a.TraversalTicket != ticket);
+    const auto newTicket = a.TraversalTicket, newRevision = a.AtlasRevision;
+    CHECK(scene->CancelNavTraversal(entity));
+    CHECK(!a.HasDestination && !a.PendingTraversalLink);
+    CHECK(scene->SetNavDestination(entity, { 40005.5f, 5.5f, 0 }));
+    CHECK(StepAgent(manager, [&] { return scene->GetNavTraversalLink(entity) == 501; }));
+    CHECK(!scene->CompleteNavTraversal(entity, 501, newRevision, newTicket));
+    CHECK(scene->CompleteNavTraversal(entity, 501, a.AtlasRevision, a.TraversalTicket));
+    manager.Stop();
+}
+TEST(WorldNavAgentUnloadStopsAndReturnReplans)
+{
+    WorldFixture f;
+    ConfigureWorldAgent(f);
+    SceneManager manager;
+    auto scene = f.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 300; }));
+    auto entity = WorldAgent(*scene);
+    auto& a = entity.GetComponent<NavAgentComponent>();
+    CHECK(scene->SetNavDestination(entity, { 40005.5f, 5.5f, 0 }));
+    CHECK(StepAgent(manager, [&] { return scene->GetNavTraversalLink(entity) != 0; }));
+    world->SetViewerOverride({ 1000000, 1000000, 0 });
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 0; }));
+    const auto position = scene->GetWorldPosition(entity);
+    StepAgent(manager, [] { return false; }, 30);
+    CHECK(a.PathStatus == NavPathStatus::Failed && !a.PendingTraversalLink && scene->GetWorldPosition(entity) == position);
+    world->SetViewerOverride({ 2, 0, 2 });
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 300; }));
+    CHECK(StepAgent(manager, [&] { return scene->GetNavTraversalLink(entity) != 0; }));
+    manager.Stop();
+}
+TEST(WorldNavAgentControllerCannotWalkThroughPhysicalWallOrOccupiedExit)
+{
+    WorldFixture f;
+    ConfigureWorldAgent(f, true);
+    SceneManager manager;
+    auto scene = f.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 300; }));
+    auto entity = WorldAgent(*scene, true);
+    auto& a = entity.GetComponent<NavAgentComponent>();
+    a.BaseOffset = 5; // transform-only setting must not offset a controller whose origin is its feet
+    auto wall = AgentWall(*scene, { 2.1f, .9f, 5.5f }, { .1f, .9f, 2 });
+    CHECK(scene->SetNavDestination(entity, { 40005.5f, 0, 5.5f }));
+    StepAgent(manager, [] { return false; }, 60);
+    CHECK(!a.Arrived && !a.PendingTraversalLink && scene->GetWorldPosition(entity).x < 2);
+    scene->DestroyEntity(wall);
+    CHECK(StepAgent(manager, [&] { return scene->GetNavTraversalLink(entity) == 501; }));
+    auto blocker = AgentWall(*scene, { 40002.5f, .9f, 5.5f }, { .5f, .9f, .5f });
+    const auto old = scene->GetWorldPosition(entity);
+    CHECK(!scene->CompleteNavTraversal(entity, 501, a.AtlasRevision, a.TraversalTicket));
+    CHECK(scene->GetWorldPosition(entity) == old);
+    scene->DestroyEntity(blocker);
+    CHECK(scene->CompleteNavTraversal(entity, 501, a.AtlasRevision, a.TraversalTicket));
+    CHECK(StepAgent(manager, [&] { return a.Arrived; }));
+    CHECK_NEAR(scene->GetWorldPosition(entity).x, 40005.5f, .15);
+    CHECK(std::abs(scene->GetWorldPosition(entity).y) < .15);
+    manager.Stop();
+}
+TEST(WorldNavAgentSerializationCopyAndRuntimeReset)
+{
+    auto source = CreateRef<Scene>();
+    auto entity = source->CreateEntity("World agent");
+    auto& a = entity.AddComponent<NavAgentComponent>();
+    a.WorldNavigation = true;
+    a.WorldMaxExpanded = 777;
+    a.PendingTraversalLink = 5;
+    a.TraversalTicket = 123;
+    a.AtlasRevision = 99;
+    a.PathLinks = { 5 };
+    a.TraversalCompletions = 3;
+    auto restored = CreateRef<Scene>();
+    CHECK(SceneSerializer(restored).DeserializeFromString(SceneSerializer(source).SerializeToString()));
+    auto& loaded = restored->FindEntityByName("World agent").GetComponent<NavAgentComponent>();
+    CHECK(loaded.WorldNavigation && loaded.WorldMaxExpanded == 777 && !loaded.PendingTraversalLink && loaded.PathLinks.empty());
+    auto copy = Scene::Copy(source);
+    auto& cloned = copy->FindEntityByName("World agent").GetComponent<NavAgentComponent>();
+    CHECK(cloned.WorldNavigation && cloned.WorldMaxExpanded == 777 && !cloned.PendingTraversalLink && !cloned.TraversalTicket && !cloned.TraversalCompletions);
+    a.Stop(true);
+    CHECK(a.PathLinks.empty() && !a.PendingTraversalLink && !a.TraversalTicket);
+}
+TEST(WorldNavAgentPeriodicRepathDoesNotTurnBackWithinStartCell)
+{
+    WorldFixture f;
+    ConfigureWorldAgent(f);
+    SceneManager manager;
+    auto scene = f.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 300; }));
+    auto entity = WorldAgent(*scene);
+    auto& a = entity.GetComponent<NavAgentComponent>();
+    a.RepathInterval = .02f;
+    a.Speed = 3;
+    CHECK(scene->SetNavDestination(entity, { 8.1f, 5.5f, 0 }));
+    float previous = scene->GetWorldPosition(entity).x;
+    for (int i = 0; i < 180; ++i)
+    {
+        manager.UpdateScenes(Timestep(1.f / 60));
+        const float next = scene->GetWorldPosition(entity).x;
+        CHECK(next + .0001f >= previous);
+        previous = next;
+    }
+    CHECK(a.Arrived && a.PathRequests > 5);
+    CHECK(!scene->SetNavDestination(entity, { NAN, 0, 0 }));
+    manager.Stop();
+}
+
+TEST(WorldNavAgentVisualGraphDrivesDestinationAndPortalCompletion)
+{
+    WorldFixture f;
+    ConfigureWorldAgent(f);
+    SceneManager manager;
+    auto scene = f.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 300; }));
+    Visual::Graph graph;
+    graph.Variables["Success"] = { Visual::Type::Bool, false };
+    graph.Nodes = { { 1, "Event.Start" }, { 2, "SetWorldDestination", 0, 0, { { "Position", { 40005.5, 5.5, 0 } } } }, { 3, "Event.NavTraversalRequested" }, { 4, "CompleteNavTraversal" }, { 5, "Set.Bool", 0, 0, { { "Name", "Success" } } } };
+    graph.Links = { { 1, "Then", 2, "In" }, { 3, "Then", 4, "In" }, { 3, "Link", 4, "Link" }, { 3, "Revision", 4, "Revision" }, { 3, "Ticket", 4, "Ticket" }, { 4, "Then", 5, "In" }, { 4, "Success", 5, "Value" } };
+    CHECK(graph.Validate().empty());
+    CHECK(graph.Save(f.Assets / "Scripts/Traversal.zgraph"));
+    Scene staged;
+    auto source = staged.CreateEntityWithUUID(UUID(91001), "Graph traversal actor");
+    source.GetTransform().Translation = { 1.5f, 5.5f, 0 };
+    source.AddComponent<NavAgentComponent>().Speed = 12;
+    auto& script = source.AddComponent<NativeScriptComponent>();
+    script.ClassName = "Zamin.VisualGraph";
+    script.Fields["Graph"].Set(std::string("Scripts/Traversal.zgraph"));
+    std::string error;
+    CHECK(scene->ImportStagedCell(staged, error).size() == 1);
+    auto entity = scene->GetEntityByUUID(UUID(91001));
+    auto& a = entity.GetComponent<NavAgentComponent>();
+    CHECK(StepAgent(manager, [&] { return a.Arrived; }, 600));
+    auto* host = dynamic_cast<VisualGraphHost*>(entity.GetComponent<NativeScriptComponent>().Instance);
+    CHECK(host && host->VM.Error().empty() && host->VM.Variables().at("Success") == true);
+    CHECK(a.WorldNavigation && a.TraversalCompletions == 1);
+    CHECK_NEAR(scene->GetWorldPosition(entity).x, 40005.5f, .15);
+    manager.Stop();
+}
+
+TEST(WorldNavAgentGraphOverflowDoesNotChangeNavigationMode)
+{
+    WorldFixture f;
+    ConfigureWorldAgent(f);
+    SceneManager manager;
+    auto scene = f.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 300; }));
+    Visual::Graph graph;
+    graph.Nodes = { { 1, "Event.Start" }, { 2, "SetWorldDestination", 0, 0, { { "Position", { 1e100, 5.5, 0 } } } } };
+    graph.Links = { { 1, "Then", 2, "In" } };
+    CHECK(graph.Save(f.Assets / "Scripts/Overflow.zgraph"));
+    Scene staged;
+    auto source = staged.CreateEntityWithUUID(UUID(91002), "Invalid graph actor");
+    source.GetTransform().Translation = { 1.5f, 5.5f, 0 };
+    source.AddComponent<NavAgentComponent>();
+    auto& script = source.AddComponent<NativeScriptComponent>();
+    script.ClassName = "Zamin.VisualGraph";
+    script.Fields["Graph"].Set(std::string("Scripts/Overflow.zgraph"));
+    std::string error;
+    CHECK(scene->ImportStagedCell(staged, error).size() == 1);
+    manager.UpdateScenes(Timestep(1.f / 60));
+    auto actor = scene->GetEntityByUUID(UUID(91002));
+    auto* host = dynamic_cast<VisualGraphHost*>(actor.GetComponent<NativeScriptComponent>().Instance);
+    CHECK(host && !host->VM.Error().empty());
+    CHECK(!actor.GetComponent<NavAgentComponent>().WorldNavigation && !actor.GetComponent<NavAgentComponent>().HasDestination);
+    CHECK_NEAR(scene->GetWorldPosition(actor).x, 1.5f, .001);
+    manager.Stop();
 }

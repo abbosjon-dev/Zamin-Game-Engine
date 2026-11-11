@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include "VisualGraphPanel.h"
 #include "Zamin/Scripting/Visual/VisualGraphHost.h"
 #include "Zamin/Project/Project.h"
@@ -136,6 +137,11 @@ namespace Zamin {
             m_Zoom = 1;
             m_Fit = true;
             m_Focus = true;
+            if (std::getenv("ZAMIN_EDITOR_WORLD_AGENT_QA"))
+            {
+                if (!m_Graph.Validate().empty()) throw std::runtime_error("Agent graph validation failed");
+                ZM_CORE_INFO("Agent graph editor QA: {} nodes, {} links, {}", m_Graph.Nodes.size(), m_Graph.Links.size(), path.string());
+            }
         }
         catch (const std::exception& e)
         {

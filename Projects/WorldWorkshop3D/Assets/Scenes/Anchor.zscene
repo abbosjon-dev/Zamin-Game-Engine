@@ -109,6 +109,88 @@
         ],
         "Roughness": 0.3
       }
+    },
+    {
+      "Entity": 999000001,
+      "Tag": "World traversal actor",
+      "Transform": {
+        "Translation": [
+          9,
+          0,
+          9
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "NavAgent": {
+        "WorldNavigation": true,
+        "WorldMaxExpanded": 4096,
+        "Speed": 24,
+        "Acceleration": 0,
+        "RepathInterval": 0,
+        "UpdateRotation": false
+      },
+      "NativeScript": {
+        "Class": "Zamin.VisualGraph",
+        "Enabled": true,
+        "Fields": {
+          "Graph": {
+            "Type": "String",
+            "Value": "Scripts/WorldTraversal.zgraph"
+          },
+          "Overrides": {
+            "Type": "String",
+            "Value": "{}"
+          }
+        }
+      },
+      "CharacterController3D": {
+        "Radius": 0.2,
+        "Height": 1.2,
+        "StepHeight": 1,
+        "GravityScale": 0,
+        "MaxSlope": 60
+      }
+    },
+    {
+      "Entity": 999000002,
+      "Tag": "World traversal body",
+      "Parent": 999000001,
+      "Transform": {
+        "Translation": [
+          0,
+          0.7,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0,
+          0,
+          0
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Albedo": [
+          1,
+          0.65,
+          0.08,
+          1
+        ],
+        "Roughness": 0.3
+      }
     }
   ],
   "Settings": {

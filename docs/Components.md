@@ -1262,6 +1262,8 @@ _Inspektorda: **Nav Agent**; qo'shish: **+ Komponent → Navigatsiya va AI → N
 
 | Maydon | Tur | Standart |
 |---|---|---|
+| `WorldNavigation` | `bool` | `false` |
+| `WorldMaxExpanded` | `uint32_t` | `16384` |
 | `Grid` | `EntityRef` | — |
 | `Target` | `EntityRef` | — |
 | `Speed` | `float` | `3.5f` |
@@ -1295,6 +1297,13 @@ _Inspektorda: **Nav Agent**; qo'shish: **+ Komponent → Navigatsiya va AI → N
 | `RepathTimer` _(faqat o'yin paytida)_ | `float` | `0.0f` |
 | `GridRevision` _(faqat o'yin paytida)_ | `uint32_t` | `0` |
 | `CarveRevision` _(faqat o'yin paytida)_ | `uint32_t` | `0` |
+| `PathLinks` _(faqat o'yin paytida)_ | `std::vector<uint64_t>` | — |
+| `AtlasRevision` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
+| `PendingTraversalLink` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
+| `TraversalTicket` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
+| `TraversalEntry` _(faqat o'yin paytida)_ | `glm::vec3` | `{ 0 }` |
+| `TraversalExit` _(faqat o'yin paytida)_ | `glm::vec3` | `{ 0 }` |
+| `TraversalCompletions` _(faqat o'yin paytida)_ | `uint32_t` | `0` |
 | `PathRequests` _(faqat o'yin paytida)_ | `uint32_t` | `0` |
 | `BlockedRepaths` _(faqat o'yin paytida)_ | `uint32_t` | `0` |
 | `FeelerOrigin` _(faqat o'yin paytida)_ | `glm::vec3` | `{ 0.0f }` |

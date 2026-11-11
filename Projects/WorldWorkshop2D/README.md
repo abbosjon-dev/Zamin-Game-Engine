@@ -32,3 +32,12 @@ cell scene template with fresh entity UUIDs. A published bundle is never overwri
 Actor portal oldida kutadi, demo explicit teleport completion qiladi; bu physics controller emas.
 Topology o‘zgarsa actor to‘xtaydi va route qayta olinadi. Portal faqat loaded walkable endpoint bilan faol.
 `Tests/world_navigation_test.py` disable, unload/return va qayta rejalashni ikkala demoda tekshiradi.
+
+### NavAgent va Visual Graph
+
+**B** — haqiqiy NavAgent + built-in Visual Graph demo. 3D actor CharacterController bilan yuradi.
+`Scripts/WorldTraversal.zgraph`: Message → SetWorldDestination, NavTraversalRequested → Delay →
+CompleteNavTraversal → Success/Cancel. UUID tokenlar String; link, revision va yangi ticket kerak.
+Band controller exit yoki eski token teleport qilmaydi. Unloaded maydonda namuna driver'i actor
+gravity'sini muzlatadi; return'da boshlang‘ich nuqtadan yangi graph destination boshlaydi.
+`Tests/world_agent_test.py` fixed capture time bilan 2D/3D Player va graph editor screenshot'larini tekshiradi.

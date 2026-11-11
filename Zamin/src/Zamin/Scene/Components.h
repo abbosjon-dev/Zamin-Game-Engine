@@ -1508,6 +1508,8 @@ namespace Zamin {
     /// (it is kept): ResumeTarget() - or another Target - goes after it again.
     struct NavAgentComponent
     {
+        bool WorldNavigation = false;    ///< opt in: streamed sparse atlas, explicit traversal handshake
+        uint32_t WorldMaxExpanded = 16384; ///< per-query expansion limit (1..1048576)
         EntityRef Grid;                   ///< the NavGrid entity (not set: the grid whose area holds the agent)
         EntityRef Target;                 ///< set: it keeps going after this entity
         float Speed = 3.5f;               ///< units / s
@@ -1548,6 +1550,10 @@ namespace Zamin {
         float RepathTimer = 0.0f;
         uint32_t GridRevision = 0;
         uint32_t CarveRevision = 0;       ///< the grid's carving (Nav Obstacles) its path was checked against
+        std::vector<uint64_t> PathLinks;  ///< incoming traversal ID for each world path point
+        uint64_t AtlasRevision = 0, PendingTraversalLink = 0, TraversalTicket = 0;
+        glm::vec3 TraversalEntry{ 0 }, TraversalExit{ 0 };
+        uint32_t TraversalCompletions = 0;
         uint32_t PathRequests = 0;        ///< paths found since play started
         uint32_t BlockedRepaths = 0;      ///< of them: because an obstacle blocked the path
         /// Avoidance (debug): the feelers of the last update (where each starts / ends, which hit) and
@@ -1571,6 +1577,7 @@ namespace Zamin {
             Arrived = false;
             RepathRequested = true;
             PausedTarget = Target.ID;
+            PendingTraversalLink = TraversalTicket = 0;
         }
         /// No destination any more: it brakes to a stop (at once with `immediate`). Target is kept but
         /// not followed until ResumeTarget (or another Target is set).
@@ -1579,6 +1586,8 @@ namespace Zamin {
             HasDestination = Arrived = RepathRequested = false;
             Path.clear();
             PathIndex = 0;
+            PathLinks.clear();
+            PendingTraversalLink = TraversalTicket = 0;
             Remaining = 0.0f;
             PausedTarget = Target.ID;
             if (immediate)
@@ -1599,13 +1608,17 @@ namespace Zamin {
         /// Moving now, walking a path, or about to (a destination whose path is not found yet).
         bool IsMoving() const
         {
-            return glm::dot(Velocity, Velocity) > 1e-4f || (HasDestination && !Arrived && (RepathRequested || Path.size() >= 2));
+            return !PendingTraversalLink && (glm::dot(Velocity, Velocity) > 1e-4f || (HasDestination && !Arrived && (RepathRequested || Path.size() >= 2)));
         }
         float RemainingDistance() const { return Remaining; }
         bool HasPath() const { return Path.size() >= 2; }
         bool IsPathPartial() const { return PathStatus == NavPathStatus::Partial; }
         void ResetRuntime()
         {
+            PathLinks.clear();
+            AtlasRevision = PendingTraversalLink = TraversalTicket = 0;
+            TraversalEntry = TraversalExit = glm::vec3(0);
+            TraversalCompletions = 0;
             Destination = glm::vec3(0.0f);
             HasDestination = Arrived = RepathRequested = false;
             Path.clear();

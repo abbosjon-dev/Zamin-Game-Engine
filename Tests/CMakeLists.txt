@@ -352,3 +352,9 @@ if(Python3_Interpreter_FOUND)
         --build ${CMAKE_BINARY_DIR} --out ${CMAKE_BINARY_DIR}/WorldNavigationRuntime)
     set_tests_properties(WorldNavigationRuntime PROPERTIES LABELS "gui;world" TIMEOUT 700)
 endif()
+
+if(Python3_Interpreter_FOUND)
+    add_test(NAME WorldAgentRuntime COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/Tests/world_agent_test.py
+        --build ${CMAKE_BINARY_DIR} --out ${CMAKE_BINARY_DIR}/WorldAgentRuntime)
+    set_tests_properties(WorldAgentRuntime PROPERTIES LABELS "gui;world" TIMEOUT 900)
+endif()

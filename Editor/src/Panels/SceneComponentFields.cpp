@@ -819,12 +819,38 @@ namespace Zamin {
 
     bool SceneHierarchyPanel::DrawNavAgent(Entity entity, NavAgentComponent& c)
     {
-        bool changed = DrawEntityRefField("Grid", c.Grid, "NavGrid 2D / 3D komponentli obyekt (tanlanmasa - agent turgan joyni o'z ichiga "
-                                                          "olgan grid)");
+        bool changed = UI::PropertyBool("Dunyo navigatsiyasi", c.WorldNavigation);
+        if (changed) c.ResetRuntime();
+        if (c.WorldNavigation)
+        {
+            UI::PropertyLabel("Qidiruv kengayish limiti");
+            changed |= ImGui::DragScalar("##worldExpanded", ImGuiDataType_U32, &c.WorldMaxExpanded, 32.f);
+            c.WorldMaxExpanded = std::clamp(c.WorldMaxExpanded, 1u, 1048576u);
+            if (m_Context && m_Context->IsRunning())
+            {
+                ImGui::Text("World atlas %llu | requests %u | traversals %u", (unsigned long long)c.AtlasRevision, c.PathRequests, c.TraversalCompletions);
+                if (m_Context->GetNavTraversalLink(entity))
+                {
+                    ImGui::Text("Pending link %llu / ticket %llu", (unsigned long long)c.PendingTraversalLink, (unsigned long long)c.TraversalTicket);
+                    const auto resultID = ImGui::GetID(("worldTraversalResult" + std::to_string(uint64_t(entity.GetUUID()))).c_str());
+                    if (ImGui::Button("Complete traversal")) ImGui::GetStateStorage()->SetInt(resultID, m_Context->CompleteNavTraversal(entity, c.PendingTraversalLink, c.AtlasRevision, c.TraversalTicket) ? 0 : 1);
+                    ImGui::SameLine();
+                    if (ImGui::Button("Cancel traversal"))
+                    {
+                        m_Context->CancelNavTraversal(entity);
+                        ImGui::GetStateStorage()->SetInt(resultID, 0);
+                    }
+                    if (ImGui::GetStateStorage()->GetInt(resultID)) ImGui::TextWrapped("Portal chiqishi band yoki sorov bajarishga tayyor emas.");
+                }
+            }
+            ImGui::TextWrapped("Cell-centre route; explicit portal completion. Character exits are checked for overlap. Smoothing and local avoidance use the legacy grid mode.");
+        }
+        changed |= DrawEntityRefField("Grid", c.Grid, "NavGrid 2D / 3D komponentli obyekt (tanlanmasa - agent turgan joyni o'z ichiga "
+                                                      "olgan grid)");
         changed |= DrawEntityRefField("Nishon", c.Target, "Tanlansa - agent shu obyekt ortidan yuradi (yo'lni har yangilash oralig'ida "
                                                          "qayta topadi)");
         InactiveComponentNote(entity, "Obyekt nofaol: harakatlanmaydi");
-        if (m_Context && !m_Context->GetNavAgentGrid(entity) && m_Context->IsRunning())
+        if (!c.WorldNavigation && m_Context && !m_Context->GetNavAgentGrid(entity) && m_Context->IsRunning())
         {
             UI::PropertyLabel("");
             ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  %s",

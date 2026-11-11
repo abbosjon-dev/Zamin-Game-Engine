@@ -85,6 +85,9 @@ jobs:
       - name: World streaming camera tours and editor panel
         run: python3 Tests/world_streaming_test.py --build build --out world-streaming
 
+      - name: World NavAgent, controller and Visual Graph traversal
+        run: python3 Tests/world_agent_test.py --build build --out world-streaming/agents
+
       - name: Sparse world navigation and traversal workflow
         run: python3 Tests/world_navigation_test.py --build build --out world-streaming/navigation
 

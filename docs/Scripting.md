@@ -601,7 +601,7 @@ Batafsil: [Animation.md](Animation.md).
 ## 17. AI va navigatsiya
 
 Nav Agent komponenti bo'lsa: `SetDestination(point)`, `StopMoving()`, `SetNavTarget(entity)`, `IsMoving()`,
-`GetRemainingDistance()`, `HasArrived()`, `FindPath(from, to)`, `HasNavLineOfSight(from, to)`. Ko'rish (Sight Sensor):
+`GetRemainingDistance()`, `HasArrived()`, `GetNavTraversalLink()`, `CompleteNavTraversal(link, revision, ticket)`, `CancelNavTraversal()`, `FindPath(from, to)`, `HasNavLineOfSight(from, to)`. Ko'rish (Sight Sensor):
 `CanSee(target)`, `CanSeeTarget()`, `GetSeenTarget()`, `GetLastSeenPosition()`, `RemembersTarget()`. Patrul (Patrol
 Path): `PausePatrol()`, `ResumePatrol()`, `IsPatrolling()`, `GetPatrolPoint()`, `GetPatrolTarget()`,
 `IsWaitingAtPatrolPoint()`, `SetPatrolPoint(i)`. Guruh (Formation): `SetFormationShape(FormationShape::Line)`,
@@ -761,7 +761,7 @@ Release'da `ZM_ASSERT` tekshirilmaydi va `DebugDraw` (Shipping build'da) chizilm
 | 2D fizika | `GetVelocity`, `SetVelocity`, `ApplyImpulse`, `ApplyForce`, `SetPosition2D`, `DropThroughPlatforms`, `IsSleeping`, `WakeUp`, `PutToSleep` |
 | 3D fizika | `GetVelocity3D`, `SetVelocity3D`, `GetAngularVelocity3D`, `SetAngularVelocity3D`, `ApplyImpulse3D`, `ApplyForce3D`, `ApplyTorque3D`, `SetPosition3D`, `IsSleeping3D`, `WakeUp3D`, `PutToSleep3D` |
 | So'rovlar | `Raycast2D`, `Raycast2DAll`, `LayerMask`, `LayerIndex`, `OverlapCircle2D`, `OverlapBox2D`, `OverlapPoint2D`, `Raycast3D`, `Raycast3DAll`, `OverlapSphere3D`, `OverlapBox3D`, `OverlapCapsule3D`, `SphereCast3D`, `SphereCast3DAll`, `BoxCast3D`, `BoxCast3DAll`, `CapsuleCast3D`, `CapsuleCast3DAll` |
-| Navigatsiya | `SetDestination`, `StopMoving`, `SetNavTarget`, `IsMoving`, `GetRemainingDistance`, `HasArrived`, `FindPath`, `HasNavLineOfSight` |
+| Navigatsiya | `SetDestination`, `StopMoving`, `SetNavTarget`, `IsMoving`, `GetRemainingDistance`, `HasArrived`, `GetNavTraversalLink`, `CompleteNavTraversal`, `CancelNavTraversal`, `FindPath`, `HasNavLineOfSight` |
 | Ko'rish va patrul | `CanSee`, `CanSeeTarget`, `GetSeenTarget`, `GetLastSeenPosition`, `RemembersTarget`, `PausePatrol`, `ResumePatrol`, `IsPatrolling`, `GetPatrolPoint`, `GetPatrolTarget`, `IsWaitingAtPatrolPoint`, `SetPatrolPoint` |
 | Guruh va AI | `SetFormationShape`, `GetFormationShape`, `AddFormationMember`, `RemoveFormationMember`, `IsFormationInPlace`, `GetFormationLeader`, `GetFormationSlot`, `WatchStateMachine`, `UnwatchStateMachine`, `GetWatchedStateMachines`, `WatchBehaviorTree`, `UnwatchBehaviorTree`, `GetWatchedBehaviorTrees` |
 | Ekran va sichqoncha | `GetMousePosition`, `GetViewportSize`, `GetMouseWorldPosition`, `ScreenToWorld`, `ScreenPointToRay`, `GetMouseRay` |

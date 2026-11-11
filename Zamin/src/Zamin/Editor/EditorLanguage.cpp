@@ -1292,6 +1292,8 @@ namespace Zamin {
             { "Binarlarni strip qilish (player, engine, skriptlar)", "Strip the binaries (player, engine, scripts)" },
             // ---- navigation (NavGrid 2D / 3D, Nav Agent)
             { "Qarab yurish", "Face movement" },
+            { "Dunyo navigatsiyasi", "World navigation" },
+            { "Qidiruv kengayish limiti", "Query expansion limit" },
             { "Navigatsiya va AI", "Navigation and AI" },
             { "Navigatsiya", "Navigation" },
             { "Maydon", "Area" },

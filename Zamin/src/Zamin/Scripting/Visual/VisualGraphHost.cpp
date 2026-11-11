@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <cmath>
 #include <limits>
+#include <charconv>
 namespace Zamin {
     ScriptClassInfo MakeVisualGraphClassInfo()
     {
@@ -46,6 +47,14 @@ namespace Zamin {
     }
     void VisualGraphHost::OnUpdate(Timestep dt)
     {
+        const auto link = GetNavTraversalLink();
+        auto* nav = GetEntity().TryGetComponent<NavAgentComponent>();
+        if (link && nav && (m_TraversalLink != nav->TraversalTicket || m_TraversalRevision != nav->AtlasRevision))
+        {
+            m_TraversalLink = nav->TraversalTicket;
+            m_TraversalRevision = nav->AtlasRevision;
+            Emit("NavTraversalRequested", { { "Link", std::to_string(link) }, { "Revision", std::to_string(nav->AtlasRevision) }, { "Ticket", std::to_string(nav->TraversalTicket) }, { "Entry", { nav->TraversalEntry.x, nav->TraversalEntry.y, nav->TraversalEntry.z } }, { "Exit", { nav->TraversalExit.x, nav->TraversalExit.y, nav->TraversalExit.z } } });
+        }
         VM.Tick((float)dt);
         Emit("Update", { { "Delta", (float)dt } });
     }
@@ -241,6 +250,26 @@ namespace Zamin {
         else if (k == "ApplyForce3D") proxy.ApplyForce3D(vec("Vector"));
         else if (k == "ApplyImpulse3D") proxy.ApplyImpulse3D(vec("Vector"));
         else if (k == "ApplyTorque3D") proxy.ApplyTorque3D(vec("Vector"));
+        else if (k == "SetWorldDestination")
+        {
+            auto* nav = target.TryGetComponent<NavAgentComponent>();
+            if (!nav) return false;
+            const auto position = vec("Position");
+            nav->WorldNavigation = true;
+            return GetScene().SetNavDestination(target, position);
+        }
+        else if (k == "NavTraversalState")
+        {
+            auto* nav = target.TryGetComponent<NavAgentComponent>();
+            const bool pending = GetScene().GetNavTraversalLink(target) != 0;
+            return V{ { "Pending", pending }, { "Link", pending ? std::to_string(nav->PendingTraversalLink) : "0" }, { "Revision", nav ? std::to_string(nav->AtlasRevision) : "0" }, { "Ticket", pending ? std::to_string(nav->TraversalTicket) : "0" }, { "Entry", nav ? value(nav->TraversalEntry) : V::array({ 0, 0, 0 }) }, { "Exit", nav ? value(nav->TraversalExit) : V::array({ 0, 0, 0 }) }, { "Status", nav ? NavPathStatusName(nav->PathStatus) : "None" } };
+        }
+        else if (k == "CompleteNavTraversal")
+        {
+            auto token = [&](const char* name) { const auto text = s(name); uint64_t id = 0; const auto result = std::from_chars(text.data(), text.data()+text.size(), id); return result.ec == std::errc{} && result.ptr == text.data()+text.size() ? id : uint64_t(0); };
+            return GetScene().CompleteNavTraversal(target, token("Link"), token("Revision"), token("Ticket"));
+        }
+        else if (k == "CancelNavTraversal") return GetScene().CancelNavTraversal(target);
         else if (k == "SetDestination") proxy.SetDestination(vec("Position"));
         else if (k == "StopMoving") proxy.StopMoving(a.at("Immediate").get<bool>());
         else if (k == "IsMoving") return proxy.IsMoving();

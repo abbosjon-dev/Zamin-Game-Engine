@@ -599,6 +599,11 @@ namespace Zamin {
         /// @{
         bool SetDestination(const glm::vec3& destination);
         bool SetDestination(const glm::vec2& destination);
+        /// Pending world traversal; zero when absent or its atlas revision is stale.
+        uint64_t GetNavTraversalLink() const;
+        /// Explicit teleport completion. Use the revision captured with the pending link.
+        bool CompleteNavTraversal(uint64_t link, uint64_t revision, uint64_t ticket);
+        bool CancelNavTraversal();
         /// No destination: the agent brakes to a stop (at once with `immediate`). With a Target it does
         /// not go after it any more (SetDestination too) until SetNavTarget.
         void StopMoving(bool immediate = false);

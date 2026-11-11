@@ -379,3 +379,13 @@ cost, two-way va enabled sozlanadi. **Saqlash va loyihaga ulash** authored fayln
 **Apply authored links to running world** esa joriy runtime'ga qo‘llaydi. Gameplay linkni explicit
 complete qilishi kerak; panel collision/animation controller yaratmaydi. Atlas va legacy mosaic
 statistikalari alohida: uzoq tile'larda mosaic budjeti tugashi sparse atlas xatosi degani emas.
+
+### NavAgent world traversal
+
+Nav Agent'da **World navigation** yoqilganda query expansion limit va runtime atlas/request/traversal
+soni ko‘rinadi. Mode almashtirilsa runtime path reset bo‘ladi. Pending link va ticket bilan
+**Complete traversal** yoki **Cancel traversal** mavjud; completion live CharacterController exit
+occupancy'ni tekshiradi. World rejimida eski grid smoothing/avoidance settings qo‘llanmaydi.
+Visual Script palette'da Navigation tugunlari va NavTraversalRequested event'i bor. WorldWorkshop
+`Scripts/WorldTraversal.zgraph` Message → destination va event → delay → completion → success branch
+namunasini beradi. B — yangi physics/graph actor, N — kinematic preview.

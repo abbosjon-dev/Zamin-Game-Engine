@@ -1150,6 +1150,7 @@ namespace Zamin {
 
     bool Scene::ComputeNavAgentPath(Entity agent, NavAgentComponent& a)
     {
+        if (a.WorldNavigation) return ComputeWorldNavAgentPath(agent, a);
         int dimension;
         const NavGridPathSettings* settings;
         const NavGrid* grid = GetBakedGrid(GetNavAgentGrid(agent), dimension, settings);
@@ -1163,8 +1164,8 @@ namespace Zamin {
 
     bool Scene::SetNavDestination(Entity agent, const glm::vec3& destination)
     {
-        auto* a = agent && agent.IsValid() ? agent.TryGetComponent<NavAgentComponent>() : nullptr;
-        if (!a)
+        auto* a = agent && agent.GetScene() == this && agent.IsValid() ? agent.TryGetComponent<NavAgentComponent>() : nullptr;
+        if (!a || !std::isfinite(destination.x) || !std::isfinite(destination.y) || !std::isfinite(destination.z))
             return false;
         a->SetDestination(destination);
         return ComputeNavAgentPath(agent, *a);
@@ -1175,6 +1176,12 @@ namespace Zamin {
         const auto* a = agent && agent.IsValid() ? agent.TryGetComponent<NavAgentComponent>() : nullptr;
         if (!a || a->Path.size() < 2)
             return false;
+        if (a->WorldNavigation)
+        {
+            auto* world = GetSceneManager() ? GetSceneManager()->GetWorldStreaming() : nullptr;
+            auto atlas = world && world->IsAnchor(this) ? world->GetNavigationAtlas() : nullptr;
+            return !atlas || atlas->GetRevision() != a->AtlasRevision;
+        }
         int dimension;
         const NavGridPathSettings* settings;
         const NavGrid* grid = GetBakedGrid(GetNavAgentGrid(agent), dimension, settings);
@@ -1401,6 +1408,7 @@ namespace Zamin {
             if (!IsActiveInHierarchy(entity))
                 continue;
             auto& a = m_Registry.get<NavAgentComponent>(e);
+            if (a.WorldNavigation) continue;
             int dimension;
             const NavGridPathSettings* settings;
             const NavGrid* grid = GetBakedGrid(GetNavAgentGrid(entity), dimension, settings);
@@ -1649,6 +1657,7 @@ namespace Zamin {
                     transform.Rotation.z = Math::MoveTowardsAngle(transform.Rotation.z, std::atan2(velocity.y, velocity.x), maxTurn);
             }
         }
+        UpdateWorldNavAgents(dt);
     }
 
 }

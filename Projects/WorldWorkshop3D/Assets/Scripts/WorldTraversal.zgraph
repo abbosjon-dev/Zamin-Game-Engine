@@ -1,0 +1,196 @@
+{
+  "Format": "Zamin.VisualGraph",
+  "Version": 1,
+  "Nodes": [
+    {
+      "ID": 1,
+      "Kind": "Event.Message",
+      "X": 20,
+      "Y": 20,
+      "Inputs": {},
+      "Breakpoint": false
+    },
+    {
+      "ID": 2,
+      "Kind": "SetWorldDestination",
+      "X": 280,
+      "Y": 20,
+      "Inputs": {
+        "Position": [
+          48,
+          0,
+          9
+        ]
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 3,
+      "Kind": "Set.Bool",
+      "X": 550,
+      "Y": 20,
+      "Inputs": {
+        "Name": "Started"
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 4,
+      "Kind": "Event.NavTraversalRequested",
+      "X": 20,
+      "Y": 280,
+      "Inputs": {},
+      "Breakpoint": false
+    },
+    {
+      "ID": 5,
+      "Kind": "Delay",
+      "X": 280,
+      "Y": 280,
+      "Inputs": {
+        "Seconds": 0.08
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 6,
+      "Kind": "CompleteNavTraversal",
+      "X": 550,
+      "Y": 280,
+      "Inputs": {},
+      "Breakpoint": false
+    },
+    {
+      "ID": 7,
+      "Kind": "Set.Bool",
+      "X": 820,
+      "Y": 280,
+      "Inputs": {
+        "Name": "Success"
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 8,
+      "Kind": "Branch",
+      "X": 1060,
+      "Y": 280,
+      "Inputs": {},
+      "Breakpoint": false
+    },
+    {
+      "ID": 9,
+      "Kind": "Print",
+      "X": 1270,
+      "Y": 200,
+      "Inputs": {
+        "Text": "Agent graph: traversal completed"
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 10,
+      "Kind": "CancelNavTraversal",
+      "X": 1270,
+      "Y": 430,
+      "Inputs": {},
+      "Breakpoint": false
+    }
+  ],
+  "Links": [
+    {
+      "From": 1,
+      "Output": "Then",
+      "To": 2,
+      "Input": "In"
+    },
+    {
+      "From": 2,
+      "Output": "Then",
+      "To": 3,
+      "Input": "In"
+    },
+    {
+      "From": 2,
+      "Output": "Success",
+      "To": 3,
+      "Input": "Value"
+    },
+    {
+      "From": 4,
+      "Output": "Then",
+      "To": 5,
+      "Input": "In"
+    },
+    {
+      "From": 5,
+      "Output": "Then",
+      "To": 6,
+      "Input": "In"
+    },
+    {
+      "From": 4,
+      "Output": "Link",
+      "To": 6,
+      "Input": "Link"
+    },
+    {
+      "From": 4,
+      "Output": "Revision",
+      "To": 6,
+      "Input": "Revision"
+    },
+    {
+      "From": 4,
+      "Output": "Ticket",
+      "To": 6,
+      "Input": "Ticket"
+    },
+    {
+      "From": 6,
+      "Output": "Then",
+      "To": 7,
+      "Input": "In"
+    },
+    {
+      "From": 6,
+      "Output": "Success",
+      "To": 7,
+      "Input": "Value"
+    },
+    {
+      "From": 7,
+      "Output": "Then",
+      "To": 8,
+      "Input": "In"
+    },
+    {
+      "From": 6,
+      "Output": "Success",
+      "To": 8,
+      "Input": "Condition"
+    },
+    {
+      "From": 8,
+      "Output": "True",
+      "To": 9,
+      "Input": "In"
+    },
+    {
+      "From": 8,
+      "Output": "False",
+      "To": 10,
+      "Input": "In"
+    }
+  ],
+  "Variables": {
+    "Started": {
+      "Type": "Bool",
+      "Default": false
+    },
+    "Success": {
+      "Type": "Bool",
+      "Default": false
+    }
+  }
+}

@@ -6336,6 +6336,7 @@ namespace Zamin {
         m_SceneHierarchyPanel.DrawTilePaletteWindow(&m_ShowTilePalette);
         UI_Terrain();
         DrawWorldStreamingPanel(m_RuntimeScenes.get());
+        if (auto requested = TakeWorldSceneRequest(); !requested.empty()) OpenScene(requested);
         {
             ZM_PROFILE_SCOPE("Statistika paneli");
             UI_Stats();

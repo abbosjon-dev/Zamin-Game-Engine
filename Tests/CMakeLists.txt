@@ -1,4 +1,4 @@
-add_executable(ZaminTests ZaminTests.cpp ResidencyTerrainNavTests.cpp WorldStreamingTests.cpp WorldCellLoaderTests.cpp WorldManifestTests.cpp PackedFoliageTests.cpp ModuleABITests.cpp TerrainFoliageTests.cpp CodeDocumentTests.cpp VisualGraphTests.cpp TerrainTests.cpp TerrainLODTests.cpp TilemapVisibilityTests.cpp SafetyTests.cpp EditorServicesTests.cpp TestFramework.cpp DebugDrawShippingCheck.cpp)
+add_executable(ZaminTests ZaminTests.cpp WorldCheckpointTests.cpp ResidencyTerrainNavTests.cpp WorldStreamingTests.cpp WorldCellLoaderTests.cpp WorldManifestTests.cpp PackedFoliageTests.cpp ModuleABITests.cpp TerrainFoliageTests.cpp CodeDocumentTests.cpp VisualGraphTests.cpp TerrainTests.cpp TerrainLODTests.cpp TilemapVisibilityTests.cpp SafetyTests.cpp EditorServicesTests.cpp TestFramework.cpp DebugDrawShippingCheck.cpp)
 target_link_libraries(ZaminTests PRIVATE Zamin ZaminEditorSupport)
 # The sample projects are read by some tests (their assets must stay valid).
 target_compile_definitions(ZaminTests PRIVATE ZAMIN_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
@@ -339,4 +339,10 @@ if(ZAMIN_TEST_XVFB_RUN)
     add_test(NAME AssetResidencyGPU COMMAND ${CMAKE_COMMAND} -E env LIBGL_ALWAYS_SOFTWARE=1 LP_NUM_THREADS=2 ZAMIN_GL_DEBUG=1
         ${ZAMIN_TEST_XVFB_RUN} -a $<TARGET_FILE:ZaminResidencyGPUTests>)
     set_tests_properties(AssetResidencyGPU PROPERTIES LABELS "gui" TIMEOUT 90)
+endif()
+
+if(Python3_Interpreter_FOUND)
+    add_test(NAME WorldCheckpointRuntime COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/Tests/world_checkpoint_test.py
+        --build ${CMAKE_BINARY_DIR} --out ${CMAKE_BINARY_DIR}/WorldCheckpointRuntime)
+    set_tests_properties(WorldCheckpointRuntime PROPERTIES LABELS "gui;slow" TIMEOUT 1200)
 endif()

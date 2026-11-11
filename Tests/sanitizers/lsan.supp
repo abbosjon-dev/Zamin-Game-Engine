@@ -30,3 +30,8 @@ leak:extensionSupportedGLX
 # driver frames are misattributed to libZamin by the exit-time symbolizer.
 # Match the non-instanced GL call only, never libZamin / Renderer3D generally.
 leak:Zamin::OpenGLRendererAPI::DrawIndexed(
+
+# Same Mesa 25.2 llvmpipe JIT retention as DrawIndexed above: artifact 13829692180
+# (run 42960033500), WorldWorkshop2D: 2 x 56 bytes, 16 vendor frames followed by
+# OpenGLRendererAPI.cpp:63, raw glDrawArrays. No allocator in this wrapper.
+leak:Zamin::OpenGLRendererAPI::DrawArrays(

@@ -46,6 +46,31 @@ namespace Zamin {
             size_t Entities = 0;
             std::string Error;
         };
+        enum class CommandKind
+        {
+            Capture,
+            Save,
+            Restore,
+            Reset,
+            Adopt,
+            Remove
+        };
+        struct Command
+        {
+            CommandKind Kind = CommandKind::Capture;
+            UUID Cell{ 0 }, Entity{ 0 };
+            std::filesystem::path File;
+        };
+        struct CommandResult
+        {
+            uint64_t Serial = 0;
+            CommandKind Kind = CommandKind::Capture;
+            bool Success = false;
+            std::string Error;
+        };
+        // Script-safe owner-thread queue: no plugin callbacks are retained. FIFO, at most 64
+        // pending and four executed per tick. Results emit WorldCommandCompleted on the world bus.
+        uint64_t Enqueue(Command command, std::string& error);
         struct CellEvent
         {
             UUID ID{ 0 };
@@ -63,6 +88,12 @@ namespace Zamin {
             size_t NavigationTiles = 0, NavigationCells = 0;
             uint64_t NavigationRebuilds = 0;
             std::string NavigationError;
+            size_t CheckpointCells = 0, CheckpointBytes = 0;
+            uint64_t Captures = 0, Restores = 0;
+            size_t PendingCommands = 0;
+            uint64_t CompletedCommands = 0, FailedCommands = 0;
+            bool CaptureOnUnload = false, RestorePending = false;
+            std::string CheckpointError;
         };
         static bool LoadDefinition(const std::filesystem::path& file, WorldManifest& manifest, Policy& policy, std::string& error);
         static bool SaveDefinition(const std::filesystem::path& file, const WorldManifest& manifest, const Policy& policy, std::string& error);
@@ -79,6 +110,15 @@ namespace Zamin {
         // Host between frames, honors the same per-frame eviction allowance.
         size_t TrimCaches();
         UUID GetNavigationEntity(int dimension) const;
+        // Host between frames. Checkpoints contain serialized components; not a physics replay.
+        void SetCaptureOnUnload(bool enabled);
+        bool CaptureCell(UUID cell, std::string& error);
+        bool SaveCheckpoint(const std::filesystem::path& file, std::string& error);
+        bool RequestRestoreCheckpoint(const std::filesystem::path& file, std::string& error);
+        bool RequestResetToAuthored(std::string& error);
+        std::vector<UUID> GetCellEntities(UUID cell) const;
+        bool AdoptEntity(UUID cell, UUID entity, std::string& error);
+        bool RemoveCellEntity(UUID cell, UUID entity, std::string& error);
         bool IsAnchor(const Scene* scene) const;
         static const char* StageName(WorldRuntimeStage stage);
 

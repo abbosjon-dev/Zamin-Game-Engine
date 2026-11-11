@@ -283,3 +283,82 @@ carve revision, serial yoki katak to‘plami o‘zgarsa mosaic qayta quriladi; a
 Explicit authored grid havolasi ustun qoladi. `GetNavigationEntity(dimension)` faqat world anchor’ga tegishli.
 World close/Stop mosaic entity’ni ham yo‘q qiladi. Bu bounded, sinxron grid rebuild; incremental polygon
 navmesh, ko‘p qavatli floor va cross-resolution portal tizimi alohida keyingi ishlar.
+
+## World authoring va checkpoint workflow
+
+**Oyna → World Streaming → Yangi 2D / 3D world yaratish** yangi bundle yaratadi: anchor kamera,
+3D sun, cell scene’lari, metadata va manifest. 1–256 katak, cell o‘lchami 8–256, terrain resolution
+9/17/33/65. Navigation cell size dunyo katagi tomonlarini butun bo‘lishi kerak. Terrain global
+koordinatalarda bir xil seed bilan yaratiladi. 2D namuna ground, static obstacle va XY navigation beradi.
+
+`WorldGridSettings::TemplateScene` ixtiyoriy, Assets ichidagi cell-local `.zscene`. Template worker
+loader’ning byte/node/symlink himoyasidan o‘tadi; camera va SubScene rad etiladi. Hierarchy va komponentlar
+nusxalanib, har cell uchun UUID va ichki entity reference’lar remap qilinadi. Template ishlatilganda
+uning terrain/nav kontenti saqlanadi; generator uni avtomatik qayta yaratmaydi.
+
+`CreateWorldGrid` CPU authoring amali: yangi, private staging papkada hamma fayl tayyorlanadi, so‘ng
+pinned Assets FD orqali Linux `renameat2(RENAME_NOREPLACE)` bilan birga e’lon qilinadi. Mavjud bundle,
+traversal nom, root symlink va noto‘g‘ri parametr rad etiladi. Xatoda staging o‘chiriladi, natija/config
+saqlanadi. Editor’da **Loyihaga ulash va anchor ochish** config’ni saqlaydi va anchor’ni ochadi. Alohida
+cell scene’ni ochib Play qilishda konfiguratsiyadagi butun world boshlanmaydi; avtomatik world faqat
+start/anchor scene uchun ulanadi. Template va grid yaratish explicit, sinxron authoring operatsiyalari;
+256 ta katta cell UI’ni vaqtincha band qilishi mumkin.
+
+### Checkpoint holati
+
+`WorldCheckpoint` har cell’ning to‘liq serialized scene nusxasini saqlaydi. Yo‘q entry — authored source;
+bo‘sh `Entities` — o‘chirilgan cell kontenti. World manifest identity formatlashdan mustaqil canonical
+JSON sifatida to‘liq taqqoslanadi. Boshqa world, duplicate key/ID, noto‘g‘ri hierarchy, SubScene,
+symlink/FIFO, buzilgan yoki ortiqcha katta fayl rad etiladi. Limitlar: 8 MiB/cell, 64 MiB jami source,
+160 MiB envelope, 32768 entity/cell va 64 JSON depth; runtime policy bundan ham kam entity ruxsat berishi mumkin.
+Bu serialized byte limitlar, process RSS hard cap emas. Bitta scene JSON SAX node limiti ham amal qiladi.
+
+`WorldStreaming` host API’lari (callback’dan tashqarida, frame oralig‘ida):
+
+- `SetCaptureOnUnload(true)`: ketayotgan cell’ni RAM snapshotga oladi. Avtomatik disk IO qilmaydi.
+- `CaptureCell(id, error)`: bitta active cell; `SaveCheckpoint(file, error)`: active cell’lar + oldingi
+  captured holatni explicit sinxron atomik yozish. Saqlash xatosida oldingi disk fayli qoladi.
+- `RequestRestoreCheckpoint(file, error)`: fayl va barcha komponentlarni staging scene’da preflight qiladi;
+  valid bo‘lgach eski cell’larni frame bo‘yicha unload qilib, snapshotlarni qayta admit qiladi. Yangi IO/parse
+  worker’da; eski generatsiyalar cancel/discard qilinadi. Invalid preflight jonli world’ni o‘zgartirmaydi.
+- `RequestResetToAuthored(error)`: shu bosqichli retire/load orqali RAM snapshotlarni bo‘shatadi;
+  disk checkpoint o‘chirilmaydi.
+- `GetCellEntities`, `AdoptEntity`, `RemoveCellEntity`: spawned subtree’ni explicit ownership’ga olish
+  va o‘chirish. Boshqa cell’dan entity o‘g‘irlash, quota oshishi yoki aralash ownership rad etiladi.
+
+Root transform checkpoint’da cell-local koordinataga qaytadi; child-local transform va UUID saqlanadi.
+O‘chirilgan entity qaytib paydo bo‘lmaydi, adopted actor diskdan ham qaytadi. Capture’da tashqi parent
+va ownership’siz child rad etiladi: avval subtree’ni adopt/detach qiling. Automatic capture xatosi cell’ni
+jim yo‘q qilish o‘rniga unload’ni to‘xtatadi va panelda sababni ko‘rsatadi. Ownership spatial migration
+emas: harakatlanuvchi persistent player’ni anchor’da qoldiring yoki ownership’ni o‘zingiz boshqaring.
+
+Snapshot transform/terrain va serializer saqlaydigan komponent/stored script field’larni qaytaradi.
+Arbitrary C++ instance heap, physics velocity/contact replay, timer va tashqi servis holati avtomatik
+saqlanmaydi. Derived nav/physics/GPU state activation’da qayta quriladi. Snapshot restore eski asset
+versiyasini qaytarmaydi; assetlar joriy loyihadan olinadi. Authoring world fayllari o‘zgarmaydi.
+
+### Script-safe command va fon yozish
+
+Script callback’idan host mutatsiya API’si o‘rniga `WorldStreaming::Enqueue(Command, error)` ishlating.
+`CommandKind`: Capture, Save, Restore, Reset, Adopt, Remove. Queue engine-owned data saqlaydi;
+hot reload’dan keyin bajariladigan plugin closure saqlamaydi. Serial qaytadi (0 — rad etildi), jami
+64 pending, bir tick’da ko‘pi bilan 4 ta boshlanadi. Save IO tugamaguncha keyingi command kutadi.
+Restore/Reset command natijasi validated request qabul qilinganini bildiradi; qayta activation odatdagi cell bosqichlarida davom etadi. Actor tayyorligini ham tekshiring.
+`WorldCommandCompleted` payload — `CommandResult` (Serial, Kind, Success, Error); stats pending,
+completed va failed sonlarini ko‘rsatadi.
+
+Queued Save active cell’larni main thread’da serialized snapshotga oladi, disk serialization/atomic
+write’ni `WorldCheckpointWriter`ning yagona jthread’iga beradi. Worker hech qachon ECS, GPU yoki script
+instance’ga tegmaydi. Snapshot shared immutable source’lardan iborat; keyingi gameplay edit diskka ketayotgan
+nusxani o‘zgartirmaydi. Bir write in flight; destructor boshlangan yozishni join qiladi. IO xatosi oldingi
+file’ni saqlaydi va completion’da qaytadi. Capture va restore preflight CPU ishi hali preempt qilinmaydi;
+source hajmi/komponent og‘irligi sabab hard frame deadline kafolati yo‘q.
+
+WorldWorkshop2D/3D: **F5** — save queue, **F9** — restore queue. Default file user data’dagi loyiha
+papkasida `world-checkpoint.json`; `ZAMIN_WORLD_CHECKPOINT_FILE` test/tool override. Ikki demo unload’da
+RAM capture’ni yoqadi. World panelida checkpoint yo‘li, source hajmi, command status, save/restore/reset,
+adopt UUID va per-cell runtime entity transform/delete boshqaruvi bor. Disk slotni almashtirish explicit.
+
+`Tests/world_checkpoint_test.py` isolated loyihalarda ikkala Player’da edit/delete/spawn, unload/return,
+disk restore oracle’larini, keyin editor wizard, config link, generated world Play va actor restore’ni
+haqiqiy GL bilan tekshiradi. `build-review/CheckpointPackage/` bu sessiya dalillarini saqlaydi.

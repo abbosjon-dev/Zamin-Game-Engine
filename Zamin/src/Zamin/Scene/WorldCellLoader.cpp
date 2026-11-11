@@ -129,6 +129,7 @@ namespace Zamin {
             UUID Cell{ 0 };
             uint64_t Generation = 0;
             std::string Path, Error;
+            std::shared_ptr<const std::string> Override;
             size_t SourceBytes = 0;
             std::atomic<bool> Cancelled{ false }, Started{ false }, Done{ false };
             std::unique_ptr<SceneLoadJob> Job;
@@ -140,6 +141,7 @@ namespace Zamin {
             size_t CellIndex = 0;
             std::shared_ptr<Task> Pending;
             std::unique_ptr<SceneLoadJob> Ready;
+            std::shared_ptr<const std::string> Override;
         };
         FD Root;
         Limits Budget;
@@ -148,7 +150,7 @@ namespace Zamin {
         std::unordered_map<uint64_t, Entry> Entries;
         std::thread::id Owner = std::this_thread::get_id();
         uint64_t NextGeneration = 0, Stale = 0;
-        size_t Reserved = 0;
+        size_t Reserved = 0, OverrideBytes = 0;
         std::vector<std::shared_ptr<Task>> Tasks;
         std::atomic<uint64_t> WorkerJobs{ 0 };
         std::mutex Mutex;
@@ -167,7 +169,7 @@ namespace Zamin {
         {
             if (Owner != std::this_thread::get_id()) throw std::logic_error("WorldCellLoader called from a different owner thread");
         }
-        void Read(Task& task)
+        std::string ReadFile(Task& task)
         {
             // Open each path segment relative to the pinned root, rejecting every symlink. O_NONBLOCK
             // prevents a swapped FIFO from blocking open; fstat rejects all non-regular files.
@@ -193,7 +195,7 @@ namespace Zamin {
             size_t offset = 0;
             while (offset < text.size())
             {
-                if (task.Cancelled) return;
+                if (task.Cancelled) return {};
                 const auto count = read(file.Value, text.data() + offset, std::min(size_t(65536), text.size() - offset));
                 if (count < 0 && errno == EINTR) continue;
                 if (count <= 0) throw std::runtime_error("Cell scene changed or could not be read");
@@ -204,6 +206,15 @@ namespace Zamin {
                 before.st_mtim.tv_sec != after.st_mtim.tv_sec || before.st_mtim.tv_nsec != after.st_mtim.tv_nsec ||
                 before.st_ctim.tv_sec != after.st_ctim.tv_sec || before.st_ctim.tv_nsec != after.st_ctim.tv_nsec)
                 throw std::runtime_error("Cell scene changed while reading");
+            return text;
+        }
+        void Read(Task& task)
+        {
+            std::string disk;
+            if (!task.Override) disk = ReadFile(task);
+            const auto& text = task.Override ? *task.Override : disk;
+            task.SourceBytes = text.size();
+            if (text.size() > Budget.MaxCellBytes) throw std::runtime_error("Scene override byte limit exceeded");
             SceneSAX sax(Budget, task.Cancelled);
             if (!nlohmann::json::sax_parse(text, &sax)) throw std::runtime_error(sax.Error);
             if (!sax.SceneSeen || !sax.VersionSeen || !sax.EntitiesSeen) throw std::runtime_error("Missing scene fields");
@@ -267,6 +278,7 @@ namespace Zamin {
                 task->Cell = id;
                 task->Generation = entry.Status.Generation;
                 task->Path = cell->ScenePath;
+                task->Override = entry.Override;
                 {
                     std::lock_guard lock(Mutex);
                     Queue.push_back(task); // Last potentially allocating step, before publishing owner state.
@@ -321,6 +333,29 @@ namespace Zamin {
         }
     }
 
+    bool WorldCellLoader::SetSourceOverride(UUID cell, std::shared_ptr<const std::string> source, std::string& error)
+    {
+        auto& d = *m_Data;
+        d.CheckOwner();
+        auto it = d.Entries.find(uint64_t(cell));
+        if (it == d.Entries.end())
+        {
+            error = "Unknown source override cell";
+            return false;
+        }
+        const size_t old = it->second.Override ? it->second.Override->size() : 0;
+        const size_t bytes = source ? source->size() : 0;
+        constexpr size_t maximum = 64 * 1024 * 1024;
+        if (bytes > d.Budget.MaxCellBytes || bytes > maximum - (d.OverrideBytes - old))
+        {
+            error = "Source override byte limit exceeded";
+            return false;
+        }
+        it->second.Override = std::move(source);
+        d.OverrideBytes = d.OverrideBytes - old + bytes;
+        error.clear();
+        return true;
+    }
     bool WorldCellLoader::SetWanted(const std::vector<UUID>& cells, std::string& error)
     {
         auto& d = *m_Data;
@@ -476,6 +511,7 @@ namespace Zamin {
         Stats stats;
         stats.InFlight = d.Tasks.size();
         stats.ReservedSourceBytes = d.Reserved;
+        stats.OverrideBytes = d.OverrideBytes;
         stats.WorkerJobs = d.WorkerJobs.load();
         stats.StaleCompletions = d.Stale;
         for (const auto& [id, e] : d.Entries)

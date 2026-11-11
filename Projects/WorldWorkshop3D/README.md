@@ -15,3 +15,13 @@ World Streaming shows memory histories and per-library residency. Cache targets 
 with at most four evictions per frame. Live references and unfinished asynchronous loads are pinned.
 Observed RSS / requested GPU pressure thresholds are disabled in this demo by default; configure them in
 the policy panel, save and reload the runtime to test high/low-watermark admission control.
+
+F5 queues a checkpoint save to the project's user-data folder; F9 queues restore. Cell edits survive
+unload/return in RAM. Adopt spawned subtrees with the world command API; unowned anchor actors stay
+outside cell snapshots. The checkpoint panel can edit/delete owned entities and save/restore/reset.
+`ZAMIN_WORLD_CHECKPOINT_TEST=1` runs the 540-frame edit/delete/adopt/return/disk-restore oracle;
+`ZAMIN_WORLD_CHECKPOINT_FILE` chooses an isolated slot. Saves contain serialized component state,
+not arbitrary C++ heap or physics replay. Queued writes use a bounded background writer.
+
+The world wizard creates a new 2D/3D bundle with terrain/ground, navigation and anchor, or clones a
+cell scene template with fresh entity UUIDs. A published bundle is never overwritten by the wizard.

@@ -1,4 +1,5 @@
 #include <Zamin/Scene/WorldStreaming.h>
+#include <Zamin/Scene/WorldCheckpoint.h>
 #include <Zamin/Scene/SceneManager.h>
 #include <Zamin/Scene/SceneSerializer.h>
 #include <Zamin/Scene/Entity.h>
@@ -14,6 +15,7 @@
 #include <thread>
 #include <limits>
 #include <sys/stat.h>
+#include <nlohmann/json.hpp>
 
 using namespace Zamin;
 namespace {
@@ -618,4 +620,205 @@ TEST(WorldStreamingManualAndAutomaticTrimShareFrameAllowance)
     CHECK(world->TrimCaches() == 1 && world->TrimCaches() == 0);
     manager.Stop();
     for (const auto& file : files) MaterialLibrary::ReleaseIfUnused(file);
+}
+
+TEST(WorldCheckpointRuntimeCapturesEditsDeletesAndAdoptedSubtrees)
+{
+    WorldFixture fixture;
+    fixture.Manifest.Origin = { 100, -3, 50 };
+    fixture.Save();
+    SceneManager manager;
+    auto anchor = fixture.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    world->SetViewerOverride({ 102, 0, 52 });
+    CHECK(Until(manager, [&] { return world->GetStats().Active == 1; }));
+    world->SetCaptureOnUnload(true);
+    auto actor = anchor->GetEntityByUUID(UUID(100));
+    actor.GetTransform().Translation.x = 107;
+    auto spawned = anchor->CreateEntityWithUUID(UUID(900), "Spawned persistent actor");
+    spawned.GetTransform().Translation = { 105, 2, 55 };
+    auto child = anchor->CreateEntityWithUUID(UUID(901), "Persistent child");
+    child.GetTransform().Translation = { 1, 2, 3 };
+    anchor->SetParent(child, spawned, false);
+    std::string error;
+    CHECK(world->AdoptEntity(UUID(10), UUID(900), error));
+    CHECK(world->GetCellEntities(UUID(10)).size() == 3);
+    auto file = fixture.Temp.GetPath() / "save/slot.json";
+    CHECK(world->SaveCheckpoint(file, error));
+    CHECK(world->GetStats().CheckpointCells == 1);
+    CHECK(world->RemoveCellEntity(UUID(10), UUID(100), error));
+    CHECK(!anchor->GetEntityByUUID(UUID(100)));
+    world->SetViewerOverride({ 1000, 0, 1000 });
+    CHECK(Until(manager, [&] { return world->GetStats().Active == 0; }));
+    world->SetViewerOverride({ 102, 0, 52 });
+    CHECK(Until(manager, [&] { return world->GetStats().Active == 1; }));
+    CHECK(!anchor->GetEntityByUUID(UUID(100)));
+    CHECK(anchor->GetEntityByUUID(UUID(900)) && anchor->GetEntityByUUID(UUID(901)));
+    CHECK_NEAR(anchor->GetEntityByUUID(UUID(900)).GetTransform().Translation.x, 105, 1e-5f);
+    CHECK(anchor->GetParent(anchor->GetEntityByUUID(UUID(901))).GetUUID() == UUID(900));
+    CHECK(world->RequestRestoreCheckpoint(file, error));
+    CHECK(Until(manager, [&] { return !world->GetStats().RestorePending && world->GetStats().Active == 1; }));
+    CHECK(anchor->GetEntityByUUID(UUID(100)));
+    CHECK_NEAR(anchor->GetEntityByUUID(UUID(100)).GetTransform().Translation.x, 107, 1e-5f);
+    CHECK(world->GetStats().Restores == 1);
+    CHECK(world->RequestResetToAuthored(error));
+    CHECK(Until(manager, [&] { return !world->GetStats().RestorePending && world->GetStats().Active == 1; }));
+    CHECK_NEAR(anchor->GetEntityByUUID(UUID(100)).GetTransform().Translation.x, 102, 1e-5f);
+    CHECK(!anchor->GetEntityByUUID(UUID(900)) && !anchor->GetEntityByUUID(UUID(901)));
+    manager.Stop();
+}
+TEST(WorldCheckpointFailedCaptureKeepsLiveCellAndPreviousFile)
+{
+    WorldFixture fixture;
+    SceneManager manager;
+    auto anchor = fixture.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().Active == 1; }));
+    std::string error;
+    const auto file = fixture.Temp.GetPath() / "slot.json";
+    CHECK(world->SaveCheckpoint(file, error));
+    const auto before = FileSystem::ReadTextFile(file);
+    anchor->SetParent(anchor->GetEntityByUUID(UUID(100)), anchor->GetEntityByUUID(UUID(1)), false);
+    CHECK(!world->SaveCheckpoint(file, error));
+    CHECK(FileSystem::ReadTextFile(file) == before);
+    world->SetCaptureOnUnload(true);
+    world->SetViewerOverride({ 1000, 0, 1000 });
+    for (int i = 0; i < 5; ++i) manager.ProcessRequests();
+    CHECK(world->GetStats().Active == 1 && !world->GetStats().CheckpointError.empty());
+    CHECK(anchor->GetEntityByUUID(UUID(100)));
+    world->SetCaptureOnUnload(false);
+    CHECK(Until(manager, [&] { return world->GetStats().Active == 0; }));
+    manager.Stop();
+}
+TEST(WorldCheckpointRestorePreflightAndOwnershipAreTransactional)
+{
+    WorldFixture fixture;
+    fixture.Policy.MaxEntitiesPerCell = 2;
+    fixture.Save();
+    SceneManager manager;
+    auto anchor = fixture.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().Active == 1; }));
+    std::string error;
+    CHECK(!world->AdoptEntity(UUID(999), UUID(1), error));
+    CHECK(!world->RemoveCellEntity(UUID(10), UUID(1), error));
+    auto root = anchor->CreateEntity("Too big root");
+    auto child = anchor->CreateEntity("Child");
+    anchor->SetParent(child, root, false);
+    CHECK(!world->AdoptEntity(UUID(10), root.GetUUID(), error));
+    CHECK(world->GetCellEntities(UUID(10)).size() == 1);
+    const auto file = fixture.Temp.GetPath() / "invalid.json";
+    CHECK(FileSystem::WriteTextFile(file, "{"));
+    CHECK(!world->RequestRestoreCheckpoint(file, error));
+    CHECK(!world->GetStats().RestorePending && anchor->GetEntityByUUID(UUID(100)));
+    auto snapshot = CreateRef<Scene>();
+    snapshot->CreateEntityWithUUID(UUID(1), "Conflicts with anchor");
+    WorldCheckpoint state(fixture.Manifest);
+    CHECK(state.Put(UUID(10), SceneSerializer(snapshot).SerializeToString(), error));
+    CHECK(state.Save(file, error));
+    CHECK(!world->RequestRestoreCheckpoint(file, error));
+    CHECK(anchor->GetEntityByUUID(UUID(100)) && world->GetStats().Active == 1);
+    CHECK(!world->GetStats().RestorePending);
+    manager.Stop();
+}
+TEST(WorldCheckpointSessionRestartRestoresColdCells)
+{
+    WorldFixture fixture;
+    auto file = fixture.Temp.GetPath() / "cold.json";
+    {
+        SceneManager manager;
+        auto anchor = fixture.Start(manager);
+        auto* world = manager.GetWorldStreaming();
+        CHECK(Until(manager, [&] { return world->GetStats().Active == 1; }));
+        anchor->GetEntityByUUID(UUID(100)).GetTransform().Translation.x = 8;
+        std::string error;
+        CHECK(world->SaveCheckpoint(file, error));
+        manager.Stop();
+    }
+    SceneManager manager;
+    auto anchor = fixture.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    std::string error;
+    CHECK(world->RequestRestoreCheckpoint(file, error));
+    CHECK(Until(manager, [&] { return world->GetStats().Active == 1 && !world->GetStats().RestorePending; }));
+    CHECK_NEAR(anchor->GetEntityByUUID(UUID(100)).GetTransform().Translation.x, 8, 1e-5f);
+    manager.Stop();
+}
+
+TEST(WorldCheckpointCommandQueueIsBoundedFIFOAndFrameLimited)
+{
+    WorldFixture fixture;
+    SceneManager manager;
+    auto anchor = fixture.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().Active == 1; }));
+    std::string error;
+    auto spawned = anchor->CreateEntity("Queued actor");
+    const auto id = spawned.GetUUID();
+    const auto file = fixture.Temp.GetPath() / "queued.json";
+    const auto first = world->Enqueue({ WorldStreaming::CommandKind::Adopt, UUID(10), id, {} }, error);
+    CHECK(first != 0 && world->Enqueue({ WorldStreaming::CommandKind::Save, UUID(0), UUID(0), file }, error) > first);
+    CHECK(!std::filesystem::exists(file));
+    CHECK(Until(manager, [&] { return std::filesystem::exists(file) && world->GetStats().CompletedCommands == 2; }));
+    CHECK(world->GetStats().FailedCommands == 0);
+    for (int i = 0; i < 64; ++i) CHECK(world->Enqueue({ WorldStreaming::CommandKind::Capture, UUID(999), UUID(0), {} }, error) != 0);
+    CHECK(world->Enqueue({}, error) == 0);
+    const auto completed = world->GetStats().CompletedCommands;
+    manager.ProcessRequests();
+    CHECK(world->GetStats().CompletedCommands == completed + 4 && world->GetStats().PendingCommands == 60);
+    CHECK(world->GetStats().FailedCommands == 4);
+    manager.Stop();
+}
+TEST(WorldCheckpointCaptureRequiresExplicitChildOwnership)
+{
+    WorldFixture fixture;
+    SceneManager manager;
+    auto anchor = fixture.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().Active == 1; }));
+    auto owned = anchor->GetEntityByUUID(UUID(100));
+    auto child = anchor->CreateEntity("Unregistered child");
+    anchor->SetParent(child, owned, false);
+    std::string error;
+    CHECK(!world->CaptureCell(UUID(10), error));
+    CHECK(world->AdoptEntity(UUID(10), owned.GetUUID(), error));
+    CHECK(world->CaptureCell(UUID(10), error) && world->GetCellEntities(UUID(10)).size() == 2);
+    manager.Stop();
+}
+
+TEST(WorldCheckpointComponentPreflightRejectsBadSnapshotBeforeRetirement)
+{
+    WorldFixture fixture;
+    SceneManager manager;
+    auto anchor = fixture.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().Active == 1; }));
+    std::string error;
+    auto source = CreateRef<Scene>();
+    source->CreateEntityWithUUID(UUID(100), "Broken component");
+    auto doc = nlohmann::json::parse(SceneSerializer(source).SerializeToString());
+    doc["Entities"][0]["UnknownComponentForCheckpoint"] = { { "Data", 1 } };
+    WorldCheckpoint state(fixture.Manifest);
+    CHECK(state.Put(UUID(10), doc.dump(), error));
+    const auto file = fixture.Temp.GetPath() / "broken-components.json";
+    CHECK(state.Save(file, error));
+    CHECK(!world->RequestRestoreCheckpoint(file, error));
+    CHECK(world->GetStats().Active == 1 && !world->GetStats().RestorePending);
+    CHECK(anchor->GetEntityByUUID(UUID(100)));
+    manager.Stop();
+}
+TEST(WorldStreamingCellPreviewDoesNotStartTheWholeConfiguredWorld)
+{
+    WorldFixture fixture;
+    fixture.ProjectRef->GetConfig().StreamingWorld = "Worlds/Main.zworld";
+    auto scene = CreateRef<Scene>();
+    CHECK(SceneSerializer(scene).Deserialize(fixture.Assets / fixture.Manifest.Cells[0].ScenePath));
+    SceneManager manager;
+    manager.Start(scene, fixture.Manifest.Cells[0].ScenePath);
+    CHECK(!manager.GetWorldStreaming());
+    manager.Stop();
+    auto anchor = CreateRef<Scene>();
+    manager.Start(anchor, "Scenes/Anchor.zscene");
+    CHECK(manager.GetWorldStreaming());
+    manager.Stop();
 }

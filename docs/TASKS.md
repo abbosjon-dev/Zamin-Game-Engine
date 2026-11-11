@@ -22,6 +22,28 @@ saqlanadi; ulardagi belgi yangi imkoniyatning ishlayotganiga dalil o'rnini bosma
 | P7 Platforma, release va mahsulot | Linux/Windows, keyin macOS; cook/package/update/crash telemetry; editor/launcher yagona auth | Toza mashinada install/export/run, talablar va litsenziyalar, imzolangan release va rollback sinovi | Rejada |
 | P8 Yakuniy sifat darvozasi | Hujjatlar, ko'chirish yo'li, ikki namunaviy o'yin va profiling hisobotlari | Uzoq sessiya, resurs sizishi, recovery/fuzz, reference sahnalarda barqaror frame time va foydalanish sinovi | Rejada |
 
+### Yakunlangan yirik paket — world authoring va checkpoint workflow
+
+- [x] Xavfsiz checkpoint format: bounded cell snapshots, world identity, atomic save, buzilgan faylda mutatsiya yo‘q.
+- [x] Runtime: unload/return state, deleted/spawned entity, ownership API, root local/world koordinatalari.
+- [x] Asinxron restore: snapshot JSON worker’da parse, eski avlodni cancel, bosqichma-bosqich world reset.
+- [x] Mualliflik: yangi 2D/3D grid bundle, terrain/nav/camera, unique UUID, no-overwrite transactional publish.
+- [x] Editor: world wizard, runtime entity edit/adopt/delete, checkpoint save/restore/reset va status.
+- [x] Demo: F5/F9, qayta kirishda state va disk restore oracle, haqiqiy screenshot.
+- [x] Regressiyalar, ASan stack tahlili, export, hujjatlar, main push.
+
+Serialized component state saqlanadi; arbitrary C++ stack/heap va fizik replay checkpoint emas.
+
+Dalillar (2026-11-11): 792/792 unit (20 yangi), 10/10 headless CTest, 12/12 render reference,
+490/490 editor smoke qadam. 2D/3D Player’da 540 kadrdan edit/delete/adopt/unload/return/disk restore oracle;
+ikkala editor’da 6-cell wizard, no-overwrite, project link, generated Play va actor restore; generated 3D
+loyiha native export/run/screenshot/relocation. Checkpoint store/writer uchun alohida instrumentlangan
+ASan/UBSan probe’da 6/6 test (to‘liq engine sanitizer run’i emas), Clang 18 syntax-only -Werror 13 fayl.
+Oldingi CI 625d750 GCC/Clang/UBSan/coverage’dan o‘tgan; ASan’dagi Mesa 2×56-byte drawArrays JIT retention
+artifact stack bo‘yicha tor vendor suppression bilan ajratildi. Yangi remote CI push’dan so‘ng alohida kuzatiladi.
+Dalillar: `build-review/CheckpointPackage/`. Serialized component snapshot arbitrary C++ heap/physics replay emas;
+restore validation va capture CPU qismi hali hard frame deadline bermaydi.
+
 ### Yakunlangan katta paket — residency, terrain va navigation integratsiyasi
 
 - [x] CI: barcha CMake module output joylarida ishlaydigan camera tour; vendor leak istisnosini tekshirish.
@@ -42,7 +64,7 @@ Qayta yuklashdagi asset resolve cursor tiklanmasligi tuzatildi; entity soni 3→
 Qo‘lda va avtomatik trim bitta world tick allowance’ini bo‘lishadi; thumbnail/reimport LRU metadata’si ham tozalanadi.
 Dalillar: `build-review/ResidencyPackage/Final/`. Remote compiler/ASan matritsasi push’dan keyingi CI’da alohida tekshiriladi.
 
-Keyingi P3 ishlar: incremental nav bake/portal, terrain normal seam, HLOD, floating origin va runtime world state persistence.
+Keyingi P3 ishlar: incremental nav bake/portal, terrain normal seam, HLOD, floating origin va versioned gameplay/physics persistence. Serialized cell checkpoint workflow bajarildi.
 
 ### Yakunlangan paket — packed foliage GPU culling va LOD
 

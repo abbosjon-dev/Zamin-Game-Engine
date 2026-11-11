@@ -1,5 +1,8 @@
 #include "WorldStreamingPanel.h"
 #include <Zamin/Scene/WorldStreaming.h>
+#include <Zamin/Scene/WorldAuthoring.h>
+#include <Zamin/Scene/Entity.h>
+#include <Zamin/Core/SaveData.h>
 #include <Zamin/Scene/SceneManager.h>
 #include <Zamin/Project/Project.h>
 #include <Zamin/Utils/FileSystem.h>
@@ -11,6 +14,7 @@
 
 namespace Zamin {
     namespace {
+        std::filesystem::path s_SceneRequest;
         bool s_Open = std::getenv("ZAMIN_EDITOR_WORLD") != nullptr;
         struct State
         {
@@ -23,6 +27,15 @@ namespace Zamin {
             glm::dvec3 Position{ 0 };
             std::array<float, 180> RSSHistory{}, GPUHistory{};
             int HistoryOffset = 0;
+            WorldGridSettings Grid;
+            std::string TemplateScene;
+            WorldGridResult Created;
+            std::string CheckpointPath;
+            uint64_t AdoptID = 0;
+            bool Capture = false;
+            bool AuthoringQA = false;
+            int CheckpointQA = 0;
+            UUID ProbeCell{ 0 }, ProbeActor{ 0 };
         } s;
         ImU32 Color(WorldRuntimeStage stage)
         {
@@ -54,6 +67,12 @@ namespace Zamin {
             s.Selected = -1;
         }
     }
+    std::filesystem::path TakeWorldSceneRequest()
+    {
+        auto path = std::move(s_SceneRequest);
+        s_SceneRequest.clear();
+        return path;
+    }
     bool* WorldStreamingPanelOpen() { return &s_Open; }
     void DrawWorldStreamingPanel(SceneManager* runtime)
     {
@@ -74,6 +93,7 @@ namespace Zamin {
         {
             s = {};
             s.Project = Project::GetProjectDirectory();
+            s.CheckpointPath = (SaveData::GetDirectoryForProject(Project::GetActive()->GetConfig().Name) / "world-checkpoint.json").string();
             const auto configured = Project::GetActive()->GetConfig().StreamingWorld;
             if (!configured.empty())
             {
@@ -98,7 +118,77 @@ namespace Zamin {
             s.Selected = -1;
             s.Error.clear();
         }
+        if (const char* qa = std::getenv("ZAMIN_EDITOR_WORLD_AUTHORING"); qa && !s.AuthoringQA)
+        {
+            s.AuthoringQA = true;
+            s.Grid.Columns = 3;
+            s.Grid.Rows = 2;
+            s.Grid.ThreeD = std::string_view(qa) != "2d";
+            s.Grid.CellSize = s.Grid.ThreeD ? glm::vec2(32) : glm::vec2(32, 18);
+            s.Grid.Folder = s.Grid.ThreeD ? "AuthoredQA3D" : "AuthoredQA2D";
+            if (!CreateWorldGrid(Project::GetAssetDirectory(), s.Grid, s.Created, s.Error)) throw std::runtime_error(s.Error);
+            WorldGridResult rejected;
+            std::string why;
+            if (CreateWorldGrid(Project::GetAssetDirectory(), s.Grid, rejected, why)) throw std::runtime_error("World wizard overwrote an existing bundle");
+            auto& config = Project::GetActive()->GetConfig();
+            config.StreamingWorld = s.Created.World;
+            config.StartScene = s.Created.Anchor;
+            if (!Project::SaveActive(Project::GetProjectFilePath())) throw std::runtime_error("World wizard project save failed");
+            s.Path = s.Created.World.generic_string();
+            Load();
+            s_SceneRequest = Project::GetAssetFileSystemPath(s.Created.Anchor);
+            ZM_CORE_INFO("World authoring editor QA passed: 6 cells, no overwrite, linked manifest and anchor");
+        }
         auto* live = runtime ? runtime->GetWorldStreaming() : nullptr;
+
+        if (std::getenv("ZAMIN_EDITOR_WORLD_AUTHORING")) ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+        if (ImGui::CollapsingHeader("Yangi 2D / 3D world yaratish"))
+        {
+            ImGui::BeginDisabled(runtime && runtime->IsRunning());
+            ImGui::InputText("Bundle folder (new)", &s.Grid.Folder);
+            ImGui::InputText("World name", &s.Grid.Name);
+            ImGui::InputText("Cell template scene (optional)", &s.TemplateScene);
+            s.Grid.TemplateScene = s.TemplateScene;
+            if (ImGui::Checkbox("3D world", &s.Grid.ThreeD)) s.Grid.CellSize = s.Grid.ThreeD ? glm::vec2(32, 32) : glm::vec2(32, 18);
+            ImGui::InputScalar("Columns", ImGuiDataType_U32, &s.Grid.Columns);
+            ImGui::InputScalar("Rows", ImGuiDataType_U32, &s.Grid.Rows);
+            ImGui::InputFloat2("Cell dimensions", &s.Grid.CellSize.x);
+            ImGui::Checkbox("Terrain", &s.Grid.Terrain);
+            ImGui::SameLine();
+            ImGui::Checkbox("Navigation", &s.Grid.Navigation);
+            ImGui::InputScalar("Terrain resolution (9/17/33/65)", ImGuiDataType_U32, &s.Grid.TerrainResolution);
+            ImGui::InputScalar("Terrain seed", ImGuiDataType_U32, &s.Grid.Seed);
+            ImGui::InputFloat("Nav cell size", &s.Grid.NavigationCellSize);
+            ImGui::TextWrapped("CPU authoring: up to 256 cells. Creates camera, terrain/ground and navigation in a new bundle. Existing files stay protected.");
+            if (ImGui::Button("World bundle yaratish"))
+            {
+                if (CreateWorldGrid(Project::GetAssetDirectory(), s.Grid, s.Created, s.Error))
+                {
+                    s.Path = s.Created.World.generic_string();
+                    Load();
+                }
+            }
+            if (!s.Created.World.empty())
+            {
+                ImGui::Text("Created: %zu cells / %zu files / %.2f MiB", s.Created.Cells, s.Created.Files, s.Created.Bytes / 1048576.0);
+                if (ImGui::Button("Loyihaga ulash va anchor ochish"))
+                {
+                    auto& config = Project::GetActive()->GetConfig();
+                    auto oldWorld = config.StreamingWorld, oldScene = config.StartScene;
+                    config.StreamingWorld = s.Created.World;
+                    config.StartScene = s.Created.Anchor;
+                    if (Project::SaveActive(Project::GetProjectFilePath())) s_SceneRequest = Project::GetAssetFileSystemPath(s.Created.Anchor);
+                    else
+                    {
+                        config.StreamingWorld = oldWorld;
+                        config.StartScene = oldScene;
+                        s.Error = "Project save failed; bundle remains available";
+                    }
+                }
+            }
+            ImGui::EndDisabled();
+        }
+
         if (s.Loaded)
         {
             if (ImGui::Button("Saqlash va loyihaga ulash"))
@@ -129,6 +219,44 @@ namespace Zamin {
         }
         if (live)
         {
+            if (std::getenv("ZAMIN_EDITOR_WORLD_CHECKPOINT_QA"))
+            {
+                if (s.CheckpointQA == 0 && live->GetStats().Active)
+                {
+                    for (const auto& cell : live->GetCells())
+                        if (cell.Stage == WorldRuntimeStage::Active)
+                        {
+                            s.ProbeCell = cell.ID;
+                            break;
+                        }
+                    auto anchor = runtime->GetActiveScene();
+                    auto actor = anchor->CreateEntity("Editor checkpoint QA actor");
+                    s.ProbeActor = actor.GetUUID();
+                    if (live->GetPolicy().NavigationMode == 2)
+                    {
+                        actor.GetTransform().Translation = { 16, 9, 0 };
+                        actor.AddComponent<SpriteRendererComponent>().Color = { 1, .4f, .1f, 1 };
+                    }
+                    else
+                    {
+                        actor.GetTransform().Translation = { 16, 16, 16 };
+                        actor.AddComponent<MeshRendererComponent>().Mat.Albedo = { 1, .4f, .1f, 1 };
+                    }
+                    if (!live->AdoptEntity(s.ProbeCell, s.ProbeActor, s.Error) || !live->SaveCheckpoint(s.CheckpointPath, s.Error)) throw std::runtime_error(s.Error);
+                    s.CheckpointQA = 1;
+                }
+                else if (s.CheckpointQA == 1)
+                {
+                    if (!live->RemoveCellEntity(s.ProbeCell, s.ProbeActor, s.Error) || !live->RequestRestoreCheckpoint(s.CheckpointPath, s.Error)) throw std::runtime_error(s.Error);
+                    s.CheckpointQA = 2;
+                }
+                else if (s.CheckpointQA == 2 && live->GetStats().Restores && !live->GetStats().RestorePending && runtime->GetActiveScene()->GetEntityByUUID(s.ProbeActor))
+                {
+                    s.CheckpointQA = 3;
+                    s.Selected = 0;
+                    ZM_CORE_INFO("World checkpoint editor QA passed: adopted actor, atomic save, deletion and staged restore");
+                }
+            }
             const auto stats = live->GetStats();
             ImGui::Separator();
             ImGui::Text("ACTIVE %zu    LOADING %zu    BUILD %zu    FAILED %zu", stats.Active, stats.Loader.Queued + stats.Loader.Reading, stats.Building, stats.Failed);
@@ -140,6 +268,22 @@ namespace Zamin {
             ImGui::TextDisabled("Declared/source reservations are not measured RSS or VRAM.");
             ImGui::Text("Navigation: %zu tiles | %zu cells | %llu rebuilds", stats.NavigationTiles, stats.NavigationCells, (unsigned long long)stats.NavigationRebuilds);
             if (!stats.NavigationError.empty()) ImGui::TextWrapped("Navigation: %s", stats.NavigationError.c_str());
+            if (ImGui::CollapsingHeader("Checkpoint / world state", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                ImGui::Text("Commands pending %zu / completed %llu / failed %llu", stats.PendingCommands, (unsigned long long)stats.CompletedCommands, (unsigned long long)stats.FailedCommands);
+                ImGui::InputText("Checkpoint file", &s.CheckpointPath);
+                bool capture = stats.CaptureOnUnload;
+                if (ImGui::Checkbox("Unload holatini RAM da saqlash", &capture)) live->SetCaptureOnUnload(capture);
+                ImGui::Text("Snapshots %zu | %.2f MiB | captures %llu | restores %llu | %s", stats.CheckpointCells, stats.CheckpointBytes / 1048576.0,
+                            (unsigned long long)stats.Captures, (unsigned long long)stats.Restores, stats.RestorePending ? "RESTORING" : "ready");
+                if (ImGui::Button("Checkpoint saqlash")) live->Enqueue({ WorldStreaming::CommandKind::Save, UUID(0), UUID(0), s.CheckpointPath }, s.Error);
+                ImGui::SameLine();
+                if (ImGui::Button("Diskdan tiklash")) live->Enqueue({ WorldStreaming::CommandKind::Restore, UUID(0), UUID(0), s.CheckpointPath }, s.Error);
+                ImGui::SameLine();
+                if (ImGui::Button("Authored world ga qaytish")) live->Enqueue({ WorldStreaming::CommandKind::Reset, UUID(0), UUID(0), {} }, s.Error);
+                if (!stats.CheckpointError.empty()) ImGui::TextWrapped("Checkpoint: %s", stats.CheckpointError.c_str());
+                ImGui::TextWrapped("Component snapshots: transforms, terrain and stored script fields. Runtime C++ heap / physics replay are separate. Disk IO only on explicit save/restore.");
+            }
             const auto& memory = stats.Residency;
             s.RSSHistory[s.HistoryOffset] = float(memory.Process.Resident / 1048576.0);
             s.GPUHistory[s.HistoryOffset] = float(memory.RequestedGPUBytes / 1048576.0);
@@ -288,6 +432,29 @@ namespace Zamin {
             ImGui::InputScalar("CPU estimate", ImGuiDataType_U64, &c.DeclaredCPUBytes);
             ImGui::InputScalar("GPU estimate", ImGuiDataType_U64, &c.DeclaredGPUBytes);
             if (size_t(s.Selected) < cells.size() && !cells[size_t(s.Selected)].Error.empty()) ImGui::TextWrapped("Runtime: %s", cells[size_t(s.Selected)].Error.c_str());
+            if (!(runtime && runtime->IsRunning()) && ImGui::Button("Katak sahnasini alohida ochish"))
+                s_SceneRequest = Project::GetAssetFileSystemPath(c.ScenePath);
+            if (live)
+            {
+                if (ImGui::Button("Shu katak snapshotini olish")) live->CaptureCell(c.ID, s.Error);
+                ImGui::InputScalar("Adopt entity UUID (decimal)", ImGuiDataType_U64, &s.AdoptID);
+                if (ImGui::Button("Entity subtree ni katakka biriktirish")) live->AdoptEntity(c.ID, UUID(s.AdoptID), s.Error);
+                auto anchor = runtime->GetActiveScene();
+                for (auto id : live->GetCellEntities(c.ID))
+                {
+                    auto entity = anchor->GetEntityByUUID(id);
+                    if (!entity) continue;
+                    ImGui::PushID(id.ToString().c_str());
+                    if (ImGui::TreeNode(entity.GetName().c_str()))
+                    {
+                        ImGui::Text("UUID %s", id.ToString().c_str());
+                        ImGui::DragFloat3("Local position", &entity.GetTransform().Translation.x, .1f);
+                        if (ImGui::Button("Entity subtree ni o'chirish")) live->RemoveCellEntity(c.ID, id, s.Error);
+                        ImGui::TreePop();
+                    }
+                    ImGui::PopID();
+                }
+            }
             if (ImGui::Button("Katakni olib tashlash"))
             {
                 s.Manifest.Cells.erase(s.Manifest.Cells.begin() + s.Selected);

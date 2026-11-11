@@ -331,3 +331,56 @@ TEST(WorldCellLoaderStagesReal2DAnd3DScenesWithoutActivation)
     }
     CHECK(loader->GetStats().WorkerJobs == 2 && loader->GetStats().ReservedSourceBytes == 0);
 }
+
+TEST(WorldCellOverrideIsImmutableUntilNextGeneration)
+{
+    CellFixture fixture(false);
+    auto loader = fixture.Create();
+    std::string error;
+    auto first = std::make_shared<const std::string>(R"({"Scene":"Overlay","Version":5,"Entities":[{"Entity":700,"Tag":"First override"}]})");
+    CHECK(loader->SetSourceOverride(UUID(1), first, error));
+    CHECK(loader->GetStats().OverrideBytes == first->size());
+    CHECK(loader->SetWanted({ UUID(1) }, error));
+    CHECK(Await(*loader, UUID(1), WorldCellStage::Ready));
+    auto second = std::make_shared<const std::string>(R"({"Scene":"Overlay","Version":5,"Entities":[{"Entity":701,"Tag":"Second override"}]})");
+    CHECK(loader->SetSourceOverride(UUID(1), second, error));
+    auto status = loader->GetStatus(UUID(1));
+    auto job = loader->TakeReady(UUID(1), status.Generation);
+    Scene scene;
+    CHECK(job && job->Build(scene, 100));
+    CHECK(scene.GetEntityByUUID(UUID(700)) && !scene.GetEntityByUUID(UUID(701)));
+    CHECK(loader->SetWanted({}, error));
+    CHECK(loader->SetWanted({ UUID(1) }, error));
+    CHECK(Await(*loader, UUID(1), WorldCellStage::Ready));
+    status = loader->GetStatus(UUID(1));
+    job = loader->TakeReady(UUID(1), status.Generation);
+    Scene next;
+    CHECK(job && job->Build(next, 100));
+    CHECK(next.GetEntityByUUID(UUID(701)));
+    CHECK(loader->SetWanted({}, error));
+    CHECK(loader->SetSourceOverride(UUID(1), nullptr, error));
+    CHECK(loader->GetStats().OverrideBytes == 0);
+    CHECK(loader->SetWanted({ UUID(1) }, error));
+    CHECK(Await(*loader, UUID(1), WorldCellStage::Ready));
+    status = loader->GetStatus(UUID(1));
+    job = loader->TakeReady(UUID(1), status.Generation);
+    Scene authored;
+    CHECK(job && job->Build(authored, 100));
+    CHECK(authored.GetEntityByUUID(UUID(99)));
+}
+TEST(WorldCellOverrideBoundsMalformedAndMissingAuthoredSource)
+{
+    CellFixture fixture(false);
+    auto loader = fixture.Create();
+    std::string error;
+    CHECK(!loader->SetSourceOverride(UUID(999), std::make_shared<const std::string>(SceneText), error));
+    CHECK(!loader->SetSourceOverride(UUID(1), std::make_shared<const std::string>(fixture.Limits.MaxCellBytes + 1, 'x'), error));
+    CHECK(loader->SetSourceOverride(UUID(1), std::make_shared<const std::string>("{"), error));
+    CHECK(loader->SetWanted({ UUID(1) }, error));
+    CHECK(Await(*loader, UUID(1), WorldCellStage::Failed));
+    CHECK(loader->SetWanted({}, error));
+    CHECK(loader->SetSourceOverride(UUID(1), std::make_shared<const std::string>(SceneText), error));
+    std::filesystem::remove(fixture.Assets / fixture.World.Cells[0].ScenePath);
+    CHECK(loader->SetWanted({ UUID(1) }, error));
+    CHECK(Await(*loader, UUID(1), WorldCellStage::Ready));
+}

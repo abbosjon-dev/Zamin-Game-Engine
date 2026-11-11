@@ -47,11 +47,15 @@ namespace Zamin {
             size_t Wanted = 0, Queued = 0, Reading = 0, Ready = 0, Transferred = 0, Failed = 0;
             size_t InFlight = 0, ReservedSourceBytes = 0;
             uint64_t WorkerJobs = 0, StaleCompletions = 0;
+            size_t OverrideBytes = 0;
         };
 
         // Linux v1: pins the asset directory; each child is opened without following symlinks.
         static std::unique_ptr<WorldCellLoader> Create(const WorldManifest& manifest,
                                                        const std::filesystem::path& assets, const Limits& limits, std::string& error);
+        // A shared immutable source for the next queued generation; existing tasks retain theirs.
+        // nullptr returns to authored IO. Total overlay bytes are bounded independently of job quota.
+        bool SetSourceOverride(UUID cell, std::shared_ptr<const std::string> source, std::string& error);
         ~WorldCellLoader();
         WorldCellLoader(const WorldCellLoader&) = delete;
         WorldCellLoader& operator=(const WorldCellLoader&) = delete;

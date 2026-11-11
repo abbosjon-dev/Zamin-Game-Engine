@@ -223,7 +223,8 @@ namespace Zamin {
         NotifySceneLoaded(MakeEventInfo(scene, LoadSceneMode::Single));
         for (const SceneEventInfo& sub : subScenes)
             NotifySceneLoaded(sub);
-        if (auto project = Project::GetActive(); project && !project->GetConfig().StreamingWorld.empty())
+        if (auto project = Project::GetActive(); project && !project->GetConfig().StreamingWorld.empty() &&
+                                                 (path.empty() || Project::GetAssetFileSystemPath(path).lexically_normal() == Project::GetAssetFileSystemPath(project->GetConfig().StartScene).lexically_normal()))
         {
             std::string error;
             if (!LoadStreamingWorld(project->GetConfig().StreamingWorld, error)) ZM_CORE_ERROR("World streaming: {}", error);

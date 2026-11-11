@@ -2,11 +2,14 @@
 #include "Zamin/Scene/SceneManager.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/AI/NavMosaic.h"
+#include "Zamin/Scene/WorldCheckpoint.h"
+#include "Zamin/Scene/WorldCheckpointWriter.h"
 #include "Zamin/Project/Project.h"
 #include "Zamin/Scripting/EventBus.h"
 #include "Zamin/Utils/FileSystem.h"
 #include <nlohmann/json.hpp>
 #include <algorithm>
+#include <deque>
 #include <array>
 #include <bit>
 #include <chrono>
@@ -195,6 +198,70 @@ namespace Zamin {
         glm::dvec3 Viewer{ 0 };
         bool Override = false;
         Stats Counters;
+        std::unique_ptr<WorldCheckpoint> State, PendingState;
+        bool CaptureOnUnload = false;
+        std::deque<std::pair<uint64_t, Command>> Commands;
+        uint64_t NextCommand = 0;
+        std::unique_ptr<WorldCheckpointWriter> Writer;
+        bool Capture(size_t index, WorldCheckpoint& state, std::string& error)
+        {
+            auto& cell = Cells[index];
+            if (cell.Info.Stage != WorldRuntimeStage::Active)
+            {
+                error = "Only active cells can be captured";
+                return false;
+            }
+            std::vector<Entity> entities;
+            std::unordered_set<uint64_t> ids;
+            for (auto id : cell.Owned)
+                if (auto live = Anchor->GetEntityByUUID(id))
+                {
+                    entities.push_back(live);
+                    ids.insert(uint64_t(id));
+                }
+            for (auto entity : entities)
+                for (auto child : Anchor->GetChildren(entity))
+                    if (!ids.contains(uint64_t(child.GetUUID())))
+                    {
+                        error = "Checkpoint cell has an unowned child; adopt its subtree first";
+                        return false;
+                    }
+            for (auto entity : entities)
+                if (auto parent = Anchor->GetParent(entity); parent && !ids.contains(uint64_t(parent.GetUUID())))
+                {
+                    error = "Checkpoint cell has a parent outside its ownership";
+                    return false;
+                }
+            try
+            {
+                auto doc = json::parse(SceneSerializer::SerializeEntities(*Anchor, entities, false));
+                doc.erase("ZaminEntities");
+                doc.erase("Kind");
+                doc["Scene"] = Manifest.Cells[index].ScenePath;
+                const auto offset = Manifest.Bounds(Manifest.Cells[index]).first;
+                for (auto& entity : doc["Entities"])
+                    if (!entity.contains("Parent") || entity["Parent"] == 0)
+                    {
+                        auto& value = entity["Transform"]["Translation"];
+                        for (int axis = 0; axis < 3; ++axis) value[axis] = value.at(axis).get<double>() - offset[axis];
+                    }
+                return state.Put(cell.Info.ID, doc.dump(), error);
+            }
+            catch (const std::exception& e)
+            {
+                error = e.what();
+                return false;
+            }
+        }
+        bool PublishOverrides(const WorldCheckpoint& state, std::string& error)
+        {
+            // Clear first so replacing a full-size snapshot never double-charges old/new overlays.
+            for (const auto& source : Manifest.Cells)
+                if (!Loader->SetSourceOverride(source.ID, nullptr, error)) return false;
+            for (const auto& [id, text] : state.GetCells())
+                if (!Loader->SetSourceOverride(UUID(id), text, error)) return false;
+            return true;
+        }
         ResidencyPressure Pressure;
         uint64_t Frame = 0;
         size_t CacheEvictionsThisFrame = 0;
@@ -286,6 +353,16 @@ namespace Zamin {
             Counters.NavigationCells = previous.NavigationCells;
             Counters.NavigationRebuilds = previous.NavigationRebuilds;
             Counters.NavigationError = previous.NavigationError;
+            Counters.PendingCommands = Commands.size() + (Writer && Writer->IsBusy() ? 1 : 0);
+            Counters.CompletedCommands = previous.CompletedCommands;
+            Counters.FailedCommands = previous.FailedCommands;
+            Counters.Captures = previous.Captures;
+            Counters.Restores = previous.Restores;
+            Counters.CheckpointCells = State ? State->GetCount() : 0;
+            Counters.CheckpointBytes = State ? State->GetBytes() : 0;
+            Counters.CaptureOnUnload = CaptureOnUnload;
+            Counters.RestorePending = bool(PendingState);
+            Counters.CheckpointError = previous.CheckpointError;
             Counters.LastMilliseconds = previous.LastMilliseconds;
             Counters.PeakMilliseconds = previous.PeakMilliseconds;
             Counters.BudgetBlocked = previous.BudgetBlocked;
@@ -405,6 +482,7 @@ namespace Zamin {
         d->Loader = WorldCellLoader::Create(manifest, assets, limits, error);
         if (!d->Loader) return nullptr;
         d->Manifest = manifest;
+        d->State = std::make_unique<WorldCheckpoint>(manifest);
         d->Rules = policy;
         d->Anchor = manager.GetActiveScene();
         manifest.DependencyOrder(d->Order, error);
@@ -429,13 +507,85 @@ namespace Zamin {
     void WorldStreaming::Update(SceneManager& manager)
     {
         auto& d = *m_Data;
-        d.CacheEvictionsThisFrame = 0;
         const auto start = Clock::now();
+        d.CacheEvictionsThisFrame = 0;
+        if (d.Writer)
+        {
+            WorldCheckpointWriter::Result completed;
+            if (d.Writer->Poll(completed))
+            {
+                ++d.Counters.CompletedCommands;
+                d.Counters.FailedCommands += !completed.Success;
+                if (!completed.Success) d.Counters.CheckpointError = completed.Error;
+                else d.Counters.CheckpointError.clear();
+                manager.GetEventBus().Emit("WorldCommandCompleted", CommandResult{ completed.Serial, CommandKind::Save, completed.Success, completed.Error });
+            }
+        }
+        // Process a fixed prefix: completion handlers may enqueue next-tick work, never recurse.
+        const size_t commandCount = std::min(size_t(4), d.Commands.size());
+        for (size_t i = 0; i < commandCount; ++i)
+        {
+            if (d.Writer && d.Writer->IsBusy()) break;
+            auto [serial, command] = std::move(d.Commands.front());
+            d.Commands.pop_front();
+            bool asynchronous = false;
+            CommandResult result;
+            result.Serial = serial;
+            result.Kind = command.Kind;
+            try
+            {
+                switch (command.Kind)
+                {
+                    case CommandKind::Capture: result.Success = CaptureCell(command.Cell, result.Error); break;
+                    case CommandKind::Save:
+                    {
+                        auto next = *d.State;
+                        uint64_t captures = 0;
+                        bool valid = !d.PendingState;
+                        if (!valid) result.Error = "Restore pending";
+                        for (size_t cell = 0; valid && cell < d.Cells.size(); ++cell)
+                            if (d.Cells[cell].Info.Stage == WorldRuntimeStage::Active)
+                            {
+                                valid = d.Capture(cell, next, result.Error);
+                                ++captures;
+                            }
+                        if (valid)
+                        {
+                            if (!d.Writer) d.Writer = std::make_unique<WorldCheckpointWriter>();
+                            if (d.Writer->Submit(next, command.File, serial, result.Error))
+                            {
+                                d.PublishOverrides(next, result.Error);
+                                *d.State = std::move(next);
+                                d.Counters.Captures += captures;
+                                result.Success = true;
+                                asynchronous = true;
+                            }
+                        }
+                        break;
+                    }
+                    case CommandKind::Restore: result.Success = RequestRestoreCheckpoint(command.File, result.Error); break;
+                    case CommandKind::Reset:   result.Success = RequestResetToAuthored(result.Error); break;
+                    case CommandKind::Adopt:   result.Success = AdoptEntity(command.Cell, command.Entity, result.Error); break;
+                    case CommandKind::Remove:  result.Success = RemoveCellEntity(command.Cell, command.Entity, result.Error); break;
+                }
+            }
+            catch (const std::exception& e)
+            {
+                result.Error = e.what();
+            }
+            if (asynchronous) continue;
+            ++d.Counters.CompletedCommands;
+            d.Counters.FailedCommands += !result.Success;
+            if (!result.Success) d.Counters.CheckpointError = result.Error;
+            manager.GetEventBus().Emit("WorldCommandCompleted", result);
+        }
         if (!d.Override)
             if (auto* render = manager.GetRenderScene())
                 if (auto camera = render->GetPrimaryCameraEntity()) d.Viewer = glm::dvec3(render->GetWorldTransform(camera)[3]);
         if (!std::isfinite(d.Viewer.x) || !std::isfinite(d.Viewer.y) || !std::isfinite(d.Viewer.z)) return;
         d.Select();
+        if (d.PendingState)
+            for (auto& cell : d.Cells) cell.Info.Desired = false;
         size_t unloads = 0;
         for (auto it = d.Order.rbegin(); it != d.Order.rend(); ++it)
         {
@@ -444,6 +594,17 @@ namespace Zamin {
             if (c.Info.Stage == WorldRuntimeStage::Active)
             {
                 if (unloads >= d.Rules.MaxUnloadsPerFrame) continue;
+                if (d.CaptureOnUnload && !d.PendingState)
+                {
+                    std::string captureError;
+                    if (!d.Capture(d.Index.at(c.Info.ID), *d.State, captureError) || !d.Loader->SetSourceOverride(c.Info.ID, d.State->Get(c.Info.ID), captureError))
+                    {
+                        c.Info.Error = captureError;
+                        d.Counters.CheckpointError = captureError;
+                        continue;
+                    }
+                    ++d.Counters.Captures;
+                }
                 for (auto entity = c.Owned.rbegin(); entity != c.Owned.rend(); ++entity)
                     if (auto live = d.Anchor->GetEntityByUUID(*entity)) d.Anchor->DestroyEntity(live);
                 c.Owned.clear();
@@ -458,6 +619,39 @@ namespace Zamin {
             c.Info = { c.Info.ID, WorldRuntimeStage::Dormant, false, false, 0, 0, {} };
         }
         d.Recount();
+        if (d.PendingState)
+        {
+            std::vector<UUID> retained;
+            for (const auto& cell : d.Cells)
+                if (cell.Info.Admitted) retained.push_back(cell.Info.ID);
+            std::string restoreError;
+            d.Loader->SetWanted(retained, restoreError);
+            d.Loader->Poll();
+            if (retained.empty())
+            {
+                if (d.PublishOverrides(*d.PendingState, restoreError))
+                {
+                    d.State = std::move(d.PendingState);
+                    ++d.Counters.Restores;
+                    for (auto& cell : d.Cells)
+                    {
+                        cell.Info.Stage = WorldRuntimeStage::Dormant;
+                        cell.Info.Error.clear();
+                    }
+                    d.Counters.CheckpointError.clear();
+                }
+                else
+                {
+                    d.Counters.CheckpointError = restoreError;
+                    d.PendingState.reset();
+                }
+            }
+            d.UpdateNavigation();
+            d.Recount();
+            d.Counters.LastMilliseconds = Elapsed(start);
+            d.Counters.PeakMilliseconds = std::max(d.Counters.PeakMilliseconds, d.Counters.LastMilliseconds);
+            return;
+        }
         d.Counters.Residency = AssetResidency::Inspect();
         auto evaluatePressure = [&] {
             const auto& memory = d.Counters.Residency;
@@ -558,6 +752,11 @@ namespace Zamin {
                 if (!c.Job->GetError().empty())
                 {
                     d.Fail(c, c.Job->GetError());
+                    continue;
+                }
+                if (d.State->Get(id) && c.Job->GetReport().HasIssues())
+                {
+                    d.Fail(c, "Checkpoint scene contained invalid components or hierarchy");
                     continue;
                 }
                 const auto offset = d.Manifest.Bounds(source).first;
@@ -681,6 +880,220 @@ namespace Zamin {
     {
         const auto& d = *m_Data;
         return d.Rules.NavigationMode && (dimension == 0 || dimension == int(d.Rules.NavigationMode)) ? d.NavigationRoot : UUID(0);
+    }
+    uint64_t WorldStreaming::Enqueue(Command command, std::string& error)
+    {
+        auto& d = *m_Data;
+        if (d.Commands.size() + (d.Writer && d.Writer->IsBusy() ? 1 : 0) >= 64 || d.NextCommand == UINT64_MAX || command.File.native().size() > 4096 ||
+            int(command.Kind) < int(CommandKind::Capture) || int(command.Kind) > int(CommandKind::Remove))
+        {
+            error = "Invalid world command or pending queue limit reached";
+            return 0;
+        }
+        const auto serial = ++d.NextCommand;
+        d.Commands.emplace_back(serial, std::move(command));
+        d.Recount();
+        error.clear();
+        return serial;
+    }
+    void WorldStreaming::SetCaptureOnUnload(bool enabled)
+    {
+        m_Data->CaptureOnUnload = enabled;
+        m_Data->Recount();
+    }
+    bool WorldStreaming::CaptureCell(UUID cell, std::string& error)
+    {
+        auto& d = *m_Data;
+        const auto it = d.Index.find(uint64_t(cell));
+        if (it == d.Index.end() || d.PendingState)
+        {
+            error = "Unknown cell or restore pending";
+            return false;
+        }
+        auto next = *d.State;
+        if (!d.Capture(it->second, next, error) || !d.Loader->SetSourceOverride(cell, next.Get(cell), error)) return false;
+        *d.State = std::move(next);
+        ++d.Counters.Captures;
+        d.Counters.CheckpointError.clear();
+        d.Recount();
+        return true;
+    }
+    bool WorldStreaming::SaveCheckpoint(const std::filesystem::path& file, std::string& error)
+    {
+        auto& d = *m_Data;
+        if (d.PendingState || (d.Writer && d.Writer->IsBusy()))
+        {
+            error = "Restore or checkpoint write pending";
+            return false;
+        }
+        auto next = *d.State;
+        uint64_t captures = 0;
+        for (size_t i = 0; i < d.Cells.size(); ++i)
+            if (d.Cells[i].Info.Stage == WorldRuntimeStage::Active)
+            {
+                if (!d.Capture(i, next, error)) return false;
+                ++captures;
+            }
+        if (!next.Save(file, error)) return false;
+        if (!d.PublishOverrides(next, error)) return false;
+        *d.State = std::move(next);
+        d.Counters.Captures += captures;
+        d.Counters.CheckpointError.clear();
+        d.Recount();
+        return true;
+    }
+    bool WorldStreaming::RequestRestoreCheckpoint(const std::filesystem::path& file, std::string& error)
+    {
+        auto& d = *m_Data;
+        auto next = std::make_unique<WorldCheckpoint>(d.Manifest);
+        if (!next->Load(file, error)) return false;
+        // Validate all components before retiring any live cell. No assets / scripts / physics
+        // are started by a non-running staging scene. GPU and runtime activation still happen later.
+        std::unordered_set<uint64_t> restoredIDs, ownedIDs;
+        for (const auto& cell : d.Cells)
+            for (auto id : cell.Owned) ownedIDs.insert(uint64_t(id));
+        for (const auto& [id, text] : next->GetCells())
+        {
+            (void)id;
+            SceneLoadJob job;
+            Scene staged;
+            if (!job.ParseString(*text))
+            {
+                error = job.GetError();
+                return false;
+            }
+            while (!job.Build(staged, 10))
+                if (!job.GetError().empty())
+                {
+                    error = job.GetError();
+                    return false;
+                }
+            if (!job.GetError().empty() || job.GetReport().HasIssues())
+            {
+                error = "Checkpoint component preflight failed";
+                return false;
+            }
+            if (job.GetEntityCount() > d.Rules.MaxEntitiesPerCell)
+            {
+                error = "Checkpoint exceeds per-cell entity budget";
+                return false;
+            }
+            for (auto entity : staged.GetEntitiesInOrder())
+            {
+                const auto key = uint64_t(entity.GetUUID());
+                if (!restoredIDs.insert(key).second || (d.Anchor->GetEntityByUUID(entity.GetUUID()) && !ownedIDs.contains(key)))
+                {
+                    error = "Checkpoint entity UUID conflicts with another cell or persistent anchor";
+                    return false;
+                }
+            }
+        }
+        d.PendingState = std::move(next);
+        d.Counters.CheckpointError.clear();
+        d.Recount();
+        return true;
+    }
+    bool WorldStreaming::RequestResetToAuthored(std::string& error)
+    {
+        auto& d = *m_Data;
+        d.PendingState = std::make_unique<WorldCheckpoint>(d.Manifest);
+        error.clear();
+        d.Recount();
+        return true;
+    }
+    std::vector<UUID> WorldStreaming::GetCellEntities(UUID cell) const
+    {
+        const auto& d = *m_Data;
+        std::vector<UUID> out;
+        auto it = d.Index.find(uint64_t(cell));
+        if (it != d.Index.end())
+            for (auto id : d.Cells[it->second].Owned)
+                if (d.Anchor->GetEntityByUUID(id)) out.push_back(id);
+        return out;
+    }
+    bool WorldStreaming::AdoptEntity(UUID cell, UUID entity, std::string& error)
+    {
+        auto& d = *m_Data;
+        auto it = d.Index.find(uint64_t(cell));
+        auto root = d.Anchor->GetEntityByUUID(entity);
+        if (it == d.Index.end() || !root || d.PendingState || d.Cells[it->second].Info.Stage != WorldRuntimeStage::Active || entity == d.NavigationRoot)
+        {
+            error = "Adoption needs an active cell and a live anchor entity";
+            return false;
+        }
+        auto& target = d.Cells[it->second];
+        std::vector<UUID> add;
+        std::vector<Entity> pending{ root };
+        while (!pending.empty())
+        {
+            auto e = pending.back();
+            pending.pop_back();
+            if (e.GetUUID() == d.NavigationRoot)
+            {
+                error = "Internal navigation entity cannot be adopted";
+                return false;
+            }
+            for (size_t i = 0; i < d.Cells.size(); ++i)
+                if (std::find(d.Cells[i].Owned.begin(), d.Cells[i].Owned.end(), e.GetUUID()) != d.Cells[i].Owned.end())
+                {
+                    if (i != it->second)
+                    {
+                        error = "Entity is owned by another cell";
+                        return false;
+                    }
+                    goto owned;
+                }
+            add.push_back(e.GetUUID());
+        owned:
+            for (auto child : d.Anchor->GetChildren(e)) pending.push_back(child);
+        }
+        if (auto parent = d.Anchor->GetParent(root); parent && std::find(target.Owned.begin(), target.Owned.end(), parent.GetUUID()) == target.Owned.end())
+        {
+            error = "Adopted root parent must belong to the target cell";
+            return false;
+        }
+        if (add.size() > d.Rules.MaxEntitiesPerCell - target.Info.Entities || add.size() > d.Rules.MaxResidentEntities - d.Counters.Entities)
+        {
+            error = "Adoption entity budget exceeded";
+            return false;
+        }
+        target.Owned.insert(target.Owned.end(), add.begin(), add.end());
+        target.Info.Entities += add.size();
+        d.Recount();
+        error.clear();
+        return true;
+    }
+    bool WorldStreaming::RemoveCellEntity(UUID cell, UUID entity, std::string& error)
+    {
+        auto& d = *m_Data;
+        auto it = d.Index.find(uint64_t(cell));
+        auto root = d.Anchor->GetEntityByUUID(entity);
+        if (it == d.Index.end() || !root || d.PendingState)
+        {
+            error = "Unknown cell/entity or restore pending";
+            return false;
+        }
+        auto& target = d.Cells[it->second];
+        std::vector<UUID> remove;
+        std::vector<Entity> pending{ root };
+        while (!pending.empty())
+        {
+            auto e = pending.back();
+            pending.pop_back();
+            if (std::find(target.Owned.begin(), target.Owned.end(), e.GetUUID()) == target.Owned.end())
+            {
+                error = "Subtree contains an entity outside cell ownership";
+                return false;
+            }
+            remove.push_back(e.GetUUID());
+            for (auto child : d.Anchor->GetChildren(e)) pending.push_back(child);
+        }
+        d.Anchor->DestroyEntity(root);
+        std::erase_if(target.Owned, [&](UUID id) { return std::find(remove.begin(), remove.end(), id) != remove.end(); });
+        target.Info.Entities -= std::min(target.Info.Entities, remove.size());
+        d.Recount();
+        error.clear();
+        return true;
     }
     size_t WorldStreaming::TrimCaches()
     {

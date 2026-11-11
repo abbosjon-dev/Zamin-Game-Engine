@@ -37,6 +37,32 @@ try:
  # Link the event's Number output to the new Constant.Number input.
  click(497,281);click(394,338);save();j=read();assert len(j['Links'])==10,j['Links'];assert any(l['From']==1 and l['Output']=='Delta' and l['To']==12 and l['Input']=='Value' for l in j['Links']);print('UI: typed wire + save passed',flush=True)
  click(497,281);click(960,301);save();assert len(read()['Links'])==10;print('UI: incompatible wire rejected',flush=True)
+ # Canvas shortcuts mutate a whole selection and remain undoable.
+ x('keydown','ctrl');x('key','d');x('keyup','ctrl');time.sleep(1.5);save()
+ assert len(read()['Nodes'])==13;print('UI: duplicate selection passed',flush=True)
+ click(531,140);save();assert len(read()['Nodes'])==12
+ # Select the new Constant again after Undo clears the selection.
+ click(420,301);x('keydown','ctrl');x('key','c');x('keyup','ctrl');time.sleep(.5)
+ x('keydown','ctrl');x('key','v');x('keyup','ctrl');time.sleep(1.5);save()
+ assert len(read()['Nodes'])==13;print('UI: copy/paste + undo passed',flush=True)
+ x('key','Delete');time.sleep(1.5);save()
+ assert len(read()['Nodes'])==12;print('UI: delete pasted selection passed',flush=True)
+ assert {n['ID'] for n in read()['Nodes']}==set(range(1,13))
+ assert len(read()['Links'])==10
+ original=read()
+ x('keydown','ctrl');x('key','a');x('key','d');x('keyup','ctrl');time.sleep(1.5);save()
+ assert len(read()['Nodes'])==24 and len(read()['Links'])==20
+ x('key','Delete');time.sleep(1.5);save()
+ assert read()['Nodes']==original['Nodes'] and read()['Links']==original['Links']
+ print('UI: whole-group duplicate/delete preserves original nodes and wires',flush=True)
+ click(1270,421);click(1270,477);save()
+ assert 'Calculate' in read()['Functions'] and len(read()['Nodes'])==14
+ assert read()['Functions']['Calculate']['Inputs'][0]['Name']=='X'
+ assert read()['Functions']['Calculate']['Outputs'][0]['Name']=='Result'
+ print('UI: create typed function signature + entry/return passed',flush=True)
+ click(531,140);save();assert 'Calculate' not in read()['Functions'] and len(read()['Nodes'])==12
+ print('UI: typed function creation undo passed',flush=True)
+
  subprocess.run(['import','-window','root',str(out/'editor-ui.png')],check=True)
 except BaseException:
  subprocess.run(['import','-window','root',str(out/'editor-ui-failure.png')],check=True);raise

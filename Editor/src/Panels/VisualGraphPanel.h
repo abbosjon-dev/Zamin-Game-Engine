@@ -19,6 +19,18 @@ namespace Zamin {
         bool m_Editable = true, m_Dirty = false, m_Focus = false, m_Dragging = false, m_Fit = true;
         uint64_t m_Entity = 0;
         uint32_t m_Selected = 0, m_From = 0;
+        std::set<uint32_t> m_Selection;
+        Visual::Value m_Clipboard;
+        bool m_ValidateDirty = true;
+        std::vector<Visual::Diagnostic> m_Diagnostics;
+        std::map<uint32_t, Visual::Definition> m_Descriptions;
+        const Visual::Definition& Describe(const Visual::Node& node);
+        char m_FunctionName[128]{ "Calculate" }, m_MemberName[128]{ "Value" };
+        static bool EditLiteral(const char* label, Visual::Type type, Visual::Value& value);
+        void Functions();
+        void CopySelection();
+        void PasteSelection(float offset = 40);
+        void DeleteSelection();
         std::string m_Output, m_Error;
         ImVec2 m_Pan{ 40, 40 };
         float m_Zoom = 1;

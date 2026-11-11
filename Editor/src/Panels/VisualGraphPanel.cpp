@@ -30,7 +30,73 @@ namespace Zamin {
             ImGui::SameLine(112);
             ImGui::SetNextItemWidth(-1);
             bool changed = false;
-            if (type == Type::Number)
+            if (!Matches(type, v))
+            {
+                ImGui::TextDisabled("Invalid literal (%s)", TypeName(type));
+                if (ImGui::Button("Reset literal"))
+                {
+                    v = DefaultValue(type);
+                    changed = true;
+                }
+                ImGui::PopID();
+                return changed;
+            }
+            if (IsArray(type))
+            {
+                if (ImGui::TreeNode("##array", "%zu items (%s)", v.size(), TypeName(ElementType(type))))
+                {
+                    auto* state = ImGui::GetStateStorage();
+                    const auto pageID = ImGui::GetID("arrayPage");
+                    int page = std::clamp(state->GetInt(pageID, 0), 0, int(v.size() / 16));
+                    if (ImGui::SmallButton("Previous") && page > 0) --page;
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton("Next") && size_t((page + 1) * 16) < v.size()) ++page;
+                    state->SetInt(pageID, page);
+                    size_t remove = SIZE_MAX;
+                    for (size_t i = size_t(page) * 16; i < std::min(v.size(), size_t(page + 1) * 16); ++i)
+                    {
+                        ImGui::PushID(int(i));
+                        changed |= EditValue(("[" + std::to_string(i) + "]").c_str(), ElementType(type), v[i]);
+                        if (ImGui::SmallButton("Remove item")) remove = i;
+                        ImGui::PopID();
+                    }
+                    if (remove != SIZE_MAX)
+                    {
+                        v.erase(v.begin() + remove);
+                        changed = true;
+                    }
+                    if (v.size() < 1024 && ImGui::Button("Add item"))
+                    {
+                        v.push_back(DefaultValue(ElementType(type)));
+                        changed = true;
+                    }
+                    if (ImGui::Button("Paste array JSON"))
+                    {
+                        const char* text = ImGui::GetClipboardText();
+                        if (text && std::strlen(text) <= 65536)
+                        {
+                            try
+                            {
+                                auto parsed = Value::parse(text, [](int depth, Value::parse_event_t, Value&) {
+                                    if (depth > 8) throw std::runtime_error("Array nesting limit");
+                                    return true;
+                                }, false);
+                                if (!parsed.is_discarded() && Matches(type, parsed))
+                                {
+                                    v = std::move(parsed);
+                                    changed = true;
+                                }
+                            }
+                            catch (const std::exception&)
+                            {
+                                ImGui::TextDisabled("Invalid array JSON");
+                            }
+                        }
+                    }
+                    ImGui::TreePop();
+                }
+            }
+            else if (type == Type::Number)
             {
                 double x = v.get<double>();
                 if (ImGui::InputDouble("##value", &x, 0, 0, "%.4f") && std::isfinite(x))
@@ -109,6 +175,7 @@ namespace Zamin {
             return changed;
         }
     }
+    bool VisualGraphPanel::EditLiteral(const char* label, Visual::Type type, Visual::Value& value) { return EditValue(label, type, value); }
     void VisualGraphPanel::SetContext(const Ref<Scene>& scene, bool editable, uint64_t selection)
     {
         m_Scene = scene;
@@ -133,6 +200,9 @@ namespace Zamin {
             m_From = 0;
             m_Error.clear();
             m_Dirty = false;
+            m_ValidateDirty = true;
+            m_Descriptions.clear();
+            m_Selection.clear();
             m_Pan = { 40, 40 };
             m_Zoom = 1;
             m_Fit = true;
@@ -159,6 +229,7 @@ namespace Zamin {
             m_Undo.erase(m_Undo.begin());
         }
         m_Redo.clear();
+        m_ValidateDirty = true;
         m_Dirty = true;
     }
     void VisualGraphPanel::OnImGuiRender(bool* show)
@@ -193,6 +264,9 @@ namespace Zamin {
         if (ImGui::Button("New") && !m_Dirty)
         {
             m_Graph = Visual::Graph::Example();
+            m_ValidateDirty = true;
+            m_Descriptions.clear();
+            m_Selection.clear();
             m_Path = FileSystem::SafeJoin(Project::GetAssetDirectory(), m_File);
             m_Dirty = true;
             m_Undo.clear();
@@ -217,6 +291,9 @@ namespace Zamin {
         {
             m_Redo.push_back(m_Graph.Serialize());
             m_Graph = Visual::Graph::Parse(m_Undo.back());
+            m_ValidateDirty = true;
+            m_Descriptions.clear();
+            m_Selection.clear();
             m_Undo.pop_back();
             m_Dirty = true;
             m_From = 0;
@@ -228,6 +305,9 @@ namespace Zamin {
         {
             m_Undo.push_back(m_Graph.Serialize());
             m_Graph = Visual::Graph::Parse(m_Redo.back());
+            m_ValidateDirty = true;
+            m_Descriptions.clear();
+            m_Selection.clear();
             m_Redo.pop_back();
             m_Dirty = true;
             m_From = 0;
@@ -246,9 +326,25 @@ namespace Zamin {
                 m_Redo.clear();
             }
         }
+        ImGui::SameLine();
+        if (ImGui::Button("Copy")) CopySelection();
+        ImGui::SameLine();
+        if (ImGui::Button("Paste")) PasteSelection();
+        ImGui::SameLine();
+        if (ImGui::Button("Duplicate"))
+        {
+            CopySelection();
+            PasteSelection();
+        }
         ImGui::EndDisabled();
         if (!m_Error.empty()) ImGui::TextColored({ 1, .4f, .4f, 1 }, "%s", m_Error.c_str());
-        auto diagnostics = m_Graph.Validate();
+        if (m_ValidateDirty)
+        {
+            m_Diagnostics = m_Graph.Validate();
+            m_ValidateDirty = false;
+            m_Descriptions.clear();
+        }
+        const auto& diagnostics = m_Diagnostics;
         if (diagnostics.empty()) ImGui::TextColored({ .35f, .85f, .6f, 1 }, "Compiled  |  %zu nodes  |  %zu wires  |  %zu variables", m_Graph.Nodes.size(), m_Graph.Links.size(), m_Graph.Variables.size());
         else
         {
@@ -277,11 +373,19 @@ namespace Zamin {
             if (ImGui::Selectable((def.Category + " / " + key).c_str()))
             {
                 Snapshot();
-                uint32_t id = 1;
-                for (auto& n : m_Graph.Nodes) id = std::max(id, n.ID + 1);
+                uint64_t nextID = 1;
+                for (auto& n : m_Graph.Nodes) nextID = std::max(nextID, uint64_t(n.ID) + 1);
+                if (nextID > UINT32_MAX || m_Graph.Nodes.size() >= 4096)
+                {
+                    m_Error = "Node count/ID limit reached";
+                    continue;
+                }
+                const auto id = uint32_t(nextID);
                 float x = (100 - m_Pan.x) / m_Zoom, y = (100 - m_Pan.y) / m_Zoom;
                 m_Graph.Nodes.push_back({ id, key, x, y });
+                if (key.starts_with("Function.")) m_Graph.Nodes.back().Inputs["Name"] = m_Graph.Functions.empty() ? "MyFunction" : m_Graph.Functions.begin()->first;
                 m_Selected = id;
+                m_Selection = { id };
             }
         }
         ImGui::EndDisabled();
@@ -307,7 +411,8 @@ namespace Zamin {
             for (auto& n : m_Graph.Nodes)
             {
                 auto it = Visual::Catalog().find(n.Kind);
-                size_t rows = it == Visual::Catalog().end() ? 1 : std::max(it->second.Inputs.size(), it->second.Outputs.size());
+                const auto& definition = Describe(n);
+                size_t rows = it == Visual::Catalog().end() ? 1 : std::max(definition.Inputs.size(), definition.Outputs.size());
                 minX = std::min(minX, n.X);
                 minY = std::min(minY, n.Y);
                 maxX = std::max(maxX, n.X + 220);
@@ -340,13 +445,15 @@ namespace Zamin {
         for (float x = std::fmod(m_Pan.x, grid); x < size.x; x += grid) draw->AddLine({ origin.x + x, origin.y }, { origin.x + x, origin.y + size.y }, IM_COL32(33, 37, 49, 255));
         for (float y = std::fmod(m_Pan.y, grid); y < size.y; y += grid) draw->AddLine({ origin.x, origin.y + y }, { origin.x + size.x, origin.y + y }, IM_COL32(33, 37, 49, 255));
         auto pin = [&](const Node& n, const std::vector<Pin>& ps, const std::string& name, bool out) {size_t i=0;for(;i<ps.size();++i)if(ps[i].Name==name)break;return screen(n.X+(out?220:0),n.Y+48+(float)i*24); };
+        std::map<uint32_t, const Node*> nodeMap;
+        for (const auto& node : m_Graph.Nodes) nodeMap[node.ID] = &node;
         for (auto& l : m_Graph.Links)
         {
-            auto* a = m_Graph.Find(l.From);
-            auto* b = m_Graph.Find(l.To);
+            auto* a = nodeMap.contains(l.From) ? nodeMap.at(l.From) : nullptr;
+            auto* b = nodeMap.contains(l.To) ? nodeMap.at(l.To) : nullptr;
             if (!a || !b || !Catalog().contains(a->Kind) || !Catalog().contains(b->Kind)) continue;
-            auto& def = Catalog().at(a->Kind);
-            auto from = pin(*a, def.Outputs, l.Output, true), to = pin(*b, Catalog().at(b->Kind).Inputs, l.Input, false);
+            const auto& def = Describe(*a);
+            auto from = pin(*a, def.Outputs, l.Output, true), to = pin(*b, Describe(*b).Inputs, l.Input, false);
             float bend = std::max(50.f, std::abs(to.x - from.x) * .45f);
             auto p = std::find_if(def.Outputs.begin(), def.Outputs.end(), [&](auto& p) { return p.Name == l.Output; });
             draw->AddBezierCubic(from, { from.x + bend, from.y }, { to.x - bend, to.y }, to, p == def.Outputs.end() ? IM_COL32(255, 80, 80, 255) : Color(p->Kind), 2.5f * m_Zoom);
@@ -356,7 +463,7 @@ namespace Zamin {
             auto* n = m_Graph.Find(m_From);
             if (n && Catalog().contains(n->Kind))
             {
-                auto p = pin(*n, Catalog().at(n->Kind).Outputs, m_Output, true);
+                auto p = pin(*n, Describe(*n).Outputs, m_Output, true);
                 draw->AddBezierCubic(p, { p.x + 70, p.y }, { mouse.x - 70, mouse.y }, mouse, IM_COL32(210, 185, 255, 255), 2);
             }
         }
@@ -373,7 +480,7 @@ namespace Zamin {
         {
             auto it = Catalog().find(n.Kind);
             if (it == Catalog().end()) continue;
-            auto& d = it->second;
+            const auto& d = Describe(n);
             auto a = screen(n.X, n.Y), b = screen(n.X + 220, n.Y + 65 + 24 * (float)std::max(d.Inputs.size(), d.Outputs.size()));
             draw->AddRectFilled({ a.x + 4, a.y + 5 }, { b.x + 4, b.y + 5 }, IM_COL32(0, 0, 0, 70), 8);
             draw->AddRectFilled(a, b, IM_COL32(40, 44, 61, 255), 7);
@@ -381,7 +488,7 @@ namespace Zamin {
                                                                                                                                   : IM_COL32(83, 57, 137, 255),
                                 7);
             draw->AddText(nullptr, ImGui::GetFontSize() * m_Zoom, { a.x + 10 * m_Zoom, a.y + 6 * m_Zoom }, IM_COL32(245, 246, 255, 255), n.Kind.c_str());
-            if (n.ID == m_Selected) draw->AddRect(a, b, IM_COL32(191, 152, 255, 255), 7, 0, 2);
+            if (m_Selection.contains(n.ID) || n.ID == m_Selected) draw->AddRect(a, b, IM_COL32(191, 152, 255, 255), 7, 0, 2);
             if (n.ID == runningNode) draw->AddRect(a, b, IM_COL32(255, 205, 80, 255), 7, 0, 3);
             if (n.Breakpoint) draw->AddCircleFilled({ b.x - 10, a.y + 12 }, 5, IM_COL32(255, 70, 80, 255));
             for (int side = 0; side < 2; ++side)
@@ -417,9 +524,10 @@ namespace Zamin {
                                 Link l{ m_From, m_Output, n.ID, p.Name };
                                 auto candidate = m_Graph;
                                 candidate.Links.push_back(l);
-                                auto before = m_Graph.Validate().size();
+                                auto before = m_Graph.Validate();
                                 auto after = candidate.Validate();
-                                if (after.size() <= before)
+                                bool addedError = std::any_of(after.begin(), after.end(), [&](const auto& d) { return std::none_of(before.begin(), before.end(), [&](const auto& old) { return old.Node == d.Node && old.Message == d.Message; }); });
+                                if (!addedError)
                                 {
                                     m_Graph.Links.push_back(l);
                                     m_Error.clear();
@@ -431,7 +539,15 @@ namespace Zamin {
                     }
                 }
             }
-            if (hover && !clickedPin && mouse.x >= a.x && mouse.x <= b.x && mouse.y >= a.y && mouse.y <= b.y && ImGui::IsMouseClicked(0)) m_Selected = n.ID;
+            if (hover && !clickedPin && mouse.x >= a.x && mouse.x <= b.x && mouse.y >= a.y && mouse.y <= b.y && ImGui::IsMouseClicked(0))
+            {
+                m_Selected = n.ID;
+                if (ImGui::GetIO().KeyCtrl)
+                {
+                    if (!m_Selection.erase(n.ID)) m_Selection.insert(n.ID);
+                }
+                else if (!m_Selection.contains(n.ID)) m_Selection = { n.ID };
+            }
             if (m_Editable && m_Selected == n.ID && hover && ImGui::IsMouseDragging(0) && !m_From && mouse.y >= a.y && mouse.y < a.y + 30 * m_Zoom)
             {
                 if (ImGui::GetIO().MouseDelta.x || ImGui::GetIO().MouseDelta.y)
@@ -441,11 +557,31 @@ namespace Zamin {
                         Snapshot();
                         m_Dragging = true;
                     }
-                    n.X += ImGui::GetIO().MouseDelta.x / m_Zoom;
-                    n.Y += ImGui::GetIO().MouseDelta.y / m_Zoom;
+                    for (auto& selected : m_Graph.Nodes)
+                        if (m_Selection.contains(selected.ID) || selected.ID == m_Selected)
+                        {
+                            selected.X += ImGui::GetIO().MouseDelta.x / m_Zoom;
+                            selected.Y += ImGui::GetIO().MouseDelta.y / m_Zoom;
+                        }
                     m_Dirty = true;
                 }
             }
+        }
+        if (m_Editable && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && !ImGui::GetIO().WantTextInput)
+        {
+            if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_A, false))
+            {
+                m_Selection.clear();
+                for (const auto& node : m_Graph.Nodes) m_Selection.insert(node.ID);
+            }
+            if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_C, false)) CopySelection();
+            if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_V, false)) PasteSelection();
+            if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_D, false))
+            {
+                CopySelection();
+                PasteSelection();
+            }
+            if (ImGui::IsKeyPressed(ImGuiKey_Delete, false)) DeleteSelection();
         }
         if (hover && ImGui::IsMouseClicked(1) && !clickedPin) m_From = 0;
         draw->AddText({ origin.x + 12, origin.y + size.y - 24 }, IM_COL32(150, 155, 176, 255), "Middle drag: pan  |  Wheel: zoom  |  Output > input: wire");
@@ -495,7 +631,7 @@ namespace Zamin {
                 Snapshot();
                 n.Breakpoint = bp;
             }
-            for (auto& p : Catalog().at(n.Kind).Inputs)
+            for (auto& p : Describe(n).Inputs)
             {
                 if (p.Kind == Type::Exec) continue;
                 bool wired = std::any_of(m_Graph.Links.begin(), m_Graph.Links.end(), [&](auto& l) { return l.To == n.ID && l.Input == p.Name; });
@@ -514,26 +650,26 @@ namespace Zamin {
             if (ImGui::Button("Delete node"))
             {
                 Snapshot();
-                std::erase_if(m_Graph.Links, [&](auto& l) { return l.To == m_Selected || l.From == m_Selected; });
-                std::erase_if(m_Graph.Nodes, [&](auto& n) { return n.ID == m_Selected; });
+                auto selected = m_Selection;
+                if (selected.empty()) selected.insert(m_Selected);
+                std::erase_if(m_Graph.Links, [&](const auto& link) { return selected.contains(link.From) || selected.contains(link.To); });
+                std::erase_if(m_Graph.Nodes, [&](const auto& node) { return selected.contains(node.ID); });
                 m_Selected = 0;
+                m_Selection.clear();
             }
         }
         ImGui::SeparatorText("Graph variables");
         ImGui::InputTextWithHint("##variable", "Variable name", m_Name, sizeof(m_Name));
         static int type = 2;
-        const char* types[] = { "Exec", "Bool", "Number", "String", "Vec2", "Vec3", "Vec4", "Entity" };
-        ImGui::Combo("Type", &type, types, 8);
+        const char* types[] = { "Exec", "Bool", "Number", "String", "Vec2", "Vec3", "Vec4", "Entity", "ArrayBool", "ArrayNumber", "ArrayString", "ArrayVec2", "ArrayVec3", "ArrayVec4", "ArrayEntity" };
+        ImGui::Combo("Type", &type, types, int(Type::Count));
         if (ImGui::Button("Add variable") && m_Name[0] && type > 0 && !m_Graph.Variables.contains(m_Name))
         {
             Snapshot();
-            Value d = type == 1 ? Value(false) : type == 3 ? Value("")
-                                             : type == 7   ? Value(0ull)
-                                             : type == 2   ? Value(0.0)
-                                                           : Value(std::vector<double>(type - 2, 0));
+            Value d = DefaultValue(Type(type));
             m_Graph.Variables[m_Name] = { (Type)type, d };
         }
-        std::string remove;
+        std::string remove, renameFrom, renameTo;
         for (auto& [name, v] : m_Graph.Variables)
         {
             auto value = v.Default;
@@ -544,6 +680,14 @@ namespace Zamin {
             }
             ImGui::PushID(name.c_str());
             if (ImGui::SmallButton("Remove")) remove = name;
+            ImGui::SameLine();
+            char renamed[129]{};
+            std::snprintf(renamed, sizeof(renamed), "%s", name.c_str());
+            if (ImGui::InputText("Rename", renamed, sizeof(renamed), ImGuiInputTextFlags_EnterReturnsTrue))
+            {
+                renameFrom = name;
+                renameTo = renamed;
+            }
             ImGui::PopID();
         }
         if (!remove.empty())
@@ -551,6 +695,12 @@ namespace Zamin {
             Snapshot();
             m_Graph.Variables.erase(remove);
         }
+        if (!renameFrom.empty())
+        {
+            Snapshot();
+            if (!m_Graph.RenameVariable(renameFrom, renameTo)) m_Error = "Variable rename rejected: duplicate/empty name";
+        }
+        Functions();
         ImGui::EndDisabled();
         ImGui::SeparatorText("Scene instance");
         Entity selected = m_Scene ? m_Scene->GetEntityByUUID(m_Entity) : Entity{};
@@ -608,6 +758,14 @@ namespace Zamin {
                     auto& vm = host->VM;
                     ImGui::Checkbox("Enable breakpoints", &vm.Debug);
                     ImGui::Text("Node: %u | Pending: %zu", vm.CurrentNode, vm.Pending());
+                    ImGui::Text("Retained data: %.1f KiB", vm.RetainedBytes() / 1024.0);
+                    if (!vm.CallStack().empty()) ImGui::TextWrapped("Calls: %s", vm.CallStack().c_str());
+                    const auto frame = vm.DebugFrame();
+                    if (!frame.empty() && ImGui::TreeNode("Function frame"))
+                    {
+                        ImGui::TextWrapped("%s", frame.dump(2).c_str());
+                        ImGui::TreePop();
+                    }
                     if (ImGui::Button(vm.Paused ? "Continue" : "Pause"))
                     {
                         if (vm.Paused) vm.Continue();

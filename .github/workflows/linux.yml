@@ -22,7 +22,7 @@ jobs:
         run: |
           Tests/install_linux_dependencies.sh ninja-build libgl-dev libx11-dev libxrandr-dev libxinerama-dev \
             libxcursor-dev libxi-dev libwayland-dev libxkbcommon-dev wayland-protocols xvfb mesa-utils \
-            libgl1-mesa-dri libglx-mesa0
+            libgl1-mesa-dri libglx-mesa0 xdotool imagemagick
 
       - name: Configure
         env:
@@ -90,6 +90,16 @@ jobs:
       - name: World crowd crossing, steering telemetry and editor graph
         run: python3 Tests/world_crowd_test.py --build build --out world-streaming/crowd
 
+      - name: Blueprint editor authoring shortcuts
+        env:
+          ZAMIN_BUILD_DIR: build
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          LP_NUM_THREADS: "2"
+        run: xvfb-run -a -s '-screen 0 1600x1000x24 -nolisten tcp' python3 Tests/visual_graph_editor_test.py
+
+      - name: Typed Blueprint gameplay and compiler-free export
+        run: python3 Tests/blueprint_workflow_test.py --build build --out world-streaming/blueprint --exports
+
       - name: World dynamic barrier and bounded recovery workflow
         run: python3 Tests/world_recovery_test.py --build build --out world-streaming/recovery
 
@@ -103,7 +113,9 @@ jobs:
         if: always()
         with:
           name: world-streaming-${{ matrix.compiler.cc }}
-          path: world-streaming/
+          path: |
+            world-streaming/
+            build/VisualEditorTest/
           if-no-files-found: warn
 
       # Every window, page, menu and popup of the editor for a few frames (Showcase3D, Platformer2D): an error in

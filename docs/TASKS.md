@@ -22,6 +22,30 @@ saqlanadi; ulardagi belgi yangi imkoniyatning ishlayotganiga dalil o'rnini bosma
 | P7 Platforma, release va mahsulot | Linux/Windows, keyin macOS; cook/package/update/crash telemetry; editor/launcher yagona auth | Toza mashinada install/export/run, talablar va litsenziyalar, imzolangan release va rollback sinovi | Rejada |
 | P8 Yakuniy sifat darvozasi | Hujjatlar, ko'chirish yo'li, ikki namunaviy o'yin va profiling hisobotlari | Uzoq sessiya, resurs sizishi, recovery/fuzz, reference sahnalarda barqaror frame time va foydalanish sinovi | Rejada |
 
+### Yakunlangan bo‘lim — Blueprint gameplay acceptance
+
+- [x] Typed function signatures, parameters/results, isolated locals, nested/delayed calls and bounded recursion.
+- [x] All seven typed arrays, safe operations and snapshot ForEach; literal/value/event memory limits.
+- [x] Named local events, validated dynamic pins/scopes, runtime diagnostics and call stack.
+- [x] Editor signature/array authoring, multi-select/copy/paste/duplicate/delete, rename and undo.
+- [x] Compiler-free 2D/3D workshop, real UI/runtime/export oracles, sanitizer/regression, docs and main push.
+
+Bu bo‘lim gameplay graph’ning author → validate → run/debug → export zanjirini yakunlaydi.
+Network RPC, graph inheritance va native code generation P6/toolchain bosqichlariga tegishli;
+ular shu acceptance uchun yashirin “qolgan ish” sifatida sanalmaydi.
+
+Tekshiruv (2026-11-11): 911/911 unit (31 yangi), Blueprint focused 31/31, headless CTest 11/11.
+Clang 18 syntax-only -Werror: 7 ta o‘zgargan TU. Graph VM/model/function va 30 ta CPU test
+ASan/UBSan/LeakSanitizer bilan tekshirildi; leaf probe faqat fayl yozish uchun kichik stub ishlatadi,
+butun engine va diskdagi atomik yozuv bu sanitizer probe’da instrumentlanmagan. Haqiqiy I/O va sahna
+lifecycle normal unit to‘plamida tekshirildi. Dalillar: `build-review/BlueprintCompletion/`.
+Real ImGui authoring testi typed wire/rejection, Undo/Redo, copy/paste/duplicate/delete va guruh tahririni tekshiradi.
+2D/3D workflow compiler va native game modulisiz parametr/lokal/Delay/ForEach/custom event zanjirini
+12/18 natija bilan bajaradi. CI ushbu workflow, eksport va editor authoring tekshiruvlarini qaytaradi.
+
+Keyingi alohida bo‘lim: animatsiya state machine/blend va gameplay bilan bog‘lash; uning yakuni ham
+runtime, editor, namunalar va eksport acceptance’i bilan o‘lchanadi.
+
 ### Yakunlangan katta paket — dynamic obstacle va bounded recovery
 
 - [x] Same-frame world atlas publication after carving; synthetic mosaic excluded from carve feedback.

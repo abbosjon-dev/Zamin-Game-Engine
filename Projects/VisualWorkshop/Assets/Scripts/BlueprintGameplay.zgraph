@@ -1,0 +1,346 @@
+{
+  "Format": "Zamin.VisualGraph",
+  "Version": 1,
+  "Nodes": [
+    {
+      "ID": 1,
+      "Kind": "Event.Start",
+      "X": 30,
+      "Y": 30,
+      "Inputs": {}
+    },
+    {
+      "ID": 2,
+      "Kind": "Get.ArrayNumber",
+      "X": 30,
+      "Y": 170,
+      "Inputs": {
+        "Name": "Items"
+      }
+    },
+    {
+      "ID": 3,
+      "Kind": "ForEach.Number",
+      "X": 280,
+      "Y": 30,
+      "Inputs": {}
+    },
+    {
+      "ID": 4,
+      "Kind": "Function.Call",
+      "X": 560,
+      "Y": 30,
+      "Inputs": {
+        "Name": "Award"
+      }
+    },
+    {
+      "ID": 5,
+      "Kind": "Get.Number",
+      "X": 300,
+      "Y": 270,
+      "Inputs": {
+        "Name": "Multiplier"
+      }
+    },
+    {
+      "ID": 6,
+      "Kind": "Get.Number",
+      "X": 560,
+      "Y": 300,
+      "Inputs": {
+        "Name": "Total"
+      }
+    },
+    {
+      "ID": 7,
+      "Kind": "Add",
+      "X": 820,
+      "Y": 160,
+      "Inputs": {}
+    },
+    {
+      "ID": 8,
+      "Kind": "Set.Number",
+      "X": 1050,
+      "Y": 30,
+      "Inputs": {
+        "Name": "Total"
+      }
+    },
+    {
+      "ID": 9,
+      "Kind": "EmitEvent",
+      "X": 560,
+      "Y": 470,
+      "Inputs": {
+        "Name": "Finished"
+      }
+    },
+    {
+      "ID": 10,
+      "Kind": "Event.Custom",
+      "X": 30,
+      "Y": 720,
+      "Inputs": {
+        "Name": "Finished"
+      }
+    },
+    {
+      "ID": 11,
+      "Kind": "NumberToText",
+      "X": 300,
+      "Y": 880,
+      "Inputs": {}
+    },
+    {
+      "ID": 12,
+      "Kind": "Concat",
+      "X": 560,
+      "Y": 800,
+      "Inputs": {
+        "A": "BLUEPRINT_ACCEPTANCE total="
+      }
+    },
+    {
+      "ID": 13,
+      "Kind": "Print",
+      "X": 820,
+      "Y": 720,
+      "Inputs": {}
+    },
+    {
+      "ID": 20,
+      "Kind": "Function.Entry",
+      "X": 30,
+      "Y": 1100,
+      "Inputs": {
+        "Name": "Award"
+      }
+    },
+    {
+      "ID": 21,
+      "Kind": "Multiply",
+      "X": 300,
+      "Y": 1290,
+      "Inputs": {}
+    },
+    {
+      "ID": 22,
+      "Kind": "Local.Set.Number",
+      "X": 560,
+      "Y": 1100,
+      "Inputs": {
+        "Name": "Calculated"
+      }
+    },
+    {
+      "ID": 23,
+      "Kind": "Delay",
+      "X": 820,
+      "Y": 1100,
+      "Inputs": {
+        "Seconds": 0.01
+      }
+    },
+    {
+      "ID": 24,
+      "Kind": "Local.Get.Number",
+      "X": 820,
+      "Y": 1360,
+      "Inputs": {
+        "Name": "Calculated"
+      }
+    },
+    {
+      "ID": 25,
+      "Kind": "Function.Return",
+      "X": 1080,
+      "Y": 1100,
+      "Inputs": {
+        "Name": "Award"
+      }
+    }
+  ],
+  "Links": [
+    {
+      "From": 1,
+      "Output": "Then",
+      "To": 3,
+      "Input": "In"
+    },
+    {
+      "From": 2,
+      "Output": "Value",
+      "To": 3,
+      "Input": "Array"
+    },
+    {
+      "From": 3,
+      "Output": "Body",
+      "To": 4,
+      "Input": "In"
+    },
+    {
+      "From": 3,
+      "Output": "Value",
+      "To": 4,
+      "Input": "Amount"
+    },
+    {
+      "From": 5,
+      "Output": "Value",
+      "To": 4,
+      "Input": "Factor"
+    },
+    {
+      "From": 4,
+      "Output": "Then",
+      "To": 8,
+      "Input": "In"
+    },
+    {
+      "From": 4,
+      "Output": "Score",
+      "To": 7,
+      "Input": "A"
+    },
+    {
+      "From": 6,
+      "Output": "Value",
+      "To": 7,
+      "Input": "B"
+    },
+    {
+      "From": 7,
+      "Output": "Value",
+      "To": 8,
+      "Input": "Value"
+    },
+    {
+      "From": 3,
+      "Output": "Completed",
+      "To": 9,
+      "Input": "In"
+    },
+    {
+      "From": 6,
+      "Output": "Value",
+      "To": 9,
+      "Input": "Number"
+    },
+    {
+      "From": 10,
+      "Output": "Then",
+      "To": 13,
+      "Input": "In"
+    },
+    {
+      "From": 10,
+      "Output": "Number",
+      "To": 11,
+      "Input": "Number"
+    },
+    {
+      "From": 11,
+      "Output": "Value",
+      "To": 12,
+      "Input": "B"
+    },
+    {
+      "From": 12,
+      "Output": "Value",
+      "To": 13,
+      "Input": "Text"
+    },
+    {
+      "From": 20,
+      "Output": "Then",
+      "To": 22,
+      "Input": "In"
+    },
+    {
+      "From": 20,
+      "Output": "Amount",
+      "To": 21,
+      "Input": "A"
+    },
+    {
+      "From": 20,
+      "Output": "Factor",
+      "To": 21,
+      "Input": "B"
+    },
+    {
+      "From": 21,
+      "Output": "Value",
+      "To": 22,
+      "Input": "Value"
+    },
+    {
+      "From": 22,
+      "Output": "Then",
+      "To": 23,
+      "Input": "In"
+    },
+    {
+      "From": 23,
+      "Output": "Then",
+      "To": 25,
+      "Input": "In"
+    },
+    {
+      "From": 24,
+      "Output": "Value",
+      "To": 25,
+      "Input": "Score"
+    }
+  ],
+  "Variables": {
+    "Items": {
+      "Type": "ArrayNumber",
+      "Default": [
+        1,
+        2,
+        3
+      ]
+    },
+    "Multiplier": {
+      "Type": "Number",
+      "Default": 2
+    },
+    "Total": {
+      "Type": "Number",
+      "Default": 0
+    }
+  },
+  "Functions": {
+    "Award": {
+      "Inputs": [
+        {
+          "Name": "Amount",
+          "Type": "Number",
+          "Default": 0
+        },
+        {
+          "Name": "Factor",
+          "Type": "Number",
+          "Default": 1
+        }
+      ],
+      "Outputs": [
+        {
+          "Name": "Score",
+          "Type": "Number",
+          "Default": 0
+        }
+      ],
+      "Locals": {
+        "Calculated": {
+          "Type": "Number",
+          "Default": 0
+        }
+      }
+    }
+  }
+}

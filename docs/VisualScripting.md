@@ -2,7 +2,7 @@
 
 Zamin Visual Script — engine ichidagi `.zgraph` node muharriri va chegaralangan bajarish tizimi.
 2D va 3D loyihalar uchun bir xil ishlaydi. Graph asosidagi loyiha C++ kompilyatori yoki o'yin `.so` modulini talab qilmaydi.
-Bu birinchi ishlaydigan versiya; Unreal Blueprints bilan to'liq tenglik da'vo qilinmaydi.
+Gameplay graph authoring va bajarish bo‘limi typed funksiyalar, kolleksiyalar, debug va compiler-free eksport bilan ishlaydi. Unreal Blueprints bilan to‘liq tenglik da’vo qilinmaydi.
 
 ## Boshlash
 
@@ -14,7 +14,7 @@ Bu birinchi ishlaydigan versiya; Unreal Blueprints bilan to'liq tenglik da'vo qi
 
 O'rta sichqon tugmasi — pan; g'ildirak — zoom; **Fit graph** — hamma node'ni ko'rinishga sig'dirish.
 Node sarlavhasini tortish — joylashuv; pin ustida o'ng tugma — simlarni uzish.
-Tanlangan node **Delete node** orqali o'chadi. Graphning o'z **Undo/Redo** tarixi 64 holat / 32 MB bilan chegaralangan.
+Ctrl-click — ko‘p node tanlash; Ctrl+A — hammasi; Ctrl+C/V — nusxa olish/qo‘yish; Ctrl+D — ko‘paytirish; Delete — tanlanganlarni o‘chirish. Guruh sarlavhasini tortish tanlanganlarni birga ko‘chiradi. Copy/Paste/Duplicate tugmalari ham mavjud. Clipboard shu editor sessiyasida saqlanadi; ichki simlar va zarur signaturalar ko‘chadi. Nom to‘qnashsa yangi nom beriladi, yaroqsiz paste graphni o‘zgartirmaydi. Tanlangan node **Delete node** orqali ham o‘chadi. Graphning o'z **Undo/Redo** tarixi 64 holat / 32 MB bilan chegaralangan.
 Saqlanmagan graph ustiga boshqa fayl ochilmaydi; **Save** yoki **Discard edits** bilan davom etiladi.
 Fayl atomik yoziladi; yozish xatosida tahrirlar oynada qoladi.
 
@@ -24,7 +24,9 @@ Fayl atomik yoziladi; yozish xatosida tahrirlar oynada qoladi.
 - Collision/trigger, UI pointer/click/select/input, animatsiya, audio tugashi, AI target/patrol, scene va language hodisalari.
 - Number, Bool, String, Vec2/3/4, Entity qiymatlar; qat'iy turli pinlar; graph o'zgaruvchilari va nusxa uchun overrides.
 - Branch, Sequence, For/Index/Completed, While, Break, Delay.
-- Nomlangan Function/Call: graph o'zgaruvchilaridan foydalanadigan, qayta ishlatiladigan bajarish zanjirlari. Delay ichida ham chaqiruvning davom etish joyi saqlanadi.
+- Typed Function.Entry/Call/Return: parametrlar, bir nechta natija, har chaqiruvga alohida lokal o‘zgaruvchilar, nested/delayed chaqiruvlar. Eski Function/Call graphlari ham ishlaydi.
+- Bool/Number/String/Vec2/Vec3/Vec4/Entity massivlari: Empty, Append, Set, Remove, Get, Length, Contains, Find, Slice, Concat va snapshot ForEach.
+- Event.Custom + EmitEvent: graph nusxasi ichida nomlangan hodisa, Number/Text/Bool/Vector3/Other payload. Boshqa obyektga xabar uchun SendMessage ishlatiladi.
 - Matematik, mantiqiy va vektor amallari, matn birlashtirish, raqamni matnga aylantirish.
 - Input axis/action, transform, entity qidirish/yaratish/o'chirish, active holati va taglar.
 - 2D/3D raycast (Hit, Entity, Point, Normal, Distance); navigatsiya destination/stop/arrival.
@@ -37,6 +39,23 @@ SetScale render transformini o'zgartiradi; runtime collider geometriyasini qayta
 `Target` bo'sh turganda **Self** ishlatiladi. **None** yoki qidiruvdan qaytgan nol UUID o'z obyektiga aylantirilmaydi: noto'g'ri target diagnostika beradi.
 Entity qiymatiga ierarxiyadan obyekt tortib tashlash mumkin.
 
+## Funksiya va kolleksiyalarni yozish
+
+Properties ichidagi **Typed functions → Function name → Create function** typed kirish/qaytish juftligini yaratadi.
+Funksiya daraxtida Inputs/Outputs/Locals turini, nomini va boshlang‘ich qiymatini tahrirlang; **Add call node** bilan chaqiring.
+Entry parametr chiqishlarini tana amallariga, natijani Return kirishiga ulang. Return faqat o‘z funksiyasida ishlaydi.
+Natijali funksiya bajarilish yo‘li Return’siz tugasa, VM aniq xato bilan to‘xtaydi; natijasiz funksiya erkin tugashi mumkin.
+Local.Get/Set faqat shu chaqiruvning qiymatiga tegadi; rekursiya va parallel Delay vazifalari ularni ulashmaydi.
+Funksiya/graph o‘zgaruvchisini Rename qilish tegishli node nomlarini ham yangilaydi. Pin nomi/turi o‘zgarsa
+mos kelmay qolgan simlar/literallar olib tashlanadi; Undo ularni tiklaydi. Event ma’lumotini funksiyaga argument orqali bering.
+
+Massiv literalida Add/Remove, 16 elementli sahifalar va **Paste array JSON** bor. `Array.Get/Set/Remove` indeksi
+0 dan boshlanadi; kasr/manfiy/chegaradan tashqari indeks bajarilish xatosidir. Slice Start/Count butun va chegarada bo‘lishi kerak.
+Find topilmasa -1 qaytaradi. ForEach kirish massivining nusxasi ustida ishlaydi: tana ichida global massivni o‘zgartirish
+joriy aylanish tarkibini o‘zgartirmaydi. Body’dan qaytgach keyingi element, so‘ng Completed ishlaydi; Break eng ichki loopni tugatadi.
+Break typed funksiya chegarasidan tashqaridagi caller loopga o‘ta olmaydi.
+EmitEvent joriy zanjirdan keyin navbatdagi VM bajarish davrida yetkaziladi; rekursiv synchronous event stack yaratmaydi.
+
 ## Bajarish qoidalari va debug
 
 Ma'lumot pinlari kerak bo'lgan paytda hisoblanadi: loop ichidagi Get yangilangan o'zgaruvchini ko'radi.
@@ -46,13 +65,16 @@ Break ichki loopni tugatadi va uning Completed chiqishiga o'tadi.
 Delay kutayotgan hodisaning ma'lumotlari va bajarish stekini saqlaydi. Entity/script nofaol bo'lsa kutish ham to'xtaydi.
 Bir hodisani qayta-qayta boshlash alohida bajarish vazifalarini yaratadi; har frame uzun Delay boshlash o'rniga buni Start yoki tegishli input hodisasidan boshlang.
 
-Play paytida tanlangan obyektning graph oynasida **Enable breakpoints**, **Pause**, **Continue**, **Step**, o'zgaruvchilar va oxirgi 128 node izi mavjud.
+Play paytida tanlangan obyektning graph oynasida **Enable breakpoints**, **Pause**, **Continue**, **Step**, o‘zgaruvchilar va oxirgi 128 node izi mavjud. Calls chaqiruv zanjiri, Function frame argument/lokallari va Retained data hajmi ko‘rsatiladi.
 Breakpoint graph nusxasini to'xtatadi; boshqa obyektlar va o'yin simulyatsiyasi davom etadi. O'yinning umumiy Pause boshqaruvi alohida.
 Player'da breakpoints avtomatik o'chirilgan; editor debug belgisi buildga majburiy to'xtash kiritmaydi.
 
 Bajarish 10000 ko'rsatma bilan chegaralanadi; cheksiz loop o'rniga node raqami bilan xato chiqadi.
 Ma'lumot chuqurligi 128, bajarish steki 1024, bir vaqtdagi vazifalar 128, o'zaro graph chaqiruv chuqurligi 32 bilan cheklangan.
-Graph 4096 node / 8192 sim / 256 o'zgaruvchi / 4 MB faylgacha; matn qiymati 64 KB gacha.
+Graph 4096 node / 8192 sim / 256 o‘zgaruvchi / 64 funksiya / 4 MB faylgacha; matn qiymati 64 KB gacha.
+Har funksiyada 32 kirish, 32 natija va 32 lokal; defaultlar jami 64 KiB, typed chaqiruv chuqurligi 32.
+Massiv 1024 element va hisoblangan 64 KiB payload bilan chegaralangan. Event 32 kalit va 64 KiB.
+VM saqlab turgan qiymatlar/vazifa yozuvlari jami 8 MiB bilan chegaralangan; bu umumiy process RSS o‘lchovi emas.
 Noma'lum node, yo'qolgan pin, tur xatosi, ikki manbali ma'lumot kirishi, takrorlangan ID, data cycle va nolga bo'lish rad etiladi.
 Xato shu graph nusxasini to'xtatadi va konsol/debug panelga chiqadi.
 
@@ -62,7 +84,7 @@ Graph engine'ning mavjud `NativeScriptComponent` lifecycle'ida ichki `Zamin.Visu
 Shuning uchun bitta obyektning bitta skript slotiga C++ yoki visual graph ulanadi. C++ skript bor obyektga ulash tugmasi almashtirishni aniq ko'rsatadi.
 Ikkisini birlashtirish uchun alohida controller obyektlari, xabarlar va aks ettirilgan maydonlardan foydalaning.
 C++ metodlari avtomatik nodega aylanmaydi: faqat katalogdagi API va ro'yxatga olingan maydonlar mavjud.
-Bu versiyada Curve/Enum/array/struct pinlari, parametrli/return qiymatli funksiyalar, macro/collapse, inheritance, RPC va bytecode/native code generation yo'q.
+Curve/Enum/custom struct pinlari, macro/collapse, graph inheritance, network RPC va bytecode/native code generation alohida rivojlantirish bosqichlaridir. Typed funksiyalar va yuqoridagi yetti massiv turi ushbu bo‘limga kiradi.
 
 Graph assets registryda ro'yxatlanadi, Content Browser'da ochiladi, asset inspector diagnostika ko'rsatadi.
 Graph ichidagi asset yo'llari reference scan va rename bilan yuritiladi. Graph o'zgaruvchisini override qiladigan asset yo'lini
@@ -75,7 +97,8 @@ C++ hot reload graph o'zgaruvchilarini saqlaydi, lekin boshqa native taymerlar k
 [VisualWorkshop](../Projects/VisualWorkshop/VisualWorkshop.zproject) C++ modulisiz ikkita sahnaga ega:
 
 - `Visual2D`: WASD/arrow input → 2D velocity; triggerga tegish rangni vaqtincha o'zgartiradi.
-- `Visual3D`: ikkita kub bir graph bilan, turli Speed override'lari orqali teskari tezliklarda aylanadi.
+- `Visual3D`: ikkita kub bir graph bilan, turli Speed override’lari orqali teskari tezliklarda aylanadi.
+- Ikkala sahnada `BlueprintGameplay.zgraph`: massiv → ForEach → typed Award(Amount, Factor) → lokal/Delay/Return → Total → Finished event → Print. Multiplier override sabab 2D jami 12, 3D jami 18.
 
 `ZaminTests --filter VisualGraph` VM, tur/format/cycle tekshiruvi, delay/loop/function davom etishi, budget, debug, izolyatsiya,
 C++ maydon ko'prigi, haqiqiy sahna lifecycle va null target himoyasini bajaradi.
@@ -129,3 +152,13 @@ uchta variable’ni yangilaydi; ko‘rsatkichlar oxirgi navigatsiya update’iga
 watchdog’ini reset qilib, re-path so‘raydi va pending traversal token’ini bekor qiladi; yangi
 query keyingi owner nav update’ida boshlanadi. `RecoveryMonitor.zgraph` 8 node / 9 link bilan
 holatni o‘qish va Message orqali retry’ni ko‘rsatadi.
+
+Typed funksiyalar/kolleksiyalar modeli va VM testlari: `ZaminTests --filter Blueprint`.
+Real 2D/3D Player/editor screenshotlari va modulsiz eksport tekshiruvi:
+
+```bash
+python3 Tests/blueprint_workflow_test.py --build build-review --exports
+```
+
+Eksport tekshiruvi ikkala sahnada haqiqiy score loglarini, PNG, eksport hisoboti va ko‘chirilgan launcher versiyasini tekshiradi.
+Sahna lifecycle testi Total qiymati va vazifalar tugashini VM ichidan ham tekshiradi.

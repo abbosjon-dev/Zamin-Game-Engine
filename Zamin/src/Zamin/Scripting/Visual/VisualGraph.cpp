@@ -27,25 +27,23 @@ namespace Zamin::Visual {
         }
         bool SafeValue(const Value& v)
         {
-            if (v.is_number()) return std::isfinite(v.get<double>());
             if (v.is_string()) return v.get_ref<const std::string&>().size() <= 65536;
-            if (v.is_array())
-            {
-                if (v.size() > 4) return false;
-                for (auto& x : v)
-                    if (!x.is_number() || !std::isfinite(x.get<double>())) return false;
-                return true;
-            }
-            return v.is_boolean() || v.is_null();
+            if (ValueBytes(v) > 65536) return false;
+            if (v.is_number()) return std::isfinite(v.get<double>());
+            if (v.is_string() || v.is_boolean() || v.is_null()) return true;
+            if (!v.is_array() || v.size() > 1024) return false;
+            return std::all_of(v.begin(), v.end(), [](const auto& item) { return SafeValue(item); });
         }
     }
     const char* TypeName(Type t)
     {
-        static const char* n[] = { "Exec", "Bool", "Number", "String", "Vec2", "Vec3", "Vec4", "Entity" };
-        return n[(int)t];
+        static const char* names[] = { "Exec", "Bool", "Number", "String", "Vec2", "Vec3", "Vec4", "Entity", "ArrayBool", "ArrayNumber", "ArrayString", "ArrayVec2", "ArrayVec3", "ArrayVec4", "ArrayEntity" };
+        return t >= Type::Exec && t < Type::Count ? names[int(t)] : "Invalid";
     }
     bool Matches(Type t, const Value& v)
     {
+        if (t < Type::Exec || t >= Type::Count) return false;
+        if (IsArray(t)) return ValueBytes(v) <= 65536 && v.is_array() && v.size() <= 1024 && std::all_of(v.begin(), v.end(), [&](const auto& item) { return Matches(ElementType(t), item); });
         switch (t)
         {
             case Type::Exec:   return v.is_null();
@@ -54,16 +52,11 @@ namespace Zamin::Visual {
             case Type::String: return v.is_string() && v.get_ref<const std::string&>().size() <= 65536;
             case Type::Entity: return v.is_number_unsigned() || (v.is_number_integer() && v.get<int64_t>() >= 0);
             default:
-            {
-                size_t n = t == Type::Vec2 ? 2 : t == Type::Vec3 ? 3
-                                                                 : 4;
-                if (!v.is_array() || v.size() != n) return false;
-                for (auto& x : v)
-                    if (!Matches(Type::Number, x)) return false;
-                return true;
-            }
+                if (!v.is_array() || v.size() != size_t(int(t) - int(Type::Vec2) + 2)) return false;
+                return std::all_of(v.begin(), v.end(), [](const auto& item) { return Matches(Type::Number, item); });
         }
     }
+
     const std::map<std::string, Definition>& Catalog()
     {
         static const auto catalog = [] {std::map<std::string,Definition> c;
@@ -88,6 +81,39 @@ for (auto name : { "Create", "Enable", "Start", "Disable", "Destroy", "Update", 
     }
     if (event.starts_with("Pointer") || event == "ScrollChanged") outputs.push_back(V("Vector", 2));
     add("Event." + event, "Events", {}, outputs);
+}
+add("Function.Entry", "Typed functions", { S("Name", "MyFunction") }, { E("Then") });
+add("Function.Call", "Typed functions", { E("In"), S("Name", "MyFunction") }, { E("Then") });
+add("Function.Return", "Typed functions", { E("In"), S("Name", "MyFunction") }, {});
+add("Event.Custom", "Events", { S("Name", "MyEvent") }, { E("Then"), N("Number"), S("Text"), B("Bool"), V("Vector"), EntityPin("Other") });
+add("EmitEvent", "Events", { E("In"), S("Name", "MyEvent"), N("Number"), S("Text"), B("Bool"), V("Vector"), EntityPin("Other") }, { E("Then") });
+for (int ti = 1; ti < int(Type::Count); ++ti)
+{
+    auto type = Type(ti);
+    auto value = DefaultValue(type);
+    std::string name = TypeName(type);
+    add("Local.Get." + name, "Function locals", { S("Name") }, { { "Value", type, value } }, true);
+    add("Local.Set." + name, "Function locals", { E("In"), S("Name"), { "Value", type, value } }, { E("Then") });
+    if (IsArray(type))
+    {
+        auto element = ElementType(type);
+        std::string suffix = TypeName(element);
+        auto item = DefaultValue(element);
+        add("Constant." + name, "Collections", { { "Value", type, value } }, { { "Value", type, value } }, true);
+        add("Get." + name, "Variables", { S("Name") }, { { "Value", type, value } }, true);
+        add("Set." + name, "Variables", { E("In"), S("Name"), { "Value", type, value } }, { E("Then") });
+        add("Array.Empty." + suffix, "Collections", {}, { { "Value", type, value } }, true);
+        add("Array.Append." + suffix, "Collections", { { "Array", type, value }, { "Value", element, item } }, { { "Value", type, value } }, true);
+        add("Array.Set." + suffix, "Collections", { { "Array", type, value }, N("Index"), { "Value", element, item } }, { { "Value", type, value } }, true);
+        add("Array.Remove." + suffix, "Collections", { { "Array", type, value }, N("Index") }, { { "Value", type, value } }, true);
+        add("Array.Get." + suffix, "Collections", { { "Array", type, value }, N("Index") }, { { "Value", element, item } }, true);
+        add("Array.Length." + suffix, "Collections", { { "Array", type, value } }, { N("Value") }, true);
+        add("Array.Contains." + suffix, "Collections", { { "Array", type, value }, { "Value", element, item } }, { B("Value") }, true);
+        add("Array.Find." + suffix, "Collections", { { "Array", type, value }, { "Value", element, item } }, { N("Value", -1) }, true);
+        add("Array.Slice." + suffix, "Collections", { { "Array", type, value }, N("Start"), N("Count") }, { { "Value", type, value } }, true);
+        add("Array.Concat." + suffix, "Collections", { { "Array", type, value }, { "Other", type, value } }, { { "Value", type, value } }, true);
+        add("ForEach." + suffix, "Collections", { E("In"), { "Array", type, value } }, { E("Body"), E("Completed"), N("Index", -1), { "Value", element, item } });
+    }
 }
 add("Function","Functions",{S("Name","MyFunction")},{E("Then")});
 add("Call","Functions",{E("In"),S("Name","MyFunction")},{E("Then")});
@@ -174,6 +200,19 @@ return c; }();
         std::vector<Diagnostic> d;
         auto error = [&](uint32_t n, std::string s) { d.push_back({ n, std::move(s) }); };
         if (Nodes.size() > 4096 || Links.size() > 8192 || Variables.size() > 256) error(0, "Graph size limit exceeded");
+        auto extra = ValidateFunctions();
+        d.insert(d.end(), extra.begin(), extra.end());
+        std::map<uint32_t, const Node*> nodeMap;
+        std::map<uint32_t, Definition> definitions;
+        size_t payload = 0;
+        for (const auto& node : Nodes)
+        {
+            nodeMap[node.ID] = &node;
+            definitions[node.ID] = Describe(node);
+            for (const auto& [key, value] : node.Inputs) payload += key.size() + ValueBytes(value);
+        }
+        for (const auto& [name, var] : Variables) payload += name.size() + ValueBytes(var.Default);
+        if (payload > 4 * 1024 * 1024) error(0, "Graph literal payload exceeds 4 MiB");
         std::set<std::string> functions;
         for (auto& n : Nodes)
             if (n.Kind == "Function")
@@ -202,7 +241,7 @@ return c; }();
             if (!std::isfinite(n.X) || !std::isfinite(n.Y)) error(n.ID, "Invalid position");
             for (auto& [key, value] : n.Inputs)
             {
-                auto* p = FindPin(it->second.Inputs, key);
+                auto* p = FindPin(definitions.at(n.ID).Inputs, key);
                 if (!p || p->Kind == Type::Exec || !Matches(p->Kind, value)) error(n.ID, "Invalid input: " + key);
             }
             if (n.Kind.starts_with("Get.") || n.Kind.starts_with("Set."))
@@ -213,7 +252,7 @@ return c; }();
                 if (v == Variables.end()) error(n.ID, "Unknown variable: " + key);
                 else
                 {
-                    auto& p = n.Kind.starts_with("Get.") ? it->second.Outputs.back() : it->second.Inputs.back();
+                    auto& p = n.Kind.starts_with("Get.") ? definitions.at(n.ID).Outputs.back() : definitions.at(n.ID).Inputs.back();
                     if (v->second.Kind != p.Kind) error(n.ID, "Variable type differs from node");
                 }
             }
@@ -224,8 +263,8 @@ return c; }();
         std::map<uint32_t, std::vector<uint32_t>> dependencies;
         for (auto& l : Links)
         {
-            auto* a = Find(l.From);
-            auto* b = Find(l.To);
+            auto* a = nodeMap.contains(l.From) ? nodeMap.at(l.From) : nullptr;
+            auto* b = nodeMap.contains(l.To) ? nodeMap.at(l.To) : nullptr;
             if (!a || !b)
             {
                 error(l.To, "Link references missing node");
@@ -233,8 +272,8 @@ return c; }();
             }
             auto ai = Catalog().find(a->Kind), bi = Catalog().find(b->Kind);
             if (ai == Catalog().end() || bi == Catalog().end()) continue;
-            auto* o = FindPin(ai->second.Outputs, l.Output);
-            auto* i = FindPin(bi->second.Inputs, l.Input);
+            auto* o = FindPin(definitions.at(a->ID).Outputs, l.Output);
+            auto* i = FindPin(definitions.at(b->ID).Inputs, l.Input);
             if (!o || !i || o->Kind != i->Kind)
             {
                 error(l.To, "Link pin types differ or pin missing");
@@ -242,7 +281,7 @@ return c; }();
             }
             if (i->Kind != Type::Exec && !inputs.insert({ l.To, l.Input }).second) error(l.To, "Data input already linked");
             if (i->Kind == Type::Exec && !execOutputs.insert({ l.From, l.Output }).second) error(l.From, "Execution output already linked; use Sequence");
-            if (l.Input == "Name" && (b->Kind == "Function" || b->Kind == "Call" || b->Kind.starts_with("Get.") || b->Kind.starts_with("Set."))) error(l.To, "Variable name must be a literal");
+            if (l.Input == "Name" && (b->Kind == "Function" || b->Kind == "Call" || b->Kind.starts_with("Function.") || b->Kind == "Event.Custom" || b->Kind.starts_with("Local.") || b->Kind.starts_with("Get.") || b->Kind.starts_with("Set."))) error(l.To, "Variable name must be a literal");
             if (i->Kind != Type::Exec) dependencies[l.To].push_back(l.From);
         }
         std::map<uint32_t, int> color;
@@ -256,6 +295,15 @@ return c; }();
         for (auto& n : Nodes) j["Nodes"].push_back({ { "ID", n.ID }, { "Kind", n.Kind }, { "X", n.X }, { "Y", n.Y }, { "Inputs", n.Inputs }, { "Breakpoint", n.Breakpoint } });
         for (auto& l : Links) j["Links"].push_back({ { "From", l.From }, { "Output", l.Output }, { "To", l.To }, { "Input", l.Input } });
         for (auto& [name, v] : Variables) j["Variables"][name] = { { "Type", TypeName(v.Kind) }, { "Default", v.Default } };
+        j["Functions"] = Value::object();
+        for (const auto& [name, signature] : Functions)
+        {
+            Value function = { { "Inputs", Value::array() }, { "Outputs", Value::array() }, { "Locals", Value::object() } };
+            for (const auto& p : signature.Inputs) function["Inputs"].push_back({ { "Name", p.Name }, { "Type", TypeName(p.Kind) }, { "Default", p.Default } });
+            for (const auto& p : signature.Outputs) function["Outputs"].push_back({ { "Name", p.Name }, { "Type", TypeName(p.Kind) }, { "Default", p.Default } });
+            for (const auto& [key, v] : signature.Locals) function["Locals"][key] = { { "Type", TypeName(v.Kind) }, { "Default", v.Default } };
+            j["Functions"][name] = std::move(function);
+        }
         return j;
     }
     Graph Graph::Parse(const Value& j)
@@ -272,13 +320,33 @@ return c; }();
         for (auto it = vs.begin(); it != vs.end(); ++it)
         {
             bool found = false;
-            for (int i = 1; i <= 7; ++i)
+            for (int i = 1; i < int(Type::Count); ++i)
                 if (it.value().at("Type") == TypeName((Type)i))
                 {
                     g.Variables[it.key()] = { (Type)i, it.value().at("Default") };
                     found = true;
                 }
             Require(found, "Unknown variable type");
+        }
+        auto type = [&](const Value& value) { for (int i=1;i<int(Type::Count);++i) if(value==TypeName(Type(i))) return Type(i); throw std::runtime_error("Unknown signature type"); };
+        if (j.contains("Functions"))
+        {
+            const auto& functions = j.at("Functions");
+            Require(functions.is_object() && functions.size() <= 64, "Function definition limit/type");
+            for (auto it = functions.begin(); it != functions.end(); ++it)
+            {
+                FunctionSignature signature;
+                for (const char* side : { "Inputs", "Outputs" })
+                {
+                    const auto& pins = it.value().at(side);
+                    Require(pins.is_array() && pins.size() <= 32, "Function pin limit/type");
+                    for (const auto& pin : pins) (std::string(side) == "Inputs" ? signature.Inputs : signature.Outputs).push_back({ pin.at("Name").get<std::string>(), type(pin.at("Type")), pin.at("Default") });
+                }
+                const auto locals = it.value().value("Locals", Value::object());
+                Require(locals.is_object() && locals.size() <= 32, "Local variable limit/type");
+                for (auto v = locals.begin(); v != locals.end(); ++v) signature.Locals[v.key()] = { type(v.value().at("Type")), v.value().at("Default") };
+                g.Functions[it.key()] = std::move(signature);
+            }
         }
         return g;
     }
@@ -292,7 +360,7 @@ return c; }();
     }
     bool Graph::Save(const std::filesystem::path& p) const
     {
-        if (Nodes.size() > 4096 || Links.size() > 8192 || Variables.size() > 256) return false;
+        if (Nodes.size() > 4096 || Links.size() > 8192 || Variables.size() > 256 || Functions.size() > 64) return false;
         auto text = Serialize().dump(2);
         return text.size() <= 4 * 1024 * 1024 && FileSystem::WriteTextFileAtomic(p, text);
     }
@@ -323,16 +391,27 @@ return c; }();
         m_OutputLinks.clear();
         m_Functions.clear();
         m_Events.clear();
+        m_TypedEntries.clear();
+        m_Definitions.clear();
+        m_CallStack.clear();
+        std::map<std::string, std::shared_ptr<const Definition>> descriptions;
         for (size_t i = 0; i < m_Graph.Nodes.size(); ++i)
         {
             auto& n = m_Graph.Nodes[i];
             m_NodeIndex[n.ID] = i;
-            if (n.Kind.starts_with("Event.")) m_Events[n.Kind.substr(6)].push_back(n.ID);
+            std::string descriptionKey = n.Kind;
+            std::string functionName = n.Inputs.contains("Name") && n.Inputs.at("Name").is_string() ? n.Inputs.at("Name").get<std::string>() : "MyFunction";
+            descriptionKey = n.Kind + (n.Kind.starts_with("Function.") ? ":" + functionName : "");
+            if (!descriptions.contains(descriptionKey)) descriptions[descriptionKey] = std::make_shared<Definition>(m_Graph.Describe(n));
+            m_Definitions[n.ID] = descriptions.at(descriptionKey);
+            if (n.Kind == "Function.Entry") m_TypedEntries[functionName] = n.ID;
+            if (n.Kind == "Event.Custom") m_Events["Custom." + (n.Inputs.contains("Name") ? functionName : "MyEvent")].push_back(n.ID);
+            else if (n.Kind.starts_with("Event.")) m_Events[n.Kind.substr(6)].push_back(n.ID);
             if (n.Kind == "Function") m_Functions[n.Inputs.contains("Name") ? n.Inputs.at("Name").get<std::string>() : "MyFunction"] = n.ID;
         }
         for (auto& l : m_Graph.Links)
         {
-            auto& def = Catalog().at(m_Graph.Find(l.From)->Kind);
+            const auto& def = *m_Definitions.at(l.From);
             auto* pin = FindPin(def.Outputs, l.Output);
             if (pin->Kind == Type::Exec) m_OutputLinks[{ l.From, l.Output }] = l;
             else m_InputLinks[{ l.To, l.Input }] = l;
@@ -342,8 +421,19 @@ return c; }();
             auto it = overrides.is_object() ? overrides.find(name) : overrides.end();
             m_Variables[name] = it != overrides.end() && Matches(v.Kind, *it) ? *it : v.Default;
         }
+        try
+        {
+            CheckStorage();
+        }
+        catch (const std::exception& e)
+        {
+            m_Error = e.what();
+            m_Variables.clear();
+            return false;
+        }
         return true;
     }
+    const Definition& Machine::Def(const Node& node) const { return *m_Definitions.at(node.ID); }
     const Node* Machine::Find(uint32_t id) const
     {
         auto it = m_NodeIndex.find(id);
@@ -360,7 +450,7 @@ return c; }();
         if (linked != m_InputLinks.end()) return Evaluate(linked->second.From, linked->second.Output, t, active);
         auto it = n.Inputs.find(pin);
         if (it != n.Inputs.end()) return it->second;
-        auto* p = FindPin(Catalog().at(n.Kind).Inputs, pin);
+        auto* p = FindPin(Def(n).Inputs, pin);
         Require(p, "Unknown input");
         return p->Default;
     }
@@ -383,11 +473,69 @@ return c; }();
         if (k.starts_with("Event."))
         {
             auto it = t.Event.find(output);
-            r = it == t.Event.end() ? FindPin(Catalog().at(k).Outputs, output)->Default : *it;
+            r = it == t.Event.end() ? FindPin(Def(*n).Outputs, output)->Default : *it;
+        }
+        else if (k == "Function.Entry")
+        {
+            Require(!t.Calls.empty() && t.Calls.back().Entry == id, "Function parameter used outside its invocation");
+            r = t.Calls.back().Arguments.at(output);
+        }
+        else if (k.starts_with("Local.Get."))
+        {
+            Require(!t.Calls.empty(), "Local read outside a typed function");
+            r = t.Calls.back().Locals.at(in("Name").get<std::string>());
+        }
+        else if (k.starts_with("Array."))
+        {
+            auto part = k.substr(6, k.find('.', 6) - 6);
+            Value array = part == "Empty" ? Value::array() : in("Array");
+            auto index = [&](const char* key, bool end = false) {double value=num(key);Require(std::floor(value)==value && value>=0 && value<=double(array.size()) && (end || value<double(array.size())),"Array index outside range/integer");return size_t(value); };
+            if (part == "Empty") r = array;
+            else if (part == "Length") r = array.size();
+            else if (part == "Get") r = array.at(index("Index"));
+            else if (part == "Append")
+            {
+                Require(array.size() < 1024, "Array element limit");
+                array.push_back(in("Value"));
+                r = std::move(array);
+            }
+            else if (part == "Set")
+            {
+                auto i = index("Index");
+                array[i] = in("Value");
+                r = std::move(array);
+            }
+            else if (part == "Remove")
+            {
+                auto i = index("Index");
+                array.erase(array.begin() + i);
+                r = std::move(array);
+            }
+            else if (part == "Slice")
+            {
+                auto start = index("Start", true);
+                double count = num("Count");
+                Require(count >= 0 && count <= double(array.size() - start) && std::floor(count) == count, "Array slice count outside range/integer");
+                r = Value::array();
+                for (size_t i = start; i < start + size_t(count); ++i) r.push_back(array[i]);
+            }
+            else if (part == "Concat")
+            {
+                auto other = in("Other");
+                Require(array.size() + other.size() <= 1024, "Array element limit");
+                for (auto& item : other) array.push_back(item);
+                r = std::move(array);
+            }
+            else
+            {
+                auto value = in("Value");
+                auto it = std::find(array.begin(), array.end(), value);
+                r = part == "Contains" ? Value(it != array.end()) : Value(it == array.end() ? -1 : int(it - array.begin()));
+            }
         }
         else if (k.starts_with("Constant.")) r = in("Value");
         else if (k.starts_with("Get.")) r = m_Variables.at(in("Name").get<std::string>());
-        else if (!Catalog().at(k).Pure)
+        else if (!Def(*n).Pure)
         {
             auto it = t.Results.find(id);
             Require(it != t.Results.end() && it->second.contains(output), "Execution result used before node ran");
@@ -466,7 +614,7 @@ return c; }();
         {
             Require((bool)m_Bridge, "No engine bridge for " + k);
             std::map<std::string, Value> args;
-            for (auto& p : Catalog().at(k).Inputs) args[p.Name] = in(p.Name.c_str());
+            for (auto& p : Def(*n).Inputs) args[p.Name] = in(p.Name.c_str());
             r = m_Bridge(k, args);
             if (r.is_object())
             {
@@ -474,7 +622,7 @@ return c; }();
                 r = r.at(output);
             }
         }
-        auto* p = FindPin(Catalog().at(k).Outputs, output);
+        auto* p = FindPin(Def(*n).Outputs, output);
         Require(p && Matches(p->Kind, r) && SafeValue(r), "Invalid result from " + k + "." + output);
         return r;
     }
@@ -492,9 +640,11 @@ return c; }();
         if (!m_Error.empty()) return;
         try
         {
-            Require(m_Tasks.size() < 128, "Pending event limit");
             auto event = m_Events.find(name);
             if (event == m_Events.end()) return;
+            if (payload.is_null()) payload = Value::object(); // Preserve no-payload host events.
+            Require(payload.is_object() && payload.size() <= 32 && ValueBytes(payload) <= 65536, "Event payload limit/type");
+            for (const auto& [key, value] : payload.items()) Require(key.size() <= 128 && SafeValue(value), "Invalid event payload");
             for (auto id : event->second)
             {
                 Require(m_Tasks.size() < 128, "Pending event limit");
@@ -503,6 +653,7 @@ return c; }();
                 t.Stack.push_back({ id });
                 m_Tasks.push_back(std::move(t));
             }
+            CheckStorage();
             if (!m_Running) Run();
         }
         catch (const std::exception& e)
@@ -520,6 +671,7 @@ return c; }();
     void Machine::Stop()
     {
         m_Tasks.clear();
+        m_Active = nullptr;
         Paused = false;
         CurrentNode = 0;
     }
@@ -561,9 +713,24 @@ return c; }();
             {
                 Task t = std::move(m_Tasks.front());
                 m_Tasks.pop_front();
+                m_Active = &t;
+                CaptureCallStack(t);
+                struct ActiveGuard
+                {
+                    Task*& Pointer;
+                    ~ActiveGuard() { Pointer = nullptr; }
+                } activeGuard{ m_Active };
                 while (!t.Stack.empty() && t.Wait <= 0 && !Paused)
                 {
                     Frame f = t.Stack.back();
+                    if (f.ReturnCall)
+                    {
+                        t.Stack.pop_back();
+                        Require(!t.Calls.empty(), "Missing function frame");
+                        Require(m_Graph.Functions.at(t.Calls.back().Name).Outputs.empty(), "Function ended without Return");
+                        ReturnFunction(t, Value::object());
+                        continue;
+                    }
                     auto* n = Find(f.Node);
                     Require(n, "Missing execution node");
                     CurrentNode = f.Node;
@@ -580,7 +747,61 @@ return c; }();
                     std::set<uint32_t> active;
                     auto in = [&](const char* p) { return Input(*n, p, t, active); };
                     const auto& k = n->Kind;
-                    if (k == "For")
+                    if (k == "Function.Call") TypedCall(t, *n);
+                    else if (k == "Function.Return")
+                    {
+                        Require(!t.Calls.empty() && in("Name") == t.Calls.back().Name, "Return outside its function");
+                        Value values = Value::object();
+                        for (const auto& pin : m_Graph.Functions.at(t.Calls.back().Name).Outputs) values[pin.Name] = in(pin.Name.c_str());
+                        ReturnFunction(t, std::move(values));
+                    }
+                    else if (k.starts_with("Local.Set."))
+                    {
+                        Require(!t.Calls.empty(), "Local write outside a typed function");
+                        auto name = in("Name").get<std::string>();
+                        auto value = in("Value");
+                        Require(Matches(m_Graph.Functions.at(t.Calls.back().Name).Locals.at(name).Kind, value), "Local variable type mismatch");
+                        t.Calls.back().Locals.at(name) = std::move(value);
+                        CheckStorage();
+                        Push(t, n->ID, "Then");
+                    }
+                    else if (k == "EmitEvent")
+                    {
+                        auto name = in("Name").get<std::string>();
+                        Require(!name.empty() && name.size() <= 128, "Invalid custom event name");
+                        Value payload = Value::object();
+                        for (const char* pin : { "Number", "Text", "Bool", "Vector", "Other" }) payload[pin] = in(pin);
+                        Event("Custom." + name, std::move(payload));
+                        Require(m_Error.empty(), m_Error);
+                        Push(t, n->ID, "Then");
+                    }
+                    else if (k.starts_with("ForEach."))
+                    {
+                        int index = f.Iteration;
+                        if (index < 0)
+                        {
+                            auto array = in("Array");
+                            t.Results[n->ID] = { { "__Items", array }, { "Index", -1 }, { "Value", Def(*n).Outputs.back().Default } };
+                            index = 0;
+                            CheckStorage();
+                        }
+                        auto& result = t.Results.at(n->ID);
+                        auto& items = result.at("__Items");
+                        if (size_t(index) < items.size())
+                        {
+                            result["Index"] = index;
+                            result["Value"] = items[size_t(index)];
+                            Require(t.Stack.size() < 1024, "Loop stack limit");
+                            t.Stack.push_back({ n->ID, index + 1 });
+                            Push(t, n->ID, "Body");
+                        }
+                        else
+                        {
+                            result.erase("__Items");
+                            Push(t, n->ID, "Completed");
+                        }
+                    }
+                    else if (k == "For")
                     {
                         int count = f.Count, index = f.Iteration;
                         if (index < 0)
@@ -592,7 +813,9 @@ return c; }();
                         }
                         if (index < count)
                         {
+                            const bool fresh = !t.Results.contains(n->ID);
                             t.Results[n->ID] = { { "Index", index } };
+                            if (fresh) CheckStorage();
                             t.Stack.push_back({ n->ID, index + 1, count });
                             Push(t, n->ID, "Body");
                         }
@@ -615,9 +838,11 @@ return c; }();
                         {
                             auto frame = t.Stack.back();
                             t.Stack.pop_back();
+                            Require(!frame.ReturnCall, "Break cannot cross a function boundary");
                             auto* loop = Find(frame.Node);
-                            if (loop && (loop->Kind == "For" || loop->Kind == "While"))
+                            if (loop && (loop->Kind == "For" || loop->Kind == "While" || loop->Kind.starts_with("ForEach.")))
                             {
+                                if (loop->Kind.starts_with("ForEach.")) t.Results[loop->ID].erase("__Items");
                                 Push(t, loop->ID, "Completed");
                                 found = true;
                                 break;
@@ -645,6 +870,7 @@ return c; }();
                         Value value = in("Value");
                         Require(Matches(m_Graph.Variables.at(name).Kind, value), "Variable type mismatch");
                         m_Variables.at(name) = value;
+                        CheckStorage();
                         Push(t, n->ID, "Then");
                     }
                     else if (k == "Call")
@@ -654,13 +880,13 @@ return c; }();
                         Require(t.Stack.size() < 1024, "Function call stack limit");
                         t.Stack.push_back({ m_Functions.at(name.get<std::string>()) });
                     }
-                    else if (k == "Function" || k.starts_with("Event.")) Push(t, n->ID, "Then");
+                    else if (k == "Function" || k == "Function.Entry" || k.starts_with("Event.")) Push(t, n->ID, "Then");
                     else
                     {
-                        Require(!Catalog().at(k).Pure, "Pure node in execution chain");
+                        Require(!Def(*n).Pure, "Pure node in execution chain");
                         Require((bool)m_Bridge, "No engine bridge for " + k);
                         std::map<std::string, Value> args;
-                        for (auto& p : Catalog().at(k).Inputs)
+                        for (auto& p : Def(*n).Inputs)
                             if (p.Kind != Type::Exec) args[p.Name] = in(p.Name.c_str());
                         Value result = m_Bridge(k, args);
                         if (k == "SetWorldDestination" || k == "CompleteNavTraversal" || k == "CancelNavTraversal" || k == "RetryNavigation")
@@ -673,6 +899,7 @@ return c; }();
                             Require(Matches(Type::Entity, result), "Invalid spawned entity");
                             t.Results[n->ID] = { { "Value", result } };
                         }
+                        CheckStorage();
                         Push(t, n->ID, "Then");
                     }
                     if (single)

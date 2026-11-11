@@ -486,3 +486,35 @@ TEST(VisualGraphWorldDestinationFailureAndCancelReturnBooleans)
         CHECK(vm.Error().empty() && vm.Variables().at("Success") == false);
     }
 }
+
+TEST(BlueprintWorkshopRunsTypedDelayedCollectionsInRealScenes)
+{
+    auto prior = Project::GetActive();
+    const auto root = std::filesystem::path(ZAMIN_SOURCE_DIR) / "Projects/VisualWorkshop";
+    CHECK(Project::Load(root / "VisualWorkshop.zproject") != nullptr);
+    for (const auto& [name, expected] : std::vector<std::pair<std::string, double>>{ { "Visual2D", 12. }, { "Visual3D", 18. } })
+    {
+        auto scene = CreateRef<Scene>();
+        CHECK(SceneSerializer(scene).Deserialize(root / "Assets/Scenes" / (name + ".zscene")));
+        scene->OnRuntimeStart();
+        for (int i = 0; i < 20; ++i) scene->UpdateRuntime(.02f);
+        auto entity = scene->FindEntityByName("Blueprint gameplay controller");
+        CHECK(entity);
+        if (entity)
+        {
+            auto* host = dynamic_cast<VisualGraphHost*>(entity.GetComponent<NativeScriptComponent>().Instance);
+            CHECK(host);
+            if (host)
+            {
+                CHECK(host->VM.Error().empty());
+                CHECK(host->VM.Variables().at("Total") == expected);
+                CHECK(host->VM.Pending() == 0);
+            }
+        }
+        scene->OnRuntimeStop();
+    }
+    AssetReferenceIndex index;
+    auto plan = ExportAssets::PlanForActiveProject(nullptr, nullptr, &index);
+    CHECK(std::find(plan.Included.begin(), plan.Included.end(), "Scripts/BlueprintGameplay.zgraph") != plan.Included.end());
+    Project::SetActive(prior);
+}

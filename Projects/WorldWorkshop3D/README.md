@@ -25,3 +25,10 @@ not arbitrary C++ heap or physics replay. Queued writes use a bounded background
 
 The world wizard creates a new 2D/3D bundle with terrain/ground, navigation and anchor, or clones a
 cell scene template with fresh entity UUIDs. A published bundle is never overwritten by the wizard.
+
+### Sparse navigation va portal
+
+**N** — yashil route nuqtalari, binafsha portal chiqishi va sariq kinematic actor.
+Actor portal oldida kutadi, demo explicit teleport completion qiladi; bu physics controller emas.
+Topology o‘zgarsa actor to‘xtaydi va route qayta olinadi. Portal faqat loaded walkable endpoint bilan faol.
+`Tests/world_navigation_test.py` disable, unload/return va qayta rejalashni ikkala demoda tekshiradi.

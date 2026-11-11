@@ -85,6 +85,9 @@ jobs:
       - name: World streaming camera tours and editor panel
         run: python3 Tests/world_streaming_test.py --build build --out world-streaming
 
+      - name: Sparse world navigation and traversal workflow
+        run: python3 Tests/world_navigation_test.py --build build --out world-streaming/navigation
+
       - name: World checkpoint and authoring workflow
         run: python3 Tests/world_checkpoint_test.py --build build --out world-streaming/checkpoint
 

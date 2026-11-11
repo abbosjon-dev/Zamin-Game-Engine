@@ -464,6 +464,7 @@ TEST(WorldStreamingNavigationAcrossLoadedCellsAndRetirement)
     grid.Reset(10, 10, 1, { 0, 0 }); // deliberate overlap invalidates the entire stale mosaic
     manager.ProcessRequests();
     CHECK(!root.GetComponent<NavGrid2DComponent>().Baked && !world->GetStats().NavigationError.empty());
+    CHECK(!world->GetNavigationAtlas() && !world->GetStats().AtlasError.empty());
     CHECK(automatic.GetComponent<NavAgentComponent>().RepathRequested);
     CHECK(!explicitAgent.GetComponent<NavAgentComponent>().RepathRequested);
     grid.Reset(10, 10, 1, { 10, 0 });
@@ -821,4 +822,86 @@ TEST(WorldStreamingCellPreviewDoesNotStartTheWholeConfiguredWorld)
     manager.Start(anchor, "Scenes/Anchor.zscene");
     CHECK(manager.GetWorldStreaming());
     manager.Stop();
+}
+
+TEST(WorldStreamingSparseAtlasLinksRoundTripAndUnload)
+{
+    WorldFixture fixture;
+    fixture.Policy.NavigationMode = 2;
+    fixture.Policy.NavigationMaxCells = 300;
+    fixture.Policy.MaxResidentCells = 3;
+    fixture.Policy.LoadRadius = 100000;
+    fixture.Policy.UnloadRadius = 100001;
+    fixture.Policy.NavigationLinks = { { 501, { 5.5f, 5.5f }, { 40005.5f, 5.5f }, 2, false, true },
+                                       { 502, { 40005.5f, 5.5f }, { 80005.5f, 5.5f }, 3, false, true } };
+    for (size_t i = 0; i < fixture.Manifest.Cells.size(); ++i)
+    {
+        auto& cell = fixture.Manifest.Cells[i];
+        cell.Coordinate.x = int(i * 4000);
+        auto scene = CreateRef<Scene>();
+        auto entity = scene->CreateEntityWithUUID(UUID(100 + i), "Sparse nav tile");
+        entity.GetTransform().Translation = { 5, 5, 0 };
+        auto& grid = entity.AddComponent<NavGrid2DComponent>();
+        grid.AutoBounds = false;
+        grid.Size = { 10, 10 };
+        grid.CellSize = 1;
+        grid.AgentRadius = 0;
+        grid.UseColliders = false;
+        grid.UseTilemaps = false;
+        CHECK(FileSystem::WriteTextFile(fixture.Assets / cell.ScenePath, SceneSerializer(scene).SerializeToString()));
+    }
+    fixture.Save();
+    WorldManifest manifest;
+    WorldStreaming::Policy policy;
+    std::string error;
+    CHECK(WorldStreaming::LoadDefinition(fixture.Assets / "Worlds/Main.zworld", manifest, policy, error));
+    CHECK(policy.NavigationLinks.size() == 2 && policy.NavigationLinks[1].Cost == 3 && !policy.NavigationLinks[0].Bidirectional);
+    SceneManager manager;
+    auto anchor = fixture.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 300; }));
+    const auto snapshot = world->GetNavigationAtlas();
+    CHECK(snapshot && snapshot->GetActiveLinks() == 2);
+    CHECK(!world->GetStats().NavigationError.empty() && world->GetStats().AtlasError.empty());
+    auto route = world->FindNavigationRoute({ 5.5f, 5.5f }, { 80005.5f, 5.5f });
+    CHECK(route.Status == NavPathStatus::Complete && route.Points.size() == 3);
+    CHECK_NEAR(route.Cost, 5, .001);
+    NavRouteFollower follower;
+    CHECK(follower.SetRoute(route));
+    CHECK(!world->SetNavigationLinks({ { 0, {}, {}, 1 } }, error));
+    CHECK(world->GetNavigationAtlas()->GetRevision() == snapshot->GetRevision());
+    CHECK(world->SetNavigationLinks({}, error));
+    manager.ProcessRequests();
+    const auto changed = world->GetNavigationAtlas();
+    CHECK(changed && changed->GetRevision() != snapshot->GetRevision());
+    CHECK(follower.Advance(changed->GetRevision(), 10) == NavRouteFollower::State::Stale);
+    CHECK(world->FindNavigationRoute({ 5.5f, 5.5f }, { 80005.5f, 5.5f }).Status == NavPathStatus::Partial);
+    CHECK(snapshot->FindRoute({ 5.5f, 5.5f }, { 80005.5f, 5.5f }).Status == NavPathStatus::Complete);
+    world->SetViewerOverride({ 1000000, 1000000, 0 });
+    CHECK(Until(manager, [&] { return world->GetStats().Active == 0 && world->GetStats().AtlasCells == 0; }));
+    CHECK(world->FindNavigationRoute({ 5.5f, 5.5f }, { 80005.5f, 5.5f }).Status == NavPathStatus::Failed);
+    manager.Stop();
+    CHECK(snapshot->FindRoute({ 5.5f, 5.5f }, { 80005.5f, 5.5f }).Status == NavPathStatus::Complete);
+}
+
+TEST(WorldStreamingNavigationLinkDefinitionRejectsMalformedTransactionally)
+{
+    WorldFixture fixture;
+    WorldManifest manifest = fixture.Manifest;
+    WorldStreaming::Policy policy = fixture.Policy;
+    policy.NavigationMaxCells = 777;
+    std::string error;
+    const auto file = fixture.Assets / "Worlds/Main.zworld";
+    std::string text;
+    CHECK(fixture.Manifest.Serialize(text, error));
+    auto doc = nlohmann::json::parse(text);
+    doc["Streaming"]["NavigationLinks"] = nlohmann::json::array({ { { "ID", -1 }, { "From", { 0, 0 } }, { "To", { 1, 1 } }, { "Cost", 1 }, { "Bidirectional", true }, { "Enabled", true } } });
+    CHECK(FileSystem::WriteTextFile(file, doc.dump()));
+    CHECK(!WorldStreaming::LoadDefinition(file, manifest, policy, error));
+    CHECK(policy.NavigationMaxCells == 777 && manifest.Cells.size() == 3);
+    doc["Streaming"]["NavigationLinks"][0]["ID"] = uint64_t(1);
+    doc["Streaming"]["NavigationLinks"][0]["Enabled"] = "yes";
+    CHECK(FileSystem::WriteTextFile(file, doc.dump()));
+    CHECK(!WorldStreaming::LoadDefinition(file, manifest, policy, error));
+    CHECK(policy.NavigationMaxCells == 777);
 }

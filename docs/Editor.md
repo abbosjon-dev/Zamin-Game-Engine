@@ -366,3 +366,16 @@ ZAMIN_EDITOR_SELECT=Player ZAMIN_EDITOR_INSPECTOR_BOTTOM=1 ZAMIN_MAX_FRAMES=60 Z
 
 Player uchun o'zgaruvchilar: [Runtime.md](Runtime.md#14-avtomatlashtirish-uchun-muhit-ozgaruvchilari); testlar:
 [Testing.md](Testing.md).
+
+### World navigation route va portal authoring
+
+World Streaming panelidagi **Sparse navigation / route** loaded atlas cell/memory/link sonini,
+start va goal plane koordinatalarini ko‘rsatadi. **Find sparse route** status, cost, expansion va
+route diagrammasini chiqaradi: green walk, purple explicit traversal. Atlas revision o‘zgarsa
+preview `STALE` va gray bo‘ladi; qayta query qiling.
+
+Policy ichidagi **Traversal links (saved in .zworld)** ro‘yxatidan link qo‘shish/o‘chirish, endpoint,
+cost, two-way va enabled sozlanadi. **Saqlash va loyihaga ulash** authored faylni saqlaydi;
+**Apply authored links to running world** esa joriy runtime'ga qo‘llaydi. Gameplay linkni explicit
+complete qilishi kerak; panel collision/animation controller yaratmaydi. Atlas va legacy mosaic
+statistikalari alohida: uzoq tile'larda mosaic budjeti tugashi sparse atlas xatosi degani emas.

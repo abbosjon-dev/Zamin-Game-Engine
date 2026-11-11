@@ -35,6 +35,9 @@ namespace Zamin {
             bool Capture = false;
             bool AuthoringQA = false;
             int CheckpointQA = 0;
+            glm::vec2 RouteFrom{ 8, 9 }, RouteTo{ 48, 9 };
+            NavRoute Route;
+            bool RoutePreview = false, NavigationQA = false;
             UUID ProbeCell{ 0 }, ProbeActor{ 0 };
         } s;
         ImU32 Color(WorldRuntimeStage stage)
@@ -257,6 +260,17 @@ namespace Zamin {
                     ZM_CORE_INFO("World checkpoint editor QA passed: adopted actor, atomic save, deletion and staged restore");
                 }
             }
+            if (std::getenv("ZAMIN_EDITOR_WORLD_NAVIGATION_QA"))
+            {
+                auto route = live->FindNavigationRoute(s.RouteFrom, s.RouteTo);
+                if (route.Status == NavPathStatus::Complete && route.Points.size() > 2)
+                {
+                    s.Route = std::move(route);
+                    s.RoutePreview = true;
+                    if (!s.NavigationQA) ZM_CORE_INFO("World navigation editor QA passed: sparse route preview, {} points", s.Route.Points.size());
+                    s.NavigationQA = true;
+                }
+            }
             const auto stats = live->GetStats();
             ImGui::Separator();
             ImGui::Text("ACTIVE %zu    LOADING %zu    BUILD %zu    FAILED %zu", stats.Active, stats.Loader.Queued + stats.Loader.Reading, stats.Building, stats.Failed);
@@ -268,6 +282,48 @@ namespace Zamin {
             ImGui::TextDisabled("Declared/source reservations are not measured RSS or VRAM.");
             ImGui::Text("Navigation: %zu tiles | %zu cells | %llu rebuilds", stats.NavigationTiles, stats.NavigationCells, (unsigned long long)stats.NavigationRebuilds);
             if (!stats.NavigationError.empty()) ImGui::TextWrapped("Navigation: %s", stats.NavigationError.c_str());
+            if (ImGui::CollapsingHeader("Sparse navigation / route", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                const auto atlas = live->GetNavigationAtlas();
+                ImGui::Text("Loaded cells %zu | %.2f MiB | active links %zu", stats.AtlasCells, stats.AtlasBytes / 1048576.0, stats.ActiveNavigationLinks);
+                if (!stats.AtlasError.empty()) ImGui::TextWrapped("Atlas: %s", stats.AtlasError.c_str());
+                ImGui::InputFloat2("Route start (XY / XZ)", &s.RouteFrom.x);
+                ImGui::InputFloat2("Route goal (XY / XZ)", &s.RouteTo.x);
+                if (ImGui::Button("Find sparse route"))
+                {
+                    s.Route = live->FindNavigationRoute(s.RouteFrom, s.RouteTo);
+                    s.RoutePreview = true;
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Clear route")) s.RoutePreview = false;
+                if (s.RoutePreview)
+                {
+                    const bool stale = !atlas || s.Route.Revision != atlas->GetRevision();
+                    ImGui::Text("%s | cost %.2f | %zu expanded | %zu points %s", NavPathStatusName(s.Route.Status), s.Route.Cost, s.Route.Expanded, s.Route.Points.size(), stale ? "STALE - query again" : "");
+                    const ImVec2 origin = ImGui::GetCursorScreenPos();
+                    const ImVec2 size(std::max(200.f, ImGui::GetContentRegionAvail().x), 110);
+                    auto* draw = ImGui::GetWindowDrawList();
+                    draw->AddRectFilled(origin, ImVec2(origin.x + size.x, origin.y + size.y), IM_COL32(19, 25, 37, 255), 5);
+                    if (s.Route.Points.size() > 1)
+                    {
+                        glm::vec2 lo = s.Route.Points.front().Position, hi = lo;
+                        for (const auto& p : s.Route.Points)
+                        {
+                            lo = glm::min(lo, p.Position);
+                            hi = glm::max(hi, p.Position);
+                        }
+                        auto project = [&](glm::vec2 p) { const auto uv = (p - lo) / glm::max(hi - lo, glm::vec2(1)); return ImVec2(origin.x + 12 + uv.x * (size.x - 24), origin.y + 12 + uv.y * (size.y - 24)); };
+                        for (size_t i = 1; i < s.Route.Points.size(); ++i)
+                        {
+                            const auto a = project(s.Route.Points[i - 1].Position), b = project(s.Route.Points[i].Position);
+                            draw->AddLine(a, b, stale ? IM_COL32(120, 120, 120, 255) : (s.Route.Points[i].IncomingLink ? IM_COL32(203, 114, 255, 255) : IM_COL32(65, 218, 175, 255)), 2);
+                        }
+                    }
+                    ImGui::Dummy(size);
+                    ImGui::TextDisabled("Green: walk; purple: explicit traversal. Preview is not collision simulation.");
+                }
+                if (ImGui::Button("Apply authored links to running world")) live->SetNavigationLinks(s.Policy.NavigationLinks, s.Error);
+            }
             if (ImGui::CollapsingHeader("Checkpoint / world state", ImGuiTreeNodeFlags_DefaultOpen))
             {
                 ImGui::Text("Commands pending %zu / completed %llu / failed %llu", stats.PendingCommands, (unsigned long long)stats.CompletedCommands, (unsigned long long)stats.FailedCommands);
@@ -390,6 +446,32 @@ namespace Zamin {
             ImGui::RadioButton("Nav 3D", &nav, 3);
             s.Policy.NavigationMode = uint32_t(nav);
             ImGui::InputScalar("Navigation max cells", ImGuiDataType_U32, &s.Policy.NavigationMaxCells);
+            if (ImGui::TreeNode("Traversal links (saved in .zworld)"))
+            {
+                for (size_t i = 0; i < s.Policy.NavigationLinks.size(); ++i)
+                {
+                    auto& link = s.Policy.NavigationLinks[i];
+                    ImGui::PushID(int(i));
+                    ImGui::Text("Link %llu", (unsigned long long)link.ID);
+                    ImGui::InputFloat2("From", &link.From.x);
+                    ImGui::InputFloat2("To", &link.To.x);
+                    ImGui::InputFloat("Traversal cost", &link.Cost);
+                    ImGui::Checkbox("Two way", &link.Bidirectional);
+                    ImGui::SameLine();
+                    ImGui::Checkbox("Enabled", &link.Enabled);
+                    const bool remove = ImGui::Button("Remove link");
+                    ImGui::PopID();
+                    if (remove)
+                    {
+                        s.Policy.NavigationLinks.erase(s.Policy.NavigationLinks.begin() + i);
+                        break;
+                    }
+                }
+                if (s.Policy.NavigationLinks.size() < 4096 && ImGui::Button("Add traversal link"))
+                    s.Policy.NavigationLinks.push_back({ uint64_t(UUID()), s.RouteFrom, s.RouteTo, 1, true, true });
+                ImGui::TextWrapped("Only loaded, walkable endpoints activate links. Gameplay must complete traversal explicitly.");
+                ImGui::TreePop();
+            }
             ImGui::InputScalar("Cache entries per kind", ImGuiDataType_U32, &s.Policy.CacheEntriesPerKind);
             ImGui::InputScalar("Max cache evictions per frame", ImGuiDataType_U32, &s.Policy.MaxCacheEvictionsPerFrame);
             int limit = int(s.Policy.MaxResidentCells);

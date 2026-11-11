@@ -507,3 +507,14 @@ yashirin bog'liqlik yangi build'dayoq aniqlanadi.
 
 Player profiler'i ishlatadigan `SceneStatisticsCollector` umumiy engine xizmatidir: implementatsiya
 `Scene/SceneStatistics.cpp` da. Eski header yo'li `Editor/SceneStatistics.h` moslik uchun saqlangan.
+
+### Loaded navigation atlas snapshot
+
+`AI/NavAtlas` ordered tile storage + per-tile dense local grids + explicit directed traversal edges
+saqlaydi; world-sized dense rectangle yo‘q. Auto seam qo‘shnisi integer lattice bounds orqali
+aniqlanadi, source grid'lar nusxalanadi. Build max loaded cells/tiles/links bilan chegaralangan va
+transactional. A* query scratch lokal, snapshot const; explicit arzon linklarda Dijkstra ishlaydi.
+WorldStreaming publication owner thread'da source serial/revision/carve yoki links o‘zgarganda
+bajariladi. Retained shared snapshot worker lifetime'ni himoya qiladi; current revision esa actor
+route lifetime'ni himoya qiladi. NavRouteFollower traversal entry'da gameplay completion kutadi.
+Mavjud dense mosaic NavAgent API bilan moslik uchun alohida quriladi, uning budjeti atlasga bog‘liq emas.

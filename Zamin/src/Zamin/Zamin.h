@@ -145,6 +145,7 @@
 #include "Zamin/Physics/PhysicsWorld3D.h"
 #include "Zamin/Physics/CollisionShapes3D.h"
 #include "Zamin/AI/NavGrid.h"
+#include "Zamin/AI/NavAtlas.h"
 #include "Zamin/AI/NavGridBuilder.h"
 #include "Zamin/AI/NavPathfinder.h"
 #include "Zamin/AI/NavPathSmoothing.h"

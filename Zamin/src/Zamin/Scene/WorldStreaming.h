@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Zamin/Scene/WorldCellLoader.h"
+#include "Zamin/AI/NavAtlas.h"
 #include "Zamin/Core/Base.h"
 #include "Zamin/Asset/AssetResidency.h"
 
@@ -33,6 +34,7 @@ namespace Zamin {
             double PressureResumeRatio = .9;
             uint32_t NavigationMode = 0; // 0 off, 2 XY grid, 3 XZ height grid
             uint32_t NavigationMaxCells = 262144;
+            std::vector<NavTraversalLink> NavigationLinks;
             uint32_t CacheEntriesPerKind = 128, MaxCacheEvictionsPerFrame = 8;
             std::vector<std::string> Layers{ "main" };
             bool Validate(std::string& error) const;
@@ -87,6 +89,8 @@ namespace Zamin {
             uint64_t CacheEvictions = 0, PressureFrames = 0;
             size_t NavigationTiles = 0, NavigationCells = 0;
             uint64_t NavigationRebuilds = 0;
+            size_t AtlasCells = 0, AtlasBytes = 0, ActiveNavigationLinks = 0;
+            std::string AtlasError;
             std::string NavigationError;
             size_t CheckpointCells = 0, CheckpointBytes = 0;
             uint64_t Captures = 0, Restores = 0;
@@ -110,6 +114,11 @@ namespace Zamin {
         // Host between frames, honors the same per-frame eviction allowance.
         size_t TrimCaches();
         UUID GetNavigationEntity(int dimension) const;
+        // Owner thread publishes snapshots; retained immutable snapshots are safe on workers.
+        std::shared_ptr<const NavAtlas> GetNavigationAtlas() const;
+        NavRoute FindNavigationRoute(glm::vec2 from, glm::vec2 to, const NavPathOptions& options = {}) const;
+        // Owner thread, applied at the next world update; routes become stale on publication.
+        bool SetNavigationLinks(std::vector<NavTraversalLink> links, std::string& error);
         // Host between frames. Checkpoints contain serialized components; not a physics replay.
         void SetCaptureOnUnload(bool enabled);
         bool CaptureCell(UUID cell, std::string& error);

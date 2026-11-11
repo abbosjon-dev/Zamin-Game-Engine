@@ -22,6 +22,30 @@ saqlanadi; ulardagi belgi yangi imkoniyatning ishlayotganiga dalil o'rnini bosma
 | P7 Platforma, release va mahsulot | Linux/Windows, keyin macOS; cook/package/update/crash telemetry; editor/launcher yagona auth | Toza mashinada install/export/run, talablar va litsenziyalar, imzolangan release va rollback sinovi | Rejada |
 | P8 Yakuniy sifat darvozasi | Hujjatlar, ko'chirish yo'li, ikki namunaviy o'yin va profiling hisobotlari | Uzoq sessiya, resurs sizishi, recovery/fuzz, reference sahnalarda barqaror frame time va foydalanish sinovi | Rejada |
 
+### Yakunlangan katta paket — sparse navigation va traversal workflow
+
+- [x] Faqat yuklangan tile hajmiga bog‘liq immutable atlas; bounded va deterministik route query.
+- [x] Ikki/uch o‘lcham: tile chegarasi, floor/climb, cost, carve va partial path qoidalari.
+- [x] Yo‘nalishli, narxli, o‘chiriladigan traversal link; yetishmayotgan endpoint xavfsiz inactive.
+- [x] Route follower: link oldida to‘xtash, explicit completion, stale topology’da stop/replan.
+- [x] World runtime query/API, editor route diagnostikasi, haqiqiy 2D/3D demo va screenshot.
+- [x] Regression, build, export, hujjatlar va main push.
+
+Oldingi 73a683c remote CI: GCC, Clang, ASan, UBSan, coverage va format to‘liq muvaffaqiyatli.
+
+Dalillar (2026-11-11): 810/810 unit (18 yangi), 10/10 headless CTest, 12/12 reference render,
+490/490 editor smoke qadam, GL 4.1 residency GPU oracle; Clang 18 syntax-only -Werror 7 fayl.
+Atlas/grid/pathfinder/mosaic/follower uchun alohida instrumentlangan ASan/UBSan 16/16 test;
+bu to‘liq engine sanitizer run’i emas. 2D/3D Player 420 kadrdan portal/disable/stale/unload/return,
+ikkala editor 120 kadrdan route preview. Oldingi camera tour’lar 660 kadrdan (har birida 6 complete
+cross-cell path), checkpoint 540 kadrdan edit/delete/adopt/unload/return/restore. Ikkala native export
+420 kadrdan navigation oracle, screenshot va relocation’dan o‘tdi. Dalillar: `build-review/NavigationPackage/`.
+
+Snapshot build sinxron va bounded; incremental bake hali keyingi ish. Traversal follower kinematic;
+character collision/animation caller’da, eski NavAgent dense mosaic’dan foydalanadi. Keyingi navigation
+integratsiyasi: NavAgent/character controller va Visual Graph traversal tugunlari. Polygon navmesh alohida.
+
+
 ### Yakunlangan yirik paket — world authoring va checkpoint workflow
 
 - [x] Xavfsiz checkpoint format: bounded cell snapshots, world identity, atomic save, buzilgan faylda mutatsiya yo‘q.
@@ -64,7 +88,7 @@ Qayta yuklashdagi asset resolve cursor tiklanmasligi tuzatildi; entity soni 3→
 Qo‘lda va avtomatik trim bitta world tick allowance’ini bo‘lishadi; thumbnail/reimport LRU metadata’si ham tozalanadi.
 Dalillar: `build-review/ResidencyPackage/Final/`. Remote compiler/ASan matritsasi push’dan keyingi CI’da alohida tekshiriladi.
 
-Keyingi P3 ishlar: incremental nav bake/portal, terrain normal seam, HLOD, floating origin va versioned gameplay/physics persistence. Serialized cell checkpoint workflow bajarildi.
+Keyingi P3 ishlar: incremental nav bake, terrain normal seam, HLOD, floating origin va versioned gameplay/physics persistence. Serialized cell checkpoint workflow bajarildi.
 
 ### Yakunlangan paket — packed foliage GPU culling va LOD
 

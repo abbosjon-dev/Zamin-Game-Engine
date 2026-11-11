@@ -474,3 +474,60 @@ Player'da: `./build/bin/ZaminPlayer Projects/Showcase3D --scene Scenes/Squad3D.z
 
 **Modullar (`Zamin/AI/`)**: `NavGrid.h`, `NavGridBuilder.h`, `NavPathfinder.h`, `NavPathSmoothing.h`, `NavCarving.h`,
 `Steering.h`, `Sight.h`, `StateMachine.h`, `BehaviorTree.h`, `Formation.h`, `NavDebugDraw.h`, `NavBakeFile.h`.
+
+## Sparse world navigation va traversal
+
+`NavAtlas` loaded tile'larni alohida, immutable nusxa sifatida saqlaydi. Masalan, ikki 8×8 tile
+orasida 100000 world unit bo‘lsa ham atlas 128 katakdan iborat; bounding rectangle ajratilmaydi.
+Bir xil cell size/lattice, height mode va climb rule talab qilinadi; overlap/mixed resolution rad
+etiladi. Build transactional. 512 tile, 4096 link, ko‘pi bilan 1048576 loaded cell; world uchun
+`NavigationMaxCells` default 262144. Unloaded maydon yurib o‘tilmaydi.
+
+World runtime har tile serial/revision/carve o‘zgarganda yangi snapshot e’lon qiladi.
+`WorldStreaming::GetNavigationAtlas()` owner thread'da olinadi; qaytgan
+`shared_ptr<const NavAtlas>` saqlangan holda uning `FindRoute` metodini worker'larda parallel
+chaqirish mumkin. World accessor va `SetNavigationLinks` owner thread API; ECS yoki source grid
+worker'da o‘qilmaydi. Har query o‘z scratch buffer'ini ajratadi: loaded cell soniga bog‘liq.
+`MaxExpanded` CPU expansion'ni cheklaydi, scratch allocation'ni emas; cheklanmagan parallel query
+soni uchun umumiy memory cap yo‘q. Eski snapshot world unload/stop'dan keyin ham o‘qishga yaroqli,
+ammo harakat uchun joriy revision bilan tekshirish kerak.
+
+`FindNavigationRoute(from, to, options)` plane koordinatalarini oladi: 2D XY yoki 3D XZ.
+`NavRoute` status/cost/expanded/revision va tile ID, plane position, floor height,
+`IncomingLink` bo‘lgan nuqtalarni qaytaradi. Bular cell centre'laridir. World atlasdagi Tile qiymati
+source nav-grid entity UUID'sidir. Snapping radius 0..64
+katakka clamp qilinadi; loaded maydondan uzoq start `Failed`, yetishmayotgan/blocked goal yoki
+expansion limiti `Partial`. StartHeight 3D floor tanlashni tekshiradi. Cost walk distance, height
+farqi va destination cell cost'ni hisobga oladi; tile seam'da ham climb/corner qoidalari saqlanadi.
+
+`NavTraversalLink`: unique nonzero ID, From/To plane endpoint, positive Cost, Bidirectional va
+Enabled. Link endpoint'i loaded walkable cell'da bo‘lishi shart; yo‘q yoki carved endpoint inactive.
+Link oddiy walk segment emas: jump, elevator, door yoki teleport'ni gameplay bajaradi. Link borida
+A* geometric heuristic chegirma narxga mos kelmasligi sabab Dijkstra ishlatiladi; weight=1 shortest
+cost saqlanadi. Teng narxlar source/link ID bo‘yicha deterministik yechiladi.
+
+`WorldStreaming::Policy::NavigationLinks` `.zworld` dagi `Streaming.NavigationLinks` ichida saqlanadi.
+`SetNavigationLinks` validatsiya qilib runtime ro‘yxatni almashtiradi, keyingi world tick'da snapshot
+almashadi. Diskni o‘zgartirmaydi. Disable/re-enable, tile unload/return va carving keyingi route'ga
+aks etadi. Atlas xatosida current query fail closed; retained eski snapshot avtomatik yangilanmaydi.
+
+`NavRouteFollower` kinematic cursor: SetRoute, Advance(currentRevision, distance),
+GetPosition/GetPendingLink va CompleteTraversal(currentRevision, linkID). Link kirishigacha yurib,
+`AwaitingTraversal` holatida to‘xtaydi; explicit completion chiqish koordinatasini beradi. Topology
+revision o‘zgarsa `Stale`, qayta SetRoute kerak. Complete va partial oxiri alohida
+`Arrived`/`PartialEnd`; noto‘g‘ri link ID, negative/NaN distance harakat qilmaydi. Caller actor transform,
+collision sweep, fizik controller va animatsiyani o‘zi qo‘llaydi. Demo teleport'i collision controller emas.
+
+Mavjud `NavAgentComponent` va `Scene::FindNavPath` dense mosaic yo‘lidan foydalanishda davom etadi;
+ular portal eventlarini bajarmaydi. Katta gap/explicit traversal uchun yangi atlas/follower API ishlatiladi.
+Sparse route smoothing portalni o‘chirib yubormasligi uchun bu API unsmoothed nuqtalar qaytaradi.
+Bu grid navigation: polygon navmesh yoki ko‘p qavatli navmesh emas.
+
+WorldWorkshop2D/3D'da **N** route preview/kinematic actor'ni yoqadi. Yashil nuqtalar walk, binafsha
+portal chiqishi, sariq actor. QA rejimi portalni disable qiladi, empty region'ga chiqadi va qaytib
+qayta rejalaydi. `Tests/world_navigation_test.py --build build --out navigation` haqiqiy Player va
+editor route panelini tekshiradi; yangi workflow Linux GCC/Clang CI'ga ham ulangan.
+
+Snapshot build owner thread'da sinxron nusxalaydi; incremental bake hali alohida ish.
+Katta float koordinatalarda cell centre va qo‘shni qadam aniqligi yetmasa build rad etiladi;
+katta world uchun floating origin hali kerak bo‘lishi mumkin.

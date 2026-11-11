@@ -31,7 +31,10 @@ namespace Zamin {
         double Elapsed(Clock::time_point start) { return std::chrono::duration<double, std::milli>(Clock::now() - start).count(); }
         json PolicyJSON(const WorldStreaming::Policy& p)
         {
-            return { { "LoadRadius", p.LoadRadius }, { "UnloadRadius", p.UnloadRadius }, { "MainThreadMilliseconds", p.MainThreadMilliseconds }, { "AxisMask", p.AxisMask }, { "Layers", p.Layers }, { "MaxResidentCells", p.MaxResidentCells }, { "MaxResidentEntities", p.MaxResidentEntities }, { "MaxEntitiesPerCell", p.MaxEntitiesPerCell }, { "MaxBuildingCells", p.MaxBuildingCells }, { "MaxActivationsPerFrame", p.MaxActivationsPerFrame }, { "MaxUnloadsPerFrame", p.MaxUnloadsPerFrame }, { "MaxResolveEntitiesPerFrame", p.MaxResolveEntitiesPerFrame }, { "DeclaredCPUBytes", p.DeclaredCPUBytes }, { "DeclaredGPUBytes", p.DeclaredGPUBytes }, { "ObservedRSSLimitBytes", p.ObservedRSSLimitBytes }, { "RequestedGPULimitBytes", p.RequestedGPULimitBytes }, { "PressureResumeRatio", p.PressureResumeRatio }, { "CacheEntriesPerKind", p.CacheEntriesPerKind }, { "MaxCacheEvictionsPerFrame", p.MaxCacheEvictionsPerFrame }, { "NavigationMode", p.NavigationMode }, { "NavigationMaxCells", p.NavigationMaxCells } };
+            json links = json::array();
+            for (const auto& l : p.NavigationLinks)
+                links.push_back({ { "ID", l.ID }, { "From", { l.From.x, l.From.y } }, { "To", { l.To.x, l.To.y } }, { "Cost", l.Cost }, { "Bidirectional", l.Bidirectional }, { "Enabled", l.Enabled } });
+            return { { "NavigationLinks", links }, { "LoadRadius", p.LoadRadius }, { "UnloadRadius", p.UnloadRadius }, { "MainThreadMilliseconds", p.MainThreadMilliseconds }, { "AxisMask", p.AxisMask }, { "Layers", p.Layers }, { "MaxResidentCells", p.MaxResidentCells }, { "MaxResidentEntities", p.MaxResidentEntities }, { "MaxEntitiesPerCell", p.MaxEntitiesPerCell }, { "MaxBuildingCells", p.MaxBuildingCells }, { "MaxActivationsPerFrame", p.MaxActivationsPerFrame }, { "MaxUnloadsPerFrame", p.MaxUnloadsPerFrame }, { "MaxResolveEntitiesPerFrame", p.MaxResolveEntitiesPerFrame }, { "DeclaredCPUBytes", p.DeclaredCPUBytes }, { "DeclaredGPUBytes", p.DeclaredGPUBytes }, { "ObservedRSSLimitBytes", p.ObservedRSSLimitBytes }, { "RequestedGPULimitBytes", p.RequestedGPULimitBytes }, { "PressureResumeRatio", p.PressureResumeRatio }, { "CacheEntriesPerKind", p.CacheEntriesPerKind }, { "MaxCacheEvictionsPerFrame", p.MaxCacheEvictionsPerFrame }, { "NavigationMode", p.NavigationMode }, { "NavigationMaxCells", p.NavigationMaxCells } };
         }
         bool ReadPolicy(const json& j, WorldStreaming::Policy& p, std::string& error)
         {
@@ -71,6 +74,19 @@ namespace Zamin {
             read("NavigationMode", p.NavigationMode);
             read("NavigationMaxCells", p.NavigationMaxCells);
             read("MaxCacheEvictionsPerFrame", p.MaxCacheEvictionsPerFrame);
+            if (j.contains("NavigationLinks"))
+            {
+                const auto& links = j.at("NavigationLinks");
+                if (!links.is_array() || links.size() > 4096) throw std::runtime_error("Invalid navigation links");
+                p.NavigationLinks.clear();
+                for (const auto& item : links)
+                {
+                    if (!item.at("ID").is_number_unsigned() || !item.at("From").is_array() || item.at("From").size() != 2 ||
+                        !item.at("To").is_array() || item.at("To").size() != 2 || !item.at("Cost").is_number() ||
+                        !item.at("Bidirectional").is_boolean() || !item.at("Enabled").is_boolean()) throw std::runtime_error("Invalid navigation link fields");
+                    p.NavigationLinks.push_back({ item.at("ID").get<uint64_t>(), { item.at("From")[0].get<float>(), item.at("From")[1].get<float>() }, { item.at("To")[0].get<float>(), item.at("To")[1].get<float>() }, item.at("Cost").get<float>(), item.at("Bidirectional").get<bool>(), item.at("Enabled").get<bool>() });
+                }
+            }
             if (j.contains("Layers")) p.Layers = j.at("Layers").get<std::vector<std::string>>();
             return p.Validate(error);
         }
@@ -93,6 +109,7 @@ namespace Zamin {
             error = "Invalid world streaming policy";
             return false;
         }
+        if (!NavAtlas::ValidateLinks(NavigationLinks, error)) return false;
         std::set<std::string> unique;
         for (const auto& layer : Layers)
             if (layer.empty() || layer.size() > 64 || !unique.insert(layer).second || !std::all_of(layer.begin(), layer.end(), [](unsigned char c) {
@@ -274,6 +291,8 @@ namespace Zamin {
             return count;
         }
         UUID NavigationRoot{ 0 };
+        std::shared_ptr<const NavAtlas> Atlas;
+        bool NavigationDirty = false;
         std::vector<std::array<uint64_t, 4>> NavigationStamp;
         void UpdateNavigation()
         {
@@ -301,8 +320,17 @@ namespace Zamin {
                 stamp.push_back({ id, g->GetSerial(), g->GetRevision(), g->GetCarveRevision() });
                 grids.push_back(g);
             }
-            if (stamp == NavigationStamp) return;
+            if (stamp == NavigationStamp && !NavigationDirty) return;
+            NavigationDirty = false;
             NavigationStamp = std::move(stamp);
+            std::vector<NavAtlas::Source> tiles;
+            for (const auto& [id, grid] : sources) tiles.push_back({ id, grid });
+            auto atlas = std::make_shared<NavAtlas>();
+            if (atlas->Build(tiles, Rules.NavigationLinks, Counters.AtlasError, Rules.NavigationMaxCells)) Atlas = std::move(atlas);
+            else Atlas.reset(); // old retained snapshots remain immutable; current queries fail closed
+            Counters.AtlasCells = Atlas ? Atlas->GetCellCount() : 0;
+            Counters.AtlasBytes = Atlas ? Atlas->GetMemoryBytes() : 0;
+            Counters.ActiveNavigationLinks = Atlas ? Atlas->GetActiveLinks() : 0;
             auto root = Anchor->GetEntityByUUID(NavigationRoot);
             if (!root)
             {
@@ -349,6 +377,10 @@ namespace Zamin {
             Counters.MemoryPressure = previous.MemoryPressure;
             Counters.CacheEvictions = previous.CacheEvictions;
             Counters.PressureFrames = previous.PressureFrames;
+            Counters.AtlasCells = previous.AtlasCells;
+            Counters.AtlasBytes = previous.AtlasBytes;
+            Counters.ActiveNavigationLinks = previous.ActiveNavigationLinks;
+            Counters.AtlasError = previous.AtlasError;
             Counters.NavigationTiles = previous.NavigationTiles;
             Counters.NavigationCells = previous.NavigationCells;
             Counters.NavigationRebuilds = previous.NavigationRebuilds;
@@ -880,6 +912,21 @@ namespace Zamin {
     {
         const auto& d = *m_Data;
         return d.Rules.NavigationMode && (dimension == 0 || dimension == int(d.Rules.NavigationMode)) ? d.NavigationRoot : UUID(0);
+    }
+    std::shared_ptr<const NavAtlas> WorldStreaming::GetNavigationAtlas() const { return m_Data->Atlas; }
+    NavRoute WorldStreaming::FindNavigationRoute(glm::vec2 from, glm::vec2 to, const NavPathOptions& options) const
+    {
+        if (const auto atlas = GetNavigationAtlas()) return atlas->FindRoute(from, to, options);
+        NavRoute result;
+        result.Status = NavPathStatus::Failed;
+        return result;
+    }
+    bool WorldStreaming::SetNavigationLinks(std::vector<NavTraversalLink> links, std::string& error)
+    {
+        if (!NavAtlas::ValidateLinks(links, error)) return false;
+        m_Data->Rules.NavigationLinks = std::move(links);
+        m_Data->NavigationDirty = true;
+        return true;
     }
     uint64_t WorldStreaming::Enqueue(Command command, std::string& error)
     {

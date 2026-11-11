@@ -46,13 +46,14 @@ def main():
             text = log.read_text(errors="replace")
             expected = ["Agent oracle: graph destination accepted", "Agent oracle: graph completed physical traversal",
                         "Agent oracle: actual actor arrived", "Agent oracle: portal disabled",
-                        "Agent oracle: unloaded atlas stopped motion", "Agent oracle: graph, controller, disable, unload and return passed"]
+                        "Agent oracle: unloaded atlas stopped motion", "Agent oracle: graph, controller, disable, unload and return passed",
+                        "Async agent oracle: worker queries delivered="]
             if result.returncode or any(item not in text for item in expected) or any(item in text for item in ("GL_INVALID_", "Assertion failed")):
                 raise RuntimeError(f"{name}: navigation workflow failed (exit {result.returncode}); see {log}")
             if not picture.is_file() or not picture.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"):
                 raise RuntimeError(f"{name}: screenshot missing")
             if not args.no_editor:
-                env.pop("ZAMIN_WORLD_AGENT_TEST", None)
+                env["ZAMIN_EDITOR_SELECT"] = "World traversal actor"
                 env.update(ZAMIN_EDITOR_VISUAL_GRAPH="Scripts/WorldTraversal.zgraph", ZAMIN_EDITOR_WORLD_AGENT_QA="1", ZAMIN_EDITOR_PLAY="1",
                            ZAMIN_MAX_FRAMES="120", ZAMIN_SCREENSHOT=str(out / (name + "-editor.png")))
                 editor_log = out / (name + "-editor.log")

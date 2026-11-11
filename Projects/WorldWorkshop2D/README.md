@@ -41,3 +41,10 @@ CompleteNavTraversal → Success/Cancel. UUID tokenlar String; link, revision va
 Band controller exit yoki eski token teleport qilmaydi. Unloaded maydonda namuna driver'i actor
 gravity'sini muzlatadi; return'da boshlang‘ich nuqtadan yangi graph destination boshlaydi.
 `Tests/world_agent_test.py` fixed capture time bilan 2D/3D Player va graph editor screenshot'larini tekshiradi.
+
+### Async yo‘l qidiruvi
+
+World policy AsyncNavigation=true: 2 worker, 64 outstanding request, tick'da 4 start / 8 publication.
+Graph'dagi Searching = NavQueryPending. Worker hech qanday Scene/physics reference olmaydi; owner stale
+resultni tekshirib keyin o‘rnatadi. B demo'da har uch faza async delivered query bilan tekshiriladi.
+World Streaming panelida queue va retained payload MiB diagnostikasi mavjud.

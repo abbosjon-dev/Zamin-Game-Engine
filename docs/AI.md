@@ -569,3 +569,37 @@ Anchor'dagi World traversal actor built-in Zamin.VisualGraph bilan ishlaydi; 3D 
 kapsulasi bilan yuradi. Graph Message → SetWorldDestination, NavTraversalRequested → Delay →
 CompleteNavTraversal → Success branch ishlatadi. Unloaded demo maydonida persistent actor gravity'si
 namuna driver'i tomonidan muzlatiladi; navigation o‘zi vertikal gravity'ni bekor qilmaydi.
+
+## Bounded async world queries
+
+World policy'dagi `AsyncNavigation=true` NavAgent yo‘l qidiruvini `NavQueryQueue` worker'lariga beradi.
+Default false eski synchronous API'ni saqlaydi; WorldWorkshop2D/3D async rejimni yoqadi. Scene::SetNavDestination
+accepted worker request uchun true qaytaradi, PathStatus hali None bo‘ladi; to‘liq/partial/failed natija keyin keladi.
+Capacity sabab qabul bo‘lmagan request false, lekin agentning destination intent'i saqlanib, keyingi tick'da retry
+qilinadi; uni bekor qilish uchun StopMoving/Stop ishlating. Missing yoki empty atlas Failed, queue-wait emas.
+`NavQueryPending` graph pure node'i joriy agentning accepted queued/running/completed/published query'sini bildiradi;
+portal kutish uchun NavTraversalState.Pending alohida. Sample graph'da Searching bool shu node'dan yangilanadi.
+
+Worker faqat immutable atlas va copied primitive request data bilan ishlaydi. ECS, controller, ScriptInstance yoki
+plugin callback worker'ga berilmaydi. Owner `WorldStreaming::Update`/SceneManager::ProcessRequests'da Pump qiladi;
+so‘ng SceneManager::UpdateScenes natijani qo‘llaydi. Faqat UpdateScenes chaqirib world tick'ni tashlab ketmang.
+Requestlar FIFO, replacement queued work'ni oxirga qo‘yadi; completion timing worker scheduling'ga bog‘liq,
+route algoritmi deterministik. Bir tick'da start tokenlari default 4, publication 8, tokenlar yig‘ilmaydi.
+Workers default 2 (1..4), capacity 64 (1..1024); queued/running/completed/published hammasi capacity'ga kiradi.
+
+Generic queue default: max expanded 65536, max route points 32768, unique retained snapshot 64 MiB,
+retained result buffers 8 MiB. Snapshot bir nechta job tomonidan ishlatilsa bir marta hisoblanadi. Cancelled running
+job worker stop'ni ko‘rmaguncha charged bo‘lib qoladi. Oversize result explicit Failed/error, silent truncation yo‘q.
+Bu payload hisoblari OS RSS hard cap emas; caller ushlab turgan snapshot/results va worker scratch alohida.
+A* scratch loaded cell soniga, open heap bounded expansion/link soniga bog‘liq. Individual atlas limit 1048576 cell.
+Shutdown stop signal beradi va worker'larni join qiladi. Queue'dan tashqarida snapshot mutable alias bilan
+qayta Build qilinmasligi kerak; world wrapper faqat engine-owned immutable snapshot beradi.
+
+Cancel/replace/atlas publication aktiv qidiruvga cooperative stop_token yuboradi; heap pop va path reconstruction
+ichida signal davriy tekshiriladi. Result owner'da atlas revision, current destination, options, actual start drift,
+walkable start-cell identity, floor tolerance, active/HasDestination/WorldNavigation va EnTT entity generation bilan
+tekshiriladi. UUID qayta ishlatilgan actor eski natijani olmaydi. Deleted/inactive/stopped agentlar cleanup'da
+bekor qilinadi. Pending paytida planar motion nol; gravity physics tizimida qoladi. Drift yoki stale natija discard
+qilinib qayta query beriladi. Owner install faqat accepted current natijaga ruxsat beradi; traversal nonce tekshiruvi
+avvalgi paketdagidek saqlangan. Async route'lar hozir sequential movement/corner tracking ishlatadi; crowd avoidance
+va polygon navmesh alohida ish. Snapshot build va publication hali owner thread'da sinxron, hard deadline yo‘q.

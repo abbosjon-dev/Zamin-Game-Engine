@@ -95,6 +95,32 @@
       "Y": 430,
       "Inputs": {},
       "Breakpoint": false
+    },
+    {
+      "ID": 11,
+      "Kind": "Event.Update",
+      "X": 20,
+      "Y": 650,
+      "Inputs": {},
+      "Breakpoint": false
+    },
+    {
+      "ID": 12,
+      "Kind": "NavQueryPending",
+      "X": 280,
+      "Y": 800,
+      "Inputs": {},
+      "Breakpoint": false
+    },
+    {
+      "ID": 13,
+      "Kind": "Set.Bool",
+      "X": 550,
+      "Y": 650,
+      "Inputs": {
+        "Name": "Searching"
+      },
+      "Breakpoint": false
     }
   ],
   "Links": [
@@ -181,6 +207,18 @@
       "Output": "False",
       "To": 10,
       "Input": "In"
+    },
+    {
+      "From": 11,
+      "Output": "Then",
+      "To": 13,
+      "Input": "In"
+    },
+    {
+      "From": 12,
+      "Output": "Value",
+      "To": 13,
+      "Input": "Value"
     }
   ],
   "Variables": {
@@ -189,6 +227,10 @@
       "Default": false
     },
     "Success": {
+      "Type": "Bool",
+      "Default": false
+    },
+    "Searching": {
       "Type": "Bool",
       "Default": false
     }

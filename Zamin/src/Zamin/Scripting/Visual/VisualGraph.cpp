@@ -145,6 +145,7 @@ for(auto type:{Type::Number,Type::Bool,Type::String}){std::string suffix=TypeNam
 for(auto name:{"Raycast2D","Raycast3D"})add(name,"Physics queries",{V("Origin"),V("Direction"),N("Distance",100)},{B("Hit"),EntityPin("Entity"),V("Point"),V("Normal"),N("Distance")},true);
 add("SetDestination","Navigation",{E("In"),EntityPin(),V("Position")},{E("Then")});
 add("SetWorldDestination", "Navigation", { E("In"), EntityPin(), V("Position") }, { E("Then"), B("Success") });
+add("NavQueryPending", "Navigation", { EntityPin() }, { B("Value") }, true);
 add("NavTraversalState", "Navigation", { EntityPin() }, { B("Pending"), S("Link"), S("Revision"), S("Ticket"), V("Entry"), V("Exit"), S("Status") }, true);
 add("CompleteNavTraversal", "Navigation", { E("In"), EntityPin(), S("Link"), S("Revision"), S("Ticket") }, { E("Then"), B("Success") });
 add("CancelNavTraversal", "Navigation", { E("In"), EntityPin() }, { E("Then"), B("Success") });

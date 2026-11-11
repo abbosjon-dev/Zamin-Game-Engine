@@ -1,5 +1,7 @@
 #include "VisualGraphHost.h"
 #include "Zamin/Project/Project.h"
+#include "Zamin/Scene/SceneManager.h"
+#include "Zamin/Scene/WorldStreaming.h"
 #include "Zamin/Utils/FileSystem.h"
 #include "Zamin/Core/Log.h"
 #include "Zamin/Math/Math.h"
@@ -257,6 +259,13 @@ namespace Zamin {
             const auto position = vec("Position");
             nav->WorldNavigation = true;
             return GetScene().SetNavDestination(target, position);
+        }
+        else if (k == "NavQueryPending")
+        {
+            auto* manager = GetScene().GetSceneManager();
+            auto* world = manager ? manager->GetWorldStreaming() : nullptr;
+            auto* nav = target.TryGetComponent<NavAgentComponent>();
+            return world && world->IsAnchor(&GetScene()) && nav && nav->WorldNavigation && nav->HasDestination && world->HasNavigationQuery(target.GetUUID());
         }
         else if (k == "NavTraversalState")
         {

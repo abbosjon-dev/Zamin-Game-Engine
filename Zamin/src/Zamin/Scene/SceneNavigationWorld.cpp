@@ -56,11 +56,48 @@ namespace Zamin {
             }
             return float(std::min(length, double(std::numeric_limits<float>::max())));
         }
+        bool InstallWorldRoute(NavAgentComponent& a, const NavRoute& route, glm::vec3 from, int dim, float offset, glm::vec3 oldVelocity)
+        {
+            a.PathStatus = route.Status;
+            if (route.Points.empty()) return false;
+            a.Path.push_back(from);
+            a.PathLinks.push_back(0);
+        // Preserve a start-cell centre when it is a portal entry. Ordinary replans start at the
+        // actual position and never turn back towards the centre of the cell already occupied.
+            const size_t begin = route.Points.size() > 1 && route.Points[1].IncomingLink ? 0 : 1;
+            for (size_t i = begin; i < route.Points.size(); ++i)
+            {
+                const auto& p = route.Points[i];
+                a.Path.push_back(dim == 3 ? glm::vec3(p.Position.x, p.Height + offset, p.Position.y) : glm::vec3(p.Position, from.z));
+                a.PathLinks.push_back(p.IncomingLink);
+            }
+            if (route.Status == NavPathStatus::Complete)
+            {
+                const auto& last = route.Points.back();
+                const auto goal = dim == 3 ? glm::vec3(a.Destination.x, last.Height + offset, a.Destination.z) : glm::vec3(glm::vec2(a.Destination), from.z);
+                if (a.Path.size() > 1 && !a.PathLinks.back()) a.Path.back() = goal;
+                else
+                {
+                    a.Path.push_back(goal);
+                    a.PathLinks.push_back(0);
+                }
+            }
+            a.Velocity = oldVelocity;
+            a.PathIndex = 1;
+            a.Remaining = WalkRemaining(a, from, dim);
+            if (a.Path.size() < 2)
+            {
+                a.Arrived = true;
+                ClearRoute(a);
+            }
+            return true;
+        }
     }
     bool Scene::ComputeWorldNavAgentPath(Entity entity, NavAgentComponent& a)
     {
         auto* world = World(*this);
         const auto atlas = world ? world->GetNavigationAtlas() : nullptr;
+        if (world) world->CancelNavigationQuery(entity.GetUUID());
         a.RepathRequested = false;
         a.RepathTimer = std::isfinite(a.RepathInterval) ? std::max(0.f, a.RepathInterval) : .5f;
         const auto oldVelocity = a.Velocity;
@@ -69,7 +106,7 @@ namespace Zamin {
         a.AtlasRevision = atlas ? atlas->GetRevision() : 0;
         a.Arrived = false;
         a.PathStatus = NavPathStatus::Failed;
-        if (!atlas || !a.HasDestination || !std::isfinite(a.Destination.x) || !std::isfinite(a.Destination.y) || !std::isfinite(a.Destination.z)) return false;
+        if (!atlas || !atlas->GetCellCount() || !a.HasDestination || !std::isfinite(a.Destination.x) || !std::isfinite(a.Destination.y) || !std::isfinite(a.Destination.z)) return false;
         const int dim = int(world->GetPolicy().NavigationMode);
         const auto from = GetWorldPosition(entity);
         const float offset = entity.HasComponent<CharacterController3DComponent>() ? 0.f : a.BaseOffset;
@@ -80,40 +117,19 @@ namespace Zamin {
         options.SnapRadius = 0;
         options.MaxExpanded = int(std::clamp(a.WorldMaxExpanded, 1u, 1048576u));
         if (dim == 3) options.StartHeight = from.y - offset;
-        const auto route = atlas->FindRoute(WorldNavPlane(from, dim), WorldNavPlane(a.Destination, dim), options);
-        a.PathStatus = route.Status;
-        if (route.Points.empty()) return false;
-        a.Path.push_back(from);
-        a.PathLinks.push_back(0);
-        // Preserve a start-cell centre when it is a portal entry. Ordinary replans start at the
-        // actual position and never turn back towards the centre of the cell already occupied.
-        const size_t begin = route.Points.size() > 1 && route.Points[1].IncomingLink ? 0 : 1;
-        for (size_t i = begin; i < route.Points.size(); ++i)
+        if (world->GetPolicy().AsyncNavigation)
         {
-            const auto& p = route.Points[i];
-            a.Path.push_back(dim == 3 ? glm::vec3(p.Position.x, p.Height + offset, p.Position.y) : glm::vec3(p.Position, from.z));
-            a.PathLinks.push_back(p.IncomingLink);
-        }
-        if (route.Status == NavPathStatus::Complete)
-        {
-            const auto& last = route.Points.back();
-            const auto goal = dim == 3 ? glm::vec3(a.Destination.x, last.Height + offset, a.Destination.z) : glm::vec3(glm::vec2(a.Destination), from.z);
-            if (a.Path.size() > 1 && !a.PathLinks.back()) a.Path.back() = goal;
-            else
+            std::string error;
+            a.PathStatus = NavPathStatus::None;
+            if (!world->SubmitNavigationQuery(entity.GetUUID(), WorldNavPlane(from, dim), WorldNavPlane(a.Destination, dim), options, error))
             {
-                a.Path.push_back(goal);
-                a.PathLinks.push_back(0);
+                a.RepathRequested = true;
+                return false;
             }
+            return true;
         }
-        a.Velocity = oldVelocity;
-        a.PathIndex = 1;
-        a.Remaining = WalkRemaining(a, from, dim);
-        if (a.Path.size() < 2)
-        {
-            a.Arrived = true;
-            ClearRoute(a);
-        }
-        return true;
+        const auto route = atlas->FindRoute(WorldNavPlane(from, dim), WorldNavPlane(a.Destination, dim), options);
+        return InstallWorldRoute(a, route, from, dim, offset, oldVelocity);
     }
     void Scene::ApplyWorldNavVelocity(Entity entity, const glm::vec3& velocity, int dim, float dt)
     {
@@ -236,16 +252,29 @@ namespace Zamin {
             {
                 if (a.AtlasRevision) ++a.BlockedRepaths;
                 ClearRoute(a);
+                a.AtlasRevision = revision;
                 a.RepathRequested = a.HasDestination;
             }
+            if (world && world->GetPolicy().AsyncNavigation)
+            {
+                if (!a.HasDestination || a.RepathRequested) world->CancelNavigationQuery(entity.GetUUID());
+                NavQueryQueue::Result result;
+                if (!a.RepathRequested && world->PollNavigationQuery(entity.GetUUID(), result))
+                {
+                    const float offset = entity.HasComponent<CharacterController3DComponent>() ? 0.f : a.BaseOffset;
+                    InstallWorldRoute(a, result.Route, position, dim, offset, glm::vec3(0));
+                    a.RepathTimer = std::isfinite(a.RepathInterval) ? std::max(0.f, a.RepathInterval) : .5f;
+                }
+                if (a.HasDestination && a.PathStatus == NavPathStatus::None && !world->HasNavigationQuery(entity.GetUUID())) a.RepathRequested = true;
+            }
             a.RepathTimer -= dt;
-            if (a.HasDestination && (a.RepathRequested || (!a.PendingTraversalLink && !a.Arrived && a.RepathInterval > 0 && a.RepathTimer <= 0)))
+            if (a.HasDestination && (a.RepathRequested || (!a.PendingTraversalLink && (!world || !world->HasNavigationQuery(entity.GetUUID())) && !a.Arrived && a.RepathInterval > 0 && a.RepathTimer <= 0)))
             {
                 ComputeWorldNavAgentPath(entity, a);
                 ++m_NavFrameStats.PathRequests;
             }
             auto stop = [&] { a.Velocity = glm::vec3(0); ApplyWorldNavVelocity(entity, glm::vec3(0), dimension, dt); };
-            if (!atlas || (dim != 2 && dim != 3) || a.Arrived || !a.HasDestination || a.PathStatus == NavPathStatus::Failed || a.Path.size() != a.PathLinks.size())
+            if (!atlas || (world && world->HasNavigationQuery(entity.GetUUID())) || (dim != 2 && dim != 3) || a.Arrived || !a.HasDestination || a.PathStatus == NavPathStatus::None || a.PathStatus == NavPathStatus::Failed || a.Path.size() != a.PathLinks.size())
             {
                 stop();
                 continue;

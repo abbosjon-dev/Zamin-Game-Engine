@@ -958,10 +958,10 @@ namespace {
         }
         return condition();
     }
-    Entity WorldAgent(Scene& scene, bool controller = false)
+    Entity WorldAgent(Scene& scene, bool controller = false, uint64_t id = 90001)
     {
         Scene staged;
-        auto entity = staged.CreateEntityWithUUID(UUID(90001), "Traversal actor");
+        auto entity = staged.CreateEntityWithUUID(UUID(id), "Traversal actor");
         entity.GetTransform().Translation = controller ? glm::vec3(1.5f, .02f, 5.5f) : glm::vec3(1.5f, 5.5f, 0);
         auto& a = entity.AddComponent<NavAgentComponent>();
         a.WorldNavigation = true;
@@ -977,7 +977,7 @@ namespace {
         }
         std::string error;
         CHECK(scene.ImportStagedCell(staged, error).size() == 1);
-        return scene.GetEntityByUUID(UUID(90001));
+        return scene.GetEntityByUUID(UUID(id));
     }
     Entity AgentWall(Scene& scene, glm::vec3 position, glm::vec3 size)
     {
@@ -1214,5 +1214,262 @@ TEST(WorldNavAgentGraphOverflowDoesNotChangeNavigationMode)
     CHECK(host && !host->VM.Error().empty());
     CHECK(!actor.GetComponent<NavAgentComponent>().WorldNavigation && !actor.GetComponent<NavAgentComponent>().HasDestination);
     CHECK_NEAR(scene->GetWorldPosition(actor).x, 1.5f, .001);
+    manager.Stop();
+}
+
+namespace {
+    bool StepAsyncAgent(SceneManager& manager, const std::function<bool()>& condition)
+    {
+        const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+        do {
+            manager.ProcessRequests();
+            manager.UpdateScenes(Timestep(1.f / 60));
+            if (condition()) return true;
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        } while (std::chrono::steady_clock::now() < end);
+        return condition();
+    }
+    void AsyncPolicy(WorldFixture& fixture)
+    {
+        fixture.Policy.AsyncNavigation = true;
+        fixture.Policy.NavigationQueryWorkers = 1;
+        fixture.Policy.NavigationQueryCapacity = 4;
+        fixture.Policy.NavigationQueryStarts = 1;
+        fixture.Policy.NavigationQueryResults = 1;
+        fixture.Save();
+    }
+}
+TEST(WorldAsyncNavigationPolicyRoundTripAndLimits)
+{
+    WorldFixture f;
+    ConfigureWorldAgent(f);
+    AsyncPolicy(f);
+    WorldManifest manifest;
+    WorldStreaming::Policy policy;
+    std::string error;
+    CHECK(WorldStreaming::LoadDefinition(f.Assets / "Worlds/Main.zworld", manifest, policy, error));
+    CHECK(policy.AsyncNavigation && policy.NavigationQueryWorkers == 1 && policy.NavigationQueryCapacity == 4 && policy.NavigationQueryStarts == 1);
+    policy.NavigationQueryWorkers = 0;
+    CHECK(!policy.Validate(error));
+    policy.NavigationQueryWorkers = 1;
+    policy.NavigationQueryCapacity = 1025;
+    CHECK(!policy.Validate(error));
+    policy.NavigationQueryCapacity = 4;
+    policy.NavigationQueryResults = 0;
+    CHECK(!policy.Validate(error));
+}
+TEST(WorldAsyncNavigationPendingStopsUntilOwnerPublishesAndStillTraverses)
+{
+    WorldFixture f;
+    ConfigureWorldAgent(f);
+    AsyncPolicy(f);
+    SceneManager manager;
+    auto scene = f.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 300; }));
+    auto entity = WorldAgent(*scene);
+    auto& a = entity.GetComponent<NavAgentComponent>();
+    const auto start = scene->GetWorldPosition(entity);
+    CHECK(scene->SetNavDestination(entity, { 40005.5f, 5.5f, 0 }));
+    CHECK(world->HasNavigationQuery(entity.GetUUID()) && a.PathStatus == NavPathStatus::None && a.Path.empty() && !a.Arrived);
+    CHECK(scene->GetWorldPosition(entity) == start);
+    CHECK(StepAsyncAgent(manager, [&] { return scene->GetNavTraversalLink(entity) == 501; }));
+    CHECK(scene->CompleteNavTraversal(entity, 501, a.AtlasRevision, a.TraversalTicket));
+    CHECK(StepAsyncAgent(manager, [&] { return a.Arrived; }));
+    manager.ProcessRequests();
+    CHECK(world->GetStats().NavigationQueries.Delivered >= 1);
+    CHECK_NEAR(scene->GetWorldPosition(entity).x, 40005.5f, .15);
+    manager.Stop();
+}
+TEST(WorldAsyncNavigationRejectsChangedGoalAndCrossedStartCell)
+{
+    WorldFixture f;
+    ConfigureWorldAgent(f);
+    AsyncPolicy(f);
+    SceneManager manager;
+    auto scene = f.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 300; }));
+    auto entity = WorldAgent(*scene);
+    auto& a = entity.GetComponent<NavAgentComponent>();
+    entity.GetTransform().Translation.x = 1.99f;
+    CHECK(scene->SetNavDestination(entity, { 40005.5f, 5.5f, 0 }));
+    CHECK(Until(manager, [&] { return world->GetStats().NavigationQueries.Available == 1; }));
+    entity.GetTransform().Translation.x = 2.01f; // less than .1 drift, but crossed a cell boundary
+    NavQueryQueue::Result result;
+    CHECK(!world->PollNavigationQuery(entity.GetUUID(), result));
+    CHECK(a.Path.empty() && !a.PendingTraversalLink);
+    manager.ProcessRequests();
+    CHECK(world->GetStats().NavigationStaleResults == 1);
+    CHECK(scene->SetNavDestination(entity, { 40005.5f, 5.5f, 0 }));
+    CHECK(Until(manager, [&] { return world->GetStats().NavigationQueries.Available == 1; }));
+    a.Destination = { 8.5f, 5.5f, 0 };
+    CHECK(!world->PollNavigationQuery(entity.GetUUID(), result));
+    CHECK(StepAsyncAgent(manager, [&] { return a.Arrived; }));
+    CHECK_NEAR(scene->GetWorldPosition(entity).x, 8.5f, .15);
+    manager.Stop();
+}
+TEST(WorldAsyncNavigationCancelDestroyAndTopologyRetirePendingJobs)
+{
+    WorldFixture f;
+    ConfigureWorldAgent(f);
+    AsyncPolicy(f);
+    SceneManager manager;
+    auto scene = f.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 300; }));
+    auto entity = WorldAgent(*scene);
+    auto& a = entity.GetComponent<NavAgentComponent>();
+    CHECK(scene->SetNavDestination(entity, { 40005.5f, 5.5f, 0 }));
+    a.Stop(true);
+    manager.ProcessRequests();
+    CHECK(!world->HasNavigationQuery(entity.GetUUID()));
+    CHECK(scene->SetNavDestination(entity, { 40005.5f, 5.5f, 0 }));
+    const auto id = entity.GetUUID();
+    scene->DestroyEntity(entity);
+    manager.ProcessRequests();
+    CHECK(!world->HasNavigationQuery(id));
+    entity = WorldAgent(*scene);
+    CHECK(scene->SetNavDestination(entity, { 40005.5f, 5.5f, 0 }));
+    CHECK(Until(manager, [&] { return world->GetStats().NavigationQueries.Available == 1; }));
+    std::string error;
+    CHECK(world->SetNavigationLinks({}, error));
+    manager.ProcessRequests();
+    NavQueryQueue::Result result;
+    CHECK(!world->PollNavigationQuery(entity.GetUUID(), result));
+    CHECK(world->GetStats().NavigationQueries.Cancelled >= 3);
+    manager.ClearStreamingWorld();
+    manager.Stop();
+}
+TEST(WorldAsyncNavigationBackpressureEventuallyServesEveryAgent)
+{
+    WorldFixture f;
+    ConfigureWorldAgent(f);
+    AsyncPolicy(f);
+    f.Policy.NavigationQueryCapacity = 2;
+    f.Save();
+    SceneManager manager;
+    auto scene = f.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 300; }));
+    std::vector<Entity> agents;
+    for (uint64_t i = 0; i < 8; ++i)
+    {
+        auto entity = WorldAgent(*scene, false, 92000 + i);
+        agents.push_back(entity);
+        scene->SetNavDestination(entity, { 8.5f, 5.5f, 0 });
+    }
+    CHECK(StepAsyncAgent(manager, [&] { return std::all_of(agents.begin(), agents.end(), [](Entity e) { return e.GetComponent<NavAgentComponent>().Arrived; }); }));
+    manager.ProcessRequests();
+    const auto stats = world->GetStats().NavigationQueries;
+    CHECK(stats.Delivered >= 8 && stats.Rejected > 0 && stats.Outstanding <= 2);
+    for (auto entity : agents) CHECK_NEAR(scene->GetWorldPosition(entity).x, 8.5f, .15);
+    manager.Stop();
+}
+TEST(WorldAsyncNavigationControllerWallAndExitOccupancyRemainAuthoritative)
+{
+    WorldFixture f;
+    ConfigureWorldAgent(f, true);
+    AsyncPolicy(f);
+    SceneManager manager;
+    auto scene = f.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 300; }));
+    auto entity = WorldAgent(*scene, true);
+    auto& a = entity.GetComponent<NavAgentComponent>();
+    auto wall = AgentWall(*scene, { 2.1f, .9f, 5.5f }, { .1f, .9f, 2 });
+    CHECK(scene->SetNavDestination(entity, { 40005.5f, 0, 5.5f }));
+    CHECK(StepAsyncAgent(manager, [&] { return !world->HasNavigationQuery(entity.GetUUID()); }));
+    StepAgent(manager, [] { return false; }, 60);
+    CHECK(!a.PendingTraversalLink && scene->GetWorldPosition(entity).x < 2);
+    scene->DestroyEntity(wall);
+    CHECK(StepAsyncAgent(manager, [&] { return scene->GetNavTraversalLink(entity) == 501; }));
+    auto blocker = AgentWall(*scene, { 40002.5f, .9f, 5.5f }, { .5f, .9f, .5f });
+    CHECK(!scene->CompleteNavTraversal(entity, 501, a.AtlasRevision, a.TraversalTicket));
+    scene->DestroyEntity(blocker);
+    CHECK(scene->CompleteNavTraversal(entity, 501, a.AtlasRevision, a.TraversalTicket));
+    CHECK(StepAsyncAgent(manager, [&] { return a.Arrived; }));
+    manager.Stop();
+}
+
+TEST(WorldAsyncNavigationDoesNotDeliverToRecreatedUUID)
+{
+    WorldFixture f;
+    ConfigureWorldAgent(f);
+    AsyncPolicy(f);
+    SceneManager manager;
+    auto scene = f.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 300; }));
+    auto old = WorldAgent(*scene);
+    CHECK(scene->SetNavDestination(old, { 40005.5f, 5.5f, 0 }));
+    CHECK(Until(manager, [&] { return world->GetStats().NavigationQueries.Available == 1; }));
+    const auto handle = uint32_t(old);
+    scene->DestroyEntity(old);
+    auto replacement = WorldAgent(*scene);
+    CHECK(uint32_t(replacement) != handle);
+    auto& a = replacement.GetComponent<NavAgentComponent>();
+    a.HasDestination = true;
+    a.Destination = { 40005.5f, 5.5f, 0 };
+    NavQueryQueue::Result result;
+    CHECK(!world->PollNavigationQuery(replacement.GetUUID(), result));
+    CHECK(a.Path.empty() && !a.PendingTraversalLink);
+    manager.Stop();
+}
+
+TEST(WorldAsyncNavigationGraphPendingReflectsOwnerQueue)
+{
+    WorldFixture f;
+    ConfigureWorldAgent(f);
+    AsyncPolicy(f);
+    SceneManager manager;
+    auto scene = f.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 300; }));
+    Visual::Graph graph;
+    graph.Variables["Searching"] = { Visual::Type::Bool, false };
+    graph.Nodes = { { 1, "Event.Start" }, { 2, "SetWorldDestination", 0, 0, { { "Position", { 8.5, 5.5, 0 } } } }, { 3, "Event.Update" }, { 4, "NavQueryPending" }, { 5, "Set.Bool", 0, 0, { { "Name", "Searching" } } } };
+    graph.Links = { { 1, "Then", 2, "In" }, { 3, "Then", 5, "In" }, { 4, "Value", 5, "Value" } };
+    CHECK(graph.Validate().empty());
+    CHECK(graph.Save(f.Assets / "Scripts/AsyncState.zgraph"));
+    Scene staged;
+    auto source = staged.CreateEntityWithUUID(UUID(93001), "Async graph actor");
+    source.GetTransform().Translation = { 1.5f, 5.5f, 0 };
+    source.AddComponent<NavAgentComponent>();
+    auto& script = source.AddComponent<NativeScriptComponent>();
+    script.ClassName = "Zamin.VisualGraph";
+    script.Fields["Graph"].Set(std::string("Scripts/AsyncState.zgraph"));
+    std::string error;
+    CHECK(scene->ImportStagedCell(staged, error).size() == 1);
+    auto actor = scene->GetEntityByUUID(UUID(93001));
+    manager.UpdateScenes(Timestep(1.f / 60));
+    auto* host = dynamic_cast<VisualGraphHost*>(actor.GetComponent<NativeScriptComponent>().Instance);
+    CHECK(host && host->VM.Error().empty() && host->VM.Variables().at("Searching") == true);
+    CHECK(world->HasNavigationQuery(actor.GetUUID()));
+    CHECK(StepAsyncAgent(manager, [&] { return !world->HasNavigationQuery(actor.GetUUID()) && host->VM.Variables().at("Searching") == false; }));
+    CHECK(host->VM.Error().empty());
+    manager.Stop();
+}
+
+TEST(WorldAsyncNavigationEmptyAtlasFailsAndReturnResumes)
+{
+    WorldFixture f;
+    ConfigureWorldAgent(f);
+    AsyncPolicy(f);
+    SceneManager manager;
+    auto scene = f.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 300; }));
+    auto actor = WorldAgent(*scene);
+    auto& a = actor.GetComponent<NavAgentComponent>();
+    CHECK(scene->SetNavDestination(actor, { 40005.5f, 5.5f, 0 }));
+    world->SetViewerOverride({ 1000000, 1000000, 0 });
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 0; }));
+    manager.UpdateScenes(Timestep(1.f / 60));
+    CHECK(a.PathStatus == NavPathStatus::Failed && a.Path.empty() && !a.PendingTraversalLink && glm::length(a.Velocity) == 0);
+    CHECK(!world->HasNavigationQuery(actor.GetUUID()));
+    world->SetViewerOverride({ 2, 0, 2 });
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 300; }));
+    CHECK(StepAsyncAgent(manager, [&] { return scene->GetNavTraversalLink(actor) == 501; }));
     manager.Stop();
 }

@@ -3,6 +3,7 @@
 #include <memory>
 #include <span>
 #include <string>
+#include <stop_token>
 
 namespace Zamin {
     // A link is an explicit gameplay transition, never an ordinary walk through empty space.
@@ -45,6 +46,8 @@ namespace Zamin {
                    size_t maxCells = 262144);
         // Query-local scratch is proportional to loaded cells. SnapRadius is clamped to 0..64.
         NavRoute FindRoute(glm::vec2 from, glm::vec2 to, const NavPathOptions& options = {}) const;
+        NavRoute FindRouteCancellable(glm::vec2 from, glm::vec2 to, const NavPathOptions& options, std::stop_token stop) const;
+        bool SameWalkableCell(glm::vec2 first, glm::vec2 second) const;
         uint64_t GetRevision() const { return m_Revision; }
         size_t GetCellCount() const { return m_Cells; }
         size_t GetTileCount() const { return m_Tiles.size(); }

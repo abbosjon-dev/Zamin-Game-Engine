@@ -2,6 +2,7 @@
 
 #include "Zamin/Scene/WorldCellLoader.h"
 #include "Zamin/AI/NavAtlas.h"
+#include "Zamin/AI/NavQueryQueue.h"
 #include "Zamin/Core/Base.h"
 #include "Zamin/Asset/AssetResidency.h"
 
@@ -34,6 +35,9 @@ namespace Zamin {
             double PressureResumeRatio = .9;
             uint32_t NavigationMode = 0; // 0 off, 2 XY grid, 3 XZ height grid
             uint32_t NavigationMaxCells = 262144;
+            bool AsyncNavigation = false;
+            uint32_t NavigationQueryWorkers = 2, NavigationQueryCapacity = 64;
+            uint32_t NavigationQueryStarts = 4, NavigationQueryResults = 8;
             std::vector<NavTraversalLink> NavigationLinks;
             uint32_t CacheEntriesPerKind = 128, MaxCacheEvictionsPerFrame = 8;
             std::vector<std::string> Layers{ "main" };
@@ -91,6 +95,8 @@ namespace Zamin {
             uint64_t NavigationRebuilds = 0;
             size_t AtlasCells = 0, AtlasBytes = 0, ActiveNavigationLinks = 0;
             std::string AtlasError;
+            NavQueryQueue::Stats NavigationQueries;
+            uint64_t NavigationStaleResults = 0;
             std::string NavigationError;
             size_t CheckpointCells = 0, CheckpointBytes = 0;
             uint64_t Captures = 0, Restores = 0;
@@ -119,6 +125,11 @@ namespace Zamin {
         NavRoute FindNavigationRoute(glm::vec2 from, glm::vec2 to, const NavPathOptions& options = {}) const;
         // Owner thread, applied at the next world update; routes become stale on publication.
         bool SetNavigationLinks(std::vector<NavTraversalLink> links, std::string& error);
+        // Owner-thread async agent queries. Poll only exposes Pump-published results.
+        uint64_t SubmitNavigationQuery(UUID entity, glm::vec2 from, glm::vec2 to, const NavPathOptions& options, std::string& error);
+        bool PollNavigationQuery(UUID entity, NavQueryQueue::Result& result);
+        bool HasNavigationQuery(UUID entity) const;
+        void CancelNavigationQuery(UUID entity);
         // Host between frames. Checkpoints contain serialized components; not a physics replay.
         void SetCaptureOnUnload(bool enabled);
         bool CaptureCell(UUID cell, std::string& error);

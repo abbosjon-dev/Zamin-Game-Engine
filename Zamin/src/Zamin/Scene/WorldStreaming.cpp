@@ -34,7 +34,7 @@ namespace Zamin {
             json links = json::array();
             for (const auto& l : p.NavigationLinks)
                 links.push_back({ { "ID", l.ID }, { "From", { l.From.x, l.From.y } }, { "To", { l.To.x, l.To.y } }, { "Cost", l.Cost }, { "Bidirectional", l.Bidirectional }, { "Enabled", l.Enabled } });
-            return { { "NavigationLinks", links }, { "LoadRadius", p.LoadRadius }, { "UnloadRadius", p.UnloadRadius }, { "MainThreadMilliseconds", p.MainThreadMilliseconds }, { "AxisMask", p.AxisMask }, { "Layers", p.Layers }, { "MaxResidentCells", p.MaxResidentCells }, { "MaxResidentEntities", p.MaxResidentEntities }, { "MaxEntitiesPerCell", p.MaxEntitiesPerCell }, { "MaxBuildingCells", p.MaxBuildingCells }, { "MaxActivationsPerFrame", p.MaxActivationsPerFrame }, { "MaxUnloadsPerFrame", p.MaxUnloadsPerFrame }, { "MaxResolveEntitiesPerFrame", p.MaxResolveEntitiesPerFrame }, { "DeclaredCPUBytes", p.DeclaredCPUBytes }, { "DeclaredGPUBytes", p.DeclaredGPUBytes }, { "ObservedRSSLimitBytes", p.ObservedRSSLimitBytes }, { "RequestedGPULimitBytes", p.RequestedGPULimitBytes }, { "PressureResumeRatio", p.PressureResumeRatio }, { "CacheEntriesPerKind", p.CacheEntriesPerKind }, { "MaxCacheEvictionsPerFrame", p.MaxCacheEvictionsPerFrame }, { "NavigationMode", p.NavigationMode }, { "NavigationMaxCells", p.NavigationMaxCells } };
+            return { { "AsyncNavigation", p.AsyncNavigation }, { "NavigationQueryWorkers", p.NavigationQueryWorkers }, { "NavigationQueryCapacity", p.NavigationQueryCapacity }, { "NavigationQueryStarts", p.NavigationQueryStarts }, { "NavigationQueryResults", p.NavigationQueryResults }, { "NavigationLinks", links }, { "LoadRadius", p.LoadRadius }, { "UnloadRadius", p.UnloadRadius }, { "MainThreadMilliseconds", p.MainThreadMilliseconds }, { "AxisMask", p.AxisMask }, { "Layers", p.Layers }, { "MaxResidentCells", p.MaxResidentCells }, { "MaxResidentEntities", p.MaxResidentEntities }, { "MaxEntitiesPerCell", p.MaxEntitiesPerCell }, { "MaxBuildingCells", p.MaxBuildingCells }, { "MaxActivationsPerFrame", p.MaxActivationsPerFrame }, { "MaxUnloadsPerFrame", p.MaxUnloadsPerFrame }, { "MaxResolveEntitiesPerFrame", p.MaxResolveEntitiesPerFrame }, { "DeclaredCPUBytes", p.DeclaredCPUBytes }, { "DeclaredGPUBytes", p.DeclaredGPUBytes }, { "ObservedRSSLimitBytes", p.ObservedRSSLimitBytes }, { "RequestedGPULimitBytes", p.RequestedGPULimitBytes }, { "PressureResumeRatio", p.PressureResumeRatio }, { "CacheEntriesPerKind", p.CacheEntriesPerKind }, { "MaxCacheEvictionsPerFrame", p.MaxCacheEvictionsPerFrame }, { "NavigationMode", p.NavigationMode }, { "NavigationMaxCells", p.NavigationMaxCells } };
         }
         bool ReadPolicy(const json& j, WorldStreaming::Policy& p, std::string& error)
         {
@@ -73,6 +73,11 @@ namespace Zamin {
             read("CacheEntriesPerKind", p.CacheEntriesPerKind);
             read("NavigationMode", p.NavigationMode);
             read("NavigationMaxCells", p.NavigationMaxCells);
+            read("NavigationQueryWorkers", p.NavigationQueryWorkers);
+            read("NavigationQueryCapacity", p.NavigationQueryCapacity);
+            read("NavigationQueryStarts", p.NavigationQueryStarts);
+            read("NavigationQueryResults", p.NavigationQueryResults);
+            if (j.contains("AsyncNavigation")) p.AsyncNavigation = j.at("AsyncNavigation").get<bool>();
             read("MaxCacheEvictionsPerFrame", p.MaxCacheEvictionsPerFrame);
             if (j.contains("NavigationLinks"))
             {
@@ -110,6 +115,13 @@ namespace Zamin {
             return false;
         }
         if (!NavAtlas::ValidateLinks(NavigationLinks, error)) return false;
+        if ((AsyncNavigation && !NavigationMode) || !NavigationQueryWorkers || NavigationQueryWorkers > 4 ||
+            !NavigationQueryCapacity || NavigationQueryCapacity > 1024 || !NavigationQueryStarts || NavigationQueryStarts > 64 ||
+            !NavigationQueryResults || NavigationQueryResults > 64)
+        {
+            error = "Invalid async navigation policy";
+            return false;
+        }
         std::set<std::string> unique;
         for (const auto& layer : Layers)
             if (layer.empty() || layer.size() > 64 || !unique.insert(layer).second || !std::all_of(layer.begin(), layer.end(), [](unsigned char c) {
@@ -293,6 +305,24 @@ namespace Zamin {
         UUID NavigationRoot{ 0 };
         std::shared_ptr<const NavAtlas> Atlas;
         bool NavigationDirty = false;
+        std::unique_ptr<NavQueryQueue> Queries;
+        std::unordered_map<uint64_t, uint32_t> QueryEntities;
+        void PumpQueries()
+        {
+            if (!Queries) return;
+            for (auto key : Queries->Keys())
+            {
+                auto entity = Anchor->GetEntityByUUID(UUID(key));
+                const auto* agent = entity ? entity.TryGetComponent<NavAgentComponent>() : nullptr;
+                const auto binding = QueryEntities.find(key);
+                if (!agent || !agent->WorldNavigation || !agent->HasDestination || !Anchor->IsActiveInHierarchy(entity) || binding == QueryEntities.end() || binding->second != uint32_t(entity))
+                {
+                    Queries->Cancel(key);
+                    QueryEntities.erase(key);
+                }
+            }
+            Queries->Pump(Rules.NavigationQueryStarts, Rules.NavigationQueryResults);
+        }
         std::vector<std::array<uint64_t, 4>> NavigationStamp;
         void UpdateNavigation()
         {
@@ -322,6 +352,8 @@ namespace Zamin {
             }
             if (stamp == NavigationStamp && !NavigationDirty) return;
             NavigationDirty = false;
+            if (Queries) Queries->CancelAll();
+            QueryEntities.clear();
             NavigationStamp = std::move(stamp);
             std::vector<NavAtlas::Source> tiles;
             for (const auto& [id, grid] : sources) tiles.push_back({ id, grid });
@@ -381,6 +413,8 @@ namespace Zamin {
             Counters.AtlasBytes = previous.AtlasBytes;
             Counters.ActiveNavigationLinks = previous.ActiveNavigationLinks;
             Counters.AtlasError = previous.AtlasError;
+            Counters.NavigationQueries = Queries ? Queries->GetStats() : NavQueryQueue::Stats{};
+            Counters.NavigationStaleResults = previous.NavigationStaleResults;
             Counters.NavigationTiles = previous.NavigationTiles;
             Counters.NavigationCells = previous.NavigationCells;
             Counters.NavigationRebuilds = previous.NavigationRebuilds;
@@ -679,6 +713,7 @@ namespace Zamin {
                 }
             }
             d.UpdateNavigation();
+            d.PumpQueries();
             d.Recount();
             d.Counters.LastMilliseconds = Elapsed(start);
             d.Counters.PeakMilliseconds = std::max(d.Counters.PeakMilliseconds, d.Counters.LastMilliseconds);
@@ -870,6 +905,7 @@ namespace Zamin {
             }
         }
         d.UpdateNavigation();
+        d.PumpQueries();
         d.Counters.LastMilliseconds = Elapsed(start);
         d.Counters.PeakMilliseconds = std::max(d.Counters.PeakMilliseconds, d.Counters.LastMilliseconds);
         d.Recount();
@@ -920,6 +956,60 @@ namespace Zamin {
         NavRoute result;
         result.Status = NavPathStatus::Failed;
         return result;
+    }
+    uint64_t WorldStreaming::SubmitNavigationQuery(UUID id, glm::vec2 from, glm::vec2 to, const NavPathOptions& options, std::string& error)
+    {
+        auto& d = *m_Data;
+        auto entity = d.Anchor->GetEntityByUUID(id);
+        const auto* agent = entity ? entity.TryGetComponent<NavAgentComponent>() : nullptr;
+        if (!d.Rules.AsyncNavigation || !agent || !agent->WorldNavigation || !agent->HasDestination || !d.Anchor->IsActiveInHierarchy(entity))
+        {
+            error = "Navigation request needs an active world agent";
+            return 0;
+        }
+        if (!d.Queries)
+        {
+            NavQueryQueue::Limits limits;
+            limits.Workers = d.Rules.NavigationQueryWorkers;
+            limits.Capacity = d.Rules.NavigationQueryCapacity;
+            d.Queries = std::make_unique<NavQueryQueue>(limits);
+        }
+        const auto serial = d.Queries->Submit(uint64_t(id), d.Atlas, from, to, options, error);
+        if (serial) d.QueryEntities[uint64_t(id)] = uint32_t(entity);
+        return serial;
+    }
+    bool WorldStreaming::HasNavigationQuery(UUID id) const { return m_Data->Queries && m_Data->Queries->Has(uint64_t(id)); }
+    void WorldStreaming::CancelNavigationQuery(UUID id)
+    {
+        if (m_Data->Queries) m_Data->Queries->Cancel(uint64_t(id));
+    }
+    bool WorldStreaming::PollNavigationQuery(UUID id, NavQueryQueue::Result& result)
+    {
+        auto& d = *m_Data;
+        if (!d.Queries || !d.Queries->Poll(uint64_t(id), result)) return false;
+        auto entity = d.Anchor->GetEntityByUUID(id);
+        auto* agent = entity ? entity.TryGetComponent<NavAgentComponent>() : nullptr;
+        const auto binding = d.QueryEntities.find(uint64_t(id));
+        const bool sameEntity = entity && binding != d.QueryEntities.end() && binding->second == uint32_t(entity);
+        d.QueryEntities.erase(uint64_t(id));
+        bool valid = sameEntity && d.Atlas && result.Route.Revision == d.Atlas->GetRevision() && agent && agent->WorldNavigation && agent->HasDestination && d.Anchor->IsActiveInHierarchy(entity);
+        if (valid)
+        {
+            const auto position = d.Anchor->GetWorldPosition(entity), destination = agent->Destination;
+            const bool three = d.Rules.NavigationMode == 3;
+            const auto plane = [&](glm::vec3 p) { return three ? glm::vec2(p.x, p.z) : glm::vec2(p); };
+            const float offset = entity.HasComponent<CharacterController3DComponent>() ? 0.f : agent->BaseOffset;
+            valid = !agent->RepathRequested && result.To == plane(destination) && glm::length(result.From - plane(position)) <= .1f && d.Atlas->SameWalkableCell(result.From, plane(position)) &&
+                    result.Options.MaxExpanded == int(std::clamp(agent->WorldMaxExpanded, 1u, 1048576u)) &&
+                    (!three || std::abs(position.y - offset - result.Options.StartHeight) <= .2f);
+        }
+        if (!valid)
+        {
+            ++d.Counters.NavigationStaleResults;
+            result = {};
+            return false;
+        }
+        return true;
     }
     bool WorldStreaming::SetNavigationLinks(std::vector<NavTraversalLink> links, std::string& error)
     {

@@ -518,3 +518,13 @@ WorldStreaming publication owner thread'da source serial/revision/carve yoki lin
 bajariladi. Retained shared snapshot worker lifetime'ni himoya qiladi; current revision esa actor
 route lifetime'ni himoya qiladi. NavRouteFollower traversal entry'da gameplay completion kutadi.
 Mavjud dense mosaic NavAgent API bilan moslik uchun alohida quriladi, uning budjeti atlasga bog‘liq emas.
+
+### Async navigation service
+
+`AI/NavQueryQueue` Pimpl ichida jthread/CV, bounded job registry va latest-key mapping saqlaydi.
+Start credits owner Pump'da reset bo‘ladi. Worker-owned math query cooperative stop_token bilan ishlaydi;
+completed payload faqat keyingi bounded owner publication'da Poll'ga ko‘rinadi. Every retained snapshot unique
+pointer bo‘yicha reference/byte charge, route buffer capacity bo‘yicha result charge oladi. Cancelled active job
+acknowledge bo‘lguncha registry'da; waiting/completed/published cancel buffer/ref'larni darhol qo‘yib yuboradi.
+World wrapper UUID bilan birga entity generation'ni saqlaydi, result publication'dan keyin current owner pose,
+destination va atlas epoch'ni tekshiradi. ECS/plugin closures yo‘q; World destructor queue'ni join qiladi.

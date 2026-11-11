@@ -389,3 +389,11 @@ occupancy'ni tekshiradi. World rejimida eski grid smoothing/avoidance settings q
 Visual Script palette'da Navigation tugunlari va NavTraversalRequested event'i bor. WorldWorkshop
 `Scripts/WorldTraversal.zgraph` Message → destination va event → delay → completion → success branch
 namunasini beradi. B — yangi physics/graph actor, N — kinematic preview.
+
+### Async world navigation diagnostikasi
+
+World Streaming / Sparse navigation bo‘limida queued/running/ready, submitted/delivered/cancelled/rejected/stale,
+retained snapshot/result MiB va worker total vaqt ko‘rinadi. Policy'da async navigation, workers, capacity,
+starts/results per tick sozlanadi; Save + runtime reload joriy service konfiguratsiyasini yangilaydi.
+WorldTraversal.zgraph'dagi NavQueryPending → Searching backend request holatini ko‘rsatadi. Bu portal pending
+hodisasidan alohida; pending query davomida agent planar harakat qilmaydi.

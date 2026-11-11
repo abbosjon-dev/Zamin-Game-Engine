@@ -285,6 +285,10 @@ namespace Zamin {
             if (ImGui::CollapsingHeader("Sparse navigation / route", ImGuiTreeNodeFlags_DefaultOpen))
             {
                 const auto atlas = live->GetNavigationAtlas();
+                const auto& queries = stats.NavigationQueries;
+                ImGui::Text("Async queries: %s | queued %zu running %zu ready %zu", live->GetPolicy().AsyncNavigation ? "on" : "off", queries.Queued, queries.Running, queries.Available);
+                ImGui::Text("Requests %llu | delivered %llu | cancelled %llu | rejected %llu | stale %llu", (unsigned long long)queries.Submitted, (unsigned long long)queries.Delivered, (unsigned long long)queries.Cancelled, (unsigned long long)queries.Rejected, (unsigned long long)stats.NavigationStaleResults);
+                ImGui::Text("Retained snapshots %.2f MiB | results %.2f MiB | worker total %.2f ms", queries.SnapshotBytes / 1048576.0, queries.ResultBytes / 1048576.0, queries.WorkerMilliseconds);
                 ImGui::Text("Loaded cells %zu | %.2f MiB | active links %zu", stats.AtlasCells, stats.AtlasBytes / 1048576.0, stats.ActiveNavigationLinks);
                 if (!stats.AtlasError.empty()) ImGui::TextWrapped("Atlas: %s", stats.AtlasError.c_str());
                 ImGui::InputFloat2("Route start (XY / XZ)", &s.RouteFrom.x);
@@ -446,6 +450,11 @@ namespace Zamin {
             ImGui::RadioButton("Nav 3D", &nav, 3);
             s.Policy.NavigationMode = uint32_t(nav);
             ImGui::InputScalar("Navigation max cells", ImGuiDataType_U32, &s.Policy.NavigationMaxCells);
+            ImGui::Checkbox("Async navigation workers", &s.Policy.AsyncNavigation);
+            ImGui::InputScalar("Navigation workers (1..4)", ImGuiDataType_U32, &s.Policy.NavigationQueryWorkers);
+            ImGui::InputScalar("Navigation queue capacity", ImGuiDataType_U32, &s.Policy.NavigationQueryCapacity);
+            ImGui::InputScalar("Navigation starts per tick", ImGuiDataType_U32, &s.Policy.NavigationQueryStarts);
+            ImGui::InputScalar("Navigation results per tick", ImGuiDataType_U32, &s.Policy.NavigationQueryResults);
             if (ImGui::TreeNode("Traversal links (saved in .zworld)"))
             {
                 for (size_t i = 0; i < s.Policy.NavigationLinks.size(); ++i)

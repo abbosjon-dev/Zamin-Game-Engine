@@ -111,3 +111,8 @@ Delay task event tokenlarini o‘zi bilan saqlaydi. Kechikishdan keyin NavTraver
 olib eski action'ga qo‘llash o‘rniga event pinlarini complete'ga ulang. Bu explicit teleport handshake;
 character yurishi fizikaga bog‘liq, controller exit band bo‘lsa ko‘chmaydi. Rigidbody traversal completion
 hozir qo‘llanmaydi. Namuna: WorldWorkshop2D/3D `Scripts/WorldTraversal.zgraph`, B tugmasi bilan.
+
+Async world policy'da SetWorldDestination true worker request qabul qilinganini bildiradi, path status None
+bo‘lishi mumkin. **NavQueryPending** pure bool accepted query tayyor bo‘lguncha true; portal Pending alohida.
+Backpressure'da destination intent retry qilinadi, StopMoving bilan bekor qilinadi. Sample graph Searching
+variable'ni shu node bilan yangilaydi. Natija revision/goal/start/entity generation tekshiruvlaridan keyin qo‘llanadi.

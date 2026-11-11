@@ -349,6 +349,11 @@
     "MaxCacheEvictionsPerFrame": 4,
     "ObservedRSSLimitBytes": 0,
     "RequestedGPULimitBytes": 0,
-    "PressureResumeRatio": 0.85
+    "PressureResumeRatio": 0.85,
+    "AsyncNavigation": true,
+    "NavigationQueryWorkers": 2,
+    "NavigationQueryCapacity": 64,
+    "NavigationQueryStarts": 4,
+    "NavigationQueryResults": 8
   }
 }

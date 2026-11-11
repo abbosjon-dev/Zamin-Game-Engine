@@ -100,8 +100,9 @@ public:
         }
         if (qa && frame == 400)
         {
-            if (!m_Traversed || !m_Arrived || !m_Disabled || !m_Unloaded || !m_Returned || !a.Arrived || a.TraversalCompletions < 3 || !host->VM.Variables().at("Success").get<bool>()) throw std::runtime_error("Agent workflow incomplete");
+            if ((world.GetPolicy().AsyncNavigation && world.GetStats().NavigationQueries.Delivered < 3) || !m_Traversed || !m_Arrived || !m_Disabled || !m_Unloaded || !m_Returned || !a.Arrived || a.TraversalCompletions < 3 || !host->VM.Variables().at("Success").get<bool>()) throw std::runtime_error("Agent workflow incomplete");
             ZM_INFO("Agent oracle: graph, controller, disable, unload and return passed");
+            if (world.GetPolicy().AsyncNavigation) ZM_INFO("Async agent oracle: worker queries delivered={} stale={}", world.GetStats().NavigationQueries.Delivered, world.GetStats().NavigationStaleResults);
         }
     }
 private:

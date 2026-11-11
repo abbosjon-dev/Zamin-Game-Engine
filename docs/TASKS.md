@@ -22,6 +22,28 @@ saqlanadi; ulardagi belgi yangi imkoniyatning ishlayotganiga dalil o'rnini bosma
 | P7 Platforma, release va mahsulot | Linux/Windows, keyin macOS; cook/package/update/crash telemetry; editor/launcher yagona auth | Toza mashinada install/export/run, talablar va litsenziyalar, imzolangan release va rollback sinovi | Rejada |
 | P8 Yakuniy sifat darvozasi | Hujjatlar, ko'chirish yo'li, ikki namunaviy o'yin va profiling hisobotlari | Uzoq sessiya, resurs sizishi, recovery/fuzz, reference sahnalarda barqaror frame time va foydalanish sinovi | Rejada |
 
+### Yakunlangan katta paket — bounded async world navigation
+
+- [x] CPU-only worker queue, immutable snapshot lifetime, FIFO start/publication budgets.
+- [x] Active cancellation, replacement, retained snapshot/result byte budgets, bounded shutdown.
+- [x] NavAgent async admission, pending stop, stale destination/start/revision rejection, cancel/unload/destruction.
+- [x] Policy serialization, editor queue diagnostics, real 2D/3D graph/controller demos.
+- [x] Concurrency/regression, sanitizer, screenshots, native export va main push.
+
+
+Mahalliy dalillar (2026-11-11): 839/839 unit (19 yangi), 97/97 yo‘naltirilgan test,
+10/10 headless CTest, 12/12 render, 490/490 editor smoke qadam, OpenGL 4.1 residency GPU.
+Clang 18 syntax-only -Werror: 9 ta o‘zgargan TU. Queue/atlas/grid va queue testlari to‘liq
+instrumentlangan ASan/UBSan leaf probe: 10/10; bu butun engine sanitizer run’i emas.
+2D/3D Player 420 kadrdan, editor 120 kadrdan 13-node/16-link/3-variable graph bilan o‘tdi.
+Ikkala native export 420 kadr, async agent oracle, screenshot va relocation’dan o‘tdi.
+Oldingi 2c8585c CI barcha tekshiruvlarda yashil. Dalillar: `build-review/AsyncNavigationPackage/`.
+
+Chegaralar: scratch allocator/RSS va qattiq frame-time deadline bu payload byudjetlariga kirmaydi;
+atlas build owner thread’da. Harakat sequential corner tracking; local avoidance, yo‘lni silliqlash,
+jump/elevator animatsiyasi va umumiy job scheduler keyingi paketlarga qoladi.
+Keyingi paket: collision saqlangan holda route smoothing va ko‘p agentli local avoidance.
+
 ### Yakunlangan katta paket — NavAgent, controller va Visual Graph traversal
 
 - [x] NavAgent opt-in sparse atlas, bounded query, actual-position corner tracking, stale replan.

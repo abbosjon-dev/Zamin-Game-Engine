@@ -144,12 +144,21 @@ namespace Zamin {
         return b.Grid.IsWalkable(bc) && (!a.Grid.HasHeights() || a.Grid.GetMaxClimb() <= 0 ||
                                          std::abs(a.Grid.GetFloorHeight(ac.x, ac.y) - b.Grid.GetFloorHeight(bc.x, bc.y)) <= a.Grid.GetMaxClimb());
     }
+    bool NavAtlas::SameWalkableCell(glm::vec2 first, glm::vec2 second) const
+    {
+        const auto a = Snap(first, 0, NAN);
+        return a != Missing && a == Snap(second, 0, NAN);
+    }
     NavRoute NavAtlas::FindRoute(glm::vec2 from, glm::vec2 to, const NavPathOptions& options) const
+    {
+        return FindRouteCancellable(from, to, options, {});
+    }
+    NavRoute NavAtlas::FindRouteCancellable(glm::vec2 from, glm::vec2 to, const NavPathOptions& options, std::stop_token stop) const
     {
         NavRoute out;
         out.Revision = m_Revision;
         out.Status = NavPathStatus::Failed;
-        if (m_Tiles.empty() || !Finite(from) || !Finite(to)) return out;
+        if (stop.stop_requested() || m_Tiles.empty() || !Finite(from) || !Finite(to)) return out;
         const auto start = Snap(from, options.SnapRadius, options.StartHeight), goal = Snap(to, options.SnapRadius, NAN);
         if (start == Missing) return out;
         const auto target = goal == Missing ? glm::dvec2(to) : glm::dvec2(Point(goal).Position);
@@ -165,6 +174,7 @@ namespace Zamin {
         };
         auto later = [](const Entry& a, const Entry& b) { if (a.F != b.F) return a.F > b.F; if (a.H != b.H) return a.H > b.H; return a.Node > b.Node; };
         std::priority_queue<Entry, std::vector<Entry>, decltype(later)> open(later);
+        if (stop.stop_requested()) return out;
         std::vector<double> costs(m_Cells, std::numeric_limits<double>::infinity());
         std::vector<uint32_t> parent(m_Cells, Missing);
         std::vector<uint64_t> incoming(m_Cells, 0);
@@ -176,8 +186,10 @@ namespace Zamin {
         double bestH = heuristic(start);
         const size_t limit = options.MaxExpanded > 0 ? std::min(size_t(options.MaxExpanded), m_Cells) : m_Cells;
         constexpr int dx[] = { 1, -1, 0, 0, 1, 1, -1, -1 }, dy[] = { 0, 0, 1, -1, 1, -1, 1, -1 };
+        uint64_t popped = 0;
         while (!open.empty())
         {
+            if ((popped++ & 63) == 0 && stop.stop_requested()) return out;
             const auto item = open.top();
             open.pop();
             const auto node = item.Node;
@@ -233,6 +245,13 @@ namespace Zamin {
         out.Cost = costs[best];
         for (uint32_t n = best;; n = parent[n])
         {
+            if ((out.Points.size() & 63) == 0 && stop.stop_requested())
+            {
+                out.Points.clear();
+                out.Cost = 0;
+                out.Status = NavPathStatus::Failed;
+                return out;
+            }
             auto p = Point(n);
             p.IncomingLink = incoming[n];
             out.Points.push_back(p);

@@ -188,6 +188,9 @@ namespace Zamin {
     }
     bool Scene::CompleteNavTraversal(Entity entity, uint64_t link, uint64_t revision, uint64_t ticket)
     {
+        // Scripted door/obstacle changes must invalidate traversal before a teleport can commit.
+        if (!entity || entity.GetScene() != this || !entity.IsValid()) return false;
+        UpdateNavObstacles();
         if (!link || GetNavTraversalLink(entity) != link) return false;
         auto& a = entity.GetComponent<NavAgentComponent>();
         if (!ticket || ticket != a.TraversalTicket || revision != a.AtlasRevision || a.PathIndex < 1 || size_t(a.PathIndex) >= a.Path.size() || a.PathLinks.size() != a.Path.size() || a.PathLinks[size_t(a.PathIndex)] != link) return false;
@@ -264,8 +267,33 @@ namespace Zamin {
             {
                 if (a.AtlasRevision) ++a.BlockedRepaths;
                 ClearRoute(a);
+                a.Recovery.Reset();
                 a.AtlasRevision = revision;
                 a.RepathRequested = a.HasDestination;
+            }
+            // Explicit re-path requests (including ResumeTarget) are new recovery intent.
+            if (a.RepathRequested && a.Recovery.IsExhausted()) a.Recovery.Reset();
+            NavRecovery::Input progress;
+            progress.Position = WorldNavPlane(position, dimension);
+            progress.Delta = dt;
+            progress.HasIntent = a.HasDestination;
+            progress.CanMove = atlas && atlas->GetCellCount() && std::isfinite(a.Speed) && a.Speed > 0;
+            progress.WaitingPath = a.PathStatus == NavPathStatus::None || (world && world->HasNavigationQuery(entity.GetUUID()));
+            progress.Traversing = a.PendingTraversalLink != 0;
+            progress.Arrived = a.Arrived && a.PathStatus == NavPathStatus::Complete;
+            const auto recovery = a.Recovery.Observe(a.RecoverySettings, progress);
+            if (recovery == NavRecovery::Action::Retry)
+            {
+                a.Arrived = false;
+                a.RepathRequested = true;
+                ++a.BlockedRepaths;
+            }
+            if (recovery == NavRecovery::Action::Stop)
+            {
+                if (world) world->CancelNavigationQuery(entity.GetUUID());
+                a.Velocity = glm::vec3(0);
+                ApplyWorldNavVelocity(entity, glm::vec3(0), dimension, dt);
+                continue;
             }
             if (world && world->GetPolicy().AsyncNavigation)
             {

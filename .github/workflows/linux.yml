@@ -90,6 +90,9 @@ jobs:
       - name: World crowd crossing, steering telemetry and editor graph
         run: python3 Tests/world_crowd_test.py --build build --out world-streaming/crowd
 
+      - name: World dynamic barrier and bounded recovery workflow
+        run: python3 Tests/world_recovery_test.py --build build --out world-streaming/recovery
+
       - name: Sparse world navigation and traversal workflow
         run: python3 Tests/world_navigation_test.py --build build --out world-streaming/navigation
 

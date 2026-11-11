@@ -56,3 +56,11 @@ World `SmoothPath` now runs bounded portal-preserving smoothing on the query wor
 step has a conservative atlas clearance guard. Crowd steering is opt-in and physics remains authoritative.
 `ZAMIN_WORLD_CROWD_TEST=1 ZAMIN_CAPTURE_FPS=30` runs the two-phase 450-frame oracle;
 `Tests/world_crowd_test.py` captures both Player and editor. Dense neighbor/candidate overflow stops visibly.
+
+
+**R — recovery workshop**, **T — explicit retry:** a navigation-region barrier seals the route.
+The agent reaches a Partial end, retries twice, stops as Exhausted while keeping its destination,
+then resumes and arrives when the barrier opens. `RecoveryMonitor.zgraph` reads live watchdog
+state and accepts a Message retry. This uses NavObstacle source carving and same-frame atlas sync;
+the 3D actor is a real CharacterController. `ZAMIN_WORLD_RECOVERY_TEST=1 ZAMIN_CAPTURE_FPS=30`
+runs the 420-frame oracle; `Tests/world_recovery_test.py` captures Player and editor.

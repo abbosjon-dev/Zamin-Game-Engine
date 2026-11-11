@@ -944,6 +944,11 @@ namespace Zamin {
         m_Data->Override = true;
     }
     void WorldStreaming::ClearViewerOverride() { m_Data->Override = false; }
+    void WorldStreaming::SynchronizeNavigation()
+    {
+        m_Data->UpdateNavigation();
+        m_Data->Counters.NavigationQueries = m_Data->Queries ? m_Data->Queries->GetStats() : NavQueryQueue::Stats{};
+    }
     UUID WorldStreaming::GetNavigationEntity(int dimension) const
     {
         const auto& d = *m_Data;

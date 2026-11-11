@@ -119,6 +119,8 @@ namespace Zamin {
         void RetryFailures();
         // Host between frames, honors the same per-frame eviction allowance.
         size_t TrimCaches();
+        // Owner thread after carving, before agent commands. Does not grant queue start credits.
+        void SynchronizeNavigation();
         UUID GetNavigationEntity(int dimension) const;
         // Owner thread publishes snapshots; retained immutable snapshots are safe on workers.
         std::shared_ptr<const NavAtlas> GetNavigationAtlas() const;

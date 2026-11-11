@@ -3,6 +3,7 @@
 #include "Zamin/AI/Formation.h"
 #include "Zamin/AI/NavGrid.h"
 #include "Zamin/AI/NavPathfinder.h"
+#include "Zamin/AI/NavRecovery.h"
 #include "Zamin/Audio/AudioMixer.h"
 #include "Zamin/Core/Input.h"
 #include "Zamin/Core/UUID.h"
@@ -1509,6 +1510,8 @@ namespace Zamin {
     struct NavAgentComponent
     {
         bool WorldNavigation = false;    ///< opt in: streamed sparse atlas, explicit traversal handshake
+        NavRecovery::Settings RecoverySettings;
+        NavRecovery Recovery; // runtime only
         bool CrowdAvoidance = false;     ///< world mode: predictive velocity sampling, not a physics guarantee
         float CrowdNeighborDistance = 4, CrowdTimeHorizon = 1.5f, CrowdPriority = 1, CrowdHeight = 1.8f;
         /// Runtime diagnostics; Radius is the personal-space radius (the grid already includes static clearance).
@@ -1578,6 +1581,7 @@ namespace Zamin {
         /// OnUpdate) instead of after its Target (paused: ResumeTarget).
         void SetDestination(const glm::vec3& destination)
         {
+            Recovery.Reset();
             Destination = destination;
             HasDestination = true;
             Arrived = false;
@@ -1589,6 +1593,7 @@ namespace Zamin {
         /// not followed until ResumeTarget (or another Target is set).
         void Stop(bool immediate = false)
         {
+            Recovery.Reset();
             HasDestination = Arrived = RepathRequested = false;
             PreferredVelocity = glm::vec3(0);
             CrowdNeighbors = 0;
@@ -1617,13 +1622,14 @@ namespace Zamin {
         /// Moving now, walking a path, or about to (a destination whose path is not found yet).
         bool IsMoving() const
         {
-            return !PendingTraversalLink && (glm::dot(Velocity, Velocity) > 1e-4f || (HasDestination && !Arrived && (RepathRequested || Path.size() >= 2)));
+            return !(WorldNavigation && RecoverySettings.Enabled && Recovery.IsExhausted()) && !PendingTraversalLink && (glm::dot(Velocity, Velocity) > 1e-4f || (HasDestination && !Arrived && (RepathRequested || Path.size() >= 2)));
         }
         float RemainingDistance() const { return Remaining; }
         bool HasPath() const { return Path.size() >= 2; }
         bool IsPathPartial() const { return PathStatus == NavPathStatus::Partial; }
         void ResetRuntime()
         {
+            Recovery.Reset();
             PathLinks.clear();
             AtlasRevision = PendingTraversalLink = TraversalTicket = 0;
             TraversalEntry = TraversalExit = glm::vec3(0);

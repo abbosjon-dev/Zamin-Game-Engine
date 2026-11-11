@@ -260,6 +260,21 @@ namespace Zamin {
             nav->WorldNavigation = true;
             return GetScene().SetNavDestination(target, position);
         }
+        else if (k == "NavRecoveryState")
+        {
+            const auto* nav = target.TryGetComponent<NavAgentComponent>();
+            return V{ { "Phase", nav ? NavRecovery::Name(nav->Recovery.GetPhase()) : "Idle" }, { "Retries", nav ? nav->Recovery.GetRetries() : 0 }, { "StalledSeconds", nav ? nav->Recovery.GetStalledSeconds() : 0 }, { "Cooldown", nav ? nav->Recovery.GetCooldown() : 0 }, { "Exhausted", nav && nav->Recovery.IsExhausted() } };
+        }
+        else if (k == "RetryNavigation")
+        {
+            auto* nav = target.TryGetComponent<NavAgentComponent>();
+            if (!nav || !nav->WorldNavigation || !nav->HasDestination) return false;
+            nav->Recovery.Reset();
+            nav->RepathRequested = true;
+            nav->Arrived = false;
+            nav->PendingTraversalLink = nav->TraversalTicket = 0;
+            return true;
+        }
         else if (k == "NavSteeringState")
         {
             const auto* nav = target.TryGetComponent<NavAgentComponent>();

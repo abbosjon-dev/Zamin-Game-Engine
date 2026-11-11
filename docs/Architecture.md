@@ -534,3 +534,8 @@ frozen snapshot asosida `NavCrowd::Solve`, keyin clearance va physics command. S
 UUID tie-break va fixed candidate order bilan registry tartibidan mustaqil. Sparse route smoothing
 async query worker’ining bir qismi; portal handshake owner/gameplay’da qoladi. Solver cap’lari
 dense sahnada bloklanish holatini ochiq ko‘rsatadi; bu hard frame deadline yoki cheksiz crowd emas.
+
+Carve → source stamp sync → query cancellation/publication → agent commands tartibi world’dagi
+bir kadrli eski-topology harakatini oldini oladi. Synthetic mosaic source sifatida qayta carve
+qilinmaydi. Recovery owner’da actual displacement watchdog; waiting/traversal alohida phase,
+retry va cooldown bounded. Physics contact geometry’ni yangilash va nav carving alohida tizimlar.

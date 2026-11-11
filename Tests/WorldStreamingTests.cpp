@@ -1607,3 +1607,244 @@ TEST(WorldAsyncSmoothingChangeRejectsOldOptions)
     CHECK(world->GetStats().NavigationStaleResults >= 1);
     manager.Stop();
 }
+
+namespace {
+    Entity RecoveryDoor(Scene& scene, bool three = false, float x = 4.5f)
+    {
+        auto door = scene.CreateEntity("Recovery barrier");
+        door.GetTransform().Translation = three ? glm::vec3(x, 1, 5.5f) : glm::vec3(x, 5.5f, 0);
+        door.AddComponent<NavObstacleComponent>().Size = three ? glm::vec3(1, 3, 30) : glm::vec3(1, 30, 1);
+        return door;
+    }
+    void EnableRecovery(NavAgentComponent& a)
+    {
+        a.RecoverySettings.Enabled = true;
+        a.RecoverySettings.StallSeconds = .1f;
+        a.RecoverySettings.CooldownSeconds = .1f;
+        a.RecoverySettings.MaxRetries = 2;
+    }
+}
+TEST(WorldCarvingPublishesBeforeAgentMotionIn2DAnd3D)
+{
+    for (bool three : { false, true })
+    {
+        WorldFixture f;
+        ConfigureWorldAgent(f, three);
+        SceneManager manager;
+        auto scene = f.Start(manager);
+        auto* world = manager.GetWorldStreaming();
+        CHECK(Until(manager, [&] { return world->GetStats().AtlasCells > 0; }));
+        auto actor = WorldAgent(*scene, three);
+        auto& a = actor.GetComponent<NavAgentComponent>();
+        a.Speed = 1000;
+        CHECK(scene->SetNavDestination(actor, three ? glm::vec3(8.5f, 0, 5.5f) : glm::vec3(8.5f, 5.5f, 0)));
+        const auto revision = world->GetNavigationAtlas()->GetRevision();
+        RecoveryDoor(*scene, three);
+        manager.UpdateScenes(Timestep(.1f));
+        CHECK(world->GetNavigationAtlas()->GetRevision() != revision);
+        CHECK(scene->GetWorldPosition(actor).x < 4);
+        CHECK(!world->GetNavigationAtlas()->CanWalkSegment({ 1.5f, 5.5f }, { 8.5f, 5.5f }));
+        manager.Stop();
+    }
+}
+TEST(WorldMosaicBindingCarvesSourceTilesWithoutRebuildFeedback)
+{
+    WorldFixture f;
+    ConfigureWorldAgent(f);
+    SceneManager manager;
+    auto scene = f.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 300; }));
+    auto door = RecoveryDoor(*scene);
+    auto& obstacle = door.GetComponent<NavObstacleComponent>();
+    const auto mosaic = world->GetNavigationEntity(2);
+    obstacle.Grid.ID = mosaic;
+    scene->UpdateNavObstacles();
+    CHECK(obstacle.GetCarvedCellCount() > 0);
+    for (const auto& carving : obstacle.Carvings) CHECK(carving.Grid != uint64_t(mosaic));
+    const auto revision = world->GetNavigationAtlas()->GetRevision(), builds = world->GetStats().NavigationRebuilds;
+    const auto carves = obstacle.CarveCount;
+    for (int i = 0; i < 30; ++i)
+    {
+        manager.ProcessRequests();
+        manager.UpdateScenes(Timestep(1.f / 60));
+    }
+    CHECK(world->GetNavigationAtlas()->GetRevision() == revision && world->GetStats().NavigationRebuilds == builds && obstacle.CarveCount == carves);
+    manager.Stop();
+}
+TEST(WorldObstacleDisableDestroyAndRetainedSnapshotsAreCoherent)
+{
+    WorldFixture f;
+    ConfigureWorldAgent(f);
+    SceneManager manager;
+    auto scene = f.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 300; }));
+    auto door = RecoveryDoor(*scene);
+    scene->UpdateNavObstacles();
+    auto retained = world->GetNavigationAtlas();
+    CHECK(!retained->CanWalkSegment({ 1.5f, 5.5f }, { 8.5f, 5.5f }));
+    door.SetActive(false);
+    scene->UpdateNavObstacles();
+    CHECK(world->GetNavigationAtlas()->CanWalkSegment({ 1.5f, 5.5f }, { 8.5f, 5.5f }));
+    door.SetActive(true);
+    scene->UpdateNavObstacles();
+    CHECK(!world->GetNavigationAtlas()->CanWalkSegment({ 1.5f, 5.5f }, { 8.5f, 5.5f }));
+    scene->DestroyEntity(door);
+    scene->UpdateNavObstacles();
+    CHECK(world->GetNavigationAtlas()->CanWalkSegment({ 1.5f, 5.5f }, { 8.5f, 5.5f }));
+    CHECK(!retained->CanWalkSegment({ 1.5f, 5.5f }, { 8.5f, 5.5f }));
+    manager.Stop();
+}
+TEST(WorldObstacleInvalidatesQueuedQueryBeforeDelivery)
+{
+    WorldFixture f;
+    ConfigureWorldAgent(f);
+    AsyncPolicy(f);
+    SceneManager manager;
+    auto scene = f.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 300; }));
+    auto actor = WorldAgent(*scene);
+    CHECK(scene->SetNavDestination(actor, { 8.5f, 5.5f, 0 }) && world->HasNavigationQuery(actor.GetUUID()));
+    RecoveryDoor(*scene);
+    scene->UpdateNavObstacles();
+    CHECK(!world->HasNavigationQuery(actor.GetUUID()));
+    CHECK(world->GetStats().NavigationQueries.Cancelled >= 1);
+    CHECK(StepAsyncAgent(manager, [&] { return actor.GetComponent<NavAgentComponent>().Arrived; }));
+    CHECK(actor.GetComponent<NavAgentComponent>().PathStatus == NavPathStatus::Partial && scene->GetWorldPosition(actor).x < 4);
+    manager.Stop();
+}
+TEST(WorldRecoveryPhysicalControllerStallHasBoundedRetries)
+{
+    WorldFixture f;
+    ConfigureWorldAgent(f, true);
+    SceneManager manager;
+    auto scene = f.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells > 0; }));
+    auto actor = WorldAgent(*scene, true);
+    auto& a = actor.GetComponent<NavAgentComponent>();
+    a.Speed = 2;
+    EnableRecovery(a);
+    auto wall = AgentWall(*scene, { 3.5f, 1, 5.5f }, { .4f, 1, .7f });
+    CHECK(scene->SetNavDestination(actor, { 8.5f, 0, 5.5f }));
+    CHECK(StepAgent(manager, [&] { return a.Recovery.IsExhausted(); }, 600));
+    CHECK(a.HasDestination && !a.IsMoving() && a.Recovery.GetRetries() == 2 && a.PathRequests == 3);
+    CHECK(scene->GetWorldPosition(actor).x < 3.3f && glm::length(a.Velocity) < .001f);
+    scene->DestroyEntity(wall);
+    a.RepathRequested = true;
+    CHECK(StepAgent(manager, [&] { return a.Arrived; }, 600));
+    CHECK(a.Recovery.GetRetries() == 0);
+    manager.Stop();
+}
+TEST(WorldRecoveryPartialEndExhaustsAndNewTopologyResumesIntent)
+{
+    WorldFixture f;
+    ConfigureWorldAgent(f);
+    SceneManager manager;
+    auto scene = f.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 300; }));
+    auto actor = WorldAgent(*scene);
+    auto& a = actor.GetComponent<NavAgentComponent>();
+    EnableRecovery(a);
+    auto door = RecoveryDoor(*scene);
+    CHECK(scene->SetNavDestination(actor, { 8.5f, 5.5f, 0 }));
+    CHECK(StepAgent(manager, [&] { return a.Recovery.IsExhausted(); }, 600));
+    CHECK(a.HasDestination && a.PathStatus == NavPathStatus::Partial && !a.IsMoving());
+    scene->DestroyEntity(door);
+    scene->UpdateNavObstacles();
+    CHECK(StepAgent(manager, [&] { return a.Arrived && a.PathStatus == NavPathStatus::Complete; }, 600));
+    CHECK(a.Recovery.GetRetries() == 0 && scene->GetWorldPosition(actor).x > 8.3f);
+    manager.Stop();
+}
+TEST(WorldRecoverySettingsSerializeCopyAndClampWithoutRuntimeState)
+{
+    auto source = CreateRef<Scene>();
+    auto actor = source->CreateEntity("Recovering actor");
+    auto& a = actor.AddComponent<NavAgentComponent>();
+    EnableRecovery(a);
+    a.WorldNavigation = true;
+    NavRecovery::Input in;
+    in.HasIntent = true;
+    in.Delta = .1f;
+    for (int i = 0; i < 50; ++i) a.Recovery.Observe(a.RecoverySettings, in);
+    CHECK(a.Recovery.IsExhausted());
+    auto doc = nlohmann::json::parse(SceneSerializer(source).SerializeToString());
+    auto restored = CreateRef<Scene>();
+    CHECK(SceneSerializer(restored).DeserializeFromString(doc.dump()));
+    auto& b = restored->GetEntityByUUID(actor.GetUUID()).GetComponent<NavAgentComponent>();
+    CHECK(b.RecoverySettings.Enabled && b.RecoverySettings.MaxRetries == 2 && !b.Recovery.IsExhausted());
+    auto copied = Scene::Copy(source);
+    CHECK(copied->GetEntityByUUID(actor.GetUUID()).GetComponent<NavAgentComponent>().Recovery.GetRetries() == 0);
+    auto& config = doc["Entities"][0]["NavAgent"]["Recovery"];
+    config["MaxRetries"] = 999;
+    config["StallSeconds"] = -1;
+    config["CooldownSeconds"] = 1e9;
+    auto clamped = CreateRef<Scene>();
+    CHECK(SceneSerializer(clamped).DeserializeFromString(doc.dump()));
+    auto& c = clamped->GetEntityByUUID(actor.GetUUID()).GetComponent<NavAgentComponent>();
+    CHECK(c.RecoverySettings.Validate() && c.RecoverySettings.MaxRetries == 16 && c.RecoverySettings.StallSeconds == .1f);
+}
+TEST(WorldObstacleAtPortalExitRevokesCompletionBeforeNextTick)
+{
+    WorldFixture f;
+    ConfigureWorldAgent(f);
+    SceneManager manager;
+    auto scene = f.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 300; }));
+    auto actor = WorldAgent(*scene);
+    auto& a = actor.GetComponent<NavAgentComponent>();
+    CHECK(scene->SetNavDestination(actor, { 40005.5f, 5.5f, 0 }));
+    CHECK(StepAgent(manager, [&] { return scene->GetNavTraversalLink(actor) == 501; }));
+    const auto position = scene->GetWorldPosition(actor);
+    const auto revision = a.AtlasRevision, ticket = a.TraversalTicket;
+    RecoveryDoor(*scene, false, 40002.5f);
+    CHECK(!scene->CompleteNavTraversal(actor, 501, revision, ticket));
+    CHECK(scene->GetWorldPosition(actor) == position && !scene->GetNavTraversalLink(actor));
+    CHECK(world->GetNavigationAtlas()->GetRevision() != revision);
+    manager.Stop();
+}
+TEST(WorldRecoveryGraphReportsExhaustionAndRetriesExplicitly)
+{
+    WorldFixture f;
+    ConfigureWorldAgent(f);
+    SceneManager manager;
+    auto scene = f.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 300; }));
+    Visual::Graph graph;
+    graph.Variables["Exhausted"] = { Visual::Type::Bool, false };
+    graph.Variables["Success"] = { Visual::Type::Bool, false };
+    graph.Nodes = { { 1, "Event.Update" }, { 2, "NavRecoveryState" }, { 3, "Set.Bool", 0, 0, { { "Name", "Exhausted" } } }, { 4, "Event.Message" }, { 5, "RetryNavigation" }, { 6, "Set.Bool", 0, 0, { { "Name", "Success" } } } };
+    graph.Links = { { 1, "Then", 3, "In" }, { 2, "Exhausted", 3, "Value" }, { 4, "Then", 5, "In" }, { 5, "Then", 6, "In" }, { 5, "Success", 6, "Value" } };
+    CHECK(graph.Save(f.Assets / "Scripts/Recovery.zgraph"));
+    Scene staged;
+    auto e = staged.CreateEntityWithUUID(UUID(99002), "Recovery graph actor");
+    e.GetTransform().Translation = { 1.5f, 5.5f, 0 };
+    auto& nav = e.AddComponent<NavAgentComponent>();
+    nav.WorldNavigation = true;
+    EnableRecovery(nav);
+    auto& script = e.AddComponent<NativeScriptComponent>();
+    script.ClassName = "Zamin.VisualGraph";
+    script.Fields["Graph"].Set(std::string("Scripts/Recovery.zgraph"));
+    std::string error;
+    CHECK(scene->ImportStagedCell(staged, error).size() == 1);
+    auto actor = scene->GetEntityByUUID(UUID(99002));
+    auto& a = actor.GetComponent<NavAgentComponent>();
+    a.HasDestination = true;
+    a.Destination = { 8.5f, 5.5f, 0 };
+    a.AtlasRevision = world->GetNavigationAtlas()->GetRevision();
+    NavRecovery::Input in;
+    in.HasIntent = true;
+    in.Delta = .1f;
+    for (int i = 0; i < 50; ++i) a.Recovery.Observe(a.RecoverySettings, in);
+    manager.UpdateScenes(Timestep(1.f / 60));
+    auto* host = dynamic_cast<VisualGraphHost*>(actor.GetComponent<NativeScriptComponent>().Instance);
+    CHECK(host && host->VM.Variables().at("Exhausted") == true);
+    host->Emit("Message", {});
+    CHECK(!a.Recovery.IsExhausted() && a.RepathRequested && host->VM.Variables().at("Success") == true);
+    manager.Stop();
+}

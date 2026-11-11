@@ -453,6 +453,35 @@ namespace Zamin {
     void VisualGraphPanel::Properties()
     {
         using namespace Visual;
+        // Put live values before disabled authoring defaults so a running graph is inspectable
+        // without scrolling past two copies of every variable's initial value.
+        if (!m_Editable && m_Scene)
+        {
+            auto actor = m_Scene->GetEntityByUUID(m_Entity);
+            auto* script = actor ? actor.TryGetComponent<NativeScriptComponent>() : nullptr;
+            auto* host = script && script->ClassName == "Zamin.VisualGraph" ? dynamic_cast<VisualGraphHost*>(script->Instance) : nullptr;
+            if (host && script->Fields.contains("Graph") && script->Fields.at("Graph").StringValue == Project::GetAssetRelativePath(m_Path))
+            {
+                ImGui::SeparatorText("Live variables");
+                ImGui::TextWrapped("%s", actor.GetName().c_str());
+                size_t shown = 0;
+                for (const auto& [name, value] : host->VM.Variables())
+                {
+                    if (shown++ == 16)
+                    {
+                        ImGui::TextDisabled("More variables below...");
+                        break;
+                    }
+                    if (value.is_string())
+                    {
+                        const auto& text = value.get_ref<const std::string&>();
+                        ImGui::TextWrapped("%s = %.*s%s", name.c_str(), int(std::min(text.size(), size_t(160))), text.c_str(), text.size() > 160 ? "..." : "");
+                    }
+                    else ImGui::TextWrapped("%s = %s", name.c_str(), value.dump().c_str());
+                }
+                ImGui::Separator();
+            }
+        }
         ImGui::TextUnformatted("Selected node");
         ImGui::BeginDisabled(!m_Editable);
         auto it = std::find_if(m_Graph.Nodes.begin(), m_Graph.Nodes.end(), [&](auto& n) { return n.ID == m_Selected; });

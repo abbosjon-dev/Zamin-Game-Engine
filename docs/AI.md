@@ -644,3 +644,39 @@ aks holda to‘xtash. CharacterController/Rigidbody collision yakuniy vakolatga 
 `PreferredVelocity`, `CrowdNeighbors`, `CrowdLimited`, `CrowdBlocked` runtime diagnostika;
 `Velocity` clearance’dan keyingi buyruq, fizik jismning haqiqiy o‘lchangan tezligi emas.
 Sozlamalar scene/copy/checkpoint’da qoladi, runtime diagnostika reset qilinadi.
+
+### Dynamic obstacles va bounded recovery
+
+Carving source tile’larda bajariladi. World mosaic — derived compatibility view; uni qayta carve
+qilish serial/rebuild feedback yaratishi sababli u source ro‘yxatiga kirmaydi. `NavObstacle.Grid`
+world mosaic’ga bog‘lansa, carving yuklangan world cell’larning gridlariga yo‘naltiriladi.
+Avtomatik obstacle esa odatdagidek barcha tegishli baked grid’larni ko‘radi.
+
+Owner `WorldStreaming::SynchronizeNavigation()` source serial/revision/carve stamp’larini tekshiradi;
+o‘zgarish bo‘lsa yangi immutable atlas chop etadi, eski async query’larni bekor qiladi va replan
+so‘raydi. Queue start/publication credit bermaydi, streaming/checkpoint command bajarmaydi.
+Scene harakatdan oldin sync qiladi; explicit `SetNavDestination` va `CompleteNavTraversal`
+carving’ni ham yangilaydi. Shu sabab script shu kadrda yopgan eshik eski portal ticket’i bilan
+teleport qilinmaydi. Raw nav/collision transformlarini qo‘lda o‘zgartirgan tool read-after-write
+uchun `Scene::UpdateNavObstacles()` yoki source yangilangandan keyin sync chaqiradi.
+
+`NavAgent.RecoverySettings.Enabled` world mode uchun opt-in, default false. `StallSeconds`
+0.1..30, `CooldownSeconds` 0.1..30, `ProgressDistance` 0.001..10 va `MaxRetries` 1..16.
+Watchdog buyruq tezligi o‘rniga haqiqiy world planar pozitsiyani o‘lchaydi. Mayda jitter progress
+hisoblanmaydi; yetarli siljish retry budget’ini yangilaydi. Async queue/pending admission,
+portal handshake, bo‘sh atlas va zero speed stall hisoblanmaydi.
+
+Partial yo‘l oxiri destination’ga yetish emas: recovery faol bo‘lsa u cheklangan replan’larni
+sinaydi. Failed path va physics’da qotib qolish ham shu watchdog’dan o‘tadi. Budget tugasa
+`Exhausted`, tezlik nol, `HasDestination` saqlanadi va avtomatik interval uni chetlab o‘tmaydi.
+Yangi destination, explicit re-path/ResumeTarget/manual retry yoki yangi atlas revision’i
+watchdog’ni tiklaydi. Physics-only to‘siq olib tashlanishi atlasni o‘zgartirmasa explicit retry
+kerak; to‘liq avtomatik reopening uchun to‘siqqa `NavObstacle` bog‘lanadi.
+
+`NavRecovery` sof CPU state machine; ECS/physics callback saqlamaydi. Settings serialize/copy/checkpoint’da
+qoladi, progress/retry timer’lar play start/stop, new intent va component runtime reset’da tozalanadi.
+Invalid config/pose watchdog’ni `Invalid` holatida xavfsiz to‘xtatadi; inspector’da config o‘zgarishi
+uni reset qiladi. Retry — teleport yoki obstacle’ni chetlab o‘tishga ruxsat emas.
+
+World mosaic UUID runtime proxy hisoblanadi. Unga explicit Grid binding runtime tool uchun;
+saqlanadigan obstacle uchun avtomatik Grid yoki authored tile reference ishlatiladi.

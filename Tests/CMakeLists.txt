@@ -1,4 +1,4 @@
-add_executable(ZaminTests NavCrowdTests.cpp NavQueryQueueTests.cpp NavAtlasTests.cpp ZaminTests.cpp WorldCheckpointTests.cpp ResidencyTerrainNavTests.cpp WorldStreamingTests.cpp WorldCellLoaderTests.cpp WorldManifestTests.cpp PackedFoliageTests.cpp ModuleABITests.cpp TerrainFoliageTests.cpp CodeDocumentTests.cpp VisualGraphTests.cpp TerrainTests.cpp TerrainLODTests.cpp TilemapVisibilityTests.cpp SafetyTests.cpp EditorServicesTests.cpp TestFramework.cpp DebugDrawShippingCheck.cpp)
+add_executable(ZaminTests NavRecoveryTests.cpp NavCrowdTests.cpp NavQueryQueueTests.cpp NavAtlasTests.cpp ZaminTests.cpp WorldCheckpointTests.cpp ResidencyTerrainNavTests.cpp WorldStreamingTests.cpp WorldCellLoaderTests.cpp WorldManifestTests.cpp PackedFoliageTests.cpp ModuleABITests.cpp TerrainFoliageTests.cpp CodeDocumentTests.cpp VisualGraphTests.cpp TerrainTests.cpp TerrainLODTests.cpp TilemapVisibilityTests.cpp SafetyTests.cpp EditorServicesTests.cpp TestFramework.cpp DebugDrawShippingCheck.cpp)
 target_link_libraries(ZaminTests PRIVATE Zamin ZaminEditorSupport)
 # The sample projects are read by some tests (their assets must stay valid).
 target_compile_definitions(ZaminTests PRIVATE ZAMIN_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
@@ -363,4 +363,14 @@ if(Python3_Interpreter_FOUND AND UNIX)
     add_test(NAME WorldCrowdRuntime COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/Tests/world_crowd_test.py
         --build ${CMAKE_BINARY_DIR} --out ${CMAKE_BINARY_DIR}/WorldCrowdRuntime)
     set_tests_properties(WorldCrowdRuntime PROPERTIES LABELS "gui;world" TIMEOUT 1200)
+endif()
+
+if(Python3_Interpreter_FOUND AND UNIX)
+    add_test(NAME LinuxDependencyInstaller COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/Tests/install_linux_dependencies_test.py)
+endif()
+
+if(Python3_Interpreter_FOUND AND TARGET WorldWorkshop3D AND TARGET WorldWorkshop2D)
+    add_test(NAME WorldRecoveryRuntime COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/Tests/world_recovery_test.py
+        --build ${CMAKE_BINARY_DIR} --out ${CMAKE_BINARY_DIR}/WorldRecoveryRuntime)
+    set_tests_properties(WorldRecoveryRuntime PROPERTIES LABELS "gui;world" TIMEOUT 1200)
 endif()

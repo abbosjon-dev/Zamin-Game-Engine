@@ -22,6 +22,34 @@ saqlanadi; ulardagi belgi yangi imkoniyatning ishlayotganiga dalil o'rnini bosma
 | P7 Platforma, release va mahsulot | Linux/Windows, keyin macOS; cook/package/update/crash telemetry; editor/launcher yagona auth | Toza mashinada install/export/run, talablar va litsenziyalar, imzolangan release va rollback sinovi | Rejada |
 | P8 Yakuniy sifat darvozasi | Hujjatlar, ko'chirish yo'li, ikki namunaviy o'yin va profiling hisobotlari | Uzoq sessiya, resurs sizishi, recovery/fuzz, reference sahnalarda barqaror frame time va foydalanish sinovi | Rejada |
 
+### Yakunlangan katta paket — dynamic obstacle va bounded recovery
+
+- [x] Same-frame world atlas publication after carving; synthetic mosaic excluded from carve feedback.
+- [x] Recovery watchdog: real progress, pending/portal pause, bounded retry/cooldown/exhaustion and reset.
+- [x] Serialize/copy/reset, inspector and Blueprint recovery diagnostics/manual retry.
+- [x] Live barrier 2D/3D demos, portal/async/physics regression, sanitizer, screenshots and native exports.
+- [x] CI failure audit, verified evidence, upstream check and main push.
+
+Mahalliy dalillar (2026-11-11): 880/880 unit (19 yangi), 138/138 focused, 11/11 headless CTest,
+12/12 render, 490/490 editor smoke, OpenGL 4.1 residency GPU. Clang 18 syntax-only -Werror: 14 ta TU.
+NavRecovery leaf ASan/UBSan: 10/10. Recovery, source carving, world movement va world service TU’lari
+hamda focused testlar instrumentlangan owner probe: 138/138; qolgan shared engine normal build,
+bu butun engine sanitizer run’i emas. 2D/3D Player 420 kadrdan; editor 160 kadrdan, 8-node/9-link/
+4-variable graph va yuqorida jonli Exhausted/Phase/Retries. Ikkala native export 420 kadr, oracle,
+PNG va relocation’dan o‘tdi. Oldingi NavAgent/portal Player regressiyasi 420, crowd 450 kadrdan
+ikkala o‘lchamda o‘tdi. Dalillar: `build-review/RecoveryNavigationPackage/`.
+
+763a7b0 remote coverage dependency bosqichida Azure va official Ubuntu mirror DNS xatosi bilan
+to‘xtagan; bu C++ test failure’i emas. Installer cached paketlarni qayta o‘rnatmaydi, ikkala DNS
+ishlamasa tezda aniq xabar beradi va butun update/install command’lari timeout bilan chegaralangan.
+Mock regression real apt/sudo yoki host mirror fayllarini o‘zgartirmaydi. Yangi remote CI push’dan
+keyin alohida kuzatiladi; tashqi DNS ishlashiga kod kafolat bermaydi.
+
+Chegaralar: opt-in recovery; physics-only to‘siq olib tashlansa explicit retry, NavObstacle/topology
+o‘zgarsa avtomatik reset. Atlas build owner’da, hard frame deadline/hardware profiling yo‘q.
+Keyingi paket: animation locomotion va gameplay vertical slice; katta scene uchun profiler bilan
+aniq acceptance, streaming/query vaqtlarini o‘lchash.
+
 ### Yakunlangan katta paket — world smoothing va crowd steering
 
 - [x] Sparse atlas segment clearance: holes, corners, floor/climb, bounded work.

@@ -1699,6 +1699,8 @@ namespace Zamin {
             e["NavAgent"] = { { "WorldNavigation", c->WorldNavigation }, { "WorldMaxExpanded", c->WorldMaxExpanded }, { "Grid", c->Grid.ID }, { "Target", c->Target.ID }, { "Speed", c->Speed }, { "Acceleration", c->Acceleration }, { "AngularSpeed", c->AngularSpeed }, { "StoppingDistance", c->StoppingDistance }, { "Radius", c->Radius }, { "LookAhead", c->LookAhead }, { "RepathInterval", c->RepathInterval }, { "BaseOffset", c->BaseOffset }, { "AutoBraking", c->AutoBraking }, { "SmoothPath", c->SmoothPath }, { "SplinePath", c->SplinePath }, { "UpdateRotation", c->UpdateRotation } };
         if (auto* c = entity.TryGetComponent<NavAgentComponent>())
             e["NavAgent"]["Crowd"] = { { "Enabled", c->CrowdAvoidance }, { "NeighborDistance", c->CrowdNeighborDistance }, { "TimeHorizon", c->CrowdTimeHorizon }, { "Priority", c->CrowdPriority }, { "Height", c->CrowdHeight } };
+        if (auto* c = entity.TryGetComponent<NavAgentComponent>())
+            e["NavAgent"]["Recovery"] = { { "Enabled", c->RecoverySettings.Enabled }, { "StallSeconds", c->RecoverySettings.StallSeconds }, { "CooldownSeconds", c->RecoverySettings.CooldownSeconds }, { "ProgressDistance", c->RecoverySettings.ProgressDistance }, { "MaxRetries", c->RecoverySettings.MaxRetries } };
         // Avoidance: when it is on or any of its settings is not the default (scene files without it stay
         // as they were; what was set while it is off survives save / copy / undo).
         if (auto* c = entity.TryGetComponent<NavAgentComponent>(); c && (c->Avoidance || c->AvoidStatic || NavAvoidanceChanged(*c)))
@@ -2917,6 +2919,15 @@ namespace Zamin {
             c.SmoothPath = j.value("SmoothPath", true);
             c.SplinePath = j.value("SplinePath", false);
             c.UpdateRotation = j.value("UpdateRotation", true);
+            if (auto recovery = j.find("Recovery"); recovery != j.end() && recovery->is_object())
+            {
+                auto& config = c.RecoverySettings;
+                config.Enabled = recovery->value("Enabled", false);
+                config.StallSeconds = std::clamp(Number(*recovery, "StallSeconds", config.StallSeconds), .1f, 30.f);
+                config.CooldownSeconds = std::clamp(Number(*recovery, "CooldownSeconds", config.CooldownSeconds), .1f, 30.f);
+                config.ProgressDistance = std::clamp(Number(*recovery, "ProgressDistance", config.ProgressDistance), .001f, 10.f);
+                config.MaxRetries = uint32_t(std::clamp(Number(*recovery, "MaxRetries", float(config.MaxRetries)), 1.f, 16.f));
+            }
             if (auto crowd = j.find("Crowd"); crowd != j.end() && crowd->is_object())
             {
                 c.CrowdAvoidance = crowd->value("Enabled", false);

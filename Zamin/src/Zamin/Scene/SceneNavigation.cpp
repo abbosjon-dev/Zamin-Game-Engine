@@ -330,7 +330,23 @@ namespace Zamin {
         void CollectCarveTargets(Scene& scene, const NavObstacleComponent& c, std::vector<CarveTarget>& out)
         {
             out.clear();
+            auto* manager = scene.GetSceneManager();
+            auto* world = manager ? manager->GetWorldStreaming() : nullptr;
+            if (world && !world->IsAnchor(&scene)) world = nullptr;
+            const UUID mosaic = world ? world->GetNavigationEntity(0) : UUID(0);
+            // A mosaic is a derived compatibility view, never a carving source. Recarving it
+            // changes its serial on each rebuild and feeds back into source signatures.
+            const bool worldBinding = mosaic.IsValid() && c.Grid.ID == mosaic;
+            std::vector<UUID> owned;
+            if (worldBinding)
+                for (const auto& cell : world->GetCells())
+                {
+                    const auto entities = world->GetCellEntities(cell.ID);
+                    owned.insert(owned.end(), entities.begin(), entities.end());
+                }
             auto add = [&](Entity e) {
+                if (mosaic.IsValid() && e.GetUUID() == mosaic) return;
+                if (worldBinding && std::find(owned.begin(), owned.end(), e.GetUUID()) == owned.end()) return;
                 if (!scene.IsActiveInHierarchy(e))
                     return;
                 if (auto* g = e.TryGetComponent<NavGrid2DComponent>(); g && g->Baked && !g->Grid.IsEmpty())
@@ -339,7 +355,7 @@ namespace Zamin {
                     out.push_back({ (uint64_t)e.GetUUID(), 3, &g->Grid, std::isfinite(g->AgentRadius) ? g->AgentRadius : 0.0f,
                                     std::isfinite(g->StepHeight) ? g->StepHeight : 0.4f, std::isfinite(g->AgentHeight) ? g->AgentHeight : 1.8f });
             };
-            if (c.Grid)
+            if (c.Grid && !worldBinding)
             {
                 if (Entity e = scene.GetEntityByUUID(c.Grid.ID))
                     add(e);
@@ -1167,6 +1183,10 @@ namespace Zamin {
         auto* a = agent && agent.GetScene() == this && agent.IsValid() ? agent.TryGetComponent<NavAgentComponent>() : nullptr;
         if (!a || !std::isfinite(destination.x) || !std::isfinite(destination.y) || !std::isfinite(destination.z))
             return false;
+        if (a->WorldNavigation)
+        {
+            UpdateNavObstacles();
+        }
         a->SetDestination(destination);
         return ComputeNavAgentPath(agent, *a);
     }
@@ -1228,6 +1248,8 @@ namespace Zamin {
     void Scene::UpdateNavObstacles()
     {
         UpdateNavObstacles(0.0f);
+        auto* world = GetSceneManager() ? GetSceneManager()->GetWorldStreaming() : nullptr;
+        if (world && world->IsAnchor(this)) world->SynchronizeNavigation();
     }
 
     void Scene::UpdateNavObstacles(float dt)
@@ -1385,6 +1407,8 @@ namespace Zamin {
 
     void Scene::UpdateNavAgents(float dt)
     {
+        auto* world = GetSceneManager() ? GetSceneManager()->GetWorldStreaming() : nullptr;
+        if (world && world->IsAnchor(this)) world->SynchronizeNavigation();
         auto view = m_Registry.view<NavAgentComponent>();
         if (view.empty() || !(dt > 0.0f))
             return;

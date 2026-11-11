@@ -404,3 +404,13 @@ ko‘rsatiladi; world mode’da Spline o‘chirilgan, `SmoothPath` esa atlas wor
 World Streaming panel’da crowd agent/check/limited/blocked sonlari va CPU vaqti chiqadi.
 WorldWorkshop2D/3D’da **C** to‘rt agentli crowd demo’ni yoqadi/o‘chiradi. `CrowdMonitor.zgraph`
 `NavSteeringState` orqali uchta runtime o‘zgaruvchini yangilaydi; graph’ni alohida actor’ga ulash mumkin.
+
+World NavAgent’da **Recover from blocked movement**: stall timeout, retry cooldown, progress threshold,
+maximum retries va joriy phase/timer/counter ko‘rsatiladi. **Retry navigation** destination’ni saqlab
+watchdog va eskirgan traversal token’ini tiklaydi. World Streaming panel recovery holatlarini jamlaydi.
+WorldWorkshop2D/3D: **R** barrier/recovery demo, **T** explicit graph retry; qizil navigation region
+agentni Partial/Exhausted holatiga olib keladi va keyin ochilib, ayni manzilga yurishni tiklaydi.
+
+Visual Script panel play rejimida matching scene instance’ning **Live variables** qiymatlarini yuqorida
+ko‘rsatadi (16 tagacha, uzun string’lar preview’da qisqartiriladi). Bu authoring default/override
+qiymatlaridan alohida; runtime debugger’ning to‘liq variables/trace bo‘limi ham saqlanadi.

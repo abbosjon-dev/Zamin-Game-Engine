@@ -145,6 +145,8 @@ for(auto type:{Type::Number,Type::Bool,Type::String}){std::string suffix=TypeNam
 for(auto name:{"Raycast2D","Raycast3D"})add(name,"Physics queries",{V("Origin"),V("Direction"),N("Distance",100)},{B("Hit"),EntityPin("Entity"),V("Point"),V("Normal"),N("Distance")},true);
 add("SetDestination","Navigation",{E("In"),EntityPin(),V("Position")},{E("Then")});
 add("SetWorldDestination", "Navigation", { E("In"), EntityPin(), V("Position") }, { E("Then"), B("Success") });
+add("NavRecoveryState", "Navigation", { EntityPin() }, { S("Phase"), N("Retries"), N("StalledSeconds"), N("Cooldown"), B("Exhausted") }, true);
+add("RetryNavigation", "Navigation", { E("In"), EntityPin() }, { E("Then"), B("Success") });
 add("NavSteeringState", "Navigation", { EntityPin() }, { V("Preferred"), V("Velocity"), N("Neighbors"), B("Blocked"), B("Limited") }, true);
 add("NavQueryPending", "Navigation", { EntityPin() }, { B("Value") }, true);
 add("NavTraversalState", "Navigation", { EntityPin() }, { B("Pending"), S("Link"), S("Revision"), S("Ticket"), V("Entry"), V("Exit"), S("Status") }, true);
@@ -661,7 +663,7 @@ return c; }();
                         for (auto& p : Catalog().at(k).Inputs)
                             if (p.Kind != Type::Exec) args[p.Name] = in(p.Name.c_str());
                         Value result = m_Bridge(k, args);
-                        if (k == "SetWorldDestination" || k == "CompleteNavTraversal" || k == "CancelNavTraversal")
+                        if (k == "SetWorldDestination" || k == "CompleteNavTraversal" || k == "CancelNavTraversal" || k == "RetryNavigation")
                         {
                             Require(Matches(Type::Bool, result), "Invalid navigation operation result");
                             t.Results[n->ID] = { { "Success", result } };

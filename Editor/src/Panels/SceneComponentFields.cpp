@@ -823,6 +823,28 @@ namespace Zamin {
         if (changed) c.ResetRuntime();
         if (c.WorldNavigation)
         {
+            bool recoveryChanged = ImGui::Checkbox("Recover from blocked movement", &c.RecoverySettings.Enabled);
+            if (c.RecoverySettings.Enabled)
+            {
+                recoveryChanged |= ImGui::DragFloat("Stall timeout", &c.RecoverySettings.StallSeconds, .05f, .1f, 30.f, "%.2f s", ImGuiSliderFlags_AlwaysClamp);
+                recoveryChanged |= ImGui::DragFloat("Retry cooldown", &c.RecoverySettings.CooldownSeconds, .05f, .1f, 30.f, "%.2f s", ImGuiSliderFlags_AlwaysClamp);
+                recoveryChanged |= ImGui::DragFloat("Progress threshold", &c.RecoverySettings.ProgressDistance, .005f, .001f, 10.f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
+                recoveryChanged |= ImGui::DragScalar("Maximum retries", ImGuiDataType_U32, &c.RecoverySettings.MaxRetries, .1f);
+                c.RecoverySettings.MaxRetries = std::clamp(c.RecoverySettings.MaxRetries, 1u, 16u);
+                ImGui::Text("Recovery %s | retries %u | stalled %.2f | cooldown %.2f", NavRecovery::Name(c.Recovery.GetPhase()), c.Recovery.GetRetries(), c.Recovery.GetStalledSeconds(), c.Recovery.GetCooldown());
+                if (m_Context && m_Context->IsRunning() && c.HasDestination && ImGui::Button("Retry navigation"))
+                {
+                    c.Recovery.Reset();
+                    c.RepathRequested = true;
+                    c.Arrived = false;
+                    c.PendingTraversalLink = c.TraversalTicket = 0;
+                }
+            }
+            if (recoveryChanged)
+            {
+                c.Recovery.Reset();
+                changed = true;
+            }
             changed |= ImGui::Checkbox("Predictive crowd steering", &c.CrowdAvoidance);
             if (c.CrowdAvoidance)
             {

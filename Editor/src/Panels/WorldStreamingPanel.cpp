@@ -287,6 +287,22 @@ namespace Zamin {
                 const auto atlas = live->GetNavigationAtlas();
                 const auto frame = runtime && runtime->GetActiveScene() ? runtime->GetActiveScene()->GetNavFrameStats() : Scene::NavFrameStats{};
                 ImGui::Text("Crowd agents %u | checks %u | limited %u | blocked %u | %.2f ms", frame.CrowdAgents, frame.CrowdNeighborChecks, frame.CrowdLimited, frame.CrowdBlocked, frame.CrowdMilliseconds);
+                uint32_t monitored = 0, retries = 0, exhausted = 0, waiting = 0;
+                if (runtime && runtime->GetActiveScene() && live->IsAnchor(runtime->GetActiveScene().get()))
+                {
+                    auto& owner = *runtime->GetActiveScene();
+                    for (auto handle : owner.GetAllEntitiesWith<NavAgentComponent>())
+                    {
+                        Entity actor(handle, &owner);
+                        const auto& agent = actor.GetComponent<NavAgentComponent>();
+                        if (!agent.WorldNavigation || !agent.RecoverySettings.Enabled || !owner.IsActiveInHierarchy(actor)) continue;
+                        ++monitored;
+                        retries += agent.Recovery.GetRetries();
+                        exhausted += agent.Recovery.IsExhausted();
+                        waiting += agent.Recovery.GetPhase() == NavRecovery::Phase::WaitingPath;
+                    }
+                }
+                ImGui::Text("Recovery monitored %u | waiting %u | exhausted %u | retries used %u", monitored, waiting, exhausted, retries);
                 const auto& queries = stats.NavigationQueries;
                 ImGui::Text("Async queries: %s | queued %zu running %zu ready %zu", live->GetPolicy().AsyncNavigation ? "on" : "off", queries.Queued, queries.Running, queries.Available);
                 ImGui::Text("Requests %llu | delivered %llu | cancelled %llu | rejected %llu | stale %llu", (unsigned long long)queries.Submitted, (unsigned long long)queries.Delivered, (unsigned long long)queries.Cancelled, (unsigned long long)queries.Rejected, (unsigned long long)stats.NavigationStaleResults);

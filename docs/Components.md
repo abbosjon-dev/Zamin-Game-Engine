@@ -1263,6 +1263,8 @@ _Inspektorda: **Nav Agent**; qo'shish: **+ Komponent → Navigatsiya va AI → N
 | Maydon | Tur | Standart |
 |---|---|---|
 | `WorldNavigation` | `bool` | `false` |
+| `RecoverySettings` | `NavRecovery::Settings` | — |
+| `Recovery` _(faqat o'yin paytida)_ | `NavRecovery` | — |
 | `CrowdAvoidance` | `bool` | `false` |
 | `CrowdNeighborDistance` | `float` | `4` |
 | `CrowdTimeHorizon` | `float` | `1.5f` |

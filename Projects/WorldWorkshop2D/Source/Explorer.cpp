@@ -2,6 +2,7 @@
 #include "NavigationProbe.h"
 #include "WorldAgentProbe.h"
 #include "WorldCrowdProbe.h"
+#include "WorldRecoveryProbe.h"
 #include <Zamin/Scene/WorldStreaming.h>
 #include <cstdlib>
 #include <Zamin/AI/NavPathfinder.h>
@@ -31,9 +32,11 @@ public:
         }
         if (std::getenv("ZAMIN_WORLD_CHECKPOINT_TEST")) focus = m_Frame >= 180 && m_Frame < 300 ? glm::vec2(1000) : glm::vec2(16, 9);
         if (std::getenv("ZAMIN_WORLD_NAVIGATION_TEST") || std::getenv("ZAMIN_WORLD_AGENT_TEST")) focus = m_Frame >= 240 && m_Frame < 300 ? glm::vec2(1000) : glm::vec2(24, 9);
-        if (std::getenv("ZAMIN_WORLD_CROWD_TEST")) focus = glm::vec2(16, 14);
+        if (std::getenv("ZAMIN_WORLD_CROWD_TEST") || std::getenv("ZAMIN_WORLD_RECOVERY_TEST")) focus = glm::vec2(16, 14);
         t.Translation = false ? glm::vec3(focus.x, 28, focus.y + 28) : glm::vec3(focus.x, focus.y, 50);
         TickCheckpoint();
+        if (auto* manager = GetScene().GetSceneManager())
+            if (auto* world = manager->GetWorldStreaming()) m_Recovery.Tick(GetScene(), *world, false, m_Frame, float(ts));
         if (auto* manager = GetScene().GetSceneManager())
             if (auto* world = manager->GetWorldStreaming()) m_WorldCrowd.Tick(GetScene(), *world, false, m_Frame);
         if (auto* manager = GetScene().GetSceneManager())
@@ -68,6 +71,7 @@ public:
                 }
     }
 private:
+    WorldRecoveryProbe m_Recovery;
     WorldCrowdProbe m_WorldCrowd;
     NavigationProbe m_Navigation;
     WorldAgentProbe m_WorldAgent;

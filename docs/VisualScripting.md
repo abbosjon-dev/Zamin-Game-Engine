@@ -122,3 +122,10 @@ variable'ni shu node bilan yangilaydi. Natija revision/goal/start/entity generat
 zero/false qaytaradi. Velocity world clearance’dan keyingi harakat buyrug‘i; fizik actual velocity
 kerak bo‘lsa body/controller query ishlatiladi. `CrowdMonitor.zgraph` namunasida Event.Update
 uchta variable’ni yangilaydi; ko‘rsatkichlar oxirgi navigatsiya update’iga tegishli.
+
+`NavRecoveryState`: pure node, optional TargetEntity, outputs `Phase` (String), `Retries`,
+`StalledSeconds`, `Cooldown` (Number), `Exhausted` (Bool). Agent yo‘q: Idle/0/false.
+`RetryNavigation`: exec, optional TargetEntity, Then/Success. Active destination’li world agentning
+watchdog’ini reset qilib, re-path so‘raydi va pending traversal token’ini bekor qiladi; yangi
+query keyingi owner nav update’ida boshlanadi. `RecoveryMonitor.zgraph` 8 node / 9 link bilan
+holatni o‘qish va Message orqali retry’ni ko‘rsatadi.

@@ -1473,3 +1473,137 @@ TEST(WorldAsyncNavigationEmptyAtlasFailsAndReturnResumes)
     CHECK(StepAsyncAgent(manager, [&] { return scene->GetNavTraversalLink(actor) == 501; }));
     manager.Stop();
 }
+
+TEST(WorldCrowdSettingsSerializeAndRuntimeReset)
+{
+    auto source = CreateRef<Scene>();
+    auto actor = source->CreateEntity("Crowd actor");
+    auto& a = actor.AddComponent<NavAgentComponent>();
+    a.WorldNavigation = a.CrowdAvoidance = true;
+    a.CrowdNeighborDistance = 7;
+    a.CrowdTimeHorizon = 2;
+    a.CrowdPriority = 3;
+    a.CrowdHeight = 1.2f;
+    a.CrowdBlocked = a.CrowdLimited = true;
+    a.CrowdNeighbors = 9;
+    a.PreferredVelocity = { 1, 2, 3 };
+    auto restored = CreateRef<Scene>();
+    CHECK(SceneSerializer(restored).DeserializeFromString(SceneSerializer(source).SerializeToString()));
+    auto& b = restored->GetEntityByUUID(actor.GetUUID()).GetComponent<NavAgentComponent>();
+    CHECK(b.WorldNavigation && b.CrowdAvoidance);
+    CHECK_NEAR(b.CrowdNeighborDistance, 7, .001);
+    CHECK_NEAR(b.CrowdTimeHorizon, 2, .001);
+    CHECK_NEAR(b.CrowdPriority, 3, .001);
+    CHECK_NEAR(b.CrowdHeight, 1.2, .001);
+    CHECK(b.CrowdNeighbors == 0 && !b.CrowdBlocked && !b.CrowdLimited && b.PreferredVelocity == glm::vec3(0));
+    a.ResetRuntime();
+    CHECK(a.CrowdAvoidance && a.CrowdPriority == 3 && a.PreferredVelocity == glm::vec3(0));
+}
+TEST(WorldSmoothingUsesExistingAgentSetting)
+{
+    WorldFixture f;
+    ConfigureWorldAgent(f);
+    SceneManager manager;
+    auto scene = f.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 300; }));
+    auto e = WorldAgent(*scene);
+    auto& a = e.GetComponent<NavAgentComponent>();
+    a.SmoothPath = false;
+    CHECK(scene->SetNavDestination(e, { 8.5f, 5.5f, 0 }));
+    const auto raw = a.Path.size();
+    a.SmoothPath = true;
+    CHECK(scene->SetNavDestination(e, { 8.5f, 5.5f, 0 }));
+    CHECK(a.Path.size() < raw && a.Path.size() == 2);
+    CHECK(StepAgent(manager, [&] { return a.Arrived; }));
+    manager.Stop();
+}
+TEST(WorldCrowdHeadOnAgentsReachGoalsIn2DAnd3D)
+{
+    for (bool three : { false, true })
+    {
+        WorldFixture f;
+        ConfigureWorldAgent(f, three);
+        SceneManager manager;
+        auto scene = f.Start(manager);
+        auto* world = manager.GetWorldStreaming();
+        CHECK(Until(manager, [&] { return world->GetStats().AtlasCells > 0; }));
+        Scene staged;
+        std::array<UUID, 2> ids{ UUID(97001), UUID(97002) };
+        for (size_t i = 0; i < 2; ++i)
+        {
+            auto actor = staged.CreateEntityWithUUID(ids[i], "Crowd walker");
+            float x = i ? 8.5f : 1.5f;
+            actor.GetTransform().Translation = three ? glm::vec3(x, .02f, 5.5f) : glm::vec3(x, 5.5f, 0);
+            auto& a = actor.AddComponent<NavAgentComponent>();
+            a.WorldNavigation = a.CrowdAvoidance = true;
+            a.Speed = 2;
+            a.Acceleration = 0;
+            a.RepathInterval = 0;
+            a.Radius = .25f;
+            a.CrowdHeight = 1.2f;
+            if (three)
+            {
+                auto& cc = actor.AddComponent<CharacterController3DComponent>();
+                cc.Radius = .2f;
+                cc.Height = 1.2f;
+            }
+        }
+        std::string error;
+        CHECK(scene->ImportStagedCell(staged, error).size() == 2);
+        auto first = scene->GetEntityByUUID(ids[0]), second = scene->GetEntityByUUID(ids[1]);
+        CHECK(scene->SetNavDestination(first, three ? glm::vec3(8.5f, 0, 5.5f) : glm::vec3(8.5f, 5.5f, 0)));
+        CHECK(scene->SetNavDestination(second, three ? glm::vec3(1.5f, 0, 5.5f) : glm::vec3(1.5f, 5.5f, 0)));
+        float separation = 100;
+        bool neighbors = false;
+        CHECK(StepAgent(manager, [&] {
+            auto p = scene->GetWorldPosition(first), q = scene->GetWorldPosition(second);
+            if (three) { p.y = q.y = 0; }
+            separation = std::min(separation, glm::length(p - q));
+            neighbors |= first.GetComponent<NavAgentComponent>().CrowdNeighbors > 0;
+            return first.GetComponent<NavAgentComponent>().Arrived && second.GetComponent<NavAgentComponent>().Arrived;
+        }, 1200));
+        CHECK(separation > .45f && neighbors);
+        manager.Stop();
+    }
+}
+TEST(WorldMovementGuardCannotWalkThroughMissingTiles)
+{
+    WorldFixture f;
+    ConfigureWorldAgent(f);
+    SceneManager manager;
+    auto scene = f.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 300; }));
+    auto e = WorldAgent(*scene);
+    auto& a = e.GetComponent<NavAgentComponent>();
+    CHECK(scene->SetNavDestination(e, { 8.5f, 5.5f, 0 }));
+    a.Speed = 1000;
+    a.Path.back() = { 40005.5f, 5.5f, 0 };
+    bool blocked = false;
+    for (int i = 0; i < 20; ++i)
+    {
+        manager.UpdateScenes(Timestep(.1f));
+        CHECK(scene->GetWorldPosition(e).x < 10);
+        blocked |= a.CrowdBlocked;
+    }
+    CHECK(blocked);
+    manager.Stop();
+}
+TEST(WorldAsyncSmoothingChangeRejectsOldOptions)
+{
+    WorldFixture f;
+    ConfigureWorldAgent(f);
+    AsyncPolicy(f);
+    SceneManager manager;
+    auto scene = f.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 300; }));
+    auto e = WorldAgent(*scene);
+    auto& a = e.GetComponent<NavAgentComponent>();
+    CHECK(scene->SetNavDestination(e, { 8.5f, 5.5f, 0 }));
+    a.SmoothPath = false;
+    CHECK(StepAsyncAgent(manager, [&] { return a.Arrived; }));
+    CHECK(world->GetStats().NavigationStaleResults >= 1);
+    manager.Stop();
+}

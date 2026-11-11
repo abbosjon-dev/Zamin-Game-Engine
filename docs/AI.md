@@ -603,3 +603,44 @@ bekor qilinadi. Pending paytida planar motion nol; gravity physics tizimida qola
 qilinib qayta query beriladi. Owner install faqat accepted current natijaga ruxsat beradi; traversal nonce tekshiruvi
 avvalgi paketdagidek saqlangan. Async route'lar hozir sequential movement/corner tracking ishlatadi; crowd avoidance
 va polygon navmesh alohida ish. Snapshot build va publication hali owner thread'da sinxron, hard deadline yo‘q.
+
+### Streamed world smoothing va crowd steering
+
+`NavPathOptions::SmoothAtlas` sparse atlas uchun opt-in. World NavAgent `SmoothPath` qiymatini
+query options ichiga oladi; async rejimda silliqlash ham worker’da bajariladi. Qaytgan natijadagi
+option agentning joriy qiymatiga mos bo‘lmasa, owner uni rad etadi va qayta so‘raydi. Legacy
+`NavPathfinder` bu atlas option’ini ishlatmaydi. `SplinePath` world mode’da qo‘llanmaydi.
+
+`NavAtlas::CanWalkSegment` baked navigation space ichida konservativ clearance tekshiradi:
+yo‘q tile, bloklangan katak, burchakka tegish va floor/climb mos kelmasligi segmentni rad etadi.
+Grid’dagi AgentRadius allaqachon statik clearance’ni hisobga olgan; world harakat guard’i uni
+ikkinchi marta kengaytirmaydi. Alohida caller `NavSegmentOptions::Radius` bilan qo‘shimcha
+clearance talab qilishi mumkin. Bu aylana o‘rniga konservativ swept rectangle tekshiruvi.
+Bounding rectangle `MaxCells` limitidan oshsa, tekshiruv false; bu to‘siqsiz degani emas.
+
+`SmoothRoute` faqat joriy revision bilan ishlaydi: har gal eng ko‘pi 32 nuqta oldinga, umumiy
+64 shortcut probe, har probe eng ko‘pi 4096 katak. Byudjet tugasa qolgan original yo‘l saqlanadi.
+Portalning entry/exit nuqtalari olib tashlanmaydi; kiruvchi link ID va gameplay handshake qoladi.
+Yangi shortcut faqat cost=1 kataklardan o‘tadi. Original weighted qadamlar saqlanishi mumkin;
+`Cost` qidiruvning graph narxi bo‘lib qoladi, silliqlangan geometrik uzunlik emas.
+
+World agentlarda `CrowdAvoidance` alohida opt-in. `Radius` shaxsiy masofa, `CrowdNeighborDistance`
+0.1..32, `CrowdTimeHorizon` 0.1..5 soniya, `CrowdPriority` 0.1..10, `CrowdHeight` 0.01..10.
+Yuqori priority qo‘shni uchun kuchliroq yon berish xarajatini beradi; collision qoidalarini chetlab
+qaror chiqarmaydi. 3D’da vertikal intervallari kesishmaydigan agentlar bir-birini chetlab o‘tmaydi.
+Legacy physics feeler `Avoidance` va yangi crowd sampler boshqa rejimlar: feeler legacy grid’da,
+crowd sparse world’da ishlaydi. Idle/pending/portal agentlar ham qo‘shni snapshot’iga to‘siq sifatida kiradi.
+
+`NavCrowd::Solve` ECS va physics’siz sof CPU algoritm: kadr boshidagi pozitsiya/preferred velocity
+snapshot’i, 4 birlik spatial buckets, masofa+UUID bo‘yicha tartiblangan yaqin qo‘shnilar, cheklangan
+velocity candidate’lar. Update tartibi natijani o‘zgartirmaydi. 4096 agent, har biriga 128 candidate
+tekshiruvi va 16 qo‘shni limit. Dense hududda limit oshsa o‘sha agentning tezligi nol, `Limited/Blocked`
+true. Noto‘g‘ri/duplicate ID, NaN yoki umumiy capacity oshishi batch’ni rad etadi; Scene crowd
+agentlarini xavfsiz to‘xtatadi. Bu ORCA implementatsiyasi yoki physics collision kafolati emas.
+
+World update avval hamma agentning buyruqlarini tayyorlaydi, so‘ng snapshot’ni yechadi va harakatni
+qo‘llaydi. Har qadam atlas clearance bilan tekshiriladi; kerak bo‘lsa olti marta yarim tezlik sinovi,
+aks holda to‘xtash. CharacterController/Rigidbody collision yakuniy vakolatga ega.
+`PreferredVelocity`, `CrowdNeighbors`, `CrowdLimited`, `CrowdBlocked` runtime diagnostika;
+`Velocity` clearance’dan keyingi buyruq, fizik jismning haqiqiy o‘lchangan tezligi emas.
+Sozlamalar scene/copy/checkpoint’da qoladi, runtime diagnostika reset qilinadi.

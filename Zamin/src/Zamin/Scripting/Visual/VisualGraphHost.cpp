@@ -260,6 +260,11 @@ namespace Zamin {
             nav->WorldNavigation = true;
             return GetScene().SetNavDestination(target, position);
         }
+        else if (k == "NavSteeringState")
+        {
+            const auto* nav = target.TryGetComponent<NavAgentComponent>();
+            return V{ { "Preferred", nav ? value(nav->PreferredVelocity) : V::array({ 0, 0, 0 }) }, { "Velocity", nav ? value(nav->Velocity) : V::array({ 0, 0, 0 }) }, { "Neighbors", nav ? nav->CrowdNeighbors : 0 }, { "Blocked", nav && nav->CrowdBlocked }, { "Limited", nav && nav->CrowdLimited } };
+        }
         else if (k == "NavQueryPending")
         {
             auto* manager = GetScene().GetSceneManager();

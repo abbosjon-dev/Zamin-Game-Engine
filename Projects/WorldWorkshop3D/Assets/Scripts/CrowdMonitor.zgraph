@@ -1,0 +1,100 @@
+{
+  "Name": "CrowdMonitor",
+  "Variables": {
+    "Neighbors": {
+      "Type": "Number",
+      "Default": 0
+    },
+    "Blocked": {
+      "Type": "Bool",
+      "Default": false
+    },
+    "Limited": {
+      "Type": "Bool",
+      "Default": false
+    }
+  },
+  "Nodes": [
+    {
+      "ID": 1,
+      "Kind": "Event.Update",
+      "X": 0,
+      "Y": 0,
+      "Inputs": {}
+    },
+    {
+      "ID": 2,
+      "Kind": "NavSteeringState",
+      "X": 0,
+      "Y": 180,
+      "Inputs": {}
+    },
+    {
+      "ID": 3,
+      "Kind": "Set.Number",
+      "X": 250,
+      "Y": 0,
+      "Inputs": {
+        "Name": "Neighbors"
+      }
+    },
+    {
+      "ID": 4,
+      "Kind": "Set.Bool",
+      "X": 500,
+      "Y": 0,
+      "Inputs": {
+        "Name": "Blocked"
+      }
+    },
+    {
+      "ID": 5,
+      "Kind": "Set.Bool",
+      "X": 750,
+      "Y": 0,
+      "Inputs": {
+        "Name": "Limited"
+      }
+    }
+  ],
+  "Links": [
+    {
+      "From": 1,
+      "Output": "Then",
+      "To": 3,
+      "Input": "In"
+    },
+    {
+      "From": 2,
+      "Output": "Neighbors",
+      "To": 3,
+      "Input": "Value"
+    },
+    {
+      "From": 3,
+      "Output": "Then",
+      "To": 4,
+      "Input": "In"
+    },
+    {
+      "From": 2,
+      "Output": "Blocked",
+      "To": 4,
+      "Input": "Value"
+    },
+    {
+      "From": 4,
+      "Output": "Then",
+      "To": 5,
+      "Input": "In"
+    },
+    {
+      "From": 2,
+      "Output": "Limited",
+      "To": 5,
+      "Input": "Value"
+    }
+  ],
+  "Format": "Zamin.VisualGraph",
+  "Version": 1
+}

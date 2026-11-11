@@ -760,6 +760,8 @@ namespace Zamin {
         /// that took (on the job system's workers when there were at least NavParallelPathThreshold).
         struct NavFrameStats
         {
+            uint32_t CrowdAgents = 0, CrowdNeighborChecks = 0, CrowdLimited = 0, CrowdBlocked = 0;
+            float CrowdMilliseconds = 0;
             uint32_t Agents = 0;
             uint32_t PathRequests = 0;
             float PathMilliseconds = 0.0f;

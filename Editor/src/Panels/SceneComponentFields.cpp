@@ -823,6 +823,16 @@ namespace Zamin {
         if (changed) c.ResetRuntime();
         if (c.WorldNavigation)
         {
+            changed |= ImGui::Checkbox("Predictive crowd steering", &c.CrowdAvoidance);
+            if (c.CrowdAvoidance)
+            {
+                changed |= ImGui::DragFloat("Neighbor distance", &c.CrowdNeighborDistance, .05f, .1f, 32.f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+                changed |= ImGui::DragFloat("Prediction horizon", &c.CrowdTimeHorizon, .05f, .1f, 5.f, "%.2f s", ImGuiSliderFlags_AlwaysClamp);
+                changed |= ImGui::DragFloat("Crowd priority", &c.CrowdPriority, .05f, .1f, 10.f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+                changed |= ImGui::DragFloat("Crowd vertical height", &c.CrowdHeight, .05f, .01f, 10.f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+                ImGui::Text("Neighbors %u | limited %s | blocked %s", c.CrowdNeighbors, c.CrowdLimited ? "yes" : "no", c.CrowdBlocked ? "yes" : "no");
+                ImGui::Text("Preferred %.2f %.2f %.2f | steered %.2f %.2f %.2f", c.PreferredVelocity.x, c.PreferredVelocity.y, c.PreferredVelocity.z, c.Velocity.x, c.Velocity.y, c.Velocity.z);
+            }
             UI::PropertyLabel("Qidiruv kengayish limiti");
             changed |= ImGui::DragScalar("##worldExpanded", ImGuiDataType_U32, &c.WorldMaxExpanded, 32.f);
             c.WorldMaxExpanded = std::clamp(c.WorldMaxExpanded, 1u, 1048576u);
@@ -843,7 +853,7 @@ namespace Zamin {
                     if (ImGui::GetStateStorage()->GetInt(resultID)) ImGui::TextWrapped("Portal chiqishi band yoki sorov bajarishga tayyor emas.");
                 }
             }
-            ImGui::TextWrapped("Cell-centre route; explicit portal completion. Character exits are checked for overlap. Smoothing and local avoidance use the legacy grid mode.");
+            ImGui::TextWrapped("Sparse route with bounded smoothing and explicit portals. Static movement clearance and character exit occupancy are checked. Crowd steering is optional; physics remains authoritative.");
         }
         changed |= DrawEntityRefField("Grid", c.Grid, "NavGrid 2D / 3D komponentli obyekt (tanlanmasa - agent turgan joyni o'z ichiga "
                                                       "olgan grid)");
@@ -887,7 +897,9 @@ namespace Zamin {
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
             UI::Tooltip("String pulling: to'g'ri ko'rinadigan kataklar tashlab ketiladi - yo'l faqat burilish kerak bo'lgan burchaklardan "
                         "o'tadi (o'chiq - katak markazlari bo'ylab zig-zag)");
+        ImGui::BeginDisabled(c.WorldNavigation);
         changed |= UI::PropertyBool("Spline", c.SplinePath);
+        ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
             UI::Tooltip("Burchaklar Catmull-Rom egri chizig'i bilan yumaloqlanadi (to'siqqa kirib qoladigan joyda to'g'ri chiziq qoladi)");
 

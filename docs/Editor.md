@@ -397,3 +397,10 @@ retained snapshot/result MiB va worker total vaqt ko‘rinadi. Policy'da async n
 starts/results per tick sozlanadi; Save + runtime reload joriy service konfiguratsiyasini yangilaydi.
 WorldTraversal.zgraph'dagi NavQueryPending → Searching backend request holatini ko‘rsatadi. Bu portal pending
 hodisasidan alohida; pending query davomida agent planar harakat qilmaydi.
+
+World NavAgent inspector’da **Predictive crowd steering**: neighbor distance, prediction horizon,
+priority, vertical height va qo‘shnilar/limited/blocked diagnostikasi bor. Preferred va steered velocity
+ko‘rsatiladi; world mode’da Spline o‘chirilgan, `SmoothPath` esa atlas worker’da ishlaydi.
+World Streaming panel’da crowd agent/check/limited/blocked sonlari va CPU vaqti chiqadi.
+WorldWorkshop2D/3D’da **C** to‘rt agentli crowd demo’ni yoqadi/o‘chiradi. `CrowdMonitor.zgraph`
+`NavSteeringState` orqali uchta runtime o‘zgaruvchini yangilaydi; graph’ni alohida actor’ga ulash mumkin.

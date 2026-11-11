@@ -21,6 +21,7 @@ namespace Zamin {
     {
         // 8 neighbours (diagonal steps cost sqrt 2; the octile distance guides the search), else 4
         // (Manhattan distance).
+        bool SmoothAtlas = false; // sparse atlas only: bounded portal-preserving string pulling
         bool Diagonals = true;
         // A diagonal step past one blocked side cell (it grazes the corner). Off: both side cells
         // must be walkable. Never between two blocked cells.

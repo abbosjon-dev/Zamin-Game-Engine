@@ -285,6 +285,8 @@ namespace Zamin {
             if (ImGui::CollapsingHeader("Sparse navigation / route", ImGuiTreeNodeFlags_DefaultOpen))
             {
                 const auto atlas = live->GetNavigationAtlas();
+                const auto frame = runtime && runtime->GetActiveScene() ? runtime->GetActiveScene()->GetNavFrameStats() : Scene::NavFrameStats{};
+                ImGui::Text("Crowd agents %u | checks %u | limited %u | blocked %u | %.2f ms", frame.CrowdAgents, frame.CrowdNeighborChecks, frame.CrowdLimited, frame.CrowdBlocked, frame.CrowdMilliseconds);
                 const auto& queries = stats.NavigationQueries;
                 ImGui::Text("Async queries: %s | queued %zu running %zu ready %zu", live->GetPolicy().AsyncNavigation ? "on" : "off", queries.Queued, queries.Running, queries.Available);
                 ImGui::Text("Requests %llu | delivered %llu | cancelled %llu | rejected %llu | stale %llu", (unsigned long long)queries.Submitted, (unsigned long long)queries.Delivered, (unsigned long long)queries.Cancelled, (unsigned long long)queries.Rejected, (unsigned long long)stats.NavigationStaleResults);

@@ -1697,6 +1697,8 @@ namespace Zamin {
             e["NavGrid3D"]["CacheBake"] = true;
         if (auto* c = entity.TryGetComponent<NavAgentComponent>())
             e["NavAgent"] = { { "WorldNavigation", c->WorldNavigation }, { "WorldMaxExpanded", c->WorldMaxExpanded }, { "Grid", c->Grid.ID }, { "Target", c->Target.ID }, { "Speed", c->Speed }, { "Acceleration", c->Acceleration }, { "AngularSpeed", c->AngularSpeed }, { "StoppingDistance", c->StoppingDistance }, { "Radius", c->Radius }, { "LookAhead", c->LookAhead }, { "RepathInterval", c->RepathInterval }, { "BaseOffset", c->BaseOffset }, { "AutoBraking", c->AutoBraking }, { "SmoothPath", c->SmoothPath }, { "SplinePath", c->SplinePath }, { "UpdateRotation", c->UpdateRotation } };
+        if (auto* c = entity.TryGetComponent<NavAgentComponent>())
+            e["NavAgent"]["Crowd"] = { { "Enabled", c->CrowdAvoidance }, { "NeighborDistance", c->CrowdNeighborDistance }, { "TimeHorizon", c->CrowdTimeHorizon }, { "Priority", c->CrowdPriority }, { "Height", c->CrowdHeight } };
         // Avoidance: when it is on or any of its settings is not the default (scene files without it stay
         // as they were; what was set while it is off survives save / copy / undo).
         if (auto* c = entity.TryGetComponent<NavAgentComponent>(); c && (c->Avoidance || c->AvoidStatic || NavAvoidanceChanged(*c)))
@@ -2915,6 +2917,14 @@ namespace Zamin {
             c.SmoothPath = j.value("SmoothPath", true);
             c.SplinePath = j.value("SplinePath", false);
             c.UpdateRotation = j.value("UpdateRotation", true);
+            if (auto crowd = j.find("Crowd"); crowd != j.end() && crowd->is_object())
+            {
+                c.CrowdAvoidance = crowd->value("Enabled", false);
+                c.CrowdNeighborDistance = std::clamp(Number(*crowd, "NeighborDistance", c.CrowdNeighborDistance), .1f, 32.f);
+                c.CrowdTimeHorizon = std::clamp(Number(*crowd, "TimeHorizon", c.CrowdTimeHorizon), .1f, 5.f);
+                c.CrowdPriority = std::clamp(Number(*crowd, "Priority", c.CrowdPriority), .1f, 10.f);
+                c.CrowdHeight = std::clamp(Number(*crowd, "Height", c.CrowdHeight), .01f, 10.f);
+            }
             if (auto av = j.find("Avoidance"); av != j.end() && av->is_object())
             {
                 c.Avoidance = av->value("Enabled", false);

@@ -20,8 +20,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ninja-build libgl-dev libx11-dev libxrandr-dev libxinerama-dev \
+          Tests/install_linux_dependencies.sh ninja-build libgl-dev libx11-dev libxrandr-dev libxinerama-dev \
             libxcursor-dev libxi-dev libwayland-dev libxkbcommon-dev wayland-protocols xvfb mesa-utils \
             libgl1-mesa-dri libglx-mesa0
 
@@ -87,6 +86,9 @@ jobs:
 
       - name: World NavAgent, controller and Visual Graph traversal
         run: python3 Tests/world_agent_test.py --build build --out world-streaming/agents
+
+      - name: World crowd crossing, steering telemetry and editor graph
+        run: python3 Tests/world_crowd_test.py --build build --out world-streaming/crowd
 
       - name: Sparse world navigation and traversal workflow
         run: python3 Tests/world_navigation_test.py --build build --out world-streaming/navigation
@@ -178,8 +180,7 @@ jobs:
       # libclang-rt-18-dev: Clang's sanitizer runtimes (without it clang++ -fsanitize=undefined does not link).
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ninja-build libgl-dev libx11-dev libxrandr-dev libxinerama-dev \
+          Tests/install_linux_dependencies.sh ninja-build libgl-dev libx11-dev libxrandr-dev libxinerama-dev \
             libxcursor-dev libxi-dev libwayland-dev libxkbcommon-dev wayland-protocols xvfb mesa-utils \
             libgl1-mesa-dri libglx-mesa0 libclang-rt-18-dev
 
@@ -206,8 +207,7 @@ jobs:
 
       - name: Install clang-format
         run: |
-          sudo apt-get update
-          sudo apt-get install -y clang-format-18
+          Tests/install_linux_dependencies.sh clang-format-18
 
       - name: clang-format (changed lines)
         env:
@@ -228,8 +228,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ninja-build libgl-dev libx11-dev libxrandr-dev libxinerama-dev \
+          Tests/install_linux_dependencies.sh ninja-build libgl-dev libx11-dev libxrandr-dev libxinerama-dev \
             libxcursor-dev libxi-dev libwayland-dev libxkbcommon-dev wayland-protocols
           # gcovr (the HTML report per file) with pipx: the runner's Python is externally managed (PEP 668), a plain
           # pip install is refused there. Without gcovr Tests/coverage.sh still writes the Markdown / JSON report.

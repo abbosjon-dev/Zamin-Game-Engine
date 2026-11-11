@@ -1000,7 +1000,7 @@ namespace Zamin {
             const auto plane = [&](glm::vec3 p) { return three ? glm::vec2(p.x, p.z) : glm::vec2(p); };
             const float offset = entity.HasComponent<CharacterController3DComponent>() ? 0.f : agent->BaseOffset;
             valid = !agent->RepathRequested && result.To == plane(destination) && glm::length(result.From - plane(position)) <= .1f && d.Atlas->SameWalkableCell(result.From, plane(position)) &&
-                    result.Options.MaxExpanded == int(std::clamp(agent->WorldMaxExpanded, 1u, 1048576u)) &&
+                    result.Options.SmoothAtlas == agent->SmoothPath && result.Options.MaxExpanded == int(std::clamp(agent->WorldMaxExpanded, 1u, 1048576u)) &&
                     (!three || std::abs(position.y - offset - result.Options.StartHeight) <= .2f);
         }
         if (!valid)

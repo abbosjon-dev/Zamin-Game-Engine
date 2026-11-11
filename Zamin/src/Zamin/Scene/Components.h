@@ -1509,6 +1509,12 @@ namespace Zamin {
     struct NavAgentComponent
     {
         bool WorldNavigation = false;    ///< opt in: streamed sparse atlas, explicit traversal handshake
+        bool CrowdAvoidance = false;     ///< world mode: predictive velocity sampling, not a physics guarantee
+        float CrowdNeighborDistance = 4, CrowdTimeHorizon = 1.5f, CrowdPriority = 1, CrowdHeight = 1.8f;
+        /// Runtime diagnostics; Radius is the personal-space radius (the grid already includes static clearance).
+        glm::vec3 PreferredVelocity{ 0 };
+        uint32_t CrowdNeighbors = 0;
+        bool CrowdLimited = false, CrowdBlocked = false;
         uint32_t WorldMaxExpanded = 16384; ///< per-query expansion limit (1..1048576)
         EntityRef Grid;                   ///< the NavGrid entity (not set: the grid whose area holds the agent)
         EntityRef Target;                 ///< set: it keeps going after this entity
@@ -1584,6 +1590,9 @@ namespace Zamin {
         void Stop(bool immediate = false)
         {
             HasDestination = Arrived = RepathRequested = false;
+            PreferredVelocity = glm::vec3(0);
+            CrowdNeighbors = 0;
+            CrowdLimited = CrowdBlocked = false;
             Path.clear();
             PathIndex = 0;
             PathLinks.clear();
@@ -1627,6 +1636,9 @@ namespace Zamin {
             Velocity = glm::vec3(0.0f);
             Remaining = RepathTimer = 0.0f;
             GridRevision = CarveRevision = PathRequests = BlockedRepaths = 0;
+            PreferredVelocity = glm::vec3(0);
+            CrowdNeighbors = 0;
+            CrowdLimited = CrowdBlocked = false;
             FeelerOrigin = AvoidancePush = glm::vec3(0.0f);
             FeelerEnds = {};
             FeelerHits = 0;

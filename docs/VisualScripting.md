@@ -116,3 +116,9 @@ Async world policy'da SetWorldDestination true worker request qabul qilinganini 
 bo‘lishi mumkin. **NavQueryPending** pure bool accepted query tayyor bo‘lguncha true; portal Pending alohida.
 Backpressure'da destination intent retry qilinadi, StopMoving bilan bekor qilinadi. Sample graph Searching
 variable'ni shu node bilan yangilaydi. Natija revision/goal/start/entity generation tekshiruvlaridan keyin qo‘llanadi.
+
+`NavSteeringState` — pure Navigation node. `TargetEntity` (bo‘sh: o‘zi), outputs `Preferred`,
+`Velocity` (Vector3), `Neighbors` (Number), `Blocked`, `Limited` (Bool). NavAgent bo‘lmasa
+zero/false qaytaradi. Velocity world clearance’dan keyingi harakat buyrug‘i; fizik actual velocity
+kerak bo‘lsa body/controller query ishlatiladi. `CrowdMonitor.zgraph` namunasida Event.Update
+uchta variable’ni yangilaydi; ko‘rsatkichlar oxirgi navigatsiya update’iga tegishli.

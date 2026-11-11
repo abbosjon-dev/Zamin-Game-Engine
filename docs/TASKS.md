@@ -22,6 +22,30 @@ saqlanadi; ulardagi belgi yangi imkoniyatning ishlayotganiga dalil o'rnini bosma
 | P7 Platforma, release va mahsulot | Linux/Windows, keyin macOS; cook/package/update/crash telemetry; editor/launcher yagona auth | Toza mashinada install/export/run, talablar va litsenziyalar, imzolangan release va rollback sinovi | Rejada |
 | P8 Yakuniy sifat darvozasi | Hujjatlar, ko'chirish yo'li, ikki namunaviy o'yin va profiling hisobotlari | Uzoq sessiya, resurs sizishi, recovery/fuzz, reference sahnalarda barqaror frame time va foydalanish sinovi | Rejada |
 
+### Yakunlangan katta paket — world smoothing va crowd steering
+
+- [x] Sparse atlas segment clearance: holes, corners, floor/climb, bounded work.
+- [x] Worker-side bounded smoothing; weighted costs and explicit portal endpoints preserved.
+- [x] Deterministic snapshot crowd steering, spatial broadphase, nearest-neighbour and candidate caps.
+- [x] World NavAgent integration, conservative movement clipping, serialized settings, inspector and graph telemetry.
+- [x] 2D/3D crowd demos, regression/sanitizer/runtime/export screenshots, upstream check and main push.
+
+Mahalliy dalillar (2026-11-11): 861/861 unit (22 yangi), 119/119 focused, 10/10 headless CTest,
+12/12 render va 490/490 editor smoke qadam; OpenGL 4.1 residency GPU. Clang 18 syntax-only -Werror:
+14 ta TU. Crowd/atlas/segment/grid leaf ASan/UBSan: 17/17, butun engine sanitizer run’i emas.
+2D/3D crowd Player 450 kadrdan va editor 130 kadrdan: 4 agent, ikki manzil, Stop/reverse, graph telemetry,
+separation; 5-node/6-link/3-variable graph. Ikkala native export 450 kadr, oracle, PNG va relocation’dan o‘tdi.
+Oldingi NavAgent/portal/unload/return Player regressiyasi ikkala o‘lchamda 420 kadrdan o‘tdi.
+Dalillar: `build-review/CrowdNavigationPackage/`. Software Mesa tekshiruvi; hardware performance o‘lchanmagan.
+
+51eead3 remote CI dependency bosqichida Azure Ubuntu mirror DNS xatosi sabab to‘xtagan, C++ tekshiruvi
+o‘sha run’da bajarilmagan. Shared bounded apt retry/timeout va official archive fallback qo‘shildi;
+workflow YAML/bash syntax tekshirildi. Yangi remote CI holati push’dan keyin kuzatiladi.
+
+Chegaralar: conservative swept rectangle va bounded string pulling, world spline emas. Crowd velocity
+sampling, ORCA yoki collision kafolati emas; physics yakuniy vakolatga ega. Dense overflow stop/diagnostic
+bilan ko‘rinadi. Keyingi paket: dynamic obstacle/repath recovery, ko‘p agentli profiling va animation locomotion.
+
 ### Yakunlangan katta paket — bounded async world navigation
 
 - [x] CPU-only worker queue, immutable snapshot lifetime, FIFO start/publication budgets.

@@ -1263,6 +1263,15 @@ _Inspektorda: **Nav Agent**; qo'shish: **+ Komponent → Navigatsiya va AI → N
 | Maydon | Tur | Standart |
 |---|---|---|
 | `WorldNavigation` | `bool` | `false` |
+| `CrowdAvoidance` | `bool` | `false` |
+| `CrowdNeighborDistance` | `float` | `4` |
+| `CrowdTimeHorizon` | `float` | `1.5f` |
+| `CrowdPriority` | `float` | `1` |
+| `CrowdHeight` | `float` | `1.8f` |
+| `PreferredVelocity` _(faqat o'yin paytida)_ | `glm::vec3` | `{ 0 }` |
+| `CrowdNeighbors` _(faqat o'yin paytida)_ | `uint32_t` | `0` |
+| `CrowdLimited` _(faqat o'yin paytida)_ | `bool` | `false` |
+| `CrowdBlocked` _(faqat o'yin paytida)_ | `bool` | `false` |
 | `WorldMaxExpanded` | `uint32_t` | `16384` |
 | `Grid` | `EntityRef` | — |
 | `Target` | `EntityRef` | — |

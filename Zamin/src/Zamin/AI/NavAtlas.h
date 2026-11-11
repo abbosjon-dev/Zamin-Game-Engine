@@ -30,6 +30,12 @@ namespace Zamin {
         size_t Expanded = 0;
         std::vector<NavRoutePoint> Points;
     };
+    struct NavSegmentOptions
+    {
+        float Radius = 0, StartHeight = std::numeric_limits<float>::quiet_NaN();
+        uint32_t MaxCells = 4096;
+        bool UnitCostOnly = false;
+    };
     // Immutable after publication. Retain shared_ptr<const NavAtlas> while running parallel queries.
     // Memory depends on loaded cells, not the rectangle enclosing them. All tiles share a lattice,
     // resolution and climb rule. Build is transactional, including an empty tile set.
@@ -47,6 +53,10 @@ namespace Zamin {
         // Query-local scratch is proportional to loaded cells. SnapRadius is clamped to 0..64.
         NavRoute FindRoute(glm::vec2 from, glm::vec2 to, const NavPathOptions& options = {}) const;
         NavRoute FindRouteCancellable(glm::vec2 from, glm::vec2 to, const NavPathOptions& options, std::stop_token stop) const;
+        // Conservative swept rectangle clearance in the baked (already eroded) navigation space.
+        // Missing tiles, corner grazing, excessive floor range or work budget exhaustion reject.
+        bool CanWalkSegment(glm::vec2 from, glm::vec2 to, const NavSegmentOptions& options = {}) const;
+        NavRoute SmoothRoute(const NavRoute& route, std::stop_token stop = {}) const;
         bool SameWalkableCell(glm::vec2 first, glm::vec2 second) const;
         uint64_t GetRevision() const { return m_Revision; }
         size_t GetCellCount() const { return m_Cells; }

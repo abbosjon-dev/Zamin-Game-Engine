@@ -48,3 +48,11 @@ World policy AsyncNavigation=true: 2 worker, 64 outstanding request, tick'da 4 s
 Graph'dagi Searching = NavQueryPending. Worker hech qanday Scene/physics reference olmaydi; owner stale
 resultni tekshirib keyin o‘rnatadi. B demo'da har uch faza async delivered query bilan tekshiriladi.
 World Streaming panelida queue va retained payload MiB diagnostikasi mavjud.
+
+
+**C — crowd workshop:** four real world agents cross, stop and return to their starting side.
+`CrowdMonitor.zgraph` displays neighbors/blocked/limited via `NavSteeringState`.
+World `SmoothPath` now runs bounded portal-preserving smoothing on the query worker; each movement
+step has a conservative atlas clearance guard. Crowd steering is opt-in and physics remains authoritative.
+`ZAMIN_WORLD_CROWD_TEST=1 ZAMIN_CAPTURE_FPS=30` runs the two-phase 450-frame oracle;
+`Tests/world_crowd_test.py` captures both Player and editor. Dense neighbor/candidate overflow stops visibly.

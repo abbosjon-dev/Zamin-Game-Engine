@@ -1,4 +1,5 @@
 #include "Zamin/Scene/Scene.h"
+#include "Zamin/AI/NavCrowd.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Scene/SceneManager.h"
 #include "Zamin/Scene/WorldStreaming.h"
@@ -115,6 +116,7 @@ namespace Zamin {
             (dim == 3 && entity.HasComponent<Rigidbody2DComponent>())) return false;
         NavPathOptions options;
         options.SnapRadius = 0;
+        options.SmoothAtlas = a.SmoothPath;
         options.MaxExpanded = int(std::clamp(a.WorldMaxExpanded, 1u, 1048576u));
         if (dim == 3) options.StartHeight = from.y - offset;
         if (world->GetPolicy().AsyncNavigation)
@@ -223,16 +225,26 @@ namespace Zamin {
     void Scene::UpdateWorldNavAgents(float dt)
     {
         const auto start = std::chrono::steady_clock::now();
-        dt = std::clamp(dt, 0.f, .1f);
+        dt = std::isfinite(dt) ? std::clamp(dt, 0.f, .1f) : 0;
         auto* world = World(*this);
         const auto atlas = world ? world->GetNavigationAtlas() : nullptr;
         const uint64_t revision = atlas ? atlas->GetRevision() : 0;
         const int dim = world ? int(world->GetPolicy().NavigationMode) : 0;
+        struct Motion
+        {
+            Entity Actor;
+            glm::vec2 Preferred;
+            int Dimension;
+        };
+        std::vector<Motion> motions;
         for (auto handle : m_Registry.view<NavAgentComponent>())
         {
             Entity entity(handle, this);
             auto& a = entity.GetComponent<NavAgentComponent>();
             if (!a.WorldNavigation || !IsActiveInHierarchy(entity)) continue;
+            a.PreferredVelocity = glm::vec3(0);
+            a.CrowdNeighbors = 0;
+            a.CrowdLimited = a.CrowdBlocked = false;
             ++m_NavFrameStats.Agents;
             const int dimension = dim == 3 || entity.HasComponent<CharacterController3DComponent>() || entity.HasComponent<Rigidbody3DComponent>() ? 3 : 2;
             const auto position = GetWorldPosition(entity);
@@ -316,7 +328,92 @@ namespace Zamin {
             if (dt > 0) moveSpeed = std::min(moveSpeed, distance / dt);
             const auto velocity = distance > 1e-6f ? delta * (moveSpeed / distance) : glm::vec2(0);
             a.Velocity = dim == 3 ? glm::vec3(velocity.x, 0, velocity.y) : glm::vec3(velocity, 0);
-            ApplyWorldNavVelocity(entity, a.Velocity, dim, dt);
+            a.PreferredVelocity = a.Velocity;
+            motions.push_back({ entity, velocity, dim });
+        }
+        const auto crowdStart = std::chrono::steady_clock::now();
+        std::vector<NavCrowd::Agent> snapshot;
+        std::vector<Entity> actors;
+        const bool hasCrowd = std::any_of(motions.begin(), motions.end(), [](const auto& m) { return m.Actor.template GetComponent<NavAgentComponent>().CrowdAvoidance; });
+        if (hasCrowd)
+            for (auto handle : m_Registry.view<NavAgentComponent>())
+            {
+                Entity e(handle, this);
+                const auto& a = e.GetComponent<NavAgentComponent>();
+                if (!a.WorldNavigation || !IsActiveInHierarchy(e)) continue;
+                if (snapshot.size() > NavCrowd::MaxAgents) break;
+                const auto p = GetWorldPosition(e);
+                const bool mobile = a.CrowdAvoidance && !a.Arrived && a.HasDestination && !a.PendingTraversalLink && a.PathStatus != NavPathStatus::None && a.PathStatus != NavPathStatus::Failed;
+                NavCrowd::Agent input;
+                input.ID = uint64_t(e.GetUUID());
+                input.Position = WorldNavPlane(p, dim);
+                input.Velocity = WorldNavPlane(a.Velocity, dim);
+                input.Preferred = WorldNavPlane(a.PreferredVelocity, dim);
+                input.Radius = a.Radius;
+                input.MaxSpeed = std::isfinite(a.Speed) ? std::clamp(a.Speed, 0.f, 1000.f) : 0;
+                input.NeighborDistance = a.CrowdNeighborDistance;
+                input.TimeHorizon = a.CrowdTimeHorizon;
+                input.Priority = a.CrowdPriority;
+                input.Floor = dim == 3 ? p.y - (e.HasComponent<CharacterController3DComponent>() ? 0.f : a.BaseOffset) : 0;
+                input.Height = a.CrowdHeight;
+                input.Mobile = mobile;
+                snapshot.push_back(input);
+                actors.push_back(e);
+            }
+        std::vector<NavCrowd::Output> solved;
+        NavCrowd::Stats crowdStats;
+        const bool validCrowd = !hasCrowd || NavCrowd::Solve(snapshot, dt, solved, crowdStats);
+        if (hasCrowd && validCrowd)
+            for (size_t i = 0; i < actors.size(); ++i)
+            {
+                auto& a = actors[i].GetComponent<NavAgentComponent>();
+                if (!a.CrowdAvoidance) continue;
+                a.Velocity = dim == 3 ? glm::vec3(solved[i].Velocity.x, 0, solved[i].Velocity.y) : glm::vec3(solved[i].Velocity, 0);
+                a.CrowdNeighbors = solved[i].Neighbors;
+                a.CrowdLimited = solved[i].Limited;
+                a.CrowdBlocked = solved[i].Blocked;
+            }
+        m_NavFrameStats.CrowdAgents = crowdStats.Agents;
+        m_NavFrameStats.CrowdNeighborChecks = crowdStats.CandidateChecks;
+        m_NavFrameStats.CrowdLimited = crowdStats.Limited;
+        m_NavFrameStats.CrowdBlocked = crowdStats.Blocked;
+        m_NavFrameStats.CrowdMilliseconds = float(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - crowdStart).count());
+        for (const auto& motion : motions)
+        {
+            auto entity = motion.Actor;
+            auto& a = entity.GetComponent<NavAgentComponent>();
+            if (a.CrowdAvoidance && !validCrowd)
+            {
+                a.Velocity = glm::vec3(0);
+                a.CrowdLimited = a.CrowdBlocked = true;
+            }
+            // Crowd steering must never turn a valid route into a walk through a hole or a wall.
+            // Static clearance is already baked into the grid. Physics remains authoritative too.
+            const auto position = GetWorldPosition(entity);
+            auto velocity = WorldNavPlane(a.Velocity, motion.Dimension);
+            NavSegmentOptions clearance;
+            const float offset = entity.HasComponent<CharacterController3DComponent>() ? 0.f : a.BaseOffset;
+            if (dim == 3) clearance.StartHeight = position.y - offset;
+            if (atlas && dt > 0 && glm::dot(velocity, velocity) > 0 && !atlas->CanWalkSegment(WorldNavPlane(position, dim), WorldNavPlane(position, dim) + velocity * dt, clearance))
+            {
+                // Backtracking is bounded and conservative; it can brake at a boundary instead of
+                // clipping an obstacle even when speed or timestep is large.
+                bool found = false;
+                for (int step = 1; step <= 6; ++step)
+                {
+                    const auto candidate = velocity * std::pow(.5f, float(step));
+                    if (atlas->CanWalkSegment(WorldNavPlane(position, dim), WorldNavPlane(position, dim) + candidate * dt, clearance))
+                    {
+                        velocity = candidate;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) velocity = glm::vec2(0);
+                a.CrowdBlocked = true;
+                a.Velocity = dim == 3 ? glm::vec3(velocity.x, 0, velocity.y) : glm::vec3(velocity, 0);
+            }
+            ApplyWorldNavVelocity(entity, a.Velocity, motion.Dimension, dt);
             if (a.UpdateRotation && a.AngularSpeed > 0 && glm::dot(velocity, velocity) > .0001f)
             {
                 auto& transform = entity.GetTransform();

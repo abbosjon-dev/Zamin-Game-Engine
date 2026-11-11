@@ -528,3 +528,9 @@ pointer bo‘yicha reference/byte charge, route buffer capacity bo‘yicha resul
 acknowledge bo‘lguncha registry'da; waiting/completed/published cancel buffer/ref'larni darhol qo‘yib yuboradi.
 World wrapper UUID bilan birga entity generation'ni saqlaydi, result publication'dan keyin current owner pose,
 destination va atlas epoch'ni tekshiradi. ECS/plugin closures yo‘q; World destructor queue'ni join qiladi.
+
+World crowd harakati owner thread’da ikki fazada: route/intent tayyorlash, barcha agentlar uchun
+frozen snapshot asosida `NavCrowd::Solve`, keyin clearance va physics command. Solver pure,
+UUID tie-break va fixed candidate order bilan registry tartibidan mustaqil. Sparse route smoothing
+async query worker’ining bir qismi; portal handshake owner/gameplay’da qoladi. Solver cap’lari
+dense sahnada bloklanish holatini ochiq ko‘rsatadi; bu hard frame deadline yoki cheksiz crowd emas.

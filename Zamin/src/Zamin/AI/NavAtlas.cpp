@@ -258,7 +258,7 @@ namespace Zamin {
             if (n == start) break;
         }
         std::reverse(out.Points.begin(), out.Points.end());
-        return out;
+        return options.SmoothAtlas ? SmoothRoute(out, stop) : out;
     }
     size_t NavAtlas::GetMemoryBytes() const
     {

@@ -21,6 +21,8 @@ namespace Zamin {
             int Selected = -1;
             bool Loaded = false, Observer = false;
             glm::dvec3 Position{ 0 };
+            std::array<float, 180> RSSHistory{}, GPUHistory{};
+            int HistoryOffset = 0;
         } s;
         ImU32 Color(WorldRuntimeStage stage)
         {
@@ -136,6 +138,28 @@ namespace Zamin {
             ImGui::Text("Update %.2f ms  peak %.2f ms   Activated %llu  Unloaded %llu", stats.LastMilliseconds, stats.PeakMilliseconds,
                         (unsigned long long)stats.Activations, (unsigned long long)stats.Unloads);
             ImGui::TextDisabled("Declared/source reservations are not measured RSS or VRAM.");
+            ImGui::Text("Navigation: %zu tiles | %zu cells | %llu rebuilds", stats.NavigationTiles, stats.NavigationCells, (unsigned long long)stats.NavigationRebuilds);
+            if (!stats.NavigationError.empty()) ImGui::TextWrapped("Navigation: %s", stats.NavigationError.c_str());
+            const auto& memory = stats.Residency;
+            s.RSSHistory[s.HistoryOffset] = float(memory.Process.Resident / 1048576.0);
+            s.GPUHistory[s.HistoryOffset] = float(memory.RequestedGPUBytes / 1048576.0);
+            s.HistoryOffset = (s.HistoryOffset + 1) % int(s.RSSHistory.size());
+            ImGui::TextColored(stats.MemoryPressure ? ImVec4(1, .45f, .25f, 1) : ImVec4(.3f, .85f, .72f, 1),
+                               "%s | RSS %s | GPU requested %s", stats.MemoryPressure ? "PRESSURE: new work paused" : "MEMORY: ready",
+                               memory.Process.Valid ? MemoryStats::FormatBytes(memory.Process.Resident).c_str() : "unavailable",
+                               MemoryStats::FormatBytes(memory.RequestedGPUBytes).c_str());
+            ImGui::PlotLines("RSS MiB", s.RSSHistory.data(), int(s.RSSHistory.size()), s.HistoryOffset, nullptr, 0, FLT_MAX, ImVec2(0, 36));
+            ImGui::PlotLines("GPU requested MiB", s.GPUHistory.data(), int(s.GPUHistory.size()), s.HistoryOffset, nullptr, 0, FLT_MAX, ImVec2(0, 36));
+            ImGui::Text("Cache entries %zu | pinned %zu | loading %zu | evicted %llu | pressure frames %llu",
+                        memory.Entries, memory.Pinned, memory.Loading, (unsigned long long)stats.CacheEvictions, (unsigned long long)stats.PressureFrames);
+            if (ImGui::TreeNode("Cache residency details"))
+            {
+                for (size_t i = 0; i < memory.Caches.size(); ++i)
+                    ImGui::Text("%s: %zu entries / %zu pinned / %zu loading", AssetResidency::Name(i), memory.Caches[i].Entries, memory.Caches[i].Pinned, memory.Caches[i].Loading);
+                ImGui::TextWrapped("Live owners and async loads stay pinned. Limits pause new admissions; RSS may remain high after allocator frees. GPU requested is not physical VRAM.");
+                ImGui::TreePop();
+            }
+            if (ImGui::Button("Bo'sh keshni tozalash")) live->TrimCaches();
             if (ImGui::Button("Xatolarni qayta urinish")) live->RetryFailures();
             ImGui::SameLine();
             if (ImGui::Button("Worldni yopish"))
@@ -211,6 +235,19 @@ namespace Zamin {
             ImGui::InputDouble("Load radius", &s.Policy.LoadRadius);
             ImGui::InputDouble("Unload radius", &s.Policy.UnloadRadius);
             ImGui::InputDouble("Main-thread soft budget ms", &s.Policy.MainThreadMilliseconds);
+            ImGui::InputScalar("Observed RSS limit bytes (0=off)", ImGuiDataType_U64, &s.Policy.ObservedRSSLimitBytes);
+            ImGui::InputScalar("Requested GPU limit bytes (0=off)", ImGuiDataType_U64, &s.Policy.RequestedGPULimitBytes);
+            ImGui::InputDouble("Pressure resume ratio", &s.Policy.PressureResumeRatio);
+            int nav = int(s.Policy.NavigationMode);
+            ImGui::RadioButton("Nav off", &nav, 0);
+            ImGui::SameLine();
+            ImGui::RadioButton("Nav 2D", &nav, 2);
+            ImGui::SameLine();
+            ImGui::RadioButton("Nav 3D", &nav, 3);
+            s.Policy.NavigationMode = uint32_t(nav);
+            ImGui::InputScalar("Navigation max cells", ImGuiDataType_U32, &s.Policy.NavigationMaxCells);
+            ImGui::InputScalar("Cache entries per kind", ImGuiDataType_U32, &s.Policy.CacheEntriesPerKind);
+            ImGui::InputScalar("Max cache evictions per frame", ImGuiDataType_U32, &s.Policy.MaxCacheEvictionsPerFrame);
             int limit = int(s.Policy.MaxResidentCells);
             if (ImGui::InputInt("Resident cell limit", &limit)) s.Policy.MaxResidentCells = uint32_t(std::clamp(limit, 1, 128));
             limit = int(s.Policy.MaxResidentEntities);

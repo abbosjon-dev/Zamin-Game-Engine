@@ -1,4 +1,5 @@
 #pragma once
+#include "Zamin/Asset/CacheResidency.h"
 
 #include "Zamin/Renderer/Mesh.h"
 #include "Zamin/Renderer/Material.h"
@@ -280,6 +281,9 @@ namespace Zamin {
         // Drops the cached model of a file when nothing else holds it (it was loaded for a moment,
         // e.g. for a content browser thumbnail). Returns true when it was dropped.
         static bool ReleaseIfUnused(const std::filesystem::path& path);
+        static CacheResidencyStats GetResidencyStats();
+        // Main thread, current GL context: never evicts a live or loading resource.
+        static size_t TrimUnused(size_t targetEntries, size_t maxEvictions);
         static void ClearCache();
 
     private:

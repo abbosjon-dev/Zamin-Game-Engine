@@ -223,7 +223,7 @@ yo‘lidan o‘tadi. `WorldCellLoaded` / `WorldCellUnloaded` bus payload’i `Wo
 Anchor alohida unload’dan himoyalangan. Stop world obyektlarini olib tashlaydi; qayta Start duplikat
 qoldirmaydi. Single scene load world’ni tozalaydi; boshqa level uchun yana host orqali ulash mumkin.
 
-`Projects/WorldWorkshop3D` — 16 ta katak; `Projects/WorldWorkshop2D` — 12 ta katak. Play va WASD bilan
+`Projects/WorldWorkshop3D` — 36 ta katak; `Projects/WorldWorkshop2D` — 24 ta katak. Play va WASD bilan
 kamerani yuring. `ZAMIN_WORLD_AUTOTOUR=1` har 120 frame’da kamerani yangi hudud, bo‘sh hudud va boshlang‘ich
 nuqtaga olib boradi; oynaning sarlavhasi va logda active/load/unload statistikasi bor. Geometriya,
 ranglar va physics probe tashqi assetlarsiz authored primitive’lardan tuzilgan.
@@ -231,8 +231,55 @@ ranglar va physics probe tashqi assetlarsiz authored primitive’lardan tuzilgan
 V1 chegaralari: scene fayllari kataklar uchun alohida, entity UUID’lar barcha yuklangan kontentda noyob;
 SubScene komponenti katak ichida rad etiladi. ±1 000 000 unit’dan katta runtime offset floating origin
 kelguncha rad etiladi. Qatlam/policy o‘zgarishlari Save + runtime reload bilan qo‘llanadi. Scene fayli
-rename qilinganda manifest yo‘lini panelda yangilang. Binary/nav sidecar, HLOD, cross-cell nav stitching,
-hard RSS/VRAM eviction va runtime o‘zgargan katak holatini diskka saqlash hali yo‘q.
+rename qilinganda manifest yo‘lini panelda yangilang. Binary world sidecar, HLOD, polygon navmesh,
+hard RSS/VRAM cap va runtime o‘zgargan katak holatini diskka saqlash hali yo‘q.
 
 Eksport configured manifestni va uning scene/asset closure’ini build ro‘yxatiga qo‘shadi; unused asset
 filtri shu closure’ni saqlaydi. Missing/unsafe manifest yoki scene eksport preflight’da xato hisoblanadi.
+
+
+### World terrain va chegaralar
+
+`TerrainTools::GenerateWorldTile` (`Scene/TerrainTiles.h`) bir xil seed/base/amplitude/frequency bilan
+absolyut X/Z koordinatalarni namunalaydi. Qo‘shni kataklarda umumiy nuqtalarning balandligi bir xil;
+world Y offset local balandlikdan ayiriladi. Natija height limit’dan tashqarida bo‘lsa hech narsa o‘zgarmaydi.
+`StitchTiles` faqat translation qilingan, to‘liq umumiy chegarali ikki terrain uchun ishlaydi.
+Resolution intervallari butun nisbatda bo‘lishi kerak; mayda chegaralar umumiy qo‘pol polyline’ga moslanadi.
+Blend rows ichki qatorlarga tuzatishni asta kamaytiradi. Bu C0 geometriya uzluksizligi; shading normal’lari
+kataklar orasida avtomatik umumlashtirilmaydi. Bir katakning boshqa chegarasini keyin o‘zgartirish avvalgi
+corner’ga ta’sir qilishi mumkin; katta tile set uchun bir xil world generator’dan foydalaning.
+
+`LockBorderLOD` saqlanadi/copy qilinadi va tashqi patch’larni to‘liq aniqlikda ushlab turadi; ichki LOD
+masofaga moslashadi. Kichik, bitta patch’li katak shu sabab to‘liq detalda qoladi. Terrain panelida world
+parametrlar, generator va qo‘shni stitch amallari mavjud; edit sahna Undo tarixi orqali qaytariladi.
+
+### Residency va kuzatilgan xotira bosimi
+
+World policy `CacheEntriesPerKind` va `MaxCacheEvictionsPerFrame` orqali model → material → mesh → texture
+ketma-ketligida bo‘sh keshni tozalaydi. Avtomatik va qo‘lda trim bir world tick ichida umumiy eviction allowance’dan foydalanadi; thumbnail/reimport olib tashlagan entry’larning LRU metadata’si ham tozalanadi. Har library ichida eski cache acquisition avval chiqariladi; mesh
+library OBJ va primitive guruhlarini alohida yuritadi, OBJ oldin tekshiriladi. Jonli `shared_ptr` egalari,
+background model/texture va queued mesh upload’lar pin. GPU destructor asosiy oqimda ishlaydi; texture
+cache mutex’i ostida GPU resurslari yo‘q qilinmaydi. Thumbnail `GetLoadSerial/ReleaseUnused` semantikasi
+LRU sanog‘idan alohida saqlangan. Prefab/audio/font/shader keshlariga bu siyosat tatbiq etilmaydi.
+
+`ObservedRSSLimitBytes` — Linux `/proc` RSS signali; `RequestedGPULimitBytes` — tracked texture,
+render target va mesh allocation yig‘indisi. Nol threshold signalni o‘chiradi. Ular physical VRAM o‘lchovi
+yoki hard allocation cap emas. Limitga yetganda bo‘sh kesh trim qilinadi, yangi admission/build/resolve
+to‘xtaydi; allaqachon jonli obyektlar saqlanadi, keraksiz kataklar esa avval unload qilinadi.
+`PressureResumeRatio` low watermark’dan pastga tushganda ish davom etadi (threshold eng yaqin butun baytga yaxlitlanadi, kamida 1). RSS eng ko‘pi yarim soniya
+oralig‘ida o‘qiladi; malloc bo‘shatilgan sahifalarni OS’ga darhol qaytarmasligi mumkin. Pin qilingan yoki
+staged obyektlar sabab bosim uzoq qolsa kamera/policy/kontentni o‘zgartirish kerak. Kesh scan va bitta
+resurs destructor’i preempt qilinmaydi; eviction soni chegaralangan, hard frame deadline kafolati yo‘q.
+Editor RSS/GPU histories, pinned/loading/evicted, pressure frames va qo‘lda trim’ni ko‘rsatadi.
+
+### Kataklararo grid navigation
+
+`NavigationMode` 0 (off), 2 (XY), 3 (XZ plus heights); `NavigationMaxCells` union grid xotirasini cheklaydi
+(default 262144, policy maximum 1048576). Faqat active streamed kataklardagi active, baked NavGrid’lar
+`BuildNavMosaic` bilan birlashtiriladi. Cell size, grid alignment va climb qoidasi bir xil bo‘lishi kerak;
+overlap/mixed resolution/budget xatosi panelda ko‘rinadi va eski mosaic o‘chirilib, stale yo‘l saqlanmaydi.
+Yuklanmagan hudud blocked; cost, floor height va source carved walkability ko‘chiriladi. Source revision,
+carve revision, serial yoki katak to‘plami o‘zgarsa mosaic qayta quriladi; avtomatik agentlar replan qiladi.
+Explicit authored grid havolasi ustun qoladi. `GetNavigationEntity(dimension)` faqat world anchor’ga tegishli.
+World close/Stop mosaic entity’ni ham yo‘q qiladi. Bu bounded, sinxron grid rebuild; incremental polygon
+navmesh, ko‘p qavatli floor va cross-resolution portal tizimi alohida keyingi ishlar.

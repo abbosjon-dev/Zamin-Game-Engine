@@ -87,7 +87,8 @@ namespace Zamin::TerrainTools {
         {
             auto& p = patches[i];
             p.Neighbors.fill(0);
-            if (!t.LODEnabled || fullDetail || !finite)
+            const bool border = p.X == 0 || p.Z == 0 || p.X + p.CellsX == t.Resolution - 1 || p.Z + p.CellsZ == t.Resolution - 1;
+            if (!t.LODEnabled || fullDetail || !finite || (t.LockBorderLOD && border))
             {
                 p.LOD = 0;
                 continue;

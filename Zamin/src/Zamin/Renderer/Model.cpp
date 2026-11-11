@@ -127,6 +127,14 @@ namespace Zamin {
     };
 
     static std::unordered_map<std::string, Ref<Model>> s_ModelCache;
+    static CacheRecency<std::string> s_Residency;
+    static void PruneModelRecency()
+    {
+        // Thumbnail release / reimport can remove entries without a world tick. Keep the
+        // recency index bounded by the cache; a zero allowance never evicts a resource.
+        (void)s_Residency.Select(s_ModelCache, SIZE_MAX, UINT64_MAX, 0,
+                                 [](const auto&) { return true; }, [](const auto&) { return uint64_t(0); });
+    }
 
     static const char* CgltfResultText(cgltf_result result)
     {
@@ -1379,6 +1387,7 @@ namespace Zamin {
     Ref<Model> Model::Load(const std::filesystem::path& path)
     {
         std::string key = path.string();
+        s_Residency.Touch(key);
         if (auto it = s_ModelCache.find(key); it != s_ModelCache.end())
         {
             if (it->second && it->second->m_Loading)
@@ -1406,6 +1415,7 @@ namespace Zamin {
         if (!AsyncLoader::IsEnabled() || AsyncLoader::IsDeferringGPU() || JobSystem::IsWorkerThread())
             return Load(path);
         std::string key = path.string();
+        s_Residency.Touch(key);
         if (auto it = s_ModelCache.find(key); it != s_ModelCache.end())
             return it->second;
         Ref<Model> model = CreateRef<Model>();
@@ -1519,6 +1529,7 @@ namespace Zamin {
         }
         if (!error.empty())
             AssetImportLog::Report(failedModel.empty() ? path : fs::path(failedModel), error, true);
+        PruneModelRecency();
         return reloaded;
     }
 
@@ -1537,6 +1548,7 @@ namespace Zamin {
         if (it == s_ModelCache.end() || !it->second || it->second.use_count() > 1)
             return false; // a failed file stays known (not read again until it changes)
         s_ModelCache.erase(it);
+        PruneModelRecency();
         return true;
     }
 
@@ -1544,7 +1556,21 @@ namespace Zamin {
     {
         AsyncLoader::WaitAll(); // (the loads' finishes look the cache up)
         s_ModelCache.clear();
+        s_Residency = {};
         s_ModelLoads.clear();
     }
 
+    CacheResidencyStats Model::GetResidencyStats()
+    {
+        return s_Residency.Inspect(s_ModelCache, [](const auto& value) { (void)value; return !(value->IsLoading()); }, [](const auto&) { return uint64_t(0); });
+    }
+    size_t Model::TrimUnused(size_t targetEntries, size_t maxEvictions)
+    {
+        if (!maxEvictions) return 0;
+        auto keys = s_Residency.Select(s_ModelCache, targetEntries, UINT64_MAX, maxEvictions,
+                                       [](const auto& value) { (void)value; return !(value->IsLoading()); }, [](const auto&) { return uint64_t(0); });
+        for (const auto& key : keys) s_ModelCache.erase(key);
+        PruneModelRecency();
+        return keys.size();
+    }
 }

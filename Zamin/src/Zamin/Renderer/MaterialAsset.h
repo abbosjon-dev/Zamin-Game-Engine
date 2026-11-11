@@ -1,4 +1,5 @@
 #pragma once
+#include "Zamin/Asset/CacheResidency.h"
 
 #include "Zamin/Renderer/Material.h"
 
@@ -216,6 +217,9 @@ namespace Zamin {
         static std::vector<std::string> RestoreSnapshot(const Snapshot& snapshot);
         // Drops the cached material of a file when nothing else holds it. True when it was dropped.
         static bool ReleaseIfUnused(const std::filesystem::path& path);
+        static CacheResidencyStats GetResidencyStats();
+        // Main thread, current GL context: never evicts a live or loading resource.
+        static size_t TrimUnused(size_t targetEntries, size_t maxEvictions);
         static void Clear();
 
         // How material texture paths become textures. The default loads them with TextureLibrary

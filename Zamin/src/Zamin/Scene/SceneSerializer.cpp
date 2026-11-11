@@ -1212,6 +1212,7 @@ namespace Zamin {
             auto& j = e["Terrain"];
             j = { { "Resolution", c->Resolution }, { "Size", ToJson(c->Size) }, { "HeightLimit", c->HeightLimit }, { "Collision", c->Collision }, { "Heights", c->Heights } };
             j["LODEnabled"] = c->LODEnabled;
+            j["LockBorderLOD"] = c->LockBorderLOD;
             j["LODDistanceScale"] = c->LODDistanceScale;
             j["Layers"] = json::array();
             for (const auto& layer : c->Layers)
@@ -2151,6 +2152,7 @@ namespace Zamin {
             c.HeightLimit = j.value("HeightLimit", 128.0f);
             c.Collision = j.value("Collision", true);
             c.LODEnabled = j.value("LODEnabled", true);
+            c.LockBorderLOD = j.value("LockBorderLOD", false);
             c.LODDistanceScale = j.value("LODDistanceScale", 2.0f);
             const size_t count = size_t(c.Resolution) * c.Resolution;
             if (j.contains("Heights"))

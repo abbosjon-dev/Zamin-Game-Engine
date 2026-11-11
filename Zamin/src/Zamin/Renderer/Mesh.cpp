@@ -336,6 +336,9 @@ namespace Zamin {
         return type == PrimitiveMesh::Sphere || type == PrimitiveMesh::Cylinder || type == PrimitiveMesh::Cone;
     }
 
+    static CacheRecency<int> s_PrimitiveRecency;
+    static CacheRecency<std::string> s_MeshRecency;
+
     int MeshLibrary::GetPrimitiveLOD(PrimitiveMesh type, float screenFraction)
     {
         // ZAMIN_PRIMITIVE_LOD=0: always the full mesh (to compare, docs/Samples.md).
@@ -354,6 +357,7 @@ namespace Zamin {
         if (lod == 0 || !IsCurved(type))
             return GetPrimitive(type);
         const int key = (int)type + 16 * lod;
+        s_PrimitiveRecency.Touch(key);
         if (auto it = s_Primitives.find(key); it != s_Primitives.end())
             return it->second;
         std::vector<MeshVertex> vertices;
@@ -370,6 +374,7 @@ namespace Zamin {
 
     Ref<Mesh> MeshLibrary::GetPrimitive(PrimitiveMesh type)
     {
+        s_PrimitiveRecency.Touch((int)type);
         auto it = s_Primitives.find((int)type);
         if (it != s_Primitives.end())
             return it->second;
@@ -447,6 +452,7 @@ namespace Zamin {
     Ref<Mesh> MeshLibrary::LoadOBJ(const std::filesystem::path& path)
     {
         std::string key = path.string();
+        s_MeshRecency.Touch(key);
         auto it = s_Models.find(key);
         if (it != s_Models.end())
             return it->second;
@@ -471,6 +477,34 @@ namespace Zamin {
     {
         s_Primitives.clear();
         s_Models.clear();
+        s_PrimitiveRecency = {};
+        s_MeshRecency = {};
     }
 
+    CacheResidencyStats MeshLibrary::GetResidencyStats()
+    {
+        auto ready = [](const auto& value) { return value->IsUploaded(); };
+        auto bytes = [](const auto&) { return uint64_t(0); };
+        auto a = s_PrimitiveRecency.Inspect(s_Primitives, ready, bytes);
+        auto b = s_MeshRecency.Inspect(s_Models, ready, bytes);
+        a.Entries += b.Entries;
+        a.Pinned += b.Pinned;
+        a.Loading += b.Loading;
+        return a;
+    }
+    size_t MeshLibrary::TrimUnused(size_t targetEntries, size_t maxEvictions)
+    {
+        if (!maxEvictions) return 0;
+        auto ready = [](const auto& value) { return value->IsUploaded(); };
+        auto bytes = [](const auto&) { return uint64_t(0); };
+        const size_t modelTarget = targetEntries > s_Primitives.size() ? targetEntries - s_Primitives.size() : 0;
+        auto keys = s_MeshRecency.Select(s_Models, modelTarget, UINT64_MAX, maxEvictions, ready, bytes);
+        for (const auto& key : keys) s_Models.erase(key);
+        const size_t primitiveTarget = targetEntries > s_Models.size() ? targetEntries - s_Models.size() : 0;
+        auto primitives = s_PrimitiveRecency.Select(s_Primitives, primitiveTarget, UINT64_MAX, maxEvictions - keys.size(), ready, bytes);
+        for (auto key : primitives) s_Primitives.erase(key);
+        (void)s_MeshRecency.Select(s_Models, SIZE_MAX, UINT64_MAX, 0, ready, bytes);
+        (void)s_PrimitiveRecency.Select(s_Primitives, SIZE_MAX, UINT64_MAX, 0, ready, bytes);
+        return keys.size() + primitives.size();
+    }
 }

@@ -29,6 +29,7 @@ namespace Zamin {
         float HeightLimit = 128.0f;
         bool Collision = true;
         bool LODEnabled = true;
+        bool LockBorderLOD = false; // adjacent streamed tiles retain exact authored boundary samples
         float LODDistanceScale = 2.0f;
         std::vector<float> Heights;
         std::vector<glm::vec4> Weights;

@@ -2269,6 +2269,7 @@ _Inspektorda: **Terrain**; qo'shish: **+ Komponent → Render → Terrain / map*
 | `HeightLimit` | `float` | `128.0f` |
 | `Collision` | `bool` | `true` |
 | `LODEnabled` | `bool` | `true` |
+| `LockBorderLOD` | `bool` | `false` |
 | `LODDistanceScale` | `float` | `2.0f` |
 | `Heights` | `std::vector<float>` | — |
 | `Weights` | `std::vector<glm::vec4>` | — |

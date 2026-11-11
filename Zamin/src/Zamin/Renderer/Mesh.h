@@ -1,4 +1,5 @@
 #pragma once
+#include "Zamin/Asset/CacheResidency.h"
 
 #include "Zamin/Math/Geometry.h"
 #include "Zamin/Renderer/VertexArray.h"
@@ -122,6 +123,9 @@ namespace Zamin {
         // `error`, when it cannot be read or holds no faces.
         static bool ReadOBJ(const std::filesystem::path& path, std::vector<MeshVertex>& vertices, std::vector<uint32_t>& indices,
                             std::string* error = nullptr);
+        static CacheResidencyStats GetResidencyStats();
+        // Main thread, current GL context: never evicts a live or loading resource.
+        static size_t TrimUnused(size_t targetEntries, size_t maxEvictions);
         static void Clear();
     };
 

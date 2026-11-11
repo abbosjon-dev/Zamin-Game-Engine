@@ -1,4 +1,5 @@
 #pragma once
+#include "Zamin/Asset/CacheResidency.h"
 
 #include "Zamin/Core/Base.h"
 
@@ -134,6 +135,9 @@ namespace Zamin {
         static void DropPredecoded(const std::vector<std::filesystem::path>& paths);
         static size_t GetPredecodedCount();
         static size_t ReleaseUnused(uint64_t since);
+        static CacheResidencyStats GetResidencyStats();
+        // Main thread, current GL context: never evicts a live or loading resource.
+        static size_t TrimUnused(size_t targetEntries, size_t maxEvictions);
         static void Clear();
     };
 

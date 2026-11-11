@@ -1,5 +1,6 @@
 #include <Zamin/Scene/TerrainFoliage.h>
 #include <Zamin/Scene/TerrainLOD.h>
+#include <Zamin/Scene/TerrainTiles.h>
 #include <Zamin/Renderer/TerrainSurface.h>
 #include "EditorLayer.h"
 #include "UI.h"
@@ -296,12 +297,81 @@ namespace Zamin {
             if (ImGui::CollapsingHeader("Terrain unumdorligi (LOD)"))
             {
                 bool changed = ImGui::Checkbox("Avtomatik LOD", &t.LODEnabled);
+                changed |= ImGui::Checkbox("Katak chegarasida toliq detal", &t.LockBorderLOD);
                 changed |= ImGui::SliderFloat("Detal masofasi", &t.LODDistanceScale, 0.25f, 8.0f, "%.2f");
                 if (changed) MarkDirty("Terrain LOD sozlamalari");
                 const auto stats = TerrainTools::GetRenderStats(t);
                 ImGui::Text("Oxirgi ko'rinish: %u bo'lak, %u uchburchak", stats.Patches, stats.Triangles);
                 ImGui::Text("To'liq detal: %u | Qayta qurildi: %u", stats.FullResolutionTriangles, stats.RebuiltPatches);
                 ImGui::TextWrapped("Masofa oshganda detal kamayadi. Collision va cho'tka to'liq aniqlikda qoladi. Ko'proq detal uchun masofa koeffitsiyentini oshiring.");
+            }
+            if (qaMode && std::string_view(qaMode) == "world-test") ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+            if (ImGui::CollapsingHeader("World terrain / katak chegaralari"))
+            {
+                static TerrainTools::WorldTerrainSettings settings{ 42, 12, 6, .02f };
+                static std::string result;
+                static int blendRows = 2;
+                ImGui::InputScalar("World seed", ImGuiDataType_U32, &settings.Seed);
+                ImGui::DragFloat("World base", &settings.Base, .1f);
+                ImGui::DragFloat("World amplitude", &settings.Amplitude, .1f, 0, 100);
+                ImGui::DragFloat("World frequency", &settings.Frequency, .001f, .001f, 1);
+                ImGui::SliderInt("Chegara blend rows", &blendRows, 0, 16);
+                auto translationOnly = [](const glm::mat4& world) {
+                    for (int c = 0; c < 3; ++c)
+                        for (int r = 0; r < 3; ++r)
+                            if (std::abs(world[c][r] - (c == r ? 1.f : 0.f)) > 1e-5f) return false;
+                    return true;
+                };
+                const auto world = m_EditorScene->GetWorldTransform(entity);
+                if (ImGui::Button("World koordinatalardan yaratish"))
+                {
+                    if (!translationOnly(world)) result = "Faqat translation: rotation/scale ni avval bake qiling";
+                    else
+                    {
+                        CommitUndo();
+                        if (TerrainTools::GenerateWorldTile(t, glm::dvec3(world[3]), settings, result))
+                        {
+                            MarkDirty("World terrain generate");
+                            result = "World terrain yaratildi";
+                        }
+                    }
+                }
+                static UUID neighborID{ 0 };
+                auto neighbor = m_EditorScene->GetEntityByUUID(neighborID);
+                if (ImGui::BeginCombo("Qo'shni terrain", neighbor && neighbor != entity ? neighbor.GetName().c_str() : "Tanlang"))
+                {
+                    for (auto handle : m_EditorScene->GetAllEntitiesWith<TerrainComponent>())
+                    {
+                        Entity choice(handle, m_EditorScene.get());
+                        if (choice == entity) continue;
+                        ImGui::PushID(choice.GetUUID().ToString().c_str());
+                        if (ImGui::Selectable(choice.GetName().c_str(), choice.GetUUID() == neighborID)) neighborID = choice.GetUUID();
+                        ImGui::PopID();
+                    }
+                    ImGui::EndCombo();
+                }
+                if (ImGui::Button("Tanlangan ikki terrain chegarasini ulash"))
+                {
+                    neighbor = m_EditorScene->GetEntityByUUID(neighborID);
+                    if (!neighbor || neighbor == entity || !neighbor.HasComponent<TerrainComponent>()) result = "Qo'shni terrain tanlang";
+                    else
+                    {
+                        const auto neighborWorld = m_EditorScene->GetWorldTransform(neighbor);
+                        if (!translationOnly(world) || !translationOnly(neighborWorld)) result = "Faqat translation terrain qo'llanadi";
+                        else
+                        {
+                            CommitUndo();
+                            if (TerrainTools::StitchTiles(t, glm::dvec3(world[3]), neighbor.GetComponent<TerrainComponent>(),
+                                                          glm::dvec3(neighborWorld[3]), uint32_t(blendRows), result))
+                            {
+                                MarkDirty("World terrain seam stitch");
+                                result = "Terrain chegarasi ulandi";
+                            }
+                        }
+                    }
+                }
+                if (!result.empty()) ImGui::TextWrapped("%s", result.c_str());
+                ImGui::TextWrapped("Bir xil world seed/base/frequency ishlating. Stitch balandlikni ulaydi; normal shading har bir katakda alohida. Undo orqali qaytariladi.");
             }
             bool edit = ImGui::Checkbox("Cho'tka faol", &m_TerrainPainting);
             if (edit && m_TerrainPainting) m_GizmoMode = GizmoMode::None;
@@ -575,6 +645,44 @@ namespace Zamin {
         auto entity = CreateTerrainMap();
         if (!entity) return;
         auto& t = entity.GetComponent<TerrainComponent>();
+        if (std::string(mode) == "world-test")
+        {
+            t.Reset(17, { 32, 32 }, 2);
+            const auto firstID = entity.GetUUID();
+            auto second = m_EditorScene->CreateEntity("Adjacent world tile");
+            const auto secondID = second.GetUUID();
+            second.GetTransform().Translation = { 32, 0, 0 };
+            second.AddComponent<TerrainComponent>().Reset(9, { 32, 32 }, 8);
+            const auto originalA = t.Heights;
+            const auto originalB = second.GetComponent<TerrainComponent>().Heights;
+            MarkDirty("World terrain baseline");
+            CommitUndo();
+            std::string error;
+            if (!TerrainTools::StitchTiles(t, { 0, 0, 0 }, second.GetComponent<TerrainComponent>(), { 32, 0, 0 }, 2, error))
+                throw std::runtime_error(error);
+            const auto editedA = t.Heights, editedB = second.GetComponent<TerrainComponent>().Heights;
+            MarkDirty("World terrain stitch");
+            CommitUndo();
+            Undo();
+            auto& undoneA = m_EditorScene->GetEntityByUUID(firstID).GetComponent<TerrainComponent>();
+            auto& undoneB = m_EditorScene->GetEntityByUUID(secondID).GetComponent<TerrainComponent>();
+            if (undoneA.Heights != originalA || undoneB.Heights != originalB || undoneA.LockBorderLOD || undoneB.LockBorderLOD)
+                throw std::runtime_error("World terrain pair undo failed");
+            Redo();
+            auto& restoredA = m_EditorScene->GetEntityByUUID(firstID).GetComponent<TerrainComponent>();
+            auto& restoredB = m_EditorScene->GetEntityByUUID(secondID).GetComponent<TerrainComponent>();
+            if (restoredA.Heights != editedA || restoredB.Heights != editedB || !restoredA.LockBorderLOD || !restoredB.LockBorderLOD)
+                throw std::runtime_error("World terrain pair redo failed");
+            m_TerrainID = firstID;
+            m_SceneHierarchyPanel.SetSelectedEntity(m_EditorScene->GetEntityByUUID(firstID));
+            m_EditorCamera.Focus({ 32, 4, 16 }, 65);
+            m_EditorCamera.SetOrientation(.65f, .4f);
+            m_TerrainPainting = false;
+            m_ShowTerrain = true;
+            m_TerrainMessage = "World terrain: ikki resolution, stitch va Undo/Redo tekshirildi.";
+            ZM_CORE_INFO("World terrain editor QA passed: unequal resolution seam, paired undo/redo, serialized border LOD");
+            return;
+        }
         if (std::string(mode) == "lod-test")
         {
             t.Reset(257, { 256, 256 }, 8);

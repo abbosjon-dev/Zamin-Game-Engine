@@ -1,6 +1,7 @@
 #include "Zamin/Scene/WorldStreaming.h"
 #include "Zamin/Scene/SceneManager.h"
 #include "Zamin/Scene/Entity.h"
+#include "Zamin/AI/NavMosaic.h"
 #include "Zamin/Project/Project.h"
 #include "Zamin/Scripting/EventBus.h"
 #include "Zamin/Utils/FileSystem.h"
@@ -27,7 +28,7 @@ namespace Zamin {
         double Elapsed(Clock::time_point start) { return std::chrono::duration<double, std::milli>(Clock::now() - start).count(); }
         json PolicyJSON(const WorldStreaming::Policy& p)
         {
-            return { { "LoadRadius", p.LoadRadius }, { "UnloadRadius", p.UnloadRadius }, { "MainThreadMilliseconds", p.MainThreadMilliseconds }, { "AxisMask", p.AxisMask }, { "Layers", p.Layers }, { "MaxResidentCells", p.MaxResidentCells }, { "MaxResidentEntities", p.MaxResidentEntities }, { "MaxEntitiesPerCell", p.MaxEntitiesPerCell }, { "MaxBuildingCells", p.MaxBuildingCells }, { "MaxActivationsPerFrame", p.MaxActivationsPerFrame }, { "MaxUnloadsPerFrame", p.MaxUnloadsPerFrame }, { "MaxResolveEntitiesPerFrame", p.MaxResolveEntitiesPerFrame }, { "DeclaredCPUBytes", p.DeclaredCPUBytes }, { "DeclaredGPUBytes", p.DeclaredGPUBytes } };
+            return { { "LoadRadius", p.LoadRadius }, { "UnloadRadius", p.UnloadRadius }, { "MainThreadMilliseconds", p.MainThreadMilliseconds }, { "AxisMask", p.AxisMask }, { "Layers", p.Layers }, { "MaxResidentCells", p.MaxResidentCells }, { "MaxResidentEntities", p.MaxResidentEntities }, { "MaxEntitiesPerCell", p.MaxEntitiesPerCell }, { "MaxBuildingCells", p.MaxBuildingCells }, { "MaxActivationsPerFrame", p.MaxActivationsPerFrame }, { "MaxUnloadsPerFrame", p.MaxUnloadsPerFrame }, { "MaxResolveEntitiesPerFrame", p.MaxResolveEntitiesPerFrame }, { "DeclaredCPUBytes", p.DeclaredCPUBytes }, { "DeclaredGPUBytes", p.DeclaredGPUBytes }, { "ObservedRSSLimitBytes", p.ObservedRSSLimitBytes }, { "RequestedGPULimitBytes", p.RequestedGPULimitBytes }, { "PressureResumeRatio", p.PressureResumeRatio }, { "CacheEntriesPerKind", p.CacheEntriesPerKind }, { "MaxCacheEvictionsPerFrame", p.MaxCacheEvictionsPerFrame }, { "NavigationMode", p.NavigationMode }, { "NavigationMaxCells", p.NavigationMaxCells } };
         }
         bool ReadPolicy(const json& j, WorldStreaming::Policy& p, std::string& error)
         {
@@ -60,6 +61,13 @@ namespace Zamin {
             read("MaxResolveEntitiesPerFrame", p.MaxResolveEntitiesPerFrame);
             read("DeclaredCPUBytes", p.DeclaredCPUBytes);
             read("DeclaredGPUBytes", p.DeclaredGPUBytes);
+            read("ObservedRSSLimitBytes", p.ObservedRSSLimitBytes);
+            read("RequestedGPULimitBytes", p.RequestedGPULimitBytes);
+            read("PressureResumeRatio", p.PressureResumeRatio);
+            read("CacheEntriesPerKind", p.CacheEntriesPerKind);
+            read("NavigationMode", p.NavigationMode);
+            read("NavigationMaxCells", p.NavigationMaxCells);
+            read("MaxCacheEvictionsPerFrame", p.MaxCacheEvictionsPerFrame);
             if (j.contains("Layers")) p.Layers = j.at("Layers").get<std::vector<std::string>>();
             return p.Validate(error);
         }
@@ -73,7 +81,11 @@ namespace Zamin {
             !MaxEntitiesPerCell || MaxEntitiesPerCell > 100000 || !MaxBuildingCells || MaxBuildingCells > 8 ||
             !MaxActivationsPerFrame || MaxActivationsPerFrame > 16 || !MaxUnloadsPerFrame || MaxUnloadsPerFrame > 16 ||
             !MaxResolveEntitiesPerFrame || MaxResolveEntitiesPerFrame > 4096 || !DeclaredCPUBytes || !DeclaredGPUBytes ||
-            DeclaredCPUBytes > WorldManifest::MaxDeclaredBytesPerCell || DeclaredGPUBytes > WorldManifest::MaxDeclaredBytesPerCell || Layers.size() > 32)
+            DeclaredCPUBytes > WorldManifest::MaxDeclaredBytesPerCell || DeclaredGPUBytes > WorldManifest::MaxDeclaredBytesPerCell || Layers.size() > 32 ||
+            ObservedRSSLimitBytes > WorldManifest::MaxDeclaredBytesPerCell || RequestedGPULimitBytes > WorldManifest::MaxDeclaredBytesPerCell ||
+            !std::isfinite(PressureResumeRatio) || PressureResumeRatio < .1 || PressureResumeRatio > .99 ||
+            CacheEntriesPerKind > 100000 || !MaxCacheEvictionsPerFrame || MaxCacheEvictionsPerFrame > 256 ||
+            (NavigationMode != 0 && NavigationMode != 2 && NavigationMode != 3) || !NavigationMaxCells || NavigationMaxCells > 1048576)
         {
             error = "Invalid world streaming policy";
             return false;
@@ -183,6 +195,82 @@ namespace Zamin {
         glm::dvec3 Viewer{ 0 };
         bool Override = false;
         Stats Counters;
+        ResidencyPressure Pressure;
+        uint64_t Frame = 0;
+        size_t CacheEvictionsThisFrame = 0;
+        size_t Trim(size_t target)
+        {
+            const size_t allowance = Rules.MaxCacheEvictionsPerFrame > CacheEvictionsThisFrame ? Rules.MaxCacheEvictionsPerFrame - CacheEvictionsThisFrame : 0;
+            const auto count = AssetResidency::Trim(target, allowance);
+            CacheEvictionsThisFrame += count;
+            Counters.CacheEvictions += count;
+            return count;
+        }
+        UUID NavigationRoot{ 0 };
+        std::vector<std::array<uint64_t, 4>> NavigationStamp;
+        void UpdateNavigation()
+        {
+            if (!Rules.NavigationMode) return;
+            std::vector<std::pair<uint64_t, const NavGrid*>> sources;
+            for (const auto& cell : Cells)
+                if (cell.Info.Stage == WorldRuntimeStage::Active)
+                    for (auto id : cell.Owned)
+                    {
+                        auto e = Anchor->GetEntityByUUID(id);
+                        if (!e || !Anchor->IsActiveInHierarchy(e)) continue;
+                        if (Rules.NavigationMode == 2)
+                        {
+                            if (const auto* g = e.TryGetComponent<NavGrid2DComponent>(); g && g->Baked && !g->Grid.IsEmpty())
+                                sources.emplace_back(uint64_t(id), &g->Grid);
+                        }
+                        else if (const auto* g = e.TryGetComponent<NavGrid3DComponent>(); g && g->Baked && !g->Grid.IsEmpty())
+                            sources.emplace_back(uint64_t(id), &g->Grid);
+                    }
+            std::sort(sources.begin(), sources.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+            std::vector<std::array<uint64_t, 4>> stamp;
+            std::vector<const NavGrid*> grids;
+            for (const auto& [id, g] : sources)
+            {
+                stamp.push_back({ id, g->GetSerial(), g->GetRevision(), g->GetCarveRevision() });
+                grids.push_back(g);
+            }
+            if (stamp == NavigationStamp) return;
+            NavigationStamp = std::move(stamp);
+            auto root = Anchor->GetEntityByUUID(NavigationRoot);
+            if (!root)
+            {
+                root = Anchor->CreateEntity("World navigation mosaic");
+                NavigationRoot = root.GetUUID();
+                if (Rules.NavigationMode == 2)
+                {
+                    auto& c = root.AddComponent<NavGrid2DComponent>();
+                    c.Paths.BakeOnStart = false;
+                    c.AutoRebuild = false;
+                }
+                else
+                {
+                    auto& c = root.AddComponent<NavGrid3DComponent>();
+                    c.Paths.BakeOnStart = false;
+                }
+            }
+            auto& destination = Rules.NavigationMode == 2 ? root.GetComponent<NavGrid2DComponent>().Grid : root.GetComponent<NavGrid3DComponent>().Grid;
+            std::string error;
+            const bool ready = !grids.empty() && BuildNavMosaic(grids, destination, error, Rules.NavigationMaxCells);
+            if (!ready) destination.Clear(); // never expose the previous tile topology after failure
+            if (Rules.NavigationMode == 2) root.GetComponent<NavGrid2DComponent>().Baked = ready;
+            else root.GetComponent<NavGrid3DComponent>().Baked = ready;
+            Counters.NavigationTiles = grids.size();
+            Counters.NavigationCells = ready ? (Rules.NavigationMode == 2 ? root.GetComponent<NavGrid2DComponent>().Grid.GetCellCount() : root.GetComponent<NavGrid3DComponent>().Grid.GetCellCount()) : 0;
+            Counters.NavigationError = std::move(error);
+            ++Counters.NavigationRebuilds;
+            // Topology may change while revisions happen to match. All automatic / mosaic-bound
+            // agents replan explicitly; references to authored grids retain their own semantics.
+            for (auto handle : Anchor->GetAllEntitiesWith<NavAgentComponent>())
+            {
+                auto& agent = Entity(handle, Anchor.get()).GetComponent<NavAgentComponent>();
+                if (!agent.Grid || agent.Grid.ID == NavigationRoot) agent.RepathRequested = true;
+            }
+        }
 
         void Recount()
         {
@@ -190,6 +278,14 @@ namespace Zamin {
             Counters = {};
             Counters.Activations = previous.Activations;
             Counters.Unloads = previous.Unloads;
+            Counters.Residency = previous.Residency;
+            Counters.MemoryPressure = previous.MemoryPressure;
+            Counters.CacheEvictions = previous.CacheEvictions;
+            Counters.PressureFrames = previous.PressureFrames;
+            Counters.NavigationTiles = previous.NavigationTiles;
+            Counters.NavigationCells = previous.NavigationCells;
+            Counters.NavigationRebuilds = previous.NavigationRebuilds;
+            Counters.NavigationError = previous.NavigationError;
             Counters.LastMilliseconds = previous.LastMilliseconds;
             Counters.PeakMilliseconds = previous.PeakMilliseconds;
             Counters.BudgetBlocked = previous.BudgetBlocked;
@@ -215,6 +311,7 @@ namespace Zamin {
             cell.Job.reset();
             cell.SceneRef.reset();
             cell.Resolve.clear();
+            cell.Resolved = 0;
             cell.Info.Stage = WorldRuntimeStage::Failed;
             cell.Info.Error = std::move(error);
             cell.Info.Admitted = false;
@@ -332,6 +429,7 @@ namespace Zamin {
     void WorldStreaming::Update(SceneManager& manager)
     {
         auto& d = *m_Data;
+        d.CacheEvictionsThisFrame = 0;
         const auto start = Clock::now();
         if (!d.Override)
             if (auto* render = manager.GetRenderScene())
@@ -356,9 +454,25 @@ namespace Zamin {
             c.Job.reset();
             c.SceneRef.reset();
             c.Resolve.clear();
+            c.Resolved = 0;
             c.Info = { c.Info.ID, WorldRuntimeStage::Dormant, false, false, 0, 0, {} };
         }
         d.Recount();
+        d.Counters.Residency = AssetResidency::Inspect();
+        auto evaluatePressure = [&] {
+            const auto& memory = d.Counters.Residency;
+            return d.Pressure.Update(memory.Process.Resident, memory.Process.Valid, memory.RequestedGPUBytes,
+                                     d.Rules.ObservedRSSLimitBytes, d.Rules.RequestedGPULimitBytes, d.Rules.PressureResumeRatio);
+        };
+        d.Counters.MemoryPressure = evaluatePressure();
+        // Scan on retirement, periodically, or under pressure; no wait for async work and no live eviction.
+        if (unloads || ++d.Frame % 60 == 0 || d.Counters.MemoryPressure)
+        {
+            d.Trim(d.Counters.MemoryPressure ? 0 : d.Rules.CacheEntriesPerKind);
+            d.Counters.Residency = AssetResidency::Inspect();
+            d.Counters.MemoryPressure = evaluatePressure();
+        }
+        d.Counters.PressureFrames += d.Counters.MemoryPressure;
         for (auto id : d.Order)
         {
             const size_t index = d.Index.at(id);
@@ -377,7 +491,7 @@ namespace Zamin {
                 d.Fail(c, "Runtime cell dependency failed");
                 continue;
             }
-            if (wait || d.Counters.Admitted >= d.Rules.MaxResidentCells ||
+            if (d.Counters.MemoryPressure || wait || d.Counters.Admitted >= d.Rules.MaxResidentCells ||
                 source.DeclaredCPUBytes > d.Rules.DeclaredCPUBytes - d.Counters.DeclaredCPU || source.DeclaredGPUBytes > d.Rules.DeclaredGPUBytes - d.Counters.DeclaredGPU) continue;
             c.Info.Admitted = true;
             c.Info.Stage = WorldRuntimeStage::Loading;
@@ -411,7 +525,7 @@ namespace Zamin {
                 d.Fail(c, "Runtime cell dependency failed");
                 continue;
             }
-            if (!dependenciesActive) continue;
+            if (!dependenciesActive || d.Counters.MemoryPressure) continue;
             if (advanced && Elapsed(start) >= d.Rules.MainThreadMilliseconds) break;
             if (c.Info.Stage == WorldRuntimeStage::Loading)
             {
@@ -432,6 +546,7 @@ namespace Zamin {
                 }
                 c.Info.Entities = c.Job->GetEntityCount();
                 d.Counters.Entities += c.Info.Entities;
+                c.Resolved = 0;
                 c.SceneRef = CreateRef<Scene>();
                 c.Info.Stage = WorldRuntimeStage::Building;
                 ++d.Counters.Building;
@@ -523,6 +638,7 @@ namespace Zamin {
                 }
             }
         }
+        d.UpdateNavigation();
         d.Counters.LastMilliseconds = Elapsed(start);
         d.Counters.PeakMilliseconds = std::max(d.Counters.PeakMilliseconds, d.Counters.LastMilliseconds);
         d.Recount();
@@ -531,6 +647,8 @@ namespace Zamin {
     void WorldStreaming::Clear(SceneManager& manager)
     {
         auto& d = *m_Data;
+        if (auto root = d.Anchor->GetEntityByUUID(d.NavigationRoot)) d.Anchor->DestroyEntity(root);
+        d.NavigationRoot = UUID(0);
         for (auto it = d.Order.rbegin(); it != d.Order.rend(); ++it)
         {
             auto& c = d.Cells[d.Index.at(*it)];
@@ -559,6 +677,18 @@ namespace Zamin {
         m_Data->Override = true;
     }
     void WorldStreaming::ClearViewerOverride() { m_Data->Override = false; }
+    UUID WorldStreaming::GetNavigationEntity(int dimension) const
+    {
+        const auto& d = *m_Data;
+        return d.Rules.NavigationMode && (dimension == 0 || dimension == int(d.Rules.NavigationMode)) ? d.NavigationRoot : UUID(0);
+    }
+    size_t WorldStreaming::TrimCaches()
+    {
+        auto& d = *m_Data;
+        const auto count = d.Trim(0);
+        d.Counters.Residency = AssetResidency::Inspect();
+        return count;
+    }
     void WorldStreaming::RetryFailures()
     {
         auto& d = *m_Data;

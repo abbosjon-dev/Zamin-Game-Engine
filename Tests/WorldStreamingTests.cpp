@@ -4,6 +4,7 @@
 #include <Zamin/Scene/Entity.h>
 #include <Zamin/Project/Project.h>
 #include <Zamin/Project/ExportAssets.h>
+#include <Zamin/Renderer/MaterialAsset.h>
 #include <Zamin/Asset/AssetReferences.h>
 #include <Zamin/Scripting/ScriptableEntity.h>
 #include <Zamin/Scripting/ScriptEngine.h>
@@ -365,4 +366,256 @@ TEST(WorldStreamingTinyBudgetStillProgressesAtManifestCapacity)
     if (!world) return;
     CHECK(Until(manager, [&] { return world->GetStats().Active == 1; }));
     CHECK(anchor->GetEntityByUUID(UUID(59999)) && world->GetStats().Admitted == 1);
+}
+
+TEST(WorldStreamingObservedMemoryGateDoesNotDropLiveCells)
+{
+    WorldFixture fixture;
+    fixture.Policy.ObservedRSSLimitBytes = 1;
+    fixture.Save();
+    SceneManager manager;
+    auto anchor = fixture.Start(manager);
+    for (int i = 0; i < 10; ++i) manager.ProcessRequests();
+    const auto stats = manager.GetWorldStreaming()->GetStats();
+    if (stats.Residency.Process.Valid)
+    {
+        CHECK(stats.MemoryPressure && stats.Active == 0 && stats.Admitted == 0 && stats.PressureFrames >= 1);
+        CHECK(anchor->GetEntityByUUID(UUID(1)));
+    }
+    manager.Stop();
+    fixture.Policy.ObservedRSSLimitBytes = 0;
+    fixture.Save();
+    anchor = fixture.Start(manager);
+    CHECK(Until(manager, [&] { return manager.GetWorldStreaming()->GetStats().Active == 1; }));
+    CHECK(!manager.GetWorldStreaming()->GetStats().MemoryPressure);
+    manager.Stop();
+}
+
+TEST(WorldStreamingNavigationAcrossLoadedCellsAndRetirement)
+{
+    WorldFixture fixture;
+    fixture.Policy.MaxResidentCells = 3;
+    fixture.Policy.LoadRadius = 11;
+    fixture.Policy.UnloadRadius = 12;
+    fixture.Policy.NavigationMode = 2;
+    for (size_t i = 0; i < fixture.Manifest.Cells.size(); ++i)
+    {
+        auto& cell = fixture.Manifest.Cells[i];
+        cell.Coordinate.x = int(i);
+        auto scene = CreateRef<Scene>();
+        auto e = scene->CreateEntityWithUUID(UUID(100 + i), "Tile nav");
+        e.GetTransform().Translation = { 5, 5, 0 };
+        auto& grid = e.AddComponent<NavGrid2DComponent>();
+        grid.AutoBounds = false;
+        grid.Size = { 10, 10 };
+        grid.CellSize = 1;
+        grid.AgentRadius = 0;
+        grid.UseColliders = false;
+        grid.UseTilemaps = false;
+        CHECK(FileSystem::WriteTextFile(fixture.Assets / cell.ScenePath, SceneSerializer(scene).SerializeToString()));
+    }
+    fixture.Save();
+    SceneManager manager;
+    auto anchor = fixture.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    world->SetViewerOverride({ 15, 5, 0 });
+    CHECK(Until(manager, [&] { return world->GetStats().NavigationTiles == 3; }));
+    auto root = anchor->GetEntityByUUID(world->GetNavigationEntity(2));
+    CHECK(root && root.GetComponent<NavGrid2DComponent>().Baked);
+    if (root)
+    {
+        CHECK(root.GetComponent<NavGrid2DComponent>().Grid.CountWalkable() == 300);
+        CHECK(anchor->FindNavGridEntity({ 1, 1, 0 }, 2) == root);
+        CHECK(world->GetStats().NavigationError.empty());
+    }
+    Scene walkerScene;
+    auto authoredWalker = walkerScene.CreateEntityWithUUID(UUID(777), "Cross-cell walker");
+    authoredWalker.GetTransform().Translation = { 1, 5, 0 };
+    auto& authoredAgent = authoredWalker.AddComponent<NavAgentComponent>();
+    authoredAgent.Speed = 8;
+    authoredAgent.Acceleration = 40;
+    std::string walkerError;
+    CHECK(anchor->ImportStagedCell(walkerScene, walkerError).size() == 1);
+    auto walker = anchor->GetEntityByUUID(UUID(777));
+    CHECK(anchor->SetNavDestination(walker, { 25, 5, 0 }));
+    for (int i = 0; i < 240; ++i) manager.UpdateScenes(Timestep(1.f / 60));
+    CHECK(walker.GetTransform().Translation.x > 24.5f);
+    CHECK(walker.GetComponent<NavAgentComponent>().Arrived);
+    CHECK(anchor->SetNavDestination(walker, { 1, 5, 0 }));
+    for (int i = 0; i < 30; ++i) manager.UpdateScenes(Timestep(1.f / 60));
+    world->SetViewerOverride({ 1000, 1000, 0 });
+    CHECK(Until(manager, [&] { return world->GetStats().Active == 0 && world->GetStats().NavigationCells == 0; }));
+    const float stoppedAt = walker.GetTransform().Translation.x;
+    for (int i = 0; i < 60; ++i) manager.UpdateScenes(Timestep(1.f / 60));
+    CHECK(std::abs(walker.GetTransform().Translation.x - stoppedAt) < 1.1f);
+    CHECK(root && !root.GetComponent<NavGrid2DComponent>().Baked);
+    world->SetViewerOverride({ 15, 5, 0 });
+    CHECK(Until(manager, [&] { return world->GetStats().NavigationTiles == 3 && world->GetStats().NavigationCells == 300; }));
+    auto automatic = anchor->CreateEntity("Automatic navigation agent");
+    automatic.AddComponent<NavAgentComponent>().RepathRequested = false;
+    auto explicitAgent = anchor->CreateEntity("Explicit grid navigation agent");
+    auto& explicitState = explicitAgent.AddComponent<NavAgentComponent>();
+    explicitState.Grid.ID = UUID(100);
+    explicitState.RepathRequested = false;
+    auto tile = anchor->GetEntityByUUID(UUID(101));
+    auto& grid = tile.GetComponent<NavGrid2DComponent>().Grid;
+    grid.Reset(10, 10, 1, { 0, 0 }); // deliberate overlap invalidates the entire stale mosaic
+    manager.ProcessRequests();
+    CHECK(!root.GetComponent<NavGrid2DComponent>().Baked && !world->GetStats().NavigationError.empty());
+    CHECK(automatic.GetComponent<NavAgentComponent>().RepathRequested);
+    CHECK(!explicitAgent.GetComponent<NavAgentComponent>().RepathRequested);
+    grid.Reset(10, 10, 1, { 10, 0 });
+    manager.ProcessRequests();
+    CHECK(root.GetComponent<NavGrid2DComponent>().Baked && world->GetStats().NavigationError.empty());
+    const auto rootID = root.GetUUID();
+    manager.ClearStreamingWorld();
+    CHECK(!anchor->GetEntityByUUID(rootID));
+    manager.Stop();
+}
+
+TEST(WorldStreamingResidencyPolicyRoundTripAndBounds)
+{
+    WorldFixture fixture;
+    fixture.Policy.ObservedRSSLimitBytes = 12345678;
+    fixture.Policy.RequestedGPULimitBytes = 87654321;
+    fixture.Policy.PressureResumeRatio = .75;
+    fixture.Policy.CacheEntriesPerKind = 7;
+    fixture.Policy.MaxCacheEvictionsPerFrame = 3;
+    fixture.Policy.NavigationMode = 3;
+    fixture.Policy.NavigationMaxCells = 4096;
+    fixture.Save();
+    WorldManifest manifest;
+    WorldStreaming::Policy restored;
+    std::string error;
+    CHECK(WorldStreaming::LoadDefinition(fixture.Assets / "Worlds/Main.zworld", manifest, restored, error));
+    CHECK(restored.ObservedRSSLimitBytes == 12345678 && restored.RequestedGPULimitBytes == 87654321);
+    CHECK(restored.PressureResumeRatio == .75 && restored.CacheEntriesPerKind == 7 && restored.MaxCacheEvictionsPerFrame == 3);
+    CHECK(restored.NavigationMode == 3 && restored.NavigationMaxCells == 4096);
+    restored.NavigationMode = 1;
+    CHECK(!restored.Validate(error));
+    restored.NavigationMode = 2;
+    restored.PressureResumeRatio = 1;
+    CHECK(!restored.Validate(error));
+    restored.PressureResumeRatio = .5;
+    restored.MaxCacheEvictionsPerFrame = 0;
+    CHECK(!restored.Validate(error));
+}
+
+TEST(WorldStreamingPressureRetiresCellsBeforeNewAdmission)
+{
+    WorldFixture fixture;
+    fixture.Policy.RequestedGPULimitBytes = AssetResidency::Inspect().RequestedGPUBytes + 1;
+    fixture.Save();
+    SceneManager manager;
+    auto anchor = fixture.Start(manager);
+    CHECK(Until(manager, [&] { return manager.GetWorldStreaming()->GetStats().Active == 1; }));
+    auto* world = manager.GetWorldStreaming();
+    TrackedMemory external(MemoryCategory::Textures);
+    external.Set(100);
+    manager.ProcessRequests();
+    CHECK(world->GetStats().MemoryPressure && world->GetStats().Active == 1);
+    CHECK(anchor->GetEntityByUUID(UUID(100)));
+    world->SetViewerOverride({ 42, 0, 2 });
+    for (int i = 0; i < 10; ++i) manager.ProcessRequests();
+    CHECK(world->GetStats().Active == 0 && world->GetStats().Admitted == 0);
+    external.Set(0);
+    CHECK(Until(manager, [&] { return world->GetStats().Active == 1; }));
+    CHECK(anchor->GetEntityByUUID(UUID(101)) && !world->GetStats().MemoryPressure);
+    manager.Stop();
+}
+
+TEST(WorldStreamingTerrainSeamSharesPhysicalFloor)
+{
+    WorldFixture fixture;
+    fixture.Policy.LoadRadius = 11;
+    fixture.Policy.UnloadRadius = 12;
+    fixture.Manifest.Cells[1].Coordinate.x = 1;
+    for (size_t i = 0; i < 2; ++i)
+    {
+        auto source = CreateRef<Scene>();
+        auto floor = source->CreateEntityWithUUID(UUID(100 + i), "Terrain floor");
+        floor.AddComponent<TerrainComponent>().Reset(i ? 17 : 9, { 10, 10 }, 2);
+        floor.GetComponent<TerrainComponent>().LockBorderLOD = true;
+        floor.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Static;
+        floor.AddComponent<MeshCollider3DComponent>();
+        CHECK(FileSystem::WriteTextFile(fixture.Assets / fixture.Manifest.Cells[i].ScenePath, SceneSerializer(source).SerializeToString()));
+    }
+    fixture.Save();
+    SceneManager manager;
+    auto anchor = fixture.Start(manager);
+    manager.GetWorldStreaming()->SetViewerOverride({ 10, 0, 5 });
+    CHECK(Until(manager, [&] { return manager.GetWorldStreaming()->GetStats().Active == 2; }));
+    Scene staged;
+    for (uint64_t i = 0; i < 3; ++i)
+    {
+        auto ball = staged.CreateEntityWithUUID(UUID(500 + i), "Seam collision probe");
+        ball.GetTransform().Translation = { 9.8f + .2f * float(i), 5, 2 + 3 * float(i) };
+        ball.AddComponent<Rigidbody3DComponent>();
+        ball.AddComponent<SphereCollider3DComponent>();
+    }
+    std::string error;
+    CHECK(anchor->ImportStagedCell(staged, error).size() == 3);
+    for (int i = 0; i < 240; ++i) manager.UpdateScenes(Timestep(1.f / 60));
+    for (uint64_t i = 0; i < 3; ++i)
+    {
+        const auto position = anchor->GetEntityByUUID(UUID(500 + i)).GetTransform().Translation;
+        CHECK(position.y > 2.35f && position.y < 2.7f);
+    }
+    manager.Stop();
+}
+
+TEST(WorldStreamingReloadChangedEntityCountResetsResolutionCursor)
+{
+    WorldFixture fixture;
+    auto write = [&](size_t count) {
+        auto source = CreateRef<Scene>();
+        for (size_t i = 0; i < count; ++i) source->CreateEntityWithUUID(UUID(100 + i), "Reloaded entity");
+        CHECK(FileSystem::WriteTextFile(fixture.Assets / fixture.Manifest.Cells[0].ScenePath, SceneSerializer(source).SerializeToString()));
+    };
+    write(3);
+    fixture.Save();
+    SceneManager manager;
+    auto anchor = fixture.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().Active == 1; }));
+    for (size_t count : { 1u, 4u, 2u, 0u, 3u })
+    {
+        world->SetViewerOverride({ 1000, 0, 1000 });
+        CHECK(Until(manager, [&] { return world->GetStats().Active == 0; }));
+        write(count);
+        world->SetViewerOverride({ 2, 0, 2 });
+        CHECK(Until(manager, [&] { return world->GetStats().Active == 1; }));
+        CHECK(world->GetStats().Entities == count);
+        for (size_t i = 0; i < count; ++i) CHECK(anchor->GetEntityByUUID(UUID(100 + i)));
+        CHECK(!anchor->GetEntityByUUID(UUID(100 + count)));
+    }
+    manager.Stop();
+}
+
+TEST(WorldStreamingManualAndAutomaticTrimShareFrameAllowance)
+{
+    WorldFixture fixture;
+    fixture.Policy.MaxCacheEvictionsPerFrame = 1;
+    fixture.Policy.CacheEntriesPerKind = 100000;
+    fixture.Save();
+    std::vector<std::filesystem::path> files;
+    for (int i = 0; i < 3; ++i)
+    {
+        auto file = fixture.Assets / ("Material" + std::to_string(i) + ".zmaterial");
+        CHECK(MaterialSerializer::Serialize(MaterialData{}, file));
+        CHECK(MaterialLibrary::Load(file));
+        files.push_back(file);
+    }
+    SceneManager manager;
+    auto anchor = fixture.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().Active == 1; }));
+    const auto before = world->GetStats().CacheEvictions;
+    CHECK(world->TrimCaches() == 1);
+    CHECK(world->TrimCaches() == 0 && world->TrimCaches() == 0);
+    CHECK(world->GetStats().CacheEvictions == before + 1);
+    manager.ProcessRequests();
+    CHECK(world->TrimCaches() == 1 && world->TrimCaches() == 0);
+    manager.Stop();
+    for (const auto& file : files) MaterialLibrary::ReleaseIfUnused(file);
 }

@@ -544,6 +544,14 @@ namespace Zamin {
 
     // ------------------------------------------------------------------ library
     static std::unordered_map<std::string, Ref<MaterialAsset>> s_MaterialCache;
+    static CacheRecency<std::string> s_Residency;
+    static void PruneMaterialRecency()
+    {
+        // Thumbnail release / reimport can remove entries without a world tick. Keep the
+        // recency index bounded by the cache; a zero allowance never evicts a resource.
+        (void)s_Residency.Select(s_MaterialCache, SIZE_MAX, UINT64_MAX, 0,
+                                 [](const auto&) { return true; }, [](const auto&) { return uint64_t(0); });
+    }
     static MaterialLibrary::TextureLoader s_TextureLoader;
 
     std::string MaterialLibrary::MakeKey(const fs::path& path)
@@ -574,7 +582,10 @@ namespace Zamin {
             return nullptr;
         std::string key = MakeKey(path);
         if (auto it = s_MaterialCache.find(key); it != s_MaterialCache.end())
+        {
+            s_Residency.Touch(key);
             return it->second;
+        }
         // A file that failed and did not change since is not read again (it is asked for every
         // time a scene using it resolves its assets).
         if (!AssetImportLog::ShouldRetry(key))
@@ -589,12 +600,15 @@ namespace Zamin {
         AssetImportLog::Clear(key);
         Ref<MaterialAsset> material = CreateRef<MaterialAsset>(data, fs::path(key));
         s_MaterialCache[key] = material;
+        s_Residency.Touch(key);
         return material;
     }
 
     Ref<MaterialAsset> MaterialLibrary::Find(const fs::path& path)
     {
-        auto it = s_MaterialCache.find(MakeKey(path));
+        const auto key = MakeKey(path);
+        if (s_MaterialCache.contains(key)) s_Residency.Touch(key);
+        auto it = s_MaterialCache.find(key);
         return it != s_MaterialCache.end() ? it->second : nullptr;
     }
 
@@ -685,7 +699,9 @@ namespace Zamin {
         {
             material->SetPath(fs::path(newKey));
             s_MaterialCache[newKey] = material;
+            s_Residency.Touch(newKey);
         }
+        PruneMaterialRecency();
     }
 
     std::vector<Ref<MaterialAsset>> MaterialLibrary::GetLoaded()
@@ -742,12 +758,27 @@ namespace Zamin {
         if (it == s_MaterialCache.end() || it->second.use_count() > 1)
             return false;
         s_MaterialCache.erase(it);
+        PruneMaterialRecency();
         return true;
     }
 
     void MaterialLibrary::Clear()
     {
         s_MaterialCache.clear();
+        s_Residency = {};
     }
 
+    CacheResidencyStats MaterialLibrary::GetResidencyStats()
+    {
+        return s_Residency.Inspect(s_MaterialCache, [](const auto& value) { (void)value; return !(false); }, [](const auto&) { return uint64_t(0); });
+    }
+    size_t MaterialLibrary::TrimUnused(size_t targetEntries, size_t maxEvictions)
+    {
+        if (!maxEvictions) return 0;
+        auto keys = s_Residency.Select(s_MaterialCache, targetEntries, UINT64_MAX, maxEvictions,
+                                       [](const auto& value) { (void)value; return !(false); }, [](const auto&) { return uint64_t(0); });
+        for (const auto& key : keys) s_MaterialCache.erase(key);
+        PruneMaterialRecency();
+        return keys.size();
+    }
 }

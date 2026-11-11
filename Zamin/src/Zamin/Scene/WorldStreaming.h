@@ -2,6 +2,7 @@
 
 #include "Zamin/Scene/WorldCellLoader.h"
 #include "Zamin/Core/Base.h"
+#include "Zamin/Asset/AssetResidency.h"
 
 namespace Zamin {
     class Scene;
@@ -27,6 +28,12 @@ namespace Zamin {
             uint32_t MaxResidentCells = 12, MaxResidentEntities = 16384, MaxEntitiesPerCell = 4096;
             uint32_t MaxBuildingCells = 1, MaxActivationsPerFrame = 1, MaxUnloadsPerFrame = 2, MaxResolveEntitiesPerFrame = 64;
             uint64_t DeclaredCPUBytes = 512 * 1024 * 1024, DeclaredGPUBytes = 512 * 1024 * 1024;
+            // Zero disables a signal. These pause new work; they are not OS / physical VRAM caps.
+            uint64_t ObservedRSSLimitBytes = 0, RequestedGPULimitBytes = 0;
+            double PressureResumeRatio = .9;
+            uint32_t NavigationMode = 0; // 0 off, 2 XY grid, 3 XZ height grid
+            uint32_t NavigationMaxCells = 262144;
+            uint32_t CacheEntriesPerKind = 128, MaxCacheEvictionsPerFrame = 8;
             std::vector<std::string> Layers{ "main" };
             bool Validate(std::string& error) const;
         };
@@ -50,6 +57,12 @@ namespace Zamin {
             uint64_t Entities = 0, DeclaredCPU = 0, DeclaredGPU = 0, Activations = 0, Unloads = 0;
             double LastMilliseconds = 0, PeakMilliseconds = 0;
             WorldCellLoader::Stats Loader;
+            AssetResidency::Snapshot Residency;
+            bool MemoryPressure = false;
+            uint64_t CacheEvictions = 0, PressureFrames = 0;
+            size_t NavigationTiles = 0, NavigationCells = 0;
+            uint64_t NavigationRebuilds = 0;
+            std::string NavigationError;
         };
         static bool LoadDefinition(const std::filesystem::path& file, WorldManifest& manifest, Policy& policy, std::string& error);
         static bool SaveDefinition(const std::filesystem::path& file, const WorldManifest& manifest, const Policy& policy, std::string& error);
@@ -63,6 +76,9 @@ namespace Zamin {
         void SetViewerOverride(const glm::dvec3& viewer);
         void ClearViewerOverride();
         void RetryFailures();
+        // Host between frames, honors the same per-frame eviction allowance.
+        size_t TrimCaches();
+        UUID GetNavigationEntity(int dimension) const;
         bool IsAnchor(const Scene* scene) const;
         static const char* StageName(WorldRuntimeStage stage);
 

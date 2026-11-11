@@ -624,9 +624,10 @@ namespace Zamin {
     {
         Ref<Texture2D> Texture;
         uint64_t Serial = 0;  // when it was loaded (s_LoadSerial)
+        uint64_t LastUse = 0;
     };
     static std::unordered_map<std::string, CachedTexture> s_TextureCache;
-    static uint64_t s_LoadSerial = 0;
+    static uint64_t s_LoadSerial = 0, s_CacheUse = 0;
     // The cache may be asked from a worker (a model loaded in the background reads its textures).
     static std::recursive_mutex s_TextureCacheMutex;
     // LoadAsync's textures still loading: their AsyncLoader loads (main thread).
@@ -680,7 +681,10 @@ namespace Zamin {
         {
             std::lock_guard lock(s_TextureCacheMutex);
             if (auto it = s_TextureCache.find(key); it != s_TextureCache.end())
+            {
+                it->second.LastUse = ++s_CacheUse;
                 cached = it->second.Texture;
+            }
         }
         if (cached)
         {
@@ -700,7 +704,7 @@ namespace Zamin {
         if (!texture->IsLoaded())
             return nullptr;
         std::lock_guard lock(s_TextureCacheMutex);
-        auto [it, added] = s_TextureCache.try_emplace(key, CachedTexture{ texture, s_LoadSerial + 1 });
+        auto [it, added] = s_TextureCache.try_emplace(key, CachedTexture{ texture, s_LoadSerial + 1, ++s_CacheUse });
         if (!added)
             return it->second.Texture; // another thread's copy of the file came first (ours made nothing on the GPU)
         ++s_LoadSerial;
@@ -717,11 +721,14 @@ namespace Zamin {
         std::string key = pixelArt ? file + std::string(s_PixelArtSuffix) : file;
         std::lock_guard lock(s_TextureCacheMutex);
         if (auto it = s_TextureCache.find(key); it != s_TextureCache.end())
+        {
+            it->second.LastUse = ++s_CacheUse;
             return it->second.Texture->IsLoaded() ? it->second.Texture : nullptr;
+        }
         if (!AssetImportLog::ShouldRetry(file))
             return nullptr;
         auto texture = CreateRef<OpenGLTexture2D>(OpenGLTexture2D::LoadLater{}, file, GetLoadSettings(file, pixelArt));
-        s_TextureCache[key] = { texture, ++s_LoadSerial };
+        s_TextureCache[key] = { texture, ++s_LoadSerial, ++s_CacheUse };
         const Texture2D* raw = texture.get();
         const uint64_t id = AsyncLoader::Enqueue(
             file, [texture] { texture->DecodeLater(); },
@@ -854,5 +861,42 @@ namespace Zamin {
         s_AsyncLoads.clear();
     }
 
+    CacheResidencyStats TextureLibrary::GetResidencyStats()
+    {
+        std::lock_guard lock(s_TextureCacheMutex);
+        CacheResidencyStats stats;
+        stats.Entries = s_TextureCache.size();
+        for (const auto& [key, entry] : s_TextureCache)
+        {
+            (void)key;
+            const bool loading = !entry.Texture->IsReady();
+            stats.Loading += loading;
+            stats.Pinned += loading || entry.Texture.use_count() > 1;
+        }
+        return stats;
+    }
+    size_t TextureLibrary::TrimUnused(size_t targetEntries, size_t maxEvictions)
+    {
+        if (!maxEvictions) return 0;
+        std::vector<Ref<Texture2D>> released;
+        {
+            std::lock_guard lock(s_TextureCacheMutex);
+            std::vector<std::string> keys;
+            if (s_TextureCache.size() <= targetEntries) return 0;
+            for (const auto& [key, entry] : s_TextureCache)
+                if (entry.Texture.use_count() == 1 && entry.Texture->IsReady()) keys.push_back(key);
+            std::sort(keys.begin(), keys.end(), [](const auto& a, const auto& b) {
+                const auto x = s_TextureCache.at(a).LastUse, y = s_TextureCache.at(b).LastUse;
+                return x != y ? x < y : a < b;
+            });
+            for (const auto& key : keys)
+            {
+                if (s_TextureCache.size() <= targetEntries || released.size() >= maxEvictions) break;
+                released.push_back(std::move(s_TextureCache.at(key).Texture));
+                s_TextureCache.erase(key);
+            }
+        }
+        // GL destruction and upload cancellation never happen under the cache lock.
+        return released.size();
+    }
 }
-

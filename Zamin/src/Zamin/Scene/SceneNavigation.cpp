@@ -19,6 +19,8 @@
 #include "Zamin/Project/Project.h"
 #include "Zamin/Scene/Components.h"
 #include "Zamin/Scene/Entity.h"
+#include "Zamin/Scene/SceneManager.h"
+#include "Zamin/Scene/WorldStreaming.h"
 #include "Zamin/Scene/TilesetProperties.h"
 
 #include <filesystem>
@@ -50,7 +52,7 @@ namespace Zamin {
 
         bool LayerCounts(uint16_t mask, int layer) { return ((mask >> CollisionLayers2D::Clamp(layer)) & 1u) != 0; }
 
-        float ElapsedMilliseconds(std::chrono::steady_clock::time_point since)
+        float NavigationElapsedMilliseconds(std::chrono::steady_clock::time_point since)
         {
             return std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - since).count();
         }
@@ -661,7 +663,7 @@ namespace Zamin {
         c->SourceHash = GetNavGrid2DSourceHash(entity);
         c->RebuildTimer = 0.0f;
         c->FromBakeFile = false;
-        c->BakeMilliseconds = ElapsedMilliseconds(clock);
+        c->BakeMilliseconds = NavigationElapsedMilliseconds(clock);
         return true;
     }
 
@@ -733,7 +735,7 @@ namespace Zamin {
         c->BakeCount++;
         c->BakeBodies = bodies;
         c->FromBakeFile = false;
-        c->BakeMilliseconds = ElapsedMilliseconds(clock);
+        c->BakeMilliseconds = NavigationElapsedMilliseconds(clock);
         return true;
     }
 
@@ -788,7 +790,7 @@ namespace Zamin {
             c.Grid = saved->Data;
             c.Baked = c.FromBakeFile = true;
             c.BakeCount++;
-            c.BakeMilliseconds = ElapsedMilliseconds(clock);
+            c.BakeMilliseconds = NavigationElapsedMilliseconds(clock);
         }
         else
         {
@@ -798,7 +800,7 @@ namespace Zamin {
             c.BakeCount++;
             c.SourceHash = fingerprint; // AutoRebuild compares with it
             c.RebuildTimer = 0.0f;
-            c.BakeMilliseconds = ElapsedMilliseconds(clock);
+            c.BakeMilliseconds = NavigationElapsedMilliseconds(clock);
         }
         return true;
     }
@@ -942,6 +944,16 @@ namespace Zamin {
     // ------------------------------------------------------------------ queries
     Entity Scene::FindNavGridEntity(const glm::vec3& position, int dimension)
     {
+        if (m_SceneManager)
+            if (auto* world = m_SceneManager->GetWorldStreaming(); world && world->IsAnchor(this))
+            {
+                auto root = GetEntityByUUID(world->GetNavigationEntity(dimension));
+                if (root && IsActiveInHierarchy(root))
+                {
+                    if (const auto* c = root.TryGetComponent<NavGrid2DComponent>(); c && c->Baked && !c->Grid.IsEmpty()) return root;
+                    if (const auto* c = root.TryGetComponent<NavGrid3DComponent>(); c && c->Baked && !c->Grid.IsEmpty()) return root;
+                }
+            }
         Entity best;
         float bestDistance = std::numeric_limits<float>::max();
         auto consider = [&](entt::entity e, const NavGrid& grid, bool baked, int d) {
@@ -1476,7 +1488,7 @@ namespace Zamin {
                     RunNavPath(request);
             for (NavPathRequest& request : requests)
                 ApplyNavPath(request);
-            m_NavFrameStats.PathMilliseconds = ElapsedMilliseconds(clock);
+            m_NavFrameStats.PathMilliseconds = NavigationElapsedMilliseconds(clock);
         }
 
         // ---- 3: walking

@@ -22,3 +22,11 @@ leak:Zamin::OpenGLTexture2D::SetData
 # The local .2 Mesa package does not reproduce it; an intentional application leak
 # remains visible with this suppression. Evidence: ASan run 42877104904 artifacts.
 leak:extensionSupportedGLX
+
+# Mesa llvmpipe 25.2.8 (.4 Ubuntu CI): primitive-only WorldWorkshop draws retain two
+# 56-byte calloc blocks in the driver JIT. Full ASan artifact 42942987405 has 17
+# driver frames then OpenGLRendererAPI.cpp:40, the raw glDrawElements call. This
+# wrapper only binds a VAO and calls GL; it performs no allocation. The unloaded
+# driver frames are misattributed to libZamin by the exit-time symbolizer.
+# Match the non-instanced GL call only, never libZamin / Renderer3D generally.
+leak:Zamin::OpenGLRendererAPI::DrawIndexed(

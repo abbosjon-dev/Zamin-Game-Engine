@@ -113,7 +113,7 @@ if [[ $do_build -eq 1 ]]; then
         rm -f "$build.configure.log"
     fi
     targets=(ZaminTests)
-    [[ $smoke -eq 1 ]] && targets+=(ZaminPlayer ZaminEditor Platformer2D Showcase3D Adventure3D WorldWorkshop2D WorldWorkshop3D)
+    [[ $smoke -eq 1 ]] && targets+=(ZaminPlayer ZaminEditor ZaminResidencyGPUTests Platformer2D Showcase3D Adventure3D WorldWorkshop2D WorldWorkshop3D)
     [[ $smoke -eq 0 && $editor_smoke -eq 1 ]] && targets+=(ZaminEditor Platformer2D Showcase3D)
     echo "== Build: ${targets[*]}"
     if ! cmake --build "$build" --parallel "$jobs" --target "${targets[@]}"; then
@@ -183,6 +183,11 @@ if [[ $smoke -eq 1 || $editor_smoke -eq 1 ]]; then
     mkdir -p "$HOME"
 fi
 if [[ $smoke -eq 1 ]]; then
+    log="$log_dir/Residency-GPU.log"
+    echo "== Residency GPU ownership and repeated eviction"
+    start=$(date +%s)
+    (cd "$root" && "${runner[@]}" "$build/bin/ZaminResidencyGPUTests") >"$log" 2>&1
+    check "Residency GPU" $? "$log" $(( $(date +%s) - start ))
     # Mesa / X11 / fontconfig / ALSA keep caches and singletons until exit: lsan.supp lists them.
     for game in Platformer2D Showcase3D Adventure3D WorldWorkshop2D WorldWorkshop3D; do
         log="$log_dir/Player-$game.log"

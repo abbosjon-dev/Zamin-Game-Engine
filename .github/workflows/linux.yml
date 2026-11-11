@@ -69,6 +69,7 @@ jobs:
           ZAMIN_GL_DEBUG: "1"
         run: |
           xvfb-run -a ./build/bin/ZaminTerrainSurfaceTests
+          xvfb-run -a ./build/bin/ZaminResidencyGPUTests
           xvfb-run -a ./build/bin/ZaminGPUProfilerTests
           xvfb-run -a ./build/bin/ZaminFoliageRenderTests
 

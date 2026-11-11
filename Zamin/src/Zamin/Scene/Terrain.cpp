@@ -54,6 +54,7 @@ namespace Zamin {
         HeightLimit = o.HeightLimit;
         Collision = o.Collision;
         LODEnabled = o.LODEnabled;
+        LockBorderLOD = o.LockBorderLOD;
         LODDistanceScale = o.LODDistanceScale;
         Heights = o.Heights;
         Weights = o.Weights;

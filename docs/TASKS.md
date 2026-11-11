@@ -15,12 +15,34 @@ saqlanadi; ulardagi belgi yangi imkoniyatning ishlayotganiga dalil o'rnini bosma
 | P0 Ishonchli asos | Atomik save, tiklash, xavfsiz build, chegaralangan Undo, CPU profili, ajratilgan runtime | Save xatosida ma'lumot yo'qolmasligi, zararli papka nomi bajarilmasligi, UI'siz Player, SSE2 sinovi | Auditdagi 7 band bajarilgan; boshlang'ich dalil 645 unit / 12 render / 265 editor qadam |
 | P1 2D/3D katta xarita render asosi | Terrain patch LOD, yoriqsiz qo'shni chegaralar, qisman GPU mesh yangilash; tilemap ierarxik culling | Geometriya kamayishi, LOD o'tish/hysteresis, collision aniqligi, 2D ko'rinish va chizish tartibi oracle bilan mos | Bajarildi (2026-11-10): 656 unit / 12 render / 265 editor qadam; o‘lchovlar quyida |
 | P2 Kontent sifati va mualliflik | Terrain GPU qatlamlari/PBR, normal/roughness, atlas/cook, foliage, 2D palette/animation qulayligi | Haqiqiy assetli 2D/3D sahnalar, import/export/undo roundtrip, tekstura xotira byudjeti | GPU terrain v1 yakunlandi; qolgan kontent ishlari rejada |
-| P3 Dunyo va asset streaming | Disk kataklari, async load/unload, data layers, HLOD, floating origin, asset residency | Tez harakatda/cancel/reload'da yo'qolmagan obyektlar, chegaralangan RAM/VRAM, main thread'da og'ir IO yo'q | Runtime v1, editor, 2D/3D demo va export bajarildi; hard timing va real residency rejada |
+| P3 Dunyo va asset streaming | Disk kataklari, async load/unload, data layers, HLOD, floating origin, asset residency | Tez harakatda/cancel/reload'da yo'qolmagan obyektlar, chegaralangan RAM/VRAM, main thread'da og'ir IO yo'q | Runtime v2: LRU cleanup, observed pressure gate, terrain tiles va grid mosaic bajarildi; HLOD/floating origin/hard timing rejada |
 | P4 Rendererning keyingi avlodi | GPU timer v1 mavjud; render graph, Vulkan, temporal AA/upscaling, katta sahna visibility va yoritish | Drayver/physical GPU matritsasi, HDR/alpha/picking/shadow regressiyalari, reference hardware byudjeti | Rejada; virtual geometry va dinamik GI — alohida tadqiqot |
 | P5 Gameplay, animatsiya, fizika va UI | Mavjud 2D/3D tizimlarini production darajasida birlashtirish, katta kontent va gameplay workflow | Ikki tugallangan vertical slice, saqlash/yuklash, controller, animatsiya/fizika stress, UI input/scale testlari | Visual Script va C++ muharriri v1 qo'shildi; qolgan ishlar rejada |
 | P6 Tarmoq va kengaytirish | Server authority, replication, latency compensation, plagin SDK/ABI, xavfsiz hot reload | Yo'qotilgan paket, kechikish, reconnect, versiya mos kelmasligi va plagin unload sinovlari | Rejada |
 | P7 Platforma, release va mahsulot | Linux/Windows, keyin macOS; cook/package/update/crash telemetry; editor/launcher yagona auth | Toza mashinada install/export/run, talablar va litsenziyalar, imzolangan release va rollback sinovi | Rejada |
 | P8 Yakuniy sifat darvozasi | Hujjatlar, ko'chirish yo'li, ikki namunaviy o'yin va profiling hisobotlari | Uzoq sessiya, resurs sizishi, recovery/fuzz, reference sahnalarda barqaror frame time va foydalanish sinovi | Rejada |
+
+### Yakunlangan katta paket — residency, terrain va navigation integratsiyasi
+
+- [x] CI: barcha CMake module output joylarida ishlaydigan camera tour; vendor leak istisnosini tekshirish.
+- [x] Resurslar: texture/model/material/mesh LRU, jonli reference va async load pin, chegaralangan tozalash.
+- [x] Xotira: haqiqiy RSS va tracked GPU allocation alohida; high/low watermark bilan yangi admission nazorati.
+- [x] Terrain: world-space generator, turli resolution chegaralarini ulash va tashqi patch LOD himoyasi.
+- [x] Navigation: yuklangan katak gridlarini bounded mosaic orqali ulash, teshik va balandlik qoidalari.
+- [x] Editor/runtime: cache va pressure diagnostikasi, qo‘lda trim, yangilangan demo va haqiqiy screenshot.
+- [x] Sinov: cancellation/pinning/pressure/seam/path regressiyalari, build/export, main push.
+
+Bu paket physical VRAM hard cap, polygon navmesh yoki Unreal bilan tenglik da’vosi emas.
+
+Tekshiruv (2026-11-10): 772/772 unit, barcha 10 headless CTest, 12/12 render reference;
+OpenGL 4.1 real texture/model/material/mesh residency va 32 cycle; 3D/2D camera tour 660 kadrdan,
+har birida 6 ta cross-cell complete path; terrain pair editor Undo/Redo; 490/490 editor smoke qadam;
+ikki demo native export, screenshot va relocation. Clang 18 syntax-only `-Werror` tekshiruvi ham o‘tdi.
+Qayta yuklashdagi asset resolve cursor tiklanmasligi tuzatildi; entity soni 3→1→4→2→0→3 bilan sinaldi.
+Qo‘lda va avtomatik trim bitta world tick allowance’ini bo‘lishadi; thumbnail/reimport LRU metadata’si ham tozalanadi.
+Dalillar: `build-review/ResidencyPackage/Final/`. Remote compiler/ASan matritsasi push’dan keyingi CI’da alohida tekshiriladi.
+
+Keyingi P3 ishlar: incremental nav bake/portal, terrain normal seam, HLOD, floating origin va runtime world state persistence.
 
 ### Yakunlangan paket — packed foliage GPU culling va LOD
 

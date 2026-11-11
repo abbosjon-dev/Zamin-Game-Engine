@@ -340,3 +340,35 @@ Oldingi `06d6055` push’ining [GitHub CI](https://github.com/abbosjon-dev/Zamin
 barcha 6 job’i muvaffaqiyatli tugagan. Ushbu paketning yangi remote CI natijasi alohida baholanadi.
 Dalillar: lokal `build-review/WorldCellLoaderReview/`. Keyingi ish: main-thread activation/upload byudjeti,
 physics/script lifecycle va faol kataklarni xavfsiz unload qilish.
+
+
+## Yirik world streaming paketi — 2026-11-11 UTC
+
+Birgalikda yetkazilgan natija: kamera radiusi/hysteresis va XY/XZ/XYZ qatlam tanlovi, precomputed dependency
+closure, slot/entity/declared CPU-GPU admission, frame chegarasida bulk import va unload, umumiy 2D/3D fizika,
+Project.StreamingWorld avtomatik start, editor grid/policy/retry paneli va ikkita eksport qilinadigan demo.
+
+Mahalliy GCC Release / Mesa software render tekshiruvi:
+
+- **753/753 unit va 9/9 GUI’siz CTest**: docs/snippet, benchmark smoke, ABI/SDK va sanitizer link regressiyasi.
+- To‘qqiz world testi: radius/hysteresis, offset/unload/qaytish, dependency/layer/budget, UUID collision/retry,
+  barcha entity’lar mavjud bo‘lgandan keyingi script lifecycle, Stop/Single, export reachability.
+- Haqiqiy shared physics: 2D va 3D ball streamed pol ustida turdi, pol unload bo‘lgach tushdi.
+- 4096 katakli manifest va 0.1 ms soft byudjetda ham oxirgi katak faollashdi; planning sarfi starvation bermadi.
+- FIFO/malformed definition rad etildi; noto‘g‘ri kengaytmaga Save original scene faylini yozmaydi.
+- Xuddi shu **9 test UI’siz runtime DSO** bilan ham o‘tdi.
+- Mavjud editor smoke: **224/224 Showcase3D va 266/266 Platformer2D** qadam, 0 GL/ImGui xatosi.
+- **12/12 reference render** o‘tdi; bu threshold asosidagi regression, barcha holatda 0 pixel farqi degani emas.
+- Clang 18 `-fsyntax-only -Werror`: yangi runtime/import/manager/project/export va editor panel/build kodlari o‘tdi.
+- Haqiqiy Player kamera yo‘li: WorldWorkshop3D 660 frame, 21 activation / 15 unload, peak admission 10;
+  WorldWorkshop2D 660 frame, 14 activation / 11 unload, peak admission 7. Ikkalasida failed=0,
+  bo‘sh hududda Active=0 va qaytishda yana Active>0. Editor world paneli ham screenshot bilan tekshirildi.
+- Ikkala demo eksporti: Release native module, standalone Player, screenshot va boshqa papkaga relocation o‘tdi.
+  Yo‘q world-cell scene bilan eksport `Succeeded=false` va aniq xato qaytardi.
+
+Dalillar lokal `build-review/WorldPackage/` da. Source/declared reservation’lar haqiqiy RSS/VRAM emas;
+asset kesh eviction, hard timing, physical GPU byudjeti, floating origin va HLOD tugallangan deb belgilanmaydi.
+Bitta entity build/resolve, activation yoki callback o‘rtasidan uzilmaydi. Mualliflik chegaralari va saqlash
+semantikasi [Terrain.md](Terrain.md) da. Oldingi `9d6ec43` push’ining barcha 6 CI job’i o‘tgan;
+ushbu kattaroq paket uchun yangi remote matrix push’dan keyin boshlanadi, mahalliy Clang syntax tekshiruvi
+butun engine’ning Clang/sanitizer build’i o‘rnini bosmaydi.

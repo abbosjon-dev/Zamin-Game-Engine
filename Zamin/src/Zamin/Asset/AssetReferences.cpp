@@ -2,6 +2,7 @@
 #include "Zamin/Asset/AssetRegistry.h"
 #include "Zamin/Project/AssetFiles.h"
 #include "Zamin/Project/Project.h"
+#include "Zamin/Scene/WorldManifest.h"
 #include "Zamin/Utils/FileSystem.h"
 
 #include <nlohmann/json.hpp>
@@ -137,6 +138,16 @@ namespace Zamin {
     // ------------------------------------------------------------------ scanning
     void AssetReferenceIndex::ScanJson(const fs::path& file, const std::string& text)
     {
+        if (file.extension() == ".zworld")
+        {
+            WorldManifest world;
+            std::string error;
+            if (!world.Deserialize(text, error)) return;
+            for (const auto& cell : world.Cells)
+                if (AssetExists(cell.ScenePath)) AddReference(file, cell.ScenePath, AssetReferenceKind::Path);
+                else AddMissing(file, cell.ScenePath);
+            return;
+        }
         json root = json::parse(text, nullptr, false);
         if (root.is_discarded())
             return;
@@ -393,7 +404,7 @@ namespace Zamin {
         for (const fs::path& file : files)
         {
             std::string ext = FileSystem::GetExtension(file);
-            if (ext == ".zscene" || ext == ".zprefab" || ext == ".zmat" || ext == ".zparticle" || ext == ".zgraph" || ext == ".zanim" || ext == ".zsanim" ||
+            if (ext == ".zworld" || ext == ".zscene" || ext == ".zprefab" || ext == ".zmat" || ext == ".zparticle" || ext == ".zgraph" || ext == ".zanim" || ext == ".zsanim" ||
                 ext == ".zphysmat")
                 ScanJson(file, ReadText(file));
             else if (ext == ".gltf")

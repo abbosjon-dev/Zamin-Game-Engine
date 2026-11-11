@@ -1,4 +1,6 @@
 #include "Zamin/Scene/SceneManager.h"
+#include "Zamin/Scene/WorldStreaming.h"
+#include "Zamin/Utils/FileSystem.h"
 #include "Zamin/Asset/AssetImportLog.h"
 #include "Zamin/Asset/AsyncLoader.h"
 #include "Zamin/Audio/AudioEngine.h"
@@ -221,6 +223,11 @@ namespace Zamin {
         NotifySceneLoaded(MakeEventInfo(scene, LoadSceneMode::Single));
         for (const SceneEventInfo& sub : subScenes)
             NotifySceneLoaded(sub);
+        if (auto project = Project::GetActive(); project && !project->GetConfig().StreamingWorld.empty())
+        {
+            std::string error;
+            if (!LoadStreamingWorld(project->GetConfig().StreamingWorld, error)) ZM_CORE_ERROR("World streaming: {}", error);
+        }
     }
 
     bool SceneManager::Start(const fs::path& path, std::string* error)
@@ -266,6 +273,8 @@ namespace Zamin {
 
     void SceneManager::Stop()
     {
+        // Remove owned cells before stopping the anchor, including when hosts reuse it on restart.
+        ClearStreamingWorld();
         // Loads in progress are dropped (their workers are joined as they go).
         m_AsyncOps.clear();
         m_ToActivate.clear();
@@ -695,7 +704,7 @@ namespace Zamin {
 
     bool SceneManager::UnloadScene(const Ref<Scene>& scene)
     {
-        if (!IsLoaded(scene.get()))
+        if (!IsLoaded(scene.get()) || (m_WorldStreaming && m_WorldStreaming->IsAnchor(scene.get())))
             return false;
         Request request;
         request.Type = Request::Kind::Unload;
@@ -753,6 +762,7 @@ namespace Zamin {
         const SceneEventInfo previousActive = MakeEventInfo(m_Active);
         if (mode == LoadSceneMode::Single)
         {
+            ClearStreamingWorld();
             // Every loaded scene goes (the persistent one stays); the game clock starts at 1 again.
             for (const SceneEntry& entry : m_Scenes)
                 unloaded.push_back(MakeEventInfo(entry.SceneRef));
@@ -992,7 +1002,8 @@ namespace Zamin {
                 }
                 case Request::Kind::Unload:
                 {
-                    if (!IsLoaded(request.Target.get()) || request.Target == m_Persistent)
+                    if (!IsLoaded(request.Target.get()) || request.Target == m_Persistent ||
+                        (m_WorldStreaming && m_WorldStreaming->IsAnchor(request.Target.get())))
                         break;
                     // Its sub-scenes go with it (the deepest first); the last scene of the game stays.
                     std::vector<Ref<Scene>> going = CollectSubScenes(request.Target.get());
@@ -1093,6 +1104,39 @@ namespace Zamin {
         }
         if (changed || !timings.empty())
             FinishLoadTimings(timings, changed, lastAsync.get());
+        if (m_WorldStreaming) m_WorldStreaming->Update(*this);
+    }
+
+
+    bool SceneManager::LoadStreamingWorld(const fs::path& manifest, std::string& error)
+    {
+        if (!IsRunning() || !Project::GetActive())
+        {
+            error = "World streaming needs a running project";
+            return false;
+        }
+        auto file = FileSystem::SafeJoin(Project::GetAssetDirectory(), manifest);
+        if (file.empty() || !FileSystem::IsSubPathOnDisk(file, Project::GetAssetDirectory(), false))
+        {
+            error = "Unsafe world manifest path";
+            return false;
+        }
+        WorldManifest world;
+        WorldStreaming::Policy policy;
+        if (!WorldStreaming::LoadDefinition(file, world, policy, error)) return false;
+        auto next = WorldStreaming::Create(*this, world, policy, Project::GetAssetDirectory(), error);
+        if (!next) return false;
+        ClearStreamingWorld();
+        m_WorldStreaming = std::move(next);
+        return true;
+    }
+    void SceneManager::ClearStreamingWorld()
+    {
+        if (m_WorldStreaming)
+        {
+            m_WorldStreaming->Clear(*this);
+            m_WorldStreaming.reset();
+        }
     }
 
     void SceneManager::UpdateAsyncLoads(float budgetMs)

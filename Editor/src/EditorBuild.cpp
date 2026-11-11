@@ -1,3 +1,4 @@
+#include <Zamin/Scene/WorldStreaming.h>
 #include "EditorLayer.h"
 #include "UI.h"
 #include <Zamin/Core/Process.h>
@@ -267,6 +268,21 @@ namespace Zamin {
                 fail(issue.Message);
             else
                 warn(issue.Message);
+        }
+        if (!project->GetConfig().StreamingWorld.empty())
+        {
+            WorldManifest world;
+            WorldStreaming::Policy policy;
+            std::string error;
+            auto file = FileSystem::SafeJoin(Project::GetAssetDirectory(), project->GetConfig().StreamingWorld);
+            if (file.empty() || !FileSystem::IsSubPathOnDisk(file, Project::GetAssetDirectory(), false) || !WorldStreaming::LoadDefinition(file, world, policy, error))
+                fail("World manifest: " + (error.empty() ? std::string("unsafe path") : error));
+            else
+                for (const auto& cell : world.Cells)
+                {
+                    auto scene = WorldManifest::ResolveScene(Project::GetAssetDirectory(), cell);
+                    if (scene.empty() || !fs::is_regular_file(scene)) fail("World cell missing/unsafe: " + cell.ScenePath);
+                }
         }
         const fs::path iconFile = Project::GetIconPath();
         if (!iconFile.empty())

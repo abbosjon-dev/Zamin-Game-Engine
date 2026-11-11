@@ -69,6 +69,7 @@ namespace Zamin {
     {
         std::string Name = "Untitled";   ///< the project's name (a new project's script module is named after it: `Binaries/lib<Name>.so`)
         std::filesystem::path StartScene;                 ///< relative to AssetDirectory
+        std::filesystem::path StreamingWorld;             ///< optional .zworld relative to AssetDirectory
         /// UUID of the start scene ("StartSceneUUID"): finds it when it was renamed / moved
         /// outside the editor. Written from the asset registry when the project is saved.
         AssetHandle StartSceneHandle;

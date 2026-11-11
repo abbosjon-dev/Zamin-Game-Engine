@@ -32,7 +32,9 @@ imkoniyatlar, kod bo'ylab sayohat):*
 [Vodiy Poygasi](Projects/Racing/README.md) ·
 [Platformer2D](Projects/Platformer2D/README.md) ·
 [Showcase3D](Projects/Showcase3D/README.md) ·
-[Adventure3D](Projects/Adventure3D/README.md)
+[Adventure3D](Projects/Adventure3D/README.md) ·
+[WorldWorkshop3D](Projects/WorldWorkshop3D/README.md) ·
+[WorldWorkshop2D](Projects/WorldWorkshop2D/README.md)
 
 ---
 
@@ -49,7 +51,10 @@ imkoniyatlar, kod bo'ylab sayohat):*
 - **Terrain / map** — sculpt va bo'yash, to'rtta GPU albedo/normal/ORM qatlami, metrga bog'liq tiling, patch LOD,
   heightmap va Jolt collision; `MapWorkshop` namunasi — [Terrain.md](docs/Terrain.md)
 - **Packed foliage** — 65536 tagacha statik instance/komponent, ikki model LOD, GPU compute culling (GL 4.3)
-  va CPU fallback (GL 4.1); [4096 daraxtli FoliageWorkshop](Projects/FoliageWorkshop/README.md). GPU shadow culling va streaming hali rejada.
+  va CPU fallback (GL 4.1); [4096 daraxtli FoliageWorkshop](Projects/FoliageWorkshop/README.md). GPU shadow culling va haqiqiy asset residency hali rejada.
+- **World streaming v1:** kamera radiusi/hysteresis, umumiy 2D/3D fizika, lifecycle/unload, editor grid/policy va eksport;
+  [16 katakli 3D](Projects/WorldWorkshop3D/README.md) va [12 katakli 2D](Projects/WorldWorkshop2D/README.md) demo.
+  [Chegaralar va sozlash](docs/Terrain.md).
 - **Fizika** — 2D (Box2D) va 3D (Jolt): collider'lar, joint'lar, effektorlar, Character Controller, so'rovlar,
   to'qnashuv qatlamlari, determinizm — [Physics.md](docs/Physics.md)
 - **Animatsiya** — property kliplar va timeline, skelet animatsiya, Animator (holat mashinasi, blend tree, qatlamlar),

@@ -595,7 +595,7 @@ namespace Zamin {
 
     static const std::vector<std::string>& KnownProjectKeys()
     {
-        static const std::vector<std::string> s_Keys = { "Name", "StartScene", "StartSceneUUID", "AssetDirectory", "SourceDirectory",
+        static const std::vector<std::string> s_Keys = { "Name", "StartScene", "StartSceneUUID", "StreamingWorld", "AssetDirectory", "SourceDirectory",
                                                          "ScriptModulePath", "EngineVersion", "Description", "Thumbnail" };
         return s_Keys;
     }
@@ -640,6 +640,7 @@ namespace Zamin {
         ordered_json project;
         project["Name"] = c.Name;
         project["StartScene"] = c.StartScene.generic_string();
+        if (!c.StreamingWorld.empty()) project["StreamingWorld"] = c.StreamingWorld.generic_string();
         if (c.StartSceneHandle && !c.StartScene.empty())
             project["StartSceneUUID"] = c.StartSceneHandle.ToString();
         project["AssetDirectory"] = c.AssetDirectory.generic_string();
@@ -768,6 +769,7 @@ namespace Zamin {
         const json& p = j.at("Project");
         c.Name = p.value("Name", "Untitled");
         c.StartScene = p.value("StartScene", "");
+        c.StreamingWorld = p.value("StreamingWorld", "");
         c.StartSceneHandle = {};
         if (auto it = p.find("StartSceneUUID"); it != p.end() && it->is_string())
             c.StartSceneHandle = AssetHandle::FromString(it->get<std::string>()).value_or(AssetHandle());

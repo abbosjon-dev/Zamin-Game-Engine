@@ -181,3 +181,58 @@ Default: 2 worker, 128 wanted katak (dependency’lar bilan), har fayl 16 MiB, 6
 Worker `openat`/`O_NOFOLLOW` bilan har child segmentda symlink’ni rad etadi (ildiz ichiga qaragan symlink ham qabul qilinmaydi). `O_NONBLOCK` va `fstat` FIFO/device/directory’ni sahna sifatida o‘qishdan saqlaydi; fayl uzunligi yozilayotgan vaqtida o‘zgarsa, natija rad etiladi. Asset ildizi boshqa katalog bilan almashtirilsa ham mavjud loader avval ochilgan katalogga qaraydi. Faqat `.zscene` JSON matni: `Scene`, `Version`, `Entities` majburiy, 64 nesting darajasi va duplicate-key tekshiruvi bor. 0 dan hozirgi scene versiyasigacha migratsiya worker’da bajariladi, kelajak versiyasi rad etiladi. Binary cache va `.znav` sidecar hali ulanmagan.
 
 O‘qish 64 KiB bo‘laklarda, SAX tekshiruvi node chegaralarida cancellation’ni ko‘radi; keyingi DOM parse/migratsiya bosqichini o‘rtasidan to‘xtatmaydi, natijasini tugaganda tashlaydi. Destruktor worker’larni cancel qilib join qiladi; kernel ichida to‘xtab qolgan filesystem operatsiyasi darhol uzilishi kafolatlanmaydi. `Poll` son bo‘yicha cheklangan, DOM bo‘shatish yoki keyingi `SceneLoadJob::Build` uchun qattiq millisekund deadline yo‘q. Build faqat main thread’da, mos faol project asset kontekstida bajarilishi kerak. Texture decode/upload, physics/script lifecycle, avtomatik kamera tanlovi, activation/unload va residency integratsiyasi keyingi bosqich.
+
+
+## Yirik runtime paketi: camera-driven 2D/3D streaming
+
+`Project.StreamingWorld` — `Assets` ichidagi `.zworld` yo‘li. Play/Player boshlanganda `SceneManager`
+manifest va uning `Streaming` siyosatini o‘qiydi. **Oyna → World Streaming** panelida manifest/policy
+saqlanadi va loyiha bilan bog‘lanadi. O‘yin paytida panel active/loading/build/failed kataklarni, griddagi
+kuzatuvchini, kirish reservation va declared byudjetlarni ko‘rsatadi; retry, qayta ulash va o‘chirish bor.
+Manifest `WorldStreaming::SaveDefinition` orqali policy bilan saqlanadi; oddiy `WorldManifest::Save`
+faqat metadatani saqlaydi. Katak qo‘shish/scene/layer/coordinate/CPU/GPU taxminlarini tahrirlash mumkin.
+
+Tanlov AABB masofasi bilan bajariladi: yangi katak `LoadRadius` ichida, oldingi tanlangan katak esa
+`UnloadRadius` tashqarisiga chiqquncha ushlanadi. `AxisMask` XY=3, XZ=5, XYZ=7; faol `Layers`
+ro‘yxatidan dependency closure olinadi. Eng yaqin kataklar avval; precomputed dependency bitmask’lari
+har kadrda qayta graph traversal qilishdan saqlaydi. Closure sig‘masa u qisman faollashtirilmaydi.
+
+Policy `MaxResidentCells`, `MaxResidentEntities`, `MaxEntitiesPerCell` va declared CPU/GPU reservation’ni
+cheklaydi. Eski faol kataklar unload limiti bilan hali turar ekan, yangi kataklar qolgan sig‘imdagina
+qabul qilinadi. Bu declared ko‘rsatkichlar haqiqiy process RSS/VRAM emas; umumiy asset keshlarining
+residency/eviction siyosati va physical GPU acceptance hali alohida ish. Source IO reservation ham
+alohida hisoblanadi. Nol estimate muallif resurs bahosi bermaganini anglatadi.
+
+Main thread’da scene build bo‘laklab, asset resolve entity soni va `MainThreadMilliseconds` soft byudjeti
+bilan bajariladi. Kichik byudjetda ham kamida bitta build/resolve quantum bajarilib, starvation oldi olinadi. `MaxBuildingCells`, `MaxResolveEntitiesPerFrame`, `MaxActivationsPerFrame` va
+`MaxUnloadsPerFrame` bir frame’dagi ishni cheklaydi. Bitta entity/asset operatsiyasi, hierarchy linking,
+physics/script activation yoki unload callback o‘rtasidan uzilmaydi; bu hard frame deadline emas.
+Async asset mode o‘chiq bo‘lsa resolve’dagi mavjud texture/model IO sinxron bo‘lishi mumkin.
+
+Katakdagi barcha entity’lar `Scene::ImportStagedCell` orqali anchor sahnaga birga ko‘chiriladi.
+Barcha nusxalar va hierarchy mavjud bo‘lgandan keyin physics/script/effects ishga tushadi; shu sabab
+anchor o‘yinchisi bilan streamed polning 2D/3D collision olami bir xil. UUID va ichki reference’lar
+saqlanadi, to‘qnashuv mutatsiyadan oldin rad etiladi. Copy/start xatosida import qilingan obyektlar
+rollback qilinadi; foydalanuvchi C++ callback’ining tashqi side-effect’larini rollback qilish kafolatlanmaydi.
+Katak ichida authored transform local; root’ga `Origin + Coordinate * CellSize` qo‘shiladi.
+
+`SceneManager::ProcessRequests` oxirida activation/unload bajariladi; callback ichida streaming
+host API’larini chaqirmang. Dependency kataklar avval Active bo‘ladi, unload esa teskari dependency
+tartibida. Unload owned UUID’larni anchor’dan yo‘q qiladi; body va script lifecycle odatdagi entity destroy
+yo‘lidan o‘tadi. `WorldCellLoaded` / `WorldCellUnloaded` bus payload’i `WorldStreaming::CellEvent`.
+Anchor alohida unload’dan himoyalangan. Stop world obyektlarini olib tashlaydi; qayta Start duplikat
+qoldirmaydi. Single scene load world’ni tozalaydi; boshqa level uchun yana host orqali ulash mumkin.
+
+`Projects/WorldWorkshop3D` — 16 ta katak; `Projects/WorldWorkshop2D` — 12 ta katak. Play va WASD bilan
+kamerani yuring. `ZAMIN_WORLD_AUTOTOUR=1` har 120 frame’da kamerani yangi hudud, bo‘sh hudud va boshlang‘ich
+nuqtaga olib boradi; oynaning sarlavhasi va logda active/load/unload statistikasi bor. Geometriya,
+ranglar va physics probe tashqi assetlarsiz authored primitive’lardan tuzilgan.
+
+V1 chegaralari: scene fayllari kataklar uchun alohida, entity UUID’lar barcha yuklangan kontentda noyob;
+SubScene komponenti katak ichida rad etiladi. ±1 000 000 unit’dan katta runtime offset floating origin
+kelguncha rad etiladi. Qatlam/policy o‘zgarishlari Save + runtime reload bilan qo‘llanadi. Scene fayli
+rename qilinganda manifest yo‘lini panelda yangilang. Binary/nav sidecar, HLOD, cross-cell nav stitching,
+hard RSS/VRAM eviction va runtime o‘zgargan katak holatini diskka saqlash hali yo‘q.
+
+Eksport configured manifestni va uning scene/asset closure’ini build ro‘yxatiga qo‘shadi; unused asset
+filtri shu closure’ni saqlaydi. Missing/unsafe manifest yoki scene eksport preflight’da xato hisoblanadi.

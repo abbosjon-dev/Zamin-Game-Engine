@@ -1,0 +1,113 @@
+{
+  "Scene": "WorldWorkshop2D",
+  "Version": 5,
+  "Entities": [
+    {
+      "Entity": 10000001,
+      "Tag": "Explorer camera",
+      "Transform": {
+        "Translation": [
+          16,
+          9,
+          50
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Camera": {
+        "ProjectionType": 1,
+        "Primary": true,
+        "PerspectiveFOV": 0.95,
+        "PerspectiveNear": 0.1,
+        "PerspectiveFar": 300,
+        "OrthographicSize": 32,
+        "OrthographicNear": -100,
+        "OrthographicFar": 100,
+        "ClearColor": [
+          0.06,
+          0.09,
+          0.14,
+          1
+        ]
+      },
+      "NativeScript": {
+        "Class": "WorldExplorer2D",
+        "Fields": {}
+      }
+    },
+    {
+      "Entity": 10000003,
+      "Tag": "Shared physics probe",
+      "Transform": {
+        "Translation": [
+          8,
+          8,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic"
+      },
+      "CircleCollider2D": {
+        "Radius": 0.5
+      },
+      "CircleRenderer": {
+        "Color": [
+          1,
+          0.65,
+          0.12,
+          1
+        ],
+        "Thickness": 1,
+        "Fade": 0.005
+      }
+    }
+  ],
+  "Settings": {
+    "DrawSky": true,
+    "Ambient": 0.65,
+    "SkyTop": [
+      0.12,
+      0.24,
+      0.42
+    ],
+    "SkyHorizon": [
+      0.55,
+      0.72,
+      0.82
+    ],
+    "Ground": [
+      0.12,
+      0.18,
+      0.24
+    ],
+    "ShadowDistance": 140,
+    "Gravity": [
+      0,
+      -9.8
+    ],
+    "Gravity3D": [
+      0,
+      -9.81,
+      0
+    ]
+  }
+}

@@ -1289,6 +1289,10 @@ namespace Zamin {
         /// Not from inside a callback of a moved script: SceneManager::DontDestroyOnLoad defers it to
         /// the end of the frame.
         static Entity MoveEntityToScene(Entity entity, Scene& target);
+        /// Host between frames: imports a non-running staged cell, preserving UUIDs/references.
+        /// All entities exist before runtime effects start; they share this scene's physics worlds.
+        /// UUID conflicts are rejected before mutation. Failed imports roll back imported entities.
+        std::vector<UUID> ImportStagedCell(Scene& source, std::string& error);
         /// The audio clips set to Preload that this scene's sources and zones play (SceneManager keeps
         /// the clips of every loaded scene preloaded).
         std::vector<std::filesystem::path> CollectAudioPreloads();

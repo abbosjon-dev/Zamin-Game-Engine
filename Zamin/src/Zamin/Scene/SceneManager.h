@@ -27,6 +27,7 @@ namespace Zamin {
     class Entity;
     class EventBus;
     class SceneLoadJob;
+    class WorldStreaming;
     struct FinishedSound;
 
     /// How SceneManager::LoadScene adds a scene: Single - every loaded scene is unloaded and the new
@@ -265,6 +266,11 @@ namespace Zamin {
         const std::vector<Ref<AsyncOperation>>& GetAsyncOperations() const { return m_AsyncOps; }
         /// Advances the async loads now (`budgetMs` of main-thread work); the host's OnUpdate does it.
         void UpdateAsyncLoads(float budgetMs);
+        /// Host only, between frames. The anchor scene stays loaded; cells activate/unload at
+        /// ProcessRequests boundaries. Asset root must be the active project's asset directory.
+        bool LoadStreamingWorld(const std::filesystem::path& manifest, std::string& error);
+        void ClearStreamingWorld();
+        WorldStreaming* GetWorldStreaming() const { return m_WorldStreaming.get(); }
         /// @}
 
         /// @name The loaded scenes
@@ -388,6 +394,7 @@ namespace Zamin {
         /// @}
 
     private:
+        friend class WorldStreaming;
         struct SceneEntry
         {
             Ref<Scene> SceneRef;
@@ -453,6 +460,7 @@ namespace Zamin {
         static std::string ToAssetRelative(const std::filesystem::path& path);
 
         std::vector<SceneEntry> m_Scenes;
+        std::unique_ptr<WorldStreaming> m_WorldStreaming;
         Ref<Scene> m_Active;
         Ref<Scene> m_Persistent;
         std::shared_ptr<EventBus> m_EventBus;

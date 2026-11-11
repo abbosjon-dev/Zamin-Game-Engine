@@ -448,3 +448,12 @@ shu kutubxonada `ZaminPlayer` ni ishga tushirish runtime chegarasini sinashga xi
 ### Native modul SDK mosligi
 
 SDK consumer'lari `zamin_add_game_module` orqali quriladi. Helper `.zamin_abi` yozuvini yaratadi va engine'ga tegishli SDK header fingerprint/toolchain'ini konfiguratsiyada tekshiradi. SDK fayllari o'zgargan bo'lsa avval engine'ni qayta build qiling, keyin loyiha build'ini qayta konfiguratsiya qiling. To'g'ridan-to'g'ri qo'lda yaratilgan eski `.so` yuklanmaydi. Loader xato nomzodga o'tishdan oldin ishlayotgan modulni saqlaydi; eksport ham nusxalangan modulning mosligini tekshiradi. Tafsilotlar: [Scripting.md](Scripting.md#native-sdk--abi-mosligi).
+
+
+### Streaming world eksporti
+
+`Project.StreamingWorld` asset ildiziga nisbatan `.zworld` faylini bildiradi. Player anchor scene bilan
+boshlanadi va world’ni avtomatik ulaydi. Editor eksporti manifest/policy va barcha katak scene yo‘llarini
+tekshiradi, build list bo‘lsa world scene’larini ham qo‘shadi. Manifest → scene → asset reference zanjiri
+unused-assets filtri bilan ham saqlanadi. World’ni **Oyna → World Streaming** orqali sozlang;
+[ishlash tartibi va chegaralar](Terrain.md) shu yerda qayd etilgan.

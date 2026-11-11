@@ -15,7 +15,7 @@ saqlanadi; ulardagi belgi yangi imkoniyatning ishlayotganiga dalil o'rnini bosma
 | P0 Ishonchli asos | Atomik save, tiklash, xavfsiz build, chegaralangan Undo, CPU profili, ajratilgan runtime | Save xatosida ma'lumot yo'qolmasligi, zararli papka nomi bajarilmasligi, UI'siz Player, SSE2 sinovi | Auditdagi 7 band bajarilgan; boshlang'ich dalil 645 unit / 12 render / 265 editor qadam |
 | P1 2D/3D katta xarita render asosi | Terrain patch LOD, yoriqsiz qo'shni chegaralar, qisman GPU mesh yangilash; tilemap ierarxik culling | Geometriya kamayishi, LOD o'tish/hysteresis, collision aniqligi, 2D ko'rinish va chizish tartibi oracle bilan mos | Bajarildi (2026-11-10): 656 unit / 12 render / 265 editor qadam; o‘lchovlar quyida |
 | P2 Kontent sifati va mualliflik | Terrain GPU qatlamlari/PBR, normal/roughness, atlas/cook, foliage, 2D palette/animation qulayligi | Haqiqiy assetli 2D/3D sahnalar, import/export/undo roundtrip, tekstura xotira byudjeti | GPU terrain v1 yakunlandi; qolgan kontent ishlari rejada |
-| P3 Dunyo va asset streaming | Disk kataklari, async load/unload, data layers, HLOD, floating origin, asset residency | Tez harakatda/cancel/reload'da yo'qolmagan obyektlar, chegaralangan RAM/VRAM, main thread'da og'ir IO yo'q | Boshlangan: manifest va CPU staging v1; activation/residency rejada |
+| P3 Dunyo va asset streaming | Disk kataklari, async load/unload, data layers, HLOD, floating origin, asset residency | Tez harakatda/cancel/reload'da yo'qolmagan obyektlar, chegaralangan RAM/VRAM, main thread'da og'ir IO yo'q | Runtime v1, editor, 2D/3D demo va export bajarildi; hard timing va real residency rejada |
 | P4 Rendererning keyingi avlodi | GPU timer v1 mavjud; render graph, Vulkan, temporal AA/upscaling, katta sahna visibility va yoritish | Drayver/physical GPU matritsasi, HDR/alpha/picking/shadow regressiyalari, reference hardware byudjeti | Rejada; virtual geometry va dinamik GI — alohida tadqiqot |
 | P5 Gameplay, animatsiya, fizika va UI | Mavjud 2D/3D tizimlarini production darajasida birlashtirish, katta kontent va gameplay workflow | Ikki tugallangan vertical slice, saqlash/yuklash, controller, animatsiya/fizika stress, UI input/scale testlari | Visual Script va C++ muharriri v1 qo'shildi; qolgan ishlar rejada |
 | P6 Tarmoq va kengaytirish | Server authority, replication, latency compensation, plagin SDK/ABI, xavfsiz hot reload | Yo'qotilgan paket, kechikish, reconnect, versiya mos kelmasligi va plagin unload sinovlari | Rejada |
@@ -36,11 +36,25 @@ V1 chegaralari: statik opaque/cutout meshlar, 128 part/LOD; bitta komponent pick
 
 Tekshiruv (2026-11-10): 711/711 unit, 12/12 reference render; GL 4.3 compute va GL 4.1 CPU oracle (4096 instance, besh kamera, asosiy tasvirlarda 0 pixel farqi), multi-part draw, shadow/picking/wire va backend switch o'tdi. Birinchi nazorat ko'rinishida 491520 o'rniga 54756 triangle; kamera source upload sonini o'zgartirmadi. FoliageWorkshop 4096 instance/5 entity bilan save/reload, eksport, Player screenshot va relocation'dan o'tdi; ikki OBJ va 12 PBR xaritasi paketga kirdi. Legacy terrain reproject packed root'ni siljitmasligi CPU regressiyasida tekshirildi. SDK 2 test va UI'siz runtime o'tdi. Dalillar: `build-review/PackedFoliage/`. Mesa llvmpipe natijalari physical GPU tezlik bahosi emas.
 
+### Yakunlangan yirik paket — ishlaydigan 2D/3D world streaming
+
+Bir paketning natijasi: kamera bo‘yicha yuklanadigan kataklar, umumiy sahnada fizika/script lifecycle,
+editor nazorati va eksport qilinadigan 2D/3D demo. Quyidagi bandlar mahalliy test dalili bilan yopildi; remote sanitizer/compiler matritsasi push’dan keyin alohida tekshiriladi.
+
+- [x] Runtime: radius/hysteresis, layer/dependency closure, slot/entity/declared memory admission.
+- [x] Bulk import: barcha obyektlar tayyor bo‘lgach runtime state boshlanadi; umumiy 2D/3D fizika, unload va rollback.
+- [x] Host integratsiyasi: Project.StreamingWorld, SceneManager frame chegaralari, Stop/Single/restart xavfsizligi.
+- [x] Editor: world manifest/policy tahriri, holatlar gridi, runtime statistika, retry/preview.
+- [x] 2D va 3D ko‘p katakli namuna, kamera yurishi va boundary/cancel qaytish regressiyasi.
+- [x] Export: manifest va unga tegishli scene/asset closure, toza joyga ko‘chirilgan Player sinovi.
+- [x] CPU/GL/editor/runtime/SDK testlari, screenshot va yakuniy hisobot; barchasi bitta paket sifatida main'ga push.
+
 ### Keyingi paket — dunyo kataklari va streaming asosi
 
 - [x] 2D tilemap va 3D terrain uchun umumiy world-cell manifest, barqaror UUID va dependency chegaralari. `.zworld` v1 metadata, bounded parse, atomik save va xavfsiz scene yo‘llari; editor/runtime streaming hali ulanmagan.
 - [x] Main thread'dan tashqarida bounded scene IO/parse; avlodli so‘rov va CPU staging cancel/discard. `WorldCellLoader` v1: dependency closure, bounded input admission va symlink-safe worker IO. Aktiv sahna unload, texture decode va renderer/residency integratsiyasi keyingi bandlarda.
-- [ ] Main thread'da belgilangan upload/activation byudjeti; fizika va script lifecycle'ini xavfsiz ulash/ajratish.
+- [x] Main thread’da soft build/resolve va activation/unload count byudjeti; umumiy sahnada physics/script lifecycle.
+- [ ] Texture/model decode/upload uchun qat’iy resurs/fayl byudjetlari; hard frame-time acceptance.
 - [ ] RAM/VRAM residency limiti; tez kamera harakati, qaytish, bekor qilish va yo'q/buzilgan katak regressiyalari.
 - [ ] Ko'p katakli demo, save/reload/export, qayta bajariladigan kamera yo'li va RSS/frame-time hisobotlari.
 

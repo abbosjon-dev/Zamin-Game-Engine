@@ -1,3 +1,5 @@
+#include "Zamin/Scene/WorldManifest.h"
+#include "Zamin/Utils/FileSystem.h"
 #include "Zamin/Project/ExportAssets.h"
 #include "Zamin/Utils/StringUtils.h"
 
@@ -254,6 +256,15 @@ namespace Zamin {
                 scenes.push_back(start);
             }
         }
+        if (!config.StreamingWorld.empty())
+        {
+            WorldManifest world;
+            std::string error;
+            auto file = FileSystem::SafeJoin(assetDirectory, config.StreamingWorld);
+            if (!file.empty() && FileSystem::IsSubPathOnDisk(file, assetDirectory, false) && world.Load(file, error))
+                for (const auto& cell : world.Cells)
+                    if (std::find(scenes.begin(), scenes.end(), cell.ScenePath) == scenes.end()) scenes.push_back(cell.ScenePath);
+        }
         // The sub-scenes the listed scenes bring (and theirs).
         for (size_t i = 0; i < scenes.size(); i++)
         {
@@ -285,6 +296,7 @@ namespace Zamin {
         ExportAssetInputs inputs;
         inputs.BuildScenes = CollectScenes(config, Project::GetAssetDirectory(), notes);
         inputs.Settings = config.Export;
+        if (!config.StreamingWorld.empty()) inputs.Settings.AlwaysInclude.push_back(config.StreamingWorld.generic_string());
         inputs.AlwaysFolders = { config.Localization.Directory.generic_string() };
         if (scenes)
             *scenes = inputs.BuildScenes;

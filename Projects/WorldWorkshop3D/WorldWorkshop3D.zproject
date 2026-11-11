@@ -1,0 +1,28 @@
+{
+  "Version": 2,
+  "Project": {
+    "Name": "WorldWorkshop3D",
+    "StartScene": "Scenes/Anchor.zscene",
+    "StreamingWorld": "Worlds/Main.zworld",
+    "AssetDirectory": "Assets",
+    "SourceDirectory": "Source",
+    "ScriptModulePath": "Binaries/libWorldWorkshop3D.so",
+    "Description": "3D world streaming: camera hysteresis, shared physics and cell lifecycle.",
+    "Thumbnail": "Thumbnail.png"
+  },
+  "Player": {
+    "Product": "WorldWorkshop3D",
+    "Width": 1280,
+    "Height": 720,
+    "VSync": true
+  },
+  "BuildScenes": [
+    {
+      "Path": "Scenes/Anchor.zscene",
+      "Enabled": true
+    }
+  ],
+  "Export": {
+    "ExcludeUnusedAssets": true
+  }
+}

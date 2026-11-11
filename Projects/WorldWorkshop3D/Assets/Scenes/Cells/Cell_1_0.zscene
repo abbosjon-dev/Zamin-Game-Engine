@@ -1,0 +1,275 @@
+{
+  "Scene": "Cell 1,0",
+  "Version": 5,
+  "Entities": [
+    {
+      "Entity": 20000100,
+      "Tag": "Ground tile",
+      "Transform": {
+        "Translation": [
+          16,
+          -0.5,
+          16
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          31.6,
+          1,
+          31.6
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Albedo": [
+          0.21,
+          0.405,
+          0.31,
+          1
+        ],
+        "Roughness": 0.92
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static"
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      }
+    },
+    {
+      "Entity": 20000101,
+      "Tag": "Cell landmark",
+      "Transform": {
+        "Translation": [
+          7,
+          2.0,
+          7
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          3,
+          4,
+          3
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Albedo": [
+          0.7,
+          0.42,
+          0.78,
+          1
+        ],
+        "Roughness": 0.4,
+        "Metallic": 0.15
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static"
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      }
+    },
+    {
+      "Entity": 20000102,
+      "Tag": "Cell landmark",
+      "Transform": {
+        "Translation": [
+          25,
+          2.5,
+          7
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          3,
+          5,
+          3
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Albedo": [
+          0.9,
+          0.63,
+          0.25,
+          1
+        ],
+        "Roughness": 0.4,
+        "Metallic": 0.15
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static"
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      }
+    },
+    {
+      "Entity": 20000103,
+      "Tag": "Cell landmark",
+      "Transform": {
+        "Translation": [
+          7,
+          3.0,
+          25
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          3,
+          6,
+          3
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Albedo": [
+          0.3,
+          0.74,
+          0.67,
+          1
+        ],
+        "Roughness": 0.4,
+        "Metallic": 0.15
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static"
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      }
+    },
+    {
+      "Entity": 20000104,
+      "Tag": "Cell landmark",
+      "Transform": {
+        "Translation": [
+          25,
+          3.5,
+          25
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          3,
+          7,
+          3
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Albedo": [
+          0.35,
+          0.56,
+          0.9,
+          1
+        ],
+        "Roughness": 0.4,
+        "Metallic": 0.15
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static"
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      }
+    },
+    {
+      "Entity": 20000108,
+      "Tag": "Road",
+      "Transform": {
+        "Translation": [
+          16,
+          0.03,
+          16
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          3,
+          0.12,
+          31.6
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Albedo": [
+          0.15,
+          0.21,
+          0.27,
+          1
+        ],
+        "Roughness": 0.9
+      }
+    }
+  ],
+  "Settings": {
+    "DrawSky": true,
+    "Ambient": 0.65,
+    "SkyTop": [
+      0.12,
+      0.24,
+      0.42
+    ],
+    "SkyHorizon": [
+      0.55,
+      0.72,
+      0.82
+    ],
+    "Ground": [
+      0.12,
+      0.18,
+      0.24
+    ],
+    "ShadowDistance": 140,
+    "Gravity": [
+      0,
+      -9.8
+    ],
+    "Gravity3D": [
+      0,
+      -9.81,
+      0
+    ]
+  }
+}

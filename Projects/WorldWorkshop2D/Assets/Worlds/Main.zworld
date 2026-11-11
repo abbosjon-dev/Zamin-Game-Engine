@@ -1,0 +1,191 @@
+{
+  "Format": "ZaminWorld",
+  "Version": 1,
+  "Name": "WorldWorkshop2D",
+  "Origin": [
+    0,
+    0,
+    0
+  ],
+  "CellSize": [
+    32,
+    18,
+    1
+  ],
+  "Cells": [
+    {
+      "ID": "0000000000000001",
+      "Coordinate": [
+        0,
+        0,
+        0
+      ],
+      "Layer": "main",
+      "Scene": "Scenes/Cells/Cell_0_0.zscene",
+      "CPUBytes": 262144,
+      "GPUBytes": 262144,
+      "Dependencies": []
+    },
+    {
+      "ID": "0000000000000002",
+      "Coordinate": [
+        1,
+        0,
+        0
+      ],
+      "Layer": "main",
+      "Scene": "Scenes/Cells/Cell_1_0.zscene",
+      "CPUBytes": 262144,
+      "GPUBytes": 262144,
+      "Dependencies": []
+    },
+    {
+      "ID": "0000000000000003",
+      "Coordinate": [
+        2,
+        0,
+        0
+      ],
+      "Layer": "main",
+      "Scene": "Scenes/Cells/Cell_2_0.zscene",
+      "CPUBytes": 262144,
+      "GPUBytes": 262144,
+      "Dependencies": []
+    },
+    {
+      "ID": "0000000000000004",
+      "Coordinate": [
+        3,
+        0,
+        0
+      ],
+      "Layer": "main",
+      "Scene": "Scenes/Cells/Cell_3_0.zscene",
+      "CPUBytes": 262144,
+      "GPUBytes": 262144,
+      "Dependencies": []
+    },
+    {
+      "ID": "0000000000000005",
+      "Coordinate": [
+        0,
+        1,
+        0
+      ],
+      "Layer": "main",
+      "Scene": "Scenes/Cells/Cell_0_1.zscene",
+      "CPUBytes": 262144,
+      "GPUBytes": 262144,
+      "Dependencies": []
+    },
+    {
+      "ID": "0000000000000006",
+      "Coordinate": [
+        1,
+        1,
+        0
+      ],
+      "Layer": "main",
+      "Scene": "Scenes/Cells/Cell_1_1.zscene",
+      "CPUBytes": 262144,
+      "GPUBytes": 262144,
+      "Dependencies": []
+    },
+    {
+      "ID": "0000000000000007",
+      "Coordinate": [
+        2,
+        1,
+        0
+      ],
+      "Layer": "main",
+      "Scene": "Scenes/Cells/Cell_2_1.zscene",
+      "CPUBytes": 262144,
+      "GPUBytes": 262144,
+      "Dependencies": []
+    },
+    {
+      "ID": "0000000000000008",
+      "Coordinate": [
+        3,
+        1,
+        0
+      ],
+      "Layer": "main",
+      "Scene": "Scenes/Cells/Cell_3_1.zscene",
+      "CPUBytes": 262144,
+      "GPUBytes": 262144,
+      "Dependencies": []
+    },
+    {
+      "ID": "0000000000000009",
+      "Coordinate": [
+        0,
+        2,
+        0
+      ],
+      "Layer": "main",
+      "Scene": "Scenes/Cells/Cell_0_2.zscene",
+      "CPUBytes": 262144,
+      "GPUBytes": 262144,
+      "Dependencies": []
+    },
+    {
+      "ID": "000000000000000a",
+      "Coordinate": [
+        1,
+        2,
+        0
+      ],
+      "Layer": "main",
+      "Scene": "Scenes/Cells/Cell_1_2.zscene",
+      "CPUBytes": 262144,
+      "GPUBytes": 262144,
+      "Dependencies": []
+    },
+    {
+      "ID": "000000000000000b",
+      "Coordinate": [
+        2,
+        2,
+        0
+      ],
+      "Layer": "main",
+      "Scene": "Scenes/Cells/Cell_2_2.zscene",
+      "CPUBytes": 262144,
+      "GPUBytes": 262144,
+      "Dependencies": []
+    },
+    {
+      "ID": "000000000000000c",
+      "Coordinate": [
+        3,
+        2,
+        0
+      ],
+      "Layer": "main",
+      "Scene": "Scenes/Cells/Cell_3_2.zscene",
+      "CPUBytes": 262144,
+      "GPUBytes": 262144,
+      "Dependencies": []
+    }
+  ],
+  "Streaming": {
+    "LoadRadius": 18,
+    "UnloadRadius": 26,
+    "AxisMask": 3,
+    "Layers": [
+      "main"
+    ],
+    "MaxResidentCells": 12,
+    "MaxResidentEntities": 4096,
+    "MaxEntitiesPerCell": 512,
+    "MaxBuildingCells": 2,
+    "MaxActivationsPerFrame": 2,
+    "MaxUnloadsPerFrame": 2,
+    "MainThreadMilliseconds": 4,
+    "MaxResolveEntitiesPerFrame": 64,
+    "DeclaredCPUBytes": 67108864,
+    "DeclaredGPUBytes": 67108864
+  }
+}

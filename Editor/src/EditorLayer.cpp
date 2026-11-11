@@ -1,6 +1,7 @@
 #include <Zamin/Renderer/GPUProfiler.h>
 #include "EditorLayer.h"
 #include "EditorSmokeTest.h"
+#include "Panels/WorldStreamingPanel.h"
 #include "UI.h"
 
 #include <Zamin/Utils/PlatformUtils.h>
@@ -6334,6 +6335,7 @@ namespace Zamin {
         m_LocalizationPanel.OnImGuiRender(&m_ShowLocalization);
         m_SceneHierarchyPanel.DrawTilePaletteWindow(&m_ShowTilePalette);
         UI_Terrain();
+        DrawWorldStreamingPanel(m_RuntimeScenes.get());
         {
             ZM_PROFILE_SCOPE("Statistika paneli");
             UI_Stats();
@@ -6626,6 +6628,7 @@ namespace Zamin {
             }
             ImGui::MenuItem(Tr(ICON_FA_TABLE_CELLS "  Plitka palitrasi"), nullptr, &m_ShowTilePalette);
             ImGui::MenuItem("Map tayyorlash (Terrain)", nullptr, &m_ShowTerrain);
+            ImGui::MenuItem("World Streaming", nullptr, WorldStreamingPanelOpen());
             if (ImGui::MenuItem(Tr(ICON_FA_CLOCK_ROTATE_LEFT "  Undo tarixi"), ShortcutLabel(EditorShortcut::UndoHistory), &m_ShowUndoHistory) && m_ShowUndoHistory)
                 m_UndoHistoryScroll = true;
             ImGui::Separator();

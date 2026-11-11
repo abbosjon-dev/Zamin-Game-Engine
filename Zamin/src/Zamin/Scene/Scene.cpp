@@ -1069,6 +1069,58 @@ namespace Zamin {
                 CollectSubtree(scene, c, out);
     }
 
+    std::vector<UUID> Scene::ImportStagedCell(Scene& source, std::string& error)
+    {
+        error.clear();
+        if (&source == this || source.IsRunning())
+        {
+            error = "A staged cell must be a separate non-running scene";
+            return {};
+        }
+        const auto entities = source.GetEntitiesInOrder();
+        for (Entity e : entities)
+        {
+            if (GetEntityByUUID(e.GetUUID()))
+            {
+                error = "Cell entity UUID collides with the destination";
+                return {};
+            }
+            if (auto* script = e.TryGetComponent<NativeScriptComponent>(); script && script->Instance)
+            {
+                error = "A staged cell cannot own live script instances";
+                return {};
+            }
+        }
+        std::vector<UUID> ids;
+        std::vector<Entity> created;
+        ids.reserve(entities.size());
+        created.reserve(entities.size());
+        try
+        {
+            for (Entity e : entities)
+            {
+                Entity copy = CreateEntityWithUUID(e.GetUUID(), e.GetName());
+                ids.push_back(copy.GetUUID());
+                created.push_back(copy);
+                CopyComponentIfExists(AllComponents{}, copy, e);
+                copy.GetComponent<TagComponent>().Active = e.GetComponent<TagComponent>().Active;
+                copy.GetComponent<RelationshipComponent>() = {};
+                ResetPhysicsRuntimeData(copy);
+            }
+            for (Entity e : entities)
+                if (Entity parent = source.GetParent(e)) SetParent(GetEntityByUUID(e.GetUUID()), GetEntityByUUID(parent.GetUUID()), false);
+            if (m_IsRunning || m_PhysicsWorld || m_PhysicsWorld3D) OnEntitiesSpawned(created);
+            return ids;
+        }
+        catch (const std::exception& e)
+        {
+            error = e.what();
+            for (auto it = ids.rbegin(); it != ids.rend(); ++it)
+                if (Entity entity = GetEntityByUUID(*it)) DestroyEntity(entity);
+            return {};
+        }
+    }
+
     Entity Scene::MoveEntityToScene(Entity entity, Scene& target)
     {
         if (!entity.IsValid() || !entity.HasComponent<IDComponent>())

@@ -1,4 +1,4 @@
-add_executable(ZaminTests ZaminTests.cpp WorldCellLoaderTests.cpp WorldManifestTests.cpp PackedFoliageTests.cpp ModuleABITests.cpp TerrainFoliageTests.cpp CodeDocumentTests.cpp VisualGraphTests.cpp TerrainTests.cpp TerrainLODTests.cpp TilemapVisibilityTests.cpp SafetyTests.cpp EditorServicesTests.cpp TestFramework.cpp DebugDrawShippingCheck.cpp)
+add_executable(ZaminTests ZaminTests.cpp WorldStreamingTests.cpp WorldCellLoaderTests.cpp WorldManifestTests.cpp PackedFoliageTests.cpp ModuleABITests.cpp TerrainFoliageTests.cpp CodeDocumentTests.cpp VisualGraphTests.cpp TerrainTests.cpp TerrainLODTests.cpp TilemapVisibilityTests.cpp SafetyTests.cpp EditorServicesTests.cpp TestFramework.cpp DebugDrawShippingCheck.cpp)
 target_link_libraries(ZaminTests PRIVATE Zamin ZaminEditorSupport)
 # The sample projects are read by some tests (their assets must stay valid).
 target_compile_definitions(ZaminTests PRIVATE ZAMIN_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
@@ -318,3 +318,10 @@ add_executable(ZaminFoliageRenderTests FoliageRenderTests.cpp)
 target_link_libraries(ZaminFoliageRenderTests PRIVATE Zamin)
 target_include_directories(ZaminFoliageRenderTests PRIVATE ${PROJECT_SOURCE_DIR}/vendor/glad/include)
 zamin_target_settings(ZaminFoliageRenderTests)
+
+
+if(Python3_Interpreter_FOUND AND TARGET WorldWorkshop3D AND TARGET ZaminEditor AND TARGET ZaminPlayer)
+    add_test(NAME WorldStreamingRuntime COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/Tests/world_streaming_test.py
+        --build ${CMAKE_BINARY_DIR} --out ${CMAKE_BINARY_DIR}/WorldStreamingRuntime)
+    set_tests_properties(WorldStreamingRuntime PROPERTIES LABELS "gui;world" TIMEOUT 600)
+endif()

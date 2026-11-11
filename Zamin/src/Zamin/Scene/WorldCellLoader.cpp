@@ -384,6 +384,38 @@ namespace Zamin {
         return true;
     }
 
+    bool WorldCellLoader::Invalidate(UUID cell, std::string& error)
+    {
+        auto& d = *m_Data;
+        d.CheckOwner();
+        error.clear();
+        auto it = d.Entries.find(cell);
+        if (it == d.Entries.end() || !it->second.Wanted)
+        {
+            error = "Cell is not wanted";
+            return false;
+        }
+        if (d.NextGeneration == std::numeric_limits<uint64_t>::max())
+        {
+            error = "World cell generation exhausted";
+            return false;
+        }
+        auto& e = it->second;
+        if (e.Pending)
+        {
+            e.Pending->Cancelled = true;
+            e.Pending.reset();
+        }
+        if (e.Ready)
+        {
+            e.Ready.reset();
+            d.Reserved -= d.Budget.MaxCellBytes;
+        }
+        e.Status = { cell, ++d.NextGeneration, WorldCellStage::Queued, 0, {} };
+        d.Pump();
+        return true;
+    }
+
     size_t WorldCellLoader::Poll(size_t maxCompletions)
     {
         auto& d = *m_Data;

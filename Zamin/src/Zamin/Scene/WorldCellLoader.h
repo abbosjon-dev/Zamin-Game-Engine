@@ -60,6 +60,9 @@ namespace Zamin {
         // leave it unchanged. Removing a cell cancels/discards staging, not an activated scene.
         // Failed requests retry only after removal and re-addition. Same set retains generations.
         bool SetWanted(const std::vector<UUID>& cells, std::string& error);
+        // Requeues one wanted cell with a fresh generation, preserving other requests. Already
+        // transferred jobs remain the caller's responsibility; their late results must be discarded.
+        bool Invalidate(UUID cell, std::string& error);
         // Publishes at most maxCompletions completed jobs, then admits dependency-ready work.
         // Never waits for unfinished workers. This is a count limit, not a hard frame-time bound.
         size_t Poll(size_t maxCompletions = 8);

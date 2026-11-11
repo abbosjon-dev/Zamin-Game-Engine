@@ -584,11 +584,17 @@ namespace Zamin {
         std::string Clip;
         float Threshold = 0.0f;
         float Speed = 1.0f;         ///< this clip's own rate inside the tree
+        glm::vec2 Position{ 0.0f }; ///< sample position in a 2D blend field
     };
 
     /// What a state plays: one clip, or a 1D blend tree - clips mixed by a float parameter (idle /
     /// walk / run by the character's speed).
-    enum class AnimatorStateType : uint8_t { Clip = 0, BlendTree1D };
+    enum class AnimatorStateType : uint8_t
+    {
+        Clip = 0,
+        BlendTree1D,
+        BlendTree2D
+    };
 
     struct AnimatorState
     {
@@ -608,7 +614,9 @@ namespace Zamin {
         glm::vec2 GraphPosition{ 0.0f }; ///< the node in the editor's state graph (canvas units)
         /// @}
 
-        bool IsBlendTree() const { return Type == AnimatorStateType::BlendTree1D; }
+        std::string BlendParameterY; ///< second float axis for BlendTree2D
+        float Duration = 0.0f; ///< optional model-free state clock in seconds; 0 keeps legacy clip timing
+        bool IsBlendTree() const { return Type == AnimatorStateType::BlendTree1D || Type == AnimatorStateType::BlendTree2D; }
     };
 
     /// How a layer's pose goes onto the animation below it: Override - replaces it by the layer's
@@ -682,6 +690,8 @@ namespace Zamin {
         bool HasExitTime = false;
         float ExitTime = 1.0f;  ///< normalized (1 = end of the clip)
         std::vector<AnimatorCondition> Conditions;
+        int Priority = 0; ///< larger wins; equal priority keeps authoring order
+        bool InterruptDuringFade = true; ///< legacy behaviour; false waits for the current fade
     };
 
     /// Plays skeletal animations of the entity's (skinned glTF) MeshRenderer model.
@@ -792,6 +802,8 @@ namespace Zamin {
         {
             if (BlendTree >= 0)
                 return Time;
+            if (!model && CurrentState >= 0 && CurrentState < (int)States.size() && States[CurrentState].Duration > 0.0f)
+                return Time / States[CurrentState].Duration;
             const int index = !model ? -1 : Clip.empty() ? (model->GetAnimations().empty() ? -1 : 0) : model->FindAnimation(Clip);
             if (index < 0)
                 return 1.0f;
@@ -847,6 +859,7 @@ namespace Zamin {
         std::vector<AnimatorTransition> Transitions;
         int DefaultState = 0;
         int CurrentState = -1; ///< runtime
+        bool StateMachinePaused = false; ///< runtime direct clip mode; SetState resumes the controller
         glm::vec2 AnyStateGraphPosition{ 0.0f }; ///< the "any state" node of the editor's graph
         /// @}
 
@@ -855,9 +868,15 @@ namespace Zamin {
             for (auto& p : Parameters) if (p.Name == name) return &p;
             return nullptr;
         }
-        void SetFloat(const std::string& name, float v) { if (auto* p = FindParameter(name)) p->Value = v; }
-        void SetBool(const std::string& name, bool v) { if (auto* p = FindParameter(name)) p->Value = v ? 1.0f : 0.0f; }
-        void SetTrigger(const std::string& name) { if (auto* p = FindParameter(name)) p->Value = 1.0f; }
+        bool SetFloat(const std::string& name, float v);
+        bool SetBool(const std::string& name, bool v);
+        bool SetTrigger(const std::string& name);
+        bool ResetTrigger(const std::string& name);
+        bool SetFloatDamped(const std::string& name, float target, float dampingSeconds, float delta);
+        int SelectTransition(float normalizedTime) const;
+        void ConsumeTransition(int index);
+        void ComputeStateWeights(const AnimatorState& state, std::vector<float>& weights) const;
+        std::vector<std::string> ValidateController(const Model* model = nullptr) const;
         float GetFloat(const std::string& name) { auto* p = FindParameter(name); return p ? p->Value : 0.0f; }
         bool GetBool(const std::string& name) { auto* p = FindParameter(name); return p && p->Value != 0.0f; }
         const char* GetCurrentStateName() const
@@ -875,27 +894,20 @@ namespace Zamin {
                 }
             return false;
         }
-        void EnterState(int index, float fade = -1.0f)
-        {
-            if (index < 0 || index >= (int)States.size()) return;
-            const AnimatorState& st = States[(size_t)index];
-            PreviousState = CurrentState;
-            CurrentState = index;
-            if (st.IsBlendTree()) PlayBlendTree(index, st.Loop, st.Speed, fade);
-            else Play(st.Clip, st.Loop, st.Speed, fade);
-        }
+        void EnterState(int index, float fade = -1.0f);
         /// The blend tree playing now (nullptr: a clip).
         const AnimatorState* GetBlendTreeState() const
         {
             return BlendTree >= 0 && BlendTree < (int)States.size() && States[(size_t)BlendTree].IsBlendTree() ? &States[(size_t)BlendTree] : nullptr;
         }
-        bool UsesStateMachine() const { return !States.empty(); }
+        bool UsesStateMachine() const { return !States.empty() && !StateMachinePaused; }
 
         /// Play starts / stops (and spawned copies): events from the start again, no root motion
         /// yet, the layers at their own weights.
         void ResetRuntime()
         {
             EventsAtStart = true;
+            StateMachinePaused = false;
             EditorPreview = {};
             RootMotionVelocity = glm::vec3(0.0f);
             RootMotionTurnRate = 0.0f;

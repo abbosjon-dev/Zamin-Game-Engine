@@ -158,6 +158,10 @@ namespace Zamin {
     // first of them.
     void ComputeBlend1DWeights(const std::vector<float>& thresholds, float value, std::vector<float>& outWeights);
 
+    // Cartesian 2D gradient bands, normalized nonnegative weights; duplicate samples use the first.
+    // At most 64 points. Invalid coordinates contribute zero; nonfinite input resolves at the origin.
+    void ComputeBlend2DWeights(const std::vector<glm::vec2>& positions, glm::vec2 value, std::vector<float>& outWeights);
+
     // ---- avatar masks
     // 1 for each named joint and every joint below it, 0 for the others (one value per joint).
     // No names: the whole skeleton (all 1). Names the skeleton does not have are skipped (only

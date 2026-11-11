@@ -6011,10 +6011,7 @@ namespace Zamin {
                     return;
                 }
                 out.Tree = true;
-                scratch.Thresholds.clear();
-                for (const auto& m : st->Motions)
-                    scratch.Thresholds.push_back(m.Threshold);
-                ComputeBlend1DWeights(scratch.Thresholds, parameterValue(st->BlendParameter, 0.0f), scratch.Weights);
+                anim.ComputeStateWeights(*st, scratch.Weights);
                 const float phase = WrapNormalized(time, loop);
                 float total = 0.0f, best = 0.0f;
                 for (size_t i = 0; i < st->Motions.size(); i++)
@@ -6028,6 +6025,7 @@ namespace Zamin {
                     total += w;
                     if (w > best) { best = w; out.Dominant = (int)out.Parts.size() - 1; }
                 }
+                if (!model && st->Duration > 0.0f) out.Cycle = st->Duration;
                 if (total > 0.0f && total < 0.999f)
                 {
                     // A motion without its clip: the others share its weight.
@@ -6081,33 +6079,12 @@ namespace Zamin {
                 else if (!editor)
                 {
                     const float normalized = anim.GetNormalizedTime(model.get());
-                    for (const auto& tr : anim.Transitions)
+                    const int transition = anim.SelectTransition(normalized);
+                    if (transition >= 0)
                     {
-                        if (tr.To < 0 || tr.To >= (int)anim.States.size()) continue;
-                        if (tr.From >= 0 && tr.From != anim.CurrentState) continue;
-                        if (tr.From < 0 && tr.To == anim.CurrentState) continue;
-                        if (tr.HasExitTime && normalized < tr.ExitTime) continue;
-                        bool ok = true;
-                        for (const auto& c : tr.Conditions)
-                        {
-                            const AnimatorParameter* p = anim.FindParameter(c.Parameter);
-                            float v = p ? p->Value : 0.0f;
-                            switch (c.Mode)
-                            {
-                                case AnimatorCondition::Op::Greater:   ok = v > c.Threshold; break;
-                                case AnimatorCondition::Op::Less:      ok = v < c.Threshold; break;
-                                case AnimatorCondition::Op::IsTrue:    ok = v != 0.0f; break;
-                                case AnimatorCondition::Op::IsFalse:   ok = v == 0.0f; break;
-                                case AnimatorCondition::Op::Triggered: ok = v != 0.0f; break;
-                            }
-                            if (!ok) break;
-                        }
-                        if (!ok) continue;
-                        for (const auto& c : tr.Conditions) // consume triggers
-                            if (c.Mode == AnimatorCondition::Op::Triggered)
-                                if (auto* p = anim.FindParameter(c.Parameter)) p->Value = 0.0f;
+                        const auto tr = anim.Transitions[size_t(transition)];
+                        anim.ConsumeTransition(transition);
                         anim.EnterState(tr.To, tr.Fade);
-                        break;
                     }
                 }
                 const AnimatorState& st = anim.States[(size_t)anim.CurrentState];
@@ -6127,10 +6104,7 @@ namespace Zamin {
             anim.BlendWeights.clear();
             if (const AnimatorState* tree = anim.GetBlendTreeState())
             {
-                scratch.Thresholds.clear();
-                for (const auto& m : tree->Motions)
-                    scratch.Thresholds.push_back(m.Threshold);
-                ComputeBlend1DWeights(scratch.Thresholds, parameterValue(tree->BlendParameter, 0.0f), anim.BlendWeights);
+                anim.ComputeStateWeights(*tree, anim.BlendWeights);
             }
 
             // Seconds -> the motion's own time: a clip's seconds, or a tree's normalized time.
@@ -6144,6 +6118,16 @@ namespace Zamin {
                 {
                     anim.PreviousTime += step(previous, ts * anim.PreviousSpeed);
                     anim.FadeElapsed += ts;
+                }
+            }
+            if (!model && anim.UsesStateMachine() && anim.CurrentState >= 0)
+            {
+                const auto& state = anim.States[size_t(anim.CurrentState)];
+                const float end = state.IsBlendTree() ? 1.0f : state.Duration;
+                if (state.Duration > 0 && !anim.Loop && anim.Time >= end)
+                {
+                    anim.Time = end;
+                    anim.Playing = false;
                 }
             }
             // Where the parts are after the step (a tree's parts keep their weights).
@@ -6166,6 +6150,19 @@ namespace Zamin {
                 const MotionPart& part = current.Parts[(size_t)current.Dominant];
                 const float delta = current.Tree ? (anim.Time - time0) * part.Clip->Duration : ts * anim.Speed;
                 CollectAnimatorEvents({ e, this }, anim, *part.Clip, part.Time, delta, anim.Loop, anim.EventsAtStart, true, firedEvents);
+            }
+            if (advance && !editor && !model && anim.UsesStateMachine() && anim.CurrentState >= 0 && !anim.Events.empty())
+            {
+                const auto& state = anim.States[size_t(anim.CurrentState)];
+                if (state.Duration > 0)
+                {
+                    AnimationClip clock;
+                    clock.Name = state.Name;
+                    clock.Duration = state.Duration;
+                    const float from = state.IsBlendTree() ? time0 * state.Duration : time0;
+                    const float to = state.IsBlendTree() ? anim.Time * state.Duration : anim.Time;
+                    CollectAnimatorEvents({ e, this }, anim, clock, WrapClipTime(&clock, from, anim.Loop), to - from, anim.Loop, anim.EventsAtStart, true, firedEvents);
+                }
             }
             moveParts(current, anim.Time, anim.Loop);
             if (fading0)

@@ -12,6 +12,8 @@
 #include <limits>
 #include <charconv>
 namespace Zamin {
+    Visual::Value DispatchAnimatorGraph(Entity target, const std::string& kind, const std::map<std::string, Visual::Value>& args);
+
     ScriptClassInfo MakeVisualGraphClassInfo()
     {
         return { "Zamin.VisualGraph", []() -> ScriptableEntity* { return new VisualGraphHost; }, { ZM_FIELD(VisualGraphHost, Graph), ZM_FIELD(VisualGraphHost, Overrides) } };
@@ -313,6 +315,7 @@ namespace Zamin {
             if (count < 0 || count > 10000 || std::floor(count) != count) throw std::runtime_error("Particle count must be integer 0..10000");
             proxy.EmitParticles((int)count);
         }
+        else if (k.starts_with("Animator.")) return DispatchAnimatorGraph(target, k, a);
         else if (k == "PlayAnimation") proxy.PlayAnimation(s("Clip"), f("Speed"));
         else if (k == "SendMessage") SendMessage(target, s("Name"), s("Text"));
         else if (k == "SetUIText")

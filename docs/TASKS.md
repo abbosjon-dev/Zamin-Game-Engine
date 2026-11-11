@@ -17,10 +17,32 @@ saqlanadi; ulardagi belgi yangi imkoniyatning ishlayotganiga dalil o'rnini bosma
 | P2 Kontent sifati va mualliflik | Terrain GPU qatlamlari/PBR, normal/roughness, atlas/cook, foliage, 2D palette/animation qulayligi | Haqiqiy assetli 2D/3D sahnalar, import/export/undo roundtrip, tekstura xotira byudjeti | GPU terrain v1 yakunlandi; qolgan kontent ishlari rejada |
 | P3 Dunyo va asset streaming | Disk kataklari, async load/unload, data layers, HLOD, floating origin, asset residency | Tez harakatda/cancel/reload'da yo'qolmagan obyektlar, chegaralangan RAM/VRAM, main thread'da og'ir IO yo'q | Runtime v2: LRU cleanup, observed pressure gate, terrain tiles va grid mosaic bajarildi; HLOD/floating origin/hard timing rejada |
 | P4 Rendererning keyingi avlodi | GPU timer v1 mavjud; render graph, Vulkan, temporal AA/upscaling, katta sahna visibility va yoritish | Drayver/physical GPU matritsasi, HDR/alpha/picking/shadow regressiyalari, reference hardware byudjeti | Rejada; virtual geometry va dinamik GI — alohida tadqiqot |
-| P5 Gameplay, animatsiya, fizika va UI | Mavjud 2D/3D tizimlarini production darajasida birlashtirish, katta kontent va gameplay workflow | Ikki tugallangan vertical slice, saqlash/yuklash, controller, animatsiya/fizika stress, UI input/scale testlari | Visual Script va C++ muharriri v1 qo'shildi; qolgan ishlar rejada |
+| P5 Gameplay, animatsiya, fizika va UI | Mavjud 2D/3D tizimlarini production darajasida birlashtirish, katta kontent va gameplay workflow | Ikki tugallangan vertical slice, saqlash/yuklash, controller, animatsiya/fizika stress, UI input/scale testlari | Blueprint gameplay va Animator 1D/2D acceptance bajarildi; qolgan ishlar rejada |
 | P6 Tarmoq va kengaytirish | Server authority, replication, latency compensation, plagin SDK/ABI, xavfsiz hot reload | Yo'qotilgan paket, kechikish, reconnect, versiya mos kelmasligi va plagin unload sinovlari | Rejada |
 | P7 Platforma, release va mahsulot | Linux/Windows, keyin macOS; cook/package/update/crash telemetry; editor/launcher yagona auth | Toza mashinada install/export/run, talablar va litsenziyalar, imzolangan release va rollback sinovi | Rejada |
 | P8 Yakuniy sifat darvozasi | Hujjatlar, ko'chirish yo'li, ikki namunaviy o'yin va profiling hisobotlari | Uzoq sessiya, resurs sizishi, recovery/fuzz, reference sahnalarda barqaror frame time va foydalanish sinovi | Rejada |
+
+### Yakunlangan bo‘lim — Animator gameplay va 2D blend
+
+- [x] Cartesian 2D blend solver, skeletal pose/root motion/event integration and synchronized phase.
+- [x] Typed parameters/damping, priority and fade interruption policy, self restart and model-free state clocks.
+- [x] Serialized configuration, validation, editor blend field/live telemetry and transition controls.
+- [x] Blueprint Animator operations, real 2D/3D gameplay samples and export acceptance.
+- [x] Regression, sanitizer, screenshots, documentation and main push.
+
+
+Dalillar (2026-11-11): 942/942 unit (31 yangi), 11/11 headless CTest, 12/12 render.
+CPU solver/controller ASan/UBSan: 20/20. Yangi blend/controller/Blueprint bridge hamda uchta VisualGraph
+TU’si instrumentlangan owner probe: 31/31, LeakSanitizer bilan; Scene/serializer va qolgan shared engine
+bu mahalliy probe’da normal build. Clang 18 syntax-only -Werror: 11 ta o‘zgargan TU.
+Real ImGui: sample drag/save/Undo, 2D state yaratish/Undo. Player/editor 120 kadrdan ikkala sahnada:
+Action ko‘rildi, Locomotion qaytdi, damping/blend weight0 = 0.63212055 va oldingi Blueprint total 12/18.
+Ikkala eksportda haqiqiy gameplay logi, PNG va ko‘chirilgan launcher tekshirildi. Dalillar:
+`build-review/AnimatorGameplay/`. Mesa software rasterizer; hardware performance o‘lchanmagan.
+Editor smoke: 490/490 qadam (224 Showcase3D + 266 Platformer2D), 0 xato. Main push bilan yakunlandi.
+
+Keyingi bo‘lim: input/controller/camera va haqiqiy velocity → Animator parametr bog‘lanishi bilan
+2D/3D gameplay vertical slice, checkpoint/save hamda o‘ynash/eksport acceptance’i.
 
 ### Yakunlangan bo‘lim — Blueprint gameplay acceptance
 
@@ -43,8 +65,7 @@ Real ImGui authoring testi typed wire/rejection, Undo/Redo, copy/paste/duplicate
 2D/3D workflow compiler va native game modulisiz parametr/lokal/Delay/ForEach/custom event zanjirini
 12/18 natija bilan bajaradi. CI ushbu workflow, eksport va editor authoring tekshiruvlarini qaytaradi.
 
-Keyingi alohida bo‘lim: animatsiya state machine/blend va gameplay bilan bog‘lash; uning yakuni ham
-runtime, editor, namunalar va eksport acceptance’i bilan o‘lchanadi.
+Animatsiya state machine/blend va gameplay integratsiyasi yuqoridagi Animator paketida davom ettirildi.
 
 ### Yakunlangan katta paket — dynamic obstacle va bounded recovery
 

@@ -329,6 +329,24 @@ namespace Zamin {
         if (ImGui::IsItemHovered())
             UI::Tooltip("1D blend tree: float parametr bo'yicha kliplar aralashadi (masalan Speed bo'yicha turish / yurish / yugurish)");
         ImGui::SameLine();
+        if (ImGui::Button("2D blend"))
+        {
+            const auto index = AnimatorEditing::AddState(*c, model, true, center());
+            auto& state = c->States[size_t(index)];
+            state.Type = AnimatorStateType::BlendTree2D;
+            auto parameter = [&](std::string name) {while(c->FindParameter(name)&&c->FindParameter(name)->Kind!=AnimatorParameter::Type::Float)name+="_";if(!c->FindParameter(name))c->Parameters.push_back({name,AnimatorParameter::Type::Float,0});return name; };
+            state.BlendParameter = parameter("BlendX");
+            state.BlendParameterY = parameter("BlendY");
+            if (model)
+                for (const auto& clip : model->GetAnimations())
+                    if (state.Motions.size() < 3 && std::none_of(state.Motions.begin(), state.Motions.end(), [&](const auto& m) { return m.Clip == clip.Name; })) state.Motions.push_back({ clip.Name });
+            const glm::vec2 positions[] = { { 0, 0 }, { 1, 0 }, { 0, 1 } };
+            for (size_t i = 0; i < state.Motions.size(); ++i) state.Motions[i].Position = positions[std::min(i, size_t(2))];
+            m_Selection = { Kind::State, index };
+            m_FitRequested = true;
+            MarkModified();
+        }
+        ImGui::SameLine();
         if (ImGui::Button(Tr(ICON_FA_EXPAND "  Moslash")))
             m_FitRequested = true;
         if (ImGui::IsItemHovered())
@@ -639,7 +657,7 @@ namespace Zamin {
             const float weightsW = weights ? (barW + barGap) * (float)st.Motions.size() + 6.0f * m_Zoom : 0.0f;
             std::string sub;
             if (st.IsBlendTree())
-                sub = std::format("{} ({} klip)", st.BlendParameter.empty() ? "?" : st.BlendParameter.c_str(), st.Motions.size());
+                sub = st.Type == AnimatorStateType::BlendTree2D ? std::format("{}, {} (2D)", st.BlendParameter, st.BlendParameterY) : std::format("{} ({} klip)", st.BlendParameter.empty() ? "?" : st.BlendParameter.c_str(), st.Motions.size());
             else
                 sub = st.Clip.empty() ? std::string("(birinchi klip)") : st.Clip;
             if (c.DefaultState == i)
@@ -690,6 +708,13 @@ namespace Zamin {
     {
         bool changed = false;
         const bool live = !m_Editable;
+        if (ImGui::CollapsingHeader("Controller diagnostics"))
+        {
+            const auto errors = c.ValidateController(model);
+            if (errors.empty()) ImGui::TextColored({ .4f, .85f, .65f, 1 }, "Controller valid");
+            else
+                for (const auto& error : errors) ImGui::TextWrapped("%s", error.c_str());
+        }
         switch (m_Selection.Type)
         {
             case Kind::State:

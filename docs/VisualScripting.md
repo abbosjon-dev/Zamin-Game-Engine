@@ -30,6 +30,7 @@ Fayl atomik yoziladi; yozish xatosida tahrirlar oynada qoladi.
 - Matematik, mantiqiy va vektor amallari, matn birlashtirish, raqamni matnga aylantirish.
 - Input axis/action, transform, entity qidirish/yaratish/o'chirish, active holati va taglar.
 - 2D/3D raycast (Hit, Entity, Point, Normal, Distance); navigatsiya destination/stop/arrival.
+- Animator typed parametr/damping, state/transition, 1D/2D blend og‘irligi, root motion va layer boshqaruvi ([animatsiya qo‘llanmasi](Animation.md#73-modelsiz-2d-holatlar-va-blueprint)).
 - Scene yuklash; Number/Bool/String global GameState va uning save/load amallari.
 - 2D/3D velocity, force, impulse, 3D torque; prefab, audio, animation, sprite rang, UI matni, xabarlar.
 - `ReadField.<Type>` / `WriteField.<Type>` boshqa obyektning ro'yxatdan o'tgan C++ maydonlari bilan ishlaydi. Number Float/Int ga moslanadi; Int kasr va overflow'ni rad etadi; maydonning Range cheklovi saqlanadi.

@@ -97,8 +97,16 @@ jobs:
           LP_NUM_THREADS: "2"
         run: xvfb-run -a -s '-screen 0 1600x1000x24 -nolisten tcp' python3 Tests/visual_graph_editor_test.py
 
-      - name: Typed Blueprint gameplay and compiler-free export
-        run: python3 Tests/blueprint_workflow_test.py --build build --out world-streaming/blueprint --exports
+      - name: Typed Blueprint gameplay
+        run: python3 Tests/blueprint_workflow_test.py --build build --out world-streaming/blueprint
+
+      - name: Animator blend authoring and scene Undo
+        env:
+          ZAMIN_BUILD_DIR: build
+        run: xvfb-run -a -s '-screen 0 1600x1000x24 -nolisten tcp' python3 Tests/animator_editor_test.py
+
+      - name: Animator 2D blend, gameplay and compiler-free export
+        run: python3 Tests/animator_workflow_test.py --build build --out world-streaming/animator --exports
 
       - name: World dynamic barrier and bounded recovery workflow
         run: python3 Tests/world_recovery_test.py --build build --out world-streaming/recovery
@@ -116,6 +124,7 @@ jobs:
           path: |
             world-streaming/
             build/VisualEditorTest/
+            build/AnimatorGameplay/Authoring/
           if-no-files-found: warn
 
       # Every window, page, menu and popup of the editor for a few frames (Showcase3D, Platformer2D): an error in

@@ -57,7 +57,7 @@ imkoniyatlar, kod bo'ylab sayohat):*
   [Chegaralar va sozlash](docs/Terrain.md).
 - **Fizika** — 2D (Box2D) va 3D (Jolt): collider'lar, joint'lar, effektorlar, Character Controller, so'rovlar,
   to'qnashuv qatlamlari, determinizm — [Physics.md](docs/Physics.md)
-- **Animatsiya** — property kliplar va timeline, skelet animatsiya, Animator (holat mashinasi, blend tree, qatlamlar),
+- **Animatsiya** — property kliplar va timeline, skelet animatsiya, Animator (ustuvor holatlar, 1D/2D blend, typed parametr/damping, qatlamlar),
   root motion, sprite kliplar — [Animation.md](docs/Animation.md)
 - **Audio** — miniaudio: mixer guruhlari, musiqa crossfade, 3D ovoz, filtrlar, ambient zonalar —
   [Audio.md](docs/Audio.md)

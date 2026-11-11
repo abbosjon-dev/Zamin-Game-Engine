@@ -1,0 +1,390 @@
+{
+  "Format": "Zamin.VisualGraph",
+  "Version": 1,
+  "Nodes": [
+    {
+      "ID": 1,
+      "Kind": "Event.Start",
+      "X": 0,
+      "Y": 0,
+      "Inputs": {}
+    },
+    {
+      "ID": 2,
+      "Kind": "Delay",
+      "X": 250,
+      "Y": 0,
+      "Inputs": {
+        "Seconds": 0.3
+      }
+    },
+    {
+      "ID": 3,
+      "Kind": "Animator.SetFloat",
+      "X": 500,
+      "Y": 0,
+      "Inputs": {
+        "Name": "X",
+        "Value": 1
+      }
+    },
+    {
+      "ID": 4,
+      "Kind": "Animator.SetFloat",
+      "X": 750,
+      "Y": 0,
+      "Inputs": {
+        "Name": "Y",
+        "Value": 0
+      }
+    },
+    {
+      "ID": 5,
+      "Kind": "Animator.SetTrigger",
+      "X": 1000,
+      "Y": 0,
+      "Inputs": {
+        "Name": "Action"
+      }
+    },
+    {
+      "ID": 6,
+      "Kind": "Delay",
+      "X": 1250,
+      "Y": 0,
+      "Inputs": {
+        "Seconds": 0.1
+      }
+    },
+    {
+      "ID": 7,
+      "Kind": "Animator.StateIs",
+      "X": 1250,
+      "Y": 250,
+      "Inputs": {
+        "Name": "Action"
+      }
+    },
+    {
+      "ID": 8,
+      "Kind": "Set.Bool",
+      "X": 1500,
+      "Y": 0,
+      "Inputs": {
+        "Name": "ActionSeen"
+      }
+    },
+    {
+      "ID": 9,
+      "Kind": "Delay",
+      "X": 1750,
+      "Y": 0,
+      "Inputs": {
+        "Seconds": 0.2
+      }
+    },
+    {
+      "ID": 10,
+      "Kind": "Animator.SetState",
+      "X": 2000,
+      "Y": 0,
+      "Inputs": {
+        "Name": "Locomotion",
+        "Fade": 0.15
+      }
+    },
+    {
+      "ID": 11,
+      "Kind": "Animator.SetFloatDamped",
+      "X": 2250,
+      "Y": 0,
+      "Inputs": {
+        "Name": "X",
+        "Value": 0,
+        "Damping": 0.1,
+        "Delta": 0.1
+      }
+    },
+    {
+      "ID": 12,
+      "Kind": "Delay",
+      "X": 2500,
+      "Y": 0,
+      "Inputs": {
+        "Seconds": 0.3
+      }
+    },
+    {
+      "ID": 13,
+      "Kind": "Get.Bool",
+      "X": 2500,
+      "Y": 300,
+      "Inputs": {
+        "Name": "ActionSeen"
+      }
+    },
+    {
+      "ID": 14,
+      "Kind": "Animator.StateIs",
+      "X": 2750,
+      "Y": 300,
+      "Inputs": {
+        "Name": "Locomotion"
+      }
+    },
+    {
+      "ID": 15,
+      "Kind": "And",
+      "X": 3000,
+      "Y": 300,
+      "Inputs": {}
+    },
+    {
+      "ID": 16,
+      "Kind": "Branch",
+      "X": 2750,
+      "Y": 0,
+      "Inputs": {}
+    },
+    {
+      "ID": 17,
+      "Kind": "Print",
+      "X": 3000,
+      "Y": 0,
+      "Inputs": {
+        "Text": "ANIMATOR_ACCEPTANCE action=1 locomotion=1"
+      }
+    },
+    {
+      "ID": 18,
+      "Kind": "Print",
+      "X": 3000,
+      "Y": 500,
+      "Inputs": {
+        "Text": "ANIMATOR_ORACLE_FAILED"
+      }
+    },
+    {
+      "ID": 19,
+      "Kind": "Animator.BlendWeight",
+      "X": 3250,
+      "Y": 300,
+      "Inputs": {
+        "Index": 0
+      }
+    },
+    {
+      "ID": 20,
+      "Kind": "NumberToText",
+      "X": 3500,
+      "Y": 300,
+      "Inputs": {}
+    },
+    {
+      "ID": 21,
+      "Kind": "Concat",
+      "X": 3750,
+      "Y": 300,
+      "Inputs": {
+        "A": "ANIMATOR_BLEND weight0="
+      }
+    },
+    {
+      "ID": 22,
+      "Kind": "Print",
+      "X": 3250,
+      "Y": 0,
+      "Inputs": {}
+    },
+    {
+      "ID": 30,
+      "Kind": "Event.AnimationEvent",
+      "X": 0,
+      "Y": 700,
+      "Inputs": {}
+    },
+    {
+      "ID": 31,
+      "Kind": "Get.Number",
+      "X": 0,
+      "Y": 1000,
+      "Inputs": {
+        "Name": "Events"
+      }
+    },
+    {
+      "ID": 32,
+      "Kind": "Add",
+      "X": 250,
+      "Y": 1000,
+      "Inputs": {
+        "B": 1
+      }
+    },
+    {
+      "ID": 33,
+      "Kind": "Set.Number",
+      "X": 500,
+      "Y": 700,
+      "Inputs": {
+        "Name": "Events"
+      }
+    }
+  ],
+  "Links": [
+    {
+      "From": 1,
+      "Output": "Then",
+      "To": 2,
+      "Input": "In"
+    },
+    {
+      "From": 2,
+      "Output": "Then",
+      "To": 3,
+      "Input": "In"
+    },
+    {
+      "From": 3,
+      "Output": "Then",
+      "To": 4,
+      "Input": "In"
+    },
+    {
+      "From": 4,
+      "Output": "Then",
+      "To": 5,
+      "Input": "In"
+    },
+    {
+      "From": 5,
+      "Output": "Then",
+      "To": 6,
+      "Input": "In"
+    },
+    {
+      "From": 6,
+      "Output": "Then",
+      "To": 8,
+      "Input": "In"
+    },
+    {
+      "From": 8,
+      "Output": "Then",
+      "To": 9,
+      "Input": "In"
+    },
+    {
+      "From": 9,
+      "Output": "Then",
+      "To": 10,
+      "Input": "In"
+    },
+    {
+      "From": 10,
+      "Output": "Then",
+      "To": 11,
+      "Input": "In"
+    },
+    {
+      "From": 11,
+      "Output": "Then",
+      "To": 12,
+      "Input": "In"
+    },
+    {
+      "From": 12,
+      "Output": "Then",
+      "To": 16,
+      "Input": "In"
+    },
+    {
+      "From": 17,
+      "Output": "Then",
+      "To": 22,
+      "Input": "In"
+    },
+    {
+      "From": 30,
+      "Output": "Then",
+      "To": 33,
+      "Input": "In"
+    },
+    {
+      "From": 7,
+      "Output": "Value",
+      "To": 8,
+      "Input": "Value"
+    },
+    {
+      "From": 13,
+      "Output": "Value",
+      "To": 15,
+      "Input": "A"
+    },
+    {
+      "From": 14,
+      "Output": "Value",
+      "To": 15,
+      "Input": "B"
+    },
+    {
+      "From": 15,
+      "Output": "Value",
+      "To": 16,
+      "Input": "Condition"
+    },
+    {
+      "From": 16,
+      "Output": "True",
+      "To": 17,
+      "Input": "In"
+    },
+    {
+      "From": 16,
+      "Output": "False",
+      "To": 18,
+      "Input": "In"
+    },
+    {
+      "From": 19,
+      "Output": "Value",
+      "To": 20,
+      "Input": "Number"
+    },
+    {
+      "From": 20,
+      "Output": "Value",
+      "To": 21,
+      "Input": "B"
+    },
+    {
+      "From": 21,
+      "Output": "Value",
+      "To": 22,
+      "Input": "Text"
+    },
+    {
+      "From": 31,
+      "Output": "Value",
+      "To": 32,
+      "Input": "A"
+    },
+    {
+      "From": 32,
+      "Output": "Value",
+      "To": 33,
+      "Input": "Value"
+    }
+  ],
+  "Variables": {
+    "ActionSeen": {
+      "Type": "Bool",
+      "Default": false
+    },
+    "Events": {
+      "Type": "Number",
+      "Default": 0
+    }
+  }
+}

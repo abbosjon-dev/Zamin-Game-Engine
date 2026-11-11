@@ -1277,13 +1277,15 @@ namespace Zamin {
                 json js = { { "Name", st.Name }, { "Clip", st.Clip }, { "Speed", st.Speed }, { "Loop", st.Loop }, { "SpeedParameter", st.SpeedParameter } };
                 if (st.IsBlendTree())
                 {
-                    js["Type"] = "BlendTree1D";
+                    js["Type"] = st.Type == AnimatorStateType::BlendTree2D ? "BlendTree2D" : "BlendTree1D";
+                    js["BlendParameterY"] = st.BlendParameterY;
                     js["BlendParameter"] = st.BlendParameter;
                     json motions = json::array();
                     for (const auto& m : st.Motions)
-                        motions.push_back({ { "Clip", m.Clip }, { "Threshold", m.Threshold }, { "Speed", m.Speed } });
+                        motions.push_back({ { "Clip", m.Clip }, { "Threshold", m.Threshold }, { "Speed", m.Speed }, { "Position", ToJson(m.Position) } });
                     js["Motions"] = std::move(motions);
                 }
+                js["Duration"] = st.Duration;
                 js["Graph"] = ToJson(st.GraphPosition);
                 states.push_back(std::move(js));
             }
@@ -1292,8 +1294,7 @@ namespace Zamin {
                 json conds = json::array();
                 for (const auto& cd : t.Conditions)
                     conds.push_back({ { "Parameter", cd.Parameter }, { "Op", (int)cd.Mode }, { "Threshold", cd.Threshold } });
-                transitions.push_back({ { "From", t.From }, { "To", t.To }, { "Fade", t.Fade }, { "HasExitTime", t.HasExitTime },
-                                        { "ExitTime", t.ExitTime }, { "Conditions", conds } });
+                transitions.push_back({ { "From", t.From }, { "To", t.To }, { "Fade", t.Fade }, { "HasExitTime", t.HasExitTime }, { "ExitTime", t.ExitTime }, { "Conditions", conds }, { "Priority", t.Priority }, { "InterruptDuringFade", t.InterruptDuringFade } });
             }
             e["Animator"] = { { "Clip", c->Clip }, { "Speed", c->Speed }, { "Loop", c->Loop }, { "Playing", c->Playing },
                               { "PlayInEditor", c->PlayInEditor }, { "DefaultFade", c->DefaultFade }, { "DefaultState", c->DefaultState },
@@ -2260,9 +2261,10 @@ namespace Zamin {
                     continue;
                 AnimatorState state{ st.value("Name", "State"), st.value("Clip", ""), st.value("Speed", 1.0f), st.value("Loop", true),
                                      st.value("SpeedParameter", "") };
-                if (st.value("Type", std::string()) == "BlendTree1D")
+                if (st.value("Type", std::string()) == "BlendTree1D" || st.value("Type", std::string()) == "BlendTree2D")
                 {
-                    state.Type = AnimatorStateType::BlendTree1D;
+                    state.Type = st.value("Type", std::string()) == "BlendTree2D" ? AnimatorStateType::BlendTree2D : AnimatorStateType::BlendTree1D;
+                    state.BlendParameterY = st.value("BlendParameterY", std::string());
                     state.BlendParameter = st.value("BlendParameter", std::string());
                     if (auto motions = st.find("Motions"); motions != st.end() && motions->is_array())
                         for (const json& m : *motions)
@@ -2271,9 +2273,13 @@ namespace Zamin {
                                 AnimatorBlendMotion motion{ m.value("Clip", std::string()), m.value("Threshold", 0.0f), m.value("Speed", 1.0f) };
                                 if (!std::isfinite(motion.Threshold)) motion.Threshold = 0.0f;
                                 if (!std::isfinite(motion.Speed)) motion.Speed = 1.0f;
-                                state.Motions.push_back(std::move(motion));
+                                motion.Position = Vec(m, "Position", glm::vec2(0.0f));
+                                if (!std::isfinite(motion.Position.x) || !std::isfinite(motion.Position.y)) motion.Position = {};
+                                if (state.Motions.size() < 64) state.Motions.push_back(std::move(motion));
                             }
                 }
+                state.Duration = st.value("Duration", 0.0f);
+                if (!std::isfinite(state.Duration) || state.Duration < 0.0f) state.Duration = 0.0f;
                 state.GraphPosition = Vec(st, "Graph", glm::vec2(0.0f));
                 c.States.push_back(std::move(state));
             }
@@ -2307,6 +2313,8 @@ namespace Zamin {
                 tr.Fade = t.value("Fade", 0.2f);
                 tr.HasExitTime = t.value("HasExitTime", false);
                 tr.ExitTime = t.value("ExitTime", 1.0f);
+                tr.Priority = t.value("Priority", 0);
+                tr.InterruptDuringFade = t.value("InterruptDuringFade", true);
                 for (const json& cd : t.value("Conditions", json::array()))
                     tr.Conditions.push_back({ cd.value("Parameter", ""), (AnimatorCondition::Op)cd.value("Op", 0), cd.value("Threshold", 0.0f) });
                 c.Transitions.push_back(std::move(tr));

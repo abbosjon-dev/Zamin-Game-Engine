@@ -230,6 +230,158 @@
           }
         }
       }
+    },
+    {
+      "Entity": 910,
+      "Tag": "Animator gameplay actor",
+      "Transform": {
+        "Translation": [
+          0,
+          -1,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Animator": {
+        "Clip": "Wave",
+        "Speed": 1,
+        "Loop": true,
+        "Playing": true,
+        "DefaultState": 0,
+        "DefaultFade": 0.15,
+        "Parameters": [
+          {
+            "Name": "X",
+            "Type": 0,
+            "Value": 0.25
+          },
+          {
+            "Name": "Y",
+            "Type": 0,
+            "Value": 0.25
+          },
+          {
+            "Name": "Action",
+            "Type": 2,
+            "Value": 0
+          }
+        ],
+        "States": [
+          {
+            "Name": "Locomotion",
+            "Type": "BlendTree2D",
+            "BlendParameter": "X",
+            "BlendParameterY": "Y",
+            "Duration": 1,
+            "Motions": [
+              {
+                "Clip": "Wave",
+                "Position": [
+                  0,
+                  0
+                ],
+                "Speed": 1
+              },
+              {
+                "Clip": "Twist",
+                "Position": [
+                  1,
+                  0
+                ],
+                "Speed": 1
+              },
+              {
+                "Clip": "Sway",
+                "Position": [
+                  0,
+                  1
+                ],
+                "Speed": 1
+              }
+            ],
+            "Graph": [
+              80,
+              100
+            ]
+          },
+          {
+            "Name": "Action",
+            "Clip": "Sway",
+            "Duration": 0.5,
+            "Loop": false,
+            "Graph": [
+              420,
+              100
+            ]
+          }
+        ],
+        "Transitions": [
+          {
+            "From": -1,
+            "To": 1,
+            "Fade": 0.1,
+            "Priority": 10,
+            "Conditions": [
+              {
+                "Parameter": "Action",
+                "Op": 4
+              }
+            ]
+          },
+          {
+            "From": 1,
+            "To": 0,
+            "Fade": 0.15,
+            "HasExitTime": true,
+            "ExitTime": 1,
+            "InterruptDuringFade": false,
+            "Priority": 0
+          }
+        ],
+        "Events": [
+          {
+            "Clip": "",
+            "Time": 0.25,
+            "Name": "Pulse",
+            "Parameter": "gameplay"
+          }
+        ],
+        "AnyStateGraph": [
+          -220,
+          80
+        ]
+      },
+      "NativeScript": {
+        "Class": "Zamin.VisualGraph",
+        "Enabled": true,
+        "Fields": {
+          "Graph": {
+            "Type": "String",
+            "Value": "Scripts/AnimatorGameplay.zgraph"
+          }
+        }
+      },
+      "MeshRenderer": {
+        "Mesh": "Model",
+        "Model": "Models/BlendActor.gltf",
+        "Albedo": [
+          0.28,
+          0.65,
+          1,
+          1
+        ],
+        "Metallic": 0.15,
+        "Roughness": 0.5
+      }
     }
   ],
   "RootOrder": [

@@ -166,6 +166,72 @@ namespace Zamin::AnimatorEditing {
         return changed;
     }
 
+    static bool DrawBlendField(AnimatorComponent& controller, AnimatorState& state)
+    {
+        if (state.Type != AnimatorStateType::BlendTree2D) return false;
+        ImGui::TextDisabled("2D blend: nuqtani sudrang; oq belgi = jonli parametr");
+        const auto origin = ImGui::GetCursorScreenPos();
+        const ImVec2 size{ std::max(120.0f, ImGui::GetContentRegionAvail().x), 180 };
+        ImGui::InvisibleButton("blendField", size);
+        const bool hovered = ImGui::IsItemHovered();
+        glm::vec2 minimum{ -1, -1 }, maximum{ 1, 1 };
+        for (const auto& motion : state.Motions)
+            if (std::isfinite(motion.Position.x) && std::isfinite(motion.Position.y))
+            {
+                minimum = glm::min(minimum, motion.Position);
+                maximum = glm::max(maximum, motion.Position);
+            }
+        const glm::vec2 span = maximum - minimum;
+        auto screen = [&](glm::vec2 p) { return ImVec2(origin.x + 15 + (p.x - minimum.x) / span.x * (size.x - 30), origin.y + size.y - 15 - (p.y - minimum.y) / span.y * (size.y - 30)); };
+        auto* draw = ImGui::GetWindowDrawList();
+        draw->AddRectFilled(origin, { origin.x + size.x, origin.y + size.y }, IM_COL32(19, 25, 38, 255), 5);
+        const auto zero = screen({ 0, 0 });
+        draw->AddLine({ origin.x, zero.y }, { origin.x + size.x, zero.y }, IM_COL32(65, 72, 88, 255));
+        draw->AddLine({ zero.x, origin.y }, { zero.x, origin.y + size.y }, IM_COL32(65, 72, 88, 255));
+        std::vector<float> weights;
+        controller.ComputeStateWeights(state, weights);
+        const auto mouse = ImGui::GetMousePos();
+        auto* storage = ImGui::GetStateStorage();
+        const auto key = ImGui::GetID("dragSample");
+        bool changed = false;
+        if (hovered && ImGui::IsMouseClicked(0))
+        {
+            int selected = -1;
+            float distance = 100;
+            for (size_t i = 0; i < std::min(size_t(64), state.Motions.size()); ++i)
+            {
+                auto p = screen(state.Motions[i].Position);
+                float d = (mouse.x - p.x) * (mouse.x - p.x) + (mouse.y - p.y) * (mouse.y - p.y);
+                if (d < distance)
+                {
+                    distance = d;
+                    selected = int(i);
+                }
+            }
+            storage->SetInt(key, selected);
+        }
+        const int selected = storage->GetInt(key, -1);
+        if (hovered && ImGui::IsMouseDragging(0) && selected >= 0 && selected < int(state.Motions.size()))
+        {
+            state.Motions[size_t(selected)].Position = glm::clamp(glm::vec2(minimum.x + (mouse.x - origin.x - 15) / (size.x - 30) * span.x, minimum.y + (origin.y + size.y - 15 - mouse.y) / (size.y - 30) * span.y), glm::vec2(-100000), glm::vec2(100000));
+            changed = true;
+        }
+        for (size_t i = 0; i < std::min(size_t(64), state.Motions.size()); ++i)
+        {
+            auto p = screen(state.Motions[i].Position);
+            if (!std::isfinite(p.x) || !std::isfinite(p.y)) continue;
+            draw->AddCircleFilled(p, 5 + weights[i] * 5, IM_COL32(145, 105, 245, 255));
+            draw->AddText({ p.x + 8, p.y - 8 }, IM_COL32(225, 228, 240, 255), std::to_string(i).c_str());
+        }
+        const auto live = screen({ controller.GetFloat(state.BlendParameter), controller.GetFloat(state.BlendParameterY) });
+        if (std::isfinite(live.x) && std::isfinite(live.y))
+        {
+            draw->AddLine({ live.x - 5, live.y }, { live.x + 5, live.y }, IM_COL32(255, 220, 110, 255), 2);
+            draw->AddLine({ live.x, live.y - 5 }, { live.x, live.y + 5 }, IM_COL32(255, 220, 110, 255), 2);
+        }
+        return changed;
+    }
+
     bool DrawState(AnimatorComponent& c, int index, const Model* model)
     {
         if (index < 0 || index >= (int)c.States.size())
@@ -179,9 +245,9 @@ namespace Zamin::AnimatorEditing {
             changed |= ImGui::InputText("##name", &st.Name);
             Field("Tur", "Klip: bitta animatsiya. Blend tree 1D: float parametr bo'yicha bir nechta klip aralashadi "
                          "(masalan tezlik: turish / yurish / yugurish) - ular bir xil normalizatsiyalangan vaqtda o'ynaydi");
-            const char* kinds[] = { "Klip", "Blend tree 1D" };
+            const char* kinds[] = { "Klip", "Blend tree 1D", "Blend field 2D" };
             int kind = (int)st.Type;
-            if (ImGui::Combo("##type", &kind, kinds, 2))
+            if (ImGui::Combo("##type", &kind, kinds, 3))
             {
                 st.Type = (AnimatorStateType)kind;
                 if (st.IsBlendTree() && st.Motions.empty())
@@ -212,12 +278,19 @@ namespace Zamin::AnimatorEditing {
             {
                 Field("Parametr", "Qaysi float parametr motion'larni tanlaydi (chegaralari bo'yicha)");
                 changed |= FloatParameterCombo("##bp", st.BlendParameter, c, "(tanlanmagan)");
+                if (st.Type == AnimatorStateType::BlendTree2D)
+                {
+                    Field("Y parametr");
+                    changed |= FloatParameterCombo("##bpy", st.BlendParameterY, c, "(tanlanmagan)");
+                }
                 if (st.BlendParameter.empty())
                 {
                     Field("");
                     ImGui::TextColored(s_WarnColor, ICON_FA_TRIANGLE_EXCLAMATION "  Float parametr tanlang");
                 }
             }
+            Field("2D holat vaqti", "Modelsiz controller holati davomiyligi (soniya); 0 eski klip vaqtini saqlaydi");
+            changed |= ImGui::DragFloat("##duration", &st.Duration, .01f, 0.0f, 3600.0f, "%.2f s");
             Field("Tezlik");
             changed |= ImGui::DragFloat("##spd", &st.Speed, 0.01f, -10.0f, 10.0f, "%.2f");
             Field("Tezlik x", "Ixtiyoriy: tezlik shu float parametrga ko'paytiriladi");
@@ -235,6 +308,7 @@ namespace Zamin::AnimatorEditing {
         }
         if (st.IsBlendTree())
         {
+            changed |= DrawBlendField(c, st);
             // Motions: clip, threshold, its own speed; the live weight under each.
             ImGui::TextDisabled("Motion'lar (klip, chegara, tezlik)");
             const bool live = c.BlendTree == index && c.BlendWeights.size() == st.Motions.size();
@@ -250,7 +324,8 @@ namespace Zamin::AnimatorEditing {
                 changed |= ClipCombo("##mclip", m.Clip, model);
                 ImGui::SameLine();
                 ImGui::SetNextItemWidth(avail * 0.30f);
-                changed |= ImGui::DragFloat("##th", &m.Threshold, 0.02f, 0.0f, 0.0f, "%.2f");
+                if (st.Type == AnimatorStateType::BlendTree2D) changed |= ImGui::DragFloat2("##position", &m.Position.x, .02f, -100000.0f, 100000.0f, "%.2f");
+                else changed |= ImGui::DragFloat("##th", &m.Threshold, 0.02f, 0.0f, 0.0f, "%.2f");
                 if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
                     UI::Tooltip("Chegara: parametr shu qiymatda bo'lganda faqat shu klip o'ynaydi");
                 ImGui::SameLine();
@@ -275,7 +350,7 @@ namespace Zamin::AnimatorEditing {
                 st.Motions.erase(st.Motions.begin() + remove);
                 changed = true;
             }
-            if (ImGui::SmallButton(Tr(ICON_FA_PLUS "  Motion")))
+            if (st.Motions.size() < 64 && ImGui::SmallButton(Tr(ICON_FA_PLUS "  Motion")))
             {
                 AnimatorBlendMotion m;
                 m.Threshold = st.Motions.empty() ? 0.0f : st.Motions.back().Threshold + 1.0f;
@@ -339,6 +414,10 @@ namespace Zamin::AnimatorEditing {
                     }
                 ImGui::EndCombo();
             }
+            Field("Ustuvorlik", "Katta qiymat yutadi; teng qiymatda ro'yxat tartibi saqlanadi");
+            changed |= ImGui::InputInt("##priority", &tr.Priority);
+            Field("Fade ichida o'tish", "O'chirilsa joriy crossfade tugaguncha kutadi");
+            changed |= ImGui::Checkbox("##interrupt", &tr.InterruptDuringFade);
             Field("O'tish vaqti", "Crossfade davomiyligi, soniya (0 - darhol)");
             changed |= ImGui::DragFloat("##fade", &tr.Fade, 0.01f, 0.0f, 5.0f, "%.2f s");
             Field("Exit time", "Yoqilgan bo'lsa, o'tish faqat klip shu nuqtaga (normalizatsiyalangan vaqt: 1 = oxiri) yetgandan keyin");

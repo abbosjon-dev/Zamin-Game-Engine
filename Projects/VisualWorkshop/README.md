@@ -9,3 +9,6 @@ Open `VisualWorkshop.zproject` in Zamin Editor. No game module or C++ compiler i
 - Save the graph before attaching it to an entity. Save scene changes separately.
 
 See [Visual Script guide](../../docs/VisualScripting.md) for controls, execution rules and current limitations.
+
+- `Animator gameplay actor` runs `AnimatorGameplay.zgraph` in both scenes: 2D blend parameters, a trigger-driven Action, explicit state resume, damping and a checked completion log. `AnimatorDisplay2D.zgraph` colors the 2D display from that actor's state. The 3D actor uses the repository's procedural Tentacle model as `Models/BlendActor.gltf`.
+- Run `python3 Tests/animator_workflow_test.py --build build-review --exports` for the real Player/editor/export acceptance. Expected final blend weight 0 is `1 - exp(-1)`; the existing Blueprint sample totals remain 12/18.

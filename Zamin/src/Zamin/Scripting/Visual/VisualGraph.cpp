@@ -161,6 +161,24 @@ add("Axis","Input",{S("Name")},{N("Value")},true);add("ActionPressed","Input",{S
 add("Print","Debug",{E("In"),S("Text")},{E("Then")});
 add("PlaySound","Audio",{E("In"),S("Path"),N("Volume",1),N("Pitch",1)},{E("Then")});
 add("PlayAnimation","Animation",{E("In"),EntityPin(),S("Clip"),N("Speed",1)},{E("Then")});
+for (auto suffix : { "Float", "Bool", "Trigger" })
+{
+    Type type = std::string(suffix) == "Float" ? Type::Number : Type::Bool;
+    add("Animator.Get" + std::string(suffix), "Animator", { EntityPin(), S("Name") }, { { "Value", type, DefaultValue(type) } }, true);
+}
+add("Animator.State", "Animator", { EntityPin() }, { S("Name"), N("NormalizedTime"), B("Fading"), N("FadeProgress", 1), V("RootVelocity"), N("TurnRate") }, true);
+add("Animator.StateIs", "Animator", { EntityPin(), S("Name") }, { B("Value") }, true);
+add("Animator.BlendWeight", "Animator", { EntityPin(), N("Index") }, { N("Value") }, true);
+add("Animator.LayerWeight", "Animator", { EntityPin(), S("Name") }, { N("Value") }, true);
+add("Animator.SetFloat", "Animator", { E("In"), EntityPin(), S("Name"), N("Value") }, { E("Then"), B("Success") });
+add("Animator.SetFloatDamped", "Animator", { E("In"), EntityPin(), S("Name"), N("Value"), N("Damping", .1), N("Delta") }, { E("Then"), B("Success") });
+add("Animator.SetBool", "Animator", { E("In"), EntityPin(), S("Name"), B("Value") }, { E("Then"), B("Success") });
+for (auto name : { "SetTrigger", "ResetTrigger" }) add("Animator." + std::string(name), "Animator", { E("In"), EntityPin(), S("Name") }, { E("Then"), B("Success") });
+add("Animator.SetState", "Animator", { E("In"), EntityPin(), S("Name"), N("Fade", .2) }, { E("Then"), B("Success") });
+add("Animator.PlayClip", "Animator", { E("In"), EntityPin(), S("Clip"), N("Speed", 1), B("Loop", true), N("Fade", .2) }, { E("Then"), B("Success") });
+add("Animator.PlayLayer", "Animator", { E("In"), EntityPin(), S("Name"), S("Clip"), N("Speed", 1), B("Loop", true), N("Fade", .2) }, { E("Then"), B("Success") });
+add("Animator.SetLayerWeight", "Animator", { E("In"), EntityPin(), S("Name"), N("Weight", 1), N("Fade", .2) }, { E("Then"), B("Success") });
+
 add("SendMessage","Entities",{E("In"),EntityPin(),S("Name"),S("Text")},{E("Then")});
 add("SetUIText","UI",{E("In"),EntityPin(),S("Text")},{E("Then")});
 add("SetSpriteColor","Rendering",{E("In"),EntityPin(),V("Color",4)},{E("Then")});
@@ -893,6 +911,13 @@ return c; }();
                         {
                             Require(Matches(Type::Bool, result), "Invalid navigation operation result");
                             t.Results[n->ID] = { { "Success", result } };
+                        }
+                        if (k.starts_with("Animator."))
+                        {
+                            Require(result.is_object(), "Invalid Animator operation result");
+                            for (const auto& pin : Def(*n).Outputs)
+                                if (pin.Kind != Type::Exec) Require(result.contains(pin.Name) && Matches(pin.Kind, result.at(pin.Name)), "Invalid Animator result pin");
+                            t.Results[n->ID] = std::move(result);
                         }
                         if (k == "SpawnPrefab")
                         {

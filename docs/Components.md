@@ -325,11 +325,11 @@ _Inspektorda: **Mesh Renderer**; qo'shish: **+ Komponent → Render → Mesh Ren
 ### AnimatorComponent
 
 Teriga bog'langan (skinned) glTF modelning skeletal animatsiyalarini ijro etadi. Ikki usul: to'g'ridan-to'g'ri
-`Play("Walk", loop, speed, fade)`, yoki holat mashinasi — `Parameters` (float, bool, trigger), `States` (klip yoki 1D
-blend tree), `Transitions` (shartlar, exit time) — skript faqat parametr beradi (`SetFloat("Speed", v)`, `SetBool`,
+`Play("Walk", loop, speed, fade)`, yoki holat mashinasi — `Parameters` (float, bool, trigger), `States` (klip, 1D/2D
+blend), `Transitions` (shartlar, exit time, Priority, fade interruption) — skript faqat parametr beradi (`SetFloat("Speed", v)`, `SetBool`,
 `SetTrigger`). Qatlamlar (`Layers`, avatar niqobi bilan), root motion (`ApplyRootMotion`), event'lar (`Events`),
 ko'rinmaganda hisoblamaslik (`Culling`) va poza keshi (`CachePoses`). Grafni **Oyna → Animator grafi** da tahrirlash
-mumkin. Batafsil: [Animation.md](Animation.md); namuna: `Projects/Adventure3D` (Robot).
+mumkin. Modelsiz 2D holatlar uchun State Duration; typed parametr/damping va Blueprint ko‘prigi ham mavjud. Batafsil: [Animation.md](Animation.md); namunalar: `Projects/Adventure3D` (Robot), `Projects/VisualWorkshop`.
 
 <!-- gen:AnimatorComponent -->
 _Inspektorda: **Animator**; qo'shish: **+ Komponent → Render → Animator (skeletal)**; sahna faylida: `"Animator"`._
@@ -374,6 +374,7 @@ _Inspektorda: **Animator**; qo'shish: **+ Komponent → Render → Animator (ske
 | `Transitions` | `std::vector<AnimatorTransition>` | — |
 | `DefaultState` | `int` | `0` |
 | `CurrentState` _(faqat o'yin paytida)_ | `int` | `-1` |
+| `StateMachinePaused` _(faqat o'yin paytida)_ | `bool` | `false` |
 | `AnyStateGraphPosition` | `glm::vec2` | `{ 0.0f }` |
 <!-- /gen:AnimatorComponent -->
 

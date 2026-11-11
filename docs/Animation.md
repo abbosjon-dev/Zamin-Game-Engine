@@ -288,6 +288,66 @@ anim.SetFloat("Speed", speed);   // shuning o'zi yetarli
 
 ---
 
+### 7.1. Cartesian 2D blend field
+
+Holat turi **Blend field 2D**: ikki Float parametr (masalan `MoveX`, `MoveY`) motion'larning `(X,Y)` joylari orasida
+kliplarni aralashtiradi. Animator grafidagi **2D blend** tugmasi holat va ikkita parametrni yaratadi.
+O‘ng panelda nuqtalarni sudrash yoki Position maydonlarini tahrirlash mumkin; sariq xoch jonli parametrni ko‘rsatadi.
+Og‘irliklar manfiy bo‘lmaydi va jami 1 bo‘ladi. Hisoblash Cartesian gradient band usulida: har sample boshqa
+sample'lar yo‘nalishi bo‘yicha ta’sirini kamaytiradi, so‘ng natijalar normallashtiriladi. Bu triangulyatsiya yoki
+Unreal blend space bilan aynan bir xil algoritm degani emas.
+
+| Nuqta | Klip | Position |
+|---|---|---|
+| Markaz | Idle | (0, 0) |
+| O‘ng | StrafeRight | (1, 0) |
+| Chap | StrafeLeft | (-1, 0) |
+| Old | WalkForward | (0, 1) |
+| Orqa | WalkBack | (0, -1) |
+
+Bir xil joydagi sample'larning birinchisi ishlaydi; editor diagnostikasi takrorni ko‘rsatadi. 1..64 motion;
+nonfinite koordinata hisobga olinmaydi. Kliplar 1D kabi bitta normalized fazani, og‘irlikli sikl davomiyligini,
+root motion va dominant klip event'larini ishlatadi. Qatlamlar va pose cache ikkala blend turiga ham qo‘llanadi.
+
+### 7.2. Parametrlar va o‘tish siyosati
+
+`SetFloat`, `SetBool`, `SetTrigger`, `ResetTrigger` muvaffaqiyatni bool bilan qaytaradi: yo‘q yoki boshqa turdagi
+parametr o‘zgarmaydi. Float nonfinite qiymatni rad etadi. `SetFloatDamped(name, target, dampingSeconds, delta)`
+exponential smoothing ishlatadi: vaqtni kichik qadamlarga bo‘lish natijani deyarli o‘zgartirmaydi.
+Damping 0 — darhol; musbat damping bilan Delta 0 — turgan joyida; manfiy/nonfinite vaqt rad etiladi.
+
+Transition **Ustuvorlik**: katta son avval, teng bo‘lsa yozilgan tartib. Faqat yutgan transition triggerlarni iste’mol qiladi.
+**Fade ichida o‘tish** o‘chirilsa joriy fade tugaguncha shart va trigger kutadi; yoqiq bo‘lsa faol destination holatidan
+yangi fade boshlanadi (oldingi aralash pose alohida snapshot qilinmaydi). Eski sahnalarda qiymat true va Priority 0.
+Yo‘q yoki noto‘g‘ri turdagi shart parametridan o‘tish bajarilmaydi. **Controller diagnostics** noto‘g‘ri nomlar,
+reference'lar, default index, timing va blend sample'larini ko‘rsatadi; C++ uchun `ValidateController(model)` mavjud.
+
+`SetState` va transition holat vaqtini qayta boshlaydi, hatto ikki holat bir klipni ishlatsa ham. Self transition ham
+qayta boshlaydi. Eski sahna formatlari va 1D motion threshold'lari saqlanadi.
+
+### 7.3. Modelsiz 2D holatlar va Blueprint
+
+Animator model bo‘lmagan obyektda ham holat mashinasi bo‘la oladi. **2D holat vaqti** (`AnimatorState::Duration`)
+0 dan katta bo‘lsa normalized clock, exit time va Animator event'lari ishlaydi. Klip holatida vaqt soniyada,
+blend holatida normalized fazada saqlanadi; non-loop holat oxirida to‘xtaydi. Duration 0 eski timing xatti-harakatini saqlaydi.
+Sprite/property kliplar avtomatik tanlanmaydi: holatga qarab Blueprint bilan rang/transform yoki `PlayAnimation`
+chaqiring. Shu usul bilan 2D va 3D bir xil parametr/o‘tish mantiqidan foydalanadi.
+
+Visual Script kutubxonasidagi **Animator** guruhida Set/GetFloat, Set/GetBool, Set/GetTrigger, ResetTrigger,
+SetFloatDamped, SetState, StateIs, State (nom, normalized vaqt, fade va root motion), BlendWeight,
+PlayClip, PlayLayer va LayerWeight/SetLayerWeight mavjud. Setter'larning Success chiqishi xatoni boshqarishga yordam beradi.
+Get noto‘g‘ri tur/reference, yo‘q Animator yoki chegaradan tashqari BlendWeight indeksi aniq diagnostika beradi.
+PlayClip state machine'ni runtime'da pauza qiladi; SetState uni qayta yoqadi. Play tugagach yangi nusxa controller bilan boshlanadi.
+
+[VisualWorkshop](../Projects/VisualWorkshop/VisualWorkshop.zproject) ikkala sahnada `AnimatorGameplay.zgraph` bilan
+2D blend → trigger/action → state resume → damping zanjirini compiler/game modulisiz bajaradi. 2D display holatga qarab
+rangini almashtiradi; 3D actor haqiqiy skinned model kliplarini aralashtiradi.
+
+```bash
+python3 Tests/animator_workflow_test.py --build build-review --exports
+ZAMIN_BUILD_DIR=build-review xvfb-run -a -s '-screen 0 1600x1000x24 -nolisten tcp' python3 Tests/animator_editor_test.py
+```
+
 ## 8. Qatlamlar va avatar maska
 
 **Qatlam** — asosiy animatsiya ustidan o'z klipini tananing bir qismida o'ynaydi (yuradi va qo'l silkitadi):

@@ -1,0 +1,85 @@
+{
+  "Format": "Zamin.VisualGraph",
+  "Version": 1,
+  "Variables": {},
+  "Nodes": [
+    {
+      "ID": 1,
+      "Kind": "Event.Update",
+      "X": 0,
+      "Y": 0,
+      "Inputs": {}
+    },
+    {
+      "ID": 2,
+      "Kind": "Animator.StateIs",
+      "X": 0,
+      "Y": 180,
+      "Inputs": {
+        "Target": 910,
+        "Name": "Action"
+      }
+    },
+    {
+      "ID": 3,
+      "Kind": "Branch",
+      "X": 250,
+      "Y": 0,
+      "Inputs": {}
+    },
+    {
+      "ID": 4,
+      "Kind": "SetSpriteColor",
+      "X": 500,
+      "Y": 0,
+      "Inputs": {
+        "Color": [
+          1,
+          0.25,
+          0.16,
+          1
+        ]
+      }
+    },
+    {
+      "ID": 5,
+      "Kind": "SetSpriteColor",
+      "X": 500,
+      "Y": 260,
+      "Inputs": {
+        "Color": [
+          0.4,
+          0.25,
+          1,
+          1
+        ]
+      }
+    }
+  ],
+  "Links": [
+    {
+      "From": 1,
+      "Output": "Then",
+      "To": 3,
+      "Input": "In"
+    },
+    {
+      "From": 2,
+      "Output": "Value",
+      "To": 3,
+      "Input": "Condition"
+    },
+    {
+      "From": 3,
+      "Output": "True",
+      "To": 4,
+      "Input": "In"
+    },
+    {
+      "From": 3,
+      "Output": "False",
+      "To": 5,
+      "Input": "In"
+    }
+  ]
+}

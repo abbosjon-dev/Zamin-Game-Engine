@@ -37,6 +37,7 @@ Bosh sahifa — [README](../README.md).
 | [Components.md](Components.md) | Barcha komponentlar ma'lumotnomasi: vazifasi, menyu yo'li, sahna kaliti, maydonlar jadvali |
 | [Rendering.md](Rendering.md) | Kameralar, 2D (sprite, atlas, tilemap, 2D yorug'lik), 3D (mesh, glTF, materiallar, yorug'lik, soyalar, osmon), post-processing, particle'lar |
 | [Physics.md](Physics.md) | 2D (Box2D) va 3D (Jolt) fizika: jismlar, collider'lar, joint'lar, effektorlar, Character Controller, so'rovlar, qatlamlar |
+| [GameplaySave.md](GameplaySave.md) | Stable-key health/inventory/interaction/AI saves, atomic slots, backup recovery and fresh-process prefab resume |
 | [GameplayAI.md](GameplayAI.md) | Patrol/chase/investigate/attack/return, hostile LOS, nav recovery and 2D/3D NPC prefab courses |
 | [GameplayRules.md](GameplayRules.md) | Shared health/shield, melee, death/respawn, inventory, transactional interaction and combat courses |
 | [Gameplay.md](Gameplay.md) | 2D/3D motor, follow/orbit camera, actual velocity Animator binding, persistent checkpoints and playable courses |

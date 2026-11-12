@@ -1,3 +1,4 @@
+#include <Zamin/Gameplay/SaveWorld.h>
 #include <Zamin/Scripting/Visual/VisualGraphHost.h>
 #include <Zamin/Scene/WorldStreaming.h>
 #include <Zamin/Gameplay/GameplayAI.h>
@@ -1897,5 +1898,53 @@ TEST(AIGameplayWorldQueryWaitAndPortalHandshakeArePreservedAndCancelled)
     CHECK(!scene->GetNavTraversalLink(actor));
     CHECK(!scene->CompleteNavTraversal(actor, 501, revision, ticket));
     CHECK(scene->GetWorldPosition(actor) == position);
+    manager.Stop();
+}
+
+TEST(GameSaveWorldStreamingRestoreCancelsQueriesAndInvalidatesPortalTickets)
+{
+    WorldFixture f;
+    ConfigureWorldAgent(f);
+    AsyncPolicy(f);
+    f.Manifest.Cells[1].Coordinate.x = 3;
+    f.Manifest.Cells[2].Coordinate.x = 6;
+    f.Policy.NavigationLinks = { { 501, { 2.5f, 5.5f }, { 32.5f, 5.5f }, 1, true, true }, { 502, { 35.5f, 5.5f }, { 62.5f, 5.5f }, 1, true, true } };
+    f.Save();
+    SceneManager manager;
+    auto scene = f.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 300; }));
+    auto actor = WorldAgent(*scene);
+    std::string error;
+    auto& rules = Gameplay::RuleWorld::For(*scene);
+    CHECK(rules.Configure(actor, { 100, 0, 0, 0, 2 }, false, error));
+    Gameplay::AISpec spec;
+    spec.Brain.TwoD = true;
+    spec.Brain.Leash = 80;
+    spec.Brain.Speed = 12;
+    spec.Tag = "Nobody";
+    spec.Relative = false;
+    spec.Eye = {};
+    spec.Points = { { 35.5f, 5.5f, 0 } };
+    spec.Recovery = { true, .1f, .1f, .05f, 2 };
+    auto& ai = Gameplay::AIWorld::For(*scene);
+    CHECK(ai.Configure(actor, actor, spec, false, error));
+    auto& saves = Gameplay::SaveWorld::For(*scene);
+    CHECK(saves.Bind(actor, "WorldAgent", error));
+    ai.Tick(1.f / 60);
+    CHECK(world->HasNavigationQuery(actor.GetUUID()));
+    auto pending = saves.Capture("WorldV1");
+    CHECK(saves.Restore(pending, "WorldV1").Success);
+    CHECK(!world->HasNavigationQuery(actor.GetUUID()));
+    CHECK(StepAsyncAgent(manager, [&] { return scene->GetNavTraversalLink(actor) == 501; }));
+    auto& nav = actor.GetComponent<NavAgentComponent>();
+    auto position = scene->GetWorldPosition(actor);
+    auto portal = saves.Capture("WorldV1");
+    const auto revision = nav.AtlasRevision, ticket = nav.TraversalTicket;
+    CHECK(saves.Restore(portal, "WorldV1").Success);
+    CHECK(!scene->GetNavTraversalLink(actor));
+    CHECK(!scene->CompleteNavTraversal(actor, 501, revision, ticket));
+    CHECK(scene->GetWorldPosition(actor) == position);
+    CHECK(nav.TraversalCompletions == 0);
     manager.Stop();
 }

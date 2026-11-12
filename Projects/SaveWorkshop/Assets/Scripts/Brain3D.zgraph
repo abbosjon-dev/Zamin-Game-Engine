@@ -1,0 +1,115 @@
+{
+  "Format": "Zamin.VisualGraph",
+  "Version": 1,
+  "Nodes": [
+    {
+      "ID": 1,
+      "Kind": "Event.Start",
+      "X": 0,
+      "Y": 0,
+      "Inputs": {}
+    },
+    {
+      "ID": 2,
+      "Kind": "Gameplay.HealthConfigure",
+      "X": 290,
+      "Y": 0,
+      "Inputs": {
+        "Maximum": 60,
+        "Team": 2,
+        "HitGrace": 0.05
+      }
+    },
+    {
+      "ID": 3,
+      "Kind": "Gameplay.AIConfigure",
+      "X": 580,
+      "Y": 0,
+      "Inputs": {
+        "TwoD": false,
+        "Points": [
+          [
+            0,
+            0,
+            -1.5
+          ],
+          [
+            0,
+            0,
+            1.5
+          ]
+        ],
+        "FieldOfView": 360,
+        "View": 6,
+        "Lose": 7,
+        "Near": 1,
+        "Memory": 0.6,
+        "Leash": 9,
+        "Speed": 3,
+        "Wait": 0.15,
+        "AttackEnter": 1.1,
+        "AttackExit": 1.3,
+        "Damage": 5,
+        "AttackCooldown": 0.5,
+        "Stall": 0.5,
+        "RecoveryCooldown": 0.2,
+        "Retries": 4,
+        "Eye": [
+          0,
+          1,
+          0
+        ],
+        "Tag": "Nobody"
+      }
+    },
+    {
+      "ID": 4,
+      "Kind": "Branch",
+      "X": 870,
+      "Y": 0,
+      "Inputs": {}
+    },
+    {
+      "ID": 5,
+      "Kind": "Print",
+      "X": 1160,
+      "Y": 0,
+      "Inputs": {
+        "Text": "AI_CONFIG_FAILED"
+      }
+    }
+  ],
+  "Links": [
+    {
+      "From": 1,
+      "Output": "Then",
+      "To": 2,
+      "Input": "In"
+    },
+    {
+      "From": 2,
+      "Output": "Then",
+      "To": 3,
+      "Input": "In"
+    },
+    {
+      "From": 3,
+      "Output": "Then",
+      "To": 4,
+      "Input": "In"
+    },
+    {
+      "From": 3,
+      "Output": "Success",
+      "To": 4,
+      "Input": "Condition"
+    },
+    {
+      "From": 4,
+      "Output": "False",
+      "To": 5,
+      "Input": "In"
+    }
+  ],
+  "Variables": {}
+}

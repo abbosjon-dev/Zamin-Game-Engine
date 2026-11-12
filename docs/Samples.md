@@ -19,6 +19,11 @@ Ishga tushirish: editor launcher'ida **Namuna o'yinlar** kartasini bosing yoki p
 ZAMIN_DEMO=1 ./build/bin/ZaminPlayer Projects/Racing   # demo: bot o'ynaydi
 ```
 
+## Compiler-free save/resume
+
+[SaveWorkshop](../Projects/SaveWorkshop/README.md): health, inventory, ishlatilgan interaction,
+AI va prefab slotlarini yangi jarayondan tiklash. WASD / E / Ctrl / Space. [Save qo‘llanmasi](GameplaySave.md).
+
 ## Compiler-free AI workshop
 
 [AIWorkshop](../Projects/AIWorkshop/README.md): 2D/3D patrol, chase, attack, investigate, return,

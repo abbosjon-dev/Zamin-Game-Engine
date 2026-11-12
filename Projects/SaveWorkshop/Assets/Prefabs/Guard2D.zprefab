@@ -1,0 +1,91 @@
+{
+  "ZaminEntities": 1,
+  "Entities": [
+    {
+      "Entity": 1,
+      "Tag": "Persistent guard",
+      "Tags": [
+        "Enemy"
+      ],
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "NativeScript": {
+        "Class": "Zamin.VisualGraph",
+        "Fields": {
+          "Graph": {
+            "Type": "String",
+            "Value": "Scripts/Brain2D.zgraph"
+          }
+        }
+      },
+      "NavAgent": {
+        "Grid": 0,
+        "Speed": 3,
+        "Radius": 0.3,
+        "StoppingDistance": 0.1,
+        "RepathInterval": 0.5,
+        "UpdateRotation": true,
+        "Crowd": {
+          "Enabled": true
+        }
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "GravityScale": 0,
+        "FixedRotation": true
+      },
+      "BoxCollider2D": {
+        "Size": [
+          0.35,
+          0.35
+        ],
+        "Friction": 0
+      }
+    },
+    {
+      "Entity": 2,
+      "Tag": "Reinforcement visual",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0.05
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.7,
+          0.7,
+          1
+        ]
+      },
+      "Parent": 1,
+      "SpriteRenderer": {
+        "Color": [
+          0.68,
+          0.35,
+          1,
+          1
+        ]
+      }
+    }
+  ]
+}

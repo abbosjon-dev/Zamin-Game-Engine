@@ -51,7 +51,8 @@ configured dead actor and invalidates cached jump/facing state across deaths, in
 stays active so its graph can wait for respawn and update its HUD; death does not automatically
 destroy bodies, hide meshes or create a ragdoll. The sample deactivates a defeated enemy explicitly.
 Respawn keeps the bag and already-used pickups/doors within the same run, avoiding duplicate rewards.
-The checkpoint remains an actor position/rotation save; health and inventory are not disk-persistent.
+The checkpoint remains an actor position/rotation save. Use [opt-in gameplay snapshots](GameplaySave.md)
+for disk-persistent health, inventory, interaction and AI; RulesWorkshop itself does not bind save slots.
 
 ## Atomic interaction
 

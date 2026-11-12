@@ -22,6 +22,26 @@ saqlanadi; ulardagi belgi yangi imkoniyatning ishlayotganiga dalil o'rnini bosma
 | P7 Platforma, release va mahsulot | Linux/Windows, keyin macOS; cook/package/update/crash telemetry; editor/launcher yagona auth | Toza mashinada install/export/run, talablar va litsenziyalar, imzolangan release va rollback sinovi | Rejada |
 | P8 Yakuniy sifat darvozasi | Hujjatlar, ko'chirish yo'li, ikki namunaviy o'yin va profiling hisobotlari | Uzoq sessiya, resurs sizishi, recovery/fuzz, reference sahnalarda barqaror frame time va foydalanish sinovi | Rejada |
 
+### Yakunlangan bo‘lim — gameplay save/load
+
+- [x] Strict bounded versioned snapshot codec with integrity checks and stable entity keys.
+- [x] Atomic slots, validated backup recovery, per-scene I/O and spawn budgets.
+- [x] Health/bag/interaction/AI/pose restoration and persistent prefab-slot bindings.
+- [x] 2D/3D fresh-process resume, real Blueprint authoring, Player/export/screenshots.
+- [x] Native, sanitizer, regression, documentation and main push.
+
+Dalillar (2026-11-12): 1118/1118 unit (41 yangi), 11/11 headless CTest, 12/12 render.
+Pure SaveModel/RulesModel ASan/UBSan/LSan: 14/14. SaveModel, SaveWorld, SaveGraph va
+GameplayRuntime TU’lari instrumentlangan owner probe: 41/41, LeakSanitizer bilan; Scene,
+serializer, physics, VM va qolgan shared engine normal build. Bu butun engine sanitizer run’i emas.
+Clang 18 syntax-only -Werror: 9 ta TU. Real ImGui: SaveBind/SaveWrite/SaveLoad add/save/Undo.
+SaveWorkshop generatori deterministik, konfiguratsiya mosligi va root-only slot shartlari
+[GameplaySave.md](GameplaySave.md) da. Hisobot/skrinshotlar: `build-review/GameplaySave/`.
+2D/3D Player write/fresh-process resume/corrupt-primary backup, Editor write/resume va compiler-free
+export write/resume/real relocated resume: 150 kadrdan, jami 12 workflow tekshiruvi.
+Native HP/bag/used-door/AI arrivals/player pose/prefab-slot oracle’lari o‘tdi; relocation faqat
+--version bilan cheklanmagan. Software Mesa; physical GPU vaqt byudjeti o‘lchanmagan.
+
 ### Yakunlangan bo‘lim — AI gameplay
 
 - [x] Pure patrol/chase/investigate/attack/return FSM, memory/leash and attack hysteresis.
@@ -65,10 +85,12 @@ bog‘liq multi-frame taxmini activation gate bilan deterministik qilindi; 10/10
 Hisobot va rasmlar: `build-review/GameplayRules/`. Software Mesa; physical GPU byudjeti o‘lchanmagan.
 Graph configure input’lari saqlanadi; health/inventory holati runtime-only. [Shartlar](GameplayRules.md).
 
-Keyingi yirik paket: gameplay save/load — health/inventory/AI/spawn holatlari uchun versiyalangan
-snapshot, atomik yozish va buzilgan save’dan tiklash; 2D/3D fresh-process resume, Blueprint
-authoring va eksportda qayta davom ettirish dalillari. Bu checkpoint transform saqlashdan kengroq
-alohida bosqich; hozir tayyor deb belgilanmaydi.
+Gameplay save/load yuqoridagi paketda davom ettirildi. To‘liq ECS/VM/physics snapshot,
+avtomatik ixtiyoriy obyekt resurrection va katta dunyoning async saqlashi alohida qoladi.
+
+Keyingi yirik paket: gameplay UI — reusable HUD/inventory/progress panellari, native holatga
+binding, pause/menu va keyboard/gamepad fokus boshqaruvi; 2D/3D o‘ynaladigan namunada input,
+resolution/scale, save-resume hamda export acceptance bilan yakunlash.
 
 ### Yakunlangan bo‘lim — motor, kamera, locomotion va checkpoint
 

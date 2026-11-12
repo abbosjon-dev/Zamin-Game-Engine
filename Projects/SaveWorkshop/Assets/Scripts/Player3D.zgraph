@@ -1,0 +1,502 @@
+{
+  "Format": "Zamin.VisualGraph",
+  "Version": 1,
+  "Nodes": [
+    {
+      "ID": 1,
+      "Kind": "Event.Start",
+      "X": 0,
+      "Y": 0,
+      "Inputs": {}
+    },
+    {
+      "ID": 2,
+      "Kind": "Gameplay.HealthConfigure",
+      "X": 290,
+      "Y": 0,
+      "Inputs": {
+        "Maximum": 1000,
+        "HitGrace": 0,
+        "Team": 1
+      }
+    },
+    {
+      "ID": 3,
+      "Kind": "Gameplay.InventoryConfigure",
+      "X": 580,
+      "Y": 0,
+      "Inputs": {
+        "Slots": 8,
+        "Stack": 99
+      }
+    },
+    {
+      "ID": 4,
+      "Kind": "Gameplay.SaveBind",
+      "X": 870,
+      "Y": 0,
+      "Inputs": {
+        "Key": "Player"
+      }
+    },
+    {
+      "ID": 5,
+      "Kind": "Event.Update",
+      "X": 1160,
+      "Y": 0,
+      "Inputs": {}
+    },
+    {
+      "ID": 6,
+      "Kind": "Gameplay.Input",
+      "X": 1450,
+      "Y": 0,
+      "Inputs": {}
+    },
+    {
+      "ID": 7,
+      "Kind": "Get.Bool",
+      "X": 1740,
+      "Y": 0,
+      "Inputs": {
+        "Name": "Auto"
+      }
+    },
+    {
+      "ID": 8,
+      "Kind": "Branch",
+      "X": 0,
+      "Y": 340,
+      "Inputs": {}
+    },
+    {
+      "ID": 9,
+      "Kind": "Set.Vec2",
+      "X": 290,
+      "Y": 340,
+      "Inputs": {
+        "Name": "Move"
+      }
+    },
+    {
+      "ID": 10,
+      "Kind": "ReadState.Number",
+      "X": 580,
+      "Y": 340,
+      "Inputs": {
+        "Key": "Save.Move"
+      }
+    },
+    {
+      "ID": 11,
+      "Kind": "MakeVec2",
+      "X": 870,
+      "Y": 340,
+      "Inputs": {}
+    },
+    {
+      "ID": 12,
+      "Kind": "Set.Vec2",
+      "X": 1160,
+      "Y": 340,
+      "Inputs": {
+        "Name": "Move"
+      }
+    },
+    {
+      "ID": 13,
+      "Kind": "Get.Vec2",
+      "X": 1450,
+      "Y": 340,
+      "Inputs": {
+        "Name": "Move"
+      }
+    },
+    {
+      "ID": 14,
+      "Kind": "Gameplay.Motor3D",
+      "X": 1740,
+      "Y": 340,
+      "Inputs": {
+        "Speed": 4
+      }
+    },
+    {
+      "ID": 15,
+      "Kind": "Event.Update",
+      "X": 0,
+      "Y": 680,
+      "Inputs": {}
+    },
+    {
+      "ID": 16,
+      "Kind": "ActionJustPressed",
+      "X": 290,
+      "Y": 680,
+      "Inputs": {
+        "Name": "Interact"
+      }
+    },
+    {
+      "ID": 17,
+      "Kind": "Branch",
+      "X": 580,
+      "Y": 680,
+      "Inputs": {}
+    },
+    {
+      "ID": 18,
+      "Kind": "SendMessage",
+      "X": 870,
+      "Y": 680,
+      "Inputs": {
+        "Target": 900,
+        "Name": "Progress"
+      }
+    },
+    {
+      "ID": 19,
+      "Kind": "Event.Update",
+      "X": 1160,
+      "Y": 680,
+      "Inputs": {}
+    },
+    {
+      "ID": 20,
+      "Kind": "ActionJustPressed",
+      "X": 1450,
+      "Y": 680,
+      "Inputs": {
+        "Name": "Fire"
+      }
+    },
+    {
+      "ID": 21,
+      "Kind": "Branch",
+      "X": 1740,
+      "Y": 680,
+      "Inputs": {}
+    },
+    {
+      "ID": 22,
+      "Kind": "SendMessage",
+      "X": 0,
+      "Y": 1020,
+      "Inputs": {
+        "Target": 900,
+        "Name": "Save"
+      }
+    },
+    {
+      "ID": 23,
+      "Kind": "Event.Update",
+      "X": 290,
+      "Y": 1020,
+      "Inputs": {}
+    },
+    {
+      "ID": 24,
+      "Kind": "ActionJustPressed",
+      "X": 580,
+      "Y": 1020,
+      "Inputs": {
+        "Name": "Jump"
+      }
+    },
+    {
+      "ID": 25,
+      "Kind": "Branch",
+      "X": 870,
+      "Y": 1020,
+      "Inputs": {}
+    },
+    {
+      "ID": 26,
+      "Kind": "SendMessage",
+      "X": 1160,
+      "Y": 1020,
+      "Inputs": {
+        "Target": 900,
+        "Name": "Load"
+      }
+    },
+    {
+      "ID": 27,
+      "Kind": "Event.LateUpdate",
+      "X": 1450,
+      "Y": 1020,
+      "Inputs": {}
+    },
+    {
+      "ID": 28,
+      "Kind": "Gameplay.Health",
+      "X": 1740,
+      "Y": 1020,
+      "Inputs": {}
+    },
+    {
+      "ID": 29,
+      "Kind": "Gameplay.InventoryCount",
+      "X": 0,
+      "Y": 1360,
+      "Inputs": {
+        "Item": "Coin"
+      }
+    },
+    {
+      "ID": 30,
+      "Kind": "NumberToText",
+      "X": 290,
+      "Y": 1360,
+      "Inputs": {}
+    },
+    {
+      "ID": 31,
+      "Kind": "NumberToText",
+      "X": 580,
+      "Y": 1360,
+      "Inputs": {}
+    },
+    {
+      "ID": 32,
+      "Kind": "Concat",
+      "X": 870,
+      "Y": 1360,
+      "Inputs": {
+        "A": "HP "
+      }
+    },
+    {
+      "ID": 33,
+      "Kind": "Concat",
+      "X": 1160,
+      "Y": 1360,
+      "Inputs": {
+        "B": " | Coins "
+      }
+    },
+    {
+      "ID": 34,
+      "Kind": "Concat",
+      "X": 1450,
+      "Y": 1360,
+      "Inputs": {}
+    },
+    {
+      "ID": 35,
+      "Kind": "SetUIText",
+      "X": 1740,
+      "Y": 1360,
+      "Inputs": {
+        "Target": 1003
+      }
+    }
+  ],
+  "Links": [
+    {
+      "From": 1,
+      "Output": "Then",
+      "To": 2,
+      "Input": "In"
+    },
+    {
+      "From": 2,
+      "Output": "Then",
+      "To": 3,
+      "Input": "In"
+    },
+    {
+      "From": 3,
+      "Output": "Then",
+      "To": 4,
+      "Input": "In"
+    },
+    {
+      "From": 5,
+      "Output": "Then",
+      "To": 8,
+      "Input": "In"
+    },
+    {
+      "From": 7,
+      "Output": "Value",
+      "To": 8,
+      "Input": "Condition"
+    },
+    {
+      "From": 8,
+      "Output": "False",
+      "To": 9,
+      "Input": "In"
+    },
+    {
+      "From": 6,
+      "Output": "Move",
+      "To": 9,
+      "Input": "Value"
+    },
+    {
+      "From": 10,
+      "Output": "Value",
+      "To": 11,
+      "Input": "X"
+    },
+    {
+      "From": 8,
+      "Output": "True",
+      "To": 12,
+      "Input": "In"
+    },
+    {
+      "From": 11,
+      "Output": "Value",
+      "To": 12,
+      "Input": "Value"
+    },
+    {
+      "From": 9,
+      "Output": "Then",
+      "To": 14,
+      "Input": "In"
+    },
+    {
+      "From": 12,
+      "Output": "Then",
+      "To": 14,
+      "Input": "In"
+    },
+    {
+      "From": 13,
+      "Output": "Value",
+      "To": 14,
+      "Input": "Move"
+    },
+    {
+      "From": 5,
+      "Output": "Delta",
+      "To": 14,
+      "Input": "Delta"
+    },
+    {
+      "From": 6,
+      "Output": "Enabled",
+      "To": 14,
+      "Input": "Enabled"
+    },
+    {
+      "From": 15,
+      "Output": "Then",
+      "To": 17,
+      "Input": "In"
+    },
+    {
+      "From": 16,
+      "Output": "Value",
+      "To": 17,
+      "Input": "Condition"
+    },
+    {
+      "From": 17,
+      "Output": "True",
+      "To": 18,
+      "Input": "In"
+    },
+    {
+      "From": 19,
+      "Output": "Then",
+      "To": 21,
+      "Input": "In"
+    },
+    {
+      "From": 20,
+      "Output": "Value",
+      "To": 21,
+      "Input": "Condition"
+    },
+    {
+      "From": 21,
+      "Output": "True",
+      "To": 22,
+      "Input": "In"
+    },
+    {
+      "From": 23,
+      "Output": "Then",
+      "To": 25,
+      "Input": "In"
+    },
+    {
+      "From": 24,
+      "Output": "Value",
+      "To": 25,
+      "Input": "Condition"
+    },
+    {
+      "From": 25,
+      "Output": "True",
+      "To": 26,
+      "Input": "In"
+    },
+    {
+      "From": 28,
+      "Output": "Current",
+      "To": 30,
+      "Input": "Number"
+    },
+    {
+      "From": 29,
+      "Output": "Count",
+      "To": 31,
+      "Input": "Number"
+    },
+    {
+      "From": 30,
+      "Output": "Value",
+      "To": 32,
+      "Input": "B"
+    },
+    {
+      "From": 32,
+      "Output": "Value",
+      "To": 33,
+      "Input": "A"
+    },
+    {
+      "From": 33,
+      "Output": "Value",
+      "To": 34,
+      "Input": "A"
+    },
+    {
+      "From": 31,
+      "Output": "Value",
+      "To": 34,
+      "Input": "B"
+    },
+    {
+      "From": 27,
+      "Output": "Then",
+      "To": 35,
+      "Input": "In"
+    },
+    {
+      "From": 34,
+      "Output": "Value",
+      "To": 35,
+      "Input": "Text"
+    }
+  ],
+  "Variables": {
+    "Auto": {
+      "Type": "Bool",
+      "Default": false
+    },
+    "Move": {
+      "Type": "Vec2",
+      "Default": [
+        0,
+        0
+      ]
+    }
+  }
+}

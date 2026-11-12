@@ -57,6 +57,7 @@ imkoniyatlar, kod bo'ylab sayohat):*
   [Chegaralar va sozlash](docs/Terrain.md).
 - **Fizika** — 2D (Box2D) va 3D (Jolt): collider'lar, joint'lar, effektorlar, Character Controller, so'rovlar,
   to'qnashuv qatlamlari, determinizm — [Physics.md](docs/Physics.md)
+- **Gameplay save/load** — [barqaror kalitli snapshot, atomik slot va backup](docs/GameplaySave.md), compiler-free SaveWorkshop.
 - **Gameplay AI** — [patrol/chase/attack/investigate/return, LOS va nav recovery](docs/GameplayAI.md), compiler-free 2D/3D AIWorkshop.
 - **Combat va interaction** — [health/shield, inventory, kalit/collectible va respawn](docs/GameplayRules.md), compiler-free RulesWorkshop.
 - **Gameplay** — [2D/3D motor, kamera va checkpoint](docs/Gameplay.md), compiler-free GameplayWorkshop kurslari.

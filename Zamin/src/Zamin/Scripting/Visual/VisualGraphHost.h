@@ -8,6 +8,7 @@ namespace Zamin {
     class VisualGraphHost final : public ScriptableEntity
     {
     public:
+        void InvalidateGameplayState() { m_Gameplay.Reset(); }
         std::string Graph, Overrides;
         Visual::Machine VM;
         void OnCreate() override;

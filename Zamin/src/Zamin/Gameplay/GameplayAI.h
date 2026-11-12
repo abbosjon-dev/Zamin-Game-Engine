@@ -53,6 +53,7 @@ namespace Zamin::Gameplay {
         std::optional<AIEvent> Poll(Entity);
         size_t Count() const { return m_Records.size(); }
     private:
+        friend class SaveWorld;
         struct Record
         {
             uint32_t Handle = ~0u, OwnerHandle = ~0u, TargetHandle = ~0u, Deaths = 0;

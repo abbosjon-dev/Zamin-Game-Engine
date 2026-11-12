@@ -41,6 +41,7 @@
 #include "Zamin/Core/GameState.h"
 #include "Zamin/Gameplay/GameplayRules.h"
 #include "Zamin/Gameplay/GameplayAI.h"
+#include "Zamin/Gameplay/SaveWorld.h"
 
 #include <algorithm>
 #include <cctype>
@@ -623,6 +624,7 @@ namespace Zamin {
         Time::ClearGameClock(this);
         if (m_ScriptsRunning)
             StopScripts();
+        Gameplay::ResetSaves(*this);
         Gameplay::ResetAI(*this);
         Gameplay::ResetRules(*this);
         OnPhysics2DStop();
@@ -2770,6 +2772,7 @@ namespace Zamin {
     {
         const auto startClock = std::chrono::steady_clock::now();
         m_RuntimeStartTiming = {};
+        Gameplay::ResetSaves(*this);
         Gameplay::ResetAI(*this);
         Gameplay::ResetRules(*this);
         m_IsRunning = true;
@@ -2850,6 +2853,7 @@ namespace Zamin {
         m_DeltaTime = 0.0f;
         Time::ClearGameClock(this);
         StopScripts();
+        Gameplay::ResetSaves(*this);
         Gameplay::ResetAI(*this);
         Gameplay::ResetRules(*this);
         OnPhysics2DStop();
@@ -5201,6 +5205,7 @@ namespace Zamin {
         m_FrameIndex++;
         Gameplay::BeginRulesFrame(*this);
         Gameplay::BeginAIFrame(*this);
+        Gameplay::BeginSaveFrame(*this);
         DeleteRetiredScripts(); // destroyed between frames (editor, other code)
         // The language changed (a language menu, last frame): scripts refresh the texts they make.
         DispatchLanguageChanged();

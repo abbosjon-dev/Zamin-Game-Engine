@@ -47,7 +47,8 @@ stop motion. Blocked is terminal until an explicit reset.
 `Gameplay::AIWorld::For(scene)` owns native records in that scene's registry, keyed by UUID plus
 generational handles for actor, owner and victim. Different scenes do not share controllers. Destroying
 and recreating an entity cannot inherit a prior brain. Prefabs configure independent controllers in
-their own OnStart. Configuration graph inputs are serialized; mutable AI state is runtime-only.
+their own OnStart. Configuration graph inputs are serialized; mutable AI state is separate from scene serialization.
+[Opt-in gameplay snapshots](GameplaySave.md) persist actors bound to stable save keys.
 Play stop/start clears records. Access is main-thread only.
 
 The scene ticks controllers after scripts and nav obstacles, before navigation movement. Scripts do

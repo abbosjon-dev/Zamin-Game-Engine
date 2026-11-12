@@ -77,6 +77,7 @@ namespace Zamin::Gameplay {
         size_t InteractionCount() const { return m_Interactions.size(); }
         double Now() const { return m_Now; }
     private:
+        friend class SaveWorld;
         struct Actor
         {
             uint32_t Handle = ~0u, Dropped = 0;

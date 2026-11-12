@@ -1,0 +1,1295 @@
+{
+  "Format": "Zamin.VisualGraph",
+  "Version": 1,
+  "Nodes": [
+    {
+      "ID": 1,
+      "Kind": "Event.Start",
+      "X": 0,
+      "Y": 0,
+      "Inputs": {}
+    },
+    {
+      "ID": 2,
+      "Kind": "Sequence",
+      "X": 280,
+      "Y": 0,
+      "Inputs": {}
+    },
+    {
+      "ID": 3,
+      "Kind": "WriteState.Bool",
+      "X": 560,
+      "Y": 0,
+      "Inputs": {
+        "Key": "Course.Moved",
+        "Value": false,
+        "Persistent": false
+      }
+    },
+    {
+      "ID": 4,
+      "Kind": "WriteState.Bool",
+      "X": 840,
+      "Y": 0,
+      "Inputs": {
+        "Key": "Course.Jumped",
+        "Value": false,
+        "Persistent": false
+      }
+    },
+    {
+      "ID": 5,
+      "Kind": "WriteState.Bool",
+      "X": 1120,
+      "Y": 0,
+      "Inputs": {
+        "Key": "Course.Checkpoint",
+        "Value": false,
+        "Persistent": false
+      }
+    },
+    {
+      "ID": 6,
+      "Kind": "WriteState.Bool",
+      "X": 1400,
+      "Y": 0,
+      "Inputs": {
+        "Key": "Course.Goal",
+        "Value": false,
+        "Persistent": false
+      }
+    },
+    {
+      "ID": 7,
+      "Kind": "WriteState.Bool",
+      "X": 1680,
+      "Y": 0,
+      "Inputs": {
+        "Key": "Course.Restored",
+        "Value": false,
+        "Persistent": false
+      }
+    },
+    {
+      "ID": 8,
+      "Kind": "WriteState.Bool",
+      "X": 0,
+      "Y": 300,
+      "Inputs": {
+        "Key": "Course.Complete",
+        "Value": false,
+        "Persistent": false
+      }
+    },
+    {
+      "ID": 9,
+      "Kind": "Gameplay.CheckpointCapture",
+      "X": 280,
+      "Y": 300,
+      "Inputs": {
+        "Slot": "Spawn",
+        "Persistent": false
+      }
+    },
+    {
+      "ID": 10,
+      "Kind": "Gameplay.CheckpointHas",
+      "X": 560,
+      "Y": 300,
+      "Inputs": {
+        "Slot": "Player2D"
+      }
+    },
+    {
+      "ID": 11,
+      "Kind": "Branch",
+      "X": 840,
+      "Y": 300,
+      "Inputs": {}
+    },
+    {
+      "ID": 12,
+      "Kind": "Gameplay.CheckpointRestore",
+      "X": 1120,
+      "Y": 300,
+      "Inputs": {
+        "Slot": "Player2D"
+      }
+    },
+    {
+      "ID": 13,
+      "Kind": "Gameplay.CheckpointCapture",
+      "X": 1400,
+      "Y": 300,
+      "Inputs": {
+        "Slot": "Player2D"
+      }
+    },
+    {
+      "ID": 14,
+      "Kind": "Branch",
+      "X": 1680,
+      "Y": 300,
+      "Inputs": {}
+    },
+    {
+      "ID": 15,
+      "Kind": "Print",
+      "X": 0,
+      "Y": 600,
+      "Inputs": {
+        "Text": "GAMEPLAY_RESUMED"
+      }
+    },
+    {
+      "ID": 16,
+      "Kind": "Event.Update",
+      "X": 280,
+      "Y": 600,
+      "Inputs": {}
+    },
+    {
+      "ID": 17,
+      "Kind": "Sequence",
+      "X": 560,
+      "Y": 600,
+      "Inputs": {}
+    },
+    {
+      "ID": 18,
+      "Kind": "Gameplay.Input",
+      "X": 840,
+      "Y": 600,
+      "Inputs": {}
+    },
+    {
+      "ID": 19,
+      "Kind": "Get.Bool",
+      "X": 1120,
+      "Y": 600,
+      "Inputs": {
+        "Name": "Auto"
+      }
+    },
+    {
+      "ID": 20,
+      "Kind": "Branch",
+      "X": 1400,
+      "Y": 600,
+      "Inputs": {}
+    },
+    {
+      "ID": 21,
+      "Kind": "ReadState.Number",
+      "X": 1680,
+      "Y": 600,
+      "Inputs": {
+        "Key": "Course.AutoMove"
+      }
+    },
+    {
+      "ID": 22,
+      "Kind": "MakeVec2",
+      "X": 0,
+      "Y": 900,
+      "Inputs": {}
+    },
+    {
+      "ID": 23,
+      "Kind": "ReadState.Bool",
+      "X": 280,
+      "Y": 900,
+      "Inputs": {
+        "Key": "Course.AutoJump"
+      }
+    },
+    {
+      "ID": 24,
+      "Kind": "ReadState.Bool",
+      "X": 560,
+      "Y": 900,
+      "Inputs": {
+        "Key": "Course.AutoHeld",
+        "Default": true
+      }
+    },
+    {
+      "ID": 25,
+      "Kind": "Set.Vec2",
+      "X": 840,
+      "Y": 900,
+      "Inputs": {
+        "Name": "RawMove"
+      }
+    },
+    {
+      "ID": 26,
+      "Kind": "Set.Vec2",
+      "X": 1120,
+      "Y": 900,
+      "Inputs": {
+        "Name": "RawMove"
+      }
+    },
+    {
+      "ID": 27,
+      "Kind": "Set.Bool",
+      "X": 1400,
+      "Y": 900,
+      "Inputs": {
+        "Name": "RawJump"
+      }
+    },
+    {
+      "ID": 28,
+      "Kind": "Set.Bool",
+      "X": 1680,
+      "Y": 900,
+      "Inputs": {
+        "Name": "RawJump"
+      }
+    },
+    {
+      "ID": 29,
+      "Kind": "Set.Bool",
+      "X": 0,
+      "Y": 1200,
+      "Inputs": {
+        "Name": "RawHeld"
+      }
+    },
+    {
+      "ID": 30,
+      "Kind": "Set.Bool",
+      "X": 280,
+      "Y": 1200,
+      "Inputs": {
+        "Name": "RawHeld"
+      }
+    },
+    {
+      "ID": 31,
+      "Kind": "ReadState.Bool",
+      "X": 560,
+      "Y": 1200,
+      "Inputs": {
+        "Key": "Course.Complete"
+      }
+    },
+    {
+      "ID": 32,
+      "Kind": "Not",
+      "X": 840,
+      "Y": 1200,
+      "Inputs": {}
+    },
+    {
+      "ID": 33,
+      "Kind": "And",
+      "X": 1120,
+      "Y": 1200,
+      "Inputs": {}
+    },
+    {
+      "ID": 34,
+      "Kind": "Gameplay.Motor2D",
+      "X": 1400,
+      "Y": 1200,
+      "Inputs": {}
+    },
+    {
+      "ID": 35,
+      "Kind": "Get.Vec2",
+      "X": 1680,
+      "Y": 1200,
+      "Inputs": {
+        "Name": "RawMove"
+      }
+    },
+    {
+      "ID": 36,
+      "Kind": "Get.Bool",
+      "X": 0,
+      "Y": 1500,
+      "Inputs": {
+        "Name": "RawJump"
+      }
+    },
+    {
+      "ID": 37,
+      "Kind": "Get.Bool",
+      "X": 280,
+      "Y": 1500,
+      "Inputs": {
+        "Name": "RawHeld"
+      }
+    },
+    {
+      "ID": 38,
+      "Kind": "Branch",
+      "X": 560,
+      "Y": 1500,
+      "Inputs": {}
+    },
+    {
+      "ID": 39,
+      "Kind": "WriteState.Bool",
+      "X": 840,
+      "Y": 1500,
+      "Inputs": {
+        "Key": "Course.Jumped",
+        "Value": true,
+        "Persistent": false
+      }
+    },
+    {
+      "ID": 40,
+      "Kind": "Gameplay.BindAnimator",
+      "X": 1120,
+      "Y": 1500,
+      "Inputs": {
+        "Target": 810,
+        "Source": 800,
+        "TwoD": true
+      }
+    },
+    {
+      "ID": 41,
+      "Kind": "Set.Number",
+      "X": 1400,
+      "Y": 1500,
+      "Inputs": {
+        "Name": "Speed"
+      }
+    },
+    {
+      "ID": 42,
+      "Kind": "Set.Bool",
+      "X": 1680,
+      "Y": 1500,
+      "Inputs": {
+        "Name": "Grounded"
+      }
+    },
+    {
+      "ID": 43,
+      "Kind": "Greater",
+      "X": 0,
+      "Y": 1800,
+      "Inputs": {
+        "B": 0.2
+      }
+    },
+    {
+      "ID": 44,
+      "Kind": "Branch",
+      "X": 280,
+      "Y": 1800,
+      "Inputs": {}
+    },
+    {
+      "ID": 45,
+      "Kind": "WriteState.Bool",
+      "X": 560,
+      "Y": 1800,
+      "Inputs": {
+        "Key": "Course.Moved",
+        "Value": true,
+        "Persistent": false
+      }
+    },
+    {
+      "ID": 46,
+      "Kind": "ActionJustPressed",
+      "X": 840,
+      "Y": 1800,
+      "Inputs": {
+        "Name": "Interact"
+      }
+    },
+    {
+      "ID": 47,
+      "Kind": "And",
+      "X": 1120,
+      "Y": 1800,
+      "Inputs": {}
+    },
+    {
+      "ID": 48,
+      "Kind": "Branch",
+      "X": 1400,
+      "Y": 1800,
+      "Inputs": {}
+    },
+    {
+      "ID": 49,
+      "Kind": "EmitEvent",
+      "X": 1680,
+      "Y": 1800,
+      "Inputs": {
+        "Name": "Restore"
+      }
+    },
+    {
+      "ID": 50,
+      "Kind": "Gameplay.Motion",
+      "X": 0,
+      "Y": 2100,
+      "Inputs": {
+        "TwoD": true
+      }
+    },
+    {
+      "ID": 51,
+      "Kind": "BreakVec3",
+      "X": 280,
+      "Y": 2100,
+      "Inputs": {}
+    },
+    {
+      "ID": 52,
+      "Kind": "Less",
+      "X": 560,
+      "Y": 2100,
+      "Inputs": {
+        "B": -6
+      }
+    },
+    {
+      "ID": 53,
+      "Kind": "Branch",
+      "X": 840,
+      "Y": 2100,
+      "Inputs": {}
+    },
+    {
+      "ID": 54,
+      "Kind": "Event.Message",
+      "X": 1120,
+      "Y": 2100,
+      "Inputs": {}
+    },
+    {
+      "ID": 55,
+      "Kind": "TextEqual",
+      "X": 1400,
+      "Y": 2100,
+      "Inputs": {
+        "B": "Restore"
+      }
+    },
+    {
+      "ID": 56,
+      "Kind": "Branch",
+      "X": 1680,
+      "Y": 2100,
+      "Inputs": {}
+    },
+    {
+      "ID": 57,
+      "Kind": "Event.Custom",
+      "X": 0,
+      "Y": 2400,
+      "Inputs": {
+        "Name": "Restore"
+      }
+    },
+    {
+      "ID": 58,
+      "Kind": "Gameplay.CheckpointRestore",
+      "X": 280,
+      "Y": 2400,
+      "Inputs": {
+        "Slot": "Player2D"
+      }
+    },
+    {
+      "ID": 59,
+      "Kind": "Branch",
+      "X": 560,
+      "Y": 2400,
+      "Inputs": {}
+    },
+    {
+      "ID": 60,
+      "Kind": "Gameplay.CheckpointRestore",
+      "X": 840,
+      "Y": 2400,
+      "Inputs": {
+        "Slot": "Spawn",
+        "Persistent": false
+      }
+    },
+    {
+      "ID": 61,
+      "Kind": "Branch",
+      "X": 1120,
+      "Y": 2400,
+      "Inputs": {}
+    },
+    {
+      "ID": 62,
+      "Kind": "WriteState.Bool",
+      "X": 1400,
+      "Y": 2400,
+      "Inputs": {
+        "Key": "Course.Restored",
+        "Value": true,
+        "Persistent": false
+      }
+    },
+    {
+      "ID": 63,
+      "Kind": "WriteState.Bool",
+      "X": 1680,
+      "Y": 2400,
+      "Inputs": {
+        "Key": "Course.Complete",
+        "Value": false,
+        "Persistent": false
+      }
+    },
+    {
+      "ID": 64,
+      "Kind": "SetUIText",
+      "X": 0,
+      "Y": 2700,
+      "Inputs": {
+        "Target": 1002,
+        "Text": "Checkpoint restored - reach the green gate"
+      }
+    },
+    {
+      "ID": 65,
+      "Kind": "Event.TriggerBegin",
+      "X": 280,
+      "Y": 2700,
+      "Inputs": {}
+    },
+    {
+      "ID": 66,
+      "Kind": "Sequence",
+      "X": 560,
+      "Y": 2700,
+      "Inputs": {}
+    },
+    {
+      "ID": 67,
+      "Kind": "HasTag",
+      "X": 840,
+      "Y": 2700,
+      "Inputs": {
+        "Tag": "Checkpoint"
+      }
+    },
+    {
+      "ID": 68,
+      "Kind": "Branch",
+      "X": 1120,
+      "Y": 2700,
+      "Inputs": {}
+    },
+    {
+      "ID": 69,
+      "Kind": "Gameplay.CheckpointCapture",
+      "X": 1400,
+      "Y": 2700,
+      "Inputs": {
+        "Slot": "Player2D"
+      }
+    },
+    {
+      "ID": 70,
+      "Kind": "Branch",
+      "X": 1680,
+      "Y": 2700,
+      "Inputs": {}
+    },
+    {
+      "ID": 71,
+      "Kind": "WriteState.Bool",
+      "X": 0,
+      "Y": 3000,
+      "Inputs": {
+        "Key": "Course.Checkpoint",
+        "Value": true,
+        "Persistent": false
+      }
+    },
+    {
+      "ID": 72,
+      "Kind": "SetUIText",
+      "X": 280,
+      "Y": 3000,
+      "Inputs": {
+        "Target": 1002,
+        "Text": "Checkpoint saved - jump over the coral wall"
+      }
+    },
+    {
+      "ID": 73,
+      "Kind": "HasTag",
+      "X": 560,
+      "Y": 3000,
+      "Inputs": {
+        "Tag": "Goal"
+      }
+    },
+    {
+      "ID": 74,
+      "Kind": "Branch",
+      "X": 840,
+      "Y": 3000,
+      "Inputs": {}
+    },
+    {
+      "ID": 75,
+      "Kind": "WriteState.Bool",
+      "X": 1120,
+      "Y": 3000,
+      "Inputs": {
+        "Key": "Course.Goal",
+        "Value": true,
+        "Persistent": false
+      }
+    },
+    {
+      "ID": 76,
+      "Kind": "WriteState.Bool",
+      "X": 1400,
+      "Y": 3000,
+      "Inputs": {
+        "Key": "Course.Complete",
+        "Value": true,
+        "Persistent": false
+      }
+    },
+    {
+      "ID": 77,
+      "Kind": "SetUIText",
+      "X": 1680,
+      "Y": 3000,
+      "Inputs": {
+        "Target": 1002,
+        "Text": "Course complete! E - replay from checkpoint"
+      }
+    },
+    {
+      "ID": 78,
+      "Kind": "Print",
+      "X": 0,
+      "Y": 3300,
+      "Inputs": {
+        "Text": "GAMEPLAY_GOAL_REACHED"
+      }
+    }
+  ],
+  "Links": [
+    {
+      "From": 1,
+      "Output": "Then",
+      "To": 2,
+      "Input": "In"
+    },
+    {
+      "From": 2,
+      "Output": "First",
+      "To": 3,
+      "Input": "In"
+    },
+    {
+      "From": 3,
+      "Output": "Then",
+      "To": 4,
+      "Input": "In"
+    },
+    {
+      "From": 4,
+      "Output": "Then",
+      "To": 5,
+      "Input": "In"
+    },
+    {
+      "From": 5,
+      "Output": "Then",
+      "To": 6,
+      "Input": "In"
+    },
+    {
+      "From": 6,
+      "Output": "Then",
+      "To": 7,
+      "Input": "In"
+    },
+    {
+      "From": 7,
+      "Output": "Then",
+      "To": 8,
+      "Input": "In"
+    },
+    {
+      "From": 2,
+      "Output": "Second",
+      "To": 9,
+      "Input": "In"
+    },
+    {
+      "From": 9,
+      "Output": "Then",
+      "To": 11,
+      "Input": "In"
+    },
+    {
+      "From": 10,
+      "Output": "Value",
+      "To": 11,
+      "Input": "Condition"
+    },
+    {
+      "From": 11,
+      "Output": "True",
+      "To": 12,
+      "Input": "In"
+    },
+    {
+      "From": 11,
+      "Output": "False",
+      "To": 13,
+      "Input": "In"
+    },
+    {
+      "From": 12,
+      "Output": "Then",
+      "To": 14,
+      "Input": "In"
+    },
+    {
+      "From": 12,
+      "Output": "Success",
+      "To": 14,
+      "Input": "Condition"
+    },
+    {
+      "From": 14,
+      "Output": "True",
+      "To": 15,
+      "Input": "In"
+    },
+    {
+      "From": 16,
+      "Output": "Then",
+      "To": 17,
+      "Input": "In"
+    },
+    {
+      "From": 17,
+      "Output": "First",
+      "To": 20,
+      "Input": "In"
+    },
+    {
+      "From": 19,
+      "Output": "Value",
+      "To": 20,
+      "Input": "Condition"
+    },
+    {
+      "From": 21,
+      "Output": "Value",
+      "To": 22,
+      "Input": "X"
+    },
+    {
+      "From": 18,
+      "Output": "Move",
+      "To": 25,
+      "Input": "Value"
+    },
+    {
+      "From": 22,
+      "Output": "Value",
+      "To": 26,
+      "Input": "Value"
+    },
+    {
+      "From": 18,
+      "Output": "Jump",
+      "To": 27,
+      "Input": "Value"
+    },
+    {
+      "From": 23,
+      "Output": "Value",
+      "To": 28,
+      "Input": "Value"
+    },
+    {
+      "From": 18,
+      "Output": "JumpHeld",
+      "To": 29,
+      "Input": "Value"
+    },
+    {
+      "From": 24,
+      "Output": "Value",
+      "To": 30,
+      "Input": "Value"
+    },
+    {
+      "From": 20,
+      "Output": "False",
+      "To": 25,
+      "Input": "In"
+    },
+    {
+      "From": 20,
+      "Output": "True",
+      "To": 26,
+      "Input": "In"
+    },
+    {
+      "From": 25,
+      "Output": "Then",
+      "To": 27,
+      "Input": "In"
+    },
+    {
+      "From": 27,
+      "Output": "Then",
+      "To": 29,
+      "Input": "In"
+    },
+    {
+      "From": 26,
+      "Output": "Then",
+      "To": 28,
+      "Input": "In"
+    },
+    {
+      "From": 28,
+      "Output": "Then",
+      "To": 30,
+      "Input": "In"
+    },
+    {
+      "From": 31,
+      "Output": "Value",
+      "To": 32,
+      "Input": "A"
+    },
+    {
+      "From": 18,
+      "Output": "Enabled",
+      "To": 33,
+      "Input": "A"
+    },
+    {
+      "From": 32,
+      "Output": "Value",
+      "To": 33,
+      "Input": "B"
+    },
+    {
+      "From": 29,
+      "Output": "Then",
+      "To": 34,
+      "Input": "In"
+    },
+    {
+      "From": 30,
+      "Output": "Then",
+      "To": 34,
+      "Input": "In"
+    },
+    {
+      "From": 35,
+      "Output": "Value",
+      "To": 34,
+      "Input": "Move"
+    },
+    {
+      "From": 36,
+      "Output": "Value",
+      "To": 34,
+      "Input": "Jump"
+    },
+    {
+      "From": 37,
+      "Output": "Value",
+      "To": 34,
+      "Input": "JumpHeld"
+    },
+    {
+      "From": 16,
+      "Output": "Delta",
+      "To": 34,
+      "Input": "Delta"
+    },
+    {
+      "From": 33,
+      "Output": "Value",
+      "To": 34,
+      "Input": "Enabled"
+    },
+    {
+      "From": 18,
+      "Output": "Sprint",
+      "To": 34,
+      "Input": "Sprint"
+    },
+    {
+      "From": 34,
+      "Output": "Then",
+      "To": 38,
+      "Input": "In"
+    },
+    {
+      "From": 34,
+      "Output": "Jumped",
+      "To": 38,
+      "Input": "Condition"
+    },
+    {
+      "From": 38,
+      "Output": "True",
+      "To": 39,
+      "Input": "In"
+    },
+    {
+      "From": 38,
+      "Output": "False",
+      "To": 40,
+      "Input": "In"
+    },
+    {
+      "From": 39,
+      "Output": "Then",
+      "To": 40,
+      "Input": "In"
+    },
+    {
+      "From": 16,
+      "Output": "Delta",
+      "To": 40,
+      "Input": "Delta"
+    },
+    {
+      "From": 40,
+      "Output": "Then",
+      "To": 41,
+      "Input": "In"
+    },
+    {
+      "From": 41,
+      "Output": "Then",
+      "To": 42,
+      "Input": "In"
+    },
+    {
+      "From": 40,
+      "Output": "Speed",
+      "To": 41,
+      "Input": "Value"
+    },
+    {
+      "From": 40,
+      "Output": "Grounded",
+      "To": 42,
+      "Input": "Value"
+    },
+    {
+      "From": 40,
+      "Output": "Speed",
+      "To": 43,
+      "Input": "A"
+    },
+    {
+      "From": 42,
+      "Output": "Then",
+      "To": 44,
+      "Input": "In"
+    },
+    {
+      "From": 43,
+      "Output": "Value",
+      "To": 44,
+      "Input": "Condition"
+    },
+    {
+      "From": 44,
+      "Output": "True",
+      "To": 45,
+      "Input": "In"
+    },
+    {
+      "From": 46,
+      "Output": "Value",
+      "To": 47,
+      "Input": "A"
+    },
+    {
+      "From": 18,
+      "Output": "Enabled",
+      "To": 47,
+      "Input": "B"
+    },
+    {
+      "From": 17,
+      "Output": "Second",
+      "To": 48,
+      "Input": "In"
+    },
+    {
+      "From": 47,
+      "Output": "Value",
+      "To": 48,
+      "Input": "Condition"
+    },
+    {
+      "From": 48,
+      "Output": "True",
+      "To": 49,
+      "Input": "In"
+    },
+    {
+      "From": 50,
+      "Output": "Position",
+      "To": 51,
+      "Input": "Vector"
+    },
+    {
+      "From": 51,
+      "Output": "Y",
+      "To": 52,
+      "Input": "A"
+    },
+    {
+      "From": 17,
+      "Output": "Third",
+      "To": 53,
+      "Input": "In"
+    },
+    {
+      "From": 52,
+      "Output": "Value",
+      "To": 53,
+      "Input": "Condition"
+    },
+    {
+      "From": 53,
+      "Output": "True",
+      "To": 49,
+      "Input": "In"
+    },
+    {
+      "From": 54,
+      "Output": "Text",
+      "To": 55,
+      "Input": "A"
+    },
+    {
+      "From": 54,
+      "Output": "Then",
+      "To": 56,
+      "Input": "In"
+    },
+    {
+      "From": 55,
+      "Output": "Value",
+      "To": 56,
+      "Input": "Condition"
+    },
+    {
+      "From": 56,
+      "Output": "True",
+      "To": 49,
+      "Input": "In"
+    },
+    {
+      "From": 57,
+      "Output": "Then",
+      "To": 58,
+      "Input": "In"
+    },
+    {
+      "From": 58,
+      "Output": "Then",
+      "To": 59,
+      "Input": "In"
+    },
+    {
+      "From": 58,
+      "Output": "Success",
+      "To": 59,
+      "Input": "Condition"
+    },
+    {
+      "From": 59,
+      "Output": "False",
+      "To": 60,
+      "Input": "In"
+    },
+    {
+      "From": 60,
+      "Output": "Then",
+      "To": 61,
+      "Input": "In"
+    },
+    {
+      "From": 60,
+      "Output": "Success",
+      "To": 61,
+      "Input": "Condition"
+    },
+    {
+      "From": 59,
+      "Output": "True",
+      "To": 62,
+      "Input": "In"
+    },
+    {
+      "From": 61,
+      "Output": "True",
+      "To": 62,
+      "Input": "In"
+    },
+    {
+      "From": 62,
+      "Output": "Then",
+      "To": 63,
+      "Input": "In"
+    },
+    {
+      "From": 63,
+      "Output": "Then",
+      "To": 64,
+      "Input": "In"
+    },
+    {
+      "From": 65,
+      "Output": "Then",
+      "To": 66,
+      "Input": "In"
+    },
+    {
+      "From": 65,
+      "Output": "Other",
+      "To": 67,
+      "Input": "Target"
+    },
+    {
+      "From": 66,
+      "Output": "First",
+      "To": 68,
+      "Input": "In"
+    },
+    {
+      "From": 67,
+      "Output": "Value",
+      "To": 68,
+      "Input": "Condition"
+    },
+    {
+      "From": 68,
+      "Output": "True",
+      "To": 69,
+      "Input": "In"
+    },
+    {
+      "From": 69,
+      "Output": "Then",
+      "To": 70,
+      "Input": "In"
+    },
+    {
+      "From": 69,
+      "Output": "Success",
+      "To": 70,
+      "Input": "Condition"
+    },
+    {
+      "From": 70,
+      "Output": "True",
+      "To": 71,
+      "Input": "In"
+    },
+    {
+      "From": 71,
+      "Output": "Then",
+      "To": 72,
+      "Input": "In"
+    },
+    {
+      "From": 65,
+      "Output": "Other",
+      "To": 73,
+      "Input": "Target"
+    },
+    {
+      "From": 66,
+      "Output": "Second",
+      "To": 74,
+      "Input": "In"
+    },
+    {
+      "From": 73,
+      "Output": "Value",
+      "To": 74,
+      "Input": "Condition"
+    },
+    {
+      "From": 74,
+      "Output": "True",
+      "To": 75,
+      "Input": "In"
+    },
+    {
+      "From": 75,
+      "Output": "Then",
+      "To": 76,
+      "Input": "In"
+    },
+    {
+      "From": 76,
+      "Output": "Then",
+      "To": 77,
+      "Input": "In"
+    },
+    {
+      "From": 77,
+      "Output": "Then",
+      "To": 78,
+      "Input": "In"
+    }
+  ],
+  "Variables": {
+    "Auto": {
+      "Type": "Bool",
+      "Default": false
+    },
+    "Speed": {
+      "Type": "Number",
+      "Default": 0
+    },
+    "Grounded": {
+      "Type": "Bool",
+      "Default": false
+    },
+    "RawMove": {
+      "Type": "Vec2",
+      "Default": [
+        0,
+        0
+      ]
+    },
+    "RawJump": {
+      "Type": "Bool",
+      "Default": false
+    },
+    "RawHeld": {
+      "Type": "Bool",
+      "Default": true
+    }
+  }
+}

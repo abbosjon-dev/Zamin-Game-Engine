@@ -1,5 +1,6 @@
 #pragma once
 #include "VisualGraph.h"
+#include "Zamin/Gameplay/GameplayRuntime.h"
 #include "Zamin/Scripting/ScriptableEntity.h"
 #include "Zamin/Scripting/ScriptEngine.h"
 namespace Zamin {
@@ -11,24 +12,32 @@ namespace Zamin {
         Visual::Machine VM;
         void OnCreate() override;
         void OnUpdate(Timestep dt) override;
-        void OnLateUpdate(Timestep dt) override { Emit("LateUpdate", { { "Delta", (float)dt } }); }
+        void OnLateUpdate(Timestep dt) override
+        {
+            m_Gameplay.AfterPhysics();
+            Emit("LateUpdate", { { "Delta", (float)dt } });
+        }
         void Emit(const std::string& event, Visual::Value payload = Visual::Value::object());
 #define ZM_GRAPH_EVENT(name) \
     void On##name() override { Emit(#name); }
         ZM_GRAPH_EVENT(Enable)
         ZM_GRAPH_EVENT(Start)
-        ZM_GRAPH_EVENT(Disable) ZM_GRAPH_EVENT(Destroy)
-            ZM_GRAPH_EVENT(Click) ZM_GRAPH_EVENT(Select) ZM_GRAPH_EVENT(Deselect) ZM_GRAPH_EVENT(Cancel) ZM_GRAPH_EVENT(ParticlesFinished)
+        void OnDisable() override;
+        void OnDestroy() override;
+        ZM_GRAPH_EVENT(Click)
+        ZM_GRAPH_EVENT(Select)
+        ZM_GRAPH_EVENT(Deselect)
+        ZM_GRAPH_EVENT(Cancel) ZM_GRAPH_EVENT(ParticlesFinished)
 #undef ZM_GRAPH_EVENT
 #define ZM_GRAPH_ENTITY_EVENT(name) \
     void On##name(Entity e) override { Emit(#name, { { "Other", e ? (uint64_t)e.GetUUID() : 0ull } }); }
-                ZM_GRAPH_ENTITY_EVENT(CollisionBegin) ZM_GRAPH_ENTITY_EVENT(CollisionEnd) ZM_GRAPH_ENTITY_EVENT(TriggerBegin) ZM_GRAPH_ENTITY_EVENT(TriggerEnd) ZM_GRAPH_ENTITY_EVENT(TargetSpotted) ZM_GRAPH_ENTITY_EVENT(TargetLost)
+            ZM_GRAPH_ENTITY_EVENT(CollisionBegin) ZM_GRAPH_ENTITY_EVENT(CollisionEnd) ZM_GRAPH_ENTITY_EVENT(TriggerBegin) ZM_GRAPH_ENTITY_EVENT(TriggerEnd) ZM_GRAPH_ENTITY_EVENT(TargetSpotted) ZM_GRAPH_ENTITY_EVENT(TargetLost)
 #undef ZM_GRAPH_ENTITY_EVENT
 #define ZM_GRAPH_POINTER_EVENT(name) \
     void On##name(const UIPointerEvent& e) override { Emit(#name, { { "Other", e.Target ? (uint64_t)e.Target.GetUUID() : 0ull }, { "Vector", { e.Position.x, e.Position.y } }, { "Bool", e.Inside } }); }
-                    ZM_GRAPH_POINTER_EVENT(PointerEnter) ZM_GRAPH_POINTER_EVENT(PointerExit) ZM_GRAPH_POINTER_EVENT(PointerDown) ZM_GRAPH_POINTER_EVENT(PointerUp) ZM_GRAPH_POINTER_EVENT(PointerClick)
+                ZM_GRAPH_POINTER_EVENT(PointerEnter) ZM_GRAPH_POINTER_EVENT(PointerExit) ZM_GRAPH_POINTER_EVENT(PointerDown) ZM_GRAPH_POINTER_EVENT(PointerUp) ZM_GRAPH_POINTER_EVENT(PointerClick)
 #undef ZM_GRAPH_POINTER_EVENT
-                        void OnValueChanged(float v) override
+                    void OnValueChanged(float v) override
         {
             Emit("ValueChanged", { { "Number", v } });
         }
@@ -49,6 +58,7 @@ namespace Zamin {
         void OnJointBreak3D(const JointBreak3D& e) override { Emit("JointBreak3D", { { "Number", e.Force } }); }
     private:
         Visual::Value Bridge(const std::string&, const std::map<std::string, Visual::Value>&);
+        Gameplay::Runtime m_Gameplay;
         bool m_Reported = false;
         uint64_t m_TraversalLink = 0, m_TraversalRevision = 0;
     };

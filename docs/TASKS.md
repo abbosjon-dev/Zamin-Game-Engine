@@ -17,10 +17,37 @@ saqlanadi; ulardagi belgi yangi imkoniyatning ishlayotganiga dalil o'rnini bosma
 | P2 Kontent sifati va mualliflik | Terrain GPU qatlamlari/PBR, normal/roughness, atlas/cook, foliage, 2D palette/animation qulayligi | Haqiqiy assetli 2D/3D sahnalar, import/export/undo roundtrip, tekstura xotira byudjeti | GPU terrain v1 yakunlandi; qolgan kontent ishlari rejada |
 | P3 Dunyo va asset streaming | Disk kataklari, async load/unload, data layers, HLOD, floating origin, asset residency | Tez harakatda/cancel/reload'da yo'qolmagan obyektlar, chegaralangan RAM/VRAM, main thread'da og'ir IO yo'q | Runtime v2: LRU cleanup, observed pressure gate, terrain tiles va grid mosaic bajarildi; HLOD/floating origin/hard timing rejada |
 | P4 Rendererning keyingi avlodi | GPU timer v1 mavjud; render graph, Vulkan, temporal AA/upscaling, katta sahna visibility va yoritish | Drayver/physical GPU matritsasi, HDR/alpha/picking/shadow regressiyalari, reference hardware byudjeti | Rejada; virtual geometry va dinamik GI — alohida tadqiqot |
-| P5 Gameplay, animatsiya, fizika va UI | Mavjud 2D/3D tizimlarini production darajasida birlashtirish, katta kontent va gameplay workflow | Ikki tugallangan vertical slice, saqlash/yuklash, controller, animatsiya/fizika stress, UI input/scale testlari | Blueprint gameplay va Animator 1D/2D acceptance bajarildi; qolgan ishlar rejada |
+| P5 Gameplay, animatsiya, fizika va UI | Mavjud 2D/3D tizimlarini production darajasida birlashtirish, katta kontent va gameplay workflow | Ikki tugallangan vertical slice, saqlash/yuklash, controller, animatsiya/fizika stress, UI input/scale testlari | Blueprint gameplay, Animator 1D/2D va motor/camera/checkpoint zanjiri; qolgan ishlar rejada |
 | P6 Tarmoq va kengaytirish | Server authority, replication, latency compensation, plagin SDK/ABI, xavfsiz hot reload | Yo'qotilgan paket, kechikish, reconnect, versiya mos kelmasligi va plagin unload sinovlari | Rejada |
 | P7 Platforma, release va mahsulot | Linux/Windows, keyin macOS; cook/package/update/crash telemetry; editor/launcher yagona auth | Toza mashinada install/export/run, talablar va litsenziyalar, imzolangan release va rollback sinovi | Rejada |
 | P8 Yakuniy sifat darvozasi | Hujjatlar, ko'chirish yo'li, ikki namunaviy o'yin va profiling hisobotlari | Uzoq sessiya, resurs sizishi, recovery/fuzz, reference sahnalarda barqaror frame time va foydalanish sinovi | Rejada |
+
+### Yakunlangan bo‘lim — motor, kamera, locomotion va checkpoint
+
+- [x] 2D/3D motor: input, acceleration/deceleration, analog clamp, jump buffer/coyote/cut va lifecycle stop.
+- [x] 2D follow/3D orbit camera, damping, bounds, obstruction va restore snap.
+- [x] Actual physics velocity → typed Animator binding, reusable Blueprint authoring.
+- [x] Bounded checkpoint codec, atomic persistent save/load va physics-aware restore.
+- [x] O‘ynaladigan 2D/3D namunalar, UI/runtime/export, regression/sanitizer/screenshots va main push.
+
+Dalillar (2026-11-11): 988/988 unit (46 yangi), 11/11 headless CTest, 12/12 render.
+Motor/camera/codec leaf ASan/UBSan/LSan: 22/22. Gameplay uchta TU, graph VM/model/function va
+host instrumentlangan owner probe: 46/46, LeakSanitizer bilan. Scene/serializer/physics va qolgan
+shared engine bu mahalliy probe’da normal build; bu butun engine sanitizer run’i emas.
+Clang 18 syntax-only -Werror: 7 ta o‘zgargan TU. 2D/3D Player input replay (180 kadr), fresh-process
+resume (60), Editor auto-play (180), compiler-free export benchmark (180) va screenshot run (210)
+movement/jump/checkpoint/goal/restore oracle’laridan o‘tdi. Relocation launcher --version orqali tekshirildi.
+Haqiqiy ImGui authoring: motor/camera/checkpoint node search, save va Undo. CI ushbu ikki workflow’ni
+qaytaradi. Hisobot va rasmlar: `build-review/GameplayPackage/`; software Mesa, hardware byudjeti o‘lchanmagan.
+
+Bu paket movement → physics → animation → camera → checkpoint zanjirini yakunlaydi.
+Motorlar Rigidbody2D/CharacterController3D ustida ishlaydi; checkpoint actor transformini saqlaydi.
+To‘liq inventory/ECS snapshot, humanoid retargeting va cinematic camera bu paketga kirmaydi;
+checkpoint clearance to‘liq capsule-fit emas, markaziy probe. Shartlar [Gameplay.md](Gameplay.md) da.
+
+Keyingi yirik bo‘lim: reusable gameplay rules — health/damage/death/respawn, interaction va trigger
+routing, combat/collectible namunasi, Blueprint authoring va eksport orqali yakuniy acceptance.
+P2 kontent va P3/P4 world/renderer vazifalari yuqoridagi umumiy rejada saqlanadi.
 
 ### Yakunlangan bo‘lim — Animator gameplay va 2D blend
 

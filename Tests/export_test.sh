@@ -12,6 +12,7 @@
 #      then points into the new place (the launcher rewrites it).
 #   Tests/export_test.sh                             Platformer2D, 120 frames
 #   Tests/export_test.sh --project Projects/Adventure3D --frames 60
+#   Tests/export_test.sh --shot-frames 210          longer gameplay acceptance screenshot run
 #   Tests/export_test.sh --keep                      keep the temporary folder (the export, the logs)
 #   Tests/export_test.sh --work /tmp/zamin-export    use (and keep) that folder
 #   Tests/export_test.sh --out DIR                   the logs, reports and the screenshot copied there (CI artefacts)
@@ -27,6 +28,7 @@ build="${ZAMIN_BUILD_DIR:-$root/build}"
 editor="$build/bin/ZaminEditor"
 project="$root/Projects/Platformer2D"
 frames=120
+shot_frames=90
 keep=0
 work=""
 out=""
@@ -35,6 +37,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --project) project="$2"; shift 2 ;;
         --frames) frames="$2"; shift 2 ;;
+        --shot-frames) shot_frames="$2"; shift 2 ;;
         --keep) keep=1; shift ;;
         --work) work="$2"; keep=1; shift 2 ;;
         --out) out="$2"; shift 2 ;;
@@ -43,6 +46,10 @@ while [[ $# -gt 0 ]]; do
         *) echo "noma'lum variant: $1 (--help)" >&2; exit 2 ;;
     esac
 done
+if [[ ! "$shot_frames" =~ ^[1-9][0-9]{0,4}$ ]]; then
+    echo "--shot-frames: musbat butun son kerak (1..99999)" >&2
+    exit 2
+fi
 if [[ ! -x "$editor" || ! -x "$build/bin/ZaminPlayer" ]]; then
     echo "ZaminEditor / ZaminPlayer topilmadi: $build/bin (avval: cmake --build \"$build\")" >&2
     exit 2
@@ -150,7 +157,7 @@ fi
 # 4. Headless again, its last frame saved: the picture shows the game (not a black or empty window).
 shot="$work/game.png"
 rm -f "$shot"
-HOME="$work/home" ZAMIN_MAX_FRAMES=90 ZAMIN_SCREENSHOT="$shot" "${runner[@]}" "$launcher" --windowed --resolution 1280x720 \
+HOME="$work/home" ZAMIN_MAX_FRAMES="$shot_frames" ZAMIN_SCREENSHOT="$shot" "${runner[@]}" "$launcher" --windowed --resolution 1280x720 \
     --log-file "$work/player-shot.log" >"$work/player-shot-stdout.log" 2>&1
 code=$?
 if [[ $code -eq 0 ]]; then pass "eksport qilingan o'yin skrinshot bilan ishladi (chiqish kodi 0)"; else fail "skrinshotli ishga tushirish: chiqish kodi $code"; fi

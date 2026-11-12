@@ -140,6 +140,7 @@ add("Not","Logic",{B("A")},{B("Value")},true);
 add("Clamp","Math",{N("Value"),N("Min"),N("Max",1)},{N("Value")},true);
 add("Lerp","Math",{N("A"),N("B",1),N("T",0.5)},{N("Value")},true);
 add("Concat","Text",{S("A"),S("B")},{S("Value")},true);
+add("TextEqual", "Text", { S("A"), S("B") }, { B("Value") }, true);
 add("NumberToText","Text",{N("Number")},{S("Value")},true);
 for(int dim=2;dim<=4;++dim){std::vector<Pin> p;for(int i=0;i<dim;++i)p.push_back(N(std::string(1,"XYZW"[i]).c_str()));add("MakeVec"+std::to_string(dim),"Vectors",p,{V("Value",dim)},true);add("BreakVec"+std::to_string(dim),"Vectors",{V("Vector",dim)},p,true);add("ScaleVec"+std::to_string(dim),"Vectors",{V("Vector",dim),N("Scale",1)},{V("Value",dim)},true);add("AddVec"+std::to_string(dim),"Vectors",{V("A",dim),V("B",dim)},{V("Value",dim)},true);}
 add("Self","Entities",{},{EntityPin("Value")},true);
@@ -160,6 +161,33 @@ add("GetVelocity2D","Physics 2D",{EntityPin()},{V("Value",2)},true);add("GetVelo
 add("Axis","Input",{S("Name")},{N("Value")},true);add("ActionPressed","Input",{S("Name")},{B("Value")},true);add("ActionJustPressed","Input",{S("Name")},{B("Value")},true);
 add("Print","Debug",{E("In"),S("Text")},{E("Then")});
 add("PlaySound","Audio",{E("In"),S("Path"),N("Volume",1),N("Pitch",1)},{E("Then")});
+
+add("Gameplay.Input", "Gameplay input", { EntityPin(), S("Move", "Move"), S("Jump", "Jump"), S("Sprint", "Sprint"), B("Enabled", true) }, { V("Move", 2), V("Look", 2), B("Jump"), B("JumpHeld"), B("Sprint"), B("Enabled") }, true);
+add("Gameplay.Motion", "Gameplay motion", { EntityPin(), B("TwoD"), B("TopDown"), N("GroundMask", 65535) }, { V("Velocity"), N("Speed"), B("Grounded"), V("Position") }, true);
+for (bool twoD : { true, false })
+{
+    std::vector<Pin> inputs = { E("In"), EntityPin(), V("Move", 2), B("Jump"), B("JumpHeld", true), B("Sprint"), B("Enabled", true), N("Delta"), N("Speed", 5), N("Acceleration", 30), N("Deceleration", 35), N("AirControl", .35), N("SprintMultiplier", 1.6), N("JumpSpeed", 8), N("Coyote", .1), N("JumpBuffer", .12), N("JumpCut", .5), N("Probe", .12), N("GroundMask", 65535) };
+    if (twoD) inputs.push_back(B("TopDown"));
+    else inputs.push_back(EntityPin("Camera"));
+    add(twoD ? "Gameplay.Motor2D" : "Gameplay.Motor3D", "Gameplay motor", inputs, { E("Then"), V("Velocity"), B("Jumped"), B("Grounded"), N("Facing", 1) });
+}
+add("Gameplay.BindAnimator", "Gameplay animation", { E("In"), EntityPin(), EntityPin("Source"), B("TwoD"), B("TopDown"), S("SpeedParameter", "Speed"), S("HorizontalParameter", "MoveX"), S("ForwardParameter", "MoveY"), S("VerticalParameter", "VerticalSpeed"), S("GroundedParameter", "Grounded"), N("ReferenceSpeed", 5), N("Damping", .1), N("Delta"), N("GroundMask", 65535) }, { E("Then"), B("Success"), N("Speed"), B("Grounded") });
+add("Gameplay.Camera", "Gameplay camera", { E("In"), EntityPin(), EntityPin("Anchor"), { "Eye", Type::Vec3, Value::array({ 0., 1., 0. }) }, { "Offset", Type::Vec3, Value::array({ 0., 2., 6. }) }, V("Look", 2), B("Orbit"), N("Delta"), N("Damping", .15), N("Sensitivity", .003), N("SnapDistance", 5), B("Snap"), N("Radius", .2), N("Mask", 65535), { "BoundsMin", Type::Vec2, Value::array({ -1000000., -1000000. }) }, { "BoundsMax", Type::Vec2, Value::array({ 1000000., 1000000. }) } }, { E("Then"), V("Position"), B("Blocked") });
+for (auto op : { "Capture", "Restore", "Clear", "Has" })
+{
+    const bool pure = std::string(op) == "Has";
+    std::vector<Pin> inputs;
+    if (!pure) inputs.push_back(E("In"));
+    inputs.push_back(EntityPin());
+    inputs.push_back(S("Slot", "Player"));
+    inputs.push_back(B("Persistent", true));
+    if (std::string(op) == "Restore")
+    {
+        inputs.push_back(N("Clearance", .1));
+        inputs.push_back(N("Mask", 65535));
+    }
+    add("Gameplay.Checkpoint" + std::string(op), "Gameplay checkpoint", inputs, pure ? std::vector<Pin>{ B("Value") } : std::vector<Pin>{ E("Then"), B("Success"), S("Reason") }, pure);
+}
 add("PlayAnimation","Animation",{E("In"),EntityPin(),S("Clip"),N("Speed",1)},{E("Then")});
 for (auto suffix : { "Float", "Bool", "Trigger" })
 {
@@ -601,6 +629,7 @@ return c; }();
             double a = num("A");
             r = a + (num("B") - a) * num("T");
         }
+        else if (k == "TextEqual") r = in("A") == in("B");
         else if (k == "Concat") r = in("A").get<std::string>() + in("B").get<std::string>();
         else if (k == "NumberToText") r = in("Number").dump();
         else if (k.starts_with("MakeVec"))
@@ -912,7 +941,7 @@ return c; }();
                             Require(Matches(Type::Bool, result), "Invalid navigation operation result");
                             t.Results[n->ID] = { { "Success", result } };
                         }
-                        if (k.starts_with("Animator."))
+                        if (k.starts_with("Animator.") || k.starts_with("Gameplay."))
                         {
                             Require(result.is_object(), "Invalid Animator operation result");
                             for (const auto& pin : Def(*n).Outputs)

@@ -37,6 +37,7 @@ Bosh sahifa — [README](../README.md).
 | [Components.md](Components.md) | Barcha komponentlar ma'lumotnomasi: vazifasi, menyu yo'li, sahna kaliti, maydonlar jadvali |
 | [Rendering.md](Rendering.md) | Kameralar, 2D (sprite, atlas, tilemap, 2D yorug'lik), 3D (mesh, glTF, materiallar, yorug'lik, soyalar, osmon), post-processing, particle'lar |
 | [Physics.md](Physics.md) | 2D (Box2D) va 3D (Jolt) fizika: jismlar, collider'lar, joint'lar, effektorlar, Character Controller, so'rovlar, qatlamlar |
+| [Gameplay.md](Gameplay.md) | 2D/3D motor, follow/orbit camera, actual velocity Animator binding, persistent checkpoints and playable courses |
 | [Animation.md](Animation.md) | Property kliplar va timeline, skelet animatsiya, Animator, 1D/2D blend, Blueprint boshqaruvi, qatlamlar, root motion, sprite kliplar, tween'lar |
 | [UI.md](UI.md) | Ekran UI: langarlar va layout, vidjetlar, matn, hodisalar, navigatsiya, UI animatsiyalari, pauza menyusi |
 | [Audio.md](Audio.md) | Audio Source va bir martalik ovozlar, 3D ovoz, mixer guruhlari, musiqa, filtrlar, ambient zonalar |

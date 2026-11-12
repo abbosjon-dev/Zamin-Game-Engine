@@ -1,0 +1,581 @@
+{
+  "Version": 5,
+  "Scene": "Gameplay 2D",
+  "Settings": {
+    "DrawSky": false,
+    "Ambient": 0.5,
+    "SkyTop": [
+      0.035,
+      0.065,
+      0.12
+    ],
+    "SkyHorizon": [
+      0.25,
+      0.38,
+      0.5
+    ]
+  },
+  "Entities": [
+    {
+      "Entity": 800,
+      "Tag": "Player",
+      "Tags": [
+        "Player"
+      ],
+      "Transform": {
+        "Translation": [
+          0,
+          1,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "NativeScript": {
+        "Class": "Zamin.VisualGraph",
+        "Fields": {
+          "Graph": {
+            "Type": "String",
+            "Value": "Scripts/Player2D.zgraph"
+          }
+        }
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": true
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0.8
+        ],
+        "Size": [
+          0.4,
+          0.8
+        ],
+        "Friction": 0
+      }
+    },
+    {
+      "Entity": 810,
+      "Tag": "Player visual",
+      "Parent": 800,
+      "Transform": {
+        "Translation": [
+          0,
+          0.8,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.8,
+          1.6,
+          1
+        ]
+      },
+      "Animator": {
+        "Parameters": [
+          {
+            "Name": "Speed",
+            "Type": 0,
+            "Value": 0
+          },
+          {
+            "Name": "MoveX",
+            "Type": 0,
+            "Value": 0
+          },
+          {
+            "Name": "MoveY",
+            "Type": 0,
+            "Value": 0
+          },
+          {
+            "Name": "VerticalSpeed",
+            "Type": 0,
+            "Value": 0
+          },
+          {
+            "Name": "Grounded",
+            "Type": 1,
+            "Value": 0
+          }
+        ],
+        "DefaultState": 0,
+        "States": [
+          {
+            "Name": "Locomotion",
+            "Type": "BlendTree2D",
+            "BlendParameter": "MoveX",
+            "BlendParameterY": "MoveY",
+            "Duration": 1,
+            "Graph": [
+              40,
+              80
+            ],
+            "Motions": [
+              {
+                "Clip": "Wave",
+                "Speed": 1,
+                "Position": [
+                  0,
+                  0
+                ]
+              },
+              {
+                "Clip": "Twist",
+                "Speed": 1,
+                "Position": [
+                  1,
+                  0
+                ]
+              },
+              {
+                "Clip": "Sway",
+                "Speed": 1,
+                "Position": [
+                  -1,
+                  0
+                ]
+              }
+            ]
+          },
+          {
+            "Name": "Air",
+            "Clip": "Sway",
+            "Duration": 0.5,
+            "Graph": [
+              380,
+              80
+            ]
+          }
+        ],
+        "Transitions": [
+          {
+            "From": 0,
+            "To": 1,
+            "Fade": 0.1,
+            "Priority": 5,
+            "Conditions": [
+              {
+                "Parameter": "Grounded",
+                "Op": 3
+              }
+            ]
+          },
+          {
+            "From": 1,
+            "To": 0,
+            "Fade": 0.12,
+            "Conditions": [
+              {
+                "Parameter": "Grounded",
+                "Op": 2
+              }
+            ]
+          }
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.52,
+          0.31,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 801,
+      "Tag": "Follow camera",
+      "Transform": {
+        "Translation": [
+          0,
+          3,
+          10
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Camera": {
+        "Primary": true,
+        "ProjectionType": 1,
+        "OrthographicSize": 7,
+        "OrthographicNear": -100,
+        "OrthographicFar": 100,
+        "PerspectiveFOV": 0.85,
+        "PerspectiveNear": 0.05,
+        "PerspectiveFar": 100,
+        "ClearColor": [
+          0.025,
+          0.035,
+          0.065,
+          1
+        ]
+      },
+      "NativeScript": {
+        "Class": "Zamin.VisualGraph",
+        "Fields": {
+          "Graph": {
+            "Type": "String",
+            "Value": "Scripts/Camera2D.zgraph"
+          }
+        }
+      }
+    },
+    {
+      "Entity": 802,
+      "Tag": "Stage",
+      "Transform": {
+        "Translation": [
+          4,
+          -0.5,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          24,
+          1,
+          1
+        ]
+      },
+      "Tags": [],
+      "Rigidbody2D": {
+        "BodyType": "Static"
+      },
+      "BoxCollider2D": {
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "IsSensor": false
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.13,
+          0.22,
+          0.31,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 803,
+      "Tag": "Jump wall",
+      "Transform": {
+        "Translation": [
+          5,
+          0.75,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.7,
+          1.5,
+          1
+        ]
+      },
+      "Tags": [],
+      "Rigidbody2D": {
+        "BodyType": "Static"
+      },
+      "BoxCollider2D": {
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "IsSensor": false
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.96,
+          0.38,
+          0.26,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 804,
+      "Tag": "Checkpoint",
+      "Transform": {
+        "Translation": [
+          2,
+          1,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.6,
+          2,
+          1
+        ]
+      },
+      "Tags": [
+        "Checkpoint"
+      ],
+      "Rigidbody2D": {
+        "BodyType": "Static"
+      },
+      "BoxCollider2D": {
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "IsSensor": true
+      },
+      "SpriteRenderer": {
+        "Color": [
+          1,
+          0.72,
+          0.25,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 805,
+      "Tag": "Finish",
+      "Transform": {
+        "Translation": [
+          8.5,
+          1.5,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.2,
+          3,
+          1
+        ]
+      },
+      "Tags": [
+        "Goal"
+      ],
+      "Rigidbody2D": {
+        "BodyType": "Static"
+      },
+      "BoxCollider2D": {
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "IsSensor": true
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.19,
+          0.83,
+          0.57,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 900,
+      "Tag": "Course director",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "NativeScript": {
+        "Class": "Zamin.VisualGraph",
+        "Fields": {
+          "Graph": {
+            "Type": "String",
+            "Value": "Scripts/CourseDirector.zgraph"
+          }
+        }
+      }
+    },
+    {
+      "Entity": 1000,
+      "Tag": "HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UICanvas": {
+        "ScaleMode": "ScaleWithScreenSize",
+        "ReferenceResolution": [
+          1280,
+          720
+        ]
+      }
+    },
+    {
+      "Entity": 1001,
+      "Tag": "Instructions",
+      "Parent": 1000,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          24,
+          -24
+        ],
+        "Size": [
+          1200,
+          44
+        ],
+        "FontSize": 21
+      },
+      "Text": {
+        "Text": "WASD / arrows  \u2022  Space jump  \u2022  Shift sprint  \u2022  E checkpoint",
+        "Color": [
+          0.84,
+          0.9,
+          1,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Top"
+      }
+    },
+    {
+      "Entity": 1002,
+      "Tag": "Course status",
+      "Parent": 1000,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          24,
+          -62
+        ],
+        "Size": [
+          1200,
+          44
+        ],
+        "FontSize": 23
+      },
+      "Text": {
+        "Text": "Reach the golden checkpoint, jump the wall, enter the green gate",
+        "Color": [
+          1,
+          0.85,
+          0.46,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Top"
+      }
+    }
+  ]
+}

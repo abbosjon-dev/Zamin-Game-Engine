@@ -20,6 +20,7 @@ namespace Zamin {
     }
     void VisualGraphHost::OnCreate()
     {
+        m_Gameplay.Reset();
         try
         {
             auto root = Project::GetAssetDirectory();
@@ -42,6 +43,7 @@ namespace Zamin {
     {
         if (VM.Paused && (event == "Update" || event == "LateUpdate")) return;
         VM.Event(event, std::move(payload));
+        if ((VM.Paused || !VM.Error().empty()) && GetEntity()) m_Gameplay.Stop(GetScene());
         if (VM.Error().empty()) Overrides = Visual::Value(VM.Variables()).dump();
         if (!VM.Error().empty() && !m_Reported)
         {
@@ -49,8 +51,20 @@ namespace Zamin {
             m_Reported = true;
         }
     }
+    void VisualGraphHost::OnDisable()
+    {
+        Emit("Disable");
+        m_Gameplay.Stop(GetScene());
+    }
+    void VisualGraphHost::OnDestroy()
+    {
+        Emit("Destroy");
+        m_Gameplay.Stop(GetScene());
+    }
     void VisualGraphHost::OnUpdate(Timestep dt)
     {
+        m_Gameplay.BeginFrame(GetScene());
+        if (VM.Paused || !VM.Error().empty()) m_Gameplay.Stop(GetScene());
         const auto link = GetNavTraversalLink();
         auto* nav = GetEntity().TryGetComponent<NavAgentComponent>();
         if (link && nav && (m_TraversalLink != nav->TraversalTicket || m_TraversalRevision != nav->AtlasRevision))
@@ -217,6 +231,7 @@ namespace Zamin {
                 default: throw std::runtime_error("Unsupported reflected field type");
             }
         }
+        if (k.starts_with("Gameplay.")) return m_Gameplay.Dispatch(GetEntity(), target, k, a);
         VisualGraphHost proxy;
         proxy.m_Entity = target;
         auto& t = target.GetComponent<TransformComponent>();

@@ -1,8 +1,8 @@
 # Namuna o'yinlar galereyasi
 
-Zamin Engine bilan to'qqizta namuna o'yin keladi (`Projects/`). Oltitasi M24 bosqichida yozilgan kichik, lekin to'liq
+Zamin Engine bilan namuna o'yinlar va Blueprint workshop loyihalari keladi (`Projects/`). Oltitasi M24 bosqichida yozilgan kichik, lekin to'liq
 o'yinlar: bosh menyu, pauza, natijalar oynasi, rekordlar, klaviatura va gamepad, o'zbek va ingliz tili, demo bot.
-Gameplay'ning hammasi C++ skriptlarda (`Projects/<O'yin>/Source/`), rasm, model va ovozlar esa koddan yaratilgan
+Bu olti o'yinning gameplay kodi C++ skriptlarda (`Projects/<O'yin>/Source/`), rasm, model va ovozlar esa koddan yaratilgan
 (`Tools/samples/gen_<o'yin>.py`, [Tools/samples/README.md](../Tools/samples/README.md)). Pastdagi rasmlar haqiqiy
 o'yindan, `ZaminPlayer` da headless olingan (bot o'ynayapti).
 
@@ -18,6 +18,12 @@ Ishga tushirish: editor launcher'ida **Namuna o'yinlar** kartasini bosing yoki p
 ./build/bin/ZaminPlayer Projects/Breakout              # o'yin: bosh menyudan
 ZAMIN_DEMO=1 ./build/bin/ZaminPlayer Projects/Racing   # demo: bot o'ynaydi
 ```
+
+## Compiler-free gameplay workshop
+
+[GameplayWorkshop](../Projects/GameplayWorkshop/README.md): o‘ynaladigan 2D/3D motor, kamera,
+velocity→Animator, sakrash, checkpoint, marra va diskdan qayta tiklash. C++ game module kerak emas.
+WASD / Space / Shift / E. [Gameplay qo‘llanmasi](Gameplay.md).
 
 ## Olti yangi o'yin
 

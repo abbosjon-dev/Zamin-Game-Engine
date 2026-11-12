@@ -2,6 +2,7 @@
 file(GLOB_RECURSE ZAMIN_SOURCES CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/AI/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/Core/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/Gameplay/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/Events/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/Renderer/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/Scene/*.cpp

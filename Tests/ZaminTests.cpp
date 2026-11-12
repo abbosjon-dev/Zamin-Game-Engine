@@ -31935,8 +31935,21 @@ TEST(SceneLoadTimingBreakdown)
     Log::SetMinLevel(LogLevel::Error);
     CHECK(SceneLoadProfiler::GetLast(last) && last.Failed && last.SceneName.empty() && m.GetActiveScene()->GetName() == "Busy");
 
-    // In the background: the worker's stages apart from the main thread's, over several frames.
+    // Hold activation for two explicit updates. A tiny cached scene may otherwise finish in
+    // one update, so a multi-frame timing assertion must not depend on worker scheduling.
     Ref<AsyncOperation> op = m.LoadSceneAsync(f.Path("Plain"), LoadSceneMode::Additive);
+    CHECK(op);
+    if (op)
+    {
+        op->SetAllowSceneActivation(false);
+        for (int frame = 0; frame < 2; ++frame)
+        {
+            m.UpdateAsyncLoads(1.0f);
+            m.ProcessRequests();
+            CHECK(!op->IsDone());
+        }
+        op->SetAllowSceneActivation(true);
+    }
     for (int i = 0; op && !op->IsDone() && i < 5000; i++)
     {
         m.UpdateAsyncLoads(1.0f);

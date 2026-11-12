@@ -22,6 +22,32 @@ saqlanadi; ulardagi belgi yangi imkoniyatning ishlayotganiga dalil o'rnini bosma
 | P7 Platforma, release va mahsulot | Linux/Windows, keyin macOS; cook/package/update/crash telemetry; editor/launcher yagona auth | Toza mashinada install/export/run, talablar va litsenziyalar, imzolangan release va rollback sinovi | Rejada |
 | P8 Yakuniy sifat darvozasi | Hujjatlar, ko'chirish yo'li, ikki namunaviy o'yin va profiling hisobotlari | Uzoq sessiya, resurs sizishi, recovery/fuzz, reference sahnalarda barqaror frame time va foydalanish sinovi | Rejada |
 
+### Yakunlangan bo‘lim — health, combat, inventory va interaction
+
+- [x] Scene-owned shared state, bounded transactional health/shield/damage/heal and cooldown clocks.
+- [x] Death, checkpoint-aware respawn, motor gating and bounded rule event polling.
+- [x] Bounded inventory, transactional key/reward/heal interactions, deterministic range/facing/LOS queries.
+- [x] Blueprint/native APIs, melee attack selection and real 2D/3D combat/collectible courses.
+- [x] Unit/lifecycle/physics, sanitizer, UI, Player/export, screenshots, docs and main push.
+
+Dalillar (2026-11-11): 1039/1039 unit (51 yangi), 11/11 headless CTest, 12/12 render.
+Health/inventory leaf ASan/UBSan/LSan: 20/20. RulesModel, GameplayRules, GameplayRuleGraph va
+GameplayRuntime TU’lari instrumentlangan owner probe: 51/51, LeakSanitizer bilan; Scene,
+serializer, physics, VM va qolgan shared engine bu mahalliy probe’da normal build.
+Clang 18 syntax-only -Werror: 8 ta TU; bu butun engine sanitizer run’i emas.
+Haqiqiy ImGui authoring: Damage/InteractionConfigure/Respawn add/save/Undo. 2D/3D Player input
+replay va Editor (240 kadr), compiler-free export benchmark (240) / screenshot (270): jami 6 ta
+workflow, death/respawn/key/kill/heal/unlock/coin/finish hamda canonical HP/bag/guard oracle’lari.
+Relocation launcher --version orqali tekshirildi. Yangi pause-budget va skipped-dead-frame life
+invalidation regressiyalari ham tekshirildi. Eski SceneLoadTimingBreakdown testining worker scheduling’ga
+bog‘liq multi-frame taxmini activation gate bilan deterministik qilindi; 10/10 mustaqil run o‘tdi.
+Hisobot va rasmlar: `build-review/GameplayRules/`. Software Mesa; physical GPU byudjeti o‘lchanmagan.
+Graph configure input’lari saqlanadi; health/inventory holati runtime-only. [Shartlar](GameplayRules.md).
+
+Keyingi yirik paket: AI gameplay — perception/LOS, patrol/chase/attack/return holatlari,
+2D/3D movement/navigation adapterlari, spawn/lifecycle va recovery/cancellation; har ikki
+sahnada o‘ynaladigan NPC kursi, Blueprint authoring va export acceptance bilan yakunlash.
+
 ### Yakunlangan bo‘lim — motor, kamera, locomotion va checkpoint
 
 - [x] 2D/3D motor: input, acceleration/deceleration, analog clamp, jump buffer/coyote/cut va lifecycle stop.
@@ -45,8 +71,8 @@ Motorlar Rigidbody2D/CharacterController3D ustida ishlaydi; checkpoint actor tra
 To‘liq inventory/ECS snapshot, humanoid retargeting va cinematic camera bu paketga kirmaydi;
 checkpoint clearance to‘liq capsule-fit emas, markaziy probe. Shartlar [Gameplay.md](Gameplay.md) da.
 
-Keyingi yirik bo‘lim: reusable gameplay rules — health/damage/death/respawn, interaction va trigger
-routing, combat/collectible namunasi, Blueprint authoring va eksport orqali yakuniy acceptance.
+Reusable health/damage/death/respawn, interaction, combat/collectible va Blueprint workflow
+yuqoridagi gameplay rules paketida davom ettirildi.
 P2 kontent va P3/P4 world/renderer vazifalari yuqoridagi umumiy rejada saqlanadi.
 
 ### Yakunlangan bo‘lim — Animator gameplay va 2D blend

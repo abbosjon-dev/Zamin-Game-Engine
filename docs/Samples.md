@@ -19,6 +19,12 @@ Ishga tushirish: editor launcher'ida **Namuna o'yinlar** kartasini bosing yoki p
 ZAMIN_DEMO=1 ./build/bin/ZaminPlayer Projects/Racing   # demo: bot o'ynaydi
 ```
 
+## Compiler-free combat va interaction
+
+[RulesWorkshop](../Projects/RulesWorkshop/README.md): 2D/3D health/shield, death/respawn, melee,
+key/medkit/locked door/coin kurslari. Native game module kerak emas. WASD / Space / Ctrl / E.
+[Gameplay rules qo‘llanmasi](GameplayRules.md).
+
 ## Compiler-free gameplay workshop
 
 [GameplayWorkshop](../Projects/GameplayWorkshop/README.md): o‘ynaladigan 2D/3D motor, kamera,

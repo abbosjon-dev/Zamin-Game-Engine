@@ -39,6 +39,7 @@
 #include "Zamin/Core/SaveData.h"
 #include "Zamin/Debug/DebugDraw.h"
 #include "Zamin/Core/GameState.h"
+#include "Zamin/Gameplay/GameplayRules.h"
 
 #include <algorithm>
 #include <cctype>
@@ -621,6 +622,7 @@ namespace Zamin {
         Time::ClearGameClock(this);
         if (m_ScriptsRunning)
             StopScripts();
+        Gameplay::ResetRules(*this);
         OnPhysics2DStop();
         OnPhysics3DStop();
         m_Registry.on_construct<TagComponent>().disconnect(this);
@@ -2766,6 +2768,7 @@ namespace Zamin {
     {
         const auto startClock = std::chrono::steady_clock::now();
         m_RuntimeStartTiming = {};
+        Gameplay::ResetRules(*this);
         m_IsRunning = true;
         m_Time = 0.0f;
         // The game's clock runs at the project's speed (Project settings > Time; 1 without a project).
@@ -2844,6 +2847,7 @@ namespace Zamin {
         m_DeltaTime = 0.0f;
         Time::ClearGameClock(this);
         StopScripts();
+        Gameplay::ResetRules(*this);
         OnPhysics2DStop();
         OnPhysics3DStop();
         m_AppliedInactive.clear();
@@ -5191,6 +5195,7 @@ namespace Zamin {
     void Scene::UpdateRuntime(Timestep ts)
     {
         m_FrameIndex++;
+        Gameplay::BeginRulesFrame(*this);
         DeleteRetiredScripts(); // destroyed between frames (editor, other code)
         // The language changed (a language menu, last frame): scripts refresh the texts they make.
         DispatchLanguageChanged();
@@ -5223,6 +5228,7 @@ namespace Zamin {
             ts = Timestep((float)ts * m_TimeScale); // the game's time
             m_DeltaTime = ts;
             m_Time += ts;
+            Gameplay::TickRules(*this, (float)ts);
             m_AnimationTime += (double)ts;
             // Hit flashes fade with the game's time (paused: they wait).
             for (auto e : m_Registry.view<SpriteRendererComponent>())

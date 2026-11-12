@@ -1,0 +1,63 @@
+{
+  "Format": "Zamin.VisualGraph",
+  "Version": 1,
+  "Nodes": [
+    {
+      "ID": 1,
+      "Kind": "Event.Start",
+      "X": 0,
+      "Y": 0,
+      "Inputs": {}
+    },
+    {
+      "ID": 2,
+      "Kind": "Gameplay.HealthConfigure",
+      "X": 290,
+      "Y": 0,
+      "Inputs": {
+        "Maximum": 75,
+        "Team": 2,
+        "HitGrace": 0.1
+      }
+    },
+    {
+      "ID": 3,
+      "Kind": "Event.Update",
+      "X": 580,
+      "Y": 0,
+      "Inputs": {}
+    },
+    {
+      "ID": 4,
+      "Kind": "Gameplay.Attack",
+      "X": 870,
+      "Y": 0,
+      "Inputs": {
+        "Amount": 35,
+        "Cooldown": 0.8,
+        "Range": 2.1,
+        "TwoD": true,
+        "Origin": [
+          0,
+          0,
+          0
+        ]
+      }
+    }
+  ],
+  "Links": [
+    {
+      "From": 1,
+      "Output": "Then",
+      "To": 2,
+      "Input": "In"
+    },
+    {
+      "From": 3,
+      "Output": "Then",
+      "To": 4,
+      "Input": "In"
+    }
+  ],
+  "Variables": {}
+}

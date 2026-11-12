@@ -1,4 +1,5 @@
 #include "GameplayRuntime.h"
+#include "GameplayRules.h"
 #include "Zamin/Scene/Scene.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Scene/Components.h"
@@ -17,6 +18,7 @@
 #include <cmath>
 #include <stdexcept>
 namespace Zamin::Gameplay {
+    std::optional<Visual::Value> DispatchRules(Entity, Entity, const std::string&, const std::map<std::string, Visual::Value>&);
     namespace {
         using V = Visual::Value;
         struct Args
@@ -218,6 +220,20 @@ namespace Zamin::Gameplay {
         auto& scene = *host.GetScene();
         Args a{ values };
         const uint64_t id = target.GetUUID();
+        if (kind == "Gameplay.Respawn")
+        {
+            auto& rules = RuleWorld::For(scene);
+            const double grace = a.N("Grace");
+            std::string error;
+            if (!rules.CanRevive(target, grace, error)) return Status(false, error);
+            std::map<std::string, V> restore;
+            for (const char* key : { "Slot", "Persistent", "Clearance", "Mask" }) restore[key] = values.at(key);
+            auto result = Dispatch(host, target, "Gameplay.CheckpointRestore", restore);
+            if (!result.at("Success").get<bool>()) return result;
+            if (!rules.Revive(target, grace, error)) throw std::runtime_error("Respawn health commit failed: " + error);
+            return Status(true);
+        }
+        if (auto result = DispatchRules(host, target, kind, values)) return *result;
         auto measuredVelocity = [&](Entity source) {
             auto found = m_Motors.find(uint64_t(source.GetUUID()));
             if (found != m_Motors.end() && found->second.Frame == m_Frame && found->second.TwoD && (!m_AfterPhysics || scene.GetPhysics2DStepsLastFrame() == 0)) return found->second.Measured;
@@ -254,6 +270,14 @@ namespace Zamin::Gameplay {
                 record = {};
                 record.Handle = uint32_t(target);
             }
+            auto* rules = scene.GetRegistry().ctx().find<RuleWorld>();
+            auto health = rules ? rules->Health(target) : std::optional<HealthState>{};
+            const uint32_t deaths = health ? health->Deaths : 0;
+            if (record.Deaths != deaths)
+            {
+                record.State = {};
+                record.Deaths = deaths;
+            }
             if (record.Frame == m_Frame) throw std::runtime_error("Motor can advance only once per actor per frame");
             MotorSettings settings{ a.N("Speed"), a.N("Acceleration"), a.N("Deceleration"), a.N("AirControl"), a.N("SprintMultiplier"), a.N("JumpSpeed"), a.N("Coyote"), a.N("JumpBuffer"), a.N("JumpCut") };
             MotorInput input;
@@ -263,6 +287,7 @@ namespace Zamin::Gameplay {
             input.JumpHeld = a.B("JumpHeld");
             input.Sprint = a.B("Sprint");
             input.Enabled = a.B("Enabled");
+            if (health && health->Dead) input.Enabled = false;
             auto measured = Velocity(target);
             input.Grounded = Grounded(target, twoD, topDown, probe, a.Mask("GroundMask"));
             if (!twoD)

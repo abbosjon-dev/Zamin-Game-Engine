@@ -1,0 +1,71 @@
+{
+  "Format": "Zamin.VisualGraph",
+  "Version": 1,
+  "Nodes": [
+    {
+      "ID": 1,
+      "Kind": "Event.TriggerBegin",
+      "X": 0,
+      "Y": 0,
+      "Inputs": {}
+    },
+    {
+      "ID": 2,
+      "Kind": "HasTag",
+      "X": 290,
+      "Y": 0,
+      "Inputs": {
+        "Tag": "Player"
+      }
+    },
+    {
+      "ID": 3,
+      "Kind": "Branch",
+      "X": 580,
+      "Y": 0,
+      "Inputs": {}
+    },
+    {
+      "ID": 4,
+      "Kind": "Gameplay.Damage",
+      "X": 870,
+      "Y": 0,
+      "Inputs": {
+        "Amount": 500
+      }
+    }
+  ],
+  "Links": [
+    {
+      "From": 1,
+      "Output": "Other",
+      "To": 2,
+      "Input": "Target"
+    },
+    {
+      "From": 1,
+      "Output": "Then",
+      "To": 3,
+      "Input": "In"
+    },
+    {
+      "From": 2,
+      "Output": "Value",
+      "To": 3,
+      "Input": "Condition"
+    },
+    {
+      "From": 3,
+      "Output": "True",
+      "To": 4,
+      "Input": "In"
+    },
+    {
+      "From": 1,
+      "Output": "Other",
+      "To": 4,
+      "Input": "Target"
+    }
+  ],
+  "Variables": {}
+}

@@ -1,0 +1,62 @@
+{
+  "Format": "Zamin.VisualGraph",
+  "Version": 1,
+  "Nodes": [
+    {
+      "ID": 1,
+      "Kind": "Event.LateUpdate",
+      "X": 0,
+      "Y": 0,
+      "Inputs": {}
+    },
+    {
+      "ID": 2,
+      "Kind": "Gameplay.Input",
+      "X": 280,
+      "Y": 0,
+      "Inputs": {}
+    },
+    {
+      "ID": 3,
+      "Kind": "Gameplay.Camera",
+      "X": 560,
+      "Y": 0,
+      "Inputs": {
+        "Anchor": 800,
+        "Orbit": true,
+        "Eye": [
+          0,
+          1,
+          0
+        ],
+        "Offset": [
+          0,
+          4,
+          9
+        ],
+        "SnapDistance": 3
+      }
+    }
+  ],
+  "Links": [
+    {
+      "From": 1,
+      "Output": "Then",
+      "To": 3,
+      "Input": "In"
+    },
+    {
+      "From": 1,
+      "Output": "Delta",
+      "To": 3,
+      "Input": "Delta"
+    },
+    {
+      "From": 2,
+      "Output": "Look",
+      "To": 3,
+      "Input": "Look"
+    }
+  ],
+  "Variables": {}
+}

@@ -32,6 +32,7 @@ namespace Zamin::Gameplay {
         {
             uint32_t Handle = 0xffffffff;
             uint64_t Frame = UINT64_MAX;
+            uint32_t Deaths = 0;
             MotorState State;
             glm::vec3 Measured{};
             bool TwoD = false, TopDown = false;

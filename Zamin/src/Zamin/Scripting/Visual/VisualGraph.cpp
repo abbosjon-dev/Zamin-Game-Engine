@@ -188,6 +188,41 @@ for (auto op : { "Capture", "Restore", "Clear", "Has" })
     }
     add("Gameplay.Checkpoint" + std::string(op), "Gameplay checkpoint", inputs, pure ? std::vector<Pin>{ B("Value") } : std::vector<Pin>{ E("Then"), B("Success"), S("Reason") }, pure);
 }
+add("Gameplay.HealthConfigure", "Gameplay health", { E("In"), EntityPin(), N("Maximum", 100), N("Shield"), N("HitGrace", .2), N("RespawnDelay", .5), N("Team"), B("Reset") }, { E("Then"), B("Success"), S("Reason") });
+add("Gameplay.Health", "Gameplay health", { EntityPin() }, { B("Configured"), N("Current"), N("Maximum"), N("Shield"), N("MaximumShield"), B("Dead"), B("Invulnerable"), N("Deaths"), N("RespawnIn") }, true);
+std::vector<Pin> damageOut = { E("Then"), B("Success"), N("Applied"), N("HealthDamage"), N("ShieldDamage"), B("Killed"), S("Reason") };
+add("Gameplay.Damage", "Gameplay health", { E("In"), EntityPin(), EntityPin("Source"), N("Amount", 25), B("FriendlyFire"), B("PierceShield"), B("IgnoreGrace") }, damageOut);
+add("Gameplay.Heal", "Gameplay health", { E("In"), EntityPin(), N("Amount", 25), B("Shield") }, { E("Then"), B("Success"), N("Applied") });
+add("Gameplay.Respawn", "Gameplay health", { E("In"), EntityPin(), S("Slot", "Player"), B("Persistent", true), N("Clearance", .1), N("Mask", 65535), N("Grace", 1) }, { E("Then"), B("Success"), S("Reason") });
+add("Gameplay.InventoryConfigure", "Gameplay inventory", { E("In"), EntityPin(), N("Slots", 32), N("Stack", 999), B("Reset") }, { E("Then"), B("Success"), S("Reason") });
+for (auto op : { "Add", "Remove" }) add("Gameplay.Inventory" + std::string(op), "Gameplay inventory", { E("In"), EntityPin(), S("Item", "Coin"), N("Count", 1) }, { E("Then"), B("Success"), S("Reason") });
+add("Gameplay.InventoryCount", "Gameplay inventory", { EntityPin(), S("Item", "Coin") }, { N("Count"), N("UsedSlots"), N("Slots"), N("Stack") }, true);
+add("Gameplay.InteractionConfigure", "Gameplay interaction", { E("In"), EntityPin(), S("Prompt", "Interact"), S("RequiredItem"), N("RequiredCount", 1), B("Consume"), S("RewardItem"), N("RewardCount", 1), N("Heal"), N("MaxUses", 1), N("Cooldown", .2), B("Deactivate"), B("Enabled", true), V("Offset"), B("Reset") }, { E("Then"), B("Success"), S("Reason") });
+std::vector<Pin> queryPins = { N("Range", 3), N("MinDot", -1), { "Facing", Type::Vec3, Value::array({ 1., 0., 0. }) }, { "Origin", Type::Vec3, Value::array({ 0., 1., 0. }) }, B("TwoD"), B("LineOfSight", true), N("Mask", 65535) };
+std::vector<Pin> useOut = { B("Success"), EntityPin("Object"), N("Distance"), S("Prompt"), S("Reason"), N("Healed") };
+for (auto op : { "InteractionFind", "Interact", "Attack" })
+{
+    const std::string name = op;
+    const bool pure = name == "InteractionFind";
+    std::vector<Pin> pins;
+    if (!pure) pins.push_back(E("In"));
+    pins.push_back(EntityPin());
+    if (name == "Interact") pins.push_back(EntityPin("Actor"));
+    pins.insert(pins.end(), queryPins.begin(), queryPins.end());
+    auto outputs = useOut;
+    if (name == "Attack")
+    {
+        pins.push_back(N("Amount", 25));
+        pins.push_back(N("Cooldown", .4));
+        pins.push_back(B("FriendlyFire"));
+        outputs = damageOut;
+        outputs.push_back(EntityPin("Victim"));
+    }
+    else if (pure) outputs.push_back(B("Found"));
+    else outputs.insert(outputs.begin(), E("Then"));
+    add("Gameplay." + name, name == "Attack" ? "Gameplay combat" : "Gameplay interaction", pins, outputs, pure);
+}
+add("Gameplay.RuleEvent", "Gameplay events", { E("In"), EntityPin() }, { E("Then"), B("Has"), S("Kind"), S("Item"), EntityPin("Source"), EntityPin("Subject"), N("Amount"), N("Dropped") });
 add("PlayAnimation","Animation",{E("In"),EntityPin(),S("Clip"),N("Speed",1)},{E("Then")});
 for (auto suffix : { "Float", "Bool", "Trigger" })
 {

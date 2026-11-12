@@ -1,0 +1,127 @@
+{
+  "Format": "Zamin.VisualGraph",
+  "Version": 1,
+  "Nodes": [
+    {
+      "ID": 1,
+      "Kind": "Event.TriggerBegin",
+      "X": 0,
+      "Y": 0,
+      "Inputs": {}
+    },
+    {
+      "ID": 2,
+      "Kind": "HasTag",
+      "X": 290,
+      "Y": 0,
+      "Inputs": {
+        "Tag": "Player"
+      }
+    },
+    {
+      "ID": 3,
+      "Kind": "Gameplay.InventoryCount",
+      "X": 580,
+      "Y": 0,
+      "Inputs": {
+        "Target": 800,
+        "Item": "Coin"
+      }
+    },
+    {
+      "ID": 4,
+      "Kind": "Greater",
+      "X": 870,
+      "Y": 0,
+      "Inputs": {
+        "B": 0
+      }
+    },
+    {
+      "ID": 5,
+      "Kind": "And",
+      "X": 1160,
+      "Y": 0,
+      "Inputs": {}
+    },
+    {
+      "ID": 6,
+      "Kind": "Branch",
+      "X": 1450,
+      "Y": 0,
+      "Inputs": {}
+    },
+    {
+      "ID": 7,
+      "Kind": "WriteState.Bool",
+      "X": 1740,
+      "Y": 0,
+      "Inputs": {
+        "Key": "Rules.Finished",
+        "Value": true,
+        "Persistent": false
+      }
+    },
+    {
+      "ID": 8,
+      "Kind": "SetUIText",
+      "X": 0,
+      "Y": 340,
+      "Inputs": {
+        "Target": 1004,
+        "Text": "COURSE COMPLETE - combat, inventory, locked door and respawn verified"
+      }
+    }
+  ],
+  "Links": [
+    {
+      "From": 1,
+      "Output": "Other",
+      "To": 2,
+      "Input": "Target"
+    },
+    {
+      "From": 3,
+      "Output": "Count",
+      "To": 4,
+      "Input": "A"
+    },
+    {
+      "From": 2,
+      "Output": "Value",
+      "To": 5,
+      "Input": "A"
+    },
+    {
+      "From": 4,
+      "Output": "Value",
+      "To": 5,
+      "Input": "B"
+    },
+    {
+      "From": 1,
+      "Output": "Then",
+      "To": 6,
+      "Input": "In"
+    },
+    {
+      "From": 5,
+      "Output": "Value",
+      "To": 6,
+      "Input": "Condition"
+    },
+    {
+      "From": 6,
+      "Output": "True",
+      "To": 7,
+      "Input": "In"
+    },
+    {
+      "From": 7,
+      "Output": "Then",
+      "To": 8,
+      "Input": "In"
+    }
+  ],
+  "Variables": {}
+}

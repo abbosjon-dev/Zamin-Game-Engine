@@ -1,0 +1,33 @@
+{
+  "Format": "Zamin.VisualGraph",
+  "Version": 1,
+  "Nodes": [
+    {
+      "ID": 1,
+      "Kind": "Event.Start",
+      "X": 0,
+      "Y": 0,
+      "Inputs": {}
+    },
+    {
+      "ID": 2,
+      "Kind": "Gameplay.InteractionConfigure",
+      "X": 290,
+      "Y": 0,
+      "Inputs": {
+        "Deactivate": true,
+        "Prompt": "Use medkit",
+        "Heal": 100
+      }
+    }
+  ],
+  "Links": [
+    {
+      "From": 1,
+      "Output": "Then",
+      "To": 2,
+      "Input": "In"
+    }
+  ],
+  "Variables": {}
+}

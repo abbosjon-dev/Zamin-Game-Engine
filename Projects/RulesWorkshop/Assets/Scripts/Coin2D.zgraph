@@ -1,0 +1,133 @@
+{
+  "Format": "Zamin.VisualGraph",
+  "Version": 1,
+  "Nodes": [
+    {
+      "ID": 1,
+      "Kind": "Event.Start",
+      "X": 0,
+      "Y": 0,
+      "Inputs": {}
+    },
+    {
+      "ID": 2,
+      "Kind": "Gameplay.InteractionConfigure",
+      "X": 290,
+      "Y": 0,
+      "Inputs": {
+        "Deactivate": true,
+        "Prompt": "Coin",
+        "RewardItem": "Coin"
+      }
+    },
+    {
+      "ID": 3,
+      "Kind": "Event.TriggerBegin",
+      "X": 580,
+      "Y": 0,
+      "Inputs": {}
+    },
+    {
+      "ID": 4,
+      "Kind": "HasTag",
+      "X": 870,
+      "Y": 0,
+      "Inputs": {
+        "Tag": "Player"
+      }
+    },
+    {
+      "ID": 5,
+      "Kind": "Branch",
+      "X": 1160,
+      "Y": 0,
+      "Inputs": {}
+    },
+    {
+      "ID": 6,
+      "Kind": "Gameplay.Interact",
+      "X": 1450,
+      "Y": 0,
+      "Inputs": {
+        "TwoD": true,
+        "Range": 2,
+        "LineOfSight": false
+      }
+    },
+    {
+      "ID": 7,
+      "Kind": "Branch",
+      "X": 1740,
+      "Y": 0,
+      "Inputs": {}
+    },
+    {
+      "ID": 8,
+      "Kind": "WriteState.Bool",
+      "X": 0,
+      "Y": 340,
+      "Inputs": {
+        "Key": "Rules.Coin",
+        "Value": true,
+        "Persistent": false
+      }
+    }
+  ],
+  "Links": [
+    {
+      "From": 1,
+      "Output": "Then",
+      "To": 2,
+      "Input": "In"
+    },
+    {
+      "From": 3,
+      "Output": "Other",
+      "To": 4,
+      "Input": "Target"
+    },
+    {
+      "From": 3,
+      "Output": "Then",
+      "To": 5,
+      "Input": "In"
+    },
+    {
+      "From": 4,
+      "Output": "Value",
+      "To": 5,
+      "Input": "Condition"
+    },
+    {
+      "From": 5,
+      "Output": "True",
+      "To": 6,
+      "Input": "In"
+    },
+    {
+      "From": 3,
+      "Output": "Other",
+      "To": 6,
+      "Input": "Actor"
+    },
+    {
+      "From": 6,
+      "Output": "Then",
+      "To": 7,
+      "Input": "In"
+    },
+    {
+      "From": 6,
+      "Output": "Success",
+      "To": 7,
+      "Input": "Condition"
+    },
+    {
+      "From": 7,
+      "Output": "True",
+      "To": 8,
+      "Input": "In"
+    }
+  ],
+  "Variables": {}
+}

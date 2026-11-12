@@ -1,0 +1,18 @@
+{
+  "Version": 2,
+  "Project": {
+    "Name": "RulesWorkshop",
+    "StartScene": "Scenes/Rules2D.zscene",
+    "AssetDirectory": "Assets",
+    "SourceDirectory": "Source",
+    "ScriptModulePath": "",
+    "Description": "Compiler-free health, shield, death/respawn, melee, inventory and locked-door courses.",
+    "Thumbnail": "Thumbnail.png"
+  },
+  "Player": {
+    "Product": "Zamin Rules Workshop",
+    "Width": 1280,
+    "Height": 720,
+    "VSync": true
+  }
+}

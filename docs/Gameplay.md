@@ -87,3 +87,5 @@ The gameplay acceptance requires movement, jump, checkpoint, goal and restore fl
 fail the test. Exports run twice and are relocated for a version check by the existing export harness.
 Private fixture overrides enable deterministic replay/observation; source project defaults remain
 interactive. CI runs the workflow for both Linux compilers. See [Testing.md](Testing.md).
+
+Combat, health, inventory and interaction continue in [GameplayRules.md](GameplayRules.md).

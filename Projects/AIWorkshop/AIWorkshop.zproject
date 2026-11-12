@@ -1,0 +1,18 @@
+{
+  "Version": 2,
+  "Project": {
+    "Name": "AIWorkshop",
+    "StartScene": "Scenes/AI2D.zscene",
+    "AssetDirectory": "Assets",
+    "SourceDirectory": "Source",
+    "ScriptModulePath": "",
+    "Description": "Compiler-free AI patrol, LOS, chase/attack, memory, return and prefab spawn lab.",
+    "Thumbnail": "Thumbnail.png"
+  },
+  "Player": {
+    "Product": "Zamin AI Workshop",
+    "Width": 1280,
+    "Height": 720,
+    "VSync": true
+  }
+}

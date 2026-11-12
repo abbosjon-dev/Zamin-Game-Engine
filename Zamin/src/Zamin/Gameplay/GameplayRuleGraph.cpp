@@ -10,6 +10,7 @@ namespace Zamin::Gameplay {
         struct Args
         {
             const std::map<std::string, V>& Values;
+            Entity Host;
             double N(const char* key) const
             {
                 double n = Values.at(key).get<double>();
@@ -39,6 +40,7 @@ namespace Zamin::Gameplay {
             Entity Ref(Scene& scene, const char* key, Entity fallback = {}) const
             {
                 uint64_t id = Values.at(key).get<uint64_t>();
+                if (id == UINT64_MAX) return Host;
                 if (!id) return fallback;
                 auto e = scene.GetEntityByUUID(UUID(id));
                 if (!e) throw std::runtime_error("Rule entity not found");
@@ -56,7 +58,7 @@ namespace Zamin::Gameplay {
         if (std::find(names.begin(), names.end(), kind) == names.end()) return {};
         auto& scene = *host.GetScene();
         auto& world = RuleWorld::For(scene);
-        Args a{ values };
+        Args a{ values, host };
         std::string error;
         if (kind == "Gameplay.HealthConfigure")
         {

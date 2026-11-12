@@ -1,0 +1,87 @@
+{
+  "ZaminEntities": 1,
+  "Entities": [
+    {
+      "Entity": 1,
+      "Tag": "Reinforcement",
+      "Tags": [
+        "Enemy"
+      ],
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "NativeScript": {
+        "Class": "Zamin.VisualGraph",
+        "Fields": {
+          "Graph": {
+            "Type": "String",
+            "Value": "Scripts/Brain3D.zgraph"
+          }
+        }
+      },
+      "NavAgent": {
+        "Grid": 0,
+        "Speed": 3,
+        "Radius": 0.3,
+        "StoppingDistance": 0.1,
+        "RepathInterval": 0.5,
+        "UpdateRotation": true,
+        "Crowd": {
+          "Enabled": true
+        }
+      },
+      "CharacterController3D": {
+        "Radius": 0.35,
+        "Height": 1.8,
+        "StepHeight": 0.25
+      }
+    },
+    {
+      "Entity": 2,
+      "Tag": "Reinforcement visual",
+      "Transform": {
+        "Translation": [
+          0,
+          0.9,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.7,
+          1.8,
+          0.7
+        ]
+      },
+      "Parent": 1,
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Shader": "Unlit",
+        "Albedo": [
+          0.68,
+          0.35,
+          1,
+          1
+        ],
+        "CastShadows": false
+      }
+    }
+  ]
+}

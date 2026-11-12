@@ -1,0 +1,718 @@
+{
+  "Version": 5,
+  "Scene": "AI 3D",
+  "Settings": {
+    "DrawSky": false,
+    "Ambient": 0.7
+  },
+  "Entities": [
+    {
+      "Entity": 800,
+      "Tag": "Player",
+      "Tags": [
+        "Player"
+      ],
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "NativeScript": {
+        "Class": "Zamin.VisualGraph",
+        "Fields": {
+          "Graph": {
+            "Type": "String",
+            "Value": "Scripts/Player3D.zgraph"
+          }
+        }
+      },
+      "CharacterController3D": {
+        "Radius": 0.35,
+        "Height": 1.8,
+        "StepHeight": 0.25
+      }
+    },
+    {
+      "Entity": 880,
+      "Tag": "Sentry",
+      "Tags": [
+        "Enemy"
+      ],
+      "Transform": {
+        "Translation": [
+          -5,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "NativeScript": {
+        "Class": "Zamin.VisualGraph",
+        "Fields": {
+          "Graph": {
+            "Type": "String",
+            "Value": "Scripts/Brain3D.zgraph"
+          }
+        }
+      },
+      "NavAgent": {
+        "Grid": 950,
+        "Speed": 3,
+        "Radius": 0.3,
+        "StoppingDistance": 0.1,
+        "RepathInterval": 0.5,
+        "UpdateRotation": true,
+        "Crowd": {
+          "Enabled": true
+        }
+      },
+      "CharacterController3D": {
+        "Radius": 0.35,
+        "Height": 1.8,
+        "StepHeight": 0.25
+      }
+    },
+    {
+      "Entity": 810,
+      "Tag": "Player visual",
+      "Transform": {
+        "Translation": [
+          0,
+          0.9,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.7,
+          1.8,
+          0.7
+        ]
+      },
+      "Parent": 800,
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Shader": "Unlit",
+        "Albedo": [
+          0.22,
+          0.9,
+          0.65,
+          1
+        ],
+        "CastShadows": false
+      }
+    },
+    {
+      "Entity": 881,
+      "Tag": "Sentry visual",
+      "Transform": {
+        "Translation": [
+          0,
+          0.9,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.7,
+          1.8,
+          0.7
+        ]
+      },
+      "Parent": 880,
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Shader": "Unlit",
+        "Albedo": [
+          0.68,
+          0.35,
+          1,
+          1
+        ],
+        "CastShadows": false
+      }
+    },
+    {
+      "Entity": 801,
+      "Tag": "Overview camera",
+      "Transform": {
+        "Translation": [
+          0,
+          14,
+          13
+        ],
+        "Rotation": [
+          -0.8224182792713783,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Camera": {
+        "Primary": true,
+        "ProjectionType": 1,
+        "OrthographicSize": 18,
+        "OrthographicNear": -100,
+        "OrthographicFar": 100,
+        "ClearColor": [
+          0.035,
+          0.045,
+          0.075,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 940,
+      "Tag": "Arena",
+      "Transform": {
+        "Translation": [
+          0,
+          -0.5,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          24,
+          1,
+          14
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Shader": "Unlit",
+        "Albedo": [
+          0.075,
+          0.105,
+          0.16,
+          1
+        ],
+        "CastShadows": false
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static"
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      }
+    },
+    {
+      "Entity": 950,
+      "Tag": "Navigation grid",
+      "Transform": {
+        "Translation": [
+          0,
+          1,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "NavGrid3D": {
+        "Size": [
+          20,
+          4,
+          12
+        ],
+        "CellSize": 0.4,
+        "AgentRadius": 0.35,
+        "AgentHeight": 1.8
+      }
+    },
+    {
+      "Entity": 901,
+      "Tag": "LOS shutter",
+      "Transform": {
+        "Translation": [
+          -2.5,
+          1.5,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.4,
+          3,
+          12
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Shader": "Unlit",
+        "Albedo": [
+          0.25,
+          0.55,
+          0.85,
+          1
+        ],
+        "CastShadows": false
+      },
+      "Rigidbody3D": {
+        "BodyType": "Kinematic"
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      },
+      "NavObstacle": {
+        "Size": [
+          1,
+          1,
+          1
+        ],
+        "Grid": 950,
+        "CarveOnlyStationary": false
+      }
+    },
+    {
+      "Entity": 902,
+      "Tag": "LOS shutter",
+      "Transform": {
+        "Translation": [
+          1.5,
+          1.5,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.4,
+          3,
+          12
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Shader": "Unlit",
+        "Albedo": [
+          0.25,
+          0.55,
+          0.85,
+          1
+        ],
+        "CastShadows": false
+      },
+      "Rigidbody3D": {
+        "BodyType": "Kinematic"
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      },
+      "NavObstacle": {
+        "Size": [
+          1,
+          1,
+          1
+        ],
+        "Grid": 950,
+        "CarveOnlyStationary": false
+      }
+    },
+    {
+      "Entity": 960,
+      "Tag": "Patrol waypoint",
+      "Transform": {
+        "Translation": [
+          -5,
+          0.03,
+          -1.5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.3,
+          0.06,
+          0.3
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Shader": "Unlit",
+        "Albedo": [
+          0.2,
+          0.8,
+          1,
+          1
+        ],
+        "CastShadows": false
+      }
+    },
+    {
+      "Entity": 961,
+      "Tag": "Patrol waypoint",
+      "Transform": {
+        "Translation": [
+          -5,
+          0.03,
+          1.5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.3,
+          0.06,
+          0.3
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Shader": "Unlit",
+        "Albedo": [
+          0.2,
+          0.8,
+          1,
+          1
+        ],
+        "CastShadows": false
+      }
+    },
+    {
+      "Entity": 900,
+      "Tag": "AI director",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "NativeScript": {
+        "Class": "Zamin.VisualGraph",
+        "Fields": {
+          "Graph": {
+            "Type": "String",
+            "Value": "Scripts/Director3D.zgraph"
+          }
+        }
+      }
+    },
+    {
+      "Entity": 1000,
+      "Tag": "HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UICanvas": {
+        "ScaleMode": "ScaleWithScreenSize",
+        "ReferenceResolution": [
+          1280,
+          720
+        ]
+      }
+    },
+    {
+      "Entity": 1001,
+      "Parent": 1000,
+      "Tag": "HUD text",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          24,
+          -24
+        ],
+        "Size": [
+          1230,
+          40
+        ],
+        "FontSize": 20
+      },
+      "Text": {
+        "Text": "AI LAB  |  WASD move  |  E shutters  |  Ctrl / click shoot guard",
+        "Color": [
+          0.85,
+          0.92,
+          1,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Top"
+      }
+    },
+    {
+      "Entity": 1002,
+      "Parent": 1000,
+      "Tag": "HUD text",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          24,
+          -62
+        ],
+        "Size": [
+          1230,
+          40
+        ],
+        "FontSize": 20
+      },
+      "Text": {
+        "Text": "Sentry: Patrol - shutters block vision and navigation",
+        "Color": [
+          0.85,
+          0.92,
+          1,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Top"
+      }
+    },
+    {
+      "Entity": 1003,
+      "Parent": 1000,
+      "Tag": "HUD text",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          24,
+          -100
+        ],
+        "Size": [
+          1230,
+          40
+        ],
+        "FontSize": 20
+      },
+      "Text": {
+        "Text": "Player HP 1000",
+        "Color": [
+          0.85,
+          0.92,
+          1,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Top"
+      }
+    },
+    {
+      "Entity": 1004,
+      "Parent": 1000,
+      "Tag": "HUD text",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          24,
+          -138
+        ],
+        "Size": [
+          1230,
+          40
+        ],
+        "FontSize": 20
+      },
+      "Text": {
+        "Text": "Open > approach > escape > close > investigate/return > reopen > shoot > reinforcement",
+        "Color": [
+          0.85,
+          0.92,
+          1,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Top"
+      }
+    }
+  ]
+}

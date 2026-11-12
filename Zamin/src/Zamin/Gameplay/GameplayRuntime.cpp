@@ -18,6 +18,7 @@
 #include <cmath>
 #include <stdexcept>
 namespace Zamin::Gameplay {
+    std::optional<Visual::Value> DispatchAI(Entity, Entity, const std::string&, const std::map<std::string, Visual::Value>&);
     std::optional<Visual::Value> DispatchRules(Entity, Entity, const std::string&, const std::map<std::string, Visual::Value>&);
     namespace {
         using V = Visual::Value;
@@ -233,6 +234,7 @@ namespace Zamin::Gameplay {
             if (!rules.Revive(target, grace, error)) throw std::runtime_error("Respawn health commit failed: " + error);
             return Status(true);
         }
+        if (auto result = DispatchAI(host, target, kind, values)) return *result;
         if (auto result = DispatchRules(host, target, kind, values)) return *result;
         auto measuredVelocity = [&](Entity source) {
             auto found = m_Motors.find(uint64_t(source.GetUUID()));

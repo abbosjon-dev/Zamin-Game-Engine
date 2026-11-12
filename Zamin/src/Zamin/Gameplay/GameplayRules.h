@@ -68,6 +68,9 @@ namespace Zamin::Gameplay {
         UseResult Find(Entity actor, const RuleQuery&);
         UseResult Interact(Entity actor, Entity object, const RuleQuery&);
         AttackResult Attack(Entity actor, const RuleQuery&, double amount, double cooldown, bool friendlyFire);
+        UseResult Sense(Entity actor, const RuleQuery&, const std::string& tag, Entity explicitTarget, double nearDistance = 0);
+        AttackResult Strike(Entity actor, Entity victim, const RuleQuery&, double amount, double cooldown, bool friendlyFire);
+        unsigned QueryBudgetRemaining() const { return m_Queries < 128 ? 128 - m_Queries : 0; }
         std::optional<RuleEvent> Poll(Entity);
         uint32_t Dropped(Entity) const;
         size_t ActorCount() const { return m_Actors.size(); }

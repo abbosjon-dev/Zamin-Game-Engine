@@ -223,6 +223,33 @@ for (auto op : { "InteractionFind", "Interact", "Attack" })
     add("Gameplay." + name, name == "Attack" ? "Gameplay combat" : "Gameplay interaction", pins, outputs, pure);
 }
 add("Gameplay.RuleEvent", "Gameplay events", { E("In"), EntityPin() }, { E("Then"), B("Has"), S("Kind"), S("Item"), EntityPin("Source"), EntityPin("Subject"), N("Amount"), N("Dropped") });
+add("Gameplay.AIConfigure", "Gameplay AI", { E("In"), EntityPin(), B("TwoD"), S("Tag", "Player"), EntityPin("Victim"), { "Points", Type::ArrayVec3, Value::array() }, B("Relative", true), B("PingPong", true), N("View", 10), N("Lose", 14), N("Near", 2), N("FieldOfView", 180), N("Memory", 2), N("Leash", 20), N("AttackEnter", 1.5), N("AttackExit", 1.8), N("Damage", 10), N("AttackCooldown", .5), N("Wait", .5), N("Arrive", .25), N("Repath", .3), N("Speed", 3), N("Stall", .75), N("RecoveryCooldown", .5), N("Retries", 3), { "Eye", Type::Vec3, Value::array({ 0., 1., 0. }) }, { "Facing", Type::Vec3, Value::array({ 1., 0., 0. }) }, N("Mask", 65535), B("Enabled", true), B("Reset") }, { E("Then"), B("Success"), S("Reason") });
+add("Gameplay.AIState", "Gameplay AI", { EntityPin() }, { B("Configured"), S("Mode"), EntityPin("Victim"), B("Visible"), B("Enabled"), V("Home"), V("Goal"), V("LastSeen"), V("Facing"), N("Memory"), N("Waypoint"), B("Waiting"), N("Arrivals"), N("Returns"), N("Sightings"), N("Losses"), N("Attacks"), N("Kills"), N("Transitions"), N("PathRequests"), N("Retries"), S("Status"), N("Dropped") }, true);
+add("Gameplay.AIEnable", "Gameplay AI", { E("In"), EntityPin(), B("Enabled", true) }, { E("Then"), B("Success"), S("Reason") });
+add("Gameplay.AIReset", "Gameplay AI", { E("In"), EntityPin(), B("Rehome") }, { E("Then"), B("Success"), S("Reason") });
+add("Gameplay.AIRemove", "Gameplay AI", { E("In"), EntityPin() }, { E("Then"), B("Success"), S("Reason") });
+add("Gameplay.AIEvent", "Gameplay AI", { E("In"), EntityPin() }, { E("Then"), B("Has"), S("Mode"), EntityPin("Victim") });
+for (auto op : { "Sense", "Strike" })
+{
+    const bool pure = std::string(op) == "Sense";
+    std::vector<Pin> pins;
+    if (!pure) pins.push_back(E("In"));
+    pins.push_back(EntityPin());
+    pins.push_back(EntityPin("Victim"));
+    pins.insert(pins.end(), queryPins.begin(), queryPins.end());
+    if (pure)
+    {
+        pins.push_back(S("Tag", "Player"));
+        pins.push_back(N("Near"));
+    }
+    else
+    {
+        pins.push_back(N("Amount", 25));
+        pins.push_back(N("Cooldown", .4));
+        pins.push_back(B("FriendlyFire"));
+    }
+    add("Gameplay." + std::string(op), "Gameplay AI", pins, pure ? std::vector<Pin>{ B("Visible"), EntityPin("Victim"), N("Distance"), V("Position") } : std::vector<Pin>{ E("Then"), B("Success"), N("Applied"), B("Killed"), S("Reason") }, pure);
+}
 add("PlayAnimation","Animation",{E("In"),EntityPin(),S("Clip"),N("Speed",1)},{E("Then")});
 for (auto suffix : { "Float", "Bool", "Trigger" })
 {

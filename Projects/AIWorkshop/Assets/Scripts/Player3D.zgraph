@@ -1,0 +1,911 @@
+{
+  "Format": "Zamin.VisualGraph",
+  "Version": 1,
+  "Nodes": [
+    {
+      "ID": 1,
+      "Kind": "Event.Start",
+      "X": 0,
+      "Y": 0,
+      "Inputs": {}
+    },
+    {
+      "ID": 2,
+      "Kind": "Gameplay.HealthConfigure",
+      "X": 290,
+      "Y": 0,
+      "Inputs": {
+        "Maximum": 1000,
+        "HitGrace": 0,
+        "Team": 1
+      }
+    },
+    {
+      "ID": 3,
+      "Kind": "WriteState.Bool",
+      "X": 580,
+      "Y": 0,
+      "Inputs": {
+        "Key": "AI.Patrol",
+        "Value": false,
+        "Persistent": false
+      }
+    },
+    {
+      "ID": 4,
+      "Kind": "WriteState.Bool",
+      "X": 870,
+      "Y": 0,
+      "Inputs": {
+        "Key": "AI.Chase",
+        "Value": false,
+        "Persistent": false
+      }
+    },
+    {
+      "ID": 5,
+      "Kind": "WriteState.Bool",
+      "X": 1160,
+      "Y": 0,
+      "Inputs": {
+        "Key": "AI.Attack",
+        "Value": false,
+        "Persistent": false
+      }
+    },
+    {
+      "ID": 6,
+      "Kind": "WriteState.Bool",
+      "X": 1450,
+      "Y": 0,
+      "Inputs": {
+        "Key": "AI.Investigate",
+        "Value": false,
+        "Persistent": false
+      }
+    },
+    {
+      "ID": 7,
+      "Kind": "WriteState.Bool",
+      "X": 1740,
+      "Y": 0,
+      "Inputs": {
+        "Key": "AI.Return",
+        "Value": false,
+        "Persistent": false
+      }
+    },
+    {
+      "ID": 8,
+      "Kind": "WriteState.Bool",
+      "X": 0,
+      "Y": 340,
+      "Inputs": {
+        "Key": "AI.Dead",
+        "Value": false,
+        "Persistent": false
+      }
+    },
+    {
+      "ID": 9,
+      "Kind": "WriteState.Bool",
+      "X": 290,
+      "Y": 340,
+      "Inputs": {
+        "Key": "AI.Spawn",
+        "Value": false,
+        "Persistent": false
+      }
+    },
+    {
+      "ID": 10,
+      "Kind": "WriteState.Bool",
+      "X": 580,
+      "Y": 340,
+      "Inputs": {
+        "Key": "AI.Open",
+        "Value": false,
+        "Persistent": false
+      }
+    },
+    {
+      "ID": 11,
+      "Kind": "Event.Update",
+      "X": 870,
+      "Y": 340,
+      "Inputs": {}
+    },
+    {
+      "ID": 12,
+      "Kind": "Get.Bool",
+      "X": 1160,
+      "Y": 340,
+      "Inputs": {
+        "Name": "Auto"
+      }
+    },
+    {
+      "ID": 13,
+      "Kind": "Branch",
+      "X": 1450,
+      "Y": 340,
+      "Inputs": {}
+    },
+    {
+      "ID": 14,
+      "Kind": "Gameplay.Input",
+      "X": 1740,
+      "Y": 340,
+      "Inputs": {}
+    },
+    {
+      "ID": 15,
+      "Kind": "Set.Vec2",
+      "X": 0,
+      "Y": 680,
+      "Inputs": {
+        "Name": "Move"
+      }
+    },
+    {
+      "ID": 16,
+      "Kind": "ReadState.Number",
+      "X": 290,
+      "Y": 680,
+      "Inputs": {
+        "Key": "AI.AutoMove"
+      }
+    },
+    {
+      "ID": 17,
+      "Kind": "MakeVec2",
+      "X": 580,
+      "Y": 680,
+      "Inputs": {}
+    },
+    {
+      "ID": 18,
+      "Kind": "Set.Vec2",
+      "X": 870,
+      "Y": 680,
+      "Inputs": {
+        "Name": "Move"
+      }
+    },
+    {
+      "ID": 19,
+      "Kind": "Gameplay.Motor3D",
+      "X": 1160,
+      "Y": 680,
+      "Inputs": {
+        "Speed": 4
+      }
+    },
+    {
+      "ID": 20,
+      "Kind": "Get.Vec2",
+      "X": 1450,
+      "Y": 680,
+      "Inputs": {
+        "Name": "Move"
+      }
+    },
+    {
+      "ID": 21,
+      "Kind": "Event.Update",
+      "X": 1740,
+      "Y": 680,
+      "Inputs": {}
+    },
+    {
+      "ID": 22,
+      "Kind": "Not",
+      "X": 0,
+      "Y": 1020,
+      "Inputs": {}
+    },
+    {
+      "ID": 23,
+      "Kind": "Branch",
+      "X": 290,
+      "Y": 1020,
+      "Inputs": {}
+    },
+    {
+      "ID": 24,
+      "Kind": "Sequence",
+      "X": 580,
+      "Y": 1020,
+      "Inputs": {}
+    },
+    {
+      "ID": 25,
+      "Kind": "ActionJustPressed",
+      "X": 870,
+      "Y": 1020,
+      "Inputs": {
+        "Name": "Interact"
+      }
+    },
+    {
+      "ID": 26,
+      "Kind": "And",
+      "X": 1160,
+      "Y": 1020,
+      "Inputs": {}
+    },
+    {
+      "ID": 27,
+      "Kind": "Branch",
+      "X": 1450,
+      "Y": 1020,
+      "Inputs": {}
+    },
+    {
+      "ID": 28,
+      "Kind": "EmitEvent",
+      "X": 1740,
+      "Y": 1020,
+      "Inputs": {
+        "Name": "Use"
+      }
+    },
+    {
+      "ID": 29,
+      "Kind": "ActionJustPressed",
+      "X": 0,
+      "Y": 1360,
+      "Inputs": {
+        "Name": "Fire"
+      }
+    },
+    {
+      "ID": 30,
+      "Kind": "And",
+      "X": 290,
+      "Y": 1360,
+      "Inputs": {}
+    },
+    {
+      "ID": 31,
+      "Kind": "Branch",
+      "X": 580,
+      "Y": 1360,
+      "Inputs": {}
+    },
+    {
+      "ID": 32,
+      "Kind": "EmitEvent",
+      "X": 870,
+      "Y": 1360,
+      "Inputs": {
+        "Name": "Shoot"
+      }
+    },
+    {
+      "ID": 33,
+      "Kind": "Event.Message",
+      "X": 1160,
+      "Y": 1360,
+      "Inputs": {}
+    },
+    {
+      "ID": 34,
+      "Kind": "TextEqual",
+      "X": 1450,
+      "Y": 1360,
+      "Inputs": {
+        "B": "Use"
+      }
+    },
+    {
+      "ID": 35,
+      "Kind": "Branch",
+      "X": 1740,
+      "Y": 1360,
+      "Inputs": {}
+    },
+    {
+      "ID": 36,
+      "Kind": "EmitEvent",
+      "X": 0,
+      "Y": 1700,
+      "Inputs": {
+        "Name": "Use"
+      }
+    },
+    {
+      "ID": 37,
+      "Kind": "Event.Message",
+      "X": 290,
+      "Y": 1700,
+      "Inputs": {}
+    },
+    {
+      "ID": 38,
+      "Kind": "TextEqual",
+      "X": 580,
+      "Y": 1700,
+      "Inputs": {
+        "B": "Shoot"
+      }
+    },
+    {
+      "ID": 39,
+      "Kind": "Branch",
+      "X": 870,
+      "Y": 1700,
+      "Inputs": {}
+    },
+    {
+      "ID": 40,
+      "Kind": "EmitEvent",
+      "X": 1160,
+      "Y": 1700,
+      "Inputs": {
+        "Name": "Shoot"
+      }
+    },
+    {
+      "ID": 41,
+      "Kind": "Event.Custom",
+      "X": 1450,
+      "Y": 1700,
+      "Inputs": {
+        "Name": "Use"
+      }
+    },
+    {
+      "ID": 42,
+      "Kind": "ReadState.Bool",
+      "X": 1740,
+      "Y": 1700,
+      "Inputs": {
+        "Key": "AI.Open"
+      }
+    },
+    {
+      "ID": 43,
+      "Kind": "Not",
+      "X": 0,
+      "Y": 2040,
+      "Inputs": {}
+    },
+    {
+      "ID": 44,
+      "Kind": "WriteState.Bool",
+      "X": 290,
+      "Y": 2040,
+      "Inputs": {
+        "Key": "AI.Open",
+        "Value": true,
+        "Persistent": false
+      }
+    },
+    {
+      "ID": 45,
+      "Kind": "Not",
+      "X": 580,
+      "Y": 2040,
+      "Inputs": {}
+    },
+    {
+      "ID": 46,
+      "Kind": "SetActive",
+      "X": 870,
+      "Y": 2040,
+      "Inputs": {
+        "Target": 901
+      }
+    },
+    {
+      "ID": 47,
+      "Kind": "SetActive",
+      "X": 1160,
+      "Y": 2040,
+      "Inputs": {
+        "Target": 902
+      }
+    },
+    {
+      "ID": 48,
+      "Kind": "Event.Custom",
+      "X": 1450,
+      "Y": 2040,
+      "Inputs": {
+        "Name": "Shoot"
+      }
+    },
+    {
+      "ID": 49,
+      "Kind": "Gameplay.Strike",
+      "X": 1740,
+      "Y": 2040,
+      "Inputs": {
+        "Victim": 880,
+        "Range": 20,
+        "TwoD": false,
+        "Origin": [
+          0,
+          1,
+          0
+        ],
+        "Facing": [
+          -1,
+          0,
+          0
+        ],
+        "Amount": 1000
+      }
+    },
+    {
+      "ID": 50,
+      "Kind": "Event.LateUpdate",
+      "X": 0,
+      "Y": 2380,
+      "Inputs": {}
+    },
+    {
+      "ID": 51,
+      "Kind": "Gameplay.AIState",
+      "X": 290,
+      "Y": 2380,
+      "Inputs": {
+        "Target": 880
+      }
+    },
+    {
+      "ID": 52,
+      "Kind": "Gameplay.Health",
+      "X": 580,
+      "Y": 2380,
+      "Inputs": {}
+    },
+    {
+      "ID": 53,
+      "Kind": "NumberToText",
+      "X": 870,
+      "Y": 2380,
+      "Inputs": {}
+    },
+    {
+      "ID": 54,
+      "Kind": "Concat",
+      "X": 1160,
+      "Y": 2380,
+      "Inputs": {
+        "A": "Sentry: "
+      }
+    },
+    {
+      "ID": 55,
+      "Kind": "Concat",
+      "X": 1450,
+      "Y": 2380,
+      "Inputs": {
+        "B": "  |  "
+      }
+    },
+    {
+      "ID": 56,
+      "Kind": "Concat",
+      "X": 1740,
+      "Y": 2380,
+      "Inputs": {}
+    },
+    {
+      "ID": 57,
+      "Kind": "SetUIText",
+      "X": 0,
+      "Y": 2720,
+      "Inputs": {
+        "Target": 1002
+      }
+    },
+    {
+      "ID": 58,
+      "Kind": "Concat",
+      "X": 290,
+      "Y": 2720,
+      "Inputs": {
+        "A": "Player HP "
+      }
+    },
+    {
+      "ID": 59,
+      "Kind": "SetUIText",
+      "X": 580,
+      "Y": 2720,
+      "Inputs": {
+        "Target": 1003
+      }
+    }
+  ],
+  "Links": [
+    {
+      "From": 1,
+      "Output": "Then",
+      "To": 2,
+      "Input": "In"
+    },
+    {
+      "From": 2,
+      "Output": "Then",
+      "To": 3,
+      "Input": "In"
+    },
+    {
+      "From": 3,
+      "Output": "Then",
+      "To": 4,
+      "Input": "In"
+    },
+    {
+      "From": 4,
+      "Output": "Then",
+      "To": 5,
+      "Input": "In"
+    },
+    {
+      "From": 5,
+      "Output": "Then",
+      "To": 6,
+      "Input": "In"
+    },
+    {
+      "From": 6,
+      "Output": "Then",
+      "To": 7,
+      "Input": "In"
+    },
+    {
+      "From": 7,
+      "Output": "Then",
+      "To": 8,
+      "Input": "In"
+    },
+    {
+      "From": 8,
+      "Output": "Then",
+      "To": 9,
+      "Input": "In"
+    },
+    {
+      "From": 9,
+      "Output": "Then",
+      "To": 10,
+      "Input": "In"
+    },
+    {
+      "From": 11,
+      "Output": "Then",
+      "To": 13,
+      "Input": "In"
+    },
+    {
+      "From": 12,
+      "Output": "Value",
+      "To": 13,
+      "Input": "Condition"
+    },
+    {
+      "From": 13,
+      "Output": "False",
+      "To": 15,
+      "Input": "In"
+    },
+    {
+      "From": 14,
+      "Output": "Move",
+      "To": 15,
+      "Input": "Value"
+    },
+    {
+      "From": 16,
+      "Output": "Value",
+      "To": 17,
+      "Input": "X"
+    },
+    {
+      "From": 13,
+      "Output": "True",
+      "To": 18,
+      "Input": "In"
+    },
+    {
+      "From": 17,
+      "Output": "Value",
+      "To": 18,
+      "Input": "Value"
+    },
+    {
+      "From": 20,
+      "Output": "Value",
+      "To": 19,
+      "Input": "Move"
+    },
+    {
+      "From": 11,
+      "Output": "Delta",
+      "To": 19,
+      "Input": "Delta"
+    },
+    {
+      "From": 14,
+      "Output": "Enabled",
+      "To": 19,
+      "Input": "Enabled"
+    },
+    {
+      "From": 15,
+      "Output": "Then",
+      "To": 19,
+      "Input": "In"
+    },
+    {
+      "From": 18,
+      "Output": "Then",
+      "To": 19,
+      "Input": "In"
+    },
+    {
+      "From": 12,
+      "Output": "Value",
+      "To": 22,
+      "Input": "A"
+    },
+    {
+      "From": 21,
+      "Output": "Then",
+      "To": 23,
+      "Input": "In"
+    },
+    {
+      "From": 22,
+      "Output": "Value",
+      "To": 23,
+      "Input": "Condition"
+    },
+    {
+      "From": 23,
+      "Output": "True",
+      "To": 24,
+      "Input": "In"
+    },
+    {
+      "From": 25,
+      "Output": "Value",
+      "To": 26,
+      "Input": "A"
+    },
+    {
+      "From": 14,
+      "Output": "Enabled",
+      "To": 26,
+      "Input": "B"
+    },
+    {
+      "From": 24,
+      "Output": "First",
+      "To": 27,
+      "Input": "In"
+    },
+    {
+      "From": 26,
+      "Output": "Value",
+      "To": 27,
+      "Input": "Condition"
+    },
+    {
+      "From": 27,
+      "Output": "True",
+      "To": 28,
+      "Input": "In"
+    },
+    {
+      "From": 29,
+      "Output": "Value",
+      "To": 30,
+      "Input": "A"
+    },
+    {
+      "From": 14,
+      "Output": "Enabled",
+      "To": 30,
+      "Input": "B"
+    },
+    {
+      "From": 24,
+      "Output": "Second",
+      "To": 31,
+      "Input": "In"
+    },
+    {
+      "From": 30,
+      "Output": "Value",
+      "To": 31,
+      "Input": "Condition"
+    },
+    {
+      "From": 31,
+      "Output": "True",
+      "To": 32,
+      "Input": "In"
+    },
+    {
+      "From": 33,
+      "Output": "Text",
+      "To": 34,
+      "Input": "A"
+    },
+    {
+      "From": 33,
+      "Output": "Then",
+      "To": 35,
+      "Input": "In"
+    },
+    {
+      "From": 34,
+      "Output": "Value",
+      "To": 35,
+      "Input": "Condition"
+    },
+    {
+      "From": 35,
+      "Output": "True",
+      "To": 36,
+      "Input": "In"
+    },
+    {
+      "From": 37,
+      "Output": "Text",
+      "To": 38,
+      "Input": "A"
+    },
+    {
+      "From": 37,
+      "Output": "Then",
+      "To": 39,
+      "Input": "In"
+    },
+    {
+      "From": 38,
+      "Output": "Value",
+      "To": 39,
+      "Input": "Condition"
+    },
+    {
+      "From": 39,
+      "Output": "True",
+      "To": 40,
+      "Input": "In"
+    },
+    {
+      "From": 42,
+      "Output": "Value",
+      "To": 43,
+      "Input": "A"
+    },
+    {
+      "From": 43,
+      "Output": "Value",
+      "To": 44,
+      "Input": "Value"
+    },
+    {
+      "From": 41,
+      "Output": "Then",
+      "To": 44,
+      "Input": "In"
+    },
+    {
+      "From": 42,
+      "Output": "Value",
+      "To": 45,
+      "Input": "A"
+    },
+    {
+      "From": 44,
+      "Output": "Then",
+      "To": 46,
+      "Input": "In"
+    },
+    {
+      "From": 46,
+      "Output": "Then",
+      "To": 47,
+      "Input": "In"
+    },
+    {
+      "From": 45,
+      "Output": "Value",
+      "To": 46,
+      "Input": "Active"
+    },
+    {
+      "From": 45,
+      "Output": "Value",
+      "To": 47,
+      "Input": "Active"
+    },
+    {
+      "From": 48,
+      "Output": "Then",
+      "To": 49,
+      "Input": "In"
+    },
+    {
+      "From": 52,
+      "Output": "Current",
+      "To": 53,
+      "Input": "Number"
+    },
+    {
+      "From": 51,
+      "Output": "Mode",
+      "To": 54,
+      "Input": "B"
+    },
+    {
+      "From": 54,
+      "Output": "Value",
+      "To": 55,
+      "Input": "A"
+    },
+    {
+      "From": 55,
+      "Output": "Value",
+      "To": 56,
+      "Input": "A"
+    },
+    {
+      "From": 51,
+      "Output": "Status",
+      "To": 56,
+      "Input": "B"
+    },
+    {
+      "From": 50,
+      "Output": "Then",
+      "To": 57,
+      "Input": "In"
+    },
+    {
+      "From": 56,
+      "Output": "Value",
+      "To": 57,
+      "Input": "Text"
+    },
+    {
+      "From": 53,
+      "Output": "Value",
+      "To": 58,
+      "Input": "B"
+    },
+    {
+      "From": 57,
+      "Output": "Then",
+      "To": 59,
+      "Input": "In"
+    },
+    {
+      "From": 58,
+      "Output": "Value",
+      "To": 59,
+      "Input": "Text"
+    }
+  ],
+  "Variables": {
+    "Auto": {
+      "Type": "Bool",
+      "Default": false
+    },
+    "Move": {
+      "Type": "Vec2",
+      "Default": [
+        0,
+        0
+      ]
+    }
+  }
+}

@@ -19,6 +19,11 @@ Ishga tushirish: editor launcher'ida **Namuna o'yinlar** kartasini bosing yoki p
 ZAMIN_DEMO=1 ./build/bin/ZaminPlayer Projects/Racing   # demo: bot o'ynaydi
 ```
 
+## Compiler-free AI workshop
+
+[AIWorkshop](../Projects/AIWorkshop/README.md): 2D/3D patrol, chase, attack, investigate, return,
+LOS shutters va mustaqil NPC prefab spawn. WASD / E / Ctrl. [AI qo‘llanmasi](GameplayAI.md).
+
 ## Compiler-free combat va interaction
 
 [RulesWorkshop](../Projects/RulesWorkshop/README.md): 2D/3D health/shield, death/respawn, melee,

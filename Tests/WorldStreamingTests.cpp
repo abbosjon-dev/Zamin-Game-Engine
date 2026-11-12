@@ -1,5 +1,7 @@
 #include <Zamin/Scripting/Visual/VisualGraphHost.h>
 #include <Zamin/Scene/WorldStreaming.h>
+#include <Zamin/Gameplay/GameplayAI.h>
+#include <Zamin/Gameplay/GameplayRules.h>
 #include <Zamin/Scene/WorldCheckpoint.h>
 #include <Zamin/Scene/SceneManager.h>
 #include <Zamin/Scene/SceneSerializer.h>
@@ -1846,5 +1848,54 @@ TEST(WorldRecoveryGraphReportsExhaustionAndRetriesExplicitly)
     CHECK(host && host->VM.Variables().at("Exhausted") == true);
     host->Emit("Message", {});
     CHECK(!a.Recovery.IsExhausted() && a.RepathRequested && host->VM.Variables().at("Success") == true);
+    manager.Stop();
+}
+TEST(AIGameplayWorldQueryWaitAndPortalHandshakeArePreservedAndCancelled)
+{
+    WorldFixture f;
+    ConfigureWorldAgent(f);
+    AsyncPolicy(f);
+    f.Manifest.Cells[1].Coordinate.x = 3;
+    f.Manifest.Cells[2].Coordinate.x = 6;
+    f.Policy.NavigationLinks = { { 501, { 2.5f, 5.5f }, { 32.5f, 5.5f }, 1, true, true }, { 502, { 35.5f, 5.5f }, { 62.5f, 5.5f }, 1, true, true } };
+    f.Save();
+    SceneManager manager;
+    auto scene = f.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 300; }));
+    auto actor = WorldAgent(*scene);
+    std::string error;
+    auto& rules = Gameplay::RuleWorld::For(*scene);
+    CHECK(rules.Configure(actor, { 100, 0, 0, 0, 2 }, false, error));
+    Gameplay::AISpec spec;
+    spec.Brain.TwoD = true;
+    spec.Brain.Leash = 80;
+    spec.Brain.Speed = 12;
+    spec.Tag = "Nobody";
+    spec.Relative = false;
+    spec.Eye = {};
+    spec.Points = { { 35.5f, 5.5f, 0 } };
+    spec.Recovery = { true, .1f, .1f, .05f, 2 };
+    auto& ai = Gameplay::AIWorld::For(*scene);
+    CHECK(ai.Configure(actor, actor, spec, false, error));
+    ai.Tick(1.f / 60);
+    CHECK(world->HasNavigationQuery(actor.GetUUID()));
+    for (int i = 0; i < 8; ++i) ai.Tick(.1f);
+    CHECK(ai.State(actor)->Retries == 0 && world->HasNavigationQuery(actor.GetUUID()));
+    CHECK(ai.Enable(actor, false));
+    CHECK(!world->HasNavigationQuery(actor.GetUUID()));
+    CHECK(!actor.GetComponent<NavAgentComponent>().HasDestination);
+    CHECK(ai.Enable(actor, true));
+    CHECK(StepAsyncAgent(manager, [&] { return scene->GetNavTraversalLink(actor) == 501; }));
+    auto& nav = actor.GetComponent<NavAgentComponent>();
+    auto position = scene->GetWorldPosition(actor);
+    const auto revision = nav.AtlasRevision, ticket = nav.TraversalTicket;
+    for (int i = 0; i < 8; ++i) ai.Tick(.1f);
+    CHECK(ai.State(actor)->Status == "Traversal pending" && ai.State(actor)->Retries == 0);
+    CHECK(scene->GetWorldPosition(actor) == position && nav.TraversalCompletions == 0);
+    CHECK(ai.Enable(actor, false));
+    CHECK(!scene->GetNavTraversalLink(actor));
+    CHECK(!scene->CompleteNavTraversal(actor, 501, revision, ticket));
+    CHECK(scene->GetWorldPosition(actor) == position);
     manager.Stop();
 }

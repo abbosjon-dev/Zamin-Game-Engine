@@ -22,6 +22,27 @@ saqlanadi; ulardagi belgi yangi imkoniyatning ishlayotganiga dalil o'rnini bosma
 | P7 Platforma, release va mahsulot | Linux/Windows, keyin macOS; cook/package/update/crash telemetry; editor/launcher yagona auth | Toza mashinada install/export/run, talablar va litsenziyalar, imzolangan release va rollback sinovi | Rejada |
 | P8 Yakuniy sifat darvozasi | Hujjatlar, ko'chirish yo'li, ikki namunaviy o'yin va profiling hisobotlari | Uzoq sessiya, resurs sizishi, recovery/fuzz, reference sahnalarda barqaror frame time va foydalanish sinovi | Rejada |
 
+### Yakunlangan bo‘lim — AI gameplay
+
+- [x] Pure patrol/chase/investigate/attack/return FSM, memory/leash and attack hysteresis.
+- [x] Shared hostile perception/explicit strike, LOS/team filtering and bounded scene budgets.
+- [x] Native/Blueprint AI configuration/state/events, navigation ownership, recovery, cancellation and lifecycle.
+- [x] 2D/3D NPC prefab/course, physical movement/combat, Editor/export and screenshot acceptance.
+- [x] Unit, sanitizer, regression, documentation and main push.
+
+Dalillar (2026-11-12): 1077/1077 unit (38 yangi), 11/11 headless CTest, 12/12 render.
+Pure BrainModel ASan/UBSan/LSan: 14/14. BrainModel, GameplayAI, GameplayAIGraph, GameplayRules,
+GameplayRuleGraph va GameplayRuntime TU’lari instrumentlangan owner probe: 24/24, LeakSanitizer
+bilan. Scene, serializer, physics, VM va qolgan shared engine ushbu probe’da normal build;
+bu butun engine sanitizer run’i emas. Clang 18 syntax-only -Werror: 11 ta TU.
+2D/3D Player input replay va Editor auto-play: 420 kadrdan; compiler-free export benchmark
+420 / screenshot 450 kadrdan, jami 6 workflow. Patrol/chase/attack/investigate/return/dead/spawn
+va canonical HP/prefab-nav oracle’lari o‘tdi. Relocation launcher --version bilan tekshirildi.
+Haqiqiy ImGui authoring: AIConfigure/AIState/Sense add/save/Undo. AIWorkshop generatori deterministik.
+Hisobotlar va skrinshotlar: `build-review/AIGameplay/`. Software Mesa ishlatildi;
+physical GPU byudjeti o‘lchanmagan. AI runtime-only, konfiguratsiya graph assetlarda saqlanadi.
+[AI shartlari va cheklovlari](GameplayAI.md).
+
 ### Yakunlangan bo‘lim — health, combat, inventory va interaction
 
 - [x] Scene-owned shared state, bounded transactional health/shield/damage/heal and cooldown clocks.
@@ -44,9 +65,10 @@ bog‘liq multi-frame taxmini activation gate bilan deterministik qilindi; 10/10
 Hisobot va rasmlar: `build-review/GameplayRules/`. Software Mesa; physical GPU byudjeti o‘lchanmagan.
 Graph configure input’lari saqlanadi; health/inventory holati runtime-only. [Shartlar](GameplayRules.md).
 
-Keyingi yirik paket: AI gameplay — perception/LOS, patrol/chase/attack/return holatlari,
-2D/3D movement/navigation adapterlari, spawn/lifecycle va recovery/cancellation; har ikki
-sahnada o‘ynaladigan NPC kursi, Blueprint authoring va export acceptance bilan yakunlash.
+Keyingi yirik paket: gameplay save/load — health/inventory/AI/spawn holatlari uchun versiyalangan
+snapshot, atomik yozish va buzilgan save’dan tiklash; 2D/3D fresh-process resume, Blueprint
+authoring va eksportda qayta davom ettirish dalillari. Bu checkpoint transform saqlashdan kengroq
+alohida bosqich; hozir tayyor deb belgilanmaydi.
 
 ### Yakunlangan bo‘lim — motor, kamera, locomotion va checkpoint
 

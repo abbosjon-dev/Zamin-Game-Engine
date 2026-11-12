@@ -47,12 +47,10 @@ namespace Zamin::Gameplay {
         Check(e);
         const uint64_t id = e.GetUUID();
         if (!m_Actors.contains(id) && m_Actors.size() >= 512) throw std::runtime_error("Rule actor limit 512");
-        auto& actor = m_Actors[id];
-        if (actor.Handle != uint32_t(e))
-        {
-            actor = {};
-            actor.Handle = uint32_t(e);
-        }
+        auto found = m_Actors.find(id);
+        if (found != m_Actors.end() && found->second.Handle != uint32_t(e)) m_Actors.erase(found);
+        auto& actor = m_Actors.try_emplace(id).first->second;
+        actor.Handle = uint32_t(e);
         return actor;
     }
     void RuleWorld::Tick(float delta)
@@ -137,6 +135,7 @@ namespace Zamin::Gameplay {
             Emit(*actor, { "Damage", {}, sender, uint64_t(victim.GetUUID()), result.Applied });
             if (result.Killed)
             {
+                if (auto* nav = victim.TryGetComponent<NavAgentComponent>()) nav->Stop(true);
                 if (auto* c = victim.TryGetComponent<CharacterController3DComponent>()) c->MoveVelocity = {};
                 if (auto* body = victim.TryGetComponent<Rigidbody2DComponent>(); body && body->RuntimeBody && m_Scene->GetPhysicsWorld2D())
                 {
@@ -395,6 +394,73 @@ namespace Zamin::Gameplay {
             return result;
         }
         result.Reason = "No visible target";
+        return result;
+    }
+    UseResult RuleWorld::Sense(Entity actor, const RuleQuery& q, const std::string& tag, Entity explicitTarget, double nearDistance)
+    {
+        Check(actor);
+        Validate(q);
+        if (explicitTarget) Check(explicitTarget);
+        if (tag.size() > 64 || !std::isfinite(nearDistance) || nearDistance < 0 || nearDistance > q.Range) throw std::runtime_error("Invalid perception filter");
+        Budget();
+        if (Dead(actor) || !m_Scene->IsActiveInHierarchy(actor)) return {};
+        const auto own = Health(actor);
+        std::vector<std::pair<double, uint64_t>> candidates;
+        const auto origin = m_Scene->GetWorldPosition(actor);
+        for (const auto& [id, record] : m_Actors)
+        {
+            auto e = m_Scene->GetEntityByUUID(UUID(id));
+            if (!e || e == actor || uint32_t(e) != record.Handle || !record.Health || record.Health->Dead || !m_Scene->IsActiveInHierarchy(e)) continue;
+            if (explicitTarget && e != explicitTarget) continue;
+            if (!tag.empty() && !e.HasTag(tag)) continue;
+            if (own && own->Settings.Team && own->Settings.Team == record.Health->Settings.Team) continue;
+            auto delta = glm::dvec3(m_Scene->GetWorldPosition(e)) - glm::dvec3(origin);
+            if (q.TwoD) delta.z = 0;
+            if (auto d = glm::length(delta); d <= q.Range) candidates.emplace_back(d, id);
+        }
+        std::sort(candidates.begin(), candidates.end());
+        size_t probes = 0;
+        for (const auto& [distance, id] : candidates)
+        {
+            if (++probes > 64) break;
+            auto e = m_Scene->GetEntityByUUID(UUID(id));
+            auto test = q;
+            if (distance <= nearDistance) test.MinDot = -1;
+            double actual;
+            if (Visible(actor, e, test, m_Scene->GetWorldPosition(e) + q.Origin, actual)) return { true, id, distance, 0, {}, {} };
+        }
+        return {};
+    }
+    AttackResult RuleWorld::Strike(Entity actor, Entity victim, const RuleQuery& q, double amount, double cooldown, bool friendlyFire)
+    {
+        Check(actor);
+        Check(victim);
+        Validate(q);
+        if (!std::isfinite(amount) || amount <= 0 || amount > 1e6 || !std::isfinite(cooldown) || cooldown < 0 || cooldown > 60) throw std::runtime_error("Invalid strike damage/cooldown");
+        Budget();
+        AttackResult result;
+        if (Dead(actor) || !m_Scene->IsActiveInHierarchy(actor))
+        {
+            result.Reason = "Dead/inactive";
+            return result;
+        }
+        auto& a = RequireActor(actor);
+        if (m_Now < a.AttackUntil)
+        {
+            result.Reason = "Attack cooldown";
+            return result;
+        }
+        a.AttackUntil = m_Now + cooldown;
+        auto h = Health(victim);
+        double distance;
+        if (actor == victim || !h || h->Dead || !m_Scene->IsActiveInHierarchy(victim) || !Visible(actor, victim, q, m_Scene->GetWorldPosition(victim) + q.Origin, distance))
+        {
+            result.Reason = "Target invalid or blocked/out of range";
+            return result;
+        }
+        result.Target = victim.GetUUID();
+        result.Damage = Damage(victim, actor, amount, friendlyFire, false, false);
+        result.Reason = result.Damage.Reason;
         return result;
     }
     std::optional<RuleEvent> RuleWorld::Poll(Entity e)

@@ -5,6 +5,7 @@
 #include "Zamin/Scene/Components.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/UI/UIScroll.h"
+#include "Zamin/Gameplay/GameplayUI.h"
 
 #include <algorithm>
 #include <cmath>
@@ -148,7 +149,7 @@ namespace Zamin {
         }
         auto alive = [&](entt::entity sv) {
             return sv != entt::null && m_Registry.valid(sv) && m_Registry.all_of<UIScrollViewComponent, UITransformComponent>(sv) &&
-                   IsActiveInHierarchy({ sv, this });
+                   IsActiveInHierarchy({ sv, this }) && Gameplay::GameplayUIAllows(*this, { sv, this });
         };
         // The mouse in an element's layout units (its look undone).
         auto local = [&](entt::entity e) {
@@ -178,7 +179,7 @@ namespace Zamin {
         // The scroll views around what the mouse is over, innermost first.
         std::vector<entt::entity> around;
         for (entt::entity a = hovered; a != entt::null && around.size() < 1024; a = GetUIParent(a))
-            if (m_Registry.all_of<UIScrollViewComponent>(a))
+            if (m_Registry.all_of<UIScrollViewComponent>(a) && Gameplay::GameplayUIAllows(*this, { a, this }))
                 around.push_back(a);
         if (hovered != entt::null && m_Registry.all_of<UIScrollViewComponent>(hovered))
             m_Registry.get<UIScrollViewComponent>(hovered).HoveredBar = ScrollbarAt(hovered, mouse);

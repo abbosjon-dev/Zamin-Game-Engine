@@ -17,10 +17,31 @@ saqlanadi; ulardagi belgi yangi imkoniyatning ishlayotganiga dalil o'rnini bosma
 | P2 Kontent sifati va mualliflik | Terrain GPU qatlamlari/PBR, normal/roughness, atlas/cook, foliage, 2D palette/animation qulayligi | Haqiqiy assetli 2D/3D sahnalar, import/export/undo roundtrip, tekstura xotira byudjeti | GPU terrain v1 yakunlandi; qolgan kontent ishlari rejada |
 | P3 Dunyo va asset streaming | Disk kataklari, async load/unload, data layers, HLOD, floating origin, asset residency | Tez harakatda/cancel/reload'da yo'qolmagan obyektlar, chegaralangan RAM/VRAM, main thread'da og'ir IO yo'q | Runtime v2: LRU cleanup, observed pressure gate, terrain tiles va grid mosaic bajarildi; HLOD/floating origin/hard timing rejada |
 | P4 Rendererning keyingi avlodi | GPU timer v1 mavjud; render graph, Vulkan, temporal AA/upscaling, katta sahna visibility va yoritish | Drayver/physical GPU matritsasi, HDR/alpha/picking/shadow regressiyalari, reference hardware byudjeti | Rejada; virtual geometry va dinamik GI — alohida tadqiqot |
-| P5 Gameplay, animatsiya, fizika va UI | Mavjud 2D/3D tizimlarini production darajasida birlashtirish, katta kontent va gameplay workflow | Ikki tugallangan vertical slice, saqlash/yuklash, controller, animatsiya/fizika stress, UI input/scale testlari | Blueprint gameplay, Animator 1D/2D va motor/camera/checkpoint zanjiri; qolgan ishlar rejada |
+| P5 Gameplay, animatsiya, fizika va UI | Mavjud 2D/3D tizimlarini production darajasida birlashtirish, katta kontent va gameplay workflow | Ikki tugallangan vertical slice, saqlash/yuklash, controller, animatsiya/fizika stress, UI input/scale testlari | Motor/combat/AI/save/UI va Animator 1D/2D zanjiri mavjud; ikki to‘liq vertical slice va stress mezonlari rejada |
 | P6 Tarmoq va kengaytirish | Server authority, replication, latency compensation, plagin SDK/ABI, xavfsiz hot reload | Yo'qotilgan paket, kechikish, reconnect, versiya mos kelmasligi va plagin unload sinovlari | Rejada |
 | P7 Platforma, release va mahsulot | Linux/Windows, keyin macOS; cook/package/update/crash telemetry; editor/launcher yagona auth | Toza mashinada install/export/run, talablar va litsenziyalar, imzolangan release va rollback sinovi | Rejada |
 | P8 Yakuniy sifat darvozasi | Hujjatlar, ko'chirish yo'li, ikki namunaviy o'yin va profiling hisobotlari | Uzoq sessiya, resurs sizishi, recovery/fuzz, reference sahnalarda barqaror frame time va foydalanish sinovi | Rejada |
+
+### Yakunlangan bo‘lim — gameplay UI
+
+- [x] Bounded modal stack, focus/pause ownership and input fencing.
+- [x] HUD/rules bindings, deterministic inventory pages and live selection.
+- [x] Blueprint/native API, lifecycle and real keyboard/gamepad isolation.
+- [x] 2D/3D playable UI/save-resume workflow, scale and export screenshots.
+- [x] Unit, sanitizer, regression, documentation and main push.
+
+Dalillar (2026-11-12): 1160/1160 unit (42 yangi), 11/11 headless CTest, 12/12 render.
+Pure UIModel/RulesModel ASan/UBSan/LSan: 10/10. UIModel, GameplayUI, GameplayUIGraph va
+GameplayRuntime TU’lari instrumentlangan owner probe: 42/42, LeakSanitizer bilan; Scene,
+SceneUI, SceneUIScroll, serializer, physics, VM va qolgan shared engine normal build.
+Bu butun engine sanitizer run’i emas. Clang 18 syntax-only -Werror: 10 ta TU.
+Real ImGui: UIConfigure/UIBindHUD/UIInventoryConfigure add/save/Undo. 2D/3D real keyboard/gamepad
+Player replay (225 kadr), inventory capture (110), 1024x768 capture (110), Editor auto-play (225),
+compiler-free export benchmark/screenshot (225): jami 10 workflow. Save’dan keyin HP/coin ataylab
+kamayadi; Load native 75 HP / 8 coin qiymatini qaytarishi shart. Relocation --version smoke check.
+Oxirgi item-tint sayqalidan keyin yana 4 ta inventory capture/oracle (1280x720 va 1024x768) o‘tdi.
+Generator deterministik; hisobotlar/skrinshotlar: `build-review/GameplayUI/`. Software Mesa;
+physical GPU byudjeti o‘lchanmagan. [Scope, vaqt va input shartlari](GameplayUI.md).
 
 ### Yakunlangan bo‘lim — gameplay save/load
 
@@ -88,9 +109,10 @@ Graph configure input’lari saqlanadi; health/inventory holati runtime-only. [S
 Gameplay save/load yuqoridagi paketda davom ettirildi. To‘liq ECS/VM/physics snapshot,
 avtomatik ixtiyoriy obyekt resurrection va katta dunyoning async saqlashi alohida qoladi.
 
-Keyingi yirik paket: gameplay UI — reusable HUD/inventory/progress panellari, native holatga
-binding, pause/menu va keyboard/gamepad fokus boshqaruvi; 2D/3D o‘ynaladigan namunada input,
-resolution/scale, save-resume hamda export acceptance bilan yakunlash.
+Gameplay UI yuqoridagi paketda yakunlandi. Keyingi yirik paket — quest/progression:
+objective/trigger, atomik reward, save format/migration va HUD binding; 2D/3D kursda
+acceptance, fresh-process resume va export bilan tekshirish. To‘liq ECS/physics snapshot,
+renderer va katta dunyo vazifalari umumiy rejada saqlanadi.
 
 ### Yakunlangan bo‘lim — motor, kamera, locomotion va checkpoint
 

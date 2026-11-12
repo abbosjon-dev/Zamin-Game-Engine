@@ -19,6 +19,11 @@ Ishga tushirish: editor launcher'ida **Namuna o'yinlar** kartasini bosing yoki p
 ZAMIN_DEMO=1 ./build/bin/ZaminPlayer Projects/Racing   # demo: bot o'ynaydi
 ```
 
+## Compiler-free gameplay UI
+
+[UIWorkshop](../Projects/UIWorkshop/README.md): live health/coin/bag HUD, sahifalangan inventory,
+modal fokus, pause/control oynalari va menyudan save/load. Keyboard/gamepad. [UI qo‘llanmasi](GameplayUI.md).
+
 ## Compiler-free save/resume
 
 [SaveWorkshop](../Projects/SaveWorkshop/README.md): health, inventory, ishlatilgan interaction,

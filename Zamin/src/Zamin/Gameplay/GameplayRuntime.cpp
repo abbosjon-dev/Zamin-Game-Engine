@@ -1,5 +1,6 @@
 #include "GameplayRuntime.h"
 #include "GameplayRules.h"
+#include "GameplayUI.h"
 #include "Zamin/Scene/Scene.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Scene/Components.h"
@@ -18,6 +19,7 @@
 #include <cmath>
 #include <stdexcept>
 namespace Zamin::Gameplay {
+    std::optional<Visual::Value> DispatchUI(Entity, Entity, const std::string&, const std::map<std::string, Visual::Value>&);
     std::optional<Visual::Value> DispatchSave(Entity, Entity, const std::string&, const std::map<std::string, Visual::Value>&);
     std::optional<Visual::Value> DispatchAI(Entity, Entity, const std::string&, const std::map<std::string, Visual::Value>&);
     std::optional<Visual::Value> DispatchRules(Entity, Entity, const std::string&, const std::map<std::string, Visual::Value>&);
@@ -235,6 +237,7 @@ namespace Zamin::Gameplay {
             if (!rules.Revive(target, grace, error)) throw std::runtime_error("Respawn health commit failed: " + error);
             return Status(true);
         }
+        if (auto result = DispatchUI(host, target, kind, values)) return *result;
         if (auto result = DispatchSave(host, target, kind, values)) return *result;
         if (auto result = DispatchAI(host, target, kind, values)) return *result;
         if (auto result = DispatchRules(host, target, kind, values)) return *result;
@@ -245,7 +248,7 @@ namespace Zamin::Gameplay {
         };
         if (kind == "Gameplay.Input")
         {
-            const bool enabled = a.B("Enabled") && !scene.IsTextInputFocused();
+            const bool enabled = a.B("Enabled") && !scene.IsTextInputFocused() && !GameplayUIBlocks(scene);
             auto move = enabled ? Input::GetVector(a.S("Move")) : glm::vec2(0);
             auto look = enabled ? Input::GetMouseDelta() : glm::vec2(0);
             return V{ { "Move", V::array({ move.x, move.y }) }, { "Look", V::array({ look.x, look.y }) }, { "Jump", enabled && Input::IsActionJustPressed(a.S("Jump")) }, { "JumpHeld", enabled && Input::IsActionPressed(a.S("Jump")) }, { "Sprint", enabled && Input::IsActionPressed(a.S("Sprint")) }, { "Enabled", enabled } };

@@ -42,6 +42,7 @@
 #include "Zamin/Gameplay/GameplayRules.h"
 #include "Zamin/Gameplay/GameplayAI.h"
 #include "Zamin/Gameplay/SaveWorld.h"
+#include "Zamin/Gameplay/GameplayUI.h"
 
 #include <algorithm>
 #include <cctype>
@@ -624,6 +625,7 @@ namespace Zamin {
         Time::ClearGameClock(this);
         if (m_ScriptsRunning)
             StopScripts();
+        Gameplay::ResetGameplayUI(*this);
         Gameplay::ResetSaves(*this);
         Gameplay::ResetAI(*this);
         Gameplay::ResetRules(*this);
@@ -2772,6 +2774,7 @@ namespace Zamin {
     {
         const auto startClock = std::chrono::steady_clock::now();
         m_RuntimeStartTiming = {};
+        Gameplay::ResetGameplayUI(*this);
         Gameplay::ResetSaves(*this);
         Gameplay::ResetAI(*this);
         Gameplay::ResetRules(*this);
@@ -2853,6 +2856,7 @@ namespace Zamin {
         m_DeltaTime = 0.0f;
         Time::ClearGameClock(this);
         StopScripts();
+        Gameplay::ResetGameplayUI(*this);
         Gameplay::ResetSaves(*this);
         Gameplay::ResetAI(*this);
         Gameplay::ResetRules(*this);
@@ -5211,6 +5215,7 @@ namespace Zamin {
         DispatchLanguageChanged();
         UpdateLocalizedTexts();
         const bool gamePausedBeforeUI = IsGamePaused();
+        Gameplay::BeginGameplayUI(*this);
         UpdateUI(ts); // real time: the UI works while the game is paused
         const bool advance = !m_IsPaused || m_StepFrames-- > 0; // the editor's pause / step
         m_DeltaTime = 0.0f;
@@ -5338,6 +5343,7 @@ namespace Zamin {
         }
         else if (!m_FrameFollower)
             DebugDraw::Hold(); // paused: the last game frame's shapes stay, nothing piles up
+        Gameplay::RefreshGameplayUI(*this);
         m_UIDeferred = false;
     }
 

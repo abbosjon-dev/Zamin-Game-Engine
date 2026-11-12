@@ -15,6 +15,7 @@
 #include "Zamin/UI/TextEdit.h"
 #include "Zamin/UI/TextLayout.h"
 #include "Zamin/UI/UIWidgets.h"
+#include "Zamin/Gameplay/GameplayUI.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -488,13 +489,13 @@ namespace Zamin {
         // point is found before what is in it.
         std::vector<entt::entity> bars;
         for (auto e : m_Registry.view<UIScrollViewComponent>())
-            if (m_Registry.all_of<UITransformComponent>(e) && IsActiveInHierarchy({ e, this }) && ScrollbarAt(e, point) >= 0)
+            if (m_Registry.all_of<UITransformComponent>(e) && IsActiveInHierarchy({ e, this }) && Gameplay::GameplayUIAllows(*this, { e, this }) && ScrollbarAt(e, point) >= 0)
                 bars.push_back(e);
         // The topmost first: the last one drawn.
         for (auto it = order.rbegin(); it != order.rend(); ++it)
         {
             entt::entity e = *it;
-            if (!TakesMouse(m_Registry, e) || !IsActiveInHierarchy({ e, this }))
+            if (!TakesMouse(m_Registry, e) || !IsActiveInHierarchy({ e, this }) || !Gameplay::GameplayUIAllows(*this, { e, this }))
                 continue; // inactive UI is not drawn and cannot be hovered: the mouse reaches what is below
             const UILayoutNode& node = GetUINode(e);
             // Where it is drawn; faded out: not there; hidden there by a mask: not there either.
@@ -818,7 +819,7 @@ namespace Zamin {
     void Scene::FocusInputField(Entity entity)
     {
         std::vector<UIChangeEvent> changes;
-        const bool valid = entity && entity.GetScene() == this && entity.HasComponent<UIInputFieldComponent>();
+        const bool valid = entity && entity.GetScene() == this && entity.HasComponent<UIInputFieldComponent>() && Gameplay::GameplayUIAllows(*this, entity);
         if (valid && m_FocusedInput == (entt::entity)entity)
             return;
         if (m_FocusedInput != entt::null)
@@ -988,7 +989,7 @@ namespace Zamin {
 
     bool Scene::IsUISelectable(Entity entity)
     {
-        if (!entity || entity.GetScene() != this || !IsUIWidget(entity) || !IsActiveInHierarchy(entity))
+        if (!entity || entity.GetScene() != this || !IsUIWidget(entity) || !IsActiveInHierarchy(entity) || !Gameplay::GameplayUIAllows(*this, entity))
             return false;
         const auto* nav = entity.TryGetComponent<UINavigationComponent>();
         return !nav || nav->NavigationMode != UINavigationComponent::Mode::None;
@@ -996,7 +997,7 @@ namespace Zamin {
 
     void Scene::SelectUI(entt::entity e, bool highlight, std::vector<UIChangeEvent>& changes)
     {
-        if (e != entt::null && (!IsUIWidget(e) || !IsActiveInHierarchy({ e, this })))
+        if (e != entt::null && (!IsUIWidget(e) || !IsActiveInHierarchy({ e, this }) || !Gameplay::GameplayUIAllows(*this, { e, this })))
             e = entt::null;
         m_UISelectionHighlight = highlight && e != entt::null;
         if (e == m_SelectedUI)
@@ -1197,6 +1198,7 @@ namespace Zamin {
 
     void Scene::ProcessUINavigation(float dt, bool editing, std::vector<UIChangeEvent>& changes)
     {
+        if (Gameplay::GameplayUIFenced(*this)) return;
         // An input field edited at the start of the frame kept its keys (arrows, Enter, Escape -
         // also those that ended its editing); Tab still moves on.
         if (m_UIKeyboardEnabled)
@@ -1291,7 +1293,7 @@ namespace Zamin {
             m_UISubmitFlash = entt::null;
 
         // A widget that went inactive (or lost its component) while held down is not clicked when it comes back.
-        if (m_PressedUI != entt::null && (!m_Registry.valid(m_PressedUI) || !IsActiveInHierarchy({ m_PressedUI, this })))
+        if (m_PressedUI != entt::null && (!m_Registry.valid(m_PressedUI) || !IsActiveInHierarchy({ m_PressedUI, this }) || !Gameplay::GameplayUIAllows(*this, { m_PressedUI, this })))
             m_PressedUI = entt::null;
         std::vector<UIChangeEvent> changes;
         if (m_FocusedInput != entt::null)
@@ -1299,11 +1301,11 @@ namespace Zamin {
             const bool alive = m_Registry.valid(m_FocusedInput) && m_Registry.all_of<UIInputFieldComponent, UITransformComponent>(m_FocusedInput);
             if (!alive)
                 m_FocusedInput = entt::null;
-            else if (!IsActiveInHierarchy({ m_FocusedInput, this }) || !m_Registry.get<UIInputFieldComponent>(m_FocusedInput).Interactable)
+            else if (!IsActiveInHierarchy({ m_FocusedInput, this }) || !m_Registry.get<UIInputFieldComponent>(m_FocusedInput).Interactable || !Gameplay::GameplayUIAllows(*this, { m_FocusedInput, this }))
                 EndInputEdit(&changes);
         }
         // The selected widget went away / inactive / not interactable: nothing is selected.
-        if (m_SelectedUI != entt::null && (!m_Registry.valid(m_SelectedUI) || !IsUIWidget(m_SelectedUI) || !IsActiveInHierarchy({ m_SelectedUI, this })))
+        if (m_SelectedUI != entt::null && (!m_Registry.valid(m_SelectedUI) || !IsUIWidget(m_SelectedUI) || !IsActiveInHierarchy({ m_SelectedUI, this }) || !Gameplay::GameplayUIAllows(*this, { m_SelectedUI, this })))
         {
             if (!m_Registry.valid(m_SelectedUI))
                 m_SelectedUI = entt::null;
@@ -1316,7 +1318,7 @@ namespace Zamin {
             for (auto e : m_Registry.view<UINavigationComponent>())
             {
                 auto& nav = m_Registry.get<UINavigationComponent>(e);
-                const bool active = IsUIWidget(e) && IsActiveInHierarchy({ e, this });
+                const bool active = IsUIWidget(e) && IsActiveInHierarchy({ e, this }) && Gameplay::GameplayUIAllows(*this, { e, this });
                 if (active && !nav.WasActive && nav.SelectOnEnable)
                     enabled.push_back(e);
                 nav.WasActive = active;

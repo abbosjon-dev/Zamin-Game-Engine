@@ -1,0 +1,4022 @@
+{
+  "Format": "Zamin.VisualGraph",
+  "Version": 1,
+  "Nodes": [
+    {
+      "ID": 1,
+      "Kind": "Event.Start",
+      "X": 0,
+      "Y": 0,
+      "Inputs": {}
+    },
+    {
+      "ID": 2,
+      "Kind": "Gameplay.UIRunWhenPaused",
+      "X": 290,
+      "Y": 0,
+      "Inputs": {}
+    },
+    {
+      "ID": 3,
+      "Kind": "Gameplay.SaveSpawn",
+      "X": 580,
+      "Y": 0,
+      "Inputs": {
+        "Key": "Guard",
+        "Prefab": "Prefabs/Guard2D.zprefab",
+        "Position": [
+          -5,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "ID": 4,
+      "Kind": "Gameplay.UIConfigure",
+      "X": 870,
+      "Y": 0,
+      "Inputs": {
+        "Target": 2200,
+        "Name": "Bag",
+        "Action": "Inventory",
+        "Focus": 2201,
+        "Pause": false
+      }
+    },
+    {
+      "ID": 5,
+      "Kind": "Gameplay.UIConfigure",
+      "X": 1160,
+      "Y": 0,
+      "Inputs": {
+        "Target": 3100,
+        "Name": "Pause",
+        "Action": "Pause",
+        "Focus": 3101,
+        "Pause": true
+      }
+    },
+    {
+      "ID": 6,
+      "Kind": "Gameplay.UIConfigure",
+      "X": 1450,
+      "Y": 0,
+      "Inputs": {
+        "Target": 4100,
+        "Name": "Help",
+        "Action": "",
+        "Focus": 4101,
+        "Pause": false
+      }
+    },
+    {
+      "ID": 7,
+      "Kind": "Gameplay.UIBindHUD",
+      "X": 1740,
+      "Y": 0,
+      "Inputs": {
+        "Target": 2101,
+        "Actor": 800,
+        "Kind": 0,
+        "Item": "Coin",
+        "Prefix": "VITALITY  ",
+        "Ratio": true
+      }
+    },
+    {
+      "ID": 8,
+      "Kind": "Gameplay.UIBindHUD",
+      "X": 2030,
+      "Y": 0,
+      "Inputs": {
+        "Target": 2110,
+        "Actor": 800,
+        "Kind": 0,
+        "Item": "Coin",
+        "Prefix": "",
+        "Ratio": true
+      }
+    },
+    {
+      "ID": 9,
+      "Kind": "Gameplay.UIBindHUD",
+      "X": 0,
+      "Y": 320,
+      "Inputs": {
+        "Target": 2102,
+        "Actor": 800,
+        "Kind": 2,
+        "Item": "Coin",
+        "Prefix": "COINS  ",
+        "Ratio": false
+      }
+    },
+    {
+      "ID": 10,
+      "Kind": "Gameplay.UIBindHUD",
+      "X": 290,
+      "Y": 320,
+      "Inputs": {
+        "Target": 2103,
+        "Actor": 800,
+        "Kind": 3,
+        "Item": "Coin",
+        "Prefix": "BAG  ",
+        "Ratio": true
+      }
+    },
+    {
+      "ID": 11,
+      "Kind": "Gameplay.UIInventoryConfigure",
+      "X": 580,
+      "Y": 320,
+      "Inputs": {
+        "Actor": 800,
+        "Name": "Bag",
+        "Rows": [
+          2201,
+          2202,
+          2203,
+          2204
+        ]
+      }
+    },
+    {
+      "ID": 12,
+      "Kind": "Event.Custom",
+      "X": 870,
+      "Y": 320,
+      "Inputs": {
+        "Name": "OpenBag"
+      }
+    },
+    {
+      "ID": 13,
+      "Kind": "Gameplay.UIOpen",
+      "X": 1160,
+      "Y": 320,
+      "Inputs": {
+        "Name": "Bag"
+      }
+    },
+    {
+      "ID": 14,
+      "Kind": "Event.Message",
+      "X": 1450,
+      "Y": 320,
+      "Inputs": {}
+    },
+    {
+      "ID": 15,
+      "Kind": "TextEqual",
+      "X": 1740,
+      "Y": 320,
+      "Inputs": {
+        "B": "OpenBag"
+      }
+    },
+    {
+      "ID": 16,
+      "Kind": "Branch",
+      "X": 2030,
+      "Y": 320,
+      "Inputs": {}
+    },
+    {
+      "ID": 17,
+      "Kind": "EmitEvent",
+      "X": 0,
+      "Y": 640,
+      "Inputs": {
+        "Name": "OpenBag"
+      }
+    },
+    {
+      "ID": 18,
+      "Kind": "Event.Custom",
+      "X": 290,
+      "Y": 640,
+      "Inputs": {
+        "Name": "Resume"
+      }
+    },
+    {
+      "ID": 19,
+      "Kind": "Gameplay.UIBack",
+      "X": 580,
+      "Y": 640,
+      "Inputs": {}
+    },
+    {
+      "ID": 20,
+      "Kind": "Event.Message",
+      "X": 870,
+      "Y": 640,
+      "Inputs": {}
+    },
+    {
+      "ID": 21,
+      "Kind": "TextEqual",
+      "X": 1160,
+      "Y": 640,
+      "Inputs": {
+        "B": "Resume"
+      }
+    },
+    {
+      "ID": 22,
+      "Kind": "Branch",
+      "X": 1450,
+      "Y": 640,
+      "Inputs": {}
+    },
+    {
+      "ID": 23,
+      "Kind": "EmitEvent",
+      "X": 1740,
+      "Y": 640,
+      "Inputs": {
+        "Name": "Resume"
+      }
+    },
+    {
+      "ID": 24,
+      "Kind": "Event.Custom",
+      "X": 2030,
+      "Y": 640,
+      "Inputs": {
+        "Name": "Help"
+      }
+    },
+    {
+      "ID": 25,
+      "Kind": "Gameplay.UIOpen",
+      "X": 0,
+      "Y": 960,
+      "Inputs": {
+        "Name": "Help"
+      }
+    },
+    {
+      "ID": 26,
+      "Kind": "Event.Message",
+      "X": 290,
+      "Y": 960,
+      "Inputs": {}
+    },
+    {
+      "ID": 27,
+      "Kind": "TextEqual",
+      "X": 580,
+      "Y": 960,
+      "Inputs": {
+        "B": "Help"
+      }
+    },
+    {
+      "ID": 28,
+      "Kind": "Branch",
+      "X": 870,
+      "Y": 960,
+      "Inputs": {}
+    },
+    {
+      "ID": 29,
+      "Kind": "EmitEvent",
+      "X": 1160,
+      "Y": 960,
+      "Inputs": {
+        "Name": "Help"
+      }
+    },
+    {
+      "ID": 30,
+      "Kind": "Event.Custom",
+      "X": 1450,
+      "Y": 960,
+      "Inputs": {
+        "Name": "Back"
+      }
+    },
+    {
+      "ID": 31,
+      "Kind": "Gameplay.UIBack",
+      "X": 1740,
+      "Y": 960,
+      "Inputs": {}
+    },
+    {
+      "ID": 32,
+      "Kind": "Event.Message",
+      "X": 2030,
+      "Y": 960,
+      "Inputs": {}
+    },
+    {
+      "ID": 33,
+      "Kind": "TextEqual",
+      "X": 0,
+      "Y": 1280,
+      "Inputs": {
+        "B": "Back"
+      }
+    },
+    {
+      "ID": 34,
+      "Kind": "Branch",
+      "X": 290,
+      "Y": 1280,
+      "Inputs": {}
+    },
+    {
+      "ID": 35,
+      "Kind": "EmitEvent",
+      "X": 580,
+      "Y": 1280,
+      "Inputs": {
+        "Name": "Back"
+      }
+    },
+    {
+      "ID": 36,
+      "Kind": "Event.Custom",
+      "X": 870,
+      "Y": 1280,
+      "Inputs": {
+        "Name": "CloseBag"
+      }
+    },
+    {
+      "ID": 37,
+      "Kind": "Gameplay.UIClose",
+      "X": 1160,
+      "Y": 1280,
+      "Inputs": {
+        "Name": "Bag"
+      }
+    },
+    {
+      "ID": 38,
+      "Kind": "Event.Message",
+      "X": 1450,
+      "Y": 1280,
+      "Inputs": {}
+    },
+    {
+      "ID": 39,
+      "Kind": "TextEqual",
+      "X": 1740,
+      "Y": 1280,
+      "Inputs": {
+        "B": "CloseBag"
+      }
+    },
+    {
+      "ID": 40,
+      "Kind": "Branch",
+      "X": 2030,
+      "Y": 1280,
+      "Inputs": {}
+    },
+    {
+      "ID": 41,
+      "Kind": "EmitEvent",
+      "X": 0,
+      "Y": 1600,
+      "Inputs": {
+        "Name": "CloseBag"
+      }
+    },
+    {
+      "ID": 42,
+      "Kind": "Event.Custom",
+      "X": 290,
+      "Y": 1600,
+      "Inputs": {
+        "Name": "Next"
+      }
+    },
+    {
+      "ID": 43,
+      "Kind": "Gameplay.UIInventoryPage",
+      "X": 580,
+      "Y": 1600,
+      "Inputs": {
+        "Name": "Bag",
+        "Delta": 1
+      }
+    },
+    {
+      "ID": 44,
+      "Kind": "Event.Message",
+      "X": 870,
+      "Y": 1600,
+      "Inputs": {}
+    },
+    {
+      "ID": 45,
+      "Kind": "TextEqual",
+      "X": 1160,
+      "Y": 1600,
+      "Inputs": {
+        "B": "Next"
+      }
+    },
+    {
+      "ID": 46,
+      "Kind": "Branch",
+      "X": 1450,
+      "Y": 1600,
+      "Inputs": {}
+    },
+    {
+      "ID": 47,
+      "Kind": "EmitEvent",
+      "X": 1740,
+      "Y": 1600,
+      "Inputs": {
+        "Name": "Next"
+      }
+    },
+    {
+      "ID": 48,
+      "Kind": "Event.Custom",
+      "X": 2030,
+      "Y": 1600,
+      "Inputs": {
+        "Name": "Previous"
+      }
+    },
+    {
+      "ID": 49,
+      "Kind": "Gameplay.UIInventoryPage",
+      "X": 0,
+      "Y": 1920,
+      "Inputs": {
+        "Name": "Bag",
+        "Delta": -1
+      }
+    },
+    {
+      "ID": 50,
+      "Kind": "Event.Message",
+      "X": 290,
+      "Y": 1920,
+      "Inputs": {}
+    },
+    {
+      "ID": 51,
+      "Kind": "TextEqual",
+      "X": 580,
+      "Y": 1920,
+      "Inputs": {
+        "B": "Previous"
+      }
+    },
+    {
+      "ID": 52,
+      "Kind": "Branch",
+      "X": 870,
+      "Y": 1920,
+      "Inputs": {}
+    },
+    {
+      "ID": 53,
+      "Kind": "EmitEvent",
+      "X": 1160,
+      "Y": 1920,
+      "Inputs": {
+        "Name": "Previous"
+      }
+    },
+    {
+      "ID": 54,
+      "Kind": "Event.Custom",
+      "X": 1450,
+      "Y": 1920,
+      "Inputs": {
+        "Name": "Save"
+      }
+    },
+    {
+      "ID": 55,
+      "Kind": "Gameplay.SaveWrite",
+      "X": 1740,
+      "Y": 1920,
+      "Inputs": {
+        "Slot": "Quick",
+        "Schema": "UILabV1"
+      }
+    },
+    {
+      "ID": 56,
+      "Kind": "Branch",
+      "X": 2030,
+      "Y": 1920,
+      "Inputs": {}
+    },
+    {
+      "ID": 57,
+      "Kind": "Set.Bool",
+      "X": 0,
+      "Y": 2240,
+      "Inputs": {
+        "Name": "Saved",
+        "Value": true
+      }
+    },
+    {
+      "ID": 58,
+      "Kind": "Gameplay.Damage",
+      "X": 290,
+      "Y": 2240,
+      "Inputs": {
+        "Target": 800,
+        "Amount": 35,
+        "IgnoreGrace": true
+      }
+    },
+    {
+      "ID": 59,
+      "Kind": "Gameplay.InventoryRemove",
+      "X": 580,
+      "Y": 2240,
+      "Inputs": {
+        "Target": 800,
+        "Item": "Coin",
+        "Count": 3
+      }
+    },
+    {
+      "ID": 60,
+      "Kind": "Print",
+      "X": 870,
+      "Y": 2240,
+      "Inputs": {
+        "Text": "UI_SAVE_FAILED"
+      }
+    },
+    {
+      "ID": 61,
+      "Kind": "Event.Message",
+      "X": 1160,
+      "Y": 2240,
+      "Inputs": {}
+    },
+    {
+      "ID": 62,
+      "Kind": "TextEqual",
+      "X": 1450,
+      "Y": 2240,
+      "Inputs": {
+        "B": "Save"
+      }
+    },
+    {
+      "ID": 63,
+      "Kind": "Branch",
+      "X": 1740,
+      "Y": 2240,
+      "Inputs": {}
+    },
+    {
+      "ID": 64,
+      "Kind": "EmitEvent",
+      "X": 2030,
+      "Y": 2240,
+      "Inputs": {
+        "Name": "Save"
+      }
+    },
+    {
+      "ID": 65,
+      "Kind": "Event.Custom",
+      "X": 0,
+      "Y": 2560,
+      "Inputs": {
+        "Name": "Load"
+      }
+    },
+    {
+      "ID": 66,
+      "Kind": "Gameplay.SaveLoad",
+      "X": 290,
+      "Y": 2560,
+      "Inputs": {
+        "Slot": "Quick",
+        "Schema": "UILabV1"
+      }
+    },
+    {
+      "ID": 67,
+      "Kind": "Branch",
+      "X": 580,
+      "Y": 2560,
+      "Inputs": {}
+    },
+    {
+      "ID": 68,
+      "Kind": "Set.Bool",
+      "X": 870,
+      "Y": 2560,
+      "Inputs": {
+        "Name": "Loaded",
+        "Value": true
+      }
+    },
+    {
+      "ID": 69,
+      "Kind": "Print",
+      "X": 1160,
+      "Y": 2560,
+      "Inputs": {
+        "Text": "UI_SAVE_FAILED"
+      }
+    },
+    {
+      "ID": 70,
+      "Kind": "Event.Message",
+      "X": 1450,
+      "Y": 2560,
+      "Inputs": {}
+    },
+    {
+      "ID": 71,
+      "Kind": "TextEqual",
+      "X": 1740,
+      "Y": 2560,
+      "Inputs": {
+        "B": "Load"
+      }
+    },
+    {
+      "ID": 72,
+      "Kind": "Branch",
+      "X": 2030,
+      "Y": 2560,
+      "Inputs": {}
+    },
+    {
+      "ID": 73,
+      "Kind": "EmitEvent",
+      "X": 0,
+      "Y": 2880,
+      "Inputs": {
+        "Name": "Load"
+      }
+    },
+    {
+      "ID": 74,
+      "Kind": "Gameplay.UIState",
+      "X": 290,
+      "Y": 2880,
+      "Inputs": {}
+    },
+    {
+      "ID": 75,
+      "Kind": "Gameplay.UIInventoryState",
+      "X": 580,
+      "Y": 2880,
+      "Inputs": {
+        "Name": "Bag"
+      }
+    },
+    {
+      "ID": 76,
+      "Kind": "Gameplay.Input",
+      "X": 870,
+      "Y": 2880,
+      "Inputs": {
+        "Target": 800
+      }
+    },
+    {
+      "ID": 77,
+      "Kind": "Event.Update",
+      "X": 1160,
+      "Y": 2880,
+      "Inputs": {}
+    },
+    {
+      "ID": 78,
+      "Kind": "TextEqual",
+      "X": 1450,
+      "Y": 2880,
+      "Inputs": {
+        "B": "Bag"
+      }
+    },
+    {
+      "ID": 79,
+      "Kind": "Branch",
+      "X": 1740,
+      "Y": 2880,
+      "Inputs": {}
+    },
+    {
+      "ID": 80,
+      "Kind": "Set.Bool",
+      "X": 2030,
+      "Y": 2880,
+      "Inputs": {
+        "Name": "SawBag",
+        "Value": true
+      }
+    },
+    {
+      "ID": 81,
+      "Kind": "Event.Update",
+      "X": 0,
+      "Y": 3200,
+      "Inputs": {}
+    },
+    {
+      "ID": 82,
+      "Kind": "TextEqual",
+      "X": 290,
+      "Y": 3200,
+      "Inputs": {
+        "B": "Pause"
+      }
+    },
+    {
+      "ID": 83,
+      "Kind": "Branch",
+      "X": 580,
+      "Y": 3200,
+      "Inputs": {}
+    },
+    {
+      "ID": 84,
+      "Kind": "Set.Bool",
+      "X": 870,
+      "Y": 3200,
+      "Inputs": {
+        "Name": "SawPause",
+        "Value": true
+      }
+    },
+    {
+      "ID": 85,
+      "Kind": "Event.Update",
+      "X": 1160,
+      "Y": 3200,
+      "Inputs": {}
+    },
+    {
+      "ID": 86,
+      "Kind": "Greater",
+      "X": 1450,
+      "Y": 3200,
+      "Inputs": {
+        "B": 1
+      }
+    },
+    {
+      "ID": 87,
+      "Kind": "Branch",
+      "X": 1740,
+      "Y": 3200,
+      "Inputs": {}
+    },
+    {
+      "ID": 88,
+      "Kind": "Set.Bool",
+      "X": 2030,
+      "Y": 3200,
+      "Inputs": {
+        "Name": "SawNested",
+        "Value": true
+      }
+    },
+    {
+      "ID": 89,
+      "Kind": "Event.Update",
+      "X": 0,
+      "Y": 3520,
+      "Inputs": {}
+    },
+    {
+      "ID": 90,
+      "Kind": "Greater",
+      "X": 290,
+      "Y": 3520,
+      "Inputs": {
+        "B": 0
+      }
+    },
+    {
+      "ID": 91,
+      "Kind": "Branch",
+      "X": 580,
+      "Y": 3520,
+      "Inputs": {}
+    },
+    {
+      "ID": 92,
+      "Kind": "Set.Bool",
+      "X": 870,
+      "Y": 3520,
+      "Inputs": {
+        "Name": "SawPage",
+        "Value": true
+      }
+    },
+    {
+      "ID": 93,
+      "Kind": "Event.Update",
+      "X": 1160,
+      "Y": 3520,
+      "Inputs": {}
+    },
+    {
+      "ID": 94,
+      "Kind": "Greater",
+      "X": 1450,
+      "Y": 3520,
+      "Inputs": {
+        "B": 0
+      }
+    },
+    {
+      "ID": 95,
+      "Kind": "Branch",
+      "X": 1740,
+      "Y": 3520,
+      "Inputs": {}
+    },
+    {
+      "ID": 96,
+      "Kind": "Set.Bool",
+      "X": 2030,
+      "Y": 3520,
+      "Inputs": {
+        "Name": "SawSelected",
+        "Value": true
+      }
+    },
+    {
+      "ID": 97,
+      "Kind": "Event.Update",
+      "X": 0,
+      "Y": 3840,
+      "Inputs": {}
+    },
+    {
+      "ID": 98,
+      "Kind": "Not",
+      "X": 290,
+      "Y": 3840,
+      "Inputs": {}
+    },
+    {
+      "ID": 99,
+      "Kind": "Branch",
+      "X": 580,
+      "Y": 3840,
+      "Inputs": {}
+    },
+    {
+      "ID": 100,
+      "Kind": "Set.Bool",
+      "X": 870,
+      "Y": 3840,
+      "Inputs": {
+        "Name": "Blocked",
+        "Value": true
+      }
+    },
+    {
+      "ID": 101,
+      "Kind": "Event.Update",
+      "X": 1160,
+      "Y": 3840,
+      "Inputs": {}
+    },
+    {
+      "ID": 102,
+      "Kind": "Concat",
+      "X": 1450,
+      "Y": 3840,
+      "Inputs": {
+        "A": ""
+      }
+    },
+    {
+      "ID": 103,
+      "Kind": "SetUIText",
+      "X": 1740,
+      "Y": 3840,
+      "Inputs": {
+        "Target": 2255
+      }
+    },
+    {
+      "ID": 104,
+      "Kind": "NumberToText",
+      "X": 2030,
+      "Y": 3840,
+      "Inputs": {}
+    },
+    {
+      "ID": 105,
+      "Kind": "Concat",
+      "X": 0,
+      "Y": 4160,
+      "Inputs": {
+        "A": "Quantity  "
+      }
+    },
+    {
+      "ID": 106,
+      "Kind": "SetUIText",
+      "X": 290,
+      "Y": 4160,
+      "Inputs": {
+        "Target": 2256
+      }
+    },
+    {
+      "ID": 107,
+      "Kind": "Add",
+      "X": 580,
+      "Y": 4160,
+      "Inputs": {
+        "B": 1
+      }
+    },
+    {
+      "ID": 108,
+      "Kind": "NumberToText",
+      "X": 870,
+      "Y": 4160,
+      "Inputs": {}
+    },
+    {
+      "ID": 109,
+      "Kind": "Concat",
+      "X": 1160,
+      "Y": 4160,
+      "Inputs": {
+        "A": "PAGE "
+      }
+    },
+    {
+      "ID": 110,
+      "Kind": "Concat",
+      "X": 1450,
+      "Y": 4160,
+      "Inputs": {
+        "B": " / "
+      }
+    },
+    {
+      "ID": 111,
+      "Kind": "NumberToText",
+      "X": 1740,
+      "Y": 4160,
+      "Inputs": {}
+    },
+    {
+      "ID": 112,
+      "Kind": "Concat",
+      "X": 2030,
+      "Y": 4160,
+      "Inputs": {}
+    },
+    {
+      "ID": 113,
+      "Kind": "SetUIText",
+      "X": 0,
+      "Y": 4480,
+      "Inputs": {
+        "Target": 2252
+      }
+    },
+    {
+      "ID": 114,
+      "Kind": "Get.Bool",
+      "X": 290,
+      "Y": 4480,
+      "Inputs": {
+        "Name": "Auto"
+      }
+    },
+    {
+      "ID": 115,
+      "Kind": "Get.Number",
+      "X": 580,
+      "Y": 4480,
+      "Inputs": {
+        "Name": "Step"
+      }
+    },
+    {
+      "ID": 116,
+      "Kind": "Event.Update",
+      "X": 870,
+      "Y": 4480,
+      "Inputs": {}
+    },
+    {
+      "ID": 117,
+      "Kind": "Greater",
+      "X": 1160,
+      "Y": 4480,
+      "Inputs": {
+        "B": 0.6
+      }
+    },
+    {
+      "ID": 118,
+      "Kind": "Equal",
+      "X": 1450,
+      "Y": 4480,
+      "Inputs": {
+        "B": 0
+      }
+    },
+    {
+      "ID": 119,
+      "Kind": "And",
+      "X": 1740,
+      "Y": 4480,
+      "Inputs": {}
+    },
+    {
+      "ID": 120,
+      "Kind": "And",
+      "X": 2030,
+      "Y": 4480,
+      "Inputs": {}
+    },
+    {
+      "ID": 121,
+      "Kind": "Branch",
+      "X": 0,
+      "Y": 4800,
+      "Inputs": {}
+    },
+    {
+      "ID": 122,
+      "Kind": "Set.Number",
+      "X": 290,
+      "Y": 4800,
+      "Inputs": {
+        "Name": "Step",
+        "Value": 1
+      }
+    },
+    {
+      "ID": 123,
+      "Kind": "Gameplay.UIOpen",
+      "X": 580,
+      "Y": 4800,
+      "Inputs": {
+        "Name": "Bag"
+      }
+    },
+    {
+      "ID": 124,
+      "Kind": "Event.Update",
+      "X": 870,
+      "Y": 4800,
+      "Inputs": {}
+    },
+    {
+      "ID": 125,
+      "Kind": "Greater",
+      "X": 1160,
+      "Y": 4800,
+      "Inputs": {
+        "B": 0.9
+      }
+    },
+    {
+      "ID": 126,
+      "Kind": "Equal",
+      "X": 1450,
+      "Y": 4800,
+      "Inputs": {
+        "B": 1
+      }
+    },
+    {
+      "ID": 127,
+      "Kind": "And",
+      "X": 1740,
+      "Y": 4800,
+      "Inputs": {}
+    },
+    {
+      "ID": 128,
+      "Kind": "And",
+      "X": 2030,
+      "Y": 4800,
+      "Inputs": {}
+    },
+    {
+      "ID": 129,
+      "Kind": "Branch",
+      "X": 0,
+      "Y": 5120,
+      "Inputs": {}
+    },
+    {
+      "ID": 130,
+      "Kind": "Set.Number",
+      "X": 290,
+      "Y": 5120,
+      "Inputs": {
+        "Name": "Step",
+        "Value": 2
+      }
+    },
+    {
+      "ID": 131,
+      "Kind": "Gameplay.UIInventoryPage",
+      "X": 580,
+      "Y": 5120,
+      "Inputs": {
+        "Name": "Bag",
+        "Delta": 1
+      }
+    },
+    {
+      "ID": 132,
+      "Kind": "Event.Update",
+      "X": 870,
+      "Y": 5120,
+      "Inputs": {}
+    },
+    {
+      "ID": 133,
+      "Kind": "Greater",
+      "X": 1160,
+      "Y": 5120,
+      "Inputs": {
+        "B": 1.2
+      }
+    },
+    {
+      "ID": 134,
+      "Kind": "Equal",
+      "X": 1450,
+      "Y": 5120,
+      "Inputs": {
+        "B": 2
+      }
+    },
+    {
+      "ID": 135,
+      "Kind": "And",
+      "X": 1740,
+      "Y": 5120,
+      "Inputs": {}
+    },
+    {
+      "ID": 136,
+      "Kind": "And",
+      "X": 2030,
+      "Y": 5120,
+      "Inputs": {}
+    },
+    {
+      "ID": 137,
+      "Kind": "Branch",
+      "X": 0,
+      "Y": 5440,
+      "Inputs": {}
+    },
+    {
+      "ID": 138,
+      "Kind": "Set.Number",
+      "X": 290,
+      "Y": 5440,
+      "Inputs": {
+        "Name": "Step",
+        "Value": 3
+      }
+    },
+    {
+      "ID": 139,
+      "Kind": "Gameplay.UIClose",
+      "X": 580,
+      "Y": 5440,
+      "Inputs": {
+        "Name": "Bag"
+      }
+    },
+    {
+      "ID": 140,
+      "Kind": "Event.Update",
+      "X": 870,
+      "Y": 5440,
+      "Inputs": {}
+    },
+    {
+      "ID": 141,
+      "Kind": "Greater",
+      "X": 1160,
+      "Y": 5440,
+      "Inputs": {
+        "B": 1.6
+      }
+    },
+    {
+      "ID": 142,
+      "Kind": "Equal",
+      "X": 1450,
+      "Y": 5440,
+      "Inputs": {
+        "B": 3
+      }
+    },
+    {
+      "ID": 143,
+      "Kind": "And",
+      "X": 1740,
+      "Y": 5440,
+      "Inputs": {}
+    },
+    {
+      "ID": 144,
+      "Kind": "And",
+      "X": 2030,
+      "Y": 5440,
+      "Inputs": {}
+    },
+    {
+      "ID": 145,
+      "Kind": "Branch",
+      "X": 0,
+      "Y": 5760,
+      "Inputs": {}
+    },
+    {
+      "ID": 146,
+      "Kind": "Set.Number",
+      "X": 290,
+      "Y": 5760,
+      "Inputs": {
+        "Name": "Step",
+        "Value": 4
+      }
+    },
+    {
+      "ID": 147,
+      "Kind": "Gameplay.UIOpen",
+      "X": 580,
+      "Y": 5760,
+      "Inputs": {
+        "Name": "Pause"
+      }
+    },
+    {
+      "ID": 148,
+      "Kind": "Event.Update",
+      "X": 870,
+      "Y": 5760,
+      "Inputs": {}
+    },
+    {
+      "ID": 149,
+      "Kind": "Greater",
+      "X": 1160,
+      "Y": 5760,
+      "Inputs": {
+        "B": 1.9
+      }
+    },
+    {
+      "ID": 150,
+      "Kind": "Equal",
+      "X": 1450,
+      "Y": 5760,
+      "Inputs": {
+        "B": 4
+      }
+    },
+    {
+      "ID": 151,
+      "Kind": "And",
+      "X": 1740,
+      "Y": 5760,
+      "Inputs": {}
+    },
+    {
+      "ID": 152,
+      "Kind": "And",
+      "X": 2030,
+      "Y": 5760,
+      "Inputs": {}
+    },
+    {
+      "ID": 153,
+      "Kind": "Branch",
+      "X": 0,
+      "Y": 6080,
+      "Inputs": {}
+    },
+    {
+      "ID": 154,
+      "Kind": "Set.Number",
+      "X": 290,
+      "Y": 6080,
+      "Inputs": {
+        "Name": "Step",
+        "Value": 5
+      }
+    },
+    {
+      "ID": 155,
+      "Kind": "Gameplay.UIOpen",
+      "X": 580,
+      "Y": 6080,
+      "Inputs": {
+        "Name": "Help"
+      }
+    },
+    {
+      "ID": 156,
+      "Kind": "Event.Update",
+      "X": 870,
+      "Y": 6080,
+      "Inputs": {}
+    },
+    {
+      "ID": 157,
+      "Kind": "Greater",
+      "X": 1160,
+      "Y": 6080,
+      "Inputs": {
+        "B": 2.2
+      }
+    },
+    {
+      "ID": 158,
+      "Kind": "Equal",
+      "X": 1450,
+      "Y": 6080,
+      "Inputs": {
+        "B": 5
+      }
+    },
+    {
+      "ID": 159,
+      "Kind": "And",
+      "X": 1740,
+      "Y": 6080,
+      "Inputs": {}
+    },
+    {
+      "ID": 160,
+      "Kind": "And",
+      "X": 2030,
+      "Y": 6080,
+      "Inputs": {}
+    },
+    {
+      "ID": 161,
+      "Kind": "Branch",
+      "X": 0,
+      "Y": 6400,
+      "Inputs": {}
+    },
+    {
+      "ID": 162,
+      "Kind": "Set.Number",
+      "X": 290,
+      "Y": 6400,
+      "Inputs": {
+        "Name": "Step",
+        "Value": 6
+      }
+    },
+    {
+      "ID": 163,
+      "Kind": "Gameplay.UIBack",
+      "X": 580,
+      "Y": 6400,
+      "Inputs": {}
+    },
+    {
+      "ID": 164,
+      "Kind": "Event.Update",
+      "X": 870,
+      "Y": 6400,
+      "Inputs": {}
+    },
+    {
+      "ID": 165,
+      "Kind": "Greater",
+      "X": 1160,
+      "Y": 6400,
+      "Inputs": {
+        "B": 2.5
+      }
+    },
+    {
+      "ID": 166,
+      "Kind": "Equal",
+      "X": 1450,
+      "Y": 6400,
+      "Inputs": {
+        "B": 6
+      }
+    },
+    {
+      "ID": 167,
+      "Kind": "And",
+      "X": 1740,
+      "Y": 6400,
+      "Inputs": {}
+    },
+    {
+      "ID": 168,
+      "Kind": "And",
+      "X": 2030,
+      "Y": 6400,
+      "Inputs": {}
+    },
+    {
+      "ID": 169,
+      "Kind": "Branch",
+      "X": 0,
+      "Y": 6720,
+      "Inputs": {}
+    },
+    {
+      "ID": 170,
+      "Kind": "Set.Number",
+      "X": 290,
+      "Y": 6720,
+      "Inputs": {
+        "Name": "Step",
+        "Value": 7
+      }
+    },
+    {
+      "ID": 171,
+      "Kind": "Gameplay.UIBack",
+      "X": 580,
+      "Y": 6720,
+      "Inputs": {}
+    },
+    {
+      "ID": 172,
+      "Kind": "Event.Update",
+      "X": 870,
+      "Y": 6720,
+      "Inputs": {}
+    },
+    {
+      "ID": 173,
+      "Kind": "Greater",
+      "X": 1160,
+      "Y": 6720,
+      "Inputs": {
+        "B": 2.8
+      }
+    },
+    {
+      "ID": 174,
+      "Kind": "Equal",
+      "X": 1450,
+      "Y": 6720,
+      "Inputs": {
+        "B": 7
+      }
+    },
+    {
+      "ID": 175,
+      "Kind": "And",
+      "X": 1740,
+      "Y": 6720,
+      "Inputs": {}
+    },
+    {
+      "ID": 176,
+      "Kind": "And",
+      "X": 2030,
+      "Y": 6720,
+      "Inputs": {}
+    },
+    {
+      "ID": 177,
+      "Kind": "Branch",
+      "X": 0,
+      "Y": 7040,
+      "Inputs": {}
+    },
+    {
+      "ID": 178,
+      "Kind": "Set.Number",
+      "X": 290,
+      "Y": 7040,
+      "Inputs": {
+        "Name": "Step",
+        "Value": 8
+      }
+    },
+    {
+      "ID": 179,
+      "Kind": "Gameplay.UIOpen",
+      "X": 580,
+      "Y": 7040,
+      "Inputs": {
+        "Name": "Bag"
+      }
+    },
+    {
+      "ID": 180,
+      "Kind": "Event.Update",
+      "X": 870,
+      "Y": 7040,
+      "Inputs": {}
+    },
+    {
+      "ID": 181,
+      "Kind": "Greater",
+      "X": 1160,
+      "Y": 7040,
+      "Inputs": {
+        "B": 3.1
+      }
+    },
+    {
+      "ID": 182,
+      "Kind": "Equal",
+      "X": 1450,
+      "Y": 7040,
+      "Inputs": {
+        "B": 8
+      }
+    },
+    {
+      "ID": 183,
+      "Kind": "And",
+      "X": 1740,
+      "Y": 7040,
+      "Inputs": {}
+    },
+    {
+      "ID": 184,
+      "Kind": "And",
+      "X": 2030,
+      "Y": 7040,
+      "Inputs": {}
+    },
+    {
+      "ID": 185,
+      "Kind": "Branch",
+      "X": 0,
+      "Y": 7360,
+      "Inputs": {}
+    },
+    {
+      "ID": 186,
+      "Kind": "Set.Number",
+      "X": 290,
+      "Y": 7360,
+      "Inputs": {
+        "Name": "Step",
+        "Value": 9
+      }
+    },
+    {
+      "ID": 187,
+      "Kind": "Gameplay.UIInventoryPage",
+      "X": 580,
+      "Y": 7360,
+      "Inputs": {
+        "Name": "Bag",
+        "Delta": -1
+      }
+    },
+    {
+      "ID": 188,
+      "Kind": "Event.Update",
+      "X": 870,
+      "Y": 7360,
+      "Inputs": {}
+    },
+    {
+      "ID": 189,
+      "Kind": "Greater",
+      "X": 1160,
+      "Y": 7360,
+      "Inputs": {
+        "B": 3.4
+      }
+    },
+    {
+      "ID": 190,
+      "Kind": "Equal",
+      "X": 1450,
+      "Y": 7360,
+      "Inputs": {
+        "B": 9
+      }
+    },
+    {
+      "ID": 191,
+      "Kind": "And",
+      "X": 1740,
+      "Y": 7360,
+      "Inputs": {}
+    },
+    {
+      "ID": 192,
+      "Kind": "And",
+      "X": 2030,
+      "Y": 7360,
+      "Inputs": {}
+    },
+    {
+      "ID": 193,
+      "Kind": "Branch",
+      "X": 0,
+      "Y": 7680,
+      "Inputs": {}
+    },
+    {
+      "ID": 194,
+      "Kind": "Set.Number",
+      "X": 290,
+      "Y": 7680,
+      "Inputs": {
+        "Name": "Step",
+        "Value": 10
+      }
+    },
+    {
+      "ID": 195,
+      "Kind": "EmitEvent",
+      "X": 580,
+      "Y": 7680,
+      "Inputs": {
+        "Name": "Save"
+      }
+    },
+    {
+      "ID": 196,
+      "Kind": "Event.Update",
+      "X": 870,
+      "Y": 7680,
+      "Inputs": {}
+    },
+    {
+      "ID": 197,
+      "Kind": "Greater",
+      "X": 1160,
+      "Y": 7680,
+      "Inputs": {
+        "B": 3.7
+      }
+    },
+    {
+      "ID": 198,
+      "Kind": "Equal",
+      "X": 1450,
+      "Y": 7680,
+      "Inputs": {
+        "B": 10
+      }
+    },
+    {
+      "ID": 199,
+      "Kind": "And",
+      "X": 1740,
+      "Y": 7680,
+      "Inputs": {}
+    },
+    {
+      "ID": 200,
+      "Kind": "And",
+      "X": 2030,
+      "Y": 7680,
+      "Inputs": {}
+    },
+    {
+      "ID": 201,
+      "Kind": "Branch",
+      "X": 0,
+      "Y": 8000,
+      "Inputs": {}
+    },
+    {
+      "ID": 202,
+      "Kind": "Set.Number",
+      "X": 290,
+      "Y": 8000,
+      "Inputs": {
+        "Name": "Step",
+        "Value": 11
+      }
+    },
+    {
+      "ID": 203,
+      "Kind": "EmitEvent",
+      "X": 580,
+      "Y": 8000,
+      "Inputs": {
+        "Name": "Load"
+      }
+    },
+    {
+      "ID": 204,
+      "Kind": "Event.Update",
+      "X": 870,
+      "Y": 8000,
+      "Inputs": {}
+    },
+    {
+      "ID": 205,
+      "Kind": "Greater",
+      "X": 1160,
+      "Y": 8000,
+      "Inputs": {
+        "B": 4.3
+      }
+    },
+    {
+      "ID": 206,
+      "Kind": "Equal",
+      "X": 1450,
+      "Y": 8000,
+      "Inputs": {
+        "B": 11
+      }
+    },
+    {
+      "ID": 207,
+      "Kind": "And",
+      "X": 1740,
+      "Y": 8000,
+      "Inputs": {}
+    },
+    {
+      "ID": 208,
+      "Kind": "And",
+      "X": 2030,
+      "Y": 8000,
+      "Inputs": {}
+    },
+    {
+      "ID": 209,
+      "Kind": "Branch",
+      "X": 0,
+      "Y": 8320,
+      "Inputs": {}
+    },
+    {
+      "ID": 210,
+      "Kind": "Set.Number",
+      "X": 290,
+      "Y": 8320,
+      "Inputs": {
+        "Name": "Step",
+        "Value": 12
+      }
+    },
+    {
+      "ID": 211,
+      "Kind": "Gameplay.UIClose",
+      "X": 580,
+      "Y": 8320,
+      "Inputs": {
+        "Name": "Bag"
+      }
+    },
+    {
+      "ID": 212,
+      "Kind": "Event.Update",
+      "X": 870,
+      "Y": 8320,
+      "Inputs": {}
+    },
+    {
+      "ID": 213,
+      "Kind": "Greater",
+      "X": 1160,
+      "Y": 8320,
+      "Inputs": {
+        "B": 6.7
+      }
+    },
+    {
+      "ID": 214,
+      "Kind": "Equal",
+      "X": 1450,
+      "Y": 8320,
+      "Inputs": {
+        "B": 12
+      }
+    },
+    {
+      "ID": 215,
+      "Kind": "And",
+      "X": 1740,
+      "Y": 8320,
+      "Inputs": {}
+    },
+    {
+      "ID": 216,
+      "Kind": "And",
+      "X": 2030,
+      "Y": 8320,
+      "Inputs": {}
+    },
+    {
+      "ID": 217,
+      "Kind": "Branch",
+      "X": 0,
+      "Y": 8640,
+      "Inputs": {}
+    },
+    {
+      "ID": 218,
+      "Kind": "Set.Number",
+      "X": 290,
+      "Y": 8640,
+      "Inputs": {
+        "Name": "Step",
+        "Value": 13
+      }
+    },
+    {
+      "ID": 219,
+      "Kind": "Gameplay.UIOpen",
+      "X": 580,
+      "Y": 8640,
+      "Inputs": {
+        "Name": "Pause"
+      }
+    },
+    {
+      "ID": 220,
+      "Kind": "Event.Update",
+      "X": 870,
+      "Y": 8640,
+      "Inputs": {}
+    },
+    {
+      "ID": 221,
+      "Kind": "Greater",
+      "X": 1160,
+      "Y": 8640,
+      "Inputs": {
+        "B": 7.05
+      }
+    },
+    {
+      "ID": 222,
+      "Kind": "Get.Bool",
+      "X": 1450,
+      "Y": 8640,
+      "Inputs": {
+        "Name": "Checks"
+      }
+    },
+    {
+      "ID": 223,
+      "Kind": "Get.Bool",
+      "X": 1740,
+      "Y": 8640,
+      "Inputs": {
+        "Name": "Reported"
+      }
+    },
+    {
+      "ID": 224,
+      "Kind": "Not",
+      "X": 2030,
+      "Y": 8640,
+      "Inputs": {}
+    },
+    {
+      "ID": 225,
+      "Kind": "And",
+      "X": 0,
+      "Y": 8960,
+      "Inputs": {}
+    },
+    {
+      "ID": 226,
+      "Kind": "And",
+      "X": 290,
+      "Y": 8960,
+      "Inputs": {}
+    },
+    {
+      "ID": 227,
+      "Kind": "Branch",
+      "X": 580,
+      "Y": 8960,
+      "Inputs": {}
+    },
+    {
+      "ID": 228,
+      "Kind": "Set.Bool",
+      "X": 870,
+      "Y": 8960,
+      "Inputs": {
+        "Name": "Reported",
+        "Value": true
+      }
+    },
+    {
+      "ID": 229,
+      "Kind": "Get.Bool",
+      "X": 1160,
+      "Y": 8960,
+      "Inputs": {
+        "Name": "SawBag"
+      }
+    },
+    {
+      "ID": 230,
+      "Kind": "Get.Bool",
+      "X": 1450,
+      "Y": 8960,
+      "Inputs": {
+        "Name": "SawPause"
+      }
+    },
+    {
+      "ID": 231,
+      "Kind": "Get.Bool",
+      "X": 1740,
+      "Y": 8960,
+      "Inputs": {
+        "Name": "SawNested"
+      }
+    },
+    {
+      "ID": 232,
+      "Kind": "Get.Bool",
+      "X": 2030,
+      "Y": 8960,
+      "Inputs": {
+        "Name": "SawPage"
+      }
+    },
+    {
+      "ID": 233,
+      "Kind": "Get.Bool",
+      "X": 0,
+      "Y": 9280,
+      "Inputs": {
+        "Name": "SawSelected"
+      }
+    },
+    {
+      "ID": 234,
+      "Kind": "Get.Bool",
+      "X": 290,
+      "Y": 9280,
+      "Inputs": {
+        "Name": "Blocked"
+      }
+    },
+    {
+      "ID": 235,
+      "Kind": "Get.Bool",
+      "X": 580,
+      "Y": 9280,
+      "Inputs": {
+        "Name": "Saved"
+      }
+    },
+    {
+      "ID": 236,
+      "Kind": "Get.Bool",
+      "X": 870,
+      "Y": 9280,
+      "Inputs": {
+        "Name": "Loaded"
+      }
+    },
+    {
+      "ID": 237,
+      "Kind": "Gameplay.Health",
+      "X": 1160,
+      "Y": 9280,
+      "Inputs": {
+        "Target": 800
+      }
+    },
+    {
+      "ID": 238,
+      "Kind": "Gameplay.InventoryCount",
+      "X": 1450,
+      "Y": 9280,
+      "Inputs": {
+        "Target": 800,
+        "Item": "Coin"
+      }
+    },
+    {
+      "ID": 239,
+      "Kind": "Equal",
+      "X": 1740,
+      "Y": 9280,
+      "Inputs": {
+        "B": 75
+      }
+    },
+    {
+      "ID": 240,
+      "Kind": "Equal",
+      "X": 2030,
+      "Y": 9280,
+      "Inputs": {
+        "B": 8
+      }
+    },
+    {
+      "ID": 241,
+      "Kind": "Get.Bool",
+      "X": 0,
+      "Y": 9600,
+      "Inputs": {
+        "Name": "SawPause"
+      }
+    },
+    {
+      "ID": 242,
+      "Kind": "And",
+      "X": 290,
+      "Y": 9600,
+      "Inputs": {}
+    },
+    {
+      "ID": 243,
+      "Kind": "And",
+      "X": 580,
+      "Y": 9600,
+      "Inputs": {}
+    },
+    {
+      "ID": 244,
+      "Kind": "And",
+      "X": 870,
+      "Y": 9600,
+      "Inputs": {}
+    },
+    {
+      "ID": 245,
+      "Kind": "And",
+      "X": 1160,
+      "Y": 9600,
+      "Inputs": {}
+    },
+    {
+      "ID": 246,
+      "Kind": "And",
+      "X": 1450,
+      "Y": 9600,
+      "Inputs": {}
+    },
+    {
+      "ID": 247,
+      "Kind": "And",
+      "X": 1740,
+      "Y": 9600,
+      "Inputs": {}
+    },
+    {
+      "ID": 248,
+      "Kind": "And",
+      "X": 2030,
+      "Y": 9600,
+      "Inputs": {}
+    },
+    {
+      "ID": 249,
+      "Kind": "And",
+      "X": 0,
+      "Y": 9920,
+      "Inputs": {}
+    },
+    {
+      "ID": 250,
+      "Kind": "And",
+      "X": 290,
+      "Y": 9920,
+      "Inputs": {}
+    },
+    {
+      "ID": 251,
+      "Kind": "And",
+      "X": 580,
+      "Y": 9920,
+      "Inputs": {}
+    },
+    {
+      "ID": 252,
+      "Kind": "Branch",
+      "X": 870,
+      "Y": 9920,
+      "Inputs": {}
+    },
+    {
+      "ID": 253,
+      "Kind": "Print",
+      "X": 1160,
+      "Y": 9920,
+      "Inputs": {
+        "Text": "UI_ACCEPTANCE hud=1 inventory=1 page=1 focus=1 modal=1 pause=1 save=1 load=1"
+      }
+    },
+    {
+      "ID": 254,
+      "Kind": "Print",
+      "X": 1450,
+      "Y": 9920,
+      "Inputs": {
+        "Text": "UI_ORACLE_FAILED"
+      }
+    },
+    {
+      "ID": 255,
+      "Kind": "Event.Update",
+      "X": 1740,
+      "Y": 9920,
+      "Inputs": {}
+    },
+    {
+      "ID": 256,
+      "Kind": "Get.Bool",
+      "X": 2030,
+      "Y": 9920,
+      "Inputs": {
+        "Name": "Capture"
+      }
+    },
+    {
+      "ID": 257,
+      "Kind": "Greater",
+      "X": 0,
+      "Y": 10240,
+      "Inputs": {
+        "B": 3.55
+      }
+    },
+    {
+      "ID": 258,
+      "Kind": "And",
+      "X": 290,
+      "Y": 10240,
+      "Inputs": {}
+    },
+    {
+      "ID": 259,
+      "Kind": "And",
+      "X": 580,
+      "Y": 10240,
+      "Inputs": {}
+    },
+    {
+      "ID": 260,
+      "Kind": "Branch",
+      "X": 870,
+      "Y": 10240,
+      "Inputs": {}
+    },
+    {
+      "ID": 261,
+      "Kind": "Set.Bool",
+      "X": 1160,
+      "Y": 10240,
+      "Inputs": {
+        "Name": "Reported",
+        "Value": true
+      }
+    },
+    {
+      "ID": 262,
+      "Kind": "TextEqual",
+      "X": 1450,
+      "Y": 10240,
+      "Inputs": {
+        "B": "Bag"
+      }
+    },
+    {
+      "ID": 263,
+      "Kind": "Equal",
+      "X": 1740,
+      "Y": 10240,
+      "Inputs": {
+        "B": 1
+      }
+    },
+    {
+      "ID": 264,
+      "Kind": "And",
+      "X": 2030,
+      "Y": 10240,
+      "Inputs": {}
+    },
+    {
+      "ID": 265,
+      "Kind": "Branch",
+      "X": 0,
+      "Y": 10560,
+      "Inputs": {}
+    },
+    {
+      "ID": 266,
+      "Kind": "Print",
+      "X": 290,
+      "Y": 10560,
+      "Inputs": {
+        "Text": "UI_INVENTORY_SHOWN page=1 slots=6"
+      }
+    },
+    {
+      "ID": 267,
+      "Kind": "Print",
+      "X": 580,
+      "Y": 10560,
+      "Inputs": {
+        "Text": "UI_ORACLE_FAILED"
+      }
+    }
+  ],
+  "Links": [
+    {
+      "From": 1,
+      "Output": "Then",
+      "To": 2,
+      "Input": "In"
+    },
+    {
+      "From": 2,
+      "Output": "Then",
+      "To": 3,
+      "Input": "In"
+    },
+    {
+      "From": 3,
+      "Output": "Then",
+      "To": 4,
+      "Input": "In"
+    },
+    {
+      "From": 4,
+      "Output": "Then",
+      "To": 5,
+      "Input": "In"
+    },
+    {
+      "From": 5,
+      "Output": "Then",
+      "To": 6,
+      "Input": "In"
+    },
+    {
+      "From": 6,
+      "Output": "Then",
+      "To": 7,
+      "Input": "In"
+    },
+    {
+      "From": 7,
+      "Output": "Then",
+      "To": 8,
+      "Input": "In"
+    },
+    {
+      "From": 8,
+      "Output": "Then",
+      "To": 9,
+      "Input": "In"
+    },
+    {
+      "From": 9,
+      "Output": "Then",
+      "To": 10,
+      "Input": "In"
+    },
+    {
+      "From": 10,
+      "Output": "Then",
+      "To": 11,
+      "Input": "In"
+    },
+    {
+      "From": 12,
+      "Output": "Then",
+      "To": 13,
+      "Input": "In"
+    },
+    {
+      "From": 14,
+      "Output": "Text",
+      "To": 15,
+      "Input": "A"
+    },
+    {
+      "From": 14,
+      "Output": "Then",
+      "To": 16,
+      "Input": "In"
+    },
+    {
+      "From": 15,
+      "Output": "Value",
+      "To": 16,
+      "Input": "Condition"
+    },
+    {
+      "From": 16,
+      "Output": "True",
+      "To": 17,
+      "Input": "In"
+    },
+    {
+      "From": 18,
+      "Output": "Then",
+      "To": 19,
+      "Input": "In"
+    },
+    {
+      "From": 20,
+      "Output": "Text",
+      "To": 21,
+      "Input": "A"
+    },
+    {
+      "From": 20,
+      "Output": "Then",
+      "To": 22,
+      "Input": "In"
+    },
+    {
+      "From": 21,
+      "Output": "Value",
+      "To": 22,
+      "Input": "Condition"
+    },
+    {
+      "From": 22,
+      "Output": "True",
+      "To": 23,
+      "Input": "In"
+    },
+    {
+      "From": 24,
+      "Output": "Then",
+      "To": 25,
+      "Input": "In"
+    },
+    {
+      "From": 26,
+      "Output": "Text",
+      "To": 27,
+      "Input": "A"
+    },
+    {
+      "From": 26,
+      "Output": "Then",
+      "To": 28,
+      "Input": "In"
+    },
+    {
+      "From": 27,
+      "Output": "Value",
+      "To": 28,
+      "Input": "Condition"
+    },
+    {
+      "From": 28,
+      "Output": "True",
+      "To": 29,
+      "Input": "In"
+    },
+    {
+      "From": 30,
+      "Output": "Then",
+      "To": 31,
+      "Input": "In"
+    },
+    {
+      "From": 32,
+      "Output": "Text",
+      "To": 33,
+      "Input": "A"
+    },
+    {
+      "From": 32,
+      "Output": "Then",
+      "To": 34,
+      "Input": "In"
+    },
+    {
+      "From": 33,
+      "Output": "Value",
+      "To": 34,
+      "Input": "Condition"
+    },
+    {
+      "From": 34,
+      "Output": "True",
+      "To": 35,
+      "Input": "In"
+    },
+    {
+      "From": 36,
+      "Output": "Then",
+      "To": 37,
+      "Input": "In"
+    },
+    {
+      "From": 38,
+      "Output": "Text",
+      "To": 39,
+      "Input": "A"
+    },
+    {
+      "From": 38,
+      "Output": "Then",
+      "To": 40,
+      "Input": "In"
+    },
+    {
+      "From": 39,
+      "Output": "Value",
+      "To": 40,
+      "Input": "Condition"
+    },
+    {
+      "From": 40,
+      "Output": "True",
+      "To": 41,
+      "Input": "In"
+    },
+    {
+      "From": 42,
+      "Output": "Then",
+      "To": 43,
+      "Input": "In"
+    },
+    {
+      "From": 44,
+      "Output": "Text",
+      "To": 45,
+      "Input": "A"
+    },
+    {
+      "From": 44,
+      "Output": "Then",
+      "To": 46,
+      "Input": "In"
+    },
+    {
+      "From": 45,
+      "Output": "Value",
+      "To": 46,
+      "Input": "Condition"
+    },
+    {
+      "From": 46,
+      "Output": "True",
+      "To": 47,
+      "Input": "In"
+    },
+    {
+      "From": 48,
+      "Output": "Then",
+      "To": 49,
+      "Input": "In"
+    },
+    {
+      "From": 50,
+      "Output": "Text",
+      "To": 51,
+      "Input": "A"
+    },
+    {
+      "From": 50,
+      "Output": "Then",
+      "To": 52,
+      "Input": "In"
+    },
+    {
+      "From": 51,
+      "Output": "Value",
+      "To": 52,
+      "Input": "Condition"
+    },
+    {
+      "From": 52,
+      "Output": "True",
+      "To": 53,
+      "Input": "In"
+    },
+    {
+      "From": 54,
+      "Output": "Then",
+      "To": 55,
+      "Input": "In"
+    },
+    {
+      "From": 55,
+      "Output": "Then",
+      "To": 56,
+      "Input": "In"
+    },
+    {
+      "From": 55,
+      "Output": "Success",
+      "To": 56,
+      "Input": "Condition"
+    },
+    {
+      "From": 56,
+      "Output": "True",
+      "To": 57,
+      "Input": "In"
+    },
+    {
+      "From": 57,
+      "Output": "Then",
+      "To": 58,
+      "Input": "In"
+    },
+    {
+      "From": 58,
+      "Output": "Then",
+      "To": 59,
+      "Input": "In"
+    },
+    {
+      "From": 56,
+      "Output": "False",
+      "To": 60,
+      "Input": "In"
+    },
+    {
+      "From": 61,
+      "Output": "Text",
+      "To": 62,
+      "Input": "A"
+    },
+    {
+      "From": 61,
+      "Output": "Then",
+      "To": 63,
+      "Input": "In"
+    },
+    {
+      "From": 62,
+      "Output": "Value",
+      "To": 63,
+      "Input": "Condition"
+    },
+    {
+      "From": 63,
+      "Output": "True",
+      "To": 64,
+      "Input": "In"
+    },
+    {
+      "From": 65,
+      "Output": "Then",
+      "To": 66,
+      "Input": "In"
+    },
+    {
+      "From": 66,
+      "Output": "Then",
+      "To": 67,
+      "Input": "In"
+    },
+    {
+      "From": 66,
+      "Output": "Success",
+      "To": 67,
+      "Input": "Condition"
+    },
+    {
+      "From": 67,
+      "Output": "True",
+      "To": 68,
+      "Input": "In"
+    },
+    {
+      "From": 67,
+      "Output": "False",
+      "To": 69,
+      "Input": "In"
+    },
+    {
+      "From": 70,
+      "Output": "Text",
+      "To": 71,
+      "Input": "A"
+    },
+    {
+      "From": 70,
+      "Output": "Then",
+      "To": 72,
+      "Input": "In"
+    },
+    {
+      "From": 71,
+      "Output": "Value",
+      "To": 72,
+      "Input": "Condition"
+    },
+    {
+      "From": 72,
+      "Output": "True",
+      "To": 73,
+      "Input": "In"
+    },
+    {
+      "From": 74,
+      "Output": "Top",
+      "To": 78,
+      "Input": "A"
+    },
+    {
+      "From": 77,
+      "Output": "Then",
+      "To": 79,
+      "Input": "In"
+    },
+    {
+      "From": 78,
+      "Output": "Value",
+      "To": 79,
+      "Input": "Condition"
+    },
+    {
+      "From": 79,
+      "Output": "True",
+      "To": 80,
+      "Input": "In"
+    },
+    {
+      "From": 74,
+      "Output": "Top",
+      "To": 82,
+      "Input": "A"
+    },
+    {
+      "From": 81,
+      "Output": "Then",
+      "To": 83,
+      "Input": "In"
+    },
+    {
+      "From": 82,
+      "Output": "Value",
+      "To": 83,
+      "Input": "Condition"
+    },
+    {
+      "From": 83,
+      "Output": "True",
+      "To": 84,
+      "Input": "In"
+    },
+    {
+      "From": 74,
+      "Output": "Depth",
+      "To": 86,
+      "Input": "A"
+    },
+    {
+      "From": 85,
+      "Output": "Then",
+      "To": 87,
+      "Input": "In"
+    },
+    {
+      "From": 86,
+      "Output": "Value",
+      "To": 87,
+      "Input": "Condition"
+    },
+    {
+      "From": 87,
+      "Output": "True",
+      "To": 88,
+      "Input": "In"
+    },
+    {
+      "From": 75,
+      "Output": "Page",
+      "To": 90,
+      "Input": "A"
+    },
+    {
+      "From": 89,
+      "Output": "Then",
+      "To": 91,
+      "Input": "In"
+    },
+    {
+      "From": 90,
+      "Output": "Value",
+      "To": 91,
+      "Input": "Condition"
+    },
+    {
+      "From": 91,
+      "Output": "True",
+      "To": 92,
+      "Input": "In"
+    },
+    {
+      "From": 75,
+      "Output": "Count",
+      "To": 94,
+      "Input": "A"
+    },
+    {
+      "From": 93,
+      "Output": "Then",
+      "To": 95,
+      "Input": "In"
+    },
+    {
+      "From": 94,
+      "Output": "Value",
+      "To": 95,
+      "Input": "Condition"
+    },
+    {
+      "From": 95,
+      "Output": "True",
+      "To": 96,
+      "Input": "In"
+    },
+    {
+      "From": 76,
+      "Output": "Enabled",
+      "To": 98,
+      "Input": "A"
+    },
+    {
+      "From": 97,
+      "Output": "Then",
+      "To": 99,
+      "Input": "In"
+    },
+    {
+      "From": 98,
+      "Output": "Value",
+      "To": 99,
+      "Input": "Condition"
+    },
+    {
+      "From": 99,
+      "Output": "True",
+      "To": 100,
+      "Input": "In"
+    },
+    {
+      "From": 75,
+      "Output": "Item",
+      "To": 102,
+      "Input": "B"
+    },
+    {
+      "From": 101,
+      "Output": "Then",
+      "To": 103,
+      "Input": "In"
+    },
+    {
+      "From": 102,
+      "Output": "Value",
+      "To": 103,
+      "Input": "Text"
+    },
+    {
+      "From": 75,
+      "Output": "Count",
+      "To": 104,
+      "Input": "Number"
+    },
+    {
+      "From": 104,
+      "Output": "Value",
+      "To": 105,
+      "Input": "B"
+    },
+    {
+      "From": 103,
+      "Output": "Then",
+      "To": 106,
+      "Input": "In"
+    },
+    {
+      "From": 105,
+      "Output": "Value",
+      "To": 106,
+      "Input": "Text"
+    },
+    {
+      "From": 75,
+      "Output": "Page",
+      "To": 107,
+      "Input": "A"
+    },
+    {
+      "From": 107,
+      "Output": "Value",
+      "To": 108,
+      "Input": "Number"
+    },
+    {
+      "From": 108,
+      "Output": "Value",
+      "To": 109,
+      "Input": "B"
+    },
+    {
+      "From": 109,
+      "Output": "Value",
+      "To": 110,
+      "Input": "A"
+    },
+    {
+      "From": 75,
+      "Output": "Pages",
+      "To": 111,
+      "Input": "Number"
+    },
+    {
+      "From": 110,
+      "Output": "Value",
+      "To": 112,
+      "Input": "A"
+    },
+    {
+      "From": 111,
+      "Output": "Value",
+      "To": 112,
+      "Input": "B"
+    },
+    {
+      "From": 106,
+      "Output": "Then",
+      "To": 113,
+      "Input": "In"
+    },
+    {
+      "From": 112,
+      "Output": "Value",
+      "To": 113,
+      "Input": "Text"
+    },
+    {
+      "From": 74,
+      "Output": "Time",
+      "To": 117,
+      "Input": "A"
+    },
+    {
+      "From": 115,
+      "Output": "Value",
+      "To": 118,
+      "Input": "A"
+    },
+    {
+      "From": 117,
+      "Output": "Value",
+      "To": 119,
+      "Input": "A"
+    },
+    {
+      "From": 118,
+      "Output": "Value",
+      "To": 119,
+      "Input": "B"
+    },
+    {
+      "From": 114,
+      "Output": "Value",
+      "To": 120,
+      "Input": "A"
+    },
+    {
+      "From": 119,
+      "Output": "Value",
+      "To": 120,
+      "Input": "B"
+    },
+    {
+      "From": 116,
+      "Output": "Then",
+      "To": 121,
+      "Input": "In"
+    },
+    {
+      "From": 120,
+      "Output": "Value",
+      "To": 121,
+      "Input": "Condition"
+    },
+    {
+      "From": 121,
+      "Output": "True",
+      "To": 122,
+      "Input": "In"
+    },
+    {
+      "From": 122,
+      "Output": "Then",
+      "To": 123,
+      "Input": "In"
+    },
+    {
+      "From": 74,
+      "Output": "Time",
+      "To": 125,
+      "Input": "A"
+    },
+    {
+      "From": 115,
+      "Output": "Value",
+      "To": 126,
+      "Input": "A"
+    },
+    {
+      "From": 125,
+      "Output": "Value",
+      "To": 127,
+      "Input": "A"
+    },
+    {
+      "From": 126,
+      "Output": "Value",
+      "To": 127,
+      "Input": "B"
+    },
+    {
+      "From": 114,
+      "Output": "Value",
+      "To": 128,
+      "Input": "A"
+    },
+    {
+      "From": 127,
+      "Output": "Value",
+      "To": 128,
+      "Input": "B"
+    },
+    {
+      "From": 124,
+      "Output": "Then",
+      "To": 129,
+      "Input": "In"
+    },
+    {
+      "From": 128,
+      "Output": "Value",
+      "To": 129,
+      "Input": "Condition"
+    },
+    {
+      "From": 129,
+      "Output": "True",
+      "To": 130,
+      "Input": "In"
+    },
+    {
+      "From": 130,
+      "Output": "Then",
+      "To": 131,
+      "Input": "In"
+    },
+    {
+      "From": 74,
+      "Output": "Time",
+      "To": 133,
+      "Input": "A"
+    },
+    {
+      "From": 115,
+      "Output": "Value",
+      "To": 134,
+      "Input": "A"
+    },
+    {
+      "From": 133,
+      "Output": "Value",
+      "To": 135,
+      "Input": "A"
+    },
+    {
+      "From": 134,
+      "Output": "Value",
+      "To": 135,
+      "Input": "B"
+    },
+    {
+      "From": 114,
+      "Output": "Value",
+      "To": 136,
+      "Input": "A"
+    },
+    {
+      "From": 135,
+      "Output": "Value",
+      "To": 136,
+      "Input": "B"
+    },
+    {
+      "From": 132,
+      "Output": "Then",
+      "To": 137,
+      "Input": "In"
+    },
+    {
+      "From": 136,
+      "Output": "Value",
+      "To": 137,
+      "Input": "Condition"
+    },
+    {
+      "From": 137,
+      "Output": "True",
+      "To": 138,
+      "Input": "In"
+    },
+    {
+      "From": 138,
+      "Output": "Then",
+      "To": 139,
+      "Input": "In"
+    },
+    {
+      "From": 74,
+      "Output": "Time",
+      "To": 141,
+      "Input": "A"
+    },
+    {
+      "From": 115,
+      "Output": "Value",
+      "To": 142,
+      "Input": "A"
+    },
+    {
+      "From": 141,
+      "Output": "Value",
+      "To": 143,
+      "Input": "A"
+    },
+    {
+      "From": 142,
+      "Output": "Value",
+      "To": 143,
+      "Input": "B"
+    },
+    {
+      "From": 114,
+      "Output": "Value",
+      "To": 144,
+      "Input": "A"
+    },
+    {
+      "From": 143,
+      "Output": "Value",
+      "To": 144,
+      "Input": "B"
+    },
+    {
+      "From": 140,
+      "Output": "Then",
+      "To": 145,
+      "Input": "In"
+    },
+    {
+      "From": 144,
+      "Output": "Value",
+      "To": 145,
+      "Input": "Condition"
+    },
+    {
+      "From": 145,
+      "Output": "True",
+      "To": 146,
+      "Input": "In"
+    },
+    {
+      "From": 146,
+      "Output": "Then",
+      "To": 147,
+      "Input": "In"
+    },
+    {
+      "From": 74,
+      "Output": "Time",
+      "To": 149,
+      "Input": "A"
+    },
+    {
+      "From": 115,
+      "Output": "Value",
+      "To": 150,
+      "Input": "A"
+    },
+    {
+      "From": 149,
+      "Output": "Value",
+      "To": 151,
+      "Input": "A"
+    },
+    {
+      "From": 150,
+      "Output": "Value",
+      "To": 151,
+      "Input": "B"
+    },
+    {
+      "From": 114,
+      "Output": "Value",
+      "To": 152,
+      "Input": "A"
+    },
+    {
+      "From": 151,
+      "Output": "Value",
+      "To": 152,
+      "Input": "B"
+    },
+    {
+      "From": 148,
+      "Output": "Then",
+      "To": 153,
+      "Input": "In"
+    },
+    {
+      "From": 152,
+      "Output": "Value",
+      "To": 153,
+      "Input": "Condition"
+    },
+    {
+      "From": 153,
+      "Output": "True",
+      "To": 154,
+      "Input": "In"
+    },
+    {
+      "From": 154,
+      "Output": "Then",
+      "To": 155,
+      "Input": "In"
+    },
+    {
+      "From": 74,
+      "Output": "Time",
+      "To": 157,
+      "Input": "A"
+    },
+    {
+      "From": 115,
+      "Output": "Value",
+      "To": 158,
+      "Input": "A"
+    },
+    {
+      "From": 157,
+      "Output": "Value",
+      "To": 159,
+      "Input": "A"
+    },
+    {
+      "From": 158,
+      "Output": "Value",
+      "To": 159,
+      "Input": "B"
+    },
+    {
+      "From": 114,
+      "Output": "Value",
+      "To": 160,
+      "Input": "A"
+    },
+    {
+      "From": 159,
+      "Output": "Value",
+      "To": 160,
+      "Input": "B"
+    },
+    {
+      "From": 156,
+      "Output": "Then",
+      "To": 161,
+      "Input": "In"
+    },
+    {
+      "From": 160,
+      "Output": "Value",
+      "To": 161,
+      "Input": "Condition"
+    },
+    {
+      "From": 161,
+      "Output": "True",
+      "To": 162,
+      "Input": "In"
+    },
+    {
+      "From": 162,
+      "Output": "Then",
+      "To": 163,
+      "Input": "In"
+    },
+    {
+      "From": 74,
+      "Output": "Time",
+      "To": 165,
+      "Input": "A"
+    },
+    {
+      "From": 115,
+      "Output": "Value",
+      "To": 166,
+      "Input": "A"
+    },
+    {
+      "From": 165,
+      "Output": "Value",
+      "To": 167,
+      "Input": "A"
+    },
+    {
+      "From": 166,
+      "Output": "Value",
+      "To": 167,
+      "Input": "B"
+    },
+    {
+      "From": 114,
+      "Output": "Value",
+      "To": 168,
+      "Input": "A"
+    },
+    {
+      "From": 167,
+      "Output": "Value",
+      "To": 168,
+      "Input": "B"
+    },
+    {
+      "From": 164,
+      "Output": "Then",
+      "To": 169,
+      "Input": "In"
+    },
+    {
+      "From": 168,
+      "Output": "Value",
+      "To": 169,
+      "Input": "Condition"
+    },
+    {
+      "From": 169,
+      "Output": "True",
+      "To": 170,
+      "Input": "In"
+    },
+    {
+      "From": 170,
+      "Output": "Then",
+      "To": 171,
+      "Input": "In"
+    },
+    {
+      "From": 74,
+      "Output": "Time",
+      "To": 173,
+      "Input": "A"
+    },
+    {
+      "From": 115,
+      "Output": "Value",
+      "To": 174,
+      "Input": "A"
+    },
+    {
+      "From": 173,
+      "Output": "Value",
+      "To": 175,
+      "Input": "A"
+    },
+    {
+      "From": 174,
+      "Output": "Value",
+      "To": 175,
+      "Input": "B"
+    },
+    {
+      "From": 114,
+      "Output": "Value",
+      "To": 176,
+      "Input": "A"
+    },
+    {
+      "From": 175,
+      "Output": "Value",
+      "To": 176,
+      "Input": "B"
+    },
+    {
+      "From": 172,
+      "Output": "Then",
+      "To": 177,
+      "Input": "In"
+    },
+    {
+      "From": 176,
+      "Output": "Value",
+      "To": 177,
+      "Input": "Condition"
+    },
+    {
+      "From": 177,
+      "Output": "True",
+      "To": 178,
+      "Input": "In"
+    },
+    {
+      "From": 178,
+      "Output": "Then",
+      "To": 179,
+      "Input": "In"
+    },
+    {
+      "From": 74,
+      "Output": "Time",
+      "To": 181,
+      "Input": "A"
+    },
+    {
+      "From": 115,
+      "Output": "Value",
+      "To": 182,
+      "Input": "A"
+    },
+    {
+      "From": 181,
+      "Output": "Value",
+      "To": 183,
+      "Input": "A"
+    },
+    {
+      "From": 182,
+      "Output": "Value",
+      "To": 183,
+      "Input": "B"
+    },
+    {
+      "From": 114,
+      "Output": "Value",
+      "To": 184,
+      "Input": "A"
+    },
+    {
+      "From": 183,
+      "Output": "Value",
+      "To": 184,
+      "Input": "B"
+    },
+    {
+      "From": 180,
+      "Output": "Then",
+      "To": 185,
+      "Input": "In"
+    },
+    {
+      "From": 184,
+      "Output": "Value",
+      "To": 185,
+      "Input": "Condition"
+    },
+    {
+      "From": 185,
+      "Output": "True",
+      "To": 186,
+      "Input": "In"
+    },
+    {
+      "From": 186,
+      "Output": "Then",
+      "To": 187,
+      "Input": "In"
+    },
+    {
+      "From": 74,
+      "Output": "Time",
+      "To": 189,
+      "Input": "A"
+    },
+    {
+      "From": 115,
+      "Output": "Value",
+      "To": 190,
+      "Input": "A"
+    },
+    {
+      "From": 189,
+      "Output": "Value",
+      "To": 191,
+      "Input": "A"
+    },
+    {
+      "From": 190,
+      "Output": "Value",
+      "To": 191,
+      "Input": "B"
+    },
+    {
+      "From": 114,
+      "Output": "Value",
+      "To": 192,
+      "Input": "A"
+    },
+    {
+      "From": 191,
+      "Output": "Value",
+      "To": 192,
+      "Input": "B"
+    },
+    {
+      "From": 188,
+      "Output": "Then",
+      "To": 193,
+      "Input": "In"
+    },
+    {
+      "From": 192,
+      "Output": "Value",
+      "To": 193,
+      "Input": "Condition"
+    },
+    {
+      "From": 193,
+      "Output": "True",
+      "To": 194,
+      "Input": "In"
+    },
+    {
+      "From": 194,
+      "Output": "Then",
+      "To": 195,
+      "Input": "In"
+    },
+    {
+      "From": 74,
+      "Output": "Time",
+      "To": 197,
+      "Input": "A"
+    },
+    {
+      "From": 115,
+      "Output": "Value",
+      "To": 198,
+      "Input": "A"
+    },
+    {
+      "From": 197,
+      "Output": "Value",
+      "To": 199,
+      "Input": "A"
+    },
+    {
+      "From": 198,
+      "Output": "Value",
+      "To": 199,
+      "Input": "B"
+    },
+    {
+      "From": 114,
+      "Output": "Value",
+      "To": 200,
+      "Input": "A"
+    },
+    {
+      "From": 199,
+      "Output": "Value",
+      "To": 200,
+      "Input": "B"
+    },
+    {
+      "From": 196,
+      "Output": "Then",
+      "To": 201,
+      "Input": "In"
+    },
+    {
+      "From": 200,
+      "Output": "Value",
+      "To": 201,
+      "Input": "Condition"
+    },
+    {
+      "From": 201,
+      "Output": "True",
+      "To": 202,
+      "Input": "In"
+    },
+    {
+      "From": 202,
+      "Output": "Then",
+      "To": 203,
+      "Input": "In"
+    },
+    {
+      "From": 74,
+      "Output": "Time",
+      "To": 205,
+      "Input": "A"
+    },
+    {
+      "From": 115,
+      "Output": "Value",
+      "To": 206,
+      "Input": "A"
+    },
+    {
+      "From": 205,
+      "Output": "Value",
+      "To": 207,
+      "Input": "A"
+    },
+    {
+      "From": 206,
+      "Output": "Value",
+      "To": 207,
+      "Input": "B"
+    },
+    {
+      "From": 114,
+      "Output": "Value",
+      "To": 208,
+      "Input": "A"
+    },
+    {
+      "From": 207,
+      "Output": "Value",
+      "To": 208,
+      "Input": "B"
+    },
+    {
+      "From": 204,
+      "Output": "Then",
+      "To": 209,
+      "Input": "In"
+    },
+    {
+      "From": 208,
+      "Output": "Value",
+      "To": 209,
+      "Input": "Condition"
+    },
+    {
+      "From": 209,
+      "Output": "True",
+      "To": 210,
+      "Input": "In"
+    },
+    {
+      "From": 210,
+      "Output": "Then",
+      "To": 211,
+      "Input": "In"
+    },
+    {
+      "From": 74,
+      "Output": "Time",
+      "To": 213,
+      "Input": "A"
+    },
+    {
+      "From": 115,
+      "Output": "Value",
+      "To": 214,
+      "Input": "A"
+    },
+    {
+      "From": 213,
+      "Output": "Value",
+      "To": 215,
+      "Input": "A"
+    },
+    {
+      "From": 214,
+      "Output": "Value",
+      "To": 215,
+      "Input": "B"
+    },
+    {
+      "From": 114,
+      "Output": "Value",
+      "To": 216,
+      "Input": "A"
+    },
+    {
+      "From": 215,
+      "Output": "Value",
+      "To": 216,
+      "Input": "B"
+    },
+    {
+      "From": 212,
+      "Output": "Then",
+      "To": 217,
+      "Input": "In"
+    },
+    {
+      "From": 216,
+      "Output": "Value",
+      "To": 217,
+      "Input": "Condition"
+    },
+    {
+      "From": 217,
+      "Output": "True",
+      "To": 218,
+      "Input": "In"
+    },
+    {
+      "From": 218,
+      "Output": "Then",
+      "To": 219,
+      "Input": "In"
+    },
+    {
+      "From": 74,
+      "Output": "Time",
+      "To": 221,
+      "Input": "A"
+    },
+    {
+      "From": 223,
+      "Output": "Value",
+      "To": 224,
+      "Input": "A"
+    },
+    {
+      "From": 221,
+      "Output": "Value",
+      "To": 225,
+      "Input": "A"
+    },
+    {
+      "From": 222,
+      "Output": "Value",
+      "To": 225,
+      "Input": "B"
+    },
+    {
+      "From": 225,
+      "Output": "Value",
+      "To": 226,
+      "Input": "A"
+    },
+    {
+      "From": 224,
+      "Output": "Value",
+      "To": 226,
+      "Input": "B"
+    },
+    {
+      "From": 220,
+      "Output": "Then",
+      "To": 227,
+      "Input": "In"
+    },
+    {
+      "From": 226,
+      "Output": "Value",
+      "To": 227,
+      "Input": "Condition"
+    },
+    {
+      "From": 227,
+      "Output": "True",
+      "To": 228,
+      "Input": "In"
+    },
+    {
+      "From": 237,
+      "Output": "Current",
+      "To": 239,
+      "Input": "A"
+    },
+    {
+      "From": 238,
+      "Output": "Count",
+      "To": 240,
+      "Input": "A"
+    },
+    {
+      "From": 229,
+      "Output": "Value",
+      "To": 242,
+      "Input": "A"
+    },
+    {
+      "From": 230,
+      "Output": "Value",
+      "To": 242,
+      "Input": "B"
+    },
+    {
+      "From": 242,
+      "Output": "Value",
+      "To": 243,
+      "Input": "A"
+    },
+    {
+      "From": 231,
+      "Output": "Value",
+      "To": 243,
+      "Input": "B"
+    },
+    {
+      "From": 243,
+      "Output": "Value",
+      "To": 244,
+      "Input": "A"
+    },
+    {
+      "From": 232,
+      "Output": "Value",
+      "To": 244,
+      "Input": "B"
+    },
+    {
+      "From": 244,
+      "Output": "Value",
+      "To": 245,
+      "Input": "A"
+    },
+    {
+      "From": 233,
+      "Output": "Value",
+      "To": 245,
+      "Input": "B"
+    },
+    {
+      "From": 245,
+      "Output": "Value",
+      "To": 246,
+      "Input": "A"
+    },
+    {
+      "From": 234,
+      "Output": "Value",
+      "To": 246,
+      "Input": "B"
+    },
+    {
+      "From": 246,
+      "Output": "Value",
+      "To": 247,
+      "Input": "A"
+    },
+    {
+      "From": 235,
+      "Output": "Value",
+      "To": 247,
+      "Input": "B"
+    },
+    {
+      "From": 247,
+      "Output": "Value",
+      "To": 248,
+      "Input": "A"
+    },
+    {
+      "From": 236,
+      "Output": "Value",
+      "To": 248,
+      "Input": "B"
+    },
+    {
+      "From": 248,
+      "Output": "Value",
+      "To": 249,
+      "Input": "A"
+    },
+    {
+      "From": 239,
+      "Output": "Value",
+      "To": 249,
+      "Input": "B"
+    },
+    {
+      "From": 249,
+      "Output": "Value",
+      "To": 250,
+      "Input": "A"
+    },
+    {
+      "From": 240,
+      "Output": "Value",
+      "To": 250,
+      "Input": "B"
+    },
+    {
+      "From": 250,
+      "Output": "Value",
+      "To": 251,
+      "Input": "A"
+    },
+    {
+      "From": 241,
+      "Output": "Value",
+      "To": 251,
+      "Input": "B"
+    },
+    {
+      "From": 228,
+      "Output": "Then",
+      "To": 252,
+      "Input": "In"
+    },
+    {
+      "From": 251,
+      "Output": "Value",
+      "To": 252,
+      "Input": "Condition"
+    },
+    {
+      "From": 252,
+      "Output": "True",
+      "To": 253,
+      "Input": "In"
+    },
+    {
+      "From": 252,
+      "Output": "False",
+      "To": 254,
+      "Input": "In"
+    },
+    {
+      "From": 74,
+      "Output": "Time",
+      "To": 257,
+      "Input": "A"
+    },
+    {
+      "From": 256,
+      "Output": "Value",
+      "To": 258,
+      "Input": "A"
+    },
+    {
+      "From": 257,
+      "Output": "Value",
+      "To": 258,
+      "Input": "B"
+    },
+    {
+      "From": 258,
+      "Output": "Value",
+      "To": 259,
+      "Input": "A"
+    },
+    {
+      "From": 224,
+      "Output": "Value",
+      "To": 259,
+      "Input": "B"
+    },
+    {
+      "From": 255,
+      "Output": "Then",
+      "To": 260,
+      "Input": "In"
+    },
+    {
+      "From": 259,
+      "Output": "Value",
+      "To": 260,
+      "Input": "Condition"
+    },
+    {
+      "From": 260,
+      "Output": "True",
+      "To": 261,
+      "Input": "In"
+    },
+    {
+      "From": 74,
+      "Output": "Top",
+      "To": 262,
+      "Input": "A"
+    },
+    {
+      "From": 75,
+      "Output": "Page",
+      "To": 263,
+      "Input": "A"
+    },
+    {
+      "From": 262,
+      "Output": "Value",
+      "To": 264,
+      "Input": "A"
+    },
+    {
+      "From": 263,
+      "Output": "Value",
+      "To": 264,
+      "Input": "B"
+    },
+    {
+      "From": 261,
+      "Output": "Then",
+      "To": 265,
+      "Input": "In"
+    },
+    {
+      "From": 264,
+      "Output": "Value",
+      "To": 265,
+      "Input": "Condition"
+    },
+    {
+      "From": 265,
+      "Output": "True",
+      "To": 266,
+      "Input": "In"
+    },
+    {
+      "From": 265,
+      "Output": "False",
+      "To": 267,
+      "Input": "In"
+    }
+  ],
+  "Variables": {
+    "Auto": {
+      "Type": "Bool",
+      "Default": false
+    },
+    "Checks": {
+      "Type": "Bool",
+      "Default": false
+    },
+    "Capture": {
+      "Type": "Bool",
+      "Default": false
+    },
+    "SawBag": {
+      "Type": "Bool",
+      "Default": false
+    },
+    "SawPause": {
+      "Type": "Bool",
+      "Default": false
+    },
+    "SawNested": {
+      "Type": "Bool",
+      "Default": false
+    },
+    "SawPage": {
+      "Type": "Bool",
+      "Default": false
+    },
+    "SawSelected": {
+      "Type": "Bool",
+      "Default": false
+    },
+    "Blocked": {
+      "Type": "Bool",
+      "Default": false
+    },
+    "Saved": {
+      "Type": "Bool",
+      "Default": false
+    },
+    "Loaded": {
+      "Type": "Bool",
+      "Default": false
+    },
+    "Reported": {
+      "Type": "Bool",
+      "Default": false
+    },
+    "Step": {
+      "Type": "Number",
+      "Default": 0
+    }
+  }
+}

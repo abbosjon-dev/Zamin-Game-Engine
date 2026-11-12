@@ -1,0 +1,3379 @@
+{
+  "Version": 5,
+  "Scene": "UI 2D",
+  "Settings": {
+    "DrawSky": false,
+    "Ambient": 0.7
+  },
+  "Entities": [
+    {
+      "Entity": 800,
+      "Tag": "Player",
+      "Tags": [
+        "Player"
+      ],
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "NativeScript": {
+        "Class": "Zamin.VisualGraph",
+        "Fields": {
+          "Graph": {
+            "Type": "String",
+            "Value": "Scripts/Player2D.zgraph"
+          }
+        }
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "GravityScale": 0,
+        "FixedRotation": true
+      },
+      "BoxCollider2D": {
+        "Size": [
+          0.35,
+          0.35
+        ],
+        "Friction": 0
+      }
+    },
+    {
+      "Entity": 810,
+      "Tag": "Player visual",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0.05
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.7,
+          0.7,
+          1
+        ]
+      },
+      "Parent": 800,
+      "SpriteRenderer": {
+        "Color": [
+          0.22,
+          0.9,
+          0.65,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 801,
+      "Tag": "Overview camera",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          15
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Camera": {
+        "Primary": true,
+        "ProjectionType": 1,
+        "OrthographicSize": 14,
+        "OrthographicNear": -100,
+        "OrthographicFar": 100,
+        "ClearColor": [
+          0.035,
+          0.045,
+          0.075,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 940,
+      "Tag": "Arena",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          -0.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          20,
+          12,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.075,
+          0.105,
+          0.16,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 950,
+      "Tag": "Navigation grid",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "NavGrid2D": {
+        "AutoBounds": false,
+        "Size": [
+          20,
+          12
+        ],
+        "CellSize": 0.4,
+        "UseTilemaps": false,
+        "UseColliders": true,
+        "AgentRadius": 0.35
+      }
+    },
+    {
+      "Entity": 960,
+      "Tag": "Patrol waypoint",
+      "Transform": {
+        "Translation": [
+          -5,
+          -1.5,
+          0.01
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.3,
+          0.3,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.2,
+          0.8,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 961,
+      "Tag": "Patrol waypoint",
+      "Transform": {
+        "Translation": [
+          -5,
+          1.5,
+          0.01
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.3,
+          0.3,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.2,
+          0.8,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 900,
+      "Tag": "UI controller",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "NativeScript": {
+        "Class": "Zamin.VisualGraph",
+        "Fields": {
+          "Graph": {
+            "Type": "String",
+            "Value": "Scripts/Controller2D.zgraph"
+          }
+        }
+      }
+    },
+    {
+      "Entity": 2000,
+      "Tag": "Game UI",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UICanvas": {
+        "ScaleMode": "ScaleWithScreenSize",
+        "ReferenceResolution": [
+          1280,
+          720
+        ]
+      }
+    },
+    {
+      "Entity": 2100,
+      "Tag": "Vitals card",
+      "Parent": 2000,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          -430,
+          255
+        ],
+        "Size": [
+          360,
+          145
+        ],
+        "FontSize": 20,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          0.065,
+          0.08,
+          0.12,
+          1
+        ],
+        "RaycastTarget": false
+      }
+    },
+    {
+      "Entity": 2101,
+      "Tag": "Player health",
+      "Parent": 2100,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          35
+        ],
+        "Size": [
+          320,
+          30
+        ],
+        "FontSize": 21,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "VITALITY",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      }
+    },
+    {
+      "Entity": 2102,
+      "Tag": "Coin count",
+      "Parent": 2100,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          -65,
+          -25
+        ],
+        "Size": [
+          180,
+          26
+        ],
+        "FontSize": 17,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "COINS 8",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      }
+    },
+    {
+      "Entity": 2103,
+      "Tag": "Bag capacity",
+      "Parent": 2100,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          95,
+          -25
+        ],
+        "Size": [
+          145,
+          26
+        ],
+        "FontSize": 17,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "BAG 6 / 12",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      }
+    },
+    {
+      "Entity": 2110,
+      "Tag": "Health progress",
+      "Parent": 2100,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          5
+        ],
+        "Size": [
+          300,
+          13
+        ],
+        "FontSize": 20,
+        "Order": 0
+      },
+      "UIProgressBar": {
+        "Value": 0.75,
+        "Padding": 0,
+        "BackgroundColor": [
+          0.14,
+          0.19,
+          0.24,
+          1
+        ],
+        "FillColor": [
+          0.14,
+          0.78,
+          0.65,
+          1
+        ],
+        "SmoothSpeed": 8
+      }
+    },
+    {
+      "Entity": 2120,
+      "Tag": "Brand",
+      "Parent": 2000,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          390,
+          300
+        ],
+        "Size": [
+          420,
+          36
+        ],
+        "FontSize": 20,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "ZAMIN  /  GAMEPLAY UI",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      }
+    },
+    {
+      "Entity": 2121,
+      "Tag": "Controls",
+      "Parent": 2000,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          -315
+        ],
+        "Size": [
+          1120,
+          32
+        ],
+        "FontSize": 18,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "WASD move     I / Y inventory     Esc / Start pause     Enter / A select     B back",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      }
+    },
+    {
+      "Entity": 2122,
+      "Tag": "Course status",
+      "Parent": 2000,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          -278
+        ],
+        "Size": [
+          1120,
+          28
+        ],
+        "FontSize": 17,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Live HUD  |  Stable prefab save slots  |  Keyboard + controller",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      }
+    },
+    {
+      "Entity": 2200,
+      "Tag": "Inventory panel",
+      "Parent": 2000,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          0,
+          0
+        ],
+        "FontSize": 20,
+        "Order": 20
+      },
+      "UIImage": {
+        "Color": [
+          0.015,
+          0.02,
+          0.035,
+          0.95
+        ],
+        "RaycastTarget": true
+      },
+      "Active": false,
+      "UIAnimation": {
+        "Show": "Fade",
+        "Hide": "Fade",
+        "Duration": 0.18
+      }
+    },
+    {
+      "Entity": 3100,
+      "Tag": "Pause panel",
+      "Parent": 2000,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          0,
+          0
+        ],
+        "FontSize": 20,
+        "Order": 30
+      },
+      "UIImage": {
+        "Color": [
+          0.015,
+          0.02,
+          0.035,
+          0.95
+        ],
+        "RaycastTarget": true
+      },
+      "Active": false,
+      "UIAnimation": {
+        "Show": "Fade",
+        "Hide": "Fade",
+        "Duration": 0.18
+      }
+    },
+    {
+      "Entity": 4100,
+      "Tag": "Controls panel",
+      "Parent": 2000,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          0,
+          0
+        ],
+        "FontSize": 20,
+        "Order": 40
+      },
+      "UIImage": {
+        "Color": [
+          0.015,
+          0.02,
+          0.035,
+          0.95
+        ],
+        "RaycastTarget": true
+      },
+      "Active": false,
+      "UIAnimation": {
+        "Show": "Fade",
+        "Hide": "Fade",
+        "Duration": 0.18
+      }
+    },
+    {
+      "Entity": 2208,
+      "Tag": "Inventory surface",
+      "Parent": 2200,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          1080,
+          570
+        ],
+        "FontSize": 20,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          0.065,
+          0.08,
+          0.12,
+          1
+        ],
+        "RaycastTarget": false
+      }
+    },
+    {
+      "Entity": 2250,
+      "Tag": "Inventory heading",
+      "Parent": 2200,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          -310,
+          225
+        ],
+        "Size": [
+          390,
+          45
+        ],
+        "FontSize": 32,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "INVENTORY",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      }
+    },
+    {
+      "Entity": 2251,
+      "Tag": "Inventory subtitle",
+      "Parent": 2200,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          -300,
+          184
+        ],
+        "Size": [
+          410,
+          28
+        ],
+        "FontSize": 15,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "FIELD KIT  /  YOUR ITEMS",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      }
+    },
+    {
+      "Entity": 2252,
+      "Tag": "Page label",
+      "Parent": 2200,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          340,
+          225
+        ],
+        "Size": [
+          260,
+          35
+        ],
+        "FontSize": 17,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "PAGE 1 / 2",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      }
+    },
+    {
+      "Entity": 2253,
+      "Tag": "Details card",
+      "Parent": 2200,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          335,
+          20
+        ],
+        "Size": [
+          285,
+          320
+        ],
+        "FontSize": 20,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          0.1,
+          0.13,
+          0.19,
+          1
+        ],
+        "RaycastTarget": false
+      }
+    },
+    {
+      "Entity": 2254,
+      "Tag": "Details caption",
+      "Parent": 2200,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          335,
+          135
+        ],
+        "Size": [
+          240,
+          30
+        ],
+        "FontSize": 15,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "SELECTED ITEM",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      }
+    },
+    {
+      "Entity": 2255,
+      "Tag": "Selected item",
+      "Parent": 2200,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          335,
+          55
+        ],
+        "Size": [
+          240,
+          50
+        ],
+        "FontSize": 28,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Apple",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      }
+    },
+    {
+      "Entity": 2256,
+      "Tag": "Selected count",
+      "Parent": 2200,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          335,
+          0
+        ],
+        "Size": [
+          240,
+          35
+        ],
+        "FontSize": 18,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Quantity 3",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      }
+    },
+    {
+      "Entity": 2257,
+      "Tag": "Persistence note",
+      "Parent": 2200,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          335,
+          -90
+        ],
+        "Size": [
+          240,
+          55
+        ],
+        "FontSize": 15,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Save & load your field kit",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      }
+    },
+    {
+      "Entity": 2201,
+      "Tag": "ITEM",
+      "Parent": 2200,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          -355,
+          70
+        ],
+        "Size": [
+          270,
+          115
+        ],
+        "FontSize": 20,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "ITEM",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      },
+      "UIButton": {
+        "Normal": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Hover": [
+          2,
+          2.1,
+          2.3,
+          1
+        ],
+        "Pressed": [
+          1.1,
+          3,
+          3,
+          1
+        ],
+        "ClickMessage": "Select",
+        "ClickTarget": 900
+      },
+      "UINavigation": {
+        "Mode": "Automatic",
+        "ShowHighlight": true,
+        "HighlightColor": [
+          0.14,
+          0.78,
+          0.65,
+          1
+        ],
+        "Up": 2305,
+        "Down": 2203,
+        "Left": 2202,
+        "Right": 2202
+      },
+      "UIAnimation": {
+        "Show": "Fade",
+        "Hide": "Fade",
+        "Duration": 0.15,
+        "HoverScale": 1.03,
+        "PressScale": 0.97
+      },
+      "UIImage": {
+        "Color": [
+          0.1,
+          0.13,
+          0.19,
+          1
+        ],
+        "RaycastTarget": false
+      }
+    },
+    {
+      "Entity": 2202,
+      "Tag": "ITEM",
+      "Parent": 2200,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          -55,
+          70
+        ],
+        "Size": [
+          270,
+          115
+        ],
+        "FontSize": 20,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "ITEM",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      },
+      "UIButton": {
+        "Normal": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Hover": [
+          2,
+          2.1,
+          2.3,
+          1
+        ],
+        "Pressed": [
+          1.1,
+          3,
+          3,
+          1
+        ],
+        "ClickMessage": "Select",
+        "ClickTarget": 900
+      },
+      "UINavigation": {
+        "Mode": "Automatic",
+        "ShowHighlight": true,
+        "HighlightColor": [
+          0.14,
+          0.78,
+          0.65,
+          1
+        ],
+        "Up": 2305,
+        "Down": 2204,
+        "Left": 2201,
+        "Right": 2201
+      },
+      "UIAnimation": {
+        "Show": "Fade",
+        "Hide": "Fade",
+        "Duration": 0.15,
+        "HoverScale": 1.03,
+        "PressScale": 0.97
+      },
+      "UIImage": {
+        "Color": [
+          0.1,
+          0.13,
+          0.19,
+          1
+        ],
+        "RaycastTarget": false
+      }
+    },
+    {
+      "Entity": 2203,
+      "Tag": "ITEM",
+      "Parent": 2200,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          -355,
+          -75
+        ],
+        "Size": [
+          270,
+          115
+        ],
+        "FontSize": 20,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "ITEM",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      },
+      "UIButton": {
+        "Normal": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Hover": [
+          2,
+          2.1,
+          2.3,
+          1
+        ],
+        "Pressed": [
+          1.1,
+          3,
+          3,
+          1
+        ],
+        "ClickMessage": "Select",
+        "ClickTarget": 900
+      },
+      "UINavigation": {
+        "Mode": "Automatic",
+        "ShowHighlight": true,
+        "HighlightColor": [
+          0.14,
+          0.78,
+          0.65,
+          1
+        ],
+        "Up": 2201,
+        "Down": 2301,
+        "Left": 2204,
+        "Right": 2204
+      },
+      "UIAnimation": {
+        "Show": "Fade",
+        "Hide": "Fade",
+        "Duration": 0.15,
+        "HoverScale": 1.03,
+        "PressScale": 0.97
+      },
+      "UIImage": {
+        "Color": [
+          0.1,
+          0.13,
+          0.19,
+          1
+        ],
+        "RaycastTarget": false
+      }
+    },
+    {
+      "Entity": 2204,
+      "Tag": "ITEM",
+      "Parent": 2200,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          -55,
+          -75
+        ],
+        "Size": [
+          270,
+          115
+        ],
+        "FontSize": 20,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "ITEM",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      },
+      "UIButton": {
+        "Normal": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Hover": [
+          2,
+          2.1,
+          2.3,
+          1
+        ],
+        "Pressed": [
+          1.1,
+          3,
+          3,
+          1
+        ],
+        "ClickMessage": "Select",
+        "ClickTarget": 900
+      },
+      "UINavigation": {
+        "Mode": "Automatic",
+        "ShowHighlight": true,
+        "HighlightColor": [
+          0.14,
+          0.78,
+          0.65,
+          1
+        ],
+        "Up": 2202,
+        "Down": 2303,
+        "Left": 2203,
+        "Right": 2203
+      },
+      "UIAnimation": {
+        "Show": "Fade",
+        "Hide": "Fade",
+        "Duration": 0.15,
+        "HoverScale": 1.03,
+        "PressScale": 0.97
+      },
+      "UIImage": {
+        "Color": [
+          0.1,
+          0.13,
+          0.19,
+          1
+        ],
+        "RaycastTarget": false
+      }
+    },
+    {
+      "Entity": 2301,
+      "Tag": "PREVIOUS",
+      "Parent": 2200,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          -410,
+          -220
+        ],
+        "Size": [
+          175,
+          48
+        ],
+        "FontSize": 20,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "PREVIOUS",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      },
+      "UIButton": {
+        "Normal": [
+          0.1,
+          0.13,
+          0.19,
+          1
+        ],
+        "Hover": [
+          0.18,
+          0.27,
+          0.36,
+          1
+        ],
+        "Pressed": [
+          0.12,
+          0.5,
+          0.43,
+          1
+        ],
+        "ClickMessage": "Previous",
+        "ClickTarget": 900
+      },
+      "UINavigation": {
+        "Mode": "Explicit",
+        "ShowHighlight": true,
+        "HighlightColor": [
+          0.14,
+          0.78,
+          0.65,
+          1
+        ],
+        "Up": 2201,
+        "Down": 2201,
+        "Left": 2305,
+        "Right": 2302
+      },
+      "UIAnimation": {
+        "Show": "Fade",
+        "Hide": "Fade",
+        "Duration": 0.15,
+        "HoverScale": 1.03,
+        "PressScale": 0.97
+      }
+    },
+    {
+      "Entity": 2302,
+      "Tag": "NEXT",
+      "Parent": 2200,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          -205,
+          -220
+        ],
+        "Size": [
+          175,
+          48
+        ],
+        "FontSize": 20,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "NEXT",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      },
+      "UIButton": {
+        "Normal": [
+          0.1,
+          0.13,
+          0.19,
+          1
+        ],
+        "Hover": [
+          0.18,
+          0.27,
+          0.36,
+          1
+        ],
+        "Pressed": [
+          0.12,
+          0.5,
+          0.43,
+          1
+        ],
+        "ClickMessage": "Next",
+        "ClickTarget": 900
+      },
+      "UINavigation": {
+        "Mode": "Explicit",
+        "ShowHighlight": true,
+        "HighlightColor": [
+          0.14,
+          0.78,
+          0.65,
+          1
+        ],
+        "Up": 2201,
+        "Down": 2201,
+        "Left": 2301,
+        "Right": 2303
+      },
+      "UIAnimation": {
+        "Show": "Fade",
+        "Hide": "Fade",
+        "Duration": 0.15,
+        "HoverScale": 1.03,
+        "PressScale": 0.97
+      }
+    },
+    {
+      "Entity": 2303,
+      "Tag": "SAVE",
+      "Parent": 2200,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          -220
+        ],
+        "Size": [
+          175,
+          48
+        ],
+        "FontSize": 20,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "SAVE",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      },
+      "UIButton": {
+        "Normal": [
+          0.1,
+          0.13,
+          0.19,
+          1
+        ],
+        "Hover": [
+          0.18,
+          0.27,
+          0.36,
+          1
+        ],
+        "Pressed": [
+          0.12,
+          0.5,
+          0.43,
+          1
+        ],
+        "ClickMessage": "Save",
+        "ClickTarget": 900
+      },
+      "UINavigation": {
+        "Mode": "Explicit",
+        "ShowHighlight": true,
+        "HighlightColor": [
+          0.14,
+          0.78,
+          0.65,
+          1
+        ],
+        "Up": 2202,
+        "Down": 2201,
+        "Left": 2302,
+        "Right": 2304
+      },
+      "UIAnimation": {
+        "Show": "Fade",
+        "Hide": "Fade",
+        "Duration": 0.15,
+        "HoverScale": 1.03,
+        "PressScale": 0.97
+      }
+    },
+    {
+      "Entity": 2304,
+      "Tag": "LOAD",
+      "Parent": 2200,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          205,
+          -220
+        ],
+        "Size": [
+          175,
+          48
+        ],
+        "FontSize": 20,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "LOAD",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      },
+      "UIButton": {
+        "Normal": [
+          0.1,
+          0.13,
+          0.19,
+          1
+        ],
+        "Hover": [
+          0.18,
+          0.27,
+          0.36,
+          1
+        ],
+        "Pressed": [
+          0.12,
+          0.5,
+          0.43,
+          1
+        ],
+        "ClickMessage": "Load",
+        "ClickTarget": 900
+      },
+      "UINavigation": {
+        "Mode": "Explicit",
+        "ShowHighlight": true,
+        "HighlightColor": [
+          0.14,
+          0.78,
+          0.65,
+          1
+        ],
+        "Up": 2202,
+        "Down": 2201,
+        "Left": 2303,
+        "Right": 2305
+      },
+      "UIAnimation": {
+        "Show": "Fade",
+        "Hide": "Fade",
+        "Duration": 0.15,
+        "HoverScale": 1.03,
+        "PressScale": 0.97
+      }
+    },
+    {
+      "Entity": 2305,
+      "Tag": "CLOSE",
+      "Parent": 2200,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          410,
+          -220
+        ],
+        "Size": [
+          175,
+          48
+        ],
+        "FontSize": 20,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "CLOSE",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      },
+      "UIButton": {
+        "Normal": [
+          0.1,
+          0.13,
+          0.19,
+          1
+        ],
+        "Hover": [
+          0.18,
+          0.27,
+          0.36,
+          1
+        ],
+        "Pressed": [
+          0.12,
+          0.5,
+          0.43,
+          1
+        ],
+        "ClickMessage": "CloseBag",
+        "ClickTarget": 900
+      },
+      "UINavigation": {
+        "Mode": "Explicit",
+        "ShowHighlight": true,
+        "HighlightColor": [
+          0.14,
+          0.78,
+          0.65,
+          1
+        ],
+        "Up": 2202,
+        "Down": 2201,
+        "Left": 2304,
+        "Right": 2301
+      },
+      "UIAnimation": {
+        "Show": "Fade",
+        "Hide": "Fade",
+        "Duration": 0.15,
+        "HoverScale": 1.03,
+        "PressScale": 0.97
+      }
+    },
+    {
+      "Entity": 3108,
+      "Tag": "Pause surface",
+      "Parent": 3100,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          480,
+          560
+        ],
+        "FontSize": 20,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          0.065,
+          0.08,
+          0.12,
+          1
+        ],
+        "RaycastTarget": false
+      }
+    },
+    {
+      "Entity": 3150,
+      "Tag": "Pause heading",
+      "Parent": 3100,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          220
+        ],
+        "Size": [
+          420,
+          50
+        ],
+        "FontSize": 38,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "PAUSED",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      }
+    },
+    {
+      "Entity": 3151,
+      "Tag": "Pause subtitle",
+      "Parent": 3100,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          175
+        ],
+        "Size": [
+          430,
+          34
+        ],
+        "FontSize": 17,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Your world can wait.",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      }
+    },
+    {
+      "Entity": 3101,
+      "Tag": "RESUME",
+      "Parent": 3100,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          105
+        ],
+        "Size": [
+          350,
+          48
+        ],
+        "FontSize": 20,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "RESUME",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      },
+      "UIButton": {
+        "Normal": [
+          0.1,
+          0.13,
+          0.19,
+          1
+        ],
+        "Hover": [
+          0.18,
+          0.27,
+          0.36,
+          1
+        ],
+        "Pressed": [
+          0.12,
+          0.5,
+          0.43,
+          1
+        ],
+        "ClickMessage": "Resume",
+        "ClickTarget": 900
+      },
+      "UINavigation": {
+        "Mode": "Explicit",
+        "ShowHighlight": true,
+        "HighlightColor": [
+          0.14,
+          0.78,
+          0.65,
+          1
+        ],
+        "Up": 3105,
+        "Down": 3102,
+        "Left": 0,
+        "Right": 0
+      },
+      "UIAnimation": {
+        "Show": "Fade",
+        "Hide": "Fade",
+        "Duration": 0.15,
+        "HoverScale": 1.03,
+        "PressScale": 0.97
+      }
+    },
+    {
+      "Entity": 3102,
+      "Tag": "INVENTORY",
+      "Parent": 3100,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          35
+        ],
+        "Size": [
+          350,
+          48
+        ],
+        "FontSize": 20,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "INVENTORY",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      },
+      "UIButton": {
+        "Normal": [
+          0.1,
+          0.13,
+          0.19,
+          1
+        ],
+        "Hover": [
+          0.18,
+          0.27,
+          0.36,
+          1
+        ],
+        "Pressed": [
+          0.12,
+          0.5,
+          0.43,
+          1
+        ],
+        "ClickMessage": "OpenBag",
+        "ClickTarget": 900
+      },
+      "UINavigation": {
+        "Mode": "Explicit",
+        "ShowHighlight": true,
+        "HighlightColor": [
+          0.14,
+          0.78,
+          0.65,
+          1
+        ],
+        "Up": 3101,
+        "Down": 3103,
+        "Left": 0,
+        "Right": 0
+      },
+      "UIAnimation": {
+        "Show": "Fade",
+        "Hide": "Fade",
+        "Duration": 0.15,
+        "HoverScale": 1.03,
+        "PressScale": 0.97
+      }
+    },
+    {
+      "Entity": 3103,
+      "Tag": "CONTROLS",
+      "Parent": 3100,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          -35
+        ],
+        "Size": [
+          350,
+          48
+        ],
+        "FontSize": 20,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "CONTROLS",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      },
+      "UIButton": {
+        "Normal": [
+          0.1,
+          0.13,
+          0.19,
+          1
+        ],
+        "Hover": [
+          0.18,
+          0.27,
+          0.36,
+          1
+        ],
+        "Pressed": [
+          0.12,
+          0.5,
+          0.43,
+          1
+        ],
+        "ClickMessage": "Help",
+        "ClickTarget": 900
+      },
+      "UINavigation": {
+        "Mode": "Explicit",
+        "ShowHighlight": true,
+        "HighlightColor": [
+          0.14,
+          0.78,
+          0.65,
+          1
+        ],
+        "Up": 3102,
+        "Down": 3104,
+        "Left": 0,
+        "Right": 0
+      },
+      "UIAnimation": {
+        "Show": "Fade",
+        "Hide": "Fade",
+        "Duration": 0.15,
+        "HoverScale": 1.03,
+        "PressScale": 0.97
+      }
+    },
+    {
+      "Entity": 3104,
+      "Tag": "SAVE PROGRESS",
+      "Parent": 3100,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          -105
+        ],
+        "Size": [
+          350,
+          48
+        ],
+        "FontSize": 20,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "SAVE PROGRESS",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      },
+      "UIButton": {
+        "Normal": [
+          0.1,
+          0.13,
+          0.19,
+          1
+        ],
+        "Hover": [
+          0.18,
+          0.27,
+          0.36,
+          1
+        ],
+        "Pressed": [
+          0.12,
+          0.5,
+          0.43,
+          1
+        ],
+        "ClickMessage": "Save",
+        "ClickTarget": 900
+      },
+      "UINavigation": {
+        "Mode": "Explicit",
+        "ShowHighlight": true,
+        "HighlightColor": [
+          0.14,
+          0.78,
+          0.65,
+          1
+        ],
+        "Up": 3103,
+        "Down": 3105,
+        "Left": 0,
+        "Right": 0
+      },
+      "UIAnimation": {
+        "Show": "Fade",
+        "Hide": "Fade",
+        "Duration": 0.15,
+        "HoverScale": 1.03,
+        "PressScale": 0.97
+      }
+    },
+    {
+      "Entity": 3105,
+      "Tag": "LOAD PROGRESS",
+      "Parent": 3100,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          -175
+        ],
+        "Size": [
+          350,
+          48
+        ],
+        "FontSize": 20,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "LOAD PROGRESS",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      },
+      "UIButton": {
+        "Normal": [
+          0.1,
+          0.13,
+          0.19,
+          1
+        ],
+        "Hover": [
+          0.18,
+          0.27,
+          0.36,
+          1
+        ],
+        "Pressed": [
+          0.12,
+          0.5,
+          0.43,
+          1
+        ],
+        "ClickMessage": "Load",
+        "ClickTarget": 900
+      },
+      "UINavigation": {
+        "Mode": "Explicit",
+        "ShowHighlight": true,
+        "HighlightColor": [
+          0.14,
+          0.78,
+          0.65,
+          1
+        ],
+        "Up": 3104,
+        "Down": 3101,
+        "Left": 0,
+        "Right": 0
+      },
+      "UIAnimation": {
+        "Show": "Fade",
+        "Hide": "Fade",
+        "Duration": 0.15,
+        "HoverScale": 1.03,
+        "PressScale": 0.97
+      }
+    },
+    {
+      "Entity": 4108,
+      "Tag": "Controls surface",
+      "Parent": 4100,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          620,
+          400
+        ],
+        "FontSize": 20,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          0.065,
+          0.08,
+          0.12,
+          1
+        ],
+        "RaycastTarget": false
+      }
+    },
+    {
+      "Entity": 4150,
+      "Tag": "Controls heading",
+      "Parent": 4100,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          135
+        ],
+        "Size": [
+          560,
+          50
+        ],
+        "FontSize": 32,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "CONTROLS",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      }
+    },
+    {
+      "Entity": 4151,
+      "Tag": "Keyboard guide",
+      "Parent": 4100,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          65
+        ],
+        "Size": [
+          560,
+          40
+        ],
+        "FontSize": 20,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Keyboard: WASD  /  I  /  Escape  /  Enter",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      }
+    },
+    {
+      "Entity": 4152,
+      "Tag": "Gamepad guide",
+      "Parent": 4100,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          5
+        ],
+        "Size": [
+          560,
+          40
+        ],
+        "FontSize": 19,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Controller: left stick  /  Y  /  Start  /  A  /  B",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      }
+    },
+    {
+      "Entity": 4101,
+      "Tag": "BACK",
+      "Parent": 4100,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          -110
+        ],
+        "Size": [
+          300,
+          48
+        ],
+        "FontSize": 20,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "BACK",
+        "Color": [
+          0.88,
+          0.93,
+          1,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle"
+      },
+      "UIButton": {
+        "Normal": [
+          0.1,
+          0.13,
+          0.19,
+          1
+        ],
+        "Hover": [
+          0.18,
+          0.27,
+          0.36,
+          1
+        ],
+        "Pressed": [
+          0.12,
+          0.5,
+          0.43,
+          1
+        ],
+        "ClickMessage": "Back",
+        "ClickTarget": 900
+      },
+      "UINavigation": {
+        "Mode": "Explicit",
+        "ShowHighlight": true,
+        "HighlightColor": [
+          0.14,
+          0.78,
+          0.65,
+          1
+        ],
+        "Up": 4101,
+        "Down": 4101,
+        "Left": 0,
+        "Right": 0
+      },
+      "UIAnimation": {
+        "Show": "Fade",
+        "Hide": "Fade",
+        "Duration": 0.15,
+        "HoverScale": 1.03,
+        "PressScale": 0.97
+      }
+    }
+  ]
+}

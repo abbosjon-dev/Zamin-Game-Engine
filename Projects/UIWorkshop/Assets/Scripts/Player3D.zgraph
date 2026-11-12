@@ -1,0 +1,229 @@
+{
+  "Format": "Zamin.VisualGraph",
+  "Version": 1,
+  "Nodes": [
+    {
+      "ID": 1,
+      "Kind": "Event.Start",
+      "X": 0,
+      "Y": 0,
+      "Inputs": {}
+    },
+    {
+      "ID": 2,
+      "Kind": "Gameplay.HealthConfigure",
+      "X": 290,
+      "Y": 0,
+      "Inputs": {
+        "Maximum": 100,
+        "Shield": 20,
+        "HitGrace": 0,
+        "Team": 1
+      }
+    },
+    {
+      "ID": 3,
+      "Kind": "Gameplay.InventoryConfigure",
+      "X": 580,
+      "Y": 0,
+      "Inputs": {
+        "Slots": 12,
+        "Stack": 99
+      }
+    },
+    {
+      "ID": 4,
+      "Kind": "Gameplay.SaveBind",
+      "X": 870,
+      "Y": 0,
+      "Inputs": {
+        "Key": "Player"
+      }
+    },
+    {
+      "ID": 5,
+      "Kind": "Gameplay.InventoryAdd",
+      "X": 1160,
+      "Y": 0,
+      "Inputs": {
+        "Item": "Apple",
+        "Count": 3
+      }
+    },
+    {
+      "ID": 6,
+      "Kind": "Gameplay.InventoryAdd",
+      "X": 1450,
+      "Y": 0,
+      "Inputs": {
+        "Item": "Coin",
+        "Count": 8
+      }
+    },
+    {
+      "ID": 7,
+      "Kind": "Gameplay.InventoryAdd",
+      "X": 1740,
+      "Y": 0,
+      "Inputs": {
+        "Item": "Key",
+        "Count": 2
+      }
+    },
+    {
+      "ID": 8,
+      "Kind": "Gameplay.InventoryAdd",
+      "X": 2030,
+      "Y": 0,
+      "Inputs": {
+        "Item": "Potion",
+        "Count": 2
+      }
+    },
+    {
+      "ID": 9,
+      "Kind": "Gameplay.InventoryAdd",
+      "X": 0,
+      "Y": 320,
+      "Inputs": {
+        "Item": "Shield",
+        "Count": 1
+      }
+    },
+    {
+      "ID": 10,
+      "Kind": "Gameplay.InventoryAdd",
+      "X": 290,
+      "Y": 320,
+      "Inputs": {
+        "Item": "Sword",
+        "Count": 1
+      }
+    },
+    {
+      "ID": 11,
+      "Kind": "Gameplay.Damage",
+      "X": 580,
+      "Y": 320,
+      "Inputs": {
+        "Amount": 45,
+        "IgnoreGrace": true
+      }
+    },
+    {
+      "ID": 12,
+      "Kind": "Event.Update",
+      "X": 870,
+      "Y": 320,
+      "Inputs": {}
+    },
+    {
+      "ID": 13,
+      "Kind": "Gameplay.Input",
+      "X": 1160,
+      "Y": 320,
+      "Inputs": {}
+    },
+    {
+      "ID": 14,
+      "Kind": "Gameplay.Motor3D",
+      "X": 1450,
+      "Y": 320,
+      "Inputs": {
+        "Speed": 4
+      }
+    }
+  ],
+  "Links": [
+    {
+      "From": 1,
+      "Output": "Then",
+      "To": 2,
+      "Input": "In"
+    },
+    {
+      "From": 2,
+      "Output": "Then",
+      "To": 3,
+      "Input": "In"
+    },
+    {
+      "From": 3,
+      "Output": "Then",
+      "To": 4,
+      "Input": "In"
+    },
+    {
+      "From": 4,
+      "Output": "Then",
+      "To": 5,
+      "Input": "In"
+    },
+    {
+      "From": 5,
+      "Output": "Then",
+      "To": 6,
+      "Input": "In"
+    },
+    {
+      "From": 6,
+      "Output": "Then",
+      "To": 7,
+      "Input": "In"
+    },
+    {
+      "From": 7,
+      "Output": "Then",
+      "To": 8,
+      "Input": "In"
+    },
+    {
+      "From": 8,
+      "Output": "Then",
+      "To": 9,
+      "Input": "In"
+    },
+    {
+      "From": 9,
+      "Output": "Then",
+      "To": 10,
+      "Input": "In"
+    },
+    {
+      "From": 10,
+      "Output": "Then",
+      "To": 11,
+      "Input": "In"
+    },
+    {
+      "From": 12,
+      "Output": "Then",
+      "To": 14,
+      "Input": "In"
+    },
+    {
+      "From": 13,
+      "Output": "Move",
+      "To": 14,
+      "Input": "Move"
+    },
+    {
+      "From": 13,
+      "Output": "Enabled",
+      "To": 14,
+      "Input": "Enabled"
+    },
+    {
+      "From": 12,
+      "Output": "Delta",
+      "To": 14,
+      "Input": "Delta"
+    }
+  ],
+  "Variables": {
+    "Auto": {
+      "Type": "Bool",
+      "Default": false
+    }
+  }
+}

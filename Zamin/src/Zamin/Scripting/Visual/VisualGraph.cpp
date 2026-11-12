@@ -223,6 +223,19 @@ for (auto op : { "InteractionFind", "Interact", "Attack" })
     add("Gameplay." + name, name == "Attack" ? "Gameplay combat" : "Gameplay interaction", pins, outputs, pure);
 }
 add("Gameplay.RuleEvent", "Gameplay events", { E("In"), EntityPin() }, { E("Then"), B("Has"), S("Kind"), S("Item"), EntityPin("Source"), EntityPin("Subject"), N("Amount"), N("Dropped") });
+add("Gameplay.UIConfigure", "Gameplay UI", { E("In"), EntityPin(), S("Name", "Pause"), S("Action", "Pause"), EntityPin("Focus"), B("Pause", true), B("Block", true), B("Back", true) }, { E("Then"), B("Success"), S("Reason") });
+for (auto op : { "Open", "Close", "Remove" }) add("Gameplay.UI" + std::string(op), "Gameplay UI", { E("In"), EntityPin(), S("Name", "Pause") }, { E("Then"), B("Success"), S("Reason") });
+for (auto op : { "Back", "Clear" }) add("Gameplay.UI" + std::string(op), "Gameplay UI", { E("In"), EntityPin() }, { E("Then"), B("Success"), S("Reason") });
+add("Gameplay.UIRunWhenPaused", "Gameplay UI", { E("In"), EntityPin(), B("Enabled", true) }, { E("Then"), B("Success"), S("Reason") });
+add("Gameplay.UIState", "Gameplay UI", { EntityPin() }, { S("Top"), N("Depth"), B("Paused"), B("Blocked"), B("Fenced"), EntityPin("Selected"), N("Time"), N("GameTime"), N("Delta"), N("Dropped") }, true);
+add("Gameplay.UIEvent", "Gameplay UI", { E("In"), EntityPin() }, { E("Then"), B("Has"), S("Kind"), S("Name"), S("Item"), EntityPin("Subject") });
+add("Gameplay.UIFocus", "Gameplay UI", { E("In"), EntityPin(), EntityPin("Widget") }, { E("Then"), B("Success"), S("Reason") });
+add("Gameplay.UIBindHUD", "Gameplay UI", { E("In"), EntityPin(), EntityPin("Actor"), N("Kind"), S("Item", "Coin"), S("Prefix", "HP "), B("Ratio", true) }, { E("Then"), B("Success"), S("Reason") });
+add("Gameplay.UIUnbindHUD", "Gameplay UI", { E("In"), EntityPin() }, { E("Then"), B("Success"), S("Reason") });
+add("Gameplay.UIInventoryConfigure", "Gameplay UI", { E("In"), EntityPin(), EntityPin("Actor"), S("Name", "Bag"), { "Rows", Type::ArrayEntity, Value::array() } }, { E("Then"), B("Success"), S("Reason") });
+add("Gameplay.UIInventoryState", "Gameplay UI", { EntityPin(), S("Name", "Bag") }, { B("Configured"), B("Available"), N("Page"), N("Pages", 1), S("Item"), N("Count"), N("UsedSlots"), N("Slots") }, true);
+add("Gameplay.UIInventoryPage", "Gameplay UI", { E("In"), EntityPin(), S("Name", "Bag"), N("Delta", 1) }, { E("Then"), B("Success"), S("Reason") });
+add("Gameplay.UIInventoryRemove", "Gameplay UI", { E("In"), EntityPin(), S("Name", "Bag") }, { E("Then"), B("Success"), S("Reason") });
 for (auto op : { "Bind", "Unbind" }) add("Gameplay.Save" + std::string(op), "Gameplay save", { E("In"), EntityPin(), S("Key", "Player") }, { E("Then"), B("Success"), S("Reason") });
 add("Gameplay.SaveFind", "Gameplay save", { EntityPin(), S("Key", "Player") }, { B("Found"), B("Active"), EntityPin("Entity") }, true);
 add("Gameplay.SaveSpawn", "Gameplay save", { E("In"), EntityPin(), S("Key", "NPC"), S("Prefab"), V("Position") }, { E("Then"), B("Success"), EntityPin("Entity"), S("Reason") });

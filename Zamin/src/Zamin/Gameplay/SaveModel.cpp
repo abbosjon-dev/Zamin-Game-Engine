@@ -56,6 +56,47 @@ namespace Zamin::Gameplay {
             }
             return std::to_string(h);
         }
+        V LoadoutValue(const std::optional<LoadoutState>& state)
+        {
+            if (!state) return nullptr;
+            V equipment = V::array({ "", "", "", "" });
+            for (auto& [slot, key] : state->Equipped)
+            {
+                Require(int(slot) >= 0 && int(slot) < 4, "Invalid saved equipment slot");
+                equipment[int(slot)] = key;
+            }
+            V abilities = V::object();
+            for (auto& [key, p] : state->Abilities) abilities[key] = { { "Remaining", p.Remaining }, { "Uses", p.Uses }, { "Unlocked", p.Unlocked } };
+            return { { "Energy", state->Energy }, { "Equipped", equipment }, { "Abilities", abilities } };
+        }
+        std::optional<LoadoutState> ReadLoadout(const V& v)
+        {
+            if (v.is_null()) return {};
+            Keys(v, { "Energy", "Equipped", "Abilities" });
+            LoadoutState s;
+            s.Energy = Number(v.at("Energy"), 0, 100000);
+            auto& equipment = v.at("Equipped");
+            Require(equipment.is_array() && equipment.size() == 4, "Saved equipment requires four slots");
+            std::set<std::string> seen;
+            for (size_t i = 0; i < 4; ++i)
+            {
+                auto key = Text(equipment[i], 64);
+                if (!key.empty())
+                {
+                    Require(ValidItem(key) && seen.insert(key).second, "Invalid/duplicate equipped item");
+                    s.Equipped.emplace(EquipSlot(i), key);
+                }
+            }
+            auto& abilities = v.at("Abilities");
+            Require(abilities.is_object() && abilities.size() <= 16, "Saved ability limit 16");
+            for (auto i = abilities.begin(); i != abilities.end(); ++i)
+            {
+                Require(ValidItem(i.key()), "Invalid ability key");
+                Keys(i.value(), { "Remaining", "Uses", "Unlocked" });
+                s.Abilities.emplace(i.key(), AbilityProgress{ Number(i.value().at("Remaining"), 0, 300), Counter(i.value().at("Uses")), Bool(i.value().at("Unlocked")) });
+            }
+            return s;
+        }
         V QuestBook(const QuestBookSave& b)
         {
             V entries = V::object();
@@ -141,14 +182,17 @@ namespace Zamin::Gameplay {
             V items = V::object();
             for (auto& [key, count] : e.Inventory.Items) items[key] = count;
             V value = { { "Key", e.Key }, { "Signature", e.Signature }, { "Target", e.Target }, { "Present", e.Present }, { "Active", e.Active }, { "Actor", e.HasActor }, { "HasHealth", e.HasHealth }, { "Interaction", e.HasInteraction }, { "HasAI", e.HasAI }, { "Position", Vec(e.Position) }, { "Rotation", Vec(e.Rotation) }, { "Scale", Vec(e.Scale) }, { "Health", e.Health }, { "Shield", e.Shield }, { "Grace", e.Grace }, { "Respawn", e.Respawn }, { "Attack", e.Attack }, { "Cooldown", e.InteractionCooldown }, { "Deaths", e.Deaths }, { "Uses", e.Uses }, { "Dead", e.Dead }, { "Slots", e.Inventory.Slots }, { "Stack", e.Inventory.Stack }, { "Items", items }, { "AI", AI(e.AI) } };
-            if (version == 2) value["Quests"] = QuestBook(e.QuestBook);
+            if (version >= 2) value["Quests"] = QuestBook(e.QuestBook);
             else Require(e.QuestBook.Quests.empty() && e.QuestBook.XP == 0, "v1 cannot encode quest progress");
+            if (version == 3) value["Loadout"] = LoadoutValue(e.Loadout);
+            else Require(!e.Loadout, "Legacy save cannot encode loadout");
             return value;
         }
         SavedEntity EntityValue(const V& v, int version)
         {
             auto fields = v;
-            if (version == 2) fields.erase("Quests");
+            if (version >= 2) fields.erase("Quests");
+            if (version == 3) fields.erase("Loadout");
             Keys(fields, { "Key", "Signature", "Target", "Present", "Active", "Actor", "HasHealth", "Interaction", "HasAI", "Position", "Rotation", "Scale", "Health", "Shield", "Grace", "Respawn", "Attack", "Cooldown", "Deaths", "Uses", "Dead", "Slots", "Stack", "Items", "AI" });
             SavedEntity e;
             e.Key = Text(v.at("Key"), 64);
@@ -188,7 +232,9 @@ namespace Zamin::Gameplay {
                 e.Inventory.Items[it.key()] = int(count);
             }
             e.AI = AI(v.at("AI"));
-            if (version == 2) e.QuestBook = QuestBook(v.at("Quests"));
+            if (version >= 2) e.QuestBook = QuestBook(v.at("Quests"));
+            if (version == 3) e.Loadout = ReadLoadout(v.at("Loadout"));
+            Require(!e.Loadout || (e.Present && e.HasHealth), "Saved loadout requires present health actor");
             Require(e.Present || e.QuestBook.Quests.empty(), "Absent slot has quest progress");
             Require(!e.HasHealth || e.HasActor, "Health without saved actor");
             Require(!e.HasAI || e.HasHealth, "AI without saved health");
@@ -224,7 +270,7 @@ namespace Zamin::Gameplay {
         V entities = V::array();
         for (auto& e : save.Entities) entities.push_back(EntityValue(e, save.Version));
         V payload = { { "Scene", save.Scene }, { "Schema", save.Schema }, { "Entities", entities } };
-        Require(save.Version == 1 || save.Version == 2, "Unsupported gameplay save version");
+        Require(save.Version == 1 || save.Version == 2 || save.Version == 3, "Unsupported gameplay save version");
         Payload(payload, save.Version);
         auto bytes = V{ { "Format", "Zamin.GameSave" }, { "Version", save.Version }, { "Payload", payload }, { "Checksum", Hash(payload.dump()) } }.dump();
         Require(bytes.size() <= Limit, "Gameplay save exceeds 2 MiB");
@@ -239,7 +285,7 @@ namespace Zamin::Gameplay {
             std::vector<std::set<std::string>> keys;
             auto value = V::parse(bytes, [&](int depth, V::parse_event_t event, V& parsed) {Require(depth<=16,"Gameplay save nesting limit");if(event==V::parse_event_t::object_start)keys.emplace_back();if(event==V::parse_event_t::key)Require(!keys.empty()&&keys.back().insert(parsed.get<std::string>()).second,"Duplicate JSON save key");if(event==V::parse_event_t::object_end)keys.pop_back();return true; });
             Keys(value, { "Format", "Version", "Payload", "Checksum" });
-            Require(value.at("Format") == "Zamin.GameSave" && (value.at("Version") == 1 || value.at("Version") == 2), "Unsupported gameplay save format/version");
+            Require(value.at("Format") == "Zamin.GameSave" && (value.at("Version") == 1 || value.at("Version") == 2 || value.at("Version") == 3), "Unsupported gameplay save format/version");
             Require(Text(value.at("Checksum"), 20) == Hash(value.at("Payload").dump()), "Gameplay save checksum mismatch");
             auto next = Payload(value.at("Payload"), value.at("Version").get<int>());
             save = std::move(next);

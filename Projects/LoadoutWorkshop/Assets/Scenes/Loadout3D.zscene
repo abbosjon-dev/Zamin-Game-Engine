@@ -1,0 +1,812 @@
+{
+  "Version": 5,
+  "Scene": "Loadout 3D",
+  "Settings": {
+    "DrawSky": false,
+    "Ambient": 0.7
+  },
+  "Entities": [
+    {
+      "Entity": 800,
+      "Tag": "Player",
+      "Tags": [
+        "Player"
+      ],
+      "Transform": {
+        "Translation": [
+          -1,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "NativeScript": {
+        "Class": "Zamin.VisualGraph",
+        "Fields": {
+          "Graph": {
+            "Type": "String",
+            "Value": "Scripts/Loadout3D.zgraph"
+          }
+        }
+      },
+      "CharacterController3D": {
+        "Radius": 0.35,
+        "Height": 1.8,
+        "StepHeight": 0.25
+      }
+    },
+    {
+      "Entity": 810,
+      "Tag": "Player visual",
+      "Transform": {
+        "Translation": [
+          0,
+          0.9,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.7,
+          1.8,
+          0.7
+        ]
+      },
+      "Parent": 800,
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Shader": "Unlit",
+        "Albedo": [
+          0.22,
+          0.9,
+          0.65,
+          1
+        ],
+        "CastShadows": false
+      }
+    },
+    {
+      "Entity": 801,
+      "Tag": "Overview camera",
+      "Transform": {
+        "Translation": [
+          0,
+          14,
+          13
+        ],
+        "Rotation": [
+          -0.8224182792713783,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Camera": {
+        "Primary": true,
+        "ProjectionType": 1,
+        "OrthographicSize": 18,
+        "OrthographicNear": -100,
+        "OrthographicFar": 100,
+        "ClearColor": [
+          0.035,
+          0.045,
+          0.075,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 940,
+      "Tag": "Arena",
+      "Transform": {
+        "Translation": [
+          0,
+          -0.5,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          24,
+          1,
+          14
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Shader": "Unlit",
+        "Albedo": [
+          0.075,
+          0.105,
+          0.16,
+          1
+        ],
+        "CastShadows": false
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static"
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      }
+    },
+    {
+      "Entity": 1200,
+      "Tag": "Quest HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UICanvas": {
+        "ScaleMode": "ScaleWithScreenSize",
+        "ReferenceResolution": [
+          1280,
+          720
+        ]
+      }
+    },
+    {
+      "Entity": 1201,
+      "Parent": 1200,
+      "Tag": "Quest HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -22
+        ],
+        "Size": [
+          1170,
+          34
+        ],
+        "FontSize": 19
+      },
+      "Text": {
+        "Text": "LOADOUT LAB  /  equipment + abilities + persistent progression",
+        "Color": [
+          0.28,
+          0.9,
+          0.78,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 850,
+      "Tag": "Sentry",
+      "Tags": [
+        "Enemy"
+      ],
+      "Transform": {
+        "Translation": [
+          2,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 851,
+      "Tag": "Sentry visual",
+      "Transform": {
+        "Translation": [
+          0,
+          0.9,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.7,
+          1.8,
+          0.7
+        ]
+      },
+      "Parent": 850,
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Shader": "Unlit",
+        "Albedo": [
+          0.95,
+          0.3,
+          0.32,
+          1
+        ],
+        "CastShadows": false
+      }
+    },
+    {
+      "Entity": 1202,
+      "Parent": 1200,
+      "Tag": "Loadout HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -67
+        ],
+        "Size": [
+          1170,
+          34
+        ],
+        "FontSize": 17
+      },
+      "Text": {
+        "Text": "1 Sword | 2 Plate | 3 Charm | U Unequip | Space Bolt | H Heal | J Shield | R Claim | F5/F9 Save/Load",
+        "Color": [
+          0.85,
+          0.91,
+          1,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1203,
+      "Parent": 1200,
+      "Tag": "Loadout HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -120
+        ],
+        "Size": [
+          1170,
+          34
+        ],
+        "FontSize": 20
+      },
+      "Text": {
+        "Text": "Stats",
+        "Color": [
+          0.85,
+          0.91,
+          1,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1204,
+      "Parent": 1200,
+      "Tag": "Loadout HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -163
+        ],
+        "Size": [
+          1170,
+          34
+        ],
+        "FontSize": 20
+      },
+      "Text": {
+        "Text": "Energy",
+        "Color": [
+          0.85,
+          0.91,
+          1,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1205,
+      "Parent": 1200,
+      "Tag": "Loadout HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -206
+        ],
+        "Size": [
+          1170,
+          34
+        ],
+        "FontSize": 20
+      },
+      "Text": {
+        "Text": "Ability",
+        "Color": [
+          0.85,
+          0.91,
+          1,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1206,
+      "Parent": 1200,
+      "Tag": "Loadout HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -249
+        ],
+        "Size": [
+          1170,
+          34
+        ],
+        "FontSize": 20
+      },
+      "Text": {
+        "Text": "Health",
+        "Color": [
+          0.85,
+          0.91,
+          1,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1207,
+      "Parent": 1200,
+      "Tag": "Loadout HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -292
+        ],
+        "Size": [
+          1170,
+          34
+        ],
+        "FontSize": 20
+      },
+      "Text": {
+        "Text": "Rewards",
+        "Color": [
+          0.85,
+          0.91,
+          1,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1210,
+      "Parent": 1200,
+      "Tag": "Loadout HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -520
+        ],
+        "Size": [
+          1170,
+          34
+        ],
+        "FontSize": 20
+      },
+      "Text": {
+        "Text": "Weapon",
+        "Color": [
+          0.85,
+          0.91,
+          1,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1211,
+      "Parent": 1200,
+      "Tag": "Loadout HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -563
+        ],
+        "Size": [
+          1170,
+          34
+        ],
+        "FontSize": 20
+      },
+      "Text": {
+        "Text": "Body",
+        "Color": [
+          0.85,
+          0.91,
+          1,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1212,
+      "Parent": 1200,
+      "Tag": "Loadout HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -606
+        ],
+        "Size": [
+          1170,
+          34
+        ],
+        "FontSize": 20
+      },
+      "Text": {
+        "Text": "Trinket",
+        "Color": [
+          0.85,
+          0.91,
+          1,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    }
+  ]
+}

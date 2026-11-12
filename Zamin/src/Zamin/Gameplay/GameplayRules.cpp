@@ -1,5 +1,6 @@
 #include "GameplayRules.h"
 #include "QuestWorld.h"
+#include "LoadoutWorld.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Physics/PhysicsWorld2D.h"
 #include <algorithm>
@@ -129,7 +130,7 @@ namespace Zamin::Gameplay {
             }
         }
         std::string error;
-        if (!DamageHealth(*actor->Health, amount, m_Now, pierce, ignoreGrace, result, error)) throw std::runtime_error(error);
+        if (!DamageHealth(*actor->Health, LoadoutDamage(*m_Scene, source, victim, amount), m_Now, pierce, ignoreGrace, result, error)) throw std::runtime_error(error);
         if (result.Applied > 0)
         {
             const uint64_t sender = source ? uint64_t(source.GetUUID()) : 0;

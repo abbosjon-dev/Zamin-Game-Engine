@@ -79,6 +79,7 @@ namespace Zamin::Gameplay {
     private:
         friend class SaveWorld;
         friend class QuestWorld;
+        friend class LoadoutWorld;
         struct Actor
         {
             uint32_t Handle = ~0u, Dropped = 0;

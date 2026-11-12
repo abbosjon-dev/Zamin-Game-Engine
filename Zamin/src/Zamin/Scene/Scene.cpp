@@ -44,6 +44,7 @@
 #include "Zamin/Gameplay/SaveWorld.h"
 #include "Zamin/Gameplay/GameplayUI.h"
 #include "Zamin/Gameplay/QuestWorld.h"
+#include "Zamin/Gameplay/LoadoutWorld.h"
 
 #include <algorithm>
 #include <cctype>
@@ -628,6 +629,7 @@ namespace Zamin {
             StopScripts();
         Gameplay::ResetGameplayUI(*this);
         Gameplay::ResetQuests(*this);
+        Gameplay::ResetLoadouts(*this);
         Gameplay::ResetSaves(*this);
         Gameplay::ResetAI(*this);
         Gameplay::ResetRules(*this);
@@ -2778,6 +2780,7 @@ namespace Zamin {
         m_RuntimeStartTiming = {};
         Gameplay::ResetGameplayUI(*this);
         Gameplay::ResetQuests(*this);
+        Gameplay::ResetLoadouts(*this);
         Gameplay::ResetSaves(*this);
         Gameplay::ResetAI(*this);
         Gameplay::ResetRules(*this);
@@ -2861,6 +2864,7 @@ namespace Zamin {
         StopScripts();
         Gameplay::ResetGameplayUI(*this);
         Gameplay::ResetQuests(*this);
+        Gameplay::ResetLoadouts(*this);
         Gameplay::ResetSaves(*this);
         Gameplay::ResetAI(*this);
         Gameplay::ResetRules(*this);
@@ -5215,6 +5219,7 @@ namespace Zamin {
         Gameplay::BeginAIFrame(*this);
         Gameplay::BeginSaveFrame(*this);
         Gameplay::BeginQuestFrame(*this);
+        Gameplay::BeginLoadoutFrame(*this);
         DeleteRetiredScripts(); // destroyed between frames (editor, other code)
         // The language changed (a language menu, last frame): scripts refresh the texts they make.
         DispatchLanguageChanged();
@@ -5249,6 +5254,7 @@ namespace Zamin {
             m_DeltaTime = ts;
             m_Time += ts;
             Gameplay::TickRules(*this, (float)ts);
+            Gameplay::TickLoadouts(*this, (float)ts);
             m_AnimationTime += (double)ts;
             // Hit flashes fade with the game's time (paused: they wait).
             for (auto e : m_Registry.view<SpriteRendererComponent>())

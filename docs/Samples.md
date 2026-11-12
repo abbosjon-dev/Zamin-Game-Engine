@@ -325,3 +325,9 @@ Batafsil tahlil: [Performance.md](Performance.md).
 - `python3 Tools/samples/make_thumbnails.py` — launcher kartalaridagi rasmlar (`Projects/*/Thumbnail.jpg`);
 - `python3 Tools/samples/gen_<o'yin>.py` — o'yinning assetlari, sahnasi va loyiha fayli (generator o'zgarsa;
   `Tests/samples_assets.py --regen` natija bir xil ekanini tekshiradi).
+
+## LoadoutWorkshop
+
+[2D/3D equipment and ability course](../Projects/LoadoutWorkshop/README.md): transactional equipment,
+combat modifiers, energy, damage/heal/shield abilities, consumables, quest rewards and v3 fresh-process
+saves. Canonical-state HUD and real relocated export acceptance. [API and bounds](GameplayLoadout.md).

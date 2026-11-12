@@ -119,3 +119,7 @@ Run `python3 Tests/save_workflow_test.py --build build --exports` for actual 2D/
 fresh-process resume, corrupt-primary recovery, Editor write/resume, exported write/resume and a
 real resumed game after export relocation. `Tests/save_editor_test.py` exercises real ImGui
 SaveBind/SaveWrite/SaveLoad add/save/Undo. Reports and screenshots: `build/GameplaySave/`.
+
+Scenes with [equipment/abilities](GameplayLoadout.md) capture version 3, preserving energy,
+equipment ownership, unlock flags, use counts and remaining cooldowns. Legacy v1/v2 loadouts
+initialize from current authored defaults; existing compatibility checks remain in force.

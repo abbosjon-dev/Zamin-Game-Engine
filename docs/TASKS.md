@@ -42,12 +42,32 @@ WorldCrowdHeadOn testining atlas readiness sharti birinchi katakdan barcha 300 k
 aniqlashtirildi; 10/10 mustaqil run o‘tdi. Hisobot va rasmlar: `build-review/GameplayQuest/`.
 Software Mesa; physical GPU byudjeti o‘lchanmagan. [Chegaralar](GameplayQuest.md).
 
-### Keyingi paket — equipment, stats va abilities
+### Yakunlangan bo‘lim — equipment, stats va abilities
 
-- [ ] Item definitions, equipment slots, deterministic stat modifiers va capacity rollback.
-- [ ] Ability activation, cooldown/resource validation, combat integration va Blueprint API.
-- [ ] Equipment/ability HUD, save schema/migration va rebind lifecycle.
-- [ ] 2D/3D playable acceptance, fresh-process resume, export va regression darvozalari.
+- [x] Item definitions, 4 equipment slots, deterministic stat modifiers va bag capacity rollback.
+- [x] Damage/heal/shield abilities, ingredients, energy/regen, cooldowns, unlocks va Blueprint API.
+- [x] Canonical-state HUD, v3 save/migration, transactional restore va actor lifecycle.
+- [x] 2D/3D acceptance, fresh-process resume, relocated export va main push.
+
+Dalillar: 1225/1225 unit (26 yangi), 11/11 headless CTest. Pure LoadoutModel/RulesModel
+ASan/UBSan/LSan: 6/6. LoadoutModel/World/Graph instrumentlangan 3 TU owner probe:
+26/26, LeakSanitizer bilan; qolgan SaveWorld/Scene/VM/physics/shared engine normal build.
+Bu butun engine sanitizer run’i emas. Clang 18 syntax-only -Werror: 7 TU.
+Haqiqiy ImGui LoadoutConfigure/EquipmentEquip/AbilityCast add/save/Undo o‘tdi.
+2D/3D Player va Editor acceptance/resume/no-replay hamda compiler-free eksportning
+write/resume/real relocated no-replay kursi: 14/14 workflow. Canonical holat:
+Sword/Plate equipped, Attack=20, Armor=100, Power=10, Energy=40, Bolt Uses=2,
+Potion=1, Coin=5, XP=150; saved first-cast cooldown musbat. Generator deterministik;
+Python/format/docs tekshirildi. Software Mesa, hardware GPU byudjeti o‘lchanmagan.
+Renderer o‘zgarmagani uchun eski 12 render holati qayta ishga tushirilmadi.
+[API va chegaralar](GameplayLoadout.md). Hisobotlar: `build-review/GameplayLoadout/`.
+
+### Keyingi paket — projectiles va gameplay effects
+
+- [ ] Bounded 2D/3D projectile lifecycle, collision/hit ownership, pooling va lifetime.
+- [ ] Area damage/support, timed status effects va stacking/expiration qoidalari.
+- [ ] Ability/effect authoring, HUD feedback va persistence compatibility.
+- [ ] O‘ynaladigan 2D/3D combat slice, profiling, export va regression darvozalari.
 
 ### Yakunlangan bo‘lim — gameplay UI
 
@@ -136,8 +156,8 @@ Graph configure input’lari saqlanadi; health/inventory holati runtime-only. [S
 Gameplay save/load yuqoridagi paketda davom ettirildi. To‘liq ECS/VM/physics snapshot,
 avtomatik ixtiyoriy obyekt resurrection va katta dunyoning async saqlashi alohida qoladi.
 
-Gameplay UI va quest/progression yuqoridagi paketlarda yakunlandi. Keyingi yirik paket —
-equipment, stats va abilities; yuqorida acceptance darvozalari belgilangan. To‘liq ECS/physics
+Gameplay UI, quest/progression va equipment/abilities yuqoridagi paketlarda birlashtirildi.
+Keyingi yirik paket — projectiles va gameplay effects; acceptance darvozalari yuqorida belgilangan. To‘liq ECS/physics
 snapshot, renderer va katta dunyo vazifalari umumiy rejada saqlanadi.
 
 ### Yakunlangan bo‘lim — motor, kamera, locomotion va checkpoint

@@ -223,6 +223,18 @@ for (auto op : { "InteractionFind", "Interact", "Attack" })
     add("Gameplay." + name, name == "Attack" ? "Gameplay combat" : "Gameplay interaction", pins, outputs, pure);
 }
 add("Gameplay.RuleEvent", "Gameplay events", { E("In"), EntityPin() }, { E("Then"), B("Has"), S("Kind"), S("Item"), EntityPin("Source"), EntityPin("Subject"), N("Amount"), N("Dropped") });
+add("Gameplay.LoadoutConfigure", "Gameplay loadout", { E("In"), EntityPin(), { "Stats", Type::ArrayNumber, Value::array({ 0, 0, 0, 100, 5 }) } }, { E("Then"), B("Success"), S("Reason") });
+add("Gameplay.ItemDefine", "Gameplay loadout", { E("In"), EntityPin(), S("Item", "Sword"), N("Slot"), { "Modifiers", Type::ArrayNumber, Value::array({ 10, 0, 0, 0, 0 }) } }, { E("Then"), B("Success"), S("Reason") });
+add("Gameplay.EquipmentEquip", "Gameplay loadout", { E("In"), EntityPin(), S("Item", "Sword") }, { E("Then"), B("Success"), S("Reason") });
+add("Gameplay.EquipmentUnequip", "Gameplay loadout", { E("In"), EntityPin(), N("Slot") }, { E("Then"), B("Success"), S("Reason") });
+add("Gameplay.EquipmentState", "Gameplay loadout", { EntityPin(), N("Slot") }, { B("Configured"), B("Equipped"), S("Item") }, true);
+add("Gameplay.LoadoutStats", "Gameplay loadout", { EntityPin() }, { B("Configured"), N("Attack"), N("Armor"), N("Power"), N("Maximum"), N("Regen"), N("Energy"), N("Fraction") }, true);
+add("Gameplay.AbilityDefine", "Gameplay abilities", { E("In"), EntityPin(), S("Ability", "Bolt"), N("Kind"), N("Amount", 20), N("Cost", 10), N("Cooldown", 1), N("Range", 5), S("Ingredient"), N("Count", 1), B("Unlocked", true) }, { E("Then"), B("Success"), S("Reason") });
+add("Gameplay.AbilityCast", "Gameplay abilities", { E("In"), EntityPin(), EntityPin("Victim"), S("Ability", "Bolt"), B("TwoD"), B("LineOfSight", true), N("Mask", 65535) }, { E("Then"), B("Success"), N("Applied"), EntityPin("Victim"), S("Reason") });
+add("Gameplay.AbilityUnlock", "Gameplay abilities", { E("In"), EntityPin(), S("Ability", "Bolt"), B("Unlocked", true) }, { E("Then"), B("Success"), S("Reason") });
+add("Gameplay.AbilityState", "Gameplay abilities", { EntityPin(), S("Ability", "Bolt") }, { B("Configured"), B("Unlocked"), B("Ready"), N("Remaining"), N("Fraction"), N("Uses"), N("Cost") }, true);
+add("Gameplay.LoadoutRefill", "Gameplay loadout", { E("In"), EntityPin(), N("Amount", 25) }, { E("Then"), N("Applied") });
+add("Gameplay.LoadoutEvent", "Gameplay loadout", { E("In"), EntityPin() }, { E("Then"), B("Has"), S("Kind"), S("Key"), N("Amount"), N("Dropped") });
 add("Gameplay.QuestConfigure", "Gameplay quest", { E("In"), EntityPin(), S("Quest", "Quest"), S("Title", "Field survey"), { "Objectives", Type::ArrayString, Value::array({ "Explore" }) }, { "Labels", Type::ArrayString, Value::array({ "Reach checkpoint" }) }, { "Kinds", Type::ArrayNumber, Value::array({ 0 }) }, { "Matches", Type::ArrayString, Value::array({ "" }) }, { "Goals", Type::ArrayNumber, Value::array({ 1 }) }, { "Requires", Type::ArrayString, Value::array() }, { "Rewards", Type::ArrayString, Value::array() }, { "RewardCounts", Type::ArrayNumber, Value::array() }, N("XP", 100) }, { E("Then"), B("Success"), S("Reason") });
 for (auto op : { "Start", "Fail", "Claim" }) add("Gameplay.Quest" + std::string(op), "Gameplay quest", { E("In"), EntityPin(), S("Quest", "Quest") }, { E("Then"), B("Success"), S("Reason") });
 add("Gameplay.QuestAdvance", "Gameplay quest", { E("In"), EntityPin(), S("Quest", "Quest"), S("Objective", "Explore"), N("Count", 1), S("Receipt", "Checkpoint") }, { E("Then"), B("Success"), S("Reason") });

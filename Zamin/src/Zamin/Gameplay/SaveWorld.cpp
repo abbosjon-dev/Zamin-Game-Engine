@@ -2,6 +2,7 @@
 #include <Zamin/Gameplay/GameplayRules.h>
 #include "SaveWorld.h"
 #include "QuestWorld.h"
+#include "LoadoutWorld.h"
 #include "Zamin/Core/SaveData.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Scene/SceneManager.h"
@@ -201,6 +202,13 @@ namespace Zamin::Gameplay {
             }
             value["Quests"] = definitions;
         }
+        if (auto* r = LoadoutWorld::For(*m_Scene).Find(e))
+        {
+            V items = V::object(), abilities = V::object();
+            for (auto& [key, i] : r->Items) items[key] = { int(i.Slot), i.Modifiers };
+            for (auto& [key, a] : r->Abilities) abilities[key] = { int(a.Kind), a.Amount, a.Cost, a.Cooldown, a.Range, a.Ingredient, a.Count, a.Unlocked };
+            value["Loadout"] = { r->Base, items, abilities };
+        }
         return value.dump();
     }
     GameSave SaveWorld::Capture(const std::string& schema) const
@@ -226,7 +234,12 @@ namespace Zamin::Gameplay {
                 if (auto* q = QuestWorld::For(*m_Scene).Find(e))
                 {
                     out.QuestBook = q->Book;
-                    save.Version = 2;
+                    save.Version = std::max(save.Version, 2);
+                }
+                if (auto* r = LoadoutWorld::For(*m_Scene).Find(e))
+                {
+                    out.Loadout = r->State;
+                    save.Version = 3;
                 }
                 if (auto* a = rules.FindActor(e))
                 {
@@ -287,6 +300,8 @@ namespace Zamin::Gameplay {
             auto brains = ai.m_Records;
             auto& questWorld = QuestWorld::For(*m_Scene);
             auto quests = questWorld.m_Actors;
+            auto& loadoutWorld = LoadoutWorld::For(*m_Scene);
+            auto loadouts = loadoutWorld.m_Records;
             std::vector<std::pair<Entity, const SavedEntity*>> apply;
             std::set<std::string> present;
             for (auto& s : save.Entities)
@@ -308,7 +323,32 @@ namespace Zamin::Gameplay {
                     legacy.erase("Quests");
                     signature = legacy.dump();
                 }
+                if (save.Version < 3)
+                {
+                    auto legacy = V::parse(signature);
+                    legacy.erase("Loadout");
+                    signature = legacy.dump();
+                }
                 Require(signature == s.Signature, "Gameplay configuration changed");
+                auto* loadout = loadoutWorld.Find(e);
+                Require(save.Version < 3 || bool(loadout) == bool(s.Loadout), "Loadout layout changed");
+                if (loadout)
+                {
+                    auto& next = loadouts.at(uint64_t(e.GetUUID()));
+                    if (save.Version < 3)
+                    {
+                        next.State = {};
+                        next.State.Energy = next.Base[3];
+                        for (auto& [key, a] : next.Abilities) next.State.Abilities.emplace(key, AbilityProgress{ 0, 0, a.Unlocked });
+                    }
+                    else
+                    {
+                        Require(ValidateLoadout(next.Base, next.Items, next.Abilities, *s.Loadout, error), "Invalid saved loadout");
+                        next.State = *s.Loadout;
+                    }
+                    next.Events.clear();
+                    next.Dropped = 0;
+                }
                 auto* q = questWorld.Find(e);
                 Require(q || s.QuestBook.Quests.empty(), "Saved quest actor not configured");
                 if (q)
@@ -417,6 +457,7 @@ namespace Zamin::Gameplay {
             rules.m_Interactions.swap(interactions);
             ai.m_Records.swap(brains);
             questWorld.m_Actors.swap(quests);
+            loadoutWorld.m_Records.swap(loadouts);
             for (auto& [e, s] : apply) StopAndSync(*m_Scene, e);
             for (auto handle : m_Scene->GetRegistry().view<NativeScriptComponent>())
                 if (auto* g = dynamic_cast<VisualGraphHost*>(m_Scene->GetRegistry().get<NativeScriptComponent>(handle).Instance)) g->InvalidateGameplayState();

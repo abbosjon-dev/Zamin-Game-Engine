@@ -1530,7 +1530,7 @@ TEST(WorldCrowdHeadOnAgentsReachGoalsIn2DAnd3D)
         SceneManager manager;
         auto scene = f.Start(manager);
         auto* world = manager.GetWorldStreaming();
-        CHECK(Until(manager, [&] { return world->GetStats().AtlasCells > 0; }));
+        CHECK(Until(manager, [&] { return world->GetStats().AtlasCells == 300; }));
         Scene staged;
         std::array<UUID, 2> ids{ UUID(97001), UUID(97002) };
         for (size_t i = 0; i < 2; ++i)

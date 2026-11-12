@@ -87,6 +87,9 @@ restores its original text/progress/interactable values. Missing actors keep the
 empty rows so content can explicitly rebind. UI state itself is transient; a gameplay save restores
 health/bags and the existing UI reads them without serializing its menu stack.
 
+[Quest HUD bindings](GameplayQuest.md) add whole-quest or objective progress and participate in the
+same one-writer widget checks.
+
 ## Blueprint operations
 
 | Nodes | Use |

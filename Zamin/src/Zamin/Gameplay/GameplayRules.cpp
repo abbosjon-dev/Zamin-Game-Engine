@@ -1,4 +1,5 @@
 #include "GameplayRules.h"
+#include "QuestWorld.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Physics/PhysicsWorld2D.h"
 #include <algorithm>
@@ -145,6 +146,7 @@ namespace Zamin::Gameplay {
                     PhysicsWorld2D::SetLinearVelocity((b2Body*)body->RuntimeBody, velocity);
                 }
                 Emit(*actor, { "Died", {}, sender, uint64_t(victim.GetUUID()), result.Health });
+                if (source && source != victim) NotifyQuest(*m_Scene, source, QuestKind::Kill, "", 1, victim);
             }
         }
         return result;
@@ -201,6 +203,7 @@ namespace Zamin::Gameplay {
         auto& a = RequireActor(e);
         a.Inventory = std::move(next);
         Emit(a, { "InventoryChanged", key, 0, uint64_t(e.GetUUID()), remove ? -double(count) : double(count) });
+        if (!remove) NotifyQuest(*m_Scene, e, QuestKind::Collect, key, uint32_t(count), {});
         return true;
     }
     Bag RuleWorld::Inventory(Entity e) const
@@ -346,6 +349,8 @@ namespace Zamin::Gameplay {
         }
         if (result.Healed > 0) Emit(a, { "Healed", {}, uint64_t(object.GetUUID()), uint64_t(actor.GetUUID()), result.Healed });
         // Commit before lifecycle callbacks. No references into state are used after SetActive.
+        NotifyQuest(*m_Scene, actor, QuestKind::Interact, "", 1, object);
+        if (!settings.RewardItem.empty()) NotifyQuest(*m_Scene, actor, QuestKind::Collect, settings.RewardItem, uint32_t(settings.RewardCount), object);
         if (settings.Deactivate) m_Scene->SetActive(object, false);
         return result;
     }

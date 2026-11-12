@@ -223,6 +223,15 @@ for (auto op : { "InteractionFind", "Interact", "Attack" })
     add("Gameplay." + name, name == "Attack" ? "Gameplay combat" : "Gameplay interaction", pins, outputs, pure);
 }
 add("Gameplay.RuleEvent", "Gameplay events", { E("In"), EntityPin() }, { E("Then"), B("Has"), S("Kind"), S("Item"), EntityPin("Source"), EntityPin("Subject"), N("Amount"), N("Dropped") });
+add("Gameplay.QuestConfigure", "Gameplay quest", { E("In"), EntityPin(), S("Quest", "Quest"), S("Title", "Field survey"), { "Objectives", Type::ArrayString, Value::array({ "Explore" }) }, { "Labels", Type::ArrayString, Value::array({ "Reach checkpoint" }) }, { "Kinds", Type::ArrayNumber, Value::array({ 0 }) }, { "Matches", Type::ArrayString, Value::array({ "" }) }, { "Goals", Type::ArrayNumber, Value::array({ 1 }) }, { "Requires", Type::ArrayString, Value::array() }, { "Rewards", Type::ArrayString, Value::array() }, { "RewardCounts", Type::ArrayNumber, Value::array() }, N("XP", 100) }, { E("Then"), B("Success"), S("Reason") });
+for (auto op : { "Start", "Fail", "Claim" }) add("Gameplay.Quest" + std::string(op), "Gameplay quest", { E("In"), EntityPin(), S("Quest", "Quest") }, { E("Then"), B("Success"), S("Reason") });
+add("Gameplay.QuestAdvance", "Gameplay quest", { E("In"), EntityPin(), S("Quest", "Quest"), S("Objective", "Explore"), N("Count", 1), S("Receipt", "Checkpoint") }, { E("Then"), B("Success"), S("Reason") });
+add("Gameplay.QuestState", "Gameplay quest", { EntityPin(), S("Quest", "Quest") }, { B("Configured"), S("Title"), S("Mode"), N("Fraction"), N("Complete"), N("Objectives"), B("Ready"), B("Claimed") }, true);
+add("Gameplay.QuestObjective", "Gameplay quest", { EntityPin(), S("Quest", "Quest"), S("Objective", "Explore") }, { B("Found"), S("Label"), N("Current"), N("Goal"), B("Complete") }, true);
+add("Gameplay.QuestProgression", "Gameplay quest", { EntityPin() }, { N("XP"), N("Level", 1), N("Current"), N("Needed", 100), N("Fraction") }, true);
+add("Gameplay.QuestEvent", "Gameplay quest", { E("In"), EntityPin() }, { E("Then"), B("Has"), S("Kind"), S("Quest"), S("Objective"), N("Amount"), N("Dropped") });
+add("Gameplay.QuestBindHUD", "Gameplay quest", { E("In"), EntityPin(), EntityPin("Actor"), S("Quest", "Quest"), S("Objective") }, { E("Then"), B("Success"), S("Reason") });
+add("Gameplay.QuestUnbindHUD", "Gameplay quest", { E("In"), EntityPin() }, { E("Then"), B("Success"), S("Reason") });
 add("Gameplay.UIConfigure", "Gameplay UI", { E("In"), EntityPin(), S("Name", "Pause"), S("Action", "Pause"), EntityPin("Focus"), B("Pause", true), B("Block", true), B("Back", true) }, { E("Then"), B("Success"), S("Reason") });
 for (auto op : { "Open", "Close", "Remove" }) add("Gameplay.UI" + std::string(op), "Gameplay UI", { E("In"), EntityPin(), S("Name", "Pause") }, { E("Then"), B("Success"), S("Reason") });
 for (auto op : { "Back", "Clear" }) add("Gameplay.UI" + std::string(op), "Gameplay UI", { E("In"), EntityPin() }, { E("Then"), B("Success"), S("Reason") });

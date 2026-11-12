@@ -43,6 +43,7 @@
 #include "Zamin/Gameplay/GameplayAI.h"
 #include "Zamin/Gameplay/SaveWorld.h"
 #include "Zamin/Gameplay/GameplayUI.h"
+#include "Zamin/Gameplay/QuestWorld.h"
 
 #include <algorithm>
 #include <cctype>
@@ -626,6 +627,7 @@ namespace Zamin {
         if (m_ScriptsRunning)
             StopScripts();
         Gameplay::ResetGameplayUI(*this);
+        Gameplay::ResetQuests(*this);
         Gameplay::ResetSaves(*this);
         Gameplay::ResetAI(*this);
         Gameplay::ResetRules(*this);
@@ -2775,6 +2777,7 @@ namespace Zamin {
         const auto startClock = std::chrono::steady_clock::now();
         m_RuntimeStartTiming = {};
         Gameplay::ResetGameplayUI(*this);
+        Gameplay::ResetQuests(*this);
         Gameplay::ResetSaves(*this);
         Gameplay::ResetAI(*this);
         Gameplay::ResetRules(*this);
@@ -2857,6 +2860,7 @@ namespace Zamin {
         Time::ClearGameClock(this);
         StopScripts();
         Gameplay::ResetGameplayUI(*this);
+        Gameplay::ResetQuests(*this);
         Gameplay::ResetSaves(*this);
         Gameplay::ResetAI(*this);
         Gameplay::ResetRules(*this);
@@ -5210,6 +5214,7 @@ namespace Zamin {
         Gameplay::BeginRulesFrame(*this);
         Gameplay::BeginAIFrame(*this);
         Gameplay::BeginSaveFrame(*this);
+        Gameplay::BeginQuestFrame(*this);
         DeleteRetiredScripts(); // destroyed between frames (editor, other code)
         // The language changed (a language menu, last frame): scripts refresh the texts they make.
         DispatchLanguageChanged();
@@ -5344,6 +5349,7 @@ namespace Zamin {
         else if (!m_FrameFollower)
             DebugDraw::Hold(); // paused: the last game frame's shapes stay, nothing piles up
         Gameplay::RefreshGameplayUI(*this);
+        Gameplay::RefreshQuests(*this);
         m_UIDeferred = false;
     }
 

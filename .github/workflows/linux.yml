@@ -111,6 +111,14 @@ jobs:
       - name: World dynamic barrier and bounded recovery workflow
         run: python3 Tests/world_recovery_test.py --build build --out world-streaming/recovery
 
+      - name: Quest Blueprint authoring and Undo
+        env:
+          ZAMIN_BUILD_DIR: build
+        run: xvfb-run -a -s '-screen 0 1600x1000x24 -nolisten tcp' python3 Tests/quest_editor_test.py
+
+      - name: Quest progression, fresh-process claims and relocated exports
+        run: python3 Tests/quest_workflow_test.py --build build --out world-streaming/quests --exports
+
       - name: Gameplay UI Blueprint authoring and Undo
         env:
           ZAMIN_BUILD_DIR: build
@@ -170,6 +178,7 @@ jobs:
             build/AIGameplay/Authoring/
             build/GameplaySave/Authoring/
             build/GameplayUI/Authoring/
+            build/GameplayQuest/Authoring/
           if-no-files-found: warn
 
       # Every window, page, menu and popup of the editor for a few frames (Showcase3D, Platformer2D): an error in

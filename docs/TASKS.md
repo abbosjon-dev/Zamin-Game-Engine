@@ -22,6 +22,33 @@ saqlanadi; ulardagi belgi yangi imkoniyatning ishlayotganiga dalil o'rnini bosma
 | P7 Platforma, release va mahsulot | Linux/Windows, keyin macOS; cook/package/update/crash telemetry; editor/launcher yagona auth | Toza mashinada install/export/run, talablar va litsenziyalar, imzolangan release va rollback sinovi | Rejada |
 | P8 Yakuniy sifat darvozasi | Hujjatlar, ko'chirish yo'li, ikki namunaviy o'yin va profiling hisobotlari | Uzoq sessiya, resurs sizishi, recovery/fuzz, reference sahnalarda barqaror frame time va foydalanish sinovi | Rejada |
 
+### Yakunlangan bo‘lim — quest/progression
+
+- [x] Bounded objectives, prerequisites, receipts and progression model.
+- [x] Native/Blueprint automatic gameplay notices, atomic bag/XP rewards and HUD.
+- [x] Save v2 quest snapshots, v1 migration and transactional restore.
+- [x] 2D/3D playable quests, fresh-process resume, Editor/export/screenshots.
+- [x] Unit, sanitizer, regression, documentation and main push.
+
+Dalillar (2026-11-12): 1199/1199 unit (39 yangi), 11/11 headless CTest, 12/12 render.
+Pure QuestModel ASan/UBSan/LSan: 12/12. QuestModel/World/Graph, SaveModel/World,
+GameplayRules/Runtime instrumentlangan 7 TU owner probe: 39/39, LeakSanitizer bilan.
+Qolgan shared engine, Scene/serializer/physics/VM normal build; bu butun engine sanitizer run’i emas.
+Clang 18 syntax-only -Werror: 12 ta TU. Haqiqiy ImGui Configure/Claim/BindHUD add/save/Undo.
+2D/3D Player va Editor uch fazali acceptance/resume/no-replay hamda compiler-free eksportning
+write/resume/real relocated no-replay kursi: 14/14 workflow. Canonical holat: XP=200,
+Coin=5, Badge=1, ikki quest Claimed. Generator deterministik; Python/format/docs tekshirildi.
+WorldCrowdHeadOn testining atlas readiness sharti birinchi katakdan barcha 300 katakka
+aniqlashtirildi; 10/10 mustaqil run o‘tdi. Hisobot va rasmlar: `build-review/GameplayQuest/`.
+Software Mesa; physical GPU byudjeti o‘lchanmagan. [Chegaralar](GameplayQuest.md).
+
+### Keyingi paket — equipment, stats va abilities
+
+- [ ] Item definitions, equipment slots, deterministic stat modifiers va capacity rollback.
+- [ ] Ability activation, cooldown/resource validation, combat integration va Blueprint API.
+- [ ] Equipment/ability HUD, save schema/migration va rebind lifecycle.
+- [ ] 2D/3D playable acceptance, fresh-process resume, export va regression darvozalari.
+
 ### Yakunlangan bo‘lim — gameplay UI
 
 - [x] Bounded modal stack, focus/pause ownership and input fencing.
@@ -109,10 +136,9 @@ Graph configure input’lari saqlanadi; health/inventory holati runtime-only. [S
 Gameplay save/load yuqoridagi paketda davom ettirildi. To‘liq ECS/VM/physics snapshot,
 avtomatik ixtiyoriy obyekt resurrection va katta dunyoning async saqlashi alohida qoladi.
 
-Gameplay UI yuqoridagi paketda yakunlandi. Keyingi yirik paket — quest/progression:
-objective/trigger, atomik reward, save format/migration va HUD binding; 2D/3D kursda
-acceptance, fresh-process resume va export bilan tekshirish. To‘liq ECS/physics snapshot,
-renderer va katta dunyo vazifalari umumiy rejada saqlanadi.
+Gameplay UI va quest/progression yuqoridagi paketlarda yakunlandi. Keyingi yirik paket —
+equipment, stats va abilities; yuqorida acceptance darvozalari belgilangan. To‘liq ECS/physics
+snapshot, renderer va katta dunyo vazifalari umumiy rejada saqlanadi.
 
 ### Yakunlangan bo‘lim — motor, kamera, locomotion va checkpoint
 

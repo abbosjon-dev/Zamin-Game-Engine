@@ -80,7 +80,7 @@ TEST(GameSaveModelUnknownVersionAndFormatAreRejected)
     auto value = Zamin::Visual::Value::parse(EncodeGameSave(Example()));
     GameSave out;
     std::string error;
-    value["Version"] = 2;
+    value["Version"] = 3;
     CHECK(!DecodeGameSave(value.dump(), out, error));
     value["Version"] = 1;
     value["Format"] = "Other";

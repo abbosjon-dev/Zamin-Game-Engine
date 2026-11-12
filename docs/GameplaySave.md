@@ -26,7 +26,8 @@ signature checks health settings, bag capacity, interaction settings, AI setting
 body kind, navigation grid reference and script/graph path. Bound references compare by key.
 Unbound external grid references retain their authored UUID. The signature is not a hash of every
 asset or collider property: bump Schema when changing content that would make old progress unsafe.
-Unknown format versions are rejected. The initial codec is version 1; no legacy migration is implied.
+Unknown format versions are rejected. Base progress uses v1; [quest books](GameplayQuest.md) use v2. V1 restores into new quest content
+with Locked/zero-progress books while preserving compatible base state.
 
 Only scene roots without bone attachments can bind. Root scale must be nonsingular. Physical scale
 must match at load because resizing physics shapes is a separate operation. No parent/hierarchy
@@ -63,6 +64,7 @@ reports the complete snapshot entity count, including absent slots.
 - Health/shield, dead/death counter, remaining immunity and respawn delay.
 - Inventory items and remaining attack cooldown.
 - Used interaction count and remaining interaction cooldown, preventing duplicate rewards.
+- Opted-in quest modes/counts/receipts and XP, validated together with inventory in v2.
 - AI mode, home/goal/last seen/facing, memory, wait, patrol direction/index, enabled flag,
   target key and cumulative gameplay counters.
 

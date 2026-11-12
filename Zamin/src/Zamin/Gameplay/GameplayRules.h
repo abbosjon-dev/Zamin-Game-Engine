@@ -78,6 +78,7 @@ namespace Zamin::Gameplay {
         double Now() const { return m_Now; }
     private:
         friend class SaveWorld;
+        friend class QuestWorld;
         struct Actor
         {
             uint32_t Handle = ~0u, Dropped = 0;

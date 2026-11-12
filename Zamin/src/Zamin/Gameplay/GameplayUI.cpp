@@ -1,5 +1,6 @@
 #include "GameplayUI.h"
 #include "GameplayRules.h"
+#include "QuestWorld.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Scripting/Visual/VisualGraphHost.h"
 #include "Zamin/Core/Input.h"
@@ -91,6 +92,7 @@ namespace Zamin::Gameplay {
     }
     bool UIWorld::WidgetUsed(Entity e) const
     {
+        if (QuestWidgetBound(*m_Scene, e)) return true;
         if (m_Bindings.contains(uint64_t(e.GetUUID()))) return true;
         for (auto& [name, inv] : m_Inventories)
             for (auto& row : inv.Rows)

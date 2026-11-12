@@ -1,6 +1,7 @@
 #include <box2d/box2d.h>
 #include <Zamin/Gameplay/GameplayRules.h>
 #include "SaveWorld.h"
+#include "QuestWorld.h"
 #include "Zamin/Core/SaveData.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Scene/SceneManager.h"
@@ -189,6 +190,17 @@ namespace Zamin::Gameplay {
             value["Script"] = n->ClassName;
             if (auto* g = dynamic_cast<VisualGraphHost*>(n->Instance)) value["Graph"] = g->Graph;
         }
+        if (auto* q = QuestWorld::For(*m_Scene).Find(e))
+        {
+            V definitions = V::object();
+            for (auto& [key, s] : q->Definitions)
+            {
+                V objectives = V::array();
+                for (auto& o : s.Objectives) objectives.push_back({ o.Key, o.Label, o.Match, int(o.Kind), o.Goal });
+                definitions[key] = { s.Title, objectives, s.Requires, s.Rewards, s.XP };
+            }
+            value["Quests"] = definitions;
+        }
         return value.dump();
     }
     GameSave SaveWorld::Capture(const std::string& schema) const
@@ -211,6 +223,11 @@ namespace Zamin::Gameplay {
                 out.Scale = t.Scale;
                 out.Active = e.IsActive();
                 out.Signature = Signature(e);
+                if (auto* q = QuestWorld::For(*m_Scene).Find(e))
+                {
+                    out.QuestBook = q->Book;
+                    save.Version = 2;
+                }
                 if (auto* a = rules.FindActor(e))
                 {
                     out.HasActor = true;
@@ -268,6 +285,8 @@ namespace Zamin::Gameplay {
             auto actors = rules.m_Actors;
             auto interactions = rules.m_Interactions;
             auto brains = ai.m_Records;
+            auto& questWorld = QuestWorld::For(*m_Scene);
+            auto quests = questWorld.m_Actors;
             std::vector<std::pair<Entity, const SavedEntity*>> apply;
             std::set<std::string> present;
             for (auto& s : save.Entities)
@@ -282,7 +301,43 @@ namespace Zamin::Gameplay {
                     continue;
                 }
                 Require(bool(e), "Recreate the saved entity slot before loading");
-                Require(Signature(e) == s.Signature, "Gameplay configuration changed");
+                auto signature = Signature(e);
+                if (save.Version == 1)
+                {
+                    auto legacy = V::parse(signature);
+                    legacy.erase("Quests");
+                    signature = legacy.dump();
+                }
+                Require(signature == s.Signature, "Gameplay configuration changed");
+                auto* q = questWorld.Find(e);
+                Require(q || s.QuestBook.Quests.empty(), "Saved quest actor not configured");
+                if (q)
+                {
+                    auto& next = quests.at(uint64_t(e.GetUUID()));
+                    if (save.Version == 1)
+                    {
+                        next.Book = {};
+                        for (auto& [key, definition] : next.Definitions) next.Book.Quests.emplace(key, NewQuestProgress(definition));
+                    }
+                    else
+                    {
+                        Require(s.QuestBook.Quests.size() == next.Definitions.size(), "Saved quest definitions changed");
+                        uint64_t xp = 0;
+                        for (auto& [key, definition] : next.Definitions)
+                        {
+                            auto progress = s.QuestBook.Quests.find(key);
+                            Require(progress != s.QuestBook.Quests.end(), "Saved quest missing");
+                            Require(ValidateQuestProgress(definition, progress->second, error), "Invalid saved quest progress");
+                            if (progress->second.Mode != QuestMode::Locked)
+                                for (auto& required : definition.Requires) Require(s.QuestBook.Quests.at(required).Mode == QuestMode::Claimed, "Saved prerequisite not claimed");
+                            if (progress->second.Mode == QuestMode::Claimed) xp += definition.XP;
+                        }
+                        Require(xp == s.QuestBook.XP, "Saved XP disagrees with claimed quests");
+                        next.Book = s.QuestBook;
+                    }
+                    next.Events.clear();
+                    next.Dropped = 0;
+                }
                 if (e.HasComponent<Rigidbody2DComponent>() || e.HasComponent<Rigidbody3DComponent>() || e.HasComponent<CharacterController3DComponent>()) Require(e.GetTransform().Scale == s.Scale, "Physical save scale changed");
                 auto id = uint64_t(e.GetUUID());
                 auto* a = rules.FindActor(e);
@@ -361,6 +416,7 @@ namespace Zamin::Gameplay {
             rules.m_Actors.swap(actors);
             rules.m_Interactions.swap(interactions);
             ai.m_Records.swap(brains);
+            questWorld.m_Actors.swap(quests);
             for (auto& [e, s] : apply) StopAndSync(*m_Scene, e);
             for (auto handle : m_Scene->GetRegistry().view<NativeScriptComponent>())
                 if (auto* g = dynamic_cast<VisualGraphHost*>(m_Scene->GetRegistry().get<NativeScriptComponent>(handle).Instance)) g->InvalidateGameplayState();

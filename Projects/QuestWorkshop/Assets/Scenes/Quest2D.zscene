@@ -1,0 +1,959 @@
+{
+  "Version": 5,
+  "Scene": "Quest 2D",
+  "Settings": {
+    "DrawSky": false,
+    "Ambient": 0.7
+  },
+  "Entities": [
+    {
+      "Entity": 800,
+      "Tag": "Player",
+      "Tags": [
+        "Player"
+      ],
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "NativeScript": {
+        "Class": "Zamin.VisualGraph",
+        "Fields": {
+          "Graph": {
+            "Type": "String",
+            "Value": "Scripts/Player2D.zgraph"
+          }
+        }
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "GravityScale": 0,
+        "FixedRotation": true
+      },
+      "BoxCollider2D": {
+        "Size": [
+          0.35,
+          0.35
+        ],
+        "Friction": 0
+      }
+    },
+    {
+      "Entity": 810,
+      "Tag": "Player visual",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0.05
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.7,
+          0.7,
+          1
+        ]
+      },
+      "Parent": 800,
+      "SpriteRenderer": {
+        "Color": [
+          0.22,
+          0.9,
+          0.65,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 801,
+      "Tag": "Overview camera",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          15
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Camera": {
+        "Primary": true,
+        "ProjectionType": 1,
+        "OrthographicSize": 14,
+        "OrthographicNear": -100,
+        "OrthographicFar": 100,
+        "ClearColor": [
+          0.035,
+          0.045,
+          0.075,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 940,
+      "Tag": "Arena",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          -0.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          20,
+          12,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.075,
+          0.105,
+          0.16,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 950,
+      "Tag": "Navigation grid",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "NavGrid2D": {
+        "AutoBounds": false,
+        "Size": [
+          20,
+          12
+        ],
+        "CellSize": 0.4,
+        "UseTilemaps": false,
+        "UseColliders": true,
+        "AgentRadius": 0.35
+      }
+    },
+    {
+      "Entity": 900,
+      "Tag": "Quest director",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "NativeScript": {
+        "Class": "Zamin.VisualGraph",
+        "Fields": {
+          "Graph": {
+            "Type": "String",
+            "Value": "Scripts/Director2D.zgraph"
+          }
+        }
+      }
+    },
+    {
+      "Entity": 601,
+      "Tag": "Rune 601",
+      "Transform": {
+        "Translation": [
+          2,
+          0,
+          0.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.4,
+          0.4,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.55,
+          0.35,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 602,
+      "Tag": "Rune 602",
+      "Transform": {
+        "Translation": [
+          4,
+          0,
+          0.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.4,
+          0.4,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.55,
+          0.35,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 603,
+      "Tag": "Rune 603",
+      "Transform": {
+        "Translation": [
+          6,
+          0,
+          0.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.4,
+          0.4,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.55,
+          0.35,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 604,
+      "Tag": "Beacon",
+      "Transform": {
+        "Translation": [
+          8.5,
+          0,
+          0.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.8,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.1,
+          0.8,
+          0.75,
+          1
+        ]
+      },
+      "Tags": [
+        "Beacon"
+      ]
+    },
+    {
+      "Entity": 605,
+      "Tag": "Exit",
+      "Transform": {
+        "Translation": [
+          9.7,
+          0,
+          -0.02
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.25,
+          4,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.95,
+          0.65,
+          0.2,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 1200,
+      "Tag": "Quest HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UICanvas": {
+        "ScaleMode": "ScaleWithScreenSize",
+        "ReferenceResolution": [
+          1280,
+          720
+        ]
+      }
+    },
+    {
+      "Entity": 1201,
+      "Parent": 1200,
+      "Tag": "Quest HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -22
+        ],
+        "Size": [
+          1170,
+          34
+        ],
+        "FontSize": 19
+      },
+      "Text": {
+        "Text": "QUEST LAB | WASD move | E use | Ctrl attack | R claim | F5 save | F9 load",
+        "Color": [
+          0.86,
+          0.94,
+          1,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1202,
+      "Parent": 1200,
+      "Tag": "Quest HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -65
+        ],
+        "Size": [
+          1170,
+          34
+        ],
+        "FontSize": 19
+      },
+      "Text": {
+        "Text": "Survey",
+        "Color": [
+          0.86,
+          0.94,
+          1,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1203,
+      "Parent": 1200,
+      "Tag": "Quest HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -103
+        ],
+        "Size": [
+          1170,
+          34
+        ],
+        "FontSize": 19
+      },
+      "Text": {
+        "Text": "Recover three runes",
+        "Color": [
+          0.86,
+          0.94,
+          1,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1204,
+      "Parent": 1200,
+      "Tag": "Quest HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -137
+        ],
+        "Size": [
+          1170,
+          34
+        ],
+        "FontSize": 19
+      },
+      "Text": {
+        "Text": "Defeat sentry",
+        "Color": [
+          0.86,
+          0.94,
+          1,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1205,
+      "Parent": 1200,
+      "Tag": "Quest HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -171
+        ],
+        "Size": [
+          1170,
+          34
+        ],
+        "FontSize": 19
+      },
+      "Text": {
+        "Text": "Activate beacon",
+        "Color": [
+          0.86,
+          0.94,
+          1,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1206,
+      "Parent": 1200,
+      "Tag": "Quest HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -205
+        ],
+        "Size": [
+          1170,
+          34
+        ],
+        "FontSize": 19
+      },
+      "Text": {
+        "Text": "Reach exit",
+        "Color": [
+          0.86,
+          0.94,
+          1,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1207,
+      "Parent": 1200,
+      "Tag": "Quest HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -251
+        ],
+        "Size": [
+          1170,
+          34
+        ],
+        "FontSize": 19
+      },
+      "Text": {
+        "Text": "Return home",
+        "Color": [
+          0.86,
+          0.94,
+          1,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1209,
+      "Parent": 1200,
+      "Tag": "Quest HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -292
+        ],
+        "Size": [
+          1170,
+          34
+        ],
+        "FontSize": 19
+      },
+      "Text": {
+        "Text": "Level 1 | XP 0 | Coins 0 | Badge 0",
+        "Color": [
+          0.86,
+          0.94,
+          1,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1210,
+      "Parent": 1200,
+      "Tag": "Quest HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -329
+        ],
+        "Size": [
+          1170,
+          34
+        ],
+        "FontSize": 19
+      },
+      "Text": {
+        "Text": "Collect > fight > beacon > exit > claim > save > restart > return > claim",
+        "Color": [
+          0.86,
+          0.94,
+          1,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1208,
+      "Parent": 1200,
+      "Tag": "Quest progress",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -238
+        ],
+        "Size": [
+          520,
+          7
+        ]
+      },
+      "UIProgressBar": {
+        "Value": 0,
+        "Padding": 0,
+        "BackgroundColor": [
+          0.12,
+          0.16,
+          0.23,
+          1
+        ],
+        "FillColor": [
+          0.15,
+          0.8,
+          0.65,
+          1
+        ]
+      }
+    }
+  ]
+}

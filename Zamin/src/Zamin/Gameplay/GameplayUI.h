@@ -73,6 +73,7 @@ namespace Zamin::Gameplay {
         void BeginFrame();
         void Refresh();
     private:
+        friend class QuestWorld;
         struct Ref
         {
             uint64_t ID = 0;

@@ -19,6 +19,7 @@
 #include <cmath>
 #include <stdexcept>
 namespace Zamin::Gameplay {
+    std::optional<Visual::Value> DispatchQuest(Entity, Entity, const std::string&, const std::map<std::string, Visual::Value>&);
     std::optional<Visual::Value> DispatchUI(Entity, Entity, const std::string&, const std::map<std::string, Visual::Value>&);
     std::optional<Visual::Value> DispatchSave(Entity, Entity, const std::string&, const std::map<std::string, Visual::Value>&);
     std::optional<Visual::Value> DispatchAI(Entity, Entity, const std::string&, const std::map<std::string, Visual::Value>&);
@@ -237,6 +238,7 @@ namespace Zamin::Gameplay {
             if (!rules.Revive(target, grace, error)) throw std::runtime_error("Respawn health commit failed: " + error);
             return Status(true);
         }
+        if (auto result = DispatchQuest(host, target, kind, values)) return *result;
         if (auto result = DispatchUI(host, target, kind, values)) return *result;
         if (auto result = DispatchSave(host, target, kind, values)) return *result;
         if (auto result = DispatchAI(host, target, kind, values)) return *result;

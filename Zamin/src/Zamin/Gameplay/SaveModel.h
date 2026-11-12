@@ -1,5 +1,6 @@
 #pragma once
 #include "RulesModel.h"
+#include "QuestModel.h"
 #include "GameplayAI.h"
 #include "Zamin/Scripting/Visual/VisualGraph.h"
 #include <vector>
@@ -14,14 +15,16 @@ namespace Zamin::Gameplay {
         bool Dead = false;
         Bag Inventory;
         AISnapshot AI;
+        QuestBookSave QuestBook;
     };
     struct GameSave
     {
         std::string Scene, Schema;
         std::vector<SavedEntity> Entities;
+        int Version = 1;
     };
     bool ValidSaveKey(const std::string&);
-    // Strict, bounded, deterministic v1 codec. Failure never changes the caller's snapshot.
+    // Strict, bounded, deterministic v1/v2 codec. Failure never changes the caller's snapshot.
     std::string EncodeGameSave(const GameSave&);
     bool DecodeGameSave(std::string_view, GameSave&, std::string& error);
 }

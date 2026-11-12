@@ -19,6 +19,11 @@ Ishga tushirish: editor launcher'ida **Namuna o'yinlar** kartasini bosing yoki p
 ZAMIN_DEMO=1 ./build/bin/ZaminPlayer Projects/Racing   # demo: bot o'ynaydi
 ```
 
+## Compiler-free quest/progression
+
+[QuestWorkshop](../Projects/QuestWorkshop/README.md): haqiqiy collect/kill/interact/trigger, quest zanjiri,
+reward/XP, yangi jarayondan davom etish va duplicate claim rad etish. [Quest qo‘llanmasi](GameplayQuest.md).
+
 ## Compiler-free gameplay UI
 
 [UIWorkshop](../Projects/UIWorkshop/README.md): live health/coin/bag HUD, sahifalangan inventory,

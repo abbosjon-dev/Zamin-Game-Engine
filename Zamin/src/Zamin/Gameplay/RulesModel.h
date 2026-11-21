@@ -22,7 +22,8 @@ namespace Zamin::Gameplay {
         std::string Reason;
     };
     bool ConfigureHealth(HealthState&, const HealthSettings&, std::string& error);
-    bool DamageHealth(HealthState&, double amount, double now, bool bypassShield, bool bypassGrace, DamageResult&, std::string& error);
+    // startGrace=false (damage-over-time ticks) applies damage without granting the victim new hit grace.
+    bool DamageHealth(HealthState&, double amount, double now, bool bypassShield, bool bypassGrace, DamageResult&, std::string& error, bool startGrace = true);
     double HealHealth(HealthState&, double amount, bool shield);
     bool ReviveHealth(HealthState&, double now, double grace, std::string& error);
     bool ValidItem(const std::string&);

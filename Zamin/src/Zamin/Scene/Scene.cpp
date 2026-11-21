@@ -45,6 +45,7 @@
 #include "Zamin/Gameplay/GameplayUI.h"
 #include "Zamin/Gameplay/QuestWorld.h"
 #include "Zamin/Gameplay/LoadoutWorld.h"
+#include "Zamin/Gameplay/CombatWorld.h"
 
 #include <algorithm>
 #include <cctype>
@@ -629,6 +630,7 @@ namespace Zamin {
             StopScripts();
         Gameplay::ResetGameplayUI(*this);
         Gameplay::ResetQuests(*this);
+        Gameplay::ResetCombat(*this);
         Gameplay::ResetLoadouts(*this);
         Gameplay::ResetSaves(*this);
         Gameplay::ResetAI(*this);
@@ -2780,6 +2782,7 @@ namespace Zamin {
         m_RuntimeStartTiming = {};
         Gameplay::ResetGameplayUI(*this);
         Gameplay::ResetQuests(*this);
+        Gameplay::ResetCombat(*this);
         Gameplay::ResetLoadouts(*this);
         Gameplay::ResetSaves(*this);
         Gameplay::ResetAI(*this);
@@ -2864,6 +2867,7 @@ namespace Zamin {
         StopScripts();
         Gameplay::ResetGameplayUI(*this);
         Gameplay::ResetQuests(*this);
+        Gameplay::ResetCombat(*this, true); // the pooled projectile visuals are runtime entities
         Gameplay::ResetLoadouts(*this);
         Gameplay::ResetSaves(*this);
         Gameplay::ResetAI(*this);
@@ -5220,6 +5224,7 @@ namespace Zamin {
         Gameplay::BeginSaveFrame(*this);
         Gameplay::BeginQuestFrame(*this);
         Gameplay::BeginLoadoutFrame(*this);
+        Gameplay::BeginCombatFrame(*this);
         DeleteRetiredScripts(); // destroyed between frames (editor, other code)
         // The language changed (a language menu, last frame): scripts refresh the texts they make.
         DispatchLanguageChanged();
@@ -5319,6 +5324,9 @@ namespace Zamin {
             UpdateNavAgents(ts);
             UpdateSplineFollowers(ts);
             StepPhysics(ts);
+            // Projectiles step on the physics fixed step against the post-step bodies; their events are
+            // ready for OnLateUpdate.
+            Gameplay::TickCombat(*this, (double)(float)ts);
             // Eyes look where everything is after the step (OnTargetSpotted / OnTargetLost now).
             UpdateSightSensors(ts);
             // DebugDraw: the navigation overlays where everything is now (ShowNavigation).

@@ -109,6 +109,15 @@ ConfigureInteraction/Find/Interact or Attack with RuleQuery. Returned health/bag
 mutating a snapshot does not change the actor. Native Revive resets health only; the Blueprint Respawn
 node additionally restores the graph host's checkpoint. Prefer that integrated path for a player.
 
+`Damage(victim, DamageRequest)` is the full form of Damage; the six-argument overload forwards to it with
+the defaults below, so existing callers behave exactly as before. `SourceTeam` replaces the source's
+current team in the team rule (an ownerless [projectile](GameplayCombat.md) keeps its launch team),
+`StartGrace = false` applies damage without granting the victim new hit grace (damage-over-time ticks),
+`SourceAttack = false` skips the source's loadout Attack when it was already snapshotted (projectiles;
+Armor still applies), and `Cause` (an item-style key or empty) is reported as the Damage/Died event
+`Item`. `Heal(target, amount, shield, source, cause)` reports an optional source and cause in the
+Healed/ShieldHealed event. A null Source gives no kill credit.
+
 ## Validation
 
 `RulesModelTests.cpp` independently checks shield/health/death/grace and transactional bags.

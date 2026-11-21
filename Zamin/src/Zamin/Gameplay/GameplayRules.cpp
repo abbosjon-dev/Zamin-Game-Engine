@@ -105,8 +105,21 @@ namespace Zamin::Gameplay {
     }
     DamageResult RuleWorld::Damage(Entity victim, Entity source, double amount, bool friendlyFire, bool pierce, bool ignoreGrace)
     {
+        DamageRequest request;
+        request.Source = source;
+        request.Amount = amount;
+        request.FriendlyFire = friendlyFire;
+        request.PierceShield = pierce;
+        request.IgnoreGrace = ignoreGrace;
+        return Damage(victim, request);
+    }
+    DamageResult RuleWorld::Damage(Entity victim, const DamageRequest& request)
+    {
+        const double amount = request.Amount;
         if (!std::isfinite(amount) || amount < 0 || amount > 1e6) throw std::runtime_error("Damage must be finite 0..1000000");
+        if (!request.Cause.empty() && !ValidItem(request.Cause)) throw std::runtime_error("Damage cause must be a 1..64 character key");
         Check(victim);
+        const Entity source = request.Source;
         if (source) Check(source);
         DamageResult result;
         auto* actor = FindActor(victim);
@@ -120,21 +133,24 @@ namespace Zamin::Gameplay {
             result.Reason = "Inactive";
             return result;
         }
-        if (source && source != victim && !friendlyFire)
+        if (!request.FriendlyFire && !(source && source == victim))
         {
-            auto other = Health(source);
-            if (other && other->Settings.Team && other->Settings.Team == actor->Health->Settings.Team)
+            // A snapshot team (an ownerless projectile) applies the same rule as a live source's team.
+            std::optional<uint16_t> team = request.SourceTeam;
+            if (!team && source)
+                if (auto other = Health(source)) team = other->Settings.Team;
+            if (team && *team && *team == actor->Health->Settings.Team)
             {
                 result.Reason = "Same team";
                 return result;
             }
         }
         std::string error;
-        if (!DamageHealth(*actor->Health, LoadoutDamage(*m_Scene, source, victim, amount), m_Now, pierce, ignoreGrace, result, error)) throw std::runtime_error(error);
+        if (!DamageHealth(*actor->Health, LoadoutDamage(*m_Scene, source, victim, amount, request.SourceAttack), m_Now, request.PierceShield, request.IgnoreGrace, result, error, request.StartGrace)) throw std::runtime_error(error);
         if (result.Applied > 0)
         {
             const uint64_t sender = source ? uint64_t(source.GetUUID()) : 0;
-            Emit(*actor, { "Damage", {}, sender, uint64_t(victim.GetUUID()), result.Applied });
+            Emit(*actor, { "Damage", request.Cause, sender, uint64_t(victim.GetUUID()), result.Applied });
             if (result.Killed)
             {
                 if (auto* nav = victim.TryGetComponent<NavAgentComponent>()) nav->Stop(true);
@@ -146,19 +162,21 @@ namespace Zamin::Gameplay {
                     if (body->GravityScale == 0) velocity.y = 0;
                     PhysicsWorld2D::SetLinearVelocity((b2Body*)body->RuntimeBody, velocity);
                 }
-                Emit(*actor, { "Died", {}, sender, uint64_t(victim.GetUUID()), result.Health });
+                Emit(*actor, { "Died", request.Cause, sender, uint64_t(victim.GetUUID()), result.Health });
                 if (source && source != victim) NotifyQuest(*m_Scene, source, QuestKind::Kill, "", 1, victim);
             }
         }
         return result;
     }
-    double RuleWorld::Heal(Entity e, double amount, bool shield)
+    double RuleWorld::Heal(Entity e, double amount, bool shield, Entity source, const std::string& cause)
     {
         if (!std::isfinite(amount) || amount < 0 || amount > 1e6) throw std::runtime_error("Heal must be finite 0..1000000");
+        if (!cause.empty() && !ValidItem(cause)) throw std::runtime_error("Heal cause must be a 1..64 character key");
+        if (source) Check(source);
         auto* a = FindActor(e);
         if (!a || !a->Health || !m_Scene->IsActiveInHierarchy(e)) return 0;
         double applied = HealHealth(*a->Health, amount, shield);
-        if (applied > 0) Emit(*a, { shield ? "ShieldHealed" : "Healed", {}, 0, uint64_t(e.GetUUID()), applied });
+        if (applied > 0) Emit(*a, { shield ? "ShieldHealed" : "Healed", cause, source ? uint64_t(source.GetUUID()) : 0, uint64_t(e.GetUUID()), applied });
         return applied;
     }
     bool RuleWorld::CanRevive(Entity e, double grace, std::string& error) const

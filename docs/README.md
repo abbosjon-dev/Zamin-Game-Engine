@@ -39,6 +39,7 @@ Bosh sahifa — [README](../README.md).
 | [Physics.md](Physics.md) | 2D (Box2D) va 3D (Jolt) fizika: jismlar, collider'lar, joint'lar, effektorlar, Character Controller, so'rovlar, qatlamlar |
 | [GameplayQuest.md](GameplayQuest.md) | Objective/prerequisite, atomic rewards/XP, quest HUD and v1/v2 saved progression |
 | [GameplayLoadout.md](GameplayLoadout.md) | Equipment ownership, combat stats, energy/abilities, consumables and v3 saves |
+| [GameplayCombat.md](GameplayCombat.md) | Bounded 2D/3D projectiles: fixed-step flight, hit ownership/teams, pierce, world blocking, pooled visuals and Blueprint nodes |
 | [GameplayUI.md](GameplayUI.md) | Live HUD, inventory pages, modal focus/pause ownership and keyboard/gamepad workflows |
 | [GameplaySave.md](GameplaySave.md) | Stable-key health/inventory/interaction/AI saves, atomic slots, backup recovery and fresh-process prefab resume |
 | [GameplayAI.md](GameplayAI.md) | Patrol/chase/investigate/attack/return, hostile LOS, nav recovery and 2D/3D NPC prefab courses |

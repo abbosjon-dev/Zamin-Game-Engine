@@ -42,7 +42,8 @@ namespace Zamin::Gameplay {
         void Tick(double);
     private:
         friend class SaveWorld;
-        friend double LoadoutDamage(Scene&, Entity, Entity, double);
+        friend double LoadoutDamage(Scene&, Entity, Entity, double, bool);
+        friend double LoadoutAttack(Scene&, Entity);
         struct Record
         {
             uint32_t Handle = ~0u;
@@ -63,5 +64,9 @@ namespace Zamin::Gameplay {
     void ResetLoadouts(Scene&);
     void BeginLoadoutFrame(Scene&);
     void TickLoadouts(Scene&, double);
-    double LoadoutDamage(Scene&, Entity source, Entity victim, double amount);
+    // Outgoing Attack of `source` (when sourceAttack) plus the victim's Armor reduction. sourceAttack=false: the
+    // caller snapshotted Attack already (projectiles), so only Armor applies.
+    double LoadoutDamage(Scene&, Entity source, Entity victim, double amount, bool sourceAttack = true);
+    // The actor's effective outgoing Attack (0 without a loadout): the projectile damage snapshot at launch.
+    double LoadoutAttack(Scene&, Entity);
 }

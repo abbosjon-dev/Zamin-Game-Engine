@@ -24,6 +24,7 @@ namespace Zamin::Gameplay {
     std::optional<Visual::Value> DispatchUI(Entity, Entity, const std::string&, const std::map<std::string, Visual::Value>&);
     std::optional<Visual::Value> DispatchSave(Entity, Entity, const std::string&, const std::map<std::string, Visual::Value>&);
     std::optional<Visual::Value> DispatchAI(Entity, Entity, const std::string&, const std::map<std::string, Visual::Value>&);
+    std::optional<Visual::Value> DispatchCombat(Entity, Entity, const std::string&, const std::map<std::string, Visual::Value>&);
     std::optional<Visual::Value> DispatchRules(Entity, Entity, const std::string&, const std::map<std::string, Visual::Value>&);
     namespace {
         using V = Visual::Value;
@@ -244,6 +245,7 @@ namespace Zamin::Gameplay {
         if (auto result = DispatchUI(host, target, kind, values)) return *result;
         if (auto result = DispatchSave(host, target, kind, values)) return *result;
         if (auto result = DispatchAI(host, target, kind, values)) return *result;
+        if (auto result = DispatchCombat(host, target, kind, values)) return *result;
         if (auto result = DispatchRules(host, target, kind, values)) return *result;
         auto measuredVelocity = [&](Entity source) {
             auto found = m_Motors.find(uint64_t(source.GetUUID()));

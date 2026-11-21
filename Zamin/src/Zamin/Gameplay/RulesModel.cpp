@@ -20,7 +20,7 @@ namespace Zamin::Gameplay {
         state.Shield = settings.Shield;
         return true;
     }
-    bool DamageHealth(HealthState& state, double amount, double now, bool bypassShield, bool bypassGrace, DamageResult& result, std::string& error)
+    bool DamageHealth(HealthState& state, double amount, double now, bool bypassShield, bool bypassGrace, DamageResult& result, std::string& error, bool startGrace)
     {
         error.clear();
         if (!Range(amount, 0, 1e6) || !Range(now, 0, 1e15))
@@ -39,7 +39,7 @@ namespace Zamin::Gameplay {
             next.Applied = next.Shield + next.Health;
             state.Shield -= next.Shield;
             state.Current -= next.Health;
-            state.ImmuneUntil = now + state.Settings.HitGrace;
+            if (startGrace) state.ImmuneUntil = now + state.Settings.HitGrace;
             if (state.Current <= 0)
             {
                 state.Dead = next.Killed = true;

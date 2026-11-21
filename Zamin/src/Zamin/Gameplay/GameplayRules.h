@@ -1,13 +1,10 @@
 #pragma once
 #include "RulesModel.h"
+#include "Zamin/Scene/Entity.h"
 #include <glm/glm.hpp>
 #include <deque>
 #include <optional>
 #include <vector>
-namespace Zamin {
-    class Scene;
-    class Entity;
-}
 namespace Zamin::Gameplay {
     struct RuleEvent
     {
@@ -43,6 +40,17 @@ namespace Zamin::Gameplay {
         uint64_t Target = 0;
         std::string Reason;
     };
+    // One damage application through the shared rules (team rule, Attack/Armor, shield, grace, death, kill credit).
+    struct DamageRequest
+    {
+        Entity Source;                      // may be null: environment or an ownerless projectile
+        double Amount = 0;                  // 0..1000000
+        std::optional<uint16_t> SourceTeam; // team for the team rule instead of Health(Source).Team (owner gone)
+        bool FriendlyFire = false, PierceShield = false, IgnoreGrace = false;
+        bool StartGrace = true;             // false: damage-over-time ticks grant no new hit grace
+        bool SourceAttack = true;           // false: the source's Attack was snapshotted already (projectiles)
+        std::string Cause;                  // projectile/area/effect key, "" or a ValidItem; RuleEvent.Item
+    };
     // Scene-owned runtime rules. Graph configs serialize normally; mutable combat/bag state does not.
     // No callbacks are delivered inside transactions. One consumer graph may drain each actor's event FIFO.
     class RuleWorld
@@ -58,7 +66,9 @@ namespace Zamin::Gameplay {
         std::optional<HealthState> Health(Entity) const;
         bool Dead(Entity) const;
         DamageResult Damage(Entity victim, Entity source, double amount, bool friendlyFire, bool pierce, bool ignoreGrace);
-        double Heal(Entity, double amount, bool shield);
+        DamageResult Damage(Entity victim, const DamageRequest&);
+        // Source/cause are reported in the Healed/ShieldHealed event (Source, Item).
+        double Heal(Entity, double amount, bool shield, Entity source = {}, const std::string& cause = {});
         bool CanRevive(Entity, double grace, std::string& error) const;
         bool Revive(Entity, double grace, std::string& error);
         bool ConfigureBag(Entity, int slots, int stack, bool reset, std::string& error);
@@ -80,6 +90,7 @@ namespace Zamin::Gameplay {
         friend class SaveWorld;
         friend class QuestWorld;
         friend class LoadoutWorld;
+        friend class CombatWorld;
         struct Actor
         {
             uint32_t Handle = ~0u, Dropped = 0;

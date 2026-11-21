@@ -273,18 +273,20 @@ namespace Zamin::Gameplay {
             if (h && !h->Dead) TickLoadoutState(r.Base, r.Items, r.State, delta);
         }
     }
-    double LoadoutDamage(Scene& s, Entity source, Entity victim, double amount)
+    double LoadoutDamage(Scene& s, Entity source, Entity victim, double amount, bool sourceAttack)
     {
         if (amount <= 0) return amount;
         auto* w = s.GetRegistry().ctx().find<LoadoutWorld>();
         if (!w) return amount;
-        if (source && source != victim)
-        {
-            auto* stats = w->Find(source);
-            if (stats) amount += EffectiveStats(stats->Base, stats->Items, stats->State)[0];
-        }
+        if (sourceAttack && source && source != victim) amount += LoadoutAttack(s, source);
         auto* armor = w->Find(victim);
         if (armor) amount *= 100. / (100. + EffectiveStats(armor->Base, armor->Items, armor->State)[1]);
         return std::clamp(amount, 0., 1e6);
+    }
+    double LoadoutAttack(Scene& s, Entity source)
+    {
+        auto* w = s.GetRegistry().ctx().find<LoadoutWorld>();
+        auto* stats = w && source ? w->Find(source) : nullptr;
+        return stats ? EffectiveStats(stats->Base, stats->Items, stats->State)[0] : 0;
     }
 }

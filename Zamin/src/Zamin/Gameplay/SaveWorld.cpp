@@ -3,6 +3,7 @@
 #include "SaveWorld.h"
 #include "QuestWorld.h"
 #include "LoadoutWorld.h"
+#include "CombatWorld.h"
 #include "Zamin/Core/SaveData.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Scene/SceneManager.h"
@@ -458,6 +459,13 @@ namespace Zamin::Gameplay {
             ai.m_Records.swap(brains);
             questWorld.m_Actors.swap(quests);
             loadoutWorld.m_Records.swap(loadouts);
+            // Projectiles in flight are not part of the snapshot: they are released so no shot fired before the
+            // load can hit the restored state.
+            if (auto* combat = m_Scene->GetRegistry().ctx().find<CombatWorld>())
+            {
+                if (const size_t flying = combat->LiveCount()) ZM_CORE_INFO("Saqlangan holat yuklandi: {} ta uchayotgan snaryad bekor qilindi", flying);
+                combat->Clear();
+            }
             for (auto& [e, s] : apply) StopAndSync(*m_Scene, e);
             for (auto handle : m_Scene->GetRegistry().view<NativeScriptComponent>())
                 if (auto* g = dynamic_cast<VisualGraphHost*>(m_Scene->GetRegistry().get<NativeScriptComponent>(handle).Instance)) g->InvalidateGameplayState();

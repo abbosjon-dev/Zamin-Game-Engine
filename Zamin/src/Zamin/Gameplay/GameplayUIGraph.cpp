@@ -59,7 +59,7 @@ namespace Zamin::Gameplay {
         else if (kind == "Gameplay.UIBindHUD")
         {
             auto k = a.at("Kind").get<double>();
-            if (!std::isfinite(k) || k < 0 || k > 4 || std::floor(k) != k) throw std::runtime_error("Invalid HUD kind 0..4");
+            if (!std::isfinite(k) || k < 0 || k > 6 || std::floor(k) != k) throw std::runtime_error("Invalid HUD kind 0..6");
             auto actor = ref(a.at("Actor"));
             HUDBindingSpec spec{ HUDKind(int(k)), text("Item"), text("Prefix"), flag("Ratio") };
             ok = world.BindHUD(host, actor, target, spec, error);
@@ -85,6 +85,17 @@ namespace Zamin::Gameplay {
             ok = world.Page(text("Name"), int(d));
         }
         else if (kind == "Gameplay.UIInventoryRemove") ok = world.RemoveInventory(text("Name"));
+        else if (kind == "Gameplay.UICombatFeed")
+        {
+            auto& array = a.at("Rows");
+            if (!array.is_array() || array.empty() || array.size() > UIWorld::MaxFeedRows) throw std::runtime_error("Combat feed row limit 1..6");
+            auto lifetime = a.at("Lifetime").get<double>();
+            if (!std::isfinite(lifetime) || lifetime < .1 || lifetime > 10) throw std::runtime_error("Combat feed lifetime 0.1..10 s");
+            std::vector<Entity> rows;
+            for (auto& v : array) rows.push_back(ref(v));
+            ok = world.BindCombatFeed(host, ref(a.at("Actor")), text("Name"), rows, { flag("Outgoing"), flag("Incoming"), lifetime }, error);
+        }
+        else if (kind == "Gameplay.UICombatFeedRemove") ok = world.RemoveCombatFeed(text("Name"));
         else throw std::runtime_error("Unknown gameplay UI operation");
         if (!ok && error.empty()) error = "UI operation unavailable or busy";
         return V{ { "Success", ok }, { "Reason", error } };

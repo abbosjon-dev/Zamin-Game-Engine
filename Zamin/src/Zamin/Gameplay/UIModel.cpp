@@ -66,4 +66,14 @@ namespace Zamin::Gameplay {
         if (ratio) text << " / " << maximum;
         return { text.str(), maximum > 0 ? float(std::clamp(value / maximum, 0.0, 1.0)) : 0 };
     }
+    std::string PresentCombatRow(bool damage, double amount, const std::string& key)
+    {
+        if (!std::isfinite(amount) || amount < 0 || amount > 1e6 || key.size() > 64) throw std::runtime_error("Invalid combat feed row");
+        return (damage ? "-" : "+") + std::to_string(std::llround(amount)) + "  " + key;
+    }
+    float CombatRowAlpha(double age, double lifetime)
+    {
+        if (!std::isfinite(age) || !std::isfinite(lifetime) || lifetime <= 0) throw std::runtime_error("Invalid combat feed age/lifetime");
+        return float(std::clamp(1 - age / lifetime, 0.0, 1.0));
+    }
 }

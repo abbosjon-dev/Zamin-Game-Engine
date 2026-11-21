@@ -177,7 +177,7 @@ namespace Zamin::Gameplay {
         auto i = r->Abilities.find(key);
         return i == r->Abilities.end() ? std::optional<AbilitySpec>{} : i->second;
     }
-    AbilityResult LoadoutWorld::Cast(Entity actor, Entity victim, const std::string& key, const RuleQuery& query)
+    AbilityResult LoadoutWorld::Cast(Entity actor, Entity victim, const std::string& key, const RuleQuery& query, const CastAim& aim)
     {
         AbilityResult out;
         auto* r = Usable(actor, out.Reason, true);
@@ -196,6 +196,9 @@ namespace Zamin::Gameplay {
                                                                           : "Insufficient energy";
             return out;
         }
+        const auto finite = [](glm::vec3 v) { return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z); };
+        if (!finite(aim.Direction) || !finite(aim.Origin) || glm::length(glm::dvec3(aim.Origin)) > 100 || glm::length(glm::dvec3(aim.Direction)) > 1e6)
+            throw std::runtime_error("Ability aim must be finite (origin within 100)");
         auto& rules = RuleWorld::For(*m_Scene);
         auto* a = rules.FindActor(actor);
         auto bag = a->Inventory;
@@ -203,38 +206,123 @@ namespace Zamin::Gameplay {
         if (!spec.Ingredient.empty() && !bag.Exchange(spec.Ingredient, spec.Count, true, "", 0, out.Reason)) return out;
         auto stats = EffectiveStats(r->Base, r->Items, r->State, CombatStatBonus(*m_Scene, actor));
         double amount = std::min(1e6, spec.Amount + stats[2]);
-        if (spec.Kind == AbilityKind::Damage)
+        auto fail = [&](std::string reason) {
+            out.Reason = std::move(reason);
+            out.Applied = 0;
+            return out;
+        };
+        auto q = query;
+        q.Range = spec.Range;
+        // A hostile victim: shared perception validates 2D/3D range, layers, LoS and team without spending an
+        // attack cooldown.
+        auto hostile = [&](Entity target) {
+            return target && target.GetScene() == m_Scene && target != actor && rules.Sense(actor, q, "", target).Success;
+        };
+        // A supported ally (support projectiles): a living, active teammate in range and sight, never the caster.
+        auto ally = [&](Entity target) {
+            if (!target || target.GetScene() != m_Scene || target == actor || !m_Scene->IsActiveInHierarchy(target)) return false;
+            const auto own = rules.Health(actor), other = rules.Health(target);
+            if (!own || !other || other->Dead || !Admits(PayloadKind::Heal, false, actor.GetUUID(), own->Settings.Team, target.GetUUID(), other->Settings.Team, false)) return false;
+            rules.Budget();
+            double distance = 0;
+            return rules.Visible(actor, target, q, m_Scene->GetWorldPosition(target) + q.Origin, distance);
+        };
+        CombatWorld* combat = nullptr;
+        std::optional<EffectSpec> effect;
+        bool reached = false; // a fired projectile, an area that reached a target or an applied effect commits
+        if (!spec.Projectile.empty() || !spec.Area.empty() || !spec.Effect.empty())
         {
-            if (!victim || victim.GetScene() != m_Scene || victim == actor)
+            combat = &CombatWorld::For(*m_Scene);
+            if (!spec.Effect.empty())
             {
-                out.Reason = "Ability needs a live enemy target";
-                return out;
+                effect = combat->EffectDefinition(spec.Effect);
+                if (!effect) return fail("Ability effect not defined");
+                if (spec.Kind != AbilityKind::Effect && effect->Hostile != (spec.Kind == AbilityKind::Damage)) return fail("Ability effect kind mismatch");
             }
-            auto q = query;
-            q.Range = spec.Range;
-            // Shared perception validates 2D/3D range, layers, LoS and team without spending an attack cooldown.
-            if (!rules.Sense(actor, q, "", victim).Success)
+        }
+        if (!spec.Projectile.empty())
+        {
+            const auto definition = combat->ProjectileDefinition(spec.Projectile);
+            if (!definition) return fail("Projectile not defined");
+            if (int(definition->Kind) != int(spec.Kind)) return fail("Ability/projectile kind mismatch");
+            if (victim)
             {
-                out.Reason = "Ability target invalid or blocked/out of range";
-                return out;
+                const bool valid = spec.Kind == AbilityKind::Damage ? hostile(victim) : ally(victim);
+                if (!valid) return fail("Ability target invalid or blocked/out of range");
             }
+            else if (glm::length(glm::dvec3(aim.Direction)) < 1e-9) return fail("Ability needs a target or direction");
+            FireRequest request;
+            request.Key = spec.Projectile;
+            request.Owner = actor;
+            request.Origin = aim.Origin;
+            request.Direction = aim.Direction;
+            request.Target = victim;
+            request.Damage = amount; // Fire adds the caster's Attack to a damage projectile
+            request.Effect = spec.Effect;
+            const auto fired = combat->Fire(request);
+            if (!fired.Success) return fail(fired.Reason);
+            out.Projectile = fired.Handle;
+            out.Applied = combat->Projectile(fired.Handle)->Damage;
+            out.Target = victim ? uint64_t(victim.GetUUID()) : 0;
+            reached = true;
+        }
+        else if (!spec.Area.empty())
+        {
+            const auto definition = combat->AreaDefinition(spec.Area);
+            if (!definition) return fail("Area not defined");
+            if (int(definition->Kind) != int(spec.Kind)) return fail("Ability/area kind mismatch");
+            Entity centre = actor;
+            if (spec.Kind == AbilityKind::Damage && victim)
+            {
+                if (!hostile(victim)) return fail("Ability target invalid or blocked/out of range");
+                centre = victim;
+            }
+            else if (spec.Kind != AbilityKind::Damage && victim && victim != actor) return fail("Support ability must target self");
+            const auto point = glm::dvec3(m_Scene->GetWorldPosition(centre)) + definition->TargetOffset;
+            const auto area = combat->ApplyArea(spec.Area, actor, glm::vec3(point), amount, spec.Effect);
+            if (!area.Success) return fail(area.Reason);
+            if (area.Affected == 0) return fail("Ability had no effect");
+            // An area that reached a target commits, as a projectile hit does (absorbed or full health included).
+            out.Applied = area.Applied;
+            out.Target = centre.GetUUID();
+            reached = true;
+        }
+        else if (spec.Kind == AbilityKind::Effect)
+        {
+            // A hostile status needs a victim in range and sight; a beneficial one is self-cast.
+            Entity target = actor;
+            if (effect->Hostile)
+            {
+                if (!hostile(victim)) return fail("Ability target invalid or blocked/out of range");
+                target = victim;
+            }
+            else if (victim && victim != actor) return fail("Support ability must target self");
+            const auto applied = combat->ApplyEffect(target, spec.Effect, actor);
+            if (applied.Outcome == ApplyOutcome::Rejected) return fail(applied.Reason);
+            out.Applied = 1;
+            out.Target = target.GetUUID();
+            reached = true;
+        }
+        else if (spec.Kind == AbilityKind::Damage)
+        {
+            if (!victim || victim.GetScene() != m_Scene || victim == actor) return fail("Ability needs a live enemy target");
+            if (!hostile(victim)) return fail("Ability target invalid or blocked/out of range");
             auto hit = rules.Damage(victim, actor, amount, false, false, false);
             out.Applied = hit.Applied;
             out.Reason = hit.Reason;
             out.Target = victim.GetUUID();
+            // The linked status follows a hit that did damage and left the victim alive.
+            if (effect && hit.Applied > 0 && !rules.Dead(victim)) combat->ApplyEffect(victim, spec.Effect, actor);
         }
         else
         {
             // Support abilities are self-cast; an explicit foreign target is rejected.
-            if (victim && victim != actor)
-            {
-                out.Reason = "Support ability must target self";
-                return out;
-            }
+            if (victim && victim != actor) return fail("Support ability must target self");
             out.Applied = rules.Heal(actor, amount, spec.Kind == AbilityKind::Shield);
             out.Target = actor.GetUUID();
+            if (effect && out.Applied > 0) combat->ApplyEffect(actor, spec.Effect, actor);
         }
-        if (out.Applied <= 0)
+        if (!reached && out.Applied <= 0)
         {
             if (out.Reason.empty()) out.Reason = "Ability had no effect";
             return out;

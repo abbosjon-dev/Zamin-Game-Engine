@@ -14,6 +14,7 @@ namespace Zamin::Gameplay {
         auto text = [&](const char* k) { return a.at(k).get<std::string>(); };
         auto number = [&](const char* k) {auto& v=a.at(k);if(!v.is_number())throw std::runtime_error("Loadout number expected");double n=v.get<double>();if(!std::isfinite(n))throw std::runtime_error("Loadout requires finite number");return n; };
         auto integer = [&](const char* k, int max) {double n=number(k);if(n<0||n>max||std::floor(n)!=n)throw std::runtime_error("Loadout integer outside bounds");return int(n); };
+        auto vector = [&](const char* k) {auto& v=a.at(k);if(!v.is_array()||v.size()!=3)throw std::runtime_error("Loadout vector requires three values");glm::vec3 out{};for(int i=0;i<3;++i){if(!v[size_t(i)].is_number()||!std::isfinite(v[size_t(i)].get<double>())||std::abs(v[size_t(i)].get<double>())>1e6)throw std::runtime_error("Loadout vector out of range");out[i]=float(v[size_t(i)].get<double>());}return out; };
         auto stats = [&](const char* k) {auto& v=a.at(k);if(!v.is_array()||v.size()!=5)throw std::runtime_error("Stats require five values");CombatStats out{};for(size_t i=0;i<5;++i){if(!v[i].is_number())throw std::runtime_error("Stats number expected");out[i]=v[i].get<double>();}return out; };
         if (kind == "Gameplay.LoadoutConfigure") ok = w.Configure(actor, stats("Stats"), error);
         else if (kind == "Gameplay.ItemDefine") ok = w.DefineItem(actor, { text("Item"), EquipSlot(integer("Slot", 3)), stats("Modifiers") }, error);
@@ -36,7 +37,7 @@ namespace Zamin::Gameplay {
         {
             AbilitySpec s;
             s.Key = text("Ability");
-            s.Kind = AbilityKind(integer("Kind", 2));
+            s.Kind = AbilityKind(integer("Kind", 3));
             s.Amount = number("Amount");
             s.Cost = number("Cost");
             s.Cooldown = number("Cooldown");
@@ -44,6 +45,9 @@ namespace Zamin::Gameplay {
             s.Ingredient = text("Ingredient");
             s.Count = integer("Count", 999999);
             s.Unlocked = a.at("Unlocked").get<bool>();
+            s.Projectile = text("Projectile");
+            s.Area = text("Area");
+            s.Effect = text("Effect");
             ok = w.DefineAbility(actor, s, error);
         }
         else if (kind == "Gameplay.AbilityUnlock") ok = w.Unlock(actor, text("Ability"), a.at("Unlocked").get<bool>(), error);
@@ -52,14 +56,17 @@ namespace Zamin::Gameplay {
             auto id = a.at("Victim").get<uint64_t>();
             auto victim = id == UINT64_MAX ? host : id ? host.GetScene()->GetEntityByUUID(UUID(id))
                                                        : Entity{};
-            if (id && !victim) return V{ { "Success", false }, { "Applied", 0 }, { "Victim", 0 }, { "Reason", "Ability target unavailable" } };
+            if (id && !victim) return V{ { "Success", false }, { "Applied", 0 }, { "Victim", 0 }, { "Projectile", 0 }, { "Reason", "Ability target unavailable" } };
             RuleQuery q;
             q.TwoD = a.at("TwoD").get<bool>();
             q.LineOfSight = a.at("LineOfSight").get<bool>();
             q.Mask = uint16_t(integer("Mask", 65535));
             q.Origin = { 0, 0, 0 };
-            auto result = w.Cast(actor, victim, text("Ability"), q);
-            return V{ { "Success", result.Success }, { "Applied", result.Applied }, { "Victim", result.Target }, { "Reason", result.Reason } };
+            CastAim aim;
+            aim.Direction = vector("Direction");
+            aim.Origin = vector("Origin");
+            auto result = w.Cast(actor, victim, text("Ability"), q, aim);
+            return V{ { "Success", result.Success }, { "Applied", result.Applied }, { "Victim", result.Target }, { "Projectile", result.Projectile }, { "Reason", result.Reason } };
         }
         else if (kind == "Gameplay.AbilityState")
         {

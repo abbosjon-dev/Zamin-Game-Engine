@@ -18,7 +18,8 @@ namespace Zamin::Gameplay {
     {
         Damage,
         Heal,
-        Shield
+        Shield,
+        Effect // applies only its status effect (hostile: to the victim; beneficial: to the caster)
     };
     struct ItemSpec
     {
@@ -33,6 +34,10 @@ namespace Zamin::Gameplay {
         double Amount = 20, Cost = 10, Cooldown = 1, Range = 5;
         int Count = 1;
         bool Unlocked = true;
+        // Optional links to the scene's combat definitions (resolved at Cast, so definition order is free):
+        // Projectile fires one (its kind must match), Area applies an instant area (exclusive with Projectile),
+        // Effect is the status the ability applies (Effect kind: required; others: on the target or caster).
+        std::string Projectile, Area, Effect;
     };
     struct AbilityProgress
     {

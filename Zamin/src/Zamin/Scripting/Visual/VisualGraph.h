@@ -68,6 +68,10 @@ namespace Zamin::Visual {
         std::string Message;
     };
     const std::map<std::string, Definition>& Catalog();
+    // Named values of an enumerated Number input (the dispatch validates it as an integer 0..N-1): the editor shows
+    // a combo of these labels (Uzbek source texts, translated with the editor's Tr) and stores the index. The pin
+    // and the file format stay plain numbers. Null for any other pin.
+    const std::vector<const char*>* PinChoices(const std::string& kind, const std::string& pin);
     const char* TypeName(Type type);
     bool IsArray(Type type);
     Type ElementType(Type type);

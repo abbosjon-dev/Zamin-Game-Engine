@@ -1,8 +1,10 @@
 #pragma once
 #include "EffectModel.h"
 #include "GameplayRules.h"
+#include "SaveModel.h"
 #include <array>
 #include <filesystem>
+#include <functional>
 #include <map>
 #include <optional>
 #include <span>
@@ -16,6 +18,7 @@ namespace Zamin::Gameplay {
         glm::vec3 Direction{};         // nonzero: used normalized; zero: aim at Target
         Entity Target;                 // optional: straight aim when Direction is zero, homing target
         double Damage = -1;            // < 0: the definition's Damage
+        std::string Effect;            // "" = the definition's Effect; otherwise a defined effect matching the kind
     };
     struct FireResult
     {
@@ -89,7 +92,8 @@ namespace Zamin::Gameplay {
         bool Cancel(uint32_t handle, bool detonate);
         // Instant area at `center` (world). `source` (optional) gives team, kill credit and its Attack (Damage
         // areas); without a source the area affects every actor in range. magnitude < 0: the definition's Amount.
-        AreaResult ApplyArea(const std::string& key, Entity source, glm::vec3 center, double magnitude = -1);
+        // `effect` ("" = the definition's Effect) overrides the status applied to every affected target.
+        AreaResult ApplyArea(const std::string& key, Entity source, glm::vec3 center, double magnitude = -1, const std::string& effect = {});
         // Applies a status effect to a living, active health actor. `source` (optional) gives team, kill credit
         // and the team rule (hostile: not on allies; beneficial: allies and self only). magnitude < 0: TickAmount.
         ApplyResult ApplyEffect(Entity target, const std::string& key, Entity source = {}, double magnitude = -1);
@@ -154,6 +158,32 @@ namespace Zamin::Gameplay {
             EffectModifiers Modifiers; // recomposed on every change
         };
         friend void OnCombatDeath(Scene&, Entity);
+        // ---- save v4 support (SaveWorld): capture, then a staged, all-or-nothing restore
+        // A save reference resolved by SaveWorld: the entity (if live) and the UUID it names (0 = none).
+        struct Resolved
+        {
+            Entity Live;
+            uint64_t ID = 0;
+        };
+        using Referencer = std::function<std::string(uint64_t)>;
+        using Resolver = std::function<Resolved(const std::string&)>;
+        struct RestorePlan
+        {
+            std::map<uint64_t, Book> Books;
+            ProjectilePool Pool;
+            std::array<Slot, ProjectilePool::Capacity> Slots;
+        };
+        // True when the scene uses combat (a definition, an effect or a projectile): such scenes write save v4.
+        bool Persists() const { return DefinitionCount() > 0 || m_EffectCount > 0 || m_Pool.Count() > 0; }
+        std::vector<SavedEffect> SaveEffects(Entity, const Referencer&) const;
+        SavedCombat SaveCombat(const Referencer&) const;
+        // Starts from the current books minus every listed (bound) entity's book and an empty projectile pool.
+        void BeginRestore(RestorePlan&, const std::vector<uint64_t>& bound) const;
+        // Validates and stages one present entity's saved effects; returns their stat bonus (loadout validation).
+        CombatStats StageEffects(RestorePlan&, Entity, const std::vector<SavedEffect>&, const Resolver&) const;
+        void StageProjectiles(RestorePlan&, const SavedCombat&, const Resolver&); // world state is unchanged
+        // Swaps the staged state in: visuals hidden (reacquired lazily), events, hit records and accumulator cleared.
+        void CommitRestore(RestorePlan&);
         void Check(Entity) const;
         Entity Resolve(uint64_t id, uint32_t& handle) const;
         void Emit(Entity actor, const char* kind, const std::string& key, uint64_t source, uint64_t subject, double amount, const glm::dvec3& position);
@@ -163,7 +193,8 @@ namespace Zamin::Gameplay {
         std::string PayloadError(const ProjectileSpec&) const;
         std::string AreaError(const AreaSpec&) const;
         ApplyResult Apply(Entity target, const EffectSpec&, Entity source, uint16_t team, bool friendlyFire, double magnitude);
-        AreaResult Area(const AreaSpec&, Entity source, uint64_t sourceID, uint16_t team, glm::dvec3 center, double magnitude);
+        AreaResult Area(const AreaSpec&, Entity source, uint64_t sourceID, uint16_t team, glm::dvec3 center, double magnitude, const EffectSpec* effect);
+        std::string EffectError(PayloadKind, const std::string& key, const char* missing, const char* mismatch) const;
         bool Visible(const AreaSpec&, const glm::dvec3& from, const glm::dvec3& to);
         void Detonate(Slot&, Entity owner);
         void ClearEffects(Entity);

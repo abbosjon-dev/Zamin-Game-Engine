@@ -10,9 +10,16 @@ namespace Zamin::Gameplay {
     struct AbilityResult
     {
         bool Success = false;
-        double Applied = 0;
+        double Applied = 0;      // instant/area: the amount applied; projectile: its damage snapshot; effect: 1
         uint64_t Target = 0;
+        uint32_t Projectile = 0; // projectile casts: the fired projectile's handle
         std::string Reason;
+    };
+    // Aim of a projectile cast: a nonzero Direction is used as is, otherwise the projectile aims at the victim.
+    // Origin is the world-space launch offset from the caster's aim point (FireRequest::Origin).
+    struct CastAim
+    {
+        glm::vec3 Direction{}, Origin{};
     };
     struct LoadoutEvent
     {
@@ -35,7 +42,10 @@ namespace Zamin::Gameplay {
         double Refill(Entity, double);
         std::optional<LoadoutSnapshot> State(Entity) const;
         std::optional<AbilitySpec> Ability(Entity, const std::string&) const;
-        AbilityResult Cast(Entity, Entity, const std::string&, const RuleQuery&);
+        // Linked abilities (Projectile/Area/Effect) resolve the scene's combat definitions here. Resources are
+        // committed only when the cast takes effect: a fired projectile (even if it misses later), an area that
+        // reached a target, an applied effect, or an instant amount above zero.
+        AbilityResult Cast(Entity, Entity, const std::string&, const RuleQuery&, const CastAim& aim = {});
         std::optional<LoadoutEvent> Poll(Entity);
         uint32_t Dropped(Entity) const;
         void BeginFrame();

@@ -384,22 +384,28 @@ TEST(CombatWorldVisualPrefabPoolingValidationAndBudget)
     f.World.OnRuntimeStart();
     Project::SetActive(previous);
 }
-TEST(CombatWorldSaveRestoreReleasesProjectilesInFlight)
+TEST(CombatWorldSaveRestoreReplacesProjectilesInFlight)
 {
     CFixture f;
     std::string error;
     auto& saves = Gameplay::SaveWorld::For(f.World);
     CHECK(saves.Bind(f.Hero, "Player", error) && saves.Bind(f.Enemy, "Enemy", error));
     f.Define(CFixture::Bolt());
-    auto save = saves.Capture("V1");
-    CHECK(save.Version == 1); // projectiles are not persisted yet: the save format is unchanged
-    f.Fire("Bolt");
+    auto empty = saves.Capture("V1");
+    CHECK(empty.Version == 4 && empty.Combat && empty.Combat->Projectiles.empty()); // a combat scene writes v4
+    const auto shot = f.Fire("Bolt");
     f.Run(10);
     CHECK(f.Combat().LiveCount() == 1);
-    CHECK(saves.Restore(save, "V1").Success);
+    auto flying = saves.Capture("V1");
+    CHECK(flying.Combat->Projectiles.size() == 1 && flying.Combat->Projectiles[0].Owner == "Player");
+    CHECK(saves.Restore(empty, "V1").Success); // the snapshot had nothing in flight: the shot is released
     CHECK(f.Combat().LiveCount() == 0);
     f.Run(40);
     CHECK(f.HP(f.Enemy) == 100);
+    CHECK(saves.Restore(flying, "V1").Success); // back in flight, in its slot with its handle
+    CHECK(f.Combat().LiveCount() == 1 && f.Combat().Projectile(shot.Handle));
+    f.Run(40);
+    CHECK(f.HP(f.Enemy) == 80 && f.Combat().LiveCount() == 0);
     CHECK(f.Combat().DefinitionCount() == 1 && f.Fire("Bolt").Success);
 }
 TEST(CombatWorldBlueprintCatalogDispatchAndTypedValidation)

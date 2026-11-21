@@ -207,7 +207,14 @@ namespace Zamin::Gameplay {
         {
             V items = V::object(), abilities = V::object();
             for (auto& [key, i] : r->Items) items[key] = { int(i.Slot), i.Modifiers };
-            for (auto& [key, a] : r->Abilities) abilities[key] = { int(a.Kind), a.Amount, a.Cost, a.Cooldown, a.Range, a.Ingredient, a.Count, a.Unlocked };
+            for (auto& [key, a] : r->Abilities)
+            {
+                abilities[key] = { int(a.Kind), a.Amount, a.Cost, a.Cooldown, a.Range, a.Ingredient, a.Count, a.Unlocked };
+                // Combat links extend the array only when present: unlinked abilities keep byte-identical v3
+                // signatures, so every save written before the links existed still loads.
+                if (!a.Projectile.empty() || !a.Area.empty() || !a.Effect.empty())
+                    for (const auto* link : { &a.Projectile, &a.Area, &a.Effect }) abilities[key].push_back(*link);
+            }
             value["Loadout"] = { r->Base, items, abilities };
         }
         return value.dump();
@@ -218,6 +225,10 @@ namespace Zamin::Gameplay {
         GameSave save{ m_Scene->GetName(), schema, {} };
         auto& rules = RuleWorld::For(*m_Scene);
         auto& ai = AIWorld::For(*m_Scene);
+        // A scene that uses combat (definitions, effects or projectiles) writes v4; others keep v1/v2/v3.
+        const auto* combat = m_Scene->GetRegistry().ctx().find<CombatWorld>();
+        if (combat && !combat->Persists()) combat = nullptr;
+        const auto reference = [this](uint64_t id) { return Reference(id); };
         for (auto& [key, binding] : m_Bindings)
         {
             SavedEntity out;
@@ -239,10 +250,8 @@ namespace Zamin::Gameplay {
                 }
                 if (auto* r = LoadoutWorld::For(*m_Scene).Find(e))
                 {
+                    // Energy is saved as is: a MaxEnergy effect bonus is part of a v4 snapshot (its effects).
                     out.Loadout = r->State;
-                    // Status effects are not saved (a restore has none): energy above the capacity without
-                    // effect bonuses (a MaxEnergy buff) is saved at that capacity, so the snapshot stays valid.
-                    out.Loadout->Energy = std::min(out.Loadout->Energy, EffectiveStats(r->Base, r->Items, r->State)[3]);
                     save.Version = 3;
                 }
                 if (auto* a = rules.FindActor(e))
@@ -260,6 +269,7 @@ namespace Zamin::Gameplay {
                         out.Respawn = h.Dead ? std::max(0.0, h.Settings.RespawnDelay - (rules.m_Now - h.DiedAt)) : 0;
                         out.Deaths = h.Deaths;
                         out.Dead = h.Dead;
+                        if (combat) out.Effects = combat->SaveEffects(e, reference);
                     }
                 }
                 auto i = rules.m_Interactions.find(binding.ID);
@@ -281,6 +291,11 @@ namespace Zamin::Gameplay {
                 }
             }
             save.Entities.push_back(std::move(out));
+        }
+        if (combat)
+        {
+            save.Version = 4;
+            save.Combat = combat->SaveCombat(reference);
         }
         EncodeGameSave(save);
         return save;
@@ -306,6 +321,31 @@ namespace Zamin::Gameplay {
             auto quests = questWorld.m_Actors;
             auto& loadoutWorld = LoadoutWorld::For(*m_Scene);
             auto loadouts = loadoutWorld.m_Records;
+            // Combat: v4 restores effects and projectiles in flight; older saves migrate to "none of either".
+            auto* combat = save.Version >= 4 ? &CombatWorld::For(*m_Scene) : m_Scene->GetRegistry().ctx().find<CombatWorld>();
+            CombatWorld::RestorePlan staged;
+            if (combat)
+            {
+                if (save.Version >= 4) Require(save.Combat && save.Combat->Signature == combat->Signature(), "Combat definitions changed");
+                std::vector<uint64_t> bound;
+                for (auto& s : save.Entities)
+                    if (auto e = Find(s.Key)) bound.push_back(e.GetUUID());
+                combat->BeginRestore(staged, bound);
+            }
+            const CombatWorld::Resolver resolve = [this](const std::string& reference) {
+                CombatWorld::Resolved r;
+                if (reference.starts_with("uuid:"))
+                {
+                    r.ID = std::stoull(reference.substr(5));
+                    r.Live = m_Scene->GetEntityByUUID(UUID(r.ID));
+                }
+                else if (!reference.empty())
+                {
+                    r.Live = Find(reference);
+                    r.ID = r.Live ? uint64_t(r.Live.GetUUID()) : 0;
+                }
+                return r;
+            };
             std::vector<std::pair<Entity, const SavedEntity*>> apply;
             std::set<std::string> present;
             for (auto& s : save.Entities)
@@ -334,6 +374,9 @@ namespace Zamin::Gameplay {
                     signature = legacy.dump();
                 }
                 Require(signature == s.Signature, "Gameplay configuration changed");
+                // Effects are staged first: their stat bonus (a MaxEnergy buff) bounds the saved loadout energy.
+                Require(s.Effects.empty() || (s.HasHealth && combat), "Saved effects without a combat health actor");
+                const CombatStats bonus = combat ? combat->StageEffects(staged, e, s.Effects, resolve) : CombatStats{};
                 auto* loadout = loadoutWorld.Find(e);
                 Require(save.Version < 3 || bool(loadout) == bool(s.Loadout), "Loadout layout changed");
                 if (loadout)
@@ -347,7 +390,7 @@ namespace Zamin::Gameplay {
                     }
                     else
                     {
-                        Require(ValidateLoadout(next.Base, next.Items, next.Abilities, *s.Loadout, error), "Invalid saved loadout");
+                        Require(ValidateLoadout(next.Base, next.Items, next.Abilities, *s.Loadout, error, bonus), "Invalid saved loadout");
                         next.State = *s.Loadout;
                     }
                     next.Events.clear();
@@ -447,6 +490,7 @@ namespace Zamin::Gameplay {
                 }
                 apply.emplace_back(e, &s);
             }
+            if (combat && save.Combat) combat->StageProjectiles(staged, *save.Combat, resolve);
             // All parsing, compatibility checks and allocations precede the commit. Callbacks run last.
             for (auto& [e, s] : apply)
                 if (s->Present)
@@ -462,13 +506,15 @@ namespace Zamin::Gameplay {
             ai.m_Records.swap(brains);
             questWorld.m_Actors.swap(quests);
             loadoutWorld.m_Records.swap(loadouts);
-            // Projectiles in flight and status effects are not part of the snapshot: they are released/removed so
-            // no shot fired or effect applied before the load can act on the restored state.
-            if (auto* combat = m_Scene->GetRegistry().ctx().find<CombatWorld>())
+            // No shot fired or effect applied before the load acts on the restored state: the snapshot's
+            // projectiles and bound actors' effects replace them (none for a v1/v2/v3 save).
+            if (combat)
             {
                 const size_t flying = combat->LiveCount(), effects = combat->EffectCount();
-                if (flying || effects) ZM_CORE_INFO("Saqlangan holat yuklandi: {} ta uchayotgan snaryad bekor qilindi, {} ta effekt olib tashlandi", flying, effects);
-                combat->Clear();
+                combat->CommitRestore(staged);
+                if (save.Version >= 4) ZM_CORE_INFO("Jang holati tiklandi: {} effekt, {} snaryad", combat->EffectCount(), combat->LiveCount());
+                else if (flying || effects != combat->EffectCount())
+                    ZM_CORE_INFO("Eski save v{} yuklandi: {} ta uchayotgan snaryad bekor qilindi, {} ta effekt olib tashlandi", save.Version, flying, effects - combat->EffectCount());
             }
             for (auto& [e, s] : apply) StopAndSync(*m_Scene, e);
             for (auto handle : m_Scene->GetRegistry().view<NativeScriptComponent>())

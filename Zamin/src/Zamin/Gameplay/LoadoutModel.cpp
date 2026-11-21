@@ -33,9 +33,20 @@ namespace Zamin::Gameplay {
     {
         error.clear();
         auto range = [](double x, double a, double b) { return std::isfinite(x) && x >= a && x <= b; };
-        if (!ValidItem(s.Key) || int(s.Kind) < 0 || int(s.Kind) > 2 || !range(s.Amount, .001, 100000) || !range(s.Cost, 0, 100000) || !range(s.Cooldown, 0, 300) || !range(s.Range, .001, 100) || (!s.Ingredient.empty() && !ValidItem(s.Ingredient)) || s.Count < 1 || s.Count > 999999)
+        auto link = [](const std::string& key) { return key.empty() || ValidItem(key); };
+        if (!ValidItem(s.Key) || int(s.Kind) < 0 || int(s.Kind) > 3 || !range(s.Amount, .001, 100000) || !range(s.Cost, 0, 100000) || !range(s.Cooldown, 0, 300) || !range(s.Range, .001, 100) || (!s.Ingredient.empty() && !ValidItem(s.Ingredient)) || s.Count < 1 || s.Count > 999999 || !link(s.Projectile) || !link(s.Area) || !link(s.Effect))
         {
             error = "Invalid ability definition";
+            return false;
+        }
+        if (!s.Projectile.empty() && !s.Area.empty())
+        {
+            error = "Ability projectile and area are exclusive";
+            return false;
+        }
+        if (s.Kind == AbilityKind::Effect && (s.Effect.empty() || !s.Projectile.empty() || !s.Area.empty()))
+        {
+            error = "Effect ability needs an effect and no projectile or area";
             return false;
         }
         return true;

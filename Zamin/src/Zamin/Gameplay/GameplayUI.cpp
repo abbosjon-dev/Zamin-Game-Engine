@@ -1,5 +1,6 @@
 #include "GameplayUI.h"
 #include "GameplayRules.h"
+#include "CombatWorld.h"
 #include "QuestWorld.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Scripting/Visual/VisualGraphHost.h"
@@ -97,13 +98,20 @@ namespace Zamin::Gameplay {
         for (auto& [name, inv] : m_Inventories)
             for (auto& row : inv.Rows)
                 if (Resolve(row.Target) == e) return true;
+        for (auto& [name, feed] : m_Feeds)
+            for (auto& row : feed.Rows)
+                if (Resolve(row.Target) == e) return true;
         return false;
     }
     UIWorld::Widget UIWorld::Remember(Entity e) const
     {
         Widget out;
         out.Target = Reference(e);
-        if (auto* t = e.TryGetComponent<TextComponent>()) out.Text = t->Text;
+        if (auto* t = e.TryGetComponent<TextComponent>())
+        {
+            out.Text = t->Text;
+            out.Color = t->Color;
+        }
         if (auto* b = e.TryGetComponent<UIProgressBarComponent>())
         {
             out.Value = b->Value;
@@ -116,7 +124,11 @@ namespace Zamin::Gameplay {
     {
         auto e = Resolve(v.Target);
         if (!e) return;
-        if (auto* t = e.TryGetComponent<TextComponent>()) t->Text = v.Text;
+        if (auto* t = e.TryGetComponent<TextComponent>())
+        {
+            t->Text = v.Text;
+            if (v.RestoreColor) t->Color = v.Color;
+        }
         if (auto* b = e.TryGetComponent<UIProgressBarComponent>())
         {
             b->Value = v.Value;
@@ -284,7 +296,7 @@ namespace Zamin::Gameplay {
     bool UIWorld::BindHUD(Entity owner, Entity actor, Entity widget, const HUDBindingSpec& spec, std::string& error)
     {
         error.clear();
-        if (m_Busy || !m_Scene->IsRunning() || !owner || !actor || !widget || owner.GetScene() != m_Scene || actor.GetScene() != m_Scene || widget.GetScene() != m_Scene || !widget.HasComponent<UITransformComponent>() || (widget.HasComponent<TextComponent>() && !widget.GetComponent<TextComponent>().LocalizationKey.empty()) || (!widget.HasComponent<TextComponent>() && !widget.HasComponent<UIProgressBarComponent>()) || int(spec.Kind) < 0 || int(spec.Kind) > 4 || spec.Prefix.size() > 64 || (spec.Kind == HUDKind::Item && !ValidItem(spec.Item)) || WidgetUsed(widget) || m_Bindings.size() >= 128)
+        if (m_Busy || !m_Scene->IsRunning() || !owner || !actor || !widget || owner.GetScene() != m_Scene || actor.GetScene() != m_Scene || widget.GetScene() != m_Scene || !widget.HasComponent<UITransformComponent>() || (widget.HasComponent<TextComponent>() && !widget.GetComponent<TextComponent>().LocalizationKey.empty()) || (!widget.HasComponent<TextComponent>() && !widget.HasComponent<UIProgressBarComponent>()) || int(spec.Kind) < 0 || int(spec.Kind) > 6 || spec.Prefix.size() > 64 || ((spec.Kind == HUDKind::Item || spec.Kind == HUDKind::Effect) && !ValidItem(spec.Item)) || WidgetUsed(widget) || m_Bindings.size() >= 128)
         {
             error = "Invalid HUD binding or capacity (128)";
             return false;
@@ -333,6 +345,73 @@ namespace Zamin::Gameplay {
         for (auto& row : i->second.Rows) RestoreWidget(row);
         m_Inventories.erase(i);
         return true;
+    }
+    bool UIWorld::BindCombatFeed(Entity owner, Entity actor, const std::string& name, const std::vector<Entity>& rows, const CombatFeedSpec& spec, std::string& error)
+    {
+        error.clear();
+        if (m_Busy || !m_Scene->IsRunning() || !owner || !actor || owner.GetScene() != m_Scene || actor.GetScene() != m_Scene || !ValidUIName(name) || rows.empty() || rows.size() > MaxFeedRows || m_Feeds.contains(name) || m_Feeds.size() >= MaxFeeds || !std::isfinite(spec.Lifetime) || spec.Lifetime < .1 || spec.Lifetime > 10 || (!spec.Outgoing && !spec.Incoming))
+        {
+            error = "Invalid combat feed or capacity (8 feeds, 6 rows)";
+            return false;
+        }
+        std::vector<Widget> next;
+        for (auto e : rows)
+        {
+            if (!e || e.GetScene() != m_Scene || !e.HasComponent<UITransformComponent>() || !e.HasComponent<TextComponent>() || !e.GetComponent<TextComponent>().LocalizationKey.empty() || WidgetUsed(e) || std::any_of(next.begin(), next.end(), [&](auto& v) { return Resolve(v.Target) == e; }))
+            {
+                error = "Combat feed rows must be distinct, unbound, unlocalized texts";
+                return false;
+            }
+            next.push_back(Remember(e));
+            next.back().RestoreColor = true;
+        }
+        Feed feed;
+        feed.Host = Own(owner);
+        feed.Actor = Reference(actor);
+        feed.Rows = std::move(next);
+        feed.Spec = spec;
+        m_Feeds.emplace(name, std::move(feed));
+        return true;
+    }
+    bool UIWorld::RemoveCombatFeed(const std::string& name)
+    {
+        auto i = m_Feeds.find(name);
+        if (m_Busy || i == m_Feeds.end()) return false;
+        for (auto& row : i->second.Rows) RestoreWidget(row);
+        m_Feeds.erase(i);
+        return true;
+    }
+    void UIWorld::RefreshFeeds()
+    {
+        auto* combat = m_Scene->GetRegistry().ctx().find<CombatWorld>();
+        std::array<HitRecord, MaxFeedRows> records;
+        for (auto i = m_Feeds.begin(); i != m_Feeds.end();)
+        {
+            auto& r = i->second;
+            if (!Live(r.Host) || std::any_of(r.Rows.begin(), r.Rows.end(), [&](const Widget& v) { auto e = Resolve(v.Target); return !e || !e.HasComponent<UITransformComponent>() || !e.HasComponent<TextComponent>(); }))
+            {
+                for (auto& v : r.Rows) RestoreWidget(v);
+                i = m_Feeds.erase(i);
+                continue;
+            }
+            ++i;
+            if (!Enabled(r.Host)) continue;
+            auto actor = Resolve(r.Actor);
+            const size_t count = combat && actor ? combat->Recent(actor, r.Spec.Outgoing, r.Spec.Incoming, r.Spec.Lifetime, std::span(records.data(), r.Rows.size())) : 0;
+            for (size_t row = 0; row < r.Rows.size(); ++row)
+            {
+                auto& t = Resolve(r.Rows[row].Target).GetComponent<TextComponent>();
+                t.Color = r.Rows[row].Color;
+                if (row >= count)
+                {
+                    t.Text.clear();
+                    continue;
+                }
+                const auto& hit = records[row];
+                t.Text = PresentCombatRow(hit.Kind == PayloadKind::Damage, std::clamp(hit.Amount, 0.0, 1e6), hit.Key);
+                t.Color.a *= CombatRowAlpha(combat->Now() - hit.Time, r.Spec.Lifetime);
+            }
+        }
     }
     void UIWorld::SelectInventory(const std::string& name, Inventory& record)
     {
@@ -456,9 +535,41 @@ namespace Zamin::Gameplay {
                             max = h->Deaths;
                         }
                         break;
+                    case HUDKind::Effect:
+                    case HUDKind::HitMarker: break; // combat presentations below
                 }
             }
-            auto p = available ? PresentHUD(value, max, r.Spec.Prefix, r.Spec.Ratio) : HUDPresentation{ r.Spec.Prefix + "--", 0 };
+            auto* combat = m_Scene->GetRegistry().ctx().find<CombatWorld>();
+            std::optional<HUDPresentation> special;
+            if (r.Spec.Kind == HUDKind::Effect)
+            {
+                // Stacks of a status effect (instances for Independent); the bar is the time left of its cap.
+                available = false;
+                const auto spec = combat ? combat->EffectDefinition(r.Spec.Item) : std::nullopt;
+                const auto view = spec && actor ? combat->Effect(actor, r.Spec.Item) : EffectView{};
+                if (view.Active)
+                {
+                    const bool stacking = spec->Rule == StackRule::Refresh || spec->Rule == StackRule::Independent;
+                    auto shown = PresentHUD(view.Stacks, stacking ? spec->MaxStacks : 1, r.Spec.Prefix, r.Spec.Ratio);
+                    shown.Fraction = view.Duration > 0 ? float(std::clamp(view.Remaining / view.Duration, 0.0, 1.0)) : 0;
+                    special = shown;
+                }
+            }
+            else if (r.Spec.Kind == HUDKind::HitMarker)
+            {
+                // The newest direct hit (not an effect tick) the actor dealt within the marker time.
+                std::array<HitRecord, 8> recent;
+                const size_t n = combat && actor ? combat->Recent(actor, true, false, HitMarkerSeconds, recent) : 0;
+                special = HUDPresentation{ "", 0 };
+                for (size_t k = 0; k < n; ++k)
+                    if (!recent[k].Periodic)
+                    {
+                        special = HUDPresentation{ r.Spec.Prefix, float(std::clamp(1 - (combat->Now() - recent[k].Time) / HitMarkerSeconds, 0.0, 1.0)) };
+                        break;
+                    }
+            }
+            auto p = special ? *special : available ? PresentHUD(value, max, r.Spec.Prefix, r.Spec.Ratio)
+                                                    : HUDPresentation{ r.Spec.Prefix + "--", 0 };
             if (auto* t = widget.TryGetComponent<TextComponent>()) t->Text = p.Text;
             if (auto* b = widget.TryGetComponent<UIProgressBarComponent>())
             {
@@ -496,6 +607,7 @@ namespace Zamin::Gameplay {
             if (actor) SelectInventory(name, r);
             else r.Selected.clear();
         }
+        RefreshFeeds();
     }
     void UIWorld::BeginFrame()
     {
@@ -578,6 +690,9 @@ namespace Zamin::Gameplay {
         for (auto& [name, i] : m_Inventories)
             for (auto& row : i.Rows) RestoreWidget(row);
         m_Inventories.clear();
+        for (auto& [name, feed] : m_Feeds)
+            for (auto& row : feed.Rows) RestoreWidget(row);
+        m_Feeds.clear();
         if (m_OwnsTime && m_Scene->IsRunning()) m_Scene->SetTimeScale(m_Baseline);
         m_OwnsTime = false;
         m_Fenced = true;

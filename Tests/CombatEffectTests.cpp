@@ -3,82 +3,6 @@
 #include <Zamin/Gameplay/QuestWorld.h>
 #include <Zamin/Physics/PhysicsWorld2D.h>
 #include <array>
-namespace {
-    namespace G = Zamin::Gameplay;
-    G::EffectSpec Effect(const std::string& key, double duration = 3, G::StackRule rule = G::StackRule::Refresh, int stacks = 1)
-    {
-        G::EffectSpec s;
-        s.Key = key;
-        s.Duration = duration;
-        s.Rule = rule;
-        s.MaxStacks = stacks;
-        return s;
-    }
-    G::EffectSpec Dot(const std::string& key, double duration, double period, double amount, G::StackRule rule = G::StackRule::Refresh, int stacks = 1)
-    {
-        auto s = Effect(key, duration, rule, stacks);
-        s.Period = period;
-        s.Tick = G::TickKind::Damage;
-        s.TickAmount = amount;
-        return s;
-    }
-    G::EffectSpec Buff(const std::string& key, double duration, G::CombatStats add, double speed = 1)
-    {
-        auto s = Effect(key, duration);
-        s.Hostile = false;
-        s.Add = add;
-        s.Speed = speed;
-        return s;
-    }
-    G::AreaSpec Area(const std::string& key, double radius, double amount, bool twoD = true)
-    {
-        G::AreaSpec s;
-        s.Key = key;
-        s.Radius = radius;
-        s.Amount = amount;
-        s.TwoD = twoD;
-        s.LineOfSight = false;
-        return s;
-    }
-    void Define(CFixture& f, const G::EffectSpec& s)
-    {
-        std::string e;
-        CHECK(f.Combat().DefineEffect(s, e));
-        CHECK(e.empty());
-    }
-    void Define(CFixture& f, const G::AreaSpec& s)
-    {
-        std::string e;
-        CHECK(f.Combat().DefineArea(s, e));
-        CHECK(e.empty());
-    }
-    G::AbilitySpec Ability(const std::string& key, double amount, double cost, double cooldown)
-    {
-        G::AbilitySpec a;
-        a.Key = key;
-        a.Amount = amount;
-        a.Cost = cost;
-        a.Cooldown = cooldown;
-        a.Range = 10;
-        return a;
-    }
-    std::vector<G::RuleEvent> RuleEvents(CFixture& f, Entity e)
-    {
-        std::vector<G::RuleEvent> out;
-        while (auto x = f.Rules().Poll(e)) out.push_back(*x);
-        return out;
-    }
-    G::RuleQuery Query2D()
-    {
-        G::RuleQuery q;
-        q.TwoD = true;
-        q.LineOfSight = false;
-        q.Range = 10;
-        q.Origin = { 0, 0, 0 };
-        return q;
-    }
-    using Outcome = G::ApplyOutcome;
-}
 TEST(CombatEffectDefinitionsAreSharedValidatedAndResolvedAtUse)
 {
     {
@@ -940,7 +864,7 @@ TEST(CombatEffectDeterministicEventLogAcrossFreshScenesAndFrameRates)
     CHECK(EffectScenario({ 1.0f / 144 }, 7) == reference);
     CHECK(EffectScenario({ 1.0f / 50, 1.0f / 90, 1.0f / 40, 1.0f / 120 }, 7) == reference);
 }
-TEST(CombatEffectSaveRestoreRemovesEffectsAndSavesEnergyWithoutBonus)
+TEST(CombatEffectSaveV4RestoresEffectsAndBuffedEnergy)
 {
     CFixture f;
     std::string e;
@@ -951,23 +875,27 @@ TEST(CombatEffectSaveRestoreRemovesEffectsAndSavesEnergyWithoutBonus)
     Define(f, Buff("Haste", 30, { 0, 0, 0, 50, 0 }));
     Define(f, Dot("Poison", 3, 1, 2));
     auto plain = saves.Capture("V1");
-    CHECK(plain.Version == 3);
+    CHECK(plain.Version == 4); // definitions alone make it a combat save (with no effects)
     CHECK(f.Combat().ApplyEffect(f.Hero, "Haste").Outcome == Outcome::Added && kit.Refill(f.Hero, 50) == 50);
     CHECK(f.Combat().ApplyEffect(f.Enemy, "Poison", f.Hero).Outcome == Outcome::Added);
+    f.Run(30); // Poison: 2.5 s left, its first tick due in 0.5 s
     auto save = saves.Capture("V1");
-    CHECK(save.Version == 3); // effects are not saved yet: the format is unchanged
     for (const auto& s : save.Entities)
-        if (s.Key == "Player") CHECK(s.Loadout && s.Loadout->Energy == 100); // valid without the MaxEnergy bonus
-    CHECK(G::EncodeGameSave(save) == G::EncodeGameSave(plain));          // byte-identical to the unbuffed state
+    {
+        if (s.Key == "Player") CHECK(s.Loadout && s.Loadout->Energy == 150 && s.Effects.size() == 1 && s.Effects[0].Key == "Haste"); // buffed energy is valid
+        if (s.Key == "Enemy") CHECK(s.Effects.size() == 1 && s.Effects[0].Source == "Player" && std::abs(s.Effects[0].Remaining - 2.5) < 1e-9 && std::abs(s.Effects[0].Tick - .5) < 1e-9);
+    }
     f.Run(60);
     CHECK(f.HP(f.Enemy) == 98 && kit.State(f.Hero)->State.Energy == 150);
     auto result = saves.Restore(save, "V1");
     CHECK(result.Success && result.Reason.empty());
-    CHECK(f.Combat().EffectCount() == 0 && f.HP(f.Enemy) == 100);
+    CHECK(f.Combat().EffectCount() == 2 && f.HP(f.Enemy) == 100 && std::abs(f.Combat().Effect(f.Enemy, "Poison").Remaining - 2.5) < 1e-9);
     auto s = kit.State(f.Hero);
-    CHECK(s->State.Energy == 100 && s->Stats[3] == 100);
-    f.Run(200);
-    CHECK(f.HP(f.Enemy) == 100);
+    CHECK(s->State.Energy == 150 && s->Stats[3] == 150);
+    f.Run(200); // the three remaining ticks, then expiry
+    CHECK(f.HP(f.Enemy) == 94 && !f.Combat().Effect(f.Enemy, "Poison").Active);
+    CHECK(saves.Restore(plain, "V1").Success); // that snapshot had no effects: they are removed
+    CHECK(f.Combat().EffectCount() == 0 && kit.State(f.Hero)->State.Energy == 100 && kit.State(f.Hero)->Stats[3] == 100);
     CHECK(f.Combat().ApplyEffect(f.Enemy, "Poison", f.Hero).Outcome == Outcome::Added); // definitions stay
 }
 TEST(CombatEffectPlayStopStartResetsEffectsAndDefinitions)

@@ -38,6 +38,7 @@ namespace Zamin::Gameplay {
     {
         static constexpr size_t MaxHits = 8;
         std::string Key;
+        std::string Effect;                        // payload effect override (an ability's Effect); "" = the spec's
         uint64_t Owner = 0, Target = 0;            // UUIDs (0 = none); generational handles live in CombatWorld
         uint16_t Team = 0;                         // the owner's team, snapshotted at launch
         glm::dvec3 Position{}, Velocity{}, Muzzle{}; // Muzzle: first-step offset from the aim point to the launch point

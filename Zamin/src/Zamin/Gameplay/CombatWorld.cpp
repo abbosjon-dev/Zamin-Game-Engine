@@ -235,14 +235,17 @@ namespace Zamin::Gameplay {
         if (!Matches(area.Kind, effect->second)) return "Area effect kind mismatch";
         return {};
     }
+    std::string CombatWorld::EffectError(PayloadKind kind, const std::string& key, const char* missing, const char* mismatch) const
+    {
+        if (key.empty()) return {};
+        auto effect = m_EffectSpecs.find(key);
+        if (effect == m_EffectSpecs.end()) return missing;
+        if (!Matches(kind, effect->second)) return mismatch;
+        return {};
+    }
     std::string CombatWorld::PayloadError(const ProjectileSpec& spec) const
     {
-        if (!spec.Effect.empty())
-        {
-            auto effect = m_EffectSpecs.find(spec.Effect);
-            if (effect == m_EffectSpecs.end()) return "Projectile effect not defined";
-            if (!Matches(spec.Kind, effect->second)) return "Projectile effect kind mismatch";
-        }
+        if (auto error = EffectError(spec.Kind, spec.Effect, "Projectile effect not defined", "Projectile effect kind mismatch"); !error.empty()) return error;
         if (!spec.Area.empty())
         {
             auto area = m_Areas.find(spec.Area);
@@ -280,6 +283,12 @@ namespace Zamin::Gameplay {
             out.Reason = payload;
             return out;
         }
+        if (!request.Effect.empty() && !ValidItem(request.Effect)) throw std::runtime_error("Projectile effect override must be empty or a 1..64 character key");
+        if (auto payload = EffectError(spec.Kind, request.Effect, "Projectile effect not defined", "Projectile effect kind mismatch"); !payload.empty())
+        {
+            out.Reason = payload;
+            return out;
+        }
         const glm::dvec3 aim = D(m_Scene->GetWorldPosition(request.Owner)) + spec.TargetOffset;
         auto muzzle = D(request.Origin);
         if (spec.TwoD) muzzle.z = 0;
@@ -308,6 +317,7 @@ namespace Zamin::Gameplay {
         auto& s = m_Slots[slot];
         auto& state = s.State;
         state.Key = spec.Key;
+        state.Effect = request.Effect;
         state.Owner = owner;
         state.Target = request.Target ? uint64_t(request.Target.GetUUID()) : 0;
         state.Team = health->Settings.Team;
@@ -637,8 +647,9 @@ namespace Zamin::Gameplay {
         ++m_Hits;
         // The payload's status effect follows every committed hit on a target that survived it (an absorbed
         // or zero-damage hit included). Admission was decided by the payload; the effect matches its kind.
-        if (!spec.Effect.empty() && !killed && !rules.Dead(victim))
-            if (auto effect = m_EffectSpecs.find(spec.Effect); effect != m_EffectSpecs.end())
+        const auto& payload = state.Effect.empty() ? spec.Effect : state.Effect;
+        if (!payload.empty() && !killed && !rules.Dead(victim))
+            if (auto effect = m_EffectSpecs.find(payload); effect != m_EffectSpecs.end())
                 Apply(victim, effect->second, owner, state.Team, spec.FriendlyFire, -1);
     }
     const CombatWorld::Book* CombatWorld::FindBook(Entity e) const
@@ -803,15 +814,14 @@ namespace Zamin::Gameplay {
             if (!IgnoredBlocker(hit.EntityID) && double(hit.Distance) < distance - .01) return false;
         return true;
     }
-    AreaResult CombatWorld::Area(const AreaSpec& spec, Entity source, uint64_t sourceID, uint16_t team, glm::dvec3 center, double magnitude)
+    AreaResult CombatWorld::Area(const AreaSpec& spec, Entity source, uint64_t sourceID, uint16_t team, glm::dvec3 center, double magnitude, const EffectSpec* effect)
     {
         ZM_PROFILE_SCOPE("Hududlar");
         AreaResult out;
         out.Success = true;
         ++m_Detonations;
         auto* rules = m_Scene->GetRegistry().ctx().find<RuleWorld>();
-        const EffectSpec* effect = nullptr;
-        if (!spec.Effect.empty())
+        if (!effect && !spec.Effect.empty())
             if (auto found = m_EffectSpecs.find(spec.Effect); found != m_EffectSpecs.end()) effect = &found->second;
         m_AreaTargets.clear();
         if (rules)
@@ -870,8 +880,9 @@ namespace Zamin::Gameplay {
         }
         return out;
     }
-    AreaResult CombatWorld::ApplyArea(const std::string& key, Entity source, glm::vec3 center, double magnitude)
+    AreaResult CombatWorld::ApplyArea(const std::string& key, Entity source, glm::vec3 center, double magnitude, const std::string& effect)
     {
+        if (!effect.empty() && !ValidItem(effect)) throw std::runtime_error("Area effect override must be empty or a 1..64 character key");
         if (source) Check(source);
         if (!Finite(center) || glm::length(D(center)) > 1e9) throw std::runtime_error("Area center must be finite, within 1e9");
         if (!std::isfinite(magnitude) || magnitude > 1e6) throw std::runtime_error("Area magnitude must be finite, at most 1000000");
@@ -885,6 +896,7 @@ namespace Zamin::Gameplay {
         if (found == m_Areas.end()) return fail("Area not defined");
         const auto& spec = found->second;
         if (auto error = AreaError(spec); !error.empty()) return fail(error);
+        if (auto error = EffectError(spec.Kind, effect, "Area effect not defined", "Area effect kind mismatch"); !error.empty()) return fail(error);
         uint16_t team = 0;
         if (source)
         {
@@ -901,7 +913,7 @@ namespace Zamin::Gameplay {
         double amount = magnitude < 0 ? spec.Amount : magnitude;
         // The source's Attack joins before the falloff, exactly as a projectile's launch snapshot does.
         if (spec.Kind == PayloadKind::Damage && source) amount = std::min(1e6, amount + LoadoutAttack(*m_Scene, source));
-        return Area(spec, source, source ? uint64_t(source.GetUUID()) : 0, team, D(center), amount);
+        return Area(spec, source, source ? uint64_t(source.GetUUID()) : 0, team, D(center), amount, effect.empty() ? nullptr : &m_EffectSpecs.at(effect));
     }
     void CombatWorld::Detonate(Slot& s, Entity owner)
     {
@@ -912,7 +924,7 @@ namespace Zamin::Gameplay {
         double magnitude = area->second.Amount;
         if (area->second.Kind == PayloadKind::Damage) magnitude = std::min(1e6, magnitude + state.Attack);
         // An ownerless projectile keeps its team and still excludes its former owner's UUID.
-        Area(area->second, owner, state.Owner, state.Team, state.Position + state.Muzzle, magnitude);
+        Area(area->second, owner, state.Owner, state.Team, state.Position + state.Muzzle, magnitude, nullptr);
     }
     void CombatWorld::EffectsPhase(double h)
     {
@@ -1152,5 +1164,174 @@ namespace Zamin::Gameplay {
             m_Accumulator = 0;
         }
         SyncVisuals();
+    }
+    // ---------------------------------------------------------------------------------------------- save v4
+    std::vector<SavedEffect> CombatWorld::SaveEffects(Entity e, const Referencer& reference) const
+    {
+        std::vector<SavedEffect> out;
+        const auto* book = FindBook(e);
+        if (!book) return out;
+        out.reserve(book->Effects.Instances.size());
+        for (const auto& i : book->Effects.Instances)
+        {
+            SavedEffect saved;
+            saved.Key = i.Key;
+            // A source that is gone (destroyed or recreated) is saved as none: no kill credit after the load.
+            if (i.Source)
+                if (auto source = m_Scene->GetEntityByUUID(UUID(i.Source)); source && uint32_t(source) == i.SourceHandle) saved.Source = reference(i.Source);
+            saved.Team = i.SourceTeam;
+            saved.FriendlyFire = i.FriendlyFire;
+            saved.Stacks = i.Stacks;
+            saved.Remaining = i.Remaining;
+            saved.Tick = i.UntilTick;
+            saved.Magnitude = i.Magnitude;
+            saved.Sequence = i.Sequence;
+            out.push_back(std::move(saved));
+        }
+        return out;
+    }
+    SavedCombat CombatWorld::SaveCombat(const Referencer& reference) const
+    {
+        SavedCombat out;
+        out.Signature = Signature();
+        auto live = [&](uint64_t id, uint32_t handle) {
+            auto e = id && handle != ~0u ? m_Scene->GetEntityByUUID(UUID(id)) : Entity{};
+            return e && uint32_t(e) == handle ? reference(id) : std::string{};
+        };
+        for (uint32_t slot = 0; slot < ProjectilePool::Capacity; ++slot)
+        {
+            if (!m_Pool.Active(slot)) continue;
+            const auto& s = m_Slots[slot];
+            const auto& state = s.State;
+            SavedProjectile p;
+            p.Slot = slot;
+            p.Generation = m_Pool.Generation(slot);
+            p.Key = state.Key;
+            p.Effect = state.Effect;
+            p.Owner = live(state.Owner, s.OwnerHandle); // ownerless: saved without an owner
+            p.Target = live(state.Target, s.TargetHandle);
+            p.Team = state.Team;
+            p.Position = state.Position;
+            p.Velocity = state.Velocity;
+            p.Muzzle = state.Muzzle;
+            p.Age = state.Age;
+            p.Travelled = state.Travelled;
+            p.Damage = state.Damage;
+            p.Attack = state.Attack;
+            p.PierceLeft = state.PierceLeft;
+            p.Phase = uint32_t(state.Phase);
+            for (size_t i = 0; i < state.HitCount; ++i) p.Hits.push_back(state.Hits[i] ? reference(state.Hits[i]) : std::string{});
+            out.Projectiles.push_back(std::move(p));
+        }
+        return out;
+    }
+    void CombatWorld::BeginRestore(RestorePlan& plan, const std::vector<uint64_t>& bound) const
+    {
+        // Unbound actors keep their runtime state (as their health does); bound ones take the snapshot's effects.
+        plan.Books = m_Books;
+        for (uint64_t id : bound) plan.Books.erase(id);
+        // Every projectile in flight is replaced by the snapshot's; releasing bumps generations, so handles from
+        // before the load never name a restored or later projectile by accident.
+        plan.Pool = m_Pool;
+        plan.Pool.Clear();
+        plan.Slots = {};
+    }
+    CombatStats CombatWorld::StageEffects(RestorePlan& plan, Entity e, const std::vector<SavedEffect>& saved, const Resolver& resolve) const
+    {
+        if (saved.empty()) return {};
+        if (saved.size() > EffectBook::Capacity) throw std::runtime_error("Saved effect limit 16");
+        Book book;
+        book.Handle = uint32_t(e);
+        book.Effects.Instances.reserve(EffectBook::Capacity);
+        for (const auto& s : saved)
+        {
+            EffectInstance i;
+            i.Key = s.Key;
+            const auto source = resolve(s.Source);
+            i.Source = source.Live ? uint64_t(source.Live.GetUUID()) : 0; // unresolved: no kill credit
+            i.SourceHandle = source.Live ? uint32_t(source.Live) : ~0u;
+            i.SourceTeam = uint16_t(s.Team);
+            i.FriendlyFire = s.FriendlyFire;
+            i.Stacks = s.Stacks;
+            i.Remaining = s.Remaining;
+            i.UntilTick = s.Tick;
+            i.Magnitude = s.Magnitude;
+            i.Sequence = s.Sequence;
+            book.Effects.Instances.push_back(std::move(i));
+        }
+        book.Effects.NextSequence = book.Effects.Instances.back().Sequence + 1;
+        std::string error;
+        if (!ValidateEffectBook(book.Effects, m_EffectSpecs, error)) throw std::runtime_error("Invalid saved effects: " + error);
+        book.Modifiers = ComposeModifiers(book.Effects, m_EffectSpecs);
+        size_t total = book.Effects.Instances.size();
+        for (const auto& [id, other] : plan.Books)
+            if (id != uint64_t(e.GetUUID())) total += other.Effects.Instances.size();
+        if (total > MaxEffects) throw std::runtime_error("Saved effects exceed the scene effect limit 1024");
+        const auto bonus = book.Modifiers.Add;
+        plan.Books.insert_or_assign(uint64_t(e.GetUUID()), std::move(book));
+        if (plan.Books.size() > MaxActors) throw std::runtime_error("Saved effects exceed the combat actor limit 512");
+        return bonus;
+    }
+    void CombatWorld::StageProjectiles(RestorePlan& plan, const SavedCombat& saved, const Resolver& resolve)
+    {
+        std::map<uint64_t, size_t> owned;
+        for (const auto& p : saved.Projectiles)
+        {
+            auto found = m_Definitions.find(p.Key);
+            if (found == m_Definitions.end()) throw std::runtime_error("Saved projectile not defined");
+            const auto& spec = found->second.Spec;
+            ProjectileState state;
+            state.Key = p.Key;
+            state.Effect = p.Effect;
+            // An owner that no longer resolves leaves the projectile ownerless (no credit, team snapshot kept).
+            const auto owner = resolve(p.Owner), target = resolve(p.Target);
+            state.Owner = owner.Live ? uint64_t(owner.Live.GetUUID()) : 0;
+            state.Target = target.Live ? uint64_t(target.Live.GetUUID()) : 0;
+            state.Team = uint16_t(p.Team);
+            state.Position = p.Position;
+            state.Velocity = p.Velocity;
+            state.Muzzle = p.Muzzle;
+            state.Age = p.Age;
+            state.Travelled = p.Travelled;
+            state.Damage = p.Damage;
+            state.Attack = p.Attack;
+            if (p.Hits.size() > ProjectileState::MaxHits || p.PierceLeft > 7 || p.Phase > 1) throw std::runtime_error("Invalid saved projectile hits/pierce/phase");
+            state.HitCount = uint8_t(p.Hits.size());
+            // Hits only exclude targets: an authored "uuid:" reference keeps its UUID even when nothing has it.
+            for (size_t i = 0; i < p.Hits.size(); ++i) state.Hits[i] = resolve(p.Hits[i]).ID;
+            state.PierceLeft = uint8_t(p.PierceLeft);
+            state.Phase = ProjectilePhase(p.Phase);
+            std::string error;
+            if (!ValidateProjectileState(spec, state, error)) throw std::runtime_error("Invalid saved projectile: " + error);
+            if (auto payload = EffectError(spec.Kind, state.Effect, "Saved projectile effect not defined", "Saved projectile effect kind mismatch"); !payload.empty()) throw std::runtime_error(payload);
+            if (owner.Live && ++owned[state.Owner] > MaxPerOwner) throw std::runtime_error("Saved projectiles exceed the owner limit 32");
+            if (!plan.Pool.Place(p.Slot, p.Generation)) throw std::runtime_error("Invalid or duplicate saved projectile slot");
+            auto& slot = plan.Slots[p.Slot];
+            slot.State = std::move(state);
+            slot.Def = &found->second;
+            slot.OwnerHandle = owner.Live ? uint32_t(owner.Live) : ~0u;
+            slot.TargetHandle = target.Live ? uint32_t(target.Live) : ~0u;
+            slot.Visual = -1;
+        }
+    }
+    void CombatWorld::CommitRestore(RestorePlan& plan)
+    {
+        for (auto& [key, def] : m_Definitions)
+            for (auto& visual : def.Visuals)
+            {
+                visual.Slot = -1;
+                auto e = m_Scene->GetEntityByUUID(UUID(visual.ID));
+                if (visual.Shown && e && uint32_t(e) == visual.Handle) m_Scene->SetActive(e, false);
+                visual.Shown = false;
+            }
+        m_Books.swap(plan.Books);
+        m_EffectCount = 0;
+        for (const auto& [id, book] : m_Books) m_EffectCount += book.Effects.Instances.size();
+        m_Pool = plan.Pool;
+        m_Slots.swap(plan.Slots);
+        for (auto& slot : m_Slots) slot.Visual = -1;
+        m_Events.clear();
+        m_HitHead = m_HitCount = 0;
+        m_Accumulator = 0;
     }
 }

@@ -4,7 +4,10 @@
 #include "Zamin/Project/Project.h"
 #include "Zamin/Utils/FileSystem.h"
 #include "Zamin/Asset/AssetRegistry.h"
+#include "Zamin/Editor/EditorLanguage.h"
+#include "Zamin/Gameplay/CombatWorld.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstring>
 #include <cstdio>
@@ -21,6 +24,56 @@ namespace Zamin {
                 case Visual::Type::Entity: return IM_COL32(86, 177, 249, 255);
                 default:                   return IM_COL32(255, 194, 85, 255);
             }
+        }
+        // An enumerated Number pin (Visual::PinChoices): a combo of translated names that stores the index.
+        bool EditChoice(const char* label, const std::vector<const char*>& choices, Visual::Value& v)
+        {
+            ImGui::PushID(label);
+            ImGui::TextUnformatted(label);
+            ImGui::SameLine(112);
+            ImGui::SetNextItemWidth(-1);
+            const double x = v.is_number() ? v.get<double>() : -1;
+            const int index = std::floor(x) == x && x >= 0 && x < double(choices.size()) ? int(x) : -1;
+            bool changed = false;
+            if (ImGui::BeginCombo("##choice", index >= 0 ? Tr(choices[size_t(index)]) : Tr("Noma'lum qiymat")))
+            {
+                for (int i = 0; i < int(choices.size()); ++i)
+                {
+                    ImGui::PushID(i);
+                    if (ImGui::Selectable(Tr(choices[size_t(i)]), i == index) && i != index)
+                    {
+                        v = double(i);
+                        changed = true;
+                    }
+                    if (i == index) ImGui::SetItemDefaultFocus();
+                    ImGui::PopID();
+                }
+                ImGui::EndCombo();
+            }
+            ImGui::PopID();
+            return changed;
+        }
+        // Play only: the scene's combat counters and the selected actor's status effects (at most 16, one book).
+        void CombatLive(Scene& scene, Entity actor)
+        {
+            auto* combat = scene.GetRegistry().ctx().find<Gameplay::CombatWorld>();
+            if (!combat) return;
+            ImGui::SeparatorText(Tr("Jang holati###CombatLive"));
+            const auto stats = combat->Stats();
+            ImGui::Text("%s: %u / %zu", Tr("Uchayotgan snaryadlar"), stats.Live, Gameplay::ProjectilePool::Capacity);
+            ImGui::Text("%s: %u / %u", Tr("Pool vizuallari"), stats.Visuals, stats.Pooled);
+            ImGui::Text("%s: %u", Tr("Kadrdagi qadamlar"), stats.Steps);
+            ImGui::Text("%s: %zu / %zu", Tr("Sahnadagi effektlar"), combat->EffectCount(), Gameplay::CombatWorld::MaxEffects);
+            if (!actor) return;
+            std::array<Gameplay::EffectInstance, Gameplay::EffectBook::Capacity> effects;
+            const size_t count = combat->Effects(actor, effects);
+            if (count == 0)
+            {
+                ImGui::TextDisabled("%s", Tr("Tanlangan aktyorda effekt yo'q"));
+                return;
+            }
+            ImGui::TextDisabled("%s", Tr("Effekt, to'plam, qolgan vaqt"));
+            for (size_t i = 0; i < count; ++i) ImGui::Text("%s  x%u  %.2f s", effects[i].Key.c_str(), effects[i].Stacks, effects[i].Remaining);
         }
         bool EditValue(const char* label, Visual::Type type, Visual::Value& v)
         {
@@ -617,6 +670,7 @@ namespace Zamin {
                 }
                 ImGui::Separator();
             }
+            CombatLive(*m_Scene, actor);
         }
         ImGui::TextUnformatted("Selected node");
         ImGui::BeginDisabled(!m_Editable);
@@ -641,6 +695,15 @@ namespace Zamin {
                     continue;
                 }
                 auto v = n.Inputs.contains(p.Name) ? n.Inputs.at(p.Name) : p.Default;
+                if (const auto* choices = p.Kind == Type::Number ? PinChoices(n.Kind, p.Name) : nullptr; choices && v.is_number())
+                {
+                    if (EditChoice(p.Name.c_str(), *choices, v))
+                    {
+                        Snapshot();
+                        n.Inputs[p.Name] = v;
+                    }
+                    continue;
+                }
                 if (EditValue(p.Name.c_str(), p.Kind, v))
                 {
                     Snapshot();

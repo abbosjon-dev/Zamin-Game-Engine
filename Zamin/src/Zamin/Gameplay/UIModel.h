@@ -41,4 +41,8 @@ namespace Zamin::Gameplay {
         float Fraction = 0;
     };
     HUDPresentation PresentHUD(double value, double maximum, const std::string& prefix, bool ratio);
+    // A combat feed row: "-18  Bolt" (damage) or "+5  Mend" (heal/shield); the amount is rounded to a whole number.
+    std::string PresentCombatRow(bool damage, double amount, const std::string& key);
+    // A feed row's opacity: 1 when new, fading linearly to 0 at `lifetime` (> 0) seconds.
+    float CombatRowAlpha(double age, double lifetime);
 }

@@ -15,6 +15,7 @@
 #include <functional>
 using namespace Zamin;
 namespace {
+    namespace G = Zamin::Gameplay;
     using Gameplay::CombatEvent;
     struct CFixture
     {
@@ -93,6 +94,79 @@ namespace {
         }
         double HP(Entity e) { return Rules().Health(e)->Current; }
     };
+    [[maybe_unused]] G::EffectSpec Effect(const std::string& key, double duration = 3, G::StackRule rule = G::StackRule::Refresh, int stacks = 1)
+    {
+        G::EffectSpec s;
+        s.Key = key;
+        s.Duration = duration;
+        s.Rule = rule;
+        s.MaxStacks = stacks;
+        return s;
+    }
+    [[maybe_unused]] G::EffectSpec Dot(const std::string& key, double duration, double period, double amount, G::StackRule rule = G::StackRule::Refresh, int stacks = 1)
+    {
+        auto s = Effect(key, duration, rule, stacks);
+        s.Period = period;
+        s.Tick = G::TickKind::Damage;
+        s.TickAmount = amount;
+        return s;
+    }
+    [[maybe_unused]] G::EffectSpec Buff(const std::string& key, double duration, G::CombatStats add, double speed = 1)
+    {
+        auto s = Effect(key, duration);
+        s.Hostile = false;
+        s.Add = add;
+        s.Speed = speed;
+        return s;
+    }
+    [[maybe_unused]] G::AreaSpec Area(const std::string& key, double radius, double amount, bool twoD = true)
+    {
+        G::AreaSpec s;
+        s.Key = key;
+        s.Radius = radius;
+        s.Amount = amount;
+        s.TwoD = twoD;
+        s.LineOfSight = false;
+        return s;
+    }
+    [[maybe_unused]] void Define(CFixture& f, const G::EffectSpec& s)
+    {
+        std::string e;
+        CHECK(f.Combat().DefineEffect(s, e));
+        CHECK(e.empty());
+    }
+    [[maybe_unused]] void Define(CFixture& f, const G::AreaSpec& s)
+    {
+        std::string e;
+        CHECK(f.Combat().DefineArea(s, e));
+        CHECK(e.empty());
+    }
+    [[maybe_unused]] G::AbilitySpec Ability(const std::string& key, double amount, double cost, double cooldown)
+    {
+        G::AbilitySpec a;
+        a.Key = key;
+        a.Amount = amount;
+        a.Cost = cost;
+        a.Cooldown = cooldown;
+        a.Range = 10;
+        return a;
+    }
+    [[maybe_unused]] std::vector<G::RuleEvent> RuleEvents(CFixture& f, Entity e)
+    {
+        std::vector<G::RuleEvent> out;
+        while (auto x = f.Rules().Poll(e)) out.push_back(*x);
+        return out;
+    }
+    [[maybe_unused]] G::RuleQuery Query2D()
+    {
+        G::RuleQuery q;
+        q.TwoD = true;
+        q.LineOfSight = false;
+        q.Range = 10;
+        q.Origin = { 0, 0, 0 };
+        return q;
+    }
+    using Outcome = G::ApplyOutcome;
     [[maybe_unused]] size_t Count(const std::vector<CombatEvent>& events, const std::string& kind)
     {
         return size_t(std::count_if(events.begin(), events.end(), [&](const auto& e) { return e.Kind == kind; }));

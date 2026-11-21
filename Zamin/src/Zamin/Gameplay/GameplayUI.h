@@ -1,5 +1,6 @@
 #pragma once
 #include "UIModel.h"
+#include <glm/glm.hpp>
 #include <map>
 #include <deque>
 #include <cstdint>
@@ -20,13 +21,22 @@ namespace Zamin::Gameplay {
         Shield,
         Item,
         Bag,
-        Deaths
+        Deaths,
+        Effect,   // Item = a status effect key: Prefix + stacks (" / " + max with Ratio); bar = time left
+        HitMarker // Prefix while the actor's newest direct outgoing hit is younger than 0.25 s; bar fades
     };
     struct HUDBindingSpec
     {
         HUDKind Kind = HUDKind::Health;
-        std::string Item = "Coin", Prefix = "HP ";
+        std::string Item = "Coin", Prefix = "HP "; // Item: the item key (Item) or the effect key (Effect)
         bool Ratio = true;
+    };
+    // A combat feed: up to 6 Text rows show the actor's recent hit records (CombatWorld::Recent), newest first,
+    // "-18  Bolt" / "+5  Mend", their colour alpha fading over Lifetime seconds (0.1..10).
+    struct CombatFeedSpec
+    {
+        bool Outgoing = true, Incoming = false;
+        double Lifetime = 1.2;
     };
     struct UIEvent
     {
@@ -63,6 +73,10 @@ namespace Zamin::Gameplay {
         bool UnbindHUD(Entity widget);
         bool BindInventory(Entity owner, Entity actor, const std::string& name, const std::vector<Entity>& rows, std::string& error);
         bool RemoveInventory(const std::string&);
+        static constexpr size_t MaxFeeds = 8, MaxFeedRows = 6;
+        static constexpr double HitMarkerSeconds = .25;
+        bool BindCombatFeed(Entity owner, Entity actor, const std::string& name, const std::vector<Entity>& rows, const CombatFeedSpec&, std::string& error);
+        bool RemoveCombatFeed(const std::string&);
         bool Page(const std::string&, int delta);
         InventoryUIState InventoryState(const std::string&);
         UIState State() const;
@@ -96,8 +110,9 @@ namespace Zamin::Gameplay {
         {
             Ref Target;
             std::string Text;
+            glm::vec4 Color{ 1 };
             float Value = 0, Display = 0;
-            bool Interactable = true;
+            bool Interactable = true, RestoreColor = false; // colour: only feed rows (which fade) change it
         };
         struct Binding
         {
@@ -114,6 +129,13 @@ namespace Zamin::Gameplay {
             int Page = 0;
             std::string Selected;
         };
+        struct Feed
+        {
+            Owner Host;
+            Ref Actor;
+            std::vector<Widget> Rows;
+            CombatFeedSpec Spec;
+        };
         Ref Reference(Entity) const;
         Entity Resolve(Ref) const;
         Owner Own(Entity) const;
@@ -127,11 +149,13 @@ namespace Zamin::Gameplay {
         void FocusTop();
         void Emit(UIEvent);
         void SelectInventory(const std::string&, Inventory&);
+        void RefreshFeeds();
         Scene* m_Scene;
         MenuStack m_Stack;
         std::map<std::string, Panel> m_Panels;
         std::map<uint64_t, Binding> m_Bindings;
         std::map<std::string, Inventory> m_Inventories;
+        std::map<std::string, Feed> m_Feeds;
         std::deque<UIEvent> m_Events;
         Ref m_Previous;
         float m_Baseline = 1;

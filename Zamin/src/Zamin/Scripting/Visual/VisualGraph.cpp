@@ -57,6 +57,30 @@ namespace Zamin::Visual {
         }
     }
 
+    const std::vector<const char*>* PinChoices(const std::string& kind, const std::string& pin)
+    {
+        static const std::vector<const char*> payload{ "Zarar", "Davolash", "Qalqon" };
+        static const std::vector<const char*> ability{ "Zarar", "Davolash", "Qalqon", "Holat effekti" };
+        static const std::vector<const char*> tick{ "Tik yo'q", "Zarar", "Davolash", "Qalqon" };
+        static const std::vector<const char*> stacking{ "Yangilash", "Uzaytirish", "Mustaqil", "Eng kuchlisi" };
+        static const std::vector<const char*> falloff{ "Kamaymaydi", "Chiziqli kamayish" };
+        static const std::vector<const char*> hud{ "Sog'liq", "Qalqon", "Buyum", "Sumka", "O'limlar", "Effekt", "Zarba belgisi" };
+        static const std::vector<const char*> slot{ "Qurol", "Qo'shimcha qo'l", "Badan", "Tumor" };
+        static const std::map<std::pair<std::string, std::string>, const std::vector<const char*>*> choices{
+            { { "Gameplay.AbilityDefine", "Kind" }, &ability },
+            { { "Gameplay.ProjectileDefine", "Kind" }, &payload },
+            { { "Gameplay.AreaDefine", "Kind" }, &payload },
+            { { "Gameplay.AreaDefine", "Falloff" }, &falloff },
+            { { "Gameplay.EffectDefine", "Tick" }, &tick },
+            { { "Gameplay.EffectDefine", "Stacking" }, &stacking },
+            { { "Gameplay.UIBindHUD", "Kind" }, &hud },
+            { { "Gameplay.ItemDefine", "Slot" }, &slot },
+            { { "Gameplay.EquipmentUnequip", "Slot" }, &slot },
+            { { "Gameplay.EquipmentState", "Slot" }, &slot },
+        };
+        auto found = choices.find({ kind, pin });
+        return found == choices.end() ? nullptr : found->second;
+    }
     const std::map<std::string, Definition>& Catalog()
     {
         static const auto catalog = [] {std::map<std::string,Definition> c;
@@ -229,8 +253,8 @@ add("Gameplay.EquipmentEquip", "Gameplay loadout", { E("In"), EntityPin(), S("It
 add("Gameplay.EquipmentUnequip", "Gameplay loadout", { E("In"), EntityPin(), N("Slot") }, { E("Then"), B("Success"), S("Reason") });
 add("Gameplay.EquipmentState", "Gameplay loadout", { EntityPin(), N("Slot") }, { B("Configured"), B("Equipped"), S("Item") }, true);
 add("Gameplay.LoadoutStats", "Gameplay loadout", { EntityPin() }, { B("Configured"), N("Attack"), N("Armor"), N("Power"), N("Maximum"), N("Regen"), N("Energy"), N("Fraction") }, true);
-add("Gameplay.AbilityDefine", "Gameplay abilities", { E("In"), EntityPin(), S("Ability", "Bolt"), N("Kind"), N("Amount", 20), N("Cost", 10), N("Cooldown", 1), N("Range", 5), S("Ingredient"), N("Count", 1), B("Unlocked", true) }, { E("Then"), B("Success"), S("Reason") });
-add("Gameplay.AbilityCast", "Gameplay abilities", { E("In"), EntityPin(), EntityPin("Victim"), S("Ability", "Bolt"), B("TwoD"), B("LineOfSight", true), N("Mask", 65535) }, { E("Then"), B("Success"), N("Applied"), EntityPin("Victim"), S("Reason") });
+add("Gameplay.AbilityDefine", "Gameplay abilities", { E("In"), EntityPin(), S("Ability", "Bolt"), N("Kind"), N("Amount", 20), N("Cost", 10), N("Cooldown", 1), N("Range", 5), S("Ingredient"), N("Count", 1), B("Unlocked", true), S("Projectile"), S("Area"), S("Effect") }, { E("Then"), B("Success"), S("Reason") });
+add("Gameplay.AbilityCast", "Gameplay abilities", { E("In"), EntityPin(), EntityPin("Victim"), S("Ability", "Bolt"), B("TwoD"), B("LineOfSight", true), N("Mask", 65535), V("Direction"), V("Origin") }, { E("Then"), B("Success"), N("Applied"), EntityPin("Victim"), N("Projectile"), S("Reason") });
 add("Gameplay.AbilityUnlock", "Gameplay abilities", { E("In"), EntityPin(), S("Ability", "Bolt"), B("Unlocked", true) }, { E("Then"), B("Success"), S("Reason") });
 add("Gameplay.AbilityState", "Gameplay abilities", { EntityPin(), S("Ability", "Bolt") }, { B("Configured"), B("Unlocked"), B("Ready"), N("Remaining"), N("Fraction"), N("Uses"), N("Cost") }, true);
 add("Gameplay.LoadoutRefill", "Gameplay loadout", { E("In"), EntityPin(), N("Amount", 25) }, { E("Then"), N("Applied") });
@@ -269,6 +293,8 @@ add("Gameplay.UIInventoryConfigure", "Gameplay UI", { E("In"), EntityPin(), Enti
 add("Gameplay.UIInventoryState", "Gameplay UI", { EntityPin(), S("Name", "Bag") }, { B("Configured"), B("Available"), N("Page"), N("Pages", 1), S("Item"), N("Count"), N("UsedSlots"), N("Slots") }, true);
 add("Gameplay.UIInventoryPage", "Gameplay UI", { E("In"), EntityPin(), S("Name", "Bag"), N("Delta", 1) }, { E("Then"), B("Success"), S("Reason") });
 add("Gameplay.UIInventoryRemove", "Gameplay UI", { E("In"), EntityPin(), S("Name", "Bag") }, { E("Then"), B("Success"), S("Reason") });
+add("Gameplay.UICombatFeed", "Gameplay UI", { E("In"), EntityPin(), EntityPin("Actor"), S("Name", "Feed"), { "Rows", Type::ArrayEntity, Value::array() }, B("Outgoing", true), B("Incoming"), N("Lifetime", 1.2) }, { E("Then"), B("Success"), S("Reason") });
+add("Gameplay.UICombatFeedRemove", "Gameplay UI", { E("In"), EntityPin(), S("Name", "Feed") }, { E("Then"), B("Success"), S("Reason") });
 for (auto op : { "Bind", "Unbind" }) add("Gameplay.Save" + std::string(op), "Gameplay save", { E("In"), EntityPin(), S("Key", "Player") }, { E("Then"), B("Success"), S("Reason") });
 add("Gameplay.SaveFind", "Gameplay save", { EntityPin(), S("Key", "Player") }, { B("Found"), B("Active"), EntityPin("Entity") }, true);
 add("Gameplay.SaveSpawn", "Gameplay save", { E("In"), EntityPin(), S("Key", "NPC"), S("Prefab"), V("Position") }, { E("Then"), B("Success"), EntityPin("Entity"), S("Reason") });

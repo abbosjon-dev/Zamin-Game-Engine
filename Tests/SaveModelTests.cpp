@@ -80,7 +80,11 @@ TEST(GameSaveModelUnknownVersionAndFormatAreRejected)
     auto value = Zamin::Visual::Value::parse(EncodeGameSave(Example()));
     GameSave out;
     std::string error;
-    value["Version"] = 4;
+    value["Version"] = 5;
+    CHECK(!DecodeGameSave(value.dump(), out, error));
+    value["Version"] = 0;
+    CHECK(!DecodeGameSave(value.dump(), out, error));
+    value["Version"] = 4; // a v4 payload needs its Combat block
     CHECK(!DecodeGameSave(value.dump(), out, error));
     value["Version"] = 1;
     value["Format"] = "Other";

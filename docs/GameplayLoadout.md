@@ -36,7 +36,8 @@ an actor's ability book. It remains local gameplay authority, not a multiplayer 
 
 ## Abilities and consumables
 
-Kinds: 0 Damage, 1 Heal, 2 Shield. Define a key, Amount (.001..100,000), energy Cost (0..100,000),
+Kinds: 0 Damage, 1 Heal, 2 Shield, 3 Effect (a status only; see [combat links](#combat-links)). Define a
+key, Amount (.001..100,000), energy Cost (0..100,000),
 Cooldown (0..300 seconds), Range (.001..100), optional Ingredient and Count (1..999,999), and the
 initial Unlocked flag. Effective effect magnitude is `Amount + Power`; damage also follows the
 shared Attack/Armor calculation. Unlock/lock changes availability without clearing uses/cooldowns.
@@ -57,8 +58,27 @@ Abilities are immediate and single-target. Timed [status effects](GameplayCombat
 their Modifiers to the effective stats after equipment and before the clamp, so State, Attack, Armor,
 Power, energy capacity and regeneration show buffs; losing a MaxEnergy bonus clamps energy at once. A
 stunned actor's Cast, Equip and Unequip return `Stunned` without spending anything, and AbilityState
-reports it as not Ready; Refill still works. Linking abilities to projectiles, areas and effects, cast
-bars, an effect graph editor and network prediction remain separate work.
+reports it as not Ready; Refill still works. Cast bars, an effect graph editor and network prediction
+remain separate work.
+
+## Combat links
+
+An ability may link to the scene's [combat definitions](GameplayCombat.md#ability-links): `Projectile`,
+`Area` (exclusive with Projectile) and `Effect` keys, resolved at Cast, so graphs may define them in any
+order (`Projectile not defined`, `Area not defined`, `Ability effect not defined` until they exist).
+
+| Ability | Cast | Resources are committed |
+|---|---|---|
+| Kind 0/1/2, no links | instant, as above | when the amount applied is above 0 |
+| + Effect only | instant, then the effect on the damaged victim (Kind 0) or the caster (1/2); hostile effects for Kind 0, beneficial for 1/2 (`Ability effect kind mismatch`) | as above |
+| + Projectile | Fire at the victim (Kind 0: shared perception; Kind 1/2: a teammate in range and sight) or along AbilityCast `Direction` (Origin = launch offset); damage snapshot `Amount + Power`, plus Attack for damage; the ability's Effect replaces the projectile's | **at launch**: a later miss still spends; a failed Fire spends nothing |
+| + Area | an instant area centred on the victim (Kind 0) or the caster; magnitude `Amount + Power` (plus Attack for damage); the ability's Effect replaces the area's | when the area reached at least one target |
+| Kind 3 Effect | hostile: on a victim in range and sight; beneficial: self-cast | when the effect is applied (not `Rejected`) |
+
+The projectile or area kind must equal the ability kind (`Ability/projectile kind mismatch`,
+`Ability/area kind mismatch`). Kind 3 needs an Effect and no projectile or area. AbilityResult and
+`Gameplay.AbilityCast` gain `Projectile` (the fired handle); Applied is the damage snapshot for a projectile,
+the total applied for an area and 1 for an effect cast, and the `Cast` event carries the same amount.
 
 ## Blueprint and HUD
 
@@ -69,9 +89,9 @@ bars, an effect graph editor and network prediction remain separate work.
 | `Gameplay.EquipmentEquip`, `EquipmentUnequip` | Transactional ownership transfer with the shared bag. |
 | `Gameplay.EquipmentState` | Configured, equipped flag and item key for a slot. |
 | `Gameplay.LoadoutStats` | Effective Attack/Armor/Power, current Energy/Maximum/Regen/Fraction. |
-| `Gameplay.AbilityDefine` | Define the effect, costs, ingredient and initial availability. |
+| `Gameplay.AbilityDefine` | Define the effect, costs, ingredient, initial availability and optional Projectile/Area/Effect links (Kind 0–3). |
 | `Gameplay.AbilityUnlock` | Enable/disable a configured ability. |
-| `Gameplay.AbilityCast` | Effect transaction; returns Success/Applied/Victim/Reason. |
+| `Gameplay.AbilityCast` | Effect transaction (Direction/Origin aim a projectile); returns Success/Applied/Victim/Projectile/Reason. |
 | `Gameplay.AbilityState` | Availability, cooldown remaining/fraction, uses and cost. |
 | `Gameplay.LoadoutRefill` | Restore energy; returns applied amount. |
 | `Gameplay.LoadoutEvent` | Pop Equipped/Unequipped/Unlocked/Locked/Cast/Energy telemetry. |
@@ -88,11 +108,14 @@ slots, stats, energy, cooldown, cast count, health, potions, enemy health, XP an
 
 ## Save v3 compatibility
 
-Capturing a bound loadout actor selects v3; scenes without loadouts retain v1/v2. V3 contains
+Capturing a bound loadout actor selects v3; scenes without loadouts retain v1/v2 (a scene that uses
+combat writes [v4](GameplaySave.md#combat-state-save-v4), which keeps the same Loadout records). V3 contains
 nullable Loadout state on every entity: Energy, four ordered equipped-item keys and keyed ability
 Remaining/Uses/Unlocked records. Quests retain their v2 representation. Strict keys, finite ranges,
 unique equipment keys, 16-ability bounds, checksums, duplicate JSON-key rejection and the 2 MiB bound
-apply. The compatibility signature includes base stats and all item/ability definitions.
+apply. The compatibility signature includes base stats and all item/ability definitions; an ability's
+combat links are appended to its entry only when one is set, so unlinked abilities keep byte-identical
+signatures and saves written before the links existed still load.
 
 Restore stages bag, health, quests, equipment and abilities before committing. It validates slot
 ownership against definitions, effective energy capacity, ability sets and cooldown caps. Loading

@@ -235,6 +235,13 @@ namespace Zamin {
         m_Editable = editable;
         m_Entity = selection;
     }
+    bool VisualGraphPanel::SelectNode(uint32_t id)
+    {
+        if (!m_Graph.Find(id)) return false;
+        m_Selected = id;
+        m_Selection = { id };
+        return true;
+    }
     void VisualGraphPanel::Open(const std::filesystem::path& path)
     {
         try

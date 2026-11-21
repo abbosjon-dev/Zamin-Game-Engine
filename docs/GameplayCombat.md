@@ -7,8 +7,10 @@ stopped by world colliders through physics queries, and changes health only thro
 [RuleWorld](GameplayRules.md). Areas hit every admitted actor in a radius (with optional line of sight);
 status effects tick, stack and expire on the same fixed step and modify loadout stats, movement speed and
 the ability to act. Ownership, team rules, pierce, lifetime, stacking, pooling and the optional visual
-prefab are deterministic and capped. Ability links, the combat HUD and save v4 build on this package (see
-[Later work](#later-work)).
+prefab are deterministic and capped. [Abilities link](#ability-links) to these definitions, the
+[HUD](#hud-feedback) shows effects, hit markers and a combat feed, the node inspector offers
+[named choices](#editor-authoring) for the enumerated pins, and [save v4](#persistence) keeps active effects
+and projectiles in flight.
 
 ## Ownership and definitions
 
@@ -273,6 +275,41 @@ damage/heal-over-time ticks (`Periodic`) for HUD feedback. `Stats()` reports liv
 steps/sweeps/actor tests/effect ticks/area rays of the last frame, total hits and area applications
 (`Detonations`), live effect instances and the dropped time.
 
+## Ability links
+
+[Loadout abilities](GameplayLoadout.md#combat-links) can name a `Projectile`, an `Area` (not both) and an
+`Effect`; Kind 3 (`Effect`) applies only its effect. Keys resolve at Cast. A projectile ability fires through
+`Fire` with `Damage = Amount + Power` (Fire adds the caster's Attack for damage) at the victim (enemy:
+shared perception; support: a teammate in range and sight) or along `CastAim::Direction`, and commits its
+cost and cooldown at launch: a miss still spends, a failed Fire spends nothing. An area ability applies
+`ApplyArea(key, caster, centre, Amount + Power, effect)` on the victim or the caster and commits when it
+reached a target. The ability's Effect replaces the payload's (`FireRequest::Effect`, the `effect` argument
+of `ApplyArea`): the override must exist and match the payload kind (`Projectile effect kind mismatch`). The
+override is projectile state, saved with it; a projectile's detonation area keeps its own effect.
+
+## HUD feedback
+
+`UIWorld::BindHUD` gains Kind 5 `Effect` (Item = effect key: `Prefix + stacks`, with `/ MaxStacks` when
+Ratio is set; the bar is `Remaining / duration cap`; `Prefix--` while inactive) and Kind 6 `HitMarker`
+(`Prefix` while the actor's newest direct outgoing hit is younger than 0.25 s, the bar fading 1 → 0;
+damage/heal-over-time ticks never mark). `UIWorld::BindCombatFeed` shows up to six rows of the actor's
+hit records (`Recent`), newest first, as `-18  Bolt` / `+5  Mend`, outgoing and/or incoming, fading their
+colour alpha over Lifetime (0.1–10 s); at most eight feeds, authored text and colour restored on removal or
+when the owner disappears. See [Gameplay UI](GameplayUI.md#hud-and-inventory-views).
+
+## Editor authoring
+
+`Visual::PinChoices(kind, pin)` names the values of the enumerated Number pins; the Blueprint node inspector
+shows them as a combo and stores the index (Undo/Save as any literal; the file stays a number). Names are
+Uzbek with English pairs in the editor table: Kind of AbilityDefine (Zarar / Davolash / Qalqon / Holat
+effekti), ProjectileDefine and AreaDefine (the first three), EffectDefine Tick (Tik yo'q, Zarar, Davolash,
+Qalqon) and Stacking (Yangilash, Uzaytirish, Mustaqil, Eng kuchlisi), AreaDefine Falloff (Kamaymaydi,
+Chiziqli kamayish), UIBindHUD Kind (Sog'liq … Effekt, Zarba belgisi) and the equipment Slot pins (Qurol,
+Qo'shimcha qo'l, Badan, Tumor). A wired pin, or a value outside the list ("Noma'lum qiymat"), is shown as
+before. During Play the inspector's "Jang holati" block shows projectiles in flight (of 128), pooled visuals
+shown/created, this frame's fixed steps, the scene's effect instances (of 1,024) and the selected actor's
+effects (key, stacks, time left; at most 16).
+
 ## Blueprint
 
 | Node | Inputs → outputs |
@@ -289,6 +326,11 @@ steps/sweeps/actor tests/effect ticks/area rays of the last frame, total hits an
 | `Gameplay.EffectRemove` | Target, Effect ("" = all) → Removed |
 | `Gameplay.EffectState` (pure) | Target, Effect → Active, Stacks, Instances, Remaining, Fraction, Magnitude |
 | `Gameplay.CombatModifiers` (pure) | Target → Stunned, Speed, Attack, Armor, Power, Maximum, Regen, Effects |
+| `Gameplay.AbilityDefine` (+pins) | + Projectile, Area, Effect; Kind 0–3 → Success, Reason |
+| `Gameplay.AbilityCast` (+pins) | + Direction, Origin → + Projectile (handle) |
+| `Gameplay.UIBindHUD` (Kind 5, 6) | Kind 5 Effect (Item = effect key), 6 Hit marker → Success, Reason |
+| `Gameplay.UICombatFeed` | Target (owner), Actor, Name, Rows (1–6), Outgoing, Incoming, Lifetime → Success, Reason |
+| `Gameplay.UICombatFeedRemove` | Name → Success, Reason |
 
 Integer pins (Kind, Pierce, Pool, BlockMask, Falloff, MaxTargets, Mask, Tick, Stacking, MaxStacks, the
 handle) must be whole numbers in range; a wrong value throws `Combat integer outside bounds`, as the
@@ -317,18 +359,19 @@ target unavailable`, `Area victim unavailable` or `Effect source unavailable`. O
 | Ticks | 4 per instance per fixed step | carried to later steps |
 | Direct `ApplyEffect` calls | 64 per scene frame | `Effect budget 64` |
 | Fixed steps per frame | the scene's `MaxStepsPerFrame` (≤ 20) | remaining time dropped (`DroppedTime`) |
+| Combat feeds | 8 per scene, 1–6 rows each | `Invalid combat feed or capacity (8 feeds, 6 rows)` |
+| Saved state (v4) | 16 effects per entity, 128 projectiles, 8 hits each, a 65,536-character signature | the document is rejected |
 
 ## Persistence
 
-Projectiles in flight and status effects are not part of gameplay saves yet, and the save versions are
-unchanged (a combat scene still writes v1/v2/v3 like any other). `SaveWorld::Restore` releases every live
-projectile, removes every status effect, clears combat events and hit records and resets the step
-accumulator before lifecycle callbacks, so no shot fired or effect applied before a load can act on the
-restored state (logged as `Saqlangan holat yuklandi: N ta uchayotgan snaryad bekor qilindi, M ta effekt olib
-tashlandi`). Because a restore has no effects, `Capture` saves loadout energy at most at the capacity
-*without* effect bonuses (a MaxEnergy buff's extra energy is not saved), so every snapshot is valid without
-effects; without effects the saved bytes are unchanged. Definitions stay; define them in `Event.Start`
-before loading, as loadouts.
+A scene with combat (a definition, an effect or a projectile) writes [save v4](GameplaySave.md#combat-state-save-v4):
+each bound entity's effect instances and every projectile in flight in its slot and generation, plus the
+definition `Signature()`. Restore stages them with the rest of the snapshot (effects before the loadout,
+for MaxEnergy), replaces bound actors' books and all projectiles, hides the pooled visuals (reacquired
+lazily), clears events, hit records and the accumulator, and logs `Jang holati tiklandi: N effekt, M
+snaryad`. A different definition set is rejected (`Combat definitions changed`); older saves leave bound
+actors with no effects and nothing in flight (`Eski save vN yuklandi: ...`). Scenes without combat keep
+their v1/v2/v3 bytes.
 
 ## Determinism
 
@@ -344,9 +387,9 @@ frame-rate-independent grace windows should use zero grace for projectile victim
 ## Native API
 
 Include `Zamin/Gameplay/CombatWorld.h`. In a running scene: `CombatWorld::For(scene).DefineProjectile(spec,
-error)`, then `Fire(FireRequest{ Key, Owner, Origin, Direction, Target, Damage })`, `Projectile(handle)`,
+error)`, then `Fire(FireRequest{ Key, Owner, Origin, Direction, Target, Damage, Effect })`, `Projectile(handle)`,
 `Cancel(handle, detonate)`, `Poll(actor)`, `Recent(...)`, `Stats()`; `DefineArea`, `ApplyArea(key, source,
-center, magnitude)`; `DefineEffect`, `ApplyEffect(target, key, source, magnitude)`, `RemoveEffects`,
+center, magnitude, effect)`; `DefineEffect`, `ApplyEffect(target, key, source, magnitude)`, `RemoveEffects`,
 `Effect`, `Effects`, `Modifiers`. The free functions `CombatStatBonus`, `CombatSpeedScale` and
 `CombatStunned` are neutral without a combat world, and `OnCombatDeath` is called by RuleWorld on a kill.
 `ProjectileModel.h` holds the pure, scene-free projectile parts (`ValidateProjectileSpec`,
@@ -365,7 +408,7 @@ with Armor at impact, support projectiles, ownerless/recreated owners, pierce or
 pass-through hits, Box2D and Jolt walls, the muzzle-in-wall check, a face exactly on a step boundary,
 collider and character-controller actors hit once, per-frame/owner/pool budgets, lifetime and distance
 rounding, pause/time scale/step cap, Play stop/start, definitions, visual prefab validation and pooling,
-the interim save policy, Blueprint dispatch, and determinism (identical event-log hash in fresh scenes;
+save restore of projectiles in flight, Blueprint dispatch, and determinism (identical event-log hash in fresh scenes;
 identical outcomes at 1/30, 1/60, 1/144 s and a jittered frame sequence).
 
 `EffectModel*` and `AreaModel*` tests cover the specification bounds, every stacking rule (the Refresh tick
@@ -377,13 +420,23 @@ through the world with events, damage-over-time without grace and with quest kil
 death clearing, inactive/pause/time-scale freezing, admission/budget/1024-instance limits, loadout stat
 composition and the energy clamp, stun gates that spend nothing, slow/haste/stun on Motor2D and AI
 navigation, area falloff/ordering/teams/support, Box2D and Jolt line of sight, impact/expiry/cancel/wall
-detonations with launch snapshots, the 16-per-step detonation budget, Blueprint nodes, the interim save
+detonations with launch snapshots, the 16-per-step detonation budget, Blueprint nodes, the v4 save
 policy and a determinism scenario with every path (identical hash in fresh scenes and at 1/30, 1/60, 1/144 s
 and a jittered sequence).
 
+`GameSaveModelV4*` tests cover the v4 round trip (exact doubles, byte-identical re-encode), 38 struct and 12
+JSON edits that must each be rejected (ranges, NaN, order, duplicates, references, unknown/missing fields,
+versions) and the maximal document; `GameSaveLegacy*` the golden v1/v2/v3 files and the real LoadoutWorkshop
+v3 save restoring into the Loadout2D scene with and without combat. `CombatSave*` tests restore into a fresh
+scene and continue exactly (projectile position, effect timers, health), ownerless sources and owners, effects
+staged before loadout energy, changed definitions and invalid late records that change nothing, the legacy
+migration and unlinked ability signatures. `CombatAbility*` cover commit-at-launch and spend-nothing failures,
+late binding and kind mismatches, effect overrides, instant + effect, Kind 3, areas and Blueprint pins;
+`CombatHUD*` the effect/hit-marker HUD and the feed; `VisualGraphPinChoicesAreTranslated` that every choice
+has an English pair and as many names as the dispatch accepts.
+
 ## Later work
 
-Ability links (projectile/area/effect abilities), editor pin choices, HUD feedback, save v4 with projectiles
-in flight and active effects, and the playable combat slice are the remaining items of this package. Out of
+The playable 2D/3D combat slice with profiling and export is the remaining item of this package. Out of
 scope: projectile–projectile interaction, ricochet/bounce, knockback impulses, ballistic aim solving,
-world-anchored damage numbers and network prediction/authority.
+world-anchored damage numbers, cast bars, an effect graph editor and network prediction/authority.

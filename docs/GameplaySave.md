@@ -26,7 +26,8 @@ signature checks health settings, bag capacity, interaction settings, AI setting
 body kind, navigation grid reference and script/graph path. Bound references compare by key.
 Unbound external grid references retain their authored UUID. The signature is not a hash of every
 asset or collider property: bump Schema when changing content that would make old progress unsafe.
-Unknown format versions are rejected. Base progress uses v1; [quest books](GameplayQuest.md) use v2. V1 restores into new quest content
+Unknown format versions (0, 5 and later) are rejected. Base progress uses v1; [quest books](GameplayQuest.md) use v2,
+[loadouts](GameplayLoadout.md) v3 and [combat](#combat-state-save-v4) v4. V1 restores into new quest content
 with Locked/zero-progress books while preserving compatible base state.
 
 Only scene roots without bone attachments can bind. Root scale must be nonsingular. Physical scale
@@ -81,10 +82,7 @@ and replans routes on its next update; a saved terminal Blocked mode stays block
 reset. Native recovery watchdogs, path handles and retry clocks are transient, not serialized.
 
 Pending rule/AI event queues are cleared, not replayed. [Projectiles](GameplayCombat.md) in flight and
-status effects are not saved yet: Restore releases the projectiles, removes the effects and clears combat
-events, so a shot fired or an effect applied before the load cannot act on the restored state; combat
-definitions stay and save versions are unchanged. Capture saves loadout energy at most at the capacity
-without effect bonuses, so a snapshot taken under a MaxEnergy buff stays valid. Active-state lifecycle callbacks run after
+status effects are part of [save v4](#combat-state-save-v4). Active-state lifecycle callbacks run after
 state installation under a reentry guard: they may perform normal gameplay effects, which are not
 rolled back. Content should keep those callbacks idempotent. Arbitrary native callback exceptions
 or process/allocation failure during commit are not a general engine transaction guarantee.
@@ -95,6 +93,48 @@ snapshot. Use existing GameState/SaveData for separate settings and explicit que
 The sample's AutoResume setting chooses its QA phase; native HP/bag/AI reads establish acceptance.
 An attached streamed-world agent can restore progress, but its outstanding query/portal ticket is
 always cancelled and the world itself is not reconstructed.
+
+## Combat state (save v4)
+
+A scene that uses [combat](GameplayCombat.md) (at least one projectile, area or effect definition, a status
+effect or a projectile in flight) captures **version 4**; every other scene keeps writing v1/v2/v3 exactly as
+before. V4 keeps the v2 Quests and v3 Loadout records and adds:
+
+- `Effects` on every saved entity: at most 16 instances in application order (`Key`, `Source`, `Team`,
+  `FriendlyFire`, `Stacks` 1–16, `Remaining` > 0, `Tick` = seconds to the next tick, `Magnitude`,
+  `Sequence`), only on present, living health actors (death clears effects). Times are relative, so no clock
+  is rebased: Poison saved 0.8 s before a tick ticks 0.8 s after the load, and closed-game time spends
+  nothing. Loadout energy is saved as it is: a MaxEnergy buff is in the snapshot with its effect.
+- a payload `Combat` block: `Signature` (the definitions' gameplay fields, `CombatWorld::Signature()`, at
+  most 65,536 characters; visual Prefab/Pool excluded) and at most 128 `Projectiles`, each in its pool `Slot`
+  with its handle `Generation`, Key, effect override, Owner/Target references, Team snapshot, double
+  Position/Velocity/Muzzle (written exactly), Age, Travelled, Damage and Attack snapshots, PierceLeft, up to
+  eight Hits references and Phase (0 flying, 1 detonating).
+
+References are save keys, `uuid:<n>` for an unbound authored entity, or empty. A source, owner or target that
+is gone at capture, or does not resolve at load, becomes none: the effect keeps ticking with its team
+snapshot but credits nobody, and the projectile flies ownerless. Hits only exclude targets, so an authored
+UUID is kept.
+
+Define combat in `Event.Start` before `SaveLoad`, as loadouts. Restore rejects a different definition set
+with `Combat definitions changed`. It stages each bound present entity's effects against the current
+definitions (`Invalid saved effects: ...`, the 1,024 scene instances included) **before** the loadout, so a
+saved effect's MaxEnergy bonus bounds the saved energy, and every projectile against its definition
+(`ValidateProjectileState`, a defined effect override of the right kind, 32 per owner, unique slots). An
+invalid late record leaves every world untouched. Commit replaces the bound actors' effect books (unbound
+actors keep theirs, as their health) and every projectile in flight (handles stay valid: same slot and
+generation; other slots' generations advance), hides pooled visuals until they are reacquired, and clears
+combat events, hit records and the fixed-step accumulator. The accumulator (less than one step) is not
+saved, as physics does not save its own; with the accumulator at zero a restored scene continues exactly as
+the original (`CombatSaveV4ContinuesExactlyInAFreshScene`).
+
+Older saves migrate to "no effects and no projectiles in flight" for bound actors, with their existing
+legacy rules. An ability's combat links extend its signature only when set, so unlinked abilities keep
+v3-identical signatures. The golden files in `Tests/Fixtures/GameSaves` (`v1.json`, `v2.json`, `v3.json` and
+a real LoadoutWorkshop phase-0 `loadout-v3.json`, all written before v4 existed) decode and re-encode
+byte-identically, and the real one restores into the Loadout2D scene with and without combat. The largest
+v4 document (256 entities x 16 effects with 64-character keys, 128 projectiles x 8 hits, a 65,536-character
+signature) encodes to 1,524,542 bytes, within the 2 MiB limit.
 
 ## Files and recovery
 
@@ -115,7 +155,7 @@ multi-process writer lock. Keep one writer for a profile.
 
 ## Verification
 
-`GameSave*` native tests cover codec bounds, transactional rejection, configuration compatibility,
+`GameSave*` native tests cover codec bounds (v4 fields included), the golden legacy files, transactional rejection, configuration compatibility,
 timer rebasing, stable UUID remapping, physical restore, used interactions, bounded slot/spawn/I/O,
 backup failures, lifecycle and streamed query/portal cancellation.
 

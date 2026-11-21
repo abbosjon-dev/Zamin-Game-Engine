@@ -351,6 +351,7 @@ Editor muhit o'zgaruvchilari bilan boshqariladi — headless skrinshotlar, testl
 | `ZAMIN_EDITOR_MENU=<Fayl\|Tahrirlash\|...>` | Shu menyu ochiq turadi |
 | `ZAMIN_EDITOR_LAYOUT=<Default\|2D\|Animation\|FourViews\|nom>` | Joylashuvni qo'llaydi |
 | `ZAMIN_EDITOR_OPEN_PREFAB=<Prefabs/X.zprefab>` | Prefabni prefab rejimida ochadi |
+| `ZAMIN_EDITOR_VISUAL_GRAPH=<Scripts/X.zgraph>` | Blueprint graphini ochadi; `ZAMIN_EDITOR_VISUAL_NODE=<id>` uning node'ini inspektorda tanlaydi |
 | `ZAMIN_EDITOR_NEW_SCRIPT=<Klass>[\|minimal]` | Yangi skript yaratib kompilyatsiya qiladi (`dialog` — oynani ochadi) |
 | `ZAMIN_EDITOR_BUILD=1` | Skriptlarni kompilyatsiya qiladi |
 | `ZAMIN_EDITOR_EXPORT=<papka>` | O'yinni shu papkaga eksport qiladi |

@@ -9,6 +9,8 @@ namespace Zamin {
     {
     public:
         void Open(const std::filesystem::path& path);
+        // Selects a node of the open graph (QA hook ZAMIN_EDITOR_VISUAL_NODE); false when the graph has no such node.
+        bool SelectNode(uint32_t id);
         void SetContext(const Ref<Scene>& scene, bool editable, uint64_t selection);
         void OnImGuiRender(bool* show);
         std::function<void()> OnModified;

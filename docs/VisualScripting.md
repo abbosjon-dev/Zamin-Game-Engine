@@ -85,6 +85,10 @@ Graph engine'ning mavjud `NativeScriptComponent` lifecycle'ida ichki `Zamin.Visu
 Shuning uchun bitta obyektning bitta skript slotiga C++ yoki visual graph ulanadi. C++ skript bor obyektga ulash tugmasi almashtirishni aniq ko'rsatadi.
 Ikkisini birlashtirish uchun alohida controller obyektlari, xabarlar va aks ettirilgan maydonlardan foydalaning.
 C++ metodlari avtomatik nodega aylanmaydi: faqat katalogdagi API va ro'yxatga olingan maydonlar mavjud.
+Gameplay nodelarining sanab o'tiladigan Number pinlari (AbilityDefine/ProjectileDefine/AreaDefine Kind,
+EffectDefine Tick/Stacking, AreaDefine Falloff, UIBindHUD Kind, jihoz Slot) node inspectorida nomlangan ro'yxat
+(combo, `Visual::PinChoices`) bo'lib ko'rinadi va indeks oddiy raqam sifatida saqlanadi; Play paytida inspector
+tanlangan aktyorning [jang holati](GameplayCombat.md#editor-authoring)ni ham ko'rsatadi.
 Curve/Enum/custom struct pinlari, macro/collapse, graph inheritance, network RPC va bytecode/native code generation alohida rivojlantirish bosqichlaridir. Typed funksiyalar va yuqoridagi yetti massiv turi ushbu bo‘limga kiradi.
 
 Graph assets registryda ro'yxatlanadi, Content Browser'da ochiladi, asset inspector diagnostika ko'rsatadi.

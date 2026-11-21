@@ -90,4 +90,5 @@ fail the test. Exports run twice and are relocated for a version check by the ex
 Private fixture overrides enable deterministic replay/observation; source project defaults remain
 interactive. CI runs the workflow for both Linux compilers. See [Testing.md](Testing.md).
 
-Combat, health, inventory and interaction continue in [GameplayRules.md](GameplayRules.md).
+Combat, health, inventory and interaction continue in [GameplayRules.md](GameplayRules.md); projectiles,
+areas, status effects, ability links, the combat HUD and save v4 in [GameplayCombat.md](GameplayCombat.md).

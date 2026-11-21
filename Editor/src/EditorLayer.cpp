@@ -561,6 +561,9 @@ namespace Zamin {
             if (const char* graph = std::getenv("ZAMIN_EDITOR_VISUAL_GRAPH")) {
                 m_ShowVisualGraph = true;
                 m_VisualGraphPanel.Open(Project::GetAssetFileSystemPath(graph));
+                // ZAMIN_EDITOR_VISUAL_NODE=<node id>: the node inspector shows that node of the opened graph.
+                if (const char* node = std::getenv("ZAMIN_EDITOR_VISUAL_NODE"); node && !m_VisualGraphPanel.SelectNode(uint32_t(std::strtoul(node, nullptr, 10))))
+                    ZM_WARN("Blueprint node topilmadi: {}", node);
             }
             // ZAMIN_EDITOR_ASSET=<path relative to Assets>: the asset inspector shows that file.
             if (const char* asset = std::getenv("ZAMIN_EDITOR_ASSET"))

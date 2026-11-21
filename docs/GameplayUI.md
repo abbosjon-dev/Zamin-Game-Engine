@@ -64,6 +64,8 @@ HUDBind supports text, progress bars or both on one UITransform widget. Kind val
 | 2 Item | Named item count / per-item stack capacity |
 | 3 Bag | Used item slots / bag capacity |
 | 4 Deaths | Cumulative deaths |
+| 5 Effect | Item = a status effect key: stacks (instances for Independent) / MaxStacks (1 for Extend and HighestWins); the bar is the time left of its longest duration |
+| 6 Hit marker | Text = Prefix while the actor's newest direct outgoing hit (not an effect tick) is younger than 0.25 s, otherwise empty; the bar fades from 1 to 0 |
 
 Prefix is at most 64 bytes; Ratio controls the optional numeric maximum in text. Numbers are rounded
 for display, while fractions use canonical values and clamp to 0..1. Zero maximum produces fraction
@@ -90,6 +92,15 @@ health/bags and the existing UI reads them without serializing its menu stack.
 [Quest HUD bindings](GameplayQuest.md) add whole-quest or objective progress and participate in the
 same one-writer widget checks.
 
+An inactive Effect shows `Prefix--` and an empty bar. A combat feed (`BindCombatFeed(owner, actor, name,
+rows, { Outgoing, Incoming, Lifetime })`, at most eight feeds) binds 1–6 distinct unlocalized Text rows to
+the actor's newest [combat hit records](GameplayCombat.md#hud-feedback), newest first: `-18  Bolt` for
+damage, `+5  Mend` for heal/shield (amounts rounded), outgoing and/or incoming, younger than Lifetime
+(0.1–10 s). Each row's colour alpha fades from its authored value to 0 over Lifetime; rows without a record
+show an empty text. The engine composes no words: authors choose keys and prefixes. Removing the feed or
+losing its owner restores each row's authored text and colour. Feed rows cannot also be HUD or inventory
+widgets. World-anchored floating numbers are out of scope.
+
 ## Blueprint operations
 
 | Nodes | Use |
@@ -101,7 +112,8 @@ same one-writer widget checks.
 | `UIState` | Canonical top/depth, scene pause, input block/fence, selected entity, unscaled/game clocks and dropped events. |
 | `UIEvent` | Pop one bounded transition/selection event (32 entries). State is authoritative; events can be dropped. |
 | `UIFocus` | Select an eligible widget inside the current modal scope. |
-| `UIBindHUD`, `UIUnbindHUD` | Bind/release a native health/bag display. Actor must be supplied. |
+| `UIBindHUD`, `UIUnbindHUD` | Bind/release a native health/bag/effect/hit-marker display (Kind 0–6). Actor must be supplied. |
+| `UICombatFeed`, `UICombatFeedRemove` | Bind Rows (1–6) to the Actor's hit records (Outgoing, Incoming, Lifetime) or release them. |
 | `UIInventoryConfigure`, `UIInventoryState` | Bind rows and read live page/selection. |
 | `UIInventoryPage`, `UIInventoryRemove` | Change a page or release its view. |
 
@@ -117,6 +129,8 @@ new renderer, networking authority, equipment system or full ECS snapshot.
 `GameUI*` tests cover the pure stack/page/format models and real scene behavior: keyboard/gamepad
 input, same-frame pause, transition fencing, pointer/focus/text/scroll isolation, sparse pages,
 source replacement, component removal, script lifecycle, time-scale restoration and save-backed HUD.
+`CombatHUD*` tests cover Effect stacks/time left, the hit marker and the feed's rows, fading, limits and
+restoration; `GameUIModelCombatRowsRoundAndFade` the pure row text and alpha.
 
 `python3 Tests/ui_workflow_test.py --build build --exports` runs actual keyboard/gamepad Player
 replay, visible second-page captures at 1280x720 and 1024x768, Editor auto-play and compiler-free

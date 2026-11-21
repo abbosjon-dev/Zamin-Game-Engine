@@ -1904,7 +1904,6 @@ namespace Zamin {
             { "Sahnadagi effektlar", "Effects in the scene" },
             { "Tanlangan aktyorda effekt yo'q", "The selected actor has no effects" },
             { "Effekt, to'plam, qolgan vaqt", "Effect, stacks, time left" },
-            { "Yana effektlar bor", "More effects" },
         };
 
         struct Table

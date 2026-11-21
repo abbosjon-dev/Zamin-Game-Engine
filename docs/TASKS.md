@@ -65,7 +65,7 @@ Renderer o‘zgarmagani uchun eski 12 render holati qayta ishga tushirilmadi.
 ### Keyingi paket — projectiles va gameplay effects
 
 - [x] Bounded 2D/3D projectile lifecycle, collision/hit ownership, pooling va lifetime.
-- [ ] Area damage/support, timed status effects va stacking/expiration qoidalari.
+- [x] Area damage/support, timed status effects va stacking/expiration qoidalari.
 - [ ] Ability/effect authoring, HUD feedback va persistence compatibility.
 - [ ] O‘ynaladigan 2D/3D combat slice, profiling, export va regression darvozalari.
 
@@ -85,6 +85,28 @@ Editor Play: 11/128 uchayotgan snaryad pool vizuallari bilan, GL/graph xatosi yo
 siyosati: Restore uchayotgan snaryadlarni bekor qiladi, save versiyasi o‘zgarmadi. Renderer va editor UI
 o‘zgarmagani uchun render reference va ImGui editor testlari ishga tushirilmadi; Release bench 4-bandda.
 [API va chegaralar](GameplayCombat.md).
+
+Dalillar (2-band, 2026-11-21): 1288/1288 unit (31 yangi: 11 `EffectModel*`/`AreaModel*`, 20 `CombatEffect*`,
+`CombatArea*`, `CombatProjectile*`, `CombatDetonation*`), 11/11 headless CTest, `ctest -L docs` 2/2. Pure
+EffectModel/ProjectileModel/RulesModel/LoadoutModel ASan/UBSan/LSan: 49/49. CombatWorld, CombatGraph,
+EffectModel, ProjectileModel, GameplayRules, RulesModel, LoadoutWorld, LoadoutModel va SaveWorld instrumentlangan
+9 TU owner probe: 84/84, LeakSanitizer bilan (83 test + effekt fazasi, hudud LoS va o‘limda tozalashni
+instrumentlangan nusxada `CombatWorld::Tick` orqali yurgizuvchi 1 ta scratch test); Scene/serializer/physics/VM
+va qolgan shared engine normal build — bu butun engine sanitizer run’i emas. Clang 18 syntax-only -Werror: 15 TU
+(12 engine + 3 test). Mutatsiya tekshiruvi: Refresh’da tick fazasini qayta boshlash, o‘limda effektlarni
+tozalamaslik, LoS’da health aktorlarni to‘siq deb hisoblash, stun paytida attack cooldown sarflash va
+16/step detonatsiya byudjetini olib tashlash — har biri mo‘ljallangan testlarni yiqitdi. Tick aniqligi: 6 ta
+davomiylik/davr jufti × 20, 30, 50, 60, 120, 144, 240 Hz (42 holat) — tick soni va expiry qadami aniq (3 s/1 s
+= 3 tick). Determinizm: barcha effekt/hudud yo‘llari bilan ssenariy ikki yangi sahnada va 1/30, 1/60, 1/144 s
+hamda jitter kadrlarda bir xil hash; 7 s ichida hammasi tugaydi (0 snaryad, 0 effekt, ittifoqchi 91 HP = 70 +
+Mend 5 + 4 × Regen 4). Scratch 2D demo (Player 76-kadr, Editor Play 90-kadr, 30 fps): Sentry 400 dan 319 HP —
+2 bomba × (8 + Attack 10) + Nova (12 + 10) × 0.894 falloff + 3 ta Zahar tick × 2 bilan mos; devor ortidagi aktor
+60/60 (LoS), Frost Extend 6 s bilan cheklangan, stun 4 s, pool vizuallari Editor ierarxiyasida, GL/graph xatosi
+yo‘q. Regressiya (Player): LoadoutWorkshop 6/6 (save hali v3), SaveWorkshop 6/6, AIWorkshop 2/2,
+RulesWorkshop 2/2. Saqlash vaqtinchalik siyosati: effektlar saqlanmaydi, Restore ularni olib tashlaydi; Capture
+energiyani effekt bonusisiz sig‘imgacha yozadi (effektsiz holatda baytma-bayt o‘zgarishsiz), save versiyasi
+o‘zgarmadi. Renderer o‘zgarmagani va editor UI qo‘shilmagani uchun render reference, ImGui editor testlari va
+Editor workflow fazalari ishga tushirilmadi; Release bench 4-bandda. [Hudud va effektlar](GameplayCombat.md#areas).
 
 ### Yakunlangan bo‘lim — gameplay UI
 

@@ -7,7 +7,7 @@
 #include <span>
 #include <string>
 namespace Zamin::Gameplay {
-    // Shared by projectiles and (later) areas: what a delivered payload does to its target.
+    // Shared by projectiles and areas: what a delivered payload does to its target.
     enum class PayloadKind
     {
         Damage,
@@ -42,6 +42,7 @@ namespace Zamin::Gameplay {
         uint16_t Team = 0;                         // the owner's team, snapshotted at launch
         glm::dvec3 Position{}, Velocity{}, Muzzle{}; // Muzzle: first-step offset from the aim point to the launch point
         double Age = 0, Travelled = 0, Damage = 0; // Damage: outgoing snapshot (base + owner Attack)
+        double Attack = 0;                         // owner Attack at launch: added to a Damage area payload
         std::array<uint64_t, MaxHits> Hits{};      // one hit per target
         uint8_t HitCount = 0, PierceLeft = 0;
         ProjectilePhase Phase = ProjectilePhase::Flying;

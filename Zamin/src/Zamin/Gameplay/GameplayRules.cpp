@@ -1,6 +1,7 @@
 #include "GameplayRules.h"
 #include "QuestWorld.h"
 #include "LoadoutWorld.h"
+#include "CombatWorld.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Physics/PhysicsWorld2D.h"
 #include <algorithm>
@@ -163,6 +164,7 @@ namespace Zamin::Gameplay {
                     PhysicsWorld2D::SetLinearVelocity((b2Body*)body->RuntimeBody, velocity);
                 }
                 Emit(*actor, { "Died", request.Cause, sender, uint64_t(victim.GetUUID()), result.Health });
+                OnCombatDeath(*m_Scene, victim); // death clears status effects; respawn starts clean
                 if (source && source != victim) NotifyQuest(*m_Scene, source, QuestKind::Kill, "", 1, victim);
             }
         }
@@ -285,6 +287,7 @@ namespace Zamin::Gameplay {
         const auto& s = objectState.Settings;
         if (!m_Scene->IsActiveInHierarchy(actor) || !m_Scene->IsActiveInHierarchy(object)) r.Reason = "Inactive";
         else if (Dead(actor)) r.Reason = "Dead";
+        else if (CombatStunned(*m_Scene, actor)) r.Reason = "Stunned";
         else if (!s.Enabled) r.Reason = "Disabled";
         else if (s.MaxUses && objectState.Uses >= uint32_t(s.MaxUses)) r.Reason = "Exhausted";
         else if (m_Now < objectState.Until) r.Reason = "Interaction cooldown";
@@ -385,6 +388,11 @@ namespace Zamin::Gameplay {
             result.Reason = "Dead/inactive";
             return result;
         }
+        if (CombatStunned(*m_Scene, actor))
+        {
+            result.Reason = "Stunned"; // before the cooldown: a stun spends nothing
+            return result;
+        }
         auto& source = RequireActor(actor);
         if (m_Now < source.AttackUntil)
         {
@@ -466,6 +474,11 @@ namespace Zamin::Gameplay {
         if (Dead(actor) || !m_Scene->IsActiveInHierarchy(actor))
         {
             result.Reason = "Dead/inactive";
+            return result;
+        }
+        if (CombatStunned(*m_Scene, actor))
+        {
+            result.Reason = "Stunned";
             return result;
         }
         auto& a = RequireActor(actor);

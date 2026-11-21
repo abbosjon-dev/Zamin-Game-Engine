@@ -240,6 +240,9 @@ namespace Zamin::Gameplay {
                 if (auto* r = LoadoutWorld::For(*m_Scene).Find(e))
                 {
                     out.Loadout = r->State;
+                    // Status effects are not saved (a restore has none): energy above the capacity without
+                    // effect bonuses (a MaxEnergy buff) is saved at that capacity, so the snapshot stays valid.
+                    out.Loadout->Energy = std::min(out.Loadout->Energy, EffectiveStats(r->Base, r->Items, r->State)[3]);
                     save.Version = 3;
                 }
                 if (auto* a = rules.FindActor(e))
@@ -459,11 +462,12 @@ namespace Zamin::Gameplay {
             ai.m_Records.swap(brains);
             questWorld.m_Actors.swap(quests);
             loadoutWorld.m_Records.swap(loadouts);
-            // Projectiles in flight are not part of the snapshot: they are released so no shot fired before the
-            // load can hit the restored state.
+            // Projectiles in flight and status effects are not part of the snapshot: they are released/removed so
+            // no shot fired or effect applied before the load can act on the restored state.
             if (auto* combat = m_Scene->GetRegistry().ctx().find<CombatWorld>())
             {
-                if (const size_t flying = combat->LiveCount()) ZM_CORE_INFO("Saqlangan holat yuklandi: {} ta uchayotgan snaryad bekor qilindi", flying);
+                const size_t flying = combat->LiveCount(), effects = combat->EffectCount();
+                if (flying || effects) ZM_CORE_INFO("Saqlangan holat yuklandi: {} ta uchayotgan snaryad bekor qilindi, {} ta effekt olib tashlandi", flying, effects);
                 combat->Clear();
             }
             for (auto& [e, s] : apply) StopAndSync(*m_Scene, e);

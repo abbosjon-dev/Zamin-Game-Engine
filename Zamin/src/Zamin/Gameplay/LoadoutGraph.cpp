@@ -1,4 +1,5 @@
 #include "LoadoutWorld.h"
+#include "CombatWorld.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Scripting/Visual/VisualGraph.h"
 #include <cmath>
@@ -67,7 +68,7 @@ namespace Zamin::Gameplay {
             auto p = s && d ? s->State.Abilities.at(text("Ability")) : AbilityProgress{};
             auto health = actor && actor.GetScene() == host.GetScene() ? RuleWorld::For(*host.GetScene()).Health(actor) : std::optional<HealthState>{};
             bool resources = d && (d->Ingredient.empty() || RuleWorld::For(*host.GetScene()).Inventory(actor).Count(d->Ingredient) >= d->Count);
-            return V{ { "Configured", bool(d) }, { "Unlocked", bool(d) && p.Unlocked }, { "Ready", bool(d) && health && !health->Dead && actor.IsActiveInHierarchy() && p.Unlocked && resources && p.Remaining <= 0 && s->State.Energy >= d->Cost }, { "Remaining", p.Remaining }, { "Fraction", d && d->Cooldown > 0 ? 1 - p.Remaining / d->Cooldown : 1 }, { "Uses", p.Uses }, { "Cost", d ? d->Cost : 0 } };
+            return V{ { "Configured", bool(d) }, { "Unlocked", bool(d) && p.Unlocked }, { "Ready", bool(d) && health && !health->Dead && actor.IsActiveInHierarchy() && !CombatStunned(*host.GetScene(), actor) && p.Unlocked && resources && p.Remaining <= 0 && s->State.Energy >= d->Cost }, { "Remaining", p.Remaining }, { "Fraction", d && d->Cooldown > 0 ? 1 - p.Remaining / d->Cooldown : 1 }, { "Uses", p.Uses }, { "Cost", d ? d->Cost : 0 } };
         }
         else if (kind == "Gameplay.LoadoutRefill") return V{ { "Applied", w.Refill(actor, number("Amount")) } };
         else if (kind == "Gameplay.LoadoutEvent")

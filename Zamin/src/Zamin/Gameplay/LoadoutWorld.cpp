@@ -1,4 +1,5 @@
 #include "LoadoutWorld.h"
+#include "CombatWorld.h"
 #include "Zamin/Scene/Entity.h"
 #include <algorithm>
 #include <cmath>
@@ -26,7 +27,7 @@ namespace Zamin::Gameplay {
         return i != m_Records.end() && i->second.Handle == uint32_t(e) ? &i->second : nullptr;
     }
     const LoadoutWorld::Record* LoadoutWorld::Find(Entity e) const { return const_cast<LoadoutWorld*>(this)->Find(e); }
-    LoadoutWorld::Record* LoadoutWorld::Usable(Entity e, std::string& error)
+    LoadoutWorld::Record* LoadoutWorld::Usable(Entity e, std::string& error, bool action)
     {
         error.clear();
         auto* r = Find(e);
@@ -39,6 +40,11 @@ namespace Zamin::Gameplay {
         if (!h || h->Dead)
         {
             error = "Loadout requires living health";
+            return nullptr;
+        }
+        if (action && CombatStunned(*m_Scene, e))
+        {
+            error = "Stunned";
             return nullptr;
         }
         return r;
@@ -106,18 +112,18 @@ namespace Zamin::Gameplay {
     }
     bool LoadoutWorld::Equip(Entity e, const std::string& key, std::string& error)
     {
-        auto* r = Usable(e, error);
+        auto* r = Usable(e, error, true);
         if (!r) return false;
         auto& rules = RuleWorld::For(*m_Scene);
         auto* a = rules.FindActor(e);
-        if (!EquipItem(r->Base, r->Items, a->Inventory, r->State, key, error)) return false;
+        if (!EquipItem(r->Base, r->Items, a->Inventory, r->State, key, error, CombatStatBonus(*m_Scene, e))) return false;
         rules.Emit(*a, { "InventoryChanged", key, uint64_t(e.GetUUID()), uint64_t(e.GetUUID()), -1 });
         Emit(*r, { "Equipped", key, 1 });
         return true;
     }
     bool LoadoutWorld::Unequip(Entity e, EquipSlot slot, std::string& error)
     {
-        auto* r = Usable(e, error);
+        auto* r = Usable(e, error, true);
         if (!r) return false;
         auto i = r->State.Equipped.find(slot);
         if (i == r->State.Equipped.end())
@@ -128,7 +134,7 @@ namespace Zamin::Gameplay {
         auto key = i->second;
         auto& rules = RuleWorld::For(*m_Scene);
         auto* a = rules.FindActor(e);
-        if (!UnequipItem(r->Base, r->Items, a->Inventory, r->State, slot, error)) return false;
+        if (!UnequipItem(r->Base, r->Items, a->Inventory, r->State, slot, error, CombatStatBonus(*m_Scene, e))) return false;
         rules.Emit(*a, { "InventoryChanged", key, uint64_t(e.GetUUID()), uint64_t(e.GetUUID()), 1 });
         Emit(*r, { "Unequipped", key, 1 });
         return true;
@@ -153,7 +159,7 @@ namespace Zamin::Gameplay {
         std::string error;
         auto* r = Usable(e, error);
         if (!r) return 0;
-        auto applied = std::min(amount, EffectiveStats(r->Base, r->Items, r->State)[3] - r->State.Energy);
+        auto applied = std::max(0.0, std::min(amount, EffectiveStats(r->Base, r->Items, r->State, CombatStatBonus(*m_Scene, e))[3] - r->State.Energy));
         r->State.Energy += applied;
         if (applied > 0) Emit(*r, { "Energy", "", applied });
         return applied;
@@ -162,7 +168,7 @@ namespace Zamin::Gameplay {
     {
         auto* r = Find(e);
         if (!r) return {};
-        return LoadoutSnapshot{ EffectiveStats(r->Base, r->Items, r->State), r->State };
+        return LoadoutSnapshot{ EffectiveStats(r->Base, r->Items, r->State, CombatStatBonus(*m_Scene, e)), r->State };
     }
     std::optional<AbilitySpec> LoadoutWorld::Ability(Entity e, const std::string& key) const
     {
@@ -174,7 +180,7 @@ namespace Zamin::Gameplay {
     AbilityResult LoadoutWorld::Cast(Entity actor, Entity victim, const std::string& key, const RuleQuery& query)
     {
         AbilityResult out;
-        auto* r = Usable(actor, out.Reason);
+        auto* r = Usable(actor, out.Reason, true);
         if (!r) return out;
         auto d = r->Abilities.find(key);
         if (d == r->Abilities.end())
@@ -195,7 +201,7 @@ namespace Zamin::Gameplay {
         auto bag = a->Inventory;
         auto next = r->State;
         if (!spec.Ingredient.empty() && !bag.Exchange(spec.Ingredient, spec.Count, true, "", 0, out.Reason)) return out;
-        auto stats = EffectiveStats(r->Base, r->Items, r->State);
+        auto stats = EffectiveStats(r->Base, r->Items, r->State, CombatStatBonus(*m_Scene, actor));
         double amount = std::min(1e6, spec.Amount + stats[2]);
         if (spec.Kind == AbilityKind::Damage)
         {
@@ -270,23 +276,38 @@ namespace Zamin::Gameplay {
             auto e = m_Scene->GetEntityByUUID(UUID(id));
             if (!e || uint32_t(e) != r.Handle || !e.IsActiveInHierarchy()) continue;
             auto h = RuleWorld::For(*m_Scene).Health(e);
-            if (h && !h->Dead) TickLoadoutState(r.Base, r.Items, r.State, delta);
+            if (h && !h->Dead) TickLoadoutState(r.Base, r.Items, r.State, delta, CombatStatBonus(*m_Scene, e));
         }
     }
     double LoadoutDamage(Scene& s, Entity source, Entity victim, double amount, bool sourceAttack)
     {
         if (amount <= 0) return amount;
-        auto* w = s.GetRegistry().ctx().find<LoadoutWorld>();
-        if (!w) return amount;
+        if (!s.GetRegistry().ctx().find<LoadoutWorld>() && !s.GetRegistry().ctx().find<CombatWorld>()) return amount;
         if (sourceAttack && source && source != victim) amount += LoadoutAttack(s, source);
-        auto* armor = w->Find(victim);
-        if (armor) amount *= 100. / (100. + EffectiveStats(armor->Base, armor->Items, armor->State)[1]);
+        // Armor 0 (no loadout, no effect) multiplies by exactly 1, as before status effects existed.
+        amount *= 100. / (100. + LoadoutArmor(s, victim));
         return std::clamp(amount, 0., 1e6);
     }
     double LoadoutAttack(Scene& s, Entity source)
     {
+        if (!source || source.GetScene() != &s) return 0;
+        const auto bonus = CombatStatBonus(s, source);
         auto* w = s.GetRegistry().ctx().find<LoadoutWorld>();
-        auto* stats = w && source ? w->Find(source) : nullptr;
-        return stats ? EffectiveStats(stats->Base, stats->Items, stats->State)[0] : 0;
+        if (auto* r = w ? w->Find(source) : nullptr) return EffectiveStats(r->Base, r->Items, r->State, bonus)[0];
+        return std::clamp(bonus[0], 0., 100000.);
+    }
+    double LoadoutArmor(Scene& s, Entity victim)
+    {
+        if (!victim || victim.GetScene() != &s) return 0;
+        const auto bonus = CombatStatBonus(s, victim);
+        auto* w = s.GetRegistry().ctx().find<LoadoutWorld>();
+        if (auto* r = w ? w->Find(victim) : nullptr) return EffectiveStats(r->Base, r->Items, r->State, bonus)[1];
+        return std::clamp(bonus[1], 0., 100000.);
+    }
+    void ClampLoadoutEnergy(Scene& s, Entity e)
+    {
+        auto* w = s.GetRegistry().ctx().find<LoadoutWorld>();
+        auto* r = w ? w->Find(e) : nullptr;
+        if (r) r->State.Energy = std::min(r->State.Energy, EffectiveStats(r->Base, r->Items, r->State, CombatStatBonus(s, e))[3]);
     }
 }

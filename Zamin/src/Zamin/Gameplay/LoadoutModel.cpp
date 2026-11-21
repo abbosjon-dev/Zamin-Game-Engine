@@ -40,7 +40,7 @@ namespace Zamin::Gameplay {
         }
         return true;
     }
-    CombatStats EffectiveStats(const CombatStats& base, const std::map<std::string, ItemSpec>& items, const LoadoutState& state)
+    CombatStats EffectiveStats(const CombatStats& base, const std::map<std::string, ItemSpec>& items, const LoadoutState& state, const CombatStats& bonus)
     {
         auto out = base;
         for (auto& [slot, key] : state.Equipped)
@@ -50,10 +50,10 @@ namespace Zamin::Gameplay {
             if (it != items.end())
                 for (size_t n = 0; n < 5; ++n) out[n] += it->second.Modifiers[n];
         }
-        for (size_t n = 0; n < 5; ++n) out[n] = std::clamp(out[n], n == 3 ? 1. : 0., 100000.);
+        for (size_t n = 0; n < 5; ++n) out[n] = std::clamp(out[n] + bonus[n], n == 3 ? 1. : 0., 100000.);
         return out;
     }
-    bool ValidateLoadout(const CombatStats& base, const std::map<std::string, ItemSpec>& items, const std::map<std::string, AbilitySpec>& abilities, const LoadoutState& state, std::string& error)
+    bool ValidateLoadout(const CombatStats& base, const std::map<std::string, ItemSpec>& items, const std::map<std::string, AbilitySpec>& abilities, const LoadoutState& state, std::string& error, const CombatStats& bonus)
     {
         if (!ValidateCombatStats(base, false, error)) return false;
         if (items.size() > 32 || abilities.size() > 16 || state.Equipped.size() > 4 || state.Abilities.size() != abilities.size())
@@ -82,14 +82,14 @@ namespace Zamin::Gameplay {
                 return false;
             }
         }
-        if (!std::isfinite(state.Energy) || state.Energy < 0 || state.Energy > EffectiveStats(base, items, state)[3])
+        if (!std::isfinite(state.Energy) || state.Energy < 0 || state.Energy > EffectiveStats(base, items, state, bonus)[3])
         {
             error = "Invalid saved energy";
             return false;
         }
         return true;
     }
-    bool EquipItem(const CombatStats& base, const std::map<std::string, ItemSpec>& items, Bag& bag, LoadoutState& state, const std::string& key, std::string& error)
+    bool EquipItem(const CombatStats& base, const std::map<std::string, ItemSpec>& items, Bag& bag, LoadoutState& state, const std::string& key, std::string& error, const CombatStats& bonus)
     {
         error.clear();
         auto i = items.find(key);
@@ -109,12 +109,12 @@ namespace Zamin::Gameplay {
         auto next = state;
         if (!nextBag.Exchange(key, 1, true, old, 1, error)) return false;
         next.Equipped[i->second.Slot] = key;
-        next.Energy = std::min(next.Energy, EffectiveStats(base, items, next)[3]);
+        next.Energy = std::min(next.Energy, EffectiveStats(base, items, next, bonus)[3]);
         bag = std::move(nextBag);
         state = std::move(next);
         return true;
     }
-    bool UnequipItem(const CombatStats& base, const std::map<std::string, ItemSpec>& items, Bag& bag, LoadoutState& state, EquipSlot slot, std::string& error)
+    bool UnequipItem(const CombatStats& base, const std::map<std::string, ItemSpec>& items, Bag& bag, LoadoutState& state, EquipSlot slot, std::string& error, const CombatStats& bonus)
     {
         error.clear();
         auto i = state.Equipped.find(slot);
@@ -127,15 +127,15 @@ namespace Zamin::Gameplay {
         auto next = state;
         if (!nextBag.Exchange("", 0, false, i->second, 1, error)) return false;
         next.Equipped.erase(slot);
-        next.Energy = std::min(next.Energy, EffectiveStats(base, items, next)[3]);
+        next.Energy = std::min(next.Energy, EffectiveStats(base, items, next, bonus)[3]);
         bag = std::move(nextBag);
         state = std::move(next);
         return true;
     }
-    void TickLoadoutState(const CombatStats& base, const std::map<std::string, ItemSpec>& items, LoadoutState& state, double delta)
+    void TickLoadoutState(const CombatStats& base, const std::map<std::string, ItemSpec>& items, LoadoutState& state, double delta, const CombatStats& bonus)
     {
         if (!std::isfinite(delta) || delta < 0 || delta > 1e6) throw std::runtime_error("Invalid loadout tick delta");
-        auto stats = EffectiveStats(base, items, state);
+        auto stats = EffectiveStats(base, items, state, bonus);
         state.Energy = std::min(stats[3], state.Energy + stats[4] * delta);
         for (auto& [key, p] : state.Abilities)
         {

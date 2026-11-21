@@ -1,5 +1,6 @@
 #include "GameplayRuntime.h"
 #include "GameplayRules.h"
+#include "CombatWorld.h"
 #include "GameplayUI.h"
 #include "Zamin/Scene/Scene.h"
 #include "Zamin/Scene/Entity.h"
@@ -301,6 +302,9 @@ namespace Zamin::Gameplay {
             input.Sprint = a.B("Sprint");
             input.Enabled = a.B("Enabled");
             if (health && health->Dead) input.Enabled = false;
+            // Status effects: a stun stops the actor like death; slow/haste scale the authored speed.
+            if (CombatStunned(scene, target)) input.Enabled = false;
+            if (settings.Speed >= 0 && settings.Speed <= 1000) settings.Speed = std::min(1000.0f, float(double(settings.Speed) * CombatSpeedScale(scene, target)));
             auto measured = Velocity(target);
             input.Grounded = Grounded(target, twoD, topDown, probe, a.Mask("GroundMask"));
             if (!twoD)

@@ -1,5 +1,6 @@
 #include "GameplayAI.h"
 #include "GameplayRules.h"
+#include "CombatWorld.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Scene/SceneManager.h"
 #include "Zamin/Scene/WorldStreaming.h"
@@ -375,6 +376,16 @@ namespace Zamin::Gameplay {
                 if (!r.Spec.Enabled) Transition(r, BrainMode::Disabled);
                 continue;
             }
+            // A stunned brain is not stepped: its timers and memory freeze until the stun ends.
+            if (CombatStunned(*m_Scene, e))
+            {
+                Stop(e, r);
+                r.State.Visible = false;
+                r.State.Status = "Stunned";
+                continue;
+            }
+            // Slow/haste effects scale the configured speed every tick (1 without effects).
+            nav->Speed = float(double(r.Spec.Brain.Speed) * CombatSpeedScale(*m_Scene, e));
             if (rules.QueryBudgetRemaining() < 2)
             {
                 Stop(e, r);

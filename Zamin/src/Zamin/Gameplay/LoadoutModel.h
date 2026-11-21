@@ -49,9 +49,10 @@ namespace Zamin::Gameplay {
     bool ValidateCombatStats(const CombatStats&, bool modifiers, std::string&);
     bool ValidateItemSpec(const ItemSpec&, std::string&);
     bool ValidateAbilitySpec(const AbilitySpec&, std::string&);
-    CombatStats EffectiveStats(const CombatStats&, const std::map<std::string, ItemSpec>&, const LoadoutState&);
-    bool ValidateLoadout(const CombatStats&, const std::map<std::string, ItemSpec>&, const std::map<std::string, AbilitySpec>&, const LoadoutState&, std::string&);
-    bool EquipItem(const CombatStats&, const std::map<std::string, ItemSpec>&, Bag&, LoadoutState&, const std::string&, std::string&);
-    bool UnequipItem(const CombatStats&, const std::map<std::string, ItemSpec>&, Bag&, LoadoutState&, EquipSlot, std::string&);
-    void TickLoadoutState(const CombatStats&, const std::map<std::string, ItemSpec>&, LoadoutState&, double delta);
+    // `bonus` (status-effect modifiers) is added after equipment, before the clamp; {} leaves the old results.
+    CombatStats EffectiveStats(const CombatStats&, const std::map<std::string, ItemSpec>&, const LoadoutState&, const CombatStats& bonus = {});
+    bool ValidateLoadout(const CombatStats&, const std::map<std::string, ItemSpec>&, const std::map<std::string, AbilitySpec>&, const LoadoutState&, std::string&, const CombatStats& bonus = {});
+    bool EquipItem(const CombatStats&, const std::map<std::string, ItemSpec>&, Bag&, LoadoutState&, const std::string&, std::string&, const CombatStats& bonus = {});
+    bool UnequipItem(const CombatStats&, const std::map<std::string, ItemSpec>&, Bag&, LoadoutState&, EquipSlot, std::string&, const CombatStats& bonus = {});
+    void TickLoadoutState(const CombatStats&, const std::map<std::string, ItemSpec>&, LoadoutState&, double delta, const CombatStats& bonus = {});
 }

@@ -118,6 +118,11 @@ Armor still applies), and `Cause` (an item-style key or empty) is reported as th
 `Item`. `Heal(target, amount, shield, source, cause)` reports an optional source and cause in the
 Healed/ShieldHealed event. A null Source gives no kill credit.
 
+[Status effects](GameplayCombat.md#status-effects) plug into the same rules: a stunned actor's Attack,
+Strike and Interact (and Find's prompt) return `Stunned` before any cooldown or item is spent; a kill
+removes the victim's effects (`OnCombatDeath`, before the quest Kill notice) so a respawn starts clean;
+and outgoing Attack and Armor include effect bonuses, also for actors without a loadout (base 0).
+
 ## Validation
 
 `RulesModelTests.cpp` independently checks shield/health/death/grace and transactional bags.

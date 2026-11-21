@@ -53,8 +53,12 @@ Per-ability cooldowns are independent of the normal attack cooldown. Scaled game
 regeneration and all cooldowns; dead/inactive actors freeze both. Save restores remaining durations,
 so restarting cannot clear a cooldown. Refill explicitly grants bounded energy, clamped to capacity.
 
-This package supplies immediate single-target effects. Cast bars, projectiles, area effects,
-stacking buffs, an effect graph editor and network prediction remain separate work.
+Abilities are immediate and single-target. Timed [status effects](GameplayCombat.md#status-effects) add
+their Modifiers to the effective stats after equipment and before the clamp, so State, Attack, Armor,
+Power, energy capacity and regeneration show buffs; losing a MaxEnergy bonus clamps energy at once. A
+stunned actor's Cast, Equip and Unequip return `Stunned` without spending anything, and AbilityState
+reports it as not Ready; Refill still works. Linking abilities to projectiles, areas and effects, cast
+bars, an effect graph editor and network prediction remain separate work.
 
 ## Blueprint and HUD
 

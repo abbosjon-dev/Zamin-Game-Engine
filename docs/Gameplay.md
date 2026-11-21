@@ -34,6 +34,8 @@ Set Speed, acceleration/deceleration, air control, sprint multiplier, jump speed
 jump buffer and early-release cut through node pins. Move is clamped to unit length while preserving
 analog magnitude. TopDown disables gravity-oriented jump handling; configure body gravity scale
 for the desired game. 3D camera-relative movement projects the camera onto the horizontal plane.
+[Status effects](GameplayCombat.md#modifiers-stats-speed-and-stun) scale the authored Speed (slow/haste,
+at most 1000) and a stun disables the motor exactly as death does.
 The motor supports strafing; visual facing/rotation is controlled separately by the game graph.
 
 The 2D grounded probe uses three downward rays and upward-facing normals, excluding the actor.

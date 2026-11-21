@@ -59,7 +59,7 @@ namespace Zamin::Gameplay {
         if (!Components(s.Position, 1e9) || !Finite(s.Velocity) || glm::length(s.Velocity) > maximumSpeed || !Finite(s.Muzzle) || glm::length(s.Muzzle) > 100)
             return Fail(error, "Projectile position/velocity/muzzle out of range");
         if (spec.TwoD && (s.Velocity.z != 0 || s.Muzzle.z != 0)) return Fail(error, "2D projectile has depth motion");
-        if (!Range(s.Age, 0, maximumAge) || !Range(s.Travelled, 0, maximumSpeed * maximumAge) || !Range(s.Damage, 0, 1e6))
+        if (!Range(s.Age, 0, maximumAge) || !Range(s.Travelled, 0, maximumSpeed * maximumAge) || !Range(s.Damage, 0, 1e6) || !Range(s.Attack, 0, 1e6))
             return Fail(error, "Projectile age/distance/damage out of range");
         if (s.Phase != ProjectilePhase::Flying && s.Phase != ProjectilePhase::Detonating) return Fail(error, "Invalid projectile phase");
         if (s.Phase == ProjectilePhase::Detonating && spec.Area.empty()) return Fail(error, "Detonating projectile has no area");

@@ -2,6 +2,7 @@
 #include "LoadoutWorld.h"
 #include "Zamin/Core/Log.h"
 #include "Zamin/Core/Profiler.h"
+#include "Zamin/Debug/DebugDraw.h"
 #include "Zamin/Project/Project.h"
 #include "Zamin/Utils/FileSystem.h"
 #include <nlohmann/json.hpp>
@@ -17,6 +18,25 @@ namespace Zamin::Gameplay {
         template<typename... T>
         bool HasAny(Entity e) { return (e.HasComponent<T>() || ...); }
         glm::dvec3 Lerp(const Segment& s, double t) { return s.From + (s.To - s.From) * t; }
+        // Effects carried by a payload must agree with it: damage carries hostile effects, support beneficial ones.
+        bool Matches(PayloadKind kind, const EffectSpec& effect) { return effect.Hostile == (kind == PayloadKind::Damage); }
+        template<typename T>
+        bool DefineShared(std::map<std::string, T>& registry, const T& spec, size_t limit, std::string& error)
+        {
+            if (auto found = registry.find(spec.Key); found != registry.end())
+            {
+                if (found->second == spec) return true;
+                error = "Definition differs";
+                return false;
+            }
+            if (registry.size() >= limit)
+            {
+                error = "Definition limit 32";
+                return false;
+            }
+            registry.emplace(spec.Key, spec);
+            return true;
+        }
     }
     CombatWorld& CombatWorld::For(Scene& scene)
     {
@@ -42,6 +62,28 @@ namespace Zamin::Gameplay {
     {
         m_Probes.reserve(MaxActors);
         m_ProbeEntities.reserve(MaxActors);
+        m_Ticks.reserve(EffectBook::Capacity * size_t(MaxTicksPerStep));
+        m_Expired.reserve(EffectBook::Capacity);
+        m_AreaTargets.reserve(MaxActors);
+    }
+    CombatStats CombatStatBonus(Scene& scene, Entity e)
+    {
+        auto* world = scene.GetRegistry().ctx().find<CombatWorld>();
+        return world && e && e.GetScene() == &scene ? world->Modifiers(e).Add : CombatStats{};
+    }
+    double CombatSpeedScale(Scene& scene, Entity e)
+    {
+        auto* world = scene.GetRegistry().ctx().find<CombatWorld>();
+        return world && e && e.GetScene() == &scene ? world->Modifiers(e).Speed : 1.0;
+    }
+    bool CombatStunned(Scene& scene, Entity e)
+    {
+        auto* world = scene.GetRegistry().ctx().find<CombatWorld>();
+        return world && e && e.GetScene() == &scene && world->Modifiers(e).Stunned;
+    }
+    void OnCombatDeath(Scene& scene, Entity e)
+    {
+        if (auto* world = scene.GetRegistry().ctx().find<CombatWorld>(); world && e && e.GetScene() == &scene) world->ClearEffects(e);
     }
     void CombatWorld::Check(Entity e) const
     {
@@ -114,13 +156,7 @@ namespace Zamin::Gameplay {
             return false;
         }
         if (!ValidateProjectileSpec(spec, error)) return false;
-        // Effect/area payload registries are not part of the projectile lifecycle; until they exist a key would
-        // silently do nothing, so it is rejected.
-        if (!spec.Effect.empty() || !spec.Area.empty())
-        {
-            error = "Projectile effect/area payloads are not available";
-            return false;
-        }
+        // Effect/area keys are resolved at Fire, so definitions may come in any order (Fire fails while missing).
         if (auto found = m_Definitions.find(spec.Key); found != m_Definitions.end())
         {
             if (found->second.Spec == spec) return true;
@@ -161,6 +197,60 @@ namespace Zamin::Gameplay {
         auto found = m_Definitions.find(key);
         return found == m_Definitions.end() ? std::optional<ProjectileSpec>{} : found->second.Spec;
     }
+    bool CombatWorld::DefineArea(const AreaSpec& spec, std::string& error)
+    {
+        error.clear();
+        if (!m_Scene->IsRunning())
+        {
+            error = "Combat definitions require Play";
+            return false;
+        }
+        return ValidateAreaSpec(spec, error) && DefineShared(m_Areas, spec, MaxDefinitions, error);
+    }
+    std::optional<AreaSpec> CombatWorld::AreaDefinition(const std::string& key) const
+    {
+        auto found = m_Areas.find(key);
+        return found == m_Areas.end() ? std::optional<AreaSpec>{} : found->second;
+    }
+    bool CombatWorld::DefineEffect(const EffectSpec& spec, std::string& error)
+    {
+        error.clear();
+        if (!m_Scene->IsRunning())
+        {
+            error = "Combat definitions require Play";
+            return false;
+        }
+        return ValidateEffectSpec(spec, error) && DefineShared(m_EffectSpecs, spec, MaxDefinitions, error);
+    }
+    std::optional<EffectSpec> CombatWorld::EffectDefinition(const std::string& key) const
+    {
+        auto found = m_EffectSpecs.find(key);
+        return found == m_EffectSpecs.end() ? std::optional<EffectSpec>{} : found->second;
+    }
+    std::string CombatWorld::AreaError(const AreaSpec& area) const
+    {
+        if (area.Effect.empty()) return {};
+        auto effect = m_EffectSpecs.find(area.Effect);
+        if (effect == m_EffectSpecs.end()) return "Area effect not defined";
+        if (!Matches(area.Kind, effect->second)) return "Area effect kind mismatch";
+        return {};
+    }
+    std::string CombatWorld::PayloadError(const ProjectileSpec& spec) const
+    {
+        if (!spec.Effect.empty())
+        {
+            auto effect = m_EffectSpecs.find(spec.Effect);
+            if (effect == m_EffectSpecs.end()) return "Projectile effect not defined";
+            if (!Matches(spec.Kind, effect->second)) return "Projectile effect kind mismatch";
+        }
+        if (!spec.Area.empty())
+        {
+            auto area = m_Areas.find(spec.Area);
+            if (area == m_Areas.end()) return "Projectile area not defined";
+            return AreaError(area->second);
+        }
+        return {};
+    }
     FireResult CombatWorld::Fire(const FireRequest& request)
     {
         Check(request.Owner);
@@ -183,6 +273,13 @@ namespace Zamin::Gameplay {
         if (!m_Scene->IsActiveInHierarchy(request.Owner)) return fail("Owner inactive");
         if (!health) return fail("Owner health not configured");
         if (health->Dead) return fail("Owner dead");
+        if (Modifiers(request.Owner).Stunned) return fail("Stunned");
+        // Payload keys resolve now: definitions are immutable, so they still exist when the projectile hits.
+        if (auto payload = PayloadError(spec); !payload.empty())
+        {
+            out.Reason = payload;
+            return out;
+        }
         const glm::dvec3 aim = D(m_Scene->GetWorldPosition(request.Owner)) + spec.TargetOffset;
         auto muzzle = D(request.Origin);
         if (spec.TwoD) muzzle.z = 0;
@@ -204,7 +301,8 @@ namespace Zamin::Gameplay {
         if (owned >= MaxPerOwner) return fail("Owner projectile limit 32");
         // Outgoing damage is snapshotted now (base + owner Attack); armor and shields apply at impact.
         double damage = request.Damage < 0 ? spec.Damage : request.Damage;
-        if (spec.Kind == PayloadKind::Damage) damage = std::min(1e6, damage + LoadoutAttack(*m_Scene, request.Owner));
+        const double attack = std::min(1e6, LoadoutAttack(*m_Scene, request.Owner));
+        if (spec.Kind == PayloadKind::Damage) damage = std::min(1e6, damage + attack);
         const uint32_t slot = *m_Pool.Acquire();
         ++m_Fires;
         auto& s = m_Slots[slot];
@@ -218,6 +316,7 @@ namespace Zamin::Gameplay {
         state.Muzzle = muzzle;
         state.Age = state.Travelled = 0;
         state.Damage = damage;
+        state.Attack = attack;
         state.Hits.fill(0);
         state.HitCount = 0;
         state.PierceLeft = uint8_t(spec.Pierce);
@@ -233,12 +332,20 @@ namespace Zamin::Gameplay {
     }
     bool CombatWorld::Cancel(uint32_t handle, bool detonate)
     {
-        (void)detonate; // detonation needs an area payload; without one a cancelled projectile is released
         if (!m_Pool.Live(handle)) return false;
         const uint32_t slot = ProjectilePool::Slot(handle);
         auto& s = m_Slots[slot];
-        if (auto owner = Resolve(s.State.Owner, s.OwnerHandle))
-            Emit(owner, "Cancelled", s.State.Key, s.State.Owner, 0, 0, s.State.Position + s.State.Muzzle);
+        auto& state = s.State;
+        if (auto owner = Resolve(state.Owner, s.OwnerHandle))
+            Emit(owner, "Cancelled", state.Key, state.Owner, 0, 0, state.Position + state.Muzzle);
+        if (detonate && !s.Def->Spec.Area.empty())
+        {
+            // Detonates where it is now (a launch that never stepped: at the launch point) on the next step.
+            state.Position += state.Muzzle;
+            state.Muzzle = {};
+            state.Phase = ProjectilePhase::Detonating;
+            return true;
+        }
         Release(slot);
         return true;
     }
@@ -287,7 +394,7 @@ namespace Zamin::Gameplay {
         e.Position = glm::vec3(position);
         ++q.Count;
     }
-    void CombatWorld::Record(uint64_t source, uint64_t victim, const std::string& key, double amount, PayloadKind kind, bool killed, const glm::dvec3& position)
+    void CombatWorld::Record(uint64_t source, uint64_t victim, const std::string& key, double amount, PayloadKind kind, bool killed, const glm::dvec3& position, bool periodic)
     {
         auto& r = m_HitRing[m_HitHead];
         r.Sequence = ++m_HitSequence;
@@ -298,6 +405,7 @@ namespace Zamin::Gameplay {
         r.Time = m_Now;
         r.Kind = kind;
         r.Killed = killed;
+        r.Periodic = periodic;
         r.Position = glm::vec3(position);
         m_HitHead = (m_HitHead + 1) % HitCapacity;
         m_HitCount = std::min<uint32_t>(HitCapacity, m_HitCount + 1);
@@ -346,7 +454,11 @@ namespace Zamin::Gameplay {
         v.Steps = m_Steps;
         v.Sweeps = m_Sweeps;
         v.ActorTests = m_ActorTests;
+        v.Ticks = m_TickCount;
+        v.Rays = m_Rays;
         v.Hits = m_Hits;
+        v.Detonations = m_Detonations;
+        v.Effects = m_EffectCount;
         v.DroppedTime = m_DroppedTime;
         return v;
     }
@@ -358,7 +470,12 @@ namespace Zamin::Gameplay {
             const auto& s = def.Spec;
             projectiles[key] = { s.Effect, s.Area, int(s.Kind), s.Speed, s.Lifetime, s.MaxDistance, s.Radius, s.TargetRadius, s.Damage, s.Homing, { s.Gravity.x, s.Gravity.y, s.Gravity.z }, { s.TargetOffset.x, s.TargetOffset.y, s.TargetOffset.z }, s.Pierce, s.BlockMask, s.TwoD, s.FriendlyFire, s.PierceShield, s.IgnoreGrace, s.DetonateOnExpire };
         }
-        return nlohmann::json{ { "Projectiles", projectiles } }.dump();
+        auto areas = nlohmann::json::object(), effects = nlohmann::json::object();
+        for (const auto& [key, a] : m_Areas)
+            areas[key] = { a.Effect, int(a.Kind), a.Radius, a.Amount, a.EdgeScale, int(a.Shape), a.MaxTargets, { a.TargetOffset.x, a.TargetOffset.y, a.TargetOffset.z }, a.Mask, a.TwoD, a.LineOfSight, a.AffectOwner, a.FriendlyFire, a.PierceShield, a.IgnoreGrace };
+        for (const auto& [key, e] : m_EffectSpecs)
+            effects[key] = { e.Duration, e.Period, e.TickAmount, int(e.Tick), e.Add, e.Speed, e.Stun, e.Hostile, e.PierceShield, int(e.Rule), e.MaxStacks };
+        return nlohmann::json{ { "Projectiles", projectiles }, { "Areas", areas }, { "Effects", effects } }.dump();
     }
     void CombatWorld::Clear()
     {
@@ -372,6 +489,12 @@ namespace Zamin::Gameplay {
                 if (visual.Shown && e && uint32_t(e) == visual.Handle) m_Scene->SetActive(e, false);
                 visual.Shown = false;
             }
+        // Effects go too; a lost MaxEnergy bonus clamps each actor's energy to its capacity.
+        auto books = std::move(m_Books);
+        m_Books.clear();
+        m_EffectCount = 0;
+        for (const auto& [id, book] : books)
+            if (auto e = m_Scene->GetEntityByUUID(UUID(id)); e && uint32_t(e) == book.Handle && !book.Effects.Instances.empty()) ClampLoadoutEnergy(*m_Scene, e);
         m_Events.clear();
         m_HitHead = m_HitCount = 0;
         m_Accumulator = 0;
@@ -388,12 +511,23 @@ namespace Zamin::Gameplay {
     }
     void CombatWorld::BeginFrame()
     {
-        m_Fires = m_Instantiations = 0;
-        m_Steps = m_Sweeps = m_ActorTests = 0;
-        std::erase_if(m_Events, [&](const auto& item) {
+        m_Fires = m_Instantiations = m_EffectCalls = m_AreaCalls = 0;
+        m_Steps = m_Sweeps = m_ActorTests = m_TickCount = m_Rays = 0;
+        auto retired = [&](const auto& item) {
             auto e = m_Scene->GetEntityByUUID(UUID(item.first));
             return !e || uint32_t(e) != item.second.Handle;
-        });
+        };
+        std::erase_if(m_Events, retired);
+        for (auto it = m_Books.begin(); it != m_Books.end();)
+        {
+            if (!retired(*it))
+            {
+                ++it;
+                continue;
+            }
+            m_EffectCount -= it->second.Effects.Instances.size();
+            it = m_Books.erase(it);
+        }
     }
     void CombatWorld::BuildProbes()
     {
@@ -501,14 +635,360 @@ namespace Zamin::Gameplay {
         if (owner) Emit(owner, "Hit", spec.Key, source, subject, applied, point);
         Emit(victim, "Hit", spec.Key, source, subject, applied, point);
         ++m_Hits;
+        // The payload's status effect follows every committed hit on a target that survived it (an absorbed
+        // or zero-damage hit included). Admission was decided by the payload; the effect matches its kind.
+        if (!spec.Effect.empty() && !killed && !rules.Dead(victim))
+            if (auto effect = m_EffectSpecs.find(spec.Effect); effect != m_EffectSpecs.end())
+                Apply(victim, effect->second, owner, state.Team, spec.FriendlyFire, -1);
+    }
+    const CombatWorld::Book* CombatWorld::FindBook(Entity e) const
+    {
+        Check(e);
+        auto found = m_Books.find(uint64_t(e.GetUUID()));
+        return found == m_Books.end() || found->second.Handle != uint32_t(e) ? nullptr : &found->second;
+    }
+    void CombatWorld::Recompose(Book& book, Entity e)
+    {
+        book.Modifiers = ComposeModifiers(book.Effects, m_EffectSpecs);
+        // A lost MaxEnergy bonus clamps energy at once, so loadout state never exceeds its capacity.
+        ClampLoadoutEnergy(*m_Scene, e);
+    }
+    ApplyResult CombatWorld::Apply(Entity target, const EffectSpec& spec, Entity source, uint16_t team, bool friendlyFire, double magnitude)
+    {
+        ApplyResult out;
+        auto reject = [&](const char* reason) {
+            out.Reason = reason;
+            return out;
+        };
+        auto* rules = m_Scene->GetRegistry().ctx().find<RuleWorld>();
+        const auto* actor = rules ? rules->FindActor(target) : nullptr;
+        if (!actor || !actor->Health) return reject("Effect target health not configured");
+        if (!m_Scene->IsActiveInHierarchy(target)) return reject("Effect target inactive");
+        if (actor->Health->Dead) return reject("Effect target dead");
+        const uint64_t id = target.GetUUID();
+        auto found = m_Books.find(id);
+        if (found != m_Books.end() && found->second.Handle != uint32_t(target))
+        {
+            // A recreated entity with the same UUID starts with no effects.
+            m_EffectCount -= found->second.Effects.Instances.size();
+            m_Books.erase(found);
+            found = m_Books.end();
+        }
+        size_t same = 0;
+        if (found != m_Books.end())
+            for (const auto& i : found->second.Effects.Instances) same += i.Key == spec.Key;
+        const bool adds = same == 0 || (spec.Rule == StackRule::Independent && same < size_t(spec.MaxStacks));
+        if (adds && m_EffectCount >= MaxEffects) return reject("Scene effect limit 1024");
+        if (found == m_Books.end())
+        {
+            if (m_Books.size() >= MaxActors) std::erase_if(m_Books, [](const auto& item) { return item.second.Effects.Instances.empty(); });
+            if (m_Books.size() >= MaxActors) return reject("Combat actor limit 512");
+            found = m_Books.try_emplace(id).first;
+            found->second.Handle = uint32_t(target);
+            found->second.Effects.Instances.reserve(EffectBook::Capacity);
+        }
+        auto& book = found->second;
+        EffectApplication app;
+        app.Source = source ? uint64_t(source.GetUUID()) : 0;
+        app.SourceHandle = source ? uint32_t(source) : ~0u;
+        app.Team = team;
+        app.FriendlyFire = friendlyFire;
+        app.Magnitude = magnitude;
+        const size_t before = book.Effects.Instances.size();
+        out = Gameplay::ApplyEffect(book.Effects, spec, app);
+        m_EffectCount = m_EffectCount + book.Effects.Instances.size() - before;
+        if (out.Outcome == ApplyOutcome::Rejected) return out;
+        Recompose(book, target);
+        const bool fresh = out.Outcome == ApplyOutcome::Added || out.Outcome == ApplyOutcome::Replaced;
+        Emit(target, fresh ? "EffectApplied" : "EffectRefreshed", spec.Key, app.Source, id, out.Stacks, D(m_Scene->GetWorldPosition(target)));
+        return out;
+    }
+    ApplyResult CombatWorld::ApplyEffect(Entity target, const std::string& key, Entity source, double magnitude)
+    {
+        Check(target);
+        if (source) Check(source);
+        if (!std::isfinite(magnitude) || magnitude > 1e5) throw std::runtime_error("Effect magnitude must be finite, at most 100000");
+        ApplyResult out;
+        auto reject = [&](const char* reason) {
+            out.Reason = reason;
+            return out;
+        };
+        if (!m_Scene->IsRunning()) return reject("Combat requires Play");
+        auto found = m_EffectSpecs.find(key);
+        if (found == m_EffectSpecs.end()) return reject("Effect not defined");
+        const auto& spec = found->second;
+        auto& rules = RuleWorld::For(*m_Scene);
+        uint16_t team = 0;
+        if (source)
+            if (auto health = rules.Health(source)) team = health->Settings.Team;
+        // With a source the team rule applies (hostile: not allies; beneficial: allies and self). An explicit self
+        // target is always allowed; without a source (environment) any actor may be affected.
+        if (source && source != target)
+        {
+            const auto victim = rules.Health(target);
+            if (victim && !Admits(spec.Hostile ? PayloadKind::Damage : PayloadKind::Heal, false, source.GetUUID(), team, target.GetUUID(), victim->Settings.Team, false))
+                return reject("Effect target not allowed");
+        }
+        if (m_EffectCalls >= EffectBudget) return reject("Effect budget 64");
+        ++m_EffectCalls;
+        return Apply(target, spec, source, team, false, magnitude);
+    }
+    size_t CombatWorld::RemoveEffects(Entity e, const std::string& key)
+    {
+        Check(e);
+        if (!key.empty() && !ValidItem(key)) throw std::runtime_error("Effect key must be empty or a 1..64 character key");
+        auto found = m_Books.find(uint64_t(e.GetUUID()));
+        if (found == m_Books.end() || found->second.Handle != uint32_t(e)) return 0;
+        const size_t removed = Gameplay::RemoveEffects(found->second.Effects, key);
+        if (removed == 0) return 0;
+        m_EffectCount -= removed;
+        Recompose(found->second, e);
+        Emit(e, "EffectRemoved", key, 0, e.GetUUID(), double(removed), D(m_Scene->GetWorldPosition(e)));
+        return removed;
+    }
+    void CombatWorld::ClearEffects(Entity e)
+    {
+        auto found = m_Books.find(uint64_t(e.GetUUID()));
+        if (found == m_Books.end() || found->second.Handle != uint32_t(e) || found->second.Effects.Instances.empty()) return;
+        const size_t removed = found->second.Effects.Instances.size();
+        found->second.Effects.Instances.clear();
+        m_EffectCount -= removed;
+        Recompose(found->second, e);
+        Emit(e, "EffectCleared", {}, 0, e.GetUUID(), double(removed), D(m_Scene->GetWorldPosition(e)));
+    }
+    EffectView CombatWorld::Effect(Entity e, const std::string& key) const
+    {
+        EffectView view;
+        const auto* book = FindBook(e);
+        auto spec = m_EffectSpecs.find(key);
+        if (!book || spec == m_EffectSpecs.end()) return view;
+        const bool refresh = spec->second.Rule == StackRule::Refresh;
+        for (const auto& i : book->Effects.Instances)
+        {
+            if (i.Key != key) continue;
+            ++view.Instances;
+            view.Stacks = refresh ? i.Stacks : view.Instances;
+            view.Remaining = std::max(view.Remaining, i.Remaining);
+            view.Magnitude += i.Magnitude * (refresh ? double(i.Stacks) : 1.0);
+        }
+        view.Active = view.Instances > 0;
+        view.Duration = EffectDurationCap(spec->second);
+        return view;
+    }
+    EffectModifiers CombatWorld::Modifiers(Entity e) const
+    {
+        const auto* book = FindBook(e);
+        return book ? book->Modifiers : EffectModifiers{};
+    }
+    size_t CombatWorld::Effects(Entity e, std::span<EffectInstance> out) const
+    {
+        const auto* book = FindBook(e);
+        if (!book) return 0;
+        const size_t count = std::min(out.size(), book->Effects.Instances.size());
+        std::copy_n(book->Effects.Instances.begin(), count, out.begin());
+        return count;
+    }
+    bool CombatWorld::Visible(const AreaSpec& spec, const glm::dvec3& from, const glm::dvec3& to)
+    {
+        auto delta = to - from;
+        if (spec.TwoD) delta.z = 0;
+        const double distance = glm::length(delta);
+        if (!(distance >= .001)) return true;
+        ++m_Rays;
+        const auto direction = delta / distance;
+        const auto hits = spec.TwoD ? m_Scene->Raycast2DAll(glm::vec2(from), glm::vec2(direction), float(distance), spec.Mask, false)
+                                    : m_Scene->Raycast3DAll(glm::vec3(from), glm::vec3(direction), float(distance), spec.Mask, false);
+        // As RuleWorld::Visible: a blocker counts only before the target point; actors never occlude.
+        for (const auto& hit : hits)
+            if (!IgnoredBlocker(hit.EntityID) && double(hit.Distance) < distance - .01) return false;
+        return true;
+    }
+    AreaResult CombatWorld::Area(const AreaSpec& spec, Entity source, uint64_t sourceID, uint16_t team, glm::dvec3 center, double magnitude)
+    {
+        ZM_PROFILE_SCOPE("Hududlar");
+        AreaResult out;
+        out.Success = true;
+        ++m_Detonations;
+        auto* rules = m_Scene->GetRegistry().ctx().find<RuleWorld>();
+        const EffectSpec* effect = nullptr;
+        if (!spec.Effect.empty())
+            if (auto found = m_EffectSpecs.find(spec.Effect); found != m_EffectSpecs.end()) effect = &found->second;
+        m_AreaTargets.clear();
+        if (rules)
+            for (const auto& [id, actor] : rules->m_Actors)
+            {
+                if (!actor.Health || actor.Health->Dead) continue;
+                auto e = m_Scene->GetEntityByUUID(UUID(id));
+                if (!e || uint32_t(e) != actor.Handle || !m_Scene->IsActiveInHierarchy(e)) continue;
+                // Without a source (environment) the area ignores teams; otherwise the payload admission applies.
+                if (sourceID && !Admits(spec.Kind, spec.FriendlyFire, sourceID, team, id, actor.Health->Settings.Team, spec.AffectOwner)) continue;
+                auto delta = D(m_Scene->GetWorldPosition(e)) + spec.TargetOffset - center;
+                if (spec.TwoD) delta.z = 0;
+                if (const double distance = glm::length(delta); distance <= spec.Radius && m_AreaTargets.size() < MaxActors) m_AreaTargets.emplace_back(distance, id);
+            }
+        // With line of sight every ray is spent on the nearest candidates: at most 32 rays per area.
+        OrderAreaTargets(m_AreaTargets, spec.LineOfSight ? int(MaxAreaRays) : spec.MaxTargets);
+        for (const auto& [distance, id] : m_AreaTargets)
+        {
+            if (out.Affected >= uint32_t(spec.MaxTargets)) break;
+            auto victim = m_Scene->GetEntityByUUID(UUID(id));
+            if (!victim || rules->Dead(victim) || !m_Scene->IsActiveInHierarchy(victim)) continue;
+            const auto point = D(m_Scene->GetWorldPosition(victim)) + spec.TargetOffset;
+            if (spec.LineOfSight && !Visible(spec, center, point)) continue;
+            const double amount = std::min(1e6, magnitude * AreaScale(spec, distance));
+            double applied = 0;
+            bool killed = false;
+            if (spec.Kind == PayloadKind::Damage)
+            {
+                DamageRequest request;
+                request.Source = source;
+                request.Amount = amount;
+                request.SourceTeam = team;
+                request.FriendlyFire = spec.FriendlyFire || !sourceID;
+                request.PierceShield = spec.PierceShield;
+                request.IgnoreGrace = spec.IgnoreGrace;
+                request.SourceAttack = false; // Attack is part of the magnitude (launch or cast snapshot)
+                request.Cause = spec.Key;
+                const auto result = rules->Damage(victim, request);
+                applied = result.Applied;
+                killed = result.Killed;
+            }
+            else applied = rules->Heal(victim, amount, spec.Kind == PayloadKind::Shield, source, spec.Key);
+            const uint64_t credited = source ? uint64_t(source.GetUUID()) : 0;
+            Record(credited, id, spec.Key, applied, spec.Kind, killed, point);
+            Emit(victim, "Hit", spec.Key, credited, id, applied, point);
+            ++out.Affected;
+            out.Applied += applied;
+            if (effect && !killed && !rules->Dead(victim)) Apply(victim, *effect, source, team, spec.FriendlyFire || !sourceID, -1);
+        }
+        if (source) Emit(source, "Detonated", spec.Key, source.GetUUID(), 0, double(out.Affected), center);
+        if (DebugDraw::IsShowingRaycasts())
+        {
+            const auto c = glm::vec3(center);
+            if (spec.TwoD) DebugDraw::Circle(c, float(spec.Radius), DebugColor::Orange, .5f);
+            else DebugDraw::WireSphere(c, float(spec.Radius), DebugColor::Orange, .5f);
+        }
+        return out;
+    }
+    AreaResult CombatWorld::ApplyArea(const std::string& key, Entity source, glm::vec3 center, double magnitude)
+    {
+        if (source) Check(source);
+        if (!Finite(center) || glm::length(D(center)) > 1e9) throw std::runtime_error("Area center must be finite, within 1e9");
+        if (!std::isfinite(magnitude) || magnitude > 1e6) throw std::runtime_error("Area magnitude must be finite, at most 1000000");
+        AreaResult out;
+        auto fail = [&](std::string reason) {
+            out.Reason = std::move(reason);
+            return out;
+        };
+        if (!m_Scene->IsRunning()) return fail("Combat requires Play");
+        auto found = m_Areas.find(key);
+        if (found == m_Areas.end()) return fail("Area not defined");
+        const auto& spec = found->second;
+        if (auto error = AreaError(spec); !error.empty()) return fail(error);
+        uint16_t team = 0;
+        if (source)
+        {
+            if (!m_Scene->IsActiveInHierarchy(source)) return fail("Area source inactive");
+            if (auto health = RuleWorld::For(*m_Scene).Health(source))
+            {
+                if (health->Dead) return fail("Area source dead");
+                team = health->Settings.Team;
+            }
+            if (Modifiers(source).Stunned) return fail("Stunned");
+        }
+        if (m_AreaCalls >= AreaBudget) return fail("Area budget 16");
+        ++m_AreaCalls;
+        double amount = magnitude < 0 ? spec.Amount : magnitude;
+        // The source's Attack joins before the falloff, exactly as a projectile's launch snapshot does.
+        if (spec.Kind == PayloadKind::Damage && source) amount = std::min(1e6, amount + LoadoutAttack(*m_Scene, source));
+        return Area(spec, source, source ? uint64_t(source.GetUUID()) : 0, team, D(center), amount);
+    }
+    void CombatWorld::Detonate(Slot& s, Entity owner)
+    {
+        const auto& spec = s.Def->Spec;
+        const auto& state = s.State;
+        auto area = m_Areas.find(spec.Area);
+        if (area == m_Areas.end()) return; // resolved at Fire; definitions are immutable
+        double magnitude = area->second.Amount;
+        if (area->second.Kind == PayloadKind::Damage) magnitude = std::min(1e6, magnitude + state.Attack);
+        // An ownerless projectile keeps its team and still excludes its former owner's UUID.
+        Area(area->second, owner, state.Owner, state.Team, state.Position + state.Muzzle, magnitude);
+    }
+    void CombatWorld::EffectsPhase(double h)
+    {
+        ZM_PROFILE_SCOPE("Effektlar");
+        auto* rules = m_Scene->GetRegistry().ctx().find<RuleWorld>();
+        if (!rules) return;
+        // Books are in UUID order; instances and their ticks in Sequence order.
+        for (auto& [id, book] : m_Books)
+        {
+            if (book.Effects.Instances.empty()) continue;
+            auto e = m_Scene->GetEntityByUUID(UUID(id));
+            if (!e || uint32_t(e) != book.Handle) continue;
+            const auto* actor = rules->FindActor(e);
+            // Inactive (and, transiently, dead) actors keep their effects frozen: no ticks, no expiry.
+            if (!actor || !actor->Health || actor->Health->Dead || !m_Scene->IsActiveInHierarchy(e)) continue;
+            m_Ticks.clear();
+            m_Expired.clear();
+            const size_t before = book.Effects.Instances.size();
+            TickEffects(book.Effects, m_EffectSpecs, h, m_Ticks, m_Expired);
+            m_EffectCount -= before - book.Effects.Instances.size();
+            const auto position = D(m_Scene->GetWorldPosition(e));
+            if (!m_Expired.empty())
+            {
+                Recompose(book, e);
+                for (const auto& x : m_Expired)
+                    if (x.Spec) Emit(e, "EffectExpired", x.Spec->Key, x.Source, id, 0, position);
+            }
+            for (const auto& tick : m_Ticks)
+            {
+                if (rules->Dead(e) || !m_Scene->IsActiveInHierarchy(e)) break; // died: its effects were cleared
+                uint32_t handle = tick.SourceHandle;
+                const Entity source = Resolve(tick.Source, handle);
+                double applied = 0;
+                bool killed = false;
+                if (tick.Kind == TickKind::Damage)
+                {
+                    DamageRequest request;
+                    request.Source = source; // gone: no kill credit, the team snapshot still applies
+                    request.Amount = tick.Amount;
+                    request.SourceTeam = tick.Team;
+                    request.FriendlyFire = tick.FriendlyFire;
+                    request.PierceShield = tick.Spec->PierceShield;
+                    request.IgnoreGrace = true;   // ticks are not stopped by hit grace ...
+                    request.StartGrace = false;   // ... and grant none
+                    request.SourceAttack = false; // only the victim's Armor applies
+                    request.Cause = tick.Spec->Key;
+                    const auto result = rules->Damage(e, request);
+                    applied = result.Applied;
+                    killed = result.Killed;
+                }
+                else applied = rules->Heal(e, tick.Amount, tick.Kind == TickKind::Shield, source, tick.Spec->Key);
+                ++m_TickCount;
+                const auto kind = tick.Kind == TickKind::Damage ? PayloadKind::Damage : tick.Kind == TickKind::Heal ? PayloadKind::Heal
+                                                                                                                    : PayloadKind::Shield;
+                Record(source ? uint64_t(source.GetUUID()) : 0, id, tick.Spec->Key, applied, kind, killed, position, true);
+            }
+        }
     }
     void CombatWorld::Step(double h)
     {
         m_Now += h;
         ++m_Steps;
+        // Effects first: a damage-over-time kill this step makes its victim untouchable for the projectiles.
+        if (m_EffectCount > 0) EffectsPhase(h);
         if (m_Pool.Count() == 0) return;
         ZM_PROFILE_SCOPE("Snaryadlar");
         auto& rules = RuleWorld::For(*m_Scene);
+        uint32_t detonations = 0;
+        // At most 16 detonations per step; the rest keep their slot and detonate on a later step, by slot.
+        auto detonate = [&](uint32_t slot, Entity owner) {
+            m_Slots[slot].State.Phase = ProjectilePhase::Detonating;
+            if (detonations >= DetonationBudget) return;
+            ++detonations;
+            Detonate(m_Slots[slot], owner);
+            Release(slot);
+        };
         for (uint32_t slot = 0; slot < ProjectilePool::Capacity; ++slot)
         {
             if (!m_Pool.Active(slot)) continue;
@@ -519,7 +999,7 @@ namespace Zamin::Gameplay {
             const Entity target = Resolve(state.Target, s.TargetHandle);
             if (state.Phase == ProjectilePhase::Detonating)
             {
-                Release(slot); // area payloads are not defined, so nothing detonates
+                detonate(slot, owner);
                 continue;
             }
             const bool first = state.Age <= 0;
@@ -551,23 +1031,29 @@ namespace Zamin::Gameplay {
                 }
                 else --state.PierceLeft;
             }
+            const bool area = !spec.Area.empty();
             if (spent)
             {
-                Release(slot);
+                // The impact point is the area centre: the direct victim is inside an area at least as large as
+                // Radius + TargetRadius.
+                if (area) detonate(slot, owner);
+                else Release(slot);
                 continue;
             }
             if (blocker <= 1)
             {
                 state.Position = Lerp(segment, blocker);
                 if (owner) Emit(owner, "Impact", spec.Key, state.Owner, 0, 0, state.Position);
-                Release(slot);
+                if (area) detonate(slot, owner);
+                else Release(slot);
                 continue;
             }
             // Lifetime and distance round up to whole fixed steps; the final segment was swept in full.
             if (state.Age >= spec.Lifetime - 1e-9 || (spec.MaxDistance > 0 && state.Travelled >= spec.MaxDistance - 1e-9))
             {
                 if (owner) Emit(owner, "Expired", spec.Key, state.Owner, 0, 0, state.Position);
-                Release(slot);
+                if (area && spec.DetonateOnExpire) detonate(slot, owner);
+                else Release(slot);
             }
         }
     }

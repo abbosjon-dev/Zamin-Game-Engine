@@ -80,9 +80,11 @@ Graph motor/camera caches are invalidated so they do not retain pre-load movemen
 and replans routes on its next update; a saved terminal Blocked mode stays blocked until explicit
 reset. Native recovery watchdogs, path handles and retry clocks are transient, not serialized.
 
-Pending rule/AI event queues are cleared, not replayed. [Projectiles](GameplayCombat.md) in flight are not
-saved yet: Restore releases them and clears combat events, so a shot fired before the load cannot hit the
-restored state; combat definitions stay and save versions are unchanged. Active-state lifecycle callbacks run after
+Pending rule/AI event queues are cleared, not replayed. [Projectiles](GameplayCombat.md) in flight and
+status effects are not saved yet: Restore releases the projectiles, removes the effects and clears combat
+events, so a shot fired or an effect applied before the load cannot act on the restored state; combat
+definitions stay and save versions are unchanged. Capture saves loadout energy at most at the capacity
+without effect bonuses, so a snapshot taken under a MaxEnergy buff stays valid. Active-state lifecycle callbacks run after
 state installation under a reentry guard: they may perform normal gameplay effects, which are not
 rolled back. Content should keep those callbacks idempotent. Arbitrary native callback exceptions
 or process/allocation failure during commit are not a general engine transaction guarantee.

@@ -44,6 +44,8 @@ namespace Zamin::Gameplay {
         friend class SaveWorld;
         friend double LoadoutDamage(Scene&, Entity, Entity, double, bool);
         friend double LoadoutAttack(Scene&, Entity);
+        friend double LoadoutArmor(Scene&, Entity);
+        friend void ClampLoadoutEnergy(Scene&, Entity);
         struct Record
         {
             uint32_t Handle = ~0u;
@@ -56,7 +58,8 @@ namespace Zamin::Gameplay {
         };
         Record* Find(Entity);
         const Record* Find(Entity) const;
-        Record* Usable(Entity, std::string&);
+        // action: the actor performs it (cast, equip), so a stun blocks it.
+        Record* Usable(Entity, std::string&, bool action = false);
         void Emit(Record&, LoadoutEvent);
         Scene* m_Scene;
         std::map<uint64_t, Record> m_Records;
@@ -67,6 +70,11 @@ namespace Zamin::Gameplay {
     // Outgoing Attack of `source` (when sourceAttack) plus the victim's Armor reduction. sourceAttack=false: the
     // caller snapshotted Attack already (projectiles), so only Armor applies.
     double LoadoutDamage(Scene&, Entity source, Entity victim, double amount, bool sourceAttack = true);
-    // The actor's effective outgoing Attack (0 without a loadout): the projectile damage snapshot at launch.
+    // The actor's effective outgoing Attack, including status-effect modifiers (an actor without a loadout has
+    // base 0 plus its effect bonus): the projectile damage snapshot at launch.
     double LoadoutAttack(Scene&, Entity);
+    // The actor's effective Armor (same rules as LoadoutAttack).
+    double LoadoutArmor(Scene&, Entity);
+    // Clamps the actor's energy to its current capacity (called when a MaxEnergy effect bonus ends).
+    void ClampLoadoutEnergy(Scene&, Entity);
 }

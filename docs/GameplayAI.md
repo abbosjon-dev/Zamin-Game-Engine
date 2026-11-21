@@ -42,7 +42,9 @@ until interrupted. Visible targets trigger Chase or Attack, with separate enter/
 avoid threshold oscillation. Losing sight investigates the last seen point for the memory duration.
 Destroyed targets are forgotten immediately. Memory expiry, target leaving the home leash or actor
 leaving the leash triggers Return; return finishes before reacquiring enemies. Dead and Disabled
-stop motion. Blocked is terminal until an explicit reset.
+stop motion. Blocked is terminal until an explicit reset. A [stun](GameplayCombat.md#modifiers-stats-speed-and-stun)
+stops the agent with Status `Stunned` and does not step the brain, so its timers and memory freeze until
+the stun ends; slow/haste effects set the navigation speed to `Speed × scale` every tick.
 
 `Gameplay::AIWorld::For(scene)` owns native records in that scene's registry, keyed by UUID plus
 generational handles for actor, owner and victim. Different scenes do not share controllers. Destroying

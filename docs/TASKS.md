@@ -62,12 +62,12 @@ Python/format/docs tekshirildi. Software Mesa, hardware GPU byudjeti o‘lchanma
 Renderer o‘zgarmagani uchun eski 12 render holati qayta ishga tushirilmadi.
 [API va chegaralar](GameplayLoadout.md). Hisobotlar: `build-review/GameplayLoadout/`.
 
-### Keyingi paket — projectiles va gameplay effects
+### Yakunlangan bo‘lim — projectiles va gameplay effects
 
 - [x] Bounded 2D/3D projectile lifecycle, collision/hit ownership, pooling va lifetime.
 - [x] Area damage/support, timed status effects va stacking/expiration qoidalari.
 - [x] Ability/effect authoring, HUD feedback va persistence compatibility.
-- [ ] O‘ynaladigan 2D/3D combat slice, profiling, export va regression darvozalari.
+- [x] O‘ynaladigan 2D/3D combat slice, profiling, export va regression darvozalari.
 
 Dalillar (1-band, 2026-11-21): 1257/1257 unit (32 yangi: 12 `ProjectileModel*`, 20 `CombatWorld*`/`CombatRules*`),
 11/11 headless CTest (DocsCheck/DocsSnippets bilan). Pure ProjectileModel/RulesModel ASan/UBSan/LSan: 32/32.
@@ -140,6 +140,47 @@ paneli va AbilityDefine node'i ochiq) 204/204 qadam, 0 xato. xdotool o‘rnatilm
 shu sababli combo'ning haqiqiy ImGui add/save/Undo testi 4-bandga qoldi; renderer o‘zgarmagani uchun render
 reference, workshop'larning Editor fazalari va Release bench ishga tushirilmadi.
 [Save v4](GameplaySave.md#combat-state-save-v4), [ability linklari](GameplayCombat.md#ability-links).
+
+Dalillar (4-band, 2026-11-21): 1309/1309 unit (2 yangi: `CombatWorkshopGraphsValidateAndRoundtrip`,
+`CombatWorkshopOracleHeadless`), 12/12 headless CTest (yangi `BenchCombatSmoke` bilan), `ctest -L docs` 2/2, build
+ogohlantirishsiz. Compiler-free `Projects/CombatWorkshop` (`Tools/samples/gen_combat_workshop.py`; qayta generatsiya
+baytma-bayt bir xil, `git diff --exit-code` toza): 2D (Box2D, top-down) va 3D (Jolt, character controller) sahnalar,
+6 effekt, Nova hududi (`Wall` qatlami bo‘yicha LoS), Bolt/Lance/Venom snaryadlari pool vizual prefablari bilan, 5 ta
+o‘yinchi ability va Sentry'ning Spit snaryad ability'si, quest, 6 ta save bog‘lami, effekt/hit-marker HUD va zarbalar
+lentasi; klaviatura va gamepad. Oracle qoidalardan hisoblangan va 2D/3D'da aynan bir xil chiqdi: faza 0 (2.45 s) —
+Sentry 45 = 120 − 30 − 3 − 30 − 6 − 6 (YONISH x2), o‘yinchi 98 HP / 24 qalqon (Venom qalqonga, Zahar qalqondan o‘tib
+1 tik), nishonlar 13/13/35 (Lance pierce ×3 + Nova faqat 3.5 m ichidagi ikkitasiga), devor ortidagi nishon 30 (LoS),
+Frost Nova nishonlarida, Attack 10 (Haste), energiya 25; faza 1 (yangi jarayon) — saqlangan uchayotgan Bolt urildi,
+Burn tiki Sentry'ni o‘ldirdi (bir marta), o‘yinchi 94 (qolgan 3 Zahar tiki), energiya 15, Bolt 3, XP 150, Coin 5;
+faza 2 — o‘lik Sentry'ga Bolt va energiyasiz Nova hech narsani o‘zgartirmadi, takroriy mukofot yo‘q, effektlar 0.
+Faza 0 save'i: v4, 1 ta uchayotgan Bolt, o‘yinchida Poison/Haste, Sentry'da Burn (90 HP); tiklash logi `Jang holati
+tiklandi: 8 effekt, 1 snaryad`. `Tests/combat_workflow_test.py --exports`: 2D/3D × (3 Player faza klaviatura/gamepad
+lentasi bilan + 3 Editor Play faza) + 2 × eksport write/resume + haqiqiy ko‘chirilgan no-replay = 14/14 workflow,
+2 min 7 s; har birida markerlar, GL/graph xatosi yo‘qligi, PNG va save JSON tekshirildi (`build/GameplayCombat/`).
+Mutatsiya: generatorda Nova LoS'ni o‘chirish, Zaharni qalqonga yuttirish, Sentry'ni tiklangan fazada otdirish,
+Lance pierce'ni olib tashlash va F5'ni Bolt urilgandan keyinga surish — har biri headless oracle'ni yiqitdi (5/5,
+4–14 tekshiruv). Release `ZaminBench --combat` (600 kadr, 5 ishga tushirish): o‘rtacha `TickCombat` 2D 0.069–0.106
+ms (p95 0.092–0.150), 3D 0.079–0.101 ms (p95 0.218–0.270), 1024 effekt nusxasi 0.047–0.060 ms — maqsadlar (0.5 / 1.0
+/ 1.0 ms) bajarildi; ajratmalar 9.26 / 12.15 / 21.05 kadrga, `ZAMIN_ALLOC_TRACE` bo‘yicha hammasi fizika so‘rov
+vektorlari va `RuleWorld` voqea `std::deque`'idan, combat kodining o‘zi ajratmaydi; baseline
+`Tests/Baselines/combat-release.json`, `bench.sh --only combat --compare` 0 sekinlashish. Dizayndagi 512 × 16 effekt
+ssenariysi sahnaning 1024 nusxa chegarasidan oshgani uchun 64 × 16 = 1024 o‘lchandi. Pure ProjectileModel/EffectModel/
+RulesModel/LoadoutModel/SaveModel/QuestModel/UIModel ASan/UBSan/LSan: 85/85. CombatWorld, CombatGraph, ProjectileModel,
+EffectModel, GameplayRules, RulesModel, LoadoutWorld va LoadoutModel instrumentlangan 8 TU owner probe: 42/42
+(`CombatWorkshop*`, `CombatWorld*`, `CombatEffect*`), LeakSanitizer bilan; xuddi shu TU'lar bilan sanitizer'li
+`CombatBench` (to‘g‘ridan-to‘g‘ri chaqirilgan instrumentlangan `TickCombat`, 128 snaryad, 2D/3D va 1024 effekt, 3 × 300
+kadr) xatosiz. libZamin `-Bsymbolic-functions` bilan bog‘langani uchun workshop graph yo‘li libZamin ichida
+instrumentlanmagan; Scene/serializer/physics/VM va qolgan shared engine normal build — bu butun engine sanitizer
+run’i emas. Clang 18 syntax-only -Werror: 3 TU (`CombatWorkshopTests`, `CombatBench`, `ParticleBench`); format
+tekshiruvi va `py_compile` toza. Regressiya: LoadoutWorkshop 14/14 workflow (save hali v3), SaveWorkshop 6/6 (v1).
+Editor: workflow'ning 6 ta Editor Play fazasi o‘tdi; QA hook'lari bilan Editor Play'da node inspector "Jang holati"
+1/128 snaryad, 8/1024 effekt, Sentry'da Burn va ProjectileDefine'ning "Kind: Zarar" tanlovini ko‘rsatdi.
+`Tests/combat_editor_test.py` yozildi, lekin xdotool o‘rnatilmagan (o‘rnatishga ruxsat berilmadi), shuning uchun
+haqiqiy ImGui add/save/Undo testi ishga tushirilmadi; renderer o‘zgarmagani uchun render reference ham. Headless
+oracle snaryad vizual prefablarisiz yuradi (prefab instansiyasi GL kontekstsiz shrift atlasini quradi); vizual pool
+Player/Editor workflow'larida ishlaydi. Sentry'ning Spit chaqiruvi uning o‘z grafida emas, o‘yinchi grafida
+(`Target=850`) — QA fazasi o‘sha yerda. [Playable slice](GameplayCombat.md#playable-slice-combatworkshop),
+[profiling](GameplayCombat.md#profiling).
 
 ### Yakunlangan bo‘lim — gameplay UI
 

@@ -66,7 +66,7 @@ Renderer o‘zgarmagani uchun eski 12 render holati qayta ishga tushirilmadi.
 
 - [x] Bounded 2D/3D projectile lifecycle, collision/hit ownership, pooling va lifetime.
 - [x] Area damage/support, timed status effects va stacking/expiration qoidalari.
-- [ ] Ability/effect authoring, HUD feedback va persistence compatibility.
+- [x] Ability/effect authoring, HUD feedback va persistence compatibility.
 - [ ] O‘ynaladigan 2D/3D combat slice, profiling, export va regression darvozalari.
 
 Dalillar (1-band, 2026-11-21): 1257/1257 unit (32 yangi: 12 `ProjectileModel*`, 20 `CombatWorld*`/`CombatRules*`),
@@ -107,6 +107,39 @@ RulesWorkshop 2/2. Saqlash vaqtinchalik siyosati: effektlar saqlanmaydi, Restore
 energiyani effekt bonusisiz sig‘imgacha yozadi (effektsiz holatda baytma-bayt o‘zgarishsiz), save versiyasi
 o‘zgarmadi. Renderer o‘zgarmagani va editor UI qo‘shilmagani uchun render reference, ImGui editor testlari va
 Editor workflow fazalari ishga tushirilmadi; Release bench 4-bandda. [Hudud va effektlar](GameplayCombat.md#areas).
+
+Dalillar (3-band, 2026-11-21): 1307/1307 unit (19 yangi: 2 `GameSaveLegacy*`, 3 `GameSaveModelV4*`, 6 `CombatSave*`,
+4 `CombatAbility*`, 2 `CombatHUD*`, `GameUIModelCombatRowsRoundAndFade`, `VisualGraphPinChoicesAreTranslated`;
+oraliq save siyosatini tekshirgan 2 test v4 semantikasiga o‘tkazildi, `Version 4` rad testi endi 5 va 0 ni rad
+etadi), 11/11 headless CTest, `ctest -L docs` 2/2. Avval, o‘zgarmagan daraxtda `Tests/Fixtures/GameSaves` ga v1/v2/v3
+va haqiqiy LoadoutWorkshop faza-0 `loadout-v3.json` yozildi: to‘rttasi ham baytma-bayt qayta kodlanadi; haqiqiy
+fayl headless Loadout2D sahnasiga combat bilan ham, combatsiz ham tiklanadi (Sword/Plate, Energy 65, Bolt Uses 1)
+va yangi Player jarayonida faza 1 `LOADOUT_RESUMED casts=2 xp=150 coin=5` beradi, qayta yozilgan save hali v3.
+Save v4 eng katta hujjati (256 obyekt × 16 effekt, 64 belgili kalitlar, 128 snaryad × 8 hit, 65 536 belgili
+signature) 1 524 542 bayt — 2 MiB ichida; 38 struct va 12 JSON buzilishi har biri rad etildi. Determinizm (c):
+saqlab, yangi sahnaga tiklab 15 + 150 qadamdan keyin snaryad pozitsiyasi/tezligi/yoshi, sog‘liq va effekt
+qatorlari (qolgan vaqt, tik fazasi, Sequence) aynan teng. Pure ProjectileModel/EffectModel/RulesModel/
+LoadoutModel/SaveModel/QuestModel/UIModel ASan/UBSan/LSan: 85/85. CombatWorld, CombatGraph, ProjectileModel,
+EffectModel, SaveModel, SaveWorld, LoadoutWorld, LoadoutModel, LoadoutGraph, GameplayRules, RulesModel,
+GameplayUI, GameplayUIGraph va UIModel instrumentlangan 14 TU owner probe: 94/94, LeakSanitizer bilan (93 test +
+HUD/feed refresh, `CombatWorld::Tick` va v4 Capture/Restore'ni instrumentlangan nusxada yurgizuvchi 1 ta scratch
+test; libZamin bilan ataylab takrorlangan ta'riflar sabab ODR tekshiruvi o‘chirilgan); Scene/serializer/physics/VM
+va qolgan shared engine normal build — bu butun engine sanitizer run’i emas. Clang 18 syntax-only -Werror: 18 TU
+(13 engine/editor + 5 test). Mutatsiya tekshiruvi: effektlarni loadout'dan keyin bosqichlash, bog‘lanmagan ability
+signature'iga ham dum qo‘shish, hit marker'da effekt tiklarini sanash, hudud ability'sini faqat Applied > 0 da
+sarflash, tiklangan snaryad generatsiyasini 1 ga tushirish va eski save'da bog‘langan aktyor effektlarini
+qoldirish — har biri mo‘ljallangan testlarni yiqitdi (projectile commit bayrog‘i mutatsiyasi ekvivalent chiqdi va
+sanalmadi). Regressiya (Player): LoadoutWorkshop 6/6 (save hali v3), SaveWorkshop 6/6 (v1), QuestWorkshop 6/6
+(v2), UIWorkshop 6/6. Scratch 2D demo (30 fps): faza 0 Player'da 1.2 s da v4 yozildi — 3 ta uchayotgan snaryad,
+Sentry 370/400 (400 − (12 + Power 10 + Attack 5) − 3 Zahar tiki), Dummy 93/120 (pierce), 3 effekt; yangi jarayonda
+faza 1 `Jang holati tiklandi: 3 effekt, 3 snaryad`, tiklangan Bolt'lar urildi (10-kadrda Sentry 339/400, YONISH
+x2/3, ZAHAR x1/3). HUD Kind 5/6 va 4 qatorli zarbalar lentasi Player kadrida ko‘rindi. Editor Play'da node
+inspector "Jang holati" bloki 4/128 snaryad, 4/4 vizual, 2 qadam, 4/1024 effekt va Sentry effektlarini, tanlangan
+EffectDefine node'i "Tick: Zarar" nomli tanlovini ko‘rsatdi; editor smoke (`ZAMIN_EDITOR_OPEN_ALL_PANELS`, graph
+paneli va AbilityDefine node'i ochiq) 204/204 qadam, 0 xato. xdotool o‘rnatilmagan (o‘rnatishga ruxsat berilmadi),
+shu sababli combo'ning haqiqiy ImGui add/save/Undo testi 4-bandga qoldi; renderer o‘zgarmagani uchun render
+reference, workshop'larning Editor fazalari va Release bench ishga tushirilmadi.
+[Save v4](GameplaySave.md#combat-state-save-v4), [ability linklari](GameplayCombat.md#ability-links).
 
 ### Yakunlangan bo‘lim — gameplay UI
 

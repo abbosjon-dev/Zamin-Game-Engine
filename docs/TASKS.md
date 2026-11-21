@@ -64,10 +64,27 @@ Renderer o‘zgarmagani uchun eski 12 render holati qayta ishga tushirilmadi.
 
 ### Keyingi paket — projectiles va gameplay effects
 
-- [ ] Bounded 2D/3D projectile lifecycle, collision/hit ownership, pooling va lifetime.
+- [x] Bounded 2D/3D projectile lifecycle, collision/hit ownership, pooling va lifetime.
 - [ ] Area damage/support, timed status effects va stacking/expiration qoidalari.
 - [ ] Ability/effect authoring, HUD feedback va persistence compatibility.
 - [ ] O‘ynaladigan 2D/3D combat slice, profiling, export va regression darvozalari.
+
+Dalillar (1-band, 2026-11-21): 1257/1257 unit (32 yangi: 12 `ProjectileModel*`, 20 `CombatWorld*`/`CombatRules*`),
+11/11 headless CTest (DocsCheck/DocsSnippets bilan). Pure ProjectileModel/RulesModel ASan/UBSan/LSan: 32/32.
+CombatWorld, CombatGraph, ProjectileModel, GameplayRules, RulesModel, LoadoutWorld va SaveWorld instrumentlangan
+7 TU owner probe: 33/33, LeakSanitizer bilan (32 test + Scene hook'lari libZamin ichida `-Bsymbolic-functions`
+bilan bog‘langani uchun step/sweep/vizual yo‘lini instrumentlangan nusxada yurgizuvchi 1 ta scratch test);
+Scene/serializer/physics/VM va qolgan shared engine normal build — bu butun engine sanitizer run’i emas.
+Clang 18 syntax-only -Werror: 10 TU. Mutatsiya tekshiruvi: world kanalidagi actor filtri o‘chirilsa 3 test,
+segment oxiridagi (T = 1) devor tuzatishi qaytarilsa yangi chegara testi, dead/inactive skip o‘chirilsa 1 test
+yiqiladi — shu tekshiruv Box2D float chegarasida devordan o‘tib ketish xatosini topdi va u tuzatildi.
+Determinizm: ikki yangi sahnada bir xil event-log hash; 1/30, 1/60, 1/144 s va jitter kadrlarda bir xil
+natija (7 hit, 3 s gacha hammasi tugaydi). 500 m/s snaryad 20 Hz’da 0.05 m nishonni o‘tkazib yubormaydi.
+LoadoutWorkshop Player workflow (2D/3D × 3 faza): 6/6, save hali v3. Scratch demo’da haqiqiy Player va
+Editor Play: 11/128 uchayotgan snaryad pool vizuallari bilan, GL/graph xatosi yo‘q. Saqlash vaqtinchalik
+siyosati: Restore uchayotgan snaryadlarni bekor qiladi, save versiyasi o‘zgarmadi. Renderer va editor UI
+o‘zgarmagani uchun render reference va ImGui editor testlari ishga tushirilmadi; Release bench 4-bandda.
+[API va chegaralar](GameplayCombat.md).
 
 ### Yakunlangan bo‘lim — gameplay UI
 

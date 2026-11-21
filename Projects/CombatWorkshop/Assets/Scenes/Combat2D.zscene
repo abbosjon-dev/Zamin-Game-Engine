@@ -1,0 +1,1619 @@
+{
+  "Version": 5,
+  "Scene": "Combat 2D",
+  "Settings": {
+    "DrawSky": false,
+    "Ambient": 0.7
+  },
+  "Entities": [
+    {
+      "Entity": 800,
+      "Tag": "Player",
+      "Tags": [
+        "Player"
+      ],
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "NativeScript": {
+        "Class": "Zamin.VisualGraph",
+        "Fields": {
+          "Graph": {
+            "Type": "String",
+            "Value": "Scripts/Combat2D.zgraph"
+          }
+        }
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "GravityScale": 0,
+        "FixedRotation": true
+      },
+      "BoxCollider2D": {
+        "Size": [
+          0.35,
+          0.35
+        ],
+        "Friction": 0
+      }
+    },
+    {
+      "Entity": 810,
+      "Tag": "Player visual",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0.05
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.7,
+          0.7,
+          1
+        ]
+      },
+      "Parent": 800,
+      "SpriteRenderer": {
+        "Color": [
+          0.22,
+          0.9,
+          0.65,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 801,
+      "Tag": "Overview camera",
+      "Transform": {
+        "Translation": [
+          -2.4,
+          1,
+          15
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Camera": {
+        "Primary": true,
+        "ProjectionType": 1,
+        "OrthographicSize": 10,
+        "OrthographicNear": -100,
+        "OrthographicFar": 100,
+        "ClearColor": [
+          0.035,
+          0.045,
+          0.075,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 940,
+      "Tag": "Arena",
+      "Transform": {
+        "Translation": [
+          2,
+          1,
+          -0.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          12,
+          11,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.075,
+          0.105,
+          0.16,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 1200,
+      "Tag": "Quest HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UICanvas": {
+        "ScaleMode": "ScaleWithScreenSize",
+        "ReferenceResolution": [
+          1280,
+          720
+        ]
+      }
+    },
+    {
+      "Entity": 1201,
+      "Parent": 1200,
+      "Tag": "Quest HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -22
+        ],
+        "Size": [
+          1170,
+          34
+        ],
+        "FontSize": 19
+      },
+      "Text": {
+        "Text": "JANG LABORATORIYASI  /  snaryadlar + effektlar + saqlash v4",
+        "Color": [
+          0.28,
+          0.9,
+          0.78,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 850,
+      "Tag": "Sentry",
+      "Tags": [
+        "Enemy"
+      ],
+      "Transform": {
+        "Translation": [
+          0,
+          5,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static"
+      },
+      "BoxCollider2D": {
+        "Size": [
+          0.4,
+          0.4
+        ]
+      }
+    },
+    {
+      "Entity": 851,
+      "Parent": 850,
+      "Tag": "Sentry visual",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0.05
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.9,
+          0.9,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.95,
+          0.3,
+          0.32,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 861,
+      "Tag": "Dummy1",
+      "Tags": [
+        "Dummy"
+      ],
+      "Transform": {
+        "Translation": [
+          2,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static"
+      },
+      "BoxCollider2D": {
+        "Size": [
+          0.4,
+          0.4
+        ]
+      }
+    },
+    {
+      "Entity": 881,
+      "Parent": 861,
+      "Tag": "Dummy1 visual",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0.05
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.95,
+          0.66,
+          0.25,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 862,
+      "Tag": "Dummy2",
+      "Tags": [
+        "Dummy"
+      ],
+      "Transform": {
+        "Translation": [
+          3,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static"
+      },
+      "BoxCollider2D": {
+        "Size": [
+          0.4,
+          0.4
+        ]
+      }
+    },
+    {
+      "Entity": 882,
+      "Parent": 862,
+      "Tag": "Dummy2 visual",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0.05
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.95,
+          0.66,
+          0.25,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 863,
+      "Tag": "Dummy3",
+      "Tags": [
+        "Dummy"
+      ],
+      "Transform": {
+        "Translation": [
+          4,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static"
+      },
+      "BoxCollider2D": {
+        "Size": [
+          0.4,
+          0.4
+        ]
+      }
+    },
+    {
+      "Entity": 883,
+      "Parent": 863,
+      "Tag": "Dummy3 visual",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0.05
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.95,
+          0.66,
+          0.25,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 871,
+      "Tag": "Hidden",
+      "Tags": [
+        "Dummy"
+      ],
+      "Transform": {
+        "Translation": [
+          0,
+          -3,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static"
+      },
+      "BoxCollider2D": {
+        "Size": [
+          0.4,
+          0.4
+        ]
+      }
+    },
+    {
+      "Entity": 872,
+      "Parent": 871,
+      "Tag": "Hidden visual",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0.05
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.7,
+          0.5,
+          0.95,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 870,
+      "Tag": "Wall",
+      "Tags": [
+        "Wall"
+      ],
+      "Transform": {
+        "Translation": [
+          0,
+          -1.5,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          2.4,
+          0.3,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.45,
+          0.5,
+          0.6,
+          1
+        ]
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "Layer": 1
+      },
+      "BoxCollider2D": {
+        "Size": [
+          0.5,
+          0.5
+        ]
+      }
+    },
+    {
+      "Entity": 1202,
+      "Parent": 1200,
+      "Tag": "Combat HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -60
+        ],
+        "Size": [
+          1170,
+          30
+        ],
+        "FontSize": 16
+      },
+      "Text": {
+        "Text": "Space Bolt | L Nayza | N Nova | M Davolash | R Shijoat | F5/F9 Saqlash/Yuklash | WASD",
+        "Color": [
+          0.85,
+          0.91,
+          1,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1203,
+      "Parent": 1200,
+      "Tag": "Combat HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -98
+        ],
+        "Size": [
+          760,
+          30
+        ],
+        "FontSize": 19
+      },
+      "Text": {
+        "Text": "SOG'LIQ",
+        "Color": [
+          0.85,
+          0.91,
+          1,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1204,
+      "Parent": 1200,
+      "Tag": "Combat HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -130
+        ],
+        "Size": [
+          760,
+          30
+        ],
+        "FontSize": 19
+      },
+      "Text": {
+        "Text": "HUJUM",
+        "Color": [
+          0.85,
+          0.91,
+          1,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1205,
+      "Parent": 1200,
+      "Tag": "Combat HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -162
+        ],
+        "Size": [
+          760,
+          30
+        ],
+        "FontSize": 19
+      },
+      "Text": {
+        "Text": "SENTRY SOG'LIQ",
+        "Color": [
+          0.85,
+          0.91,
+          1,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1207,
+      "Parent": 1200,
+      "Tag": "Combat HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -214
+        ],
+        "Size": [
+          760,
+          30
+        ],
+        "FontSize": 19
+      },
+      "Text": {
+        "Text": "XP",
+        "Color": [
+          0.85,
+          0.91,
+          1,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1206,
+      "Parent": 1200,
+      "Tag": "Combat HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -194
+        ],
+        "Size": [
+          360,
+          7
+        ]
+      },
+      "UIProgressBar": {
+        "Value": 1,
+        "Padding": 0,
+        "BackgroundColor": [
+          0.12,
+          0.16,
+          0.23,
+          1
+        ],
+        "FillColor": [
+          0.95,
+          0.3,
+          0.32,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 1210,
+      "Parent": 1200,
+      "Tag": "Combat HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -258
+        ],
+        "Size": [
+          360,
+          30
+        ],
+        "FontSize": 18
+      },
+      "Text": {
+        "Text": "ZAHAR x",
+        "Color": [
+          0.98,
+          0.84,
+          0.45,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1211,
+      "Parent": 1200,
+      "Tag": "Combat HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -288
+        ],
+        "Size": [
+          360,
+          30
+        ],
+        "FontSize": 18
+      },
+      "Text": {
+        "Text": "YONISH x",
+        "Color": [
+          0.98,
+          0.84,
+          0.45,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1212,
+      "Parent": 1200,
+      "Tag": "Combat HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -318
+        ],
+        "Size": [
+          360,
+          30
+        ],
+        "FontSize": 18
+      },
+      "Text": {
+        "Text": "MUZLASH",
+        "Color": [
+          0.98,
+          0.84,
+          0.45,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1213,
+      "Parent": 1200,
+      "Tag": "Combat HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -348
+        ],
+        "Size": [
+          360,
+          30
+        ],
+        "FontSize": 18
+      },
+      "Text": {
+        "Text": "KARAXT",
+        "Color": [
+          0.98,
+          0.84,
+          0.45,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1214,
+      "Parent": 1200,
+      "Tag": "Combat HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -378
+        ],
+        "Size": [
+          360,
+          30
+        ],
+        "FontSize": 18
+      },
+      "Text": {
+        "Text": "TIKLANISH",
+        "Color": [
+          0.98,
+          0.84,
+          0.45,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1215,
+      "Parent": 1200,
+      "Tag": "Combat HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -408
+        ],
+        "Size": [
+          360,
+          30
+        ],
+        "FontSize": 18
+      },
+      "Text": {
+        "Text": "SHIJOAT",
+        "Color": [
+          0.98,
+          0.84,
+          0.45,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1220,
+      "Parent": 1200,
+      "Tag": "Combat HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          80,
+          60
+        ],
+        "FontSize": 44
+      },
+      "Text": {
+        "Text": "",
+        "Color": [
+          1,
+          0.35,
+          0.3,
+          1
+        ],
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1230,
+      "Parent": 1200,
+      "Tag": "Combat HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -446
+        ],
+        "Size": [
+          360,
+          30
+        ],
+        "FontSize": 18
+      },
+      "Text": {
+        "Text": "Zarbalar",
+        "Color": [
+          0.28,
+          0.9,
+          0.78,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1231,
+      "Parent": 1200,
+      "Tag": "Combat HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -476
+        ],
+        "Size": [
+          360,
+          30
+        ],
+        "FontSize": 18
+      },
+      "Text": {
+        "Text": "",
+        "Color": [
+          1,
+          0.55,
+          0.5,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1232,
+      "Parent": 1200,
+      "Tag": "Combat HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -504
+        ],
+        "Size": [
+          360,
+          30
+        ],
+        "FontSize": 18
+      },
+      "Text": {
+        "Text": "",
+        "Color": [
+          1,
+          0.55,
+          0.5,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1233,
+      "Parent": 1200,
+      "Tag": "Combat HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -532
+        ],
+        "Size": [
+          360,
+          30
+        ],
+        "FontSize": 18
+      },
+      "Text": {
+        "Text": "",
+        "Color": [
+          1,
+          0.55,
+          0.5,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 1234,
+      "Parent": 1200,
+      "Tag": "Combat HUD",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          1
+        ],
+        "Position": [
+          28,
+          -560
+        ],
+        "Size": [
+          360,
+          30
+        ],
+        "FontSize": 18
+      },
+      "Text": {
+        "Text": "",
+        "Color": [
+          1,
+          0.55,
+          0.5,
+          1
+        ],
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Overflow": "Ellipsis"
+      }
+    }
+  ]
+}

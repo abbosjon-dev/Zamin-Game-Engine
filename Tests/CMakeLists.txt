@@ -1,4 +1,4 @@
-add_executable(ZaminTests LoadoutModelTests.cpp LoadoutWorldTests.cpp ProjectileModelTests.cpp EffectModelTests.cpp CombatWorldTests.cpp CombatEffectTests.cpp CombatSaveTests.cpp CombatAuthoringTests.cpp QuestModelTests.cpp QuestWorldTests.cpp GameplayUIModelTests.cpp GameplayUITests.cpp SaveModelTests.cpp SaveWorldTests.cpp BrainModelTests.cpp GameplayAITests.cpp RulesModelTests.cpp GameplayRulesTests.cpp GameplayMathTests.cpp GameplayRuntimeTests.cpp AnimatorControllerTests.cpp AnimatorRuntimeTests.cpp BlueprintTests.cpp NavRecoveryTests.cpp NavCrowdTests.cpp NavQueryQueueTests.cpp NavAtlasTests.cpp ZaminTests.cpp WorldCheckpointTests.cpp ResidencyTerrainNavTests.cpp WorldStreamingTests.cpp WorldCellLoaderTests.cpp WorldManifestTests.cpp PackedFoliageTests.cpp ModuleABITests.cpp TerrainFoliageTests.cpp CodeDocumentTests.cpp VisualGraphTests.cpp TerrainTests.cpp TerrainLODTests.cpp TilemapVisibilityTests.cpp SafetyTests.cpp EditorServicesTests.cpp TestFramework.cpp DebugDrawShippingCheck.cpp)
+add_executable(ZaminTests LoadoutModelTests.cpp LoadoutWorldTests.cpp ProjectileModelTests.cpp EffectModelTests.cpp CombatWorldTests.cpp CombatEffectTests.cpp CombatSaveTests.cpp CombatAuthoringTests.cpp CombatWorkshopTests.cpp QuestModelTests.cpp QuestWorldTests.cpp GameplayUIModelTests.cpp GameplayUITests.cpp SaveModelTests.cpp SaveWorldTests.cpp BrainModelTests.cpp GameplayAITests.cpp RulesModelTests.cpp GameplayRulesTests.cpp GameplayMathTests.cpp GameplayRuntimeTests.cpp AnimatorControllerTests.cpp AnimatorRuntimeTests.cpp BlueprintTests.cpp NavRecoveryTests.cpp NavCrowdTests.cpp NavQueryQueueTests.cpp NavAtlasTests.cpp ZaminTests.cpp WorldCheckpointTests.cpp ResidencyTerrainNavTests.cpp WorldStreamingTests.cpp WorldCellLoaderTests.cpp WorldManifestTests.cpp PackedFoliageTests.cpp ModuleABITests.cpp TerrainFoliageTests.cpp CodeDocumentTests.cpp VisualGraphTests.cpp TerrainTests.cpp TerrainLODTests.cpp TilemapVisibilityTests.cpp SafetyTests.cpp EditorServicesTests.cpp TestFramework.cpp DebugDrawShippingCheck.cpp)
 target_link_libraries(ZaminTests PRIVATE Zamin ZaminEditorSupport)
 # The sample projects are read by some tests (their assets must stay valid).
 target_compile_definitions(ZaminTests PRIVATE ZAMIN_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
@@ -83,7 +83,7 @@ add_custom_target(update_render_references
 # Particle benchmark (not part of ctest): times the particle update headless - about 50 000
 # particles per case, the profiler's scopes with --profile. Run build/bin/ZaminBench, or the
 # particle_bench target (--nav: the navigation benchmark, the nav_bench target).
-add_executable(ZaminBench ParticleBench.cpp NavBench.cpp PrefabBench.cpp RenderBench.cpp EcsBench.cpp SerializeBench.cpp FontBench.cpp)
+add_executable(ZaminBench ParticleBench.cpp NavBench.cpp PrefabBench.cpp RenderBench.cpp EcsBench.cpp SerializeBench.cpp FontBench.cpp CombatBench.cpp)
 target_link_libraries(ZaminBench PRIVATE Zamin)
 set_target_properties(ZaminBench PROPERTIES BUILD_RPATH "${CMAKE_BINARY_DIR}/bin")
 zamin_target_settings(ZaminBench)
@@ -112,7 +112,9 @@ add_custom_target(nav_bench
 # there: Tests/bench.sh --compare does that against Tests/Baselines (a Release build on the baseline's computer).
 add_test(NAME BenchEcsSmoke COMMAND ZaminBench --ecs --entities 1000 --frames 5)
 add_test(NAME BenchSerializeSmoke COMMAND ZaminBench --serialize --entities 1000)
-set_tests_properties(BenchEcsSmoke BenchSerializeSmoke PROPERTIES LABELS "bench" TIMEOUT 600)
+# The combat world per frame: projectiles (2D rays / 3D sphere casts) and effect books (ZaminBench --combat).
+add_test(NAME BenchCombatSmoke COMMAND ZaminBench --combat --frames 5)
+set_tests_properties(BenchEcsSmoke BenchSerializeSmoke BenchCombatSmoke PROPERTIES LABELS "bench" TIMEOUT 600)
 add_custom_target(bench
     COMMAND ${CMAKE_COMMAND} -E env ZAMIN_BUILD_DIR=${CMAKE_BINARY_DIR} ${PROJECT_SOURCE_DIR}/Tests/bench.sh
     DEPENDS ZaminBench

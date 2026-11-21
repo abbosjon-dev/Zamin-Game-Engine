@@ -59,6 +59,7 @@ imkoniyatlar, kod bo'ylab sayohat):*
   to'qnashuv qatlamlari, determinizm — [Physics.md](docs/Physics.md)
 - **Quest/progression** — [objective, prerequisite, bir martalik reward, XP va save v2](docs/GameplayQuest.md), compiler-free QuestWorkshop.
 - **Equipment va abilities** — [4 jihoz sloti, combat statlar, energiya, cooldown, potion va save v3](docs/GameplayLoadout.md), compiler-free [LoadoutWorkshop](Projects/LoadoutWorkshop/README.md).
+- **Snaryadlar va effektlar** — [2D/3D snaryadlar, hudud zarari, stacking status effektlar, jang HUD va save v4](docs/GameplayCombat.md), compiler-free [CombatWorkshop](Projects/CombatWorkshop/README.md).
 - **Gameplay UI** — [live HUD, inventory sahifalari, modal fokus va pause](docs/GameplayUI.md), compiler-free UIWorkshop.
 - **Gameplay save/load** — [barqaror kalitli snapshot, atomik slot va backup](docs/GameplaySave.md), compiler-free SaveWorkshop.
 - **Gameplay AI** — [patrol/chase/attack/investigate/return, LOS va nav recovery](docs/GameplayAI.md), compiler-free 2D/3D AIWorkshop.

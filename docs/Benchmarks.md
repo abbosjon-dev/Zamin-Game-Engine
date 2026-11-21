@@ -392,9 +392,38 @@ saqlamaydi (yuborilgach bo'shatiladi), shriftlarda faqat TTF fayli qoladi (o'lch
 Player'larda birinchi kadr paytida ~80 MB vaqtinchalik o'sish bor (eng ko'pi - hozirgisi; ikkinchi kadrdayoq
 qaytadi), manbai aniqlanmadi (kadr ichida, ehtimol drayver).
 
+## Gameplay combat (`ZaminBench --combat`)
+
+`Tests/CombatBench.cpp` har kadrda faqat `Gameplay::TickCombat` ni o'lchaydi (60 Hz qadam; kadr byudjetlari
+`Scene::UpdateRuntime` dagidek oldin tiklanadi) va uning heap ajratmalarini `AllocCounter` bilan sanaydi. 120 (effektlarda
+60) qizdirish kadridan keyin 600 kadr o'lchanadi:
+
+- **Combat2D / Combat3D** — 128 snaryad (pool to'la), har kadrda 32 tagacha qayta otish (spawn byudjeti); 32 otuvchi
+  (1-jamoa) 32 yo'lak bo'ylab 32 nishonga (2-jamoa) otadi, 32 devor har ikkinchi yo'lakni to'sadi. Har 60 Hz qadamda
+  128 sweep: analitik aktor testi (8 192 / qadam) va 2D'da 3 tadan Box2D nuri, 3D'da Jolt sphere cast.
+- **CombatEffects** — 64 aktor × 16 effekt = 1 024 nusxa (sahna chegarasi; dizayndagi 512 × 16 = 8 192 bu chegaradan
+  oshadi), har biri 0.10–0.25 s davr bilan zarar tiki: ~105 tik / qadam, snaryadsiz.
+
+Muhit: 4 vCPU Intel Xeon @ 2.10 GHz, GCC 13.3, **Release** (`build-release`), 2026-11-21. Beshta ishga tushirish
+(uchtasi qo'lda, `--update-baseline` va `--compare`):
+
+| Ssenariy | O'rtacha `TickCombat` | p95 | Eng sekin kadr | Ajratma / kadr | Maqsad (o'rtacha) |
+|---|---:|---:|---:|---:|---|
+| Combat2D (Box2D) | 0.069–0.106 ms | 0.092–0.150 ms | 0.19–0.99 ms | 9.26 | ≤ 0.5 ms — bajarildi |
+| Combat3D (Jolt) | 0.079–0.101 ms | 0.218–0.270 ms | 0.27–0.40 ms | 12.15 | ≤ 1.0 ms — bajarildi |
+| CombatEffects (1 024 nusxa) | 0.047–0.060 ms | 0.063–0.081 ms | 0.11–0.19 ms | 21.05 | ≤ 1.0 ms — bajarildi |
+
+Ajratmalar combat kodining o'zidan emas (`ZAMIN_ALLOC_TRACE` bilan tekshirildi): 2D/3D'da hammasi fizika
+so'rovlarining natija vektorlari (`Scene::Raycast2DAll` / `SphereCast3DAll` — nur biror narsaga tekkandagina ajratadi),
+effektlarda esa `RuleWorld` voqea navbatining `std::deque` bloklari. Debug buildda (taqqoslash uchun, 120 kadr)
+o'rtacha 0.72 / 0.95 / 0.39 ms. Boshlang'ich natija: `Tests/Baselines/combat-release.json`;
+`ZAMIN_BUILD_DIR=build-release Tests/bench.sh --only combat --compare` (kadr ms uchun shovqin chegarasi 0.2 ms —
+bu raqamlar undan kichik, shuning uchun faqat katta sekinlashish ushlanadi). `ctest -L bench` da `BenchCombatSmoke`
+(`--combat --frames 5`).
+
 ## Natijalarni saqlash va solishtirish (`Tests/bench.sh`)
 
-`Tests/bench.sh` headless benchmarklarni (ECS, serializatsiya, prefablar) ishga tushiradi va natijalarni
+`Tests/bench.sh` headless benchmarklarni (ECS, serializatsiya, prefablar, combat) ishga tushiradi va natijalarni
 `<build>/Bench/*.json` (+ to'liq matn `*.txt`) ga yozadi; `bench` CMake target'i ham shu. `--compare` ularni
 `Tests/Baselines/<nom>-<build turi>.json` bilan `Tests/bench_compare.py` orqali solishtiradi: biror raqam
 `--tolerance` (standart 25 %) dan va birlikning shovqin chegarasidan (ms 0.5, kadr ms 0.2, ns 100, bayt 16, % 2)
@@ -425,6 +454,7 @@ ZAMIN_BUILD_DIR=build-release Tests/bench.sh --update-baseline
 | `ZaminBench --serialize --prefabs` | bog'langan prefab nusxalari (saqlash, yuklash, sinxronlash, Apply; `Tests/Baselines/prefabs-release.json`) |
 | `ZaminBench --nav` | navigatsiya (bake, yo'l qidirish, Nav Agent'lar) |
 | `ZaminBench --fonts` | shrift atlasi: rasterlash va diskdagi kesh, glif qidirish, kerning bilan matn joylash |
+| `ZaminBench --combat` | gameplay snaryadlari (2D nurlar / 3D sphere cast) va effekt kitoblari, `TickCombat` ms / kadr va ajratmalar (yuqorida) |
 | `Tests/startup_bench.py` | editor va player ishga tushish vaqti: birinchi kadrgacha (dvigatel / layer'lar / 1-kadr) va jarayon vaqti, ikki build solishtirish (`--bin`, `--module-dir`) |
 | `Tests/player_bench.sh` | namuna o'yinlarning boshlang'ich sahnalari ZaminPlayer'da (ms / kadr, p95, p99) |
 | `Tests/samples_bench.py` | to'qqiz namuna o'yin bot o'ynayotganda: kadr vaqti, eng sekin kadr va uning profili, obyektlar soni, o'yin kodining CPU vaqti, byudjetlar (`--check`) — natija va topilgan muammolar: [Samples.md](Samples.md#ishlash-tezligi) |

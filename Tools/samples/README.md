@@ -16,6 +16,7 @@ saqlanadi. C++ skriptlar (`Projects/<O'yin>/Source`) esa qo'lda yoziladi va gene
 | `gen_endlessrunner.py` | Ipak Yo'li: yo'l, g'isht, qum, koshin, gilam teksturalari, 11 ta ovoz, sahna |
 | `gen_terrain_materials.py` | MapWorkshop uchun 12 ta seamless albedo/normal/ORM test xaritasi; Python standard library, sahna UUID havolalari |
 | `gen_racing.py` | Vodiy Poygasi: Catmull-Rom trassa va undan yasalgan `road.obj`, `kerbs.obj`, `barriers.obj`, teksturalar, 10 ta ovoz, sahna |
+| `gen_combat_workshop.py` | CombatWorkshop: compiler-free 2D/3D jang kursi — sahnalar, Blueprint graflari, vizual snaryad prefablari, manifest va QA oracle (baytma-bayt deterministik; LoadoutWorkshop sahnasidan) |
 | `make_thumbnails.py` | Launcher rasmlari (`Projects/*/Thumbnail.jpg`): o'yinlarning headless skrinshotlaridan |
 
 ## Qayta yaratish

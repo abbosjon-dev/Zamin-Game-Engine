@@ -1,0 +1,166 @@
+{
+  "Version": 2,
+  "Project": {
+    "Name": "CombatWorkshop",
+    "StartScene": "Scenes/Combat2D.zscene",
+    "AssetDirectory": "Assets",
+    "SourceDirectory": "Source",
+    "ScriptModulePath": "",
+    "Description": "Projectiles, area damage, timed status effects, combat HUD feedback and v4 persistent combat state.",
+    "Thumbnail": "Thumbnail.png"
+  },
+  "Player": {
+    "Product": "Zamin Combat Workshop",
+    "Width": 1280,
+    "Height": 720,
+    "VSync": true
+  },
+  "InputActions": {
+    "Actions": [
+      {
+        "Name": "Bolt",
+        "Bindings": [
+          "Key:Space",
+          "Gamepad:A"
+        ]
+      },
+      {
+        "Name": "Lance",
+        "Bindings": [
+          "Key:L",
+          "Gamepad:X"
+        ]
+      },
+      {
+        "Name": "Nova",
+        "Bindings": [
+          "Key:N",
+          "Gamepad:Y"
+        ]
+      },
+      {
+        "Name": "Mend",
+        "Bindings": [
+          "Key:M",
+          "Gamepad:B"
+        ]
+      },
+      {
+        "Name": "Rally",
+        "Bindings": [
+          "Key:R",
+          "Gamepad:RightBumper"
+        ]
+      },
+      {
+        "Name": "Save",
+        "Bindings": [
+          "Key:F5",
+          "Gamepad:Start"
+        ]
+      },
+      {
+        "Name": "Load",
+        "Bindings": [
+          "Key:F9",
+          "Gamepad:Back"
+        ]
+      },
+      {
+        "Name": "Jump",
+        "Bindings": [
+          "Key:J",
+          "Gamepad:LeftBumper"
+        ]
+      },
+      {
+        "Name": "Sprint",
+        "Bindings": [
+          "Key:LeftShift",
+          "Gamepad:LeftThumb"
+        ]
+      }
+    ],
+    "Axes": [
+      {
+        "Deadzone": 0.15,
+        "GamepadAxis": "LeftX",
+        "Invert": false,
+        "Name": "Horizontal",
+        "Negative": [
+          "Key:A",
+          "Key:Left",
+          "Gamepad:DPadLeft"
+        ],
+        "Positive": [
+          "Key:D",
+          "Key:Right",
+          "Gamepad:DPadRight"
+        ]
+      },
+      {
+        "Deadzone": 0.15,
+        "GamepadAxis": "LeftY",
+        "Invert": true,
+        "Name": "Vertical",
+        "Negative": [
+          "Key:S",
+          "Key:Down",
+          "Gamepad:DPadDown"
+        ],
+        "Positive": [
+          "Key:W",
+          "Key:Up",
+          "Gamepad:DPadUp"
+        ]
+      }
+    ],
+    "Vectors": [
+      {
+        "Deadzone": 0.0,
+        "Mode": "Clamp",
+        "Name": "Move",
+        "X": "Horizontal",
+        "Y": "Vertical"
+      }
+    ]
+  },
+  "CollisionLayers2D": {
+    "Names": [
+      "Default",
+      "Wall",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "Collisions": [
+      65535,
+      65535,
+      65535,
+      65535,
+      65535,
+      65535,
+      65535,
+      65535,
+      65535,
+      65535,
+      65535,
+      65535,
+      65535,
+      65535,
+      65535,
+      65535
+    ]
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "ZaminEntities": 1,
+  "Entities": [
+    {
+      "Entity": 1,
+      "Tag": "Bolt visual",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.16,
+          0.16,
+          0.5
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Shader": "Unlit",
+        "Albedo": [
+          1,
+          0.78,
+          0.25,
+          1
+        ],
+        "CastShadows": false
+      }
+    }
+  ]
+}

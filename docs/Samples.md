@@ -331,3 +331,11 @@ Batafsil tahlil: [Performance.md](Performance.md).
 [2D/3D equipment and ability course](../Projects/LoadoutWorkshop/README.md): transactional equipment,
 combat modifiers, energy, damage/heal/shield abilities, consumables, quest rewards and v3 fresh-process
 saves. Canonical-state HUD and real relocated export acceptance. [API and bounds](GameplayLoadout.md).
+
+## CombatWorkshop
+
+[2D/3D combat slice](../Projects/CombatWorkshop/README.md): projectile abilities (Bolt with Burn, a piercing
+Lance with Shock), a Nova area with line of sight, an enemy Sentry casting Poison projectiles, stacking and
+expiring status effects, effect/hit-marker HUD and a combat feed, keyboard and gamepad, and v4 saves that resume
+a projectile in flight and its effects in a fresh process. Real Player/Editor/relocated-export acceptance
+(`Tests/combat_workflow_test.py`) and a headless oracle. [API, limits and profiling](GameplayCombat.md).

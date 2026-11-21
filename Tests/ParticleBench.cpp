@@ -59,6 +59,7 @@ int RunRenderBench(int argc, char** argv);                  // RenderBench.cpp
 int RunEcsBench(int entities, int frames, const char* jsonFile); // EcsBench.cpp
 int RunFontBench(const char* jsonFile);                         // FontBench.cpp
 int RunSerializeBench(int entities, const char* jsonFile, const std::string& content); // SerializeBench.cpp
+int RunCombatBench(int argc, char** argv);                  // CombatBench.cpp
 
 namespace {
 
@@ -472,6 +473,8 @@ int main(int argc, char** argv)
     for (int i = 1; i < argc; i++)
         if (!std::strcmp(argv[i], "--render"))
             return RunRenderBench(argc, argv);
+        else if (!std::strcmp(argv[i], "--combat"))
+            return RunCombatBench(argc, argv);
     for (int i = 1; i < argc; i++)
     {
         if (!std::strcmp(argv[i], "--frames") && i + 1 < argc)
@@ -524,7 +527,8 @@ int main(int argc, char** argv)
                         "ZaminBench --nav [--agents N] [--grid N] [--frames N] [--jobs N]\n"
                         "ZaminBench --ecs [--entities N] [--frames N] [--json <fayl>]\n"
                         "ZaminBench --fonts [--json <fayl>]\n"
-                        "ZaminBench --render [--sprites N] [--meshes N] [--frames N] [--case <nom qismi>] [--json <fayl>]\n");
+                        "ZaminBench --render [--sprites N] [--meshes N] [--frames N] [--case <nom qismi>] [--json <fayl>]\n"
+                        "ZaminBench --combat [--projectiles N] [--actors N] [--walls N] [--effects N] [--frames N] [--2d|--3d|--effects-only] [--json <fayl>]\n");
             return 1;
         }
     }

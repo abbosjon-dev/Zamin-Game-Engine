@@ -1,0 +1,37 @@
+{
+  "ZaminEntities": 1,
+  "Entities": [
+    {
+      "Entity": 1,
+      "Tag": "Lance visual",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.1,
+          0.1,
+          0.8
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Shader": "Unlit",
+        "Albedo": [
+          0.4,
+          0.92,
+          1,
+          1
+        ],
+        "CastShadows": false
+      }
+    }
+  ]
+}

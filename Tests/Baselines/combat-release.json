@@ -1,0 +1,26 @@
+{
+  "Build": "Release",
+  "Frames": 600,
+  "Projectiles": 128,
+  "Actors": 64,
+  "Walls": 32,
+  "Effects": 16,
+  "Results": {
+    "Combat2D.Tick": { "Ms": 0.1061, "PerFrame": true },
+    "Combat2D.TickP95": { "Ms": 0.1501, "PerFrame": true },
+    "Combat3D.Tick": { "Ms": 0.0946, "PerFrame": true },
+    "Combat3D.TickP95": { "Ms": 0.2343, "PerFrame": true },
+    "CombatEffects.Tick": { "Ms": 0.0472, "PerFrame": true },
+    "CombatEffects.TickP95": { "Ms": 0.0637, "PerFrame": true }
+  },
+  "AllocationsPerFrame": {
+    "Combat2D": 9.26,
+    "Combat3D": 12.15,
+    "CombatEffects": 21.05
+  },
+  "Work": {
+    "Combat2D": { "Live": 126.02, "SweepsPerStep": 128.00, "ActorTestsPerStep": 8192.00, "HitsPerFrame": 0.983, "MedianMs": 0.0982, "MaxMs": 0.2732 },
+    "Combat3D": { "Live": 126.02, "SweepsPerStep": 128.00, "ActorTestsPerStep": 8192.00, "HitsPerFrame": 0.983, "MedianMs": 0.0742, "MaxMs": 0.4026 },
+    "CombatEffects": { "TicksPerStep": 105.25, "Instances": 1024 }
+  }
+}

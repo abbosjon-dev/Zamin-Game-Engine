@@ -1,0 +1,37 @@
+{
+  "ZaminEntities": 1,
+  "Entities": [
+    {
+      "Entity": 1,
+      "Tag": "Venom visual",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.28,
+          0.28,
+          0.28
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Shader": "Unlit",
+        "Albedo": [
+          0.45,
+          1,
+          0.35,
+          1
+        ],
+        "CastShadows": false
+      }
+    }
+  ]
+}

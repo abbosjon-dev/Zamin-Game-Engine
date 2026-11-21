@@ -393,11 +393,13 @@ TEST(CombatWorldSaveRestoreReplacesProjectilesInFlight)
     f.Define(CFixture::Bolt());
     auto empty = saves.Capture("V1");
     CHECK(empty.Version == 4 && empty.Combat && empty.Combat->Projectiles.empty()); // a combat scene writes v4
+    for (int i = 0; i < 2; ++i) CHECK(f.Combat().Cancel(f.Fire("Bolt").Handle, false)); // slot 0 reaches generation 3
     const auto shot = f.Fire("Bolt");
+    CHECK(shot.Handle == (0u | 3u << 8));
     f.Run(10);
     CHECK(f.Combat().LiveCount() == 1);
     auto flying = saves.Capture("V1");
-    CHECK(flying.Combat->Projectiles.size() == 1 && flying.Combat->Projectiles[0].Owner == "Player");
+    CHECK(flying.Combat->Projectiles.size() == 1 && flying.Combat->Projectiles[0].Owner == "Player" && flying.Combat->Projectiles[0].Generation == 3);
     CHECK(saves.Restore(empty, "V1").Success); // the snapshot had nothing in flight: the shot is released
     CHECK(f.Combat().LiveCount() == 0);
     f.Run(40);

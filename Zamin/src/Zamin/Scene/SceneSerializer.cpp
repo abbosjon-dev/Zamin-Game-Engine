@@ -1336,6 +1336,8 @@ namespace Zamin {
                 e["Animator"]["CachePoses"] = true;
             if (c->PoseCacheRate != 30.0f)
                 e["Animator"]["PoseCacheRate"] = c->PoseCacheRate;
+            if (c->DriveSpriteClips)
+                e["Animator"]["DriveSpriteClips"] = true;
         }
         if (auto* c = entity.TryGetComponent<AnimationPlayerComponent>())
         {
@@ -2331,6 +2333,7 @@ namespace Zamin {
                                                                                            : AnimatorCulling::AlwaysAnimate;
             c.CachePoses = j.value("CachePoses", false);
             c.PoseCacheRate = j.value("PoseCacheRate", 30.0f);
+            c.DriveSpriteClips = j.value("DriveSpriteClips", false);
             if (!std::isfinite(c.PoseCacheRate) || c.PoseCacheRate < 1.0f)
                 c.PoseCacheRate = 30.0f;
         }

@@ -6002,6 +6002,71 @@ namespace Zamin {
         // The poses that wait for the job system.
         std::vector<AnimatorPoseTask> poseTasks;
         const bool deferPoses = JobSystem::IsParallel();
+        // DriveSpriteClips (model-free animators): the playing state - or, before half of a transition's fade,
+        // the state it came from - names the Sprite Animation clip (a blend tree: its strongest motion, a tie
+        // the lower index; sprites never cross-blend). The frame follows that state's normalized clock (the
+        // state's speed and the Animator's scale it), so a direction change inside a blend keeps the phase;
+        // each crossed frame's clip events fire once. An unknown clip name changes nothing.
+        std::vector<PendingAnimationEvent> spriteEvents;
+        std::vector<int> spriteFrames;
+        auto driveSprite = [&](entt::entity e, AnimatorComponent& anim, SpriteAnimationComponent& sprite) {
+            const bool previous = anim.IsFading() && anim.GetFadeProgress() < 0.5f && anim.PreviousState >= 0 && anim.PreviousState < (int)anim.States.size();
+            const AnimatorState& state = anim.States[(size_t)(previous ? anim.PreviousState : anim.CurrentState)];
+            const float time = previous ? anim.PreviousTime : anim.Time;
+            const std::string* clip = &state.Clip;
+            float normalized = 0.0f;
+            if (state.IsBlendTree())
+            {
+                anim.ComputeStateWeights(state, scratch.Weights);
+                int best = -1;
+                float top = 0.0f;
+                for (size_t i = 0; i < scratch.Weights.size() && i < state.Motions.size(); i++)
+                    if (scratch.Weights[i] > top)
+                    {
+                        top = scratch.Weights[i];
+                        best = (int)i;
+                    }
+                if (best < 0)
+                    return;
+                clip = &state.Motions[(size_t)best].Clip;
+                normalized = time;
+            }
+            else
+                normalized = state.Duration > 0.0f ? time / state.Duration : 0.0f;
+            if (!std::isfinite(normalized) || normalized < 0.0f)
+                normalized = 0.0f;
+            if (!sprite.Clips.empty())
+                sprite.ResolveClips();
+            const int index = sprite.FindClip(*clip);
+            if (index < 0)
+                return;
+            bool restart = false;
+            if (index != sprite.CurrentClip)
+            {
+                if (!sprite.PlayClip(index, true))
+                    return;
+                restart = true;
+            }
+            sprite.Started = true;
+            sprite.Playing = true;
+            const int count = std::max(1, sprite.FrameCount);
+            int counter = (int)std::floor(std::min((double)normalized * count, 1.0e9));
+            if (!sprite.Loop)
+                counter = std::min(counter, count - 1);
+            if (restart || counter < sprite.LastFrame)
+                sprite.LastFrame = counter - 1; // a new clip or a re-entered state: its current frame counts once
+            sprite.Time = sprite.FPS > 0.0f ? (float)((counter + 0.5) / sprite.FPS) : 0.0f;
+            if (const SpriteClipAsset* asset = sprite.GetCurrentClipAsset(); asset && !asset->GetClip().Events.empty() && counter != sprite.LastFrame)
+            {
+                CollectSpriteFrames(sprite.LastFrame, counter, count, sprite.Loop, spriteFrames);
+                for (int frame : spriteFrames)
+                    for (const SpriteClipEvent& ev : asset->GetClip().Events)
+                        if (ev.Frame == frame)
+                            spriteEvents.push_back({ Entity(e, this).GetUUID(), { sprite.FPS > 0.0f ? (float)frame / sprite.FPS : 0.0f, ev.Name, ev.Parameter }, asset->GetName() });
+            }
+            sprite.LastFrame = counter;
+            sprite.DrivenUpdate = m_AnimationUpdate;
+        };
         for (auto e : m_Registry.view<AnimatorComponent>())
         {
             // Inactive in the hierarchy: not updated at all - time, pose and state machine wait
@@ -6210,6 +6275,9 @@ namespace Zamin {
             moveParts(current, anim.Time, anim.Loop);
             if (fading0)
                 moveParts(previous, anim.PreviousTime, anim.PreviousLoop);
+            if (!editor && !model && anim.DriveSpriteClips && anim.UsesStateMachine() && anim.CurrentState >= 0)
+                if (auto* sprite = m_Registry.try_get<SpriteAnimationComponent>(e))
+                    driveSprite(e, anim, *sprite);
 
             // ---- layers: their weights and times
             for (AnimatorLayer& layer : anim.Layers)
@@ -6406,6 +6474,8 @@ namespace Zamin {
         m_AnimationStats.Milliseconds = (float)watch.ElapsedMilliseconds();
         for (const auto& fired : firedEvents)
             FireAnimationEvent(GetEntityByUUID(fired.Entity), fired.Event, fired.Clip, true);
+        for (const auto& fired : spriteEvents)
+            FireAnimationEvent(GetEntityByUUID(fired.Entity), fired.Event, fired.Clip, false);
     }
 
     void Scene::MarkVisibleAnimators(const glm::mat4& viewProjection)
@@ -6579,6 +6649,8 @@ namespace Zamin {
                 }
             if (!anim.Playing)
                 continue; // paused: no time, no events (the frame it rests on counts once it plays)
+            if (anim.DrivenUpdate != 0 && anim.DrivenUpdate == m_AnimationUpdate)
+                continue; // its Animator (DriveSpriteClips) sets the clip, the frame and the events
             anim.Time += ts;
             const int counter = anim.FPS > 0.0f ? (int)std::floor(std::min(anim.Time * anim.FPS, 1.0e9f)) : 0;
             if (asset && !asset->GetClip().Events.empty() && counter != anim.LastFrame)

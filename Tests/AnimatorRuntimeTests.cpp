@@ -1,6 +1,8 @@
 #include "TestAssertions.h"
 #include <Zamin/Scene/Scene.h>
 #include <Zamin/Scene/SceneSerializer.h>
+#include <Zamin/Scene/SpriteClip.h>
+#include <Zamin/Scene/Entity.h>
 #include <Zamin/Project/Project.h>
 #include <Zamin/Scripting/Visual/VisualGraphHost.h>
 #include <filesystem>
@@ -249,4 +251,153 @@ TEST(AnimatorModelFreeClockEmitsBlueprintAnimationEvents)
     CHECK(host->VM.Variables().at("Pulse") == 1.);
     CHECK(host->VM.Error().empty());
     scene->OnRuntimeStop();
+}
+namespace {
+    // Directional sprite clips in one 24-frame grid: Idle 0..3, WalkRight 4..11 (a "Step" on frame 2), WalkUp 12..19
+    // and a one-shot Attack 20..23.
+    struct SpriteDriveFixture
+    {
+        GraphFixture Graphs;
+        Ref<Scene> World = CreateRef<Scene>();
+        Entity Actor;
+        std::vector<std::string> Clips;
+        explicit SpriteDriveFixture(bool events = false)
+        {
+            auto clip = [&](const char* name, int start, int count, bool loop, std::vector<SpriteClipEvent> events) {
+                SpriteClip c;
+                c.Columns = 8;
+                c.Rows = 3;
+                c.StartFrame = start;
+                c.FrameCount = count;
+                c.FPS = 12;
+                c.Loop = loop;
+                c.Events = std::move(events);
+                const auto path = Graphs.Root / "Assets" / (std::string(name) + ".zsanim");
+                CHECK(SpriteClipSerializer::Serialize(c, path));
+                SpriteClipLibrary::ReloadFile(path);
+                Clips.push_back(path.string());
+            };
+            clip("Idle", 0, 4, true, {});
+            clip("WalkRight", 4, 8, true, { { 2, "Step", "" } });
+            clip("WalkUp", 12, 8, true, {});
+            clip("Attack", 20, 4, false, {});
+            Actor = World->CreateEntity("Sprite actor");
+            Actor.AddComponent<SpriteRendererComponent>();
+            auto& sprite = Actor.AddComponent<SpriteAnimationComponent>();
+            sprite.Clips = Clips;
+            auto& c = Actor.AddComponent<AnimatorComponent>();
+            c.Parameters = { { "X", AnimatorParameter::Type::Float, 1 }, { "Y", AnimatorParameter::Type::Float, 0 }, { "S", AnimatorParameter::Type::Float, .5f } };
+            AnimatorState move{ "Move" };
+            move.Type = AnimatorStateType::BlendTree2D;
+            move.BlendParameter = "X";
+            move.BlendParameterY = "Y";
+            move.Motions = { { "Idle", 0, 1, { 0, 0 } }, { "WalkRight", 0, 1, { 1, 0 } }, { "WalkUp", 0, 1, { 0, 1 } } };
+            move.Duration = .8f;
+            AnimatorState attack{ "Attack", "Attack", 1, false };
+            attack.Duration = .4f;
+            AnimatorState tie{ "Tie" };
+            tie.Type = AnimatorStateType::BlendTree1D;
+            tie.BlendParameter = "S";
+            tie.Motions = { { "WalkRight", 0, 1 }, { "WalkUp", 1, 1 } };
+            tie.Duration = .8f;
+            c.States = { move, attack, tie };
+            c.DriveSpriteClips = true;
+            if (events)
+            {
+                Visual::Graph g;
+                g.Variables["Steps"] = { Visual::Type::Number, 0. };
+                g.Nodes = { { 1, "Event.AnimationEvent" }, { 2, "Set.Number", 0, 0, { { "Name", "Steps" } } }, { 3, "Get.Number", 0, 0, { { "Name", "Steps" } } }, { 4, "Add", 0, 0, { { "B", 1. } } } };
+                g.Links = { { 1, "Then", 2, "In" }, { 3, "Value", 4, "A" }, { 4, "Value", 2, "Value" } };
+                Graphs.Attach(Actor, g);
+            }
+        }
+        AnimatorComponent& Animator() { return Actor.GetComponent<AnimatorComponent>(); }
+        SpriteAnimationComponent& Sprite() { return Actor.GetComponent<SpriteAnimationComponent>(); }
+        std::string Clip() { return Sprite().GetCurrentClipName(); }
+        int Frame() { return Sprite().GetCurrentFrame(); }
+    };
+}
+// The dominant blend motion picks the clip and the state's normalized clock picks the frame; a direction change
+// keeps the phase; a 1D tie keeps the lower index; a transition switches at half its fade; one-shots clamp.
+TEST(AnimatorSpriteClipsFollowTheStateClockDominantMotionAndFade)
+{
+    SpriteDriveFixture f;
+    f.World->OnRuntimeStart();
+    for (int i = 0; i < 3; ++i) f.World->UpdateRuntime(.1f);
+    CHECK(f.Clip() == "WalkRight" && f.Frame() == 4 + 3); // .3 s of a .8 s cycle: floor(.375 x 8) = 3
+    f.Animator().FindParameter("X")->Value = 0;
+    f.Animator().FindParameter("Y")->Value = 1;
+    f.World->UpdateRuntime(.1f);
+    CHECK(f.Clip() == "WalkUp" && f.Frame() == 12 + 4); // the phase goes on: .5 x 8 = 4
+    for (int i = 0; i < 6; ++i) f.World->UpdateRuntime(.1f);
+    CHECK(f.Frame() == 12 + 2); // 1.25 cycles: floor(10) mod 8
+    f.Animator().FindParameter("Y")->Value = 0;
+    f.World->UpdateRuntime(.1f);
+    CHECK(f.Clip() == "Idle" && f.Frame() == 0 + 1); // 1.375 cycles of 4 frames: floor(5.5) mod 4
+    // A transition shows the state it leaves until half of its fade, then the new one.
+    f.Animator().EnterState(1, .4f);
+    f.World->UpdateRuntime(.1f);
+    CHECK(f.Clip() == "Idle" && f.Animator().GetFadeProgress() < .5f);
+    f.World->UpdateRuntime(.1f);
+    CHECK(f.Clip() == "Attack" && f.Frame() == 20 + 2); // .2 s of .4: floor(.5 x 4)
+    for (int i = 0; i < 5; ++i) f.World->UpdateRuntime(.1f);
+    CHECK(f.Clip() == "Attack" && f.Frame() == 20 + 3); // one-shot: the last frame
+    // A 1D tie (S midway): the lower motion index.
+    f.Animator().EnterState(2, 0);
+    f.World->UpdateRuntime(.1f);
+    CHECK(f.Clip() == "WalkRight");
+    // An unknown clip name changes nothing; inactive entities freeze clip and frame.
+    f.Animator().States[2].Motions[0].Clip = "Missing";
+    f.Animator().States[2].Motions[1].Clip = "Missing";
+    const int frame = f.Frame();
+    f.World->UpdateRuntime(.1f);
+    CHECK(f.Clip() == "WalkRight");
+    f.Animator().States[2].Motions[0].Clip = "WalkRight";
+    f.World->SetActive(f.Actor, false);
+    f.World->UpdateRuntime(.3f);
+    CHECK(f.Frame() == frame || f.Frame() == frame + 1);
+    const int frozen = f.Frame();
+    f.World->UpdateRuntime(.3f);
+    CHECK(f.Frame() == frozen);
+    f.World->OnRuntimeStop();
+    // Without DriveSpriteClips the sprite plays on its own clock (old scenes keep their behaviour).
+    SpriteDriveFixture own;
+    own.Animator().DriveSpriteClips = false;
+    own.World->OnRuntimeStart();
+    own.World->UpdateRuntime(.25f);
+    CHECK(own.Clip() == "Idle" && own.Frame() == 3); // PlayOnStart: the first clip at 12 fps, floor(.25 x 12) = 3
+    own.World->OnRuntimeStop();
+}
+// Each crossed frame's clip event fires exactly once, whatever the frame rate.
+TEST(AnimatorSpriteClipsFireFrameEventsOncePerCrossingAtAnyRate)
+{
+    for (float hz : { 20.f, 30.f, 60.f, 144.f })
+    {
+        SpriteDriveFixture f(true);
+        f.World->OnRuntimeStart();
+        const int frames = int(std::round(4.0f * hz)); // 4 s = 5 cycles of the .8 s walk: "Step" (frame 2) 5 times
+        for (int i = 0; i < frames; ++i) f.World->UpdateRuntime(1.f / hz);
+        auto* host = f.Graphs.Host(f.Actor);
+        CHECK(host && host->VM.Error().empty());
+        if (host) CHECK(host->VM.Variables().at("Steps") == 5.);
+        f.World->OnRuntimeStop();
+    }
+}
+TEST(AnimatorSpriteClipsSerializeAndResetRuntime)
+{
+    SpriteDriveFixture f;
+    auto copy = CreateRef<Scene>();
+    CHECK(SceneSerializer(copy).DeserializeFromString(SceneSerializer(f.World).SerializeToString()));
+    CHECK(copy->FindEntityByName("Sprite actor").GetComponent<AnimatorComponent>().DriveSpriteClips);
+    const auto text = SceneSerializer(f.World).SerializeToString();
+    CHECK(text.find("DriveSpriteClips") != std::string::npos);
+    f.Animator().DriveSpriteClips = false;
+    CHECK(SceneSerializer(f.World).SerializeToString().find("DriveSpriteClips") == std::string::npos); // default: not written
+    f.Animator().DriveSpriteClips = true;
+    f.World->OnRuntimeStart();
+    f.World->UpdateRuntime(.1f);
+    CHECK(f.Sprite().DrivenUpdate != 0);
+    f.Sprite().ResetRuntime();
+    CHECK(f.Sprite().DrivenUpdate == 0);
+    f.World->OnRuntimeStop();
 }

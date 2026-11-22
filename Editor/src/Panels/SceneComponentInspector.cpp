@@ -1825,6 +1825,13 @@ namespace Zamin {
                     c.Culling = (AnimatorCulling)culling;
                     changed = true;
                 }
+                if (!model)
+                {
+                    changed |= UI::PropertyBool("Sprite kliplarini boshqarish", c.DriveSpriteClips);
+                    if (ImGui::IsItemHovered())
+                        UI::Tooltip("Modelsiz Animator: holat mashinasi Sprite Animation klipini tanlaydi (blend tree'da eng kuchli harakat, "
+                                    "o'tishda fade yarmida almashadi) va kadr holat vaqtiga ergashadi");
+                }
                 changed |= UI::PropertyBool("Poza keshi", c.CachePoses);
                 if (ImGui::IsItemHovered())
                     UI::Tooltip("Klip oldindan belgilangan tezlikda (kadr/s) namuna olinib saqlanadi: har kadr ikki saqlangan kadr "

@@ -231,6 +231,7 @@ namespace Zamin {
         uint64_t AppliedRevision = 0;    ///< the clip revision the fields hold
         int LastFrame = -1;              ///< the frame counter (Time x FPS) last seen: events (-1: none yet)
         bool Started = false;            ///< PlayOnStart was looked at
+        uint64_t DrivenUpdate = 0;       ///< the animator update that drove this clip (DriveSpriteClips): no own clock
 
         void Play(int startFrame, int frameCount, float fps = 10.0f, bool loop = true)
         {
@@ -267,7 +268,7 @@ namespace Zamin {
         std::string GetCurrentClipName() const { const auto* a = GetCurrentClipAsset(); return a ? a->GetName() : std::string(); }
         void ResetRuntime()
         {
-            Time = 0.0f; CurrentClip = -1; AppliedRevision = 0; LastFrame = -1; Started = false;
+            Time = 0.0f; CurrentClip = -1; AppliedRevision = 0; LastFrame = -1; Started = false; DrivenUpdate = 0;
         }
         bool UsesFrameList() const { return !Frames.empty(); }
         /// The frame name shown now ("" for a grid animation).
@@ -760,6 +761,10 @@ namespace Zamin {
         /// a little less exact between the cached frames (step keys stay exact).
         bool CachePoses = false;
         float PoseCacheRate = 30.0f;
+        /// Model-free animators only: the state machine picks the Sprite Animation's clip (the playing
+        /// state's Clip, a blend tree's strongest motion; a transition switches at half its fade) and its
+        /// frame follows the state's normalized clock, so a direction change keeps the walk phase.
+        bool DriveSpriteClips = false;
         /// runtime: the update the model was last seen after (Scene::MarkVisibleAnimators), whether
         /// the last update found it off screen, and what its last pose was made from - an update
         /// with the same inputs (paused, a finished clip, speed 0) keeps that pose.

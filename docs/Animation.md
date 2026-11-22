@@ -339,6 +339,15 @@ PlayClip, PlayLayer va LayerWeight/SetLayerWeight mavjud. Setter'larning Success
 Get noto‘g‘ri tur/reference, yo‘q Animator yoki chegaradan tashqari BlendWeight indeksi aniq diagnostika beradi.
 PlayClip state machine'ni runtime'da pauza qiladi; SetState uni qayta yoqadi. Play tugagach yangi nusxa controller bilan boshlanadi.
 
+**Sprite kliplarini boshqarish** (`DriveSpriteClips`, standart o'chiq): modelsiz Animator bir xil obyektdagi
+Sprite Animation'ning `.zsanim` kliplarini o'zi tanlaydi — holatning `Clip` nomi yoki blend tree'ning eng katta
+og'irlikdagi harakati (teng bo'lsa kichik indeks); o'tishda fade yarmigacha eski holat, keyin yangisi ko'rsatiladi
+(sprite'lar aralashtirilmaydi). Kadr holatning normal vaqtiga ergashadi: `kadr = floor(faza × kadrlar soni)`, loop
+bo'lmagan klip oxirgi kadrda to'xtaydi; shu bois 2D blend ichida yo'nalish o'zgarsa ham yurish fazasi saqlanadi.
+Holat va Animator tezligi fazani masshtablaydi; `.zsanim` kadr event'lari har kesib o'tilgan kadrda bir marta
+(20/30/60/144 Hz'da ham) chaqiriladi; noma'lum klip nomi hech narsani o'zgartirmaydi; nofaol obyekt to'xtab turadi.
+O'chiq bo'lsa (eski sahnalar) sprite o'z soati bilan ijro etadi. Testlar: `AnimatorSpriteClips*`.
+
 [VisualWorkshop](../Projects/VisualWorkshop/VisualWorkshop.zproject) ikkala sahnada `AnimatorGameplay.zgraph` bilan
 2D blend → trigger/action → state resume → damping zanjirini compiler/game modulisiz bajaradi. 2D display holatga qarab
 rangini almashtiradi; 3D actor haqiqiy skinned model kliplarini aralashtiradi.

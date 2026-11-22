@@ -1035,6 +1035,7 @@ namespace Zamin {
             { "Ildiz suyak", "Root bone" },
             { "Ko'rinmasa", "When not visible" },
             { "Poza keshi", "Pose cache" },
+            { "Sprite kliplarini boshqarish", "Drive sprite clips" },
             { "Kesh kadr/s", "Cache frames/s" },
             { "Tez obyekt (bullet)", "Fast object (bullet)" },
             { "Zichlik", "Density" },

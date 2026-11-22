@@ -203,6 +203,7 @@ _Inspektorda: **Sprite Animation**; qo'shish: **+ Komponent → Render → Sprit
 | `AppliedRevision` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
 | `LastFrame` _(faqat o'yin paytida)_ | `int` | `-1` |
 | `Started` _(faqat o'yin paytida)_ | `bool` | `false` |
+| `DrivenUpdate` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
 <!-- /gen:SpriteAnimationComponent -->
 
 ### TintAnimationComponent
@@ -363,6 +364,7 @@ _Inspektorda: **Animator**; qo'shish: **+ Komponent → Render → Animator (ske
 | `Culling` | `AnimatorCulling` | `AnimatorCulling::AlwaysAnimate` |
 | `CachePoses` | `bool` | `false` |
 | `PoseCacheRate` | `float` | `30.0f` |
+| `DriveSpriteClips` | `bool` | `false` |
 | `VisibleFrame` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
 | `Culled` _(faqat o'yin paytida)_ | `bool` | `false` |
 | `PoseSignature` _(faqat o'yin paytida)_ | `std::vector<uint32_t>` | — |

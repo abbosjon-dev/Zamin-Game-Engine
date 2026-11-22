@@ -1,0 +1,270 @@
+{
+    "Version": 2,
+    "Project": {
+        "Name": "BeaconPass",
+        "StartScene": "Scenes/Menu.zscene",
+        "StartSceneUUID": "fef9078a62728422",
+        "AssetDirectory": "Assets",
+        "SourceDirectory": "Source",
+        "ScriptModulePath": "",
+        "EngineVersion": "0.1.0",
+        "Description": "Dovon mash'ali: a 3D action-adventure vertical slice - a mountain pass, a caravanserai, AI guards and a boss, Animator locomotion, quests, equipment, shrine saves and the beacon finale.",
+        "Thumbnail": "Thumbnail.jpg"
+    },
+    "Player": {
+        "Company": "Zamin Studio",
+        "Product": "Dovon mash'ali",
+        "Version": "1.0.0",
+        "Width": 1280,
+        "Height": 720,
+        "WindowMode": "Windowed",
+        "Resizable": true,
+        "VSync": true,
+        "Title": "",
+        "VersionInTitle": false,
+        "TargetFrameRate": 0,
+        "RunInBackground": true,
+        "Icon": "Textures/GameIcon.png"
+    },
+    "BuildScenes": [
+        {
+            "Path": "Scenes/Menu.zscene",
+            "Enabled": true,
+            "UUID": "fef9078a62728422"
+        },
+        {
+            "Path": "Scenes/Dovon.zscene",
+            "Enabled": true,
+            "UUID": "d07d51278de25425"
+        }
+    ],
+    "InputActions": {
+        "Actions": [
+            {
+                "Name": "Jump",
+                "Bindings": [
+                    "Key:Space",
+                    "Gamepad:A"
+                ]
+            },
+            {
+                "Name": "Walk",
+                "Bindings": [
+                    "Key:LeftShift",
+                    "Gamepad:LeftThumb"
+                ]
+            },
+            {
+                "Name": "Sprint",
+                "Bindings": [
+                    "Key:RightShift"
+                ]
+            },
+            {
+                "Name": "Attack",
+                "Bindings": [
+                    "Mouse:Left",
+                    "Key:J",
+                    "Gamepad:X"
+                ]
+            },
+            {
+                "Name": "Bolt",
+                "Bindings": [
+                    "Mouse:Right",
+                    "Key:K",
+                    "Gamepad:RightBumper"
+                ]
+            },
+            {
+                "Name": "Slam",
+                "Bindings": [
+                    "Key:Q",
+                    "Gamepad:Y"
+                ]
+            },
+            {
+                "Name": "Potion",
+                "Bindings": [
+                    "Key:R",
+                    "Gamepad:DPadDown"
+                ]
+            },
+            {
+                "Name": "Interact",
+                "Bindings": [
+                    "Key:E",
+                    "Gamepad:B"
+                ]
+            },
+            {
+                "Name": "Inventory",
+                "Bindings": [
+                    "Key:I",
+                    "Key:Tab",
+                    "Gamepad:Back"
+                ]
+            },
+            {
+                "Name": "Pause",
+                "Bindings": [
+                    "Key:Escape",
+                    "Key:P",
+                    "Gamepad:Start"
+                ]
+            }
+        ],
+        "Axes": [
+            {
+                "Deadzone": 0.15,
+                "GamepadAxis": "LeftX",
+                "Invert": false,
+                "Name": "Horizontal",
+                "Negative": [
+                    "Key:A",
+                    "Key:Left",
+                    "Gamepad:DPadLeft"
+                ],
+                "Positive": [
+                    "Key:D",
+                    "Key:Right",
+                    "Gamepad:DPadRight"
+                ]
+            },
+            {
+                "Deadzone": 0.15,
+                "GamepadAxis": "LeftY",
+                "Invert": true,
+                "Name": "Vertical",
+                "Negative": [
+                    "Key:S",
+                    "Key:Down"
+                ],
+                "Positive": [
+                    "Key:W",
+                    "Key:Up",
+                    "Gamepad:DPadUp"
+                ]
+            },
+            {
+                "Deadzone": 0.18,
+                "GamepadAxis": "RightX",
+                "Invert": false,
+                "Name": "LookX",
+                "Negative": [],
+                "Positive": []
+            },
+            {
+                "Deadzone": 0.18,
+                "GamepadAxis": "RightY",
+                "Invert": false,
+                "Name": "LookY",
+                "Negative": [],
+                "Positive": []
+            }
+        ],
+        "Vectors": [
+            {
+                "Deadzone": 0.0,
+                "Mode": "Clamp",
+                "Name": "Move",
+                "X": "Horizontal",
+                "Y": "Vertical"
+            }
+        ]
+    },
+    "Tags": [
+        "Hero",
+        "Enemy",
+        "Guard",
+        "GateGuard",
+        "Archer",
+        "Warden",
+        "Pickup",
+        "Shrine",
+        "Gate",
+        "Beacon",
+        "Chest",
+        "FireStone"
+    ],
+    "CollisionLayers2D": {
+        "Names": [
+            "Default",
+            "World",
+            "Wall",
+            "Hero",
+            "Enemy",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+        ],
+        "Collisions": [
+            31,
+            25,
+            25,
+            23,
+            31,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+        ]
+    },
+    "Localization": {
+        "DefaultLanguage": "uz",
+        "Languages": [
+            "uz",
+            "en"
+        ],
+        "Directory": "Localization",
+        "UseSystemLanguage": false
+    },
+    "Audio": {
+        "Groups": [
+            {
+                "Name": "Master",
+                "Volume": 1.0
+            },
+            {
+                "Name": "Music",
+                "Parent": "Master",
+                "Volume": 0.55
+            },
+            {
+                "Name": "SFX",
+                "Parent": "Master",
+                "Volume": 0.9
+            },
+            {
+                "Name": "UI",
+                "Parent": "Master",
+                "Volume": 0.8
+            }
+        ],
+        "StreamThresholdMB": 4.0
+    },
+    "Export": {
+        "ExcludeUnusedAssets": true,
+        "AlwaysInclude": [
+            "Audio/*.wav",
+            "Localization/*.json"
+        ],
+        "ReleaseScriptModule": true,
+        "StripBinaries": true
+    }
+}

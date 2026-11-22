@@ -1,0 +1,38 @@
+{
+    "Schema": "Dovon-1",
+    "XP": 800,
+    "FinalLevel": 4,
+    "Quests": [
+        "Pass",
+        "Stones",
+        "Warden",
+        "Beacon"
+    ],
+    "Stones": 3,
+    "Enemies": 7,
+    "Waypoints": 57,
+    "Walk": 1.8,
+    "Run": 5.4,
+    "WalkStride": 2.0,
+    "RunStride": 3.9,
+    "WalkCycle": 1.1111,
+    "RunCycle": 0.7222,
+    "Terrain": {
+        "Origin": [
+            -60.0,
+            -60.0
+        ],
+        "Size": 120.0,
+        "Resolution": 81
+    },
+    "Keys": [
+        "Dovon-Guard-01",
+        "Dovon-Guard-02",
+        "Dovon-Guard-03",
+        "Dovon-Archer-01",
+        "Dovon-Guard-04",
+        "Dovon-Archer-02",
+        "Dovon-Warden"
+    ],
+    "Pickups": 5
+}

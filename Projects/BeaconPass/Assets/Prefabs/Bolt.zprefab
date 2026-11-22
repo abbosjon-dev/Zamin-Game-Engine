@@ -1,0 +1,96 @@
+{
+    "ZaminEntities": 1,
+    "Entities": [
+        {
+            "Entity": 1,
+            "Tag": "Bolt visual",
+            "Transform": {
+                "Translation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Model",
+                "Model": "Models/Bolt.glb",
+                "CastShadows": false,
+                "Material": "",
+                "Albedo": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Offset": [
+                    0.0,
+                    0.0
+                ],
+                "NormalMap": "",
+                "NormalStrength": 1.0,
+                "MetalRoughMap": "",
+                "EmissiveMap": "",
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "EmissionStrength": 0.0,
+                "Shader": "Lit",
+                "BlendMode": "Opaque",
+                "AlphaCutoff": 0.5,
+                "DoubleSided": false,
+                "PreserveSpecular": false,
+                "SortPriority": 0
+            },
+            "ChildOrder": [
+                2
+            ]
+        },
+        {
+            "Entity": 2,
+            "Tag": "Light",
+            "Parent": 1,
+            "Transform": {
+                "Translation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "PointLight": {
+                "Color": [
+                    1.0,
+                    0.55,
+                    0.2
+                ],
+                "Intensity": 4.0,
+                "Radius": 5.0
+            }
+        }
+    ]
+}

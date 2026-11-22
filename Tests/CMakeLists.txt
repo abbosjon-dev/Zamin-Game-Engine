@@ -83,7 +83,8 @@ add_custom_target(update_render_references
 # Particle benchmark (not part of ctest): times the particle update headless - about 50 000
 # particles per case, the profiler's scopes with --profile. Run build/bin/ZaminBench, or the
 # particle_bench target (--nav: the navigation benchmark, the nav_bench target).
-add_executable(ZaminBench ParticleBench.cpp NavBench.cpp PrefabBench.cpp RenderBench.cpp EcsBench.cpp SerializeBench.cpp FontBench.cpp CombatBench.cpp)
+add_executable(ZaminBench ParticleBench.cpp NavBench.cpp PrefabBench.cpp RenderBench.cpp EcsBench.cpp SerializeBench.cpp FontBench.cpp CombatBench.cpp
+    PhysicsBench.cpp AnimationBench.cpp SliceStressBench.cpp)
 target_link_libraries(ZaminBench PRIVATE Zamin)
 set_target_properties(ZaminBench PROPERTIES BUILD_RPATH "${CMAKE_BINARY_DIR}/bin")
 zamin_target_settings(ZaminBench)
@@ -114,7 +115,12 @@ add_test(NAME BenchEcsSmoke COMMAND ZaminBench --ecs --entities 1000 --frames 5)
 add_test(NAME BenchSerializeSmoke COMMAND ZaminBench --serialize --entities 1000)
 # The combat world per frame: projectiles (2D rays / 3D sphere casts) and effect books (ZaminBench --combat).
 add_test(NAME BenchCombatSmoke COMMAND ZaminBench --combat --frames 5)
-set_tests_properties(BenchEcsSmoke BenchSerializeSmoke BenchCombatSmoke PROPERTIES LABELS "bench" TIMEOUT 600)
+# The slices' stress gates (ZaminBench --physics / --animation / --slice-stress) at small sizes: their invariants and
+# determinism fail the run (exit code 3), the times are not checked here.
+add_test(NAME BenchPhysicsSmoke COMMAND ZaminBench --physics --bodies 200 --actors 12 --frames 40)
+add_test(NAME BenchAnimationSmoke COMMAND ZaminBench --animation --humanoids 24 --sprites 64 --frames 30 --jobs 2)
+add_test(NAME BenchSliceStressSmoke COMMAND ZaminBench --slice-stress --frames 20)
+set_tests_properties(BenchEcsSmoke BenchSerializeSmoke BenchCombatSmoke BenchPhysicsSmoke BenchAnimationSmoke BenchSliceStressSmoke PROPERTIES LABELS "bench" TIMEOUT 600)
 add_custom_target(bench
     COMMAND ${CMAKE_COMMAND} -E env ZAMIN_BUILD_DIR=${CMAKE_BINARY_DIR} ${PROJECT_SOURCE_DIR}/Tests/bench.sh
     DEPENDS ZaminBench

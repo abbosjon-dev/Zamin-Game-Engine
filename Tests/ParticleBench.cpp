@@ -33,6 +33,11 @@
 // creating, components, views, lookups, the hierarchy, Scene::Copy, destroying (10 000 entities by default) next
 // to the bare EnTT registry, and runtime frames of a scene that size (idle, scripts, spawning / destroying).
 //
+// ZaminBench --physics / --animation / --slice-stress: the vertical slices' stress gates (PhysicsBench.cpp,
+// AnimationBench.cpp, SliceStressBench.cpp): Box2D and Jolt arenas with motors, projectiles and character controllers;
+// humanoid and sprite Animator crowds; the slices' own levels crowded (32 brains, crates, projectiles) - invariants,
+// determinism and ms / frame.
+//
 // ZaminBench --render [--sprites N] [--meshes N] [--frames N] [--case ...] [--json <file>]: drawing instead
 // (RenderBench.cpp, a GL context: xvfb-run without a display; Tests/render_bench.sh) - 10 000 sprites, 1 000
 // meshes (instanced and not) and both in one scene, ms / frame on the CPU and with the GPU.
@@ -60,6 +65,9 @@ int RunEcsBench(int entities, int frames, const char* jsonFile); // EcsBench.cpp
 int RunFontBench(const char* jsonFile);                         // FontBench.cpp
 int RunSerializeBench(int entities, const char* jsonFile, const std::string& content); // SerializeBench.cpp
 int RunCombatBench(int argc, char** argv);                  // CombatBench.cpp
+int RunPhysicsBench(int argc, char** argv);                 // PhysicsBench.cpp
+int RunAnimationBench(int argc, char** argv);               // AnimationBench.cpp
+int RunSliceStressBench(int argc, char** argv);             // SliceStressBench.cpp
 
 namespace {
 
@@ -475,6 +483,12 @@ int main(int argc, char** argv)
             return RunRenderBench(argc, argv);
         else if (!std::strcmp(argv[i], "--combat"))
             return RunCombatBench(argc, argv);
+        else if (!std::strcmp(argv[i], "--physics"))
+            return RunPhysicsBench(argc, argv);
+        else if (!std::strcmp(argv[i], "--slice-stress"))
+            return RunSliceStressBench(argc, argv);
+        else if (!std::strcmp(argv[i], "--animation") || !std::strcmp(argv[i], "--model") || !std::strcmp(argv[i], "--sprite-clips"))
+            return RunAnimationBench(argc, argv);
     for (int i = 1; i < argc; i++)
     {
         if (!std::strcmp(argv[i], "--frames") && i + 1 < argc)
@@ -528,7 +542,11 @@ int main(int argc, char** argv)
                         "ZaminBench --ecs [--entities N] [--frames N] [--json <fayl>]\n"
                         "ZaminBench --fonts [--json <fayl>]\n"
                         "ZaminBench --render [--sprites N] [--meshes N] [--frames N] [--case <nom qismi>] [--json <fayl>]\n"
-                        "ZaminBench --combat [--projectiles N] [--actors N] [--walls N] [--effects N] [--frames N] [--2d|--3d|--effects-only] [--json <fayl>]\n");
+                        "ZaminBench --combat [--projectiles N] [--actors N] [--walls N] [--effects N] [--frames N] [--2d|--3d|--effects-only] [--json <fayl>]\n"
+                        "ZaminBench --physics [--2d|--3d] [--bodies N] [--actors N] [--frames N] [--json <fayl>]\n"
+                        "ZaminBench --animation [--humanoids N] [--sprites N] [--model <glb>] [--controller <sahna>:<UUID>] [--frames N] [--jobs N] [--json <fayl>]\n"
+                        "ZaminBench --animators N --model <glb> [--controller <sahna>:<UUID>] | --animators N --sprite-clips\n"
+                        "ZaminBench --slice-stress [--2d|--3d] [--frames N] [--json <fayl>]\n");
             return 1;
         }
     }

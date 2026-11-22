@@ -1,0 +1,24 @@
+{
+  "Build": "Release",
+  "Frames": 600,
+  "Bodies2D": 2048,
+  "Bodies3D": 512,
+  "Actors": 64,
+  "Results": {
+    "Physics2D.Frame": { "Ms": 2.2527, "PerFrame": true },
+    "Physics2D.FrameP95": { "Ms": 3.1803, "PerFrame": true },
+    "Physics2D.Step": { "Ms": 1.5639, "PerFrame": true },
+    "Physics3D.Frame": { "Ms": 1.5250, "PerFrame": true },
+    "Physics3D.FrameP95": { "Ms": 1.8304, "PerFrame": true },
+    "Physics3D.Step": { "Ms": 1.5095, "PerFrame": true },
+    "Physics3D.Casts": { "Ms": 0.2291, "PerFrame": true }
+  },
+  "AllocationsPerFrame": {
+    "Physics2D": 128.45,
+    "Physics3D": 82.61
+  },
+  "Invariants": {
+    "Physics2D": { "Passed": true, "Deterministic": true, "Escaped": 0, "NonFinite": 0, "TooFast": 0, "MaxSpeed": 6.884, "Sunk": 0, "Fell": 0, "MinClearance": 0.0000, "MinProgress": 1.0000, "MeanProgress": 1.0000, "Hits": 551, "CastHits": 0, "Hash": "70e0fe7db44ee00b", "MedianMs": 2.2614, "MaxMs": 6.9140 },
+    "Physics3D": { "Passed": true, "Deterministic": true, "Escaped": 0, "NonFinite": 0, "TooFast": 0, "MaxSpeed": 0.000, "Sunk": 0, "Fell": 0, "MinClearance": -0.0002, "MinProgress": 0.9071, "MeanProgress": 0.9636, "Hits": 0, "CastHits": 53155, "Hash": "6f7e6ad276c04e79", "MedianMs": 1.4903, "MaxMs": 5.0071 }
+  }
+}

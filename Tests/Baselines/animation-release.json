@@ -1,0 +1,25 @@
+{
+  "Build": "Release",
+  "Frames": 600,
+  "Humanoids": 256,
+  "Sprites": 1024,
+  "Jobs": 3,
+  "Results": {
+    "AnimationHumanoids.Frame": { "Ms": 1.0064, "PerFrame": true },
+    "AnimationHumanoids.FrameP95": { "Ms": 1.4963, "PerFrame": true },
+    "AnimationHumanoids.FrameJobs": { "Ms": 0.5646, "PerFrame": true },
+    "AnimationHumanoids.FrameJobsP95": { "Ms": 0.6575, "PerFrame": true },
+    "AnimationSprites.Frame": { "Ms": 0.4276, "PerFrame": true },
+    "AnimationSprites.FrameP95": { "Ms": 0.6241, "PerFrame": true },
+    "AnimationSprites.FrameJobs": { "Ms": 0.3865, "PerFrame": true },
+    "AnimationSprites.FrameJobsP95": { "Ms": 0.5064, "PerFrame": true }
+  },
+  "AllocationsPerFrame": {
+    "AnimationHumanoids": 0.00,
+    "AnimationSprites": 0.00
+  },
+  "Invariants": {
+    "AnimationHumanoids": { "Passed": true, "MaxWeightError": 2.980e-08, "NonFinite": 0, "CullLeaks": 0, "Posed": 128, "Culled": 128, "PoseIdentical": true, "FrameMismatches": 0, "PhaseBreaks": 0, "Switches": 0, "Events20": 440, "Events30": 432, "Events60": 440, "Events144": 440, "RateMismatches": 0, "HitMisses": 0, "UpdateMs": 0.6580, "UpdateJobsMs": 0.3871 },
+    "AnimationSprites": { "Passed": true, "MaxWeightError": 0.000e+00, "NonFinite": 0, "CullLeaks": 0, "Posed": 1024, "Culled": 0, "PoseIdentical": true, "FrameMismatches": 0, "PhaseBreaks": 0, "Switches": 14223, "Events20": 960, "Events30": 960, "Events60": 960, "Events144": 960, "RateMismatches": 0, "HitMisses": 0, "UpdateMs": 0.3212, "UpdateJobsMs": 0.2908 }
+  }
+}

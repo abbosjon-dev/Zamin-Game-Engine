@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 # The headless benchmarks with their results as JSON, optionally compared with the saved baseline: the ECS
 # (ZaminBench --ecs, Tests/EcsBench.cpp), scene serialization (--serialize, Tests/SerializeBench.cpp), linked
-# prefab instances (--serialize --prefabs, Tests/PrefabBench.cpp) and the gameplay combat world (--combat,
-# Tests/CombatBench.cpp). No display or GPU is needed (the rendering
+# prefab instances (--serialize --prefabs, Tests/PrefabBench.cpp), the gameplay combat world (--combat,
+# Tests/CombatBench.cpp) and the vertical slices' stress gates: physics (--physics, Tests/PhysicsBench.cpp) and animation
+# (--animation, Tests/AnimationBench.cpp) and the slices' crowded levels (--slice-stress, Tests/SliceStressBench.cpp) -
+# their invariants fail a run too. No display or GPU is needed (the rendering
 # benchmark is Tests/render_bench.sh). The numbers that matter come from a Release build:
 #   cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build build-release --target ZaminBench
 #   ZAMIN_BUILD_DIR=build-release Tests/bench.sh                 every benchmark, results in <build>/Bench
-#   Tests/bench.sh --only ecs,serialize                          some of them (ecs, serialize, prefabs, combat)
+#   Tests/bench.sh --only ecs,serialize                          some of them (ecs, serialize, prefabs, combat, physics,
+#                                                                animation, slicestress)
 #   Tests/bench.sh --compare [--tolerance 25] [--repeat 3]       also against Tests/Baselines/<name>-<build>.json:
 #                                                                a number slower by more than 25 % fails the run -
 #                                                                in every run: a benchmark that looks slower is run
@@ -23,7 +26,7 @@ build="${ZAMIN_BUILD_DIR:-$root/build}"
 [[ "$build" != /* ]] && build="$root/$build"
 bench="$build/bin/ZaminBench"
 out="$build/Bench"
-only="ecs,serialize,prefabs,combat"
+only="ecs,serialize,prefabs,combat,physics,animation,slicestress"
 compare=0
 update=0
 tolerance=25
@@ -119,7 +122,10 @@ for name in "${names[@]}"; do
         serialize) run serialize --serialize ;;
         prefabs) run prefabs --serialize --prefabs ;;
         combat) run combat --combat ;;
-        *) echo "Noma'lum benchmark: $name (ecs, serialize, prefabs, combat)" >&2; exit 2 ;;
+        physics) run physics --physics ;;
+        animation) run animation --animation ;;
+        slicestress) run slicestress --slice-stress ;;
+        *) echo "Noma'lum benchmark: $name (ecs, serialize, prefabs, combat, physics, animation, slicestress)" >&2; exit 2 ;;
     esac
 done
 echo "Natijalar: $out"

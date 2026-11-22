@@ -421,9 +421,77 @@ o'rtacha 0.72 / 0.95 / 0.39 ms. Boshlang'ich natija: `Tests/Baselines/combat-rel
 bu raqamlar undan kichik, shuning uchun faqat katta sekinlashish ushlanadi). `ctest -L bench` da `BenchCombatSmoke`
 (`--combat --frames 5`).
 
+## Vertical slice stress darvozalari: fizika, animatsiya, o'yin ichida (`--physics`, `--animation`, `--slice-stress`)
+
+P5 vertical slice'larining (Chiroqbon 2D, Dovon mash'ali 3D — [VerticalSlices.md](VerticalSlices.md#gates)) stress
+darvozalari. Uchala benchmark ham headless, natijasi JSON, va invariantlardan biri buzilsa 3 kodi bilan tugaydi (raqam
+qanchalik yaxshi bo'lmasin):
+
+- **`ZaminBench --physics`** (`Tests/PhysicsBench.cpp`) — har ssenariy ikki marta simulyatsiya qilinadi va holat
+  hash'lari solishtiriladi. *Physics2D*: 60×40 m tilemap maydon, 2 048 dinamik doira/quti, `Gameplay::StepMotor` bilan
+  yuradigan 64 aktor (nuqtadan nuqtaga), ikki jamoa orasida doim uchib turgan 128 `CombatWorld` snaryadi (Box2D
+  nurlari). Invariantlar: maydondan chiqqan jism 0, NaN 0, tezlik ≤ 40 m/s. *Physics3D*: devorli chuqur, ikki rampa,
+  65×65 relyef, 0.25 m zinapoya va 35° qiyalik; 512 jism (quti, shar, kapsula), 64 `CharacterController3D` aylana
+  yo'llarda (zinapoya va qiyalik ustidan), har kadrda 128 sphere cast. Invariantlar: oyoq yerdan −0.05 m dan pastga
+  tushmaydi, y < −10 yo'q, yurish mumkin bo'lgan yerda buyurilgan masofaning ≥ 80 % i bosiladi, jismlar chuqurda qoladi.
+- **`ZaminBench --animation`** (`Tests/AnimationBench.cpp`; dizayndagi yozuv `--animators N --model ...` /
+  `--animators N --sprite-clips` ham ishlaydi). *AnimationHumanoids*: 256 odam (`BeaconPass` ning `Hero.glb` modeli,
+  21 suyak, Dovon sahnasidagi haqiqiy controller: Locomotion 1D blend + UpperBody/Hit qatlamlari + event'lar), tezlik
+  barcha chegaralardan o'tib turadi, har 1.7 s trigger, yarmi ekrandan tashqarida (`CullPose`). Bitta oqim va 3 ishchi
+  oqim (`JobSystem`). Invariantlar: blend og'irliklari yig'indisi 1 ± 1e-5, NaN/inf matritsa yo'q, culled animator
+  pozalanmaydi, 0 va 3 ishchidagi poza hash'i bir xil, event'lar 20/30/60/144 Hz da har animator uchun bir xil soni
+  (oynaning oxirida ±1), uch zarba = uch Hit event. *AnimationSprites*: 1 024 modelsiz animator (`DriveSpriteClips`,
+  2D blend tree: Idle + 4 yo'nalish, yo'nalish doim aylanadi). Invariantlar: kadr = StartFrame + floor(faza × soni)
+  aniq, yo'nalish almashganda faza uzilmaydi, klip event'lari to'rt tezlikda bir xil.
+- **`ZaminBench --slice-stress`** (`Tests/SliceStressBench.cpp`) — slice darajasi o'zining haqiqiy graflari (qahramon,
+  daraja boshqaruvchisi, dushmanlar), gameplay dunyolari va fizikasi bilan, chizishsiz; o'lchanadigani har kadrdagi
+  `Scene::UpdateRuntime` (skriptlar, AI, fizika, animatsiya, combat, qoidalar, UI bog'lanishlari). *SliceStress2D*
+  (Boglar): dushmanlar sahnaning 32 AI miyasi chegarasigacha ko'paytiriladi, 200 quti (Box2D), qahramonga 64 tagacha
+  uchayotgan snaryad, 256 qo'shimcha sprite Animator, 48 Light 2D. *SliceStress3D* (Dovon): 24 animatsiyali qorovul
+  (skinned, haqiqiy locomotion controller), qahramon, 64 snaryad, lager atrofida 200 jism (Jolt). Qahramon har kadrda
+  davolanadi (jang to'xtamaydi). Invariantlar: graf xatosi va "Visual graph" / instruksiya byudjeti xabari yo'q, har
+  miya sog'lig'iga mos tirik yoki o'lik, snaryadlar soni yetadi.
+
+Muhit: 4 vCPU Intel Xeon @ 2.10 GHz, GCC 13.3, **Release** (`build-release`), 2026-11-22. Beshta ishga tushirish
+(uchtasi qo'lda, `--update-baseline` va `--compare`), oraliq — eng kichik va eng katta natija:
+
+| Ssenariy | O'rtacha | p95 | Ajratma / kadr | Maqsad (dizayn) |
+|---|---:|---:|---:|---|
+| Physics2D — fizika qadami ("Fizika" profiler bo'limi) | 1.56–2.15 ms | 2.3–3.1 ms | 128.5 | o'rtacha ≤ 4, p95 ≤ 6 ms — bajarildi |
+| Physics2D — butun kadr (`UpdateRuntime`) | 2.25–3.04 ms | 3.18–4.20 ms | | |
+| Physics3D — qadam + 64 Character Controller | 1.51–1.80 ms | 2.00–2.17 ms | 82.6 | o'rtacha ≤ 8, p95 ≤ 12 ms — bajarildi |
+| Physics3D — 128 sphere cast | 0.23–0.28 ms | | | |
+| AnimationHumanoids, 3 ishchi (butun kadr) | 0.57–0.82 ms | 0.66–1.10 ms | 15.2 | o'rtacha ≤ 1.5, p95 ≤ 2.0 ms — bajarildi |
+| AnimationHumanoids, bitta oqim (butun kadr) | 0.99–1.73 ms | 1.23–2.07 ms | **0.0** | o'rtacha ≤ 4.0 ms, ajratma 0 — bajarildi |
+| AnimationSprites, bitta oqim — Animator yangilash | 0.30–0.48 ms | 0.38–0.61 ms | **0.0** | o'rtacha ≤ 0.6 ms, ajratma 0 — bajarildi |
+| AnimationSprites, bitta oqim (butun kadr) | 0.39–0.66 ms | 0.51–0.85 ms | 0.0 | |
+| SliceStress2D (Boglar, o'yin kodi) | 2.80–3.42 ms | 3.00–4.71 ms | | o'rtacha ≤ 6, p95 ≤ 10 ms — bajarildi |
+| SliceStress3D (Dovon, o'yin kodi) | 3.89–5.45 ms | 5.41–6.37 ms | | o'rtacha ≤ 8, p95 ≤ 12 ms — bajarildi |
+
+Invariantlar har beshta ishga tushirishda o'tdi: 2D maydondan chiqqan 0, eng katta tezlik 6.88 m/s; 3D oyoq-yer
+orasi eng kami −0.0002 m, botgan 0, yurilgan masofa eng kami 90.7 % (o'rtacha 96.4 %), chuqurdan chiqqan jism 0; ikki
+simulyatsiya hash'i teng (2D `70e0fe7db44ee00b`, 3D `6f7e6ad276c04e79`). Animatsiya: blend og'irlik xatosi eng ko'pi
+2.98e-08, 0 / 3 ishchi poza hash'i `8eb468b84863e185` ikkalasida, event'lar 20/30/60/144 Hz da 440/432/440/440
+(odamlar) va 960 × 4 (sprite'lar) — animator bo'yicha mos kelmagan 0; sprite kadr/faza buzilishi 0 (600 kadrda 14 223
+klip almashishi). Slice stress: 2D 32 miya (32 tirik), o'rtacha 50 snaryad uchib turadi; 3D 27 miya, o'rtacha 58
+snaryad; graf xatosi 0.
+
+Ajratmalar: animator yangilash bitta oqimda endi ajratmasiz — oldin 24 odamga 223 / kadr va 64 sprite'ga 870 / kadr
+edi (har kadr yangidan yaratiladigan vazifa ro'yxatlari, poza signaturasi, event vektorlari, klip nomi satrlari;
+`thread_local` kadr xotirasiga o'tkazildi, `ZAMIN_ALLOC_TRACE` bilan tekshirildi). 3 ishchidagi 15.2 / kadr —
+`JobSystem::ParallelFor` ning o'zi (har chaqiruvda vazifa obyektlari). Fizikadagi ajratmalar Box2D/Jolt kontakt
+natijalari va nur so'rovlarining vektorlari; dizayn ularga byudjet qo'ymagan, raqam boshlang'ich natijada qayd etilgan.
+
+Boshlang'ich natijalar: `Tests/Baselines/physics-release.json`, `animation-release.json`, `slicestress-release.json`;
+`ZAMIN_BUILD_DIR=build-release Tests/bench.sh --only physics,animation,slicestress --compare`. `ctest -L bench` da
+`BenchPhysicsSmoke` (`--physics --bodies 200 --actors 12 --frames 40`), `BenchAnimationSmoke` (`--animation --humanoids 24
+--sprites 64 --frames 30 --jobs 2`) va `BenchSliceStressSmoke` (`--slice-stress --frames 20`) — invariantlar bilan. Dizayndan farq: o'yin ichidagi stress (A3, P3) Player
+`--benchmark` va alohida `Stress` sahnalari o'rniga headless `--slice-stress` da — haqiqiy darajalar nusxasi ustida
+(slice assetlari 6 MiB byudjetga yaqin, llvmpipe chizishi o'yin kodining vaqtini ko'mib yuboradi).
+
 ## Natijalarni saqlash va solishtirish (`Tests/bench.sh`)
 
-`Tests/bench.sh` headless benchmarklarni (ECS, serializatsiya, prefablar, combat) ishga tushiradi va natijalarni
+`Tests/bench.sh` headless benchmarklarni (ECS, serializatsiya, prefablar, combat, fizika, animatsiya, slice stress) ishga tushiradi va natijalarni
 `<build>/Bench/*.json` (+ to'liq matn `*.txt`) ga yozadi; `bench` CMake target'i ham shu. `--compare` ularni
 `Tests/Baselines/<nom>-<build turi>.json` bilan `Tests/bench_compare.py` orqali solishtiradi: biror raqam
 `--tolerance` (standart 25 %) dan va birlikning shovqin chegarasidan (ms 0.5, kadr ms 0.2, ns 100, bayt 16, % 2)
@@ -455,6 +523,7 @@ ZAMIN_BUILD_DIR=build-release Tests/bench.sh --update-baseline
 | `ZaminBench --nav` | navigatsiya (bake, yo'l qidirish, Nav Agent'lar) |
 | `ZaminBench --fonts` | shrift atlasi: rasterlash va diskdagi kesh, glif qidirish, kerning bilan matn joylash |
 | `ZaminBench --combat` | gameplay snaryadlari (2D nurlar / 3D sphere cast) va effekt kitoblari, `TickCombat` ms / kadr va ajratmalar (yuqorida) |
+| `ZaminBench --physics` / `--animation` / `--slice-stress` | vertical slice stress darvozalari: Box2D/Jolt + motor/Character Controller, odam va sprite animator olomoni, slice darajalari to'lib-toshganda o'yin kodi (yuqorida) |
 | `Tests/startup_bench.py` | editor va player ishga tushish vaqti: birinchi kadrgacha (dvigatel / layer'lar / 1-kadr) va jarayon vaqti, ikki build solishtirish (`--bin`, `--module-dir`) |
 | `Tests/player_bench.sh` | namuna o'yinlarning boshlang'ich sahnalari ZaminPlayer'da (ms / kadr, p95, p99) |
 | `Tests/samples_bench.py` | to'qqiz namuna o'yin bot o'ynayotganda: kadr vaqti, eng sekin kadr va uning profili, obyektlar soni, o'yin kodining CPU vaqti, byudjetlar (`--check`) — natija va topilgan muammolar: [Samples.md](Samples.md#ishlash-tezligi) |

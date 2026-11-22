@@ -1,0 +1,14 @@
+{
+  "Build": "Release",
+  "Frames": 300,
+  "Results": {
+    "SliceStress2D.Frame": { "Ms": 3.3928, "PerFrame": true },
+    "SliceStress2D.FrameP95": { "Ms": 4.7121, "PerFrame": true },
+    "SliceStress3D.Frame": { "Ms": 5.4515, "PerFrame": true },
+    "SliceStress3D.FrameP95": { "Ms": 6.0651, "PerFrame": true }
+  },
+  "Invariants": {
+    "SliceStress2D": { "Passed": true, "Enemies": 32, "Brains": 32, "BrainsAlive": 32, "Bodies": 200, "Animators": 289, "Lights": 48, "LiveProjectiles": 50.21, "MaxProjectiles": 63, "GraphErrors": 0, "BadMessages": 0, "Inconsistent": 0, "MedianMs": 3.0626, "MaxMs": 6.3686 },
+    "SliceStress3D": { "Passed": true, "Enemies": 27, "Brains": 27, "BrainsAlive": 27, "Bodies": 200, "Animators": 28, "Lights": 0, "LiveProjectiles": 57.66, "MaxProjectiles": 62, "GraphErrors": 0, "BadMessages": 0, "Inconsistent": 0, "MedianMs": 5.4105, "MaxMs": 9.0814 }
+  }
+}

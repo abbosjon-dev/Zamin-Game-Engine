@@ -245,8 +245,8 @@ bostiriladi, engine kodining har xabari esa fatal qoladi.
 
 | Buyruq | Nima | Chegara |
 |---|---|---|
-| `ctest --test-dir build -L bench` | `BenchEcsSmoke`, `BenchSerializeSmoke`: kichik o'lchamda, o'qib olingan sahna saqlangani bilan bir xilmi | xato kodi |
-| `Tests/bench.sh --compare` | ECS, serializatsiya, prefab benchmarklari; `Tests/Baselines/*-release.json` bilan solishtirish (`Tests/bench_compare.py`) | sezilarli sekinlashish |
+| `ctest --test-dir build -L bench` | `BenchEcsSmoke`, `BenchSerializeSmoke`, `BenchCombatSmoke`, `BenchPhysicsSmoke`, `BenchAnimationSmoke`, `BenchSliceStressSmoke`: kichik o'lchamda; stress benchmarklarining invariantlari (tunnel, NaN, oyoq relyef ostida, determinizm, blend og'irligi, event'lar har chastotada, ajratmasiz kadr, graf xatosi) buzilsa xato kodi 3 | xato kodi |
+| `Tests/bench.sh --compare` | ECS, serializatsiya, prefab, combat, fizika, animatsiya va slice stress benchmarklari; `Tests/Baselines/*-release.json` bilan solishtirish (`Tests/bench_compare.py`) | sezilarli sekinlashish |
 | `Tests/render_bench.sh --max-avg 200` | 10 000 sprite, 1 000 mesh (instancing bilan / siz), ikkalasi | ms / kadr |
 | `Tests/player_bench.sh --max-avg 50 --max-p95 80` | namuna o'yinlarning boshlang'ich sahnalari ZaminPlayer'da | ms / kadr |
 | `Tests/startup_bench.py` | editor va player ishga tushish vaqti (birinchi kadrgacha, qismlari bilan), ikki build'ni solishtirish | ms (mediana) |
@@ -314,7 +314,7 @@ qo'riqlaydi: butun kod bazada o'zgaradigan qatorlar 3.5 % dan oshmasligi kerak (
 | `ZaminTests` | - | unit testlar (vaqt hisoboti, JSON va JUnit natijalari `build/TestResults` da) |
 | `DocsCheck` | `docs` | `Tests/docs_check.py` - hujjatlar kod bilan mosligi (10-bo'lim) |
 | `DocsSnippets` | `docs` | `Tests/docs_snippets.py` - hujjatlardagi skript klasslari kompilyatsiya bo'ladi |
-| `BenchEcsSmoke`, `BenchSerializeSmoke` | `bench` | benchmarklar kichik o'lchamda |
+| `BenchEcsSmoke`, `BenchSerializeSmoke`, `BenchCombatSmoke`, `BenchPhysicsSmoke`, `BenchAnimationSmoke`, `BenchSliceStressSmoke` | `bench` | benchmarklar kichik o'lchamda (stress benchmarklari invariantlari bilan) |
 | `EditorSmoke` | `gui;slow` | `Tests/editor_smoke.sh` |
 | `ScriptHotReload` | `gui;slow` | `Tests/hot_reload_test.sh` |
 | `ExportTest` | `gui;slow` | `Tests/export_test.sh` (Platformer2D) |

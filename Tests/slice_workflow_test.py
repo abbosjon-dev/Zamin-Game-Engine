@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Player/Editor acceptance of the compiler-free vertical slices (docs/VerticalSlices.md).
 
-    python3 Tests/slice_workflow_test.py --game LanternKeeper [--build build] [--out DIR] [--no-editor] [--phases P0,P1,...]
+    python3 Tests/slice_workflow_test.py --game LanternKeeper|BeaconPass [--build build] [--out DIR] [--no-editor] [--phases P0,P1,...]
 
 Private project copies (overrides, start scene), one HOME per run, fixed 30 fps capture (ZAMIN_CAPTURE_FPS), software
-GL. Phases (2D Chiroqbon):
+GL; the 3D slice runs at 640x360 with the Low quality level to keep llvmpipe time bounded. Phases (2D Chiroqbon):
   P0  keyboard tape: menu -> settings (music slider, back) -> new game -> move/Bolt/strike in Boglar
   P1  demo write (plan 3): new game -> level 1 -> level card -> transfer -> Yertola -> shrine save, then the pilot stops
   P2  fresh process resume: the menu continues from the level 2 save -> boss -> victory screen
@@ -12,6 +12,15 @@ GL. Phases (2D Chiroqbon):
   P4  lose plan: three deaths -> defeat screen -> reload from the save -> level 1 completed
   E0  Editor Play of Boglar with the pilot
   E1  Editor Play of Yertola straight from the editor next to P1's stale Carry.json: a fresh level 2 run, no carry
+Phases (3D Dovon mash'ali):
+  P0  keyboard tape: menu -> settings (music slider, back) -> new game -> run, jump, strike, Bolt, inventory, pause in Dovon
+  P1  demo write (plan 3): new game -> camp chest, ledge, gate guards, gate -> courtyard shrine save (v4), then the pilot
+      stops
+  P2  fresh process resume: the menu continues from the courtyard save -> stable, plateau shrine, Warden -> beacon ->
+      victory screen
+  P3  fresh process, no replay: the menu offers no Continue after the victory
+  P4  lose plan: three deaths at the gate -> defeat screen -> reload from the autosave -> the gate quest once (100 XP)
+  E0  Editor Play of Dovon with the pilot
 Each phase: required markers, forbidden markers (GL/graph errors, SLICE_*_FAILED, stuck pilot where it must not be),
 png_check of the last frame, and JSON checks of the transfer/save documents. Report: <out>/Report.json.
 """
@@ -29,17 +38,25 @@ FORBIDDEN = ("GL_INVALID_", "Assertion failed", "Visual graph '", "Instruction b
              "SLICE_ORACLE_FAILED", "nomli harakat topilmadi", "Snaryad vizual prefabi rad etildi")
 
 
-def private_copy(work, start, pilot, plan, menu_demo):
-    project = work / "LanternKeeper"
+# Per game: its level scenes (the hero is entity 1000 in each), the hero's name (Editor selection), the window size and
+# quality level of the Player runs, and the default phases.
+GAMES = {
+    "LanternKeeper": dict(levels=("Boglar", "Yertola"), hero="Nilufar", resolution="960x540", quality=None, phases="P0,P1,P2,P3,P4,E0,E1"),
+    "BeaconPass": dict(levels=("Dovon",), hero="Temur", resolution="640x360", quality="Low", phases="P0,P1,P2,P3,P4,E0"),
+}
+
+
+def private_copy(work, game, start, pilot, plan, menu_demo):
+    project = work / game
     if project.exists():
         shutil.rmtree(project)
-    shutil.copytree(ROOT / "Projects/LanternKeeper", project, ignore=shutil.ignore_patterns(".zamin"))
-    manifest = project / "LanternKeeper.zproject"
+    shutil.copytree(ROOT / "Projects" / game, project, ignore=shutil.ignore_patterns(".zamin"))
+    manifest = project / f"{game}.zproject"
     data = json.loads(manifest.read_text())
     assert not data["Project"]["ScriptModulePath"], "the slice must stay compiler-free"
     data["Project"]["StartScene"] = f"Scenes/{start}.zscene"
     manifest.write_text(json.dumps(data, indent=2) + "\n")
-    for scene in ("Boglar", "Yertola"):
+    for scene in GAMES[game]["levels"]:
         path = project / f"Assets/Scenes/{scene}.zscene"
         doc = json.loads(path.read_text())
         for e in doc["Entities"]:
@@ -65,12 +82,13 @@ def find(home, name):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--game", default="LanternKeeper", choices=("LanternKeeper",))
+    p.add_argument("--game", default="LanternKeeper", choices=tuple(GAMES))
     p.add_argument("--build", type=Path, default=ROOT / "build")
     p.add_argument("--out", type=Path)
     p.add_argument("--no-editor", action="store_true")
-    p.add_argument("--phases", default="P0,P1,P2,P3,P4,E0,E1")
+    p.add_argument("--phases", default="")
     args = p.parse_args()
+    game = GAMES[args.game]
     build = args.build.resolve()
     out = (args.out or build / "Slices" / args.game).resolve()
     if out.exists():
@@ -78,14 +96,14 @@ def main():
     out.mkdir(parents=True)
     runner = [] if os.environ.get("DISPLAY") else ["xvfb-run", "-a", "-s", "-screen 0 1600x1000x24 -nolisten tcp"]
     base_env = dict(os.environ, LIBGL_ALWAYS_SOFTWARE="1", LP_NUM_THREADS="2", ZAMIN_GL_DEBUG="1", ZAMIN_CAPTURE_FPS="30")
-    phases = [x for x in args.phases.split(",") if x and not (args.no_editor and x.startswith("E"))]
+    phases = [x for x in (args.phases or game["phases"]).split(",") if x and not (args.no_editor and x.startswith("E"))]
     report = []
     homes = {"write": out / "home-run", "lose": out / "home-lose", "tape": out / "home-tape", "editor": out / "home-editor"}
 
-    def run(name, home, start, frames, pilot=False, plan=0, menu_demo=False, demo_env=False, tape="", editor=False, resolution="960x540"):
+    def run(name, home, start, frames, pilot=False, plan=0, menu_demo=False, demo_env=False, tape="", editor=False):
         home.mkdir(parents=True, exist_ok=True)
         work = out / f"work-{name}"
-        manifest = private_copy(work, start, pilot, plan, menu_demo)
+        manifest = private_copy(work, args.game, start, pilot, plan, menu_demo)
         log = out / f"{name}.log"
         png = out / f"{name}.png"
         env = dict(base_env, HOME=str(home), ZAMIN_MAX_FRAMES=str(frames), ZAMIN_SCREENSHOT=str(png), ZAMIN_PLAYER_INPUT=tape)
@@ -94,10 +112,12 @@ def main():
         else:
             env.pop("ZAMIN_DEMO", None)
         if editor:
-            env.update(ZAMIN_EDITOR_PLAY="1", ZAMIN_EDITOR_SELECT="Nilufar")
+            env.update(ZAMIN_EDITOR_PLAY="1", ZAMIN_EDITOR_SELECT=game["hero"])
             cmd = [str(build / "bin/ZaminEditor"), str(manifest)]
         else:
-            cmd = [str(build / "bin/ZaminPlayer"), str(manifest), "--no-splash", "--resolution", resolution]
+            cmd = [str(build / "bin/ZaminPlayer"), str(manifest), "--no-splash", "--resolution", game["resolution"]]
+            if game["quality"]:
+                cmd += ["--quality", game["quality"]]
         begin = time.time()
         with log.open("w") as stream:
             subprocess.run(runner + cmd, env=env, stdout=stream, stderr=subprocess.STDOUT, timeout=1500, check=True)
@@ -117,7 +137,9 @@ def main():
             last = at if order else last
 
     for phase in phases:
-        if phase == "P0":
+        if args.game == "BeaconPass":
+            text, seconds = beacon_phase(phase, run, need, homes, find)
+        elif phase == "P0":
             tape = ("40:Down;46:Enter;70:Right;76:Right;82:Right;96:Down;100:Down;104:Down;108:Down;114:Enter;130:Up;136:Enter;"
                     "240:hold=D;300:release=D;306:hold=W;330:release=W;336:K;350:J;360:Tab;380:Escape")
             text, seconds = run("P0-keyboard", homes["tape"], "Menu", 420, tape=tape)
@@ -176,6 +198,69 @@ def main():
     (out / "Report.json").write_text(json.dumps({"Game": args.game, "Passed": True, "Phases": report}, indent=2) + "\n")
     for p_ in out.glob("work-*"):
         shutil.rmtree(p_, ignore_errors=True)
+
+
+def save_payload(path):
+    doc = json.loads(path.read_text())
+    assert doc["Format"] == "Zamin.GameSave" and doc["Version"] == 4, (path, doc.get("Format"), doc.get("Version"))
+    return doc["Payload"]
+
+
+def hero_of(payload):
+    return next(e for e in payload["Entities"] if e["Key"] == "Hero")
+
+
+def beacon_phase(phase, run, need, homes, find):
+    """One phase of the 3D slice (Dovon mash'ali); returns (log text, seconds)."""
+    if phase == "P0":
+        # menu: Down -> Sozlamalar, music slider Right x3, Down x4 -> Orqaga, Up -> Yangi o'yin; in Dovon: run north,
+        # jump, strike, Bolt, the bag (Tab, Escape), pause (Escape) -> Down -> Inventar (Enter) -> Escape, Escape
+        tape = ("40:Down;46:Enter;70:Right;76:Right;82:Right;96:Down;100:Down;104:Down;108:Down;114:Enter;130:Up;136:Enter;"
+                "230:hold=W;262:Space;300:release=W;306:J;330:K;344:Tab;356:Escape;366:Escape;378:Down;384:Enter;400:Escape;412:Escape")
+        text, seconds = run("P0-keyboard", homes["tape"], "Menu", 430, tape=tape)
+        need("P0", text, ["Menyu: Asosiy davom=0", "Menyu: Sozlamalar", "SLICE_SETTINGS music=", "Menyu: Asosiy", "Menyu: Yangi o'yin",
+                          "SLICE_SAVED lvl=1 at=auto", "SLICE_LEVEL_START lvl=1 entry=new", "Menyu: Inventar"])
+        if "SLICE_SETTINGS music=0.55" in text:
+            raise RuntimeError("P0: the music slider did not move")
+    elif phase == "P1":
+        text, seconds = run("P1-demo-write", homes["write"], "Menu", 1560, pilot=True, plan=3, demo_env=True)
+        need("P1", text, ["Menyu: Yangi o'yin", "SLICE_SAVED lvl=1 at=auto", "SLICE_LEVEL_START lvl=1 entry=new", "SLICE_TRACE ev=collect a=Shamshir",
+                          "SLICE_TRACE ev=claim a=Pass", "SLICE_SAVED lvl=1 at=shrine"])
+        if "SLICE_BOT_STUCK" in text:
+            raise RuntimeError("P1: the pilot got stuck")
+        payload = save_payload(find(homes["write"], "Run1.json"))
+        hero = hero_of(payload)
+        stones = hero["Items"].get("FireStone", 0)
+        assert payload["Scene"] == "Dovon" and payload["Schema"] == "Dovon-1" and "Combat" in payload, payload.keys()
+        assert hero["Quests"]["XP"] == 100 and stones == 2 and hero["Health"] == 120, (hero["Quests"]["XP"], stones, hero["Health"])
+    elif phase == "P2":
+        text, seconds = run("P2-resume-victory", homes["write"], "Menu", 1500, pilot=True, plan=0, menu_demo=True)
+        need("P2", text, ["Menyu: Asosiy davom=1", "Menyu: Davom etish", "SLICE_RESUMED lvl=1 source=save recovered=0", "SLICE_LEVEL_START lvl=1 entry=continue",
+                          "SLICE_TRACE ev=claim a=Stones", "SLICE_TRACE ev=boss a=engaged", "SLICE_TRACE ev=boss a=defeated", "SLICE_TRACE ev=beacon a=lit",
+                          "SLICE_VICTORY game=Dovon", "Menyu: G'alaba"])
+        line = next(x for x in text.splitlines() if "SLICE_VICTORY" in x)
+        for term in ("xp=800", "level=4", "quests=4/4"):
+            if term not in line:
+                raise RuntimeError(f"P2: victory without {term}: {line}")
+        if "SLICE_BOT_STUCK" in text or "SLICE_ORACLE_FAILED" in text:
+            raise RuntimeError("P2: the pilot got stuck or the oracle failed")
+    elif phase == "P3":
+        text, seconds = run("P3-no-replay-menu", homes["write"], "Menu", 90)
+        need("P3", text, ["Menyu: Asosiy davom=0"])
+    elif phase == "P4":
+        text, seconds = run("P4-lose", homes["lose"], "Menu", 4500, pilot=True, plan=1, menu_demo=True)
+        need("P4", text, ["Menyu: Yangi o'yin", "SLICE_TRACE ev=death", "SLICE_DEFEAT lvl=1 deaths=3", "Menyu: Oxirgi saqlashdan",
+                          "SLICE_RESUMED lvl=1 source=save", "SLICE_TRACE ev=claim a=Pass"])
+        if "SLICE_BOT_STUCK" in text[text.find("Menyu: Oxirgi saqlashdan"):]:
+            raise RuntimeError("P4: the pilot got stuck after the reload")
+        if text.count("SLICE_TRACE ev=claim a=Pass") != 1:
+            raise RuntimeError("P4: the gate quest was claimed more than once")
+    elif phase == "E0":
+        text, seconds = run("E0-editor-dovon", homes["editor"], "Dovon", 420, pilot=True, editor=True)
+        need("E0", text, ["SLICE_SAVED lvl=1 at=auto", "SLICE_LEVEL_START lvl=1 entry=new", "SLICE_TRACE ev=collect a=Shamshir"])
+    else:
+        raise SystemExit(f"unknown phase {phase}")
+    return text, seconds
 
 
 if __name__ == "__main__":

@@ -1,8 +1,9 @@
 # Vertical slices
 
 Two small finished games built only from the engine's gameplay packages and played end to end by a deterministic
-demo pilot for acceptance. This page covers the 2D slice; the 3D slice (*Dovon mash'ali*, `Projects/BeaconPass`) and
-the stress/UI gates follow in the next items of the package (docs/TASKS.md).
+demo pilot for acceptance: the 2D *Chiroqbon* (`Projects/LanternKeeper`) and the 3D *Dovon mash'ali*
+(`Projects/BeaconPass`). The stress and UI gates and the export/profiling gates follow in the next items of the package
+(docs/TASKS.md).
 
 ## Chiroqbon (2D, `Projects/LanternKeeper`)
 
@@ -83,3 +84,91 @@ victory; P4 the lose plan (three deaths → defeat → reload → level 1 comple
 Boglar; E1 Editor Play of Yertola next to P1's stale `Carry.json` (a fresh level 2 run). Every phase rejects GL
 errors, graph errors, `SLICE_*_FAILED` and a stuck pilot, checks the last frame with `png_check.py` and the transfer
 and save JSON; `<out>/Report.json` lists the phases and their times.
+
+## Dovon mash'ali (3D, `Projects/BeaconPass`)
+
+A compiler-free third-person action-adventure in one level. The Black Warden put out the signal fire of the mountain
+pass; the courier Temur climbs from the valley camp through the caravanserai to the watchtower plateau, gathers three
+fire stones, defeats the Warden and relights the beacon before the caravan arrives.
+
+| Scene | Content |
+|---|---|
+| `Menu` | The pass at golden hour seen from above the camp (a slow sway), *Yangi o'yin* / *Davom etish* (only for an unfinished run) / *Sozlamalar* / *Mualliflar* / *Chiqish*, best time, input hints |
+| `Dovon` | 120 x 120 m terrain (four layers) with packed pines and rocks on the slopes and snow peaks around; the camp (tents, fire, the sword chest, a potion), a jump onto a ledge (fire stone 1), two gate guards and the caravanserai gate, the courtyard (a guard, an archer on the wall walk, fire stone 2, a shrine), the stable (a guard, the shield chest, fire stone 3), the plateau shrine, the Warden and an archer at the tower, the beacon platform with its stairs |
+
+Systems in one flow: a `CharacterController3D` driven by `Gameplay.Motor3D` relative to the camera (run 5.4 m/s, walk
+1.8 m/s while *Walk* is held, jump with coyote time and buffering), the body turned to its heading with `Atan2` +
+`LerpAngle`; the orbit camera (`Camera3D.zgraph`: `Gameplay.Camera` with mouse / right stick look and a sphere cast
+against World|Wall, the pilot's camera turning behind the heading, a pull-back reveal at the beacon); melee on the
+Attack clip's `Hit` event (`Gameplay.Attack` along the facing), Bolt on the Cast clip's `Release` event (projectile +
+Burn), Zilzila (ground slam area + Shock, unlocked at level 2), potions; guards with delegated strikes
+(`Strike=false`: the brain chases and enters Attack, the graph plays the clip and its `Hit` event calls
+`Gameplay.Strike`), archers casting Arrow, the Warden with a telegraphed shockwave (`Gameplay.AreaApply`) and enrage; a
+four-quest book (*Dovon yo'li* — gate guards and the gate, *Olov toshlari*, *Qora qorovul*, *Mash'al*: 800 XP, level
+4); equipment (Shamshir +10 attack, Qalqon +30 armour) shown on the body through bone attachments; HUD kinds 0/7/9
+(health, energy, level), item counters (kind 2), the ability bar with cooldown fills (kind 8), the quest tracker and the
+Warden's bar; pause, bag, victory and defeat panels;
+golden-hour sun with shadows, fog, braziers with point lights and fire, the beacon's fire column; music, ambience,
+footsteps and sound effects.
+
+### Humanoids and locomotion
+
+`Tools/samples/gltfkit.py` writes skinned glTF humanoids (one 21-joint skeleton for the hero, the guards and the
+Warden, 1–2 joint weights, materials skin/cloth/leather/metal) with procedurally sampled clips: Idle, Walk (1.11 s for
+a 2.0 m stride), Run (0.72 s for a 3.9 m stride), Fall, Land, Attack, Cast, Hurt, Death. The Animator controller:
+
+| Part | Content |
+|---|---|
+| Parameters | `Speed`, `Grounded`, `VerticalSpeed` (from `Gameplay.BindAnimator`, damped 0.1 s), `Dead` |
+| States | `Locomotion` (BlendTree1D on Speed: Idle 0, Walk 1.8, Run 5.4 — the thresholds are the gait speeds, so a pure Walk or Run plays at exactly its stride), `Air` (not grounded and rising faster than 1.5 m/s or falling faster than 3 m/s), `Land` (exit time 0.85), `Dead` (from any state) |
+| Layers | `UpperBody` (Override from the Spine: Attack / Cast through `Animator.PlayLayer` with `Restart`, weight faded in and out by the graph), `Hit` (Additive Hurt on every damage event) |
+| Events | `Hit` at 0.42 of Attack, `Release` at 0.45 of Cast, `Footstep` at 0 and 0.5 of Walk and Run (a `Footsteps` component plays four surface sounds scaled by speed) |
+
+`Animator.PlayLayer`'s `Restart` pin (default off; graphs saved before it keep their behaviour) starts a layer's clip
+over when it is already playing it, so a second swing of the same attack replays its `Hit` event.
+
+### Graphs, run flow and saves
+
+| Graph | Host | Role |
+|---|---|---|
+| `Hero.zgraph` | the courier (UUID 1000) | campaign configuration, input and the pilot writing the same intent variables, motor and heading, upper-body clips and their events, interaction, rule events (deaths, shrine saves, pickups, hurt), respawn, unlocks and claims |
+| `Camera3D.zgraph` | the camera (1003) | the orbit camera |
+| `Game.zgraph` | the controller (1100) | panels and HUD, interactables, entry (new / continue), quest starts, Warden music and phases, victory and defeat, run time |
+| `Enemy.zgraph` | every enemy (instance overrides pick guard / archer / Warden) | health, armour and AI configuration, clips and delegated strikes/casts, the Warden's shockwave, hit feedback |
+| `Menu.zgraph` | the menu controller | camera sway, panels, settings, demo auto-start, new game / continue |
+
+One level, no transfer: *Yangi o'yin* resets `BP.Run.*` and autosaves `Run1` on entry; *Davom etish* loads `Run1`;
+shrines (the courtyard and the plateau) write `Run1` (v4) with a checkpoint and a full heal; three deaths since the
+last load end on the defeat screen, whose *Oxirgi saqlashdan* reloads the level; the victory sets `Run.Finished` and
+the best time. Schema `Dovon-1`; save keys `Hero`, `Dovon-Guard-01`…, `Dovon-Archer-01/02`, `Dovon-Warden`, the chests,
+stones, potions, gate, shrines and beacon.
+
+A shrine is a rest stop: the pilot comes to a standstill before it uses one, and the hero polls its rule events in
+`LateUpdate` right after the interaction, so the save holds the state at the end of that frame — the phase in which
+`Game.zgraph` restores a save on entry — and a resumed run starts from exactly the saved state. A restore stops every
+body and navigation agent (a save keeps no velocities or paths), so enemies that were walking start again from a
+standstill: a resumed run reaches the same events in the same order with the same progress, on frames that may
+differ. The pilot's route position (`BP.Run.Step`) and the body's heading (from the restored rotation) are taken up
+on the `Resumed` message.
+
+### Tests
+
+`python3 Tools/samples/gen_beacon_pass.py` writes everything deterministically (two runs give identical files; assets
+5.99 MiB, the largest scene 547 KB, model 372 KB, texture 140 KB, sound 516 KB / 12 s) including
+`Assets/Data/oracle.json`. Headless tests (`ZaminTests --filter BeaconPass*`, models read on the CPU so the real
+Animator runs): graphs validate and scenes load (controller shape, blend thresholds, clip lengths = stride / speed);
+the oracle plays menu → Dovon → victory (800 XP, level 4, 4/4 quests, three stones consumed, sword and shield
+equipped, Zilzila unlocked, Warden dead, no projectile in flight, save v4); the locomotion run records pure Walk and
+Run weights, Air and Land, the UpperBody layer at weight 1 during strikes, Hurt on damage, footstep spacing at half the
+stride (±10 %), the damped Speed parameter against the measured speed (≤ 0.05 m/s), the feet never below the terrain
+and the camera never inside a wall; the lose plan dies three times (Dead state), reloads and claims the gate quest
+once; the save/resume test compares the courtyard save with a fresh process's restore (hero, enemies, used objects,
+bag, quests, loadout) and both continuations to the plateau shrine, then quick-saves the Warden fight with a Bolt in
+flight and checks the restored projectile and its flight frame by frame; two fresh runs give identical traces at
+identical frames.
+
+Player/Editor acceptance (`python3 Tests/slice_workflow_test.py --game BeaconPass`, CI step *Dovon mash'ali 3D vertical
+slice*; 640x360, quality Low): P0 a keyboard tape (menu → settings → new game → run, jump, strike, Bolt, bag, pause →
+*Inventar*); P1 the demo pilot plays to the courtyard shrine save and stops (plan 3: save v4, 100 XP, two stones); P2 a
+fresh process continues from it to the victory screen (800 XP, level 4, 4/4 quests); P3 no Continue after the
+victory; P4 the lose plan (three deaths → defeat → reload → the gate quest once); E0 Editor Play of Dovon.

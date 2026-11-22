@@ -37,7 +37,7 @@ Bosh sahifa — [README](../README.md).
 | [Components.md](Components.md) | Barcha komponentlar ma'lumotnomasi: vazifasi, menyu yo'li, sahna kaliti, maydonlar jadvali |
 | [Rendering.md](Rendering.md) | Kameralar, 2D (sprite, atlas, tilemap, 2D yorug'lik), 3D (mesh, glTF, materiallar, yorug'lik, soyalar, osmon), post-processing, particle'lar |
 | [Physics.md](Physics.md) | 2D (Box2D) va 3D (Jolt) fizika: jismlar, collider'lar, joint'lar, effektorlar, Character Controller, so'rovlar, qatlamlar |
-| [VerticalSlices.md](VerticalSlices.md) | The compiler-free vertical slices: Chiroqbon (2D, two levels, menu, boss, transfer between levels, demo pilot, headless oracle) |
+| [VerticalSlices.md](VerticalSlices.md) | The compiler-free vertical slices: Chiroqbon (2D, two levels, menu, boss, transfer between levels, demo pilot, headless oracle) and Dovon mash'ali (3D, character controller, orbit camera, Animator locomotion, combat/AI/quests, shrine saves) |
 | [GameplayQuest.md](GameplayQuest.md) | Objective/prerequisite, atomic rewards/XP, quest HUD and v1/v2 saved progression |
 | [GameplayLoadout.md](GameplayLoadout.md) | Equipment ownership, combat stats, energy/abilities, consumables and v3 saves |
 | [GameplayCombat.md](GameplayCombat.md) | Bounded 2D/3D projectiles, area damage/support and timed status effects: fixed-step flight and ticking, hit ownership/teams, stacking/expiration, stat/speed/stun modifiers, pooled visuals, Blueprint nodes, save v4, the compiler-free CombatWorkshop slice and `ZaminBench --combat` |

@@ -130,6 +130,9 @@ jobs:
       - name: Chiroqbon 2D vertical slice (menu, levels, transfer, victory, defeat, Editor Play)
         run: python3 Tests/slice_workflow_test.py --build build --out world-streaming/slices/LanternKeeper
 
+      - name: Dovon mash'ali 3D vertical slice (menu, character controller, locomotion, shrine resume, victory, defeat, Editor Play)
+        run: python3 Tests/slice_workflow_test.py --game BeaconPass --build build --out world-streaming/slices/BeaconPass
+
       - name: Quest Blueprint authoring and Undo
         env:
           ZAMIN_BUILD_DIR: build

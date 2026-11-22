@@ -336,6 +336,9 @@ chaqiring. Shu usul bilan 2D va 3D bir xil parametr/o‘tish mantiqidan foydalan
 Visual Script kutubxonasidagi **Animator** guruhida Set/GetFloat, Set/GetBool, Set/GetTrigger, ResetTrigger,
 SetFloatDamped, SetState, StateIs, State (nom, normalized vaqt, fade va root motion), BlendWeight,
 PlayClip, PlayLayer va LayerWeight/SetLayerWeight mavjud. Setter'larning Success chiqishi xatoni boshqarishga yordam beradi.
+PlayLayer'ning `Restart` pini (standart o'chiq; undan oldin saqlangan graflar o'zgarmaydi) qatlam allaqachon o'ynayotgan
+klipni boshidan qo'yadi (o'zidan crossfade bilan): bir xil zarbaning ikkinchi siltanishi o'z event'larini (`Hit`) yana
+chaqiradi.
 Get noto‘g‘ri tur/reference, yo‘q Animator yoki chegaradan tashqari BlendWeight indeksi aniq diagnostika beradi.
 PlayClip state machine'ni runtime'da pauza qiladi; SetState uni qayta yoqadi. Play tugagach yangi nusxa controller bilan boshlanadi.
 
@@ -347,6 +350,15 @@ bo'lmagan klip oxirgi kadrda to'xtaydi; shu bois 2D blend ichida yo'nalish o'zga
 Holat va Animator tezligi fazani masshtablaydi; `.zsanim` kadr event'lari har kesib o'tilgan kadrda bir marta
 (20/30/60/144 Hz'da ham) chaqiriladi; noma'lum klip nomi hech narsani o'zgartirmaydi; nofaol obyekt to'xtab turadi.
 O'chiq bo'lsa (eski sahnalar) sprite o'z soati bilan ijro etadi. Testlar: `AnimatorSpriteClips*`.
+
+**Odam lokomotsiyasi misoli** — *Dovon mash'ali* ([VerticalSlices.md](VerticalSlices.md), `Projects/BeaconPass`):
+21 bo'g'inli skelet (`Tools/samples/gltfkit.py`), `Locomotion` BlendTree1D `Speed` bo'yicha — Idle 0, Walk 1.8, Run 5.4;
+chegaralar yurish tezliklariga teng va klip uzunligi = qadam / tezlik (Walk 2.0 m / 1.8 m/s, Run 3.9 m / 5.4 m/s), shuning
+uchun sof Walk yoki Run oyoqni sirpantirmaydi; `Air`/`Land`/`Dead` holatlari; `UpperBody` qatlami (Spine'dan Override)
+Attack/Cast'ni `PlayLayer(..., restart)` bilan, `Hit` qatlami (Additive) Hurt'ni o'ynaydi; `Hit`/`Release` event'lari
+zarba va olov o'qini, Walk/Run'ning 0 va 0.5 dagi `Footstep` event'lari qadam ovozlarini beradi. Parametrlarni
+`Gameplay.BindAnimator` haqiqiy tezlikdan yozadi. `BeaconPassLocomotionHeadless` testi sof Walk/Run og'irliklari, qadamlar
+oralig'i (yarim qadam ±10 %) va damplangan Speed'ning o'lchangan tezlikdan farqini (≤ 0.05 m/s) tekshiradi.
 
 [VisualWorkshop](../Projects/VisualWorkshop/VisualWorkshop.zproject) ikkala sahnada `AnimatorGameplay.zgraph` bilan
 2D blend → trigger/action → state resume → damping zanjirini compiler/game modulisiz bajaradi. 2D display holatga qarab
@@ -370,6 +382,7 @@ ZAMIN_BUILD_DIR=build-review xvfb-run -a -s '-screen 0 1600x1000x24 -nolisten tc
 ```cpp
 auto& anim = GetComponent<AnimatorComponent>();
 anim.PlayLayer("UpperBody", "Wave");            // qatlamda klip (crossfade bilan; bo'sh qatlam asta paydo bo'ladi)
+anim.PlayLayer("UpperBody", "Attack", false, 1.25f, 0.08f, true); // shu klip o'ynasa ham boshidan (restart)
 anim.SetLayerWeight("UpperBody", 0.0f, 0.3f);   // 0.3 s da o'chadi
 float w = anim.GetLayerWeight("UpperBody");
 ```
@@ -904,7 +917,7 @@ Asosiylari: `PropertyClipInterpolation`, `PropertyClipFileRoundtrip`, `PropertyC
 | Animator klipi | `Play("Run", loop, speed, fade)`, `Speed`, `Playing`, `GetNormalizedTime(model)`, `IsFading()`, `GetFadeProgress()` |
 | Holat mashinasi | `SetFloat`, `SetBool`, `SetTrigger`, `GetFloat`, `GetBool`, `SetState("Jump", fade)`, `GetCurrentStateName()` |
 | Blend tree | `GetBlendTreeState()`, `BlendWeights` |
-| Qatlamlar | `PlayLayer(layer, clip, loop, speed, fade)`, `SetLayerWeight(layer, w, fade)`, `GetLayerWeight(layer)` |
+| Qatlamlar | `PlayLayer(layer, clip, loop, speed, fade, restart)`, `SetLayerWeight(layer, w, fade)`, `GetLayerWeight(layer)` |
 | Event'lar | `OnAnimationEvent(const AnimationEventInfo&)` (`Name`, `Parameter`, `Clip`, `Time`, `Source`, `Skeletal`), `AddAnimationEventHandler(name, fn)`, event bus: `"AnimationEvent"` |
 | Root motion | `ApplyRootMotion`, `RootMotionBone`, `RootMotionVelocity`, `RootMotionTurnRate` |
 | Morph target'lar | `MeshRendererComponent::SetMorphWeight(name / index, w)`, `GetMorphWeight`, `ResetMorphWeights()` |

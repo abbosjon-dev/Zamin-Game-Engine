@@ -7,6 +7,9 @@
 #include <Zamin/Scripting/Visual/VisualGraphHost.h>
 #include <filesystem>
 using namespace Zamin;
+namespace Zamin {
+    Visual::Value DispatchAnimatorGraph(Entity target, const std::string& kind, const std::map<std::string, Visual::Value>& args);
+}
 namespace {
     Ref<Model> BlendModel()
     {
@@ -400,4 +403,49 @@ TEST(AnimatorSpriteClipsSerializeAndResetRuntime)
     f.Sprite().ResetRuntime();
     CHECK(f.Sprite().DrivenUpdate == 0);
     f.World->OnRuntimeStop();
+}
+// A layer's clip asked again keeps its time; with Restart it starts over (crossfading from itself) and its events fire
+// again - a second swing of the same attack. The Blueprint node's Restart pin does the same; graphs without it don't.
+TEST(AnimatorLayerRestartReplaysTheClipAndItsEvents)
+{
+    auto scene = CreateRef<Scene>();
+    auto actor = scene->CreateEntity("Swordsman");
+    auto& mesh = actor.AddComponent<MeshRendererComponent>();
+    mesh.ModelAsset = BlendModel();
+    mesh.Type = PrimitiveMesh::Model;
+    auto& c = actor.AddComponent<AnimatorComponent>();
+    c.Clip = "Idle";
+    c.Layers.push_back({ "Upper" });
+    c.Layers[0].Loop = false;
+    c.Events.push_back({ "Run", .5f, "Hit", "" }); // Run lasts .5 s: Hit at .25 s
+    int hits = 0;
+    scene->GetEventBus().Subscribe("AnimationEvent", [&](const ScriptMessage& m) {
+        if (auto* info = std::any_cast<AnimationEventInfo>(&m.Payload); info && info->Name == "Hit") ++hits;
+    });
+    scene->OnRuntimeStart();
+    CHECK(c.PlayLayer("Upper", "Run", false, 1.0f, 0.0f));
+    for (int i = 0; i < 6; ++i) scene->UpdateRuntime(.05f);
+    CHECK(hits == 1);
+    CHECK_NEAR(c.Layers[0].Time, .3f, 1e-4f);
+    CHECK(c.PlayLayer("Upper", "Run", false, 1.0f, 0.0f)); // the same clip: keeps playing
+    CHECK_NEAR(c.Layers[0].Time, .3f, 1e-4f);
+    CHECK(c.PlayLayer("Upper", "Run", false, 1.0f, .1f, true));
+    CHECK(c.Layers[0].Time == 0 && c.Layers[0].PreviousClip == "Run" && c.Layers[0].IsFading());
+    for (int i = 0; i < 6; ++i) scene->UpdateRuntime(.05f);
+    CHECK(hits == 2);
+    // the graph node: Restart pin (default false)
+    auto& catalog = Visual::Catalog().at("Animator.PlayLayer");
+    bool pin = false;
+    for (auto& p : catalog.Inputs)
+        if (p.Name == "Restart") pin = p.Kind == Visual::Type::Bool && p.Default == Visual::Value(false);
+    CHECK(pin);
+    std::map<std::string, Visual::Value> args{ { "Name", "Upper" }, { "Clip", "Run" }, { "Speed", 1.0 }, { "Loop", false }, { "Fade", 0.0 } };
+    CHECK(DispatchAnimatorGraph(actor, "Animator.PlayLayer", args).at("Success").get<bool>());
+    CHECK_NEAR(c.Layers[0].Time, .3f, 1e-4f); // an old graph (no Restart value): unchanged behaviour
+    args["Restart"] = true;
+    CHECK(DispatchAnimatorGraph(actor, "Animator.PlayLayer", args).at("Success").get<bool>());
+    CHECK(c.Layers[0].Time == 0);
+    for (int i = 0; i < 6; ++i) scene->UpdateRuntime(.05f);
+    CHECK(hits == 3);
+    scene->OnRuntimeStop();
 }

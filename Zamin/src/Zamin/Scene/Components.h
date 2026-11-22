@@ -826,12 +826,14 @@ namespace Zamin {
             return nullptr;
         }
         /// Plays a clip on a layer, crossfading from what the layer played (fade < 0 = DefaultFade;
-        /// from nothing: the layer fades in). False when there is no such layer.
-        bool PlayLayer(const std::string& layer, const std::string& clip, bool loop = true, float speed = 1.0f, float fade = -1.0f)
+        /// from nothing: the layer fades in). The clip the layer already plays keeps its time unless
+        /// `restart` (a second swing of the same attack: it starts over, crossfading from itself, and its
+        /// events fire again). False when there is no such layer.
+        bool PlayLayer(const std::string& layer, const std::string& clip, bool loop = true, float speed = 1.0f, float fade = -1.0f, bool restart = false)
         {
             AnimatorLayer* l = FindLayer(layer);
             if (!l) return false;
-            if (l->Clip == clip) { l->Speed = speed; l->Loop = loop; return true; }
+            if (l->Clip == clip && !restart) { l->Speed = speed; l->Loop = loop; return true; }
             if (fade < 0.0f) fade = DefaultFade;
             l->PreviousClip = l->Clip; l->PreviousTime = l->Time; l->PreviousSpeed = l->Speed; l->PreviousLoop = l->Loop;
             l->FadeDuration = fade; l->FadeElapsed = 0.0f;

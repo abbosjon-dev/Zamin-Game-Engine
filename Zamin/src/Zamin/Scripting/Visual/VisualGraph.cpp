@@ -363,7 +363,7 @@ add("Animator.SetBool", "Animator", { E("In"), EntityPin(), S("Name"), B("Value"
 for (auto name : { "SetTrigger", "ResetTrigger" }) add("Animator." + std::string(name), "Animator", { E("In"), EntityPin(), S("Name") }, { E("Then"), B("Success") });
 add("Animator.SetState", "Animator", { E("In"), EntityPin(), S("Name"), N("Fade", .2) }, { E("Then"), B("Success") });
 add("Animator.PlayClip", "Animator", { E("In"), EntityPin(), S("Clip"), N("Speed", 1), B("Loop", true), N("Fade", .2) }, { E("Then"), B("Success") });
-add("Animator.PlayLayer", "Animator", { E("In"), EntityPin(), S("Name"), S("Clip"), N("Speed", 1), B("Loop", true), N("Fade", .2) }, { E("Then"), B("Success") });
+add("Animator.PlayLayer", "Animator", { E("In"), EntityPin(), S("Name"), S("Clip"), N("Speed", 1), B("Loop", true), N("Fade", .2), B("Restart") }, { E("Then"), B("Success") });
 add("Animator.SetLayerWeight", "Animator", { E("In"), EntityPin(), S("Name"), N("Weight", 1), N("Fade", .2) }, { E("Then"), B("Success") });
 
 add("SendMessage","Entities",{E("In"),EntityPin(),S("Name"),S("Text")},{E("Then")});

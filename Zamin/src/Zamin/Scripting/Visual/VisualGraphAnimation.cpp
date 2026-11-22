@@ -54,7 +54,12 @@ namespace Zamin {
             anim->Play(text("Clip"), args.at("Loop").get<bool>(), number("Speed"), fade);
             return success(true);
         }
-        if (kind == "Animator.PlayLayer") return success(anim->PlayLayer(text("Name"), text("Clip"), args.at("Loop").get<bool>(), number("Speed"), fade));
+        if (kind == "Animator.PlayLayer")
+        {
+            // Graphs saved before the Restart pin load with its default (false): the clip keeps playing.
+            const bool restart = args.contains("Restart") && args.at("Restart").get<bool>();
+            return success(anim->PlayLayer(text("Name"), text("Clip"), args.at("Loop").get<bool>(), number("Speed"), fade, restart));
+        }
         throw std::runtime_error("Unsupported Animator operation");
     }
 }

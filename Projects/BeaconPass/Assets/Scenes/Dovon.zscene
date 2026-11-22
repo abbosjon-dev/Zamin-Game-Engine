@@ -591,7 +591,6 @@
         "Rotation": [-0.29670597283903605, -1.0821041362364843, 0.0],
         "Scale": [1.0, 1.0, 1.0]
       },
-      "rot": [-0.29670597283903605, -1.0821041362364843, 0],
       "DirectionalLight": {
         "Color": [1.0, 0.76, 0.52],
         "Intensity": 3.6,
@@ -13851,7 +13850,8 @@
         "LineSpacing": 0.0,
         "AlignH": "Center",
         "AlignV": "Middle",
-        "Font": ""
+        "Font": "",
+        "InputHints": true
       }
     },
     {

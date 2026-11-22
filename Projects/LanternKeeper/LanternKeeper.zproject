@@ -93,7 +93,7 @@
                 "Name": "Sprint",
                 "Bindings": [
                     "Key:LeftShift",
-                    "Gamepad:LeftTrigger"
+                    "GamepadAxis:LeftTrigger+"
                 ]
             },
             {

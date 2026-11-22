@@ -115,7 +115,7 @@ def world(s, W, level):
     ox, oz = W["origin"]
     s.add(2000, "Tog' vodiysi", pos=(ox, 0, oz), Terrain=terrain(W), Rigidbody3D=k.rigidbody3d("Static", layer=M["WORLD_LAYER"]),
           MeshCollider3D={"Friction": 0.8, "IsSensor": False, "Model": "", "Offset": [0, 0, 0], "Restitution": 0.0})
-    s.add(SUN, "Quyosh", rot=(math.radians(-17), math.radians(-62), 0), DirectionalLight=k.dir_light((1.0, 0.76, 0.52), 3.6, True))
+    s.add(SUN, "Quyosh", DirectionalLight=k.dir_light((1.0, 0.76, 0.52), 3.6, True))
     s.entities[SUN]["Transform"]["Rotation"] = k.v(math.radians(-17), math.radians(-62), 0)
     # ---- caravanserai (terrace y 3)
     w = W["WALLS"]
@@ -548,7 +548,7 @@ def hud(s, C):
         ui.bar(6043 + i * 4, f"Tayyorlik {label}", 6041 + i * 4, (0.5, 0), (0, 4), (84, 12), (0.98, 0.76, 0.32, 1), 0, back=(0.05, 0.04, 0.08, 0.6))
         ui.text(6044 + i * 4, f"Tugma {label}", bar, hint, (0.5, 0.5), (x, -58), (140, 32), 25, MUTED, hints=True)
     ui.text(6090, "Ishora", root, "", (0.5, 0), (0, 178), (900, 40), 26, INK)
-    ui.text(6091, "Xabar", root, "", (0.5, 1), (0, -170), (1100, 60), 40, ACCENT)
+    ui.text(6091, "Xabar", root, "", (0.5, 1), (0, -170), (1100, 60), 40, ACCENT, hints=True)  # "[Slam]" in a banner shows the key
     ui.text(6092, "Daraja nomi", root, "DOVON", (0.5, 1), (0, -96), (900, 70), 56, INK)
     ui.text(6093, "Boss nomi", root, "Qora qorovul", (0.5, 0), (0, 214), (600, 34), 26, (1.0, 0.55, 0.4, 1), active=False, key="hud.boss")
     ui.rect(6094, "Boss sog'lig'i", root, (0.5, 0), None, (0, 186), (760, 22), 0, active=False,

@@ -6493,7 +6493,8 @@
         "LineSpacing": 0.0,
         "AlignH": "Center",
         "AlignV": "Middle",
-        "Font": ""
+        "Font": "",
+        "InputHints": true
       }
     },
     {

@@ -151,7 +151,7 @@ ENEMIES = {
 
 ACTIONS = [("Attack", ["Key:J", "Mouse:Left", "Gamepad:X"]), ("Bolt", ["Key:K", "Mouse:Right", "Gamepad:RightBumper"]),
            ("Nova", ["Key:L", "Gamepad:Y"]), ("Mend", ["Key:H", "Gamepad:LeftBumper"]), ("Potion", ["Key:Q", "Gamepad:DPadDown"]),
-           ("Interact", ["Key:E", "Gamepad:A"]), ("Sprint", ["Key:LeftShift", "Gamepad:LeftTrigger"]),
+           ("Interact", ["Key:E", "Gamepad:A"]), ("Sprint", ["Key:LeftShift", "GamepadAxis:LeftTrigger+"]),
            ("Inventory", ["Key:I", "Key:Tab", "Gamepad:Back"]), ("Pause", ["Key:Escape", "Key:P", "Gamepad:Start"]),
            ("Jump", ["Key:Space"])]
 

@@ -440,7 +440,7 @@ def hud(s, number, level, C):
         ui.bar(6043 + i * 4, f"Tayyorlik {label}", 6041 + i * 4, (0.5, 0), (0, 4), (84, 12), (0.98, 0.76, 0.32, 1), 0, back=(0.05, 0.04, 0.08, 0.6))
         ui.text(6044 + i * 4, f"Tugma {label}", bar, hint, (0.5, 0.5), (x, -58), (140, 32), 25, MUTED, hints=True)
     ui.text(6090, "Ishora", root, "", (0.5, 0), (0, 178), (900, 40), 26, INK)
-    ui.text(6091, "Xabar", root, "", (0.5, 1), (0, -170), (1100, 60), 40, ACCENT)
+    ui.text(6091, "Xabar", root, "", (0.5, 1), (0, -170), (1100, 60), 40, ACCENT, hints=True)  # "[Nova]" in a banner shows the key
     ui.text(6092, "Daraja nomi", root, level["title"].upper(), (0.5, 1), (0, -96), (900, 70), 56, INK)
     ui.text(6093, "Boss nomi", root, "Soya Bek", (0.5, 0), (0, 214), (600, 34), 26, (0.85, 0.65, 1.0, 1), active=False, key="hud.boss")
     ui.rect(6094, "Boss sog'lig'i", root, (0.5, 0), None, (0, 186), (760, 22), 0, active=False,

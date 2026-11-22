@@ -5,7 +5,7 @@ namespace Zamin::Gameplay {
     std::optional<Visual::Value> DispatchSave(Entity host, Entity actor, const std::string& kind, const std::map<std::string, Visual::Value>& args)
     {
         using V = Visual::Value;
-        if (!kind.starts_with("Gameplay.Save")) return {};
+        if (!kind.starts_with("Gameplay.Save") && !kind.starts_with("Gameplay.Transfer")) return {};
         auto& world = SaveWorld::For(*host.GetScene());
         auto text = [&](const char* k) { return args.at(k).get<std::string>(); };
         std::string error;
@@ -36,6 +36,9 @@ namespace Zamin::Gameplay {
         if (kind == "Gameplay.SaveWrite") r = world.Save(text("Slot"), text("Schema"));
         else if (kind == "Gameplay.SaveLoad") r = world.Load(text("Slot"), text("Schema"));
         else if (kind == "Gameplay.SaveInspect") r = world.Inspect(text("Slot"));
+        else if (kind == "Gameplay.TransferWrite") r = world.WriteTransfer(text("Slot"), text("Key"), text("Schema"));
+        else if (kind == "Gameplay.TransferLoad") r = world.LoadTransfer(text("Slot"), text("Key"), text("Schema"));
+        else if (kind == "Gameplay.TransferInspect") r = world.InspectTransfer(text("Slot"));
         else throw std::runtime_error("Unknown gameplay save operation");
         return V{ { "Success", r.Success }, { "Recovered", r.Recovered }, { "Entities", r.Entities }, { "Reason", r.Reason } };
     }

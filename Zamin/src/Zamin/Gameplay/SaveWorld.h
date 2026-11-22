@@ -26,6 +26,14 @@ namespace Zamin::Gameplay {
         SaveResult Load(const std::string& slot, const std::string& schema);
         SaveResult Inspect(const std::string& slot);
         std::filesystem::path Path(const std::string& slot) const;
+        // Transfer documents (gameplay-transfers/<Slot>.json + .bak): one bound, living actor's progression carried
+        // to the next scene. Restore needs the same key bound here, the same schema and an identical Signature.
+        GameTransfer CaptureTransfer(const std::string& key, const std::string& schema) const;
+        SaveResult RestoreTransfer(const GameTransfer&, const std::string& key, const std::string& schema);
+        SaveResult WriteTransfer(const std::string& slot, const std::string& key, const std::string& schema);
+        SaveResult LoadTransfer(const std::string& slot, const std::string& key, const std::string& schema);
+        SaveResult InspectTransfer(const std::string& slot);
+        std::filesystem::path TransferPath(const std::string& slot) const;
         void BeginFrame() { m_IO = m_Spawns = 0; }
         size_t Count() const { return m_Bindings.size(); }
     private:
@@ -37,6 +45,7 @@ namespace Zamin::Gameplay {
         std::string Signature(Entity) const;
         std::string Reference(uint64_t) const;
         bool Read(const std::filesystem::path&, GameSave&, std::string&) const;
+        bool ReadTransfer(const std::filesystem::path&, GameTransfer&, std::string&) const;
         Scene* m_Scene;
         std::map<std::string, Binding> m_Bindings;
         unsigned m_IO = 0, m_Spawns = 0;

@@ -388,6 +388,45 @@ namespace Zamin::Gameplay {
             return result;
         }
     }
+    namespace {
+        constexpr size_t TransferLimit = 256 * 1024;
+        V TransferPayload(const GameTransfer& t)
+        {
+            V items = V::object();
+            for (auto& [key, count] : t.Inventory.Items) items[key] = count;
+            return { { "Scene", t.Scene }, { "Schema", t.Schema }, { "Key", t.Key }, { "Signature", t.Signature }, { "Health", t.Health }, { "Shield", t.Shield }, { "Deaths", t.Deaths }, { "Slots", t.Inventory.Slots }, { "Stack", t.Inventory.Stack }, { "Items", items }, { "Quests", QuestBook(t.QuestBook) }, { "Loadout", LoadoutValue(t.Loadout) } };
+        }
+        GameTransfer TransferPayload(const V& v)
+        {
+            Keys(v, { "Scene", "Schema", "Key", "Signature", "Health", "Shield", "Deaths", "Slots", "Stack", "Items", "Quests", "Loadout" });
+            GameTransfer t;
+            t.Scene = Text(v.at("Scene"), 128);
+            t.Schema = Text(v.at("Schema"), 64);
+            t.Key = Text(v.at("Key"), 64);
+            Require(!t.Scene.empty() && ValidSaveKey(t.Schema) && ValidSaveKey(t.Key), "Invalid gameplay transfer identity");
+            t.Signature = Text(v.at("Signature"), 32768);
+            Require(!t.Signature.empty(), "Gameplay transfer signature missing");
+            t.Health = Number(v.at("Health"), 0, 1e6);
+            Require(t.Health > 0, "Transfer requires a living actor");
+            t.Shield = Number(v.at("Shield"), 0, 1e6);
+            t.Deaths = Counter(v.at("Deaths"));
+            auto slots = Counter(v.at("Slots")), stack = Counter(v.at("Stack"));
+            Require(slots <= 64 && stack <= 999999, "Saved bag limits");
+            std::string error;
+            Require(t.Inventory.Configure(int(slots), int(stack), true, error), "Invalid saved inventory configuration");
+            auto& items = v.at("Items");
+            Require(items.is_object() && items.size() <= size_t(t.Inventory.Slots), "Saved inventory capacity");
+            for (auto it = items.begin(); it != items.end(); ++it)
+            {
+                auto count = Counter(it.value());
+                Require(ValidItem(it.key()) && count > 0 && count <= uint32_t(t.Inventory.Stack), "Invalid saved item");
+                t.Inventory.Items[it.key()] = int(count);
+            }
+            t.QuestBook = QuestBook(v.at("Quests"));
+            t.Loadout = ReadLoadout(v.at("Loadout"));
+            return t;
+        }
+    }
     bool ValidSaveKey(const std::string& key) { return !key.empty() && key.size() <= 64 && key.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-") == std::string::npos; }
     bool ValidSaveReference(const std::string& reference)
     {
@@ -424,6 +463,36 @@ namespace Zamin::Gameplay {
             Require(Text(value.at("Checksum"), 20) == Hash(value.at("Payload").dump()), "Gameplay save checksum mismatch");
             auto next = Payload(value.at("Payload"), value.at("Version").get<int>());
             save = std::move(next);
+            return true;
+        }
+        catch (const std::exception& e)
+        {
+            error = e.what();
+            return false;
+        }
+    }
+    std::string EncodeGameTransfer(const GameTransfer& transfer)
+    {
+        Require(transfer.Version == 1, "Unsupported gameplay transfer version");
+        auto payload = TransferPayload(transfer);
+        TransferPayload(payload);
+        auto bytes = V{ { "Format", "Zamin.GameplayTransfer" }, { "Version", 1 }, { "Payload", payload }, { "Checksum", Hash(payload.dump()) } }.dump();
+        Require(bytes.size() <= TransferLimit, "Gameplay transfer exceeds 256 KiB");
+        return bytes;
+    }
+    bool DecodeGameTransfer(std::string_view bytes, GameTransfer& transfer, std::string& error)
+    {
+        error.clear();
+        try
+        {
+            Require(bytes.size() <= TransferLimit, "Gameplay transfer exceeds 256 KiB");
+            std::vector<std::set<std::string>> keys;
+            auto value = V::parse(bytes, [&](int depth, V::parse_event_t event, V& parsed) {Require(depth<=16,"Gameplay transfer nesting limit");if(event==V::parse_event_t::object_start)keys.emplace_back();if(event==V::parse_event_t::key)Require(!keys.empty()&&keys.back().insert(parsed.get<std::string>()).second,"Duplicate JSON transfer key");if(event==V::parse_event_t::object_end)keys.pop_back();return true; });
+            Keys(value, { "Format", "Version", "Payload", "Checksum" });
+            Require(value.at("Format") == "Zamin.GameplayTransfer" && value.at("Version").is_number_unsigned() && value.at("Version") == 1, "Unsupported gameplay transfer format/version");
+            Require(Text(value.at("Checksum"), 20) == Hash(value.at("Payload").dump()), "Gameplay transfer checksum mismatch");
+            auto next = TransferPayload(value.at("Payload"));
+            transfer = std::move(next);
             return true;
         }
         catch (const std::exception& e)

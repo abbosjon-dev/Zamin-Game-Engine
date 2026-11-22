@@ -624,4 +624,217 @@ namespace Zamin::Gameplay {
         }
         return r;
     }
+    GameTransfer SaveWorld::CaptureTransfer(const std::string& key, const std::string& schema) const
+    {
+        Require(!m_Busy && m_Scene->IsRunning(), "Gameplay transfer requires idle Play state");
+        Require(ValidSaveKey(key) && ValidSaveKey(schema), "Invalid gameplay transfer key/schema");
+        auto e = Find(key);
+        Require(e && e.IsActive(), "Transfer requires a bound active actor");
+        auto& rules = RuleWorld::For(*m_Scene);
+        const auto* a = rules.FindActor(e);
+        Require(a && a->Health && !a->Health->Dead && a->Health->Current > 0, "Transfer requires a living actor");
+        GameTransfer t;
+        t.Scene = m_Scene->GetName();
+        t.Schema = schema;
+        t.Key = key;
+        t.Signature = Signature(e);
+        t.Health = a->Health->Current;
+        t.Shield = a->Health->Shield;
+        t.Deaths = a->Health->Deaths;
+        t.Inventory = a->Inventory;
+        if (auto* q = QuestWorld::For(*m_Scene).Find(e)) t.QuestBook = q->Book;
+        if (auto* r = LoadoutWorld::For(*m_Scene).Find(e))
+        {
+            t.Loadout = r->State;
+            // Status effects stay behind: the carried energy is bounded by the maximum without their bonus, and
+            // cooldowns end at the level exit.
+            t.Loadout->Energy = std::min(t.Loadout->Energy, EffectiveStats(r->Base, r->Items, r->State)[3]);
+            for (auto& [name, progress] : t.Loadout->Abilities) progress.Remaining = 0;
+        }
+        EncodeGameTransfer(t);
+        return t;
+    }
+    SaveResult SaveWorld::RestoreTransfer(const GameTransfer& input, const std::string& key, const std::string& schema)
+    {
+        SaveResult result;
+        try
+        {
+            Guard guard(m_Busy);
+            Require(m_Scene->IsRunning(), "Gameplay transfer requires Play");
+            std::string error;
+            GameTransfer t;
+            Require(DecodeGameTransfer(EncodeGameTransfer(input), t, error), "Invalid gameplay transfer");
+            Require(t.Schema == schema, "Gameplay transfer schema mismatch");
+            Require(t.Key == key, "Gameplay transfer key mismatch");
+            auto e = Find(key);
+            Require(e && e.IsActive(), "Transfer actor is not bound here");
+            Require(Signature(e) == t.Signature, "Transfer content changed");
+            auto& rules = RuleWorld::For(*m_Scene);
+            auto* a = rules.FindActor(e);
+            Require(a && a->Health, "Transfer actor has no health");
+            Require(!a->Health->Dead, "Transfer target is dead");
+            Require(t.Inventory.Slots == a->Inventory.Slots && t.Inventory.Stack == a->Inventory.Stack, "Inventory configuration changed");
+            Require(t.Health <= a->Health->Settings.Maximum && t.Shield <= a->Health->Settings.Shield, "Saved health exceeds configuration");
+            // Stage every part before the commit; a bad late field leaves the actor untouched.
+            auto& questWorld = QuestWorld::For(*m_Scene);
+            auto* q = questWorld.Find(e);
+            Require(q || t.QuestBook.Quests.empty(), "Saved quest actor not configured");
+            QuestBookSave book;
+            if (q)
+            {
+                Require(t.QuestBook.Quests.size() == q->Definitions.size(), "Saved quest definitions changed");
+                uint64_t xp = 0;
+                for (auto& [name, definition] : q->Definitions)
+                {
+                    auto progress = t.QuestBook.Quests.find(name);
+                    Require(progress != t.QuestBook.Quests.end(), "Saved quest missing");
+                    Require(ValidateQuestProgress(definition, progress->second, error), "Invalid saved quest progress");
+                    if (progress->second.Mode != QuestMode::Locked)
+                        for (auto& required : definition.Requires) Require(t.QuestBook.Quests.at(required).Mode == QuestMode::Claimed, "Saved prerequisite not claimed");
+                    if (progress->second.Mode == QuestMode::Claimed) xp += definition.XP;
+                }
+                Require(xp == t.QuestBook.XP, "Saved XP disagrees with claimed quests");
+                book = t.QuestBook;
+            }
+            auto& loadoutWorld = LoadoutWorld::For(*m_Scene);
+            auto* loadout = loadoutWorld.Find(e);
+            Require(bool(loadout) == bool(t.Loadout), "Loadout layout changed");
+            LoadoutState state;
+            if (loadout)
+            {
+                state = *t.Loadout;
+                for (auto& [name, progress] : state.Abilities) progress.Remaining = 0;
+                Require(ValidateLoadout(loadout->Base, loadout->Items, loadout->Abilities, state, error), "Invalid saved loadout");
+            }
+            auto* combat = m_Scene->GetRegistry().ctx().find<CombatWorld>();
+            // Commit: nothing below throws.
+            a->Inventory = t.Inventory;
+            a->AttackUntil = rules.m_Now;
+            a->Events.clear();
+            a->Dropped = 0;
+            auto& h = *a->Health;
+            h.Current = t.Health;
+            h.Shield = t.Shield;
+            h.Deaths = t.Deaths;
+            h.Dead = false;
+            h.ImmuneUntil = rules.m_Now;
+            h.DiedAt = rules.m_Now - h.Settings.RespawnDelay;
+            if (q)
+            {
+                q->Book = std::move(book);
+                q->Events.clear();
+                q->Dropped = 0;
+            }
+            if (loadout)
+            {
+                loadout->State = std::move(state);
+                loadout->Events.clear();
+                loadout->Dropped = 0;
+            }
+            if (combat) combat->ClearEffects(e);
+            for (auto handle : m_Scene->GetRegistry().view<NativeScriptComponent>())
+                if (auto* g = dynamic_cast<VisualGraphHost*>(m_Scene->GetRegistry().get<NativeScriptComponent>(handle).Instance)) g->InvalidateGameplayState();
+            result.Success = true;
+            result.Entities = 1;
+        }
+        catch (const std::exception& e)
+        {
+            result.Reason = e.what();
+        }
+        return result;
+    }
+    std::filesystem::path SaveWorld::TransferPath(const std::string& slot) const
+    {
+        Require(ValidSaveKey(slot), "Transfer slot must be 1..64 letters/digits/_/-");
+        return SaveData::GetFilePath().parent_path() / "gameplay-transfers" / (slot + ".json");
+    }
+    bool SaveWorld::ReadTransfer(const std::filesystem::path& path, GameTransfer& transfer, std::string& error) const
+    {
+        std::ifstream stream(path, std::ios::binary);
+        if (!stream)
+        {
+            error = "Gameplay transfer unavailable";
+            return false;
+        }
+        std::string bytes(256 * 1024 + 1, '\0');
+        stream.read(bytes.data(), std::streamsize(bytes.size()));
+        bytes.resize(size_t(stream.gcount()));
+        return DecodeGameTransfer(bytes, transfer, error);
+    }
+    SaveResult SaveWorld::WriteTransfer(const std::string& slot, const std::string& key, const std::string& schema)
+    {
+        SaveResult r;
+        try
+        {
+            Require(!m_Busy && m_IO < 2, "Gameplay transfer I/O budget or busy");
+            ++m_IO;
+            auto file = TransferPath(slot);
+            auto data = CaptureTransfer(key, schema);
+            auto bytes = EncodeGameTransfer(data);
+            GameTransfer previous;
+            std::string error;
+            if (ReadTransfer(file, previous, error)) Require(FileSystem::WriteTextFileAtomic(file.string() + ".bak", EncodeGameTransfer(previous)), "Cannot preserve gameplay transfer backup");
+            Require(FileSystem::WriteTextFileAtomic(file, bytes), "Cannot write gameplay transfer");
+            r.Success = true;
+            r.Entities = 1;
+        }
+        catch (const std::exception& e)
+        {
+            r.Reason = e.what();
+        }
+        return r;
+    }
+    SaveResult SaveWorld::LoadTransfer(const std::string& slot, const std::string& key, const std::string& schema)
+    {
+        SaveResult r;
+        try
+        {
+            Require(!m_Busy && m_IO < 2, "Gameplay transfer I/O budget or busy");
+            ++m_IO;
+            auto file = TransferPath(slot);
+            GameTransfer transfer;
+            std::string error;
+            bool recovered = false;
+            if (!ReadTransfer(file, transfer, error))
+            {
+                Require(ReadTransfer(file.string() + ".bak", transfer, error), "Gameplay transfer and backup unavailable/invalid");
+                recovered = true;
+            }
+            r = RestoreTransfer(transfer, key, schema);
+            r.Recovered = r.Success && recovered;
+        }
+        catch (const std::exception& e)
+        {
+            r.Reason = e.what();
+        }
+        return r;
+    }
+    SaveResult SaveWorld::InspectTransfer(const std::string& slot)
+    {
+        SaveResult r;
+        try
+        {
+            Require(!m_Busy && m_IO < 2, "Gameplay transfer inspect I/O budget or busy");
+            ++m_IO;
+            GameTransfer transfer;
+            std::string error;
+            auto file = TransferPath(slot);
+            if (!ReadTransfer(file, transfer, error))
+            {
+                if (!ReadTransfer(file.string() + ".bak", transfer, error))
+                {
+                    r.Reason = error;
+                    return r;
+                }
+                r.Recovered = true;
+            }
+            r.Success = true;
+            r.Entities = 1;
+        }
+        catch (const std::exception& e)
+        {
+            r.Reason = e.what();
+        }
+        return r;
+    }
 }

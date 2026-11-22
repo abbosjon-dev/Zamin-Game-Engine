@@ -140,6 +140,37 @@ byte-identically, and the real one restores into the Loadout2D scene with and wi
 v4 document (256 entities x 16 effects with 64-character keys, 128 projectiles x 8 hits, a 65,536-character
 signature) encodes to 1,524,542 bytes, within the 2 MiB limit.
 
+## Transfer documents (level carry)
+
+A game save is bound to its scene, so a second level cannot load the first level's save. A **transfer
+document** carries one bound, living actor's progression to another scene instead: health, shield,
+deaths, bag, quest book (XP, modes, counts, receipts) and loadout (equipment, ability uses/unlocks,
+energy). It never carries the pose, the active flag, AI, interaction, status effects, projectiles or
+timers: a level entry is a rest point.
+
+| Node / native | Behaviour |
+|---|---|
+| `Gameplay.TransferWrite` (`Key` "Hero", `Slot` "Carry", `Schema`) / `SaveWorld::WriteTransfer` | Captures the bound actor (active, alive) and writes `gameplay-transfers/<Slot>.json`, preserving the previous valid document as `.bak`. |
+| `Gameplay.TransferLoad` / `SaveWorld::LoadTransfer` | Reads the document (backup on a missing/corrupt primary, `Recovered`) and restores it onto the actor bound to `Key` in this scene. |
+| `Gameplay.TransferInspect` / `SaveWorld::InspectTransfer` | Validates the file or backup without changing gameplay. |
+| `SaveWorld::CaptureTransfer` / `RestoreTransfer` | The in-memory forms (`GameTransfer`, `EncodeGameTransfer`/`DecodeGameTransfer`). |
+
+Restore requires the same key bound here, the same schema, the same key in the document and an
+identical `Signature` (health/bag settings, loadout items and abilities, quest definitions, body kind
+and graph path): every level must configure the actor identically, e.g. with one shared hero graph.
+Bag, quest book and loadout are validated as a game load does (XP equals the claimed quests'
+XP, prerequisites claimed, equipment defined, energy within the maximum) before anything changes;
+then the commit replaces the actor's state, clears its status effects, resets hit grace, attack and
+ability cooldowns and the respawn delay to zero, and drops its pending rule/quest/loadout events, so no
+reward or collect notice is replayed. Capture bounds the energy by the maximum without effect bonuses.
+A transfer replaces (never adds to) the destination: loading the same document twice is idempotent.
+
+The format is `{"Format":"Zamin.GameplayTransfer","Version":1,"Payload":{...},"Checksum":...}` with the
+same strict rules as game saves (unknown/duplicate fields rejected, depth 16) and a 256 KiB limit; only
+version 1 exists. Transfer file operations share the scene's two-per-frame save I/O budget. Game saves
+v1-v4 are unchanged. Golden document: `Tests/Fixtures/GameSaves/transfer-v1.json`; tests
+`GameTransferCodec*` and `SaveTransfer*`.
+
 ## Files and recovery
 
 Files live next to the current project's SaveData file under `gameplay-saves/<Slot>.json`.

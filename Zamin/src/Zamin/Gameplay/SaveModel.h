@@ -59,4 +59,19 @@ namespace Zamin::Gameplay {
     // Strict, bounded, deterministic v1/v2/v3/v4 codec. Failure never changes the caller's snapshot.
     std::string EncodeGameSave(const GameSave&);
     bool DecodeGameSave(std::string_view, GameSave&, std::string& error);
+    // A transfer document carries one bound, living actor's progression from one scene to another (a level exit):
+    // health, deaths, bag, quest book and loadout. It never carries the pose, the active flag, AI, interaction,
+    // status effects, projectiles or timers ("a level entry is a rest point"). Version 1 only; at most 256 KiB.
+    struct GameTransfer
+    {
+        std::string Scene, Schema, Key, Signature; // Scene: the source scene (informational); Key: the actor's save key
+        double Health = 0, Shield = 0;             // Health > 0: a transfer always carries a living actor
+        uint32_t Deaths = 0;
+        Bag Inventory;
+        QuestBookSave QuestBook;
+        std::optional<LoadoutState> Loadout;
+        int Version = 1;
+    };
+    std::string EncodeGameTransfer(const GameTransfer&);
+    bool DecodeGameTransfer(std::string_view, GameTransfer&, std::string& error);
 }

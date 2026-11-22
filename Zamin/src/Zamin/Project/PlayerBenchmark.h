@@ -42,6 +42,9 @@ namespace Zamin {
             int Warmup = 0;
             // The frames: whole frames and the update + drawing calls in them (ms).
             FrameTimeStats Frame, Update;
+            // The game's own CPU work in each measured frame (ms): the update layer without its drawing (scripts,
+            // gameplay, physics, AI, particles, animation, audio, UI). Count 0 when the player did not measure it.
+            FrameTimeStats GameCode;
             double Seconds = 0.0;       // the measured frames' wall time
             double LoadSeconds = 0.0;   // from the start of the player to the first measured frame
             // The limits (0: none) and what broke them ("p95 7.20 ms > 6.00 ms").
@@ -57,9 +60,9 @@ namespace Zamin {
 
         const PlayerBenchmarkSettings& GetSettings() const { return m_Settings; }
         bool IsEnabled() const { return m_Settings.IsEnabled(); }
-        // One frame finished: its whole time and the game's update + drawing in it (ms). True once the last
-        // measured frame is in.
-        bool AddFrame(double frameMs, double updateMs);
+        // One frame finished: its whole time and the game's update + drawing in it (ms), and (when >= 0) the
+        // game's own CPU work in it without the drawing. True once the last measured frame is in.
+        bool AddFrame(double frameMs, double updateMs, double gameCodeMs = -1.0);
         bool IsWarmingUp() const { return m_Seen < m_Settings.Warmup; }
         bool IsDone() const { return IsEnabled() && (int)m_Frames.size() >= m_Settings.Frames; }
         int GetFramesSeen() const { return m_Seen; }
@@ -68,7 +71,12 @@ namespace Zamin {
         // The statistics so far and the limits checked (the caller fills in what was run: the game, the scene ...).
         Result GetResult() const;
 
-        // The report: {"Game": ..., "Frame": {"Average": ..., "P95": ...}, "Update": {...}, "Frames": [...]}.
+        // The game's own CPU work in a frame's profile (Profiler::GetLastFrame): "Kadr/Layer'lar (update)" without
+        // its drawing children ("Sahnalar (chizish)", "Post-processing"); -1 when the frame has no update layer.
+        static double GameCodeMilliseconds(const std::vector<Profiler::Entry>& frame);
+
+        // The report: {"Game": ..., "Frame": {"Average": ..., "P95": ...}, "Update": {...}, "GameCode": {...} (when
+        // measured), "Frames": [...]}.
         static std::string ToJson(const Result& result);
         static bool WriteJson(const Result& result, const std::filesystem::path& path, std::string* error = nullptr);
         // Lines for the log: what ran, the frames, the update, the limits.
@@ -77,7 +85,7 @@ namespace Zamin {
     private:
         PlayerBenchmarkSettings m_Settings;
         int m_Seen = 0;
-        std::vector<double> m_Frames, m_Updates;
+        std::vector<double> m_Frames, m_Updates, m_GameCode;
     };
 
 }

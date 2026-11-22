@@ -35784,6 +35784,28 @@ TEST(PlayerBenchmarkStatsAndLimits)
     early.AddFrame(1.0, 1.0);
     CHECK(!early.GetResult().Passed && early.GetResult().Failures.front().find("0 / 4") != std::string::npos);
     CHECK(!PlayerBenchmark().IsEnabled() && !PlayerBenchmark().AddFrame(1.0, 1.0));
+    // The game's own CPU work: measured only when the player passes it (-1: not measured, no "GameCode" report).
+    CHECK(bench.GetResult().GameCode.Count == 0 && PlayerBenchmark::ToJson(bench.GetResult()).find("GameCode") == std::string::npos);
+    PlayerBenchmark code(settings);
+    for (double ms : { 1.0, 1.0, 2.0, 3.0, 4.0, 5.0 })
+        code.AddFrame(10.0, 6.0, ms);
+    CHECK(code.GetResult().GameCode.Count == 4 && code.GetResult().GameCode.Max == 5.0);
+    CHECK_NEAR(code.GetResult().GameCode.Average, 3.5, 1e-9);
+    CHECK(PlayerBenchmark::ToJson(code.GetResult()).find("\"GameCode\": {") != std::string::npos &&
+          PlayerBenchmark::Describe(code.GetResult()).find("O'yin kodi:") != std::string::npos);
+    // From a frame's profile: the update layer without its drawing children; nothing without that layer.
+    {
+        std::vector<Profiler::Entry> frame(6);
+        frame[0] = { "Kadr", 12.0f, 1, -1, 0, 6 };
+        frame[1] = { "Layer'lar (update)", 10.0f, 1, 0, 1, 6 };
+        frame[2] = { "Skriptlar", 2.5f, 1, 1, 2, 3 };
+        frame[3] = { "Sahnalar (chizish)", 4.0f, 1, 1, 2, 5 };
+        frame[4] = { "Render", 3.9f, 1, 3, 3, 5 };
+        frame[5] = { "Post-processing", 1.5f, 1, 1, 2, 6 };
+        CHECK_NEAR(PlayerBenchmark::GameCodeMilliseconds(frame), 4.5, 1e-6);
+        frame[1].Name = "Layer'lar (UI)";
+        CHECK(PlayerBenchmark::GameCodeMilliseconds(frame) < 0.0 && PlayerBenchmark::GameCodeMilliseconds({}) < 0.0);
+    }
 
     // The report: what ran, the statistics, every frame; the log's lines.
     r = bench.GetResult();

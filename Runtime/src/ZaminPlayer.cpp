@@ -197,6 +197,33 @@ namespace Zamin {
             // "padhold=A" / "padrelease=A" (held until released), "stick=LeftX,0.8" (an axis at that value
             // from then on; triggers 0..1).
             ConfigureUIAudit();
+            // ZAMIN_SOAK_STATS=N (automation: the slices' attract-loop soak, Tests/slice_bench.py --soak): every N frames a
+            // "SOAK frame=... scene=... rss=<MiB> entities=... engine=<MiB>" line - the process's resident memory, the active
+            // scene's entities and the memory the engine tracks, sampled to find growth across the game's loops.
+            if (const char* soak = std::getenv("ZAMIN_SOAK_STATS"))
+                m_SoakEvery = std::clamp(std::atoi(soak), 0, 100000);
+            // ZAMIN_SCREENSHOT_ON="<text>|<frames>|<file.png>[|quit]" (automation: a picture of a moment the game logs, e.g.
+            // its victory screen): the first log line containing <text>, <frames> later (0..600) the frame is saved there;
+            // with "|quit" the player then closes (the run ends at that moment, whatever ZAMIN_MAX_FRAMES says).
+            if (const char* on = std::getenv("ZAMIN_SCREENSHOT_ON"))
+            {
+                std::string spec = on;
+                if (spec.ends_with("|quit"))
+                {
+                    m_ShotQuit = true;
+                    spec.resize(spec.size() - 5);
+                }
+                const size_t a = spec.find('|'), b = a == std::string::npos ? a : spec.find('|', a + 1);
+                if (a != std::string::npos && b != std::string::npos && a > 0 && b + 1 < spec.size())
+                {
+                    m_ShotMarker = spec.substr(0, a);
+                    m_ShotDelay = std::clamp(std::atoi(spec.substr(a + 1, b - a - 1).c_str()), 0, 600);
+                    m_ShotPath = spec.substr(b + 1);
+                    m_ShotSeen = Log::GetTotalWritten();
+                }
+                else
+                    ZM_WARN("ZAMIN_SCREENSHOT_ON: \"<matn>|<kadr>|<fayl.png>\" kutilgan: {}", spec);
+            }
             if (const char* input = std::getenv("ZAMIN_PLAYER_INPUT"))
             {
                 std::string_view rest = input;
@@ -330,7 +357,7 @@ namespace Zamin {
                     m_SlowestFrameIndex = m_Benchmark.GetMeasuredFrames();
                     m_SlowestFrameProfile = Profiler::FormatTree(Profiler::GetLastFrame(), 0.5f);
                 }
-                if (m_Benchmark.AddFrame(frameMs, updateMs))
+                if (m_Benchmark.AddFrame(frameMs, updateMs, PlayerBenchmark::GameCodeMilliseconds(Profiler::GetLastFrame())))
                     FinishBenchmark();
             }
             m_LastFrameStart = start;
@@ -525,6 +552,48 @@ namespace Zamin {
                 rules.MinFontPx = UIAuditRules::MinFontFor(size, report.UserScale);
                 ZM_INFO("UI_AUDIT scene={} frame={} {}", scene.GetName(), frame, UIAuditToJson(report, CheckUIAudit(report, rules), m_UIAudit.Elements));
             }
+        }
+
+        std::string m_ShotMarker, m_ShotPath;
+        int m_ShotDelay = 0, m_ShotDue = -1, m_ShotFrame = 0;
+        bool m_ShotQuit = false;
+        uint64_t m_ShotSeen = 0;
+        void RunMarkerScreenshot()
+        {
+            if (m_ShotMarker.empty())
+                return;
+            ++m_ShotFrame;
+            if (m_ShotDue < 0)
+            {
+                if (Log::GetTotalWritten() == m_ShotSeen)
+                    return;
+                uint64_t first = 0;
+                const std::vector<LogMessage> messages = Log::GetMessages(&first);
+                for (size_t i = 0; i < messages.size() && m_ShotDue < 0; i++)
+                    if (first + i >= m_ShotSeen && messages[i].Text.find(m_ShotMarker) != std::string::npos)
+                        m_ShotDue = m_ShotFrame + m_ShotDelay;
+                m_ShotSeen = first + messages.size();
+            }
+            if (m_ShotDue >= 0 && m_ShotFrame == m_ShotDue)
+            {
+                ZM_INFO("ZAMIN_SCREENSHOT_ON: '{}' dan {} kadr keyin", m_ShotMarker, m_ShotDelay);
+                Application::Get().RequestScreenshot(m_ShotPath);
+                m_ShotMarker.clear();
+                if (m_ShotQuit)
+                    Application::Get().Close();
+            }
+        }
+
+        int m_SoakEvery = 0, m_SoakFrame = 0;
+        void RunSoakStats()
+        {
+            if (m_SoakEvery <= 0 || !m_Scenes || !m_Scenes->GetActiveScene() || ++m_SoakFrame % m_SoakEvery != 0)
+                return;
+            Scene& scene = *m_Scenes->GetActiveScene();
+            const MemoryStats::ProcessMemory process = MemoryStats::GetProcessMemory(0.0);
+            constexpr double MiB = 1024.0 * 1024.0;
+            ZM_INFO("SOAK frame={} scene={} rss={:.1f} entities={} engine={:.1f}", m_SoakFrame, scene.GetName(), double(process.Resident) / MiB,
+                    scene.GetRegistry().view<IDComponent>().size(), double(MemoryStats::GetTrackedTotal()) / MiB);
         }
 
         // Plays the scripted input of this frame (seen by the next Input::Update).
@@ -907,6 +976,8 @@ namespace Zamin {
             RenderCommand::Clear();
             m_Scenes->OnUpdate(ts);
             RunUIAudit(area.Width, area.Height);
+            RunSoakStats();
+            RunMarkerScreenshot();
             view = m_Scenes->GetRenderScene(); // its frame may have switched its camera off
 
             // The finished frame goes into the player's own picture first when it is adjusted (gamma,

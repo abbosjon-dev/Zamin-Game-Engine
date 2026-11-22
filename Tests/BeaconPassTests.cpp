@@ -31,6 +31,7 @@
 #include <format>
 #include <functional>
 #include <map>
+#include <optional>
 #include <set>
 using namespace Zamin;
 namespace {
@@ -772,4 +773,144 @@ TEST(BeaconPassDeterminism)
     }
     std::printf("  frames %d / %d, trace lines %zu / %zu\n", frames[0], frames[1], traces[0].size(), traces[1].size());
     CHECK(frames[0] == frames[1] && traces[0] == traces[1] && traces[0].size() > 20);
+    // ZAMIN_SLICE_TRACE_OUT=<file>: the trace for Tests/slice_workflow_test.py's D phase (the Player's trace must begin with it)
+    if (const char* out = std::getenv("ZAMIN_SLICE_TRACE_OUT"))
+    {
+        std::string text;
+        for (const auto& line : traces[0]) text += line.substr(line.find("SLICE_TRACE")) + "\n";
+        CHECK(FileSystem::WriteTextFile(out, text));
+    }
+}
+namespace {
+    void Keep(const std::filesystem::path& home, const std::filesystem::path& to)
+    {
+        std::filesystem::remove_all(to);
+        std::filesystem::create_directories(to.parent_path());
+        std::filesystem::copy(home, to, std::filesystem::copy_options::recursive);
+    }
+    // A torn write (the document ends mid-way) and a changed byte (the checksum no longer matches).
+    void Tear(const std::filesystem::path& file) { CHECK(FileSystem::WriteTextFile(file, FileSystem::ReadTextFile(file).substr(0, 96))); }
+    void Tamper(const std::filesystem::path& file)
+    {
+        auto text = FileSystem::ReadTextFile(file);
+        const auto at = text.find("\"Health\":");
+        CHECK(at != std::string::npos);
+        text.insert(at + 9, "1");
+        CHECK(FileSystem::WriteTextFile(file, text));
+    }
+    // The hero of a save document (null when it cannot be read).
+    std::optional<G::SavedEntity> SavedHero(const std::filesystem::path& file)
+    {
+        G::GameSave save;
+        std::string error;
+        if (!G::DecodeGameSave(FileSystem::ReadTextFile(file), save, error)) return std::nullopt;
+        for (const auto& e : save.Entities)
+            if (e.Key == "Hero") return e;
+        return std::nullopt;
+    }
+    bool CleanIO(const std::string& log)
+    {
+        for (auto bad : { "SLICE_CONFIG_FAILED", "SLICE_ORACLE_FAILED", "Visual graph '", "Instruction budget", "nomli harakat topilmadi", "SLICE_IO_FAILED autosave" })
+            if (log.find(bad) != std::string::npos) return false;
+        return true;
+    }
+    // The demo menu (Continue when it is offered) on a fresh process over `from`, until `after` frames after the level's
+    // start line; the last banner shown in `banner`, the hero at the start line (the restored pose) in `startAt`.
+    Outcome Continue(const std::filesystem::path& home, const std::filesystem::path& from, std::string& banner, glm::vec3& startAt, int after = 12)
+    {
+        FreshProcess(home, from);
+        int started = -1;
+        banner.clear();
+        return Play("Scenes/Menu.zscene", 30 * 40, {}, false, false, nullptr, [&](Scene& scene, Outcome& o) {
+            if (auto b = scene.GetEntityByUUID(UUID(6091)))
+                if (auto* text = b.TryGetComponent<TextComponent>(); text && !text->Text.empty()) banner = text->Text;
+            if (started < 0 && o.Log.find("SLICE_LEVEL_START") != std::string::npos)
+            {
+                started = o.Frames;
+                if (auto hero = scene.GetEntityByUUID(UUID(Hero))) startAt = scene.GetWorldPosition(hero);
+            }
+            return started >= 0 && o.Frames >= started + after;
+        });
+    }
+}
+// The crash/kill matrix of the run (docs/VerticalSlices.md, "Save and resume"): one normal run to the courtyard shrine
+// keeps the files a process killed at each step would leave - after New game (before the autosave), after the shrine
+// save (before its GameState), after both - and a fresh process (the menu's Continue) on each resumes a consistent run;
+// a damaged shrine save falls back to its backup (the autosave, recovered, said on screen), a damaged save and backup to
+// a fresh start at the camp with a visible message, never a crash or a half-applied state.
+TEST(BeaconPassResumeMatrixHeadless)
+{
+    const auto prior = Project::GetActive();
+    const auto work = Prepare(3);
+    const auto home = work / "home", cut = work / "cuts";
+    const auto newGame = cut / "new-game", autosave = cut / "autosave", shrine = cut / "shrine";
+    auto a = Play("Scenes/Menu.zscene", 30 * 60 * 3, [&](const std::string& line, Outcome&) {
+        if (line.find("Menyu: Yangi o'yin") != std::string::npos) Keep(home, newGame);
+        if (line.find("SLICE_SAVED lvl=1 at=auto") != std::string::npos) Keep(home, autosave);
+        if (line.find("SLICE_SAVED lvl=1 at=shrine") == std::string::npos) return false;
+        Keep(home, shrine);
+        return true;
+    });
+    if (!Clean(a.Log)) std::printf("%s\n", a.Log.c_str());
+    const auto atShrine = SavedHero(shrine / "gameplay-saves/Run1.json"), atCamp = SavedHero(autosave / "gameplay-saves/Run1.json");
+    CHECK(Clean(a.Log) && atShrine && atCamp && std::filesystem::exists(newGame / "prefs.json") && !std::filesystem::exists(newGame / "gameplay-saves/Run1.json"));
+    if (!atShrine || !atCamp)
+    {
+        Finish(work, prior);
+        return;
+    }
+    std::printf("  write run %d frames; autosave at (%.2f, %.2f, %.2f) xp %u; shrine save at (%.2f, %.2f, %.2f) xp %u stones %d\n", a.Frames, atCamp->Position.x,
+                atCamp->Position.y, atCamp->Position.z, atCamp->QuestBook.XP, atShrine->Position.x, atShrine->Position.y, atShrine->Position.z, atShrine->QuestBook.XP,
+                atShrine->Inventory.Count("FireStone"));
+    CHECK(atShrine->QuestBook.XP == 100 && atCamp->QuestBook.XP == 0);
+    auto has = [](const Outcome& o, const char* marker) {
+        if (o.Log.find(marker) != std::string::npos) return true;
+        std::printf("    missing '%s' in:\n%s\n", marker, o.Log.c_str());
+        return false;
+    };
+    auto near = [](const glm::vec3& at, const glm::vec3& saved) { return glm::length(at - saved) < 0.001f; };
+    std::string banner;
+    glm::vec3 at{ 0 };
+    // 1. after both writes, and 2. killed after the shrine save before its GameState: Continue loads the shrine save
+    {
+        const auto files = cut / "after-shrine-save";
+        Keep(shrine, files);
+        std::filesystem::copy_file(autosave / "prefs.json", files / "prefs.json", std::filesystem::copy_options::overwrite_existing);
+        for (auto [name, from] : { std::pair{ "shrine", shrine }, std::pair{ "after-shrine-save", files } })
+        {
+            auto o = Continue(home, from, banner, at);
+            std::printf("  %s: resumed at (%.3f, %.3f, %.3f) xp %u stones %u\n", name, at.x, at.y, at.z, o.XP, o.Stones);
+            CHECK(Clean(o.Log) && has(o, "Menyu: Asosiy davom=1") && has(o, "SLICE_RESUMED lvl=1 source=save recovered=0") && has(o, "SLICE_LEVEL_START lvl=1 entry=continue"));
+            CHECK(o.XP == 100 && o.Stones == uint32_t(atShrine->Inventory.Count("FireStone")) && near(at, atShrine->Position));
+        }
+    }
+    // 3. killed after New game, before the autosave: Continue offers the run and starts it fresh (its autosave written now)
+    {
+        auto o = Continue(home, newGame, banner, at);
+        CHECK(Clean(o.Log) && has(o, "Menyu: Asosiy davom=1") && has(o, "SLICE_SAVED lvl=1 at=auto") && has(o, "SLICE_LEVEL_START lvl=1 entry=continue"));
+        CHECK(o.XP == 0 && o.Stones == 0 && near(at, atCamp->Position) && SavedHero(home / "gameplay-saves/Run1.json"));
+    }
+    // 4. the shrine save damaged (a changed byte): its backup - the autosave - with the "recovered" banner
+    {
+        const auto files = cut / "tampered";
+        Keep(shrine, files);
+        Tamper(files / "gameplay-saves/Run1.json");
+        auto o = Continue(home, files, banner, at);
+        std::printf("  tampered shrine save: backup restored at (%.3f, %.3f, %.3f) xp %u, banner '%s'\n", at.x, at.y, at.z, o.XP, banner.c_str());
+        CHECK(Clean(o.Log) && has(o, "SLICE_RESUMED lvl=1 source=save recovered=1") && banner == "Zaxira nusxadan tiklandi");
+        CHECK(o.XP == 0 && o.Stones == 0 && near(at, atCamp->Position));
+    }
+    // 5. the save and its backup unreadable: a fresh start at the camp, said on screen; the autosave is valid again
+    {
+        const auto files = cut / "unreadable";
+        Keep(shrine, files);
+        Tear(files / "gameplay-saves/Run1.json");
+        Tear(files / "gameplay-saves/Run1.json.bak");
+        auto o = Continue(home, files, banner, at);
+        std::printf("  unreadable save and backup: fresh start xp %u, banner '%s'\n", o.XP, banner.c_str());
+        CHECK(CleanIO(o.Log) && has(o, "SLICE_IO_FAILED load") && has(o, "SLICE_SAVED lvl=1 at=auto") && has(o, "SLICE_LEVEL_START lvl=1 entry=continue"));
+        const auto rewritten = SavedHero(home / "gameplay-saves/Run1.json");
+        CHECK(banner == "Saqlash o'qilmadi - daraja boshidan" && o.XP == 0 && near(at, atCamp->Position) && rewritten && rewritten->QuestBook.XP == 0);
+    }
+    Finish(work, prior);
 }

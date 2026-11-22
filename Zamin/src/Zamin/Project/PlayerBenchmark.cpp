@@ -4,8 +4,10 @@
 
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <format>
+#include <string_view>
 
 namespace Zamin {
 
@@ -15,9 +17,10 @@ namespace Zamin {
         m_Settings.Warmup = std::max(0, m_Settings.Warmup);
         m_Frames.reserve((size_t)m_Settings.Frames);
         m_Updates.reserve((size_t)m_Settings.Frames);
+        m_GameCode.reserve((size_t)m_Settings.Frames);
     }
 
-    bool PlayerBenchmark::AddFrame(double frameMs, double updateMs)
+    bool PlayerBenchmark::AddFrame(double frameMs, double updateMs, double gameCodeMs)
     {
         if (!IsEnabled() || IsDone())
             return IsDone();
@@ -25,7 +28,29 @@ namespace Zamin {
             return false;
         m_Frames.push_back(frameMs);
         m_Updates.push_back(updateMs);
+        if (gameCodeMs >= 0.0)
+            m_GameCode.push_back(gameCodeMs);
         return IsDone();
+    }
+
+    double PlayerBenchmark::GameCodeMilliseconds(const std::vector<Profiler::Entry>& frame)
+    {
+        for (size_t i = 0; i < frame.size(); i++)
+        {
+            const Profiler::Entry& layer = frame[i];
+            if (layer.Depth != 1 || layer.Parent < 0 || std::string_view(frame[(size_t)layer.Parent].Name) != "Kadr" ||
+                std::string_view(layer.Name) != "Layer'lar (update)")
+                continue;
+            double ms = layer.Milliseconds;
+            for (int child = (int)i + 1; child < layer.End && child < (int)frame.size(); child++)
+            {
+                const Profiler::Entry& e = frame[(size_t)child];
+                if (e.Parent == (int)i && (std::string_view(e.Name) == "Sahnalar (chizish)" || std::string_view(e.Name) == "Post-processing"))
+                    ms -= e.Milliseconds;
+            }
+            return std::max(0.0, ms);
+        }
+        return -1.0;
     }
 
     PlayerBenchmark::Result PlayerBenchmark::GetResult() const
@@ -34,6 +59,7 @@ namespace Zamin {
         r.Warmup = std::min(m_Seen, m_Settings.Warmup);
         r.Frame = FrameTimeStats::Compute(m_Frames);
         r.Update = FrameTimeStats::Compute(m_Updates);
+        r.GameCode = FrameTimeStats::Compute(m_GameCode);
         r.Seconds = r.Frame.Total / 1000.0;
         r.FrameTimes = m_Frames;
         r.MaxAverageMs = m_Settings.MaxAverageMs;
@@ -86,6 +112,8 @@ namespace Zamin {
         j["LoadSeconds"] = Round(r.LoadSeconds);
         j["Frame"] = StatsJson(r.Frame);
         j["Update"] = StatsJson(r.Update);
+        if (r.GameCode.Count > 0)
+            j["GameCode"] = StatsJson(r.GameCode);
         nlohmann::ordered_json limits;
         limits["MaxAverage"] = Round(r.MaxAverageMs);
         limits["MaxP95"] = Round(r.MaxP95Ms);
@@ -118,6 +146,8 @@ namespace Zamin {
         text += std::format("  {} kadr ({} ta isitish kadridan keyin), {:.2f} s; yuklanish {:.2f} s\n", r.Frame.Count, r.Warmup, r.Seconds, r.LoadSeconds);
         text += std::format("  Kadr:      {}\n", r.Frame.Format());
         text += std::format("  Yangilash: {} (o'yin yangilanishi va chizish chaqiruvlari, swap'siz)\n", r.Update.Format());
+        if (r.GameCode.Count > 0)
+            text += std::format("  O'yin kodi: {} (skriptlar, gameplay, fizika, AI, animatsiya, particle'lar, audio - chizishsiz)\n", r.GameCode.Format());
         if (r.MaxAverageMs > 0.0 || r.MaxP95Ms > 0.0)
         {
             std::string limits;

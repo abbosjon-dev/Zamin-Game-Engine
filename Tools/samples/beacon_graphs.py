@@ -17,6 +17,8 @@ HERO, SWORD, SHIELD, CAMERA = 1000, 1001, 1002, 1003
 GAME, MUSIC, AMBIENCE, BOSS_MUSIC, SUN = 1100, 1101, 1102, 1104, 1110
 ACCENT = (0.98, 0.74, 0.34, 1)
 GS = "BP"
+# the banner of a save whose primary and backup are both unreadable (the level starts again from the camp)
+UNREADABLE = "Saqlash o'qilmadi - daraja boshidan"
 M = {}  # masks and layers (set by build)
 
 
@@ -1207,7 +1209,9 @@ def game_graph(assets, project, C):
     resumed = g.ex(g.join((r1b, "Then"), (r0, "Then")), "SendMessage", Target=HERO, Name="Resumed", Text="")
     lf = g.ex((loaded, "False"), "Print")
     g.l(*g.text(["SLICE_IO_FAILED load ", (load, "Reason")]), lf, "Text")
-    fresh = g.setv(g.join((cont, "False"), (lf, "Then")), "Time", 0)
+    # an unreadable save (primary and backup) is said on screen: the level starts again from the camp
+    lfb = g.ex((lf, "Then"), "SendMessage", Target=GAME, Name="Banner", Text=UNREADABLE)
+    fresh = g.setv(g.join((cont, "False"), (lfb, "Then")), "Time", 0)
     auto = g.ex(fresh, "Gameplay.SaveWrite", Schema=schema)
     g.l(g.get("Slot"), "Value", auto, "Slot")
     autook = g.br((auto, "Then"), (auto, "Success"))

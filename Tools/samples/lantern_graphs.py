@@ -15,6 +15,8 @@ HERO, HERO_VISUAL, HERO_LIGHT, CAMERA = 1000, 1001, 1002, 1003
 GAME, MUSIC, AMBIENCE, BOSS_MUSIC = 1100, 1101, 1102, 1104
 CANVAS = 6000
 GS = "LK"
+# the banner of a save whose primary and backup are both unreadable (the level starts again from its entry)
+UNREADABLE = "Saqlash o'qilmadi - daraja boshidan"
 WALL_MASK = 2
 ACCENT = (0.98, 0.76, 0.32, 1)
 INK = (0.94, 0.92, 0.86, 1)
@@ -991,9 +993,14 @@ def game_graph(assets, project, C):
     resumed = g.ex(g.join((r1b, "Then"), (r0, "Then")), "SendMessage", Target=HERO, Name="Resumed", Text="")
     lf = g.ex((loaded, "False"), "Print")
     g.l(*g.text(["SLICE_IO_FAILED load ", (load, "Reason")]), lf, "Text")
+    # an unreadable save (primary and backup) is said on screen: the level starts again from its entry (carry or fresh)
+    lfb = g.ex((lf, "Then"), "SendMessage", Target=GAME, Name="Banner", Text=UNREADABLE)
+    # ... in a later frame: the failed load spent one of the scene's two save file operations of this frame, the transfer
+    # and the autosave below need both
+    lfd = g.ex((lfb, "Then"), "Delay", Seconds=0.04)
     # a level exit (carry) or a Continue without a level 2 save reads the transfer; a direct start of level 2 (Editor Play,
     # StartScene: Entry "new") is a fresh run and never picks up a stale Carry.json
-    fresh = g.br(g.join((cont, "False"), (lf, "Then")),
+    fresh = g.br(g.join((cont, "False"), (lfd, "Then")),
                  g.all_of([(g.cmp("Equal", V(g, "Level"), 2), "Value"), (g.not_((g.text_is(V(g, "Entry"), "new"), "Value")), "Value")]))
     carry = g.ex((fresh, "True"), "Gameplay.TransferLoad", Key="Hero", Slot="Carry", Schema=schema)
     carried = g.br((carry, "Then"), (carry, "Success"))
@@ -1001,8 +1008,9 @@ def game_graph(assets, project, C):
     pc = g.ex((heal, "Then"), "Print", Text="SLICE_RESUMED lvl=2 source=carry recovered=0")
     cf = g.ex((carried, "False"), "Print")
     g.l(*g.text(["SLICE_IO_FAILED transfer ", (carry, "Reason")]), cf, "Text")
+    cfb = g.ex((cf, "Then"), "SendMessage", Target=GAME, Name="Banner", Text=UNREADABLE)
     fresh1 = g.setv((fresh, "False"), "Time", 0)
-    auto = g.ex(g.join((pc, "Then"), (cf, "Then"), fresh1), "Gameplay.SaveWrite", Schema=schema)
+    auto = g.ex(g.join((pc, "Then"), (cfb, "Then"), fresh1), "Gameplay.SaveWrite", Schema=schema)
     g.l(g.get("Slot"), "Value", auto, "Slot")
     autook = g.br((auto, "Then"), (auto, "Success"))
     ws = g.ex((autook, "True"), "WriteState.Number", Key=f"{GS}.Run.Save")

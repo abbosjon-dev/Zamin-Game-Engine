@@ -39,6 +39,10 @@ namespace {
         bool Sword = false, Armor = false, Charm = false, Nova = false, Mend = false, BossDead = false;
         size_t Projectiles = 99;
         std::vector<std::string> Trace; // SLICE_TRACE lines (determinism)
+        std::string Banner;             // the last banner text shown (entity 6091)
+        glm::vec3 HeroAt{ 0 };          // the hero at the stop
+        glm::vec3 StartAt{ 0 };         // the hero at the level start line (Continue)
+        float Health = 0;
     };
     // A private copy of the project: the pilot on, demo menu, and (headless, no GL context) projectile definitions
     // without their visual prefabs (presentation only, outside the combat signature).
@@ -89,7 +93,12 @@ namespace {
         o.Coins = uint32_t(bag.Count("Coin"));
         o.Lamps = uint32_t(bag.Count("Lamp"));
         o.Herbs = uint32_t(bag.Count("Herb"));
-        if (auto h = rules.Health(hero)) o.Deaths = h->Deaths;
+        o.HeroAt = hero.GetTransform().Translation;
+        if (auto h = rules.Health(hero))
+        {
+            o.Deaths = h->Deaths;
+            o.Health = float(h->Current);
+        }
         auto& quests = G::QuestWorld::For(scene);
         o.XP = quests.XP(hero);
         o.Level = quests.Progression(hero).Level;
@@ -114,8 +123,10 @@ namespace {
         if (auto* combat = scene.GetRegistry().ctx().find<G::CombatWorld>()) o.Projectiles = combat->LiveCount();
     }
     // Plays from `start` (a scene path inside Assets) following LoadScene requests, at a fixed 1/30 s, until `stop`
-    // returns true for a new log line or `limit` frames pass.
-    Outcome Play(const std::string& start, int limit, const std::function<bool(const std::string&, Outcome&)>& stop = {})
+    // returns true for a new log line, `frame` returns true after a frame (after its log lines) or `limit` frames pass.
+    // `between` sees every scene switch (the scene asked for the next one; the files are what it wrote until then).
+    Outcome Play(const std::string& start, int limit, const std::function<bool(const std::string&, Outcome&)>& stop = {},
+                 const std::function<bool(Scene&, Outcome&)>& frame = {}, const std::function<void(const std::string&)>& between = {})
     {
         Outcome o;
         const auto level = Log::GetMinLevel();
@@ -153,9 +164,20 @@ namespace {
                         Observe(*scene, o);
                     }
                     if (text.find("SLICE_DEFEAT") != std::string::npos) o.Defeat = true;
-                    if (stop && stop(text, o)) done = true;
+                    if (stop && stop(text, o))
+                    {
+                        done = true;
+                        Observe(*scene, o);
+                    }
                 }
                 seen = first + messages.size();
+                if (auto banner = scene->GetEntityByUUID(UUID(6091)))
+                    if (auto* text = banner.TryGetComponent<TextComponent>(); text && !text->Text.empty()) o.Banner = text->Text;
+                if (!done && frame && frame(*scene, o))
+                {
+                    done = true;
+                    Observe(*scene, o);
+                }
                 if (trace && o.Frames % trace == 0)
                     if (auto hero = scene->GetEntityByUUID(UUID(Hero)))
                     {
@@ -173,6 +195,7 @@ namespace {
                 }
             }
             if (!done && o.Victory) Observe(*scene, o);
+            if (!next.empty() && between) between(next);
             scene->OnRuntimeStop();
             if (next.empty()) break;
             path = next;
@@ -292,5 +315,199 @@ TEST(LanternKeeperDeterminism)
     }
     std::printf("  frames %d / %d, trace lines %zu / %zu\n", frames[0], frames[1], traces[0].size(), traces[1].size());
     CHECK(frames[0] == frames[1] && traces[0] == traces[1] && traces[0].size() > 20);
+    // ZAMIN_SLICE_TRACE_OUT=<file>: the trace for Tests/slice_workflow_test.py's D phase (the Player's level 1 trace must equal it)
+    if (const char* out = std::getenv("ZAMIN_SLICE_TRACE_OUT"))
+    {
+        std::string text;
+        for (const auto& line : traces[0]) text += line.substr(line.find("SLICE_TRACE")) + "\n";
+        CHECK(FileSystem::WriteTextFile(out, text));
+    }
+    Project::SetActive(prior);
+}
+namespace {
+    // A fresh process on the files in `from`: the HOME is replaced by them and GameState / SaveData are read again.
+    void FreshProcess(const std::filesystem::path& home, const std::filesystem::path& from)
+    {
+        std::filesystem::remove_all(home);
+        std::filesystem::copy(from, home, std::filesystem::copy_options::recursive);
+        SaveData::Reload();
+        GameState::Clear();
+        GameState::Load();
+    }
+    void Keep(const std::filesystem::path& home, const std::filesystem::path& to)
+    {
+        std::filesystem::remove_all(to);
+        std::filesystem::create_directories(to.parent_path());
+        std::filesystem::copy(home, to, std::filesystem::copy_options::recursive);
+    }
+    // A torn write (the document ends mid-way) and a changed byte (the checksum no longer matches).
+    void Tear(const std::filesystem::path& file) { CHECK(FileSystem::WriteTextFile(file, FileSystem::ReadTextFile(file).substr(0, 96))); }
+    void Tamper(const std::filesystem::path& file)
+    {
+        auto text = FileSystem::ReadTextFile(file);
+        const auto at = text.find("\"Health\":");
+        CHECK(at != std::string::npos);
+        text.insert(at + 9, "1");
+        CHECK(FileSystem::WriteTextFile(file, text));
+    }
+    // The hero of a save document: XP, coins.
+    std::pair<uint32_t, uint32_t> SavedHero(const std::filesystem::path& file)
+    {
+        G::GameSave save;
+        std::string error;
+        CHECK(G::DecodeGameSave(FileSystem::ReadTextFile(file), save, error));
+        for (const auto& e : save.Entities)
+            if (e.Key == "Hero") return { e.QuestBook.XP, uint32_t(e.Inventory.Count("Coin")) };
+        return { 99999u, 99999u };
+    }
+    // Only the markers a run on broken files is allowed to show (an unreadable save says so, never crashes).
+    bool CleanIO(const std::string& log)
+    {
+        for (auto bad : { "SLICE_CONFIG_FAILED", "SLICE_ORACLE_FAILED", "Visual graph '", "Instruction budget", "nomli harakat topilmadi", "SLICE_IO_FAILED autosave" })
+            if (log.find(bad) != std::string::npos) return false;
+        return true;
+    }
+    // The demo menu (Continue when it is offered, else New game) on a fresh process over `from`, until `after` frames
+    // after the level's start line.
+    Outcome Continue(const std::filesystem::path& home, const std::filesystem::path& from, int after = 12)
+    {
+        FreshProcess(home, from);
+        int started = -1;
+        return Play("Scenes/Menu.zscene", 30 * 40, {}, [&](Scene& scene, Outcome& o) {
+            if (started < 0 && o.Log.find("SLICE_LEVEL_START") != std::string::npos)
+            {
+                started = o.Frames;
+                if (auto hero = scene.GetEntityByUUID(UUID(Hero))) o.StartAt = hero.GetTransform().Translation;
+            }
+            return started >= 0 && o.Frames >= started + after;
+        });
+    }
+}
+// The crash/kill matrix of the run flow (docs/VerticalSlices.md, "Save and resume"): one normal run keeps the files a
+// process killed at each step would leave behind - the level 1 exit's transfer written but not GameState, GameState
+// written but not the level 2 autosave, the autosave written but not GameState, both written, the level 2 shrine - and
+// a fresh process (the menu's Continue) on each must resume a consistent run with no reward granted twice; a damaged
+// primary save falls back to its backup (recovered, said on screen), a damaged primary and backup to the level's entry
+// (the transfer in level 2, a fresh level 1) with a visible message, never a crash or a half-applied state.
+TEST(LanternKeeperResumeMatrixHeadless)
+{
+    const auto prior = Project::GetActive();
+    const auto work = Prepare(3);
+    const auto home = work / "home", cut = work / "cuts";
+    std::filesystem::path complete = cut / "l1-complete", switched = cut / "l2-switch", l2 = cut / "l2-start", shrine = cut / "l2-shrine";
+    // the write run: menu -> Boglar (shrine) -> level card -> transfer -> Yertola (carry, autosave) -> shrine, pilot stops
+    auto a = Play("Scenes/Menu.zscene", 30 * 60 * 5,
+                  [&](const std::string& line, Outcome&) {
+                      if (line.find("SLICE_LEVEL_COMPLETE lvl=1") != std::string::npos) Keep(home, complete);
+                      if (line.find("SLICE_LEVEL_START lvl=2") != std::string::npos) Keep(home, l2);
+                      if (line.find("SLICE_SAVED lvl=2 at=shrine") != std::string::npos)
+                      {
+                          Keep(home, shrine);
+                          return true;
+                      }
+                      return false;
+                  },
+                  {}, [&](const std::string& next) {
+                      if (next.find("Yertola") != std::string::npos) Keep(home, switched);
+                  });
+    if (!Clean(a.Log)) std::printf("%s\n", a.Log.c_str());
+    CHECK(Clean(a.Log) && a.Scenes.size() == 3 && std::filesystem::exists(shrine / "gameplay-saves/Run2.json"));
+    CHECK(std::filesystem::exists(complete / "gameplay-saves/Run1.json") && !std::filesystem::exists(complete / "gameplay-transfers/Carry.json"));
+    if (!std::filesystem::exists(shrine / "gameplay-saves/Run2.json"))
+    {
+        std::filesystem::remove_all(work);
+        Project::SetActive(prior);
+        return;
+    }
+    G::GameTransfer carry;
+    std::string error;
+    CHECK(G::DecodeGameTransfer(FileSystem::ReadTextFile(switched / "gameplay-transfers/Carry.json"), carry, error) && carry.QuestBook.XP == 200);
+    const auto [shrineXP, shrineCoins] = SavedHero(complete / "gameplay-saves/Run1.json");
+    const auto [l2XP, l2Coins] = SavedHero(l2 / "gameplay-saves/Run2.json");
+    std::printf("  write run %d frames; level 1 shrine save xp %u coins %u; carry xp %u; level 2 autosave xp %u coins %u\n", a.Frames, shrineXP, shrineCoins,
+                carry.QuestBook.XP, l2XP, l2Coins);
+    CHECK(l2XP == 200 && shrineXP < 200);
+    auto has = [](const Outcome& o, const char* marker) {
+        if (o.Log.find(marker) != std::string::npos) return true;
+        std::printf("    missing '%s' in:\n%s\n", marker, o.Log.c_str());
+        return false;
+    };
+
+    // 1. killed after the transfer write, before GameState: Continue resumes level 1 from its shrine save; the exit is
+    //    replayed and writes the same transfer again (no reward twice)
+    {
+        const auto files = cut / "after-transfer";
+        Keep(complete, files);
+        std::filesystem::copy(switched / "gameplay-transfers", files / "gameplay-transfers", std::filesystem::copy_options::recursive);
+        FreshProcess(home, files);
+        auto o = Play("Scenes/Menu.zscene", 30 * 60 * 3, [](const std::string& line, Outcome&) { return line.find("SLICE_RESUMED lvl=2") != std::string::npos; });
+        std::printf("  after-transfer: resumed level 1 from its save (xp %u), exit again, level 2 xp %u coins %u\n", shrineXP, o.XP, o.Coins);
+        CHECK(Clean(o.Log) && has(o, "Menyu: Asosiy davom=1") && has(o, "SLICE_RESUMED lvl=1 source=save recovered=0") && has(o, "SLICE_LEVEL_START lvl=1 entry=continue"));
+        CHECK(has(o, "SLICE_RESUMED lvl=2 source=carry") && o.Log.find(" xp=200 ") != std::string::npos && o.XP == 200 && o.Coins == uint32_t(carry.Inventory.Count("Coin")));
+        G::GameTransfer again;
+        CHECK(G::DecodeGameTransfer(FileSystem::ReadTextFile(home / "gameplay-transfers/Carry.json"), again, error) && again.QuestBook.XP == 200 &&
+              again.Inventory.Items == carry.Inventory.Items);
+    }
+    // 2. killed after GameState (level 2 asked for), before the level 2 autosave: Continue enters level 2 through the transfer
+    // 3. killed after the level 2 autosave, before its GameState: the same (the autosave is written again)
+    {
+        const auto files = cut / "after-autosave";
+        Keep(l2, files);
+        std::filesystem::copy_file(switched / "prefs.json", files / "prefs.json", std::filesystem::copy_options::overwrite_existing);
+        for (auto [name, from] : { std::pair{ "after-gamestate", switched }, std::pair{ "after-autosave", files } })
+        {
+            auto o = Continue(home, from);
+            std::printf("  %s: entered level 2 through the transfer, xp %u coins %u hp %.0f\n", name, o.XP, o.Coins, o.Health);
+            CHECK(Clean(o.Log) && has(o, "Menyu: Asosiy davom=1") && has(o, "SLICE_RESUMED lvl=2 source=carry recovered=0") && has(o, "SLICE_SAVED lvl=2 at=auto"));
+            CHECK(has(o, "SLICE_LEVEL_START lvl=2 entry=continue") && o.XP == 200 && o.Coins == l2Coins && o.Scenes.back() == "Yertola");
+            CHECK(GameState::GetFloat("LK.Run.Save", 0) == 2 && SavedHero(home / "gameplay-saves/Run2.json").first == 200);
+        }
+    }
+    // 4. killed after the autosave and its GameState: Continue loads the level 2 save
+    Outcome entry = Continue(home, l2);
+    CHECK(Clean(entry.Log) && has(entry, "SLICE_RESUMED lvl=2 source=save recovered=0") && entry.XP == 200 && entry.Coins == l2Coins);
+    // 5. the shrine save damaged (a changed byte): its backup - the autosave before it - with the "recovered" banner
+    {
+        const auto files = cut / "tampered";
+        Keep(shrine, files);
+        Tamper(files / "gameplay-saves/Run2.json");
+        auto o = Continue(home, files);
+        std::printf("  tampered shrine save: backup restored at (%.2f, %.2f) xp %u coins %u lamps %u (the level 2 autosave: (%.2f, %.2f) coins %u lamps %u), banner '%s'\n",
+                    o.StartAt.x, o.StartAt.y, o.XP, o.Coins, o.Lamps, entry.StartAt.x, entry.StartAt.y, entry.Coins, entry.Lamps, o.Banner.c_str());
+        CHECK(Clean(o.Log) && has(o, "SLICE_RESUMED lvl=2 source=save recovered=1") && o.Banner == "Zaxira nusxadan tiklandi");
+        CHECK(o.XP == 200 && o.Coins == entry.Coins && o.Lamps == entry.Lamps && glm::length(o.StartAt - entry.StartAt) < 0.001f);
+    }
+    // 6. the shrine save and its backup unreadable: the level starts again from the transfer, said on screen
+    {
+        const auto files = cut / "unreadable";
+        Keep(shrine, files);
+        Tear(files / "gameplay-saves/Run2.json");
+        Tear(files / "gameplay-saves/Run2.json.bak");
+        auto o = Continue(home, files);
+        std::printf("  unreadable save and backup: carry again, xp %u, banner '%s'\n", o.XP, o.Banner.c_str());
+        CHECK(CleanIO(o.Log) && has(o, "SLICE_IO_FAILED load") && has(o, "SLICE_RESUMED lvl=2 source=carry") && has(o, "SLICE_SAVED lvl=2 at=auto"));
+        CHECK(o.Banner == "Saqlash o'qilmadi - daraja boshidan" && o.XP == 200 && o.Coins == l2Coins && SavedHero(home / "gameplay-saves/Run2.json").first == 200);
+    }
+    // 7. level 1's save and backup unreadable: a fresh level 1, said on screen
+    {
+        const auto files = cut / "unreadable-l1";
+        Keep(complete, files);
+        Tear(files / "gameplay-saves/Run1.json");
+        if (std::filesystem::exists(files / "gameplay-saves/Run1.json.bak")) Tear(files / "gameplay-saves/Run1.json.bak");
+        auto o = Continue(home, files);
+        CHECK(CleanIO(o.Log) && has(o, "SLICE_IO_FAILED load") && has(o, "SLICE_SAVED lvl=1 at=auto") && has(o, "SLICE_LEVEL_START lvl=1 entry=continue"));
+        CHECK(o.Banner == "Saqlash o'qilmadi - daraja boshidan" && o.XP == 0 && o.Coins == 0 && o.Scenes.back() == "Boglar");
+    }
+    // 8. level 2's save, its backup and the transfer (and its backup) all unreadable: a fresh level 2, said on screen
+    {
+        const auto files = cut / "unreadable-all";
+        Keep(shrine, files);
+        for (auto name : { "gameplay-saves/Run2.json", "gameplay-saves/Run2.json.bak", "gameplay-transfers/Carry.json", "gameplay-transfers/Carry.json.bak" })
+            if (std::filesystem::exists(files / name)) Tear(files / name);
+        auto o = Continue(home, files);
+        CHECK(CleanIO(o.Log) && has(o, "SLICE_IO_FAILED load") && has(o, "SLICE_IO_FAILED transfer") && has(o, "SLICE_SAVED lvl=2 at=auto"));
+        CHECK(o.Banner == "Saqlash o'qilmadi - daraja boshidan" && o.XP == 0 && o.Scenes.back() == "Yertola" && SavedHero(home / "gameplay-saves/Run2.json").first == 0);
+    }
+    std::filesystem::remove_all(work);
     Project::SetActive(prior);
 }

@@ -207,10 +207,35 @@ sarlavhasini yopishi barcha workshop'larda umumiy (LoadoutWorkshop'da ham) — a
 
 ### Keyingi paket — ikki tugallangan 2D/3D vertical slice va stress darvozalari
 
-- [ ] 2D vertical slice: menyu, kamida ikki daraja, motor/combat/AI/quest/loadout/HUD bitta o‘yin oqimida, yakun ekrani.
+- [x] 2D vertical slice: menyu, kamida ikki daraja, motor/combat/AI/quest/loadout/HUD bitta o‘yin oqimida, yakun ekrani.
 - [ ] 3D vertical slice: character controller, kamera, Animator locomotion, combat/AI/quest va save bitta o‘yin oqimida.
 - [ ] Animatsiya/fizika stress hamda UI input/scale (klaviatura/gamepad, turli rezolyutsiya) darvozalari.
 - [ ] Fresh-process resume, relocated export, profiling va regression darvozalari ikkala slice uchun.
+
+Dalillar (2D slice, 2026-11-22): *Chiroqbon* (`Projects/LanternKeeper`, kompilyatorsiz, `ScriptModulePath ""`) —
+`Menu`, `Boglar` (46×26), `Yertola` (44×30), g‘alaba va mag‘lubiyat ekranlari, boss Soya Bek;
+[VerticalSlices.md](VerticalSlices.md). Engine kengaytmalari: transfer hujjati (`Zamin.GameplayTransfer` v1,
+`SaveWorld::CaptureTransfer/RestoreTransfer`, `Gameplay.TransferWrite/Load/Inspect`), LoadScene fade, App/Audio/
+Localization/Display/UIValue node'lari, `Gameplay.Steer` va vektor matematikasi, `FormatNumber`/`FormatTime`, HUD
+kind 7–9 (energiya, qobiliyat, tajriba darajasi), AI `Strike=false` (delegatsiyalangan hujum), Animator
+`DriveSpriteClips`; generator kitlari `Tools/samples/graphkit.py`, `slicekit.py`, `gen_lantern_keeper.py`.
+1332/1332 unit (17 yangi: 4 transfer, 5 slice node/HUD, 1 AI, 3 sprite klip, 4 `LanternKeeper*`; to‘liq run 86 s),
+12/12 headless CTest, `ctest -L docs` 2/2, build ogohlantirishsiz. Headless: oracle menyu → Boglar → transfer →
+Yertola → g‘alaba 5022 kadrda (850 XP, 4-daraja, 5/5 vazifa, 19 tanga = 8 + 6 + vazifa mukofoti 5, Qilich/Tumor/Zirh
+kiyilgan, Nova/Mend ochiq, boss o‘lik, uchayotgan snaryad 0); mag‘lubiyat rejasi 5263 kadr (3 o‘lim → mag‘lubiyat →
+saqlashdan qayta yuklash → 1-daraja yana 200 XP/13 tanga bilan, mukofot takrorlanmaydi); determinizm 2252/2252 kadr,
+23/23 trace qatori. `Tests/slice_workflow_test.py` (yangi CI qadami) 7/7 faza, 840 s: P0 klaviatura lentasi 24 s
+(musiqa 0.55 → 0.85, `SLICE_SETTINGS`, yangi o‘yin, harakat/Bolt/zarba/inventar/pauza), P1 demo 231 s (1-daraja
+75.0 s, 13 tanga, 200 XP; `Carry.json` v1 XP 200, `Run2.json` v4 Yertola), P2 yangi jarayonda Davom etish → boss →
+g‘alaba 189 s (`time=166.3 xp=850 level=4 coins=19 deaths=0 quests=5/5`), P3 6 s (Davom etish yo‘q, "Eng yaxshi vaqt
+02:46"), P4 mag‘lubiyat → qayta yuklash 300 s (`coins=13 xp=200`, qayta yuklashdan keyin pilot tiqilmaydi), E0
+Editor Play Boglar 48 s, E1 Editor Play Yertola eski `Carry.json` yonida 41 s (shu qadamda tuzatildi: daraja
+to‘g‘ridan-to‘g‘ri ochilganda eski transferni o‘qimaydi). Loyiha 192 fayl, 5.2 MB; graflar (node/link): Hero 560/678,
+Game 620/732, Enemy 174/205, Menu 147/160 (chegara 2500/5000); generator ikki marta ishga tushirilganda fayllar bir
+xil. Dizayndan farqlar: darajalar kichikroq (56×32/48×36 o‘rniga), o‘tlar 5 emas 3, dushmanlar kamroq (L1 4
+qaroqchi, 2 kamonchi va boshliq; L2 4 skelet, 2 kamonchi, boss va 2 ruh), richag/panjara/tikan tuzoqlari yo‘q; bitta `Enemy`
+grafi arxetip override'lari bilan, daraja direktori `Game` grafida; sozlamalar faqat menyuda (o‘yin ichida va UI
+scale yo‘q). Gamepad lentasi, UI scale, relocated export va `samples_assets.py` graf rejimi 3–4-itemlarga qoldirildi.
 
 ### Yakunlangan bo‘lim — gameplay UI
 

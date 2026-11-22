@@ -42,6 +42,7 @@ namespace {
         std::string Banner;             // the last banner text shown (entity 6091)
         glm::vec3 HeroAt{ 0 };          // the hero at the stop
         glm::vec3 StartAt{ 0 };         // the hero at the level start line (Continue)
+        double PilotStep = -1;          // the demo pilot's route step at the stop
         float Health = 0;
     };
     // A private copy of the project: the pilot on, demo menu, and (headless, no GL context) projectile definitions
@@ -94,6 +95,9 @@ namespace {
         o.Lamps = uint32_t(bag.Count("Lamp"));
         o.Herbs = uint32_t(bag.Count("Herb"));
         o.HeroAt = hero.GetTransform().Translation;
+        if (auto* script = hero.TryGetComponent<NativeScriptComponent>())
+            if (auto* host = dynamic_cast<VisualGraphHost*>(script->Instance); host && host->VM.Variables().contains("Step"))
+                o.PilotStep = host->VM.Variables().at("Step").get<double>();
         if (auto h = rules.Health(hero))
         {
             o.Deaths = h->Deaths;
@@ -396,20 +400,17 @@ TEST(LanternKeeperResumeMatrixHeadless)
     const auto home = work / "home", cut = work / "cuts";
     std::filesystem::path complete = cut / "l1-complete", switched = cut / "l2-switch", l2 = cut / "l2-start", shrine = cut / "l2-shrine";
     // the write run: menu -> Boglar (shrine) -> level card -> transfer -> Yertola (carry, autosave) -> shrine, pilot stops
-    auto a = Play("Scenes/Menu.zscene", 30 * 60 * 5,
-                  [&](const std::string& line, Outcome&) {
-                      if (line.find("SLICE_LEVEL_COMPLETE lvl=1") != std::string::npos) Keep(home, complete);
-                      if (line.find("SLICE_LEVEL_START lvl=2") != std::string::npos) Keep(home, l2);
-                      if (line.find("SLICE_SAVED lvl=2 at=shrine") != std::string::npos)
-                      {
-                          Keep(home, shrine);
-                          return true;
-                      }
-                      return false;
-                  },
-                  {}, [&](const std::string& next) {
-                      if (next.find("Yertola") != std::string::npos) Keep(home, switched);
-                  });
+    auto keep = [&](const std::string& line, Outcome&) {
+        if (line.find("SLICE_LEVEL_COMPLETE lvl=1") != std::string::npos) Keep(home, complete);
+        if (line.find("SLICE_LEVEL_START lvl=2") != std::string::npos) Keep(home, l2);
+        if (line.find("SLICE_SAVED lvl=2 at=shrine") == std::string::npos) return false;
+        Keep(home, shrine);
+        return true;
+    };
+    auto switching = [&](const std::string& next) {
+        if (next.find("Yertola") != std::string::npos) Keep(home, switched);
+    };
+    auto a = Play("Scenes/Menu.zscene", 30 * 60 * 5, keep, {}, switching);
     if (!Clean(a.Log)) std::printf("%s\n", a.Log.c_str());
     CHECK(Clean(a.Log) && a.Scenes.size() == 3 && std::filesystem::exists(shrine / "gameplay-saves/Run2.json"));
     CHECK(std::filesystem::exists(complete / "gameplay-saves/Run1.json") && !std::filesystem::exists(complete / "gameplay-transfers/Carry.json"));
@@ -463,9 +464,13 @@ TEST(LanternKeeperResumeMatrixHeadless)
             CHECK(GameState::GetFloat("LK.Run.Save", 0) == 2 && SavedHero(home / "gameplay-saves/Run2.json").first == 200);
         }
     }
-    // 4. killed after the autosave and its GameState: Continue loads the level 2 save
+    // 4. killed after the autosave and its GameState: Continue loads the level 2 save; the demo pilot starts level 2's
+    //    route from its beginning (the entry save resets the route step - before, it kept level 1's shrine step and the
+    //    pilot got stuck in a relocated export's resumed attract run)
     Outcome entry = Continue(home, l2);
+    std::printf("  level 2 entry save: xp %u coins %u, pilot step %.0f\n", entry.XP, entry.Coins, entry.PilotStep);
     CHECK(Clean(entry.Log) && has(entry, "SLICE_RESUMED lvl=2 source=save recovered=0") && entry.XP == 200 && entry.Coins == l2Coins);
+    CHECK(entry.PilotStep >= 0 && entry.PilotStep < 3);
     // 5. the shrine save damaged (a changed byte): its backup - the autosave before it - with the "recovered" banner
     {
         const auto files = cut / "tampered";

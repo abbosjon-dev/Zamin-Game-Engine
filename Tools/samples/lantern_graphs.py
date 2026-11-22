@@ -1015,7 +1015,10 @@ def game_graph(assets, project, C):
     autook = g.br((auto, "Then"), (auto, "Success"))
     ws = g.ex((autook, "True"), "WriteState.Number", Key=f"{GS}.Run.Save")
     g.l(g.get("Level"), "Value", ws, "Value")
-    pa = g.ex((ws, "Then"), "Print")
+    # the entry save is the start of the level's route: a Continue from it starts the pilot there, not at a step of
+    # the previous level's shrine
+    wst = g.ex((ws, "Then"), "WriteState.Number", Key=f"{GS}.Run.Step", Value=0)
+    pa = g.ex((wst, "Then"), "Print")
     g.l(*g.text(["SLICE_SAVED lvl=", (g.get("Level"), "Value", "number"), " at=auto"]), pa, "Text")
     af = g.ex((autook, "False"), "Print")
     g.l(*g.text(["SLICE_IO_FAILED autosave ", (auto, "Reason")]), af, "Text")

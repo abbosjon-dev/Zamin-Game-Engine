@@ -1216,7 +1216,9 @@ def game_graph(assets, project, C):
     g.l(g.get("Slot"), "Value", auto, "Slot")
     autook = g.br((auto, "Then"), (auto, "Success"))
     ws = g.ex((autook, "True"), "WriteState.Number", Key=f"{GS}.Run.Save", Value=1)
-    pa = g.ex((ws, "Then"), "Print", Text="SLICE_SAVED lvl=1 at=auto")
+    # the entry save is the start of the route: a Continue from it starts the pilot at the camp
+    wst = g.ex((ws, "Then"), "WriteState.Number", Key=f"{GS}.Run.Step", Value=0)
+    pa = g.ex((wst, "Then"), "Print", Text="SLICE_SAVED lvl=1 at=auto")
     af = g.ex((autook, "False"), "Print")
     g.l(*g.text(["SLICE_IO_FAILED autosave ", (auto, "Reason")]), af, "Text")
     common = g.join((resumed, "Then"), (pa, "Then"), (af, "Then"))

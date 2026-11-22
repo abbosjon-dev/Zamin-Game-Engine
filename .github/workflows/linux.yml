@@ -133,6 +133,9 @@ jobs:
       - name: Dovon mash'ali 3D vertical slice (menu, character controller, locomotion, shrine resume, victory, defeat, Editor Play)
         run: python3 Tests/slice_workflow_test.py --game BeaconPass --build build --out world-streaming/slices/BeaconPass
 
+      - name: Slice UI input/scale gate (keyboard/gamepad/mouse tours, UI scale, 6 resolutions, seeded fuzz, ultrawide)
+        run: python3 Tests/slice_ui_test.py --build build --out world-streaming/slices/UI
+
       - name: Quest Blueprint authoring and Undo
         env:
           ZAMIN_BUILD_DIR: build

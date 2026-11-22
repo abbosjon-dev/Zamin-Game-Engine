@@ -172,3 +172,71 @@ slice*; 640x360, quality Low): P0 a keyboard tape (menu → settings → new gam
 *Inventar*); P1 the demo pilot plays to the courtyard shrine save and stops (plan 3: save v4, 100 XP, two stones); P2 a
 fresh process continues from it to the victory screen (800 XP, level 4, 4/4 quests); P3 no Continue after the
 victory; P4 the lose plan (three deaths → defeat → reload → the gate quest once); E0 Editor Play of Dovon.
+
+## Gates
+
+The stress and UI gates of both slices (P5 item 3). Every gate fails on a broken invariant, not only on a slow number.
+
+### Animation and physics stress
+
+Headless, in `ZaminBench` (Release numbers, budgets and invariants in
+[Benchmarks.md](Benchmarks.md#vertical-slice-stress-darvozalari-fizika-animatsiya-oyin-ichida---physics---animation---slice-stress);
+baselines `Tests/Baselines/{physics,animation,slicestress}-release.json`, `Tests/bench.sh --only physics,animation,slicestress
+--compare`; `ctest -L bench` runs each small with its invariants):
+
+| Gate | Workload | Budget | Release, 5 runs (mean / p95) |
+|---|---|---|---|
+| P1 `--physics --2d` | 60×40 m tilemap arena, 2 048 bodies, 64 `StepMotor` actors, 128 projectiles | step ≤ 4 / ≤ 6 ms | 1.56–2.15 / 2.3–3.1 ms |
+| P2 `--physics --3d` | pit, ramps, 0.25 m stairs, 35° slope, 65×65 terrain, 512 bodies, 64 Character Controller 3D, 128 sphere casts | step + CC ≤ 8 / ≤ 12 ms | 1.51–1.80 / 2.00–2.17 ms |
+| A1 `--animation` humanoids | 256 × `Hero.glb` (21 joints) with Dovon's controller, half off-screen | jobs 3 ≤ 1.5 / ≤ 2.0 ms, jobs 0 ≤ 4.0 ms, 0 allocations | 0.57–0.82 / 0.66–1.10 ms; jobs 0 0.99–1.73 ms; 0.0 allocations |
+| A2 `--animation` sprites | 1 024 model-free animators, `DriveSpriteClips`, 2D blend directions turning | ≤ 0.6 ms, 0 allocations | update 0.30–0.48 ms; 0.0 allocations |
+| P3 `--slice-stress --2d` | Boglar: 32 brains (the scene limit), 200 crates, 64 projectiles, 256 sprite animators, 48 Light 2D | game code ≤ 6 / ≤ 10 ms | 2.80–3.42 / 3.00–4.71 ms |
+| A3 `--slice-stress --3d` | Dovon: 24 animated guards + the level's enemies (27 brains), hero, 64 projectiles, 200 Jolt crates | game code ≤ 8 / ≤ 12 ms | 3.89–5.45 / 5.41–6.37 ms |
+
+Invariants, all held: no body out of the arena / pit, no NaN, 2D speed ≤ 6.9 m/s; Character Controller feet never more
+than 0.0002 m below the ground, at least 90.7 % of the commanded distance walked; two simulations give the same hash;
+blend weights sum to 1 within 3e-8, the pose hash is identical with 0 and 3 workers, culled animators are not posed;
+animation events once per crossing at 20/30/60/144 Hz (per animator equal, ±1 at the window's end); sprite frame =
+StartFrame + floor(phase × count) exactly and the phase continuous across direction switches; no graph error, every
+brain alive or dead as its health says. The sprite bench found a real bug: a direction switch fired the current
+frame's event a second time (the new clip restarted at the same frame); the driven clip now keeps its step across a
+switch (`SpriteAnimationComponent::DrivenState`, [Animation.md](Animation.md)). The animator update no longer
+allocates per frame on one thread (it made 223 allocations a frame for 24 humanoids, 870 for 64 sprites).
+
+The in-game stress (A3, P3) runs headless on private copies of the real levels with their real graphs instead of
+separate `Stress` scenes in the Player: the slices' assets are at their 6 MiB budget, and llvmpipe's drawing would bury
+the game code's time.
+
+### UI input and scale
+
+**UI scale.** Both settings screens have an *Interfeys o'lchami* slider (80–120 %, steps of 10 %) that calls
+`Display.SetUIScale` (`Scene::SetUIScaleMultiplier`, multiplying every canvas' scale), is logged as
+`SLICE_SETTINGS ... ui=1.20` and saved in `<Game>.Settings.UIScale`; the game applies it at start, so a fresh process
+comes back at the chosen size.
+
+**Audit.** `Scene::AuditUI` lays the UI out for any view size without drawing and `CheckUIAudit` names each defect
+(`Margin`, `Offscreen`, `Overlap`, `TextOverflow`, `MinFont` - 12 px at 800×600, 14 px from 1024×768, proportionally
+less below 100 % UI scale - `Focus`, `Unreachable`, `SideBand`; [UI.md](UI.md)). The canvases stay *Match width or
+height 0.5* at reference 1920×1080; the layouts were fixed instead (texts ≥ 25 units, the controls line stretched to
+78 % of the view and wrapping, the 2D menu's map widened so a 21:9 view never sees past it).
+
+- **Headless** (`ZaminTests --filter SliceMenuLayout*`): every scene of the slice played for 1.5 s, its first screen
+  (main menu / HUD) and then each of its gameplay UI panels opened in turn (Chiroqbon: Menu, Boglar, Yertola - 15
+  screens; Dovon mash'ali: Menu, Dovon - 8), audited at 800×600, 1024×768, 1280×720, 1600×900, 1920×1080 and
+  2560×1080, each at UI scale 80 / 100 / 120 %: 270 + 144 audits, 13 932 + 5 472 elements, 0 issues, smallest text
+  9.6 px (80 % at 800×600). `SliceMenuLayoutCatchesABrokenLinkAndTinyText` breaks the music
+  slider's links (→ `Unreachable`) and shrinks the version line (→ `MinFont`).
+- **Player** (`python3 Tests/slice_ui_test.py`, CI step *Slice UI input/scale gate*; `ZAMIN_UI_AUDIT` audits each screen
+  at the six sizes whenever the scene or its open panel changes):
+  - U1 keyboard tour (menu → settings: music, UI scale to 120 % → credits → new game → HUD → pause → bag → back):
+    60 audits per game over 6 screens, 0 issues, smallest text 12.03 px.
+  - U2 a fresh process with the same HOME starts at 120 %, then the gamepad tour (D-pad, A, B, Start) sets 80 %
+    (`ui=0.80`, *Kiritish qurilmasi: gamepad*): 60 audits, 0 issues; a mouse run clicks *Sozlamalar* and *Orqaga*
+    where the audit says they are.
+  - U3 seeded fuzz, 2 000 frames of random navigation / submit / back / pause / inventory on the keyboard and on the
+    gamepad per game: 534 / 504 (Chiroqbon) and 546 / 450 (Dovon mash'ali) audits, at most 2 panels open, 0 invariant
+    breaks (time scale back to 1 with no panel open), 0 errors.
+  - UW the title menu in a real 2560×1080 window: 6 audits, 0 issues, screenshot.
+- **Mutations** (in the Player gate): clearing the music slider's Up/Down links fails U1 (the tour cannot reach
+  *Orqaga*, and the audit reports `Unreachable` for the three widgets below it); a 25 → 18 unit version line fails U1
+  with 12 `MinFont` issues (13.3 px < 14 at 1024×768).

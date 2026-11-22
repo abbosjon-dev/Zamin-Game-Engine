@@ -247,6 +247,7 @@ bostiriladi, engine kodining har xabari esa fatal qoladi.
 |---|---|---|
 | `ctest --test-dir build -L bench` | `BenchEcsSmoke`, `BenchSerializeSmoke`, `BenchCombatSmoke`, `BenchPhysicsSmoke`, `BenchAnimationSmoke`, `BenchSliceStressSmoke`: kichik o'lchamda; stress benchmarklarining invariantlari (tunnel, NaN, oyoq relyef ostida, determinizm, blend og'irligi, event'lar har chastotada, ajratmasiz kadr, graf xatosi) buzilsa xato kodi 3 | xato kodi |
 | `Tests/bench.sh --compare` | ECS, serializatsiya, prefab, combat, fizika, animatsiya va slice stress benchmarklari; `Tests/Baselines/*-release.json` bilan solishtirish (`Tests/bench_compare.py`) | sezilarli sekinlashish |
+| `python3 Tests/slice_ui_test.py` | vertical slice'larning UI darvozasi Player'da: klaviatura / gamepad / sichqoncha turlari, UI o'lchami 80–120 % va uning yangi jarayonda qayta qo'llanishi, 6 o'lchamdagi audit (`ZAMIN_UI_AUDIT`), seed'li fuzz, 2560x1080 menyu ([VerticalSlices.md](VerticalSlices.md#gates)) | audit qoidalari, invariantlar |
 | `Tests/render_bench.sh --max-avg 200` | 10 000 sprite, 1 000 mesh (instancing bilan / siz), ikkalasi | ms / kadr |
 | `Tests/player_bench.sh --max-avg 50 --max-p95 80` | namuna o'yinlarning boshlang'ich sahnalari ZaminPlayer'da | ms / kadr |
 | `Tests/startup_bench.py` | editor va player ishga tushish vaqti (birinchi kadrgacha, qismlari bilan), ikki build'ni solishtirish | ms (mediana) |

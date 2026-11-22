@@ -1,0 +1,10 @@
+{
+    "Version": 1,
+    "Texture": "Textures/archer.png",
+    "FPS": 2.5,
+    "Loop": true,
+    "Frames": [
+        "archer_idle_0",
+        "archer_idle_1"
+    ]
+}

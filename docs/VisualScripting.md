@@ -27,7 +27,7 @@ Fayl atomik yoziladi; yozish xatosida tahrirlar oynada qoladi.
 - Typed Function.Entry/Call/Return: parametrlar, bir nechta natija, har chaqiruvga alohida lokal o‘zgaruvchilar, nested/delayed chaqiruvlar. Eski Function/Call graphlari ham ishlaydi.
 - Bool/Number/String/Vec2/Vec3/Vec4/Entity massivlari: Empty, Append, Set, Remove, Get, Length, Contains, Find, Slice, Concat va snapshot ForEach.
 - Event.Custom + EmitEvent: graph nusxasi ichida nomlangan hodisa, Number/Text/Bool/Vector3/Other payload. Boshqa obyektga xabar uchun SendMessage ishlatiladi.
-- Matematik, mantiqiy va vektor amallari, matn birlashtirish, raqamni matnga aylantirish.
+- Matematik, mantiqiy va vektor amallari, matn birlashtirish, raqamni matnga aylantirish (`FormatNumber` — 0..6 o'nlik xona, `FormatTime` — `mm:ss` / `h:mm:ss`).
 - Input axis/action, transform, entity qidirish/yaratish/o'chirish, active holati va taglar.
 - 2D/3D raycast (Hit, Entity, Point, Normal, Distance); navigatsiya destination/stop/arrival.
 - Animator typed parametr/damping, state/transition, 1D/2D blend og‘irligi, root motion va layer boshqaruvi ([animatsiya qo‘llanmasi](Animation.md#73-modelsiz-2d-holatlar-va-blueprint)).

@@ -1,0 +1,24 @@
+{
+    "Version": 1,
+    "Texture": "Textures/bandit.png",
+    "FPS": 10.0,
+    "Loop": true,
+    "Frames": [
+        "bandit_walk_left_0",
+        "bandit_walk_left_1",
+        "bandit_walk_left_2",
+        "bandit_walk_left_3",
+        "bandit_walk_left_4",
+        "bandit_walk_left_5"
+    ],
+    "Events": [
+        {
+            "Frame": 1,
+            "Name": "Step"
+        },
+        {
+            "Frame": 4,
+            "Name": "Step"
+        }
+    ]
+}

@@ -1,0 +1,10 @@
+{
+    "Version": 1,
+    "Texture": "Textures/bandit.png",
+    "FPS": 2.5,
+    "Loop": true,
+    "Frames": [
+        "bandit_idle_0",
+        "bandit_idle_1"
+    ]
+}

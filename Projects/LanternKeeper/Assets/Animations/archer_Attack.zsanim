@@ -1,0 +1,18 @@
+{
+    "Version": 1,
+    "Texture": "Textures/archer.png",
+    "FPS": 12.0,
+    "Loop": false,
+    "Frames": [
+        "archer_attack_0",
+        "archer_attack_1",
+        "archer_attack_2",
+        "archer_attack_3"
+    ],
+    "Events": [
+        {
+            "Frame": 2,
+            "Name": "Hit"
+        }
+    ]
+}

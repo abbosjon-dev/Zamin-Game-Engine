@@ -1,0 +1,24 @@
+{
+    "Version": 1,
+    "Texture": "Textures/skeleton.png",
+    "FPS": 10.0,
+    "Loop": true,
+    "Frames": [
+        "skeleton_walk_left_0",
+        "skeleton_walk_left_1",
+        "skeleton_walk_left_2",
+        "skeleton_walk_left_3",
+        "skeleton_walk_left_4",
+        "skeleton_walk_left_5"
+    ],
+    "Events": [
+        {
+            "Frame": 1,
+            "Name": "Step"
+        },
+        {
+            "Frame": 4,
+            "Name": "Step"
+        }
+    ]
+}

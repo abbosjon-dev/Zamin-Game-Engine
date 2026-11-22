@@ -62,6 +62,13 @@ TEST(VisualGraphVectorMathNodes)
     CHECK(Evaluate("NormalizeVec2", "Value", { { "Vector", { 0., -2. } } }, T::Vec2) == Value::array({ 0., -1. }));
     CHECK(Evaluate("NormalizeVec3", "Value", { { "Vector", { 0., 0., 0. } } }, T::Vec3) == Value::array({ 0., 0., 0. })); // zero-safe
     for (auto kind : { "SubtractVec4", "DotVec2", "DistanceVec4", "LengthVec3", "NormalizeVec4" }) CHECK(Visual::Catalog().contains(kind));
+    // Text formatting for HUD and markers: fixed decimals and clock time.
+    CHECK(Evaluate("FormatNumber", "Value", { { "Number", 3.0 }, { "Decimals", 0 } }, T::String) == "3");
+    CHECK(Evaluate("FormatNumber", "Value", { { "Number", 2.346 }, { "Decimals", 2 } }, T::String) == "2.35");
+    CHECK(Evaluate("FormatNumber", "Value", { { "Number", -0.2 }, { "Decimals", 0 } }, T::String) == "0");
+    CHECK(Evaluate("FormatTime", "Value", { { "Seconds", 192.7 } }, T::String) == "03:12");
+    CHECK(Evaluate("FormatTime", "Value", { { "Seconds", 3725 } }, T::String) == "1:02:05");
+    CHECK(Evaluate("FormatTime", "Value", { { "Seconds", -4 } }, T::String) == "00:00");
 }
 TEST(GameplaySteerTwoDThreeDAndCameraRoundtripThroughTheMotorMapping)
 {

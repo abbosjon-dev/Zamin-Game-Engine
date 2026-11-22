@@ -1,0 +1,12 @@
+{
+    "Version": 1,
+    "Texture": "Textures/bandit.png",
+    "FPS": 8.0,
+    "Loop": false,
+    "Frames": [
+        "bandit_death_0",
+        "bandit_death_1",
+        "bandit_death_2",
+        "bandit_death_3"
+    ]
+}

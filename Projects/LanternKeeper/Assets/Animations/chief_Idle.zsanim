@@ -1,0 +1,10 @@
+{
+    "Version": 1,
+    "Texture": "Textures/chief.png",
+    "FPS": 2.5,
+    "Loop": true,
+    "Frames": [
+        "chief_idle_0",
+        "chief_idle_1"
+    ]
+}

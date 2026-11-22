@@ -1,0 +1,12 @@
+{
+    "Version": 1,
+    "Texture": "Textures/boss.png",
+    "FPS": 8.0,
+    "Loop": false,
+    "Frames": [
+        "boss_death_0",
+        "boss_death_1",
+        "boss_death_2",
+        "boss_death_3"
+    ]
+}

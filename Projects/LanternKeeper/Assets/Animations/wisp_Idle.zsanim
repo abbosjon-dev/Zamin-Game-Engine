@@ -1,0 +1,10 @@
+{
+    "Version": 1,
+    "Texture": "Textures/wisp.png",
+    "FPS": 2.5,
+    "Loop": true,
+    "Frames": [
+        "wisp_idle_0",
+        "wisp_idle_1"
+    ]
+}

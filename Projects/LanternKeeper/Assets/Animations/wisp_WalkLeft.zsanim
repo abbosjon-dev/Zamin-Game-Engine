@@ -1,0 +1,24 @@
+{
+    "Version": 1,
+    "Texture": "Textures/wisp.png",
+    "FPS": 10.0,
+    "Loop": true,
+    "Frames": [
+        "wisp_walk_left_0",
+        "wisp_walk_left_1",
+        "wisp_walk_left_2",
+        "wisp_walk_left_3",
+        "wisp_walk_left_4",
+        "wisp_walk_left_5"
+    ],
+    "Events": [
+        {
+            "Frame": 1,
+            "Name": "Step"
+        },
+        {
+            "Frame": 4,
+            "Name": "Step"
+        }
+    ]
+}

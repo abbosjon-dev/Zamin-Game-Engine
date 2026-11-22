@@ -1,0 +1,87 @@
+{
+    "ZaminEntities": 1,
+    "Entities": [
+        {
+            "Entity": 1,
+            "Tag": "Bolt visual",
+            "Transform": {
+                "Translation": [
+                    0.0,
+                    0.0,
+                    0.2
+                ],
+                "Rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "Texture": "Textures/props.png",
+                "Tiling": 1.0,
+                "SortingOrder": 35,
+                "PixelArt": false,
+                "FlipX": false,
+                "FlipY": false,
+                "Sprite": "bolt",
+                "DrawMode": "Sliced",
+                "Size": [
+                    0.55,
+                    0.55
+                ]
+            },
+            "ChildOrder": [
+                2
+            ]
+        },
+        {
+            "Entity": 2,
+            "Tag": "Light",
+            "Parent": 1,
+            "Transform": {
+                "Translation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            },
+            "Light2D": {
+                "Type": "Point",
+                "Color": [
+                    1.0,
+                    0.6,
+                    0.2
+                ],
+                "Intensity": 1.1,
+                "Radius": 2.2,
+                "InnerRadius": 0.2,
+                "Falloff": 1.6,
+                "SpotAngle": 60.0,
+                "SpotSoftness": 0.3,
+                "Flicker": 0.0,
+                "FlickerSpeed": 8.0
+            }
+        }
+    ]
+}

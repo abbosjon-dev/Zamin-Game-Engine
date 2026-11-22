@@ -1,0 +1,10 @@
+{
+    "Version": 1,
+    "Texture": "Textures/boss.png",
+    "FPS": 2.5,
+    "Loop": true,
+    "Frames": [
+        "boss_idle_0",
+        "boss_idle_1"
+    ]
+}

@@ -1,0 +1,10 @@
+{
+    "Version": 1,
+    "Texture": "Textures/skeleton.png",
+    "FPS": 2.5,
+    "Loop": true,
+    "Frames": [
+        "skeleton_idle_0",
+        "skeleton_idle_1"
+    ]
+}

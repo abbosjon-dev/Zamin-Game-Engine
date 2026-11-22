@@ -1,0 +1,18 @@
+{
+    "Version": 1,
+    "Texture": "Textures/chief.png",
+    "FPS": 12.0,
+    "Loop": false,
+    "Frames": [
+        "chief_attack_0",
+        "chief_attack_1",
+        "chief_attack_2",
+        "chief_attack_3"
+    ],
+    "Events": [
+        {
+            "Frame": 2,
+            "Name": "Hit"
+        }
+    ]
+}

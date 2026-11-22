@@ -1,0 +1,24 @@
+{
+    "Version": 1,
+    "Texture": "Textures/hero.png",
+    "FPS": 10.0,
+    "Loop": true,
+    "Frames": [
+        "hero_walk_up_0",
+        "hero_walk_up_1",
+        "hero_walk_up_2",
+        "hero_walk_up_3",
+        "hero_walk_up_4",
+        "hero_walk_up_5"
+    ],
+    "Events": [
+        {
+            "Frame": 1,
+            "Name": "Step"
+        },
+        {
+            "Frame": 4,
+            "Name": "Step"
+        }
+    ]
+}

@@ -1,0 +1,12 @@
+{
+    "Version": 1,
+    "Texture": "Textures/skeleton.png",
+    "FPS": 8.0,
+    "Loop": false,
+    "Frames": [
+        "skeleton_death_0",
+        "skeleton_death_1",
+        "skeleton_death_2",
+        "skeleton_death_3"
+    ]
+}

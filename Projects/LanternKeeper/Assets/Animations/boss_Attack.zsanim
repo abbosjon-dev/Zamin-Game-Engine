@@ -1,0 +1,18 @@
+{
+    "Version": 1,
+    "Texture": "Textures/boss.png",
+    "FPS": 12.0,
+    "Loop": false,
+    "Frames": [
+        "boss_attack_0",
+        "boss_attack_1",
+        "boss_attack_2",
+        "boss_attack_3"
+    ],
+    "Events": [
+        {
+            "Frame": 2,
+            "Name": "Hit"
+        }
+    ]
+}

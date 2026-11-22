@@ -1,0 +1,12 @@
+{
+    "Version": 1,
+    "Texture": "Textures/archer.png",
+    "FPS": 8.0,
+    "Loop": false,
+    "Frames": [
+        "archer_death_0",
+        "archer_death_1",
+        "archer_death_2",
+        "archer_death_3"
+    ]
+}

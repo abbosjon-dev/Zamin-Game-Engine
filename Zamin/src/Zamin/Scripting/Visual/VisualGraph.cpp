@@ -1,4 +1,5 @@
 #include "VisualGraph.h"
+#include <cstdio>
 #include "Zamin/Utils/FileSystem.h"
 #include <algorithm>
 #include <cmath>
@@ -166,6 +167,8 @@ add("Lerp","Math",{N("A"),N("B",1),N("T",0.5)},{N("Value")},true);
 add("Concat","Text",{S("A"),S("B")},{S("Value")},true);
 add("TextEqual", "Text", { S("A"), S("B") }, { B("Value") }, true);
 add("NumberToText","Text",{N("Number")},{S("Value")},true);
+add("FormatNumber","Text",{N("Number"),N("Decimals")},{S("Value")},true);
+add("FormatTime","Text",{N("Seconds")},{S("Value")},true);
 for(int dim=2;dim<=4;++dim){std::vector<Pin> p;for(int i=0;i<dim;++i)p.push_back(N(std::string(1,"XYZW"[i]).c_str()));add("MakeVec"+std::to_string(dim),"Vectors",p,{V("Value",dim)},true);add("BreakVec"+std::to_string(dim),"Vectors",{V("Vector",dim)},p,true);add("ScaleVec"+std::to_string(dim),"Vectors",{V("Vector",dim),N("Scale",1)},{V("Value",dim)},true);add("AddVec"+std::to_string(dim),"Vectors",{V("A",dim),V("B",dim)},{V("Value",dim)},true);
  add("SubtractVec"+std::to_string(dim),"Vectors",{V("A",dim),V("B",dim)},{V("Value",dim)},true);add("DotVec"+std::to_string(dim),"Vectors",{V("A",dim),V("B",dim)},{N("Value")},true);add("DistanceVec"+std::to_string(dim),"Vectors",{V("A",dim),V("B",dim)},{N("Value")},true);
  add("LengthVec"+std::to_string(dim),"Vectors",{V("Vector",dim)},{N("Value")},true);add("NormalizeVec"+std::to_string(dim),"Vectors",{V("Vector",dim)},{V("Value",dim)},true);}
@@ -803,6 +806,31 @@ return c; }();
         else if (k == "TextEqual") r = in("A") == in("B");
         else if (k == "Concat") r = in("A").get<std::string>() + in("B").get<std::string>();
         else if (k == "NumberToText") r = in("Number").dump();
+        else if (k == "FormatNumber")
+        {
+            // Fixed decimals 0..6, rounded half away from zero; "-0" never appears.
+            const double decimals = num("Decimals");
+            Require(decimals >= 0 && decimals <= 6 && std::floor(decimals) == decimals, "FormatNumber Decimals must be 0..6");
+            const double value = num("Number");
+            Require(std::abs(value) < 1e15, "FormatNumber value out of range");
+            const double scale = std::pow(10.0, decimals);
+            double rounded = std::round(value * scale) / scale;
+            if (rounded == 0) rounded = 0;
+            char text[64];
+            std::snprintf(text, sizeof(text), "%.*f", int(decimals), rounded);
+            r = std::string(text);
+        }
+        else if (k == "FormatTime")
+        {
+            // "m:ss" below an hour, "h:mm:ss" above; negative times count as 0 (whole seconds, floored).
+            const double seconds = num("Seconds");
+            Require(seconds < 1e9, "FormatTime value out of range");
+            const long long total = seconds > 0 ? (long long)std::floor(seconds) : 0;
+            char text[64];
+            if (total >= 3600) std::snprintf(text, sizeof(text), "%lld:%02lld:%02lld", total / 3600, total / 60 % 60, total % 60);
+            else std::snprintf(text, sizeof(text), "%02lld:%02lld", total / 60, total % 60);
+            r = std::string(text);
+        }
         else if (k.starts_with("MakeVec"))
         {
             r = Value::array();

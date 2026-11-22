@@ -1,0 +1,12 @@
+{
+    "Version": 1,
+    "Texture": "Textures/wisp.png",
+    "FPS": 8.0,
+    "Loop": false,
+    "Frames": [
+        "wisp_death_0",
+        "wisp_death_1",
+        "wisp_death_2",
+        "wisp_death_3"
+    ]
+}

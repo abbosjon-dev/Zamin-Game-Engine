@@ -1,0 +1,18 @@
+{
+    "Version": 1,
+    "Texture": "Textures/wisp.png",
+    "FPS": 12.0,
+    "Loop": false,
+    "Frames": [
+        "wisp_attack_0",
+        "wisp_attack_1",
+        "wisp_attack_2",
+        "wisp_attack_3"
+    ],
+    "Events": [
+        {
+            "Frame": 2,
+            "Name": "Hit"
+        }
+    ]
+}

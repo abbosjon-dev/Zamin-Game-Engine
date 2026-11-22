@@ -1,0 +1,260 @@
+{
+    "Version": 2,
+    "Project": {
+        "Name": "LanternKeeper",
+        "StartScene": "Scenes/Menu.zscene",
+        "StartSceneUUID": "b1eac1d8f8f44065",
+        "AssetDirectory": "Assets",
+        "SourceDirectory": "Source",
+        "ScriptModulePath": "",
+        "EngineVersion": "0.1.0",
+        "Description": "Chiroqbon: a 2D action-adventure vertical slice - two levels, melee and magic, AI enemies, quests, equipment, saves and a boss.",
+        "Thumbnail": "Thumbnail.jpg"
+    },
+    "Player": {
+        "Company": "Zamin Studio",
+        "Product": "Chiroqbon",
+        "Version": "1.0.0",
+        "Width": 1280,
+        "Height": 720,
+        "WindowMode": "Windowed",
+        "Resizable": true,
+        "VSync": true,
+        "Title": "",
+        "VersionInTitle": false,
+        "TargetFrameRate": 0,
+        "RunInBackground": true,
+        "Icon": "Textures/GameIcon.png"
+    },
+    "BuildScenes": [
+        {
+            "Path": "Scenes/Menu.zscene",
+            "Enabled": true,
+            "UUID": "b1eac1d8f8f44065"
+        },
+        {
+            "Path": "Scenes/Boglar.zscene",
+            "Enabled": true,
+            "UUID": "37a08ff506d92ad2"
+        },
+        {
+            "Path": "Scenes/Yertola.zscene",
+            "Enabled": true,
+            "UUID": "ecf53da5f8345581"
+        }
+    ],
+    "InputActions": {
+        "Actions": [
+            {
+                "Name": "Attack",
+                "Bindings": [
+                    "Key:J",
+                    "Mouse:Left",
+                    "Gamepad:X"
+                ]
+            },
+            {
+                "Name": "Bolt",
+                "Bindings": [
+                    "Key:K",
+                    "Mouse:Right",
+                    "Gamepad:RightBumper"
+                ]
+            },
+            {
+                "Name": "Nova",
+                "Bindings": [
+                    "Key:L",
+                    "Gamepad:Y"
+                ]
+            },
+            {
+                "Name": "Mend",
+                "Bindings": [
+                    "Key:H",
+                    "Gamepad:LeftBumper"
+                ]
+            },
+            {
+                "Name": "Potion",
+                "Bindings": [
+                    "Key:Q",
+                    "Gamepad:DPadDown"
+                ]
+            },
+            {
+                "Name": "Interact",
+                "Bindings": [
+                    "Key:E",
+                    "Gamepad:A"
+                ]
+            },
+            {
+                "Name": "Sprint",
+                "Bindings": [
+                    "Key:LeftShift",
+                    "Gamepad:LeftTrigger"
+                ]
+            },
+            {
+                "Name": "Inventory",
+                "Bindings": [
+                    "Key:I",
+                    "Key:Tab",
+                    "Gamepad:Back"
+                ]
+            },
+            {
+                "Name": "Pause",
+                "Bindings": [
+                    "Key:Escape",
+                    "Key:P",
+                    "Gamepad:Start"
+                ]
+            },
+            {
+                "Name": "Jump",
+                "Bindings": [
+                    "Key:Space"
+                ]
+            }
+        ],
+        "Axes": [
+            {
+                "Deadzone": 0.15,
+                "GamepadAxis": "LeftX",
+                "Invert": false,
+                "Name": "Horizontal",
+                "Negative": [
+                    "Key:A",
+                    "Key:Left",
+                    "Gamepad:DPadLeft"
+                ],
+                "Positive": [
+                    "Key:D",
+                    "Key:Right",
+                    "Gamepad:DPadRight"
+                ]
+            },
+            {
+                "Deadzone": 0.15,
+                "GamepadAxis": "LeftY",
+                "Invert": true,
+                "Name": "Vertical",
+                "Negative": [
+                    "Key:S",
+                    "Key:Down"
+                ],
+                "Positive": [
+                    "Key:W",
+                    "Key:Up",
+                    "Gamepad:DPadUp"
+                ]
+            }
+        ],
+        "Vectors": [
+            {
+                "Deadzone": 0.0,
+                "Mode": "Clamp",
+                "Name": "Move",
+                "X": "Horizontal",
+                "Y": "Vertical"
+            }
+        ]
+    },
+    "Tags": [
+        "Hero",
+        "Enemy",
+        "Bandit",
+        "Chief",
+        "Archer",
+        "Skeleton",
+        "Wisp",
+        "Boss",
+        "Pickup",
+        "Shrine",
+        "Gate",
+        "Altar",
+        "Chest"
+    ],
+    "CollisionLayers2D": {
+        "Names": [
+            "Default",
+            "Wall",
+            "Hero",
+            "Enemy",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+        ],
+        "Collisions": [
+            15,
+            13,
+            11,
+            15,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+        ]
+    },
+    "Localization": {
+        "DefaultLanguage": "uz",
+        "Languages": [
+            "uz",
+            "en"
+        ],
+        "Directory": "Localization",
+        "UseSystemLanguage": false
+    },
+    "Audio": {
+        "Groups": [
+            {
+                "Name": "Master",
+                "Volume": 1.0
+            },
+            {
+                "Name": "Music",
+                "Parent": "Master",
+                "Volume": 0.55
+            },
+            {
+                "Name": "SFX",
+                "Parent": "Master",
+                "Volume": 0.9
+            },
+            {
+                "Name": "UI",
+                "Parent": "Master",
+                "Volume": 0.8
+            }
+        ],
+        "StreamThresholdMB": 4.0
+    },
+    "Export": {
+        "ExcludeUnusedAssets": true,
+        "AlwaysInclude": [
+            "Audio/*.wav",
+            "Localization/*.json"
+        ],
+        "ReleaseScriptModule": true,
+        "StripBinaries": true
+    }
+}

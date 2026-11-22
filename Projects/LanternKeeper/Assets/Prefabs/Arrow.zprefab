@@ -1,0 +1,46 @@
+{
+    "ZaminEntities": 1,
+    "Entities": [
+        {
+            "Entity": 1,
+            "Tag": "Arrow visual",
+            "Transform": {
+                "Translation": [
+                    0.0,
+                    0.0,
+                    0.2
+                ],
+                "Rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "Texture": "Textures/props.png",
+                "Tiling": 1.0,
+                "SortingOrder": 35,
+                "PixelArt": false,
+                "FlipX": false,
+                "FlipY": false,
+                "Sprite": "arrow",
+                "DrawMode": "Sliced",
+                "Size": [
+                    0.8,
+                    0.2
+                ]
+            }
+        }
+    ]
+}

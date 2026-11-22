@@ -1,0 +1,10 @@
+{
+    "Version": 1,
+    "Texture": "Textures/hero.png",
+    "FPS": 2.5,
+    "Loop": true,
+    "Frames": [
+        "hero_idle_0",
+        "hero_idle_1"
+    ]
+}

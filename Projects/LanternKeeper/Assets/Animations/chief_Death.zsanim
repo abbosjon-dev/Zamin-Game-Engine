@@ -1,0 +1,12 @@
+{
+    "Version": 1,
+    "Texture": "Textures/chief.png",
+    "FPS": 8.0,
+    "Loop": false,
+    "Frames": [
+        "chief_death_0",
+        "chief_death_1",
+        "chief_death_2",
+        "chief_death_3"
+    ]
+}

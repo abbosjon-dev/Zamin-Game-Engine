@@ -865,9 +865,9 @@
         "LocalizationKey": "menu.new"
       },
       "UINavigation": {
-        "Mode": "Explicit",
-        "Up": 6025,
-        "Down": 6022,
+        "Mode": "Vertical",
+        "Up": 0,
+        "Down": 0,
         "Left": 0,
         "Right": 0,
         "SelectOnEnable": true,
@@ -935,9 +935,9 @@
         "LocalizationKey": "menu.continue"
       },
       "UINavigation": {
-        "Mode": "Explicit",
-        "Up": 6021,
-        "Down": 6023,
+        "Mode": "Vertical",
+        "Up": 0,
+        "Down": 0,
         "Left": 0,
         "Right": 0,
         "SelectOnEnable": false,
@@ -1005,9 +1005,9 @@
         "LocalizationKey": "menu.settings"
       },
       "UINavigation": {
-        "Mode": "Explicit",
-        "Up": 6022,
-        "Down": 6024,
+        "Mode": "Vertical",
+        "Up": 0,
+        "Down": 0,
         "Left": 0,
         "Right": 0,
         "SelectOnEnable": false,
@@ -1075,9 +1075,9 @@
         "LocalizationKey": "menu.credits"
       },
       "UINavigation": {
-        "Mode": "Explicit",
-        "Up": 6023,
-        "Down": 6025,
+        "Mode": "Vertical",
+        "Up": 0,
+        "Down": 0,
         "Left": 0,
         "Right": 0,
         "SelectOnEnable": false,
@@ -1145,9 +1145,9 @@
         "LocalizationKey": "menu.quit"
       },
       "UINavigation": {
-        "Mode": "Explicit",
-        "Up": 6024,
-        "Down": 6021,
+        "Mode": "Vertical",
+        "Up": 0,
+        "Down": 0,
         "Left": 0,
         "Right": 0,
         "SelectOnEnable": false,

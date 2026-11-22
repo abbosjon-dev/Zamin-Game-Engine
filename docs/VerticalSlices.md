@@ -45,6 +45,7 @@ geometry and props, 5000-5499 enemies, 5500-5999 interactables, 6000-7999 UI, 80
 | Shrine | `SaveWrite(Run<n>)` (v4: combat is present), checkpoint, full heal, `LK.Run.Save/Step/Time` |
 | Level 1 exit (Gate claimed) | level card → `TransferWrite(Carry)` → `Run.Level=2, Run.Save=0, Entry=carry` → Yertola: `TransferLoad`, heal, autosave `Run2` |
 | Continue | the level's own save when `Run.Save == Run.Level`, else the transfer (level 2), else a fresh start |
+| Direct start (Editor Play or `StartScene` on a level, `Entry` unset = `new`) | a fresh run of that level: level 2 never reads a stale `Carry.json` |
 | Defeat (3 deaths since the load) | defeat screen → *Oxirgi saqlashdan* reloads the level from its save |
 | Victory (Boss and Dawn claimed) | `Run.Finished=1`, best time; the menu no longer offers Continue |
 
@@ -72,3 +73,13 @@ plays menu → Boglar → transfer → Yertola → victory (850 XP, level 4, 5/5
 items equipped, Nova/Mend unlocked, boss dead, no projectile in flight, transfer v1 and save v4 files); the lose plan
 reaches the defeat screen, reloads and completes level 1 with exactly the normal progress; two fresh level 1 runs
 give identical traces at identical frames.
+
+Player/Editor acceptance (`python3 Tests/slice_workflow_test.py [--build build] [--out DIR] [--phases ...]`, CI step
+*Chiroqbon 2D vertical slice*): private project copies, one HOME per run, fixed 30 fps capture, software GL. P0 a
+keyboard tape (menu → settings: music slider and *Orqaga* → new game → move, Bolt, strike, bag, pause); P1 the demo
+pilot writes level 1, the transfer and the level 2 shrine save (plan 3); P2 a fresh process continues from that save,
+beats the boss and reaches the victory screen (850 XP, level 4, 5/5 quests); P3 a fresh process: no Continue after the
+victory; P4 the lose plan (three deaths → defeat → reload → level 1 complete with 200 XP / 13 coins); E0 Editor Play of
+Boglar; E1 Editor Play of Yertola next to P1's stale `Carry.json` (a fresh level 2 run). Every phase rejects GL
+errors, graph errors, `SLICE_*_FAILED` and a stuck pilot, checks the last frame with `png_check.py` and the transfer
+and save JSON; `<out>/Report.json` lists the phases and their times.

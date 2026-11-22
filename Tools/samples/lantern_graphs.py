@@ -548,7 +548,6 @@ def menu_scene(assets, project, LEVELS):
             ui.button(6023, "Sozlamalar", 6020, "Sozlamalar", "menu.settings", "Settings", (0, 0), (440, 64)),
             ui.button(6024, "Mualliflar", 6020, "Mualliflar", "menu.credits", "Credits", (0, 0), (440, 64)),
             ui.button(6025, "Chiqish", 6020, "Chiqish", "menu.quit", "Quit", (0, 0), (440, 64))]
-    chain_nav(s, main)
     ui.text(6030, "Rekord", CANVAS, "", (0, 0), (118, 92), (900, 40), 26, MUTED, "Left", pivot=(0, 0))
     ui.text(6031, "Boshqaruv", CANVAS, "[Move] yurish   [Attack] zarba   [Bolt] olov o'qi   [Interact] ishlatish   [Pause] pauza",
             (0.5, 0), (0, 40), (1700, 36), 22, MUTED, hints=True)
@@ -976,7 +975,10 @@ def game_graph(assets, project, C):
     resumed = g.ex(g.join((r1b, "Then"), (r0, "Then")), "SendMessage", Target=HERO, Name="Resumed", Text="")
     lf = g.ex((loaded, "False"), "Print")
     g.l(*g.text(["SLICE_IO_FAILED load ", (load, "Reason")]), lf, "Text")
-    fresh = g.br(g.join((cont, "False"), (lf, "Then")), (g.cmp("Equal", V(g, "Level"), 2), "Value"))
+    # a level exit (carry) or a Continue without a level 2 save reads the transfer; a direct start of level 2 (Editor Play,
+    # StartScene: Entry "new") is a fresh run and never picks up a stale Carry.json
+    fresh = g.br(g.join((cont, "False"), (lf, "Then")),
+                 g.all_of([(g.cmp("Equal", V(g, "Level"), 2), "Value"), (g.not_((g.text_is(V(g, "Entry"), "new"), "Value")), "Value")]))
     carry = g.ex((fresh, "True"), "Gameplay.TransferLoad", Key="Hero", Slot="Carry", Schema=schema)
     carried = g.br((carry, "Then"), (carry, "Success"))
     heal = g.ex((carried, "True"), "Gameplay.Heal", Target=HERO, Amount=999)
@@ -1085,7 +1087,9 @@ def game_graph(assets, project, C):
     g.ex((qb, "False"), "Print", Text="SLICE_ORACLE_FAILED quests")
     t = (g.ex((qb, "True"), "PlaySound", Path="Audio/sfx_victory.wav", Volume=0.9), "Then")
     t = (g.ex(t, "FadeAudio", Target=MUSIC, Volume=0.25, Seconds=1.0), "Then")
-    g.setv(t, "Auto", 5.0)
+    # the attract loop (ZAMIN_DEMO or the Demo override) returns to the menu; a played game stays on the screen
+    attract = g.br(t, g.any_of([V(g, "Demo"), (g.n("App.DemoMode"), "Value")]))
+    g.setv((attract, "True"), "Auto", 5.0)
 
     # ---- boss: music and bar when it engages, phase 2 below 55 % (spirits wake), defeat
     g.lane("boss")
@@ -1367,7 +1371,9 @@ def menu_graph(assets, project):
     rb = g.br(t, (g.cmp("Greater", (best, "Value"), 0), "Value"))
     rt = g.ex((rb, "True"), "SetUIText", Target=6030)
     g.l(*g.text(["Eng yaxshi vaqt  ", (best, "Value", "time")]), rt, "Text")
-    g.ex(g.join((rb, "False"), (rt, "Then")), "Print", Text="Menyu: Asosiy")
+    shown = g.br(g.join((rb, "False"), (rt, "Then")), V(g, "Can"))
+    g.ex((shown, "True"), "Print", Text="Menyu: Asosiy davom=1")
+    g.ex((shown, "False"), "Print", Text="Menyu: Asosiy davom=0")
     # ---- per frame: live volumes while the settings are open; the demo picks Continue or New game after 1 s
     g.lane("update")
     u = g.n("Event.Update")

@@ -127,6 +127,9 @@ jobs:
       - name: Projectiles, areas, status effects and v4 relocated persistence
         run: python3 Tests/combat_workflow_test.py --build build --out world-streaming/combat --exports
 
+      - name: Chiroqbon 2D vertical slice (menu, levels, transfer, victory, defeat, Editor Play)
+        run: python3 Tests/slice_workflow_test.py --build build --out world-streaming/slices/LanternKeeper
+
       - name: Quest Blueprint authoring and Undo
         env:
           ZAMIN_BUILD_DIR: build

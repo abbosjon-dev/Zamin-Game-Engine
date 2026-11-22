@@ -4,7 +4,9 @@
 #include <Zamin/Gameplay/GameplayRuntime.h>
 #include <Zamin/Gameplay/SaveWorld.h>
 #include <Zamin/Core/Input.h>
+#include <Zamin/Core/Log.h>
 #include <Zamin/Core/SaveData.h>
+#include <Zamin/Localization/Localization.h>
 #include <Zamin/Project/Project.h>
 #include <Zamin/Scene/Entity.h>
 #include <Zamin/Scripting/Visual/VisualGraphHost.h>
@@ -263,6 +265,18 @@ TEST(GameUIWorldInventoryRowsPageAndSelectionReadCanonicalBag)
     CHECK(state.Page == 1 && state.Pages == 2 && state.Item == "Sword" && state.Count == 1);
     CHECK(f.A1.GetComponent<TextComponent>().Text == "Key  x1");
     CHECK(f.A2.GetComponent<TextComponent>().Text == "Sword  x1");
+    // The language files name the items ("item.<Key>"); the selection still reads the key.
+    std::vector<StringTable> tables(1);
+    tables[0].Language = "uz";
+    tables[0].Strings["item.Sword"] = { "Qilich", {} };
+    LocalizationSettings settings;
+    settings.Languages = { "uz" };
+    Localization::SetTables(std::move(tables), settings);
+    f.UI().Refresh();
+    CHECK(f.A1.GetComponent<TextComponent>().Text == "Key  x1" && f.A2.GetComponent<TextComponent>().Text == "Qilich  x1");
+    f.World.SetSelectedUI(f.A2);
+    CHECK(f.UI().InventoryState("Bag").Item == "Sword");
+    Localization::Clear();
 }
 TEST(GameUIWorldInventoryShrinkDisablesEmptyRowsAndRepairsFocus)
 {
@@ -628,4 +642,23 @@ TEST(GameUIWorldPagingAStaleViewCannotUseAnErasedRecord)
     CHECK(!f.UI().Page("Bag", 1));
     CHECK(!f.UI().InventoryState("Bag").Configured);
     CHECK(f.A2.GetComponent<TextComponent>().Text == "Coin");
+}
+// A game without a Jump / Sprint action leaves those names empty: Gameplay.Input reads nothing and warns about
+// nothing (before, the project kept a keyboard-only placeholder action because the default names were looked up).
+TEST(GameplayInputEmptyActionNamesReadNothing)
+{
+    UIFixture f;
+    Gameplay::Runtime runtime;
+    const uint64_t warnings = Log::GetTotalWritten();
+    Input::SimulateKey(Key::Space, true);
+    f.Frame();
+    auto in = Call(runtime, f.Actor, "Gameplay.Input", { { "Jump", "" }, { "Sprint", "" } });
+    CHECK(in.at("Jump") == false && in.at("JumpHeld") == false && in.at("Sprint") == false && in.at("Enabled") == true);
+    auto still = Call(runtime, f.Actor, "Gameplay.Input", { { "Move", "" } });
+    CHECK(still.at("Move") == Visual::Value::array({ 0.0, 0.0 }));
+    Input::SimulateKey(Key::Space, false);
+    uint64_t first = 0;
+    auto messages = Log::GetMessages(&first);
+    for (size_t i = 0; i < messages.size(); ++i)
+        if (first + i >= warnings) CHECK(messages[i].Text.find("'' nomli") == std::string::npos);
 }

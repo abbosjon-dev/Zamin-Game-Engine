@@ -7,6 +7,7 @@
 #include <Zamin/Asset/AsyncLoader.h>
 #include <Zamin/Core/Log.h>
 #include <Zamin/Core/GameState.h>
+#include <Zamin/Core/InputActions.h>
 #include <Zamin/Core/SaveData.h>
 #include <Zamin/Gameplay/CombatWorld.h>
 #include <Zamin/Gameplay/GameplayAI.h>
@@ -70,6 +71,7 @@ namespace {
         glm::vec3 HeroAt{ 0 };
         Motion M;
         Ref<Scene> Live; // the scene at the stop when Play was asked to keep it running
+        std::string RawHint; // the first text that showed a control hint as written ("[Interact] ...")
     };
     // A private copy of the project: the pilot on (plan), the demo menu, and (headless, no GL context) projectile
     // definitions without their visual prefabs (presentation only, outside the combat signature).
@@ -314,6 +316,21 @@ namespace {
                     }
                 }
                 seen = first + messages.size();
+                // what the next frame draws: no text may show an input action's name instead of its key
+                if (o.RawHint.empty())
+                {
+                    auto texts = scene->GetRegistry().view<TextComponent>();
+                    for (auto e : texts)
+                    {
+                        auto& text = texts.get<TextComponent>(e);
+                        text.UpdateLocalized();
+                        if (auto token = FindUnexpandedInputToken(Project::GetInputActionMap(), text.GetDisplayText()); !token.empty())
+                        {
+                            o.RawHint = std::format("{} f{}: '{}'", Entity{ e, scene.get() }.GetName(), o.Frames, text.GetDisplayText());
+                            break;
+                        }
+                    }
+                }
                 if (!done && frame && scene->GetName() == "Dovon" && frame(*scene, o))
                 {
                     done = true;
@@ -426,12 +443,14 @@ TEST(BeaconPassGraphsValidateAndScenesLoad)
         model = nullptr;
         CHECK(Model::ReleaseIfUnused(path));
     }
-    auto oracle = J::parse(FileSystem::ReadTextFile(root / "Assets/Data/oracle.json"));
+    // the oracle is test data next to the project (Tests/), never an asset an export ships
+    CHECK(!std::filesystem::exists(root / "Assets/Data/oracle.json"));
+    auto oracle = J::parse(FileSystem::ReadTextFile(root / "Tests/oracle.json"));
     CHECK(oracle["XP"] == 800 && oracle["FinalLevel"] == 4 && oracle["Stones"] == 3);
 }
 // Plan 0: New game from the menu -> Dovon (walk to the camp chest, equip, the ledge jump, the gate guards and the gate,
 // the courtyard, the shrine save, the stable, the plateau shrine, the Warden, the beacon stairs) -> victory.
-TEST(BeaconPassOracleHeadless)
+SLOW_TEST(BeaconPassOracleHeadless)
 {
     const auto prior = Project::GetActive();
     const auto work = Prepare(0);
@@ -445,6 +464,9 @@ TEST(BeaconPassOracleHeadless)
                 o.M.SpeedError, o.M.SpeedSamples, o.M.MinClearance, o.M.TerrainSamples, o.M.CameraInside, o.M.CameraSamples);
     if (!o.Victory || !Clean(o.Log)) std::printf("%s\n", o.Log.c_str());
     CHECK(o.Victory && Clean(o.Log));
+    // every prompt and banner of the whole run showed keys, never "[Interact]" / "[Slam]" as written
+    if (!o.RawHint.empty()) std::printf("  raw control hint: %s\n", o.RawHint.c_str());
+    CHECK(o.RawHint.empty());
     CHECK(o.Scenes.size() >= 2 && o.Scenes[0] == "Menu" && o.Scenes[1] == "Dovon");
     CHECK(o.XP == 800 && o.Level == 4 && o.Claimed == 4 && o.Stones == 0);
     CHECK(o.Sword && o.Shield && o.Slam && o.WardenDead && o.Projectiles == 0);
@@ -510,7 +532,7 @@ namespace {
 // reaches pure Walk and pure Run, the jump enters Air and lands through Land, strikes raise the UpperBody layer to 1,
 // hits play the additive Hurt; footsteps follow the distance at the stride; the damped Speed parameter follows the
 // measured speed; the character controller never sinks into the terrain; the orbit camera never ends inside a wall.
-TEST(BeaconPassLocomotionHeadless)
+SLOW_TEST(BeaconPassLocomotionHeadless)
 {
     const auto prior = Project::GetActive();
     const auto work = Prepare(0, false);
@@ -534,7 +556,7 @@ TEST(BeaconPassLocomotionHeadless)
 // Plan 1 (lose): the pilot does not fight or drink until a defeat - three deaths end the run on the defeat screen (the
 // Dead state plays); the demo picks "Oxirgi saqlashdan", the level reloads from the autosave and the pilot, now
 // fighting, wins the pass with exactly the normal reward (no replay).
-TEST(BeaconPassLosePlanHeadless)
+SLOW_TEST(BeaconPassLosePlanHeadless)
 {
     const auto prior = Project::GetActive();
     const auto work = Prepare(1);
@@ -589,7 +611,7 @@ namespace {
 // starts again from a standstill: the fights take other frames, never another course.) Then, from the plateau save, a
 // quick save in the middle of the Warden fight with projectiles in flight: the restored projectiles are exactly the
 // saved ones and each flies the same path, ends on the same frame and leaves its target with the same health.
-TEST(BeaconPassSaveResumeHeadless)
+SLOW_TEST(BeaconPassSaveResumeHeadless)
 {
     const auto prior = Project::GetActive();
     const auto work = Prepare(0);
@@ -757,7 +779,7 @@ TEST(BeaconPassSaveResumeHeadless)
     Finish(work, prior);
 }
 // Fixed frame time: two fresh runs of the level produce the same gameplay trace at the same frames.
-TEST(BeaconPassDeterminism)
+SLOW_TEST(BeaconPassDeterminism)
 {
     const auto prior = Project::GetActive();
     std::vector<std::string> traces[2];
@@ -838,7 +860,7 @@ namespace {
 // save (before its GameState), after both - and a fresh process (the menu's Continue) on each resumes a consistent run;
 // a damaged shrine save falls back to its backup (the autosave, recovered, said on screen), a damaged save and backup to
 // a fresh start at the camp with a visible message, never a crash or a half-applied state.
-TEST(BeaconPassResumeMatrixHeadless)
+SLOW_TEST(BeaconPassResumeMatrixHeadless)
 {
     const auto prior = Project::GetActive();
     const auto work = Prepare(3);

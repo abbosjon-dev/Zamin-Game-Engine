@@ -6,6 +6,7 @@
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Scripting/Visual/VisualGraphHost.h"
 #include "Zamin/Core/Input.h"
+#include "Zamin/Localization/Localization.h"
 #include <algorithm>
 #include <stdexcept>
 namespace Zamin::Gameplay {
@@ -418,7 +419,7 @@ namespace Zamin::Gameplay {
                     continue;
                 }
                 const auto& hit = records[row];
-                t.Text = PresentCombatRow(hit.Kind == PayloadKind::Damage, std::clamp(hit.Amount, 0.0, 1e6), hit.Key);
+                t.Text = PresentCombatRow(hit.Kind == PayloadKind::Damage, std::clamp(hit.Amount, 0.0, 1e6), LocalizedGameplayName("combat.", hit.Key, hit.Key));
                 t.Color.a *= CombatRowAlpha(combat->Now() - hit.Time, r.Spec.Lifetime);
             }
         }
@@ -636,7 +637,7 @@ namespace Zamin::Gameplay {
                 if (!t || !b) continue;
                 bool filled = actor && index < page.Items.size();
                 b->Interactable = filled;
-                t->Text = filled ? page.Items[index].Key + "  x" + std::to_string(page.Items[index].Count) : "--";
+                t->Text = filled ? LocalizedGameplayName("item.", page.Items[index].Key, page.Items[index].Key) + "  x" + std::to_string(page.Items[index].Count) : "--";
             }
             if (actor) SelectInventory(name, r);
             else r.Selected.clear();
@@ -732,5 +733,14 @@ namespace Zamin::Gameplay {
         m_Fenced = true;
         m_Events.clear();
         m_Dropped = 0;
+    }
+    std::string LocalizedGameplayName(std::string_view prefix, std::string_view key, std::string_view fallback, size_t limit)
+    {
+        if (key.empty() || prefix.size() + key.size() > 128) return std::string(fallback);
+        std::string id;
+        id.reserve(prefix.size() + key.size());
+        id.append(prefix).append(key);
+        const std::string* text = Localization::Find(id);
+        return text && !text->empty() && text->size() <= limit ? *text : std::string(fallback);
     }
 }

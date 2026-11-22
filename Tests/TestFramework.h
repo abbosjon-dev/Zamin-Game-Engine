@@ -8,6 +8,7 @@
 //                                      more than one letter is a pattern, "-x" an option); case-insensitive
 //   ZaminTests --timing --slowest 20   the time report (slowest tests, totals, a histogram)
 //   ZaminTests --report r.json --junit r.xml   the results for CI (JSON, JUnit XML)
+//   ZaminTests --quick                 without the slow tests (SLOW_TEST: whole game playthroughs); --slow: only them
 #pragma once
 
 #include <functional>
@@ -21,6 +22,7 @@ namespace ZaminTest {
     {
         const char* Name;
         std::function<void()> Fn;
+        bool Slow = false; // SLOW_TEST: a whole playthrough (tens of seconds); --quick leaves it out
     };
 
     // Every test in the order of their definitions (TEST adds them before main).
@@ -61,6 +63,7 @@ namespace ZaminTest {
         bool Timing = false;   // the time report before the summary line
         int Slowest = 10;      // how many of the slowest tests the report lists
         bool FailFast = false; // stop after the first test that failed
+        enum class Speed { All, Quick, Slow } Pace = Speed::All; // --quick: no slow tests, --slow: only them
         std::string JsonReport, JUnitReport;
     };
 
@@ -68,8 +71,9 @@ namespace ZaminTest {
     bool ParseOptions(int argc, const char* const* argv, RunnerOptions& out, std::string& error);
     std::string Usage();
 
-    // The indices of the tests the filter chooses, in their order.
-    std::vector<size_t> SelectTests(const std::vector<TestCase>& tests, const TestFilter& filter);
+    // The indices of the tests the filter chooses, in their order (and, with --quick / --slow, of that speed).
+    std::vector<size_t> SelectTests(const std::vector<TestCase>& tests, const TestFilter& filter,
+                                    RunnerOptions::Speed pace = RunnerOptions::Speed::All);
 
     struct TestResult
     {

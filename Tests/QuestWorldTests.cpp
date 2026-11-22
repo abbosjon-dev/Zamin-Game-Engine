@@ -6,6 +6,7 @@
 #include <Zamin/Gameplay/GameplayUI.h>
 #include <Zamin/Scene/Entity.h>
 #include <Zamin/Core/SaveData.h>
+#include <Zamin/Localization/Localization.h>
 #include <Zamin/Utils/FileSystem.h>
 using namespace Zamin;
 namespace {
@@ -218,6 +219,20 @@ TEST(QuestWorldHUDUpdatesFromModelAndReleasesOriginalWidgets)
     CHECK(f.Quests().Start(f.Hero, "Survey", e));
     f.Quests().Refresh();
     CHECK(f.Label.GetComponent<TextComponent>().Text == "Visit checkpoint  0 / 1");
+    // The language files name the objective ("quest.<Quest>.<Objective>"); the configured label is the fallback.
+    {
+        std::vector<StringTable> tables(1);
+        tables[0].Language = "uz";
+        tables[0].Strings["quest.Survey.Visit"] = { "Nazorat nuqtasiga boring", {} };
+        LocalizationSettings settings;
+        settings.Languages = { "uz" };
+        Localization::SetTables(std::move(tables), settings);
+        f.Quests().Refresh();
+        CHECK(f.Label.GetComponent<TextComponent>().Text == "Nazorat nuqtasiga boring  0 / 1");
+        Localization::Clear();
+        f.Quests().Refresh();
+        CHECK(f.Label.GetComponent<TextComponent>().Text == "Visit checkpoint  0 / 1");
+    }
     CHECK(f.Quests().Advance(f.Hero, "Survey", "Visit", 1, "Zone", e));
     f.Quests().Refresh();
     CHECK_NEAR(f.Bar.GetComponent<UIProgressBarComponent>().Value, 1, 1e-6);

@@ -99,6 +99,18 @@ TEST(TestFrameworkPatterns)
     std::vector<ZaminTest::TestCase> tests = { { "SceneA", {} }, { "PrefabB", {} }, { "SceneFuzz", {} }, { "Audio", {} } };
     CHECK((ZaminTest::SelectTests(tests, filter) == std::vector<size_t>{ 0, 1 }));
     CHECK(ZaminTest::SelectTests(tests, ZaminTest::TestFilter()).size() == 4);
+    // --quick leaves the slow tests (SLOW_TEST: whole playthroughs) out, --slow runs only them; a full run has both.
+    tests[1].Slow = tests[3].Slow = true;
+    using Pace = ZaminTest::RunnerOptions::Speed;
+    CHECK((ZaminTest::SelectTests(tests, ZaminTest::TestFilter(), Pace::Quick) == std::vector<size_t>{ 0, 2 }));
+    CHECK((ZaminTest::SelectTests(tests, ZaminTest::TestFilter(), Pace::Slow) == std::vector<size_t>{ 1, 3 }));
+    CHECK((ZaminTest::SelectTests(tests, filter, Pace::Slow) == std::vector<size_t>{ 1 }) && ZaminTest::SelectTests(tests, ZaminTest::TestFilter(), Pace::All).size() == 4);
+    ZaminTest::RunnerOptions paced;
+    std::string paceError;
+    const char* quickArgs[] = { "--quick" };
+    CHECK(ZaminTest::ParseOptions(1, quickArgs, paced, paceError) && paced.Pace == Pace::Quick);
+    const char* slowArgs[] = { "--slow", "Lantern*" };
+    CHECK(ZaminTest::ParseOptions(2, slowArgs, paced, paceError) && paced.Pace == Pace::Slow && !paced.Filter.IsEmpty());
 
     // The real registry: this test is in it, and no two names differ only in case (the filters ignore it).
     ZaminTest::TestFilter self;
@@ -4019,6 +4031,10 @@ TEST(InputBindingHints)
     CHECK(ExpandInputBindings(map, "[kb:Sichqoncha / ][Steer] - nishon", pad) == "Right stick - nishon");
     CHECK(ExpandInputBindings(map, "[kb:klaviatura][pad:gamepad]", pad) == "gamepad" && ExpandInputBindings(map, "[kb:klaviatura][pad:gamepad]", kb) == "klaviatura");
     CHECK(ExpandInputBindings(map, "[Nope|x]", kb) == "[Nope|x]");
+    // A hint shown as written (no InputHints): the UI audit's RawHint rule finds the token, not other brackets.
+    CHECK(FindUnexpandedInputToken(map, "[Interact] Saqlash ziyoratgohi") == "" && FindUnexpandedInputToken(map, "[Jump] - sakrash") == "[Jump]");
+    CHECK(FindUnexpandedInputToken(map, "[x] [Nope] [KeysOnly|sichqoncha]") == "[KeysOnly|sichqoncha]" && FindUnexpandedInputToken(map, "[kb:Jump] [x [Pause]") == "[Pause]");
+    CHECK(FindUnexpandedInputToken(map, ExpandInputBindings(map, "[Jump] - sakrash   [Pause] - pauza", kb)).empty() && FindUnexpandedInputToken(map, "").empty());
 
     // A game's language files rename controls ("input.<id>").
     std::vector<StringTable> tables(1);

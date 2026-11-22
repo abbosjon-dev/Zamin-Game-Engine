@@ -381,6 +381,8 @@ add("Localization.Language","Localization",{},{S("Value")},true);
 add("Localization.Text","Localization",{S("Key"),S("Fallback")},{S("Value")},true);
 add("Display.SetFullscreen","Display",{E("In"),B("Fullscreen",true)},{E("Then")});
 add("Display.IsFullscreen","Display",{},{B("Value")},true);
+add("Localization.SaveSettings","Localization",{E("In")},{E("Then"),B("Success")});
+add("Display.SaveSettings","Display",{E("In")},{E("Then"),B("Success")});
 add("Display.SetUIScale","Display",{E("In"),N("Scale",1)},{E("Then"),B("Success")});
 add("Display.UIScale","Display",{},{N("Value",1)},true);
 add("UIValue","UI",{EntityPin()},{B("Found"),N("Value"),B("On")},true);
@@ -1179,17 +1181,30 @@ return c; }();
                             Require(Matches(Type::Bool, result), "Invalid navigation operation result");
                             t.Results[n->ID] = { { "Success", result } };
                         }
-                        if (k.starts_with("Animator.") || k.starts_with("Gameplay."))
+                        else if (k.starts_with("Animator.") || k.starts_with("Gameplay."))
                         {
                             Require(result.is_object(), "Invalid Animator operation result");
                             for (const auto& pin : Def(*n).Outputs)
                                 if (pin.Kind != Type::Exec) Require(result.contains(pin.Name) && Matches(pin.Kind, result.at(pin.Name)), "Invalid Animator result pin");
                             t.Results[n->ID] = std::move(result);
                         }
-                        if (k == "SpawnPrefab")
+                        else if (k == "SpawnPrefab")
                         {
                             Require(Matches(Type::Entity, result), "Invalid spawned entity");
                             t.Results[n->ID] = { { "Value", result } };
+                        }
+                        // The other engine operations with data outputs (Success of Localization.SaveSettings,
+                        // Audio.SetGroupVolume, SetUIValue ...): the pins their result names, type-checked.
+                        else if (result.is_object())
+                        {
+                            Value pins = Value::object();
+                            for (const auto& pin : Def(*n).Outputs)
+                                if (pin.Kind != Type::Exec && result.contains(pin.Name))
+                                {
+                                    Require(Matches(pin.Kind, result.at(pin.Name)), "Invalid engine operation result pin");
+                                    pins[pin.Name] = result.at(pin.Name);
+                                }
+                            if (!pins.empty()) t.Results[n->ID] = std::move(pins);
                         }
                         CheckStorage();
                         Push(t, n->ID, "Then");

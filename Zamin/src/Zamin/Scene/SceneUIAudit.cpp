@@ -1,7 +1,9 @@
 // The UI audit (Scene::AuditUI, UIAudit.h) and the player's UI scale setting (Scene::SetUIScaleMultiplier).
 #include "Zamin/Scene/Scene.h"
 
+#include "Zamin/Core/InputActions.h"
 #include "Zamin/Gameplay/GameplayUI.h"
+#include "Zamin/Project/Project.h"
 #include "Zamin/Renderer/Font.h"
 #include "Zamin/Renderer/Renderer.h"
 #include "Zamin/Scene/Components.h"
@@ -43,6 +45,7 @@ namespace Zamin {
         const uint32_t ownWidth = m_ViewportWidth, ownHeight = m_ViewportHeight;
         m_ViewportWidth = width;
         m_ViewportHeight = height;
+        UpdateLocalizedTexts(); // what the next frame draws: texts a script set this frame, with their hints expanded
         LayoutUI();
 
         // The gameplay UI panels: which one each element is in, and the one on top.
@@ -134,6 +137,7 @@ namespace Zamin {
                     // A pixel of slack for rounding; a line's height (1.2 em) may stand over a tight box by an eighth of it.
                     const float slack = 1.0f / std::max(node.Scale, 0.01f);
                     r.TextFits = layout.Size.x <= textRect.GetWidth() + slack && layout.Size.y <= textRect.GetHeight() * 1.125f + slack;
+                    r.RawHint = FindUnexpandedInputToken(Project::GetInputActionMap(), shown);
                 }
             }
             if (r.Selectable)

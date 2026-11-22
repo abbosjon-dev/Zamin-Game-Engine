@@ -8,7 +8,8 @@ shrine saves (v4) and the beacon finale, victory and defeat screens, music and s
 
 Everything is generated deterministically (fixed seeds, UUIDs from fixed ranges and asset paths): running it twice
 gives byte-identical files. The numbers in C are the single source of truth for the balance and for the headless
-oracle (Tests/BeaconPassTests.cpp reads Assets/Data/oracle.json, written here). Graphs and scenes are built in
+oracle (Tests/BeaconPassTests.cpp reads Tests/oracle.json next to the project - test data outside Assets/, so no export
+ships it - written here). Graphs and scenes are built in
 beacon_graphs.py (graphkit); models in gltfkit.py; shared art/audio/route helpers in slicekit.py.
 """
 import json
@@ -456,18 +457,6 @@ def _bow():
     return [("Wood", (0.42, 0.26, 0.14), 0.7, 0.0, (0, 0, 0), wood), ("String", (0.9, 0.86, 0.75), 0.9, 0.0, (0, 0, 0), string)]
 
 
-def write_materials():
-    """Material assets for the architecture (tiling textures with normal and ORM maps)."""
-    for name, rough in (("stone", 0.85), ("plaster", 0.9), ("wood", 0.8)):
-        rel = f"Materials/{name}.zmat"
-        mat = {"Albedo": [1, 1, 1, 1], "AlbedoMap": f"Textures/{name}.png", "AlphaCutoff": 0.5, "BlendMode": "Opaque", "DoubleSided": False,
-               "Emission": [0, 0, 0], "EmissionStrength": 0.0, "EmissiveMap": "", "MetalRoughMap": f"Textures/{name}_orm.png", "Metallic": 0.0,
-               "NormalMap": f"Textures/{name}_n.png", "NormalStrength": 1.0, "Offset": [0, 0], "PreserveSpecular": False, "Roughness": rough,
-               "Shader": "Lit", "Tiling": [1, 1], "Version": 1}
-        k.write_json(os.path.join(ASSETS, rel), mat)
-        k.write_zmeta(ASSETS, rel, "Material", {}, PROJECT)
-
-
 # ------------------------------------------------------------------------------------------------ audio
 
 
@@ -486,7 +475,7 @@ def make_audio():
         chirp = np.sin(2 * np.pi * (3200 + 1800 * tt / 0.09 + 300 * np.sin(tt * 90)) * tt) * np.exp(-tt * 30)
         k.place(birds, chirp, at, 0.12)
     k.write_wav(rel("amb_pass.wav"), wind * 0.7 + birds, peak=0.5)
-    for kind in ("swing", "hit", "bolt", "chest", "death", "hurt", "levelup", "ui", "victory", "defeat", "nova", "gate", "lamp"):
+    for kind in ("swing", "hit", "bolt", "chest", "death", "hurt", "levelup", "ui", "victory", "defeat", "nova", "lamp"):
         k.write_wav(rel(f"sfx_{kind}.wav"), sk.sfx(kind, 7))
     # footsteps on dirt/stone: short filtered noise thumps
     for i in range(4):
@@ -533,11 +522,36 @@ TEXT = {
 }
 
 
+# What the HUD names by key (the engine looks up "item.<Key>", "combat.<Key>" and "quest.<Quest>[.<Objective>]"; a key
+# without a string shows as it is): the bag's items, the combat feed's payloads, the quest book.
+ITEM_NAMES = {"FireStone": ("Olov toshi", "Fire stone"), "Potion": ("Ichimlik", "Potion"), "Shamshir": ("Shamshir", "Sabre"),
+              "Qalqon": ("Qalqon", "Shield"), "Key": ("Kalit", "Key")}
+COMBAT_NAMES = {"Bolt": ("Olov o'qi", "Fire bolt"), "Burn": ("Kuyish", "Burn"), "Arrow": ("O'q", "Arrow"), "Zilzila": ("Zilzila", "Ground slam"),
+                "Shockwave": ("Zarba to'lqini", "Shockwave"), "Shock": ("Karaxt", "Stun"), "Potion": ("Ichimlik", "Potion")}
+QUEST_EN = {"Pass": ("The mountain pass", {"Guards": "Defeat the gate guards", "Gate": "Open the caravanserai gate"}),
+            "Stones": ("Fire stones", {"Stone": "Gather the fire stones"}), "Warden": ("The Black Warden", {"Warden": "Defeat the Black Warden"}),
+            "Beacon": ("The beacon", {"Beacon": "Light the beacon"})}
+
+
 def make_localization():
+    """uz.json / en.json: the scene texts (TEXT), the strings the graphs build (beacon_graphs.TEXT, filled by build), the
+    HUD's item / combat / quest names and the control names. An empty text is left out (the fallback is "")."""
+    pairs = dict(TEXT)
+    pairs.update(bg.TEXT)
+    for key, pair in ITEM_NAMES.items():
+        pairs[f"item.{key}"] = pair
+    for key, pair in COMBAT_NAMES.items():
+        pairs[f"combat.{key}"] = pair
+    for key, title, objectives, *_ in C["Quests"]:
+        en_title, en_labels = QUEST_EN[key]
+        pairs[f"quest.{key}"] = (title, en_title)
+        for o in objectives:
+            pairs[f"quest.{key}.{o[0]}"] = (o[1], en_labels[o[0]])
     for lang, index in (("uz", 0), ("en", 1)):
         table = {"$name": "O'zbekcha" if lang == "uz" else "English"}
-        for key, pair in TEXT.items():
-            table[key] = pair[index]
+        for key, pair in sorted(pairs.items()):
+            if pair[index]:
+                table[key] = pair[index]
         for kind, names in k.INPUT_NAMES[lang].items():
             for control, label in names.items():
                 table[f"input.{kind}.{control}"] = label
@@ -547,7 +561,9 @@ def make_localization():
 
 # ------------------------------------------------------------------------------------------------ manifest
 
-ACTIONS = [("Jump", ["Key:Space", "Gamepad:A"]), ("Walk", ["Key:LeftShift", "Gamepad:LeftThumb"]), ("Sprint", ["Key:RightShift"]),
+# (no Sprint: the courier runs by default and walks on Walk - Gameplay.Input reads none; every action has a key and a
+# gamepad control)
+ACTIONS = [("Jump", ["Key:Space", "Gamepad:A"]), ("Walk", ["Key:LeftShift", "Gamepad:LeftThumb"]),
            ("Attack", ["Mouse:Left", "Key:J", "Gamepad:X"]), ("Bolt", ["Mouse:Right", "Key:K", "Gamepad:RightBumper"]),
            ("Slam", ["Key:Q", "Gamepad:Y"]), ("Potion", ["Key:R", "Gamepad:DPadDown"]), ("Interact", ["Key:E", "Gamepad:B"]),
            ("Inventory", ["Key:I", "Key:Tab", "Gamepad:Back"]), ("Pause", ["Key:Escape", "Key:P", "Gamepad:Start"])]
@@ -558,9 +574,7 @@ def main():
     make_textures()
     make_ui()
     make_models()
-    write_materials()
     make_audio()
-    make_localization()
     route, codes = compile_route()
     heights, weights = terrain_heights()
     walk_cycle = WALK_STRIDE / WALK
@@ -574,7 +588,8 @@ def main():
                  half_width=half_width)
     bg.build(ASSETS, PROJECT, C, world, ENEMIES, ARCHETYPES, route, codes, oracle, dict(WALL_MASK=WALL_MASK, VIEW_MASK=VIEW_MASK, GS=GS,
              WORLD_LAYER=WORLD_LAYER, WALL_LAYER=WALL_LAYER, HERO_LAYER=HERO_LAYER, ENEMY_LAYER=ENEMY_LAYER))
-    k.write_json(os.path.join(ASSETS, "Data", "oracle.json"), oracle)
+    make_localization()  # after the graphs: they register the strings they build
+    k.write_json(os.path.join(OUT, "Tests", "oracle.json"), oracle)
     names = ["Default", "World", "Wall", "Hero", "Enemy"]
     k.write_project(OUT, NAME, "Dovon mash'ali", "Scenes/Menu.zscene", bg.scene_uuid(PROJECT, "Menu"), version="1.0.0",
                     build_scenes=[(f"Scenes/{s}.zscene", bg.scene_uuid(PROJECT, s)) for s in ("Menu", "Dovon")],

@@ -111,12 +111,6 @@
                     "Key:P",
                     "Gamepad:Start"
                 ]
-            },
-            {
-                "Name": "Jump",
-                "Bindings": [
-                    "Key:Space"
-                ]
             }
         ],
         "Axes": [

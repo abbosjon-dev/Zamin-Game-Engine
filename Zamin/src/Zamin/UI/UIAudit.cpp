@@ -90,6 +90,8 @@ namespace Zamin {
                                                              r.Rect.GetHeight()));
                 if (r.FontPx + 0.01f < rules.MinFontPx)
                     add("MinFont", r.ID, 0, std::format("'{}' {:.1f} px (eng kami {:.0f})", r.Tag, r.FontPx, rules.MinFontPx));
+                if (!r.RawHint.empty())
+                    add("RawHint", r.ID, 0, std::format("'{}' matnida {} tugma nomiga aylanmagan (InputHints)", r.Tag, r.RawHint));
             }
         }
         // Usable siblings that overlap (more than the tolerance on both axes).

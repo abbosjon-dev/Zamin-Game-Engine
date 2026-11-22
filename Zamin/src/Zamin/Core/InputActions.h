@@ -165,5 +165,9 @@ namespace Zamin {
     // reads "-", or the text after a bar: "[Look|Sichqoncha]". "[kb:text]" / "[pad:text]" show their text only
     // for the keyboard and mouse / only for a gamepad: "[kb:Sichqoncha / ][Aim] - nishon".
     std::string ExpandInputBindings(const InputActionMap& map, std::string_view text, InputDevice device);
+    // The first "[Name]" / "[Name|fallback]" of `text` whose Name is an action / axis / vector of `map` ("" for none):
+    // a control hint shown as it was written - its Text has no InputHints, or it was set after the hints were
+    // expanded (the UI audit's RawHint rule).
+    std::string FindUnexpandedInputToken(const InputActionMap& map, std::string_view text);
 
 }

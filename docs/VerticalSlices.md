@@ -2,8 +2,9 @@
 
 Two small finished games built only from the engine's gameplay packages and played end to end by a deterministic
 demo pilot for acceptance: the 2D *Chiroqbon* (`Projects/LanternKeeper`) and the 3D *Dovon mash'ali*
-(`Projects/BeaconPass`). The stress and UI gates and the export/profiling gates follow in the next items of the package
-(docs/TASKS.md).
+(`Projects/BeaconPass`). Both pass the package's stress, UI input/scale, fresh-process resume, relocated export and
+profiling gates ([Gates](#gates), [Resume, export and profiling](#resume-export-and-profiling); evidence in
+docs/TASKS.md).
 
 ## Chiroqbon (2D, `Projects/LanternKeeper`)
 

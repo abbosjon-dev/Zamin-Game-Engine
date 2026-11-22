@@ -15,8 +15,14 @@ if(ZAMIN_COVERAGE)
 endif()
 # ctest also writes the results with every test's time (build/TestResults: JSON, JUnit XML for CI) and prints the
 # time report (the slowest tests). ZaminTests --help: filters by name (--filter Prefab*, --list) and the other options.
-add_test(NAME ZaminTests COMMAND ZaminTests --timing --report ${CMAKE_BINARY_DIR}/TestResults/ZaminTests.json
+# The unit tests (label "unit": the quick loop, ctest -L unit) and the whole slice playthroughs (SLOW_TEST, label
+# "slices": ~85 % of a full run) are two entries, so ctest -j runs them side by side; both are in ctest -LE gui and CI.
+add_test(NAME ZaminTests COMMAND ZaminTests --quick --timing --report ${CMAKE_BINARY_DIR}/TestResults/ZaminTests.json
     --junit ${CMAKE_BINARY_DIR}/TestResults/ZaminTests.xml)
+set_tests_properties(ZaminTests PROPERTIES LABELS "unit")
+add_test(NAME ZaminSliceTests COMMAND ZaminTests --slow --timing --report ${CMAKE_BINARY_DIR}/TestResults/ZaminSliceTests.json
+    --junit ${CMAKE_BINARY_DIR}/TestResults/ZaminSliceTests.xml)
+set_tests_properties(ZaminSliceTests PROPERTIES LABELS "slices;slow" TIMEOUT 1800)
 
 # The documentation stays true to the code (Tests/docs_check.py, label "docs"): every relative link and image of the
 # Markdown files resolves, every component of AllComponents is in docs/Components.md (its generated tables up to
@@ -226,7 +232,8 @@ if(TARGET ZaminEditor AND TARGET ZaminPlayer AND ZAMIN_BUILD_EXAMPLES)
         RUN_SERIAL TRUE)
 endif()
 
-# The sample games (label "samples"). SampleAssets (quick, no display): the six generated games' assets - budget,
+# The sample games (label "samples"). SampleAssets (quick, no display): the generated games' assets (the six M24 games
+# and, in graph mode, the two vertical slices) - budget,
 # .zmeta, PNG / WAV, references (Tests/samples_assets.py; --regen compares with the generators' output, needs numpy).
 # Sample<Game> (also "gui;slow": ZaminPlayer under xvfb, 1-5 minutes each): its bot demo makes progress (score,
 # waves, levels, laps ...) and saves a record the next run reads back, its menus work with keys and with a gamepad,
@@ -238,6 +245,11 @@ if(Python3_Interpreter_FOUND)
     add_test(NAME SampleAssets COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/Tests/samples_assets.py
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
     set_tests_properties(SampleAssets PROPERTIES LABELS "samples")
+    # The two vertical slices in graph mode with --regen: their generators run into a temporary folder and must give
+    # the committed projects byte for byte (skipped with a message when numpy is missing).
+    add_test(NAME SliceAssets COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/Tests/samples_assets.py --game LanternKeeper --game BeaconPass --regen
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+    set_tests_properties(SliceAssets PROPERTIES LABELS "samples;slices" TIMEOUT 300)
 endif()
 if(TARGET ZaminPlayer AND ZAMIN_BUILD_EXAMPLES AND Python3_Interpreter_FOUND)
     set(ZAMIN_SAMPLE_GAMES TopDownShooter Breakout FPSArena Sokoban EndlessRunner Racing Platformer2D Showcase3D Adventure3D)

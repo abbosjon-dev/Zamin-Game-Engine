@@ -6,7 +6,8 @@ levels and unlocks, equipment, inventory, HUD, pause, level card, victory and de
 
 Everything is generated deterministically (fixed seeds, UUIDs from fixed ranges and asset paths): running it twice
 gives byte-identical files. The numbers in CONSTANTS are the single source of truth for the balance and for the
-headless oracle (Tests/LanternKeeperTests.cpp reads Assets/Data/oracle.json, written here).
+headless oracle (Tests/LanternKeeperTests.cpp reads Tests/oracle.json next to the project - test data outside Assets/,
+so no export ships it - written here).
 Graphs are built in lantern_graphs.py with graphkit; shared art/audio/route helpers live in slicekit.py.
 """
 import json
@@ -74,7 +75,7 @@ def grid(w, h, rooms, water=(), pillars=()):
 
 LEVELS = {
     1: dict(
-        scene="Boglar", title="Bog'lar", size=(46, 26),
+        scene="Boglar", title="Bog'lar", title_en="THE ORCHARDS", size=(46, 26),
         rooms=[(1, 1, 14, 24), (15, 4, 18, 7), (19, 1, 31, 11), (23, 12, 26, 14), (17, 15, 34, 24), (35, 18, 38, 20), (39, 15, 44, 24)],
         water=[(5, 15, 9, 18), (26, 6, 29, 8)],
         pillars=[],
@@ -103,7 +104,7 @@ LEVELS = {
         ambient=((1.0, 0.78, 0.60), 0.5), music="music_boglar.wav", amb="amb_orchard.wav",
     ),
     2: dict(
-        scene="Yertola", title="Yertola", size=(44, 30),
+        scene="Yertola", title="Yertola", title_en="THE CRYPT", size=(44, 30),
         rooms=[(2, 2, 12, 9), (13, 4, 13, 6), (14, 2, 30, 9), (31, 4, 31, 6), (32, 2, 41, 12), (21, 10, 23, 10), (14, 11, 30, 16),
                (11, 13, 13, 15), (2, 12, 10, 20), (21, 17, 23, 17), (12, 18, 32, 28)],
         water=[],
@@ -152,8 +153,8 @@ ENEMIES = {
 ACTIONS = [("Attack", ["Key:J", "Mouse:Left", "Gamepad:X"]), ("Bolt", ["Key:K", "Mouse:Right", "Gamepad:RightBumper"]),
            ("Nova", ["Key:L", "Gamepad:Y"]), ("Mend", ["Key:H", "Gamepad:LeftBumper"]), ("Potion", ["Key:Q", "Gamepad:DPadDown"]),
            ("Interact", ["Key:E", "Gamepad:A"]), ("Sprint", ["Key:LeftShift", "GamepadAxis:LeftTrigger+"]),
-           ("Inventory", ["Key:I", "Key:Tab", "Gamepad:Back"]), ("Pause", ["Key:Escape", "Key:P", "Gamepad:Start"]),
-           ("Jump", ["Key:Space"])]
+           ("Inventory", ["Key:I", "Key:Tab", "Gamepad:Back"]), ("Pause", ["Key:Escape", "Key:P", "Gamepad:Start"])]
+# (no Jump: the hero's Gameplay.Input reads none - every action here has a key and a gamepad control)
 
 
 def cell(c):
@@ -179,18 +180,31 @@ def make_art():
             k.write_json(os.path.join(ASSETS, rel), sk.clip_json(tex, frames, fps, loop, events))
             k.write_zmeta(ASSETS, rel, "SpriteAnimation", {}, PROJECT)
     # tilesets: 8 x 2 tiles of 64 px
-    def tileset(rel, tiles):
-        img = k.image(8 * sk.TILE, 2 * sk.TILE)
+    def tileset(rel, tiles, cols, rows):
+        assert len(tiles) <= cols * rows, rel
+        img = k.image(cols * sk.TILE, rows * sk.TILE)
         for i, t in enumerate(tiles):
-            k.blit(img, t, (i % 8) * sk.TILE, (i // 8) * sk.TILE)
+            k.blit(img, t, (i % cols) * sk.TILE, (i // cols) * sk.TILE)
         k.write_png(os.path.join(ASSETS, rel), img)
         k.write_zmeta(ASSETS, rel, "Texture", {"Filter": "Linear"}, PROJECT)
-    grass = [sk.paint_ground((0.46, 0.55, 0.27), (0.24, 0.31, 0.13), 10 + i, ((0.70, 0.78, 0.40), 5)) for i in range(4)]
-    flowers = sk.paint_ground((0.46, 0.55, 0.27), (0.24, 0.31, 0.13), 20, ((1.0, 0.70, 0.50), 12))
-    path = [sk.paint_ground((0.64, 0.53, 0.40), (0.42, 0.33, 0.24), 30 + i, ((0.80, 0.70, 0.56), 4)) for i in range(2)]
+    # Boglar: 16 x 6 tiles - seamless grass (0-3), flowers (4), walls (5, 6); the path's 47-tile blob autotile (16 + its
+    # index in slicekit.blob_masks), the water autotile (64 + mask); decals (80-89). Every grass variant shares the base
+    # noise at its border: no seams.
+    GRASS, GRASS_DARK, GRASS_LIGHT = (0.46, 0.55, 0.27), (0.24, 0.31, 0.13), (0.62, 0.70, 0.34)
+    grass = [sk.seamless_ground(GRASS, GRASS_DARK, 10, 11 + i, ((0.70, 0.78, 0.40), 5), light=GRASS_LIGHT) for i in range(4)]
+    for i, tile in enumerate(grass):
+        sk._blades(tile, 200 + i, (0.30, 0.42, 0.16), 10)
+    flowers = sk.seamless_ground(GRASS, GRASS_DARK, 10, 20, ((1.0, 0.70, 0.50), 12), light=GRASS_LIGHT)
+    base_grass = sk.seamless_ground(GRASS, GRASS_DARK, 10, 10, light=GRASS_LIGHT, detail=0.0)
+    path = sk.seamless_ground((0.64, 0.53, 0.40), (0.42, 0.33, 0.24), 30, 30, ((0.80, 0.70, 0.56), 0), cells=5, detail=0.0)
     wall = sk.paint_wall((0.74, 0.62, 0.46), (0.47, 0.36, 0.26), 40)
-    water = sk.paint_water(50)
-    tileset("Textures/tiles_boglar.png", grass + path + [wall, water, flowers, sk.paint_wall((0.66, 0.56, 0.42), (0.40, 0.31, 0.22), 41)])
+    wall2 = sk.paint_wall((0.66, 0.56, 0.42), (0.40, 0.31, 0.22), 41)
+    tiles = grass + [flowers, wall, wall2, k.image(sk.TILE, sk.TILE)] + [k.image(sk.TILE, sk.TILE)] * 8
+    tiles += [sk.path_autotile(m, base_grass, path, seed=i) for i, m in enumerate(sk.blob_masks())] + [k.image(sk.TILE, sk.TILE)]
+    tiles += [sk.water_autotile(m, base_grass, seed=m) for m in range(16)]
+    tiles += [sk.decal_petals(), sk.decal_clover(), sk.decal_pebbles(), sk.decal_leaves(), sk.decal_mushrooms(), sk.decal_tuft(), sk.decal_moss(),
+              sk.decal_wildflowers(), sk.decal_wall_shadow(), sk.decal_pebbles(13, (0.50, 0.44, 0.36))]
+    tileset("Textures/tiles_boglar.png", tiles, 16, 6)
     slabs = [sk.paint_ground((0.40, 0.39, 0.50), (0.20, 0.19, 0.28), 60 + i, ((0.55, 0.55, 0.7), 3), cells=2) for i in range(4)]
     for slab in slabs:
         xs, ys = k.coords(sk.TILE, sk.TILE, (0, 0))
@@ -205,7 +219,11 @@ def make_art():
     cwall = sk.paint_wall((0.38, 0.36, 0.50), (0.20, 0.18, 0.28), 72)
     inlay = sk.paint_ground((0.34, 0.30, 0.40), (0.16, 0.13, 0.20), 73, cells=2)
     k.stroke(inlay, k.sd_polygon(x, y, k.regular_polygon(6, 24, 0)), (0.85, 0.65, 1.0, 0.5), 2)
-    tileset("Textures/tiles_yertola.png", slabs + [rune, dark, cwall, cwall, inlay])
+    # Yertola: slabs (0-3), rune (4), dark slab (5), wall (6, 7), inlay (8); decals (9-15): cracks, rubble, moss, a
+    # puddle, a cobweb, the wall's shadow
+    decals = [sk.decal_crack(9), sk.decal_crack(19), sk.decal_rubble(), sk.decal_moss(17, (0.20, 0.34, 0.30)), sk.decal_puddle(), sk.decal_cobweb(),
+              sk.decal_wall_shadow(0.65)]
+    tileset("Textures/tiles_yertola.png", slabs + [rune, dark, cwall, cwall, inlay] + decals, 8, 2)
     # props atlas
     props = k.Atlas(1024, 512)
     for i in range(3):
@@ -358,7 +376,7 @@ def make_audio():
     for i in range(9):
         k.place(drips, sk.pluck(1800 + (i * 337) % 900, 0.4, 0.2, i), (i * 0.93) % 8, 0.5)
     k.write_wav(rel("amb_crypt.wav"), sk.drone(55, 8, 3) * 0.3 + drips + k.lowpass(k.noise(8, 22), 200) * 0.3, peak=0.5)
-    for kind in ("swing", "hit", "bolt", "coin", "lamp", "chest", "death", "hurt", "levelup", "ui", "victory", "defeat", "nova", "gate"):
+    for kind in ("swing", "hit", "bolt", "coin", "lamp", "chest", "death", "hurt", "levelup", "victory", "defeat", "nova"):
         k.write_wav(rel(f"sfx_{kind}.wav"), sk.sfx(kind, 5))
     for name in os.listdir(os.path.join(ASSETS, "Audio")):
         if name.endswith(".wav"):
@@ -388,11 +406,38 @@ TEXT = {
 }
 
 
+# What the HUD names by key (the engine looks up "item.<Key>", "combat.<Key>" and "quest.<Quest>[.<Objective>]"; a key
+# without a string shows as it is): the bag's items, the combat feed's payloads, the quest book.
+ITEM_NAMES = {"Coin": ("Tanga", "Coin"), "Lamp": ("Chiroq", "Lamp"), "Key": ("Kalit", "Key"), "Herb": ("Shifobaxsh o't", "Healing herb"),
+              "Potion": ("Ichimlik", "Potion"), "Qilich": ("Qilich", "Sword"), "Tumor": ("Tumor", "Charm"), "Zirh": ("Zirh", "Armour")}
+COMBAT_NAMES = {"Bolt": ("Olov o'qi", "Fire bolt"), "Burn": ("Kuyish", "Burn"), "Arrow": ("O'q", "Arrow"), "Poison": ("Zahar", "Poison"),
+                "Orb": ("Soya shari", "Shadow orb"), "Spit": ("Ruh zahri", "Spirit venom"), "Nova": ("Yorug' to'lqin", "Light wave"),
+                "Ring": ("Soya halqasi", "Shadow ring"), "Shock": ("Karaxt", "Stun"), "Regen": ("Tiklanish", "Mend"), "Mend": ("Tiklanish", "Mend"),
+                "Potion": ("Ichimlik", "Potion")}
+QUEST_EN = {"Gate": ("The orchard gate", {"Chief": "Defeat the bandit chief", "Gate": "Open the gate"}),
+            "Herbs": ("Healing herbs", {"Herb": "Healing herb"}), "Lamps": ("Three lamps", {"Lamp": "Lamps of Dawn"}),
+            "Boss": ("Soya Bek", {"Boss": "Defeat Soya Bek"}), "Dawn": ("The Dawn Lamp", {"Altar": "Light the lamp on the altar"})}
+
+
 def make_localization():
+    """uz.json / en.json: the scene texts (TEXT), the strings the graphs build (lantern_graphs.TEXT, filled by build), the
+    HUD's item / combat / quest names and the control names. An empty text is left out (the fallback is "")."""
+    pairs = dict(TEXT)
+    pairs.update(lg.TEXT)
+    for key, pair in ITEM_NAMES.items():
+        pairs[f"item.{key}"] = pair
+    for key, pair in COMBAT_NAMES.items():
+        pairs[f"combat.{key}"] = pair
+    for key, title, objectives, *_ in C["Quests"]:
+        en_title, en_labels = QUEST_EN[key]
+        pairs[f"quest.{key}"] = (title, en_title)
+        for o in objectives:
+            pairs[f"quest.{key}.{o[0]}"] = (o[1], en_labels[o[0]])
     for lang, index in (("uz", 0), ("en", 1)):
         table = {"$name": "O'zbekcha" if lang == "uz" else "English"}
-        for key, pair in TEXT.items():
-            table[key] = pair[index]
+        for key, pair in sorted(pairs.items()):
+            if pair[index]:
+                table[key] = pair[index]
         for kind, names in k.INPUT_NAMES[lang].items():
             for control, label in names.items():
                 table[f"input.{kind}.{control}"] = label
@@ -407,7 +452,6 @@ def main():
     os.makedirs(ASSETS, exist_ok=True)
     make_art()
     make_audio()
-    make_localization()
     oracle = {"Schema": C["Schema"], "XP": C["XP"], "FinalLevel": C["FinalLevel"], "Quests": [q[0] for q in C["Quests"]], "Levels": {}}
     routes = {}
     for number, level in LEVELS.items():
@@ -431,7 +475,8 @@ def main():
         oracle["Levels"][str(number)] = {"Scene": level["scene"], "Coins": coins, "Enemies": len(level["enemies"]), "Waypoints": len(route)}
     oracle["Coins"] = sum(v["Coins"] for v in oracle["Levels"].values()) + C["Quests"][0][4]["Coin"]
     lg.build(ASSETS, PROJECT, C, LEVELS, ENEMIES, routes, oracle)
-    k.write_json(os.path.join(ASSETS, "Data", "oracle.json"), oracle)
+    make_localization()  # after the graphs: they register the strings they build
+    k.write_json(os.path.join(OUT, "Tests", "oracle.json"), oracle)
     actions = list(ACTIONS)
     k.write_project(OUT, NAME, "Chiroqbon", "Scenes/Menu.zscene", lg.scene_uuid(PROJECT, "Menu"), version="1.0.0",
                     build_scenes=[(f"Scenes/{s}.zscene", lg.scene_uuid(PROJECT, s)) for s in ("Menu", "Boglar", "Yertola")],

@@ -26,6 +26,20 @@ Checks for each game (Projects/<Game>):
                   action / axis / vector the scripts read is in the map and every one in the map is read; the scripts
                   never poll the keyboard or a gamepad directly (only the mouse, for aiming / looking); the main menu's
                   controls hint (InputHints) names only the map's actions, in both languages.
+
+The compiler-free vertical slices (GRAPH_GAMES: Visual Script graphs instead of C++ scripts, generators named in the
+table) get the same checks in graph mode, with their own budget (6 MiB of Assets/, a scene 700 KB, a model 600 KB) and:
+  - references  .zgraph / .zmat / .zsanim / .zprefab files count as referrers and as assets (Scripts/, Materials/,
+                Animations/, Prefabs/ ...); every texture, sound, model and animation is used
+  - input       the actions / axes / vectors the graphs read: ActionPressed / ActionJustPressed / Axis names, the
+                Gameplay.Input Move / Jump / Sprint pins (their defaults when not set, nothing when empty), the gameplay
+                UI panels' Action - every one in the map, every one in the map read; each action has a keyboard /
+                mouse and a gamepad binding
+  - language    uz.json and en.json have the same keys; every Text LocalizationKey of a scene and every literal
+                Localization.Text Key of a graph is in both; every "[Name]" control hint of a language string or a
+                hinted scene text names the map
+  - test data   nothing under Assets/ is test data (the headless oracle lives in Tests/oracle.json, outside what an
+                export ships)
 Standard library only (numpy for --regen). Exit code: 0 when every check holds, 1 otherwise.
 """
 import argparse
@@ -42,6 +56,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.dont_write_bytecode = True
 
 GAMES = ["TopDownShooter", "Breakout", "FPSArena", "Sokoban", "EndlessRunner", "Racing"]
+# The vertical slices (graph mode): project -> generator
+GRAPH_GAMES = {"LanternKeeper": "gen_lantern_keeper.py", "BeaconPass": "gen_beacon_pass.py"}
+GRAPH_MAX_ASSETS = 6 * 1024 * 1024
+GRAPH_MAX_FILE = {".png": 512 * 1024, ".wav": 800 * 1024, ".zscene": 700 * 1024, ".glb": 600 * 1024}
 MAX_ASSETS = 2 * 1024 * 1024
 MAX_FILE = {".png": 512 * 1024, ".wav": 800 * 1024, ".zscene": 700 * 1024}
 MAX_PICTURE_SIDE = 2048
@@ -91,10 +109,15 @@ def wav_stats(path):
     return channels, rate, frames / float(rate or 1), peak
 
 
+def generator_of(game):
+    return os.path.join(ROOT, "Tools", "samples", GRAPH_GAMES.get(game, f"gen_{game.lower()}.py"))
+
+
 def check_game(game, verbose):
+    graph = game in GRAPH_GAMES
     project = os.path.join(ROOT, "Projects", game)
     assets = os.path.join(project, "Assets")
-    generator = os.path.join(ROOT, "Tools", "samples", f"gen_{game.lower()}.py")
+    generator = generator_of(game)
     # 1. generator
     if not os.path.exists(generator):
         problem(game, f"generator yo'q: {rel(generator, ROOT)}")
@@ -111,8 +134,9 @@ def check_game(game, verbose):
     metas = [p for p in files if p.endswith(".zmeta")]
     # 2. budget
     total = sum(os.path.getsize(p) for p in files)
-    if total > MAX_ASSETS:
-        problem(game, f"Assets/ {total / 1048576:.2f} MiB - chegara {MAX_ASSETS / 1048576:.0f} MiB")
+    budget, limits = (GRAPH_MAX_ASSETS, GRAPH_MAX_FILE) if graph else (MAX_ASSETS, MAX_FILE)
+    if total > budget:
+        problem(game, f"Assets/ {total / 1048576:.3f} MiB - chegara {budget / 1048576:.0f} MiB")
     by_kind = {}
     for p in data_files:
         ext = os.path.splitext(p)[1].lower()
@@ -120,8 +144,8 @@ def check_game(game, verbose):
         by_kind.setdefault(ext, [0, 0])
         by_kind[ext][0] += 1
         by_kind[ext][1] += size
-        if ext in MAX_FILE and size > MAX_FILE[ext]:
-            problem(game, f"{rel(p, assets)} {size // 1024} KB - {ext} uchun chegara {MAX_FILE[ext] // 1024} KB")
+        if ext in limits and size > limits[ext]:
+            problem(game, f"{rel(p, assets)} {size // 1024} KB - {ext} uchun chegara {limits[ext] // 1024} KB")
     # 3. meta
     uuids = {}
     for p in data_files:
@@ -175,7 +199,7 @@ def check_game(game, verbose):
     referenced = set()
     texts = []
     for p in files:
-        if p.endswith((".zscene", ".zmeta", ".json", ".zprefab", ".zanim", ".zsanim", ".zparticle")):
+        if p.endswith((".zscene", ".zmeta", ".json", ".zprefab", ".zanim", ".zsanim", ".zparticle", ".zgraph", ".zmat")):
             with open(p, encoding="utf-8", errors="replace") as f:
                 texts.append((rel(p, assets), f.read()))
     with open(os.path.join(project, f"{game}.zproject"), encoding="utf-8") as f:
@@ -185,7 +209,7 @@ def check_game(game, verbose):
         for n in sorted(names):
             with open(os.path.join(folder, n), encoding="utf-8", errors="replace") as f:
                 sources.append((f"Source/{n}", f.read()))
-    path_ref = re.compile(r'"((?:Textures|Audio|Models|Scenes|Fonts|Prefabs)/[^"{}]+\.[A-Za-z0-9]+)"')
+    path_ref = re.compile(r'"((?:Textures|Audio|Models|Scenes|Fonts|Prefabs|Scripts|Materials|Animations)/[^"{}]+\.[A-Za-z0-9]+)"')
     for where, text in texts + sources:
         for m in path_ref.finditer(text):
             target = m.group(1)
@@ -205,9 +229,10 @@ def check_game(game, verbose):
         for m in re.finditer(r'Sfx\("([a-z0-9_]+)"', text):
             if m.group(1) not in sound_names:
                 problem(game, f"{where}: Sfx(\"{m.group(1)}\") - Audio/{m.group(1)}.wav yo'q")
+    used_kinds = ("Audio/", "Textures/", "Models/", "Animations/", "Materials/", "Scripts/") if graph else ("Audio/", "Textures/")
     for p in data_files:
         name = rel(p, assets)
-        if name.startswith(("Audio/", "Textures/")) and name not in referenced:
+        if name.startswith(used_kinds) and name not in referenced and not (graph and referenced_by_name(name, texts)):
             problem(game, f"{name} hech qayerda ishlatilmaydi")
     # The export leaves out what nothing names (ExcludeUnusedAssets): a sound a script names only by its short name
     # (Sfx("hit") -> "Audio/hit.wav" made at runtime) must be in the project's Export.AlwaysInclude, or the exported
@@ -219,13 +244,127 @@ def check_game(game, verbose):
         if target.startswith("Audio/") and not any(export_includes(target, pat) for pat in patterns):
             problem(game, f"{target}: skript uni nomi bilan chaqiradi (Sfx), lekin eksport uni olmaydi - loyihaning "
                           f"Export.AlwaysInclude'iga qo'shing (masalan \"Audio/*.wav\")")
-    # 8. input
-    n_actions, n_axes, n_vectors = check_input(game, project, sources, assets)
+    # 8. input (graph mode: what the graphs read; the language tables; no test data in the assets)
+    if graph:
+        n_actions, n_axes, n_vectors = check_graph_input(game, project, assets, texts)
+        check_languages(game, assets, texts, project)
+        for p in data_files:
+            if re.search(r"oracle|\btest", rel(p, assets), re.IGNORECASE):
+                problem(game, f"{rel(p, assets)}: test ma'lumoti Assets/ ichida (eksport uni o'yin bilan birga tarqatadi) - Tests/ ga")
+        if not os.path.exists(os.path.join(project, "Tests", "oracle.json")):
+            problem(game, "Tests/oracle.json (headless oracle) yo'q")
+    else:
+        n_actions, n_axes, n_vectors = check_input(game, project, sources, assets)
     if verbose:
         kinds = ", ".join(f"{ext or '-'} {n} ta {size / 1024:.0f} KB" for ext, (n, size) in sorted(by_kind.items()))
         print(f"  {game:15} {total / 1048576:.2f} MiB ({kinds}); ovozlar {sound_seconds:.1f} s; input: {n_actions} harakat, "
               f"{n_axes} o'q, {n_vectors} vektor")
     return {"files": len(data_files), "bytes": total, "sound_seconds": round(sound_seconds, 1)}
+
+
+def referenced_by_name(name, texts):
+    """A model's clip / an animation named by its file stem (Animator states name clips; glb models by path)."""
+    stem = os.path.splitext(os.path.basename(name))[0]
+    return name.startswith("Animations/") and any(f'"{stem}"' in text for _, text in texts)
+
+
+def graph_nodes(texts):
+    for where, text in texts:
+        if where.endswith(".zgraph"):
+            try:
+                doc = json.loads(text)
+            except ValueError:
+                continue
+            for node in doc.get("Nodes", []):
+                yield where, node
+
+
+def check_graph_input(game, project, assets, texts):
+    """Graph mode of 8: the map covers both devices; the graphs read every name of the map and only those."""
+    with open(os.path.join(project, f"{game}.zproject"), encoding="utf-8") as f:
+        inputs = json.load(f).get("InputActions", {})
+    actions = {a["Name"]: a.get("Bindings", []) for a in inputs.get("Actions", [])}
+    axes = {a["Name"]: a for a in inputs.get("Axes", [])}
+    vectors = {v["Name"]: v for v in inputs.get("Vectors", [])}
+    for name, bindings in actions.items():
+        devices = {binding_device(b) for b in bindings}
+        if "kb" not in devices:
+            problem(game, f"input: '{name}' harakatida klaviatura / sichqoncha bog'lanishi yo'q")
+        if "pad" not in devices:
+            problem(game, f"input: '{name}' harakatida gamepad bog'lanishi yo'q")
+    for name, axis in axes.items():
+        sides = axis.get("Negative", []) + axis.get("Positive", [])
+        if "pad" not in {binding_device(b) for b in sides} and not axis.get("GamepadAxis"):
+            problem(game, f"input: '{name}' o'qida gamepad stigi ham, tugmasi ham yo'q")
+    read = {}
+    for where, node in graph_nodes(texts):
+        kind, ins = node.get("Kind", ""), node.get("Inputs", {})
+        if kind in ("ActionPressed", "ActionJustPressed"):
+            read.setdefault(ins.get("Name", ""), where)
+        elif kind == "Axis":
+            read.setdefault(ins.get("Name", ""), where)
+        elif kind == "Gameplay.Input":
+            for pin, default in (("Move", "Move"), ("Jump", "Jump"), ("Sprint", "Sprint")):
+                name = ins.get(pin, default)
+                if name:
+                    read.setdefault(name, where)
+        elif kind == "Gameplay.UIConfigure" and ins.get("Action"):
+            read.setdefault(ins["Action"], where)
+    known = set(actions) | set(axes) | set(vectors)
+    for name, where in sorted(read.items()):
+        if name not in known:
+            problem(game, f"{where}: '{name}' o'qiladi - input xaritasida yo'q")
+    used = set(read) | {vectors[v][k] for v in read if v in vectors for k in ("X", "Y")}
+    for name in sorted(known - used - {"ToggleFullscreen"}):
+        problem(game, f"input: '{name}' xaritada bor, lekin graflar uni o'qimaydi")
+    return len(actions), len(axes), len(vectors)
+
+
+def check_languages(game, assets, texts, project):
+    """Graph mode: both language tables have the same keys; the scenes' and graphs' keys exist; hints name the map."""
+    tables = {}
+    for lang in ("uz", "en"):
+        path = os.path.join(assets, "Localization", f"{lang}.json")
+        if not os.path.exists(path):
+            problem(game, f"Localization/{lang}.json yo'q")
+            return
+        with open(path, encoding="utf-8") as f:
+            tables[lang] = json.load(f)
+    for a, b in (("uz", "en"), ("en", "uz")):
+        missing = sorted(k for k in tables[a] if k not in tables[b] and not k.startswith("$"))
+        for key in missing[:12]:
+            problem(game, f"Localization/{b}.json: '{key}' kaliti yo'q ({a}.json da bor)")
+    with open(os.path.join(project, f"{game}.zproject"), encoding="utf-8") as f:
+        inputs = json.load(f).get("InputActions", {})
+    names = {x["Name"] for k in ("Actions", "Axes", "Vectors") for x in inputs.get(k, [])}
+
+    def hints(where, text):
+        for token in re.findall(r"\[([^\]]*)\]", text):
+            if token.startswith(("kb:", "pad:")):
+                continue
+            if token.split("|", 1)[0] not in names:
+                problem(game, f"{where}: [{token}] input xaritasida yo'q")
+    for lang, table in tables.items():
+        for key, text in table.items():
+            if isinstance(text, str) and not key.startswith("input."):
+                hints(f"Localization/{lang}.json {key}", text)
+    for where, text in texts:
+        if where.endswith(".zscene"):
+            doc = json.loads(text)
+            for e in doc.get("Entities", []):
+                t = e.get("Text")
+                if not isinstance(t, dict):
+                    continue
+                key = t.get("LocalizationKey", "")
+                if key and not all(key in tables[lang] for lang in tables):
+                    problem(game, f"{where} '{e.get('Tag')}': '{key}' kaliti tillar jadvalida yo'q")
+                if t.get("InputHints"):
+                    hints(f"{where} '{e.get('Tag')}'", t.get("Text", ""))
+    for where, node in graph_nodes(texts):
+        if node.get("Kind") == "Localization.Text":
+            key = node.get("Inputs", {}).get("Key", "")
+            if key and not all(key in tables[lang] for lang in tables):
+                problem(game, f"{where} node {node.get('ID')}: Localization.Text '{key}' kaliti tillar jadvalida yo'q")
 
 
 def export_includes(path, pattern):
@@ -302,7 +441,7 @@ def check_input(game, project, sources, assets):
 
 def regen(game):
     """7. The generator's output is the committed project, and every committed asset is one it writes."""
-    generator = os.path.join(ROOT, "Tools", "samples", f"gen_{game.lower()}.py")
+    generator = generator_of(game)
     project = os.path.join(ROOT, "Projects", game)
     with tempfile.TemporaryDirectory(prefix="zamin-regen-") as out:
         env = dict(os.environ, ZAMIN_SAMPLES_OUT=out, PYTHONDONTWRITEBYTECODE="1")
@@ -336,9 +475,10 @@ def main():
     parser.add_argument("--regen", action="store_true", help="run the generators and compare (needs numpy)")
     parser.add_argument("--verbose", action="store_true", help="the size table")
     args = parser.parse_args()
-    games = [g for g in GAMES if not args.game or g.lower() in {a.lower() for a in args.game}]
+    every = GAMES + list(GRAPH_GAMES)
+    games = [g for g in every if not args.game or g.lower() in {a.lower() for a in args.game}]
     if not games:
-        print(f"Noma'lum o'yin: {', '.join(args.game)} (bor: {', '.join(GAMES)})", file=sys.stderr)
+        print(f"Noma'lum o'yin: {', '.join(args.game)} (bor: {', '.join(every)})", file=sys.stderr)
         return 2
     regen_ok = args.regen
     if args.regen:

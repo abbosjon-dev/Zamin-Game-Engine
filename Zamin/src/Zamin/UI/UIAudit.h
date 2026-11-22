@@ -33,6 +33,7 @@ namespace Zamin {
         bool HasText = false, TextFits = true, TextCutByDesign = false;
         float FontPx = 0.0f;
         glm::vec2 TextSize{ 0.0f };
+        std::string RawHint;         // a control hint its text shows as written ("[Interact]": FindUnexpandedInputToken)
         bool Interactable = false, Selectable = false, Focused = false;
         bool Clipped = false;        // some of it is cut off by a UI Mask (all of it: Hidden)
         bool Hidden = false;         // faded out or masked away
@@ -70,7 +71,7 @@ namespace Zamin {
 
     struct UIAuditIssue
     {
-        std::string Rule;            // Margin, Overlap, TextOverflow, MinFont, Offscreen, Focus, Unreachable, SideBand
+        std::string Rule;            // Margin, Overlap, TextOverflow, MinFont, RawHint, Offscreen, Focus, Unreachable, SideBand
         uint64_t A = 0, B = 0;
         std::string Detail;
     };
@@ -81,6 +82,7 @@ namespace Zamin {
     //   Overlap      usable widgets that are siblings do not overlap
     //   TextOverflow a text's laid-out lines fit its rectangle (unless it cuts them by design: Truncate / Ellipsis)
     //   MinFont      no text with something to show is smaller than MinFontPx
+    //   RawHint      no text shows a control hint token of the input map as written ("[Interact] ..." instead of "E ...")
     //   Focus        with a panel open that has usable widgets, the selected widget is one of them
     //   Unreachable  ... and every selectable widget in it is reached by navigation from the selected one
     //   SideBand     on a wide view (aspect > 2) nothing at a canvas's top that is not anchored to that side (or

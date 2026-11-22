@@ -293,9 +293,12 @@ namespace Zamin::Gameplay {
         if (kind == "Gameplay.Input")
         {
             const bool enabled = a.B("Enabled") && !scene.IsTextInputFocused() && !GameplayUIBlocks(scene);
-            auto move = enabled ? Input::GetVector(a.S("Move")) : glm::vec2(0);
+            // An empty action name: the game has no such action (a top-down game without Jump) - false, not looked up.
+            const auto jump = a.S("Jump"), sprint = a.S("Sprint"), vector = a.S("Move");
+            auto move = enabled && !vector.empty() ? Input::GetVector(vector) : glm::vec2(0);
             auto look = enabled ? Input::GetMouseDelta() : glm::vec2(0);
-            return V{ { "Move", V::array({ move.x, move.y }) }, { "Look", V::array({ look.x, look.y }) }, { "Jump", enabled && Input::IsActionJustPressed(a.S("Jump")) }, { "JumpHeld", enabled && Input::IsActionPressed(a.S("Jump")) }, { "Sprint", enabled && Input::IsActionPressed(a.S("Sprint")) }, { "Enabled", enabled } };
+            const bool canJump = enabled && !jump.empty(), canSprint = enabled && !sprint.empty();
+            return V{ { "Move", V::array({ move.x, move.y }) }, { "Look", V::array({ look.x, look.y }) }, { "Jump", canJump && Input::IsActionJustPressed(jump) }, { "JumpHeld", canJump && Input::IsActionPressed(jump) }, { "Sprint", canSprint && Input::IsActionPressed(sprint) }, { "Enabled", enabled } };
         }
         if (kind == "Gameplay.Motion")
         {

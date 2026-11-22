@@ -187,15 +187,6 @@ namespace Zamin {
                 Renderer3D::SetFrustumCulling(false);
             if (std::getenv("ZAMIN_PLAYER_NO_INSTANCING"))
                 Renderer3D::SetInstancing(false);
-            // ZAMIN_PLAYER_INPUT="<frame>:<action>;..." plays input in (screenshots, CI): a key name
-            // ("Down", "Enter", "Tab": pressed in that frame, released in the next), "hold=W" / "release=W"
-            // (a key held from that frame until its release: driving, running), "mouse=x,y" (the
-            // game's mouse at window px from the top-left from then on), "click" (the left button for
-            // one frame), "down" / "up" (the left button held from then on / let go: drags),
-            // "scroll=dy" / "scroll=dx,dy" (the mouse wheel in that frame, notches), or a simulated gamepad
-            // (gamepad 0, connected by its first item): "pad=A" (a button pressed for one frame),
-            // "padhold=A" / "padrelease=A" (held until released), "stick=LeftX,0.8" (an axis at that value
-            // from then on; triggers 0..1).
             ConfigureUIAudit();
             // ZAMIN_SOAK_STATS=N (automation: the slices' attract-loop soak, Tests/slice_bench.py --soak): every N frames a
             // "SOAK frame=... scene=... rss=<MiB> entities=... engine=<MiB>" line - the process's resident memory, the active
@@ -224,6 +215,15 @@ namespace Zamin {
                 else
                     ZM_WARN("ZAMIN_SCREENSHOT_ON: \"<matn>|<kadr>|<fayl.png>\" kutilgan: {}", spec);
             }
+            // ZAMIN_PLAYER_INPUT="<frame>:<action>;..." plays input in (screenshots, CI): a key name
+            // ("Down", "Enter", "Tab": pressed in that frame, released in the next), "hold=W" / "release=W"
+            // (a key held from that frame until its release: driving, running), "mouse=x,y" (the
+            // game's mouse at window px from the top-left from then on), "click" (the left button for
+            // one frame), "down" / "up" (the left button held from then on / let go: drags),
+            // "scroll=dy" / "scroll=dx,dy" (the mouse wheel in that frame, notches), or a simulated gamepad
+            // (gamepad 0, connected by its first item): "pad=A" (a button pressed for one frame),
+            // "padhold=A" / "padrelease=A" (held until released), "stick=LeftX,0.8" (an axis at that value
+            // from then on; triggers 0..1).
             if (const char* input = std::getenv("ZAMIN_PLAYER_INPUT"))
             {
                 std::string_view rest = input;

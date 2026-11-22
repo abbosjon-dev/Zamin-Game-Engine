@@ -10,6 +10,7 @@ import os
 
 import samplekit as k
 import graphkit as gk
+import slicekit as sk
 
 HERO, HERO_VISUAL, HERO_LIGHT, CAMERA = 1000, 1001, 1002, 1003
 GAME, MUSIC, AMBIENCE, BOSS_MUSIC = 1100, 1101, 1102, 1104
@@ -17,6 +18,36 @@ CANVAS = 6000
 GS = "LK"
 # the banner of a save whose primary and backup are both unreadable (the level starts again from its entry)
 UNREADABLE = "Saqlash o'qilmadi - daraja boshidan"
+# Every string a graph builds for the player (banners, prompts, end screen lines) is a key of the language files with
+# its Uzbek text as the fallback: key -> (uz, en); gen_lantern_keeper.py writes them into uz.json / en.json.
+TEXT = {}
+
+
+def L(g, key, uz, en):
+    """Localization.Text of `key` (uz / en registered in TEXT): (node, 'Value')."""
+    assert TEXT.setdefault(key, (uz, en)) == (uz, en), key
+    return g.loc(key, uz)
+
+
+def T_(key, uz, en):
+    """A key a scene text or an interaction carries (no graph node): registered in TEXT, returns the key."""
+    assert TEXT.setdefault(key, (uz, en)) == (uz, en), key
+    return key
+
+
+# interaction prompts (the level data's Uzbek text) -> their language keys
+PROMPTS = {"Sandiqni ochish": ("prompt.chest", "Open the chest"), "Saqlash ziyoratgohi": ("prompt.shrine", "Save at the shrine"),
+           "Darvozani ochish": ("prompt.gate", "Open the gate"), "Tong chirog'ini yoqish": ("prompt.altar", "Light the Dawn Lamp")}
+
+
+def prompt_key(text):
+    key, en = PROMPTS[text]
+    return T_(key, text, en)
+
+
+def item_name(g, item):
+    """The bag item's display name ("item.<Key>", else the key): (node, 'Value') for an Item data pin."""
+    return g.loc(g.text(["item.", item]), item)
 WALL_MASK = 2
 ACCENT = (0.98, 0.76, 0.32, 1)
 INK = (0.94, 0.92, 0.86, 1)
@@ -186,47 +217,122 @@ def fireflies(scene, eid, size, count=60, col=(0.85, 1.0, 0.45, 0.95)):
         StartSize=0.12, EndSize=0.05, SortingOrder=40, Billboard=False))
 
 
-def tilemap(level, g):
-    """Ground + wall layers (8 x 2 tileset). Level 1: grass/path/water/ruins; level 2: crypt slabs, runes, walls."""
-    w, h = level["size"]
-    ground, walls = [], []
-    rng = __import__("numpy").random.default_rng(7 + w)
-    path_cells = level.get("_path", set())
+# Tileset indices (gen_lantern_keeper.make_art): Boglar 16 x 6 - grass 0-3, flowers 4, walls 5/6, the path blob
+# autotile 16 + its index in slicekit.blob_masks (47 tiles), the water autotile 64 + mask, decals 80-89; Yertola 8 x 2 -
+# slabs 0-3, rune 4, dark 5, wall 6, inlay 8, decals 9-15.
+B_PATH, B_WATER = 16, 64
+B_BLOB = {m: i for i, m in enumerate(sk.blob_masks())}
+B_DECALS = (80, 81, 82, 83, 84, 85, 86, 87)  # petals, clover, pebbles, leaves, mushrooms, tuft, moss, wildflowers
+B_SHADOW, B_PATH_PEBBLES = 88, 89
+Y_CRACKS, Y_RUBBLE, Y_MOSS, Y_PUDDLE, Y_COBWEB, Y_SHADOW = (9, 10), 11, 12, 13, 14, 15
+
+
+def connect4(cells, ok):
+    """Cells that touch only diagonally get an orthogonal link (an autotiled path joins through edges, not corners)."""
+    changed = True
+    while changed:
+        changed = False
+        for x, y in sorted(cells):
+            for dy in (1, -1):
+                if (x + 1, y + dy) in cells and (x + 1, y) not in cells and (x, y + dy) not in cells:
+                    for c in ((x + 1, y), (x, y + dy)):
+                        if ok(*c):
+                            cells.add(c)
+                            changed = True
+                            break
+    return cells
+
+
+def boglar_layers(w, h, kind, rng):
+    """The orchard's three layers from kind(x, y): '#' wall, '~' water, 'p' path, '.' grass (off the map: '#').
+    Ground: seamless grass variants and the path autotile; decals: the walls' shadows, scattered petals, clover,
+    leaves ... (none on every cell: the grass shows through); walls: stone and the water autotile (banks)."""
+    ground, decals, walls = [], [], []
+    is_ = lambda c: (lambda x, y: kind(x, y) == c)
     for y in range(h):
         for x in range(w):
-            c = g[y][x]
-            if level["scene"] == "Boglar":
-                if c == "#":
-                    ground.append(-1)
-                    walls.append(6 if (x * 7 + y * 3) % 5 else 9)
-                elif c == "~":
-                    ground.append(-1)
-                    walls.append(7)
-                else:
-                    walls.append(-1)
-                    if (x, y) in path_cells:
-                        ground.append(4 + (x + y) % 2)
-                    else:
-                        ground.append(8 if rng.random() < 0.12 else int(rng.integers(0, 4)))
+            c = kind(x, y)
+            roll = rng.random()
+            pick = int(rng.integers(0, 64))
+            if c == "#":
+                ground.append(-1)
+                walls.append(5 if (x * 7 + y * 3) % 5 else 6)
+                decals.append(-1)
+            elif c == "~":
+                ground.append(-1)
+                walls.append(B_WATER + sk.neighbour_mask(is_("~"), x, y))
+                decals.append(-1)
             else:
-                if c == "#":
+                walls.append(-1)
+                if c == "p":
+                    ground.append(B_PATH + B_BLOB[sk.blob_mask(is_("p"), x, y)])
+                else:
+                    ground.append(4 if roll < 0.08 else (0, 0, 1, 2, 3)[pick % 5])
+                if kind(x, y + 1) == "#":
+                    decals.append(B_SHADOW)
+                elif c == "p":
+                    decals.append(B_PATH_PEBBLES if roll > 0.86 else -1)
+                else:
+                    decals.append(B_DECALS[pick % len(B_DECALS)] if roll > 0.80 else -1)
+    return ground, decals, walls
+
+
+def tilemap(level, g):
+    """Ground, decal and wall layers. Level 1: seamless grass, the autotiled path and the irrigation channels' banks,
+    petals / clover / leaves / mushrooms and the walls' shadows; level 2: crypt slabs, runes, cracks, rubble, moss,
+    puddles, cobwebs in the corners and the walls' shadows."""
+    w, h = level["size"]
+    rng = __import__("numpy").random.default_rng(7 + w)
+    path_cells = level.get("_path", set())
+    inside = lambda x, y: 0 <= x < w and 0 <= y < h
+    if level["scene"] == "Boglar":
+        def kind(x, y):
+            if not inside(x, y) or g[y][x] == "#":
+                return "#"
+            if g[y][x] == "~":
+                return "~"
+            return "p" if (x, y) in path_cells else "."
+        ground, decals, walls = boglar_layers(w, h, kind, rng)
+    else:
+        ground, decals, walls = [], [], []
+        wall = lambda x, y: not inside(x, y) or g[y][x] == "#"
+        for y in range(h):
+            for x in range(w):
+                roll, pick = rng.random(), int(rng.integers(0, 64))
+                if wall(x, y):
                     ground.append(-1)
                     walls.append(6)
+                    decals.append(-1)
+                    continue
+                walls.append(-1)
+                arena = 12 <= x <= 32 and 18 <= y <= 28
+                if arena and (x + y) % 4 == 0:
+                    ground.append(8)
+                elif roll < 0.015:
+                    ground.append(4)
+                elif roll < 0.08:
+                    ground.append(5)
                 else:
-                    walls.append(-1)
-                    arena = 12 <= x <= 32 and 18 <= y <= 28
-                    if arena and (x + y) % 4 == 0:
-                        ground.append(8)
-                    elif rng.random() < 0.015:
-                        ground.append(4)
-                    elif rng.random() < 0.08:
-                        ground.append(5)
-                    else:
-                        ground.append(int(rng.integers(0, 4)))
-    tex = "Textures/tiles_boglar.png" if level["scene"] == "Boglar" else "Textures/tiles_yertola.png"
-    return {"Tileset": tex, "PixelArt": False, "TilesetColumns": 8, "TilesetRows": 2, "Width": w, "Height": h, "TileSize": 1.0,
+                    ground.append(pick % 4)
+                near_wall = wall(x - 1, y) or wall(x + 1, y) or wall(x, y - 1)
+                if wall(x, y + 1):
+                    decals.append(Y_COBWEB if wall(x - 1, y) and pick % 2 == 0 else Y_SHADOW)
+                elif roll > 0.93:
+                    decals.append(Y_CRACKS[pick % 2])
+                elif roll > 0.89:
+                    decals.append(Y_RUBBLE)
+                elif near_wall and roll > 0.80:
+                    decals.append(Y_MOSS)
+                elif not arena and 0.20 < roll < 0.215:
+                    decals.append(Y_PUDDLE)
+                else:
+                    decals.append(-1)
+    boglar = level["scene"] == "Boglar"
+    tex = "Textures/tiles_boglar.png" if boglar else "Textures/tiles_yertola.png"
+    return {"Tileset": tex, "PixelArt": False, "TilesetColumns": 16 if boglar else 8, "TilesetRows": 6 if boglar else 2, "Width": w, "Height": h, "TileSize": 1.0,
             "Layers": [{"Name": "Zamin", "Visible": True, "Collision": False, "SortingOrder": 0, "Opacity": 1.0, "Tiles": ground},
-                       {"Name": "Devor", "Visible": True, "Collision": True, "SortingOrder": 1, "Opacity": 1.0, "Tiles": walls}],
+                       {"Name": "Bezak", "Visible": True, "Collision": False, "SortingOrder": 1, "Opacity": 1.0, "Tiles": decals},
+                       {"Name": "Devor", "Visible": True, "Collision": True, "SortingOrder": 2, "Opacity": 1.0, "Tiles": walls}],
             "Color": [1, 1, 1, 1], "SortingOrder": -10, "Collision": True, "Friction": 0.0, "CollisionLayer": 1, "Lit": True}
 
 
@@ -276,6 +382,7 @@ def level_scene(assets, project, C, number, level, ENEMIES, route, kinds, g, ora
                 px, py = x0 + (x1 - x0) * i / steps, y0 + (y1 - y0) * i / steps
                 for dx in (0,):
                     level["_path"].add((int(px + dx), int(py)))
+        connect4(level["_path"], lambda x, y: 0 <= y < h and 0 <= x < w and g[y][x] == ".")
     s.add(2000, "Tilemap", Tilemap=tilemap(level, g))
     s.add(2001, "Navigatsiya", NavGrid2D={"AutoBounds": True, "Offset": [0, 0], "Size": [w, h], "CellSize": 0.5, "UseTilemaps": True, "OneWayBlocks": False,
                                           "Tilemap": 0, "UseColliders": True, "LayerMask": WALL_MASK, "AgentRadius": 0.3, "Diagonals": True,
@@ -298,7 +405,7 @@ def level_scene(assets, project, C, number, level, ENEMIES, route, kinds, g, ora
             "Self": f"Scenes/{level['scene']}.zscene", "Title": level["title"],
             "PickupIds": pickup_ids, "PickupKeys": [f"L{number}-{item}-{i:02d}" for i, (item, _) in enumerate(pickups)],
             "PickupItems": [item for item, _ in pickups],
-            "UseIds": use_ids, "UseKeys": [u[2] for u in uses], "UsePrompts": [u[3]["Prompt"] for u in uses],
+            "UseIds": use_ids, "UseKeys": [u[2] for u in uses], "UsePrompts": [prompt_key(u[3]["Prompt"]) for u in uses],
             "UseRequired": [u[3].get("Required", "") for u in uses], "UseCounts": [u[3].get("RequiredCount", 1) for u in uses],
             "UseConsume": [bool(u[3].get("Consume", False)) for u in uses], "UseRewards": [u[3].get("Reward", "") for u in uses],
             "UseHeal": [u[3].get("Heal", 0) for u in uses], "UseMaxUses": [u[3].get("MaxUses", 1) for u in uses],
@@ -408,6 +515,17 @@ def level_scene(assets, project, C, number, level, ENEMIES, route, kinds, g, ora
     s.save(assets, project)
 
 
+# The vital bars' fills are deep enough for their white value text to read (contrast >= 4.5:1: health 5.6, energy
+# 5.4); the XP bar under the level badge is a 20 px bar with a bright fill on a dark track.
+HEALTH_FILL, ENERGY_FILL, XP_FILL = (0.76, 0.15, 0.15, 1), (0.13, 0.34, 0.80, 1), (0.98, 0.80, 0.36, 1)
+
+
+def hud_bars(ui):
+    ui.bar(6013, "Tajriba", 6010, (0, 1), (24, -132), (104, 20), XP_FILL, 0, pivot=(0, 1), back=(0.02, 0.02, 0.05, 0.95))
+    ui.bar(6014, "Sog'liq", 6010, (0, 1), (148, -30), (380, 38), HEALTH_FILL, 26, pivot=(0, 1))
+    ui.bar(6015, "Energiya", 6010, (0, 1), (148, -78), (380, 32), ENERGY_FILL, 25, pivot=(0, 1))
+
+
 def hud(s, number, level, C):
     ui = UI(s, GAME)
     s.add(CANVAS, "UI", UICanvas=k.ui_canvas())
@@ -416,9 +534,7 @@ def hud(s, number, level, C):
     ui.panel(6010, "Holat", root, (24, -24), (560, 178), anchor=(0, 1), pivot=(0, 1))
     ui.image(6011, "Daraja nishoni", 6010, "badge", (0, 1), (24, -22), (104, 104), pivot=(0, 1))
     ui.text(6012, "Daraja", 6011, "1", (0.5, 0.5), (0, 2), (90, 60), 46, ACCENT)
-    ui.bar(6013, "Tajriba", 6010, (0, 1), (24, -136), (104, 14), (0.6, 0.85, 1.0, 1), 0, pivot=(0, 1))
-    ui.bar(6014, "Sog'liq", 6010, (0, 1), (148, -30), (380, 38), (0.92, 0.26, 0.24, 1), 26, pivot=(0, 1))
-    ui.bar(6015, "Energiya", 6010, (0, 1), (148, -78), (380, 32), (0.38, 0.66, 1.0, 1), 25, pivot=(0, 1))
+    hud_bars(ui)
     ui.text(6016, "Nom", 6010, "NILUFAR", (0, 1), (148, -122), (380, 34), 25, MUTED, "Left", pivot=(0, 1))
     # top-right resources
     ui.panel(6020, "Boyliklar", root, (-24, -24), (430, 96), anchor=(1, 1), pivot=(1, 1))
@@ -439,9 +555,11 @@ def hud(s, number, level, C):
         ui.image(6042 + i * 4, f"Belgi {label}", 6041 + i * 4, f"icon_{icon}", (0.5, 0.5), (0, 8), (68, 68))
         ui.bar(6043 + i * 4, f"Tayyorlik {label}", 6041 + i * 4, (0.5, 0), (0, 4), (84, 12), (0.98, 0.76, 0.32, 1), 0, back=(0.05, 0.04, 0.08, 0.6))
         ui.text(6044 + i * 4, f"Tugma {label}", bar, hint, (0.5, 0.5), (x, -58), (140, 32), 25, MUTED, hints=True)
-    ui.text(6090, "Ishora", root, "", (0.5, 0), (0, 178), (900, 40), 26, INK)
-    ui.text(6091, "Xabar", root, "", (0.5, 1), (0, -170), (1100, 60), 40, ACCENT, hints=True)  # "[Nova]" in a banner shows the key
-    ui.text(6092, "Daraja nomi", root, level["title"].upper(), (0.5, 1), (0, -96), (900, 70), 56, INK)
+    # the prompt and the banners name controls ("[Interact] ...", "[Nova]"): shown as the keys bound to them
+    ui.text(6090, "Ishora", root, "", (0.5, 0), (0, 178), (900, 40), 26, INK, hints=True)
+    ui.text(6091, "Xabar", root, "", (0.5, 1), (0, -170), (1100, 60), 40, ACCENT, hints=True)
+    ui.text(6092, "Daraja nomi", root, level["title"].upper(), (0.5, 1), (0, -96), (900, 70), 56, INK,
+            key=T_(f"level.{level['scene']}", level["title"].upper(), level["title_en"]))
     ui.text(6093, "Boss nomi", root, "Soya Bek", (0.5, 0), (0, 214), (600, 34), 26, (0.85, 0.65, 1.0, 1), active=False, key="hud.boss")
     ui.rect(6094, "Boss sog'lig'i", root, (0.5, 0), None, (0, 186), (760, 22), 0, active=False,
             UIProgressBar=k.ui_progress(1.0, (0.05, 0.04, 0.08, 0.85), (0.62, 0.30, 0.95, 1), 2.0, 6.0))
@@ -479,7 +597,8 @@ def hud(s, number, level, C):
     ui.dim(6300, "Mag'lubiyat", 52)
     ui.panel(6301, "Mag'lubiyat paneli", 6300, (0, 0), (760, 420))
     ui.text(6302, "Sarlavha", 6301, "CHIROQ SO'NDI", (0.5, 1), (0, -80), (700, 80), 60, (1.0, 0.45, 0.4, 1), key="defeat.title")
-    ui.text(6303, "Izoh", 6301, "Nilufar uch marta yiqildi", (0.5, 1), (0, -150), (700, 40), 26, MUTED)
+    ui.text(6303, "Izoh", 6301, "Nilufar uch marta yiqildi", (0.5, 1), (0, -150), (700, 40), 26, MUTED,
+            key=T_("defeat.sub", "Nilufar uch marta yiqildi", "Nilufar fell three times"))
     d = [ui.button(6311, "Qayta", 6301, "Oxirgi saqlashdan", "defeat.retry", "Retry", (0, -30), select=True),
          ui.button(6312, "Menyu", 6301, "Bosh menyu", "end.menu", "Menu", (0, -110))]
     chain_nav(s, d)
@@ -508,25 +627,25 @@ def menu_scene(assets, project, LEVELS):
     pad = 5
     W = w + pad
     import numpy as np
-    rng = np.random.default_rng(11)
-    ground = [int(rng.integers(0, 4)) if rng.random() > 0.1 else 8 for _ in range(w * h)]
-    walls = [-1] * (w * h)
-    for x in range(w):
-        for y in (12, 13, 14, 15, 16, 17):
-            if not (12 <= x <= 14 and y <= 13):
-                walls[y * w + x] = 6 if (x * 3 + y) % 5 else 9
+    # the fortress wall along the top (rows 12-17) with the gate gap, the orchard path winding up to the gate
+    path = set()
     for y in range(0, 14):
         cx = 13 + int(round(2.2 * math.sin(y * 0.45)))
-        for x in (cx, cx + 1):
-            ground[y * w + x] = 4 + (x + y) % 2
-    # the left margin (its own random stream: the diorama's tiles stay as they were), walls along the top
-    edge = np.random.default_rng(12)
-    margin = [int(edge.integers(0, 4)) if edge.random() > 0.1 else 8 for _ in range(pad * h)]
-    ground = [t for y in range(h) for t in margin[y * pad:(y + 1) * pad] + ground[y * w:(y + 1) * w]]
-    walls = [t for y in range(h) for t in [(6 if ((x - pad) * 3 + y) % 5 else 9) if y >= 12 else -1 for x in range(pad)] + walls[y * w:(y + 1) * w]]
-    s.add(2000, "Tilemap", pos=(-pad, 0, 0), Tilemap={"Tileset": "Textures/tiles_boglar.png", "PixelArt": False, "TilesetColumns": 8, "TilesetRows": 2, "Width": W, "Height": h,
-                                    "TileSize": 1.0, "Layers": [{"Name": "Zamin", "Visible": True, "Collision": False, "SortingOrder": 0, "Opacity": 1.0, "Tiles": ground},
-                                                                {"Name": "Devor", "Visible": True, "Collision": False, "SortingOrder": 1, "Opacity": 1.0, "Tiles": walls}],
+        path.update({(cx, y), (cx + 1, y)})
+    connect4(path, lambda x, y: True)
+
+    def kind(x, y):  # x in the diorama's cells (-pad .. w-1)
+        if y >= h or x >= w or y < 0:
+            return "#"
+        if y >= 12 and not (12 <= x <= 14 and y <= 13):
+            return "#"
+        return "p" if (x, y) in path else "."
+    ground, decals, walls = boglar_layers(W, h, lambda x, y: kind(x - pad, y), np.random.default_rng(11))
+    s.add(2000, "Tilemap", pos=(-pad, 0, 0), Tilemap={"Tileset": "Textures/tiles_boglar.png", "PixelArt": False, "TilesetColumns": 16, "TilesetRows": 6, "Width": W,
+                                    "Height": h, "TileSize": 1.0,
+                                    "Layers": [{"Name": "Zamin", "Visible": True, "Collision": False, "SortingOrder": 0, "Opacity": 1.0, "Tiles": ground},
+                                               {"Name": "Bezak", "Visible": True, "Collision": False, "SortingOrder": 1, "Opacity": 1.0, "Tiles": decals},
+                                               {"Name": "Devor", "Visible": True, "Collision": False, "SortingOrder": 2, "Opacity": 1.0, "Tiles": walls}],
                                     "Color": [1, 1, 1, 1], "SortingOrder": -10, "Collision": False, "Friction": 0.0, "Lit": True})
     s.add(CAMERA, "Kamera", pos=(12.0, 8.6, 10), Camera=k.camera_ortho(12.0, (0.03, 0.03, 0.06, 1)))
     for i, c in enumerate([(2, 3), (5, 8), (22, 3), (25, 9), (8, 11), (20, 11), (1, 10), (27, 5), (9, 4), (17, 1)]):
@@ -657,7 +776,7 @@ def hero_graph(assets, project, C):
     # ---- 1. human input into the intent variables (gameplay input is fenced while a blocking panel is open)
     g.lane("input")
     upd = g.n("Event.Update")
-    raw = g.n("Gameplay.Input")
+    raw = g.n("Gameplay.Input", Jump="")  # top-down: no Jump action in the input map
     t = g.setv((upd, "Then"), "MoveIn", data=(raw, "Move"))
     t = g.setv(t, "Sprint", data=(raw, "Sprint"))
     for var, action, held in (("Attack", "Attack", True), ("Bolt", "Bolt", True), ("Nova", "Nova", False), ("Mend", "Mend", False),
@@ -791,7 +910,7 @@ def hero_graph(assets, project, C):
     p1, p2, _ = g.fork(g.join((go, "False"), (inter, "Then")))
     show = g.br(p1, g.all_of([(find, "Found"), (g.not_((pick, "Value")), "Value")]))
     prompt = g.ex((show, "True"), "SetUIText", Target=6090)
-    g.l(*g.text(["[Interact] ", (find, "Prompt")]), prompt, "Text")
+    g.l(*g.text(["[Interact] ", g.loc((find, "Prompt"), (find, "Prompt"))]), prompt, "Text")
     g.ex((show, "False"), "SetUIText", Target=6090, Text="")
     anim = g.ex(p2, "Gameplay.BindAnimator", Target=HERO_VISUAL, Source=HERO, TwoD=True, TopDown=True, ReferenceSpeed=h["Speed"] * 0.75, Damping=0.06)
     g.l(late, "Delta", anim, "Delta")
@@ -809,20 +928,22 @@ def hero_graph(assets, project, C):
         t = (g.ex(t, "Print", Text="SLICE_TRACE ev=death"), "Then")
         three = g.br(t, (g.cmp("Greater", V(g, "Deaths"), 2.5), "Value"))
         g.ex(g.setv((three, "True"), "Defeated", True), "SendMessage", Target=GAME, Name="Defeat", Text="")
-        g.ex((three, "False"), "SendMessage", Target=GAME, Name="Banner", Text="Yiqildingiz...")
+        fell = g.ex((three, "False"), "SendMessage", Target=GAME, Name="Banner")
+        g.l(*L(g, "banner.fell", "Yiqildingiz...", "You fell..."), fell, "Text")
         used = g.br((died, "False"), (g.text_is(kind, "Interacted"), "Value"))
         valid = g.n("EntityValid")
         g.l(poll, "Subject", valid, "Target")
         tag = g.n("HasTag", Tag="Shrine")
         g.l(poll, "Subject", tag, "Target")
         shrine = g.br((used, "True"), g.all_of([(valid, "Value"), (tag, "Value")]))
-        save = g.ex((shrine, "True"), "Gameplay.SaveWrite", Schema=C["Schema"])
+        # a shrine restores the keeper, then saves: the save (a Continue, a defeat's retry) keeps the rested keeper
+        heal = g.ex((shrine, "True"), "Gameplay.Heal", Amount=999)
+        save = g.ex((heal, "Then"), "Gameplay.SaveWrite", Schema=C["Schema"])
         g.l(g.get("Slot"), "Value", save, "Slot")
         saved = g.br((save, "Then"), (save, "Success"))
         fail = g.ex((saved, "False"), "Print")
         g.l(*g.text(["SLICE_IO_FAILED save ", (save, "Reason")]), fail, "Text")
-        heal = g.ex((saved, "True"), "Gameplay.Heal", Amount=999)  # a shrine restores the keeper after the save
-        cap = g.ex((heal, "Then"), "Gameplay.CheckpointCapture", Slot="Hero", Persistent=False)
+        cap = g.ex((saved, "True"), "Gameplay.CheckpointCapture", Slot="Hero", Persistent=False)
         ws = g.ex((cap, "Then"), "WriteState.Number", Key=f"{GS}.Run.Save")
         g.l(g.get("Level"), "Value", ws, "Value")
         wst = g.ex((ws, "Then"), "WriteState.Number", Key=f"{GS}.Run.Step")
@@ -832,14 +953,16 @@ def hero_graph(assets, project, C):
         g.setv((stop, "True"), "Idle", True)
         col = g.br((used, "False"), (g.text_is(kind, "Collected"), "Value"))
         nxt = (col, "True")
-        for item, sound, banner in (("Lamp", "sfx_lamp", "Chiroq topildi!"), ("Coin", "sfx_coin", ""), ("Herb", "sfx_coin", "Shifobaxsh o't topildi"),
-                                    ("Qilich", "sfx_chest", "Qilich! [Inventory] - inventarda kiying"), ("Zirh", "sfx_chest", "Zirh topildi!"),
-                                    ("Potion", "sfx_coin", "Ichimlik topildi")):
+        for item, sound, banner in (("Lamp", "sfx_lamp", ("Chiroq topildi!", "A lamp found!")), ("Coin", "sfx_coin", None),
+                                    ("Herb", "sfx_coin", ("Shifobaxsh o't topildi", "A healing herb found")),
+                                    ("Qilich", "sfx_chest", ("Qilich! [Inventory] - inventarda kiying", "A sword! [Inventory] - equip it in the bag")),
+                                    ("Zirh", "sfx_chest", ("Zirh topildi!", "Armour found!")), ("Potion", "sfx_coin", ("Ichimlik topildi", "A potion found"))):
             ib = g.br(nxt, (g.text_is((poll, "Item"), item), "Value"))
             t = (g.ex((ib, "True"), "PlaySound", Path=f"Audio/{sound}.wav", Volume=0.7), "Then")
             t = (g.ex(t, "Print", Text=f"SLICE_TRACE ev=collect a={item}"), "Then")
             if banner:
-                g.ex(t, "SendMessage", Target=GAME, Name="Banner", Text=banner)
+                b_ = g.ex(t, "SendMessage", Target=GAME, Name="Banner")
+                g.l(*L(g, f"banner.found.{item}", *banner), b_, "Text")
             nxt = (ib, "False")
         hurt = g.br((col, "False"), (g.text_is(kind, "Damage"), "Value"))
         g.ex((hurt, "True"), "SendMessage", Target=GAME, Name="Hurt", Text="")
@@ -860,11 +983,13 @@ def hero_graph(assets, project, C):
     pg = g.n("Event.Update")
     lvl = g.n("Gameplay.QuestProgression")
     src = (pg, "Then")
-    for ability, at, banner in (("Nova", 2, "Yangi daraja! Yorug' to'lqin ochildi [Nova]"), ("Mend", 3, "Yangi daraja! Tiklanish ochildi [Mend]")):
+    for ability, at, banner in (("Nova", 2, ("Yangi daraja! Yorug' to'lqin ochildi [Nova]", "Level up! Light wave unlocked [Nova]")),
+                                ("Mend", 3, ("Yangi daraja! Tiklanish ochildi [Mend]", "Level up! Mend unlocked [Mend]"))):
         st = g.n("Gameplay.AbilityState", Ability=ability)
         b = g.br(src, g.all_of([(g.cmp("Greater", (lvl, "Level"), at - 0.5), "Value"), (g.not_((st, "Unlocked")), "Value")]))
         u = g.ex((b, "True"), "Gameplay.AbilityUnlock", Ability=ability)
-        m = g.ex((u, "Then"), "SendMessage", Target=GAME, Name="LevelUp", Text=banner)
+        m = g.ex((u, "Then"), "SendMessage", Target=GAME, Name="LevelUp")
+        g.l(*L(g, f"banner.unlock.{ability}", *banner), m, "Text")
         src = g.join((b, "False"), (m, "Then"))
     for key, *_ in C["Quests"]:
         qs = g.n("Gameplay.QuestState", Quest=key)
@@ -896,7 +1021,8 @@ def game_graph(assets, project, C):
               ("UseMaxUses", "ArrayNumber", []), ("UseCooldown", "ArrayNumber", []), ("UseDeactivate", "ArrayBool", []), ("HasExit", "Bool", False),
               ("Exit", "Vec3", [0, 0, 0]), ("Boss", "Entity", 0), ("Wisps", "ArrayEntity", []), ("Loaded", "Bool", False), ("Time", "Number", 0),
               ("Completing", "Bool", False), ("Ended", "Bool", False), ("Banner", "Number", 0), ("Hurt", "Number", 0), ("TitleTime", "Number", 3.5),
-              ("Phase2", "Bool", False), ("BossSeen", "Bool", False), ("BossDown", "Bool", False), ("Auto", "Number", -1), ("Entry", "String", "new")))
+              ("Phase2", "Bool", False), ("BossSeen", "Bool", False), ("BossDown", "Bool", False), ("Auto", "Number", -1), ("Entry", "String", "new"),
+              ("CardTime", "Number", 0), ("Moving", "Bool", False), ("BossInit", "Bool", False), ("Calm", "Bool", False)))
     schema = C["Schema"]
     # ---- configuration
     g.lane("config")
@@ -905,7 +1031,7 @@ def game_graph(assets, project, C):
            ("Gameplay.UIConfigure", dict(Target=6200, Name="Bag", Action="Inventory", Focus=6211, Pause=False, Block=True, Back=True)),
            ("Gameplay.UIConfigure", dict(Target=6300, Name="Defeat", Action="", Focus=6311, Pause=True, Block=True, Back=False)),
            ("Gameplay.UIConfigure", dict(Target=6400, Name="Victory", Action="", Focus=6411, Pause=True, Block=True, Back=False)),
-           ("Gameplay.UIConfigure", dict(Target=6500, Name="Card", Action="", Focus=0, Pause=False, Block=True, Back=False)),
+           ("Gameplay.UIConfigure", dict(Target=6500, Name="Card", Action="", Focus=0, Pause=True, Block=True, Back=False)),
            ("Gameplay.UIBindHUD", dict(Target=6012, Actor=HERO, Kind=9, Item="Coin", Prefix="", Ratio=False)),
            ("Gameplay.UIBindHUD", dict(Target=6013, Actor=HERO, Kind=9, Item="Coin", Prefix="", Ratio=False)),
            ("Gameplay.UIBindHUD", dict(Target=6014, Actor=HERO, Kind=0, Item="Coin", Prefix="", Ratio=True)),
@@ -967,9 +1093,7 @@ def game_graph(assets, project, C):
     # the menu's UI scale setting (a level started on its own - Editor Play - too)
     us = g.ex(t, "Display.SetUIScale")
     g.l(g.n("ReadState.Number", Key=f"{GS}.Settings.UIScale", Default=1.0), "Value", us, "Scale")
-    t = (us, "Then")
-    title = g.ex(t, "SetUIText", Target=6092)
-    g.l(g.get("Title"), "Value", title, "Text")
+    # (the level title is the scene text's language key "level.<Scene>")
 
     # ---- entry (first LateUpdate, after every Start): continue from the level's save, carry, or a fresh start
     g.lane("entry")
@@ -987,14 +1111,16 @@ def game_graph(assets, project, C):
     rec = g.br((loaded, "True"), (load, "Recovered"))
     r1 = g.ex((rec, "True"), "Print")
     g.l(*g.text(["SLICE_RESUMED lvl=", (g.get("Level"), "Value", "number"), " source=save recovered=1"]), r1, "Text")
-    r1b = g.ex((r1, "Then"), "SendMessage", Target=GAME, Name="Banner", Text="Zaxira nusxadan tiklandi")
+    r1b = g.ex((r1, "Then"), "SendMessage", Target=GAME, Name="Banner")
+    g.l(*L(g, "banner.recovered", "Zaxira nusxadan tiklandi", "Restored from the backup save"), r1b, "Text")
     r0 = g.ex((rec, "False"), "Print")
     g.l(*g.text(["SLICE_RESUMED lvl=", (g.get("Level"), "Value", "number"), " source=save recovered=0"]), r0, "Text")
     resumed = g.ex(g.join((r1b, "Then"), (r0, "Then")), "SendMessage", Target=HERO, Name="Resumed", Text="")
     lf = g.ex((loaded, "False"), "Print")
     g.l(*g.text(["SLICE_IO_FAILED load ", (load, "Reason")]), lf, "Text")
     # an unreadable save (primary and backup) is said on screen: the level starts again from its entry (carry or fresh)
-    lfb = g.ex((lf, "Then"), "SendMessage", Target=GAME, Name="Banner", Text=UNREADABLE)
+    lfb = g.ex((lf, "Then"), "SendMessage", Target=GAME, Name="Banner")
+    g.l(*L(g, "banner.unreadable", UNREADABLE, "The save could not be read - the level starts again"), lfb, "Text")
     # ... in a later frame: the failed load spent one of the scene's two save file operations of this frame, the transfer
     # and the autosave below need both
     lfd = g.ex((lfb, "Then"), "Delay", Seconds=0.04)
@@ -1008,7 +1134,8 @@ def game_graph(assets, project, C):
     pc = g.ex((heal, "Then"), "Print", Text="SLICE_RESUMED lvl=2 source=carry recovered=0")
     cf = g.ex((carried, "False"), "Print")
     g.l(*g.text(["SLICE_IO_FAILED transfer ", (carry, "Reason")]), cf, "Text")
-    cfb = g.ex((cf, "Then"), "SendMessage", Target=GAME, Name="Banner", Text=UNREADABLE)
+    cfb = g.ex((cf, "Then"), "SendMessage", Target=GAME, Name="Banner")
+    g.l(*L(g, "banner.unreadable", UNREADABLE, "The save could not be read - the level starts again"), cfb, "Text")
     fresh1 = g.setv((fresh, "False"), "Time", 0)
     auto = g.ex(g.join((pc, "Then"), (cfb, "Then"), fresh1), "Gameplay.SaveWrite", Schema=schema)
     g.l(g.get("Slot"), "Value", auto, "Slot")
@@ -1062,23 +1189,35 @@ def game_graph(assets, project, C):
     g.l(g.get("Exit"), "Value", dist, "B")
     gate = g.n("Gameplay.QuestState", Target=HERO, Quest="Gate")
     ex1, ex2, ex3 = g.fork(f2)
-    exit_ = g.br(ex1, g.all_of([V(g, "HasExit"), V(g, "Loaded"), (g.not_(V(g, "Completing")), "Value"), (gate, "Claimed"), (g.cmp("Less", (dist, "Value"), 1.1), "Value")]))
-    t = g.setv((exit_, "True"), "Completing", True)
-    t = (g.ex(t, "Gameplay.UIOpen", Name="Card"), "Then")
     prog = g.n("Gameplay.QuestProgression", Target=HERO)
     coins = g.n("Gameplay.InventoryCount", Target=HERO, Item="Coin")
     hp = g.n("Gameplay.Health", Target=HERO)
+    # the keeper must stand at the exit alive (the transfer captures a living hero)
+    exit_ = g.br(ex1, g.all_of([V(g, "HasExit"), V(g, "Loaded"), (g.not_(V(g, "Completing")), "Value"), (gate, "Claimed"), (g.cmp("Less", (dist, "Value"), 1.1), "Value"),
+                                (g.not_((hp, "Dead")), "Value")]))
+    t = g.setv((exit_, "True"), "Completing", True)
+    t = (g.ex(t, "Gameplay.UIOpen", Name="Card"), "Then")
+    stat_time, stat_coins, stat_xp = L(g, "stat.time", "Vaqt", "Time"), L(g, "stat.coins", "Tangalar", "Coins"), L(g, "stat.xp", "Tajriba", "Experience")
     card = g.ex(t, "SetUIText", Target=6510)
-    g.l(*g.text(["Vaqt  ", (g.get("Time"), "Value", "time"), "     Tangalar  ", (coins, "Count", "number"), "     Tajriba  ", (prog, "XP", "number")]), card, "Text")
+    g.l(*g.text([stat_time, "  ", (g.get("Time"), "Value", "time"), "     ", stat_coins, "  ", (coins, "Count", "number"), "     ", stat_xp, "  ",
+                 (prog, "XP", "number")]), card, "Text")
     pl = g.ex((card, "Then"), "Print")
     g.l(*g.text(["SLICE_LEVEL_COMPLETE lvl=1 time=", (g.get("Time"), "Value", "number", 1), " coins=", (coins, "Count", "number"), " xp=", (prog, "XP", "number"),
                  " deaths=", (hp, "Deaths", "number")]), pl, "Text")
     snd = g.ex((pl, "Then"), "PlaySound", Path="Audio/sfx_levelup.wav", Volume=0.8)
-    wait = g.ex((snd, "Then"), "Delay", Seconds=2.5)
-    tw = g.ex((wait, "Then"), "Gameplay.TransferWrite", Key="Hero", Slot="Carry", Schema=schema)
+    g.setv((snd, "Then"), "CardTime", 2.5)
+    # the card's 2.5 s on real time (the world is paused under it; this graph runs while paused): then the transfer,
+    # retried a second later if it could not be written - the card never stays up for good
+    cu = g.n("Event.Update")
+    due = g.br((cu, "Then"), g.all_of([V(g, "Completing"), (g.not_(V(g, "Moving")), "Value"), (g.cmp("Greater", V(g, "CardTime"), 0), "Value")]))
+    t = g.setv((due, "True"), "CardTime", data=g.num("Subtract", V(g, "CardTime"), (g.n("Gameplay.UIState"), "Delta")))
+    ready = g.br(t, (g.cmp("Less", V(g, "CardTime"), 0.0001), "Value"))
+    t = g.setv((ready, "True"), "Moving", True)
+    tw = g.ex(t, "Gameplay.TransferWrite", Key="Hero", Slot="Carry", Schema=schema)
     twok = g.br((tw, "Then"), (tw, "Success"))
     twf = g.ex((twok, "False"), "Print")
     g.l(*g.text(["SLICE_IO_FAILED transfer ", (tw, "Reason")]), twf, "Text")
+    g.setv(g.setv((twf, "Then"), "Moving", False), "CardTime", 1.0)
     t = (g.ex((twok, "True"), "WriteState.Number", Key=f"{GS}.Run.Level", Value=2), "Then")
     t = (g.ex(t, "WriteState.Number", Key=f"{GS}.Run.Save", Value=0), "Then")
     t = (g.ex(t, "WriteState.String", Key=f"{GS}.Run.Entry", Value="carry"), "Then")
@@ -1092,7 +1231,8 @@ def game_graph(assets, project, C):
     boss_q = g.n("Gameplay.QuestState", Target=HERO, Quest="Boss")
     ds = g.br(ex2, g.all_of([V(g, "Loaded"), (g.text_is((dawn, "Mode"), "Locked"), "Value"), (lamps, "Claimed")]))
     qs = g.ex((ds, "True"), "Gameplay.QuestStart", Target=HERO, Quest="Dawn")
-    g.ex((qs, "Then"), "SendMessage", Target=GAME, Name="Banner", Text="Uch chiroq yig'ildi! Mehrobga boring")
+    lamps3 = g.ex((qs, "Then"), "SendMessage", Target=GAME, Name="Banner")
+    g.l(*L(g, "banner.lamps", "Uch chiroq yig'ildi! Mehrobga boring", "Three lamps gathered! Go to the altar"), lamps3, "Text")
     win = g.br(ex3, g.all_of([(g.cmp("Equal", V(g, "Level"), 2), "Value"), (g.not_(V(g, "Ended")), "Value"), (boss_q, "Claimed"), (dawn, "Claimed")]))
     t = g.setv((win, "True"), "Ended", True)
     t = (g.ex(t, "WriteState.Number", Key=f"{GS}.Run.Finished", Value=1), "Then")
@@ -1104,8 +1244,10 @@ def game_graph(assets, project, C):
     t = (g.ex(t, "Gameplay.UIOpen", Name="Victory"), "Then")
     stats = g.ex(t, "SetUIText", Target=6410)
     best2 = g.n("ReadState.Number", Key=f"{GS}.Best.Time", Default=0)
-    g.l(*g.text(["Vaqt  ", (g.get("Time"), "Value", "time"), "\nO'limlar  ", (hp, "Deaths", "number"), "\nTangalar  ", (coins, "Count", "number"),
-                 "\nTajriba  ", (prog, "XP", "number"), "  (", (prog, "Level", "number"), "-daraja)\nEng yaxshi vaqt  ", (best2, "Value", "time")]), stats, "Text")
+    g.l(*g.text([stat_time, "  ", (g.get("Time"), "Value", "time"), "\n", L(g, "stat.deaths", "O'limlar", "Deaths"), "  ", (hp, "Deaths", "number"), "\n",
+                 stat_coins, "  ", (coins, "Count", "number"), "\n", stat_xp, "  ", (prog, "XP", "number"), L(g, "stat.level.open", "  (", "  (level "),
+                 (prog, "Level", "number"), L(g, "stat.level.close", "-daraja)", ")"), "\n", L(g, "stat.best", "Eng yaxshi vaqt", "Best time"), "  ",
+                 (best2, "Value", "time")]), stats, "Text")
     allq = g.all_of([(g.n("Gameplay.QuestState", Target=HERO, Quest=q[0]), "Claimed") for q in C["Quests"]])
     pv = g.ex((stats, "Then"), "Print")
     g.l(*g.text(["SLICE_VICTORY game=Chiroqbon time=", (g.get("Time"), "Value", "number", 1), " xp=", (prog, "XP", "number"), " level=", (prog, "Level", "number"),
@@ -1139,23 +1281,37 @@ def game_graph(assets, project, C):
     t = (g.ex(t, "FadeAudio", Target=BOSS_MUSIC, Volume=0.9, Seconds=1.5), "Then")
     g.ex(t, "Print", Text="SLICE_TRACE ev=boss a=engaged")
     half = g.num("Multiply", (bhp, "Maximum"), 0.55)
-    ph2 = g.br(b2, g.all_of([(g.not_(V(g, "Phase2")), "Value"), (g.not_((bhp, "Dead")), "Value"), (g.cmp("Less", (bhp, "Current"), half), "Value")]))
+    below = (g.cmp("Less", (bhp, "Current"), half), "Value")
+    # the first frame of the level (after a Continue restored the boss): a fight saved in phase 2 resumes in it calmly -
+    # no second rage banner, shake or trace (the phase is not saved: the restored health says it)
+    init = g.br(b2, (g.not_(V(g, "BossInit")), "Value"))
+    t = g.setv((init, "True"), "BossInit", True)
+    t = g.setv(t, "Calm", data=g.all_of([below, (g.not_((bhp, "Dead")), "Value")]))
+    ph2 = g.br(g.join(t, (init, "False")), g.all_of([(g.not_(V(g, "Phase2")), "Value"), (g.not_((bhp, "Dead")), "Value"), below]))
     t = g.setv((ph2, "True"), "Phase2", True)
     fw = g.ex(t, "ForEach.Entity")
     g.l(g.get("Wisps"), "Value", fw, "Array")
-    wake = g.ex((fw, "Body"), "SetActive", Active=True)
+    # only the living spirits wake (one killed before the save stays down)
+    whp = g.n("Gameplay.Health")
+    g.l(fw, "Value", whp, "Target")
+    living = g.br((fw, "Body"), (g.not_((whp, "Dead")), "Value"))
+    wake = g.ex((living, "True"), "SetActive", Active=True)
     g.l(fw, "Value", wake, "Target")
-    t = (g.ex((fw, "Completed"), "SendMessage", Target=GAME, Name="Banner", Text="Soya Bek g'azablandi!"), "Then")
-    t = (g.ex(t, "ShakeCamera", Intensity=0.5, Duration=0.6), "Then")
+    loud = g.br((fw, "Completed"), (g.not_(V(g, "Calm")), "Value"))
+    rage = g.ex((loud, "True"), "SendMessage", Target=GAME, Name="Banner")
+    g.l(*L(g, "banner.boss.rage", "Soya Bek g'azablandi!", "Soya Bek is enraged!"), rage, "Text")
+    t = (g.ex((rage, "Then"), "ShakeCamera", Intensity=0.5, Duration=0.6), "Then")
     g.ex(t, "Print", Text="SLICE_TRACE ev=boss a=phase2")
+    g.ex((loud, "False"), "Print", Text="SLICE_TRACE ev=boss a=phase2-resumed")
     down = g.br(b3, g.all_of([V(g, "BossSeen"), (g.not_(V(g, "BossDown")), "Value"), (bhp, "Dead")]))
     t = g.setv((down, "True"), "BossDown", True)
     t = (g.ex(t, "SetActive", Target=6093, Active=False), "Then")
     t = (g.ex(t, "SetActive", Target=6094, Active=False), "Then")
     t = (g.ex(t, "FadeAudio", Target=BOSS_MUSIC, Volume=0.0, Seconds=2.0), "Then")
     t = (g.ex(t, "FadeAudio", Target=MUSIC, Volume=0.8, Seconds=2.0), "Then")
-    t = (g.ex(t, "SendMessage", Target=GAME, Name="Banner", Text="Soya Bek yengildi!"), "Then")
-    g.ex(t, "Print", Text="SLICE_TRACE ev=boss a=defeated")
+    beaten = g.ex(t, "SendMessage", Target=GAME, Name="Banner")
+    g.l(*L(g, "banner.boss.down", "Soya Bek yengildi!", "Soya Bek is defeated!"), beaten, "Text")
+    g.ex((beaten, "Then"), "Print", Text="SLICE_TRACE ev=boss a=defeated")
 
     # ---- demo: automatic choices on end screens (the bot never clicks)
     g.lane("demo")
@@ -1191,8 +1347,9 @@ def game_graph(assets, project, C):
     g.l(inv, "Item", eq, "Item")
     eqb = g.br((eq, "Then"), (eq, "Success"))
     msg = g.ex((eqb, "True"), "SendMessage", Target=GAME, Name="Banner")
-    g.l(*g.text(["Kiyildi: ", (inv, "Item")]), msg, "Text")
-    g.ex((eqb, "False"), "SendMessage", Target=GAME, Name="Banner", Text="Bu buyumni kiyib bo'lmaydi")
+    g.l(*g.text([L(g, "banner.equipped", "Kiyildi: ", "Equipped: "), item_name(g, (inv, "Item"))]), msg, "Text")
+    noeq = g.ex((eqb, "False"), "SendMessage", Target=GAME, Name="Banner")
+    g.l(*L(g, "banner.cannot.equip", "Bu buyumni kiyib bo'lmaydi", "This item cannot be equipped"), noeq, "Text")
     g.ex((on("Drink"), "Then"), "Gameplay.AbilityCast", Target=HERO, Ability="Potion", TwoD=True)
     sq = g.ex((on("SaveQuit"), "Then"), "Gameplay.SaveWrite", Schema=schema)
     g.l(g.get("Slot"), "Value", sq, "Slot")
@@ -1227,8 +1384,9 @@ def game_graph(assets, project, C):
     t = (g.ex((wt, "Then"), "SaveGameState"), "Then")
     p = g.ex(t, "Print")
     g.l(*g.text(["SLICE_SAVED lvl=", (g.get("Level"), "Value", "number"), " at=shrine"]), p, "Text")
-    t = (g.ex((p, "Then"), "SetUIText", Target=6091, Text="Saqlandi"), "Then")
-    g.setv(t, "Banner", 2.5)
+    sv_ = g.ex((p, "Then"), "SetUIText", Target=6091)
+    g.l(*L(g, "banner.saved", "Saqlandi", "Saved"), sv_, "Text")
+    g.setv((sv_, "Then"), "Banner", 2.5)
     bn = on("Banner")
     st = g.ex((bn, "Then"), "SetUIText", Target=6091)
     g.l(bn, "Text", st, "Text")
@@ -1247,8 +1405,9 @@ def game_graph(assets, project, C):
     cl = on("Claimed")
     p = g.ex((cl, "Then"), "Print")
     g.l(*g.text(["SLICE_TRACE ev=claim a=", (cl, "Text")]), p, "Text")
-    t = (g.ex((p, "Then"), "SetUIText", Target=6091, Text="Vazifa bajarildi!"), "Then")
-    g.setv(t, "Banner", 2.5)
+    qd = g.ex((p, "Then"), "SetUIText", Target=6091)
+    g.l(*L(g, "banner.quest.done", "Vazifa bajarildi!", "Quest complete!"), qd, "Text")
+    g.setv((qd, "Then"), "Banner", 2.5)
     g.save(assets, "Scripts/Game.zgraph", project)
     return g
 
@@ -1366,8 +1525,9 @@ UINT_SELF = 18446744073709551615  # an Entity pin's "Self"
 
 
 def menu_graph(assets, project):
-    """The title menu: panels, Continue only for an unfinished run, settings (live volumes, fullscreen, language,
-    persisted on Back), credits, demo auto-start, new game / continue with a fade."""
+    """The title menu: panels, Continue only for an unfinished run, settings (live volumes and UI scale kept when the
+    panel closes - Orqaga, Escape or B; fullscreen and language kept at once), credits, demo auto-start, new game /
+    continue with a fade."""
     g = gk.Graph("Menu")
     _vars(g, (("Demo", "Bool", False), ("Started", "Bool", False), ("Time", "Number", 0), ("Can", "Bool", False)))
     g.lane("config")
@@ -1400,11 +1560,14 @@ def menu_graph(assets, project):
     g.l(*g.num("Multiply", (scale, "Value"), 10), sv, "Value")
     us = g.ex((sv, "Then"), "Display.SetUIScale")
     g.l(scale, "Value", us, "Scale")
-    t = (us, "Then")
+    # the fullscreen switch shows the window as it is (the player's F11 / saved choice / command line)
+    fs = g.br((us, "Then"), (g.n("Display.IsFullscreen"), "Value"))
+    t = g.join((g.ex((fs, "True"), "SetUIValue", Target=6113, Value=1, Notify=False), "Then"),
+               (g.ex((fs, "False"), "SetUIValue", Target=6113, Value=0, Notify=False), "Then"))
     best = g.n("ReadState.Number", Key=f"{GS}.Best.Time", Default=0)
     rb = g.br(t, (g.cmp("Greater", (best, "Value"), 0), "Value"))
     rt = g.ex((rb, "True"), "SetUIText", Target=6030)
-    g.l(*g.text(["Eng yaxshi vaqt  ", (best, "Value", "time")]), rt, "Text")
+    g.l(*g.text([L(g, "stat.best", "Eng yaxshi vaqt", "Best time"), "  ", (best, "Value", "time")]), rt, "Text")
     shown = g.br(g.join((rb, "False"), (rt, "Then")), V(g, "Can"))
     g.ex((shown, "True"), "Print", Text="Menyu: Asosiy davom=1")
     g.ex((shown, "False"), "Print", Text="Menyu: Asosiy davom=0")
@@ -1452,7 +1615,14 @@ def menu_graph(assets, project):
     g.ex((two, "False"), "LoadScene", Path="Scenes/Boglar.zscene", FadeOut=0.6, FadeIn=0.6, Color=[0.02, 0.01, 0.04, 1])
     g.ex((g.ex(on("Settings"), "Gameplay.UIOpen", Name="Settings"), "Then"), "Print", Text="Menyu: Sozlamalar")
     g.ex((g.ex(on("Credits"), "Gameplay.UIOpen", Name="Credits"), "Then"), "Print", Text="Menyu: Mualliflar")
-    t = on("Back")
+    g.ex(on("Back"), "Gameplay.UIBack")
+    # a panel closed by Orqaga, Escape or the gamepad's B (UIWorld's Back): the settings are kept whichever way
+    g.lane("closed")
+    cu = g.n("Event.Update")
+    ev = g.ex((cu, "Then"), "Gameplay.UIEvent")
+    closed = g.br((ev, "Then"), g.all_of([(ev, "Has"), (g.text_is((ev, "Kind"), "Close"), "Value")]))
+    which = g.br((closed, "True"), (g.text_is((ev, "Name"), "Settings"), "Value"))
+    t = (which, "True")
     music, sfx = g.n("UIValue", Target=6111), g.n("UIValue", Target=6112)
     for key, src in (("Music", music), ("Sfx", sfx)):
         w_ = g.ex(t, "WriteState.Number", Key=f"{GS}.Settings.{key}")
@@ -1465,15 +1635,16 @@ def menu_graph(assets, project):
     p = g.ex(t, "Print")
     g.l(*g.text(["SLICE_SETTINGS music=", (music, "Value", "number", 2), " sfx=", (sfx, "Value", "number", 2), " ui=", (ui_scale[0], "Value", "number", 2),
                  " lang=", (g.n("Localization.Language"), "Value")]), p, "Text")
-    t = (g.ex((p, "Then"), "Gameplay.UIBack"), "Then")
-    g.ex(t, "Print", Text="Menyu: Asosiy")
+    credits = g.br((which, "False"), (g.text_is((ev, "Name"), "Credits"), "Value"))
+    g.ex(g.join((p, "Then"), (credits, "True")), "Print", Text="Menyu: Asosiy")
+    g.lane("messages2")
     g.ex(on("Quit"), "QuitGame")
+    # fullscreen and the language are the player's choice: kept with SaveData (the player loads them at its start)
     full = g.ex(on("Fullscreen"), "Display.SetFullscreen")
     g.l(g.n("UIValue", Target=6113), "On", full, "Fullscreen")
+    g.ex((full, "Then"), "Display.SaveSettings")
     lang = g.br(on("Language"), (g.text_is((g.n("Localization.Language"), "Value"), "uz"), "Value"))
-    t = (g.ex((lang, "True"), "Localization.SetLanguage", Code="en"), "Then")
-    g.ex(t, "SetUIText", Target=6114, Text="Language: English")
-    t = (g.ex((lang, "False"), "Localization.SetLanguage", Code="uz"), "Then")
-    g.ex(t, "SetUIText", Target=6114, Text="Til: O'zbekcha")
+    t = g.join((g.ex((lang, "True"), "Localization.SetLanguage", Code="en"), "Then"), (g.ex((lang, "False"), "Localization.SetLanguage", Code="uz"), "Then"))
+    g.ex(t, "Localization.SaveSettings")  # the button's text is its language key (menu.language)
     g.save(assets, "Scripts/Menu.zgraph", project)
     return g

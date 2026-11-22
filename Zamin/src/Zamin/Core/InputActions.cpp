@@ -500,6 +500,26 @@ namespace Zamin {
         return out;
     }
 
+    std::string FindUnexpandedInputToken(const InputActionMap& map, std::string_view text)
+    {
+        for (size_t at = 0; at < text.size();)
+        {
+            const size_t open = text.find('[', at);
+            const size_t close = open == std::string_view::npos ? open : text.find(']', open + 1);
+            if (close == std::string_view::npos)
+                break;
+            std::string_view name = text.substr(open + 1, close - open - 1);
+            if (const size_t bar = name.find('|'); bar != std::string_view::npos)
+                name = name.substr(0, bar);
+            if (!name.empty() && !name.starts_with("kb:") && !name.starts_with("pad:") &&
+                (map.FindAction(name) || map.FindAxis(name) || map.FindVector(name)))
+                return std::string(text.substr(open, close - open + 1));
+            // a '[' inside the brackets may open a real token ("[x [Jump]")
+            at = text.find('[', open + 1) < close ? text.find('[', open + 1) : close + 1;
+        }
+        return {};
+    }
+
     // ------------------------------------------------------------------ map
     InputActionMap InputActionMap::CreateDefault()
     {

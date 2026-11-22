@@ -176,4 +176,9 @@ namespace Zamin::Gameplay {
     UIWorld* FindGameplayUI(Scene&);
     bool GameplayUIFenced(Scene&);
     bool GameplayUIBlocks(Scene&);
+    // What the HUD shows for a gameplay key: the project's language string `prefix + key` in the current language
+    // ("combat.Bolt" -> "Olov o'qi" / "Fire bolt", "item.Coin", "quest.Gate.Chief"), else `fallback` (the key itself
+    // for feed and inventory rows: a project without those strings shows its keys as before). A string longer than
+    // `limit` bytes falls back too (the presenters' bounds).
+    std::string LocalizedGameplayName(std::string_view prefix, std::string_view key, std::string_view fallback, size_t limit = 64);
 }

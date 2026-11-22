@@ -11,7 +11,7 @@ import os
 
 import samplekit as k
 import graphkit as gk
-from lantern_graphs import Scene, UI, chain_nav, graph_script, _vars, V, CANVAS, INK, MUTED
+from lantern_graphs import Scene, UI, chain_nav, graph_script, hud_bars, _vars, V, CANVAS, INK, MUTED
 
 HERO, SWORD, SHIELD, CAMERA = 1000, 1001, 1002, 1003
 GAME, MUSIC, AMBIENCE, BOSS_MUSIC, SUN = 1100, 1101, 1102, 1104, 1110
@@ -20,8 +20,39 @@ GS = "BP"
 # the banner of a save whose primary and backup are both unreadable (the level starts again from the camp)
 UNREADABLE = "Saqlash o'qilmadi - daraja boshidan"
 M = {}  # masks and layers (set by build)
+# Every string a graph builds for the player is a key of the language files with its Uzbek text as the fallback:
+# key -> (uz, en); gen_beacon_pass.py writes them into uz.json / en.json.
+TEXT = {}
 
 
+def L(g, key, uz, en):
+    """Localization.Text of `key` (uz / en registered in TEXT): (node, 'Value')."""
+    assert TEXT.setdefault(key, (uz, en)) == (uz, en), key
+    return g.loc(key, uz)
+
+
+def T_(key, uz, en):
+    """A key a scene text or an interaction carries (no graph node): registered in TEXT, returns the key."""
+    assert TEXT.setdefault(key, (uz, en)) == (uz, en), key
+    return key
+
+
+def item_name(g, item):
+    """The bag item's display name ("item.<Key>", else the key) for an Item data pin."""
+    return g.loc(g.text(["item.", item]), item)
+
+
+PROMPTS = {"Sandiqni ochish": ("prompt.chest", "Open the chest"), "Darvozani ochish": ("prompt.gate", "Open the gate"),
+           "Saqlash ziyoratgohi": ("prompt.shrine", "Save at the shrine"), "Mash'alni yoqish": ("prompt.beacon", "Light the beacon")}
+
+
+def prompt_key(text):
+    key, en = PROMPTS[text]
+    return T_(key, text, en)
+
+
+# The orbit camera: radians per mouse count; the right stick's turn rate at full tilt (rad/s, yaw / pitch)
+CAMERA_SENSITIVITY, STICK_YAW, STICK_PITCH = 0.003, 2.4, 1.5
 # The title menu's camera: above the valley camp, looking north up the pass (yaw 0 looks along -z).
 MENU_EYE, MENU_PITCH, MENU_YAW = (-7.0, 6.5, 47.5), math.radians(-5.0), math.radians(-3.0)
 
@@ -482,7 +513,7 @@ def level_scene(assets, project, C, W, ENEMIES, ARCHETYPES, route, codes, oracle
     use_kinds = [u[0] for u in uses]
     game = {"Slot": "Run1", "Self": "Scenes/Dovon.zscene",
             "PickupIds": pickup_ids, "PickupKeys": [f"Dovon-{item}-{i:02d}" for i, (item, _, _) in enumerate(pickups)], "PickupItems": [p[0] for p in pickups],
-            "UseIds": use_ids, "UseKeys": [u[2] for u in uses], "UsePrompts": [u[3]["Prompt"] for u in uses],
+            "UseIds": use_ids, "UseKeys": [u[2] for u in uses], "UsePrompts": [prompt_key(u[3]["Prompt"]) for u in uses],
             "UseRequired": [u[3].get("Required", "") for u in uses], "UseCounts": [u[3].get("RequiredCount", 1) for u in uses],
             "UseConsume": [bool(u[3].get("Consume", False)) for u in uses], "UseRewards": [u[3].get("Reward", "") for u in uses],
             "UseMaxUses": [u[3].get("MaxUses", 1) for u in uses], "UseCooldown": [u[3].get("Cooldown", 0.2) for u in uses],
@@ -525,9 +556,7 @@ def hud(s, C):
     ui.panel(6010, "Holat", root, (24, -24), (560, 178), anchor=(0, 1), pivot=(0, 1))
     ui.image(6011, "Daraja nishoni", 6010, "badge", (0, 1), (24, -22), (104, 104), pivot=(0, 1))
     ui.text(6012, "Daraja", 6011, "1", (0.5, 0.5), (0, 2), (90, 60), 46, ACCENT)
-    ui.bar(6013, "Tajriba", 6010, (0, 1), (24, -136), (104, 14), (0.6, 0.85, 1.0, 1), 0, pivot=(0, 1))
-    ui.bar(6014, "Sog'liq", 6010, (0, 1), (148, -30), (380, 38), (0.92, 0.26, 0.24, 1), 26, pivot=(0, 1))
-    ui.bar(6015, "Energiya", 6010, (0, 1), (148, -78), (380, 32), (0.38, 0.66, 1.0, 1), 25, pivot=(0, 1))
+    hud_bars(ui)
     ui.text(6016, "Nom", 6010, "TEMUR  ·  CHOPAR", (0, 1), (148, -122), (380, 34), 25, MUTED, "Left", pivot=(0, 1))
     # top-right: fire stones and potions
     ui.panel(6020, "Boyliklar", root, (-24, -24), (260, 96), anchor=(1, 1), pivot=(1, 1))
@@ -547,9 +576,10 @@ def hud(s, C):
         ui.image(6042 + i * 4, f"Belgi {label}", 6041 + i * 4, f"icon_{icon}", (0.5, 0.5), (0, 8), (68, 68))
         ui.bar(6043 + i * 4, f"Tayyorlik {label}", 6041 + i * 4, (0.5, 0), (0, 4), (84, 12), (0.98, 0.76, 0.32, 1), 0, back=(0.05, 0.04, 0.08, 0.6))
         ui.text(6044 + i * 4, f"Tugma {label}", bar, hint, (0.5, 0.5), (x, -58), (140, 32), 25, MUTED, hints=True)
-    ui.text(6090, "Ishora", root, "", (0.5, 0), (0, 178), (900, 40), 26, INK)
-    ui.text(6091, "Xabar", root, "", (0.5, 1), (0, -170), (1100, 60), 40, ACCENT, hints=True)  # "[Slam]" in a banner shows the key
-    ui.text(6092, "Daraja nomi", root, "DOVON", (0.5, 1), (0, -96), (900, 70), 56, INK)
+    # the prompt and the banners name controls ("[Interact] ...", "[Slam]"): shown as the keys bound to them
+    ui.text(6090, "Ishora", root, "", (0.5, 0), (0, 178), (900, 40), 26, INK, hints=True)
+    ui.text(6091, "Xabar", root, "", (0.5, 1), (0, -170), (1100, 60), 40, ACCENT, hints=True)
+    ui.text(6092, "Daraja nomi", root, "DOVON", (0.5, 1), (0, -96), (900, 70), 56, INK, key=T_("level.Dovon", "DOVON", "THE PASS"))
     ui.text(6093, "Boss nomi", root, "Qora qorovul", (0.5, 0), (0, 214), (600, 34), 26, (1.0, 0.55, 0.4, 1), active=False, key="hud.boss")
     ui.rect(6094, "Boss sog'lig'i", root, (0.5, 0), None, (0, 186), (760, 22), 0, active=False,
             UIProgressBar=k.ui_progress(1.0, (0.05, 0.04, 0.08, 0.85), (0.9, 0.3, 0.2, 1), 2.0, 6.0))
@@ -583,7 +613,8 @@ def hud(s, C):
     ui.dim(6300, "Mag'lubiyat", 52)
     ui.panel(6301, "Mag'lubiyat paneli", 6300, (0, 0), (760, 420))
     ui.text(6302, "Sarlavha", 6301, "YO'L YOPILDI", (0.5, 1), (0, -80), (700, 80), 60, (1.0, 0.45, 0.4, 1), key="defeat.title")
-    ui.text(6303, "Izoh", 6301, "Temur uch marta yiqildi", (0.5, 1), (0, -150), (700, 40), 26, MUTED)
+    ui.text(6303, "Izoh", 6301, "Temur uch marta yiqildi", (0.5, 1), (0, -150), (700, 40), 26, MUTED,
+            key=T_("defeat.sub", "Temur uch marta yiqildi", "Temur fell three times"))
     d = [ui.button(6311, "Qayta", 6301, "Oxirgi saqlashdan", "defeat.retry", "Retry", (0, -30), select=True),
          ui.button(6312, "Menyu", 6301, "Bosh menyu", "end.menu", "Menu", (0, -110))]
     chain_nav(s, d)
@@ -719,7 +750,7 @@ def hero_graph(assets, project, C):
     # ---- 1. human input into the intent variables (Gameplay.Input is fenced while a blocking panel is open)
     g.lane("input")
     upd = g.n("Event.Update")
-    raw = g.n("Gameplay.Input")
+    raw = g.n("Gameplay.Input", Sprint="")  # runs by default and walks on Walk: no Sprint action in the input map
     t = g.setv((upd, "Then"), "MoveIn", data=(raw, "Move"))
     t = g.setv(t, "Jump", data=(raw, "Jump"))
     t = g.setv(t, "JumpHeld", data=(raw, "JumpHeld"))
@@ -937,7 +968,7 @@ def hero_graph(assets, project, C):
     p1, p2, _ = g.fork(g.join((go, "False"), (inter, "Then")))
     show = g.br(p1, g.all_of([(find, "Found"), (g.not_((pick, "Value")), "Value")]))
     prompt = g.ex((show, "True"), "SetUIText", Target=6090)
-    g.l(*g.text(["[Interact] ", (find, "Prompt")]), prompt, "Text")
+    g.l(*g.text(["[Interact] ", g.loc((find, "Prompt"), (find, "Prompt"))]), prompt, "Text")
     g.ex((show, "False"), "SetUIText", Target=6090, Text="")
     anim = g.ex(p2, "Gameplay.BindAnimator", TwoD=False, HorizontalParameter="", ForwardParameter="", ReferenceSpeed=h["Run"], Damping=0.1)
     g.l(late, "Delta", anim, "Delta")
@@ -958,7 +989,8 @@ def hero_graph(assets, project, C):
         t = (g.ex(t, "Print", Text="SLICE_TRACE ev=death"), "Then")
         three = g.br(t, (g.cmp("Greater", V(g, "Deaths"), 2.5), "Value"))
         g.ex(g.setv((three, "True"), "Defeated", True), "SendMessage", Target=GAME, Name="Defeat", Text="")
-        g.ex((three, "False"), "SendMessage", Target=GAME, Name="Banner", Text="Yiqildingiz...")
+        fell = g.ex((three, "False"), "SendMessage", Target=GAME, Name="Banner")
+        g.l(*L(g, "banner.fell", "Yiqildingiz...", "You fell..."), fell, "Text")
         used = g.br((died, "False"), (g.text_is(kind, "Interacted"), "Value"))
         valid = g.n("EntityValid")
         g.l(poll, "Subject", valid, "Target")
@@ -984,12 +1016,14 @@ def hero_graph(assets, project, C):
         g.setv((stop, "True"), "Idle", True)
         col = g.br((used, "False"), (g.text_is(kind, "Collected"), "Value"))
         nxt = (col, "True")
-        for item, sound, banner in (("FireStone", "sfx_lamp", "Olov toshi topildi!"), ("Shamshir", "sfx_chest", "Shamshir! Endi zarbangiz kuchliroq"),
-                                    ("Qalqon", "sfx_chest", "Qalqon topildi!"), ("Potion", "sfx_lamp", "Ichimlik topildi")):
+        for item, sound, banner in (("FireStone", "sfx_lamp", ("Olov toshi topildi!", "A fire stone found!")),
+                                    ("Shamshir", "sfx_chest", ("Shamshir! Endi zarbangiz kuchliroq", "A sabre! Your strikes hit harder now")),
+                                    ("Qalqon", "sfx_chest", ("Qalqon topildi!", "A shield found!")), ("Potion", "sfx_lamp", ("Ichimlik topildi", "A potion found"))):
             ib = g.br(nxt, (g.text_is((poll, "Item"), item), "Value"))
             t = (g.ex((ib, "True"), "PlaySound", Path=f"Audio/{sound}.wav", Volume=0.7), "Then")
             t = (g.ex(t, "Print", Text=f"SLICE_TRACE ev=collect a={item}"), "Then")
-            g.ex(t, "SendMessage", Target=GAME, Name="Banner", Text=banner)
+            b_ = g.ex(t, "SendMessage", Target=GAME, Name="Banner")
+            g.l(*L(g, f"banner.found.{item}", *banner), b_, "Text")
             nxt = (ib, "False")
         hurt = g.br((col, "False"), (g.text_is(kind, "Damage"), "Value"))
         t = (g.ex((hurt, "True"), "Animator.PlayLayer", Name="Hit", Clip="Hurt", Loop=False, Fade=0.04, Restart=True), "Then")
@@ -1020,7 +1054,8 @@ def hero_graph(assets, project, C):
     st = g.n("Gameplay.AbilityState", Ability="Zilzila")
     b = g.br((pg, "Then"), g.all_of([(g.cmp("Greater", (lvl, "Level"), 1.5), "Value"), (g.not_((st, "Unlocked")), "Value")]))
     u = g.ex((b, "True"), "Gameplay.AbilityUnlock", Ability="Zilzila")
-    m = g.ex((u, "Then"), "SendMessage", Target=GAME, Name="LevelUp", Text="Yangi daraja! Zilzila ochildi [Slam]")
+    m = g.ex((u, "Then"), "SendMessage", Target=GAME, Name="LevelUp")
+    g.l(*L(g, "banner.unlock.Zilzila", "Yangi daraja! Zilzila ochildi [Slam]", "Level up! Ground slam unlocked [Slam]"), m, "Text")
     src = g.join((b, "False"), (m, "Then"))
     for key, *_ in C["Quests"]:
         qs = g.n("Gameplay.QuestState", Quest=key)
@@ -1051,15 +1086,21 @@ def camera_graph(assets, project):
     """The orbit camera: mouse / right stick look, a sphere cast keeps it out of walls; the demo pilot's camera turns
     slowly behind the courier's heading; after the beacon is lit it pulls back for the reveal."""
     g = gk.Graph("Camera3D")
-    _vars(g, (("Offset", "Vec3", [0, 2.4, 5.6]),))
+    _vars(g, (("Offset", "Vec3", [0, 2.4, 5.6]), ("Stick", "Vec2", [0, 0])))
     late = g.n("Event.LateUpdate")
-    raw = g.n("Gameplay.Input", Target=HERO)
+    raw = g.n("Gameplay.Input", Target=HERO, Sprint="")
+    # the mouse moves the orbit by its per-frame delta; a held right stick turns it at a rate: STICK_YAW / STICK_PITCH
+    # rad/s at full tilt (divided by the camera's Sensitivity, times this frame's Delta - the same at 30, 60 or 144 Hz),
+    # and only while gameplay input is enabled (not behind the pause menu or the bag, as the mouse look)
     stick = g.n("MakeVec2")
-    g.l(*g.num("Multiply", (g.n("Axis", Name="LookX"), "Value"), 14), stick, "X")
-    g.l(*g.num("Multiply", (g.n("Axis", Name="LookY"), "Value"), 10), stick, "Y")
+    for axis, rate, pin in (("LookX", STICK_YAW, "X"), ("LookY", STICK_PITCH, "Y")):
+        per_second = g.num("Multiply", (g.n("Axis", Name=axis), "Value"), rate / CAMERA_SENSITIVITY)
+        g.l(*g.num("Multiply", per_second, (late, "Delta")), stick, pin)
+    on = g.br((late, "Then"), (raw, "Enabled"))
+    begin = g.join(g.setv((on, "True"), "Stick", data=(stick, "Value")), g.setv((on, "False"), "Stick", [0, 0]))
     look = g.n("AddVec2")
     g.l(raw, "Look", look, "A")
-    g.l(stick, "Value", look, "B")
+    g.l(g.get("Stick"), "Value", look, "B")
     # the pilot's follow: turn the orbit towards behind the velocity (a stick-sized look input)
     motion = g.n("Gameplay.Motion", Target=HERO, TwoD=False)
     v = g.n("BreakVec3")
@@ -1082,15 +1123,15 @@ def camera_graph(assets, project):
     g.l(*g.num("Min", g.num("Multiply", (late, "Delta"), 1.8), 1), turn, "T")
     step = g.num("Subtract", (turn, "Value"), (now, "Value"))
     auto = g.n("MakeVec2", Y=0)
-    g.l(*g.num("Divide", g.num("Negate", step), 0.003), auto, "X")
+    g.l(*g.num("Divide", g.num("Negate", step), CAMERA_SENSITIVITY), auto, "X")
     follow = g.all_of([(g.n("ReadState.Bool", Key=f"{GS}.Pilot", Default=False), "Value"), (g.cmp("Greater", (motion, "Speed"), 1.0), "Value")])
     lit = g.n("Gameplay.QuestState", Target=HERO, Quest="Beacon")
-    b = g.br((late, "Then"), (lit, "Claimed"))
+    b = g.br(begin, (lit, "Claimed"))
     t = g.join(g.setv((b, "True"), "Offset", [0, 6.5, 13.0]), (b, "False"))
     fb = g.br(t, follow)
     cams = []
     for out, extra in ((("True"), True), (("False"), False)):
-        c = g.ex((fb, out), "Gameplay.Camera", Anchor=HERO, Eye=[0, 1.5, 0], Orbit=True, Damping=0.1, Sensitivity=0.003, SnapDistance=5, Radius=0.25,
+        c = g.ex((fb, out), "Gameplay.Camera", Anchor=HERO, Eye=[0, 1.5, 0], Orbit=True, Damping=0.1, Sensitivity=CAMERA_SENSITIVITY, SnapDistance=5, Radius=0.25,
                  Mask=M["VIEW_MASK"])
         g.wire(c, Offset=V(g, "Offset"), Delta=(late, "Delta"))
         if extra:
@@ -1118,6 +1159,7 @@ def game_graph(assets, project, C):
               ("UseMaxUses", "ArrayNumber", []), ("UseCooldown", "ArrayNumber", []), ("UseDeactivate", "ArrayBool", []), ("Boss", "Entity", 0),
               ("Loaded", "Bool", False), ("Time", "Number", 0), ("Ended", "Bool", False), ("Banner", "Number", 0), ("Hurt", "Number", 0),
               ("TitleTime", "Number", 3.5), ("BossSeen", "Bool", False), ("BossDown", "Bool", False), ("Enraged", "Bool", False), ("Auto", "Number", -1),
+              ("BossInit", "Bool", False), ("Calm", "Bool", False),
               ("Entry", "String", "new"), ("Lit", "Bool", False)))
     schema = C["Schema"]
     # ---- configuration
@@ -1204,13 +1246,15 @@ def game_graph(assets, project, C):
     loaded = g.br((load, "Then"), (load, "Success"))
     rec = g.br((loaded, "True"), (load, "Recovered"))
     r1 = g.ex((rec, "True"), "Print", Text="SLICE_RESUMED lvl=1 source=save recovered=1")
-    r1b = g.ex((r1, "Then"), "SendMessage", Target=GAME, Name="Banner", Text="Zaxira nusxadan tiklandi")
+    r1b = g.ex((r1, "Then"), "SendMessage", Target=GAME, Name="Banner")
+    g.l(*L(g, "banner.recovered", "Zaxira nusxadan tiklandi", "Restored from the backup save"), r1b, "Text")
     r0 = g.ex((rec, "False"), "Print", Text="SLICE_RESUMED lvl=1 source=save recovered=0")
     resumed = g.ex(g.join((r1b, "Then"), (r0, "Then")), "SendMessage", Target=HERO, Name="Resumed", Text="")
     lf = g.ex((loaded, "False"), "Print")
     g.l(*g.text(["SLICE_IO_FAILED load ", (load, "Reason")]), lf, "Text")
     # an unreadable save (primary and backup) is said on screen: the level starts again from the camp
-    lfb = g.ex((lf, "Then"), "SendMessage", Target=GAME, Name="Banner", Text=UNREADABLE)
+    lfb = g.ex((lf, "Then"), "SendMessage", Target=GAME, Name="Banner")
+    g.l(*L(g, "banner.unreadable", UNREADABLE, "The save could not be read - the level starts again"), lfb, "Text")
     fresh = g.setv(g.join((cont, "False"), (lfb, "Then")), "Time", 0)
     auto = g.ex(fresh, "Gameplay.SaveWrite", Schema=schema)
     g.l(g.get("Slot"), "Value", auto, "Slot")
@@ -1253,10 +1297,12 @@ def game_graph(assets, project, C):
     qward, qbeacon = g.n("Gameplay.QuestState", Target=HERO, Quest="Warden"), g.n("Gameplay.QuestState", Target=HERO, Quest="Beacon")
     ws_ = g.br(ex1, g.all_of([V(g, "Loaded"), (g.text_is((qward, "Mode"), "Locked"), "Value"), (qpass, "Claimed")]))
     t = (g.ex((ws_, "True"), "Gameplay.QuestStart", Target=HERO, Quest="Warden"), "Then")
-    g.ex(t, "SendMessage", Target=GAME, Name="Banner", Text="Darvoza ochiq! Qora qorovul minorada kutmoqda")
+    open_ = g.ex(t, "SendMessage", Target=GAME, Name="Banner")
+    g.l(*L(g, "banner.gate.open", "Darvoza ochiq! Qora qorovul minorada kutmoqda", "The gate is open! The Black Warden waits at the tower"), open_, "Text")
     bs = g.br(ex2, g.all_of([V(g, "Loaded"), (g.text_is((qbeacon, "Mode"), "Locked"), "Value"), (qstones, "Claimed"), (qward, "Claimed")]))
     t = (g.ex((bs, "True"), "Gameplay.QuestStart", Target=HERO, Quest="Beacon"), "Then")
-    g.ex(t, "SendMessage", Target=GAME, Name="Banner", Text="Uch olov toshi! Mash'alni yoqing")
+    three = g.ex(t, "SendMessage", Target=GAME, Name="Banner")
+    g.l(*L(g, "banner.stones", "Uch olov toshi! Mash'alni yoqing", "Three fire stones! Light the beacon"), three, "Text")
     win = g.br(ex3, g.all_of([(g.not_(V(g, "Ended")), "Value"), (qward, "Claimed"), (qbeacon, "Claimed")]))
     t = g.setv((win, "True"), "Ended", True)
     for target in (8102, 8103, 8106):
@@ -1285,8 +1331,10 @@ def game_graph(assets, project, C):
     t = (g.ex(t, "PlaySound", Path="Audio/sfx_victory.wav", Volume=0.9), "Then")
     stats = g.ex(t, "SetUIText", Target=6410)
     best2 = g.n("ReadState.Number", Key=f"{GS}.Best.Time", Default=0)
-    g.l(*g.text(["Vaqt  ", (g.get("Time"), "Value", "time"), "\nO'limlar  ", (hp, "Deaths", "number"), "\nTajriba  ", (prog, "XP", "number"), "  (",
-                 (prog, "Level", "number"), "-daraja)\nEng yaxshi vaqt  ", (best2, "Value", "time")]), stats, "Text")
+    g.l(*g.text([L(g, "stat.time", "Vaqt", "Time"), "  ", (g.get("Time"), "Value", "time"), "\n", L(g, "stat.deaths", "O'limlar", "Deaths"), "  ",
+                 (hp, "Deaths", "number"), "\n", L(g, "stat.xp", "Tajriba", "Experience"), "  ", (prog, "XP", "number"), 
+                 L(g, "stat.level.open", "  (", "  (level "), (prog, "Level", "number"), L(g, "stat.level.close", "-daraja)", ")"), "\n",
+                 L(g, "stat.best", "Eng yaxshi vaqt", "Best time"), "  ", (best2, "Value", "time")]), stats, "Text")
     t = (g.ex((stats, "Then"), "Print", Text="Menyu: G'alaba"), "Then")
     attract = g.br(t, g.any_of([V(g, "Demo"), (g.n("App.DemoMode"), "Value")]))
     g.setv((attract, "True"), "Auto", 5.0)
@@ -1312,18 +1360,28 @@ def game_graph(assets, project, C):
     t = (g.ex(t, "FadeAudio", Target=BOSS_MUSIC, Volume=0.9, Seconds=1.5), "Then")
     g.ex(t, "Print", Text="SLICE_TRACE ev=boss a=engaged")
     low = g.num("Multiply", (bhp, "Maximum"), 0.4)
-    rage = g.br(b2, g.all_of([(g.not_(V(g, "Enraged")), "Value"), (g.not_((bhp, "Dead")), "Value"), (g.cmp("Less", (bhp, "Current"), low), "Value")]))
-    t = g.setv((rage, "True"), "Enraged", True)
-    t = (g.ex(t, "SendMessage", Target=GAME, Name="Banner", Text="Qora qorovul g'azablandi!"), "Then")
-    t = (g.ex(t, "ShakeCamera", Intensity=0.5, Duration=0.6), "Then")
+    below = (g.cmp("Less", (bhp, "Current"), low), "Value")
+    # the first frame of the level (after a Continue restored the Warden): a fight saved enraged resumes so, calmly - no
+    # second banner, shake or trace (the flag is not saved: the restored health says it)
+    init = g.br(b2, (g.not_(V(g, "BossInit")), "Value"))
+    t = g.setv((init, "True"), "BossInit", True)
+    t = g.setv(t, "Calm", data=g.all_of([below, (g.not_((bhp, "Dead")), "Value")]))
+    rage = g.br(g.join(t, (init, "False")), g.all_of([(g.not_(V(g, "Enraged")), "Value"), (g.not_((bhp, "Dead")), "Value"), below]))
+    loud = g.br(g.setv((rage, "True"), "Enraged", True), (g.not_(V(g, "Calm")), "Value"))
+    banner = g.ex((loud, "True"), "SendMessage", Target=GAME, Name="Banner")
+    g.l(*L(g, "banner.boss.rage", "Qora qorovul g'azablandi!", "The Black Warden is enraged!"), banner, "Text")
+    t = (g.ex((banner, "Then"), "ShakeCamera", Intensity=0.5, Duration=0.6), "Then")
     g.ex(t, "Print", Text="SLICE_TRACE ev=boss a=enraged")
+    g.ex((loud, "False"), "Print", Text="SLICE_TRACE ev=boss a=enraged-resumed")
     down = g.br(b3, g.all_of([V(g, "BossSeen"), (g.not_(V(g, "BossDown")), "Value"), (bhp, "Dead")]))
     t = g.setv((down, "True"), "BossDown", True)
     t = (g.ex(t, "SetActive", Target=6093, Active=False), "Then")
     t = (g.ex(t, "SetActive", Target=6094, Active=False), "Then")
     t = (g.ex(t, "FadeAudio", Target=BOSS_MUSIC, Volume=0.0, Seconds=2.0), "Then")
     t = (g.ex(t, "FadeAudio", Target=MUSIC, Volume=0.75, Seconds=2.0), "Then")
-    t = (g.ex(t, "SendMessage", Target=GAME, Name="Banner", Text="Qora qorovul yengildi!"), "Then")
+    down = g.ex(t, "SendMessage", Target=GAME, Name="Banner")
+    g.l(*L(g, "banner.boss.down", "Qora qorovul yengildi!", "The Black Warden is defeated!"), down, "Text")
+    t = (down, "Then")
     g.ex(t, "Print", Text="SLICE_TRACE ev=boss a=defeated")
 
     # ---- demo: automatic choices on end screens (the pilot never clicks)
@@ -1358,8 +1416,9 @@ def game_graph(assets, project, C):
     g.l(inv, "Item", eq, "Item")
     eqb = g.br((eq, "Then"), (eq, "Success"))
     msg = g.ex((eqb, "True"), "SendMessage", Target=GAME, Name="Banner")
-    g.l(*g.text(["Kiyildi: ", (inv, "Item")]), msg, "Text")
-    g.ex((eqb, "False"), "SendMessage", Target=GAME, Name="Banner", Text="Bu buyumni kiyib bo'lmaydi")
+    g.l(*g.text([L(g, "banner.equipped", "Kiyildi: ", "Equipped: "), item_name(g, (inv, "Item"))]), msg, "Text")
+    noeq = g.ex((eqb, "False"), "SendMessage", Target=GAME, Name="Banner")
+    g.l(*L(g, "banner.cannot.equip", "Bu buyumni kiyib bo'lmaydi", "This item cannot be equipped"), noeq, "Text")
     g.ex((on("Drink"), "Then"), "Gameplay.AbilityCast", Target=HERO, Ability="Potion", TwoD=False)
     sq = g.ex((on("SaveQuit"), "Then"), "Gameplay.SaveWrite", Schema=schema)
     g.l(g.get("Slot"), "Value", sq, "Slot")
@@ -1390,8 +1449,9 @@ def game_graph(assets, project, C):
     g.l(g.get("Time"), "Value", wt, "Value")
     t = (g.ex((wt, "Then"), "SaveGameState"), "Then")
     t = (g.ex(t, "Print", Text="SLICE_SAVED lvl=1 at=shrine"), "Then")
-    t = (g.ex(t, "SetUIText", Target=6091, Text="Saqlandi"), "Then")
-    g.setv(t, "Banner", 2.5)
+    sv_ = g.ex(t, "SetUIText", Target=6091)
+    g.l(*L(g, "banner.saved", "Saqlandi", "Saved"), sv_, "Text")
+    g.setv((sv_, "Then"), "Banner", 2.5)
     bn = on("Banner")
     st = g.ex((bn, "Then"), "SetUIText", Target=6091)
     g.l(bn, "Text", st, "Text")
@@ -1410,8 +1470,9 @@ def game_graph(assets, project, C):
     cl = on("Claimed")
     p = g.ex((cl, "Then"), "Print")
     g.l(*g.text(["SLICE_TRACE ev=claim a=", (cl, "Text")]), p, "Text")
-    t = (g.ex((p, "Then"), "SetUIText", Target=6091, Text="Vazifa bajarildi!"), "Then")
-    g.setv(t, "Banner", 2.5)
+    qd = g.ex((p, "Then"), "SetUIText", Target=6091)
+    g.l(*L(g, "banner.quest.done", "Vazifa bajarildi!", "Quest complete!"), qd, "Text")
+    g.setv((qd, "Then"), "Banner", 2.5)
     g.save(assets, "Scripts/Game.zgraph", project)
     return g
 
@@ -1540,8 +1601,9 @@ def enemy_graph(assets, project):
 
 
 def menu_graph(assets, project):
-    """The title menu over the pass: an orbiting camera, Continue only for an unfinished run, settings (live volumes,
-    fullscreen, language, persisted on Back), credits, demo auto-start, new game / continue with a fade."""
+    """The title menu over the pass: an orbiting camera, Continue only for an unfinished run, settings (live volumes and
+    UI scale kept when the panel closes - Orqaga, Escape or B; fullscreen and language kept at once), credits, demo
+    auto-start, new game / continue with a fade."""
     g = gk.Graph("Menu")
     _vars(g, (("Demo", "Bool", False), ("Started", "Bool", False), ("Time", "Number", 0), ("Can", "Bool", False)))
     g.lane("config")
@@ -1574,11 +1636,14 @@ def menu_graph(assets, project):
     g.l(*g.num("Multiply", (scale, "Value"), 10), sv, "Value")
     us = g.ex((sv, "Then"), "Display.SetUIScale")
     g.l(scale, "Value", us, "Scale")
-    t = (us, "Then")
+    # the fullscreen switch shows the window as it is (the player's F11 / saved choice / command line)
+    fs = g.br((us, "Then"), (g.n("Display.IsFullscreen"), "Value"))
+    t = g.join((g.ex((fs, "True"), "SetUIValue", Target=6113, Value=1, Notify=False), "Then"),
+               (g.ex((fs, "False"), "SetUIValue", Target=6113, Value=0, Notify=False), "Then"))
     best = g.n("ReadState.Number", Key=f"{GS}.Best.Time", Default=0)
     rb = g.br(t, (g.cmp("Greater", (best, "Value"), 0), "Value"))
     rt = g.ex((rb, "True"), "SetUIText", Target=6030)
-    g.l(*g.text(["Eng yaxshi vaqt  ", (best, "Value", "time")]), rt, "Text")
+    g.l(*g.text([L(g, "stat.best", "Eng yaxshi vaqt", "Best time"), "  ", (best, "Value", "time")]), rt, "Text")
     shown = g.br(g.join((rb, "False"), (rt, "Then")), V(g, "Can"))
     g.ex((shown, "True"), "Print", Text="Menyu: Asosiy davom=1")
     g.ex((shown, "False"), "Print", Text="Menyu: Asosiy davom=0")
@@ -1636,7 +1701,14 @@ def menu_graph(assets, project):
     g.ex(t, "LoadScene", Path="Scenes/Dovon.zscene", FadeOut=0.6, FadeIn=0.8, Color=[0.05, 0.03, 0.02, 1])
     g.ex((g.ex(on("Settings"), "Gameplay.UIOpen", Name="Settings"), "Then"), "Print", Text="Menyu: Sozlamalar")
     g.ex((g.ex(on("Credits"), "Gameplay.UIOpen", Name="Credits"), "Then"), "Print", Text="Menyu: Mualliflar")
-    t = on("Back")
+    g.ex(on("Back"), "Gameplay.UIBack")
+    # a panel closed by Orqaga, Escape or the gamepad's B (UIWorld's Back): the settings are kept whichever way
+    g.lane("closed")
+    cu = g.n("Event.Update")
+    ev = g.ex((cu, "Then"), "Gameplay.UIEvent")
+    closed = g.br((ev, "Then"), g.all_of([(ev, "Has"), (g.text_is((ev, "Kind"), "Close"), "Value")]))
+    which = g.br((closed, "True"), (g.text_is((ev, "Name"), "Settings"), "Value"))
+    t = (which, "True")
     music, sfx = g.n("UIValue", Target=6111), g.n("UIValue", Target=6112)
     for key, src in (("Music", music), ("Sfx", sfx)):
         w_ = g.ex(t, "WriteState.Number", Key=f"{GS}.Settings.{key}")
@@ -1649,15 +1721,16 @@ def menu_graph(assets, project):
     p = g.ex(t, "Print")
     g.l(*g.text(["SLICE_SETTINGS music=", (music, "Value", "number", 2), " sfx=", (sfx, "Value", "number", 2), " ui=", (ui_scale[0], "Value", "number", 2),
                  " lang=", (g.n("Localization.Language"), "Value")]), p, "Text")
-    t = (g.ex((p, "Then"), "Gameplay.UIBack"), "Then")
-    g.ex(t, "Print", Text="Menyu: Asosiy")
+    credits = g.br((which, "False"), (g.text_is((ev, "Name"), "Credits"), "Value"))
+    g.ex(g.join((p, "Then"), (credits, "True")), "Print", Text="Menyu: Asosiy")
+    g.lane("messages2")
     g.ex(on("Quit"), "QuitGame")
+    # fullscreen and the language are the player's choice: kept with SaveData (the player loads them at its start)
     full = g.ex(on("Fullscreen"), "Display.SetFullscreen")
     g.l(g.n("UIValue", Target=6113), "On", full, "Fullscreen")
+    g.ex((full, "Then"), "Display.SaveSettings")
     lang = g.br(on("Language"), (g.text_is((g.n("Localization.Language"), "Value"), "uz"), "Value"))
-    t = (g.ex((lang, "True"), "Localization.SetLanguage", Code="en"), "Then")
-    g.ex(t, "SetUIText", Target=6114, Text="Language: English")
-    t = (g.ex((lang, "False"), "Localization.SetLanguage", Code="uz"), "Then")
-    g.ex(t, "SetUIText", Target=6114, Text="Til: O'zbekcha")
+    t = g.join((g.ex((lang, "True"), "Localization.SetLanguage", Code="en"), "Then"), (g.ex((lang, "False"), "Localization.SetLanguage", Code="uz"), "Then"))
+    g.ex(t, "Localization.SaveSettings")  # the button's text is its language key (menu.language)
     g.save(assets, "Scripts/Menu.zgraph", project)
     return g

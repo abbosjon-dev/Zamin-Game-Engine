@@ -175,6 +175,18 @@ class Graph:
             current = (node, "Value")
         return current
 
+    def loc(self, key, fallback):
+        """The project's language string `key` (Localization.Text: the current language's, else the default one's),
+        `fallback` when no language has it; a data pin `key` = (node, output) looks the key up at runtime (an
+        interaction prompt key). Returns (node, 'Value')."""
+        if isinstance(key, tuple):
+            node = self.n("Localization.Text", Fallback=fallback if isinstance(fallback, str) else "")
+            self.l(key[0], key[1], node, "Key")
+            if isinstance(fallback, tuple):
+                self.l(fallback[0], fallback[1], node, "Fallback")
+            return (node, "Value")
+        return (self.n("Localization.Text", Key=key, Fallback=fallback), "Value")
+
     def print_(self, source, text, out="Then"):
         node = self.n("Print", **({"Text": text} if isinstance(text, str) else {}))
         self.l(source, out, node, "In")

@@ -331,6 +331,304 @@ def paint_water(seed):
     return img
 
 
+# ------------------------------------------------------------------------------------------------ autotiled terrain
+# Seamless ground: every variant of a terrain shares one periodic base texture at its border (the variant's own
+# detail fades in only inside the tile), so any two tiles meet without a seam. Paths and water are 16-variant
+# autotiles chosen by the 4-neighbour mask (N 1, E 2, S 4, W 8; N is the picture's top row, the world's +y): a path
+# tile is grass with the path's centre disk and an arm to each neighbouring path, a water tile is water with a bank
+# (wet earth, a foam line) on every side that has no water; arms and banks meet the tile's border straight and
+# unperturbed, so neighbours join exactly. Decals (alpha tiles on a layer of their own) break the repetition.
+
+N_BIT, E_BIT, S_BIT, W_BIT = 1, 2, 4, 8
+NE_BIT, SE_BIT, SW_BIT, NW_BIT = 16, 32, 64, 128
+
+
+def neighbour_mask(is_kind, x, y):
+    """The autotile index 0..15 of cell (x, y): bits of the N/E/S/W neighbours for which is_kind(x, y) holds."""
+    return (N_BIT if is_kind(x, y + 1) else 0) | (E_BIT if is_kind(x + 1, y) else 0) | (S_BIT if is_kind(x, y - 1) else 0) | (W_BIT if is_kind(x - 1, y) else 0)
+
+
+def blob_mask(is_kind, x, y):
+    """The 8-neighbour mask of cell (x, y) reduced to a blob autotile's: a diagonal counts only when both of its
+    orthogonal neighbours are of the kind too (then the shared corner is filled - a 2 x 2 block has no hole)."""
+    m = neighbour_mask(is_kind, x, y)
+    for bit, (dx, dy), a, b in ((NE_BIT, (1, 1), N_BIT, E_BIT), (SE_BIT, (1, -1), S_BIT, E_BIT), (SW_BIT, (-1, -1), S_BIT, W_BIT),
+                                (NW_BIT, (-1, 1), N_BIT, W_BIT)):
+        if m & a and m & b and is_kind(x + dx, y + dy):
+            m |= bit
+    return m
+
+
+def blob_masks():
+    """The 47 reduced masks of a blob autotile, in a fixed order (the tileset's order)."""
+    out = []
+    for m in range(256):
+        ok = all(not (m & bit) or (m & a and m & b) for bit, a, b in ((NE_BIT, N_BIT, E_BIT), (SE_BIT, S_BIT, E_BIT), (SW_BIT, S_BIT, W_BIT), (NW_BIT, N_BIT, W_BIT)))
+        if ok:
+            out.append(m)
+    assert len(out) == 47
+    return out
+
+
+def _border_window(margin=14.0):
+    """0 at the tile's border, 1 from `margin` px inside (smooth, separable)."""
+    c = np.arange(TILE) + 0.5
+    d = np.minimum(c, TILE - c)
+    w = k.smooth(1.5, margin, d)
+    return np.outer(w, w)
+
+
+def _colorize(n, base, dark, light=None):
+    img = k.image(TILE, TILE, (*base, 1))
+    for i in range(3):
+        img[:, :, i] = base[i] * (0.82 + 0.36 * n) * 0.6 + dark[i] * 0.4 * (1 - n)
+        if light is not None:
+            img[:, :, i] += (light[i] - img[:, :, i]) * np.clip((n - 0.62) * 1.6, 0, 1) * 0.35
+    img[:, :, 3] = 1
+    return img
+
+
+def seamless_ground(base, dark, base_seed, seed, speckle=None, cells=4, light=None, detail=0.75):
+    """A ground tile whose border is the shared base noise (base_seed) and whose inside blends to its own (seed)."""
+    shared = k.value_noise(TILE, TILE, cells, seed=base_seed, octaves=4)
+    own = k.value_noise(TILE, TILE, cells, seed=seed, octaves=4)
+    w = _border_window() * detail
+    img = _colorize(shared * (1 - w) + own * w, base, dark, light)
+    if speckle:
+        rng = np.random.default_rng(seed + 100)
+        x, y = k.coords(TILE, TILE, (0, 0))
+        for _ in range(speckle[1]):
+            px, py = rng.uniform(9, TILE - 9, 2)
+            k.fill(img, k.sd_circle(x - px, y - py, rng.uniform(0.8, 1.9)), (*speckle[0], 0.55))
+        img[:, :, 3] = 1
+    return img
+
+
+def _blades(img, seed, color, count, rng_box=(6, 58)):
+    """Short grass blades (thin strokes) inside the tile, away from its border."""
+    rng = np.random.default_rng(seed)
+    x, y = k.coords(TILE, TILE, (0, 0))
+    for _ in range(count):
+        px, py = rng.uniform(*rng_box, 2)
+        ang = rng.uniform(-0.6, 0.6) - math.pi / 2
+        ln = rng.uniform(3, 6)
+        k.fill(img, _capsule(x, y, px, py, px + math.cos(ang) * ln, py + math.sin(ang) * ln, 0.55), (*color, 0.7))
+
+
+def path_autotile(mask, grass, path, rim=(0.30, 0.26, 0.16), half=15.0, seed=0):
+    """Grass with a path: a centre disk, an arm to every side in `mask` (straight where it meets the border) and the
+    corners of a blob mask (blob_mask) filled."""
+    x, y = k.coords(TILE, TILE)  # centre 0, y down
+    arms = []
+    if mask & N_BIT:
+        arms.append(k.sd_round_box(x, y + TILE / 4 - 0.5, half, TILE / 4 + 1, 0.01))
+    if mask & S_BIT:
+        arms.append(k.sd_round_box(x, y - TILE / 4 + 0.5, half, TILE / 4 + 1, 0.01))
+    if mask & E_BIT:
+        arms.append(k.sd_round_box(x - TILE / 4 + 0.5, y, TILE / 4 + 1, half, 0.01))
+    if mask & W_BIT:
+        arms.append(k.sd_round_box(x + TILE / 4 - 0.5, y, TILE / 4 + 1, half, 0.01))
+    # the filled corners of a blob tile (a diagonal neighbour with both orthogonal ones)
+    q = TILE / 4
+    for bit, sx, sy in ((NE_BIT, 1, -1), (SE_BIT, 1, 1), (SW_BIT, -1, 1), (NW_BIT, -1, -1)):
+        if mask & bit:
+            arms.append(k.sd_round_box(x - sx * q, y - sy * q, q + 1, q + 1, 0.01))
+    sd = k.sd_circle(x, y, half + (3.0 if (mask & 15) == 0 else 1.0))
+    for a in arms:
+        sd = np.minimum(sd, a)
+    # a ragged worn edge inside the tile only (the border stays exact for the neighbours)
+    wobble = (k.value_noise(TILE, TILE, 6, seed=900 + seed, octaves=2) - 0.5) * 7.0 * _border_window(10.0)
+    sd = sd + wobble
+    cov = k.smooth(2.5, -2.5, sd)
+    edge = np.exp(-np.maximum(sd, 0) / 3.5) * (sd > -1.5) * 0.55  # trodden grass and soil just outside the path
+    inner = k.smooth(-1.0, -6.0, sd)  # the path's own darker rim
+    img = grass.copy()
+    for i in range(3):
+        g = grass[:, :, i] * (1 - edge) + rim[i] * edge
+        pth = path[:, :, i] * (0.78 + 0.22 * inner)
+        img[:, :, i] = g * (1 - cov) + pth * cov
+    img[:, :, 3] = 1
+    return img
+
+
+def water_autotile(mask, grass, water_seed=50, bank=13.0, seed=0, deep=(0.07, 0.24, 0.34), shallow=(0.20, 0.52, 0.58),
+                   mud=(0.30, 0.24, 0.15)):
+    """Water with a bank on every side NOT in `mask`: grass at that border, wet earth, a foam line, then water."""
+    x, y = k.coords(TILE, TILE)
+    big = TILE
+    left = -TILE / 2 + (0 if mask & W_BIT else bank) - (big if mask & W_BIT else 0)
+    right = TILE / 2 - (0 if mask & E_BIT else bank) + (big if mask & E_BIT else 0)
+    top = -TILE / 2 + (0 if mask & N_BIT else bank) - (big if mask & N_BIT else 0)
+    bottom = TILE / 2 - (0 if mask & S_BIT else bank) + (big if mask & S_BIT else 0)
+    cx, cy, hw, hh = (left + right) / 2, (top + bottom) / 2, (right - left) / 2, (bottom - top) / 2
+    sd = k.sd_round_box(x - cx, y - cy, hw, hh, 16.0)
+    wobble = (k.value_noise(TILE, TILE, 5, seed=950 + seed, octaves=2) - 0.5) * 6.0 * _border_window(9.0)
+    sd = sd + wobble
+    n = k.value_noise(TILE, TILE, 3, seed=water_seed, octaves=3)
+    xs, ys = k.coords(TILE, TILE, (0, 0))
+    # ripples periodic over the tile (the same in every water tile: open sides join)
+    ripple = 0.5 + 0.5 * np.sin(2 * math.pi * (xs * 2 + ys) / TILE + n * 5.0)
+    depth = k.smooth(0.0, 18.0, -sd)  # 0 at the shore, 1 in open water
+    img = grass.copy()
+    water = np.zeros((TILE, TILE, 3))
+    for i in range(3):
+        col = shallow[i] * (1 - depth) + deep[i] * depth
+        water[:, :, i] = col + ripple * 0.06 + (n - 0.5) * 0.05
+    foam = np.exp(-np.abs(sd + 2.5) / 1.4) * 0.6
+    wet = k.smooth(7.0, 0.0, sd)  # wet earth on the bank
+    cov = k.smooth(1.2, -1.2, sd)
+    for i in range(3):
+        g = grass[:, :, i] * (1 - wet * 0.85) + mud[i] * wet * 0.85
+        w_ = water[:, :, i] * (1 - foam) + 0.85 * foam
+        img[:, :, i] = g * (1 - cov) + w_ * cov
+    img[:, :, 3] = 1
+    return img
+
+
+def _decal(painter, seed):
+    img = k.image(TILE, TILE)
+    x, y = k.coords(TILE, TILE, (0, 0))
+    painter(img, x, y, np.random.default_rng(seed))
+    return k.edge_fade(img, 4)
+
+
+def decal_petals(color=(1.0, 0.72, 0.78), other=(1.0, 0.96, 0.92), seed=1):
+    def paint(img, x, y, rng):
+        for i in range(14):
+            px, py = rng.uniform(10, 54, 2)
+            ang = rng.uniform(0, math.pi)
+            r = rng.uniform(1.6, 2.6)
+            d = k.sd_circle((x - px) * (1.6 if i % 2 else 1.0), y - py, r)
+            k.fill(img, d, (*(color if i % 3 else other), 0.9))
+    return _decal(paint, seed)
+
+
+def decal_clover(seed=2, color=(0.30, 0.52, 0.20)):
+    def paint(img, x, y, rng):
+        for _ in range(5):
+            px, py = rng.uniform(12, 52, 2)
+            for a in range(3):
+                ang = a * 2 * math.pi / 3 + rng.uniform(0, 0.4)
+                k.fill(img, k.sd_circle(x - px - math.cos(ang) * 2.2, y - py - math.sin(ang) * 2.2, 2.0), (*color, 0.85))
+    return _decal(paint, seed)
+
+
+def decal_pebbles(seed=3, color=(0.62, 0.60, 0.56)):
+    def paint(img, x, y, rng):
+        for _ in range(9):
+            px, py = rng.uniform(10, 54, 2)
+            rx, ry = rng.uniform(1.6, 3.4), rng.uniform(1.2, 2.6)
+            d = k.sd_circle((x - px) / rx, (y - py) / ry, 1.0) * min(rx, ry)
+            k.fill(img, d + 0.8, (0.08, 0.07, 0.06, 0.35))  # a contact shadow
+            shade = rng.uniform(0.8, 1.1)
+            k.fill(img, d, (color[0] * shade, color[1] * shade, color[2] * shade, 0.95))
+            k.fill(img, k.sd_circle(x - px + 0.6, y - py + 0.6, 0.7), (1, 1, 1, 0.35))
+    return _decal(paint, seed)
+
+
+def decal_leaves(seed=4, color=(0.86, 0.48, 0.20)):
+    def paint(img, x, y, rng):
+        for _ in range(7):
+            px, py = rng.uniform(10, 54, 2)
+            ang = rng.uniform(0, math.pi)
+            ca, sa = math.cos(ang), math.sin(ang)
+            u, v = (x - px) * ca + (y - py) * sa, -(x - px) * sa + (y - py) * ca
+            d = k.sd_circle(u / 3.6, v / 1.7, 1.0) * 1.7
+            tone = rng.uniform(0.75, 1.1)
+            k.fill(img, d, (color[0] * tone, color[1] * tone, color[2] * tone, 0.9))
+    return _decal(paint, seed)
+
+
+def decal_mushrooms(seed=5):
+    def paint(img, x, y, rng):
+        for _ in range(3):
+            px, py = rng.uniform(16, 48, 2)
+            k.fill(img, k.sd_round_box(x - px, y - py - 1.5, 1.2, 2.6, 0.8), (0.92, 0.88, 0.80, 1))
+            k.fill(img, k.sd_circle((x - px) / 1.4, y - py + 2.5, 3.0), (0.78, 0.18, 0.14, 1))
+            for dx in (-1.6, 1.4):
+                k.fill(img, k.sd_circle(x - px - dx, y - py + 3.2, 0.7), (1, 0.95, 0.9, 1))
+    return _decal(paint, seed)
+
+
+def decal_tuft(seed=6, color=(0.22, 0.38, 0.13)):
+    def paint(img, x, y, rng):
+        _blades(img, seed, color, 26, (14, 50))
+    return _decal(paint, seed)
+
+
+def decal_moss(seed=7, color=(0.24, 0.44, 0.22)):
+    def paint(img, x, y, rng):
+        n = k.value_noise(TILE, TILE, 4, seed=seed + 300, octaves=3)
+        d = k.sd_circle(x - 32, y - 32, 20) + (n - 0.5) * 18
+        a = k.smooth(3, -6, d) * (0.45 + 0.4 * n)
+        k.over(img, color, a)
+    return _decal(paint, seed)
+
+
+def decal_wildflowers(seed=8, color=(1.0, 0.86, 0.30)):
+    def paint(img, x, y, rng):
+        for _ in range(6):
+            px, py = rng.uniform(12, 52, 2)
+            k.fill(img, _capsule(x, y, px, py, px, py + 4, 0.5), (0.25, 0.42, 0.15, 0.9))
+            for a in range(5):
+                ang = a * 2 * math.pi / 5
+                k.fill(img, k.sd_circle(x - px - math.cos(ang) * 1.6, y - py - math.sin(ang) * 1.6, 1.2), (*color, 1))
+            k.fill(img, k.sd_circle(x - px, y - py, 0.9), (0.9, 0.5, 0.15, 1))
+    return _decal(paint, seed)
+
+
+def decal_crack(seed=9, color=(0.06, 0.05, 0.09)):
+    def paint(img, x, y, rng):
+        px, py = rng.uniform(16, 48, 2)
+        ang = rng.uniform(0, 2 * math.pi)
+        for branch in range(3):
+            a = ang + branch * 2.1 + rng.uniform(-0.3, 0.3)
+            cx_, cy_ = px, py
+            for seg in range(4):
+                a += rng.uniform(-0.6, 0.6)
+                ln = rng.uniform(3, 6) * (1 - seg * 0.15)
+                nx, ny = cx_ + math.cos(a) * ln, cy_ + math.sin(a) * ln
+                k.fill(img, _capsule(x, y, cx_, cy_, nx, ny, 0.75 - seg * 0.12), (*color, 0.85))
+                cx_, cy_ = nx, ny
+    return _decal(paint, seed)
+
+
+def decal_rubble(seed=10, color=(0.42, 0.40, 0.50)):
+    return decal_pebbles(seed, color)
+
+
+def decal_puddle(seed=11, color=(0.10, 0.12, 0.20)):
+    def paint(img, x, y, rng):
+        n = k.value_noise(TILE, TILE, 3, seed=seed + 400, octaves=2)
+        d = k.sd_circle((x - 32) / 1.5, y - 33, 12) + (n - 0.5) * 10
+        k.fill(img, d, (*color, 0.75), aa=2.0)
+        k.stroke(img, d + 1.0, (0.55, 0.62, 0.85, 0.35), 1.0)
+        k.fill(img, k.sd_circle((x - 26) / 2.2, y - 29, 2.0), (0.8, 0.85, 1.0, 0.25))
+    return _decal(paint, seed)
+
+
+def decal_cobweb(seed=12, color=(0.86, 0.86, 0.92)):
+    def paint(img, x, y, rng):
+        for a in range(6):
+            ang = -math.pi / 2 + a * math.pi / 10
+            k.fill(img, _capsule(x, y, 6, 6, 6 + math.cos(ang + math.pi / 2) * 40, 6 + math.sin(ang + math.pi / 2) * 40, 0.35), (*color, 0.45))
+        for r in (10, 18, 27):
+            k.stroke(img, k.sd_circle(x - 6, y - 6, r), (*color, 0.35), 0.6)
+    img = k.image(TILE, TILE)
+    x, y = k.coords(TILE, TILE, (0, 0))
+    paint(img, x, y, np.random.default_rng(seed))
+    img[:, :, 3] *= k.smooth(46, 30, np.sqrt((x - 6) ** 2 + (y - 6) ** 2))
+    return img
+
+
+def decal_wall_shadow(strength=0.55):
+    """The shadow a wall to the north casts on the cell below it (darkest at the top edge)."""
+    img = k.image(TILE, TILE, (0.02, 0.02, 0.04, 0))
+    ys = np.arange(TILE) + 0.5
+    img[:, :, 3] = (np.exp(-ys / 14.0) * strength)[:, None]
+    return img
+
+
 # ------------------------------------------------------------------------------------------------ props and icons
 
 

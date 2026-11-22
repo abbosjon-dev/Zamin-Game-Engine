@@ -263,6 +263,8 @@ namespace ZaminTest {
                "  --timing, -t                    vaqt hisoboti: eng sekin testlar, jami, taqsimot\n"
                "  --slowest <N>                   hisobotda eng sekin N test (odatda 10; --timing ni yoqadi)\n"
                "  --fail-fast, -x                 birinchi xato bergan testdan keyin to'xtash\n"
+               "  --quick, -q                     sekin testlarsiz (SLOW_TEST: butun o'yin o'tishlari) - tez tekshiruv\n"
+               "  --slow                          faqat sekin testlar\n"
                "  --report <fayl.json>            natijalar JSON faylga (har test: vaqt, holat, xatolar)\n"
                "  --junit <fayl.xml>              natijalar JUnit XML faylga (CI uchun)\n"
                "  --help, -h                      shu yordam\n"
@@ -303,6 +305,10 @@ namespace ZaminTest {
                 out.Timing = true;
             else if (arg == "--fail-fast" || arg == "-x")
                 out.FailFast = true;
+            else if (arg == "--quick" || arg == "-q")
+                out.Pace = RunnerOptions::Speed::Quick;
+            else if (arg == "--slow")
+                out.Pace = RunnerOptions::Speed::Slow;
             else if (value("--filter", text) || value("-f", text))
             {
                 if (!error.empty())
@@ -351,11 +357,11 @@ namespace ZaminTest {
         return true;
     }
 
-    std::vector<size_t> SelectTests(const std::vector<TestCase>& tests, const TestFilter& filter)
+    std::vector<size_t> SelectTests(const std::vector<TestCase>& tests, const TestFilter& filter, RunnerOptions::Speed pace)
     {
         std::vector<size_t> chosen;
         for (size_t i = 0; i < tests.size(); i++)
-            if (filter.Matches(tests[i].Name))
+            if (filter.Matches(tests[i].Name) && (pace == RunnerOptions::Speed::All || tests[i].Slow == (pace == RunnerOptions::Speed::Slow)))
                 chosen.push_back(i);
         return chosen;
     }
@@ -529,7 +535,7 @@ namespace ZaminTest {
             options.Filter.Add(env);
 
         const std::vector<TestCase>& tests = Registry();
-        const std::vector<size_t> chosen = SelectTests(tests, options.Filter);
+        const std::vector<size_t> chosen = SelectTests(tests, options.Filter, options.Pace);
         if (options.List)
         {
             for (size_t i : chosen)
@@ -601,7 +607,9 @@ namespace ZaminTest {
         if (summary.Skipped > 0)
             std::printf("--fail-fast: birinchi xatodan keyin to'xtatildi, %zu test ishga tushmadi\n", summary.Skipped);
         if (summary.Results.size() < tests.size())
-            std::printf("Filtr: %s (%zu / %zu test)\n", summary.Filter.empty() ? "-" : summary.Filter.c_str(), chosen.size(), tests.size());
+            std::printf("Filtr: %s%s (%zu / %zu test)\n", summary.Filter.empty() ? "-" : summary.Filter.c_str(),
+                        options.Pace == RunnerOptions::Speed::Quick ? ", sekin testlarsiz (--quick)" : options.Pace == RunnerOptions::Speed::Slow ? ", faqat sekin testlar (--slow)" : "",
+                        chosen.size(), tests.size());
         bool written = true;
         if (!options.JsonReport.empty())
         {

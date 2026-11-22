@@ -10,7 +10,7 @@ The bundled skeletal runner is a procedural animated test model, not a humanoid 
 
 | Node | Contract |
 |---|---|
-| `Gameplay.Input` | Composite action input: analog Move, mouse Look, jump press/hold, sprint. Enabled=false and focused text fields suppress input. |
+| `Gameplay.Input` | Composite action input: analog Move, mouse Look, jump press/hold, sprint. Enabled=false and focused text fields suppress input. An empty Move/Jump/Sprint name reads nothing (a game without that action needs no placeholder in its input map). |
 | `Gameplay.Motor2D` | Dynamic Box2D body: platform movement or TopDown XY movement. Requires a running physics world. |
 | `Gameplay.Motor3D` | Running CharacterController3D, optional camera-relative horizontal movement. Cannot also have Rigidbody3D. |
 | `Gameplay.Steer` | Pure bot/follower steering: the stick (`Move`, length ≤ 1, shrinking inside `Slow` metres, zero inside `Arrive`) that walks Target towards `Goal`, plus `Distance`, `Arrived` and `Yaw` (2D: the Z rotation turning +X to the goal; 3D: the Y rotation turning +Z). 3D maps the world direction back through Motor3D's projection (with `Camera`: the exact inverse of its right/forward mapping), so a pilot drives the same Move pin a human does. |

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The unit tests' catalogue (Tests/ZaminTests.cpp): every TEST(...) under the section comment it stands in
+"""The unit tests' catalogue (Tests/ZaminTests.cpp): every TEST(...) / SLOW_TEST(...) under the section comment it stands in
 ("// ---------- title" / "// ---- title"), with the count per section - the list in docs/Testing.md.
 
     Tests/test_catalog.py                       the catalogue as Markdown on stdout
@@ -20,7 +20,7 @@ BEGIN = "<!-- test-catalog:begin -->"
 END = "<!-- test-catalog:end -->"
 
 _section = re.compile(r"^// -{4,}\s+(.+?)\s*$")
-_test = re.compile(r"^\s*TEST\((\w+)\)")
+_test = re.compile(r"^\s*(?:SLOW_)?TEST\((\w+)\)")
 
 
 def catalogue():

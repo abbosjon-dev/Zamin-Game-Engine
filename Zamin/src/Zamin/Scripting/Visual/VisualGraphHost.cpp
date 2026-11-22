@@ -162,6 +162,10 @@ namespace Zamin {
             return nullptr;
         }
         if (k == "Display.IsFullscreen") return Display::IsFullscreen();
+        // The player's choice kept with SaveData (the player and the editor's Play load them when they start; the
+        // command line still wins): a language or display menu calls them after the change.
+        if (k == "Localization.SaveSettings") return V{ { "Success", Localization::SaveSettings() } };
+        if (k == "Display.SaveSettings") return V{ { "Success", Display::SaveSettings() } };
         if (k == "Display.SetUIScale" || k == "Display.UIScale")
         {
             // The UI scale setting: the scene manager's (every scene, and the ones loaded later), else this scene's.

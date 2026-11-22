@@ -2,6 +2,7 @@
 #include <Zamin/Editor/EditorLanguage.h>
 #include <Zamin/Gameplay/GameplayUI.h>
 #include <Zamin/Gameplay/UIModel.h>
+#include <Zamin/Localization/Localization.h>
 namespace {
     // Hero (team 1, Attack 5, Power 10, 100 energy, no regeneration) against the Enemy 5 m away on +X.
     struct AFixture : CFixture
@@ -239,6 +240,7 @@ TEST(CombatHUDEffectStacksTimeLeftAndHitMarker)
 }
 TEST(CombatHUDFeedRowsFadeAndRestoreAuthoredText)
 {
+    Localization::Clear(); // no language files (a slice test before may have left a project's names): the rows show keys
     std::vector<Entity> rows;
     Entity canvas;
     CFixture f([&](CFixture& s) {
@@ -274,6 +276,25 @@ TEST(CombatHUDFeedRowsFadeAndRestoreAuthoredText)
     f.Run(30); // the first Burn tick (3) is newest
     CHECK(rows[0].GetComponent<TextComponent>().Text == "-3  Burn" && rows[1].GetComponent<TextComponent>().Text == "-20  Bolt");
     CHECK(rows[1].GetComponent<TextComponent>().Color.a < fresh);
+    // The project's language files name the payloads ("combat.<Key>"): the rows follow the language, keys without a
+    // string stay as they are.
+    {
+        std::vector<StringTable> tables(2);
+        tables[0].Language = "uz";
+        tables[0].Strings["combat.Bolt"] = { "Olov o'qi", {} };
+        tables[1].Language = "en";
+        tables[1].Strings["combat.Bolt"] = { "Fire bolt", {} };
+        LocalizationSettings settings;
+        settings.Languages = { "uz", "en" };
+        Localization::SetTables(std::move(tables), settings);
+        ui.Refresh();
+        CHECK(rows[0].GetComponent<TextComponent>().Text == "-3  Burn" && rows[1].GetComponent<TextComponent>().Text == "-20  Olov o'qi");
+        CHECK(Localization::SetLanguage("en"));
+        ui.Refresh();
+        CHECK(rows[1].GetComponent<TextComponent>().Text == "-20  Fire bolt" && G::LocalizedGameplayName("combat.", "Burn", "Burn") == "Burn");
+        CHECK(G::LocalizedGameplayName("combat.", "Bolt", "Bolt", 4) == "Bolt"); // longer than the limit: the key
+        Localization::Clear();
+    }
     f.Run(200); // every record (the last Burn tick included) is older than the lifetime
     CHECK(rows[0].GetComponent<TextComponent>().Text.empty() && rows[0].GetComponent<TextComponent>().Color.a == .8f);
     CHECK(ui.RemoveCombatFeed("Feed") && !ui.RemoveCombatFeed("Feed"));

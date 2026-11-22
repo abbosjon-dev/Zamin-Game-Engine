@@ -85,6 +85,9 @@ TEST(UIAuditRulesNameEachLayoutDefect)
     broken.Records[2].FontPx = 10;
     CHECK(Has(CheckUIAudit(broken, rules), "MinFont", 12));
     broken = report;
+    broken.Records[2].RawHint = "[Interact]"; // a prompt without InputHints shows the action's name, not its key
+    CHECK(Has(CheckUIAudit(broken, rules), "RawHint", 12));
+    broken = report;
     broken.Records[2].Rect = { { 700, 200 }, { 1000, 240 } };
     CHECK(Has(CheckUIAudit(broken, rules), "Offscreen", 12));
     broken = report;

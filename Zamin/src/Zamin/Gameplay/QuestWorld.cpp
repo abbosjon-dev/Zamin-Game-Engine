@@ -322,14 +322,17 @@ namespace Zamin::Gameplay {
             float fraction = 0;
             if (state)
             {
-                label = state->Spec.Title + " | " + QuestModeName(state->Progress.Mode) + " | " + std::to_string(state->Complete) + " / " + std::to_string(state->Spec.Objectives.size());
+                // The language files may name the quest ("quest.<Quest>") and its objectives ("quest.<Quest>.<Objective>").
+                label = LocalizedGameplayName("quest.", h.Quest, state->Spec.Title, 256) + " | " + QuestModeName(state->Progress.Mode) + " | " +
+                        std::to_string(state->Complete) + " / " + std::to_string(state->Spec.Objectives.size());
                 fraction = state->Fraction;
                 if (!h.Objective.empty())
                     for (size_t n = 0; n < state->Spec.Objectives.size(); ++n)
                         if (state->Spec.Objectives[n].Key == h.Objective)
                         {
                             auto& o = state->Spec.Objectives[n];
-                            label = o.Label + "  " + std::to_string(state->Progress.Counts[n]) + " / " + std::to_string(o.Goal);
+                            label = LocalizedGameplayName("quest.", h.Quest + "." + o.Key, o.Label, 256) + "  " + std::to_string(state->Progress.Counts[n]) + " / " +
+                                    std::to_string(o.Goal);
                             fraction = float(state->Progress.Counts[n]) / o.Goal;
                         }
             }

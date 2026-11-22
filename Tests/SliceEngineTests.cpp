@@ -12,6 +12,10 @@
 #include <Zamin/Scripting/Visual/VisualGraphHost.h>
 #include <Zamin/Project/Project.h>
 #include <Zamin/Audio/Audio.h>
+#include <Zamin/Core/Display.h>
+#include <Zamin/Core/SaveData.h>
+#include <Zamin/Localization/Localization.h>
+#include <Zamin/Project/PlayerSettings.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <cmath>
 #include <functional>
@@ -253,6 +257,57 @@ TEST(VisualGraphAppNodesFadeSettingsAndUIValues)
     bool strike = false;
     for (auto& pin : Visual::Catalog().at("Gameplay.AIConfigure").Inputs) strike |= pin.Name == "Strike" && pin.Default == true;
     CHECK(strike);
+    std::filesystem::remove_all(root);
+    Project::SetActive(prior);
+}
+// A settings menu keeps the player's language and display choice: Localization.SaveSettings / Display.SaveSettings
+// write them to SaveData (the player and the editor's Play load them at the next start).
+TEST(VisualGraphSettingsNodesSaveTheLanguageAndDisplayChoice)
+{
+    const auto prior = Project::GetActive();
+    const auto root = std::filesystem::temp_directory_path() / ("zamin-slice-settings-" + std::to_string(uint64_t(UUID())));
+    std::filesystem::create_directories(root / "Assets/Scripts");
+    Project::New();
+    CHECK(Project::SaveActive(root / "Slice.zproject"));
+    SaveData::SetFilePath(root / "prefs.json");
+    Localization::ClearSavedSettings();
+    Display::ClearSavedSettings();
+    std::vector<StringTable> tables(2);
+    tables[0].Language = "uz";
+    tables[0].Strings["menu.new"] = { "Yangi o'yin", {} };
+    tables[1].Language = "en";
+    tables[1].Strings["menu.new"] = { "New game", {} };
+    LocalizationSettings languages;
+    languages.Languages = { "uz", "en" };
+    Localization::SetTables(std::move(tables), languages);
+    auto scene = CreateRef<Scene>();
+    auto host = scene->CreateEntityWithUUID(UUID(40), "Host");
+    Visual::Graph g;
+    g.Variables["Saved"] = { Visual::Type::Bool, false };
+    g.Nodes = { { 1, "Event.Start" }, { 2, "Localization.SetLanguage", 0, 0, { { "Code", "en" } } }, { 3, "Localization.SaveSettings" },
+                { 4, "Display.SetFullscreen", 0, 0, { { "Fullscreen", true } } }, { 5, "Display.SaveSettings" }, { 6, "Set.Bool", 0, 0, { { "Name", "Saved" } } },
+                { 7, "And" } };
+    g.Links = { { 1, "Then", 2, "In" }, { 2, "Then", 3, "In" }, { 3, "Then", 4, "In" }, { 4, "Then", 5, "In" }, { 5, "Then", 6, "In" },
+                { 3, "Success", 7, "A" }, { 5, "Success", 7, "B" }, { 7, "Value", 6, "Value" } };
+    CHECK(g.Validate().empty());
+    CHECK(g.Save(root / "Assets/Scripts/Settings.zgraph"));
+    auto& script = host.AddComponent<NativeScriptComponent>();
+    script.ClassName = "Zamin.VisualGraph";
+    script.Fields["Graph"].Set(std::string("Scripts/Settings.zgraph"));
+    scene->OnRuntimeStart();
+    scene->UpdateRuntime(1.f / 60);
+    auto* graph = dynamic_cast<VisualGraphHost*>(script.Instance);
+    CHECK(graph && graph->VM.Error().empty() && graph->VM.Variables().at("Saved") == true);
+    scene->OnRuntimeStop();
+    // the next start: back to the default language and a window, then what was saved
+    CHECK(Localization::SetLanguage("uz") && Localization::HasSavedSettings() && Localization::LoadSettings() && Localization::GetLanguage() == "en");
+    CHECK(Display::HasSavedSettings() && Display::GetSavedSettings().Fullscreen == true);
+    CHECK(Visual::Catalog().contains("Localization.SaveSettings") && Visual::Catalog().contains("Display.SaveSettings"));
+    Localization::ClearSavedSettings();
+    Display::ClearSavedSettings();
+    Display::ResetOptions(PlayerSettings());
+    Localization::Clear();
+    SaveData::SetFilePath({});
     std::filesystem::remove_all(root);
     Project::SetActive(prior);
 }

@@ -108,17 +108,19 @@ namespace Zamin {
             weights.assign(state.Motions.size(), 0);
             return;
         }
+        // The samples' places in lists kept per thread (the Animator asks for weights every frame: no allocation once
+        // they have grown to the largest tree).
         if (state.Type == AnimatorStateType::BlendTree2D)
         {
-            std::vector<glm::vec2> positions;
-            positions.reserve(state.Motions.size());
+            static thread_local std::vector<glm::vec2> positions;
+            positions.clear();
             for (const auto& motion : state.Motions) positions.push_back(motion.Position);
             ComputeBlend2DWeights(positions, { value(state.BlendParameter), value(state.BlendParameterY) }, weights);
         }
         else
         {
-            std::vector<float> thresholds;
-            thresholds.reserve(state.Motions.size());
+            static thread_local std::vector<float> thresholds;
+            thresholds.clear();
             for (const auto& motion : state.Motions) thresholds.push_back(motion.Threshold);
             ComputeBlend1DWeights(thresholds, value(state.BlendParameter), weights);
         }

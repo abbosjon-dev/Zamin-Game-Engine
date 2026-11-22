@@ -264,7 +264,7 @@ namespace {
         Ref<Scene> World = CreateRef<Scene>();
         Entity Actor;
         std::vector<std::string> Clips;
-        explicit SpriteDriveFixture(bool events = false)
+        explicit SpriteDriveFixture(bool events = false, bool upSteps = false)
         {
             auto clip = [&](const char* name, int start, int count, bool loop, std::vector<SpriteClipEvent> events) {
                 SpriteClip c;
@@ -282,7 +282,7 @@ namespace {
             };
             clip("Idle", 0, 4, true, {});
             clip("WalkRight", 4, 8, true, { { 2, "Step", "" } });
-            clip("WalkUp", 12, 8, true, {});
+            clip("WalkUp", 12, 8, true, upSteps ? std::vector<SpriteClipEvent>{ { 2, "Step", "" } } : std::vector<SpriteClipEvent>{});
             clip("Attack", 20, 4, false, {});
             Actor = World->CreateEntity("Sprite actor");
             Actor.AddComponent<SpriteRendererComponent>();
@@ -385,6 +385,44 @@ TEST(AnimatorSpriteClipsFireFrameEventsOncePerCrossingAtAnyRate)
         if (host) CHECK(host->VM.Variables().at("Steps") == 5.);
         f.World->OnRuntimeStop();
     }
+}
+// A direction switch inside the blend (WalkRight <-> WalkUp, both stepping on frame 2) keeps the frames crossed: each
+// cycle's step fires once whatever the rate and wherever the switches fall (the switched-to clip's current frame does
+// not fire again), and a stop into Idle (4 frames) and back maps the crossed frames between the two clips' counts.
+TEST(AnimatorSpriteClipsDirectionSwitchesFireEachStepOnce)
+{
+    for (float hz : { 20.f, 30.f, 60.f, 144.f })
+    {
+        SpriteDriveFixture f(true, true);
+        f.World->OnRuntimeStart();
+        const int frames = int(std::round(4.0f * hz)); // 5 cycles of the .8 s walk: 5 steps
+        for (int i = 0; i < frames; ++i)
+        {
+            const float t = float(i) / hz;
+            const bool up = int(std::floor(t / .35f)) % 2 == 1; // a switch every .35 s, off the frame grid
+            f.Animator().FindParameter("X")->Value = up ? 0.f : 1.f;
+            f.Animator().FindParameter("Y")->Value = up ? 1.f : 0.f;
+            f.World->UpdateRuntime(1.f / hz);
+        }
+        auto* host = f.Graphs.Host(f.Actor);
+        CHECK(host && host->VM.Error().empty());
+        if (host) CHECK(host->VM.Variables().at("Steps") == 5.);
+        f.World->OnRuntimeStop();
+    }
+    // Walking, a stop (Idle, 4 frames) past the step frame, walking on: the step of a cycle walked through fires once.
+    SpriteDriveFixture f(true, true);
+    f.World->OnRuntimeStart();
+    for (int i = 0; i < 48; ++i) // .8 s: one cycle, its step at frame 2 (.2 s)
+        f.World->UpdateRuntime(1.f / 60.f);
+    f.Animator().FindParameter("X")->Value = 0.f;
+    for (int i = 0; i < 6; ++i) f.World->UpdateRuntime(1.f / 60.f); // .1 s idle (frames 0..1 of the next cycle)
+    CHECK(f.Clip() == "Idle");
+    f.Animator().FindParameter("X")->Value = 1.f;
+    for (int i = 0; i < 6; ++i) f.World->UpdateRuntime(1.f / 60.f); // walking again at frame 2..3: this cycle's step
+    CHECK(f.Clip() == "WalkRight");
+    auto* host = f.Graphs.Host(f.Actor);
+    if (host) CHECK(host->VM.Variables().at("Steps") == 2.);
+    f.World->OnRuntimeStop();
 }
 TEST(AnimatorSpriteClipsSerializeAndResetRuntime)
 {

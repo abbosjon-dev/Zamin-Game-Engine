@@ -262,13 +262,26 @@ namespace Zamin {
             CurrentClip = -1;
     }
 
+    // A path's stem as std::filesystem::path::stem() gives it (the file name without its last extension; "." and
+    // ".." and names that start with their only dot are their own stem), without making a path: the Animator looks
+    // clips up by name every frame (DriveSpriteClips).
+    static std::string_view PathStem(std::string_view path)
+    {
+        const size_t slash = path.find_last_of(fs::path::preferred_separator == '\\' ? std::string_view("/\\") : std::string_view("/"));
+        const std::string_view name = slash == std::string_view::npos ? path : path.substr(slash + 1);
+        if (name == "." || name == "..")
+            return name;
+        const size_t dot = name.rfind('.');
+        return dot == std::string_view::npos || dot == 0 ? name : name.substr(0, dot);
+    }
+
     int SpriteAnimationComponent::FindClip(std::string_view nameOrPath) const
     {
         for (size_t i = 0; i < Clips.size(); i++)
         {
             if (Clips[i] == nameOrPath)
                 return (int)i;
-            if (fs::path(Clips[i]).stem().string() == nameOrPath)
+            if (PathStem(Clips[i]) == nameOrPath)
                 return (int)i;
         }
         return -1;

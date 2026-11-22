@@ -232,6 +232,7 @@ namespace Zamin {
         int LastFrame = -1;              ///< the frame counter (Time x FPS) last seen: events (-1: none yet)
         bool Started = false;            ///< PlayOnStart was looked at
         uint64_t DrivenUpdate = 0;       ///< the animator update that drove this clip (DriveSpriteClips): no own clock
+        int DrivenState = -1;            ///< the Animator state whose clock drove it then (a clip switch inside it keeps the frames crossed)
 
         void Play(int startFrame, int frameCount, float fps = 10.0f, bool loop = true)
         {
@@ -268,7 +269,7 @@ namespace Zamin {
         std::string GetCurrentClipName() const { const auto* a = GetCurrentClipAsset(); return a ? a->GetName() : std::string(); }
         void ResetRuntime()
         {
-            Time = 0.0f; CurrentClip = -1; AppliedRevision = 0; LastFrame = -1; Started = false; DrivenUpdate = 0;
+            Time = 0.0f; CurrentClip = -1; AppliedRevision = 0; LastFrame = -1; Started = false; DrivenUpdate = 0; DrivenState = -1;
         }
         bool UsesFrameList() const { return !Frames.empty(); }
         /// The frame name shown now ("" for a grid animation).

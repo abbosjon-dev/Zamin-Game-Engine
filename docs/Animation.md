@@ -349,7 +349,16 @@ og'irlikdagi harakati (teng bo'lsa kichik indeks); o'tishda fade yarmigacha eski
 bo'lmagan klip oxirgi kadrda to'xtaydi; shu bois 2D blend ichida yo'nalish o'zgarsa ham yurish fazasi saqlanadi.
 Holat va Animator tezligi fazani masshtablaydi; `.zsanim` kadr event'lari har kesib o'tilgan kadrda bir marta
 (20/30/60/144 Hz'da ham) chaqiriladi; noma'lum klip nomi hech narsani o'zgartirmaydi; nofaol obyekt to'xtab turadi.
-O'chiq bo'lsa (eski sahnalar) sprite o'z soati bilan ijro etadi. Testlar: `AnimatorSpriteClips*`.
+Bir holat soati davom etayotganda klip almashsa (2D blend yo'nalishi burildi, yurish to'xtab Idle'ga o'tdi) kesib
+o'tilgan kadrlar yangi klipning kadr sonida ham kesib o'tilgan hisoblanadi — yo'nalish o'zgarishi bir qadam event'ini
+ikki marta chaqirmaydi (`AnimatorSpriteClipsDirectionSwitchesFireEachStepOnce`). O'chiq bo'lsa (eski sahnalar) sprite o'z
+soati bilan ijro etadi. Testlar: `AnimatorSpriteClips*`.
+
+**Animator yangilanishi ajratmasiz:** barqaror kadrda Animator yangilanishi (holatlar, blend og'irliklari, qatlamlar,
+event'lar, pozalar, sprite kliplari) heap'dan hech narsa ajratmaydi — event va poza ro'yxatlari, blend tree namunalari,
+bo'g'in matritsalari oqim bo'yicha saqlanadigan ro'yxatlarda qayta ishlatiladi; ishchi oqimlarda faqat vazifalar
+tizimining `ParallelFor` yuborishi ajratadi. `ZaminBench --animation` buni o'lchaydi ([Benchmarks.md](Benchmarks.md)):
+256 odam va 1 024 sprite Animator bitta oqimda 0 ajratma / kadr.
 
 **Odam lokomotsiyasi misoli** — *Dovon mash'ali* ([VerticalSlices.md](VerticalSlices.md), `Projects/BeaconPass`):
 21 bo'g'inli skelet (`Tools/samples/gltfkit.py`), `Locomotion` BlendTree1D `Speed` bo'yicha — Idle 0, Walk 1.8, Run 5.4;

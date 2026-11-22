@@ -253,7 +253,10 @@ namespace Zamin {
     static void ComposePose(const Skeleton& skeleton, const LocalPose& pose, std::vector<glm::mat4>& out)
     {
         size_t n = skeleton.Joints.size();
-        std::vector<glm::mat4> global(n);
+        // The joints' model-space transforms: a list per thread (animators are posed on the job system's workers),
+        // grown once - posing allocates nothing.
+        static thread_local std::vector<glm::mat4> global;
+        global.resize(n);
         out.resize(n);
         for (size_t i = 0; i < n; i++)
         {

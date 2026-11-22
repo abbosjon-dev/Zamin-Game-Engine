@@ -204,6 +204,7 @@ _Inspektorda: **Sprite Animation**; qo'shish: **+ Komponent → Render → Sprit
 | `LastFrame` _(faqat o'yin paytida)_ | `int` | `-1` |
 | `Started` _(faqat o'yin paytida)_ | `bool` | `false` |
 | `DrivenUpdate` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
+| `DrivenState` _(faqat o'yin paytida)_ | `int` | `-1` |
 <!-- /gen:SpriteAnimationComponent -->
 
 ### TintAnimationComponent

@@ -586,7 +586,9 @@ namespace Zamin {
     {
         if (count == 0)
             return;
-        std::vector<size_t> hit;
+        // A span's events in the order it passes them (equal times: in list order). An insertion sort on a list kept
+        // per thread: a clip has a handful of events, and the Animator asks every frame - nothing is allocated.
+        static thread_local std::vector<size_t> hit;
         for (const ClipSpan& span : spans)
         {
             hit.clear();
@@ -594,9 +596,18 @@ namespace Zamin {
                 if (span.Contains(timeOf(i)))
                     hit.push_back(i);
             const bool forward = span.To >= span.From;
-            std::stable_sort(hit.begin(), hit.end(), [&](size_t a, size_t b) {
-                return forward ? timeOf(a) < timeOf(b) : timeOf(a) > timeOf(b);
-            });
+            for (size_t k = 1; k < hit.size(); k++)
+            {
+                const size_t item = hit[k];
+                const float t = timeOf(item);
+                size_t j = k;
+                while (j > 0 && (forward ? t < timeOf(hit[j - 1]) : t > timeOf(hit[j - 1])))
+                {
+                    hit[j] = hit[j - 1];
+                    j--;
+                }
+                hit[j] = item;
+            }
             out.insert(out.end(), hit.begin(), hit.end());
         }
     }

@@ -5997,18 +5997,42 @@ namespace Zamin {
         // A view was drawn since the last update: what it did not see is off screen.
         const bool viewKnown = m_AnimationViewUpdate == m_AnimationUpdate;
         const uint64_t lastUpdate = m_AnimationUpdate++;
-        std::vector<PendingAnimationEvent> firedEvents;
+        // What an update collects - the events, the poses that wait for the job system, the motions being resolved,
+        // the sprite frames crossed - is kept for the next one (this thread's; cleared, never freed): a steady frame
+        // allocates nothing. An update started while this one fires its events (a handler that updates a scene)
+        // gets fresh lists of its own.
+        struct FrameScratch
+        {
+            std::vector<PendingAnimationEvent> Fired, Sprite;
+            std::vector<int> SpriteFrames;
+            std::vector<AnimatorPoseTask> Tasks;
+            size_t TaskCount = 0;
+            ResolvedMotion Current, Previous;
+        };
+        static thread_local FrameScratch s_Frame;
+        static thread_local bool s_FrameBusy = false;
+        FrameScratch nested;
+        FrameScratch& frame = s_FrameBusy ? nested : s_Frame;
+        struct BusyGuard
+        {
+            bool Owner;
+            explicit BusyGuard(bool owner) : Owner(owner) { if (Owner) s_FrameBusy = true; }
+            ~BusyGuard() { if (Owner) s_FrameBusy = false; }
+        } busy(!s_FrameBusy);
+        frame.Fired.clear();
+        frame.Sprite.clear();
+        frame.TaskCount = 0;
+        std::vector<PendingAnimationEvent>& firedEvents = frame.Fired;
         AnimatorScratch& scratch = ThreadScratch();
-        // The poses that wait for the job system.
-        std::vector<AnimatorPoseTask> poseTasks;
+        // The poses that wait for the job system (frame.Tasks[0, TaskCount)).
         const bool deferPoses = JobSystem::IsParallel();
         // DriveSpriteClips (model-free animators): the playing state - or, before half of a transition's fade,
         // the state it came from - names the Sprite Animation clip (a blend tree: its strongest motion, a tie
         // the lower index; sprites never cross-blend). The frame follows that state's normalized clock (the
         // state's speed and the Animator's scale it), so a direction change inside a blend keeps the phase;
         // each crossed frame's clip events fire once. An unknown clip name changes nothing.
-        std::vector<PendingAnimationEvent> spriteEvents;
-        std::vector<int> spriteFrames;
+        std::vector<PendingAnimationEvent>& spriteEvents = frame.Sprite;
+        std::vector<int>& spriteFrames = frame.SpriteFrames;
         auto driveSprite = [&](entt::entity e, AnimatorComponent& anim, SpriteAnimationComponent& sprite) {
             const bool previous = anim.IsFading() && anim.GetFadeProgress() < 0.5f && anim.PreviousState >= 0 && anim.PreviousState < (int)anim.States.size();
             const AnimatorState& state = anim.States[(size_t)(previous ? anim.PreviousState : anim.CurrentState)];
@@ -6017,13 +6041,19 @@ namespace Zamin {
             float normalized = 0.0f;
             if (state.IsBlendTree())
             {
-                anim.ComputeStateWeights(state, scratch.Weights);
+                // The playing tree's weights were worked out this update (BlendWeights); the state it came from: now.
+                const std::vector<float>* weights = &anim.BlendWeights;
+                if (previous || anim.GetBlendTreeState() != &state)
+                {
+                    anim.ComputeStateWeights(state, scratch.Weights);
+                    weights = &scratch.Weights;
+                }
                 int best = -1;
                 float top = 0.0f;
-                for (size_t i = 0; i < scratch.Weights.size() && i < state.Motions.size(); i++)
-                    if (scratch.Weights[i] > top)
+                for (size_t i = 0; i < weights->size() && i < state.Motions.size(); i++)
+                    if ((*weights)[i] > top)
                     {
-                        top = scratch.Weights[i];
+                        top = (*weights)[i];
                         best = (int)i;
                     }
                 if (best < 0)
@@ -6040,6 +6070,12 @@ namespace Zamin {
             const int index = sprite.FindClip(*clip);
             if (index < 0)
                 return;
+            // The same state's clock went on since the last update (a blend tree turned to another direction's clip, a
+            // walk stopped into the idle): what it crossed stays crossed - in the new clip's frames - so a direction
+            // switch fires no frame event twice.
+            const int drivenState = previous ? anim.PreviousState : anim.CurrentState;
+            const bool continuing = sprite.DrivenUpdate == lastUpdate && sprite.DrivenState == drivenState && sprite.LastFrame >= 0;
+            const int lastCount = std::max(1, sprite.FrameCount), lastFrame = sprite.LastFrame; // (PlayClip starts the clip over)
             bool restart = false;
             if (index != sprite.CurrentClip)
             {
@@ -6053,8 +6089,10 @@ namespace Zamin {
             int counter = (int)std::floor(std::min((double)normalized * count, 1.0e9));
             if (!sprite.Loop)
                 counter = std::min(counter, count - 1);
-            if (restart || counter < sprite.LastFrame)
-                sprite.LastFrame = counter - 1; // a new clip or a re-entered state: its current frame counts once
+            if (restart && continuing)
+                sprite.LastFrame = (int)((int64_t)lastFrame * count / lastCount);
+            if ((restart && !continuing) || counter < sprite.LastFrame)
+                sprite.LastFrame = counter - 1; // a new clip of another clock or a re-entered state: its current frame counts once
             sprite.Time = sprite.FPS > 0.0f ? (float)((counter + 0.5) / sprite.FPS) : 0.0f;
             if (const SpriteClipAsset* asset = sprite.GetCurrentClipAsset(); asset && !asset->GetClip().Events.empty() && counter != sprite.LastFrame)
             {
@@ -6066,6 +6104,7 @@ namespace Zamin {
             }
             sprite.LastFrame = counter;
             sprite.DrivenUpdate = m_AnimationUpdate;
+            sprite.DrivenState = drivenState;
         };
         for (auto e : m_Registry.view<AnimatorComponent>())
         {
@@ -6119,6 +6158,12 @@ namespace Zamin {
                     return;
                 }
                 out.Tree = true;
+                if (!model)
+                {
+                    // No clips to mix (a model-free Animator - DriveSpriteClips): only the tree's clock counts.
+                    out.Cycle = st->Duration > 0.0f ? st->Duration : 0.0f;
+                    return;
+                }
                 anim.ComputeStateWeights(*st, scratch.Weights);
                 const float phase = WrapNormalized(time, loop);
                 float total = 0.0f, best = 0.0f;
@@ -6204,11 +6249,19 @@ namespace Zamin {
                     if (auto* p = anim.FindParameter(st.SpeedParameter)) anim.Speed = st.Speed * p->Value;
             }
 
-            ResolvedMotion current, previous;
+            ResolvedMotion& current = frame.Current;
+            ResolvedMotion& previous = frame.Previous;
             resolve(anim.BlendTree, anim.Clip, anim.Time, anim.Loop, current);
             const bool fading0 = anim.IsFading();
             if (fading0)
                 resolve(anim.PreviousBlendTree, anim.PreviousClip, anim.PreviousTime, anim.PreviousLoop, previous);
+            else
+            {
+                previous.Parts.clear();
+                previous.Tree = false;
+                previous.Cycle = 0.0f;
+                previous.Dominant = -1;
+            }
             anim.BlendWeights.clear();
             if (const AnimatorState* tree = anim.GetBlendTreeState())
             {
@@ -6381,6 +6434,9 @@ namespace Zamin {
                 }
                 else
                 {
+                    // Room for a longer signature later (a crossfade or a layer's fade adds to it): no allocation then.
+                    if (anim.PoseSignature.capacity() < sig.size())
+                        anim.PoseSignature.reserve(sig.size() * 2);
                     anim.PoseSignature.assign(sig.begin(), sig.end());
                     m_AnimationStats.Posed++;
                 }
@@ -6390,7 +6446,8 @@ namespace Zamin {
             // animator was updated (on the workers; each writes only its own animator's pose)
             if (posePending)
             {
-                AnimatorPoseTask& task = poseTasks.emplace_back();
+                AnimatorPoseTask& task = frame.TaskCount < frame.Tasks.size() ? frame.Tasks[frame.TaskCount] : frame.Tasks.emplace_back();
+                frame.TaskCount++;
                 task.Anim = &anim;
                 task.ModelRef = model;
                 task.Current = current;
@@ -6399,6 +6456,8 @@ namespace Zamin {
                 task.RootJoint = rootJoint;
                 task.Morphs = morphs;
                 task.Skinned = model && model->IsSkinned();
+                task.Prebaked = false;
+                task.CachedSamples = task.ClipSamples = 0;
                 if (morphs)
                     task.MorphBase = scratch.MorphBase;
                 if (deferPoses)
@@ -6413,7 +6472,9 @@ namespace Zamin {
                     PoseAnimator(task, scratch, true);
                     m_AnimationStats.CachedSamples += task.CachedSamples;
                     m_AnimationStats.ClipSamples += task.ClipSamples;
-                    poseTasks.pop_back();
+                    task.ModelRef.reset(); // the list keeps no model alive between updates
+                    task.Anim = nullptr;
+                    frame.TaskCount--;
                 }
             }
 
@@ -6456,19 +6517,24 @@ namespace Zamin {
                 ApplyRootMotion({ e, this }, anim, motion, ts);
             }
         }
-        if (!poseTasks.empty())
+        if (frame.TaskCount > 0)
         {
             ZM_PROFILE_SCOPE("Pozalar (parallel)");
-            JobSystem::ParallelFor((uint32_t)poseTasks.size(), 1, [&poseTasks](uint32_t begin, uint32_t end) {
+            std::vector<AnimatorPoseTask>& tasks = frame.Tasks;
+            JobSystem::ParallelFor((uint32_t)frame.TaskCount, 1, [&tasks](uint32_t begin, uint32_t end) {
                 AnimatorScratch& own = ThreadScratch(); // the worker's
                 for (uint32_t i = begin; i < end; i++)
-                    PoseAnimator(poseTasks[i], own, true);
+                    PoseAnimator(tasks[i], own, true);
             });
-            for (const AnimatorPoseTask& task : poseTasks)
+            for (size_t i = 0; i < frame.TaskCount; i++)
             {
+                AnimatorPoseTask& task = tasks[i];
                 m_AnimationStats.CachedSamples += task.CachedSamples;
                 m_AnimationStats.ClipSamples += task.ClipSamples;
+                task.ModelRef.reset(); // the list keeps no model alive between updates
+                task.Anim = nullptr;
             }
+            frame.TaskCount = 0;
         }
         m_AnimationStats.CacheBytes = GetBakedClipMemory();
         m_AnimationStats.Milliseconds = (float)watch.ElapsedMilliseconds();
@@ -6554,7 +6620,13 @@ namespace Zamin {
     void Scene::CollectAnimatorEvents(Entity entity, const AnimatorComponent& anim, const AnimationClip& clip, float localTime, float delta,
                                       bool loop, bool& atStart, bool anyClipEvents, std::vector<PendingAnimationEvent>& out)
     {
-        std::vector<const AnimatorEvent*> events;
+        // Lists kept per thread (every animator asks every frame: no allocation once they have grown).
+        static thread_local std::vector<const AnimatorEvent*> events;
+        static thread_local std::vector<ClipSpan> spans;
+        static thread_local std::vector<size_t> hit;
+        events.clear();
+        spans.clear();
+        hit.clear();
         for (const AnimatorEvent& ev : anim.Events)
             if ((anyClipEvents && ev.Clip.empty()) || ev.Clip == clip.Name)
                 events.push_back(&ev);
@@ -6565,13 +6637,11 @@ namespace Zamin {
         // Not looping and already at its end (in the direction it plays): nothing more happens.
         if (!loop && ((delta > 0.0f && localTime >= clip.Duration) || (delta < 0.0f && localTime <= 0.0f)))
             cursor.Finished = true;
-        std::vector<ClipSpan> spans;
         AdvanceClip(cursor, delta, clip.Duration, wrapMode, &spans);
         if (delta != 0.0f)
             atStart = cursor.AtStart;
         if (events.empty())
             return;
-        std::vector<size_t> hit;
         const float duration = clip.Duration;
         CollectEvents(spans, events.size(), [&](size_t i) { return std::clamp(events[i]->Time, 0.0f, 1.0f) * duration; }, hit);
         for (size_t i : hit)
@@ -6720,8 +6790,10 @@ namespace Zamin {
             PlayFootstep(entity, *steps);
         if (auto* nsc = entity.TryGetComponent<NativeScriptComponent>(); nsc && nsc->Instance && !nsc->Instance->m_Destroying)
             nsc->Instance->ReceiveAnimationEvent(info);
-        // A handler may have destroyed the entity: the bus still hears of the event.
-        m_EventBus->Emit("AnimationEvent", info, entity.IsValid() ? entity : Entity());
+        // A handler may have destroyed the entity: the bus still hears of the event (when anyone listens: a payload
+        // is not made for nobody).
+        if (m_EventBus->HasSubscribers("AnimationEvent"))
+            m_EventBus->Emit("AnimationEvent", info, entity.IsValid() ? entity : Entity());
     }
 
     void Scene::UpdateAnimationPlayers(Timestep ts, bool editor)

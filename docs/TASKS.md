@@ -17,7 +17,7 @@ saqlanadi; ulardagi belgi yangi imkoniyatning ishlayotganiga dalil o'rnini bosma
 | P2 Kontent sifati va mualliflik | Terrain GPU qatlamlari/PBR, normal/roughness, atlas/cook, foliage, 2D palette/animation qulayligi | Haqiqiy assetli 2D/3D sahnalar, import/export/undo roundtrip, tekstura xotira byudjeti | GPU terrain v1 yakunlandi; qolgan kontent ishlari rejada |
 | P3 Dunyo va asset streaming | Disk kataklari, async load/unload, data layers, HLOD, floating origin, asset residency | Tez harakatda/cancel/reload'da yo'qolmagan obyektlar, chegaralangan RAM/VRAM, main thread'da og'ir IO yo'q | Runtime v2: LRU cleanup, observed pressure gate, terrain tiles va grid mosaic bajarildi; HLOD/floating origin/hard timing rejada |
 | P4 Rendererning keyingi avlodi | GPU timer v1 mavjud; render graph, Vulkan, temporal AA/upscaling, katta sahna visibility va yoritish | Drayver/physical GPU matritsasi, HDR/alpha/picking/shadow regressiyalari, reference hardware byudjeti | Rejada; virtual geometry va dinamik GI — alohida tadqiqot |
-| P5 Gameplay, animatsiya, fizika va UI | Mavjud 2D/3D tizimlarini production darajasida birlashtirish, katta kontent va gameplay workflow | Ikki tugallangan vertical slice, saqlash/yuklash, controller, animatsiya/fizika stress, UI input/scale testlari | Motor/combat/AI/save/UI, quest, equipment/abilities, projectiles/effektlar va Animator 1D/2D zanjiri yakunlandi (2026-11-22); ikki to‘liq vertical slice va stress mezonlari keyingi paketda |
+| P5 Gameplay, animatsiya, fizika va UI | Mavjud 2D/3D tizimlarini production darajasida birlashtirish, katta kontent va gameplay workflow | Ikki tugallangan vertical slice, saqlash/yuklash, controller, animatsiya/fizika stress, UI input/scale testlari | Motor/combat/AI/save/UI, quest, equipment/abilities, projectiles/effektlar va Animator 1D/2D zanjiri yakunlandi (2026-11-22); ikki to‘liq vertical slice (Chiroqbon 2D, Dovon mash'ali 3D) bilan stress, UI input/scale, yangi jarayonda davom etish, ko‘chirilgan eksport va profiling darvozalari ham bajarildi (2026-11-22) |
 | P6 Tarmoq va kengaytirish | Server authority, replication, latency compensation, plagin SDK/ABI, xavfsiz hot reload | Yo'qotilgan paket, kechikish, reconnect, versiya mos kelmasligi va plagin unload sinovlari | Rejada |
 | P7 Platforma, release va mahsulot | Linux/Windows, keyin macOS; cook/package/update/crash telemetry; editor/launcher yagona auth | Toza mashinada install/export/run, talablar va litsenziyalar, imzolangan release va rollback sinovi | Rejada |
 | P8 Yakuniy sifat darvozasi | Hujjatlar, ko'chirish yo'li, ikki namunaviy o'yin va profiling hisobotlari | Uzoq sessiya, resurs sizishi, recovery/fuzz, reference sahnalarda barqaror frame time va foydalanish sinovi | Rejada |
@@ -210,7 +210,7 @@ sarlavhasini yopishi barcha workshop'larda umumiy (LoadoutWorkshop'da ham) — a
 - [x] 2D vertical slice: menyu, kamida ikki daraja, motor/combat/AI/quest/loadout/HUD bitta o‘yin oqimida, yakun ekrani.
 - [x] 3D vertical slice: character controller, kamera, Animator locomotion, combat/AI/quest va save bitta o‘yin oqimida.
 - [x] Animatsiya/fizika stress hamda UI input/scale (klaviatura/gamepad, turli rezolyutsiya) darvozalari.
-- [ ] Fresh-process resume, relocated export, profiling va regression darvozalari ikkala slice uchun.
+- [x] Fresh-process resume, relocated export, profiling va regression darvozalari ikkala slice uchun.
 
 Dalillar (2D slice, 2026-11-22): *Chiroqbon* (`Projects/LanternKeeper`, kompilyatorsiz, `ScriptModulePath ""`) —
 `Menu`, `Boglar` (46×26), `Yertola` (44×30), g‘alaba va mag‘lubiyat ekranlari, boss Soya Bek;
@@ -317,6 +317,58 @@ haqiqiy darajalar nusxasi ustida (assetlar 6 MiB byudjetda, llvmpipe chizishi o�
 "Expand o‘chirilsa" mutatsiyasi o‘rniga kichik shrift va uzilgan havola mutatsiyalari; `MinFont` UI o‘lchami 100 % dan
 kichik bo‘lsa mutanosib kamayadi; 3 ishchidagi 15.2 ajratma / kadr `JobSystem::ParallelFor` ning o‘zi; fizikada
 ajratmalar (2D 128.5, 3D 82.6 / kadr) Box2D/Jolt so‘rov natijalari — byudjet qo‘yilmagan, qayd etildi.
+
+Dalillar (resume, eksport, profiling va regressiya darvozalari, 2026-11-22): **Yangi jarayonda davom etish** —
+headless `*ResumeMatrixHeadless` bitta oddiy o‘yindan har qadamda o‘ldirilgan jarayon qoldiradigan fayllarni saqlab,
+har nusxada yangi jarayonni (`SaveData::Reload`, `GameState::Load`, demo menyuning *Davom etish*i) ishga tushiradi:
+Chiroqbon 8 holat (1-daraja chiqishida transfer yozilgan, `Run.Level` hali 1 → shrine saqlashidan, transfer bir xil
+200 XP; GameState'dan keyin / autosave'dan keyin → 2-daraja transfer orqali 200 XP, 13 tanga; checksum buzilgan →
+zaxira, *Zaxira nusxadan tiklandi*, `recovered=1`; asosiy va zaxira yirtilgan → `SLICE_IO_FAILED load`, ekranda
+*Saqlash o‘qilmadi - daraja boshidan*, transfer ham yirtilsa toza 2-daraja), Dovon mash'ali 5 holat (yangi o‘yin va
+autosave orasida, shrine saqlashi va GameState orasida — 100 XP, ikki tosh, holat < 1 mm; buzilgan → lager
+autosave'i; yirtilgan → toza boshlash); hech bir mukofot ikki marta berilmaydi, pilot qadami (`Run.Step`) 0–2.
+Mutatsiya: *Davom etish*ning `Run.Save == Run.Level` sharti olib tashlansa matritsa 3 marta yiqiladi.
+**Player/Editor** (`Tests/slice_workflow_test.py --exports`, ikkala o‘yin, CI qadamlari `--exports` bilan): Chiroqbon
+P0 54 s, P1 417, C 51 (buzilgan → zaxira 200 XP; yirtilgan → transfer 200 XP + banner), P2 292, P3 8, P4 461, P6 50
+(gamepad lentasi: D-pad musiqa 0.85, A yangi o‘yin, stik qahramonni 7.17 m yurgizdi, RB/X, Back/B sumka, Start →
+*Saqlab, bosh menyuga* `SLICE_SAVED lvl=1 at=quit` v4, menyu *Davom etish*ni taklif qiladi), E0 80, E1 69, E2 54
+(Editor Play'da menyu → yangi o‘yin → daraja), D 25 (Player 960x540 / 640x360 izi headless bilan 23/23 hodisa bir xil),
+X 545 s (eksport 215 fayl 54.4 MiB; attract run 2-daraja autosave'idan keyin `ZAMIN_MAX_FRAMES` bilan to‘xtatildi
+(200 XP), papka haqiqatan `mv` qilindi, yangi joydan yangi jarayon g‘alabagacha: 166.3 s, 850 XP, 4-daraja, 19 tanga,
+0 o‘lim, 5/5 vazifa; uchinchi jarayonda *Davom etish* yo‘q, to‘rtinchisi yangi o‘yin 0 XP, rekord 166.3 saqlandi);
+Dovon mash'ali P0 66, P1 178, C 58 (buzilgan → lager autosave'i; yirtilgan → toza boshlash + banner), P2 110, P3 8,
+P4 398, P6 49 (stik 12.46 m, quit saqlashi v4), E0 176, E2 155, D 41 (headless'ning 26 hodisasidan birinchi 12 tasi
+bir xil), X 337 s (209 fayl 55.5 MiB; hovli shrine saqlashidan keyin to‘xtatildi (100 XP), ko‘chirilgan joydan
+g‘alaba: 73.6 s, 800 XP, 4-daraja, 4/4 vazifa, *Davom etish* yo‘q, yangi o‘yin 0 XP, rekord saqlandi). **Editor**:
+`Tests/slice_editor_test.py` (yangi CI qadami) haqiqiy Blueprint oynasida `Gameplay.TransferWrite`, `TransferLoad`,
+`Steer` qo‘shdi/saqladi/Undo qildi; LoadScene `FadeOut` 0.6 ga yozildi, UIBindHUD Kind combo'si 8 *Qobiliyat*ga
+aylantirildi, AIConfigure `Strike` checkbox'i o‘chirildi — har biri saqlandi, Undo/Redo; `ZAMIN_EDITOR_GRAPH_QA`
+(yangi hook) ikkala slice'ning 9 grafini oynada ochdi (Chiroqbon Hero 560/678 node/bog‘lanish, Game 625/737; Dovon
+mash'ali Hero 655/787, Game 490/583 …), hammasida 0 diagnostika, logda xato yo‘q; `Tests/editor_smoke.sh
+Projects/LanternKeeper Projects/BeaconPass` (CI qadami) 243/243 va 268/268 qadam, 0 xato. **Profiling**
+(`Tests/slice_bench.py`, Release, llvmpipe, 3 ishga tushirishning eng yaxshisi, `Tests/Baselines/slices-release.json`):
+Player benchmark hisobotida yangi `GameCode` (update layer'i chizishsiz); 284x160 Low da o‘yin kodi Chiroqbon Menu /
+Boglar / Yertola 0.32 / 2.02 / 2.03 ms, Dovon mash'ali Menu / Dovon 0.53 / 3.50 ms, p95 eng ko‘pi 4.40 ms (darvoza
+≤ 3 / ≤ 4 ms, p95 ≤ 6); kadr 2D da 3.48–5.67 ms (≤ 16.6), 3D da 22.2–28.2 ms (≤ 33.3); issiq sessiyada eng sekin kadr
+≤ 51 ms (birinchi sessiyada llvmpipe shader JIT'i: Yertola 1.9 s, Dovon 345 ms — alohida ustunda); `--compare`
+(`bench_compare.py --tolerance 15`): 2 ishga tushirishda 720p dagi 3/40 raqam shovqin bo‘lib chiqdi (qayta o‘lchashda
+16 raqamda 0 sekinlashish) — shuning uchun standart 3 ishga tushirish va 720p p95 `Noisy`. **Soak** (`--soak 18000`,
+attract loop, 10 o‘yin daqiqasi): Chiroqbon 3 g‘alaba, har menyuga qaytishda 57 obyekt, RAM 302.9 MiB, engine 99.2 MiB
+(o‘sish 0.0 MiB); Dovon mash'ali 7 g‘alaba, 278 obyekt, RAM 269.4 → 278.8 MiB va keyin tekis (o‘sish 9.5 ≤ 32 MiB),
+engine 39.0 MiB; logda xato yo‘q. **Topilgan va tuzatilgan xatolar**: (1) 2-daraja o‘qilmagan saqlashdan keyin transfer
+yuklash va autosave'ni muvaffaqiyatsiz yuklash bilan bir kadrda qilardi — 3 fayl amali, sahna byudjeti 2 — autosave
+yiqilardi (`SLICE_IO_FAILED autosave`); endi bir kadr keyin; (2) daraja boshidagi saqlash demo pilotning `Run.Step`ini
+o‘chirmasdi — ko‘chirilgan eksportda davom etgan attract run 2-darajada 1-darajaning qadamidan boshlab tiqilib qolardi
+(`SLICE_BOT_STUCK step=31`); endi ikkala generatorda `Run.Step=0`; (3) o‘qilmagan saqlash jim edi — endi banner;
+(4) kontent: Dovon'ning *Quyosh*ida noma'lum `rot` komponenti ogohlantirishi, Chiroqbon Sprint'ida yaroqsiz
+`Gamepad:LeftTrigger` (→ `GamepadAxis:LeftTrigger+`), banner'larda xom `[Slam]` / `[Nova]` (endi tugma nomi).
+Galereya: `docs/Samples.md` ga ikki slice (`sample-chiroqbon.jpg`, `sample-dovon.jpg`), launcher thumbnail'lari
+yangilandi. 1347/1347 unit (2 yangi: ikkala slice'ning resume matritsasi; to‘liq run 320 s), 14/14 headless CTest (`-LE gui`, ZaminTests alohida), `ctest -L docs` 2/2, build ogohlantirishsiz; generatorlar ikki marta — fayllar bir xil. Regressiya (Player/Editor, `--exports`): Gameplay, Rules, AI, UI, Save, Quest, Loadout, Combat, Animator va Blueprint workflow'lari 10/10 (86 faza, har biri 95–202 s); kontent tuzatishlaridan keyin slice P0, P1, C, P6, D ikkala o‘yinda qayta o‘tdi. Dizayndan farqlar: alohida klaviatura fazasi (P5) yo‘q — P0 klaviatura bilan o‘ynaydi; E1 faqat
+2D da; X da "o‘ldirish" `ZAMIN_MAX_FRAMES` bilan ikki saqlash orasida (yozish o‘rtasidagi kesishlar headless matritsada);
+3D determinizm Player va headless izining 12 hodisalik umumiy boshi bilan; `slice_bench.py` CI'da emas (Release va tinch
+mashina kerak), Player'da ajratmalar sanalmaydi (RSS va engine xotirasi qayd etiladi), 3D kadr chegarasi 33.3 ms
+(llvmpipe), birinchi sessiya hitch'i darvozadan tashqarida alohida qayd etiladi; soak shrift atlaslari / VM hajmini
+alohida o‘lchamaydi. Kuzatuv (tuzatilmagan): combat feed qatorlari snaryad kalitini ko‘rsatadi (Dovon'da "-24 Bolt").
 
 ### Yakunlangan bo‘lim — gameplay UI
 

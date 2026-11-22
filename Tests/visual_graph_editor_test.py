@@ -18,7 +18,7 @@ def click(px,py):
  x('mousemove',px,py);time.sleep(.6)
  x('mousedown',1);time.sleep(1);x('mouseup',1);time.sleep(1.2)
 def read():return json.loads((project/'Assets/Scripts/Move2D.zgraph').read_text())
-def save():click(473,140);time.sleep(1.2)
+def save():click(498,140);time.sleep(1.2)
 try:
  for i in range(100):
   if app.poll() is not None:raise RuntimeError('Editor exited early')
@@ -32,15 +32,15 @@ try:
  time.sleep(1)
  click(150,233);x('keydown','ctrl');time.sleep(.3);x('key','a');time.sleep(.3);x('keyup','ctrl');time.sleep(.3);x('type','--clearmodifiers','--delay','180','Constant.Number');time.sleep(1.2);click(155,283);save()
  j=read();assert len(j['Nodes'])==12,len(j['Nodes']);assert j['Nodes'][-1]['Kind']=='Constant.Number';print('UI: add node + save passed',flush=True)
- click(531,140);save();assert len(read()['Nodes'])==11;print('UI: undo passed',flush=True)
- click(585,140);save();assert len(read()['Nodes'])==12;print('UI: redo passed',flush=True)
+ click(607,140);save();assert len(read()['Nodes'])==11;print('UI: undo passed',flush=True)
+ click(744,140);save();assert len(read()['Nodes'])==12;print('UI: redo passed',flush=True)
  # Link the event's Number output to the new Constant.Number input.
  click(497,281);click(394,338);save();j=read();assert len(j['Links'])==10,j['Links'];assert any(l['From']==1 and l['Output']=='Delta' and l['To']==12 and l['Input']=='Value' for l in j['Links']);print('UI: typed wire + save passed',flush=True)
  click(497,281);click(960,301);save();assert len(read()['Links'])==10;print('UI: incompatible wire rejected',flush=True)
  # Canvas shortcuts mutate a whole selection and remain undoable.
  x('keydown','ctrl');x('key','d');x('keyup','ctrl');time.sleep(1.5);save()
  assert len(read()['Nodes'])==13;print('UI: duplicate selection passed',flush=True)
- click(531,140);save();assert len(read()['Nodes'])==12
+ click(607,140);save();assert len(read()['Nodes'])==12
  # Select the new Constant again after Undo clears the selection.
  click(420,301);x('keydown','ctrl');x('key','c');x('keyup','ctrl');time.sleep(.5)
  x('keydown','ctrl');x('key','v');x('keyup','ctrl');time.sleep(1.5);save()
@@ -60,7 +60,7 @@ try:
  assert read()['Functions']['Calculate']['Inputs'][0]['Name']=='X'
  assert read()['Functions']['Calculate']['Outputs'][0]['Name']=='Result'
  print('UI: create typed function signature + entry/return passed',flush=True)
- click(531,140);save();assert 'Calculate' not in read()['Functions'] and len(read()['Nodes'])==12
+ click(607,140);save();assert 'Calculate' not in read()['Functions'] and len(read()['Nodes'])==12
  print('UI: typed function creation undo passed',flush=True)
 
  subprocess.run(['import','-window','root',str(out/'editor-ui.png')],check=True)

@@ -12,10 +12,10 @@ Gameplay graph authoring va bajarish bo‘limi typed funksiyalar, kolleksiyalar,
 4. **Save** qiling. Ierarxiyada obyektni tanlang va **Attach saved graph** bosing. Bu sahna o'zgarishi: sahnani ham saqlang.
 5. **Play** bosing. **Instance overrides** orqali bitta graph nusxalarining tezligi, rangi va boshqa o'zgaruvchilarini alohida sozlash mumkin; o'yin paytida muharrir tahriri yopiladi.
 
-O'rta sichqon tugmasi — pan; g'ildirak — zoom; **Fit graph** — hamma node'ni ko'rinishga sig'dirish.
+O'rta sichqon tugmasi — pan; g'ildirak — zoom; **Grafni sig'dirish** — hamma node'ni ko'rinishga sig'dirish.
 Node sarlavhasini tortish — joylashuv; pin ustida o'ng tugma — simlarni uzish.
 Ctrl-click — ko‘p node tanlash; Ctrl+A — hammasi; Ctrl+C/V — nusxa olish/qo‘yish; Ctrl+D — ko‘paytirish; Delete — tanlanganlarni o‘chirish. Guruh sarlavhasini tortish tanlanganlarni birga ko‘chiradi. Copy/Paste/Duplicate tugmalari ham mavjud. Clipboard shu editor sessiyasida saqlanadi; ichki simlar va zarur signaturalar ko‘chadi. Nom to‘qnashsa yangi nom beriladi, yaroqsiz paste graphni o‘zgartirmaydi. Tanlangan node **Delete node** orqali ham o‘chadi. Graphning o'z **Undo/Redo** tarixi 64 holat / 32 MB bilan chegaralangan.
-Saqlanmagan graph ustiga boshqa fayl ochilmaydi; **Save** yoki **Discard edits** bilan davom etiladi.
+Saqlanmagan graph ustiga boshqa fayl ochilmaydi; **Saqlash** yoki **O'zgarishlarni tashlash** bilan davom etiladi.
 Fayl atomik yoziladi; yozish xatosida tahrirlar oynada qoladi.
 
 ## Ishlaydigan imkoniyatlar

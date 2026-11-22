@@ -85,8 +85,8 @@ namespace Zamin {
             bool changed = false;
             if (!Matches(type, v))
             {
-                ImGui::TextDisabled("Invalid literal (%s)", TypeName(type));
-                if (ImGui::Button("Reset literal"))
+                ImGui::TextDisabled("%s (%s)", Tr("Yaroqsiz qiymat"), TypeName(type));
+                if (ImGui::Button(Tr("Qiymatni tiklash###Reset literal")))
                 {
                     v = DefaultValue(type);
                     changed = true;
@@ -101,16 +101,16 @@ namespace Zamin {
                     auto* state = ImGui::GetStateStorage();
                     const auto pageID = ImGui::GetID("arrayPage");
                     int page = std::clamp(state->GetInt(pageID, 0), 0, int(v.size() / 16));
-                    if (ImGui::SmallButton("Previous") && page > 0) --page;
+                    if (ImGui::SmallButton(Tr("Oldingi###Previous")) && page > 0) --page;
                     ImGui::SameLine();
-                    if (ImGui::SmallButton("Next") && size_t((page + 1) * 16) < v.size()) ++page;
+                    if (ImGui::SmallButton(Tr("Keyingi###Next")) && size_t((page + 1) * 16) < v.size()) ++page;
                     state->SetInt(pageID, page);
                     size_t remove = SIZE_MAX;
                     for (size_t i = size_t(page) * 16; i < std::min(v.size(), size_t(page + 1) * 16); ++i)
                     {
                         ImGui::PushID(int(i));
                         changed |= EditValue(("[" + std::to_string(i) + "]").c_str(), ElementType(type), v[i]);
-                        if (ImGui::SmallButton("Remove item")) remove = i;
+                        if (ImGui::SmallButton(Tr("Elementni o'chirish###Remove item"))) remove = i;
                         ImGui::PopID();
                     }
                     if (remove != SIZE_MAX)
@@ -118,12 +118,12 @@ namespace Zamin {
                         v.erase(v.begin() + remove);
                         changed = true;
                     }
-                    if (v.size() < 1024 && ImGui::Button("Add item"))
+                    if (v.size() < 1024 && ImGui::Button(Tr("Element qo'shish###Add item")))
                     {
                         v.push_back(DefaultValue(ElementType(type)));
                         changed = true;
                     }
-                    if (ImGui::Button("Paste array JSON"))
+                    if (ImGui::Button(Tr("Massiv JSON'ini qo'yish###Paste array JSON")))
                     {
                         const char* text = ImGui::GetClipboardText();
                         if (text && std::strlen(text) <= 65536)
@@ -142,7 +142,7 @@ namespace Zamin {
                             }
                             catch (const std::exception&)
                             {
-                                ImGui::TextDisabled("Invalid array JSON");
+                                ImGui::TextDisabled("%s", Tr("Massiv JSON'i yaroqsiz"));
                             }
                         }
                     }
@@ -180,21 +180,21 @@ namespace Zamin {
             else if (type == Type::Entity)
             {
                 uint64_t id = v.get<uint64_t>();
-                if (id == UINT64_MAX) ImGui::TextDisabled("Self");
+                if (id == UINT64_MAX) ImGui::TextDisabled("%s", Tr("O'zi"));
                 else ImGui::TextDisabled("%llu", (unsigned long long)id);
-                if (ImGui::Button("Self"))
+                if (ImGui::Button(Tr("O'zi###Self")))
                 {
                     v = UINT64_MAX;
                     changed = true;
                 }
                 ImGui::SameLine();
-                if (ImGui::Button("None"))
+                if (ImGui::Button(Tr("Hech biri###None")))
                 {
                     v = 0ull;
                     changed = true;
                 }
                 ImGui::SameLine();
-                ImGui::Button("Drop entity");
+                ImGui::Button(Tr("Obyektni shu yerga tashlang###Drop entity"));
                 if (ImGui::BeginDragDropTarget())
                 {
                     if (auto* p = ImGui::AcceptDragDropPayload("HIERARCHY_ENTITY"))
@@ -319,7 +319,7 @@ namespace Zamin {
             ImGui::End();
             return;
         }
-        if (ImGui::Button("Fit graph")) m_Fit = true;
+        if (ImGui::Button(Tr("Grafni sig'dirish###Fit graph"))) m_Fit = true;
         ImGui::SameLine();
         ImGui::TextColored({ .66f, .54f, 1, 1 }, "ZAMIN  /  VISUAL SCRIPT");
         ImGui::SameLine();
@@ -328,13 +328,13 @@ namespace Zamin {
         ImGui::SetNextItemWidth(260);
         ImGui::InputText("##graphPath", m_File, sizeof(m_File));
         ImGui::SameLine();
-        if (ImGui::Button("Open"))
+        if (ImGui::Button(Tr("Ochish###Open")))
         {
             auto p = FileSystem::SafeJoin(Project::GetAssetDirectory(), m_File);
             if (!p.empty()) Open(p);
         }
         ImGui::SameLine();
-        if (ImGui::Button("New") && !m_Dirty)
+        if (ImGui::Button(Tr("Yangi###New")) && !m_Dirty)
         {
             m_Graph = Visual::Graph::Example();
             m_ValidateDirty = true;
@@ -347,7 +347,7 @@ namespace Zamin {
             m_Error.clear();
         }
         ImGui::SameLine();
-        if (ImGui::Button("Save"))
+        if (ImGui::Button(Tr("Saqlash###Save")))
         {
             if (m_Path.empty() || !FileSystem::IsSubPathOnDisk(m_Path, Project::GetAssetDirectory())) m_Error = "Choose a path inside Assets.";
             else if (m_Graph.Save(m_Path))
@@ -360,7 +360,7 @@ namespace Zamin {
         }
         ImGui::SameLine();
         ImGui::BeginDisabled(m_Undo.empty());
-        if (ImGui::Button("Undo"))
+        if (ImGui::Button(Tr("Bekor qilish (Undo)###Undo")))
         {
             m_Redo.push_back(m_Graph.Serialize());
             m_Graph = Visual::Graph::Parse(m_Undo.back());
@@ -374,7 +374,7 @@ namespace Zamin {
         ImGui::EndDisabled();
         ImGui::SameLine();
         ImGui::BeginDisabled(m_Redo.empty());
-        if (ImGui::Button("Redo"))
+        if (ImGui::Button(Tr("Qaytarish (Redo)###Redo")))
         {
             m_Undo.push_back(m_Graph.Serialize());
             m_Graph = Visual::Graph::Parse(m_Redo.back());
@@ -387,7 +387,7 @@ namespace Zamin {
         }
         ImGui::EndDisabled();
         ImGui::SameLine();
-        if (ImGui::Button("Discard edits"))
+        if (ImGui::Button(Tr("O\'zgarishlarni tashlash###Discard edits")))
         {
             m_Dirty = false;
             if (std::filesystem::exists(m_Path)) Open(m_Path);
@@ -400,11 +400,11 @@ namespace Zamin {
             }
         }
         ImGui::SameLine();
-        if (ImGui::Button("Copy")) CopySelection();
+        if (ImGui::Button(Tr("Nusxalash###Copy"))) CopySelection();
         ImGui::SameLine();
-        if (ImGui::Button("Paste")) PasteSelection();
+        if (ImGui::Button(Tr("Qo\'yish###Paste"))) PasteSelection();
         ImGui::SameLine();
-        if (ImGui::Button("Duplicate"))
+        if (ImGui::Button(Tr("Ko\'paytirish###Duplicate")))
         {
             CopySelection();
             PasteSelection();
@@ -418,23 +418,23 @@ namespace Zamin {
             m_Descriptions.clear();
         }
         const auto& diagnostics = m_Diagnostics;
-        if (diagnostics.empty()) ImGui::TextColored({ .35f, .85f, .6f, 1 }, "Compiled  |  %zu nodes  |  %zu wires  |  %zu variables", m_Graph.Nodes.size(), m_Graph.Links.size(), m_Graph.Variables.size());
+        if (diagnostics.empty()) ImGui::TextColored({ .35f, .85f, .6f, 1 }, "%s  |  %zu %s  |  %zu %s  |  %zu %s", Tr("Kompilyatsiya bo'ldi"), m_Graph.Nodes.size(), Tr("tugun"), m_Graph.Links.size(), Tr("bog'lanish"), m_Graph.Variables.size(), Tr("o'zgaruvchi"));
         else
         {
-            ImGui::TextColored({ 1, .65f, .3f, 1 }, "%zu compile errors", diagnostics.size());
+            ImGui::TextColored({ 1, .65f, .3f, 1 }, "%zu %s", diagnostics.size(), Tr("kompilyatsiya xatosi"));
             if (ImGui::TreeNode("Diagnostics"))
             {
                 for (auto& d : diagnostics)
-                    if (ImGui::Selectable(("Node " + std::to_string(d.Node) + ": " + d.Message).c_str())) m_Selected = d.Node;
+                    if (ImGui::Selectable((std::string(Tr("Tugun")) + " " + std::to_string(d.Node) + ": " + d.Message).c_str())) m_Selected = d.Node;
                 ImGui::TreePop();
             }
         }
         ImGui::Separator();
         float height = ImGui::GetContentRegionAvail().y;
         ImGui::BeginChild("palette", { 205, height }, ImGuiChildFlags_Borders);
-        ImGui::TextUnformatted("Node library");
-        ImGui::InputTextWithHint("##search", "Search nodes...", m_Search, sizeof(m_Search));
-        ImGui::TextDisabled("Click to add a node");
+        ImGui::TextUnformatted(Tr("Tugunlar kutubxonasi"));
+        ImGui::InputTextWithHint("##search", Tr("Tugun qidirish..."), m_Search, sizeof(m_Search));
+        ImGui::TextDisabled("%s", Tr("Bosib tugun qo'shing"));
         ImGui::BeginDisabled(!m_Editable);
         std::string cat;
         for (auto& [key, def] : Visual::Catalog())
@@ -576,7 +576,7 @@ namespace Zamin {
                     float dx = mouse.x - pos.x, dy = mouse.y - pos.y;
                     if (hover && dx * dx + dy * dy < 100 && m_Editable)
                     {
-                        ImGui::SetTooltip("%s (%s) | Right-click: disconnect", p.Name.c_str(), TypeName(p.Kind));
+                        ImGui::SetTooltip("%s (%s) | %s", p.Name.c_str(), TypeName(p.Kind), Tr("O'ng tugma: uzish"));
                         if (ImGui::IsMouseClicked(1))
                         {
                             Snapshot();
@@ -657,7 +657,7 @@ namespace Zamin {
             if (ImGui::IsKeyPressed(ImGuiKey_Delete, false)) DeleteSelection();
         }
         if (hover && ImGui::IsMouseClicked(1) && !clickedPin) m_From = 0;
-        draw->AddText({ origin.x + 12, origin.y + size.y - 24 }, IM_COL32(150, 155, 176, 255), "Middle drag: pan  |  Wheel: zoom  |  Output > input: wire");
+        draw->AddText({ origin.x + 12, origin.y + size.y - 24 }, IM_COL32(150, 155, 176, 255), Tr("O'rta tugma: surish  |  G'ildirak: masshtab  |  Chiqish > kirish: bog'lash"));
     }
     void VisualGraphPanel::Properties()
     {
@@ -671,14 +671,14 @@ namespace Zamin {
             auto* host = script && script->ClassName == "Zamin.VisualGraph" ? dynamic_cast<VisualGraphHost*>(script->Instance) : nullptr;
             if (host && script->Fields.contains("Graph") && script->Fields.at("Graph").StringValue == Project::GetAssetRelativePath(m_Path))
             {
-                ImGui::SeparatorText("Live variables");
+                ImGui::SeparatorText(Tr("Jonli o'zgaruvchilar###Live variables"));
                 ImGui::TextWrapped("%s", actor.GetName().c_str());
                 size_t shown = 0;
                 for (const auto& [name, value] : host->VM.Variables())
                 {
                     if (shown++ == 16)
                     {
-                        ImGui::TextDisabled("More variables below...");
+                        ImGui::TextDisabled("%s", Tr("Pastda yana o'zgaruvchilar bor..."));
                         break;
                     }
                     if (value.is_string())
@@ -692,7 +692,7 @@ namespace Zamin {
             }
             CombatLive(*m_Scene, actor);
         }
-        ImGui::TextUnformatted("Selected node");
+        ImGui::TextUnformatted(Tr("Tanlangan tugun"));
         ImGui::BeginDisabled(!m_Editable);
         auto it = std::find_if(m_Graph.Nodes.begin(), m_Graph.Nodes.end(), [&](auto& n) { return n.ID == m_Selected; });
         if (it != m_Graph.Nodes.end() && Catalog().contains(it->Kind))
@@ -700,7 +700,7 @@ namespace Zamin {
             auto& n = *it;
             ImGui::TextWrapped("%s  #%u", n.Kind.c_str(), n.ID);
             bool bp = n.Breakpoint;
-            if (ImGui::Checkbox("Breakpoint", &bp))
+            if (ImGui::Checkbox(Tr("To'xtash nuqtasi###Breakpoint"), &bp))
             {
                 Snapshot();
                 n.Breakpoint = bp;
@@ -711,7 +711,7 @@ namespace Zamin {
                 bool wired = std::any_of(m_Graph.Links.begin(), m_Graph.Links.end(), [&](auto& l) { return l.To == n.ID && l.Input == p.Name; });
                 if (wired)
                 {
-                    ImGui::TextDisabled("%s: connected", p.Name.c_str());
+                    ImGui::TextDisabled("%s: %s", p.Name.c_str(), Tr("ulangan"));
                     continue;
                 }
                 auto v = n.Inputs.contains(p.Name) ? n.Inputs.at(p.Name) : p.Default;
@@ -730,7 +730,7 @@ namespace Zamin {
                     n.Inputs[p.Name] = v;
                 }
             }
-            if (ImGui::Button("Delete node"))
+            if (ImGui::Button(Tr("Tugunni o'chirish###Delete node")))
             {
                 Snapshot();
                 auto selected = m_Selection;
@@ -741,12 +741,12 @@ namespace Zamin {
                 m_Selection.clear();
             }
         }
-        ImGui::SeparatorText("Graph variables");
-        ImGui::InputTextWithHint("##variable", "Variable name", m_Name, sizeof(m_Name));
+        ImGui::SeparatorText(Tr("Graf o'zgaruvchilari###Graph variables"));
+        ImGui::InputTextWithHint("##variable", Tr("O'zgaruvchi nomi"), m_Name, sizeof(m_Name));
         static int type = 2;
         const char* types[] = { "Exec", "Bool", "Number", "String", "Vec2", "Vec3", "Vec4", "Entity", "ArrayBool", "ArrayNumber", "ArrayString", "ArrayVec2", "ArrayVec3", "ArrayVec4", "ArrayEntity" };
-        ImGui::Combo("Type", &type, types, int(Type::Count));
-        if (ImGui::Button("Add variable") && m_Name[0] && type > 0 && !m_Graph.Variables.contains(m_Name))
+        ImGui::Combo(Tr("Turi###Type"), &type, types, int(Type::Count));
+        if (ImGui::Button(Tr("O'zgaruvchi qo'shish###Add variable")) && m_Name[0] && type > 0 && !m_Graph.Variables.contains(m_Name))
         {
             Snapshot();
             Value d = DefaultValue(Type(type));
@@ -762,7 +762,7 @@ namespace Zamin {
                 v.Default = value;
             }
             ImGui::PushID(name.c_str());
-            if (ImGui::SmallButton("Remove")) remove = name;
+            if (ImGui::SmallButton(Tr("Olib tashlash###Remove"))) remove = name;
             ImGui::SameLine();
             char renamed[129]{};
             std::snprintf(renamed, sizeof(renamed), "%s", name.c_str());
@@ -785,7 +785,7 @@ namespace Zamin {
         }
         Functions();
         ImGui::EndDisabled();
-        ImGui::SeparatorText("Scene instance");
+        ImGui::SeparatorText(Tr("Sahnadagi nusxa###Scene instance"));
         Entity selected = m_Scene ? m_Scene->GetEntityByUUID(m_Entity) : Entity{};
         if (selected)
         {
@@ -794,7 +794,7 @@ namespace Zamin {
             ImGui::BeginDisabled(!m_Editable || m_Dirty || m_Path.empty());
             bool replace = c && !c->ClassName.empty() && c->ClassName != "Zamin.VisualGraph";
             if (replace) ImGui::TextWrapped("This entity has a C++ script. Attaching replaces it.");
-            if (ImGui::Button(replace ? "Replace script with this graph" : "Attach saved graph"))
+            if (ImGui::Button(replace ? Tr("Skriptni shu graf bilan almashtirish###Replace script with this graph") : Tr("Saqlangan grafni biriktirish###Attach saved graph")))
             {
                 if (!c) c = &selected.AddComponent<NativeScriptComponent>();
                 c->ClassName = "Zamin.VisualGraph";
@@ -805,7 +805,7 @@ namespace Zamin {
             ImGui::EndDisabled();
             if (c && c->ClassName == "Zamin.VisualGraph" && c->Fields.contains("Graph") && c->Fields.at("Graph").StringValue == Project::GetAssetRelativePath(m_Path))
             {
-                ImGui::SeparatorText("Instance overrides");
+                ImGui::SeparatorText(Tr("Nusxa qiymatlari###Instance overrides"));
                 ImGui::BeginDisabled(!m_Editable);
                 Value overrides = Value::object();
                 auto fi = c->Fields.find("Overrides");
@@ -826,7 +826,7 @@ namespace Zamin {
                     }
                     ImGui::PopID();
                 }
-                if (ImGui::Button("Reset instance overrides"))
+                if (ImGui::Button(Tr("Nusxa qiymatlarini tiklash###Reset instance overrides")))
                 {
                     c->Fields.erase("Overrides");
                     if (OnModified) OnModified();
@@ -839,9 +839,9 @@ namespace Zamin {
                 if (host)
                 {
                     auto& vm = host->VM;
-                    ImGui::Checkbox("Enable breakpoints", &vm.Debug);
-                    ImGui::Text("Node: %u | Pending: %zu", vm.CurrentNode, vm.Pending());
-                    ImGui::Text("Retained data: %.1f KiB", vm.RetainedBytes() / 1024.0);
+                    ImGui::Checkbox(Tr("To'xtash nuqtalarini yoqish###Enable breakpoints"), &vm.Debug);
+                    ImGui::Text("%s: %u | %s: %zu", Tr("Tugun"), vm.CurrentNode, Tr("Navbatda"), vm.Pending());
+                    ImGui::Text("%s: %.1f KiB", Tr("Saqlangan ma'lumot"), vm.RetainedBytes() / 1024.0);
                     if (!vm.CallStack().empty()) ImGui::TextWrapped("Calls: %s", vm.CallStack().c_str());
                     const auto frame = vm.DebugFrame();
                     if (!frame.empty() && ImGui::TreeNode("Function frame"))
@@ -849,13 +849,13 @@ namespace Zamin {
                         ImGui::TextWrapped("%s", frame.dump(2).c_str());
                         ImGui::TreePop();
                     }
-                    if (ImGui::Button(vm.Paused ? "Continue" : "Pause"))
+                    if (ImGui::Button(vm.Paused ? Tr("Davom etish###Continue") : Tr("Pauza###Pause")))
                     {
                         if (vm.Paused) vm.Continue();
                         else vm.Paused = true;
                     }
                     ImGui::SameLine();
-                    if (ImGui::Button("Step")) vm.Step();
+                    if (ImGui::Button(Tr("Qadam###Step"))) vm.Step();
                     if (!vm.Error().empty()) ImGui::TextWrapped("%s", vm.Error().c_str());
                     for (auto& [name, value] : vm.Variables()) ImGui::TextWrapped("%s = %s", name.c_str(), value.dump().c_str());
                     if (ImGui::TreeNode("Execution trace"))
@@ -866,6 +866,6 @@ namespace Zamin {
                 }
             }
         }
-        else ImGui::TextDisabled("Select a scene entity to attach.");
+        else ImGui::TextDisabled("%s", Tr("Biriktirish uchun sahnadan obyekt tanlang."));
     }
 }

@@ -208,7 +208,7 @@ sarlavhasini yopishi barcha workshop'larda umumiy (LoadoutWorkshop'da ham) — a
 ### Keyingi paket — ikki tugallangan 2D/3D vertical slice va stress darvozalari
 
 - [x] 2D vertical slice: menyu, kamida ikki daraja, motor/combat/AI/quest/loadout/HUD bitta o‘yin oqimida, yakun ekrani.
-- [ ] 3D vertical slice: character controller, kamera, Animator locomotion, combat/AI/quest va save bitta o‘yin oqimida.
+- [x] 3D vertical slice: character controller, kamera, Animator locomotion, combat/AI/quest va save bitta o‘yin oqimida.
 - [ ] Animatsiya/fizika stress hamda UI input/scale (klaviatura/gamepad, turli rezolyutsiya) darvozalari.
 - [ ] Fresh-process resume, relocated export, profiling va regression darvozalari ikkala slice uchun.
 
@@ -236,6 +236,44 @@ xil. Dizayndan farqlar: darajalar kichikroq (56×32/48×36 o‘rniga), o‘tlar 
 qaroqchi, 2 kamonchi va boshliq; L2 4 skelet, 2 kamonchi, boss va 2 ruh), richag/panjara/tikan tuzoqlari yo‘q; bitta `Enemy`
 grafi arxetip override'lari bilan, daraja direktori `Game` grafida; sozlamalar faqat menyuda (o‘yin ichida va UI
 scale yo‘q). Gamepad lentasi, UI scale, relocated export va `samples_assets.py` graf rejimi 3–4-itemlarga qoldirildi.
+
+Dalillar (3D slice, 2026-11-22): *Dovon mash'ali* (`Projects/BeaconPass`, kompilyatorsiz) — `Menu` (oqshomgi dovon
+manzarasi, sekin chayqaluvchi kamera) va `Dovon` (120×120 m relyef, qarorgoh, karvonsaroy, otxona, minora maydoni,
+mash'al; 374 obyekt); [VerticalSlices.md](VerticalSlices.md), README (uz), launcher rasmi. Character controller +
+`Gameplay.Motor3D` (yugurish 5.4, yurish 1.8 m/s, sakrash), orbit kamera (sphere cast), `gltfkit.py` skinned odamlar
+(21 bo‘g‘in; qahramon, qorovul, Qora qorovul) va Animator: Locomotion BlendTree1D (0 / 1.8 / 5.4 — klip uzunligi =
+qadam / tezlik), Air/Land/Dead, `UpperBody` (Override) va `Hit` (Additive) qatlamlari, `Hit`/`Release`/`Footstep`
+event'lari; zarba/olov o‘qi/Zilzila animatsiya event'ida, delegatsiyalangan qorovul zarbalari, kamonchilar, boss
+shockwave'i, 4 vazifa (800 XP, 4-daraja), Shamshir/Qalqon bone attachment bilan, ziyoratgohlarda v4 saqlash.
+Engine: `Animator.PlayLayer` `Restart` pini / `PlayLayer(..., restart)` (standart o‘chiq, eski graflar o‘zgarmaydi).
+1339/1339 unit (7 yangi: 6 `BeaconPass*` + `AnimatorLayerRestartReplaysTheClipAndItsEvents`; to‘liq run 251 s,
+`BeaconPass*` 133 s), 12/12 headless CTest, `ctest -L docs` 2/2, build ogohlantirishsiz. Headless: oracle menyu →
+Dovon → g‘alaba 2275 kadrda (800 XP, 4-daraja, 4/4 vazifa, 3 tosh sarflangan, Shamshir+Qalqon kiyilgan, Zilzila ochiq,
+Qora qorovul o‘lik, uchayotgan snaryad 0, `Run1.json` v4); lokomotsiya (1264 kadr): Walk/Run og‘irligi 1.00/1.00,
+UpperBody 1.00 zarbada, Air → Land, Hurt; qadam oralig‘i walk 1.007 m (yarim qadam 1.000), run 1.950 m (1.950);
+damplangan Speed xatosi 0.006 m/s (374 namuna, chegara 0.05); oyoq relyefdan pastga tushmaydi (min 0.000 m, 1264
+namuna), kamera devor ichida 0/1264; mag‘lubiyat rejasi 4272 kadr (3 o‘lim, Dead holati → mag‘lubiyat → qayta yuklash →
+`Pass` bir marta, 100 XP, 0 o‘lim); save/resume: hovli ziyoratgohi saqlashi (kadr 1294, qahramon (2.548, 3.001,
+1.600), 100 XP, 2 tosh, 3 dushman, 5 ishlatilgan obyekt) yangi jarayonda <1 mm aniqlikda tiklanadi (sumka, vazifalar,
+loadout ham), davomi 5/5 hodisa bir xil tartibda, 300/300 XP, 3/3 tosh, tog‘ ziyoratgohida bir xil joy (−5.898,
+−26.402); Qora qorovul jangida uchayotgan Bolt bilan tezkor saqlash (yoshi 0.133 s) aynan tiklanadi va 6/6 kadr bir xil
+yo‘l (eng katta farq 0.00000 m), 7-kadrda tegib, boss sog‘lig‘i 260.8/260.8; determinizm 2244/2244 kadr, 26/26 trace
+qatori. `slice_workflow_test.py --game BeaconPass` (yangi CI qadami, 640×360 Low) 6/6 faza, 742 s: P0 klaviatura
+lentasi 40 s (musiqa 0.55 → 0.85, yangi o‘yin, autosave, yugurish/sakrash/zarba/Bolt/sumka, pauza → `Menyu: Inventar`),
+P1 demo 112 s (hovli ziyoratgohigacha: v4, 100 XP, 2 tosh, sog‘liq 120, combat bo‘limi bor), P2 yangi jarayonda Davom
+etish → g‘alaba 88 s (`time=73.6 xp=800 level=4 stones=0 deaths=0 quests=4/4`), P3 7 s (Davom etish yo‘q), P4 339 s (3
+o‘lim → mag‘lubiyat → *Oxirgi saqlashdan* → `Pass` bir marta), E0 Editor Play 155 s; Chiroqbon fazalari umumlashgan
+harness'da ham o‘tadi (P0 33 s, P3 11 s, E0 66 s). Loyiha 192 fayl, 6.3 MB (Assets 5.99 MiB; eng katta sahna 547 KB,
+model 372 KB, tekstura 140 KB, ovoz 516 KB / 12 s); graflar (node/link): Hero 655/787, Game 487/580, Enemy 180/211,
+Menu 155/168, Camera3D 38/46; generator ikki marta ishga tushirilganda fayllar bir xil. Shu qadamda tuzatildi:
+ziyoratgoh dam olish nuqtasi (pilot to‘xtab, keyin ishlatadi), qahramon rule event'larini `LateUpdate`da o‘qiydi —
+saqlash restore bilan bir fazada, tiklangan run saqlangan holatdan boshlanadi; resume'da yo‘nalish (yaw/facing)
+tiklanadi; menyu kamerasi qarag‘aylar ichidan vodiy ustiga ko‘chirildi; `[Look]` maslahati
+`[LookX|Sichqoncha]`. Dizayndan farqlar: Qora qorovul HP 280 (420 emas), qorovullar 4 (5 emas), relyef 120 m/81
+(128/129 emas), `meshkit.py` OBJ kit yo‘q (karvonsaroy teksturali primitivlar + gltfkit buyumlaridan), `Pass` vazifasi
+2 darvoza qorovuli + darvozani ochish (Manual receipt emas), sozlamalar faqat menyuda; restore jismlar va nav
+agentlarini to‘xtatgani uchun (saqlash tezlik/yo‘l saqlamaydi) davom bir xil hodisa/natija beradi, kadrlar esa farq
+qilishi mumkin. Gamepad lentasi, UI scale, relocated export va profiling 3–4-itemlarda.
 
 ### Yakunlangan bo‘lim — gameplay UI
 

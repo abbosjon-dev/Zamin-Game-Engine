@@ -489,6 +489,51 @@ Boshlang'ich natijalar: `Tests/Baselines/physics-release.json`, `animation-relea
 `--benchmark` va alohida `Stress` sahnalari o'rniga headless `--slice-stress` da — haqiqiy darajalar nusxasi ustida
 (slice assetlari 6 MiB byudjetga yaqin, llvmpipe chizishi o'yin kodining vaqtini ko'mib yuboradi).
 
+## Vertical slice'lar Player'da: profiling va regressiya darvozasi (`Tests/slice_bench.py`)
+
+Ikkala slice'ning har sahnasi (Menu, Boglar, Yertola, Dovon) **Release** `ZaminPlayer --benchmark 300
+--benchmark-warmup 90` da, qat'iy o'yin soati bilan (`ZAMIN_CAPTURE_FPS=30`), darajalarda demo pilot o'ynaydi
+(`ZAMIN_DEMO=1`), menyular o'yinchi ko'rgandek (demosiz). Ikki oyna: 284x160 `--quality Low` (darvoza: o'yin kodi) va
+1280x720 (faqat baseline bilan solishtiriladi — u llvmpipe rasterizatorining ishi). *O'yin kodi* — Player benchmark
+hisobotidagi yangi `GameCode`: har o'lchangan kadrda profilerning "Layer'lar (update)" bo'limi, undan chizish
+("Sahnalar (chizish)", "Post-processing") ayirilgan (skriptlar/graflar, gameplay, fizika, AI, animatsiya, particle'lar,
+audio). Har qator bitta HOME bilan 3 marta ishlaydi: birinchisi — birinchi sessiya (Mesa shader variantlarini shunda
+kompilyatsiya qiladi va `~/.cache` da saqlaydi; o'sha ishning eng sekin kadri "birinchi sessiya" ustunida), darvoza va
+baseline har raqamning eng yaxshisini oladi.
+
+Muhit: 4 vCPU Intel Xeon @ 2.10 GHz, GCC 13.3, Release (`build-release`), Mesa llvmpipe, 2026-11-22:
+
+| Sahna | Oyna | Obyekt (faol) | Draw call | Uchburchak / quad | Kadr o'rtacha | p95 | Eng sekin (birinchi sessiya) | O'yin kodi | p95 | RSS |
+|---|---|---:|---:|---|---:|---:|---:|---:|---:|---:|
+| Chiroqbon / Menu | 284x160 Low | 57 (38) | 18 | 0 / 875 | 3.48 ms | 4.17 | 6 (7) | 0.32 ms | 0.40 | 197 MiB |
+| Chiroqbon / Boglar | 284x160 Low | 211 (158) | 30 | 0 / 1 183 | 5.44 ms | 6.32 | 12 (117) | 2.02 ms | 2.41 | 205 MiB |
+| Chiroqbon / Yertola | 284x160 Low | 224 (162) | 33 | 0 / 860 | 5.67 ms | 6.92 | 11 (1 869) | 2.03 ms | 2.49 | 211 MiB |
+| Dovon mash'ali / Menu | 284x160 Low | 278 (259) | 130 | 34 286 / 266 | 22.22 ms | 26.19 | 34 (34) | 0.53 ms | 0.65 | 227 MiB |
+| Dovon mash'ali / Dovon | 284x160 Low | 377 (330) | 210 | 74 516 / 342 | 28.16 ms | 36.06 | 51 (345) | 3.50 ms | 4.40 | 236 MiB |
+| Chiroqbon / Menu | 1280x720 | 57 (38) | 31 | 0 / 875 | 54.93 ms | 63.78 | 76 (98) | 0.51 ms | 0.64 | 225 MiB |
+| Chiroqbon / Boglar | 1280x720 | 211 (158) | 43 | 0 / 1 183 | 55.71 ms | 67.06 | 76 (126) | 2.44 ms | 3.06 | 234 MiB |
+| Chiroqbon / Yertola | 1280x720 | 224 (162) | 46 | 0 / 860 | 56.06 ms | 65.18 | 85 (1 951) | 2.50 ms | 3.27 | 236 MiB |
+| Dovon mash'ali / Menu | 1280x720 | 278 (259) | 191 | 34 286 / 265 | 208.88 ms | 250.81 | 305 (305) | 0.68 ms | 0.86 | 317 MiB |
+| Dovon mash'ali / Dovon | 1280x720 | 377 (330) | 295 | 74 560 / 342 | 227.13 ms | 266.12 | 328 (576) | 3.73 ms | 4.74 | 261 MiB |
+
+Darvozalar (kichik oyna): o'yin kodi o'rtacha ≤ 3 ms (2D) / ≤ 4 ms (3D) va p95 ≤ 6 ms — bajarildi (eng ko'pi 2.03 /
+3.50 ms, p95 4.40 ms); kadr o'rtacha ≤ 16.6 ms (2D) — bajarildi (≤ 5.67 ms); eng sekin kadr ≤ 1000 ms — bajarildi (≤ 51
+ms). Dizayndan farq: 3D uchun kadr chegarasi 33.3 ms (30 FPS) — llvmpipe Dovon'ning ~74 500 uchburchagini ikki marta
+(soya xaritasi va asosiy o'tish) protsessorda chizadi, bu 284x160 da ham ~17 ms ("Sahnalar (chizish)") + 7 ms
+post-processing; o'yin kodi esa 3.5 ms. Birinchi sessiyadagi 1.9 s lik kadr (Yertola, birinchi jangda) — llvmpipe'ning
+yangi zarra/2D blend holati uchun shader JIT'i: shu HOME bilan ikkinchi ishga tushirishda yo'q (eng sekini 11 ms).
+1280x720 qatorlari (va kichik oynaning hammasi) `Tests/Baselines/slices-release.json` ga yozilgan; `--compare` har
+raqamni `bench_compare.py --tolerance 15` bilan solishtiradi. Tekshiruv: 2 ishga tushirishli qayta o'lchash 40 raqamdan
+3 tasini (1280x720 da Chiroqbon Menu p95 +15.3 %, Yertola p95 +19.7 % va o'yin kodi +17 %) sekinlashgan deb belgiladi —
+o'sha qatorlar 3 ishga tushirish bilan −8.1 … +3.4 % (16 raqam, 0 sekinlashish): 720p da llvmpipe oqimlari o'yin bilan 4
+yadroni bo'lishadi. Shuning uchun standart `--runs 3` va 720p dagi p95 lar `Noisy` (ro'yxatda, hisoblanmaydi). Ajratmalar (`ZAMIN_ALLOC_TRACE`) Player'da sanalmaydi —
+o'rniga RSS va engine hisoblagan xotira (`ZAMIN_SOAK_STATS`) qayd etiladi.
+
+Soak (`--no-bench --soak 18000`, attract loop, 284x160 Low, har 30 kadrda namuna): Chiroqbon 3 g'alaba, menyuga 3
+qaytish — har safar 57 obyekt, RAM 302.9 MiB, engine 99.2 MiB (birinchi aylanadan keyingi o'sish 0.0 MiB); Dovon
+mash'ali 7 g'alaba — har qaytishda 278 obyekt, RAM 269.4 → 275.5 → 278.8 MiB va keyin tekis (o'sish 9.5 MiB ≤ 32),
+engine 39.0 MiB; logda xato yo'q.
+
 ## Natijalarni saqlash va solishtirish (`Tests/bench.sh`)
 
 `Tests/bench.sh` headless benchmarklarni (ECS, serializatsiya, prefablar, combat, fizika, animatsiya, slice stress) ishga tushiradi va natijalarni

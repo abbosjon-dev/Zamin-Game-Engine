@@ -6,7 +6,7 @@ Bu olti o'yinning gameplay kodi C++ skriptlarda (`Projects/<O'yin>/Source/`), ra
 (`Tools/samples/gen_<o'yin>.py`, [Tools/samples/README.md](../Tools/samples/README.md)). Pastdagi rasmlar haqiqiy
 o'yindan, `ZaminPlayer` da headless olingan (bot o'ynayapti).
 
-- [Olti yangi o'yin](#olti-yangi-oyin) · [Eski namunalar](#eski-namunalar)
+- [Ikki vertical slice](#ikki-vertical-slice-chiroqbon-va-dovon-mashali) · [Olti yangi o'yin](#olti-yangi-oyin) · [Eski namunalar](#eski-namunalar)
 - [Hammasiga umumiy](#hammasiga-umumiy): [menyular](#menyular), [rekordlar (SaveData)](#rekordlar-savedata),
   [boshqaruv: input action'lar va gamepad](#boshqaruv-input-actionlar-va-gamepad), [demo rejim](#demo-rejim)
 - [Testlar](#testlar) · [Eksport qilib tekshirish](#eksport-qilib-tekshirish) · [Ishlash tezligi](#ishlash-tezligi)
@@ -18,6 +18,28 @@ Ishga tushirish: editor launcher'ida **Namuna o'yinlar** kartasini bosing yoki p
 ./build/bin/ZaminPlayer Projects/Breakout              # o'yin: bosh menyudan
 ZAMIN_DEMO=1 ./build/bin/ZaminPlayer Projects/Racing   # demo: bot o'ynaydi
 ```
+
+## Ikki vertical slice: Chiroqbon va Dovon mash'ali
+
+Engine'ning gameplay paketlaridan (motor, kamera, combat, AI, quest, loadout, UI, save) kompilyatorsiz yig'ilgan ikkita
+tugallangan o'yin — menyu, darajalar, boss, g'alaba va mag'lubiyat ekranlari, saqlash/davom etish, demo pilot.
+Batafsil: [VerticalSlices.md](VerticalSlices.md).
+
+| | |
+|---|---|
+| ![Chiroqbon](images/sample-chiroqbon.jpg) | ![Dovon mash'ali](images/sample-dovon.jpg) |
+| **Chiroqbon** (`Projects/LanternKeeper`, 2D): Bog'lar va Yertola, ikki daraja orasida transfer, Soya Bek | **Dovon mash'ali** (`Projects/BeaconPass`, 3D): character controller, Animator locomotion, Qora qorovul, mash'al |
+
+```bash
+ZAMIN_DEMO=1 ./build/bin/ZaminPlayer Projects/LanternKeeper   # pilot menyudan g'alabagacha o'ynaydi
+./build/bin/ZaminPlayer Projects/BeaconPass                    # o'zingiz: WASD, sichqoncha, Space, J/K, Q, E
+```
+
+Tekshiruvlari: headless oracle, mag'lubiyat rejasi, determinizm va kesish/buzilgan saqlash matritsasi (`ZaminTests
+--filter LanternKeeper*` / `BeaconPass*`), Player/Editor workflow'i yangi jarayonda davom etish, gamepad, eksport va
+haqiqiy ko'chirish bilan (`Tests/slice_workflow_test.py --exports`), UI darvozasi (`Tests/slice_ui_test.py`), Blueprint
+mualliflik testi (`Tests/slice_editor_test.py`) va ishlash tezligi (`Tests/slice_bench.py`,
+[VerticalSlices.md](VerticalSlices.md#resume-export-and-profiling)).
 
 ## Compiler-free quest/progression
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The pictures of docs/Samples.md (docs/images/sample-<game>.jpg) from real headless screenshots of the games.
 
-    python3 Tools/samples/make_gallery.py                  every M24 sample
+    python3 Tools/samples/make_gallery.py                  every M24 sample and the two vertical slices
     python3 Tools/samples/make_gallery.py Racing Sokoban   only these
 
 Each game runs headless in the built player (xvfb-run, ZAMIN_MAX_FRAMES / ZAMIN_SCREENSHOT) with its bot (ZAMIN_DEMO)
@@ -30,6 +30,9 @@ SHOTS = [
     ("sokoban", "Sokoban", {"ZAMIN_DEMO": "1", "ZAMIN_START_LEVEL": "7"}, 300),
     ("endlessrunner", "EndlessRunner", {"ZAMIN_DEMO": "1"}, 520),
     ("racing", "Racing", {"ZAMIN_DEMO": "1"}, 520),
+    # the P5 vertical slices (docs/VerticalSlices.md): the demo pilot in the orchards' fight and in the caravanserai
+    ("chiroqbon", "LanternKeeper", {"ZAMIN_DEMO": "1"}, 1000),
+    ("dovon", "BeaconPass", {"ZAMIN_DEMO": "1"}, 760),
 ]
 
 

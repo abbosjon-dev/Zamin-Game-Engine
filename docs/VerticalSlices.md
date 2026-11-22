@@ -240,3 +240,72 @@ height 0.5* at reference 1920×1080; the layouts were fixed instead (texts ≥ 2
 - **Mutations** (in the Player gate): clearing the music slider's Up/Down links fails U1 (the tour cannot reach
   *Orqaga*, and the audit reports `Unreachable` for the three widgets below it); a 25 → 18 unit version line fails U1
   with 12 `MinFont` issues (13.3 px < 14 at 1024×768).
+
+### Resume, export and profiling
+
+The fresh-process, export, editor and profiling gates of both slices (P5 item 4).
+
+**Resume matrix (headless,** `ZaminTests --filter *ResumeMatrixHeadless`**).** One normal run keeps the files a process
+killed at each step would leave behind; a fresh process (`SaveData::Reload`, `GameState::Load`, the demo menu's
+Continue) on each copy must resume a consistent run, and no reward is granted twice:
+
+| Cut / damage | Chiroqbon | Dovon mash'ali |
+|---|---|---|
+| after New game, before the autosave | - | Continue offered, fresh start at the camp, autosave written then |
+| after a save, before its GameState | level 1 exit: the transfer written, `Run.Level` still 1 → level 1 from its shrine save; the exit replays and writes the same transfer (200 XP, same bag) | shrine save written, `Run.Time` old → the shrine save (100 XP, two stones, the saved pose to < 1 mm) |
+| after GameState, before the next level's autosave | `Run.Level=2, Run.Save=0` → level 2 through the transfer (200 XP, 13 coins, full health) | - |
+| after the autosave, before its GameState | level 2 through the transfer again, the autosave rewritten | - |
+| a changed byte in the primary save (checksum) | its backup - the level 2 autosave - with *Zaxira nusxadan tiklandi* (`recovered=1`) | its backup - the camp autosave - with the same banner |
+| primary and backup torn | `SLICE_IO_FAILED load`, *Saqlash o'qilmadi - daraja boshidan*, level 2 again from the transfer; level 1 starts fresh; with the transfer also torn a fresh level 2 | `SLICE_IO_FAILED load`, the same banner, a fresh start; the autosave is valid again |
+
+The matrix found a real bug: level 2's fallback after an unreadable save did the transfer load and the autosave in the
+same frame as the failed load - three save file operations, one over the scene's budget of two - so the autosave
+failed (`SLICE_IO_FAILED autosave`). The fallback now continues one frame later. Mutation: without Continue's
+`Run.Save == Run.Level` guard the matrix fails three times.
+
+**Player/Editor** (`python3 Tests/slice_workflow_test.py --game LanternKeeper|BeaconPass --exports`, CI steps
+*Chiroqbon 2D / Dovon mash'ali 3D vertical slice ...*), besides P0-P4, E0/E1:
+
+- **C** damaged saves on copies of P1's files, each continued by a fresh Player: a changed byte → the backup with the
+  *recovered* banner; save and backup torn → `SLICE_IO_FAILED load`, the visible message, the level's entry (2D: the
+  transfer, 200 XP; 3D: a fresh start, 0 XP) and a valid save again. A screenshot 24 frames after the level start
+  shows the banner.
+- **P6** gamepad tape: the D-pad moves the music slider (`music=0.85`), A starts a new game, the left stick walks the
+  hero, RB/X fire and strike, Back/B open and close the bag, Start pauses and *Saqlab, bosh menyuga* writes the quit
+  save (`SLICE_SAVED lvl=1 at=quit`, v4) and the menu offers Continue.
+- **E2** Editor Play of the menu (demo): New game and the scene switch into the level inside Play mode.
+- **X** the shipped game is exported (`Tests/export_test.sh`: version, a timed run, a screenshot run, relocation);
+  its launcher with `ZAMIN_DEMO=1` plays the attract run and is killed by `ZAMIN_MAX_FRAMES` between two saves (2D:
+  after the level 2 carry autosave, 3D: after the courtyard shrine save); the folder is moved for real (`mv`); from the
+  new place a fresh process continues the save to the victory screen (`ZAMIN_SCREENSHOT_ON="SLICE_VICTORY|120|...|quit"`),
+  a third shows no Continue, a fourth starts a new game (0 XP) and the best time stays.
+- **D** determinism: P1's trace in the Player (960x540 / 640x360, fixed 30 fps game clock) against the headless one
+  (`ZAMIN_SLICE_TRACE_OUT` of `*Determinism`): Chiroqbon's level 1 is the same 23 events in the same order, Dovon
+  mash'ali's courtyard run the same first 12 of the headless 26.
+
+**Editor** (`xvfb-run -a -s "-screen 0 1600x1000x24" python3 Tests/slice_editor_test.py`, CI step *Slice Blueprint
+authoring ...*): in the real Blueprint window `Gameplay.TransferWrite`, `Gameplay.TransferLoad` and `Gameplay.Steer` are
+added, saved and undone; LoadScene's `FadeOut` is typed to 0.6, UIBindHUD's Kind combo scrolled to Kind 8
+*Qobiliyat* and AIConfigure's `Strike` checkbox turned off - each saved, undone and redone. Then
+`ZAMIN_EDITOR_GRAPH_QA` opens every slice graph in the window (Chiroqbon: Game 625/737 nodes/links, Enemy 174/205,
+Menu 160/175, Hero 560/678; Dovon mash'ali: Camera3D 38/46, Game 490/583, Enemy 180/211, Menu 168/183, Hero 655/787),
+each with 0 compile diagnostics and no log error. `Tests/editor_smoke.sh Projects/LanternKeeper Projects/BeaconPass`
+(every editor window, page and popup over the slices; CI step) passes 243/243 and 268/268 steps with 0 errors.
+
+**Profiling** (`python3 Tests/slice_bench.py --build build-release --check --compare Tests/Baselines/slices-release.json`;
+the table and its method in [Benchmarks.md](Benchmarks.md#vertical-slicelar-playerda-profiling-va-regressiya-darvozasi-testsslice_benchpy)):
+every slice scene in the Release Player's `--benchmark` (the levels with the demo pilot), at 284x160 Low and 1280x720.
+The Player's benchmark report now carries `GameCode` - the update layer without its drawing, per measured frame - so
+the game's own CPU work is gated apart from llvmpipe's rasterizer. Small window (best of 3 runs): game code 0.32 /
+2.02 / 2.03 ms (Chiroqbon Menu / Boglar / Yertola) and 0.53 / 3.50 ms (Dovon mash'ali Menu / Dovon), p95 at most 4.40
+ms (gates ≤ 3 ms 2D, ≤ 4 ms 3D, p95 ≤ 6 ms); frames 3.5-5.7 ms in 2D (≤ 16.6 ms) and 22-28 ms in 3D (≤ 33.3 ms: the
+software rasterizer draws the level's ~74 500 triangles twice, shadow map and main pass); the slowest frame of a warm
+session ≤ 51 ms (a first session pays llvmpipe's shader JIT once: 1.9 s in Yertola's first fight, 345 ms in Dovon).
+
+**Soak** (`python3 Tests/slice_bench.py --build build-release --no-bench --soak 18000`): the attract loop (`ZAMIN_DEMO=1`,
+284x160 Low) for 18 000 frames - 10 game minutes - per game, sampled every 30 frames by `ZAMIN_SOAK_STATS`. Chiroqbon
+won 3 times and came back to the menu 3 times, each time with 57 entities, 302.9 MiB resident and 99.2 MiB of engine
+memory (growth after the first loop 0.0 MiB); Dovon mash'ali won 7 times, 278 menu entities each time, the resident
+memory 269.4 → 275.5 → 278.8 MiB over the first three returns and then flat (278.9 MiB; growth 9.5 MiB ≤ 32), the
+engine's own memory 39.0 MiB at every return. No log error in either.
+

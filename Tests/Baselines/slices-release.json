@@ -1,0 +1,176 @@
+{
+  "Build": "Release",
+  "Frames": 300,
+  "Results": {
+    "LanternKeeper.Menu.Small.Frame": {
+      "Ms": 3.481,
+      "PerFrame": true
+    },
+    "LanternKeeper.Menu.Small.FrameP95": {
+      "Ms": 4.167,
+      "PerFrame": true
+    },
+    "LanternKeeper.Menu.Small.GameCode": {
+      "Ms": 0.319,
+      "PerFrame": true
+    },
+    "LanternKeeper.Menu.Small.GameCodeP95": {
+      "Ms": 0.395,
+      "PerFrame": true
+    },
+    "LanternKeeper.Menu.720p.Frame": {
+      "Ms": 54.928,
+      "PerFrame": true
+    },
+    "LanternKeeper.Menu.720p.FrameP95": {
+      "Ms": 63.777,
+      "PerFrame": true,
+      "Noisy": true
+    },
+    "LanternKeeper.Menu.720p.GameCode": {
+      "Ms": 0.514,
+      "PerFrame": true
+    },
+    "LanternKeeper.Menu.720p.GameCodeP95": {
+      "Ms": 0.644,
+      "PerFrame": true,
+      "Noisy": true
+    },
+    "LanternKeeper.Boglar.Small.Frame": {
+      "Ms": 5.437,
+      "PerFrame": true
+    },
+    "LanternKeeper.Boglar.Small.FrameP95": {
+      "Ms": 6.317,
+      "PerFrame": true
+    },
+    "LanternKeeper.Boglar.Small.GameCode": {
+      "Ms": 2.017,
+      "PerFrame": true
+    },
+    "LanternKeeper.Boglar.Small.GameCodeP95": {
+      "Ms": 2.409,
+      "PerFrame": true
+    },
+    "LanternKeeper.Boglar.720p.Frame": {
+      "Ms": 55.714,
+      "PerFrame": true
+    },
+    "LanternKeeper.Boglar.720p.FrameP95": {
+      "Ms": 67.057,
+      "PerFrame": true,
+      "Noisy": true
+    },
+    "LanternKeeper.Boglar.720p.GameCode": {
+      "Ms": 2.438,
+      "PerFrame": true
+    },
+    "LanternKeeper.Boglar.720p.GameCodeP95": {
+      "Ms": 3.064,
+      "PerFrame": true,
+      "Noisy": true
+    },
+    "LanternKeeper.Yertola.Small.Frame": {
+      "Ms": 5.668,
+      "PerFrame": true
+    },
+    "LanternKeeper.Yertola.Small.FrameP95": {
+      "Ms": 6.925,
+      "PerFrame": true
+    },
+    "LanternKeeper.Yertola.Small.GameCode": {
+      "Ms": 2.032,
+      "PerFrame": true
+    },
+    "LanternKeeper.Yertola.Small.GameCodeP95": {
+      "Ms": 2.492,
+      "PerFrame": true
+    },
+    "LanternKeeper.Yertola.720p.Frame": {
+      "Ms": 56.06,
+      "PerFrame": true
+    },
+    "LanternKeeper.Yertola.720p.FrameP95": {
+      "Ms": 65.181,
+      "PerFrame": true,
+      "Noisy": true
+    },
+    "LanternKeeper.Yertola.720p.GameCode": {
+      "Ms": 2.505,
+      "PerFrame": true
+    },
+    "LanternKeeper.Yertola.720p.GameCodeP95": {
+      "Ms": 3.265,
+      "PerFrame": true,
+      "Noisy": true
+    },
+    "BeaconPass.Menu.Small.Frame": {
+      "Ms": 22.222,
+      "PerFrame": true
+    },
+    "BeaconPass.Menu.Small.FrameP95": {
+      "Ms": 26.187,
+      "PerFrame": true
+    },
+    "BeaconPass.Menu.Small.GameCode": {
+      "Ms": 0.528,
+      "PerFrame": true
+    },
+    "BeaconPass.Menu.Small.GameCodeP95": {
+      "Ms": 0.645,
+      "PerFrame": true
+    },
+    "BeaconPass.Menu.720p.Frame": {
+      "Ms": 208.882,
+      "PerFrame": true
+    },
+    "BeaconPass.Menu.720p.FrameP95": {
+      "Ms": 250.812,
+      "PerFrame": true,
+      "Noisy": true
+    },
+    "BeaconPass.Menu.720p.GameCode": {
+      "Ms": 0.682,
+      "PerFrame": true
+    },
+    "BeaconPass.Menu.720p.GameCodeP95": {
+      "Ms": 0.858,
+      "PerFrame": true,
+      "Noisy": true
+    },
+    "BeaconPass.Dovon.Small.Frame": {
+      "Ms": 28.16,
+      "PerFrame": true
+    },
+    "BeaconPass.Dovon.Small.FrameP95": {
+      "Ms": 36.062,
+      "PerFrame": true
+    },
+    "BeaconPass.Dovon.Small.GameCode": {
+      "Ms": 3.504,
+      "PerFrame": true
+    },
+    "BeaconPass.Dovon.Small.GameCodeP95": {
+      "Ms": 4.399,
+      "PerFrame": true
+    },
+    "BeaconPass.Dovon.720p.Frame": {
+      "Ms": 227.129,
+      "PerFrame": true
+    },
+    "BeaconPass.Dovon.720p.FrameP95": {
+      "Ms": 266.123,
+      "PerFrame": true,
+      "Noisy": true
+    },
+    "BeaconPass.Dovon.720p.GameCode": {
+      "Ms": 3.73,
+      "PerFrame": true
+    },
+    "BeaconPass.Dovon.720p.GameCodeP95": {
+      "Ms": 4.744,
+      "PerFrame": true,
+      "Noisy": true
+    }
+  }
+}

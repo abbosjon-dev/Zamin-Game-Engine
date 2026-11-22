@@ -34,6 +34,8 @@ SAMPLES = [
     ("Sokoban", {"ZAMIN_DEMO": "1", "ZAMIN_START_LEVEL": "9"}, 230, ""),
     ("EndlessRunner", {"ZAMIN_DEMO": "1"}, 260, ""),
     ("Racing", {"ZAMIN_DEMO": "1"}, 300, ""),
+    ("LanternKeeper", {"ZAMIN_DEMO": "1"}, 1000, ""),
+    ("BeaconPass", {"ZAMIN_DEMO": "1"}, 760, ""),
 ]
 
 

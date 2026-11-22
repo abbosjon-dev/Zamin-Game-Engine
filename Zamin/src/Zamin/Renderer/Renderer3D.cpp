@@ -334,17 +334,29 @@ void main()
     weights = sum > 0.000001 ? weights / sum : vec4(1,0,0,0);
     vec3 terrainAlbedo = vec3(0), terrainNormal = vec3(0);
     vec3 terrainPBR = vec3(0);
+    // Steep slopes (cliffs): the layers' top-down mapping stretches there, so the albedo and the mask are also read
+    // projected from the sides (world X and Z) and blended by the surface's slope; the side projections take no
+    // normal map (the cliff's own shape lights it). A gentle slope reads only the top-down mapping, as before.
+    vec3 terrainTri = pow(abs(normalize(v_Normal)), vec3(4.0));
+    terrainTri /= max(terrainTri.x + terrainTri.y + terrainTri.z, 0.00001);
+    bool terrainSides = terrainTri.y < 0.985;
     for (int i = 0; i < 4; ++i)
     {
         vec2 layerUV = v_TexCoord * u_TerrainSize * u_LayerTiling[i];
         vec3 color = texture(u_LayerAlbedo[i], layerUV).rgb;
+        vec3 orm = texture(u_LayerMask[i], layerUV).rgb;
+        if (terrainSides)
+        {
+            vec2 sideX = v_WorldPos.zy * u_LayerTiling[i], sideZ = v_WorldPos.xy * u_LayerTiling[i];
+            color = color * terrainTri.y + texture(u_LayerAlbedo[i], sideX).rgb * terrainTri.x + texture(u_LayerAlbedo[i], sideZ).rgb * terrainTri.z;
+            orm = orm * terrainTri.y + texture(u_LayerMask[i], sideX).rgb * terrainTri.x + texture(u_LayerMask[i], sideZ).rgb * terrainTri.z;
+        }
         if (u_LayerSRGB[i] == 1) color = toLinear(color);
         terrainAlbedo += weights[i] * toLinear(u_LayerColor[i]) * color;
         vec3 normal = texture(u_LayerNormal[i], layerUV).xyz * 2.0 - 1.0;
         normal.xy *= u_LayerPBR[i].w;
         normal.z = max(normal.z, 0.0001);
         terrainNormal += weights[i] * normalize(normal);
-        vec3 orm = texture(u_LayerMask[i], layerUV).rgb;
         terrainPBR += weights[i] * vec3(clamp(u_LayerPBR[i].x * orm.g, 0.04, 1.0),
                                       clamp(u_LayerPBR[i].y * orm.b, 0.0, 1.0),
                                       clamp(u_LayerPBR[i].z * orm.r, 0.0, 1.0));
@@ -419,7 +431,9 @@ void main()
     if (!frontFacing) N = -N;
 #ifdef TERRAIN
     vec3 V0 = u_CameraPos - v_WorldPos;
+    vec3 surfaceN = N;
     N = normalize(CotangentFrame(N, -V0, v_TexCoord * u_TerrainSize) * normalize(terrainNormal));
+    if (terrainSides) N = normalize(mix(surfaceN, N, terrainTri.y)); // no stretched bumps on a cliff
 #else
     if (u_HasNormalMap == 1)
     {

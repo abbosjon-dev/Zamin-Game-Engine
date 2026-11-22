@@ -465,11 +465,12 @@ def make_audio():
     k.write_wav(rel("music_menu.wav"), sk.music_loop(12.0, k.note_freq("D3"), "hijaz", 72, 21, 0.4, 0.35, drums=False))
     k.write_wav(rel("music_dovon.wav"), sk.music_loop(12.0, k.note_freq("A2"), "dorian", 92, 22, 0.5, 0.28))
     k.write_wav(rel("music_warden.wav"), sk.music_loop(10.0, k.note_freq("C2"), "hijaz", 120, 23, 0.6, 0.3, dark=True))
-    t = np.arange(int(6 * k.RATE)) / k.RATE
-    wind = k.lowpass(k.noise(6, 31), 420) * (0.55 + 0.45 * np.sin(2 * np.pi * 0.17 * t) ** 2)
+    # 5 s: exactly two gusts of the wind (sin^2 at 0.2 Hz), so the loop has no seam
+    t = np.arange(int(5 * k.RATE)) / k.RATE
+    wind = k.lowpass(k.noise(5, 31), 420) * (0.55 + 0.45 * np.sin(2 * np.pi * 0.2 * t) ** 2)
     birds = np.zeros_like(t)
     for i in range(7):
-        at = (i * 0.83 + (i * 31 % 7) * 0.11) % 5.5
+        at = (i * 0.83 + (i * 31 % 7) * 0.11) % 4.6
         n = int(0.09 * k.RATE)
         tt = np.arange(n) / k.RATE
         chirp = np.sin(2 * np.pi * (3200 + 1800 * tt / 0.09 + 300 * np.sin(tt * 90)) * tt) * np.exp(-tt * 30)

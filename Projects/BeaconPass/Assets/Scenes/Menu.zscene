@@ -19,9 +19,9 @@
     },
     "Fog": {
       "Enabled": true,
-      "Color": [0.86, 0.64, 0.5],
-      "Density": 0.0065,
-      "HeightFalloff": 0.06
+      "Color": [0.88, 0.73, 0.62],
+      "Density": 0.0045,
+      "HeightFalloff": 0.08
     },
     "Post": {
       "Tonemap": 1,

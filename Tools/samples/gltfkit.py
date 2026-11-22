@@ -499,8 +499,13 @@ def clip_pose(name, p, hip_h):
         r["Neck"][0] = 0.3 * e
         r["UpperLeg.L"][0], r["UpperLeg.R"][0] = -0.1 * e, 0.12 * e
         r["LowerLeg.L"][0], r["LowerLeg.R"][0] = -0.5 * e, -0.15 * e
-        r["UpperArm.L"] = [0.4 * e, 0, -0.12 - 1.1 * e]
-        r["UpperArm.R"] = [0.2 * e, 0, 0.12 + 1.25 * e]
+        # arms fall loose beside the body, elbows bent (one forearm over the chest), the head rolls to a side - not
+        # spread straight out
+        r["UpperArm.L"] = [0.35 * e, 0.15 * e, -0.12 - 0.42 * e]
+        r["LowerArm.L"][0] = 0.12 + 0.75 * e
+        r["UpperArm.R"] = [0.75 * e, -0.2 * e, 0.12 + 0.3 * e]
+        r["LowerArm.R"][0] = 0.12 + 1.1 * e
+        r["Head"][1] = 0.45 * e
         bounce = 0.04 * math.sin(math.pi * max(0.0, min(1.0, (p - 0.75) / 0.2))) if p > 0.75 else 0.0
         y = hip_h - (hip_h - 0.17 * hip_h / 0.95) * e + bounce
     return r, y
@@ -769,19 +774,52 @@ def ring(radius, color, glow, width=0.15):
 
 
 def peak(seed, radius, height):
-    """A distant mountain: a ridged cone with a snow cap."""
+    """A distant mountain: a radial mesh (40 segments, 12 rings) with ridges and gullies running down from the summit,
+    smooth normals; snow above a ragged line on the gentler faces, rock on the steep ones and below."""
     rng = np.random.default_rng(seed)
+    S, R = 40, 12
+    phase = rng.uniform(0, 2 * math.pi, 4)
+    ang = np.linspace(0, 2 * math.pi, S, endpoint=False)
+    ridges = (0.55 * np.abs(np.sin(3.0 * ang + phase[0])) + 0.30 * np.abs(np.sin(7.0 * ang + phase[1])) + 0.15 * np.abs(np.sin(13.0 * ang + phase[2])))
+    lean = 1.0 + 0.22 * np.cos(ang - phase[3])  # one shoulder longer than the other
+    verts = [(0.0, height, 0.0)]
+    for k in range(1, R + 1):
+        t = k / R
+        h = height * (1 - t) ** 1.45
+        for j in range(S):
+            r = radius * t * lean[j] * (0.82 + 0.36 * ridges[j] * (0.4 + 0.6 * t))
+            dh = height * 0.06 * math.sin(t * 9.0 + ang[j] * 2.0 + phase[2]) * t * (1 - t)
+            verts.append((math.cos(ang[j]) * r, max(0.0, h + dh), math.sin(ang[j]) * r))
+    V = np.array(verts)
+    tris = []
+    for j in range(S):
+        tris.append((0, 1 + (j + 1) % S, 1 + j))
+    for k in range(1, R):
+        a, b = 1 + (k - 1) * S, 1 + k * S
+        for j in range(S):
+            j1 = (j + 1) % S
+            tris.append((a + j, a + j1, b + j))
+            tris.append((a + j1, b + j1, b + j))
+    T = np.array(tris)
+    fn = np.cross(V[T[:, 1]] - V[T[:, 0]], V[T[:, 2]] - V[T[:, 0]])
+    VN = np.zeros_like(V)
+    for c in range(3):
+        np.add.at(VN, T[:, c], fn)
+    VN /= np.maximum(np.linalg.norm(VN, axis=1, keepdims=True), 1e-9)
+    if VN[0, 1] < 0:
+        VN = -VN
+    up = fn[:, 1] / np.maximum(np.linalg.norm(fn, axis=1), 1e-9)
+    if up.mean() < 0:
+        up = -up
+        T = T[:, [0, 2, 1]]
+    mid = V[T].mean(axis=1)
+    line = height * (0.52 + 0.08 * np.sin(np.arctan2(mid[:, 2], mid[:, 0]) * 5 + phase[1]))
+    is_snow = (mid[:, 1] > line) & (up > 0.42) | (mid[:, 1] > height * 0.86)
     rockp, snow = P(), P()
-    prof = [(radius, 0.0), (radius * 0.7, height * 0.35), (radius * 0.38, height * 0.66), (radius * 0.08, height * 0.95), (0.001, height)]
-    Pp, N, UV, T, F = revolve(prof, (0, 0, 0), (0, 1, 0), 11, phase=float(rng.random()))
-    jitter = 1 + 0.18 * np.sin(np.arange(len(Pp)) * 1.7 + seed)
-    Pp[:, 0] *= jitter
-    Pp[:, 2] *= jitter
-    tri = Pp[T]
-    fn = np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0])
-    mid = tri.mean(axis=1)[:, 1]
-    low = mid < height * 0.6
-    for target, mask in ((rockp, low), (snow, ~low)):
-        sel = tri[mask].reshape(-1, 3)
-        target.add(sel, np.repeat(fn[mask], 3, axis=0), sel[:, [0, 2]] * 0.01, np.arange(len(sel)).reshape(-1, 3))
+    for target, mask in ((rockp, ~is_snow), (snow, is_snow)):
+        sel = T[mask]
+        if not len(sel):
+            continue
+        used, inverse = np.unique(sel.reshape(-1), return_inverse=True)  # shared vertices: smooth and small
+        target.add(V[used], VN[used], V[used][:, [0, 2]] * 0.01, inverse.reshape(-1, 3))
     return [("Rock", (0.36, 0.34, 0.38), 0.95, 0.0, (0, 0, 0), rockp), ("Snow", (0.9, 0.92, 0.96), 0.7, 0.0, (0, 0, 0), snow)]

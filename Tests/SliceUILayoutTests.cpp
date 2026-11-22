@@ -6,9 +6,14 @@
 // texts that fit, readable font sizes, the selection inside the open panel and every widget of it reachable by keyboard.
 #include "TestAssertions.h"
 #include <Zamin/Core/GameState.h>
+#include <Zamin/Core/Input.h>
+#include <Zamin/Core/Display.h>
 #include <Zamin/Core/Log.h>
 #include <Zamin/Core/SaveData.h>
 #include <Zamin/Gameplay/GameplayUI.h>
+#include <Zamin/Localization/Localization.h>
+#include <Zamin/Project/PlayerSettings.h>
+#include <Zamin/Scripting/EventBus.h>
 #include <Zamin/Project/Project.h>
 #include <Zamin/Scene/Entity.h>
 #include <Zamin/Scene/SceneSerializer.h>
@@ -359,4 +364,90 @@ TEST(SliceMenuLayoutCatchesABrokenLinkAndTinyText)
     Project::SetActive(prior);
     std::error_code ec;
     std::filesystem::remove_all(work, ec);
+}
+
+namespace {
+    // The settings panel of a slice's title menu closed three ways - the Orqaga button, Escape and the gamepad's B (the
+    // gameplay UI's Back) - keeps the changed volume and UI scale every time (before, only Orqaga saved them and a level
+    // put the old values back); the language button keeps the choice for the next start (Localization::LoadSettings).
+    void SettingsSurviveEveryClose(const std::string& name, const std::string& prefix)
+    {
+        const auto level = Log::GetMinLevel();
+        Log::SetMinLevel(LogLevel::Info);
+        const auto prior = Project::GetActive();
+        const auto work = PrepareSlice(name);
+        Localization::ClearSavedSettings();
+        Input::ResetState();
+        auto scene = CreateRef<Scene>();
+        CHECK(SceneSerializer(scene).Deserialize(Project::GetAssetDirectory() / "Scenes/Menu.zscene"));
+        scene->OnViewportResize(1280, 720);
+        scene->OnRuntimeStart();
+        auto frames = [&](int n) {
+            for (int i = 0; i < n; ++i)
+            {
+                Input::Update();
+                scene->UpdateRuntime(1.0f / 30.0f);
+            }
+        };
+        auto message = [&](const char* text) {
+            ScriptMessage m;
+            m.Name = text;
+            m.Payload = std::string();
+            scene->SendMessage(scene->GetEntityByUUID(UUID(1100)), m);
+            frames(3);
+        };
+        frames(10);
+        G::UIWorld* ui = G::FindGameplayUI(*scene);
+        CHECK(ui && ui->State().Top == "Main");
+        const char* ways[] = { "Orqaga", "Escape", "B" };
+        for (int way = 0; way < 3 && ui; ++way)
+        {
+            message("Settings");
+            CHECK(ui->State().Top == "Settings");
+            const float music = 0.2f + 0.25f * way;
+            CHECK(scene->SetSliderValue(scene->GetEntityByUUID(UUID(6111)), music, true));
+            CHECK(scene->SetSliderValue(scene->GetEntityByUUID(UUID(6116)), way == 1 ? 12.0f : 9.0f, true));
+            frames(2);
+            if (way == 0) message("Back");
+            else if (way == 1)
+            {
+                Input::SimulateKey(Key::Escape, true);
+                frames(1);
+                Input::SimulateKey(Key::Escape, false);
+            }
+            else
+            {
+                Input::SimulateGamepadConnected(0, true);
+                Input::SimulateGamepadButton(0, GamepadButton::B, true);
+                frames(1);
+                Input::SimulateGamepadButton(0, GamepadButton::B, false);
+            }
+            frames(4);
+            const float savedMusic = GameState::GetFloat(prefix + ".Settings.Music", -1), savedScale = GameState::GetFloat(prefix + ".Settings.UIScale", -1);
+            std::printf("    %s %s: panel '%s', music %.2f (saved %.2f), UI scale saved %.2f\n", name.c_str(), ways[way], ui->State().Top.c_str(), music, savedMusic,
+                        savedScale);
+            CHECK(ui->State().Top == "Main" && std::abs(savedMusic - music) < 1e-3f && std::abs(savedScale - (way == 1 ? 1.2f : 0.9f)) < 1e-3f);
+        }
+        // the language: switched and kept with SaveData (the player's next start loads it)
+        CHECK(Localization::GetLanguage() == "uz");
+        message("Language");
+        CHECK(Localization::GetLanguage() == "en" && Localization::HasSavedSettings());
+        CHECK(Localization::SetLanguage("uz") && Localization::LoadSettings() && Localization::GetLanguage() == "en");
+        // the fullscreen switch shows the window as it is (no window here: windowed)
+        CHECK(!scene->GetEntityByUUID(UUID(6113)).GetComponent<UIToggleComponent>().IsOn);
+        scene->OnRuntimeStop();
+        Localization::ClearSavedSettings();
+        Display::ClearSavedSettings();
+        Display::ResetOptions(PlayerSettings());
+        Input::ResetState();
+        Log::SetMinLevel(level);
+        Project::SetActive(prior);
+        std::error_code ec;
+        std::filesystem::remove_all(work, ec);
+    }
+}
+TEST(SliceMenuSettingsKeptOnEveryCloseAndLanguagePersists)
+{
+    SettingsSurviveEveryClose("LanternKeeper", "LK");
+    SettingsSurviveEveryClose("BeaconPass", "BP");
 }

@@ -111,7 +111,7 @@ def settings_3d():
     return {"DrawSky": True, "SkyTop": [0.20, 0.32, 0.58], "SkyHorizon": [1.0, 0.66, 0.42], "Ground": [0.42, 0.33, 0.26], "Ambient": 0.42,
             "Exposure": 1.05, "ShadowDistance": 55,
             "Sky": {"Curve": 0.8, "GroundFade": 1.5, "SunDisc": True, "SunSize": 1.6, "SunIntensity": 2.4, "SunGlow": 0.6},
-            "Fog": {"Enabled": True, "Color": [0.86, 0.64, 0.50], "Density": 0.0065, "HeightFalloff": 0.06},
+            "Fog": {"Enabled": True, "Color": [0.88, 0.73, 0.62], "Density": 0.0045, "HeightFalloff": 0.08},
             "Post": {"Tonemap": 1, "Bloom": True, "BloomThreshold": 1.0, "BloomKnee": 0.5, "BloomIntensity": 0.55, "BloomRadius": 1.0, "Vignette": 0.26,
                      "Saturation": 1.1, "Contrast": 1.06, "Brightness": 0.0, "Tint": [1.0, 0.98, 0.95], "SSAO": True, "SSAORadius": 0.6,
                      "SSAOIntensity": 1.1, "SSAOBias": 0.03, "FXAA": True},

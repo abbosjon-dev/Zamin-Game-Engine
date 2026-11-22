@@ -7,11 +7,13 @@
 #include <Zamin/Asset/AsyncLoader.h>
 #include <Zamin/Core/Log.h>
 #include <Zamin/Core/GameState.h>
+#include <Zamin/Core/Input.h>
 #include <Zamin/Core/InputActions.h>
 #include <Zamin/Core/SaveData.h>
 #include <Zamin/Gameplay/CombatWorld.h>
 #include <Zamin/Gameplay/GameplayAI.h>
 #include <Zamin/Gameplay/GameplayRules.h>
+#include <Zamin/Gameplay/GameplayUI.h>
 #include <Zamin/Gameplay/LoadoutWorld.h>
 #include <Zamin/Gameplay/QuestWorld.h>
 #include <Zamin/Gameplay/SaveModel.h>
@@ -935,4 +937,67 @@ SLOW_TEST(BeaconPassResumeMatrixHeadless)
         CHECK(banner == "Saqlash o'qilmadi - daraja boshidan" && o.XP == 0 && near(at, atCamp->Position) && rewritten && rewritten->QuestBook.XP == 0);
     }
     Finish(work, prior);
+}
+// The right stick turns the orbit camera at a rate (2.4 rad/s yaw at full tilt), the same at 30 and 60 frames a second
+// (before, a fixed angle per frame: twice as fast at 60 Hz), and not at all while a blocking panel (the bag) fences the
+// gameplay input - as the mouse look.
+TEST(BeaconPassCameraStickTurnsAtARate)
+{
+    const auto prior = Project::GetActive();
+    const auto work = Prepare(0, false);
+    {
+        auto path = work / "BeaconPass/Assets/Scenes/Dovon.zscene";
+        auto doc = J::parse(FileSystem::ReadTextFile(path));
+        for (auto& e : doc["Entities"])
+            if (e["Entity"] == Hero)
+            {
+                auto overrides = J::parse(e["NativeScript"]["Fields"]["Overrides"]["Value"].get<std::string>());
+                overrides["Pilot"] = false; // a player's hero: it stands still, the camera does not follow on its own
+                e["NativeScript"]["Fields"]["Overrides"]["Value"] = overrides.dump();
+            }
+        CHECK(FileSystem::WriteTextFile(path, doc.dump() + "\n"));
+    }
+    const auto level = Log::GetMinLevel();
+    Log::SetMinLevel(LogLevel::Error);
+    // the camera's heading around the hero (the angle of camera - hero in the ground plane), after `hold` seconds of
+    // a full right stick at `hz`, settled
+    auto turn = [&](float hz, bool bag) {
+        Input::ResetState();
+        auto scene = CreateRef<Scene>();
+        CHECK(SceneSerializer(scene).Deserialize(Project::GetAssetDirectory() / "Scenes/Dovon.zscene"));
+        LoadModels(*scene);
+        scene->OnRuntimeStart();
+        const float dt = 1.0f / hz;
+        auto frames = [&](float seconds) {
+            for (int i = 0; i < int(std::lround(seconds * hz)); ++i)
+            {
+                Input::Update();
+                scene->UpdateRuntime(dt);
+            }
+        };
+        auto heading = [&] {
+            const auto d = scene->GetEntityByUUID(UUID(CameraId)).GetTransform().Translation - scene->GetEntityByUUID(UUID(Hero)).GetTransform().Translation;
+            return std::atan2(d.x, d.z);
+        };
+        frames(2.0f);
+        std::string error;
+        if (bag) CHECK(G::UIWorld::For(*scene).Open("Bag", error));
+        const float before = heading();
+        Input::SimulateGamepadConnected(0, true);
+        Input::SimulateGamepadAxis(0, GamepadAxis::RightX, 1.0f);
+        frames(0.5f);
+        Input::SimulateGamepadAxis(0, GamepadAxis::RightX, 0.0f);
+        frames(1.5f);
+        const float after = heading();
+        scene->OnRuntimeStop();
+        Input::ResetState();
+        return std::remainder(after - before, 6.283185307179586f);
+    };
+    const float at30 = turn(30, false), at60 = turn(60, false), fenced = turn(60, true);
+    std::printf("  a half second of full right stick: %.3f rad at 30 Hz, %.3f rad at 60 Hz, %.3f rad behind the bag\n", at30, at60, fenced);
+    CHECK(std::abs(std::abs(at30) - 1.2f) < 0.12f && std::abs(at30 - at60) < 0.06f && std::abs(fenced) < 0.01f);
+    ReleaseModels();
+    Log::SetMinLevel(level);
+    std::filesystem::remove_all(work);
+    Project::SetActive(prior);
 }

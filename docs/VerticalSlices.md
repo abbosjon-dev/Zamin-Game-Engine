@@ -44,8 +44,8 @@ geometry and props, 5000-5499 enemies, 5500-5999 interactables, 6000-7999 UI, 80
 | Event | Writes |
 |---|---|
 | New game | GameState `LK.Run.*` reset, `Entry=new` → Boglar → autosave `Run1` |
-| Shrine | `SaveWrite(Run<n>)` (v4: combat is present), checkpoint, full heal, `LK.Run.Save/Step/Time` |
-| Level 1 exit (Gate claimed) | level card → `TransferWrite(Carry)` → `Run.Level=2, Run.Save=0, Entry=carry` → Yertola: `TransferLoad`, heal, autosave `Run2` |
+| Shrine | full heal, then `SaveWrite(Run<n>)` (v4: combat is present), checkpoint, `LK.Run.Save/Step/Time` |
+| Level 1 exit (Gate claimed, hero alive) | level card (pauses the world, timed in real time) → `TransferWrite(Carry)` (retried after 1 s on failure) → `Run.Level=2, Run.Save=0, Entry=carry` → Yertola: `TransferLoad`, heal, autosave `Run2` |
 | Continue | the level's own save when `Run.Save == Run.Level`, else the transfer (level 2), else a fresh start |
 | Direct start (Editor Play or `StartScene` on a level, `Entry` unset = `new`) | a fresh run of that level: level 2 never reads a stale `Carry.json` |
 | Defeat (3 deaths since the load) | defeat screen → *Oxirgi saqlashdan* reloads the level from its save |
@@ -69,8 +69,8 @@ Log contract: `Menyu: ...`, `SLICE_LEVEL_START`, `SLICE_RESUMED`, `SLICE_SAVED`,
 
 `python3 Tools/samples/gen_lantern_keeper.py` writes everything deterministically (two runs give identical files):
 painted characters with 4-direction walk cycles (`slicekit.py`), tilesets, props, UI frames and icons, music and
-sounds, localization, scenes and graphs (`lantern_graphs.py` on `graphkit.py`), and `Assets/Data/oracle.json` (not an
-engine asset). Headless tests (`ZaminTests --filter LanternKeeper*`): graphs validate and scenes load; the oracle
+sounds, localization, scenes and graphs (`lantern_graphs.py` on `graphkit.py`), and `Tests/oracle.json` (test data,
+kept outside `Assets/` so it never ships). Headless tests (`ZaminTests --filter LanternKeeper*`): graphs validate and scenes load; the oracle
 plays menu → Boglar → transfer → Yertola → victory (850 XP, level 4, 5/5 quests, all coins, lamps consumed, three
 items equipped, Nova/Mend unlocked, boss dead, no projectile in flight, transfer v1 and save v4 files); the lose plan
 reaches the defeat screen, reloads and completes level 1 with exactly the normal progress; two fresh level 1 runs
@@ -155,8 +155,7 @@ on the `Resumed` message.
 ### Tests
 
 `python3 Tools/samples/gen_beacon_pass.py` writes everything deterministically (two runs give identical files; assets
-5.99 MiB, the largest scene 547 KB, model 372 KB, texture 140 KB, sound 516 KB / 12 s) including
-`Assets/Data/oracle.json`. Headless tests (`ZaminTests --filter BeaconPass*`, models read on the CPU so the real
+5.96 MiB, the largest scene 547 KB) and `Tests/oracle.json` (test data outside `Assets/`). Headless tests (`ZaminTests --filter BeaconPass*`, models read on the CPU so the real
 Animator runs): graphs validate and scenes load (controller shape, blend thresholds, clip lengths = stride / speed);
 the oracle plays menu → Dovon → victory (800 XP, level 4, 4/4 quests, three stones consumed, sword and shield
 equipped, Zilzila unlocked, Warden dead, no projectile in flight, save v4); the locomotion run records pure Walk and
@@ -207,6 +206,22 @@ allocates per frame on one thread (it made 223 allocations a frame for 24 humano
 The in-game stress (A3, P3) runs headless on private copies of the real levels with their real graphs instead of
 separate `Stress` scenes in the Player: the slices' assets are at their 6 MiB budget, and llvmpipe's drawing would bury
 the game code's time.
+
+### Localization, settings and tiles
+
+Every player-facing string in both slices (prompts, banners, HUD and stats labels, level titles, item, quest, objective
+and combat feed names) goes through a localization key with its Uzbek fallback: graph texts use `Localization.Text`,
+the bag, the quest log and the combat feed look up `item.<Key>`, `quest.<Quest>[.<Objective>]` and `combat.<Key>`, and
+the generators write `uz.json` / `en.json` with the same keys (checked by `Tests/samples_assets.py`). Prompts carry
+`{action:...}` tokens; the UI audit's `RawHint` rule fails any visible text that still shows one unexpanded.
+Settings are saved whenever the settings panel closes, by *Orqaga* or by Back/Escape (`SLICE_SETTINGS` then
+`Menyu: Asosiy`); *To'liq ekran* and the language go through `Display.SaveSettings` and
+`Localization.SaveSettings`, so a fresh process starts with the same choice.
+Chiroqbon's ground uses a 47-variant blob autotile for paths (no holes in 2x2 corners), a 4-neighbour water autotile,
+seamless grass and a decal layer (`Bezak`: petals, clover, pebbles, moss, cracks, cobwebs, wall shadows) between the
+ground and the walls. Dovon's terrain samples steep slopes triplanar, so cliffs no longer stretch.
+The long runs (oracles, lose plans, resume matrices, determinism) are `SLOW_TEST`s: `ZaminTests --quick` (ctest label
+`unit`) skips them and `ZaminSliceTests` (`--slow`, labels `slices;slow`) runs them.
 
 ### UI input and scale
 

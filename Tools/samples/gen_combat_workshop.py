@@ -160,8 +160,12 @@ for two in (True,False):
  hero=next(e for e in base['Entities'] if e['Entity']==800);hero['NativeScript']=script('Combat'+suffix+'.zgraph');hero['Transform']['Translation']=at(PLAYER,two)
  camera=next(e for e in base['Entities'] if e['Entity']==801)
  arena=next(e for e in base['Entities'] if e['Entity']==940)
- if two:camera['Transform']['Translation']=[-2.4,1,15];camera['Camera']['OrthographicSize']=10;arena['Transform'].update(Translation=[2,1,-.1],Scale=[12,11,1])
- else:camera['Transform']['Translation']=[-4,14,12];camera['Camera']['OrthographicSize']=13;arena['Transform'].update(Translation=[2,-.5,-1],Scale=[13,1,11])
+ # Framing: the Sentry (the main target, at the far end) must stay clear of the editor's viewport toolbar overlay
+ # in editor Play, and the course right of the HUD column. 2D: 12 m tall, centred at y 2 (the Hidden dummy at
+ # y -3 keeps a bottom margin). 3D: the oblique orthographic view is moved 1.5 m towards the Sentry (about 1.1 m
+ # down the screen).
+ if two:camera['Transform']['Translation']=[-2.4,2,15];camera['Camera']['OrthographicSize']=12;arena['Transform'].update(Translation=[2,1,-.1],Scale=[12,11,1])
+ else:camera['Transform']['Translation']=[-4,14,10.5];camera['Camera']['OrthographicSize']=13;arena['Transform'].update(Translation=[2,-.5,-1],Scale=[13,1,11])
  def visual(i,parent,tag,color,scale2=(.8,.8),scale3=(.8,1.8,.8)):
   e={'Entity':i,'Parent':parent,'Tag':tag,'Transform':transform([0,0,.05] if two else [0,scale3[1]/2,0],(scale2[0],scale2[1],1) if two else scale3)}
   e['SpriteRenderer' if two else 'MeshRenderer']={'Color':color} if two else {'Mesh':'Cube','Shader':'Unlit','Albedo':color,'CastShadows':False};return e

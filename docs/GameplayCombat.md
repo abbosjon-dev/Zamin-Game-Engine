@@ -474,16 +474,22 @@ detonations with launch snapshots, the 16-per-step detonation budget, Blueprint 
 policy and a determinism scenario with every path (identical hash in fresh scenes and at 1/30, 1/60, 1/144 s
 and a jittered sequence).
 
-`GameSaveModelV4*` tests cover the v4 round trip (exact doubles, byte-identical re-encode), 38 struct and 12
-JSON edits that must each be rejected (ranges, NaN, order, duplicates, references, unknown/missing fields,
-versions) and the maximal document; `GameSaveLegacy*` the golden v1/v2/v3 files and the real LoadoutWorkshop
+`GameSaveModelV4*` tests cover the v4 round trip (exact doubles, byte-identical re-encode, the optional
+`FormerOwner`), 41 struct and 14 JSON edits that must each be rejected (ranges, NaN, order, duplicates,
+references, unknown/missing fields, versions), a tick phase within the model's 1e-9 above a 60 s period and the
+maximal document; `GameSaveLegacy*` the golden v1/v2/v3 files and the real LoadoutWorkshop
 v3 save restoring into the Loadout2D scene with and without combat. `CombatSave*` tests restore into a fresh
-scene and continue exactly (projectile position, effect timers, health), ownerless sources and owners, effects
-staged before loadout energy, changed definitions and invalid late records that change nothing, the legacy
+scene and continue exactly (projectile position, effect timers, health), ownerless sources and owners (the
+former owner stays spared and the area keeps the team snapshot after a load), effects staged before loadout energy, changed definitions and invalid late records that change nothing, the legacy
 migration and unlinked ability signatures. `CombatAbility*` cover commit-at-launch and spend-nothing failures,
 late binding and kind mismatches, effect overrides, instant + effect, Kind 3, areas and Blueprint pins;
-`CombatHUD*` the effect/hit-marker HUD and the feed; `VisualGraphPinChoicesAreTranslated` that every choice
-has an English pair and as many names as the dispatch accepts.
+`CombatHUD*` the effect/hit-marker HUD, the feed, ticks that applied nothing and tick bursts after a hit;
+`CombatImpactDetonationLineOfSight*` a wall-impact area that must not see through the struck wall (Box2D and
+Jolt); `CombatPureNodesNeverCreateTheCombatWorld` read-only pure nodes; `VisualGraphPinChoicesAreTranslated`
+that every choice has an English pair and as many names as the dispatch accepts. `Tests/combat_editor_test.py`
+(xvfb, xdotool) adds, saves and undoes the combat nodes in the real ImGui graph editor and changes the
+ProjectileDefine `Kind` and EffectDefine `Tick` pins through their named-choice combos, checking the saved graph
+after each save, Undo, Redo and Undo.
 
 ## Later work
 

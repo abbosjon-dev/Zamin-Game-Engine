@@ -119,6 +119,14 @@ jobs:
       - name: Equipment, abilities and v3 relocated persistence
         run: python3 Tests/loadout_workflow_test.py --build build --out world-streaming/loadouts --exports
 
+      - name: Projectile and effect Blueprint authoring, named-choice pins and Undo
+        env:
+          ZAMIN_BUILD_DIR: build
+        run: xvfb-run -a -s '-screen 0 1600x1000x24 -nolisten tcp' python3 Tests/combat_editor_test.py
+
+      - name: Projectiles, areas, status effects and v4 relocated persistence
+        run: python3 Tests/combat_workflow_test.py --build build --out world-streaming/combat --exports
+
       - name: Quest Blueprint authoring and Undo
         env:
           ZAMIN_BUILD_DIR: build

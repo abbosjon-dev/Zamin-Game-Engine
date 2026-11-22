@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Real X11/ImGui visual graph edit regression for the combat nodes (ProjectileDefine, EffectDefine, ProjectileFire).
+"""Real X11/ImGui visual graph edit regression for the combat nodes (ProjectileDefine, EffectDefine, ProjectileFire):
+each is added, saved and undone; on ProjectileDefine (Kind) and EffectDefine (Tick) an enumerated pin is changed
+through its named-choice combo, saved, undone, redone and undone again, checking the saved graph each time.
 Run under xvfb-run with a 1600x1000x24 screen. Requires xdotool and ImageMagick.
 ZAMIN_BUILD_DIR chooses the build (default build); the sample is copied to a private temp directory.
 """
@@ -19,6 +21,27 @@ def click(px,py):
  x('mousedown',1);time.sleep(2);x('mouseup',1);time.sleep(2)
 def read():return json.loads((project/'Assets/Scripts/Move2D.zgraph').read_text())
 def save():click(473,140);time.sleep(1.2)
+# Selected-node panel rows (an added node is selected): the combo of an enumerated pin, then its popup rows.
+CHOICES={'Gameplay.ProjectileDefine':('Kind',373,1,'Davolash'),'Gameplay.EffectDefine':('Tick',437,1,'Zarar')}
+def saved(expect,check):
+ # Save until the file shows the expected state (only Save is retried: it is idempotent).
+ for attempt in range(4):
+  save()
+  if check(read()):return
+  time.sleep(1)
+ raise AssertionError(f'{expect}: {read()["Nodes"][-1]}')
+def choose(kind):
+ pin,y,index,label=CHOICES[kind]
+ click(1385,y);click(1332,y+31+22*index)
+ saved(f'{pin}={label}',lambda g:len(g['Nodes'])==12 and g['Nodes'][-1]['Inputs'].get(pin)==index)
+ subprocess.run(['import','-window','root',str(out/f'combat-choice-{pin}.png')],check=True)
+ click(531,140) # Undo: the pin returns to its default (not stored)
+ saved(f'{pin} undone',lambda g:len(g['Nodes'])==12 and g['Nodes'][-1]['Kind']==kind and g['Nodes'][-1]['Inputs'].get(pin,0)==0)
+ click(587,140) # Redo
+ saved(f'{pin} redone',lambda g:len(g['Nodes'])==12 and g['Nodes'][-1]['Inputs'].get(pin)==index)
+ click(531,140)
+ saved(f'{pin} undone again',lambda g:len(g['Nodes'])==12 and g['Nodes'][-1]['Inputs'].get(pin,0)==0)
+ print(f'UI: {kind} {pin} combo -> {label}, save, Undo/Redo passed',flush=True)
 try:
  for i in range(100):
   if app.poll() is not None:raise RuntimeError('Editor exited early')
@@ -41,6 +64,7 @@ try:
    time.sleep(1)
   assert len(read()['Nodes'])==12 and read()['Nodes'][-1]['Kind']==kind
   if kind=='Gameplay.ProjectileDefine':subprocess.run(['import','-window','root',str(out/'combat-authoring.png')],check=True)
+  if kind in CHOICES:choose(kind)
   click(531,140)
   for attempt in range(4):
    save()

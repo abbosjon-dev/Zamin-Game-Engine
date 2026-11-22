@@ -17,7 +17,7 @@ saqlanadi; ulardagi belgi yangi imkoniyatning ishlayotganiga dalil o'rnini bosma
 | P2 Kontent sifati va mualliflik | Terrain GPU qatlamlari/PBR, normal/roughness, atlas/cook, foliage, 2D palette/animation qulayligi | Haqiqiy assetli 2D/3D sahnalar, import/export/undo roundtrip, tekstura xotira byudjeti | GPU terrain v1 yakunlandi; qolgan kontent ishlari rejada |
 | P3 Dunyo va asset streaming | Disk kataklari, async load/unload, data layers, HLOD, floating origin, asset residency | Tez harakatda/cancel/reload'da yo'qolmagan obyektlar, chegaralangan RAM/VRAM, main thread'da og'ir IO yo'q | Runtime v2: LRU cleanup, observed pressure gate, terrain tiles va grid mosaic bajarildi; HLOD/floating origin/hard timing rejada |
 | P4 Rendererning keyingi avlodi | GPU timer v1 mavjud; render graph, Vulkan, temporal AA/upscaling, katta sahna visibility va yoritish | Drayver/physical GPU matritsasi, HDR/alpha/picking/shadow regressiyalari, reference hardware byudjeti | Rejada; virtual geometry va dinamik GI — alohida tadqiqot |
-| P5 Gameplay, animatsiya, fizika va UI | Mavjud 2D/3D tizimlarini production darajasida birlashtirish, katta kontent va gameplay workflow | Ikki tugallangan vertical slice, saqlash/yuklash, controller, animatsiya/fizika stress, UI input/scale testlari | Motor/combat/AI/save/UI va Animator 1D/2D zanjiri mavjud; ikki to‘liq vertical slice va stress mezonlari rejada |
+| P5 Gameplay, animatsiya, fizika va UI | Mavjud 2D/3D tizimlarini production darajasida birlashtirish, katta kontent va gameplay workflow | Ikki tugallangan vertical slice, saqlash/yuklash, controller, animatsiya/fizika stress, UI input/scale testlari | Motor/combat/AI/save/UI, quest, equipment/abilities, projectiles/effektlar va Animator 1D/2D zanjiri yakunlandi (2026-11-22); ikki to‘liq vertical slice va stress mezonlari keyingi paketda |
 | P6 Tarmoq va kengaytirish | Server authority, replication, latency compensation, plagin SDK/ABI, xavfsiz hot reload | Yo'qotilgan paket, kechikish, reconnect, versiya mos kelmasligi va plagin unload sinovlari | Rejada |
 | P7 Platforma, release va mahsulot | Linux/Windows, keyin macOS; cook/package/update/crash telemetry; editor/launcher yagona auth | Toza mashinada install/export/run, talablar va litsenziyalar, imzolangan release va rollback sinovi | Rejada |
 | P8 Yakuniy sifat darvozasi | Hujjatlar, ko'chirish yo'li, ikki namunaviy o'yin va profiling hisobotlari | Uzoq sessiya, resurs sizishi, recovery/fuzz, reference sahnalarda barqaror frame time va foydalanish sinovi | Rejada |
@@ -182,6 +182,36 @@ Player/Editor workflow'larida ishlaydi. Sentry'ning Spit chaqiruvi uning o‘z g
 (`Target=850`) — QA fazasi o‘sha yerda. [Playable slice](GameplayCombat.md#playable-slice-combatworkshop),
 [profiling](GameplayCombat.md#profiling).
 
+Dalillar (review tuzatishlari, 2026-11-22): 1315/1315 unit (6 yangi: `CombatImpactDetonationLineOfSight*`,
+`CombatPureNodesNeverCreateTheCombatWorld`, `GameSaveModelV4TickPhase*`, `CombatSaveOwnerlessProjectile*`,
+`CombatAbilityCastKeepsEnergy*`, `CombatHUDZeroTicks*`; `CombatSaveUnresolved*` endi sobiq egasining UUID'ini
+kutadi), 12/12 headless CTest, `ctest -L docs` 2/2, build ogohlantirishsiz. Tuzatishlar: devorga urilgan
+snaryadning hududi sirtdan 2 sm oldinda portlaydi (LoS nurlari urilgan devor ichidan boshlanmaydi); egasiz
+snaryad saqlab-yuklangandan keyin ham sobiq egasining UUID'iga tegmaydi (v4'da ixtiyoriy `FormerOwner`, faqat
+o‘rnatilganda yoziladi: usiz hujjat baytlari o‘zgarmaydi, eski v4 fayllar o‘qiladi) va uning hududi doim jamoa snapshot'i bo‘yicha
+qabul qiladi; hech narsa o‘zgartirmagan tik (to‘la sog‘liqqa heal) hit halqasiga yozilmaydi, hit marker
+butun halqadan eng yangi to‘g‘ridan-to‘g‘ri zarbani oladi; pure `ProjectileState`/`EffectState`/
+`CombatModifiers` node'lari CombatWorld yaratmaydi; effekt MaxEnergy'ni kamaytirgan Cast energiyani sig‘imgacha
+qisadi (o‘sha kadrdagi save endi tiklanadi); save kodeki tik fazasini modeldagi kabi 60 + 1e-9 gacha qabul qiladi.
+Mutatsiya: oltita tuzatish (backoff, jamoa qabuli, sobiq ega, nol tik, energiya, tik epsiloni) qaytarilganda 6 test
+(5 yangi + o‘zgartirilgan `CombatSaveUnresolved*`, 17 tekshiruv) yiqildi; pure node va hit marker tuzatishlari
+qaytarib ko‘rilmadi. xdotool (1:3.20160805.1-5build1)
+o‘rnatildi va `Tests/combat_editor_test.py` haqiqiy ImGui'da o‘tdi (3 min 17 s): uchta node add/save/Undo
+hamda nomli tanlov combo'si orqali ProjectileDefine `Kind` → "Davolash" va EffectDefine `Tick` → "Zarar",
+har biri save, Undo, Redo, yana Undo — saqlangan graph har qadamda tekshirildi; test CI'ga qo‘shildi
+(combat workflow bilan). CombatWorkshop kadri: 2D ortografik o‘lcham 10 → 12, markaz y 1 → 2; 3D kamera
+z 12 → 10.5 — Editor Play'da Sentry viewport toolbar'i ostidan chiqdi (2D/3D skrinshotlar).
+`Tests/combat_workflow_test.py --exports` 14/14 (1 min 58 s); 3D erkin o‘yin (R, Space, L, N, M×2) lentasida "+0 Regen"
+qatori yo‘q, "+2 Regen" bor. Regressiya (Player): LoadoutWorkshop 6/6, SaveWorkshop 6/6. Editor toolbar'i HUD
+sarlavhasini yopishi barcha workshop'larda umumiy (LoadoutWorkshop'da ham) — alohida editor ishi.
+
+### Keyingi paket — ikki tugallangan 2D/3D vertical slice va stress darvozalari
+
+- [ ] 2D vertical slice: menyu, kamida ikki daraja, motor/combat/AI/quest/loadout/HUD bitta o‘yin oqimida, yakun ekrani.
+- [ ] 3D vertical slice: character controller, kamera, Animator locomotion, combat/AI/quest va save bitta o‘yin oqimida.
+- [ ] Animatsiya/fizika stress hamda UI input/scale (klaviatura/gamepad, turli rezolyutsiya) darvozalari.
+- [ ] Fresh-process resume, relocated export, profiling va regression darvozalari ikkala slice uchun.
+
 ### Yakunlangan bo‘lim — gameplay UI
 
 - [x] Bounded modal stack, focus/pause ownership and input fencing.
@@ -269,9 +299,10 @@ Graph configure input’lari saqlanadi; health/inventory holati runtime-only. [S
 Gameplay save/load yuqoridagi paketda davom ettirildi. To‘liq ECS/VM/physics snapshot,
 avtomatik ixtiyoriy obyekt resurrection va katta dunyoning async saqlashi alohida qoladi.
 
-Gameplay UI, quest/progression va equipment/abilities yuqoridagi paketlarda birlashtirildi.
-Keyingi yirik paket — projectiles va gameplay effects; acceptance darvozalari yuqorida belgilangan. To‘liq ECS/physics
-snapshot, renderer va katta dunyo vazifalari umumiy rejada saqlanadi.
+Gameplay UI, quest/progression, equipment/abilities va projectiles/gameplay effects yuqoridagi paketlarda
+birlashtirildi. Keyingi yirik paket — ikki tugallangan 2D/3D vertical slice va stress darvozalari; acceptance
+darvozalari yuqorida belgilangan. To‘liq ECS/physics snapshot, renderer va katta dunyo vazifalari umumiy rejada
+saqlanadi.
 
 ### Yakunlangan bo‘lim — motor, kamera, locomotion va checkpoint
 

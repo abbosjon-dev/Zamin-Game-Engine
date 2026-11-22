@@ -87,7 +87,7 @@
       "Transform": {
         "Translation": [
           -2.4,
-          1,
+          2,
           15
         ],
         "Rotation": [
@@ -104,7 +104,7 @@
       "Camera": {
         "Primary": true,
         "ProjectionType": 1,
-        "OrthographicSize": 10,
+        "OrthographicSize": 12,
         "OrthographicNear": -100,
         "OrthographicFar": 100,
         "ClearColor": [

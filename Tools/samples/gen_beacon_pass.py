@@ -513,7 +513,7 @@ TEXT = {
     "menu.new": ("Yangi o'yin", "New game"), "menu.continue": ("Davom etish", "Continue"), "menu.settings": ("Sozlamalar", "Settings"),
     "menu.credits": ("Mualliflar", "Credits"), "menu.quit": ("Chiqish", "Quit"), "menu.back": ("Orqaga", "Back"),
     "menu.subtitle": ("Karvon yo'li afsonasi", "A legend of the caravan road"),
-    "menu.music": ("Musiqa", "Music"), "menu.sfx": ("Ovoz effektlari", "Sound effects"), "menu.fullscreen": ("To'liq ekran", "Fullscreen"),
+    "menu.music": ("Musiqa", "Music"), "menu.sfx": ("Ovoz effektlari", "Sound effects"), "menu.fullscreen": ("To'liq ekran", "Fullscreen"), "menu.uiscale": ("Interfeys o'lchami", "Interface size"),
     "menu.language": ("Til: O'zbekcha", "Language: English"),
     "menu.credits.body": ("Zamin Engine 3D vertical slice\nModellar, animatsiyalar, teksturalar, musiqa va ovozlar protsedurali generatorlardan:\n"
                           "Tools/samples/gen_beacon_pass.py, gltfkit.py, beacon_graphs.py\n\nRahmat, chopar!",

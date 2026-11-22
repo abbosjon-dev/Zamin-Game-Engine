@@ -218,6 +218,9 @@ namespace Zamin {
         void SetViewportMouse(const glm::vec2& position, bool leftButtonDown);  ///< the mouse in the game view's pixels (the UI)
         void SetViewportScroll(const glm::vec2& wheel);                         ///< the wheel over the game view (scroll views)
         void SetUIKeyboardEnabled(bool enabled);                                ///< keyboard / gamepad UI navigation on or off
+        /// The player's UI scale setting (Scene::SetUIScaleMultiplier) for every scene, and every scene loaded later.
+        void SetUIScaleMultiplier(float scale);
+        float GetUIScaleMultiplier() const { return m_UIScaleMultiplier; }
         /// The editor's pause / frame step (every scene).
         void SetPaused(bool paused);
         bool IsPaused() const { return m_Paused; }
@@ -476,6 +479,7 @@ namespace Zamin {
         bool m_Paused = false;
         uint64_t m_ActiveSerial = 0;
         uint32_t m_ViewportWidth = 0, m_ViewportHeight = 0;
+        float m_UIScaleMultiplier = 1.0f;
         glm::vec2 m_Mouse{ -1.0f };
         bool m_MouseDown = false;
         bool m_UIKeyboard = true;

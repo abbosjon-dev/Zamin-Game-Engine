@@ -10,6 +10,7 @@
     "menu.music": "Musiqa",
     "menu.sfx": "Ovoz effektlari",
     "menu.fullscreen": "To'liq ekran",
+    "menu.uiscale": "Interfeys o'lchami",
     "menu.language": "Til: O'zbekcha",
     "menu.credits.body": "Zamin Engine vertical slice\nBarcha grafika, musiqa va ovozlar protsedurali generatorlardan:\nTools/samples/gen_lantern_keeper.py, slicekit.py, graphkit.py\n\nRahmat, chiroqbon!",
     "pause.title": "Pauza",

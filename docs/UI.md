@@ -145,6 +145,25 @@ eng tashqisi hisoblanadi):
 Joriy masshtab: `GetScene().GetUIScale(entity)` yoki komponentning `CurrentScale` i. Platformer2D `Scenes/UILayout.zscene` —
 ekran o'lchami va masshtabni ekranga yozib turadi (`UILayoutDemo`).
 
+**O'yinchining UI o'lchami sozlamasi.** `Scene::SetUIScaleMultiplier(s)` (0.5..2, standart 1) har UI Canvas masshtabini
+yana `s` ga ko'paytiradi (`SceneManager::SetUIScaleMultiplier` — barcha sahnalarga va keyin yuklanadiganlarga). Sahna
+bilan saqlanmaydi: o'yin sozlamani o'zi saqlaydi (masalan GameState) va har sahnaga qo'llaydi. Blueprint:
+`Display.SetUIScale` (Scale 0.5..2 — chegaradan tashqari qiymat graf xatosi) va `Display.UIScale`. Ikkala vertical
+slice sozlamalarida *Interfeys o'lchami* slayderi (8..12 butun son = 80..120 %, qadami 10 %) shu tugunlar bilan ishlaydi
+va qiymat `<O'yin>.Settings.UIScale` da saqlanadi.
+
+**UI audit (masshtab darvozasi).** `Scene::AuditUI(width, height, measureText)` UI ni istalgan ko'rinish o'lchami uchun
+chizmasdan joylaydi (sahnaning o'z ko'rinishi va joylashuvi o'zgarmaydi) va har faol elementning yozuvini beradi:
+vidjet turi, ekrandagi to'rtburchagi (px), shrift o'lchami, matni qancha joy olishi (shrifti bilan, bo'lmasa standart
+shriftning metrikalari GPU'siz o'qiladi), ishlatsa bo'ladimi, tanlanganmi, navigatsiya qaerga olib boradi, qaysi
+gameplay UI paneli ichida (`Zamin/UI/UIAudit.h`; ko'pi bilan 4 096 element). `CheckUIAudit(report, rules)` qoidalari:
+ishlatsa bo'ladigan vidjet ko'rinish chetidan ≥ 8 px ichkarida (`Margin`), matn ekrandan chiqmaydi (`Offscreen`),
+qo'shni vidjetlar ustma-ust tushmaydi (`Overlap`), matn joyiga sig'adi (`TextOverflow`; Truncate/Ellipsis bundan
+mustasno), eng kichik matn 800 x 600 da 12 px, 1024 x 768 va kattada 14 px (UI o'lchami 100 % dan kichik bo'lsa
+mutanosib kamayadi; `MinFont`), panel ochiq bo'lsa tanlov uning ichida (`Focus`) va panelning har vidjetiga klaviatura
+bilan yetiladi (`Unreachable`), 21:9 ekranning chetki 10 % iga faqat o'sha tomonga bog'langan element kiradi
+(`SideBand`). Player'da `ZAMIN_UI_AUDIT` ([Runtime.md](Runtime.md)) har panel almashganda `UI_AUDIT` qatorini yozadi.
+
 ---
 
 ## 5. Layout guruhlari
@@ -511,7 +530,9 @@ Asosiylari: `UIRectLayoutMath`, `UIHierarchyLayout`, `UICanvasScaleMath`, `UICan
 `UISliderDragging`, `UIToggleClicksAndGroups`, `UIImageBlocksTheMouse`, `UIInputFieldEditing`, `TextEditUTF8`,
 `TextLayoutWordWrap`, `TextLayoutOverflowModes`, `UITweensRunOnUITime`, `UIAnimationShowHideAndFeedback`,
 `UIMaskClipsDrawingAndPicking`, `UIScrollViewDragging`, `UIScrollViewScrollbarAndNavigation`, `UIWidgetsSampleScene`,
-`UILayoutSampleScene`. Katalog: [Testing.md](Testing.md).
+`UILayoutSampleScene`. UI audit: `UIAuditRulesNameEachLayoutDefect`, `UIAuditLaysOutAtAnyViewSizeAndKeepsTheScenesOwn`,
+`SliceMenuLayout*` (vertical slice'larning har ekrani 6 o'lcham x 3 UI masshtabda) va Player darvozasi
+`Tests/slice_ui_test.py` ([VerticalSlices.md](VerticalSlices.md#gates)). Katalog: [Testing.md](Testing.md).
 
 ---
 

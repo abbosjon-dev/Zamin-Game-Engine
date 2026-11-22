@@ -88,6 +88,8 @@ namespace Zamin::Gameplay {
         bool Allows(Entity) const;
         bool Fenced() const { return m_Fenced; }
         bool BlocksGame() const { return m_Fenced || m_Stack.Blocks(); }
+        // The configured panels' live roots by name (the UI audit: which panel an element is in).
+        std::vector<std::pair<std::string, uint64_t>> PanelRoots() const;
         void BeginFrame();
         void Refresh();
     private:
@@ -170,6 +172,8 @@ namespace Zamin::Gameplay {
     void BeginGameplayUI(Scene&);
     void RefreshGameplayUI(Scene&);
     bool GameplayUIAllows(Scene&, Entity);
+    // The scene's UI world when gameplay UI was used in it (nullptr: none - nothing is made).
+    UIWorld* FindGameplayUI(Scene&);
     bool GameplayUIFenced(Scene&);
     bool GameplayUIBlocks(Scene&);
 }

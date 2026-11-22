@@ -10,6 +10,7 @@
     "menu.music": "Music",
     "menu.sfx": "Sound effects",
     "menu.fullscreen": "Fullscreen",
+    "menu.uiscale": "Interface size",
     "menu.language": "Language: English",
     "menu.credits.body": "Zamin Engine vertical slice\nAll art, music and sound come from procedural generators:\nTools/samples/gen_lantern_keeper.py, slicekit.py, graphkit.py\n\nThank you, lantern keeper!",
     "pause.title": "Paused",

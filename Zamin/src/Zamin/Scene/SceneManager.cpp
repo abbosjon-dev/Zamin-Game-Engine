@@ -20,6 +20,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <algorithm>
+#include <cmath>
 #include <chrono>
 
 namespace Zamin {
@@ -126,6 +127,7 @@ namespace Zamin {
         scene->m_EventBus = m_EventBus;
         scene->m_SharedEventBus = true;
         scene->OnViewportResize(m_ViewportWidth, m_ViewportHeight);
+        scene->SetUIScaleMultiplier(m_UIScaleMultiplier);
         scene->SetViewportMouse(m_Mouse, m_MouseDown);
         scene->SetUIKeyboardEnabled(m_UIKeyboard);
         scene->SetPaused(m_Paused);
@@ -1436,6 +1438,15 @@ namespace Zamin {
         m_ViewportHeight = height;
         for (Scene* scene : GetUpdateOrder())
             scene->OnViewportResize(width, height);
+    }
+
+    void SceneManager::SetUIScaleMultiplier(float scale)
+    {
+        if (!std::isfinite(scale))
+            return;
+        m_UIScaleMultiplier = std::clamp(scale, Scene::MinUIScaleMultiplier, Scene::MaxUIScaleMultiplier);
+        for (Scene* scene : GetUpdateOrder())
+            scene->SetUIScaleMultiplier(m_UIScaleMultiplier);
     }
 
     void SceneManager::SetViewportMouse(const glm::vec2& position, bool leftButtonDown)

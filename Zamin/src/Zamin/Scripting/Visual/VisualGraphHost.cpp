@@ -162,6 +162,19 @@ namespace Zamin {
             return nullptr;
         }
         if (k == "Display.IsFullscreen") return Display::IsFullscreen();
+        if (k == "Display.SetUIScale" || k == "Display.UIScale")
+        {
+            // The UI scale setting: the scene manager's (every scene, and the ones loaded later), else this scene's.
+            Scene* scene = &GetScene();
+            SceneManager* manager = scene->GetSceneManager();
+            if (k == "Display.UIScale") return double(manager ? manager->GetUIScaleMultiplier() : scene->GetUIScaleMultiplier());
+            const float scale = f("Scale");
+            if (!std::isfinite(scale) || scale < Scene::MinUIScaleMultiplier || scale > Scene::MaxUIScaleMultiplier)
+                throw std::runtime_error("Display.SetUIScale: Scale must be 0.5..2");
+            if (manager) manager->SetUIScaleMultiplier(scale);
+            else scene->SetUIScaleMultiplier(scale);
+            return V{ { "Success", true } };
+        }
         if (k == "ShakeCamera")
         {
             const float intensity = f("Intensity"), duration = f("Duration"), frequency = f("Frequency");

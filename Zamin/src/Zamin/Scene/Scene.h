@@ -24,6 +24,7 @@
 #include "Zamin/Scene/SortingLayers.h"
 #include "Zamin/Scene/PixelPerfect.h"
 #include "Zamin/UI/UIAnimation.h"
+#include "Zamin/UI/UIAudit.h"
 #include "Zamin/UI/UILayout.h"
 #include "Zamin/UI/UIWidgets.h"
 
@@ -1019,6 +1020,19 @@ namespace Zamin {
         Entity PickUIRect(const glm::vec2& point, const std::function<bool(Entity)>& accept = {});
         /// View pixels per UI unit of the entity's UI (its outermost UI Canvas's scale; 1 without one).
         float GetUIScale(Entity entity);
+        /// The player's UI scale setting: every UI Canvas's scale times this (MinUIScaleMultiplier ..
+        /// MaxUIScaleMultiplier, 1 by default; a game's settings menu sets it - "Interfeys o'lchami"). Runtime only:
+        /// not saved with the scene (a game keeps its setting itself and applies it to each scene it loads).
+        static constexpr float MinUIScaleMultiplier = 0.5f, MaxUIScaleMultiplier = 2.0f;
+        void SetUIScaleMultiplier(float scale);
+        float GetUIScaleMultiplier() const { return m_UIScaleMultiplier; }
+        /// The UI audit: every active screen-space UI element under a UI Canvas laid out for a `width` x `height`
+        /// view (the view itself is unchanged afterwards) - its rectangle (px), widget kind, font, the room its text
+        /// needs (measureText: with its font, else the default font's metrics, read without GPU objects; otherwise a
+        /// stand-in 0.55 em per character), whether it can be used, the selection and where navigation goes from
+        /// it, the gameplay UI panel it is in (UIAudit.h; CheckUIAudit applies the layout rules). At most
+        /// UIAuditReport::MaxRecords elements; nothing is drawn, so tests audit headless.
+        UIAuditReport AuditUI(uint32_t width, uint32_t height, bool measureText);
         /// The rectangle the entity is laid out in (UI units): its UI parent's, else the whole view.
         UIRect GetUIParentRect(Entity entity);
         /// A layout group (UILayoutGroupComponent of its UI parent) places the entity.
@@ -1970,6 +1984,7 @@ namespace Zamin {
     private:
         entt::registry m_Registry;
         uint32_t m_ViewportWidth = 0, m_ViewportHeight = 0;
+        float m_UIScaleMultiplier = 1.0f; ///< the UI scale setting (SetUIScaleMultiplier)
         RuntimeStartTiming m_RuntimeStartTiming;
         bool m_IsRunning = false;
         bool m_IsSimulating = false;

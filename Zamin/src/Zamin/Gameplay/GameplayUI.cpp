@@ -24,6 +24,15 @@ namespace Zamin::Gameplay {
         if (auto* w = ctx.find<UIWorld>()) return *w;
         return ctx.emplace<UIWorld>(&scene);
     }
+    UIWorld* FindGameplayUI(Scene& scene) { return scene.GetRegistry().ctx().find<UIWorld>(); }
+    std::vector<std::pair<std::string, uint64_t>> UIWorld::PanelRoots() const
+    {
+        std::vector<std::pair<std::string, uint64_t>> roots;
+        for (const auto& [name, panel] : m_Panels)
+            if (Entity root = Resolve(panel.Root))
+                roots.emplace_back(name, (uint64_t)root.GetUUID());
+        return roots;
+    }
     void ResetGameplayUI(Scene& scene)
     {
         if (auto* w = scene.GetRegistry().ctx().find<UIWorld>()) w->Clear();

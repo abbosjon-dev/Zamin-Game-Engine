@@ -10,6 +10,7 @@
     "menu.music": "Music",
     "menu.sfx": "Sound effects",
     "menu.fullscreen": "Fullscreen",
+    "menu.uiscale": "Interface size",
     "menu.language": "Language: English",
     "menu.credits.body": "Zamin Engine 3D vertical slice\nModels, animations, textures, music and sound come from procedural generators:\nTools/samples/gen_beacon_pass.py, gltfkit.py, beacon_graphs.py\n\nThank you, courier!",
     "pause.title": "Paused",

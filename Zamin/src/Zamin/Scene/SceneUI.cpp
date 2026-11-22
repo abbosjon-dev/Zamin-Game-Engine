@@ -280,7 +280,7 @@ namespace Zamin {
             if (canvas != entt::null)
             {
                 auto& c = m_Registry.get<UICanvasComponent>(canvas);
-                scale = c.ComputeScale(viewport);
+                scale = std::max(0.01f, c.ComputeScale(viewport) * m_UIScaleMultiplier); // the player's UI scale setting on top
                 c.CurrentScale = scale;
             }
             const UIRect screen{ { 0.0f, 0.0f }, viewport / scale };

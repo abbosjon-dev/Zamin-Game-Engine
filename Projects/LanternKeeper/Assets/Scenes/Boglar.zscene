@@ -4476,7 +4476,7 @@
         "Pivot": [0.0, 1.0],
         "Position": [148.0, -30.0],
         "Size": [380.0, 38.0],
-        "FontSize": 22.0,
+        "FontSize": 26.0,
         "Order": 0
       },
       "UIProgressBar": {
@@ -4514,9 +4514,9 @@
         "AnchorMin": [0.0, 1.0],
         "AnchorMax": [0.0, 1.0],
         "Pivot": [0.0, 1.0],
-        "Position": [148.0, -80.0],
-        "Size": [380.0, 30.0],
-        "FontSize": 19.0,
+        "Position": [148.0, -78.0],
+        "Size": [380.0, 32.0],
+        "FontSize": 25.0,
         "Order": 0
       },
       "UIProgressBar": {
@@ -4556,7 +4556,7 @@
         "Pivot": [0.0, 1.0],
         "Position": [148.0, -122.0],
         "Size": [380.0, 34.0],
-        "FontSize": 22.0,
+        "FontSize": 25.0,
         "Order": 0
       },
       "Text": {
@@ -4897,7 +4897,7 @@
         "Pivot": [0.0, 1.0],
         "Position": [32.0, -84.0],
         "Size": [440.0, 34.0],
-        "FontSize": 21.0,
+        "FontSize": 25.0,
         "Order": 0
       },
       "Text": {
@@ -4925,7 +4925,7 @@
         "Pivot": [0.0, 1.0],
         "Position": [32.0, -124.0],
         "Size": [440.0, 34.0],
-        "FontSize": 21.0,
+        "FontSize": 25.0,
         "Order": 0
       },
       "Text": {
@@ -4953,7 +4953,7 @@
         "Pivot": [0.0, 1.0],
         "Position": [32.0, -164.0],
         "Size": [440.0, 34.0],
-        "FontSize": 21.0,
+        "FontSize": 25.0,
         "Order": 0
       },
       "Text": {
@@ -4981,7 +4981,7 @@
         "Pivot": [0.0, 1.0],
         "Position": [32.0, -204.0],
         "Size": [440.0, 34.0],
-        "FontSize": 21.0,
+        "FontSize": 25.0,
         "Order": 0
       },
       "Text": {
@@ -5009,7 +5009,7 @@
         "Pivot": [0.0, 1.0],
         "Position": [32.0, -244.0],
         "Size": [440.0, 34.0],
-        "FontSize": 21.0,
+        "FontSize": 25.0,
         "Order": 0
       },
       "Text": {
@@ -5037,7 +5037,7 @@
         "Pivot": [0.0, 1.0],
         "Position": [32.0, -284.0],
         "Size": [440.0, 34.0],
-        "FontSize": 21.0,
+        "FontSize": 25.0,
         "Order": 0
       },
       "Text": {
@@ -5183,8 +5183,8 @@
         "AnchorMax": [0.5, 0.5],
         "Pivot": [0.5, 0.5],
         "Position": [-260.0, -58.0],
-        "Size": [128.0, 26.0],
-        "FontSize": 16.0,
+        "Size": [140.0, 32.0],
+        "FontSize": 25.0,
         "Order": 0
       },
       "Text": {
@@ -5301,8 +5301,8 @@
         "AnchorMax": [0.5, 0.5],
         "Pivot": [0.5, 0.5],
         "Position": [-130.0, -58.0],
-        "Size": [128.0, 26.0],
-        "FontSize": 16.0,
+        "Size": [140.0, 32.0],
+        "FontSize": 25.0,
         "Order": 0
       },
       "Text": {
@@ -5419,8 +5419,8 @@
         "AnchorMax": [0.5, 0.5],
         "Pivot": [0.5, 0.5],
         "Position": [0.0, -58.0],
-        "Size": [128.0, 26.0],
-        "FontSize": 16.0,
+        "Size": [140.0, 32.0],
+        "FontSize": 25.0,
         "Order": 0
       },
       "Text": {
@@ -5537,8 +5537,8 @@
         "AnchorMax": [0.5, 0.5],
         "Pivot": [0.5, 0.5],
         "Position": [130.0, -58.0],
-        "Size": [128.0, 26.0],
-        "FontSize": 16.0,
+        "Size": [140.0, 32.0],
+        "FontSize": 25.0,
         "Order": 0
       },
       "Text": {
@@ -5655,8 +5655,8 @@
         "AnchorMax": [0.5, 0.5],
         "Pivot": [0.5, 0.5],
         "Position": [260.0, -58.0],
-        "Size": [128.0, 26.0],
-        "FontSize": 16.0,
+        "Size": [140.0, 32.0],
+        "FontSize": 25.0,
         "Order": 0
       },
       "Text": {
@@ -5684,8 +5684,8 @@
         "AnchorMax": [0.0, 0.5],
         "Pivot": [0.0, 0.5],
         "Position": [32.0, 60.0],
-        "Size": [360.0, 30.0],
-        "FontSize": 22.0,
+        "Size": [380.0, 32.0],
+        "FontSize": 25.0,
         "Order": 0
       },
       "Text": {
@@ -5711,9 +5711,9 @@
         "AnchorMin": [0.0, 0.5],
         "AnchorMax": [0.0, 0.5],
         "Pivot": [0.0, 0.5],
-        "Position": [32.0, 26.0],
-        "Size": [360.0, 30.0],
-        "FontSize": 22.0,
+        "Position": [32.0, 24.0],
+        "Size": [380.0, 32.0],
+        "FontSize": 25.0,
         "Order": 0
       },
       "Text": {
@@ -5739,9 +5739,9 @@
         "AnchorMin": [0.0, 0.5],
         "AnchorMax": [0.0, 0.5],
         "Pivot": [0.0, 0.5],
-        "Position": [32.0, -8.0],
-        "Size": [360.0, 30.0],
-        "FontSize": 22.0,
+        "Position": [32.0, -12.0],
+        "Size": [380.0, 32.0],
+        "FontSize": 25.0,
         "Order": 0
       },
       "Text": {
@@ -5767,9 +5767,9 @@
         "AnchorMin": [0.0, 0.5],
         "AnchorMax": [0.0, 0.5],
         "Pivot": [0.0, 0.5],
-        "Position": [32.0, -42.0],
-        "Size": [360.0, 30.0],
-        "FontSize": 22.0,
+        "Position": [32.0, -48.0],
+        "Size": [380.0, 32.0],
+        "FontSize": 25.0,
         "Order": 0
       },
       "Text": {
@@ -5826,8 +5826,8 @@
         "AnchorMax": [1.0, 0.0],
         "Pivot": [1.0, 0.0],
         "Position": [-24.0, 18.0],
-        "Size": [560.0, 28.0],
-        "FontSize": 16.0,
+        "Size": [640.0, 32.0],
+        "FontSize": 25.0,
         "Order": 0
       },
       "Text": {
@@ -7108,7 +7108,7 @@
         "Pivot": [0.5, 0.5],
         "Position": [270.0, -130.0],
         "Size": [380.0, 34.0],
-        "FontSize": 22.0,
+        "FontSize": 25.0,
         "Order": 0
       },
       "Text": {
@@ -7136,7 +7136,7 @@
         "Pivot": [0.5, 0.5],
         "Position": [270.0, -168.0],
         "Size": [380.0, 34.0],
-        "FontSize": 22.0,
+        "FontSize": 25.0,
         "Order": 0
       },
       "Text": {
@@ -7164,7 +7164,7 @@
         "Pivot": [0.5, 0.5],
         "Position": [270.0, -206.0],
         "Size": [380.0, 34.0],
-        "FontSize": 22.0,
+        "FontSize": 25.0,
         "Order": 0
       },
       "Text": {

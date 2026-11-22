@@ -381,6 +381,8 @@ add("Localization.Language","Localization",{},{S("Value")},true);
 add("Localization.Text","Localization",{S("Key"),S("Fallback")},{S("Value")},true);
 add("Display.SetFullscreen","Display",{E("In"),B("Fullscreen",true)},{E("Then")});
 add("Display.IsFullscreen","Display",{},{B("Value")},true);
+add("Display.SetUIScale","Display",{E("In"),N("Scale",1)},{E("Then"),B("Success")});
+add("Display.UIScale","Display",{},{N("Value",1)},true);
 add("UIValue","UI",{EntityPin()},{B("Found"),N("Value"),B("On")},true);
 add("SetUIValue","UI",{E("In"),EntityPin(),N("Value"),B("Notify")},{E("Then"),B("Success")});
 add("PlaySpriteClip","Rendering",{E("In"),EntityPin(),S("Clip"),B("Restart")},{E("Then"),B("Success")});

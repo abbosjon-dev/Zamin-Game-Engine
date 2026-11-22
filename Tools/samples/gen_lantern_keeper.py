@@ -371,7 +371,7 @@ TEXT = {
     "menu.new": ("Yangi o'yin", "New game"), "menu.continue": ("Davom etish", "Continue"), "menu.settings": ("Sozlamalar", "Settings"),
     "menu.credits": ("Mualliflar", "Credits"), "menu.quit": ("Chiqish", "Quit"), "menu.back": ("Orqaga", "Back"),
     "menu.subtitle": ("Ko'hna qo'rg'on afsonasi", "A legend of the old fortress"),
-    "menu.music": ("Musiqa", "Music"), "menu.sfx": ("Ovoz effektlari", "Sound effects"), "menu.fullscreen": ("To'liq ekran", "Fullscreen"),
+    "menu.music": ("Musiqa", "Music"), "menu.sfx": ("Ovoz effektlari", "Sound effects"), "menu.fullscreen": ("To'liq ekran", "Fullscreen"), "menu.uiscale": ("Interfeys o'lchami", "Interface size"),
     "menu.language": ("Til: O'zbekcha", "Language: English"),
     "menu.credits.body": ("Zamin Engine vertical slice\nBarcha grafika, musiqa va ovozlar protsedurali generatorlardan:\nTools/samples/gen_lantern_keeper.py, slicekit.py, graphkit.py\n\nRahmat, chiroqbon!",
                           "Zamin Engine vertical slice\nAll art, music and sound come from procedural generators:\nTools/samples/gen_lantern_keeper.py, slicekit.py, graphkit.py\n\nThank you, lantern keeper!"),

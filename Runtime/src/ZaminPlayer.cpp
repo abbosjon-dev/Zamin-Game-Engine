@@ -19,6 +19,8 @@
 // (ZaminPlayer --crash-dialog <report>, started by the crash handler).
 #include <Zamin/Zamin.h>
 #include <Zamin/Core/EntryPoint.h>
+#include <Zamin/Gameplay/GameplayUI.h>
+#include <Zamin/UI/UIAudit.h>
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -194,6 +196,7 @@ namespace Zamin {
             // (gamepad 0, connected by its first item): "pad=A" (a button pressed for one frame),
             // "padhold=A" / "padrelease=A" (held until released), "stick=LeftX,0.8" (an axis at that value
             // from then on; triggers 0..1).
+            ConfigureUIAudit();
             if (const char* input = std::getenv("ZAMIN_PLAYER_INPUT"))
             {
                 std::string_view rest = input;
@@ -444,6 +447,84 @@ namespace Zamin {
             Renderer2D::EndScene();
             Renderer2D::SetDisplayOutput(false);
             m_SplashCover -= dt / s_SplashCoverSeconds;
+        }
+
+        // ZAMIN_UI_AUDIT (automation: the UI input / scale gate, Tests/slice_ui_test.py), a comma list: "top" - a UI_AUDIT
+        // line 12 frames after the active scene or its open gameplay UI panel changed (the panel's show tween over);
+        // frame numbers ("120,300") - at those frames (counted from the game's first frame). ZAMIN_UI_AUDIT_SIZES="800x600,..."
+        // audits those view sizes (laid out without drawing), else the game view's; ZAMIN_UI_AUDIT_ELEMENTS=1 adds every
+        // element to the line. Each line: the scene, the frame, the layout rules' issues (UIAudit.h) as JSON.
+        struct UIAuditHook
+        {
+            bool Enabled = false, Top = false, Elements = false;
+            std::vector<int> Frames;
+            std::vector<glm::uvec2> Sizes;
+            int Frame = 0, Due = -1;
+            std::string Last;
+        };
+        UIAuditHook m_UIAudit;
+
+        void ConfigureUIAudit()
+        {
+            const char* audit = std::getenv("ZAMIN_UI_AUDIT");
+            if (!audit || !*audit)
+                return;
+            m_UIAudit.Enabled = true;
+            for (std::string_view rest = audit; !rest.empty();)
+            {
+                const size_t comma = rest.find(',');
+                const std::string item(rest.substr(0, comma));
+                rest = comma == std::string_view::npos ? std::string_view() : rest.substr(comma + 1);
+                if (item == "top")
+                    m_UIAudit.Top = true;
+                else if (const int frame = std::atoi(item.c_str()); frame > 0 && m_UIAudit.Frames.size() < 4096)
+                    m_UIAudit.Frames.push_back(frame);
+            }
+            if (const char* sizes = std::getenv("ZAMIN_UI_AUDIT_SIZES"))
+                for (std::string_view rest = sizes; !rest.empty();)
+                {
+                    const size_t comma = rest.find(',');
+                    const std::string item(rest.substr(0, comma));
+                    rest = comma == std::string_view::npos ? std::string_view() : rest.substr(comma + 1);
+                    unsigned w = 0, h = 0;
+                    if (std::sscanf(item.c_str(), "%ux%u", &w, &h) == 2 && w >= 64 && h >= 64 && w <= 16384 && h <= 16384 && m_UIAudit.Sizes.size() < 32)
+                        m_UIAudit.Sizes.push_back({ w, h });
+                }
+            m_UIAudit.Elements = std::getenv("ZAMIN_UI_AUDIT_ELEMENTS") != nullptr;
+            ZM_INFO("UI audit: {}{} kadrda ({} o'lcham)", m_UIAudit.Top ? "har panel almashganda va " : "", m_UIAudit.Frames.size(),
+                    m_UIAudit.Sizes.empty() ? size_t(1) : m_UIAudit.Sizes.size());
+        }
+
+        void RunUIAudit(uint32_t width, uint32_t height)
+        {
+            if (!m_UIAudit.Enabled || !m_Scenes || !m_Scenes->GetActiveScene())
+                return;
+            Scene& scene = *m_Scenes->GetActiveScene();
+            const int frame = ++m_UIAudit.Frame;
+            bool now = std::find(m_UIAudit.Frames.begin(), m_UIAudit.Frames.end(), frame) != m_UIAudit.Frames.end();
+            if (m_UIAudit.Top)
+            {
+                const Gameplay::UIWorld* ui = Gameplay::FindGameplayUI(scene);
+                const std::string key = scene.GetName() + "|" + (ui ? ui->State().Top : std::string());
+                if (key != m_UIAudit.Last)
+                {
+                    m_UIAudit.Last = key;
+                    m_UIAudit.Due = frame + 12;
+                }
+                now = now || frame == m_UIAudit.Due;
+            }
+            if (!now)
+                return;
+            std::vector<glm::uvec2> sizes = m_UIAudit.Sizes;
+            if (sizes.empty())
+                sizes.push_back({ width, height });
+            for (const glm::uvec2& size : sizes)
+            {
+                const UIAuditReport report = scene.AuditUI(size.x, size.y, true);
+                UIAuditRules rules;
+                rules.MinFontPx = UIAuditRules::MinFontFor(size, report.UserScale);
+                ZM_INFO("UI_AUDIT scene={} frame={} {}", scene.GetName(), frame, UIAuditToJson(report, CheckUIAudit(report, rules), m_UIAudit.Elements));
+            }
         }
 
         // Plays the scripted input of this frame (seen by the next Input::Update).
@@ -825,6 +906,7 @@ namespace Zamin {
             RenderCommand::SetClearColor({ std::pow(clear.r, 2.2f), std::pow(clear.g, 2.2f), std::pow(clear.b, 2.2f), clear.a });
             RenderCommand::Clear();
             m_Scenes->OnUpdate(ts);
+            RunUIAudit(area.Width, area.Height);
             view = m_Scenes->GetRenderScene(); // its frame may have switched its camera off
 
             // The finished frame goes into the player's own picture first when it is adjusted (gamma,

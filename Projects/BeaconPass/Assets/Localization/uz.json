@@ -10,6 +10,7 @@
     "menu.music": "Musiqa",
     "menu.sfx": "Ovoz effektlari",
     "menu.fullscreen": "To'liq ekran",
+    "menu.uiscale": "Interfeys o'lchami",
     "menu.language": "Til: O'zbekcha",
     "menu.credits.body": "Zamin Engine 3D vertical slice\nModellar, animatsiyalar, teksturalar, musiqa va ovozlar protsedurali generatorlardan:\nTools/samples/gen_beacon_pass.py, gltfkit.py, beacon_graphs.py\n\nRahmat, chopar!",
     "pause.title": "Pauza",

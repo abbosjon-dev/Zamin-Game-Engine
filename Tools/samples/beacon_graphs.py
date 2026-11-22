@@ -524,9 +524,9 @@ def hud(s, C):
     ui.image(6011, "Daraja nishoni", 6010, "badge", (0, 1), (24, -22), (104, 104), pivot=(0, 1))
     ui.text(6012, "Daraja", 6011, "1", (0.5, 0.5), (0, 2), (90, 60), 46, ACCENT)
     ui.bar(6013, "Tajriba", 6010, (0, 1), (24, -136), (104, 14), (0.6, 0.85, 1.0, 1), 0, pivot=(0, 1))
-    ui.bar(6014, "Sog'liq", 6010, (0, 1), (148, -30), (380, 38), (0.92, 0.26, 0.24, 1), 22, pivot=(0, 1))
-    ui.bar(6015, "Energiya", 6010, (0, 1), (148, -80), (380, 30), (0.38, 0.66, 1.0, 1), 19, pivot=(0, 1))
-    ui.text(6016, "Nom", 6010, "TEMUR  ·  CHOPAR", (0, 1), (148, -122), (380, 34), 22, MUTED, "Left", pivot=(0, 1))
+    ui.bar(6014, "Sog'liq", 6010, (0, 1), (148, -30), (380, 38), (0.92, 0.26, 0.24, 1), 26, pivot=(0, 1))
+    ui.bar(6015, "Energiya", 6010, (0, 1), (148, -78), (380, 32), (0.38, 0.66, 1.0, 1), 25, pivot=(0, 1))
+    ui.text(6016, "Nom", 6010, "TEMUR  ·  CHOPAR", (0, 1), (148, -122), (380, 34), 25, MUTED, "Left", pivot=(0, 1))
     # top-right: fire stones and potions
     ui.panel(6020, "Boyliklar", root, (-24, -24), (260, 96), anchor=(1, 1), pivot=(1, 1))
     for i, (icon, eid) in enumerate((("stone", 6021), ("potion", 6023))):
@@ -536,7 +536,7 @@ def hud(s, C):
     ui.panel(6030, "Vazifalar", root, (-24, -136), (520, 300), anchor=(1, 1), pivot=(1, 1))
     ui.text(6031, "Sarlavha", 6030, "Vazifalar", (0.5, 1), (0, -40), (460, 40), 28, ACCENT, key="hud.quests")
     for i in range(5):
-        ui.text(6032 + i, f"Vazifa {i + 1}", 6030, "", (0, 1), (32, -84 - i * 40), (460, 34), 21, INK, "Left", pivot=(0, 1))
+        ui.text(6032 + i, f"Vazifa {i + 1}", 6030, "", (0, 1), (32, -84 - i * 40), (460, 34), 25, INK, "Left", pivot=(0, 1))
     # ability bar: strike, Bolt, Zilzila, potion
     bar = ui.panel(6040, "Qobiliyatlar", root, (0, 22), (580, 132), anchor=(0.5, 0), pivot=(0.5, 0))
     for i, (icon, hint, label) in enumerate((("melee", "[Attack]", "Zarba"), ("bolt", "[Bolt]", "Bolt"), ("nova", "[Slam]", "Zilzila"), ("potion", "[Potion]", "Potion"))):
@@ -544,7 +544,7 @@ def hud(s, C):
         ui.image(6041 + i * 4, f"Slot {label}", bar, "slot", (0.5, 0.5), (x, 10), (104, 104), kind="Sliced")
         ui.image(6042 + i * 4, f"Belgi {label}", 6041 + i * 4, f"icon_{icon}", (0.5, 0.5), (0, 8), (68, 68))
         ui.bar(6043 + i * 4, f"Tayyorlik {label}", 6041 + i * 4, (0.5, 0), (0, 4), (84, 12), (0.98, 0.76, 0.32, 1), 0, back=(0.05, 0.04, 0.08, 0.6))
-        ui.text(6044 + i * 4, f"Tugma {label}", bar, hint, (0.5, 0.5), (x, -58), (128, 26), 16, MUTED, hints=True)
+        ui.text(6044 + i * 4, f"Tugma {label}", bar, hint, (0.5, 0.5), (x, -58), (140, 32), 25, MUTED, hints=True)
     ui.text(6090, "Ishora", root, "", (0.5, 0), (0, 178), (900, 40), 26, INK)
     ui.text(6091, "Xabar", root, "", (0.5, 1), (0, -170), (1100, 60), 40, ACCENT)
     ui.text(6092, "Daraja nomi", root, "DOVON", (0.5, 1), (0, -96), (900, 70), 56, INK)
@@ -552,9 +552,9 @@ def hud(s, C):
     ui.rect(6094, "Boss sog'lig'i", root, (0.5, 0), None, (0, 186), (760, 22), 0, active=False,
             UIProgressBar=k.ui_progress(1.0, (0.05, 0.04, 0.08, 0.85), (0.9, 0.3, 0.2, 1), 2.0, 6.0))
     for i in range(4):
-        ui.text(6070 + i, f"Jang {i + 1}", root, "", (0, 0.5), (32, 60 - i * 34), (360, 30), 22, (1.0, 0.6, 0.5, 1), "Left", pivot=(0, 0.5))
+        ui.text(6070 + i, f"Jang {i + 1}", root, "", (0, 0.5), (32, 60 - i * 36), (380, 32), 25, (1.0, 0.6, 0.5, 1), "Left", pivot=(0, 0.5))
     ui.stretch(6080, "Jarohat", root, order=-1, active=False, UIImage=k.ui_image((1, 1, 1, 0.8), "Textures/ui.png", "vignette", "Sliced", 1.0, raycast=False))
-    ui.text(6081, "Boshqaruv", root, "[Inventory] inventar   [Pause] pauza", (1, 0), (-24, 18), (560, 28), 16, MUTED, "Right", hints=True, pivot=(1, 0))
+    ui.text(6081, "Boshqaruv", root, "[Inventory] inventar   [Pause] pauza", (1, 0), (-24, 18), (640, 32), 25, MUTED, "Right", hints=True, pivot=(1, 0))
     # pause
     ui.dim(6100, "Pauza", 50)
     ui.panel(6101, "Pauza paneli", 6100, (0, 0), (560, 470))
@@ -626,27 +626,31 @@ def menu_scene(assets, project, W):
      ui.button(6023, "Sozlamalar", 6020, "Sozlamalar", "menu.settings", "Settings", (0, 0), (440, 64)),
      ui.button(6024, "Mualliflar", 6020, "Mualliflar", "menu.credits", "Credits", (0, 0), (440, 64)),
      ui.button(6025, "Chiqish", 6020, "Chiqish", "menu.quit", "Quit", (0, 0), (440, 64))]
-    ui.text(6030, "Rekord", CANVAS, "", (0, 0), (118, 92), (900, 40), 26, MUTED, "Left", pivot=(0, 0))
-    ui.text(6031, "Boshqaruv", CANVAS, "[Move] yurish   [LookX|Sichqoncha] qarash   [Jump] sakrash   [Attack] zarba   [Bolt] olov o'qi   [Interact] ishlatish   [Pause] pauza",
-            (0.5, 0), (0, 40), (1760, 36), 22, MUTED, hints=True)
-    ui.text(6032, "Versiya", CANVAS, "v1.0  Zamin Engine", (1, 0), (-24, 12), (400, 28), 18, MUTED, "Right", pivot=(1, 0))
+    ui.text(6030, "Rekord", CANVAS, "", (0, 0), (118, 124), (900, 40), 26, MUTED, "Left", pivot=(0, 0))
+    # the controls line: 78 % of the view's width (it wraps on narrow views and stays out of a 21:9 view's corners)
+    s.add(6031, "Boshqaruv", CANVAS, UITransform=k.ui_rect((0.11, 0), (0.89, 0), (0.5, 0), (0, 30), (0, 76), 25),
+          Text=k.ui_text("[Move] yurish   [LookX|Sichqoncha] qarash   [Jump] sakrash   [Attack] zarba   [Bolt] olov o'qi   [Interact] ishlatish   [Pause] pauza",
+                         MUTED, "Center", hints=True, wrap=True))
+    ui.text(6032, "Versiya", CANVAS, "v1.0  Zamin Engine", (1, 0), (-24, 12), (420, 32), 25, MUTED, "Right", pivot=(1, 0))
     # settings
     ui.dim(6100, "Sozlamalar", 50)
-    ui.panel(6101, "Sozlamalar paneli", 6100, (0, 0), (760, 560))
+    ui.panel(6101, "Sozlamalar paneli", 6100, (0, 0), (760, 650))
     ui.text(6102, "Sarlavha", 6101, "Sozlamalar", (0.5, 1), (0, -62), (600, 60), 44, ACCENT, key="menu.settings")
-    for i, (eid, label, key) in enumerate(((6111, "Musiqa", "menu.music"), (6112, "Ovoz effektlari", "menu.sfx"))):
-        ui.text(eid + 10, label, 6101, label, (0.5, 0.5), (-180, 130 - i * 90), (300, 40), 28, INK, "Left", key=key)
-        ui.rect(eid, f"{label} slider", 6101, (0.5, 0.5), None, (150, 130 - i * 90), (320, 44),
-                UISlider={"Min": 0.0, "Max": 1.0, "Value": 0.55 if i == 0 else 0.9, "WholeNumbers": False, "Direction": "LeftToRight", "Interactable": True,
+    # music, effects and the UI scale (80..120 % in 10 % steps: the slider's 8..12)
+    for i, (eid, label, key) in enumerate(((6111, "Musiqa", "menu.music"), (6112, "Ovoz effektlari", "menu.sfx"), (6116, "Interfeys o'lchami", "menu.uiscale"))):
+        ui.text(eid + 10, label, 6101, label, (0.5, 0.5), (-180, 175 - i * 80), (300, 40), 28, INK, "Left", key=key)
+        ui.rect(eid, f"{label} slider", 6101, (0.5, 0.5), None, (150, 175 - i * 80), (320, 44),
+                UISlider={"Min": 8.0 if i == 2 else 0.0, "Max": 12.0 if i == 2 else 1.0, "Value": (0.55, 0.9, 10.0)[i], "WholeNumbers": i == 2,
+                          "Direction": "LeftToRight", "Interactable": True,
                           "TrackThickness": 10.0, "HandleSize": 30.0, "Rounded": True, "TrackColor": [0.1, 0.12, 0.2, 1], "FillColor": list(ACCENT),
                           "HandleColor": [1.0, 0.95, 0.85, 1]}, UINavigation=k.ui_nav("Explicit", i == 0, ACCENT[:3] + (1,)))
-    ui.text(6123, "To'liq ekran", 6101, "To'liq ekran", (0.5, 0.5), (-180, -50), (300, 40), 28, INK, "Left", key="menu.fullscreen")
-    ui.rect(6113, "To'liq ekran toggle", 6101, (0.5, 0.5), None, (150, -50), (90, 44),
+    ui.text(6123, "To'liq ekran", 6101, "To'liq ekran", (0.5, 0.5), (-180, -65), (300, 40), 28, INK, "Left", key="menu.fullscreen")
+    ui.rect(6113, "To'liq ekran toggle", 6101, (0.5, 0.5), None, (150, -65), (90, 44),
             UIToggle={"IsOn": False, "Interactable": True, "Style": "Switch", "Mark": "Check", "BoxSize": 34.0, "LabelSpacing": 8.0, "Group": "",
                       "AllowSwitchOff": True, "BoxColor": [0.12, 0.14, 0.22, 1], "OnColor": list(ACCENT), "MarkColor": [1, 1, 1, 1]},
             UIButton=k.ui_button((1, 1, 1, 1), (1.2, 1.2, 1.2, 1), (1, 1, 1, 1), "Fullscreen", GAME), UINavigation=k.ui_nav("Explicit", False, ACCENT[:3] + (1,)))
-    st = [6111, 6112, 6113, ui.button(6114, "Til", 6101, "Til: O'zbekcha", "menu.language", "Language", (0, -130), (420, 60), 26),
-          ui.button(6115, "Orqaga", 6101, "Orqaga", "menu.back", "Back", (0, -210), (420, 60), 28)]
+    st = [6111, 6112, 6116, 6113, ui.button(6114, "Til", 6101, "Til: O'zbekcha", "menu.language", "Language", (0, -145), (420, 60), 26),
+          ui.button(6115, "Orqaga", 6101, "Orqaga", "menu.back", "Back", (0, -225), (420, 60), 28)]
     chain_nav(s, st)
     ui.dim(6200, "Mualliflar", 51)
     ui.panel(6201, "Mualliflar paneli", 6200, (0, 0), (1100, 520))
@@ -1178,6 +1182,10 @@ def game_graph(assets, project, C):
         vol = g.ex(t, "Audio.SetGroupVolume", Group=group)
         g.l(g.n("ReadState.Number", Key=f"{GS}.Settings.{setting}", Default=default), "Value", vol, "Volume")
         t = (vol, "Then")
+    # the menu's UI scale setting (a level started on its own - Editor Play - too)
+    us = g.ex(t, "Display.SetUIScale")
+    g.l(g.n("ReadState.Number", Key=f"{GS}.Settings.UIScale", Default=1.0), "Value", us, "Scale")
+    t = (us, "Then")
 
     # ---- entry (first LateUpdate, after every Start): continue from the save, or a fresh start
     g.lane("entry")
@@ -1554,6 +1562,13 @@ def menu_graph(assets, project):
         vol = g.ex((sv, "Then"), "Audio.SetGroupVolume", Group=group)
         g.l(value, "Value", vol, "Volume")
         t = (vol, "Then")
+    # the UI scale setting (the slider's 8..12 = 80..120 %)
+    scale = g.n("ReadState.Number", Key=f"{GS}.Settings.UIScale", Default=1.0)
+    sv = g.ex(t, "SetUIValue", Target=6116, Notify=False)
+    g.l(*g.num("Multiply", (scale, "Value"), 10), sv, "Value")
+    us = g.ex((sv, "Then"), "Display.SetUIScale")
+    g.l(scale, "Value", us, "Scale")
+    t = (us, "Then")
     best = g.n("ReadState.Number", Key=f"{GS}.Best.Time", Default=0)
     rb = g.br(t, (g.cmp("Greater", (best, "Value"), 0), "Value"))
     rt = g.ex((rb, "True"), "SetUIText", Target=6030)
@@ -1581,6 +1596,9 @@ def menu_graph(assets, project):
         vol = g.ex(t, "Audio.SetGroupVolume", Group=group)
         g.l(g.n("UIValue", Target=widget), "Value", vol, "Volume")
         t = (vol, "Then")
+    us = g.ex(t, "Display.SetUIScale")
+    g.l(*g.num("Multiply", (g.n("UIValue", Target=6116), "Value"), 0.1), us, "Scale")
+    t = (us, "Then")
     demo = g.any_of([V(g, "Demo"), (g.n("App.DemoMode"), "Value")])
     auto = g.br(t, g.all_of([demo, (g.not_(V(g, "Started")), "Value"), (g.cmp("Greater", V(g, "Time"), 1.0), "Value")]))
     t = g.setv((auto, "True"), "Started", True)
@@ -1618,9 +1636,13 @@ def menu_graph(assets, project):
         w_ = g.ex(t, "WriteState.Number", Key=f"{GS}.Settings.{key}")
         g.l(src, "Value", w_, "Value")
         t = (w_, "Then")
-    t = (g.ex(t, "SaveGameState"), "Then")
+    ui_scale = g.num("Multiply", (g.n("UIValue", Target=6116), "Value"), 0.1)
+    w_ = g.ex(t, "WriteState.Number", Key=f"{GS}.Settings.UIScale")
+    g.l(*ui_scale, w_, "Value")
+    t = (g.ex((w_, "Then"), "SaveGameState"), "Then")
     p = g.ex(t, "Print")
-    g.l(*g.text(["SLICE_SETTINGS music=", (music, "Value", "number", 2), " sfx=", (sfx, "Value", "number", 2), " lang=", (g.n("Localization.Language"), "Value")]), p, "Text")
+    g.l(*g.text(["SLICE_SETTINGS music=", (music, "Value", "number", 2), " sfx=", (sfx, "Value", "number", 2), " ui=", (ui_scale[0], "Value", "number", 2),
+                 " lang=", (g.n("Localization.Language"), "Value")]), p, "Text")
     t = (g.ex((p, "Then"), "Gameplay.UIBack"), "Then")
     g.ex(t, "Print", Text="Menyu: Asosiy")
     g.ex(on("Quit"), "QuitGame")

@@ -140,7 +140,7 @@ def main():
         if args.game == "BeaconPass":
             text, seconds = beacon_phase(phase, run, need, homes, find)
         elif phase == "P0":
-            tape = ("40:Down;46:Enter;70:Right;76:Right;82:Right;96:Down;100:Down;104:Down;108:Down;114:Enter;130:Up;136:Enter;"
+            tape = ("40:Down;46:Enter;70:Right;76:Right;82:Right;96:Down;100:Down;104:Down;108:Down;111:Down;114:Enter;130:Up;136:Enter;"
                     "240:hold=D;300:release=D;306:hold=W;330:release=W;336:K;350:J;360:Tab;380:Escape")
             text, seconds = run("P0-keyboard", homes["tape"], "Menu", 420, tape=tape)
             need("P0", text, ["Menyu: Asosiy davom=0", "Menyu: Sozlamalar", "SLICE_SETTINGS music=", "Menyu: Asosiy", "Menyu: Yangi o'yin",
@@ -213,9 +213,9 @@ def hero_of(payload):
 def beacon_phase(phase, run, need, homes, find):
     """One phase of the 3D slice (Dovon mash'ali); returns (log text, seconds)."""
     if phase == "P0":
-        # menu: Down -> Sozlamalar, music slider Right x3, Down x4 -> Orqaga, Up -> Yangi o'yin; in Dovon: run north,
+        # menu: Down -> Sozlamalar, music slider Right x3, Down x5 -> Orqaga, Up -> Yangi o'yin; in Dovon: run north,
         # jump, strike, Bolt, the bag (Tab, Escape), pause (Escape) -> Down -> Inventar (Enter) -> Escape, Escape
-        tape = ("40:Down;46:Enter;70:Right;76:Right;82:Right;96:Down;100:Down;104:Down;108:Down;114:Enter;130:Up;136:Enter;"
+        tape = ("40:Down;46:Enter;70:Right;76:Right;82:Right;96:Down;100:Down;104:Down;108:Down;111:Down;114:Enter;130:Up;136:Enter;"
                 "230:hold=W;262:Space;300:release=W;306:J;330:K;344:Tab;356:Escape;366:Escape;378:Down;384:Enter;400:Escape;412:Escape")
         text, seconds = run("P0-keyboard", homes["tape"], "Menu", 430, tape=tape)
         need("P0", text, ["Menyu: Asosiy davom=0", "Menyu: Sozlamalar", "SLICE_SETTINGS music=", "Menyu: Asosiy", "Menyu: Yangi o'yin",

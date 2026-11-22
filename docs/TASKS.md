@@ -209,7 +209,7 @@ sarlavhasini yopishi barcha workshop'larda umumiy (LoadoutWorkshop'da ham) — a
 
 - [x] 2D vertical slice: menyu, kamida ikki daraja, motor/combat/AI/quest/loadout/HUD bitta o‘yin oqimida, yakun ekrani.
 - [x] 3D vertical slice: character controller, kamera, Animator locomotion, combat/AI/quest va save bitta o‘yin oqimida.
-- [ ] Animatsiya/fizika stress hamda UI input/scale (klaviatura/gamepad, turli rezolyutsiya) darvozalari.
+- [x] Animatsiya/fizika stress hamda UI input/scale (klaviatura/gamepad, turli rezolyutsiya) darvozalari.
 - [ ] Fresh-process resume, relocated export, profiling va regression darvozalari ikkala slice uchun.
 
 Dalillar (2D slice, 2026-11-22): *Chiroqbon* (`Projects/LanternKeeper`, kompilyatorsiz, `ScriptModulePath ""`) —
@@ -274,6 +274,49 @@ tiklanadi; menyu kamerasi qarag‘aylar ichidan vodiy ustiga ko‘chirildi; `[Lo
 2 darvoza qorovuli + darvozani ochish (Manual receipt emas), sozlamalar faqat menyuda; restore jismlar va nav
 agentlarini to‘xtatgani uchun (saqlash tezlik/yo‘l saqlamaydi) davom bir xil hodisa/natija beradi, kadrlar esa farq
 qilishi mumkin. Gamepad lentasi, UI scale, relocated export va profiling 3–4-itemlarda.
+
+Dalillar (stress va UI darvozalari, 2026-11-22): [VerticalSlices.md](VerticalSlices.md#gates),
+[Benchmarks.md](Benchmarks.md). Stress (headless `ZaminBench`, Release, 4 vCPU Xeon 2.1 GHz, 5 ishga tushirish,
+oraliq — eng kichik/eng katta): P1 `--physics --2d` (60×40 m tilemap, 2 048 jism, 64 `StepMotor` aktor, 128 snaryad)
+fizika qadami o‘rtacha 1.56–2.15 ms, p95 2.3–3.1 (byudjet 4/6); P2 `--physics --3d` (chuqur, rampa, 0.25 m zinapoya,
+35° qiyalik, 65×65 relyef, 512 jism, 64 Character Controller 3D, 128 sphere cast) qadam + CC 1.51–1.80 ms, p95
+2.00–2.17 (8/12), cast'lar 0.23–0.28 ms; A1 `--animation` 256 odam (`Hero.glb`, 21 suyak, Dovon controller'i, yarmi
+ekrandan tashqarida) 3 ishchida 0.57–0.82 ms, p95 0.66–1.10 (1.5/2.0), bitta oqimda 0.99–1.73 ms (4.0), ajratma
+0.0 / kadr; A2 1 024 sprite animator (`DriveSpriteClips`, 2D blend yo‘nalishlari) Animator yangilash 0.30–0.48 ms (0.6),
+ajratma 0.0; P3 `--slice-stress --2d` (Boglar: 32 miya, 200 quti, 64 snaryad, 256 sprite animator, 48 Light 2D) o‘yin
+kodi 2.80–3.42 ms, p95 3.00–4.71 (6/10); A3 `--slice-stress --3d` (Dovon: 24 animatsiyali qorovul, jami 27 miya, 64
+snaryad, 200 Jolt jism) 3.89–5.45 ms, p95 5.41–6.37 (8/12). Invariantlar har safar o‘tdi: tunnel/NaN 0, 2D eng katta
+tezlik 6.88 m/s, CC oyog‘i relyefdan eng ko‘pi 0.0002 m pastda, buyurilgan yo‘lning ≥ 90.7 % i bosildi, ikki
+simulyatsiya hash'i teng; blend og‘irlik xatosi ≤ 3e-8, 0/3 ishchi poza hash'i teng, event'lar 20/30/60/144 Hz da
+animator bo‘yicha bir xil, sprite kadr/faza buzilishi 0 (14 223 klip almashishida), graf xatosi 0. Boshlang‘ich
+natijalar `Tests/Baselines/{physics,animation,slicestress}-release.json`, `bench.sh --compare` ishlaydi (sekin
+ko‘ringan animatsiya qayta o‘lchanib o‘tdi); `BenchPhysicsSmoke`/`BenchAnimationSmoke`/`BenchSliceStressSmoke`
+`ctest -L bench` da. Shu qadamda tuzatildi: yo‘nalish almashganda sprite klip shu kadr event'ini ikkinchi marta
+chaqirardi (`SpriteAnimationComponent::DrivenState`, `AnimatorSpriteClipsDirectionSwitchesFireEachStepOnce`); Animator
+yangilanishi bitta oqimda endi ajratmasiz (oldin 24 odamga 223, 64 sprite'ga 870 ajratma / kadr; oxirgisi poza
+signaturasining o‘sishi, `ZAMIN_ALLOC_TRACE` bilan topildi). UI: `Scene::AuditUI` + `CheckUIAudit` (`Margin`,
+`Offscreen`, `Overlap`, `TextOverflow`, `MinFont` 12/14 px, `Focus`, `Unreachable`, `SideBand`), Player'da
+`ZAMIN_UI_AUDIT`, `Scene/SceneManager::SetUIScaleMultiplier`, Blueprint `Display.SetUIScale`/`Display.UIScale`;
+ikkala slice sozlamalarida *Interfeys o‘lchami* 80–120 % (`SLICE_SETTINGS ui=`, `Settings.UIScale` da saqlanadi, start'da
+qo‘llanadi). Headless `SliceMenuLayout*`: 15 + 8 ekran × 6 o‘lcham (800×600 … 2560×1080) × 3 UI masshtabi = 270 + 144
+audit, 13 932 + 5 472 element, 0 xato, eng kichik matn 9.6 px (80 % da). `Tests/slice_ui_test.py` (yangi CI qadami)
+ikkala o‘yinda o‘tdi: U1 klaviatura turi 60 audit, 6 ekran, 0 xato, eng kichik matn 12.03 px (65/70 s); U2 yangi
+jarayon 120 % bilan ochiladi, gamepad turi 80 % ga qaytaradi (60 audit, 59/64 s), sichqoncha audit aytgan joyda
+*Sozlamalar* va *Orqaga*ni bosadi; U3 seed'li fuzz 2 000 kadr × klaviatura/gamepad: 534/504 (Chiroqbon) va 546/450
+(Dovon mash'ali) audit, eng ko‘pi 2 panel, invariant buzilishi 0, xato 0 (145–165 s); UW 2560×1080 menyu 6 audit.
+Mutatsiyalar (Player): musiqa slayderi havolalari uzilganda U1 yiqildi (tur *Orqaga*ga yetmaydi, audit uch vidjet uchun
+`Unreachable`), versiya qatori 25 → 18 birlik bo‘lganda U1 12 ta `MinFont` bilan yiqildi; headless
+`SliceMenuLayoutCatchesABrokenLinkAndTinyText` ham shuni tekshiradi. Layout tuzatishlari: matnlar ≥ 25 birlik,
+boshqaruv qatori ekran kengligining 78 % ida o‘raladi, 2D menyu xaritasi 21:9 chetini qoplaydi (oldin chapda qora
+yo‘lak). 1345/1345 unit (6 yangi: 1 animator, 5 UI audit/layout; to‘liq run 282 s), 14/14 headless CTest
+(`-LE gui`, ZaminTests alohida), `ctest -L docs` 2/2, build ogohlantirishsiz; `slice_workflow_test.py` P0+E0 ikkala
+o‘yinda (Chiroqbon 38 + 70 s, Dovon mash'ali 42 + 176 s); generatorlar ikki marta — fayllar bir xil. Dizayndan farqlar:
+o‘yin ichidagi stress (A3, P3) Player `--benchmark` va alohida `Stress` sahnalari o‘rniga headless `--slice-stress` da
+haqiqiy darajalar nusxasi ustida (assetlar 6 MiB byudjetda, llvmpipe chizishi o‘yin kodi vaqtini ko‘madi;
+`slice_bench.py --stress` yo‘q); canvas'lar *Expand* emas, *Match 0.5* qoldi — layout'lar tuzatildi, shuning uchun
+"Expand o‘chirilsa" mutatsiyasi o‘rniga kichik shrift va uzilgan havola mutatsiyalari; `MinFont` UI o‘lchami 100 % dan
+kichik bo‘lsa mutanosib kamayadi; 3 ishchidagi 15.2 ajratma / kadr `JobSystem::ParallelFor` ning o‘zi; fizikada
+ajratmalar (2D 128.5, 3D 82.6 / kadr) Box2D/Jolt so‘rov natijalari — byudjet qo‘yilmagan, qayd etildi.
 
 ### Yakunlangan bo‘lim — gameplay UI
 

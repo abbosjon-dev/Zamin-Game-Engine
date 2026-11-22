@@ -257,6 +257,14 @@ TEST(GameSaveModelV4RoundtripKeepsEffectsAndProjectilesExactly)
     auto missing = V4Example();
     missing.Combat.reset();
     CHECK(Rejects(missing));
+    // An owner gone at capture is kept as the optional FormerOwner, written only when set.
+    auto former = V4Example();
+    former.Combat->Projectiles[0].Owner.clear();
+    former.Combat->Projectiles[0].FormerOwner = "uuid:850";
+    const auto formerBytes = G::EncodeGameSave(former);
+    CHECK(formerBytes.find("FormerOwner") != std::string::npos && bytes.find("FormerOwner") == std::string::npos);
+    CHECK(G::DecodeGameSave(formerBytes, copy, error) && copy.Combat->Projectiles[0].FormerOwner == "uuid:850" && copy.Combat->Projectiles[0].Owner.empty());
+    CHECK(G::EncodeGameSave(copy) == formerBytes);
 }
 TEST(GameSaveModelV4StrictFieldsAndBoundsRejectWholeSnapshot)
 {
@@ -266,6 +274,7 @@ TEST(GameSaveModelV4StrictFieldsAndBoundsRejectWholeSnapshot)
         [](auto& s) { s.Entities[0].Effects[0].Remaining = std::numeric_limits<double>::quiet_NaN(); },
         [](auto& s) { s.Entities[0].Effects[0].Remaining = 9601; },
         [](auto& s) { s.Entities[0].Effects[0].Tick = 61; },
+        [](auto& s) { s.Entities[0].Effects[0].Tick = 60 + 1e-6; },
         [](auto& s) { s.Entities[0].Effects[0].Magnitude = 100001; },
         [](auto& s) { s.Entities[0].Effects[0].Stacks = 0; },
         [](auto& s) { s.Entities[0].Effects[0].Stacks = 17; },
@@ -298,6 +307,8 @@ TEST(GameSaveModelV4StrictFieldsAndBoundsRejectWholeSnapshot)
         [](auto& s) { s.Combat->Projectiles[0].Key.clear(); },
         [](auto& s) { s.Combat->Projectiles[0].Effect = "a/b"; },
         [](auto& s) { s.Combat->Projectiles[0].Owner = "uuid:"; },
+        [](auto& s) { s.Combat->Projectiles[0].FormerOwner = "uuid:850"; }, // never together with a live owner
+        [](auto& s) { s.Combat->Projectiles[0].Owner.clear(), s.Combat->Projectiles[0].FormerOwner = "../x"; },
         [](auto& s) { s.Combat->Signature = std::string(65537, 'x'); },
         [](auto& s) {
             auto p = s.Combat->Projectiles[0];
@@ -328,6 +339,8 @@ TEST(GameSaveModelV4StrictFieldsAndBoundsRejectWholeSnapshot)
         [](auto& d) { d["Payload"]["Combat"]["Extra"] = 0; },
         [](auto& d) { d["Payload"]["Combat"]["Projectiles"] = Visual::Value::object(); },
         [](auto& d) { d["Payload"]["Combat"]["Projectiles"][0].erase("Hits"); },
+        [](auto& d) { d["Payload"]["Combat"]["Projectiles"][0]["FormerOwner"] = ""; }, // present means set
+        [](auto& d) { d["Payload"]["Combat"]["Projectiles"][0]["Former"] = "uuid:850"; },
         [](auto& d) { d["Payload"]["Combat"]["Projectiles"][0]["Position"] = Visual::Value::array({ 0, 0 }); },
         [](auto& d) { d["Payload"].erase("Combat"); },
         [](auto& d) { d["Version"] = 3; },
@@ -471,12 +484,14 @@ TEST(CombatSaveUnresolvedSourcesAndOwnersBecomeOwnerless)
         if (s.Key == "Player") CHECK(s.Effects.size() == 1 && s.Effects[0].Source == reference);
     CHECK(saves.Restore(save, "Combat").Success); // still there: the same session resolves the UUID
     CHECK(f.Combat().Projectile(shot.Handle)->Owner == uint64_t(turret.GetUUID()) && Rows(f, f.Hero).at(0).Source == uint64_t(turret.GetUUID()));
+    const uint64_t turretID = turret.GetUUID();
     f.World.DestroyEntity(turret);
     f.Run(1);
     auto gone = saves.Capture("Combat");
-    CHECK(gone.Combat->Projectiles[0].Owner.empty()); // a gone owner is saved as none
-    CHECK(saves.Restore(save, "Combat").Success);     // the older snapshot names a UUID nothing has now
-    CHECK(f.Combat().Projectile(shot.Handle)->Owner == 0 && Rows(f, f.Hero).at(0).Source == 0);
+    CHECK(gone.Combat->Projectiles[0].Owner.empty() && gone.Combat->Projectiles[0].FormerOwner == reference); // no credit, still spared
+    CHECK(saves.Restore(save, "Combat").Success); // the older snapshot names a UUID nothing has now
+    // No credit (no live handle), but the UUID stays the dart's exclusion, as for an owner gone at runtime.
+    CHECK(f.Combat().Projectile(shot.Handle)->Owner == turretID && Rows(f, f.Hero).at(0).Source == 0);
     RuleEvents(f, f.Hero);
     f.Run(120);
     // Ownerless: the dart keeps its team snapshot and damage; the poison's two remaining ticks in 2 s still hurt,
@@ -589,4 +604,94 @@ TEST(CombatSaveUnlinkedAbilitySignaturesStayByteIdentical)
     auto abilities = Visual::Value::parse(save.Entities[0].Signature).at("Loadout").at(2);
     CHECK(abilities.at("Zap").size() == 8 && abilities.at("Spit").size() == 11 && abilities.at("Spit")[8] == "Dart" && abilities.at("Spit")[10] == "");
     CHECK(save.Version == 3); // links alone do not make a combat save: no combat definitions exist yet
+}
+// A 60 s period ticking on a step boundary may leave its phase a rounding error above the period, which the effect
+// model accepts: the codec accepts the same (and still rejects anything beyond that epsilon).
+TEST(GameSaveModelV4TickPhaseMayExceedItsPeriodByTheModelEpsilon)
+{
+    const auto slow = Dot("Slow", 120, 60, 1);
+    const std::map<std::string, G::EffectSpec> specs{ { "Slow", slow } };
+    G::EffectBook book;
+    G::EffectInstance i;
+    i.Key = "Slow";
+    i.Stacks = 1;
+    i.Remaining = 100;
+    i.UntilTick = 1.0 / 60 + 5e-10; // due within the epsilon on this step
+    i.Magnitude = 1;
+    i.Sequence = 1;
+    book.Instances = { i };
+    book.NextSequence = 2;
+    std::vector<G::EffectTick> ticks;
+    std::vector<G::ExpiredEffect> expired;
+    G::TickEffects(book, specs, 1.0 / 60, ticks, expired);
+    std::string error;
+    CHECK(ticks.size() == 1 && book.Instances.size() == 1 && book.Instances[0].UntilTick > 60 && G::ValidateEffectBook(book, specs, error));
+    auto save = V4Example();
+    save.Entities[0].Effects[0].Tick = book.Instances[0].UntilTick;
+    CHECK(!Rejects(save));
+    save.Entities[0].Effects[0].Tick = 60 + 1e-6;
+    CHECK(Rejects(save));
+}
+// An owner gone before the save stays the projectile's exclusion after the load (FormerOwner), and an owner that
+// is unknown after a load (an older v4 file, a key that no longer resolves) leaves the area to the team snapshot.
+TEST(CombatSaveOwnerlessProjectileKeepsItsExclusionAndTeamAfterALoad)
+{
+    {
+        CFixture f;
+        CombatScene(f);
+        auto turret = f.World.CreateEntityWithUUID(UUID(777), "Turret");
+        turret.GetTransform().Translation = { -6, 3, 0 };
+        f.Health(turret, 2);
+        auto dart = CFixture::Bolt(true, "Dart");
+        dart.Speed = 4;
+        f.Define(dart);
+        const auto shot = f.Fire("Dart", { 1, 0, 0 }, turret);
+        CHECK(shot.Success);
+        f.Run(6);
+        // Destroyed and recreated with the same UUID, on team 0 (admitted by the damage rule), in the dart's path.
+        f.World.DestroyEntity(turret);
+        auto again = f.World.CreateEntityWithUUID(UUID(777), "Turret again");
+        again.GetTransform().Translation = { -4, 3, 0 };
+        f.Health(again, 0);
+        f.Run(1);
+        auto& saves = G::SaveWorld::For(f.World);
+        const auto save = saves.Capture("Combat");
+        CHECK(save.Combat->Projectiles.size() == 1 && save.Combat->Projectiles[0].Owner.empty() && save.Combat->Projectiles[0].FormerOwner == "uuid:777");
+        f.Run(60);
+        CHECK(f.HP(again) == 100); // at runtime the recreated entity is spared by UUID ...
+        CHECK(saves.Restore(save, "Combat").Success);
+        const auto restored = f.Combat().Projectile(shot.Handle);
+        CHECK(restored && restored->Owner == 777);
+        f.Run(60);
+        CHECK(f.HP(again) == 100 && f.Combat().LiveCount() == 1); // ... and after the load, the dart flies on
+    }
+    {
+        CFixture f;
+        CombatScene(f);
+        Define(f, Area("Blast", 2, 10));
+        auto grenade = CFixture::Bolt(true, "Grenade");
+        grenade.Speed = 4;
+        grenade.Area = "Blast";
+        f.Define(grenade);
+        auto turret = f.World.CreateEntityWithUUID(UUID(777), "Turret");
+        turret.GetTransform().Translation = { -6, 0, 0 };
+        f.Health(turret, 2);
+        auto ally = f.Actor(400, { 0, 1, 0 }, 2); // the turret's teammate beside the Hero
+        const auto shot = f.Fire("Grenade", { 1, 0, 0 }, turret);
+        CHECK(shot.Success);
+        f.Run(6);
+        auto& saves = G::SaveWorld::For(f.World);
+        const auto save = saves.Capture("Combat");
+        f.World.DestroyEntity(turret);
+        auto unknown = save; // as a v4 file written before FormerOwner, or an owner key that no longer resolves
+        unknown.Combat->Projectiles[0].Owner.clear();
+        for (const G::GameSave* snapshot : std::initializer_list<const G::GameSave*>{ &save, &unknown })
+        {
+            CHECK(saves.Restore(*snapshot, "Combat").Success);
+            CHECK(f.Combat().Projectile(shot.Handle)->Owner == (snapshot == &save ? 777u : 0u));
+            f.Run(120);
+            // The grenade hits the Hero (20) and its area (10) spares the turret's teammate either way.
+            CHECK(f.HP(f.Hero) == 100 - 20 - 10 && f.HP(ally) == 100 && f.Combat().LiveCount() == 0);
+        }
+    }
 }

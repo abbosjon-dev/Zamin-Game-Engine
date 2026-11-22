@@ -20,6 +20,9 @@ namespace Zamin::Gameplay {
     {
         uint32_t Slot = 0, Generation = 1, Team = 0, PierceLeft = 0, Phase = 0;
         std::string Key, Effect, Owner, Target; // Owner/Target: references as SavedEffect::Source
+        // The UUID of an owner that was gone (destroyed or recreated) when the state was saved: it gets no credit
+        // but is still never hit. Optional in the document (absent = none); never set together with Owner.
+        std::string FormerOwner;
         glm::dvec3 Position{}, Velocity{}, Muzzle{};
         double Age = 0, Travelled = 0, Damage = 0, Attack = 0;
         std::vector<std::string> Hits; // up to 8 references (an empty one: a target that no longer resolves)

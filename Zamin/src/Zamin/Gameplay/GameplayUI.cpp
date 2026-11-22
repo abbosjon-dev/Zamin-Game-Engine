@@ -557,16 +557,12 @@ namespace Zamin::Gameplay {
             }
             else if (r.Spec.Kind == HUDKind::HitMarker)
             {
-                // The newest direct hit (not an effect tick) the actor dealt within the marker time.
-                std::array<HitRecord, 8> recent;
-                const size_t n = combat && actor ? combat->Recent(actor, true, false, HitMarkerSeconds, recent) : 0;
+                // The newest direct hit (not an effect tick) the actor dealt within the marker time: the whole ring is
+                // searched, so a burst of ticks never hides it.
+                std::array<HitRecord, 1> recent;
+                const size_t n = combat && actor ? combat->Recent(actor, true, false, HitMarkerSeconds, recent, false) : 0;
                 special = HUDPresentation{ "", 0 };
-                for (size_t k = 0; k < n; ++k)
-                    if (!recent[k].Periodic)
-                    {
-                        special = HUDPresentation{ r.Spec.Prefix, float(std::clamp(1 - (combat->Now() - recent[k].Time) / HitMarkerSeconds, 0.0, 1.0)) };
-                        break;
-                    }
+                if (n > 0) special = HUDPresentation{ r.Spec.Prefix, float(std::clamp(1 - (combat->Now() - recent[0].Time) / HitMarkerSeconds, 0.0, 1.0)) };
             }
             auto p = special ? *special : available ? PresentHUD(value, max, r.Spec.Prefix, r.Spec.Ratio)
                                                     : HUDPresentation{ r.Spec.Prefix + "--", 0 };

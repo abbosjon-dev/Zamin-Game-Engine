@@ -912,3 +912,56 @@ TEST(CombatEffectPlayStopStartResetsEffectsAndDefinitions)
     CHECK(f.Combat().ApplyEffect(f.Enemy, "Poison", f.Hero).Reason == "Effect not defined");
     CHECK(f.Combat().ApplyArea("Blast", f.Hero, { 0, 0, 0 }).Reason == "Area not defined");
 }
+// A wall impact detonates 2 cm in front of the face: the area's line-of-sight rays never start on the struck
+// surface (physics queries ignore a collider they start on), so it cannot reach actors behind that wall.
+TEST(CombatImpactDetonationLineOfSightNeverSeesThroughTheStruckWall)
+{
+    for (bool three : { false, true })
+    {
+        CFixture f([&](CFixture& x) {
+            if (three) StaticBox3D(x.World, { 2.5f, 0, 0 }, { .1f, 2, 2 });
+            else StaticWall2D(x.World, { 2.5f, 0, 0 }, { .1f, 2 });
+        });
+        auto hidden = f.Actor(301, three ? glm::vec3(3.2f, 0, .5f) : glm::vec3(3.2f, .5f, 0), 2);
+        auto front = f.Actor(302, three ? glm::vec3(1.8f, 0, .8f) : glm::vec3(1.8f, .8f, 0), 2);
+        auto nova = Area("Nova", 1.5, 10, !three);
+        nova.LineOfSight = true;
+        Define(f, nova);
+        auto shell = CFixture::Bolt(!three, "Shell");
+        shell.Radius = 0; // the ray (in 2D the only ray) ends exactly on the face
+        shell.Area = "Nova";
+        f.Define(shell);
+        CHECK(f.Fire("Shell").Success);
+        f.Run(30);
+        auto events = f.Drain(f.Hero);
+        CHECK(events.size() == 3 && events[1].Kind == "Impact" && events[2].Kind == "Detonated" && events[2].Amount == 1);
+        if (events.size() == 3)
+        {
+            CHECK_NEAR(events[1].Position.x, 2.4, 1e-3);  // the impact is on the face ...
+            CHECK_NEAR(events[2].Position.x, 2.38, 1e-3); // ... the area 2 cm in front of it
+        }
+        CHECK(f.HP(hidden) == 100 && f.HP(front) == 90 && f.HP(f.Enemy) == 100);
+    }
+}
+// Pure nodes read only: they never create the scene's combat world (which would also route every later restore
+// through the combat staging path) and report neutral values without one.
+TEST(CombatPureNodesNeverCreateTheCombatWorld)
+{
+    CFixture f;
+    auto& ctx = f.World.GetRegistry().ctx();
+    CHECK(!ctx.find<G::CombatWorld>());
+    Gameplay::Runtime r;
+    auto state = CCall(r, f.Hero, "Gameplay.EffectState", { { "Effect", "Burn" } });
+    CHECK(state.at("Active") == false && state.at("Stacks") == 0 && state.at("Fraction") == 0);
+    auto m = CCall(r, f.Hero, "Gameplay.CombatModifiers");
+    CHECK(m.at("Stunned") == false && m.at("Speed") == 1 && m.at("Attack") == 0 && m.at("Effects") == 0);
+    auto p = CCall(r, f.Hero, "Gameplay.ProjectileState", { { "Projectile", 257 } });
+    CHECK(p.at("Alive") == false && p.at("Live") == 0 && p.at("Capacity") == 128);
+    CHECK(Throws([&] { CCall(r, f.Hero, "Gameplay.ProjectileState", { { "Projectile", -1 } }); })); // still validated
+    CHECK(!ctx.find<G::CombatWorld>());
+    // An action node creates the world; the pure nodes then read it.
+    CHECK(CCall(r, f.Hero, "Gameplay.EffectDefine").at("Success") == true);
+    CHECK(ctx.find<G::CombatWorld>() && f.Combat().ApplyEffect(f.Hero, "Burn").Outcome == Outcome::Added);
+    CHECK(CCall(r, f.Hero, "Gameplay.EffectState", { { "Effect", "Burn" } }).at("Active") == true);
+    CHECK(CCall(r, f.Hero, "Gameplay.CombatModifiers").at("Effects") == 1);
+}

@@ -109,12 +109,16 @@ before. V4 keeps the v2 Quests and v3 Loadout records and adds:
   most 65,536 characters; visual Prefab/Pool excluded) and at most 128 `Projectiles`, each in its pool `Slot`
   with its handle `Generation`, Key, effect override, Owner/Target references, Team snapshot, double
   Position/Velocity/Muzzle (written exactly), Age, Travelled, Damage and Attack snapshots, PierceLeft, up to
-  eight Hits references and Phase (0 flying, 1 detonating).
+  eight Hits references and Phase (0 flying, 1 detonating). An optional `FormerOwner` reference (written only
+  when set, never together with Owner) names an owner that was already gone at capture.
 
 References are save keys, `uuid:<n>` for an unbound authored entity, or empty. A source, owner or target that
 is gone at capture, or does not resolve at load, becomes none: the effect keeps ticking with its team
-snapshot but credits nobody, and the projectile flies ownerless. Hits only exclude targets, so an authored
-UUID is kept.
+snapshot but credits nobody, and the projectile flies ownerless. The ownerless projectile still keeps its
+former owner's UUID (the unresolved `uuid:` Owner or `FormerOwner`) as an exclusion, exactly as before the
+save, so a load never lets it hit that UUID, and its area keeps admitting by the team snapshot. Hits only
+exclude targets, so an authored UUID is kept. V4 files written before `FormerOwner` existed still load: their
+former owner is unknown (no exclusion), the team rules are unchanged.
 
 Define combat in `Event.Start` before `SaveLoad`, as loadouts. Restore rejects a different definition set
 with `Combat definitions changed`. It stages each bound present entity's effects against the current

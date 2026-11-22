@@ -333,6 +333,9 @@ namespace Zamin::Gameplay {
         if (after.Uses != UINT32_MAX) ++after.Uses;
         a->Inventory = std::move(bag);
         r->State = std::move(next);
+        // `next` was copied before the cast: an effect it put on the caster (a beneficial status lowering MaxEnergy)
+        // clamped the old state, so the committed energy is clamped again against the current capacity.
+        ClampLoadoutEnergy(*m_Scene, actor);
         if (!spec.Ingredient.empty()) rules.Emit(*a, { "InventoryChanged", spec.Ingredient, uint64_t(actor.GetUUID()), uint64_t(actor.GetUUID()), -double(spec.Count) });
         Emit(*r, { "Cast", key, out.Applied });
         out.Success = true;

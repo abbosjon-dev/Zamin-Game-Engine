@@ -10,9 +10,11 @@ namespace Zamin::Gameplay {
         {
             if (!condition) throw std::runtime_error(error);
         }
-        void Keys(const V& v, std::initializer_list<const char*> names)
+        void Keys(const V& v, std::initializer_list<const char*> names, std::initializer_list<const char*> optional = {})
         {
-            Require(v.is_object() && v.size() == names.size(), "Invalid save object fields");
+            size_t present = 0;
+            for (auto name : optional) present += v.is_object() && v.contains(name);
+            Require(v.is_object() && v.size() == names.size() + present, "Invalid save object fields");
             for (auto name : names) Require(v.contains(name), "Missing save field");
         }
         double Number(const V& v, double low, double high)
@@ -88,7 +90,9 @@ namespace Zamin::Gameplay {
                 // The longest instance: 600 s x 16 stacks (Extend); remaining time is strictly positive.
                 e.Remaining = Number(item.at("Remaining"), 0, 9600);
                 Require(e.Remaining > 0, "Saved effect has expired");
-                e.Tick = Number(item.at("Tick"), 0, 60);
+                // A tick due on a step boundary may leave the phase a rounding error above the period (at most 60 s):
+                // the same 1e-9 the effect model allows.
+                e.Tick = Number(item.at("Tick"), 0, 60 + 1e-9);
                 e.Magnitude = Number(item.at("Magnitude"), 0, 100000);
                 auto& sequence = item.at("Sequence");
                 Require(sequence.is_number_unsigned() && sequence.get<uint64_t>() >= 1 && sequence.get<uint64_t>() <= (uint64_t(1) << 53), "Invalid saved effect sequence");
@@ -102,7 +106,11 @@ namespace Zamin::Gameplay {
         {
             V projectiles = V::array();
             for (auto& p : c.Projectiles)
+            {
                 projectiles.push_back({ { "Slot", p.Slot }, { "Generation", p.Generation }, { "Key", p.Key }, { "Effect", p.Effect }, { "Owner", p.Owner }, { "Team", p.Team }, { "Target", p.Target }, { "Position", DVec(p.Position) }, { "Velocity", DVec(p.Velocity) }, { "Muzzle", DVec(p.Muzzle) }, { "Age", p.Age }, { "Travelled", p.Travelled }, { "Damage", p.Damage }, { "Attack", p.Attack }, { "PierceLeft", p.PierceLeft }, { "Hits", p.Hits }, { "Phase", p.Phase } });
+                // Written only when set, so documents without a gone owner keep their exact bytes.
+                if (!p.FormerOwner.empty()) projectiles.back()["FormerOwner"] = p.FormerOwner;
+            }
             return { { "Signature", c.Signature }, { "Projectiles", projectiles } };
         }
         SavedCombat ReadCombat(const V& v)
@@ -115,7 +123,7 @@ namespace Zamin::Gameplay {
             std::set<uint32_t> slots;
             for (auto& item : projectiles)
             {
-                Keys(item, { "Slot", "Generation", "Key", "Effect", "Owner", "Team", "Target", "Position", "Velocity", "Muzzle", "Age", "Travelled", "Damage", "Attack", "PierceLeft", "Hits", "Phase" });
+                Keys(item, { "Slot", "Generation", "Key", "Effect", "Owner", "Team", "Target", "Position", "Velocity", "Muzzle", "Age", "Travelled", "Damage", "Attack", "PierceLeft", "Hits", "Phase" }, { "FormerOwner" });
                 SavedProjectile p;
                 p.Slot = Small(item.at("Slot"), 127);
                 Require(slots.insert(p.Slot).second, "Duplicate saved projectile slot");
@@ -125,6 +133,11 @@ namespace Zamin::Gameplay {
                 p.Effect = Text(item.at("Effect"), 64);
                 Require(ValidItem(p.Key) && (p.Effect.empty() || ValidItem(p.Effect)), "Invalid saved projectile key");
                 p.Owner = Reference(item.at("Owner"));
+                if (item.contains("FormerOwner"))
+                {
+                    p.FormerOwner = Reference(item.at("FormerOwner"));
+                    Require(!p.FormerOwner.empty() && p.Owner.empty(), "Invalid saved former projectile owner");
+                }
                 p.Target = Reference(item.at("Target"));
                 p.Team = Small(item.at("Team"), 65535);
                 p.Position = DVec(item.at("Position"), 1e9);

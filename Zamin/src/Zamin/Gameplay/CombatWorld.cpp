@@ -18,6 +18,7 @@ namespace Zamin::Gameplay {
         template<typename... T>
         bool HasAny(Entity e) { return (e.HasComponent<T>() || ...); }
         glm::dvec3 Lerp(const Segment& s, double t) { return s.From + (s.To - s.From) * t; }
+        constexpr double ImpactBackoff = .02; // as WorldSweep's query start: 2 cm off a struck surface
         // Effects carried by a payload must agree with it: damage carries hostile effects, support beneficial ones.
         bool Matches(PayloadKind kind, const EffectSpec& effect) { return effect.Hostile == (kind == PayloadKind::Damage); }
         template<typename T>
@@ -437,7 +438,7 @@ namespace Zamin::Gameplay {
         auto found = m_Events.find(uint64_t(e.GetUUID()));
         return found == m_Events.end() || found->second.Handle != uint32_t(e) ? 0 : found->second.Dropped;
     }
-    size_t CombatWorld::Recent(Entity actor, bool outgoing, bool incoming, double maxAge, std::span<HitRecord> out) const
+    size_t CombatWorld::Recent(Entity actor, bool outgoing, bool incoming, double maxAge, std::span<HitRecord> out, bool periodic) const
     {
         Check(actor);
         if (!std::isfinite(maxAge) || maxAge < 0) throw std::runtime_error("Hit record age must be finite and nonnegative");
@@ -447,6 +448,7 @@ namespace Zamin::Gameplay {
         {
             const auto& r = m_HitRing[(m_HitHead + HitCapacity - 1 - i) % HitCapacity];
             if (m_Now - r.Time > maxAge) break; // the ring is in time order
+            if (r.Periodic && !periodic) continue;
             if ((outgoing && r.Source == id) || (incoming && r.Victim == id)) out[count++] = r;
         }
         return count;
@@ -814,7 +816,7 @@ namespace Zamin::Gameplay {
             if (!IgnoredBlocker(hit.EntityID) && double(hit.Distance) < distance - .01) return false;
         return true;
     }
-    AreaResult CombatWorld::Area(const AreaSpec& spec, Entity source, uint64_t sourceID, uint16_t team, glm::dvec3 center, double magnitude, const EffectSpec* effect)
+    AreaResult CombatWorld::Area(const AreaSpec& spec, Entity source, uint64_t sourceID, uint16_t team, bool teams, glm::dvec3 center, double magnitude, const EffectSpec* effect)
     {
         ZM_PROFILE_SCOPE("Hududlar");
         AreaResult out;
@@ -830,8 +832,9 @@ namespace Zamin::Gameplay {
                 if (!actor.Health || actor.Health->Dead) continue;
                 auto e = m_Scene->GetEntityByUUID(UUID(id));
                 if (!e || uint32_t(e) != actor.Handle || !m_Scene->IsActiveInHierarchy(e)) continue;
-                // Without a source (environment) the area ignores teams; otherwise the payload admission applies.
-                if (sourceID && !Admits(spec.Kind, spec.FriendlyFire, sourceID, team, id, actor.Health->Settings.Team, spec.AffectOwner)) continue;
+                // Without a source (environment) the area ignores teams; otherwise the payload admission applies. A
+                // projectile always has a team snapshot, so an ownerless one (sourceID 0 after a load) still uses it.
+                if (teams && !Admits(spec.Kind, spec.FriendlyFire, sourceID, team, id, actor.Health->Settings.Team, spec.AffectOwner)) continue;
                 auto delta = D(m_Scene->GetWorldPosition(e)) + spec.TargetOffset - center;
                 if (spec.TwoD) delta.z = 0;
                 if (const double distance = glm::length(delta); distance <= spec.Radius && m_AreaTargets.size() < MaxActors) m_AreaTargets.emplace_back(distance, id);
@@ -854,7 +857,7 @@ namespace Zamin::Gameplay {
                 request.Source = source;
                 request.Amount = amount;
                 request.SourceTeam = team;
-                request.FriendlyFire = spec.FriendlyFire || !sourceID;
+                request.FriendlyFire = spec.FriendlyFire || !teams;
                 request.PierceShield = spec.PierceShield;
                 request.IgnoreGrace = spec.IgnoreGrace;
                 request.SourceAttack = false; // Attack is part of the magnitude (launch or cast snapshot)
@@ -869,7 +872,7 @@ namespace Zamin::Gameplay {
             Emit(victim, "Hit", spec.Key, credited, id, applied, point);
             ++out.Affected;
             out.Applied += applied;
-            if (effect && !killed && !rules->Dead(victim)) Apply(victim, *effect, source, team, spec.FriendlyFire || !sourceID, -1);
+            if (effect && !killed && !rules->Dead(victim)) Apply(victim, *effect, source, team, spec.FriendlyFire || !teams, -1);
         }
         if (source) Emit(source, "Detonated", spec.Key, source.GetUUID(), 0, double(out.Affected), center);
         if (DebugDraw::IsShowingRaycasts())
@@ -913,7 +916,7 @@ namespace Zamin::Gameplay {
         double amount = magnitude < 0 ? spec.Amount : magnitude;
         // The source's Attack joins before the falloff, exactly as a projectile's launch snapshot does.
         if (spec.Kind == PayloadKind::Damage && source) amount = std::min(1e6, amount + LoadoutAttack(*m_Scene, source));
-        return Area(spec, source, source ? uint64_t(source.GetUUID()) : 0, team, D(center), amount, effect.empty() ? nullptr : &m_EffectSpecs.at(effect));
+        return Area(spec, source, source ? uint64_t(source.GetUUID()) : 0, team, bool(source), D(center), amount, effect.empty() ? nullptr : &m_EffectSpecs.at(effect));
     }
     void CombatWorld::Detonate(Slot& s, Entity owner)
     {
@@ -923,8 +926,8 @@ namespace Zamin::Gameplay {
         if (area == m_Areas.end()) return; // resolved at Fire; definitions are immutable
         double magnitude = area->second.Amount;
         if (area->second.Kind == PayloadKind::Damage) magnitude = std::min(1e6, magnitude + state.Attack);
-        // An ownerless projectile keeps its team and still excludes its former owner's UUID.
-        Area(area->second, owner, state.Owner, state.Team, state.Position + state.Muzzle, magnitude, nullptr);
+        // An ownerless projectile keeps its team and still excludes its former owner's UUID (0 when unknown).
+        Area(area->second, owner, state.Owner, state.Team, true, state.Position + state.Muzzle, magnitude, nullptr);
     }
     void CombatWorld::EffectsPhase(double h)
     {
@@ -977,6 +980,9 @@ namespace Zamin::Gameplay {
                 }
                 else applied = rules->Heal(e, tick.Amount, tick.Kind == TickKind::Shield, source, tick.Spec->Key);
                 ++m_TickCount;
+                // A tick that changed nothing (a heal at full health, damage fully absorbed) is no hit: it would only
+                // push real hits out of the HUD feed.
+                if (!(applied > 0) && !killed) continue;
                 const auto kind = tick.Kind == TickKind::Damage ? PayloadKind::Damage : tick.Kind == TickKind::Heal ? PayloadKind::Heal
                                                                                                                     : PayloadKind::Shield;
                 Record(source ? uint64_t(source.GetUUID()) : 0, id, tick.Spec->Key, applied, kind, killed, position, true);
@@ -1056,7 +1062,15 @@ namespace Zamin::Gameplay {
             {
                 state.Position = Lerp(segment, blocker);
                 if (owner) Emit(owner, "Impact", spec.Key, state.Owner, 0, 0, state.Position);
-                if (area) detonate(slot, owner);
+                if (area)
+                {
+                    // The area is centred 2 cm in front of the surface: its line-of-sight rays must not start on
+                    // (or inside) the wall that was hit, which physics queries ignore, and so see through it.
+                    auto travel = segment.To - segment.From;
+                    if (spec.TwoD) travel.z = 0;
+                    if (const double length = glm::length(travel); length > 1e-9) state.Position -= travel / length * ImpactBackoff;
+                    detonate(slot, owner);
+                }
                 else Release(slot);
                 continue;
             }
@@ -1208,7 +1222,8 @@ namespace Zamin::Gameplay {
             p.Generation = m_Pool.Generation(slot);
             p.Key = state.Key;
             p.Effect = state.Effect;
-            p.Owner = live(state.Owner, s.OwnerHandle); // ownerless: saved without an owner
+            p.Owner = live(state.Owner, s.OwnerHandle); // ownerless: saved without an owner ...
+            if (p.Owner.empty() && state.Owner) p.FormerOwner = reference(state.Owner); // ... but still spared
             p.Target = live(state.Target, s.TargetHandle);
             p.Team = state.Team;
             p.Position = state.Position;
@@ -1283,9 +1298,11 @@ namespace Zamin::Gameplay {
             ProjectileState state;
             state.Key = p.Key;
             state.Effect = p.Effect;
-            // An owner that no longer resolves leaves the projectile ownerless (no credit, team snapshot kept).
+            // An owner that no longer resolves leaves the projectile ownerless (no credit, team snapshot kept); its
+            // UUID, or the saved former owner's, stays as the exclusion, exactly as for an owner gone at runtime.
             const auto owner = resolve(p.Owner), target = resolve(p.Target);
-            state.Owner = owner.Live ? uint64_t(owner.Live.GetUUID()) : 0;
+            state.Owner = owner.Live ? uint64_t(owner.Live.GetUUID()) : owner.ID;
+            if (!state.Owner) state.Owner = resolve(p.FormerOwner).ID;
             state.Target = target.Live ? uint64_t(target.Live.GetUUID()) : 0;
             state.Team = uint16_t(p.Team);
             state.Position = p.Position;

@@ -330,3 +330,65 @@ TEST(VisualGraphPinChoicesAreTranslated)
     CHECK(std::string(Tr(Visual::PinChoices("Gameplay.EffectDefine", "Stacking")->at(3))) == "Highest wins");
     EditorText::SetLanguage(EditorLanguage::Uzbek);
 }
+// A beneficial self-cast status that lowers MaxEnergy clamps the energy the cast commits: the state never exceeds
+// its capacity, so the same frame's snapshot restores.
+TEST(CombatAbilityCastKeepsEnergyWithinAnEffectLoweredCapacity)
+{
+    AFixture f;
+    ::Define(f, Buff("Weary", 5, { 0, 0, 0, -60, 0 }));
+    CHECK(f.Learn(Linked("Focus", G::AbilityKind::Effect, 1, 10, "", "", "Weary")));
+    CHECK(f.Energy() == 100);
+    auto cast = f.Cast("Focus", {});
+    CHECK(cast.Success && f.Combat().Effect(f.Hero, "Weary").Active);
+    CHECK(f.Kit().State(f.Hero)->Stats[3] == 40 && f.Energy() == 40); // min(100 - 10, 100 - 60)
+    std::string e;
+    auto& saves = G::SaveWorld::For(f.World);
+    CHECK(saves.Bind(f.Hero, "Player", e));
+    const auto save = saves.Capture("Authoring");
+    const auto restored = saves.Restore(save, "Authoring");
+    CHECK(restored.Success && restored.Reason.empty() && f.Energy() == 40);
+}
+// Ticks that change nothing (a heal on a full-health actor) are no hits, and a burst of real ticks never hides a
+// fresh direct hit from the hit marker.
+TEST(CombatHUDZeroTicksAreNoHitsAndTickBurstsNeverHideTheMarker)
+{
+    Entity canvas, marker;
+    std::vector<Entity> rows;
+    CFixture f([&](CFixture& s) {
+        canvas = s.World.CreateEntity("Canvas");
+        canvas.AddComponent<UICanvasComponent>();
+        marker = Text(s.World, canvas, "Marker", "");
+        for (int i = 0; i < 4; ++i) rows.push_back(Text(s.World, canvas, "Row" + std::to_string(i), ""));
+    });
+    auto regen = Effect("Regen", 3);
+    regen.Hostile = false;
+    regen.Period = .25;
+    regen.Tick = G::TickKind::Heal;
+    regen.TickAmount = 4;
+    Define(f, regen);
+    Define(f, Dot("Burn", 2, .05, 1));
+    f.Define(CFixture::Bolt());
+    auto& ui = G::UIWorld::For(f.World);
+    std::string error;
+    CHECK(ui.BindHUD(f.Hero, f.Hero, marker, { G::HUDKind::HitMarker, "", "X", false }, error));
+    CHECK(ui.BindCombatFeed(f.Hero, f.Hero, "Feed", rows, { true, true, 5 }, error));
+    // Regen on the full-health Hero: four ticks heal nothing, so no record and no "+0  Regen" rows.
+    CHECK(f.Combat().ApplyEffect(f.Hero, "Regen", f.Hero).Outcome == Outcome::Added);
+    f.Run(60);
+    std::array<G::HitRecord, 8> records{};
+    CHECK(f.Combat().Recent(f.Hero, true, true, 10, records) == 0 && f.HP(f.Hero) == 100);
+    CHECK(rows[0].GetComponent<TextComponent>().Text.empty());
+    // Ten burning actors tick every 3 steps; the bolt's hit (at 4.45 m) is followed by ten tick records at once.
+    std::vector<Entity> burning;
+    for (int i = 0; i < 10; ++i)
+    {
+        burning.push_back(f.Actor(500 + uint64_t(i), { float(i), 6, 0 }, 2));
+        CHECK(f.Combat().ApplyEffect(burning.back(), "Burn", f.Hero).Outcome == Outcome::Added);
+    }
+    f.Fire("Bolt");
+    f.Run(30);
+    CHECK(f.HP(f.Enemy) == 80 && f.HP(burning[0]) < 100);
+    CHECK(f.Combat().Recent(f.Hero, true, false, .25, records) == 8 && records[0].Periodic); // ticks are newest
+    CHECK(marker.GetComponent<TextComponent>().Text == "X");
+    CHECK(f.Combat().Recent(f.Hero, true, false, .25, std::span(records.data(), 1), false) == 1 && !records[0].Periodic && records[0].Key == "Bolt");
+}

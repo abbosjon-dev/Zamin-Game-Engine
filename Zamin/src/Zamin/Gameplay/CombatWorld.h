@@ -107,8 +107,9 @@ namespace Zamin::Gameplay {
         std::optional<ProjectileState> Projectile(uint32_t handle) const;
         std::optional<CombatEvent> Poll(Entity);
         uint32_t Dropped(Entity) const;
-        // Newest first: hit records younger than maxAge where the actor is the source (outgoing) and/or the victim.
-        size_t Recent(Entity actor, bool outgoing, bool incoming, double maxAge, std::span<HitRecord> out) const;
+        // Newest first: hit records younger than maxAge where the actor is the source (outgoing) and/or the victim;
+        // periodic = false skips effect ticks (the hit marker's direct hits only).
+        size_t Recent(Entity actor, bool outgoing, bool incoming, double maxAge, std::span<HitRecord> out, bool periodic = true) const;
         CombatStatsView Stats() const;
         // The definitions' gameplay fields as JSON (Prefab and Pool are visual only and excluded).
         std::string Signature() const;
@@ -193,7 +194,8 @@ namespace Zamin::Gameplay {
         std::string PayloadError(const ProjectileSpec&) const;
         std::string AreaError(const AreaSpec&) const;
         ApplyResult Apply(Entity target, const EffectSpec&, Entity source, uint16_t team, bool friendlyFire, double magnitude);
-        AreaResult Area(const AreaSpec&, Entity source, uint64_t sourceID, uint16_t team, glm::dvec3 center, double magnitude, const EffectSpec* effect);
+        // teams: payload admission with the team snapshot (a source, or any projectile); false = environment.
+        AreaResult Area(const AreaSpec&, Entity source, uint64_t sourceID, uint16_t team, bool teams, glm::dvec3 center, double magnitude, const EffectSpec* effect);
         std::string EffectError(PayloadKind, const std::string& key, const char* missing, const char* mismatch) const;
         bool Visible(const AreaSpec&, const glm::dvec3& from, const glm::dvec3& to);
         void Detonate(Slot&, Entity owner);

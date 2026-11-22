@@ -75,8 +75,26 @@ namespace Zamin::Gameplay {
     {
         if (!kind.starts_with("Gameplay.Projectile") && !kind.starts_with("Gameplay.Area") && !kind.starts_with("Gameplay.Effect") && kind != "Gameplay.CombatEvent" && kind != "Gameplay.CombatModifiers") return {};
         auto& scene = *host.GetScene();
-        auto& world = CombatWorld::For(scene);
         Args a{ values };
+        // Pure nodes only read: they never create the scene's combat world and report neutral values without one.
+        const auto* existing = scene.GetRegistry().ctx().find<CombatWorld>();
+        if (kind == "Gameplay.ProjectileState")
+        {
+            const auto handle = a.Handle("Projectile");
+            const auto state = existing ? existing->Projectile(handle) : std::nullopt;
+            return V{ { "Alive", bool(state) }, { "Key", state ? state->Key : "" }, { "Position", Vector(state ? state->Position + state->Muzzle : glm::dvec3(0)) }, { "Velocity", Vector(state ? state->Velocity : glm::dvec3(0)) }, { "Age", state ? state->Age : 0 }, { "Hits", state ? state->HitCount : 0 }, { "Live", existing ? existing->LiveCount() : 0 }, { "Capacity", ProjectilePool::Capacity } };
+        }
+        if (kind == "Gameplay.EffectState")
+        {
+            const auto view = existing ? existing->Effect(actor, a.S("Effect")) : EffectView{};
+            return V{ { "Active", view.Active }, { "Stacks", view.Stacks }, { "Instances", view.Instances }, { "Remaining", view.Remaining }, { "Fraction", view.Duration > 0 ? view.Remaining / view.Duration : 0.0 }, { "Magnitude", view.Magnitude } };
+        }
+        if (kind == "Gameplay.CombatModifiers")
+        {
+            const auto m = existing ? existing->Modifiers(actor) : EffectModifiers{};
+            return V{ { "Stunned", m.Stunned }, { "Speed", m.Speed }, { "Attack", m.Add[0] }, { "Armor", m.Add[1] }, { "Power", m.Add[2] }, { "Maximum", m.Add[3] }, { "Regen", m.Add[4] }, { "Effects", m.Instances } };
+        }
+        auto& world = CombatWorld::For(scene);
         if (kind == "Gameplay.ProjectileDefine")
         {
             ProjectileSpec s;
@@ -121,11 +139,6 @@ namespace Zamin::Gameplay {
             request.Damage = a.N("Damage");
             const auto result = world.Fire(request);
             return V{ { "Success", result.Success }, { "Projectile", result.Handle }, { "Reason", result.Reason } };
-        }
-        if (kind == "Gameplay.ProjectileState")
-        {
-            const auto state = world.Projectile(a.Handle("Projectile"));
-            return V{ { "Alive", bool(state) }, { "Key", state ? state->Key : "" }, { "Position", Vector(state ? state->Position + state->Muzzle : glm::dvec3(0)) }, { "Velocity", Vector(state ? state->Velocity : glm::dvec3(0)) }, { "Age", state ? state->Age : 0 }, { "Hits", state ? state->HitCount : 0 }, { "Live", world.LiveCount() }, { "Capacity", ProjectilePool::Capacity } };
         }
         if (kind == "Gameplay.ProjectileCancel") return V{ { "Success", world.Cancel(a.Handle("Projectile"), a.B("Detonate")) } };
         if (kind == "Gameplay.AreaDefine")
@@ -199,16 +212,6 @@ namespace Zamin::Gameplay {
             return V{ { "Success", ok }, { "Outcome", ApplyOutcomeName(result.Outcome) }, { "Stacks", result.Stacks }, { "Remaining", result.Remaining }, { "Reason", result.Reason } };
         }
         if (kind == "Gameplay.EffectRemove") return V{ { "Removed", world.RemoveEffects(actor, a.S("Effect")) } };
-        if (kind == "Gameplay.EffectState")
-        {
-            const auto view = world.Effect(actor, a.S("Effect"));
-            return V{ { "Active", view.Active }, { "Stacks", view.Stacks }, { "Instances", view.Instances }, { "Remaining", view.Remaining }, { "Fraction", view.Duration > 0 ? view.Remaining / view.Duration : 0.0 }, { "Magnitude", view.Magnitude } };
-        }
-        if (kind == "Gameplay.CombatModifiers")
-        {
-            const auto m = world.Modifiers(actor);
-            return V{ { "Stunned", m.Stunned }, { "Speed", m.Speed }, { "Attack", m.Add[0] }, { "Armor", m.Add[1] }, { "Power", m.Add[2] }, { "Maximum", m.Add[3] }, { "Regen", m.Add[4] }, { "Effects", m.Instances } };
-        }
         if (kind == "Gameplay.CombatEvent")
         {
             auto e = world.Poll(actor);

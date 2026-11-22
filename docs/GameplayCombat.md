@@ -41,7 +41,6 @@ scene files.
 | BlockMask | 0–65535 | World-collision layers that stop it; 0 = never blocked by the world. |
 | TwoD, FriendlyFire, PierceShield, IgnoreGrace | flags | Plane mode and damage options. |
 | Prefab, Pool | `.zprefab` inside Assets, 0–32 | Optional visual and its pooled instance count. |
-
 | Effect, Area | registry keys or empty | Status effect applied to every committed hit; area detonated where the projectile ends. |
 | DetonateOnExpire | flag (requires Area) | Also detonate when lifetime/distance runs out. |
 
@@ -80,11 +79,14 @@ steps. `Projectile(handle)` returns a snapshot; a stale handle (released, reused
 hit spends it, at a world impact, at expiry with `DetonateOnExpire`, or by `Cancel(handle, true)` (which
 detonates on the next step where the projectile is). The area is centred on the end point: the hit point
 (the projectile centre at contact, `Radius + TargetRadius` from the victim's aim point, so an area at least
-that large also reaches the direct victim), the wall point or the last position. Its magnitude is the
+that large also reaches the direct victim), 2 cm in front of the wall point (back along the travel
+direction, so the area's line-of-sight rays never start on the struck surface, which physics queries would
+ignore) or the last position. Its magnitude is the
 area's Amount plus the owner Attack snapshotted at launch (Damage areas; `ProjectileState::Attack`). At most
 16 projectiles detonate per fixed step, in slot order; the rest keep their slot and detonate on the next
 step. An ownerless projectile detonates with its launch team, no Attack change and no kill credit, and its
-former owner's UUID is still spared.
+former owner's UUID is still spared. A projectile's area always admits targets by that team snapshot, even
+when the owner's UUID is unknown after a load: only a direct `ApplyArea` without a source is environmental.
 
 ## Hits and ownership
 
@@ -119,7 +121,8 @@ Payload admission (`Gameplay::Admits`):
 - **Ownerless projectiles**: owner and target are UUID plus generational handle, checked every step. If the
   owner is destroyed or recreated, the projectile keeps flying with its team and damage snapshot, gives no
   kill credit (no Source on the Damage event, no quest Kill notice) and emits no owner events. It still never
-  hits the former owner's UUID. An owner that merely dies keeps its projectiles.
+  hits the former owner's UUID, also after a save and load (`FormerOwner`). An owner that merely dies keeps
+  its projectiles.
 - Projectiles never interact with other projectiles.
 
 Damage goes through `RuleWorld::Damage(victim, DamageRequest)` with `SourceTeam` = the launch team,
@@ -212,7 +215,8 @@ Damage through `RuleWorld::Damage` with `IgnoreGrace = true` and `StartGrace = f
 stopped by hit grace and grant none), the applier's team snapshot, `SourceAttack = false` (only the
 victim's Armor applies), PierceShield from the definition and `Cause` = effect key; Heal/Shield through
 `RuleWorld::Heal`. The live applier gets kill credit and quest Kill notices; a destroyed or recreated
-applier gives none, and its ticks keep its team. Each tick writes a hit record with `Periodic = true`.
+applier gives none, and its ticks keep its team. Each tick that changed something writes a hit record with
+`Periodic = true`; a tick that applied nothing (a heal at full health, damage fully absorbed) writes none.
 
 **Lifecycle.** Death removes all of an actor's effects at once (`EffectCleared`, Amount = count), so a
 damage-over-time kill drops that actor's remaining ticks of the step and a respawned actor starts clean.
@@ -271,8 +275,9 @@ saturating `Dropped`). Kinds: `Fired`, `Hit` (to the owner and the victim of a p
 an area; Amount = applied), `Impact`, `Expired`, `Detonated` (to the area source; Amount = affected),
 `Cancelled`, and the effect events `EffectApplied`, `EffectRefreshed`, `EffectExpired`, `EffectRemoved`,
 `EffectCleared` (to the target). Events carry Key, Source, Subject, Amount and the world Position. A
-32-record hit ring (`Recent(actor, outgoing, incoming, maxAge, out)`) keeps the newest hits, area hits and
-damage/heal-over-time ticks (`Periodic`) for HUD feedback. `Stats()` reports live/pooled/shown counts,
+32-record hit ring (`Recent(actor, outgoing, incoming, maxAge, out, periodic = true)`) keeps the newest hits,
+area hits and damage/heal-over-time ticks that applied something (`Periodic`) for HUD feedback;
+`periodic = false` skips the ticks. `Stats()` reports live/pooled/shown counts,
 steps/sweeps/actor tests/effect ticks/area rays of the last frame, total hits and area applications
 (`Detonations`), live effect instances and the dropped time.
 
@@ -293,7 +298,8 @@ override is projectile state, saved with it; a projectile's detonation area keep
 `UIWorld::BindHUD` gains Kind 5 `Effect` (Item = effect key: `Prefix + stacks`, with `/ MaxStacks` when
 Ratio is set; the bar is `Remaining / duration cap`; `Prefix--` while inactive) and Kind 6 `HitMarker`
 (`Prefix` while the actor's newest direct outgoing hit is younger than 0.25 s, the bar fading 1 → 0;
-damage/heal-over-time ticks never mark). `UIWorld::BindCombatFeed` shows up to six rows of the actor's
+damage/heal-over-time ticks never mark, and the whole ring is searched, so a burst of ticks cannot hide a
+fresh hit). `UIWorld::BindCombatFeed` shows up to six rows of the actor's
 hit records (`Recent`), newest first, as `-18  Bolt` / `+5  Mend`, outgoing and/or incoming, fading their
 colour alpha over Lifetime (0.1–10 s); at most eight feeds, authored text and colour restored on removal or
 when the owner disappears. See [Gameplay UI](GameplayUI.md#hud-and-inventory-views).

@@ -278,6 +278,19 @@ namespace Zamin {
             m_Error = e.what();
         }
     }
+    void VisualGraphPanel::LogQA(const std::string& name) const
+    {
+        if (!m_Error.empty())
+        {
+            ZM_ERROR("Blueprint graph QA: {} ochilmadi: {}", name, m_Error);
+            return;
+        }
+        const auto diagnostics = m_Graph.Validate();
+        ZM_CORE_INFO("Blueprint graph QA: {} - {} node, {} link, {} o'zgaruvchi, {} diagnostika", name, m_Graph.Nodes.size(), m_Graph.Links.size(),
+                     m_Graph.Variables.size(), diagnostics.size());
+        for (size_t i = 0; i < diagnostics.size() && i < 8; i++)
+            ZM_WARN("Blueprint graph QA: {} node {}: {}", name, diagnostics[i].Node, diagnostics[i].Message);
+    }
     void VisualGraphPanel::Snapshot()
     {
         m_Undo.push_back(m_Graph.Serialize());

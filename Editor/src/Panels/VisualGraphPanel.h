@@ -9,6 +9,8 @@ namespace Zamin {
     {
     public:
         void Open(const std::filesystem::path& path);
+        // Automation (ZAMIN_EDITOR_GRAPH_QA): a log line with the open graph's size and compile diagnostics.
+        void LogQA(const std::string& name) const;
         // Selects a node of the open graph (QA hook ZAMIN_EDITOR_VISUAL_NODE); false when the graph has no such node.
         bool SelectNode(uint32_t id);
         void SetContext(const Ref<Scene>& scene, bool editable, uint64_t selection);

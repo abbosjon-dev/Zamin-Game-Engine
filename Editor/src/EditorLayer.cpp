@@ -1356,6 +1356,25 @@ namespace Zamin {
         if (const char* stop = std::getenv("ZAMIN_EDITOR_STOP_FRAME"); stop && frame == std::atoi(stop) && m_SceneState != SceneState::Edit)
             OnSceneStop();
 
+        // ZAMIN_EDITOR_GRAPH_QA="Scripts/A.zgraph,Scripts/B.zgraph" (automation: Tests/slice_editor_test.py): the Blueprint
+        // window opens each graph in turn (every 20 frames from frame 10; the last one stays open), drawn by the real
+        // window, and a "Blueprint graph QA" line reports its nodes, links, variables and compile diagnostics.
+        if (const char* list = std::getenv("ZAMIN_EDITOR_GRAPH_QA"); list && frame >= 10 && (frame - 10) % 20 == 0)
+        {
+            std::string_view rest = list;
+            for (int index = (frame - 10) / 20; index > 0 && !rest.empty(); --index)
+            {
+                const size_t comma = rest.find(',');
+                rest = comma == std::string_view::npos ? std::string_view() : rest.substr(comma + 1);
+            }
+            if (!rest.empty())
+            {
+                const std::string graph(rest.substr(0, rest.find(',')));
+                m_ShowVisualGraph = true;
+                m_VisualGraphPanel.Open(Project::GetAssetFileSystemPath(graph));
+                m_VisualGraphPanel.LogQA(graph);
+            }
+        }
         if (const char* at = std::getenv("ZAMIN_EDITOR_SELECT_FRAME"); at && frame == std::max(6, std::atoi(at)))
             if (const char* sel = std::getenv("ZAMIN_EDITOR_SELECT"))
             {

@@ -27,7 +27,7 @@ namespace Zamin::Gameplay {
                 return false;
             }
         if (View <= 0 || View > 100 || Lose < View || Lose > 100 || Near < 0 || Near > View || FieldOfView <= 0 || FieldOfView > 360 || Memory < 0 || Memory > 60 || Leash < Lose || Leash > 1000 ||
-            AttackEnter < .05f || AttackEnter > View || AttackExit < AttackEnter || AttackExit > Lose || Damage <= 0 || Damage > 1e6 || AttackCooldown < .05f || AttackCooldown > 60 ||
+            AttackEnter < .05f || AttackEnter > View || AttackExit < AttackEnter || AttackExit > Lose || (Strike ? Damage <= 0 : Damage < 0) || Damage > 1e6 || AttackCooldown < .05f || AttackCooldown > 60 ||
             Wait < 0 || Wait > 60 || Arrive < .01f || Arrive > 5 || Repath < .05f || Repath > 10 || Speed < .01f || Speed > 50)
         {
             error = "AI settings outside supported ranges";

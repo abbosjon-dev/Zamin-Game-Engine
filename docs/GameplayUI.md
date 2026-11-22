@@ -66,6 +66,9 @@ HUDBind supports text, progress bars or both on one UITransform widget. Kind val
 | 4 Deaths | Cumulative deaths |
 | 5 Effect | Item = a status effect key: stacks (instances for Independent) / MaxStacks (1 for Extend and HighestWins); the bar is the time left of its longest duration |
 | 6 Hit marker | Text = Prefix while the actor's newest direct outgoing hit (not an effect tick) is younger than 0.25 s, otherwise empty; the bar fades from 1 to 0 |
+| 7 Energy | Loadout energy: Prefix + current (+ " / " + effective maximum with Ratio); bar = energy fraction; an actor without a loadout shows Prefix + "--" |
+| 8 Ability | Item = ability key: Text = Prefix when ready, otherwise Prefix + whole seconds left (ceil); bar = 1 − remaining/cooldown; a locked ability shows Prefix + "--" with an empty bar |
+| 9 Level | Quest progression: Text = Prefix + level; bar = progress through the current level (an actor without quests is level 1) |
 
 Prefix is at most 64 bytes; Ratio controls the optional numeric maximum in text. Numbers are rounded
 for display, while fractions use canonical values and clamp to 0..1. Zero maximum produces fraction
@@ -112,7 +115,7 @@ widgets. World-anchored floating numbers are out of scope.
 | `UIState` | Canonical top/depth, scene pause, input block/fence, selected entity, unscaled/game clocks and dropped events. |
 | `UIEvent` | Pop one bounded transition/selection event (32 entries). State is authoritative; events can be dropped. |
 | `UIFocus` | Select an eligible widget inside the current modal scope. |
-| `UIBindHUD`, `UIUnbindHUD` | Bind/release a native health/bag/effect/hit-marker display (Kind 0–6). Actor must be supplied. |
+| `UIBindHUD`, `UIUnbindHUD` | Bind/release a native health/bag/effect/hit-marker display (Kind 0–9: health, shield, item, bag, deaths, effect, hit marker, energy, ability, level). Actor must be supplied. |
 | `UICombatFeed`, `UICombatFeedRemove` | Bind Rows (1–6) to the Actor's hit records (Outgoing, Incoming, Lifetime) or release them. |
 | `UIInventoryConfigure`, `UIInventoryState` | Bind rows and read live page/selection. |
 | `UIInventoryPage`, `UIInventoryRemove` | Change a page or release its view. |

@@ -59,7 +59,7 @@ namespace Zamin::Gameplay {
         else if (kind == "Gameplay.UIBindHUD")
         {
             auto k = a.at("Kind").get<double>();
-            if (!std::isfinite(k) || k < 0 || k > 6 || std::floor(k) != k) throw std::runtime_error("Invalid HUD kind 0..6");
+            if (!std::isfinite(k) || k < 0 || k > 9 || std::floor(k) != k) throw std::runtime_error("Invalid HUD kind 0..9");
             auto actor = ref(a.at("Actor"));
             HUDBindingSpec spec{ HUDKind(int(k)), text("Item"), text("Prefix"), flag("Ratio") };
             ok = world.BindHUD(host, actor, target, spec, error);

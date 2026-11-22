@@ -182,6 +182,9 @@ namespace Zamin::Gameplay {
             V points = V::array();
             for (auto p : s.Points) points.push_back(Vec(p));
             value["AI"] = { b.View, b.Lose, b.Near, b.FieldOfView, b.Memory, b.Leash, b.AttackEnter, b.AttackExit, b.Damage, b.AttackCooldown, b.Wait, b.Arrive, b.Repath, b.Speed, b.TwoD, b.PingPong, s.Tag, Reference(s.Target), points, Vec(s.Eye), Vec(s.Facing), s.Mask, s.Relative, r.Enabled, r.StallSeconds, r.CooldownSeconds, r.ProgressDistance, r.MaxRetries, Reference(a->Owner) };
+            // Delegated attacks extend the array only when set: default brains keep byte-identical signatures, so
+            // every save written before the flag existed still loads.
+            if (!b.Strike) value["AI"].push_back(false);
         }
         if (auto* b = e.TryGetComponent<Rigidbody2DComponent>()) value["Body2D"] = int(b->Type);
         if (auto* b = e.TryGetComponent<Rigidbody3DComponent>()) value["Body3D"] = int(b->Type);

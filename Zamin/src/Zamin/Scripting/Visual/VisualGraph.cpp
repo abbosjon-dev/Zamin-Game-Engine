@@ -64,7 +64,7 @@ namespace Zamin::Visual {
         static const std::vector<const char*> tick{ "Tik yo'q", "Zarar", "Davolash", "Qalqon" };
         static const std::vector<const char*> stacking{ "Yangilash", "Uzaytirish", "Mustaqil", "Eng kuchlisi" };
         static const std::vector<const char*> falloff{ "Kamaymaydi", "Chiziqli kamayish" };
-        static const std::vector<const char*> hud{ "Sog'liq", "Qalqon", "Buyum", "Sumka", "O'limlar", "Effekt", "Zarba belgisi" };
+        static const std::vector<const char*> hud{ "Sog'liq", "Qalqon", "Buyum", "Sumka", "O'limlar", "Effekt", "Zarba belgisi", "Energiya", "Qobiliyat", "Tajriba darajasi" };
         static const std::vector<const char*> slot{ "Qurol", "Qo'shimcha qo'l", "Badan", "Tumor" };
         static const std::map<std::pair<std::string, std::string>, const std::vector<const char*>*> choices{
             { { "Gameplay.AbilityDefine", "Kind" }, &ability },
@@ -166,7 +166,11 @@ add("Lerp","Math",{N("A"),N("B",1),N("T",0.5)},{N("Value")},true);
 add("Concat","Text",{S("A"),S("B")},{S("Value")},true);
 add("TextEqual", "Text", { S("A"), S("B") }, { B("Value") }, true);
 add("NumberToText","Text",{N("Number")},{S("Value")},true);
-for(int dim=2;dim<=4;++dim){std::vector<Pin> p;for(int i=0;i<dim;++i)p.push_back(N(std::string(1,"XYZW"[i]).c_str()));add("MakeVec"+std::to_string(dim),"Vectors",p,{V("Value",dim)},true);add("BreakVec"+std::to_string(dim),"Vectors",{V("Vector",dim)},p,true);add("ScaleVec"+std::to_string(dim),"Vectors",{V("Vector",dim),N("Scale",1)},{V("Value",dim)},true);add("AddVec"+std::to_string(dim),"Vectors",{V("A",dim),V("B",dim)},{V("Value",dim)},true);}
+for(int dim=2;dim<=4;++dim){std::vector<Pin> p;for(int i=0;i<dim;++i)p.push_back(N(std::string(1,"XYZW"[i]).c_str()));add("MakeVec"+std::to_string(dim),"Vectors",p,{V("Value",dim)},true);add("BreakVec"+std::to_string(dim),"Vectors",{V("Vector",dim)},p,true);add("ScaleVec"+std::to_string(dim),"Vectors",{V("Vector",dim),N("Scale",1)},{V("Value",dim)},true);add("AddVec"+std::to_string(dim),"Vectors",{V("A",dim),V("B",dim)},{V("Value",dim)},true);
+ add("SubtractVec"+std::to_string(dim),"Vectors",{V("A",dim),V("B",dim)},{V("Value",dim)},true);add("DotVec"+std::to_string(dim),"Vectors",{V("A",dim),V("B",dim)},{N("Value")},true);add("DistanceVec"+std::to_string(dim),"Vectors",{V("A",dim),V("B",dim)},{N("Value")},true);
+ add("LengthVec"+std::to_string(dim),"Vectors",{V("Vector",dim)},{N("Value")},true);add("NormalizeVec"+std::to_string(dim),"Vectors",{V("Vector",dim)},{V("Value",dim)},true);}
+add("Atan2","Math",{N("Y"),N("X",1)},{N("Value")},true);
+add("LerpAngle","Math",{N("A"),N("B"),N("T",0.5)},{N("Value")},true);
 add("Self","Entities",{},{EntityPin("Value")},true);
 add("FindEntity","Entities",{S("Name")},{EntityPin("Value")},true);
 add("EntityValid","Entities",{EntityPin()},{B("Value")},true);
@@ -187,6 +191,7 @@ add("Print","Debug",{E("In"),S("Text")},{E("Then")});
 add("PlaySound","Audio",{E("In"),S("Path"),N("Volume",1),N("Pitch",1)},{E("Then")});
 
 add("Gameplay.Input", "Gameplay input", { EntityPin(), S("Move", "Move"), S("Jump", "Jump"), S("Sprint", "Sprint"), B("Enabled", true) }, { V("Move", 2), V("Look", 2), B("Jump"), B("JumpHeld"), B("Sprint"), B("Enabled") }, true);
+add("Gameplay.Steer", "Gameplay motion", { EntityPin(), V("Goal"), N("Arrive", .3), N("Slow", 1), B("TwoD"), EntityPin("Camera") }, { V("Move", 2), N("Distance"), B("Arrived"), N("Yaw") }, true);
 add("Gameplay.Motion", "Gameplay motion", { EntityPin(), B("TwoD"), B("TopDown"), N("GroundMask", 65535) }, { V("Velocity"), N("Speed"), B("Grounded"), V("Position") }, true);
 for (bool twoD : { true, false })
 {
@@ -312,7 +317,7 @@ for (auto op : { "Write", "Load", "Inspect" })
     if (std::string(op) != "Inspect") pins.push_back(S("Schema", "V1"));
     add("Gameplay.Transfer" + std::string(op), "Gameplay save", pins, { E("Then"), B("Success"), B("Recovered"), S("Reason") });
 }
-add("Gameplay.AIConfigure", "Gameplay AI", { E("In"), EntityPin(), B("TwoD"), S("Tag", "Player"), EntityPin("Victim"), { "Points", Type::ArrayVec3, Value::array() }, B("Relative", true), B("PingPong", true), N("View", 10), N("Lose", 14), N("Near", 2), N("FieldOfView", 180), N("Memory", 2), N("Leash", 20), N("AttackEnter", 1.5), N("AttackExit", 1.8), N("Damage", 10), N("AttackCooldown", .5), N("Wait", .5), N("Arrive", .25), N("Repath", .3), N("Speed", 3), N("Stall", .75), N("RecoveryCooldown", .5), N("Retries", 3), { "Eye", Type::Vec3, Value::array({ 0., 1., 0. }) }, { "Facing", Type::Vec3, Value::array({ 1., 0., 0. }) }, N("Mask", 65535), B("Enabled", true), B("Reset") }, { E("Then"), B("Success"), S("Reason") });
+add("Gameplay.AIConfigure", "Gameplay AI", { E("In"), EntityPin(), B("TwoD"), S("Tag", "Player"), EntityPin("Victim"), { "Points", Type::ArrayVec3, Value::array() }, B("Relative", true), B("PingPong", true), N("View", 10), N("Lose", 14), N("Near", 2), N("FieldOfView", 180), N("Memory", 2), N("Leash", 20), N("AttackEnter", 1.5), N("AttackExit", 1.8), N("Damage", 10), N("AttackCooldown", .5), B("Strike", true), N("Wait", .5), N("Arrive", .25), N("Repath", .3), N("Speed", 3), N("Stall", .75), N("RecoveryCooldown", .5), N("Retries", 3), { "Eye", Type::Vec3, Value::array({ 0., 1., 0. }) }, { "Facing", Type::Vec3, Value::array({ 1., 0., 0. }) }, N("Mask", 65535), B("Enabled", true), B("Reset") }, { E("Then"), B("Success"), S("Reason") });
 add("Gameplay.AIState", "Gameplay AI", { EntityPin() }, { B("Configured"), S("Mode"), EntityPin("Victim"), B("Visible"), B("Enabled"), V("Home"), V("Goal"), V("LastSeen"), V("Facing"), N("Memory"), N("Waypoint"), B("Waiting"), N("Arrivals"), N("Returns"), N("Sightings"), N("Losses"), N("Attacks"), N("Kills"), N("Transitions"), N("PathRequests"), N("Retries"), S("Status"), N("Dropped") }, true);
 add("Gameplay.AIEnable", "Gameplay AI", { E("In"), EntityPin(), B("Enabled", true) }, { E("Then"), B("Success"), S("Reason") });
 add("Gameplay.AIReset", "Gameplay AI", { E("In"), EntityPin(), B("Rehome") }, { E("Then"), B("Success"), S("Reason") });
@@ -362,7 +367,21 @@ add("SendMessage","Entities",{E("In"),EntityPin(),S("Name"),S("Text")},{E("Then"
 add("SetUIText","UI",{E("In"),EntityPin(),S("Text")},{E("Then")});
 add("SetSpriteColor","Rendering",{E("In"),EntityPin(),V("Color",4)},{E("Then")});
 
-add("LoadScene","Scenes",{E("In"),S("Path")},{E("Then")});
+add("LoadScene","Scenes",{E("In"),S("Path"),N("FadeOut"),N("FadeIn",-1),V("Color",4)},{E("Then")});
+add("QuitGame","Scenes",{E("In")},{E("Then")});
+add("App.DemoMode","Scenes",{},{B("Value")},true);
+add("Audio.SetGroupVolume","Audio",{E("In"),S("Group","Music"),N("Volume",1)},{E("Then"),B("Success")});
+add("Audio.GroupVolume","Audio",{S("Group","Music")},{N("Value",1)},true);
+add("FadeAudio","Audio",{E("In"),EntityPin(),N("Volume",1),N("Seconds",.5)},{E("Then"),B("Success")});
+add("Localization.SetLanguage","Localization",{E("In"),S("Code","uz")},{E("Then"),B("Success")});
+add("Localization.Language","Localization",{},{S("Value")},true);
+add("Localization.Text","Localization",{S("Key"),S("Fallback")},{S("Value")},true);
+add("Display.SetFullscreen","Display",{E("In"),B("Fullscreen",true)},{E("Then")});
+add("Display.IsFullscreen","Display",{},{B("Value")},true);
+add("UIValue","UI",{EntityPin()},{B("Found"),N("Value"),B("On")},true);
+add("SetUIValue","UI",{E("In"),EntityPin(),N("Value"),B("Notify")},{E("Then"),B("Success")});
+add("PlaySpriteClip","Rendering",{E("In"),EntityPin(),S("Clip"),B("Restart")},{E("Then"),B("Success")});
+add("ShakeCamera","Rendering",{E("In"),N("Intensity",.3),N("Duration",.4),N("Frequency",20)},{E("Then"),B("Success")});
 for(auto name:{"SaveGameState","LoadGameState"})add(name,"Save",{E("In")},{E("Then")});
 for(auto type:{Type::Number,Type::Bool,Type::String}){std::string suffix=TypeName(type);Value d=type==Type::Number?Value(0.):type==Type::Bool?Value(false):Value("");add("ReadState."+suffix,"Save",{S("Key"),{"Default",type,d}},{{"Value",type,d}},true);add("WriteState."+suffix,"Save",{E("In"),S("Key"),{"Value",type,d},B("Persistent",true)},{E("Then")});}
 for(auto name:{"Raycast2D","Raycast3D"})add(name,"Physics queries",{V("Origin"),V("Direction"),N("Distance",100)},{B("Hit"),EntityPin("Entity"),V("Point"),V("Normal"),N("Distance")},true);
@@ -383,6 +402,7 @@ for(auto name:{"PlayAudio","StopAudio","StopAnimation"})add(name,"Media",{E("In"
 add("EmitParticles","Rendering",{E("In"),EntityPin(),N("Count",10)},{E("Then")});
 c.at("SetScale").Inputs.back().Default=Value::array({1,1,1});
 c.at("SetSpriteColor").Inputs.back().Default=Value::array({1,1,1,1});
+c.at("LoadScene").Inputs.back().Default=Value::array({0,0,0,1});
 return c; }();
         return catalog;
     }
@@ -807,6 +827,43 @@ return c; }();
             r = in("A");
             auto b = in("B");
             for (size_t i = 0; i < r.size(); ++i) r[i] = r[i].get<double>() + b[i].get<double>();
+        }
+        else if (k.starts_with("SubtractVec"))
+        {
+            r = in("A");
+            auto b = in("B");
+            for (size_t i = 0; i < r.size(); ++i) r[i] = r[i].get<double>() - b[i].get<double>();
+        }
+        else if (k.starts_with("DotVec") || k.starts_with("DistanceVec"))
+        {
+            auto a = in("A"), b = in("B");
+            double sum = 0;
+            for (size_t i = 0; i < a.size(); ++i)
+            {
+                const double x = a[i].get<double>(), y = b[i].get<double>();
+                sum += k.starts_with("DotVec") ? x * y : (x - y) * (x - y);
+            }
+            r = k.starts_with("DotVec") ? sum : std::sqrt(sum);
+        }
+        else if (k.starts_with("LengthVec") || k.starts_with("NormalizeVec"))
+        {
+            r = in("Vector");
+            double sum = 0;
+            for (auto& x : r) sum += x.get<double>() * x.get<double>();
+            const double length = std::sqrt(sum);
+            if (k.starts_with("LengthVec")) r = length;
+            else
+                for (auto& x : r) x = length > 1e-12 ? x.get<double>() / length : 0.0; // zero-safe
+        }
+        else if (k == "Atan2") r = std::atan2(num("Y"), num("X"));
+        else if (k == "LerpAngle")
+        {
+            // The shortest way round from A to B (radians); T is not clamped.
+            const double a = num("A"), pi = 3.14159265358979323846;
+            double delta = std::fmod(num("B") - a, 2 * pi);
+            if (delta > pi) delta -= 2 * pi;
+            if (delta < -pi) delta += 2 * pi;
+            r = a + delta * num("T");
         }
         else
         {

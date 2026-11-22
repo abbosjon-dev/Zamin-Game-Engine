@@ -22,6 +22,9 @@ namespace Zamin::Gameplay {
         float AttackEnter = 1.5f, AttackExit = 1.8f, Damage = 10, AttackCooldown = .5f;
         float Wait = .5f, Arrive = .25f, Repath = .3f, Speed = 3;
         bool TwoD = false, PingPong = true;
+        // false: the brain still chases and enters Attack, but AIWorld never strikes; the owner's graph performs
+        // the attack (a projectile ability, an animation-timed Gameplay.Strike). Damage may then be 0.
+        bool Strike = true;
         bool Validate(std::string&) const;
     };
     struct BrainMemory

@@ -73,7 +73,7 @@ namespace Zamin::Gameplay {
         if (kind == "Gameplay.AIConfigure")
         {
             AISpec s;
-            s.Brain = { float(a.N("View")), float(a.N("Lose")), float(a.N("Near")), float(a.N("FieldOfView")), float(a.N("Memory")), float(a.N("Leash")), float(a.N("AttackEnter")), float(a.N("AttackExit")), float(a.N("Damage")), float(a.N("AttackCooldown")), float(a.N("Wait")), float(a.N("Arrive")), float(a.N("Repath")), float(a.N("Speed")), a.B("TwoD"), a.B("PingPong") };
+            s.Brain = { float(a.N("View")), float(a.N("Lose")), float(a.N("Near")), float(a.N("FieldOfView")), float(a.N("Memory")), float(a.N("Leash")), float(a.N("AttackEnter")), float(a.N("AttackExit")), float(a.N("Damage")), float(a.N("AttackCooldown")), float(a.N("Wait")), float(a.N("Arrive")), float(a.N("Repath")), float(a.N("Speed")), a.B("TwoD"), a.B("PingPong"), a.B("Strike") };
             s.Recovery = { true, float(a.N("Stall")), float(a.N("RecoveryCooldown")), .05f, uint32_t(a.I("Retries", 1, 16)) };
             s.Tag = a.S("Tag");
             auto target = a.Ref(scene, "Victim");

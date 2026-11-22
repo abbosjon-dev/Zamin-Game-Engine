@@ -253,6 +253,43 @@ namespace Zamin::Gameplay {
             if (found != m_Motors.end() && found->second.Frame == m_Frame && found->second.TwoD && (!m_AfterPhysics || scene.GetPhysics2DStepsLastFrame() == 0)) return found->second.Measured;
             return Velocity(source);
         };
+        if (kind == "Gameplay.Steer")
+        {
+            // Bot/follower steering: the stick a human would push to walk the target towards Goal. 2D: the XY
+            // direction; 3D: the XZ direction mapped back through Motor3D's camera projection (without Camera:
+            // its world mapping x -> x, y -> -z), so a pilot drives the same Move pin as Gameplay.Input.
+            const bool twoD = a.B("TwoD");
+            const float arrive = a.N("Arrive"), slow = a.N("Slow");
+            if (arrive < 0 || arrive > 100 || slow < 0 || slow > 100) throw std::runtime_error("Steer Arrive and Slow must be 0..100");
+            const auto position = scene.GetWorldPosition(target);
+            const auto goal = a.Vec("Goal");
+            const glm::vec2 delta = twoD ? glm::vec2(goal.x - position.x, goal.y - position.y) : glm::vec2(goal.x - position.x, goal.z - position.z);
+            const float distance = glm::length(delta);
+            const bool arrived = distance <= arrive;
+            glm::vec2 world(0);
+            if (!arrived && distance > 1e-6f) world = delta / distance * (slow > 0 ? std::min(1.0f, distance / slow) : 1.0f);
+            const float yaw = distance > 1e-6f ? (twoD ? std::atan2(delta.y, delta.x) : std::atan2(delta.x, delta.y)) : 0.0f;
+            glm::vec2 move = world;
+            if (!twoD)
+            {
+                move = { world.x, -world.y };
+                if (auto camera = a.Ref(scene, "Camera"))
+                {
+                    const auto matrix = scene.GetWorldTransform(camera);
+                    glm::vec2 right(matrix[0].x, matrix[0].z), forward(-matrix[2].x, -matrix[2].z);
+                    if (glm::length(right) > .001f && glm::length(forward) > .001f)
+                    {
+                        right = glm::normalize(right);
+                        forward = glm::normalize(forward);
+                        // Inverse of world = right * x + forward * y (exact for any non-degenerate camera).
+                        const float det = right.x * forward.y - right.y * forward.x;
+                        if (std::abs(det) > 1e-5f) move = { (world.x * forward.y - world.y * forward.x) / det, (right.x * world.y - right.y * world.x) / det };
+                        if (const float length = glm::length(move); length > 1) move /= length;
+                    }
+                }
+            }
+            return V{ { "Move", V::array({ move.x, move.y }) }, { "Distance", distance }, { "Arrived", arrived }, { "Yaw", yaw } };
+        }
         if (kind == "Gameplay.Input")
         {
             const bool enabled = a.B("Enabled") && !scene.IsTextInputFocused() && !GameplayUIBlocks(scene);

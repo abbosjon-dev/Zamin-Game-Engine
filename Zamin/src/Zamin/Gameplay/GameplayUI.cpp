@@ -2,6 +2,7 @@
 #include "GameplayRules.h"
 #include "CombatWorld.h"
 #include "QuestWorld.h"
+#include "LoadoutWorld.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Scripting/Visual/VisualGraphHost.h"
 #include "Zamin/Core/Input.h"
@@ -296,7 +297,7 @@ namespace Zamin::Gameplay {
     bool UIWorld::BindHUD(Entity owner, Entity actor, Entity widget, const HUDBindingSpec& spec, std::string& error)
     {
         error.clear();
-        if (m_Busy || !m_Scene->IsRunning() || !owner || !actor || !widget || owner.GetScene() != m_Scene || actor.GetScene() != m_Scene || widget.GetScene() != m_Scene || !widget.HasComponent<UITransformComponent>() || (widget.HasComponent<TextComponent>() && !widget.GetComponent<TextComponent>().LocalizationKey.empty()) || (!widget.HasComponent<TextComponent>() && !widget.HasComponent<UIProgressBarComponent>()) || int(spec.Kind) < 0 || int(spec.Kind) > 6 || spec.Prefix.size() > 64 || ((spec.Kind == HUDKind::Item || spec.Kind == HUDKind::Effect) && !ValidItem(spec.Item)) || WidgetUsed(widget) || m_Bindings.size() >= 128)
+        if (m_Busy || !m_Scene->IsRunning() || !owner || !actor || !widget || owner.GetScene() != m_Scene || actor.GetScene() != m_Scene || widget.GetScene() != m_Scene || !widget.HasComponent<UITransformComponent>() || (widget.HasComponent<TextComponent>() && !widget.GetComponent<TextComponent>().LocalizationKey.empty()) || (!widget.HasComponent<TextComponent>() && !widget.HasComponent<UIProgressBarComponent>()) || int(spec.Kind) < 0 || int(spec.Kind) > 9 || spec.Prefix.size() > 64 || ((spec.Kind == HUDKind::Item || spec.Kind == HUDKind::Effect || spec.Kind == HUDKind::Ability) && !ValidItem(spec.Item)) || WidgetUsed(widget) || m_Bindings.size() >= 128)
         {
             error = "Invalid HUD binding or capacity (128)";
             return false;
@@ -535,8 +536,18 @@ namespace Zamin::Gameplay {
                             max = h->Deaths;
                         }
                         break;
+                    case HUDKind::Energy:
+                        if (auto l = LoadoutWorld::For(*m_Scene).State(actor))
+                        {
+                            value = l->State.Energy;
+                            max = l->Stats[3];
+                        }
+                        else available = false;
+                        break;
                     case HUDKind::Effect:
-                    case HUDKind::HitMarker: break; // combat presentations below
+                    case HUDKind::HitMarker:
+                    case HUDKind::Ability:
+                    case HUDKind::Level: break; // special presentations below
                 }
             }
             auto* combat = m_Scene->GetRegistry().ctx().find<CombatWorld>();
@@ -553,6 +564,24 @@ namespace Zamin::Gameplay {
                     auto shown = PresentHUD(view.Stacks, stacking ? spec->MaxStacks : 1, r.Spec.Prefix, r.Spec.Ratio);
                     shown.Fraction = view.Duration > 0 ? float(std::clamp(view.Remaining / view.Duration, 0.0, 1.0)) : 0;
                     special = shown;
+                }
+            }
+            else if (r.Spec.Kind == HUDKind::Ability)
+            {
+                auto& loadouts = LoadoutWorld::For(*m_Scene);
+                const auto state = actor ? loadouts.State(actor) : std::nullopt;
+                const auto ability = actor ? loadouts.Ability(actor, r.Spec.Item) : std::nullopt;
+                const auto progress = state ? state->State.Abilities.find(r.Spec.Item) : decltype(state->State.Abilities.end()){};
+                if (state && ability && progress != state->State.Abilities.end()) special = PresentAbility(progress->second.Remaining, ability->Cooldown, progress->second.Unlocked, r.Spec.Prefix);
+                else available = false;
+            }
+            else if (r.Spec.Kind == HUDKind::Level)
+            {
+                // An actor without a quest book is level 1 with no progress.
+                if (actor)
+                {
+                    const auto level = QuestWorld::For(*m_Scene).Progression(actor);
+                    special = PresentLevel(level.Level, level.Current, level.Needed, r.Spec.Prefix);
                 }
             }
             else if (r.Spec.Kind == HUDKind::HitMarker)

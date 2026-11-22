@@ -4,6 +4,10 @@
 #include "Zamin/Scene/WorldStreaming.h"
 #include "Zamin/Utils/FileSystem.h"
 #include "Zamin/Core/Log.h"
+#include "Zamin/Core/Display.h"
+#include "Zamin/Audio/Audio.h"
+#include "Zamin/Audio/AudioMixer.h"
+#include "Zamin/Localization/Localization.h"
 #include "Zamin/Math/Math.h"
 #include "Zamin/Physics/PhysicsWorld2D.h"
 #include "Zamin/Physics/PhysicsWorld3D.h"
@@ -11,6 +15,8 @@
 #include <cmath>
 #include <limits>
 #include <charconv>
+#include <algorithm>
+#include <cstdlib>
 namespace Zamin {
     Visual::Value DispatchAnimatorGraph(Entity target, const std::string& kind, const std::map<std::string, Visual::Value>& args);
 
@@ -110,8 +116,57 @@ namespace Zamin {
         }
         if (k == "LoadScene")
         {
-            LoadScene(s("Path"));
+            // FadeOut 0 and FadeIn -1 (the defaults, and every graph written before the pins) switch at once.
+            const float out = f("FadeOut"), in = f("FadeIn");
+            if (out < 0 || out > 10 || (in < 0 && in != -1) || in > 10) throw std::runtime_error("LoadScene fades must be 0..10 s (FadeIn -1: as FadeOut)");
+            auto& c = a.at("Color");
+            const glm::vec4 color{ scalar(c.at(0)), scalar(c.at(1)), scalar(c.at(2)), scalar(c.at(3)) };
+            for (int i = 0; i < 4; ++i)
+                if (color[i] < 0 || color[i] > 1) throw std::runtime_error("LoadScene colour must be 0..1");
+            const auto transition = SceneTransition::Fade(out, in, color);
+            if (transition.IsNone()) LoadScene(s("Path"));
+            else LoadScene(s("Path"), transition);
             return nullptr;
+        }
+        if (k == "QuitGame")
+        {
+            QuitGame();
+            return nullptr;
+        }
+        if (k == "App.DemoMode")
+        {
+            static const bool demo = [] { const char* v = std::getenv("ZAMIN_DEMO"); return v && *v && std::string_view(v) != "0"; }();
+            return demo;
+        }
+        if (k == "Audio.SetGroupVolume" || k == "Audio.GroupVolume")
+        {
+            const auto group = s("Group");
+            if (group.empty() || group.size() > 64) throw std::runtime_error("Audio group name must be 1..64 characters");
+            if (k == "Audio.GroupVolume") return Audio::GetGroupVolume(group);
+            const float volume = f("Volume");
+            if (volume < 0 || volume > AudioSettings::MaxVolume) throw std::runtime_error("Audio group volume must be 0..2");
+            return V{ { "Success", Audio::SetGroupVolume(group, volume) } };
+        }
+        if (k == "Localization.SetLanguage") return V{ { "Success", Localization::SetLanguage(s("Code")) } };
+        if (k == "Localization.Language") return Localization::GetLanguage();
+        if (k == "Localization.Text")
+        {
+            const auto key = s("Key");
+            if (key.size() > 128) throw std::runtime_error("Localization key limit 128 bytes");
+            const auto* text = key.empty() ? nullptr : Localization::Find(key);
+            return text ? *text : s("Fallback");
+        }
+        if (k == "Display.SetFullscreen")
+        {
+            Display::SetFullscreen(a.at("Fullscreen").get<bool>());
+            return nullptr;
+        }
+        if (k == "Display.IsFullscreen") return Display::IsFullscreen();
+        if (k == "ShakeCamera")
+        {
+            const float intensity = f("Intensity"), duration = f("Duration"), frequency = f("Frequency");
+            if (intensity < 0 || intensity > 1 || duration < 0 || duration > 5 || frequency < .1f || frequency > 100) throw std::runtime_error("ShakeCamera: Intensity 0..1, Duration 0..5 s, Frequency .1..100");
+            return V{ { "Success", ShakeCamera(intensity, duration, frequency) } };
         }
         if (k == "SaveGameState")
         {
@@ -332,6 +387,35 @@ namespace Zamin {
         }
         else if (k.starts_with("Animator.")) return DispatchAnimatorGraph(target, k, a);
         else if (k == "PlayAnimation") proxy.PlayAnimation(s("Clip"), f("Speed"));
+        else if (k == "PlaySpriteClip") return V{ { "Success", proxy.PlaySpriteClip(s("Clip"), a.at("Restart").get<bool>()) } };
+        else if (k == "FadeAudio")
+        {
+            const float volume = f("Volume"), seconds = f("Seconds");
+            if (volume < 0 || volume > AudioSettings::MaxVolume || seconds < 0 || seconds > 30) throw std::runtime_error("FadeAudio: Volume 0..2, Seconds 0..30");
+            return V{ { "Success", FadeAudio(target, volume, seconds) } };
+        }
+        else if (k == "UIValue")
+        {
+            if (auto* c = target.TryGetComponent<UISliderComponent>()) return V{ { "Found", true }, { "Value", c->Value }, { "On", c->Value > c->MinValue } };
+            if (auto* c = target.TryGetComponent<UIToggleComponent>()) return V{ { "Found", true }, { "Value", c->IsOn ? 1.0 : 0.0 }, { "On", c->IsOn } };
+            if (auto* c = target.TryGetComponent<UIProgressBarComponent>()) return V{ { "Found", true }, { "Value", c->Value }, { "On", c->Value > 0 } };
+            return V{ { "Found", false }, { "Value", 0.0 }, { "On", false } };
+        }
+        else if (k == "SetUIValue")
+        {
+            // Notify (default off) raises ValueChanged/ToggleChanged as a user change would: a settings panel
+            // shows stored values without re-applying them.
+            const float value = f("Value");
+            const bool notify = a.at("Notify").get<bool>();
+            if (target.HasComponent<UISliderComponent>()) return V{ { "Success", GetScene().SetSliderValue(target, value, notify) } };
+            if (target.HasComponent<UIToggleComponent>()) return V{ { "Success", GetScene().SetToggle(target, value != 0, notify) } };
+            if (auto* c = target.TryGetComponent<UIProgressBarComponent>())
+            {
+                c->Value = std::clamp(value, 0.0f, 1.0f);
+                return V{ { "Success", true } };
+            }
+            return V{ { "Success", false } };
+        }
         else if (k == "SendMessage") SendMessage(target, s("Name"), s("Text"));
         else if (k == "SetUIText")
         {

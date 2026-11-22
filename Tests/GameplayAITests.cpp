@@ -481,3 +481,35 @@ TEST(AIGameplayOptionalSelfPinsResolveToTheGraphHost)
     CHECK(damage.at("Applied") == 1);
     CHECK(Call(runtime, f.NPC, "Gameplay.Sense", { { "TwoD", true }, { "Victim", UINT64_MAX } }).at("Visible") == false);
 }
+// Strike=false: the brain chases and enters Attack as before, but AIWorld never strikes (the owner's graph does);
+// Damage 0 is accepted only for such a delegated brain.
+TEST(AIDelegatedAttackKeepsModesWithoutBuiltInStrike)
+{
+    for (bool strike : { true, false })
+    {
+        AIFixture f;
+        f.Move(f.Hero, { 2.5f, 0, 0 });
+        auto spec = f.Spec();
+        spec.Points.clear();
+        spec.Brain.Strike = strike;
+        f.Configure(spec);
+        bool attacked = false;
+        for (int i = 0; i < 100; ++i)
+        {
+            f.Frames(1);
+            attacked |= f.AI().State(f.NPC)->Brain.Mode == Gameplay::BrainMode::Attack;
+        }
+        auto s = *f.AI().State(f.NPC);
+        CHECK(attacked && s.Sightings >= 1 && s.Target == 200);
+        CHECK(strike ? (s.Attacks >= 1 && f.Rules().Health(f.Hero)->Current < 1000) : (s.Attacks == 0 && f.Rules().Health(f.Hero)->Current == 1000));
+    }
+    AIFixture f;
+    auto spec = f.Spec();
+    spec.Brain.Damage = 0;
+    std::string error;
+    CHECK(!f.AI().Configure(f.NPC, f.NPC, spec, false, error));
+    spec.Brain.Strike = false;
+    CHECK(f.AI().Configure(f.NPC, f.NPC, spec, false, error));
+    spec.Brain.Damage = -1;
+    CHECK(!f.AI().Configure(f.NPC, f.NPC, spec, true, error));
+}

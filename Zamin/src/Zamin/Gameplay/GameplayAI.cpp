@@ -513,7 +513,7 @@ namespace Zamin::Gameplay {
                 Stop(e, r);
                 r.State.Goal = goal;
                 r.State.Status = BrainName(decision.Mode);
-                if (decision.Attack && target)
+                if (decision.Attack && target && s.Strike)
                 {
                     query.Range = s.AttackExit;
                     query.MinDot = -1;

@@ -23,12 +23,16 @@ namespace Zamin::Gameplay {
         Bag,
         Deaths,
         Effect,   // Item = a status effect key: Prefix + stacks (" / " + max with Ratio); bar = time left
-        HitMarker // Prefix while the actor's newest direct outgoing hit is younger than 0.25 s; bar fades
+        HitMarker, // Prefix while the actor's newest direct outgoing hit is younger than 0.25 s; bar fades
+        Energy,    // loadout energy: Prefix + current (" / " + effective maximum with Ratio); bar = fraction
+        Ability,   // Item = an ability key: Prefix when ready, else Prefix + whole seconds left; bar = readiness;
+                   // a locked ability shows Prefix + "--" and an empty bar
+        Level      // quest progression: Prefix + level; bar = progress through the current level
     };
     struct HUDBindingSpec
     {
         HUDKind Kind = HUDKind::Health;
-        std::string Item = "Coin", Prefix = "HP "; // Item: the item key (Item) or the effect key (Effect)
+        std::string Item = "Coin", Prefix = "HP "; // Item: the item key (Item), effect key (Effect) or ability key (Ability)
         bool Ratio = true;
     };
     // A combat feed: up to 6 Text rows show the actor's recent hit records (CombatWorld::Recent), newest first,

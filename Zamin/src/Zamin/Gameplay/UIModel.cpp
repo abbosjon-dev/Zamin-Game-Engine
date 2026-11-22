@@ -66,6 +66,18 @@ namespace Zamin::Gameplay {
         if (ratio) text << " / " << maximum;
         return { text.str(), maximum > 0 ? float(std::clamp(value / maximum, 0.0, 1.0)) : 0 };
     }
+    HUDPresentation PresentAbility(double remaining, double cooldown, bool unlocked, const std::string& prefix)
+    {
+        if (!std::isfinite(remaining) || !std::isfinite(cooldown) || remaining < 0 || cooldown < 0 || remaining > 1e6 || cooldown > 1e6 || prefix.size() > 64) throw std::runtime_error("Invalid ability HUD presentation");
+        if (!unlocked) return { prefix + "--", 0 };
+        if (remaining <= 0 || cooldown <= 0) return { prefix, 1 };
+        return { prefix + std::to_string(int64_t(std::ceil(remaining))), float(std::clamp(1 - remaining / cooldown, 0.0, 1.0)) };
+    }
+    HUDPresentation PresentLevel(uint32_t level, uint32_t current, uint32_t needed, const std::string& prefix)
+    {
+        if (prefix.size() > 64) throw std::runtime_error("Invalid level HUD presentation");
+        return { prefix + std::to_string(level), needed > 0 ? float(std::clamp(double(current) / double(needed), 0.0, 1.0)) : 0 };
+    }
     std::string PresentCombatRow(bool damage, double amount, const std::string& key)
     {
         if (!std::isfinite(amount) || amount < 0 || amount > 1e6 || key.size() > 64) throw std::runtime_error("Invalid combat feed row");

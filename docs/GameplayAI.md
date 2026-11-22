@@ -17,6 +17,13 @@ All route points must be finite and inside the home leash. There are at most 64 
 entity root with the collider offset upwards, so the root can be projected onto the navigation grid.
 Static bodies and mismatched 2D/3D agents are rejected.
 
+**Delegated attacks.** `AIConfigure.Strike` (default true) lets the brain strike with its built-in
+`Damage`/`AttackCooldown`. With `Strike=false` the brain still senses, chases, keeps its attack hysteresis and
+enters `Attack`, but AIWorld never strikes: the owner's graph performs the attack (a projectile ability, an
+area, or `Gameplay.Strike` on an animation event) while `AIState.Mode` is `Attack` and `Visible` is true. `Damage`
+may then be 0. The save signature appends the flag only when it is false, so every existing save keeps its
+byte-identical AI signature (`AIDelegatedAttack*`).
+
 | Blueprint node | Behavior |
 |---|---|
 | `Gameplay.AIConfigure` | Configure once; Reset explicitly replaces existing configuration. |

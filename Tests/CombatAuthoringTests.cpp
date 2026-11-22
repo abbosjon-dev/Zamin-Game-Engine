@@ -292,7 +292,7 @@ TEST(CombatHUDFeedRowsFadeAndRestoreAuthoredText)
     CHECK(bound.at("Success") == true);
     CHECK(CCall(r, f.Hero, "Gameplay.UICombatFeedRemove", { { "Name", "Blueprint" } }).at("Success") == true);
     CHECK(CCall(r, f.Hero, "Gameplay.UIBindHUD", { { "Kind", 6 }, { "Actor", uint64_t(f.Hero.GetUUID()) }, { "Prefix", "X" } }).at("Success") == false); // the host is not a widget
-    CHECK(Throws([&] { CCall(r, f.Hero, "Gameplay.UIBindHUD", { { "Kind", 7 } }); }));
+    CHECK(Throws([&] { CCall(r, f.Hero, "Gameplay.UIBindHUD", { { "Kind", 10 } }); }));
 }
 TEST(GameUIModelCombatRowsRoundAndFade)
 {

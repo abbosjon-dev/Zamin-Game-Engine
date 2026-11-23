@@ -31,6 +31,18 @@ namespace {
         data[16] = 24;
         CHECK(FileSystem::WriteBinaryFile(path, data.data(), data.size()));
     }
+    // Bytes of an RGB image with the mip chain staging makes for it.
+    uint64_t WithMips(uint32_t width, uint32_t height)
+    {
+        uint64_t bytes = uint64_t(width) * height * 3;
+        while (width > 1 || height > 1)
+        {
+            width = std::max(1u, width / 2);
+            height = std::max(1u, height / 2);
+            bytes += uint64_t(width) * height * 3;
+        }
+        return bytes;
+    }
     struct BudgetScope
     {
         AsyncLoader::UploadBudget Previous = AsyncLoader::GetUploadBudget();
@@ -154,7 +166,7 @@ TEST(WorldAssetStagerDecodesOffTheOwnerThreadWithinByteBudgets)
     WriteImage(temp.GetPath() / "a.tga", 64, 32);
     WriteImage(temp.GetPath() / "b.tga", 16, 16);
     WorldAssetStager::Limits limits;
-    limits.MaxTicketBytes = 64 * 32 * 3 + 16 * 16 * 3;
+    limits.MaxTicketBytes = WithMips(64, 32) + WithMips(16, 16);
     limits.MaxStagedBytes = 2 * limits.MaxTicketBytes; // room for a second ticket while the first holds its bytes
     std::string error;
     auto stager = WorldAssetStager::Create(limits, error);
@@ -168,19 +180,24 @@ TEST(WorldAssetStagerDecodesOffTheOwnerThreadWithinByteBudgets)
     CHECK(WaitFor(*stager, ticket, WorldAssetStager::State::Ready));
     const auto status = stager->GetStatus(ticket);
     CHECK(status.Files == 2 && status.Staged == 2 && status.Unreadable == 0 && status.Resident == 0);
-    CHECK(status.Bytes == 64 * 32 * 3 + 16 * 16 * 3);
-    CHECK(status.GPUBytes == status.Bytes + 64 * 32 + 16 * 16); // + a third for each mip chain
+    // The mip chains are made by the worker too and counted: the upload only copies rows.
+    CHECK(WithMips(64, 32) == 8193 && WithMips(16, 16) == 1023);
+    CHECK(status.Bytes == WithMips(64, 32) + WithMips(16, 16));
+    CHECK(status.GPUBytes == status.Bytes);
     CHECK(TextureLibrary::GetThreadDecodeCount() == decodes);   // nothing decoded by this (the owner) thread
     CHECK(TextureLibrary::GetPredecodedCount() == staged + 2);
     CHECK(TextureLibrary::GetPredecodedBytes() >= status.Bytes);
     CHECK(stager->GetStaged(ticket).size() == 2);
     CHECK(stager->GetStats().ReservedBytes == status.Bytes);
-    // One byte more than the ticket budget: refused from the header, nothing of the ticket stays staged.
-    WriteImage(temp.GetPath() / "c.tga", 1, 1);
+    // Pixel-art copies have no mip chain (6144 + 768 bytes) and fit; what is left is the remaining
+    // budget: with 9216 - 6912 = 2304 left, a 32x32 image (3072 + 1023 for its chain) is refused from the
+    // header, and nothing of the ticket stays staged.
+    WriteImage(temp.GetPath() / "c.tga", 32, 32);
     const auto second = stager->Submit({ Tex(temp.GetPath() / "a.tga", true), Tex(temp.GetPath() / "b.tga", true), Tex(temp.GetPath() / "c.tga") }, error);
     CHECK(WaitFor(*stager, second, WorldAssetStager::State::Failed));
     const auto failed = stager->GetStatus(second);
     CHECK(failed.Error.find("c.tga") != std::string::npos && failed.Error.find("staging budget") != std::string::npos);
+    CHECK(failed.Error.find("4095") != std::string::npos && failed.Error.find("2304") != std::string::npos); // needed and left
     CHECK(TextureLibrary::GetPredecodedCount() == staged + 2);
     stager->Release(second);
     stager->Release(ticket);
@@ -247,7 +264,7 @@ TEST(WorldAssetStagerRapidSubmitAndCancelKeepsReservationsBounded)
     for (int i = 0; i < 12; ++i) WriteImage(temp.GetPath() / (std::to_string(i) + ".tga"), 128, 128, uint8_t(i));
     WorldAssetStager::Limits limits;
     limits.Workers = 3;
-    limits.MaxTicketBytes = 4 * 128 * 128 * 3;
+    limits.MaxTicketBytes = 4 * WithMips(128, 128);
     limits.MaxStagedBytes = 2 * limits.MaxTicketBytes; // two tickets at once, the third waits
     limits.MaxTickets = 8;
     std::string error;
@@ -316,7 +333,7 @@ TEST(WorldAssetStagerModelsMaterialsAndUploadUnitLimit)
     const auto status = stager->GetStatus(ticket);
     // The material is only read for its two textures (albedo named twice: once); the model's mesh waits for the GPU.
     CHECK(status.Files == 5 && status.Staged == 3 && status.Unreadable == 1);
-    CHECK(status.Bytes > 2 * 4 * 4 * 3 && status.GPUBytes >= status.Bytes);
+    CHECK(status.Bytes > 2 * WithMips(4, 4) && status.GPUBytes == status.Bytes);
     CHECK(Model::GetThreadParseCount() == parses);
     CHECK(!Model::IsCached(model.File));
     // Load takes the parsed model without parsing; its mesh is still to upload (no GPU in this test).

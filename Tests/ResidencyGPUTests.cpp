@@ -115,17 +115,23 @@ namespace {
         const auto base0 = ReadBack(reference, 0), base2 = ReadBack(reference, 2);
         reference.reset();
         Check(TextureLibrary::TrimUnused(0, 8) == 1, "reference texture evicted");
+        // A second copy of the same picture made the unbudgeted way stays for the mip comparison.
+        const auto patternCopy = root / "pattern-copy.tga";
+        WritePatternImage(patternCopy, 64, 48, 7);
+        auto reference2 = TextureLibrary::Load(patternCopy);
         const auto decodes = TextureLibrary::GetThreadDecodeCount();
         TextureLibrary::StagedTexture info;
         bool stagedOk = false;
         OnWorker([&] { stagedOk = TextureLibrary::Stage(pattern, false, UINT64_MAX, info); });
-        Check(stagedOk && info.DecodedBytes == 64 * 48 * 3 && !info.Cached, "texture staged on a worker");
+        // 9216 base bytes and the 3069 bytes of the mip chain the worker made.
+        const uint64_t patternBytes = 64 * 48 * 3 + (32 * 24 + 16 * 12 + 8 * 6 + 4 * 3 + 2 * 1 + 1) * 3;
+        Check(stagedOk && info.DecodedBytes == patternBytes && !info.Cached, "texture staged on a worker with its mip chain");
         AsyncLoader::WaitAll();
         AsyncLoader::ResetStats();
         AsyncLoader::SetUploadBudget({ 0, 64 * 3 * 5 }); // five rows an update
         auto staged = TextureLibrary::LoadStaged(pattern, false);
         Check(staged && !staged->IsReady() && staged->IsLoaded() && staged->GetRendererID() == 0, "staged texture is a placeholder until uploaded");
-        Check(TextureLibrary::GetPredecodedCount() == 0 && AsyncLoader::GetPendingUploadBytes() == 64 * 48 * 3, "staged pixels moved to the upload queue");
+        Check(TextureLibrary::GetPredecodedCount() == 0 && AsyncLoader::GetPendingUploadBytes() == patternBytes, "staged pixels moved to the upload queue");
         Check(TextureLibrary::TrimUnused(0, 8) == 0, "texture being uploaded stays pinned");
         int updates = 0;
         while (!staged->IsReady() && updates < 100)
@@ -134,23 +140,34 @@ namespace {
             ++updates;
             Check(staged->IsReady() || staged->GetRendererID() == 0, "partly uploaded texture is never exposed");
         }
-        // 48 rows in pieces of five rows (ten updates), then the mip chain as its own piece.
-        Check(updates == 11, "row upload spread over the expected updates");
+        // The storage is a piece of its own (one update), then 12285 bytes at 960 an update: fourteen updates
+        // at least; whole rows only, so a few more at most.
+        Check(updates >= 14 && updates <= 21, "row upload spread over the expected updates");
         auto stats = AsyncLoader::GetStats();
         Check(stats.PeakUpdateUploadBytes <= 64 * 3 * 5 && stats.OversizeUploads == 0 && stats.Uploads == 1, "byte budget held in every update");
-        Check(stats.BudgetDeferrals >= 9, "budget deferrals counted");
-        Check(ReadBack(staged, 0) == base0 && ReadBack(staged, 2) == base2, "budgeted upload equals the unbudgeted texture, mips included");
+        Check(stats.UploadBytes == patternBytes + 64 * 3 * 5 && stats.BudgetDeferrals >= 13, "all bytes, the storage charge and the deferrals counted");
+        Check(ReadBack(staged, 0) == base0, "budgeted upload equals the unbudgeted base level");
+        // The chain is the worker's 2x2 averages, not the driver's glGenerateMipmap: the same picture within rounding.
+        auto maxDifference = [](const std::vector<uint8_t>& a, const std::vector<uint8_t>& b) {
+            int worst = a.size() == b.size() ? 0 : 255;
+            for (size_t i = 0; i < a.size() && i < b.size(); ++i) worst = std::max(worst, std::abs(int(a[i]) - int(b[i])));
+            return worst;
+        };
+        const int mipDifference = std::max(maxDifference(ReadBack(staged, 1), ReadBack(reference2, 1)), maxDifference(ReadBack(staged, 2), base2));
+        std::printf("staged mip chain vs glGenerateMipmap: max channel difference %d\n", mipDifference);
+        Check(mipDifference <= 2, "CPU mip chain matches the driver's within rounding");
+        reference2.reset();
         Check(TextureLibrary::GetThreadDecodeCount() == decodes, "no decode on the GL thread");
         Check(TextureLibrary::LoadStaged(pattern, false) == staged && TextureLibrary::Load(pattern) == staged, "staged texture is the cache entry");
         staged.reset();
-        Check(TextureLibrary::TrimUnused(0, 8) == 1, "uploaded staged texture collectible");
+        Check(TextureLibrary::TrimUnused(0, 8) == 2, "uploaded staged texture and the comparison copy collectible");
         // A forced Load in the middle of a budgeted upload finishes it without sending rows twice.
         OnWorker([&] { stagedOk = TextureLibrary::Stage(pattern, false, UINT64_MAX, info); });
         staged = TextureLibrary::LoadStaged(pattern, false);
         AsyncLoader::Update(1000.0);
         Check(staged && !staged->IsReady(), "upload under way");
         auto forced = TextureLibrary::Load(pattern);
-        Check(forced == staged && staged->IsReady() && ReadBack(staged, 0) == base0 && ReadBack(staged, 2) == base2, "forced finish completes the same texture");
+        Check(forced == staged && staged->IsReady() && ReadBack(staged, 0) == base0 && maxDifference(ReadBack(staged, 2), base2) <= 2, "forced finish completes the same texture");
         Check(AsyncLoader::GetPendingUploadCount() == 0, "forced finish leaves no queued upload");
         forced.reset();
         staged.reset();
@@ -210,7 +227,7 @@ namespace {
         policy.AssetStreaming = true;
         policy.MaxAssetUploadsPerFrame = 4;
         policy.MaxAssetUploadBytesPerFrame = 65536;
-        const uint64_t textureBytes = 256 * 256 * 3 + 128 * 128 * 3 + 64 * 64 * 3;
+        const uint64_t textureBytes = (256 * 256 * 3 + 128 * 128 * 3 + 64 * 64 * 3) * 4 / 3 - 3; // with their mip chains
         const glm::dvec3 inside{ 2, 0, 2 }, away{ 1000, 0, 1000 };
         const auto meshBaseline = MemoryStats::Get(MemoryCategory::Meshes).Bytes;
         {

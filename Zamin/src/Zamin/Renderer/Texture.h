@@ -137,7 +137,8 @@ namespace Zamin {
         static uint64_t GetPredecodedBytes(); // decoded pixels waiting for their upload (Predecode and Stage)
         // ---- staging (world streaming's WorldAssetStager): like Predecode with a budget, kept per cache
         // entry (a pixel-art copy is its own). Stage: any thread, no GPU - true when the file is in the cache
-        // already (Cached) or its pixels are decoded and kept; false with Error when it cannot be read
+        // already (Cached) or its pixels are decoded and kept, with the mip chain made there too (2x2
+        // averages; DecodedBytes counts it), so the upload only copies rows; false with Error when it cannot be read
         // (reported once, never decoded again until the file changes) or when its header says the decoded
         // pixels exceed `maxDecodedBytes` (OverBudget: nothing was decoded).
         struct StagedTexture

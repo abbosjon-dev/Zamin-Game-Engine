@@ -12,6 +12,9 @@
 #include <set>
 #include <thread>
 #include <unordered_map>
+#include <sys/resource.h>
+#include <sys/syscall.h>
+#include <unistd.h>
 
 namespace Zamin {
     namespace {
@@ -173,7 +176,7 @@ namespace Zamin {
                     {
                         ++result.Staged;
                         result.Bytes += info.DecodedBytes;
-                        result.GPUBytes += info.DecodedBytes + info.DecodedBytes / 3;
+                        result.GPUBytes += info.DecodedBytes; // (the mip chain is part of what was decoded)
                     }
                     ticket.Usable.push_back(request);
                 }
@@ -200,6 +203,9 @@ namespace Zamin {
         }
         void Work()
         {
+            // Background work: the frame's own threads (main, the renderer's) go first when cores are short.
+            // A lower priority, not an idle class: staging still gets its share on a saturated machine.
+            (void)setpriority(PRIO_PROCESS, id_t(syscall(SYS_gettid)), 10);
             for (;;)
             {
                 std::shared_ptr<Ticket> ticket;

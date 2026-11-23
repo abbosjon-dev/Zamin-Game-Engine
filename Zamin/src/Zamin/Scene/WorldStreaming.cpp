@@ -36,7 +36,7 @@ namespace Zamin {
             json links = json::array();
             for (const auto& l : p.NavigationLinks)
                 links.push_back({ { "ID", l.ID }, { "From", { l.From.x, l.From.y } }, { "To", { l.To.x, l.To.y } }, { "Cost", l.Cost }, { "Bidirectional", l.Bidirectional }, { "Enabled", l.Enabled } });
-            return { { "AsyncNavigation", p.AsyncNavigation }, { "NavigationQueryWorkers", p.NavigationQueryWorkers }, { "NavigationQueryCapacity", p.NavigationQueryCapacity }, { "NavigationQueryStarts", p.NavigationQueryStarts }, { "NavigationQueryResults", p.NavigationQueryResults }, { "NavigationLinks", links }, { "LoadRadius", p.LoadRadius }, { "UnloadRadius", p.UnloadRadius }, { "MainThreadMilliseconds", p.MainThreadMilliseconds }, { "AxisMask", p.AxisMask }, { "Layers", p.Layers }, { "MaxResidentCells", p.MaxResidentCells }, { "MaxResidentEntities", p.MaxResidentEntities }, { "MaxEntitiesPerCell", p.MaxEntitiesPerCell }, { "MaxBuildingCells", p.MaxBuildingCells }, { "MaxActivationsPerFrame", p.MaxActivationsPerFrame }, { "MaxUnloadsPerFrame", p.MaxUnloadsPerFrame }, { "MaxResolveEntitiesPerFrame", p.MaxResolveEntitiesPerFrame }, { "DeclaredCPUBytes", p.DeclaredCPUBytes }, { "DeclaredGPUBytes", p.DeclaredGPUBytes }, { "ObservedRSSLimitBytes", p.ObservedRSSLimitBytes }, { "RequestedGPULimitBytes", p.RequestedGPULimitBytes }, { "PressureResumeRatio", p.PressureResumeRatio }, { "CacheEntriesPerKind", p.CacheEntriesPerKind }, { "MaxCacheEvictionsPerFrame", p.MaxCacheEvictionsPerFrame }, { "AssetStreaming", p.AssetStreaming }, { "MaxAssetFilesPerCell", p.MaxAssetFilesPerCell }, { "MaxAssetUploadsPerFrame", p.MaxAssetUploadsPerFrame }, { "MaxAssetFileBytes", p.MaxAssetFileBytes }, { "MaxAssetBytesPerCell", p.MaxAssetBytesPerCell }, { "MaxStagedAssetBytes", p.MaxStagedAssetBytes }, { "MaxAssetUploadBytesPerFrame", p.MaxAssetUploadBytesPerFrame }, { "NavigationMode", p.NavigationMode }, { "NavigationMaxCells", p.NavigationMaxCells } };
+            return { { "AsyncNavigation", p.AsyncNavigation }, { "NavigationQueryWorkers", p.NavigationQueryWorkers }, { "NavigationQueryCapacity", p.NavigationQueryCapacity }, { "NavigationQueryStarts", p.NavigationQueryStarts }, { "NavigationQueryResults", p.NavigationQueryResults }, { "NavigationLinks", links }, { "LoadRadius", p.LoadRadius }, { "UnloadRadius", p.UnloadRadius }, { "MainThreadMilliseconds", p.MainThreadMilliseconds }, { "AxisMask", p.AxisMask }, { "Layers", p.Layers }, { "MaxResidentCells", p.MaxResidentCells }, { "MaxResidentEntities", p.MaxResidentEntities }, { "MaxEntitiesPerCell", p.MaxEntitiesPerCell }, { "MaxBuildingCells", p.MaxBuildingCells }, { "MaxActivationsPerFrame", p.MaxActivationsPerFrame }, { "MaxUnloadsPerFrame", p.MaxUnloadsPerFrame }, { "MaxResolveEntitiesPerFrame", p.MaxResolveEntitiesPerFrame }, { "DeclaredCPUBytes", p.DeclaredCPUBytes }, { "DeclaredGPUBytes", p.DeclaredGPUBytes }, { "ObservedRSSLimitBytes", p.ObservedRSSLimitBytes }, { "RequestedGPULimitBytes", p.RequestedGPULimitBytes }, { "PressureResumeRatio", p.PressureResumeRatio }, { "EvictOnPressure", p.EvictOnPressure }, { "PressureCooldownFrames", p.PressureCooldownFrames }, { "CacheEntriesPerKind", p.CacheEntriesPerKind }, { "MaxCacheEvictionsPerFrame", p.MaxCacheEvictionsPerFrame }, { "AssetStreaming", p.AssetStreaming }, { "MaxAssetFilesPerCell", p.MaxAssetFilesPerCell }, { "MaxAssetUploadsPerFrame", p.MaxAssetUploadsPerFrame }, { "MaxAssetFileBytes", p.MaxAssetFileBytes }, { "MaxAssetBytesPerCell", p.MaxAssetBytesPerCell }, { "MaxStagedAssetBytes", p.MaxStagedAssetBytes }, { "MaxAssetUploadBytesPerFrame", p.MaxAssetUploadBytesPerFrame }, { "NavigationMode", p.NavigationMode }, { "NavigationMaxCells", p.NavigationMaxCells } };
         }
         bool ReadPolicy(const json& j, WorldStreaming::Policy& p, std::string& error)
         {
@@ -87,6 +87,8 @@ namespace Zamin {
                 value = j.at(name).get<bool>();
             };
             flag("AssetStreaming", p.AssetStreaming);
+            flag("EvictOnPressure", p.EvictOnPressure);
+            read("PressureCooldownFrames", p.PressureCooldownFrames);
             read("MaxAssetFilesPerCell", p.MaxAssetFilesPerCell);
             read("MaxAssetUploadsPerFrame", p.MaxAssetUploadsPerFrame);
             read("MaxAssetFileBytes", p.MaxAssetFileBytes);
@@ -131,7 +133,8 @@ namespace Zamin {
         if (!MaxAssetFilesPerCell || MaxAssetFilesPerCell > 4096 || !MaxAssetUploadsPerFrame || MaxAssetUploadsPerFrame > 256 ||
             !MaxAssetFileBytes || MaxAssetFileBytes > WorldManifest::MaxDeclaredBytesPerCell || !MaxAssetBytesPerCell ||
             MaxAssetBytesPerCell > MaxStagedAssetBytes || MaxStagedAssetBytes > WorldManifest::MaxDeclaredBytesPerCell ||
-            MaxAssetUploadBytesPerFrame < 65536 || MaxAssetUploadBytesPerFrame > (uint64_t(1) << 30))
+            MaxAssetUploadBytesPerFrame < 65536 || MaxAssetUploadBytesPerFrame > (uint64_t(1) << 30) ||
+            !PressureCooldownFrames || PressureCooldownFrames > 36000)
         {
             error = "Invalid world asset streaming budget";
             return false;
@@ -245,6 +248,10 @@ namespace Zamin {
                 std::vector<Ref<Texture2D>> Textures;
                 std::vector<Ref<Model>> Models;
             } Assets;
+            double Distance = 0;    // to the viewer, as selection last measured it
+            uint64_t GPUAtBuild = 0; // tracked GPU requests when it began to build
+            uint64_t HeldUntil = 0; // residency limit: not selected before this tick
+            bool AwaitsRoom = false; // its measured assets did not fit under the GPU limit
         };
         WorldManifest Manifest;
         Policy Rules;
@@ -427,6 +434,14 @@ namespace Zamin {
                     return false;
                 }
                 if (status.Stage != WorldAssetStager::State::Ready) return false;
+                cell.Info.MeasuredGPUBytes = std::max(cell.Info.MeasuredGPUBytes, status.GPUBytes);
+                if (!FitsGPULimit(cell, status.GPUBytes))
+                {
+                    // Nothing of it is uploaded: back to dormant until that much is free (Select checks it).
+                    cell.AwaitsRoom = true;
+                    ++Counters.ResidencyRefusals;
+                    return false;
+                }
                 bool missing = false;
                 for (const auto& request : Stager->GetStaged(stage.Ticket))
                     if (request.Type == WorldAssetStager::Kind::Texture)
@@ -453,7 +468,45 @@ namespace Zamin {
                 if (!model->IsResident()) return false;
             return true;
         }
+        // Tracked GPU bytes the cells still loading are expected to ask for (their measured sizes).
+        uint64_t InFlightGPU(const Cell* except) const
+        {
+            uint64_t bytes = 0;
+            for (const auto& cell : Cells)
+                if (&cell != except && cell.Info.Admitted && cell.Info.Stage != WorldRuntimeStage::Active)
+                    bytes += std::min(std::max(cell.Info.MeasuredGPUBytes, cell.Assets.GPUBytes), UINT64_MAX - bytes);
+            return bytes;
+        }
+        bool FitsGPULimit(const Cell& cell, uint64_t bytes) const
+        {
+            if (!Rules.RequestedGPULimitBytes || !bytes) return true;
+            const uint64_t used = AssetResidency::Inspect().RequestedGPUBytes, flight = InFlightGPU(&cell);
+            // (strictly below: reaching the limit is pressure already)
+            return used < Rules.RequestedGPULimitBytes && flight < Rules.RequestedGPULimitBytes - used && bytes < Rules.RequestedGPULimitBytes - used - flight;
+        }
+        // Residency limit: the farthest admitted cell nothing admitted depends on is held out (the normal
+        // unload path retires it next tick). Never a cell the viewer is in.
+        bool EvictFarthest()
+        {
+            Cell* victim = nullptr;
+            for (size_t i = 0; i < Cells.size(); ++i)
+            {
+                auto& cell = Cells[i];
+                if (!cell.Info.Admitted || cell.Distance <= 0 || (victim && cell.Distance <= victim->Distance)) continue;
+                bool needed = false;
+                for (size_t other = 0; other < Cells.size() && !needed; ++other)
+                    needed = other != i && Cells[other].Info.Admitted && (Closures[other][i / 64] & (uint64_t(1) << (i % 64)));
+                if (!needed) victim = &cell;
+            }
+            if (!victim) return false;
+            victim->HeldUntil = Tick + Rules.PressureCooldownFrames;
+            // With a GPU limit it also waits until what it was measured to need is free again.
+            victim->AwaitsRoom = Rules.RequestedGPULimitBytes && victim->Info.MeasuredGPUBytes;
+            ++Counters.PressureEvictions;
+            return true;
+        }
         ResidencyPressure Pressure;
+        uint64_t Tick = 0;
         uint64_t Frame = 0;
         size_t CacheEvictionsThisFrame = 0;
         size_t Trim(size_t target)
@@ -595,6 +648,9 @@ namespace Zamin {
             Counters.PeakMilliseconds = previous.PeakMilliseconds;
             Counters.BudgetBlocked = previous.BudgetBlocked;
             Counters.AssetCancellations = previous.AssetCancellations;
+            Counters.PressureEvictions = previous.PressureEvictions;
+            Counters.ResidencyRefusals = previous.ResidencyRefusals;
+            Counters.ResidencyBlocked = previous.ResidencyBlocked;
             Counters.AssetRestages = previous.AssetRestages;
             Counters.AssetStreaming = bool(Stager);
             if (Stager)
@@ -664,16 +720,53 @@ namespace Zamin {
                         const double delta = std::max({ min[axis] - Viewer[axis], 0.0, Viewer[axis] - max[axis] });
                         distance += delta * delta;
                     }
+                c.Distance = std::sqrt(distance);
                 if (distance <= radius * radius) candidates.emplace_back(distance, i);
             }
             std::sort(candidates.begin(), candidates.end());
             size_t count = 0;
             uint64_t cpu = 0, gpu = 0;
             Counters.BudgetBlocked = 0;
+            Counters.ResidencyBlocked = 0;
+            // Residency limits: cells cooling down after an eviction, and cells whose measured assets do not
+            // fit under the GPU limit right now, are not selected - nor is anything that depends on them.
+            Data::Mask held{};
+            uint64_t room = 0, flight = 0;
+            if (Rules.RequestedGPULimitBytes)
+            {
+                const uint64_t used = AssetResidency::Inspect().RequestedGPUBytes;
+                flight = InFlightGPU(nullptr);
+                room = used < Rules.RequestedGPULimitBytes ? Rules.RequestedGPULimitBytes - used : 0;
+                room = flight < room ? room - flight : 0;
+            }
+            for (size_t i = 0; i < Cells.size(); ++i)
+            {
+                auto& c = Cells[i];
+                bool hold = c.HeldUntil > Tick;
+                if (c.AwaitsRoom)
+                {
+                    // (its own in-flight share is in `flight` until it is retired)
+                    if (c.Info.Admitted || c.Info.MeasuredGPUBytes >= room) hold = true;
+                    else
+                    {
+                        c.AwaitsRoom = false;
+                        room -= c.Info.MeasuredGPUBytes; // one at a time takes the room
+                    }
+                }
+                c.Info.Held = hold;
+                if (hold) held[i / 64] |= uint64_t(1) << (i % 64);
+            }
             Data::Mask chosen{};
             for (auto [distance, index] : candidates)
             {
                 (void)distance;
+                bool blocked = false;
+                for (size_t word = 0; word < held.size() && !blocked; ++word) blocked = (Closures[index][word] & held[word]) != 0;
+                if (blocked)
+                {
+                    ++Counters.ResidencyBlocked;
+                    continue;
+                }
                 Data::Mask addition{};
                 size_t extraCount = 0;
                 for (size_t word = 0; word < chosen.size(); ++word)
@@ -778,6 +871,7 @@ namespace Zamin {
     {
         auto& d = *m_Data;
         const auto start = Clock::now();
+        ++d.Tick;
         d.CacheEvictionsThisFrame = 0;
         if (d.Writer)
         {
@@ -887,7 +981,10 @@ namespace Zamin {
             d.ReleaseAssets(c, true); // (after the staged scene: its components hold no pending texture any more)
             c.Resolve.clear();
             c.Resolved = 0;
+            const auto measured = c.Info.MeasuredGPUBytes;
             c.Info = { c.Info.ID, WorldRuntimeStage::Dormant, false, false, 0, 0, {} };
+            c.Info.MeasuredGPUBytes = measured; // what its assets asked of the GPU is remembered across visits
+            c.Info.Held = c.HeldUntil > d.Tick || c.AwaitsRoom;
         }
         d.Recount();
         if (d.PendingState)
@@ -939,6 +1036,8 @@ namespace Zamin {
             d.Counters.MemoryPressure = evaluatePressure();
         }
         d.Counters.PressureFrames += d.Counters.MemoryPressure;
+        // Still over a limit and the caches have nothing more to give: one cell goes.
+        if (d.Counters.MemoryPressure && d.Rules.EvictOnPressure && !unloads && d.CacheEvictionsThisFrame < d.Rules.MaxCacheEvictionsPerFrame) d.EvictFarthest();
         for (auto id : d.Order)
         {
             const size_t index = d.Index.at(id);
@@ -1014,6 +1113,7 @@ namespace Zamin {
                 d.Counters.Entities += c.Info.Entities;
                 c.Resolved = 0;
                 c.SceneRef = CreateRef<Scene>();
+                c.GPUAtBuild = AssetResidency::Inspect().RequestedGPUBytes;
                 c.Info.Stage = WorldRuntimeStage::Building;
                 ++d.Counters.Building;
             }
@@ -1105,6 +1205,11 @@ namespace Zamin {
                     c.SceneRef.reset();
                     d.ReleaseAssets(c, false); // the imported entities hold them now
                     c.Info.Stage = WorldRuntimeStage::Active;
+                    // One cell builds at a time: the growth of the tracked GPU requests since it began is its own
+                    // (assets, generated meshes). Remembered for the GPU limit's admission.
+                    if (d.Rules.MaxBuildingCells == 1)
+                        if (const uint64_t now = AssetResidency::Inspect().RequestedGPUBytes; now > c.GPUAtBuild)
+                            c.Info.MeasuredGPUBytes = std::max(c.Info.MeasuredGPUBytes, now - c.GPUAtBuild);
                     c.Resolve.clear();
                     manager.GetEventBus().Emit("WorldCellLoaded", CellEvent{ c.Info.ID, source.ScenePath });
                     ++activations;

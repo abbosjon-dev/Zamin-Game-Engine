@@ -21,6 +21,7 @@
 #include <Zamin/Core/EntryPoint.h>
 #include <Zamin/Gameplay/GameplayUI.h>
 #include <Zamin/UI/UIAudit.h>
+#include <Zamin/Scene/WorldTour.h>
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -193,6 +194,14 @@ namespace Zamin {
             // scene's entities and the memory the engine tracks, sampled to find growth across the game's loops.
             if (const char* soak = std::getenv("ZAMIN_SOAK_STATS"))
                 m_SoakEvery = std::clamp(std::atoi(soak), 0, 100000);
+            // ZAMIN_WORLD_TOUR=<file.ztour> (automation: world streaming acceptance): the primary camera follows that
+            // repeatable path - positions by frame number, see WorldTour - from the game's first frame;
+            // ZAMIN_WORLD_REPORT=<file.json> gets every frame's time, the streaming / upload work, RSS and the tracked
+            // GPU requests with their summary when the tour ends (or the player closes first: "Complete": false).
+            if (const char* tour = std::getenv("ZAMIN_WORLD_TOUR"))
+                m_TourFile = tour;
+            if (const char* report = std::getenv("ZAMIN_WORLD_REPORT"))
+                m_TourReportFile = report;
             // ZAMIN_SCREENSHOT_ON="<text>|<frames>|<file.png>[|quit]" (automation: a picture of a moment the game logs, e.g.
             // its victory screen): the first log line containing <text>, <frames> later (0..600) the frame is saved there;
             // with "|quit" the player then closes (the run ends at that moment, whatever ZAMIN_MAX_FRAMES says).
@@ -585,6 +594,54 @@ namespace Zamin {
         }
 
         int m_SoakEvery = 0, m_SoakFrame = 0;
+
+        // ZAMIN_WORLD_TOUR / ZAMIN_WORLD_REPORT: the repeatable camera path and its report.
+        std::filesystem::path m_TourFile, m_TourReportFile;
+        WorldTourRunner m_Tour;
+        Clock::time_point m_TourFrameStart;
+        bool m_TourHasFrameStart = false, m_TourFailed = false, m_TourReported = false;
+        void UpdateWorldTour()
+        {
+            if (m_TourFile.empty() || m_TourFailed || !m_Scenes)
+                return;
+            if (!m_Tour.IsActive())
+            {
+                WorldTour tour;
+                std::string error;
+                const std::filesystem::path file = m_TourFile.is_absolute() ? m_TourFile : Project::GetAssetFileSystemPath(m_TourFile);
+                if (!WorldTour::Load(file, tour, error) || !m_Tour.Start(std::move(tour), error))
+                {
+                    ZM_ERROR("World tour: {} ({})", error, file.string());
+                    m_TourFailed = true;
+                    return;
+                }
+                ZM_INFO("World tour started: '{}', {} frames after {} warm-up frames", m_Tour.GetTour().Name, m_Tour.GetTour().GetLength() + 1, m_Tour.GetTour().Warmup);
+            }
+            const Clock::time_point now = Clock::now();
+            const double ms = m_TourHasFrameStart ? std::chrono::duration<double, std::milli>(now - m_TourFrameStart).count() : 0.0;
+            m_TourFrameStart = now;
+            m_TourHasFrameStart = true;
+            const bool finished = m_Tour.IsFinished();
+            m_Tour.BeginFrame(*m_Scenes, ms);
+            if (!finished && m_Tour.IsFinished())
+                WriteWorldTourReport();
+        }
+        void WriteWorldTourReport()
+        {
+            if (m_TourReported || !m_Tour.IsActive())
+                return;
+            m_TourReported = true;
+            const WorldTourReport::Summary summary = m_Tour.GetReport().Summarize();
+            ZM_INFO("World tour report: complete={} frames={} frameMs p50={:.2f} p95={:.2f} p99={:.2f} max={:.2f} worldMsMax={:.2f} uploadMsMax={:.2f} "
+                    "uploadBytesMax={} rssPeak={} rssLast={} gpuPeak={} gpuLast={}",
+                    m_Tour.IsFinished(), summary.Frames, summary.FrameMs.P50, summary.FrameMs.P95, summary.FrameMs.P99, summary.FrameMs.Max, summary.WorldMs.Max,
+                    summary.UploadMs.Max, summary.PeakUploadBytes, summary.PeakRSS, summary.LastRSS, summary.PeakGPU, summary.LastGPU);
+            if (m_TourReportFile.empty())
+                return;
+            std::string error;
+            if (!m_Tour.WriteReport(m_TourReportFile, m_Scenes.get(), error))
+                ZM_ERROR("World tour: {} ({})", error, m_TourReportFile.string());
+        }
         void RunSoakStats()
         {
             if (m_SoakEvery <= 0 || !m_Scenes || !m_Scenes->GetActiveScene() || ++m_SoakFrame % m_SoakEvery != 0)
@@ -698,6 +755,7 @@ namespace Zamin {
 
         void OnDetach() override
         {
+            WriteWorldTourReport(); // (a tour the player's end cut short still reports: "Complete": false)
             if (std::getenv("ZAMIN_PLAYER_STATS"))
             {
                 ZM_INFO("Render statistikasi (oxirgi kadr): {}", Renderer::GetStats().Format());
@@ -925,6 +983,7 @@ namespace Zamin {
                 UpdateSplash(ts, Input::IsAnyKeyJustPressed() && !toggled);
                 return;
             }
+            UpdateWorldTour(); // (the frame that just ended is recorded, the camera moved for this one)
             // The audio engine is shut down before OnDetach: its profile is kept from the last frame.
             static const bool logStats = std::getenv("ZAMIN_PLAYER_STATS") != nullptr;
             if (logStats)

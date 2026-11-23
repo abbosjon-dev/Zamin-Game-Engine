@@ -48,6 +48,9 @@ namespace Zamin {
         uint32_t Width = 0, Height = 0;
         ImageFormat Format = ImageFormat::RGBA8;
         std::string Error;
+        // Levels 1..n made on the CPU (BuildMips: staged textures) - uploaded like the base level instead of
+        // glGenerateMipmap, whose cost on the main thread cannot be cut into pieces.
+        std::vector<std::vector<uint8_t>> Mips;
 
         GLDecodedImage() = default;
         GLDecodedImage(const GLDecodedImage&) = delete;
@@ -86,6 +89,50 @@ namespace Zamin {
         return true;
     }
 
+    // The mip chain of an 8-bit image by 2x2 box averages (any thread). Returns its bytes.
+    static uint64_t BuildMips(GLDecodedImage& image)
+    {
+        image.Mips.clear();
+        const uint32_t channels = BytesPerPixel(image.Format);
+        if (!image.Pixels || image.Format == ImageFormat::RGBA32F)
+            return 0;
+        uint64_t bytes = 0;
+        const uint8_t* source = image.Pixels;
+        uint32_t width = image.Width, height = image.Height;
+        while (width > 1 || height > 1)
+        {
+            const uint32_t w = std::max(1u, width / 2), h = std::max(1u, height / 2);
+            std::vector<uint8_t> level((size_t)w * h * channels);
+            for (uint32_t y = 0; y < h; y++)
+            {
+                const uint8_t* row0 = source + (size_t)std::min(2 * y, height - 1) * width * channels;
+                const uint8_t* row1 = source + (size_t)std::min(2 * y + 1, height - 1) * width * channels;
+                uint8_t* out = level.data() + (size_t)y * w * channels;
+                for (uint32_t x = 0; x < w; x++)
+                {
+                    const size_t a = (size_t)std::min(2 * x, width - 1) * channels, b = (size_t)std::min(2 * x + 1, width - 1) * channels;
+                    for (uint32_t c = 0; c < channels; c++)
+                        out[(size_t)x * channels + c] = (uint8_t)((row0[a + c] + row0[b + c] + row1[a + c] + row1[b + c] + 2) / 4);
+                }
+            }
+            bytes += level.size();
+            image.Mips.push_back(std::move(level));
+            source = image.Mips.back().data();
+            width = w;
+            height = h;
+        }
+        return bytes;
+    }
+
+    // What uploading the image sends: the base level and the levels made on the CPU.
+    static uint64_t PendingBytes(const GLDecodedImage& image)
+    {
+        uint64_t bytes = (uint64_t)image.Width * image.Height * BytesPerPixel(image.Format);
+        for (const auto& level : image.Mips)
+            bytes += level.size();
+        return bytes;
+    }
+
     // Pixels decoded ahead of their upload (TextureLibrary::Predecode, any thread), by canonical file.
     static std::mutex s_PredecodeMutex;
     static std::unordered_map<std::string, std::unique_ptr<GLDecodedImage>> s_Predecoded;
@@ -102,6 +149,7 @@ namespace Zamin {
         image.Width = ready.Width;
         image.Height = ready.Height;
         image.Format = ready.Format;
+        image.Mips = std::move(ready.Mips);
         ready.Pixels = nullptr;
         s_Predecoded.erase(it);
         return true;
@@ -304,7 +352,7 @@ namespace Zamin {
                     if (texture.use_count() <= 1) // (nothing but the queue holds it any more: not uploaded, freed here)
                         return true;
                     return texture->StepUpload(allowance, fresh, used);
-                }, (uint64_t)image.Width * image.Height * BytesPerPixel(image.Format));
+                }, PendingBytes(image));
             }
         }
 
@@ -337,10 +385,10 @@ namespace Zamin {
         // The decoded pixels of a texture still loading are there (not: unreadable, or not decoded yet).
         bool HasPendingPixels() const { return m_Pending && m_PendingImage && m_PendingImage->Pixels; }
 
-        // Main thread: the next piece of a pending texture's upload - whole rows of the base level within
-        // `allowance` bytes (one row at least when `fresh`), then the mip chain as a piece of its own
-        // (charged a third of the base level, at most a whole Update's budget: made by the GPU, nothing
-        // more is sent). True once the texture
+        // Main thread: the next piece of a pending texture's upload - whole rows within `allowance` bytes
+        // (one row at least when `fresh`): the base level, then the mip levels a staged texture brought
+        // from its worker. Without those the GPU makes the chain in a last piece of its own (glGenerateMipmap
+        // cannot be cut: its time is the driver's). True once the texture
         // is ready - or turned out unreadable. Until then it binds as the placeholder.
         bool StepUpload(uint64_t allowance, bool fresh, uint64_t& used)
         {
@@ -358,7 +406,9 @@ namespace Zamin {
                     AssetImportLog::Report(m_Path, m_PendingError);
                 return true;
             }
-            const uint64_t rowBytes = (uint64_t)image->Width * BytesPerPixel(image->Format);
+            const uint32_t pixelBytes = BytesPerPixel(image->Format);
+            GLenum internalFormat, dataFormat, type;
+            FormatToGL(image->Format, internalFormat, dataFormat, type);
             if (!m_RendererID)
             {
                 ResolveSettingsLater();
@@ -366,41 +416,67 @@ namespace Zamin {
                 m_Specification.Width = image->Width;
                 m_Specification.Height = image->Height;
                 m_Specification.Format = image->Format;
-                Allocate();
+                if (!m_Specification.GenerateMips)
+                    image->Mips.clear();
+                // Sampling and the last level before the first image: a driver that sizes a texture's storage
+                // from its filter when level 0 arrives (Mesa) then allocates the whole chain once, instead
+                // of moving the base level into a larger allocation when the other levels appear.
+                glGenTextures(1, &m_RendererID);
+                ApplySampling();
+                if (!image->Mips.empty())
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, (GLint)image->Mips.size());
+                DefineStorage();
                 m_StagedRows = 0;
+                m_StagedLevel = 0;
+                // A chain made on the CPU: its levels' storage now, their pixels in rows like the base level.
+                for (size_t level = 1; level <= image->Mips.size(); level++)
+                    glTexImage2D(GL_TEXTURE_2D, (GLint)level, (GLint)internalFormat, (GLsizei)std::max(1u, image->Width >> level),
+                                 (GLsizei)std::max(1u, image->Height >> level), 0, dataFormat, type, nullptr);
+                // Making the storage is a piece too (a driver may touch every byte of it): charged like sending
+                // it, as far as this Update's budget goes - a large texture's rows start in the next one.
+                used = std::min(allowance, PendingBytes(*image));
             }
-            if (m_StagedRows < image->Height)
+            uint64_t left = allowance > used ? allowance - used : 0;
+            for (const size_t levels = image->Mips.size() + 1; m_StagedLevel < levels;)
             {
-                uint64_t rows = std::min<uint64_t>(image->Height - m_StagedRows, rowBytes ? allowance / rowBytes : image->Height);
+                const uint32_t width = std::max(1u, image->Width >> m_StagedLevel), height = std::max(1u, image->Height >> m_StagedLevel);
+                const uint64_t rowBytes = (uint64_t)width * pixelBytes;
+                const uint8_t* pixels = m_StagedLevel == 0 ? image->Pixels : image->Mips[m_StagedLevel - 1].data();
+                uint64_t rows = std::min<uint64_t>(height - m_StagedRows, left / rowBytes);
                 if (rows == 0)
                 {
-                    if (!fresh)
+                    if (!fresh || used > 0)
                         return false;
                     rows = 1; // (a budget smaller than one row: one row a frame)
                 }
-                GLenum internalFormat, dataFormat, type;
-                FormatToGL(m_Specification.Format, internalFormat, dataFormat, type);
                 glBindTexture(GL_TEXTURE_2D, m_RendererID);
                 glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, (GLint)m_StagedRows, (GLsizei)image->Width, (GLsizei)rows, dataFormat, type,
-                                image->Pixels + (size_t)m_StagedRows * rowBytes);
+                glTexSubImage2D(GL_TEXTURE_2D, (GLint)m_StagedLevel, 0, (GLint)m_StagedRows, (GLsizei)width, (GLsizei)rows, dataFormat, type,
+                                pixels + (size_t)m_StagedRows * rowBytes);
                 m_StagedRows += (uint32_t)rows;
-                used = rows * rowBytes;
-                if (m_StagedRows < image->Height)
+                used += rows * rowBytes;
+                left = left > rows * rowBytes ? left - rows * rowBytes : 0;
+                if (m_StagedRows < height)
                     return false;
+                m_StagedLevel++;
+                m_StagedRows = 0;
             }
             if (m_Specification.GenerateMips)
             {
-                const uint64_t cost = rowBytes * image->Height / 3;
-                const uint64_t left = allowance > used ? allowance - used : 0;
-                if (cost > left && !(fresh && used == 0))
-                    return false; // the chain in a later piece
-                // The chain is made from the base level: the full picture, whatever the quality skips.
                 glBindTexture(GL_TEXTURE_2D, m_RendererID);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
-                glGenerateMipmap(GL_TEXTURE_2D);
+                if (image->Mips.empty())
+                {
+                    // No chain from the CPU (decoded by Predecode / a background load): the GPU makes it, as a
+                    // piece of its own - charged a third of the base level, at most a whole Update's budget.
+                    const uint64_t cost = (uint64_t)image->Width * image->Height * pixelBytes / 3;
+                    if (cost > left && !(fresh && used == 0))
+                        return false;
+                    // The chain is made from the base level: the full picture, whatever the quality skips.
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+                    glGenerateMipmap(GL_TEXTURE_2D);
+                    used += std::min(cost, left);
+                }
                 ApplyQualityParameters();
-                used += std::min(cost, left); // (a chain larger than the whole budget takes all of one Update's)
             }
             m_PendingImage.reset();
             m_Pending = false;
@@ -639,7 +715,7 @@ namespace Zamin {
         bool m_InSampling = false; // in Sampling().ImageTextures (from its first upload on: main thread)
         std::atomic<bool> m_Pending{ false }; // still loading (IsReady false)
         bool m_UploadQueued = false;          // QueueDeferredUpload done
-        uint32_t m_StagedRows = 0;            // rows of the base level a budgeted upload has sent so far (StepUpload)
+        uint32_t m_StagedRows = 0, m_StagedLevel = 0; // rows of the mip level a budgeted upload has sent so far (StepUpload)
         int8_t m_SettingsLater = -1;          // OnWorker: its import settings read at the upload (1: the pixel-art copy)
         std::unique_ptr<GLDecodedImage> m_PendingImage; // its pixels, decoded, not uploaded yet
         std::string m_PendingError;
@@ -917,7 +993,11 @@ namespace Zamin {
         std::lock_guard lock(s_PredecodeMutex);
         uint64_t bytes = 0;
         for (const auto& [file, image] : s_Predecoded)
+        {
             bytes += (uint64_t)image->Width * image->Height * BytesPerPixel(image->Format);
+            for (const auto& level : image->Mips)
+                bytes += level.size();
+        }
         return bytes;
     }
 
@@ -951,6 +1031,8 @@ namespace Zamin {
                 info.Width = it->second->Width;
                 info.Height = it->second->Height;
                 info.DecodedBytes = (uint64_t)info.Width * info.Height * BytesPerPixel(it->second->Format);
+                for (const auto& level : it->second->Mips)
+                    info.DecodedBytes += level.size();
                 return true;
             }
         }
@@ -966,6 +1048,13 @@ namespace Zamin {
             info.Width = (uint32_t)width;
             info.Height = (uint32_t)height;
             info.DecodedBytes = (uint64_t)width * (uint64_t)height * (uint64_t)(channels == 2 ? 4 : channels);
+            if (!pixelArt) // its mip chain is made here too
+                for (uint64_t w = (uint64_t)width, h = (uint64_t)height, pixel = (uint64_t)(channels == 2 ? 4 : channels); w > 1 || h > 1;)
+                {
+                    w = std::max<uint64_t>(1, w / 2);
+                    h = std::max<uint64_t>(1, h / 2);
+                    info.DecodedBytes += w * h * pixel;
+                }
             if (info.DecodedBytes > maxDecodedBytes)
             {
                 info.OverBudget = true;
@@ -983,6 +1072,9 @@ namespace Zamin {
         info.Width = image->Width;
         info.Height = image->Height;
         info.DecodedBytes = (uint64_t)image->Width * image->Height * BytesPerPixel(image->Format);
+        // The mip chain here, off the main thread: the upload then only copies rows (a pixel-art copy has none).
+        if (!pixelArt)
+            info.DecodedBytes += BuildMips(*image);
         std::lock_guard lock(s_PredecodeMutex);
         s_Predecoded.try_emplace(key, std::move(image));
         return true;

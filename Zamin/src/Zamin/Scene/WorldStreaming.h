@@ -36,6 +36,15 @@ namespace Zamin {
             // Zero disables a signal. These pause new work; they are not OS / physical VRAM caps.
             uint64_t ObservedRSSLimitBytes = 0, RequestedGPULimitBytes = 0;
             double PressureResumeRatio = .9;
+            // With EvictOnPressure the two signals above are residency limits the world gets back under:
+            // once trimming the caches frees nothing more, the farthest admitted cell that no other
+            // admitted cell depends on is retired - one a frame, never the cell the viewer is in - and held
+            // out for PressureCooldownFrames. With AssetStreaming a cell whose staged assets would take the
+            // tracked GPU requests past RequestedGPULimitBytes is not uploaded at all: it waits (its
+            // measured size is remembered) until that much is free. Tracked requests and observed RSS,
+            // not physical VRAM; memory a cell makes while it resolves (terrain meshes) is not predicted.
+            bool EvictOnPressure = false;
+            uint32_t PressureCooldownFrames = 120;
             uint32_t NavigationMode = 0; // 0 off, 2 XY grid, 3 XZ height grid
             uint32_t NavigationMaxCells = 262144;
             bool AsyncNavigation = false;
@@ -68,6 +77,9 @@ namespace Zamin {
             uint64_t Generation = 0;
             size_t Entities = 0;
             std::string Error;
+            // Tracked GPU bytes its staged assets asked for when they were last measured (0: unknown).
+            uint64_t MeasuredGPUBytes = 0;
+            bool Held = false; // kept out by a residency limit
         };
         enum class CommandKind
         {
@@ -130,6 +142,10 @@ namespace Zamin {
             uint64_t PendingUploadBytes = 0;
             uint64_t MainThreadImageDecodes = 0, MainThreadModelParses = 0;
             uint64_t AssetCancellations = 0, AssetRestages = 0;
+            // ---- residency limits (Policy::EvictOnPressure, RequestedGPULimitBytes with AssetStreaming).
+            uint64_t PressureEvictions = 0;  // cells retired to get back under a limit
+            uint64_t ResidencyRefusals = 0;  // staged cells not uploaded because they would pass the GPU limit
+            size_t ResidencyBlocked = 0;     // cells held out right now (cooling down, or too large for what is free)
         };
         static bool LoadDefinition(const std::filesystem::path& file, WorldManifest& manifest, Policy& policy, std::string& error);
         static bool SaveDefinition(const std::filesystem::path& file, const WorldManifest& manifest, const Policy& policy, std::string& error);

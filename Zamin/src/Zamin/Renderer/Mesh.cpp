@@ -35,7 +35,7 @@ namespace Zamin {
             m_Pending = CreateScope<PendingData>();
             m_Pending->Vertices = vertices;
             m_Pending->Indices = indices;
-            AsyncLoader::QueueUpload(this, [this] { EnsureUploaded(); });
+            AsyncLoader::QueueUpload(this, [this] { EnsureUploaded(); }, GetPendingUploadBytes());
             return;
         }
         Upload(&vertices, nullptr, indices);
@@ -51,7 +51,7 @@ namespace Zamin {
             m_Pending = CreateScope<PendingData>();
             m_Pending->SkinnedVertices = vertices;
             m_Pending->Indices = indices;
-            AsyncLoader::QueueUpload(this, [this] { EnsureUploaded(); });
+            AsyncLoader::QueueUpload(this, [this] { EnsureUploaded(); }, GetPendingUploadBytes());
             return;
         }
         Upload(nullptr, &vertices, indices);
@@ -61,6 +61,14 @@ namespace Zamin {
     {
         if (m_Pending)
             AsyncLoader::CancelUpload(this);
+    }
+
+    uint64_t Mesh::GetPendingUploadBytes() const
+    {
+        if (!m_Pending)
+            return 0;
+        return (uint64_t)m_Pending->Vertices.size() * sizeof(MeshVertex) + (uint64_t)m_Pending->SkinnedVertices.size() * sizeof(SkinnedVertex) +
+               (uint64_t)m_Pending->Indices.size() * sizeof(uint32_t);
     }
 
     void Mesh::EnsureUploaded() const

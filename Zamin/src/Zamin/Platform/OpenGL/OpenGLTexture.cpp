@@ -55,8 +55,12 @@ namespace Zamin {
         ~GLDecodedImage() { if (Pixels) stbi_image_free(Pixels); }
     };
 
+    // Image files decoded by this thread (TextureLibrary::GetThreadDecodeCount).
+    static thread_local uint64_t t_ThreadDecodes = 0;
+
     static bool Decode(const std::string& path, GLDecodedImage& image)
     {
+        t_ThreadDecodes++;
         if (std::string unreadable = AssetImportLog::CheckReadable(path); !unreadable.empty())
         {
             image.Error = std::move(unreadable);
@@ -294,10 +298,13 @@ namespace Zamin {
             if (texture->m_Pending && texture->m_PendingImage && !texture->m_UploadQueued)
             {
                 texture->m_UploadQueued = true;
-                AsyncLoader::QueueUpload(texture.get(), [texture] {
-                    if (texture.use_count() > 1) // (nothing but the queue holds it any more: not uploaded, freed here)
-                        texture->FinishLoading();
-                });
+                const GLDecodedImage& image = *texture->m_PendingImage;
+                // Cut into rows (StepUpload): never more of it in one AsyncLoader::Update than its upload budget.
+                AsyncLoader::QueueSteppedUpload(texture.get(), [texture](uint64_t allowance, bool fresh, uint64_t& used) {
+                    if (texture.use_count() <= 1) // (nothing but the queue holds it any more: not uploaded, freed here)
+                        return true;
+                    return texture->StepUpload(allowance, fresh, used);
+                }, (uint64_t)image.Width * image.Height * BytesPerPixel(image.Format));
             }
         }
 
@@ -320,17 +327,84 @@ namespace Zamin {
             if (!m_Pending)
                 return m_Loaded;
             AsyncLoader::CancelUpload(this);
-            m_Pending = false;
-            ResolveSettingsLater();
-            std::unique_ptr<GLDecodedImage> image = std::move(m_PendingImage);
+            uint64_t used = 0;
+            while (!StepUpload(UINT64_MAX, true, used)) // (what a budgeted upload already sent is not sent again)
+            {
+            }
+            return m_Loaded;
+        }
+
+        // The decoded pixels of a texture still loading are there (not: unreadable, or not decoded yet).
+        bool HasPendingPixels() const { return m_Pending && m_PendingImage && m_PendingImage->Pixels; }
+
+        // Main thread: the next piece of a pending texture's upload - whole rows of the base level within
+        // `allowance` bytes (one row at least when `fresh`), then the mip chain as a piece of its own
+        // (charged a third of the base level, at most a whole Update's budget: made by the GPU, nothing
+        // more is sent). True once the texture
+        // is ready - or turned out unreadable. Until then it binds as the placeholder.
+        bool StepUpload(uint64_t allowance, bool fresh, uint64_t& used)
+        {
+            used = 0;
+            if (!m_Pending)
+                return true;
+            GLDecodedImage* image = m_PendingImage.get();
             if (!image || !image->Pixels)
             {
+                m_Pending = false;
+                ResolveSettingsLater();
+                m_PendingImage.reset();
                 m_Loaded = false;
                 if (m_FromFile)
                     AssetImportLog::Report(m_Path, m_PendingError);
-                return false;
+                return true;
             }
-            Upload(*image);
+            const uint64_t rowBytes = (uint64_t)image->Width * BytesPerPixel(image->Format);
+            if (!m_RendererID)
+            {
+                ResolveSettingsLater();
+                AddToSampling(); // the quality level's sampling from the start (and on reloads)
+                m_Specification.Width = image->Width;
+                m_Specification.Height = image->Height;
+                m_Specification.Format = image->Format;
+                Allocate();
+                m_StagedRows = 0;
+            }
+            if (m_StagedRows < image->Height)
+            {
+                uint64_t rows = std::min<uint64_t>(image->Height - m_StagedRows, rowBytes ? allowance / rowBytes : image->Height);
+                if (rows == 0)
+                {
+                    if (!fresh)
+                        return false;
+                    rows = 1; // (a budget smaller than one row: one row a frame)
+                }
+                GLenum internalFormat, dataFormat, type;
+                FormatToGL(m_Specification.Format, internalFormat, dataFormat, type);
+                glBindTexture(GL_TEXTURE_2D, m_RendererID);
+                glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, (GLint)m_StagedRows, (GLsizei)image->Width, (GLsizei)rows, dataFormat, type,
+                                image->Pixels + (size_t)m_StagedRows * rowBytes);
+                m_StagedRows += (uint32_t)rows;
+                used = rows * rowBytes;
+                if (m_StagedRows < image->Height)
+                    return false;
+            }
+            if (m_Specification.GenerateMips)
+            {
+                const uint64_t cost = rowBytes * image->Height / 3;
+                const uint64_t left = allowance > used ? allowance - used : 0;
+                if (cost > left && !(fresh && used == 0))
+                    return false; // the chain in a later piece
+                // The chain is made from the base level: the full picture, whatever the quality skips.
+                glBindTexture(GL_TEXTURE_2D, m_RendererID);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+                glGenerateMipmap(GL_TEXTURE_2D);
+                ApplyQualityParameters();
+                used += std::min(cost, left); // (a chain larger than the whole budget takes all of one Update's)
+            }
+            m_PendingImage.reset();
+            m_Pending = false;
+            m_Loaded = true;
             if (m_FromFile)
                 AssetImportLog::Clear(m_Path);
             return true;
@@ -428,7 +502,8 @@ namespace Zamin {
         const TextureSpecification& GetSpecification() const override { return m_Specification; }
         uint32_t GetWidth() const override { return m_Specification.Width; }
         uint32_t GetHeight() const override { return m_Specification.Height; }
-        uint32_t GetRendererID() const override { return m_RendererID; }
+        // (0 while it is still loading: a texture a budgeted upload has filled in part is never shown)
+        uint32_t GetRendererID() const override { return m_Pending ? 0 : m_RendererID; }
         const std::string& GetPath() const override { return m_Path; }
         bool IsLoaded() const override { return m_Loaded; }
 
@@ -458,7 +533,7 @@ namespace Zamin {
         void Bind(uint32_t slot) const override
         {
             glActiveTexture(GL_TEXTURE0 + slot);
-            glBindTexture(GL_TEXTURE_2D, m_RendererID ? m_RendererID : (m_Pending ? PlaceholderTexture() : MissingTexture()));
+            glBindTexture(GL_TEXTURE_2D, m_Pending ? PlaceholderTexture() : (m_RendererID ? m_RendererID : MissingTexture()));
         }
 
         bool operator==(const Texture& other) const override { return m_RendererID == other.GetRendererID(); }
@@ -564,6 +639,7 @@ namespace Zamin {
         bool m_InSampling = false; // in Sampling().ImageTextures (from its first upload on: main thread)
         std::atomic<bool> m_Pending{ false }; // still loading (IsReady false)
         bool m_UploadQueued = false;          // QueueDeferredUpload done
+        uint32_t m_StagedRows = 0;            // rows of the base level a budgeted upload has sent so far (StepUpload)
         int8_t m_SettingsLater = -1;          // OnWorker: its import settings read at the upload (1: the pixel-art copy)
         std::unique_ptr<GLDecodedImage> m_PendingImage; // its pixels, decoded, not uploaded yet
         std::string m_PendingError;
@@ -734,6 +810,11 @@ namespace Zamin {
             file, [texture] { texture->DecodeLater(); },
             [texture, key, raw] {
                 s_AsyncLoads.erase(raw);
+                if (texture->HasPendingPixels())
+                {
+                    OpenGLTexture2D::QueueDeferredUpload(texture); // decoded: uploaded within AsyncLoader's upload budget
+                    return;
+                }
                 if (!texture->FinishLoading())
                 {
                     // Unreadable: out of the cache, like a Load that failed (reported once per file version);
@@ -829,6 +910,142 @@ namespace Zamin {
     {
         std::lock_guard lock(s_PredecodeMutex);
         return s_Predecoded.size();
+    }
+
+    uint64_t TextureLibrary::GetPredecodedBytes()
+    {
+        std::lock_guard lock(s_PredecodeMutex);
+        uint64_t bytes = 0;
+        for (const auto& [file, image] : s_Predecoded)
+            bytes += (uint64_t)image->Width * image->Height * BytesPerPixel(image->Format);
+        return bytes;
+    }
+
+    uint64_t TextureLibrary::GetThreadDecodeCount() { return t_ThreadDecodes; }
+
+    static std::string StagedKey(const std::filesystem::path& path, bool pixelArt, std::string* fileOut = nullptr)
+    {
+        std::string file = CanonicalFile(path);
+        if (fileOut)
+            *fileOut = file;
+        return pixelArt ? file + std::string(s_PixelArtSuffix) : file;
+    }
+
+    bool TextureLibrary::Stage(const std::filesystem::path& path, bool pixelArt, uint64_t maxDecodedBytes, StagedTexture& info)
+    {
+        info = {};
+        std::string file;
+        const std::string key = StagedKey(path, pixelArt, &file);
+        {
+            std::lock_guard lock(s_TextureCacheMutex);
+            if (s_TextureCache.contains(key))
+            {
+                info.Cached = true;
+                return true;
+            }
+        }
+        {
+            std::lock_guard lock(s_PredecodeMutex);
+            if (auto it = s_Predecoded.find(key); it != s_Predecoded.end())
+            {
+                info.Width = it->second->Width;
+                info.Height = it->second->Height;
+                info.DecodedBytes = (uint64_t)info.Width * info.Height * BytesPerPixel(it->second->Format);
+                return true;
+            }
+        }
+        if (!AssetImportLog::ShouldRetry(file)) // failed before and did not change: not read again
+        {
+            info.Error = "o'qilmadi";
+            return false;
+        }
+        // The header first: an image over the budget is refused before any of its pixels are decoded.
+        int width = 0, height = 0, channels = 0;
+        if (AssetImportLog::CheckReadable(file).empty() && stbi_info(file.c_str(), &width, &height, &channels))
+        {
+            info.Width = (uint32_t)width;
+            info.Height = (uint32_t)height;
+            info.DecodedBytes = (uint64_t)width * (uint64_t)height * (uint64_t)(channels == 2 ? 4 : channels);
+            if (info.DecodedBytes > maxDecodedBytes)
+            {
+                info.OverBudget = true;
+                info.Error = "decoded image exceeds the staging budget";
+                return false;
+            }
+        }
+        auto image = std::make_unique<GLDecodedImage>();
+        if (!Decode(file, *image))
+        {
+            info.Error = image->Error.empty() ? std::string("o'qilmadi") : image->Error;
+            AssetImportLog::Report(file, info.Error); // once per file version; no thread decodes it again
+            return false;
+        }
+        info.Width = image->Width;
+        info.Height = image->Height;
+        info.DecodedBytes = (uint64_t)image->Width * image->Height * BytesPerPixel(image->Format);
+        std::lock_guard lock(s_PredecodeMutex);
+        s_Predecoded.try_emplace(key, std::move(image));
+        return true;
+    }
+
+    void TextureLibrary::DropStaged(const std::filesystem::path& path, bool pixelArt)
+    {
+        const std::string key = StagedKey(path, pixelArt);
+        std::lock_guard lock(s_PredecodeMutex);
+        s_Predecoded.erase(key);
+    }
+
+    Ref<Texture2D> TextureLibrary::LoadStaged(const std::filesystem::path& path, bool pixelArt)
+    {
+        std::string file;
+        const std::string key = StagedKey(path, pixelArt, &file);
+        {
+            std::lock_guard lock(s_TextureCacheMutex);
+            if (auto it = s_TextureCache.find(key); it != s_TextureCache.end())
+            {
+                it->second.LastUse = ++s_CacheUse;
+                return it->second.Texture->IsLoaded() ? it->second.Texture : nullptr;
+            }
+        }
+        auto image = std::make_unique<GLDecodedImage>();
+        if (!TakePredecoded(key, *image))
+            return nullptr;
+        auto texture = CreateRef<OpenGLTexture2D>(OpenGLTexture2D::LoadLater{}, file, GetLoadSettings(file, pixelArt));
+        texture->m_PendingImage = std::move(image);
+        {
+            std::lock_guard lock(s_TextureCacheMutex);
+            s_TextureCache[key] = { texture, ++s_LoadSerial, ++s_CacheUse };
+        }
+        OpenGLTexture2D::QueueDeferredUpload(texture);
+        return texture;
+    }
+
+    bool TextureLibrary::ReleasePending(Ref<Texture2D>& texture)
+    {
+        if (!texture || texture->IsReady())
+            return false;
+        Ref<Texture2D> released;
+        {
+            std::lock_guard lock(s_TextureCacheMutex);
+            const auto* pending = static_cast<const OpenGLTexture2D*>(texture.get());
+            // The caller, the cache and its queued upload: nothing else waits for it.
+            const long expected = 2 + (pending->m_UploadQueued ? 1 : 0);
+            if (texture.use_count() != expected)
+                return false;
+            for (auto it = s_TextureCache.begin(); it != s_TextureCache.end(); ++it)
+                if (it->second.Texture == texture)
+                {
+                    released = std::move(it->second.Texture);
+                    s_TextureCache.erase(it);
+                    break;
+                }
+        }
+        if (!released)
+            return false;
+        AsyncLoader::CancelUpload(released.get()); // (outside the cache lock: it lets go of the queue's reference)
+        released.reset();
+        texture.reset(); // the last owner: a GL object a budgeted upload had begun is freed here
+        return true;
     }
 
     size_t TextureLibrary::ReleaseUnused(uint64_t since)

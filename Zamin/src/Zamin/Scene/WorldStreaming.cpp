@@ -5,6 +5,8 @@
 #include "Zamin/Scene/WorldCheckpoint.h"
 #include "Zamin/Scene/WorldCheckpointWriter.h"
 #include "Zamin/Project/Project.h"
+#include "Zamin/Asset/AssetImporter.h"
+#include "Zamin/Renderer/Texture.h"
 #include "Zamin/Scripting/EventBus.h"
 #include "Zamin/Utils/FileSystem.h"
 #include <nlohmann/json.hpp>
@@ -34,7 +36,7 @@ namespace Zamin {
             json links = json::array();
             for (const auto& l : p.NavigationLinks)
                 links.push_back({ { "ID", l.ID }, { "From", { l.From.x, l.From.y } }, { "To", { l.To.x, l.To.y } }, { "Cost", l.Cost }, { "Bidirectional", l.Bidirectional }, { "Enabled", l.Enabled } });
-            return { { "AsyncNavigation", p.AsyncNavigation }, { "NavigationQueryWorkers", p.NavigationQueryWorkers }, { "NavigationQueryCapacity", p.NavigationQueryCapacity }, { "NavigationQueryStarts", p.NavigationQueryStarts }, { "NavigationQueryResults", p.NavigationQueryResults }, { "NavigationLinks", links }, { "LoadRadius", p.LoadRadius }, { "UnloadRadius", p.UnloadRadius }, { "MainThreadMilliseconds", p.MainThreadMilliseconds }, { "AxisMask", p.AxisMask }, { "Layers", p.Layers }, { "MaxResidentCells", p.MaxResidentCells }, { "MaxResidentEntities", p.MaxResidentEntities }, { "MaxEntitiesPerCell", p.MaxEntitiesPerCell }, { "MaxBuildingCells", p.MaxBuildingCells }, { "MaxActivationsPerFrame", p.MaxActivationsPerFrame }, { "MaxUnloadsPerFrame", p.MaxUnloadsPerFrame }, { "MaxResolveEntitiesPerFrame", p.MaxResolveEntitiesPerFrame }, { "DeclaredCPUBytes", p.DeclaredCPUBytes }, { "DeclaredGPUBytes", p.DeclaredGPUBytes }, { "ObservedRSSLimitBytes", p.ObservedRSSLimitBytes }, { "RequestedGPULimitBytes", p.RequestedGPULimitBytes }, { "PressureResumeRatio", p.PressureResumeRatio }, { "CacheEntriesPerKind", p.CacheEntriesPerKind }, { "MaxCacheEvictionsPerFrame", p.MaxCacheEvictionsPerFrame }, { "NavigationMode", p.NavigationMode }, { "NavigationMaxCells", p.NavigationMaxCells } };
+            return { { "AsyncNavigation", p.AsyncNavigation }, { "NavigationQueryWorkers", p.NavigationQueryWorkers }, { "NavigationQueryCapacity", p.NavigationQueryCapacity }, { "NavigationQueryStarts", p.NavigationQueryStarts }, { "NavigationQueryResults", p.NavigationQueryResults }, { "NavigationLinks", links }, { "LoadRadius", p.LoadRadius }, { "UnloadRadius", p.UnloadRadius }, { "MainThreadMilliseconds", p.MainThreadMilliseconds }, { "AxisMask", p.AxisMask }, { "Layers", p.Layers }, { "MaxResidentCells", p.MaxResidentCells }, { "MaxResidentEntities", p.MaxResidentEntities }, { "MaxEntitiesPerCell", p.MaxEntitiesPerCell }, { "MaxBuildingCells", p.MaxBuildingCells }, { "MaxActivationsPerFrame", p.MaxActivationsPerFrame }, { "MaxUnloadsPerFrame", p.MaxUnloadsPerFrame }, { "MaxResolveEntitiesPerFrame", p.MaxResolveEntitiesPerFrame }, { "DeclaredCPUBytes", p.DeclaredCPUBytes }, { "DeclaredGPUBytes", p.DeclaredGPUBytes }, { "ObservedRSSLimitBytes", p.ObservedRSSLimitBytes }, { "RequestedGPULimitBytes", p.RequestedGPULimitBytes }, { "PressureResumeRatio", p.PressureResumeRatio }, { "CacheEntriesPerKind", p.CacheEntriesPerKind }, { "MaxCacheEvictionsPerFrame", p.MaxCacheEvictionsPerFrame }, { "AssetStreaming", p.AssetStreaming }, { "MaxAssetFilesPerCell", p.MaxAssetFilesPerCell }, { "MaxAssetUploadsPerFrame", p.MaxAssetUploadsPerFrame }, { "MaxAssetFileBytes", p.MaxAssetFileBytes }, { "MaxAssetBytesPerCell", p.MaxAssetBytesPerCell }, { "MaxStagedAssetBytes", p.MaxStagedAssetBytes }, { "MaxAssetUploadBytesPerFrame", p.MaxAssetUploadBytesPerFrame }, { "NavigationMode", p.NavigationMode }, { "NavigationMaxCells", p.NavigationMaxCells } };
         }
         bool ReadPolicy(const json& j, WorldStreaming::Policy& p, std::string& error)
         {
@@ -79,6 +81,18 @@ namespace Zamin {
             read("NavigationQueryResults", p.NavigationQueryResults);
             if (j.contains("AsyncNavigation")) p.AsyncNavigation = j.at("AsyncNavigation").get<bool>();
             read("MaxCacheEvictionsPerFrame", p.MaxCacheEvictionsPerFrame);
+            auto flag = [&](const char* name, bool& value) {
+                if (!j.contains(name)) return;
+                if (!j.at(name).is_boolean()) throw std::runtime_error("Invalid streaming flag");
+                value = j.at(name).get<bool>();
+            };
+            flag("AssetStreaming", p.AssetStreaming);
+            read("MaxAssetFilesPerCell", p.MaxAssetFilesPerCell);
+            read("MaxAssetUploadsPerFrame", p.MaxAssetUploadsPerFrame);
+            read("MaxAssetFileBytes", p.MaxAssetFileBytes);
+            read("MaxAssetBytesPerCell", p.MaxAssetBytesPerCell);
+            read("MaxStagedAssetBytes", p.MaxStagedAssetBytes);
+            read("MaxAssetUploadBytesPerFrame", p.MaxAssetUploadBytesPerFrame);
             if (j.contains("NavigationLinks"))
             {
                 const auto& links = j.at("NavigationLinks");
@@ -112,6 +126,14 @@ namespace Zamin {
             (NavigationMode != 0 && NavigationMode != 2 && NavigationMode != 3) || !NavigationMaxCells || NavigationMaxCells > 1048576)
         {
             error = "Invalid world streaming policy";
+            return false;
+        }
+        if (!MaxAssetFilesPerCell || MaxAssetFilesPerCell > 4096 || !MaxAssetUploadsPerFrame || MaxAssetUploadsPerFrame > 256 ||
+            !MaxAssetFileBytes || MaxAssetFileBytes > WorldManifest::MaxDeclaredBytesPerCell || !MaxAssetBytesPerCell ||
+            MaxAssetBytesPerCell > MaxStagedAssetBytes || MaxStagedAssetBytes > WorldManifest::MaxDeclaredBytesPerCell ||
+            MaxAssetUploadBytesPerFrame < 65536 || MaxAssetUploadBytesPerFrame > (uint64_t(1) << 30))
+        {
+            error = "Invalid world asset streaming budget";
             return false;
         }
         if (!NavAtlas::ValidateLinks(NavigationLinks, error)) return false;
@@ -214,6 +236,15 @@ namespace Zamin {
             std::vector<UUID> Resolve;
             std::vector<UUID> Owned;
             size_t Resolved = 0;
+            // AssetStreaming: the staging ticket and what pins the cell's textures / models until it is active.
+            struct AssetStage
+            {
+                uint64_t Ticket = 0, GPUBytes = 0;
+                bool Adopted = false;
+                uint32_t Attempts = 0;
+                std::vector<Ref<Texture2D>> Textures;
+                std::vector<Ref<Model>> Models;
+            } Assets;
         };
         WorldManifest Manifest;
         Policy Rules;
@@ -289,6 +320,137 @@ namespace Zamin {
                 if (!Loader->SetSourceOverride(source.ID, nullptr, error)) return false;
             for (const auto& [id, text] : state.GetCells())
                 if (!Loader->SetSourceOverride(UUID(id), text, error)) return false;
+            return true;
+        }
+        std::unique_ptr<WorldAssetStager> Stager;
+        AsyncLoader::UploadBudget PreviousBudget;
+        AsyncLoader::Stats UploadBase;
+        uint64_t DecodeBase = 0, ParseBase = 0;
+        ~Data()
+        {
+            for (auto& cell : Cells) ReleaseAssets(cell, true);
+            if (Stager) AsyncLoader::SetUploadBudget(PreviousBudget);
+        }
+        // The asset files the staged cell scene's components load when they are resolved (main thread).
+        static std::vector<WorldAssetStager::Request> CollectAssets(Scene& scene)
+        {
+            std::vector<WorldAssetStager::Request> out;
+            const auto root = Project::GetAssetDirectory();
+            auto texture = [&](const std::string& path, bool pixelArt) {
+                if (path.empty()) return;
+                WorldAssetStager::Request request;
+                request.File = Project::GetAssetFileSystemPath(path);
+                request.PixelArt = pixelArt;
+                if (request.File.is_absolute()) out.push_back(std::move(request));
+            };
+            auto material = [&](const std::string& path) {
+                if (path.empty()) return;
+                WorldAssetStager::Request request;
+                request.Type = WorldAssetStager::Kind::Material;
+                request.File = Project::GetAssetFileSystemPath(path);
+                request.AssetRoot = root;
+                if (request.File.is_absolute()) out.push_back(std::move(request));
+            };
+            for (auto entity : scene.GetEntitiesInOrder())
+            {
+                if (const auto* sprite = entity.TryGetComponent<SpriteRendererComponent>()) texture(sprite->TexturePath, sprite->PixelArt);
+                if (const auto* tilemap = entity.TryGetComponent<TilemapComponent>()) texture(tilemap->TilesetPath, tilemap->PixelArt);
+                if (const auto* image = entity.TryGetComponent<UIImageComponent>()) texture(image->TexturePath, image->PixelArt);
+                if (const auto* mesh = entity.TryGetComponent<MeshRendererComponent>())
+                {
+                    if (mesh->Type == PrimitiveMesh::Model && !mesh->ModelPath.empty())
+                    {
+                        WorldAssetStager::Request request;
+                        request.Type = WorldAssetStager::Kind::Model;
+                        request.File = Project::GetAssetFileSystemPath(mesh->ModelPath);
+                        if (request.File.is_absolute())
+                        {
+                            request.Model = AssetImporter::GetModelSettings(request.File);
+                            out.push_back(std::move(request));
+                        }
+                    }
+                    for (const auto* path : { &mesh->AlbedoPath, &mesh->NormalPath, &mesh->MetalRoughPath, &mesh->EmissivePath }) texture(*path, false);
+                    material(mesh->MaterialPath);
+                    for (const auto& path : mesh->SubmeshMaterials) material(path);
+                }
+            }
+            return out;
+        }
+        // The cell lets go of its asset pins and its ticket. `cancel`: before activation - textures still
+        // loading that nothing else waits for leave the cache with their uploads, a model nobody drew too.
+        void ReleaseAssets(Cell& cell, bool cancel)
+        {
+            auto& stage = cell.Assets;
+            if (cancel && (stage.Ticket || !stage.Textures.empty() || !stage.Models.empty())) ++Counters.AssetCancellations;
+            if (cancel)
+            {
+                for (auto& model : stage.Models)
+                {
+                    if (!model || model->IsResident()) continue;
+                    std::vector<Ref<Texture2D>> maps;
+                    for (const auto& sub : model->GetSubMeshes())
+                        for (const auto& map : { sub.Mat.AlbedoMap, sub.Mat.NormalMap, sub.Mat.MetalRoughMap, sub.Mat.EmissiveMap })
+                            if (map && !map->IsReady()) maps.push_back(map);
+                    const auto path = model->GetPath();
+                    model.reset();
+                    if (Model::ReleaseIfUnused(path))
+                        for (auto& map : maps) TextureLibrary::ReleasePending(map);
+                }
+                for (auto& texture : stage.Textures) TextureLibrary::ReleasePending(texture);
+            }
+            if (stage.Ticket && Stager) Stager->Release(stage.Ticket);
+            stage = {};
+        }
+        // True once everything the cell's components load is on the GPU. False while it waits; a budget
+        // failure sets `error`.
+        bool AdvanceAssets(Cell& cell, std::string& error)
+        {
+            error.clear();
+            auto& stage = cell.Assets;
+            if (!stage.Ticket && !stage.Adopted)
+            {
+                auto requests = CollectAssets(*cell.SceneRef);
+                if (requests.empty())
+                {
+                    stage.Adopted = true;
+                    return true;
+                }
+                stage.Ticket = Stager->Submit(std::move(requests), error);
+                return false;
+            }
+            if (!stage.Adopted)
+            {
+                const auto status = Stager->GetStatus(stage.Ticket);
+                if (status.Stage == WorldAssetStager::State::Failed)
+                {
+                    error = status.Error.empty() ? "World asset budget exceeded" : status.Error;
+                    return false;
+                }
+                if (status.Stage != WorldAssetStager::State::Ready) return false;
+                bool missing = false;
+                for (const auto& request : Stager->GetStaged(stage.Ticket))
+                    if (request.Type == WorldAssetStager::Kind::Texture)
+                    {
+                        if (auto texture = TextureLibrary::LoadStaged(request.File, request.PixelArt)) stage.Textures.push_back(std::move(texture));
+                        else missing = true; // evicted between staging and now
+                    }
+                    else if (auto model = Model::Load(request.File)) stage.Models.push_back(std::move(model));
+                if (missing && ++stage.Attempts < 3)
+                {
+                    // Staged again; what was taken stays pinned by the libraries' own queues meanwhile.
+                    const auto attempts = stage.Attempts;
+                    ReleaseAssets(cell, false);
+                    cell.Assets.Attempts = attempts;
+                    ++Counters.AssetRestages;
+                    return false;
+                }
+                stage.Adopted = true;
+                stage.GPUBytes = status.GPUBytes;
+            }
+            for (const auto& texture : stage.Textures)
+                if (!texture->IsReady()) return false;
+            for (const auto& model : stage.Models)
+                if (!model->IsResident()) return false;
             return true;
         }
         ResidencyPressure Pressure;
@@ -432,6 +594,28 @@ namespace Zamin {
             Counters.LastMilliseconds = previous.LastMilliseconds;
             Counters.PeakMilliseconds = previous.PeakMilliseconds;
             Counters.BudgetBlocked = previous.BudgetBlocked;
+            Counters.AssetCancellations = previous.AssetCancellations;
+            Counters.AssetRestages = previous.AssetRestages;
+            Counters.AssetStreaming = bool(Stager);
+            if (Stager)
+            {
+                Counters.Assets = Stager->GetStats();
+                auto uploads = AsyncLoader::GetStats();
+                // (peaks are the process's since its statistics were last reset; the sums are this world's)
+                uploads.Loads -= std::min(uploads.Loads, UploadBase.Loads);
+                uploads.Finished -= std::min(uploads.Finished, UploadBase.Finished);
+                uploads.Uploads -= std::min(uploads.Uploads, UploadBase.Uploads);
+                uploads.UploadBytes -= std::min(uploads.UploadBytes, UploadBase.UploadBytes);
+                uploads.UploadCalls -= std::min(uploads.UploadCalls, UploadBase.UploadCalls);
+                uploads.BudgetDeferrals -= std::min(uploads.BudgetDeferrals, UploadBase.BudgetDeferrals);
+                uploads.OversizeUploads -= std::min(uploads.OversizeUploads, UploadBase.OversizeUploads);
+                uploads.UploadMilliseconds -= std::min(uploads.UploadMilliseconds, UploadBase.UploadMilliseconds);
+                Counters.Uploads = uploads;
+                Counters.PendingUploads = AsyncLoader::GetPendingUploadCount();
+                Counters.PendingUploadBytes = AsyncLoader::GetPendingUploadBytes();
+            }
+            Counters.MainThreadImageDecodes = TextureLibrary::GetThreadDecodeCount() - DecodeBase;
+            Counters.MainThreadModelParses = Model::GetThreadParseCount() - ParseBase;
             for (size_t i = 0; i < Cells.size(); ++i)
             {
                 const auto& c = Cells[i];
@@ -444,7 +628,7 @@ namespace Zamin {
                     Counters.DeclaredGPU += Manifest.Cells[i].DeclaredGPUBytes;
                 }
                 Counters.Active += c.Info.Stage == WorldRuntimeStage::Active;
-                Counters.Building += c.Info.Stage == WorldRuntimeStage::Building || c.Info.Stage == WorldRuntimeStage::Resolving;
+                Counters.Building += c.Info.Stage == WorldRuntimeStage::Building || c.Info.Stage == WorldRuntimeStage::Resolving || c.Info.Stage == WorldRuntimeStage::Staging;
                 Counters.Failed += c.Info.Stage == WorldRuntimeStage::Failed;
             }
             Counters.Loader = Loader->GetStats();
@@ -453,6 +637,7 @@ namespace Zamin {
         {
             cell.Job.reset();
             cell.SceneRef.reset();
+            ReleaseAssets(cell, true);
             cell.Resolve.clear();
             cell.Resolved = 0;
             cell.Info.Stage = WorldRuntimeStage::Failed;
@@ -547,6 +732,25 @@ namespace Zamin {
         limits.MaxEntities = policy.MaxEntitiesPerCell;
         d->Loader = WorldCellLoader::Create(manifest, assets, limits, error);
         if (!d->Loader) return nullptr;
+        d->DecodeBase = TextureLibrary::GetThreadDecodeCount();
+        d->ParseBase = Model::GetThreadParseCount();
+        if (policy.AssetStreaming)
+        {
+            WorldAssetStager::Limits staging;
+            staging.MaxTickets = 16;
+            staging.MaxFilesPerTicket = policy.MaxAssetFilesPerCell;
+            staging.MaxFileBytes = policy.MaxAssetFileBytes;
+            staging.MaxTicketBytes = policy.MaxAssetBytesPerCell;
+            staging.MaxStagedBytes = policy.MaxStagedAssetBytes;
+            staging.MaxUploadUnitBytes = policy.MaxAssetUploadBytesPerFrame;
+            auto stager = WorldAssetStager::Create(staging, error);
+            if (!stager) return nullptr;
+            // Set only once nothing can fail any more: ~Data restores it.
+            d->PreviousBudget = AsyncLoader::GetUploadBudget();
+            d->UploadBase = AsyncLoader::GetStats();
+            d->Stager = std::move(stager);
+            AsyncLoader::SetUploadBudget({ policy.MaxAssetUploadsPerFrame, policy.MaxAssetUploadBytesPerFrame });
+        }
         d->Manifest = manifest;
         d->State = std::make_unique<WorldCheckpoint>(manifest);
         d->Rules = policy;
@@ -680,6 +884,7 @@ namespace Zamin {
             }
             c.Job.reset();
             c.SceneRef.reset();
+            d.ReleaseAssets(c, true); // (after the staged scene: its components hold no pending texture any more)
             c.Resolve.clear();
             c.Resolved = 0;
             c.Info = { c.Info.ID, WorldRuntimeStage::Dormant, false, false, 0, 0, {} };
@@ -855,8 +1060,18 @@ namespace Zamin {
                     d.Fail(c, error);
                     continue;
                 }
-                c.Info.Stage = WorldRuntimeStage::Resolving;
+                c.Info.Stage = d.Stager ? WorldRuntimeStage::Staging : WorldRuntimeStage::Resolving;
                 c.Job.reset();
+            }
+            if (c.Info.Stage == WorldRuntimeStage::Staging)
+            {
+                // Workers decode / parse; AsyncLoader::Update uploads within its budget. Nothing is loaded here.
+                if (!d.AdvanceAssets(c, error))
+                {
+                    if (!error.empty()) d.Fail(c, error);
+                    continue;
+                }
+                c.Info.Stage = WorldRuntimeStage::Resolving;
             }
             if (c.Info.Stage == WorldRuntimeStage::Resolving)
             {
@@ -888,6 +1103,7 @@ namespace Zamin {
                         continue;
                     }
                     c.SceneRef.reset();
+                    d.ReleaseAssets(c, false); // the imported entities hold them now
                     c.Info.Stage = WorldRuntimeStage::Active;
                     c.Resolve.clear();
                     manager.GetEventBus().Emit("WorldCellLoaded", CellEvent{ c.Info.ID, source.ScenePath });
@@ -1268,6 +1484,7 @@ namespace Zamin {
             case WorldRuntimeStage::Resolving: return "Resolving";
             case WorldRuntimeStage::Active:    return "Active";
             case WorldRuntimeStage::Failed:    return "Failed";
+            case WorldRuntimeStage::Staging:   return "Staging";
         }
         return "Unknown";
     }

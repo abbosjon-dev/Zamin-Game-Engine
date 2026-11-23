@@ -5,6 +5,8 @@
 #include "Zamin/AI/NavQueryQueue.h"
 #include "Zamin/Core/Base.h"
 #include "Zamin/Asset/AssetResidency.h"
+#include "Zamin/Asset/AsyncLoader.h"
+#include "Zamin/Scene/WorldAssetStager.h"
 
 namespace Zamin {
     class Scene;
@@ -17,7 +19,8 @@ namespace Zamin {
         Building,
         Resolving,
         Active,
-        Failed
+        Failed,
+        Staging // AssetStreaming: its textures / models are decoded on workers and uploaded within the budget
     };
 
     class WorldStreaming
@@ -40,6 +43,20 @@ namespace Zamin {
             uint32_t NavigationQueryStarts = 4, NavigationQueryResults = 8;
             std::vector<NavTraversalLink> NavigationLinks;
             uint32_t CacheEntriesPerKind = 128, MaxCacheEvictionsPerFrame = 8;
+            // ---- cell assets (textures, models, the textures of materials). Off: the main thread loads
+            // them while the cell resolves, as before these budgets existed (older worlds are unchanged).
+            // On: a cell's files are decoded / parsed by staging workers under the file and byte budgets
+            // below and uploaded by AsyncLoader::Update - at most MaxAssetUploadsPerFrame upload calls and
+            // MaxAssetUploadBytesPerFrame bytes per Update (the host calls it once a frame). The cell is
+            // activated only when all of them are on the GPU. A cell that exceeds a budget fails with the
+            // file's name; a missing / broken file is reported and the cell lives without it. The upload
+            // budget is the process's while the world runs (it is AsyncLoader's).
+            bool AssetStreaming = false;
+            uint32_t MaxAssetFilesPerCell = 256, MaxAssetUploadsPerFrame = 16;
+            uint64_t MaxAssetFileBytes = 64ull * 1024 * 1024;         // one source file on disk
+            uint64_t MaxAssetBytesPerCell = 256ull * 1024 * 1024;     // decoded pixels + mesh data of one cell
+            uint64_t MaxStagedAssetBytes = 512ull * 1024 * 1024;      // all cells being staged / uploaded
+            uint64_t MaxAssetUploadBytesPerFrame = 4ull * 1024 * 1024; // also the largest mesh a cell may have
             std::vector<std::string> Layers{ "main" };
             bool Validate(std::string& error) const;
         };
@@ -104,6 +121,15 @@ namespace Zamin {
             uint64_t CompletedCommands = 0, FailedCommands = 0;
             bool CaptureOnUnload = false, RestorePending = false;
             std::string CheckpointError;
+            // ---- cell assets (Policy::AssetStreaming). The decode / parse counters are this world's main
+            // thread since it started: they stay 0 unless a file had to be loaded outside the staging path.
+            bool AssetStreaming = false;
+            WorldAssetStager::Stats Assets;
+            AsyncLoader::Stats Uploads; // since the world started
+            size_t PendingUploads = 0;
+            uint64_t PendingUploadBytes = 0;
+            uint64_t MainThreadImageDecodes = 0, MainThreadModelParses = 0;
+            uint64_t AssetCancellations = 0, AssetRestages = 0;
         };
         static bool LoadDefinition(const std::filesystem::path& file, WorldManifest& manifest, Policy& policy, std::string& error);
         static bool SaveDefinition(const std::filesystem::path& file, const WorldManifest& manifest, const Policy& policy, std::string& error);

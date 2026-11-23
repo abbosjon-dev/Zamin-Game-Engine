@@ -57,6 +57,22 @@ namespace Zamin {
         static bool IsPending(uint64_t id);
         static size_t GetPendingCount();       ///< loads not finished yet
         static size_t GetPendingUploadCount(); ///< GPU uploads waiting
+        static uint64_t GetPendingUploadBytes(); ///< what the waiting uploads still have to send
+
+        /// ---- the upload budget of one Update (world streaming sets it; 0: no limit, the default).
+        /// Uploads run in their queue order; one that does not fit in what is left waits for the next
+        /// Update (Stats::BudgetDeferrals). A single upload larger than MaxBytes that cannot be cut runs
+        /// alone at the start of an Update (Stats::OversizeUploads), so the queue never stalls. Counted
+        /// are the bytes handed to the GPU, not driver or physical VRAM work. Main thread.
+        struct UploadBudget
+        {
+            size_t MaxUploads = 0;  ///< upload calls (a piece of a cut upload counts as one)
+            uint64_t MaxBytes = 0;  ///< bytes sent to the GPU
+
+            bool operator==(const UploadBudget&) const = default;
+        };
+        static void SetUploadBudget(const UploadBudget& budget);
+        static UploadBudget GetUploadBudget();
 
         /// ---- GPU work put off: on a thread where this is on, textures and meshes are made without
         /// their GPU objects (the CPU data kept) and queued for Update to upload.
@@ -72,7 +88,14 @@ namespace Zamin {
             bool m_Previous;
         };
         /// A GPU upload of `owner` (a texture, a mesh) for Update; CancelUpload when it goes first. Any thread.
-        static void QueueUpload(const void* owner, std::function<void()> upload);
+        /// `bytes`: what it sends to the GPU (0: not counted) - charged against the upload budget.
+        static void QueueUpload(const void* owner, std::function<void()> upload, uint64_t bytes = 0);
+        /// An upload that can be cut into pieces (a texture's rows): called with the bytes left of this
+        /// Update's budget (`fresh`: nothing was charged in this Update yet, so one indivisible piece may
+        /// go even when it is larger); sets `used` and returns true once the whole upload is done. A step
+        /// that returns false with `used` 0 waits for the next Update. It must not cancel its own owner.
+        using UploadStep = std::function<bool(uint64_t allowance, bool fresh, uint64_t& used)>;
+        static void QueueSteppedUpload(const void* owner, UploadStep step, uint64_t bytes);
         static void CancelUpload(const void* owner);
         /// Runs `owner`'s queued upload now, if it has one (main thread). True when it ran.
         static bool RunUpload(const void* owner);
@@ -86,6 +109,12 @@ namespace Zamin {
             double FinishMilliseconds = 0.0;  ///< on the main thread (finishes)
             double UploadMilliseconds = 0.0;  ///< on the main thread (uploads)
             double LongestUpdateMilliseconds = 0.0; ///< the most one Update took
+            uint64_t UploadBytes = 0;           ///< bytes the uploads sent (as their owners declared them)
+            uint64_t UploadCalls = 0;           ///< upload calls made by Update (pieces included)
+            uint64_t PeakUpdateUploadBytes = 0; ///< the most one Update sent
+            uint64_t PeakUpdateUploadCalls = 0; ///< the most upload calls of one Update
+            uint64_t BudgetDeferrals = 0;       ///< Updates that left uploads waiting because of the budget
+            uint64_t OversizeUploads = 0;       ///< uploads larger than the whole byte budget (ran alone)
         };
         static Stats GetStats();
         static void ResetStats();

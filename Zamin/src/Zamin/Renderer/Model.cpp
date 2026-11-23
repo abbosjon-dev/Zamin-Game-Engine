@@ -21,6 +21,7 @@
 #include <cmath>
 #include <cstring>
 #include <functional>
+#include <mutex>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -1165,8 +1166,12 @@ namespace Zamin {
         return model;
     }
 
+    // Model files parsed by this thread (Model::GetThreadParseCount).
+    static thread_local uint64_t t_ThreadParses = 0;
+
     Ref<Model> ModelLoader::LoadFile(const fs::path& path, const ModelImportSettings& settings, std::string& error)
     {
+        t_ThreadParses++;
         std::error_code ec;
         if (!fs::is_regular_file(path, ec))
         {
@@ -1384,10 +1389,95 @@ namespace Zamin {
     // LoadAsync's models still loading: their AsyncLoader loads (main thread).
     static std::unordered_map<const Model*, uint64_t> s_ModelLoads;
 
+    // Models parsed ahead of their Load (Model::Stage, any thread), by cache key; nullptr: the file failed.
+    static std::mutex s_StagedModelMutex;
+    static std::unordered_map<std::string, Ref<Model>> s_StagedModels;
+
+    uint64_t Model::GetThreadParseCount() { return t_ThreadParses; }
+
+    bool Model::Stage(const std::filesystem::path& path, const ModelImportSettings& settings, StagedModel& info)
+    {
+        info = {};
+        const std::string key = path.string();
+        Ref<Model> model;
+        {
+            std::lock_guard lock(s_StagedModelMutex);
+            if (auto it = s_StagedModels.find(key); it != s_StagedModels.end())
+                model = it->second;
+        }
+        if (!model)
+        {
+            AsyncLoader::DeferGPU defer; // meshes and textures keep their CPU data; the main thread uploads them
+            model = ModelLoader::LoadFile(path, settings, info.Error);
+            if (!model)
+                AssetImportLog::Report(path, info.Error);
+            std::lock_guard lock(s_StagedModelMutex);
+            s_StagedModels[key] = model; // (a failed file too: Load takes the failure, nothing parses it again)
+        }
+        if (!model)
+        {
+            if (info.Error.empty())
+                info.Error = "o'qilmadi";
+            return false;
+        }
+        for (const SubMesh& sub : model->m_SubMeshes)
+            if (sub.MeshRef)
+            {
+                const uint64_t bytes = sub.MeshRef->GetPendingUploadBytes();
+                info.Meshes++;
+                info.MeshBytes += bytes;
+                info.LargestMeshBytes = std::max(info.LargestMeshBytes, bytes);
+            }
+        return true;
+    }
+
+    void Model::DropStaged(const std::filesystem::path& path)
+    {
+        Ref<Model> dropped; // freed outside the lock
+        std::lock_guard lock(s_StagedModelMutex);
+        if (auto it = s_StagedModels.find(path.string()); it != s_StagedModels.end())
+        {
+            dropped = std::move(it->second);
+            s_StagedModels.erase(it);
+        }
+    }
+
+    bool Model::IsCached(const std::filesystem::path& path) { return s_ModelCache.contains(path.string()); }
+
+    bool Model::IsResident() const
+    {
+        if (m_Loading)
+            return false;
+        for (const SubMesh& sub : m_SubMeshes)
+        {
+            if (sub.MeshRef && !sub.MeshRef->IsUploaded())
+                return false;
+            for (const Ref<Texture2D>& map : { sub.Mat.AlbedoMap, sub.Mat.NormalMap, sub.Mat.MetalRoughMap, sub.Mat.EmissiveMap })
+                if (map && !map->IsReady())
+                    return false;
+        }
+        return true;
+    }
+
     Ref<Model> Model::Load(const std::filesystem::path& path)
     {
         std::string key = path.string();
         s_Residency.Touch(key);
+        if (!s_ModelCache.contains(key))
+        {
+            // Parsed ahead on a staging thread (Model::Stage): taken as it is - its meshes and textures are
+            // uploaded by AsyncLoader::Update within the upload budget (or by whatever draws them first).
+            std::lock_guard lock(s_StagedModelMutex);
+            if (auto staged = s_StagedModels.find(key); staged != s_StagedModels.end())
+            {
+                Ref<Model> model = std::move(staged->second);
+                s_StagedModels.erase(staged);
+                if (model)
+                    AssetImportLog::Clear(path);
+                s_ModelCache[key] = model;
+                return model;
+            }
+        }
         if (auto it = s_ModelCache.find(key); it != s_ModelCache.end())
         {
             if (it->second && it->second->m_Loading)

@@ -55,6 +55,8 @@ namespace Zamin {
 
         /// Its GPU buffers exist (false while a deferred mesh waits for its upload).
         bool IsUploaded() const { return m_VertexArray != nullptr; }
+        /// Vertex and index bytes a deferred mesh still has to send to the GPU (0 once uploaded).
+        uint64_t GetPendingUploadBytes() const;
         /// Uploads a deferred mesh now (main thread; nothing to do for the others).
         void EnsureUploaded() const;
         const Ref<VertexArray>& GetVertexArray() const

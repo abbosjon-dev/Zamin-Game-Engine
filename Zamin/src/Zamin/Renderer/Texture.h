@@ -134,6 +134,32 @@ namespace Zamin {
         static bool Predecode(const std::filesystem::path& path);
         static void DropPredecoded(const std::vector<std::filesystem::path>& paths);
         static size_t GetPredecodedCount();
+        static uint64_t GetPredecodedBytes(); // decoded pixels waiting for their upload (Predecode and Stage)
+        // ---- staging (world streaming's WorldAssetStager): like Predecode with a budget, kept per cache
+        // entry (a pixel-art copy is its own). Stage: any thread, no GPU - true when the file is in the cache
+        // already (Cached) or its pixels are decoded and kept; false with Error when it cannot be read
+        // (reported once, never decoded again until the file changes) or when its header says the decoded
+        // pixels exceed `maxDecodedBytes` (OverBudget: nothing was decoded).
+        struct StagedTexture
+        {
+            uint64_t DecodedBytes = 0;
+            uint32_t Width = 0, Height = 0;
+            bool Cached = false, OverBudget = false;
+            std::string Error;
+        };
+        static bool Stage(const std::filesystem::path& path, bool pixelArt, uint64_t maxDecodedBytes, StagedTexture& info);
+        static void DropStaged(const std::filesystem::path& path, bool pixelArt);
+        // Main thread, no decoding and no GPU call: the cached texture, or one made from the staged pixels
+        // - still loading (IsReady false) until AsyncLoader::Update has uploaded it within its upload
+        // budget, a few rows a frame. nullptr when the file is neither cached nor staged.
+        static Ref<Texture2D> LoadStaged(const std::filesystem::path& path, bool pixelArt);
+        // Main thread: a texture still loading that only the caller, the cache and its queued upload hold
+        // leaves the cache with its upload cancelled (`texture` is reset; a streaming cell cancelled before
+        // its activation). False - nothing changes - when it is ready or something else took it.
+        static bool ReleasePending(Ref<Texture2D>& texture);
+        // Image files the calling thread has decoded so far (a streaming world checks that its main
+        // thread decodes none).
+        static uint64_t GetThreadDecodeCount();
         static size_t ReleaseUnused(uint64_t since);
         static CacheResidencyStats GetResidencyStats();
         // Main thread, current GL context: never evicts a live or loading resource.

@@ -245,6 +245,26 @@ namespace Zamin {
         static Ref<Model> LoadAsync(const std::filesystem::path& path);
         // Being loaded in the background (LoadAsync).
         bool IsLoading() const { return m_Loading; }
+        // ---- staging (world streaming's WorldAssetStager). Stage: any thread, nothing of the GPU - the
+        // file is parsed (its images decoded) and kept until the next Load of the path takes it without
+        // parsing; its meshes and textures are then uploaded by AsyncLoader::Update within the upload
+        // budget. False with Error when it cannot be read (reported once; Load takes the failure too).
+        // The import settings are the main thread's to read (AssetImporter::GetModelSettings).
+        struct StagedModel
+        {
+            uint64_t MeshBytes = 0, LargestMeshBytes = 0; // vertex + index data waiting for the GPU
+            size_t Meshes = 0;
+            std::string Error;
+        };
+        static bool Stage(const std::filesystem::path& path, const ModelImportSettings& settings, StagedModel& info);
+        static void DropStaged(const std::filesystem::path& path);
+        // Main thread: Load of this path would return at once (a model, or a known failure).
+        static bool IsCached(const std::filesystem::path& path);
+        // Everything it draws with is on the GPU: its meshes uploaded, its materials' textures ready.
+        bool IsResident() const;
+        // Model files the calling thread has parsed so far (a streaming world checks that its main
+        // thread parses none).
+        static uint64_t GetThreadParseCount();
         // A model of a skeleton and its clips only - no meshes, no file, not cached: procedural
         // rigs and tests (needs no GPU).
         // `subMeshes`: meshes to go with it (their bounds become the model's) - e.g. skinned meshes made

@@ -31,6 +31,8 @@ namespace Zamin {
         {
             const void* Owner = nullptr;
             std::function<void()> Run;
+            AsyncLoader::UploadStep Step; // instead of Run: an upload cut into pieces
+            uint64_t Bytes = 0;           // what it still has to send (as declared)
         };
 
         struct State
@@ -40,6 +42,7 @@ namespace Zamin {
             std::vector<std::shared_ptr<Load>> Loads; // main thread only, in order
             std::recursive_mutex UploadMutex;         // the uploads: any thread queues, the main thread runs
             std::deque<Upload> Uploads;
+            AsyncLoader::UploadBudget Budget; // main thread
             std::mutex StatsMutex;
             AsyncLoader::Stats Stats;
         };
@@ -66,22 +69,70 @@ namespace Zamin {
             S().Stats.WorkMilliseconds += load.WorkMs;
         }
 
-        // One queued upload (the oldest); false when there is none.
-        bool RunOneUpload()
+        // What one Update has spent of the upload budget.
+        struct UploadSpend
+        {
+            uint64_t Bytes = 0;
+            size_t Calls = 0;
+        };
+
+        void CountUpload(State& s, double ms, uint64_t bytes, bool finished, bool oversize)
+        {
+            std::lock_guard statsLock(s.StatsMutex);
+            s.Stats.Uploads += finished;
+            s.Stats.UploadMilliseconds += ms;
+            s.Stats.UploadBytes += bytes;
+            s.Stats.OversizeUploads += oversize;
+        }
+
+        // The oldest queued upload, as far as the budget allows (`spend`: this Update's; nullptr: no budget -
+        // the whole upload at once). False when nothing ran: the queue is empty or the budget is used up
+        // (`deferred` set then).
+        bool RunOneUpload(UploadSpend* spend = nullptr, bool* deferred = nullptr)
         {
             State& s = S();
             std::lock_guard lock(s.UploadMutex); // held while it runs: its owner cannot go meanwhile
             if (s.Uploads.empty())
                 return false;
+            const AsyncLoader::UploadBudget budget = spend ? s.Budget : AsyncLoader::UploadBudget{};
+            auto defer = [&] {
+                if (deferred)
+                    *deferred = true;
+                return false;
+            };
+            if (budget.MaxUploads && spend->Calls >= budget.MaxUploads)
+                return defer();
+            const uint64_t left = !budget.MaxBytes ? UINT64_MAX : budget.MaxBytes > spend->Bytes ? budget.MaxBytes - spend->Bytes : 0;
+            const bool fresh = !spend || spend->Bytes == 0;
+            if (!s.Uploads.front().Step && s.Uploads.front().Bytes > left && !fresh)
+                return defer();
             Upload upload = std::move(s.Uploads.front());
             s.Uploads.pop_front();
             const auto start = Clock::now();
-            if (upload.Run)
-                upload.Run();
-            const double ms = Ms(start);
-            std::lock_guard statsLock(s.StatsMutex);
-            s.Stats.Uploads++;
-            s.Stats.UploadMilliseconds += ms;
+            uint64_t used = 0;
+            bool finished = true;
+            if (upload.Step)
+                finished = upload.Step(left, fresh, used);
+            else
+            {
+                if (upload.Run)
+                    upload.Run();
+                used = upload.Bytes;
+            }
+            const bool ran = finished || used > 0;
+            if (!finished)
+            {
+                upload.Bytes = upload.Bytes > used ? upload.Bytes - used : 0;
+                s.Uploads.push_front(std::move(upload)); // (its place kept: the uploads stay in order)
+            }
+            if (!ran)
+                return defer();
+            CountUpload(s, Ms(start), used, finished, used > left);
+            if (spend)
+            {
+                spend->Bytes += used;
+                spend->Calls++;
+            }
             return true;
         }
     }
@@ -146,9 +197,10 @@ namespace Zamin {
             if (Ms(start) >= budgetMilliseconds)
                 break;
         }
-        // GPU uploads within what is left of the budget (one at least).
-        bool first = true;
-        while ((first || Ms(start) < budgetMilliseconds) && RunOneUpload())
+        // GPU uploads within what is left of the time (one at least) and of the upload budget.
+        bool first = true, deferred = false;
+        UploadSpend spend;
+        while ((first || Ms(start) < budgetMilliseconds) && RunOneUpload(&spend, &deferred))
         {
             first = false;
             ran++;
@@ -156,6 +208,10 @@ namespace Zamin {
         const double ms = Ms(start);
         std::lock_guard lock(s.StatsMutex);
         s.Stats.LongestUpdateMilliseconds = std::max(s.Stats.LongestUpdateMilliseconds, ms);
+        s.Stats.UploadCalls += spend.Calls;
+        s.Stats.PeakUpdateUploadBytes = std::max(s.Stats.PeakUpdateUploadBytes, spend.Bytes);
+        s.Stats.PeakUpdateUploadCalls = std::max<uint64_t>(s.Stats.PeakUpdateUploadCalls, spend.Calls);
+        s.Stats.BudgetDeferrals += deferred;
         return ran;
     }
 
@@ -210,10 +266,28 @@ namespace Zamin {
     AsyncLoader::DeferGPU::DeferGPU() : m_Previous(t_DeferGPU) { t_DeferGPU = true; }
     AsyncLoader::DeferGPU::~DeferGPU() { t_DeferGPU = m_Previous; }
 
-    void AsyncLoader::QueueUpload(const void* owner, std::function<void()> upload)
+    uint64_t AsyncLoader::GetPendingUploadBytes()
     {
         std::lock_guard lock(S().UploadMutex);
-        S().Uploads.push_back({ owner, std::move(upload) });
+        uint64_t bytes = 0;
+        for (const Upload& upload : S().Uploads)
+            bytes += std::min(upload.Bytes, UINT64_MAX - bytes);
+        return bytes;
+    }
+
+    void AsyncLoader::SetUploadBudget(const UploadBudget& budget) { S().Budget = budget; }
+    AsyncLoader::UploadBudget AsyncLoader::GetUploadBudget() { return S().Budget; }
+
+    void AsyncLoader::QueueUpload(const void* owner, std::function<void()> upload, uint64_t bytes)
+    {
+        std::lock_guard lock(S().UploadMutex);
+        S().Uploads.push_back({ owner, std::move(upload), nullptr, bytes });
+    }
+
+    void AsyncLoader::QueueSteppedUpload(const void* owner, UploadStep step, uint64_t bytes)
+    {
+        std::lock_guard lock(S().UploadMutex);
+        S().Uploads.push_back({ owner, nullptr, std::move(step), bytes });
     }
 
     void AsyncLoader::CancelUpload(const void* owner)
@@ -247,12 +321,16 @@ namespace Zamin {
         Upload upload = std::move(*it);
         s.Uploads.erase(it);
         const auto start = Clock::now();
+        uint64_t total = upload.Step ? 0 : upload.Bytes;
         if (upload.Run)
             upload.Run();
-        const double ms = Ms(start);
-        std::lock_guard statsLock(s.StatsMutex);
-        s.Stats.Uploads++;
-        s.Stats.UploadMilliseconds += ms;
+        for (bool finished = !upload.Step; !finished;) // (asked for now: the whole upload, whatever the budget)
+        {
+            uint64_t used = 0;
+            finished = upload.Step(UINT64_MAX, true, used);
+            total += used;
+        }
+        CountUpload(s, Ms(start), total, true, false);
         return true;
     }
 

@@ -152,7 +152,7 @@ namespace Zamin {
         ExternalEditorPreferences ExternalEditor;
         IdleThrottleSettings Idle;    // fewer frames while unfocused / idle (Sozlamalar > Ishlash)
         // The editor UI's language (Sozlamalar > Ko'rinish > Til): "uz" (the default) or "en".
-        std::string Language = "uz";
+        std::string Language = "en";
         // Keyboard shortcuts rebound in the shortcuts window: id -> chord ("" = unbound).
         std::map<std::string, std::string> Shortcuts;
 

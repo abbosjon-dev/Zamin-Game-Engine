@@ -18,7 +18,7 @@ def click(px,py):
  x('mousemove',px,py);time.sleep(1)
  x('mousedown',1);time.sleep(2);x('mouseup',1);time.sleep(2)
 def read():return json.loads((project/'Assets/Scripts/Move2D.zgraph').read_text())
-def save():click(498,140);time.sleep(1.2)
+def save():click(473,140);time.sleep(1.2)
 try:
  for i in range(100):
   if app.poll() is not None:raise RuntimeError('Editor exited early')
@@ -41,7 +41,7 @@ try:
    time.sleep(1)
   assert len(read()['Nodes'])==12 and read()['Nodes'][-1]['Kind']==kind
   if kind=='Gameplay.UIConfigure':subprocess.run(['import','-window','root',str(out/'ui-authoring.png')],check=True)
-  click(607,140)
+  click(531,140)
   for attempt in range(4):
    save()
    if len(read()['Nodes'])==11:break

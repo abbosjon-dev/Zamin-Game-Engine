@@ -156,7 +156,7 @@ namespace Zamin {
         Idle.Sanitize();
         Logging.Sanitize();
         if (Language != "uz" && Language != "en")
-            Language = "uz";
+            Language = "en";
     }
 
     void LogPreferences::Sanitize()

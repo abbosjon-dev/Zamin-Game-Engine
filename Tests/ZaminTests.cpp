@@ -34713,7 +34713,7 @@ TEST(EditorLanguageStrings)
     for (const ProjectSettingsCategory& category : ProjectSettingsIndex::GetCategories())
         CHECK(EditorText::HasTranslation(category.Title));
     CHECK(EditorText::ParseLanguage("en") == EditorLanguage::English && EditorText::ParseLanguage("English") == EditorLanguage::English &&
-          EditorText::ParseLanguage("de") == EditorLanguage::Uzbek && std::string(EditorText::GetLanguageCode(EditorLanguage::English)) == "en");
+          EditorText::ParseLanguage("de") == EditorLanguage::English && EditorText::ParseLanguage("uz") == EditorLanguage::Uzbek && std::string(EditorText::GetLanguageCode(EditorLanguage::English)) == "en");
     // Words the table cannot key (one Uzbek text, two meanings) are picked per language.
     CHECK(std::string(EditorText::Choose("Bekor qilish", "Undo")) == "Undo");
     // Status bar, search hints, dialogs and inspector headers.
@@ -34737,13 +34737,13 @@ TEST(EditorLanguageStrings)
     CHECK(std::string(Tr("Fayl")) == "Fayl");
     CHECK(std::string(EditorText::Choose("Bekor qilish", "Undo")) == "Bekor qilish");
 
-    // The preference is saved (unknown codes: Uzbek).
+    // The preference is saved (English by default; unknown codes: English).
     EditorPreferences prefs;
-    CHECK(prefs.Language == "uz");
-    prefs.Language = "en";
+    CHECK(prefs.Language == "en");
+    prefs.Language = "uz";
     EditorPreferences read;
-    CHECK(read.FromJson(prefs.ToJson()) && read.Language == "en");
-    CHECK(read.FromJson(R"({ "ZaminEditorPreferences": 1, "Language": "fr" })") && read.Language == "uz");
+    CHECK(read.FromJson(prefs.ToJson()) && read.Language == "uz");
+    CHECK(read.FromJson(R"({ "ZaminEditorPreferences": 1, "Language": "fr" })") && read.Language == "en");
 }
 
 // ---- M18: the player's log file and crash reports

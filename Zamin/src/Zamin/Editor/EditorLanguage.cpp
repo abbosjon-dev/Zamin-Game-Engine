@@ -1970,7 +1970,7 @@ namespace Zamin {
             return s_Table;
         }
 
-        EditorLanguage s_Language = EditorLanguage::Uzbek;
+        EditorLanguage s_Language = EditorLanguage::English;
         // Tr's results for this language (node based: the strings do not move).
         std::unordered_map<std::string, std::string>& Cache()
         {
@@ -2019,8 +2019,9 @@ namespace Zamin {
             std::string lower;
             for (char c : code)
                 lower += (char)(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c);
-            return lower == "en" || lower == "english" || lower.starts_with("en_") || lower.starts_with("en-") ? EditorLanguage::English
-                                                                                                              : EditorLanguage::Uzbek;
+            // English is the default; only an explicit Uzbek code selects Uzbek.
+            return lower == "uz" || lower == "uzbek" || lower == "o'zbekcha" || lower.starts_with("uz_") || lower.starts_with("uz-") ? EditorLanguage::Uzbek
+                                                                                                                                    : EditorLanguage::English;
         }
 
         Parts Split(std::string_view text)

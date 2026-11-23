@@ -27,7 +27,7 @@ BUILD = Path(os.environ.get("ZAMIN_BUILD_DIR", str(ROOT / "build"))).resolve()
 SLICE_GRAPHS = {"LanternKeeper": ("Game", "Enemy", "Menu", "Hero"), "BeaconPass": ("Camera3D", "Game", "Enemy", "Menu", "Hero")}
 # Screen positions of the editor's Blueprint window at 1600x1000 (as the other *_editor_test.py): the node library's search
 # box and first result, the toolbar's Save / Undo / Redo, the selected-node panel's rows.
-SEARCH, FIRST_RESULT, SAVE, UNDO, REDO = (150, 233), (155, 283), (498, 140), (607, 140), (744, 140)
+SEARCH, FIRST_RESULT, SAVE, UNDO, REDO = (150, 233), (155, 283), (473, 140), (531, 140), (587, 140)
 
 
 def x(*args):

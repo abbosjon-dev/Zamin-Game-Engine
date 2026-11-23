@@ -705,14 +705,14 @@ tahrirlaydi, yangi qiymat qo'shadi va tozalaydi. Ular loyiha faylida emas, foyda
 ## 16. Editor tili (o'zbek / ingliz)
 
 Editorning o'z interfeysi ikki tilda: **o'zbek** (standart) va **ingliz**. *Tahrirlash > Sozlamalar > Ko'rinish >
-Editor tili* - darhol almashadi va `~/.config/zamin/preferences.json` ga (`"Language": "uz" | "en"`) yoziladi.
+Editor tili* - darhol almashadi va `~/.config/zamin/preferences.json` ga (`"Language": "uz" | "en"`) yoziladi. Standart til: inglizcha (`"en"`); o'zbekcha Preferences oynasida tanlanadi.
 
 Tarjima qilinadi: asosiy menyular (Fayl, Tahrirlash, Ko'rinish, Obyekt, Skriptlar, Oyna, Yordam), hamma oyna
 sarlavhalari va dialoglar, tugmalar, belgilash katakchalari, tablar va bo'lim sarlavhalari, qidiruv maydonlari,
 holat paneli, loyiha sozlamalari yorliqlari. Uzun izohlar (tooltip'lar), log xabarlari va o'yinning o'z matnlari
 o'zbekcha qoladi. O'yinning tili (13-bo'lim) editor tilidan mustaqil.
 
-Avtomatlashtirish / skrinshotlar uchun: `ZAMIN_EDITOR_LANGUAGE=en ZaminEditor ...` (faylga yozilmaydi).
+Avtomatlashtirish / skrinshotlar uchun: `ZAMIN_EDITOR_LANGUAGE=uz ZaminEditor ...` (faylga yozilmaydi).
 
 Dasturchilar uchun: matnlar o'zbekcha yoziladi va `Tr()` bilan o'raladi; inglizchasi
 `Zamin/src/Zamin/Editor/EditorLanguage.cpp` jadvalidan olinadi (kalit - o'zbekcha matn):

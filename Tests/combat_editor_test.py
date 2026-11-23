@@ -20,7 +20,7 @@ def click(px,py):
  x('mousemove',px,py);time.sleep(1)
  x('mousedown',1);time.sleep(2);x('mouseup',1);time.sleep(2)
 def read():return json.loads((project/'Assets/Scripts/Move2D.zgraph').read_text())
-def save():click(498,140);time.sleep(1.2)
+def save():click(473,140);time.sleep(1.2)
 # Selected-node panel rows (an added node is selected): the combo of an enumerated pin, then its popup rows.
 CHOICES={'Gameplay.ProjectileDefine':('Kind',373,1,'Davolash'),'Gameplay.EffectDefine':('Tick',437,1,'Zarar')}
 def saved(expect,check):
@@ -35,11 +35,11 @@ def choose(kind):
  click(1385,y);click(1332,y+31+22*index)
  saved(f'{pin}={label}',lambda g:len(g['Nodes'])==12 and g['Nodes'][-1]['Inputs'].get(pin)==index)
  subprocess.run(['import','-window','root',str(out/f'combat-choice-{pin}.png')],check=True)
- click(607,140) # Undo: the pin returns to its default (not stored)
+ click(531,140) # Undo: the pin returns to its default (not stored)
  saved(f'{pin} undone',lambda g:len(g['Nodes'])==12 and g['Nodes'][-1]['Kind']==kind and g['Nodes'][-1]['Inputs'].get(pin,0)==0)
- click(744,140) # Redo
+ click(587,140) # Redo
  saved(f'{pin} redone',lambda g:len(g['Nodes'])==12 and g['Nodes'][-1]['Inputs'].get(pin)==index)
- click(607,140)
+ click(531,140)
  saved(f'{pin} undone again',lambda g:len(g['Nodes'])==12 and g['Nodes'][-1]['Inputs'].get(pin,0)==0)
  print(f'UI: {kind} {pin} combo -> {label}, save, Undo/Redo passed',flush=True)
 try:
@@ -65,7 +65,7 @@ try:
   assert len(read()['Nodes'])==12 and read()['Nodes'][-1]['Kind']==kind
   if kind=='Gameplay.ProjectileDefine':subprocess.run(['import','-window','root',str(out/'combat-authoring.png')],check=True)
   if kind in CHOICES:choose(kind)
-  click(607,140)
+  click(531,140)
   for attempt in range(4):
    save()
    if len(read()['Nodes'])==11:break

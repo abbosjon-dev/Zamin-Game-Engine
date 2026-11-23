@@ -189,7 +189,7 @@ def stage_residency(run):
     rss, gpu, active = column(free, "RSSBytes"), column(free, "RequestedGPUBytes"), column(free, "Active")
     check(free["World"]["Failed"] == 0 and free["Summary"]["PeakFailed"] == 0, f"unlimited: failed cells {brief(free)}")
     check(free["World"]["AssetCancellations"] > 0, "unlimited: the fast camera cancelled nothing")
-    check(free["World"]["MainThreadImageDecodes"] == 0 and free["World"]["OversizeUploads"] == 0, f"unlimited: {brief(free)}")
+    check(free["World"]["MainThreadImageDecodes"] == 0 and free["World"]["MainThreadModelParses"] == 0 and free["World"]["OversizeUploads"] == 0, f"unlimited: {brief(free)}")
     void = [i for i, row in enumerate(free["Samples"]) if row[free["Columns"].index("CameraX")] > 4000]
     void1, void2 = [i for i in void if i < lap][-1], [i for i in void if i >= lap][-1]
     check(active[void1] == 0 and active[void2] == 0, "unlimited: the void did not unload everything")
@@ -211,7 +211,8 @@ def stage_residency(run):
           f"gpu-limit: the limit was never binding {brief(limited)}")
     check(limited["World"]["ResidencyRefusals"] > 0 or limited["Summary"]["PeakRequestedGPUBytes"] < max(gpu), f"gpu-limit: nothing was held back {brief(limited)}")
     check(limited["World"]["Failed"] == 0 and limited["Summary"]["PeakActive"] >= 3 and column(limited, "Active")[-1] >= 1, f"gpu-limit: {brief(limited)}")
-    check(limited["World"]["MainThreadImageDecodes"] == 0 and limited["World"]["OversizeUploads"] == 0, f"gpu-limit: {brief(limited)}")
+    check(limited["World"]["MainThreadImageDecodes"] == 0 and limited["World"]["MainThreadModelParses"] == 0 and limited["World"]["OversizeUploads"] == 0,
+          f"gpu-limit: main-thread loads {brief(limited)}")
     result.update(GPULimit=brief(limited), GPULimitMiB=limit // MIB)
     # ---- RSS limit: halfway between the empty world and the unlimited peak. Observed, so it is enforced after the
     # fact: frees are handed back to the system and far cells evicted until a fresh sample is under the low watermark.
@@ -223,7 +224,8 @@ def stage_residency(run):
     samples, pressure = column(limited, "RSSBytes"), column(limited, "Pressure")
     result.update(RSSLimit=brief(limited), RSSLimitMiB=rss_limit // MIB, RSSOvershootMiB=max(0, max(samples) - rss_limit) // MIB,
                   RSSFramesOverLimit=sum(1 for value in samples if value > rss_limit))
-    check(limited["World"]["Failed"] == 0 and limited["World"]["MainThreadImageDecodes"] == 0, f"rss-limit: {brief(limited)}")
+    check(limited["World"]["Failed"] == 0 and limited["World"]["MainThreadImageDecodes"] == 0 and limited["World"]["MainThreadModelParses"] == 0,
+          f"rss-limit: main-thread loads {brief(limited)}")
     check(sum(pressure) > 0 and limited["World"]["PressureEvictions"] + limited["World"]["MemoryReleases"] > 0, f"rss-limit: never binding {brief(limited)}")
     # What can still arrive after the limit is crossed: the cell being staged and its uploads.
     check(max(samples) <= rss_limit + policy["MaxAssetBytesPerCell"] + 64 * MIB, f"rss-limit: RSS {max(samples) // MIB} MiB over the limit {rss_limit // MIB} MiB")

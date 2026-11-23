@@ -207,7 +207,8 @@ Main thread’da scene build bo‘laklab, asset resolve entity soni va `MainThre
 bilan bajariladi. Kichik byudjetda ham kamida bitta build/resolve quantum bajarilib, starvation oldi olinadi. `MaxBuildingCells`, `MaxResolveEntitiesPerFrame`, `MaxActivationsPerFrame` va
 `MaxUnloadsPerFrame` bir frame’dagi ishni cheklaydi. Bitta entity/asset operatsiyasi, hierarchy linking,
 physics/script activation yoki unload callback o‘rtasidan uzilmaydi; bu hard frame deadline emas.
-Async asset mode o‘chiq bo‘lsa resolve’dagi mavjud texture/model IO sinxron bo‘lishi mumkin.
+`AssetStreaming` o‘chiq bo‘lsa (default, eski world’lar) resolve’dagi texture/model IO sinxron bo‘lishi mumkin;
+yoqilganda ular quyidagi [asset byudjeti](#asset-byudjeti-rezidentlik-limitlari-va-kamera-yoli) bilan yuklanadi.
 
 Katakdagi barcha entity’lar `Scene::ImportStagedCell` orqali anchor sahnaga birga ko‘chiriladi.
 Barcha nusxalar va hierarchy mavjud bo‘lgandan keyin physics/script/effects ishga tushadi; shu sabab
@@ -231,8 +232,9 @@ ranglar va physics probe tashqi assetlarsiz authored primitive’lardan tuzilgan
 V1 chegaralari: scene fayllari kataklar uchun alohida, entity UUID’lar barcha yuklangan kontentda noyob;
 SubScene komponenti katak ichida rad etiladi. ±1 000 000 unit’dan katta runtime offset floating origin
 kelguncha rad etiladi. Qatlam/policy o‘zgarishlari Save + runtime reload bilan qo‘llanadi. Scene fayli
-rename qilinganda manifest yo‘lini panelda yangilang. Binary world sidecar, HLOD, polygon navmesh,
-hard RSS/VRAM cap va runtime o‘zgargan katak holatini diskka saqlash hali yo‘q.
+rename qilinganda manifest yo‘lini panelda yangilang. Binary world sidecar, HLOD, polygon navmesh va
+jismoniy VRAM o‘lchovi yo‘q; RSS / so‘ralgan GPU limitlari quyida, katak holatini diskka saqlash —
+checkpoint bo‘limida.
 
 Eksport configured manifestni va uning scene/asset closure’ini build ro‘yxatiga qo‘shadi; unused asset
 filtri shu closure’ni saqlaydi. Missing/unsafe manifest yoki scene eksport preflight’da xato hisoblanadi.
@@ -271,6 +273,72 @@ oralig‘ida o‘qiladi; malloc bo‘shatilgan sahifalarni OS’ga darhol qaytar
 staged obyektlar sabab bosim uzoq qolsa kamera/policy/kontentni o‘zgartirish kerak. Kesh scan va bitta
 resurs destructor’i preempt qilinmaydi; eviction soni chegaralangan, hard frame deadline kafolati yo‘q.
 Editor RSS/GPU histories, pinned/loading/evicted, pressure frames va qo‘lda trim’ni ko‘rsatadi.
+
+### Asset byudjeti, rezidentlik limitlari va kamera yo'li
+
+**Asset byudjeti** (`Streaming.AssetStreaming: true`, default `false` — eski `.zworld` fayllar o‘zgarishsiz
+ishlaydi). Katak build bo‘lgach yangi `Staging` bosqichiga o‘tadi:
+
+1. Asosiy oqim katakdagi `SpriteRenderer` / `Tilemap` / `UIImage` texture’lari, `MeshRenderer` modeli, inline
+   xaritalari va `.zmat` materiallarini ro‘yxatlaydi (hech narsa yuklamaydi).
+2. `WorldAssetStager` (`Scene/WorldAssetStager.h`, 2 ta past prioritetli xususiy worker) fayllarni decode / parse
+   qiladi: texture piksellari va **mip zanjiri** (2×2 o‘rtacha) worker’da tayyorlanadi, model `Model::Stage` bilan
+   GPU’siz parse qilinadi, `.zmat` faqat texture nomlari uchun o‘qiladi. Qat’iy byudjetlar: `MaxAssetFilesPerCell`,
+   `MaxAssetFileBytes` (diskdagi fayl), `MaxAssetBytesPerCell` (decode qilingan piksel + mesh; rasm sarlavhasidan,
+   decode’dan **oldin** rad etiladi) va `MaxStagedAssetBytes` (jami; ticket tayyorlanayotganda to‘liq katak
+   byudjeti, keyin haqiqiy hajmi band qilinadi, sig‘magan ticket kutadi).
+3. Asosiy oqim tayyor fayllarni `TextureLibrary::LoadStaged` / `Model::Load` bilan oladi (decode ham, GL chaqiruvi
+   ham yo‘q) va ular `AsyncLoader::Update` da **kadr byudjeti** bilan GPU’ga yuklanadi: ko‘pi bilan
+   `MaxAssetUploadsPerFrame` chaqiruv va `MaxAssetUploadBytesPerFrame` bayt. Texture qatorlab yuboriladi
+   (`glTexSubImage2D`, avval storage — alohida bo‘lak, so‘ng base daraja va mip darajalari); to‘liq
+   yuklanmaguncha u placeholder bo‘lib bog‘lanadi va `GetRendererID()` 0 qaytaradi. Mesh bo‘linmaydi: kadr
+   byudjetidan katta mesh’li katak rad etiladi.
+4. Hamma asset GPU’da bo‘lgandagina katak resolve qilinadi va faollashadi — yarim yuklangan katak chizilmaydi.
+
+Byudjetdan oshgan katak fayl nomi va ikkala son bilan `Failed` bo‘ladi (panelda ko‘rinadi, tuzatilgach
+**Retry**). Yo‘q yoki buzilgan fayl bir marta xabar qilinadi, qayta decode qilinmaydi va katak usiz yuklanadi.
+Katak faollashmasdan tark etilsa ticket bekor qilinadi: tayyorlangan piksellar tashlanadi, yarim yuklangan
+texture keshdan chiqadi, GPU allocation qaytariladi (`Stats::AssetCancellations`). Kesh tozalash ham kadr
+boshiga `MaxAssetReleaseBytesPerFrame` so‘ralgan GPU baytidan oshmaydi (bitta entry har doim chiqishi mumkin).
+`Stats::MainThreadImageDecodes` / `MainThreadModelParses` — world boshlangandan beri asosiy oqimda bajarilgan
+decode/parse soni; staging yo‘lidan tashqarida yuklangan fayl bo‘lmasa 0 bo‘lib qoladi.
+Upload byudjeti world ishlayotgan paytda butun process’niki (`AsyncLoader::SetUploadBudget`), world yopilganda
+avvalgi qiymat qaytadi. Host `AsyncLoader::Update` ni kadrda bir marta chaqiradi (`Application` shunday qiladi).
+
+Byudjetga **kirmaydi**: terrain qatlam texture’lari, shriftlar, animatsiya kliplari, model fayli ichidagi
+(embedded) rasmlarning decode hajmi (ularning upload’i byudjetda), `.zmat` ning kichik JSON o‘qilishi va
+UUID bo‘yicha qayta topilgan (ko‘chirilgan) texture’lar — ular avvalgidek yuklanadi va hisoblagichlarda ko‘rinadi.
+GL obyektini yaratish/yo‘q qilish vaqti drayverniki: bayt byudjeti ishni chegaralaydi, millisekundni emas.
+
+**Rezidentlik limitlari.** `ObservedRSSLimitBytes` va `RequestedGPULimitBytes` avvalgidek yangi ishni
+to‘xtatadi. `EvictOnPressure: true` bilan ular limitga aylanadi:
+
+- kesh tozalash boshqa hech narsa bera olmasa, hech bir qabul qilingan katak bog‘liq bo‘lmagan **eng uzoq**
+  katak chiqariladi (oddiy unload yo‘li: capture, event); viewer turgan katak hech qachon chiqarilmaydi;
+  chiqarilgan katak `PressureCooldownFrames` kadr ushlab turiladi (`CellInfo::Held`, gridda to‘q sariq hoshiya);
+- GPU signali aniq va darhol — kadriga bitta katak. RSS kuzatiladi (yarim soniyada bir marta): avval bo‘shatilgan
+  heap xotirasi yordamchi oqimda OS’ga qaytariladi (`MemoryStats::ReleaseFreeMemory`, glibc `malloc_trim`), so‘ng
+  yangi namuna ham limitdan yuqori bo‘lsa 0.75 s da bitta katak chiqariladi;
+- `AssetStreaming` bilan tayyorlangan katakning so‘ralgan GPU baytlari ma’lum: u limitdan o‘tkazib yuboradigan
+  bo‘lsa **umuman yuklanmaydi**, o‘lchangan hajmi eslab qolinadi (`CellInfo::MeasuredGPUBytes`) va shuncha joy
+  bo‘shaguncha kutadi; kutayotgan katak bo‘lsa ishlatilmayotgan kesh entry’lari birinchi bo‘lib beriladi.
+
+Bu so‘ralgan GPU baytlari va kuzatilgan RSS — jismoniy VRAM emas. RSS limiti hodisadan keyin ishlaydi: limit
+kesib o‘tilganda tayyorlanayotgan katak va uning upload’lari hali kelishi mumkin (ko‘pi bilan
+`MaxAssetBytesPerCell`). Resolve paytida yaratiladigan xotira (terrain mesh’lari) oldindan hisoblanmaydi.
+
+**Kamera yo‘li va hisobot.** `WorldTour` (`Scene/WorldTour.h`, `.ztour` JSON): kadr raqamiga bog‘langan kamera
+kalitlari (`Frame`, `Position`, `Jump` — shu kadrda sakrash), `Warmup` kadrlar. Pozitsiya faqat kadr raqamidan
+hisoblanadi, shuning uchun ikki ishga tushirish bir xil kadrda bir xil kataklarni so‘raydi. Player:
+`ZAMIN_WORLD_TOUR=<fayl.ztour>` (asset ildiziga nisbatan yoki mutlaq) asosiy kamerani (ildiz entity) shu yo‘l
+bo‘ylab yuritadi, `ZAMIN_WORLD_REPORT=<fayl.json>` har kadr uchun kadr vaqti, `WorldStreaming` update va
+`AsyncLoader` ishi (ms), yuborilgan bayt/chaqiruvlar, RSS, so‘ralgan GPU baytlari, band qilingan staging
+baytlari, faol/qabul qilingan/build/failed kataklar va kamera pozitsiyasini, yakunida p50/p95/p99/max,
+siyosat va world hisoblagichlarini yozadi (tur tugamasa `"Complete": false`).
+
+Namuna: [`Projects/WorldGallery3D`](../Projects/WorldGallery3D/README.md) — 24 katak, 32 PNG, 8 OBJ;
+`Tools/make_world_gallery.py` uni va og‘ir nusxasini (2048 px, 5184 uchburchak) deterministik yaratadi.
+O‘lchovlar — [Quality.md](Quality.md#world-asset-streaming-paketi--2026-11-23).
 
 ### Kataklararo grid navigation
 

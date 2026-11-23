@@ -11,6 +11,7 @@
 #include <Zamin/Scene/SceneSerializer.h>
 #include <Zamin/Scene/Entity.h>
 #include <Zamin/Project/Project.h>
+#include <Zamin/Project/ExportAssets.h>
 #include <Zamin/Utils/FileSystem.h>
 #include "TestAssertions.h"
 #include <nlohmann/json.hpp>
@@ -754,4 +755,88 @@ TEST(WorldTourReportPercentilesAndRunnerRecordsEveryTourFrameOnce)
     CHECK(j.at("Format") == "ZaminWorldTourReport" && j.at("Complete") == true && j.at("Samples").size() == 5 && j.at("TourFrames") == 5);
     CHECK(j.at("Columns").size() == j.at("Samples")[0].size() && j.at("Summary").at("FrameMs").at("Max") == 18.0);
     manager.Stop();
+}
+
+TEST(WorldGalleryDemoSavesReloadsAndExportsItsAssetClosure)
+{
+    // The committed demo: every file loads, saves to an equal definition and loads again; the export plan
+    // carries each cell with its textures, model and material.
+    const std::filesystem::path source = std::filesystem::path(ZAMIN_SOURCE_DIR) / "Projects" / "WorldGallery3D";
+    TempDirectory temp("zamin-world-gallery");
+    CHECK(bool(temp));
+    const auto root = temp.GetPath() / "WorldGallery3D";
+    std::error_code ec;
+    std::filesystem::copy(source, root, std::filesystem::copy_options::recursive, ec);
+    CHECK(!ec);
+    auto previous = Project::GetActive();
+    auto project = Project::Load(root / "WorldGallery3D.zproject");
+    CHECK(bool(project));
+    if (!project)
+    {
+        Project::SetActive(previous);
+        return;
+    }
+    const auto assets = root / "Assets";
+    CHECK(project->GetConfig().StreamingWorld == "Worlds/Main.zworld" && project->GetConfig().StartScene == "Scenes/Anchor.zscene");
+    // World definition: load, save, load - the same cells and the same policy, budgets included.
+    WorldManifest manifest, again;
+    WorldStreaming::Policy policy, policyAgain;
+    std::string error;
+    CHECK(WorldStreaming::LoadDefinition(assets / "Worlds/Main.zworld", manifest, policy, error));
+    CHECK(manifest.Cells.size() == 24 && policy.AssetStreaming && policy.EvictOnPressure && policy.MaxAssetUploadBytesPerFrame == 2097152);
+    CHECK(WorldStreaming::SaveDefinition(assets / "Worlds/Resaved.zworld", manifest, policy, error));
+    CHECK(WorldStreaming::LoadDefinition(assets / "Worlds/Resaved.zworld", again, policyAgain, error));
+    CHECK(again.Cells.size() == manifest.Cells.size() && again.CellSize == manifest.CellSize);
+    for (size_t i = 0; i < manifest.Cells.size() && i < again.Cells.size(); ++i)
+        CHECK(again.Cells[i].ID == manifest.Cells[i].ID && again.Cells[i].ScenePath == manifest.Cells[i].ScenePath && again.Cells[i].Coordinate == manifest.Cells[i].Coordinate &&
+              again.Cells[i].DeclaredGPUBytes == manifest.Cells[i].DeclaredGPUBytes);
+    CHECK(policyAgain.AssetStreaming == policy.AssetStreaming && policyAgain.MaxAssetUploadBytesPerFrame == policy.MaxAssetUploadBytesPerFrame &&
+          policyAgain.MaxAssetReleaseBytesPerFrame == policy.MaxAssetReleaseBytesPerFrame && policyAgain.MaxAssetBytesPerCell == policy.MaxAssetBytesPerCell &&
+          policyAgain.EvictOnPressure == policy.EvictOnPressure && policyAgain.PressureCooldownFrames == policy.PressureCooldownFrames &&
+          policyAgain.LoadRadius == policy.LoadRadius && policyAgain.CacheEntriesPerKind == policy.CacheEntriesPerKind);
+    std::filesystem::remove(assets / "Worlds/Resaved.zworld", ec);
+    // The tour: load, save, load - the same camera in every frame.
+    WorldTour tour, tourAgain;
+    CHECK(WorldTour::Load(assets / "Worlds/Gallery.ztour", tour, error));
+    CHECK(tour.GetLength() == 1079 && tour.Warmup == 240 && tour.Keys.size() >= 20);
+    CHECK(WorldTour::Save(temp.GetPath() / "copy.ztour", tour, error) && WorldTour::Load(temp.GetPath() / "copy.ztour", tourAgain, error));
+    for (uint32_t frame = 0; frame <= tour.GetLength(); frame += 7) CHECK(tourAgain.Evaluate(frame) == tour.Evaluate(frame));
+    // Every cell scene: load, save, load - the same entities with the same asset references.
+    size_t entities = 0, models = 0, textured = 0;
+    for (const auto& cell : manifest.Cells)
+    {
+        auto scene = CreateRef<Scene>();
+        CHECK(SceneSerializer(scene).Deserialize(assets / cell.ScenePath));
+        const auto saved = SceneSerializer(scene).SerializeToString();
+        auto reloaded = CreateRef<Scene>();
+        CHECK(SceneSerializer(reloaded).DeserializeFromString(saved));
+        const auto before = scene->GetEntitiesInOrder(), after = reloaded->GetEntitiesInOrder();
+        CHECK(before.size() == 6 && after.size() == before.size());
+        for (size_t i = 0; i < before.size() && i < after.size(); ++i)
+        {
+            auto a = before[i], b = after[i];
+            CHECK(a.GetUUID() == b.GetUUID() && a.GetName() == b.GetName() && a.GetTransform().Translation == b.GetTransform().Translation);
+            const auto& ma = a.GetComponent<MeshRendererComponent>();
+            const auto& mb = b.GetComponent<MeshRendererComponent>();
+            CHECK(ma.Type == mb.Type && ma.ModelPath == mb.ModelPath && ma.MaterialPath == mb.MaterialPath && ma.AlbedoPath == mb.AlbedoPath);
+            models += ma.Type == PrimitiveMesh::Model && std::filesystem::is_regular_file(assets / ma.ModelPath) && std::filesystem::is_regular_file(assets / ma.MaterialPath);
+            textured += !ma.AlbedoPath.empty() && std::filesystem::is_regular_file(assets / ma.AlbedoPath);
+            ++entities;
+        }
+        CHECK(SceneSerializer(reloaded).SerializeToString() == saved); // stable from the first save on
+    }
+    CHECK(entities == 144 && models == 24 && textured == 24);
+    // Export: the world, every cell and what the cells draw with are in the plan.
+    const auto plan = ExportAssets::PlanForActiveProject();
+    auto has = [&](const std::string& path) { return std::find(plan.Included.begin(), plan.Included.end(), path) != plan.Included.end(); };
+    CHECK(has("Worlds/Main.zworld") && has("Scenes/Anchor.zscene"));
+    for (const auto& cell : manifest.Cells)
+        if (!has(cell.ScenePath)) ZaminTest::Fail("Cell missing from the export: " + cell.ScenePath);
+    for (int i = 0; i < 8; ++i)
+        for (const std::string& file : { std::format("Models/Monument_{}.obj", i), std::format("Materials/Monument_{}.zmat", i), std::format("Textures/Monument_{}.png", i) })
+            if (!has(file)) ZaminTest::Fail("Asset missing from the export: " + file);
+    for (int z = 0; z < 4; ++z)
+        for (int x = 0; x < 6; ++x)
+            if (!has(std::format("Textures/Ground_{}_{}.png", x, z))) ZaminTest::Fail(std::format("Ground texture {}_{} missing from the export", x, z));
+    Project::SetActive(previous);
 }

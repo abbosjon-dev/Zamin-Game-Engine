@@ -17,6 +17,7 @@ videokartada bo'lardi).
 | Profiler (`ZM_PROFILE_SCOPE`, `Profiler::FormatTree`) | kadrning daraxti: har qism vaqti, o'z vaqti, chaqiruvlar soni; editorda Profiler oynasi |
 | `ZAMIN_PLAYER_STATS=1` | player chiqishda: oxirgi kadrning profili, render statistikasi, sahna, xotira |
 | `ZaminPlayer --benchmark` | kadr vaqtlari (o'rtacha, p95, p99) va **eng sekin kadrning profili** |
+| `ZAMIN_WORLD_TOUR=<.ztour>` + `ZAMIN_WORLD_REPORT=<.json>` | streaming world: kadr raqamiga bog'langan kamera yo'li va har kadrning vaqti, streaming/upload ishi, RSS, so'ralgan GPU baytlari ([Terrain.md](Terrain.md#asset-byudjeti-rezidentlik-limitlari-va-kamera-yoli)) |
 | `ZAMIN_STARTUP_PROFILE=1` | ishga tushish daraxti (oyna, renderer, audio, loyiha, sahna) va birinchi kadrning daraxti |
 | `ZAMIN_EDITOR_PANEL_TIMES=1`, `ZAMIN_EDITOR_STATS=1` | editor panellarining vaqti, editor xotirasi |
 | `Tests/samples_bench.py` | to'qqiz namuna bot o'ynayotganda (yuqoridagilarni yig'adi) |

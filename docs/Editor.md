@@ -413,6 +413,17 @@ watchdog va eskirgan traversal token’ini tiklaydi. World Streaming panel recov
 WorldWorkshop2D/3D: **R** barrier/recovery demo, **T** explicit graph retry; qizil navigation region
 agentni Partial/Exhausted holatiga olib keladi va keyin ochilib, ayni manzilga yurishni tiklaydi.
 
+World Streaming panelining **Asset streaming and residency limits** (*Asset oqimi va rezidentlik limitlari*)
+bo‘limi Play paytida tayyorlangan / o‘qilmagan / bekor qilingan / byudjetdan oshgan fayllarni, upload navbati va
+band qilingan staging baytlarini, GPU’ga yuborilgan hajm va bitta kadr cho‘qqisini byudjetga nisbatan,
+asosiy oqimdagi decode/parse sonini (0 bo‘lsa yashil) hamda limit hisoblagichlarini (chiqarilgan, ushlab
+turilgan, rad etilgan kataklar, OS’ga qaytarilgan xotira) ko‘rsatadi. Gridda `Staging` bosqichi build rangi bilan,
+limit ushlab turgan katak to‘q sariq hoshiya bilan chiziladi. **Streaming siyosati** ichida
+*Evict far cells when over a limit*, cooldown va **Asset budget (texture / model)** maydonlari
+(fonda tayyorlash, kadrdagi upload soni/baytlari, bo‘shatiladigan GPU baytlari, fayl / katak / jami staging
+baytlari) tahrirlanadi; o‘zgarishlar Save + runtime reload bilan qo‘llanadi.
+[Tafsilotlar](Terrain.md#asset-byudjeti-rezidentlik-limitlari-va-kamera-yoli).
+
 Visual Script panel play rejimida matching scene instance’ning **Live variables** qiymatlarini yuqorida
 ko‘rsatadi (16 tagacha, uzun string’lar preview’da qisqartiriladi). Bu authoring default/override
 qiymatlaridan alohida; runtime debugger’ning to‘liq variables/trace bo‘limi ham saqlanadi.

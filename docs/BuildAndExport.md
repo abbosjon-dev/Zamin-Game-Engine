@@ -456,4 +456,8 @@ SDK consumer'lari `zamin_add_game_module` orqali quriladi. Helper `.zamin_abi` y
 boshlanadi va world’ni avtomatik ulaydi. Editor eksporti manifest/policy va barcha katak scene yo‘llarini
 tekshiradi, build list bo‘lsa world scene’larini ham qo‘shadi. Manifest → scene → asset reference zanjiri
 unused-assets filtri bilan ham saqlanadi. World’ni **Oyna → World Streaming** orqali sozlang;
-[ishlash tartibi va chegaralar](Terrain.md) shu yerda qayd etilgan.
+[ishlash tartibi va chegaralar](Terrain.md) shu yerda qayd etilgan. Asset byudjeti (`AssetStreaming`) va
+rezidentlik limitlari `.zworld` siyosatining qismi bo‘lib eksportda o‘zgarishsiz ishlaydi; eksport qilingan
+o‘yin ham `ZAMIN_WORLD_TOUR` / `ZAMIN_WORLD_REPORT` ni qabul qiladi (`.ztour` ga mutlaq yo‘l bering — u eksport
+closure’iga kirmaydi). `Tests/world_asset_streaming_test.py --stage demo` WorldGallery3D’ni eksport qiladi,
+papkani ko‘chiradi va shu kamera yo‘lini eksportda qayta bosib o‘tadi.

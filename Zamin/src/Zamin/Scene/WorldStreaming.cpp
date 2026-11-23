@@ -421,14 +421,32 @@ namespace Zamin {
             auto& stage = cell.Assets;
             if (!stage.Ticket && !stage.Adopted)
             {
-                auto requests = CollectAssets(*cell.SceneRef);
-                if (requests.empty())
+                // What the caches already have is pinned now, so that trimming cannot take it away before the
+                // cell resolves (it would be loaded again by the main thread); the rest goes to the workers.
+                std::vector<WorldAssetStager::Request> requests;
+                for (auto& request : CollectAssets(*cell.SceneRef))
                 {
-                    stage.Adopted = true;
-                    return true;
+                    if (request.Type == WorldAssetStager::Kind::Texture)
+                    {
+                        if (auto texture = TextureLibrary::LoadStaged(request.File, request.PixelArt))
+                        {
+                            stage.Textures.push_back(std::move(texture));
+                            continue;
+                        }
+                    }
+                    else if (request.Type == WorldAssetStager::Kind::Model && Model::IsCached(request.File))
+                    {
+                        if (auto model = Model::Load(request.File)) stage.Models.push_back(std::move(model));
+                        continue;
+                    }
+                    requests.push_back(std::move(request));
                 }
-                stage.Ticket = Stager->Submit(std::move(requests), error);
-                return false;
+                if (requests.empty()) stage.Adopted = true;
+                else
+                {
+                    stage.Ticket = Stager->Submit(std::move(requests), error);
+                    return false;
+                }
             }
             if (!stage.Adopted)
             {
@@ -457,10 +475,9 @@ namespace Zamin {
                     else if (auto model = Model::Load(request.File)) stage.Models.push_back(std::move(model));
                 if (missing && ++stage.Attempts < 3)
                 {
-                    // Staged again; what was taken stays pinned by the libraries' own queues meanwhile.
-                    const auto attempts = stage.Attempts;
-                    ReleaseAssets(cell, false);
-                    cell.Assets.Attempts = attempts;
+                    // Staged again with a new ticket; what was taken so far stays pinned by this cell.
+                    Stager->Release(stage.Ticket);
+                    stage.Ticket = 0;
                     ++Counters.AssetRestages;
                     return false;
                 }

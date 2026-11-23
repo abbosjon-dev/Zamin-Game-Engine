@@ -34,7 +34,8 @@ imkoniyatlar, kod bo'ylab sayohat):*
 [Showcase3D](Projects/Showcase3D/README.md) ·
 [Adventure3D](Projects/Adventure3D/README.md) ·
 [WorldWorkshop3D](Projects/WorldWorkshop3D/README.md) ·
-[WorldWorkshop2D](Projects/WorldWorkshop2D/README.md)
+[WorldWorkshop2D](Projects/WorldWorkshop2D/README.md) ·
+[WorldGallery3D](Projects/WorldGallery3D/README.md)
 
 ---
 
@@ -55,6 +56,10 @@ imkoniyatlar, kod bo'ylab sayohat):*
 - **World streaming v1:** kamera radiusi/hysteresis, umumiy 2D/3D fizika, lifecycle/unload, editor grid/policy va eksport;
   [16 katakli 3D](Projects/WorldWorkshop3D/README.md) va [12 katakli 2D](Projects/WorldWorkshop2D/README.md) demo.
   [Chegaralar va sozlash](docs/Terrain.md).
+- **World asset streaming:** katak texture/modellari worker'larda decode/parse qilinadi, GPU'ga kadr boshiga bayt
+  byudjeti bilan qatorlab yuklanadi; RSS / so'ralgan GPU limitlari uzoq kataklarni chiqaradi; `.ztour` kamera yo'li
+  kadr vaqti va RSS hisobotini beradi — [24 katakli WorldGallery3D](Projects/WorldGallery3D/README.md),
+  [tafsilotlar](docs/Terrain.md#asset-byudjeti-rezidentlik-limitlari-va-kamera-yoli).
 - **Fizika** — 2D (Box2D) va 3D (Jolt): collider'lar, joint'lar, effektorlar, Character Controller, so'rovlar,
   to'qnashuv qatlamlari, determinizm — [Physics.md](docs/Physics.md)
 - **Quest/progression** — [objective, prerequisite, bir martalik reward, XP va save v2](docs/GameplayQuest.md), compiler-free QuestWorkshop.

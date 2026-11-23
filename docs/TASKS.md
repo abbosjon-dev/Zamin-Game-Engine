@@ -730,14 +730,49 @@ editor nazorati va eksport qilinadigan 2D/3D demo. Quyidagi bandlar mahalliy tes
 - [x] Export: manifest va unga tegishli scene/asset closure, toza joyga ko‘chirilgan Player sinovi.
 - [x] CPU/GL/editor/runtime/SDK testlari, screenshot va yakuniy hisobot; barchasi bitta paket sifatida main'ga push.
 
-### Keyingi paket — dunyo kataklari va streaming asosi
+### Yakunlangan paket — dunyo kataklari va streaming asosi
 
 - [x] 2D tilemap va 3D terrain uchun umumiy world-cell manifest, barqaror UUID va dependency chegaralari. `.zworld` v1 metadata, bounded parse, atomik save va xavfsiz scene yo‘llari; editor/runtime streaming hali ulanmagan.
 - [x] Main thread'dan tashqarida bounded scene IO/parse; avlodli so‘rov va CPU staging cancel/discard. `WorldCellLoader` v1: dependency closure, bounded input admission va symlink-safe worker IO. Aktiv sahna unload, texture decode va renderer/residency integratsiyasi keyingi bandlarda.
 - [x] Main thread’da soft build/resolve va activation/unload count byudjeti; umumiy sahnada physics/script lifecycle.
-- [ ] Texture/model decode/upload uchun qat’iy resurs/fayl byudjetlari; hard frame-time acceptance.
-- [ ] RAM/VRAM residency limiti; tez kamera harakati, qaytish, bekor qilish va yo'q/buzilgan katak regressiyalari.
-- [ ] Ko'p katakli demo, save/reload/export, qayta bajariladigan kamera yo'li va RSS/frame-time hisobotlari.
+- [x] Texture/model decode/upload uchun qat’iy resurs/fayl byudjetlari; hard frame-time acceptance. `Streaming.AssetStreaming` (default o‘chiq): decode/parse va mip zanjiri `WorldAssetStager` worker’larida, GPU upload `AsyncLoader` kadr byudjeti bilan qatorlab; katak hamma asset GPU’da bo‘lgach faollashadi.
+- [x] RAM/VRAM residency limiti; tez kamera harakati, qaytish, bekor qilish va yo'q/buzilgan katak regressiyalari. `EvictOnPressure`: kuzatilgan RSS / so‘ralgan GPU baytlari limiti (jismoniy VRAM emas), o‘lchangan GPU hajmi bo‘yicha oldindan rad etish.
+- [x] Ko'p katakli demo, save/reload/export, qayta bajariladigan kamera yo'li va RSS/frame-time hisobotlari. `Projects/WorldGallery3D`, `.ztour` + `ZAMIN_WORLD_TOUR` / `ZAMIN_WORLD_REPORT`, `Tools/make_world_gallery.py`.
+
+Dalillar (2026-11-23, GCC Debug, Mesa llvmpipe 2 thread, 4 CPU, xvfb; batafsil — [Quality.md](Quality.md#world-asset-streaming-paketi--2026-11-23)):
+1368/1368 unit (15 yangi; `--quick` 1356/1356), GUI’siz CTest 17/17, docs 2/2, world/residency GUI CTest 11/11
+(uchta yangi `WorldAssetStreaming_*` bosqichi va kengaytirilgan `AssetResidencyGPU` bilan), 12/12 reference render,
+EditorSmoke; build ogohlantirishsiz.
+**Byudjet** (`ctest -R WorldAssetStreaming_budget`, 24 katak, 2048² texture = mip bilan 16 MiB, 5184 uchburchakli
+model, 1080 kadrli tur, kadrga 2 MiB / 8 upload): asosiy oqimda 0 rasm decode / 0 model parse (eski yo‘lda 118 / 8);
+har kadrda yuborilgan bayt ≤ 2 097 152 (cho‘qqi aynan shu), chaqiruv ≤ 2, byudjetdan katta upload 0, staging
+cho‘qqisi 256 MiB = limit; bir kadrdagi streaming ishi (world update + upload) ko‘pi bilan **13.99 ms**, eski yo‘lda
+88.66 ms (gate: ≤ 30 ms va eski yo‘lning yarmidan kam; eski yo‘l gate’dan o‘tmaydi — 108 kadr 30 ms dan yuqori);
+kadr vaqti p50/p95/p99 32.79/44.57/51.53 ms, eski yo‘lda 35.57/68.17/103.11; medianadan 40 ms uzun 1 kadr
+(streaming ishisiz) / eski yo‘lda 39 (38 tasi streaming bilan). 8 MiB katak byudjetida 17 staging nom bilan rad
+etildi, 0 upload. GL: worker mip zanjiri `glGenerateMipmap` dan 0 farq, yarim yuklangan texture ko‘rinmaydi,
+bekor qilingan upload GPU allocation’ini qaytaradi.
+**Limitlar** (`ctest -R WorldAssetStreaming_residency`): ikki davrali limitsiz tur (2160 kadr, tez kamera,
+bo‘sh hudud, qaytish) — 105 faollashtirish / 97 unload / 30 bekor qilish, 0 failed, bo‘sh hududda so‘ralgan GPU
+342 → 342 MiB, davra cho‘qqisi 406 → 406 MiB, RSS cho‘qqisi 819 → 819 MiB; GPU limiti 325.8 MiB — cho‘qqi
+325.6 MiB, 23 katak yuklanmasdan rad etildi, 2 tasi chiqarildi, 7 tagacha faol; RSS limiti 667 MiB — 115 bosim
+kadri, heap 37 marta OS’ga qaytarildi, cho‘qqi 709 MiB (+42 MiB: kuzatuvga asoslangan, qat’iy shift emas),
+9 tagacha faol; buzilgan world — yo‘q va buzilgan katak aynan 2 failed, buzilgan/yo‘q texture va buzilgan model
+9 marta xabar qilindi, qolganlari faol; hamma turda asosiy oqimda 0 decode/parse.
+**Demo** (`ctest -R WorldAssetStreaming_demo`): WorldGallery3D generator chiqishi bilan bayt-bayt bir xil; ikki
+tur — bir xil kamera yo‘li va tinch nuqtalarda 8/4/5/0/8 faol katak, 79 faollashtirish / 71 unload; kadr vaqti
+p50 66.86 / p95 98.11 / p99 111.84 ms, RSS 303 → 326 MiB, so‘ralgan GPU 100 → 110 MiB; editor world paneli
+screenshot bilan; eksport 190 fayl / 52.4 MB, ko‘chirilgan papkada shu tur bir xil natija (p50 69.91 ms, RSS
+cho‘qqisi 295 MiB, 0 o‘qilmagan fayl); save/reload va eksport rejasi unit testda (24 katak, 144 entity).
+Dalillar: lokal `build/WorldAssetStreaming/Final/`.
+
+Chegaralar (bajarilgan deb belgilanmaydi): jismoniy GPU va jismoniy VRAM o‘lchovi; llvmpipe tezlik bahosi emas.
+Kadr vaqti gate’i streaming ishini chegaralaydi — renderer shader variantini birinchi marta kompilyatsiya qilgan
+kadr (337 ms, streaming ishi 0.2 ms) undan tashqarida. GL obyektini yaratish/yo‘q qilish vaqti drayverniki
+(llvmpipe’da bitta upload bo‘lagi 14 ms gacha, GPU limiti turida 20.5 ms). Terrain qatlam texture’lari, shriftlar,
+animatsiya kliplari va model ichidagi rasmlar decode’i asset byudjetiga kirmaydi; mesh bo‘linmaydi (kadr
+byudjetidan kattasi rad etiladi). RSS limiti hodisadan keyin ishlaydi. Remote compiler/sanitizer matritsasi
+ishga tushirilmagan.
 
 Packed foliage uchun qoladigan acceptance: GPU shadow culling, individual instance authoring/Undo, billboards/HLOD, physical GPU va OS/driver matritsasi. Mavjud v1 bularni tugallangan deb belgilamaydi.
 

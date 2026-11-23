@@ -6,6 +6,7 @@
 #include <Zamin/Renderer/Texture.h>
 #include <Zamin/Scene/WorldAssetStager.h>
 #include <Zamin/Scene/WorldStreaming.h>
+#include <Zamin/Scene/WorldTour.h>
 #include <Zamin/Scene/SceneManager.h>
 #include <Zamin/Scene/SceneSerializer.h>
 #include <Zamin/Scene/Entity.h>
@@ -387,7 +388,7 @@ TEST(WorldStreamingAssetBudgetPolicyRoundTripDefaultsAndBounds)
     // A definition written before these fields existed loads with the defaults.
     auto text = FileSystem::ReadTextFile(file);
     auto j = nlohmann::json::parse(text);
-    for (const char* name : { "AssetStreaming", "MaxAssetFilesPerCell", "MaxAssetUploadsPerFrame", "MaxAssetFileBytes", "MaxAssetBytesPerCell", "MaxStagedAssetBytes", "MaxAssetUploadBytesPerFrame" })
+    for (const char* name : { "AssetStreaming", "MaxAssetFilesPerCell", "MaxAssetUploadsPerFrame", "MaxAssetFileBytes", "MaxAssetBytesPerCell", "MaxStagedAssetBytes", "MaxAssetUploadBytesPerFrame", "MaxAssetReleaseBytesPerFrame" })
         CHECK(j["Streaming"].erase(name) == 1);
     CHECK(FileSystem::WriteTextFile(file, j.dump()));
     WorldManifest loadedManifest;
@@ -402,15 +403,20 @@ TEST(WorldStreamingAssetBudgetPolicyRoundTripDefaultsAndBounds)
     policy.MaxAssetBytesPerCell = 7654321;
     policy.MaxStagedAssetBytes = 87654321;
     policy.MaxAssetUploadBytesPerFrame = 262144;
+    policy.MaxAssetReleaseBytesPerFrame = 1048576;
     CHECK(WorldStreaming::SaveDefinition(file, manifest, policy, error));
     CHECK(WorldStreaming::LoadDefinition(file, loadedManifest, loaded, error));
     CHECK(loaded.AssetStreaming && loaded.MaxAssetFilesPerCell == 17 && loaded.MaxAssetUploadsPerFrame == 5);
-    CHECK(loaded.MaxAssetFileBytes == 1234567 && loaded.MaxAssetBytesPerCell == 7654321 && loaded.MaxStagedAssetBytes == 87654321 && loaded.MaxAssetUploadBytesPerFrame == 262144);
+    CHECK(loaded.MaxAssetFileBytes == 1234567 && loaded.MaxAssetBytesPerCell == 7654321 && loaded.MaxStagedAssetBytes == 87654321 && loaded.MaxAssetUploadBytesPerFrame == 262144 &&
+          loaded.MaxAssetReleaseBytesPerFrame == 1048576);
     auto bad = policy;
     bad.MaxAssetUploadBytesPerFrame = 65535; // one row of the widest texture must fit
     CHECK(!bad.Validate(error) && error.find("asset") != std::string::npos);
     bad = policy;
     bad.MaxAssetBytesPerCell = bad.MaxStagedAssetBytes + 1;
+    CHECK(!bad.Validate(error));
+    bad = policy;
+    bad.MaxAssetReleaseBytesPerFrame = 100;
     CHECK(!bad.Validate(error));
     bad = policy;
     bad.MaxAssetFilesPerCell = 0;
@@ -491,4 +497,261 @@ TEST(WorldStreamingAssetBudgetActivatesAssetFreeCellsAndRestoresUploadBudget)
     AsyncLoader::SetUploadBudget({});
     AssetImportLog::ClearAll();
     Project::SetActive(previous);
+}
+
+namespace {
+    // Three cells in a row along X (10 units each); the viewer stands in the first one.
+    struct ResidencyWorld
+    {
+        TempDirectory Temp{ "zamin-residency-world" };
+        Ref<Project> Previous = Project::GetActive();
+        WorldManifest Manifest;
+        WorldStreaming::Policy Policy;
+        std::filesystem::path Assets;
+        ResidencyWorld()
+        {
+            Assets = Temp.GetPath() / "Assets";
+            CHECK(FileSystem::WriteTextFile(Temp.GetPath() / "R.zproject", R"({"Version":2,"Project":{"Name":"R","AssetDirectory":"Assets"}})"));
+            CHECK(bool(Project::Load(Temp.GetPath() / "R.zproject")));
+            Manifest.CellSize = { 10, 10, 10 };
+            for (uint64_t i = 0; i < 3; ++i)
+            {
+                WorldCell cell;
+                cell.ID = UUID(10 + i);
+                cell.Coordinate.x = int(i);
+                cell.ScenePath = "Scenes/Cell" + std::to_string(i) + ".zscene";
+                Manifest.Cells.push_back(cell);
+                Scene scene;
+                scene.CreateEntityWithUUID(UUID(100 + i), "Cell entity");
+                CHECK(FileSystem::WriteTextFile(Assets / cell.ScenePath, SceneSerializer(Ref<Scene>(&scene, [](Scene*) {})).SerializeToString()));
+            }
+            Policy.LoadRadius = 25;
+            Policy.UnloadRadius = 30;
+            Policy.MaxResidentCells = 3;
+            Policy.MainThreadMilliseconds = 20;
+            Policy.MaxActivationsPerFrame = 4;
+            Policy.MaxBuildingCells = 4;
+            Policy.PressureCooldownFrames = 5;
+        }
+        ~ResidencyWorld() { Project::SetActive(Previous); }
+        Ref<Scene> Start(SceneManager& manager)
+        {
+            std::string error;
+            CHECK(WorldStreaming::SaveDefinition(Assets / "Worlds/Main.zworld", Manifest, Policy, error));
+            auto anchor = CreateRef<Scene>();
+            manager.Start(anchor);
+            CHECK(manager.LoadStreamingWorld("Worlds/Main.zworld", error));
+            if (auto* world = manager.GetWorldStreaming()) world->SetViewerOverride({ 2, 0, 2 });
+            return anchor;
+        }
+    };
+    bool Settle(SceneManager& manager, const std::function<bool()>& done, int frames = 20000)
+    {
+        for (int i = 0; i < frames; ++i)
+        {
+            manager.ProcessRequests();
+            if (done()) return true;
+            std::this_thread::sleep_for(std::chrono::microseconds(200));
+        }
+        return false;
+    }
+}
+
+TEST(WorldStreamingResidencyLimitEvictsFarthestCellsAndReturnsAfterCooldown)
+{
+    ResidencyWorld fixture;
+    fixture.Policy.RequestedGPULimitBytes = AssetResidency::Inspect().RequestedGPUBytes + 1000;
+    fixture.Policy.PressureResumeRatio = .9;
+    fixture.Policy.EvictOnPressure = true;
+    SceneManager manager;
+    auto anchor = fixture.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(world != nullptr);
+    if (!world) return;
+    CHECK(Settle(manager, [&] { return world->GetStats().Active == 3; }));
+    CHECK(world->GetStats().PressureEvictions == 0 && !world->GetStats().MemoryPressure);
+    // Something outside the world takes the tracked GPU requests over the limit.
+    TrackedMemory external(MemoryCategory::Textures);
+    external.Set(2000);
+    // The farthest cell goes first, alone.
+    CHECK(Settle(manager, [&] { return world->GetStats().Active == 2; }));
+    CHECK(!anchor->GetEntityByUUID(UUID(102)) && anchor->GetEntityByUUID(UUID(101)) && anchor->GetEntityByUUID(UUID(100)));
+    CHECK(world->GetStats().PressureEvictions == 1);
+    // Then the next one; the cell the viewer stands in is never evicted, however long the pressure lasts.
+    CHECK(Settle(manager, [&] { return world->GetStats().Active == 1; }));
+    for (int i = 0; i < 40; ++i) manager.ProcessRequests();
+    auto stats = world->GetStats();
+    CHECK(stats.Active == 1 && stats.Admitted == 1 && stats.PressureEvictions == 2 && stats.MemoryPressure && stats.Failed == 0);
+    CHECK(anchor->GetEntityByUUID(UUID(100)) && !anchor->GetEntityByUUID(UUID(101)));
+    CHECK(stats.Unloads == 2);
+    // Back under the low watermark: the cells return once their cooldown has passed.
+    external.Set(0);
+    CHECK(Settle(manager, [&] { return world->GetStats().Active == 3; }));
+    stats = world->GetStats();
+    CHECK(!stats.MemoryPressure && stats.ResidencyBlocked == 0 && stats.PressureEvictions == 2 && stats.Activations == 5);
+    for (const auto& cell : world->GetCells()) CHECK(!cell.Held);
+    manager.Stop();
+}
+
+TEST(WorldStreamingResidencyLimitWithoutEvictionOnlyPausesAdmission)
+{
+    // The behaviour before EvictOnPressure existed, and still the default: live cells are never dropped.
+    ResidencyWorld fixture;
+    fixture.Policy.RequestedGPULimitBytes = AssetResidency::Inspect().RequestedGPUBytes + 1000;
+    CHECK(!fixture.Policy.EvictOnPressure);
+    SceneManager manager;
+    auto anchor = fixture.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(world != nullptr);
+    if (!world) return;
+    CHECK(Settle(manager, [&] { return world->GetStats().Active == 3; }));
+    TrackedMemory external(MemoryCategory::Textures);
+    external.Set(2000);
+    for (int i = 0; i < 60; ++i) manager.ProcessRequests();
+    const auto stats = world->GetStats();
+    CHECK(stats.MemoryPressure && stats.Active == 3 && stats.PressureEvictions == 0 && stats.Unloads == 0);
+    CHECK(anchor->GetEntityByUUID(UUID(102)));
+    manager.Stop();
+}
+
+TEST(WorldStreamingResidencyLimitKeepsDependenciesOfRemainingCells)
+{
+    ResidencyWorld fixture;
+    // The middle cell needs the far one: the far cell cannot go before it, although it is farther.
+    fixture.Manifest.Cells[1].Dependencies.push_back(UUID(12));
+    fixture.Policy.RequestedGPULimitBytes = AssetResidency::Inspect().RequestedGPUBytes + 1000;
+    fixture.Policy.EvictOnPressure = true;
+    fixture.Policy.PressureCooldownFrames = 36000;
+    SceneManager manager;
+    auto anchor = fixture.Start(manager);
+    auto* world = manager.GetWorldStreaming();
+    CHECK(world != nullptr);
+    if (!world) return;
+    CHECK(Settle(manager, [&] { return world->GetStats().Active == 3; }));
+    TrackedMemory external(MemoryCategory::Textures);
+    external.Set(2000);
+    CHECK(Settle(manager, [&] { return world->GetStats().Active == 2; }));
+    CHECK(!anchor->GetEntityByUUID(UUID(101)) && anchor->GetEntityByUUID(UUID(102)));
+    CHECK(Settle(manager, [&] { return world->GetStats().Active == 1; }));
+    CHECK(anchor->GetEntityByUUID(UUID(100)) && !anchor->GetEntityByUUID(UUID(102)));
+    // Held out: with the pressure gone the long cooldown still keeps both away, and reports them.
+    external.Set(0);
+    for (int i = 0; i < 40; ++i) manager.ProcessRequests();
+    const auto stats = world->GetStats();
+    CHECK(stats.Active == 1 && !stats.MemoryPressure && stats.ResidencyBlocked == 2);
+    size_t held = 0;
+    for (const auto& cell : world->GetCells()) held += cell.Held;
+    CHECK(held == 2);
+    manager.Stop();
+    // Policy bounds and round trip of the two fields.
+    std::string error;
+    auto policy = fixture.Policy;
+    CHECK(WorldStreaming::SaveDefinition(fixture.Assets / "Worlds/Copy.zworld", fixture.Manifest, policy, error));
+    WorldManifest manifest;
+    WorldStreaming::Policy loaded;
+    CHECK(WorldStreaming::LoadDefinition(fixture.Assets / "Worlds/Copy.zworld", manifest, loaded, error));
+    CHECK(loaded.EvictOnPressure && loaded.PressureCooldownFrames == 36000);
+    policy.PressureCooldownFrames = 0;
+    CHECK(!policy.Validate(error));
+    policy.PressureCooldownFrames = 36001;
+    CHECK(!policy.Validate(error));
+    CHECK(!WorldStreaming::Policy{}.EvictOnPressure && WorldStreaming::Policy{}.PressureCooldownFrames == 120);
+}
+
+TEST(WorldTourEvaluatesByFrameNumberWithJumpsAndRoundTrips)
+{
+    WorldTour tour;
+    tour.Name = "test";
+    tour.Warmup = 7;
+    tour.Keys = { { 0, { 0, 1, 0 }, false }, { 10, { 10, 1, 20 }, false }, { 20, { 100, 1, 100 }, true }, { 30, { 100, 1, 130 }, false } };
+    std::string error;
+    CHECK(tour.Validate(error) && tour.GetLength() == 30);
+    // Linear between keys, by frame number alone.
+    CHECK(tour.Evaluate(0) == glm::dvec3(0, 1, 0) && tour.Evaluate(5) == glm::dvec3(5, 1, 10) && tour.Evaluate(10) == glm::dvec3(10, 1, 20));
+    // A jump key is not travelled towards: the camera rests, then is there at once.
+    CHECK(tour.Evaluate(15) == glm::dvec3(10, 1, 20) && tour.Evaluate(19) == glm::dvec3(10, 1, 20) && tour.Evaluate(20) == glm::dvec3(100, 1, 100));
+    CHECK(tour.Evaluate(25) == glm::dvec3(100, 1, 115) && tour.Evaluate(30) == glm::dvec3(100, 1, 130) && tour.Evaluate(999999) == glm::dvec3(100, 1, 130));
+    // Repeatable: the same frame gives the same bits whatever was asked before.
+    for (uint32_t frame : { 3u, 17u, 3u, 29u, 3u }) CHECK(tour.Evaluate(frame) == tour.Evaluate(frame));
+    std::string text;
+    CHECK(tour.Serialize(text, error));
+    WorldTour loaded;
+    CHECK(loaded.Deserialize(text, error));
+    CHECK(loaded.Name == "test" && loaded.Warmup == 7 && loaded.Keys.size() == 4 && loaded.Keys[2].Jump && !loaded.Keys[1].Jump);
+    for (uint32_t frame = 0; frame <= 30; ++frame) CHECK(loaded.Evaluate(frame) == tour.Evaluate(frame));
+    TempDirectory temp("zamin-tour");
+    CHECK(bool(temp));
+    CHECK(WorldTour::Save(temp.GetPath() / "a.ztour", tour, error));
+    CHECK(!WorldTour::Save(temp.GetPath() / "a.json", tour, error) && error.find(".ztour") != std::string::npos);
+    WorldTour fromFile;
+    CHECK(WorldTour::Load(temp.GetPath() / "a.ztour", fromFile, error) && fromFile.GetLength() == 30);
+    CHECK(!WorldTour::Load(temp.GetPath() / "none.ztour", fromFile, error) && fromFile.GetLength() == 30);
+    // Malformed files are refused without changing the tour.
+    auto refuse = [&](const std::function<void(nlohmann::json&)>& change) {
+        auto j = nlohmann::json::parse(text);
+        change(j);
+        WorldTour kept = tour;
+        const bool ok = kept.Deserialize(j.dump(), error);
+        return !ok && !error.empty() && kept.Keys.size() == 4 && kept.Name == "test";
+    };
+    CHECK(refuse([](auto& j) { j["Format"] = "Other"; }));
+    CHECK(refuse([](auto& j) { j["Version"] = 2; }));
+    CHECK(refuse([](auto& j) { j["Keys"][0]["Frame"] = 1; }));          // must start at frame 0
+    CHECK(refuse([](auto& j) { j["Keys"][2]["Frame"] = 10; }));         // frames must increase
+    CHECK(refuse([](auto& j) { j["Keys"][1]["Position"][0] = 2e6; }));  // outside the world's range
+    CHECK(refuse([](auto& j) { j["Keys"][1]["Position"] = { 1, 2 }; }));
+    CHECK(refuse([](auto& j) { j["Keys"][1]["Jump"] = 1; }));
+    CHECK(refuse([](auto& j) { j["Warmup"] = 10001; }));
+    CHECK(refuse([](auto& j) { j["Keys"] = nlohmann::json::array(); }));
+    CHECK(refuse([](auto& j) { j["Keys"][3]["Frame"] = 1000001; }));
+    WorldTour kept = tour;
+    CHECK(!kept.Deserialize("{ not json", error) && kept.Keys.size() == 4);
+    CHECK(!kept.Deserialize(std::string(WorldTour::MaxFileBytes + 1, ' '), error));
+}
+
+TEST(WorldTourReportPercentilesAndRunnerRecordsEveryTourFrameOnce)
+{
+    // Nearest-rank percentiles over 1..100.
+    std::vector<double> values;
+    for (int i = 100; i >= 1; --i) values.push_back(i);
+    const auto d = WorldTourReport::Distribute(values);
+    CHECK(d.P50 == 50 && d.P95 == 95 && d.P99 == 99 && d.Max == 100 && d.Average == 50.5);
+    CHECK(WorldTourReport::Distribute({}).Max == 0 && WorldTourReport::Distribute({ 7 }).P99 == 7);
+    // The runner on a real scene manager: warm-up frames are not recorded, every tour frame is, once.
+    SceneManager manager;
+    auto scene = CreateRef<Scene>();
+    auto camera = scene->CreateEntityWithUUID(UUID(5), "Camera");
+    camera.AddComponent<CameraComponent>().Primary = true;
+    manager.Start(scene);
+    WorldTour tour;
+    tour.Name = "runner";
+    tour.Warmup = 3;
+    tour.Keys = { { 0, { 1, 2, 3 }, false }, { 4, { 5, 2, 3 }, false } };
+    WorldTourRunner runner;
+    std::string error;
+    WorldTour broken = tour;
+    broken.Keys.clear();
+    CHECK(!runner.Start(broken, error) && !runner.IsActive());
+    CHECK(runner.Start(tour, error) && runner.IsActive() && !runner.IsFinished());
+    std::vector<float> seen;
+    for (int tick = 0; tick < 20; ++tick)
+    {
+        runner.BeginFrame(manager, 10.0 + tick);
+        seen.push_back(camera.GetTransform().Translation.x);
+        manager.ProcessRequests();
+    }
+    // Three warm-up ticks at the first key, then frames 0..4, then the camera stays at the last key.
+    CHECK(seen[0] == 1 && seen[2] == 1 && seen[3] == 1 && seen[4] == 2 && seen[5] == 3 && seen[6] == 4 && seen[7] == 5 && seen[19] == 5);
+    CHECK(runner.IsFinished());
+    const auto& samples = runner.GetReport().GetSamples();
+    CHECK(samples.size() == 5);
+    for (size_t i = 0; i < samples.size(); ++i) CHECK(samples[i].Frame == i && samples[i].FrameMs == 10.0 + 4 + double(i));
+    const auto summary = runner.GetReport().Summarize();
+    CHECK(summary.Frames == 5 && summary.FrameMs.Max == 18.0 && summary.FrameMs.P50 == 16.0);
+    TempDirectory temp("zamin-tour-report");
+    CHECK(runner.WriteReport(temp.GetPath() / "report.json", &manager, error));
+    const auto j = nlohmann::json::parse(FileSystem::ReadTextFile(temp.GetPath() / "report.json"));
+    CHECK(j.at("Format") == "ZaminWorldTourReport" && j.at("Complete") == true && j.at("Samples").size() == 5 && j.at("TourFrames") == 5);
+    CHECK(j.at("Columns").size() == j.at("Samples")[0].size() && j.at("Summary").at("FrameMs").at("Max") == 18.0);
+    manager.Stop();
 }

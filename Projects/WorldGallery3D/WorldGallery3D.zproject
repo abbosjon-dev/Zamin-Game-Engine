@@ -1,0 +1,26 @@
+{
+  "Version": 2,
+  "Project": {
+    "Name": "WorldGallery3D",
+    "StartScene": "Scenes/Anchor.zscene",
+    "StreamingWorld": "Worlds/Main.zworld",
+    "AssetDirectory": "Assets",
+    "Description": "3D world streaming with real assets: budgeted texture/model streaming, residency limits and a repeatable camera tour.",
+    "Thumbnail": "Thumbnail.png"
+  },
+  "Player": {
+    "Product": "WorldGallery3D",
+    "Width": 1280,
+    "Height": 720,
+    "VSync": true
+  },
+  "BuildScenes": [
+    {
+      "Path": "Scenes/Anchor.zscene",
+      "Enabled": true
+    }
+  ],
+  "Export": {
+    "ExcludeUnusedAssets": true
+  }
+}

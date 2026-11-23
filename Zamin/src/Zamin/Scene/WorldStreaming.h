@@ -38,8 +38,9 @@ namespace Zamin {
             double PressureResumeRatio = .9;
             // With EvictOnPressure the two signals above are residency limits the world gets back under:
             // once trimming the caches frees nothing more, the farthest admitted cell that no other
-            // admitted cell depends on is retired - one a frame, never the cell the viewer is in - and held
-            // out for PressureCooldownFrames. With AssetStreaming a cell whose staged assets would take the
+            // admitted cell depends on is retired - never the cell the viewer is in; under the RSS limit only
+            // after freed heap memory was handed back to the system and a fresh RSS sample still says so (one
+            // cell per 0.75 s) - and held out for PressureCooldownFrames. With AssetStreaming a cell whose staged assets would take the
             // tracked GPU requests past RequestedGPULimitBytes is not uploaded at all: it waits (its
             // measured size is remembered) until that much is free. Tracked requests and observed RSS,
             // not physical VRAM; memory a cell makes while it resolves (terrain meshes) is not predicted.
@@ -66,6 +67,9 @@ namespace Zamin {
             uint64_t MaxAssetBytesPerCell = 256ull * 1024 * 1024;     // decoded pixels + mesh data of one cell
             uint64_t MaxStagedAssetBytes = 512ull * 1024 * 1024;      // all cells being staged / uploaded
             uint64_t MaxAssetUploadBytesPerFrame = 4ull * 1024 * 1024; // also the largest mesh a cell may have
+            // Tracked GPU bytes cache trimming may release per frame (one entry always may go): freeing large
+            // GPU objects is main-thread work as well.
+            uint64_t MaxAssetReleaseBytesPerFrame = 32ull * 1024 * 1024;
             std::vector<std::string> Layers{ "main" };
             bool Validate(std::string& error) const;
         };
@@ -146,6 +150,8 @@ namespace Zamin {
             uint64_t PressureEvictions = 0;  // cells retired to get back under a limit
             uint64_t ResidencyRefusals = 0;  // staged cells not uploaded because they would pass the GPU limit
             size_t ResidencyBlocked = 0;     // cells held out right now (cooling down, or too large for what is free)
+            uint64_t MemoryReleases = 0;     // times freed heap memory was handed back to the system under an RSS limit
+            double PeakMemoryReleaseMilliseconds = 0; // on its helper thread, not in a frame
         };
         static bool LoadDefinition(const std::filesystem::path& file, WorldManifest& manifest, Policy& policy, std::string& error);
         static bool SaveDefinition(const std::filesystem::path& file, const WorldManifest& manifest, const Policy& policy, std::string& error);

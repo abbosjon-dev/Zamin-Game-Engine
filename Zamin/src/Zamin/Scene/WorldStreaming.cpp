@@ -22,6 +22,8 @@
 #include <unistd.h>
 #include <limits>
 #include <set>
+#include <thread>
+#include <atomic>
 #include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
@@ -36,7 +38,7 @@ namespace Zamin {
             json links = json::array();
             for (const auto& l : p.NavigationLinks)
                 links.push_back({ { "ID", l.ID }, { "From", { l.From.x, l.From.y } }, { "To", { l.To.x, l.To.y } }, { "Cost", l.Cost }, { "Bidirectional", l.Bidirectional }, { "Enabled", l.Enabled } });
-            return { { "AsyncNavigation", p.AsyncNavigation }, { "NavigationQueryWorkers", p.NavigationQueryWorkers }, { "NavigationQueryCapacity", p.NavigationQueryCapacity }, { "NavigationQueryStarts", p.NavigationQueryStarts }, { "NavigationQueryResults", p.NavigationQueryResults }, { "NavigationLinks", links }, { "LoadRadius", p.LoadRadius }, { "UnloadRadius", p.UnloadRadius }, { "MainThreadMilliseconds", p.MainThreadMilliseconds }, { "AxisMask", p.AxisMask }, { "Layers", p.Layers }, { "MaxResidentCells", p.MaxResidentCells }, { "MaxResidentEntities", p.MaxResidentEntities }, { "MaxEntitiesPerCell", p.MaxEntitiesPerCell }, { "MaxBuildingCells", p.MaxBuildingCells }, { "MaxActivationsPerFrame", p.MaxActivationsPerFrame }, { "MaxUnloadsPerFrame", p.MaxUnloadsPerFrame }, { "MaxResolveEntitiesPerFrame", p.MaxResolveEntitiesPerFrame }, { "DeclaredCPUBytes", p.DeclaredCPUBytes }, { "DeclaredGPUBytes", p.DeclaredGPUBytes }, { "ObservedRSSLimitBytes", p.ObservedRSSLimitBytes }, { "RequestedGPULimitBytes", p.RequestedGPULimitBytes }, { "PressureResumeRatio", p.PressureResumeRatio }, { "EvictOnPressure", p.EvictOnPressure }, { "PressureCooldownFrames", p.PressureCooldownFrames }, { "CacheEntriesPerKind", p.CacheEntriesPerKind }, { "MaxCacheEvictionsPerFrame", p.MaxCacheEvictionsPerFrame }, { "AssetStreaming", p.AssetStreaming }, { "MaxAssetFilesPerCell", p.MaxAssetFilesPerCell }, { "MaxAssetUploadsPerFrame", p.MaxAssetUploadsPerFrame }, { "MaxAssetFileBytes", p.MaxAssetFileBytes }, { "MaxAssetBytesPerCell", p.MaxAssetBytesPerCell }, { "MaxStagedAssetBytes", p.MaxStagedAssetBytes }, { "MaxAssetUploadBytesPerFrame", p.MaxAssetUploadBytesPerFrame }, { "NavigationMode", p.NavigationMode }, { "NavigationMaxCells", p.NavigationMaxCells } };
+            return { { "AsyncNavigation", p.AsyncNavigation }, { "NavigationQueryWorkers", p.NavigationQueryWorkers }, { "NavigationQueryCapacity", p.NavigationQueryCapacity }, { "NavigationQueryStarts", p.NavigationQueryStarts }, { "NavigationQueryResults", p.NavigationQueryResults }, { "NavigationLinks", links }, { "LoadRadius", p.LoadRadius }, { "UnloadRadius", p.UnloadRadius }, { "MainThreadMilliseconds", p.MainThreadMilliseconds }, { "AxisMask", p.AxisMask }, { "Layers", p.Layers }, { "MaxResidentCells", p.MaxResidentCells }, { "MaxResidentEntities", p.MaxResidentEntities }, { "MaxEntitiesPerCell", p.MaxEntitiesPerCell }, { "MaxBuildingCells", p.MaxBuildingCells }, { "MaxActivationsPerFrame", p.MaxActivationsPerFrame }, { "MaxUnloadsPerFrame", p.MaxUnloadsPerFrame }, { "MaxResolveEntitiesPerFrame", p.MaxResolveEntitiesPerFrame }, { "DeclaredCPUBytes", p.DeclaredCPUBytes }, { "DeclaredGPUBytes", p.DeclaredGPUBytes }, { "ObservedRSSLimitBytes", p.ObservedRSSLimitBytes }, { "RequestedGPULimitBytes", p.RequestedGPULimitBytes }, { "PressureResumeRatio", p.PressureResumeRatio }, { "EvictOnPressure", p.EvictOnPressure }, { "PressureCooldownFrames", p.PressureCooldownFrames }, { "CacheEntriesPerKind", p.CacheEntriesPerKind }, { "MaxCacheEvictionsPerFrame", p.MaxCacheEvictionsPerFrame }, { "AssetStreaming", p.AssetStreaming }, { "MaxAssetFilesPerCell", p.MaxAssetFilesPerCell }, { "MaxAssetUploadsPerFrame", p.MaxAssetUploadsPerFrame }, { "MaxAssetFileBytes", p.MaxAssetFileBytes }, { "MaxAssetBytesPerCell", p.MaxAssetBytesPerCell }, { "MaxStagedAssetBytes", p.MaxStagedAssetBytes }, { "MaxAssetUploadBytesPerFrame", p.MaxAssetUploadBytesPerFrame }, { "MaxAssetReleaseBytesPerFrame", p.MaxAssetReleaseBytesPerFrame }, { "NavigationMode", p.NavigationMode }, { "NavigationMaxCells", p.NavigationMaxCells } };
         }
         bool ReadPolicy(const json& j, WorldStreaming::Policy& p, std::string& error)
         {
@@ -95,6 +97,7 @@ namespace Zamin {
             read("MaxAssetBytesPerCell", p.MaxAssetBytesPerCell);
             read("MaxStagedAssetBytes", p.MaxStagedAssetBytes);
             read("MaxAssetUploadBytesPerFrame", p.MaxAssetUploadBytesPerFrame);
+            read("MaxAssetReleaseBytesPerFrame", p.MaxAssetReleaseBytesPerFrame);
             if (j.contains("NavigationLinks"))
             {
                 const auto& links = j.at("NavigationLinks");
@@ -134,6 +137,7 @@ namespace Zamin {
             !MaxAssetFileBytes || MaxAssetFileBytes > WorldManifest::MaxDeclaredBytesPerCell || !MaxAssetBytesPerCell ||
             MaxAssetBytesPerCell > MaxStagedAssetBytes || MaxStagedAssetBytes > WorldManifest::MaxDeclaredBytesPerCell ||
             MaxAssetUploadBytesPerFrame < 65536 || MaxAssetUploadBytesPerFrame > (uint64_t(1) << 30) ||
+            MaxAssetReleaseBytesPerFrame < 65536 || MaxAssetReleaseBytesPerFrame > WorldManifest::MaxDeclaredBytesPerCell ||
             !PressureCooldownFrames || PressureCooldownFrames > 36000)
         {
             error = "Invalid world asset streaming budget";
@@ -335,6 +339,7 @@ namespace Zamin {
         uint64_t DecodeBase = 0, ParseBase = 0;
         ~Data()
         {
+            if (ReleaseThread.joinable()) ReleaseThread.join();
             for (auto& cell : Cells) ReleaseAssets(cell, true);
             if (Stager) AsyncLoader::SetUploadBudget(PreviousBudget);
         }
@@ -506,13 +511,49 @@ namespace Zamin {
             return true;
         }
         ResidencyPressure Pressure;
+        bool RoomWanted = false; // a cell waits for GPU room: unused cache entries are given up first
+        bool FreedSinceRelease = false; // cells or cache entries went since freed memory was last handed back
+        uint64_t ReleasedThisFrame = 0; // tracked GPU bytes cache trimming released in this tick
+        bool TrimAgain = false;
+        // Handing freed heap memory back walks the heap (milliseconds): done by a helper thread, one at a time.
+        std::thread ReleaseThread;
+        std::atomic<bool> ReleaseBusy{ false };
+        std::atomic<double> ReleaseMilliseconds{ 0 };
+        void ReleaseFreeMemory()
+        {
+            if (ReleaseBusy.exchange(true)) return;
+            if (ReleaseThread.joinable()) ReleaseThread.join();
+            ReleaseThread = std::thread([this] {
+                const auto before = Clock::now();
+                MemoryStats::ReleaseFreeMemory();
+                ReleaseMilliseconds.store(Elapsed(before));
+                ReleaseBusy.store(false);
+            });
+        }
+        Clock::time_point NextRSSAction{};
         uint64_t Tick = 0;
         uint64_t Frame = 0;
         size_t CacheEvictionsThisFrame = 0;
         size_t Trim(size_t target)
         {
             const size_t allowance = Rules.MaxCacheEvictionsPerFrame > CacheEvictionsThisFrame ? Rules.MaxCacheEvictionsPerFrame - CacheEvictionsThisFrame : 0;
-            const auto count = AssetResidency::Trim(target, allowance);
+            // One entry at a time: with the asset budget on, trimming also stops once this frame has released
+            // MaxAssetReleaseBytesPerFrame of tracked GPU requests (freeing large GPU objects costs main-thread
+            // time too). An entry larger than what is left still goes when it is the frame's first.
+            size_t count = 0;
+            if (!Stager) count = AssetResidency::Trim(target, allowance);
+            else
+                while (count < allowance && (ReleasedThisFrame == 0 || ReleasedThisFrame < Rules.MaxAssetReleaseBytesPerFrame))
+                {
+                    const uint64_t before = MemoryStats::Get(MemoryCategory::Textures).Bytes + MemoryStats::Get(MemoryCategory::Meshes).Bytes;
+                    if (!AssetResidency::Trim(target, 1)) break;
+                    const uint64_t after = MemoryStats::Get(MemoryCategory::Textures).Bytes + MemoryStats::Get(MemoryCategory::Meshes).Bytes;
+                    ReleasedThisFrame += before > after ? before - after : 0;
+                    ++count;
+                }
+            // Stopped by the release budget: the next tick goes on instead of waiting for the periodic scan.
+            TrimAgain = Stager && count && ReleasedThisFrame >= Rules.MaxAssetReleaseBytesPerFrame;
+            FreedSinceRelease |= count > 0;
             CacheEvictionsThisFrame += count;
             Counters.CacheEvictions += count;
             return count;
@@ -651,6 +692,8 @@ namespace Zamin {
             Counters.PressureEvictions = previous.PressureEvictions;
             Counters.ResidencyRefusals = previous.ResidencyRefusals;
             Counters.ResidencyBlocked = previous.ResidencyBlocked;
+            Counters.MemoryReleases = previous.MemoryReleases;
+            Counters.PeakMemoryReleaseMilliseconds = std::max(previous.PeakMemoryReleaseMilliseconds, ReleaseMilliseconds.load());
             Counters.AssetRestages = previous.AssetRestages;
             Counters.AssetStreaming = bool(Stager);
             if (Stager)
@@ -731,6 +774,7 @@ namespace Zamin {
             // Residency limits: cells cooling down after an eviction, and cells whose measured assets do not
             // fit under the GPU limit right now, are not selected - nor is anything that depends on them.
             Data::Mask held{};
+            RoomWanted = false;
             uint64_t room = 0, flight = 0;
             if (Rules.RequestedGPULimitBytes)
             {
@@ -746,7 +790,11 @@ namespace Zamin {
                 if (c.AwaitsRoom)
                 {
                     // (its own in-flight share is in `flight` until it is retired)
-                    if (c.Info.Admitted || c.Info.MeasuredGPUBytes >= room) hold = true;
+                    if (c.Info.Admitted || c.Info.MeasuredGPUBytes >= room)
+                    {
+                        hold = true;
+                        RoomWanted |= c.Distance <= Rules.LoadRadius; // (only a cell the viewer would load asks the caches)
+                    }
                     else
                     {
                         c.AwaitsRoom = false;
@@ -873,6 +921,7 @@ namespace Zamin {
         const auto start = Clock::now();
         ++d.Tick;
         d.CacheEvictionsThisFrame = 0;
+        d.ReleasedThisFrame = 0;
         if (d.Writer)
         {
             WorldCheckpointWriter::Result completed;
@@ -1029,15 +1078,36 @@ namespace Zamin {
         };
         d.Counters.MemoryPressure = evaluatePressure();
         // Scan on retirement, periodically, or under pressure; no wait for async work and no live eviction.
-        if (unloads || ++d.Frame % 60 == 0 || d.Counters.MemoryPressure)
+        if (unloads || ++d.Frame % 60 == 0 || d.Counters.MemoryPressure || d.RoomWanted || d.TrimAgain)
         {
-            d.Trim(d.Counters.MemoryPressure ? 0 : d.Rules.CacheEntriesPerKind);
+            d.Trim(d.Counters.MemoryPressure || d.RoomWanted ? 0 : d.Rules.CacheEntriesPerKind);
             d.Counters.Residency = AssetResidency::Inspect();
             d.Counters.MemoryPressure = evaluatePressure();
         }
         d.Counters.PressureFrames += d.Counters.MemoryPressure;
+        d.FreedSinceRelease |= unloads > 0;
         // Still over a limit and the caches have nothing more to give: one cell goes.
-        if (d.Counters.MemoryPressure && d.Rules.EvictOnPressure && !unloads && d.CacheEvictionsThisFrame < d.Rules.MaxCacheEvictionsPerFrame) d.EvictFarthest();
+        if (d.Counters.MemoryPressure && d.Rules.EvictOnPressure && !unloads && d.CacheEvictionsThisFrame < d.Rules.MaxCacheEvictionsPerFrame)
+        {
+            const auto& memory = d.Counters.Residency;
+            const bool gpuSide = d.Rules.RequestedGPULimitBytes &&
+                                 static_cast<long double>(memory.RequestedGPUBytes) >= static_cast<long double>(d.Rules.RequestedGPULimitBytes) * d.Rules.PressureResumeRatio;
+            if (gpuSide) d.EvictFarthest(); // tracked requests are exact and immediate
+            else if (d.FreedSinceRelease)
+            {
+                // Observed RSS lags what was freed: the allocator keeps it. Hand it back, then wait for a fresh
+                // sample (they are read at most twice a second) before deciding that a cell has to go.
+                d.ReleaseFreeMemory(); // (on its helper thread)
+                d.FreedSinceRelease = false;
+                ++d.Counters.MemoryReleases;
+                d.NextRSSAction = Clock::now() + std::chrono::milliseconds(750);
+            }
+            else if (Clock::now() >= d.NextRSSAction)
+            {
+                d.EvictFarthest();
+                d.NextRSSAction = Clock::now() + std::chrono::milliseconds(750);
+            }
+        }
         for (auto id : d.Order)
         {
             const size_t index = d.Index.at(id);

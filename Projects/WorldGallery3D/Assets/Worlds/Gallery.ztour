@@ -1,0 +1,251 @@
+{
+  "Format": "ZaminWorldTour",
+  "Version": 1,
+  "Name": "Gallery sweep, dash, void and return",
+  "Warmup": 240,
+  "Keys": [
+    {
+      "Frame": 0,
+      "Position": [
+        16.0,
+        46.0,
+        30.0
+      ],
+      "Jump": false
+    },
+    {
+      "Frame": 240,
+      "Position": [
+        176.0,
+        46.0,
+        30.0
+      ],
+      "Jump": false
+    },
+    {
+      "Frame": 420,
+      "Position": [
+        176.0,
+        46.0,
+        126.0
+      ],
+      "Jump": false
+    },
+    {
+      "Frame": 660,
+      "Position": [
+        16.0,
+        46.0,
+        126.0
+      ],
+      "Jump": false
+    },
+    {
+      "Frame": 666,
+      "Position": [
+        176.0,
+        46.0,
+        30.0
+      ],
+      "Jump": true
+    },
+    {
+      "Frame": 672,
+      "Position": [
+        16.0,
+        46.0,
+        30.0
+      ],
+      "Jump": true
+    },
+    {
+      "Frame": 678,
+      "Position": [
+        176.0,
+        46.0,
+        126.0
+      ],
+      "Jump": true
+    },
+    {
+      "Frame": 684,
+      "Position": [
+        16.0,
+        46.0,
+        126.0
+      ],
+      "Jump": true
+    },
+    {
+      "Frame": 690,
+      "Position": [
+        176.0,
+        46.0,
+        30.0
+      ],
+      "Jump": true
+    },
+    {
+      "Frame": 696,
+      "Position": [
+        16.0,
+        46.0,
+        30.0
+      ],
+      "Jump": true
+    },
+    {
+      "Frame": 702,
+      "Position": [
+        176.0,
+        46.0,
+        126.0
+      ],
+      "Jump": true
+    },
+    {
+      "Frame": 708,
+      "Position": [
+        16.0,
+        46.0,
+        126.0
+      ],
+      "Jump": true
+    },
+    {
+      "Frame": 714,
+      "Position": [
+        176.0,
+        46.0,
+        30.0
+      ],
+      "Jump": true
+    },
+    {
+      "Frame": 720,
+      "Position": [
+        16.0,
+        46.0,
+        30.0
+      ],
+      "Jump": true
+    },
+    {
+      "Frame": 726,
+      "Position": [
+        176.0,
+        46.0,
+        126.0
+      ],
+      "Jump": true
+    },
+    {
+      "Frame": 732,
+      "Position": [
+        16.0,
+        46.0,
+        126.0
+      ],
+      "Jump": true
+    },
+    {
+      "Frame": 738,
+      "Position": [
+        176.0,
+        46.0,
+        30.0
+      ],
+      "Jump": true
+    },
+    {
+      "Frame": 744,
+      "Position": [
+        16.0,
+        46.0,
+        30.0
+      ],
+      "Jump": true
+    },
+    {
+      "Frame": 750,
+      "Position": [
+        176.0,
+        46.0,
+        126.0
+      ],
+      "Jump": true
+    },
+    {
+      "Frame": 756,
+      "Position": [
+        16.0,
+        46.0,
+        126.0
+      ],
+      "Jump": true
+    },
+    {
+      "Frame": 762,
+      "Position": [
+        176.0,
+        46.0,
+        30.0
+      ],
+      "Jump": true
+    },
+    {
+      "Frame": 768,
+      "Position": [
+        16.0,
+        46.0,
+        30.0
+      ],
+      "Jump": true
+    },
+    {
+      "Frame": 774,
+      "Position": [
+        176.0,
+        46.0,
+        126.0
+      ],
+      "Jump": true
+    },
+    {
+      "Frame": 780,
+      "Position": [
+        16.0,
+        46.0,
+        126.0
+      ],
+      "Jump": true
+    },
+    {
+      "Frame": 800,
+      "Position": [
+        5000.0,
+        46.0,
+        5000.0
+      ],
+      "Jump": true
+    },
+    {
+      "Frame": 920,
+      "Position": [
+        16.0,
+        46.0,
+        30.0
+      ],
+      "Jump": true
+    },
+    {
+      "Frame": 1079,
+      "Position": [
+        48.0,
+        46.0,
+        30.0
+      ],
+      "Jump": false
+    }
+  ]
+}

@@ -53,6 +53,11 @@ namespace Zamin {
         };
         // Read at most every `maxAgeSeconds` (0: now) - the Stats panel and the overlay ask every frame.
         static ProcessMemory GetProcessMemory(double maxAgeSeconds = 0.5);
+        // Asks the allocator to give the free memory it keeps back to the system (glibc: malloc_trim), so the
+        // resident size follows what the program really holds - memory freed in the middle of the heap is
+        // otherwise still counted. Returns false where this is not available. It walks the heap: a few
+        // milliseconds, meant for the moments a memory limit is being enforced, not for every frame.
+        static bool ReleaseFreeMemory();
         // /proc/self/statm ("size resident shared ..." in pages) -> bytes; false for anything else.
         static bool ParseStatm(std::string_view text, uint64_t pageSize, ProcessMemory& out);
         // A "Key:   1234 kB" line of /proc/self/status, in bytes (0 when missing).

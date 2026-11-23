@@ -227,6 +227,7 @@ namespace {
         policy.AssetStreaming = true;
         policy.MaxAssetUploadsPerFrame = 4;
         policy.MaxAssetUploadBytesPerFrame = 65536;
+        policy.MaxAssetReleaseBytesPerFrame = 65536; // cache trimming: one entry a frame once this much was released
         const uint64_t textureBytes = (256 * 256 * 3 + 128 * 128 * 3 + 64 * 64 * 3) * 4 / 3 - 3; // with their mip chains
         const glm::dvec3 inside{ 2, 0, 2 }, away{ 1000, 0, 1000 };
         const auto meshBaseline = MemoryStats::Get(MemoryCategory::Meshes).Bytes;
@@ -256,8 +257,23 @@ namespace {
             sprite.reset();
             // Return: the retired cell's assets were trimmed (cache target 0), so it stages and uploads again.
             run.World->SetViewerOverride(away);
-            Check(run.Until([&] { return run.World->GetStats().Active == 0 && AssetResidency::Inspect().Caches[AssetResidency::Textures].Entries == 0; }) > 0, "retired cell assets evicted");
+            // The release budget: the three textures (336 KiB tracked with their chains) leave over more than one
+            // frame, never more than the largest one (256 KiB) in a single frame.
+            uint64_t previousBytes = MemoryStats::Get(MemoryCategory::Textures).Bytes, largestDrop = 0;
+            int dropFrames = 0;
+            Check(run.Until([&] {
+                const uint64_t now = MemoryStats::Get(MemoryCategory::Textures).Bytes;
+                if (now < previousBytes)
+                {
+                    largestDrop = std::max(largestDrop, previousBytes - now);
+                    ++dropFrames;
+                }
+                previousBytes = now;
+                return run.World->GetStats().Active == 0 && AssetResidency::Inspect().Caches[AssetResidency::Textures].Entries == 0;
+            }) > 0, "retired cell assets evicted");
             Check(MemoryStats::Get(MemoryCategory::Textures).Bytes == baseline, "retired cell returned its texture allocations");
+            // (without the budget all 344064 tracked bytes go in the retirement frame)
+            Check(dropFrames >= 2 && largestDrop <= 256 * 256 * 4, "cache releases were spread over frames within the release budget");
             run.World->SetViewerOverride(inside);
             Check(run.Until([&] { return run.World->GetStats().Active == 1; }) > 0, "returned cell activated again");
             worldStats = run.World->GetStats();

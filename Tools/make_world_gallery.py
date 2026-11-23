@@ -106,7 +106,7 @@ def write_monument(path, variant, detail):
 
 def tour(columns, rows):
     def center(x, z):
-        return [x * CELL[0] + CELL[0] / 2, 30.0, z * CELL[2] + CELL[2] / 2 + 26.0]
+        return [x * CELL[0] + CELL[0] / 2, 46.0, z * CELL[2] + CELL[2] / 2 + 14.0]
     keys = [{"Frame": 0, "Position": center(0, 0), "Jump": False},
             {"Frame": 240, "Position": center(columns - 1, 0), "Jump": False},
             {"Frame": 420, "Position": center(columns - 1, rows - 1), "Jump": False},
@@ -117,7 +117,7 @@ def tour(columns, rows):
     for i in range(20):
         keys.append({"Frame": frame, "Position": corners[i % 4], "Jump": True})
         frame += 6
-    keys.append({"Frame": 800, "Position": [5000.0, 30.0, 5000.0], "Jump": True})   # an empty region: everything unloads
+    keys.append({"Frame": 800, "Position": [5000.0, 46.0, 5000.0], "Jump": True})   # an empty region: everything unloads
     keys.append({"Frame": 920, "Position": center(0, 0), "Jump": True})             # the return
     keys.append({"Frame": 1079, "Position": center(1, 0), "Jump": False})
     return {"Format": "ZaminWorldTour", "Version": 1, "Name": "Gallery sweep, dash, void and return", "Warmup": 240, "Keys": keys}
@@ -133,10 +133,15 @@ def main():
     parser.add_argument("--model-detail", type=int, default=1, help="monument tessellation: 1 = 576 triangles, 3 = 5184")
     parser.add_argument("--models", type=int, default=8, help="monument variants (cells share them round-robin)")
     parser.add_argument("--legacy", action="store_true", help="AssetStreaming off: the pre-budget main-thread path")
+    parser.add_argument("--window", default="1280x720", help="the Player's window (WIDTHxHEIGHT)")
     args = parser.parse_args()
     if not (1 <= args.columns <= 11 and 1 <= args.rows <= 11 and args.texture_size % 64 == 0 and 64 <= args.texture_size <= 4096
             and 1 <= args.model_detail <= 8 and 1 <= args.models <= len(PALETTE)):
         parser.error("grid up to 11x11, texture size a multiple of 64 up to 4096, detail 1..8, up to 8 models")
+    try:
+        width, height = (int(v) for v in args.window.split("x"))
+    except ValueError:
+        parser.error("--window WIDTHxHEIGHT")
     project, assets = args.project, args.project / "Assets"
     for variant in range(args.models):
         write_monument(assets / f"Models/Monument_{variant}.obj", variant, args.model_detail)
@@ -170,7 +175,7 @@ def main():
             cells.append({"ID": f"{index + 1:016x}", "Coordinate": [x, 0, z], "Layer": "main", "Scene": f"Scenes/Cells/Cell_{x}_{z}.zscene",
                           "CPUBytes": 1048576, "GPUBytes": bytes_gpu, "Dependencies": []})
     anchor = {"Scene": args.name, "Version": 5, "Entities": [
-        {"Entity": 10000001, "Tag": "Gallery camera", "Transform": {"Translation": [16, 30, 42], "Rotation": [-0.72, 0, 0], "Scale": [1, 1, 1]},
+        {"Entity": 10000001, "Tag": "Gallery camera", "Transform": {"Translation": [16, 46, 30], "Rotation": [-1.12, 0, 0], "Scale": [1, 1, 1]},
          "Camera": {"ProjectionType": 0, "Primary": True, "PerspectiveFOV": 0.95, "PerspectiveNear": 0.1, "PerspectiveFar": 400,
                     "OrthographicSize": 32, "OrthographicNear": -100, "OrthographicFar": 100, "ClearColor": [0.06, 0.09, 0.14, 1]}},
         {"Entity": 10000002, "Tag": "Sun", "Transform": {"Translation": [0, 0, 0], "Rotation": [-0.9, -0.4, 0], "Scale": [1, 1, 1]},
@@ -184,7 +189,7 @@ def main():
                  "MaxResolveEntitiesPerFrame": 64, "DeclaredCPUBytes": 268435456, "DeclaredGPUBytes": 1073741824, "CacheEntriesPerKind": 16,
                  "MaxCacheEvictionsPerFrame": 4, "ObservedRSSLimitBytes": 0, "RequestedGPULimitBytes": 0, "PressureResumeRatio": 0.85,
                  "EvictOnPressure": True, "PressureCooldownFrames": 120, "AssetStreaming": not args.legacy, "MaxAssetFilesPerCell": 64,
-                 "MaxAssetUploadsPerFrame": 8, "MaxAssetUploadBytesPerFrame": 2097152, "MaxAssetFileBytes": 33554432,
+                 "MaxAssetUploadsPerFrame": 8, "MaxAssetUploadBytesPerFrame": 2097152, "MaxAssetReleaseBytesPerFrame": 16777216, "MaxAssetFileBytes": 33554432,
                  "MaxAssetBytesPerCell": 134217728, "MaxStagedAssetBytes": 268435456}
     world = {"Format": "ZaminWorld", "Version": 1, "Name": args.name, "Origin": [0, 0, 0], "CellSize": list(CELL), "Cells": cells, "Streaming": streaming}
     (assets / "Worlds").mkdir(parents=True, exist_ok=True)
@@ -194,7 +199,7 @@ def main():
                                         "AssetDirectory": "Assets",
                                         "Description": "3D world streaming with real assets: budgeted texture/model streaming, residency limits and a repeatable camera tour.",
                                         "Thumbnail": "Thumbnail.png"},
-              "Player": {"Product": args.name, "Width": 1280, "Height": 720, "VSync": True},
+              "Player": {"Product": args.name, "Width": width, "Height": height, "VSync": True},
               "BuildScenes": [{"Path": "Scenes/Anchor.zscene", "Enabled": True}], "Export": {"ExcludeUnusedAssets": True}}
     (project / f"{args.name}.zproject").write_text(json.dumps(config, indent=2) + "\n")
     if not (project / "Thumbnail.png").exists():

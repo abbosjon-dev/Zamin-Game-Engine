@@ -1,6 +1,9 @@
 #include "Zamin/Core/MemoryStats.h"
 
 #include <algorithm>
+#if defined(__linux__)
+#include <malloc.h> // malloc_trim (glibc)
+#endif
 #include <array>
 #include <atomic>
 #include <charconv>
@@ -217,6 +220,16 @@ namespace Zamin {
         readAt = now;
         read = true;
         return cached;
+    }
+
+    bool MemoryStats::ReleaseFreeMemory()
+    {
+#if defined(__GLIBC__)
+        malloc_trim(0);
+        return true;
+#else
+        return false;
+#endif
     }
 
     std::string MemoryStats::FormatBytes(uint64_t bytes)

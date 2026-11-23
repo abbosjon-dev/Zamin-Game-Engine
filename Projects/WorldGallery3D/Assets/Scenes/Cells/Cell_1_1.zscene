@@ -1,0 +1,194 @@
+{
+ "Scene": "Gallery 1,1",
+ "Version": 5,
+ "Entities": [
+  {
+   "Entity": 30000701,
+   "Tag": "Ground 1,1",
+   "Transform": {
+    "Translation": [
+     16,
+     0,
+     16
+    ],
+    "Rotation": [
+     0,
+     0,
+     0
+    ],
+    "Scale": [
+     31.6,
+     0.2,
+     31.6
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Cube",
+    "AlbedoMap": "Textures/Ground_1_1.png",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "Roughness": 0.85,
+    "Tiling": 2
+   }
+  },
+  {
+   "Entity": 30000702,
+   "Tag": "Monument 7",
+   "Transform": {
+    "Translation": [
+     16,
+     0.1,
+     16
+    ],
+    "Rotation": [
+     0,
+     2.0,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Monument_7.obj",
+    "Material": "Materials/Monument_7.zmat",
+    "CastShadows": true
+   }
+  },
+  {
+   "Entity": 30000710,
+   "Tag": "Pillar",
+   "Transform": {
+    "Translation": [
+     5,
+     1.6,
+     5
+    ],
+    "Rotation": [
+     0,
+     0,
+     0
+    ],
+    "Scale": [
+     1.6,
+     3.0,
+     1.6
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Cube",
+    "Albedo": [
+     0.5333333333333333,
+     0.5333333333333333,
+     0.596078431372549,
+     1
+    ],
+    "Roughness": 0.5,
+    "Metallic": 0.1
+   }
+  },
+  {
+   "Entity": 30000711,
+   "Tag": "Pillar",
+   "Transform": {
+    "Translation": [
+     27,
+     2.0,
+     5
+    ],
+    "Rotation": [
+     0,
+     0,
+     0
+    ],
+    "Scale": [
+     1.6,
+     3.8,
+     1.6
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Cube",
+    "Albedo": [
+     0.7686274509803922,
+     0.3607843137254902,
+     0.2823529411764706,
+     1
+    ],
+    "Roughness": 0.5,
+    "Metallic": 0.1
+   }
+  },
+  {
+   "Entity": 30000712,
+   "Tag": "Pillar",
+   "Transform": {
+    "Translation": [
+     5,
+     2.4000000000000004,
+     27
+    ],
+    "Rotation": [
+     0,
+     0,
+     0
+    ],
+    "Scale": [
+     1.6,
+     4.6,
+     1.6
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Cube",
+    "Albedo": [
+     0.34509803921568627,
+     0.5882352941176471,
+     0.7686274509803922,
+     1
+    ],
+    "Roughness": 0.5,
+    "Metallic": 0.1
+   }
+  },
+  {
+   "Entity": 30000713,
+   "Tag": "Pillar",
+   "Transform": {
+    "Translation": [
+     27,
+     2.8000000000000003,
+     27
+    ],
+    "Rotation": [
+     0,
+     0,
+     0
+    ],
+    "Scale": [
+     1.6,
+     5.4,
+     1.6
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Cube",
+    "Albedo": [
+     0.47058823529411764,
+     0.6901960784313725,
+     0.3607843137254902,
+     1
+    ],
+    "Roughness": 0.5,
+    "Metallic": 0.1
+   }
+  }
+ ]
+}

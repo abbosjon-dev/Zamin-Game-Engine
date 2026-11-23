@@ -6,6 +6,8 @@
 #include <Zamin/Scene/SceneManager.h>
 #include <Zamin/Project/Project.h>
 #include <Zamin/Utils/FileSystem.h>
+#include <Zamin/Editor/EditorLanguage.h>
+#include <format>
 #include <imgui.h>
 #include <imgui_stdlib.h>
 #include <algorithm>
@@ -47,11 +49,19 @@ namespace Zamin {
                 case WorldRuntimeStage::Active:    return IM_COL32(45, 176, 132, 255);
                 case WorldRuntimeStage::Failed:    return IM_COL32(215, 76, 89, 255);
                 case WorldRuntimeStage::Building:
+                case WorldRuntimeStage::Staging:
                 case WorldRuntimeStage::Resolving: return IM_COL32(226, 171, 66, 255);
                 case WorldRuntimeStage::Loading:   return IM_COL32(75, 128, 224, 255);
                 default:                           return IM_COL32(56, 66, 83, 255);
             }
         }
+        // A translated line with values: the English text keeps the same {} placeholders.
+        template<class... Args>
+        void Line(const char* uzbek, Args&&... args)
+        {
+            ImGui::TextUnformatted(std::vformat(Tr(uzbek), std::make_format_args(args...)).c_str());
+        }
+        double MiB(uint64_t bytes) { return double(bytes) / 1048576.0; }
         std::filesystem::path File()
         {
             if (std::filesystem::path(s.Path).extension() != ".zworld") return {};
@@ -280,6 +290,30 @@ namespace Zamin {
             ImGui::Text("Update %.2f ms  peak %.2f ms   Activated %llu  Unloaded %llu", stats.LastMilliseconds, stats.PeakMilliseconds,
                         (unsigned long long)stats.Activations, (unsigned long long)stats.Unloads);
             ImGui::TextDisabled("Declared/source reservations are not measured RSS or VRAM.");
+            if (ImGui::CollapsingHeader(Tr("Asset oqimi va rezidentlik limitlari"), ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                const auto& policy = live->GetPolicy();
+                if (!stats.AssetStreaming)
+                    ImGui::TextWrapped("%s", Tr("Asset byudjeti o'chiq: katak texture va modellarini asosiy oqim yuklaydi (siyosatda yoqiladi)."));
+                else
+                {
+                    const size_t uploads = stats.PendingUploads;
+                    const double pending = MiB(stats.PendingUploadBytes), reserved = MiB(stats.Assets.ReservedBytes), limit = MiB(policy.MaxStagedAssetBytes);
+                    Line("Tayyorlash: {} ta fayl, {} ta o'qilmadi, {} ta bekor qilindi, {} ta byudjetdan oshdi", stats.Assets.FilesStaged, stats.Assets.FilesUnreadable,
+                         stats.AssetCancellations, stats.Assets.BudgetFailures);
+                    Line("Navbat: {} ta yuklash, {:.2f} MiB | band qilingan {:.1f} / {:.0f} MiB", uploads, pending, reserved, limit);
+                    const double sent = MiB(stats.Uploads.UploadBytes), peak = MiB(stats.Uploads.PeakUpdateUploadBytes), budget = MiB(policy.MaxAssetUploadBytesPerFrame);
+                    Line("GPU'ga yuborildi: {:.1f} MiB | kadr cho'qqisi {:.2f} / {:.2f} MiB | kechiktirish {} | byudjetdan katta {}", sent, peak, budget,
+                         stats.Uploads.BudgetDeferrals, stats.Uploads.OversizeUploads);
+                    const bool clean = stats.MainThreadImageDecodes == 0 && stats.MainThreadModelParses == 0;
+                    ImGui::PushStyleColor(ImGuiCol_Text, clean ? ImVec4(.3f, .85f, .72f, 1) : ImVec4(1, .45f, .25f, 1));
+                    Line("Asosiy oqimda: {} ta rasm decode, {} ta model parse", stats.MainThreadImageDecodes, stats.MainThreadModelParses);
+                    ImGui::PopStyleColor();
+                }
+                Line("Limit: {} ta katak chiqarildi, {} ta ushlab turilibdi, {} ta rad etildi, xotira {} marta qaytarildi", stats.PressureEvictions, stats.ResidencyBlocked,
+                     stats.ResidencyRefusals, stats.MemoryReleases);
+                ImGui::TextDisabled("%s", Tr("Kuzatilgan RSS va so'ralgan GPU baytlari; jismoniy VRAM emas."));
+            }
             ImGui::Text("Navigation: %zu tiles | %zu cells | %llu rebuilds", stats.NavigationTiles, stats.NavigationCells, (unsigned long long)stats.NavigationRebuilds);
             if (!stats.NavigationError.empty()) ImGui::TextWrapped("Navigation: %s", stats.NavigationError.c_str());
             if (ImGui::CollapsingHeader("Sparse navigation / route", ImGuiTreeNodeFlags_DefaultOpen))
@@ -432,11 +466,14 @@ namespace Zamin {
                 const ImVec2 q(p.x + std::max(.5f, size - 3), p.y + std::max(.5f, size - 3));
                 auto stage = i < cells.size() ? cells[i].Stage : WorldRuntimeStage::Dormant;
                 draw->AddRectFilled(p, q, Color(stage), 4);
+                if (i < cells.size() && cells[i].Held) draw->AddRect(p, q, IM_COL32(255, 140, 70, 255), 4, 0, 2); // held out by a residency limit
                 if (int(i) == s.Selected) draw->AddRect(p, q, IM_COL32(235, 240, 255, 255), 4, 0, 2);
                 if (size > 35) draw->AddText(ImVec2(p.x + 5, p.y + 4), IM_COL32_WHITE, std::to_string(i).c_str());
                 if (ImGui::IsMouseHoveringRect(p, q))
                 {
-                    ImGui::SetTooltip("%s / (%d,%d,%d)\n%s\n%s", c.Layer.c_str(), c.Coordinate.x, c.Coordinate.y, c.Coordinate.z, c.ScenePath.c_str(), WorldStreaming::StageName(stage));
+                    const bool held = i < cells.size() && cells[i].Held;
+                    ImGui::SetTooltip("%s / (%d,%d,%d)\n%s\n%s%s", c.Layer.c_str(), c.Coordinate.x, c.Coordinate.y, c.Coordinate.z, c.ScenePath.c_str(), WorldStreaming::StageName(stage),
+                                      held ? Tr("\nRezidentlik limiti ushlab turibdi") : "");
                     if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) s.Selected = int(i);
                 }
             }
@@ -497,6 +534,21 @@ namespace Zamin {
                 if (s.Policy.NavigationLinks.size() < 4096 && ImGui::Button("Add traversal link"))
                     s.Policy.NavigationLinks.push_back({ uint64_t(UUID()), s.RouteFrom, s.RouteTo, 1, true, true });
                 ImGui::TextWrapped("Only loaded, walkable endpoints activate links. Gameplay must complete traversal explicitly.");
+                ImGui::TreePop();
+            }
+            ImGui::Checkbox(Tr("Limitdan oshganda uzoq kataklarni chiqarish"), &s.Policy.EvictOnPressure);
+            ImGui::InputScalar(Tr("Chiqarilgan katak kutadigan kadrlar"), ImGuiDataType_U32, &s.Policy.PressureCooldownFrames);
+            if (ImGui::TreeNode(Tr("Asset byudjeti (texture / model)")))
+            {
+                ImGui::Checkbox(Tr("Assetlarni fonda tayyorlash va byudjet bilan yuklash"), &s.Policy.AssetStreaming);
+                ImGui::InputScalar(Tr("Kadrdagi yuklashlar soni"), ImGuiDataType_U32, &s.Policy.MaxAssetUploadsPerFrame);
+                ImGui::InputScalar(Tr("Kadrdagi yuklash baytlari"), ImGuiDataType_U64, &s.Policy.MaxAssetUploadBytesPerFrame);
+                ImGui::InputScalar(Tr("Kadrda bo'shatiladigan GPU baytlari"), ImGuiDataType_U64, &s.Policy.MaxAssetReleaseBytesPerFrame);
+                ImGui::InputScalar(Tr("Katakdagi fayllar soni"), ImGuiDataType_U32, &s.Policy.MaxAssetFilesPerCell);
+                ImGui::InputScalar(Tr("Bitta fayl baytlari"), ImGuiDataType_U64, &s.Policy.MaxAssetFileBytes);
+                ImGui::InputScalar(Tr("Katakning tayyorlangan baytlari"), ImGuiDataType_U64, &s.Policy.MaxAssetBytesPerCell);
+                ImGui::InputScalar(Tr("Jami tayyorlangan baytlar"), ImGuiDataType_U64, &s.Policy.MaxStagedAssetBytes);
+                ImGui::TextWrapped("%s", Tr("Byudjetdan oshgan katak fayl nomi bilan xato beradi; yo'q yoki buzilgan fayl xabar qilinadi va katak usiz yuklanadi."));
                 ImGui::TreePop();
             }
             ImGui::InputScalar("Cache entries per kind", ImGuiDataType_U32, &s.Policy.CacheEntriesPerKind);

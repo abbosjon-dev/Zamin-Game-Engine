@@ -346,6 +346,17 @@ if(Python3_Interpreter_FOUND AND TARGET WorldWorkshop3D AND TARGET ZaminEditor A
     set_tests_properties(WorldStreamingRuntime PROPERTIES LABELS "gui;world" TIMEOUT 600)
 endif()
 
+# Streamed cell assets on real Player runs along the repeatable camera tour (Tools/make_world_gallery.py
+# generates the heavy worlds): hard decode / upload budgets and the frame-time gate, residency limits with
+# fast camera / return / damaged cells, and the committed WorldGallery3D demo with export.
+if(Python3_Interpreter_FOUND AND TARGET ZaminEditor AND TARGET ZaminPlayer)
+    foreach(stage budget residency demo)
+        add_test(NAME WorldAssetStreaming_${stage} COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/Tests/world_asset_streaming_test.py
+            --build ${CMAKE_BINARY_DIR} --out ${CMAKE_BINARY_DIR}/WorldAssetStreaming/${stage} --stage ${stage})
+        set_tests_properties(WorldAssetStreaming_${stage} PROPERTIES LABELS "gui;world;slow" TIMEOUT 1800 RUN_SERIAL TRUE)
+    endforeach()
+endif()
+
 # GL ownership / allocation accounting for residency eviction; the unit planner tests stay headless.
 add_executable(ZaminResidencyGPUTests ResidencyGPUTests.cpp)
 target_link_libraries(ZaminResidencyGPUTests PRIVATE Zamin)

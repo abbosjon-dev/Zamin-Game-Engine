@@ -56,6 +56,7 @@ namespace Zamin {
             uint64_t StagedBytes = 0;  // decoded data charged to the staging budget
             uint32_t Active = 0, Admitted = 0, Building = 0, Failed = 0;
             bool Pressure = false;
+            glm::vec3 Camera{ 0 }; // where the tour put the camera in this frame
         };
         struct Distribution
         {

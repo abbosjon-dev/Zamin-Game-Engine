@@ -1,0 +1,22 @@
+{
+  "Albedo": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "AlbedoMap": "Textures/Monument_7.png",
+  "BlendMode": "Opaque",
+  "Metallic": 0.1,
+  "Offset": [
+    0,
+    0
+  ],
+  "Roughness": 0.55,
+  "Shader": "Lit",
+  "Tiling": [
+    1,
+    1
+  ],
+  "Version": 1
+}

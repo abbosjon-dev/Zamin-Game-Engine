@@ -210,6 +210,7 @@ namespace Zamin {
         {
             WorldTourReport::Sample sample;
             sample.Frame = m_Tick - 1 - m_Tour.Warmup;
+            sample.Camera = glm::vec3(m_Tour.Evaluate(sample.Frame));
             sample.FrameMs = previousFrameMs;
             sample.UploadMs = std::max(0.0, uploadMs - m_UploadMs);
             sample.UploadBytes = uploads.UploadBytes - std::min(uploads.UploadBytes, m_UploadBytes);
@@ -261,13 +262,14 @@ namespace Zamin {
             const auto stats = world->GetStats();
             const auto& p = world->GetPolicy();
             j["Policy"] = { { "AssetStreaming", p.AssetStreaming }, { "MainThreadMilliseconds", p.MainThreadMilliseconds }, { "MaxResidentCells", p.MaxResidentCells },
-                            { "MaxAssetUploadsPerFrame", p.MaxAssetUploadsPerFrame }, { "MaxAssetUploadBytesPerFrame", p.MaxAssetUploadBytesPerFrame },
+                            { "MaxAssetUploadsPerFrame", p.MaxAssetUploadsPerFrame }, { "MaxAssetUploadBytesPerFrame", p.MaxAssetUploadBytesPerFrame }, { "MaxAssetReleaseBytesPerFrame", p.MaxAssetReleaseBytesPerFrame },
                             { "MaxAssetFileBytes", p.MaxAssetFileBytes }, { "MaxAssetBytesPerCell", p.MaxAssetBytesPerCell }, { "MaxStagedAssetBytes", p.MaxStagedAssetBytes },
                             { "ObservedRSSLimitBytes", p.ObservedRSSLimitBytes }, { "RequestedGPULimitBytes", p.RequestedGPULimitBytes },
                             { "EvictOnPressure", p.EvictOnPressure }, { "CacheEntriesPerKind", p.CacheEntriesPerKind } };
             j["World"] = { { "Cells", world->GetManifest().Cells.size() }, { "Activations", stats.Activations }, { "Unloads", stats.Unloads }, { "Failed", stats.Failed },
                            { "CacheEvictions", stats.CacheEvictions }, { "PressureFrames", stats.PressureFrames }, { "PressureEvictions", stats.PressureEvictions },
-                           { "ResidencyBlocked", stats.ResidencyBlocked }, { "PeakWorldMs", stats.PeakMilliseconds },
+                           { "ResidencyBlocked", stats.ResidencyBlocked }, { "ResidencyRefusals", stats.ResidencyRefusals }, { "MemoryReleases", stats.MemoryReleases },
+                           { "PeakMemoryReleaseMs", stats.PeakMemoryReleaseMilliseconds }, { "PeakWorldMs", stats.PeakMilliseconds },
                            { "MainThreadImageDecodes", stats.MainThreadImageDecodes }, { "MainThreadModelParses", stats.MainThreadModelParses },
                            { "AssetCancellations", stats.AssetCancellations }, { "AssetRestages", stats.AssetRestages },
                            { "FilesStaged", stats.Assets.FilesStaged }, { "FilesUnreadable", stats.Assets.FilesUnreadable }, { "StagedBytes", stats.Assets.StagedBytes },
@@ -275,11 +277,11 @@ namespace Zamin {
                            { "StagingWorkerMs", stats.Assets.WorkerMilliseconds }, { "UploadBytes", stats.Uploads.UploadBytes }, { "Uploads", stats.Uploads.Uploads },
                            { "OversizeUploads", stats.Uploads.OversizeUploads }, { "UploadBudgetDeferrals", stats.Uploads.BudgetDeferrals } };
         }
-        j["Columns"] = { "Frame", "FrameMs", "WorldMs", "UploadMs", "UploadBytes", "UploadCalls", "RSSBytes", "RequestedGPUBytes", "StagedBytes", "Active", "Admitted", "Building", "Failed", "Pressure" };
+        j["Columns"] = { "Frame", "FrameMs", "WorldMs", "UploadMs", "UploadBytes", "UploadCalls", "RSSBytes", "RequestedGPUBytes", "StagedBytes", "Active", "Admitted", "Building", "Failed", "Pressure", "CameraX", "CameraY", "CameraZ" };
         json rows = json::array();
         auto round = [](double value) { return std::round(value * 1000.0) / 1000.0; };
         for (const auto& s : m_Report.GetSamples())
-            rows.push_back({ s.Frame, round(s.FrameMs), round(s.WorldMs), round(s.UploadMs), s.UploadBytes, s.UploadCalls, s.RSS, s.GPU, s.StagedBytes, s.Active, s.Admitted, s.Building, s.Failed, s.Pressure ? 1 : 0 });
+            rows.push_back({ s.Frame, round(s.FrameMs), round(s.WorldMs), round(s.UploadMs), s.UploadBytes, s.UploadCalls, s.RSS, s.GPU, s.StagedBytes, s.Active, s.Admitted, s.Building, s.Failed, s.Pressure ? 1 : 0, s.Camera.x, s.Camera.y, s.Camera.z });
         j["Samples"] = std::move(rows);
         if (!FileSystem::WriteTextFileAtomic(file, j.dump(1)))
         {

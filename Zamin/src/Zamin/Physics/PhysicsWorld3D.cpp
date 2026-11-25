@@ -253,7 +253,7 @@ namespace Zamin {
             if (result.HasError())
             {
                 // Remembered as well: the bodies made from it later do not log it again.
-                ZM_CORE_ERROR("Mesh collider qurilmadi: {}", result.GetError().c_str());
+                ZM_CORE_ERROR("Mesh collider could not be built: {}", result.GetError().c_str());
                 cache.Entries[mesh.get()] = { mesh, nullptr };
                 return nullptr;
             }
@@ -970,7 +970,7 @@ namespace Zamin {
                         JPH::ShapeSettings::ShapeResult result = settings.Create();
                         if (result.HasError())
                         {
-                            ZM_CORE_ERROR("Jolt konveks qobiq xatosi: {}", result.GetError().c_str());
+                            ZM_CORE_ERROR("Jolt convex hull error: {}", result.GetError().c_str());
                             return nullptr;
                         }
                         it = m_Impl->HullShapes.emplace(std::make_pair(s.Hull.get(), light), Impl::HullShape{ s.Hull, result.Get() }).first;
@@ -1038,7 +1038,7 @@ namespace Zamin {
             auto result = compound.Create();
             if (result.HasError())
             {
-                ZM_CORE_ERROR("Jolt compound shape xatosi: {}", result.GetError().c_str());
+                ZM_CORE_ERROR("Jolt compound shape error: {}", result.GetError().c_str());
                 return 0xffffffff;
             }
             shape = result.Get();
@@ -1091,7 +1091,7 @@ namespace Zamin {
         JPH::Body* body = bi.CreateBody(settings);
         if (!body)
         {
-            ZM_CORE_ERROR("3D fizik jism yaratilmadi (limit?)");
+            ZM_CORE_ERROR("The 3D physics body was not created (limit?)");
             return 0xffffffff;
         }
         JPH::BodyID id = body->GetID();

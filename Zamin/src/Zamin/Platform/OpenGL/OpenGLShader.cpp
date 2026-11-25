@@ -30,7 +30,7 @@ namespace Zamin {
         ShaderCache::SetDriver(info.Valid ? info.Vendor + "|" + info.Renderer + "|" + info.Version
                                           : text(GL_VENDOR) + "|" + text(GL_RENDERER) + "|" + text(GL_VERSION));
         if (formats <= 0)
-            ZM_CORE_INFO("Shader keshi: drayver program binary formatini bermaydi - shader'lar har safar kompilyatsiya qilinadi");
+            ZM_CORE_INFO("Shader cache: the driver gives no program binary format - shaders are compiled every time");
     }
 
     class OpenGLShader : public Shader
@@ -126,7 +126,7 @@ namespace Zamin {
                 glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &len);
                 std::vector<char> log(len + 1);
                 glGetShaderInfoLog(shader, len, &len, log.data());
-                ZM_CORE_ERROR("Shader '{}' ({}) kompilyatsiya xatosi:\n{}", shaderName,
+                ZM_CORE_ERROR("Shader '{}' ({}) compile error:\n{}", shaderName,
                               type == GL_VERTEX_SHADER ? "vertex" : "fragment", log.data());
                 glDeleteShader(shader);
                 return 0;
@@ -152,7 +152,7 @@ namespace Zamin {
                 glDeleteProgram(program);
                 ShaderCache::Remove(key);
                 ShaderCache::RecordRejected();
-                ZM_CORE_WARN("Shader '{}': saqlangan binary drayverga to'g'ri kelmadi - qayta kompilyatsiya qilinadi", m_Name);
+                ZM_CORE_WARN("Shader '{}': the saved binary does not fit the driver - it is recompiled", m_Name);
                 return false;
             }
             m_RendererID = program;
@@ -201,7 +201,7 @@ namespace Zamin {
                 glGetProgramiv(program, GL_INFO_LOG_LENGTH, &len);
                 std::vector<char> log(len + 1);
                 glGetProgramInfoLog(program, len, &len, log.data());
-                ZM_CORE_ERROR("Shader '{}' link xatosi:\n{}", m_Name, log.data());
+                ZM_CORE_ERROR("Shader '{}' link error:\n{}", m_Name, log.data());
                 glDeleteProgram(program);
                 program = 0;
             }

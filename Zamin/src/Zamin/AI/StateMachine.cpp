@@ -322,7 +322,7 @@ namespace Zamin {
     std::string StateMachine::Describe() const
     {
         if (m_Current < 0)
-            return "(to'xtagan)";
+            return "(stopped)";
         return std::format("{} ({:.1f} s)", m_States[(size_t)m_Current].Name, m_TimeInState);
     }
 

@@ -327,7 +327,7 @@ namespace Zamin {
             std::string path = GetActivePath();
             if (path != m_LastPath)
             {
-                ZM_INFO("AI daraxti '{}': {}", Name.empty() ? "AI" : Name, path);
+                ZM_INFO("AI tree '{}': {}", Name.empty() ? "AI" : Name, path);
                 m_LastPath = std::move(path);
             }
         }
@@ -407,7 +407,7 @@ namespace Zamin {
     std::string BehaviorTree::Describe() const
     {
         if (!m_Root || m_Root->GetStatus() == BTStatus::Invalid)
-            return "(to'xtagan)";
+            return "(stopped)";
         std::string path = GetActivePath();
         // The root and its first level say little: the last two nodes of the branch.
         size_t cut = std::string::npos;
@@ -437,7 +437,7 @@ namespace Zamin {
         {
             if (m_Root)
             {
-                Error(std::format("'{}' uchun joy yo'q: daraxtning ildizi bitta (ortiqcha End() yoki ikkinchi ildiz)", node->GetName()));
+                Error(std::format("No place for '{}': the tree has one root (an extra End() or a second root)", node->GetName()));
                 return false;
             }
             m_Root = std::move(node);
@@ -453,7 +453,7 @@ namespace Zamin {
         }
         else
         {
-            Error(std::format("'{}' bolasi bo'lolmaydi", parent->GetName()));
+            Error(std::format("'{}' cannot have a child", parent->GetName()));
             return false;
         }
         return true;
@@ -487,12 +487,12 @@ namespace Zamin {
         // Decorators still waiting for their child cannot be the thing closed: an error each.
         while (!m_Open.empty() && dynamic_cast<BTDecorator*>(m_Open.back()))
         {
-            Error(std::format("'{}' dekoratori bolasiz yopildi", m_Open.back()->GetName()));
+            Error(std::format("The decorator '{}' was closed without a child", m_Open.back()->GetName()));
             m_Open.pop_back();
         }
         if (m_Open.empty())
         {
-            Error("End() ortiqcha: ochiq tugun yo'q");
+            Error("Extra End(): no open node");
             return *this;
         }
         m_Open.pop_back();
@@ -503,7 +503,7 @@ namespace Zamin {
     {
         for (BTNode* open : m_Open)
             if (auto* decorator = dynamic_cast<BTDecorator*>(open); decorator && decorator->GetChildCount() == 0)
-                Error(std::format("'{}' dekoratorining bolasi yo'q", open->GetName()));
+                Error(std::format("The decorator '{}' has no child", open->GetName()));
         m_Open.clear();
         return std::move(m_Root);
     }

@@ -135,7 +135,7 @@ namespace Zamin {
         // copies (alpha + RGBA, several MB) are let go (task 496). A new font size bakes them again above.
         if (ImFontAtlas* atlas = ImGui::GetIO().Fonts; atlas->TexPixelsAlpha8 || atlas->TexPixelsRGBA32)
         {
-            ZM_CORE_INFO("Editor shrift atlasi: {}x{} ({} ta shrift); CPU nusxasi bo'shatildi", atlas->TexWidth, atlas->TexHeight, atlas->Fonts.Size);
+            ZM_CORE_INFO("Editor font atlas: {}x{} ({} fonts); the CPU copy was freed", atlas->TexWidth, atlas->TexHeight, atlas->Fonts.Size);
             atlas->ClearTexData();
         }
         ImGui_ImplGlfw_NewFrame();

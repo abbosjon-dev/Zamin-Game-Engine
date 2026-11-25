@@ -69,7 +69,7 @@ namespace Zamin {
             if (!s.WarnedFull)
             {
                 s.WarnedFull = true;
-                ZM_CORE_WARN("DebugDraw navbati to'ldi: yangi shakllar tashlab yuboriladi (uzoq davomiylikdagi chizishlar juda ko'p?)");
+                ZM_CORE_WARN("The DebugDraw queue is full: new shapes are dropped (too many long-lived drawings?)");
             }
             return false;
         }
@@ -722,19 +722,19 @@ namespace Zamin {
             glm::vec3 up = glm::length(normal) > 1e-4f ? glm::normalize(normal) : glm::vec3(0.0f, 1.0f, 0.0f);
             if (up.y < -0.2f)
                 up = -up;
-            std::string text = depth >= 0.0f ? std::format("chuqurlik {:.1f} mm", depth * 1000.0f)
-                                             : std::format("oraliq {:.1f} mm", -depth * 1000.0f);
+            std::string text = depth >= 0.0f ? std::format("depth {:.1f} mm", depth * 1000.0f)
+                                             : std::format("gap {:.1f} mm", -depth * 1000.0f);
             // A 3D impact (a body put down gently "hits" at one step of gravity: not worth a line);
             // 2D contacts carry Box2D's impulse without a speed.
             const bool impact = speed >= LabelImpactSpeed;
             if (impact)
-                text += std::format("\nzarba {:.2f} m/s", speed);
+                text += std::format("\nimpact {:.2f} m/s", speed);
             if (impulse > 1e-5f && (impact || speed <= 0.0f))
-                text += "\nimpuls " + FormatAmount(impulse, "N*s");
+                text += "\nimpulse " + FormatAmount(impulse, "N*s");
             if (first.Character)
-                text += "\npersonaj";
+                text += "\ncharacter";
             else if (sleeping)
-                text += "\nuxlayapti";
+                text += "\nasleep";
             const glm::vec4 color = sleeping ? glm::vec4(0.7f, 0.75f, 0.85f, 0.6f) : glm::vec4(1.0f, 0.95f, 0.8f, 1.0f);
             // Pairs touching in about the same place (a ball on a plank on the floor): their labels
             // are stacked instead of written over each other.
@@ -1101,7 +1101,7 @@ void main()
             g.TextShader = Shader::Create("DebugDrawText", s_TextVS, std::string(s_TextFSHead) + s_DepthTestGLSL + s_TextFSMain);
             if (!g.ShapeShader || !g.ShapeShader->IsValid() || !g.TextShader || !g.TextShader->IsValid())
             {
-                ZM_CORE_ERROR("DebugDraw shaderlari kompilyatsiya qilinmadi: debug chizish ko'rinmaydi");
+                ZM_CORE_ERROR("The DebugDraw shaders did not compile: debug drawing is not shown");
                 g.Failed = true;
                 return false;
             }

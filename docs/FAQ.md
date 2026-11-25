@@ -82,24 +82,24 @@ configure'da o'zi yuklab olinadi. Buyruqlar va variantlar - [BuildAndExport.md](
 
 ### Editor ishga tushmaydi: displey yoki OpenGL xatosi
 
-> `GLFW ishga tushmadi! Displey (X11/Wayland) mavjudligini tekshiring.`
+> `GLFW failed to start! Check that a display (X11/Wayland) is available.`
 
 Grafik sessiya yo'q (SSH, server, konteyner). Displeysiz ishlatish uchun `xvfb-run -a ./build/bin/ZaminEditor ...`
 (dasturiy chizish - sekin, lekin ishlaydi; testlar shunday).
 
-> `Oyna yaratilmadi (OpenGL <versiya> core qo'llab-quvvatlanadimi?)`
+> `Could not create the window (is OpenGL <versiya> core supported?)`
 
 Drayver so'ralgan OpenGL versiyasini bermadi. Dvigatelga 4.1 core kerak: `glxinfo | grep "OpenGL core"` bilan
 tekshiring, drayverni yangilang. Loyihada yuqoriroq versiya tanlangan bo'lsa, avval o'zi pastroq bilan qayta urinadi:
 
-> `OpenGL <v> core konteksti (MSAA <n>, sRGB <ha/yo'q>) yaratilmadi - OpenGL <v> (MSAA <n>, sRGB <ha/yo'q>) bilan qayta urinish`
+> `Could not create an OpenGL <v> core context (MSAA <n>, sRGB <yes/no>) - retrying with OpenGL <v> (MSAA <n>, sRGB <yes/no>)`
 
 Player'da kontekstni buyruq qatoridan ham berish mumkin: `--gl 4.1`, `--msaa 0`, `--no-srgb`
 ([Runtime.md, 4](Runtime.md#4-buyruq-qatori)).
 
 ### Fayl ochish / saqlash oynasi chiqmaydi
 
-> `Fayl dialogi uchun 'zenity' yoki 'kdialog' o'rnating`
+> `Install 'zenity' or 'kdialog' for the file dialog`
 
 Editor tizimning dialoglarini ishlatadi: `sudo apt install zenity` (yoki KDE'da `kdialog`).
 
@@ -304,7 +304,7 @@ Ko'proq: [Rendering.md, 18](Rendering.md#18-kop-uchraydigan-muammolar).
 
 ### Shader xatosi
 
-> `Shader '<nom>' (<tur>) kompilyatsiya xatosi:`
+> `Shader '<nom>' (<tur>) compile error:`
 
 Drayver dvigatel shaderini kompilyatsiya qila olmadi (keyingi qatorlarda drayverning o'z xabari): odatda OpenGL 4.1
 ni to'liq qo'llamaydigan eski yoki dasturiy drayver. Drayverni yangilang; xabarni GL renderer nomi bilan
@@ -326,7 +326,7 @@ GPU yo'q - u yerdagi FPS haqiqiy emas.
 
 ### Ovoz eshitilmayapti
 
-> `Audio qurilmasi topilmadi - ovoz o'chirilgan`
+> `No audio device found - sound is off`
 
 Tizimda ovoz qurilmasi yo'q (yoki band): o'yin ishlaydi, faqat jim. Qurilma bo'lsa: Audio Mixer'da guruh
 o'chirilmaganmi (mute / solo), Audio Source'ning **Volume** i va 3D ovozda tinglovchigacha masofa
@@ -338,12 +338,12 @@ Bu build'da OGG dekoderi yo'q: WAV, MP3 yoki FLAC ishlating ([Audio.md, 14](Audi
 
 ### Ba'zi ovozlar chiqmay qoldi
 
-> `Ovozlar limiti (<N>) to'ldi: yangi ovozlar ijro etilmayapti (Audio Mixer > Sozlamalar)`
+> `The voice limit (<N>) is full: new sounds are not played (Audio Mixer > Settings)`
 
 Bir vaqtda juda ko'p ovoz: limitni oshiring yoki ovozlarga ustuvorlik bering
 ([Audio.md, 10](Audio.md#10-ovozlar-limiti-va-tasodifiy-variatsiya)).
 
-> `Noma'lum audio guruhi '<nom>' - ovoz SFX guruhida ijro etiladi`
+> `Unknown audio group '<nom>' - the sound plays in the SFX group`
 
 Audio Source yoki kod mixerda yo'q guruhni ko'rsatyapti - guruhni Audio Mixer'da yarating yoki nomini tuzating.
 
@@ -389,7 +389,7 @@ Tushunilmagan qiymat log'ga yoziladi va o'yin standart qiymat bilan davom etadi,
 
 > `--scene <qiymat>: build ro'yxatida bunday indeks yo'q (<N> ta sahna bor)`
 
-> `Monitor <N> yo'q (<M> ta monitor bor) - asosiy monitor ishlatiladi`
+> `No monitor <N> (<M> monitors found) - the primary monitor is used`
 
 Hamma variantlar: `ZaminPlayer --help` va [Runtime.md, 4](Runtime.md#4-buyruq-qatori).
 

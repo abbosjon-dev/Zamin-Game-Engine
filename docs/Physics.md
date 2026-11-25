@@ -91,7 +91,7 @@ ketmaydi). Natija kadr tezligiga bog'liq emas.
 |---|---|---|
 | Qadam chastotasi (`PhysicsStep.StepRate`, 20 ... 240 Hz) | Loyiha sozlamalari > **Vaqt** (`FixedStepRate`); sahna o'zinikini *Sahna sozlamalari > Fizika* da qo'yishi mumkin | 60 |
 | Kadrda ko'pi bilan qadam (`MaxStepsPerFrame`, 1 ... 20) | shu yerda | 5 |
-| Gravitatsiya 2D / 3D | Loyiha sozlamalari > **Fizika** (presetlar: Yer, Oy, Mars, Yupiter, Platformer, Vaznsizlik); sahnada — **Loyihadan** belgisini o'chirib | (0, -9.8) / (0, -9.81, 0) |
+| Gravitatsiya 2D / 3D | Loyiha sozlamalari > **Fizika** (presetlar: Earth, Moon, Mars, Jupiter, Platformer, Zero gravity); sahnada — **Loyihadan** belgisini o'chirib | (0, -9.8) / (0, -9.81, 0) |
 
 Sahna sozlamalari (**Oyna > Sahna sozlamalari**, *Fizika* bo'limi) — `SceneSettings` ning `Gravity`, `Gravity3D`,
 `PhysicsStep`, `Physics2D`, `Physics3D` qiymatlari, sahna fayliga yoziladi:

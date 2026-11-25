@@ -20,8 +20,8 @@ namespace Zamin {
     const PhysicsDefaults::Preset* PhysicsDefaults::GetPresets(int& count)
     {
         static const Preset s_Presets[] = {
-            { "Yer (9.81)", 9.81f }, { "Oy (1.62)", 1.62f }, { "Mars (3.71)", 3.71f }, { "Yupiter (24.79)", 24.79f },
-            { "Platformer (20)", 20.0f }, { "Vaznsizlik (0)", 0.0f },
+            { "Earth (9.81)", 9.81f }, { "Moon (1.62)", 1.62f }, { "Mars (3.71)", 3.71f }, { "Jupiter (24.79)", 24.79f },
+            { "Platformer (20)", 20.0f }, { "Zero gravity (0)", 0.0f },
         };
         count = (int)(sizeof(s_Presets) / sizeof(s_Presets[0]));
         return s_Presets;

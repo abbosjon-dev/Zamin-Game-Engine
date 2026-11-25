@@ -26,7 +26,7 @@ namespace Zamin {
             first = s_Reported.emplace(file ? file : "?", line).second;
         }
         if (first)
-            ZM_CORE_ERROR("ImGui tekshiruvi bajarilmadi (IM_ASSERT): {} - {}:{}", expression ? expression : "?", file ? file : "?", line);
+            ZM_CORE_ERROR("ImGui check failed (IM_ASSERT): {} - {}:{}", expression ? expression : "?", file ? file : "?", line);
 #ifndef NDEBUG
         // A Debug build stops here, as assert() did (the crash handler writes its report).
         std::abort();

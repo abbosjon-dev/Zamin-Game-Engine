@@ -515,9 +515,9 @@ namespace Zamin::Gameplay {
             {
                 const size_t flying = combat->LiveCount(), effects = combat->EffectCount();
                 combat->CommitRestore(staged);
-                if (save.Version >= 4) ZM_CORE_INFO("Jang holati tiklandi: {} effekt, {} snaryad", combat->EffectCount(), combat->LiveCount());
+                if (save.Version >= 4) ZM_CORE_INFO("Combat state restored: {} effects, {} projectiles", combat->EffectCount(), combat->LiveCount());
                 else if (flying || effects != combat->EffectCount())
-                    ZM_CORE_INFO("Eski save v{} yuklandi: {} ta uchayotgan snaryad bekor qilindi, {} ta effekt olib tashlandi", save.Version, flying, effects - combat->EffectCount());
+                    ZM_CORE_INFO("Old save v{} loaded: {} projectiles in flight cancelled, {} effects removed", save.Version, flying, effects - combat->EffectCount());
             }
             for (auto& [e, s] : apply) StopAndSync(*m_Scene, e);
             for (auto handle : m_Scene->GetRegistry().view<NativeScriptComponent>())

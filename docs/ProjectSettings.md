@@ -411,7 +411,7 @@ so'nishi, menyu animatsiyasi) - `SetTimersUnscaled(true)`.
 `"Physics"` bo'limi: `Gravity2D` (standart `[0, -9.8]`) va `Gravity3D` (standart `[0, -9.81, 0]`). Bu qiymatni
 o'z gravitatsiyasini bermagan hamma sahnalar oladi: yangi sahnalar va dvigatel standartini saqlagan eski
 sahnalar (sahna formati v4 da ular "Loyihadan" ga o'tkazilgan). Sahna *Sahna sozlamalari > Fizika* da o'zinikini
-qo'ya oladi. Presetlar: Yer (9.81), Oy (1.62), Mars (3.71), Yupiter (24.79), Platformer (20), Vaznsizlik (0).
+qo'ya oladi. Presetlar: Earth (9.81), Moon (1.62), Mars (3.71), Jupiter (24.79), Platformer (20), Zero gravity (0).
 Har komponent eng ko'pi +-1000 m/s².
 
 ### To'qnashuv qatlamlari

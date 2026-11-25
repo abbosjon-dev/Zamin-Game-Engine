@@ -83,7 +83,7 @@ namespace Zamin {
         AudioPlayerSettings settings;
         if (!AudioPlayerSettings::FromJson(SaveData::GetString(SettingsKey), settings))
         {
-            ZM_CORE_WARN("Saqlangan ovoz sozlamalari o'qilmadi ('{}' kaliti) - loyiha standarti ishlatiladi", SettingsKey);
+            ZM_CORE_WARN("The saved audio settings could not be read (key '{}') - the project default is used", SettingsKey);
             return false;
         }
         AudioSettings mixer = AudioEngine::GetMixerSettings();

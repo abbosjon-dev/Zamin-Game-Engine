@@ -24,7 +24,7 @@ namespace Zamin {
             ZM_CORE_WARN("GLFW ({}): {}", error, description);
             return;
         }
-        ZM_CORE_ERROR("GLFW xatosi ({}): {}", error, description);
+        ZM_CORE_ERROR("GLFW error ({}): {}", error, description);
     }
 
     Scope<Window> Window::Create(const WindowProps& props) { return CreateScope<GlfwWindow>(props); }
@@ -48,10 +48,10 @@ namespace Zamin {
         if (s_GLFWWindowCount == 0)
         {
             int ok = glfwInit();
-            ZM_CORE_ASSERT(ok, "GLFW ishga tushmadi");
+            ZM_CORE_ASSERT(ok, "GLFW failed to start");
             if (!ok)
             {
-                ZM_CORE_CRITICAL("GLFW ishga tushmadi! Displey (X11/Wayland) mavjudligini tekshiring.");
+                ZM_CORE_CRITICAL("GLFW failed to start! Check that a display (X11/Wayland) is available.");
                 std::exit(1);
             }
             glfwSetErrorCallback(GLFWErrorCallback);
@@ -90,7 +90,7 @@ namespace Zamin {
             if (props.Monitor < monitorCount)
                 target = monitors[props.Monitor];
             else
-                ZM_CORE_WARN("Monitor {} yo'q ({} ta monitor bor) - asosiy monitor ishlatiladi", props.Monitor, monitorCount);
+                ZM_CORE_WARN("No monitor {} ({} monitors found) - the primary monitor is used", props.Monitor, monitorCount);
         }
         if (monitorCount > 1)
         {
@@ -100,9 +100,9 @@ namespace Zamin {
                 const GLFWvidmode* m = glfwGetVideoMode(monitors[i]);
                 const char* name = glfwGetMonitorName(monitors[i]);
                 list += std::format("{}{}: {} {}x{}@{}{}", i ? ", " : "", i, name ? name : "?", m ? m->width : 0, m ? m->height : 0,
-                                    m ? m->refreshRate : 0, monitors[i] == glfwGetPrimaryMonitor() ? " (asosiy)" : "");
+                                    m ? m->refreshRate : 0, monitors[i] == glfwGetPrimaryMonitor() ? " (primary)" : "");
             }
-            ZM_CORE_INFO("Monitorlar: {}", list);
+            ZM_CORE_INFO("Monitors: {}", list);
         }
 
         // The windowed size fits the monitor (a size saved on a larger one, or chosen in the editor's Play): never
@@ -113,7 +113,7 @@ namespace Zamin {
             const ScreenResolution fitted = FitResolution(asked, { (uint32_t)screen->width, (uint32_t)screen->height });
             if (fitted != asked)
             {
-                ZM_CORE_WARN("Oyna o'lchami {}x{} monitordan ({}x{}) katta - {}x{} qilindi", asked.Width, asked.Height, screen->width, screen->height,
+                ZM_CORE_WARN("The window size {}x{} is larger than the monitor ({}x{}) - set to {}x{}", asked.Width, asked.Height, screen->width, screen->height,
                              fitted.Width, fitted.Height);
                 m_WindowedWidth = (int)fitted.Width;
                 m_WindowedHeight = (int)fitted.Height;
@@ -129,7 +129,7 @@ namespace Zamin {
         const GLFWvidmode* video = props.Mode != WindowMode::Windowed && target ? glfwGetVideoMode(target) : nullptr;
         WindowMode mode = video ? props.Mode : WindowMode::Windowed;
         if (props.Mode != WindowMode::Windowed && !video)
-            ZM_CORE_WARN("To'liq ekran: monitor topilmadi - oynali rejim");
+            ZM_CORE_WARN("Fullscreen: no monitor found - windowed mode");
         if (video)
         {
             const bool ownMode = mode == WindowMode::Fullscreen && m_FullscreenWidth > 0 && m_FullscreenHeight > 0;
@@ -161,9 +161,9 @@ namespace Zamin {
         {
             if (i > 0)
             {
-                ZM_CORE_WARN("OpenGL {} core konteksti (MSAA {}, sRGB {}) yaratilmadi - OpenGL {} (MSAA {}, sRGB {}) bilan qayta urinish",
-                             attempts[i - 1].GetVersionString(), attempts[i - 1].MSAASamples, attempts[i - 1].SRGBFramebuffer ? "ha" : "yo'q",
-                             attempts[i].GetVersionString(), attempts[i].MSAASamples, attempts[i].SRGBFramebuffer ? "ha" : "yo'q");
+                ZM_CORE_WARN("Could not create an OpenGL {} core context (MSAA {}, sRGB {}) - retrying with OpenGL {} (MSAA {}, sRGB {})",
+                             attempts[i - 1].GetVersionString(), attempts[i - 1].MSAASamples, attempts[i - 1].SRGBFramebuffer ? "yes" : "no",
+                             attempts[i].GetVersionString(), attempts[i].MSAASamples, attempts[i].SRGBFramebuffer ? "yes" : "no");
                 glfwDefaultWindowHints();
                 setHints(attempts[i]);
                 if (mode == WindowMode::Borderless)
@@ -182,7 +182,7 @@ namespace Zamin {
         glfwDefaultWindowHints();
         if (!m_Window)
         {
-            ZM_CORE_CRITICAL("Oyna yaratilmadi (OpenGL {} core qo'llab-quvvatlanadimi?)", graphics.GetVersionString());
+            ZM_CORE_CRITICAL("Could not create the window (is OpenGL {} core supported?)", graphics.GetVersionString());
             std::exit(1);
         }
         ++s_GLFWWindowCount;
@@ -206,8 +206,8 @@ namespace Zamin {
         }
         else if (canPlace && mode == WindowMode::Windowed && !props.Maximized && target)
             glfwSetWindowPos(m_Window, m_WindowedX, m_WindowedY);
-        ZM_CORE_INFO("Oyna yaratildi: {} ({}x{}, {})", m_Data.Title, m_Data.Width, m_Data.Height,
-                     mode == WindowMode::Fullscreen ? "to'liq ekran" : mode == WindowMode::Borderless ? "chegarasiz to'liq ekran" : "oynali");
+        ZM_CORE_INFO("Window created: {} ({}x{}, {})", m_Data.Title, m_Data.Width, m_Data.Height,
+                     mode == WindowMode::Fullscreen ? "fullscreen" : mode == WindowMode::Borderless ? "borderless fullscreen" : "windowed");
 
         int w, h;
         glfwGetWindowSize(m_Window, &w, &h);
@@ -421,7 +421,7 @@ namespace Zamin {
         const GLFWvidmode* video = monitor ? glfwGetVideoMode(monitor) : nullptr;
         if (mode != WindowMode::Windowed && !video)
         {
-            ZM_CORE_WARN("To'liq ekran: monitor topilmadi");
+            ZM_CORE_WARN("Fullscreen: no monitor found");
             return;
         }
         // Leaving the window: where it was, to come back to (a size asked for that the window manager has not
@@ -464,7 +464,7 @@ namespace Zamin {
         if (mode != WindowMode::Windowed)
             m_FullscreenMode = mode;
         SetVSync(m_Data.VSync); // some drivers forget the swap interval with the mode
-        ZM_CORE_INFO("Oyna: {}", mode == WindowMode::Fullscreen ? "to'liq ekran" : mode == WindowMode::Borderless ? "chegarasiz to'liq ekran" : "oynali rejim");
+        ZM_CORE_INFO("Window: {}", mode == WindowMode::Fullscreen ? "fullscreen" : mode == WindowMode::Borderless ? "borderless fullscreen" : "windowed mode");
     }
 
     void GlfwWindow::SetResizable(bool resizable)

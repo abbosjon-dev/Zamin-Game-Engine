@@ -159,27 +159,27 @@ namespace Zamin {
         const uint8_t* data = bytes.data();
         const size_t size = bytes.size();
         if (size < 12 || std::memcmp(data, Magic, 4) != 0)
-            return fail(".znav fayli emas");
+            return fail("not a .znav file");
         size_t offset = 4;
         uint32_t version = 0, count = 0;
         Take(data, size, offset, version);
         Take(data, size, offset, count);
         if (version == 0 || version > Version)
-            return fail("noma'lum versiya (yangiroq engine yozgan)");
+            return fail("unknown version (written by a newer engine)");
         if (count > MaxEntries)
-            return fail("grid'lar soni noto'g'ri");
+            return fail("invalid grid count");
         entries.reserve(count);
         for (uint32_t i = 0; i < count; i++)
         {
             NavBakeEntry e;
             uint8_t dimension = 0;
             if (!Take(data, size, offset, e.Grid) || !Take(data, size, offset, dimension) || !Take(data, size, offset, e.Fingerprint))
-                return fail("fayl kesilgan");
+                return fail("the file is truncated");
             if (dimension != 2 && dimension != 3)
-                return fail("grid o'lchami noto'g'ri");
+                return fail("invalid grid size");
             e.Dimension = dimension;
             if (!Decode(data, size, offset, e.Data))
-                return fail("grid ma'lumotlari buzilgan");
+                return fail("the grid data is broken");
             entries.push_back(std::move(e));
         }
         if (error)
@@ -204,7 +204,7 @@ namespace Zamin {
         if (!FileSystem::WriteBinaryFile(temporary, bytes.data(), bytes.size()))
         {
             if (error)
-                *error = "fayl yozilmadi";
+                *error = "could not write the file";
             return false;
         }
         std::filesystem::rename(temporary, file, ec);
@@ -212,7 +212,7 @@ namespace Zamin {
         {
             std::filesystem::remove(temporary, ec);
             if (error)
-                *error = "fayl almashtirilmadi";
+                *error = "the file was not replaced";
             return false;
         }
         return true;
@@ -229,7 +229,7 @@ namespace Zamin {
         std::string error;
         if (!Read(bytes, entries, &error))
         {
-            ZM_CORE_WARN("Navigatsiya: '{}' o'qilmadi ({}) - grid'lar qayta yaratiladi", file.filename().string(), error);
+            ZM_CORE_WARN("Navigation: '{}' could not be read ({}) - the grids are rebuilt", file.filename().string(), error);
             return false;
         }
         return true;

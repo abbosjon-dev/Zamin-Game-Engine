@@ -12,7 +12,7 @@ def validate(log,phase):
  for marker in ('GL_INVALID_','Assertion failed',"Visual graph '",'Visual graph error','COMBAT_ORACLE_FAILED','COMBAT_IO_FAILED','COMBAT_CONFIG_FAILED','Snaryad vizual prefabi rad etildi','is not a known action'):
   if marker in text:raise RuntimeError(f'{marker}: {log}')
  if MARKERS[phase] not in text:raise RuntimeError(f'Missing combat acceptance: {log}')
- if phase==1 and 'Jang holati tiklandi: 8 effekt, 1 snaryad' not in text:raise RuntimeError(f'Missing combat restore: {log}')
+ if phase==1 and 'Combat state restored: 8 effects, 1 projectiles' not in text:raise RuntimeError(f'Missing combat restore: {log}')
 def check_save(home,phase):
  files=list(home.rglob('gameplay-saves/Combat.json'));assert len(files)==1,files;save=json.loads(files[0].read_text());assert save['Version']==4,save['Version'];payload=save['Payload']
  entities={e['Key']:e for e in payload['Entities']};assert sorted(entities)==['Dummy1','Dummy2','Dummy3','Hidden','Player','Sentry'],sorted(entities)

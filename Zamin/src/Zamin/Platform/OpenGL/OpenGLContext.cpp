@@ -35,7 +35,7 @@ namespace Zamin {
             int status = gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
             if (!status)
             {
-                ZM_CORE_CRITICAL("OpenGL funksiyalari yuklanmadi (glad)");
+                ZM_CORE_CRITICAL("OpenGL functions failed to load (glad)");
                 std::exit(1);
             }
             GraphicsContextInfo info;
@@ -86,18 +86,18 @@ namespace Zamin {
                 while (glGetError() != GL_NO_ERROR) {}
                 info.SRGB = encoding == GL_SRGB;
                 if (!info.SRGB)
-                    ZM_CORE_WARN("sRGB framebuffer so'raldi, lekin oyna buferi sRGB emas - gamma shaderda qo'llanadi");
+                    ZM_CORE_WARN("An sRGB framebuffer was requested, but the window buffer is not sRGB - gamma is applied in the shader");
             }
             s_ContextInfo = info;
 
             ZM_CORE_INFO("OpenGL: {} | {} | {}", info.Vendor, info.Renderer, info.Version);
-            ZM_CORE_INFO("Grafik kontekst: {} (so'ralgan: {}.{}{}{}{})", info.Summary(), info.RequestedMajor, info.RequestedMinor,
+            ZM_CORE_INFO("Graphics context: {} (requested: {}.{}{}{}{})", info.Summary(), info.RequestedMajor, info.RequestedMinor,
                          m_Requested.WantsDebugContext() ? ", debug" : "",
                          info.RequestedSamples > 0 ? std::format(", MSAA {}x", info.RequestedSamples) : std::string(),
                          info.RequestedSRGB ? ", sRGB" : "");
             if (info.RequestedSamples > 0 && info.Samples != info.RequestedSamples)
-                ZM_CORE_WARN("MSAA {}x so'ralgan edi, oyna buferi {}", info.RequestedSamples,
-                             info.Samples > 0 ? std::format("{}x", info.Samples) : std::string("multisample'siz"));
+                ZM_CORE_WARN("MSAA {}x was requested, the window buffer is {}", info.RequestedSamples,
+                             info.Samples > 0 ? std::format("{}x", info.Samples) : std::string("without multisampling"));
         }
 
         void SwapBuffers() override { glfwSwapBuffers(m_Window); }

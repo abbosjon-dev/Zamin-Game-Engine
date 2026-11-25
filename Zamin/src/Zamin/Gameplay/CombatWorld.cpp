@@ -138,7 +138,7 @@ namespace Zamin::Gameplay {
         }
         if (!ValidateVisual(e, error))
         {
-            ZM_CORE_WARN("Snaryad vizual prefabi rad etildi: {} ({})", def.Spec.Prefab, error);
+            ZM_CORE_WARN("Projectile visual prefab rejected: {} ({})", def.Spec.Prefab, error);
             m_Scene->DestroyEntity(e);
             def.VisualsDisabled = true;
             return {};

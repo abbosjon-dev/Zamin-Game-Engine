@@ -41,7 +41,7 @@ namespace Zamin {
         {
             if (width == 0 || height == 0 || width > s_MaxFramebufferSize || height > s_MaxFramebufferSize)
             {
-                ZM_CORE_WARN("Framebuffer o'lchami noto'g'ri: {}x{}", width, height);
+                ZM_CORE_WARN("Invalid framebuffer size: {}x{}", width, height);
                 return;
             }
             m_Specification.Width = width;
@@ -220,7 +220,7 @@ namespace Zamin {
 
             GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
             if (status != GL_FRAMEBUFFER_COMPLETE)
-                ZM_CORE_ERROR("Framebuffer to'liq emas! (status 0x{:X})", status);
+                ZM_CORE_ERROR("The framebuffer is incomplete! (status 0x{:X})", status);
             m_Memory.Set(AttachmentBytes());
 
             glBindFramebuffer(GL_FRAMEBUFFER, 0);

@@ -80,7 +80,7 @@ namespace Zamin {
             return "";
         const auto& slot = Internal::GetInputState().Gamepads[id];
         if (slot.Simulated)
-            return slot.Current.Connected ? "Simulyatsiya" : "";
+            return slot.Current.Connected ? "Simulated" : "";
         if (!Application::Exists())
             return "";
         const char* name = glfwGetGamepadName(GLFW_JOYSTICK_1 + id);

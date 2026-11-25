@@ -309,7 +309,7 @@ namespace Zamin {
             image->Pixels = stbi_load_from_memory((const stbi_uc*)encoded, (int)size, &width, &height, &channels, 4);
             if (!image->Pixels)
             {
-                ZM_CORE_ERROR("Rasm (xotiradan) yuklanmadi: '{}' ({})", name, stbi_failure_reason());
+                ZM_CORE_ERROR("Image (from memory) failed to load: '{}' ({})", name, stbi_failure_reason());
                 return;
             }
             image->Width = (uint32_t)width;
@@ -364,7 +364,7 @@ namespace Zamin {
             auto image = std::make_unique<GLDecodedImage>();
             if (!TakePredecoded(m_Path, *image) && !Decode(m_Path, *image))
             {
-                m_PendingError = image->Error.empty() ? std::string("o'qilmadi") : image->Error;
+                m_PendingError = image->Error.empty() ? std::string("unreadable") : image->Error;
                 return;
             }
             m_PendingImage = std::move(image);
@@ -499,7 +499,7 @@ namespace Zamin {
         {
             if (!m_FromFile)
             {
-                if (error) *error = "fayldan yuklanmagan";
+                if (error) *error = "not loaded from a file";
                 return false;
             }
             bool changed = !(settings == GetImportSettings());
@@ -516,7 +516,7 @@ namespace Zamin {
         {
             if (!m_FromFile)
             {
-                if (error) *error = "fayldan yuklanmagan";
+                if (error) *error = "not loaded from a file";
                 return false;
             }
             if (m_Pending)
@@ -588,7 +588,7 @@ namespace Zamin {
             uint32_t expected = m_Specification.Width * m_Specification.Height * BytesPerPixel(m_Specification.Format);
             if (size != expected)
             {
-                ZM_CORE_ERROR("Texture::SetData: hajm noto'g'ri ({} != {})", size, expected);
+                ZM_CORE_ERROR("Texture::SetData: wrong size ({} != {})", size, expected);
                 return;
             }
             GLenum internalFormat, dataFormat, type;
@@ -1038,7 +1038,7 @@ namespace Zamin {
         }
         if (!AssetImportLog::ShouldRetry(file)) // failed before and did not change: not read again
         {
-            info.Error = "o'qilmadi";
+            info.Error = "unreadable";
             return false;
         }
         // The header first: an image over the budget is refused before any of its pixels are decoded.
@@ -1065,7 +1065,7 @@ namespace Zamin {
         auto image = std::make_unique<GLDecodedImage>();
         if (!Decode(file, *image))
         {
-            info.Error = image->Error.empty() ? std::string("o'qilmadi") : image->Error;
+            info.Error = image->Error.empty() ? std::string("unreadable") : image->Error;
             AssetImportLog::Report(file, info.Error); // once per file version; no thread decodes it again
             return false;
         }

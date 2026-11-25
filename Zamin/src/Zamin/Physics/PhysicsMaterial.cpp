@@ -46,7 +46,7 @@ namespace Zamin {
     }
 
     static constexpr std::array<const char*, 5> s_CombineKeys = { "Default", "Average", "Minimum", "Multiply", "Maximum" };
-    static constexpr std::array<const char*, 5> s_CombineNames = { "Standart (Box2D)", "O'rtacha", "Eng kichigi", "Ko'paytma", "Eng kattasi" };
+    static constexpr std::array<const char*, 5> s_CombineNames = { "Standart (Box2D)", "Average", "Minimum", "Multiply", "Maximum" };
 
     const char* PhysicsMaterial::GetCombineKey(PhysicsCombine mode)
     {
@@ -80,7 +80,7 @@ namespace Zamin {
         if (j.is_discarded() || !j.is_object())
         {
             if (error)
-                *error = "JSON obyekt emas";
+                *error = "not a JSON object";
             return false;
         }
         PhysicsMaterialData d;

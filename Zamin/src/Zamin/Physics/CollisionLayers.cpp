@@ -15,7 +15,7 @@ namespace Zamin {
         if (!IsValid(layer))
             return "?";
         const std::string& name = Names[(size_t)layer];
-        return name.empty() ? std::format("Qatlam {}", layer) : name;
+        return name.empty() ? std::format("Layer {}", layer) : name;
     }
 
     int CollisionLayers2D::Find(std::string_view name) const

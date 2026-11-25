@@ -11921,7 +11921,7 @@ TEST(AudioProfiler)
     if (!AudioEngine::IsAvailable())
     {
         AudioProfile none = AudioEngine::GetProfile();
-        CHECK(!none.Available && none.Voices == 0 && none.Format() == "audio yo'q");
+        CHECK(!none.Available && none.Voices == 0 && none.Format() == "no audio");
     }
     bool wasAvailable = AudioEngine::IsAvailable();
     AudioEngine::Init(true);
@@ -11999,8 +11999,8 @@ TEST(AudioProfiler)
     CHECK(profile.FindGroup("Steps")->Stolen == 1 && profile.FindGroup("Steps")->Voices == 0);
     CHECK(profile.FindGroup("UI")->Rejected == 1 && profile.FindGroup("UI")->Voices == 1 && profile.FindGroup("SFX")->Stolen == 0);
     std::string line = profile.Format();
-    CHECK(line.find("3/3 ovoz") != std::string::npos && line.find("to'xtatilgan 1, rad etilgan 1") != std::string::npos);
-    CHECK(line.find("musiqa 1") != std::string::npos && line.find("UI 1") != std::string::npos);
+    CHECK(line.find("3/3 voices") != std::string::npos && line.find("stopped 1, refused 1") != std::string::npos);
+    CHECK(line.find("music 1") != std::string::npos && line.find("UI 1") != std::string::npos);
     // The totals since Init stay; the profile's counters start again.
     const AudioVoiceStats totals = AudioEngine::GetVoiceStats();
     AudioEngine::ResetProfileCounters();
@@ -21287,7 +21287,7 @@ TEST(PhysicsMaterialAssetOnColliders)
 TEST(CollisionLayers2DMatrixAndFiltering)
 {
     CollisionLayers2D layers;
-    CHECK(layers.IsDefault() && layers.GetName(0) == "Default" && layers.GetName(3) == "Qatlam 3" && layers.CanCollide(0, 15));
+    CHECK(layers.IsDefault() && layers.GetName(0) == "Default" && layers.GetName(3) == "Layer 3" && layers.CanCollide(0, 15));
     layers.Names[1] = "Player";
     layers.Names[2] = "Ghost";
     layers.Names[3] = "Ground";
@@ -24818,9 +24818,9 @@ TEST(Physics3DDebugContactData)
             n += t.Text.find(text) != std::string::npos ? 1 : 0;
         return n;
     };
-    CHECK(labels("chuqurlik") + labels("oraliq") == 4); // ball, crate, character, 2D crate
-    CHECK(labels("zarba 9.") == 1 && labels("personaj") == 1);
-    CHECK(labels("impuls 0.16") == 1); // the 2D crate's weight per step
+    CHECK(labels("depth") + labels("gap") == 4); // ball, crate, character, 2D crate
+    CHECK(labels("impact 9.") == 1 && labels("character") == 1);
+    CHECK(labels("impulse 0.16") == 1); // the 2D crate's weight per step
     // Everything asleep: the contacts stay, dimmed, the labels say so.
     RunFrames(scene, 240);
     std::vector<PhysicsContactPoint> asleep = of(crate);
@@ -24834,7 +24834,7 @@ TEST(Physics3DDebugContactData)
     for (const DebugDrawPoint& p : DebugDraw::GetPoints())
         dim += p.Color.a < 0.5f ? 1 : 0;
     CHECK(dim >= 4 + 1 + 2); // the crate, the ball, the 2D crate
-    CHECK(labels("uxlayapti") == 3);
+    CHECK(labels("asleep") == 3);
     // Pressed into the floor (moved there by hand): the overlap shows as a red line into it.
     DebugDraw::GetSettings().ShowContactDetails = false;
     world->SetTransform(crate.GetComponent<Rigidbody3DComponent>().RuntimeBodyID, { 0.0f, 0.2f, 0.0f }, glm::quat(1.0f, 0.0f, 0.0f, 0.0f));
@@ -40643,7 +40643,7 @@ TEST(AIStateMachineTransitions)
         .AddAnyTransition("Dead", [&] { return dead; })
         .AddEventTransition("Patrol", "Search", "noise")
         .AddEventTransition("", "Patrol", "reset");
-    CHECK(!ai.IsRunning() && ai.GetCurrentStateName().empty() && ai.Describe() == "(to'xtagan)");
+    CHECK(!ai.IsRunning() && ai.GetCurrentStateName().empty() && ai.Describe() == "(stopped)");
     CHECK(!ai.Start("Nope") && ai.Start());
     CHECK(ai.IsInState("Patrol") && log == std::vector<std::string>({ "enter Patrol" }));
     ai.Update(0.1f);
@@ -41680,7 +41680,7 @@ TEST(BehaviorTreeComposites)
         BehaviorTreeBuilder().Selector().End().Build(emptySel);
         CHECK(emptySeq.Tick(0.0f) == BTStatus::Success && emptySel.Tick(0.0f) == BTStatus::Failure);
         BehaviorTree noRoot;
-        CHECK(noRoot.Tick(0.0f) == BTStatus::Failure && noRoot.Describe() == "(to'xtagan)");
+        CHECK(noRoot.Tick(0.0f) == BTStatus::Failure && noRoot.Describe() == "(stopped)");
     }
     // Reactive selector: a condition that turns true halts the running lower branch (OnHalt).
     {
@@ -42359,7 +42359,7 @@ TEST(NavBakeFileFormat)
     CHECK(!NavBakeFile::Read(wrong, read));
     std::vector<uint8_t> future = file;
     future[4] = 99; // version
-    CHECK(!NavBakeFile::Read(future, read, &error) && error.find("versiya") != std::string::npos);
+    CHECK(!NavBakeFile::Read(future, read, &error) && error.find("version") != std::string::npos);
     std::vector<uint8_t> badSize = file;
     const int32_t huge = NavGrid::MaxSize + 1;
     std::memcpy(badSize.data() + 12 + 8 + 1 + 8, &huge, sizeof(huge)); // the first grid's width

@@ -57,7 +57,7 @@ namespace Zamin {
                 else if (it->is_object())
                     ReadEntries(*it, key, out, warnings);
                 else if (warnings)
-                    warnings->push_back(std::format("'{}': matn emas ({}) - o'tkazib yuborildi", key, it->type_name()));
+                    warnings->push_back(std::format("'{}': not text ({}) - skipped", key, it->type_name()));
             }
         }
 
@@ -170,7 +170,7 @@ namespace Zamin {
                 if (!std::filesystem::exists(file, ec))
                 {
                     if (!s.Settings.Languages.empty() || code != s.Settings.DefaultLanguage)
-                        s.LoadErrors.push_back(std::format("{}: fayl yo'q", file.filename().string()));
+                        s.LoadErrors.push_back(std::format("{}: no file", file.filename().string()));
                     continue;
                 }
                 StringTable table;
@@ -179,11 +179,11 @@ namespace Zamin {
                 if (!StringTable::Parse(FileSystem::ReadTextFile(file), table, &error, &warnings))
                 {
                     s.LoadErrors.push_back(std::format("{}: {}", file.filename().string(), error));
-                    ZM_CORE_WARN("Til fayli o'qilmadi: {} ({})", file.string(), error);
+                    ZM_CORE_WARN("Language file could not be read: {} ({})", file.string(), error);
                     continue;
                 }
                 for (const std::string& w : warnings)
-                    ZM_CORE_WARN("Til fayli {}: {}", file.filename().string(), w);
+                    ZM_CORE_WARN("Language file {}: {}", file.filename().string(), w);
                 table.Language = code;
                 s.Tables.push_back(std::move(table));
             }
@@ -259,7 +259,7 @@ namespace Zamin {
         if (j.is_discarded() || !j.is_object())
         {
             if (error)
-                *error = j.is_discarded() ? "JSON xatosi" : "JSON obyekt emas";
+                *error = j.is_discarded() ? "JSON error" : "not a JSON object";
             return false;
         }
         StringTable table;
@@ -398,7 +398,7 @@ namespace Zamin {
         ComputeOffered();
         s.Language = keepLanguage && IsOffered(previous) ? previous : PickStartLanguage();
         if (!s.Tables.empty())
-            ZM_CORE_INFO("Lokalizatsiya: {} ta til ({}), joriy til: {}", s.Tables.size(), s.Directory.filename().string(), s.Language);
+            ZM_CORE_INFO("Localization: {} languages ({}), current language: {}", s.Tables.size(), s.Directory.filename().string(), s.Language);
         Changed();
     }
 
@@ -464,7 +464,7 @@ namespace Zamin {
         if (s.Language == code)
             return true;
         s.Language = std::string(code);
-        ZM_CORE_INFO("Til: {} ({})", GetLanguageName(code), s.Language);
+        ZM_CORE_INFO("Language: {} ({})", GetLanguageName(code), s.Language);
         Changed();
         return true;
     }
@@ -550,7 +550,7 @@ namespace Zamin {
         if (s.Warned.insert(id).second)
         {
             s.Missing.emplace_back(key);
-            ZM_CORE_WARN("Lokalizatsiya: '{}' kaliti '{}' tilida ham, standart '{}' tilida ham yo'q", key, s.Language, s.Settings.DefaultLanguage);
+            ZM_CORE_WARN("Localization: the key '{}' is neither in the language '{}' nor in the default '{}'", key, s.Language, s.Settings.DefaultLanguage);
         }
         return std::string(key);
     }
@@ -667,7 +667,7 @@ namespace Zamin {
         const std::string code = SaveData::GetString(SettingsKey);
         if (!IsOffered(code))
         {
-            ZM_CORE_WARN("Saqlangan til '{}' o'yinda yo'q - '{}' qoldi", code, S().Language);
+            ZM_CORE_WARN("The saved language '{}' is not in the game - '{}' stays", code, S().Language);
             return false;
         }
         return SetLanguage(code);
@@ -902,7 +902,7 @@ namespace Zamin {
             {
                 ok = false;
                 if (errors)
-                    errors->push_back(std::format("{}: yozilmadi", file.string()));
+                    errors->push_back(std::format("{}: could not write", file.string()));
             }
         }
         return ok;

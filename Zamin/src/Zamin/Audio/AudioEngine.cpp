@@ -318,7 +318,7 @@ namespace Zamin {
             g->Group = std::make_unique<ma_sound_group>();
             if (ma_sound_group_init(s_Engine, MA_SOUND_FLAG_NO_SPATIALIZATION | MA_SOUND_FLAG_NO_PITCH, nullptr, g->Group.get()) != MA_SUCCESS)
             {
-                ZM_CORE_ERROR("Audio guruhi yaratilmadi: {}", name);
+                ZM_CORE_ERROR("Could not create the audio group: {}", name);
                 g->Group.reset();
                 return nullptr;
             }
@@ -693,7 +693,7 @@ namespace Zamin {
                     if (!s_WarnedVoiceLimit)
                     {
                         s_WarnedVoiceLimit = true;
-                        ZM_CORE_WARN("Ovozlar limiti ({}) to'ldi: yangi ovozlar ijro etilmayapti (Audio Mixer > Sozlamalar)", s_Mixer.MaxVoices);
+                        ZM_CORE_WARN("The voice limit ({}) is full: new sounds are not played (Audio Mixer > Settings)", s_Mixer.MaxVoices);
                     }
                     victims.clear();
                     return false;
@@ -745,7 +745,7 @@ namespace Zamin {
         {
             std::string reason = AssetImportLog::CheckReadable(path);
             if (reason.empty())
-                reason = std::format("audio fayl o'qilmadi - WAV, MP3 yoki FLAC bo'lishi kerak (miniaudio: {})", ma_result_description(result));
+                reason = std::format("the audio file could not be read - it must be WAV, MP3 or FLAC (miniaudio: {})", ma_result_description(result));
             AssetImportLog::Report(path, reason);
         }
 
@@ -861,7 +861,7 @@ namespace Zamin {
             if (!group.empty() && !FindGroup(group))
             {
                 if (s_WarnedGroups.insert(group).second)
-                    ZM_CORE_WARN("Noma'lum audio guruhi '{}' - ovoz SFX guruhida ijro etiladi", group);
+                    ZM_CORE_WARN("Unknown audio group '{}' - the sound plays in the SFX group", group);
                 group = AudioSettings::SFX;
             }
             const std::string file = path.string();
@@ -1182,7 +1182,7 @@ namespace Zamin {
         s_Engine = new ma_engine();
         if (ma_engine_init(&config, s_Engine) != MA_SUCCESS)
         {
-            ZM_CORE_WARN("Audio qurilmasi topilmadi - ovoz o'chirilgan");
+            ZM_CORE_WARN("No audio device found - sound is off");
             delete s_Engine;
             s_Engine = nullptr;
             return;
@@ -1190,7 +1190,7 @@ namespace Zamin {
         s_HasDevice = !withoutDevice;
         AudioEngine::SetRandomSeed((uint32_t)std::chrono::steady_clock::now().time_since_epoch().count());
         BuildGroups();
-        ZM_CORE_INFO("{}", withoutDevice ? "Audio tizimi qurilmasiz ishga tushdi" : "Audio tizimi ishga tushdi");
+        ZM_CORE_INFO("{}", withoutDevice ? "The audio system started without a device" : "Audio system started");
     }
 
     void AudioEngine::Shutdown()
@@ -1574,15 +1574,15 @@ namespace Zamin {
     std::string AudioProfile::Format() const
     {
         if (!Available)
-            return "audio yo'q";
-        std::string text = std::format("{}/{} ovoz (cho'qqi {})", Voices, MaxVoices, PeakVoices);
+            return "no audio";
+        std::string text = std::format("{}/{} voices (peak {})", Voices, MaxVoices, PeakVoices);
         if (Paused || Stopping || Streamed)
-            text += std::format(", pauza {}, so'nmoqda {}, oqim {}", Paused, Stopping, Streamed);
+            text += std::format(", paused {}, fading out {}, stream {}", Paused, Stopping, Streamed);
         if (Music)
-            text += std::format(" | musiqa {}", Music);
+            text += std::format(" | music {}", Music);
         if (Previews)
-            text += std::format(" | ko'rib chiqish {}", Previews);
-        text += std::format(" | to'xtatilgan {}, rad etilgan {}", Stolen, Rejected);
+            text += std::format(" | preview {}", Previews);
+        text += std::format(" | stopped {}, refused {}", Stolen, Rejected);
         std::string groups;
         for (const AudioGroupProfile& g : Groups)
             if (g.Voices)

@@ -79,19 +79,19 @@ namespace Zamin {
             {
                 const float m = rules.Margin - slack;
                 if (r.Rect.Min.x < m || r.Rect.Min.y < m || r.Rect.Max.x > view.x - m || r.Rect.Max.y > view.y - m)
-                    add("Margin", r.ID, 0, std::format("'{}' {} {:.0f} px chegaradan kam ({}x{})", r.Tag, Rect(r.Rect), rules.Margin, report.Viewport.x, report.Viewport.y));
+                    add("Margin", r.ID, 0, std::format("'{}' {} is below the {:.0f} px limit ({}x{})", r.Tag, Rect(r.Rect), rules.Margin, report.Viewport.x, report.Viewport.y));
             }
             if (text)
             {
                 if (r.Rect.Min.x < -slack || r.Rect.Min.y < -slack || r.Rect.Max.x > view.x + slack || r.Rect.Max.y > view.y + slack)
-                    add("Offscreen", r.ID, 0, std::format("'{}' matni {} ekrandan chiqadi", r.Tag, Rect(r.Rect)));
+                    add("Offscreen", r.ID, 0, std::format("The text of '{}' goes off the screen {}", r.Tag, Rect(r.Rect)));
                 if (!r.TextFits && !r.TextCutByDesign)
-                    add("TextOverflow", r.ID, 0, std::format("'{}' matni {:.0f}x{:.0f} px, joyi {:.0f}x{:.0f}", r.Tag, r.TextSize.x, r.TextSize.y, r.Rect.GetWidth(),
+                    add("TextOverflow", r.ID, 0, std::format("The text of '{}' is {:.0f}x{:.0f} px, its box {:.0f}x{:.0f}", r.Tag, r.TextSize.x, r.TextSize.y, r.Rect.GetWidth(),
                                                              r.Rect.GetHeight()));
                 if (r.FontPx + 0.01f < rules.MinFontPx)
-                    add("MinFont", r.ID, 0, std::format("'{}' {:.1f} px (eng kami {:.0f})", r.Tag, r.FontPx, rules.MinFontPx));
+                    add("MinFont", r.ID, 0, std::format("'{}' is {:.1f} px (minimum {:.0f})", r.Tag, r.FontPx, rules.MinFontPx));
                 if (!r.RawHint.empty())
-                    add("RawHint", r.ID, 0, std::format("'{}' matnida {} tugma nomiga aylanmagan (InputHints)", r.Tag, r.RawHint));
+                    add("RawHint", r.ID, 0, std::format("{1} in the text of '{0}' did not turn into a control name (InputHints)", r.Tag, r.RawHint));
             }
         }
         // Usable siblings that overlap (more than the tolerance on both axes).
@@ -107,7 +107,7 @@ namespace Zamin {
                     const UIRect& b = list[j]->Rect;
                     const float w = std::min(a.Max.x, b.Max.x) - std::max(a.Min.x, b.Min.x), h = std::min(a.Max.y, b.Max.y) - std::max(a.Min.y, b.Min.y);
                     if (w > slack && h > slack)
-                        add("Overlap", list[i]->ID, list[j]->ID, std::format("'{}' {} va '{}' {}", list[i]->Tag, Rect(a), list[j]->Tag, Rect(b)));
+                        add("Overlap", list[i]->ID, list[j]->ID, std::format("'{}' {} and '{}' {}", list[i]->Tag, Rect(a), list[j]->Tag, Rect(b)));
                 }
         // A panel open that has something to choose (a card that only shows does not): the selection inside it and
         // every selectable widget of it reachable from there.
@@ -118,10 +118,10 @@ namespace Zamin {
         {
             const auto focus = byId.find(report.Focus);
             if (!report.Focus || focus == byId.end())
-                add("Focus", report.Focus, report.TopPanelRoot, std::format("'{}' paneli ochiq, tanlangan widget yo'q", report.TopPanel));
+                add("Focus", report.Focus, report.TopPanelRoot, std::format("The panel '{}' is open with no widget selected", report.TopPanel));
             else if (focus->second->Panel != report.TopPanelRoot || !Usable(*focus->second))
                 add("Focus", report.Focus, report.TopPanelRoot,
-                    std::format("tanlangan '{}' '{}' panelida emas yoki ishlatib bo'lmaydi", focus->second->Tag, report.TopPanel));
+                    std::format("The selected '{}' is not in the panel '{}' or cannot be used", focus->second->Tag, report.TopPanel));
             else
             {
                 std::unordered_set<uint64_t> seen{ report.Focus };
@@ -138,7 +138,7 @@ namespace Zamin {
                 }
                 for (const auto& r : report.Records)
                     if (r.Panel == report.TopPanelRoot && r.Selectable && Usable(r) && !seen.contains(r.ID))
-                        add("Unreachable", r.ID, report.Focus, std::format("'{}' ga '{}' dan klaviatura bilan yetib bo'lmaydi", r.Tag, focus->second->Tag));
+                        add("Unreachable", r.ID, report.Focus, std::format("'{}' cannot be reached from '{}' with the keyboard", r.Tag, focus->second->Tag));
             }
         }
         // Wide views: the outer bands belong to what is anchored to that side (HUD corners) or stretched over the width.
@@ -154,7 +154,7 @@ namespace Zamin {
                     continue;
                 const bool left = r.AnchorMin.x == 0.0f && r.AnchorMax.x == 0.0f, right = r.AnchorMin.x == 1.0f && r.AnchorMax.x == 1.0f;
                 if ((r.Rect.Min.x < band - slack && !left) || (r.Rect.Max.x > view.x - band + slack && !right))
-                    add("SideBand", r.ID, 0, std::format("'{}' {} keng ekranning chetiga kiradi, lekin o'sha tomonga bog'lanmagan", r.Tag, Rect(r.Rect)));
+                    add("SideBand", r.ID, 0, std::format("'{}' {} goes into the edge of a wide screen but is not anchored to that side", r.Tag, Rect(r.Rect)));
             }
         }
         return issues;

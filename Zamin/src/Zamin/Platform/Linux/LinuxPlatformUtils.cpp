@@ -56,11 +56,11 @@ namespace Zamin {
         std::string pattern = ExtractPattern(filter);
         std::string dir = startDir.empty() ? std::filesystem::current_path().string() : startDir.string();
         if (HasProgram("zenity"))
-            return RunDialog("zenity --file-selection --title='Faylni ochish' --filename=" + ShellQuote(dir + "/") +
+            return RunDialog("zenity --file-selection --title='Open file' --filename=" + ShellQuote(dir + "/") +
                              (pattern.empty() ? "" : " --file-filter=" + ShellQuote(std::string(filter))));
         if (HasProgram("kdialog"))
             return RunDialog("kdialog --getopenfilename " + ShellQuote(dir) + " " + ShellQuote(pattern));
-        ZM_CORE_WARN("Fayl dialogi uchun 'zenity' yoki 'kdialog' o'rnating");
+        ZM_CORE_WARN("Install 'zenity' or 'kdialog' for the file dialog");
         return {};
     }
 
@@ -69,11 +69,11 @@ namespace Zamin {
         std::string pattern = ExtractPattern(filter);
         std::string dir = startDir.empty() ? std::filesystem::current_path().string() : startDir.string();
         if (HasProgram("zenity"))
-            return RunDialog("zenity --file-selection --save --confirm-overwrite --title='Saqlash' --filename=" + ShellQuote(dir + "/") +
+            return RunDialog("zenity --file-selection --save --confirm-overwrite --title='Save' --filename=" + ShellQuote(dir + "/") +
                              (pattern.empty() ? "" : " --file-filter=" + ShellQuote(std::string(filter))));
         if (HasProgram("kdialog"))
             return RunDialog("kdialog --getsavefilename " + ShellQuote(dir) + " " + ShellQuote(pattern));
-        ZM_CORE_WARN("Fayl dialogi uchun 'zenity' yoki 'kdialog' o'rnating");
+        ZM_CORE_WARN("Install 'zenity' or 'kdialog' for the file dialog");
         return {};
     }
 
@@ -81,10 +81,10 @@ namespace Zamin {
     {
         std::string dir = startDir.empty() ? std::filesystem::current_path().string() : startDir.string();
         if (HasProgram("zenity"))
-            return RunDialog("zenity --file-selection --directory --title='Papkani tanlash' --filename=" + ShellQuote(dir + "/"));
+            return RunDialog("zenity --file-selection --directory --title='Choose folder' --filename=" + ShellQuote(dir + "/"));
         if (HasProgram("kdialog"))
             return RunDialog("kdialog --getexistingdirectory " + ShellQuote(dir));
-        ZM_CORE_WARN("Fayl dialogi uchun 'zenity' yoki 'kdialog' o'rnating");
+        ZM_CORE_WARN("Install 'zenity' or 'kdialog' for the file dialog");
         return {};
     }
 
@@ -94,7 +94,7 @@ namespace Zamin {
     {
         std::string cmd = "xdg-open " + ShellQuote(path.string()) + " >/dev/null 2>&1 &";
         if (std::system(cmd.c_str()) != 0)
-            ZM_CORE_WARN("Fayl brauzeri ochilmadi: {}", path.string());
+            ZM_CORE_WARN("Could not open the file browser: {}", path.string());
     }
 
     int Platform::RunCommand(const std::string& command, std::string* output)

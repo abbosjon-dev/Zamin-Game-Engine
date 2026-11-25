@@ -91,7 +91,7 @@ namespace Zamin {
             {
                 if (primitive == PrimitiveMesh::Model)
                 {
-                    error = "model fayli ko'rsatilmagan";
+                    error = "no model file given";
                     return nullptr;
                 }
                 std::vector<MeshVertex> vertices;
@@ -104,7 +104,7 @@ namespace Zamin {
                 return nullptr;
             if (mesh->Indices.empty() || mesh->Positions.empty())
             {
-                error = "meshda uchburchak yo'q";
+                error = "the mesh has no triangles";
                 return nullptr;
             }
             return mesh;
@@ -145,7 +145,7 @@ namespace Zamin {
                     unique.push_back(p);
         }
         if (unique.size() < 4)
-            return fail("konveks qobiq uchun kamida 4 ta har xil nuqta kerak");
+            return fail("a convex hull needs at least 4 different points");
 
         JPH::ConvexHullBuilder::Positions positions;
         positions.reserve(unique.size());
@@ -165,7 +165,7 @@ namespace Zamin {
         if (result != JPH::ConvexHullBuilder::EResult::Success && result != JPH::ConvexHullBuilder::EResult::MaxVerticesReached)
         {
             const bool flat = result == JPH::ConvexHullBuilder::EResult::Degenerate || result == JPH::ConvexHullBuilder::EResult::TooFewFaces;
-            return fail(flat ? "nuqtalar hajm hosil qilmaydi (tekis yoki chiziq)" : std::format("qobiq qurilmadi ({})", reason ? reason : "?"));
+            return fail(flat ? "the points do not form a volume (flat or a line)" : std::format("the hull could not be built ({})", reason ? reason : "?"));
         }
 
         auto hull = CreateRef<ConvexHull3D>();
@@ -190,7 +190,7 @@ namespace Zamin {
                 hull->Faces.push_back(std::move(face));
         }
         if (hull->Points.size() < 4 || hull->Faces.size() < 4)
-            return fail("nuqtalar hajm hosil qilmaydi (tekis yoki chiziq)");
+            return fail("the points do not form a volume (flat or a line)");
         hull->Edges = hull->GetEdges();
         hull->BoundsMin = hull->BoundsMax = hull->Points[0];
         for (const glm::vec3& p : hull->Points)
@@ -212,7 +212,7 @@ namespace Zamin {
         };
         std::error_code ec;
         if (!fs::is_regular_file(path, ec))
-            return fail("fayl topilmadi");
+            return fail("file not found");
         std::string ext = path.extension().string();
         for (char& c : ext)
             c = (char)std::tolower((unsigned char)c);
@@ -231,20 +231,20 @@ namespace Zamin {
             if (glm::determinant(glm::mat3(importTransform)) < 0.0f)
                 for (size_t i = 0; i + 2 < out.Indices.size(); i += 3)
                     std::swap(out.Indices[i + 1], out.Indices[i + 2]);
-            return !out.Indices.empty() || fail("faylda uchburchak yo'q");
+            return !out.Indices.empty() || fail("the file has no triangles");
         }
         if (ext != ".gltf" && ext != ".glb")
-            return fail("format qo'llab-quvvatlanmaydi");
+            return fail("the format is not supported");
 
         cgltf_options options{};
         cgltf_data* data = nullptr;
         const std::string file = path.string();
         if (cgltf_parse_file(&options, file.c_str(), &data) != cgltf_result_success)
-            return fail("glTF fayli o'qilmadi");
+            return fail("the glTF file could not be read");
         if (cgltf_load_buffers(&options, data, file.c_str()) != cgltf_result_success)
         {
             cgltf_free(data);
-            return fail("glTF buferlari yuklanmadi");
+            return fail("the glTF buffers failed to load");
         }
         const cgltf_skin* skin = data->skins_count ? &data->skins[0] : nullptr;
         // As the renderer places it: node transforms baked in (skinned meshes: their bind pose).
@@ -301,7 +301,7 @@ namespace Zamin {
                 for (cgltf_size p = 0; p < data->meshes[i].primitives_count; p++)
                     addPrimitive(data->meshes[i].primitives[p], glm::mat4(1.0f), nullptr);
         cgltf_free(data);
-        return !out.Indices.empty() || fail("faylda uchburchakli mesh yo'q");
+        return !out.Indices.empty() || fail("the file has no triangle mesh");
     }
 
     // ------------------------------------------------------------------ wireframe

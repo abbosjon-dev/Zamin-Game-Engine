@@ -55,7 +55,7 @@ Mundarija:
   tomoni tinglovchidan qayerdaligiga bog'liq.
 - **Qachon ishlaydi** — Audio Source'lar Play (va player) paytida chalinadi; tahrir rejimida faylni asset inspektorida
   eshitib ko'rish mumkin ([14-bo'lim](#14-audio-fayllar-va-import-sozlamalari)). Kadrda audio eng oxirida yangilanadi (transformlar tayyor bo'lgach).
-- **Qurilmasiz** (headless, CI): `Audio qurilmasi topilmadi - ovoz o'chirilgan` — o'yin ishlayveradi, ovozlar
+- **Qurilmasiz** (headless, CI): `No audio device found - sound is off` — o'yin ishlayveradi, ovozlar
   chalinmaydi (Audio Mixer oynasida "Audio qurilmasi yo'q - faqat sozlash").
 - **Nofaol obyekt** — ovozi to'xtaydi; qayta yoqilganda **Boshida ijro** belgilangan manba boshidan chalinadi.
 - **Oyna fokusni yo'qotsa** (player): chiqish pauzaga tushadi — hamma ovozlar va musiqa joyida
@@ -379,7 +379,7 @@ orasida manbaning **Limit to'lsa** qoidasi (`AudioStealPolicy`):
 | `None` (**Yangisi ijro etilmaydi**) | hech biri to'xtamaydi, yangisi chalinmaydi |
 
 `MaxInstances` — **bitta faylning** bir vaqtdagi nusxalari (masalan 20 dushman o'kirsa ham 3 tasi eshitiladi). Limit
-to'lganda konsolda: `Ovozlar limiti (64) to'ldi: yangi ovozlar ijro etilmayapti (Audio Mixer > Sozlamalar)`.
+to'lganda konsolda: `The voice limit (64) is full: new sounds are not played (Audio Mixer > Settings)`.
 
 **Tasodifiy variatsiya** — `VolumeRandom` / `PitchRandom` (x = min, y = max): har ijroda yangi ko'paytuvchi, qayta-qayta
 chalinadigan ovoz (qadam, zarba) bir xil eshitilmaydi. `AudioEngine::SetRandomSeed(seed)` — takrorlanuvchi (testlar).
@@ -555,10 +555,10 @@ slayderlari, `Audio/SessionTheme.wav`).
 
 | Belgi | Sabab va yechim |
 |---|---|
-| Hech narsa eshitilmaydi, konsolda `Audio qurilmasi topilmadi - ovoz o'chirilgan` | Tizimda audio qurilma yo'q (server, CI) — kutilgan holat |
+| Hech narsa eshitilmaydi, konsolda `No audio device found - sound is off` | Tizimda audio qurilma yo'q (server, CI) — kutilgan holat |
 | Fayl chalinmaydi, kontent brauzerda qizil belgi | Fayl o'qilmadi: `.ogg` — dekoder yo'q, WAV / MP3 / FLAC ishlating; aks holda sabab asset inspektorida (**Qayta urinish**) |
-| `Noma'lum audio guruhi 'X' - ovoz SFX guruhida ijro etiladi` | `Output` yoki `PlaySound` guruhi mixerda yo'q — Audio Mixer'da qo'shing yoki nomni to'g'rilang |
-| `Ovozlar limiti (...) to'ldi ...` | Bir vaqtda juda ko'p ovoz: `MaxInstances`, `Priority`, limitni sozlang |
+| `Unknown audio group 'X' - the sound plays in the SFX group` | `Output` yoki `PlaySound` guruhi mixerda yo'q — Audio Mixer'da qo'shing yoki nomni to'g'rilang |
+| `The voice limit (...) to'ldi ...` | Bir vaqtda juda ko'p ovoz: `MaxInstances`, `Priority`, limitni sozlang |
 | 3D ovoz juda past / umuman eshitilmaydi | Tinglovchi uzoqda (`MaxDistance`, masofa modeli `Linear` bo'lsa max masofada jim), tinglovchi yo'q va asosiy kamera ham yo'q, yoki boshqa Audio Listener ustuvorroq |
 | Musiqa sahna almashganda to'xtamaydi | Shunday bo'lishi kerak — musiqa o'yinniki; `Audio::StopMusic()` |
 | Pauza menyusida o'yin ovozlari davom etadi | `PauseGame()` ovozlarni to'xtatmaydi — `PauseAudio` yoki guruh filtri / mute |

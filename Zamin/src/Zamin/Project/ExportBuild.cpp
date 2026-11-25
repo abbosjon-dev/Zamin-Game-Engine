@@ -110,17 +110,17 @@ namespace Zamin {
         result.SizeBefore = result.SizeAfter = fs::file_size(file, ec);
         if (ec)
         {
-            result.Error = "fayl topilmadi";
+            result.Error = "file not found";
             return result;
         }
         if (!IsElfFile(file))
         {
-            result.Error = "ELF fayl emas";
+            result.Error = "not an ELF file";
             return result;
         }
         if (!IsAvailable())
         {
-            result.Error = "strip dasturi o'rnatilmagan (binutils)";
+            result.Error = "the strip program is not installed (binutils)";
             return result;
         }
         std::string output;
@@ -132,7 +132,7 @@ namespace Zamin {
         result.SizeAfter = fs::file_size(file, ec);
         result.Ok = code == 0 && !ec;
         if (!result.Ok)
-            result.Error = output.empty() ? std::format("strip xato bilan tugadi ({})", code) : output;
+            result.Error = output.empty() ? std::format("strip ended with an error ({})", code) : output;
         return result;
     }
 
@@ -359,41 +359,41 @@ namespace Zamin {
 
     std::string ExportReport::ToText() const
     {
-        std::string text = std::format("{} {} - eksport hisoboti\n", Game.empty() ? std::string("O'yin") : Game, Version);
+        std::string text = std::format("{} {} - export report\n", Game.empty() ? std::string("Game") : Game, Version);
         if (!Company.empty())
-            text += "Kompaniya: " + Company + "\n";
-        text += std::format("Papka: {}\nSana: {}\nHolat: {} ({:.1f} s)\n", OutputDirectory, Date, Succeeded ? "muvaffaqiyatli" : "xatolar bilan", Seconds);
-        text += std::format("Jami: {} ta fayl, {}\n", FileCount, ExportAssets::FormatSize(TotalBytes));
+            text += "Company: " + Company + "\n";
+        text += std::format("Folder: {}\nDate: {}\nStatus: {} ({:.1f} s)\n", OutputDirectory, Date, Succeeded ? "succeeded" : "with errors", Seconds);
+        text += std::format("Total: {} files, {}\n", FileCount, ExportAssets::FormatSize(TotalBytes));
         if (!ScriptModule.empty())
-            text += "Skript moduli: " + ScriptModule + "\n";
+            text += "Script module: " + ScriptModule + "\n";
         if (StrippedBytes > 0)
-            text += "strip: binarlar " + ExportAssets::FormatSize(StrippedBytes) + " kichraydi\n";
+            text += "strip: binaries " + ExportAssets::FormatSize(StrippedBytes) + " smaller\n";
 
-        text += "\nTurlar bo'yicha:\n";
+        text += "\nBy type:\n";
         for (size_t i = 0; i < Categories.size(); i++)
         {
             const CategoryTotal& c = Categories[i];
             if (c.Files == 0)
                 continue;
             const double percent = TotalBytes ? 100.0 * (double)c.Bytes / (double)TotalBytes : 0.0;
-            text += std::format("  {:<14}{:>10}  {:>5.1f}%  {} ta fayl\n", GetCategoryName((ExportCategory)i), ExportAssets::FormatSize(c.Bytes), percent,
+            text += std::format("  {:<14}{:>10}  {:>5.1f}%  {} files\n", GetCategoryKey((ExportCategory)i), ExportAssets::FormatSize(c.Bytes), percent,
                                 c.Files);
         }
         if (!Largest.empty())
         {
-            text += "\nEng katta fayllar:\n";
+            text += "\nLargest files:\n";
             for (const ExportReportFile& file : Largest)
-                text += std::format("  {:>10}  {:<12}  {}\n", ExportAssets::FormatSize(file.Size), GetCategoryName(file.Category), file.Path);
+                text += std::format("  {:>10}  {:<12}  {}\n", ExportAssets::FormatSize(file.Size), GetCategoryKey(file.Category), file.Path);
         }
-        text += std::format("\nChiqarib tashlangan assetlar: {} ta ({})\n", Excluded.size(), ExportAssets::FormatSize(ExcludedBytes));
+        text += std::format("\nExcluded assets: {} ({})\n", Excluded.size(), ExportAssets::FormatSize(ExcludedBytes));
         for (const ExcludedAsset& asset : Excluded)
             text += std::format("  {:>10}  {}  ({})\n", ExportAssets::FormatSize(asset.Size), asset.Path, asset.Reason);
-        text += std::format("\nOgohlantirishlar: {}\n", Warnings.size());
+        text += std::format("\nWarnings: {}\n", Warnings.size());
         for (const std::string& warning : Warnings)
             text += "  - " + warning + "\n";
         if (!Errors.empty())
         {
-            text += std::format("\nXatolar: {}\n", Errors.size());
+            text += std::format("\nErrors: {}\n", Errors.size());
             for (const std::string& error : Errors)
                 text += "  - " + error + "\n";
         }
@@ -423,28 +423,28 @@ namespace Zamin {
         std::error_code ec;
         if (!fs::is_directory(folder, ec))
         {
-            problems.push_back(std::format("eksport papkasi yo'q: {}", folder.string()));
+            problems.push_back(std::format("no export folder: {}", folder.string()));
             return problems;
         }
         auto executable = [&](const fs::path& file, const std::string& what) {
             std::error_code e;
             if (!fs::is_regular_file(file, e))
-                problems.push_back(std::format("{} yo'q: {}", what, file.filename().string()));
+                problems.push_back(std::format("{} missing: {}", what, file.filename().string()));
             else if ((fs::status(file, e).permissions() & fs::perms::owner_exec) == fs::perms::none)
-                problems.push_back(std::format("{} ishga tushirib bo'lmaydi (bajarish huquqi yo'q): {}", what, file.filename().string()));
+                problems.push_back(std::format("{} cannot be run (no execute permission): {}", what, file.filename().string()));
         };
-        executable(folder / (gameName + ".sh"), "ishga tushirish skripti");
+        executable(folder / (gameName + ".sh"), "launch script");
         executable(folder / "ZaminPlayer", "player");
         bool engine = false;
         for (const auto& entry : fs::directory_iterator(folder, ec))
             if (entry.path().filename().string().starts_with("libZamin") && entry.is_regular_file(ec))
                 engine = true;
         if (!engine)
-            problems.push_back("dvigatel kutubxonasi yo'q (libZamin.so)");
+            problems.push_back("the engine library is missing (libZamin.so)");
         if (!fs::is_directory(folder / "Resources", ec) || fs::is_empty(folder / "Resources", ec))
-            problems.push_back("Resources/ papkasi yo'q yoki bo'sh (shriftlar, shaderlar)");
+            problems.push_back("the Resources/ folder is missing or empty (fonts, shaders)");
         if (!fs::is_regular_file(folder / (gameName + ".desktop"), ec))
-            problems.push_back(std::format("{}.desktop yo'q", gameName));
+            problems.push_back(std::format("{}.desktop is missing", gameName));
         executable(folder / DesktopInstallScriptName, DesktopInstallScriptName);
 
         // The game: Game/<one>.zproject and what it names.
@@ -455,36 +455,36 @@ namespace Zamin {
                 projects.push_back(entry.path());
         if (projects.empty())
         {
-            problems.push_back("Game/ papkasida .zproject yo'q");
+            problems.push_back("no .zproject in the Game/ folder");
             return problems;
         }
         if (projects.size() > 1)
-            problems.push_back(std::format("Game/ papkasida {} ta .zproject bor (player birinchisini ochadi)", projects.size()));
+            problems.push_back(std::format("the Game/ folder has {} .zproject files (the player opens the first)", projects.size()));
         ProjectConfig config;
         std::string error;
         if (!ProjectSerializer::ConfigFromString(FileSystem::ReadTextFile(projects.front()), config, nullptr, &error))
         {
-            problems.push_back(std::format("{} o'qilmadi: {}", projects.front().filename().string(), error));
+            problems.push_back(std::format("{} could not be read: {}", projects.front().filename().string(), error));
             return problems;
         }
         const fs::path assets = game / config.AssetDirectory;
         if (!fs::is_directory(assets, ec))
         {
-            problems.push_back(std::format("assetlar papkasi yo'q: Game/{}", config.AssetDirectory.generic_string()));
+            problems.push_back(std::format("no assets folder: Game/{}", config.AssetDirectory.generic_string()));
             return problems;
         }
         const fs::path start = Project::ResolveStartScene(config, assets);
         if (start.empty())
-            problems.push_back("boshlang'ich sahna yo'q (na StartScene, na build ro'yxatida sahna)");
+            problems.push_back("no start scene (neither StartScene nor a scene in the build list)");
         else if (!fs::is_regular_file(assets / start, ec))
-            problems.push_back(std::format("boshlang'ich sahna fayli yo'q: {}", start.generic_string()));
+            problems.push_back(std::format("the start scene file is missing: {}", start.generic_string()));
         for (const BuildSceneEntry& scene : config.BuildScenes)
             if (scene.Enabled && !fs::is_regular_file(assets / scene.Path, ec))
-                problems.push_back(std::format("build sahnasi yo'q: {}", scene.Path.generic_string()));
+                problems.push_back(std::format("build scene missing: {}", scene.Path.generic_string()));
         if (!fs::is_regular_file(game / Project::BuildAssetRegistryFile, ec))
-            problems.push_back(std::format("asset registri yo'q: Game/{}", Project::BuildAssetRegistryFile));
+            problems.push_back(std::format("no asset registry: Game/{}", Project::BuildAssetRegistryFile));
         if (scriptModule && !config.ScriptModulePath.empty() && !fs::is_regular_file(game / config.ScriptModulePath, ec))
-            problems.push_back(std::format("skript moduli yo'q: Game/{}", config.ScriptModulePath.generic_string()));
+            problems.push_back(std::format("no script module: Game/{}", config.ScriptModulePath.generic_string()));
         return problems;
     }
 

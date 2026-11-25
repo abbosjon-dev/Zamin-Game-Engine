@@ -33110,9 +33110,9 @@ TEST(PlayerCommandLineParser)
     auto mentions = [&](const char* text) {
         return std::any_of(c.Errors.begin(), c.Errors.end(), [&](const std::string& e) { return e.find(text) != std::string::npos; });
     };
-    CHECK(mentions("--fps abc") && mentions("--resolution 1920") && mentions("--monitor -1") && mentions("noma'lum variant: --bogus"));
-    CHECK(mentions("--fullscreen: bu variant qiymat olmaydi") && mentions("ortiqcha argument: 'b.zproject'") && mentions("--width 50"));
-    CHECK(mentions("--quality: qiymat kerak"));
+    CHECK(mentions("--fps abc") && mentions("--resolution 1920") && mentions("--monitor -1") && mentions("unknown option: --bogus"));
+    CHECK(mentions("--fullscreen: this option takes no value") && mentions("extra argument: 'b.zproject'") && mentions("--width 50"));
+    CHECK(mentions("--quality: a value is needed"));
 
     // Resolutions.
     uint32_t w = 0, h = 0;
@@ -33124,7 +33124,7 @@ TEST(PlayerCommandLineParser)
 
     // --help lists every option and the precedence.
     const std::string help = PlayerCommandLine::GetHelpText("MyGame");
-    CHECK(help.find("Foydalanish: MyGame") != std::string::npos && help.find("Ustunlik: buyruq qatori") != std::string::npos);
+    CHECK(help.find("Usage: MyGame") != std::string::npos && help.find("Priority: command line") != std::string::npos);
     for (const char* option : { "--windowed", "--fullscreen", "--borderless", "--resolution", "--width", "--height", "--monitor", "--vsync",
                                 "--no-vsync", "--fps", "--scene", "--quality", "--lang", "--language", "--no-splash", "--gl ", "--msaa",
                                 "--gl-debug", "--no-gl-debug", "--srgb", "--no-srgb", "--no-debug-draw", "--debug-raycasts", "--debug-contacts",
@@ -33181,8 +33181,8 @@ TEST(PlayerLaunchSettingsPrecedence)
     CHECK(r.TargetFrameRate == PlayerSettings::MinTargetFrameRate && r.FrameRateSource == PlayerSettingSource::CommandLine); // into range
     CHECK(r.Window.Monitor == 2 && r.MonitorSource == PlayerSettingSource::CommandLine && !r.Splash && r.SplashSource == PlayerSettingSource::CommandLine);
     const std::string line = r.Describe();
-    CHECK(line.find("1600x900 (buyruq qatori)") != std::string::npos && line.find("to'liq ekran (buyruq qatori)") != std::string::npos);
-    CHECK(line.find("FPS: 10 (buyruq qatori)") != std::string::npos && line.find("splash: yo'q") != std::string::npos);
+    CHECK(line.find("1600x900 (command line)") != std::string::npos && line.find("fullscreen (command line)") != std::string::npos);
+    CHECK(line.find("FPS: 10 (command line)") != std::string::npos && line.find("splash: no") != std::string::npos);
     // --borderless keeps the monitor's size (no video mode); --fps 0 lifts the project's limit; an odd value is clamped.
     r = PlayerLaunchSettings::Resolve(config, saved, PlayerCommandLine::Parse({ "--borderless", "--resolution", "1600x900", "--fps", "0" }));
     CHECK(r.Window.Mode == WindowMode::Borderless && r.Window.FullscreenMode == WindowMode::Borderless && r.Window.FullscreenWidth == 0);
@@ -33202,7 +33202,7 @@ TEST(PlayerLaunchSettingsPrecedence)
     r = PlayerLaunchSettings::Resolve(config, {}, PlayerCommandLine::Parse({ "--gl", "9.9" }));
     CHECK(r.Warnings.size() == 1 && r.Warnings[0].find("--gl 9.9") != std::string::npos && r.Window.Graphics.GLMajor == 4 &&
           r.Window.Graphics.GLMinor == 1);
-    CHECK(std::string(PlayerSettingSourceToString(PlayerSettingSource::Saved)) == "saqlangan");
+    CHECK(std::string(PlayerSettingSourceToString(PlayerSettingSource::Saved)) == "saved");
 
     // The saved display options are read without applying them (the player reads them before its window exists).
     auto file = std::filesystem::temp_directory_path() / ("zamin-display-" + std::to_string((uint64_t)UUID()) + ".json");
@@ -33491,7 +33491,7 @@ TEST(GameIconImagesAndDesktopEntry)
     ImageData image;
     std::string error;
     CHECK(GameIcon::Load(dir / "wide.png", image, &error) && image.Width == 100 && image.Height == 50 && image.Channels == 4);
-    CHECK(GameIcon::Check(image).find("Kvadrat emas") != std::string::npos);
+    CHECK(GameIcon::Check(image).find("Not square") != std::string::npos);
     // Sizes up to the picture's (100 px): 16, 32, 48, 64; each a square with the picture centred.
     std::vector<WindowIconImage> sizes = GameIcon::MakeWindowImages(image);
     CHECK(sizes.size() == 4 && sizes[0].Width == 16 && sizes[3].Width == 64 && sizes[3].Height == 64);
@@ -33506,11 +33506,11 @@ TEST(GameIconImagesAndDesktopEntry)
     tiny.Channels = 4;
     tiny.Pixels.assign(8 * 8 * 4, 255);
     CHECK(GameIcon::MakeWindowImages(tiny).size() == 1 && GameIcon::MakeWindowImages(tiny)[0].Width == 16);
-    CHECK(GameIcon::Check(tiny).find("kichik") != std::string::npos);
+    CHECK(GameIcon::Check(tiny).find("small") != std::string::npos);
     // Not a PNG / not there.
     FileSystem::WriteTextFile(dir / "fake.png", "this is not a png file");
-    CHECK(!GameIcon::Load(dir / "fake.png", image, &error) && error.find("PNG emas") != std::string::npos);
-    CHECK(!GameIcon::Load(dir / "none.png", image, &error) && error.find("topilmadi") != std::string::npos);
+    CHECK(!GameIcon::Load(dir / "fake.png", image, &error) && error.find("not a PNG") != std::string::npos);
+    CHECK(!GameIcon::Load(dir / "none.png", image, &error) && error.find("not found") != std::string::npos);
 
     // The exported game's desktop entry.
     PlayerSettings player;
@@ -34673,12 +34673,13 @@ TEST(ProjectLocalizationSettings)
     CHECK(std::filesystem::exists(dir / "Assets" / "Localization" / "uz.json") && std::filesystem::exists(dir / "Assets" / "Localization" / "en.json"));
     CHECK(Project::Load(dir / "LangGame.zproject") != nullptr);
     CHECK(Project::GetLocalizationDirectory() == Project::GetAssetDirectory() / "Localization");
-    CHECK(Localization::GetLanguage() == "uz" && Localize("game.title") == "LangGame" && Localize("game.start") == "Boshlash");
-    CHECK(Localization::SetLanguage("en") && Localize("game.start") == "Start");
+    // A new game starts in English; Uzbek is its second language.
+    CHECK(Localization::GetLanguage() == "en" && Localize("game.title") == "LangGame" && Localize("game.start") == "Start");
+    CHECK(Localization::SetLanguage("uz") && Localize("game.start") == "Boshlash");
     // Another default language in the settings: applied keeping the current language.
-    Project::GetActive()->GetConfig().Localization.DefaultLanguage = "en";
+    Project::GetActive()->GetConfig().Localization.DefaultLanguage = "uz";
     Project::ApplyLocalization(true);
-    CHECK(Localization::GetDefaultLanguage() == "en" && Localization::GetLanguage() == "en");
+    CHECK(Localization::GetDefaultLanguage() == "uz" && Localization::GetLanguage() == "uz");
     Project::SetActive(nullptr);
     Project::ApplyLocalization();
     CHECK(Localization::GetTable("uz") == nullptr);
@@ -35237,16 +35238,16 @@ TEST(ExportExcludesUnusedAssets)
                               "Textures/sheet.png", "Textures/code.png", "Textures/icon.png", "Localization/uz.json", "Resources/r.png",
                               "Data/levels/l1.json", "Dynamic/d1.png", "notes.txt" })
         CHECK(included(path));
-    CHECK(reason("Scenes/Other.zscene") == "build ro'yxatida yo'q");
-    CHECK(reason("Textures/other.png") == "faqat o'yinga kirmaydigan fayllar ishlatadi"); // only the left-out scene used it
-    CHECK(reason("Textures/unused.png") == "hech qayerda ishlatilmaydi");
+    CHECK(reason("Scenes/Other.zscene") == "not in the build list");
+    CHECK(reason("Textures/other.png") == "used only by files that are not in the game"); // only the left-out scene used it
+    CHECK(reason("Textures/unused.png") == "not used anywhere");
     CHECK(!reason("Models/unused.gltf").empty() && !reason("Models/unused.bin").empty()); // the model's buffer goes with it
     CHECK(plan.Excluded.size() == 5 && plan.IsExcluded("Models/unused.bin") && !plan.IsExcluded("Models/m.bin"));
     CHECK(!included("Textures/unused.png.zmeta")); // .zmeta files go with their asset
     CHECK(plan.ExcludedBytes > 0 && plan.IncludedBytes > plan.ExcludedBytes);
     CHECK(std::is_sorted(plan.Excluded.begin(), plan.Excluded.end(), [](const ExcludedAsset& a, const ExcludedAsset& b) { return a.Path < b.Path; }));
     const std::string report = plan.FormatReport("Sinov");
-    CHECK(report.starts_with("# Sinov - eksportga kirmagan assetlar\n") && report.find("Textures/unused.png\t") != std::string::npos);
+    CHECK(report.starts_with("# Sinov - assets left out of the export\n") && report.find("Textures/unused.png\t") != std::string::npos);
 
     // Unused assets kept: only the scene outside the build list stays out.
     inputs.Settings.ExcludeUnusedAssets = false;
@@ -35677,8 +35678,8 @@ TEST(ExportReportSizesAndFiles)
     CHECK(ExportReport::FromJson(report.ToJson(), back) && back == report);
     CHECK(!ExportReport::FromJson("[]", back) && !ExportReport::FromJson("nope", back));
     const std::string text = report.ToText();
-    CHECK(text.starts_with("Kosmos 1.4.0 - eksport hisoboti\n") && text.find("Jami: 17 ta fayl") != std::string::npos);
-    CHECK(text.find("Binarlar") != std::string::npos && text.find("Eng katta fayllar:") != std::string::npos);
+    CHECK(text.starts_with("Kosmos 1.4.0 - export report\n") && text.find("Total: 17 files") != std::string::npos);
+    CHECK(text.find("Binaries") != std::string::npos && text.find("Largest files:") != std::string::npos);
     CHECK(text.find("Textures/unused.png") != std::string::npos && text.find("strip: x - y") != std::string::npos);
     CHECK(report.Write(dir));
     ExportReport read;
@@ -35861,7 +35862,7 @@ TEST(PlayerBenchmarkStatsAndLimits)
     CHECK(code.GetResult().GameCode.Count == 4 && code.GetResult().GameCode.Max == 5.0);
     CHECK_NEAR(code.GetResult().GameCode.Average, 3.5, 1e-9);
     CHECK(PlayerBenchmark::ToJson(code.GetResult()).find("\"GameCode\": {") != std::string::npos &&
-          PlayerBenchmark::Describe(code.GetResult()).find("O'yin kodi:") != std::string::npos);
+          PlayerBenchmark::Describe(code.GetResult()).find("Game code:") != std::string::npos);
     // From a frame's profile: the update layer without its drawing children; nothing without that layer.
     {
         std::vector<Profiler::Entry> frame(6);
@@ -35891,9 +35892,9 @@ TEST(PlayerBenchmarkStatsAndLimits)
     CHECK(PlayerBenchmark::WriteJson(r, dir / "sub" / "bench.json"));
     CHECK(FileSystem::ReadTextFile(dir / "sub" / "bench.json") == json);
     const std::string text = PlayerBenchmark::Describe(r);
-    CHECK(text.find("Kosmos 1.2.0") != std::string::npos && text.find("4 kadr (2 ta isitish") != std::string::npos);
-    CHECK(text.find("o'rtacha <= 20.00 ms - o'tdi") != std::string::npos);
-    CHECK(PlayerBenchmark::Describe(slow.GetResult()).find("XATO: p95") != std::string::npos);
+    CHECK(text.find("Kosmos 1.2.0") != std::string::npos && text.find("4 frames (after 2 warm-up") != std::string::npos);
+    CHECK(text.find("average <= 20.00 ms - passed") != std::string::npos);
+    CHECK(PlayerBenchmark::Describe(slow.GetResult()).find("ERROR: p95") != std::string::npos);
     std::error_code ec;
     std::filesystem::remove_all(dir, ec);
 
@@ -36040,7 +36041,7 @@ TEST(ExportFolderSelfCheck)
     auto has = [&](const char* part) {
         return std::any_of(problems.begin(), problems.end(), [&](const std::string& p) { return p.find(part) != std::string::npos; });
     };
-    CHECK(has("bajarish huquqi") && has("Scenes/Level.zscene") && has("libKosmos.so") && has("AssetRegistry"));
+    CHECK(has("execute permission") && has("Scenes/Level.zscene") && has("libKosmos.so") && has("AssetRegistry"));
     CHECK(!has("Old.zscene")); // a disabled build scene is not exported
     // Exported without scripts on purpose (the module was not built: the editor warned): not a problem.
     {
@@ -36125,7 +36126,7 @@ TEST(DisplayResolutionSettings)
     saved = Display::GetSavedSettings();
     PlayerLaunchSettings launch = PlayerLaunchSettings::Resolve(config, saved, PlayerCommandLine::Parse(std::vector<std::string>{}));
     CHECK(launch.Window.Width == 1600 && launch.Window.Height == 900 && launch.SizeSource == PlayerSettingSource::Saved);
-    CHECK(launch.Describe().find("1600x900 (saqlangan)") != std::string::npos);
+    CHECK(launch.Describe().find("1600x900 (saved)") != std::string::npos);
     launch = PlayerLaunchSettings::Resolve(config, saved, PlayerCommandLine::Parse({ "--resolution", "1920x1080" }));
     CHECK(launch.Window.Width == 1920 && launch.SizeSource == PlayerSettingSource::CommandLine);
     launch = PlayerLaunchSettings::Resolve(config, {}, PlayerCommandLine::Parse(std::vector<std::string>{}));
@@ -45705,7 +45706,7 @@ TEST(PrefabExportValidation)
     CHECK(has("R1", "Source/Game.cpp", "Prefabs/Gone.zprefab"));
     CHECK(has("R2", "Prefabs/Broken.zprefab") && level("R2") == S::Error);
     CHECK(has("R3", "Prefabs/Newer.zprefab", "v99") && level("R3") == S::Error);
-    CHECK(has("R4", "Prefabs/TwoRoots.zprefab", "2 ta ildiz") && has("R4", "Prefabs/NoID.zprefab") && level("R4") == S::Warning);
+    CHECK(has("R4", "Prefabs/TwoRoots.zprefab", "2 roots") && has("R4", "Prefabs/NoID.zprefab") && level("R4") == S::Warning);
     CHECK(has("R5", "Prefabs/Unknown.zprefab", "Wobble") && level("R5") == S::Warning);
     CHECK(has("R6", "Prefabs/External.zprefab", "Camera2DFollow.Target") && has("R6", "Prefabs/External.zprefab", "RevoluteJoint2D.ConnectedBody"));
     CHECK(has("R7", "Prefabs/Sprite.zprefab", "Prefabs/yoq.png") && level("R7") == S::Warning);
@@ -45716,7 +45717,7 @@ TEST(PrefabExportValidation)
     CHECK(has("R10", "Scenes/Bosh.zscene", "UIImage/Color") && has("R10", "Scenes/Bosh.zscene", "'Two'") && level("R10") == S::Warning);
     CHECK(!has("R6", prefab.Rel()) && !has("R4", prefab.Rel())); // the good prefab: nothing
     CHECK(r.HasErrors() && r.PrefabsChecked >= 10 && r.Count(S::Info) == 1 && r.Updated == 1);
-    CHECK(r.Summary().find("tekshirildi") != std::string::npos);
+    CHECK(r.Summary().find("checked") != std::string::npos);
 
     // The copies: the scene without its links (the stale instance up to date), the plain one untouched,
     // the source files unchanged.

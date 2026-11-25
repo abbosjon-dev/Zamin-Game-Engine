@@ -43,7 +43,7 @@ while [[ $# -gt 0 ]]; do
         --out) out="$2"; shift 2 ;;
         --package) package="$2"; shift 2 ;;
         -h|--help) sed -n '2,23p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
-        *) echo "noma'lum variant: $1 (--help)" >&2; exit 2 ;;
+        *) echo "unknown option: $1 (--help)" >&2; exit 2 ;;
     esac
 done
 if [[ ! "$shot_frames" =~ ^[1-9][0-9]{0,4}$ ]]; then
@@ -103,7 +103,7 @@ if [[ ! -f "$report" ]]; then
 elif grep -q '"Succeeded": *true' "$report"; then
     pass "export-report.json: muvaffaqiyatli ($(grep -c . "$export_dir/export-report.txt" 2>/dev/null || echo 0) qatorli hisobot)"
 else
-    fail "export-report.json: xatolar bilan - $(grep -A3 '"Errors"' "$report" | tr -d '\n' | head -c 300)"
+    fail "export-report.json: with errors - $(grep -A3 '"Errors"' "$report" | tr -d '\n' | head -c 300)"
 fi
 if grep -q "Eksport: .*eksport to'liq emas" "$work/editor.log"; then
     fail "eksport papkasi to'liq emas: $(grep "eksport to'liq emas" "$work/editor.log" | head -n 3 | tr '\n' ' ')"

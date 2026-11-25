@@ -194,7 +194,7 @@ namespace Zamin {
             }
             if (isScene(file) && !sceneInGame(file))
             {
-                exclude(file, "build ro'yxatida yo'q");
+                exclude(file, "not in the build list");
                 continue;
             }
             if (ext == ".zsceneb" || ext == ".znav")
@@ -204,7 +204,7 @@ namespace Zamin {
                 scene.replace_extension(".zscene");
                 if (!sceneInGame(scene.generic_string()))
                 {
-                    exclude(file, "sahnasi eksportga kirmaydi");
+                    exclude(file, "its scene is not in the export");
                     continue;
                 }
                 plan.Included.push_back(file);
@@ -215,13 +215,13 @@ namespace Zamin {
                 const AssetType type = AssetTypes::FromPath(file);
                 if (AssetTypes::IsRegistered(type))
                 {
-                    exclude(file, index.IsReferenced(file) ? "faqat o'yinga kirmaydigan fayllar ishlatadi" : "hech qayerda ishlatilmaydi");
+                    exclude(file, index.IsReferenced(file) ? "used only by files that are not in the game" : "not used anywhere");
                     continue;
                 }
                 // Another file (a model's buffer, an image only a model names): out with what uses it.
                 if (index.IsReferenced(file))
                 {
-                    exclude(file, "faqat o'yinga kirmaydigan fayllar ishlatadi");
+                    exclude(file, "used only by files that are not in the game");
                     continue;
                 }
             }
@@ -252,7 +252,7 @@ namespace Zamin {
             if (std::find(scenes.begin(), scenes.end(), start) == scenes.end())
             {
                 if (notes)
-                    notes->push_back(std::format("Boshlang'ich sahna build ro'yxatida yo'q - baribir eksportga qo'shiladi: {}", start));
+                    notes->push_back(std::format("The start scene is not in the build list - it is added to the export anyway: {}", start));
                 scenes.push_back(start);
             }
         }
@@ -277,7 +277,7 @@ namespace Zamin {
                 if (std::find(scenes.begin(), scenes.end(), path) != scenes.end())
                     continue;
                 if (notes)
-                    notes->push_back(std::format("'{}' sub-sahnasi ham kiritiladi ({} ichida)", path, scenes[i]));
+                    notes->push_back(std::format("The sub-scene '{}' is included too (inside {})", path, scenes[i]));
                 scenes.push_back(path);
             }
         }
@@ -305,10 +305,10 @@ namespace Zamin {
 
     std::string ExportAssetPlan::FormatReport(std::string_view gameName) const
     {
-        std::string text = std::format("# {} - eksportga kirmagan assetlar\n", gameName);
-        text += std::format("# Kiritildi: {} ta fayl ({}), chiqarib tashlandi: {} ta ({})\n", Included.size(), ExportAssets::FormatSize(IncludedBytes),
+        std::string text = std::format("# {} - assets left out of the export\n", gameName);
+        text += std::format("# Included: {} files ({}), excluded: {} ({})\n", Included.size(), ExportAssets::FormatSize(IncludedBytes),
                             Excluded.size(), ExportAssets::FormatSize(ExcludedBytes));
-        text += "# Kerak bo'lsa: Project settings > Build sahnalar > Eksport > \"Doim kiritish\" ro'yxatiga qo'shing.\n";
+        text += "# If needed: add to the \"Always include\" list in Project settings > Build scenes > Export.\n";
         for (const ExcludedAsset& asset : Excluded)
             text += std::format("{}\t{}\t{}\n", asset.Path, ExportAssets::FormatSize(asset.Size), asset.Reason);
         return text;

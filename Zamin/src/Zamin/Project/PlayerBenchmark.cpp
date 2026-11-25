@@ -65,9 +65,9 @@ namespace Zamin {
         r.MaxAverageMs = m_Settings.MaxAverageMs;
         r.MaxP95Ms = m_Settings.MaxP95Ms;
         if ((int)m_Frames.size() < m_Settings.Frames)
-            r.Failures.push_back(std::format("faqat {} / {} kadr o'lchandi", m_Frames.size(), m_Settings.Frames));
+            r.Failures.push_back(std::format("only {} / {} frames were measured", m_Frames.size(), m_Settings.Frames));
         if (r.MaxAverageMs > 0.0 && r.Frame.Average > r.MaxAverageMs)
-            r.Failures.push_back(std::format("o'rtacha {:.2f} ms > {:.2f} ms", r.Frame.Average, r.MaxAverageMs));
+            r.Failures.push_back(std::format("average {:.2f} ms > {:.2f} ms", r.Frame.Average, r.MaxAverageMs));
         if (r.MaxP95Ms > 0.0 && r.Frame.P95 > r.MaxP95Ms)
             r.Failures.push_back(std::format("p95 {:.2f} ms > {:.2f} ms", r.Frame.P95, r.MaxP95Ms));
         r.Passed = r.Failures.empty();
@@ -135,30 +135,30 @@ namespace Zamin {
         if (FileSystem::WriteTextFile(path, ToJson(result)))
             return true;
         if (error)
-            *error = std::format("{} yozilmadi", path.string());
+            *error = std::format("{} could not be written", path.string());
         return false;
     }
 
     std::string PlayerBenchmark::Describe(const Result& r)
     {
-        std::string text = std::format("Ishlash testi: {} {} - {} ({}x{}, {})\n", r.Game, r.GameVersion, r.Scene.empty() ? std::string("-") : r.Scene,
-                                       r.Width, r.Height, r.Renderer.empty() ? std::string("GPU noma'lum") : r.Renderer);
-        text += std::format("  {} kadr ({} ta isitish kadridan keyin), {:.2f} s; yuklanish {:.2f} s\n", r.Frame.Count, r.Warmup, r.Seconds, r.LoadSeconds);
-        text += std::format("  Kadr:      {}\n", r.Frame.Format());
-        text += std::format("  Yangilash: {} (o'yin yangilanishi va chizish chaqiruvlari, swap'siz)\n", r.Update.Format());
+        std::string text = std::format("Benchmark: {} {} - {} ({}x{}, {})\n", r.Game, r.GameVersion, r.Scene.empty() ? std::string("-") : r.Scene,
+                                       r.Width, r.Height, r.Renderer.empty() ? std::string("GPU unknown") : r.Renderer);
+        text += std::format("  {} frames (after {} warm-up frames), {:.2f} s; loading {:.2f} s\n", r.Frame.Count, r.Warmup, r.Seconds, r.LoadSeconds);
+        text += std::format("  Frame:     {}\n", r.Frame.Format());
+        text += std::format("  Update:    {} (game update and draw calls, without swap)\n", r.Update.Format());
         if (r.GameCode.Count > 0)
-            text += std::format("  O'yin kodi: {} (skriptlar, gameplay, fizika, AI, animatsiya, particle'lar, audio - chizishsiz)\n", r.GameCode.Format());
+            text += std::format("  Game code: {} (scripts, gameplay, physics, AI, animation, particles, audio - without rendering)\n", r.GameCode.Format());
         if (r.MaxAverageMs > 0.0 || r.MaxP95Ms > 0.0)
         {
             std::string limits;
             if (r.MaxAverageMs > 0.0)
-                limits += std::format("o'rtacha <= {:.2f} ms", r.MaxAverageMs);
+                limits += std::format("average <= {:.2f} ms", r.MaxAverageMs);
             if (r.MaxP95Ms > 0.0)
                 limits += std::format("{}p95 <= {:.2f} ms", limits.empty() ? "" : ", ", r.MaxP95Ms);
-            text += std::format("  Chegaralar: {} - {}\n", limits, r.Passed ? "o'tdi" : "o'tmadi");
+            text += std::format("  Limits: {} - {}\n", limits, r.Passed ? "passed" : "failed");
         }
         for (const std::string& failure : r.Failures)
-            text += std::format("  XATO: {}\n", failure);
+            text += std::format("  ERROR: {}\n", failure);
         return text;
     }
 

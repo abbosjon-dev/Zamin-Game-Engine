@@ -26,7 +26,7 @@ while [[ $# -gt 0 ]]; do
         --keep) keep=1; shift ;;
         --work) work="$2"; keep=1; shift 2 ;;
         -h|--help) sed -n '2,17p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
-        *) echo "noma'lum variant: $1 (--help)" >&2; exit 2 ;;
+        *) echo "unknown option: $1 (--help)" >&2; exit 2 ;;
     esac
 done
 if [[ ! -x "$editor" ]]; then

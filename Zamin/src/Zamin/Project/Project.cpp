@@ -40,7 +40,7 @@ namespace Zamin {
         AudioEngine::SetMixerSettings(project->m_Config.Audio);
         Quality::SetSettings(project->m_Config.Quality);
         ApplyLocalization();
-        ZM_CORE_INFO("Loyiha ochildi: {} ({})", project->m_Config.Name, project->m_ProjectDirectory.string());
+        ZM_CORE_INFO("Project opened: {} ({})", project->m_Config.Name, project->m_ProjectDirectory.string());
 
         // The start scene was renamed / moved outside the editor: found again by its UUID.
         ProjectConfig& config = project->m_Config;
@@ -49,7 +49,7 @@ namespace Zamin {
             if (AssetRegistry* registry = GetAssetRegistry())
                 if (std::string moved = registry->GetPath(config.StartSceneHandle); !moved.empty())
                 {
-                    ZM_CORE_INFO("Boshlang'ich sahna UUID orqali topildi: '{}' -> '{}'", config.StartScene.generic_string(), moved);
+                    ZM_CORE_INFO("Start scene found by UUID: '{}' -> '{}'", config.StartScene.generic_string(), moved);
                     config.StartScene = moved;
                 }
         // Build scenes the same way.
@@ -58,7 +58,7 @@ namespace Zamin {
                 if (AssetRegistry* registry = GetAssetRegistry())
                     if (std::string moved = registry->GetPath(entry.Handle); !moved.empty())
                     {
-                        ZM_CORE_INFO("Build sahnasi UUID orqali topildi: '{}' -> '{}'", entry.Path.generic_string(), moved);
+                        ZM_CORE_INFO("Build scene found by UUID: '{}' -> '{}'", entry.Path.generic_string(), moved);
                         entry.Path = moved;
                     }
         return s_ActiveProject;
@@ -145,27 +145,27 @@ namespace Zamin {
         {
             if (!anyEnabledThere)
                 add(BuildSceneIssue::Kind::NoStartScene, -1, "", true,
-                    "Boshlang'ich sahna tanlanmagan va build ro'yxatida yoqilgan sahna yo'q: o'yin hech narsani ochmaydi");
+                    "No start scene is chosen and the build list has no enabled scene: the game opens nothing");
         }
         else if (!exists(config.StartScene))
             add(BuildSceneIssue::Kind::StartSceneMissing, -1, start, true,
-                anyEnabledThere ? std::format("Boshlang'ich sahna fayli topilmadi: {} (o'yin birinchi build sahnasidan boshlanadi)", start)
-                                : std::format("Boshlang'ich sahna fayli topilmadi: {}", start));
+                anyEnabledThere ? std::format("Start scene file not found: {} (the game starts from the first build scene)", start)
+                                : std::format("Start scene file not found: {}", start));
         else if (!config.BuildScenes.empty())
         {
             auto it = std::find_if(config.BuildScenes.begin(), config.BuildScenes.end(),
                                    [&](const BuildSceneEntry& e) { return normal(e.Path) == start; });
             if (it == config.BuildScenes.end())
                 add(BuildSceneIssue::Kind::StartSceneNotListed, -1, start, false,
-                    std::format("Boshlang'ich sahna ({}) build ro'yxatida yo'q: eksportga baribir kiradi, lekin build indeksi yo'q", start));
+                    std::format("The start scene ({}) is not in the build list: it still goes into the export, but has no build index", start));
             else if (!it->Enabled)
                 add(BuildSceneIssue::Kind::StartSceneDisabled, (int)(it - config.BuildScenes.begin()), start, false,
-                    std::format("Boshlang'ich sahna ({}) ro'yxatda o'chirilgan: eksportga baribir kiradi, lekin build indeksi yo'q", start));
+                    std::format("The start scene ({}) is disabled in the list: it still goes into the export, but has no build index", start));
         }
 
         // The list.
         if (!config.BuildScenes.empty() && !anyEnabled)
-            add(BuildSceneIssue::Kind::NoEnabledScenes, -1, "", false, "Ro'yxatdagi hamma sahnalar o'chirilgan: build indekslari yo'q");
+            add(BuildSceneIssue::Kind::NoEnabledScenes, -1, "", false, "All scenes in the list are disabled: there are no build indices");
         std::vector<std::string> seen;
         for (size_t i = 0; i < config.BuildScenes.size(); i++)
         {
@@ -173,15 +173,15 @@ namespace Zamin {
             const std::string path = normal(entry.Path);
             if (std::find(seen.begin(), seen.end(), path) != seen.end())
             {
-                add(BuildSceneIssue::Kind::Duplicate, (int)i, path, false, std::format("{} ro'yxatda ikki marta", path));
+                add(BuildSceneIssue::Kind::Duplicate, (int)i, path, false, std::format("{} is in the list twice", path));
                 continue;
             }
             seen.push_back(path);
             if (entry.Path.extension() != ".zscene")
-                add(BuildSceneIssue::Kind::NotAScene, (int)i, path, true, std::format("{} sahna fayli emas (.zscene)", path));
+                add(BuildSceneIssue::Kind::NotAScene, (int)i, path, true, std::format("{} is not a scene file (.zscene)", path));
             else if (!exists(entry.Path))
                 add(BuildSceneIssue::Kind::SceneMissing, (int)i, path, entry.Enabled,
-                    std::format("Sahna fayli topilmadi: {}{}", path, entry.Enabled ? "" : " (o'chirilgan)"));
+                    std::format("Scene file not found: {}{}", path, entry.Enabled ? "" : " (disabled)"));
         }
         return issues;
     }
@@ -365,33 +365,33 @@ namespace Zamin {
                 {
                     if (registry->Load(directory, *snapshot, true))
                     {
-                        ZM_CORE_INFO("Assetlar: {} ta ({} faylidan)", registry->GetCount(), BuildAssetRegistryFile);
+                        ZM_CORE_INFO("Assets: {} (from the file {})", registry->GetCount(), BuildAssetRegistryFile);
                         return registry.get();
                     }
-                    ZM_CORE_WARN("{} eskirgan (unda bor fayl topilmadi) - asset papkasi o'qiladi", BuildAssetRegistryFile);
+                    ZM_CORE_WARN("{} is stale (a file listed in it was not found) - the asset folder is scanned", BuildAssetRegistryFile);
                 }
                 else if (!error.empty())
-                    ZM_CORE_WARN("{} o'qilmadi ({}) - asset papkasi o'qiladi", BuildAssetRegistryFile, error);
+                    ZM_CORE_WARN("{} could not be read ({}) - the asset folder is scanned", BuildAssetRegistryFile, error);
             }
 
             // The snapshot of the last session: what moved since then keeps its handle.
             std::optional<AssetRegistry::Snapshot> previous = AssetRegistry::LoadSnapshot(GetAssetRegistryCachePath(), &error);
             if (!previous && !error.empty())
-                ZM_CORE_WARN("Asset registry keshi o'qilmadi ({}) - e'tiborsiz qoldirildi", error);
+                ZM_CORE_WARN("The asset registry cache could not be read ({}) - ignored", error);
             const AssetRegistry::ScanResult& scan = registry->Scan(directory, previous ? &*previous : nullptr);
-            ZM_CORE_INFO("Assetlar: {} ta{}{}", scan.Assets,
-                         scan.CreatedMeta ? std::format(", {} ta yangi .zmeta yaratildi", scan.CreatedMeta) : std::string(),
-                         scan.OrphanMeta ? std::format(", {} ta egasiz .zmeta", scan.OrphanMeta) : std::string());
+            ZM_CORE_INFO("Assets: {}{}{}", scan.Assets,
+                         scan.CreatedMeta ? std::format(", {} new .zmeta files created", scan.CreatedMeta) : std::string(),
+                         scan.OrphanMeta ? std::format(", {} orphan .zmeta files", scan.OrphanMeta) : std::string());
             if (scan.MovedOutside > 0)
-                ZM_CORE_INFO("{} ta asset oxirgi ochilgandan beri ko'chirilgan yoki nomi o'zgargan{}", scan.MovedOutside,
-                             scan.RecoveredMeta ? std::format(" ({} tasi .zmeta faylisiz - UUID va sozlamalari tiklandi)", scan.RecoveredMeta)
+                ZM_CORE_INFO("{} assets were moved or renamed since the project was last opened{}", scan.MovedOutside,
+                             scan.RecoveredMeta ? std::format(" ({} without a .zmeta file - UUID and settings restored)", scan.RecoveredMeta)
                                                 : std::string());
             size_t shown = 0;
             for (const std::string& problem : scan.Problems)
                 if (shown++ < 10)
                     ZM_CORE_WARN("{}", problem);
             if (scan.Problems.size() > 10)
-                ZM_CORE_WARN("... va yana {} ta .zmeta muammosi", scan.Problems.size() - 10);
+                ZM_CORE_WARN("... and {} more .zmeta problems", scan.Problems.size() - 10);
         }
         return registry.get();
     }
@@ -448,7 +448,7 @@ namespace Zamin {
             if (item.is_string() && InputBindingFromString(item.get<std::string>(), b))
                 bindings.push_back(b);
             else
-                ZM_CORE_WARN("Noma'lum input bog'lanishi '{}' ({})", item.dump(), owner);
+                ZM_CORE_WARN("Unknown input binding '{}' ({})", item.dump(), owner);
         }
         return bindings;
     }
@@ -549,7 +549,7 @@ namespace Zamin {
                 auto name = item.find("Name");
                 if (id == item.end() || !id->is_number_unsigned() || name == item.end() || !name->is_string())
                 {
-                    ZM_CORE_WARN("Noto'g'ri saralash qatlami e'tiborsiz qoldirildi: {}", item.dump());
+                    ZM_CORE_WARN("Invalid sorting layer ignored: {}", item.dump());
                     continue;
                 }
                 auto ySort = item.find("YSort");
@@ -578,7 +578,7 @@ namespace Zamin {
         }
         catch (const std::exception& e)
         {
-            ZM_CORE_ERROR("Input xaritasi o'qilmadi: {}", e.what());
+            ZM_CORE_ERROR("The input map could not be read: {}", e.what());
             return false;
         }
     }
@@ -928,7 +928,7 @@ namespace Zamin {
             if (error)
                 *error = e.what();
             else
-                ZM_CORE_ERROR("Loyiha sozlamalari o'qilmadi: {}", e.what());
+                ZM_CORE_ERROR("The project settings could not be read: {}", e.what());
             return false;
         }
     }
@@ -987,19 +987,18 @@ namespace Zamin {
         }
         catch (const std::exception& e)
         {
-            ZM_CORE_ERROR("Loyiha fayli o'qilmadi '{}': {}", filepath.string(), e.what());
+            ZM_CORE_ERROR("The project file could not be read '{}': {}", filepath.string(), e.what());
             return false;
         }
         const std::string name = filepath.filename().string();
         if (migration.Migrated())
         {
-            ZM_CORE_INFO("Loyiha fayli eski formatda: {} {} - saqlanganda joriy formatda yoziladi", name, migration.Summary());
+            ZM_CORE_INFO("The project file is in an old format: {} {} - it is written in the current format when saved", name, migration.Summary());
             for (const ProjectMigrationStep& step : migration.Steps)
-                ZM_CORE_INFO("  v{} -> v{}: {} ({} ta)", step.From, step.To, step.Description, step.Changes);
+                ZM_CORE_INFO("  v{} -> v{}: {} ({})", step.From, step.To, step.Description, step.Changes);
         }
         if (migration.IsNewer())
-            ZM_CORE_WARN("Loyiha fayli yangiroq formatda (v{}, bu dvigatel v{} gacha biladi): {} - tushunarli qismi o'qildi, "
-                         "qolgani saqlanganda o'zgarmay yoziladi", migration.FileVersion, ProjectMigration::CurrentVersion, name);
+            ZM_CORE_WARN("The project file is in a newer format (v{}, this engine knows up to v{}): {} - the understood part was read, the rest is written unchanged when saved", migration.FileVersion, ProjectMigration::CurrentVersion, name);
         if (const auto& extra = m_Project->GetConfig().ExtraSections; !extra.empty())
         {
             std::string keys;
@@ -1007,7 +1006,7 @@ namespace Zamin {
                 keys += (i ? ", " : "") + extra[i].first;
             if (extra.size() > 6)
                 keys += std::format(" ... (+{})", extra.size() - 6);
-            ZM_CORE_INFO("Loyiha faylidagi {} ta noma'lum kalit saqlab qolinadi: {}", extra.size(), keys);
+            ZM_CORE_INFO("{} unknown keys in the project file are kept: {}", extra.size(), keys);
         }
         return true;
     }
@@ -1024,7 +1023,7 @@ namespace Zamin {
 
     bool Project::WriteBuildFiles(const std::filesystem::path& projectDir, const std::string& name)
     {
-        std::string cmake = std::format(R"(# Zamin o'yin loyihasi: C++ skriptlar moduli
+        std::string cmake = std::format(R"(# Zamin game project: the C++ script module
 cmake_minimum_required(VERSION 3.20)
 project({0} LANGUAGES C CXX)
 
@@ -1055,7 +1054,7 @@ zamin_add_game_module({0} ${{GAME_SOURCES}})
         std::filesystem::create_directories(directory / "Source", ec);
         if (ec)
         {
-            ZM_CORE_ERROR("Loyiha papkasi yaratilmadi: {}", ec.message());
+            ZM_CORE_ERROR("Could not create the project folder: {}", ec.message());
             return nullptr;
         }
 
@@ -1063,6 +1062,7 @@ zamin_add_game_module({0} ${{GAME_SOURCES}})
         auto& c = project->GetConfig();
         c.Name = name;
         c.StartScene = "Scenes/Main.zscene";
+        c.Localization.DefaultLanguage = "en"; // a new game starts in English; Uzbek is its second language
         c.ScriptModulePath = "Binaries/lib" + name + ".so";
         s_ActiveProject = project;
         project->m_ProjectDirectory = std::filesystem::absolute(directory);
@@ -1077,10 +1077,10 @@ zamin_add_game_module({0} ${{GAME_SOURCES}})
         // Starter language files (Project settings > Localization; scripts: Localize("game.title")).
         {
             LocalizationTable languages;
-            languages.AddLanguage("uz");
             languages.AddLanguage("en");
-            languages.Languages[0].DisplayName = "O'zbekcha";
-            languages.Languages[1].DisplayName = "English";
+            languages.AddLanguage("uz");
+            languages.Languages[0].DisplayName = "English";
+            languages.Languages[1].DisplayName = "O'zbekcha";
             languages.Set("game.title", "uz", LocalizedString{ name, {} });
             languages.Set("game.title", "en", LocalizedString{ name, {} });
             languages.Set("game.start", "uz", LocalizedString{ "Boshlash", {} });
@@ -1131,7 +1131,7 @@ zamin_add_game_module({0} ${{GAME_SOURCES}})
         SceneSerializer serializer(scene);
         serializer.Serialize(directory / "Assets" / c.StartScene);
 
-        ZM_CORE_INFO("Yangi loyiha yaratildi: {}", projectFile.string());
+        ZM_CORE_INFO("New project created: {}", projectFile.string());
         return project;
     }
 

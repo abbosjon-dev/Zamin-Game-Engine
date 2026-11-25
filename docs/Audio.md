@@ -563,7 +563,7 @@ slayderlari, `Audio/SessionTheme.wav`).
 | Musiqa sahna almashganda to'xtamaydi | Shunday bo'lishi kerak — musiqa o'yinniki; `Audio::StopMusic()` |
 | Pauza menyusida o'yin ovozlari davom etadi | `PauseGame()` ovozlarni to'xtatmaydi — `PauseAudio` yoki guruh filtri / mute |
 | Uzun fayl birinchi ijroda kechikadi | `Preload` yoki `Stream` yuklash usuli |
-| Saqlangan sozlamalar ishlamaydi: `Saqlangan ovoz sozlamalari o'qilmadi (...)` | SaveData'dagi yozuv buzilgan — `Audio::ClearSavedSettings()` |
+| Saqlangan sozlamalar ishlamaydi: `The saved audio settings could not be read (...)` | SaveData'dagi yozuv buzilgan — `Audio::ClearSavedSettings()` |
 
 ---
 

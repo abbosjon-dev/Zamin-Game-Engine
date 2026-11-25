@@ -665,20 +665,20 @@ namespace Zamin {
         fs::path src = Normalize(source), dst = Normalize(destinationDir);
         std::string name = src.filename().string();
         if (!fs::exists(src, ec))
-            return std::format("'{}' topilmadi", name);
+            return std::format("'{}' not found", name);
         if (!fs::is_directory(dst, ec))
-            return std::format("'{}' papka emas", dst.filename().string());
+            return std::format("'{}' is not a folder", dst.filename().string());
         fs::path assets = assetDirectory.empty() ? fs::path() : Normalize(assetDirectory);
         if (!assets.empty() && src == assets)
-            return "Assets papkasini ko'chirib bo'lmaydi";
+            return "The Assets folder cannot be moved";
         if (IsUnder(dst, src))
-            return "Papkani o'zining ichiga ko'chirib bo'lmaydi";
+            return "A folder cannot be moved into itself";
         if (src.parent_path() == dst)
-            return std::format("'{}' allaqachon shu papkada", name);
+            return std::format("'{}' is already in this folder", name);
         if (!assets.empty() && IsUnder(src, assets) != IsUnder(dst, assets))
-            return "Assets papkasidan tashqariga (yoki tashqaridan ichiga) ko'chirib bo'lmaydi";
+            return "Cannot move out of the Assets folder (or into it from outside)";
         if (fs::exists(dst / src.filename(), ec))
-            return std::format("'{}' papkasida '{}' nomli fayl allaqachon bor", dst.filename().string(), name);
+            return std::format("The folder '{}' already has a file named '{}'", dst.filename().string(), name);
         return {};
     }
 
@@ -871,7 +871,7 @@ namespace Zamin {
             ec = MoveOnDisk(move.From, move.To);
             if (ec)
             {
-                result.Errors.push_back(std::format("'{}' ko'chirilmadi: {}", src.filename().string(), ec.message()));
+                result.Errors.push_back(std::format("'{}' was not moved: {}", src.filename().string(), ec.message()));
                 continue;
             }
             if (!move.IsDirectory)
@@ -891,17 +891,17 @@ namespace Zamin {
         if (newName.empty() || newName == "." || newName == ".." || newName.find_first_of("/\\") != std::string::npos ||
             newName.find('\0') != std::string::npos)
         {
-            result.Errors.push_back(std::format("'{}' - noto'g'ri nom", newName));
+            result.Errors.push_back(std::format("'{}' is an invalid name", newName));
             return result;
         }
         if (!fs::exists(src, ec))
         {
-            result.Errors.push_back(std::format("'{}' topilmadi", src.filename().string()));
+            result.Errors.push_back(std::format("'{}' not found", src.filename().string()));
             return result;
         }
         if (!assetDirectory.empty() && src == Normalize(assetDirectory))
         {
-            result.Errors.push_back("Assets papkasini qayta nomlab bo'lmaydi");
+            result.Errors.push_back("The Assets folder cannot be renamed");
             return result;
         }
         fs::path target = src.parent_path() / newName;
@@ -909,14 +909,14 @@ namespace Zamin {
             return result;
         if (fs::exists(target, ec))
         {
-            result.Errors.push_back(std::format("'{}' nomli fayl allaqachon bor", newName));
+            result.Errors.push_back(std::format("A file named '{}' already exists", newName));
             return result;
         }
         Move move{ src, target, fs::is_directory(src, ec) };
         ec = MoveOnDisk(move.From, move.To);
         if (ec)
         {
-            result.Errors.push_back(std::format("Nomlab bo'lmadi: {}", ec.message()));
+            result.Errors.push_back(std::format("Could not rename: {}", ec.message()));
             return result;
         }
         if (!move.IsDirectory)
@@ -933,13 +933,13 @@ namespace Zamin {
         bool isDirectory = fs::is_directory(path, ec);
         if (!fs::exists(path, ec))
         {
-            if (error) *error = std::format("'{}' topilmadi", path.filename().string());
+            if (error) *error = std::format("'{}' not found", path.filename().string());
             return false;
         }
         fs::remove_all(path, ec);
         if (ec)
         {
-            if (error) *error = std::format("'{}' o'chirilmadi: {}", path.filename().string(), ec.message());
+            if (error) *error = std::format("'{}' was not deleted: {}", path.filename().string(), ec.message());
             return false;
         }
         if (!isDirectory)
@@ -963,7 +963,7 @@ namespace Zamin {
         fs::path dst = Normalize(destinationDir);
         if (!fs::is_directory(dst, ec))
         {
-            result.Errors.push_back(std::format("'{}' papkasini yaratib bo'lmadi", destinationDir.string()));
+            result.Errors.push_back(std::format("Could not create the folder '{}'", destinationDir.string()));
             return result;
         }
         for (const fs::path& source : sources)
@@ -972,12 +972,12 @@ namespace Zamin {
             std::string name = src.filename().string();
             if (!fs::exists(src, ec))
             {
-                result.Errors.push_back(std::format("'{}' topilmadi", name));
+                result.Errors.push_back(std::format("'{}' not found", name));
                 continue;
             }
             if (IsUnder(dst, src))
             {
-                result.Errors.push_back(std::format("'{}' papkasini o'zining ichiga import qilib bo'lmaydi", name));
+                result.Errors.push_back(std::format("The folder '{}' cannot be imported into itself", name));
                 continue;
             }
 
@@ -985,7 +985,7 @@ namespace Zamin {
             {
                 fs::path target = MakeUniquePath(dst, src.filename());
                 fs::copy(src, target, fs::copy_options::recursive, ec);
-                if (ec) result.Errors.push_back(std::format("'{}' nusxalanmadi: {}", name, ec.message()));
+                if (ec) result.Errors.push_back(std::format("'{}' was not copied: {}", name, ec.message()));
                 else result.Imported.push_back(target);
                 continue;
             }
@@ -1009,7 +1009,7 @@ namespace Zamin {
             {
                 fs::path target = MakeUniquePath(dst, src.filename());
                 fs::copy_file(src, target, ec);
-                if (ec) result.Errors.push_back(std::format("'{}' nusxalanmadi: {}", name, ec.message()));
+                if (ec) result.Errors.push_back(std::format("'{}' was not copied: {}", name, ec.message()));
                 else
                 {
                     copyMetaFile(src, target);
@@ -1025,7 +1025,7 @@ namespace Zamin {
             fs::copy_file(src, target, ec);
             if (ec)
             {
-                result.Errors.push_back(std::format("'{}' nusxalanmadi: {}", name, ec.message()));
+                result.Errors.push_back(std::format("'{}' was not copied: {}", name, ec.message()));
                 continue;
             }
             copyMetaFile(src, target);
@@ -1047,7 +1047,7 @@ namespace Zamin {
                 }
                 fs::copy_file(dep, out, fs::copy_options::skip_existing, dec);
                 if (dec)
-                    result.Errors.push_back(std::format("'{}' ({}) nusxalanmadi: {}", dep.filename().string(), name, dec.message()));
+                    result.Errors.push_back(std::format("'{}' ({}) was not copied: {}", dep.filename().string(), name, dec.message()));
             }
             if (!moved.empty())
             {

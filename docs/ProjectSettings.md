@@ -163,7 +163,7 @@ darhol to'liq ekranda ochiladi (oynali -> to'liq ekran sakrashisiz). Masalan `--
 saqlangan to'liq ekran tanlovi kuchda qoladi. Log'da har bir qiymat qayerdan kelgani yoziladi:
 
 ```
-Window settings: 1600x900 (buyruq qatori), to'liq ekran (saqlangan), VSync: ha (loyiha), FPS: 60 (loyiha), monitor: asosiy (loyiha), splash: ha (loyiha)
+Window settings: 1600x900 (command line), fullscreen (saved), VSync: yes (project), FPS: 60 (project), monitor: primary (project), splash: yes (project)
 ```
 
 **F11 / Alt+Enter**: o'yin ichida to'liq ekran (loyihaning turi: eksklyuziv yoki chegarasiz) va oyna orasida

@@ -57,8 +57,8 @@ namespace Zamin {
         const std::vector<Step>& Steps()
         {
             static const std::vector<Step> s_Steps = {
-                { { 0, 1, "tekis kalitlar (Name, StartScene ...) \"Project\" obyektiga ko'chirildi" }, MigrateFlatToProject },
-                { { 1, 2, "build sahnalari yo'l matnidan { Path, Enabled } obyektiga o'tkazildi; \"Version\" qo'shildi" }, MigrateBuildSceneEntries },
+                { { 0, 1, "flat keys (Name, StartScene ...) moved into the \"Project\" object" }, MigrateFlatToProject },
+                { { 1, 2, "build scenes converted from a path string to a { Path, Enabled } object; \"Version\" added" }, MigrateBuildSceneEntries },
             };
             return s_Steps;
         }
@@ -92,7 +92,7 @@ namespace Zamin {
     {
         if (Steps.empty())
             return {};
-        return std::format("v{} -> v{} ({} qadam, {} ta o'zgarish)", FileVersion, Version, Steps.size(), GetChangeCount());
+        return std::format("v{} -> v{} ({} steps, {} changes)", FileVersion, Version, Steps.size(), GetChangeCount());
     }
 
     const std::vector<ProjectMigrationStep>& ProjectMigration::GetChain()
@@ -119,7 +119,7 @@ namespace Zamin {
         if (version < 0)
         {
             if (error)
-                *error = root.is_discarded() ? "JSON emas" : "loyiha fayli emas (\"Project\" yoki \"Version\" yo'q)";
+                *error = root.is_discarded() ? "not JSON" : "not a project file (no \"Project\" or \"Version\")";
             return false;
         }
         ProjectMigrationResult r;

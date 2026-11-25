@@ -70,7 +70,7 @@ Log boshida doim:
 ```
 Zamin Engine 0.1.0 (kommit 40a7394f2c, build 2026-11-07, Release, GCC 13.3.0) is starting (Zamin Player)
 Log fayli: /home/ali/.local/share/Zamin Studio/Zamin Platformer/logs/player-2026-11-07_14-03-12.log
-Window settings: 1600x900 (saqlangan), oynali (loyiha), VSync: ha (loyiha), FPS: cheklovsiz (loyiha), monitor: asosiy (loyiha), splash: ha (loyiha)
+Window settings: 1600x900 (saved), windowed (project), VSync: yes (project), FPS: unlimited (project), monitor: primary (project), splash: yes (project)
 Zamin Platformer 0.4.0 (Zamin Studio)
 Script module loaded: libPlatformer2D.so (25 script classes)
 ```
@@ -383,13 +383,13 @@ xvfb-run -a ./build/bin/ZaminPlayer Projects/Showcase3D --benchmark 300 --benchm
 ```
 
 ```
-Ishlash testi: Zamin Showcase 3D 1.2.0 - Scenes/Showcase.zscene (1280x720, llvmpipe (LLVM 20.1.2, 256 bits))
-  300 kadr (60 ta isitish kadridan keyin), 21.70 s; yuklanish 0.10 s
-  Kadr:      o'rtacha 72.35 ms (13.8 FPS), mediana 70.45, p95 87.21, p99 92.70, min 67.13, max 92.83 ms
-  Yangilash: o'rtacha 65.82 ms (15.2 FPS), ... (o'yin yangilanishi va chizish chaqiruvlari, swap'siz)
+Benchmark: Zamin Showcase 3D 1.2.0 - Scenes/Showcase.zscene (1280x720, llvmpipe (LLVM 20.1.2, 256 bits))
+  300 frames (after 60 warm-up frames), 21.70 s; loading 0.10 s
+  Frame:     average 72.35 ms (13.8 FPS), median 70.45, p95 87.21, p99 92.70, min 67.13, max 92.83 ms
+  Update:    average 65.82 ms (15.2 FPS), ... (game update and draw calls, without swap)
 ```
 
-- **Kadr** - bir kadr boshidan keyingisining boshigacha (yangilash, chizish, swap); **Yangilash** - playerning o'z
+- **Frame** - bir kadr boshidan keyingisining boshigacha (yangilash, chizish, swap); **Update** - playerning o'z
   yangilash va chizish chaqiruvlari (swap'siz). Persentillar "eng yaqin rang" bo'yicha: p95 - kadrlarning 95% i
   undan sekin bo'lmagan eng kichik vaqt (`FrameTimeStats`).
 - JSON: `Game`, `GameVersion`, `Scene`, `Engine` (build), `Renderer` (GPU), `Width`, `Height`, `Warmup`, `Seconds`,

@@ -20,7 +20,7 @@ while [[ $# -gt 0 ]]; do
         --out) out="$2"; shift 2 ;;
         --frames) frames="$2"; shift 2 ;;
         -h|--help) sed -n '2,10p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
-        -*) echo "noma'lum variant: $1 (--help)" >&2; exit 2 ;;
+        -*) echo "unknown option: $1 (--help)" >&2; exit 2 ;;
         *) projects+=("$1"); shift ;;
     esac
 done

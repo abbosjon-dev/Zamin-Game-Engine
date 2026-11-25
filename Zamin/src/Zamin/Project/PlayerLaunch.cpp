@@ -34,11 +34,11 @@ namespace Zamin {
         {
             switch (mode)
             {
-                case WindowMode::Windowed:   return "oynali";
-                case WindowMode::Fullscreen: return "to'liq ekran";
-                case WindowMode::Borderless: return "chegarasiz to'liq ekran";
+                case WindowMode::Windowed:   return "windowed";
+                case WindowMode::Fullscreen: return "fullscreen";
+                case WindowMode::Borderless: return "borderless fullscreen";
             }
-            return "oynali";
+            return "windowed";
         }
 
     }
@@ -83,7 +83,7 @@ namespace Zamin {
                 if (c.Project.empty())
                     c.Project = arg;
                 else
-                    c.Errors.push_back(std::format("ortiqcha argument: '{}' (loyiha allaqachon: '{}')", arg, c.Project));
+                    c.Errors.push_back(std::format("extra argument: '{}' (the project is already: '{}')", arg, c.Project));
                 continue;
             }
             std::string name = arg;
@@ -103,7 +103,7 @@ namespace Zamin {
                     value = args[++i];
                 else
                 {
-                    c.Errors.push_back(std::format("{}: qiymat kerak (--help)", name));
+                    c.Errors.push_back(std::format("{}: a value is needed (--help)", name));
                     continue;
                 }
                 int number = 0;
@@ -118,7 +118,7 @@ namespace Zamin {
                 else if (name == "--log-file")
                 {
                     if (value.empty())
-                        c.Errors.push_back("--log-file: fayl yo'li kerak");
+                        c.Errors.push_back("--log-file: a file path is needed");
                     else
                         c.LogFile = value;
                 }
@@ -139,7 +139,7 @@ namespace Zamin {
                         c.Height = h;
                     }
                     else
-                        c.Errors.push_back(std::format("--resolution {}: KENGLIKxBALANDLIK kerak, masalan 1920x1080 ({} ... {} px)", value,
+                        c.Errors.push_back(std::format("--resolution {}: WIDTHxHEIGHT is needed, for example 1920x1080 ({} ... {} px)", value,
                                                        PlayerSettings::MinWindowSize, PlayerSettings::MaxWindowSize));
                 }
                 else if (name == "--width" || name == "--height")
@@ -147,7 +147,7 @@ namespace Zamin {
                     if (ParseInt(value, number) && InWindowRange(number))
                         (name == "--width" ? c.Width : c.Height) = (uint32_t)number;
                     else
-                        c.Errors.push_back(std::format("{} {}: {} ... {} oralig'idagi butun son kerak", name, value, PlayerSettings::MinWindowSize,
+                        c.Errors.push_back(std::format("{} {}: a whole number in the range {} ... {} is needed", name, value, PlayerSettings::MinWindowSize,
                                                        PlayerSettings::MaxWindowSize));
                 }
                 else if (name == "--monitor")
@@ -155,21 +155,21 @@ namespace Zamin {
                     if (ParseInt(value, number) && number >= 0)
                         c.Monitor = number;
                     else
-                        c.Errors.push_back(std::format("--monitor {}: monitor raqami kerak (0 - asosiy monitor)", value));
+                        c.Errors.push_back(std::format("--monitor {}: a monitor number is needed (0 - the primary monitor)", value));
                 }
                 else if (name == "--fps")
                 {
                     if (ParseInt(value, number) && number >= 0)
                         c.TargetFrameRate = number;
                     else
-                        c.Errors.push_back(std::format("--fps {}: kadr soni kerak (0 - cheklovsiz)", value));
+                        c.Errors.push_back(std::format("--fps {}: a frame count is needed (0 - unlimited)", value));
                 }
                 else if (name == "--jobs")
                 {
                     if (ParseInt(value, number) && number >= 0)
                         c.Jobs = number;
                     else
-                        c.Errors.push_back(std::format("--jobs {}: ishchi oqimlar soni kerak (0 - o'chiq)", value));
+                        c.Errors.push_back(std::format("--jobs {}: a worker thread count is needed (0 - off)", value));
                 }
                 else if (name == "--gamma" || name == "--brightness")
                 {
@@ -184,7 +184,7 @@ namespace Zamin {
                     if (!text.empty() && end && *end == '\0' && std::isfinite(number) && number >= lo && number <= hi)
                         (gamma ? c.Gamma : c.Brightness) = number;
                     else
-                        c.Errors.push_back(std::format("{} {}: {:.1f} ... {:.1f} oralig'idagi son kerak (1 - o'zgarishsiz)", name, value, lo, hi));
+                        c.Errors.push_back(std::format("{} {}: a number in the range {:.1f} ... {:.1f} is needed (1 - unchanged)", name, value, lo, hi));
                 }
                 else if (name == "--benchmark" || name == "--benchmark-warmup")
                 {
@@ -192,12 +192,12 @@ namespace Zamin {
                     if (ParseInt(value, number) && number >= (frames ? 1 : 0) && number <= 1000000)
                         (frames ? c.Benchmark.Frames : c.Benchmark.Warmup) = number;
                     else
-                        c.Errors.push_back(std::format("{} {}: kadr soni kerak ({} ... 1000000)", name, value, frames ? 1 : 0));
+                        c.Errors.push_back(std::format("{} {}: a frame count is needed ({} ... 1000000)", name, value, frames ? 1 : 0));
                 }
                 else if (name == "--benchmark-out")
                 {
                     if (value.empty())
-                        c.Errors.push_back("--benchmark-out: fayl yo'li kerak");
+                        c.Errors.push_back("--benchmark-out: a file path is needed");
                     else
                         c.Benchmark.Output = value;
                 }
@@ -210,20 +210,20 @@ namespace Zamin {
                     if (!text.empty() && end && *end == '\0' && std::isfinite(ms) && ms > 0.0)
                         (name == "--benchmark-max-avg" ? c.Benchmark.MaxAverageMs : c.Benchmark.MaxP95Ms) = ms;
                     else
-                        c.Errors.push_back(std::format("{} {}: millisekund kerak (masalan 16.7)", name, value));
+                        c.Errors.push_back(std::format("{} {}: milliseconds are needed (for example 16.7)", name, value));
                 }
                 else if (name == "--msaa")
                 {
                     if (ParseInt(value, number) && number >= 0)
                         c.MSAA = number;
                     else
-                        c.Errors.push_back(std::format("--msaa {}: 0, 2, 4, 8 yoki 16 kerak", value));
+                        c.Errors.push_back(std::format("--msaa {}: 0, 2, 4, 8 or 16 is needed", value));
                 }
                 continue;
             }
             if (inlineValue)
             {
-                c.Errors.push_back(std::format("{}: bu variant qiymat olmaydi", name));
+                c.Errors.push_back(std::format("{}: this option takes no value", name));
                 continue;
             }
             if (name == "--help" || name == "-h" || name == "-?")
@@ -273,7 +273,7 @@ namespace Zamin {
             else if (name == "--no-srgb")
                 c.SRGB = 0;
             else
-                c.Errors.push_back(std::format("noma'lum variant: {} (hammasi: --help)", name));
+                c.Errors.push_back(std::format("unknown option: {} (all of them: --help)", name));
         }
         return c;
     }
@@ -281,71 +281,71 @@ namespace Zamin {
     std::string PlayerCommandLine::GetHelpText(std::string_view program)
     {
         return std::format(
-            "Zamin Player - o'yinni ishga tushiradi.\n"
+            "Zamin Player - runs a game.\n"
             "\n"
-            "Foydalanish: {0} [O'yin.zproject | loyiha papkasi] [variantlar]\n"
-            "Loyiha ko'rsatilmasa, player yonidagi Game/ papkadagi .zproject ochiladi (eksport qilingan o'yin).\n"
-            "Qiymatli variantlar ikki xil yoziladi: --fps 60 yoki --fps=60.\n"
+            "Usage: {0} [Game.zproject | project folder] [options]\n"
+            "Without a project the .zproject in the Game/ folder next to the player is opened (an exported game).\n"
+            "Options with a value can be written two ways: --fps 60 or --fps=60.\n"
             "\n"
-            "Oyna:\n"
-            "  --windowed                    oynali rejim\n"
-            "  --fullscreen                  to'liq ekran (eksklyuziv, monitorning video rejimi)\n"
-            "  --borderless                  chegarasiz to'liq ekran (monitor o'lchamidagi oyna)\n"
-            "  --resolution KxB              oyna o'lchami, masalan 1920x1080 (--fullscreen bilan video rejim ham)\n"
-            "  --width K, --height B         o'lchamning bir tomoni\n"
-            "  --monitor N                   qaysi monitorda ochiladi (0 - asosiy)\n"
-            "  --vsync, --no-vsync           vertikal sinxronizatsiya\n"
-            "  --fps N                       kadr chastotasi cheklovi (0 - cheklovsiz)\n"
-            "  F11 yoki Alt+Enter            o'yin ichida: to'liq ekran <-> oyna (Project settings > Player)\n"
+            "Window:\n"
+            "  --windowed                    windowed mode\n"
+            "  --fullscreen                  fullscreen (exclusive, the monitor's video mode)\n"
+            "  --borderless                  borderless fullscreen (a window the size of the monitor)\n"
+            "  --resolution WxH              window size, for example 1920x1080 (with --fullscreen the video mode too)\n"
+            "  --width W, --height H         one side of the size\n"
+            "  --monitor N                   which monitor to open on (0 - primary)\n"
+            "  --vsync, --no-vsync           vertical sync\n"
+            "  --fps N                       frame rate limit (0 - unlimited)\n"
+            "  F11 or Alt+Enter              in the game: fullscreen <-> window (Project settings > Player)\n"
             "\n"
-            "O'yin:\n"
-            "  --scene <yo'l | indeks | nom> boshlang'ich sahna (Scenes/Level.zscene, build indeksi yoki build sahna nomi)\n"
-            "  --quality <nom | indeks>      sifat darajasi (Low, Medium, High ...)\n"
-            "  --lang <kod>                  til (uz, ru, en ...); --language ham bo'ladi\n"
-            "  --no-splash                   splash ekransiz (Zamin logotipi)\n"
-            "  --gamma G                     gamma 0.5 ... 2.0 (1 - o'zgarishsiz, kattasi - yorqinroq o'rta tonlar)\n"
-            "  --brightness B                yorqinlik 0.5 ... 1.5 (butun tasvir ko'paytiriladi)\n"
+            "Game:\n"
+            "  --scene <path | index | name> start scene (Scenes/Level.zscene, a build index or a build scene name)\n"
+            "  --quality <name | index>      quality level (Low, Medium, High ...)\n"
+            "  --lang <code>                 language (uz, ru, en ...); --language works too\n"
+            "  --no-splash                   no splash screen (the Zamin logo)\n"
+            "  --gamma G                     gamma 0.5 ... 2.0 (1 - unchanged, larger - brighter midtones)\n"
+            "  --brightness B                brightness 0.5 ... 1.5 (the whole image is multiplied)\n"
             "\n"
-            "Grafika:\n"
-            "  --gl <4.1 | 4.3 | 4.5 | 4.6>  OpenGL versiyasi\n"
-            "  --msaa <0 | 2 | 4 | 8 | 16>   oyna buferining MSAA'si\n"
-            "  --gl-debug, --no-gl-debug     OpenGL debug konteksti\n"
-            "  --srgb, --no-srgb             sRGB oyna buferi\n"
+            "Graphics:\n"
+            "  --gl <4.1 | 4.3 | 4.5 | 4.6>  OpenGL version\n"
+            "  --msaa <0 | 2 | 4 | 8 | 16>   MSAA of the window buffer\n"
+            "  --gl-debug, --no-gl-debug     OpenGL debug context\n"
+            "  --srgb, --no-srgb             sRGB window buffer\n"
             "\n"
-            "Ishlash:\n"
-            "  --jobs N                      vazifalar tizimining ishchi oqimlari (0 - o'chiq, hammasi asosiy oqimda;\n"
-            "                                standart: protsessor oqimlari - 1; ZAMIN_JOBS muhit o'zgaruvchisi ham)\n"
+            "Performance:\n"
+            "  --jobs N                      worker threads of the job system (0 - off, everything on the main thread;\n"
+            "                                default: processor threads - 1; also the ZAMIN_JOBS environment variable)\n"
             "\n"
-            "Debug chizish (Shipping build'da yo'q):\n"
-            "  --no-debug-draw               debug chizishni o'chirish\n"
+            "Debug draw (not in a Shipping build):\n"
+            "  --no-debug-draw               turn debug draw off\n"
             "  --debug-raycasts, --debug-contacts, --debug-contact-details, --debug-joints, --debug-velocities\n"
-            "  --debug-nav                   navigatsiya: grid'lar, agentlar yo'li, ko'rish konuslari, patrul yo'llari\n"
-            "  --debug-nav-cells             shular va yuriladigan kataklar ham (yashil)\n"
+            "  --debug-nav                   navigation: grids, agent paths, sight cones, patrol paths\n"
+            "  --debug-nav-cells             those and the walkable cells too (green)\n"
             "\n"
-            "Log va xatolar:\n"
-            "  --log-file <fayl>             logni shu faylga yozish (standart: ~/.local/share/<kompaniya>/<o'yin>/logs/\n"
-            "                                player-<sana>.log, oxirgi 5 tasi saqlanadi, latest.log - oxirgisi)\n"
-            "  --no-log-file                 log faylsiz (faqat terminal)\n"
-            "  --log-level <daraja>          log darajalari: trace, info, warn, error, critical, off - ikkala logger uchun,\n"
-            "                                yoki alohida: engine=warn,app=info,file=error (file - log fayliga yoziladiganlar);\n"
-            "                                loyiha sozlamalari va ZAMIN_LOG_LEVEL dan ustun\n"
-            "  --no-crash-handler            crash bo'lganda hisobot yozilmaydi (debugger, core dump uchun)\n"
-            "  --no-crash-dialog             crash hisoboti yoziladi, lekin xabar oynasi ko'rsatilmaydi\n"
+            "Log and errors:\n"
+            "  --log-file <file>             write the log to this file (default: ~/.local/share/<company>/<game>/logs/\n"
+            "                                player-<date>.log, the last 5 are kept, latest.log - the last one)\n"
+            "  --no-log-file                 no log file (terminal only)\n"
+            "  --log-level <level>           log levels: trace, info, warn, error, critical, off - for both loggers,\n"
+            "                                or separately: engine=warn,app=info,file=error (file - what goes to the log file);\n"
+            "                                wins over the project settings and ZAMIN_LOG_LEVEL\n"
+            "  --no-crash-handler            no report is written on a crash (for a debugger, a core dump)\n"
+            "  --no-crash-dialog             the crash report is written but no message window is shown\n"
             "\n"
-            "Ishlash testi:\n"
-            "  --benchmark N                 o'yin o'rniga N kadrni o'lchash (splash, FPS cheklovi va VSync'siz) - o'rtacha,\n"
-            "                                mediana, p95, p99 ms; chiqish kodi: 0 - o'tdi, 3 - chegaradan oshdi, 2 - ishlamadi\n"
-            "  --benchmark-warmup N          o'lchashdan oldingi isitish kadrlari (standart: {1})\n"
-            "  --benchmark-out <fayl.json>   natija JSON faylga (har bir kadr vaqti ham)\n"
-            "  --benchmark-max-avg MS        o'rtacha kadr vaqti chegarasi\n"
-            "  --benchmark-max-p95 MS        95-persentil chegarasi\n"
+            "Benchmark:\n"
+            "  --benchmark N                 measure N frames instead of playing (no splash, FPS limit or VSync) - average,\n"
+            "                                median, p95, p99 ms; exit code: 0 - passed, 3 - over the limit, 2 - did not run\n"
+            "  --benchmark-warmup N          warm-up frames before measuring (default: {1})\n"
+            "  --benchmark-out <file.json>   the result into a JSON file (every frame time too)\n"
+            "  --benchmark-max-avg MS        limit for the average frame time\n"
+            "  --benchmark-max-p95 MS        limit for the 95th percentile\n"
             "\n"
-            "Boshqa:\n"
-            "  -v, --version                 o'yin va dvigatel versiyasi (kommit, build sanasi)\n"
-            "  -h, --help                    shu yordam\n"
+            "Other:\n"
+            "  -v, --version                 game and engine version (commit, build date)\n"
+            "  -h, --help                    this help\n"
             "\n"
-            "Ustunlik: buyruq qatori > o'yinchi saqlagan sozlamalar (o'yin menyusi: ekran o'lchami, to'liq ekran, VSync, gamma, yorqinlik, sifat, til)\n"
-            "          > loyiha sozlamalari (Project settings > Player, Graphics).\n",
+            "Priority: command line > settings saved by the player (the game's menu: resolution, fullscreen, VSync, gamma, brightness, quality, language)\n"
+            "          > project settings (Project settings > Player, Graphics).\n",
             program, PlayerBenchmarkSettings::DefaultWarmup);
     }
 
@@ -353,11 +353,11 @@ namespace Zamin {
     {
         switch (source)
         {
-            case PlayerSettingSource::Project:     return "loyiha";
-            case PlayerSettingSource::Saved:       return "saqlangan";
-            case PlayerSettingSource::CommandLine: return "buyruq qatori";
+            case PlayerSettingSource::Project:     return "project";
+            case PlayerSettingSource::Saved:       return "saved";
+            case PlayerSettingSource::CommandLine: return "command line";
         }
-        return "loyiha";
+        return "project";
     }
 
     PlayerLaunchSettings PlayerLaunchSettings::Resolve(const ProjectConfig& config, const SavedDisplaySettings& saved, const PlayerCommandLine& c)
@@ -458,7 +458,7 @@ namespace Zamin {
         GraphicsSettings& graphics = r.Window.Graphics;
         graphics = config.Graphics;
         if (!c.GLVersion.empty() && !GraphicsSettings::ParseVersion(c.GLVersion, graphics.GLMajor, graphics.GLMinor))
-            r.Warnings.push_back(std::format("--gl {}: bunday OpenGL versiyasi yo'q (bor: 4.1, 4.3, 4.5, 4.6) - loyihaniki qoldi", c.GLVersion));
+            r.Warnings.push_back(std::format("--gl {}: there is no such OpenGL version (available: 4.1, 4.3, 4.5, 4.6) - the project's stays", c.GLVersion));
         if (c.MSAA >= 0)
             graphics.MSAASamples = GraphicsSettings::SanitizeSamples(c.MSAA);
         if (c.GLDebug >= 0)
@@ -473,10 +473,10 @@ namespace Zamin {
     {
         auto from = [](PlayerSettingSource source) { return PlayerSettingSourceToString(source); };
         return std::format("{}x{} ({}), {} ({}), VSync: {} ({}), FPS: {} ({}), monitor: {} ({}), splash: {} ({})", Window.Width, Window.Height,
-                           from(SizeSource), ModeName(Window.Mode), from(ModeSource), Window.VSync ? "ha" : "yo'q", from(VSyncSource),
-                           TargetFrameRate > 0 ? std::to_string(TargetFrameRate) : std::string("cheklovsiz"), from(FrameRateSource),
-                           Window.Monitor >= 0 ? std::to_string(Window.Monitor) : std::string("asosiy"), from(MonitorSource),
-                           Splash ? "ha" : "yo'q", from(SplashSource));
+                           from(SizeSource), ModeName(Window.Mode), from(ModeSource), Window.VSync ? "yes" : "no", from(VSyncSource),
+                           TargetFrameRate > 0 ? std::to_string(TargetFrameRate) : std::string("unlimited"), from(FrameRateSource),
+                           Window.Monitor >= 0 ? std::to_string(Window.Monitor) : std::string("primary"), from(MonitorSource),
+                           Splash ? "yes" : "no", from(SplashSource));
     }
 
 }

@@ -61,7 +61,7 @@ while [[ $# -gt 0 ]]; do
         --filter) filter="$2"; shift 2 ;;
         --log-dir) log_dir="$2"; shift 2 ;;
         -h|--help) usage; exit 0 ;;
-        *) echo "noma'lum variant: $1 (--help)" >&2; exit 2 ;;
+        *) echo "unknown option: $1 (--help)" >&2; exit 2 ;;
     esac
 done
 [[ -z "$build" ]] && build="$root/build-$short"

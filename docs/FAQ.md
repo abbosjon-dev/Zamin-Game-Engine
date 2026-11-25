@@ -250,7 +250,7 @@ Oxirgi yuklangan sahnani yopib bo'lmaydi:
 
 ### Loyiha ochilmayapti
 
-> `Loyiha fayli o'qilmadi '<fayl>': <sabab>`
+> `The project file could not be read '<fayl>': <sabab>`
 
 `.zproject` - JSON; qo'lda tahrirlangan bo'lsa vergul / qavslarni tekshiring (versiya nazoratidagi oldingi nusxa
 bilan solishtiring). Format va migratsiya: [ProjectSettings.md, 17](ProjectSettings.md#17-zproject-fayli-format-versiya-migratsiya).

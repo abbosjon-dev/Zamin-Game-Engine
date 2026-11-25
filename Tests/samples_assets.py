@@ -233,7 +233,7 @@ def check_game(game, verbose):
     for p in data_files:
         name = rel(p, assets)
         if name.startswith(used_kinds) and name not in referenced and not (graph and referenced_by_name(name, texts)):
-            problem(game, f"{name} hech qayerda ishlatilmaydi")
+            problem(game, f"{name} not used anywhere")
     # The export leaves out what nothing names (ExcludeUnusedAssets): a sound a script names only by its short name
     # (Sfx("hit") -> "Audio/hit.wav" made at runtime) must be in the project's Export.AlwaysInclude, or the exported
     # game cannot load it.

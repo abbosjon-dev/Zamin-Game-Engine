@@ -245,23 +245,23 @@ namespace Zamin {
             };
             std::error_code ec;
             if (file.empty())
-                return fail("ikonka tanlanmagan");
+                return fail("no icon chosen");
             if (!std::filesystem::is_regular_file(file, ec))
-                return fail(std::format("fayl topilmadi: {}", file.generic_string()));
+                return fail(std::format("file not found: {}", file.generic_string()));
             // Only PNG: the window icon wants transparency, desktop entries use the file as it is.
             unsigned char magic[8] = {};
             {
                 std::ifstream in(file, std::ios::binary);
                 in.read((char*)magic, sizeof(magic));
                 if (in.gcount() != (std::streamsize)sizeof(magic))
-                    return fail("fayl juda kichik (PNG emas)");
+                    return fail("the file is too small (not a PNG)");
             }
             static const unsigned char s_Png[8] = { 0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n' };
             if (!std::equal(magic, magic + 8, s_Png))
-                return fail("PNG emas (ikonka PNG bo'lishi kerak)");
+                return fail("not a PNG (the icon must be a PNG)");
             std::string reason;
             if (!Image::Load(file.string(), out, 4, false, &reason))
-                return fail(reason.empty() ? std::string("PNG o'qilmadi") : reason);
+                return fail(reason.empty() ? std::string("the PNG could not be read") : reason);
             return true;
         }
 
@@ -331,11 +331,11 @@ namespace Zamin {
         std::string Check(const ImageData& image)
         {
             if (!image.IsValid())
-                return "Rasm bo'sh";
+                return "The image is empty";
             if (image.Width != image.Height)
-                return std::format("Kvadrat emas ({}x{}): shaffof kvadrat o'rtasiga joylanadi", image.Width, image.Height);
+                return std::format("Not square ({}x{}): it is placed in the middle of a transparent square", image.Width, image.Height);
             if (image.Width < 64)
-                return std::format("Juda kichik ({}x{} px): kamida 64, yaxshisi 256 px", image.Width, image.Height);
+                return std::format("Too small ({}x{} px): at least 64, ideally 256 px", image.Width, image.Height);
             return {};
         }
 
@@ -493,7 +493,7 @@ fi
             if (!image.IsValid() || image.Channels != 4)
             {
                 if (error)
-                    *error = "ikonka rasmi bo'sh";
+                    *error = "the icon image is empty";
                 return sizes;
             }
             for (const WindowIconImage& icon : GameIcon::MakeWindowImages(image))
@@ -504,7 +504,7 @@ fi
                 if (!Image::WritePNG(file.string(), icon.Width, icon.Height, 4, icon.Pixels.data()))
                 {
                     if (error)
-                        *error = std::format("yozilmadi: {}", file.string());
+                        *error = std::format("could not write: {}", file.string());
                     return {};
                 }
                 sizes.push_back(icon.Width);
@@ -544,7 +544,7 @@ fi
             script += R"SH(dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 case "$dir" in
 *'
-'*) echo "Papka yo'lida qator tashlash bor: desktop fayli yozilmaydi" >&2; exit 1 ;;
+'*) echo "The folder path has a line break: the desktop file is not written" >&2; exit 1 ;;
 esac
 data="${XDG_DATA_HOME:-$HOME/.local/share}"
 apps="$data/applications"
@@ -554,7 +554,7 @@ if [ "$1" = "--uninstall" ]; then
     for file in "$data"/icons/hicolor/*/apps/"$id.png"; do
         if [ -f "$file" ]; then rm -f "$file"; fi
     done
-    echo "Dasturlar menyusidan olib tashlandi: $installed"
+    echo "Removed from the applications menu: $installed"
     exit 0
 fi
 # The icon set (every size the export made) into the user's icon theme: the menu entry names it by its id.
@@ -605,7 +605,7 @@ fi
 if command -v update-desktop-database >/dev/null 2>&1; then
     update-desktop-database "$apps" >/dev/null 2>&1 || true
 fi
-echo "Dasturlar menyusiga qo'shildi: $installed"
+echo "Added to the applications menu: $installed"
 )SH";
             return script;
         }

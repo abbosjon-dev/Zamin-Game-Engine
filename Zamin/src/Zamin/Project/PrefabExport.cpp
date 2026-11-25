@@ -165,7 +165,7 @@ namespace Zamin {
             return false;
         }
 
-        std::string Plural(size_t n, const char* one) { return std::format("{} ta {}", n, one); }
+        std::string Plural(size_t n, const char* one) { return std::format("{} {}", n, one); }
     }
 
     // ------------------------------------------------------------------ result
@@ -181,7 +181,7 @@ namespace Zamin {
 
     std::string PrefabExportResult::Summary() const
     {
-        return std::format("{} tekshirildi: {} xato, {} ogohlantirish", Plural(PrefabsChecked, "prefab"), Count(Severity::Error),
+        return std::format("{} checked: {} errors, {} warnings", Plural(PrefabsChecked, "prefab"), Count(Severity::Error),
                            Count(Severity::Warning));
     }
 
@@ -240,13 +240,13 @@ namespace Zamin {
                 }
                 const std::string who = ref.Entity.empty() ? std::string() : std::format("'{}': ", ref.Entity);
                 if (!ref.Editor)
-                    add(Severity::Error, "R1", file, std::format("{}'{}' prefabi topilmadi - o'yinda undan nusxa yaratilmaydi (Instantiate bo'sh qaytaradi)", who, ref.Path),
+                    add(Severity::Error, "R1", file, std::format("{}prefab '{}' not found - no instance of it is created in the game (Instantiate returns nothing)", who, ref.Path),
                         path);
                 else if (isPrefab)
-                    add(Severity::Warning, "R8", file, std::format("{}ichma-ich / asosiy prefab topilmadi: '{}' (prefabdagi tayyor ma'lumot eksport qilinadi)", who, ref.Path),
+                    add(Severity::Warning, "R8", file, std::format("{}nested / base prefab not found: '{}' (the data already in the prefab is exported)", who, ref.Path),
                         path);
                 else
-                    add(Severity::Warning, "R8", file, std::format("{}nusxaning prefabi topilmadi: '{}' (sahnadagi ma'lumoti eksport qilinadi)", who, ref.Path), path);
+                    add(Severity::Warning, "R8", file, std::format("{}the instance's prefab was not found: '{}' (its data in the scene is exported)", who, ref.Path), path);
             }
             parsed.emplace(file, std::move(root));
         }
@@ -260,11 +260,11 @@ namespace Zamin {
                 {
                     if (inside.empty()) // code (scene / prefab files: above)
                         add(Severity::Error, "R1", missing.Name,
-                            std::format("C++ kodda '{}' prefabi yozilgan, lekin u topilmadi - Instantiate bo'sh qaytaradi", missing.Path),
+                            std::format("The C++ code names the prefab '{}', but it was not found - Instantiate returns nothing", missing.Path),
                             PrefabDatabase::NormalizePath(missing.Path));
                 }
                 else if (!inside.empty() && fs::path(inside).extension() == ".zprefab" && planned.contains(inside))
-                    add(Severity::Warning, "R7", inside, std::format("prefab ishlatadigan asset topilmadi: '{}'", missing.Path), missing.Path);
+                    add(Severity::Warning, "R7", inside, std::format("asset used by the prefab not found: '{}'", missing.Path), missing.Path);
             }
 
         // ---- every prefab the game gets
@@ -275,12 +275,12 @@ namespace Zamin {
             const PrefabDatabase::Template* t = db.Get(prefab);
             if (!t || !t->Readable)
             {
-                add(Severity::Error, "R2", prefab, std::format("prefab o'qilmadi: {}", t && !t->Issues.empty() ? t->Issues.front() : std::string("?")));
+                add(Severity::Error, "R2", prefab, std::format("the prefab could not be read: {}", t && !t->Issues.empty() ? t->Issues.front() : std::string("?")));
                 continue;
             }
             if (t->Newer)
                 add(Severity::Error, "R3", prefab,
-                    std::format("prefab yangiroq formatda (v{}; bu dvigatel v{} gacha biladi) - o'yin uni to'liq o'qiy olmaydi", t->FileVersion,
+                    std::format("the prefab is in a newer format (v{}; this engine knows up to v{}) - the game cannot read it fully", t->FileVersion,
                                 SceneMigration::CurrentVersion));
             // Read on its own, with a report: what a scene load would say about it.
             Scene scratch;
@@ -298,7 +298,7 @@ namespace Zamin {
                 switch (issue.Type)
                 {
                     case SceneLoadIssue::Kind::UnknownComponent:
-                        add(Severity::Warning, "R5", prefab, std::format("noma'lum komponent: {}", issue.Message));
+                        add(Severity::Warning, "R5", prefab, std::format("unknown component: {}", issue.Message));
                         break;
                     case SceneLoadIssue::Kind::DuplicateID:
                     case SceneLoadIssue::Kind::BadHierarchy:
@@ -306,10 +306,10 @@ namespace Zamin {
                         break;
                     case SceneLoadIssue::Kind::BadEntity:
                     case SceneLoadIssue::Kind::BadComponent:
-                        add(Severity::Warning, "R2", prefab, std::format("qisman o'qildi: {}", issue.Message));
+                        add(Severity::Warning, "R2", prefab, std::format("read partly: {}", issue.Message));
                         break;
                     case SceneLoadIssue::Kind::MissingAsset:
-                        add(Severity::Warning, "R7", prefab, std::format("{}prefab ishlatadigan asset topilmadi: '{}'", where, issue.Asset), issue.Asset);
+                        add(Severity::Warning, "R7", prefab, std::format("{}asset used by the prefab not found: '{}'", where, issue.Asset), issue.Asset);
                         break;
                     default:
                         break;
@@ -323,7 +323,7 @@ namespace Zamin {
                     if (e.is_object() && (!e.contains("Entity") || (e["Entity"].is_number_unsigned() && e["Entity"].get<uint64_t>() == 0)))
                         noID++;
                 if (noID)
-                    add(Severity::Warning, "R4", prefab, std::format("{} ta obyektning ID'si yo'q yoki 0 (nusxalar bog'lanmaydi)", noID));
+                    add(Severity::Warning, "R4", prefab, std::format("{} objects have no ID or ID 0 (instances are not linked)", noID));
             }
             std::unordered_set<uint64_t> inSet;
             size_t roots = 0;
@@ -334,13 +334,13 @@ namespace Zamin {
                     roots++;
             }
             if (roots > 1)
-                add(Severity::Warning, "R4", prefab, std::format("prefabda {} ta ildiz bor (bitta bo'lishi kerak): Instantiate faqat birinchisini qaytaradi", roots));
+                add(Severity::Warning, "R4", prefab, std::format("the prefab has {} roots (it must have one): Instantiate returns only the first", roots));
             // References to entities that are not in it.
             for (Entity e : made)
                 Scene::ForEachEntityRef(e, [&](uint64_t& id, std::string_view key, std::string_view field) {
                     if (id && !inSet.contains(id))
                         add(Severity::Warning, "R6", prefab,
-                            std::format("'{}' obyektidagi {}.{} prefabdan tashqaridagi obyektga ishora qiladi - boshqa sahnalarda u bo'lmaydi",
+                            std::format("{1}.{2} on the object '{0}' points to an object outside the prefab - it will not exist in other scenes",
                                         e.GetName(), key, field));
                 });
             // Its nested prefabs / base: missing, or made of it (a cycle).
@@ -349,12 +349,12 @@ namespace Zamin {
             {
                 if (!exists(dep))
                 {
-                    add(Severity::Warning, "R8", prefab, std::format("ichma-ich / asosiy prefab topilmadi: '{}' (prefabdagi tayyor ma'lumot eksport qilinadi)", dep), dep);
+                    add(Severity::Warning, "R8", prefab, std::format("nested / base prefab not found: '{}' (the data already in the prefab is exported)", dep), dep);
                     continue;
                 }
                 if (dep == prefab || db.DependsOn(dep, prefab))
                 {
-                    add(Severity::Error, "R9", prefab, std::format("prefab sikli: {} -> {} -> ... -> {}", prefab, dep, prefab));
+                    add(Severity::Error, "R9", prefab, std::format("prefab cycle: {} -> {} -> ... -> {}", prefab, dep, prefab));
                     cycle = true;
                 }
             }
@@ -413,11 +413,11 @@ namespace Zamin {
                             continue; // missing: R8 above
                         if (PrefabUtility::IsLegacyInstance(e))
                             add(Severity::Warning, "R10", file,
-                                std::format("'{}': eski prefab nusxasi bog'lanmadi ({}): prefab o'zgarsa, nusxa yangilanmaydi", e.GetName(),
-                                            t->Linkable ? std::string("obyektlari mos kelmadi") : t->Issues.empty() ? std::string("?") : t->Issues.front()));
+                                std::format("'{}': the old prefab instance was not linked ({}): when the prefab changes the instance is not updated", e.GetName(),
+                                            t->Linkable ? std::string("its objects did not match") : t->Issues.empty() ? std::string("?") : t->Issues.front()));
                         else
                             for (const std::string& orphan : PrefabUtility::FindOrphanOverrides(e, db))
-                                add(Severity::Warning, "R10", file, std::format("'{}' nusxasida eskirgan o'zgarish (prefabda bu qism yo'q): {}", e.GetName(), orphan));
+                                add(Severity::Warning, "R10", file, std::format("a stale change on the instance '{}' (the prefab no longer has this part): {}", e.GetName(), orphan));
                     }
                     const PrefabUtility::SyncResult sync = PrefabUtility::SyncScene(*scene, db);
                     if (sync.Changed)
@@ -448,7 +448,7 @@ namespace Zamin {
         });
         if (result.Updated)
             add(Severity::Info, "Info", std::string(),
-                std::format("{} ta sahna/prefab eksportda yangilandi (eskirgan nusxalar; asl fayllar o'zgarmaydi)", result.Updated));
+                std::format("{} scenes/prefabs were updated in the export (stale instances; the original files do not change)", result.Updated));
         return result;
     }
 

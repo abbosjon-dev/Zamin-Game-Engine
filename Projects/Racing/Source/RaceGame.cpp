@@ -30,9 +30,9 @@ void RaceGame::OnCreate()
     const char* demo = std::getenv("ZAMIN_DEMO");
     m_DemoRun = AutoDemo || (demo && *demo && std::string_view(demo) != "0");
     m_BestLap = SaveData::GetFloat("Racing.BestLap", 0.0f);
-    ZM_INFO("Rekordlar: eng yaxshi aylana {}", m_BestLap > 0.0f ? FormatTime(m_BestLap) : std::string("-"));
+    ZM_INFO("Records: best lap {}", m_BestLap > 0.0f ? FormatTime(m_BestLap) : std::string("-"));
     if (!m_Track.Parse(TrackPoints))
-        ZM_ERROR("Vodiy Poygasi: trassa nuqtalari o'qilmadi (TrackPoints)");
+        ZM_ERROR("Vodiy Poygasi: the track points could not be read (TrackPoints)");
 }
 
 void RaceGame::OnStart()
@@ -51,7 +51,7 @@ void RaceGame::OnStart()
     });
     if (m_DemoRun)
     {
-        ZM_INFO("Demo rejimi: o'yinchi mashinasini bot haydaydi (ZAMIN_DEMO), trassa {:.0f} m, {} aylana", m_Track.Length, Laps);
+        ZM_INFO("Demo mode: a bot drives the player's car (ZAMIN_DEMO), track {:.0f} m, {} laps", m_Track.Length, Laps);
         StartRace(true);
     }
     else
@@ -63,7 +63,7 @@ void RaceGame::OnDestroy()
 {
     if (m_DemoRun)
         if (Car* car = GetScript<Car>(Resolve(PlayerCar)))
-            ZM_INFO("Demo yakuni: {} ta poyga, {}-aylana, o'rin {}/4, eng yaxshi aylana {}", m_Races, car->Lap + 1, PlaceOf(*car),
+            ZM_INFO("Demo summary: {} races, lap {}, place {}/4, best lap {}", m_Races, car->Lap + 1, PlaceOf(*car),
                     car->BestLap > 0.0f ? FormatTime(car->BestLap) : std::string("-"));
     SaveData::Save();
     if (s_Instance == this)
@@ -125,7 +125,7 @@ void RaceGame::StartRace(bool bot)
     StyleCheckpoints();
     SetActiveRef(DemoBadge, m_Bot && m_State != State::Menu);
     if (!m_Bot)
-        ZM_INFO("Vodiy Poygasi: poyga boshlandi ({} aylana)", Laps);
+        ZM_INFO("Vodiy Poygasi: race started ({} laps)", Laps);
     RefreshTexts();
 }
 
@@ -138,7 +138,7 @@ void RaceGame::ShowMenu()
     SetActiveRef(PauseMenu, false);
     SetActiveRef(ResultsMenu, false);
     SetActiveRef(MainMenu, true);
-    ZM_INFO("Menyu: bosh menyu");
+    ZM_INFO("Menu: main menu");
     StartRace(true); // the bots race behind the menu
     // (after StartRace, which clears the selection: Enter / A start the race from the keyboard / a gamepad)
     if (Entity button = Resolve(PlayButton))
@@ -152,7 +152,7 @@ void RaceGame::OpenPause()
     m_State = State::Paused;
     PauseGame();
     SetActiveRef(PauseMenu, true);
-    ZM_INFO("Menyu: pauza");
+    ZM_INFO("Menu: pause");
     if (Entity button = Resolve(ResumeButton))
         GetScene().SetSelectedUI(button);
     Audio::SetGroupLowPass("Music", 800.0f);
@@ -164,7 +164,7 @@ void RaceGame::ClosePause()
         return;
     m_State = m_PausedFrom;
     SetActiveRef(PauseMenu, false);
-    ZM_INFO("Menyu: pauza yopildi");
+    ZM_INFO("Menu: pause closed");
     GetScene().SetSelectedUI({});
     Audio::SetGroupLowPass("Music", 0.0f);
     ResumeGame();
@@ -185,11 +185,11 @@ void RaceGame::FinishRace()
     SetText(ResultsTimes, Localize("results.times", FormatTime(car->RaceTime), FormatTime(car->BestLap)));
     SetText(ResultsRecord, record ? Localize("results.record") : m_BestLap > 0.0f ? Localize("results.best", FormatTime(m_BestLap)) : std::string());
     SetActiveRef(ResultsMenu, true);
-    ZM_INFO("Menyu: natijalar - {}-o'rin, vaqt {}", car->FinishPlace, FormatTime(car->RaceTime));
+    ZM_INFO("Menu: results - place {}, time {}", car->FinishPlace, FormatTime(car->RaceTime));
     if (Entity button = Resolve(RetryButton))
         GetScene().SetSelectedUI(button);
     if (m_DemoRun)
-        ZM_INFO("Demo: poyga tugadi - o'rin {}/4, vaqt {}, eng yaxshi aylana {}", car->FinishPlace, FormatTime(car->RaceTime), FormatTime(car->BestLap));
+        ZM_INFO("Demo: race finished - place {}/4, time {}, best lap {}", car->FinishPlace, FormatTime(car->RaceTime), FormatTime(car->BestLap));
     RefreshTexts();
 }
 
@@ -327,7 +327,7 @@ void RaceGame::UpdateProgress(Car& car)
         if (car.BestLap <= 0.0f || car.LapTime < car.BestLap)
             car.BestLap = car.LapTime;
         if (player && m_DemoRun)
-            ZM_INFO("Demo: {}-aylana - vaqt {}, o'rin {}/4", car.Lap, FormatTime(car.LapTime), PlaceOf(car));
+            ZM_INFO("Demo: lap {} - time {}, place {}/4", car.Lap, FormatTime(car.LapTime), PlaceOf(car));
         // The lap record: the player's laps in a race (a demo's too with ZAMIN_DEMO_RECORDS).
         const bool scored = player && m_State == State::Racing && (!m_Bot || (m_DemoRun && DemoRecords()));
         const bool record = scored && SaveData::SubmitRecord("Racing.BestLap", car.LapTime, RecordOrder::Lower);
@@ -336,7 +336,7 @@ void RaceGame::UpdateProgress(Car& car)
             m_BestLap = car.LapTime;
             m_LapRecord = true;
             SaveData::Save();
-            ZM_INFO("Yangi rekord: aylana {}", FormatTime(car.LapTime));
+            ZM_INFO("New record: lap {}", FormatTime(car.LapTime));
             RefreshTexts();
         }
         if (player && m_State == State::Racing)
@@ -563,10 +563,10 @@ ZM_REGISTER_SCRIPT(RaceGame,
     ZM_FIELD(RaceGame, Rival2),
     ZM_FIELD(RaceGame, Rival3),
     ZM_FIELD(RaceGame, CameraRig).Header("Trassa"),
-    ZM_FIELD(RaceGame, StartLights).Tooltip("Start svetoforining chiroqlari (bolalari)"),
-    ZM_FIELD(RaceGame, Checkpoints).Tooltip("Nazorat nuqtalari ustunlari (bolalari, tartib bilan)"),
+    ZM_FIELD(RaceGame, StartLights).Tooltip("The lamps of the start lights (its children)"),
+    ZM_FIELD(RaceGame, Checkpoints).Tooltip("The checkpoint posts (its children, in order)"),
     ZM_FIELD(RaceGame, Sparks),
-    ZM_FIELD(RaceGame, TrackPoints).Tooltip("Trassa markaziy chizig'i: \"x,z;x,z;...\" start chizig'idan boshlab"),
+    ZM_FIELD(RaceGame, TrackPoints).Tooltip("The track's center line: \"x,z;x,z;...\" starting from the start line"),
     ZM_FIELD(RaceGame, Hud).Header("HUD"),
     ZM_FIELD(RaceGame, PositionText),
     ZM_FIELD(RaceGame, LapText),
@@ -579,7 +579,7 @@ ZM_REGISTER_SCRIPT(RaceGame,
     ZM_FIELD(RaceGame, Banner),
     ZM_FIELD(RaceGame, BannerSub),
     ZM_FIELD(RaceGame, DemoBadge),
-    ZM_FIELD(RaceGame, MainMenu).Header("Menyular"),
+    ZM_FIELD(RaceGame, MainMenu).Header("Menus"),
     ZM_FIELD(RaceGame, MenuBest),
     ZM_FIELD(RaceGame, PlayButton),
     ZM_FIELD(RaceGame, LanguageButton),
@@ -591,6 +591,6 @@ ZM_REGISTER_SCRIPT(RaceGame,
     ZM_FIELD(RaceGame, ResultsTimes),
     ZM_FIELD(RaceGame, ResultsRecord),
     ZM_FIELD(RaceGame, RetryButton),
-    ZM_FIELD_RANGE(RaceGame, Laps, 1, 20).Header("Qoidalar"),
+    ZM_FIELD_RANGE(RaceGame, Laps, 1, 20).Header("Rules"),
     ZM_FIELD_RANGE(RaceGame, CheckpointCount, 2, 32),
-    ZM_FIELD(RaceGame, AutoDemo).Tooltip("O'yinchi mashinasini bot haydaydi (ZAMIN_DEMO=1 ham shunday qiladi)"))
+    ZM_FIELD(RaceGame, AutoDemo).Tooltip("A bot drives the player's car (ZAMIN_DEMO=1 does the same)"))

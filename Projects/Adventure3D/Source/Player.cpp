@@ -18,7 +18,7 @@ public:
     void OnCreate() override
     {
         m_Spawn = Transform().Translation;
-        ZM_INFO("Qahramon tayyor: WASD - yurish, Shift - yugurish, Space - sakrash, RMB - kamera");
+        ZM_INFO("Hero ready: WASD - move, Shift - run, Space - jump, RMB - camera");
     }
 
     // The island's guard caught the hero ("Ushlandi"): back to the start.

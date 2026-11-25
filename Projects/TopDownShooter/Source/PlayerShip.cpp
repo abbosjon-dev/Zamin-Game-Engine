@@ -321,10 +321,10 @@ PlayerShip::Controls PlayerShip::ThinkBot(float dt)
 }
 
 ZM_REGISTER_SCRIPT(PlayerShip,
-    ZM_FIELD_RANGE(PlayerShip, MoveSpeed, 1.0f, 20.0f).Header("Harakat").Tooltip("Uchish tezligi (birlik/s)"),
-    ZM_FIELD_RANGE(PlayerShip, Acceleration, 1.0f, 40.0f).Tooltip("Tezlikka qanchalik tez yetadi"),
+    ZM_FIELD_RANGE(PlayerShip, MoveSpeed, 1.0f, 20.0f).Header("Movement").Tooltip("Flight speed (units/s)"),
+    ZM_FIELD_RANGE(PlayerShip, Acceleration, 1.0f, 40.0f).Tooltip("How fast it reaches its speed"),
     ZM_FIELD_RANGE(PlayerShip, DashSpeed, 5.0f, 60.0f).Header("Siltanish"),
     ZM_FIELD_RANGE(PlayerShip, DashTime, 0.05f, 0.5f),
     ZM_FIELD_RANGE(PlayerShip, DashCooldown, 0.1f, 3.0f),
-    ZM_FIELD_RANGE(PlayerShip, FireRate, 1.0f, 30.0f).Header("Qurol").Tooltip("Sekundiga o'qlar"),
-    ZM_FIELD_RANGE(PlayerShip, MaxHealth, 1, 10).Header("Jon"))
+    ZM_FIELD_RANGE(PlayerShip, FireRate, 1.0f, 30.0f).Header("Weapon").Tooltip("Shots per second"),
+    ZM_FIELD_RANGE(PlayerShip, MaxHealth, 1, 10).Header("Life"))

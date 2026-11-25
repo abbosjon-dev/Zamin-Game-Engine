@@ -19,7 +19,7 @@ public:
     void OnCreate() override
     {
         m_Spawn = glm::vec2(GetWorldPosition());
-        ZM_INFO("Top-down qahramon tayyor. WASD / strelkalar - yurish");
+        ZM_INFO("Top-down hero ready. WASD / arrows - move");
     }
 
     // Chase2D: a guard caught the hero ("Ushlandi") - back to where it started, with a red flash.
@@ -83,6 +83,6 @@ private:
 };
 
 ZM_REGISTER_SCRIPT(TopDownController,
-    ZM_FIELD_RANGE(TopDownController, MoveSpeed, 0.0f, 20.0f).Header("Harakat").Tooltip("Yurish tezligi (birlik/sekund)"),
-    ZM_FIELD_RANGE(TopDownController, Acceleration, 0.0f, 60.0f).Tooltip("Tezlikka qanchalik tez yetadi va to'xtaydi"),
-    ZM_FIELD_RANGE(TopDownController, WalkFPS, 1.0f, 30.0f).Tooltip("Yurish animatsiyasining kadr tezligi (kliplar bo'lmasa; klip o'z FPS'i bilan)"))
+    ZM_FIELD_RANGE(TopDownController, MoveSpeed, 0.0f, 20.0f).Header("Movement").Tooltip("Walk speed (units/second)"),
+    ZM_FIELD_RANGE(TopDownController, Acceleration, 0.0f, 60.0f).Tooltip("How fast it reaches its speed and stops"),
+    ZM_FIELD_RANGE(TopDownController, WalkFPS, 1.0f, 30.0f).Tooltip("Frame rate of the walk animation (when there are no clips; a clip uses its own FPS)"))

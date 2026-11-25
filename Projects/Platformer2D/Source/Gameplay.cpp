@@ -39,8 +39,8 @@ private:
 };
 ZM_REGISTER_SCRIPT(Coin,
     ZM_FIELD_RANGE(Coin, BobSpeed, 0.0f, 10.0f).Header("Tebranish"),
-    ZM_FIELD_RANGE(Coin, BobHeight, 0.0f, 1.0f).Tooltip("Yuqoriga-pastga tebranish balandligi (birlik)"),
-    ZM_FIELD_TOOLTIP(Coin, Effect, "Yig'ilganda paydo bo'ladigan prefab (Assets ichidagi yo'l)"))
+    ZM_FIELD_RANGE(Coin, BobHeight, 0.0f, 1.0f).Tooltip("Height of the up-and-down bobbing (units)"),
+    ZM_FIELD_TOOLTIP(Coin, Effect, "The prefab spawned when collected (path inside Assets)"))
 
 // Kamera o'yinchini silliq kuzatadi.
 class CameraFollow : public ScriptableEntity
@@ -87,8 +87,8 @@ public:
 };
 ZM_REGISTER_SCRIPT(MovingPlatform, ZM_FIELD(MovingPlatform, Direction), ZM_FIELD_RANGE(MovingPlatform, Distance, 0.0f, 20.0f),
                    ZM_FIELD_RANGE(MovingPlatform, Speed, 0.0f, 5.0f),
-                   ZM_FIELD_ENUM(MovingPlatform, Mode, "Silliq (sinus)", "Bir tekis").Label("Harakat turi")
-                       .Tooltip("Silliq: chetlarda sekinlashadi. Bir tekis: doimiy tezlik bilan boradi-qaytadi"))
+                   ZM_FIELD_ENUM(MovingPlatform, Mode, "Smooth (sine)", "Linear").Label("Movement type")
+                       .Tooltip("Smooth: slows down at the ends. Linear: goes back and forth at a constant speed"))
 
 // Bulutlar: sekin suzib yuradi va ekran chetidan qaytadi.
 class Cloud : public ScriptableEntity
@@ -120,7 +120,7 @@ public:
         if (other.HasTag("Player") && m_Timer < 0.0f)
         {
             m_Timer = Delay;
-            ZM_INFO("Daraja tugadi! Keyingisi: {}", NextScene);
+            ZM_INFO("Level complete! Next: {}", NextScene);
             if (auto* sprite = TryGetComponent<SpriteRendererComponent>())
                 sprite->Color = ReachedColor;
         }
@@ -142,10 +142,10 @@ public:
 private:
     float m_Timer = -1.0f;
 };
-ZM_REGISTER_SCRIPT(LevelGoal, ZM_FIELD_TOOLTIP(LevelGoal, NextScene, "Keyingi daraja sahnasi (Assets ichidagi yo'l)"),
-                   ZM_FIELD_RANGE(LevelGoal, Delay, 0.0f, 5.0f).Tooltip("O'tishdan oldingi kutish (sekund)"),
-                   ZM_FIELD_COLOR(LevelGoal, ReachedColor).Tooltip("O'yinchi yetib kelganda bayroq rangi"),
-                   ZM_FIELD_RANGE(LevelGoal, FadeSeconds, 0.0f, 2.0f).Tooltip("0 dan katta bo'lsa keyingi darajaga so'nib o'tadi (sekund)"))
+ZM_REGISTER_SCRIPT(LevelGoal, ZM_FIELD_TOOLTIP(LevelGoal, NextScene, "Next level scene (path inside Assets)"),
+                   ZM_FIELD_RANGE(LevelGoal, Delay, 0.0f, 5.0f).Tooltip("Wait before the transition (seconds)"),
+                   ZM_FIELD_COLOR(LevelGoal, ReachedColor).Tooltip("Flag color when the player arrives"),
+                   ZM_FIELD_RANGE(LevelGoal, FadeSeconds, 0.0f, 2.0f).Tooltip("Above 0: fades to the next level (seconds)"))
 
 // N soniyadan keyin obyektni o'chiradi (effektlar uchun).
 class AutoDestroy : public ScriptableEntity
@@ -167,7 +167,7 @@ public:
     std::string Scene = "Scenes/Level1.zscene";
     void OnClick() override
     {
-        ZM_INFO("Qayta boshlanmoqda...");
+        ZM_INFO("Restarting...");
         LoadScene(Scene);
     }
 };

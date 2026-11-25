@@ -58,14 +58,14 @@ private:
 };
 
 ZM_REGISTER_SCRIPT(ShapeSpawner,
-    ZM_FIELD(ShapeSpawner, Boulder).Header("Shablonlar").Tooltip("Tosh (Polygon Collider 2D)"),
-    ZM_FIELD(ShapeSpawner, Crystal).Tooltip("Kristall (botiq Polygon Collider 2D)"),
-    ZM_FIELD(ShapeSpawner, Crate).Tooltip("Quti (Box Collider 2D)"),
-    ZM_FIELD(ShapeSpawner, Ball).Tooltip("Rezina to'p (Bouncy fizik materiali)"),
-    ZM_FIELD(ShapeSpawner, Ghost).Tooltip("Arvoh shar: Ghost qatlamida - faqat Ground bilan to'qnashadi"),
-    ZM_FIELD_RANGE(ShapeSpawner, Interval, 0.05f, 10.0f).Header("Tashlash").Tooltip("Necha soniyada bitta shakl"),
-    ZM_FIELD_RANGE(ShapeSpawner, Width, 0.0f, 60.0f).Tooltip("Shakllar tushadigan kenglik"),
-    ZM_FIELD_RANGE(ShapeSpawner, MaxShapes, 1, 300).Tooltip("Sahnada ko'pi bilan shuncha shakl"))
+    ZM_FIELD(ShapeSpawner, Boulder).Header("Shablonlar").Tooltip("Rock (Polygon Collider 2D)"),
+    ZM_FIELD(ShapeSpawner, Crystal).Tooltip("Crystal (concave Polygon Collider 2D)"),
+    ZM_FIELD(ShapeSpawner, Crate).Tooltip("Crate (Box Collider 2D)"),
+    ZM_FIELD(ShapeSpawner, Ball).Tooltip("Rubber ball (the Bouncy physics material)"),
+    ZM_FIELD(ShapeSpawner, Ghost).Tooltip("Ghost ball: on the Ghost layer - collides only with Ground"),
+    ZM_FIELD_RANGE(ShapeSpawner, Interval, 0.05f, 10.0f).Header("Dropping").Tooltip("Seconds per shape"),
+    ZM_FIELD_RANGE(ShapeSpawner, Width, 0.0f, 60.0f).Tooltip("Width of the area the shapes fall from"),
+    ZM_FIELD_RANGE(ShapeSpawner, MaxShapes, 1, 300).Tooltip("At most this many shapes in the scene"))
 
 // Shablonni pastdan yuqoriga otadi: to'p bir tomonlama platformadan o'tib, ustiga tushadi.
 class ShapeLauncher : public ScriptableEntity
@@ -104,7 +104,7 @@ private:
 };
 
 ZM_REGISTER_SCRIPT(ShapeLauncher,
-    ZM_FIELD(ShapeLauncher, Template).Tooltip("Otiladigan shablon"),
-    ZM_FIELD_RANGE(ShapeLauncher, Interval, 0.1f, 30.0f).Tooltip("Necha soniyada bitta"),
-    ZM_FIELD(ShapeLauncher, Velocity).Tooltip("Boshlang'ich tezlik (birlik/s)"),
-    ZM_FIELD_RANGE(ShapeLauncher, MaxShapes, 1, 100).Tooltip("Ko'pi bilan shuncha (eskilari yo'qoladi)"))
+    ZM_FIELD(ShapeLauncher, Template).Tooltip("The template that is fired"),
+    ZM_FIELD_RANGE(ShapeLauncher, Interval, 0.1f, 30.0f).Tooltip("Seconds per shot"),
+    ZM_FIELD(ShapeLauncher, Velocity).Tooltip("Initial speed (units/s)"),
+    ZM_FIELD_RANGE(ShapeLauncher, MaxShapes, 1, 100).Tooltip("At most this many (the oldest disappear)"))

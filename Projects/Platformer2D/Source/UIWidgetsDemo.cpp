@@ -92,5 +92,5 @@ ZM_REGISTER_SCRIPT(UIWidgetsDemo,
     ZM_FIELD(UIWidgetsDemo, NameField),
     ZM_FIELD(UIWidgetsDemo, SaveButton),
     ZM_FIELD(UIWidgetsDemo, Status),
-    ZM_FIELD_RANGE(UIWidgetsDemo, LoadingSeconds, 0.5f, 20.0f).Header("Vaqt").Label("Yuklanish (s)"),
-    ZM_FIELD_RANGE(UIWidgetsDemo, CooldownSeconds, 0.5f, 20.0f).Label("Qayta tiklanish (s)"))
+    ZM_FIELD_RANGE(UIWidgetsDemo, LoadingSeconds, 0.5f, 20.0f).Header("Time").Label("Loading (s)"),
+    ZM_FIELD_RANGE(UIWidgetsDemo, CooldownSeconds, 0.5f, 20.0f).Label("Cooldown (s)"))

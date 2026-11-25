@@ -83,7 +83,7 @@ void AdventureGame::UpdateSlowMotion()
     if (Input::IsKeyJustPressed(Key::T) || Input::IsGamepadButtonJustPressed(GamepadButton::Y))
     {
         m_SlowMotion = !m_SlowMotion;
-        ZM_INFO("Sekinlashtirish: {}", m_SlowMotion ? "yoqildi" : "o'chirildi");
+        ZM_INFO("Slow motion: {}", m_SlowMotion ? "yoqildi" : "off");
     }
     if (Time::IsPaused())
         return;
@@ -102,7 +102,7 @@ void AdventureGame::Collect()
     Refresh();
     if (m_Collected >= m_Total)
     {
-        ZM_INFO("Barcha kristallar yig'ildi!");
+        ZM_INFO("All crystals collected!");
         m_WinTimer = 4.0f;
     }
 }

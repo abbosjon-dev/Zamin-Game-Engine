@@ -2515,7 +2515,7 @@ namespace Zamin {
                     settings.Kerning = kerning;
                     AssetImporter::WriteFontSettings(settings, import);
                     if (registry->SetImportSettings(meta->Handle, import))
-                        ZM_INFO("Import settings saved: {} (kerning {})", meta->RelativePath, kerning ? "yoqildi" : "off");
+                        ZM_INFO("Import settings saved: {} (kerning {})", meta->RelativePath, kerning ? "on" : "off");
                 }
                 font->SetKerningEnabled(kerning); // texts lay out again with it from the next frame
             }

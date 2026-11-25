@@ -42,7 +42,7 @@ public:
                           Enter(ChaseSpeed, "!", { 1.0f, 0.55f, 0.5f });
                           PausePatrol(false);
                           m_Repath = 0.0f;
-                          Say("Qo'riqchi sizni ko'rdi - qoching!");
+                          Say("The guard saw you - run away!");
                       },
                       [this](float dt) { Chase(dt); })
             .AddState("Qidiruv",
@@ -61,8 +61,8 @@ public:
                           StopMoving();
                           if (Entity hero = SeenTarget())
                               SendMessage(hero, "Ushlandi");
-                          Say("Ushlandingiz! Qaytadan urinib ko'ring");
-                          ZM_INFO("{} qahramonni ushladi", GetEntity().GetName());
+                          Say("You were caught! Try again");
+                          ZM_INFO("{} caught the hero", GetEntity().GetName());
                       })
             .AddTransition("Patrul", "Ta'qib", [this] { return Sees(); })
             .AddTransition("Qaytish", "Ta'qib", [this] { return Sees(); })
@@ -212,12 +212,12 @@ private:
     bool m_Said = false;
     glm::vec4 m_BaseColor{ 1.0f };
 };
-ZM_REGISTER_SCRIPT(ChaseGuard2D, ZM_FIELD(ChaseGuard2D, Eyes).Label("Ko'z").Tooltip("Sight Sensor (va fonar) turgan bola obyekt"),
-                   ZM_FIELD(ChaseGuard2D, Mark).Label("Belgi").Tooltip("Bosh ustidagi matn: ! - ta'qib, ? - qidiruv"),
-                   ZM_FIELD(ChaseGuard2D, Status).Label("Xabar matni").Tooltip("Ekrandagi UI matn"),
-                   ZM_FIELD_RANGE(ChaseGuard2D, ChaseSpeed, 0.5f, 10.0f).Label("Ta'qib tezligi"),
-                   ZM_FIELD_RANGE(ChaseGuard2D, SearchTime, 0.0f, 30.0f).Label("Qidiruv vaqti (s)"),
-                   ZM_FIELD_RANGE(ChaseGuard2D, CatchDistance, 0.1f, 3.0f).Label("Ushlash masofasi"),
-                   ZM_FIELD_RANGE(ChaseGuard2D, TurnSpeed, 0.5f, 30.0f).Label("Burilish tezligi"),
-                   ZM_FIELD_RANGE(ChaseGuard2D, LookAround, 0.0f, 10.0f).Label("Atrofga qarash"),
-                   ZM_FIELD_RANGE(ChaseGuard2D, WalkFPS, 1.0f, 30.0f).Label("Yurish FPS"))
+ZM_REGISTER_SCRIPT(ChaseGuard2D, ZM_FIELD(ChaseGuard2D, Eyes).Label("Eye").Tooltip("The child object with the Sight Sensor (and the flashlight)"),
+                   ZM_FIELD(ChaseGuard2D, Mark).Label("Sign").Tooltip("The text above the head: ! - chase, ? - search"),
+                   ZM_FIELD(ChaseGuard2D, Status).Label("Message text").Tooltip("The UI text on the screen"),
+                   ZM_FIELD_RANGE(ChaseGuard2D, ChaseSpeed, 0.5f, 10.0f).Label("Chase speed"),
+                   ZM_FIELD_RANGE(ChaseGuard2D, SearchTime, 0.0f, 30.0f).Label("Search time (s)"),
+                   ZM_FIELD_RANGE(ChaseGuard2D, CatchDistance, 0.1f, 3.0f).Label("Catch distance"),
+                   ZM_FIELD_RANGE(ChaseGuard2D, TurnSpeed, 0.5f, 30.0f).Label("Turn speed"),
+                   ZM_FIELD_RANGE(ChaseGuard2D, LookAround, 0.0f, 10.0f).Label("Look around"),
+                   ZM_FIELD_RANGE(ChaseGuard2D, WalkFPS, 1.0f, 30.0f).Label("Walk FPS"))

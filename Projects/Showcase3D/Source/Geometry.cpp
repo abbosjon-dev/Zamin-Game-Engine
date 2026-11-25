@@ -97,9 +97,9 @@ public:
         DebugDraw::Text(origin + glm::vec3(0.0f, 1.1f, 0.0f), std::format("Geometry::Raycast\n{} / {} rays hit", hits, Rays), DebugColor::Cyan);
     }
 };
-ZM_REGISTER_SCRIPT(GeometryRayFan, ZM_FIELD_RANGE(GeometryRayFan, Rays, 1, 64).Label("Nurlar soni"),
+ZM_REGISTER_SCRIPT(GeometryRayFan, ZM_FIELD_RANGE(GeometryRayFan, Rays, 1, 64).Label("Ray count"),
                    ZM_FIELD_RANGE(GeometryRayFan, Spread, 0.1f, 3.1f).Label("Yoyilish (rad)"),
-                   ZM_FIELD(GeometryRayFan, SweepSpeed).Label("Burilish tezligi"), ZM_FIELD(GeometryRayFan, Range).Label("Uzoqlik"))
+                   ZM_FIELD(GeometryRayFan, SweepSpeed).Label("Turn speed"), ZM_FIELD(GeometryRayFan, Range).Label("Range"))
 
 // Aylanib yuruvchi zond: har nishonning eng yaqin nuqtasigacha chiziq (ClosestPoint), zond sferasi
 // tekkan nishonlarning dunyo AABB'si to'q sariq (Geometry::Intersects(Sphere, AABB)).
@@ -140,8 +140,8 @@ public:
 private:
     glm::vec3 m_Center{ 0.0f };
 };
-ZM_REGISTER_SCRIPT(GeometryProbe, ZM_FIELD(GeometryProbe, Radius).Label("Zond radiusi"), ZM_FIELD(GeometryProbe, OrbitRadius).Label("Orbita radiusi"),
-                   ZM_FIELD(GeometryProbe, Speed).Label("Tezlik"))
+ZM_REGISTER_SCRIPT(GeometryProbe, ZM_FIELD(GeometryProbe, Radius).Label("Probe radius"), ZM_FIELD(GeometryProbe, OrbitRadius).Label("Orbit radius"),
+                   ZM_FIELD(GeometryProbe, Speed).Label("Speed"))
 
 // Hamma nishonlar atrofidagi sfera (Sphere::FromPoints) va qiya aylanuvchi tekislik: har nishonning
 // dunyo AABB'si tekislikka nisbatan rangda (Classify: oldida yashil, orqasida ko'k, kesib o'tsa pushti).
@@ -186,5 +186,5 @@ public:
         }
     }
 };
-ZM_REGISTER_SCRIPT(GeometryBoundsView, ZM_FIELD(GeometryBoundsView, PlaneSpeed).Label("Tekislik tezligi"),
-                   ZM_FIELD_RANGE(GeometryBoundsView, PlaneTilt, 0.0f, 1.5f).Label("Tekislik qiyaligi"))
+ZM_REGISTER_SCRIPT(GeometryBoundsView, ZM_FIELD(GeometryBoundsView, PlaneSpeed).Label("Plane speed"),
+                   ZM_FIELD_RANGE(GeometryBoundsView, PlaneTilt, 0.0f, 1.5f).Label("Plane tilt"))

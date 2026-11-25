@@ -35,7 +35,7 @@ void RunnerGame::OnCreate()
     m_DemoRun = AutoDemo || (demo && *demo && std::string_view(demo) != "0");
     m_BestScore = SaveData::GetInt("EndlessRunner.Best", 0);
     m_BestDistance = SaveData::GetFloat("EndlessRunner.BestDistance", 0.0f);
-    ZM_INFO("Rekordlar: ochko {}, {:.0f} m", m_BestScore, m_BestDistance);
+    ZM_INFO("Records: score {}, {:.0f} m", m_BestScore, m_BestDistance);
     m_Rng.SetSeed(20261108ull);
 }
 
@@ -55,7 +55,7 @@ void RunnerGame::OnStart()
     });
     if (m_DemoRun)
     {
-        ZM_INFO("Demo rejimi: bot yuguradi (ZAMIN_DEMO)");
+        ZM_INFO("Demo mode: a bot runs (ZAMIN_DEMO)");
         StartRun(true);
     }
     else
@@ -65,9 +65,9 @@ void RunnerGame::OnStart()
 
 void RunnerGame::OnDestroy()
 {
-    SubmitRecords("o'yin yopildi");
+    SubmitRecords("game closed");
     if (m_DemoRun)
-        ZM_INFO("Demo yakuni: {} ta yugurish, oxirgisi {:.0f} m, {} tanga, ochko {}", m_Runs, m_Distance, m_Coins, GetScore());
+        ZM_INFO("Demo summary: {} runs, the last one {:.0f} m, {} coins, score {}", m_Runs, m_Distance, m_Coins, GetScore());
     SaveData::Save();
     if (s_Instance == this)
         s_Instance = nullptr;
@@ -105,7 +105,7 @@ void RunnerGame::ClearWorld()
 
 void RunnerGame::StartRun(bool bot)
 {
-    SubmitRecords("qaytadan boshlandi");
+    SubmitRecords("restarted");
     if (IsGamePaused())
         ResumeGame();
     SetTimeScale(1.0f);
@@ -152,13 +152,13 @@ void RunnerGame::StartRun(bool bot)
     if (m_State != State::Menu)
         ShowBanner(Localize("hud.go"), Localize("hud.go_sub"), 1.8f);
     if (!m_Bot)
-        ZM_INFO("Ipak Yo'li: yugurish boshlandi");
+        ZM_INFO("Ipak Yo'li: run started");
     RefreshTexts();
 }
 
 void RunnerGame::ShowMenu()
 {
-    SubmitRecords("bosh menyuga qaytildi"); // a run left from the pause menu still counts
+    SubmitRecords("returned to the main menu"); // a run left from the pause menu still counts
     if (IsGamePaused())
         ResumeGame();
     m_State = State::Menu;
@@ -166,7 +166,7 @@ void RunnerGame::ShowMenu()
     SetActiveRef(PauseMenu, false);
     SetActiveRef(GameOverMenu, false);
     SetActiveRef(MainMenu, true);
-    ZM_INFO("Menyu: bosh menyu");
+    ZM_INFO("Menu: main menu");
     StartRun(true); // the bot runs behind the menu
     // (after StartRun, which clears the selection: Enter / A start the game from the keyboard / a gamepad)
     if (Entity button = Resolve(PlayButton))
@@ -179,7 +179,7 @@ void RunnerGame::OpenPause()
     m_State = State::Paused;
     PauseGame();
     SetActiveRef(PauseMenu, true);
-    ZM_INFO("Menyu: pauza");
+    ZM_INFO("Menu: pause");
     if (Entity button = Resolve(ResumeButton))
         GetScene().SetSelectedUI(button);
     Audio::SetGroupLowPass("Music", 800.0f);
@@ -191,7 +191,7 @@ void RunnerGame::ClosePause()
         return;
     m_State = State::Playing;
     SetActiveRef(PauseMenu, false);
-    ZM_INFO("Menyu: pauza yopildi");
+    ZM_INFO("Menu: pause closed");
     GetScene().SetSelectedUI({});
     Audio::SetGroupLowPass("Music", 0.0f);
     ResumeGame();
@@ -210,7 +210,7 @@ void RunnerGame::OnRunnerCrashed()
     ShakeCamera(1.0f, 0.9f, 18.0f);
     PlaySound("Audio/crash.wav", 1.0f, 1.0f);
     if (m_DemoRun)
-        ZM_INFO("Demo: yiqildi - {:.0f} m, {} tanga, ochko {} (to'siq: {}, yo'lak {}, tezlik {:.1f} m/s)", m_Distance, m_Coins, GetScore(),
+        ZM_INFO("Demo: fell - {:.0f} m, {} coins, score {} (obstacle: {}, lane {}, speed {:.1f} m/s)", m_Distance, m_Coins, GetScore(),
                 (int)m_LastHit, r ? r->GetLane() : 0, m_Speed);
     if (m_State == State::Menu)
     {
@@ -228,12 +228,12 @@ void RunnerGame::GameOver()
     m_State = State::GameOver;
     SetTimeScale(1.0f);
     const int score = GetScore();
-    const bool record = SubmitRecords("yugurish tugadi");
+    const bool record = SubmitRecords("run finished");
     SetText(OverScore, Localize("over.score", score));
     SetText(OverStats, Localize("over.stats", (int)m_Distance, m_Coins));
     SetText(OverRecord, record ? Localize("over.record") : Localize("over.best", m_BestScore));
     SetActiveRef(GameOverMenu, true);
-    ZM_INFO("Menyu: natijalar - ochko {}, {:.0f} m, {} tanga", score, m_Distance, m_Coins);
+    ZM_INFO("Menu: results - score {}, {:.0f} m, {} coins", score, m_Distance, m_Coins);
     if (Entity button = Resolve(RetryButton))
         GetScene().SetSelectedUI(button);
     m_OverTimer = 0.0f;
@@ -251,7 +251,7 @@ bool RunnerGame::SubmitRecords(const char* when)
     if (record)
     {
         m_BestScore = score;
-        ZM_INFO("Yangi rekord: ochko {} ({:.0f} m, {} tanga; {})", score, m_Distance, m_Coins, when);
+        ZM_INFO("New record: score {} ({:.0f} m, {} coins; {})", score, m_Distance, m_Coins, when);
     }
     if (m_Distance > 0.0f && SaveData::SubmitRecord("EndlessRunner.BestDistance", m_Distance))
         m_BestDistance = m_Distance;
@@ -318,7 +318,7 @@ void RunnerGame::OnUpdate(Timestep ts)
         }
         if (m_DemoRun && m_Distance >= m_DemoLogMark)
         {
-            ZM_INFO("Demo: {:.0f} m, {} tanga, tezlik {:.1f} m/s, ochko {}", m_Distance, m_Coins, m_Speed, GetScore());
+            ZM_INFO("Demo: {:.0f} m, {} coins, speed {:.1f} m/s, score {}", m_Distance, m_Coins, m_Speed, GetScore());
             m_DemoLogMark += 250.0f;
         }
     }
@@ -743,18 +743,18 @@ void RunnerGame::SetActiveRef(const EntityRef& ref, bool active)
 }
 
 ZM_REGISTER_SCRIPT(RunnerGame,
-    ZM_FIELD(RunnerGame, Player).Header("Dunyo"),
+    ZM_FIELD(RunnerGame, Player).Header("World"),
     ZM_FIELD(RunnerGame, CameraRig),
-    ZM_FIELD(RunnerGame, Road).Tooltip("Yo'l tekisligi (yuguruvchi bilan siljiydi, teksturasi joyida turadi)"),
+    ZM_FIELD(RunnerGame, Road).Tooltip("The road plane (moves with the runner, its texture stays in place)"),
     ZM_FIELD(RunnerGame, Sand),
     ZM_FIELD(RunnerGame, CurbL),
     ZM_FIELD(RunnerGame, CurbR),
-    ZM_FIELD(RunnerGame, CartTemplate).Header("To'siqlar"),
+    ZM_FIELD(RunnerGame, CartTemplate).Header("Obstacles"),
     ZM_FIELD(RunnerGame, FenceTemplate),
     ZM_FIELD(RunnerGame, GateTemplate),
     ZM_FIELD(RunnerGame, WallTemplate),
     ZM_FIELD(RunnerGame, CaravanTemplate),
-    ZM_FIELD(RunnerGame, CoinTemplate).Header("Tangalar va bonuslar"),
+    ZM_FIELD(RunnerGame, CoinTemplate).Header("Coins and bonuses"),
     ZM_FIELD(RunnerGame, MagnetTemplate),
     ZM_FIELD(RunnerGame, ShieldTemplate),
     ZM_FIELD(RunnerGame, TowerTemplate).Header("Manzara"),
@@ -762,7 +762,7 @@ ZM_REGISTER_SCRIPT(RunnerGame,
     ZM_FIELD(RunnerGame, DuneTemplate),
     ZM_FIELD(RunnerGame, HouseTemplate),
     ZM_FIELD(RunnerGame, ArchTemplate),
-    ZM_FIELD(RunnerGame, CoinBurst).Header("Effektlar"),
+    ZM_FIELD(RunnerGame, CoinBurst).Header("Effects"),
     ZM_FIELD(RunnerGame, CrashBurst),
     ZM_FIELD(RunnerGame, Hud).Header("HUD"),
     ZM_FIELD(RunnerGame, ScoreText),
@@ -774,7 +774,7 @@ ZM_REGISTER_SCRIPT(RunnerGame,
     ZM_FIELD(RunnerGame, Banner),
     ZM_FIELD(RunnerGame, BannerSub),
     ZM_FIELD(RunnerGame, DemoBadge),
-    ZM_FIELD(RunnerGame, MainMenu).Header("Menyular"),
+    ZM_FIELD(RunnerGame, MainMenu).Header("Menus"),
     ZM_FIELD(RunnerGame, MenuBest),
     ZM_FIELD(RunnerGame, PlayButton),
     ZM_FIELD(RunnerGame, LanguageButton),
@@ -785,9 +785,9 @@ ZM_REGISTER_SCRIPT(RunnerGame,
     ZM_FIELD(RunnerGame, OverStats),
     ZM_FIELD(RunnerGame, OverRecord),
     ZM_FIELD(RunnerGame, RetryButton),
-    ZM_FIELD_RANGE(RunnerGame, StartSpeed, 2.0f, 40.0f).Header("Qoidalar").Tooltip("Boshlang'ich tezlik (m/s)"),
+    ZM_FIELD_RANGE(RunnerGame, StartSpeed, 2.0f, 40.0f).Header("Rules").Tooltip("Initial speed (m/s)"),
     ZM_FIELD_RANGE(RunnerGame, MaxSpeed, 2.0f, 60.0f),
-    ZM_FIELD_RANGE(RunnerGame, SpeedGain, 0.0f, 0.1f).Tooltip("Har metrda tezlik qanchaga oshadi (m/s)"),
-    ZM_FIELD_RANGE(RunnerGame, SegmentLength, 10.0f, 60.0f).Tooltip("Har shuncha metrda bitta to'siq naqshi"),
-    ZM_FIELD_RANGE(RunnerGame, SpawnAhead, 40.0f, 400.0f).Tooltip("Dunyo oldinda qancha masofagacha quriladi"),
-    ZM_FIELD(RunnerGame, AutoDemo).Tooltip("Demo rejimida boshlash: bot yuguradi (ZAMIN_DEMO=1 ham shunday qiladi)"))
+    ZM_FIELD_RANGE(RunnerGame, SpeedGain, 0.0f, 0.1f).Tooltip("How much the speed grows per meter (m/s)"),
+    ZM_FIELD_RANGE(RunnerGame, SegmentLength, 10.0f, 60.0f).Tooltip("One obstacle pattern every this many meters"),
+    ZM_FIELD_RANGE(RunnerGame, SpawnAhead, 40.0f, 400.0f).Tooltip("How far ahead the world is built"),
+    ZM_FIELD(RunnerGame, AutoDemo).Tooltip("Start in demo mode: a bot runs (ZAMIN_DEMO=1 does the same)"))

@@ -732,7 +732,7 @@ private:
         Entity root = Instantiate(Prefab, position);
         if (!root)
         {
-            ZM_WARN("Ragdoll prefabi topilmadi: {}", Prefab);
+            ZM_WARN("Ragdoll prefab not found: {}", Prefab);
             return;
         }
         Paint(root);
@@ -786,12 +786,12 @@ private:
     std::deque<UUID> m_Spawned;
 };
 ZM_REGISTER_SCRIPT(RagdollSpawner3D,
-    ZM_FIELD(RagdollSpawner3D, Prefab).Tooltip("Ragdoll prefabi (Assets ichidagi yo'l)"),
-    ZM_FIELD_RANGE(RagdollSpawner3D, AutoInterval, 0.0f, 30.0f).Header("Tashlash").Tooltip("Necha soniyada o'zi bittasini tashlaydi (0 - faqat R / sichqoncha)"),
-    ZM_FIELD_RANGE(RagdollSpawner3D, Width, 0.0f, 20.0f).Tooltip("Tashlash joyining kengligi (Z bo'ylab)"),
-    ZM_FIELD_RANGE(RagdollSpawner3D, MaxRagdolls, 1, 40).Tooltip("Ko'pi bilan shuncha (eskilari yo'qoladi)"),
-    ZM_FIELD_RANGE(RagdollSpawner3D, Push, 0.0f, 20.0f).Tooltip("Zina tomonga (+X) boshlang'ich tezlik"),
-    ZM_FIELD_RANGE(RagdollSpawner3D, ThrowSpeed, 0.0f, 60.0f).Tooltip("Kameradan sichqoncha tomonga otish tezligi"))
+    ZM_FIELD(RagdollSpawner3D, Prefab).Tooltip("Ragdoll prefab (path inside Assets)"),
+    ZM_FIELD_RANGE(RagdollSpawner3D, AutoInterval, 0.0f, 30.0f).Header("Dropping").Tooltip("Drops one by itself every this many seconds (0 - only R / the mouse)"),
+    ZM_FIELD_RANGE(RagdollSpawner3D, Width, 0.0f, 20.0f).Tooltip("Width of the drop area (along Z)"),
+    ZM_FIELD_RANGE(RagdollSpawner3D, MaxRagdolls, 1, 40).Tooltip("At most this many (the oldest disappear)"),
+    ZM_FIELD_RANGE(RagdollSpawner3D, Push, 0.0f, 20.0f).Tooltip("Initial speed towards the stairs (+X)"),
+    ZM_FIELD_RANGE(RagdollSpawner3D, ThrowSpeed, 0.0f, 60.0f).Tooltip("Throw speed from the camera towards the mouse"))
 
 // ---- PhysicsDebug3D sahnasi: fizika debug ko'rinishlari - kontakt nuqtalari (normal, chuqurlik, zarba
 // halqasi, uxlayotganlari xira), qiymat yozuvlari (chuqurlik, zarba tezligi va impulsi) va joint'lar
@@ -833,9 +833,9 @@ private:
     }
 };
 ZM_REGISTER_SCRIPT(PhysicsDebugView3D,
-    ZM_FIELD(PhysicsDebugView3D, Contacts).Tooltip("Kontakt nuqtalari va normallari (C)"),
-    ZM_FIELD(PhysicsDebugView3D, Joints).Tooltip("Joint'lar: langarlar, o'q, yuk rangi (J)"),
-    ZM_FIELD(PhysicsDebugView3D, Values).Tooltip("Chuqurlik, zarba, impuls, kuch yozuvlari (V)"))
+    ZM_FIELD(PhysicsDebugView3D, Contacts).Tooltip("Contact points and normals (C)"),
+    ZM_FIELD(PhysicsDebugView3D, Joints).Tooltip("Joints: anchors, axis, load color (J)"),
+    ZM_FIELD(PhysicsDebugView3D, Values).Tooltip("Depth, hit, impulse and force labels (V)"))
 
 // ---- Audio sahnasi: mixer guruhlari, musiqa crossfade, Audio Listener.
 // Tinglovchi (Audio Listener) qaysi zonada bo'lsa o'sha musiqa crossfade bilan yangraydi
@@ -915,11 +915,11 @@ private:
     float m_PingTime = 0.0f;
 };
 ZM_REGISTER_SCRIPT(MusicDirector,
-    ZM_FIELD(MusicDirector, CalmTrack).Tooltip("Tinch zona musiqasi (X < chegara)"),
-    ZM_FIELD(MusicDirector, TenseTrack).Tooltip("Xavfli zona musiqasi (X > chegara)"),
-    ZM_FIELD(MusicDirector, Crossfade).Tooltip("Treklar almashinish vaqti, sekund"),
+    ZM_FIELD(MusicDirector, CalmTrack).Tooltip("Music of the calm zone (X < the border)"),
+    ZM_FIELD(MusicDirector, TenseTrack).Tooltip("Music of the danger zone (X > the border)"),
+    ZM_FIELD(MusicDirector, Crossfade).Tooltip("Crossfade time of the tracks, seconds"),
     ZM_FIELD(MusicDirector, Border),
-    ZM_FIELD(MusicDirector, Ping).Tooltip("UI guruhida chalinadigan signal"),
+    ZM_FIELD(MusicDirector, Ping).Tooltip("The signal played in the UI group"),
     ZM_FIELD(MusicDirector, PingInterval))
 
 // Ovoz manbai bir o'q bo'ylab tez uchib o'tadi (kosinus bo'yicha borib-keladi) va tepasida jonli holati
@@ -955,9 +955,9 @@ private:
 };
 
 ZM_REGISTER_SCRIPT(DopplerFlyby,
-    ZM_FIELD(DopplerFlyby, Axis).Tooltip("Uchish yo'nalishi"),
-    ZM_FIELD(DopplerFlyby, Distance).Tooltip("Borib-kelish masofasi, m"),
-    ZM_FIELD(DopplerFlyby, Period).Tooltip("Bir borib-kelish vaqti, sekund (eng katta tezlik: pi x masofa / vaqt)"))
+    ZM_FIELD(DopplerFlyby, Axis).Tooltip("Flight direction"),
+    ZM_FIELD(DopplerFlyby, Distance).Tooltip("Back-and-forth distance, m"),
+    ZM_FIELD(DopplerFlyby, Period).Tooltip("Time of one trip there and back, seconds (top speed: pi x distance / time)"))
 
 // Shamol qo'ng'iroqchalari: bitta qisqa qo'ng'iroq ovozi tasodifiy oraliqlarda chalinadi - har safar boshqa
 // ton va balandlikda (SoundParams::PitchRandom / VolumeRandom). Bir vaqtda ko'pi bilan MaxAtOnce tasi
@@ -1028,13 +1028,13 @@ private:
 };
 
 ZM_REGISTER_SCRIPT(ChimeRinger,
-    ZM_FIELD(ChimeRinger, Clip).Tooltip("Qo'ng'iroq ovozi"),
-    ZM_FIELD_RANGE(ChimeRinger, MinInterval, 0.05f, 5.0f).Header("Chalinish").Tooltip("Ikki chalinish orasidagi eng qisqa vaqt, s"),
-    ZM_FIELD_RANGE(ChimeRinger, MaxInterval, 0.05f, 5.0f).Tooltip("Eng uzun vaqt, s"),
-    ZM_FIELD(ChimeRinger, PitchRange).Header("Tasodifiylik").Tooltip("Ton ko'paytuvchisi: min, max"),
-    ZM_FIELD(ChimeRinger, VolumeRange).Tooltip("Balandlik ko'paytuvchisi: min, max"),
-    ZM_FIELD_RANGE(ChimeRinger, MaxAtOnce, 1, 16).Tooltip("Bir vaqtda ko'pi bilan nechtasi eshitiladi"),
-    ZM_FIELD(ChimeRinger, Hum).Header("Pauza namunasi").Tooltip("H tugmasi bilan pauza qilinadigan Audio Source"))
+    ZM_FIELD(ChimeRinger, Clip).Tooltip("Bell sound"),
+    ZM_FIELD_RANGE(ChimeRinger, MinInterval, 0.05f, 5.0f).Header("Chalinish").Tooltip("Shortest time between two rings, s"),
+    ZM_FIELD_RANGE(ChimeRinger, MaxInterval, 0.05f, 5.0f).Tooltip("Longest time, s"),
+    ZM_FIELD(ChimeRinger, PitchRange).Header("Randomness").Tooltip("Pitch multiplier: min, max"),
+    ZM_FIELD(ChimeRinger, VolumeRange).Tooltip("Volume multiplier: min, max"),
+    ZM_FIELD_RANGE(ChimeRinger, MaxAtOnce, 1, 16).Tooltip("How many can be heard at once"),
+    ZM_FIELD(ChimeRinger, Hum).Header("Pause sample").Tooltip("The Audio Source paused with the H key"))
 
 // Radio: Audio Source'ning so'nishi va filtri. Manbada FadeIn 1.5 s / FadeOut 1.2 s va high-pass 700 Hz +
 // low-pass 3.5 kHz (kichik karnaydan chiqayotgandek). R - radioni yoqish / o'chirish (asta kiradi va so'nadi),
@@ -1093,9 +1093,9 @@ private:
 };
 
 ZM_REGISTER_SCRIPT(RadioToggle,
-    ZM_FIELD_RANGE(RadioToggle, HighPass, 20.0f, 8000.0f).Tooltip("T bilan yoqiladigan high-pass, Hz"),
-    ZM_FIELD_RANGE(RadioToggle, LowPass, 200.0f, 20000.0f).Tooltip("T bilan yoqiladigan low-pass, Hz"),
-    ZM_FIELD_RANGE(RadioToggle, DuckVolume, 0.0f, 1.0f).Tooltip("G bosilganda so'nish darajasi"))
+    ZM_FIELD_RANGE(RadioToggle, HighPass, 20.0f, 8000.0f).Tooltip("High-pass turned on with T, Hz"),
+    ZM_FIELD_RANGE(RadioToggle, LowPass, 200.0f, 20000.0f).Tooltip("Low-pass turned on with T, Hz"),
+    ZM_FIELD_RANGE(RadioToggle, DuckVolume, 0.0f, 1.0f).Tooltip("Fade level while G is pressed"))
 
 // Suv havzasi: tinglovchi (Audio Listener) havza ichiga kirsa SFX guruhi (bolasi Ambience bilan) va Music
 // guruhi low-pass bilan bo'g'iladi - suv ostidagidek; chiqsa filtr silliq ochiladi (Audio::SetGroupLowPass).
@@ -1146,8 +1146,8 @@ private:
 };
 
 ZM_REGISTER_SCRIPT(UnderwaterZone,
-    ZM_FIELD_RANGE(UnderwaterZone, Cutoff, 50.0f, 20000.0f).Tooltip("Suv ostida SFX guruhining low-pass chastotasi, Hz"),
-    ZM_FIELD_RANGE(UnderwaterZone, MusicCutoff, 50.0f, 20000.0f).Tooltip("Suv ostida Music guruhining low-pass chastotasi, Hz"))
+    ZM_FIELD_RANGE(UnderwaterZone, Cutoff, 50.0f, 20000.0f).Tooltip("Low-pass frequency of the SFX group under water, Hz"),
+    ZM_FIELD_RANGE(UnderwaterZone, MusicCutoff, 50.0f, 20000.0f).Tooltip("Low-pass frequency of the Music group under water, Hz"))
 
 // Karnay e'lonlari: Audio Source (takrorlanmaydigan qo'ng'iroq, yo'nalish konusi bilan) tugaganda OnSoundFinished
 // keladi - skript Pause sekunddan keyin uni qayta chaladi va nechta e'lon bo'lganini ko'rsatadi. Ovozlar limiti
@@ -1193,7 +1193,7 @@ private:
     float m_Clock = 0.0f, m_NextAt = 0.0f;
     std::string m_Status = "waiting";
 };
-ZM_REGISTER_SCRIPT(PaAnnouncer, ZM_FIELD_RANGE(PaAnnouncer, Pause, 0.0f, 30.0f).Tooltip("E'lonlar orasidagi tanaffus, sekund"))
+ZM_REGISTER_SCRIPT(PaAnnouncer, ZM_FIELD_RANGE(PaAnnouncer, Pause, 0.0f, 30.0f).Tooltip("Break between announcements, seconds"))
 
 // Ambient zona yozuvi: zona (AmbientZoneComponent) ustida uning nomi va hozir eshitilayotgan darajasi - tinglovchi
 // hajm ichida bo'lsa to'liq, chetidan tashqarida aralashish masofasida asta so'nadi.
@@ -1217,8 +1217,8 @@ public:
                         glm::mix(glm::vec4(0.6f, 0.75f, 0.6f, 1.0f), glm::vec4(0.55f, 1.0f, 0.6f, 1.0f), zone->Level));
     }
 };
-ZM_REGISTER_SCRIPT(AmbientZoneLabel, ZM_FIELD(AmbientZoneLabel, Title).Tooltip("Zona ustidagi yozuv"),
-    ZM_FIELD(AmbientZoneLabel, LabelHeight).Tooltip("Yozuv zona tepasidan qancha balandda, m (boshqa yozuvlar bilan ustma-ust tushmasin)"))
+ZM_REGISTER_SCRIPT(AmbientZoneLabel, ZM_FIELD(AmbientZoneLabel, Title).Tooltip("The label above the zone"),
+    ZM_FIELD(AmbientZoneLabel, LabelHeight).Tooltip("How high the label is above the zone, m (so it does not overlap other labels)"))
 
 // O'yinchi ovoz sozlamalari: - / = Music guruhini 3 dB pasaytirish / ko'tarish, N - SFX'ni o'chirish (mute),
 // 9 - saqlash (Audio::SaveSettings: SaveData'ga, loyiha standartidan alohida), 0 - saqlanganini o'chirish.

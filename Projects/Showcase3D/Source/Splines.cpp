@@ -37,11 +37,11 @@ private:
     glm::vec3 m_Base{ 0.0f };
 };
 ZM_REGISTER_SCRIPT(CurveBob,
-                   ZM_FIELD_RANGE(CurveBob, Height, 0.0f, 1.5f).Label("Balandlik egri chizig'i")
-                       .Tooltip("Vaqt (s) bo'yicha balandlik: kalitlarni sudrang, o'ng tugma - tayyor shakllar"),
+                   ZM_FIELD_RANGE(CurveBob, Height, 0.0f, 1.5f).Label("Height curve")
+                       .Tooltip("Height over time (s): drag the keys, right click - ready-made shapes"),
                    ZM_FIELD(CurveBob, Phase).Label("Faza (s)"),
-                   ZM_FIELD_RANGE(CurveBob, Wobble, 0.0f, 2.0f).Label("Chayqalish").Header("Shovqin"),
-                   ZM_FIELD_RANGE(CurveBob, WobbleSpeed, 0.0f, 3.0f).Label("Chayqalish tezligi"))
+                   ZM_FIELD_RANGE(CurveBob, Wobble, 0.0f, 2.0f).Label("Chayqalish").Header("Noise"),
+                   ZM_FIELD_RANGE(CurveBob, WobbleSpeed, 0.0f, 3.0f).Label("Sway speed"))
 
 // Mesh rangini rang g'ildiragi bo'ylab aylantiradi (Color::FromHSV).
 class RainbowTint : public ScriptableEntity
@@ -60,9 +60,9 @@ public:
         GetComponent<MeshRendererComponent>().Mat.Albedo = Color::FromHSV(hue - std::floor(hue), Saturation, Brightness);
     }
 };
-ZM_REGISTER_SCRIPT(RainbowTint, ZM_FIELD(RainbowTint, Speed).Label("Tezlik"), ZM_FIELD_RANGE(RainbowTint, Phase, 0.0f, 1.0f).Label("Faza"),
-                   ZM_FIELD_RANGE(RainbowTint, Saturation, 0.0f, 1.0f).Label("To'yinganlik"),
-                   ZM_FIELD_RANGE(RainbowTint, Brightness, 0.0f, 1.0f).Label("Yorqinlik"))
+ZM_REGISTER_SCRIPT(RainbowTint, ZM_FIELD(RainbowTint, Speed).Label("Speed"), ZM_FIELD_RANGE(RainbowTint, Phase, 0.0f, 1.0f).Label("Faza"),
+                   ZM_FIELD_RANGE(RainbowTint, Saturation, 0.0f, 1.0f).Label("Saturation"),
+                   ZM_FIELD_RANGE(RainbowTint, Brightness, 0.0f, 1.0f).Label("Brightness"))
 
 // Bolalari (ustunlar) balandligi shovqindan: fBm yoki "ridged" (tog' qirralari), sekin siljiydi;
 // rang - pastdan yuqoriga HSV bo'ylab aralashadi.
@@ -102,12 +102,12 @@ public:
         }
     }
 };
-ZM_REGISTER_SCRIPT(NoiseColumns, ZM_FIELD_ENUM(NoiseColumns, Type, "Perlin", "Simplex", "Value").Label("Shovqin turi"),
-                   ZM_FIELD(NoiseColumns, Ridged).Label("Ridged (qirralar)"), ZM_FIELD_RANGE(NoiseColumns, Frequency, 0.01f, 2.0f).Label("Chastota"),
-                   ZM_FIELD_RANGE(NoiseColumns, Octaves, 1, 8).Label("Oktavalar"), ZM_FIELD_RANGE(NoiseColumns, HeightScale, 0.0f, 6.0f).Label("Balandlik"),
-                   ZM_FIELD(NoiseColumns, Scroll).Label("Siljish tezligi"), ZM_FIELD(NoiseColumns, Seed).Label("Urug' (seed)"),
-                   ZM_FIELD_RANGE(NoiseColumns, Contrast, 0.5f, 4.0f).Label("Kontrast"),
-                   ZM_FIELD_COLOR(NoiseColumns, LowColor).Label("Past rang"), ZM_FIELD_COLOR(NoiseColumns, HighColor).Label("Baland rang"))
+ZM_REGISTER_SCRIPT(NoiseColumns, ZM_FIELD_ENUM(NoiseColumns, Type, "Perlin", "Simplex", "Value").Label("Noise type"),
+                   ZM_FIELD(NoiseColumns, Ridged).Label("Ridged"), ZM_FIELD_RANGE(NoiseColumns, Frequency, 0.01f, 2.0f).Label("Frequency"),
+                   ZM_FIELD_RANGE(NoiseColumns, Octaves, 1, 8).Label("Octaves"), ZM_FIELD_RANGE(NoiseColumns, HeightScale, 0.0f, 6.0f).Label("Height"),
+                   ZM_FIELD(NoiseColumns, Scroll).Label("Scroll speed"), ZM_FIELD(NoiseColumns, Seed).Label("Seed"),
+                   ZM_FIELD_RANGE(NoiseColumns, Contrast, 0.5f, 4.0f).Label("Contrast"),
+                   ZM_FIELD_COLOR(NoiseColumns, LowColor).Label("Low color"), ZM_FIELD_COLOR(NoiseColumns, HighColor).Label("High color"))
 
 // Yo'l (Rail) ustida Target'ga eng yaqin nuqtada turadi (Scene::GetSplineClosestDistance) va unga
 // chiziq tortadi: rels kamera yoki yo'lboshlovchi uchun.
@@ -132,5 +132,5 @@ public:
         DebugDraw::Line(p, goal, Color::FromHex("#FFB347").value_or(Colors::Orange));
     }
 };
-ZM_REGISTER_SCRIPT(SplineMagnet, ZM_FIELD(SplineMagnet, Rail).Label("Yo'l"), ZM_FIELD(SplineMagnet, Target).Label("Nishon"),
-                   ZM_FIELD(SplineMagnet, Lift).Label("Balandlik"))
+ZM_REGISTER_SCRIPT(SplineMagnet, ZM_FIELD(SplineMagnet, Rail).Label("Path"), ZM_FIELD(SplineMagnet, Target).Label("Target"),
+                   ZM_FIELD(SplineMagnet, Lift).Label("Height"))

@@ -326,7 +326,7 @@ void Car::OnUpdate(Timestep ts)
 }
 
 ZM_REGISTER_SCRIPT(Car,
-    ZM_FIELD(Car, Body).Header("Qismlar"),
+    ZM_FIELD(Car, Body).Header("Parts"),
     ZM_FIELD(Car, WheelFL),
     ZM_FIELD(Car, WheelFR),
     ZM_FIELD(Car, WheelRL),
@@ -336,12 +336,12 @@ ZM_REGISTER_SCRIPT(Car,
     ZM_FIELD(Car, BrakeLights),
     ZM_FIELD(Car, Smoke),
     ZM_FIELD(Car, Dust),
-    ZM_FIELD_RANGE(Car, EngineAccel, 1.0f, 60.0f).Header("Fizika").Tooltip("To'liq gazda tezlanish (m/s²)"),
-    ZM_FIELD_RANGE(Car, MaxSpeed, 5.0f, 120.0f).Tooltip("Eng yuqori tezlik (m/s)"),
+    ZM_FIELD_RANGE(Car, EngineAccel, 1.0f, 60.0f).Header("Physics").Tooltip("Acceleration at full throttle (m/s²)"),
+    ZM_FIELD_RANGE(Car, MaxSpeed, 5.0f, 120.0f).Tooltip("Top speed (m/s)"),
     ZM_FIELD_RANGE(Car, BrakeDecel, 1.0f, 80.0f),
     ZM_FIELD_RANGE(Car, ReverseSpeed, 1.0f, 30.0f),
-    ZM_FIELD_RANGE(Car, SteerRate, 0.2f, 6.0f).Tooltip("To'liq rulda burilish tezligi (rad/s)"),
-    ZM_FIELD_RANGE(Car, Grip, 0.5f, 30.0f).Tooltip("Yonga sirpanish qanchalik tez so'nadi"),
-    ZM_FIELD_RANGE(Car, DriftGrip, 0.1f, 10.0f).Tooltip("Qo'l tormozida ilashish (drift)"),
-    ZM_FIELD_RANGE(Car, Skill, 0.5f, 1.1f).Header("Bot").Tooltip("Botning tezligi va burilishdagi jasorati"),
-    ZM_FIELD_RANGE(Car, LineOffset, -5.0f, 5.0f).Tooltip("Botning yo'li - markazdan (m, + o'ngga)"))
+    ZM_FIELD_RANGE(Car, SteerRate, 0.2f, 6.0f).Tooltip("Turn rate at full steering (rad/s)"),
+    ZM_FIELD_RANGE(Car, Grip, 0.5f, 30.0f).Tooltip("How fast sideways sliding dies out"),
+    ZM_FIELD_RANGE(Car, DriftGrip, 0.1f, 10.0f).Tooltip("Grip with the handbrake on (drift)"),
+    ZM_FIELD_RANGE(Car, Skill, 0.5f, 1.1f).Header("Bot").Tooltip("The bot's speed and its courage in the turns"),
+    ZM_FIELD_RANGE(Car, LineOffset, -5.0f, 5.0f).Tooltip("The bot's line - offset from the center (m, + to the right)"))

@@ -39,7 +39,7 @@ public:
                           Mood({ 1.0f, 0.2f, 0.15f }, ChaseSpeed);
                           PausePatrol(false);
                           m_Repath = 0.0f;
-                          Say("Qo'riqchi sizni ko'rdi - yuguring! (Shift)");
+                          Say("The guard saw you - run! (Shift)");
                       },
                       [this](float dt) { Chase(dt); })
             .AddState("Qidiruv",
@@ -63,8 +63,8 @@ public:
                           if (Entity hero = GetSeenTarget())
                               SendMessage(hero, "Ushlandi");
                           m_Cooldown = 3.0f;
-                          Say("Qo'riqchi sizni ushladi! Boshidan...");
-                          ZM_INFO("Orol qo'riqchisi qahramonni ushladi");
+                          Say("The guard caught you! From the start...");
+                          ZM_INFO("The island guard caught the hero");
                       })
             // The sensor's callbacks send these; after a catch it may still see the hero (no new
             // "spotted" then): the cool-down decides.
@@ -183,11 +183,11 @@ private:
     float m_SayTimer = 0.0f;
     bool m_Said = false;
 };
-ZM_REGISTER_SCRIPT(IslandGuard, ZM_FIELD(IslandGuard, Model).Label("Model").Tooltip("Robot modeli turgan bola obyekt (Animator)"),
-                   ZM_FIELD(IslandGuard, Lamp).Label("Chiroq").Tooltip("Boshidagi chiroq: holat rangida yonadi"),
-                   ZM_FIELD(IslandGuard, Status).Label("Xabar matni").Tooltip("Ekrandagi UI matn"),
-                   ZM_FIELD(IslandGuard, StatusPanel).Label("Xabar paneli").Tooltip("Xabar bor paytda ko'rinadigan fon"),
-                   ZM_FIELD_RANGE(IslandGuard, ChaseSpeed, 0.5f, 12.0f).Label("Ta'qib tezligi"),
-                   ZM_FIELD_RANGE(IslandGuard, SearchTime, 0.0f, 30.0f).Label("Qidiruv vaqti (s)"),
-                   ZM_FIELD_RANGE(IslandGuard, CatchDistance, 0.2f, 5.0f).Label("Ushlash masofasi"),
-                   ZM_FIELD_RANGE(IslandGuard, LookAround, 0.0f, 10.0f).Label("Atrofga qarash"))
+ZM_REGISTER_SCRIPT(IslandGuard, ZM_FIELD(IslandGuard, Model).Label("Model").Tooltip("The child object with the robot model (Animator)"),
+                   ZM_FIELD(IslandGuard, Lamp).Label("Chiroq").Tooltip("The lamp on its head: lit in the color of the state"),
+                   ZM_FIELD(IslandGuard, Status).Label("Message text").Tooltip("The UI text on the screen"),
+                   ZM_FIELD(IslandGuard, StatusPanel).Label("Message panel").Tooltip("The background shown while there is a message"),
+                   ZM_FIELD_RANGE(IslandGuard, ChaseSpeed, 0.5f, 12.0f).Label("Chase speed"),
+                   ZM_FIELD_RANGE(IslandGuard, SearchTime, 0.0f, 30.0f).Label("Search time (s)"),
+                   ZM_FIELD_RANGE(IslandGuard, CatchDistance, 0.2f, 5.0f).Label("Catch distance"),
+                   ZM_FIELD_RANGE(IslandGuard, LookAround, 0.0f, 10.0f).Label("Look around"))

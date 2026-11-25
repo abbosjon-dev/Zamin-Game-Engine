@@ -64,18 +64,18 @@ public:
             Refresh();
         });
         // The menu buttons' own messages (they come after "UIClick").
-        AddMessageHandler("Start", [this](const ScriptMessage&) { SetLast("Yangi o'yin boshlanadi!"); });
-        AddMessageHandler("Continue", [this](const ScriptMessage&) { SetLast("Saqlangan o'yin davom etadi"); });
-        AddMessageHandler("Settings", [this](const ScriptMessage&) { SetLast("Sozlamalar ochiladi"); });
+        AddMessageHandler("Start", [this](const ScriptMessage&) { SetLast("A new game starts!"); });
+        AddMessageHandler("Continue", [this](const ScriptMessage&) { SetLast("The saved game continues"); });
+        AddMessageHandler("Settings", [this](const ScriptMessage&) { SetLast("Settings open"); });
         AddMessageHandler("Achievements", [this](const ScriptMessage&) {
             ShowUI(Resolve(News)); // comes back with its show animation
             SetLast("Yutuqlar: 7 / 24");
         });
         AddMessageHandler("CloseNews", [this](const ScriptMessage&) {
             HideUI(Resolve(News)); // its hide animation, then switched off
-            SetLast("Yangiliklar yopildi (Yutuqlar - qaytadan ochadi)");
+            SetLast("News closed (Achievements opens it again)");
         });
-        AddMessageHandler("Quit", [this](const ScriptMessage&) { SetLast("Chiqish (namunada o'chirilgan)"); });
+        AddMessageHandler("Quit", [this](const ScriptMessage&) { SetLast("Quit (disabled in the sample)"); });
         AddMessageHandler("Slot", [this](const ScriptMessage& m) {
             m_Coins += 5;
             if (Entity coins = Resolve(Coins))
@@ -128,7 +128,7 @@ private:
 };
 
 ZM_REGISTER_SCRIPT(UILayoutDemo,
-    ZM_FIELD(UILayoutDemo, Status).Header("Yozuvlar"),
+    ZM_FIELD(UILayoutDemo, Status).Header("Labels"),
     ZM_FIELD(UILayoutDemo, Info),
     ZM_FIELD(UILayoutDemo, Coins),
     ZM_FIELD(UILayoutDemo, News))

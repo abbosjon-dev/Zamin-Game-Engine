@@ -261,7 +261,7 @@ void Runner::Animate(float dt)
 }
 
 ZM_REGISTER_SCRIPT(Runner,
-    ZM_FIELD(Runner, Body).Header("Tana qismlari"),
+    ZM_FIELD(Runner, Body).Header("Body parts"),
     ZM_FIELD(Runner, Head),
     ZM_FIELD(Runner, ArmL),
     ZM_FIELD(Runner, ArmR),
@@ -269,7 +269,7 @@ ZM_REGISTER_SCRIPT(Runner,
     ZM_FIELD(Runner, LegR),
     ZM_FIELD(Runner, Dust),
     ZM_FIELD(Runner, ShieldBubble),
-    ZM_FIELD_RANGE(Runner, LaneWidth, 1.0f, 5.0f).Header("Harakat"),
+    ZM_FIELD_RANGE(Runner, LaneWidth, 1.0f, 5.0f).Header("Movement"),
     ZM_FIELD_RANGE(Runner, JumpSpeed, 2.0f, 30.0f),
     ZM_FIELD_RANGE(Runner, Gravity, 5.0f, 80.0f),
     ZM_FIELD_RANGE(Runner, SlideTime, 0.2f, 2.0f))

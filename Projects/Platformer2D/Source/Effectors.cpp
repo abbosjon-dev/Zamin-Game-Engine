@@ -58,11 +58,11 @@ private:
 };
 
 ZM_REGISTER_SCRIPT(BlastOnClick,
-    ZM_FIELD_RANGE(BlastOnClick, Radius, 0.1f, 20.0f).Header("Portlash").Tooltip("OverlapCircle2D radiusi"),
-    ZM_FIELD_RANGE(BlastOnClick, Strength, 0.0f, 200.0f).Tooltip("Markazdagi turtki (impuls)"),
-    ZM_FIELD_RANGE(BlastOnClick, AutoInterval, 0.0f, 30.0f).Header("Avtomatik").Tooltip("Necha soniyada o'zi portlaydi (0 - faqat sichqoncha)"),
-    ZM_FIELD(BlastOnClick, AutoCenter).Tooltip("Avtomatik portlash markazi (dunyoda)"),
-    ZM_FIELD(BlastOnClick, AutoSpread).Tooltip("Markaz atrofida tasodifiy siljish"))
+    ZM_FIELD_RANGE(BlastOnClick, Radius, 0.1f, 20.0f).Header("Explosion").Tooltip("OverlapCircle2D radius"),
+    ZM_FIELD_RANGE(BlastOnClick, Strength, 0.0f, 200.0f).Tooltip("Push at the center (impulse)"),
+    ZM_FIELD_RANGE(BlastOnClick, AutoInterval, 0.0f, 30.0f).Header("Automatic").Tooltip("Explodes by itself every this many seconds (0 - only the mouse)"),
+    ZM_FIELD(BlastOnClick, AutoCenter).Tooltip("Center of the automatic explosion (in the world)"),
+    ZM_FIELD(BlastOnClick, AutoSpread).Tooltip("Random offset around the center"))
 
 // Skaner nuri: Raycast2DAll bilan nur yo'lidagi hamma obyektlarni topadi, ularni tartib raqami bilan
 // belgilaydi va Label matniga sonini yozadi. Nur MinAngle..MaxAngle oralig'ida tebranadi.
@@ -107,9 +107,9 @@ private:
 };
 
 ZM_REGISTER_SCRIPT(LaserScanner,
-    ZM_FIELD_RANGE(LaserScanner, Length, 0.5f, 200.0f).Header("Nur").Tooltip("Nur uzunligi"),
-    ZM_FIELD_RANGE(LaserScanner, MinAngle, -360.0f, 360.0f).Tooltip("Tebranish chegarasi (gradus, 0 - o'ngga)"),
+    ZM_FIELD_RANGE(LaserScanner, Length, 0.5f, 200.0f).Header("Ray").Tooltip("Ray length"),
+    ZM_FIELD_RANGE(LaserScanner, MinAngle, -360.0f, 360.0f).Tooltip("Swing limit (degrees, 0 - to the right)"),
     ZM_FIELD_RANGE(LaserScanner, MaxAngle, -360.0f, 360.0f),
-    ZM_FIELD_RANGE(LaserScanner, SweepSpeed, 0.0f, 5.0f).Tooltip("Tebranishlar soniyada"),
-    ZM_FIELD(LaserScanner, IncludeTriggers).Tooltip("Trigger'lar (suv, shamol) ham sanalsin"),
-    ZM_FIELD(LaserScanner, Label).Header("Ko'rsatish").Tooltip("Natija yoziladigan Text obyekti"))
+    ZM_FIELD_RANGE(LaserScanner, SweepSpeed, 0.0f, 5.0f).Tooltip("Swings per second"),
+    ZM_FIELD(LaserScanner, IncludeTriggers).Tooltip("Count triggers (water, wind) too"),
+    ZM_FIELD(LaserScanner, Label).Header("Display").Tooltip("The Text object the result is written to"))

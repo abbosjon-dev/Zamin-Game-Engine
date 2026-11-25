@@ -59,7 +59,7 @@ public:
         if (m_T == m_Target)
         {
             m_Wait = m_Target > 0.5f ? OpenTime : ClosedTime;
-            ZM_INFO("Eshik {}", m_Target > 0.5f ? "ochildi" : "yopildi");
+            ZM_INFO("Door {}", m_Target > 0.5f ? "opened" : "closed");
         }
         Apply();
     }
@@ -72,11 +72,11 @@ private:
     glm::vec3 m_Closed{ 0.0f };
     float m_T = 1.0f, m_Target = 1.0f, m_Wait = 0.0f;
 };
-ZM_REGISTER_SCRIPT(SlidingDoor, ZM_FIELD(SlidingDoor, OpenOffset).Label("Ochiq holatda siljish"),
-                   ZM_FIELD_RANGE(SlidingDoor, MoveTime, 0.05f, 10.0f).Label("Harakat vaqti (s)"),
-                   ZM_FIELD_RANGE(SlidingDoor, OpenTime, 0.0f, 60.0f).Label("Ochiq turadi (s)"),
-                   ZM_FIELD_RANGE(SlidingDoor, ClosedTime, 0.0f, 60.0f).Label("Yopiq turadi (s)"),
-                   ZM_FIELD(SlidingDoor, StartOpen).Label("Ochiq boshlanadi"))
+ZM_REGISTER_SCRIPT(SlidingDoor, ZM_FIELD(SlidingDoor, OpenOffset).Label("Offset when open"),
+                   ZM_FIELD_RANGE(SlidingDoor, MoveTime, 0.05f, 10.0f).Label("Move time (s)"),
+                   ZM_FIELD_RANGE(SlidingDoor, OpenTime, 0.0f, 60.0f).Label("Stays open (s)"),
+                   ZM_FIELD_RANGE(SlidingDoor, ClosedTime, 0.0f, 60.0f).Label("Stays closed (s)"),
+                   ZM_FIELD(SlidingDoor, StartOpen).Label("Starts open"))
 
 // Moves between its start and start + Offset, waiting at each end. With a Nav Obstacle set to
 // "Faqat turganda" it carves the grid only while parked; on the way the agents' feelers steer round it.
@@ -111,9 +111,9 @@ private:
     float m_T = 0.0f, m_Wait = 0.0f;
     bool m_Forward = true;
 };
-ZM_REGISTER_SCRIPT(PingPongMover, ZM_FIELD(PingPongMover, Offset).Label("Siljish"),
-                   ZM_FIELD_RANGE(PingPongMover, Speed, 0.1f, 20.0f).Label("Tezlik"),
-                   ZM_FIELD_RANGE(PingPongMover, Wait, 0.0f, 30.0f).Label("Kutish (s)"))
+ZM_REGISTER_SCRIPT(PingPongMover, ZM_FIELD(PingPongMover, Offset).Label("Offset"),
+                   ZM_FIELD_RANGE(PingPongMover, Speed, 0.1f, 20.0f).Label("Speed"),
+                   ZM_FIELD_RANGE(PingPongMover, Wait, 0.0f, 30.0f).Label("Wait (s)"))
 
 // A Nav Agent walking to and fro between two points (through the door while it is open, round by
 // the far passage while it is shut).
@@ -142,8 +142,8 @@ private:
     float m_Timer = 0.0f;
     bool m_ToB = true;
 };
-ZM_REGISTER_SCRIPT(Shuttle, ZM_FIELD(Shuttle, PointA).Label("A nuqta"), ZM_FIELD(Shuttle, PointB).Label("B nuqta"),
-                   ZM_FIELD_RANGE(Shuttle, Wait, 0.0f, 30.0f).Label("Kutish (s)"))
+ZM_REGISTER_SCRIPT(Shuttle, ZM_FIELD(Shuttle, PointA).Label("Point A"), ZM_FIELD(Shuttle, PointB).Label("Point B"),
+                   ZM_FIELD_RANGE(Shuttle, Wait, 0.0f, 30.0f).Label("Wait (s)"))
 
 // The visitor (tagged "Player"): walks to random reachable points of the area; WASD / arrows take
 // over (the Nav Agent then walks where the keys point).
@@ -201,9 +201,9 @@ private:
     RandomGenerator m_Random{ 11 };
     float m_Pause = 0.0f;
 };
-ZM_REGISTER_SCRIPT(Visitor, ZM_FIELD(Visitor, AreaMin).Label("Maydon (min XZ)"), ZM_FIELD(Visitor, AreaMax).Label("Maydon (max XZ)"),
-                   ZM_FIELD(Visitor, PauseMin).Label("Pauza (min, s)"), ZM_FIELD(Visitor, PauseMax).Label("Pauza (max, s)"),
-                   ZM_FIELD(Visitor, StartDelay).Label("Boshida kutish (s)"), ZM_FIELD(Visitor, Seed).Label("Urug' (seed)"))
+ZM_REGISTER_SCRIPT(Visitor, ZM_FIELD(Visitor, AreaMin).Label("Area (min XZ)"), ZM_FIELD(Visitor, AreaMax).Label("Area (max XZ)"),
+                   ZM_FIELD(Visitor, PauseMin).Label("Pause (min, s)"), ZM_FIELD(Visitor, PauseMax).Label("Pause (max, s)"),
+                   ZM_FIELD(Visitor, StartDelay).Label("Wait at the start (s)"), ZM_FIELD(Visitor, Seed).Label("Seed"))
 
 // The guard: an AI state machine on top of its Nav Agent and Sight Sensor.
 //   Patrul  - walks the Route's points (its children), waiting a moment at each;
@@ -347,12 +347,12 @@ private:
     float m_Repath = 0.0f;
     float m_Cooldown = 0.0f;
 };
-ZM_REGISTER_SCRIPT(GuardBrain, ZM_FIELD(GuardBrain, Route).Label("Patrul yo'li").Tooltip("Bolalari - patrul nuqtalari"),
-                   ZM_FIELD(GuardBrain, Body).Label("Tana"), ZM_FIELD(GuardBrain, Lamp).Label("Chiroq"),
-                   ZM_FIELD_RANGE(GuardBrain, WaitTime, 0.0f, 10.0f).Label("Nuqtada kutish (s)"),
-                   ZM_FIELD_RANGE(GuardBrain, ChaseSpeed, 0.5f, 10.0f).Label("Ta'qib tezligi"),
-                   ZM_FIELD_RANGE(GuardBrain, SearchTime, 0.0f, 30.0f).Label("Qidiruv vaqti (s)"),
-                   ZM_FIELD_RANGE(GuardBrain, CatchDistance, 0.2f, 5.0f).Label("Ushlash masofasi"))
+ZM_REGISTER_SCRIPT(GuardBrain, ZM_FIELD(GuardBrain, Route).Label("Patrol path").Tooltip("Its children are the patrol points"),
+                   ZM_FIELD(GuardBrain, Body).Label("Body"), ZM_FIELD(GuardBrain, Lamp).Label("Chiroq"),
+                   ZM_FIELD_RANGE(GuardBrain, WaitTime, 0.0f, 10.0f).Label("Wait at a point (s)"),
+                   ZM_FIELD_RANGE(GuardBrain, ChaseSpeed, 0.5f, 10.0f).Label("Chase speed"),
+                   ZM_FIELD_RANGE(GuardBrain, SearchTime, 0.0f, 30.0f).Label("Search time (s)"),
+                   ZM_FIELD_RANGE(GuardBrain, CatchDistance, 0.2f, 5.0f).Label("Catch distance"))
 
 // A security camera: sweeps left and right; when its Sight Sensor spots someone it turns its lamp
 // red and follows them (OnTargetSpotted / OnTargetLost), then goes back to sweeping.
@@ -389,7 +389,7 @@ public:
     {
         m_Following = true;
         Paint(Resolve(Lamp), { 1.0f, 0.18f, 0.12f }, 6.0f);
-        ZM_INFO("Kamera {} ni ko'rdi", target ? target.GetName() : std::string("?"));
+        ZM_INFO("The camera saw {}", target ? target.GetName() : std::string("?"));
     }
 
     void OnTargetLost(Entity) override
@@ -404,9 +404,9 @@ private:
     bool m_Following = false;
 };
 ZM_REGISTER_SCRIPT(SecurityCamera, ZM_FIELD(SecurityCamera, Lamp).Label("Chiroq"),
-                   ZM_FIELD_RANGE(SecurityCamera, SweepAngle, 0.0f, 180.0f).Label("Burilish burchagi"),
-                   ZM_FIELD_RANGE(SecurityCamera, SweepSpeed, 0.0f, 5.0f).Label("Burilish tezligi"),
-                   ZM_FIELD_RANGE(SecurityCamera, TurnSpeed, 1.0f, 720.0f).Label("Kuzatish tezligi"))
+                   ZM_FIELD_RANGE(SecurityCamera, SweepAngle, 0.0f, 180.0f).Label("Turn angle"),
+                   ZM_FIELD_RANGE(SecurityCamera, SweepSpeed, 0.0f, 5.0f).Label("Turn speed"),
+                   ZM_FIELD_RANGE(SecurityCamera, TurnSpeed, 1.0f, 720.0f).Label("Tracking speed"))
 
 // A flock of sheep: every child is one. Each frame they steer (AI/Steering.h) with prioritised
 // blending: flee from the visitor when it comes near, keep apart, stay in the pen (arrive at its
@@ -503,10 +503,10 @@ private:
     std::vector<Sheep> m_Sheep;
     std::vector<glm::vec2> m_Positions, m_Velocities;
 };
-ZM_REGISTER_SCRIPT(SheepFlock, ZM_FIELD_RANGE(SheepFlock, MaxSpeed, 0.1f, 10.0f).Label("Eng katta tezlik"),
-                   ZM_FIELD_RANGE(SheepFlock, MaxForce, 0.1f, 50.0f).Label("Eng katta kuch"),
-                   ZM_FIELD_RANGE(SheepFlock, NeighbourRadius, 0.1f, 10.0f).Label("Qo'shnilar radiusi").Header("Suruv"),
-                   ZM_FIELD_RANGE(SheepFlock, SeparationRadius, 0.1f, 5.0f).Label("Ajralish radiusi"),
-                   ZM_FIELD_RANGE(SheepFlock, PenRadius, 0.5f, 20.0f).Label("Qo'ra radiusi"),
-                   ZM_FIELD_RANGE(SheepFlock, PanicDistance, 0.0f, 20.0f).Label("Qo'rqish masofasi").Header("Xavf"),
+ZM_REGISTER_SCRIPT(SheepFlock, ZM_FIELD_RANGE(SheepFlock, MaxSpeed, 0.1f, 10.0f).Label("Top speed"),
+                   ZM_FIELD_RANGE(SheepFlock, MaxForce, 0.1f, 50.0f).Label("Maximum force"),
+                   ZM_FIELD_RANGE(SheepFlock, NeighbourRadius, 0.1f, 10.0f).Label("Neighbor radius").Header("Suruv"),
+                   ZM_FIELD_RANGE(SheepFlock, SeparationRadius, 0.1f, 5.0f).Label("Separation radius"),
+                   ZM_FIELD_RANGE(SheepFlock, PenRadius, 0.5f, 20.0f).Label("Pen radius"),
+                   ZM_FIELD_RANGE(SheepFlock, PanicDistance, 0.0f, 20.0f).Label("Fear distance").Header("Xavf"),
                    ZM_FIELD(SheepFlock, ThreatTag).Label("Xavf tegi"))

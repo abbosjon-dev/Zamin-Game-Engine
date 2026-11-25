@@ -378,20 +378,20 @@ void FxAnimator::OnUpdate(Timestep ts)
 }
 
 ZM_REGISTER_SCRIPT(Enemy,
-    ZM_FIELD_ENUM(Enemy, Kind, "Quvg'in", "To'da", "O'qchi", "Hujumchi", "Tank").Label("Turi"),
-    ZM_FIELD_RANGE(Enemy, Health, 0.5f, 100.0f).Label("Jon"),
-    ZM_FIELD_RANGE(Enemy, Speed, 0.5f, 15.0f).Label("Tezlik"),
+    ZM_FIELD_ENUM(Enemy, Kind, "Chase", "Swarm", "Shooter", "Rusher", "Tank").Label("Type"),
+    ZM_FIELD_RANGE(Enemy, Health, 0.5f, 100.0f).Label("Life"),
+    ZM_FIELD_RANGE(Enemy, Speed, 0.5f, 15.0f).Label("Speed"),
     ZM_FIELD_RANGE(Enemy, Score, 0, 5000).Label("Ochko"),
-    ZM_FIELD_COLOR(Enemy, Color).Label("Effekt rangi"))
+    ZM_FIELD_COLOR(Enemy, Color).Label("Effect color"))
 
 ZM_REGISTER_SCRIPT(Projectile,
     ZM_FIELD_RANGE(Projectile, Damage, 0.1f, 10.0f),
     ZM_FIELD_RANGE(Projectile, Lifetime, 0.1f, 10.0f),
     ZM_FIELD_RANGE(Projectile, Speed, 1.0f, 60.0f),
-    ZM_FIELD(Projectile, FromPlayer).Tooltip("O'yinchining o'qi (dushmanlarga tegadi); aks holda dushmanniki"))
+    ZM_FIELD(Projectile, FromPlayer).Tooltip("The player's bullet (hits enemies); otherwise an enemy's"))
 
 ZM_REGISTER_SCRIPT(Pickup,
-    ZM_FIELD_ENUM(Pickup, Kind, "Jon", "Tezotar", "Uch o'q").Label("Bonus"),
+    ZM_FIELD_ENUM(Pickup, Kind, "Life", "Rapid fire", "Triple shot").Label("Bonus"),
     ZM_FIELD_RANGE(Pickup, Lifetime, 1.0f, 30.0f))
 
 ZM_REGISTER_SCRIPT(FxAnimator,

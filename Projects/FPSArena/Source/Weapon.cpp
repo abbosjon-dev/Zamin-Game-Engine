@@ -330,16 +330,16 @@ void Blaster::ThinkBot(FirstPersonController& fpc, float dt, bool& wantFire)
 }
 
 ZM_REGISTER_SCRIPT(Blaster,
-    ZM_FIELD(Blaster, Player).Header("Obyektlar").Tooltip("FirstPersonController (o'yinchi)"),
-    ZM_FIELD(Blaster, Muzzle).Tooltip("Stvol uchi: chaqnash yorug'ligi va nur izi boshlanadigan joy"),
+    ZM_FIELD(Blaster, Player).Header("Objects").Tooltip("FirstPersonController (the player)"),
+    ZM_FIELD(Blaster, Muzzle).Tooltip("Muzzle: where the flash light and the tracer start"),
     ZM_FIELD(Blaster, MuzzleFlash),
-    ZM_FIELD(Blaster, TracerTemplate).Tooltip("Nur izi shabloni (TracerFx)"),
-    ZM_FIELD(Blaster, ImpactSparks).Tooltip("Tegan joydagi uchqunlar (zarralar tizimi)"),
+    ZM_FIELD(Blaster, TracerTemplate).Tooltip("Tracer template (TracerFx)"),
+    ZM_FIELD(Blaster, ImpactSparks).Tooltip("Sparks at the hit point (a particle system)"),
     ZM_FIELD(Blaster, ImpactLight),
-    ZM_FIELD_RANGE(Blaster, FireRate, 0.5f, 20.0f).Header("Qurol").Tooltip("O'q / soniya"),
+    ZM_FIELD_RANGE(Blaster, FireRate, 0.5f, 20.0f).Header("Weapon").Tooltip("Shots / second"),
     ZM_FIELD_RANGE(Blaster, MagazineSize, 1, 100),
     ZM_FIELD_RANGE(Blaster, ReloadTime, 0.1f, 5.0f),
     ZM_FIELD_RANGE(Blaster, Range, 5.0f, 500.0f),
-    ZM_FIELD_RANGE(Blaster, Spread, 0.0f, 0.1f).Tooltip("Tarqoqlik (radian) - turganda; yurganda / havoda ko'proq"),
-    ZM_FIELD_RANGE(Blaster, Recoil, 0.0f, 0.2f).Tooltip("Har o'qda ko'rinish qanchalik tepaga sakraydi (radian)"),
-    ZM_FIELD_RANGE(Blaster, PushImpulse, 0.0f, 100.0f).Tooltip("Dinamik jismga (qutiga) beriladigan turtki"))
+    ZM_FIELD_RANGE(Blaster, Spread, 0.0f, 0.1f).Tooltip("Spread (radians) - standing; more when walking / in the air"),
+    ZM_FIELD_RANGE(Blaster, Recoil, 0.0f, 0.2f).Tooltip("How much the view kicks up per shot (radians)"),
+    ZM_FIELD_RANGE(Blaster, PushImpulse, 0.0f, 100.0f).Tooltip("Impulse given to a dynamic body (a crate)"))

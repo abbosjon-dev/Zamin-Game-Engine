@@ -174,7 +174,7 @@ public:
     {
         PauseGame();
         ShowMain();
-        ZM_INFO("O'yin menyusi: pauza");
+        ZM_INFO("Game menu: pause");
     }
 
     void Close()
@@ -211,7 +211,7 @@ private:
             return;
         m_Started = true;
         SaveIfChanged();
-        ZM_INFO("O'yin menyusi: '{}' ochilmoqda", PlayScene);
+        ZM_INFO("Game menu: opening '{}'", PlayScene);
         LoadScene(PlayScene, SceneTransition::Fade(FadeOut, FadeIn));
     }
 
@@ -256,7 +256,7 @@ private:
         if (Display::SetResolution(list[(size_t)index]))
         {
             m_Changed = true;
-            ZM_INFO("Ekran o'lchami: {}x{}", list[(size_t)index].Width, list[(size_t)index].Height);
+            ZM_INFO("Screen size: {}x{}", list[(size_t)index].Width, list[(size_t)index].Height);
         }
         RefreshLabels();
     }
@@ -298,7 +298,7 @@ private:
         Quality::SetLevel(Project::GetActive() ? Project::GetActive()->GetConfig().Quality.DefaultLevel : Quality::GetLevel());
         SyncFromSettings();
         m_Changed = false;
-        ZM_INFO("Sozlamalar standart holatga qaytdi");
+        ZM_INFO("Settings reset to defaults");
     }
 
     // The widgets show the mixer, the display and the quality as they are now.
@@ -354,37 +354,37 @@ private:
         Display::SaveSettings();
         Quality::SaveSettings();
         m_Changed = false;
-        ZM_INFO("Sozlamalar saqlandi");
+        ZM_INFO("Settings saved");
     }
 
     bool m_Changed = false, m_Started = false;
 };
 
 ZM_REGISTER_SCRIPT(GameMenu,
-    ZM_FIELD_TOOLTIP(GameMenu, PauseMenu, "O'chiq: bosh menyu (doim ko'rinadi). Yoqiq: Esc / Start o'yinni to'xtatib ochadi").Header("Rejim"),
-    ZM_FIELD_TOOLTIP(GameMenu, PlayScene, "Bosh menyuda \"O'ynash\" ochadigan sahna (yo'l yoki build sahna nomi)"),
-    ZM_FIELD_RANGE(GameMenu, FadeOut, 0.0f, 2.0f).Tooltip("Ekran qorayishi (sekund)"),
-    ZM_FIELD_RANGE(GameMenu, FadeIn, 0.0f, 2.0f).Tooltip("Yangi sahnada ochilishi (sekund)"),
-    ZM_FIELD(GameMenu, Overlay).Header("Panellar"),
+    ZM_FIELD_TOOLTIP(GameMenu, PauseMenu, "Off: main menu (always shown). On: Esc / Start pauses the game and opens it").Header("Mode"),
+    ZM_FIELD_TOOLTIP(GameMenu, PlayScene, "The scene \"Play\" opens from the main menu (a path or a build scene name)"),
+    ZM_FIELD_RANGE(GameMenu, FadeOut, 0.0f, 2.0f).Tooltip("Fade to black (seconds)"),
+    ZM_FIELD_RANGE(GameMenu, FadeIn, 0.0f, 2.0f).Tooltip("Fade in on the new scene (seconds)"),
+    ZM_FIELD(GameMenu, Overlay).Header("Panels"),
     ZM_FIELD(GameMenu, MainPanel),
     ZM_FIELD(GameMenu, SettingsPanel),
-    ZM_FIELD(GameMenu, Title).Tooltip("O'yin nomi yoziladigan matn"),
-    ZM_FIELD(GameMenu, PlayButton).Tooltip("Menyu ochilganda tanlanadi"),
+    ZM_FIELD(GameMenu, Title).Tooltip("The text the game name is written to"),
+    ZM_FIELD(GameMenu, PlayButton).Tooltip("Selected when the menu opens"),
     ZM_FIELD(GameMenu, SettingsButton),
     ZM_FIELD(GameMenu, QuitButton),
     ZM_FIELD(GameMenu, SettingsScroll),
-    ZM_FIELD(GameMenu, ResolutionButton).Header("Ekran").Tooltip("Bosilganda keyingi o'lcham (Display::GetResolutions); chap / o'ng - oldingi / keyingi"),
+    ZM_FIELD(GameMenu, ResolutionButton).Header("Screen").Tooltip("Next size when pressed (Display::GetResolutions); left / right - previous / next"),
     ZM_FIELD(GameMenu, FullscreenToggle),
     ZM_FIELD(GameMenu, VSyncToggle),
-    ZM_FIELD(GameMenu, QualityButton).Tooltip("Bosilganda keyingi sifat darajasi (Project settings > Quality)"),
+    ZM_FIELD(GameMenu, QualityButton).Tooltip("Next quality level when pressed (Project settings > Quality)"),
     ZM_FIELD(GameMenu, GammaSlider).Tooltip("Display::SetGamma (0.5 ... 2.0)"),
     ZM_FIELD(GameMenu, GammaValue),
-    ZM_FIELD(GameMenu, MasterSlider).Header("Ovoz"),
+    ZM_FIELD(GameMenu, MasterSlider).Header("Sound"),
     ZM_FIELD(GameMenu, MusicSlider),
     ZM_FIELD(GameMenu, SfxSlider),
     ZM_FIELD(GameMenu, MasterValue),
     ZM_FIELD(GameMenu, MusicValue),
     ZM_FIELD(GameMenu, SfxValue),
-    ZM_FIELD(GameMenu, LanguageButton).Header("Til").Tooltip("Bosilganda keyingi til; matni joriy til nomi"),
-    ZM_FIELD(GameMenu, VersionText).Header("Versiya").Tooltip("Sozlamalar burchagi: o'yin va dvigatel versiyasi (VersionInfo::FormatShort)"),
-    ZM_FIELD(GameMenu, ScreenVersionText).Tooltip("Ekran burchagi: o'yin nomi va versiyasi"))
+    ZM_FIELD(GameMenu, LanguageButton).Header("Language").Tooltip("Next language when pressed; its text is the current language's name"),
+    ZM_FIELD(GameMenu, VersionText).Header("Version").Tooltip("Corner of the settings: game and engine version (VersionInfo::FormatShort)"),
+    ZM_FIELD(GameMenu, ScreenVersionText).Tooltip("Corner of the screen: game name and version"))

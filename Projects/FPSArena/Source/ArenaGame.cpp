@@ -41,7 +41,7 @@ void ArenaGame::OnCreate()
     m_BestLap = SaveData::GetFloat("FPSArena.BestLap", 0.0f);
     m_BestRange = SaveData::GetInt("FPSArena.BestRange", 0);
     m_Sensitivity = SaveData::GetFloat("FPSArena.Sensitivity", 1.0f);
-    ZM_INFO("Rekordlar: eng yaxshi aylana {}, nishon otish {}", m_BestLap > 0.0f ? FormatTime(m_BestLap) : std::string("-"), m_BestRange);
+    ZM_INFO("Records: best lap {}, target practice {}", m_BestLap > 0.0f ? FormatTime(m_BestLap) : std::string("-"), m_BestRange);
     if (Entity group = Resolve(Checkpoints))
         m_Points = GetScene().GetChildren(group);
     if (Entity group = Resolve(Popups))
@@ -78,7 +78,7 @@ void ArenaGame::OnStart()
         fpc->SetSensitivityScale(m_Sensitivity);
     if (m_DemoRun)
     {
-        ZM_INFO("Demo rejimi: {} - bot o'ynaydi (ZAMIN_DEMO)", m_DemoMode == Mode::Range ? "nishon otish" : "parkur yo'lagi");
+        ZM_INFO("Demo mode: {} - a bot plays (ZAMIN_DEMO)", m_DemoMode == Mode::Range ? "target practice" : "parkour course");
         StartGame(m_DemoMode);
     }
     else
@@ -90,7 +90,7 @@ void ArenaGame::OnDestroy()
 {
     if (m_DemoRun)
         if (const FirstPersonController* fpc = GetController())
-            ZM_INFO("Demo yakuni: {} ta aylana, keyingi nuqta {}, {:.0f} m yurildi, {} ta nishon urildi, ochko {}, aniqlik {}%", m_Laps, m_Next + 1,
+            ZM_INFO("Demo summary: {} laps, next point {}, {:.0f} m walked, {} targets hit, score {}, accuracy {}%", m_Laps, m_Next + 1,
                     fpc->GetDistanceTravelled(), m_TargetsDown, m_Score, GetAccuracy());
     Cursor::SetLockMode(CursorLockMode::None);
     Cursor::SetVisible(true);
@@ -163,7 +163,7 @@ void ArenaGame::ShowMenu()
     SetActiveRef(ResultsMenu, false);
     SetActiveRef(Hud, false);
     SetActiveRef(MainMenu, true);
-    ZM_INFO("Menyu: bosh menyu");
+    ZM_INFO("Menu: main menu");
     if (Entity button = Resolve(PlayButton))
         GetScene().SetSelectedUI(button);
     StartSession(true); // the bot runs the course (and shoots) behind the menu
@@ -184,7 +184,7 @@ void ArenaGame::StartGame(Mode mode)
     GetScene().SetSelectedUI({});
     StartSession(m_DemoRun);
     if (!m_Bot)
-        ZM_INFO("FPS Arena: o'yin boshlandi ({})", mode == Mode::Range ? "nishon otish" : "parkur");
+        ZM_INFO("FPS Arena: game started ({})", mode == Mode::Range ? "target practice" : "parkour");
 }
 
 void ArenaGame::OpenPause()
@@ -192,7 +192,7 @@ void ArenaGame::OpenPause()
     m_State = State::Paused;
     PauseGame();
     SetActiveRef(PauseMenu, true);
-    ZM_INFO("Menyu: pauza");
+    ZM_INFO("Menu: pause");
     if (Entity button = Resolve(ResumeButton))
         GetScene().SetSelectedUI(button);
     Audio::SetGroupLowPass("Music", 800.0f);
@@ -205,7 +205,7 @@ void ArenaGame::ClosePause()
         return;
     m_State = State::Playing;
     SetActiveRef(PauseMenu, false);
-    ZM_INFO("Menyu: pauza yopildi");
+    ZM_INFO("Menu: pause closed");
     GetScene().SetSelectedUI({});
     Audio::SetGroupLowPass("Music", 0.0f);
     ResumeGame();
@@ -221,7 +221,7 @@ void ArenaGame::EndRange()
     {
         m_BestRange = m_Score;
         SaveData::Save();
-        ZM_INFO("Yangi rekord: nishon otish {} ochko", m_Score);
+        ZM_INFO("New record: target practice {} points", m_Score);
     }
     PlaySound("Audio/lap.wav", 0.8f);
     SetText(ResultsTitle, Localize("results.title"));
@@ -229,12 +229,12 @@ void ArenaGame::EndRange()
     SetText(ResultsStats, Localize("results.stats", m_TargetsDown, GetAccuracy(), m_BestStreak));
     SetText(ResultsRecord, record ? Localize("results.record") : Localize("results.best", m_BestRange));
     SetActiveRef(ResultsMenu, true);
-    ZM_INFO("Menyu: natijalar - ochko {}, {} ta nishon", m_Score, m_TargetsDown);
+    ZM_INFO("Menu: results - score {}, {} targets", m_Score, m_TargetsDown);
     if (Entity button = Resolve(RetryButton))
         GetScene().SetSelectedUI(button);
     m_ResultsTimer = 0.0f;
     if (m_DemoRun)
-        ZM_INFO("Demo: raund tugadi - ochko {}, {} ta nishon, aniqlik {}%, eng uzun seriya {}", m_Score, m_TargetsDown, GetAccuracy(), m_BestStreak);
+        ZM_INFO("Demo: round finished - score {}, {} targets, accuracy {}%, longest streak {}", m_Score, m_TargetsDown, GetAccuracy(), m_BestStreak);
     ApplyCursor();
     RefreshTexts();
 }
@@ -289,7 +289,7 @@ void ArenaGame::OnTargetHit(const Target& target, int points, bool bullseye)
         if (Entity streak = Resolve(StreakText))
             GetScene().PunchUIScale(streak, 0.25f, 0.3f);
     if (m_DemoRun && m_TargetsDown % 5 == 0)
-        ZM_INFO("Demo: {} ta nishon urildi, ochko {}, aniqlik {}%", m_TargetsDown, m_Score, GetAccuracy());
+        ZM_INFO("Demo: {} targets hit, score {}, accuracy {}%", m_TargetsDown, m_Score, GetAccuracy());
 }
 
 void ArenaGame::ShowPopup(const std::string& text, const glm::vec4& color)
@@ -352,7 +352,7 @@ void ArenaGame::OnUpdate(Timestep ts)
         {
             m_DemoLogTimer = 0.0f;
             if (const FirstPersonController* fpc = GetController())
-                ZM_INFO("Demo (holat): keyingi nuqta {}, {} ta aylana, {:.0f} m yurildi, vaqt {}, {} ta nishon, ochko {}", m_Next + 1, m_Laps,
+                ZM_INFO("Demo (status): next point {}, {} laps, {:.0f} m walked, time {}, {} targets, score {}", m_Next + 1, m_Laps,
                         fpc->GetDistanceTravelled(), FormatTime(m_Mode == Mode::Range ? m_RangeLeft : m_LapTime), m_TargetsDown, m_Score);
         }
     }
@@ -399,7 +399,7 @@ void ArenaGame::ReachCheckpoint()
     m_Next = (m_Next + 1) % m_Points.size();
     PlaySound("Audio/checkpoint.wav", 0.8f, 1.0f + 0.06f * (float)reached);
     if (m_DemoRun)
-        ZM_INFO("Demo: {}-nuqta ({})", reached + 1, FormatTime(m_LapTime));
+        ZM_INFO("Demo: point {} ({})", reached + 1, FormatTime(m_LapTime));
     if (m_Next == 0)
     {
         // a whole lap
@@ -410,12 +410,12 @@ void ArenaGame::ReachCheckpoint()
         {
             m_BestLap = m_LapTime;
             SaveData::Save();
-            ZM_INFO("Yangi rekord: aylana {}", FormatTime(m_LapTime));
+            ZM_INFO("New record: lap {}", FormatTime(m_LapTime));
         }
         PlaySound("Audio/lap.wav", 0.8f);
         ShowBanner(Localize("hud.lap"), record ? Localize("hud.record", FormatTime(m_LapTime)) : Localize("hud.time", FormatTime(m_LapTime)), 2.5f);
         if (m_DemoRun)
-            ZM_INFO("Demo: aylana tugadi - vaqt {}", FormatTime(m_LapTime));
+            ZM_INFO("Demo: lap finished - time {}", FormatTime(m_LapTime));
         m_LapTime = 0.0f;
         RefreshTexts();
     }
@@ -542,11 +542,11 @@ void ArenaGame::SetActiveRef(const EntityRef& ref, bool active)
 }
 
 ZM_REGISTER_SCRIPT(ArenaGame,
-    ZM_FIELD(ArenaGame, Player).Header("O'yin obyektlari"),
-    ZM_FIELD(ArenaGame, Gun).Tooltip("Qurol (Blaster)"),
-    ZM_FIELD(ArenaGame, Checkpoints).Tooltip("Parkur nuqtalari - shu obyektning bolalari, tartib bilan"),
+    ZM_FIELD(ArenaGame, Player).Header("Game objects"),
+    ZM_FIELD(ArenaGame, Gun).Tooltip("Weapon (Blaster)"),
+    ZM_FIELD(ArenaGame, Checkpoints).Tooltip("Parkour points - the children of this object, in order"),
     ZM_FIELD(ArenaGame, JumpPad),
-    ZM_FIELD(ArenaGame, Targets).Tooltip("Nishonlar guruhi"),
+    ZM_FIELD(ArenaGame, Targets).Tooltip("Target group"),
     ZM_FIELD(ArenaGame, Hud).Header("HUD"),
     ZM_FIELD(ArenaGame, TimerText),
     ZM_FIELD(ArenaGame, BestText),
@@ -561,11 +561,11 @@ ZM_REGISTER_SCRIPT(ArenaGame,
     ZM_FIELD(ArenaGame, AmmoText),
     ZM_FIELD(ArenaGame, ReloadBar),
     ZM_FIELD(ArenaGame, HitMarker),
-    ZM_FIELD(ArenaGame, Popups).Tooltip("\"+ochko\" yozuvlari - shu obyektning bolalari navbat bilan ishlatiladi"),
+    ZM_FIELD(ArenaGame, Popups).Tooltip("\"+score\" labels - the children of this object are used in turn"),
     ZM_FIELD(ArenaGame, Banner),
     ZM_FIELD(ArenaGame, BannerSub),
     ZM_FIELD(ArenaGame, DemoBadge),
-    ZM_FIELD(ArenaGame, MainMenu).Header("Menyular"),
+    ZM_FIELD(ArenaGame, MainMenu).Header("Menus"),
     ZM_FIELD(ArenaGame, PauseMenu),
     ZM_FIELD(ArenaGame, MenuBest),
     ZM_FIELD(ArenaGame, PlayButton),
@@ -579,6 +579,6 @@ ZM_REGISTER_SCRIPT(ArenaGame,
     ZM_FIELD(ArenaGame, ResultsStats),
     ZM_FIELD(ArenaGame, ResultsRecord),
     ZM_FIELD(ArenaGame, RetryButton),
-    ZM_FIELD_RANGE(ArenaGame, CheckpointRadius, 0.5f, 5.0f).Header("Qoidalar").Tooltip("Nuqtaga shu masofada yetilgan hisoblanadi (m)"),
-    ZM_FIELD_RANGE(ArenaGame, RangeSeconds, 10.0f, 300.0f).Tooltip("\"Nishon otish\" raundining davomiyligi (soniya)"),
-    ZM_FIELD(ArenaGame, AutoDemo).Tooltip("Demo rejimida boshlash: bot o'ynaydi (ZAMIN_DEMO=1 ham shunday qiladi, ZAMIN_DEMO=range - nishon otish)"))
+    ZM_FIELD_RANGE(ArenaGame, CheckpointRadius, 0.5f, 5.0f).Header("Rules").Tooltip("A point counts as reached at this distance (m)"),
+    ZM_FIELD_RANGE(ArenaGame, RangeSeconds, 10.0f, 300.0f).Tooltip("Length of the \"Target practice\" round (seconds)"),
+    ZM_FIELD(ArenaGame, AutoDemo).Tooltip("Start in demo mode: a bot plays (ZAMIN_DEMO=1 does the same, ZAMIN_DEMO=range - target practice)"))

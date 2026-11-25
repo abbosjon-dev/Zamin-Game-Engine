@@ -40,8 +40,8 @@ void SokobanGame::OnCreate()
     std::string bests;
     for (int i = 0; i < (int)GetLevels().size(); i++)
         if (const int best = GetBest(i); best > 0)
-            bests += std::format("{}{}-daraja {}", bests.empty() ? "" : ", ", i + 1, best);
-    ZM_INFO("Rekordlar: {}/{} daraja yechilgan{}{}", CountSolved(), GetLevels().size(), bests.empty() ? "" : " - qadamlar: ", bests);
+            bests += std::format("{}level {}: {}", bests.empty() ? "" : ", ", i + 1, best);
+    ZM_INFO("Records: {}/{} levels solved{}{}", CountSolved(), GetLevels().size(), bests.empty() ? "" : " - steps: ", bests);
 }
 
 void SokobanGame::OnStart()
@@ -89,7 +89,7 @@ void SokobanGame::OnStart()
         });
     if (m_DemoRun)
     {
-        ZM_INFO("Demo rejimi: bot darajalarni yechadi (ZAMIN_DEMO), {}-darajadan", m_Level + 1);
+        ZM_INFO("Demo mode: a bot solves the levels (ZAMIN_DEMO), from level {}", m_Level + 1);
         StartLevel(m_Level, true);
     }
     else
@@ -105,7 +105,7 @@ void SokobanGame::OnStart()
 void SokobanGame::OnDestroy()
 {
     if (m_DemoRun)
-        ZM_INFO("Demo yakuni: {} ta daraja yechildi, oxirgisi {}-daraja ({} qadam)", m_SolvedInRun, m_Level + 1, m_Board.GetMoves());
+        ZM_INFO("Demo summary: {} levels solved, the last one level {} ({} steps)", m_SolvedInRun, m_Level + 1, m_Board.GetMoves());
     SaveData::Save();
 }
 
@@ -127,7 +127,7 @@ void SokobanGame::ShowMenu()
     SetActiveRef(LevelsMenu, false);
     SetActiveRef(Hud, false);
     SetActiveRef(MainMenu, true);
-    ZM_INFO("Menyu: bosh menyu");
+    ZM_INFO("Menu: main menu");
     if (Entity button = Resolve(PlayButton))
         GetScene().SetSelectedUI(button);
     StartLevel(m_PlayerLevel, true); // the bot solves it (and the ones after it) behind the menu
@@ -139,9 +139,9 @@ void SokobanGame::ShowLevels(bool show)
 {
     SetActiveRef(LevelsMenu, show);
     if (show)
-        ZM_INFO("Menyu: darajalar");
+        ZM_INFO("Menu: levels");
     else if (m_State == State::Menu)
-        ZM_INFO("Menyu: bosh menyu");
+        ZM_INFO("Menu: main menu");
     if (m_State == State::Menu)
         SetActiveRef(MainMenu, !show);
     RefreshLevelButtons();
@@ -163,7 +163,7 @@ void SokobanGame::StartLevel(int index, bool bot)
     m_Bot = bot || m_DemoRun;
     const bool menu = m_State == State::Menu && bot && !m_DemoRun;
     if (menu)
-        ZM_INFO("Omborchi: menyu orqasida {}-daraja (bot)", m_Level + 1);
+        ZM_INFO("Omborchi: level {} behind the menu (bot)", m_Level + 1);
     else
     {
         m_State = State::Playing;
@@ -177,12 +177,12 @@ void SokobanGame::StartLevel(int index, bool bot)
         {
             m_PlayerLevel = m_Level;
             SaveData::SetInt("Sokoban.Level", m_Level);
-            ZM_INFO("Omborchi: {}-daraja ({})", m_Level + 1, GetLevels()[(size_t)m_Level].Name);
+            ZM_INFO("Omborchi: level {} ({})", m_Level + 1, GetLevels()[(size_t)m_Level].Name);
         }
     }
     SetActiveRef(CompleteMenu, false);
     if (!m_Board.Load(GetLevels()[(size_t)m_Level].Map))
-        ZM_ERROR("Omborchi: {}-daraja noto'g'ri yozilgan (maqsadlar va qutilar soni teng emas)", m_Level + 1);
+        ZM_ERROR("Omborchi: level {} is written incorrectly (the numbers of targets and crates differ)", m_Level + 1);
     BuildBoard();
     m_Anim = {};
     m_QueuedDir = -1;
@@ -253,7 +253,7 @@ void SokobanGame::OpenPause()
     m_State = State::Paused;
     PauseGame();
     SetActiveRef(PauseMenu, true);
-    ZM_INFO("Menyu: pauza");
+    ZM_INFO("Menu: pause");
     if (Entity button = Resolve(ResumeButton))
         GetScene().SetSelectedUI(button);
     Audio::SetGroupLowPass("Music", 900.0f);
@@ -265,7 +265,7 @@ void SokobanGame::ClosePause()
         return;
     m_State = State::Playing;
     SetActiveRef(PauseMenu, false);
-    ZM_INFO("Menyu: pauza yopildi");
+    ZM_INFO("Menu: pause closed");
     GetScene().SetSelectedUI({});
     Audio::SetGroupLowPass("Music", 0.0f);
     ResumeGame();
@@ -284,7 +284,7 @@ void SokobanGame::LevelComplete()
         SaveData::Save();
     }
     if (record)
-        ZM_INFO("Yangi rekord: {}-daraja {} qadam{}", m_Level + 1, moves, best > 0 ? std::format(" (avvalgi {})", best) : std::string());
+        ZM_INFO("New record: level {}: {} steps{}", m_Level + 1, moves, best > 0 ? std::format(" (previous {})", best) : std::string());
     if (!menu)
         m_State = State::Complete;
     m_CompleteTimer = 0.0f;
@@ -294,7 +294,7 @@ void SokobanGame::LevelComplete()
     if (m_Bot)
         m_SolvedInRun++;
     if (m_DemoRun)
-        ZM_INFO("Demo: {}-daraja yechildi - qadamlar {}, surishlar {}", m_Level + 1, moves, pushes);
+        ZM_INFO("Demo: level {} solved - steps {}, pushes {}", m_Level + 1, moves, pushes);
     if (menu)
         return;
     const bool last = m_Level == (int)GetLevels().size() - 1;
@@ -351,7 +351,7 @@ void SokobanGame::OnUpdate(Timestep ts)
                 if (m_CompleteTimer > 1.0f && m_State == State::Complete && !m_Bot && panel && !panel.IsActive())
                 {
                     SetActiveRef(CompleteMenu, true);
-                    ZM_INFO("Menyu: natijalar - {}-daraja yechildi, {} qadam", m_Level + 1, m_Board.GetMoves());
+                    ZM_INFO("Menu: results - level {} solved, {} steps", m_Level + 1, m_Board.GetMoves());
                     if (Entity next = Resolve(NextButton))
                         GetScene().SetSelectedUI(next);
                 }
@@ -487,7 +487,7 @@ void SokobanGame::DoUndo()
     }
     PlaySound("Audio/undo.wav", 0.55f, 1.0f);
     if (m_DemoRun)
-        ZM_INFO("Demo: orqaga qaytarildi (undo) - {} qadam", m_Board.GetMoves());
+        ZM_INFO("Demo: undone (undo) - {} steps", m_Board.GetMoves());
 }
 
 void SokobanGame::DoRestart()
@@ -660,11 +660,11 @@ void SokobanGame::PlanBot()
     m_BotIndex = 0;
     if (m_BotPath.empty())
     {
-        ZM_WARN("Omborchi: {}-daraja uchun yechim topilmadi ({} holat)", m_Level + 1, states);
+        ZM_WARN("Omborchi: no solution found for level {} ({} states)", m_Level + 1, states);
         return;
     }
     if (m_DemoRun)
-        ZM_INFO("Demo: {}-daraja yechimi topildi - {} qadam, {} holat, {:.1f} ms", m_Level + 1, m_BotPath.size(), states, ms);
+        ZM_INFO("Demo: level {} solution found - {} steps, {} states, {:.1f} ms", m_Level + 1, m_BotPath.size(), states, ms);
     // from the second level on (a demo run): a wrong step first, then taken back - the undo at work
     if (m_DemoRun && m_Level > 0)
     {
@@ -835,16 +835,16 @@ void SokobanGame::SetActiveRef(const EntityRef& ref, bool active)
 }
 
 ZM_REGISTER_SCRIPT(SokobanGame,
-    ZM_FIELD(SokobanGame, BoardRoot).Header("Daraja").Tooltip("Daraja bloklari shu obyektning bolalari bo'ladi"),
+    ZM_FIELD(SokobanGame, BoardRoot).Header("Level").Tooltip("The level's blocks become children of this object"),
     ZM_FIELD(SokobanGame, WallTemplate),
     ZM_FIELD(SokobanGame, FloorTemplate),
     ZM_FIELD(SokobanGame, GoalTemplate),
     ZM_FIELD(SokobanGame, BoxTemplate),
-    ZM_FIELD(SokobanGame, Robot).Header("Robot va kamera"),
+    ZM_FIELD(SokobanGame, Robot).Header("Robot and camera"),
     ZM_FIELD(SokobanGame, RobotBody),
     ZM_FIELD(SokobanGame, RobotEye),
     ZM_FIELD(SokobanGame, CameraRig),
-    ZM_FIELD(SokobanGame, Dust).Header("Effektlar"),
+    ZM_FIELD(SokobanGame, Dust).Header("Effects"),
     ZM_FIELD(SokobanGame, GoalBurst),
     ZM_FIELD(SokobanGame, Confetti),
     ZM_FIELD(SokobanGame, Hud).Header("HUD"),
@@ -857,12 +857,12 @@ ZM_REGISTER_SCRIPT(SokobanGame,
     ZM_FIELD(SokobanGame, Banner),
     ZM_FIELD(SokobanGame, BannerSub),
     ZM_FIELD(SokobanGame, DemoBadge),
-    ZM_FIELD(SokobanGame, MainMenu).Header("Menyular"),
+    ZM_FIELD(SokobanGame, MainMenu).Header("Menus"),
     ZM_FIELD(SokobanGame, MenuProgress),
     ZM_FIELD(SokobanGame, PlayButton),
     ZM_FIELD(SokobanGame, LanguageButton),
     ZM_FIELD(SokobanGame, LevelsMenu),
-    ZM_FIELD(SokobanGame, LevelGrid).Tooltip("Daraja tugmalari (bolalari, tartib bilan)"),
+    ZM_FIELD(SokobanGame, LevelGrid).Tooltip("Level buttons (its children, in order)"),
     ZM_FIELD(SokobanGame, LevelsBackButton),
     ZM_FIELD(SokobanGame, PauseMenu),
     ZM_FIELD(SokobanGame, ResumeButton),
@@ -871,6 +871,6 @@ ZM_REGISTER_SCRIPT(SokobanGame,
     ZM_FIELD(SokobanGame, CompleteStats),
     ZM_FIELD(SokobanGame, CompleteRecord),
     ZM_FIELD(SokobanGame, NextButton),
-    ZM_FIELD_RANGE(SokobanGame, StepTime, 0.05f, 0.5f).Header("Sozlamalar").Tooltip("Bir qadam necha soniya davom etadi"),
-    ZM_FIELD_RANGE(SokobanGame, CameraPitch, 20.0f, 89.0f).Tooltip("Kamera pastga qancha qaraydi (gradus)"),
-    ZM_FIELD(SokobanGame, AutoDemo).Tooltip("Demo rejimida boshlash: bot o'ynaydi (ZAMIN_DEMO=1 ham shunday qiladi)"))
+    ZM_FIELD_RANGE(SokobanGame, StepTime, 0.05f, 0.5f).Header("Settings").Tooltip("How many seconds one step takes"),
+    ZM_FIELD_RANGE(SokobanGame, CameraPitch, 20.0f, 89.0f).Tooltip("How far down the camera looks (degrees)"),
+    ZM_FIELD(SokobanGame, AutoDemo).Tooltip("Start in demo mode: a bot plays (ZAMIN_DEMO=1 does the same)"))

@@ -132,7 +132,7 @@ private:
         if (glm::length(d) < CatchDistance && !c.Board.Get<bool>("Yetdi"))
         {
             c.Board.Set("Yetdi", true);
-            ZM_INFO("Otryad mehmonga yetib oldi!");
+            ZM_INFO("The squad reached the guest!");
         }
         return BTStatus::Running;
     }
@@ -169,5 +169,5 @@ private:
     float m_Repath = 0.0f;
 };
 ZM_REGISTER_SCRIPT(SquadCommander, ZM_FIELD(SquadCommander, Lamp).Label("Chiroq"),
-                   ZM_FIELD_RANGE(SquadCommander, ChaseSpeed, 0.5f, 10.0f).Label("Ta'qib tezligi"),
-                   ZM_FIELD_RANGE(SquadCommander, CatchDistance, 0.2f, 5.0f).Label("Yetish masofasi"))
+                   ZM_FIELD_RANGE(SquadCommander, ChaseSpeed, 0.5f, 10.0f).Label("Chase speed"),
+                   ZM_FIELD_RANGE(SquadCommander, CatchDistance, 0.2f, 5.0f).Label("Arrival distance"))

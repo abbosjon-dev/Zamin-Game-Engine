@@ -416,22 +416,22 @@ void FxAnimator::OnUpdate(Timestep ts)
 }
 
 ZM_REGISTER_SCRIPT(PaddleController,
-    ZM_FIELD_RANGE(PaddleController, Speed, 5.0f, 60.0f).Tooltip("Eng katta tezlik (birlik/s)"),
-    ZM_FIELD_RANGE(PaddleController, Width, 1.0f, 8.0f).Tooltip("Oddiy kenglik (keng bonusi 1.6 barobar)"))
+    ZM_FIELD_RANGE(PaddleController, Speed, 5.0f, 60.0f).Tooltip("Top speed (units/s)"),
+    ZM_FIELD_RANGE(PaddleController, Width, 1.0f, 8.0f).Tooltip("Normal width (the wide bonus makes it 1.6 times)"))
 
 ZM_REGISTER_SCRIPT(Ball,
-    ZM_FIELD_RANGE(Ball, Speed, 4.0f, 30.0f).Tooltip("1-darajadagi tezlik; har darajada va har g'ishtda biroz oshadi"),
+    ZM_FIELD_RANGE(Ball, Speed, 4.0f, 30.0f).Tooltip("Speed on level 1; it grows a little with every level and every brick"),
     ZM_FIELD_RANGE(Ball, MaxSpeed, 4.0f, 40.0f))
 
 ZM_REGISTER_SCRIPT(Brick,
-    ZM_FIELD_ENUM(Brick, Kind, "Oddiy", "Qattiq", "Po'lat", "Oltin", "Bomba").Label("Turi"),
-    ZM_FIELD_RANGE(Brick, HitPoints, 1, 10).Label("Zarbalar"),
-    ZM_FIELD_COLOR(Brick, Color).Label("Rang"),
+    ZM_FIELD_ENUM(Brick, Kind, "Normal", "Hard", "Steel", "Gold", "Bomb").Label("Type"),
+    ZM_FIELD_RANGE(Brick, HitPoints, 1, 10).Label("Hits"),
+    ZM_FIELD_COLOR(Brick, Color).Label("Color"),
     ZM_FIELD_RANGE(Brick, Points, 0, 1000).Label("Ochko"))
 
 ZM_REGISTER_SCRIPT(PowerUp,
-    ZM_FIELD_ENUM(PowerUp, Kind, "Keng", "Ko'p to'p", "Sekin", "Olov", "Lazer", "Jon").Label("Bonus"),
-    ZM_FIELD_RANGE(PowerUp, FallSpeed, 0.5f, 15.0f).Label("Tushish tezligi"))
+    ZM_FIELD_ENUM(PowerUp, Kind, "Wide", "Multi-ball", "Slow", "Fire", "Laser", "Life").Label("Bonus"),
+    ZM_FIELD_RANGE(PowerUp, FallSpeed, 0.5f, 15.0f).Label("Fall speed"))
 
 ZM_REGISTER_SCRIPT(FxAnimator,
     ZM_FIELD_RANGE(FxAnimator, Lifetime, 0.05f, 5.0f),

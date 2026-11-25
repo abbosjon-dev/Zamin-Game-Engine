@@ -50,7 +50,7 @@ void GameManager::AddCoin()
     SaveData::SetInt("TotalCoins", SaveData::GetInt("TotalCoins") + 1);
     RefreshText();
     if (m_Coins == m_TotalCoins)
-        ZM_INFO("Barakalla! Hamma tangalar yig'ildi!");
+        ZM_INFO("Well done! All coins collected!");
 }
 
 void GameManager::OnPlayerFell()
@@ -81,6 +81,6 @@ void GameManager::RefreshText()
 }
 
 ZM_REGISTER_SCRIPT(GameManager,
-    ZM_FIELD_TOOLTIP(GameManager, Title, "Ekrandagi hisob matni oldidagi so'z (til fayllarida TitleKey bo'lmasa)"),
-    ZM_FIELD_TOOLTIP(GameManager, TitleKey, "Sarlavhaning lokalizatsiya kaliti (Assets/Localization/<til>.json)"),
-    ZM_FIELD(GameManager, ScreenOffset).Tooltip("Matnning kameraga nisbatan joyi (UI elementi bo'lmasa)"))
+    ZM_FIELD_TOOLTIP(GameManager, Title, "The word before the score text on the screen (when the language files have no TitleKey)"),
+    ZM_FIELD_TOOLTIP(GameManager, TitleKey, "Localization key of the title (Assets/Localization/<language>.json)"),
+    ZM_FIELD(GameManager, ScreenOffset).Tooltip("Position of the text relative to the camera (when it is not a UI element)"))

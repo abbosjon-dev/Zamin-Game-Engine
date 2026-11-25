@@ -269,12 +269,12 @@ void TracerFx::OnUpdate(Timestep ts)
 }
 
 ZM_REGISTER_SCRIPT(Target,
-    ZM_FIELD_ENUM(Target, Kind, "Turg'un", "Sirpanuvchi", "Chiquvchi", "Dron").Tooltip("Nishon turi"),
-    ZM_FIELD(Target, Hinge).Tooltip("Yiqilish ilmog'i: urilganda X o'qi atrofida buriladi"),
-    ZM_FIELD(Target, Face).Tooltip("Nur tegadigan qism (kinematik jism)"),
-    ZM_FIELD(Target, PointB).Tooltip("Sirpanuvchi: relsning ikkinchi uchi; dron: x - aylana radiusi"),
+    ZM_FIELD_ENUM(Target, Kind, "Static", "Slider", "Pop-up", "Drone").Tooltip("Target type"),
+    ZM_FIELD(Target, Hinge).Tooltip("Drop hinge: turns around the X axis when hit"),
+    ZM_FIELD(Target, Face).Tooltip("The part the ray hits (a kinematic body)"),
+    ZM_FIELD(Target, PointB).Tooltip("Slider: the other end of the rail; drone: x - the circle radius"),
     ZM_FIELD_RANGE(Target, Speed, 0.1f, 10.0f),
-    ZM_FIELD_RANGE(Target, RespawnTime, 0.5f, 20.0f).Tooltip("Yiqilgandan keyin necha soniyada qaytadi"),
+    ZM_FIELD_RANGE(Target, RespawnTime, 0.5f, 20.0f).Tooltip("Seconds until it comes back after falling"),
     ZM_FIELD_RANGE(Target, Points, 0, 1000))
 
 ZM_REGISTER_SCRIPT(TracerFx,

@@ -19,7 +19,7 @@ public:
     void OnCreate() override
     {
         m_Spawn = Transform().Translation;
-        ZM_INFO("O'yinchi tayyor. A/D - yurish, Space - sakrash");
+        ZM_INFO("Player ready. A/D - move, Space - jump");
     }
 
     void OnUpdate(Timestep ts) override
@@ -93,12 +93,12 @@ private:
 };
 
 ZM_REGISTER_SCRIPT(PlayerController,
-    ZM_FIELD_RANGE(PlayerController, MoveSpeed, 0.0f, 20.0f).Header("Harakat").Tooltip("Yurish tezligi (birlik/sekund)"),
-    ZM_FIELD_RANGE(PlayerController, JumpImpulse, 0.0f, 30.0f).Tooltip("Sakrash kuchi (impuls)"),
-    ZM_FIELD(PlayerController, FallLimit).Tooltip("Shu balandlikdan pastga tushsa, o'yinchi boshlang'ich joyga qaytadi"),
-    ZM_FIELD(PlayerController, DropThrough).Label("Platformadan tushish")
-        .Tooltip("Pastga (S) + sakrash: bir tomonlama platformadan (plitka yoki Box Collider) pastga tushib ketadi"),
-    ZM_FIELD_RANGE(PlayerController, LandShake, 0.0f, 40.0f).Header("Kamera")
-        .Tooltip("Shundan tezroq tushib qo'nsa (birlik/s) kamera silkinadi; yiqilganda ham. 0 - o'chiq"),
-    ZM_FIELD(PlayerController, HitFlash).Header("Effektlar").Label("Chaqnash (flash)")
-        .Tooltip("Yiqilib boshlang'ich joyga qaytganda qizil, qattiq qo'nganda oq chaqnaydi (SpriteRenderer::Flash)"))
+    ZM_FIELD_RANGE(PlayerController, MoveSpeed, 0.0f, 20.0f).Header("Movement").Tooltip("Walk speed (units/second)"),
+    ZM_FIELD_RANGE(PlayerController, JumpImpulse, 0.0f, 30.0f).Tooltip("Jump force (impulse)"),
+    ZM_FIELD(PlayerController, FallLimit).Tooltip("Falling below this height returns the player to the start"),
+    ZM_FIELD(PlayerController, DropThrough).Label("Dropping through platforms")
+        .Tooltip("Down (S) + jump: drops down through a one-way platform (a tile or a Box Collider)"),
+    ZM_FIELD_RANGE(PlayerController, LandShake, 0.0f, 40.0f).Header("Camera")
+        .Tooltip("Landing faster than this (units/s) shakes the camera; falling out does too. 0 - off"),
+    ZM_FIELD(PlayerController, HitFlash).Header("Effects").Label("Flash")
+        .Tooltip("Flashes red when it falls and returns to the start, white on a hard landing (SpriteRenderer::Flash)"))

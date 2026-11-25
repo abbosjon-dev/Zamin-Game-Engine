@@ -5502,7 +5502,7 @@ namespace Zamin {
         if (pasted.Entities.empty())
         {
             if (!pasted.Error.empty())
-                ZM_WARN("Joylanmadi: {}", pasted.Error);
+                ZM_WARN("Not pasted: {}", pasted.Error);
             return;
         }
         m_EditorScene->ResolveAssets();

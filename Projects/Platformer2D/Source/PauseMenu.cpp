@@ -137,7 +137,7 @@ public:
         m_MusicFilter = Audio::GetGroupFilter("Music");
         if (MusicMuffle > 0.0f)
             Audio::SetGroupLowPass("Music", MusicMuffle);
-        ZM_INFO("Pauza");
+        ZM_INFO("Paused");
     }
 
     void Close()
@@ -182,7 +182,7 @@ private:
         Display::ClearSavedSettings();
         SyncFromSettings();
         m_Changed = false;
-        ZM_INFO("Sozlamalar standart holatga qaytdi");
+        ZM_INFO("Settings reset to defaults");
     }
 
     // The widgets show the mixer and the display as they are now.
@@ -245,7 +245,7 @@ private:
         Audio::SaveSettings();
         Display::SaveSettings();
         m_Changed = false;
-        ZM_INFO("Sozlamalar saqlandi");
+        ZM_INFO("Settings saved");
     }
 
     bool m_Changed = false;
@@ -253,13 +253,13 @@ private:
 };
 
 ZM_REGISTER_SCRIPT(PauseMenu,
-    ZM_FIELD(PauseMenu, Overlay).Header("Panellar"),
+    ZM_FIELD(PauseMenu, Overlay).Header("Panels"),
     ZM_FIELD(PauseMenu, MainPanel),
     ZM_FIELD(PauseMenu, SettingsPanel),
     ZM_FIELD(PauseMenu, ResumeButton),
     ZM_FIELD(PauseMenu, SettingsButton),
     ZM_FIELD(PauseMenu, SettingsScroll),
-    ZM_FIELD(PauseMenu, MasterSlider).Header("Ovoz"),
+    ZM_FIELD(PauseMenu, MasterSlider).Header("Sound"),
     ZM_FIELD(PauseMenu, MusicSlider),
     ZM_FIELD(PauseMenu, SfxSlider),
     ZM_FIELD(PauseMenu, UiSlider),
@@ -267,12 +267,12 @@ ZM_REGISTER_SCRIPT(PauseMenu,
     ZM_FIELD(PauseMenu, MusicValue),
     ZM_FIELD(PauseMenu, SfxValue),
     ZM_FIELD(PauseMenu, UiValue),
-    ZM_FIELD(PauseMenu, FullscreenToggle).Header("Ekran"),
+    ZM_FIELD(PauseMenu, FullscreenToggle).Header("Screen"),
     ZM_FIELD(PauseMenu, VSyncToggle),
-    ZM_FIELD(PauseMenu, GammaSlider).Tooltip("Display::SetGamma (0.5 ... 2.0): player tasvirining o'rta tonlari"),
-    ZM_FIELD(PauseMenu, BrightnessSlider).Tooltip("Display::SetBrightness (0.5 ... 1.5): butun tasvir yorqinligi"),
+    ZM_FIELD(PauseMenu, GammaSlider).Tooltip("Display::SetGamma (0.5 ... 2.0): the midtones of the player's image"),
+    ZM_FIELD(PauseMenu, BrightnessSlider).Tooltip("Display::SetBrightness (0.5 ... 1.5): brightness of the whole image"),
     ZM_FIELD(PauseMenu, GammaValue),
     ZM_FIELD(PauseMenu, BrightnessValue),
-    ZM_FIELD(PauseMenu, LanguageButton).Header("Til").Tooltip("Bosilganda keyingi til (Localization::NextLanguage); matni joriy til nomi"),
-    ZM_FIELD(PauseMenu, VersionText).Header("Versiya").Tooltip("Menyu burchagi: o'yin va dvigatel versiyasi (VersionInfo::FormatShort)"),
-    ZM_FIELD_RANGE(PauseMenu, MusicMuffle, 0.0f, 20000.0f).Label("Musiqa bo'g'iqligi (Hz)").Tooltip("Pauzada musiqaga low-pass filtr (0 - o'chiq)"))
+    ZM_FIELD(PauseMenu, LanguageButton).Header("Language").Tooltip("Next language when pressed (Localization::NextLanguage); its text is the current language's name"),
+    ZM_FIELD(PauseMenu, VersionText).Header("Version").Tooltip("Corner of the menu: game and engine version (VersionInfo::FormatShort)"),
+    ZM_FIELD_RANGE(PauseMenu, MusicMuffle, 0.0f, 20000.0f).Label("Music muffling (Hz)").Tooltip("Low-pass filter on the music while paused (0 - off)"))

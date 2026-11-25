@@ -51,7 +51,7 @@ void ShooterGame::OnCreate()
     m_DemoRun = AutoDemo || (demo && *demo && std::string_view(demo) != "0");
     m_BestScore = SaveData::GetInt("Neon.BestScore", 0);
     m_BestWave = SaveData::GetInt("Neon.BestWave", 0);
-    ZM_INFO("Rekordlar: hisob {}, {}-to'lqin", m_BestScore, m_BestWave);
+    ZM_INFO("Records: score {}, wave {}", m_BestScore, m_BestWave);
     // The pool of explosion lights (children of the effects group).
     if (Entity group = Resolve(FlashLights))
         for (Entity child : GetScene().GetDescendants(group))
@@ -75,7 +75,7 @@ void ShooterGame::OnStart()
 
     if (m_DemoRun)
     {
-        ZM_INFO("Demo rejimi: o'yinni bot o'ynaydi (ZAMIN_DEMO)");
+        ZM_INFO("Demo mode: a bot plays the game (ZAMIN_DEMO)");
         StartGame(); // a demo run: no menu, the bot plays with the HUD on
     }
     else
@@ -85,9 +85,9 @@ void ShooterGame::OnStart()
 
 void ShooterGame::OnDestroy()
 {
-    SubmitRecords("o'yin yopildi");
+    SubmitRecords("game closed");
     if (m_DemoRun)
-        LogDemo("yakuni");
+        LogDemo("summary");
     Cursor::SetVisible(true);
     if (s_Instance == this)
         s_Instance = nullptr;
@@ -173,7 +173,7 @@ void ShooterGame::ClearWorld()
 
 void ShooterGame::ShowMenu()
 {
-    SubmitRecords("bosh menyuga qaytildi"); // a game left from the pause menu still counts
+    SubmitRecords("returned to the main menu"); // a game left from the pause menu still counts
     if (IsGamePaused())
         ResumeGame();
     Audio::SetGroupLowPass("Music", 0.0f);
@@ -183,7 +183,7 @@ void ShooterGame::ShowMenu()
     SetActiveRef(Hud, false);
     SetActiveRef(MainMenu, true);
     SetActiveRef(Reticle, false);
-    ZM_INFO("Menyu: bosh menyu");
+    ZM_INFO("Menu: main menu");
     Cursor::SetVisible(true);
     if (Entity button = Resolve(PlayButton))
         GetScene().SetSelectedUI(button);
@@ -193,7 +193,7 @@ void ShooterGame::ShowMenu()
 
 void ShooterGame::StartGame()
 {
-    SubmitRecords("qaytadan boshlandi");
+    SubmitRecords("restarted");
     if (IsGamePaused())
         ResumeGame();
     Audio::SetGroupLowPass("Music", 0.0f);
@@ -207,7 +207,7 @@ void ShooterGame::StartGame()
     SetActiveRef(Reticle, !m_Bot);
     Cursor::SetVisible(m_Bot);
     if (!m_Bot)
-        ZM_INFO("Neon Maydon: o'yin boshlandi");
+        ZM_INFO("Neon Maydon: game started");
 }
 
 void ShooterGame::OpenPause()
@@ -215,7 +215,7 @@ void ShooterGame::OpenPause()
     m_State = State::Paused;
     PauseGame();
     SetActiveRef(PauseMenu, true);
-    ZM_INFO("Menyu: pauza");
+    ZM_INFO("Menu: pause");
     if (Entity button = Resolve(ResumeButton))
         GetScene().SetSelectedUI(button);
     Audio::SetGroupLowPass("Music", 900.0f);
@@ -228,7 +228,7 @@ void ShooterGame::ClosePause()
         return;
     m_State = State::Playing;
     SetActiveRef(PauseMenu, false);
-    ZM_INFO("Menyu: pauza yopildi");
+    ZM_INFO("Menu: pause closed");
     GetScene().SetSelectedUI({});
     Audio::SetGroupLowPass("Music", 0.0f);
     Cursor::SetVisible(m_Bot);
@@ -239,12 +239,12 @@ void ShooterGame::GameOver()
 {
     m_State = State::GameOver;
     SetTimeScale(1.0f);
-    SubmitRecords("o'yin tugadi");
+    SubmitRecords("game over");
     SetText(OverScore, FormatScore(m_Score));
     SetText(OverWave, Localize("over.wave", m_Wave, m_Kills));
     SetText(OverRecord, m_NewRecord ? Localize("over.record") : Localize("over.best", FormatScore(m_BestScore)));
     SetActiveRef(GameOverMenu, true);
-    ZM_INFO("Menyu: natijalar - hisob {}, {}-to'lqin", m_Score, m_Wave);
+    ZM_INFO("Menu: results - score {}, wave {}", m_Score, m_Wave);
     Sfx("gameover", 0.9f);
     SetActiveRef(Reticle, false);
     Cursor::SetVisible(true);
@@ -256,11 +256,11 @@ void ShooterGame::GameOver()
                                { .Easing = Ease::InOutQuad, .Loop = UITweenLoop::PingPong });
     if (m_DemoRun)
     {
-        LogDemo("o'yin tugadi");
+        LogDemo("game over");
         m_RestartTimer = 3.0f; // a demo run goes on by itself
     }
     else
-        ZM_INFO("O'yin tugadi: hisob {}, {}-to'lqin, {} ta dushman{}", m_Score, m_Wave, m_Kills, m_NewRecord ? " - yangi rekord!" : "");
+        ZM_INFO("Game over: score {}, wave {}, {} enemies{}", m_Score, m_Wave, m_Kills, m_NewRecord ? " - new record!" : "");
 }
 
 // ---------------------------------------------------------------------------------------- update
@@ -330,7 +330,7 @@ void ShooterGame::OnUpdate(Timestep ts)
         if (m_DemoLogTimer >= 10.0f)
         {
             m_DemoLogTimer = 0.0f;
-            LogDemo("holat");
+            LogDemo("status");
         }
     }
 }
@@ -421,7 +421,7 @@ void ShooterGame::StartWave(int wave)
     ShowBanner(Localize("hud.wave", wave), tanks && wave % 5 == 0 ? Localize("hud.boss_sub") : Localize("hud.wave_sub", (int)m_Queue.size()), 2.0f);
     Sfx("wave", 0.8f);
     if (m_DemoRun)
-        ZM_INFO("Demo: {}-to'lqin boshlandi (hisob {}, o'ldirilgan {})", wave, m_Score, m_Kills);
+        ZM_INFO("Demo: wave {} started (score {}, killed {})", wave, m_Score, m_Kills);
 }
 
 void ShooterGame::BuildWaveQueue(int wave)
@@ -798,12 +798,12 @@ void ShooterGame::SubmitRecords(const char* when)
     if (!m_RecordPending)
         return;
     m_RecordPending = false;
-    ZM_INFO("Neon Maydon: natija ({}) - hisob {}, {}-to'lqin, {} ta dushman, {} ta o'q", when, m_Score, m_Wave, m_Kills, m_ShotsFired);
+    ZM_INFO("Neon Maydon: result ({}) - score {}, wave {}, {} enemies, {} shots", when, m_Score, m_Wave, m_Kills, m_ShotsFired);
     if (m_Score > 0 && SaveData::SubmitRecord("Neon.BestScore", m_Score))
     {
         m_BestScore = m_Score;
         m_NewRecord = true;
-        ZM_INFO("Yangi rekord: hisob {} ({}-to'lqin; {})", m_Score, m_Wave, when);
+        ZM_INFO("New record: score {} (wave {}; {})", m_Score, m_Wave, when);
     }
     if (m_Wave > 0 && SaveData::SubmitRecord("Neon.BestWave", m_Wave))
         m_BestWave = m_Wave;
@@ -812,11 +812,11 @@ void ShooterGame::SubmitRecords(const char* when)
 
 void ShooterGame::LogDemo(const char* reason)
 {
-    ZM_INFO("Demo ({}): hisob {}, {}-to'lqin, o'ldirilgan {}, eng katta kombo {}", reason, m_Score, m_Wave, m_Kills, m_BestCombo);
+    ZM_INFO("Demo ({}): score {}, wave {}, killed {}, best combo {}", reason, m_Score, m_Wave, m_Kills, m_BestCombo);
 }
 
 ZM_REGISTER_SCRIPT(ShooterGame,
-    ZM_FIELD(ShooterGame, Player).Header("O'yinchi"),
+    ZM_FIELD(ShooterGame, Player).Header("Player"),
     ZM_FIELD(ShooterGame, Reticle),
     ZM_FIELD(ShooterGame, Shield),
     ZM_FIELD(ShooterGame, Thruster),
@@ -833,9 +833,9 @@ ZM_REGISTER_SCRIPT(ShooterGame,
     ZM_FIELD(ShooterGame, PortalTemplate),
     ZM_FIELD(ShooterGame, ShockwaveTemplate),
     ZM_FIELD(ShooterGame, PopupTemplate),
-    ZM_FIELD(ShooterGame, Explosion).Header("Effektlar"),
+    ZM_FIELD(ShooterGame, Explosion).Header("Effects"),
     ZM_FIELD(ShooterGame, Sparks),
-    ZM_FIELD(ShooterGame, FlashLights).Tooltip("Portlash chiroqlari guruhi (Light 2D bolalari navbat bilan ishlatiladi)"),
+    ZM_FIELD(ShooterGame, FlashLights).Tooltip("Explosion light group (the Light 2D children are used in turn)"),
     ZM_FIELD(ShooterGame, Hud).Header("HUD"),
     ZM_FIELD(ShooterGame, ScoreText),
     ZM_FIELD(ShooterGame, ComboText),
@@ -849,7 +849,7 @@ ZM_REGISTER_SCRIPT(ShooterGame,
     ZM_FIELD(ShooterGame, Banner),
     ZM_FIELD(ShooterGame, BannerSub),
     ZM_FIELD(ShooterGame, DemoBadge),
-    ZM_FIELD(ShooterGame, MainMenu).Header("Menyular"),
+    ZM_FIELD(ShooterGame, MainMenu).Header("Menus"),
     ZM_FIELD(ShooterGame, PauseMenu),
     ZM_FIELD(ShooterGame, GameOverMenu),
     ZM_FIELD(ShooterGame, MenuBest),
@@ -860,6 +860,6 @@ ZM_REGISTER_SCRIPT(ShooterGame,
     ZM_FIELD(ShooterGame, OverScore),
     ZM_FIELD(ShooterGame, OverWave),
     ZM_FIELD(ShooterGame, OverRecord),
-    ZM_FIELD(ShooterGame, ArenaHalfSize).Header("Qoidalar").Tooltip("Maydonning yarim o'lchami (birlik)"),
-    ZM_FIELD_RANGE(ShooterGame, ComboWindow, 0.5f, 6.0f).Tooltip("Kombo davom etishi uchun o'ldirishlar orasidagi eng uzoq vaqt (s)"),
-    ZM_FIELD(ShooterGame, AutoDemo).Tooltip("Demo rejimida boshlash: bot o'ynaydi (ZAMIN_DEMO=1 ham shunday qiladi)"))
+    ZM_FIELD(ShooterGame, ArenaHalfSize).Header("Rules").Tooltip("Half size of the field (units)"),
+    ZM_FIELD_RANGE(ShooterGame, ComboWindow, 0.5f, 6.0f).Tooltip("Longest time between kills for the combo to continue (s)"),
+    ZM_FIELD(ShooterGame, AutoDemo).Tooltip("Start in demo mode: a bot plays (ZAMIN_DEMO=1 does the same)"))

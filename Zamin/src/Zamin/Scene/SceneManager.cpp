@@ -792,7 +792,7 @@ namespace Zamin {
         m_Scenes.push_back({ scene, path });
         if (mode == LoadSceneMode::Single || !m_Active)
             SetActive(scene);
-        ZM_CORE_INFO("Scene loaded: {} ({})", path.empty() ? scene->GetName() : path, mode == LoadSceneMode::Additive ? "additive" : "yagona");
+        ZM_CORE_INFO("Scene loaded: {} ({})", path.empty() ? scene->GetName() : path, mode == LoadSceneMode::Additive ? "additive" : "single");
         std::vector<SceneEventInfo> subScenes;
         LoadSubScenes(scene, subScenes);
 

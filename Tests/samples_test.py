@@ -17,7 +17,7 @@ Cases:
           comes quickly, the results panel too. The games log "Menyu: ..." for each panel they open.
   smoke - the three older samples (Platformer2D, Showcase3D, Adventure3D): they start, run, show a picture.
   records - with every demo (ZAMIN_DEMO_RECORDS=1: the bot's results count as records): the run must log a new record
-          ("Yangi rekord: ...") and leave it in the game's SaveData file (savedata.json under the run's HOME); a second,
+          ("New record: ...") and leave it in the game's SaveData file (savedata.json under the run's HOME); a second,
           short run with the same HOME (no bot) must read it back - "Rekordlar: ..." with the same value - and show
           the main menu (with the record on it).
   gamepad - the six games driven by a simulated gamepad only (ZAMIN_PLAYER_INPUT pad= / stick=): A on "Play", the
@@ -98,10 +98,10 @@ def present(description, pattern):
 
 
 # The panel lines the games write (Projects/*/Source: ShowMenu, OpenPause, ClosePause, results).
-MAIN_MENU = r"Menyu: bosh menyu"
-PAUSE = r"Menyu: pauza\n"
-PAUSE_CLOSED = r"Menyu: pauza yopildi"
-RESULTS = r"Menyu: natijalar"
+MAIN_MENU = r"Menu: main menu"
+PAUSE = r"Menu: pause\n"
+PAUSE_CLOSED = r"Menu: pause closed"
+RESULTS = r"Menu: results"
 
 
 def menu_flow(started):
@@ -121,7 +121,7 @@ def pause_to_menu(start, downs=2):
 
 class Record:
     """A record a demo run must save and the next run (same HOME) must read back: `new` finds the value in the first
-    run's log ("Yangi rekord: ..."; the last match counts), `loaded` (with {0}: that value) in the second run's log;
+    run's log ("New record: ..."; the last match counts), `loaded` (with {0}: that value) in the second run's log;
     `keys`: SaveData keys that must be in the save file after the first run."""
     def __init__(self, new, loaded, keys, frames=40):
         self.new, self.loaded, self.keys, self.frames = new, loaded, keys, frames
@@ -155,9 +155,9 @@ def sokoban_menus():
     script = [(30, "Enter"), (90, "Escape"), (110, "Escape"), (130, "D"), (150, "D"),
               (230, "Down"), (240, "Down"), (250, "Enter")]
     flow = in_order("menyular: bosh menyu -> daraja -> pauza -> davom -> natijalar -> bosh menyu",
-                    [MAIN_MENU, r"Omborchi: 1-daraja", PAUSE, PAUSE_CLOSED, r"Menyu: natijalar - 1-daraja yechildi, 2 qadam", MAIN_MENU])
-    levels = in_order("darajalar menyusi ochiladi va yopiladi", [MAIN_MENU, r"Menyu: darajalar", MAIN_MENU])
-    return [Case("Sokoban", "menus", 280, [present("daraja boshlandi", r"Omborchi: 1-daraja"), flow],
+                    [MAIN_MENU, r"Omborchi: level 1", PAUSE, PAUSE_CLOSED, r"Menu: results - level 1 solved, 2 steps", MAIN_MENU])
+    levels = in_order("darajalar menyusi ochiladi va yopiladi", [MAIN_MENU, r"Menu: levels", MAIN_MENU])
+    return [Case("Sokoban", "menus", 280, [present("daraja boshlandi", r"Omborchi: level 1"), flow],
                  env={"ZAMIN_PLAYER_INPUT": keys(*script)}),
             Case("Sokoban", "levels", 120, [levels],
                  env={"ZAMIN_PLAYER_INPUT": keys((30, "Down"), (40, "Enter"), (90, "Escape"))},
@@ -166,10 +166,10 @@ def sokoban_menus():
             # still starts the player's level 1, and two quick taps (the second while the first step still moves)
             # both count: the crate reaches its target in 2 steps.
             Case("Sokoban", "menuwait", 330, [
-                present("bot orqada 1-darajani yechdi", r"Omborchi: menyu orqasida 2-daraja"),
+                present("bot orqada 1-darajani yechdi", r"Omborchi: level 2 behind the menu"),
                 in_order("kutib o'ynash: 1-daraja (botniki emas), tez ikki qadam -> yechildi",
-                         [MAIN_MENU, r"Omborchi: 1-daraja", r"Menyu: natijalar - 1-daraja yechildi, 2 qadam"]),
-                absent("bot darajasi boshlanmadi", r"Omborchi: [2-9]-daraja \("),
+                         [MAIN_MENU, r"Omborchi: level 1", r"Menu: results - level 1 solved, 2 steps"]),
+                absent("bot darajasi boshlanmadi", r"Omborchi: level [2-9] \("),
             ], env={"ZAMIN_PLAYER_INPUT": keys((200, "Enter"), (260, "D"), (262, "D"))},
                 note="bosh menyuda 10 s kutish (bot keyingi darajaga o'tadi), Enter, D D (2 kadr oralig'ida)")]
 
@@ -204,40 +204,40 @@ def sweep_aim(start, end, step):
 GAMEPAD_CASES = [
     # Neon Maydon: left stick moves, the right stick sweeps the aim, RT fires, A dashes; leaving to the main menu
     # counts the score as a record - kills made with the gamepad.
-    pad_case("TopDownShooter", r"Neon Maydon: o'yin boshlandi", [
+    pad_case("TopDownShooter", r"Neon Maydon: game started", [
         (36, "stick=LeftX,0.5"), (36, "stick=RightTrigger,1"), (110, "pad=A"), (150, "stick=LeftX,-0.5"), (260, "stick=LeftX,0"),
         *sweep_aim(40, 330, 6),
         (340, "stick=RightX,0"), (340, "stick=RightY,0"), (340, "stick=RightTrigger,0")],
-        [at_least("RT bilan otildi (bosh menyuga qaytilgandagi natija)", r"Neon Maydon: natija \(bosh menyuga qaytildi\) - .* (\d+) ta o'q", 20)],
+        [at_least("RT bilan otildi (bosh menyuga qaytilgandagi natija)", r"Neon Maydon: result \(returned to the main menu\) - .* (\d+) shots", 20)],
         note="chap stik - yurish, o'ng stik - nishon, RT - otish, A - siltanish"),
     # Breakout: A launches the ball, the left stick moves the paddle; the bricks it breaks are the record.
-    pad_case("Breakout", r"Breakout: o'yin boshlandi", [
+    pad_case("Breakout", r"Breakout: game started", [
         (45, "pad=A"), (50, "stick=LeftX,-0.8"), (75, "stick=LeftX,0.8"), (110, "stick=LeftX,0"), (140, "pad=A")],
-        [at_least("gamepad bilan ochko (bosh menyuga qaytilganda rekord)", r"Yangi rekord: hisob (\d+) .*bosh menyuga qaytildi", 1)],
+        [at_least("gamepad bilan ochko (bosh menyuga qaytilganda rekord)", r"New record: score (\d+) .*returned to the main menu", 1)],
         note="A - to'pni otish, chap stik - raketka"),
     # FPS Arena: the left stick walks (forward: up), the right stick looks, L3 sprints, A jumps, B crouches.
-    pad_case("FPSArena", r"FPS Arena: o'yin boshlandi \(parkur\)", [
+    pad_case("FPSArena", r"FPS Arena: game started \(parkour\)", [
         (36, "stick=LeftY,-1"), (36, "padhold=LeftThumb"), (50, "stick=RightX,0.5"), (60, "stick=RightX,0"), (70, "pad=A"),
         (90, "pad=B"), (100, "padrelease=LeftThumb"), (110, "stick=LeftY,0"), (115, "pad=X")], downs=3,
         note="chap stik - yurish, o'ng stik - qarash, L3 - yugurish, A - sakrash, B - cho'kkalash, X - qayta o'qlash"),
     # Omborchi: two D-pad steps right push level 1's crate onto its target - solved with the gamepad, a record.
     Case("Sokoban", "gamepad", 290, [
-        present("daraja gamepad bilan boshlandi", r"Omborchi: 1-daraja"),
+        present("daraja gamepad bilan boshlandi", r"Omborchi: level 1"),
         in_order("gamepad: bosh menyu -> pauza (Start) -> davom -> D-pad bilan yechildi -> bosh menyu",
-                 [MAIN_MENU, r"Omborchi: 1-daraja", PAUSE, PAUSE_CLOSED, r"Menyu: natijalar - 1-daraja yechildi, 2 qadam", MAIN_MENU]),
-        present("yechim rekordga yozildi", r"Yangi rekord: 1-daraja 2 qadam"),
+                 [MAIN_MENU, r"Omborchi: level 1", PAUSE, PAUSE_CLOSED, r"Menu: results - level 1 solved, 2 steps", MAIN_MENU]),
+        present("yechim rekordga yozildi", r"New record: level 1: 2 steps"),
         present("ishoralar gamepad'ga o'tdi", r"Input device: gamepad"),
         absent("klaviaturaga qaytmadi (gamepad o'ynadi)", r"Input device: gamepad[\s\S]*Input device: keyboard"),
     ], env={"ZAMIN_PLAYER_INPUT": keys((30, "pad=A"), (90, "pad=Start"), (110, "pad=Start"), (130, "pad=DPadRight"),
                                        (150, "pad=DPadRight"), (230, "pad=DPadDown"), (240, "pad=DPadDown"), (250, "pad=A"))},
         note="A - o'ynash, Start - pauza, D-pad - yurish (qutini itarish)"),
     # Ipak Yo'li: D-pad / stick change lanes, A jumps, B slides (the pause comes before the first obstacle).
-    pad_case("EndlessRunner", r"Ipak Yo'li: yugurish boshlandi", [
+    pad_case("EndlessRunner", r"Ipak Yo'li: run started", [
         (36, "pad=DPadLeft"), (44, "stick=LeftX,1"), (48, "stick=LeftX,0"), (52, "pad=A"), (60, "pad=B")],
-        [at_least("yugurish rekordi (bosh menyuga qaytilganda)", r"Yangi rekord: ochko (\d+) .*bosh menyuga qaytildi", 1)],
+        [at_least("yugurish rekordi (bosh menyuga qaytilganda)", r"New record: score (\d+) .*returned to the main menu", 1)],
         note="D-pad / chap stik - yo'lak, A - sakrash, B - sirpanish"),
     # Vodiy Poygasi: RT accelerates (after the start lights), the left stick steers, X is the handbrake.
-    pad_case("Racing", r"Vodiy Poygasi: poyga boshlandi", [
+    pad_case("Racing", r"Vodiy Poygasi: race started", [
         (40, "stick=RightTrigger,1"), (130, "stick=LeftX,0.3"), (150, "pad=X"), (160, "stick=LeftX,0"),
         (170, "stick=RightTrigger,0")],
         note="RT - gaz, chap stik - rul, X - qo'l tormozi"),
@@ -247,74 +247,74 @@ GAMEPAD_CASES = [
 CASES = [
     # ---- Neon Maydon (top-down shooter)
     Case("TopDownShooter", "demo", 900, [
-        at_least("hisob", r"Demo \(yakuni\): hisob (\d+)", 500),
-        at_least("o'ldirilgan dushmanlar", r"o'ldirilgan (\d+)", 8),
-        count_at_least("ikkinchi to'lqin boshlandi", r"Demo: 2-to'lqin boshlandi", 1),
-        at_least("eng katta kombo", r"eng katta kombo (\d+)", 3, last=True),
+        at_least("hisob", r"Demo \(summary\): score (\d+)", 500),
+        at_least("o'ldirilgan dushmanlar", r"killed (\d+)", 8),
+        count_at_least("ikkinchi to'lqin boshlandi", r"Demo: wave 2 started", 1),
+        at_least("eng katta kombo", r"best combo (\d+)", 3, last=True),
     ], env={"ZAMIN_DEMO": "1"},
-        record=Record(r"Yangi rekord: hisob (\d+)", r"Rekordlar: hisob {0}, \d+-to'lqin", ["Neon.BestScore", "Neon.BestWave"])),
-    menu_case("TopDownShooter", r"Neon Maydon: o'yin boshlandi"),
+        record=Record(r"New record: score (\d+)", r"Records: score {0}, wave \d+", ["Neon.BestScore", "Neon.BestWave"])),
+    menu_case("TopDownShooter", r"Neon Maydon: game started"),
     # ---- Zamin Breakout
     Case("Breakout", "demo", 1000, [
-        at_least("hisob", r"Demo \(yakuni\): hisob (\d+)", 1000),
-        at_least("singan g'ishtlar", r"singan g'ishtlar (\d+)", 50, last=True),
-        count_at_least("1-daraja tugadi, keyingisi boshlandi", r"Demo: 2-daraja \(.*\) boshlandi", 1),
+        at_least("hisob", r"Demo \(summary\): score (\d+)", 1000),
+        at_least("singan g'ishtlar", r"bricks broken (\d+)", 50, last=True),
+        count_at_least("1-daraja tugadi, keyingisi boshlandi", r"Demo: level 2 \(.*\) started", 1),
     ], env={"ZAMIN_DEMO": "1"},
-        record=Record(r"Yangi rekord: hisob (\d+)", r"Rekordlar: hisob {0}, \d+-daraja", ["Breakout.BestScore", "Breakout.BestLevel"])),
+        record=Record(r"New record: score (\d+)", r"Records: score {0}, level \d+", ["Breakout.BestScore", "Breakout.BestLevel"])),
     Case("Breakout", "level6", 500, [
-        count_at_least("6-daraja (oxirgisi) yuklandi", r"Demo: 6-daraja \(.*\) boshlandi - \d+ ta g'isht", 1),
-        at_least("singan g'ishtlar", r"singan g'ishtlar (\d+)", 5, last=True),
+        count_at_least("6-daraja (oxirgisi) yuklandi", r"Demo: level 6 \(.*\) started - \d+ bricks", 1),
+        at_least("singan g'ishtlar", r"bricks broken (\d+)", 5, last=True),
     ], env={"ZAMIN_DEMO": "1", "ZAMIN_START_LEVEL": "6"}, note="ZAMIN_START_LEVEL=6: oxirgi daraja quriladi va o'ynaladi"),
-    menu_case("Breakout", r"Breakout: o'yin boshlandi"),
+    menu_case("Breakout", r"Breakout: game started"),
     # ---- FPS Arena
     Case("FPSArena", "demo", 700, [
-        at_least("parkur aylanalari", r"Demo yakuni: (\d+) ta aylana", 1),
-        count_at_least("nazorat nuqtalari", r"Demo: \d+-nuqta", 6),
-        at_least("urilgan nishonlar", r"(\d+) ta nishon urildi", 4, last=True),
-        at_least("ochko", r"ochko (\d+), aniqlik", 100, last=True),
+        at_least("parkur aylanalari", r"Demo summary: (\d+) laps", 1),
+        count_at_least("nazorat nuqtalari", r"Demo: point \d+", 6),
+        at_least("urilgan nishonlar", r"(\d+) targets hit", 4, last=True),
+        at_least("ochko", r"score (\d+), accuracy", 100, last=True),
     ], env={"ZAMIN_DEMO": "1"},
-        record=Record(r"Yangi rekord: aylana (\S+)", r"Rekordlar: eng yaxshi aylana {0},", ["FPSArena.BestLap"])),
-    menu_case("FPSArena", r"FPS Arena: o'yin boshlandi \(parkur\)", downs=3),
+        record=Record(r"New record: lap (\S+)", r"Records: best lap {0},", ["FPSArena.BestLap"])),
+    menu_case("FPSArena", r"FPS Arena: game started \(parkour\)", downs=3),
     # ---- Omborchi (Sokoban)
     Case("Sokoban", "demo", 800, [
-        count_at_least("yechilgan darajalar", r"Demo: \d+-daraja yechildi", 3),
-        count_at_least("yechuvchi yechim topdi", r"Demo: \d+-daraja yechimi topildi", 3),
-        count_at_least("orqaga qaytarish (undo)", r"Demo: orqaga qaytarildi \(undo\)", 1),
+        count_at_least("yechilgan darajalar", r"Demo: level \d+ solved", 3),
+        count_at_least("yechuvchi yechim topdi", r"Demo: level \d+ solution found", 3),
+        count_at_least("orqaga qaytarish (undo)", r"Demo: undone \(undo\)", 1),
     ], env={"ZAMIN_DEMO": "1"},
-        record=Record(r"Yangi rekord: (\d+-daraja \d+) qadam", r"Rekordlar: \d+/10 daraja yechilgan - qadamlar: .*{0}", ["Sokoban.Best.1", "Sokoban.Best.2"])),
+        record=Record(r"New record: (level \d+: \d+) steps", r"Records: \d+/10 levels solved - steps: .*{0}", ["Sokoban.Best.1", "Sokoban.Best.2"])),
     *sokoban_menus(),
     # ---- Ipak Yo'li (endless runner)
     Case("EndlessRunner", "demo", 700, [
-        at_least("masofa (m)", r"Demo yakuni: \d+ ta yugurish, oxirgisi (\d+) m", 400),
-        at_least("tangalar", r"Demo yakuni: .*, (\d+) tanga", 30),
-        at_least("tezlik oshdi (m/s; boshida 11)", r"tezlik (\d+\.\d) m/s", 13.0),
-        absent("bot to'siqqa urilmadi", r"Demo: yiqildi.*"),
+        at_least("masofa (m)", r"Demo summary: \d+ runs, the last one (\d+) m", 400),
+        at_least("tangalar", r"Demo summary: .*, (\d+) coins", 30),
+        at_least("tezlik oshdi (m/s; boshida 11)", r"speed (\d+\.\d) m/s", 13.0),
+        absent("bot to'siqqa urilmadi", r"Demo: fell.*"),
     ], env={"ZAMIN_DEMO": "1"},
-        record=Record(r"Yangi rekord: ochko (\d+)", r"Rekordlar: ochko {0}, \d+ m", ["EndlessRunner.Best", "EndlessRunner.BestDistance"])),
+        record=Record(r"New record: score (\d+)", r"Records: score {0}, \d+ m", ["EndlessRunner.Best", "EndlessRunner.BestDistance"])),
     # Nobody steers: the runner hits the first obstacle - the results panel ("Qaytadan" selected; Down: "Bosh menyu").
     Case("EndlessRunner", "menus", 420, [
-        present("yugurish boshlandi", r"Ipak Yo'li: yugurish boshlandi"),
+        present("yugurish boshlandi", r"Ipak Yo'li: run started"),
         in_order("menyular: bosh menyu -> yugurish -> pauza -> davom -> natijalar -> bosh menyu",
-                 [MAIN_MENU, r"Ipak Yo'li: yugurish boshlandi", PAUSE, PAUSE_CLOSED, RESULTS, MAIN_MENU]),
+                 [MAIN_MENU, r"Ipak Yo'li: run started", PAUSE, PAUSE_CLOSED, RESULTS, MAIN_MENU]),
     ], env={"ZAMIN_PLAYER_INPUT": keys((30, "Enter"), (90, "Escape"), (110, "Escape"), (380, "Down"), (390, "Enter"))},
         note="hech kim boshqarmaydi: birinchi to'siqqa urilib, natijalar oynasi chiqadi"),
     # ---- Vodiy Poygasi (racing)
     Case("Racing", "demo", 900, [
-        count_at_least("aylana tugadi", r"Demo: 1-aylana - vaqt", 1),
-        at_least("o'rin (1-4)", r"o'rin (\d)/4", 1),
+        count_at_least("aylana tugadi", r"Demo: lap 1 - time", 1),
+        at_least("o'rin (1-4)", r"place (\d)/4", 1),
     ], env={"ZAMIN_DEMO": "1"},
-        record=Record(r"Yangi rekord: aylana (\S+)", r"Rekordlar: eng yaxshi aylana {0}$", ["Racing.BestLap"])),
-    menu_case("Racing", r"Vodiy Poygasi: poyga boshlandi"),
+        record=Record(r"New record: lap (\S+)", r"Records: best lap {0}$", ["Racing.BestLap"])),
+    menu_case("Racing", r"Vodiy Poygasi: race started"),
     # ---- the older samples
     Case("Platformer2D", "smoke", 150, [present("sahna yuklandi", r"Scene load time")]),
     # Menu.zscene: Enter on "O'ynash" - the loading screen loads Level1 in the background and switches; Esc: pause.
     Case("Platformer2D", "menus", 200, [
         in_order("menyu -> yuklanish ekrani -> 1-daraja -> pauza",
-                 [r"O'yin menyusi: '.*' ochilmoqda", r"Yuklanish ekrani: 'Scenes/Level1.zscene' tayyor", r"O'yinchi tayyor", r"APP: Pauza"]),
+                 [r"Game menu: opening '.*'", r"Loading screen: 'Scenes/Level1.zscene' ready", r"Player ready", r"APP: Paused"]),
     ], env={"ZAMIN_PLAYER_INPUT": keys((30, "Enter"), (150, "Escape"))}, scene="Scenes/Menu.zscene",
         note="Menu.zscene dan: O'ynash -> Loading -> Level1 (fon oqimida yuklash), Esc - pauza"),
     Case("Showcase3D", "smoke", 120, [present("sahna yuklandi", r"Scene load time")]),
-    Case("Adventure3D", "smoke", 150, [present("qahramon tayyor", r"Qahramon tayyor")]),
+    Case("Adventure3D", "smoke", 150, [present("qahramon tayyor", r"Hero ready")]),
     *GAMEPAD_CASES,
 ]
 

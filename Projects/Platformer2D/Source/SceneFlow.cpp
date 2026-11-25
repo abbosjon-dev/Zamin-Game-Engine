@@ -57,7 +57,7 @@ public:
         SetText(Stage, StageText());
         if (m_Load->IsReady() && m_Shown >= 1.0f && !m_Load->GetAllowSceneActivation())
         {
-            ZM_INFO("Yuklanish ekrani: '{}' tayyor ({:.1f} s) - o'tilmoqda", Target, m_Time);
+            ZM_INFO("Loading screen: '{}' ready ({:.1f} s) - switching", Target, m_Time);
             m_Load->SetAllowSceneActivation(true); // the fade out starts, the switch happens behind it
         }
     }
@@ -90,12 +90,12 @@ private:
     float m_Time = 0.0f, m_Shown = 0.0f;
 };
 ZM_REGISTER_SCRIPT(LoadingScreen,
-    ZM_FIELD_TOOLTIP(LoadingScreen, Target, "Fonda yuklanadigan sahna").Header("Yuklash"),
-    ZM_FIELD_RANGE(LoadingScreen, MinSeconds, 0.0f, 10.0f).Tooltip("Ekran kamida shuncha turadi (sekund)"),
-    ZM_FIELD_RANGE(LoadingScreen, Fade, 0.0f, 2.0f).Tooltip("So'nish / ochilish vaqti (sekund)"),
+    ZM_FIELD_TOOLTIP(LoadingScreen, Target, "The scene loaded in the background").Header("Loading"),
+    ZM_FIELD_RANGE(LoadingScreen, MinSeconds, 0.0f, 10.0f).Tooltip("The screen stays at least this long (seconds)"),
+    ZM_FIELD_RANGE(LoadingScreen, Fade, 0.0f, 2.0f).Tooltip("Fade out / in time (seconds)"),
     ZM_FIELD(LoadingScreen, Bar).Header("UI").Tooltip("UI Progress Bar"),
-    ZM_FIELD(LoadingScreen, Percent).Tooltip("Foiz matni"),
-    ZM_FIELD(LoadingScreen, Stage).Tooltip("Bosqich matni"))
+    ZM_FIELD(LoadingScreen, Percent).Tooltip("Percent text"),
+    ZM_FIELD(LoadingScreen, Stage).Tooltip("Stage text"))
 
 // O'yin sessiyasi statistikasi - C++ servis (Services): sahnalardan tashqarida yashaydi, istalgan
 // skriptdan GetService<SessionStats>() bilan topiladi. Har darajada yig'ilgan tangalar.
@@ -199,7 +199,7 @@ private:
     SubscriptionID m_Subscription = 0;
     GameState::ListenerID m_Watch = 0;
 };
-ZM_REGISTER_SCRIPT(GameSession, ZM_FIELD(GameSession, Hud).Tooltip("Sessiya matni (UI): faqat darajalarda ko'rinadi"))
+ZM_REGISTER_SCRIPT(GameSession, ZM_FIELD(GameSession, Hud).Tooltip("Session text (UI): shown only in the levels"))
 
 // Sub-sahnalar namunasi (SubScenes.zscene): bitta "Lager" bo'lagi (Scenes/Parts/Camp.zscene) uch joyda.
 // Ikkitasi sahna bilan yuklanadi (SubSceneComponent, "Sahna bilan yuklash"), uchinchisini shu skript
@@ -240,5 +240,5 @@ private:
     bool m_Requested = false;
     bool m_Shown = false;
 };
-ZM_REGISTER_SCRIPT(DelayedSubScene, ZM_FIELD_RANGE(DelayedSubScene, Delay, 0.0f, 10.0f).Tooltip("Sub-sahna yuklanguncha kutish (sekund)"),
-                   ZM_FIELD(DelayedSubScene, Label).Tooltip("Holat matni (Text komponenti)"))
+ZM_REGISTER_SCRIPT(DelayedSubScene, ZM_FIELD_RANGE(DelayedSubScene, Delay, 0.0f, 10.0f).Tooltip("Wait until the sub-scene is loaded (seconds)"),
+                   ZM_FIELD(DelayedSubScene, Label).Tooltip("Status text (a Text component)"))

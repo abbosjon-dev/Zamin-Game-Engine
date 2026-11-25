@@ -74,7 +74,7 @@ void BreakoutGame::OnCreate()
     m_DemoRun = AutoDemo || (demo && *demo && std::string_view(demo) != "0");
     m_BestScore = SaveData::GetInt("Breakout.BestScore", 0);
     m_BestLevel = SaveData::GetInt("Breakout.BestLevel", 0);
-    ZM_INFO("Rekordlar: hisob {}, {}-daraja", m_BestScore, m_BestLevel);
+    ZM_INFO("Records: score {}, level {}", m_BestScore, m_BestLevel);
     if (const char* level = std::getenv("ZAMIN_START_LEVEL"))
         StartLevel = std::atoi(level);
 }
@@ -94,7 +94,7 @@ void BreakoutGame::OnStart()
     });
     if (m_DemoRun)
     {
-        ZM_INFO("Demo rejimi: o'yinni bot o'ynaydi (ZAMIN_DEMO)");
+        ZM_INFO("Demo mode: a bot plays the game (ZAMIN_DEMO)");
         StartGame();
     }
     else
@@ -104,9 +104,9 @@ void BreakoutGame::OnStart()
 
 void BreakoutGame::OnDestroy()
 {
-    SubmitRecords("o'yin yopildi");
+    SubmitRecords("game closed");
     if (m_DemoRun)
-        LogDemo("yakuni");
+        LogDemo("summary");
     Cursor::SetVisible(true);
     if (s_Instance == this)
         s_Instance = nullptr;
@@ -220,7 +220,7 @@ void BreakoutGame::LoadLevel(int index)
     ShowBanner(Localize("hud.level_banner", m_Level + 1), Localize(layout.NameKey), 2.2f);
     m_ServeTimer = 0.8f; // the bricks appear first
     if (m_DemoRun)
-        ZM_INFO("Demo: {}-daraja ({}) boshlandi - {} ta g'isht (hisob {})", m_Level + 1, Localize(layout.NameKey), count, m_Score);
+        ZM_INFO("Demo: level {} ({}) started - {} bricks (score {})", m_Level + 1, Localize(layout.NameKey), count, m_Score);
 }
 
 void BreakoutGame::ServeBall()
@@ -237,7 +237,7 @@ void BreakoutGame::ServeBall()
 
 void BreakoutGame::ShowMenu()
 {
-    SubmitRecords("bosh menyuga qaytildi"); // a game left from the pause menu still counts
+    SubmitRecords("returned to the main menu"); // a game left from the pause menu still counts
     if (IsGamePaused())
         ResumeGame();
     Audio::SetGroupLowPass("Music", 0.0f);
@@ -246,7 +246,7 @@ void BreakoutGame::ShowMenu()
     SetActiveRef(GameOverMenu, false);
     SetActiveRef(Hud, false);
     SetActiveRef(MainMenu, true);
-    ZM_INFO("Menyu: bosh menyu");
+    ZM_INFO("Menu: main menu");
     Cursor::SetVisible(true);
     if (Entity button = Resolve(PlayButton))
         GetScene().SetSelectedUI(button);
@@ -256,7 +256,7 @@ void BreakoutGame::ShowMenu()
 
 void BreakoutGame::StartGame()
 {
-    SubmitRecords("qaytadan boshlandi");
+    SubmitRecords("restarted");
     if (IsGamePaused())
         ResumeGame();
     Audio::SetGroupLowPass("Music", 0.0f);
@@ -269,7 +269,7 @@ void BreakoutGame::StartGame()
     StartSession(m_DemoRun, m_DemoRun, std::clamp(StartLevel, 1, (int)GetLevelLayouts().size()) - 1);
     Cursor::SetVisible(m_Bot);
     if (!m_Bot)
-        ZM_INFO("Breakout: o'yin boshlandi");
+        ZM_INFO("Breakout: game started");
 }
 
 void BreakoutGame::OpenPause()
@@ -277,7 +277,7 @@ void BreakoutGame::OpenPause()
     m_State = State::Paused;
     PauseGame();
     SetActiveRef(PauseMenu, true);
-    ZM_INFO("Menyu: pauza");
+    ZM_INFO("Menu: pause");
     if (Entity button = Resolve(ResumeButton))
         GetScene().SetSelectedUI(button);
     Audio::SetGroupLowPass("Music", 900.0f);
@@ -290,7 +290,7 @@ void BreakoutGame::ClosePause()
         return;
     m_State = State::Playing;
     SetActiveRef(PauseMenu, false);
-    ZM_INFO("Menyu: pauza yopildi");
+    ZM_INFO("Menu: pause closed");
     GetScene().SetSelectedUI({});
     Audio::SetGroupLowPass("Music", 0.0f);
     Cursor::SetVisible(m_Bot);
@@ -301,7 +301,7 @@ void BreakoutGame::EndGame(bool victory)
 {
     m_State = State::GameOver;
     const int reached = m_Level + 1;
-    SubmitRecords(victory ? "g'alaba" : "o'yin tugadi");
+    SubmitRecords(victory ? "victory" : "game over");
     SetText(OverTitle, Localize(victory ? "over.victory" : "over.title"));
     if (Entity title = Resolve(OverTitle))
         if (auto* t = title.TryGetComponent<TextComponent>())
@@ -310,7 +310,7 @@ void BreakoutGame::EndGame(bool victory)
     SetText(OverLevel, Localize("over.level", reached, m_BricksBroken));
     SetText(OverRecord, m_NewRecord ? Localize("over.record") : Localize("over.best", FormatScore(m_BestScore)));
     SetActiveRef(GameOverMenu, true);
-    ZM_INFO("Menyu: natijalar ({}) - hisob {}, {}-daraja", victory ? "g'alaba" : "o'yin tugadi", m_Score, reached);
+    ZM_INFO("Menu: results ({}) - score {}, level {}", victory ? "victory" : "game over", m_Score, reached);
     Cursor::SetVisible(true);
     if (Entity button = Resolve(RetryButton))
         GetScene().SetSelectedUI(button);
@@ -320,11 +320,11 @@ void BreakoutGame::EndGame(bool victory)
     Sfx(victory ? "level_clear" : "gameover", 0.9f);
     if (m_DemoRun)
     {
-        LogDemo(victory ? "g'alaba" : "o'yin tugadi");
+        LogDemo(victory ? "victory" : "game over");
         m_RestartTimer = 3.0f;
     }
     else
-        ZM_INFO("Breakout: {} - hisob {}, {}-daraja", victory ? "g'alaba" : "o'yin tugadi", m_Score, reached);
+        ZM_INFO("Breakout: {} - score {}, level {}", victory ? "victory" : "game over", m_Score, reached);
 }
 
 // ---------------------------------------------------------------------------------------- update
@@ -401,7 +401,7 @@ void BreakoutGame::OnUpdate(Timestep ts)
                 Destroy(p->GetEntity());
             m_StateTimer = 2.6f;
             if (m_DemoRun)
-                ZM_INFO("Demo: {}-daraja tugadi (hisob {}, jon {})", m_Level + 1, m_Score, m_Lives);
+                ZM_INFO("Demo: level {} finished (score {}, lives {})", m_Level + 1, m_Score, m_Lives);
             if (m_State != State::Menu)
                 m_State = State::LevelClear;
         }
@@ -450,7 +450,7 @@ void BreakoutGame::OnUpdate(Timestep ts)
         if (m_DemoLogTimer >= 10.0f)
         {
             m_DemoLogTimer = 0.0f;
-            LogDemo("holat");
+            LogDemo("status");
         }
     }
 }
@@ -905,7 +905,7 @@ void BreakoutGame::SubmitRecords(const char* when)
     {
         m_BestScore = m_Score;
         m_NewRecord = true;
-        ZM_INFO("Yangi rekord: hisob {} ({}-daraja; {})", m_Score, reached, when);
+        ZM_INFO("New record: score {} (level {}; {})", m_Score, reached, when);
     }
     if (SaveData::SubmitRecord("Breakout.BestLevel", reached))
         m_BestLevel = reached;
@@ -914,13 +914,13 @@ void BreakoutGame::SubmitRecords(const char* when)
 
 void BreakoutGame::LogDemo(const char* reason)
 {
-    ZM_INFO("Demo ({}): hisob {}, {}-daraja, singan g'ishtlar {}, tugagan darajalar {}, eng katta kombo {}", reason, m_Score, m_Level + 1,
+    ZM_INFO("Demo ({}): score {}, level {}, bricks broken {}, levels finished {}, best combo {}", reason, m_Score, m_Level + 1,
             m_BricksBroken, m_LevelsCleared, m_BestCombo);
 }
 
 ZM_REGISTER_SCRIPT(BreakoutGame,
-    ZM_FIELD(BreakoutGame, Paddle).Header("O'yin obyektlari"),
-    ZM_FIELD(BreakoutGame, Bricks).Tooltip("Daraja g'ishtlari shu obyekt ichida yaratiladi"),
+    ZM_FIELD(BreakoutGame, Paddle).Header("Game objects"),
+    ZM_FIELD(BreakoutGame, Bricks).Tooltip("The level's bricks are created inside this object"),
     ZM_FIELD(BreakoutGame, BrickTemplate).Header("Shablonlar"),
     ZM_FIELD(BreakoutGame, BallTemplate),
     ZM_FIELD(BreakoutGame, WidePowerUp),
@@ -932,7 +932,7 @@ ZM_REGISTER_SCRIPT(BreakoutGame,
     ZM_FIELD(BreakoutGame, BeamTemplate),
     ZM_FIELD(BreakoutGame, RingTemplate),
     ZM_FIELD(BreakoutGame, PopupTemplate),
-    ZM_FIELD(BreakoutGame, Shards).Header("Effektlar"),
+    ZM_FIELD(BreakoutGame, Shards).Header("Effects"),
     ZM_FIELD(BreakoutGame, Sparks),
     ZM_FIELD(BreakoutGame, Hud).Header("HUD"),
     ZM_FIELD(BreakoutGame, ScoreText),
@@ -947,7 +947,7 @@ ZM_REGISTER_SCRIPT(BreakoutGame,
     ZM_FIELD(BreakoutGame, Banner),
     ZM_FIELD(BreakoutGame, BannerSub),
     ZM_FIELD(BreakoutGame, DemoBadge),
-    ZM_FIELD(BreakoutGame, MainMenu).Header("Menyular"),
+    ZM_FIELD(BreakoutGame, MainMenu).Header("Menus"),
     ZM_FIELD(BreakoutGame, PauseMenu),
     ZM_FIELD(BreakoutGame, GameOverMenu),
     ZM_FIELD(BreakoutGame, MenuBest),
@@ -959,10 +959,10 @@ ZM_REGISTER_SCRIPT(BreakoutGame,
     ZM_FIELD(BreakoutGame, OverScore),
     ZM_FIELD(BreakoutGame, OverLevel),
     ZM_FIELD(BreakoutGame, OverRecord),
-    ZM_FIELD(BreakoutGame, FieldHalfWidth).Header("Maydon"),
+    ZM_FIELD(BreakoutGame, FieldHalfWidth).Header("Field"),
     ZM_FIELD(BreakoutGame, FieldTop),
-    ZM_FIELD(BreakoutGame, FieldBottom).Tooltip("Shu chiziqdan pastga tushgan to'p yo'qoladi"),
-    ZM_FIELD_RANGE(BreakoutGame, StartLives, 1, 6).Header("Qoidalar"),
-    ZM_FIELD_RANGE(BreakoutGame, PowerUpChance, 0.0f, 1.0f).Tooltip("Singan g'ishtdan bonus tushish ehtimoli"),
-    ZM_FIELD(BreakoutGame, AutoDemo).Tooltip("Demo rejimida boshlash: bot o'ynaydi (ZAMIN_DEMO=1 ham shunday qiladi)"),
-    ZM_FIELD_RANGE(BreakoutGame, StartLevel, 1, 6).Tooltip("O'yin shu darajadan boshlanadi (darajani sinash uchun; ZAMIN_START_LEVEL ham)"))
+    ZM_FIELD(BreakoutGame, FieldBottom).Tooltip("A ball that falls below this line is lost"),
+    ZM_FIELD_RANGE(BreakoutGame, StartLives, 1, 6).Header("Rules"),
+    ZM_FIELD_RANGE(BreakoutGame, PowerUpChance, 0.0f, 1.0f).Tooltip("Chance of a bonus dropping from a broken brick"),
+    ZM_FIELD(BreakoutGame, AutoDemo).Tooltip("Start in demo mode: a bot plays (ZAMIN_DEMO=1 does the same)"),
+    ZM_FIELD_RANGE(BreakoutGame, StartLevel, 1, 6).Tooltip("The game starts from this level (for testing a level; ZAMIN_START_LEVEL too)"))

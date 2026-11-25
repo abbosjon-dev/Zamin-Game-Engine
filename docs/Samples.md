@@ -145,14 +145,14 @@ aylana vaqti.
 
 Har o'yinda bosh menyu (orqasida bot o'ynaydi), pauza menyusi (Esc / Start) va natijalar oynasi bor; hammasi UI
 komponentlaridan ([UI.md](UI.md)), klaviatura, sichqoncha va gamepad bilan boshqariladi (UI navigatsiyasi). Menyular
-ochilganda jurnalga `Menyu: ...` yoziladi — testlar shu qatorlarni tekshiradi.
+ochilganda jurnalga `Menu: ...` yoziladi — testlar shu qatorlarni tekshiradi.
 
 ### Rekordlar (SaveData)
 
 Har o'yin o'z rekordini [`SaveData::SubmitRecord`](Scripting.md#18-saqlash-lokalizatsiya-log) bilan saqlaydi:
 natija avvalgisidan yaxshi bo'lsa yoziladi (vaqt va qadamlar uchun `RecordOrder::Lower`). Rekord o'yin tugaganda,
 pauzadan bosh menyuga chiqilganda, qaytadan boshlanganda va o'yin yopilganda hisoblanadi; bosh menyu orqasidagi bot
-rekord qo'ymaydi. Ishga tushganda o'yin `Rekordlar: ...`, yangi rekordda `Yangi rekord: ...` deb yozadi; bosh menyu va
+rekord qo'ymaydi. Ishga tushganda o'yin `Records: ...`, yangi rekordda `New record: ...` deb yozadi; bosh menyu va
 HUD rekordni ko'rsatadi, natijalar oynasi esa "YANGI REKORD!" deydi.
 
 | O'yin | SaveData kalitlari | Qaysi biri yaxshi |
@@ -203,7 +203,7 @@ darajadan. Kadr vaqti qat'iy bo'lsa (`ZAMIN_CAPTURE_FPS=20`), bot har kompyuterd
 | Holat | Nima tekshiriladi |
 |---|---|
 | `demo` | bot o'ynaydi: ochko, to'lqin / daraja / aylana / masofa o'sadi (`Demo: ...` qatorlari) |
-| rekord (`demo` dan keyin) | demo natijasi `Yangi rekord: ...` bo'lib SaveData fayliga yoziladi; o'sha HOME bilan ikkinchi ishga tushirish `Rekordlar: ...` da xuddi shu qiymatni o'qiydi va bosh menyuni ko'rsatadi |
+| rekord (`demo` dan keyin) | demo natijasi `New record: ...` bo'lib SaveData fayliga yoziladi; o'sha HOME bilan ikkinchi ishga tushirish `Records: ...` da xuddi shu qiymatni o'qiydi va bosh menyuni ko'rsatadi |
 | `menus` | klaviatura: bosh menyu → o'yin → pauza → davom → pauza → bosh menyu (ba'zilarida natijalar oynasi ham) |
 | `gamepad` | faqat gamepad (simulyatsiya: `ZAMIN_PLAYER_INPUT` `pad=A`, `stick=LeftX,0.8`): A bilan o'yin, o'yinning o'z boshqaruvi (stik, tugmalar, triggerlar), Start bilan pauza, D-pad + A bilan bosh menyu; ishoralar gamepad'ga o'tadi (`Input device: gamepad`) va o'yinda natija bor (o'q otildi, g'isht sindi, daraja yechildi, masofa) |
 | `smoke` | eski namunalar ishga tushadi, rasm chiqaradi |

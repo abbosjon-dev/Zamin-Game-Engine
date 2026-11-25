@@ -46,7 +46,7 @@ private:
         Entity root = Instantiate(Prefab, { position.x, position.y, 0.0f });
         if (!root)
         {
-            ZM_WARN("Ragdoll prefabi topilmadi: {}", Prefab);
+            ZM_WARN("Ragdoll prefab not found: {}", Prefab);
             return;
         }
         Paint(root);
@@ -100,8 +100,8 @@ private:
 };
 
 ZM_REGISTER_SCRIPT(RagdollSpawner,
-    ZM_FIELD(RagdollSpawner, Prefab).Tooltip("Ragdoll prefabi (Assets ichidagi yo'l)"),
-    ZM_FIELD_RANGE(RagdollSpawner, AutoInterval, 0.0f, 30.0f).Header("Tashlash").Tooltip("Necha soniyada o'zi bittasini tashlaydi (0 - faqat sichqoncha / R)"),
-    ZM_FIELD_RANGE(RagdollSpawner, Width, 0.0f, 60.0f).Tooltip("Osmondan tushadigan kenglik"),
-    ZM_FIELD_RANGE(RagdollSpawner, MaxRagdolls, 1, 50).Tooltip("Ko'pi bilan shuncha (eskilari yo'qoladi)"),
-    ZM_FIELD_RANGE(RagdollSpawner, Speed, 0.0f, 30.0f).Tooltip("Boshlang'ich tezlik (tasodifiy yo'nalishda)"))
+    ZM_FIELD(RagdollSpawner, Prefab).Tooltip("Ragdoll prefab (path inside Assets)"),
+    ZM_FIELD_RANGE(RagdollSpawner, AutoInterval, 0.0f, 30.0f).Header("Dropping").Tooltip("Drops one by itself every this many seconds (0 - only the mouse / R)"),
+    ZM_FIELD_RANGE(RagdollSpawner, Width, 0.0f, 60.0f).Tooltip("Width of the area they fall from"),
+    ZM_FIELD_RANGE(RagdollSpawner, MaxRagdolls, 1, 50).Tooltip("At most this many (the oldest disappear)"),
+    ZM_FIELD_RANGE(RagdollSpawner, Speed, 0.0f, 30.0f).Tooltip("Initial speed (in a random direction)"))

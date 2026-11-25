@@ -5399,6 +5399,7 @@ namespace Zamin {
             { "Takroriy ID", "Duplicate ID" },
             { "Ierarxiya xato", "Invalid hierarchy" },
             { "Fayl oxiri yo'q", "Truncated file" },
+            { "UI shaffofligi (alpha)", "UI opacity (alpha)" },
         };
 
         struct Table

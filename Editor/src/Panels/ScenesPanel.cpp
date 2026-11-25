@@ -192,7 +192,7 @@ namespace Zamin {
         }
         if (!Project::GetActive())
         {
-            ImGui::TextDisabled("Loyiha ochilmagan");
+            ImGui::TextDisabled("%s", Tr("Loyiha ochilmagan"));
             ImGui::End();
             return;
         }
@@ -252,7 +252,7 @@ namespace Zamin {
         if (ImGui::BeginChild("##sceneCards", ImVec2(0, 0), ImGuiChildFlags_None))
         {
             if (shown.empty())
-                ImGui::TextDisabled(m_Items.empty() ? "Loyihada sahna yo'q" : "Qidiruvga mos sahna yo'q");
+                ImGui::TextDisabled("%s", m_Items.empty() ? Tr("Loyihada sahna yo'q") : Tr("Qidiruvga mos sahna yo'q"));
             else if (m_ListView)
                 DrawList(shown);
             else
@@ -308,7 +308,7 @@ namespace Zamin {
         ImGui::SameLine();
         const auto& build = Project::GetActive()->GetConfig().BuildScenes;
         const size_t enabled = (size_t)std::count_if(build.begin(), build.end(), [](const BuildSceneEntry& e) { return e.Enabled; });
-        ImGui::TextDisabled("%zu ta sahna, build: %zu", m_Items.size(), enabled);
+        ImGui::TextDisabled(Tr("%zu ta sahna, build: %zu"), m_Items.size(), enabled);
     }
 
     void ScenesPanel::DrawRuntimeScenes()
@@ -322,9 +322,9 @@ namespace Zamin {
         if (ImGui::BeginTable("##loadedScenes", 5, flags))
         {
             ImGui::TableSetupColumn("##active", ImGuiTableColumnFlags_WidthFixed, 22.0f);
-            ImGui::TableSetupColumn("Sahna", ImGuiTableColumnFlags_WidthStretch, 3.0f);
+            ImGui::TableSetupColumn(Tr("Sahna"), ImGuiTableColumnFlags_WidthStretch, 3.0f);
             ImGui::TableSetupColumn("Build", ImGuiTableColumnFlags_WidthFixed, 44.0f);
-            ImGui::TableSetupColumn("Obyekt", ImGuiTableColumnFlags_WidthFixed, 52.0f);
+            ImGui::TableSetupColumn(Tr("Obyekt"), ImGuiTableColumnFlags_WidthFixed, 52.0f);
             ImGui::TableSetupColumn("##actions", ImGuiTableColumnFlags_WidthFixed, 96.0f);
             ImGui::TableHeadersRow();
             Ref<Scene> makeActive, unload, show;
@@ -352,7 +352,7 @@ namespace Zamin {
                 if (ImGui::IsItemHovered())
                 {
                     const std::string path = m_SceneManager->GetScenePath(scene.get());
-                    UI::Tooltip(std::format("{}\nBosing: ierarxiyada ko'rsatish", path.empty() ? std::string("(faylsiz)") : path).c_str());
+                    UI::Tooltip(TrFormat("{}\nBosing: ierarxiyada ko'rsatish", path.empty() ? std::string("(faylsiz)") : path).c_str());
                 }
                 ImGui::TableNextColumn();
                 const int buildIndex = m_SceneManager->GetBuildIndex(scene.get());
@@ -397,19 +397,19 @@ namespace Zamin {
             ImGui::ProgressBar(op->GetProgress(), ImVec2(-FLT_MIN, 0.0f));
         }
         if (m_SceneManager->IsTransitioning())
-            ImGui::TextDisabled(ICON_FA_CIRCLE_HALF_STROKE "  O'tish: %.0f%%", m_SceneManager->GetTransitionAlpha() * 100.0f);
+            ImGui::TextDisabled(Tr(ICON_FA_CIRCLE_HALF_STROKE "  O'tish: %.0f%%"), m_SceneManager->GetTransitionAlpha() * 100.0f);
         ImGui::Spacing();
     }
 
     void ScenesPanel::DrawGlobalState()
     {
         const size_t values = GameState::GetCount(), services = Services::GetCount();
-        const std::string title = std::format(ICON_FA_DATABASE "  Global holat: {} ta qiymat, {} ta servis###globalState", values, services);
+        const std::string title = TrFormat(ICON_FA_DATABASE "  Global holat: {} ta qiymat, {} ta servis###globalState", values, services);
         if (!ImGui::CollapsingHeader(title.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
             return;
         if (values == 0 && services == 0)
         {
-            ImGui::TextDisabled("Bo'sh: skriptlar GameState::Set... / Services::Register bilan to'ldiradi");
+            ImGui::TextDisabled("%s", Tr("Bo'sh: skriptlar GameState::Set... / Services::Register bilan to'ldiradi"));
             ImGui::Spacing();
             return;
         }
@@ -421,8 +421,8 @@ namespace Zamin {
         const ImGuiTableFlags flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_SizingStretchProp;
         if (values > 0 && ImGui::BeginTable("##gameState", 3, flags))
         {
-            ImGui::TableSetupColumn("Kalit", ImGuiTableColumnFlags_WidthStretch, 1.4f);
-            ImGui::TableSetupColumn("Qiymat", ImGuiTableColumnFlags_WidthStretch, 1.0f);
+            ImGui::TableSetupColumn(Tr("Kalit"), ImGuiTableColumnFlags_WidthStretch, 1.4f);
+            ImGui::TableSetupColumn(Tr("Qiymat"), ImGuiTableColumnFlags_WidthStretch, 1.0f);
             ImGui::TableSetupColumn("##persistent", ImGuiTableColumnFlags_WidthFixed, 22.0f);
             ImGui::TableHeadersRow();
             const std::string filter = StringUtils::ToLower(m_StateFilter);
@@ -481,7 +481,7 @@ namespace Zamin {
             std::string list;
             for (const std::string& name : Services::GetNames())
                 list += (list.empty() ? "" : ", ") + name;
-            ImGui::TextDisabled(ICON_FA_CUBES "  Servislar:");
+            ImGui::TextDisabled("%s", Tr(ICON_FA_CUBES "  Servislar:"));
             ImGui::SameLine();
             ImGui::PushTextWrapPos(0.0f);
             ImGui::TextUnformatted(list.c_str());
@@ -560,7 +560,7 @@ namespace Zamin {
             ImGui::PopTextWrapPos();
         }
         if (!info.Metadata.Author.empty())
-            ImGui::Text("Muallif: %s", info.Metadata.Author.c_str());
+            ImGui::Text(Tr("Muallif: %s"), info.Metadata.Author.c_str());
         if (!info.Metadata.Tags.empty())
         {
             std::string tags;
@@ -568,17 +568,17 @@ namespace Zamin {
                 tags += (tags.empty() ? "#" : "  #") + tag;
             ImGui::TextColored(ImVec4(0.55f, 0.75f, 1.0f, 1.0f), "%s", tags.c_str());
         }
-        ImGui::Text("%zu ta obyekt (%zu ildiz)", info.EntityCount, info.RootCount);
+        ImGui::Text(Tr("%zu ta obyekt (%zu ildiz)"), info.EntityCount, info.RootCount);
         if (info.Version < SceneMigration::CurrentVersion)
-            ImGui::TextColored(s_OldColor, "Format v%d: yuklashda v%d ga yangilanadi", info.Version, SceneMigration::CurrentVersion);
+            ImGui::TextColored(s_OldColor, Tr("Format v%d: yuklashda v%d ga yangilanadi"), info.Version, SceneMigration::CurrentVersion);
         const int build = Project::GetBuildIndex(item.Relative);
         if (build >= 0)
-            ImGui::Text("Build indeksi: %d", build);
+            ImGui::Text(Tr("Build indeksi: %d"), build);
         else if (FindBuildEntry(item.Relative) >= 0)
-            ImGui::TextDisabled("Build ro'yxatida o'chirilgan");
+            ImGui::TextDisabled("%s", Tr("Build ro'yxatida o'chirilgan"));
         if (IsStartScene(item.Relative))
-            ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(s_StarColor), ICON_FA_HOUSE "  Boshlang'ich sahna");
-        ImGui::TextDisabled("Ikki marta bosing: ochish  |  o'ng tugma: menyu");
+            ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(s_StarColor), "%s", Tr(ICON_FA_HOUSE "  Boshlang'ich sahna"));
+        ImGui::TextDisabled("%s", Tr("Ikki marta bosing: ochish  |  o'ng tugma: menyu"));
         ImGui::EndTooltip();
     }
 
@@ -598,7 +598,7 @@ namespace Zamin {
         else
         {
             const bool enabled = Project::GetActive()->GetConfig().BuildScenes[(size_t)entry].Enabled;
-            if (ImGui::MenuItem(enabled ? ICON_FA_TOGGLE_OFF "  Build'da o'chirish" : ICON_FA_TOGGLE_ON "  Build'da yoqish"))
+            if (ImGui::MenuItem(enabled ? Tr(ICON_FA_TOGGLE_OFF "  Build'da o'chirish") : Tr(ICON_FA_TOGGLE_ON "  Build'da yoqish")))
                 SetBuildEnabled(item.Relative, !enabled);
             if (ImGui::MenuItem(Tr(ICON_FA_MINUS "  Build ro'yxatidan olib tashlash")))
                 RemoveFromBuild(item.Relative);
@@ -686,7 +686,7 @@ namespace Zamin {
                 const char* icon = ICON_FA_EARTH_ASIA;
                 const ImVec2 size = ImGui::CalcTextSize(icon);
                 draw->AddText(ImVec2((tmin.x + tmax.x - size.x) * 0.5f, (tmin.y + tmax.y - size.y) * 0.5f - lineH * 0.4f), IM_COL32(110, 115, 125, 255), icon);
-                const char* note = "rasm yo'q";
+                const char* note = Tr("rasm yo'q");
                 const ImVec2 noteSize = ImGui::CalcTextSize(note);
                 draw->AddText(ImVec2((tmin.x + tmax.x - noteSize.x) * 0.5f, (tmin.y + tmax.y) * 0.5f + lineH * 0.3f), IM_COL32(95, 100, 110, 255), note);
             }
@@ -746,10 +746,10 @@ namespace Zamin {
         const float thumbW = 64.0f, thumbH = 36.0f;
         ImGui::TableSetupScrollFreeze(0, 1);
         ImGui::TableSetupColumn("##thumb", ImGuiTableColumnFlags_WidthFixed, thumbW + 4.0f);
-        ImGui::TableSetupColumn("Sahna", ImGuiTableColumnFlags_WidthStretch, 2.0f);
+        ImGui::TableSetupColumn(Tr("Sahna"), ImGuiTableColumnFlags_WidthStretch, 2.0f);
         ImGui::TableSetupColumn("Build", ImGuiTableColumnFlags_WidthFixed, 48.0f);
-        ImGui::TableSetupColumn("Obyekt", ImGuiTableColumnFlags_WidthFixed, 52.0f);
-        ImGui::TableSetupColumn("Teglar", ImGuiTableColumnFlags_WidthStretch, 1.5f);
+        ImGui::TableSetupColumn(Tr("Obyekt"), ImGuiTableColumnFlags_WidthFixed, 52.0f);
+        ImGui::TableSetupColumn(Tr("Teglar"), ImGuiTableColumnFlags_WidthStretch, 1.5f);
         ImGui::TableSetupColumn("Format", ImGuiTableColumnFlags_WidthFixed, 50.0f);
         ImGui::TableHeadersRow();
         for (const Item* itemPtr : items)
@@ -785,7 +785,7 @@ namespace Zamin {
             if (build >= 0)
                 ImGui::Text("#%d", build);
             else
-                ImGui::TextDisabled(FindBuildEntry(item.Relative) >= 0 ? "o'chiq" : "-");
+                ImGui::TextDisabled("%s", FindBuildEntry(item.Relative) >= 0 ? Tr("o'chiq") : "-");
             ImGui::TableNextColumn();
             ImGui::Text("%zu", item.Info.EntityCount);
             ImGui::TableNextColumn();

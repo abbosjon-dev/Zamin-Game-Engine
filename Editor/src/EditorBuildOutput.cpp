@@ -239,7 +239,7 @@ namespace Zamin {
         }
         ImGui::PopStyleColor(2);
         if (ImGui::IsItemHovered())
-            UI::Tooltip(std::format("Oxirgi kompilyatsiya: {} xato, {} ogohlantirish\nBosing: Kompilyatsiya oynasi", m_BuildErrors, m_BuildWarnings).c_str());
+            UI::Tooltip(TrFormat("Oxirgi kompilyatsiya: {} xato, {} ogohlantirish\nBosing: Kompilyatsiya oynasi", m_BuildErrors, m_BuildWarnings).c_str());
         // The colours drawn over the selectable.
         ImDrawList* dl = ImGui::GetWindowDrawList();
         float x = at.x;
@@ -304,17 +304,17 @@ namespace Zamin {
             case BuildResult::Running:
             {
                 const char* spin[] = { "|", "/", "-", "\\" };
-                ImGui::TextColored(s_WarningColor, "%s  ketmoqda %s", ICON_FA_SPINNER, spin[(int)(ImGui::GetTime() * 8.0) % 4]);
+                ImGui::TextColored(s_WarningColor, Tr("%s  ketmoqda %s"), ICON_FA_SPINNER, spin[(int)(ImGui::GetTime() * 8.0) % 4]);
                 break;
             }
             case BuildResult::Succeeded:
-                ImGui::TextColored(ImVec4(0.4f, 0.85f, 0.5f, 1.0f), ICON_FA_CIRCLE_CHECK "  muvaffaqiyatli (%.1f s)", m_BuildSeconds);
+                ImGui::TextColored(ImVec4(0.4f, 0.85f, 0.5f, 1.0f), Tr(ICON_FA_CIRCLE_CHECK "  muvaffaqiyatli (%.1f s)"), m_BuildSeconds);
                 break;
             case BuildResult::Failed:
-                ImGui::TextColored(s_ErrorColor, ICON_FA_CIRCLE_XMARK "  muvaffaqiyatsiz (%.1f s)", m_BuildSeconds);
+                ImGui::TextColored(s_ErrorColor, Tr(ICON_FA_CIRCLE_XMARK "  muvaffaqiyatsiz (%.1f s)"), m_BuildSeconds);
                 break;
             default:
-                ImGui::TextDisabled("hali kompilyatsiya qilinmagan");
+                ImGui::TextDisabled("%s", Tr("hali kompilyatsiya qilinmagan"));
                 break;
         }
         size_t notes = 0;
@@ -332,12 +332,12 @@ namespace Zamin {
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
                 UI::Tooltip(tip);
         };
-        toggle(m_BuildShowErrors, ICON_FA_CIRCLE_XMARK, "Xatolar", m_BuildErrors, s_ErrorColor, "Xatolarni ko'rsatish / yashirish");
-        toggle(m_BuildShowWarnings, ICON_FA_TRIANGLE_EXCLAMATION, "Ogohlantirishlar", m_BuildWarnings, s_WarningColor,
-               "Ogohlantirishlarni ko'rsatish / yashirish");
-        toggle(m_BuildShowNotes, ICON_FA_CIRCLE_INFO, "Izohlar", notes, s_NoteColor, "Xabarlar ostidagi izohlar (note:) va kod satrlari");
+        toggle(m_BuildShowErrors, ICON_FA_CIRCLE_XMARK, Tr("Xatolar"), m_BuildErrors, s_ErrorColor, Tr("Xatolarni ko'rsatish / yashirish"));
+        toggle(m_BuildShowWarnings, ICON_FA_TRIANGLE_EXCLAMATION, Tr("Ogohlantirishlar"), m_BuildWarnings, s_WarningColor,
+               Tr("Ogohlantirishlarni ko'rsatish / yashirish"));
+        toggle(m_BuildShowNotes, ICON_FA_CIRCLE_INFO, Tr("Izohlar"), notes, s_NoteColor, Tr("Xabarlar ostidagi izohlar (note:) va kod satrlari"));
         ImGui::SameLine();
-        UI::SearchBox("##buildSearch", m_BuildSearch, "Xabar yoki fayl bo'yicha qidirish...");
+        UI::SearchBox("##buildSearch", m_BuildSearch, Tr("Xabar yoki fayl bo'yicha qidirish..."));
 
         if (ImGui::BeginTabBar("##buildTabs"))
         {
@@ -348,16 +348,16 @@ namespace Zamin {
                                     nullptr, problemsFlags))
             {
                 if (m_BuildDiagnostics.empty())
-                    ImGui::TextDisabled(m_BuildResult == BuildResult::None ? "Skriptlarni kompilyatsiya qiling (Ctrl+B): xatolar shu yerda fayl va qatori bilan chiqadi"
-                                        : m_BuildResult == BuildResult::Failed ? "Xabarlar ajratib olinmadi - 'To'liq chiqish'ni ko'ring"
-                                                                               : "Xato yoki ogohlantirish yo'q");
+                    ImGui::TextDisabled("%s", m_BuildResult == BuildResult::None ? Tr("Skriptlarni kompilyatsiya qiling (Ctrl+B): xatolar shu yerda fayl va qatori bilan chiqadi")
+                                        : m_BuildResult == BuildResult::Failed ? Tr("Xabarlar ajratib olinmadi - 'To'liq chiqish'ni ko'ring")
+                                                                               : Tr("Xato yoki ogohlantirish yo'q"));
                 else if (ImGui::BeginTable("##buildTable", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_Resizable |
                                                                    ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_PadOuterX))
                 {
                     ImGui::TableSetupScrollFreeze(0, 1);
-                    ImGui::TableSetupColumn("Xabar", ImGuiTableColumnFlags_WidthStretch, 3.0f);
-                    ImGui::TableSetupColumn("Fayl", ImGuiTableColumnFlags_WidthStretch, 1.0f);
-                    ImGui::TableSetupColumn("Qator", ImGuiTableColumnFlags_WidthFixed, 64.0f);
+                    ImGui::TableSetupColumn(Tr("Xabar"), ImGuiTableColumnFlags_WidthStretch, 3.0f);
+                    ImGui::TableSetupColumn(Tr("Fayl"), ImGuiTableColumnFlags_WidthStretch, 1.0f);
+                    ImGui::TableSetupColumn(Tr("Qator"), ImGuiTableColumnFlags_WidthFixed, 64.0f);
                     ImGui::TableHeadersRow();
                     ImGui::PushStyleColor(ImGuiCol_Header, UI::AccentU32(0.26f));
                     ImGui::PushStyleColor(ImGuiCol_HeaderHovered, UI::AccentU32(0.18f));
@@ -408,7 +408,7 @@ namespace Zamin {
                         const std::string file = ShownFile(d.File);
                         ImGui::TextDisabled("%s", file.c_str());
                         if (!file.empty() && ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-                            UI::Tooltip(std::format("{}\nIkki marta bosing: ichki kod muharririda ochish", d.File).c_str());
+                            UI::Tooltip(TrFormat("{}\nIkki marta bosing: ichki kod muharririda ochish", d.File).c_str());
                         ImGui::TableSetColumnIndex(2);
                         if (d.Line > 0)
                             ImGui::TextDisabled(d.Column > 0 ? "%d:%d" : "%d", d.Line, d.Column);

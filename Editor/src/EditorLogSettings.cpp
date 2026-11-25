@@ -32,7 +32,7 @@ namespace Zamin {
                 {
                     const LogLevel option = (LogLevel)l;
                     const std::string text = option == LogLevel::Off ? std::string(Log::LevelDisplayName(option))
-                                                                     : std::format("{} va yuqori", Log::LevelDisplayName(option));
+                                                                     : TrFormat("{} va yuqori", Log::LevelDisplayName(option));
                     if (ImGui::Selectable(text.c_str(), option == level))
                     {
                         level = option;
@@ -82,7 +82,7 @@ namespace Zamin {
         std::tm tm{};
         localtime_r(&now, &tm);
         std::strftime(started, sizeof(started), "%Y-%m-%d %H:%M:%S", &tm);
-        const std::string header = std::format("# Zamin Editor\n# {}\n# Boshlandi: {}\n# Loyiha: {}\n", BuildInfo::Get().Describe(), started,
+        const std::string header = TrFormat("# Zamin Editor\n# {}\n# Boshlandi: {}\n# Loyiha: {}\n", BuildInfo::Get().Describe(), started,
                                                m_StartupProject.empty() ? "-" : m_StartupProject.string());
         std::string error;
         if (LogFile::OpenRotating({ GetEditorLogDirectory(), "editor", prefs.KeepFiles, true, header }, &error))
@@ -116,25 +116,25 @@ namespace Zamin {
         LogPreferences& prefs = m_Preferences.Logging;
         ImGui::SeparatorText(Tr(ICON_FA_FILTER "  Log darajalari"));
         ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-        ImGui::TextWrapped("%s", "Tanlangan darajadan pastdagi xabarlar umuman yozilmaydi: konsolda ham, terminalda ham, log faylida ham "
-                                 "(yuqoridagi belgilar esa faqat konsolda ko'rsatishni tanlaydi).");
+        ImGui::TextWrapped("%s", Tr("Tanlangan darajadan pastdagi xabarlar umuman yozilmaydi: konsolda ham, terminalda ham, log faylida ham "
+                                 "(yuqoridagi belgilar esa faqat konsolda ko'rsatishni tanlaydi)."));
         ImGui::PopStyleColor();
         // The live levels (the command line may have set them at start-up); a change is kept.
         LogLevel engine = Log::GetLevel(LogSource::Engine), app = Log::GetLevel(LogSource::App);
-        if (LevelCombo(Tr("Dvigatel (ZAMIN)"), engine, "Dvigatelning o'z xabarlari: ZM_CORE_INFO, ZM_CORE_WARN ..."))
+        if (LevelCombo(Tr("Dvigatel (ZAMIN)"), engine, Tr("Dvigatelning o'z xabarlari: ZM_CORE_INFO, ZM_CORE_WARN ...")))
         {
             prefs.Levels.Engine = engine;
             Log::SetLevel(LogSource::Engine, engine);
             changed = true;
         }
-        if (LevelCombo(Tr("Editor va o'yin (APP)"), app, "Editor va o'yin skriptlarining xabarlari: ZM_INFO, ZM_WARN ..."))
+        if (LevelCombo(Tr("Editor va o'yin (APP)"), app, Tr("Editor va o'yin skriptlarining xabarlari: ZM_INFO, ZM_WARN ...")))
         {
             prefs.Levels.App = app;
             Log::SetLevel(LogSource::App, app);
             changed = true;
         }
         if (!m_StartupLogLevels.IsEmpty())
-            ImGui::TextColored(ImVec4(0.55f, 0.75f, 0.95f, 1.0f), ICON_FA_CIRCLE_INFO "  Ishga tushirishda --log-level / ZAMIN_LOG_LEVEL: %s",
+            ImGui::TextColored(ImVec4(0.55f, 0.75f, 0.95f, 1.0f), Tr(ICON_FA_CIRCLE_INFO "  Ishga tushirishda --log-level / ZAMIN_LOG_LEVEL: %s"),
                                m_StartupLogLevels.ToSpec().c_str());
 
         ImGui::SeparatorText(Tr(ICON_FA_FILE "  Log fayli"));
@@ -148,14 +148,14 @@ namespace Zamin {
                         "keyin o'qish mumkin");
         ImGui::BeginDisabled(!prefs.WriteFile);
         LogLevel file = Log::GetFileLevel();
-        if (LevelCombo(Tr("Faylga yoziladigan daraja"), file, "Faylga faqat shu darajadagi va yuqoriroq xabarlar yoziladi (konsolda hammasi qoladi)"))
+        if (LevelCombo(Tr("Faylga yoziladigan daraja"), file, Tr("Faylga faqat shu darajadagi va yuqoriroq xabarlar yoziladi (konsolda hammasi qoladi)")))
         {
             prefs.Levels.File = file;
             Log::SetFileLevel(file);
             changed = true;
         }
         ImGui::SetNextItemWidth(ImGui::GetFontSize() * 11.0f);
-        if (ImGui::SliderInt(Tr("Saqlanadigan fayllar"), &prefs.KeepFiles, LogPreferences::MinKeepFiles, 30, "%d ta"))
+        if (ImGui::SliderInt(Tr("Saqlanadigan fayllar"), &prefs.KeepFiles, LogPreferences::MinKeepFiles, 30, Tr("%d ta")))
         {
             prefs.Sanitize();
             changed = true;
@@ -183,8 +183,8 @@ namespace Zamin {
             UI::Tooltip(current.string().c_str());
         ImGui::Spacing();
         ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-        ImGui::TextWrapped("%s", "Player uchun: Project settings > Player > Log. Buyruq qatori: --log-level warn yoki "
-                                 "engine=warn,app=info,file=error (ZAMIN_LOG_LEVEL ham) - ishga tushishda bulardan ustun.");
+        ImGui::TextWrapped("%s", Tr("Player uchun: Project settings > Player > Log. Buyruq qatori: --log-level warn yoki "
+                                 "engine=warn,app=info,file=error (ZAMIN_LOG_LEVEL ham) - ishga tushishda bulardan ustun."));
         ImGui::PopStyleColor();
     }
 

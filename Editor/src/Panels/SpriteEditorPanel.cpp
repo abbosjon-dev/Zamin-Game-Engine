@@ -32,15 +32,15 @@ namespace Zamin {
             bool changed = false;
             UI::PropertyLabel(label, "Kadr ichidagi nuqta: obyektning pozitsiyasi shu yerda bo'ladi (0,0 - chap-past, 1,1 - o'ng-yuqori).");
             ImGui::PushID(label);
-            const char* current = "Boshqa";
+            const char* current = Tr("Boshqa");
             for (const PivotPreset& p : s_PivotPresets)
                 if (glm::all(glm::lessThan(glm::abs(p.Pivot - pivot), glm::vec2(1e-4f))))
                     current = p.Name;
             ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x * 0.5f);
-            if (ImGui::BeginCombo("##preset", current))
+            if (ImGui::BeginCombo("##preset", Tr(current)))
             {
                 for (const PivotPreset& p : s_PivotPresets)
-                    if (ImGui::Selectable(p.Name, p.Name == current))
+                    if (ImGui::Selectable(Tr(p.Name), p.Name == current))
                     {
                         pivot = p.Pivot;
                         changed = true;
@@ -180,7 +180,7 @@ namespace Zamin {
         const AssetMetadata* meta = !registry ? nullptr : m_Handle ? registry->Find(m_Handle) : registry->Find(std::filesystem::path(m_TexturePath));
         if (!meta)
         {
-            SetStatus("Saqlanmadi: rasm asset registry'da yo'q", true);
+            SetStatus(Tr("Saqlanmadi: rasm asset registry'da yo'q"), true);
             ZM_ERROR("Sprite kadrlari saqlanmadi: '{}' asset registry'da topilmadi", m_TexturePath);
             return false;
         }
@@ -189,12 +189,12 @@ namespace Zamin {
         std::string path = meta->RelativePath;
         if (!registry->SetImportSettings(meta->Handle, import))
         {
-            SetStatus("Saqlanmadi", true);
+            SetStatus(Tr("Saqlanmadi"), true);
             return false;
         }
         m_SeenRevision = registry->GetRevision();
         m_Saved = m_Edit;
-        SetStatus(std::format("Saqlandi: {} ta kadr", m_Edit.Frames.size()));
+        SetStatus(TrFormat("Saqlandi: {} ta kadr", m_Edit.Frames.size()));
         ZM_INFO("Sprite kadrlari saqlandi: {} ({} ta)", path, m_Edit.Frames.size());
         return true;
     }
@@ -222,7 +222,7 @@ namespace Zamin {
             m_Edit.Frames.push_back(std::move(f));
         }
         m_Selected = frames.empty() ? (m_Edit.Frames.empty() ? -1 : 0) : first;
-        SetStatus(std::format("{} ta kadr kesildi", frames.size()), frames.empty());
+        SetStatus(TrFormat("{} ta kadr kesildi", frames.size()), frames.empty());
         return frames.size();
     }
 
@@ -320,8 +320,8 @@ namespace Zamin {
         }
         if (!ImGui::BeginPopupModal(Tr("Saqlanmagan kadrlar###SpriteEditorUnsaved"), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
             return;
-        ImGui::Text(ICON_FA_TRIANGLE_EXCLAMATION "  '%s' kadrlari saqlanmagan.", m_TexturePath.c_str());
-        ImGui::TextDisabled("%zu ta kadr (saqlangani %zu ta)", m_Edit.Frames.size(), m_Saved.Frames.size());
+        ImGui::Text(Tr(ICON_FA_TRIANGLE_EXCLAMATION "  '%s' kadrlari saqlanmagan."), m_TexturePath.c_str());
+        ImGui::TextDisabled(Tr("%zu ta kadr (saqlangani %zu ta)"), m_Edit.Frames.size(), m_Saved.Frames.size());
         ImGui::Spacing();
         auto proceed = [&]() {
             if (m_PendingClose)
@@ -384,7 +384,7 @@ namespace Zamin {
             UI::Tooltip("Kesish sozlamalari bo'yicha kataklar rasm ustida (hali kesilmagan)");
         ImGui::SameLine();
         if (dirty)
-            ImGui::TextColored(s_WarnColor, ICON_FA_CIRCLE_DOT " saqlanmagan");
+            ImGui::TextColored(s_WarnColor, "%s", Tr(ICON_FA_CIRCLE_DOT " saqlanmagan"));
         else if (!m_TexturePath.empty())
             ImGui::TextDisabled("%s", m_TexturePath.c_str());
         if (!m_Status.empty() && ImGui::GetTime() - m_StatusTime < 5.0)
@@ -405,12 +405,12 @@ namespace Zamin {
             if (AssetRegistry* registry = GetRegistry())
             {
                 UI::PropertyLabel("");
-                if (ImGui::BeginCombo("##pick", ICON_FA_IMAGES "  Rasmni tanlash...", ImGuiComboFlags_HeightLarge))
+                if (ImGui::BeginCombo("##pick", Tr(ICON_FA_IMAGES "  Rasmni tanlash..."), ImGuiComboFlags_HeightLarge))
                 {
                     for (const AssetMetadata* meta : registry->GetAssets(AssetType::Texture))
                     {
                         size_t frames = SpriteSheet::FromImportSettings(meta->Import).Frames.size();
-                        std::string label = frames ? std::format("{}  ({} kadr)", meta->RelativePath, frames) : meta->RelativePath;
+                        std::string label = frames ? TrFormat("{}  ({} kadr)", meta->RelativePath, frames) : meta->RelativePath;
                         if (ImGui::Selectable(label.c_str(), meta->RelativePath == m_TexturePath))
                             Open(meta->RelativePath);
                     }
@@ -423,16 +423,16 @@ namespace Zamin {
                 if (m_Width > 0)
                     ImGui::Text("%u x %u px", m_Width, m_Height);
                 else
-                    ImGui::TextColored(s_ErrorColor, "rasm o'qilmadi");
+                    ImGui::TextColored(s_ErrorColor, "%s", Tr("rasm o'qilmadi"));
                 UI::PropertyLabel("Kadrlar");
-                ImGui::Text("%zu ta", m_Edit.Frames.size());
+                ImGui::Text(Tr("%zu ta"), m_Edit.Frames.size());
             }
             UI::EndPropertyGrid();
         }
         if (m_TexturePath.empty())
         {
             ImGui::Spacing();
-            ImGui::TextWrapped(ICON_FA_CIRCLE_INFO "  Rasmni kontent oynasidan shu yerga torting yoki ro'yxatdan tanlang.");
+            ImGui::TextWrapped("%s", Tr(ICON_FA_CIRCLE_INFO "  Rasmni kontent oynasidan shu yerga torting yoki ro'yxatdan tanlang."));
             return;
         }
         if (m_Width == 0)
@@ -454,17 +454,17 @@ namespace Zamin {
             return;
         if (!UI::BeginPropertyGrid("##slice"))
             return;
-        const char* modes[] = { "Katak o'lchami", "Ustun / qator soni" };
+        const char* modes[] = { Tr("Katak o'lchami"), Tr("Ustun / qator soni") };
         int mode = (int)m_Slice.Mode;
         UI::PropertyLabel("Usul", "Katak o'lchami: har bir kadr shuncha piksel. Ustun / qator soni: rasm teng bo'linadi.");
-        if (ImGui::Combo("##mode", &mode, modes, 2))
+        if (UI::TrCombo("##mode", &mode, modes, 2))
             m_Slice.Mode = (SpriteSliceSettings::SliceMode)mode;
         if (m_Slice.Mode == SpriteSliceSettings::SliceMode::CellSize)
-            IntPair("Katak (px)", m_Slice.CellSize, 1, 8192);
+            IntPair(Tr("Katak (px)"), m_Slice.CellSize, 1, 8192);
         else
-            IntPair("Ustun, qator", m_Slice.CellCount, 1, 1024);
-        IntPair("Siljish (px)", m_Slice.Offset, 0, 8192, "Chap-yuqori burchakdan birinchi katakkacha");
-        IntPair("Oraliq (px)", m_Slice.Padding, 0, 8192, "Qo'shni kataklar orasidagi bo'sh joy");
+            IntPair(Tr("Ustun, qator"), m_Slice.CellCount, 1, 1024);
+        IntPair(Tr("Siljish (px)"), m_Slice.Offset, 0, 8192, Tr("Chap-yuqori burchakdan birinchi katakkacha"));
+        IntPair(Tr("Oraliq (px)"), m_Slice.Padding, 0, 8192, Tr("Qo'shni kataklar orasidagi bo'sh joy"));
         PivotField("Pivot", m_Slice.Pivot);
         UI::PropertyLabel("Nom prefiksi", "Kadrlar <prefiks>_0, <prefiks>_1, ... deb nomlanadi (Sprite Animation ketma-ketlik sifatida topadi)");
         ImGui::InputText("##prefix", &m_Slice.NamePrefix);
@@ -478,7 +478,7 @@ namespace Zamin {
         all.SkipEmpty = false;
         size_t cells = SpriteSheet::SliceGrid(all, m_Width, m_Height).size();
         UI::PropertyLabel("Natija");
-        ImGui::TextDisabled("%d x %d px, %zu katak", cell.x, cell.y, cells);
+        ImGui::TextDisabled(Tr("%d x %d px, %zu katak"), cell.x, cell.y, cells);
         UI::PropertyLabel("");
         if (ImGui::Button(Tr(ICON_FA_SCISSORS "  Kesish"), ImVec2(-FLT_MIN, 0)))
             Slice(m_SliceReplace);
@@ -488,7 +488,7 @@ namespace Zamin {
     void SpriteEditorPanel::DrawFrameList()
     {
         ImGui::Spacing();
-        if (!ImGui::CollapsingHeader(std::format(ICON_FA_LIST "  Kadrlar ({})###frames", m_Edit.Frames.size()).c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+        if (!ImGui::CollapsingHeader(TrFormat(ICON_FA_LIST "  Kadrlar ({})###frames", m_Edit.Frames.size()).c_str(), ImGuiTreeNodeFlags_DefaultOpen))
             return;
         if (ImGui::Button(Tr(ICON_FA_PLUS "  Yangi")))
         {
@@ -559,13 +559,13 @@ namespace Zamin {
             {
                 int other = m_Edit.FindIndex(name);
                 if (other >= 0 && other != m_Selected)
-                    SetStatus(std::format("'{}' nomli kadr bor", name), true);
+                    SetStatus(TrFormat("'{}' nomli kadr bor", name), true);
                 else
                     f.Name = name;
             }
         }
-        IntPair("Pozitsiya (px)", f.Position, 0, (int)std::max(m_Width, m_Height));
-        IntPair("O'lcham (px)", f.Size, 1, (int)std::max(m_Width, m_Height));
+        IntPair(Tr("Pozitsiya (px)"), f.Position, 0, (int)std::max(m_Width, m_Height));
+        IntPair(Tr("O'lcham (px)"), f.Size, 1, (int)std::max(m_Width, m_Height));
         PivotField("Pivot", f.Pivot);
         UI::PropertyLabel("9-slice (px)", "Chap, o'ng, yuqori, past chegaralar: Sliced / Tiled rejimdagi Sprite Renderer'da burchaklar "
                                           "cho'zilmaydi. 0 - chegara yo'q.");
@@ -574,7 +574,7 @@ namespace Zamin {
         if (f.Position.x + f.Size.x > (int)m_Width || f.Position.y + f.Size.y > (int)m_Height)
         {
             UI::PropertyLabel("");
-            ImGui::TextColored(s_WarnColor, ICON_FA_TRIANGLE_EXCLAMATION "  Rasmdan chiqib ketgan");
+            ImGui::TextColored(s_WarnColor, "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Rasmdan chiqib ketgan"));
         }
         if (m_Texture)
         {
@@ -606,7 +606,7 @@ namespace Zamin {
 
         if (!m_Texture || m_Width == 0 || m_Height == 0)
         {
-            const char* text = m_TexturePath.empty() ? "Rasm tanlanmagan" : "Rasm o'qilmadi";
+            const char* text = m_TexturePath.empty() ? Tr("Rasm tanlanmagan") : Tr("Rasm o'qilmadi");
             ImVec2 size = ImGui::CalcTextSize(text);
             dl->AddText(ImVec2((m_CanvasMin.x + m_CanvasMax.x - size.x) * 0.5f, (m_CanvasMin.y + m_CanvasMax.y - size.y) * 0.5f),
                         ImGui::GetColorU32(ImGuiCol_TextDisabled), text);
@@ -756,7 +756,7 @@ namespace Zamin {
                 f.Pivot = m_Slice.Pivot;
                 m_Edit.Frames.push_back(f);
                 m_Selected = (int)m_Edit.Frames.size() - 1;
-                SetStatus(std::format("Yangi kadr: {} ({}x{})", f.Name, f.Size.x, f.Size.y));
+                SetStatus(TrFormat("Yangi kadr: {} ({}x{})", f.Name, f.Size.x, f.Size.y));
             }
             else
                 m_Selected = hoveredFrame;
@@ -780,7 +780,7 @@ namespace Zamin {
         ImVec2 infoPos(m_CanvasMin.x + 8.0f, m_CanvasMax.y - infoSize.y - 8.0f);
         dl->AddRectFilled(ImVec2(infoPos.x - 4.0f, infoPos.y - 2.0f), ImVec2(infoPos.x + infoSize.x + 4.0f, infoPos.y + infoSize.y + 2.0f), IM_COL32(16, 18, 22, 200), 3.0f);
         dl->AddText(infoPos, IM_COL32(220, 225, 232, 255), info.c_str());
-        const char* hint = "G'ildirak: zoom   |   O'rta / o'ng tugma: surish   |   Sudrash: yangi kadr   |   Del: o'chirish";
+        const char* hint = Tr("G'ildirak: zoom   |   O'rta / o'ng tugma: surish   |   Sudrash: yangi kadr   |   Del: o'chirish");
         ImVec2 hintSize = ImGui::CalcTextSize(hint);
         if (hintSize.x + infoSize.x + 40.0f < avail.x)
             dl->AddText(ImVec2(m_CanvasMax.x - hintSize.x - 8.0f, m_CanvasMax.y - hintSize.y - 8.0f), ImGui::GetColorU32(ImGuiCol_TextDisabled), hint);

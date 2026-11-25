@@ -32,10 +32,10 @@ namespace Zamin {
         {
             switch (layout)
             {
-                case BuiltInLayout::Mode2D: return "Ierarxiya ostida plitka palitrasi, viewport 2D rejimda";
-                case BuiltInLayout::Animation: return "Pastda katta Animatsiya va Animator grafi oynalari";
-                case BuiltInLayout::FourViews: return "Viewport va uchta ortografik ko'rinish: yuqoridan, old, o'ng (2x2, viewport kattaroq; ierarxiya inspektor ustida)";
-                default: return "Ierarxiya chapda, inspektor o'ngda, kontent va konsol pastda";
+                case BuiltInLayout::Mode2D: return Tr("Ierarxiya ostida plitka palitrasi, viewport 2D rejimda");
+                case BuiltInLayout::Animation: return Tr("Pastda katta Animatsiya va Animator grafi oynalari");
+                case BuiltInLayout::FourViews: return Tr("Viewport va uchta ortografik ko'rinish: yuqoridan, old, o'ng (2x2, viewport kattaroq; ierarxiya inspektor ustida)");
+                default: return Tr("Ierarxiya chapda, inspektor o'ngda, kontent va konsol pastda");
             }
         }
     }
@@ -94,7 +94,7 @@ namespace Zamin {
         if (!layout || layout->Ini.empty())
         {
             ZM_WARN("Joylashuv o'qilmadi: '{}'", name);
-            ShowViewportMessage(std::format(ICON_FA_TRIANGLE_EXCLAMATION "  Joylashuv o'qilmadi: {}", name));
+            ShowViewportMessage(TrFormat(ICON_FA_TRIANGLE_EXCLAMATION "  Joylashuv o'qilmadi: {}", name));
             return;
         }
         // Between frames ImGui takes window settings: the dock nodes are rebuilt from the text, the
@@ -107,7 +107,7 @@ namespace Zamin {
         MarkPreferencesDirty();
         MarkViewSettingsDirty(); // the extra views' open state
         ZM_INFO("Joylashuv qo'llandi: {}", layout->Name);
-        ShowViewportMessage(std::format(ICON_FA_WINDOW_RESTORE "  Joylashuv: {}", layout->Name));
+        ShowViewportMessage(TrFormat(ICON_FA_WINDOW_RESTORE "  Joylashuv: {}", layout->Name));
     }
 
     void EditorLayer::UI_BuildLayout(BuiltInLayout layout, ImGuiID dockspaceID)
@@ -244,7 +244,7 @@ namespace Zamin {
         m_Preferences.Layout.Current = layout.Name;
         MarkPreferencesDirty();
         ZM_INFO("Joylashuv saqlandi: {} ({} bayt)", layout.Name, layout.Ini.size());
-        ShowViewportMessage(std::format(ICON_FA_FLOPPY_DISK "  Joylashuv saqlandi: {}", layout.Name));
+        ShowViewportMessage(TrFormat(ICON_FA_FLOPPY_DISK "  Joylashuv saqlandi: {}", layout.Name));
         m_LayoutError.clear();
         return true;
     }
@@ -255,7 +255,7 @@ namespace Zamin {
         if (ImGui::BeginMenu(Tr(ICON_FA_WINDOW_RESTORE "  Joylashuv")))
         {
             const std::string& current = m_Preferences.Layout.Current;
-            ImGui::TextDisabled("Editor joylashuvlari");
+            ImGui::TextDisabled("%s", Tr("Editor joylashuvlari"));
             for (int i = 0; i < (int)BuiltInLayout::Count; i++)
             {
                 const BuiltInLayout layout = (BuiltInLayout)i;
@@ -268,10 +268,10 @@ namespace Zamin {
             }
             ImGui::Separator();
             if (m_Layouts.GetNames().empty())
-                ImGui::TextDisabled("Saqlangan joylashuv yo'q");
+                ImGui::TextDisabled("%s", Tr("Saqlangan joylashuv yo'q"));
             else
             {
-                ImGui::TextDisabled("Saqlanganlar");
+                ImGui::TextDisabled("%s", Tr("Saqlanganlar"));
                 for (const std::string& name : m_Layouts.GetNames())
                     if (ImGui::MenuItem(std::format(ICON_FA_WINDOW_RESTORE "  {}##layout", name).c_str(), nullptr, current == name))
                         RequestLayout(name);
@@ -279,7 +279,7 @@ namespace Zamin {
             ImGui::Separator();
             if (ImGui::MenuItem(Tr(ICON_FA_FLOPPY_DISK "  Joriy joylashuvni saqlash...")))
             {
-                m_LayoutName = m_Layouts.MakeUniqueName("Mening joylashuvim");
+                m_LayoutName = m_Layouts.MakeUniqueName(Tr("Mening joylashuvim"));
                 m_LayoutError.clear();
                 m_OpenSaveLayout = true;
             }
@@ -310,7 +310,7 @@ namespace Zamin {
         ImGui::SetNextWindowSize(ImVec2(em * 26.0f, 0.0f), ImGuiCond_Appearing);
         if (ImGui::BeginPopupModal(Tr("Joylashuvni saqlash###SaveLayout"), nullptr, ImGuiWindowFlags_NoSavedSettings))
         {
-            ImGui::TextUnformatted(ICON_FA_WINDOW_RESTORE "  Oynalarning hozirgi joylashuvi va ochiqlari saqlanadi");
+            ImGui::TextUnformatted(Tr(ICON_FA_WINDOW_RESTORE "  Oynalarning hozirgi joylashuvi va ochiqlari saqlanadi"));
             ImGui::Spacing();
             if (ImGui::IsWindowAppearing())
                 ImGui::SetKeyboardFocusHere();
@@ -322,7 +322,7 @@ namespace Zamin {
             if (!valid && !name.empty())
                 ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.4f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  %s", reason.c_str());
             else if (valid && m_Layouts.Contains(name))
-                ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.35f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  Shu nomli joylashuv bor: ustidan yoziladi");
+                ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.35f, 1.0f), "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Shu nomli joylashuv bor: ustidan yoziladi"));
             if (!m_LayoutError.empty())
                 ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.4f, 1.0f), "%s", m_LayoutError.c_str());
             ImGui::Spacing();
@@ -351,8 +351,8 @@ namespace Zamin {
         ImGui::SeparatorText(Tr("Editor joylashuvlari"));
         if (ImGui::BeginTable("##builtins", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH))
         {
-            ImGui::TableSetupColumn("Nomi", ImGuiTableColumnFlags_WidthFixed, em * 8.0f);
-            ImGui::TableSetupColumn("Ta'rif", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableSetupColumn(Tr("Nomi"), ImGuiTableColumnFlags_WidthFixed, em * 8.0f);
+            ImGui::TableSetupColumn(Tr("Ta'rif"), ImGuiTableColumnFlags_WidthStretch);
             ImGui::TableSetupColumn("##apply", ImGuiTableColumnFlags_WidthFixed, em * 6.0f);
             for (int i = 0; i < (int)BuiltInLayout::Count; i++)
             {
@@ -383,12 +383,12 @@ namespace Zamin {
         std::optional<std::string> remove, update, rename;
         const int64_t now = GetUnixTime();
         if (m_Layouts.GetNames().empty())
-            ImGui::TextDisabled("Hali saqlangan joylashuv yo'q: oynalarni joylab, \"Joriy joylashuvni saqlash\" ni bosing");
+            ImGui::TextDisabled("%s", Tr("Hali saqlangan joylashuv yo'q: oynalarni joylab, \"Joriy joylashuvni saqlash\" ni bosing"));
         else if (ImGui::BeginTable("##layouts", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_ScrollY,
                                    ImVec2(0.0f, std::max(em * 6.0f, ImGui::GetContentRegionAvail().y - em * 4.2f))))
         {
-            ImGui::TableSetupColumn("Nomi", ImGuiTableColumnFlags_WidthStretch);
-            ImGui::TableSetupColumn("Saqlangan", ImGuiTableColumnFlags_WidthFixed, em * 7.0f);
+            ImGui::TableSetupColumn(Tr("Nomi"), ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableSetupColumn(Tr("Saqlangan"), ImGuiTableColumnFlags_WidthFixed, em * 7.0f);
             ImGui::TableSetupColumn("##actions", ImGuiTableColumnFlags_WidthFixed, em * 8.0f);
             for (const std::string& name : m_Layouts.GetNames())
             {
@@ -485,7 +485,7 @@ namespace Zamin {
         ImGui::Separator();
         if (ImGui::Button(Tr(ICON_FA_FLOPPY_DISK "  Joriy joylashuvni saqlash...")))
         {
-            m_LayoutName = m_Layouts.MakeUniqueName("Mening joylashuvim");
+            m_LayoutName = m_Layouts.MakeUniqueName(Tr("Mening joylashuvim"));
             m_LayoutError.clear();
             m_OpenSaveLayout = true;
         }
@@ -520,7 +520,7 @@ namespace Zamin {
             }
             else if (item == "saveprompt")
             {
-                m_LayoutName = m_Layouts.MakeUniqueName("Mening joylashuvim");
+                m_LayoutName = m_Layouts.MakeUniqueName(Tr("Mening joylashuvim"));
                 m_OpenSaveLayout = true;
             }
             else if (!item.empty())

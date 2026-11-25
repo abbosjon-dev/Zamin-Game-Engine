@@ -231,7 +231,7 @@ namespace Zamin {
         auto project = Project::GetActive();
         if (!project)
         {
-            ImGui::TextDisabled("Loyiha ochilmagan");
+            ImGui::TextDisabled("%s", Tr("Loyiha ochilmagan"));
             ImGui::End();
             return;
         }
@@ -268,7 +268,7 @@ namespace Zamin {
         }
         if (ImGui::BeginPopup("RevertAllSettings"))
         {
-            ImGui::TextUnformatted("Barcha saqlanmagan o'zgarishlar bekor qilinsinmi?");
+            ImGui::TextUnformatted(Tr("Barcha saqlanmagan o'zgarishlar bekor qilinsinmi?"));
             if (ImGui::Button(Tr("Ha, qaytarish")))
             {
                 RevertAll(config);
@@ -339,7 +339,7 @@ namespace Zamin {
                 ImGui::EndCombo();
             }
             if (shown.empty())
-                ImGui::TextDisabled("Hech narsa topilmadi");
+                ImGui::TextDisabled("%s", Tr("Hech narsa topilmadi"));
             return;
         }
 
@@ -375,7 +375,7 @@ namespace Zamin {
             ImGui::PopID();
         }
         if (shown.empty())
-            ImGui::TextDisabled("Hech narsa topilmadi");
+            ImGui::TextDisabled("%s", Tr("Hech narsa topilmadi"));
     }
 
     void ProjectSettingsPanel::DrawCategoryContent(ProjectConfig& config)
@@ -387,7 +387,7 @@ namespace Zamin {
         ImGui::TextColored(UI::AccentColor(), "%s  %s", info.Icon.c_str(), Tr(info.Title).c_str());
         if (IsCategoryDirty(m_Category))
         {
-            const char* revert = ICON_FA_ROTATE_LEFT "  Bo'limni qaytarish";
+            const char* revert = Tr(ICON_FA_ROTATE_LEFT "  Bo'limni qaytarish");
             ImGui::SameLine();
             const float width = ImGui::CalcTextSize(revert).x + ImGui::GetStyle().FramePadding.x * 2.0f;
             ImGui::SetCursorPosX(std::max(ImGui::GetCursorPosX() + 8.0f, rightEdge - width));
@@ -483,9 +483,9 @@ namespace Zamin {
         ImGui::TextUnformatted(Project::GetProjectFilePath().filename().string().c_str());
         ImGui::SameLine();
         if (c.FileVersion < ProjectMigration::CurrentVersion)
-            ImGui::TextColored(ImVec4(0.95f, 0.72f, 0.32f, 1.0f), "v%d -> v%d (saqlanganda)", c.FileVersion, ProjectMigration::CurrentVersion);
+            ImGui::TextColored(ImVec4(0.95f, 0.72f, 0.32f, 1.0f), Tr("v%d -> v%d (saqlanganda)"), c.FileVersion, ProjectMigration::CurrentVersion);
         else if (c.FileVersion > ProjectMigration::CurrentVersion)
-            ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.40f, 1.0f), "v%d (yangiroq dvigatel)", c.FileVersion);
+            ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.40f, 1.0f), Tr("v%d (yangiroq dvigatel)"), c.FileVersion);
         else
             ImGui::TextDisabled("format v%d", c.FileVersion);
         if (!c.ExtraSections.empty())
@@ -509,7 +509,7 @@ namespace Zamin {
         if (ImGui::SmallButton(Tr(ICON_FA_LIST_OL "  Build sahnalar")))
             m_Category = Category::BuildScenes;
         UI::PropertyLabel("Sifat darajasi");
-        ImGui::Text("%s  (o'yin: %s)", Quality::GetLevelName().empty() ? "-" : Quality::GetLevelName().c_str(),
+        ImGui::Text(Tr("%s  (o'yin: %s)"), Quality::GetLevelName().empty() ? "-" : Quality::GetLevelName().c_str(),
                     c.Quality.Levels[(size_t)std::clamp(c.Quality.DefaultLevel, 0, (int)c.Quality.Levels.size() - 1)].Name.c_str());
         ImGui::SameLine();
         if (ImGui::SmallButton(Tr(ICON_FA_GAUGE_HIGH "  Sifat")))
@@ -583,9 +583,9 @@ namespace Zamin {
     void ProjectSettingsPanel::DrawBuildScenes(ProjectConfig& config)
     {
         auto& list = config.BuildScenes;
-        ImGui::TextWrapped("O'yin shu sahnalardan quriladi. Yoqilganlar tartib bo'yicha build indeksini oladi (0, 1, 2 ...): skriptda "
+        ImGui::TextWrapped("%s", Tr("O'yin shu sahnalardan quriladi. Yoqilganlar tartib bo'yicha build indeksini oladi (0, 1, 2 ...): skriptda "
                            "LoadScene(1) yoki nomi bilan LoadScene(\"Level2\"). Ro'yxat bo'sh bo'lmasa, eksportga faqat shu sahnalar "
-                           "(va boshlang'ich sahna) kiradi. Tartibni sudrab o'zgartiring (o'ng tugma: menyu).");
+                           "(va boshlang'ich sahna) kiradi. Tartibni sudrab o'zgartiring (o'ng tugma: menyu)."));
         ImGui::Spacing();
 
         // ---- the start scene: what the player opens first (any scene of the project, or a dropped one).
@@ -600,7 +600,7 @@ namespace Zamin {
             ImGui::SetNextItemWidth(std::max(80.0f, ImGui::GetContentRegionAvail().x - buttons));
             if (!current.empty() && !startExists)
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.45f, 0.40f, 1.0f));
-            const std::string preview = current.empty() ? std::string("(tanlanmagan)") : current;
+            const std::string preview = current.empty() ? std::string(Tr("(tanlanmagan)")) : current;
             const bool comboOpen = ImGui::BeginCombo("##startScene", preview.c_str(), ImGuiComboFlags_HeightLarge);
             if (!current.empty() && !startExists)
                 ImGui::PopStyleColor();
@@ -630,7 +630,7 @@ namespace Zamin {
                     }
                 }
                 if (scenes.empty())
-                    ImGui::TextDisabled("Loyihada sahna yo'q");
+                    ImGui::TextDisabled("%s", Tr("Loyihada sahna yo'q"));
                 ImGui::EndCombo();
             }
             if (ImGui::BeginDragDropTarget())
@@ -683,7 +683,7 @@ namespace Zamin {
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
             UI::Tooltip(open.empty() ? "Ochiq sahna hali saqlanmagan" : openListed ? "Ochiq sahna ro'yxatda bor" : open.c_str());
-        const char* addAllLabel = ICON_FA_LAYER_GROUP "  Barcha sahnalarni qo'shish";
+        const char* addAllLabel = Tr(ICON_FA_LAYER_GROUP "  Barcha sahnalarni qo'shish");
         UI::SameLineIfFits(addAllLabel);
         if (ImGui::Button(addAllLabel))
         {
@@ -700,7 +700,7 @@ namespace Zamin {
             if (added)
                 m_Dirty = true;
         }
-        const char* clearLabel = ICON_FA_TRASH "  Tozalash";
+        const char* clearLabel = Tr(ICON_FA_TRASH "  Tozalash");
         UI::SameLineIfFits(clearLabel);
         ImGui::BeginDisabled(list.empty());
         if (ImGui::Button(clearLabel))
@@ -711,7 +711,7 @@ namespace Zamin {
         ImGui::EndDisabled();
         if (OnScenesPanelRequested)
         {
-            const char* scenesLabel = ICON_FA_CLAPPERBOARD "  Sahnalar oynasi";
+            const char* scenesLabel = Tr(ICON_FA_CLAPPERBOARD "  Sahnalar oynasi");
             UI::SameLineIfFits(scenesLabel);
             if (ImGui::Button(scenesLabel))
                 OnScenesPanelRequested();
@@ -729,7 +729,7 @@ namespace Zamin {
         {
             ImGui::TableSetupColumn("##on", ImGuiTableColumnFlags_WidthFixed, button * 1.6f);
             ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthFixed, ImGui::CalcTextSize("00").x + 4.0f);
-            ImGui::TableSetupColumn("Sahna", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableSetupColumn(Tr("Sahna"), ImGuiTableColumnFlags_WidthStretch);
             ImGui::TableSetupColumn("##start", ImGuiTableColumnFlags_WidthFixed, button);
             ImGui::TableSetupColumn("##remove", ImGuiTableColumnFlags_WidthFixed, button);
             ImGui::TableHeadersRow();
@@ -774,8 +774,8 @@ namespace Zamin {
                 const bool rowHovered = ImGui::IsItemHovered();
                 if (rowHovered)
                 {
-                    UI::Tooltip(!exists ? std::format("Fayl topilmadi: {}", entry.Path.generic_string()).c_str()
-                                        : std::format("{}\nIkki marta bosing: ochish. Sudrab tartibni o'zgartiring, o'ng tugma: menyu",
+                    UI::Tooltip(!exists ? TrFormat("Fayl topilmadi: {}", entry.Path.generic_string()).c_str()
+                                        : TrFormat("{}\nIkki marta bosing: ochish. Sudrab tartibni o'zgartiring, o'ng tugma: menyu",
                                                       entry.Path.generic_string()).c_str());
                     if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && exists && OnOpenSceneRequested)
                         OnOpenSceneRequested(entry.Path);
@@ -847,7 +847,7 @@ namespace Zamin {
         if (list.empty())
         {
             ImGui::Spacing();
-            ImGui::TextDisabled("Ro'yxat bo'sh: eksportga hamma sahnalar kiradi, build indekslari yo'q.");
+            ImGui::TextDisabled("%s", Tr("Ro'yxat bo'sh: eksportga hamma sahnalar kiradi, build indekslari yo'q."));
         }
         // A scene file dropped from the content browser joins the list.
         ImVec2 avail = ImGui::GetContentRegionAvail();
@@ -1009,16 +1009,16 @@ namespace Zamin {
             m_ExportPreviewFor = e;
             m_HasExportPreview = true;
         }
-        ImGui::TextDisabled(ICON_FA_BOX "  Keyingi eksport: %zu ta fayl (%s)", m_ExportPreview.Included.size(),
+        ImGui::TextDisabled(Tr(ICON_FA_BOX "  Keyingi eksport: %zu ta fayl (%s)"), m_ExportPreview.Included.size(),
                             ExportAssets::FormatSize(m_ExportPreview.IncludedBytes).c_str());
         ImGui::SameLine();
         if (ImGui::SmallButton(Tr(ICON_FA_ROTATE "  Yangilash")))
             m_HasExportPreview = false;
         if (m_ExportPreview.Excluded.empty())
-            ImGui::TextDisabled(ICON_FA_CHECK "  Hamma asset ishlatiladi - hech narsa chiqarib tashlanmaydi");
+            ImGui::TextDisabled("%s", Tr(ICON_FA_CHECK "  Hamma asset ishlatiladi - hech narsa chiqarib tashlanmaydi"));
         else
         {
-            ImGui::TextColored(ImVec4(0.95f, 0.72f, 0.32f, 1.0f), ICON_FA_FILTER "  Chiqarib tashlanadi: %zu ta (%s)", m_ExportPreview.Excluded.size(),
+            ImGui::TextColored(ImVec4(0.95f, 0.72f, 0.32f, 1.0f), Tr(ICON_FA_FILTER "  Chiqarib tashlanadi: %zu ta (%s)"), m_ExportPreview.Excluded.size(),
                                ExportAssets::FormatSize(m_ExportPreview.ExcludedBytes).c_str());
             if (ImGui::BeginTable("##excludedAssets", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_ScrollY |
                                                             ImGuiTableFlags_SizingStretchProp,
@@ -1175,9 +1175,9 @@ namespace Zamin {
     void ProjectSettingsPanel::DrawTags(ProjectConfig& config)
     {
         auto& tags = config.Tags;
-        ImGui::TextWrapped("Teglar obyektlarni guruhlaydi (masalan, barcha dushmanlar). Inspektorda \"Teglar\" komponenti "
+        ImGui::TextWrapped("%s", Tr("Teglar obyektlarni guruhlaydi (masalan, barcha dushmanlar). Inspektorda \"Teglar\" komponenti "
                            "bilan beriladi, skriptda HasTag(\"Enemy\") va FindEntitiesWithTag(\"Enemy\") bilan so'raladi. "
-                           "Bu ro'yxat inspektordagi takliflar uchun; ro'yxatda yo'q teglar ham ishlaydi.");
+                           "Bu ro'yxat inspektordagi takliflar uchun; ro'yxatda yo'q teglar ham ishlaydi."));
         ImGui::Spacing();
 
         // Add a new tag
@@ -1198,7 +1198,7 @@ namespace Zamin {
         if (duplicate && !trimmed.empty())
         {
             ImGui::SameLine();
-            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), "Bu teg allaqachon bor");
+            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), "%s", Tr("Bu teg allaqachon bor"));
         }
 
         // Tags used in the open scene or the project's files but missing from the list
@@ -1214,7 +1214,7 @@ namespace Zamin {
             addMissing(t);
         if (!missing.empty())
         {
-            const std::string label = std::format(ICON_FA_PLUS "  Ishlatilganlarni qo'shish ({})", missing.size());
+            const std::string label = TrFormat(ICON_FA_PLUS "  Ishlatilganlarni qo'shish ({})", missing.size());
             UI::SameLineIfFits(label.c_str());
             if (ImGui::Button(label.c_str()))
             {
@@ -1225,14 +1225,14 @@ namespace Zamin {
             {
                 std::string list;
                 for (auto& t : missing) list += (list.empty() ? "" : ", ") + t;
-                UI::Tooltip(("Sahnalarda ishlatilgan, ro'yxatda yo'q: " + list).c_str());
+                UI::Tooltip((Tr("Sahnalarda ishlatilgan, ro'yxatda yo'q: ") + list).c_str());
             }
         }
         ImGui::Spacing();
 
         if (tags.empty())
         {
-            ImGui::TextDisabled("Ro'yxat bo'sh");
+            ImGui::TextDisabled("%s", Tr("Ro'yxat bo'sh"));
             return;
         }
 
@@ -1241,9 +1241,9 @@ namespace Zamin {
         const ImGuiTableFlags flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_PadOuterX;
         if (ImGui::BeginTable("##tags", 4, flags))
         {
-            ImGui::TableSetupColumn("Teg", ImGuiTableColumnFlags_WidthStretch);
-            ImGui::TableSetupColumn("Ochiq sahnada", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 6.5f);
-            ImGui::TableSetupColumn("Loyihada", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 5.0f);
+            ImGui::TableSetupColumn(Tr("Teg"), ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableSetupColumn(Tr("Ochiq sahnada"), ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 6.5f);
+            ImGui::TableSetupColumn(Tr("Loyihada"), ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 5.0f);
             ImGui::TableSetupColumn("##actions", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFrameHeight() * 3.4f);
             ImGui::TableHeadersRow();
             for (int i = 0; i < (int)tags.size(); i++)
@@ -1292,7 +1292,7 @@ namespace Zamin {
                 }
                 ImGui::TableSetColumnIndex(1);
                 ImGui::AlignTextToFramePadding();
-                if (used > 0) ImGui::Text("%zu ta obyekt", used);
+                if (used > 0) ImGui::Text(Tr("%zu ta obyekt"), used);
                 else ImGui::TextDisabled("-");
                 ImGui::TableSetColumnIndex(2);
                 ImGui::AlignTextToFramePadding();
@@ -1300,7 +1300,7 @@ namespace Zamin {
                 {
                     ImGui::Text("%zu", used + inFiles);
                     if (ImGui::IsItemHovered())
-                        UI::Tooltip(std::format("Ochiq sahnada {}, boshqa {} ta sahna / prefab faylida {} ta obyekt", used,
+                        UI::Tooltip(TrFormat("Ochiq sahnada {}, boshqa {} ta sahna / prefab faylida {} ta obyekt", used,
                                                 m_ProjectUsage.Files, inFiles).c_str());
                 }
                 else
@@ -1325,8 +1325,8 @@ namespace Zamin {
                 }
                 ImGui::EndDisabled();
                 if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-                    UI::Tooltip(canRename ? (m_RenameInFiles ? "Qayta nomlash (ochiq sahnadagi obyektlarda va loyihadagi boshqa sahna / prefablarda ham)"
-                                                             : "Qayta nomlash (ochiq sahnadagi obyektlarda ham)")
+                    UI::Tooltip(canRename ? (m_RenameInFiles ? Tr("Qayta nomlash (ochiq sahnadagi obyektlarda va loyihadagi boshqa sahna / prefablarda ham)")
+                                                             : Tr("Qayta nomlash (ochiq sahnadagi obyektlarda ham)"))
                                           : "Sahnada ishlatilgan tegni o'yin davomida qayta nomlab bo'lmaydi");
                 ImGui::SameLine();
                 if (ImGui::Button(ICON_FA_TRASH)) remove = i;
@@ -1356,7 +1356,7 @@ namespace Zamin {
             UI::Tooltip("Assets ichidagi .zscene / .zprefab fayllardagi obyektlarning teglari ham yangi nomga o'tadi (fayllar darhol "
                         "yoziladi). Ochiq sahna xotirada o'zgaradi: uni saqlang. Obyektlar o'zgargan qayta nomlash loyiha fayliga ham "
                         "darhol yoziladi, shuning uchun 'Bekor qilish' eski nomni qaytarmaydi.");
-        ImGui::TextDisabled("Loyiha: %zu ta sahna / prefab fayli, %zu ta obyekt (ochiq sahnadan tashqari)", m_ProjectUsage.Files,
+        ImGui::TextDisabled(Tr("Loyiha: %zu ta sahna / prefab fayli, %zu ta obyekt (ochiq sahnadan tashqari)"), m_ProjectUsage.Files,
                             m_ProjectUsage.Entities);
         ImGui::SameLine();
         if (ImGui::SmallButton(Tr(ICON_FA_ARROWS_ROTATE "  Qayta hisoblash")))
@@ -1383,13 +1383,13 @@ namespace Zamin {
     void ProjectSettingsPanel::DrawSortingLayers(ProjectConfig& config)
     {
         SortingLayerList& layers = config.SortingLayers;
-        ImGui::TextWrapped("2D renderer'lar (sprite, doira, matn, tilemap, particle) shu qatlamlarning birida chiziladi. Ro'yxat "
+        ImGui::TextWrapped("%s", Tr("2D renderer'lar (sprite, doira, matn, tilemap, particle) shu qatlamlarning birida chiziladi. Ro'yxat "
                            "tartibi - chizish tartibi: yuqoridagi qatlam orqada, pastdagisi hammasidan oldinda. Qatlam ichida "
                            "\"Qatlamdagi tartib\", keyin kameradan uzoqlik hal qiladi. Obyektlar qatlamni ID bilan eslaydi: "
-                           "qayta nomlash va surish sahnalarni buzmaydi; o'chirilgan qatlamdagilar Default'da chiziladi.");
-        ImGui::TextWrapped("\"Y\" belgilangan qatlam (top-down o'yinlar) avval Y bo'yicha saralanadi: ekranda yuqoriroq turgan "
+                           "qayta nomlash va surish sahnalarni buzmaydi; o'chirilgan qatlamdagilar Default'da chiziladi."));
+        ImGui::TextWrapped("%s", Tr("\"Y\" belgilangan qatlam (top-down o'yinlar) avval Y bo'yicha saralanadi: ekranda yuqoriroq turgan "
                            "(Y katta) orqada, pastroqdagisi oldinda chiziladi. Saralash nuqtasi - obyektning pivot'i (oyoqlari); "
-                           "shu qatlamdagi ota-obyekt ostidagi qismlar otaning Y'i bilan birga, o'zaro tartib bo'yicha chiziladi.");
+                           "shu qatlamdagi ota-obyekt ostidagi qismlar otaning Y'i bilan birga, o'zaro tartib bo'yicha chiziladi."));
         ImGui::Spacing();
 
         std::string trimmed = TrimText(m_NewSortingLayer);
@@ -1409,7 +1409,7 @@ namespace Zamin {
         if (duplicate)
         {
             ImGui::SameLine();
-            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), "Bu nom band");
+            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), "%s", Tr("Bu nom band"));
         }
         ImGui::Spacing();
 
@@ -1422,7 +1422,7 @@ namespace Zamin {
         {
             const float buttons = 4.0f * (ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.x);
             ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 1.2f);
-            ImGui::TableSetupColumn("Qatlam (sahnada / loyihada)", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableSetupColumn(Tr("Qatlam (sahnada / loyihada)"), ImGuiTableColumnFlags_WidthStretch);
             ImGui::TableSetupColumn("Y", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFrameHeight() + 4.0f);
             ImGui::TableSetupColumn("##actions", ImGuiTableColumnFlags_WidthFixed, buttons);
             ImGui::TableHeadersRow();
@@ -1479,7 +1479,7 @@ namespace Zamin {
                     else
                         ImGui::TextDisabled("-");
                     if (ImGui::IsItemHovered())
-                        UI::Tooltip(std::format("Ochiq sahnada {} ta, butun loyihada {} ta 2D renderer (sprite, doira, matn, tilemap, "
+                        UI::Tooltip(TrFormat("Ochiq sahnada {} ta, butun loyihada {} ta 2D renderer (sprite, doira, matn, tilemap, "
                                                 "particle)", inScene, inScene + inFiles).c_str());
                 }
                 ImGui::TableSetColumnIndex(2);
@@ -1538,10 +1538,10 @@ namespace Zamin {
         const fs::path file = SaveData::GetFilePath();
 
         ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-        ImGui::TextWrapped("O'yin skriptlari SaveData::SetInt / SetFloat / SetString / SetBool bilan saqlagan qiymatlar "
-                           "(o'yinlar orasida saqlanadi).");
+        ImGui::TextWrapped("%s", Tr("O'yin skriptlari SaveData::SetInt / SetFloat / SetString / SetBool bilan saqlagan qiymatlar "
+                           "(o'yinlar orasida saqlanadi)."));
         ImGui::PopStyleColor();
-        ImGui::TextDisabled("Fayl:");
+        ImGui::TextDisabled("%s", Tr("Fayl:"));
         ImGui::SameLine();
         ImGui::TextWrapped("%s", file.string().c_str());
 
@@ -1564,7 +1564,7 @@ namespace Zamin {
             ImGui::OpenPopup("ClearSaveData");
         if (ImGui::BeginPopup("ClearSaveData"))
         {
-            ImGui::TextUnformatted("Barcha saqlangan qiymatlar o'chirilsinmi? (fayl ham yangilanadi)");
+            ImGui::TextUnformatted(Tr("Barcha saqlangan qiymatlar o'chirilsinmi? (fayl ham yangilanadi)"));
             if (ImGui::Button(Tr("Ha, o'chirish")))
             {
                 SaveData::DeleteAll();
@@ -1577,7 +1577,7 @@ namespace Zamin {
             ImGui::EndPopup();
         }
         if (SaveData::IsDirty())
-            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), "Faylga hali yozilmagan o'zgarishlar bor");
+            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), "%s", Tr("Faylga hali yozilmagan o'zgarishlar bor"));
         ImGui::Spacing();
 
         // ---- values
@@ -1585,12 +1585,12 @@ namespace Zamin {
         std::string remove;
         const ImGuiTableFlags tableFlags = ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp;
         if (keys.empty())
-            ImGui::TextDisabled("Hozircha hech narsa saqlanmagan");
+            ImGui::TextDisabled("%s", Tr("Hozircha hech narsa saqlanmagan"));
         else if (ImGui::BeginTable("##saveData", 4, tableFlags))
         {
-            ImGui::TableSetupColumn("Kalit", ImGuiTableColumnFlags_WidthStretch, 0.38f);
-            ImGui::TableSetupColumn("Tur", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 3.8f);
-            ImGui::TableSetupColumn("Qiymat", ImGuiTableColumnFlags_WidthStretch, 0.62f);
+            ImGui::TableSetupColumn(Tr("Kalit"), ImGuiTableColumnFlags_WidthStretch, 0.38f);
+            ImGui::TableSetupColumn(Tr("Tur"), ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 3.8f);
+            ImGui::TableSetupColumn(Tr("Qiymat"), ImGuiTableColumnFlags_WidthStretch, 0.62f);
             ImGui::TableSetupColumn("##del", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFrameHeight());
             ImGui::TableHeadersRow();
             for (const std::string& key : keys)
@@ -1666,7 +1666,7 @@ namespace Zamin {
         submit |= ImGui::Button(Tr(ICON_FA_PLUS "  Qo'shish"));
         ImGui::EndDisabled();
         if (exists)
-            ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.35f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  Bu kalit allaqachon bor");
+            ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.35f, 1.0f), "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Bu kalit allaqachon bor"));
         if (submit && !m_NewSaveKey.empty() && !exists)
         {
             switch (m_NewSaveType)

@@ -483,12 +483,12 @@ namespace Zamin {
         // A label: the size (moving: the position; pivot / anchors: their values), or why it cannot be moved.
         std::string label;
         if (driven)
-            label = ICON_FA_LIST "  Layout guruhi joylashtiradi";
+            label = Tr(ICON_FA_LIST "  Layout guruhi joylashtiradi");
         else if (active == HandlePivot)
             label = std::format("Pivot {:.2f}, {:.2f}", tn.Pivot.x, tn.Pivot.y);
         else if (IsAnchor(active))
-            label = tn.AnchorMin == tn.AnchorMax ? std::format("Langar {:.2f}, {:.2f}", tn.AnchorMin.x, tn.AnchorMin.y)
-                                                 : std::format("Langar {:.2f}, {:.2f} - {:.2f}, {:.2f}", tn.AnchorMin.x, tn.AnchorMin.y, tn.AnchorMax.x, tn.AnchorMax.y);
+            label = tn.AnchorMin == tn.AnchorMax ? TrFormat("Langar {:.2f}, {:.2f}", tn.AnchorMin.x, tn.AnchorMin.y)
+                                                 : TrFormat("Langar {:.2f}, {:.2f} - {:.2f}, {:.2f}", tn.AnchorMin.x, tn.AnchorMin.y, tn.AnchorMax.x, tn.AnchorMax.y);
         else if (g.Drag == HandleMove && g.Moved)
             label = std::format("{:.0f}, {:.0f}", tn.Position.x, tn.Position.y);
         else

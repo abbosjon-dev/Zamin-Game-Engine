@@ -249,7 +249,7 @@ namespace Zamin {
                     changed = true;
                 }
                 else
-                    ShowViewportMessage(ICON_FA_TRIANGLE_EXCLAMATION "  Kamida 2 ta nuqta kerak");
+                    ShowViewportMessage(Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Kamida 2 ta nuqta kerak"));
             }
             else if (hover >= 0)
             {
@@ -351,10 +351,10 @@ namespace Zamin {
                 dl->AddText(at, IM_COL32(235, 240, 245, 255), label.c_str());
             }
         }
-        const char* hint = bezier ? ICON_FA_BEZIER_CURVE "  Sudrang  |  chiziqqa bosish - yangi nuqta  |  2x bosish - oxiriga  |  Ctrl+bosish / Del - o'chirish  |  "
-                                    "tutqich: Ctrl - alohida  |  Shift - 0.1  |  Esc - tugatish"
-                                  : ICON_FA_BEZIER_CURVE "  Sudrang  |  chiziqqa bosish - yangi nuqta  |  2x bosish - oxiriga  |  Ctrl+bosish / Del - o'chirish  |  "
-                                    "Shift - 0.1  |  Esc - tugatish";
+        const char* hint = bezier ? Tr(ICON_FA_BEZIER_CURVE "  Sudrang  |  chiziqqa bosish - yangi nuqta  |  2x bosish - oxiriga  |  Ctrl+bosish / Del - o'chirish  |  "
+                                    "tutqich: Ctrl - alohida  |  Shift - 0.1  |  Esc - tugatish")
+                                  : Tr(ICON_FA_BEZIER_CURVE "  Sudrang  |  chiziqqa bosish - yangi nuqta  |  2x bosish - oxiriga  |  Ctrl+bosish / Del - o'chirish  |  "
+                                    "Shift - 0.1  |  Esc - tugatish");
         const ImVec2 hintSize = ImGui::CalcTextSize(hint);
         // At the bottom of the view (the toolbars are at the top).
         const ImVec2 hintAt(m_ViewportBounds[0].x + std::max(10.0f, (viewport.x - hintSize.x) * 0.5f), m_ViewportBounds[1].y - hintSize.y - 14.0f);

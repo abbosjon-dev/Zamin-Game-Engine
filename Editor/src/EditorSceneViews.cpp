@@ -35,8 +35,8 @@ namespace Zamin {
                 return "2D";
             const ViewAxis axis = camera.GetViewAxis();
             if (axis != ViewAxis::Free)
-                return GetViewAxisInfo(axis).Short;
-            return camera.IsOrthographic() ? "Orto" : "Persp";
+                return Tr(GetViewAxisInfo(axis).Short);
+            return camera.IsOrthographic() ? Tr("Orto") : "Persp";
         }
 
         const char* AxisShortcut(ViewAxis axis)
@@ -147,14 +147,14 @@ namespace Zamin {
             // its focal point and distance and turns there).
             if (axis == ViewAxis::Front)
             {
-                ShowViewportMessage(ICON_FA_CUBE "  2D rejim: old tomondan");
+                ShowViewportMessage(Tr(ICON_FA_CUBE "  2D rejim: old tomondan"));
                 return;
             }
             m_2DMode = false;
         }
         camera.SetViewAxis(axis, 0.3f);
         if (index == 0)
-            ShowViewportMessage(std::format(ICON_FA_CUBE "  {}{}", GetViewAxisInfo(axis).Name, axis == ViewAxis::Free ? "" : " (ortografik)"));
+            ShowViewportMessage(std::format(ICON_FA_CUBE "  {}{}", Tr(GetViewAxisInfo(axis).Name), axis == ViewAxis::Free ? "" : Tr(" (ortografik)")));
         else
             MarkViewSettingsDirty();
     }
@@ -167,12 +167,12 @@ namespace Zamin {
             // Out of the 2D mode into perspective, looking the same way.
             m_2DMode = false;
             camera.SetViewAxis(ViewAxis::Free, 0.0f);
-            ShowViewportMessage(ICON_FA_CUBE "  Perspektiv (3D)");
+            ShowViewportMessage(Tr(ICON_FA_CUBE "  Perspektiv (3D)"));
             return;
         }
         camera.ToggleOrthographic();
         if (index == 0)
-            ShowViewportMessage(camera.IsOrthographic() ? ICON_FA_CUBE "  Ortografik" : ICON_FA_CUBE "  Perspektiv");
+            ShowViewportMessage(camera.IsOrthographic() ? Tr(ICON_FA_CUBE "  Ortografik") : Tr(ICON_FA_CUBE "  Perspektiv"));
         else
             MarkViewSettingsDirty();
     }
@@ -512,7 +512,7 @@ namespace Zamin {
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(spacing, 0));
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
 
-        const std::string tip = std::format("Ko'rinish: {}\nYuqoridan / old / o'ng ... (Num 7 / 1 / 3, Ctrl bilan teskari tomon), "
+        const std::string tip = TrFormat("Ko'rinish: {}\nYuqoridan / old / o'ng ... (Num 7 / 1 / 3, Ctrl bilan teskari tomon), "
                                             "Num 5: perspektiv / ortografik", ProjectionLabel(view.Camera));
         if (UI::ToolbarButton(axisLabel.c_str(), tip.c_str(), view.Camera.IsOrthographic(), ImVec2(axisWidth, buttonSize)))
             ImGui::OpenPopup("##ViewAxisMenu");
@@ -570,20 +570,20 @@ namespace Zamin {
         EditorCamera& camera = GetSceneViewCamera(index);
         const ViewAxis current = camera.GetViewAxis();
         const bool locked = index == 0 && m_2DMode;
-        ImGui::TextColored(UI::AccentColor(), ICON_FA_CUBE "  Ko'rinish o'qi");
+        ImGui::TextColored(UI::AccentColor(), "%s", Tr(ICON_FA_CUBE "  Ko'rinish o'qi"));
         if (ImGui::MenuItem(Tr(ICON_FA_CUBE "  Erkin (perspektiv)"), ShortcutLabel(EditorShortcut::ViewPerspective), !camera.IsOrthographic() && !locked))
             SetSceneViewAxis(index, ViewAxis::Free);
         ImGui::Separator();
         for (ViewAxis axis : { ViewAxis::Top, ViewAxis::Bottom, ViewAxis::Front, ViewAxis::Back, ViewAxis::Right, ViewAxis::Left })
-            if (ImGui::MenuItem(GetViewAxisInfo(axis).Name, ShortcutLabel(AxisShortcut(axis)), current == axis || (locked && axis == ViewAxis::Front)))
+            if (ImGui::MenuItem(Tr(GetViewAxisInfo(axis).Name), ShortcutLabel(AxisShortcut(axis)), current == axis || (locked && axis == ViewAxis::Front)))
                 SetSceneViewAxis(index, axis);
         ImGui::Separator();
         if (ImGui::MenuItem(Tr("Ortografik proyeksiya"), ShortcutLabel(EditorShortcut::ViewToggleOrtho), camera.IsOrthographic()))
             ToggleSceneViewProjection(index);
         if (locked)
-            ImGui::TextDisabled("2D rejim: boshqa ko'rinish tanlansa 3D ga o'tiladi");
+            ImGui::TextDisabled("%s", Tr("2D rejim: boshqa ko'rinish tanlansa 3D ga o'tiladi"));
         else
-            ImGui::TextDisabled("Ortografik o'q ko'rinishini aylantirish (Alt + chap tugma) perspektivga qaytaradi");
+            ImGui::TextDisabled("%s", Tr("Ortografik o'q ko'rinishini aylantirish (Alt + chap tugma) perspektivga qaytaradi"));
     }
 
     bool EditorLayer::UI_ViewAxisNavigator(const SceneViewTarget& view, ImVec2 center, float radius)
@@ -677,7 +677,7 @@ namespace Zamin {
         {
             const ViewAxis axis = GetViewAxisFromSide(arms[hoveredArm].Direction);
             const ViewAxis target = camera.GetViewAxis() == axis ? GetOppositeViewAxis(axis) : axis;
-            UI::Tooltip(std::format("{} ({})", GetViewAxisInfo(target).Name, ShortcutLabel(AxisShortcut(target))).c_str());
+            UI::Tooltip(std::format("{} ({})", Tr(GetViewAxisInfo(target).Name), ShortcutLabel(AxisShortcut(target))).c_str());
             if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
             {
                 m_LastSceneView = view.Index;
@@ -853,8 +853,8 @@ namespace Zamin {
                 if (size_t count = m_SceneHierarchyPanel.DuplicateSelection(true))
                 {
                     m_GizmoEdit.Begin(*m_ActiveScene, GetGizmoTargets(), m_GizmoEdit.GetStartPivot());
-                    ShowViewportMessage(count > 1 ? std::format(ICON_FA_CLONE "  {} ta nusxa sudralmoqda", count)
-                                                  : std::string(ICON_FA_CLONE "  Nusxa sudralmoqda"));
+                    ShowViewportMessage(count > 1 ? TrFormat(ICON_FA_CLONE "  {} ta nusxa sudralmoqda", count)
+                                                  : std::string(Tr(ICON_FA_CLONE "  Nusxa sudralmoqda")));
                 }
             }
             m_GizmoEdit.Update(transform, (GroupTransformEdit::Operation)(int)m_GizmoMode);
@@ -886,31 +886,31 @@ namespace Zamin {
         const float em = ImGui::GetFontSize();
         const float field = em * 11.0f;
         bool speed = false, other = false;
-        ImGui::TextColored(UI::AccentColor(), ICON_FA_VIDEO "  Editor kamerasi");
+        ImGui::TextColored(UI::AccentColor(), "%s", Tr(ICON_FA_VIDEO "  Editor kamerasi"));
         ImGui::SameLine();
-        ImGui::TextDisabled("(%s)", index == 0 ? "viewport" : std::format("ko'rinish {}", index + 1).c_str());
+        ImGui::TextDisabled("(%s)", index == 0 ? "viewport" : TrFormat("ko'rinish {}", index + 1).c_str());
 
         ImGui::SeparatorText(Tr("Uchish: o'ng tugma + WASD / QE"));
         float flySpeed = camera.FlySpeed;
         ImGui::SetNextItemWidth(field);
-        if (ImGui::SliderFloat("Tezlik", &flySpeed, EditorCameraDefaults::MinFlySpeed, EditorCameraDefaults::MaxFlySpeed, "%.1f m/s",
+        if (ImGui::SliderFloat(Tr("Tezlik"), &flySpeed, EditorCameraDefaults::MinFlySpeed, EditorCameraDefaults::MaxFlySpeed, "%.1f m/s",
                                ImGuiSliderFlags_Logarithmic))
             speed = true;
         if (ValuePresets("speed", flySpeed, { 1.0f, 3.0f, 6.0f, 15.0f, 40.0f }))
             speed = true;
         if (speed)
             c.FlySpeed = flySpeed;
-        ImGui::TextDisabled("Uchayotganda g'ildirak tezlikni o'zgartiradi, Shift - 3x");
+        ImGui::TextDisabled("%s", Tr("Uchayotganda g'ildirak tezlikni o'zgartiradi, Shift - 3x"));
         ImGui::SetNextItemWidth(field);
-        other |= ImGui::SliderFloat("Tezlanish", &c.FlyAcceleration, 0.0f, EditorCameraDefaults::MaxAcceleration,
-                                    c.FlyAcceleration > 0.0f ? "+%.1fx / s" : "yo'q");
+        other |= ImGui::SliderFloat(Tr("Tezlanish"), &c.FlyAcceleration, 0.0f, EditorCameraDefaults::MaxAcceleration,
+                                    c.FlyAcceleration > 0.0f ? "+%.1fx / s" : Tr("yo'q"));
         if (ImGui::IsItemHovered())
-            UI::Tooltip(std::format("Tugmalar uzoq bosilsa tezlik oshib boradi: har soniyada shuncha marta qo'shiladi, ko'pi bilan {:g}x",
+            UI::Tooltip(TrFormat("Tugmalar uzoq bosilsa tezlik oshib boradi: har soniyada shuncha marta qo'shiladi, ko'pi bilan {:g}x",
                                     MaxFlyBoost).c_str());
 
         ImGui::SeparatorText(Tr("Sichqoncha"));
         ImGui::SetNextItemWidth(field);
-        other |= ImGui::SliderFloat("Sezgirlik", &c.LookSensitivity, EditorCameraDefaults::MinSensitivity, EditorCameraDefaults::MaxSensitivity,
+        other |= ImGui::SliderFloat(Tr("Sezgirlik"), &c.LookSensitivity, EditorCameraDefaults::MinSensitivity, EditorCameraDefaults::MaxSensitivity,
                                     "%.2fx", ImGuiSliderFlags_Logarithmic);
         other |= ImGui::Checkbox(Tr("Y o'qini teskari qilish"), &c.InvertY);
         if (ImGui::IsItemHovered())
@@ -918,12 +918,12 @@ namespace Zamin {
 
         ImGui::SeparatorText(Tr("Proyeksiya"));
         ImGui::SetNextItemWidth(field);
-        other |= ImGui::SliderFloat("Ko'rish burchagi", &c.FOV, EditorCameraDefaults::MinFOV, EditorCameraDefaults::MaxFOV, "%.0f\xc2\xb0");
+        other |= ImGui::SliderFloat(Tr("Ko'rish burchagi"), &c.FOV, EditorCameraDefaults::MinFOV, EditorCameraDefaults::MaxFOV, "%.0f\xc2\xb0");
         other |= ValuePresets("fov", c.FOV, { 30.0f, 45.0f, 60.0f, 75.0f, 90.0f }, "\xc2\xb0");
         ImGui::SetNextItemWidth(field);
-        other |= ImGui::DragFloat("Yaqin chegara", &c.NearClip, 0.005f, EditorCameraDefaults::MinNear, EditorCameraDefaults::MaxNear, "%.3f");
+        other |= ImGui::DragFloat(Tr("Yaqin chegara"), &c.NearClip, 0.005f, EditorCameraDefaults::MinNear, EditorCameraDefaults::MaxNear, "%.3f");
         ImGui::SetNextItemWidth(field);
-        other |= ImGui::DragFloat("Uzoq chegara", &c.FarClip, 10.0f, 1.0f, EditorCameraDefaults::MaxFar, "%.0f");
+        other |= ImGui::DragFloat(Tr("Uzoq chegara"), &c.FarClip, 10.0f, 1.0f, EditorCameraDefaults::MaxFar, "%.0f");
         const bool locked = index == 0 && m_2DMode;
         bool ortho = camera.IsOrthographic();
         ImGui::BeginDisabled(locked);
@@ -940,7 +940,7 @@ namespace Zamin {
             speed = other = true;
         }
         ImGui::SameLine();
-        ImGui::TextDisabled("Hamma ko'rinishlarga");
+        ImGui::TextDisabled("%s", Tr("Hamma ko'rinishlarga"));
         if (speed || other)
         {
             c.Sanitize();

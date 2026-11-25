@@ -301,11 +301,11 @@ namespace Zamin {
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
         Entity e = GetAnimatorEntity();
         if (!e)
-            ImGui::TextDisabled("Animator komponenti bor obyektni tanlang (skelet kliplari uchun)");
+            ImGui::TextDisabled("%s", Tr("Animator komponenti bor obyektni tanlang (skelet kliplari uchun)"));
         else if (!GetAnimatorModel())
-            ImGui::TextDisabled("'%s': Mesh Renderer'da animatsiyali glTF model yo'q", e.GetName().c_str());
+            ImGui::TextDisabled(Tr("'%s': Mesh Renderer'da animatsiyali glTF model yo'q"), e.GetName().c_str());
         else
-            ImGui::TextDisabled("Klipni tanlang");
+            ImGui::TextDisabled("%s", Tr("Klipni tanlang"));
     }
 
     void AnimationTimelinePanel::DrawSkeletalToolbar()
@@ -328,7 +328,7 @@ namespace Zamin {
             return;
         ImGui::SameLine();
         ImGui::SetNextItemWidth(150.0f);
-        if (ImGui::BeginCombo("##skelclip", m_SkelClip.empty() ? "(klip)" : m_SkelClip.c_str()))
+        if (ImGui::BeginCombo("##skelclip", m_SkelClip.empty() ? Tr("(klip)") : m_SkelClip.c_str()))
         {
             for (const AnimationClip& c : model->GetAnimations())
                 if (ImGui::Selectable(std::format("{}  ({:.2f} s)##{}", c.Name, c.Duration, (const void*)&c).c_str(), c.Name == m_SkelClip))
@@ -363,7 +363,7 @@ namespace Zamin {
         ImGui::SetNextItemWidth(140.0f);
         float time = m_SkelTime;
         if (ImGui::DragFloat("##skeltime", &time, 0.01f, 0.0f, clip->Duration,
-                             std::format("%.2f s  ({} kadr)", (int)std::round(m_SkelTime * fps)).c_str()))
+                             TrFormat("%.2f s  ({} kadr)", (int)std::round(m_SkelTime * fps)).c_str()))
         {
             m_SkelPlaying = false;
             SetSkeletalTime(time);
@@ -386,7 +386,7 @@ namespace Zamin {
         ImGui::EndDisabled();
         ImGui::SameLine(0.0f, 14.0f);
         if (!m_Editable)
-            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.35f, 1.0f), ICON_FA_CIRCLE_INFO "  O'yin: Animator vaqti");
+            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.35f, 1.0f), "%s", Tr(ICON_FA_CIRCLE_INFO "  O'yin: Animator vaqti"));
         else if (m_SkelPreview)
         {
             ImGui::BeginDisabled(m_SkelPlaying);
@@ -394,10 +394,10 @@ namespace Zamin {
                 StopSkeletalPreview();
             ImGui::EndDisabled();
             ImGui::SameLine();
-            ImGui::TextColored(UI::AccentColor(), "Ko'rib chiqish");
+            ImGui::TextColored(UI::AccentColor(), "%s", Tr("Ko'rib chiqish"));
         }
         else
-            ImGui::TextDisabled("Vaqt chizg'ichini bosing / sudrang: sahnada ko'rinadi");
+            ImGui::TextDisabled("%s", Tr("Vaqt chizg'ichini bosing / sudrang: sahnada ko'rinadi"));
     }
 
     void AnimationTimelinePanel::DrawSkeletalTimeline()
@@ -452,11 +452,11 @@ namespace Zamin {
         size_t boneRows = 0;
         for (const SkeletalRow& row : rows)
             boneRows += row.Joint >= 0 ? 1 : 0;
-        const std::string summary = boneRows == rows.size() ? std::format("{} - {} suyak, {:.2f} s", clip->Name, boneRows, clip->Duration)
+        const std::string summary = boneRows == rows.size() ? TrFormat("{} - {} suyak, {:.2f} s", clip->Name, boneRows, clip->Duration)
                                   : boneRows == 0 ? std::format("{} - {} blend shape, {:.2f} s", clip->Name, rows.size(), clip->Duration)
-                                  : std::format("{} - {} suyak, {} blend shape, {:.2f} s", clip->Name, boneRows, rows.size() - boneRows, clip->Duration);
+                                  : TrFormat("{} - {} suyak, {} blend shape, {:.2f} s", clip->Name, boneRows, rows.size() - boneRows, clip->Duration);
         dl->AddText(ImVec2(list.Min.x + 8.0f, list.Min.y + 4.0f), IM_COL32(170, 175, 185, 255), summary.c_str());
-        dl->AddText(ImVec2(list.Min.x + 8.0f, rulerBottom + 4.0f), IM_COL32(230, 180, 90, 255), ICON_FA_BELL "  Event'lar");
+        dl->AddText(ImVec2(list.Min.x + 8.0f, rulerBottom + 4.0f), IM_COL32(230, 180, 90, 255), Tr(ICON_FA_BELL "  Event'lar"));
         dl->PushClipRect(ImVec2(list.Min.x, eventsBottom), list.Max, true);
         for (size_t r = 0; r < rows.size(); r++)
         {
@@ -675,7 +675,7 @@ namespace Zamin {
             }
             else
             {
-                if (ImGui::MenuItem(std::format(ICON_FA_BELL "  Event qo'shish ({:.2f} s)", s_ContextTime).c_str()))
+                if (ImGui::MenuItem(TrFormat(ICON_FA_BELL "  Event qo'shish ({:.2f} s)", s_ContextTime).c_str()))
                     AddSkeletalEvent(s_ContextTime);
                 if (ImGui::MenuItem(Tr(ICON_FA_LOCATION_CROSSHAIRS "  Shu vaqtga o'tish")))
                     SetSkeletalTime(s_ContextTime);
@@ -686,8 +686,8 @@ namespace Zamin {
         if (hovered && hoveredEvent >= 0 && !ImGui::IsItemActive())
         {
             const AnimatorEvent& ev = anim.Events[(size_t)hoveredEvent];
-            UI::Tooltip(std::format("{}  ({:.2f} s, {:.0f}%){}\nSudrang: vaqtini o'zgartirish, o'ng tugma: menyu", ev.Name,
-                                    ev.Time * clip->Duration, ev.Time * 100.0f, ev.Clip.empty() ? "  - hamma kliplarda" : "").c_str());
+            UI::Tooltip(TrFormat("{}  ({:.2f} s, {:.0f}%){}\nSudrang: vaqtini o'zgartirish, o'ng tugma: menyu", ev.Name,
+                                    ev.Time * clip->Duration, ev.Time * 100.0f, ev.Clip.empty() ? Tr("  - hamma kliplarda") : "").c_str());
         }
         else if (hovered && !ImGui::IsItemActive() && io.MousePos.y >= rulerBottom && io.MousePos.y < eventsBottom && m_Editable)
             UI::Tooltip("Ikki marta bosing: shu vaqtda event qo'shish");
@@ -718,7 +718,7 @@ namespace Zamin {
             float seconds = ev.Time * clip->Duration;
             ImGui::SetNextItemWidth(-FLT_MIN);
             if (ImGui::DragFloat("##evtime", &seconds, 0.005f, 0.0f, clip->Duration,
-                                 std::format("%.3f s  ({:.0f}%%, {} kadr)", ev.Time * 100.0f, (int)std::round(seconds * fps)).c_str(),
+                                 TrFormat("%.3f s  ({:.0f}%%, {} kadr)", ev.Time * 100.0f, (int)std::round(seconds * fps)).c_str(),
                                  ImGuiSliderFlags_AlwaysClamp))
             {
                 ev.Time = clip->Duration > 0.0f ? std::clamp(seconds / clip->Duration, 0.0f, 1.0f) : 0.0f;
@@ -743,25 +743,25 @@ namespace Zamin {
 
         // ---- the clip
         ImGui::TextColored(UI::AccentColor(), ICON_FA_PERSON_RUNNING "  %s", clip->Name.c_str());
-        ImGui::TextDisabled("%.2f s, %d kadr (%.0f kadr/s)", clip->Duration, (int)std::round(clip->Duration * fps), fps);
+        ImGui::TextDisabled(Tr("%.2f s, %d kadr (%.0f kadr/s)"), clip->Duration, (int)std::round(clip->Duration * fps), fps);
         size_t keys = 0;
         for (const auto& ch : clip->Channels)
             keys += ch.Times.size();
         for (const auto& ch : clip->MorphChannels)
             keys += ch.Times.size();
-        ImGui::TextDisabled("%zu kanal, %zu kalit", clip->Channels.size() + clip->MorphChannels.size(), keys);
+        ImGui::TextDisabled(Tr("%zu kanal, %zu kalit"), clip->Channels.size() + clip->MorphChannels.size(), keys);
         int events = 0;
         for (const AnimatorEvent& ev : anim.Events)
             events += ev.Clip == m_SkelClip || ev.Clip.empty() ? 1 : 0;
         ImGui::TextDisabled("%d event", events);
         if (const auto* steps = entity.TryGetComponent<FootstepsComponent>())
-            ImGui::TextDisabled(ICON_FA_SHOE_PRINTS "  Qadam event'i: \"%s\"", steps->EventName.c_str());
+            ImGui::TextDisabled(Tr(ICON_FA_SHOE_PRINTS "  Qadam event'i: \"%s\""), steps->EventName.c_str());
         if (model->GetImportSettings().Clips.size() > 0)
             for (const ModelClipSettings& s : model->GetImportSettings().Clips)
                 if (s.GetName() == clip->Name)
                 {
-                    ImGui::TextDisabled(ICON_FA_SCISSORS "  '%s' dan: %.2f - %s", s.Source.c_str(), s.Start,
-                                        s.End < 0.0f ? "oxiri" : std::format("{:.2f} s", s.End).c_str());
+                    ImGui::TextDisabled(Tr(ICON_FA_SCISSORS "  '%s' dan: %.2f - %s"), s.Source.c_str(), s.Start,
+                                        s.End < 0.0f ? Tr("oxiri") : std::format("{:.2f} s", s.End).c_str());
                     break;
                 }
 
@@ -784,7 +784,7 @@ namespace Zamin {
                     ImGui::TextDisabled("R  %.1f\xc2\xb0  %.1f\xc2\xb0  %.1f\xc2\xb0", euler.x, euler.y, euler.z);
                     ImGui::TextDisabled("S  %.3f  %.3f  %.3f", pose.S[j].x, pose.S[j].y, pose.S[j].z);
                 }
-                ImGui::TextDisabled("%zu kalit", row.Times.size());
+                ImGui::TextDisabled(Tr("%zu kalit"), row.Times.size());
             }
             else if (row.MorphGroup >= 0)
             {
@@ -803,7 +803,7 @@ namespace Zamin {
         {
             ImGui::Spacing();
             ImGui::PushTextWrapPos(0.0f);
-            ImGui::TextDisabled("Qatorni bosing: suyakning shu vaqtdagi qiymatlari. Event qatorida ikki marta bosing: event qo'shish");
+            ImGui::TextDisabled("%s", Tr("Qatorni bosing: suyakning shu vaqtdagi qiymatlari. Event qatorida ikki marta bosing: event qo'shish"));
             ImGui::PopTextWrapPos();
         }
     }

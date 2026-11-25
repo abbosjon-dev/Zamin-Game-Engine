@@ -21,7 +21,7 @@ namespace Zamin {
         std::string ComponentName(std::string_view key)
         {
             const std::string_view name = SceneHierarchyPanel::GetComponentDisplayName(key);
-            return name.empty() || name == "Komponent" ? std::string(key) : std::string(name);
+            return name.empty() || name == Tr("Komponent") ? std::string(key) : std::string(name);
         }
 
         // Why the instance's prefab cannot be followed ("" when it can).

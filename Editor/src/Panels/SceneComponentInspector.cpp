@@ -44,7 +44,7 @@ namespace Zamin {
             ImGui::PushStyleColor(ImGuiCol_Text, UI::AccentColor());
             ImGui::TextUnformatted(ICON_FA_OBJECT_GROUP);
             ImGui::SameLine();
-            ImGui::Text("%zu ta obyekt tanlangan", m_Selection.Size());
+            ImGui::Text(Tr("%zu ta obyekt tanlangan"), m_Selection.Size());
             ImGui::PopStyleColor();
             if (ImGui::IsItemHovered())
             {
@@ -59,7 +59,7 @@ namespace Zamin {
                 UI::Tooltip(names.c_str());
             }
             ImGui::SameLine();
-            ImGui::TextDisabled("(asosiy: %s)", primary.GetName().c_str());
+            ImGui::TextDisabled(Tr("(asosiy: %s)"), primary.GetName().c_str());
             ImGui::Separator();
         }
         DrawComponents(primary);
@@ -91,8 +91,8 @@ namespace Zamin {
         };
         for (const auto& [k, name] : s_Names)
             if (k == key)
-                return name;
-        return "Komponent";
+                return Tr(name); // the table holds the Uzbek keys
+        return Tr("Komponent");
     }
 
     const char* SceneHierarchyPanel::GetComponentDisplayName(std::string_view key) { return ComponentDisplayName(key); }
@@ -187,16 +187,16 @@ namespace Zamin {
         for (Entity e : GetMenuTargets(entity))
             withComponent += ComponentRegistry::Has(e, key) ? 1 : 0;
         const bool sameType = m_PasteKey == key;
-        std::string pasteLabel = withComponent > 1 ? std::format(ICON_FA_PASTE "  Qiymatlarni joylash ({} ta obyekt)", withComponent)
-                                                   : std::string(ICON_FA_PASTE "  Qiymatlarni joylash");
+        std::string pasteLabel = withComponent > 1 ? TrFormat(ICON_FA_PASTE "  Qiymatlarni joylash ({} ta obyekt)", withComponent)
+                                                   : std::string(Tr(ICON_FA_PASTE "  Qiymatlarni joylash"));
         if (ImGui::MenuItem(pasteLabel.c_str(), nullptr, false, sameType && m_SceneEditable))
             changed |= PasteComponent(entity, false) > 0;
         if (m_PasteKey.empty())
-            ImGui::TextDisabled("      Bufer bo'sh");
+            ImGui::TextDisabled("%s", Tr("      Bufer bo'sh"));
         else if (!sameType)
-            ImGui::TextDisabled("      Buferda boshqa komponent: %s", ComponentDisplayName(m_PasteKey));
+            ImGui::TextDisabled(Tr("      Buferda boshqa komponent: %s"), ComponentDisplayName(m_PasteKey));
         else if (!m_SceneEditable)
-            ImGui::TextDisabled("      O'yin davomida joylab bo'lmaydi");
+            ImGui::TextDisabled("%s", Tr("      O'yin davomida joylab bo'lmaydi"));
 
         // ---- order (Transform stays on top)
         ImGui::Separator();
@@ -383,10 +383,10 @@ namespace Zamin {
         size_t maps = d.GetTexturePaths().size();
         glm::vec3 radiance = d.Emission * d.EmissionStrength;
         float glow = std::max({ radiance.r, radiance.g, radiance.b });
-        std::string text = std::format("{} · {}{} · metall {:.2f} · g'adir {:.2f}{}{}", MaterialSerializer::ShaderToString(d.Shader),
-                                       MaterialSerializer::BlendModeToString(d.BlendMode), d.DoubleSided ? " · ikki tomonlama" : "",
-                                       d.Metallic, d.Roughness, glow > 0.0f ? std::format(" · nurlanish x{:.2f}", d.EmissionStrength) : std::string(),
-                                       maps ? std::format(" · {} tekstura", maps) : std::string());
+        std::string text = TrFormat("{} · {}{} · metall {:.2f} · g'adir {:.2f}{}{}", MaterialSerializer::ShaderToString(d.Shader),
+                                       MaterialSerializer::BlendModeToString(d.BlendMode), d.DoubleSided ? Tr(" · ikki tomonlama") : "",
+                                       d.Metallic, d.Roughness, glow > 0.0f ? TrFormat(" · nurlanish x{:.2f}", d.EmissionStrength) : std::string(),
+                                       maps ? TrFormat(" · {} tekstura", maps) : std::string());
         ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
         ImGui::TextWrapped("%s", text.c_str());
         ImGui::PopStyleColor();
@@ -466,11 +466,11 @@ namespace Zamin {
         bool changed = false;
         if (ImGui::BeginPopup("##standardMaterials"))
         {
-            ImGui::TextDisabled("Standart materiallar");
+            ImGui::TextDisabled("%s", Tr("Standart materiallar"));
             ImGui::Separator();
             for (const MaterialPreset& preset : MaterialPresets::GetAll())
             {
-                if (!UI::MaterialPresetMenuItem(preset, "Assets/Materials/Standart/ dagi umumiy nusxasi biriktiriladi"))
+                if (!UI::MaterialPresetMenuItem(preset, Tr("Assets/Materials/Standart/ dagi umumiy nusxasi biriktiriladi")))
                     continue;
                 MaterialPresets::CreateResult result;
                 std::string error;
@@ -496,14 +496,14 @@ namespace Zamin {
         bool edit = false;
         UI::AssetPathOptions options;
         options.ActionIcon = ICON_FA_PEN;
-        options.ActionTooltip = "Materialni tahrirlash (inspektorda ochiladi)";
+        options.ActionTooltip = Tr("Materialni tahrirlash (inspektorda ochiladi)");
         options.ActionClicked = &edit;
         options.Missing = !c.MaterialPath.empty() && !c.MaterialRef;
         if (c.MaterialRef && GetAssetThumbnail)
             options.PreviewTexture = GetAssetThumbnail(Project::GetAssetFileSystemPath(c.MaterialPath));
         options.PreviewTopRowFirst = true;
-        options.Tooltip = "Material asset (.zmat). Tanlansa mesh (modelning barcha qismlari) shu material bilan chiziladi va "
-                          "quyidagi ichki material ishlatilmaydi. Bitta material ko'p obyektda ishlatiladi: uni o'zgartirsangiz, hammasi o'zgaradi.";
+        options.Tooltip = Tr("Material asset (.zmat). Tanlansa mesh (modelning barcha qismlari) shu material bilan chiziladi va "
+                          "quyidagi ichki material ishlatilmaydi. Bitta material ko'p obyektda ishlatiladi: uni o'zgartirsangiz, hammasi o'zgaradi.");
         std::string materialPath = c.MaterialPath;
         if (UI::PropertyAssetPath("Material asset", materialPath, ".zmat", ICON_FA_PALETTE, options))
             changed |= Scene::SetMeshMaterial(c, materialPath);
@@ -525,7 +525,7 @@ namespace Zamin {
                 ImGui::SameLine();
             }
             ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.55f, 0.8f, 1.0f, 1.0f));
-            ImGui::TextWrapped(ICON_FA_CODE "  Skriptning material nusxasi (instansiya) chizilmoqda");
+            ImGui::TextWrapped("%s", Tr(ICON_FA_CODE "  Skriptning material nusxasi (instansiya) chizilmoqda"));
             ImGui::PopStyleColor();
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Skript GetMaterial() bilan shu obyekt uchun materialning o'z nusxasini yaratgan: uning o'zgarishlari faqat shu "
@@ -545,7 +545,7 @@ namespace Zamin {
                             "u ham bo'lmasa modelning o'z materiali.");
             // The count in the value column (the label column is narrow).
             ImGui::TableSetColumnIndex(1);
-            ImGui::TextDisabled("%s", std::format("{}/{} qismda asset", overridden, subMeshes.size()).c_str());
+            ImGui::TextDisabled("%s", TrFormat("{}/{} qismda asset", overridden, subMeshes.size()).c_str());
             if (open)
             {
                 for (size_t i = 0; i < subMeshes.size(); i++)
@@ -556,7 +556,7 @@ namespace Zamin {
                     bool editSlot = false;
                     UI::AssetPathOptions slotOptions;
                     slotOptions.ActionIcon = ICON_FA_PEN;
-                    slotOptions.ActionTooltip = "Materialni tahrirlash";
+                    slotOptions.ActionTooltip = Tr("Materialni tahrirlash");
                     slotOptions.ActionClicked = &editSlot;
                     slotOptions.Missing = !path.empty() && (i >= c.SubmeshMaterialRefs.size() || !c.SubmeshMaterialRefs[i]);
                     if (!path.empty() && !slotOptions.Missing && GetAssetThumbnail)
@@ -577,7 +577,7 @@ namespace Zamin {
         {
             UI::PropertyLabel("");
             ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-            ImGui::TextWrapped(ICON_FA_CIRCLE_INFO "  Ichki material ishlatilmaydi: material asset tanlangan");
+            ImGui::TextWrapped("%s", Tr(ICON_FA_CIRCLE_INFO "  Ichki material ishlatilmaydi: material asset tanlangan"));
             ImGui::PopStyleColor();
             return changed;
         }
@@ -751,7 +751,7 @@ namespace Zamin {
     static void DrawWatchedBehaviorTree(const BehaviorTree& tree)
     {
         ImGui::PushID(&tree);
-        UI::PropertyLabel(tree.Name.empty() ? "AI daraxti" : tree.Name.c_str());
+        UI::PropertyLabel(tree.Name.empty() ? Tr("AI daraxti") : tree.Name.c_str());
         ImGui::TextColored(UI::AccentColor(), ICON_FA_DIAGRAM_PROJECT "  %s", tree.Describe().c_str());
         UI::PropertyLabel("");
         const std::string header = std::format("{} ({} {})###bt", Tr("Daraxt"), tree.GetNodeCount(), Tr("tugun"));
@@ -803,7 +803,7 @@ namespace Zamin {
     void SceneHierarchyPanel::DrawScriptComponent(Entity entity, bool& modified)
     {
         // Drawn after this function returns (AddSection): captures by value only.
-        AddSection<NativeScriptComponent>(ICON_FA_CODE, "Skript (C++ / Visual)", entity, [this, entity](NativeScriptComponent& c) {
+        AddSection<NativeScriptComponent>(ICON_FA_CODE, Tr("Skript (C++ / Visual)"), entity, [this, entity](NativeScriptComponent& c) {
             bool changed = false;
             const auto& all = ScriptRegistry::GetAll();
 
@@ -831,17 +831,17 @@ namespace Zamin {
                 // its own flag says (no OnUpdate, timers stopped).
                 const bool entityActive = entity.IsActiveInHierarchy();
                 ImGui::SameLine();
-                ImGui::TextDisabled(!enabled ? "o'chirilgan"
-                                    : !entityActive ? "to'xtab turibdi"
-                                    : c.Instance->HasStarted() ? "ishlayapti" : "OnStart kutilmoqda");
+                ImGui::TextDisabled("%s", !enabled ? Tr("o'chirilgan")
+                                    : !entityActive ? Tr("to'xtab turibdi")
+                                    : c.Instance->HasStarted() ? Tr("ishlayapti") : Tr("OnStart kutilmoqda"));
             }
-            InactiveComponentNote(entity, "Obyekt nofaol: skript OnUpdate olmaydi, taymerlari to'xtaydi (faollashganda OnEnable chaqiriladi)");
+            InactiveComponentNote(entity, Tr("Obyekt nofaol: skript OnUpdate olmaydi, taymerlari to'xtaydi (faollashganda OnEnable chaqiriladi)"));
 
             if (c.ClassName == "Zamin.VisualGraph") {
                 auto it = c.Fields.find("Graph");
                 std::string path = it == c.Fields.end() ? "" : it->second.StringValue;
                 ImGui::TextWrapped("Visual Script: %s", path.c_str());
-                if (ImGui::Button("Visual Script muharririda ochish") && OnVisualGraphRequested)
+                if (ImGui::Button(Tr("Visual Script muharririda ochish")) && OnVisualGraphRequested)
                     OnVisualGraphRequested(Project::GetAssetFileSystemPath(path));
                 return changed;
             }
@@ -849,7 +849,7 @@ namespace Zamin {
             bool exists = ScriptRegistry::Find(c.ClassName) != nullptr;
             if (!exists && !c.ClassName.empty())
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.4f, 0.35f, 1.0f));
-            std::string preview = c.ClassName.empty() ? "(tanlang)" : c.ClassName;
+            std::string preview = c.ClassName.empty() ? Tr("(tanlang)") : c.ClassName;
             // Room for the "open the code" button after the class.
             const float openWidth = ImGui::GetFrameHeight();
             ImGui::SetNextItemWidth(-(openWidth + ImGui::GetStyle().ItemSpacing.x));
@@ -861,12 +861,12 @@ namespace Zamin {
                     ImGui::EndCombo();
                 ImGui::EndDisabled();
                 if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-                    ImGui::SetTooltip("O'yin davomida klassni almashtirib bo'lmaydi");
+                    ImGui::SetTooltip("%s", Tr("O'yin davomida klassni almashtirib bo'lmaydi"));
             }
             else if (ImGui::BeginCombo("##class", preview.c_str()))
             {
                 if (all.empty())
-                    ImGui::TextDisabled("Skriptlar yo'q. 'Skriptlar > Kompilyatsiya' ni bosing");
+                    ImGui::TextDisabled("%s", Tr("Skriptlar yo'q. 'Skriptlar > Kompilyatsiya' ni bosing"));
                 for (const auto& [name, info] : all)
                 {
                     if (ImGui::Selectable(name.c_str(), name == c.ClassName))
@@ -890,7 +890,7 @@ namespace Zamin {
             if (!exists && !c.ClassName.empty())
             {
                 UI::PropertyLabel("");
-                ImGui::TextColored(ImVec4(0.95f, 0.6f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION " Klass yuklanmagan");
+                ImGui::TextColored(ImVec4(0.95f, 0.6f, 0.3f, 1.0f), "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION " Klass yuklanmagan"));
             }
 
             if (c.Instance)
@@ -979,11 +979,11 @@ namespace Zamin {
         if (ImGui::IsItemHovered())
             UI::Tooltip("Animator grafi: holatlar node'lar, o'tishlar strelkalar - sudrab joylashtirish, o'tish chizish, shartlar");
         if (c.States.empty())
-            ImGui::TextDisabled("Holatlar yo'q - Animator Play() bilan qo'lda boshqariladi.");
+            ImGui::TextDisabled("%s", Tr("Holatlar yo'q - Animator Play() bilan qo'lda boshqariladi."));
         const Model* m = model.get();
 
         // ---- parameters
-        ImGui::SeparatorText(live ? "Parametrlar (jonli)" : "Parametrlar");
+        ImGui::SeparatorText(live ? Tr("Parametrlar (jonli)") : Tr("Parametrlar"));
         changed |= AnimatorEditing::DrawParameters(c, live);
 
         // ---- states: one collapsible row each
@@ -995,7 +995,7 @@ namespace Zamin {
             ImGui::PushID(1000 + i);
             const bool current = c.CurrentState == i;
             std::string label = std::format("{}  {}{}{}###state", st.IsBlendTree() ? ICON_FA_SHUFFLE : ICON_FA_FILM, st.Name,
-                                            c.DefaultState == i ? "   (boshlang'ich)" : "", current ? "   " ICON_FA_PLAY : "");
+                                            c.DefaultState == i ? Tr("   (boshlang'ich)") : "", current ? "   " ICON_FA_PLAY : "");
             if (current)
                 ImGui::PushStyleColor(ImGuiCol_Text, UI::AccentColor());
             const bool open = ImGui::TreeNodeEx(label.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding);
@@ -1036,7 +1036,7 @@ namespace Zamin {
         {
             const auto& tr = c.Transitions[(size_t)i];
             ImGui::PushID(2000 + i);
-            std::string label = std::format("{}  " ICON_FA_ARROW_RIGHT "  {}   ({} shart{})###tr", AnimatorEditing::StateName(c, tr.From),
+            std::string label = TrFormat("{}  " ICON_FA_ARROW_RIGHT "  {}   ({} shart{})###tr", AnimatorEditing::StateName(c, tr.From),
                                             AnimatorEditing::StateName(c, tr.To), tr.Conditions.size(), tr.HasExitTime ? ", exit time" : "");
             if (ImGui::TreeNodeEx(label.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding))
             {
@@ -1087,7 +1087,7 @@ namespace Zamin {
             ImGui::PopFont();
             ImGui::SameLine();
             const ImGuiStyle& style = ImGui::GetStyle();
-            float addWidth = ImGui::CalcTextSize(ICON_FA_PLUS "  Komponent").x + style.FramePadding.x * 2;
+            float addWidth = ImGui::CalcTextSize(Tr(ICON_FA_PLUS "  Komponent")).x + style.FramePadding.x * 2;
             float foldWidth = ImGui::GetFrameHeight();
             ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - addWidth - foldWidth - style.ItemSpacing.x * 2);
             if (ImGui::InputText("##Tag", &tag))
@@ -1131,8 +1131,8 @@ namespace Zamin {
                 if (!m_PasteKey.empty())
                 {
                     size_t targets = GetMenuTargets(entity).size();
-                    std::string label = targets > 1 ? std::format(ICON_FA_PASTE "  Buferdan joylash: {} ({} ta obyekt)", ComponentDisplayName(m_PasteKey), targets)
-                                                    : std::format(ICON_FA_PASTE "  Buferdan joylash: {}", ComponentDisplayName(m_PasteKey));
+                    std::string label = targets > 1 ? TrFormat(ICON_FA_PASTE "  Buferdan joylash: {} ({} ta obyekt)", ComponentDisplayName(m_PasteKey), targets)
+                                                    : TrFormat(ICON_FA_PASTE "  Buferdan joylash: {}", ComponentDisplayName(m_PasteKey));
                     if (ImGui::MenuItem(label.c_str(), nullptr, false, m_SceneEditable))
                     {
                         PasteComponent(entity, true);
@@ -1149,15 +1149,15 @@ namespace Zamin {
                 ImGui::SeparatorText(Tr("Render"));
                 DisplayAddComponentEntry<SpriteRendererComponent>("Sprite Renderer", ICON_FA_IMAGE);
                 DisplayAddComponentEntry<SpriteAnimationComponent>("Sprite Animation", ICON_FA_FILM);
-                DisplayAddComponentEntry<TintAnimationComponent>("Tint Animation (rang)", ICON_FA_PALETTE);
+                DisplayAddComponentEntry<TintAnimationComponent>(Tr("Tint Animation (rang)"), ICON_FA_PALETTE);
                 DisplayAddComponentEntry<CircleRendererComponent>("Circle Renderer", ICON_FA_CIRCLE);
                 DisplayAddComponentEntry<TextComponent>("Text", ICON_FA_FONT);
                 DisplayAddComponentEntry<TerrainComponent>("Terrain / map", ICON_FA_MOUNTAIN_SUN);
                 DisplayAddComponentEntry<FoliageComponent>("Packed foliage", ICON_FA_TREE);
                 DisplayAddComponentEntry<MeshRendererComponent>("Mesh Renderer", ICON_FA_CUBE);
                 DisplayAddComponentEntry<AnimatorComponent>("Animator (skeletal)", ICON_FA_PERSON_RUNNING);
-                DisplayAddComponentEntry<AnimationPlayerComponent>("Animation Player (.zanim kliplar)", ICON_FA_FILM);
-                DisplayAddComponentEntry<BoneAttachmentComponent>("Bone Attachment (suyakka biriktirish)", ICON_FA_PAPERCLIP);
+                DisplayAddComponentEntry<AnimationPlayerComponent>(Tr("Animation Player (.zanim kliplar)"), ICON_FA_FILM);
+                DisplayAddComponentEntry<BoneAttachmentComponent>(Tr("Bone Attachment (suyakka biriktirish)"), ICON_FA_PAPERCLIP);
                 DisplayAddComponentEntry<CameraComponent>("Camera", ICON_FA_CAMERA);
                 ImGui::SeparatorText(Tr("Yorug'lik"));
                 DisplayAddComponentEntry<DirectionalLightComponent>("Directional Light", ICON_FA_SUN);
@@ -1168,66 +1168,66 @@ namespace Zamin {
                 DisplayAddComponentEntry<Rigidbody2DComponent>("Rigidbody 2D", ICON_FA_ATOM);
                 DisplayAddComponentEntry<BoxCollider2DComponent>("Box Collider 2D", ICON_FA_VECTOR_SQUARE);
                 DisplayAddComponentEntry<CircleCollider2DComponent>("Circle Collider 2D", ICON_FA_CIRCLE_NODES);
-                DisplayAddComponentEntry<PolygonCollider2DComponent>("Polygon Collider 2D (ko'pburchak)", ICON_FA_DRAW_POLYGON);
-                DisplayAddComponentEntry<EdgeCollider2DComponent>("Edge Collider 2D (chiziq/zanjir)", ICON_FA_CHART_LINE);
-                DisplayAddComponentEntry<PlatformEffector2DComponent>("Platform Effector 2D (bir tomonlama)", ICON_FA_TURN_UP);
-                DisplayAddComponentEntry<AreaEffector2DComponent>("Area Effector 2D (shamol)", ICON_FA_WIND);
-                DisplayAddComponentEntry<BuoyancyEffector2DComponent>("Buoyancy Effector 2D (suv)", ICON_FA_WATER);
-                DisplayAddComponentEntry<DistanceJoint2DComponent>("Distance Joint 2D (masofa)", ICON_FA_LINK);
-                DisplayAddComponentEntry<RevoluteJoint2DComponent>("Revolute Joint 2D (sharnir)", ICON_FA_ARROWS_ROTATE);
-                DisplayAddComponentEntry<PrismaticJoint2DComponent>("Prismatic Joint 2D (sirpanish)", ICON_FA_ARROWS_LEFT_RIGHT);
-                DisplayAddComponentEntry<WeldJoint2DComponent>("Weld Joint 2D (payvand)", ICON_FA_HAMMER);
-                DisplayAddComponentEntry<WheelJoint2DComponent>("Wheel Joint 2D (g'ildirak)", ICON_FA_GEAR);
+                DisplayAddComponentEntry<PolygonCollider2DComponent>(Tr("Polygon Collider 2D (ko'pburchak)"), ICON_FA_DRAW_POLYGON);
+                DisplayAddComponentEntry<EdgeCollider2DComponent>(Tr("Edge Collider 2D (chiziq/zanjir)"), ICON_FA_CHART_LINE);
+                DisplayAddComponentEntry<PlatformEffector2DComponent>(Tr("Platform Effector 2D (bir tomonlama)"), ICON_FA_TURN_UP);
+                DisplayAddComponentEntry<AreaEffector2DComponent>(Tr("Area Effector 2D (shamol)"), ICON_FA_WIND);
+                DisplayAddComponentEntry<BuoyancyEffector2DComponent>(Tr("Buoyancy Effector 2D (suv)"), ICON_FA_WATER);
+                DisplayAddComponentEntry<DistanceJoint2DComponent>(Tr("Distance Joint 2D (masofa)"), ICON_FA_LINK);
+                DisplayAddComponentEntry<RevoluteJoint2DComponent>(Tr("Revolute Joint 2D (sharnir)"), ICON_FA_ARROWS_ROTATE);
+                DisplayAddComponentEntry<PrismaticJoint2DComponent>(Tr("Prismatic Joint 2D (sirpanish)"), ICON_FA_ARROWS_LEFT_RIGHT);
+                DisplayAddComponentEntry<WeldJoint2DComponent>(Tr("Weld Joint 2D (payvand)"), ICON_FA_HAMMER);
+                DisplayAddComponentEntry<WheelJoint2DComponent>(Tr("Wheel Joint 2D (g'ildirak)"), ICON_FA_GEAR);
                 ImGui::SeparatorText(Tr("Fizika 3D"));
                 DisplayAddComponentEntry<Rigidbody3DComponent>("Rigidbody 3D", ICON_FA_ATOM);
                 DisplayAddComponentEntry<BoxCollider3DComponent>("Box Collider 3D", ICON_FA_CUBE);
                 DisplayAddComponentEntry<SphereCollider3DComponent>("Sphere Collider 3D", ICON_FA_CIRCLE);
                 DisplayAddComponentEntry<CapsuleCollider3DComponent>("Capsule Collider 3D", ICON_FA_CAPSULES);
-                DisplayAddComponentEntry<ConvexHullCollider3DComponent>("Convex Hull Collider 3D (modeldan)", ICON_FA_SHAPES);
-                DisplayAddComponentEntry<MeshCollider3DComponent>("Mesh Collider 3D (statik, modeldan)", ICON_FA_DRAW_POLYGON);
-                DisplayAddComponentEntry<FixedJoint3DComponent>("Fixed Joint 3D (mahkam)", ICON_FA_LOCK);
-                DisplayAddComponentEntry<HingeJoint3DComponent>("Hinge Joint 3D (sharnir)", ICON_FA_DOOR_OPEN);
-                DisplayAddComponentEntry<DistanceJoint3DComponent>("Distance Joint 3D (masofa)", ICON_FA_LINK);
-                DisplayAddComponentEntry<SliderJoint3DComponent>("Slider Joint 3D (sirpanish)", ICON_FA_ARROWS_LEFT_RIGHT);
-                DisplayAddComponentEntry<ConeJoint3DComponent>("Cone Joint 3D (yelka, son: konus)", ICON_FA_BONE);
+                DisplayAddComponentEntry<ConvexHullCollider3DComponent>(Tr("Convex Hull Collider 3D (modeldan)"), ICON_FA_SHAPES);
+                DisplayAddComponentEntry<MeshCollider3DComponent>(Tr("Mesh Collider 3D (statik, modeldan)"), ICON_FA_DRAW_POLYGON);
+                DisplayAddComponentEntry<FixedJoint3DComponent>(Tr("Fixed Joint 3D (mahkam)"), ICON_FA_LOCK);
+                DisplayAddComponentEntry<HingeJoint3DComponent>(Tr("Hinge Joint 3D (sharnir)"), ICON_FA_DOOR_OPEN);
+                DisplayAddComponentEntry<DistanceJoint3DComponent>(Tr("Distance Joint 3D (masofa)"), ICON_FA_LINK);
+                DisplayAddComponentEntry<SliderJoint3DComponent>(Tr("Slider Joint 3D (sirpanish)"), ICON_FA_ARROWS_LEFT_RIGHT);
+                DisplayAddComponentEntry<ConeJoint3DComponent>(Tr("Cone Joint 3D (yelka, son: konus)"), ICON_FA_BONE);
                 DisplayAddComponentEntry<CharacterController3DComponent>("Character Controller 3D", ICON_FA_PERSON_RUNNING);
                 ImGui::SeparatorText(Tr("Navigatsiya va AI"));
-                DisplayAddComponentEntry<NavGrid2DComponent>("NavGrid 2D (tilemap / collider'lardan yo'l grid'i)", ICON_FA_BORDER_ALL);
-                DisplayAddComponentEntry<NavGrid3DComponent>("NavGrid 3D (pol bo'yicha yo'l grid'i)", ICON_FA_TABLE_CELLS);
-                DisplayAddComponentEntry<NavAgentComponent>("Nav Agent (yo'l topib yuradi)", ICON_FA_PERSON_WALKING);
-                DisplayAddComponentEntry<NavObstacleComponent>("Nav Obstacle (harakatlanuvchi to'siq)", ICON_FA_CUBE);
-                DisplayAddComponentEntry<SightSensorComponent>("Sight Sensor (ko'rish maydoni)", ICON_FA_EYE);
-                DisplayAddComponentEntry<PatrolPathComponent>("Patrol Path (nuqtalar bo'ylab patrul)", ICON_FA_SHOE_PRINTS);
-                DisplayAddComponentEntry<FormationComponent>("Formation (guruh shakli: qator, pona, doira)", ICON_FA_USERS);
+                DisplayAddComponentEntry<NavGrid2DComponent>(Tr("NavGrid 2D (tilemap / collider'lardan yo'l grid'i)"), ICON_FA_BORDER_ALL);
+                DisplayAddComponentEntry<NavGrid3DComponent>(Tr("NavGrid 3D (pol bo'yicha yo'l grid'i)"), ICON_FA_TABLE_CELLS);
+                DisplayAddComponentEntry<NavAgentComponent>(Tr("Nav Agent (yo'l topib yuradi)"), ICON_FA_PERSON_WALKING);
+                DisplayAddComponentEntry<NavObstacleComponent>(Tr("Nav Obstacle (harakatlanuvchi to'siq)"), ICON_FA_CUBE);
+                DisplayAddComponentEntry<SightSensorComponent>(Tr("Sight Sensor (ko'rish maydoni)"), ICON_FA_EYE);
+                DisplayAddComponentEntry<PatrolPathComponent>(Tr("Patrol Path (nuqtalar bo'ylab patrul)"), ICON_FA_SHOE_PRINTS);
+                DisplayAddComponentEntry<FormationComponent>(Tr("Formation (guruh shakli: qator, pona, doira)"), ICON_FA_USERS);
                 ImGui::SeparatorText(Tr("Effektlar va UI"));
                 DisplayAddComponentEntry<TilemapComponent>("Tilemap", ICON_FA_TABLE_CELLS);
                 DisplayAddComponentEntry<ParallaxComponent>("Parallax", ICON_FA_MOUNTAIN);
                 DisplayAddComponentEntry<Camera2DFollowComponent>("Camera 2D Follow", ICON_FA_VIDEO);
-                DisplayAddComponentEntry<SplineComponent>("Spline (yo'l: Catmull-Rom, Bezier)", ICON_FA_BEZIER_CURVE);
-                DisplayAddComponentEntry<SplineFollowerComponent>("Spline Follower (yo'l bo'ylab harakat)", ICON_FA_ROUTE);
+                DisplayAddComponentEntry<SplineComponent>(Tr("Spline (yo'l: Catmull-Rom, Bezier)"), ICON_FA_BEZIER_CURVE);
+                DisplayAddComponentEntry<SplineFollowerComponent>(Tr("Spline Follower (yo'l bo'ylab harakat)"), ICON_FA_ROUTE);
                 DisplayAddComponentEntry<ParticleSystemComponent>("Particle System", ICON_FA_WAND_MAGIC_SPARKLES);
                 DisplayAddComponentEntry<UITransformComponent>("UI Transform", ICON_FA_TABLE_CELLS);
-                DisplayAddComponentEntry<UICanvasComponent>("UI Canvas (ekranga moslashuvchi masshtab)", ICON_FA_EXPAND);
-                DisplayAddComponentEntry<UILayoutGroupComponent>("UI Layout Group (qator, ustun, panjara)", ICON_FA_LIST);
-                DisplayAddComponentEntry<UILayoutElementComponent>("UI Layout Element (min / afzal o'lcham)", ICON_FA_ARROWS_LEFT_RIGHT);
-                DisplayAddComponentEntry<UINavigationComponent>("UI Navigation (klaviatura / gamepad)", ICON_FA_GAMEPAD);
-                DisplayAddComponentEntry<UIAnimationComponent>("UI Animation (ko'rinish, yashirish, bosilish)", ICON_FA_WAND_MAGIC_SPARKLES);
+                DisplayAddComponentEntry<UICanvasComponent>(Tr("UI Canvas (ekranga moslashuvchi masshtab)"), ICON_FA_EXPAND);
+                DisplayAddComponentEntry<UILayoutGroupComponent>(Tr("UI Layout Group (qator, ustun, panjara)"), ICON_FA_LIST);
+                DisplayAddComponentEntry<UILayoutElementComponent>(Tr("UI Layout Element (min / afzal o'lcham)"), ICON_FA_ARROWS_LEFT_RIGHT);
+                DisplayAddComponentEntry<UINavigationComponent>(Tr("UI Navigation (klaviatura / gamepad)"), ICON_FA_GAMEPAD);
+                DisplayAddComponentEntry<UIAnimationComponent>(Tr("UI Animation (ko'rinish, yashirish, bosilish)"), ICON_FA_WAND_MAGIC_SPARKLES);
                 DisplayAddComponentEntry<UIButtonComponent>("UI Button", ICON_FA_HAND_POINTER);
-                DisplayAddComponentEntry<UIImageComponent>("UI Image (rasm, 9-slice, to'ldirish)", ICON_FA_IMAGE);
+                DisplayAddComponentEntry<UIImageComponent>(Tr("UI Image (rasm, 9-slice, to'ldirish)"), ICON_FA_IMAGE);
                 DisplayAddComponentEntry<UISliderComponent>("UI Slider", ICON_FA_SLIDERS);
-                DisplayAddComponentEntry<UIToggleComponent>("UI Toggle (belgilash)", ICON_FA_SQUARE_CHECK);
+                DisplayAddComponentEntry<UIToggleComponent>(Tr("UI Toggle (belgilash)"), ICON_FA_SQUARE_CHECK);
                 DisplayAddComponentEntry<UIProgressBarComponent>("UI Progress Bar", ICON_FA_BARS_PROGRESS);
-                DisplayAddComponentEntry<UIInputFieldComponent>("UI Input Field (matn maydoni)", ICON_FA_I_CURSOR);
-                DisplayAddComponentEntry<UIMaskComponent>("UI Mask (bolalarini to'rtburchakda kesadi)", ICON_FA_CROP);
-                DisplayAddComponentEntry<UIScrollViewComponent>("UI Scroll View (aylantiriladigan ro'yxat)", ICON_FA_ARROWS_UP_DOWN);
+                DisplayAddComponentEntry<UIInputFieldComponent>(Tr("UI Input Field (matn maydoni)"), ICON_FA_I_CURSOR);
+                DisplayAddComponentEntry<UIMaskComponent>(Tr("UI Mask (bolalarini to'rtburchakda kesadi)"), ICON_FA_CROP);
+                DisplayAddComponentEntry<UIScrollViewComponent>(Tr("UI Scroll View (aylantiriladigan ro'yxat)"), ICON_FA_ARROWS_UP_DOWN);
                 ImGui::SeparatorText(Tr("Boshqa"));
                 DisplayAddComponentEntry<AudioSourceComponent>("Audio Source", ICON_FA_VOLUME_HIGH);
-                DisplayAddComponentEntry<AudioListenerComponent>("Audio Listener (tinglovchi)", ICON_FA_EAR_LISTEN);
-                DisplayAddComponentEntry<AmbientZoneComponent>("Ambient Zone (hajmdagi fon ovozi)", ICON_FA_TREE);
-                DisplayAddComponentEntry<FootstepsComponent>("Footsteps (animatsiya event'idan qadam tovushi)", ICON_FA_SHOE_PRINTS);
-                DisplayAddComponentEntry<SubSceneComponent>("Sub-sahna (boshqa sahna fayli shu joyda)", ICON_FA_LAYER_GROUP);
+                DisplayAddComponentEntry<AudioListenerComponent>(Tr("Audio Listener (tinglovchi)"), ICON_FA_EAR_LISTEN);
+                DisplayAddComponentEntry<AmbientZoneComponent>(Tr("Ambient Zone (hajmdagi fon ovozi)"), ICON_FA_TREE);
+                DisplayAddComponentEntry<FootstepsComponent>(Tr("Footsteps (animatsiya event'idan qadam tovushi)"), ICON_FA_SHOE_PRINTS);
+                DisplayAddComponentEntry<SubSceneComponent>(Tr("Sub-sahna (boshqa sahna fayli shu joyda)"), ICON_FA_LAYER_GROUP);
                 DisplayAddComponentEntry<NativeScriptComponent>("Script / Visual graph", ICON_FA_CODE);
-                DisplayAddComponentEntry<TagsComponent>("Teglar (Tags)", ICON_FA_TAGS);
+                DisplayAddComponentEntry<TagsComponent>(Tr("Teglar (Tags)"), ICON_FA_TAGS);
                 ImGui::EndPopup();
             }
             ImGui::TextDisabled("ID: %llu", (unsigned long long)(uint64_t)entity.GetUUID());
@@ -1237,14 +1237,14 @@ namespace Zamin {
             if (entity.GetScene()->IsHiddenInEditor(entity))
             {
                 ImGui::SameLine();
-                ImGui::TextDisabled("  " ICON_FA_EYE_SLASH " yashirin");
+                ImGui::TextDisabled("%s", Tr("  " ICON_FA_EYE_SLASH " yashirin"));
                 if (ImGui::IsItemHovered())
                     UI::Tooltip("Editor sahnasida chizilmaydi (o'yinda ko'rinadi). Ierarxiyadagi ko'z tugmasi yoki H");
             }
             if (entity.GetScene()->IsLockedInEditor(entity))
             {
                 ImGui::SameLine();
-                ImGui::TextColored(ImVec4(0.96f, 0.72f, 0.32f, 1.0f), "  " ICON_FA_LOCK " qulflangan");
+                ImGui::TextColored(ImVec4(0.96f, 0.72f, 0.32f, 1.0f), "%s", Tr("  " ICON_FA_LOCK " qulflangan"));
                 if (ImGui::IsItemHovered())
                     UI::Tooltip("Viewport'da tanlanmaydi va gizmo bilan surilmaydi; bu yerda tahrirlash mumkin");
             }
@@ -1261,18 +1261,18 @@ namespace Zamin {
 
         // ---- transform
         AddSection<TransformComponent>(ICON_FA_ARROWS_UP_DOWN_LEFT_RIGHT, "Transform", entity, [](TransformComponent& c) {
-            bool changed = UI::Vec3Control("Pozitsiya", c.Translation);
+            bool changed = UI::Vec3Control(Tr("Pozitsiya"), c.Translation);
             glm::vec3 rotation = glm::degrees(c.Rotation);
-            if (UI::Vec3Control("Aylanish", rotation, 0.0f, 0.5f))
+            if (UI::Vec3Control(Tr("Aylanish"), rotation, 0.0f, 0.5f))
             {
                 c.Rotation = glm::radians(rotation);
                 changed = true;
             }
-            changed |= UI::Vec3Control("Masshtab", c.Scale, 1.0f);
+            changed |= UI::Vec3Control(Tr("Masshtab"), c.Scale, 1.0f);
             return changed;
         }, false, modified, [&](TransformComponent&) { return DrawTransformMenu(entity); });
 
-        AddSection<TagsComponent>(ICON_FA_TAGS, "Teglar", entity, [&](TagsComponent& c) {
+        AddSection<TagsComponent>(ICON_FA_TAGS, Tr("Teglar"), entity, [&](TagsComponent& c) {
             return DrawTagsComponent(c);
         }, true, modified);
 
@@ -1280,9 +1280,9 @@ namespace Zamin {
             bool changed = false;
             auto& camera = c.Camera;
             changed |= UI::PropertyBool("Asosiy (Primary)", c.Primary);
-            InactiveComponentNote(entity, c.Primary ? "Obyekt nofaol: asosiy kamera hisoblanmaydi" : "Obyekt nofaol: kamera ishlatilmaydi");
+            InactiveComponentNote(entity, c.Primary ? Tr("Obyekt nofaol: asosiy kamera hisoblanmaydi") : Tr("Obyekt nofaol: kamera ishlatilmaydi"));
 
-            const char* types[] = { "Perspektiv", "Ortografik" };
+            const char* types[] = { Tr("Perspektiv"), Tr("Ortografik") };
             int type = (int)camera.GetProjectionType();
             if (UI::PropertyCombo("Proyeksiya", type, types, 2))
             {
@@ -1344,7 +1344,7 @@ namespace Zamin {
             if (running && c.Shake.IsActive())
             {
                 ImGui::SameLine();
-                ImGui::TextDisabled("kuch %.2f, %.2f s", c.Shake.Trauma, c.Shake.GetRemaining());
+                ImGui::TextDisabled(Tr("kuch %.2f, %.2f s"), c.Shake.Trauma, c.Shake.GetRemaining());
             }
             return changed;
         }, true, modified);
@@ -1422,7 +1422,7 @@ namespace Zamin {
             const bool ui = entity.HasComponent<UITransformComponent>();
             {
                 const char* items[] = { ICON_FA_ALIGN_LEFT, ICON_FA_ALIGN_CENTER, ICON_FA_ALIGN_RIGHT };
-                const char* tips[] = { "Chapga", "Markazga", "O'ngga" };
+                const char* tips[] = { Tr("Chapga"), Tr("Markazga"), Tr("O'ngga") };
                 int h = (int)c.AlignH;
                 if (UI::PropertySegmented("Gorizontal", h, items, 3, tips))
                 {
@@ -1432,10 +1432,10 @@ namespace Zamin {
             }
             {
                 // Short labels: four of them share the value column (the tooltips say it in full).
-                const char* items[] = { "Tepa", "O'rta", "Past", "Asos" };
-                const char* tips[] = { "Yuqoriga: matn bloki yuqori chetga (dunyoda: boshi nuqtadan pastga)", "O'rtaga: vertikal markazga",
-                                       "Pastga: pastki chetga",
-                                       "Tayanch chiziq: birinchi qatorning tayanch chizig'i obyekt nuqtasida (dunyo matni; UI'da - yuqori kabi)" };
+                const char* items[] = { Tr("Tepa"), Tr("O'rta"), Tr("Past"), Tr("Asos") };
+                const char* tips[] = { Tr("Yuqoriga: matn bloki yuqori chetga (dunyoda: boshi nuqtadan pastga)"), Tr("O'rtaga: vertikal markazga"),
+                                       Tr("Pastga: pastki chetga"),
+                                       Tr("Tayanch chiziq: birinchi qatorning tayanch chizig'i obyekt nuqtasida (dunyo matni; UI'da - yuqori kabi)") };
                 int v = (int)c.AlignV;
                 if (UI::PropertySegmented("Vertikal", v, items, ui ? 3 : 4, tips))
                 {
@@ -1451,9 +1451,9 @@ namespace Zamin {
                 if (ImGui::IsItemHovered())
                     UI::Tooltip(ui ? "So'z bo'yicha o'rash: qator to'rtburchak kengligiga sig'maganda keyingi qatorga o'tadi"
                                    : "So'z bo'yicha o'rash: qator kenglikka sig'maganda keyingi qatorga o'tadi");
-                const char* overflows[] = { "To'liq", "Kesish", "..." };
-                const char* tips[] = { "Sig'magan matn chegaradan tashqarida ham chiziladi", "Sig'magan belgilar va qatorlar chizilmaydi",
-                                       "Kesilgan joyga \"...\" (uch nuqta) qo'yiladi" };
+                const char* overflows[] = { Tr("To'liq"), Tr("Kesish"), "..." };
+                const char* tips[] = { Tr("Sig'magan matn chegaradan tashqarida ham chiziladi"), Tr("Sig'magan belgilar va qatorlar chizilmaydi"),
+                                       Tr("Kesilgan joyga \"...\" (uch nuqta) qo'yiladi") };
                 int o = (int)c.Overflow;
                 if (UI::PropertySegmented("Sig'maganda", o, overflows, 3, tips))
                 {
@@ -1468,7 +1468,7 @@ namespace Zamin {
                     const float px = std::max(1.0f, t.FontSize > 0.0f ? t.FontSize : rect.GetHeight());
                     const TextLayoutResult layout = c.Layout(rect, px);
                     UI::PropertyLabel("Natija");
-                    ImGui::TextDisabled("%zu qator%s", layout.Lines.size(), layout.Truncated ? ", kesilgan" : "");
+                    ImGui::TextDisabled(Tr("%zu qator%s"), layout.Lines.size(), layout.Truncated ? Tr(", kesilgan") : "");
                 }
             }
             if (UI::PropertyAssetPath("Shrift", c.FontPath, ".ttf;.otf", ICON_FA_FONT))
@@ -1483,40 +1483,40 @@ namespace Zamin {
         AddSection<TerrainComponent>(ICON_FA_MOUNTAIN_SUN, "Terrain", entity, [&](TerrainComponent& c) {
             ImGui::Text("%u x %u | %.0f x %.0f m", c.Resolution, c.Resolution, c.Size.x, c.Size.y);
             bool changed = ImGui::Checkbox("Collision", &c.Collision);
-            if (ImGui::Button("Map tayyorlash oynasi") && OnTerrainWindowRequested)
+            if (ImGui::Button(Tr("Map tayyorlash oynasi")) && OnTerrainWindowRequested)
                 OnTerrainWindowRequested();
             return changed;
         }, true, modified);
 
         AddSection<FoliageComponent>(ICON_FA_TREE,"Packed foliage",entity,[&](FoliageComponent& c){
-            bool changed=false;const char* types[]={"Kub","Shar","Tekislik","Silindr","Konus","Model"};
+            bool changed=false;const char* types[]={Tr("Kub"),Tr("Shar"),Tr("Tekislik"),Tr("Silindr"),Tr("Konus"),"Model"};
             int near=int(c.NearType),far=int(c.FarType),backend=int(c.Settings.Backend);
-            if(ImGui::Combo("Yaqin LOD",&near,types,6)){c.NearType=PrimitiveMesh(near);changed=true;}
+            if(UI::TrCombo(Tr("Yaqin LOD"),&near,types,6)){c.NearType=PrimitiveMesh(near);changed=true;}
             if(c.NearType==PrimitiveMesh::Model)changed|=UI::PropertyAssetPath("Yaqin model",c.NearModel,".gltf;.glb;.obj",ICON_FA_CUBES);
-            if(ImGui::Combo("Uzoq LOD",&far,types,6)){c.FarType=PrimitiveMesh(far);changed=true;}
+            if(UI::TrCombo(Tr("Uzoq LOD"),&far,types,6)){c.FarType=PrimitiveMesh(far);changed=true;}
             if(c.FarType==PrimitiveMesh::Model)changed|=UI::PropertyAssetPath("Uzoq model",c.FarModel,".gltf;.glb;.obj",ICON_FA_CUBES);
-            changed|=ImGui::ColorEdit4("Rang",&c.Tint.x);changed|=ImGui::DragFloat("LOD masofasi",&c.Settings.LODDistance,1,1,100000);
-            changed|=ImGui::DragFloat("Ko'rish masofasi",&c.Settings.CullDistance,1,c.Settings.LODDistance,100000);
+            changed|=ImGui::ColorEdit4(Tr("Rang"),&c.Tint.x);changed|=ImGui::DragFloat(Tr("LOD masofasi"),&c.Settings.LODDistance,1,1,100000);
+            changed|=ImGui::DragFloat(Tr("Ko'rish masofasi"),&c.Settings.CullDistance,1,c.Settings.LODDistance,100000);
             changed|=ImGui::SliderFloat("LOD hysteresis",&c.Settings.Hysteresis,0,.4f);
-            const char* backends[]={"Auto (GPU / CPU)","CPU","GPU (fallback bilan)"};if(ImGui::Combo("Culling",&backend,backends,3)){c.Settings.Backend=FoliageBackend(backend);changed=true;}
-            changed|=ImGui::Checkbox("Soya",&c.CastShadows);
-            static int count=4096;static glm::vec2 size{128,128};ImGui::InputInt("Yangi instance soni",&count);ImGui::DragFloat2("Maydon (m)",&size.x,1,1,10000);
-            if(ImGui::Button("Yangi grid yaratish")){FoliageTools::GenerateGrid(c,uint32_t(std::clamp(count,0,int(FoliageBatch::MaxInstances))),size);changed=true;}
-            if(ImGui::Button("Parent terrain sirtiga joylash"))
+            const char* backends[]={"Auto (GPU / CPU)","CPU",Tr("GPU (fallback bilan)")};if(UI::TrCombo("Culling",&backend,backends,3)){c.Settings.Backend=FoliageBackend(backend);changed=true;}
+            changed|=ImGui::Checkbox(Tr("Soya"),&c.CastShadows);
+            static int count=4096;static glm::vec2 size{128,128};ImGui::InputInt(Tr("Yangi instance soni"),&count);ImGui::DragFloat2(Tr("Maydon (m)"),&size.x,1,1,10000);
+            if(ImGui::Button(Tr("Yangi grid yaratish"))){FoliageTools::GenerateGrid(c,uint32_t(std::clamp(count,0,int(FoliageBatch::MaxInstances))),size);changed=true;}
+            if(ImGui::Button(Tr("Parent terrain sirtiga joylash")))
             {
                 auto parent=entity.GetScene()->GetEntityByUUID(entity.GetComponent<RelationshipComponent>().Parent);
                 if(parent&&parent.HasComponent<TerrainComponent>())changed |= FoliageTools::ProjectToTerrain(c,parent.GetComponent<TerrainComponent>(),entity.GetTransform().GetTransform())>0;
             }
             ImGui::Text("%zu / %u instance",c.Instances.size(),FoliageBatch::MaxInstances);
-            if(c.Runtime){auto batch=FoliageTools::Prepare(c,entity.GetScene()->GetWorldTransform(entity),int(uint32_t(entt::entity(entity))));if(batch){const auto& stats=batch->GetStats();ImGui::Text("%s culling | uploads %llu",stats.GPU?"GPU":"CPU",(unsigned long long)stats.Uploads);if(stats.CountsAvailable)ImGui::Text("Yaqin %u | uzoq %u | kesilgan %u",stats.Near,stats.Far,stats.Culled);else ImGui::TextDisabled("GPU hisoblari kutilmoqda");ImGui::TextDisabled("CPU %llu KiB | GPU %llu KiB",(unsigned long long)(stats.CPUBytes/1024),(unsigned long long)(stats.GPUBytes/1024));if(!stats.Error.empty())ImGui::TextWrapped("%s",stats.Error.c_str());}}
-            ImGui::TextWrapped("Bitta packed komponent tanlanadi. Statik opaque/cutout meshlar. Soya konservativ yaqin LOD bilan.");
+            if(c.Runtime){auto batch=FoliageTools::Prepare(c,entity.GetScene()->GetWorldTransform(entity),int(uint32_t(entt::entity(entity))));if(batch){const auto& stats=batch->GetStats();ImGui::Text("%s culling | uploads %llu",stats.GPU?"GPU":"CPU",(unsigned long long)stats.Uploads);if(stats.CountsAvailable)ImGui::Text(Tr("Yaqin %u | uzoq %u | kesilgan %u"),stats.Near,stats.Far,stats.Culled);else ImGui::TextDisabled("%s", Tr("GPU hisoblari kutilmoqda"));ImGui::TextDisabled("CPU %llu KiB | GPU %llu KiB",(unsigned long long)(stats.CPUBytes/1024),(unsigned long long)(stats.GPUBytes/1024));if(!stats.Error.empty())ImGui::TextWrapped("%s",stats.Error.c_str());}}
+            ImGui::TextWrapped("%s", Tr("Bitta packed komponent tanlanadi. Statik opaque/cutout meshlar. Soya konservativ yaqin LOD bilan."));
             if(changed)c.Sanitize();
             return changed;
         },true,modified);
 
         AddSection<MeshRendererComponent>(ICON_FA_CUBE, "Mesh Renderer", entity, [&](MeshRendererComponent& c) {
             bool changed = false;
-            const char* meshes[] = { "Kub", "Shar", "Tekislik", "Silindr", "Konus", "Model (glTF / OBJ)" };
+            const char* meshes[] = { Tr("Kub"), Tr("Shar"), Tr("Tekislik"), Tr("Silindr"), Tr("Konus"), "Model (glTF / OBJ)" };
             int type = (int)c.Type;
             if (UI::PropertyCombo("Mesh", type, meshes, 6))
             {
@@ -1586,11 +1586,11 @@ namespace Zamin {
 
         AddSection<AnimatorComponent>(ICON_FA_PERSON_RUNNING, "Animator", entity, [&](AnimatorComponent& c) {
             bool changed = false;
-            InactiveComponentNote(entity, "Obyekt nofaol: animator yangilanmaydi (joyida to'xtab turadi)");
+            InactiveComponentNote(entity, Tr("Obyekt nofaol: animator yangilanmaydi (joyida to'xtab turadi)"));
             auto* mr = entity.TryGetComponent<MeshRendererComponent>();
             Ref<Model> model = mr ? mr->ModelAsset : nullptr;
             UI::PropertyLabel("Klip");
-            if (ImGui::BeginCombo("##clip", c.Clip.empty() ? "(birinchi)" : c.Clip.c_str()))
+            if (ImGui::BeginCombo("##clip", c.Clip.empty() ? Tr("(birinchi)") : c.Clip.c_str()))
             {
                 if (ImGui::Selectable(Tr("(birinchi)"), c.Clip.empty())) { c.Clip.clear(); changed = true; }
                 if (model)
@@ -1604,16 +1604,16 @@ namespace Zamin {
             changed |= UI::PropertyBool("Editorda ko'rsatish", c.PlayInEditor);
             changed |= UI::PropertyFloat("O'tish vaqti (s)", c.DefaultFade, 0.01f, 0.0f, 5.0f);
             UI::PropertyLabel("Ma'lumot");
-            if (!model) ImGui::TextDisabled("Mesh Renderer'da glTF model yo'q");
-            else if (!model->IsSkinned()) ImGui::TextDisabled("Modelda skelet yo'q");
-            else ImGui::Text("%zu suyak, %zu klip, t=%.2f", model->GetSkeleton().Joints.size(), model->GetAnimations().size(), c.Time);
+            if (!model) ImGui::TextDisabled("%s", Tr("Mesh Renderer'da glTF model yo'q"));
+            else if (!model->IsSkinned()) ImGui::TextDisabled("%s", Tr("Modelda skelet yo'q"));
+            else ImGui::Text(Tr("%zu suyak, %zu klip, t=%.2f"), model->GetSkeleton().Joints.size(), model->GetAnimations().size(), c.Time);
 
             // ---- live state: what plays, how far, the crossfade, blend weights, layers; the
             // parameters while the game runs (editable)
             if (c.UsesStateMachine() || !m_SceneEditable || !c.Layers.empty())
             {
                 const bool live = !m_SceneEditable;
-                UI::PropertyHeader(live ? "Holat (jonli)" : "Holat (editorda ko'rib chiqish)",
+                UI::PropertyHeader(live ? Tr("Holat (jonli)") : Tr("Holat (editorda ko'rib chiqish)"),
                                    live ? "O'yin davomida: hozirgi holat, normalizatsiyalangan vaqt, o'tish jarayoni, blend og'irliklari "
                                           "va qatlamlar. Parametrlarni shu yerda o'zgartirsa bo'ladi"
                                         : "Editor boshlang'ich holatni ko'rsatadi (parametrlarning saqlangan qiymatlari bilan)");
@@ -1637,7 +1637,7 @@ namespace Zamin {
                             const bool pending = p.Value != 0.0f;
                             if (pending)
                                 ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.85f, 0.55f, 0.15f, 1.0f));
-                            if (ImGui::Button(pending ? ICON_FA_BOLT "  Kutmoqda" : ICON_FA_BOLT "  Ishga tushirish"))
+                            if (ImGui::Button(pending ? Tr(ICON_FA_BOLT "  Kutmoqda") : Tr(ICON_FA_BOLT "  Ishga tushirish")))
                             {
                                 p.Value = 1.0f;
                                 changed = true;
@@ -1670,7 +1670,7 @@ namespace Zamin {
                 {
                     AnimatorLayer& l = c.Layers[(size_t)i];
                     ImGui::PushID(i + 9500);
-                    const std::string label = std::format(ICON_FA_LAYER_GROUP " Qatlam {}", i + 1);
+                    const std::string label = TrFormat(ICON_FA_LAYER_GROUP " Qatlam {}", i + 1);
                     UI::PropertyLabel(label.c_str(), "Qatlam nomi (skriptlar shu nom bilan boshqaradi)");
                     const float button = ImGui::GetFrameHeight();
                     ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - button - spacing);
@@ -1679,7 +1679,7 @@ namespace Zamin {
                     if (ImGui::Button(ICON_FA_TRASH, ImVec2(button, 0)))
                         removeLayer = i;
                     UI::PropertyLabel("Klip");
-                    changed |= AnimatorEditing::ClipCombo("##clip", l.Clip, model.get(), "(yo'q)");
+                    changed |= AnimatorEditing::ClipCombo("##clip", l.Clip, model.get(), Tr("(yo'q)"));
                     UI::PropertyLabel("Og'irlik");
                     if (ImGui::SliderFloat("##weight", &l.Weight, 0.0f, 1.0f, "%.2f"))
                     {
@@ -1687,7 +1687,7 @@ namespace Zamin {
                         changed = true;
                     }
                     UI::PropertyLabel("Og'irlik x", "Ixtiyoriy float parametr (0..1) og'irlikni ko'paytiradi - skriptdan silliq boshqarish");
-                    changed |= AnimatorEditing::FloatParameterCombo("##wp", l.WeightParameter, c, "(yo'q)");
+                    changed |= AnimatorEditing::FloatParameterCombo("##wp", l.WeightParameter, c, Tr("(yo'q)"));
                     {
                         const char* blends[] = { "Override", "Additive" };
                         int blend = (int)l.Blend;
@@ -1699,14 +1699,14 @@ namespace Zamin {
                     }
                     // The mask: bones whose subtrees the layer moves.
                     UI::PropertyLabel("Maska", "Belgilangan suyak va undan pastdagi hamma suyaklar (bo'sh - butun tana)");
-                    std::string preview = l.MaskBones.empty() ? std::string("(butun tana)") : l.MaskBones.front();
+                    std::string preview = l.MaskBones.empty() ? std::string(Tr("(butun tana)")) : l.MaskBones.front();
                     if (l.MaskBones.size() > 1)
                         preview += std::format(" (+{})", l.MaskBones.size() - 1);
                     if (skeleton)
                     {
                         std::vector<float> mask;
                         const size_t count = BuildJointMask(*skeleton, l.MaskBones, mask);
-                        preview += std::format("  -  {}/{} suyak", count, skeleton->Joints.size());
+                        preview += TrFormat("  -  {}/{} suyak", count, skeleton->Joints.size());
                     }
                     if (ImGui::BeginCombo("##mask", preview.c_str(), ImGuiComboFlags_HeightLarge))
                     {
@@ -1736,7 +1736,7 @@ namespace Zamin {
                                 ImGui::PopID();
                             }
                         else
-                            ImGui::TextDisabled("Modelda skelet yo'q");
+                            ImGui::TextDisabled("%s", Tr("Modelda skelet yo'q"));
                         ImGui::EndCombo();
                     }
                     UI::PropertyLabel("Tezlik / takror");
@@ -1784,7 +1784,7 @@ namespace Zamin {
             {
                 UI::PropertyLabel("Ildiz suyak", "Qaysi suyakning harakati obyektga o'tadi. Avtomatik: klip siljitadigan eng yuqori suyak (odatda Hips / Root)");
                 const Skeleton* skeleton = model && model->IsSkinned() ? &model->GetSkeleton() : nullptr;
-                std::string preview = c.RootMotionBone.empty() ? std::string("(avtomatik)") : c.RootMotionBone;
+                std::string preview = c.RootMotionBone.empty() ? std::string(Tr("(avtomatik)")) : c.RootMotionBone;
                 if (c.RootMotionBone.empty() && skeleton)
                 {
                     const int clipIndex = c.Clip.empty() ? 0 : model->FindAnimation(c.Clip);
@@ -1804,7 +1804,7 @@ namespace Zamin {
                 if (c.RootMotionVelocity != glm::vec3(0.0f) || c.RootMotionTurnRate != 0.0f)
                 {
                     UI::PropertyLabel("");
-                    ImGui::TextDisabled("%.2f m/s, %.0f gradus/s", glm::length(c.RootMotionVelocity), glm::degrees(c.RootMotionTurnRate));
+                    ImGui::TextDisabled(Tr("%.2f m/s, %.0f gradus/s"), glm::length(c.RootMotionVelocity), glm::degrees(c.RootMotionTurnRate));
                 }
             }
 
@@ -1845,9 +1845,9 @@ namespace Zamin {
                 {
                     UI::PropertyLabel("Hozir");
                     if (c.Culled)
-                        ImGui::TextColored(UI::AccentColor(), ICON_FA_EYE_SLASH "  kesilgan");
+                        ImGui::TextColored(UI::AccentColor(), "%s", Tr(ICON_FA_EYE_SLASH "  kesilgan"));
                     else
-                        ImGui::TextDisabled(ICON_FA_EYE "  ko'rinmoqda");
+                        ImGui::TextDisabled("%s", Tr(ICON_FA_EYE "  ko'rinmoqda"));
                     if (ImGui::IsItemHovered())
                         UI::Tooltip(!c.Culled ? "Model ko'rinishda: har kadr pozalanadi"
                                     : c.Culling == AnimatorCulling::CullCompletely
@@ -1877,7 +1877,7 @@ namespace Zamin {
                 UI::PropertyLabel("");
                 const float avail = ImGui::GetContentRegionAvail().x - spacing;
                 ImGui::SetNextItemWidth(avail * 0.55f);
-                if (ImGui::BeginCombo("##clip", ev.Clip.empty() ? "(har qanday)" : ev.Clip.c_str()))
+                if (ImGui::BeginCombo("##clip", ev.Clip.empty() ? Tr("(har qanday)") : ev.Clip.c_str()))
                 {
                     if (ImGui::Selectable(Tr("(har qanday)"), ev.Clip.empty())) { ev.Clip.clear(); changed = true; }
                     if (model)
@@ -1936,7 +1936,7 @@ namespace Zamin {
         }, true, modified);
 
         AddSection<DirectionalLightComponent>(ICON_FA_SUN, "Directional Light", entity, [&](DirectionalLightComponent& c) {
-            InactiveComponentNote(entity, "Obyekt nofaol: quyosh hisobga olinmaydi (yorug'lik ham, soya ham yo'q)");
+            InactiveComponentNote(entity, Tr("Obyekt nofaol: quyosh hisobga olinmaydi (yorug'lik ham, soya ham yo'q)"));
             // Several directional lights all light the scene; only the main one (the first with
             // shadows on, in scene order) casts shadows. Say which role this one has.
             if (entity.IsActiveInHierarchy())
@@ -1956,23 +1956,23 @@ namespace Zamin {
                     if (selectSun && sun && ImGui::IsItemClicked())
                         SetSelectedEntity(sun);
                 };
-                static const char* rule = "Barcha faol Directional Light'lar sahnani yoritadi. Soyani faqat bittasi beradi: sahna "
+                const char* rule = Tr("Barcha faol Directional Light'lar sahnani yoritadi. Soyani faqat bittasi beradi: sahna "
                                           "tartibida 'Soyalar' yoqilgan birinchisi (asosiy quyosh); osmondagi quyosh diski ham unga "
-                                          "ergashadi.";
+                                          "ergashadi.");
                 if (!lit)
-                    note(warn, std::format(ICON_FA_CIRCLE_INFO "  Yoritmaydi: {} tadan ortiq quyosh", Renderer3D::MaxDirectionalLights),
-                         std::format("Bir vaqtda ko'pi bilan {} ta Directional Light yoritadi (asosiy quyosh va sahna tartibida "
+                    note(warn, TrFormat(ICON_FA_CIRCLE_INFO "  Yoritmaydi: {} tadan ortiq quyosh", Renderer3D::MaxDirectionalLights),
+                         TrFormat("Bir vaqtda ko'pi bilan {} ta Directional Light yoritadi (asosiy quyosh va sahna tartibida "
                                      "birinchilari)", Renderer3D::MaxDirectionalLights).c_str(),
                          false);
                 else if (sun == entity && lights.DirectionalLights.size() > 1)
-                    note(info, c.CastShadows ? ICON_FA_SUN "  Asosiy quyosh: soya shu yorug'likdan" : ICON_FA_SUN "  Asosiy quyosh (soyasiz)",
-                         rule, false);
+                    note(info, c.CastShadows ? Tr(ICON_FA_SUN "  Asosiy quyosh: soya shu yorug'likdan") : Tr(ICON_FA_SUN "  Asosiy quyosh (soyasiz)"),
+                         Tr(rule), false);
                 else if (sun && sun != entity)
                 {
                     std::string text = c.CastShadows
-                        ? std::format(ICON_FA_CIRCLE_INFO "  Soya bermaydi: soyani '{}' beradi", sun.GetName())
-                        : std::format(ICON_FA_CIRCLE_INFO "  Qo'shimcha quyosh: yoritadi, soyasiz (asosiy: '{}')", sun.GetName());
-                    note(c.CastShadows ? warn : info, text, std::format("{}\nBosing: asosiy quyoshni tanlash", rule).c_str(), true);
+                        ? TrFormat(ICON_FA_CIRCLE_INFO "  Soya bermaydi: soyani '{}' beradi", sun.GetName())
+                        : TrFormat(ICON_FA_CIRCLE_INFO "  Qo'shimcha quyosh: yoritadi, soyasiz (asosiy: '{}')", sun.GetName());
+                    note(c.CastShadows ? warn : info, text, TrFormat("{}\nBosing: asosiy quyoshni tanlash", Tr(rule)).c_str(), true);
                 }
             }
             bool changed = UI::PropertyColor3("Rang", c.Color);
@@ -1982,7 +1982,7 @@ namespace Zamin {
         }, true, modified);
 
         AddSection<PointLightComponent>(ICON_FA_LIGHTBULB, "Point Light", entity, [&](PointLightComponent& c) {
-            InactiveComponentNote(entity, "Obyekt nofaol: yorug'lik hisobga olinmaydi (yoritmaydi, joy egallamaydi)");
+            InactiveComponentNote(entity, Tr("Obyekt nofaol: yorug'lik hisobga olinmaydi (yoritmaydi, joy egallamaydi)"));
             bool changed = UI::PropertyColor3("Rang", c.Color);
             changed |= UI::PropertyFloat("Kuch", c.Intensity, 0.05f, 0.0f, 1000.0f);
             changed |= UI::PropertyFloat("Radius", c.Radius, 0.05f, 0.0f, 1000.0f);
@@ -1990,7 +1990,7 @@ namespace Zamin {
         }, true, modified);
 
         AddSection<SpotLightComponent>(ICON_FA_BULLHORN, "Spot Light", entity, [&](SpotLightComponent& c) {
-            InactiveComponentNote(entity, "Obyekt nofaol: yorug'lik hisobga olinmaydi (yoritmaydi, joy egallamaydi)");
+            InactiveComponentNote(entity, Tr("Obyekt nofaol: yorug'lik hisobga olinmaydi (yoritmaydi, joy egallamaydi)"));
             bool changed = UI::PropertyColor3("Rang", c.Color);
             changed |= UI::PropertyFloat("Kuch", c.Intensity, 0.05f, 0.0f, 1000.0f);
             UI::PropertyLabel("Masofa", "Yorug'lik yetib boradigan masofa: shundan keyin nolga so'nadi (nuqtali yorug'lik radiusi kabi)");
@@ -2012,7 +2012,7 @@ namespace Zamin {
             }
             UI::PropertyLabel("");
             ImGui::PushTextWrapPos(0.0f); // wraps inside the value column
-            ImGui::TextDisabled(ICON_FA_CIRCLE_INFO "  Obyektning -Z o'qi bo'ylab nur sochadi");
+            ImGui::TextDisabled("%s", Tr(ICON_FA_CIRCLE_INFO "  Obyektning -Z o'qi bo'ylab nur sochadi"));
             ImGui::PopTextWrapPos();
             return changed;
         }, true, modified);
@@ -2023,7 +2023,7 @@ namespace Zamin {
 
         AddSection<Rigidbody2DComponent>(ICON_FA_ATOM, "Rigidbody 2D", entity, [&](Rigidbody2DComponent& c) {
             bool changed = false;
-            const char* types[] = { "Statik", "Dinamik", "Kinematik" };
+            const char* types[] = { Tr("Statik"), Tr("Dinamik"), Tr("Kinematik") };
             int type = (int)c.Type;
             if (UI::PropertyCombo("Turi", type, types, 3)) { c.Type = (Rigidbody2DComponent::BodyType)type; changed = true; }
             changed |= UI::PropertyBool("Aylanmasin", c.FixedRotation);
@@ -2031,18 +2031,18 @@ namespace Zamin {
             changed |= UI::PropertyFloat("Chiziqli so'nish", c.LinearDamping, 0.01f, 0.0f, 100.0f);
             changed |= UI::PropertyFloat("Burchak so'nishi", c.AngularDamping, 0.01f, 0.0f, 100.0f);
             changed |= UI::PropertyBool("Tez obyekt (bullet)", c.Bullet);
-            changed |= DrawCollisionLayer("Qatlam", c.Layer, false,
-                                          "Kolliderlarining to'qnashuv qatlami: qaysi qatlamlarga tegishi loyiha matritsasida "
-                                          "(Loyiha sozlamalari > Fizika qatlamlari). Kollider o'z qatlamini tanlashi mumkin.");
+            changed |= DrawCollisionLayer(Tr("Qatlam"), c.Layer, false,
+                                          Tr("Kolliderlarining to'qnashuv qatlami: qaysi qatlamlarga tegishi loyiha matritsasida "
+                                          "(Loyiha sozlamalari > Fizika qatlamlari). Kollider o'z qatlamini tanlashi mumkin."));
             if (c.Type != Rigidbody2DComponent::BodyType::Static)
             {
-                const char* modes[] = { "Uyg'oq boshlanadi", "Uxlab boshlanadi", "Hech uxlamaydi" };
+                const char* modes[] = { Tr("Uyg'oq boshlanadi"), Tr("Uxlab boshlanadi"), Tr("Hech uxlamaydi") };
                 int mode = (int)c.Sleeping;
                 UI::PropertyLabel("Uxlash", "Qimirlamay qolgan jism uxlaydi: tegilmaguncha hisoblanmaydi (Sahna sozlamalari > Fizika). "
                                             "Uxlab boshlanadi - urilguncha kutib turadigan minora yoki to'plam uchun; Hech uxlamaydi - "
                                             "doim hisoblanadi");
                 ImGui::PushID("sleep");
-                if (ImGui::Combo("##v", &mode, modes, 3))
+                if (UI::TrCombo("##v", &mode, modes, 3))
                 {
                     c.Sleeping = (Rigidbody2DComponent::SleepMode)std::clamp(mode, 0, 2);
                     changed = true;
@@ -2054,11 +2054,11 @@ namespace Zamin {
                     const bool sleeping = m_Context->IsSleeping2D(entity);
                     UI::PropertyLabel("Holati");
                     if (sleeping)
-                        ImGui::TextColored(ImVec4(0.55f, 0.65f, 0.95f, 1.0f), ICON_FA_MOON "  Uxlayapti");
+                        ImGui::TextColored(ImVec4(0.55f, 0.65f, 0.95f, 1.0f), "%s", Tr(ICON_FA_MOON "  Uxlayapti"));
                     else
-                        ImGui::TextColored(ImVec4(0.45f, 0.9f, 0.55f, 1.0f), ICON_FA_BOLT "  Uyg'oq");
+                        ImGui::TextColored(ImVec4(0.45f, 0.9f, 0.55f, 1.0f), "%s", Tr(ICON_FA_BOLT "  Uyg'oq"));
                     ImGui::SameLine();
-                    if (ImGui::SmallButton(sleeping ? "Uyg'otish" : "Uxlatish"))
+                    if (ImGui::SmallButton(sleeping ? Tr("Uyg'otish") : Tr("Uxlatish")))
                         m_Context->SetAwake2D(entity, sleeping);
                 }
             }
@@ -2082,8 +2082,8 @@ namespace Zamin {
             changed |= UI::PropertyFloat("Sakrash chegarasi", c.RestitutionThreshold, 0.01f, 0.0f, 100.0f);
             ImGui::EndDisabled();
             changed |= UI::PropertyBool("Trigger (sensor)", c.IsSensor);
-            changed |= DrawCollisionLayer("Qatlam", c.Layer, true,
-                                          "Shu kolliderning to'qnashuv qatlami. '(Rigidbody 2D qatlami)' - obyekt Rigidbody 2D'sidagi qatlam");
+            changed |= DrawCollisionLayer(Tr("Qatlam"), c.Layer, true,
+                                          Tr("Shu kolliderning to'qnashuv qatlami. '(Rigidbody 2D qatlami)' - obyekt Rigidbody 2D'sidagi qatlam"));
             return changed;
         };
 
@@ -2134,16 +2134,16 @@ namespace Zamin {
             switch (d.Result)
             {
                 case Polygon2D::DecomposeResult::Convex:
-                    ImGui::TextColored(info, ICON_FA_CIRCLE_CHECK "  Qavariq: %zu ta bo'lak", d.Pieces.size());
+                    ImGui::TextColored(info, Tr(ICON_FA_CIRCLE_CHECK "  Qavariq: %zu ta bo'lak"), d.Pieces.size());
                     break;
                 case Polygon2D::DecomposeResult::Decomposed:
-                    ImGui::TextColored(info, ICON_FA_SHAPES "  Botiq: %zu ta qavariq bo'lakka bo'lindi", d.Pieces.size());
+                    ImGui::TextColored(info, Tr(ICON_FA_SHAPES "  Botiq: %zu ta qavariq bo'lakka bo'lindi"), d.Pieces.size());
                     break;
                 case Polygon2D::DecomposeResult::SelfIntersecting:
-                    ImGui::TextColored(warn, ICON_FA_TRIANGLE_EXCLAMATION "  Chiziqlari kesishadi: qavariq qobig'i ishlatiladi");
+                    ImGui::TextColored(warn, "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Chiziqlari kesishadi: qavariq qobig'i ishlatiladi"));
                     break;
                 case Polygon2D::DecomposeResult::Degenerate:
-                    ImGui::TextColored(error, ICON_FA_CIRCLE_XMARK "  Yuzasi yo'q: kolliziya bo'lmaydi");
+                    ImGui::TextColored(error, "%s", Tr(ICON_FA_CIRCLE_XMARK "  Yuzasi yo'q: kolliziya bo'lmaydi"));
                     break;
             }
             ImGui::PopTextWrapPos();
@@ -2188,7 +2188,7 @@ namespace Zamin {
             if (usable == 0)
             {
                 UI::PropertyLabel("");
-                ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.4f, 1.0f), ICON_FA_CIRCLE_XMARK "  Nuqtalar yetarli emas: kolliziya bo'lmaydi");
+                ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.4f, 1.0f), "%s", Tr(ICON_FA_CIRCLE_XMARK "  Nuqtalar yetarli emas: kolliziya bo'lmaydi"));
             }
             changed |= DrawColliderPoints(c.Points, ColliderPointKind::Edge, c.Loop ? 3 : 2);
             changed |= colliderCommon(c, false);
@@ -2201,7 +2201,7 @@ namespace Zamin {
             {
                 UI::PropertyLabel("");
                 ImGui::PushTextWrapPos(0.0f);
-                ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  Rigidbody 2D (kolliderlari bilan) yoki Tilemap kerak");
+                ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Rigidbody 2D (kolliderlari bilan) yoki Tilemap kerak"));
                 ImGui::PopTextWrapPos();
             }
             changed |= UI::PropertyBool("Bir tomonlama", c.OneWay);
@@ -2234,7 +2234,7 @@ namespace Zamin {
             {
                 UI::PropertyLabel("");
                 ImGui::PushTextWrapPos(0.0f);
-                ImGui::TextDisabled(ICON_FA_CIRCLE_INFO "  Box Collider 2D'ning 'Bir tomonlama' belgisi o'rniga shu sozlamalar ishlatiladi");
+                ImGui::TextDisabled("%s", Tr(ICON_FA_CIRCLE_INFO "  Box Collider 2D'ning 'Bir tomonlama' belgisi o'rniga shu sozlamalar ishlatiladi"));
                 ImGui::PopTextWrapPos();
             }
             return changed;
@@ -2265,27 +2265,27 @@ namespace Zamin {
             bool changed = false;
             DrawEffectorNotes(entity, false);
             UI::PropertyHeader("Kuch", "Har fizika qadamida kollider ichidagi har bir dinamik jismga beriladi (shamol, oqim, puflagich)");
-            changed |= angleField("Yo'nalish", "Kuch burchagi: 0 - o'ngga (+X), 90 - yuqoriga", c.ForceAngle);
+            changed |= angleField(Tr("Yo'nalish"), Tr("Kuch burchagi: 0 - o'ngga (+X), 90 - yuqoriga"), c.ForceAngle);
             changed |= UI::PropertyBool("Dunyo burchagi", c.UseGlobalAngle);
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Yoqiq: burchak dunyoda. O'chiq: obyekt bilan birga buriladi");
             UI::PropertyLabel("Kattaligi", c.ScaleWithMass ? "N / kg: har bir jism massasidan qat'i nazar shuncha tezlanadi"
                                                            : "Nyuton: yengil jismlar ko'proq, og'irlari kamroq tezlanadi. Manfiy - teskari tomonga");
             changed |= ImGui::DragFloat("##magnitude", &c.ForceMagnitude, 0.1f, -1e5f, 1e5f, c.ScaleWithMass ? "%.2f N/kg" : "%.2f N");
-            changed |= nonNegative("Tasodifiy o'zgarish", "Har qadamda kuchga +- shuncha gacha tasodifiy qo'shiladi (shamol shiddati)",
+            changed |= nonNegative(Tr("Tasodifiy o'zgarish"), Tr("Har qadamda kuchga +- shuncha gacha tasodifiy qo'shiladi (shamol shiddati)"),
                                    c.ForceVariation, 0.05f, "%.2f");
             changed |= UI::PropertyBool("Massaga ko'paytirish", c.ScaleWithMass);
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Kuch jism massasiga ko'paytiriladi: hamma jism bir xil tezlanadi (gravitatsiya kabi)");
             UI::PropertyHeader("Qarshilik", "Ichidagi jismlarning tezligi shu tezlikda so'nadi (1/s, Rigidbody 2D so'nishi kabi)");
-            changed |= nonNegative("Chiziqli", "Harakat tezligining so'nishi (1/s)", c.Drag, 0.02f, "%.2f");
-            changed |= nonNegative("Burchak", "Aylanishning so'nishi (1/s)", c.AngularDrag, 0.02f, "%.2f");
-            changed |= DrawLayerMask("Qatlamlar", c.ColliderMask, "Faqat shu to'qnashuv qatlamlaridagi jismlarga ta'sir qiladi (qatlam matritsasi "
-                                                               "ham ruxsat berishi kerak)");
+            changed |= nonNegative(Tr("Chiziqli"), Tr("Harakat tezligining so'nishi (1/s)"), c.Drag, 0.02f, "%.2f");
+            changed |= nonNegative(Tr("Burchak"), Tr("Aylanishning so'nishi (1/s)"), c.AngularDrag, 0.02f, "%.2f");
+            changed |= DrawLayerMask(Tr("Qatlamlar"), c.ColliderMask, Tr("Faqat shu to'qnashuv qatlamlaridagi jismlarga ta'sir qiladi (qatlam matritsasi "
+                                                               "ham ruxsat berishi kerak)"));
             if (physicsRunning)
             {
                 UI::PropertyLabel("Itarilayotgan", "Oxirgi fizika qadamida ta'sir qilgan jismlar");
-                ImGui::TextDisabled(ICON_FA_WIND "  %d ta jism", c.AffectedBodies);
+                ImGui::TextDisabled(Tr(ICON_FA_WIND "  %d ta jism"), c.AffectedBodies);
             }
             return changed;
         }, true, modified);
@@ -2327,23 +2327,23 @@ namespace Zamin {
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Sirtni kolliderning eng yuqori nuqtasiga qo'yish (to'la suv)");
             ImGui::EndDisabled();
-            changed |= nonNegative("Zichlik", "Suyuqlik zichligi. Kollideri (Density) shundan kichik jism suzadi, kattasi cho'kadi. "
-                                              "Kolliderlarning odatiy zichligi - 1", c.Density, 0.01f, "%.2f");
+            changed |= nonNegative(Tr("Zichlik"), Tr("Suyuqlik zichligi. Kollideri (Density) shundan kichik jism suzadi, kattasi cho'kadi. "
+                                              "Kolliderlarning odatiy zichligi - 1"), c.Density, 0.01f, "%.2f");
             UI::PropertyHeader("Qarshilik", "Suv ichidagi jism tezligining so'nishi, qanchalik botganiga qarab (1/s)");
-            changed |= nonNegative("Chiziqli", "To'la botgan jism uchun (1/s)", c.LinearDrag, 0.02f, "%.2f");
-            changed |= nonNegative("Burchak", "Aylanishning so'nishi, to'la botgan jism uchun (1/s)", c.AngularDrag, 0.02f, "%.2f");
+            changed |= nonNegative(Tr("Chiziqli"), Tr("To'la botgan jism uchun (1/s)"), c.LinearDrag, 0.02f, "%.2f");
+            changed |= nonNegative(Tr("Burchak"), Tr("Aylanishning so'nishi, to'la botgan jism uchun (1/s)"), c.AngularDrag, 0.02f, "%.2f");
             UI::PropertyHeader("Oqim", "Suvdagi jismlarni shu yo'nalishda olib ketadi (daryo oqimi), botgan qismiga qarab");
-            changed |= angleField("Yo'nalish", "Dunyodagi burchak: 0 - o'ngga (+X), 90 - yuqoriga", c.FlowAngle);
+            changed |= angleField(Tr("Yo'nalish"), Tr("Dunyodagi burchak: 0 - o'ngga (+X), 90 - yuqoriga"), c.FlowAngle);
             UI::PropertyLabel("Kuch", "To'la botgan jismga beriladigan kuch (N). 0 - oqim yo'q");
             changed |= ImGui::DragFloat("##flow", &c.FlowMagnitude, 0.05f, -1e5f, 1e5f, "%.2f N");
-            changed |= nonNegative("Tasodifiy o'zgarish", "Har qadamda oqim kuchiga +- shuncha gacha tasodifiy qo'shiladi (to'lqinlar)",
+            changed |= nonNegative(Tr("Tasodifiy o'zgarish"), Tr("Har qadamda oqim kuchiga +- shuncha gacha tasodifiy qo'shiladi (to'lqinlar)"),
                                    c.FlowVariation, 0.05f, "%.2f");
-            changed |= DrawLayerMask("Qatlamlar", c.ColliderMask, "Faqat shu to'qnashuv qatlamlaridagi jismlar suzadi (qatlam matritsasi "
-                                                               "ham ruxsat berishi kerak)");
+            changed |= DrawLayerMask(Tr("Qatlamlar"), c.ColliderMask, Tr("Faqat shu to'qnashuv qatlamlaridagi jismlar suzadi (qatlam matritsasi "
+                                                               "ham ruxsat berishi kerak)"));
             if (physicsRunning)
             {
                 UI::PropertyLabel("Suvdagi jismlar", "Oxirgi fizika qadamida suyuqlik ichida bo'lgan jismlar");
-                ImGui::TextDisabled(ICON_FA_WATER "  %d ta", c.AffectedBodies);
+                ImGui::TextDisabled(Tr(ICON_FA_WATER "  %d ta"), c.AffectedBodies);
                 UI::PropertyLabel("Botgan yuza", "Ularning sirt ostidagi umumiy yuzasi (kvadrat birlik)");
                 ImGui::TextDisabled("%.2f", c.SubmergedArea);
             }
@@ -2407,8 +2407,8 @@ namespace Zamin {
             changed |= UI::PropertyBool("Faqat maksimal (arqon)", c.MaxDistanceOnly);
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
                 UI::Tooltip("Arqon kabi: jismlar yaqinlashishi mumkin, uzoqlasha olmaydi");
-            changed |= spring(c.Frequency, c.DampingRatio, "qattiq");
-            DrawJoint2DStatus(c, std::format("Hozirgi masofa: {:.3f}", c.CurrentDistance).c_str());
+            changed |= spring(c.Frequency, c.DampingRatio, Tr("qattiq"));
+            DrawJoint2DStatus(c, TrFormat("Hozirgi masofa: {:.3f}", c.CurrentDistance).c_str());
             return changed;
         }, true, modified);
 
@@ -2417,15 +2417,15 @@ namespace Zamin {
             UI::PropertyHeader("Burchak chegarasi", "Shu jismning ulangan jismga nisbatan burilishi, joint yaratilgandagi holatdan (gradus)");
             changed |= UI::PropertyBool("Cheklash", c.EnableLimit);
             ImGui::BeginDisabled(!c.EnableLimit);
-            changed |= range("Pastki burchak", "Yuqori burchak", c.LowerAngle, c.UpperAngle, 0.5f, "%.1f\xc2\xb0");
+            changed |= range(Tr("Pastki burchak"), Tr("Yuqori burchak"), c.LowerAngle, c.UpperAngle, 0.5f, "%.1f\xc2\xb0");
             ImGui::EndDisabled();
             UI::PropertyHeader("Motor", "Jismni anchor atrofida aylantiradi (musbat - soat miliga teskari)");
             changed |= UI::PropertyBool("Motor", c.EnableMotor);
             ImGui::BeginDisabled(!c.EnableMotor);
-            changed |= degrees("Tezlik", "Gradus / soniya", c.MotorSpeed, -1e5f, 1e5f);
-            changed |= positive("Maks. moment", "Motor bera oladigan eng katta moment (N*m)", c.MaxMotorTorque, "%.1f N*m");
+            changed |= degrees(Tr("Tezlik"), Tr("Gradus / soniya"), c.MotorSpeed, -1e5f, 1e5f);
+            changed |= positive(Tr("Maks. moment"), Tr("Motor bera oladigan eng katta moment (N*m)"), c.MaxMotorTorque, "%.1f N*m");
             ImGui::EndDisabled();
-            DrawJoint2DStatus(c, std::format("Burchak: {:.1f}\xc2\xb0\nAylanish tezligi: {:.1f}\xc2\xb0/s", c.JointAngle, c.JointSpeed).c_str());
+            DrawJoint2DStatus(c, TrFormat("Burchak: {:.1f}\xc2\xb0\nAylanish tezligi: {:.1f}\xc2\xb0/s", c.JointAngle, c.JointSpeed).c_str());
             return changed;
         }, true, modified);
 
@@ -2437,22 +2437,22 @@ namespace Zamin {
                 UI::Tooltip("Harakat yo'nalishi shu jismning o'z koordinatalarida (joint yaratilgandagi holatda)");
             changed |= UI::PropertyBool("Cheklash", c.EnableLimit);
             ImGui::BeginDisabled(!c.EnableLimit);
-            changed |= range("Pastki chegara", "Yuqori chegara", c.LowerTranslation, c.UpperTranslation, 0.01f, "%.2f");
+            changed |= range(Tr("Pastki chegara"), Tr("Yuqori chegara"), c.LowerTranslation, c.UpperTranslation, 0.01f, "%.2f");
             ImGui::EndDisabled();
             UI::PropertyHeader("Motor", "Jismni o'q bo'ylab suradi (musbat - o'q yo'nalishida)");
             changed |= UI::PropertyBool("Motor", c.EnableMotor);
             ImGui::BeginDisabled(!c.EnableMotor);
             changed |= UI::PropertyFloat("Tezlik (birlik/s)", c.MotorSpeed, 0.05f);
-            changed |= positive("Maks. kuch", "Motor bera oladigan eng katta kuch (N)", c.MaxMotorForce, "%.1f N");
+            changed |= positive(Tr("Maks. kuch"), Tr("Motor bera oladigan eng katta kuch (N)"), c.MaxMotorForce, "%.1f N");
             ImGui::EndDisabled();
-            DrawJoint2DStatus(c, std::format("Siljish: {:.3f}\nTezlik: {:.2f} birlik/s", c.JointTranslation, c.JointSpeed).c_str());
+            DrawJoint2DStatus(c, TrFormat("Siljish: {:.3f}\nTezlik: {:.2f} birlik/s", c.JointTranslation, c.JointSpeed).c_str());
             return changed;
         }, true, modified);
 
         AddSection<WeldJoint2DComponent>(ICON_FA_HAMMER, "Weld Joint 2D", entity, [&](WeldJoint2DComponent& c) {
             bool changed = DrawJoint2DCommon(entity, c, Joint2DType::Weld);
             UI::PropertyHeader("Qattiqlik", "0 Hz - jismlar bir butun; chastota bilan burchak bo'yicha prujinadek egiladi");
-            changed |= spring(c.Frequency, c.DampingRatio, "qattiq");
+            changed |= spring(c.Frequency, c.DampingRatio, Tr("qattiq"));
             DrawJoint2DStatus(c, nullptr);
             return changed;
         }, true, modified);
@@ -2464,24 +2464,24 @@ namespace Zamin {
             changed |= UI::PropertyFloat2("O'q", c.Axis, 0.01f);
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
                 UI::Tooltip("Osma yo'nalishi shu jismning o'z koordinatalarida (joint yaratilgandagi holatda; odatda yuqoriga)");
-            changed |= spring(c.Frequency, c.DampingRatio, "prujinasiz");
+            changed |= spring(c.Frequency, c.DampingRatio, Tr("prujinasiz"));
             changed |= UI::PropertyBool("Cheklash", c.EnableLimit);
             ImGui::BeginDisabled(!c.EnableLimit);
-            changed |= range("Pastki chegara", "Yuqori chegara", c.LowerTranslation, c.UpperTranslation, 0.01f, "%.2f");
+            changed |= range(Tr("Pastki chegara"), Tr("Yuqori chegara"), c.LowerTranslation, c.UpperTranslation, 0.01f, "%.2f");
             ImGui::EndDisabled();
             UI::PropertyHeader("Motor", "G'ildirakni aylantiradi (musbat - soat miliga teskari)");
             changed |= UI::PropertyBool("Motor", c.EnableMotor);
             ImGui::BeginDisabled(!c.EnableMotor);
-            changed |= degrees("Tezlik", "Gradus / soniya (360 - soniyasiga bir aylanish)", c.MotorSpeed, -1e5f, 1e5f);
-            changed |= positive("Maks. moment", "Motor bera oladigan eng katta moment (N*m)", c.MaxMotorTorque, "%.1f N*m");
+            changed |= degrees(Tr("Tezlik"), Tr("Gradus / soniya (360 - soniyasiga bir aylanish)"), c.MotorSpeed, -1e5f, 1e5f);
+            changed |= positive(Tr("Maks. moment"), Tr("Motor bera oladigan eng katta moment (N*m)"), c.MaxMotorTorque, "%.1f N*m");
             ImGui::EndDisabled();
-            DrawJoint2DStatus(c, std::format("Osma siljishi: {:.3f}\nAylanish: {:.0f}\xc2\xb0/s", c.JointTranslation, c.JointSpeed).c_str());
+            DrawJoint2DStatus(c, TrFormat("Osma siljishi: {:.3f}\nAylanish: {:.0f}\xc2\xb0/s", c.JointTranslation, c.JointSpeed).c_str());
             return changed;
         }, true, modified);
 
         AddSection<Rigidbody3DComponent>(ICON_FA_ATOM, "Rigidbody 3D", entity, [&](Rigidbody3DComponent& c) {
             bool changed = false;
-            const char* types[] = { "Statik", "Dinamik", "Kinematik" };
+            const char* types[] = { Tr("Statik"), Tr("Dinamik"), Tr("Kinematik") };
             int type = (int)c.Type;
             if (UI::PropertyCombo("Turi", type, types, 3)) { c.Type = (Rigidbody3DComponent::BodyType)type; changed = true; }
             changed |= UI::PropertyFloat("Massa", c.Mass, 0.05f, 0.001f, 100000.0f);
@@ -2489,10 +2489,10 @@ namespace Zamin {
             changed |= UI::PropertyFloat("Chiziqli so'nish", c.LinearDamping, 0.01f, 0.0f, 100.0f);
             changed |= UI::PropertyFloat("Burchak so'nishi", c.AngularDamping, 0.01f, 0.0f, 100.0f);
             changed |= UI::PropertyBool("Aylanmasin", c.LockRotation);
-            changed |= DrawCollisionLayer("Qatlam", c.Layer, false,
-                                          "Kolliderlarining to'qnashuv qatlami (2D fizika bilan bir xil qatlamlar): qaysi qatlamlarga "
+            changed |= DrawCollisionLayer(Tr("Qatlam"), c.Layer, false,
+                                          Tr("Kolliderlarining to'qnashuv qatlami (2D fizika bilan bir xil qatlamlar): qaysi qatlamlarga "
                                           "tegishi loyiha matritsasida (Loyiha sozlamalari > Fizika qatlamlari). O'yin davomida ham "
-                                          "o'zgartirsa bo'ladi; so'rovlar (Raycast3D, OverlapSphere3D...) qatlam niqobini oladi.");
+                                          "o'zgartirsa bo'ladi; so'rovlar (Raycast3D, OverlapSphere3D...) qatlam niqobini oladi."));
             const bool dynamic = c.Type == Rigidbody3DComponent::BodyType::Dynamic;
             ImGui::BeginDisabled(!dynamic);
             changed |= UI::PropertyBool("Uzluksiz (CCD)", c.ContinuousCollision);
@@ -2504,13 +2504,13 @@ namespace Zamin {
                                     : "Faqat dinamik jismlar uchun (kinematik jismni hech narsa to'xtatmaydi)");
             if (c.Type != Rigidbody3DComponent::BodyType::Static)
             {
-                const char* modes[] = { "Uyg'oq boshlanadi", "Uxlab boshlanadi", "Hech uxlamaydi" };
+                const char* modes[] = { Tr("Uyg'oq boshlanadi"), Tr("Uxlab boshlanadi"), Tr("Hech uxlamaydi") };
                 int mode = (int)c.Sleeping;
                 UI::PropertyLabel("Uxlash", "Qimirlamay qolgan jism uxlaydi: tegilmaguncha hisoblanmaydi (Sahna sozlamalari > Fizika). "
                                             "Uxlab boshlanadi - urilguncha kutib turadigan minora yoki to'plam uchun; Hech uxlamaydi - "
                                             "doim hisoblanadi. Skriptdan: IsSleeping3D / WakeUp3D / PutToSleep3D");
                 ImGui::PushID("sleep3d");
-                if (ImGui::Combo("##v", &mode, modes, 3))
+                if (UI::TrCombo("##v", &mode, modes, 3))
                 {
                     c.Sleeping = (Rigidbody3DComponent::SleepMode)std::clamp(mode, 0, 2);
                     changed = true;
@@ -2522,12 +2522,12 @@ namespace Zamin {
                     const bool sleeping = m_Context->IsSleeping3D(entity);
                     UI::PropertyLabel("Holati");
                     if (sleeping)
-                        ImGui::TextColored(ImVec4(0.55f, 0.65f, 0.95f, 1.0f), ICON_FA_MOON "  Uxlayapti");
+                        ImGui::TextColored(ImVec4(0.55f, 0.65f, 0.95f, 1.0f), "%s", Tr(ICON_FA_MOON "  Uxlayapti"));
                     else
-                        ImGui::TextColored(ImVec4(0.45f, 0.9f, 0.55f, 1.0f), ICON_FA_BOLT "  Uyg'oq");
+                        ImGui::TextColored(ImVec4(0.45f, 0.9f, 0.55f, 1.0f), "%s", Tr(ICON_FA_BOLT "  Uyg'oq"));
                     ImGui::SameLine();
                     ImGui::PushID("sleep3dState");
-                    if (ImGui::SmallButton(sleeping ? "Uyg'otish" : "Uxlatish"))
+                    if (ImGui::SmallButton(sleeping ? Tr("Uyg'otish") : Tr("Uxlatish")))
                         m_Context->SetAwake3D(entity, sleeping);
                     ImGui::PopID();
                 }
@@ -2599,22 +2599,22 @@ namespace Zamin {
                                                     "0 doim oraliq ichida: pastki -180..0, yuqori 0..180");
             changed |= UI::PropertyBool("Cheklash", c.EnableLimit);
             ImGui::BeginDisabled(!c.EnableLimit);
-            changed |= degrees("Pastki burchak", "-180..0 gradus", c.LowerAngle, -180.0f, 0.0f);
-            changed |= degrees("Yuqori burchak", "0..180 gradus", c.UpperAngle, 0.0f, 180.0f);
+            changed |= degrees(Tr("Pastki burchak"), Tr("-180..0 gradus"), c.LowerAngle, -180.0f, 0.0f);
+            changed |= degrees(Tr("Yuqori burchak"), Tr("0..180 gradus"), c.UpperAngle, 0.0f, 180.0f);
             ImGui::EndDisabled();
             UI::PropertyHeader("Motor", "Jismni o'q atrofida aylantiradi (musbat - o'q uchidan qaraganda soat miliga teskari)");
             changed |= UI::PropertyBool("Motor", c.EnableMotor);
             ImGui::BeginDisabled(!c.EnableMotor);
-            changed |= degrees("Tezlik", "Gradus / soniya", c.MotorSpeed, -1e5f, 1e5f);
-            changed |= positive("Maks. moment", "Motor bera oladigan eng katta moment (N*m)", c.MaxMotorTorque, "%.1f N*m");
+            changed |= degrees(Tr("Tezlik"), Tr("Gradus / soniya"), c.MotorSpeed, -1e5f, 1e5f);
+            changed |= positive(Tr("Maks. moment"), Tr("Motor bera oladigan eng katta moment (N*m)"), c.MaxMotorTorque, "%.1f N*m");
             ImGui::EndDisabled();
             UI::PropertyHeader("Prujina", "Motor o'chiq bo'lsa jismni nishon burchakka tortadi (o'z-o'zidan yopiladigan eshik)");
             changed |= UI::PropertyBool("Prujina", c.EnableSpring);
             ImGui::BeginDisabled(!c.EnableSpring || c.EnableMotor);
-            changed |= degrees("Nishon burchak", "Prujina tortadigan burchak (gradus, joint yaratilgandagi holatdan)", c.SpringTargetAngle, -180.0f, 180.0f);
-            changed |= spring(c.SpringFrequency, c.SpringDamping, "o'chiq");
+            changed |= degrees(Tr("Nishon burchak"), Tr("Prujina tortadigan burchak (gradus, joint yaratilgandagi holatdan)"), c.SpringTargetAngle, -180.0f, 180.0f);
+            changed |= spring(c.SpringFrequency, c.SpringDamping, Tr("o'chiq"));
             ImGui::EndDisabled();
-            DrawJoint3DStatus(c, std::format("Burchak: {:.1f}\xc2\xb0\nAylanish tezligi: {:.1f}\xc2\xb0/s", c.JointAngle, c.JointSpeed).c_str());
+            DrawJoint3DStatus(c, TrFormat("Burchak: {:.1f}\xc2\xb0\nAylanish tezligi: {:.1f}\xc2\xb0/s", c.JointAngle, c.JointSpeed).c_str());
             return changed;
         }, true, modified);
 
@@ -2643,8 +2643,8 @@ namespace Zamin {
             changed |= UI::PropertyBool("Faqat maksimal (arqon)", c.MaxDistanceOnly);
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
                 UI::Tooltip("Arqon kabi: jismlar yaqinlashishi mumkin, uzoqlasha olmaydi");
-            changed |= spring(c.Frequency, c.DampingRatio, "qattiq");
-            DrawJoint3DStatus(c, std::format("Hozirgi masofa: {:.3f}", c.CurrentDistance).c_str());
+            changed |= spring(c.Frequency, c.DampingRatio, Tr("qattiq"));
+            DrawJoint3DStatus(c, TrFormat("Hozirgi masofa: {:.3f}", c.CurrentDistance).c_str());
             return changed;
         }, true, modified);
 
@@ -2673,9 +2673,9 @@ namespace Zamin {
             changed |= UI::PropertyBool("Motor", c.EnableMotor);
             ImGui::BeginDisabled(!c.EnableMotor);
             changed |= UI::PropertyFloat("Tezlik (birlik/s)", c.MotorSpeed, 0.05f);
-            changed |= positive("Maks. kuch", "Motor bera oladigan eng katta kuch (N)", c.MaxMotorForce, "%.1f N");
+            changed |= positive(Tr("Maks. kuch"), Tr("Motor bera oladigan eng katta kuch (N)"), c.MaxMotorForce, "%.1f N");
             ImGui::EndDisabled();
-            DrawJoint3DStatus(c, std::format("Siljish: {:.3f}\nTezlik: {:.2f} birlik/s", c.JointTranslation, c.JointSpeed).c_str());
+            DrawJoint3DStatus(c, TrFormat("Siljish: {:.3f}\nTezlik: {:.2f} birlik/s", c.JointTranslation, c.JointSpeed).c_str());
             return changed;
         }, true, modified);
 
@@ -2688,17 +2688,17 @@ namespace Zamin {
                 UI::Tooltip("Buralish o'qi shu obyektning o'z koordinatalarida (joint yaratilgandagi holatda) - qo'l yoki oyoq bo'ylab. "
                             "Konus shu o'q joint yaratilgandagi yo'nalish atrofida");
             UI::PropertyHeader("Chegaralar", "Joint yaratilgandagi holatdan (gradus): u konus o'rtasi va buralish 0");
-            changed |= degrees("Konus burchagi", "O'q boshlang'ich yo'nalishidan shuncha og'a oladi (0..180, 180 - erkin)", c.SwingLimit, 0.0f, 180.0f);
-            changed |= degrees("Buralish (pastki)", "-180..0 gradus", c.TwistLower, -180.0f, 0.0f);
-            changed |= degrees("Buralish (yuqori)", "0..180 gradus", c.TwistUpper, 0.0f, 180.0f);
-            changed |= positive("Ishqalanish momenti", "Aylanishga qarshilik (N*m): ragdoll qo'l-oyoqlari erkin silkinmaydi. 0 - yo'q",
-                                c.FrictionTorque, c.FrictionTorque > 0.0f ? "%.2f N*m" : "yo'q");
-            DrawJoint3DStatus(c, std::format("Og'ish: {:.1f}\xc2\xb0\nBuralish: {:.1f}\xc2\xb0", c.SwingAngle, c.TwistAngle).c_str());
+            changed |= degrees(Tr("Konus burchagi"), Tr("O'q boshlang'ich yo'nalishidan shuncha og'a oladi (0..180, 180 - erkin)"), c.SwingLimit, 0.0f, 180.0f);
+            changed |= degrees(Tr("Buralish (pastki)"), Tr("-180..0 gradus"), c.TwistLower, -180.0f, 0.0f);
+            changed |= degrees(Tr("Buralish (yuqori)"), Tr("0..180 gradus"), c.TwistUpper, 0.0f, 180.0f);
+            changed |= positive(Tr("Ishqalanish momenti"), Tr("Aylanishga qarshilik (N*m): ragdoll qo'l-oyoqlari erkin silkinmaydi. 0 - yo'q"),
+                                c.FrictionTorque, c.FrictionTorque > 0.0f ? "%.2f N*m" : Tr("yo'q"));
+            DrawJoint3DStatus(c, TrFormat("Og'ish: {:.1f}\xc2\xb0\nBuralish: {:.1f}\xc2\xb0", c.SwingAngle, c.TwistAngle).c_str());
             return changed;
         }, true, modified);
 
         AddSection<CharacterController3DComponent>(ICON_FA_PERSON_RUNNING, "Character Controller 3D", entity, [&](CharacterController3DComponent& c) {
-            InactiveComponentNote(entity, "Obyekt nofaol: qahramon fizikada yo'q (faollashganda joriy joyida qayta yaratiladi)");
+            InactiveComponentNote(entity, Tr("Obyekt nofaol: qahramon fizikada yo'q (faollashganda joriy joyida qayta yaratiladi)"));
             bool changed = UI::PropertyFloat("Radius", c.Radius, 0.01f, 0.05f, 10.0f);
             changed |= UI::PropertyFloat(EditorText::Choose("Balandlik", "Height"), c.Height, 0.01f, 0.2f, 20.0f);
             changed |= UI::PropertySlider("Maks. qiyalik (°)", c.MaxSlope, 0.0f, 89.0f);
@@ -2706,9 +2706,9 @@ namespace Zamin {
             changed |= UI::PropertyFloat("Massa", c.Mass, 0.5f, 1.0f, 10000.0f);
             changed |= UI::PropertyFloat("Gravitatsiya", c.GravityScale, 0.05f, 0.0f, 10.0f);
             changed |= UI::PropertyBool("Yerga yopishish", c.StickToFloor);
-            changed |= DrawCollisionLayer("Qatlam", c.Layer, false,
-                                          "Qahramonning to'qnashuv qatlami: qaysi jismlarga urilishi / ustida turishi loyiha "
-                                          "matritsasida (Loyiha sozlamalari > Fizika qatlamlari)");
+            changed |= DrawCollisionLayer(Tr("Qatlam"), c.Layer, false,
+                                          Tr("Qahramonning to'qnashuv qatlami: qaysi jismlarga urilishi / ustida turishi loyiha "
+                                          "matritsasida (Loyiha sozlamalari > Fizika qatlamlari)"));
             UI::PropertyHeader("Itarish", "Yurib borib tekkan dinamik jismlarni (qutilar, to'plar) o'z tezligiga yaqin tezlikda suradi");
             changed |= UI::PropertyBool("Jismlarni itaradi", c.PushBodies);
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
@@ -2723,7 +2723,7 @@ namespace Zamin {
             }
             ImGui::EndDisabled();
             UI::PropertyLabel("Holat");
-            ImGui::TextDisabled(!entity.IsActiveInHierarchy() ? "Nofaol" : (c.Grounded ? "Yerda" : "Havoda"));
+            ImGui::TextDisabled("%s", !entity.IsActiveInHierarchy() ? Tr("Nofaol") : (c.Grounded ? Tr("Yerda") : Tr("Havoda")));
             if (c.RuntimeID != 0xffffffff)
             {
                 // The velocity it really moves with (the viewport's debug drawing shows it as an arrow).
@@ -2739,7 +2739,7 @@ namespace Zamin {
         }, true, modified);
 
         AddSection<ParticleSystemComponent>(ICON_FA_WAND_MAGIC_SPARKLES, "Particle System", entity, [&](ParticleSystemComponent& c) {
-            InactiveComponentNote(entity, "Obyekt nofaol: particle'lar to'xtatilgan");
+            InactiveComponentNote(entity, Tr("Obyekt nofaol: particle'lar to'xtatilgan"));
             return DrawParticleSystem(entity, c);
         }, true, modified);
 
@@ -2761,11 +2761,11 @@ namespace Zamin {
                 if (!entity.HasComponent<SpriteRendererComponent>())
                 {
                     UI::PropertyLabel("");
-                    ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  Takrorlash Sprite Renderer'ni chizadi");
+                    ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Takrorlash Sprite Renderer'ni chizadi"));
                 }
             }
             UI::PropertyLabel("");
-            ImGui::TextDisabled("O'yin kamerasi bilan ishlaydi (editorda: Ko'rinish > Parallax)");
+            ImGui::TextDisabled("%s", Tr("O'yin kamerasi bilan ishlaydi (editorda: Ko'rinish > Parallax)"));
             return changed;
         }, true, modified);
 
@@ -2796,7 +2796,7 @@ namespace Zamin {
             if (driven)
             {
                 UI::PropertyLabel("");
-                ImGui::TextColored(ImVec4(0.45f, 0.75f, 0.95f, 1.0f), ICON_FA_LIST "  Ota obyektning layout guruhi joylashtiradi");
+                ImGui::TextColored(ImVec4(0.45f, 0.75f, 0.95f, 1.0f), "%s", Tr(ICON_FA_LIST "  Ota obyektning layout guruhi joylashtiradi"));
                 if (ImGui::IsItemHovered())
                     UI::Tooltip("Langar va pozitsiya hisobga olinmaydi; o'lcham - guruh boshqarmasa. Guruhdan chiqarish: UI Layout Element > Layoutni e'tiborsiz qoldirish");
             }
@@ -2804,13 +2804,13 @@ namespace Zamin {
                                                  "Tanlanganda obyekt joyida qoladi; Shift bilan - langarga joylashadi (pivot ham)");
             ImGui::PushID("anchorPreset");
             ImGui::SetNextItemWidth(-1.0f);
-            if (ImGui::BeginCombo("##preset", current < presetCount ? s_Presets[current].Name : "Boshqa (qo'lda)"))
+            if (ImGui::BeginCombo("##preset", current < presetCount ? Tr(s_Presets[current].Name) : Tr("Boshqa (qo'lda)")))
             {
                 for (int i = 0; i < presetCount; i++)
                 {
                     if (i == 9)
                         ImGui::Separator();
-                    if (ImGui::Selectable(s_Presets[i].Name, i == current) && m_Context)
+                    if (ImGui::Selectable(Tr(s_Presets[i].Name), i == current) && m_Context)
                     {
                         const bool snap = ImGui::GetIO().KeyShift;
                         m_Context->SetUIAnchors(entity, s_Presets[i].Min, s_Presets[i].Max, !snap);
@@ -2842,7 +2842,7 @@ namespace Zamin {
                 if (!stretched)
                 {
                     glm::vec2 v{ c.Position[axis], c.Size[axis] };
-                    if (UI::PropertyFloat2(axis == 0 ? "X | Kenglik" : "Y | Balandlik", v, 1.0f))
+                    if (UI::PropertyFloat2(axis == 0 ? Tr("X | Kenglik") : Tr("Y | Balandlik"), v, 1.0f))
                     {
                         c.Position[axis] = v.x;
                         c.Size[axis] = v.y;
@@ -2856,7 +2856,7 @@ namespace Zamin {
                 {
                     glm::vec2 offsetMin = c.GetOffsetMin(), offsetMax = c.GetOffsetMax();
                     glm::vec2 v{ offsetMin[axis], -offsetMax[axis] };
-                    if (UI::PropertyFloat2(axis == 0 ? "Chap | O'ng" : "Past | Yuqori", v, 1.0f))
+                    if (UI::PropertyFloat2(axis == 0 ? Tr("Chap | O'ng") : Tr("Past | Yuqori"), v, 1.0f))
                     {
                         offsetMin[axis] = v.x;
                         offsetMax[axis] = -v.y;
@@ -2929,7 +2929,7 @@ namespace Zamin {
                 const float scale = m_Context->GetUIScale(entity);
                 UI::PropertyLabel("");
                 if (scale != 1.0f)
-                    ImGui::TextDisabled("%.0f x %.0f  (%.0f, %.0f)   masshtab %.2f", r.GetWidth(), r.GetHeight(), r.Min.x, r.Min.y, scale);
+                    ImGui::TextDisabled(Tr("%.0f x %.0f  (%.0f, %.0f)   masshtab %.2f"), r.GetWidth(), r.GetHeight(), r.Min.x, r.Min.y, scale);
                 else
                     ImGui::TextDisabled("%.0f x %.0f  (%.0f, %.0f)", r.GetWidth(), r.GetHeight(), r.Min.x, r.Min.y);
             }
@@ -2976,14 +2976,14 @@ namespace Zamin {
                 const glm::vec2 view = m_Context->GetViewportSize();
                 const float scale = c.ComputeScale(view);
                 UI::PropertyLabel("");
-                ImGui::TextDisabled("Hozir: %.0f x %.0f px -> masshtab %.3f (%.0f x %.0f UI)", view.x, view.y, scale, view.x / scale, view.y / scale);
+                ImGui::TextDisabled(Tr("Hozir: %.0f x %.0f px -> masshtab %.3f (%.0f x %.0f UI)"), view.x, view.y, scale, view.x / scale, view.y / scale);
             }
             if (m_Context && m_Context->GetParent(entity))
                 for (Entity a = m_Context->GetParent(entity); a; a = m_Context->GetParent(a))
                     if (a.HasComponent<UICanvasComponent>())
                     {
                         UI::PropertyLabel("");
-                        ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  Ichki canvas: tashqi canvas masshtabi ishlatiladi");
+                        ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Ichki canvas: tashqi canvas masshtabi ishlatiladi"));
                         break;
                     }
             return changed;
@@ -3039,7 +3039,7 @@ namespace Zamin {
             if (!entity.HasComponent<UITransformComponent>())
             {
                 UI::PropertyLabel("");
-                ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  UI Transform kerak");
+                ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION "  UI Transform kerak"));
             }
             return changed;
         }, true, modified);
@@ -3079,11 +3079,11 @@ namespace Zamin {
                     }
                     ImGui::PopID();
                 };
-                optional("Minimal", c.MinSize, "Guruh siqqanda shundan kichraymaydi (belgilanmagan: 0)", 0.0f);
-                optional("Afzal", c.PreferredSize, "Joy yetganda shu o'lcham (belgilanmagan: o'z o'lchami)", 100.0f);
-                optional("Moslashuvchan", c.FlexibleSize, "Ortib qolgan joydan ulushi (1 va 2: ikkinchisi ikki baravar ko'p oladi)", 1.0f);
+                optional(Tr("Minimal"), c.MinSize, Tr("Guruh siqqanda shundan kichraymaydi (belgilanmagan: 0)"), 0.0f);
+                optional(Tr("Afzal"), c.PreferredSize, Tr("Joy yetganda shu o'lcham (belgilanmagan: o'z o'lchami)"), 100.0f);
+                optional(Tr("Moslashuvchan"), c.FlexibleSize, Tr("Ortib qolgan joydan ulushi (1 va 2: ikkinchisi ikki baravar ko'p oladi)"), 1.0f);
                 UI::PropertyLabel("");
-                ImGui::TextDisabled("Guruh o'lchamni boshqarganda hisobga olinadi");
+                ImGui::TextDisabled("%s", Tr("Guruh o'lchamni boshqarganda hisobga olinadi"));
             }
             return changed;
         }, true, modified);
@@ -3128,11 +3128,11 @@ namespace Zamin {
             {
                 UI::PropertyLabel("");
                 if (c.Hiding)
-                    ImGui::TextColored(ImVec4(0.95f, 0.7f, 0.4f, 1.0f), "Yashirilmoqda...");
+                    ImGui::TextColored(ImVec4(0.95f, 0.7f, 0.4f, 1.0f), "%s", Tr("Yashirilmoqda..."));
                 else if (m_Context->IsUITweening(entity))
-                    ImGui::TextColored(ImVec4(0.45f, 0.85f, 0.55f, 1.0f), ICON_FA_WAND_MAGIC_SPARKLES "  Animatsiya o'ynamoqda");
+                    ImGui::TextColored(ImVec4(0.45f, 0.85f, 0.55f, 1.0f), "%s", Tr(ICON_FA_WAND_MAGIC_SPARKLES "  Animatsiya o'ynamoqda"));
                 else
-                    ImGui::TextDisabled("Tinch (masshtab %.2f)", c.FeedbackScale);
+                    ImGui::TextDisabled(Tr("Tinch (masshtab %.2f)"), c.FeedbackScale);
             }
             return changed;
         }, true, modified);
@@ -3146,10 +3146,10 @@ namespace Zamin {
                 UI::Tooltip("Strelkalar / D-pad / stik bilan bu vidjetdan qayerga o'tiladi. Yo'q - navigatsiya unga kelmaydi (sichqoncha bilan tanlanadi)");
             if (c.NavigationMode == UINavigationComponent::Mode::Explicit)
             {
-                changed |= DrawEntityRefField("Yuqoriga", c.Up, "Yuqori strelka bosilganda tanlanadigan vidjet (bo'sh - hech qayer)");
-                changed |= DrawEntityRefField("Pastga", c.Down, "Past strelka bosilganda tanlanadigan vidjet");
-                changed |= DrawEntityRefField("Chapga", c.Left, "Chap strelka bosilganda tanlanadigan vidjet");
-                changed |= DrawEntityRefField("O'ngga", c.Right, "O'ng strelka bosilganda tanlanadigan vidjet");
+                changed |= DrawEntityRefField(Tr("Yuqoriga"), c.Up, Tr("Yuqori strelka bosilganda tanlanadigan vidjet (bo'sh - hech qayer)"));
+                changed |= DrawEntityRefField(Tr("Pastga"), c.Down, Tr("Past strelka bosilganda tanlanadigan vidjet"));
+                changed |= DrawEntityRefField(Tr("Chapga"), c.Left, Tr("Chap strelka bosilganda tanlanadigan vidjet"));
+                changed |= DrawEntityRefField(Tr("O'ngga"), c.Right, Tr("O'ng strelka bosilganda tanlanadigan vidjet"));
             }
             changed |= UI::PropertyBool("Faollashganda tanlash", c.SelectOnEnable);
             if (ImGui::IsItemHovered())
@@ -3161,17 +3161,17 @@ namespace Zamin {
             {
                 UI::PropertyLabel("");
                 if (m_Context->GetSelectedUI() == entity)
-                    ImGui::TextColored(ImVec4(0.45f, 0.85f, 0.55f, 1.0f), ICON_FA_GAMEPAD "  Tanlangan");
+                    ImGui::TextColored(ImVec4(0.45f, 0.85f, 0.55f, 1.0f), "%s", Tr(ICON_FA_GAMEPAD "  Tanlangan"));
                 else
-                    ImGui::TextDisabled("Tanlanmagan");
+                    ImGui::TextDisabled("%s", Tr("Tanlanmagan"));
             }
             UI::PropertyLabel("");
-            ImGui::TextDisabled("Enter / A - bosish, Esc / B - OnCancel, Tab - keyingisi");
+            ImGui::TextDisabled("%s", Tr("Enter / A - bosish, Esc / B - OnCancel, Tab - keyingisi"));
             return changed;
         }, true, modified);
 
         AddSection<UIButtonComponent>(ICON_FA_HAND_POINTER, "UI Button", entity, [&](UIButtonComponent& c) {
-            InactiveComponentNote(entity, "Obyekt nofaol: tugma ko'rinmaydi va bosilmaydi");
+            InactiveComponentNote(entity, Tr("Obyekt nofaol: tugma ko'rinmaydi va bosilmaydi"));
             bool changed = UI::PropertyColor4("Oddiy", c.NormalColor);
             changed |= UI::PropertyColor4("Ustida (hover)", c.HoverColor);
             changed |= UI::PropertyColor4("Bosilgan", c.PressedColor);
@@ -3181,18 +3181,18 @@ namespace Zamin {
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Bosilganda shu nomli skript xabari yuboriladi (bo'sh - yo'q): AddMessageHandler(\"Nomi\", ...) yoki OnMessage");
             if (!c.ClickMessage.empty())
-                changed |= DrawEntityRefField("Qabul qiluvchi", c.ClickTarget, "Xabar oladigan obyekt (bo'sh - barcha skriptlar, Broadcast)");
+                changed |= DrawEntityRefField(Tr("Qabul qiluvchi"), c.ClickTarget, Tr("Xabar oladigan obyekt (bo'sh - barcha skriptlar, Broadcast)"));
             UI::PropertyLabel("");
-            ImGui::TextDisabled("Skriptda: OnClick(), .Clicked; hodisa: \"UIClick\"");
+            ImGui::TextDisabled("%s", Tr("Skriptda: OnClick(), .Clicked; hodisa: \"UIClick\""));
             return changed;
         }, true, modified);
 
         AddSection<UIImageComponent>(ICON_FA_IMAGE, "UI Image", entity, [&](UIImageComponent& c) {
-            InactiveComponentNote(entity, "Obyekt nofaol: rasm ko'rinmaydi");
+            InactiveComponentNote(entity, Tr("Obyekt nofaol: rasm ko'rinmaydi"));
             if (!entity.HasComponent<UITransformComponent>())
             {
                 UI::PropertyLabel("");
-                ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  UI Transform kerak");
+                ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION "  UI Transform kerak"));
             }
             return DrawUIImage(entity, c);
         }, true, modified);
@@ -3200,7 +3200,7 @@ namespace Zamin {
         static const char* const s_UIDirectionNames[] = { "Chapdan o'ngga", "O'ngdan chapga", "Pastdan yuqoriga", "Yuqoridan pastga" };
 
         AddSection<UISliderComponent>(ICON_FA_SLIDERS, "UI Slider", entity, [&](UISliderComponent& c) {
-            InactiveComponentNote(entity, "Obyekt nofaol: slayder ko'rinmaydi va surilmaydi");
+            InactiveComponentNote(entity, Tr("Obyekt nofaol: slayder ko'rinmaydi va surilmaydi"));
             bool changed = false;
             const float step = c.WholeNumbers ? 1.0f : 0.01f;
             if (UI::PropertyFloat("Minimum", c.MinValue, step, 0.0f, 0.0f, c.WholeNumbers ? "%.0f" : "%.3f"))
@@ -3240,12 +3240,12 @@ namespace Zamin {
             changed |= UI::PropertyColor4("To'ldirish rangi", c.FillColor);
             changed |= UI::PropertyColor4("Tutqich rangi", c.HandleColor);
             UI::PropertyLabel("");
-            ImGui::TextDisabled("Skriptda: OnValueChanged(qiymat), .Value, .Dragging");
+            ImGui::TextDisabled("%s", Tr("Skriptda: OnValueChanged(qiymat), .Value, .Dragging"));
             return changed;
         }, true, modified);
 
         AddSection<UIToggleComponent>(ICON_FA_SQUARE_CHECK, "UI Toggle", entity, [&](UIToggleComponent& c) {
-            InactiveComponentNote(entity, "Obyekt nofaol: belgilash ko'rinmaydi va bosilmaydi");
+            InactiveComponentNote(entity, Tr("Obyekt nofaol: belgilash ko'rinmaydi va bosilmaydi"));
             bool changed = false;
             if (UI::PropertyBool("Yoqilgan", c.IsOn))
             {
@@ -3258,12 +3258,12 @@ namespace Zamin {
                 }
                 changed = true;
             }
-            const char* styles[] = { "Belgilash qutisi", "Almashtirgich (switch)" };
+            const char* styles[] = { Tr("Belgilash qutisi"), Tr("Almashtirgich (switch)") };
             int style = (int)c.Style;
             if (UI::PropertyCombo("Ko'rinish", style, styles, 2)) { c.Style = (UIToggleStyle)style; changed = true; }
             if (c.Style == UIToggleStyle::Checkbox)
             {
-                const char* marks[] = { "Belgi (galochka)", "Kvadrat", "Nuqta" };
+                const char* marks[] = { Tr("Belgi (galochka)"), Tr("Kvadrat"), Tr("Nuqta") };
                 int mark = (int)c.Mark;
                 if (UI::PropertyCombo("Belgi", mark, marks, 3)) { c.Mark = (UIToggleMark)mark; changed = true; }
             }
@@ -3281,15 +3281,15 @@ namespace Zamin {
             changed |= UI::PropertyColor4("Yoqiq rangi", c.OnColor);
             changed |= UI::PropertyColor4("Belgi rangi", c.MarkColor);
             UI::PropertyLabel("");
-            ImGui::TextDisabled(entity.HasComponent<TextComponent>() ? "Yozuv: shu obyektning Text komponenti (qutidan o'ngda)"
-                                                                     : "Yozuv uchun Text komponenti qo'shing");
+            ImGui::TextDisabled("%s", entity.HasComponent<TextComponent>() ? Tr("Yozuv: shu obyektning Text komponenti (qutidan o'ngda)")
+                                                                     : Tr("Yozuv uchun Text komponenti qo'shing"));
             UI::PropertyLabel("");
-            ImGui::TextDisabled("Skriptda: OnToggleChanged(yoqiq), .IsOn");
+            ImGui::TextDisabled("%s", Tr("Skriptda: OnToggleChanged(yoqiq), .IsOn"));
             return changed;
         }, true, modified);
 
         AddSection<UIProgressBarComponent>(ICON_FA_BARS_PROGRESS, "UI Progress Bar", entity, [&](UIProgressBarComponent& c) {
-            InactiveComponentNote(entity, "Obyekt nofaol: progress bar ko'rinmaydi");
+            InactiveComponentNote(entity, Tr("Obyekt nofaol: progress bar ko'rinmaydi"));
             bool changed = UI::PropertySlider("Qiymat (0..1)", c.Value, 0.0f, 1.0f);
             if (changed && !(m_Context && m_Context->IsRunning()))
                 c.DisplayValue = c.Value;
@@ -3318,31 +3318,31 @@ namespace Zamin {
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Kesish to'rtburchagi chetlardan shuncha UI birligi ichkarida (manfiy - tashqarida)");
             UI::PropertyLabel("");
-            ImGui::TextDisabled("Bolalari faqat shu to'rtburchak ichida ko'rinadi va bosiladi");
+            ImGui::TextDisabled("%s", Tr("Bolalari faqat shu to'rtburchak ichida ko'rinadi va bosiladi"));
             if (m_Context && entity.HasComponent<UITransformComponent>())
             {
                 UIRect clip;
                 if (m_Context->GetUIClipRect(entity, clip))
                 {
                     UI::PropertyLabel("");
-                    ImGui::TextDisabled("O'zi ham ota maskasi ichida (%.0f x %.0f px)", clip.GetWidth(), clip.GetHeight());
+                    ImGui::TextDisabled(Tr("O'zi ham ota maskasi ichida (%.0f x %.0f px)"), clip.GetWidth(), clip.GetHeight());
                 }
             }
             return changed;
         }, true, modified);
 
         AddSection<UIScrollViewComponent>(ICON_FA_ARROWS_UP_DOWN, "UI Scroll View", entity, [&](UIScrollViewComponent& c) {
-            bool changed = DrawEntityRefField("Kontent", c.Content, "Aylantiriladigan UI obyekti (ichidagi ro'yxat) - uning UI Transform Position'i suriladi");
-            changed |= DrawEntityRefField("Ko'rinish (viewport)", c.Viewport, "Kontent ko'rinadigan to'rtburchak (bo'sh - scroll view'ning o'zi, scrollbar'larsiz)");
+            bool changed = DrawEntityRefField(Tr("Kontent"), c.Content, Tr("Aylantiriladigan UI obyekti (ichidagi ro'yxat) - uning UI Transform Position'i suriladi"));
+            changed |= DrawEntityRefField(Tr("Ko'rinish (viewport)"), c.Viewport, Tr("Kontent ko'rinadigan to'rtburchak (bo'sh - scroll view'ning o'zi, scrollbar'larsiz)"));
             if (m_Context && c.Content && !m_Context->GetScrollContent(entity))
             {
                 UI::PropertyLabel("");
-                ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  Kontentda UI Transform yo'q");
+                ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Kontentda UI Transform yo'q"));
             }
             else if (!c.Content)
             {
                 UI::PropertyLabel("");
-                ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  Kontent tanlanmagan");
+                ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Kontent tanlanmagan"));
             }
             changed |= UI::PropertyBool("Gorizontal", c.Horizontal);
             changed |= UI::PropertyBool("Vertikal", c.Vertical);
@@ -3378,20 +3378,20 @@ namespace Zamin {
                 const glm::vec2 n = m_Context->GetScrollPosition(entity);
                 const UIRect view = m_Context->GetScrollViewRect(entity);
                 UI::PropertyLabel("");
-                ImGui::TextDisabled("Joyi: x %.2f, y %.2f   ko'rinish %.0f x %.0f", n.x, n.y, view.GetWidth(), view.GetHeight());
+                ImGui::TextDisabled(Tr("Joyi: x %.2f, y %.2f   ko'rinish %.0f x %.0f"), n.x, n.y, view.GetWidth(), view.GetHeight());
                 if (m_Context->IsRunning() && c.Dragging)
                 {
                     UI::PropertyLabel("");
-                    ImGui::TextColored(ImVec4(0.45f, 0.85f, 0.55f, 1.0f), ICON_FA_HAND_POINTER "  Sudralmoqda");
+                    ImGui::TextColored(ImVec4(0.45f, 0.85f, 0.55f, 1.0f), "%s", Tr(ICON_FA_HAND_POINTER "  Sudralmoqda"));
                 }
             }
             UI::PropertyLabel("");
-            ImGui::TextDisabled("Skriptda: OnScrollChanged(pos); hodisa: \"UIScrollChanged\"");
+            ImGui::TextDisabled("%s", Tr("Skriptda: OnScrollChanged(pos); hodisa: \"UIScrollChanged\""));
             return changed;
         }, true, modified);
 
         AddSection<UIInputFieldComponent>(ICON_FA_I_CURSOR, "UI Input Field", entity, [&](UIInputFieldComponent& c) {
-            InactiveComponentNote(entity, "Obyekt nofaol: matn maydoni ko'rinmaydi va tahrirlanmaydi");
+            InactiveComponentNote(entity, Tr("Obyekt nofaol: matn maydoni ko'rinmaydi va tahrirlanmaydi"));
             bool changed = false;
             std::string text = c.Text;
             if (UI::PropertyString("Matn", text))
@@ -3401,7 +3401,7 @@ namespace Zamin {
                 changed = true;
             }
             changed |= UI::PropertyString("Bo'sh paytdagi yozuv", c.Placeholder);
-            const char* types[] = { "Oddiy matn", "Butun son", "O'nlik son", "Harf va raqam", "Parol" };
+            const char* types[] = { Tr("Oddiy matn"), Tr("Butun son"), Tr("O'nlik son"), Tr("Harf va raqam"), Tr("Parol") };
             int type = (int)c.ContentType;
             if (UI::PropertyCombo("Mazmun turi", type, types, 5))
             {
@@ -3439,15 +3439,15 @@ namespace Zamin {
             if (m_Context && m_Context->IsRunning())
             {
                 UI::PropertyLabel("Holat");
-                ImGui::TextDisabled("%s", c.Focused ? "Tahrirlanmoqda" : "Kutmoqda");
+                ImGui::TextDisabled("%s", c.Focused ? Tr("Tahrirlanmoqda") : Tr("Kutmoqda"));
             }
             UI::PropertyLabel("");
-            ImGui::TextDisabled("Skriptda: OnTextChanged / OnTextSubmit / OnTextEndEdit");
+            ImGui::TextDisabled("%s", Tr("Skriptda: OnTextChanged / OnTextSubmit / OnTextEndEdit"));
             return changed;
         }, true, modified);
 
         AddSection<AudioSourceComponent>(ICON_FA_VOLUME_HIGH, "Audio Source", entity, [&](AudioSourceComponent& c) {
-            InactiveComponentNote(entity, "Obyekt nofaol: ovoz to'xtatilgan (faollashganda 'Boshida ijro' qayta boshlanadi)");
+            InactiveComponentNote(entity, Tr("Obyekt nofaol: ovoz to'xtatilgan (faollashganda 'Boshida ijro' qayta boshlanadi)"));
             bool changed = UI::PropertyAssetPath("Ovoz fayli", c.Path, ".wav;.mp3;.flac;.ogg", ICON_FA_FILE_AUDIO);
             changed |= UI::PropertySlider("Balandlik", c.Volume, 0.0f, 2.0f);
             changed |= UI::PropertySlider("Ton (pitch)", c.Pitch, 0.1f, 3.0f);
@@ -3476,7 +3476,7 @@ namespace Zamin {
             if (!c.Stream && !c.Path.empty() && AudioEngine::ShouldStream(Project::GetAssetFileSystemPath(c.Path), false))
             {
                 ImGui::SameLine();
-                ImGui::TextDisabled("(katta fayl: baribir oqim)");
+                ImGui::TextDisabled("%s", Tr("(katta fayl: baribir oqim)"));
             }
             ImGui::PopID();
 
@@ -3512,7 +3512,7 @@ namespace Zamin {
                     UI::PropertyLabel("Orqada", "Tashqi konusdan tashqarida (orqa tomonda) qancha eshitiladi: 0 - jim, 1 - "
                                                 "o'zgarmaydi");
                     ImGui::PushID("coneGain");
-                    std::string gainText = c.Cone.OuterGain <= 0.0f ? std::string("jim")
+                    std::string gainText = c.Cone.OuterGain <= 0.0f ? std::string(Tr("jim"))
                                                                     : std::format("{:.2f} ({:+.1f} dB)", c.Cone.OuterGain,
                                                                                   AudioGain::ToDecibels(c.Cone.OuterGain));
                     changed |= ImGui::SliderFloat("##v", &c.Cone.OuterGain, 0.0f, 1.0f, gainText.c_str(), ImGuiSliderFlags_AlwaysClamp);
@@ -3520,7 +3520,7 @@ namespace Zamin {
                     if (c.Cone.InnerAngle >= 360.0f)
                     {
                         UI::PropertyLabel("");
-                        ImGui::TextDisabled("360°: hamma tomonga bir xil (konus ta'sir qilmaydi)");
+                        ImGui::TextDisabled("%s", Tr("360°: hamma tomonga bir xil (konus ta'sir qilmaydi)"));
                     }
                 }
             }
@@ -3531,13 +3531,13 @@ namespace Zamin {
             auto fadeField = [&](const char* label, const char* id, float& seconds, const char* tooltip) {
                 UI::PropertyLabel(label, tooltip);
                 ImGui::PushID(id);
-                bool edited = ImGui::DragFloat("##v", &seconds, 0.01f, 0.0f, 60.0f, seconds > 0.0f ? "%.2f s" : "yo'q", ImGuiSliderFlags_AlwaysClamp);
+                bool edited = ImGui::DragFloat("##v", &seconds, 0.01f, 0.0f, 60.0f, seconds > 0.0f ? "%.2f s" : Tr("yo'q"), ImGuiSliderFlags_AlwaysClamp);
                 ImGui::PopID();
                 return edited;
             };
-            changed |= fadeField("Kirish (fade in)", "fadeIn", c.FadeIn, "Ijro boshlanganda 0 dan to'liq balandlikkacha necha sekundda ko'tariladi");
-            changed |= fadeField("Chiqish (fade out)", "fadeOut", c.FadeOut,
-                                 "To'xtatilganda necha sekundda so'nadi (bu vaqtda manba bo'sh: PlayAudio yangisini boshlaydi)");
+            changed |= fadeField(Tr("Kirish (fade in)"), "fadeIn", c.FadeIn, Tr("Ijro boshlanganda 0 dan to'liq balandlikkacha necha sekundda ko'tariladi"));
+            changed |= fadeField(Tr("Chiqish (fade out)"), "fadeOut", c.FadeOut,
+                                 Tr("To'xtatilganda necha sekundda so'nadi (bu vaqtda manba bo'sh: PlayAudio yangisini boshlaydi)"));
 
             UI::PropertyHeader(ICON_FA_FILTER "  Filtr", "Low-pass: kesish chastotasidan yuqorisi bo'g'iladi (devor ortida, suv ostida, "
                                                          "uzoqda). High-pass: undan pastki ovozlar kesiladi (radio, telefon). O'yin "
@@ -3557,14 +3557,14 @@ namespace Zamin {
                 ImGui::PopID();
                 return edited;
             };
-            changed |= range("Balandlik oralig'i", "volumeRandom", c.VolumeRandom, 0.0f, 2.0f,
-                             "Balandlik ko'paytuvchisi: min - max (masalan 0.8 - 1.0)");
-            changed |= range("Ton oralig'i", "pitchRandom", c.PitchRandom, 0.1f, 3.0f,
-                             "Ton ko'paytuvchisi: min - max (masalan 0.9 - 1.1 - yarim tondan sal kam)");
+            changed |= range(Tr("Balandlik oralig'i"), "volumeRandom", c.VolumeRandom, 0.0f, 2.0f,
+                             Tr("Balandlik ko'paytuvchisi: min - max (masalan 0.8 - 1.0)"));
+            changed |= range(Tr("Ton oralig'i"), "pitchRandom", c.PitchRandom, 0.1f, 3.0f,
+                             Tr("Ton ko'paytuvchisi: min - max (masalan 0.9 - 1.1 - yarim tondan sal kam)"));
             if (c.PitchRandom != glm::vec2(1.0f))
             {
                 UI::PropertyLabel("");
-                ImGui::TextDisabled("%+.1f .. %+.1f yarim ton", 12.0f * std::log2(std::max(0.01f, c.PitchRandom.x)),
+                ImGui::TextDisabled(Tr("%+.1f .. %+.1f yarim ton"), 12.0f * std::log2(std::max(0.01f, c.PitchRandom.x)),
                                     12.0f * std::log2(std::max(0.01f, c.PitchRandom.y)));
             }
 
@@ -3579,7 +3579,7 @@ namespace Zamin {
             UI::PropertyLabel("Bir vaqtda (shu fayl)", "Shu ovoz fayli bir vaqtda ko'pi bilan necha marta ijro etiladi "
                                                        "(0 - cheklanmaydi): masalan 20 ta dushman bir xil o'kirsa ham 3 tasi eshitiladi.");
             ImGui::PushID("maxInstances");
-            changed |= ImGui::DragInt("##v", &c.MaxInstances, 0.1f, 0, 256, c.MaxInstances > 0 ? "%d ta" : "cheklanmagan", ImGuiSliderFlags_AlwaysClamp);
+            changed |= ImGui::DragInt("##v", &c.MaxInstances, 0.1f, 0, 256, c.MaxInstances > 0 ? Tr("%d ta") : Tr("cheklanmagan"), ImGuiSliderFlags_AlwaysClamp);
             ImGui::PopID();
             {
                 static const char* policies[] = { "Eng eskisi to'xtaydi", "Eng past eshitilgani to'xtaydi", "Yangisi ijro etilmaydi" };
@@ -3588,7 +3588,7 @@ namespace Zamin {
                                                   "masofa bo'yicha eng jimi. Yangisi ijro etilmaydi: hech narsa to'xtamaydi (ustuvorligi "
                                                   "pastroq ovoz bo'lsa - u to'xtaydi).");
                 ImGui::PushID("steal");
-                if (ImGui::Combo("##v", &policy, policies, 3))
+                if (UI::TrCombo("##v", &policy, policies, 3))
                 {
                     c.Steal = (AudioStealPolicy)std::clamp(policy, 0, 2);
                     changed = true;
@@ -3624,7 +3624,7 @@ namespace Zamin {
         }, true, modified);
 
         AddSection<AudioListenerComponent>(ICON_FA_EAR_LISTEN, "Audio Listener", entity, [&](AudioListenerComponent& c) {
-            InactiveComponentNote(entity, "Obyekt nofaol: tinglamaydi (boshqa listener yoki asosiy kamera tinglaydi)");
+            InactiveComponentNote(entity, Tr("Obyekt nofaol: tinglamaydi (boshqa listener yoki asosiy kamera tinglaydi)"));
             bool changed = UI::PropertyBool("Yoqilgan", c.Enabled);
             UI::PropertyLabel("Ustuvorlik", "Bir nechta faol listener bo'lsa eng katta ustuvorlikdagisi tinglaydi "
                                             "(teng bo'lsa - birinchi yaratilgani).");
@@ -3641,27 +3641,27 @@ namespace Zamin {
             {
                 bool listening = m_Context->GetAudioListenerEntity() == entity;
                 if (listening)
-                    ImGui::TextColored(UI::AccentColor(), ICON_FA_EAR_LISTEN "  Tinglayapti");
+                    ImGui::TextColored(UI::AccentColor(), "%s", Tr(ICON_FA_EAR_LISTEN "  Tinglayapti"));
                 else
-                    ImGui::TextDisabled("Tinglamayapti (boshqasi faol)");
+                    ImGui::TextDisabled("%s", Tr("Tinglamayapti (boshqasi faol)"));
                 if (c.TrackVelocity)
-                    ImGui::TextDisabled("Tezlik: %.1f m/s", glm::length(c.Velocity));
+                    ImGui::TextDisabled(Tr("Tezlik: %.1f m/s"), glm::length(c.Velocity));
             }
             else
             {
                 Entity active = m_Context ? m_Context->GetActiveAudioListener() : Entity();
                 if (active == entity)
-                    ImGui::TextDisabled("O'yinda shu listener tinglaydi (kamera o'rniga)");
+                    ImGui::TextDisabled("%s", Tr("O'yinda shu listener tinglaydi (kamera o'rniga)"));
                 else if (active)
-                    ImGui::TextDisabled("O'yinda '%s' tinglaydi", active.GetName().c_str());
+                    ImGui::TextDisabled(Tr("O'yinda '%s' tinglaydi"), active.GetName().c_str());
                 else
-                    ImGui::TextDisabled("Nofaol: o'yinda asosiy kamera tinglaydi");
+                    ImGui::TextDisabled("%s", Tr("Nofaol: o'yinda asosiy kamera tinglaydi"));
             }
             return changed;
         }, true, modified);
 
         AddSection<AmbientZoneComponent>(ICON_FA_TREE, "Ambient Zone", entity, [&](AmbientZoneComponent& c) {
-            InactiveComponentNote(entity, "Obyekt nofaol: zona eshitilmaydi (ovozi so'nadi)");
+            InactiveComponentNote(entity, Tr("Obyekt nofaol: zona eshitilmaydi (ovozi so'nadi)"));
             bool changed = UI::PropertyAssetPath("Ovoz fayli", c.Path, ".wav;.mp3;.flac;.ogg", ICON_FA_FILE_AUDIO);
             changed |= UI::PropertySlider("Balandlik", c.Volume, 0.0f, 2.0f);
             changed |= UI::PropertySlider("Ton (pitch)", c.Pitch, 0.1f, 3.0f);
@@ -3680,7 +3680,7 @@ namespace Zamin {
                 int shape = (int)c.Shape;
                 UI::PropertyLabel("Shakl");
                 ImGui::PushID("shape");
-                if (ImGui::Combo("##v", &shape, shapes, 2))
+                if (UI::TrCombo("##v", &shape, shapes, 2))
                 {
                     c.Shape = (AmbientZoneComponent::ZoneShape)std::clamp(shape, 0, 1);
                     changed = true;
@@ -3702,7 +3702,7 @@ namespace Zamin {
             UI::PropertyLabel("So'nish vaqti", "Daraja jimdan to'liqgacha eng tez shuncha sekundda o'zgaradi: teleport, zona "
                                                "yoqilishi yoki o'chirilishi silliq eshitiladi (0 - darhol)");
             ImGui::PushID("fade");
-            changed |= ImGui::DragFloat("##v", &c.FadeTime, 0.01f, 0.0f, 60.0f, c.FadeTime > 0.0f ? "%.2f s" : "darhol", ImGuiSliderFlags_AlwaysClamp);
+            changed |= ImGui::DragFloat("##v", &c.FadeTime, 0.01f, 0.0f, 60.0f, c.FadeTime > 0.0f ? "%.2f s" : Tr("darhol"), ImGuiSliderFlags_AlwaysClamp);
             ImGui::PopID();
             UI::PropertyLabel("Ustuvorlik", "Ovozlar limiti to'lganda (Audio Source'dagidek): 0..255");
             ImGui::PushID("priority");
@@ -3712,21 +3712,21 @@ namespace Zamin {
             UI::PropertyLabel("Holat");
             if (m_Context && m_Context->IsRunning())
             {
-                std::string text = c.Level <= 0.0f ? std::string("jim") : std::format("{:.0f}%", c.Level * 100.0f);
+                std::string text = c.Level <= 0.0f ? std::string(Tr("jim")) : std::format("{:.0f}%", c.Level * 100.0f);
                 ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImVec4(0.35f, 0.78f, 0.5f, 1.0f));
                 ImGui::ProgressBar(std::clamp(c.Level, 0.0f, 1.0f), ImVec2(-FLT_MIN, 0.0f), text.c_str());
                 ImGui::PopStyleColor();
                 if (ImGui::IsItemHovered())
                     UI::Tooltip("Hozir eshitilayotgan daraja (So'nish vaqti bilan silliqlangan)");
                 if (c.Target >= 1.0f)
-                    ImGui::TextColored(UI::AccentColor(), ICON_FA_EAR_LISTEN "  Tinglovchi zona ichida");
+                    ImGui::TextColored(UI::AccentColor(), "%s", Tr(ICON_FA_EAR_LISTEN "  Tinglovchi zona ichida"));
                 else if (c.Target > 0.0f)
-                    ImGui::TextDisabled("Tinglovchi chetdan %.1f m tashqarida (%.0f%%)", c.Distance, c.Target * 100.0f);
+                    ImGui::TextDisabled(Tr("Tinglovchi chetdan %.1f m tashqarida (%.0f%%)"), c.Distance, c.Target * 100.0f);
                 else
-                    ImGui::TextDisabled("Tinglovchi uzoqda (%.1f m)", c.Distance);
+                    ImGui::TextDisabled(Tr("Tinglovchi uzoqda (%.1f m)"), c.Distance);
             }
             else
-                ImGui::TextDisabled("O'yinda: tinglovchi yaqinlashsa asta eshitiladi");
+                ImGui::TextDisabled("%s", Tr("O'yinda: tinglovchi yaqinlashsa asta eshitiladi"));
             return changed;
         }, true, modified);
 
@@ -3734,7 +3734,7 @@ namespace Zamin {
             return DrawFootsteps(entity, c);
         }, true, modified);
 
-        AddSection<SubSceneComponent>(ICON_FA_LAYER_GROUP, "Sub-sahna", entity, [&](SubSceneComponent& c) {
+        AddSection<SubSceneComponent>(ICON_FA_LAYER_GROUP, Tr("Sub-sahna"), entity, [&](SubSceneComponent& c) {
             return DrawSubScene(entity, c);
         }, true, modified);
 

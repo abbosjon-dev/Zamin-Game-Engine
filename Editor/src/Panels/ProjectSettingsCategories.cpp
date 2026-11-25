@@ -100,7 +100,7 @@ namespace Zamin {
             // Header: the level names, the game's default (star) and the editor's preview (eye).
             ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
             ImGui::TableSetColumnIndex(0);
-            ImGui::TextDisabled("Daraja");
+            ImGui::TextDisabled("%s", Tr("Daraja"));
             for (int i = 0; i < count; i++)
             {
                 ImGui::TableSetColumnIndex(i + 1);
@@ -113,8 +113,8 @@ namespace Zamin {
                     select = i;
                 ImGui::PopStyleColor();
                 if (ImGui::IsItemHovered())
-                    UI::Tooltip(std::format("{}{}\nBosing: shu darajani tahrirlash", i == q.DefaultLevel ? ICON_FA_STAR " o'yin standarti  " : "",
-                                            i == Quality::GetLevel() ? ICON_FA_EYE " editorda ko'rinmoqda" : "").c_str());
+                    UI::Tooltip(TrFormat("{}{}\nBosing: shu darajani tahrirlash", i == q.DefaultLevel ? Tr(ICON_FA_STAR " o'yin standarti  ") : "",
+                                            i == Quality::GetLevel() ? Tr(ICON_FA_EYE " editorda ko'rinmoqda") : "").c_str());
                 ImGui::PopID();
             }
             // One row per setting; on / off cells toggle with a click.
@@ -125,8 +125,8 @@ namespace Zamin {
             {
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
-                ImGui::TextColored(ImVec4(0.72f, 0.75f, 0.80f, 1.0f), "%s", s_RowLabels[row]);
-                UI::HighlightIfSearched(s_RowLabels[row]);
+                ImGui::TextColored(ImVec4(0.72f, 0.75f, 0.80f, 1.0f), "%s", Tr(s_RowLabels[row]));
+                UI::HighlightIfSearched(Tr(s_RowLabels[row]));
                 for (int i = 0; i < count; i++)
                 {
                     const QualityLevel& l = q.Levels[(size_t)i];
@@ -157,7 +157,7 @@ namespace Zamin {
                         {
                             case Shadows:      flag(l.Shadows); break;
                             case Atlas:        value(std::to_string(l.ShadowAtlasSize)); break;
-                            case Filter:       value(s_FilterLabels[(int)l.MaxShadowFilter]); break;
+                            case Filter:       value(Tr(s_FilterLabels[(int)l.MaxShadowFilter])); break;
                             case Cascades:     value(std::to_string(l.MaxShadowCascades)); break;
                             case Distance:     value(std::format("x{:.2f}", l.ShadowDistanceScale)); break;
                             case SSAO:         flag(l.SSAO); break;
@@ -194,12 +194,12 @@ namespace Zamin {
             m_QualityLevel = select;
             m_QualityNameBuffer = q.Levels[(size_t)select].Name;
         }
-        ImGui::TextDisabled(ICON_FA_STAR " o'yin standarti   " ICON_FA_EYE " editorda ko'rinmoqda   Daraja sahna so'raganini faqat kamaytiradi");
+        ImGui::TextDisabled("%s", Tr(ICON_FA_STAR " o'yin standarti   " ICON_FA_EYE " editorda ko'rinmoqda   Daraja sahna so'raganini faqat kamaytiradi"));
 
         // ---- the selected level in detail
         ImGui::Spacing();
         QualityLevel& level = q.Levels[(size_t)m_QualityLevel];
-        ImGui::SeparatorText(std::format("{}  Daraja: {}", ICON_FA_GAUGE_HIGH, level.Name).c_str());
+        ImGui::SeparatorText(TrFormat("{}  Daraja: {}", ICON_FA_GAUGE_HIGH, level.Name).c_str());
         if (UI::BeginPropertyGrid("qualityLevel", std::min(ImGui::GetContentRegionAvail().x * 0.42f, ImGui::GetFontSize() * 12.0f)))
         {
             UI::PropertyLabel("Nomi");
@@ -235,8 +235,8 @@ namespace Zamin {
             }
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Narx tartibi: qattiq < PCF 3x3 < Poisson (16) < PCF 5x5. Qimmatroq filtrli sahna shu filtrni oladi.");
-            changed |= PropertySliderInt("Kaskadlar (eng ko'pi)", level.MaxShadowCascades, 1, ShadowSettings::MaxCascades);
-            changed |= PropertySliderFloat("Soya masofasi", level.ShadowDistanceScale, 0.1f, 4.0f, "x%.2f");
+            changed |= PropertySliderInt(Tr("Kaskadlar (eng ko'pi)"), level.MaxShadowCascades, 1, ShadowSettings::MaxCascades);
+            changed |= PropertySliderFloat(Tr("Soya masofasi"), level.ShadowDistanceScale, 0.1f, 4.0f, "x%.2f");
             ImGui::EndDisabled();
 
             UI::PropertyHeader(ICON_FA_WAND_MAGIC_SPARKLES "  Effektlar", "Sahna yoqqan effekt shu darajada ruxsat bo'lsagina ishlaydi.");
@@ -244,7 +244,7 @@ namespace Zamin {
             changed |= UI::PropertyBool("Bloom", level.Bloom);
             changed |= UI::PropertyBool("FXAA", level.FXAA);
             changed |= UI::PropertyBool("Avto ekspozitsiya", level.AutoExposure);
-            changed |= PropertySliderFloat("Render masshtabi", level.RenderScale, QualityLevel::MinScale, QualityLevel::MaxScale, "x%.2f");
+            changed |= PropertySliderFloat(Tr("Render masshtabi"), level.RenderScale, QualityLevel::MinScale, QualityLevel::MaxScale, "x%.2f");
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Sahnaning render masshtabiga ko'paytiriladi (natija 0.5 .. 2 oralig'ida): 0.75 - tezroq, xiraroq");
 
@@ -326,7 +326,7 @@ namespace Zamin {
             ImGui::OpenPopup("ResetQuality");
         if (ImGui::BeginPopup("ResetQuality"))
         {
-            ImGui::TextUnformatted("Darajalar Low / Medium / High / Ultra standartlariga qaytarilsinmi?");
+            ImGui::TextUnformatted(Tr("Darajalar Low / Medium / High / Ultra standartlariga qaytarilsinmi?"));
             if (ImGui::Button(Tr("Ha, qaytarish")))
             {
                 q = QualitySettings();
@@ -349,17 +349,17 @@ namespace Zamin {
             const std::vector<std::string> limits =
                 Quality::GetActive().DescribeLimits(s.Shadows, s.Post, s.RenderScale, s.ShadowDistance);
             if (limits.empty())
-                ImGui::TextDisabled("%s darajasida sahna o'z sozlamalari bilan chiziladi", Quality::GetLevelName().c_str());
+                ImGui::TextDisabled(Tr("%s darajasida sahna o'z sozlamalari bilan chiziladi"), Quality::GetLevelName().c_str());
             else
             {
-                ImGui::TextColored(s_WarnColor, "%s darajasi bu sahnada:", Quality::GetLevelName().c_str());
+                ImGui::TextColored(s_WarnColor, Tr("%s darajasi bu sahnada:"), Quality::GetLevelName().c_str());
                 for (const std::string& line : limits)
                     ImGui::BulletText("%s", line.c_str());
             }
         }
         ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-        ImGui::TextWrapped(ICON_FA_CIRCLE_INFO "  Player: --quality Low (yoki raqami). Skriptda: Quality::SetLevel(\"Low\"), Quality::GetLevelNames(), "
-                           "Quality::SaveSettings() - tanlov o'yinchining SaveData'sida saqlanadi.");
+        ImGui::TextWrapped("%s", Tr(ICON_FA_CIRCLE_INFO "  Player: --quality Low (yoki raqami). Skriptda: Quality::SetLevel(\"Low\"), Quality::GetLevelNames(), "
+                           "Quality::SaveSettings() - tanlov o'yinchining SaveData'sida saqlanadi."));
         ImGui::PopStyleColor();
 
         if (changed)
@@ -377,8 +377,8 @@ namespace Zamin {
         AudioSettings& audio = config.Audio;
         if (!m_SceneEditable)
         {
-            ImGui::TextColored(s_WarnColor, ICON_FA_TRIANGLE_EXCLAMATION "  O'yin ishlayapti: mikser hozir o'yinniki. Standartlarni "
-                                                                      "o'zgartirish uchun o'yinni to'xtating.");
+            ImGui::TextColored(s_WarnColor, "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION "  O'yin ishlayapti: mikser hozir o'yinniki. Standartlarni "
+                                                                      "o'zgartirish uchun o'yinni to'xtating."));
             ImGui::Spacing();
         }
         bool changed = false;
@@ -393,7 +393,7 @@ namespace Zamin {
                                    "(Audio::SaveSettings) uni o'yin davomida o'zgartira oladi.");
                 const float db = master->Volume > 0.0001f ? 20.0f * std::log10(master->Volume) : -80.0f;
                 const std::string format = std::format("{:.0f}%  ({:+.1f} dB)", master->Volume * 100.0f, db);
-                changed |= PropertySliderFloat("Master ovozi", master->Volume, 0.0f, AudioSettings::MaxVolume, format.c_str());
+                changed |= PropertySliderFloat(Tr("Master ovozi"), master->Volume, 0.0f, AudioSettings::MaxVolume, format.c_str());
             }
             UI::PropertyHeader(ICON_FA_SLIDERS "  Mikser guruhlari (boshlang'ich ovoz)",
                                "Har bir guruh o'yin boshida shu ovoz balandligida (skript Audio::SetGroupVolume bilan o'zgartiradi). "
@@ -424,7 +424,7 @@ namespace Zamin {
             changed |= UI::PropertyFloat("Oqim chegarasi (MB)", audio.StreamThresholdMB, 0.1f, 0.1f, 512.0f, "%.1f");
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Shundan katta fayllar xotiraga to'liq yuklanmay, diskdan oqim bilan o'qiladi (musiqa doim oqim bilan)");
-            changed |= PropertySliderInt("Bir vaqtda ovozlar", audio.MaxVoices, 1, AudioSettings::MaxVoicesLimit);
+            changed |= PropertySliderInt(Tr("Bir vaqtda ovozlar"), audio.MaxVoices, 1, AudioSettings::MaxVoicesLimit);
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Ko'pi bilan shuncha ovoz bir vaqtda chalinadi (musiqa va editor oldindan eshittirishlari hisobga kirmaydi); "
                             "ortiqchasi muhimligi (Priority) pastrog'ining o'rnini oladi");
@@ -453,7 +453,7 @@ namespace Zamin {
                 UI::Tooltip("Teskari - tabiatdagidek (yaqinda tez, keyin sekin pasayadi); chiziqli - max masofada jim; "
                             "eksponensial - tezroq pasayadi; masofasiz - hamma joyda bir xil (faqat chap / o'ng)");
             ImGui::BeginDisabled(spatial.Rolloff == AudioRolloff::None);
-            changed |= PropertySliderFloat("Pasayish (rolloff)", spatial.RolloffFactor, 0.0f, AudioSpatialSettings::MaxRolloffFactor, "%.2f");
+            changed |= PropertySliderFloat(Tr("Pasayish (rolloff)"), spatial.RolloffFactor, 0.0f, AudioSpatialSettings::MaxRolloffFactor, "%.2f");
             ImGui::EndDisabled();
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Ovoz masofa bilan qanchalik tez pasayadi: 1 - model o'zi, 0 - umuman pasaymaydi");
@@ -519,10 +519,10 @@ namespace Zamin {
     void ProjectSettingsPanel::DrawPhysicsLayers(ProjectConfig& config)
     {
         CollisionLayers2D& layers = config.CollisionLayers;
-        ImGui::TextWrapped("Fizikaning 16 ta to'qnashuv qatlami 2D va 3D uchun bir xil. Rigidbody 2D (va xohlasa har bir kollider), "
+        ImGui::TextWrapped("%s", Tr("Fizikaning 16 ta to'qnashuv qatlami 2D va 3D uchun bir xil. Rigidbody 2D (va xohlasa har bir kollider), "
                            "tilemap'lar, Rigidbody 3D va Character Controller 3D bitta qatlamda bo'ladi; ikki kollider faqat quyidagi "
                            "jadvalda belgilangan qatlamlar juftligida bir-biriga tegadi (raycast va overlap so'rovlari ham qatlam "
-                           "niqobini oladi). 2D uchun o'zgarishlar keyingi Play / Simulate'da, 3D uchun darhol qo'llanadi.");
+                           "niqobini oladi). 2D uchun o'zgarishlar keyingi Play / Simulate'da, 3D uchun darhol qo'llanadi."));
         ImGui::Spacing();
 
         // How many 2D / 3D bodies, colliders and tilemaps of the edited scene use each layer.
@@ -558,7 +558,7 @@ namespace Zamin {
         {
             for (int i = 0; i < (int)presets.size(); i++)
             {
-                const std::string label = std::format("{}{}", presets[(size_t)i].Name, presets[(size_t)i].SetsNames ? "  (nomlar bilan)" : "");
+                const std::string label = std::format("{}{}", Tr(presets[(size_t)i].Name), presets[(size_t)i].SetsNames ? Tr("  (nomlar bilan)") : "");
                 if (ImGui::MenuItem(label.c_str()))
                 {
                     if (presets[(size_t)i].SetsNames)
@@ -581,12 +581,12 @@ namespace Zamin {
             int used = 0;
             for (int i = 1; i < CollisionLayers2D::Count; i++)
                 used += usage2D[(size_t)i] + usage3D[(size_t)i];
-            ImGui::Text("\"%s\" preseti qatlam nomlarini almashtiradi.", preset.Name);
+            ImGui::Text(Tr("\"%s\" preseti qatlam nomlarini almashtiradi."), Tr(preset.Name));
             ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0f);
-            ImGui::TextDisabled("%s", preset.Description);
+            ImGui::TextDisabled("%s", Tr(preset.Description));
             if (used > 0)
-                ImGui::TextColored(s_WarnColor, ICON_FA_TRIANGLE_EXCLAMATION "  Ochiq sahnada %d ta jism Default'dan boshqa qatlamda: ular "
-                                                                         "qatlam raqamini saqlaydi (nomi o'zgaradi).", used);
+                ImGui::TextColored(s_WarnColor, Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Ochiq sahnada %d ta jism Default'dan boshqa qatlamda: ular "
+                                                                         "qatlam raqamini saqlaydi (nomi o'zgaradi)."), used);
             ImGui::PopTextWrapPos();
             if (ImGui::Button(Tr("Qo'llash")))
             {
@@ -633,7 +633,7 @@ namespace Zamin {
             if (usage2D[(size_t)i] + usage3D[(size_t)i] > 0 && std::find(named.begin(), named.end(), i) == named.end())
                 named.insert(std::upper_bound(named.begin(), named.end(), i), i); // unnamed, but used
         const int pairs = (int)(named.size() * (named.size() + 1) / 2);
-        ImGui::TextDisabled("%d / %d juftlik to'qnashadi. Qatlam nomini bosing: uning hamma juftligini yoqish / o'chirish.",
+        ImGui::TextDisabled(Tr("%d / %d juftlik to'qnashadi. Qatlam nomini bosing: uning hamma juftligini yoqish / o'chirish."),
                             layers.CountCollidingPairs(named), pairs);
         ImGui::Spacing();
         const int columns = (int)named.size() + 1;
@@ -663,7 +663,7 @@ namespace Zamin {
                     toggleRow = a;
                 UI::HighlightIfSearched(rowLabel.c_str());
                 if (ImGui::IsItemHovered())
-                    UI::Tooltip(std::format("{}: 2D'da {} ta, 3D'da {} ta (ochiq sahnada)\nBosing: hamma juftliklarini yoqish / o'chirish",
+                    UI::Tooltip(TrFormat("{}: 2D'da {} ta, 3D'da {} ta (ochiq sahnada)\nBosing: hamma juftliklarini yoqish / o'chirish",
                                             layers.GetName(a), usage2D[(size_t)a], usage3D[(size_t)a]).c_str());
                 for (size_t c = 0; c < columnLayers.size(); c++)
                 {
@@ -680,7 +680,7 @@ namespace Zamin {
                         m_Dirty = true;
                     }
                     if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-                        UI::Tooltip(std::format("{} va {}: {}", layers.GetName(a), layers.GetName(b), collide ? "to'qnashadi" : "bir-biridan o'tib ketadi").c_str());
+                        UI::Tooltip(TrFormat("{} va {}: {}", layers.GetName(a), layers.GetName(b), collide ? Tr("to'qnashadi") : Tr("bir-biridan o'tib ketadi")).c_str());
                     ImGui::PopID();
                 }
                 ImGui::PopID();
@@ -702,7 +702,7 @@ namespace Zamin {
         if (ImGui::BeginTable("##physicsLayerNames", 4, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH))
         {
             ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthFixed, 26.0f);
-            ImGui::TableSetupColumn("Nomi", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableSetupColumn(Tr("Nomi"), ImGuiTableColumnFlags_WidthStretch);
             ImGui::TableSetupColumn("2D", ImGuiTableColumnFlags_WidthFixed, 44.0f);
             ImGui::TableSetupColumn("3D", ImGuiTableColumnFlags_WidthFixed, 44.0f);
             ImGui::TableHeadersRow();
@@ -724,7 +724,7 @@ namespace Zamin {
                     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
                         UI::Tooltip("Asosiy qatlam: hamma narsa avval shu qatlamda");
                 }
-                else if (ImGui::InputTextWithHint("##name", std::format("(Qatlam {})", i).c_str(), &layers.Names[(size_t)i]))
+                else if (ImGui::InputTextWithHint("##name", TrFormat("(Qatlam {})", i).c_str(), &layers.Names[(size_t)i]))
                     m_Dirty = true;
                 for (int d = 0; d < 2; d++)
                 {
@@ -742,7 +742,7 @@ namespace Zamin {
         }
 
         ImGui::Spacing();
-        ImGui::TextDisabled(ICON_FA_CIRCLE_INFO "  Skriptlarda: Raycast2D / Raycast3D(..., LayerMask({ \"Ground\" })), OverlapSphere3D, LayerIndex(\"Player\")");
+        ImGui::TextDisabled("%s", Tr(ICON_FA_CIRCLE_INFO "  Skriptlarda: Raycast2D / Raycast3D(..., LayerMask({ \"Ground\" })), OverlapSphere3D, LayerIndex(\"Player\")"));
     }
 
 }

@@ -106,7 +106,7 @@ namespace Zamin {
         }
         if (!Project::GetActive())
         {
-            ImGui::TextDisabled("Loyiha ochilmagan");
+            ImGui::TextDisabled("%s", Tr("Loyiha ochilmagan"));
             ImGui::End();
             return;
         }
@@ -160,7 +160,7 @@ namespace Zamin {
         if ((ImGui::Button(Tr(ICON_FA_PLUS "  Kalit")) || enter) && !m_NewKey.empty())
         {
             if (!LocalizationTable::IsValidKey(m_NewKey))
-                m_KeyError = "Kalit noto'g'ri: bo'sh joy, '$' bilan boshlanish yoki '..' bo'lmasin";
+                m_KeyError = Tr("Kalit noto'g'ri: bo'sh joy, '$' bilan boshlanish yoki '..' bo'lmasin");
             else if (m_Table.AddKey(m_NewKey))
             {
                 m_Keys = m_Table.GetKeys();
@@ -170,25 +170,25 @@ namespace Zamin {
                 m_NewKey.clear();
             }
             else
-                m_KeyError = std::format("'{}' kaliti bor", m_NewKey);
+                m_KeyError = TrFormat("'{}' kaliti bor", m_NewKey);
         }
         if (!m_KeyError.empty())
             ImGui::TextColored(s_WarnColor, ICON_FA_TRIANGLE_EXCLAMATION "  %s", m_KeyError.c_str());
 
         // The languages' state.
-        std::string summary = std::format("{} ta kalit", m_Keys.size());
+        std::string summary = TrFormat("{} ta kalit", m_Keys.size());
         for (const StringTable& t : m_Table.Languages)
             if (const size_t missing = m_Table.CountMissing(t.Language); missing > 0)
-                summary += std::format("  ·  {}: {} yo'q", t.Language, missing);
-        ImGui::TextDisabled("%s  ·  papka: %s", summary.c_str(), Project::GetAssetRelativePath(m_LoadedDirectory).c_str());
+                summary += TrFormat("  ·  {}: {} yo'q", t.Language, missing);
+        ImGui::TextDisabled(Tr("%s  ·  papka: %s"), summary.c_str(), Project::GetAssetRelativePath(m_LoadedDirectory).c_str());
         if (m_LoadedDirectory != Project::GetLocalizationDirectory())
-            ImGui::TextColored(s_WarnColor, ICON_FA_TRIANGLE_EXCLAMATION "  Loyihaning papkasi o'zgardi (%s): saqlash eski papkaga yoziladi, "
-                                            "keyin yangisi o'qiladi",
+            ImGui::TextColored(s_WarnColor, Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Loyihaning papkasi o'zgardi (%s): saqlash eski papkaga yoziladi, "
+                                            "keyin yangisi o'qiladi"),
                                Project::GetAssetRelativePath(Project::GetLocalizationDirectory()).c_str());
         for (const std::string& error : m_LoadErrors)
             ImGui::TextColored(s_WarnColor, ICON_FA_TRIANGLE_EXCLAMATION "  %s", error.c_str());
         if (m_Table.Languages.empty())
-            ImGui::TextColored(s_WarnColor, "Til yo'q: Loyiha sozlamalari > Lokalizatsiya'da til qo'shing");
+            ImGui::TextColored(s_WarnColor, "%s", Tr("Til yo'q: Loyiha sozlamalari > Lokalizatsiya'da til qo'shing"));
     }
 
     void LocalizationPanel::DrawSuggestions()
@@ -203,7 +203,7 @@ namespace Zamin {
                 unknown.push_back(key);
         if (unknown.empty() || m_Table.Languages.empty())
             return;
-        ImGui::TextColored(s_WarnColor, ICON_FA_TRIANGLE_EXCLAMATION "  Ishlatilgan, lekin fayllarda yo'q:");
+        ImGui::TextColored(s_WarnColor, "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Ishlatilgan, lekin fayllarda yo'q:"));
         for (const std::string& key : unknown)
         {
             ImGui::SameLine();
@@ -233,7 +233,7 @@ namespace Zamin {
         if (entry && entry->IsPlural())
         {
             const std::string summary = PluralSummary(*entry);
-            if (ImGui::Button((summary.empty() ? std::string("(ko'plik)") : summary).c_str(), ImVec2(width, 0.0f)))
+            if (ImGui::Button((summary.empty() ? std::string(Tr("(ko'plik)")) : summary).c_str(), ImVec2(width, 0.0f)))
             {
                 m_PluralKey = key;
                 m_PluralLanguage = language;
@@ -246,14 +246,14 @@ namespace Zamin {
         {
             std::string text = entry ? entry->Text : std::string();
             ImGui::SetNextItemWidth(width);
-            if (ImGui::InputTextWithHint("##text", missing ? "tarjima yo'q" : "", &text))
+            if (ImGui::InputTextWithHint("##text", missing ? Tr("tarjima yo'q") : "", &text))
             {
                 m_Table.Set(key, language, LocalizedString{ text, {} });
                 changed = true;
             }
         }
         if (!missing && ImGui::IsItemHovered() && m_Table.HasPlaceholderMismatch(key, language, reference))
-            UI::Tooltip(std::format("{{0}} kabi o'rinlar '{}' tilidagidan farq qiladi: o'yinda boshqa qiymat chiqishi mumkin", reference).c_str());
+            UI::Tooltip(TrFormat("{{0}} kabi o'rinlar '{}' tilidagidan farq qiladi: o'yinda boshqa qiymat chiqishi mumkin", reference).c_str());
         ImGui::PopID();
         return changed;
     }
@@ -288,7 +288,7 @@ namespace Zamin {
         const float keyWidth = std::clamp(avail * 0.24f, 150.0f, 280.0f);
         const float languageWidth = std::max(180.0f, (avail - keyWidth) / (float)m_Table.Languages.size() - 8.0f);
         ImGui::TableSetupScrollFreeze(1, 1);
-        ImGui::TableSetupColumn("Kalit", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoHide, keyWidth);
+        ImGui::TableSetupColumn(Tr("Kalit"), ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoHide, keyWidth);
         std::vector<std::string> headers;
         for (const StringTable& t : m_Table.Languages)
         {
@@ -358,7 +358,7 @@ namespace Zamin {
                         ImGui::Separator();
                         const LocalizedString* first = m_Table.Languages.empty() ? nullptr : m_Table.Get(key, m_Table.Languages[0].Language);
                         const bool plural = first && first->IsPlural();
-                        if (ImGui::MenuItem(plural ? ICON_FA_FONT "  Oddiy matn qilish" : ICON_FA_LIST_OL "  Ko'plik shakllari (son bo'yicha)"))
+                        if (ImGui::MenuItem(plural ? Tr(ICON_FA_FONT "  Oddiy matn qilish") : Tr(ICON_FA_LIST_OL "  Ko'plik shakllari (son bo'yicha)")))
                         {
                             for (StringTable& t : m_Table.Languages)
                             {
@@ -404,7 +404,7 @@ namespace Zamin {
                 m_KeyError.clear();
             }
             else
-                m_KeyError = std::format("'{}' deb nomlab bo'lmadi (noto'g'ri yoki band)", renameTo);
+                m_KeyError = TrFormat("'{}' deb nomlab bo'lmadi (noto'g'ri yoki band)", renameTo);
         }
         if (!removeKey.empty() && m_Table.RemoveKey(removeKey))
         {
@@ -423,7 +423,7 @@ namespace Zamin {
         if (!ImGui::BeginPopup("##plural"))
             return;
         ImGui::TextUnformatted(std::format(ICON_FA_LIST_OL "  {}  ·  {}", m_PluralKey, Localization::GetLanguageName(m_PluralLanguage)).c_str());
-        ImGui::TextDisabled("{0} - son (LocalizePlural(\"%s\", son))", m_PluralKey.c_str());
+        ImGui::TextDisabled(Tr("{0} - son (LocalizePlural(\"%s\", son))"), m_PluralKey.c_str());
         ImGui::Separator();
         const LocalizedString* current = m_Table.Get(m_PluralKey, m_PluralLanguage);
         LocalizedString entry = current ? *current : LocalizedString();

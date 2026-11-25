@@ -217,9 +217,9 @@ namespace Zamin {
         // The gear is lit while a logger drops messages below its level (they are not even kept).
         const LogLevel engineLevel = Log::GetLevel(LogSource::Engine), appLevel = Log::GetLevel(LogSource::App);
         const bool dropping = engineLevel != LogLevel::Trace || appLevel != LogLevel::Trace;
-        const std::string gearTip = dropping ? std::format("Konsol sozlamalari\nYoziladi: dvigatel - {}, editor/o'yin - {} va yuqori",
+        const std::string gearTip = dropping ? TrFormat("Konsol sozlamalari\nYoziladi: dvigatel - {}, editor/o'yin - {} va yuqori",
                                                            Log::LevelDisplayName(engineLevel), Log::LevelDisplayName(appLevel))
-                                             : std::string("Konsol sozlamalari (log darajalari ham)");
+                                             : std::string(Tr("Konsol sozlamalari (log darajalari ham)"));
         // (Automation keeps it open: other windows taking the focus at start-up would close it.)
         if (UI::ToolbarButton(ICON_FA_GEAR, gearTip.c_str(), dropping) || (m_OpenOptions && !ImGui::IsPopupOpen("##ConsoleOptions")))
             ImGui::OpenPopup("##ConsoleOptions");
@@ -270,10 +270,10 @@ namespace Zamin {
             ImGui::SameLine();
         };
         const auto& counts = m_View.LevelCounts;
-        levelToggle(ICON_FA_BUG, m_Prefs.ShowTrace, ImVec4(0.7f, 0.7f, 0.75f, 1.0f), counts[(int)LogLevel::Trace], "Trace xabarlari");
-        levelToggle(ICON_FA_CIRCLE_INFO, m_Prefs.ShowInfo, ImVec4(0.55f, 0.85f, 0.65f, 1.0f), counts[(int)LogLevel::Info], "Ma'lumot xabarlari");
-        levelToggle(ICON_FA_TRIANGLE_EXCLAMATION, m_Prefs.ShowWarn, ImVec4(0.95f, 0.78f, 0.3f, 1.0f), counts[(int)LogLevel::Warn], "Ogohlantirishlar");
-        levelToggle(ICON_FA_CIRCLE_XMARK, m_Prefs.ShowError, ImVec4(0.95f, 0.4f, 0.4f, 1.0f), m_View.ErrorCount(), "Xatolar");
+        levelToggle(ICON_FA_BUG, m_Prefs.ShowTrace, ImVec4(0.7f, 0.7f, 0.75f, 1.0f), counts[(int)LogLevel::Trace], Tr("Trace xabarlari"));
+        levelToggle(ICON_FA_CIRCLE_INFO, m_Prefs.ShowInfo, ImVec4(0.55f, 0.85f, 0.65f, 1.0f), counts[(int)LogLevel::Info], Tr("Ma'lumot xabarlari"));
+        levelToggle(ICON_FA_TRIANGLE_EXCLAMATION, m_Prefs.ShowWarn, ImVec4(0.95f, 0.78f, 0.3f, 1.0f), counts[(int)LogLevel::Warn], Tr("Ogohlantirishlar"));
+        levelToggle(ICON_FA_CIRCLE_XMARK, m_Prefs.ShowError, ImVec4(0.95f, 0.4f, 0.4f, 1.0f), m_View.ErrorCount(), Tr("Xatolar"));
 
         // The search: the rest of the row, with a clear button (while it has text) and the regex /
         // case toggles after it.
@@ -286,15 +286,15 @@ namespace Zamin {
             ImGui::PushStyleColor(ImGuiCol_Border, invalid ? ImVec4(0.95f, 0.35f, 0.35f, 1.0f) : UI::AccentColor(0.8f));
             ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, invalid ? 1.5f : filtering ? 1.0f : 0.0f);
             ImGui::SetNextItemWidth(searchWidth);
-            const char* hint = m_Regex ? ICON_FA_MAGNIFYING_GLASS "  Regex (masalan: ^Sahna|xato\\s+\\d+)"
-                                       : ICON_FA_MAGNIFYING_GLASS "  Xabarlardan qidirish...";
+            const char* hint = m_Regex ? Tr(ICON_FA_MAGNIFYING_GLASS "  Regex (masalan: ^Sahna|xato\\s+\\d+)")
+                                       : Tr(ICON_FA_MAGNIFYING_GLASS "  Xabarlardan qidirish...");
             ImGui::InputTextWithHint("##consoleFilter", Tr(hint), &m_FilterText);
             ImGui::PopStyleVar();
             ImGui::PopStyleColor();
             if (invalid && ImGui::IsItemHovered())
-                UI::Tooltip(("Regex xato: " + m_Matcher.GetError()).c_str());
+                UI::Tooltip((Tr("Regex xato: ") + m_Matcher.GetError()).c_str());
             else if (filtering && ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-                UI::Tooltip(std::format("Filtrga mos: {} ta qator", m_View.Rows.size()).c_str());
+                UI::Tooltip(TrFormat("Filtrga mos: {} ta qator", m_View.Rows.size()).c_str());
         }
         else
             ImGui::NewLine();
@@ -326,9 +326,9 @@ namespace Zamin {
         {
             ImGui::Spacing();
             if (m_Messages.empty())
-                ImGui::TextDisabled("  Xabarlar yo'q");
+                ImGui::TextDisabled("%s", Tr("  Xabarlar yo'q"));
             else
-                ImGui::TextDisabled("  Filtrga mos xabar yo'q (%zu ta xabar yashirilgan)", m_Messages.size());
+                ImGui::TextDisabled(Tr("  Filtrga mos xabar yo'q (%zu ta xabar yashirilgan)"), m_Messages.size());
             return;
         }
 
@@ -413,7 +413,7 @@ namespace Zamin {
                 if (more > 0)
                 {
                     ImGui::SameLine();
-                    ImGui::TextDisabled("(+%d qator)", more);
+                    ImGui::TextDisabled(Tr("(+%d qator)"), more);
                 }
                 if (collapse)
                 {
@@ -463,9 +463,9 @@ namespace Zamin {
             if (row.Count > 1)
             {
                 ImGui::SameLine();
-                ImGui::TextDisabled("|  %u marta (birinchisi %s da)", row.Count, m_Messages[row.First].Time.c_str());
+                ImGui::TextDisabled(Tr("|  %u marta (birinchisi %s da)"), row.Count, m_Messages[row.First].Time.c_str());
             }
-            const float buttonW = ImGui::CalcTextSize(ICON_FA_COPY "  Nusxalash").x + ImGui::GetStyle().FramePadding.x * 2.0f;
+            const float buttonW = ImGui::CalcTextSize(Tr(ICON_FA_COPY "  Nusxalash")).x + ImGui::GetStyle().FramePadding.x * 2.0f;
             ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 8.0f, ImGui::GetWindowContentRegionMax().x - buttonW * 2.0f - 6.0f));
             if (ImGui::SmallButton(Tr(ICON_FA_COPY "  Nusxalash")))
                 CopyRows({ (size_t)selectedRow }, true);

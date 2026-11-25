@@ -83,7 +83,7 @@ namespace Zamin {
                                                                                           : ImVec4(0.85f, 0.88f, 0.92f, 1.0f),
                                "%s", count.c_str());
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-                UI::Tooltip(std::format("Tirik particle'lar: {} (maksimal {}){}", ps.Particles.size(), ps.MaxParticles,
+                UI::Tooltip(TrFormat("Tirik particle'lar: {} (maksimal {}){}", ps.Particles.size(), ps.MaxParticles,
                                         subParticles > 0 ? std::format("\nSub-emitter shablonlarida: {}", subParticles) : std::string()).c_str());
 
             // ---- controls
@@ -111,12 +111,12 @@ namespace Zamin {
             std::string time;
             float fraction = 0.0f;
             if (ps.Finished)
-                time = "tugadi";
+                time = Tr("tugadi");
             else if (!ps.Playing && !ps.Paused)
-                time = "to'xtatilgan";
+                time = Tr("to'xtatilgan");
             else if (ps.PlayTime < delay)
             {
-                time = std::format("kechikish {:.1f} s", delay - ps.PlayTime);
+                time = TrFormat("kechikish {:.1f} s", delay - ps.PlayTime);
                 fraction = delay > 0.0f ? ps.PlayTime / delay : 0.0f;
             }
             else
@@ -137,13 +137,13 @@ namespace Zamin {
             // What is not obvious from the picture.
             std::string notes;
             if (!ps.RendererEnabled)
-                notes += ICON_FA_EYE_SLASH " chizilmaydi  ";
+                notes += Tr(ICON_FA_EYE_SLASH " chizilmaydi  ");
             if (ps.FollowCamera.Enabled)
-                notes += ps.FollowActive ? ICON_FA_CLOUD_RAIN " kamera atrofida  " : ICON_FA_CLOUD_RAIN " kamera yo'q  ";
+                notes += ps.FollowActive ? Tr(ICON_FA_CLOUD_RAIN " kamera atrofida  ") : Tr(ICON_FA_CLOUD_RAIN " kamera yo'q  ");
             if (ps.SimulationSpeed != 1.0f)
                 notes += std::format(ICON_FA_GAUGE_HIGH " x{:.2f}  ", ps.SimulationSpeed);
             if (m_SceneState == SceneState::Edit && !ps.PlayInEditor)
-                notes += "editorda o'chiq";
+                notes += Tr("editorda o'chiq");
             if (!notes.empty())
                 ImGui::TextDisabled("%s", notes.c_str());
         }

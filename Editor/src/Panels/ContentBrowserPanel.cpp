@@ -71,7 +71,7 @@ namespace Zamin {
             ImGui::TextUnformatted(use.Path.c_str());
             ImGui::PopFont();
             ImGui::SameLine();
-            ImGui::TextDisabled("- %zu ta faylda, %u ta havola", use.Referrers.size(), use.GetReferenceCount());
+            ImGui::TextDisabled(Tr("- %zu ta faylda, %u ta havola"), use.Referrers.size(), use.GetReferenceCount());
             ImGui::Indent();
             for (size_t r = 0; r < use.Referrers.size() && r < maxReferrers; r++)
             {
@@ -80,9 +80,9 @@ namespace Zamin {
                 if (referrer.Has(AssetReferenceKind::UUID) && !referrer.Has(AssetReferenceKind::Path))
                     tags += "  [UUID]";
                 if (referrer.Has(AssetReferenceKind::ModelFile))
-                    tags += "  [model fayli]";
+                    tags += Tr("  [model fayli]");
                 if (referrer.Has(AssetReferenceKind::Code))
-                    tags += "  [C++ kod]";
+                    tags += Tr("  [C++ kod]");
                 ImU32 referrerColor;
                 const char* referrerIcon = IconFor(AssetFiles::GetType(referrer.File), referrerColor);
                 std::string label = std::format("{}  {}{}##ref{}", referrerIcon, referrer.Name, tags, r);
@@ -104,7 +104,7 @@ namespace Zamin {
                     UI::Tooltip("Kontent brauzerda ko'rsatish (o'chirish bekor qilinadi)");
             }
             if (use.Referrers.size() > maxReferrers)
-                ImGui::TextDisabled("... va yana %zu ta fayl", use.Referrers.size() - maxReferrers);
+                ImGui::TextDisabled(Tr("... va yana %zu ta fayl"), use.Referrers.size() - maxReferrers);
             ImGui::Unindent();
             ImGui::PopID();
         }
@@ -309,7 +309,7 @@ namespace Zamin {
                 if (e.File.string().starts_with(key + "/"))
                     inside++;
             if (inside > 0)
-                m_EntryErrors[entry.Path.string()] = std::format("ichida {} ta faylda import xatosi bor", inside);
+                m_EntryErrors[entry.Path.string()] = TrFormat("ichida {} ta faylda import xatosi bor", inside);
         }
     }
 
@@ -409,14 +409,14 @@ namespace Zamin {
         std::string first;
         for (const fs::path& p : paths)
         {
-            std::string reason = IsProtected(p) ? std::format("'{}' loyiha uchun kerak - ko'chirib bo'lmaydi", p.filename().string())
+            std::string reason = IsProtected(p) ? TrFormat("'{}' loyiha uchun kerak - ko'chirib bo'lmaydi", p.filename().string())
                                                 : AssetFiles::CheckMove(p, folder, Project::GetAssetDirectory());
             if (reason.empty())
                 return {};
             if (first.empty())
                 first = std::move(reason);
         }
-        return first.empty() ? std::string("Ko'chiradigan narsa yo'q") : first;
+        return first.empty() ? std::string(Tr("Ko'chiradigan narsa yo'q")) : first;
     }
 
     void ContentBrowserPanel::MoveItems(const std::vector<fs::path>& paths, const fs::path& folder)
@@ -455,14 +455,14 @@ namespace Zamin {
         m_Anchor = m_Selection.back();
 
         std::string what = result.Moved.size() == 1 ? std::format("'{}'", result.Moved[0].To.filename().string())
-                                                    : std::format("{} ta element", result.Moved.size());
-        std::string text = rename ? std::format("{} deb nomlandi", what)
-                                  : std::format("{} '{}' papkasiga ko'chirildi", what, folder.filename().string());
+                                                    : TrFormat("{} ta element", result.Moved.size());
+        std::string text = rename ? TrFormat("{} deb nomlandi", what)
+                                  : TrFormat("{} '{}' papkasiga ko'chirildi", what, folder.filename().string());
         ZM_INFO("{}", text);
         if (result.UpdatedReferences > 0)
         {
             ZM_INFO("{} ta faylda {} ta havola yangilandi", result.UpdatedFiles.size(), result.UpdatedReferences);
-            text += std::format(" - {} ta havola yangilandi", result.UpdatedReferences);
+            text += TrFormat(" - {} ta havola yangilandi", result.UpdatedReferences);
         }
         bool warning = !result.Errors.empty();
         if (!result.SourceMentions.empty())
@@ -471,7 +471,7 @@ namespace Zamin {
             for (const fs::path& f : result.SourceMentions)
                 files += (files.empty() ? "" : ", ") + f.filename().string();
             ZM_WARN("C++ kodida eski yo'l yozilgan (o'zgartirilmadi): {}", files);
-            text += " - C++ kodini tekshiring";
+            text += Tr(" - C++ kodini tekshiring");
             warning = true;
         }
         ShowNotice(text, warning);
@@ -501,8 +501,8 @@ namespace Zamin {
             ImDrawList* fg = ImGui::GetForegroundDrawList();
             ImU32 color = ok ? UI::AccentU32() : IM_COL32(230, 90, 80, 255);
             fg->AddRect(min, max, color, 4.0f, 0, 2.0f);
-            std::string hint = ok ? std::format(ICON_FA_TURN_UP "  '{}' papkasiga ko'chirish{}", folder.filename().string(),
-                                                paths.size() > 1 ? std::format(" ({} ta)", paths.size()) : std::string())
+            std::string hint = ok ? TrFormat(ICON_FA_TURN_UP "  '{}' papkasiga ko'chirish{}", folder.filename().string(),
+                                                paths.size() > 1 ? TrFormat(" ({} ta)", paths.size()) : std::string())
                                   : std::string(ICON_FA_CIRCLE_XMARK "  ") + m_DropCheckReason;
             ImVec2 mouse = ImGui::GetMousePos();
             ImVec2 size = ImGui::CalcTextSize(hint.c_str());
@@ -521,7 +521,7 @@ namespace Zamin {
     {
         if (!ImGui::BeginPopup("##cbfilter"))
             return;
-        ImGui::TextDisabled("Fayl turlari (barcha ichki papkalarda)");
+        ImGui::TextDisabled("%s", Tr("Fayl turlari (barcha ichki papkalarda)"));
         ImGui::Separator();
         ImGui::PushItemFlag(ImGuiItemFlags_AutoClosePopups, false);
         auto& filter = m_Settings->Filter;
@@ -541,7 +541,7 @@ namespace Zamin {
             ImGui::SameLine();
             ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(color), "%s", icon);
             ImGui::SameLine();
-            ImGui::TextUnformatted(AssetFiles::GetTypeName(type));
+            ImGui::TextUnformatted(Tr(AssetFiles::GetTypeName(type)));
             ImGui::PopID();
         }
         ImGui::PopItemFlag();
@@ -604,8 +604,8 @@ namespace Zamin {
         ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 10.0f, ImGui::GetWindowContentRegionMax().x - right));
 
         auto& filter = m_Settings->Filter;
-        std::string filterTip = filter.IsActive() ? std::format("Fayl turi bo'yicha filtr ({} ta tur)", filter.Count())
-                                                  : std::string("Fayl turi bo'yicha filtr");
+        std::string filterTip = filter.IsActive() ? TrFormat("Fayl turi bo'yicha filtr ({} ta tur)", filter.Count())
+                                                  : std::string(Tr("Fayl turi bo'yicha filtr"));
         if (UI::ToolbarButton(ICON_FA_FILTER, filterTip.c_str(), filter.IsActive(), ImVec2(button, button)))
             ImGui::OpenPopup("##cbfilter");
         DrawFilterPopup();
@@ -665,7 +665,7 @@ namespace Zamin {
         if (!filter.IsActive())
             return;
         ImGui::AlignTextToFramePadding();
-        ImGui::TextColored(UI::AccentColor(), ICON_FA_FILTER "  Filtr:");
+        ImGui::TextColored(UI::AccentColor(), "%s", Tr(ICON_FA_FILTER "  Filtr:"));
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 10.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8, 2));
         for (AssetType type : AssetTypeFilter::GetFilterableTypes())
@@ -675,7 +675,7 @@ namespace Zamin {
             ImU32 color;
             const char* icon = IconFor(type, color);
             ImGui::SameLine();
-            std::string chip = std::format("{} {}  " ICON_FA_XMARK "##chip{}", icon, AssetFiles::GetTypeName(type), (int)type);
+            std::string chip = std::format("{} {}  " ICON_FA_XMARK "##chip{}", icon, Tr(AssetFiles::GetTypeName(type)), (int)type);
             if (ImGui::Button(chip.c_str()))
             {
                 filter.Set(type, false);
@@ -686,7 +686,7 @@ namespace Zamin {
         }
         ImGui::PopStyleVar(2);
         ImGui::SameLine();
-        ImGui::TextDisabled("%zu ta fayl (ichki papkalar bilan)", m_Entries.size());
+        ImGui::TextDisabled(Tr("%zu ta fayl (ichki papkalar bilan)"), m_Entries.size());
         ImGui::SameLine();
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
         if (ImGui::SmallButton(Tr("Tozalash")))
@@ -705,9 +705,9 @@ namespace Zamin {
         ImGui::TextColored(UI::AccentColor(), ICON_FA_MAGNIFYING_GLASS);
         ImGui::SameLine();
         bool everywhere = m_ListDirectory == m_Root;
-        std::string where = everywhere ? std::string("butun loyihada")
-                                       : std::format("'{}' papkasida", m_CurrentDirectory.filename().string());
-        ImGui::TextDisabled("'%s' - %zu ta natija %s", m_Search.c_str(), m_Entries.size(), where.c_str());
+        std::string where = everywhere ? std::string(Tr("butun loyihada"))
+                                       : TrFormat("'{}' papkasida", m_CurrentDirectory.filename().string());
+        ImGui::TextDisabled(Tr("'%s' - %zu ta natija %s"), m_Search.c_str(), m_Entries.size(), where.c_str());
         ImGui::SameLine();
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
         if (!everywhere && ImGui::SmallButton(Tr("Butun loyihada qidirish")))
@@ -787,7 +787,7 @@ namespace Zamin {
             ImU32 c;
             const char* icon = IconFor(entry.Type, c);
             if (m_DragPaths.size() > 1)
-                ImGui::Text("%s  %s  (+%zu ta)", icon, entry.Name.c_str(), m_DragPaths.size() - 1);
+                ImGui::Text(Tr("%s  %s  (+%zu ta)"), icon, entry.Name.c_str(), m_DragPaths.size() - 1);
             else
                 ImGui::Text("%s  %s", icon, entry.Name.c_str());
             ImGui::EndDragDropSource();
@@ -807,16 +807,16 @@ namespace Zamin {
 
         if (hovered && !ImGui::GetDragDropPayload() && ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))
         {
-            std::string tip = entry.Name + "\n" + AssetFiles::GetTypeName(entry.Type);
+            std::string tip = entry.Name + "\n" + Tr(AssetFiles::GetTypeName(entry.Type));
             if (!entry.IsDirectory)
                 tip += "  -  " + AssetFiles::FormatSize(entry.Size);
             if (IsRecursiveListing())
                 tip += "\n" ICON_FA_FOLDER "  " + path.parent_path().lexically_relative(m_Root).generic_string();
             if (AssetRegistry* registry = entry.IsDirectory ? nullptr : Project::GetAssetRegistry())
                 if (const AssetMetadata* meta = registry->Find(path))
-                    tip += "\nUUID: " + meta->Handle.ToString() + (meta->HasMetaFile ? "" : " (.zmeta yo'q)");
+                    tip += "\nUUID: " + meta->Handle.ToString() + (meta->HasMetaFile ? "" : Tr(" (.zmeta yo'q)"));
             if (const std::string* error = FindEntryError(path))
-                tip += std::string("\n" ICON_FA_TRIANGLE_EXCLAMATION "  ") + (entry.IsDirectory ? "" : "Import xatosi: ") + *error;
+                tip += std::string("\n" ICON_FA_TRIANGLE_EXCLAMATION "  ") + (entry.IsDirectory ? "" : Tr("Import xatosi: ")) + *error;
             UI::Tooltip(tip.c_str());
         }
     }
@@ -892,11 +892,11 @@ namespace Zamin {
                 size_t n = AssetHotReload::ReloadAsset(path, &failed);
                 m_Thumbnails.Invalidate(path);
                 if (failed)
-                    ShowNotice(std::format("'{}' qayta yuklanmadi - konsolni tekshiring", entry.Name), true);
+                    ShowNotice(TrFormat("'{}' qayta yuklanmadi - konsolni tekshiring", entry.Name), true);
                 else
                 {
                     ZM_INFO("Qayta yuklandi: {} ({} ta nusxa)", Project::GetAssetRelativePath(path), n);
-                    ShowNotice(std::format("'{}' qayta yuklandi", entry.Name));
+                    ShowNotice(TrFormat("'{}' qayta yuklandi", entry.Name));
                 }
             }
             if (!loaded && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
@@ -910,11 +910,11 @@ namespace Zamin {
             m_OpenRenamePopup = true;
         }
         bool canMoveUp = m_CurrentDirectory != m_Root && !IsRecursiveListing();
-        std::string upLabel = count > 1 ? std::format(ICON_FA_TURN_UP "  Yuqori papkaga ko'chirish ({} ta)", count)
-                                        : std::string(ICON_FA_TURN_UP "  Yuqori papkaga ko'chirish");
+        std::string upLabel = count > 1 ? TrFormat(ICON_FA_TURN_UP "  Yuqori papkaga ko'chirish ({} ta)", count)
+                                        : std::string(Tr(ICON_FA_TURN_UP "  Yuqori papkaga ko'chirish"));
         if (ImGui::MenuItem(upLabel.c_str(), nullptr, false, canMoveUp))
             m_PendingMove = { m_Selection.empty() ? std::vector<fs::path>{ path } : GetSelectionInOrder(), m_CurrentDirectory.parent_path() };
-        std::string deleteLabel = count > 1 ? std::format(ICON_FA_TRASH "  O'chirish ({} ta)", count) : std::string(ICON_FA_TRASH "  O'chirish");
+        std::string deleteLabel = count > 1 ? TrFormat(ICON_FA_TRASH "  O'chirish ({} ta)", count) : std::string(Tr(ICON_FA_TRASH "  O'chirish"));
         if (ImGui::MenuItem(deleteLabel.c_str(), "Delete"))
             m_PendingDelete = m_Selection.empty() ? std::vector<fs::path>{ path } : GetSelectionInOrder();
     }
@@ -1097,14 +1097,14 @@ namespace Zamin {
             return flags;
         };
         ImGui::TableSetupScrollFreeze(0, 1);
-        ImGui::TableSetupColumn("Nomi", sortFlags(AssetSortColumn::Name, ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_NoHide),
+        ImGui::TableSetupColumn(Tr("Nomi"), sortFlags(AssetSortColumn::Name, ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_NoHide),
                                 0.0f, (ImGuiID)AssetSortColumn::Name);
-        ImGui::TableSetupColumn("Turi", sortFlags(AssetSortColumn::Type, ImGuiTableColumnFlags_WidthFixed), 90.0f, (ImGuiID)AssetSortColumn::Type);
-        ImGui::TableSetupColumn("Hajmi", sortFlags(AssetSortColumn::Size, ImGuiTableColumnFlags_WidthFixed), 70.0f, (ImGuiID)AssetSortColumn::Size);
-        ImGui::TableSetupColumn("O'zgartirilgan", sortFlags(AssetSortColumn::Modified, ImGuiTableColumnFlags_WidthFixed), 118.0f,
+        ImGui::TableSetupColumn(Tr("Turi"), sortFlags(AssetSortColumn::Type, ImGuiTableColumnFlags_WidthFixed), 90.0f, (ImGuiID)AssetSortColumn::Type);
+        ImGui::TableSetupColumn(Tr("Hajmi"), sortFlags(AssetSortColumn::Size, ImGuiTableColumnFlags_WidthFixed), 70.0f, (ImGuiID)AssetSortColumn::Size);
+        ImGui::TableSetupColumn(Tr("O'zgartirilgan"), sortFlags(AssetSortColumn::Modified, ImGuiTableColumnFlags_WidthFixed), 118.0f,
                                 (ImGuiID)AssetSortColumn::Modified);
         if (recursive)
-            ImGui::TableSetupColumn("Joylashuv", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort, 150.0f, 99);
+            ImGui::TableSetupColumn(Tr("Joylashuv"), ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort, 150.0f, 99);
         ImGui::TableHeadersRow();
 
         if (ImGuiTableSortSpecs* specs = ImGui::TableGetSortSpecs(); specs && specs->SpecsDirty)
@@ -1185,7 +1185,7 @@ namespace Zamin {
                     ImGui::TextDisabled("%s", text);
                 };
                 ImGui::TableSetColumnIndex(1);
-                cellText(AssetFiles::GetTypeName(entry.Type));
+                cellText(Tr(AssetFiles::GetTypeName(entry.Type)));
                 ImGui::TableSetColumnIndex(2);
                 if (!entry.IsDirectory)
                     cellText(AssetFiles::FormatSize(entry.Size).c_str(), true);
@@ -1215,7 +1215,7 @@ namespace Zamin {
         if (!m_Selection.empty())
         {
             ImGui::SameLine();
-            ImGui::TextDisabled(" |  %zu ta tanlangan%s", m_Selection.size(),
+            ImGui::TextDisabled(Tr(" |  %zu ta tanlangan%s"), m_Selection.size(),
                                 selectedBytes > 0 ? (" (" + AssetFiles::FormatSize(selectedBytes) + ")").c_str() : "");
         }
         DrawImportErrors();
@@ -1241,7 +1241,7 @@ namespace Zamin {
             ImGui::SameLine(0, 0);
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
             ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.45f, 0.4f, 1.0f));
-            std::string label = std::format(ICON_FA_TRIANGLE_EXCLAMATION "  {} ta import xatosi##importErrors", count);
+            std::string label = TrFormat(ICON_FA_TRIANGLE_EXCLAMATION "  {} ta import xatosi##importErrors", count);
             if (ImGui::SmallButton(label.c_str()))
                 ImGui::OpenPopup("##importErrorList");
             ImGui::PopStyleColor(2);
@@ -1250,11 +1250,11 @@ namespace Zamin {
         }
         if (!ImGui::BeginPopup("##importErrorList"))
             return;
-        ImGui::TextDisabled(ICON_FA_TRIANGLE_EXCLAMATION "  Yuklanmagan assetlar - faylni ko'rsatish uchun bosing");
+        ImGui::TextDisabled("%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Yuklanmagan assetlar - faylni ko'rsatish uchun bosing"));
         ImGui::Separator();
         std::vector<AssetImportError> errors = AssetImportLog::GetErrors();
         if (errors.empty())
-            ImGui::TextDisabled("Xato yo'q");
+            ImGui::TextDisabled("%s", Tr("Xato yo'q"));
         for (size_t i = 0; i < errors.size() && i < 50; i++)
         {
             const AssetImportError& e = errors[i];
@@ -1277,13 +1277,13 @@ namespace Zamin {
             }
             ImGui::Indent();
             ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 500.0f);
-            ImGui::TextColored(ImVec4(0.95f, 0.55f, 0.5f, 1.0f), "%s%s", e.Reload ? "(qayta yuklashda) " : "", e.Reason.c_str());
+            ImGui::TextColored(ImVec4(0.95f, 0.55f, 0.5f, 1.0f), "%s%s", e.Reload ? Tr("(qayta yuklashda) ") : "", e.Reason.c_str());
             ImGui::PopTextWrapPos();
             ImGui::Unindent();
             ImGui::PopID();
         }
         if (errors.size() > 50)
-            ImGui::TextDisabled("... va yana %zu ta", errors.size() - 50);
+            ImGui::TextDisabled(Tr("... va yana %zu ta"), errors.size() - 50);
         ImGui::EndPopup();
     }
 
@@ -1333,7 +1333,7 @@ namespace Zamin {
         fs::path file = AssetFiles::MakeUniquePath(m_CurrentDirectory, std::string("NewAnimation") + PropertyClip::Extension);
         if (!PropertyClipSerializer::Serialize(PropertyClip(), file))
         {
-            ShowNotice(std::format("Klip yaratilmadi: {}", file.filename().string()), true);
+            ShowNotice(TrFormat("Klip yaratilmadi: {}", file.filename().string()), true);
             ZM_ERROR("Animatsiya klipi yozilmadi: {}", file.string());
             return {};
         }
@@ -1347,7 +1347,7 @@ namespace Zamin {
         Reveal({ file });
         if (OnAssetSelected)
             OnAssetSelected(file);
-        ShowNotice(std::format("Yangi klip: {}  (ikki marta bosing - Animatsiya oynasi; Animation Player'ga torting)", file.filename().string()));
+        ShowNotice(TrFormat("Yangi klip: {}  (ikki marta bosing - Animatsiya oynasi; Animation Player'ga torting)", file.filename().string()));
         return file;
     }
 
@@ -1368,7 +1368,7 @@ namespace Zamin {
         fs::path file = AssetFiles::MakeUniquePath(m_CurrentDirectory, base + SpriteClip::Extension);
         if (!SpriteClipSerializer::Serialize(clip, file))
         {
-            ShowNotice(std::format("Klip yaratilmadi: {}", file.filename().string()), true);
+            ShowNotice(TrFormat("Klip yaratilmadi: {}", file.filename().string()), true);
             ZM_ERROR("Sprite animatsiya klipi yozilmadi: {}", file.string());
             return {};
         }
@@ -1382,7 +1382,7 @@ namespace Zamin {
         Reveal({ file });
         if (OnAssetSelected)
             OnAssetSelected(file);
-        ShowNotice(std::format("Yangi sprite klip: {}  (inspektorda kadrlar va FPS; Sprite Animation'ga torting)", file.filename().string()));
+        ShowNotice(TrFormat("Yangi sprite klip: {}  (inspektorda kadrlar va FPS; Sprite Animation'ga torting)", file.filename().string()));
         return file;
     }
 
@@ -1401,7 +1401,7 @@ namespace Zamin {
             std::string error;
             if (!MaterialPresets::Create(*preset, dir, false, result, &error))
             {
-                ShowNotice(std::format("Material yaratilmadi: {}", preset->Name), true);
+                ShowNotice(TrFormat("Material yaratilmadi: {}", preset->Name), true);
                 ZM_ERROR("Standart material '{}' yaratilmadi: {}", preset->Name, error);
                 return {};
             }
@@ -1413,7 +1413,7 @@ namespace Zamin {
             file = AssetFiles::MakeUniquePath(dir, "NewMaterial.zmat");
             if (!MaterialSerializer::Serialize(MaterialData{}, file)) // makes the folder
             {
-                ShowNotice(std::format("Material yaratilmadi: {}", file.filename().string()), true);
+                ShowNotice(TrFormat("Material yaratilmadi: {}", file.filename().string()), true);
                 ZM_ERROR("Material fayli yozilmadi: {}", file.string());
                 return {};
             }
@@ -1434,7 +1434,7 @@ namespace Zamin {
         Reveal({ file });
         if (OnAssetSelected)
             OnAssetSelected(file);
-        ShowNotice(std::format("Yangi material: {}  (F2 - nomini o'zgartirish)", file.filename().string()));
+        ShowNotice(TrFormat("Yangi material: {}  (F2 - nomini o'zgartirish)", file.filename().string()));
         return file;
     }
 
@@ -1449,11 +1449,11 @@ namespace Zamin {
         if (ImGui::IsItemHovered())
             UI::Tooltip("Standart qiymatli material asset (.zmat) shu papkada yaratiladi va inspektorda ochiladi");
         ImGui::Separator();
-        ImGui::TextDisabled("Standart materiallar");
+        ImGui::TextDisabled("%s", Tr("Standart materiallar"));
         for (const MaterialPreset& preset : MaterialPresets::GetAll())
         {
-            std::string where = std::format("{}.zmat shu papkada yaratiladi{}", preset.FileName,
-                                            preset.Texture != MaterialPreset::Pattern::None ? " (teksturasi Textures/ ichida)" : "");
+            std::string where = TrFormat("{}.zmat shu papkada yaratiladi{}", preset.FileName,
+                                            preset.Texture != MaterialPreset::Pattern::None ? Tr(" (teksturasi Textures/ ichida)") : "");
             if (UI::MaterialPresetMenuItem(preset, where.c_str()))
             {
                 CreateMaterial(&preset);
@@ -1476,33 +1476,33 @@ namespace Zamin {
         static const std::vector<PhysicsMaterialPreset> s_Presets = [] {
             std::vector<PhysicsMaterialPreset> list;
             PhysicsMaterialData d;
-            list.push_back({ "Standart", "NewPhysicsMaterial", "Kolliderlarning standart qiymatlari", d });
+            list.push_back({ Tr("Standart"), "NewPhysicsMaterial", Tr("Kolliderlarning standart qiymatlari"), d });
             d = {};
             d.Friction = 0.02f;
             d.FrictionCombine = PhysicsCombine::Minimum;
             d.Density = 0.9f;
-            list.push_back({ "Muz", "Ice", "Deyarli ishqalanishsiz: ustida hamma narsa sirpanadi (eng kichigi)", d });
+            list.push_back({ "Muz", "Ice", Tr("Deyarli ishqalanishsiz: ustida hamma narsa sirpanadi (eng kichigi)"), d });
             d = {};
             d.Friction = 0.8f;
             d.Restitution = 0.85f;
             d.RestitutionThreshold = 0.2f;
             d.RestitutionCombine = PhysicsCombine::Maximum;
-            list.push_back({ "Rezina to'p", "Bouncy", "Kuchli sakraydi (eng kattasi)", d });
+            list.push_back({ Tr("Rezina to'p"), "Bouncy", Tr("Kuchli sakraydi (eng kattasi)"), d });
             d = {};
             d.Friction = 1.0f;
             d.Density = 1.2f;
             d.FrictionCombine = PhysicsCombine::Maximum;
-            list.push_back({ "Yopishqoq", "Grip", "Ishqalanishi katta: qiyalikda ham sirpanmaydi", d });
+            list.push_back({ Tr("Yopishqoq"), "Grip", Tr("Ishqalanishi katta: qiyalikda ham sirpanmaydi"), d });
             d = {};
             d.Friction = 0.4f;
             d.Restitution = 0.1f;
             d.Density = 7.8f;
-            list.push_back({ "Metall", "Metal", "Og'ir (zichlik 7.8), biroz sirpanchiq", d });
+            list.push_back({ Tr("Metall"), "Metal", Tr("Og'ir (zichlik 7.8), biroz sirpanchiq"), d });
             d = {};
             d.Friction = 0.6f;
             d.Restitution = 0.15f;
             d.Density = 0.6f;
-            list.push_back({ "Yog'och", "Wood", "Yengil, ishqalanishi o'rtacha", d });
+            list.push_back({ Tr("Yog'och"), "Wood", Tr("Yengil, ishqalanishi o'rtacha"), d });
             return list;
         }();
         return s_Presets;
@@ -1521,7 +1521,7 @@ namespace Zamin {
         fs::path file = AssetFiles::MakeUniquePath(dir, std::string(p.FileName) + PhysicsMaterial::Extension);
         if (!PhysicsMaterial::Save(file, p.Data))
         {
-            ShowNotice(std::format("Fizik material yaratilmadi: {}", file.filename().string()), true);
+            ShowNotice(TrFormat("Fizik material yaratilmadi: {}", file.filename().string()), true);
             ZM_ERROR("Fizik material fayli yozilmadi: {}", file.string());
             return {};
         }
@@ -1535,7 +1535,7 @@ namespace Zamin {
         Reveal({ file });
         if (OnAssetSelected)
             OnAssetSelected(file);
-        ShowNotice(std::format("Yangi fizik material: {}  (F2 - nomini o'zgartirish)", file.filename().string()));
+        ShowNotice(TrFormat("Yangi fizik material: {}  (F2 - nomini o'zgartirish)", file.filename().string()));
         return file;
     }
 
@@ -1553,7 +1553,7 @@ namespace Zamin {
                 chosen = true;
             }
             if (ImGui::IsItemHovered())
-                UI::Tooltip(std::format("{}\nIshqalanish {:.2f}, sakrash {:.2f}, zichlik {:.2f}\n{}{} shu papkada yaratiladi", p.Description,
+                UI::Tooltip(TrFormat("{}\nIshqalanish {:.2f}, sakrash {:.2f}, zichlik {:.2f}\n{}{} shu papkada yaratiladi", p.Description,
                                         p.Data.Friction, p.Data.Restitution, p.Data.Density, p.FileName, PhysicsMaterial::Extension).c_str());
             if (i == 0)
                 ImGui::Separator();
@@ -1581,7 +1581,7 @@ namespace Zamin {
             }
             if (ImGui::MenuItem(Tr(ICON_FA_TIMELINE "  Yangi animatsiya klipi"), nullptr, false, Project::GetActive() != nullptr))
                 CreateAnimationClip();
-            if (ImGui::MenuItem("Yangi visual skript (.zgraph)", nullptr, false, Project::GetActive() != nullptr))
+            if (ImGui::MenuItem(Tr("Yangi visual skript (.zgraph)"), nullptr, false, Project::GetActive() != nullptr))
             {
                 const auto assets = Project::GetAssetDirectory();
                 const auto folder = FileSystem::IsSubPathOnDisk(m_CurrentDirectory, assets) ? m_CurrentDirectory : assets / "Scripts";
@@ -1592,12 +1592,12 @@ namespace Zamin {
                     if (OnFilesChanged) OnFilesChanged();
                     Reveal({ file });
                     if (OnOpenVisualGraph) OnOpenVisualGraph(file);
-                } else ShowNotice("Visual skript saqlanmadi", true);
+                } else ShowNotice(Tr("Visual skript saqlanmadi"), true);
             }
             if (ImGui::MenuItem(Tr(ICON_FA_FILM "  Yangi sprite animatsiya klipi"), nullptr, false, Project::GetActive() != nullptr))
                 CreateSpriteClip();
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("Tanlangan rasm bo'lsa - uning sprite sheet kadrlaridan");
+                ImGui::SetTooltip("%s", Tr("Tanlangan rasm bo'lsa - uning sprite sheet kadrlaridan"));
             ImGui::Separator();
             if (ImGui::MenuItem(Tr(ICON_FA_CHECK_DOUBLE "  Hammasini tanlash"), "Ctrl+A", false, !m_Entries.empty()))
             {
@@ -1612,7 +1612,7 @@ namespace Zamin {
             if (ImGui::MenuItem(Tr(ICON_FA_BROOM "  Ishlatilmagan assetlarni topish..."), nullptr, false, OnFindUnusedAssets != nullptr))
                 OnFindUnusedAssets();
             ImGui::Separator();
-            ImGui::TextDisabled(ICON_FA_FILE_IMPORT "  Import: fayllarni oynaga tashlang");
+            ImGui::TextDisabled("%s", Tr(ICON_FA_FILE_IMPORT "  Import: fayllarni oynaga tashlang"));
             ImGui::EndPopup();
         }
 
@@ -1623,7 +1623,7 @@ namespace Zamin {
         }
         if (ImGui::BeginPopupModal(Tr(ICON_FA_FOLDER "  Yaratish###NewItem"), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
-            const char* titles[] = { "Yangi papka", "Yangi sahna" };
+            const char* titles[] = { Tr("Yangi papka"), Tr("Yangi sahna") };
             ImGui::PushFont(ImGuiLayer::GetBoldFont());
             ImGui::TextUnformatted(titles[m_NewKind]);
             ImGui::PopFont();
@@ -1651,11 +1651,11 @@ namespace Zamin {
         if (m_OpenRenamePopup) { ImGui::OpenPopup("###RenameItem"); m_OpenRenamePopup = false; }
         if (ImGui::BeginPopupModal(Tr(ICON_FA_FEATHER "  Nomini o'zgartirish###RenameItem"), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
-            ImGui::TextUnformatted(ICON_FA_FEATHER "  Yangi nom");
+            ImGui::TextUnformatted(Tr(ICON_FA_FEATHER "  Yangi nom"));
             ImGui::SetNextItemWidth(300);
             if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
             bool enter = ImGui::InputText("##rename", &m_RenameBuffer, ImGuiInputTextFlags_EnterReturnsTrue);
-            ImGui::TextDisabled("Sahna va prefablardagi havolalar ham yangilanadi.");
+            ImGui::TextDisabled("%s", Tr("Sahna va prefablardagi havolalar ham yangilanadi."));
             if ((ImGui::Button(Tr(ICON_FA_CHECK "  OK"), ImVec2(120, 0)) || enter) && !m_RenameBuffer.empty())
             {
                 if (m_RenameBuffer != m_RenameTarget.filename().string())
@@ -1682,14 +1682,14 @@ namespace Zamin {
         if (ImGui::BeginPopupModal(Tr(ICON_FA_TRASH "  O'chirish###ConfirmDelete"), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
             if (m_PendingDelete.size() == 1)
-                ImGui::Text(ICON_FA_TRIANGLE_EXCLAMATION "  '%s' o'chirilsinmi?", m_PendingDelete.front().filename().string().c_str());
+                ImGui::Text(Tr(ICON_FA_TRIANGLE_EXCLAMATION "  '%s' o'chirilsinmi?"), m_PendingDelete.front().filename().string().c_str());
             else
             {
-                ImGui::Text(ICON_FA_TRIANGLE_EXCLAMATION "  %zu ta element o'chirilsinmi?", m_PendingDelete.size());
+                ImGui::Text(Tr(ICON_FA_TRIANGLE_EXCLAMATION "  %zu ta element o'chirilsinmi?"), m_PendingDelete.size());
                 for (size_t i = 0; i < m_PendingDelete.size() && i < 8; i++)
                     ImGui::BulletText("%s", m_PendingDelete[i].filename().string().c_str());
                 if (m_PendingDelete.size() > 8)
-                    ImGui::TextDisabled("... va yana %zu ta", m_PendingDelete.size() - 8);
+                    ImGui::TextDisabled(Tr("... va yana %zu ta"), m_PendingDelete.size() - 8);
             }
             bool inUse = !m_DeleteUses.empty();
             bool reveal = false;
@@ -1698,22 +1698,22 @@ namespace Zamin {
             {
                 ImGui::Spacing();
                 ImGui::TextColored(ImVec4(0.95f, 0.72f, 0.35f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  %s",
-                                   m_DeleteUses.size() == 1 ? "Bu asset ishlatilmoqda:"
-                                                            : std::format("{} ta asset ishlatilmoqda:", m_DeleteUses.size()).c_str());
+                                   m_DeleteUses.size() == 1 ? Tr("Bu asset ishlatilmoqda:")
+                                                            : TrFormat("{} ta asset ishlatilmoqda:", m_DeleteUses.size()).c_str());
                 reveal = DrawAssetsInUse(m_DeleteUses, &clicked);
                 ImGui::PushTextWrapPos(480.0f);
-                ImGui::TextDisabled("O'chirilsa, bu fayllardagi havolalar buziladi: sahnalarda rasm, model yoki ovoz yo'qoladi, "
-                                    "kod esa faylni topa olmaydi.");
+                ImGui::TextDisabled("%s", Tr("O'chirilsa, bu fayllardagi havolalar buziladi: sahnalarda rasm, model yoki ovoz yo'qoladi, "
+                                    "kod esa faylni topa olmaydi."));
                 ImGui::PopTextWrapPos();
             }
-            ImGui::TextDisabled("Bu amalni qaytarib bo'lmaydi.");
+            ImGui::TextDisabled("%s", Tr("Bu amalni qaytarib bo'lmaydi."));
             if (inUse)
             {
                 ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.62f, 0.2f, 0.17f, 1.0f));
                 ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.75f, 0.26f, 0.22f, 1.0f));
                 ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.85f, 0.3f, 0.25f, 1.0f));
             }
-            bool confirm = ImGui::Button(inUse ? ICON_FA_TRASH "  Baribir o'chirish" : ICON_FA_TRASH "  O'chirish", ImVec2(inUse ? 170.0f : 140.0f, 0));
+            bool confirm = ImGui::Button(inUse ? Tr(ICON_FA_TRASH "  Baribir o'chirish") : Tr(ICON_FA_TRASH "  O'chirish"), ImVec2(inUse ? 170.0f : 140.0f, 0));
             if (inUse)
                 ImGui::PopStyleColor(3);
             if (confirm)
@@ -1791,7 +1791,7 @@ namespace Zamin {
             NavigateTo(m_Root); // the folder was moved / deleted
         if (m_Root.empty() || !fs::exists(m_CurrentDirectory, ec))
         {
-            ImGui::TextDisabled("Loyiha ochilmagan");
+            ImGui::TextDisabled("%s", Tr("Loyiha ochilmagan"));
             ImGui::End();
             return;
         }
@@ -1823,8 +1823,8 @@ namespace Zamin {
 
         if (m_Entries.empty())
         {
-            const char* text = IsRecursiveListing() ? "Hech narsa topilmadi"
-                                                    : "Papka bo'sh. O'ng tugma bilan yangi narsa yarating yoki fayllarni oynaga tashlang.";
+            const char* text = IsRecursiveListing() ? Tr("Hech narsa topilmadi")
+                                                    : Tr("Papka bo'sh. O'ng tugma bilan yangi narsa yarating yoki fayllarni oynaga tashlang.");
             ImGui::TextDisabled("%s", text);
         }
 

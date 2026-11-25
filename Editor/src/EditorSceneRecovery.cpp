@@ -58,7 +58,7 @@ namespace Zamin {
         m_EditorSceneFileVersion = serializer.GetMigration().FileVersion;
         m_AssetUsage.MarkDirty();
         PrefabUtility::LinkLegacyInstances(*m_EditorScene, m_PrefabDatabase);
-        ResetUndoHistory(std::format("Sahna qisman tiklandi: {}", path.stem().string()), false);
+        ResetUndoHistory(TrFormat("Sahna qisman tiklandi: {}", path.stem().string()), false);
         // Prefab instances missing entities of their prefab that were in the lost part: the sync makes
         // them again (those listed as deleted in the instance were deleted on purpose and stay so).
         const size_t linkedBefore = m_EditorScene->GetAllEntitiesWith<PrefabLinkComponent>().size();

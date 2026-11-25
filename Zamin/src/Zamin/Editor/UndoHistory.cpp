@@ -1,4 +1,5 @@
 #include "Zamin/Editor/UndoHistory.h"
+#include "Zamin/Editor/EditorLanguage.h"
 
 #include <charconv>
 
@@ -586,13 +587,13 @@ namespace Zamin {
     std::string DescribeSceneChange(const SceneChange& change)
     {
         if (!change.Valid)
-            return "Sahna o'zgarishi";
+            return Tr("Sahna o'zgarishi");
         if (!change.Added.empty() && change.Removed.empty())
-            return "Qo'shildi: " + WithMore(change.Added);
+            return Tr("Qo'shildi: ") + WithMore(change.Added);
         if (!change.Removed.empty() && change.Added.empty())
-            return "O'chirildi: " + WithMore(change.Removed);
+            return Tr("O'chirildi: ") + WithMore(change.Removed);
         if (!change.Added.empty())
-            return std::format("Almashtirildi: {} ta qo'shildi, {} ta o'chirildi", change.Added.size(), change.Removed.size());
+            return TrFormat("Almashtirildi: {} ta qo'shildi, {} ta o'chirildi", change.Added.size(), change.Removed.size());
 
         if (!change.Changed.empty())
         {
@@ -604,29 +605,29 @@ namespace Zamin {
                 for (const auto& c : all)
                     if (Touches(c, "Parent"))
                         moved.push_back(c.Tag);
-                return moved.empty() ? std::string("Tartib o'zgardi") : "Ierarxiya o'zgardi: " + WithMore(moved);
+                return moved.empty() ? std::string(Tr("Tartib o'zgardi")) : Tr("Ierarxiya o'zgardi: ") + WithMore(moved);
             }
             if (all.size() == 1)
             {
                 const auto& c = all.front();
                 if (OnlyKeys(c, { "Tag" }))
-                    return std::format("Nomi o'zgardi: {} \xe2\x86\x92 {}", c.OldTag, c.Tag);
+                    return TrFormat("Nomi o'zgardi: {} \xe2\x86\x92 {}", c.OldTag, c.Tag);
                 if (OnlyKeys(c, { "Active" }))
-                    return std::format("{}: {}", std::find(c.Added.begin(), c.Added.end(), "Active") != c.Added.end() ? "Nofaol qilindi" : "Faollashtirildi", c.Tag);
+                    return std::format("{}: {}", std::find(c.Added.begin(), c.Added.end(), "Active") != c.Added.end() ? Tr("Nofaol qilindi") : Tr("Faollashtirildi"), c.Tag);
                 if (OnlyKeys(c, { "Editor" }))
-                    return std::format("Editor holati o'zgardi: {}", c.Tag);
+                    return TrFormat("Editor holati o'zgardi: {}", c.Tag);
                 // A component added / removed (a new child's ChildOrder does not count).
                 std::vector<std::string> added, removed, changed;
                 for (const std::string& k : c.Added) if (k != "ChildOrder") added.push_back(k);
                 for (const std::string& k : c.Removed) if (k != "ChildOrder") removed.push_back(k);
                 for (const std::string& k : c.Changed) if (k != "ChildOrder") changed.push_back(k);
                 if (added.size() == 1 && removed.empty() && changed.empty())
-                    return std::format("Komponent qo'shildi: {} ({})", added.front(), c.Tag);
+                    return TrFormat("Komponent qo'shildi: {} ({})", added.front(), c.Tag);
                 if (removed.size() == 1 && added.empty() && changed.empty())
-                    return std::format("Komponent olib tashlandi: {} ({})", removed.front(), c.Tag);
+                    return TrFormat("Komponent olib tashlandi: {} ({})", removed.front(), c.Tag);
                 if (changed.size() == 1 && added.empty() && removed.empty())
-                    return c.Field.empty() ? std::format("{} o'zgardi ({})", changed.front(), c.Tag)
-                                           : std::format("{}.{} o'zgardi ({})", changed.front(), c.Field, c.Tag);
+                    return c.Field.empty() ? TrFormat("{} o'zgardi ({})", changed.front(), c.Tag)
+                                           : TrFormat("{}.{} o'zgardi ({})", changed.front(), c.Field, c.Tag);
                 std::vector<std::string> keys = changed;
                 keys.insert(keys.end(), added.begin(), added.end());
                 keys.insert(keys.end(), removed.begin(), removed.end());
@@ -635,9 +636,9 @@ namespace Zamin {
                     std::string joined;
                     for (const std::string& k : keys)
                         joined += (joined.empty() ? "" : ", ") + k;
-                    return std::format("{} o'zgardi ({})", joined, c.Tag);
+                    return TrFormat("{} o'zgardi ({})", joined, c.Tag);
                 }
-                return std::format("{} ta xususiyat o'zgardi ({})", keys.size(), c.Tag);
+                return TrFormat("{} ta xususiyat o'zgardi ({})", keys.size(), c.Tag);
             }
             // Several entities: the same single key in all of them (a multi-selection edit / drag)?
             std::vector<std::string> tags;
@@ -648,13 +649,13 @@ namespace Zamin {
                 return c.Added.empty() && c.Removed.empty() && c.Changed.size() == 1 && c.Changed.front() == first.Changed.front();
             });
             if (!first.Changed.empty() && sameChanged)
-                return std::format("{} o'zgardi ({})", first.Changed.front(), WithMore(tags));
+                return TrFormat("{} o'zgardi ({})", first.Changed.front(), WithMore(tags));
             const bool sameAdded = std::all_of(all.begin(), all.end(), [&](const auto& c) {
                 return c.Removed.empty() && c.Added.size() == 1 && c.Added.front() == first.Added.front();
             });
             if (!first.Added.empty() && sameAdded)
-                return std::format("Komponent qo'shildi: {} ({})", first.Added.front(), WithMore(tags));
-            return std::format("{} ta obyekt o'zgardi", all.size());
+                return TrFormat("Komponent qo'shildi: {} ({})", first.Added.front(), WithMore(tags));
+            return TrFormat("{} ta obyekt o'zgardi", all.size());
         }
 
         if (!change.SceneKeys.empty())
@@ -663,14 +664,14 @@ namespace Zamin {
             {
                 const std::string& key = change.SceneKeys.front();
                 if (key == "Settings")
-                    return change.SceneField.empty() ? std::string("Sahna sozlamalari o'zgardi") : "Sahna sozlamalari: " + change.SceneField;
-                if (key == "Metadata") return "Sahna ma'lumoti o'zgardi";
-                if (key == "Scene") return "Sahna nomi o'zgardi";
-                if (key == "RootOrder") return "Tartib o'zgardi";
+                    return change.SceneField.empty() ? std::string(Tr("Sahna sozlamalari o'zgardi")) : Tr("Sahna sozlamalari: ") + change.SceneField;
+                if (key == "Metadata") return Tr("Sahna ma'lumoti o'zgardi");
+                if (key == "Scene") return Tr("Sahna nomi o'zgardi");
+                if (key == "RootOrder") return Tr("Tartib o'zgardi");
             }
-            return "Sahna sozlamalari o'zgardi";
+            return Tr("Sahna sozlamalari o'zgardi");
         }
-        return "O'zgarish";
+        return Tr("O'zgarish");
     }
 
     std::string DescribeSceneChange(std::string_view before, std::string_view after)
@@ -681,8 +682,8 @@ namespace Zamin {
     std::string DescribeSelection(const std::vector<std::string>& names)
     {
         if (names.empty())
-            return "Tanlov bekor qilindi";
-        return "Tanlash: " + WithMore(names);
+            return Tr("Tanlov bekor qilindi");
+        return Tr("Tanlash: ") + WithMore(names);
     }
 
 }

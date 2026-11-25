@@ -46,8 +46,8 @@ namespace Zamin {
         {
             switch (channels)
             {
-                case 1: return "kulrang";
-                case 2: return "kulrang + alfa";
+                case 1: return Tr("kulrang");
+                case 2: return Tr("kulrang + alfa");
                 case 3: return "RGB";
                 default: return "RGBA";
             }
@@ -57,25 +57,25 @@ namespace Zamin {
         std::string DescribeAsset(const SceneAssetStats& a)
         {
             if (!a.Exists)
-                return "fayl topilmadi";
+                return Tr("fayl topilmadi");
             switch (a.Type)
             {
                 case AssetType::Texture:
                 case AssetType::Environment:
                     if (a.Width == 0)
-                        return "o'qilmadi";
+                        return Tr("o'qilmadi");
                     return std::format("{}x{}  {}{}{}", a.Width, a.Height, a.HDR ? "HDR" : ChannelName(a.Channels),
-                                       a.Mipmaps ? ", mip" : "", a.Type == AssetType::Environment ? ", osmon" : "");
+                                       a.Mipmaps ? ", mip" : "", a.Type == AssetType::Environment ? Tr(", osmon") : "");
                 case AssetType::Model:
                     if (a.Submeshes == 0)
-                        return "o'qilmadi";
-                    return std::format("{} vertex, {} indeks, {} qism", FormatCount(a.Vertices), FormatCount(a.Indices), a.Submeshes);
+                        return Tr("o'qilmadi");
+                    return TrFormat("{} vertex, {} indeks, {} qism", FormatCount(a.Vertices), FormatCount(a.Indices), a.Submeshes);
                 case AssetType::Audio:
                     if (a.SampleRate == 0)
-                        return "o'qilmadi";
+                        return Tr("o'qilmadi");
                     return std::format("{}, {} Hz, {}{}", AssetInfo::FormatDuration(a.Duration), a.SampleRate,
-                                       a.AudioChannels == 1 ? "mono" : a.AudioChannels == 2 ? "stereo" : std::format("{} kanal", a.AudioChannels),
-                                       a.Streamed ? ", oqim" : "");
+                                       a.AudioChannels == 1 ? "mono" : a.AudioChannels == 2 ? "stereo" : TrFormat("{} kanal", a.AudioChannels),
+                                       a.Streamed ? Tr(", oqim") : "");
                 default:
                     return {};
             }
@@ -156,7 +156,7 @@ namespace Zamin {
     {
         if (ids.empty())
         {
-            ImGui::TextDisabled("Obyekt yo'q");
+            ImGui::TextDisabled("%s", Tr("Obyekt yo'q"));
             return;
         }
         constexpr size_t shown = 8;
@@ -164,9 +164,9 @@ namespace Zamin {
             if (Entity e = m_ActiveScene->GetEntityByUUID(ids[i]))
                 ImGui::BulletText("%s", e.GetName().c_str());
         if (ids.size() > shown)
-            ImGui::TextDisabled("... va yana %zu ta", ids.size() - shown);
+            ImGui::TextDisabled(Tr("... va yana %zu ta"), ids.size() - shown);
         ImGui::Separator();
-        ImGui::TextDisabled("Bosish: tanlash (Ctrl: qo'shish), ikki marta: kamerani yo'naltirish");
+        ImGui::TextDisabled("%s", Tr("Bosish: tanlash (Ctrl: qo'shish), ikki marta: kamerani yo'naltirish"));
     }
 
     void EditorLayer::UI_SceneStatistics()
@@ -184,7 +184,7 @@ namespace Zamin {
         }
         if (!m_ActiveScene)
         {
-            ImGui::TextDisabled("Sahna ochilmagan");
+            ImGui::TextDisabled("%s", Tr("Sahna ochilmagan"));
             ImGui::End();
             return;
         }
@@ -211,29 +211,29 @@ namespace Zamin {
         };
         if (ImGui::BeginTable("##statsCards", 3, ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_PadOuterX))
         {
-            card(ICON_FA_CUBES, "Obyektlar", FormatCount(s.Entities),
-                 std::format("{} faol, {} nofaol\n{} ildiz, chuqurlik {}", s.Active, s.Inactive, s.Roots, s.MaxDepth),
-                 "Faol: o'zi va barcha ota-onalari yoqilgan obyektlar. Nofaol: o'zi yoki biror ota-onasi o'chirilgan.\n"
-                 "Chuqurlik: ierarxiyaning eng chuqur darajasi (ildiz = 0).");
-            card(ICON_FA_LAYER_GROUP, "Komponentlar", FormatCount(s.ComponentTotal),
-                 std::format("{} xil tur\n{} yashirin, {} qulflangan", s.Components.size(), s.HiddenInEditor, s.LockedInEditor),
-                 "Har bir obyektning har bir komponenti (Transform ham). Yashirin / qulflangan: ierarxiyadagi ko'z va qulf.");
-            card(ICON_FA_CODE, "Skriptlar va prefablar", std::format("{}  /  {}", FormatCount(s.ScriptComponents), FormatCount(s.PrefabInstances)),
-                 std::format("{} skript klassi\n{} prefab nusxasi ({} xil prefab)", s.Scripts.size(), s.PrefabInstances, s.Prefabs.size()),
-                 "Prefab nusxalari: editorda prefabdan qo'yilgan obyektlar (ularning ildizlari).");
+            card(ICON_FA_CUBES, Tr("Obyektlar"), FormatCount(s.Entities),
+                 TrFormat("{} faol, {} nofaol\n{} ildiz, chuqurlik {}", s.Active, s.Inactive, s.Roots, s.MaxDepth),
+                 Tr("Faol: o'zi va barcha ota-onalari yoqilgan obyektlar. Nofaol: o'zi yoki biror ota-onasi o'chirilgan.\n"
+                 "Chuqurlik: ierarxiyaning eng chuqur darajasi (ildiz = 0)."));
+            card(ICON_FA_LAYER_GROUP, Tr("Komponentlar"), FormatCount(s.ComponentTotal),
+                 TrFormat("{} xil tur\n{} yashirin, {} qulflangan", s.Components.size(), s.HiddenInEditor, s.LockedInEditor),
+                 Tr("Har bir obyektning har bir komponenti (Transform ham). Yashirin / qulflangan: ierarxiyadagi ko'z va qulf."));
+            card(ICON_FA_CODE, Tr("Skriptlar va prefablar"), std::format("{}  /  {}", FormatCount(s.ScriptComponents), FormatCount(s.PrefabInstances)),
+                 TrFormat("{} skript klassi\n{} prefab nusxasi ({} xil prefab)", s.Scripts.size(), s.PrefabInstances, s.Prefabs.size()),
+                 Tr("Prefab nusxalari: editorda prefabdan qo'yilgan obyektlar (ularning ildizlari)."));
             ImGui::TableNextRow();
-            card(ICON_FA_FOLDER_OPEN, "Assetlar", FormatCount(s.Assets.size()),
-                 std::format("{} rasm, {} model\n{} audio, {} material", s.CountAssets(AssetType::Texture) + s.CountAssets(AssetType::Environment),
+            card(ICON_FA_FOLDER_OPEN, Tr("Assetlar"), FormatCount(s.Assets.size()),
+                 TrFormat("{} rasm, {} model\n{} audio, {} material", s.CountAssets(AssetType::Texture) + s.CountAssets(AssetType::Environment),
                              s.CountAssets(AssetType::Model), s.CountAssets(AssetType::Audio), s.CountAssets(AssetType::Material)),
-                 "Sahna obyektlarining komponentlari (va sahna osmoni) nomlagan fayllar; materiallarning rasmlari ham.");
-            card(ICON_FA_MEMORY, "Taxminiy xotira", AssetFiles::FormatSize(s.GetTotalMemory()),
-                 std::format("teksturalar {}, meshlar {}\naudio {}", AssetFiles::FormatSize(s.TextureMemory), AssetFiles::FormatSize(s.MeshMemory),
+                 Tr("Sahna obyektlarining komponentlari (va sahna osmoni) nomlagan fayllar; materiallarning rasmlari ham."));
+            card(ICON_FA_MEMORY, Tr("Taxminiy xotira"), AssetFiles::FormatSize(s.GetTotalMemory()),
+                 TrFormat("teksturalar {}, meshlar {}\naudio {}", AssetFiles::FormatSize(s.TextureMemory), AssetFiles::FormatSize(s.MeshMemory),
                              AssetFiles::FormatSize(s.AudioMemory)),
-                 "Yuklangandagi taxminiy hajm: teksturalar GPU'da mip darajalari bilan, model vertex / indeks buferlari,\n"
-                 "xotiraga ochilgan tovushlar (oqim bilan ijro etiladiganlar hisobga olinmaydi). Fayllar sarlavhasidan o'qiladi.");
-            card(ICON_FA_SHAPES, "Geometriya", FormatCount(s.MeshVertices) + " vertex",
-                 std::format("{} indeks\n{} uchburchak", FormatCount(s.MeshIndices), FormatCount(s.MeshIndices / 3)),
-                 "Sahnadagi modellar fayllaridagi geometriya (har model bir marta).");
+                 Tr("Yuklangandagi taxminiy hajm: teksturalar GPU'da mip darajalari bilan, model vertex / indeks buferlari,\n"
+                 "xotiraga ochilgan tovushlar (oqim bilan ijro etiladiganlar hisobga olinmaydi). Fayllar sarlavhasidan o'qiladi."));
+            card(ICON_FA_SHAPES, Tr("Geometriya"), FormatCount(s.MeshVertices) + Tr(" vertex"),
+                 TrFormat("{} indeks\n{} uchburchak", FormatCount(s.MeshIndices), FormatCount(s.MeshIndices / 3)),
+                 Tr("Sahnadagi modellar fayllaridagi geometriya (har model bir marta)."));
             ImGui::EndTable();
         }
 
@@ -248,7 +248,7 @@ namespace Zamin {
             UI::Tooltip(m_SceneState == SceneState::Edit ? "Sahna o'zgarganda o'zi yangilanadi; tugma fayllarni ham qayta o'qiydi."
                                                          : "O'yin ketmoqda: har soniyada yangilanadi.");
         ImGui::SameLine();
-        UI::SearchBox("##statsSearch", m_SceneStatsSearch, "Nom bo'yicha qidirish (komponent, klass, asset)...");
+        UI::SearchBox("##statsSearch", m_SceneStatsSearch, Tr("Nom bo'yicha qidirish (komponent, klass, asset)..."));
 
         const std::string& search = m_SceneStatsSearch;
         const bool ctrl = ImGui::GetIO().KeyCtrl;
@@ -273,17 +273,17 @@ namespace Zamin {
         if (ImGui::BeginTabBar("##statsTabs"))
         {
             // ---- components
-            if (ImGui::BeginTabItem(std::format(ICON_FA_LAYER_GROUP "  Komponentlar ({})###statsComponents", s.Components.size()).c_str(), nullptr, tabFlags(0)))
+            if (ImGui::BeginTabItem(TrFormat(ICON_FA_LAYER_GROUP "  Komponentlar ({})###statsComponents", s.Components.size()).c_str(), nullptr, tabFlags(0)))
             {
                 if (ImGui::BeginTable("##statsComponentTable", 3, s_TableFlags))
                 {
                     auto& sort = m_SceneStatsSort[0];
                     ImGui::TableSetupScrollFreeze(0, 1);
-                    ImGui::TableSetupColumn("Komponent", SortFlags(SceneStatsColumn::Name, sort.first, sort.second, ImGuiTableColumnFlags_WidthStretch),
+                    ImGui::TableSetupColumn(Tr("Komponent"), SortFlags(SceneStatsColumn::Name, sort.first, sort.second, ImGuiTableColumnFlags_WidthStretch),
                                             0.0f, (ImGuiID)SceneStatsColumn::Name);
-                    ImGui::TableSetupColumn("Obyektlar", SortFlags(SceneStatsColumn::Count, sort.first, sort.second, ImGuiTableColumnFlags_WidthFixed |
+                    ImGui::TableSetupColumn(Tr("Obyektlar"), SortFlags(SceneStatsColumn::Count, sort.first, sort.second, ImGuiTableColumnFlags_WidthFixed |
                                             ImGuiTableColumnFlags_PreferSortDescending), 80.0f, (ImGuiID)SceneStatsColumn::Count);
-                    ImGui::TableSetupColumn("Ulushi", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort, 160.0f, 99);
+                    ImGui::TableSetupColumn(Tr("Ulushi"), ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort, 160.0f, 99);
                     ImGui::TableHeadersRow();
                     if (TakeSortSpecs(sort.first, sort.second))
                         SortSceneStatsGroups(m_SceneStatistics.Components, sort.first, sort.second);
@@ -319,7 +319,7 @@ namespace Zamin {
             }
 
             // ---- scripts
-            if (ImGui::BeginTabItem(std::format(ICON_FA_CODE "  Skriptlar ({})###statsScripts", s.Scripts.size()).c_str(), nullptr, tabFlags(1)))
+            if (ImGui::BeginTabItem(TrFormat(ICON_FA_CODE "  Skriptlar ({})###statsScripts", s.Scripts.size()).c_str(), nullptr, tabFlags(1)))
             {
                 ImGui::Text("Engine SDK: %s",ModuleABI::EngineFingerprint().substr(0,16).c_str());
                 auto candidate=Project::GetScriptModulePath();
@@ -330,27 +330,27 @@ namespace Zamin {
                     if(checkedPath!=candidate||checkedTime!=time||ec)
                     {checkedPath=candidate;checkedTime=time;checked=ModuleABI::Inspect(candidate);}
                     ImGui::TextWrapped("%s",checked.Message.c_str());
-                    if(ScriptEngine::IsModuleLoaded())ImGui::TextDisabled("Ishlayotgan modul: %s",ScriptEngine::GetModulePath().filename().c_str());
+                    if(ScriptEngine::IsModuleLoaded())ImGui::TextDisabled(Tr("Ishlayotgan modul: %s"),ScriptEngine::GetModulePath().filename().c_str());
                 }
                 ImGui::Separator();
                 if (s.Scripts.empty())
-                    ImGui::TextDisabled("Sahnada C++ skript komponenti yo'q");
+                    ImGui::TextDisabled("%s", Tr("Sahnada C++ skript komponenti yo'q"));
                 else if (ImGui::BeginTable("##statsScriptTable", 4, s_TableFlags))
                 {
                     auto& sort = m_SceneStatsSort[1];
                     ImGui::TableSetupScrollFreeze(0, 1);
-                    ImGui::TableSetupColumn("Klass", SortFlags(SceneStatsColumn::Name, sort.first, sort.second, ImGuiTableColumnFlags_WidthStretch),
+                    ImGui::TableSetupColumn(Tr("Klass"), SortFlags(SceneStatsColumn::Name, sort.first, sort.second, ImGuiTableColumnFlags_WidthStretch),
                                             0.0f, (ImGuiID)SceneStatsColumn::Name);
-                    ImGui::TableSetupColumn("Obyektlar", SortFlags(SceneStatsColumn::Count, sort.first, sort.second, ImGuiTableColumnFlags_WidthFixed |
+                    ImGui::TableSetupColumn(Tr("Obyektlar"), SortFlags(SceneStatsColumn::Count, sort.first, sort.second, ImGuiTableColumnFlags_WidthFixed |
                                             ImGuiTableColumnFlags_PreferSortDescending), 80.0f, (ImGuiID)SceneStatsColumn::Count);
-                    ImGui::TableSetupColumn("Holat", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort, 170.0f, 99);
-                    ImGui::TableSetupColumn("Manba", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort, 190.0f, 98);
+                    ImGui::TableSetupColumn(Tr("Holat"), ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort, 170.0f, 99);
+                    ImGui::TableSetupColumn(Tr("Manba"), ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort, 190.0f, 98);
                     ImGui::TableHeadersRow();
                     if (TakeSortSpecs(sort.first, sort.second))
                         SortSceneStatsGroups(m_SceneStatistics.Scripts, sort.first, sort.second);
                     for (const SceneStatsGroup& g : s.Scripts)
                     {
-                        const std::string label = g.Key.empty() ? std::string("(klass tanlanmagan)") : g.Key;
+                        const std::string label = g.Key.empty() ? std::string(Tr("(klass tanlanmagan)")) : g.Key;
                         if (!ContainsNoCase(label, search))
                             continue;
                         ImGui::PushID(label.c_str());
@@ -380,17 +380,17 @@ namespace Zamin {
                             if (ImGui::SmallButton(where.c_str()))
                                 OpenInCodeEditor(source.File, source.Line, source.Column);
                             if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-                                UI::Tooltip(std::format("{}\nKod muharririda ochish", source.File.string()).c_str());
+                                UI::Tooltip(TrFormat("{}\nKod muharririda ochish", source.File.string()).c_str());
                         }
                         else
-                            ImGui::TextDisabled("%s", g.Key.empty() ? "-" : "topilmadi");
+                            ImGui::TextDisabled("%s", g.Key.empty() ? "-" : Tr("topilmadi"));
                         ImGui::TableSetColumnIndex(2);
                         if (g.Key.empty())
                             ImGui::TextDisabled("-");
                         else if (ScriptRegistry::Find(g.Key))
-                            ImGui::TextColored(ImVec4(0.45f, 0.85f, 0.55f, 1.0f), ICON_FA_CHECK "  ro'yxatda");
+                            ImGui::TextColored(ImVec4(0.45f, 0.85f, 0.55f, 1.0f), "%s", Tr(ICON_FA_CHECK "  ro'yxatda"));
                         else
-                            ImGui::TextColored(ImVec4(0.95f, 0.65f, 0.35f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  modulda topilmadi");
+                            ImGui::TextColored(ImVec4(0.95f, 0.65f, 0.35f, 1.0f), "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION "  modulda topilmadi"));
                         ImGui::PopID();
                     }
                     ImGui::EndTable();
@@ -399,17 +399,17 @@ namespace Zamin {
             }
 
             // ---- prefabs
-            if (ImGui::BeginTabItem(std::format(ICON_FA_BOX "  Prefablar ({})###statsPrefabs", s.Prefabs.size()).c_str(), nullptr, tabFlags(2)))
+            if (ImGui::BeginTabItem(TrFormat(ICON_FA_BOX "  Prefablar ({})###statsPrefabs", s.Prefabs.size()).c_str(), nullptr, tabFlags(2)))
             {
                 if (s.Prefabs.empty())
-                    ImGui::TextDisabled("Sahnada prefab nusxasi yo'q (prefabni kontent brauzerdan sahnaga sudrab qo'ying)");
+                    ImGui::TextDisabled("%s", Tr("Sahnada prefab nusxasi yo'q (prefabni kontent brauzerdan sahnaga sudrab qo'ying)"));
                 else if (ImGui::BeginTable("##statsPrefabTable", 2, s_TableFlags))
                 {
                     auto& sort = m_SceneStatsSort[2];
                     ImGui::TableSetupScrollFreeze(0, 1);
                     ImGui::TableSetupColumn("Prefab", SortFlags(SceneStatsColumn::Name, sort.first, sort.second, ImGuiTableColumnFlags_WidthStretch),
                                             0.0f, (ImGuiID)SceneStatsColumn::Name);
-                    ImGui::TableSetupColumn("Nusxalar", SortFlags(SceneStatsColumn::Count, sort.first, sort.second, ImGuiTableColumnFlags_WidthFixed |
+                    ImGui::TableSetupColumn(Tr("Nusxalar"), SortFlags(SceneStatsColumn::Count, sort.first, sort.second, ImGuiTableColumnFlags_WidthFixed |
                                             ImGuiTableColumnFlags_PreferSortDescending), 80.0f, (ImGuiID)SceneStatsColumn::Count);
                     ImGui::TableHeadersRow();
                     if (TakeSortSpecs(sort.first, sort.second))
@@ -451,7 +451,7 @@ namespace Zamin {
             }
 
             // ---- assets
-            if (ImGui::BeginTabItem(std::format(ICON_FA_FOLDER_OPEN "  Assetlar ({})###statsAssets", s.Assets.size()).c_str(), nullptr, tabFlags(3)))
+            if (ImGui::BeginTabItem(TrFormat(ICON_FA_FOLDER_OPEN "  Assetlar ({})###statsAssets", s.Assets.size()).c_str(), nullptr, tabFlags(3)))
             {
                 // The type filter: the types the scene names.
                 std::vector<AssetType> present;
@@ -460,13 +460,13 @@ namespace Zamin {
                         present.push_back(a.Type);
                 std::sort(present.begin(), present.end());
                 ImGui::SetNextItemWidth(170.0f);
-                const char* current = m_SceneStatsAssetType < 0 ? "Hamma turlar" : AssetFiles::GetTypeName((AssetType)m_SceneStatsAssetType);
+                const char* current = m_SceneStatsAssetType < 0 ? Tr("Hamma turlar") : Tr(AssetFiles::GetTypeName((AssetType)m_SceneStatsAssetType));
                 if (ImGui::BeginCombo("##statsAssetType", current))
                 {
                     if (ImGui::Selectable(Tr("Hamma turlar"), m_SceneStatsAssetType < 0))
                         m_SceneStatsAssetType = -1;
                     for (AssetType type : present)
-                        if (ImGui::Selectable(std::format("{} ({})", AssetFiles::GetTypeName(type), s.CountAssets(type)).c_str(),
+                        if (ImGui::Selectable(std::format("{} ({})", Tr(AssetFiles::GetTypeName(type)), s.CountAssets(type)).c_str(),
                                               m_SceneStatsAssetType == (int)type))
                             m_SceneStatsAssetType = (int)type;
                     ImGui::EndCombo();
@@ -487,12 +487,12 @@ namespace Zamin {
                     missing += a.Exists ? 0 : 1;
                 }
                 ImGui::SameLine();
-                ImGui::TextDisabled("%zu ta  |  fayllar %s  |  xotira %s", shown.size(), AssetFiles::FormatSize(shownSize).c_str(),
+                ImGui::TextDisabled(Tr("%zu ta  |  fayllar %s  |  xotira %s"), shown.size(), AssetFiles::FormatSize(shownSize).c_str(),
                                     AssetFiles::FormatSize(shownMemory).c_str());
                 if (missing > 0)
                 {
                     ImGui::SameLine();
-                    ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.4f, 1.0f), ICON_FA_LINK_SLASH "  %zu ta topilmadi", missing);
+                    ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.4f, 1.0f), Tr(ICON_FA_LINK_SLASH "  %zu ta topilmadi"), missing);
                 }
 
                 if (ImGui::BeginTable("##statsAssetTable", 6, s_TableFlags))
@@ -503,11 +503,11 @@ namespace Zamin {
                     };
                     ImGui::TableSetupScrollFreeze(0, 1);
                     column("Asset", SceneStatsColumn::Name, ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_NoHide, 0.0f);
-                    column("Turi", SceneStatsColumn::Type, ImGuiTableColumnFlags_WidthFixed, 80.0f);
-                    column("Obyektlar", SceneStatsColumn::Count, ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_PreferSortDescending, 70.0f);
-                    ImGui::TableSetupColumn("Ma'lumot", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort, 230.0f, 99);
-                    column("Fayl", SceneStatsColumn::Size, ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_PreferSortDescending, 70.0f);
-                    column("Xotira", SceneStatsColumn::Memory, ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_PreferSortDescending, 80.0f);
+                    column(Tr("Turi"), SceneStatsColumn::Type, ImGuiTableColumnFlags_WidthFixed, 80.0f);
+                    column(Tr("Obyektlar"), SceneStatsColumn::Count, ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_PreferSortDescending, 70.0f);
+                    ImGui::TableSetupColumn(Tr("Ma'lumot"), ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort, 230.0f, 99);
+                    column(Tr("Fayl"), SceneStatsColumn::Size, ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_PreferSortDescending, 70.0f);
+                    column(Tr("Xotira"), SceneStatsColumn::Memory, ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_PreferSortDescending, 80.0f);
                     ImGui::TableHeadersRow();
                     if (TakeSortSpecs(sort.first, sort.second))
                         SortSceneAssetStats(m_SceneStatistics.Assets, sort.first, sort.second);
@@ -537,10 +537,10 @@ namespace Zamin {
                                 std::string components;
                                 for (const std::string& c : a.Components)
                                     components += (components.empty() ? "" : ", ") +
-                                                  std::string(c == "Settings" ? "Sahna sozlamalari" : SceneHierarchyPanel::GetComponentDisplayName(c));
-                                ImGui::TextDisabled("%u marta nomlangan: %s", a.Uses, components.c_str());
+                                                  std::string(c == "Settings" ? Tr("Sahna sozlamalari") : SceneHierarchyPanel::GetComponentDisplayName(c));
+                                ImGui::TextDisabled(Tr("%u marta nomlangan: %s"), a.Uses, components.c_str());
                                 for (const std::string& material : a.ViaMaterials)
-                                    ImGui::TextDisabled(ICON_FA_PALETTE "  material orqali: %s", material.c_str());
+                                    ImGui::TextDisabled(Tr(ICON_FA_PALETTE "  material orqali: %s"), material.c_str());
                                 ImGui::Separator();
                                 UI_StatsEntityTooltip(a.Entities);
                                 ImGui::EndTooltip();
@@ -556,10 +556,10 @@ namespace Zamin {
                                 ImGui::EndPopup();
                             }
                             ImGui::TableSetColumnIndex(1);
-                            ImGui::TextDisabled("%s", AssetFiles::GetTypeName(a.Type));
+                            ImGui::TextDisabled("%s", Tr(AssetFiles::GetTypeName(a.Type)));
                             ImGui::TableSetColumnIndex(2);
                             if (a.Entities.empty())
-                                ImGui::TextDisabled("%s", a.Components.size() == 1 && a.Components[0] == "Settings" ? "sahna" : "-");
+                                ImGui::TextDisabled("%s", a.Components.size() == 1 && a.Components[0] == "Settings" ? Tr("sahna") : "-");
                             else
                                 ImGui::TextUnformatted(FormatCount(a.Entities.size()).c_str());
                             ImGui::TableSetColumnIndex(3);

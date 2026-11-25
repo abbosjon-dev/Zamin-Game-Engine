@@ -34709,6 +34709,59 @@ TEST(EditorLanguageStrings)
     CHECK(keys.size() == EditorText::GetTranslationCount() && keys.size() > 300);
     for (const std::string& key : keys)
         CHECK(!key.empty() && EditorText::HasTranslation(key));
+    // A text with placeholders (printf's %d, std::format's {}) takes the same arguments in both languages: the
+    // editor formats with the translated text (ImGui::Text(Tr("%zu ta"), n), TrFormat("{} ta obyekt", n)).
+    {
+        const auto placeholders = [](std::string_view text) {
+            std::vector<std::string> printfSpecs, formatSpecs;
+            for (size_t i = 0; i < text.size(); i++)
+            {
+                if (text[i] == '%')
+                {
+                    size_t end = i + 1;
+                    while (end < text.size() && std::strchr("-+#0123456789.", text[end]))
+                        end++;
+                    while (end < text.size() && std::strchr("hlzjt", text[end]))
+                        end++;
+                    if (end < text.size() && std::strchr("diouxXeEfgGcsp%", text[end]))
+                    {
+                        if (text[end] != '%')
+                            printfSpecs.emplace_back(text.substr(i, end + 1 - i));
+                        i = end;
+                    }
+                }
+                else if (text[i] == '{')
+                {
+                    if (i + 1 < text.size() && text[i + 1] == '{')
+                    {
+                        i++;
+                        continue;
+                    }
+                    const size_t end = text.find('}', i);
+                    if (end == std::string_view::npos)
+                        break;
+                    std::string_view field = text.substr(i + 1, end - i - 1);
+                    const bool formatField = field.empty() || field[0] == ':' || std::isdigit((unsigned char)field[0]);
+                    if (formatField)
+                    {
+                        const size_t colon = field.find(':');
+                        formatSpecs.emplace_back(colon == std::string_view::npos ? std::string_view() : field.substr(colon));
+                    }
+                    i = end;
+                }
+            }
+            std::sort(formatSpecs.begin(), formatSpecs.end()); // the English text may order them by index: {1} ... {0}
+            return std::pair(printfSpecs, formatSpecs);
+        };
+        size_t different = 0;
+        for (const std::string& key : keys)
+            if (placeholders(key) != placeholders(Tr(std::string_view(key))))
+            {
+                different++;
+                std::printf("    placeholders differ: %s -> %s\n", key.c_str(), Tr(std::string_view(key)).c_str());
+            }
+        CHECK(different == 0);
+    }
     // Every category title of the project settings window has an English one.
     for (const ProjectSettingsCategory& category : ProjectSettingsIndex::GetCategories())
         CHECK(EditorText::HasTranslation(category.Title));
@@ -47343,7 +47396,7 @@ TEST(EditorTranslationKeysComplete)
     // Every literal label the editor's code gives Tr() or a UI helper that translates its label
     // (PropertyLabel / PropertyHeader / Property* / TextCentered) has an English text: a new label
     // without one stays Uzbek in the English editor, and this test names it.
-    static const std::set<std::string> translating = { "Tr", "TextCentered", "PropertyLabel", "PropertyHeader", "PropertyAssetPath",
+    static const std::set<std::string> translating = { "Tr", "TrFormat", "TextCentered", "PropertyLabel", "PropertyHeader", "PropertyAssetPath",
                                                        "PropertyBool", "PropertyColor3", "PropertyColor4", "PropertyCombo", "PropertyCurve",
                                                        "PropertyEmission", "PropertyFloat", "PropertyFloat2", "PropertyFloat3", "PropertyFloat4",
                                                        "PropertyGradient", "PropertyInt", "PropertySegmented", "PropertySlider", "PropertyString" };
@@ -47401,5 +47454,270 @@ TEST(EditorTranslationKeysComplete)
     for (const std::string& m : missing)
         std::printf("    inglizchasi yo'q: %s\n", m.c_str());
     CHECK(files > 50 && labels > 1000);
+    CHECK(missing.empty());
+}
+
+TEST(EditorNoRawUzbekLiterals)
+{
+    // Every text the editor shows goes through Tr (or a helper that translates it): the English editor must
+    // not show Uzbek. A string literal in Editor/src that reads as Uzbek - it has a word the translation
+    // table's Uzbek keys use and its English texts do not, or an o' / g' letter - fails here when it is
+    // handed to anything else (ImGui::Text, a tooltip call, std::format, a return value ...), and a literal
+    // inside a translating call fails when the table has no pair for it. Allowed without Tr: log macros
+    // (the log's own language), texts that are compared rather than shown (==, starts_with, find ...), and
+    // braced tables of Uzbek keys whose every key has a pair (they are translated where they are shown).
+    // The limit of the check: an Uzbek text made only of words the table has never seen is not recognized.
+    static const std::set<std::string> translating = { "Tr", "TrFormat", "Choose", "TextCentered", "Tooltip", "ToolbarButton", "TrCombo",
+                                                       "PropertyLabel", "PropertyHeader", "PropertyAssetPath", "PropertyBool", "PropertyColor3",
+                                                       "PropertyColor4", "PropertyCombo", "PropertyCurve", "PropertyEmission", "PropertyFloat",
+                                                       "PropertyFloat2", "PropertyFloat3", "PropertyFloat4", "PropertyGradient", "PropertyInt",
+                                                       "PropertySegmented", "PropertySlider", "PropertyString", "SearchBox", "Line" };
+    static const std::set<std::string> notShown = { "ZM_INFO", "ZM_WARN", "ZM_ERROR", "ZM_TRACE", "ZM_CRITICAL", "ZM_CORE_INFO", "ZM_CORE_WARN",
+                                                    "ZM_CORE_ERROR", "ZM_ASSERT", "ZM_CORE_ASSERT", "ZM_PROFILE_SCOPE", "static_assert",
+                                                    "starts_with", "ends_with", "find", "rfind", "compare", "strcmp", "strncmp", "contains",
+                                                    "getenv", "FindLayer" };
+    const auto isWord = [](char c) { return std::isalnum((unsigned char)c) || c == '_'; };
+    // Lower-case words: letters, with apostrophes inside (o'yin, viewport'da).
+    const auto wordsOf = [](std::string_view text) {
+        std::vector<std::string> out;
+        std::string word;
+        const auto flush = [&]() {
+            while (!word.empty() && word.back() == '\'')
+                word.pop_back();
+            if (!word.empty())
+                out.push_back(word);
+            word.clear();
+        };
+        for (char c : text)
+        {
+            if (std::isalpha((unsigned char)c))
+                word += (char)std::tolower((unsigned char)c);
+            else if (c == '\'' && !word.empty())
+                word += c;
+            else
+                flush();
+        }
+        flush();
+        return out;
+    };
+    const EditorLanguage before = EditorText::GetLanguage();
+    EditorText::SetLanguage(EditorLanguage::English);
+    std::unordered_set<std::string> english, uzbek;
+    const std::vector<std::string> keys = EditorText::GetTranslationKeys();
+    for (const std::string& key : keys)
+        for (std::string& w : wordsOf(Tr(std::string_view(key))))
+            english.insert(std::move(w));
+    for (const std::string& key : keys)
+        for (std::string& w : wordsOf(key))
+            if (w.size() >= 3 && !english.contains(w))
+                uzbek.insert(std::move(w));
+    EditorText::SetLanguage(before);
+    CHECK(uzbek.size() > 2000);
+    const auto looksUzbek = [&](std::string_view text) {
+        for (const std::string& w : wordsOf(text))
+        {
+            if (uzbek.contains(w))
+                return true;
+            if (!english.contains(w) && (w.find("o'") != std::string::npos || w.find("g'") != std::string::npos) && w.back() != '\'')
+                if (const size_t at = w.find('\''); at + 1 < w.size() && std::isalpha((unsigned char)w[at + 1]) && w.substr(at) != "'s" && w.substr(at) != "'t")
+                    return true;
+        }
+        return false;
+    };
+
+    struct Frame
+    {
+        std::string Name; // the function called ("" for other brackets)
+        bool Table = false; // a braced initializer list
+    };
+    std::vector<std::string> raw, missing;
+    size_t files = 0, translated = 0, tables = 0;
+    for (const auto& entry : std::filesystem::recursive_directory_iterator(std::filesystem::path(ZAMIN_SOURCE_DIR) / "Editor" / "src"))
+    {
+        const std::string ext = entry.path().extension().string();
+        const std::string file = entry.path().filename().string();
+        if (!entry.is_regular_file() || (ext != ".cpp" && ext != ".h"))
+            continue;
+        if (file == "EditorSmokeTest.cpp")
+            continue; // the smoke test's own step names (its report, not the editor's UI)
+        files++;
+        std::ifstream in(entry.path(), std::ios::binary);
+        const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        std::vector<Frame> stack;
+        std::string lastWord, lastToken; // the identifier / the token before the current position
+        char previous = ';', beforePrevious = ';';
+        size_t line = 1;
+        for (size_t at = 0; at < text.size();)
+        {
+            const char c = text[at];
+            if (c == '\n') { line++; at++; continue; }
+            if (std::isspace((unsigned char)c)) { at++; continue; }
+            if (text.compare(at, 2, "//") == 0) { at = std::min(text.find('\n', at), text.size()); continue; }
+            if (text.compare(at, 2, "/*") == 0)
+            {
+                const size_t end = std::min(text.find("*/", at), text.size());
+                line += (size_t)std::count(text.begin() + (ptrdiff_t)at, text.begin() + (ptrdiff_t)end, '\n');
+                at = std::min(end + 2, text.size());
+                continue;
+            }
+            if (c == '#' && text.compare(at, 8, "#include") == 0) { at = std::min(text.find('\n', at), text.size()); continue; }
+            if (c == '\'')
+            {
+                for (at++; at < text.size() && text[at] != '\''; at++)
+                    if (text[at] == '\\')
+                        at++;
+                at++;
+                previous = '0', lastWord.clear();
+                continue;
+            }
+            if (isWord(c) && !(text.compare(at, 2, "R\"") == 0))
+            {
+                size_t end = at;
+                while (end < text.size() && isWord(text[end]))
+                    end++;
+                const std::string word = text.substr(at, end - at);
+                // An icon macro before a literal belongs to the literal (ICON_FA_GEAR "  Sozlamalar").
+                size_t next = end;
+                while (next < text.size() && std::isspace((unsigned char)text[next]))
+                    next++;
+                if (!(word.starts_with("ICON_FA_") && next < text.size() && text[next] == '"'))
+                {
+                    lastWord = word;
+                    beforePrevious = previous, previous = 'a';
+                }
+                at = end;
+                continue;
+            }
+            if (c == '"' || text.compare(at, 2, "R\"") == 0)
+            {
+                // The literal with the ones (and the icon macros) that follow it.
+                const size_t startLine = line;
+                std::string value;
+                bool iconInside = false;
+                while (at < text.size())
+                {
+                    if (text[at] == '"')
+                    {
+                        size_t end = at + 1;
+                        while (end < text.size() && text[end] != '"')
+                            end += text[end] == '\\' ? 2 : 1;
+                        value += UnescapeLiteral(std::string_view(text).substr(at + 1, end - at - 1));
+                        at = std::min(end + 1, text.size());
+                    }
+                    else if (text.compare(at, 2, "R\"") == 0)
+                    {
+                        const size_t open = text.find('(', at);
+                        const std::string close = ")" + text.substr(at + 2, open - at - 2) + "\"";
+                        const size_t end = std::min(text.find(close, open), text.size());
+                        line += (size_t)std::count(text.begin() + (ptrdiff_t)at, text.begin() + (ptrdiff_t)end, '\n');
+                        at = std::min(end + close.size(), text.size());
+                    }
+                    size_t next = at;
+                    size_t newlines = 0;
+                    while (next < text.size() && std::isspace((unsigned char)text[next]))
+                        newlines += text[next++] == '\n';
+                    if (text.compare(next, 8, "ICON_FA_") == 0)
+                    {
+                        size_t end = next;
+                        while (end < text.size() && isWord(text[end]))
+                            end++;
+                        size_t after = end;
+                        while (after < text.size() && std::isspace((unsigned char)text[after]))
+                            newlines += text[after++] == '\n';
+                        if (after < text.size() && text[after] == '"')
+                        {
+                            iconInside = iconInside || !value.empty();
+                            next = after;
+                        }
+                    }
+                    if (next < text.size() && (text[next] == '"' || text.compare(next, 2, "R\"") == 0))
+                    {
+                        line += newlines;
+                        at = next;
+                        continue;
+                    }
+                    break;
+                }
+                size_t next = at;
+                while (next < text.size() && std::isspace((unsigned char)text[next]))
+                    next++;
+                const bool compared = (previous == '=' && (beforePrevious == '=' || beforePrevious == '!')) || text.compare(next, 2, "==") == 0 ||
+                                      text.compare(next, 2, "!=") == 0 || lastWord == "case";
+                bool inTranslating = false, hidden = false;
+                for (const Frame& f : stack)
+                {
+                    inTranslating = inTranslating || translating.contains(f.Name);
+                    hidden = hidden || notShown.contains(f.Name);
+                }
+                const std::string core(EditorText::Split(value).Core);
+                const std::string where = file + ":" + std::to_string(startLine) + ": " + core.substr(0, 70);
+                // A file name ("editor-layout.ini") is not a text.
+                const size_t dot = core.rfind('.');
+                const bool fileName = core.find(' ') == std::string::npos && dot != std::string::npos && dot + 1 < core.size() &&
+                                      std::all_of(core.begin() + (ptrdiff_t)dot + 1, core.end(), [](char ch) { return std::isalnum((unsigned char)ch); });
+                if (!iconInside && !hidden && !fileName && looksUzbek(core))
+                {
+                    if (inTranslating)
+                    {
+                        translated++;
+                        if (!EditorText::HasTranslation(core))
+                            missing.push_back(where);
+                    }
+                    else if (!compared)
+                    {
+                        if (!stack.empty() && stack.back().Table && EditorText::HasTranslation(core))
+                            tables++;
+                        else
+                            raw.push_back(where);
+                    }
+                }
+                beforePrevious = previous, previous = '"';
+                lastWord.clear();
+                continue;
+            }
+            if (c == '(' || c == '[' || c == '{')
+            {
+                Frame f;
+                if (c == '(' && previous == 'a')
+                    f.Name = lastWord;
+                if (c == '{')
+                {
+                    // A block follows ")" / ";" / "}" / else / do / try ...; anything else opens an initializer list
+                    // (inside a block-less list every brace is a list).
+                    static const std::set<std::string> blockWords = { "else", "do", "try", "const", "noexcept", "override", "mutable", "final" };
+                    const bool block = previous == ')' || previous == ']' || previous == ';' || previous == '}' ||
+                                       (previous == 'a' && blockWords.contains(lastWord));
+                    const bool parentTable = !stack.empty() && stack.back().Table;
+                    f.Table = previous == '{' ? parentTable : !block;
+                    // "struct X {", "namespace N {", "enum class E {" are blocks.
+                    if (f.Table && previous == 'a')
+                    {
+                        size_t back = at;
+                        while (back > 0 && text[back - 1] != ';' && text[back - 1] != '{' && text[back - 1] != '}' && text[back - 1] != '(' &&
+                               text[back - 1] != ')' && text[back - 1] != '=' && text[back - 1] != ',')
+                            back--;
+                        const std::string_view head = std::string_view(text).substr(back, at - back);
+                        for (const char* keyword : { "struct ", "class ", "enum ", "namespace ", "union " })
+                            if (head.find(keyword) != std::string_view::npos)
+                                f.Table = false;
+                    }
+                }
+                stack.push_back(std::move(f));
+            }
+            else if ((c == ')' || c == ']' || c == '}') && !stack.empty())
+                stack.pop_back();
+            beforePrevious = previous, previous = c;
+            lastWord.clear();
+            at++;
+        }
+    }
+    std::sort(raw.begin(), raw.end());
+    std::sort(missing.begin(), missing.end());
+    for (const std::string& m : raw)
+        std::printf("    raw Uzbek literal (route it through Tr): %s\n", m.c_str());
+    for (const std::string& m : missing)
+        std::printf("    no English text for: %s\n", m.c_str());
+    CHECK(files > 50 && translated > 2500 && tables > 100);
+    CHECK(raw.empty());
     CHECK(missing.empty());
 }

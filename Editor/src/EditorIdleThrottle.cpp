@@ -46,20 +46,20 @@ namespace Zamin {
         const float em = ImGui::GetFontSize();
         IdleThrottleSettings& idle = m_Preferences.Idle;
         ImGui::SeparatorText(Tr("Bo'sh turganda kadrlarni kamaytirish"));
-        ImGui::TextWrapped("Editor oynasi orqada bo'lsa yoki hech narsa bo'lmayotgan bo'lsa (kiritish yo'q, o'yin ishlamayapti, "
+        ImGui::TextWrapped("%s", Tr("Editor oynasi orqada bo'lsa yoki hech narsa bo'lmayotgan bo'lsa (kiritish yo'q, o'yin ishlamayapti, "
                            "ko'rib chiqish ijro etilmayapti, hech narsa yuklanmayapti) editor kamroq kadr chizadi - protsessor va "
-                           "videokarta bekorga ishlamaydi. Sichqoncha yoki klaviatura darhol to'liq tezlikka qaytaradi.");
+                           "videokarta bekorga ishlamaydi. Sichqoncha yoki klaviatura darhol to'liq tezlikka qaytaradi."));
         ImGui::Spacing();
         changed |= ImGui::Checkbox(Tr("Yoqilgan"), &idle.Enabled);
         ImGui::BeginDisabled(!idle.Enabled);
         ImGui::SetNextItemWidth(em * 14.0f);
-        changed |= ImGui::SliderFloat("Oyna orqada (FPS)", &idle.UnfocusedFPS, IdleThrottleSettings::MinFPS, 60.0f, "%.0f");
+        changed |= ImGui::SliderFloat(Tr("Oyna orqada (FPS)"), &idle.UnfocusedFPS, IdleThrottleSettings::MinFPS, 60.0f, "%.0f");
         if (ImGui::IsItemHovered())
             UI::Tooltip("Boshqa dastur oldinda bo'lganda (o'yin ishlayotganda cheklanmaydi)");
         ImGui::SetNextItemWidth(em * 14.0f);
-        changed |= ImGui::SliderFloat("Bo'sh turganda (FPS)", &idle.IdleFPS, IdleThrottleSettings::MinFPS, IdleThrottleSettings::MaxFPS, "%.0f");
+        changed |= ImGui::SliderFloat(Tr("Bo'sh turganda (FPS)"), &idle.IdleFPS, IdleThrottleSettings::MinFPS, IdleThrottleSettings::MaxFPS, "%.0f");
         ImGui::SetNextItemWidth(em * 14.0f);
-        changed |= ImGui::SliderFloat("Kutish (s)", &idle.IdleDelay, IdleThrottleSettings::MinDelay, IdleThrottleSettings::MaxDelay, "%.1f s",
+        changed |= ImGui::SliderFloat(Tr("Kutish (s)"), &idle.IdleDelay, IdleThrottleSettings::MinDelay, IdleThrottleSettings::MaxDelay, "%.1f s",
                                       ImGuiSliderFlags_Logarithmic);
         if (ImGui::IsItemHovered())
             UI::Tooltip("Oxirgi kiritishdan keyin shuncha vaqt to'liq tezlikda chiziladi (tooltip, animatsiyalar tugaydi)");
@@ -70,19 +70,19 @@ namespace Zamin {
         // What it is doing right now.
         ImGui::SeparatorText(Tr("Hozir"));
         const IdleThrottleState& s = m_IdleState;
-        const char* why = !idle.Enabled ? "o'chirilgan"
-                        : s.Automation ? "avtomatlashtirish (ZAMIN_MAX_FRAMES) - cheklanmaydi"
-                        : s.Running ? "o'yin / simulyatsiya ishlayapti"
-                        : s.PendingWork ? "fonda ish bor (kompilyatsiya, yuklash, rasmlar)"
-                        : !s.Focused ? "oyna orqada"
-                        : s.Animating ? "ko'rib chiqish ijro etilmoqda yoki nimadir surilmoqda"
-                        : s.SecondsSinceInput < idle.IdleDelay ? "yaqinda kiritish bo'ldi"
-                                                                : "bo'sh turibdi";
+        const char* why = !idle.Enabled ? Tr("o'chirilgan")
+                        : s.Automation ? Tr("avtomatlashtirish (ZAMIN_MAX_FRAMES) - cheklanmaydi")
+                        : s.Running ? Tr("o'yin / simulyatsiya ishlayapti")
+                        : s.PendingWork ? Tr("fonda ish bor (kompilyatsiya, yuklash, rasmlar)")
+                        : !s.Focused ? Tr("oyna orqada")
+                        : s.Animating ? Tr("ko'rib chiqish ijro etilmoqda yoki nimadir surilmoqda")
+                        : s.SecondsSinceInput < idle.IdleDelay ? Tr("yaqinda kiritish bo'ldi")
+                                                                : Tr("bo'sh turibdi");
         if (m_FrameLimit.IsLimited())
-            ImGui::TextColored(UI::AccentColor(), ICON_FA_LEAF "  %.0f FPS gacha cheklangan (%s)", m_FrameLimit.FPS, why);
+            ImGui::TextColored(UI::AccentColor(), Tr(ICON_FA_LEAF "  %.0f FPS gacha cheklangan (%s)"), m_FrameLimit.FPS, why);
         else
-            ImGui::Text(ICON_FA_GAUGE_HIGH "  To'liq tezlik (%s)", why);
-        ImGui::TextDisabled("Hozirgi FPS: %.0f   |   oxirgi kiritishdan beri: %.1f s", Application::Get().GetFPS(), s.SecondsSinceInput);
+            ImGui::Text(Tr(ICON_FA_GAUGE_HIGH "  To'liq tezlik (%s)"), why);
+        ImGui::TextDisabled(Tr("Hozirgi FPS: %.0f   |   oxirgi kiritishdan beri: %.1f s"), Application::Get().GetFPS(), s.SecondsSinceInput);
         ImGui::Spacing();
         if (ImGui::Button(Tr(ICON_FA_ARROW_ROTATE_LEFT "  Standart qiymatlar")))
         {

@@ -104,7 +104,7 @@ namespace Zamin {
         if (Project::GetActive())
             scenes = m_RecentScenes.GetForOwner(Canonical(Project::GetProjectFilePath()), 12);
         if (m_OpenMenu.ends_with("/recent") && !scenes.empty())
-            ImGui::OpenPopup(ICON_FA_CLOCK_ROTATE_LEFT "  So'nggi sahnalar");
+            ImGui::OpenPopup(Tr(ICON_FA_CLOCK_ROTATE_LEFT "  So'nggi sahnalar"));
         if (!ImGui::BeginMenu(Tr(ICON_FA_CLOCK_ROTATE_LEFT "  So'nggi sahnalar"), !scenes.empty()))
             return;
         std::optional<RecentFileList::Entry> picked;
@@ -123,7 +123,7 @@ namespace Zamin {
             if (ImGui::MenuItem(label.c_str(), folder.c_str(), isOpen))
                 picked = e;
             if (ImGui::IsItemHovered())
-                UI::Tooltip(std::format("{}\nOchilgan: {}", Project::GetAssetRelativePath(path), FormatTimeAgo(e.Time, now)).c_str());
+                UI::Tooltip(TrFormat("{}\nOchilgan: {}", Project::GetAssetRelativePath(path), FormatTimeAgo(e.Time, now)).c_str());
         }
         ImGui::Separator();
         if (ImGui::MenuItem(Tr(ICON_FA_BROOM "  Ro'yxatni tozalash")))
@@ -145,7 +145,7 @@ namespace Zamin {
         if (scenes.empty())
             return false;
         ImGui::PushFont(ImGuiLayer::GetBoldFont());
-        ImGui::TextUnformatted(ICON_FA_CLOCK_ROTATE_LEFT "  So'nggi sahnalar");
+        ImGui::TextUnformatted(Tr(ICON_FA_CLOCK_ROTATE_LEFT "  So'nggi sahnalar"));
         ImGui::PopFont();
         ImGui::Spacing();
         const int64_t now = GetUnixTime();

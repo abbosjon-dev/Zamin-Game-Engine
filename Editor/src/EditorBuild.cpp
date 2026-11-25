@@ -290,7 +290,7 @@ namespace Zamin {
             ImageData icon;
             std::string error;
             if (!GameIcon::Load(iconFile, icon, &error))
-                warn(std::format("o'yin ikonkasi o'qilmadi ({}) - .desktop faylida ikonka bo'lmaydi", error));
+                warn(TrFormat("o'yin ikonkasi o'qilmadi ({}) - .desktop faylida ikonka bo'lmaydi", error));
         }
         fs::path projectDir = Project::GetProjectDirectory();
         fs::path projectFile = Project::GetProjectFilePath();
@@ -364,10 +364,10 @@ namespace Zamin {
             bool ok = true;
             auto copy = [&](const fs::path& from, const fs::path& to) {
                 std::error_code e;
-                if (!fs::exists(from)) { fail(std::format("topilmadi: {}", from.string())); ok = false; return; }
+                if (!fs::exists(from)) { fail(TrFormat("topilmadi: {}", from.string())); ok = false; return; }
                 fs::create_directories(to.parent_path(), e);
                 fs::copy(from, to, copyOpts, e);
-                if (e) { fail(std::format("nusxalashda xato {}: {}", from.string(), e.message())); ok = false; }
+                if (e) { fail(TrFormat("nusxalashda xato {}: {}", from.string(), e.message())); ok = false; }
             };
 
             // The binaries: the player, the engine (and later the script module) - stripped below.
@@ -396,7 +396,7 @@ namespace Zamin {
                         fs::create_directories((assets / file).parent_path(), e);
                         if (!FileSystem::WriteTextFile(assets / file, baked->second))
                         {
-                            fail(std::format("yozilmadi: {}", (assets / file).string()));
+                            fail(TrFormat("yozilmadi: {}", (assets / file).string()));
                             ok = false;
                         }
                     }
@@ -429,7 +429,7 @@ namespace Zamin {
                         binaryBytes += (size_t)fs::file_size(SceneSerializer::GetBinaryCachePath(it->path()), e);
                     }
                     else
-                        warn(std::format("sahnaning binar keshi yozilmadi ({}): {}", error, it->path().filename().string()));
+                        warn(TrFormat("sahnaning binar keshi yozilmadi ({}): {}", error, it->path().filename().string()));
                 }
                 if (written)
                     ZM_INFO("Eksport: {} ta sahna binar keshga yozildi ({:.1f} KB -> {:.1f} KB)", written, (double)textBytes / 1024.0,
@@ -437,7 +437,7 @@ namespace Zamin {
             }
             if (!registryText.empty() && !FileSystem::WriteTextFile(outputDirectory / "Game" / Project::BuildAssetRegistryFile, registryText))
             {
-                fail("asset registri yozilmadi");
+                fail(Tr("asset registri yozilmadi"));
                 ok = false;
             }
 
@@ -447,7 +447,7 @@ namespace Zamin {
             if (!modulePath.empty())
             {
                 fs::path module = modulePath;
-                std::string how = "editor moduli nusxalandi";
+                std::string how = Tr("editor moduli nusxalandi");
                 if (exportSettings.ReleaseScriptModule && hasSources)
                 {
                     ZM_INFO("Eksport: skript moduli Release'da kompilyatsiya qilinmoqda ({}): {}", moduleBuild.OptimizationFlags,
@@ -475,14 +475,14 @@ namespace Zamin {
                     if (code == 0 && fs::exists(built, e))
                     {
                         module = built;
-                        how = std::format("Release ({}), {:.1f} s da kompilyatsiya qilindi", moduleBuild.OptimizationFlags, seconds);
+                        how = TrFormat("Release ({}), {:.1f} s da kompilyatsiya qilindi", moduleBuild.OptimizationFlags, seconds);
                         ZM_INFO("Eksport: skript moduli {} ({})", how, ExportAssets::FormatSize(fs::file_size(built, e)));
                     }
                     else
                     {
-                        how = "editor moduli nusxalandi (Release kompilyatsiya bo'lmadi)";
-                        warn(std::format("skript moduli Release'da kompilyatsiya qilinmadi{} - editor moduli nusxalandi",
-                                         firstError.empty() ? std::format(" (chiqish kodi {})", code) : ": " + firstError));
+                        how = Tr("editor moduli nusxalandi (Release kompilyatsiya bo'lmadi)");
+                        warn(TrFormat("skript moduli Release'da kompilyatsiya qilinmadi{} - editor moduli nusxalandi",
+                                         firstError.empty() ? TrFormat(" (chiqish kodi {})", code) : ": " + firstError));
                     }
                 }
                 if (fs::exists(module))
@@ -492,8 +492,8 @@ namespace Zamin {
                     const auto abi=ModuleABI::Inspect(destination);
                     if(!abi.Compatible())
                     {
-                        fail("skript moduli SDK/ABI tekshiruvidan o'tmadi: "+abi.Message);
-                        report->ScriptModule="SDK/ABI mos emas";ok=false;
+                        fail(Tr("skript moduli SDK/ABI tekshiruvidan o'tmadi: ")+abi.Message);
+                        report->ScriptModule=Tr("SDK/ABI mos emas");ok=false;
                     }
                     else
                     {
@@ -502,18 +502,18 @@ namespace Zamin {
                 }
                 else
                 {
-                    warn("skript moduli topilmadi - o'yin skriptlarsiz eksport qilinadi");
-                    report->ScriptModule = "yo'q (skriptsiz)";
+                    warn(Tr("skript moduli topilmadi - o'yin skriptlarsiz eksport qilinadi"));
+                    report->ScriptModule = Tr("yo'q (skriptsiz)");
                 }
             }
             else
-                report->ScriptModule = "yo'q (loyihada skript moduli yo'q)";
+                report->ScriptModule = Tr("yo'q (loyihada skript moduli yo'q)");
 
             // The binaries without their debug information and local symbols (much smaller).
             if (exportSettings.StripBinaries)
             {
                 if (!BinaryStrip::IsAvailable())
-                    warn("strip dasturi topilmadi (binutils) - binarlar kichraytirilmadi");
+                    warn(Tr("strip dasturi topilmadi (binutils) - binarlar kichraytirilmadi"));
                 else
                 {
                     uintmax_t before = 0, after = 0;
@@ -566,7 +566,7 @@ namespace Zamin {
                     std::string iconError;
                     const std::vector<uint32_t> sizes = ExportFiles::WriteIconSet(icon, outputDirectory, entryId, &iconError);
                     if (sizes.empty())
-                        warn(std::format("ikonka o'lchamlari yozilmadi: {}", iconError));
+                        warn(TrFormat("ikonka o'lchamlari yozilmadi: {}", iconError));
                     else
                         ZM_INFO("Eksport: ikonka {} o'lchamda ({} ... {} px, icons/hicolor)", sizes.size(), sizes.front(), sizes.back());
                 }
@@ -574,7 +574,7 @@ namespace Zamin {
             if (!FileSystem::WriteTextFile(outputDirectory / (name + ".desktop"),
                                            ExportFiles::MakeRelocatableDesktopEntry(productName, player, launcher.filename().string(), exportedIcon)))
             {
-                fail(std::format("{}.desktop yozilmadi", name));
+                fail(TrFormat("{}.desktop yozilmadi", name));
                 ok = false;
             }
             else
@@ -586,7 +586,7 @@ namespace Zamin {
                                                                                  exportedIcon.empty() ? std::string() : exportedIcon.filename().string(),
                                                                                  entryId)))
             {
-                fail(std::format("{} yozilmadi", ExportFiles::DesktopInstallScriptName));
+                fail(TrFormat("{} yozilmadi", ExportFiles::DesktopInstallScriptName));
                 ok = false;
             }
             else
@@ -598,7 +598,7 @@ namespace Zamin {
             // one was exported: a game exported without scripts was a warning above).
             for (const std::string& problem : ExportFiles::CheckExportFolder(outputDirectory, name, moduleExported))
             {
-                fail(std::format("eksport to'liq emas - {}", problem));
+                fail(TrFormat("eksport to'liq emas - {}", problem));
                 ok = false;
             }
 

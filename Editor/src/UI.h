@@ -183,7 +183,7 @@ namespace Zamin::UI {
         for (float x = min.x; x < max.x; x += 3.0f)
             ImGui::GetWindowDrawList()->AddLine(ImVec2(x, max.y), ImVec2(std::min(x + 1.5f, max.x), max.y), dots);
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-            ImGui::SetTooltip("%s", tooltip);
+            ImGui::SetTooltip("%s", Tr(tooltip));
         ImGui::TableSetColumnIndex(1);
         ImGui::SetNextItemWidth(-FLT_MIN);
     }
@@ -226,7 +226,7 @@ namespace Zamin::UI {
             if (overflows)
                 ImGui::TablePopBackgroundChannel();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-                ImGui::SetTooltip("%s", tooltip);
+                ImGui::SetTooltip("%s", Tr(tooltip));
         }
         float y = (ImGui::GetItemRectMin().y + ImGui::GetItemRectMax().y) * 0.5f;
         ImGui::TableSetColumnIndex(1);
@@ -380,6 +380,8 @@ namespace Zamin::UI {
     bool Vec3Control(const char* label, glm::vec3& values, float resetValue = 0.0f, float speed = 0.05f);
 
     // Toolbar button with an icon; highlighted when `active`.
+    // ImGui::Combo over a list of labels, each shown in the editor's language (the list holds the Uzbek keys).
+    bool TrCombo(const char* label, int* current, const char* const* items, int count);
     bool ToolbarButton(const char* icon, const char* tooltip, bool active = false, ImVec2 size = ImVec2(0, 0));
 
     void Tooltip(const char* text);
@@ -388,7 +390,7 @@ namespace Zamin::UI {
     void TextCentered(const char* text);
 
     // Searchable text field with icon.
-    bool SearchBox(const char* id, std::string& text, const char* hint = "Qidirish...");
+    bool SearchBox(const char* id, std::string& text, const char* hint = Tr("Qidirish..."));
 
     // ---- curves and gradients over 0..1 (a particle's life) - UICurves.cpp
     // A colour gradient across the available width: the bar with a marker under each stop and the

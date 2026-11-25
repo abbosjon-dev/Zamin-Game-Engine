@@ -114,7 +114,7 @@ namespace Zamin {
             if (current.Valid && (g.GLMajor * 10 + g.GLMinor) > (current.Major * 10 + current.Minor))
             {
                 UI::PropertyLabel("");
-                ImGui::TextColored(s_WarnColor, ICON_FA_TRIANGLE_EXCLAMATION "  Bu kompyuterdagi kontekst %d.%d: player 4.1 ga qaytishi mumkin",
+                ImGui::TextColored(s_WarnColor, Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Bu kompyuterdagi kontekst %d.%d: player 4.1 ga qaytishi mumkin"),
                                    current.Major, current.Minor);
             }
 
@@ -132,7 +132,7 @@ namespace Zamin {
                 changed = true;
             }
             UI::PropertyLabel("");
-            ImGui::TextDisabled("Bu build'da: %s", g.WantsDebugContext() ? "debug konteksti bilan" : "debug kontekstisiz");
+            ImGui::TextDisabled(Tr("Bu build'da: %s"), g.WantsDebugContext() ? Tr("debug konteksti bilan") : Tr("debug kontekstisiz"));
 
             // MSAA of the window's framebuffer.
             static const int s_Samples[] = { 0, 2, 4, 8, 16 };
@@ -157,13 +157,13 @@ namespace Zamin {
             {
                 UI::PropertyLabel("");
                 ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-                ImGui::TextWrapped("3D sahna HDR buferda chiziladi: uning qirralarini Sifat bo'limidagi FXAA silliqlaydi. MSAA oyna buferiga "
-                                   "to'g'ridan-to'g'ri chiziladiganlarga (piksel-perfekt o'yin UI'si, debug chiziqlar, xato ekrani) ta'sir qiladi.");
+                ImGui::TextWrapped("%s", Tr("3D sahna HDR buferda chiziladi: uning qirralarini Sifat bo'limidagi FXAA silliqlaydi. MSAA oyna buferiga "
+                                   "to'g'ridan-to'g'ri chiziladiganlarga (piksel-perfekt o'yin UI'si, debug chiziqlar, xato ekrani) ta'sir qiladi."));
                 ImGui::PopStyleColor();
                 if (current.Valid && current.MaxSamples > 0 && g.MSAASamples > current.MaxSamples)
                 {
                     UI::PropertyLabel("");
-                    ImGui::TextColored(s_WarnColor, ICON_FA_TRIANGLE_EXCLAMATION "  Bu drayver ko'pi bilan %dx beradi", current.MaxSamples);
+                    ImGui::TextColored(s_WarnColor, Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Bu drayver ko'pi bilan %dx beradi"), current.MaxSamples);
                 }
             }
 
@@ -195,28 +195,28 @@ namespace Zamin {
         {
             UI::PropertyHeader(ICON_FA_DESKTOP "  Editor konteksti", "Editor oynasining OpenGL konteksti: drayver va videokarta nima berayotgani");
             if (!current.Valid)
-                InfoRow("Holat", "Kontekst yo'q");
+                InfoRow(Tr("Holat"), Tr("Kontekst yo'q"));
             else
             {
-                InfoRow("Ishlab chiqaruvchi", current.Vendor);
-                InfoRow("Videokarta", current.Renderer);
-                InfoRow("Versiya", current.Version);
+                InfoRow(Tr("Ishlab chiqaruvchi"), current.Vendor);
+                InfoRow(Tr("Videokarta"), current.Renderer);
+                InfoRow(Tr("Versiya"), current.Version);
                 InfoRow("GLSL", current.ShadingLanguage);
-                InfoRow("Kontekst", std::format("{}.{} {} (so'ralgan {}.{}){}", current.Major, current.Minor, current.CoreProfile ? "core" : "compat",
-                                                current.RequestedMajor, current.RequestedMinor, current.FellBack ? " - standartga qaytdi" : ""));
-                InfoRow("Debug", current.DebugContext ? (current.DebugOutput ? "debug konteksti, xabarlar logda" : "debug konteksti")
-                                                      : (current.DebugOutput ? "xabarlar logda" : "yo'q"));
-                InfoRow("MSAA (oyna)", current.Samples > 0 ? std::format("{}x", current.Samples) : std::string("yo'q"));
-                InfoRow("sRGB oyna buferi", current.SRGB ? "ha" : "yo'q");
-                InfoRow("Eng katta tekstura", std::format("{} px", current.MaxTextureSize));
-                InfoRow("Eng ko'p MSAA", std::format("{}x", current.MaxSamples));
-                InfoRow("Anizotropiya", current.MaxAnisotropy > 0.0f ? std::format("{:.0f}x gacha", current.MaxAnisotropy) : std::string("yo'q"));
+                InfoRow(Tr("Kontekst"), TrFormat("{}.{} {} (so'ralgan {}.{}){}", current.Major, current.Minor, current.CoreProfile ? "core" : "compat",
+                                                current.RequestedMajor, current.RequestedMinor, current.FellBack ? Tr(" - standartga qaytdi") : ""));
+                InfoRow("Debug", current.DebugContext ? (current.DebugOutput ? Tr("debug konteksti, xabarlar logda") : Tr("debug konteksti"))
+                                                      : (current.DebugOutput ? Tr("xabarlar logda") : Tr("yo'q")));
+                InfoRow(Tr("MSAA (oyna)"), current.Samples > 0 ? std::format("{}x", current.Samples) : std::string(Tr("yo'q")));
+                InfoRow(Tr("sRGB oyna buferi"), current.SRGB ? "ha" : Tr("yo'q"));
+                InfoRow(Tr("Eng katta tekstura"), std::format("{} px", current.MaxTextureSize));
+                InfoRow(Tr("Eng ko'p MSAA"), std::format("{}x", current.MaxSamples));
+                InfoRow(Tr("Anizotropiya"), current.MaxAnisotropy > 0.0f ? TrFormat("{:.0f}x gacha", current.MaxAnisotropy) : std::string(Tr("yo'q")));
                 UI::PropertyLabel("");
                 if (ImGui::SmallButton(Tr(ICON_FA_COPY "  Nusxa olish")))
                 {
-                    ImGui::SetClipboardText(std::format("{}\n{} | {} | {}\nGLSL {}\nMSAA {} | sRGB {} | max tekstura {} | max MSAA {} | anizotropiya {:.0f}",
+                    ImGui::SetClipboardText(TrFormat("{}\n{} | {} | {}\nGLSL {}\nMSAA {} | sRGB {} | max tekstura {} | max MSAA {} | anizotropiya {:.0f}",
                                                         current.Summary(), current.Vendor, current.Renderer, current.Version, current.ShadingLanguage,
-                                                        current.Samples, current.SRGB ? "ha" : "yo'q", current.MaxTextureSize, current.MaxSamples,
+                                                        current.Samples, current.SRGB ? "ha" : Tr("yo'q"), current.MaxTextureSize, current.MaxSamples,
                                                         current.MaxAnisotropy).c_str());
                     ZM_INFO("Grafik kontekst ma'lumoti nusxalandi");
                 }
@@ -245,19 +245,19 @@ namespace Zamin {
             UI::PropertyHeader(ICON_FA_STOPWATCH "  Qat'iy qadam",
                                "Fizika (2D va 3D) shu chastotada qat'iy qadamlar bilan yuradi: kadr tezligidan qat'i nazar bir xil natija. "
                                "O'z qadam sozlamasini bermagan sahnalar uchun (Sahna sozlamalari > Fizika > Loyihadan).");
-            changed |= SliderIntRow("Qadam chastotasi",
-                                    "Soniyasiga shuncha fizika qadami (har biri 1 / chastota s). Ko'proq - tez jismlar, joint'lar va personajlar "
-                                    "aniqroq, lekin qimmatroq. Standart: 60 Hz",
+            changed |= SliderIntRow(Tr("Qadam chastotasi"),
+                                    Tr("Soniyasiga shuncha fizika qadami (har biri 1 / chastota s). Ko'proq - tez jismlar, joint'lar va personajlar "
+                                    "aniqroq, lekin qimmatroq. Standart: 60 Hz"),
                                     t.FixedStepRate, TimeSettings::MinStepRate, TimeSettings::MaxStepRate, "%d Hz");
             changed |= PresetButtons("rates", t.FixedStepRate, TimeSettings::GetStepRatePresets(), [](int r) { return std::format("{}", r); });
             UI::PropertyLabel("Qadam", "Time::GetFixedDeltaTime()");
             ImGui::Text("1/%d s = %.2f ms", t.FixedStepRate, 1000.0f / (float)t.FixedStepRate);
-            changed |= SliderIntRow("Kadrda ko'pi bilan",
-                                    "Sekin kadr shuncha qadamdan ortig'ini tashlab yuboradi: o'yin sekinlashadi, lekin orqada qolib ketmaydi. "
-                                    "Standart: 5",
-                                    t.MaxStepsPerFrame, 1, TimeSettings::MaxStepsLimit, "%d qadam");
+            changed |= SliderIntRow(Tr("Kadrda ko'pi bilan"),
+                                    Tr("Sekin kadr shuncha qadamdan ortig'ini tashlab yuboradi: o'yin sekinlashadi, lekin orqada qolib ketmaydi. "
+                                    "Standart: 5"),
+                                    t.MaxStepsPerFrame, 1, TimeSettings::MaxStepsLimit, Tr("%d qadam"));
             UI::PropertyLabel("");
-            ImGui::TextDisabled("Bir kadrda ko'pi bilan %.1f ms fizika vaqti (%d FPS gacha to'liq tezlikda)",
+            ImGui::TextDisabled(Tr("Bir kadrda ko'pi bilan %.1f ms fizika vaqti (%d FPS gacha to'liq tezlikda)"),
                                 1000.0f * (float)t.MaxStepsPerFrame / (float)t.FixedStepRate,
                                 std::max(1, t.FixedStepRate / std::max(1, t.MaxStepsPerFrame)));
             // The open scene: does it follow?
@@ -266,23 +266,23 @@ namespace Zamin {
                 const auto& s = m_Scene->GetSettings();
                 UI::PropertyLabel("Ochiq sahna", "Sahna sozlamalari > Fizika: \"Loyihadan\" belgilangan sahnalar shu qiymatlarni oladi");
                 if (s.UseProjectPhysicsStep)
-                    ImGui::TextColored(s_OkColor, ICON_FA_CHECK "  loyihadan (%d Hz, %d qadam)", s.PhysicsStep.StepRate, s.PhysicsStep.MaxStepsPerFrame);
+                    ImGui::TextColored(s_OkColor, Tr(ICON_FA_CHECK "  loyihadan (%d Hz, %d qadam)"), s.PhysicsStep.StepRate, s.PhysicsStep.MaxStepsPerFrame);
                 else
-                    ImGui::TextColored(s_WarnColor, "o'zining: %d Hz, %d qadam", s.PhysicsStep.StepRate, s.PhysicsStep.MaxStepsPerFrame);
+                    ImGui::TextColored(s_WarnColor, Tr("o'zining: %d Hz, %d qadam"), s.PhysicsStep.StepRate, s.PhysicsStep.MaxStepsPerFrame);
             }
 
             UI::PropertyHeader(ICON_FA_GAUGE_SIMPLE "  O'yin vaqti",
                                "O'yin soati: Time::SetTimeScale(0.3f) - sekinlashtirish, 0 - pauza. Fizika, animatsiyalar, zarrachalar, "
                                "taymerlar va tween'lar unga ergashadi; UI va SetTimersUnscaled(true) skriptlari real vaqtda.");
-            changed |= SliderFloatRow("Start tezligi",
-                                      "Play boshlanganda o'yin soati shu tezlikda yuradi (1 - normal, 0.5 - ikki marta sekin, 0 - pauzada boshlanadi). "
-                                      "Standart: 1",
+            changed |= SliderFloatRow(Tr("Start tezligi"),
+                                      Tr("Play boshlanganda o'yin soati shu tezlikda yuradi (1 - normal, 0.5 - ikki marta sekin, 0 - pauzada boshlanadi). "
+                                      "Standart: 1"),
                                       t.DefaultTimeScale, 0.0f, 4.0f, "%.2fx");
             changed |= PresetButtons("scales", t.DefaultTimeScale, std::vector<float>{ 0.25f, 0.5f, 1.0f, 2.0f },
                                      [](float v) { return std::format("{}x", v); });
-            changed |= SliderFloatRow("Eng uzun kadr",
-                                      "Bundan uzun kadr (to'xtab qolish, oyna sudralishi) shuncha deb hisoblanadi: o'yin sakramaydi, sekinlashadi. "
-                                      "Standart: 0.1 s",
+            changed |= SliderFloatRow(Tr("Eng uzun kadr"),
+                                      Tr("Bundan uzun kadr (to'xtab qolish, oyna sudralishi) shuncha deb hisoblanadi: o'yin sakramaydi, sekinlashadi. "
+                                      "Standart: 0.1 s"),
                                       t.MaxDeltaTime, TimeSettings::MinMaxDeltaTime, TimeSettings::MaxMaxDeltaTime, "%.3f s",
                                       ImGuiSliderFlags_AlwaysClamp | ImGuiSliderFlags_Logarithmic);
             if (!t.IsDefault())
@@ -300,7 +300,7 @@ namespace Zamin {
             if (Time::GetGameClock())
             {
                 float scale = Time::GetTimeScale();
-                if (SliderFloatRow("Vaqt masshtabi", "Time::SetTimeScale: o'ynayotgan o'yinning soati (loyihaga yozilmaydi)", scale, 0.0f, 2.0f, "%.2fx"))
+                if (SliderFloatRow(Tr("Vaqt masshtabi"), Tr("Time::SetTimeScale: o'ynayotgan o'yinning soati (loyihaga yozilmaydi)"), scale, 0.0f, 2.0f, "%.2fx"))
                     Time::SetTimeScale(scale);
                 InfoRow("DeltaTime", std::format("{:.2f} ms", Time::GetDeltaTime() * 1000.0f));
                 InfoRow("UnscaledDeltaTime", std::format("{:.2f} ms", Time::GetUnscaledDeltaTime() * 1000.0f));
@@ -310,7 +310,7 @@ namespace Zamin {
             else
             {
                 UI::PropertyLabel("Holat");
-                ImGui::TextDisabled("O'yin ishlamayapti (Play bosing)");
+                ImGui::TextDisabled("%s", Tr("O'yin ishlamayapti (Play bosing)"));
             }
             InfoRow("FrameCount", std::format("{}", Time::GetFrameCount()));
             InfoRow("TimeSinceStartup", std::format("{:.1f} s", Time::GetTimeSinceStartup()));
@@ -372,9 +372,9 @@ namespace Zamin {
                 UI::PropertyLabel("Ochiq sahna", "Sahna sozlamalari > Fizika: \"Loyihadan\" belgilangan gravitatsiya shu yerdagini oladi");
                 auto show = [&](const char* what, bool follows, const std::string& value) {
                     if (follows)
-                        ImGui::TextColored(s_OkColor, ICON_FA_CHECK "  %s: loyihadan %s", what, value.c_str());
+                        ImGui::TextColored(s_OkColor, Tr(ICON_FA_CHECK "  %s: loyihadan %s"), what, value.c_str());
                     else
-                        ImGui::TextColored(s_WarnColor, "%s: o'zining %s", what, value.c_str());
+                        ImGui::TextColored(s_WarnColor, Tr("%s: o'zining %s"), what, value.c_str());
                 };
                 show("2D", s.UseProjectGravity, std::format("({:.2f}, {:.2f})", s.Gravity.x, s.Gravity.y));
                 UI::PropertyLabel("");

@@ -76,7 +76,7 @@ namespace Zamin {
         if (!m_EditorScene)
             return;
         if (name.empty())
-            name = std::format("Sahna: {}", m_EditorScene->GetName());
+            name = TrFormat("Sahna: {}", m_EditorScene->GetName());
         m_UndoHistory.Reset(TakeSnapshot(), CaptureUndoSelection(), std::move(name), Now(), saved);
         m_UndoSelectionRevision = m_SceneHierarchyPanel.GetSelection().GetRevision();
         m_UndoHistoryScroll = true;
@@ -108,7 +108,7 @@ namespace Zamin {
             return;
         }
         std::string name = !m_PendingUndoName.empty() ? std::move(m_PendingUndoName)
-                         : before ? DescribeSceneChange(*before, current) : std::string("O'zgarish");
+                         : before ? DescribeSceneChange(*before, current) : std::string(Tr("O'zgarish"));
         m_PendingUndoName.clear();
         // Prefab instances the change touched: what they now differ in from their prefabs (part of the step).
         if (RecordPrefabOverrides(before.get(), current))
@@ -225,7 +225,7 @@ namespace Zamin {
             return;
         const std::string name = m_UndoHistory.GetUndoName();
         ApplyUndoMove(m_UndoHistory.Undo());
-        ShowViewportMessage(ICON_FA_ROTATE_LEFT "  Bekor qilindi: " + name);
+        ShowViewportMessage(Tr(ICON_FA_ROTATE_LEFT "  Bekor qilindi: ") + name);
     }
 
     void EditorLayer::Redo()
@@ -234,7 +234,7 @@ namespace Zamin {
             return;
         const std::string name = m_UndoHistory.GetRedoName();
         ApplyUndoMove(m_UndoHistory.Redo());
-        ShowViewportMessage(ICON_FA_ROTATE_RIGHT "  Qaytarildi: " + name);
+        ShowViewportMessage(Tr(ICON_FA_ROTATE_RIGHT "  Qaytarildi: ") + name);
     }
 
     void EditorLayer::JumpToUndoState(size_t index)
@@ -270,12 +270,12 @@ namespace Zamin {
 
         // ---- toolbar
         ImGui::BeginDisabled(!editing || !(m_UndoHistory.CanUndo() || m_PendingUndo));
-        if (UI::ToolbarButton(ICON_FA_ROTATE_LEFT, std::format("Bekor qilish ({})", ShortcutLabel(EditorShortcut::Undo)).c_str()))
+        if (UI::ToolbarButton(ICON_FA_ROTATE_LEFT, TrFormat("Bekor qilish ({})", ShortcutLabel(EditorShortcut::Undo)).c_str()))
             Undo();
         ImGui::EndDisabled();
         ImGui::SameLine();
         ImGui::BeginDisabled(!editing || !m_UndoHistory.CanRedo());
-        if (UI::ToolbarButton(ICON_FA_ROTATE_RIGHT, std::format("Qaytarish ({})", ShortcutLabel(EditorShortcut::Redo)).c_str()))
+        if (UI::ToolbarButton(ICON_FA_ROTATE_RIGHT, TrFormat("Qaytarish ({})", ShortcutLabel(EditorShortcut::Redo)).c_str()))
             Redo();
         ImGui::EndDisabled();
         ImGui::SameLine();
@@ -298,11 +298,11 @@ namespace Zamin {
         if (UI::ToolbarButton(ICON_FA_BROOM, "Tarixni tozalash (hozirgi holat qoladi)"))
         {
             CommitUndo();
-            m_UndoHistory.ClearHistory("Tarix tozalandi", Now());
+            m_UndoHistory.ClearHistory(Tr("Tarix tozalandi"), Now());
         }
         ImGui::EndDisabled();
         if (!editing)
-            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.35f, 1.0f), ICON_FA_PLAY "  O'yin rejimida undo yo'q - to'xtatilgach davom etadi");
+            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.35f, 1.0f), "%s", Tr(ICON_FA_PLAY "  O'yin rejimida undo yo'q - to'xtatilgach davom etadi"));
 
         // ---- the steps: the current one highlighted, those after it (redo) dimmed
         const auto& entries = m_UndoHistory.GetEntries();
@@ -365,14 +365,14 @@ namespace Zamin {
                         dl->AddText(ImVec2(right - timeWidth - em * 1.6f, rowStart.y), UI::AccentU32(), ICON_FA_FLOPPY_DISK);
                     if (hovered)
                     {
-                        const char* kind = e.Kind == UndoEntryKind::Initial ? "Boshlang'ich holat" : e.Kind == UndoEntryKind::Selection ? "Tanlov" : "O'zgarish";
+                        const char* kind = e.Kind == UndoEntryKind::Initial ? Tr("Boshlang'ich holat") : e.Kind == UndoEntryKind::Selection ? Tr("Tanlov") : Tr("O'zgarish");
                         std::string tip = std::format("{}\n{} - {}", e.Name, kind, time);
                         for (const FileEdit& file : e.Files)
                             tip += std::format("\n" ICON_FA_FLOPPY_DISK " {}", file.Path);
                         if (saved)
-                            tip += "\nFayldagi (saqlangan) holat";
+                            tip += Tr("\nFayldagi (saqlangan) holat");
                         if (!isCurrent)
-                            tip += editing ? "\nBosing: shu holatga o'tish" : "\nO'yin rejimida o'tib bo'lmaydi";
+                            tip += editing ? Tr("\nBosing: shu holatga o'tish") : Tr("\nO'yin rejimida o'tib bo'lmaydi");
                         UI::Tooltip(tip.c_str());
                     }
                     if (isCurrent && m_UndoHistoryScroll)
@@ -383,13 +383,13 @@ namespace Zamin {
                     ImGui::PopID();
                 }
             if (m_PendingUndo)
-                ImGui::TextDisabled(ICON_FA_PEN "  ...o'zgarish (tugma qo'yib yuborilganda yoziladi)");
+                ImGui::TextDisabled("%s", Tr(ICON_FA_PEN "  ...o'zgarish (tugma qo'yib yuborilganda yoziladi)"));
         }
         ImGui::EndChild();
         if (clicked != (size_t)-1)
             JumpToUndoState(clicked);
 
-        ImGui::TextDisabled("%zu o'zgarish, %zu tanlash  |  %.1f MB", m_UndoHistory.CountEdits(), m_UndoHistory.CountSelections(),
+        ImGui::TextDisabled(Tr("%zu o'zgarish, %zu tanlash  |  %.1f MB"), m_UndoHistory.CountEdits(), m_UndoHistory.CountSelections(),
                             (double)m_UndoHistory.GetRetainedBytes() / (1024.0 * 1024.0));
         ImGui::End();
     }

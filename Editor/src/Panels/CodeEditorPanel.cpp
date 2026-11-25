@@ -1,5 +1,6 @@
 #include "CodeEditorPanel.h"
 #include "Zamin/Editor/CodeDocument.h"
+#include "Zamin/Editor/EditorLanguage.h"
 #include "Zamin/Project/Project.h"
 #include "Zamin/Editor/ExternalEditor.h"
 #include "Zamin/Utils/FileSystem.h"
@@ -233,7 +234,7 @@ namespace Zamin {
         }
         if (i.Focus) ImGui::SetNextWindowFocus();
         ImGui::SetNextWindowSize({ 1400, 800 }, ImGuiCond_FirstUseEver);
-        bool visible = ImGui::Begin("Kod muharriri###CodeEditor", show);
+        bool visible = ImGui::Begin(Tr("Kod muharriri###CodeEditor"), show);
         i.Focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
         if (!*show)
         {

@@ -1,4 +1,5 @@
 #include "Zamin/Editor/IdleThrottle.h"
+#include "Zamin/Editor/EditorLanguage.h"
 
 #include <algorithm>
 #include <cmath>
@@ -36,8 +37,8 @@ namespace Zamin {
         switch (reason)
         {
             case FrameLimitReason::Unfocused: return "fokussiz";
-            case FrameLimitReason::Idle: return "bo'sh turibdi";
-            default: return "cheklanmagan";
+            case FrameLimitReason::Idle: return Tr("bo'sh turibdi");
+            default: return Tr("cheklanmagan");
         }
     }
 

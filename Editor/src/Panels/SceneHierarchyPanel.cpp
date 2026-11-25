@@ -271,12 +271,12 @@ namespace Zamin {
         ImGui::PopItemFlag();
         if (ImGui::IsItemHovered())
         {
-            std::string tip = mixed ? std::string("Tanlanganlarning bir qismi nofaol. Bosing: hammasini faollashtirish")
-                            : active ? std::string("Faol: obyekt o'yinda ishtirok etadi. O'chirilsa u va bolalari chizilmaydi, "
-                                                   "fizikada qatnashmaydi, skriptlari OnDisable oladi va yangilanmaydi  (Alt+Shift+A)")
-                                     : std::string("Nofaol: obyekt va uning bolalari o'yinda ishtirok etmaydi. Bosing: faollashtirish  (Alt+Shift+A)");
+            std::string tip = mixed ? std::string(Tr("Tanlanganlarning bir qismi nofaol. Bosing: hammasini faollashtirish"))
+                            : active ? std::string(Tr("Faol: obyekt o'yinda ishtirok etadi. O'chirilsa u va bolalari chizilmaydi, "
+                                                   "fizikada qatnashmaydi, skriptlari OnDisable oladi va yangilanmaydi  (Alt+Shift+A)"))
+                                     : std::string(Tr("Nofaol: obyekt va uning bolalari o'yinda ishtirok etmaydi. Bosing: faollashtirish  (Alt+Shift+A)"));
             if (targets.size() > 1)
-                tip += std::format("\n{} ta tanlangan obyektga qo'llaniladi", targets.size());
+                tip += TrFormat("\n{} ta tanlangan obyektga qo'llaniladi", targets.size());
             UI::Tooltip(tip.c_str());
         }
         if (clicked)
@@ -292,7 +292,7 @@ namespace Zamin {
         const ImVec4 color(0.95f, 0.55f, 0.35f, 1.0f);
         if (!entity.IsActive())
         {
-            ImGui::TextColored(color, "  " ICON_FA_POWER_OFF " nofaol");
+            ImGui::TextColored(color, "%s", Tr("  " ICON_FA_POWER_OFF " nofaol"));
             if (ImGui::IsItemHovered())
                 UI::Tooltip("O'yinda ishtirok etmaydi (bolalari ham): chizilmaydi, fizikada yo'q, skriptlari yangilanmaydi. "
                             "Nom yonidagi belgi yoki Alt+Shift+A bilan yoqiladi");
@@ -300,8 +300,8 @@ namespace Zamin {
         }
         // Switched off by an ancestor: a click selects it.
         Entity ancestor = FindInactiveAncestor(scene, entity);
-        std::string text = ancestor ? std::format("  " ICON_FA_POWER_OFF " nofaol (ota: {})", ancestor.GetName())
-                                    : std::string("  " ICON_FA_POWER_OFF " nofaol (ota obyekt)");
+        std::string text = ancestor ? TrFormat("  " ICON_FA_POWER_OFF " nofaol (ota: {})", ancestor.GetName())
+                                    : std::string(Tr("  " ICON_FA_POWER_OFF " nofaol (ota obyekt)"));
         ImGui::TextColored(ImVec4(color.x, color.y, color.z, 0.7f), "%s", text.c_str());
         if (ImGui::IsItemHovered())
             UI::Tooltip("O'zi faol, lekin ota obyekt nofaol - u bilan birga o'yinda ishtirok etmaydi. Bosing: ota obyektni tanlash");
@@ -341,18 +341,18 @@ namespace Zamin {
 
         const bool selfHidden = m_Context->IsHiddenInEditor(entity, false);
         const bool inheritedHidden = !selfHidden && m_Context->IsHiddenInEditor(entity, true);
-        const char* hideTip = selfHidden ? "Yashirilgan: editor sahnasida chizilmaydi (o'yinda ko'rinadi). Bosing: ko'rsatish  (H)"
-                            : inheritedHidden ? "Ota obyekt yashirilgan - u bilan birga yashirin. Bosing: buni ham yashirish"
-                            : "Editor sahnasida yashirish  (H)";
+        const char* hideTip = selfHidden ? Tr("Yashirilgan: editor sahnasida chizilmaydi (o'yinda ko'rinadi). Bosing: ko'rsatish  (H)")
+                            : inheritedHidden ? Tr("Ota obyekt yashirilgan - u bilan birga yashirin. Bosing: buni ham yashirish")
+                            : Tr("Editor sahnasida yashirish  (H)");
         if (toggle("##eye", m_GutterX, selfHidden, inheritedHidden, ICON_FA_EYE_SLASH, ICON_FA_EYE,
                    ImGui::GetStyleColorVec4(ImGuiCol_Text), hideTip))
             SetFlagFromRow(entity, false, !selfHidden);
 
         const bool selfLocked = m_Context->IsLockedInEditor(entity, false);
         const bool inheritedLocked = !selfLocked && m_Context->IsLockedInEditor(entity, true);
-        const char* lockTip = selfLocked ? "Qulflangan: viewport'da tanlanmaydi va gizmo bilan surilmaydi. Bosing: qulfni ochish"
-                            : inheritedLocked ? "Ota obyekt qulflangan - u bilan birga qulflangan. Bosing: buni ham qulflash"
-                            : "Qulflash: viewport'da tanlanmaydi va surilmaydi (ierarxiya va inspektorda tahrirlash mumkin)";
+        const char* lockTip = selfLocked ? Tr("Qulflangan: viewport'da tanlanmaydi va gizmo bilan surilmaydi. Bosing: qulfni ochish")
+                            : inheritedLocked ? Tr("Ota obyekt qulflangan - u bilan birga qulflangan. Bosing: buni ham qulflash")
+                            : Tr("Qulflash: viewport'da tanlanmaydi va surilmaydi (ierarxiya va inspektorda tahrirlash mumkin)");
         if (toggle("##lock", m_GutterX + size, selfLocked, inheritedLocked, ICON_FA_LOCK, ICON_FA_LOCK_OPEN,
                    ImVec4(0.96f, 0.72f, 0.32f, 1.0f), lockTip))
             SetFlagFromRow(entity, true, !selfLocked);
@@ -420,12 +420,12 @@ namespace Zamin {
             mr.MeshAsset = MeshLibrary::GetPrimitive(type);
         };
 
-        if (p == "Empty") e = m_Context->CreateEntity("Bo'sh obyekt");
+        if (p == "Empty") e = m_Context->CreateEntity(Tr("Bo'sh obyekt"));
         else if (p == "Sprite") { e = m_Context->CreateEntity("Sprite"); e.AddComponent<SpriteRendererComponent>(); }
-        else if (p == "Circle") { e = m_Context->CreateEntity("Doira"); e.AddComponent<CircleRendererComponent>(); }
+        else if (p == "Circle") { e = m_Context->CreateEntity(Tr("Doira")); e.AddComponent<CircleRendererComponent>(); }
         else if (p == "Text")
         {
-            e = m_Context->CreateEntity("Matn");
+            e = m_Context->CreateEntity(Tr("Matn"));
             auto& t = e.AddComponent<TextComponent>();
             t.Text = "Salom, Zamin!";
             t.FontAsset = Font::GetDefault();
@@ -438,66 +438,66 @@ namespace Zamin {
             e.AddComponent<MeshCollider3DComponent>();
             if (OnTerrainWindowRequested) OnTerrainWindowRequested();
         }
-        else if (p == "Cube") mesh("Kub", PrimitiveMesh::Cube);
-        else if (p == "Sphere") mesh("Shar", PrimitiveMesh::Sphere);
-        else if (p == "Plane") { mesh("Tekislik", PrimitiveMesh::Plane); e.GetTransform().Scale = { 10, 1, 10 }; }
-        else if (p == "Cylinder") mesh("Silindr", PrimitiveMesh::Cylinder);
-        else if (p == "Cone") mesh("Konus", PrimitiveMesh::Cone);
+        else if (p == "Cube") mesh(Tr("Kub"), PrimitiveMesh::Cube);
+        else if (p == "Sphere") mesh(Tr("Shar"), PrimitiveMesh::Sphere);
+        else if (p == "Plane") { mesh(Tr("Tekislik"), PrimitiveMesh::Plane); e.GetTransform().Scale = { 10, 1, 10 }; }
+        else if (p == "Cylinder") mesh(Tr("Silindr"), PrimitiveMesh::Cylinder);
+        else if (p == "Cone") mesh(Tr("Konus"), PrimitiveMesh::Cone);
         else if (p == "Model") { mesh("Model", PrimitiveMesh::Model); e.GetComponent<MeshRendererComponent>().MeshAsset = nullptr; }
-        else if (p == "Camera") { e = m_Context->CreateEntity("Kamera"); e.AddComponent<CameraComponent>().Primary = !m_Context->GetPrimaryCameraEntity(true); }
+        else if (p == "Camera") { e = m_Context->CreateEntity(Tr("Kamera")); e.AddComponent<CameraComponent>().Primary = !m_Context->GetPrimaryCameraEntity(true); }
         else if (p == "Camera2D")
         {
-            e = m_Context->CreateEntity("2D Kamera");
+            e = m_Context->CreateEntity(Tr("2D Kamera"));
             auto& c = e.AddComponent<CameraComponent>();
             c.Primary = !m_Context->GetPrimaryCameraEntity(true);
             c.Camera.SetProjectionType(SceneCamera::ProjectionType::Orthographic);
         }
         else if (p == "DirectionalLight")
         {
-            e = m_Context->CreateEntity("Quyosh");
+            e = m_Context->CreateEntity(Tr("Quyosh"));
             e.AddComponent<DirectionalLightComponent>();
             e.GetTransform().Rotation = { -0.9f, 0.6f, 0.0f };
         }
-        else if (p == "PointLight") { e = m_Context->CreateEntity("Nuqtali yorug'lik"); e.AddComponent<PointLightComponent>(); e.GetTransform().Translation = { 0, 2, 0 }; }
+        else if (p == "PointLight") { e = m_Context->CreateEntity(Tr("Nuqtali yorug'lik")); e.AddComponent<PointLightComponent>(); e.GetTransform().Translation = { 0, 2, 0 }; }
         else if (p == "SpotLight")
         {
             // Hangs 4 m up, pointing straight down (the light travels along -Z).
-            e = m_Context->CreateEntity("Spot yorug'lik");
+            e = m_Context->CreateEntity(Tr("Spot yorug'lik"));
             e.AddComponent<SpotLightComponent>();
             e.GetTransform().Translation = { 0, 4, 0 };
             e.GetTransform().Rotation = { -glm::half_pi<float>(), 0.0f, 0.0f };
         }
         else if (p == "Physics Box")
         {
-            e = m_Context->CreateEntity("Fizik quti");
+            e = m_Context->CreateEntity(Tr("Fizik quti"));
             e.AddComponent<SpriteRendererComponent>(glm::vec4(0.9f, 0.6f, 0.2f, 1.0f));
             e.AddComponent<Rigidbody2DComponent>();
             e.AddComponent<BoxCollider2DComponent>();
         }
         else if (p == "Physics Ball")
         {
-            e = m_Context->CreateEntity("Fizik shar");
+            e = m_Context->CreateEntity(Tr("Fizik shar"));
             e.AddComponent<CircleRendererComponent>().Color = { 0.3f, 0.7f, 0.95f, 1.0f };
             e.AddComponent<Rigidbody2DComponent>();
             e.AddComponent<CircleCollider2DComponent>();
         }
         else if (p == "Physics Cube")
         {
-            mesh("Fizik kub", PrimitiveMesh::Cube);
+            mesh(Tr("Fizik kub"), PrimitiveMesh::Cube);
             e.GetTransform().Translation = { 0.0f, 3.0f, 0.0f };
             e.AddComponent<Rigidbody3DComponent>();
             e.AddComponent<BoxCollider3DComponent>();
         }
         else if (p == "Physics Sphere")
         {
-            mesh("Fizik shar", PrimitiveMesh::Sphere);
+            mesh(Tr("Fizik shar"), PrimitiveMesh::Sphere);
             e.GetTransform().Translation = { 0.0f, 3.0f, 0.0f };
             e.AddComponent<Rigidbody3DComponent>();
             e.AddComponent<SphereCollider3DComponent>();
         }
         else if (p == "Physics Ground")
         {
-            mesh("Fizik yer", PrimitiveMesh::Cube);
+            mesh(Tr("Fizik yer"), PrimitiveMesh::Cube);
             e.GetTransform().Scale = { 20.0f, 0.2f, 20.0f };
             e.GetTransform().Translation = { 0.0f, -0.1f, 0.0f };
             e.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Static;
@@ -511,36 +511,36 @@ namespace Zamin {
         }
         else if (p == "UI Text")
         {
-            e = m_Context->CreateEntity("UI Matn");
+            e = m_Context->CreateEntity(Tr("UI Matn"));
             auto& ui = e.AddComponent<UITransformComponent>();
             ui.Position = { 30.0f, -40.0f }; ui.Size = { 300.0f, 36.0f };
             auto& t = e.AddComponent<TextComponent>();
-            t.Text = "Hisob: 0";
+            t.Text = Tr("Hisob: 0");
             t.FontAsset = Font::GetDefault();
         }
         else if (p == "UI Image")
         {
-            e = m_Context->CreateEntity("UI Rasm");
+            e = m_Context->CreateEntity(Tr("UI Rasm"));
             auto& ui = e.AddComponent<UITransformComponent>();
             ui.SetAnchor(UITransformComponent::AnchorPoint::Center); ui.Position = { 0, 0 }; ui.Size = { 128, 128 };
             e.AddComponent<UIImageComponent>();
         }
         else if (p == "UI Slider")
         {
-            e = m_Context->CreateEntity("UI Slayder");
+            e = m_Context->CreateEntity(Tr("UI Slayder"));
             auto& ui = e.AddComponent<UITransformComponent>();
             ui.SetAnchor(UITransformComponent::AnchorPoint::Center); ui.Position = { 0, 0 }; ui.Size = { 260, 28 };
             e.AddComponent<UISliderComponent>();
         }
         else if (p == "UI Toggle")
         {
-            e = m_Context->CreateEntity("UI Belgilash");
+            e = m_Context->CreateEntity(Tr("UI Belgilash"));
             auto& ui = e.AddComponent<UITransformComponent>();
             ui.SetAnchor(UITransformComponent::AnchorPoint::Center); ui.Position = { 0, 0 }; ui.Size = { 260, 32 };
             ui.FontSize = 22.0f;
             e.AddComponent<UIToggleComponent>();
             auto& t = e.AddComponent<TextComponent>();
-            t.Text = "Ovoz yoqilgan";
+            t.Text = Tr("Ovoz yoqilgan");
             t.FontAsset = Font::GetDefault();
         }
         else if (p == "UI Progress")
@@ -552,11 +552,11 @@ namespace Zamin {
         }
         else if (p == "UI Input")
         {
-            e = m_Context->CreateEntity("UI Matn maydoni");
+            e = m_Context->CreateEntity(Tr("UI Matn maydoni"));
             auto& ui = e.AddComponent<UITransformComponent>();
             ui.SetAnchor(UITransformComponent::AnchorPoint::Center); ui.Position = { 0, 0 }; ui.Size = { 300, 44 };
             ui.FontSize = 22.0f;
-            e.AddComponent<UIInputFieldComponent>().Placeholder = "Ismingiz...";
+            e.AddComponent<UIInputFieldComponent>().Placeholder = Tr("Ismingiz...");
         }
         else if (p == "UI Canvas")
         {
@@ -567,7 +567,7 @@ namespace Zamin {
         else if (p == "UI Menu")
         {
             // A panel whose vertical layout group stacks three buttons (it grows with them).
-            e = m_Context->CreateEntity("UI Menyu");
+            e = m_Context->CreateEntity(Tr("UI Menyu"));
             auto& ui = e.AddComponent<UITransformComponent>();
             ui.SetAnchor(UITransformComponent::AnchorPoint::Center);
             ui.Position = { 0.0f, 0.0f };
@@ -581,7 +581,7 @@ namespace Zamin {
             group.ChildAlignment = 1;
             group.ControlChildWidth = group.ChildForceExpandWidth = true;
             group.FitHeight = true;
-            const char* labels[] = { "Davom etish", "Sozlamalar", "Chiqish" };
+            const char* labels[] = { Tr("Davom etish"), Tr("Sozlamalar"), Tr("Chiqish") };
             for (int i = 0; i < 3; i++)
             {
                 Entity button = m_Context->CreateEntity(labels[i]);
@@ -629,13 +629,13 @@ namespace Zamin {
             scroll.Content.ID = content.GetUUID();
             for (int i = 0; i < 8; i++)
             {
-                Entity row = m_Context->CreateEntity(std::format("Qator {}", i + 1));
+                Entity row = m_Context->CreateEntity(TrFormat("Qator {}", i + 1));
                 auto& rt = row.AddComponent<UITransformComponent>();
                 rt.Size = { 300.0f, 44.0f };
                 rt.FontSize = 20.0f;
                 row.AddComponent<UIButtonComponent>();
                 auto& t = row.AddComponent<TextComponent>();
-                t.Text = std::format("Element {}", i + 1);
+                t.Text = TrFormat("Element {}", i + 1);
                 t.AlignH = TextAlignH::Center;
                 t.FontAsset = Font::GetDefault();
                 m_Context->SetParent(row, content, false);
@@ -643,18 +643,18 @@ namespace Zamin {
         }
         else if (p == "UI Button")
         {
-            e = m_Context->CreateEntity("UI Tugma");
+            e = m_Context->CreateEntity(Tr("UI Tugma"));
             auto& ui = e.AddComponent<UITransformComponent>();
             ui.SetAnchor(UITransformComponent::AnchorPoint::Center); ui.Position = { 0, 0 }; ui.Size = { 220, 56 };
             e.AddComponent<UIButtonComponent>();
             auto& t = e.AddComponent<TextComponent>();
-            t.Text = "Boshlash"; t.AlignH = TextAlignH::Center;
+            t.Text = Tr("Boshlash"); t.AlignH = TextAlignH::Center;
             t.FontAsset = Font::GetDefault();
             ui.FontSize = 26.0f;
         }
         else if (p == "Character3D")
         {
-            mesh("Qahramon", PrimitiveMesh::Cylinder);
+            mesh(Tr("Qahramon"), PrimitiveMesh::Cylinder);
             e.GetTransform().Scale = { 0.7f, 1.8f, 0.7f };
             e.GetTransform().Translation = { 0.0f, 0.0f, 0.0f };
             e.AddComponent<CharacterController3DComponent>();
@@ -668,7 +668,7 @@ namespace Zamin {
         }
         else if (p == "Audio")
         {
-            e = m_Context->CreateEntity("Ovoz manbai");
+            e = m_Context->CreateEntity(Tr("Ovoz manbai"));
             auto& audio = e.AddComponent<AudioSourceComponent>();
             audio.MinDistance = Audio::GetSpatialDefaults().MinDistance;
             audio.MaxDistance = Audio::GetSpatialDefaults().MaxDistance;
@@ -764,7 +764,7 @@ namespace Zamin {
         const size_t count = m_Selection.Size();
         if (count > 1)
         {
-            ImGui::TextDisabled(ICON_FA_OBJECT_GROUP "  %zu ta obyekt tanlangan", count);
+            ImGui::TextDisabled(Tr(ICON_FA_OBJECT_GROUP "  %zu ta obyekt tanlangan"), count);
             ImGui::Separator();
         }
 
@@ -786,7 +786,7 @@ namespace Zamin {
             m_RenamingEntity = entity;
             m_RenameBuffer = entity.GetName();
         }
-        std::string duplicateLabel = count > 1 ? std::format(ICON_FA_CLONE "  Nusxa olish ({} ta)", count) : std::string(ICON_FA_CLONE "  Nusxa olish");
+        std::string duplicateLabel = count > 1 ? TrFormat(ICON_FA_CLONE "  Nusxa olish ({} ta)", count) : std::string(Tr(ICON_FA_CLONE "  Nusxa olish"));
         if (ImGui::MenuItem(duplicateLabel.c_str(), "Ctrl+D")) m_PendingDuplicate = true;
         if (ImGui::MenuItem(Tr(ICON_FA_BULLSEYE "  Fokus"), "F")) { if (OnFocusRequested) OnFocusRequested(entity); }
         std::vector<Entity> parented;
@@ -808,18 +808,18 @@ namespace Zamin {
             // Applied to the whole selection (SetFlagFromRow), like the row buttons.
             const bool hidden = m_Context->IsHiddenInEditor(entity, false);
             const bool locked = m_Context->IsLockedInEditor(entity, false);
-            if (ImGui::MenuItem(hidden ? ICON_FA_EYE "  Ko'rsatish" : ICON_FA_EYE_SLASH "  Yashirish (editorda)", "H", false, m_SceneEditable))
+            if (ImGui::MenuItem(hidden ? Tr(ICON_FA_EYE "  Ko'rsatish") : Tr(ICON_FA_EYE_SLASH "  Yashirish (editorda)"), "H", false, m_SceneEditable))
                 SetFlagFromRow(entity, false, !hidden);
-            if (ImGui::MenuItem(locked ? ICON_FA_LOCK_OPEN "  Qulfni ochish" : ICON_FA_LOCK "  Qulflash (viewport'da)", nullptr, false, m_SceneEditable))
+            if (ImGui::MenuItem(locked ? Tr(ICON_FA_LOCK_OPEN "  Qulfni ochish") : Tr(ICON_FA_LOCK "  Qulflash (viewport'da)"), nullptr, false, m_SceneEditable))
                 SetFlagFromRow(entity, true, !locked);
             // Game state: also while playing.
             const bool active = entity.IsActive();
-            if (ImGui::MenuItem(active ? ICON_FA_TOGGLE_OFF "  Nofaol qilish" : ICON_FA_TOGGLE_ON "  Faollashtirish", "Alt+Shift+A"))
+            if (ImGui::MenuItem(active ? Tr(ICON_FA_TOGGLE_OFF "  Nofaol qilish") : Tr(ICON_FA_TOGGLE_ON "  Faollashtirish"), "Alt+Shift+A"))
                 SetActiveFromRow(entity, !active);
         }
         ImGui::Separator();
         if (ImGui::MenuItem(Tr(ICON_FA_CHECK_DOUBLE "  Hammasini tanlash"), "Ctrl+A")) SelectAll();
-        std::string deleteLabel = count > 1 ? std::format(ICON_FA_TRASH "  O'chirish ({} ta)", count) : std::string(ICON_FA_TRASH "  O'chirish");
+        std::string deleteLabel = count > 1 ? TrFormat(ICON_FA_TRASH "  O'chirish ({} ta)", count) : std::string(Tr(ICON_FA_TRASH "  O'chirish"));
         if (ImGui::MenuItem(deleteLabel.c_str(), "Delete")) m_PendingDelete = true;
         ImGui::EndPopup();
     }
@@ -981,7 +981,7 @@ namespace Zamin {
             ImGui::SetDragDropPayload("HIERARCHY_ENTITY", &id, sizeof(uint64_t));
             size_t count = selected ? GetSelectedRoots().size() : 1;
             if (count > 1)
-                ImGui::Text(ICON_FA_OBJECT_GROUP "  %zu ta obyekt", count);
+                ImGui::Text(Tr(ICON_FA_OBJECT_GROUP "  %zu ta obyekt"), count);
             else
                 ImGui::Text("%s  %s", EntityIcon(entity), tag.c_str());
             ImGui::EndDragDropSource();
@@ -1025,7 +1025,7 @@ namespace Zamin {
         // The sub-scene itself: its name and size, in the sub-scene colour.
         stripe();
         const size_t count = sub->GetRegistry().view<IDComponent>().size();
-        const std::string label = std::format(ICON_FA_LAYER_GROUP "  {}  ({} obyekt)", sub->GetName(), count);
+        const std::string label = TrFormat(ICON_FA_LAYER_GROUP "  {}  ({} obyekt)", sub->GetName(), count);
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 3));
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.52f, 0.74f, 0.98f, 0.95f));
         const bool open = ImGui::TreeNodeEx("##sub", ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth |
@@ -1033,8 +1033,8 @@ namespace Zamin {
         ImGui::PopStyleColor();
         ImGui::PopStyleVar();
         if (ImGui::IsItemHovered())
-            UI::Tooltip(playing ? std::format("O'yinda yuklangan sub-sahna: {}\nIkki marta bosing: uning obyektlarini ierarxiyada ko'rsatish", path).c_str()
-                                : std::format("Sub-sahna: {}\nFaqat ko'rish uchun (o'yinda shu joyga yuklanadi).\nIkki marta bosing: "
+            UI::Tooltip(playing ? TrFormat("O'yinda yuklangan sub-sahna: {}\nIkki marta bosing: uning obyektlarini ierarxiyada ko'rsatish", path).c_str()
+                                : TrFormat("Sub-sahna: {}\nFaqat ko'rish uchun (o'yinda shu joyga yuklanadi).\nIkki marta bosing: "
                                               "tahrirlash uchun faylni ochish", path).c_str());
         if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
         {
@@ -1063,7 +1063,7 @@ namespace Zamin {
                 ImGui::PopStyleColor();
                 ImGui::PopStyleVar();
                 if (ImGui::IsItemHovered())
-                    UI::Tooltip(std::format("{} - '{}' sub-sahnasidan (faqat ko'rish uchun)", e.GetName(), sub->GetName()).c_str());
+                    UI::Tooltip(TrFormat("{} - '{}' sub-sahnasidan (faqat ko'rish uchun)", e.GetName(), sub->GetName()).c_str());
                 if (rowOpen && !children.empty())
                 {
                     for (UUID child : children)
@@ -1075,7 +1075,7 @@ namespace Zamin {
             for (Entity root : sub->GetRootEntities())
                 drawRow(drawRow, root);
             if (budget < 0)
-                ImGui::TextDisabled("   ... (ko'p obyekt: ro'yxat qisqartirildi)");
+                ImGui::TextDisabled("%s", Tr("   ... (ko'p obyekt: ro'yxat qisqartirildi)"));
             ImGui::TreePop();
         }
         ImGui::PopID();
@@ -1263,7 +1263,7 @@ namespace Zamin {
                 UI::Tooltip("Qo'shimcha (additive) yuklangan sahna");
         }
         ImGui::SameLine();
-        ImGui::TextDisabled("%zu sahna", m_SceneManager->GetAllScenes().size());
+        ImGui::TextDisabled(Tr("%zu sahna"), m_SceneManager->GetAllScenes().size());
         if (ImGui::IsItemHovered())
             UI::Tooltip("O'yinda bir nechta sahna yuklangan: boshqalari daraxt ostida (ko'rish uchun " ICON_FA_EYE " tugmasi)");
     }
@@ -1306,7 +1306,7 @@ namespace Zamin {
                 {
                     if (rows++ >= MaxRows)
                     {
-                        ImGui::TextDisabled("... (yana %zu ta)", count - MaxRows);
+                        ImGui::TextDisabled(Tr("... (yana %zu ta)"), count - MaxRows);
                         break;
                     }
                     int depth = 0;
@@ -1321,7 +1321,7 @@ namespace Zamin {
                         show = true;
                 }
                 if (count == 0)
-                    ImGui::TextDisabled("(bo'sh)");
+                    ImGui::TextDisabled("%s", Tr("(bo'sh)"));
                 ImGui::Unindent(ImGui::GetFrameHeight() * 0.6f);
             }
             if (show)
@@ -1371,7 +1371,7 @@ namespace Zamin {
                 ShowAll();
             ImGui::PopStyleColor();
             if (ImGui::IsItemHovered())
-                UI::Tooltip(std::format("{} ta obyekt editorda yashirilgan. Bosing: hammasini ko'rsatish (Alt+H)", hiddenCount).c_str());
+                UI::Tooltip(TrFormat("{} ta obyekt editorda yashirilgan. Bosing: hammasini ko'rsatish (Alt+H)", hiddenCount).c_str());
         }
         if (size_t lockedCount = m_Context->CountLockedInEditor())
         {
@@ -1383,7 +1383,7 @@ namespace Zamin {
                 UnlockAll();
             ImGui::PopStyleColor(2);
             if (ImGui::IsItemHovered())
-                UI::Tooltip(std::format("{} ta obyekt qulflangan. Bosing: hamma qulflarni ochish", lockedCount).c_str());
+                UI::Tooltip(TrFormat("{} ta obyekt qulflangan. Bosing: hamma qulflarni ochish", lockedCount).c_str());
         }
         ImGui::SameLine(ImGui::GetContentRegionAvail().x + ImGui::GetCursorPosX() - ImGui::GetFrameHeight());
         if (UI::ToolbarButton(ICON_FA_PLUS, "Obyekt yaratish", false, ImVec2(ImGui::GetFrameHeight(), 0)))
@@ -1394,7 +1394,7 @@ namespace Zamin {
             ImGui::EndPopup();
         }
 
-        UI::SearchBox("HierarchySearch", m_Filter, "Qidirish...  (#teg)");
+        UI::SearchBox("HierarchySearch", m_Filter, Tr("Qidirish...  (#teg)"));
         ImGui::Spacing();
 
         std::string filter = StringUtils::ToLower(m_Filter);

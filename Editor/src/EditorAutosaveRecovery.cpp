@@ -138,7 +138,7 @@ namespace Zamin {
         }
         m_AutosavedScene = scene;
         m_SessionAutosaves.insert(path.lexically_normal().string());
-        m_AutosaveNotice = std::format(ICON_FA_FLOPPY_DISK "  Avtosaqlandi {}", ClockTime(GetUnixTime()));
+        m_AutosaveNotice = TrFormat(ICON_FA_FLOPPY_DISK "  Avtosaqlandi {}", ClockTime(GetUnixTime()));
         m_AutosaveNoticeTime = ImGui::GetTime();
         const std::string shown = path.lexically_relative(Project::GetProjectDirectory()).generic_string();
         if (manual)
@@ -192,7 +192,7 @@ namespace Zamin {
             m_Recovery.Autosave = path;
             m_Recovery.Kept = kept;
             m_Recovery.Scene = scenePath;
-            m_Recovery.SceneName = scenePath.empty() ? std::string("Nomsiz sahna") : scenePath.stem().string();
+            m_Recovery.SceneName = scenePath.empty() ? std::string(Tr("Nomsiz sahna")) : scenePath.stem().string();
             m_Recovery.AutosaveTime = check.AutosaveTime;
             m_Recovery.SceneTime = check.SceneTime;
             m_Recovery.SceneExists = check.SceneExists;
@@ -270,7 +270,7 @@ namespace Zamin {
         SetActiveScene(m_EditorScene, false);
         m_SceneDirty = true;
         m_AssetUsage.MarkDirty();
-        m_UndoHistory.CommitEdit(TakeSnapshot(), CaptureUndoSelection(), "Avtosaqlashdan tiklandi", (double)GetUnixTime());
+        m_UndoHistory.CommitEdit(TakeSnapshot(), CaptureUndoSelection(), Tr("Avtosaqlashdan tiklandi"), (double)GetUnixTime());
         m_UndoSelectionRevision = m_SceneHierarchyPanel.GetSelection().GetRevision();
         m_UndoHistoryScroll = true;
         // The copy now belongs to this session (written again with the next change, deleted on save);
@@ -291,20 +291,20 @@ namespace Zamin {
         m_LastAutosaveTime = ImGui::GetTime();
         ZM_INFO("'{}' avtomatik saqlangan nusxadan tiklandi ({}) - faylga yozish uchun saqlang", m_Recovery.SceneName,
                 WhenText(m_Recovery.AutosaveTime));
-        ShowViewportMessage(ICON_FA_LIFE_RING "  Avtosaqlashdan tiklandi - saqlash uchun " + std::string(ShortcutLabel(EditorShortcut::SaveScene)));
+        ShowViewportMessage(Tr(ICON_FA_LIFE_RING "  Avtosaqlashdan tiklandi - saqlash uchun ") + std::string(ShortcutLabel(EditorShortcut::SaveScene)));
         UpdateWindowTitle();
     }
 
     void EditorLayer::UI_AutosaveRecovery()
     {
-        constexpr const char* id = ICON_FA_LIFE_RING "  Avtomatik saqlangan nusxa###AutosaveRecovery";
+        const char* id = Tr(ICON_FA_LIFE_RING "  Avtomatik saqlangan nusxa###AutosaveRecovery");
         if (m_Recovery.Pending && !m_ShowLauncher)
         {
             ImGui::OpenPopup("###AutosaveRecovery");
             m_Recovery.Pending = false;
         }
         ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-        if (!ImGui::BeginPopupModal(Tr(id), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        if (!ImGui::BeginPopupModal(id, nullptr, ImGuiWindowFlags_AlwaysAutoResize))
             return;
         if (m_Recovery.CloseRequested)
         {
@@ -317,44 +317,44 @@ namespace Zamin {
         ImGui::PushTextWrapPos(em * 30.0f);
         if (m_Recovery.Crashed)
         {
-            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.35f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  Editor oldingi safar kutilmaganda yopilgan.");
+            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.35f, 1.0f), "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Editor oldingi safar kutilmaganda yopilgan."));
             ImGui::Spacing();
         }
         if (m_Recovery.Kept)
         {
-            ImGui::TextWrapped("'%s' sahnasining avvalroq \"Keyinroq\" bilan qoldirilgan nusxasi bor (saqlanmagan o'zgarishlar).",
+            ImGui::TextWrapped(Tr("'%s' sahnasining avvalroq \"Keyinroq\" bilan qoldirilgan nusxasi bor (saqlanmagan o'zgarishlar)."),
                                m_Recovery.SceneName.c_str());
             if (m_Recovery.SceneExists && m_Recovery.SceneTime > m_Recovery.AutosaveTime)
                 ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.35f, 1.0f),
-                                   ICON_FA_TRIANGLE_EXCLAMATION "  Sahna fayli nusxadan keyin saqlangan: tiklash fayldagi keyingi o'zgarishlar "
-                                   "o'rniga nusxani qo'yadi.");
+                                   "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Sahna fayli nusxadan keyin saqlangan: tiklash fayldagi keyingi o'zgarishlar "
+                                   "o'rniga nusxani qo'yadi."));
         }
         else
-            ImGui::TextWrapped("'%s' sahnasining saqlanmagan o'zgarishlari avtomatik saqlangan nusxada bor. Nusxa sahna faylidan yangiroq.",
+            ImGui::TextWrapped(Tr("'%s' sahnasining saqlanmagan o'zgarishlari avtomatik saqlangan nusxada bor. Nusxa sahna faylidan yangiroq."),
                                m_Recovery.SceneName.c_str());
         ImGui::Spacing();
         if (ImGui::BeginTable("##recovery", 2, ImGuiTableFlags_SizingFixedFit))
         {
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
-            ImGui::TextDisabled(ICON_FA_LIFE_RING "  Nusxa");
+            ImGui::TextDisabled("%s", Tr(ICON_FA_LIFE_RING "  Nusxa"));
             ImGui::TableSetColumnIndex(1);
             ImGui::TextUnformatted(WhenText(m_Recovery.AutosaveTime).c_str());
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
-            ImGui::TextDisabled(ICON_FA_FILE "  Fayl");
+            ImGui::TextDisabled("%s", Tr(ICON_FA_FILE "  Fayl"));
             ImGui::TableSetColumnIndex(1);
             if (m_Recovery.SceneExists)
                 ImGui::TextUnformatted(WhenText(m_Recovery.SceneTime).c_str());
             else
-                ImGui::TextDisabled("hali saqlanmagan sahna");
+                ImGui::TextDisabled("%s", Tr("hali saqlanmagan sahna"));
             ImGui::EndTable();
         }
         const std::string shown = Project::GetActive() ? m_Recovery.Autosave.lexically_relative(Project::GetProjectDirectory()).generic_string()
                                                        : m_Recovery.Autosave.string();
         ImGui::TextDisabled("%s", shown.c_str());
         ImGui::Spacing();
-        ImGui::TextDisabled("Tiklangan sahna saqlanmagan bo'ladi: undo fayldagi holatga qaytaradi.");
+        ImGui::TextDisabled("%s", Tr("Tiklangan sahna saqlanmagan bo'ladi: undo fayldagi holatga qaytaradi."));
         ImGui::PopTextWrapPos();
         ImGui::Spacing();
 
@@ -394,15 +394,15 @@ namespace Zamin {
         changed |= ImGui::Checkbox(Tr("Saqlanmagan o'zgarishlarning nusxasini avtomatik yozish"), &autosave.Enabled);
         ImGui::BeginDisabled(!autosave.Enabled);
         ImGui::SetNextItemWidth(em * 14.0f);
-        if (ImGui::SliderInt("Har necha daqiqada", &autosave.IntervalMinutes, AutosaveSettings::MinInterval, AutosaveSettings::MaxInterval, "%d daqiqa"))
+        if (ImGui::SliderInt(Tr("Har necha daqiqada"), &autosave.IntervalMinutes, AutosaveSettings::MinInterval, AutosaveSettings::MaxInterval, Tr("%d daqiqa")))
         {
             autosave.Sanitize();
             changed = true;
         }
         ImGui::EndDisabled();
         ImGui::PushTextWrapPos(0.0f);
-        ImGui::TextDisabled("Nusxa <loyiha>/.zamin/autosave ga yoziladi - sahna faylining o'zi o'zgarmaydi. Editor kutilmaganda "
-                            "yopilsa, sahna keyingi ochilganda nusxadan tiklashni taklif qiladi.");
+        ImGui::TextDisabled("%s", Tr("Nusxa <loyiha>/.zamin/autosave ga yoziladi - sahna faylining o'zi o'zgarmaydi. Editor kutilmaganda "
+                            "yopilsa, sahna keyingi ochilganda nusxadan tiklashni taklif qiladi."));
         ImGui::PopTextWrapPos();
         if (Project::GetActive())
         {
@@ -412,9 +412,9 @@ namespace Zamin {
             if (m_AutosaveNoticeTime > 0.0)
                 ImGui::TextUnformatted(m_AutosaveNotice.c_str());
             else
-                ImGui::TextDisabled(ICON_FA_CLOCK "  Bu sessiyada hali nusxa yozilmadi");
+                ImGui::TextDisabled("%s", Tr(ICON_FA_CLOCK "  Bu sessiyada hali nusxa yozilmadi"));
             ImGui::SameLine();
-            ImGui::TextDisabled("|  papkada %zu ta nusxa", count);
+            ImGui::TextDisabled(Tr("|  papkada %zu ta nusxa"), count);
             ImGui::BeginDisabled(m_SceneState != SceneState::Edit);
             if (ImGui::Button(Tr(ICON_FA_FLOPPY_DISK "  Hozir nusxa yozish")))
                 WriteAutosave(true);
@@ -442,8 +442,8 @@ namespace Zamin {
         ImGui::SeparatorText(Tr("Undo"));
         changed |= ImGui::Checkbox(Tr("Tanlov o'zgarishlari ham undo qadami"), &m_Preferences.Undo.RecordSelection);
         ImGui::PushTextWrapPos(0.0f);
-        ImGui::TextDisabled("Yoqiq: Ctrl+Z oldingi tanlovni qaytaradi. O'chiq: faqat sahna o'zgarishlari qadam bo'ladi "
-                            "(ularning undo'si o'sha paytdagi tanlovni baribir qaytaradi).");
+        ImGui::TextDisabled("%s", Tr("Yoqiq: Ctrl+Z oldingi tanlovni qaytaradi. O'chiq: faqat sahna o'zgarishlari qadam bo'ladi "
+                            "(ularning undo'si o'sha paytdagi tanlovni baribir qaytaradi)."));
         ImGui::PopTextWrapPos();
         if (ImGui::Button(Tr(ICON_FA_CLOCK_ROTATE_LEFT "  Undo tarixi oynasi")))
         {
@@ -452,13 +452,13 @@ namespace Zamin {
         }
 
         ImGui::SeparatorText(Tr("Klaviatura"));
-        ImGui::Text("%zu ta yorliq, %zu ta o'zgartirilgan", m_Shortcuts.GetAll().size(), m_Shortcuts.CountModified());
+        ImGui::Text(Tr("%zu ta yorliq, %zu ta o'zgartirilgan"), m_Shortcuts.GetAll().size(), m_Shortcuts.CountModified());
         if (size_t conflicts = m_Shortcuts.CountConflicts(); conflicts > 0)
         {
             ImGui::SameLine();
-            ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.35f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  %zu ta to'qnashuv", conflicts);
+            ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.35f, 1.0f), Tr(ICON_FA_TRIANGLE_EXCLAMATION "  %zu ta to'qnashuv"), conflicts);
         }
-        if (ImGui::Button(std::format(ICON_FA_KEYBOARD "  Klaviatura yorliqlari ({})", ShortcutLabel(EditorShortcut::ShortcutsWindow)).c_str()))
+        if (ImGui::Button(TrFormat(ICON_FA_KEYBOARD "  Klaviatura yorliqlari ({})", ShortcutLabel(EditorShortcut::ShortcutsWindow)).c_str()))
             m_ShowShortcuts = true;
     }
 

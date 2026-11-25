@@ -704,13 +704,16 @@ tahrirlaydi, yangi qiymat qo'shadi va tozalaydi. Ular loyiha faylida emas, foyda
 
 ## 16. Editor tili (o'zbek / ingliz)
 
-Editorning o'z interfeysi ikki tilda: **o'zbek** (standart) va **ingliz**. *Tahrirlash > Sozlamalar > Ko'rinish >
-Editor tili* - darhol almashadi va `~/.config/zamin/preferences.json` ga (`"Language": "uz" | "en"`) yoziladi. Standart til: inglizcha (`"en"`); o'zbekcha Preferences oynasida tanlanadi.
+Editorning o'z interfeysi ikki tilda: **ingliz** (standart) va **o'zbek**. *Edit > Preferences > Appearance >
+Editor language* (o'zbekchada: *Tahrirlash > Sozlamalar > Ko'rinish > Editor tili*) - darhol almashadi va
+`~/.config/zamin/preferences.json` ga (`"Language": "uz" | "en"`) yoziladi. Standart til: inglizcha (`"en"`);
+o'zbekcha Preferences oynasida tanlanadi.
 
-Tarjima qilinadi: asosiy menyular (Fayl, Tahrirlash, Ko'rinish, Obyekt, Skriptlar, Oyna, Yordam), hamma oyna
-sarlavhalari va dialoglar, tugmalar, belgilash katakchalari, tablar va bo'lim sarlavhalari, qidiruv maydonlari,
-holat paneli, loyiha sozlamalari yorliqlari. Uzun izohlar (tooltip'lar), log xabarlari va o'yinning o'z matnlari
-o'zbekcha qoladi. O'yinning tili (13-bo'lim) editor tilidan mustaqil.
+Tarjima qilinadi: editor ko'rsatadigan hamma matn - menyular, oyna sarlavhalari va dialoglar, tugmalar, belgilash
+katakchalari, tablar va bo'lim sarlavhalari, qidiruv maydonlari, holat paneli, inspektor va loyiha sozlamalari
+yorliqlari, uzun izohlar (tooltip'lar), ko'rsatmalar, viewport xabarlari, undo tarixi yozuvlari, klaviatura
+yorliqlari ro'yxati va editor yaratadigan obyektlarning standart nomlari. Inglizcha editorda o'zbekcha matn
+qolmasligi kerak. O'yinning tili (13-bo'lim) editor tilidan mustaqil.
 
 Avtomatlashtirish / skrinshotlar uchun: `ZAMIN_EDITOR_LANGUAGE=uz ZaminEditor ...` (faylga yozilmaydi).
 
@@ -724,9 +727,15 @@ ImGui::MenuItem(Tr(ICON_FA_FOLDER_OPEN "  Sahnani ochish..."));     // "..." va 
 std::format("{}: {}", EditorText::Choose("Bekor qilish", "Undo"), name); // bir so'z - ikki ma'no
 ```
 
-`UI::PropertyLabel` va `UI::PropertyHeader` yorliqlarni o'zi tarjima qiladi. Oyna sarlavhalarida `###id`
-ishlatiladi - til almashganda oynaning joyi va joylashuvi (layout) saqlanadi. Jadvalda yo'q matn o'zgarishsiz
-ko'rinadi.
+`UI::PropertyLabel` / `UI::PropertyHeader` (yorlig'i ham, izohi ham), `UI::Tooltip`, `UI::ToolbarButton` va
+`UI::TrCombo` matnni o'zi tarjima qiladi. Formatli matnlar: `ImGui::Text(Tr("%zu ta kalit"), n)` yoki
+`TrFormat("{} ta obyekt", n)` (`std::format` o'rniga) - inglizcha matn ham xuddi shu `%d` / `{}` o'rinlarini olishi
+shart. Static jadvallardagi (`static const char* items[]`) matnlar kalit bo'lib qoladi va ko'rsatiladigan joyda
+`Tr(items[i])` bilan tarjima qilinadi. Oyna sarlavhalarida `###id` ishlatiladi - til almashganda oynaning joyi va
+joylashuvi (layout) saqlanadi. Jadvalda yo'q matn o'zgarishsiz ko'rinadi, shuning uchun testlar buni tekshiradi:
+`EditorTranslationKeysComplete` (har bir `Tr` kalitining inglizchasi bor), `EditorNoRawUzbekLiterals` (`Editor/src`
+dagi o'zbekcha ko'rinadigan literal `Tr` siz ImGui / format chaqiruviga berilsa test yiqiladi) va
+`EditorLanguageStrings` (har juftlikning `%d` / `{}` o'rinlari bir xil).
 
 ---
 
@@ -878,7 +887,8 @@ aylantirganda kursorni bloklaydi.
 | `LocalizationTableEditingAndFiles` | Jadval: kalit / til qo'shish, qayta nomlash, yetishmayotganlar, `{0}` mosligi, fayllar |
 | `LocalizedTextComponentAndScripts` | Text komponenti kaliti til bilan yangilanadi, `OnLanguageChanged` |
 | `ProjectLocalizationSettings` | `"Localization"` bo'limi va loyiha bilan yuklanishi |
-| `EditorLanguageStrings` | Editor tili jadvali: tarjima, ikonka / `###id` saqlanishi, `Choose`, preferences |
+| `EditorLanguageStrings` | Editor tili jadvali: tarjima, ikonka / `###id` saqlanishi, `Choose`, preferences, `%d` / `{}` o'rinlari mosligi |
+| `EditorNoRawUzbekLiterals` | `Editor/src` da `Tr` siz ko'rsatiladigan o'zbekcha literal yo'q; `Tr` ichidagi har matnning inglizchasi bor |
 | `PlayerLogFileRotation` | Log fayl nomi, oxirgi 5 tasi, `latest.log`, `--log-file`, ochilishdan oldingi xabarlar |
 | `CrashHandlerReports` | Hisobot matni, demangle, o'qish, oyna buyruqlari; bola jarayonda haqiqiy SIGSEGV, istisno, abort |
 | `CursorApiForScripts` | Kursor holatlari (fokus, pauza), rasm, `Reset`, bloklashda sichqoncha siljishi |

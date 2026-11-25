@@ -383,7 +383,7 @@ namespace Zamin {
         if (track.Path.empty())
         {
             Entity player = GetPlayer();
-            owner = player ? player.GetName() : std::string("(o'zi)");
+            owner = player ? player.GetName() : std::string(Tr("(o'zi)"));
         }
         else
         {
@@ -707,7 +707,7 @@ namespace Zamin {
                 for (PropertyValue& b : m_Base)
                     if (b.Entity == a.Entity && b.Property == a.Property && b.Field == a.Field)
                         b.Value = now;
-                m_Status = "Yozish o'chiq: o'zgarish sahnaning o'z qiymatiga yozildi (kalit qo'yilmadi)";
+                m_Status = Tr("Yozish o'chiq: o'zgarish sahnaning o'z qiymatiga yozildi (kalit qo'yilmadi)");
                 m_StatusUntil = ImGui::GetTime() + 4.0;
             }
         }
@@ -746,7 +746,7 @@ namespace Zamin {
                 SelectKey((int)m_Work.Tracks.size() - 1, key);
                 (void)key;
                 changed = true;
-                m_Status = std::format("Yangi trek yozildi: {}", TrackLabel(track));
+                m_Status = TrFormat("Yangi trek yozildi: {}", TrackLabel(track));
                 m_StatusUntil = ImGui::GetTime() + 3.0;
             }
         }
@@ -876,7 +876,7 @@ namespace Zamin {
         if (player)
             ImGui::TextColored(UI::AccentColor(), ICON_FA_FILM "  %s", player.GetName().c_str());
         else if (m_Asset)
-            ImGui::TextDisabled(ICON_FA_FILM "  (obyektsiz)");
+            ImGui::TextDisabled("%s", Tr(ICON_FA_FILM "  (obyektsiz)"));
         else
             ImGui::TextDisabled(ICON_FA_FILM "  -");
         if (ImGui::IsItemHovered())
@@ -888,7 +888,7 @@ namespace Zamin {
             m_Pinned = !m_Pinned;
         ImGui::SameLine();
         ImGui::SetNextItemWidth(150.0f);
-        std::string clipName = m_Asset ? m_Asset->GetName() : m_ClipPath.empty() ? std::string("(klip yo'q)") : fs::path(m_ClipPath).stem().string();
+        std::string clipName = m_Asset ? m_Asset->GetName() : m_ClipPath.empty() ? std::string(Tr("(klip yo'q)")) : fs::path(m_ClipPath).stem().string();
         if (m_Dirty)
             clipName += " *";
         if (ImGui::BeginCombo("##clip", clipName.c_str()))
@@ -931,7 +931,7 @@ namespace Zamin {
         ImGui::SetNextItemWidth(130.0f);
         float time = m_Time;
         const int frame = (int)std::round(m_Time * m_Work.FrameRate);
-        if (ImGui::DragFloat("##time", &time, 0.01f, 0.0f, m_Work.Duration, std::format("%.2f s  ({} kadr)", frame).c_str()))
+        if (ImGui::DragFloat("##time", &time, 0.01f, 0.0f, m_Work.Duration, TrFormat("%.2f s  ({} kadr)", frame).c_str()))
         {
             m_Playing = false;
             SetTime(time);
@@ -976,7 +976,7 @@ namespace Zamin {
         else if (m_Recording)
         {
             ImGui::SameLine(0.0f, 14.0f);
-            ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.35f, 1.0f), ICON_FA_CIRCLE "  YOZILMOQDA");
+            ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.35f, 1.0f), "%s", Tr(ICON_FA_CIRCLE "  YOZILMOQDA"));
         }
     }
 
@@ -986,15 +986,15 @@ namespace Zamin {
         auto* pc = GetPlayerComponent();
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
         if (pc && pc->Clips.empty())
-            ImGui::TextDisabled("Animation Player'da klip yo'q: inspektorda \"Yangi klip\" bilan yarating yoki .zanim faylini qo'shing");
+            ImGui::TextDisabled("%s", Tr("Animation Player'da klip yo'q: inspektorda \"Yangi klip\" bilan yarating yoki .zanim faylini qo'shing"));
         else if (pc && !m_ClipPath.empty())
-            ImGui::TextColored(ImVec4(0.95f, 0.5f, 0.4f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  Klip yuklanmadi: %s", m_ClipPath.c_str());
+            ImGui::TextColored(ImVec4(0.95f, 0.5f, 0.4f, 1.0f), Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Klip yuklanmadi: %s"), m_ClipPath.c_str());
         else
-            ImGui::TextDisabled("Animation Player komponenti bor obyektni tanlang (yoki kontent oynasida .zanim faylini oching)");
+            ImGui::TextDisabled("%s", Tr("Animation Player komponenti bor obyektni tanlang (yoki kontent oynasida .zanim faylini oching)"));
         if (selected && !pc && m_Editable && Project::GetActive() && !selected.HasComponent<AnimationPlayerComponent>())
         {
             ImGui::Dummy(ImVec2(0.0f, 6.0f));
-            if (ImGui::Button(std::format(ICON_FA_PLUS "  \"{}\" ga Animation Player va yangi klip", selected.GetName()).c_str()))
+            if (ImGui::Button(TrFormat(ICON_FA_PLUS "  \"{}\" ga Animation Player va yangi klip", selected.GetName()).c_str()))
             {
                 std::string name;
                 for (char ch : selected.GetName())
@@ -1028,11 +1028,11 @@ namespace Zamin {
         Entity player = GetPlayer();
         if (!player || !m_Scene)
         {
-            ImGui::TextDisabled("Klip Animation Player'ga biriktirilmagan");
+            ImGui::TextDisabled("%s", Tr("Klip Animation Player'ga biriktirilmagan"));
             ImGui::EndPopup();
             return;
         }
-        ImGui::TextDisabled("Obyekt va xususiyat");
+        ImGui::TextDisabled("%s", Tr("Obyekt va xususiyat"));
         ImGui::Separator();
         std::vector<Entity> entities = { player };
         for (Entity e : m_Scene->GetDescendants(player))
@@ -1040,12 +1040,12 @@ namespace Zamin {
         for (Entity e : entities)
         {
             std::string path = AnimationTargets::MakePath(player, e).value_or(std::string());
-            std::string label = path.empty() ? e.GetName() + "  (o'zi)" : path;
+            std::string label = path.empty() ? e.GetName() + Tr("  (o'zi)") : path;
             if (ImGui::BeginMenu(std::format("{}##{}", label, (uint64_t)e.GetUUID()).c_str()))
             {
                 auto candidates = AnimationTargets::GetCandidates(e);
                 if (candidates.empty())
-                    ImGui::TextDisabled("Animatsiya qilinadigan narsa yo'q");
+                    ImGui::TextDisabled("%s", Tr("Animatsiya qilinadigan narsa yo'q"));
                 for (const auto& c : candidates)
                 {
                     std::string name = PropertyAnimation::GetPropertyName(c.Property);
@@ -1282,7 +1282,7 @@ namespace Zamin {
             }
         }
         else
-            dl->AddText(ImVec2(canvas.Min.x + 12.0f, eventsBottom + 10.0f), IM_COL32(150, 150, 160, 255), "Egri chiziq uchun chapdan trek tanlang");
+            dl->AddText(ImVec2(canvas.Min.x + 12.0f, eventsBottom + 10.0f), IM_COL32(150, 150, 160, 255), Tr("Egri chiziq uchun chapdan trek tanlang"));
         dl->PopClipRect();
 
         // ---- the playhead
@@ -1298,10 +1298,10 @@ namespace Zamin {
         {
             dl->AddRectFilled(list.Min, ImVec2(list.Max.x, list.Min.y + s_RulerHeight), IM_COL32(36, 38, 44, 255));
             ImGui::SetCursorScreenPos(ImVec2(list.Min.x + 6.0f, list.Min.y + 4.0f));
-            ImGui::TextDisabled("%.2f s   kadr %d / %d", m_Time, (int)std::round(m_Time * m_Work.FrameRate),
+            ImGui::TextDisabled(Tr("%.2f s   kadr %d / %d"), m_Time, (int)std::round(m_Time * m_Work.FrameRate),
                                 (int)std::round(m_Work.Duration * m_Work.FrameRate));
             ImGui::SetCursorScreenPos(ImVec2(list.Min.x + 6.0f, rulerBottom + 3.0f));
-            ImGui::TextColored(ImVec4(0.9f, 0.7f, 0.35f, 1.0f), ICON_FA_BELL "  Event'lar (%zu)", m_Work.Events.size());
+            ImGui::TextColored(ImVec4(0.9f, 0.7f, 0.35f, 1.0f), Tr(ICON_FA_BELL "  Event'lar (%zu)"), m_Work.Events.size());
             ImGui::PushClipRect(ImVec2(list.Min.x, eventsBottom), list.Max, true);
             for (int t = 0; t < trackCount; t++)
             {
@@ -1324,10 +1324,10 @@ namespace Zamin {
                     ImGui::PopStyleColor();
                 if (ImGui::IsItemHovered())
                 {
-                    std::string tip = std::format("{}\n{}", track.Path.empty() ? std::string("(Animation Player obyektining o'zi)") : track.Path,
+                    std::string tip = std::format("{}\n{}", track.Path.empty() ? std::string(Tr("(Animation Player obyektining o'zi)")) : track.Path,
                                                   PropertyAnimation::PropertyToKey(track.Property));
                     if (missing)
-                        tip += "\nNishon topilmadi (bola nomi o'zgarganmi?)";
+                        tip += Tr("\nNishon topilmadi (bola nomi o'zgarganmi?)");
                     UI::Tooltip(tip.c_str());
                 }
                 ImGui::SameLine(s_ListWidth - 26.0f);
@@ -1630,7 +1630,7 @@ namespace Zamin {
             }
             else if (!m_SelectedKeys.empty() && m_ContextKey.Track >= 0)
             {
-                ImGui::TextDisabled(ICON_FA_DIAMOND "  %zu ta kalit", m_SelectedKeys.size());
+                ImGui::TextDisabled(Tr(ICON_FA_DIAMOND "  %zu ta kalit"), m_SelectedKeys.size());
                 auto setAll = [&](auto&& f) {
                     BeginEdit();
                     for (const KeyRef& k : m_SelectedKeys)
@@ -1697,7 +1697,7 @@ namespace Zamin {
         static const char* wraps[] = { "Bir marta", "Takror", "Borib-qaytish" };
         int wrap = (int)m_Work.Wrap;
         UI::PropertyLabel("Tugaganda", "Bir marta: oxirgi qiymatda to'xtaydi; Takror: boshidan; Borib-qaytish: orqaga va yana oldinga");
-        if (ImGui::Combo("##wrap", &wrap, wraps, 3))
+        if (UI::TrCombo("##wrap", &wrap, wraps, 3))
         {
             BeginEdit();
             m_Work.Wrap = (AnimationWrap)wrap;
@@ -1746,7 +1746,7 @@ namespace Zamin {
                     EndEdit();
                 UI::EndPropertyGrid();
             }
-            ImGui::TextWrapped("Skript: OnAnimationEvent(e) - e.Name, e.Parameter; yoki AddAnimationEventHandler(\"%s\", ...)", ev.Name.c_str());
+            ImGui::TextWrapped(Tr("Skript: OnAnimationEvent(e) - e.Name, e.Parameter; yoki AddAnimationEventHandler(\"%s\", ...)"), ev.Name.c_str());
             if (ImGui::Button(Tr(ICON_FA_TRASH "  O'chirish")))
                 DeleteSelection();
             return;
@@ -1790,7 +1790,7 @@ namespace Zamin {
                     for (int c = 0; c < count; c++)
                     {
                         ImGui::PushID(c);
-                        std::string label = count == 1 ? std::string("Qiymat") : std::string("Qiymat ") + ComponentName(track.Property, c);
+                        std::string label = count == 1 ? std::string(Tr("Qiymat")) : std::string(Tr("Qiymat ")) + ComponentName(track.Property, c);
                         UI::PropertyLabel(label.c_str());
                         ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(ComponentColor(c)));
                         changed |= ImGui::DragFloat("##v", &key.Value[c], track.Property == AnimatedProperty::Rotation ? 0.5f : 0.01f);
@@ -1799,7 +1799,7 @@ namespace Zamin {
                         ImGui::PopID();
                     }
                 {
-                    const char* items[] = { "Step (sakrash)", "Linear (to'g'ri)", "Bezier (silliq)" };
+                    const char* items[] = { Tr("Step (sakrash)"), Tr("Linear (to'g'ri)"), Tr("Bezier (silliq)") };
                     int interp = (int)key.Interpolation;
                     if (UI::PropertyCombo("Keyingisiga", interp, items, 3))
                     {
@@ -1808,7 +1808,7 @@ namespace Zamin {
                     }
                 }
                 {
-                    const char* items[] = { "Avtomatik", "Tekis (flat)", "Erkin (qo'lda)" };
+                    const char* items[] = { Tr("Avtomatik"), Tr("Tekis (flat)"), Tr("Erkin (qo'lda)") };
                     int mode = (int)key.TangentMode;
                     if (UI::PropertyCombo("Tangent", mode, items, 3))
                     {
@@ -1820,7 +1820,7 @@ namespace Zamin {
                     for (int c = 0; c < count; c++)
                     {
                         ImGui::PushID(100 + c);
-                        UI::PropertyLabel((std::string("Qiyalik ") + ComponentName(track.Property, c)).c_str(),
+                        UI::PropertyLabel((std::string(Tr("Qiyalik ")) + ComponentName(track.Property, c)).c_str(),
                                           "Kirish va chiqish qiyaligi (qiymat / soniya)");
                         float both[2] = { key.InTangent[c], key.OutTangent[c] };
                         if (ImGui::DragFloat2("##t", both, 0.02f))
@@ -1850,38 +1850,38 @@ namespace Zamin {
         }
         if (m_SelectedKeys.size() > 1)
         {
-            ImGui::TextColored(UI::AccentColor(), ICON_FA_DIAMOND "  %zu ta kalit tanlangan", m_SelectedKeys.size());
+            ImGui::TextColored(UI::AccentColor(), Tr(ICON_FA_DIAMOND "  %zu ta kalit tanlangan"), m_SelectedKeys.size());
             ImGui::Separator();
-            ImGui::TextWrapped("Sudrab vaqtini o'zgartiring; o'ng tugma - interpolyatsiya; Delete - o'chirish");
+            ImGui::TextWrapped("%s", Tr("Sudrab vaqtini o'zgartiring; o'ng tugma - interpolyatsiya; Delete - o'chirish"));
             if (ImGui::Button(Tr(ICON_FA_TRASH "  O'chirish")))
                 DeleteSelection();
             return;
         }
         // ---- the clip, the selected track, then help
-        ImGui::TextColored(UI::AccentColor(), ICON_FA_FILM "  Klip: %s", m_Asset ? m_Asset->GetName().c_str() : "");
+        ImGui::TextColored(UI::AccentColor(), Tr(ICON_FA_FILM "  Klip: %s"), m_Asset ? m_Asset->GetName().c_str() : "");
         DrawClipSettings();
         ImGui::Separator();
         if (m_SelectedTrack >= 0 && m_SelectedTrack < (int)m_Work.Tracks.size())
         {
             const AnimationTrack& track = m_Work.Tracks[(size_t)m_SelectedTrack];
             ImGui::TextColored(UI::AccentColor(), "%s", TrackLabel(track).c_str());
-            ImGui::TextDisabled("%s", track.Path.empty() ? "(Animation Player obyektining o'zi)" : track.Path.c_str());
+            ImGui::TextDisabled("%s", track.Path.empty() ? Tr("(Animation Player obyektining o'zi)") : track.Path.c_str());
             ImGui::Separator();
             const glm::vec4 v = track.Evaluate(m_Time);
             const int count = track.GetComponentCount();
             std::string value;
             for (int c = 0; c < count; c++)
                 value += std::format("{}{} {:.3f}", c ? "  " : "", ComponentName(track.Property, c), v[c]);
-            ImGui::Text("%zu kalit", track.Keys.size());
-            ImGui::TextWrapped("%.2f s da: %s", m_Time, value.c_str());
+            ImGui::Text(Tr("%zu kalit"), track.Keys.size());
+            ImGui::TextWrapped(Tr("%.2f s da: %s"), m_Time, value.c_str());
             if (ImGui::Button(Tr(ICON_FA_KEY "  Joriy vaqtda kalit (K)")))
                 AddKeys(m_SelectedTrack, m_Time);
         }
         ImGui::Dummy(ImVec2(0.0f, 6.0f));
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.63f, 0.68f, 1.0f));
-        ImGui::TextWrapped("Chizg'ich: vaqtni surish. Ikki marta bosish: kalit / event. Sudrash: kalitni ko'chirish. "
+        ImGui::TextWrapped("%s", Tr("Chizg'ich: vaqtni surish. Ikki marta bosish: kalit / event. Sudrash: kalitni ko'chirish. "
                            "G'ildirak: masshtab, Shift+g'ildirak / o'rta tugma: surish. K: kalit, Probel: o'ynatish, "
-                           "Delete: o'chirish, Ctrl+Z / Ctrl+Y: bekor qilish / qaytarish.");
+                           "Delete: o'chirish, Ctrl+Z / Ctrl+Y: bekor qilish / qaytarish."));
         ImGui::PopStyleColor();
     }
 

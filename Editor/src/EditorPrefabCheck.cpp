@@ -15,17 +15,17 @@ namespace Zamin {
     namespace {
         const char* RuleText(const std::string& rule)
         {
-            if (rule == "R1") return "Nomlangan prefab yo'q";
-            if (rule == "R2") return "Prefab o'qilmadi";
-            if (rule == "R3") return "Yangiroq format";
-            if (rule == "R4") return "ID / ildiz / ierarxiya";
-            if (rule == "R5") return "Noma'lum komponent";
-            if (rule == "R6") return "Tashqi havola";
-            if (rule == "R7") return "Asset topilmadi";
-            if (rule == "R8") return "Bog'langan prefab topilmadi";
-            if (rule == "R9") return "Prefab sikli";
-            if (rule == "R10") return "Eskirgan o'zgarish / bog'lanmagan nusxa";
-            return "Ma'lumot";
+            if (rule == "R1") return Tr("Nomlangan prefab yo'q");
+            if (rule == "R2") return Tr("Prefab o'qilmadi");
+            if (rule == "R3") return Tr("Yangiroq format");
+            if (rule == "R4") return Tr("ID / ildiz / ierarxiya");
+            if (rule == "R5") return Tr("Noma'lum komponent");
+            if (rule == "R6") return Tr("Tashqi havola");
+            if (rule == "R7") return Tr("Asset topilmadi");
+            if (rule == "R8") return Tr("Bog'langan prefab topilmadi");
+            if (rule == "R9") return Tr("Prefab sikli");
+            if (rule == "R10") return Tr("Eskirgan o'zgarish / bog'lanmagan nusxa");
+            return Tr("Ma'lumot");
         }
     }
 

@@ -1,4 +1,5 @@
 #include "Zamin/Editor/ExternalEditor.h"
+#include "Zamin/Editor/EditorLanguage.h"
 
 #include "Zamin/Utils/FileSystem.h"
 
@@ -298,9 +299,9 @@ namespace Zamin {
             return false;
         };
         if (args.empty() || args[0].empty())
-            return fail("buyruq bo'sh");
+            return fail(Tr("buyruq bo'sh"));
         if (!IsOnPath(args[0]))
-            return fail(std::format("'{}' dasturi topilmadi (PATH'da yo'q yoki ishga tushirib bo'lmaydi)", args[0]));
+            return fail(TrFormat("'{}' dasturi topilmadi (PATH'da yo'q yoki ishga tushirib bo'lmaydi)", args[0]));
 
         // Everything the child needs is made before fork (only async-signal-safe calls after it).
         std::vector<char*> argv;
@@ -359,7 +360,7 @@ namespace Zamin {
         while (n < 0 && errno == EINTR);
         ::close(pipeFds[0]);
         if (n == (ssize_t)sizeof(err))
-            return fail(std::format("'{}' ishga tushmadi: {}", args[0], std::strerror(err)));
+            return fail(TrFormat("'{}' ishga tushmadi: {}", args[0], std::strerror(err)));
         return true;
     }
 

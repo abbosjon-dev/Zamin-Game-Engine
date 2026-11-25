@@ -124,7 +124,7 @@ namespace Zamin::UI {
             width -= size + spacing;
         }
         width = std::max(width, 20.0f);
-        std::string display = path.empty() ? std::string(icon) + "  (yo'q)" : std::string(icon) + "  " + path;
+        std::string display = path.empty() ? std::string(icon) + Tr("  (yo'q)") : std::string(icon) + "  " + path;
         // Too long for the field: the file name (the whole path is in the tooltip).
         bool shortened = false;
         if (!path.empty() && ImGui::CalcTextSize(display.c_str()).x > width - ImGui::GetStyle().FramePadding.x * 2.0f)
@@ -144,9 +144,9 @@ namespace Zamin::UI {
         ImGui::PopStyleColor();
         if (ImGui::IsItemHovered())
         {
-            std::string tip = options.Missing && !path.empty() ? "Fayl yuklanmadi (yo'q yoki buzilgan) - konsolni tekshiring.\n"
-                                                                 "Content Browser'dan boshqa fayl tortib tashlang"
-                                                               : "Content Browser'dan fayl tortib tashlang";
+            std::string tip = options.Missing && !path.empty() ? Tr("Fayl yuklanmadi (yo'q yoki buzilgan) - konsolni tekshiring.\n"
+                                                                 "Content Browser'dan boshqa fayl tortib tashlang")
+                                                               : Tr("Content Browser'dan fayl tortib tashlang");
             if (shortened)
                 tip = path + "\n" + tip;
             Tooltip(tip.c_str());
@@ -193,27 +193,27 @@ namespace Zamin::UI {
     {
         bool changed = false;
         int shader = (int)m.Shader;
-        const char* shaders[] = { forModel ? "Modelning o'zi" : "Lit (yoritilgan, PBR)", "Unlit (yoritilmagan)" };
+        const char* shaders[] = { forModel ? Tr("Modelning o'zi") : Tr("Lit (yoritilgan, PBR)"), "Unlit (yoritilmagan)" };
         PropertyLabel("Shader", forModel ? "Modelning o'zi: glTF materialidagi shader (odatda Lit). "
                                            "Unlit: faqat rang (x tekstura) va nurlanish - yorug'lik, soya va osmon ta'sir qilmaydi."
                                          : "Lit: quyosh, nuqtali chiroqlar, soyalar va osmon bilan yoritiladi (PBR). "
                                            "Unlit: faqat rang (x tekstura) va nurlanish - yorug'lik, soya va osmon ta'sir qilmaydi "
                                            "(UI belgilari, gologrammalar, ekranlar).");
         ImGui::PushID("##materialSurface");
-        if (ImGui::Combo("##shader", &shader, shaders, 2))
+        if (TrCombo("##shader", &shader, shaders, 2))
         {
             m.Shader = (MaterialShader)shader;
             changed = true;
         }
 
         int blend = (int)m.BlendMode;
-        const char* blends[] = { forModel ? "Modelning o'zi" : "Opaque (shaffof emas)", "Cutout (kesish)", "Transparent (shaffof)" };
+        const char* blends[] = { forModel ? Tr("Modelning o'zi") : Tr("Opaque (shaffof emas)"), Tr("Cutout (kesish)"), Tr("Transparent (shaffof)") };
         PropertyLabel("Aralashtirish", "Opaque: orqasini to'liq yopadi, alfa e'tiborga olinmaydi. "
                                        "Cutout: alfa chegaradan past piksellar chizilmaydi, qolgani shaffof emas - soyada ham teshiklar bo'ladi "
                                        "(barglar, panjaralar, o't). "
                                        "Transparent: alfa bo'yicha orqasidagi bilan aralashadi, orqadan oldinga saralanib chiziladi va soya "
                                        "tashlamaydi (shisha, suv, tutun).");
-        if (ImGui::Combo("##blend", &blend, blends, 3))
+        if (TrCombo("##blend", &blend, blends, 3))
         {
             m.BlendMode = (MaterialBlendMode)blend;
             changed = true;
@@ -272,8 +272,8 @@ namespace Zamin::UI {
         ImGui::SameLine(0.0f, ImGui::GetStyle().ItemInnerSpacing.x);
         glm::vec3 radiance = color * strength;
         float peak = std::max({ radiance.r, radiance.g, radiance.b });
-        const char* badge = peak > 1.0f ? "HDR" : peak > 0.0f ? "LDR" : "o'chiq";
-        float badgeWidth = ImGui::CalcTextSize("o'chiq").x + ImGui::GetStyle().ItemInnerSpacing.x * 2.0f;
+        const char* badge = peak > 1.0f ? "HDR" : peak > 0.0f ? "LDR" : Tr("o'chiq");
+        float badgeWidth = ImGui::CalcTextSize(Tr("o'chiq")).x + ImGui::GetStyle().ItemInnerSpacing.x * 2.0f;
         ImGui::SetNextItemWidth(std::max(40.0f, ImGui::GetContentRegionAvail().x - badgeWidth - ImGui::GetStyle().ItemInnerSpacing.x));
         changed |= ImGui::DragFloat("##strength", &strength, strength < 2.0f ? 0.01f : 0.05f, 0.0f, 100.0f, "x %.2f",
                                     ImGuiSliderFlags_AlwaysClamp);
@@ -446,6 +446,29 @@ namespace Zamin::UI {
         return changed;
     }
 
+    bool TrCombo(const char* label, int* current, const char* const* items, int count)
+    {
+        bool changed = false;
+        if (ImGui::BeginCombo(label, (*current >= 0 && *current < count) ? Tr(items[*current]) : ""))
+        {
+            for (int i = 0; i < count; i++)
+            {
+                ImGui::PushID(i);
+                const bool selected = *current == i;
+                if (ImGui::Selectable(Tr(items[i]), selected) && !selected)
+                {
+                    *current = i;
+                    changed = true;
+                }
+                if (selected)
+                    ImGui::SetItemDefaultFocus();
+                ImGui::PopID();
+            }
+            ImGui::EndCombo();
+        }
+        return changed;
+    }
+
     bool ToolbarButton(const char* icon, const char* tooltip, bool active, ImVec2 size)
     {
         if (active)
@@ -469,7 +492,7 @@ namespace Zamin::UI {
     {
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8, 6));
         ImGui::BeginTooltip();
-        ImGui::TextUnformatted(text);
+        ImGui::TextUnformatted(Tr(text)); // the editor's language
         ImGui::EndTooltip();
         ImGui::PopStyleVar();
     }

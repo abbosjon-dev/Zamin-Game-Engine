@@ -143,7 +143,7 @@ namespace Zamin {
         changed |= ImGui::Checkbox(Tr("Uzoqlashganda xiralashsin"), &s.Fade);
         ImGui::BeginDisabled(!s.Fade);
         ImGui::SetNextItemWidth(field);
-        changed |= ImGui::DragFloatRange2("Masofa##fade", &s.FadeStart, &s.FadeEnd, 0.5f, 0.0f, 100000.0f, "%.0f m dan", "%.0f m gacha",
+        changed |= ImGui::DragFloatRange2(Tr("Masofa##fade"), &s.FadeStart, &s.FadeEnd, 0.5f, 0.0f, 100000.0f, Tr("%.0f m dan"), Tr("%.0f m gacha"),
                                           ImGuiSliderFlags_AlwaysClamp);
         if (ImGui::IsItemHovered())
             UI::Tooltip("Kameradan shu masofagacha nom to'liq ko'rinadi, keyin asta yo'qoladi (ortografik ko'rinishda xiralashmaydi)");
@@ -154,9 +154,9 @@ namespace Zamin {
             UI::Tooltip("Nomlar bir-birini yopsa, tanlangan, sichqoncha ostidagi va eng yaqini qoladi");
         changed |= ImGui::Checkbox(Tr("Fon"), &s.Background);
         ImGui::SetNextItemWidth(field);
-        changed |= ImGui::SliderFloat("O'lcham", &s.Scale, EntityLabelSettings::MinScale, EntityLabelSettings::MaxScale, "%.2fx");
+        changed |= ImGui::SliderFloat(Tr("O'lcham"), &s.Scale, EntityLabelSettings::MinScale, EntityLabelSettings::MaxScale, "%.2fx");
         ImGui::SetNextItemWidth(field);
-        changed |= ImGui::SliderInt("Ko'pi bilan", &s.MaxLabels, 10, 1000, "%d ta");
+        changed |= ImGui::SliderInt(Tr("Ko'pi bilan"), &s.MaxLabels, 10, 1000, Tr("%d ta"));
         changed |= ImGui::Checkbox(Tr("O'yin rejimida ham (viewport)"), &s.ShowInPlay);
         ImGui::EndDisabled();
         if (changed)
@@ -170,7 +170,7 @@ namespace Zamin {
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 8));
         if (ImGui::BeginPopup("##EntityLabels"))
         {
-            ImGui::TextColored(UI::AccentColor(), ICON_FA_TAG "  Obyekt nomlari");
+            ImGui::TextColored(UI::AccentColor(), "%s", Tr(ICON_FA_TAG "  Obyekt nomlari"));
             if (UI_EntityLabelSettings())
                 MarkViewSettingsDirty();
             ImGui::EndPopup();

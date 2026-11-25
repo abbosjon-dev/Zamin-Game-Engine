@@ -44,7 +44,7 @@ namespace Zamin {
         m_EditorCamera.Focus({ m_TerrainSize.x * 0.5f, m_TerrainBase, m_TerrainSize.y * 0.5f }, glm::length(m_TerrainSize) * 0.8f);
         m_EditorCamera.SetOrientation(0.65f, 0.7f);
         m_ShowTerrain = true;
-        MarkDirty("Terrain yaratish");
+        MarkDirty(Tr("Terrain yaratish"));
         return entity;
     }
     bool EditorLayer::TerrainMouseHit(Entity entity, TerrainHit& hit)
@@ -80,7 +80,7 @@ namespace Zamin {
                 if (glm::length(glm::vec2(p.x, p.z) - center) <= m_TerrainBrush.Radius) removed.push_back(e);
             }
             for (auto e : removed) m_EditorScene->DestroyEntity(e);
-            if (!removed.empty()) MarkDirty("Map obyektlarini o'chirish");
+            if (!removed.empty()) MarkDirty(Tr("Map obyektlarini o'chirish"));
             return;
         }
         if (objects.size() >= 5000 || m_TerrainPlaced >= 128) return;
@@ -115,18 +115,18 @@ namespace Zamin {
             }
             else
             {
-                root = m_EditorScene->CreateEntity(m_TerrainObject == 0 ? "Map daraxti" : "Map toshi");
+                root = m_EditorScene->CreateEntity(m_TerrainObject == 0 ? Tr("Map daraxti") : Tr("Map toshi"));
                 auto part = [&](const char* name, PrimitiveMesh mesh, glm::vec3 offset, glm::vec3 scale, glm::vec4 color) {auto e=m_EditorScene->CreateEntity(name);auto& mr=e.AddComponent<MeshRendererComponent>();mr.Type=mesh;mr.Mat.Albedo=color;mr.Mat.Roughness=0.95f;e.GetTransform().Translation=offset;e.GetTransform().Scale=scale;m_EditorScene->SetParent(e,root,false); };
                 if (m_TerrainObject == 0)
                 {
-                    part("Tana", PrimitiveMesh::Cylinder, { 0, 1.1f, 0 }, { 0.35f, 2.2f, 0.35f }, { 0.29f, 0.15f, 0.07f, 1 });
-                    part("Shoxlar", PrimitiveMesh::Cone, { 0, 3, 0 }, { 2.7f, 3.8f, 2.7f }, { 0.13f, 0.35f, 0.10f, 1 });
+                    part(Tr("Tana"), PrimitiveMesh::Cylinder, { 0, 1.1f, 0 }, { 0.35f, 2.2f, 0.35f }, { 0.29f, 0.15f, 0.07f, 1 });
+                    part(Tr("Shoxlar"), PrimitiveMesh::Cone, { 0, 3, 0 }, { 2.7f, 3.8f, 2.7f }, { 0.13f, 0.35f, 0.10f, 1 });
                     root.AddComponent<BoxCollider3DComponent>().HalfExtents = { 0.22f, 1.3f, 0.22f };
                     root.GetComponent<BoxCollider3DComponent>().Offset = { 0, 1.3f, 0 };
                 }
                 else
                 {
-                    part("Tosh mesh", PrimitiveMesh::Sphere, { 0, 0.35f, 0 }, { 1.4f, 0.9f, 1 }, { 0.43f, 0.44f, 0.46f, 1 });
+                    part(Tr("Tosh mesh"), PrimitiveMesh::Sphere, { 0, 0.35f, 0 }, { 1.4f, 0.9f, 1 }, { 0.43f, 0.44f, 0.46f, 1 });
                     root.AddComponent<BoxCollider3DComponent>().HalfExtents = { 0.6f, 0.4f, 0.45f };
                     root.GetComponent<BoxCollider3DComponent>().Offset = { 0, 0.35f, 0 };
                 }
@@ -147,7 +147,7 @@ namespace Zamin {
             root.GetComponent<TagsComponent>().Add("TerrainPainted");
             objects.push_back(root);
             ++m_TerrainPlaced;
-            MarkDirty("Map obyektlarini joylash");
+            MarkDirty(Tr("Map obyektlarini joylash"));
         }
     }
     void EditorLayer::UpdateTerrainPainting(Timestep ts)
@@ -217,7 +217,7 @@ namespace Zamin {
                 options.Radius = settings.Radius + glm::length(m_TerrainPreviousCenter - center) * .5f + glm::length(entity.GetComponent<TerrainComponent>().Size) / float(entity.GetComponent<TerrainComponent>().Resolution - 1) * 2;
                 TerrainFoliage::Reproject(*m_EditorScene, entity, options);
             }
-            MarkDirty("Terrain cho'tkasi");
+            MarkDirty(Tr("Terrain cho'tkasi"));
         }
         m_TerrainPreviousCenter = center;
         m_TerrainHasPrevious = true;
@@ -250,24 +250,24 @@ namespace Zamin {
             ImGui::SetNextWindowPos({ 1070, 60 }, ImGuiCond_Once);
             ImGui::SetNextWindowSize({ 510, 800 }, ImGuiCond_Once);
         }
-        if (!ImGui::Begin("Map tayyorlash###TerrainEditor", &m_ShowTerrain))
+        if (!ImGui::Begin(Tr("Map tayyorlash###TerrainEditor"), &m_ShowTerrain))
         {
             ImGui::End();
             return;
         }
         ImGui::BeginDisabled(m_SceneState != SceneState::Edit);
-        ImGui::TextWrapped("3D yer, tekstura va o'rmon. Har bir cho'tka bosishi - bitta Undo qadami.");
-        ImGui::SeparatorText("Yer yaratish");
-        ImGui::DragFloat2("O'lcham (m)", &m_TerrainSize.x, 1, 1, 4096);
+        ImGui::TextWrapped("%s", Tr("3D yer, tekstura va o'rmon. Har bir cho'tka bosishi - bitta Undo qadami."));
+        ImGui::SeparatorText(Tr("Yer yaratish"));
+        ImGui::DragFloat2(Tr("O'lcham (m)"), &m_TerrainSize.x, 1, 1, 4096);
         const char* resolutions[] = { "33 x 33", "65 x 65", "129 x 129", "257 x 257" };
         int r = m_TerrainResolution == 33 ? 0 : m_TerrainResolution == 65 ? 1
                                             : m_TerrainResolution == 129  ? 2
                                                                           : 3;
-        if (ImGui::Combo("Nuqtalar", &r, resolutions, 4)) m_TerrainResolution = (1 << (r + 5)) + 1;
-        ImGui::DragFloat("Boshlang'ich balandlik", &m_TerrainBase, 0.1f, 0, 128);
-        if (ImGui::Button("Yangi terrain qo'shish")) CreateTerrainMap();
+        if (ImGui::Combo(Tr("Nuqtalar"), &r, resolutions, 4)) m_TerrainResolution = (1 << (r + 5)) + 1;
+        ImGui::DragFloat(Tr("Boshlang'ich balandlik"), &m_TerrainBase, 0.1f, 0, 128);
+        if (ImGui::Button(Tr("Yangi terrain qo'shish"))) CreateTerrainMap();
         auto entity = TerrainEntity();
-        if (ImGui::BeginCombo("Faol yer", entity ? entity.GetName().c_str() : "Tanlang"))
+        if (ImGui::BeginCombo(Tr("Faol yer"), entity ? entity.GetName().c_str() : Tr("Tanlang")))
         {
             for (auto h : m_EditorScene->GetAllEntitiesWith<TerrainComponent>())
             {
@@ -285,8 +285,8 @@ namespace Zamin {
         {
             auto& t = entity.GetComponent<TerrainComponent>();
             t.EnsureSize();
-            ImGui::Text("%u x %u | %.0f x %.0f metr", t.Resolution, t.Resolution, t.Size.x, t.Size.y);
-            if (ImGui::Button("Tanlangan yerni ko'rsatish"))
+            ImGui::Text(Tr("%u x %u | %.0f x %.0f metr"), t.Resolution, t.Resolution, t.Size.x, t.Size.y);
+            if (ImGui::Button(Tr("Tanlangan yerni ko'rsatish")))
             {
                 auto w = m_EditorScene->GetWorldTransform(entity);
                 m_EditorCamera.Focus(glm::vec3(w * glm::vec4(t.Size.x * 0.5f, TerrainTools::SampleHeight(t, t.Size.x * 0.5f, t.Size.y * 0.5f), t.Size.y * 0.5f, 1)), glm::length(t.Size) * 0.8f);
@@ -294,19 +294,19 @@ namespace Zamin {
             }
             if (const char* mode = std::getenv("ZAMIN_EDITOR_TERRAIN"); mode && std::string(mode) == "lod-test")
                 ImGui::SetNextItemOpen(true, ImGuiCond_Once);
-            if (ImGui::CollapsingHeader("Terrain unumdorligi (LOD)"))
+            if (ImGui::CollapsingHeader(Tr("Terrain unumdorligi (LOD)")))
             {
-                bool changed = ImGui::Checkbox("Avtomatik LOD", &t.LODEnabled);
-                changed |= ImGui::Checkbox("Katak chegarasida toliq detal", &t.LockBorderLOD);
-                changed |= ImGui::SliderFloat("Detal masofasi", &t.LODDistanceScale, 0.25f, 8.0f, "%.2f");
-                if (changed) MarkDirty("Terrain LOD sozlamalari");
+                bool changed = ImGui::Checkbox(Tr("Avtomatik LOD"), &t.LODEnabled);
+                changed |= ImGui::Checkbox(Tr("Katak chegarasida toliq detal"), &t.LockBorderLOD);
+                changed |= ImGui::SliderFloat(Tr("Detal masofasi"), &t.LODDistanceScale, 0.25f, 8.0f, "%.2f");
+                if (changed) MarkDirty(Tr("Terrain LOD sozlamalari"));
                 const auto stats = TerrainTools::GetRenderStats(t);
-                ImGui::Text("Oxirgi ko'rinish: %u bo'lak, %u uchburchak", stats.Patches, stats.Triangles);
-                ImGui::Text("To'liq detal: %u | Qayta qurildi: %u", stats.FullResolutionTriangles, stats.RebuiltPatches);
-                ImGui::TextWrapped("Masofa oshganda detal kamayadi. Collision va cho'tka to'liq aniqlikda qoladi. Ko'proq detal uchun masofa koeffitsiyentini oshiring.");
+                ImGui::Text(Tr("Oxirgi ko'rinish: %u bo'lak, %u uchburchak"), stats.Patches, stats.Triangles);
+                ImGui::Text(Tr("To'liq detal: %u | Qayta qurildi: %u"), stats.FullResolutionTriangles, stats.RebuiltPatches);
+                ImGui::TextWrapped("%s", Tr("Masofa oshganda detal kamayadi. Collision va cho'tka to'liq aniqlikda qoladi. Ko'proq detal uchun masofa koeffitsiyentini oshiring."));
             }
             if (qaMode && std::string_view(qaMode) == "world-test") ImGui::SetNextItemOpen(true, ImGuiCond_Once);
-            if (ImGui::CollapsingHeader("World terrain / katak chegaralari"))
+            if (ImGui::CollapsingHeader(Tr("World terrain / katak chegaralari")))
             {
                 static TerrainTools::WorldTerrainSettings settings{ 42, 12, 6, .02f };
                 static std::string result;
@@ -315,7 +315,7 @@ namespace Zamin {
                 ImGui::DragFloat("World base", &settings.Base, .1f);
                 ImGui::DragFloat("World amplitude", &settings.Amplitude, .1f, 0, 100);
                 ImGui::DragFloat("World frequency", &settings.Frequency, .001f, .001f, 1);
-                ImGui::SliderInt("Chegara blend rows", &blendRows, 0, 16);
+                ImGui::SliderInt(Tr("Chegara blend rows"), &blendRows, 0, 16);
                 auto translationOnly = [](const glm::mat4& world) {
                     for (int c = 0; c < 3; ++c)
                         for (int r = 0; r < 3; ++r)
@@ -323,22 +323,22 @@ namespace Zamin {
                     return true;
                 };
                 const auto world = m_EditorScene->GetWorldTransform(entity);
-                if (ImGui::Button("World koordinatalardan yaratish"))
+                if (ImGui::Button(Tr("World koordinatalardan yaratish")))
                 {
-                    if (!translationOnly(world)) result = "Faqat translation: rotation/scale ni avval bake qiling";
+                    if (!translationOnly(world)) result = Tr("Faqat translation: rotation/scale ni avval bake qiling");
                     else
                     {
                         CommitUndo();
                         if (TerrainTools::GenerateWorldTile(t, glm::dvec3(world[3]), settings, result))
                         {
                             MarkDirty("World terrain generate");
-                            result = "World terrain yaratildi";
+                            result = Tr("World terrain yaratildi");
                         }
                     }
                 }
                 static UUID neighborID{ 0 };
                 auto neighbor = m_EditorScene->GetEntityByUUID(neighborID);
-                if (ImGui::BeginCombo("Qo'shni terrain", neighbor && neighbor != entity ? neighbor.GetName().c_str() : "Tanlang"))
+                if (ImGui::BeginCombo(Tr("Qo'shni terrain"), neighbor && neighbor != entity ? neighbor.GetName().c_str() : Tr("Tanlang")))
                 {
                     for (auto handle : m_EditorScene->GetAllEntitiesWith<TerrainComponent>())
                     {
@@ -350,14 +350,14 @@ namespace Zamin {
                     }
                     ImGui::EndCombo();
                 }
-                if (ImGui::Button("Tanlangan ikki terrain chegarasini ulash"))
+                if (ImGui::Button(Tr("Tanlangan ikki terrain chegarasini ulash")))
                 {
                     neighbor = m_EditorScene->GetEntityByUUID(neighborID);
-                    if (!neighbor || neighbor == entity || !neighbor.HasComponent<TerrainComponent>()) result = "Qo'shni terrain tanlang";
+                    if (!neighbor || neighbor == entity || !neighbor.HasComponent<TerrainComponent>()) result = Tr("Qo'shni terrain tanlang");
                     else
                     {
                         const auto neighborWorld = m_EditorScene->GetWorldTransform(neighbor);
-                        if (!translationOnly(world) || !translationOnly(neighborWorld)) result = "Faqat translation terrain qo'llanadi";
+                        if (!translationOnly(world) || !translationOnly(neighborWorld)) result = Tr("Faqat translation terrain qo'llanadi");
                         else
                         {
                             CommitUndo();
@@ -365,37 +365,37 @@ namespace Zamin {
                                                           glm::dvec3(neighborWorld[3]), uint32_t(blendRows), result))
                             {
                                 MarkDirty("World terrain seam stitch");
-                                result = "Terrain chegarasi ulandi";
+                                result = Tr("Terrain chegarasi ulandi");
                             }
                         }
                     }
                 }
                 if (!result.empty()) ImGui::TextWrapped("%s", result.c_str());
-                ImGui::TextWrapped("Bir xil world seed/base/frequency ishlating. Stitch balandlikni ulaydi; normal shading har bir katakda alohida. Undo orqali qaytariladi.");
+                ImGui::TextWrapped("%s", Tr("Bir xil world seed/base/frequency ishlating. Stitch balandlikni ulaydi; normal shading har bir katakda alohida. Undo orqali qaytariladi."));
             }
-            bool edit = ImGui::Checkbox("Cho'tka faol", &m_TerrainPainting);
+            bool edit = ImGui::Checkbox(Tr("Cho'tka faol"), &m_TerrainPainting);
             if (edit && m_TerrainPainting) m_GizmoMode = GizmoMode::None;
-            const char* tools[] = { "Ko'tarish", "Pasaytirish", "Tekislash", "Silliqlash", "Tekstura bo'yash", "Obyekt ekish", "Obyekt o'chirish" };
-            ImGui::Combo("Asbob", &m_TerrainTool, tools, 7);
+            const char* tools[] = { Tr("Ko'tarish"), "Pasaytirish", Tr("Tekislash"), Tr("Silliqlash"), Tr("Tekstura bo'yash"), Tr("Obyekt ekish"), Tr("Obyekt o'chirish") };
+            UI::TrCombo(Tr("Asbob"), &m_TerrainTool, tools, 7);
             ImGui::SliderFloat("Radius (m)", &m_TerrainBrush.Radius, 0.25f, 64, "%.2f");
-            ImGui::SliderFloat("Kuch", &m_TerrainBrush.Strength, 0.1f, 30, "%.2f");
-            ImGui::SliderFloat("Qattiqlik", &m_TerrainBrush.Hardness, 0, 0.95f);
-            if (m_TerrainTool == 2) ImGui::DragFloat("Maqsad balandlik", &m_TerrainBrush.TargetHeight, 0.1f, 0, t.HeightLimit);
-            ImGui::TextWrapped("LMB: chizish. Shift: ko'tarish/pasaytirishni almashtirish. Ctrl: balandlikni olish. Alt/RMB: kamera.");
+            ImGui::SliderFloat(Tr("Kuch"), &m_TerrainBrush.Strength, 0.1f, 30, "%.2f");
+            ImGui::SliderFloat(Tr("Qattiqlik"), &m_TerrainBrush.Hardness, 0, 0.95f);
+            if (m_TerrainTool == 2) ImGui::DragFloat(Tr("Maqsad balandlik"), &m_TerrainBrush.TargetHeight, 0.1f, 0, t.HeightLimit);
+            ImGui::TextWrapped("%s", Tr("LMB: chizish. Shift: ko'tarish/pasaytirishni almashtirish. Ctrl: balandlikni olish. Alt/RMB: kamera."));
             if (qaMode && std::string_view(qaMode) == "foliage-test") ImGui::SetNextItemOpen(false, ImGuiCond_Once);
-            if (ImGui::CollapsingHeader("Yer qatlamlari", ImGuiTreeNodeFlags_DefaultOpen))
+            if (ImGui::CollapsingHeader(Tr("Yer qatlamlari"), ImGuiTreeNodeFlags_DefaultOpen))
             {
-                const char* layers[] = { "Maysa", "Tuproq / yo'l", "Qoya", "Qum" };
-                ImGui::Combo("Bo'yoq", &m_TerrainBrush.Layer, layers, 4);
+                const char* layers[] = { "Maysa", Tr("Tuproq / yo'l"), "Qoya", "Qum" };
+                UI::TrCombo(Tr("Bo'yoq"), &m_TerrainBrush.Layer, layers, 4);
                 auto& l = t.Layers[size_t(m_TerrainBrush.Layer)];
-                bool changed = ImGui::ColorEdit3("Rang", &l.Color.x);
-                changed |= ImGui::DragFloat("Tekstura takrori", &l.Tiling, 0.01f, 0.001f, 100);
+                bool changed = ImGui::ColorEdit3(Tr("Rang"), &l.Color.x);
+                changed |= ImGui::DragFloat(Tr("Tekstura takrori"), &l.Tiling, 0.01f, 0.001f, 100);
                 auto mapField = [&](const char* label, std::string& value) {
                     ImGui::PushID(label);
                     changed |= ImGui::InputText(label, &value);
-                    if (ImGui::Button("Tanlash"))
+                    if (ImGui::Button(Tr("Tanlash")))
                     {
-                        auto path = FileDialogs::OpenFile("Rasm (*.png *.jpg) | *.png *.jpg", Project::GetAssetDirectory());
+                        auto path = FileDialogs::OpenFile(Tr("Rasm (*.png *.jpg) | *.png *.jpg"), Project::GetAssetDirectory());
                         if (!path.empty())
                         {
                             if (FileSystem::IsSubPathOnDisk(path, Project::GetAssetDirectory()))
@@ -403,20 +403,20 @@ namespace Zamin {
                                 value = Project::GetAssetRelativePath(path);
                                 changed = true;
                             }
-                            else m_TerrainMessage = "Teksturani loyihaning Assets papkasiga ko'chiring.";
+                            else m_TerrainMessage = Tr("Teksturani loyihaning Assets papkasiga ko'chiring.");
                         }
                     }
                     ImGui::PopID();
                 };
-                mapField("Rang teksturasi", l.TexturePath);
-                mapField("Normal xarita", l.NormalMapPath);
-                mapField("ORM xarita", l.MaskMapPath);
-                ImGui::TextDisabled("ORM: R = soya, G = dag'allik, B = metall");
-                changed |= ImGui::SliderFloat("Dag'allik", &l.Roughness, 0.04f, 1.0f);
-                changed |= ImGui::SliderFloat("Metall", &l.Metallic, 0.0f, 1.0f);
+                mapField(Tr("Rang teksturasi"), l.TexturePath);
+                mapField(Tr("Normal xarita"), l.NormalMapPath);
+                mapField(Tr("ORM xarita"), l.MaskMapPath);
+                ImGui::TextDisabled("%s", Tr("ORM: R = soya, G = dag'allik, B = metall"));
+                changed |= ImGui::SliderFloat(Tr("Dag'allik"), &l.Roughness, 0.04f, 1.0f);
+                changed |= ImGui::SliderFloat(Tr("Metall"), &l.Metallic, 0.0f, 1.0f);
                 changed |= ImGui::SliderFloat("Occlusion", &l.Occlusion, 0.0f, 1.0f);
-                changed |= ImGui::SliderFloat("Normal kuchi", &l.NormalStrength, 0.0f, 4.0f);
-                if (ImGui::Button("Teksturalarni qayta yuklash"))
+                changed |= ImGui::SliderFloat(Tr("Normal kuchi"), &l.NormalStrength, 0.0f, 4.0f);
+                if (ImGui::Button(Tr("Teksturalarni qayta yuklash")))
                 {
                     bool failed = false;
                     size_t count = 0;
@@ -433,29 +433,29 @@ namespace Zamin {
                             }
                             else failed = true;
                         }
-                    m_TerrainMessage = failed ? "Ayrim xaritalar yuklanmadi. Oldingi ishlaydigan tekstura saqlandi; yo'llarni va import logini tekshiring."
-                                              : std::to_string(count) + " tekstura qayta yuklandi.";
+                    m_TerrainMessage = failed ? Tr("Ayrim xaritalar yuklanmadi. Oldingi ishlaydigan tekstura saqlandi; yo'llarni va import logini tekshiring.")
+                                              : std::to_string(count) + Tr(" tekstura qayta yuklandi.");
                 }
                 if (auto surface = TerrainTools::GetSurface(t))
                 {
-                    ImGui::Text("GPU control: %.1f KiB | yuklash: %llu", surface->ControlBytes / 1024.0f,
+                    ImGui::Text(Tr("GPU control: %.1f KiB | yuklash: %llu"), surface->ControlBytes / 1024.0f,
                                 (unsigned long long)surface->WeightUploads);
                     if (surface->MissingMaps)
-                        ImGui::TextWrapped("Topilmagan / xavfsiz bo'lmagan xaritalar: %u. Rang va PBR qiymatlari ishlatiladi.", surface->MissingMaps);
+                        ImGui::TextWrapped(Tr("Topilmagan / xavfsiz bo'lmagan xaritalar: %u. Rang va PBR qiymatlari ishlatiladi."), surface->MissingMaps);
                 }
                 if (changed)
                 {
                     t.PaintChanged();
-                    MarkDirty("Terrain materiali");
+                    MarkDirty(Tr("Terrain materiali"));
                 }
             }
             if (const char* mode = std::getenv("ZAMIN_EDITOR_TERRAIN"); mode && std::string_view(mode) == "foliage-test") ImGui::SetNextItemOpen(true, ImGuiCond_Once);
-            if (ImGui::CollapsingHeader("Ekish va relyefga moslash"))
+            if (ImGui::CollapsingHeader(Tr("Ekish va relyefga moslash")))
             {
-                ImGui::Checkbox("Sculpt bilan avtomatik moslash", &s_AutoReprojectFoliage);
-                ImGui::DragFloat("Sirt balandlik ofseti", &s_FoliageOptions.HeightOffset, .01f, -100, 100);
-                ImGui::Checkbox("Sirt normaliga moslash", &m_TerrainAlign);
-                if (ImGui::Button("Ekilgan obyektlarni sirtga tushirish"))
+                ImGui::Checkbox(Tr("Sculpt bilan avtomatik moslash"), &s_AutoReprojectFoliage);
+                ImGui::DragFloat(Tr("Sirt balandlik ofseti"), &s_FoliageOptions.HeightOffset, .01f, -100, 100);
+                ImGui::Checkbox(Tr("Sirt normaliga moslash"), &m_TerrainAlign);
+                if (ImGui::Button(Tr("Ekilgan obyektlarni sirtga tushirish")))
                 {
                     CommitUndo();
                     TerrainReprojectOptions options;
@@ -465,59 +465,59 @@ namespace Zamin {
                     if (!result.Error.empty()) m_TerrainMessage = result.Error;
                     else
                     {
-                        m_TerrainMessage = std::to_string(result.Changed) + " obyekt yangilandi, " + std::to_string(result.Skipped) + " o'tkazildi.";
+                        m_TerrainMessage = std::to_string(result.Changed) + Tr(" obyekt yangilandi, ") + std::to_string(result.Skipped) + Tr(" o'tkazildi.");
                         if (result.Changed)
                         {
-                            MarkDirty("Foliage sirtga moslash");
+                            MarkDirty(Tr("Foliage sirtga moslash"));
                             CommitUndo();
                         }
                     }
                 }
                 const auto& rendering = Renderer::GetStats();
-                ImGui::Text("Sahna instancing: %u mesh / %u draw", rendering.InstancedMeshCount, rendering.InstancedDrawCount);
-                ImGui::TextWrapped("Faqat shu terrain'ga ekilgan ildizlar yangilanadi. X/Z, masshtab va prefab bolalari saqlanadi. Ctrl+Z bilan qaytarish mumkin.");
+                ImGui::Text(Tr("Sahna instancing: %u mesh / %u draw"), rendering.InstancedMeshCount, rendering.InstancedDrawCount);
+                ImGui::TextWrapped("%s", Tr("Faqat shu terrain'ga ekilgan ildizlar yangilanadi. X/Z, masshtab va prefab bolalari saqlanadi. Ctrl+Z bilan qaytarish mumkin."));
             }
             if (m_TerrainTool >= 5)
             {
-                const char* objects[] = { "Daraxt", "Tosh", "Prefab" };
-                ImGui::Combo("Obyekt", &m_TerrainObject, objects, 3);
+                const char* objects[] = { Tr("Daraxt"), "Tosh", "Prefab" };
+                UI::TrCombo(Tr("Obyekt"), &m_TerrainObject, objects, 3);
                 if (m_TerrainObject == 2)
                 {
-                    ImGui::InputText("Prefab yo'li", &m_TerrainPrefab);
-                    if (ImGui::Button("Prefab tanlash"))
+                    ImGui::InputText(Tr("Prefab yo'li"), &m_TerrainPrefab);
+                    if (ImGui::Button(Tr("Prefab tanlash")))
                     {
                         auto path = FileDialogs::OpenFile("Zamin Prefab (*.zprefab) | *.zprefab", Project::GetAssetDirectory());
                         if (!path.empty()) m_TerrainPrefab = Project::GetAssetRelativePath(path);
                     }
                 }
-                ImGui::SliderInt("Zichlik", &m_TerrainDensity, 1, 16);
-                ImGui::SliderFloat("Oraliq (m)", &m_TerrainSpacing, 0.3f, 15);
-                ImGui::SliderFloat("Min masshtab", &m_TerrainScaleMin, 0.1f, 3);
-                ImGui::SliderFloat("Max masshtab", &m_TerrainScaleMax, m_TerrainScaleMin, 5);
-                ImGui::SliderFloat("Max qiyalik", &m_TerrainMaxSlope, 0, 80);
-                ImGui::Checkbox("Sirtga mos burish", &m_TerrainAlign);
-                ImGui::TextWrapped("O'chirg'ich faqat shu yerga ekilgan obyektlarga ta'sir qiladi. Har bir bosishda ko'pi bilan 128 ta obyekt.");
+                ImGui::SliderInt(Tr("Zichlik"), &m_TerrainDensity, 1, 16);
+                ImGui::SliderFloat(Tr("Oraliq (m)"), &m_TerrainSpacing, 0.3f, 15);
+                ImGui::SliderFloat(Tr("Min masshtab"), &m_TerrainScaleMin, 0.1f, 3);
+                ImGui::SliderFloat(Tr("Max masshtab"), &m_TerrainScaleMax, m_TerrainScaleMin, 5);
+                ImGui::SliderFloat(Tr("Max qiyalik"), &m_TerrainMaxSlope, 0, 80);
+                ImGui::Checkbox(Tr("Sirtga mos burish"), &m_TerrainAlign);
+                ImGui::TextWrapped("%s", Tr("O'chirg'ich faqat shu yerga ekilgan obyektlarga ta'sir qiladi. Har bir bosishda ko'pi bilan 128 ta obyekt."));
             }
-            if (ImGui::CollapsingHeader("Relyef generatori"))
+            if (ImGui::CollapsingHeader(Tr("Relyef generatori")))
             {
                 ImGui::InputInt("Seed", &m_TerrainSeed);
-                ImGui::SliderFloat("Tepalik (m)", &m_TerrainAmplitude, 0, t.HeightLimit);
-                ImGui::SliderFloat("Chastota", &m_TerrainFrequency, 0.005f, 0.2f);
-                if (ImGui::Button("Relyef yaratish"))
+                ImGui::SliderFloat(Tr("Tepalik (m)"), &m_TerrainAmplitude, 0, t.HeightLimit);
+                ImGui::SliderFloat(Tr("Chastota"), &m_TerrainFrequency, 0.005f, 0.2f);
+                if (ImGui::Button(Tr("Relyef yaratish")))
                 {
                     TerrainTools::Generate(t, uint32_t(m_TerrainSeed), m_TerrainAmplitude, m_TerrainFrequency);
-                    MarkDirty("Relyef generatsiya");
+                    MarkDirty(Tr("Relyef generatsiya"));
                 }
-                if (ImGui::Button("Tekis balandlikka qaytarish"))
+                if (ImGui::Button(Tr("Tekis balandlikka qaytarish")))
                 {
                     std::fill(t.Heights.begin(), t.Heights.end(), std::clamp(m_TerrainBase, 0.0f, t.HeightLimit));
                     t.GeometryChanged();
-                    MarkDirty("Terrain tekislash");
+                    MarkDirty(Tr("Terrain tekislash"));
                 }
             }
             if (ImGui::CollapsingHeader("Heightmap import / export"))
             {
-                ImGui::TextWrapped("PNG (8/16-bit) yoki kvadrat R16 import. R16 export 16-bit, 0..HeightLimit oralig'ida. Sahna barcha float balandliklarni saqlaydi.");
+                ImGui::TextWrapped("%s", Tr("PNG (8/16-bit) yoki kvadrat R16 import. R16 export 16-bit, 0..HeightLimit oralig'ida. Sahna barcha float balandliklarni saqlaydi."));
                 if (ImGui::Button("Heightmap import"))
                 {
                     auto path = FileDialogs::OpenFile("Heightmap (*.png *.r16) | *.png *.r16", Project::GetAssetDirectory());
@@ -529,15 +529,15 @@ namespace Zamin {
                     if (!path.empty())
                     {
                         if (std::filesystem::path(path).extension() != ".r16") path += ".r16";
-                        if (TerrainTools::ExportHeightmap(t, path, m_TerrainMessage)) m_TerrainMessage = "Heightmap saqlandi.";
+                        if (TerrainTools::ExportHeightmap(t, path, m_TerrainMessage)) m_TerrainMessage = Tr("Heightmap saqlandi.");
                     }
                 }
             }
-            if (ImGui::CollapsingHeader("Map yordami"))
+            if (ImGui::CollapsingHeader(Tr("Map yordami")))
             {
-                if (ImGui::Button("Suv tekisligi qo'shish"))
+                if (ImGui::Button(Tr("Suv tekisligi qo'shish")))
                 {
-                    auto e = m_EditorScene->CreateEntity("Map suvi");
+                    auto e = m_EditorScene->CreateEntity(Tr("Map suvi"));
                     auto& m = e.AddComponent<MeshRendererComponent>();
                     m.Type = PrimitiveMesh::Plane;
                     m.Mat.Albedo = { 0.08f, 0.3f, 0.45f, 0.6f };
@@ -545,12 +545,12 @@ namespace Zamin {
                     m.Mat.Roughness = 0.2f;
                     e.GetTransform().Translation = { t.Size.x * 0.5f, 4, t.Size.y * 0.5f };
                     e.GetTransform().Scale = { t.Size.x, 1, t.Size.y };
-                    MarkDirty("Map suvi");
+                    MarkDirty(Tr("Map suvi"));
                 }
-                ImGui::TextWrapped("Ctrl+S: sahnani saqlash. Play: terrain va daraxt collider'lari o'yinda ishlaydi. Katta dunyolar uchun bir nechta terrain bo'lagidan foydalaning.");
+                ImGui::TextWrapped("%s", Tr("Ctrl+S: sahnani saqlash. Play: terrain va daraxt collider'lari o'yinda ishlaydi. Katta dunyolar uchun bir nechta terrain bo'lagidan foydalaning."));
             }
         }
-        else ImGui::TextWrapped("Terrain yarating yoki sahnadagi Terrain obyektini tanlang.");
+        else ImGui::TextWrapped("%s", Tr("Terrain yarating yoki sahnadagi Terrain obyektini tanlang."));
         if (!m_TerrainMessage.empty()) ImGui::TextWrapped("%s", m_TerrainMessage.c_str());
         ImGui::EndDisabled();
         ImGui::End();
@@ -615,7 +615,7 @@ namespace Zamin {
             Set2DMode(false);
             m_EditorCamera.Focus({ 32, 10, 32 }, 75);
             m_EditorCamera.SetOrientation(.65f, .7f);
-            m_TerrainMessage = std::to_string(result.Changed) + " obyekt sirtga moslandi; Undo/Redo tekshirildi.";
+            m_TerrainMessage = std::to_string(result.Changed) + Tr(" obyekt sirtga moslandi; Undo/Redo tekshirildi.");
             ZM_CORE_INFO("Foliage QA passed: roots={} reprojected={} undo/redo=OK", result.Visited, result.Changed);
             return;
         }
@@ -679,7 +679,7 @@ namespace Zamin {
             m_EditorCamera.SetOrientation(.65f, .4f);
             m_TerrainPainting = false;
             m_ShowTerrain = true;
-            m_TerrainMessage = "World terrain: ikki resolution, stitch va Undo/Redo tekshirildi.";
+            m_TerrainMessage = Tr("World terrain: ikki resolution, stitch va Undo/Redo tekshirildi.");
             ZM_CORE_INFO("World terrain editor QA passed: unequal resolution seam, paired undo/redo, serialized border LOD");
             return;
         }
@@ -723,7 +723,7 @@ namespace Zamin {
             m_EditorCamera.Focus({ 128, 15, 128 }, 300);
             m_EditorCamera.SetOrientation(0.65f, 0.7f);
             m_TerrainPainting = false;
-            MarkDirty("Terrain LOD sinovi");
+            MarkDirty(Tr("Terrain LOD sinovi"));
             CommitUndo();
             if (const char* output = std::getenv("ZAMIN_EDITOR_TERRAIN_SAVE"))
             {
@@ -769,7 +769,7 @@ namespace Zamin {
         spawn.AddComponent<TagsComponent>().Add("Spawn");
         m_TerrainBrush.Radius = 4;
         m_TerrainPainting = false;
-        MarkDirty("Map namuna");
+        MarkDirty(Tr("Map namuna"));
         CommitUndo();
         if (std::string(mode) == "test")
         {
@@ -780,7 +780,7 @@ namespace Zamin {
             b.Strength = 20;
             TerrainTools::ApplyBrush(t, { 32, 32 }, b, 0.1f);
             const auto edited = t.Heights;
-            MarkDirty("Terrain QA sculpt");
+            MarkDirty(Tr("Terrain QA sculpt"));
             CommitUndo();
             Undo();
             if (m_EditorScene->GetEntityByUUID(id).GetComponent<TerrainComponent>().Heights != original)

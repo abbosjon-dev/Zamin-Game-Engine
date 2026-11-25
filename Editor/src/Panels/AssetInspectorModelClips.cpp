@@ -162,7 +162,7 @@ namespace Zamin {
                            "shu nomlar bilan ko'radi. \"Qo'llash\" bilan model qayta import qilinadi.");
         UI::PropertyLabel("Kadr tezligi", "Vaqtlar kadrda ko'rsatiladi (faqat ko'rinish; kliplar soniyada saqlanadi)");
         ImGui::SetNextItemWidth(-FLT_MIN);
-        ImGui::DragFloat("##clipFps", &m_ModelEdit.ClipFrameRate, 0.2f, 1.0f, 240.0f, "%.0f kadr/s", ImGuiSliderFlags_AlwaysClamp);
+        ImGui::DragFloat("##clipFps", &m_ModelEdit.ClipFrameRate, 0.2f, 1.0f, 240.0f, Tr("%.0f kadr/s"), ImGuiSliderFlags_AlwaysClamp);
         UI::PropertyLabel("Asl kliplar", "O'chirilsa: undan qism kesilgan fayl klipi ro'yxatda qolmaydi (faqat kesilgan qismlar). "
                                          "Hech narsa kesilmagan kliplar baribir qoladi.");
         ImGui::Checkbox(Tr("Saqlansin##keepSources"), &m_ModelEdit.KeepSourceClips);
@@ -200,7 +200,7 @@ namespace Zamin {
                 UI::Tooltip("Yangi klip nomi. Manba bilan bir xil bo'lsa: manba klip kesiladi (o'rniga)");
             ImGui::SameLine();
             ImGui::SetNextItemWidth(rest * 0.5f);
-            if (ImGui::BeginCombo("##source", s.Source.empty() ? "(manba)" : s.Source.c_str()))
+            if (ImGui::BeginCombo("##source", s.Source.empty() ? Tr("(manba)") : s.Source.c_str()))
             {
                 for (const AnimationClip& c : sources)
                     if (ImGui::Selectable(std::format("{}  ({:.2f} s)##{}", c.Name, c.Duration, (const void*)&c).c_str(), c.Name == s.Source))
@@ -220,7 +220,7 @@ namespace Zamin {
 
             // ---- range: the bar, then start / end in seconds and frames
             if (!source)
-                ImGui::TextColored(s_ClipsWarnColor, ICON_FA_TRIANGLE_EXCLAMATION "  '%s' klipi faylda yo'q", s.Source.c_str());
+                ImGui::TextColored(s_ClipsWarnColor, Tr(ICON_FA_TRIANGLE_EXCLAMATION "  '%s' klipi faylda yo'q"), s.Source.c_str());
             else
             {
                 float scrub = previewing ? m_ClipTime : 0.0f;
@@ -263,17 +263,17 @@ namespace Zamin {
                     UI::Tooltip("Oxir (kadr; oxirigacha bo'lsa fayldagi uzunlik o'zgarsa ham oxirida qoladi)");
                 ImGui::SameLine();
                 ImGui::AlignTextToFramePadding();
-                ImGui::TextDisabled("%.2f s, %d kadr", endTime - s.Start, (int)std::round((endTime - s.Start) * fps));
+                ImGui::TextDisabled(Tr("%.2f s, %d kadr"), endTime - s.Start, (int)std::round((endTime - s.Start) * fps));
                 // Duplicate names / names of other file clips: the importer skips those.
                 for (int j = 0; j < i; j++)
                     if (m_ModelEdit.Clips[(size_t)j].GetName() == s.GetName())
                     {
-                        ImGui::TextColored(s_ClipsWarnColor, ICON_FA_TRIANGLE_EXCLAMATION "  '%s' nomi yuqorida bor - bu qism yaratilmaydi",
+                        ImGui::TextColored(s_ClipsWarnColor, Tr(ICON_FA_TRIANGLE_EXCLAMATION "  '%s' nomi yuqorida bor - bu qism yaratilmaydi"),
                                            s.GetName().c_str());
                         break;
                     }
                 if (s.GetName() != s.Source && FindSourceClip(s.GetName()))
-                    ImGui::TextColored(s_ClipsWarnColor, ICON_FA_TRIANGLE_EXCLAMATION "  '%s' fayldagi boshqa klipning nomi", s.GetName().c_str());
+                    ImGui::TextColored(s_ClipsWarnColor, Tr(ICON_FA_TRIANGLE_EXCLAMATION "  '%s' fayldagi boshqa klipning nomi"), s.GetName().c_str());
             }
             ImGui::PopID();
         }
@@ -305,10 +305,10 @@ namespace Zamin {
                     }
                     if (ImGui::MenuItem(Tr(ICON_FA_PLUS "  Yangi qism (alohida klip)")))
                     {
-                        std::string name = c.Name + "_qism";
+                        std::string name = c.Name + Tr("_qism");
                         for (int n = 2; FindSourceClip(name) || std::any_of(m_ModelEdit.Clips.begin(), m_ModelEdit.Clips.end(),
                                                                                 [&](const ModelClipSettings& s) { return s.GetName() == name; }); n++)
-                            name = std::format("{}_qism{}", c.Name, n);
+                            name = TrFormat("{}_qism{}", c.Name, n);
                         m_ModelEdit.Clips.push_back({ c.Name, name, 0.0f, c.Duration * 0.5f });
                         StartClipSettingPreview((int)m_ModelEdit.Clips.size() - 1);
                     }
@@ -320,7 +320,7 @@ namespace Zamin {
         if (m_ModelEdit.Clips != m_ModelSaved.Clips || m_ModelEdit.KeepSourceClips != m_ModelSaved.KeepSourceClips)
         {
             ImGui::SameLine();
-            ImGui::TextColored(s_ClipsWarnColor, ICON_FA_CIRCLE_INFO "  Qo'llanmagan: ko'rib chiqish faqat shu oynada");
+            ImGui::TextColored(s_ClipsWarnColor, "%s", Tr(ICON_FA_CIRCLE_INFO "  Qo'llanmagan: ko'rib chiqish faqat shu oynada"));
         }
     }
 

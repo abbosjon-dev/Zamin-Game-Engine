@@ -1,4 +1,5 @@
 #include "Zamin/Editor/SceneViews.h"
+#include "Zamin/Editor/EditorLanguage.h"
 #include "Zamin/Utils/StringUtils.h"
 
 #include <glm/gtc/constants.hpp>
@@ -198,7 +199,7 @@ namespace Zamin {
         while (!name.empty() && std::isspace((unsigned char)name.back()))
             name.remove_suffix(1);
         if (name.empty())
-            return "(nomsiz)";
+            return Tr("(nomsiz)");
         maxCharacters = std::max<size_t>(maxCharacters, 4);
         // UTF-8: a character starts at every byte that is not a continuation byte (10xxxxxx).
         size_t characters = 0, cut = std::string_view::npos;

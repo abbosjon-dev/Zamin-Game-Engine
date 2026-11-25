@@ -37,7 +37,7 @@ namespace Zamin {
         if (!m_Material)
         {
             ImGui::Spacing();
-            ImGui::TextColored(s_MaterialErrorColor, ICON_FA_TRIANGLE_EXCLAMATION "  Material yuklanmadi - konsolni tekshiring");
+            ImGui::TextColored(s_MaterialErrorColor, "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Material yuklanmadi - konsolni tekshiring"));
             return;
         }
         SyncMaterial();
@@ -56,13 +56,13 @@ namespace Zamin {
         ImGui::Spacing();
         if (!asset)
         {
-            ImGui::TextColored(s_MaterialErrorColor, ICON_FA_TRIANGLE_EXCLAMATION "  Fizik material yuklanmadi - konsolni tekshiring");
+            ImGui::TextColored(s_MaterialErrorColor, "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Fizik material yuklanmadi - konsolni tekshiring"));
             return;
         }
-        ImGui::TextColored(ImVec4(0.45f, 0.85f, 0.9f, 1.0f), ICON_FA_GEM "  Fizik material (2D kolliderlar sirti)");
+        ImGui::TextColored(ImVec4(0.45f, 0.85f, 0.9f, 1.0f), "%s", Tr(ICON_FA_GEM "  Fizik material (2D kolliderlar sirti)"));
         ImGui::PushTextWrapPos(0.0f);
-        ImGui::TextDisabled("Box / Circle / Polygon / Edge Collider 2D va Tilemap shu faylni tanlasa, o'z qiymatlari o'rniga shular "
-                            "ishlatiladi. O'zgarishlar darhol (o'yin davomida ham) qo'llanadi va faylga saqlanadi.");
+        ImGui::TextDisabled("%s", Tr("Box / Circle / Polygon / Edge Collider 2D va Tilemap shu faylni tanlasa, o'z qiymatlari o'rniga shular "
+                            "ishlatiladi. O'zgarishlar darhol (o'yin davomida ham) qo'llanadi va faylga saqlanadi."));
         ImGui::PopTextWrapPos();
         ImGui::Spacing();
         PhysicsMaterialData d = asset->GetData();
@@ -93,7 +93,7 @@ namespace Zamin {
             UI::EndPropertyGrid();
         }
         ImGui::PushTextWrapPos(0.0f);
-        ImGui::TextDisabled(ICON_FA_CIRCLE_INFO "  Standart: ishqalanish sqrt(a*b), sakrash max(a, b) (Box2D)");
+        ImGui::TextDisabled("%s", Tr(ICON_FA_CIRCLE_INFO "  Standart: ishqalanish sqrt(a*b), sakrash max(a, b) (Box2D)"));
         ImGui::PopTextWrapPos();
         if (changed)
         {
@@ -210,14 +210,14 @@ namespace Zamin {
             if (ImGui::IsItemHovered())
                 UI::Tooltip(tooltip);
         };
-        toggle(ICON_FA_ROTATE "##materialRotate", m_MaterialAutoRotate, "Avtomatik aylantirish");
+        toggle(ICON_FA_ROTATE "##materialRotate", m_MaterialAutoRotate, Tr("Avtomatik aylantirish"));
         ImGui::SameLine();
-        toggle(ICON_FA_IMAGE "##materialBackground", m_MaterialView.Background, "Orqa fon (osmon)");
+        toggle(ICON_FA_IMAGE "##materialBackground", m_MaterialView.Background, Tr("Orqa fon (osmon)"));
         if (m_Material->GetMaterial().BlendMode != MaterialBlendMode::Opaque)
         {
             ImGui::SameLine();
             toggle(ICON_FA_CHESS_BOARD "##materialChecker", m_MaterialView.Checker,
-                   "Shaxmat devor: obyekt orqasida - shaffof va kesilgan joylar yaxshi ko'rinadi");
+                   Tr("Shaxmat devor: obyekt orqasida - shaffof va kesilgan joylar yaxshi ko'rinadi"));
         }
 
         ImGui::SameLine();
@@ -238,9 +238,9 @@ namespace Zamin {
 
         ImGui::SameLine();
         ImGui::SetNextItemWidth(-FLT_MIN);
-        const char* lighting[] = { ICON_FA_SUN "  Osmon", ICON_FA_EARTH_ASIA "  Sahna HDRI" };
+        const char* lighting[] = { Tr(ICON_FA_SUN "  Osmon"), Tr(ICON_FA_EARTH_ASIA "  Sahna HDRI") };
         int light = m_MaterialSceneLight ? 1 : 0;
-        if (ImGui::Combo("##materialLight", &light, lighting, 2))
+        if (UI::TrCombo("##materialLight", &light, lighting, 2))
             m_MaterialSceneLight = light == 1;
         if (ImGui::IsItemHovered())
             UI::Tooltip(m_MaterialSceneLight && !sceneLight ? "Ochiq sahnada HDRI muhit xaritasi yo'q - osmon gradienti ishlatilmoqda"
@@ -269,7 +269,7 @@ namespace Zamin {
 
         UI::PropertyHeader("Asosiy rang");
         changed |= UI::PropertyColor4("Rang (albedo)", d.Albedo);
-        texture("Tekstura", d.AlbedoMap, live.AlbedoMap, "Asosiy rang teksturasi (rang bilan ko'paytiriladi)");
+        texture(Tr("Tekstura"), d.AlbedoMap, live.AlbedoMap, Tr("Asosiy rang teksturasi (rang bilan ko'paytiriladi)"));
 
         if (d.Shader == MaterialShader::Lit)
         {
@@ -277,8 +277,8 @@ namespace Zamin {
             changed |= UI::PropertySlider("Metallik", d.Metallic, 0.0f, 1.0f);
             changed |= UI::PropertySlider("G'adir-budurlik", d.Roughness, 0.0f, 1.0f);
             texture("Metal/Roughness", d.MetalRoughMap, live.MetalRoughMap,
-                    "glTF tartibi: G kanal - g'adir-budurlik, B kanal - metallik (qiymatlar shu bilan ko'paytiriladi)");
-            texture("Normal map", d.NormalMap, live.NormalMap, "Sirt notekisligi (tangent-space normal map)");
+                    Tr("glTF tartibi: G kanal - g'adir-budurlik, B kanal - metallik (qiymatlar shu bilan ko'paytiriladi)"));
+            texture("Normal map", d.NormalMap, live.NormalMap, Tr("Sirt notekisligi (tangent-space normal map)"));
             if (!d.NormalMap.empty())
                 changed |= UI::PropertySlider("Normal kuchi", d.NormalStrength, 0.0f, 3.0f);
         }
@@ -286,8 +286,8 @@ namespace Zamin {
         UI::PropertyHeader("Nurlanish");
         changed |= UI::PropertyEmission("Nurlanish", d.Emission, d.EmissionStrength);
         bool hadEmissiveMap = !d.EmissiveMap.empty();
-        texture("Nurlanish map", d.EmissiveMap, live.EmissiveMap, "Nurlanish rangi x kuch shu tekstura bilan ko'paytiriladi "
-                                                                  "(nurlanish o'chiq bo'lsa, tekstura berilganda oq x 1 bo'ladi)");
+        texture(Tr("Nurlanish map"), d.EmissiveMap, live.EmissiveMap, Tr("Nurlanish rangi x kuch shu tekstura bilan ko'paytiriladi "
+                                                                  "(nurlanish o'chiq bo'lsa, tekstura berilganda oq x 1 bo'ladi)"));
         if (!hadEmissiveMap && !d.EmissiveMap.empty())
             EnableEmissionForMap(d); // else the new map would show nothing
 
@@ -318,14 +318,14 @@ namespace Zamin {
         if (dirty)
         {
             ImGui::SameLine();
-            ImGui::TextColored(s_MaterialWarnColor, ICON_FA_CIRCLE "  saqlanmagan o'zgarishlar");
+            ImGui::TextColored(s_MaterialWarnColor, "%s", Tr(ICON_FA_CIRCLE "  saqlanmagan o'zgarishlar"));
         }
         if (!m_Status.empty() && ImGui::GetTime() - m_StatusTime < 5.0)
             ImGui::TextColored(m_StatusError ? s_MaterialErrorColor : s_MaterialOkColor, "%s  %s",
                                m_StatusError ? ICON_FA_TRIANGLE_EXCLAMATION : ICON_FA_CIRCLE_CHECK, m_Status.c_str());
         ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-        ImGui::TextWrapped(ICON_FA_CIRCLE_INFO "  O'zgarishlar sahnada darhol ko'rinadi (shu materialni ishlatadigan hamma obyektlarda); "
-                           "faylga 'Saqlash' bilan yoziladi.");
+        ImGui::TextWrapped("%s", Tr(ICON_FA_CIRCLE_INFO "  O'zgarishlar sahnada darhol ko'rinadi (shu materialni ishlatadigan hamma obyektlarda); "
+                           "faylga 'Saqlash' bilan yoziladi."));
         ImGui::PopStyleColor();
     }
 

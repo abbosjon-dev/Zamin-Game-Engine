@@ -1,5 +1,6 @@
 #include "SubScenePreviews.h"
 
+#include <Zamin/Editor/EditorLanguage.h>
 #include <Zamin/Renderer/RenderCommand.h>
 
 namespace Zamin {
@@ -20,14 +21,14 @@ namespace Zamin {
         preview.Size = ec ? 0 : fs::file_size(file, ec);
         if (!fs::is_regular_file(file, ec))
         {
-            preview.Problem = "fayl topilmadi";
+            preview.Problem = Tr("fayl topilmadi");
             return;
         }
         Ref<Scene> scene = CreateRef<Scene>();
         SceneSerializer serializer(scene);
         if (!serializer.Deserialize(file))
         {
-            preview.Problem = serializer.GetLastError().empty() ? std::string("o'qilmadi") : serializer.GetLastError();
+            preview.Problem = serializer.GetLastError().empty() ? std::string(Tr("o'qilmadi")) : serializer.GetLastError();
             return;
         }
         scene->ResolveAssets();
@@ -69,13 +70,13 @@ namespace Zamin {
                     // The open scene in itself: shown nowhere (the game skips it too).
                     preview.SceneRef.reset();
                     preview.Roots.clear();
-                    preview.Problem = "sahna o'zining ichida (halqa)";
+                    preview.Problem = Tr("sahna o'zining ichida (halqa)");
                     continue;
                 }
                 Load(preview, file);
                 preview.CheckedFrame = m_Frame;
             }
-            else if (m_Frame - preview.CheckedFrame >= CheckInterval && preview.Problem != "sahna o'zining ichida (halqa)")
+            else if (m_Frame - preview.CheckedFrame >= CheckInterval && preview.Problem != Tr("sahna o'zining ichida (halqa)"))
             {
                 // Saved elsewhere since (its own scene was edited): read again.
                 preview.CheckedFrame = m_Frame;

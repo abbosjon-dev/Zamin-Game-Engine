@@ -76,7 +76,7 @@ namespace Zamin {
             const auto& tg = m_ViewSettings.TransformGizmo;
             const bool resized = tg.Size != 1.0f || tg.LineThickness != 1.0f || tg.IconSize != 1.0f;
             if (resized) ImGui::PushStyleColor(ImGuiCol_Text, UI::AccentColor());
-            std::string tip = std::format("Gizmo o'lchami: x{:.2g} (chiziqlar x{:.2g}, ikonkalar x{:.2g})", tg.Size, tg.LineThickness, tg.IconSize);
+            std::string tip = TrFormat("Gizmo o'lchami: x{:.2g} (chiziqlar x{:.2g}, ikonkalar x{:.2g})", tg.Size, tg.LineThickness, tg.IconSize);
             if (UI::ToolbarButton(ICON_FA_CARET_DOWN "###TransformGizmoMenu", tip.c_str(), resized, ImVec2(caretWidth, buttonSize)))
                 ImGui::OpenPopup("##TransformGizmo");
             if (resized) ImGui::PopStyleColor();
@@ -111,7 +111,7 @@ namespace Zamin {
             {
                 beginPanel(pos, w);
                 const bool sized = gameView.Preset != GameViewPreset::Free;
-                std::string tip = std::format("O'yin oynasi o'lchami: {}\nErkin, 16:9, 16:10, 4:3, 21:9, 1920x1080, 1280x720 yoki boshqa",
+                std::string tip = TrFormat("O'yin oynasi o'lchami: {}\nErkin, 16:9, 16:10, 4:3, 21:9, 1920x1080, 1280x720 yoki boshqa",
                                               GameViewResolution::GetName(gameView.Preset));
                 if (UI::ToolbarButton((label + "###GameViewResolution").c_str(), tip.c_str(), sized, ImVec2(w, buttonSize)))
                     ImGui::OpenPopup("##GameViewResolution");
@@ -215,14 +215,14 @@ namespace Zamin {
                 }
                 ImGui::SameLine();
                 int saved = GetSceneBookmarks().Count();
-                std::string tip = std::format("Kamera xatcho'plari ({} / {})\nCtrl+1..5: saqlash   1..5: qaytish", saved, CameraBookmarks::SlotCount);
+                std::string tip = TrFormat("Kamera xatcho'plari ({} / {})\nCtrl+1..5: saqlash   1..5: qaytish", saved, CameraBookmarks::SlotCount);
                 if (UI::ToolbarButton(ICON_FA_BOOKMARK, tip.c_str(), saved > 0, size))
                     ImGui::OpenPopup("##CameraBookmarks");
                 ImGui::SameLine();
                 // The axis view: perspective, or Top / Front / Right ... orthographic.
                 const ViewAxis axis = m_EditorCamera.GetViewAxis();
-                std::string axisTip = std::format("Ko'rinish: {}\nYuqoridan / old / o'ng ... (Num 7 / 1 / 3, Ctrl bilan teskari tomon), "
-                                                  "Num 5: perspektiv / ortografik", m_2DMode ? "2D" : GetViewAxisInfo(axis).Name);
+                std::string axisTip = TrFormat("Ko'rinish: {}\nYuqoridan / old / o'ng ... (Num 7 / 1 / 3, Ctrl bilan teskari tomon), "
+                                                  "Num 5: perspektiv / ortografik", m_2DMode ? "2D" : Tr(GetViewAxisInfo(axis).Name));
                 if (UI::ToolbarButton(ICON_FA_CUBE "###ViewAxis", axisTip.c_str(), axis != ViewAxis::Free, size))
                     ImGui::OpenPopup("##ViewAxisMenu");
                 ImGui::SetNextWindowPos(ImVec2(ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y + 8.0f), ImGuiCond_Appearing);
@@ -235,8 +235,8 @@ namespace Zamin {
                 ImGui::SameLine();
                 // The editor camera: fly speed, acceleration, FOV, clip planes, mouse.
                 const auto& c = m_Preferences.Camera;
-                std::string cameraTip = std::format("Editor kamerasi: tezlik {:.1f}, FOV {:.0f}\xc2\xb0{}{}", m_EditorCamera.FlySpeed, c.FOV,
-                                                    c.FlyAcceleration > 0.0f ? ", tezlanish" : "", c.InvertY ? ", Y teskari" : "");
+                std::string cameraTip = TrFormat("Editor kamerasi: tezlik {:.1f}, FOV {:.0f}\xc2\xb0{}{}", m_EditorCamera.FlySpeed, c.FOV,
+                                                    c.FlyAcceleration > 0.0f ? Tr(", tezlanish") : "", c.InvertY ? Tr(", Y teskari") : "");
                 if (UI::ToolbarButton(ICON_FA_VIDEO, cameraTip.c_str(), false, size))
                     ImGui::OpenPopup("##CameraSettings");
                 ImGui::SameLine(0.0f, 0.0f);
@@ -273,8 +273,8 @@ namespace Zamin {
             // Wireframe toggle + the view mode menu (debug views of the surfaces).
             {
                 bool wire = m_Wireframe != WireframeMode::Off;
-                std::string tip = std::format("Wireframe: {} (o'ng tugma yoki {}: ko'rinish rejimlari - yorug'lik, normallar, albedo ...)",
-                                              wire ? "yoqilgan" : "o'chiq", ICON_FA_CARET_DOWN);
+                std::string tip = TrFormat("Wireframe: {} (o'ng tugma yoki {}: ko'rinish rejimlari - yorug'lik, normallar, albedo ...)",
+                                              wire ? Tr("yoqilgan") : Tr("o'chiq"), ICON_FA_CARET_DOWN);
                 if (UI::ToolbarButton(ICON_FA_DRAW_POLYGON, tip.c_str(), wire, size))
                     m_Wireframe = wire ? WireframeMode::Off : m_WireframeStyle;
                 if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
@@ -300,8 +300,8 @@ namespace Zamin {
             {
                 // What is shown now (a game script may have changed it while playing).
                 const DebugDrawSettings& debug = DebugDraw::GetSettings();
-                std::string tip = std::format("Debug chizish: {} (o'ng tugma yoki {}: raycastlar, kontakt nuqtalari, qalinlik ...)",
-                                              debug.Enabled ? "yoqilgan" : "o'chiq", ICON_FA_CARET_DOWN);
+                std::string tip = TrFormat("Debug chizish: {} (o'ng tugma yoki {}: raycastlar, kontakt nuqtalari, qalinlik ...)",
+                                              debug.Enabled ? Tr("yoqilgan") : Tr("o'chiq"), ICON_FA_CARET_DOWN);
                 if (UI::ToolbarButton(ICON_FA_BUG, tip.c_str(), debug.Enabled, size))
                     ToggleDebugDraw();
                 if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
@@ -328,8 +328,8 @@ namespace Zamin {
             // The statistics overlay (FPS graph, draw calls, triangles, culling) + its settings.
             {
                 auto& overlay = m_ViewSettings.StatsOverlay;
-                std::string tip = std::format("Statistika overlay: {} (o'ng tugma yoki {}: FPS grafigi, draw call, uchburchaklar, "
-                                              "culling, burchak)", overlay.Visible ? "yoqilgan" : "o'chiq", ICON_FA_CARET_DOWN);
+                std::string tip = TrFormat("Statistika overlay: {} (o'ng tugma yoki {}: FPS grafigi, draw call, uchburchaklar, "
+                                              "culling, burchak)", overlay.Visible ? Tr("yoqilgan") : Tr("o'chiq"), ICON_FA_CARET_DOWN);
                 if (UI::ToolbarButton(ICON_FA_GAUGE_HIGH, tip.c_str(), overlay.Visible, size))
                 {
                     overlay.Visible = !overlay.Visible;
@@ -353,8 +353,8 @@ namespace Zamin {
             ImGui::SameLine();
             // Icons + the component visualisations (camera frustums, light directions, audio radii).
             {
-                std::string tip = std::format("Ikonkalar: {} (o'ng tugma yoki {}: gizmolar - kamera frustumi, yorug'lik yo'nalishi, "
-                                              "audio radiusi)", m_ShowIcons ? "yoqilgan" : "o'chiq", ICON_FA_CARET_DOWN);
+                std::string tip = TrFormat("Ikonkalar: {} (o'ng tugma yoki {}: gizmolar - kamera frustumi, yorug'lik yo'nalishi, "
+                                              "audio radiusi)", m_ShowIcons ? Tr("yoqilgan") : Tr("o'chiq"), ICON_FA_CARET_DOWN);
                 if (UI::ToolbarButton(ICON_FA_EYE, tip.c_str(), m_ShowIcons, size)) m_ShowIcons = !m_ShowIcons;
                 if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
                     ImGui::OpenPopup("##ComponentGizmos");
@@ -383,8 +383,8 @@ namespace Zamin {
             // Entity names over the views (the selection's or everyone's) + their settings.
             {
                 auto& labels = m_ViewSettings.EntityLabels;
-                const char* mode = labels.Mode == EntityLabelMode::All ? "hammasi" : labels.Mode == EntityLabelMode::Selected ? "tanlanganlar" : "o'chiq";
-                std::string tip = std::format("Obyekt nomlari: {} (o'ng tugma yoki {}: tanlanganlar / hammasi, masofada xiralashish)", mode,
+                const char* mode = labels.Mode == EntityLabelMode::All ? Tr("hammasi") : labels.Mode == EntityLabelMode::Selected ? Tr("tanlanganlar") : Tr("o'chiq");
+                std::string tip = TrFormat("Obyekt nomlari: {} (o'ng tugma yoki {}: tanlanganlar / hammasi, masofada xiralashish)", mode,
                                               ICON_FA_CARET_DOWN);
                 if (UI::ToolbarButton(ICON_FA_TAG, tip.c_str(), labels.IsEnabled(), size))
                 {
@@ -419,10 +419,10 @@ namespace Zamin {
             ImGui::SetCursorScreenPos(ImVec2(m_ViewportPanelBounds[0].x + 12, m_ViewportPanelBounds[0].y + buttonSize + 26));
             const float boost = m_EditorCamera.GetFlyBoostNow();
             if (boost > 1.01f)
-                ImGui::TextColored(ImVec4(1, 1, 1, 0.75f), ICON_FA_PERSON_RUNNING "  Tezlik: %.1f x%.1f  (g'ildirak bilan o'zgartiring)",
+                ImGui::TextColored(ImVec4(1, 1, 1, 0.75f), Tr(ICON_FA_PERSON_RUNNING "  Tezlik: %.1f x%.1f  (g'ildirak bilan o'zgartiring)"),
                                    m_EditorCamera.FlySpeed, boost);
             else
-                ImGui::TextColored(ImVec4(1, 1, 1, 0.75f), ICON_FA_PERSON_RUNNING "  Tezlik: %.1f  (g'ildirak bilan o'zgartiring)", m_EditorCamera.FlySpeed);
+                ImGui::TextColored(ImVec4(1, 1, 1, 0.75f), Tr(ICON_FA_PERSON_RUNNING "  Tezlik: %.1f  (g'ildirak bilan o'zgartiring)"), m_EditorCamera.FlySpeed);
         }
 
         ImGui::PopStyleVar(2);

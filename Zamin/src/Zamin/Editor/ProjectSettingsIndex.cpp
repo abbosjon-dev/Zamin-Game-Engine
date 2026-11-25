@@ -1,4 +1,5 @@
 #include "Zamin/Editor/ProjectSettingsIndex.h"
+#include "Zamin/Editor/EditorLanguage.h"
 
 #include "Zamin/ImGui/Icons.h"
 
@@ -148,14 +149,19 @@ namespace Zamin {
                 matches->clear();
             if (query.empty())
                 return true;
-            bool any = TextContains(category.Title, query);
+            // The title and the keywords are Uzbek keys: the search also sees them in the editor's language,
+            // and the matches come back in that language (they are shown to the user).
+            bool any = TextContains(category.Title, query) || TextContains(Tr(category.Title), query);
             for (const std::string& keyword : category.Keywords)
-                if (TextContains(keyword, query))
+            {
+                const std::string shown = Tr(keyword);
+                if (TextContains(keyword, query) || TextContains(shown, query))
                 {
                     any = true;
                     if (matches)
-                        matches->push_back(keyword);
+                        matches->push_back(shown);
                 }
+            }
             return any;
         }
 

@@ -145,7 +145,7 @@ namespace Zamin::UI {
         if (hovered && !ImGui::IsMouseDown(ImGuiMouseButton_Left))
         {
             const glm::vec4 c = g.Evaluate(mouseT);
-            Tooltip(std::format("{:.0f}%: ({:.2f}, {:.2f}, {:.2f}, {:.2f})\nIkki marta bosish - yangi nuqta, nuqtani sudrash - surish, "
+            Tooltip(TrFormat("{:.0f}%: ({:.2f}, {:.2f}, {:.2f}, {:.2f})\nIkki marta bosish - yangi nuqta, nuqtani sudrash - surish, "
                                    "o'ng tugma - o'chirish", mouseT * 100.0f, c.r, c.g, c.b, c.a).c_str());
         }
 
@@ -356,16 +356,16 @@ namespace Zamin::UI {
                 ImGui::OpenPopup("##shapes");
         }
         if (hovered && !ImGui::IsMouseDown(ImGuiMouseButton_Left) && !ImGui::IsPopupOpen("##key") && !ImGui::IsPopupOpen("##shapes"))
-            Tooltip(std::format("{}: {:.3f}\nIkki marta bosish - yangi kalit, kalitni sudrash - surish, o'ng tugma - menyu",
+            Tooltip(TrFormat("{}: {:.3f}\nIkki marta bosish - yangi kalit, kalitni sudrash - surish, o'ng tugma - menyu",
                                    timeText(mouseT), CurveKeys::EvaluateScalar(keys, mouseT)).c_str());
 
         if (ImGui::BeginPopup("##key"))
         {
             selected = std::clamp(selected, 0, (int)keys.size() - 1);
             AnimationKey& k = keys[selected];
-            ImGui::TextDisabled("Keyingi kalitgacha:");
+            ImGui::TextDisabled("%s", Tr("Keyingi kalitgacha:"));
             for (int i = 0; i < 3; i++)
-                if (ImGui::MenuItem(s_Interpolations[i], nullptr, (int)k.Interpolation == i))
+                if (ImGui::MenuItem(Tr(s_Interpolations[i]), nullptr, (int)k.Interpolation == i))
                 {
                     k.Interpolation = (KeyInterpolation)i;
                     changed = true;
@@ -388,7 +388,7 @@ namespace Zamin::UI {
         }
         if (ImGui::BeginPopup("##shapes"))
         {
-            ImGui::TextDisabled("Tayyor shakllar:");
+            ImGui::TextDisabled("%s", Tr("Tayyor shakllar:"));
             const float hi = std::max(valueMax, valueMin + 1e-3f), lo = valueMin;
             // Keys at the ends of the view (and one in the middle), linear or smooth.
             auto make = [&](std::initializer_list<std::pair<float, float>> points, bool smooth) {
@@ -412,12 +412,12 @@ namespace Zamin::UI {
                     changed = true;
                 }
             };
-            shape("Doimiy", make({ { 0.0f, hi }, { 1.0f, hi } }, false));
-            shape("Kamayish (chiziqli)", make({ { 0.0f, hi }, { 1.0f, lo } }, false));
-            shape("O'sish (chiziqli)", make({ { 0.0f, lo }, { 1.0f, hi } }, false));
-            shape("Kamayish (silliq)", make({ { 0.0f, hi }, { 1.0f, lo } }, true));
-            shape("O'sish (silliq)", make({ { 0.0f, lo }, { 1.0f, hi } }, true));
-            shape("Ko'tarilib tushish", make({ { 0.0f, lo }, { 0.5f, hi }, { 1.0f, lo } }, true));
+            shape(Tr("Doimiy"), make({ { 0.0f, hi }, { 1.0f, hi } }, false));
+            shape(Tr("Kamayish (chiziqli)"), make({ { 0.0f, hi }, { 1.0f, lo } }, false));
+            shape(Tr("O'sish (chiziqli)"), make({ { 0.0f, lo }, { 1.0f, hi } }, false));
+            shape(Tr("Kamayish (silliq)"), make({ { 0.0f, hi }, { 1.0f, lo } }, true));
+            shape(Tr("O'sish (silliq)"), make({ { 0.0f, lo }, { 1.0f, hi } }, true));
+            shape(Tr("Ko'tarilib tushish"), make({ { 0.0f, lo }, { 0.5f, hi }, { 1.0f, lo } }, true));
             ImGui::EndPopup();
         }
 
@@ -507,7 +507,7 @@ namespace Zamin::UI {
         const float half = std::max(40.0f, (ImGui::GetContentRegionAvail().x - spacing) * 0.5f);
         ImGui::SetNextItemWidth(half);
         int pre = (int)curve.PreWrap;
-        if (ImGui::Combo("##pre", &pre, wraps, 3))
+        if (UI::TrCombo("##pre", &pre, wraps, 3))
         {
             curve.PreWrap = (AnimationWrap)pre;
             changed = true;
@@ -517,7 +517,7 @@ namespace Zamin::UI {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(-FLT_MIN);
         int post = (int)curve.PostWrap;
-        if (ImGui::Combo("##post", &post, wraps, 3))
+        if (UI::TrCombo("##post", &post, wraps, 3))
         {
             curve.PostWrap = (AnimationWrap)post;
             changed = true;

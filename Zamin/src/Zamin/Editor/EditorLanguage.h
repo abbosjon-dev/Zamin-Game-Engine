@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <format>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -56,5 +57,13 @@ namespace Zamin {
     inline const char* Tr(const char* uzbek) { return EditorText::Tr(uzbek); }
     inline std::string Tr(std::string_view uzbek) { return EditorText::Tr(uzbek); }
     inline std::string Tr(const std::string& uzbek) { return EditorText::Tr(std::string_view(uzbek)); }
+
+    // std::format with the format string in the editor's language: TrFormat("{} ta obyekt", count). The English
+    // text must take the same arguments (the translation tests compare the placeholders of every pair).
+    template <typename... Args>
+    std::string TrFormat(const char* uzbek, Args&&... args)
+    {
+        return std::vformat(EditorText::Tr(uzbek), std::make_format_args(args...));
+    }
 
 }

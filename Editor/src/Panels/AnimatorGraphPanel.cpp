@@ -256,7 +256,7 @@ namespace Zamin {
         if (!c)
         {
             ImVec2 avail = ImGui::GetContentRegionAvail();
-            const char* text = "Animator komponenti bo'lgan obyektni tanlang (ierarxiyada)";
+            const char* text = Tr("Animator komponenti bo'lgan obyektni tanlang (ierarxiyada)");
             ImVec2 ts = ImGui::CalcTextSize(text);
             ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPosX() + std::max(0.0f, (avail.x - ts.x) * 0.5f),
                                        ImGui::GetCursorPosY() + std::max(0.0f, (avail.y - ts.y) * 0.5f)));
@@ -300,7 +300,7 @@ namespace Zamin {
         if (entity)
             ImGui::TextColored(UI::AccentColor(), ICON_FA_PERSON_RUNNING "  %s", entity.GetName().c_str());
         else
-            ImGui::TextDisabled(ICON_FA_PERSON_RUNNING "  (obyekt yo'q)");
+            ImGui::TextDisabled("%s", Tr(ICON_FA_PERSON_RUNNING "  (obyekt yo'q)"));
         ImGui::SameLine();
         if (UI::ToolbarButton(m_Pinned ? ICON_FA_LOCK : ICON_FA_LOCK_OPEN, m_Pinned ? "Mahkamlangan: tanlov o'zgarsa ham shu obyekt"
                                                                                     : "Ierarxiya tanlovini kuzatadi (bosib mahkamlash)", m_Pinned))
@@ -360,7 +360,7 @@ namespace Zamin {
         if (!m_Editable)
         {
             ImGui::SameLine();
-            ImGui::TextColored(ImVec4(0.95f, 0.65f, 0.3f, 1.0f), ICON_FA_PLAY "  O'yin: jonli holat (o'zgarishlar saqlanmaydi)");
+            ImGui::TextColored(ImVec4(0.95f, 0.65f, 0.3f, 1.0f), "%s", Tr(ICON_FA_PLAY "  O'yin: jonli holat (o'zgarishlar saqlanmaydi)"));
         }
     }
 
@@ -512,7 +512,7 @@ namespace Zamin {
             }
             else if (m_ContextNode == -1)
             {
-                ImGui::TextDisabled("Har qanday holat");
+                ImGui::TextDisabled("%s", Tr("Har qanday holat"));
                 ImGui::Separator();
                 if (ImGui::MenuItem(Tr(ICON_FA_ARROW_RIGHT "  O'tish yaratish")))
                 {
@@ -627,7 +627,7 @@ namespace Zamin {
             const bool selected = m_Selection.Type == Kind::AnyState;
             dl->AddRectFilled(a, b, s_AnyColor, rounding);
             dl->AddRect(a, b, selected ? IM_COL32(255, 255, 255, 230) : IM_COL32(255, 255, 255, 50), rounding, 0, selected ? 2.5f : 1.0f);
-            const std::string label = ICON_FA_ASTERISK "  Har qanday holat";
+            const std::string label = Tr(ICON_FA_ASTERISK "  Har qanday holat");
             const ImVec2 ts = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, label.c_str());
             text(ImVec2((a.x + b.x - ts.x) * 0.5f, (a.y + b.y - ts.y) * 0.5f), IM_COL32(235, 250, 250, 255), label, b.x - a.x);
         }
@@ -657,9 +657,9 @@ namespace Zamin {
             const float weightsW = weights ? (barW + barGap) * (float)st.Motions.size() + 6.0f * m_Zoom : 0.0f;
             std::string sub;
             if (st.IsBlendTree())
-                sub = st.Type == AnimatorStateType::BlendTree2D ? std::format("{}, {} (2D)", st.BlendParameter, st.BlendParameterY) : std::format("{} ({} klip)", st.BlendParameter.empty() ? "?" : st.BlendParameter.c_str(), st.Motions.size());
+                sub = st.Type == AnimatorStateType::BlendTree2D ? std::format("{}, {} (2D)", st.BlendParameter, st.BlendParameterY) : TrFormat("{} ({} klip)", st.BlendParameter.empty() ? "?" : st.BlendParameter.c_str(), st.Motions.size());
             else
-                sub = st.Clip.empty() ? std::string("(birinchi klip)") : st.Clip;
+                sub = st.Clip.empty() ? std::string(Tr("(birinchi klip)")) : st.Clip;
             if (c.DefaultState == i)
                 sub += "  " ICON_FA_FLAG;
             text(ImVec2(a.x + 8.0f * m_Zoom, a.y + header + (b.y - a.y - header - fontSize) * 0.5f - 2.0f * m_Zoom), IM_COL32(175, 180, 190, 255),
@@ -691,8 +691,8 @@ namespace Zamin {
         // A hint over an empty graph / while drawing a transition.
         if (c.States.empty() || m_LinkFrom != -2)
         {
-            const char* hint = m_LinkFrom != -2 ? "O'tish: maqsad holatni bosing (Esc - bekor)"
-                                                : "Holatlar yo'q: o'ng tugma - Yangi holat / Yangi blend tree";
+            const char* hint = m_LinkFrom != -2 ? Tr("O'tish: maqsad holatni bosing (Esc - bekor)")
+                                                : Tr("Holatlar yo'q: o'ng tugma - Yangi holat / Yangi blend tree");
             dl->AddText(ImVec2(min.x + 12.0f, max.y - ImGui::GetFontSize() - 10.0f), IM_COL32(200, 200, 210, 200), hint);
         }
         // Zoom in the corner.
@@ -720,7 +720,7 @@ namespace Zamin {
             case Kind::State:
                 if (m_Selection.Index >= 0 && m_Selection.Index < (int)c.States.size())
                 {
-                    ImGui::SeparatorText(c.States[(size_t)m_Selection.Index].IsBlendTree() ? ICON_FA_SHUFFLE "  Blend tree holati" : ICON_FA_FILM "  Holat");
+                    ImGui::SeparatorText(c.States[(size_t)m_Selection.Index].IsBlendTree() ? Tr(ICON_FA_SHUFFLE "  Blend tree holati") : Tr(ICON_FA_FILM "  Holat"));
                     changed |= AnimatorEditing::DrawState(c, m_Selection.Index, model);
                     ImGui::Spacing();
                     // Its transitions, to pick one.
@@ -731,9 +731,9 @@ namespace Zamin {
                         if (tr.From != m_Selection.Index)
                             continue;
                         if (out++ == 0)
-                            ImGui::TextDisabled("Chiquvchi o'tishlar");
+                            ImGui::TextDisabled("%s", Tr("Chiquvchi o'tishlar"));
                         ImGui::PushID(i);
-                        std::string label = std::format(ICON_FA_ARROW_RIGHT "  {}  ({} shart)", AnimatorEditing::StateName(c, tr.To), tr.Conditions.size());
+                        std::string label = TrFormat(ICON_FA_ARROW_RIGHT "  {}  ({} shart)", AnimatorEditing::StateName(c, tr.To), tr.Conditions.size());
                         if (ImGui::Selectable(label.c_str()))
                             m_Selection = { Kind::Transition, i };
                         ImGui::PopID();
@@ -754,7 +754,7 @@ namespace Zamin {
             case Kind::AnyState:
                 ImGui::SeparatorText(Tr(ICON_FA_ASTERISK "  Har qanday holat"));
                 ImGui::PushTextWrapPos(0.0f);
-                ImGui::TextDisabled("Bu node'dan chiqqan o'tishlar qaysi holatda bo'lsa ham tekshiriladi (masalan sakrash, zarba olish).");
+                ImGui::TextDisabled("%s", Tr("Bu node'dan chiqqan o'tishlar qaysi holatda bo'lsa ham tekshiriladi (masalan sakrash, zarba olish)."));
                 ImGui::PopTextWrapPos();
                 if (ImGui::Button(Tr(ICON_FA_ARROW_RIGHT "  O'tish yaratish")))
                 {
@@ -774,16 +774,16 @@ namespace Zamin {
                 break;
             default:
                 ImGui::PushTextWrapPos(0.0f);
-                ImGui::TextDisabled(ICON_FA_CIRCLE_INFO "  Holat yoki o'tish strelkasini bosing - shu yerda tahrirlanadi. "
-                                    "Shift bilan node'dan boshqasiga sudrash - yangi o'tish.");
+                ImGui::TextDisabled("%s", Tr(ICON_FA_CIRCLE_INFO "  Holat yoki o'tish strelkasini bosing - shu yerda tahrirlanadi. "
+                                    "Shift bilan node'dan boshqasiga sudrash - yangi o'tish."));
                 ImGui::PopTextWrapPos();
                 break;
         }
         // The parameters and the live state below what is selected.
         ImGui::Spacing();
-        if (ImGui::CollapsingHeader(live ? ICON_FA_SLIDERS "  Parametrlar (jonli)" : ICON_FA_SLIDERS "  Parametrlar", ImGuiTreeNodeFlags_DefaultOpen))
+        if (ImGui::CollapsingHeader(live ? Tr(ICON_FA_SLIDERS "  Parametrlar (jonli)") : Tr(ICON_FA_SLIDERS "  Parametrlar"), ImGuiTreeNodeFlags_DefaultOpen))
             changed |= AnimatorEditing::DrawParameters(c, live);
-        if (c.UsesStateMachine() && ImGui::CollapsingHeader(live ? ICON_FA_PLAY "  Holat (jonli)" : ICON_FA_EYE "  Holat (ko'rib chiqish)",
+        if (c.UsesStateMachine() && ImGui::CollapsingHeader(live ? Tr(ICON_FA_PLAY "  Holat (jonli)") : Tr(ICON_FA_EYE "  Holat (ko'rib chiqish)"),
                                                             ImGuiTreeNodeFlags_DefaultOpen))
             AnimatorEditing::DrawLiveStatus(c, model, false);
         if (changed)

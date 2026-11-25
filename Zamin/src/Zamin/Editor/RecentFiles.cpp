@@ -1,4 +1,5 @@
 #include "Zamin/Editor/RecentFiles.h"
+#include "Zamin/Editor/EditorLanguage.h"
 #include "Zamin/Utils/FileSystem.h"
 
 #include <nlohmann/json.hpp>
@@ -164,12 +165,12 @@ namespace Zamin {
             return {};
         const int64_t seconds = std::max<int64_t>(now - then, 0);
         if (seconds < 60) return "hozirgina";
-        if (seconds < 3600) return std::format("{} daqiqa oldin", seconds / 60);
-        if (seconds < 86400) return std::format("{} soat oldin", seconds / 3600);
+        if (seconds < 3600) return TrFormat("{} daqiqa oldin", seconds / 60);
+        if (seconds < 86400) return TrFormat("{} soat oldin", seconds / 3600);
         const int64_t days = seconds / 86400;
         if (days == 1) return "kecha";
-        if (days < 7) return std::format("{} kun oldin", days);
-        if (days < 31) return std::format("{} hafta oldin", days / 7);
+        if (days < 7) return TrFormat("{} kun oldin", days);
+        if (days < 31) return TrFormat("{} hafta oldin", days / 7);
         // Older: the date.
         const std::time_t t = (std::time_t)then;
         std::tm tm{};

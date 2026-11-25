@@ -124,21 +124,21 @@ namespace Zamin {
             UI::Tooltip("Audio sozlamalari (streaming chegarasi, ovozlar limiti, Doppler)");
         if (ImGui::BeginPopup("##mixerSettings"))
         {
-            ImGui::TextDisabled("Shundan katta fayllar diskdan oqim bilan o'qiladi");
+            ImGui::TextDisabled("%s", Tr("Shundan katta fayllar diskdan oqim bilan o'qiladi"));
             ImGui::SetNextItemWidth(ImGui::GetFontSize() * 9.0f);
-            if (ImGui::DragFloat("Streaming chegarasi", &settings.StreamThresholdMB, 0.1f, 0.01f, 4096.0f, "%.2f MB"))
+            if (ImGui::DragFloat(Tr("Streaming chegarasi"), &settings.StreamThresholdMB, 0.1f, 0.01f, 4096.0f, "%.2f MB"))
                 changed = true;
-            ImGui::TextDisabled("Musiqa (Audio::PlayMusic) har doim oqim bilan o'qiladi");
+            ImGui::TextDisabled("%s", Tr("Musiqa (Audio::PlayMusic) har doim oqim bilan o'qiladi"));
             ImGui::Separator();
-            ImGui::TextDisabled("Bir vaqtda ijro etiladigan ovozlar (musiqasiz)");
+            ImGui::TextDisabled("%s", Tr("Bir vaqtda ijro etiladigan ovozlar (musiqasiz)"));
             ImGui::SetNextItemWidth(ImGui::GetFontSize() * 9.0f);
-            if (ImGui::DragInt("Ovozlar limiti", &settings.MaxVoices, 0.25f, 1, AudioSettings::MaxVoicesLimit, "%d ta", ImGuiSliderFlags_AlwaysClamp))
+            if (ImGui::DragInt(Tr("Ovozlar limiti"), &settings.MaxVoices, 0.25f, 1, AudioSettings::MaxVoicesLimit, Tr("%d ta"), ImGuiSliderFlags_AlwaysClamp))
                 changed = true;
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Limit to'lsa yangi ovoz ustuvorligi pastroq (teng bo'lsa - manbaning qoidasi bo'yicha) ovozning o'rnini oladi "
                             "yoki ijro etilmaydi (Audio Source > Ovozlar limiti)");
             ImGui::SetNextItemWidth(ImGui::GetFontSize() * 9.0f);
-            if (ImGui::SliderFloat("Doppler koeffitsiyenti", &settings.DopplerFactor, 0.0f, AudioSettings::MaxDopplerFactor, "%.2f"))
+            if (ImGui::SliderFloat(Tr("Doppler koeffitsiyenti"), &settings.DopplerFactor, 0.0f, AudioSettings::MaxDopplerFactor, "%.2f"))
                 changed = true;
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Harakatlanayotgan 3D ovozlar tonining o'zgarishi: 1 - tabiiy, 0 - o'chirilgan; har manbaning o'z "
@@ -164,15 +164,15 @@ namespace Zamin {
             ImGui::TextColored(full ? ImVec4(0.95f, 0.55f, 0.3f, 1.0f) : ImGui::GetStyle().Colors[ImGuiCol_TextDisabled],
                                ICON_FA_LAYER_GROUP " %zu / %d", stats.Voices, stats.MaxVoices);
             if (ImGui::IsItemHovered())
-                UI::Tooltip(std::format("Ijro etilayotgan ovozlar / limit (musiqa hisobga kirmaydi)\n"
+                UI::Tooltip(TrFormat("Ijro etilayotgan ovozlar / limit (musiqa hisobga kirmaydi)\n"
                                         "Limit sababli to'xtatilgan: {}   ijro etilmagan: {}", stats.Stolen, stats.Rejected).c_str());
         }
         ImGui::SameLine();
         if (!AudioEngine::IsAvailable())
-            ImGui::TextColored(ImVec4(0.95f, 0.65f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  Audio qurilmasi yo'q - faqat sozlash");
+            ImGui::TextColored(ImVec4(0.95f, 0.65f, 0.3f, 1.0f), "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Audio qurilmasi yo'q - faqat sozlash"));
         else if (m_Playing)
         {
-            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_PLAY "  O'yin davomida: o'zgarishlar faqat shu o'yin uchun");
+            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), "%s", Tr(ICON_FA_PLAY "  O'yin davomida: o'zgarishlar faqat shu o'yin uchun"));
             if (project && !project->GetConfig().Audio.EqualsIgnoringSolo(settings))
             {
                 ImGui::SameLine();
@@ -196,7 +196,7 @@ namespace Zamin {
             }
         }
         else
-            ImGui::TextDisabled("Loyiha standarti (.zproject) - o'ng tugma: ota guruh, o'chirish");
+            ImGui::TextDisabled("%s", Tr("Loyiha standarti (.zproject) - o'ng tugma: ota guruh, o'chirish"));
 
         DrawMusic();
         ImGui::Separator();
@@ -242,13 +242,13 @@ namespace Zamin {
         std::filesystem::path music = AudioEngine::GetMusic();
         if (music.empty())
         {
-            ImGui::TextDisabled(ICON_FA_MUSIC "  Musiqa yo'q  (skriptda: Audio::PlayMusic, Audio::CrossfadeTo)");
+            ImGui::TextDisabled("%s", Tr(ICON_FA_MUSIC "  Musiqa yo'q  (skriptda: Audio::PlayMusic, Audio::CrossfadeTo)"));
             return;
         }
         size_t tracks = AudioEngine::GetMusicVoiceCount();
-        std::string state = AudioEngine::IsMusicPaused() ? "  (pauza)" : tracks > 1 ? "  (almashmoqda: crossfade)"
-                          : AudioEngine::GetMusicHandle() == 0 ? "  (eskisi so'nmoqda)" : "";
-        ImGui::TextColored(ImVec4(0.55f, 0.80f, 1.0f, 1.0f), ICON_FA_MUSIC "  Musiqa: %s%s", Project::GetAssetRelativePath(music).c_str(),
+        std::string state = AudioEngine::IsMusicPaused() ? Tr("  (pauza)") : tracks > 1 ? Tr("  (almashmoqda: crossfade)")
+                          : AudioEngine::GetMusicHandle() == 0 ? Tr("  (eskisi so'nmoqda)") : "";
+        ImGui::TextColored(ImVec4(0.55f, 0.80f, 1.0f, 1.0f), Tr(ICON_FA_MUSIC "  Musiqa: %s%s"), Project::GetAssetRelativePath(music).c_str(),
                            state.c_str());
         if (uint32_t handle = AudioEngine::GetMusicHandle())
         {
@@ -262,7 +262,7 @@ namespace Zamin {
             if (AudioEngine::IsStreaming(handle))
             {
                 ImGui::SameLine();
-                ImGui::TextDisabled(ICON_FA_WAVE_SQUARE " oqim");
+                ImGui::TextDisabled("%s", Tr(ICON_FA_WAVE_SQUARE " oqim"));
             }
         }
         ImGui::SameLine();
@@ -285,13 +285,13 @@ namespace Zamin {
         bool added = false;
         if (!ImGui::BeginPopup("##addGroup"))
             return false;
-        ImGui::TextColored(UI::AccentColor(), ICON_FA_SLIDERS "  Yangi guruh");
+        ImGui::TextColored(UI::AccentColor(), "%s", Tr(ICON_FA_SLIDERS "  Yangi guruh"));
         if (ImGui::IsWindowAppearing())
             ImGui::SetKeyboardFocusHere();
         ImGui::SetNextItemWidth(ImGui::GetFontSize() * 11.0f);
         bool enter = ImGui::InputTextWithHint("##name", Tr("Nomi (masalan Ovozlar)"), &m_NewGroupName, ImGuiInputTextFlags_EnterReturnsTrue);
         ImGui::SetNextItemWidth(ImGui::GetFontSize() * 11.0f);
-        if (ImGui::BeginCombo("Ota guruh", m_NewGroupParent.c_str()))
+        if (ImGui::BeginCombo(Tr("Ota guruh"), m_NewGroupParent.c_str()))
         {
             for (const auto& [name, depth] : settings.GetTreeOrder())
                 if (ImGui::Selectable((std::string((size_t)depth * 3, ' ') + name).c_str(), name == m_NewGroupParent))
@@ -304,9 +304,9 @@ namespace Zamin {
             name.erase(0, name.find_first_not_of(" \t"));
             name.erase(name.find_last_not_of(" \t") + 1);
             if (name.empty())
-                m_NewGroupError = "Nom kiriting";
+                m_NewGroupError = Tr("Nom kiriting");
             else if (settings.Find(name))
-                m_NewGroupError = std::format("'{}' nomli guruh bor", name);
+                m_NewGroupError = TrFormat("'{}' nomli guruh bor", name);
             else if (settings.AddGroup(name, m_NewGroupParent))
             {
                 ZM_INFO("Audio guruhi qo'shildi: {} ({} ichida)", name, m_NewGroupParent);
@@ -390,8 +390,8 @@ namespace Zamin {
         if (ImGuiLayer::GetBoldFont())
             ImGui::PopFont();
         size_t voices = AudioEngine::GetGroupVoiceCount(name);
-        std::string details = std::format("{} -> {}\nShu guruhda o'ynayotgan ovozlar: {}\nMixerdan keyingi balandlik: {}", name,
-                                          isMaster ? std::string("chiqish") : group->Parent, voices, FormatDecibels(effective));
+        std::string details = TrFormat("{} -> {}\nShu guruhda o'ynayotgan ovozlar: {}\nMixerdan keyingi balandlik: {}", name,
+                                          isMaster ? std::string(Tr("chiqish")) : group->Parent, voices, FormatDecibels(effective));
         if (group->Filter.LowPass)
             details += "\nLow-pass: " + UI::FormatHz(group->Filter.GetLowPass());
         if (group->Filter.HighPass)
@@ -400,7 +400,7 @@ namespace Zamin {
             UI::Tooltip(details.c_str());
         if (!compact)
         {
-            std::string route = isMaster ? std::string("chiqish") : FitText("> " + group->Parent, width - 2.0f * pad);
+            std::string route = isMaster ? std::string(Tr("chiqish")) : FitText("> " + group->Parent, width - 2.0f * pad);
             ImGui::SetCursorScreenPos(ImVec2(start.x + (width - ImGui::CalcTextSize(route.c_str()).x) * 0.5f, ImGui::GetCursorScreenPos().y));
             ImGui::TextDisabled("%s", route.c_str());
         }
@@ -433,7 +433,7 @@ namespace Zamin {
                 group->Volume = 1.0f;
                 changed = true;
             }
-            UI::Tooltip(std::format("{}: {} ({:.0f}%)\nIkki marta bosish: 0 dB", name, FormatDecibels(group->Volume), group->Volume * 100.0f).c_str());
+            UI::Tooltip(TrFormat("{}: {} ({:.0f}%)\nIkki marta bosish: 0 dB", name, FormatDecibels(group->Volume), group->Volume * 100.0f).c_str());
         }
         ImGui::SetCursorScreenPos(ImVec2(start.x + pad + faderWidth + 5.0f, top));
         DrawMeter(AudioEngine::GetGroupLevel(name), meterWidth, faderHeight, silent);
@@ -499,16 +499,16 @@ namespace Zamin {
             ImGui::PopStyleColor(filter.IsActive() ? 2 : 3);
             if (ImGui::IsItemHovered())
             {
-                std::string tip = "Filtr (bosing: sozlash)";
+                std::string tip = Tr("Filtr (bosing: sozlash)");
                 if (filter.LowPass)
-                    tip += "\nLow-pass " + UI::FormatHz(filter.GetLowPass()) + ": yuqori chastotalar bo'g'iladi";
+                    tip += "\nLow-pass " + UI::FormatHz(filter.GetLowPass()) + Tr(": yuqori chastotalar bo'g'iladi");
                 if (filter.HighPass)
-                    tip += "\nHigh-pass " + UI::FormatHz(filter.GetHighPass()) + ": past chastotalar kesiladi";
+                    tip += "\nHigh-pass " + UI::FormatHz(filter.GetHighPass()) + Tr(": past chastotalar kesiladi");
                 UI::Tooltip(tip.c_str());
             }
             if (ImGui::BeginPopup("##filterPopup"))
             {
-                ImGui::TextDisabled("%s guruhi filtri (ovozlari va bola guruhlari)", name.c_str());
+                ImGui::TextDisabled(Tr("%s guruhi filtri (ovozlari va bola guruhlari)"), name.c_str());
                 ImGui::Separator();
                 const float rowWidth = font * 14.0f;
                 ImGui::AlignTextToFramePadding();
@@ -519,13 +519,13 @@ namespace Zamin {
                 ImGui::TextUnformatted("High-pass");
                 ImGui::SameLine(font * 5.5f);
                 changed |= UI::AudioFilterRow("highPass", group->Filter.HighPass, group->Filter.HighPassCutoff, rowWidth);
-                ImGui::TextDisabled("Masalan suv ostida: SFX low-pass 500 Hz. Skriptda: Audio::SetGroupLowPass(\"%s\", 500)", name.c_str());
+                ImGui::TextDisabled(Tr("Masalan suv ostida: SFX low-pass 500 Hz. Skriptda: Audio::SetGroupLowPass(\"%s\", 500)"), name.c_str());
                 ImGui::EndPopup();
             }
         }
         if (!compact)
         {
-            std::string count = silent && !group->Muted ? std::string(ICON_FA_VOLUME_XMARK " jim")
+            std::string count = silent && !group->Muted ? std::string(Tr(ICON_FA_VOLUME_XMARK " jim"))
                               : voices ? std::format(ICON_FA_VOLUME_HIGH " {}", voices) : std::string("-");
             ImGui::SetCursorScreenPos(ImVec2(start.x + (width - ImGui::CalcTextSize(count.c_str()).x) * 0.5f, ImGui::GetCursorScreenPos().y + 2.0f));
             ImGui::TextDisabled("%s", count.c_str());

@@ -112,7 +112,7 @@ namespace Zamin {
                 changed = true;
             }
             ImGui::SameLine();
-            ImGui::TextDisabled(view.CustomAspect ? "nisbat" : "piksel");
+            ImGui::TextDisabled("%s", view.CustomAspect ? Tr("nisbat") : Tr("piksel"));
             changed |= ImGui::Checkbox(Tr("Faqat nisbat (o'lchamga moslashadi)"), &view.CustomAspect);
             ImGui::Unindent();
         }
@@ -129,7 +129,7 @@ namespace Zamin {
             ImGui::PopStyleVar(2);
             return;
         }
-        ImGui::TextColored(UI::AccentColor(), ICON_FA_DESKTOP "  O'yin oynasi o'lchami");
+        ImGui::TextColored(UI::AccentColor(), "%s", Tr(ICON_FA_DESKTOP "  O'yin oynasi o'lchami"));
         ImGui::Separator();
         if (UI_GameViewResolutionItems())
             MarkViewSettingsDirty();
@@ -137,7 +137,7 @@ namespace Zamin {
         {
             ImGui::Separator();
             const GameViewLayout& layout = m_GameViewLayout;
-            ImGui::TextDisabled("O'yin %ux%u da chiziladi, ko'rinishi %.0fx%.0f (%.0f%%)", layout.RenderSize.x, layout.RenderSize.y,
+            ImGui::TextDisabled(Tr("O'yin %ux%u da chiziladi, ko'rinishi %.0fx%.0f (%.0f%%)"), layout.RenderSize.x, layout.RenderSize.y,
                                 layout.DisplaySize.x, layout.DisplaySize.y, layout.Scale * 100.0f);
         }
         ImGui::EndPopup();

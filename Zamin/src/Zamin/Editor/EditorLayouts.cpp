@@ -1,4 +1,5 @@
 #include "Zamin/Editor/EditorLayouts.h"
+#include "Zamin/Editor/EditorLanguage.h"
 #include "Zamin/Utils/StringUtils.h"
 #include "Zamin/Editor/EditorAutosave.h"
 #include "Zamin/Editor/RecentFiles.h"
@@ -143,7 +144,7 @@ namespace Zamin {
         }
         if (m_Directory.empty())
         {
-            if (error) *error = "Joylashuvlar papkasi yo'q";
+            if (error) *error = Tr("Joylashuvlar papkasi yo'q");
             return false;
         }
         std::error_code ec;
@@ -157,7 +158,7 @@ namespace Zamin {
             copy.SavedAt = GetUnixTime();
         if (!EditorAutosave::WriteFileAtomic(GetPath(name), copy.ToJson()))
         {
-            if (error) *error = std::format("Fayl yozilmadi: {}", GetPath(name).string());
+            if (error) *error = TrFormat("Fayl yozilmadi: {}", GetPath(name).string());
             return false;
         }
         Refresh();
@@ -195,7 +196,7 @@ namespace Zamin {
         const std::string stored = FindStored(CleanName(from));
         if (stored.empty())
         {
-            if (error) *error = "Bunday joylashuv yo'q";
+            if (error) *error = Tr("Bunday joylashuv yo'q");
             return false;
         }
         const std::string name = CleanName(to);
@@ -207,7 +208,7 @@ namespace Zamin {
         }
         if (const std::string other = FindStored(name); !other.empty() && other != stored)
         {
-            if (error) *error = std::format("'{}' nomli joylashuv bor", other);
+            if (error) *error = TrFormat("'{}' nomli joylashuv bor", other);
             return false;
         }
         if (name == stored)
@@ -215,14 +216,14 @@ namespace Zamin {
         std::optional<EditorLayout> layout = Load(stored);
         if (!layout)
         {
-            if (error) *error = "Joylashuv fayli o'qilmadi";
+            if (error) *error = Tr("Joylashuv fayli o'qilmadi");
             return false;
         }
         layout->Name = name;
         std::error_code ec;
         if (!EditorAutosave::WriteFileAtomic(GetPath(name), layout->ToJson()))
         {
-            if (error) *error = std::format("Fayl yozilmadi: {}", GetPath(name).string());
+            if (error) *error = TrFormat("Fayl yozilmadi: {}", GetPath(name).string());
             return false;
         }
         if (GetPath(stored) != GetPath(name))
@@ -258,22 +259,22 @@ namespace Zamin {
             return false;
         };
         if (name.empty())
-            return fail("Nom bo'sh");
+            return fail(Tr("Nom bo'sh"));
         if (name.size() > MaxNameLength)
-            return fail(std::format("Nom juda uzun (ko'pi bilan {} bayt)", MaxNameLength));
+            return fail(TrFormat("Nom juda uzun (ko'pi bilan {} bayt)", MaxNameLength));
         if (name.front() == '.')
-            return fail("Nom nuqta bilan boshlanmasin");
+            return fail(Tr("Nom nuqta bilan boshlanmasin"));
         if (name.front() == ' ' || name.back() == ' ')
-            return fail("Nom bo'sh joy bilan boshlanmasin / tugamasin");
+            return fail(Tr("Nom bo'sh joy bilan boshlanmasin / tugamasin"));
         for (char c : name)
         {
             if ((unsigned char)c < 0x20 || c == 0x7f)
-                return fail("Nomda boshqaruv belgisi bor");
+                return fail(Tr("Nomda boshqaruv belgisi bor"));
             if (std::string_view("/\\:*?\"<>|").find(c) != std::string_view::npos)
-                return fail(std::format("Nomda '{}' belgisi bo'lmasin", c));
+                return fail(TrFormat("Nomda '{}' belgisi bo'lmasin", c));
         }
         if (FindBuiltIn(name))
-            return fail("Bu nom editorning o'z joylashuviniki");
+            return fail(Tr("Bu nom editorning o'z joylashuviniki"));
         return true;
     }
 
@@ -281,7 +282,7 @@ namespace Zamin {
     {
         std::string name = CleanName(base);
         if (name.empty())
-            name = "Joylashuv";
+            name = Tr("Joylashuv");
         if (name.size() > MaxNameLength - 4)
             name.resize(MaxNameLength - 4);
         while (!name.empty() && name.back() == ' ')
@@ -300,7 +301,7 @@ namespace Zamin {
     const char* EditorLayoutLibrary::GetBuiltInName(BuiltInLayout layout)
     {
         const size_t i = (size_t)layout;
-        return s_BuiltIns[i < std::size(s_BuiltIns) ? i : 0].Name;
+        return Tr(s_BuiltIns[i < std::size(s_BuiltIns) ? i : 0].Name); // the table holds the Uzbek keys
     }
 
     const char* EditorLayoutLibrary::GetBuiltInKey(BuiltInLayout layout)

@@ -136,7 +136,7 @@ namespace Zamin {
         }
         if (m_SceneState != SceneState::Edit)
         {
-            ShowViewportMessage(ICON_FA_BOX "  O'yin rejimida prefab o'zgartirilmaydi");
+            ShowViewportMessage(Tr(ICON_FA_BOX "  O'yin rejimida prefab o'zgartirilmaydi"));
             return;
         }
         // What is pending becomes its own step first (its overrides recorded).
@@ -154,7 +154,7 @@ namespace Zamin {
                 if (!result.Applied)
                 {
                     ZM_WARN("Prefabga qo'llanmadi ({}): {}", rootName, result.Error);
-                    ShowViewportMessage(std::format(ICON_FA_TRIANGLE_EXCLAMATION "  Qo'llanmadi: {}", result.Error));
+                    ShowViewportMessage(TrFormat(ICON_FA_TRIANGLE_EXCLAMATION "  Qo'llanmadi: {}", result.Error));
                     return;
                 }
                 m_EditorScene->ResolveAssets();
@@ -166,10 +166,10 @@ namespace Zamin {
                 const std::string what = request.Scope == PrefabScope::Field ? request.Path
                                        : request.Scope == PrefabScope::Component ? std::string(SceneHierarchyPanel::GetComponentDisplayName(request.Path))
                                        : request.Scope == PrefabScope::Entity ? entity.GetName() : rootName;
-                CommitPrefabStep(std::format("Prefabga qo'llandi: {} \xe2\x86\x92 {}", what, FileName(result.Target)), std::move(result.Files));
+                CommitPrefabStep(TrFormat("Prefabga qo'llandi: {} \xe2\x86\x92 {}", what, FileName(result.Target)), std::move(result.Files));
                 ShowViewportMessage(result.InstancesSynced
-                    ? std::format(ICON_FA_UPLOAD "  Qo'llandi: {} ({} ta boshqa nusxa yangilandi)", FileName(result.Target), result.InstancesSynced)
-                    : std::format(ICON_FA_UPLOAD "  Qo'llandi: {}", FileName(result.Target)));
+                    ? TrFormat(ICON_FA_UPLOAD "  Qo'llandi: {} ({} ta boshqa nusxa yangilandi)", FileName(result.Target), result.InstancesSynced)
+                    : TrFormat(ICON_FA_UPLOAD "  Qo'llandi: {}", FileName(result.Target)));
                 break;
             }
             case PrefabRequest::Op::Revert:
@@ -196,8 +196,8 @@ namespace Zamin {
                 if (!PrefabUtility::Revert(entity, request.Scope, request.Path, m_PrefabDatabase))
                     return;
                 m_EditorScene->ResolveAssets();
-                MarkDirty(request.Scope == PrefabScope::Instance ? std::format("Prefab nusxasi asliga qaytarildi: {}", rootName)
-                          : std::format("Asliga qaytarildi: {} ({})", request.Path.empty() ? entityName : request.Path, rootName));
+                MarkDirty(request.Scope == PrefabScope::Instance ? TrFormat("Prefab nusxasi asliga qaytarildi: {}", rootName)
+                          : TrFormat("Asliga qaytarildi: {} ({})", request.Path.empty() ? entityName : request.Path, rootName));
                 break;
             }
             case PrefabRequest::Op::RestoreRemoved:
@@ -206,7 +206,7 @@ namespace Zamin {
                 if (!restored)
                     return;
                 m_EditorScene->ResolveAssets();
-                MarkDirty(std::format("O'chirilganlar tiklandi: {} ({} ta)", rootName, restored));
+                MarkDirty(TrFormat("O'chirilganlar tiklandi: {} ({} ta)", rootName, restored));
                 break;
             }
             case PrefabRequest::Op::Unpack:
@@ -214,7 +214,7 @@ namespace Zamin {
             {
                 const bool completely = request.Operation == PrefabRequest::Op::UnpackCompletely;
                 PrefabUtility::Unpack(root, completely);
-                MarkDirty(std::format("Prefab bog'lanishi uzildi: {}", rootName));
+                MarkDirty(TrFormat("Prefab bog'lanishi uzildi: {}", rootName));
                 ZM_INFO("Prefab bog'lanishi uzildi: {} ({}){}", rootName, prefab, completely ? " - ichidagi nusxalar bilan" : "");
                 break;
             }
@@ -255,7 +255,7 @@ namespace Zamin {
         if (AssetRegistry* registry = Project::GetAssetRegistry())
             registry->OnFileAdded(Project::GetAssetFileSystemPath(variant));
         m_ContentBrowserPanel.Refresh();
-        CommitPrefabStep(std::format("Variant yaratildi: {}", FileName(variant)), std::move(files));
+        CommitPrefabStep(TrFormat("Variant yaratildi: {}", FileName(variant)), std::move(files));
         ZM_INFO("Prefab varianti yaratildi: {} ({} asosida)", variant, base);
         ShowViewportMessage(std::format(ICON_FA_CLONE "  {}: {} ({})", Tr("Variant yaratildi"), FileName(variant), FileName(base)));
         RequestPrefabStage(variant);
@@ -292,7 +292,7 @@ namespace Zamin {
             PrefabUtility::RefreshPrefabUUID(e);
         m_ContentBrowserPanel.Refresh();
         const std::string name = root.GetName();
-        CommitPrefabStep(std::format("Variant sifatida saqlandi: {} \xe2\x86\x92 {}", name, FileName(path)), std::move(files));
+        CommitPrefabStep(TrFormat("Variant sifatida saqlandi: {} \xe2\x86\x92 {}", name, FileName(path)), std::move(files));
         ZM_INFO("'{}' variant sifatida saqlandi: {} ({} asosida)", name, path, base);
         ShowViewportMessage(std::format(ICON_FA_CLONE "  {}: {} ({})", Tr("Variant saqlandi"), FileName(path), FileName(base)));
         m_SceneHierarchyPanel.SetSelectedEntity(m_EditorScene->GetEntityByUUID(id));
@@ -333,7 +333,7 @@ namespace Zamin {
             m_EditorScene->ResolveAssets();
         std::vector<FileEdit> files;
         files.push_back({ rel, std::move(before), FileSystem::ReadTextFile(path) });
-        CommitPrefabStep(std::format("Prefab saqlandi: {}", name), std::move(files));
+        CommitPrefabStep(TrFormat("Prefab saqlandi: {}", name), std::move(files));
         m_SceneHierarchyPanel.SetSelectedEntity(entity);
     }
 

@@ -59,8 +59,8 @@ namespace Zamin {
     {
         switch (channels)
         {
-            case 1:  return "kulrang";
-            case 2:  return "kulrang + alfa";
+            case 1:  return Tr("kulrang");
+            case 2:  return Tr("kulrang + alfa");
             case 3:  return "RGB";
             case 4:  return "RGBA";
             default: return "?";
@@ -348,7 +348,7 @@ namespace Zamin {
             {
                 m_StatusError = !saved;
                 m_StatusTime = ImGui::GetTime();
-                m_Status = saved ? "Saqlandi" : "Saqlanmadi - faylga yozib bo'lmadi";
+                m_Status = saved ? Tr("Saqlandi") : Tr("Saqlanmadi - faylga yozib bo'lmadi");
             }
             if (saved)
                 ZM_INFO("Material saqlandi: {}", name);
@@ -387,13 +387,13 @@ namespace Zamin {
             m_StatusError = failed;
             m_StatusTime = ImGui::GetTime();
             if (failed)
-                m_Status = "Saqlandi, lekin qayta import bo'lmadi - konsolni tekshiring";
+                m_Status = Tr("Saqlandi, lekin qayta import bo'lmadi - konsolni tekshiring");
             else if (updated > 0)
-                m_Status = "Saqlandi va qayta import qilindi";
+                m_Status = Tr("Saqlandi va qayta import qilindi");
             else if (edits.Type == AssetType::Audio)
-                m_Status = "Saqlandi (keyingi ijrodan boshlab ishlatiladi)";
+                m_Status = Tr("Saqlandi (keyingi ijrodan boshlab ishlatiladi)");
             else
-                m_Status = "Saqlandi (keyingi yuklashda ishlatiladi)";
+                m_Status = Tr("Saqlandi (keyingi yuklashda ishlatiladi)");
         }
         ZM_INFO("Import sozlamalari saqlandi: {}{}", name, updated > 0 && !failed ? " (qayta import qilindi)" : "");
         return true;
@@ -447,18 +447,18 @@ namespace Zamin {
             std::string name = meta ? meta->RelativePath : edits.Path.filename().string();
             if (material)
             {
-                ImGui::Text("'%s' materiali o'zgartirilgan, lekin saqlanmagan.", name.c_str());
-                ImGui::TextDisabled("Saqlansa .zmat fayliga yoziladi; tashlab yuborilsa saqlangan holiga qaytadi.");
+                ImGui::Text(Tr("'%s' materiali o'zgartirilgan, lekin saqlanmagan."), name.c_str());
+                ImGui::TextDisabled("%s", Tr("Saqlansa .zmat fayliga yoziladi; tashlab yuborilsa saqlangan holiga qaytadi."));
             }
             else
             {
-                ImGui::Text("'%s' import sozlamalari o'zgartirilgan, lekin qo'llanmagan.", name.c_str());
-                ImGui::TextDisabled("Qo'llansa .zmeta fayliga yoziladi va asset darhol qayta import qilinadi.");
+                ImGui::Text(Tr("'%s' import sozlamalari o'zgartirilgan, lekin qo'llanmagan."), name.c_str());
+                ImGui::TextDisabled("%s", Tr("Qo'llansa .zmeta fayliga yoziladi va asset darhol qayta import qilinadi."));
             }
             ImGui::Spacing();
             bool close = false;
             ImGui::PushStyleColor(ImGuiCol_Button, UI::AccentU32(0.75f));
-            if (ImGui::Button(material ? ICON_FA_FLOPPY_DISK "  Saqlash" : ICON_FA_CHECK "  Qo'llash", ImVec2(150, 0)))
+            if (ImGui::Button(material ? Tr(ICON_FA_FLOPPY_DISK "  Saqlash") : Tr(ICON_FA_CHECK "  Qo'llash"), ImVec2(150, 0)))
             {
                 if (!ApplyEdits(edits, false) && !material)
                     ZM_WARN("Import sozlamalari saqlanmadi: '{}' ro'yxatda yo'q", name);
@@ -500,7 +500,7 @@ namespace Zamin {
         if (!fs::exists(m_Path, ec))
         {
             ImGui::Spacing();
-            ImGui::TextColored(s_WarnColor, ICON_FA_TRIANGLE_EXCLAMATION "  Fayl topilmadi (o'chirilgan yoki ko'chirilgan)");
+            ImGui::TextColored(s_WarnColor, "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Fayl topilmadi (o'chirilgan yoki ko'chirilgan)"));
             return;
         }
         if (m_IsFolder)
@@ -519,7 +519,7 @@ namespace Zamin {
             case AssetType::Prefab:      DrawSceneFile(); break;
             case AssetType::Font:        DrawFont(); break;
             case AssetType::VisualGraph:
-                if(ImGui::Button("Visual Script muharririda ochish") && OnOpenVisualGraph)OnOpenVisualGraph(m_Path);
+                if(ImGui::Button(Tr("Visual Script muharririda ochish")) && OnOpenVisualGraph)OnOpenVisualGraph(m_Path);
                 try {auto graph=Visual::Graph::Load(m_Path);ImGui::Text("%zu nodes / %zu links / %zu variables",graph.Nodes.size(),graph.Links.size(),graph.Variables.size());for(auto&d:graph.Validate())ImGui::TextWrapped("Node %u: %s",d.Node,d.Message.c_str());}
                 catch(const std::exception&e){ImGui::TextWrapped("%s",e.what());}
                 break;
@@ -530,7 +530,7 @@ namespace Zamin {
             case AssetType::SpriteAnimation: DrawSpriteClip(); break;
             default:
                 ImGui::Spacing();
-                ImGui::TextDisabled(ICON_FA_CIRCLE_INFO "  Bu turdagi fayl uchun ko'rinish yo'q");
+                ImGui::TextDisabled("%s", Tr(ICON_FA_CIRCLE_INFO "  Bu turdagi fayl uchun ko'rinish yo'q"));
                 break;
         }
         if (AssetTypes::IsRegistered(m_Type))
@@ -553,11 +553,11 @@ namespace Zamin {
         ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.75f, 0.3f, 0.26f, 0.7f));
         ImGui::BeginChild("##importError", ImVec2(0, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY);
         ImGui::TextColored(s_ErrorColor, ICON_FA_TRIANGLE_EXCLAMATION "  %s",
-                           m_ImportError->Reload ? "Qayta import qilinmadi - avvalgi holati ishlatilmoqda" : "Import qilinmadi");
+                           m_ImportError->Reload ? Tr("Qayta import qilinmadi - avvalgi holati ishlatilmoqda") : Tr("Import qilinmadi"));
         ImGui::PushTextWrapPos(0.0f);
         ImGui::TextUnformatted(m_ImportError->Reason.c_str());
         if (m_ImportError->Count > 1)
-            ImGui::TextDisabled("%u marta yuklashga urinildi (konsolga bir marta yozildi)", m_ImportError->Count);
+            ImGui::TextDisabled(Tr("%u marta yuklashga urinildi (konsolga bir marta yozildi)"), m_ImportError->Count);
         ImGui::PopTextWrapPos();
         if (ImGui::SmallButton(Tr(ICON_FA_ARROWS_ROTATE "  Qayta urinish")))
         {
@@ -591,11 +591,11 @@ namespace Zamin {
         if (m_Type == AssetType::Material && HasUnsavedMaterial())
         {
             ImGui::SameLine();
-            ImGui::TextColored(s_WarnColor, ICON_FA_CIRCLE " saqlanmagan");
+            ImGui::TextColored(s_WarnColor, "%s", Tr(ICON_FA_CIRCLE " saqlanmagan"));
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Material o'zgartirilgan (sahnada ko'rinadi), lekin faylga saqlanmagan");
         }
-        ImGui::TextDisabled("%s", AssetFiles::GetTypeName(m_Type));
+        ImGui::TextDisabled("%s", Tr(AssetFiles::GetTypeName(m_Type)));
         // Quick actions.
         if (OnRevealRequested && ImGui::SmallButton(ICON_FA_FOLDER_OPEN "##reveal"))
             OnRevealRequested(m_Path);
@@ -665,7 +665,7 @@ namespace Zamin {
                         UI::Tooltip("Nusxalash");
                 }
                 else
-                    ImGui::TextDisabled(meta ? "faqat shu seans uchun (.zmeta yo'q)" : "ro'yxatda yo'q");
+                    ImGui::TextDisabled("%s", meta ? Tr("faqat shu seans uchun (.zmeta yo'q)") : Tr("ro'yxatda yo'q"));
 
                 std::error_code ec;
                 uintmax_t size = fs::file_size(m_Path, ec);
@@ -700,10 +700,10 @@ namespace Zamin {
         {
             if (referrers.empty())
             {
-                ImGui::TextColored(s_WarnColor, ICON_FA_CIRCLE_INFO "  Hech qayerda ishlatilmayapti");
+                ImGui::TextColored(s_WarnColor, "%s", Tr(ICON_FA_CIRCLE_INFO "  Hech qayerda ishlatilmayapti"));
                 ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-                ImGui::TextWrapped("Sahnalar, prefablar, materiallar, loyiha fayli, modellar va C++ koddagi satrlar tekshirildi. "
-                                   "Kod yo'lni qismlardan yig'sa (\"Level\" + n), bu ro'yxatda ko'rinmaydi.");
+                ImGui::TextWrapped("%s", Tr("Sahnalar, prefablar, materiallar, loyiha fayli, modellar va C++ koddagi satrlar tekshirildi. "
+                                   "Kod yo'lni qismlardan yig'sa (\"Level\" + n), bu ro'yxatda ko'rinmaydi."));
                 ImGui::PopStyleColor();
             }
             for (const AssetReferrer& r : referrers)
@@ -726,13 +726,13 @@ namespace Zamin {
                         Platform::OpenInFileBrowser(r.File);
                 }
                 if (ImGui::IsItemHovered())
-                    UI::Tooltip(std::format("{}\n{} ta havola{}", r.Name, r.Count,
-                                            r.Unsaved ? "\nTahrirlanayotgan sahna - hali faylga saqlanmagan"
-                                            : r.AssetPath.empty() ? "\nIkki marta bosing: tizimda ochish" : "\nBosing: kontent brauzerda ko'rsatish").c_str());
-                if (r.Has(AssetReferenceKind::Path)) Tag("yo'l", IM_COL32(60, 90, 120, 255));
+                    UI::Tooltip(TrFormat("{}\n{} ta havola{}", r.Name, r.Count,
+                                            r.Unsaved ? Tr("\nTahrirlanayotgan sahna - hali faylga saqlanmagan")
+                                            : r.AssetPath.empty() ? Tr("\nIkki marta bosing: tizimda ochish") : Tr("\nBosing: kontent brauzerda ko'rsatish")).c_str());
+                if (r.Has(AssetReferenceKind::Path)) Tag(Tr("yo'l"), IM_COL32(60, 90, 120, 255));
                 if (r.Has(AssetReferenceKind::UUID)) Tag("UUID", IM_COL32(70, 110, 80, 255));
                 if (r.Has(AssetReferenceKind::ModelFile)) Tag("model", IM_COL32(130, 85, 50, 255));
-                if (r.Has(AssetReferenceKind::Code)) Tag("kod", IM_COL32(60, 80, 140, 255));
+                if (r.Has(AssetReferenceKind::Code)) Tag(Tr("kod"), IM_COL32(60, 80, 140, 255));
                 ImGui::PopID();
             }
         }
@@ -750,7 +750,7 @@ namespace Zamin {
             if (ImGui::CollapsingHeader(usesTitle.c_str()))
             {
                 if (uses.empty() && broken.empty())
-                    ImGui::TextDisabled("Boshqa assetlarga havola yo'q");
+                    ImGui::TextDisabled("%s", Tr("Boshqa assetlarga havola yo'q"));
                 for (const std::string& asset : uses)
                 {
                     ImU32 color = 0;
@@ -791,10 +791,10 @@ namespace Zamin {
         if (modified)
         {
             ImGui::SameLine();
-            ImGui::TextColored(s_WarnColor, "qo'llanmagan o'zgarishlar");
+            ImGui::TextColored(s_WarnColor, "%s", Tr("qo'llanmagan o'zgarishlar"));
         }
         if (!canApply)
-            ImGui::TextDisabled(ICON_FA_CIRCLE_INFO "  Asset ro'yxatda yo'q - sozlamalarni saqlab bo'lmaydi");
+            ImGui::TextDisabled("%s", Tr(ICON_FA_CIRCLE_INFO "  Asset ro'yxatda yo'q - sozlamalarni saqlab bo'lmaydi"));
         if (!m_Status.empty() && ImGui::GetTime() - m_StatusTime < 5.0)
             ImGui::TextColored(m_StatusError ? s_ErrorColor : s_OkColor, "%s  %s",
                                m_StatusError ? ICON_FA_TRIANGLE_EXCLAMATION : ICON_FA_CIRCLE_CHECK, m_Status.c_str());
@@ -880,12 +880,12 @@ namespace Zamin {
             ImGui::SameLine();
         }
         ImGui::PopStyleVar();
-        const char* zooms[] = { "Moslash", "1:1", "2:1", "4:1", "8:1" };
+        const char* zooms[] = { Tr("Moslash"), "1:1", "2:1", "4:1", "8:1" };
         int zoomIndex = m_Zoom == 0 ? 0 : m_Zoom == 1 ? 1 : m_Zoom == 2 ? 2 : m_Zoom == 4 ? 3 : 4;
         float comboWidth = 90.0f;
         ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 8.0f, ImGui::GetWindowContentRegionMax().x - comboWidth));
         ImGui::SetNextItemWidth(comboWidth);
-        if (ImGui::Combo("##zoom", &zoomIndex, zooms, 5))
+        if (UI::TrCombo("##zoom", &zoomIndex, zooms, 5))
             m_Zoom = zoomIndex == 0 ? 0 : 1 << (zoomIndex - 1);
 
         Ref<Texture2D> shown = GetChannelTexture(texture);
@@ -966,9 +966,9 @@ namespace Zamin {
             DrawTexturePreview(texture);
         else if (!m_ImportError) // the import error box says why already
         {
-            ImGui::TextColored(s_ErrorColor, ICON_FA_TRIANGLE_EXCLAMATION "  Rasm o'qilmadi - konsolni tekshiring");
+            ImGui::TextColored(s_ErrorColor, "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Rasm o'qilmadi - konsolni tekshiring"));
             if (!m_ImageInfo.Error.empty())
-                ImGui::TextDisabled("Sabab: %s", m_ImageInfo.Error.c_str());
+                ImGui::TextDisabled(Tr("Sabab: %s"), m_ImageInfo.Error.c_str());
         }
 
         // ---- what the file and the GPU texture are
@@ -989,30 +989,30 @@ namespace Zamin {
                         UI::Tooltip("Ikkala tomoni ham 2 ning darajasi");
                 }
                 UI::PropertyLabel("Fayl", "Fayl formati, unda saqlangan kanallar va bitta kanal uchun bitlar.");
-                ImGui::Text("%s, %u kanal (%s), %s", m_ImageInfo.Format.c_str(), m_ImageInfo.Channels, ChannelLayoutName(m_ImageInfo.Channels),
+                ImGui::Text(Tr("%s, %u kanal (%s), %s"), m_ImageInfo.Format.c_str(), m_ImageInfo.Channels, ChannelLayoutName(m_ImageInfo.Channels),
                             m_ImageInfo.IsHDR ? "32-bit float (HDR)" : m_ImageInfo.Is16Bit ? "16-bit" : "8-bit");
                 if (m_ImageInfo.Is16Bit)
                 {
                     UI::PropertyLabel("");
-                    ImGui::TextColored(s_WarnColor, ICON_FA_CIRCLE_INFO "  GPU'ga 8-bit sifatida yuklanadi");
+                    ImGui::TextColored(s_WarnColor, "%s", Tr(ICON_FA_CIRCLE_INFO "  GPU'ga 8-bit sifatida yuklanadi"));
                 }
             }
             else
             {
                 UI::PropertyLabel("Fayl");
-                ImGui::TextColored(s_ErrorColor, "%s", m_ImageInfo.Error.empty() ? "o'qilmadi" : m_ImageInfo.Error.c_str());
+                ImGui::TextColored(s_ErrorColor, "%s", m_ImageInfo.Error.empty() ? Tr("o'qilmadi") : m_ImageInfo.Error.c_str());
             }
             if (texture && texture->IsLoaded() && !environment)
             {
                 const TextureSpecification& spec = texture->GetSpecification();
                 UI::PropertyLabel("GPU formati", "Teksturaning video xotiradagi formati. sRGB: shader ranglarni chiziqli yorug'likka o'tkazadi.");
-                ImGui::Text("%s  |  %s", GpuFormatName(spec.Format), spec.SRGB ? "sRGB rang" : "chiziqli (ma'lumot)");
+                ImGui::Text("%s  |  %s", GpuFormatName(spec.Format), spec.SRGB ? Tr("sRGB rang") : Tr("chiziqli (ma'lumot)"));
                 uint32_t levels = spec.GenerateMips ? AssetInfo::GetMipLevelCount(spec.Width, spec.Height) : 1;
                 UI::PropertyLabel("Mipmap");
                 if (spec.GenerateMips)
-                    ImGui::Text("%u daraja", levels);
+                    ImGui::Text(Tr("%u daraja"), levels);
                 else
-                    ImGui::TextDisabled("yo'q");
+                    ImGui::TextDisabled("%s", Tr("yo'q"));
                 UI::PropertyLabel("Video xotira", "Taxminiy: barcha mip darajalari bilan.");
                 ImGui::TextUnformatted(AssetFiles::FormatSize(AssetInfo::EstimateTextureMemory(spec.Width, spec.Height,
                                                                                               BytesPerPixel(spec.Format), spec.GenerateMips)).c_str());
@@ -1020,7 +1020,7 @@ namespace Zamin {
             if (environment)
             {
                 UI::PropertyLabel("Ishlatilishi");
-                ImGui::TextWrapped("Sahna sozlamalaridagi HDRI muhit (osmon va yoritish)");
+                ImGui::TextWrapped("%s", Tr("Sahna sozlamalaridagi HDRI muhit (osmon va yoritish)"));
             }
             UI::EndPropertyGrid();
         }
@@ -1036,7 +1036,7 @@ namespace Zamin {
             SpriteSheet sheet = meta ? SpriteSheet::FromImportSettings(meta->Import) : SpriteSheet();
             UI::PropertyLabel("Kadrlar");
             if (sheet.IsEmpty())
-                ImGui::TextDisabled("yo'q (butun rasm bitta sprite)");
+                ImGui::TextDisabled("%s", Tr("yo'q (butun rasm bitta sprite)"));
             else
             {
                 std::vector<std::string> prefixes = sheet.GetSequencePrefixes();
@@ -1045,7 +1045,7 @@ namespace Zamin {
                     groups += (i ? ", " : "") + prefixes[i];
                 if (prefixes.size() > 6)
                     groups += ", ...";
-                ImGui::Text("%zu ta", sheet.Frames.size());
+                ImGui::Text(Tr("%zu ta"), sheet.Frames.size());
                 if (!groups.empty())
                 {
                     ImGui::SameLine();
@@ -1090,7 +1090,7 @@ namespace Zamin {
             UI::EndPropertyGrid();
         }
         ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-        ImGui::TextWrapped(ICON_FA_CIRCLE_INFO "  Sprite / Tilemap'dagi 'Pixel art' belgisi filtr va mipmap'ni bekor qiladi");
+        ImGui::TextWrapped("%s", Tr(ICON_FA_CIRCLE_INFO "  Sprite / Tilemap'dagi 'Pixel art' belgisi filtr va mipmap'ni bekor qiladi"));
         ImGui::PopStyleColor();
         DrawApplyBar(canApply);
     }
@@ -1240,7 +1240,7 @@ namespace Zamin {
             }
             ImGui::SameLine();
             ImGui::SetNextItemWidth(std::max(80.0f, ImGui::GetContentRegionAvail().x * 0.45f));
-            const std::string settingName = settingPreview ? std::format(ICON_FA_SCISSORS " {} (qo'llanmagan)", m_ClipSettingClip.Name) : std::string();
+            const std::string settingName = settingPreview ? TrFormat(ICON_FA_SCISSORS " {} (qo'llanmagan)", m_ClipSettingClip.Name) : std::string();
             const char* current = settingPreview ? settingName.c_str() : m_Clip >= 0 ? clips[m_Clip].Name.c_str() : "Bind pose";
             if (ImGui::BeginCombo("##clip", current))
             {
@@ -1297,7 +1297,7 @@ namespace Zamin {
                 }
             }
             else
-                ImGui::TextColored(s_ErrorColor, "%s", file.Error.empty() ? "o'qilmadi" : file.Error.c_str());
+                ImGui::TextColored(s_ErrorColor, "%s", file.Error.empty() ? Tr("o'qilmadi") : file.Error.c_str());
             if (model)
             {
                 UI::PropertyLabel("Submeshlar", "Chiziladigan qismlar (har biri o'z materiali bilan; bir mesh bir necha tugunda bo'lsa, har biri alohida).");
@@ -1313,21 +1313,21 @@ namespace Zamin {
                 UI::PropertyLabel("Skelet");
                 if (model->IsSkinned() && model->GetSkins().size() > 1)
                 {
-                    ImGui::Text("%zu ta bo'g'in, %zu skin", model->GetSkeleton().Joints.size(), model->GetSkins().size());
+                    ImGui::Text(Tr("%zu ta bo'g'in, %zu skin"), model->GetSkeleton().Joints.size(), model->GetSkins().size());
                     if (ImGui::IsItemHovered())
                     {
                         // Each skin: its joints and how it is drawn.
                         std::string text;
                         for (const ModelSkin& skin : model->GetSkins())
-                            text += std::format("{}{}: {} suyak{}", text.empty() ? "" : "\n", skin.Name, skin.Joints.size(),
-                                                skin.Direct ? "" : " (o'z palitrasi bilan)");
+                            text += TrFormat("{}{}: {} suyak{}", text.empty() ? "" : "\n", skin.Name, skin.Joints.size(),
+                                                skin.Direct ? "" : Tr(" (o'z palitrasi bilan)"));
                         UI::Tooltip(text.c_str());
                     }
                 }
                 else if (model->IsSkinned())
-                    ImGui::Text("%zu ta bo'g'in", model->GetSkeleton().Joints.size());
+                    ImGui::Text(Tr("%zu ta bo'g'in"), model->GetSkeleton().Joints.size());
                 else
-                    ImGui::TextDisabled("yo'q");
+                    ImGui::TextDisabled("%s", Tr("yo'q"));
                 if (model->HasMorphTargets())
                 {
                     UI::PropertyLabel("Blend shape'lar", "glTF morph target'lari (Mesh Renderer'da og'irliklari, Animator kliplari ham animatsiya qiladi)");
@@ -1340,7 +1340,7 @@ namespace Zamin {
             if (file.Valid && file.Format != "OBJ")
             {
                 UI::PropertyLabel("Faylda");
-                ImGui::TextWrapped("%u mesh, %zu primitiv, %zu material, %u rasm, %u tugun", file.Meshes, file.Primitives.size(),
+                ImGui::TextWrapped(Tr("%u mesh, %zu primitiv, %zu material, %u rasm, %u tugun"), file.Meshes, file.Primitives.size(),
                                    file.Materials.size(), file.Images, file.Nodes);
             }
             UI::EndPropertyGrid();
@@ -1348,13 +1348,13 @@ namespace Zamin {
 
         // ---- submeshes
         if (model && !model->GetSubMeshes().empty() &&
-            ImGui::CollapsingHeader(std::format(ICON_FA_CUBES "  Submeshlar ({})###submeshes", model->GetSubMeshes().size()).c_str()))
+            ImGui::CollapsingHeader(TrFormat(ICON_FA_CUBES "  Submeshlar ({})###submeshes", model->GetSubMeshes().size()).c_str()))
         {
             if (ImGui::BeginTable("##submeshTable", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp))
             {
-                ImGui::TableSetupColumn("Nomi", ImGuiTableColumnFlags_WidthStretch, 2.0f);
-                ImGui::TableSetupColumn("Uchlar", ImGuiTableColumnFlags_WidthStretch, 1.0f);
-                ImGui::TableSetupColumn("Uchburchak", ImGuiTableColumnFlags_WidthStretch, 1.0f);
+                ImGui::TableSetupColumn(Tr("Nomi"), ImGuiTableColumnFlags_WidthStretch, 2.0f);
+                ImGui::TableSetupColumn(Tr("Uchlar"), ImGuiTableColumnFlags_WidthStretch, 1.0f);
+                ImGui::TableSetupColumn(Tr("Uchburchak"), ImGuiTableColumnFlags_WidthStretch, 1.0f);
                 ImGui::TableSetupColumn("Material", ImGuiTableColumnFlags_WidthStretch, 1.2f);
                 ImGui::TableHeadersRow();
                 int i = 0;
@@ -1386,15 +1386,15 @@ namespace Zamin {
                         if (m.NormalMap) maps += "\n  normal: " + Project::GetAssetRelativePath(m.NormalMap->GetPath());
                         if (m.MetalRoughMap) maps += "\n  metal/roughness: " + Project::GetAssetRelativePath(m.MetalRoughMap->GetPath());
                         if (m.EmissiveMap) maps += "\n  emissive: " + Project::GetAssetRelativePath(m.EmissiveMap->GetPath());
-                        UI::Tooltip(std::format("Rang {:.2f} {:.2f} {:.2f}  |  metallik {:.2f}, g'adir-budirlik {:.2f}{}{}", m.Albedo.r, m.Albedo.g,
-                                                m.Albedo.b, m.Metallic, m.Roughness, maps.empty() ? "" : "\nXaritalar:", maps).c_str());
+                        UI::Tooltip(TrFormat("Rang {:.2f} {:.2f} {:.2f}  |  metallik {:.2f}, g'adir-budirlik {:.2f}{}{}", m.Albedo.r, m.Albedo.g,
+                                                m.Albedo.b, m.Metallic, m.Roughness, maps.empty() ? "" : Tr("\nXaritalar:"), maps).c_str());
                     }
                     ImGui::SameLine();
                     int maps = (m.AlbedoMap ? 1 : 0) + (m.NormalMap ? 1 : 0) + (m.MetalRoughMap ? 1 : 0) + (m.EmissiveMap ? 1 : 0);
                     if (maps > 0)
                         ImGui::TextDisabled(ICON_FA_IMAGE " %d", maps);
                     else
-                        ImGui::TextDisabled("rang");
+                        ImGui::TextDisabled("%s", Tr("rang"));
                     ImGui::PopID();
                 }
                 ImGui::EndTable();
@@ -1408,7 +1408,7 @@ namespace Zamin {
             m_ExportOpenSection = false;
         }
         bool materialsOpen = file.Valid && !file.Materials.empty() &&
-                             ImGui::CollapsingHeader(std::format(ICON_FA_PALETTE "  Materiallar ({})###materials", file.Materials.size()).c_str());
+                             ImGui::CollapsingHeader(TrFormat(ICON_FA_PALETTE "  Materiallar ({})###materials", file.Materials.size()).c_str());
         if (materialsOpen && m_ExportScrollTo)
         {
             ImGui::SetScrollHereY(0.1f);
@@ -1424,7 +1424,7 @@ namespace Zamin {
                                    ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_AlphaPreviewHalf, ImVec2(14, 14));
                 ImGui::SameLine();
                 ImGui::TextUnformatted(m.Name.c_str());
-                std::string details = std::format("metallik {:.2f}, g'adir-budirlik {:.2f}", m.Metallic, m.Roughness);
+                std::string details = TrFormat("metallik {:.2f}, g'adir-budirlik {:.2f}", m.Metallic, m.Roughness);
                 for (const std::string& map : m.Maps)
                     details += ", " + map;
                 ImGui::SameLine();
@@ -1439,7 +1439,7 @@ namespace Zamin {
                 if (ImGui::IsItemHovered())
                 {
                     std::string folder = Project::GetAssetRelativePath(Model::GetDefaultMaterialExportDirectory(m_Path));
-                    UI::Tooltip(std::format("Har bir material {} papkasiga .zmat fayl bo'lib yoziladi: ranglar, metall/g'adirlik, nurlanish, "
+                    UI::Tooltip(TrFormat("Har bir material {} papkasiga .zmat fayl bo'lib yoziladi: ranglar, metall/g'adirlik, nurlanish, "
                                             "shaffoflik va teksturalar bilan. Fayl ichidagi (.glb, data URI) rasmlar ularning yoniga PNG/JPG bo'lib "
                                             "chiqariladi. Keyin ularni tahrirlash va boshqa obyektlarda ishlatish mumkin.", folder).c_str());
                 }
@@ -1459,11 +1459,11 @@ namespace Zamin {
                             if (AssetFiles::GetType(written) == AssetType::Texture)
                                 images++;
                         size_t materials = m_Export.Written.size() - images;
-                        std::string summary = std::format("{} ta material yozildi", materials);
+                        std::string summary = TrFormat("{} ta material yozildi", materials);
                         if (images > 0)
-                            summary += std::format(", {} ta rasm chiqarildi", images);
+                            summary += TrFormat(", {} ta rasm chiqarildi", images);
                         if (!m_Export.Kept.empty())
-                            summary += std::format(", {} ta mavjud fayl o'zgarmadi", m_Export.Kept.size());
+                            summary += TrFormat(", {} ta mavjud fayl o'zgarmadi", m_Export.Kept.size());
                         ImGui::TextColored(s_OkColor, ICON_FA_CIRCLE_CHECK "  %s", summary.c_str());
                         ImGui::TextDisabled(ICON_FA_FOLDER "  %s", Project::GetAssetRelativePath(m_Export.OutputDirectory).c_str());
                         if (!m_Export.Materials.empty() && OnRevealRequested)
@@ -1483,15 +1483,15 @@ namespace Zamin {
         size_t fileClips = file.Valid ? file.Animations.size() : 0;
         size_t clipCount = model ? model->GetAnimations().size() : 0;
         if ((clipCount > 0 || fileClips > 0) &&
-            ImGui::CollapsingHeader(std::format(ICON_FA_PERSON_RUNNING "  Animatsiyalar ({})###animations", std::max(clipCount, fileClips)).c_str(),
+            ImGui::CollapsingHeader(TrFormat(ICON_FA_PERSON_RUNNING "  Animatsiyalar ({})###animations", std::max(clipCount, fileClips)).c_str(),
                                     ImGuiTreeNodeFlags_DefaultOpen))
         {
             if (ImGui::BeginTable("##clipTable", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))
             {
                 ImGui::TableSetupColumn("##play", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFrameHeight());
-                ImGui::TableSetupColumn("Nomi", ImGuiTableColumnFlags_WidthStretch, 2.0f);
-                ImGui::TableSetupColumn("Davomiyligi", ImGuiTableColumnFlags_WidthStretch, 1.0f);
-                ImGui::TableSetupColumn("Kanallar", ImGuiTableColumnFlags_WidthStretch, 0.8f);
+                ImGui::TableSetupColumn(Tr("Nomi"), ImGuiTableColumnFlags_WidthStretch, 2.0f);
+                ImGui::TableSetupColumn(Tr("Davomiyligi"), ImGuiTableColumnFlags_WidthStretch, 1.0f);
+                ImGui::TableSetupColumn(Tr("Kanallar"), ImGuiTableColumnFlags_WidthStretch, 0.8f);
                 ImGui::TableHeadersRow();
                 for (int i = 0; model && i < (int)clipCount; i++)
                 {
@@ -1518,7 +1518,7 @@ namespace Zamin {
                     ImGui::TableSetColumnIndex(3);
                     ImGui::Text("%zu", clip.Channels.size() + clip.MorphChannels.size());
                     if (!clip.MorphChannels.empty() && ImGui::IsItemHovered())
-                        UI::Tooltip(std::format("{} suyak kanali, {} morph og'irlik kanali", clip.Channels.size(), clip.MorphChannels.size()).c_str());
+                        UI::Tooltip(TrFormat("{} suyak kanali, {} morph og'irlik kanali", clip.Channels.size(), clip.MorphChannels.size()).c_str());
                     ImGui::PopID();
                 }
                 // Clips that do not move a skeleton: listed, but the engine does not play them.
@@ -1544,7 +1544,7 @@ namespace Zamin {
 
         // ---- skeleton
         if (model && model->IsSkinned() &&
-            ImGui::CollapsingHeader(std::format(ICON_FA_BONE "  Skelet ({} bo'g'in)###skeleton", model->GetSkeleton().Joints.size()).c_str()))
+            ImGui::CollapsingHeader(TrFormat(ICON_FA_BONE "  Skelet ({} bo'g'in)###skeleton", model->GetSkeleton().Joints.size()).c_str()))
         {
             const auto& joints = model->GetSkeleton().Joints;
             ImGui::BeginChild("##joints", ImVec2(0, std::min(220.0f, ImGui::GetTextLineHeightWithSpacing() * (float)joints.size() + 8.0f)),
@@ -1562,13 +1562,13 @@ namespace Zamin {
 
         // ---- files next to the model
         if (file.Valid && !file.ExternalFiles.empty() &&
-            ImGui::CollapsingHeader(std::format(ICON_FA_FILE "  Bog'liq fayllar ({})###modelFiles", file.ExternalFiles.size()).c_str()))
+            ImGui::CollapsingHeader(TrFormat(ICON_FA_FILE "  Bog'liq fayllar ({})###modelFiles", file.ExternalFiles.size()).c_str()))
         {
             for (const std::string& name : file.ExternalFiles)
             {
                 bool missing = std::find(file.MissingFiles.begin(), file.MissingFiles.end(), name) != file.MissingFiles.end();
                 if (missing)
-                    ImGui::TextColored(s_ErrorColor, ICON_FA_CIRCLE_XMARK "  %s  (topilmadi)", name.c_str());
+                    ImGui::TextColored(s_ErrorColor, Tr(ICON_FA_CIRCLE_XMARK "  %s  (topilmadi)"), name.c_str());
                 else
                     ImGui::Text(ICON_FA_FILE "  %s", name.c_str());
             }
@@ -1614,7 +1614,7 @@ namespace Zamin {
         if (m_Model && !m_Model->GetSubMeshes().empty())
             DrawModelPreview(m_Model);
         else
-            ImGui::TextColored(s_ErrorColor, ICON_FA_TRIANGLE_EXCLAMATION "  Model yuklanmadi - konsolni tekshiring");
+            ImGui::TextColored(s_ErrorColor, "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Model yuklanmadi - konsolni tekshiring"));
         ImGui::Spacing();
         DrawModelInfo(m_Model && !m_Model->GetSubMeshes().empty() ? m_Model : nullptr);
 
@@ -1957,13 +1957,13 @@ namespace Zamin {
         }
         if (!m_Waveform || !m_Waveform->Done)
         {
-            const char* text = m_AudioInfo.Valid ? "To'lqin shakli o'qilmoqda..." : "Ovoz o'qilmadi";
+            const char* text = m_AudioInfo.Valid ? Tr("To'lqin shakli o'qilmoqda...") : Tr("Ovoz o'qilmadi");
             ImVec2 ts = ImGui::CalcTextSize(text);
             dl->AddText(ImVec2(min.x + (width - ts.x) * 0.5f, mid - ts.y * 0.5f), ImGui::GetColorU32(ImGuiCol_TextDisabled), text);
         }
         else if (!peaks)
         {
-            std::string text = "To'lqin shakli yo'q: " + m_Waveform->Error;
+            std::string text = Tr("To'lqin shakli yo'q: ") + m_Waveform->Error;
             dl->AddText(ImVec2(min.x + 8.0f, mid - ImGui::GetTextLineHeight() * 0.5f), ImGui::GetColorU32(s_ErrorColor), text.c_str());
         }
         else
@@ -2014,7 +2014,7 @@ namespace Zamin {
                 dl->AddTriangleFilled(ImVec2(x, min.y), ImVec2(x + dir * 9.0f, min.y), ImVec2(x, min.y + 9.0f), color);
             }
             // Its name, where it does not run into the time in the corner.
-            const char* label = ICON_FA_REPEAT " takrorlash";
+            const char* label = Tr(ICON_FA_REPEAT " takrorlash");
             const ImVec2 size = ImGui::CalcTextSize(label);
             const float labelX = std::max(loopStartX, min.x) + 12.0f;
             const float timeWidth = ImGui::CalcTextSize("x00.0   00.000 s / 00.000 s").x + 12.0f;
@@ -2044,11 +2044,11 @@ namespace Zamin {
             if (overStart || overEnd || m_WaveDrag == WaveDrag::LoopStart || m_WaveDrag == WaveDrag::LoopEnd)
                 ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
             if (overStart || m_WaveDrag == WaveDrag::LoopStart)
-                UI::Tooltip(std::format("Takrorlash boshi: {} (sudrang)", AssetInfo::FormatDuration(loop.x)).c_str());
+                UI::Tooltip(TrFormat("Takrorlash boshi: {} (sudrang)", AssetInfo::FormatDuration(loop.x)).c_str());
             else if (overEnd || m_WaveDrag == WaveDrag::LoopEnd)
-                UI::Tooltip(std::format("Takrorlash oxiri: {} (sudrang)", AssetInfo::FormatDuration(loop.y)).c_str());
+                UI::Tooltip(TrFormat("Takrorlash oxiri: {} (sudrang)", AssetInfo::FormatDuration(loop.y)).c_str());
             else if (m_WaveDrag == WaveDrag::None)
-                UI::Tooltip(std::format("{}\nBosing / sudrang: shu joydan ijro (scrub)\nShift + sudrash: takrorlash oralig'i\n"
+                UI::Tooltip(TrFormat("{}\nBosing / sudrang: shu joydan ijro (scrub)\nShift + sudrash: takrorlash oralig'i\n"
                                         "G'ildirak: kattalashtirish, Shift + g'ildirak yoki o'rta tugma: surish\nO'ng tugma: menyu",
                                         AssetInfo::FormatDuration(mouseTime)).c_str());
         }
@@ -2100,7 +2100,7 @@ namespace Zamin {
         ImGui::BeginDisabled(!available || !info.Valid);
         if (playing)
             ImGui::PushStyleColor(ImGuiCol_Button, UI::AccentU32(0.75f));
-        if (ImGui::Button(playing ? ICON_FA_STOP "  To'xtatish" : ICON_FA_PLAY "  Ijro etish", ImVec2(130, 0)))
+        if (ImGui::Button(playing ? Tr(ICON_FA_STOP "  To'xtatish") : Tr(ICON_FA_PLAY "  Ijro etish"), ImVec2(130, 0)))
         {
             if (playing)
                 StopAudio();
@@ -2126,7 +2126,7 @@ namespace Zamin {
             AudioEngine::SetVolume(m_Sound, m_Volume);
         ImGui::EndDisabled();
         if (!available)
-            ImGui::TextColored(s_WarnColor, ICON_FA_CIRCLE_INFO "  Audio qurilmasi yo'q - ijro etib bo'lmaydi");
+            ImGui::TextColored(s_WarnColor, "%s", Tr(ICON_FA_CIRCLE_INFO "  Audio qurilmasi yo'q - ijro etib bo'lmaydi"));
 
         // ---- what the file is
         ImGui::Spacing();
@@ -2161,7 +2161,7 @@ namespace Zamin {
                 {
                     UI::PropertyLabel("");
                     ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-                    ImGui::TextWrapped(ICON_FA_CIRCLE_INFO "  3D (fazoviy) ovoz uchun mono fayl yaxshiroq");
+                    ImGui::TextWrapped("%s", Tr(ICON_FA_CIRCLE_INFO "  3D (fazoviy) ovoz uchun mono fayl yaxshiroq"));
                     ImGui::PopStyleColor();
                 }
 
@@ -2174,16 +2174,16 @@ namespace Zamin {
                                                 "Streaming belgisi va musiqa (Audio::PlayMusic) har doim oqim bilan o'qiladi.");
                 if (streams)
                 {
-                    ImGui::TextColored(ImVec4(0.55f, 0.75f, 1.0f, 1.0f), ICON_FA_WAVE_SQUARE "  Diskdan oqim");
+                    ImGui::TextColored(ImVec4(0.55f, 0.75f, 1.0f, 1.0f), "%s", Tr(ICON_FA_WAVE_SQUARE "  Diskdan oqim"));
                     if (m_AudioEdit.LoadMode == AudioLoadMode::Auto)
                     {
                         ImGui::SameLine();
-                        ImGui::TextDisabled("(%.1f MB > %.1f MB chegara)", megabytes, mixer.StreamThresholdMB);
+                        ImGui::TextDisabled(Tr("(%.1f MB > %.1f MB chegara)"), megabytes, mixer.StreamThresholdMB);
                     }
                 }
                 else
                 {
-                    ImGui::TextColored(s_OkColor, ICON_FA_MEMORY "  Xotiraga yechiladi");
+                    ImGui::TextColored(s_OkColor, "%s", Tr(ICON_FA_MEMORY "  Xotiraga yechiladi"));
                     UI::PropertyLabel("Xotirada", "Yechilgan ovoz (32-bit float, dvigatel chastotasida) egallaydigan joy - har ijroda "
                                                   "(oldindan yuklansa - bir marta)");
                     uint64_t decoded = AudioClip::EstimateDecodedSize(info, AudioEngine::GetSampleRate());
@@ -2192,7 +2192,7 @@ namespace Zamin {
                 if (AudioEngine::IsPreloaded(m_Path))
                 {
                     UI::PropertyLabel("Holat");
-                    ImGui::TextColored(s_OkColor, ICON_FA_MEMORY "  Oldindan yuklangan (xotirada)");
+                    ImGui::TextColored(s_OkColor, "%s", Tr(ICON_FA_MEMORY "  Oldindan yuklangan (xotirada)"));
                 }
             }
             else
@@ -2228,14 +2228,14 @@ namespace Zamin {
             if (streamOnly && m_AudioEdit.Preload)
             {
                 ImGui::SameLine();
-                ImGui::TextDisabled("(oqim: ishlatilmaydi)");
+                ImGui::TextDisabled("%s", Tr("(oqim: ishlatilmaydi)"));
             }
 
             UI::PropertyLabel("Balandlik", "Faylning o'z balandligi: undan chalinadigan har bir ovozga ko'paytiriladi (juda baland yoki "
                                            "past yozilgan faylni boshqalarga tenglashtirish). Ikki marta bosish: 0 dB.");
             float decibels = AudioGain::ToDecibels(m_AudioEdit.Volume);
             ImGui::SetNextItemWidth(-FLT_MIN);
-            std::string text = m_AudioEdit.Volume <= 0.0f ? std::string("jim") : std::format("{:+.1f} dB (x{:.2f})", decibels, m_AudioEdit.Volume);
+            std::string text = m_AudioEdit.Volume <= 0.0f ? std::string(Tr("jim")) : std::format("{:+.1f} dB (x{:.2f})", decibels, m_AudioEdit.Volume);
             if (ImGui::SliderFloat("##clipVolume", &decibels, -40.0f, 6.0f, text.c_str()))
                 m_AudioEdit.Volume = decibels <= -40.0f ? 0.0f : std::clamp(AudioGain::FromDecibels(decibels), 0.0f, AudioSettings::MaxVolume);
             if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
@@ -2267,7 +2267,7 @@ namespace Zamin {
                     UI::Tooltip("Takrorlash oralig'ini olib tashlash (butun fayl takrorlanadi)");
                 const glm::vec2 loop = GetEditedLoopRegion();
                 UI::PropertyLabel("");
-                ImGui::TextDisabled("intro %s, takrorlanadi %s", AssetInfo::FormatDuration(loop.x).c_str(),
+                ImGui::TextDisabled(Tr("intro %s, takrorlanadi %s"), AssetInfo::FormatDuration(loop.x).c_str(),
                                     AssetInfo::FormatDuration(loop.y - loop.x).c_str());
             }
             UI::EndPropertyGrid();
@@ -2285,7 +2285,7 @@ namespace Zamin {
                 SceneSerializer::ReadSceneInfo(m_Path, m_Summary.Scene);
             nlohmann::json root = nlohmann::json::parse(FileSystem::ReadTextFile(m_Path), nullptr, false);
             if (root.is_discarded() || !root.is_object())
-                m_Summary.Error = "JSON o'qilmadi";
+                m_Summary.Error = Tr("JSON o'qilmadi");
             else
             {
                 m_Summary.Valid = true;
@@ -2335,7 +2335,7 @@ namespace Zamin {
                     UI::Tooltip(std::format("{}\n{}", m_Summary.VariantOf,
                                             Tr("Asosdagi o'zgarishlar variantga ham o'tadi (variant o'zgartirgan qiymatlardan tashqari)")).c_str());
             }
-            UI::PropertyLabel(m_Type == AssetType::Prefab ? "Ildiz" : "Ildiz obyektlar");
+            UI::PropertyLabel(m_Type == AssetType::Prefab ? Tr("Ildiz") : Tr("Ildiz obyektlar"));
             std::string roots;
             for (size_t i = 0; i < m_Summary.Roots.size() && i < 12; i++)
                 roots += (i ? ", " : "") + m_Summary.Roots[i];
@@ -2345,7 +2345,7 @@ namespace Zamin {
             UI::EndPropertyGrid();
         }
         if (!m_Summary.Components.empty() &&
-            ImGui::CollapsingHeader(std::format(ICON_FA_LAYER_GROUP "  Komponentlar ({})###components", m_Summary.Components.size()).c_str()))
+            ImGui::CollapsingHeader(TrFormat(ICON_FA_LAYER_GROUP "  Komponentlar ({})###components", m_Summary.Components.size()).c_str()))
         {
             for (const auto& [key, count] : m_Summary.Components)
             {
@@ -2397,13 +2397,13 @@ namespace Zamin {
             UI::PropertyLabel("Format");
             if (info.Version < SceneMigration::CurrentVersion)
             {
-                ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.35f, 1.0f), "v%d (eski)", info.Version);
+                ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.35f, 1.0f), Tr("v%d (eski)"), info.Version);
                 if (ImGui::IsItemHovered())
-                    UI::Tooltip(std::format("Yuklashda v{} ga yangilanadi (migratsiya); saqlanganda yangi formatda yoziladi",
+                    UI::Tooltip(TrFormat("Yuklashda v{} ga yangilanadi (migratsiya); saqlanganda yangi formatda yoziladi",
                                             SceneMigration::CurrentVersion).c_str());
             }
             else if (info.Version > SceneMigration::CurrentVersion)
-                ImGui::TextColored(s_ErrorColor, "v%d (yangiroq dvigatel)", info.Version);
+                ImGui::TextColored(s_ErrorColor, Tr("v%d (yangiroq dvigatel)"), info.Version);
             else
                 ImGui::Text("v%d", info.Version);
             if (Ref<Project> project = Project::GetActive())
@@ -2413,7 +2413,7 @@ namespace Zamin {
                 if (index >= 0)
                     ImGui::Text("%d", index);
                 else
-                    ImGui::TextDisabled("ro'yxatda yo'q");
+                    ImGui::TextDisabled("%s", Tr("ro'yxatda yo'q"));
             }
             UI::EndPropertyGrid();
         }
@@ -2433,7 +2433,7 @@ namespace Zamin {
         ImGui::Spacing();
         if (!asset)
         {
-            ImGui::TextColored(s_ErrorColor, ICON_FA_TRIANGLE_EXCLAMATION "  Klip o'qilmadi - konsolni tekshiring");
+            ImGui::TextColored(s_ErrorColor, "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Klip o'qilmadi - konsolni tekshiring"));
             return;
         }
         const PropertyClip& clip = asset->GetClip();
@@ -2444,16 +2444,16 @@ namespace Zamin {
         {
             static const char* wraps[] = { "Bir marta", "Takror", "Borib-qaytish" };
             UI::PropertyLabel("Davomiylik");
-            ImGui::Text("%.2f s  (%d kadr, %.0f fps)", clip.Duration, (int)std::round(clip.Duration * clip.FrameRate), clip.FrameRate);
+            ImGui::Text(Tr("%.2f s  (%d kadr, %.0f fps)"), clip.Duration, (int)std::round(clip.Duration * clip.FrameRate), clip.FrameRate);
             UI::PropertyLabel("Tugaganda");
-            ImGui::TextUnformatted(wraps[std::clamp((int)clip.Wrap, 0, 2)]);
+            ImGui::TextUnformatted(Tr(wraps[std::clamp((int)clip.Wrap, 0, 2)]));
             UI::PropertyLabel("Treklar");
             ImGui::Text("%zu", clip.Tracks.size());
             for (const AnimationTrack& t : clip.Tracks)
             {
                 UI::PropertyLabel("");
                 std::string field = t.Property == AnimatedProperty::ScriptFloat ? " " + t.Field : std::string();
-                ImGui::TextDisabled("%s  %s%s  (%zu kalit)", t.Path.empty() ? "(o'zi)" : t.Path.c_str(),
+                ImGui::TextDisabled(Tr("%s  %s%s  (%zu kalit)"), t.Path.empty() ? Tr("(o'zi)") : t.Path.c_str(),
                                     PropertyAnimation::GetPropertyName(t.Property), field.c_str(), t.Keys.size());
             }
             UI::PropertyLabel("Event'lar");
@@ -2466,8 +2466,8 @@ namespace Zamin {
             UI::EndPropertyGrid();
         }
         ImGui::Spacing();
-        ImGui::TextWrapped("Obyektga Animation Player komponentini qo'shing va klipni uning ro'yxatiga torting; "
-                           "skript: GetComponent<AnimationPlayerComponent>().Play(\"%s\")", asset->GetName().c_str());
+        ImGui::TextWrapped(Tr("Obyektga Animation Player komponentini qo'shing va klipni uning ro'yxatiga torting; "
+                           "skript: GetComponent<AnimationPlayerComponent>().Play(\"%s\")"), asset->GetName().c_str());
     }
 
     void AssetInspectorPanel::DrawFont()
@@ -2481,7 +2481,7 @@ namespace Zamin {
         ImGui::Spacing();
         if (!font || !font->GetAtlasTexture())
         {
-            ImGui::TextColored(s_ErrorColor, ICON_FA_TRIANGLE_EXCLAMATION "  Shrift yuklanmadi - konsolni tekshiring");
+            ImGui::TextColored(s_ErrorColor, "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Shrift yuklanmadi - konsolni tekshiring"));
             return;
         }
         const Ref<Texture2D>& atlas = font->GetAtlasTexture();
@@ -2528,7 +2528,7 @@ namespace Zamin {
 
     void AssetInspectorPanel::DrawScript()
     {
-        if(ImGui::Button("Kod muharririda ochish")&&OnOpenCode)OnOpenCode(m_Path);
+        if(ImGui::Button(Tr("Kod muharririda ochish"))&&OnOpenCode)OnOpenCode(m_Path);
         std::error_code sourceSizeError;
         if(std::filesystem::file_size(m_Path,sourceSizeError)>1024*1024&&!sourceSizeError){
             ImGui::TextDisabled("Source preview is limited to 1 MB");
@@ -2552,7 +2552,7 @@ namespace Zamin {
             ImGui::Text("%zu", m_Summary.Lines);
             UI::PropertyLabel("Skript klasslari", "Shu faylda ZM_REGISTER_SCRIPT bilan ro'yxatdan o'tgan klasslar.");
             if (m_Summary.Classes.empty())
-                ImGui::TextDisabled("yo'q");
+                ImGui::TextDisabled("%s", Tr("yo'q"));
             else
             {
                 for (const std::string& name : m_Summary.Classes)
@@ -2617,7 +2617,7 @@ namespace Zamin {
             {
                 ImU32 color = 0;
                 const char* icon = ContentBrowserPanel::GetTypeIcon(type, &color);
-                UI::PropertyLabel(AssetFiles::GetTypeName(type));
+                UI::PropertyLabel(Tr(AssetFiles::GetTypeName(type)));
                 ImGui::PushStyleColor(ImGuiCol_Text, color);
                 ImGui::TextUnformatted(icon);
                 ImGui::PopStyleColor();
@@ -2649,9 +2649,9 @@ namespace Zamin {
         ImGui::SameLine();
         ImGui::BeginGroup();
         ImGui::PushFont(ImGuiLayer::GetBoldFont());
-        ImGui::Text("%zu ta element tanlangan", m_Selection.size());
+        ImGui::Text(Tr("%zu ta element tanlangan"), m_Selection.size());
         ImGui::PopFont();
-        ImGui::TextDisabled("Jami %s (papkalarsiz)", AssetFiles::FormatSize(total).c_str());
+        ImGui::TextDisabled(Tr("Jami %s (papkalarsiz)"), AssetFiles::FormatSize(total).c_str());
         ImGui::EndGroup();
         ImGui::Separator();
         if (UI::BeginPropertyGrid("##multiInfo"))
@@ -2660,7 +2660,7 @@ namespace Zamin {
             {
                 ImU32 color = 0;
                 const char* icon = ContentBrowserPanel::GetTypeIcon(type, &color);
-                UI::PropertyLabel(AssetFiles::GetTypeName(type));
+                UI::PropertyLabel(Tr(AssetFiles::GetTypeName(type)));
                 ImGui::PushStyleColor(ImGuiCol_Text, color);
                 ImGui::TextUnformatted(icon);
                 ImGui::PopStyleColor();
@@ -2673,8 +2673,8 @@ namespace Zamin {
         for (size_t i = 0; i < m_Selection.size() && i < 16; i++)
             ImGui::BulletText("%s", m_Selection[i].filename().string().c_str());
         if (m_Selection.size() > 16)
-            ImGui::TextDisabled("... va yana %zu ta", m_Selection.size() - 16);
-        ImGui::TextDisabled(ICON_FA_CIRCLE_INFO "  Bitta faylni tanlang - uning ko'rinishi va sozlamalari chiqadi");
+            ImGui::TextDisabled(Tr("... va yana %zu ta"), m_Selection.size() - 16);
+        ImGui::TextDisabled("%s", Tr(ICON_FA_CIRCLE_INFO "  Bitta faylni tanlang - uning ko'rinishi va sozlamalari chiqadi"));
     }
 
 }

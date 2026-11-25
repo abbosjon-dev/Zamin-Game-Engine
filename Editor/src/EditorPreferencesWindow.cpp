@@ -197,10 +197,10 @@ namespace Zamin {
                     ImGui::TextWrapped("%s", EditorText::GetLanguage() == EditorLanguage::English
                                                  ? "Menus, window titles, buttons, the main panels and the project settings "
                                                    "(hints and longer texts stay in Uzbek)"
-                                                 : "Menyular, oyna sarlavhalari, tugmalar, asosiy panellar va loyiha sozlamalari");
+                                                 : Tr("Menyular, oyna sarlavhalari, tugmalar, asosiy panellar va loyiha sozlamalari"));
                     ImGui::PopStyleColor();
                     ImGui::SeparatorText(Tr("Asosiy rang (accent)"));
-                    ImGui::TextDisabled("Tanlangan tablar, belgilar, slayderlar va ajratib ko'rsatishlar rangi");
+                    ImGui::TextDisabled("%s", Tr("Tanlangan tablar, belgilar, slayderlar va ajratib ko'rsatishlar rangi"));
                     int clicked = SwatchRow("accent", EditorThemeSettings::GetAccentPresets(), theme.FindAccentPreset(),
                                             [](const glm::vec3& c) { return c; });
                     if (clicked >= 0)
@@ -225,12 +225,12 @@ namespace Zamin {
                     ImGui::ProgressBar(s_PreviewSlider, ImVec2(em * 6.0f, 0.0f));
 
                     ImGui::SeparatorText(Tr("Shrift o'lchami"));
-                    ImGui::TextDisabled("Butun UI (oraliqlar, tugmalar) shu nisbatda kattalashadi / kichrayadi");
+                    ImGui::TextDisabled("%s", Tr("Butun UI (oraliqlar, tugmalar) shu nisbatda kattalashadi / kichrayadi"));
                     for (float size : { 13.0f, 14.0f, 16.0f, 18.0f, 20.0f })
                     {
                         const bool current = std::abs(theme.FontSize - size) < 0.5f;
                         if (current) ImGui::PushStyleColor(ImGuiCol_Button, UI::AccentDarkColor());
-                        std::string label = std::format("{:.0f} px{}", size, size == EditorThemeSettings::DefaultFontSize ? " (standart)" : "");
+                        std::string label = std::format("{:.0f} px{}", size, size == EditorThemeSettings::DefaultFontSize ? Tr(" (standart)") : "");
                         if (ImGui::Button(label.c_str()) && !current)
                         {
                             theme.FontSize = size;
@@ -265,8 +265,8 @@ namespace Zamin {
                 case 1:
                 {
                     ImGui::SeparatorText(Tr("O'yin rejimida UI rang tusi"));
-                    ImGui::TextWrapped("O'yin ishlayotganda editor oynalari, sarlavhalar, tablar va menyular shu rangga bo'yaladi - "
-                                       "o'yin rejimida qilingan o'zgarishlar To'xtatishda yo'qolishini unutmaslik uchun.");
+                    ImGui::TextWrapped("%s", Tr("O'yin ishlayotganda editor oynalari, sarlavhalar, tablar va menyular shu rangga bo'yaladi - "
+                                       "o'yin rejimida qilingan o'zgarishlar To'xtatishda yo'qolishini unutmaslik uchun."));
                     changed |= ImGui::Checkbox(Tr("O'yin rejimida bo'yash"), &tint.Enabled);
                     ImGui::BeginDisabled(!tint.Enabled);
                     changed |= ImGui::Checkbox(Tr("Fizika simulyatsiyasida ham"), &tint.InSimulate);
@@ -285,7 +285,7 @@ namespace Zamin {
                     }
                     ImGui::SameLine(0.0f, 14.0f);
                     ImGui::SetNextItemWidth(em * 12.0f);
-                    if (ImGui::ColorEdit3("Ko'paytuvchi##tint", &tint.Color.x, ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR |
+                    if (ImGui::ColorEdit3(Tr("Ko'paytuvchi##tint"), &tint.Color.x, ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR |
                                                                               ImGuiColorEditFlags_NoInputs))
                     {
                         tint.Sanitize();
@@ -294,7 +294,7 @@ namespace Zamin {
                     if (ImGui::IsItemHovered())
                         UI::Tooltip("Har bir rang kanali shu songa ko'paytiriladi (1 - o'zgarmaydi, 2 gacha)");
                     ImGui::SetNextItemWidth(em * 14.0f);
-                    changed |= ImGui::SliderFloat("Kuchi", &tint.Strength, 0.0f, 1.0f, "%.2f");
+                    changed |= ImGui::SliderFloat(Tr("Kuchi"), &tint.Strength, 0.0f, 1.0f, "%.2f");
 
                     // Before / after: a small window drawn in the theme's colours, and under the tint.
                     ImGui::Spacing();
@@ -316,12 +316,12 @@ namespace Zamin {
                         dl->AddText(ImVec2(a.x + 8, a.y + (title - em) * 0.5f), ImGui::GetColorU32(ImGuiCol_Text), label);
                         ImGui::Dummy(ImVec2(w, h));
                     };
-                    mock(ICON_FA_FEATHER "  Tahrirlash", false);
+                    mock(Tr(ICON_FA_FEATHER "  Tahrirlash"), false);
                     ImGui::SameLine(0.0f, 16.0f);
-                    mock(ICON_FA_PLAY "  O'yin", true);
+                    mock(Tr(ICON_FA_PLAY "  O'yin"), true);
                     ImGui::EndDisabled();
                     if (IsPlayTintActive())
-                        ImGui::TextColored(ImVec4(0.3f, 0.85f, 0.5f, 1.0f), ICON_FA_PLAY "  Hozir o'yin rejimi: UI bo'yalgan");
+                        ImGui::TextColored(ImVec4(0.3f, 0.85f, 0.5f, 1.0f), "%s", Tr(ICON_FA_PLAY "  Hozir o'yin rejimi: UI bo'yalgan"));
                     ImGui::Spacing();
                     if (ImGui::Button(Tr(ICON_FA_ARROW_ROTATE_LEFT "  Standart tus")))
                     {
@@ -348,7 +348,7 @@ namespace Zamin {
                     ImGui::SameLine();
                     consoleChanged |= ImGui::Checkbox(Tr(ICON_FA_CIRCLE_XMARK "  Xato"), &console.ShowError);
                     ImGui::Spacing();
-                    ImGui::TextDisabled("Qidiruv konsolning o'zida: matn (katta-kichik harfsiz) yoki regex (.*)");
+                    ImGui::TextDisabled("%s", Tr("Qidiruv konsolning o'zida: matn (katta-kichik harfsiz) yoki regex (.*)"));
                     if (consoleChanged)
                     {
                         m_ConsolePanel.SetPreferences(console);
@@ -361,26 +361,26 @@ namespace Zamin {
                 {
                     EditorCameraDefaults& camera = m_Preferences.Camera;
                     ImGui::SeparatorText(Tr("Editor kamerasi"));
-                    ImGui::TextDisabled("Hamma ko'rinishlarning kamerasi; har yangi sessiya shu qiymatlar bilan boshlanadi (viewport'dagi "
-                                        ICON_FA_VIDEO " tugmasi ham shularni o'zgartiradi)");
+                    ImGui::TextDisabled("%s", Tr("Hamma ko'rinishlarning kamerasi; har yangi sessiya shu qiymatlar bilan boshlanadi (viewport'dagi "
+                                        ICON_FA_VIDEO " tugmasi ham shularni o'zgartiradi)"));
                     bool projection = false, speed = false;
                     ImGui::SetNextItemWidth(em * 14.0f);
-                    projection |= ImGui::SliderFloat("Ko'rish burchagi (FOV)", &camera.FOV, EditorCameraDefaults::MinFOV, EditorCameraDefaults::MaxFOV, "%.0f\xc2\xb0");
+                    projection |= ImGui::SliderFloat(Tr("Ko'rish burchagi (FOV)"), &camera.FOV, EditorCameraDefaults::MinFOV, EditorCameraDefaults::MaxFOV, "%.0f\xc2\xb0");
                     ImGui::SetNextItemWidth(em * 14.0f);
-                    projection |= ImGui::DragFloat("Yaqin chegara (near)", &camera.NearClip, 0.005f, EditorCameraDefaults::MinNear, EditorCameraDefaults::MaxNear, "%.3f");
+                    projection |= ImGui::DragFloat(Tr("Yaqin chegara (near)"), &camera.NearClip, 0.005f, EditorCameraDefaults::MinNear, EditorCameraDefaults::MaxNear, "%.3f");
                     ImGui::SetNextItemWidth(em * 14.0f);
-                    projection |= ImGui::DragFloat("Uzoq chegara (far)", &camera.FarClip, 10.0f, 1.0f, EditorCameraDefaults::MaxFar, "%.0f");
+                    projection |= ImGui::DragFloat(Tr("Uzoq chegara (far)"), &camera.FarClip, 10.0f, 1.0f, EditorCameraDefaults::MaxFar, "%.0f");
                     ImGui::SetNextItemWidth(em * 14.0f);
-                    speed |= ImGui::DragFloat("Uchish tezligi", &camera.FlySpeed, 0.1f, EditorCameraDefaults::MinFlySpeed, EditorCameraDefaults::MaxFlySpeed, "%.1f");
+                    speed |= ImGui::DragFloat(Tr("Uchish tezligi"), &camera.FlySpeed, 0.1f, EditorCameraDefaults::MinFlySpeed, EditorCameraDefaults::MaxFlySpeed, "%.1f");
                     if (ImGui::IsItemHovered())
                         UI::Tooltip("O'ng tugma + WASD bilan uchish tezligi (uchayotganda g'ildirak bilan ham o'zgaradi)");
                     ImGui::SetNextItemWidth(em * 14.0f);
-                    projection |= ImGui::SliderFloat("Tezlanish", &camera.FlyAcceleration, 0.0f, EditorCameraDefaults::MaxAcceleration,
-                                                     camera.FlyAcceleration > 0.0f ? "+%.1fx / s" : "yo'q");
+                    projection |= ImGui::SliderFloat(Tr("Tezlanish"), &camera.FlyAcceleration, 0.0f, EditorCameraDefaults::MaxAcceleration,
+                                                     camera.FlyAcceleration > 0.0f ? "+%.1fx / s" : Tr("yo'q"));
                     if (ImGui::IsItemHovered())
                         UI::Tooltip("Tugmalar uzoq bosilsa uchish tezligi oshib boradi (ko'pi bilan 4x)");
                     ImGui::SetNextItemWidth(em * 14.0f);
-                    projection |= ImGui::SliderFloat("Sichqoncha sezgirligi", &camera.LookSensitivity, EditorCameraDefaults::MinSensitivity,
+                    projection |= ImGui::SliderFloat(Tr("Sichqoncha sezgirligi"), &camera.LookSensitivity, EditorCameraDefaults::MinSensitivity,
                                                      EditorCameraDefaults::MaxSensitivity, "%.2fx", ImGuiSliderFlags_Logarithmic);
                     projection |= ImGui::Checkbox(Tr("Y o'qini teskari qilish"), &camera.InvertY);
                     if (projection || speed)
@@ -390,7 +390,7 @@ namespace Zamin {
                         changed = true;
                     }
                     ImGui::Spacing();
-                    ImGui::TextDisabled("Hozirgi kamera: FOV %.0f\xc2\xb0, near %.3g, far %.0f, tezlik %.1f", m_EditorCamera.GetFOV(),
+                    ImGui::TextDisabled(Tr("Hozirgi kamera: FOV %.0f\xc2\xb0, near %.3g, far %.0f, tezlik %.1f"), m_EditorCamera.GetFOV(),
                                         m_EditorCamera.GetNearClip(), m_EditorCamera.GetFarClip(), m_EditorCamera.FlySpeed);
                     if (ImGui::Button(Tr(ICON_FA_ARROW_ROTATE_LEFT "  Standart qiymatlar")))
                     {

@@ -282,14 +282,14 @@ def inspector_info():
         if not os.path.exists(path):
             continue
         text = read(path)
-        for m in re.finditer(r"AddSection<(\w+)>\(\s*\w+\s*,\s*\"([^\"]+)\"", text):
+        for m in re.finditer(r"AddSection<(\w+)>\(\s*\w+\s*,\s*(?:Tr\()?\"([^\"]+)\"", text):
             sections.setdefault(m.group(1), m.group(2))
         category = ""
         for line in text.splitlines():
             c = re.search(r"SeparatorText\(Tr\(\"([^\"]+)\"\)\)", line)
             if c:
                 category = c.group(1)
-            d = re.search(r"DisplayAddComponentEntry<(\w+)>\(\"([^\"]+)\"", line)
+            d = re.search(r"DisplayAddComponentEntry<(\w+)>\((?:Tr\()?\"([^\"]+)\"", line)
             if d:
                 menu.setdefault(d.group(1), (category, d.group(2)))
     return sections, menu

@@ -13,7 +13,7 @@ namespace Zamin {
         ImGui::TextColored(ImVec4(0.95f, 0.6f, 0.3f, 1.0f), ICON_FA_POWER_OFF "  %s", text);
         ImGui::PopTextWrapPos();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-            ImGui::SetTooltip("Obyekt (yoki ota-onalaridan biri) nofaol. Faollashtirilganda yana ishlaydi.");
+            ImGui::SetTooltip("%s", Tr("Obyekt (yoki ota-onalaridan biri) nofaol. Faollashtirilganda yana ishlaydi."));
     }
 
 }

@@ -179,7 +179,7 @@ namespace Zamin {
         m_EditorScene->InvalidateNameCache();
         m_SceneHierarchyPanel.GetSelection().Set(roots, roots.front());
         const std::string first = roots.front().GetName();
-        MarkDirty(roots.size() > 1 ? std::format("Prefab qo'shildi: {} \xc3\x97{}", first, roots.size()) : std::format("Prefab qo'shildi: {}", first));
+        MarkDirty(roots.size() > 1 ? TrFormat("Prefab qo'shildi: {} \xc3\x97{}", first, roots.size()) : TrFormat("Prefab qo'shildi: {}", first));
         CommitUndo();
         return roots;
     }

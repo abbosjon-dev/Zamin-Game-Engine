@@ -15,14 +15,14 @@ namespace Zamin::AnimatorEditing {
     std::string StateName(const AnimatorComponent& c, int index)
     {
         if (index < 0)
-            return "Har qanday holat";
+            return Tr("Har qanday holat");
         return index < (int)c.States.size() ? c.States[(size_t)index].Name : std::string("?");
     }
 
     bool ClipCombo(const char* id, std::string& clip, const Model* model, const char* none)
     {
         bool changed = false;
-        const char* preview = clip.empty() ? (none ? none : "(klip)") : clip.c_str();
+        const char* preview = clip.empty() ? (none ? none : Tr("(klip)")) : clip.c_str();
         if (ImGui::BeginCombo(id, preview))
         {
             if (none && ImGui::Selectable(none, clip.empty()))
@@ -38,7 +38,7 @@ namespace Zamin::AnimatorEditing {
                         changed = true;
                     }
             if (!model || model->GetAnimations().empty())
-                ImGui::TextDisabled("Modelda klip yo'q");
+                ImGui::TextDisabled("%s", Tr("Modelda klip yo'q"));
             ImGui::EndCombo();
         }
         // A clip the model does not have (renamed, another model): shown, not lost.
@@ -133,7 +133,7 @@ namespace Zamin::AnimatorEditing {
                 const bool pending = p.Value != 0.0f;
                 if (pending)
                     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.85f, 0.55f, 0.15f, 1.0f));
-                if (ImGui::Button(live ? ICON_FA_BOLT "  Ishga tushirish" : (pending ? ICON_FA_BOLT "  Yoqilgan" : ICON_FA_BOLT "  O'chiq"),
+                if (ImGui::Button(live ? Tr(ICON_FA_BOLT "  Ishga tushirish") : (pending ? Tr(ICON_FA_BOLT "  Yoqilgan") : Tr(ICON_FA_BOLT "  O'chiq")),
                                   ImVec2(avail * 0.32f, 0)))
                 {
                     p.Value = live ? 1.0f : (pending ? 0.0f : 1.0f);
@@ -169,7 +169,7 @@ namespace Zamin::AnimatorEditing {
     static bool DrawBlendField(AnimatorComponent& controller, AnimatorState& state)
     {
         if (state.Type != AnimatorStateType::BlendTree2D) return false;
-        ImGui::TextDisabled("2D blend: nuqtani sudrang; oq belgi = jonli parametr");
+        ImGui::TextDisabled("%s", Tr("2D blend: nuqtani sudrang; oq belgi = jonli parametr"));
         const auto origin = ImGui::GetCursorScreenPos();
         const ImVec2 size{ std::max(120.0f, ImGui::GetContentRegionAvail().x), 180 };
         ImGui::InvisibleButton("blendField", size);
@@ -241,13 +241,13 @@ namespace Zamin::AnimatorEditing {
         ImGui::PushID(index);
         if (BeginFields("##state"))
         {
-            Field("Nom");
+            Field(Tr("Nom"));
             changed |= ImGui::InputText("##name", &st.Name);
-            Field("Tur", "Klip: bitta animatsiya. Blend tree 1D: float parametr bo'yicha bir nechta klip aralashadi "
-                         "(masalan tezlik: turish / yurish / yugurish) - ular bir xil normalizatsiyalangan vaqtda o'ynaydi");
-            const char* kinds[] = { "Klip", "Blend tree 1D", "Blend field 2D" };
+            Field(Tr("Tur"), Tr("Klip: bitta animatsiya. Blend tree 1D: float parametr bo'yicha bir nechta klip aralashadi "
+                         "(masalan tezlik: turish / yurish / yugurish) - ular bir xil normalizatsiyalangan vaqtda o'ynaydi"));
+            const char* kinds[] = { Tr("Klip"), "Blend tree 1D", "Blend field 2D" };
             int kind = (int)st.Type;
-            if (ImGui::Combo("##type", &kind, kinds, 3))
+            if (UI::TrCombo("##type", &kind, kinds, 3))
             {
                 st.Type = (AnimatorStateType)kind;
                 if (st.IsBlendTree() && st.Motions.empty())
@@ -271,33 +271,33 @@ namespace Zamin::AnimatorEditing {
             }
             if (!st.IsBlendTree())
             {
-                Field("Klip");
-                changed |= ClipCombo("##clip", st.Clip, model, "(birinchi klip)");
+                Field(Tr("Klip"));
+                changed |= ClipCombo("##clip", st.Clip, model, Tr("(birinchi klip)"));
             }
             else
             {
-                Field("Parametr", "Qaysi float parametr motion'larni tanlaydi (chegaralari bo'yicha)");
-                changed |= FloatParameterCombo("##bp", st.BlendParameter, c, "(tanlanmagan)");
+                Field(Tr("Parametr"), Tr("Qaysi float parametr motion'larni tanlaydi (chegaralari bo'yicha)"));
+                changed |= FloatParameterCombo("##bp", st.BlendParameter, c, Tr("(tanlanmagan)"));
                 if (st.Type == AnimatorStateType::BlendTree2D)
                 {
-                    Field("Y parametr");
-                    changed |= FloatParameterCombo("##bpy", st.BlendParameterY, c, "(tanlanmagan)");
+                    Field(Tr("Y parametr"));
+                    changed |= FloatParameterCombo("##bpy", st.BlendParameterY, c, Tr("(tanlanmagan)"));
                 }
                 if (st.BlendParameter.empty())
                 {
                     Field("");
-                    ImGui::TextColored(s_WarnColor, ICON_FA_TRIANGLE_EXCLAMATION "  Float parametr tanlang");
+                    ImGui::TextColored(s_WarnColor, "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Float parametr tanlang"));
                 }
             }
-            Field("2D holat vaqti", "Modelsiz controller holati davomiyligi (soniya); 0 eski klip vaqtini saqlaydi");
+            Field(Tr("2D holat vaqti"), Tr("Modelsiz controller holati davomiyligi (soniya); 0 eski klip vaqtini saqlaydi"));
             changed |= ImGui::DragFloat("##duration", &st.Duration, .01f, 0.0f, 3600.0f, "%.2f s");
-            Field("Tezlik");
+            Field(Tr("Tezlik"));
             changed |= ImGui::DragFloat("##spd", &st.Speed, 0.01f, -10.0f, 10.0f, "%.2f");
-            Field("Tezlik x", "Ixtiyoriy: tezlik shu float parametrga ko'paytiriladi");
-            changed |= FloatParameterCombo("##sp", st.SpeedParameter, c, "(yo'q)");
-            Field("Takrorlash");
+            Field(Tr("Tezlik x"), Tr("Ixtiyoriy: tezlik shu float parametrga ko'paytiriladi"));
+            changed |= FloatParameterCombo("##sp", st.SpeedParameter, c, Tr("(yo'q)"));
+            Field(Tr("Takrorlash"));
             changed |= ImGui::Checkbox("##loop", &st.Loop);
-            Field("Boshlang'ich", "Holat mashinasi shu holatdan boshlanadi");
+            Field(Tr("Boshlang'ich"), Tr("Holat mashinasi shu holatdan boshlanadi"));
             bool isDefault = c.DefaultState == index;
             if (ImGui::Checkbox("##default", &isDefault) && isDefault)
             {
@@ -310,7 +310,7 @@ namespace Zamin::AnimatorEditing {
         {
             changed |= DrawBlendField(c, st);
             // Motions: clip, threshold, its own speed; the live weight under each.
-            ImGui::TextDisabled("Motion'lar (klip, chegara, tezlik)");
+            ImGui::TextDisabled("%s", Tr("Motion'lar (klip, chegara, tezlik)"));
             const bool live = c.BlendTree == index && c.BlendWeights.size() == st.Motions.size();
             const float spacing = ImGui::GetStyle().ItemSpacing.x;
             int remove = -1;
@@ -392,7 +392,7 @@ namespace Zamin::AnimatorEditing {
         ImGui::PushID(index + 5000);
         if (BeginFields("##transition"))
         {
-            Field("Qayerdan");
+            Field(Tr("Qayerdan"));
             if (ImGui::BeginCombo("##from", StateName(c, tr.From).c_str()))
             {
                 for (int k = -1; k < (int)c.States.size(); k++)
@@ -403,7 +403,7 @@ namespace Zamin::AnimatorEditing {
                     }
                 ImGui::EndCombo();
             }
-            Field("Qayerga");
+            Field(Tr("Qayerga"));
             if (ImGui::BeginCombo("##to", StateName(c, tr.To).c_str()))
             {
                 for (int k = 0; k < (int)c.States.size(); k++)
@@ -414,13 +414,13 @@ namespace Zamin::AnimatorEditing {
                     }
                 ImGui::EndCombo();
             }
-            Field("Ustuvorlik", "Katta qiymat yutadi; teng qiymatda ro'yxat tartibi saqlanadi");
+            Field(Tr("Ustuvorlik"), Tr("Katta qiymat yutadi; teng qiymatda ro'yxat tartibi saqlanadi"));
             changed |= ImGui::InputInt("##priority", &tr.Priority);
-            Field("Fade ichida o'tish", "O'chirilsa joriy crossfade tugaguncha kutadi");
+            Field(Tr("Fade ichida o'tish"), Tr("O'chirilsa joriy crossfade tugaguncha kutadi"));
             changed |= ImGui::Checkbox("##interrupt", &tr.InterruptDuringFade);
-            Field("O'tish vaqti", "Crossfade davomiyligi, soniya (0 - darhol)");
+            Field(Tr("O'tish vaqti"), Tr("Crossfade davomiyligi, soniya (0 - darhol)"));
             changed |= ImGui::DragFloat("##fade", &tr.Fade, 0.01f, 0.0f, 5.0f, "%.2f s");
-            Field("Exit time", "Yoqilgan bo'lsa, o'tish faqat klip shu nuqtaga (normalizatsiyalangan vaqt: 1 = oxiri) yetgandan keyin");
+            Field("Exit time", Tr("Yoqilgan bo'lsa, o'tish faqat klip shu nuqtaga (normalizatsiyalangan vaqt: 1 = oxiri) yetgandan keyin"));
             changed |= ImGui::Checkbox("##hasexit", &tr.HasExitTime);
             if (tr.HasExitTime)
             {
@@ -430,9 +430,9 @@ namespace Zamin::AnimatorEditing {
             }
             ImGui::EndTable();
         }
-        ImGui::TextDisabled(tr.Conditions.empty() ? (tr.HasExitTime ? "Shartsiz: exit time'da o'tadi" : "Shartsiz: darhol o'tadi")
-                                                  : "Shartlar (hammasi bajarilsa)");
-        const char* ops[] = { ">", "<", "rost", "yolg'on", "trigger" };
+        ImGui::TextDisabled("%s", tr.Conditions.empty() ? (tr.HasExitTime ? Tr("Shartsiz: exit time'da o'tadi") : Tr("Shartsiz: darhol o'tadi"))
+                                                  : Tr("Shartlar (hammasi bajarilsa)"));
+        const char* ops[] = { ">", "<", "rost", Tr("yolg'on"), "trigger" };
         const float spacing = ImGui::GetStyle().ItemSpacing.x;
         int remove = -1;
         for (size_t k = 0; k < tr.Conditions.size(); k++)
@@ -443,7 +443,7 @@ namespace Zamin::AnimatorEditing {
             const float avail = ImGui::GetContentRegionAvail().x - button - spacing * 3.0f;
             const AnimatorParameter* param = c.FindParameter(cd.Parameter);
             ImGui::SetNextItemWidth(avail * 0.42f);
-            if (ImGui::BeginCombo("##p", cd.Parameter.empty() ? "(parametr)" : cd.Parameter.c_str()))
+            if (ImGui::BeginCombo("##p", cd.Parameter.empty() ? Tr("(parametr)") : cd.Parameter.c_str()))
             {
                 for (auto& p : c.Parameters)
                     if (ImGui::Selectable(p.Name.c_str(), p.Name == cd.Parameter))
@@ -465,7 +465,7 @@ namespace Zamin::AnimatorEditing {
             ImGui::SameLine();
             ImGui::SetNextItemWidth(avail * 0.28f);
             int op = (int)cd.Mode;
-            if (ImGui::Combo("##op", &op, ops, 5))
+            if (UI::TrCombo("##op", &op, ops, 5))
             {
                 cd.Mode = (AnimatorCondition::Op)op;
                 changed = true;
@@ -506,7 +506,7 @@ namespace Zamin::AnimatorEditing {
     int AddState(AnimatorComponent& c, const Model* model, bool blendTree, const glm::vec2& position)
     {
         AnimatorState st;
-        std::string base = blendTree ? "Blend" : "Holat";
+        std::string base = blendTree ? "Blend" : Tr("Holat");
         st.Name = base;
         for (int n = 1;; n++)
         {
@@ -598,21 +598,21 @@ namespace Zamin::AnimatorEditing {
         const ImVec4 accent = UI::AccentColor(), fade(0.85f, 0.55f, 0.15f, 1.0f), weight(0.40f, 0.62f, 0.95f, 1.0f);
         const AnimatorState* tree = c.GetBlendTreeState();
         // What plays.
-        row("Holat", "Hozir o'ynayotgan holat (holat mashinasi) yoki klip");
+        row(Tr("Holat"), Tr("Hozir o'ynayotgan holat (holat mashinasi) yoki klip"));
         if (c.UsesStateMachine() && c.CurrentState >= 0)
             ImGui::TextColored(accent, "%s  %s%s", tree ? ICON_FA_SHUFFLE : ICON_FA_PLAY, c.GetCurrentStateName(), tree ? "  (blend tree)" : "");
         else
-            ImGui::TextColored(accent, ICON_FA_PLAY "  %s", c.Clip.empty() ? "(birinchi klip)" : c.Clip.c_str());
+            ImGui::TextColored(accent, ICON_FA_PLAY "  %s", c.Clip.empty() ? Tr("(birinchi klip)") : c.Clip.c_str());
         // How far it is.
         const float normalized = c.GetNormalizedTime(model);
         const int cycle = (int)std::floor(std::max(0.0f, normalized));
         const float fraction = c.Loop ? normalized - std::floor(normalized) : std::clamp(normalized, 0.0f, 1.0f);
-        row("Vaqt", "Normalizatsiyalangan vaqt: 0 - boshi, 1 - oxiri (takrorlanganda qaysi aylanish)");
-        bar(fraction, c.Loop && cycle > 0 ? std::format("{:.2f}  ({}-aylanish)", fraction, cycle + 1) : std::format("{:.2f}", fraction), accent);
+        row(Tr("Vaqt"), Tr("Normalizatsiyalangan vaqt: 0 - boshi, 1 - oxiri (takrorlanganda qaysi aylanish)"));
+        bar(fraction, c.Loop && cycle > 0 ? TrFormat("{:.2f}  ({}-aylanish)", fraction, cycle + 1) : std::format("{:.2f}", fraction), accent);
         // The crossfade.
         if (c.IsFading())
         {
-            row("O'tish", "Crossfade: oldingi holatdan hozirgisiga");
+            row(Tr("O'tish"), Tr("Crossfade: oldingi holatdan hozirgisiga"));
             const std::string from = c.PreviousState >= 0 ? StateName(c, c.PreviousState)
                                    : c.PreviousBlendTree >= 0 ? StateName(c, c.PreviousBlendTree)
                                    : (c.PreviousClip.empty() ? std::string("?") : c.PreviousClip);
@@ -627,16 +627,16 @@ namespace Zamin::AnimatorEditing {
             {
                 const auto& m = tree->Motions[i];
                 std::string label = std::format("  {}", m.Clip.empty() ? "?" : m.Clip);
-                row(label.c_str(), "Blend tree motion'ining og'irligi");
-                bar(c.BlendWeights[i], std::format("{:.2f}  (chegara {:.2f})", c.BlendWeights[i], m.Threshold), weight);
+                row(label.c_str(), Tr("Blend tree motion'ining og'irligi"));
+                bar(c.BlendWeights[i], TrFormat("{:.2f}  (chegara {:.2f})", c.BlendWeights[i], m.Threshold), weight);
             }
         // Layers.
         for (size_t i = 0; i < c.Layers.size(); i++)
         {
             const AnimatorLayer& l = c.Layers[i];
             std::string label = std::format(ICON_FA_LAYER_GROUP " {}", l.Name);
-            row(label.c_str(), "Qatlamning amaldagi og'irligi (parametr va fade bilan)");
-            bar(l.EffectiveWeight, std::format("{}  {:.2f}", l.Clip.empty() ? "(klip yo'q)" : l.Clip.c_str(), l.EffectiveWeight), weight);
+            row(label.c_str(), Tr("Qatlamning amaldagi og'irligi (parametr va fade bilan)"));
+            bar(l.EffectiveWeight, std::format("{}  {:.2f}", l.Clip.empty() ? Tr("(klip yo'q)") : l.Clip.c_str(), l.EffectiveWeight), weight);
         }
     }
 

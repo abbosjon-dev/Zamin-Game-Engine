@@ -50,7 +50,7 @@ namespace Zamin {
             if (!s.empty()) s += ", ";
             s += InputBindingDisplayName(b);
         }
-        return s.empty() ? "(bog'lanmagan)" : s;
+        return s.empty() ? Tr("(bog'lanmagan)") : s;
     }
 
     // Returns the first control that is currently held (used by "press a key" capture).
@@ -130,7 +130,7 @@ namespace Zamin {
             dl->AddRectFilled(ImVec2(std::min(mid, end), a.y), ImVec2(std::max(mid, end), b.y), UI::AccentU32(), barH * 0.5f);
         dl->AddLine(ImVec2(mid, a.y - 2.0f), ImVec2(mid, b.y + 2.0f), ImGui::GetColorU32(ImGuiCol_TextDisabled), 1.0f);
         if (ImGui::IsItemHovered())
-            UI::Tooltip(std::format("Jonli qiymat: {:.2f}", value).c_str());
+            UI::Tooltip(TrFormat("Jonli qiymat: {:.2f}", value).c_str());
     }
 
     // ------------------------------------------------------------------ input map
@@ -201,7 +201,7 @@ namespace Zamin {
 
         ImGui::SetNextItemWidth(sourceWidth);
         int source = (int)b.Source;
-        if (ImGui::Combo("##source", &source, s_SourceLabels, IM_ARRAYSIZE(s_SourceLabels)) && source != (int)b.Source)
+        if (UI::TrCombo("##source", &source, s_SourceLabels, IM_ARRAYSIZE(s_SourceLabels)) && source != (int)b.Source)
         {
             b = DefaultBindingFor((InputSource)source);
             changed = true;
@@ -278,7 +278,7 @@ namespace Zamin {
                 std::string list;
                 for (const std::string& user : sharedWith)
                     list += (list.empty() ? "" : ", ") + user;
-                UI::Tooltip(std::format("{} yana shu yerlarda bog'langan: {}\nBir tugma bir nechta harakatni ishga tushiradi "
+                UI::Tooltip(TrFormat("{} yana shu yerlarda bog'langan: {}\nBir tugma bir nechta harakatni ishga tushiradi "
                                         "(ataylab bo'lmasa, birini almashtiring)", InputBindingDisplayName(b), list).c_str());
             }
         }
@@ -335,13 +335,13 @@ namespace Zamin {
         const std::string& name = items[index].Name;
         if (name.empty())
         {
-            ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.35f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  Nom bo'sh bo'lmasligi kerak");
+            ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.35f, 1.0f), "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Nom bo'sh bo'lmasligi kerak"));
             return;
         }
         for (int i = 0; i < (int)items.size(); i++)
             if (i != index && items[i].Name == name)
             {
-                ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.35f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  Bu nom allaqachon bor");
+                ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.35f, 1.0f), "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Bu nom allaqachon bor"));
                 return;
             }
     }
@@ -364,8 +364,8 @@ namespace Zamin {
         bool changed = false;
         const ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding;
 
-        ImGui::TextDisabled("Harakat, o'q va vektorlarni nomi bilan tugma, sichqoncha yoki gamepad'ga bog'lang.");
-        ImGui::TextDisabled("Skriptda: Input::IsActionJustPressed(\"Jump\"), Input::GetAxis(\"Horizontal\"), Input::GetVector(\"Move\")");
+        ImGui::TextDisabled("%s", Tr("Harakat, o'q va vektorlarni nomi bilan tugma, sichqoncha yoki gamepad'ga bog'lang."));
+        ImGui::TextDisabled("%s", Tr("Skriptda: Input::IsActionJustPressed(\"Jump\"), Input::GetAxis(\"Horizontal\"), Input::GetVector(\"Move\")"));
         ImGui::Spacing();
 
         // Filter by name or control; open / close every entry.
@@ -383,7 +383,7 @@ namespace Zamin {
         ImGui::SetNextItemWidth(std::min(ImGui::GetFontSize() * 16.0f, ImGui::GetContentRegionAvail().x));
         ImGui::InputTextWithHint("##inputFilter", Tr(ICON_FA_MAGNIFYING_GLASS "  Nom yoki tugma bo'yicha qidirish"), &m_InputFilter);
         const std::string& filter = m_InputFilter;
-        UI::SameLineIfFits(ICON_FA_PLUS "  Yoyish");
+        UI::SameLineIfFits(Tr(ICON_FA_PLUS "  Yoyish"));
         if (ImGui::Button(Tr(ICON_FA_PLUS "  Yoyish")))
             m_InputOpenRequest = 1;
         if (ImGui::IsItemHovered())
@@ -415,8 +415,8 @@ namespace Zamin {
                     ImGui::BulletText("%s:  %s", InputBindingDisplayName(c.Binding).c_str(), users.c_str());
                 }
                 ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-                ImGui::TextWrapped("Bir tugma bir nechta harakatda bo'lishi mumkin (masalan, Gamepad A: Jump va menyu). Ataylab "
-                                   "bo'lmasa, birini almashtiring.");
+                ImGui::TextWrapped("%s", Tr("Bir tugma bir nechta harakatda bo'lishi mumkin (masalan, Gamepad A: Jump va menyu). Ataylab "
+                                   "bo'lmasa, birini almashtiring."));
                 ImGui::PopStyleColor();
                 ImGui::TreePop();
             }
@@ -433,7 +433,7 @@ namespace Zamin {
                 continue;
             ImGui::PushID(i);
             applyOpen();
-            bool open = ImGui::TreeNodeEx("##action", nodeFlags, "%s", action.Name.empty() ? "(nomsiz)" : action.Name.c_str());
+            bool open = ImGui::TreeNodeEx("##action", nodeFlags, "%s", action.Name.empty() ? Tr("(nomsiz)") : action.Name.c_str());
             ImGui::SameLine();
             ActionIndicator(action);
             if (!open)
@@ -449,7 +449,7 @@ namespace Zamin {
                     UI::EndPropertyGrid();
                 }
                 NameWarning(map.Actions, i);
-                changed |= DrawBindingList("Bog'lanishlar", action.Bindings, ListKind::Action, i, map);
+                changed |= DrawBindingList(Tr("Bog'lanishlar"), action.Bindings, ListKind::Action, i, map);
                 if (ImGui::SmallButton(Tr(ICON_FA_TRASH "  Harakatni o'chirish")))
                     removeAction = i;
                 ImGui::Spacing();
@@ -482,7 +482,7 @@ namespace Zamin {
                 continue;
             ImGui::PushID(1000 + i);
             applyOpen();
-            bool open = ImGui::TreeNodeEx("##axis", nodeFlags, "%s", axis.Name.empty() ? "(nomsiz)" : axis.Name.c_str());
+            bool open = ImGui::TreeNodeEx("##axis", nodeFlags, "%s", axis.Name.empty() ? Tr("(nomsiz)") : axis.Name.c_str());
             ImGui::SameLine();
             AxisIndicator(axis);
             if (!open)
@@ -513,8 +513,8 @@ namespace Zamin {
                     UI::EndPropertyGrid();
                 }
                 NameWarning(map.Axes, i);
-                changed |= DrawBindingList("Manfiy tomon (-1)", axis.Negative, ListKind::AxisNegative, i, map);
-                changed |= DrawBindingList("Musbat tomon (+1)", axis.Positive, ListKind::AxisPositive, i, map);
+                changed |= DrawBindingList(Tr("Manfiy tomon (-1)"), axis.Negative, ListKind::AxisNegative, i, map);
+                changed |= DrawBindingList(Tr("Musbat tomon (+1)"), axis.Positive, ListKind::AxisPositive, i, map);
                 if (ImGui::SmallButton(Tr(ICON_FA_TRASH "  O'qni o'chirish")))
                     removeAxis = i;
                 ImGui::Spacing();
@@ -547,7 +547,7 @@ namespace Zamin {
             ImGui::OpenPopup("ResetInputMap");
         if (ImGui::BeginPopup("ResetInputMap"))
         {
-            ImGui::TextUnformatted("Barcha harakat va o'qlar standart holatga qaytarilsinmi?");
+            ImGui::TextUnformatted(Tr("Barcha harakat va o'qlar standart holatga qaytarilsinmi?"));
             if (ImGui::Button(Tr("Ha, qaytarish")))
             {
                 map = InputActionMap::CreateDefault();
@@ -591,7 +591,7 @@ namespace Zamin {
             dl->AddLine(c, dot, UI::AccentU32(0.6f), 2.0f);
         dl->AddCircleFilled(dot, 3.5f, UI::AccentU32());
         if (ImGui::IsItemHovered())
-            UI::Tooltip(std::format("Jonli qiymat: ({:.2f}, {:.2f}), uzunligi {:.2f}", value.x, value.y, glm::length(value)).c_str());
+            UI::Tooltip(TrFormat("Jonli qiymat: ({:.2f}, {:.2f}), uzunligi {:.2f}", value.x, value.y, glm::length(value)).c_str());
     }
 
     bool ProjectSettingsPanel::DrawInputVectors(InputActionMap& map, int openRequest)
@@ -600,8 +600,8 @@ namespace Zamin {
         ImGui::Spacing();
         ImGui::SeparatorText(Tr(ICON_FA_ARROWS_UP_DOWN_LEFT_RIGHT "  Vektorlar (2D composite)"));
         ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-        ImGui::TextWrapped("Ikki o'q bitta 2D qiymat bo'lib o'qiladi: Input::GetVector(\"Move\"). Radial deadzone butun uzunlikka "
-                           "ta'sir qiladi (stick biroz og'sa ham 0).");
+        ImGui::TextWrapped("%s", Tr("Ikki o'q bitta 2D qiymat bo'lib o'qiladi: Input::GetVector(\"Move\"). Radial deadzone butun uzunlikka "
+                           "ta'sir qiladi (stick biroz og'sa ham 0)."));
         ImGui::PopStyleColor();
         static const char* s_ModeLabels[] = { "Uzunlik 1 dan oshmaydi (Clamp)", "Har doim uzunligi 1 (Normalize)", "Xom: o'qlar qanday bo'lsa (Raw)" };
         int remove = -1;
@@ -615,7 +615,7 @@ namespace Zamin {
             ImGui::PushID(2000 + i);
             if (openRequest >= 0)
                 ImGui::SetNextItemOpen(openRequest == 1);
-            const bool open = ImGui::TreeNodeEx("##vector", nodeFlags, "%s", vector.Name.empty() ? "(nomsiz)" : vector.Name.c_str());
+            const bool open = ImGui::TreeNodeEx("##vector", nodeFlags, "%s", vector.Name.empty() ? Tr("(nomsiz)") : vector.Name.c_str());
             if (!open)
             {
                 ImGui::SameLine();
@@ -636,7 +636,7 @@ namespace Zamin {
                             UI::PropertyLabel(label);
                             ImGui::PushID(label);
                             const bool known = map.FindAxis(axis) != nullptr;
-                            const std::string preview = axis.empty() ? std::string("(yo'q)") : known ? axis : axis + "  (topilmadi)";
+                            const std::string preview = axis.empty() ? std::string(Tr("(yo'q)")) : known ? axis : axis + Tr("  (topilmadi)");
                             ImGui::PushStyleColor(ImGuiCol_Text, known ? ImGui::GetStyleColorVec4(ImGuiCol_Text) : ImVec4(0.95f, 0.45f, 0.35f, 1.0f));
                             const bool comboOpen = ImGui::BeginCombo("##axis", preview.c_str());
                             ImGui::PopStyleColor();
@@ -652,8 +652,8 @@ namespace Zamin {
                             }
                             ImGui::PopID();
                         };
-                        axisCombo("X o'qi", vector.XAxis);
-                        axisCombo("Y o'qi", vector.YAxis);
+                        axisCombo(Tr("X o'qi"), vector.XAxis);
+                        axisCombo(Tr("Y o'qi"), vector.YAxis);
                         int mode = (int)vector.Mode;
                         if (UI::PropertyCombo("Rejim", mode, s_ModeLabels, IM_ARRAYSIZE(s_ModeLabels)))
                         {

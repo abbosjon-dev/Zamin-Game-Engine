@@ -1,4 +1,5 @@
 #include "Zamin/Editor/ShortcutRegistry.h"
+#include "Zamin/Editor/EditorLanguage.h"
 #include "Zamin/Utils/StringUtils.h"
 #include "Zamin/Editor/ConsoleFilter.h"
 #include "Zamin/Core/InputActions.h"
@@ -336,8 +337,11 @@ namespace Zamin {
             query = space == std::string_view::npos ? std::string_view() : StringUtils::Trim(query.substr(space + 1));
             if (word.empty())
                 continue;
+            // Names, categories and scopes are Uzbek keys: the search also sees them in the editor's language.
             const bool found = ContainsIgnoreCase(s.Name, word) || ContainsIgnoreCase(s.Category, word) || ContainsIgnoreCase(s.Id, word) ||
-                               ContainsIgnoreCase(s.Display, word) || ContainsIgnoreCase(GetScopeName(s.Scope), word);
+                               ContainsIgnoreCase(s.Display, word) || ContainsIgnoreCase(GetScopeName(s.Scope), word) ||
+                               ContainsIgnoreCase(Tr(s.Name), word) || ContainsIgnoreCase(Tr(s.Category), word) ||
+                               ContainsIgnoreCase(Tr(s.Display), word) || ContainsIgnoreCase(Tr(GetScopeName(s.Scope)), word);
             if (!found)
                 return false;
         }

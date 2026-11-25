@@ -83,7 +83,7 @@ namespace Zamin {
             x += iconSize + height * 0.3f;
             const float textY = min.y + (height - ImGui::GetFontSize()) * 0.5f;
             draw->PushClipRect(ImVec2(x, min.y), ImVec2(max.x - height * 2.4f, max.y), true);
-            draw->AddText(ImVec2(x, textY), IM_COL32(232, 235, 240, 255), title.empty() ? "(sarlavhasiz)" : title.c_str());
+            draw->AddText(ImVec2(x, textY), IM_COL32(232, 235, 240, 255), title.empty() ? Tr("(sarlavhasiz)") : title.c_str());
             draw->PopClipRect();
             // The window buttons on the right.
             const float r = height * 0.16f;
@@ -111,7 +111,7 @@ namespace Zamin {
                                "GetProductName(), GetVersion().");
             UI::PropertyLabel("Kompaniya", "Studiya yoki muallif. O'yinning SaveData papkasi shunga bog'liq: ~/.local/share/<kompaniya>/<mahsulot>. "
                                            "Bo'sh: ~/.local/share/zamin/<mahsulot> (avvalgidek)");
-            changed |= CommitText("##company", p.CompanyName, "(bo'sh: zamin)");
+            changed |= CommitText("##company", p.CompanyName, Tr("(bo'sh: zamin)"));
             UI::PropertyLabel("Mahsulot nomi", "O'yinchilar ko'radigan nom (oyna sarlavhasi, SaveData papkasi, eksport). Bo'sh: loyiha nomi");
             changed |= CommitText("##product", p.ProductName, config.Name.c_str());
 
@@ -134,8 +134,8 @@ namespace Zamin {
             if (parsed)
             {
                 const struct { const char* Label; SemanticVersion::Part Part; const char* Tip; } bumps[] = {
-                    { "+ Major", SemanticVersion::Part::Major, "Katta o'zgarish (eski saqlanganlar mos kelmasligi mumkin): X.0.0" },
-                    { "+ Minor", SemanticVersion::Part::Minor, "Yangi imkoniyatlar: x.Y.0" },
+                    { "+ Major", SemanticVersion::Part::Major, Tr("Katta o'zgarish (eski saqlanganlar mos kelmasligi mumkin): X.0.0") },
+                    { "+ Minor", SemanticVersion::Part::Minor, Tr("Yangi imkoniyatlar: x.Y.0") },
                     { "+ Patch", SemanticVersion::Part::Patch, "Tuzatishlar: x.y.Z" },
                 };
                 for (int i = 0; i < 3; i++)
@@ -157,7 +157,7 @@ namespace Zamin {
                 }
             }
             else
-                ImGui::TextColored(s_WarnColor, ICON_FA_TRIANGLE_EXCLAMATION "  Semantik versiya emas (masalan 1.2.3 yoki 2.0.0-beta.1)");
+                ImGui::TextColored(s_WarnColor, "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Semantik versiya emas (masalan 1.2.3 yoki 2.0.0-beta.1)"));
 
             UI::PropertyLabel("SaveData papkasi", "O'yin SaveData (PlayerPrefs) bilan saqlagan qiymatlar shu papkada (savedata.json)");
             const std::filesystem::path saveDirectory = SaveData::GetDirectoryFor(p.CompanyName, p.GetProductName(config.Name));
@@ -244,9 +244,9 @@ namespace Zamin {
 
             UI::PropertyLabel("FPS cheklovi", "Sekundiga eng ko'p kadr. 0 - cheklanmagan (VSync yoqilgan bo'lsa monitor chastotasi)");
             int fps = p.TargetFrameRate;
-            const std::string fpsPreview = fps <= 0 ? std::string("Cheklanmagan") : std::format("{} FPS", fps);
+            const std::string fpsPreview = fps <= 0 ? std::string(Tr("Cheklanmagan")) : std::format("{} FPS", fps);
             ImGui::SetNextItemWidth(std::max(80.0f, ImGui::GetContentRegionAvail().x - comboWidth - ImGui::GetStyle().ItemSpacing.x));
-            if (ImGui::DragInt("##fps", &fps, 1.0f, 0, PlayerSettings::MaxTargetFrameRate, fps <= 0 ? "Cheklanmagan" : "%d FPS"))
+            if (ImGui::DragInt("##fps", &fps, 1.0f, 0, PlayerSettings::MaxTargetFrameRate, fps <= 0 ? Tr("Cheklanmagan") : "%d FPS"))
             {
                 p.TargetFrameRate = fps;
                 changed = true;
@@ -256,7 +256,7 @@ namespace Zamin {
             if (ImGui::BeginCombo("##fpsPresets", fpsPreview.c_str(), ImGuiComboFlags_NoPreview))
             {
                 for (int rate : s_FrameRates)
-                    if (ImGui::Selectable(rate == 0 ? "Cheklanmagan" : std::format("{} FPS", rate).c_str(), rate == p.TargetFrameRate))
+                    if (ImGui::Selectable(rate == 0 ? Tr("Cheklanmagan") : std::format("{} FPS", rate).c_str(), rate == p.TargetFrameRate))
                     {
                         p.TargetFrameRate = rate;
                         changed = true;
@@ -272,13 +272,13 @@ namespace Zamin {
                             "qaytadi; tanlov saqlanadi). Input xaritasida \"ToggleFullscreen\" harakati bo'lsa, u ham ishlaydi");
             UI::EndPropertyGrid();
         }
-        const char* modeText = p.Mode == WindowMode::Fullscreen   ? "To'liq ekran (monitor o'lchamida)"
-                               : p.Mode == WindowMode::Borderless ? "Chegarasiz to'liq ekran (monitor o'lchamida)"
+        const char* modeText = p.Mode == WindowMode::Fullscreen   ? Tr("To'liq ekran (monitor o'lchamida)")
+                               : p.Mode == WindowMode::Borderless ? Tr("Chegarasiz to'liq ekran (monitor o'lchamida)")
                                                                   : nullptr;
         const std::string modeLine = modeText ? std::string(modeText)
-                                              : std::format("{} x {}{}{}", p.Width, p.Height, p.Resizable ? ", o'lchami o'zgaradi" : "",
+                                              : std::format("{} x {}{}{}", p.Width, p.Height, p.Resizable ? Tr(", o'lchami o'zgaradi") : "",
                                                             p.TargetFrameRate > 0 ? std::format(", {} FPS", p.TargetFrameRate) : std::string());
-        ImGui::TextDisabled("Ko'rinishi:");
+        ImGui::TextDisabled("%s", Tr("Ko'rinishi:"));
         TitleBarPreview(p.GetWindowTitle(config.Name), m_IconPreview, modeLine.c_str());
         ImGui::Spacing();
 
@@ -339,7 +339,7 @@ namespace Zamin {
             UI::AssetPathOptions options;
             options.PreviewTexture = m_SplashImagePreview ? m_SplashImagePreview->GetRendererID() : 0;
             options.Missing = m_SplashImageMissing;
-            options.Tooltip = "O'yinning o'z rasmi (PNG / JPG) Zamin logotipi o'rniga. Bo'sh: Zamin logotipi";
+            options.Tooltip = Tr("O'yinning o'z rasmi (PNG / JPG) Zamin logotipi o'rniga. Bo'sh: Zamin logotipi");
             if (UI::PropertyAssetPath("O'z rasmi", path, ".png;.jpg;.jpeg", ICON_FA_IMAGE, options))
             {
                 std::filesystem::path chosen(path);
@@ -354,7 +354,7 @@ namespace Zamin {
         // A small screen as the player shows it at full opacity.
         if (p.SplashScreen)
         {
-            ImGui::TextDisabled("Ko'rinishi:");
+            ImGui::TextDisabled("%s", Tr("Ko'rinishi:"));
             const float width = std::min(ImGui::GetContentRegionAvail().x, ImGui::GetFontSize() * 22.0f);
             const float height = width * 9.0f / 16.0f;
             const ImVec2 min = ImGui::GetCursorScreenPos(), max(min.x + width, min.y + height);
@@ -386,7 +386,7 @@ namespace Zamin {
                 draw->AddText(ImVec2(c.x - size.x * 0.5f, c.y + side * 0.62f), IM_COL32(236, 240, 244, 255), title);
             }
             ImGui::Dummy(ImVec2(width, height + 2.0f));
-            ImGui::TextDisabled("%.1f s%s", p.SplashDuration, p.SplashSkippable ? ", tugma bilan o'tkaziladi" : "");
+            ImGui::TextDisabled("%.1f s%s", p.SplashDuration, p.SplashSkippable ? Tr(", tugma bilan o'tkaziladi") : "");
         }
         if (changed)
         {
@@ -509,7 +509,7 @@ namespace Zamin {
                     {
                         const LogLevel option = (LogLevel)l;
                         const std::string text = option == LogLevel::Off ? std::string(Log::LevelDisplayName(option))
-                                                                         : std::format("{} va yuqori", Log::LevelDisplayName(option));
+                                                                         : TrFormat("{} va yuqori", Log::LevelDisplayName(option));
                         if (ImGui::Selectable(text.c_str(), option == level))
                         {
                             level = option;
@@ -519,17 +519,17 @@ namespace Zamin {
                     ImGui::EndCombo();
                 }
             };
-            levelCombo("Dvigatel", "Dvigatelning xabarlari (ZM_CORE_INFO ...): shu darajadan pastdagilari yozilmaydi", log.Levels.Engine);
-            levelCombo("O'yin skriptlari", "O'yin skriptlarining xabarlari (ZM_INFO, ZM_WARN ...): shu darajadan pastdagilari yozilmaydi",
+            levelCombo(Tr("Dvigatel"), Tr("Dvigatelning xabarlari (ZM_CORE_INFO ...): shu darajadan pastdagilari yozilmaydi"), log.Levels.Engine);
+            levelCombo(Tr("O'yin skriptlari"), Tr("O'yin skriptlarining xabarlari (ZM_INFO, ZM_WARN ...): shu darajadan pastdagilari yozilmaydi"),
                        log.Levels.App);
             changed |= UI::PropertyBool("Log fayli", log.WriteFile);
             if (ImGui::IsItemHovered())
                 UI::Tooltip("~/.local/share/<kompaniya>/<mahsulot>/logs/player-<sana>.log va latest.log (o'yinchi xatoni yuborishi uchun)");
             ImGui::BeginDisabled(!log.WriteFile);
-            levelCombo("Faylga yoziladigan", "Log fayliga faqat shu darajadagi va yuqoriroq xabarlar yoziladi (terminalda hammasi)", log.Levels.File);
+            levelCombo(Tr("Faylga yoziladigan"), Tr("Log fayliga faqat shu darajadagi va yuqoriroq xabarlar yoziladi (terminalda hammasi)"), log.Levels.File);
             UI::PropertyLabel("Saqlanadigan fayllar", "Eng eski player-<sana>.log fayllari o'chiriladi (shu ishga tushirishniki ham hisobda)");
             ImGui::SetNextItemWidth(-1.0f);
-            changed |= ImGui::SliderInt("##logKeep", &log.KeepFiles, PlayerLogSettings::MinKeepFiles, 30, "%d ta");
+            changed |= ImGui::SliderInt("##logKeep", &log.KeepFiles, PlayerLogSettings::MinKeepFiles, 30, Tr("%d ta"));
             ImGui::EndDisabled();
             UI::PropertyLabel("Papka");
             const std::filesystem::path folder = LogFile::GetDefaultDirectory(config.Player.CompanyName, config.Player.GetProductName(config.Name));
@@ -592,7 +592,7 @@ namespace Zamin {
             UI::AssetPathOptions options;
             options.PreviewTexture = m_IconPreview ? m_IconPreview->GetRendererID() : 0;
             options.Missing = !path.empty() && !m_IconError.empty();
-            options.Tooltip = "PNG faylni Content Browser'dan tortib tashlang";
+            options.Tooltip = Tr("PNG faylni Content Browser'dan tortib tashlang");
             if (UI::PropertyAssetPath("Ikonka (PNG)", path, ".png", ICON_FA_IMAGE, options))
             {
                 std::filesystem::path chosen(path);
@@ -636,10 +636,10 @@ namespace Zamin {
                     UI::Tooltip(std::format("{} px", (int)sizes[i]).c_str());
             }
             ImGui::Unindent(ImGui::GetFontSize() * 0.5f);
-            ImGui::TextDisabled("Eksport: o'yin papkasida <nom>.png va <nom>.desktop (ilovalar menyusi uchun)");
+            ImGui::TextDisabled("%s", Tr("Eksport: o'yin papkasida <nom>.png va <nom>.desktop (ilovalar menyusi uchun)"));
         }
         else if (p.Icon.empty())
-            ImGui::TextDisabled("Ikonka tanlanmagan: tizimning standart ikonkasi");
+            ImGui::TextDisabled("%s", Tr("Ikonka tanlanmagan: tizimning standart ikonkasi"));
         if (changed)
             m_Dirty = true;
     }

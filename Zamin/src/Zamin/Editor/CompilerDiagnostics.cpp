@@ -1,4 +1,5 @@
 #include "Zamin/Editor/CompilerDiagnostics.h"
+#include "Zamin/Editor/EditorLanguage.h"
 
 #include <algorithm>
 #include <array>
@@ -134,8 +135,8 @@ namespace Zamin {
     {
         switch (severity)
         {
-            case DiagnosticSeverity::Error: return "xato";
-            case DiagnosticSeverity::Warning: return "ogohlantirish";
+            case DiagnosticSeverity::Error: return Tr("xato");
+            case DiagnosticSeverity::Warning: return Tr("ogohlantirish");
             default: return "izoh";
         }
     }
@@ -407,7 +408,7 @@ namespace Zamin {
             return;
         m_InCMake = false;
         if (m_CMake.Message.empty())
-            m_CMake.Message = m_CMake.Severity == DiagnosticSeverity::Error ? "CMake xatosi" : "CMake ogohlantirishi";
+            m_CMake.Message = m_CMake.Severity == DiagnosticSeverity::Error ? Tr("CMake xatosi") : Tr("CMake ogohlantirishi");
         Add(std::move(m_CMake));
         m_CMake = CompilerDiagnostic();
         m_HasLast = false;

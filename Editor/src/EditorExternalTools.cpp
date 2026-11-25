@@ -30,7 +30,7 @@ namespace Zamin {
         if (!ExternalEditor::Open(command, file, line, column, &error))
         {
             ZM_ERROR("Tashqi muharrirda ochilmadi: {} ({})", file.filename().string(), error);
-            ShowViewportMessage(ICON_FA_TRIANGLE_EXCLAMATION "  Tashqi muharrir ishga tushmadi - Sozlamalar > Tashqi muharrir");
+            ShowViewportMessage(Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Tashqi muharrir ishga tushmadi - Sozlamalar > Tashqi muharrir"));
             return false;
         }
         ZM_INFO("Tashqi muharrirda ochildi: {}{}", file.filename().string(), line > 0 ? std::format(":{}", line) : std::string());
@@ -75,8 +75,8 @@ namespace Zamin {
     {
         ExternalEditorPreferences& prefs = m_Preferences.ExternalEditor;
         ImGui::SeparatorText(Tr("Tashqi kod muharriri"));
-        ImGui::TextWrapped("C++ skriptlar va kompilyatsiya xatolari ichki Kod muharririda ochiladi. "
-                           "Undagi 'External editor' tugmasi uchun shu tashqi dasturni tanlang.");
+        ImGui::TextWrapped("%s", Tr("C++ skriptlar va kompilyatsiya xatolari ichki Kod muharririda ochiladi. "
+                           "Undagi 'External editor' tugmasi uchun shu tashqi dasturni tanlang."));
         ImGui::Spacing();
         const std::string automatic = ExternalEditor::GetDefaultCommand();
         bool useDefault = prefs.Command.empty();
@@ -107,7 +107,7 @@ namespace Zamin {
         const std::vector<std::string> installed = ExternalEditor::GetInstalledCommands();
         if (!installed.empty())
         {
-            ImGui::TextDisabled("O'rnatilgan:");
+            ImGui::TextDisabled("%s", Tr("O'rnatilgan:"));
             for (const std::string& command : installed)
             {
                 ImGui::SameLine();
@@ -124,8 +124,8 @@ namespace Zamin {
         ImGui::EndDisabled();
         ImGui::Spacing();
         ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-        ImGui::TextWrapped("O'rinbosarlar: {file} fayl, {line} qator, {col} ustun, {dir} papka. {file} bo'lmasa fayl oxiriga qo'shiladi.");
-        ImGui::TextWrapped("Misollar: subl {file}:{line}   |   kate -l {line} {file}   |   gedit +{line} {file}");
+        ImGui::TextWrapped("%s", Tr("O'rinbosarlar: {file} fayl, {line} qator, {col} ustun, {dir} papka. {file} bo'lmasa fayl oxiriga qo'shiladi."));
+        ImGui::TextWrapped("%s", Tr("Misollar: subl {file}:{line}   |   kate -l {line} {file}   |   gedit +{line} {file}"));
         ImGui::PopStyleColor();
 
         // What it would run, and a test with a file of the project.
@@ -140,7 +140,7 @@ namespace Zamin {
         for (const std::string& arg : ExternalEditor::ExpandCommand(prefs.Command.empty() ? automatic : prefs.Command, first.File, first.Line, first.Column))
             preview += (preview.empty() ? "" : " ") + (arg.find(' ') != std::string::npos ? "'" + arg + "'" : arg);
         ImGui::Spacing();
-        ImGui::Text("Ishga tushiriladi (%s, %d-qator):", first.File.filename().string().c_str(), first.Line);
+        ImGui::Text(Tr("Ishga tushiriladi (%s, %d-qator):"), first.File.filename().string().c_str(), first.Line);
         ImGui::PushStyleColor(ImGuiCol_Text, UI::AccentColor());
         ImGui::PushTextWrapPos(0.0f);
         ImGui::TextUnformatted(preview.c_str());
@@ -149,8 +149,8 @@ namespace Zamin {
         ImGui::BeginDisabled(!fs::exists(first.File));
         if (ImGui::Button(Tr(ICON_FA_PLAY "  Sinab ko'rish")))
             m_ExternalEditorTest = OpenInExternalEditor(first.File, first.Line, first.Column)
-                                       ? std::format(ICON_FA_CHECK "  {} ochildi", first.File.filename().string())
-                                       : std::string(ICON_FA_TRIANGLE_EXCLAMATION "  Ishga tushmadi - konsolni ko'ring");
+                                       ? TrFormat(ICON_FA_CHECK "  {} ochildi", first.File.filename().string())
+                                       : std::string(Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Ishga tushmadi - konsolni ko'ring"));
         ImGui::EndDisabled();
         if (!m_ExternalEditorTest.empty())
         {

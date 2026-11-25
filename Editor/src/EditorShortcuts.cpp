@@ -374,14 +374,14 @@ namespace Zamin {
 
         // ---- search, filters
         const ImGuiStyle& style = ImGui::GetStyle();
-        const char* keyLabel = ICON_FA_KEYBOARD "  Tugma bo'yicha";
+        const char* keyLabel = Tr(ICON_FA_KEYBOARD "  Tugma bo'yicha");
         const float keyWidth = ImGui::CalcTextSize(keyLabel).x + style.FramePadding.x * 2.0f;
         ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - keyWidth - style.ItemSpacing.x);
-        UI::SearchBox("##shortcutSearch", m_ShortcutSearch, "Qidirish: nomi, tugma, joyi...");
+        UI::SearchBox("##shortcutSearch", m_ShortcutSearch, Tr("Qidirish: nomi, tugma, joyi..."));
         ImGui::SameLine();
         if (m_ShortcutSearchByKey)
             ImGui::PushStyleColor(ImGuiCol_Button, UI::AccentDarkColor());
-        if (ImGui::Button(m_ShortcutSearchByKey ? ICON_FA_KEYBOARD "  Bosing...##bykey" : keyLabel, ImVec2(keyWidth, 0.0f)))
+        if (ImGui::Button(m_ShortcutSearchByKey ? Tr(ICON_FA_KEYBOARD "  Bosing...##bykey") : keyLabel, ImVec2(keyWidth, 0.0f)))
         {
             m_ShortcutSearchByKey = !m_ShortcutSearchByKey;
             m_ShortcutCapture.clear();
@@ -402,16 +402,16 @@ namespace Zamin {
                 UI::Tooltip("Tugma filtri (bosib olib tashlash)");
             ImGui::SameLine();
         }
-        ImGui::Checkbox(std::format("O'zgartirilganlar ({})", modified).c_str(), &m_ShortcutsModifiedOnly);
+        ImGui::Checkbox(TrFormat("O'zgartirilganlar ({})", modified).c_str(), &m_ShortcutsModifiedOnly);
         ImGui::SameLine();
         if (conflicts > 0)
             ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.45f, 0.35f, 1.0f));
-        ImGui::Checkbox(std::format("To'qnashuvlar ({})", conflicts).c_str(), &m_ShortcutsConflictsOnly);
+        ImGui::Checkbox(TrFormat("To'qnashuvlar ({})", conflicts).c_str(), &m_ShortcutsConflictsOnly);
         if (conflicts > 0)
             ImGui::PopStyleColor();
         ImGui::SameLine();
-        ImGui::TextDisabled("|  %zu ta yorliq", m_Shortcuts.GetAll().size());
-        ImGui::TextDisabled("Yorliqni o'zgartirish uchun tugmasini bosing, keyin yangi tugmalarni bosing (Esc - bekor qilish).");
+        ImGui::TextDisabled(Tr("|  %zu ta yorliq"), m_Shortcuts.GetAll().size());
+        ImGui::TextDisabled("%s", Tr("Yorliqni o'zgartirish uchun tugmasini bosing, keyin yangi tugmalarni bosing (Esc - bekor qilish)."));
 
         // ---- the table, by category
         const float footer = ImGui::GetFrameHeightWithSpacing() + style.ItemSpacing.y + 4.0f;
@@ -421,9 +421,9 @@ namespace Zamin {
         if (ImGui::BeginTable("##shortcuts", 4, flags, ImVec2(0.0f, -footer)))
         {
             ImGui::TableSetupScrollFreeze(0, 1);
-            ImGui::TableSetupColumn("Amal", ImGuiTableColumnFlags_WidthStretch, 0.46f);
-            ImGui::TableSetupColumn("Yorliq", ImGuiTableColumnFlags_WidthStretch, 0.26f);
-            ImGui::TableSetupColumn("Qayerda", ImGuiTableColumnFlags_WidthStretch, 0.2f);
+            ImGui::TableSetupColumn(Tr("Amal"), ImGuiTableColumnFlags_WidthStretch, 0.46f);
+            ImGui::TableSetupColumn(Tr("Yorliq"), ImGuiTableColumnFlags_WidthStretch, 0.26f);
+            ImGui::TableSetupColumn(Tr("Qayerda"), ImGuiTableColumnFlags_WidthStretch, 0.2f);
             ImGui::TableSetupColumn("##actions", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFrameHeight() * 3.0f + style.ItemSpacing.x * 2.0f);
             ImGui::TableHeadersRow();
             size_t shown = 0;
@@ -447,7 +447,7 @@ namespace Zamin {
                         ImGui::TableNextRow();
                         ImGui::TableSetColumnIndex(0);
                         ImGui::PushFont(ImGuiLayer::GetBoldFont());
-                        ImGui::TextColored(UI::AccentColor(), "%s", category.c_str());
+                        ImGui::TextColored(UI::AccentColor(), "%s", Tr(category).c_str());
                         ImGui::PopFont();
                     }
                     shown++;
@@ -457,19 +457,19 @@ namespace Zamin {
                     ImGui::AlignTextToFramePadding();
                     ImGui::Indent(em * 0.6f);
                     if (s.Fixed)
-                        ImGui::TextDisabled("%s", s.Name.c_str());
+                        ImGui::TextDisabled("%s", Tr(s.Name).c_str());
                     else
-                        ImGui::TextUnformatted(s.Name.c_str());
+                        ImGui::TextUnformatted(Tr(s.Name).c_str());
                     ImGui::Unindent(em * 0.6f);
                     if (ImGui::IsItemHovered())
-                        UI::Tooltip(s.Fixed ? std::format("{}\nPanel o'zi boshqaradi - o'zgartirib bo'lmaydi", s.Id).c_str() : s.Id.c_str());
+                        UI::Tooltip(s.Fixed ? TrFormat("{}\nPanel o'zi boshqaradi - o'zgartirib bo'lmaydi", s.Id).c_str() : s.Id.c_str());
 
                     // The chord: a button that waits for the new keys.
                     ImGui::TableSetColumnIndex(1);
                     if (s.Fixed)
                     {
                         ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 1.0f);
-                        KeyCap(s.Display.c_str(), true);
+                        KeyCap(Tr(s.Display).c_str(), true);
                     }
                     else if (m_ShortcutCapture == s.Id)
                     {
@@ -492,13 +492,13 @@ namespace Zamin {
                         if (s.IsModified())
                             ImGui::PopStyleColor();
                         if (ImGui::IsItemHovered())
-                            UI::Tooltip(s.IsModified() ? std::format("Standart: {} (bosing - o'zgartirish)", s.Default.GetDisplayName()).c_str()
+                            UI::Tooltip(s.IsModified() ? TrFormat("Standart: {} (bosing - o'zgartirish)", s.Default.GetDisplayName()).c_str()
                                                        : "Bosing - o'zgartirish");
                     }
 
                     ImGui::TableSetColumnIndex(2);
                     ImGui::AlignTextToFramePadding();
-                    ImGui::TextDisabled("%s", GetScopeName(s.Scope));
+                    ImGui::TextDisabled("%s", Tr(GetScopeName(s.Scope)));
 
                     ImGui::TableSetColumnIndex(3);
                     if (!clashes.empty())
@@ -507,9 +507,9 @@ namespace Zamin {
                         ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.35f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION);
                         if (ImGui::IsItemHovered())
                         {
-                            std::string text = "Shu tugmalar boshqa yorliqda ham:";
+                            std::string text = Tr("Shu tugmalar boshqa yorliqda ham:");
                             for (const ShortcutInfo* other : clashes)
-                                text += std::format("\n  {} ({}, {})", other->Name, other->Category, GetScopeName(other->Scope));
+                                text += std::format("\n  {} ({}, {})", Tr(other->Name), Tr(other->Category), Tr(GetScopeName(other->Scope)));
                             UI::Tooltip(text.c_str());
                         }
                         ImGui::SameLine();
@@ -522,7 +522,7 @@ namespace Zamin {
                             SaveShortcutPreferences();
                         }
                         if (ImGui::IsItemHovered())
-                            UI::Tooltip(std::format("Standartga qaytarish: {}", s.Default.GetDisplayName()).c_str());
+                            UI::Tooltip(TrFormat("Standartga qaytarish: {}", s.Default.GetDisplayName()).c_str());
                         ImGui::SameLine();
                     }
                     // Unbinding: offered on the row under the mouse (last frame's) only.
@@ -543,7 +543,7 @@ namespace Zamin {
             {
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
-                ImGui::TextDisabled("Hech narsa topilmadi");
+                ImGui::TextDisabled("%s", Tr("Hech narsa topilmadi"));
             }
             ImGui::EndTable();
         }
@@ -566,7 +566,7 @@ namespace Zamin {
         ImGui::EndDisabled();
         ImGui::SameLine();
         ImGui::AlignTextToFramePadding();
-        ImGui::TextDisabled(ICON_FA_FLOPPY_DISK "  O'zgarishlar preferences.json da saqlanadi%s", m_ShortcutsAutomation ? " (avtomatlashtirish: saqlanmaydi)" : "");
+        ImGui::TextDisabled(Tr(ICON_FA_FLOPPY_DISK "  O'zgarishlar preferences.json da saqlanadi%s"), m_ShortcutsAutomation ? Tr(" (avtomatlashtirish: saqlanmaydi)") : "");
         ImGui::End();
     }
 

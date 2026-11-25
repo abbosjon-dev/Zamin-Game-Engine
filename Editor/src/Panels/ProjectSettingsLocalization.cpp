@@ -69,7 +69,7 @@ namespace Zamin {
             changed |= ImGui::Checkbox("##v", &loc.UseSystemLanguage);
             ImGui::SameLine();
             const std::string system = Localization::DetectSystemLanguage();
-            ImGui::TextDisabled("(bu kompyuterda: %s)", system.empty() ? "aniqlanmadi" : LanguageLabel(system).c_str());
+            ImGui::TextDisabled(Tr("(bu kompyuterda: %s)"), system.empty() ? Tr("aniqlanmadi") : LanguageLabel(system).c_str());
             ImGui::PopID();
 
             UI::PropertyLabel("Til fayllari papkasi", "Assets ichidagi papka: har bir til - <kod>.json fayli (masalan Localization/ru.json)");
@@ -93,7 +93,7 @@ namespace Zamin {
                 changed = true;
             }
             ImGui::SameLine();
-            ImGui::TextDisabled(automatic ? "(hozir: papkadagi fayllar)" : "(faqat shu tillar)");
+            ImGui::TextDisabled("%s", automatic ? Tr("(hozir: papkadagi fayllar)") : Tr("(faqat shu tillar)"));
             ImGui::PopID();
             UI::EndPropertyGrid();
         }
@@ -114,9 +114,9 @@ namespace Zamin {
         ImGui::Spacing();
         if (ImGui::BeginTable("languages", 5, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_SizingStretchProp))
         {
-            ImGui::TableSetupColumn("Til", ImGuiTableColumnFlags_WidthStretch, 1.4f);
-            ImGui::TableSetupColumn("Fayl", ImGuiTableColumnFlags_WidthStretch, 1.2f);
-            ImGui::TableSetupColumn("Tayyor", ImGuiTableColumnFlags_WidthStretch, 1.4f);
+            ImGui::TableSetupColumn(Tr("Til"), ImGuiTableColumnFlags_WidthStretch, 1.4f);
+            ImGui::TableSetupColumn(Tr("Fayl"), ImGuiTableColumnFlags_WidthStretch, 1.2f);
+            ImGui::TableSetupColumn(Tr("Tayyor"), ImGuiTableColumnFlags_WidthStretch, 1.4f);
             ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFrameHeight() * 3.4f);
             ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFrameHeight() * 1.2f);
             ImGui::TableHeadersRow();
@@ -146,7 +146,7 @@ namespace Zamin {
                     ImGui::TextColored(s_OkColor, ICON_FA_CHECK " %s.json", code.c_str());
                 else
                 {
-                    ImGui::TextColored(s_WarnColor, ICON_FA_TRIANGLE_EXCLAMATION " yo'q");
+                    ImGui::TextColored(s_WarnColor, "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION " yo'q"));
                     ImGui::SameLine();
                     if (ImGui::SmallButton(Tr("Yaratish")))
                     {
@@ -176,8 +176,8 @@ namespace Zamin {
                 const size_t missing = table.CountMissing(code);
                 const float done = keys > 0 ? 1.0f - (float)missing / (float)keys : 1.0f;
                 ImGui::ProgressBar(done, ImVec2(-FLT_MIN, 0.0f),
-                                   keys == 0 ? "kalit yo'q" : missing == 0 ? std::format("{} / {}", keys, keys).c_str()
-                                                                           : std::format("{} yo'q", missing).c_str());
+                                   keys == 0 ? Tr("kalit yo'q") : missing == 0 ? std::format("{} / {}", keys, keys).c_str()
+                                                                           : TrFormat("{} yo'q", missing).c_str());
                 if (ImGui::IsItemHovered() && missing > 0)
                 {
                     std::string list;
@@ -185,8 +185,8 @@ namespace Zamin {
                     for (size_t k = 0; k < keysMissing.size() && k < 12; k++)
                         list += "\n  " + keysMissing[k];
                     if (keysMissing.size() > 12)
-                        list += std::format("\n  ... yana {} ta", keysMissing.size() - 12);
-                    UI::Tooltip(std::format("Tarjima qilinmagan kalitlar ({} ta):{}", missing, list).c_str());
+                        list += TrFormat("\n  ... yana {} ta", keysMissing.size() - 12);
+                    UI::Tooltip(TrFormat("Tarjima qilinmagan kalitlar ({} ta):{}", missing, list).c_str());
                 }
                 ImGui::TableNextColumn();
                 ImGui::BeginDisabled(automatic || i == 0);
@@ -264,7 +264,7 @@ namespace Zamin {
             if (ImGui::SmallButton(code))
                 addLanguage(code);
             if (ImGui::IsItemHovered())
-                UI::Tooltip(std::format("{} tilini qo'shish", Localization::GetLanguageName(code)).c_str());
+                UI::Tooltip(TrFormat("{} tilini qo'shish", Localization::GetLanguageName(code)).c_str());
         }
 
         // The editor's preview language and the table.
@@ -272,7 +272,7 @@ namespace Zamin {
         ImGui::Separator();
         ImGui::Spacing();
         ImGui::AlignTextToFramePadding();
-        ImGui::TextUnformatted(ICON_FA_EYE "  Editorda ko'rish:");
+        ImGui::TextUnformatted(Tr(ICON_FA_EYE "  Editorda ko'rish:"));
         ImGui::SameLine();
         ImGui::SetNextItemWidth(220.0f);
         if (ImGui::BeginCombo("##preview", LanguageLabel(Localization::GetLanguage()).c_str()))
@@ -287,7 +287,7 @@ namespace Zamin {
         ImGui::SameLine();
         if (ImGui::Button(Tr(ICON_FA_TABLE_CELLS "  Lokalizatsiya jadvali...")) && OnLocalizationTableRequested)
             OnLocalizationTableRequested();
-        ImGui::TextDisabled("%zu ta kalit, %zu ta til. Skriptlar: Localize(\"kalit\"), Localize(\"kalit\", qiymat), LocalizePlural(\"kalit\", son)",
+        ImGui::TextDisabled(Tr("%zu ta kalit, %zu ta til. Skriptlar: Localize(\"kalit\"), Localize(\"kalit\", qiymat), LocalizePlural(\"kalit\", son)"),
                             keys, listed.size());
         for (const std::string& error : Localization::GetLoadErrors())
             ImGui::TextColored(s_WarnColor, ICON_FA_TRIANGLE_EXCLAMATION "  %s", error.c_str());

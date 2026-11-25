@@ -14,6 +14,17 @@
 #include <unordered_set>
 using namespace Zamin;
 
+// The editor's services word their texts in the editor's language (English by default). The tests below
+// check the Uzbek source texts, so each one pins Uzbek for its own run and puts the language back.
+namespace {
+    struct EditorTextLanguageScope
+    {
+        EditorLanguage Previous = EditorText::GetLanguage();
+        explicit EditorTextLanguageScope(EditorLanguage language) { EditorText::SetLanguage(language); }
+        ~EditorTextLanguageScope() { EditorText::SetLanguage(Previous); }
+    };
+}
+
 // ------------------------------------------------------------------ M16 Editor II
 // The console's filter: text (case-insensitive substring, case-sensitive, regex), level toggles with
 // counts that follow the text, collapsing identical messages (level + source + text) with a count.
@@ -173,12 +184,17 @@ TEST(ConsoleFilterAndCollapse)
 // scaled down to fit, the mouse mapped into the game's pixels, the settings' keys and JSON.
 TEST(GameViewResolutionLayout)
 {
+    const EditorTextLanguageScope uzbek(EditorLanguage::Uzbek);
     GameViewResolution res;
     // Free: the whole (whole-pixel) area.
     GameViewLayout l = ComputeGameViewLayout(res, { 1000.7f, 600.2f });
     CHECK(l.Offset == glm::vec2(0.0f) && l.DisplaySize == glm::vec2(1000.0f, 600.0f));
     CHECK(l.RenderSize == glm::uvec2(1000, 600) && l.Scale == 1.0f);
     CHECK(res.GetLabel() == "Erkin" && !res.IsFixed() && !res.IsAspect());
+    {
+        const EditorTextLanguageScope english(EditorLanguage::English);
+        CHECK(res.GetLabel() == "Free" && std::string(GameViewResolution::GetName(GameViewPreset::Free)) == "Free (whole viewport)");
+    }
 
     // 16:9 in a tall area: bars above and below; in a wide one: left and right.
     res.Preset = GameViewPreset::Aspect16x9;
@@ -253,6 +269,7 @@ TEST(GameViewResolutionLayout)
 // and where the file lives.
 TEST(EditorPreferencesSettings)
 {
+    const EditorTextLanguageScope uzbek(EditorLanguage::Uzbek);
     EditorPreferences prefs;
     CHECK(prefs.Theme.FindAccentPreset() == 0);
     CHECK(prefs.Theme.GetUIScale() == 1.0f);
@@ -369,6 +386,7 @@ TEST(EditorPreferencesSettings)
 
 TEST(ShortcutRegistryLookup)
 {
+    const EditorTextLanguageScope uzbek(EditorLanguage::Uzbek);
     // Chords as text: what files store and what menus show.
     KeyChord chord;
     CHECK(KeyChord::Parse("Ctrl+Shift+S", chord) && chord == KeyChord(Key::S, true, true));
@@ -506,6 +524,7 @@ TEST(ShortcutRegistryLookup)
 
 TEST(RecentFilesMRU)
 {
+    const EditorTextLanguageScope uzbek(EditorLanguage::Uzbek);
     RecentFileList list(3);
     list.Add("/p/a.zscene", "/p/P.zproject", 100);
     list.Add("/p/b.zscene", "/p/P.zproject", 200);
@@ -551,6 +570,10 @@ TEST(RecentFilesMRU)
     // "How long ago".
     CHECK(FormatTimeAgo(1000, 1030) == "hozirgina");
     CHECK(FormatTimeAgo(1000, 1000 + 5 * 60) == "5 daqiqa oldin");
+    {
+        const EditorTextLanguageScope english(EditorLanguage::English); // the default: the same texts in English
+        CHECK(FormatTimeAgo(1000, 1000 + 5 * 60) == "5 minutes ago" && FormatTimeAgo(1000, 1000 + 3 * 3600) == "3 hours ago");
+    }
     CHECK(FormatTimeAgo(1000, 1000 + 3 * 3600) == "3 soat oldin");
     CHECK(FormatTimeAgo(1000, 1000 + 86400 + 5) == "kecha");
     CHECK(FormatTimeAgo(1000, 1000 + 4 * 86400) == "4 kun oldin");
@@ -561,6 +584,7 @@ TEST(RecentFilesMRU)
 
 TEST(EditorAutosaveRecovery)
 {
+    const EditorTextLanguageScope uzbek(EditorLanguage::Uzbek);
     namespace fs = std::filesystem;
     const fs::path project = fs::temp_directory_path() / "zamin_autosave_test";
     std::error_code ec;
@@ -681,6 +705,7 @@ TEST(EditorAutosaveRecovery)
 
 TEST(UndoHistoryNamingAndJumps)
 {
+    const EditorTextLanguageScope uzbek(EditorLanguage::Uzbek);
     auto sel = [](std::vector<uint64_t> ids) {
         UndoSelection s;
         s.Entities = ids;
@@ -776,6 +801,10 @@ TEST(UndoHistoryNamingAndJumps)
     Entity coin = scene->CreateEntity("Coin");
     after = snap();
     CHECK(DescribeSceneChange(before, after) == "Qo'shildi: Coin");
+    {
+        const EditorTextLanguageScope english(EditorLanguage::English);
+        CHECK(DescribeSceneChange(before, after) == "Added: Coin" && DescribeSceneChange(after, before) == "Deleted: Coin");
+    }
     CHECK(DescribeSceneChange(after, before) == "O'chirildi: Coin");
     scene->CreateEntity("Coin 2");
     scene->CreateEntity("Coin 3");
@@ -808,6 +837,7 @@ TEST(UndoHistoryNamingAndJumps)
 // Editor II (311): the saved window layouts - names, files, renames, the built-in ones.
 TEST(EditorLayoutLibraryFiles)
 {
+    const EditorTextLanguageScope uzbek(EditorLanguage::Uzbek);
     namespace fs = std::filesystem;
     const fs::path dir = fs::temp_directory_path() / "zamin_layouts_test";
     std::error_code ec;
@@ -906,6 +936,7 @@ TEST(EditorLayoutLibraryFiles)
 // extra views' settings in editor-view.json and the camera preferences.
 TEST(SceneViewAxesAndCamera)
 {
+    const EditorTextLanguageScope uzbek(EditorLanguage::Uzbek);
     // Every axis view's angles make the camera look along its direction, and it is found again.
     for (int i = 1; i < (int)ViewAxis::Count; i++)
     {
@@ -1071,6 +1102,7 @@ TEST(SceneViewAxesAndCamera)
 // they would overlap, their drawing order, shortened names.
 TEST(EntityLabelsLayoutAndFade)
 {
+    const EditorTextLanguageScope uzbek(EditorLanguage::Uzbek);
     EntityLabelSettings s;
     s.Mode = EntityLabelMode::All;
     s.FadeStart = 10.0f;
@@ -1158,6 +1190,7 @@ TEST(EntityLabelsLayoutAndFade)
 // written here - with their memory estimates; materials bring their texture maps along.
 TEST(SceneStatisticsCounting)
 {
+    const EditorTextLanguageScope uzbek(EditorLanguage::Uzbek);
     namespace fs = std::filesystem;
     const fs::path dir = fs::temp_directory_path() / ("zamin-stats-" + std::to_string((uint64_t)UUID()));
     for (const char* folder : { "Textures", "Models", "Audio", "Materials" })
@@ -1313,6 +1346,7 @@ TEST(SceneStatisticsCounting)
 // terminal), starting a program without waiting for it, and finding a script class's source.
 TEST(ExternalEditorCommands)
 {
+    const EditorTextLanguageScope uzbek(EditorLanguage::Uzbek);
     namespace fs = std::filesystem;
     using Args = std::vector<std::string>;
     CHECK(ExternalEditor::SplitCommandLine("code  -g \"my file\" 'a b' c\\ d") == (Args{ "code", "-g", "my file", "a b", "c d" }));
@@ -1418,6 +1452,7 @@ TEST(ExternalEditorCommands)
 // and context, repeats dropped, linker errors (GNU ld, lld) and CMake errors.
 TEST(CompilerOutputParsing)
 {
+    const EditorTextLanguageScope uzbek(EditorLanguage::Uzbek);
     const char* gcc =
         "[1/3] Building CXX object CMakeFiles/Game.dir/Source/Player.cpp.o\n"
         "FAILED: CMakeFiles/Game.dir/Source/Player.cpp.o\n"
@@ -1585,6 +1620,7 @@ TEST(CompilerOutputParsing)
 // the frame rate it settles at over a stretch of time without input.
 TEST(IdleThrottleDecision)
 {
+    const EditorTextLanguageScope uzbek(EditorLanguage::Uzbek);
     IdleThrottleSettings settings;
     IdleThrottleState state;
     state.SecondsSinceInput = 0.0;
@@ -1676,6 +1712,7 @@ TEST(IdleThrottleDecision)
 // prefab file and counted by the statistics.
 TEST(EditorIIPureLogic)
 {
+    const EditorTextLanguageScope uzbek(EditorLanguage::Uzbek);
     namespace fs = std::filesystem;
     // Console: the level toggles (Error covers Critical).
     ConsoleFilterSettings console;

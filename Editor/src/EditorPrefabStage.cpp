@@ -136,7 +136,7 @@ namespace Zamin {
         // Entered from an instance: the same entity of the prefab is selected.
         Entity selected = focus ? m_EditorScene->GetEntityByUUID(UUID(focus)) : Entity();
         m_SceneHierarchyPanel.SetSelectedEntity(selected ? selected : root);
-        ResetUndoHistory(std::format("Prefab ochildi: {}", FileName(prefab)), !recover);
+        ResetUndoHistory(TrFormat("Prefab ochildi: {}", FileName(prefab)), !recover);
         Set2DMode(LooksLike2D(*m_EditorScene, m_PrefabStages.back().Outer2D));
         // Framed on what it shows in the world. UI is drawn over the view in screen space wherever
         // the camera is: a prefab of UI only has nothing to frame (and is not "nothing visible").
@@ -239,7 +239,7 @@ namespace Zamin {
         {
             SyncPrefabInstances(true);
             // One step that also puts the files back when it is undone.
-            CommitPrefabStep(std::format("Prefab tahrirlandi: {}", fs::path(level.Prefab).stem().string()), std::move(files));
+            CommitPrefabStep(TrFormat("Prefab tahrirlandi: {}", fs::path(level.Prefab).stem().string()), std::move(files));
             // An outer prefab mode level whose file the save rewrote (a prefab nested in it changed):
             // what it shows is its file again.
             if (IsInPrefabStage() && !level.OuterDirty)
@@ -366,7 +366,7 @@ namespace Zamin {
         if (report.HasIssues())
             ShowSceneLoadReport(report);
         ReadFileState(Project::GetAssetFileSystemPath(level.Prefab), level.FileHash, level.FileTime);
-        ResetUndoHistory(std::format("Prefab qayta o'qildi: {}", FileName(level.Prefab)), true);
+        ResetUndoHistory(TrFormat("Prefab qayta o'qildi: {}", FileName(level.Prefab)), true);
         ShowViewportMessage(std::format(ICON_FA_ROTATE "  {}: {}", Tr("Prefab fayli o'zgardi, qayta o'qildi"), FileName(level.Prefab)));
         UpdateWindowTitle();
     }

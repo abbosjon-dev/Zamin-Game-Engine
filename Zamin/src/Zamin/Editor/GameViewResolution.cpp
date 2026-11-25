@@ -1,4 +1,5 @@
 #include "Zamin/Editor/GameViewResolution.h"
+#include "Zamin/Editor/EditorLanguage.h"
 
 #include <algorithm>
 #include <cmath>
@@ -33,7 +34,7 @@ namespace Zamin {
     }
 
     const char* GameViewResolution::GetKey(GameViewPreset preset) { return Info(preset).Key; }
-    const char* GameViewResolution::GetName(GameViewPreset preset) { return Info(preset).Name; }
+    const char* GameViewResolution::GetName(GameViewPreset preset) { return Tr(Info(preset).Name); }
 
     GameViewPreset GameViewResolution::FromKey(const std::string& key, GameViewPreset fallback)
     {
@@ -68,7 +69,7 @@ namespace Zamin {
     std::string GameViewResolution::GetLabel() const
     {
         if (Preset == GameViewPreset::Free)
-            return "Erkin";
+            return Tr("Erkin");
         const glm::ivec2 size = GetSize();
         return IsFixed() ? std::format("{}x{}", size.x, size.y) : std::format("{}:{}", size.x, size.y);
     }

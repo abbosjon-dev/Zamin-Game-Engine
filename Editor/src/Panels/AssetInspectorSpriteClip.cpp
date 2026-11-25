@@ -21,14 +21,14 @@ namespace Zamin {
         ImGui::Spacing();
         if (!asset)
         {
-            ImGui::TextColored(s_ClipErrorColor, ICON_FA_TRIANGLE_EXCLAMATION "  Sprite klip o'qilmadi - konsolni tekshiring");
+            ImGui::TextColored(s_ClipErrorColor, "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Sprite klip o'qilmadi - konsolni tekshiring"));
             return;
         }
         SpriteClip clip = asset->GetClip();
-        ImGui::TextColored(ImVec4(1.0f, 0.62f, 0.72f, 1.0f), ICON_FA_FILM "  Sprite animatsiya klipi");
+        ImGui::TextColored(ImVec4(1.0f, 0.62f, 0.72f, 1.0f), "%s", Tr(ICON_FA_FILM "  Sprite animatsiya klipi"));
         ImGui::PushTextWrapPos(0.0f);
-        ImGui::TextDisabled("Sprite Animation komponentining 'Kliplar' ro'yxatiga torting; skript: PlaySpriteClip(\"%s\"). "
-                            "O'zgarishlar darhol (o'yin davomida ham) qo'llanadi va faylga saqlanadi.", asset->GetName().c_str());
+        ImGui::TextDisabled(Tr("Sprite Animation komponentining 'Kliplar' ro'yxatiga torting; skript: PlaySpriteClip(\"%s\"). "
+                            "O'zgarishlar darhol (o'yin davomida ham) qo'llanadi va faylga saqlanadi."), asset->GetName().c_str());
         ImGui::PopTextWrapPos();
         ImGui::Spacing();
 
@@ -72,7 +72,7 @@ namespace Zamin {
             }
             else
             {
-                const char* text = clip.Texture.empty() ? "Tekstura tanlanmagan" : "Tekstura yuklanmadi";
+                const char* text = clip.Texture.empty() ? Tr("Tekstura tanlanmagan") : Tr("Tekstura yuklanmadi");
                 ImVec2 ts = ImGui::CalcTextSize(text);
                 dl->AddText(ImVec2(min.x + (box - ts.x) * 0.5f, min.y + (box - ts.y) * 0.5f), IM_COL32(170, 170, 180, 255), text);
             }
@@ -106,7 +106,7 @@ namespace Zamin {
                 m_SpriteClipTime = (float)((frame + 1) % std::max(1, frameCount)) / clip.FPS;
             }
             ImGui::SameLine();
-            ImGui::Text("Kadr %d / %d", frame + 1, frameCount);
+            ImGui::Text(Tr("Kadr %d / %d"), frame + 1, frameCount);
             if (clip.UsesFrameList() && frame >= 0 && frame < (int)clip.Frames.size())
             {
                 ImGui::SameLine();
@@ -147,11 +147,11 @@ namespace Zamin {
             UI::PropertyHeader("Kadrlar");
             UI::AssetPathOptions options;
             options.Missing = !clip.Texture.empty() && !texture;
-            options.Tooltip = "Klip qaysi rasm uchun: o'ynaganda Sprite Renderer'ga qo'yiladi (bo'sh - renderer'dagisi)";
+            options.Tooltip = Tr("Klip qaysi rasm uchun: o'ynaganda Sprite Renderer'ga qo'yiladi (bo'sh - renderer'dagisi)");
             changed |= UI::PropertyAssetPath("Tekstura", clip.Texture, ".png;.jpg;.jpeg;.bmp;.tga", ICON_FA_IMAGE, options);
             const SpriteSheet* sheet = clip.Texture.empty() ? nullptr : SpriteSheet::Get(clip.Texture);
 
-            const char* sources[] = { "Grid (ustun x qator)", "Sprite sheet kadrlari" };
+            const char* sources[] = { Tr("Grid (ustun x qator)"), Tr("Sprite sheet kadrlari") };
             int source = clip.UsesFrameList() ? 1 : 0;
             if (UI::PropertyCombo("Manba", source, sources, 2))
             {
@@ -164,32 +164,32 @@ namespace Zamin {
             if (source == 1 && !clip.UsesFrameList())
             {
                 UI::PropertyLabel("");
-                ImGui::TextColored(s_ClipWarnColor, ICON_FA_TRIANGLE_EXCLAMATION "  Teksturada kadrlar yo'q (Sprite muharriri)");
+                ImGui::TextColored(s_ClipWarnColor, "%s", Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Teksturada kadrlar yo'q (Sprite muharriri)"));
             }
             if (clip.UsesFrameList())
             {
                 UI::PropertyLabel("Ketma-ketlik", "Bir xil nomli, raqamlangan kadrlar (run_0, run_1, ...) tartib bilan qo'yiladi");
-                if (ImGui::BeginCombo("##sequence", std::format("{} ta kadr", clip.Frames.size()).c_str()))
+                if (ImGui::BeginCombo("##sequence", TrFormat("{} ta kadr", clip.Frames.size()).c_str()))
                 {
                     if (sheet)
                     {
                         for (const std::string& prefix : sheet->GetSequencePrefixes())
                         {
                             std::vector<std::string> sequence = sheet->FindSequence(prefix);
-                            if (ImGui::Selectable(std::format("{}  ({} ta)", prefix, sequence.size()).c_str()))
+                            if (ImGui::Selectable(TrFormat("{}  ({} ta)", prefix, sequence.size()).c_str()))
                             {
                                 clip.Frames = sequence;
                                 changed = true;
                             }
                         }
-                        if (ImGui::Selectable(std::format("(hammasi, {} ta)", sheet->Frames.size()).c_str()))
+                        if (ImGui::Selectable(TrFormat("(hammasi, {} ta)", sheet->Frames.size()).c_str()))
                         {
                             clip.Frames = sheet->FindSequence("");
                             changed = true;
                         }
                     }
                     else
-                        ImGui::TextDisabled("Teksturada kadrlar yo'q");
+                        ImGui::TextDisabled("%s", Tr("Teksturada kadrlar yo'q"));
                     ImGui::EndCombo();
                 }
                 UI::PropertyLabel("Kadrlar");
@@ -206,7 +206,7 @@ namespace Zamin {
                 if (missing > 0 && !clip.Texture.empty())
                 {
                     UI::PropertyLabel("");
-                    ImGui::TextColored(s_ClipWarnColor, ICON_FA_TRIANGLE_EXCLAMATION "  %d ta kadr teksturada topilmadi", missing);
+                    ImGui::TextColored(s_ClipWarnColor, Tr(ICON_FA_TRIANGLE_EXCLAMATION "  %d ta kadr teksturada topilmadi"), missing);
                 }
             }
             else
@@ -226,7 +226,7 @@ namespace Zamin {
             clip.FPS = std::clamp(clip.FPS, 0.0f, 240.0f);
             changed |= UI::PropertyBool("Takrorlash", clip.Loop);
             UI::PropertyLabel("Davomiylik");
-            ImGui::Text("%.2f s  (%d kadr)", clip.GetDuration(), clip.GetFrameCount());
+            ImGui::Text(Tr("%.2f s  (%d kadr)"), clip.GetDuration(), clip.GetFrameCount());
 
             UI::PropertyHeader("Hodisalar (event)", "Kadr ko'rsatilganda obyekt skripti OnAnimationEvent(e) oladi (e.Name, e.Parameter, "
                                                     "e.Clip - klip nomi); event bus'da \"AnimationEvent\". Har aylanishda bir marta");

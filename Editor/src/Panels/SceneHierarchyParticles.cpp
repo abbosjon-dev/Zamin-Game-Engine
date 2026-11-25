@@ -107,7 +107,7 @@ namespace Zamin {
         ImGui::PushID("##particleToolbar");
         const float button = ImGui::GetFrameHeight();
         const bool emitting = c.IsEmitting();
-        if (ImGui::Button(emitting ? ICON_FA_PAUSE "  Pauza" : ICON_FA_PLAY "  Ijro"))
+        if (ImGui::Button(emitting ? Tr(ICON_FA_PAUSE "  Pauza") : Tr(ICON_FA_PLAY "  Ijro")))
         {
             if (emitting)
                 c.Pause();
@@ -197,25 +197,25 @@ namespace Zamin {
             std::string text;
             float fraction = 0.0f;
             if (c.Finished)
-                text = "tugadi";
+                text = Tr("tugadi");
             else if (c.PlayTime < delay)
             {
-                text = std::format("kechikish {:.1f} / {:.1f} s", c.PlayTime, delay);
+                text = TrFormat("kechikish {:.1f} / {:.1f} s", c.PlayTime, delay);
                 fraction = delay > 0.0f ? c.PlayTime / delay : 0.0f;
             }
             else
             {
                 const float t = std::min(c.PlayTime - delay, cycle);
-                text = std::format("{}{:.1f} / {:.1f} s{}", c.Looping ? ICON_FA_INFINITY "  " : "", t, cycle, c.Paused ? "  (pauza)" : "");
+                text = std::format("{}{:.1f} / {:.1f} s{}", c.Looping ? ICON_FA_INFINITY "  " : "", t, cycle, c.Paused ? Tr("  (pauza)") : "");
                 fraction = t / cycle;
             }
-            text = std::format("{} ta   |   {}", c.Particles.size(), text);
+            text = TrFormat("{} ta   |   {}", c.Particles.size(), text);
             ImGui::PushStyleColor(ImGuiCol_PlotHistogram, c.Paused ? ImVec4(0.75f, 0.6f, 0.25f, 1.0f) : ImVec4(0.18f, 0.55f, 0.45f, 1.0f));
             ImGui::ProgressBar(std::clamp(fraction, 0.0f, 1.0f), ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() + 2.0f), text.c_str());
             ImGui::PopStyleColor();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-                UI::Tooltip(std::format("Tirik particle'lar: {} / {} (maksimal)\nTizim o'z siklining qayerida (kechikish, keyin Davomiylik){}",
-                                        c.Particles.size(), c.MaxParticles, c.Paused ? "\nPauzada" : "").c_str());
+                UI::Tooltip(TrFormat("Tirik particle'lar: {} / {} (maksimal)\nTizim o'z siklining qayerida (kechikish, keyin Davomiylik){}",
+                                        c.Particles.size(), c.MaxParticles, c.Paused ? Tr("\nPauzada") : "").c_str());
         }
         ImGui::PopID();
         UI::BeginPropertyGrid("##particleAfterToolbar");
@@ -236,8 +236,8 @@ namespace Zamin {
         };
 
         // ---- main
-        if (ModuleHeader("##mainModule", ICON_FA_HOURGLASS_HALF, "Asosiy", nullptr, changed,
-                         "Sikl, vaqt, fazo, particle'larning boshlang'ich umri / tezligi / o'lchami / rangi", wasOn, true))
+        if (ModuleHeader("##mainModule", ICON_FA_HOURGLASS_HALF, Tr("Asosiy"), nullptr, changed,
+                         Tr("Sikl, vaqt, fazo, particle'larning boshlang'ich umri / tezligi / o'lchami / rangi"), wasOn, true))
         {
             if (UI::PropertyFloat("Davomiylik (s)", c.Duration, 0.05f, 0.01f, 10000.0f))
             {
@@ -317,7 +317,7 @@ namespace Zamin {
             changed |= UI::PropertyColor4("Oxirgi rang", c.EndColor);
             ImGui::EndDisabled();
             if (c.ColorOverLifetime.Enabled)
-                Note("Rangni \"Rang (umr bo'yi)\" moduli beradi");
+                Note(Tr("Rangni \"Rang (umr bo'yi)\" moduli beradi"));
             changed |= UI::PropertyFloat("Aylanish (max)", c.AngularVelocityMax, 0.05f, 0.0f, 100.0f);
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
                 UI::Tooltip("Har bir particle o'z tekisligida shu tezlikkacha (radian / s) tasodifiy aylanadi");
@@ -328,9 +328,9 @@ namespace Zamin {
             {
                 static const char* const spaces[] = { "Lokal (emitter bilan)", "Dunyo", "Boshqa obyekt" };
                 int space = (int)c.Space;
-                if (PropertyEnum("Fazo", space, spaces, 3, "Dunyo: particle'lar tug'ilgan joyida qoladi (emitter yursa iz qoladi); "
+                if (PropertyEnum(Tr("Fazo"), space, spaces, 3, Tr("Dunyo: particle'lar tug'ilgan joyida qoladi (emitter yursa iz qoladi); "
                                                            "Lokal: emitter bilan birga siljiydi va aylanadi; Boshqa obyekt: o'sha "
-                                                           "obyekt bilan (masalan kema ustidagi to'p - kema bilan, to'p burilishi bilan emas)"))
+                                                           "obyekt bilan (masalan kema ustidagi to'p - kema bilan, to'p burilishi bilan emas)")))
                 {
                     c.Space = (PS::SimulationSpace)space;
                     c.Clear(); // the particles' positions were in the old space
@@ -338,37 +338,37 @@ namespace Zamin {
                 }
                 if (c.Space == PS::SimulationSpace::Custom)
                 {
-                    if (DrawEntityRefField("Fazo obyekti", c.CustomSpace, "Particle'lar shu obyekt bilan birga siljiydi va aylanadi"))
+                    if (DrawEntityRefField(Tr("Fazo obyekti"), c.CustomSpace, Tr("Particle'lar shu obyekt bilan birga siljiydi va aylanadi")))
                     {
                         c.Clear();
                         changed = true;
                     }
                     if (!c.CustomSpace)
-                        Note("Obyekt tanlanmagan: dunyo fazosida", true);
+                        Note(Tr("Obyekt tanlanmagan: dunyo fazosida"), true);
                     else if (!(m_Context && m_Context->GetEntityByUUID(c.CustomSpace.ID)))
-                        Note("Obyekt topilmadi: dunyo fazosida", true);
+                        Note(Tr("Obyekt topilmadi: dunyo fazosida"), true);
                 }
             }
             {
                 static const char* const actions[] = { "Hech narsa", "Obyektni o'chirish", "Obyektni yo'q qilish" };
                 int action = (int)c.StopActionType;
-                if (PropertyEnum("Tugaganda", action, actions, 3, "Takrorlanmaydigan tizim siklini o'ynab, oxirgi particle'i o'lganda "
+                if (PropertyEnum(Tr("Tugaganda"), action, actions, 3, Tr("Takrorlanmaydigan tizim siklini o'ynab, oxirgi particle'i o'lganda "
                                                                   "(faqat o'yin paytida): obyekt o'chiriladi yoki yo'q qilinadi. Skriptlar "
-                                                                  "OnParticlesFinished va \"ParticlesFinished\" hodisasini oladi"))
+                                                                  "OnParticlesFinished va \"ParticlesFinished\" hodisasini oladi")))
                 {
                     c.StopActionType = (PS::StopAction)action;
                     changed = true;
                 }
                 if (c.Looping && c.StopActionType != PS::StopAction::None)
-                    Note("Takrorlanadigan tizim hech qachon tugamaydi");
+                    Note(Tr("Takrorlanadigan tizim hech qachon tugamaydi"));
             }
         }
 
         // ---- emission
-        if (shown(c.EmissionEnabled, ICON_FA_BURST "  Emissiya") &&
-            ModuleHeader("##emissionModule", ICON_FA_BURST, "Emissiya", &c.EmissionEnabled, changed,
-                         "Qancha particle va qachon chiqadi: soniyasiga, boshida bir marta, portlashlar jadvali. O'chiq: o'zi chiqarmaydi "
-                         "(sub-emitter shabloni, skriptdan EmitParticles)", wasOn, true))
+        if (shown(c.EmissionEnabled, Tr(ICON_FA_BURST "  Emissiya")) &&
+            ModuleHeader("##emissionModule", ICON_FA_BURST, Tr("Emissiya"), &c.EmissionEnabled, changed,
+                         Tr("Qancha particle va qachon chiqadi: soniyasiga, boshida bir marta, portlashlar jadvali. O'chiq: o'zi chiqarmaydi "
+                         "(sub-emitter shabloni, skriptdan EmitParticles)"), wasOn, true))
         {
             ImGui::BeginDisabled(!c.EmissionEnabled);
             changed |= UI::PropertyFloat("Chiqarish (1/s)", c.EmissionRate, 0.5f, 0.0f, 100000.0f);
@@ -380,9 +380,9 @@ namespace Zamin {
         }
 
         // ---- shape
-        if (shown(c.ShapeEnabled, ICON_FA_SHAPES "  Shakl") &&
-            ModuleHeader("##shapeModule", ICON_FA_SHAPES, "Shakl", &c.ShapeEnabled, changed,
-                         "Particle'lar qayerdan va qaysi yo'nalishda chiqadi (emitterning o'z o'qlarida). O'chiq: markazdan, Yo'nalish bo'ylab",
+        if (shown(c.ShapeEnabled, Tr(ICON_FA_SHAPES "  Shakl")) &&
+            ModuleHeader("##shapeModule", ICON_FA_SHAPES, Tr("Shakl"), &c.ShapeEnabled, changed,
+                         Tr("Particle'lar qayerdan va qaysi yo'nalishda chiqadi (emitterning o'z o'qlarida). O'chiq: markazdan, Yo'nalish bo'ylab"),
                          wasOn, true))
         {
             ImGui::BeginDisabled(!c.ShapeEnabled);
@@ -395,8 +395,8 @@ namespace Zamin {
                 {
                     static const char* const sources[] = { "Primitiv", "Model fayli", "Mesh Renderer" };
                     int source = (int)c.MeshSource;
-                    if (PropertyEnum("Mesh manbai", source, sources, 3, "Primitiv: kub, sfera...; Model fayli: .gltf / .glb / .obj; "
-                                                                       "Mesh Renderer: shu obyektning o'zi ko'rsatayotgan mesh"))
+                    if (PropertyEnum(Tr("Mesh manbai"), source, sources, 3, Tr("Primitiv: kub, sfera...; Model fayli: .gltf / .glb / .obj; "
+                                                                       "Mesh Renderer: shu obyektning o'zi ko'rsatayotgan mesh")))
                     {
                         c.MeshSource = (PS::MeshShapeSource)source;
                         changed = true;
@@ -410,11 +410,11 @@ namespace Zamin {
                     else if (c.MeshSource == PS::MeshShapeSource::Model)
                         changed |= UI::PropertyAssetPath("Model", c.MeshModelPath, ".gltf;.glb;.obj", ICON_FA_CUBE);
                     else if (!entity.HasComponent<MeshRendererComponent>())
-                        Note("Obyektda Mesh Renderer yo'q", true);
+                        Note(Tr("Obyektda Mesh Renderer yo'q"), true);
                     static const char* const modes[] = { "Sirt (uchburchaklar)", "Qirralar", "Uchlar (vertex)" };
                     int mode = (int)c.MeshMode;
-                    if (PropertyEnum("Qayerdan", mode, modes, 3, "Sirt: uchburchaklarning istalgan nuqtasidan (yuzasiga qarab teng); "
-                                                                 "Qirralar: qirralar bo'ylab (tekis yuzlar ichidagi diagonallarsiz); Uchlar: faqat uchlaridan"))
+                    if (PropertyEnum(Tr("Qayerdan"), mode, modes, 3, Tr("Sirt: uchburchaklarning istalgan nuqtasidan (yuzasiga qarab teng); "
+                                                                 "Qirralar: qirralar bo'ylab (tekis yuzlar ichidagi diagonallarsiz); Uchlar: faqat uchlaridan")))
                     {
                         c.MeshMode = (PS::MeshEmitMode)mode;
                         changed = true;
@@ -426,9 +426,9 @@ namespace Zamin {
                     if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
                         UI::Tooltip("Normal bo'ylab shuncha tashqarida tug'iladi (manfiy - ichkarida)");
                     if (c.MeshRuntime)
-                        Note(std::format("{} ta uchburchak, yuzasi {:.2f}", c.MeshRuntime->GetTriangleCount(), c.MeshRuntime->GetArea()).c_str());
+                        Note(TrFormat("{} ta uchburchak, yuzasi {:.2f}", c.MeshRuntime->GetTriangleCount(), c.MeshRuntime->GetArea()).c_str());
                     else if (c.MeshSource == PS::MeshShapeSource::Model && c.MeshModelPath.empty())
-                        Note("Model tanlanmagan: markazdan chiqadi", true);
+                        Note(Tr("Model tanlanmagan: markazdan chiqadi"), true);
                     break;
                 }
                 case PS::EmitterShape::Box:
@@ -451,7 +451,7 @@ namespace Zamin {
                         UI::Tooltip("Asos chetidagi particle o'qdan qancha og'adi (0 - to'g'ri nur / silindr)");
                     static const char* const from[] = { "Asosdan", "Hajmidan" };
                     int f = (int)c.ConeFrom;
-                    if (PropertyEnum("Chiqish joyi", f, from, 2, "Asosdan: konusning tubidan; Hajmidan: konus ichidagi istalgan joydan (Uzunlik chuqurlikkacha)"))
+                    if (PropertyEnum(Tr("Chiqish joyi"), f, from, 2, Tr("Asosdan: konusning tubidan; Hajmidan: konus ichidagi istalgan joydan (Uzunlik chuqurlikkacha)")))
                     {
                         c.ConeFrom = (PS::ConeEmitFrom)f;
                         changed = true;
@@ -482,7 +482,7 @@ namespace Zamin {
                     UI::Tooltip("Particle'lar Yo'nalish o'rniga markazdan tashqariga uchadi (tarqalish shu yo'nalish atrofida): portlash");
             }
             ImGui::EndDisabled();
-            changed |= UI::PropertyFloat3(c.ShapeEnabled && c.Shape == PS::EmitterShape::Cone ? "Yo'nalish (o'q)" : "Yo'nalish", c.Direction);
+            changed |= UI::PropertyFloat3(c.ShapeEnabled && c.Shape == PS::EmitterShape::Cone ? Tr("Yo'nalish (o'q)") : Tr("Yo'nalish"), c.Direction);
             ImGui::BeginDisabled(c.ShapeEnabled && c.Shape == PS::EmitterShape::Cone);
             changed |= UI::PropertySlider("Tarqalish (°)", c.Spread, 0.0f, 180.0f);
             ImGui::EndDisabled();
@@ -493,10 +493,10 @@ namespace Zamin {
         // ---- weather around the camera
         {
             auto& m = c.FollowCamera;
-            if (shown(m.Enabled, ICON_FA_CLOUD_RAIN "  Kamera atrofida (ob-havo)") &&
-                ModuleHeader("##followModule", ICON_FA_CLOUD_RAIN, "Kamera atrofida (ob-havo)", &m.Enabled, changed,
-                             "Emitter kamera bilan yuradi (o'yinda - asosiy kamera, editorda - sahna ko'rinishi kamerasi): yomg'ir, qor, havodagi chang "
-                             "hech qachon tugamaydi. O'rash: kamera ortda qoldirgan particle'lar oldinga o'tadi", wasOn))
+            if (shown(m.Enabled, Tr(ICON_FA_CLOUD_RAIN "  Kamera atrofida (ob-havo)")) &&
+                ModuleHeader("##followModule", ICON_FA_CLOUD_RAIN, Tr("Kamera atrofida (ob-havo)"), &m.Enabled, changed,
+                             Tr("Emitter kamera bilan yuradi (o'yinda - asosiy kamera, editorda - sahna ko'rinishi kamerasi): yomg'ir, qor, havodagi chang "
+                             "hech qachon tugamaydi. O'rash: kamera ortda qoldirgan particle'lar oldinga o'tadi"), wasOn))
             {
                 ImGui::BeginDisabled(!m.Enabled);
                 changed |= UI::PropertyFloat3("Siljish", m.Offset, 0.05f);
@@ -515,7 +515,7 @@ namespace Zamin {
                 if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort | ImGuiHoveredFlags_AllowWhenDisabled))
                     UI::Tooltip("Qutining yarim o'lchami har o'q bo'ylab (0 - shu o'q bo'ylab o'ralmaydi; yomg'ir: X va Z, 2D: X)");
                 if (m.Wrap && c.Space != PS::SimulationSpace::World)
-                    Note("O'rash faqat Dunyo fazosida ishlaydi", true);
+                    Note(Tr("O'rash faqat Dunyo fazosida ishlaydi"), true);
                 if (UI::PropertyFloat("Yaqinda so'nish", m.NearFade, 0.05f, 0.0f, 1000.0f, "%.2f"))
                 {
                     m.NearFade = std::max(0.0f, m.NearFade);
@@ -525,24 +525,24 @@ namespace Zamin {
                     UI::Tooltip("Kameraga shundan yaqin particle'lar so'nadi (choragida butunlay yo'qoladi): ob'ektiv yonidan o'tgan "
                                 "tomchi ekran bo'ylab katta chiziq bo'lmaydi. 0 - o'chiq; faqat perspektiv kamerada");
                 if (m.Enabled && !c.FollowActive)
-                    Note("Kamera topilmadi: emitter o'z joyida");
+                    Note(Tr("Kamera topilmadi: emitter o'z joyida"));
                 else if (m.Enabled)
-                    Note(std::format("Kamerada: ({:.1f}, {:.1f}, {:.1f})", c.FollowPosition.x, c.FollowPosition.y, c.FollowPosition.z).c_str());
+                    Note(TrFormat("Kamerada: ({:.1f}, {:.1f}, {:.1f})", c.FollowPosition.x, c.FollowPosition.y, c.FollowPosition.z).c_str());
                 ImGui::EndDisabled();
             }
         }
 
         {
             auto& m = c.VelocityOverLifetime;
-            if (shown(m.Enabled, ICON_FA_WIND "  Tezlik (umr bo'yi)") &&
-                ModuleHeader("##velocityModule", ICON_FA_WIND, "Tezlik (umr bo'yi)", &m.Enabled, changed,
-                             "Particle harakatiga umri davomida qo'shiladigan tezlik: chiziqli, orbita, radial; o'z tezligiga ko'paytuvchi", wasOn))
+            if (shown(m.Enabled, Tr(ICON_FA_WIND "  Tezlik (umr bo'yi)")) &&
+                ModuleHeader("##velocityModule", ICON_FA_WIND, Tr("Tezlik (umr bo'yi)"), &m.Enabled, changed,
+                             Tr("Particle harakatiga umri davomida qo'shiladigan tezlik: chiziqli, orbita, radial; o'z tezligiga ko'paytuvchi"), wasOn))
             {
                 ImGui::BeginDisabled(!m.Enabled);
                 changed |= UI::PropertyFloat3("Chiziqli", m.Linear);
                 if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
                     UI::Tooltip("Birlik / s: shamol, oqim (particle'ning o'z tezligini o'zgartirmaydi)");
-                changed |= UI::PropertyCurve("Chiziqli (egri)", m.LinearCurve, 0.0f, 1.0f, "Chiziqli tezlikka umr bo'yi ko'paytiriladi");
+                changed |= UI::PropertyCurve("Chiziqli (egri)", m.LinearCurve, 0.0f, 1.0f, Tr("Chiziqli tezlikka umr bo'yi ko'paytiriladi"));
                 changed |= UI::PropertyBool("Dunyo o'qlarida", m.World);
                 if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
                     UI::Tooltip("Chiziqli tezlik dunyo o'qlarida (o'chiq: emitter aylansa u ham aylanadi)");
@@ -553,15 +553,15 @@ namespace Zamin {
                 if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
                     UI::Tooltip("Markazdan tashqariga (manfiy - markazga) birlik / s");
                 changed |= UI::PropertyCurve("Tezlik ko'paytuvchisi", m.SpeedModifier, 0.0f, 1.0f,
-                                             "Particle'ning o'z tezligiga umr bo'yi ko'paytiriladi (0 - to'xtaydi)");
+                                             Tr("Particle'ning o'z tezligiga umr bo'yi ko'paytiriladi (0 - to'xtaydi)"));
                 ImGui::EndDisabled();
             }
         }
         {
             auto& m = c.LimitVelocity;
-            if (shown(m.Enabled, ICON_FA_GAUGE_HIGH "  Tezlik chegarasi") &&
-                ModuleHeader("##limitModule", ICON_FA_GAUGE_HIGH, "Tezlik chegarasi", &m.Enabled, changed,
-                             "Particle tezligi chegaradan oshsa, ortig'i so'ndiriladi (sekinlashib to'xtaydigan uchqunlar, tutun)", wasOn))
+            if (shown(m.Enabled, Tr(ICON_FA_GAUGE_HIGH "  Tezlik chegarasi")) &&
+                ModuleHeader("##limitModule", ICON_FA_GAUGE_HIGH, Tr("Tezlik chegarasi"), &m.Enabled, changed,
+                             Tr("Particle tezligi chegaradan oshsa, ortig'i so'ndiriladi (sekinlashib to'xtaydigan uchqunlar, tutun)"), wasOn))
             {
                 ImGui::BeginDisabled(!m.Enabled);
                 if (UI::PropertyFloat("Maksimal tezlik", m.MaxSpeed, 0.05f, 0.0f, 10000.0f))
@@ -569,7 +569,7 @@ namespace Zamin {
                     m.MaxSpeed = std::max(0.0f, m.MaxSpeed);
                     changed = true;
                 }
-                changed |= UI::PropertyCurve("Chegara (egri)", m.MaxSpeedCurve, 0.0f, 1.0f, "Maksimal tezlikka umr bo'yi ko'paytiriladi");
+                changed |= UI::PropertyCurve("Chegara (egri)", m.MaxSpeedCurve, 0.0f, 1.0f, Tr("Maksimal tezlikka umr bo'yi ko'paytiriladi"));
                 changed |= UI::PropertySlider("So'ndirish", m.Dampen, 0.0f, 1.0f);
                 if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
                     UI::Tooltip("Chegaradan ortiq tezlikning har 1/60 soniyada qancha qismi yo'qoladi (1 - darhol chegaraga)");
@@ -578,14 +578,14 @@ namespace Zamin {
         }
         {
             auto& m = c.ColorOverLifetime;
-            if (shown(m.Enabled, ICON_FA_PALETTE "  Rang (umr bo'yi)") &&
-                ModuleHeader("##colorModule", ICON_FA_PALETTE, "Rang (umr bo'yi)", &m.Enabled, changed,
-                             "Particle rangi butun umri davomida: ko'p nuqtali gradient (Boshlang'ich / Oxirgi rang o'rniga)", wasOn))
+            if (shown(m.Enabled, Tr(ICON_FA_PALETTE "  Rang (umr bo'yi)")) &&
+                ModuleHeader("##colorModule", ICON_FA_PALETTE, Tr("Rang (umr bo'yi)"), &m.Enabled, changed,
+                             Tr("Particle rangi butun umri davomida: ko'p nuqtali gradient (Boshlang'ich / Oxirgi rang o'rniga)"), wasOn))
             {
                 if (!wasOn)
                     SeedSwitchedOnModule(c, &m.Enabled); // the gradient starts as the two colours it had
                 ImGui::BeginDisabled(!m.Enabled);
-                changed |= UI::PropertyGradient("Gradient", m.Gradient, "Chap - tug'ilganda, o'ng - o'lganda. Alfa - shaffoflik");
+                changed |= UI::PropertyGradient("Gradient", m.Gradient, Tr("Chap - tug'ilganda, o'ng - o'lganda. Alfa - shaffoflik"));
                 changed |= UI::PropertyBool("Ikki gradient orasida", m.RandomBetweenTwo);
                 if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
                     UI::Tooltip("Har bir particle ikki gradient orasidagi tasodifiy rangda (rang-barang uchqunlar, barglar)");
@@ -602,13 +602,13 @@ namespace Zamin {
                 if (!wasOn)
                     SeedSwitchedOnModule(c, &m.Enabled); // the curve starts as the sizes it had
             };
-            if (shown(m.Enabled, ICON_FA_UP_RIGHT_AND_DOWN_LEFT_FROM_CENTER "  O'lcham (umr bo'yi)") &&
-                ModuleHeader("##sizeModule", ICON_FA_UP_RIGHT_AND_DOWN_LEFT_FROM_CENTER, "O'lcham (umr bo'yi)", &m.Enabled, changed,
-                             "Particle o'lchami butun umri davomida: Boshlang'ich o'lcham x egri chiziq (Oxirgi o'lcham o'rniga)", wasOn))
+            if (shown(m.Enabled, Tr(ICON_FA_UP_RIGHT_AND_DOWN_LEFT_FROM_CENTER "  O'lcham (umr bo'yi)")) &&
+                ModuleHeader("##sizeModule", ICON_FA_UP_RIGHT_AND_DOWN_LEFT_FROM_CENTER, Tr("O'lcham (umr bo'yi)"), &m.Enabled, changed,
+                             Tr("Particle o'lchami butun umri davomida: Boshlang'ich o'lcham x egri chiziq (Oxirgi o'lcham o'rniga)"), wasOn))
             {
                 seed();
                 ImGui::BeginDisabled(!m.Enabled);
-                changed |= UI::PropertyCurve("Egri chiziq", m.Curve, 0.0f, 1.0f, "Boshlang'ich o'lchamga ko'paytiriladi: 1 - o'zi, 0 - ko'rinmaydi");
+                changed |= UI::PropertyCurve("Egri chiziq", m.Curve, 0.0f, 1.0f, Tr("Boshlang'ich o'lchamga ko'paytiriladi: 1 - o'zi, 0 - ko'rinmaydi"));
                 changed |= UI::PropertyBool("Ikki egri chiziq orasida", m.RandomBetweenTwo);
                 if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
                     UI::Tooltip("Har bir particle ikki egri chiziq orasidagi tasodifiy o'lchamda");
@@ -621,15 +621,15 @@ namespace Zamin {
         }
         {
             auto& m = c.Noise;
-            if (shown(m.Enabled, ICON_FA_TORNADO "  Shovqin (turbulentlik)") &&
-                ModuleHeader("##noiseModule", ICON_FA_TORNADO, "Shovqin (turbulentlik)", &m.Enabled, changed,
-                             "Silliq shovqin maydoni particle'larni burab-silkitib suradi: tutun, olov tillari, sehrli chang, pashshalar", wasOn))
+            if (shown(m.Enabled, Tr(ICON_FA_TORNADO "  Shovqin (turbulentlik)")) &&
+                ModuleHeader("##noiseModule", ICON_FA_TORNADO, Tr("Shovqin (turbulentlik)"), &m.Enabled, changed,
+                             Tr("Silliq shovqin maydoni particle'larni burab-silkitib suradi: tutun, olov tillari, sehrli chang, pashshalar"), wasOn))
             {
                 ImGui::BeginDisabled(!m.Enabled);
                 changed |= UI::PropertyFloat3("Kuch (birlik/s)", m.Strength, 0.02f);
                 if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
                     UI::Tooltip("Har bir o'q bo'ylab eng ko'p tezlik (0 - shu o'q bo'ylab yo'q; 2D o'yinlarda Z = 0)");
-                changed |= UI::PropertyCurve("Kuch (egri)", m.StrengthCurve, 0.0f, 1.0f, "Kuchga umr bo'yi ko'paytiriladi");
+                changed |= UI::PropertyCurve("Kuch (egri)", m.StrengthCurve, 0.0f, 1.0f, Tr("Kuchga umr bo'yi ko'paytiriladi"));
                 if (UI::PropertyFloat("Chastota", m.Frequency, 0.01f, 0.0f, 100.0f))
                 {
                     m.Frequency = std::max(0.0f, m.Frequency);
@@ -661,24 +661,24 @@ namespace Zamin {
         {
             auto& m = c.Collision;
             using Type = PS::CollisionModule::CollisionType;
-            if (shown(m.Enabled, ICON_FA_BASKETBALL "  To'qnashuv") &&
-                ModuleHeader("##collisionModule", ICON_FA_BASKETBALL, "To'qnashuv", &m.Enabled, changed,
-                             "Particle'lar yer tekisligidan yoki fizika colliderlaridan sakraydi: uchqunlar, yomg'ir tomchilari, tushayotgan barglar", wasOn))
+            if (shown(m.Enabled, Tr(ICON_FA_BASKETBALL "  To'qnashuv")) &&
+                ModuleHeader("##collisionModule", ICON_FA_BASKETBALL, Tr("To'qnashuv"), &m.Enabled, changed,
+                             Tr("Particle'lar yer tekisligidan yoki fizika colliderlaridan sakraydi: uchqunlar, yomg'ir tomchilari, tushayotgan barglar"), wasOn))
             {
                 ImGui::BeginDisabled(!m.Enabled);
                 static const char* const types[] = { "Tekislik", "Dunyo (3D fizika)", "Dunyo (2D fizika)" };
                 int type = (int)m.Type;
-                if (PropertyEnum("Turi", type, types, 3, "Tekislik: cheksiz yer tekisligi (arzon, editorda ham ishlaydi); Dunyo: fizika "
-                                                         "colliderlariga nur (raycast) - faqat o'yin / simulyatsiya paytida"))
+                if (PropertyEnum(Tr("Turi"), type, types, 3, Tr("Tekislik: cheksiz yer tekisligi (arzon, editorda ham ishlaydi); Dunyo: fizika "
+                                                         "colliderlariga nur (raycast) - faqat o'yin / simulyatsiya paytida")))
                 {
                     m.Type = (Type)type;
                     changed = true;
                 }
                 if (m.Type == Type::Plane)
                 {
-                    changed |= DrawEntityRefField("Tekislik obyekti", m.PlaneEntity,
-                                                  "Tanlansa: tekislik o'sha obyekt orqali o'tadi, uning lokal Y o'qi - normal (yer, platforma). "
-                                                  "Bo'sh: quyidagi normal va masofa (dunyo koordinatalarida)");
+                    changed |= DrawEntityRefField(Tr("Tekislik obyekti"), m.PlaneEntity,
+                                                  Tr("Tanlansa: tekislik o'sha obyekt orqali o'tadi, uning lokal Y o'qi - normal (yer, platforma). "
+                                                  "Bo'sh: quyidagi normal va masofa (dunyo koordinatalarida)"));
                     if (!m.PlaneEntity)
                     {
                         changed |= UI::PropertyFloat3("Normal", m.PlaneNormal, 0.01f);
@@ -689,9 +689,9 @@ namespace Zamin {
                 }
                 else
                 {
-                    changed |= DrawLayerMask("Qatlamlar", m.CollidesWith, "Faqat shu to'qnashuv qatlamlaridagi colliderlar bilan");
-                    Note(m.Type == Type::World3D ? "3D fizika colliderlari bilan - faqat o'yin / simulyatsiya paytida"
-                                                 : "2D fizika colliderlari bilan - faqat o'yin / simulyatsiya paytida");
+                    changed |= DrawLayerMask(Tr("Qatlamlar"), m.CollidesWith, Tr("Faqat shu to'qnashuv qatlamlaridagi colliderlar bilan"));
+                    Note(m.Type == Type::World3D ? Tr("3D fizika colliderlari bilan - faqat o'yin / simulyatsiya paytida")
+                                                 : Tr("2D fizika colliderlari bilan - faqat o'yin / simulyatsiya paytida"));
                 }
                 changed |= UI::PropertySlider("Sakrash", m.Bounce, 0.0f, 1.0f);
                 if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
@@ -722,10 +722,10 @@ namespace Zamin {
         {
             auto& m = c.SubEmitters;
             using Trigger = PS::SubEmitter::TriggerType;
-            if (shown(m.Enabled, ICON_FA_BURST "  Sub-emitterlar") &&
-                ModuleHeader("##subModule", ICON_FA_BURST, "Sub-emitterlar", &m.Enabled, changed,
-                             "Particle tug'ilganda, o'lganda yoki urilganda boshqa obyektning Particle System'i o'sha joyda yangi particle'lar "
-                             "chiqaradi: mushak (salyut), yomg'ir sachrashi, uchqun izi", wasOn))
+            if (shown(m.Enabled, Tr(ICON_FA_BURST "  Sub-emitterlar")) &&
+                ModuleHeader("##subModule", ICON_FA_BURST, Tr("Sub-emitterlar"), &m.Enabled, changed,
+                             Tr("Particle tug'ilganda, o'lganda yoki urilganda boshqa obyektning Particle System'i o'sha joyda yangi particle'lar "
+                             "chiqaradi: mushak (salyut), yomg'ir sachrashi, uchqun izi"), wasOn))
             {
                 ImGui::BeginDisabled(!m.Enabled);
                 static const char* const triggers[] = { "Tug'ilganda", "O'lganda", "Urilganda", "Umr bo'yi" };
@@ -737,7 +737,7 @@ namespace Zamin {
                     UI::PropertyLabel(std::format("#{}", i + 1).c_str());
                     int trigger = (int)sub.Trigger;
                     ImGui::SetNextItemWidth(std::max(40.0f, ImGui::GetContentRegionAvail().x - ImGui::GetFrameHeight() - ImGui::GetStyle().ItemSpacing.x));
-                    if (ImGui::Combo("##trigger", &trigger, triggers, 4))
+                    if (UI::TrCombo("##trigger", &trigger, triggers, 4))
                     {
                         sub.Trigger = (Trigger)trigger;
                         changed = true;
@@ -750,19 +750,19 @@ namespace Zamin {
                         remove = i;
                     if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
                         UI::Tooltip("Olib tashlash");
-                    changed |= DrawEntityRefField("Shablon", sub.Emitter, "Particle System'i bor obyekt: yangi particle'lar uning sozlamalari bilan "
-                                                                         "(shakli o'sha nuqta atrofida). Odatda o'zi chiqarmaydi (Chiqarish 0)");
+                    changed |= DrawEntityRefField(Tr("Shablon"), sub.Emitter, Tr("Particle System'i bor obyekt: yangi particle'lar uning sozlamalari bilan "
+                                                                         "(shakli o'sha nuqta atrofida). Odatda o'zi chiqarmaydi (Chiqarish 0)"));
                     if (sub.Emitter)
                     {
                         Entity target = m_Context ? m_Context->GetEntityByUUID(sub.Emitter.ID) : Entity();
                         if (target && target == entity)
-                            Note("Tizim o'ziga sub-emitter bo'la olmaydi", true);
+                            Note(Tr("Tizim o'ziga sub-emitter bo'la olmaydi"), true);
                         else if (target && !target.HasComponent<ParticleSystemComponent>())
-                            Note("Bu obyektda Particle System yo'q", true);
+                            Note(Tr("Bu obyektda Particle System yo'q"), true);
                         else if (target && !target.GetComponent<ParticleSystemComponent>().PlayInEditor)
-                            Note("Shablonda \"Editorda ko'rsatish\" o'chiq: editorda ko'rinmaydi");
+                            Note(Tr("Shablonda \"Editorda ko'rsatish\" o'chiq: editorda ko'rinmaydi"));
                     }
-                    if (UI::PropertyInt(sub.Trigger == Trigger::Lifetime ? "Soni (1/s)" : "Soni", sub.Count))
+                    if (UI::PropertyInt(sub.Trigger == Trigger::Lifetime ? Tr("Soni (1/s)") : Tr("Soni"), sub.Count))
                     {
                         sub.Count = std::clamp(sub.Count, 0, 100000);
                         changed = true;
@@ -796,21 +796,21 @@ namespace Zamin {
                 if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
                     UI::Tooltip("Bola obyekt yaratadi (o'zi chiqarmaydigan Particle System bilan) va uni \"O'lganda\" sub-emitter qiladi");
                 if (m.Emitters.empty())
-                    Note("Sub-emitter yo'q: qo'shing va shablon obyektni tanlang");
+                    Note(Tr("Sub-emitter yo'q: qo'shing va shablon obyektni tanlang"));
                 ImGui::EndDisabled();
             }
         }
         {
             auto& m = c.TextureSheet;
-            if (shown(m.Enabled, ICON_FA_FILM "  Tekstura sheet (flipbook)") &&
-                ModuleHeader("##sheetModule", ICON_FA_FILM, "Tekstura sheet (flipbook)", &m.Enabled, changed,
-                             "Tekstura kadrlar to'plami: particle umri davomida (yoki FPS bilan) kadrdan kadrga o'tadi - olov, tutun, portlash", wasOn))
+            if (shown(m.Enabled, Tr(ICON_FA_FILM "  Tekstura sheet (flipbook)")) &&
+                ModuleHeader("##sheetModule", ICON_FA_FILM, Tr("Tekstura sheet (flipbook)"), &m.Enabled, changed,
+                             Tr("Tekstura kadrlar to'plami: particle umri davomida (yoki FPS bilan) kadrdan kadrga o'tadi - olov, tutun, portlash"), wasOn))
             {
                 ImGui::BeginDisabled(!m.Enabled);
                 static const char* const sources[] = { "Panjara (ustun x qator)", "Sprite kadrlari (.zmeta)" };
                 int source = (int)m.Source;
-                if (PropertyEnum("Kadrlar", source, sources, 2, "Panjara: tekstura teng kataklarga bo'linadi (chapdan o'ngga, yuqoridan pastga); "
-                                                                 "Sprite kadrlari: teksturaning Sprite Editor'da kesilgan nomli kadrlari"))
+                if (PropertyEnum(Tr("Kadrlar"), source, sources, 2, Tr("Panjara: tekstura teng kataklarga bo'linadi (chapdan o'ngga, yuqoridan pastga); "
+                                                                 "Sprite kadrlari: teksturaning Sprite Editor'da kesilgan nomli kadrlari")))
                 {
                     m.Source = (PS::TextureSheetModule::FrameSource)source;
                     changed = true;
@@ -827,7 +827,7 @@ namespace Zamin {
                         changed = true;
                     }
                     UI::PropertyLabel("Kadrlar soni", "0 - hamma kataklar; aks holda faqat birinchi N tasi (oxirgi qator to'liq bo'lmasa)");
-                    if (ImGui::DragInt("##count", &m.FrameCount, 0.1f, 0, m.Columns * m.Rows, m.FrameCount == 0 ? "hammasi" : "%d"))
+                    if (ImGui::DragInt("##count", &m.FrameCount, 0.1f, 0, m.Columns * m.Rows, m.FrameCount == 0 ? Tr("hammasi") : "%d"))
                     {
                         m.FrameCount = std::max(0, m.FrameCount);
                         changed = true;
@@ -843,7 +843,7 @@ namespace Zamin {
                     UI::PropertyLabel("Prefiks", "Faqat \"<prefiks>_<raqam>\" nomli kadrlar raqam tartibida (bo'sh - hamma kadrlar)");
                     if (sheet && !sheet->GetSequencePrefixes().empty())
                     {
-                        if (ImGui::BeginCombo("##prefix", m.SpritePrefix.empty() ? "(hamma kadrlar)" : m.SpritePrefix.c_str()))
+                        if (ImGui::BeginCombo("##prefix", m.SpritePrefix.empty() ? Tr("(hamma kadrlar)") : m.SpritePrefix.c_str()))
                         {
                             if (ImGui::Selectable(Tr("(hamma kadrlar)"), m.SpritePrefix.empty())) { m.SpritePrefix.clear(); changed = true; }
                             for (const std::string& prefix : sheet->GetSequencePrefixes())
@@ -855,12 +855,12 @@ namespace Zamin {
                         changed |= ImGui::InputText("##prefix", &m.SpritePrefix);
                     frames = !sheet ? 0 : m.SpritePrefix.empty() ? (int)sheet->Frames.size() : (int)sheet->FindSequence(m.SpritePrefix).size();
                     if (!sheet && !c.TexturePath.empty())
-                        Note("Teksturada sprite kadrlari yo'q (Sprite Editor > Kesish)", true);
+                        Note(Tr("Teksturada sprite kadrlari yo'q (Sprite Editor > Kesish)"), true);
                 }
                 static const char* const modes[] = { "Umr bo'yi", "Kadr tezligi (FPS)" };
                 int mode = (int)m.Mode;
-                if (PropertyEnum("Vaqt", mode, modes, 2, "Umr bo'yi: har particle kadrlardan umri davomida Sikllar marta o'tadi; "
-                                                         "Kadr tezligi: soniyasiga shuncha kadr (umridan qat'i nazar)"))
+                if (PropertyEnum(Tr("Vaqt"), mode, modes, 2, Tr("Umr bo'yi: har particle kadrlardan umri davomida Sikllar marta o'tadi; "
+                                                         "Kadr tezligi: soniyasiga shuncha kadr (umridan qat'i nazar)")))
                 {
                     m.Mode = (PS::TextureSheetModule::TimeMode)mode;
                     changed = true;
@@ -879,9 +879,9 @@ namespace Zamin {
                 if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
                     UI::Tooltip("Har bir particle tasodifiy kadrdan boshlaydi (bir xil ko'rinmasligi uchun)");
                 if (c.TexturePath.empty())
-                    Note("Tekstura tanlanmagan (Ko'rinish > Tekstura)", true);
+                    Note(Tr("Tekstura tanlanmagan (Ko'rinish > Tekstura)"), true);
                 else
-                    Note(std::format("{} ta kadr", frames).c_str());
+                    Note(TrFormat("{} ta kadr", frames).c_str());
                 ImGui::EndDisabled();
             }
         }
@@ -889,7 +889,7 @@ namespace Zamin {
             auto& m = c.Trails;
             if (shown(m.Enabled, ICON_FA_METEOR "  Iz (trail)") &&
                 ModuleHeader("##trailsModule", ICON_FA_METEOR, "Iz (trail)", &m.Enabled, changed,
-                             "Particle orqasida kameraga qaragan lenta - u yaqinda o'tgan joylar orqali: kometalar, mushak raketalari, sehrli chiziqlar", wasOn))
+                             Tr("Particle orqasida kameraga qaragan lenta - u yaqinda o'tgan joylar orqali: kometalar, mushak raketalari, sehrli chiziqlar"), wasOn))
             {
                 ImGui::BeginDisabled(!m.Enabled);
                 changed |= UI::PropertySlider("Ulushi", m.Ratio, 0.0f, 1.0f);
@@ -922,22 +922,22 @@ namespace Zamin {
                 changed |= UI::PropertyBool("O'lchamga ko'paytirish", m.WidthFromSize);
                 if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
                     UI::Tooltip("Kenglik = particle o'lchami x Kenglik (o'chiq: Kenglik birliklarda)");
-                changed |= UI::PropertyCurve("Kenglik (egri)", m.WidthCurve, 0.0f, 1.0f, "Chap - particle yonida, o'ng - izning oxirida");
-                changed |= UI::PropertyGradient("Rang", m.Gradient, "Chap - particle yonida, o'ng - izning oxirida. Alfa - shaffoflik");
+                changed |= UI::PropertyCurve("Kenglik (egri)", m.WidthCurve, 0.0f, 1.0f, Tr("Chap - particle yonida, o'ng - izning oxirida"));
+                changed |= UI::PropertyGradient("Rang", m.Gradient, Tr("Chap - particle yonida, o'ng - izning oxirida. Alfa - shaffoflik"));
                 changed |= UI::PropertyBool("Particle rangida", m.InheritColor);
                 if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
                     UI::Tooltip("Iz rangi particle'ning hozirgi rangiga ko'paytiriladi");
                 if (c.TrailPool.Capacity > 0)
-                    Note(std::format("{} ta iz", c.TrailPool.GetUsedCount()).c_str());
+                    Note(TrFormat("{} ta iz", c.TrailPool.GetUsedCount()).c_str());
                 ImGui::EndDisabled();
             }
         }
 
         // ---- renderer
-        if (shown(c.RendererEnabled, ICON_FA_EYE "  Chizish (renderer)") &&
-            ModuleHeader("##rendererModule", ICON_FA_EYE, "Chizish (renderer)", &c.RendererEnabled, changed,
-                         "Particle'lar qanday chiziladi: shakl, aralashtirish, kameraga qarash, cho'zish, saralash, tekstura. "
-                         "O'chiq: simulyatsiya qilinadi, lekin ko'rinmaydi (faqat sub-emitterlarni olib yuradigan raketa)", wasOn, true))
+        if (shown(c.RendererEnabled, Tr(ICON_FA_EYE "  Chizish (renderer)")) &&
+            ModuleHeader("##rendererModule", ICON_FA_EYE, Tr("Chizish (renderer)"), &c.RendererEnabled, changed,
+                         Tr("Particle'lar qanday chiziladi: shakl, aralashtirish, kameraga qarash, cho'zish, saralash, tekstura. "
+                         "O'chiq: simulyatsiya qilinadi, lekin ko'rinmaydi (faqat sub-emitterlarni olib yuradigan raketa)"), wasOn, true))
         {
             ImGui::BeginDisabled(!c.RendererEnabled);
             changed |= UI::PropertyBool("Doira shaklida", c.RenderAsCircle);
@@ -972,9 +972,9 @@ namespace Zamin {
             {
                 static const char* const sorts[] = { "Avto", "Yo'q (tug'ilish tartibi)", "Masofa (orqadan oldinga)", "Eskisi ustida", "Yangisi ustida" };
                 int sort = (int)c.Sorting;
-                if (PropertyEnum("Saralash", sort, sorts, 5, "Qaysi particle ustida chiziladi. Avto: shaffof (additive emas) tizimlar kameradan "
+                if (PropertyEnum(Tr("Saralash"), sort, sorts, 5, Tr("Qaysi particle ustida chiziladi. Avto: shaffof (additive emas) tizimlar kameradan "
                                                              "uzoqlik bo'yicha orqadan oldinga - yaqindagisi uzoqdagisini to'g'ri yopadi; "
-                                                             "additive'lar tartibsiz (yorug'lik qo'shiladi, tartib ahamiyatsiz)"))
+                                                             "additive'lar tartibsiz (yorug'lik qo'shiladi, tartib ahamiyatsiz)")))
                 {
                     c.Sorting = (PS::SortMode)sort;
                     changed = true;
@@ -992,7 +992,7 @@ namespace Zamin {
             if (ImGui::Button(Tr(ICON_FA_PLUS "  Modul qo'shish")))
                 ImGui::OpenPopup("##addParticleModule");
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-                UI::Tooltip(std::format("{} ta o'chiq modul yashirilgan: tanlangani yoqiladi", hiddenModules.size()).c_str());
+                UI::Tooltip(TrFormat("{} ta o'chiq modul yashirilgan: tanlangani yoqiladi", hiddenModules.size()).c_str());
             if (ImGui::BeginPopup("##addParticleModule"))
             {
                 for (auto& [title, enabled] : hiddenModules)
@@ -1031,10 +1031,10 @@ namespace Zamin {
         int remove = -1;
         if (ImGui::BeginTable("##bursts", 6, flags))
         {
-            ImGui::TableSetupColumn("Vaqt", ImGuiTableColumnFlags_WidthStretch, 1.0f);
-            ImGui::TableSetupColumn("Soni", ImGuiTableColumnFlags_WidthStretch, 0.9f);
-            ImGui::TableSetupColumn("Sikl", ImGuiTableColumnFlags_WidthStretch, 0.7f);
-            ImGui::TableSetupColumn("Oraliq", ImGuiTableColumnFlags_WidthStretch, 1.0f);
+            ImGui::TableSetupColumn(Tr("Vaqt"), ImGuiTableColumnFlags_WidthStretch, 1.0f);
+            ImGui::TableSetupColumn(Tr("Soni"), ImGuiTableColumnFlags_WidthStretch, 0.9f);
+            ImGui::TableSetupColumn(Tr("Sikl"), ImGuiTableColumnFlags_WidthStretch, 0.7f);
+            ImGui::TableSetupColumn(Tr("Oraliq"), ImGuiTableColumnFlags_WidthStretch, 1.0f);
             ImGui::TableSetupColumn("%", ImGuiTableColumnFlags_WidthStretch, 0.8f);
             ImGui::TableSetupColumn("##remove", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFrameHeight());
             ImGui::TableHeadersRow();
@@ -1153,7 +1153,7 @@ namespace Zamin {
     bool SceneHierarchyPanel::DrawParticlePresetItems(Entity entity)
     {
         bool chosen = false;
-        const char* replaces = entity ? "\nObyektning hozirgi sozlamalari almashtiriladi (Ctrl+Z - bekor qilish)" : "";
+        const char* replaces = entity ? Tr("\nObyektning hozirgi sozlamalari almashtiriladi (Ctrl+Z - bekor qilish)") : "";
         ImGui::SeparatorText(Tr("Tayyor effektlar"));
         for (const auto& info : ParticlePresets::GetBuiltins())
         {
@@ -1174,7 +1174,7 @@ namespace Zamin {
                 files.push_back(meta->RelativePath);
         std::sort(files.begin(), files.end());
         if (files.empty())
-            ImGui::TextDisabled("Hali yo'q: " ICON_FA_FLOPPY_DISK " bilan saqlang");
+            ImGui::TextDisabled("%s", Tr("Hali yo'q: " ICON_FA_FLOPPY_DISK " bilan saqlang"));
         for (const std::string& file : files)
         {
             std::string label = std::format(ICON_FA_SWATCHBOOK "  {}##{}", std::filesystem::path(file).stem().string(), file);

@@ -78,7 +78,7 @@ namespace Zamin {
                         "yetib boriladigan assetlar ishlatilgan hisoblanadi: hech qayerdan ochilmaydigan sahna va faqat u\n"
                         "ishlatadigan assetlar ham ro'yxatga tushadi.");
         ImGui::SameLine();
-        std::string filterLabel = m_Filter.IsActive() ? std::format(ICON_FA_FILTER "  Turi ({})", m_Filter.Count()) : std::string(ICON_FA_FILTER "  Turi");
+        std::string filterLabel = m_Filter.IsActive() ? TrFormat(ICON_FA_FILTER "  Turi ({})", m_Filter.Count()) : std::string(Tr(ICON_FA_FILTER "  Turi"));
         if (ImGui::Button(filterLabel.c_str()))
             ImGui::OpenPopup("##unusedFilter");
         if (ImGui::BeginPopup("##unusedFilter"))
@@ -88,7 +88,7 @@ namespace Zamin {
                 if (!AssetTypes::IsRegistered(type))
                     continue;
                 bool on = m_Filter.Has(type);
-                if (ImGui::Checkbox(AssetFiles::GetTypeName(type), &on))
+                if (ImGui::Checkbox(Tr(AssetFiles::GetTypeName(type)), &on))
                     m_Filter.Set(type, on);
             }
             ImGui::Separator();
@@ -101,17 +101,17 @@ namespace Zamin {
         ImGui::InputTextWithHint("##unusedSearch", Tr(ICON_FA_MAGNIFYING_GLASS "  Qidirish (yo'l)"), &m_Search);
 
         if (m_Usage && m_Usage->IsDirty())
-            ImGui::TextDisabled(ICON_FA_ARROWS_ROTATE "  Yangilanmoqda...");
+            ImGui::TextDisabled("%s", Tr(ICON_FA_ARROWS_ROTATE "  Yangilanmoqda..."));
         else if (m_Unused.empty())
-            ImGui::TextColored(ImVec4(0.5f, 0.85f, 0.6f, 1.0f), ICON_FA_CIRCLE_CHECK "  Hamma assetlar ishlatilmoqda (%zu ta asset, %zu ta fayl tekshirildi)",
+            ImGui::TextColored(ImVec4(0.5f, 0.85f, 0.6f, 1.0f), Tr(ICON_FA_CIRCLE_CHECK "  Hamma assetlar ishlatilmoqda (%zu ta asset, %zu ta fayl tekshirildi)"),
                                m_AssetCount, m_ScannedFiles);
         else
-            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.35f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  %zu ta asset ishlatilmayapti, jami %s",
+            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.35f, 1.0f), Tr(ICON_FA_TRIANGLE_EXCLAMATION "  %zu ta asset ishlatilmayapti, jami %s"),
                                m_Unused.size(), AssetFiles::FormatSize(m_TotalSize).c_str());
         if (!m_Unused.empty())
         {
             ImGui::SameLine();
-            ImGui::TextDisabled("(%zu ta asset, %zu ta fayl tekshirildi)", m_AssetCount, m_ScannedFiles);
+            ImGui::TextDisabled(Tr("(%zu ta asset, %zu ta fayl tekshirildi)"), m_AssetCount, m_ScannedFiles);
         }
     }
 
@@ -125,7 +125,7 @@ namespace Zamin {
             return;
         if (shown.empty())
         {
-            ImGui::TextDisabled("Filtrga mos asset yo'q");
+            ImGui::TextDisabled("%s", Tr("Filtrga mos asset yo'q"));
             return;
         }
         ImGuiTableFlags flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_Resizable |
@@ -135,9 +135,9 @@ namespace Zamin {
             return;
         ImGui::TableSetupScrollFreeze(0, 1);
         ImGui::TableSetupColumn("##check", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFrameHeight());
-        ImGui::TableSetupColumn("Nomi", ImGuiTableColumnFlags_WidthStretch, 2.0f);
-        ImGui::TableSetupColumn("Hajm", ImGuiTableColumnFlags_WidthStretch, 0.6f);
-        ImGui::TableSetupColumn("Papka", ImGuiTableColumnFlags_WidthStretch, 1.4f);
+        ImGui::TableSetupColumn(Tr("Nomi"), ImGuiTableColumnFlags_WidthStretch, 2.0f);
+        ImGui::TableSetupColumn(Tr("Hajm"), ImGuiTableColumnFlags_WidthStretch, 0.6f);
+        ImGui::TableSetupColumn(Tr("Papka"), ImGuiTableColumnFlags_WidthStretch, 1.4f);
         ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
         ImGui::TableSetColumnIndex(0);
         bool all = std::all_of(shown.begin(), shown.end(), [&](const UnusedAsset* u) { return m_Checked.count(u->Path) > 0; });
@@ -178,7 +178,7 @@ namespace Zamin {
                         OnAssetSelected(Project::GetAssetFileSystemPath(u.Path));
                 }
                 if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))
-                    UI::Tooltip(std::format("{}\n{}  -  {}", u.Path, AssetFiles::GetTypeName(u.Type), AssetFiles::FormatSize(u.Size)).c_str());
+                    UI::Tooltip(std::format("{}\n{}  -  {}", u.Path, Tr(AssetFiles::GetTypeName(u.Type)), AssetFiles::FormatSize(u.Size)).c_str());
                 if (ImGui::BeginPopupContextItem("##row"))
                 {
                     if (ImGui::MenuItem(Tr(ICON_FA_FOLDER_OPEN "  Kontent brauzerda ko'rsatish")) && OnAssetSelected)
@@ -203,7 +203,7 @@ namespace Zamin {
         ImGui::EndTable();
 
         ImGui::BeginDisabled(m_Checked.empty());
-        std::string label = std::format(ICON_FA_TRASH "  Belgilanganlarni o'chirish ({})", m_Checked.size());
+        std::string label = TrFormat(ICON_FA_TRASH "  Belgilanganlarni o'chirish ({})", m_Checked.size());
         if (ImGui::Button(label.c_str()))
         {
             m_PendingDelete.clear();
@@ -260,23 +260,23 @@ namespace Zamin {
         if (!ImGui::BeginPopupModal(Tr(ICON_FA_TRASH "  Ishlatilmagan assetlarni o'chirish###DeleteUnused"), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
             return;
         if (m_PendingDelete.size() == 1)
-            ImGui::Text(ICON_FA_TRIANGLE_EXCLAMATION "  '%s' o'chirilsinmi?", m_PendingDelete.front().c_str());
+            ImGui::Text(Tr(ICON_FA_TRIANGLE_EXCLAMATION "  '%s' o'chirilsinmi?"), m_PendingDelete.front().c_str());
         else
-            ImGui::Text(ICON_FA_TRIANGLE_EXCLAMATION "  %zu ta asset o'chirilsinmi?", m_PendingDelete.size());
+            ImGui::Text(Tr(ICON_FA_TRIANGLE_EXCLAMATION "  %zu ta asset o'chirilsinmi?"), m_PendingDelete.size());
         for (size_t i = 0; i < m_PendingDelete.size() && i < 10 && m_PendingDelete.size() > 1; i++)
             ImGui::BulletText("%s", m_PendingDelete[i].c_str());
         if (m_PendingDelete.size() > 10)
-            ImGui::TextDisabled("... va yana %zu ta", m_PendingDelete.size() - 10);
+            ImGui::TextDisabled(Tr("... va yana %zu ta"), m_PendingDelete.size() - 10);
         bool reveal = false;
         fs::path clicked;
         if (!m_DeleteUses.empty())
         {
             ImGui::Spacing();
-            ImGui::TextColored(ImVec4(0.95f, 0.72f, 0.35f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  %zu tasi hali ham boshqa fayllarda tilga olingan "
-                               "(ishlatilmaydigan sahna / prefablarda):", m_DeleteUses.size());
+            ImGui::TextColored(ImVec4(0.95f, 0.72f, 0.35f, 1.0f), Tr(ICON_FA_TRIANGLE_EXCLAMATION "  %zu tasi hali ham boshqa fayllarda tilga olingan "
+                               "(ishlatilmaydigan sahna / prefablarda):"), m_DeleteUses.size());
             reveal = ContentBrowserPanel::DrawAssetsInUse(m_DeleteUses, &clicked);
         }
-        ImGui::TextDisabled("Fayllar .zmeta bilan birga o'chadi. Bu amalni qaytarib bo'lmaydi.");
+        ImGui::TextDisabled("%s", Tr("Fayllar .zmeta bilan birga o'chadi. Bu amalni qaytarib bo'lmaydi."));
         ImGui::Spacing();
         if (ImGui::Button(Tr(ICON_FA_TRASH "  O'chirish"), ImVec2(140, 0)))
         {
@@ -330,7 +330,7 @@ namespace Zamin {
         }
         if (!Project::GetActive() || !m_Usage)
         {
-            ImGui::TextDisabled("Loyiha ochilmagan");
+            ImGui::TextDisabled("%s", Tr("Loyiha ochilmagan"));
             ImGui::End();
             return;
         }

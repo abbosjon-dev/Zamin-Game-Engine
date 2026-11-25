@@ -385,7 +385,7 @@ public:
                 DebugDraw::Text(hits[i].Point + glm::vec3(0.0f, 0.3f, 0.0f), std::to_string(i + 1), DebugColor::Yellow);
             }
         }
-        DebugDraw::Text(origin + glm::vec3(0.0f, 0.9f, 0.0f), std::format("SphereCast3DAll: {} ta", hits.size()), DebugColor::Cyan);
+        DebugDraw::Text(origin + glm::vec3(0.0f, 0.9f, 0.0f), std::format("SphereCast3DAll: {}", hits.size()), DebugColor::Cyan);
     }
 };
 ZM_REGISTER_SCRIPT(SphereSweep3D, ZM_FIELD(SphereSweep3D, Radius), ZM_FIELD(SphereSweep3D, Range), ZM_FIELD(SphereSweep3D, Spread),
@@ -434,7 +434,7 @@ public:
         m_Lit = std::move(still);
         if (!DebugDraw::IsShowingRaycasts())
             DebugDraw::WireSphere(center, Radius, found.empty() ? DebugColor::Red : DebugColor::Green, 0.0f, false);
-        DebugDraw::Text(center + glm::vec3(0.0f, Radius + 0.3f, 0.0f), std::format("OverlapSphere3D: {} ta", found.size()), DebugColor::Cyan);
+        DebugDraw::Text(center + glm::vec3(0.0f, Radius + 0.3f, 0.0f), std::format("OverlapSphere3D: {}", found.size()), DebugColor::Cyan);
     }
 
 private:
@@ -468,7 +468,7 @@ public:
                 DebugDraw::Text(hits[i].Point + glm::vec3(0.0f, 0.35f, 0.0f), std::to_string(i + 1), DebugColor::Yellow);
             }
         }
-        DebugDraw::Text(origin + glm::vec3(0.0f, 0.7f, 0.0f), std::format("Raycast3DAll: {} ta", hits.size()), DebugColor::Cyan);
+        DebugDraw::Text(origin + glm::vec3(0.0f, 0.7f, 0.0f), std::format("Raycast3DAll: {}", hits.size()), DebugColor::Cyan);
     }
 };
 ZM_REGISTER_SCRIPT(LaserAll3D, ZM_FIELD(LaserAll3D, Range))
@@ -501,7 +501,7 @@ public:
         const auto* rb = TryGetComponent<Rigidbody3DComponent>();
         const bool continuous = rb && rb->ContinuousCollision;
         DebugDraw::Text(m_Start + glm::vec3(0.0f, 0.9f, 0.0f),
-                        std::format("{}\nO'tib ketdi: {}   To'xtadi: {}", continuous ? "CCD yoqiq" : "CCD o'chiq", m_Through, m_Stopped),
+                        std::format("{}\nPassed through: {}   Stopped: {}", continuous ? "CCD on" : "CCD off", m_Through, m_Stopped),
                         continuous ? DebugColor::Green : DebugColor::Orange);
     }
 
@@ -637,7 +637,7 @@ public:
         const glm::vec3 at = GetWorldPosition();
         if (Radius > 0.0f)
             DebugDraw::WireSphere(at, Radius, lit ? Glow : DebugColor::Gray, 0.0f, false);
-        std::string text = std::format("{}\nIchida: {}", Title, m_Inside.size());
+        std::string text = std::format("{}\nInside: {}", Title, m_Inside.size());
         for (const auto& [id, name] : m_Inside)
             text += "\n" + name;
         DebugDraw::Text(at + LabelOffset, text, lit ? Glow : DebugColor::White);
@@ -818,7 +818,7 @@ public:
             Apply();
         auto mark = [](bool on) { return on ? "[x]" : "[ ]"; };
         DebugDraw::Text(GetWorldPosition(),
-                        std::format("{} C - kontaktlar   {} J - joint'lar   {} V - qiymatlar", mark(Contacts), mark(Joints), mark(Values)),
+                        std::format("{} C - contacts   {} J - joints   {} V - values", mark(Contacts), mark(Joints), mark(Values)),
                         glm::vec4(0.9f, 0.95f, 1.0f, 1.0f));
     }
 
@@ -900,12 +900,12 @@ public:
         }
 
         std::string music = Audio::GetMusic();
-        std::string state = music.empty() ? std::string("yo'q") : music.substr(music.find_last_of('/') + 1);
+        std::string state = music.empty() ? std::string("none") : music.substr(music.find_last_of('/') + 1);
         if (Audio::IsMusicPaused())
-            state += " (pauza)";
+            state += " (paused)";
         if (Audio::IsGroupMuted("Music"))
             state += " [Music: mute]";
-        DebugDraw::Text(GetWorldPosition(), std::format("Musiqa: {}   |   1 / 2 - trek, M - mute, P - pauza, S - to'xtatish", state),
+        DebugDraw::Text(GetWorldPosition(), std::format("Music: {}   |   1 / 2 - track, M - mute, P - pause, S - stop", state),
                         glm::vec4(0.9f, 0.95f, 1.0f, 1.0f));
     }
 
@@ -1008,16 +1008,16 @@ public:
 
         SoundInfo info;
         std::string last = AudioEngine::GetSoundInfo(m_Last, info)
-                               ? std::format("ton x{:.2f}, balandlik x{:.2f}", info.PitchVariation, info.VolumeVariation)
+                               ? std::format("pitch x{:.2f}, volume x{:.2f}", info.PitchVariation, info.VolumeVariation)
                                : std::string("-");
         std::string humState = !hum                  ? std::string("-")
-                               : IsAudioPaused(hum)  ? std::format("pauza ({:.1f} s)", GetAudioTime(hum))
+                               : IsAudioPaused(hum)  ? std::format("paused ({:.1f} s)", GetAudioTime(hum))
                                : IsAudioPlaying(hum) ? std::format("{:.1f} s", GetAudioTime(hum))
-                                                     : std::string("jim");
-        DebugDraw::Text(GetWorldPosition() + glm::vec3(0.0f, 1.45f, 0.0f), std::format("Qo'ng'iroqcha: {}", last),
+                                                     : std::string("silent");
+        DebugDraw::Text(GetWorldPosition() + glm::vec3(0.0f, 1.45f, 0.0f), std::format("Chime: {}", last),
                         glm::vec4(1.0f, 0.9f, 0.55f, 1.0f));
         DebugDraw::Text(GetWorldPosition() + glm::vec3(0.0f, 0.9f, 0.0f),
-                        std::format("bir vaqtda {}/{}   H - g'uvillash: {}", m_Handles.size(), MaxAtOnce, humState),
+                        std::format("at once {}/{}   H - hum: {}", m_Handles.size(), MaxAtOnce, humState),
                         glm::vec4(0.75f, 0.9f, 1.0f, 1.0f));
     }
 
@@ -1075,15 +1075,15 @@ public:
         }
 
         const auto* audio = GetEntity().TryGetComponent<AudioSourceComponent>();
-        std::string state = IsAudioPlaying() ? std::format("ijro, so'nish {:.0f}%", GetAudioFade() * 100.0f) : std::string("o'chiq");
-        std::string filter = !audio || !audio->Filter.IsActive() ? std::string("yo'q")
+        std::string state = IsAudioPlaying() ? std::format("playing, fade {:.0f}%", GetAudioFade() * 100.0f) : std::string("off");
+        std::string filter = !audio || !audio->Filter.IsActive() ? std::string("none")
                            : std::format("high-pass {:.0f} Hz + low-pass {:.1f} kHz", audio->Filter.GetHighPass(), audio->Filter.GetLowPass() / 1000.0f);
         // High enough above the radio that the drone's label flying past below stays readable, and a
         // little to the right, clear of the wind chimes' labels.
         const glm::vec3 label = GetWorldPosition() + glm::vec3(0.9f, 0.0f, 0.0f);
-        DebugDraw::Text(label + glm::vec3(0.0f, 1.95f, 0.0f), std::format("Radio: {}   (R - yoqish / o'chirish)", state),
+        DebugDraw::Text(label + glm::vec3(0.0f, 1.95f, 0.0f), std::format("Radio: {}   (R - on / off)", state),
                         glm::vec4(1.0f, 0.85f, 0.5f, 1.0f));
-        DebugDraw::Text(label + glm::vec3(0.0f, 1.6f, 0.0f), std::format("Filtr: {}   (T - filtr, G - pasaytirish)", filter),
+        DebugDraw::Text(label + glm::vec3(0.0f, 1.6f, 0.0f), std::format("Filter: {}   (T - filter, G - lower)", filter),
                         glm::vec4(0.6f, 0.85f, 1.0f, 1.0f));
     }
 
@@ -1122,8 +1122,8 @@ public:
             Apply(inside);
         }
         AudioFilterSettings sfx = Audio::GetGroupFilter("SFX");
-        std::string text = m_Inside ? std::format("Suv ostida: SFX low-pass {:.0f} Hz, Music {:.0f} Hz", sfx.GetLowPass(), MusicCutoff)
-                                    : std::string("Suv havzasi: tinglovchi kirsa ovozlar bo'g'iladi");
+        std::string text = m_Inside ? std::format("Under water: SFX low-pass {:.0f} Hz, Music {:.0f} Hz", sfx.GetLowPass(), MusicCutoff)
+                                    : std::string("Pool: sounds are muffled when the listener goes in");
         DebugDraw::Text(center + glm::vec3(0.0f, half.y + 0.35f, 0.0f), text,
                         m_Inside ? glm::vec4(0.45f, 0.8f, 1.0f, 1.0f) : glm::vec4(0.75f, 0.85f, 0.95f, 1.0f));
     }
@@ -1161,12 +1161,12 @@ public:
     {
         if (sound.Stolen)
         {
-            m_Status = "limit to'xtatdi";
+            m_Status = "stopped by the limit";
             Invoke(Pause, [this]() { PlayAudio(); });
             return;
         }
         m_Count++;
-        m_Status = std::format("e'lon #{} tugadi", m_Count);
+        m_Status = std::format("announcement #{} finished", m_Count);
         m_NextAt = m_Clock + Pause;
         Invoke(Pause, [this]() { PlayAudio(); });
     }
@@ -1174,24 +1174,24 @@ public:
     void OnUpdate(Timestep ts) override
     {
         m_Clock += ts;
-        std::string state = IsAudioPlaying() ? std::format("e'lon #{} ({:.1f} s)", m_Count + 1, GetAudioTime())
-                          : m_Count > 0       ? std::format("{}, keyingisi {:.1f} s dan keyin", m_Status, std::max(0.0f, m_NextAt - m_Clock))
+        std::string state = IsAudioPlaying() ? std::format("announcement #{} ({:.1f} s)", m_Count + 1, GetAudioTime())
+                          : m_Count > 0       ? std::format("{}, next in {:.1f} s", m_Status, std::max(0.0f, m_NextAt - m_Clock))
                                               : m_Status;
-        DebugDraw::Text(GetWorldPosition() + glm::vec3(0.0f, 0.75f, 0.0f), std::format("Karnay: {}   (OnSoundFinished)", state),
+        DebugDraw::Text(GetWorldPosition() + glm::vec3(0.0f, 0.75f, 0.0f), std::format("Loudspeaker: {}   (OnSoundFinished)", state),
                         glm::vec4(1.0f, 0.78f, 0.45f, 1.0f));
         const auto* audio = GetEntity().TryGetComponent<AudioSourceComponent>();
         SoundInfo info;
         if (audio && GetEntity().GetScene()->GetAudioInfo(GetEntity(), info) && info.Cone.IsActive())
             DebugDraw::Text(GetWorldPosition() + glm::vec3(0.0f, 0.45f, 0.0f),
-                            std::format("Yo'nalish konusi: x{:.2f} ({})", info.ConeGain,
-                                        info.ConeGain >= 0.999f ? "oldida" : info.ConeGain <= audio->Cone.OuterGain + 1e-3f ? "orqasida" : "yonida"),
+                            std::format("Direction cone: x{:.2f} ({})", info.ConeGain,
+                                        info.ConeGain >= 0.999f ? "in front" : info.ConeGain <= audio->Cone.OuterGain + 1e-3f ? "behind" : "beside"),
                             glm::vec4(1.0f, 0.65f, 0.35f, 1.0f));
     }
 
 private:
     int m_Count = 0;
     float m_Clock = 0.0f, m_NextAt = 0.0f;
-    std::string m_Status = "kutmoqda";
+    std::string m_Status = "waiting";
 };
 ZM_REGISTER_SCRIPT(PaAnnouncer, ZM_FIELD_RANGE(PaAnnouncer, Pause, 0.0f, 30.0f).Tooltip("E'lonlar orasidagi tanaffus, sekund"))
 
@@ -1200,7 +1200,7 @@ ZM_REGISTER_SCRIPT(PaAnnouncer, ZM_FIELD_RANGE(PaAnnouncer, Pause, 0.0f, 30.0f).
 class AmbientZoneLabel : public ScriptableEntity
 {
 public:
-    std::string Title = "O'rmon (Ambient Zone)";
+    std::string Title = "Forest (Ambient Zone)";
     float LabelHeight = 1.3f;
 
     void OnUpdate(Timestep) override
@@ -1208,9 +1208,9 @@ public:
         const auto* zone = GetEntity().TryGetComponent<AmbientZoneComponent>();
         if (!zone)
             return;
-        std::string state = zone->Target >= 1.0f ? std::string("ichida")
-                          : zone->Target > 0.0f  ? std::format("chetdan {:.1f} m", zone->Distance)
-                                                 : std::string("uzoqda");
+        std::string state = zone->Target >= 1.0f ? std::string("inside")
+                          : zone->Target > 0.0f  ? std::format("{:.1f} m from the edge", zone->Distance)
+                                                 : std::string("far away");
         float top = zone->Shape == AmbientZoneComponent::ZoneShape::Box ? zone->Size.y * 0.5f : zone->Radius;
         DebugDraw::Text(GetWorldPosition() + glm::vec3(0.0f, top + LabelHeight, 0.0f),
                         std::format("{}: {:.0f}%  ({})", Title, GetEntity().GetScene()->GetAmbientZoneLevel(GetEntity()) * 100.0f, state),
@@ -1239,17 +1239,17 @@ public:
         if (Input::IsKeyJustPressed(Key::N))
             Audio::SetGroupMuted("SFX", !Audio::IsGroupMuted("SFX"));
         if (Input::IsKeyJustPressed(Key::D9))
-            m_Status = Audio::SaveSettings() ? "saqlandi" : "saqlanmadi";
+            m_Status = Audio::SaveSettings() ? "saved" : "not saved";
         if (Input::IsKeyJustPressed(Key::D0))
         {
             Audio::ClearSavedSettings();
-            m_Status = "o'chirildi (loyiha standarti)";
+            m_Status = "cleared (project default)";
         }
         float music = Audio::GetGroupVolume("Music");
-        std::string musicText = music <= 0.0f ? std::string("jim") : std::format("{:+.1f} dB", AudioGain::ToDecibels(music));
-        std::string saved = !m_Status.empty() ? m_Status : Audio::HasSavedSettings() ? std::string("bor") : std::string("yo'q");
+        std::string musicText = music <= 0.0f ? std::string("silent") : std::format("{:+.1f} dB", AudioGain::ToDecibels(music));
+        std::string saved = !m_Status.empty() ? m_Status : Audio::HasSavedSettings() ? std::string("yes") : std::string("none");
         DebugDraw::Text(GetWorldPosition(),
-                        std::format("Sozlamalar: Music {}{}   |   - / = balandlik, N - SFX mute, 9 - saqlash, 0 - tozalash   |   saqlangan: {}",
+                        std::format("Settings: Music {}{}   |   - / = volume, N - SFX mute, 9 - save, 0 - clear   |   saved: {}",
                                     musicText, Audio::IsGroupMuted("SFX") ? ", SFX: mute" : "", saved),
                         glm::vec4(0.8f, 1.0f, 0.75f, 1.0f));
     }
@@ -1264,7 +1264,7 @@ ZM_REGISTER_SCRIPT(AudioOptions)
 class AnimationEventDemo : public ScriptableEntity
 {
 public:
-    std::string Title = "Animatsiya";
+    std::string Title = "Animation";
     float Height = 3.4f; // the labels above the entity
 
     void OnCreate() override
@@ -1285,7 +1285,7 @@ public:
         if (m_Last.empty())
             return;
         const glm::vec4 color = glm::mix(glm::vec4(0.7f, 0.75f, 0.82f, 1.0f), glm::vec4(1.0f, 0.82f, 0.3f, 1.0f), m_Flash);
-        std::string text = std::format("event: {}  (jami {})", m_Last, m_Count);
+        std::string text = std::format("event: {}  ({} total)", m_Last, m_Count);
         if (m_Pulses > 0)
             text += std::format(", Pulse: {}", m_Pulses);
         DebugDraw::Text(p + glm::vec3(0.0f, Height, 0.0f), text, color);
@@ -1335,9 +1335,9 @@ public:
         DebugDraw::Text(p + glm::vec3(0.0f, Height + 0.35f, 0.0f), Title, glm::vec4(0.85f, 0.88f, 0.95f, 1.0f));
         std::string line = std::format("{}: {:.2f}", Parameter, value);
         if (anim->UsesStateMachine())
-            line += std::format("   holat: {}", anim->GetCurrentStateName());
+            line += std::format("   state: {}", anim->GetCurrentStateName());
         if (anim->IsFading())
-            line += std::format("  (o'tish {:.0f}%)", anim->GetFadeProgress() * 100.0f);
+            line += std::format("  (transition {:.0f}%)", anim->GetFadeProgress() * 100.0f);
         DebugDraw::Text(p + glm::vec3(0.0f, Height, 0.0f), line, glm::vec4(1.0f, 0.82f, 0.3f, 1.0f));
         // A blend tree's weights / the layers' weights.
         std::string weights;
@@ -1345,7 +1345,7 @@ public:
             for (size_t i = 0; i < tree->Motions.size(); i++)
                 weights += std::format("{}{} {:.2f}", i ? "   " : "", tree->Motions[i].Clip, anim->BlendWeights[i]);
         for (const AnimatorLayer& l : anim->Layers)
-            weights += std::format("{}qatlam {}: {:.2f}", weights.empty() ? "" : "   ", l.Name, l.EffectiveWeight);
+            weights += std::format("{}layer {}: {:.2f}", weights.empty() ? "" : "   ", l.Name, l.EffectiveWeight);
         if (!weights.empty())
             DebugDraw::Text(p + glm::vec3(0.0f, Height - 0.35f, 0.0f), weights, glm::vec4(0.6f, 0.78f, 1.0f, 1.0f));
     }
@@ -1380,7 +1380,7 @@ public:
         for (uint32_t i = 0; i < mr->GetMorphTargetCount(); i++)
             line += std::format("{}{} {:.2f}", i ? "   " : "", mr->ModelAsset->GetMorphTargetName(i), mr->GetMorphWeight(i));
         const glm::vec3 p = GetWorldPosition();
-        DebugDraw::Text(p + glm::vec3(0.0f, Height + 0.35f, 0.0f), "Blend shape'lar: skript (SetMorphWeight)", glm::vec4(0.85f, 0.88f, 0.95f, 1.0f));
+        DebugDraw::Text(p + glm::vec3(0.0f, Height + 0.35f, 0.0f), "Blend shapes: script (SetMorphWeight)", glm::vec4(0.85f, 0.88f, 0.95f, 1.0f));
         DebugDraw::Text(p + glm::vec3(0.0f, Height, 0.0f), line, glm::vec4(1.0f, 0.6f, 0.8f, 1.0f));
     }
 
@@ -1418,13 +1418,13 @@ public:
     {
         const Scene::AnimationStats& a = GetScene().GetAnimationStats();
         const glm::vec3 p = GetWorldPosition();
-        DebugDraw::Text(p + glm::vec3(0.0f, Height + 0.35f, 0.0f), "Animatsiya keshlash va kesish", glm::vec4(0.85f, 0.88f, 0.95f, 1.0f));
+        DebugDraw::Text(p + glm::vec3(0.0f, Height + 0.35f, 0.0f), "Animation caching and culling", glm::vec4(0.85f, 0.88f, 0.95f, 1.0f));
         DebugDraw::Text(p + glm::vec3(0.0f, Height, 0.0f),
-                        std::format("{} animator: {} pozalangan, {} o'zgarmagan, {} kesilgan  ({:.2f} ms)", a.Animators, a.Posed,
+                        std::format("{} animators: {} posed, {} unchanged, {} culled  ({:.2f} ms)", a.Animators, a.Posed,
                                     a.Unchanged, a.Culled, a.Milliseconds),
                         glm::vec4(1.0f, 0.82f, 0.3f, 1.0f));
         DebugDraw::Text(p + glm::vec3(0.0f, Height - 0.35f, 0.0f),
-                        std::format("keshdan {} / klipdan {} namuna, kesh {:.0f} KB", a.CachedSamples, a.ClipSamples,
+                        std::format("{} samples from cache / {} from clips, cache {:.0f} KB", a.CachedSamples, a.ClipSamples,
                                     (double)a.CacheBytes / 1024.0),
                         glm::vec4(0.6f, 0.78f, 1.0f, 1.0f));
     }

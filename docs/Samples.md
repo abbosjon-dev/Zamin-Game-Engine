@@ -2,6 +2,8 @@
 
 Zamin Engine bilan namuna o'yinlar va Blueprint workshop loyihalari keladi (`Projects/`). Oltitasi M24 bosqichida yozilgan kichik, lekin to'liq
 o'yinlar: bosh menyu, pauza, natijalar oynasi, rekordlar, klaviatura va gamepad, o'zbek va ingliz tili, demo bot.
+Namuna o'yinlar standart holda inglizcha boshlanadi (`"DefaultLanguage": "en"`); o'zbekcha o'yin menyusidagi til tugmasi
+bilan tanlanadi va o'yinchi sozlamalarida saqlanadi.
 Bu olti o'yinning gameplay kodi C++ skriptlarda (`Projects/<O'yin>/Source/`), rasm, model va ovozlar esa koddan yaratilgan
 (`Tools/samples/gen_<o'yin>.py`, [Tools/samples/README.md](../Tools/samples/README.md)). Pastdagi rasmlar haqiqiy
 o'yindan, `ZaminPlayer` da headless olingan (bot o'ynayapti).

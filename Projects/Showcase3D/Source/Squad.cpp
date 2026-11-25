@@ -23,10 +23,10 @@ namespace {
     {
         switch (shape)
         {
-            case FormationShape::Line: return "qator";
-            case FormationShape::Column: return "kolonna";
-            case FormationShape::Wedge: return "pona";
-            case FormationShape::Circle: return "doira";
+            case FormationShape::Line: return "line";
+            case FormationShape::Column: return "column";
+            case FormationShape::Wedge: return "wedge";
+            case FormationShape::Circle: return "circle";
         }
         return "?";
     }

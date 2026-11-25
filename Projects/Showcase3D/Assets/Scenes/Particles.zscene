@@ -827,7 +827,7 @@
                 ]
             },
             "Text": {
-                "Text": "Orbita + radial",
+                "Text": "Orbit + radial",
                 "Color": [
                     0.6,
                     0.85,
@@ -1025,7 +1025,7 @@
                 ]
             },
             "Text": {
-                "Text": "Konus + gravitatsiya",
+                "Text": "Cone + gravity",
                 "Color": [
                     0.6,
                     0.85,
@@ -1226,7 +1226,7 @@
                 ]
             },
             "Text": {
-                "Text": "Tezlik chegarasi",
+                "Text": "Speed limit",
                 "Color": [
                     1.0,
                     0.75,

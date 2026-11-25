@@ -503,7 +503,7 @@
         "Font": "",
         "Kerning": 0.0,
         "LineSpacing": 0.0,
-        "Text": "Gulxan\n(Particles/Gulxan.zparticle)"
+        "Text": "Campfire\n(Particles/Gulxan.zparticle)"
       },
       "Transform": {
         "Rotation": [
@@ -769,7 +769,7 @@
         "Font": "",
         "Kerning": 0.0,
         "LineSpacing": 0.0,
-        "Text": "Tutun"
+        "Text": "Smoke"
       },
       "Transform": {
         "Rotation": [
@@ -1042,7 +1042,7 @@
         "Font": "",
         "Kerning": 0.0,
         "LineSpacing": 0.0,
-        "Text": "Uchqunlar\n(cho'zilgan, sakraydi)"
+        "Text": "Sparks\n(stretched, bouncing)"
       },
       "Transform": {
         "Rotation": [
@@ -1342,7 +1342,7 @@
         "Font": "",
         "Kerning": 0.0,
         "LineSpacing": 0.0,
-        "Text": "Sehr"
+        "Text": "Magic"
       },
       "Transform": {
         "Rotation": [
@@ -1689,7 +1689,7 @@
         "Font": "",
         "Kerning": 0.0,
         "LineSpacing": 0.0,
-        "Text": "Portlash\n(har 2.6 s)"
+        "Text": "Explosion\n(every 2.6 s)"
       },
       "Transform": {
         "Rotation": [
@@ -1898,7 +1898,7 @@
         "Font": "",
         "Kerning": 0.0,
         "LineSpacing": 0.0,
-        "Text": "Chang"
+        "Text": "Dust"
       },
       "Transform": {
         "Rotation": [
@@ -2179,7 +2179,7 @@
         "Font": "",
         "Kerning": 0.0,
         "LineSpacing": 0.0,
-        "Text": "Olov"
+        "Text": "Fire"
       },
       "Transform": {
         "Rotation": [
@@ -2582,7 +2582,7 @@
         "Font": "",
         "Kerning": 0.0,
         "LineSpacing": 0.0,
-        "Text": "Mushak (sub-emitter: o'z rangida portlaydi)"
+        "Text": "Firework (sub-emitter: bursts in its own color)"
       },
       "Transform": {
         "Rotation": [
@@ -3028,7 +3028,7 @@
         "Font": "",
         "Kerning": 0.0,
         "LineSpacing": 0.0,
-        "Text": "Yomg'ir kamera bilan yuradi (sachraydi); Qor - o'chiq, yoqib ko'ring"
+        "Text": "Rain moves with the camera (it splashes); Snow - off, try turning it on"
       },
       "Transform": {
         "Rotation": [

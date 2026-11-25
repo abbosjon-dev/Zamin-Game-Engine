@@ -501,7 +501,7 @@ SLOW_TEST(LanternKeeperResumeMatrixHeadless)
         auto o = Continue(home, files);
         std::printf("  tampered shrine save: backup restored at (%.2f, %.2f) xp %u coins %u lamps %u (the level 2 autosave: (%.2f, %.2f) coins %u lamps %u), banner '%s'\n",
                     o.StartAt.x, o.StartAt.y, o.XP, o.Coins, o.Lamps, entry.StartAt.x, entry.StartAt.y, entry.Coins, entry.Lamps, o.Banner.c_str());
-        CHECK(Clean(o.Log) && has(o, "SLICE_RESUMED lvl=2 source=save recovered=1") && o.Banner == "Zaxira nusxadan tiklandi");
+        CHECK(Clean(o.Log) && has(o, "SLICE_RESUMED lvl=2 source=save recovered=1") && o.Banner == "Restored from the backup save");
         CHECK(o.XP == 200 && o.Coins == entry.Coins && o.Lamps == entry.Lamps && glm::length(o.StartAt - entry.StartAt) < 0.001f);
     }
     // 6. the shrine save and its backup unreadable: the level starts again from the transfer, said on screen
@@ -513,7 +513,7 @@ SLOW_TEST(LanternKeeperResumeMatrixHeadless)
         auto o = Continue(home, files);
         std::printf("  unreadable save and backup: carry again, xp %u, banner '%s'\n", o.XP, o.Banner.c_str());
         CHECK(CleanIO(o.Log) && has(o, "SLICE_IO_FAILED load") && has(o, "SLICE_RESUMED lvl=2 source=carry") && has(o, "SLICE_SAVED lvl=2 at=auto"));
-        CHECK(o.Banner == "Saqlash o'qilmadi - daraja boshidan" && o.XP == 200 && o.Coins == l2Coins && SavedHero(home / "gameplay-saves/Run2.json").first == 200);
+        CHECK(o.Banner == "The save could not be read - the level starts again" && o.XP == 200 && o.Coins == l2Coins && SavedHero(home / "gameplay-saves/Run2.json").first == 200);
     }
     // 7. level 1's save and backup unreadable: a fresh level 1, said on screen
     {
@@ -523,7 +523,7 @@ SLOW_TEST(LanternKeeperResumeMatrixHeadless)
         if (std::filesystem::exists(files / "gameplay-saves/Run1.json.bak")) Tear(files / "gameplay-saves/Run1.json.bak");
         auto o = Continue(home, files);
         CHECK(CleanIO(o.Log) && has(o, "SLICE_IO_FAILED load") && has(o, "SLICE_SAVED lvl=1 at=auto") && has(o, "SLICE_LEVEL_START lvl=1 entry=continue"));
-        CHECK(o.Banner == "Saqlash o'qilmadi - daraja boshidan" && o.XP == 0 && o.Coins == 0 && o.Scenes.back() == "Boglar");
+        CHECK(o.Banner == "The save could not be read - the level starts again" && o.XP == 0 && o.Coins == 0 && o.Scenes.back() == "Boglar");
     }
     // 8. level 2's save, its backup and the transfer (and its backup) all unreadable: a fresh level 2, said on screen
     {
@@ -533,7 +533,7 @@ SLOW_TEST(LanternKeeperResumeMatrixHeadless)
             if (std::filesystem::exists(files / name)) Tear(files / name);
         auto o = Continue(home, files);
         CHECK(CleanIO(o.Log) && has(o, "SLICE_IO_FAILED load") && has(o, "SLICE_IO_FAILED transfer") && has(o, "SLICE_SAVED lvl=2 at=auto"));
-        CHECK(o.Banner == "Saqlash o'qilmadi - daraja boshidan" && o.XP == 0 && o.Scenes.back() == "Yertola" && SavedHero(home / "gameplay-saves/Run2.json").first == 0);
+        CHECK(o.Banner == "The save could not be read - the level starts again" && o.XP == 0 && o.Scenes.back() == "Yertola" && SavedHero(home / "gameplay-saves/Run2.json").first == 0);
     }
     std::filesystem::remove_all(work);
     Project::SetActive(prior);

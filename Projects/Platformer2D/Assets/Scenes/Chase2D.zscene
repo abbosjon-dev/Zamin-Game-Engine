@@ -12019,7 +12019,7 @@
         ]
       },
       "Text": {
-        "Text": "WASD - yurish  |  qo'riqchi ko'rsa (fonar nuri) - quvadi, ko'zdan yo'qolsangiz - qidiradi va patrulga qaytadi  |  butalar orqasiga yashiring",
+        "Text": "WASD - move  |  if the guard sees you (the flashlight beam) it chases; lose it and it searches, then goes back to patrol  |  hide behind the bushes",
         "Color": [
           0.92,
           0.95,
@@ -12100,7 +12100,7 @@
         "Interactable": true
       },
       "Text": {
-        "Text": "Qayta boshlash",
+        "Text": "Restart",
         "Color": [
           1,
           1,

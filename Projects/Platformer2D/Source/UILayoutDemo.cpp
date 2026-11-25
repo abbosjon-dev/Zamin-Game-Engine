@@ -56,11 +56,11 @@ public:
             Refresh();
         });
         Subscribe("UIToggleChanged", [this](const ScriptMessage& m) {
-            m_Last = std::format("{}: {}", m.Sender.GetName(), m.Get<bool>() ? "yoqildi" : "o'chirildi");
+            m_Last = std::format("{}: {}", m.Sender.GetName(), m.Get<bool>() ? "yoqildi" : "removed");
             Refresh();
         });
         Subscribe("UICancel", [this](const ScriptMessage&) {
-            m_Last = "Bekor qilindi (Esc / B)";
+            m_Last = "Cancelled (Esc / B)";
             Refresh();
         });
         // The menu buttons' own messages (they come after "UIClick").
@@ -80,7 +80,7 @@ public:
             m_Coins += 5;
             if (Entity coins = Resolve(Coins))
                 GetScene().PunchUIScale(coins, 0.25f, 0.4f); // the counter jumps
-            SetLast(std::format("{} olindi: +5 tanga", m.Sender.GetName()));
+            SetLast(std::format("{} taken: +5 coins", m.Sender.GetName()));
         });
         // A widget selected before this script started (UI Navigation > Faollashganda tanlash).
         if (Entity selected = GetScene().GetSelectedUI())
@@ -93,7 +93,7 @@ public:
         if (Entity info = Resolve(Info); info && info.HasComponent<TextComponent>())
         {
             const glm::vec2 view = GetScene().GetViewportSize();
-            info.GetComponent<TextComponent>().Text = std::format("Ekran {:.0f} x {:.0f} px  ->  UI masshtabi {:.2f} (1920 x 1080 uchun)", view.x, view.y,
+            info.GetComponent<TextComponent>().Text = std::format("Screen {:.0f} x {:.0f} px  ->  UI scale {:.2f} (for 1920 x 1080)", view.x, view.y,
                                                                   GetScene().GetUIScale(GetEntity()));
         }
         if (Entity coins = Resolve(Coins); coins && coins.HasComponent<TextComponent>())
@@ -117,7 +117,7 @@ private:
         Entity status = Resolve(Status);
         if (!status || !status.HasComponent<TextComponent>())
             return;
-        std::string text = std::format("Ustida: {}   |   Tanlangan: {}", m_Hover.empty() ? "-" : m_Hover, m_Selected.empty() ? "-" : m_Selected);
+        std::string text = std::format("Hovered: {}   |   Selected: {}", m_Hover.empty() ? "-" : m_Hover, m_Selected.empty() ? "-" : m_Selected);
         if (!m_Last.empty())
             text += "   |   " + m_Last;
         status.GetComponent<TextComponent>().Text = text;

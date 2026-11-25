@@ -387,7 +387,7 @@
         ]
       },
       "Text": {
-        "Text": "Sichqoncha - ragdoll tashlash,  R - uchtasi osmondan",
+        "Text": "Mouse - drop a ragdoll,  R - three from the sky",
         "Color": [
           1,
           1,
@@ -653,7 +653,7 @@
         ]
       },
       "Text": {
-        "Text": "Zinapoya",
+        "Text": "Stairs",
         "Color": [
           1,
           1,
@@ -1456,7 +1456,7 @@
         ]
       },
       "Text": {
-        "Text": "Ko'prik (Revolute, chegaralar)",
+        "Text": "Bridge (Revolute, limits)",
         "Color": [
           1,
           1,
@@ -1830,7 +1830,7 @@
         ]
       },
       "Text": {
-        "Text": "Arg'imchoq",
+        "Text": "Swing",
         "Color": [
           1,
           1,
@@ -2100,7 +2100,7 @@
         ]
       },
       "Text": {
-        "Text": "Uxlab turgan minora",
+        "Text": "Sleeping tower",
         "Color": [
           1,
           1,
@@ -2719,7 +2719,7 @@
         ]
       },
       "Text": {
-        "Text": "Zanjir mayatnik",
+        "Text": "Chain pendulum",
         "Color": [
           1,
           1,

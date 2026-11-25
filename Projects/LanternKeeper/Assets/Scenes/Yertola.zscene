@@ -6445,6 +6445,7 @@
         "AlignH": "Right",
         "AlignV": "Middle",
         "Font": "",
+        "LocalizationKey": "hud.controls",
         "InputHints": true
       }
     },

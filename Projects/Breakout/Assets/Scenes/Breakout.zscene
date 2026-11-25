@@ -2521,7 +2521,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Til: O'zbekcha",
+        "Text": "Language: English",
         "Color": [1.0, 1.0, 1.0, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -3165,7 +3165,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "O'YIN TUGADI",
+        "Text": "GAME OVER",
         "Color": [1.0, 0.45, 0.55, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,

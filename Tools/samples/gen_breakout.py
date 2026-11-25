@@ -503,7 +503,7 @@ def build_scene():
              Text=k.ui_text("G'ishtlarni sindiring  ·  Zamin Engine namunasi", (0.85, 0.8, 1.0, 0.95), "Center", key="menu.subtitle"))
     menu_panel = ui.panel("Menyu paneli", main_menu, (0, -110), (560, 330))
     play_button = ui.button("O'ynash", menu_panel, "O'ynash", "menu.play", "Play", True)
-    language_button = ui.button("Til", menu_panel, "Til: O'zbekcha", None, "Language")
+    language_button = ui.button("Til", menu_panel, "Language: English", None, "Language")
     ui.button("Chiqish", menu_panel, "Chiqish", "menu.quit", "Quit")
     menu_best = s.entity("Bosh menyu rekordi", parent=main_menu, UITransform=k.ui_rect(pos=(0, -330), size=(1200, 44), font=32),
                          Text=k.ui_text("", (1.0, 0.85, 0.4, 1.0), "Center"))
@@ -521,7 +521,7 @@ def build_scene():
     # game over / victory
     over_menu = ui.dim("O'yin tugadi", False)
     over_panel = ui.panel("Natija paneli", over_menu, (0, 0), (660, 560))
-    over_title = ui.label("Natija sarlavhasi", over_panel, "O'YIN TUGADI", (580, 80), 64, (1.0, 0.45, 0.55, 1.0))
+    over_title = ui.label("Natija sarlavhasi", over_panel, "GAME OVER", (580, 80), 64, (1.0, 0.45, 0.55, 1.0))
     over_score = ui.label("Natija hisobi", over_panel, "0", (580, 90), 84)
     over_level = ui.label("Natija darajasi", over_panel, "", (580, 40), 30, (0.8, 0.85, 1.0, 1.0))
     over_record = ui.label("Natija rekordi", over_panel, "", (580, 44), 34, (1.0, 0.85, 0.4, 1.0))

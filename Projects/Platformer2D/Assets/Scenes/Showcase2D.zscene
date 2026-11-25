@@ -3024,7 +3024,7 @@
         ]
       },
       "Text": {
-        "Text": "Parallax fon  |  9-slice panellar  |  sprite atlas  |  saralash qatlamlari",
+        "Text": "Parallax background  |  9-slice panels  |  sprite atlas  |  sorting layers",
         "Color": [
           0.95,
           0.97,
@@ -3142,7 +3142,7 @@
         "Interactable": true
       },
       "Text": {
-        "Text": "Qayta boshlash",
+        "Text": "Restart",
         "Color": [
           1,
           1,
@@ -3246,7 +3246,7 @@
         ]
       },
       "Text": {
-        "Text": "9-slice panel: burchaklari\no'lcham o'zgarsa ham cho'zilmaydi",
+        "Text": "9-slice panel: its corners\ndo not stretch when the size changes",
         "Color": [
           1,
           0.93,

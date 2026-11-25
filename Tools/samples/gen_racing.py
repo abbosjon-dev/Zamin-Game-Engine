@@ -518,7 +518,7 @@ def build_scene(pts, normals, dist, total):
              Text=k.ui_text(UZ["menu"]["subtitle"], (1.0, 0.95, 0.9, 0.95), "Center", key="menu.subtitle"))
     menu_panel = ui.panel("Menyu paneli", main_menu, (0, -90), (560, 330))
     play_button = ui.button("O'ynash", menu_panel, "O'ynash", "menu.play", "Play", True)
-    language_button = ui.button("Til", menu_panel, "Til: O'zbekcha", None, "Language")
+    language_button = ui.button("Til", menu_panel, "Language: English", None, "Language")
     ui.button("Chiqish", menu_panel, "Chiqish", "menu.quit", "Quit")
     menu_best = s.entity("Bosh menyu rekordi", parent=main_menu, UITransform=k.ui_rect(pos=(0, -300), size=(1200, 44), font=32),
                          Text=k.ui_text("", (1.0, 0.85, 0.45, 1.0), "Center"))

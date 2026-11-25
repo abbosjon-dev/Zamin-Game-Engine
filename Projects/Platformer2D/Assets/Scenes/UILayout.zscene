@@ -307,7 +307,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "UI layout va navigatsiya",
+        "Text": "UI layout and navigation",
         "Color": [
           1.0,
           0.93,
@@ -577,7 +577,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Menyu",
+        "Text": "Menu",
         "Color": [
           1.0,
           0.93,
@@ -675,7 +675,7 @@
         "BorderScale": 3.0
       },
       "Text": {
-        "Text": "O'yinni boshlash",
+        "Text": "Start game",
         "Color": [
           0.08,
           0.12,
@@ -801,7 +801,7 @@
         "BorderScale": 3.0
       },
       "Text": {
-        "Text": "Davom etish",
+        "Text": "Continue",
         "Color": [
           0.08,
           0.12,
@@ -912,7 +912,7 @@
         "BorderScale": 3.0
       },
       "Text": {
-        "Text": "Sozlamalar",
+        "Text": "Settings",
         "Color": [
           0.08,
           0.12,
@@ -1134,7 +1134,7 @@
         "BorderScale": 3.0
       },
       "Text": {
-        "Text": "Chiqish",
+        "Text": "Quit",
         "Color": [
           0.08,
           0.12,
@@ -1299,7 +1299,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Inventar (panjara)",
+        "Text": "Inventory (grid)",
         "Color": [
           1.0,
           0.93,
@@ -2680,7 +2680,7 @@
         ]
       },
       "Text": {
-        "Text": "Ovoz",
+        "Text": "Sound",
         "Color": [
           0.86,
           0.9,
@@ -2780,7 +2780,7 @@
         ]
       },
       "Text": {
-        "Text": "Musiqa",
+        "Text": "Music",
         "Color": [
           0.86,
           0.9,
@@ -3102,7 +3102,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Strelkalar / D-pad - tanlash    Enter / A - bosish    Tab - keyingisi    Esc / B - bekor qilish",
+        "Text": "Arrows / D-pad - select    Enter / A - press    Tab - next    Esc / B - cancel",
         "Color": [
           0.62,
           0.68,
@@ -3296,7 +3296,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Zamin Engine'ning yangi UI tizimi: matn endi to'rtburchak ichida chapga, markazga yoki o'ngga tekislanadi, so'z bo'yicha o'raladi va sig'magan joyi uch nuqta bilan kesiladi. Oʻzbekcha oʻ, gʻ, sh, ch harflari va kirill yozuvi (Тошкент, Самарқанд) bitta belgi sifatida o'raladi. Tugmalar ustiga kelganda kattalashadi, bosilganda kichrayadi, panellar esa sakrab yoki surilib chiqadi. Bu matn ataylab uzun yozilgan - oxiri kesiladi va uch nuqta qo'yiladi.",
+        "Text": "Zamin Engine's new UI system: text is now aligned left, center or right inside its rectangle, wraps by word, and what does not fit is cut with an ellipsis. The Uzbek letters oʻ, gʻ, sh, ch and Cyrillic script (Тошкент, Самарқанд) wrap as single characters. Buttons grow when hovered and shrink when pressed, and panels pop or slide in. This text is long on purpose - its end is cut and an ellipsis is added.",
         "Color": [
           0.93,
           0.95,

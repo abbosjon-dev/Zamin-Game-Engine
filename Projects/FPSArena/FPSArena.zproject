@@ -149,10 +149,10 @@
         "JumpPad"
     ],
     "Localization": {
-        "DefaultLanguage": "uz",
+        "DefaultLanguage": "en",
         "Languages": [
-            "uz",
-            "en"
+            "en",
+            "uz"
         ],
         "Directory": "Localization",
         "UseSystemLanguage": false

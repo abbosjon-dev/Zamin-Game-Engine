@@ -440,7 +440,7 @@
                 ]
             },
             "Text": {
-                "Text": "Mesh: qirra + sirt",
+                "Text": "Mesh: edges + surface",
                 "Color": [
                     0.55,
                     0.85,
@@ -753,7 +753,7 @@
                 ]
             },
             "Text": {
-                "Text": "Shovqin (noise)",
+                "Text": "Noise",
                 "Color": [
                     0.75,
                     1.0,
@@ -1034,7 +1034,7 @@
                 ]
             },
             "Text": {
-                "Text": "To'qnashuv + sachrash",
+                "Text": "Collision + splash",
                 "Color": [
                     1.0,
                     0.75,
@@ -1702,7 +1702,7 @@
                 ]
             },
             "Text": {
-                "Text": "Mushak: sub-emitter + iz",
+                "Text": "Firework: sub-emitter + trail",
                 "Color": [
                     1.0,
                     0.9,

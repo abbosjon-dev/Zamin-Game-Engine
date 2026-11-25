@@ -73,15 +73,15 @@ for two in (True,False):
  for key,kind,amount,cost,cool,rng,link in [('Bolt',0,20,10,.5,12,dict(Projectile='Bolt')),('Lance',0,15,15,1,12,dict(Projectile='Lance')),('Nova',0,12,20,3,5,dict(Area='Nova')),('Mend',3,1,10,4,5,dict(Effect='Regen')),('Rally',3,1,20,6,5,dict(Effect='Haste'))]:
   ops.append(('Gameplay.AbilityDefine',dict(Ability=key,Kind=kind,Amount=amount,Cost=cost,Cooldown=cool,Range=rng,**link)))
  ops+=[('Gameplay.AbilityDefine',dict(Target=850,Ability='Spit',Kind=0,Amount=6,Cost=0,Cooldown=2,Range=12,Projectile='Venom')),
-       ('Gameplay.QuestConfigure',dict(Quest='Sentry',Title="Sentry'ni yeng",Objectives=['Kill'],Labels=['Sentry yengildi'],Kinds=[2],Matches=['Enemy'],Goals=[1],Rewards=['Coin'],RewardCounts=[COINS],XP=XP)),('Gameplay.QuestStart',dict(Quest='Sentry')),
+       ('Gameplay.QuestConfigure',dict(Quest='Sentry',Title="Defeat the Sentry",Objectives=['Kill'],Labels=['Sentry defeated'],Kinds=[2],Matches=['Enemy'],Goals=[1],Rewards=['Coin'],RewardCounts=[COINS],XP=XP)),('Gameplay.QuestStart',dict(Quest='Sentry')),
        ('Gameplay.SaveBind',dict(Key='Player')),('Gameplay.SaveBind',dict(Target=850,Key='Sentry'))]
  ops+=[('Gameplay.SaveBind',dict(Target=i,Key=f'Dummy{k+1}')) for k,(i,_) in enumerate(DUMMIES)]
  ops+=[('Gameplay.SaveBind',dict(Target=871,Key='Hidden'))]
  # HUD: Kind 0 Health bar, 5 Effect rows (stacks and time left), 6 hit marker; a 4-row incoming/outgoing feed.
  ops+=[('Gameplay.UIBindHUD',dict(Target=1206,Actor=850,Kind=0,Prefix='',Ratio=True))]
- for widget,actor,key,prefix,ratio in [(1210,800,'Poison','ZAHAR x',True),(1211,850,'Burn','YONISH x',True),(1212,861,'Frost','MUZLASH  ',False),(1213,861,'Shock','KARAXT  ',False),(1214,800,'Regen','TIKLANISH  ',False),(1215,800,'Haste','SHIJOAT  ',False)]:
+ for widget,actor,key,prefix,ratio in [(1210,800,'Poison','POISON x',True),(1211,850,'Burn','BURN x',True),(1212,861,'Frost','FROST  ',False),(1213,861,'Shock','SHOCK  ',False),(1214,800,'Regen','REGEN  ',False),(1215,800,'Haste','HASTE  ',False)]:
   ops.append(('Gameplay.UIBindHUD',dict(Target=widget,Actor=actor,Kind=5,Item=key,Prefix=prefix,Ratio=ratio)))
- ops+=[('Gameplay.UIBindHUD',dict(Target=1220,Actor=800,Kind=6,Item='',Prefix='X',Ratio=False)),('Gameplay.UICombatFeed',dict(Actor=800,Name='Zarbalar',Rows=[1231,1232,1233,1234],Outgoing=True,Incoming=True,Lifetime=2.5))]
+ ops+=[('Gameplay.UIBindHUD',dict(Target=1220,Actor=800,Kind=6,Item='',Prefix='X',Ratio=False)),('Gameplay.UICombatFeed',dict(Actor=800,Name='Hits',Rows=[1231,1232,1233,1234],Outgoing=True,Incoming=True,Lifetime=2.5))]
  # Kind 3 (status effect) abilities ignore Amount; it only has to be valid. Every configuration step must succeed.
  success=None
  for kind,args in ops:
@@ -124,10 +124,10 @@ for two in (True,False):
     join=n('Concat');l(joined,'Value',join,'A');l(part,'Value',join,'B');joined=join
    else:joined=part
   label=n('SetUIText',Target=target);chain(event,label);l(joined,'Value',label,'Text')
- line(1203,[(hp,'Current',"SOG'LIQ  "),(hp,'Shield','     QALQON  '),(stats,'Energy','     ENERGIYA  '),(stats,'Maximum',' / ')])
- line(1204,[(stats,'Attack','HUJUM  '),(cooldown,'Value','     BOLT QAYTA  '),(bolt,'Uses',' s     BOLTLAR  '),(shots,'Live','     UCHMOQDA  ')])
- line(1205,[(sentry,'Current',"SENTRY SOG'LIQ  "),(dummies[0],'Current','     NISHONLAR  '),(dummies[1],'Current',' / '),(dummies[2],'Current',' / '),(hidden,'Current','     YASHIRIN  ')])
- line(1207,[(progress,'XP','XP  '),(coins,'Count','     TANGA  ')])
+ line(1203,[(hp,'Current',"HEALTH  "),(hp,'Shield','     SHIELD  '),(stats,'Energy','     ENERGY  '),(stats,'Maximum',' / ')])
+ line(1204,[(stats,'Attack','ATTACK  '),(cooldown,'Value','     BOLT COOLDOWN  '),(bolt,'Uses',' s     BOLTS  '),(shots,'Live','     IN FLIGHT  ')])
+ line(1205,[(sentry,'Current',"SENTRY HEALTH  "),(dummies[0],'Current','     TARGETS  '),(dummies[1],'Current',' / '),(dummies[2],'Current',' / '),(hidden,'Current','     HIDDEN  ')])
+ line(1207,[(progress,'XP','XP  '),(coins,'Count','     COINS  ')])
  # QA phases: Auto replays the command plan in Editor/export runs; Checks compares native state with the oracle.
  auto=n('Get.Bool',Name='Auto');event=n('Event.Start');load=n('LoadGameState');chain(event,load);b=n('Branch');chain(load,b);l(auto,'Value',b,'Condition');pref=n('ReadState.Number',Key='Combat.Phase');setphase=n('Set.Number',Name='Phase');l(b,'True',setphase,'In');l(pref,'Value',setphase,'Value')
  effect=lambda target,key:n('Gameplay.EffectState',Target=target,Effect=key)
@@ -181,15 +181,15 @@ for two in (True,False):
  if two:wall.update({'Transform':transform([WALL[0],WALL[1],0],(2.4,.3,1)),'SpriteRenderer':{'Color':[.45,.5,.6,1]},'Rigidbody2D':{'BodyType':'Static','Layer':WALL_LAYER},'BoxCollider2D':{'Size':[.5,.5]}})
  else:wall.update({'Transform':transform(at(WALL,False,.7),(2.4,1.4,.3)),'MeshRenderer':{'Mesh':'Cube','Shader':'Unlit','Albedo':[.45,.5,.6,1],'CastShadows':False},'Rigidbody3D':{'BodyType':'Static','Layer':WALL_LAYER},'BoxCollider3D':{'HalfExtents':[.5,.5,.5]}})
  base['Entities'].append(wall)
- template=next(e for e in base['Entities'] if e['Entity']==1201);template['Text']['Text']='JANG LABORATORIYASI  /  snaryadlar + effektlar + saqlash v4';template['Text']['Color']=[.28,.9,.78,1]
+ template=next(e for e in base['Entities'] if e['Entity']==1201);template['Text']['Text']='COMBAT LAB  /  projectiles + effects + save v4';template['Text']['Color']=[.28,.9,.78,1]
  def label(i,text,y,size=19,width=760,color=(.85,.91,1,1)):
   e=copy.deepcopy(template);e['Entity']=i;e['Tag']='Combat HUD';e['UITransform']['Position']=[28,-y];e['UITransform']['Size']=[width,30];e['UITransform']['FontSize']=size;e['Text']['Text']=text;e['Text']['Color']=list(color);return e
- hud=[label(1202,'Space Bolt | L Nayza | N Nova | M Davolash | R Shijoat | F5/F9 Saqlash/Yuklash | WASD',60,16,1170),label(1203,"SOG'LIQ",98),label(1204,'HUJUM',130),label(1205,"SENTRY SOG'LIQ",162),label(1207,'XP',214)]
+ hud=[label(1202,'Space Bolt | L Lance | N Nova | M Heal | R Haste | F5/F9 Save/Load | WASD',60,16,1170),label(1203,"HEALTH",98),label(1204,'ATTACK',130),label(1205,"SENTRY HEALTH",162),label(1207,'XP',214)]
  bar={'Entity':1206,'Parent':1200,'Tag':'Combat HUD','Transform':transform([0,0,0]),'UITransform':{'AnchorMin':[0,1],'AnchorMax':[0,1],'Pivot':[0,1],'Position':[28,-194],'Size':[360,7]},'UIProgressBar':{'Value':1,'Padding':0,'BackgroundColor':[.12,.16,.23,1],'FillColor':[.95,.3,.32,1]}}
  hud.append(bar)
- for k,(i,text) in enumerate([(1210,'ZAHAR x'),(1211,'YONISH x'),(1212,'MUZLASH'),(1213,'KARAXT'),(1214,'TIKLANISH'),(1215,'SHIJOAT')]):hud.append(label(i,text,258+k*30,18,360,(.98,.84,.45,1)))
+ for k,(i,text) in enumerate([(1210,'POISON x'),(1211,'BURN x'),(1212,'FROST'),(1213,'SHOCK'),(1214,'REGEN'),(1215,'HASTE')]):hud.append(label(i,text,258+k*30,18,360,(.98,.84,.45,1)))
  marker=label(1220,'',0,44,80,(1,.35,.3,1));marker['UITransform'].update({'AnchorMin':[.5,.5],'AnchorMax':[.5,.5],'Pivot':[.5,.5],'Position':[0,0],'Size':[80,60]});marker['Text']['AlignH']='Center';hud.append(marker)
- hud.append(label(1230,'Zarbalar',446,18,360,(.28,.9,.78,1)))
+ hud.append(label(1230,'Hits',446,18,360,(.28,.9,.78,1)))
  for k in range(4):hud.append(label(1231+k,'',476+k*28,18,360,(1,.55,.5,1)))
  base['Entities']+=hud
  p=ASSETS/f'Scenes/Combat{suffix}.zscene';write(p,base);meta(p,3 if two else 4,'Scene')

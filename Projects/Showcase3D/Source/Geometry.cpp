@@ -94,7 +94,7 @@ public:
                 DebugDraw::Line(origin, ray.GetPoint(Range), glm::vec4(1.0f, 0.3f, 0.3f, 0.55f));
         }
         DebugDraw::WireSphere(origin, 0.3f, DebugColor::Cyan);
-        DebugDraw::Text(origin + glm::vec3(0.0f, 1.1f, 0.0f), std::format("Geometry::Raycast\n{} / {} nur tegdi", hits, Rays), DebugColor::Cyan);
+        DebugDraw::Text(origin + glm::vec3(0.0f, 1.1f, 0.0f), std::format("Geometry::Raycast\n{} / {} rays hit", hits, Rays), DebugColor::Cyan);
     }
 };
 ZM_REGISTER_SCRIPT(GeometryRayFan, ZM_FIELD_RANGE(GeometryRayFan, Rays, 1, 64).Label("Nurlar soni"),

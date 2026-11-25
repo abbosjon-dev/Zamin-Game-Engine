@@ -609,12 +609,12 @@
       "Y": 1920,
       "Inputs": {
         "Quest": "Sentry",
-        "Title": "Sentry'ni yeng",
+        "Title": "Defeat the Sentry",
         "Objectives": [
           "Kill"
         ],
         "Labels": [
-          "Sentry yengildi"
+          "Sentry defeated"
         ],
         "Kinds": [
           2
@@ -788,7 +788,7 @@
         "Actor": 800,
         "Kind": 5,
         "Item": "Poison",
-        "Prefix": "ZAHAR x",
+        "Prefix": "POISON x",
         "Ratio": true
       }
     },
@@ -809,7 +809,7 @@
         "Actor": 850,
         "Kind": 5,
         "Item": "Burn",
-        "Prefix": "YONISH x",
+        "Prefix": "BURN x",
         "Ratio": true
       }
     },
@@ -830,7 +830,7 @@
         "Actor": 861,
         "Kind": 5,
         "Item": "Frost",
-        "Prefix": "MUZLASH  ",
+        "Prefix": "FROST  ",
         "Ratio": false
       }
     },
@@ -851,7 +851,7 @@
         "Actor": 861,
         "Kind": 5,
         "Item": "Shock",
-        "Prefix": "KARAXT  ",
+        "Prefix": "SHOCK  ",
         "Ratio": false
       }
     },
@@ -872,7 +872,7 @@
         "Actor": 800,
         "Kind": 5,
         "Item": "Regen",
-        "Prefix": "TIKLANISH  ",
+        "Prefix": "REGEN  ",
         "Ratio": false
       }
     },
@@ -893,7 +893,7 @@
         "Actor": 800,
         "Kind": 5,
         "Item": "Haste",
-        "Prefix": "SHIJOAT  ",
+        "Prefix": "HASTE  ",
         "Ratio": false
       }
     },
@@ -932,7 +932,7 @@
       "Y": 3200,
       "Inputs": {
         "Actor": 800,
-        "Name": "Zarbalar",
+        "Name": "Hits",
         "Rows": [
           1231,
           1232,
@@ -1649,7 +1649,7 @@
       "X": 0,
       "Y": 6720,
       "Inputs": {
-        "A": "SOG'LIQ  "
+        "A": "HEALTH  "
       }
     },
     {
@@ -1665,7 +1665,7 @@
       "X": 580,
       "Y": 6720,
       "Inputs": {
-        "A": "     QALQON  "
+        "A": "     SHIELD  "
       }
     },
     {
@@ -1688,7 +1688,7 @@
       "X": 1450,
       "Y": 6720,
       "Inputs": {
-        "A": "     ENERGIYA  "
+        "A": "     ENERGY  "
       }
     },
     {
@@ -1750,7 +1750,7 @@
       "X": 1450,
       "Y": 7040,
       "Inputs": {
-        "A": "HUJUM  "
+        "A": "ATTACK  "
       }
     },
     {
@@ -1766,7 +1766,7 @@
       "X": 2030,
       "Y": 7040,
       "Inputs": {
-        "A": "     BOLT QAYTA  "
+        "A": "     BOLT COOLDOWN  "
       }
     },
     {
@@ -1789,7 +1789,7 @@
       "X": 580,
       "Y": 7360,
       "Inputs": {
-        "A": " s     BOLTLAR  "
+        "A": " s     BOLTS  "
       }
     },
     {
@@ -1812,7 +1812,7 @@
       "X": 1450,
       "Y": 7360,
       "Inputs": {
-        "A": "     UCHMOQDA  "
+        "A": "     IN FLIGHT  "
       }
     },
     {
@@ -1851,7 +1851,7 @@
       "X": 580,
       "Y": 7680,
       "Inputs": {
-        "A": "SENTRY SOG'LIQ  "
+        "A": "SENTRY HEALTH  "
       }
     },
     {
@@ -1867,7 +1867,7 @@
       "X": 1160,
       "Y": 7680,
       "Inputs": {
-        "A": "     NISHONLAR  "
+        "A": "     TARGETS  "
       }
     },
     {
@@ -1936,7 +1936,7 @@
       "X": 1450,
       "Y": 8000,
       "Inputs": {
-        "A": "     YASHIRIN  "
+        "A": "     HIDDEN  "
       }
     },
     {
@@ -1991,7 +1991,7 @@
       "X": 1160,
       "Y": 8320,
       "Inputs": {
-        "A": "     TANGA  "
+        "A": "     COINS  "
       }
     },
     {

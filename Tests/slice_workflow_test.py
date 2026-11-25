@@ -52,7 +52,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 FORBIDDEN = ("GL_INVALID_", "Assertion failed", "Visual graph '", "Instruction budget exceeded", "SLICE_CONFIG_FAILED", "SLICE_IO_FAILED",
              "SLICE_ORACLE_FAILED", "nomli harakat topilmadi", "Snaryad vizual prefabi rad etildi")
-UNREADABLE = "Saqlash o'qilmadi - daraja boshidan"
+UNREADABLE = "The save could not be read - the level starts again"
 GAMES = {
     # Per game: its level scenes (the hero is entity 1000 in each), the hero's name (Editor selection), the window size and
     # quality level of the Player runs, the default phases (and the export phase with --exports), the save slot the

@@ -264,7 +264,7 @@
         ]
       },
       "Text": {
-        "Text": "Tinch zona: MusicCalm",
+        "Text": "Calm zone: MusicCalm",
         "Color": [
           0.6,
           1.0,
@@ -298,7 +298,7 @@
         ]
       },
       "Text": {
-        "Text": "Xavfli zona: MusicTense",
+        "Text": "Danger zone: MusicTense",
         "Color": [
           1.0,
           0.6,

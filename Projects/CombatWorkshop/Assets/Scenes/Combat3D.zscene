@@ -226,7 +226,7 @@
         "FontSize": 19
       },
       "Text": {
-        "Text": "JANG LABORATORIYASI  /  snaryadlar + effektlar + saqlash v4",
+        "Text": "COMBAT LAB  /  projectiles + effects + save v4",
         "Color": [
           0.28,
           0.9,
@@ -689,7 +689,7 @@
         "FontSize": 16
       },
       "Text": {
-        "Text": "Space Bolt | L Nayza | N Nova | M Davolash | R Shijoat | F5/F9 Saqlash/Yuklash | WASD",
+        "Text": "Space Bolt | L Lance | N Nova | M Heal | R Haste | F5/F9 Save/Load | WASD",
         "Color": [
           0.85,
           0.91,
@@ -746,7 +746,7 @@
         "FontSize": 19
       },
       "Text": {
-        "Text": "SOG'LIQ",
+        "Text": "HEALTH",
         "Color": [
           0.85,
           0.91,
@@ -803,7 +803,7 @@
         "FontSize": 19
       },
       "Text": {
-        "Text": "HUJUM",
+        "Text": "ATTACK",
         "Color": [
           0.85,
           0.91,
@@ -860,7 +860,7 @@
         "FontSize": 19
       },
       "Text": {
-        "Text": "SENTRY SOG'LIQ",
+        "Text": "SENTRY HEALTH",
         "Color": [
           0.85,
           0.91,
@@ -1034,7 +1034,7 @@
         "FontSize": 18
       },
       "Text": {
-        "Text": "ZAHAR x",
+        "Text": "POISON x",
         "Color": [
           0.98,
           0.84,
@@ -1091,7 +1091,7 @@
         "FontSize": 18
       },
       "Text": {
-        "Text": "YONISH x",
+        "Text": "BURN x",
         "Color": [
           0.98,
           0.84,
@@ -1148,7 +1148,7 @@
         "FontSize": 18
       },
       "Text": {
-        "Text": "MUZLASH",
+        "Text": "FROST",
         "Color": [
           0.98,
           0.84,
@@ -1205,7 +1205,7 @@
         "FontSize": 18
       },
       "Text": {
-        "Text": "KARAXT",
+        "Text": "SHOCK",
         "Color": [
           0.98,
           0.84,
@@ -1262,7 +1262,7 @@
         "FontSize": 18
       },
       "Text": {
-        "Text": "TIKLANISH",
+        "Text": "REGEN",
         "Color": [
           0.98,
           0.84,
@@ -1319,7 +1319,7 @@
         "FontSize": 18
       },
       "Text": {
-        "Text": "SHIJOAT",
+        "Text": "HASTE",
         "Color": [
           0.98,
           0.84,
@@ -1433,7 +1433,7 @@
         "FontSize": 18
       },
       "Text": {
-        "Text": "Zarbalar",
+        "Text": "Hits",
         "Color": [
           0.28,
           0.9,

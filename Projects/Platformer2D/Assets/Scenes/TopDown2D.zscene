@@ -11962,7 +11962,7 @@
         ]
       },
       "Text": {
-        "Text": "WASD - yurish  |  Y bo'yicha saralash  |  2D yorug'lik  |  pixel-perfect kamera  |  tint animatsiya",
+        "Text": "WASD - move  |  sort by Y  |  2D lighting  |  pixel-perfect camera  |  tint animation",
         "Color": [
           0.92,
           0.95,
@@ -12043,7 +12043,7 @@
         "Interactable": true
       },
       "Text": {
-        "Text": "Qayta boshlash",
+        "Text": "Restart",
         "Color": [
           1,
           1,

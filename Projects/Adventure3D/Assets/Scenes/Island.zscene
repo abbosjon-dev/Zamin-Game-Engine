@@ -3739,7 +3739,7 @@
         "Order": 5
       },
       "Text": {
-        "Text": "WASD - yurish   Shift - yugurish   Space - sakrash   RMB / Q E - kamera   T - sekinlashtirish   |   darvoza qo'riqchisiga ko'rinmang!",
+        "Text": "WASD - move   Shift - run   Space - jump   RMB / Q E - camera   T - slow motion   |   stay out of the gate guard's sight!",
         "Color": [
           1,
           1,

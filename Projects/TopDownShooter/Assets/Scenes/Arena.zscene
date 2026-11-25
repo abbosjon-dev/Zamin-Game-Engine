@@ -2483,7 +2483,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "1-TO'LQIN",
+        "Text": "WAVE 1",
         "Color": [1.0, 1.0, 1.0, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -3262,7 +3262,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Til: O'zbekcha",
+        "Text": "Language: English",
         "Color": [1.0, 1.0, 1.0, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,

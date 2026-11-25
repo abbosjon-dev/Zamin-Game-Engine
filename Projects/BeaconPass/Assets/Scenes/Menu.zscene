@@ -9212,6 +9212,7 @@
         "AlignH": "Center",
         "AlignV": "Middle",
         "Font": "",
+        "LocalizationKey": "menu.controls",
         "InputHints": true,
         "WordWrap": true
       }

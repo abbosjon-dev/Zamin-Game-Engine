@@ -921,7 +921,7 @@ SLOW_TEST(BeaconPassResumeMatrixHeadless)
         Tamper(files / "gameplay-saves/Run1.json");
         auto o = Continue(home, files, banner, at);
         std::printf("  tampered shrine save: backup restored at (%.3f, %.3f, %.3f) xp %u, banner '%s'\n", at.x, at.y, at.z, o.XP, banner.c_str());
-        CHECK(Clean(o.Log) && has(o, "SLICE_RESUMED lvl=1 source=save recovered=1") && banner == "Zaxira nusxadan tiklandi");
+        CHECK(Clean(o.Log) && has(o, "SLICE_RESUMED lvl=1 source=save recovered=1") && banner == "Restored from the backup save");
         CHECK(o.XP == 0 && o.Stones == 0 && near(at, atCamp->Position));
     }
     // 5. the save and its backup unreadable: a fresh start at the camp, said on screen; the autosave is valid again
@@ -934,7 +934,7 @@ SLOW_TEST(BeaconPassResumeMatrixHeadless)
         std::printf("  unreadable save and backup: fresh start xp %u, banner '%s'\n", o.XP, banner.c_str());
         CHECK(CleanIO(o.Log) && has(o, "SLICE_IO_FAILED load") && has(o, "SLICE_SAVED lvl=1 at=auto") && has(o, "SLICE_LEVEL_START lvl=1 entry=continue"));
         const auto rewritten = SavedHero(home / "gameplay-saves/Run1.json");
-        CHECK(banner == "Saqlash o'qilmadi - daraja boshidan" && o.XP == 0 && near(at, atCamp->Position) && rewritten && rewritten->QuestBook.XP == 0);
+        CHECK(banner == "The save could not be read - the level starts again" && o.XP == 0 && near(at, atCamp->Position) && rewritten && rewritten->QuestBook.XP == 0);
     }
     Finish(work, prior);
 }

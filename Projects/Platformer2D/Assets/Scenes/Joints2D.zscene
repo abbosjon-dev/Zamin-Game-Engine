@@ -230,7 +230,7 @@
         ]
       },
       "Text": {
-        "Text": "2D joint'lar",
+        "Text": "2D joints",
         "Color": [
           1,
           1,
@@ -1091,7 +1091,7 @@
         ]
       },
       "Text": {
-        "Text": "Ko'prik (Revolute)",
+        "Text": "Bridge (Revolute)",
         "Color": [
           1,
           1,
@@ -1807,7 +1807,7 @@
         ]
       },
       "Text": {
-        "Text": "Arqon va prujina (Distance)",
+        "Text": "Rope and spring (Distance)",
         "Color": [
           1,
           1,
@@ -2342,7 +2342,7 @@
         ]
       },
       "Text": {
-        "Text": "Minora (yumshoq Weld)",
+        "Text": "Tower (soft Weld)",
         "Color": [
           1,
           1,

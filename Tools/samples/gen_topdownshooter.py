@@ -559,7 +559,7 @@ def build_scene():
     combo_text = text("Kombo", hud, "x1", (0, 1), (0, 1), (48, -142), (500, 44), 36, (1.0, 0.85, 0.3, 1.0))
     combo_bar = s.entity("Kombo vaqti", parent=hud, UITransform=k.ui_rect((0, 1), None, (0, 1), (50, -192), (260, 10)),
                          UIProgressBar=k.ui_progress(0.0, fill=(1.0, 0.8, 0.25, 1.0), padding=2.0, smooth=0.0))
-    wave_text = text("To'lqin", hud, "1-TO'LQIN", (0.5, 1), (0.5, 1), (0, -28), (800, 56), 46, h="Center")
+    wave_text = text("To'lqin", hud, "WAVE 1", (0.5, 1), (0.5, 1), (0, -28), (800, 56), 46, h="Center")
     enemies_text = text("Dushmanlar", hud, "", (0.5, 1), (0.5, 1), (0, -88), (800, 32), 26, (0.8, 0.85, 1.0, 0.85), h="Center")
     hearts = s.entity("Jonlar", parent=hud, UITransform=k.ui_rect((1, 1), None, (1, 1), (-44, -34), (5 * 54, 48)),
                       UILayoutGroup=k.ui_layout("Horizontal", spacing=6, align=5, control_width=False, expand_width=False))
@@ -610,7 +610,7 @@ def build_scene():
              Text=k.ui_text("Top-down shooter  ·  Zamin Engine namunasi", (0.75, 0.85, 1.0, 0.9), "Center", key="menu.subtitle"))
     menu_panel = panel("Menyu paneli", main_menu, (0, -110), (560, 330))
     play_button = button("O'ynash", menu_panel, "O'ynash", "menu.play", "Play", True)
-    language_button = button("Til", menu_panel, "Til: O'zbekcha", None, "Language")
+    language_button = button("Til", menu_panel, "Language: English", None, "Language")
     button("Chiqish", menu_panel, "Chiqish", "menu.quit", "Quit")
     menu_best = s.entity("Bosh menyu rekordi", parent=main_menu, UITransform=k.ui_rect(pos=(0, -330), size=(1200, 44), font=32),
                          Text=k.ui_text("", (1.0, 0.85, 0.35, 1.0), "Center"))

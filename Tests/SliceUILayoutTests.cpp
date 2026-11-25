@@ -429,10 +429,11 @@ namespace {
             CHECK(ui->State().Top == "Main" && std::abs(savedMusic - music) < 1e-3f && std::abs(savedScale - (way == 1 ? 1.2f : 0.9f)) < 1e-3f);
         }
         // the language: switched and kept with SaveData (the player's next start loads it)
-        CHECK(Localization::GetLanguage() == "uz");
+        // (the games start in English; Uzbek is the other language of the settings menu)
+        CHECK(Localization::GetLanguage() == "en");
         message("Language");
-        CHECK(Localization::GetLanguage() == "en" && Localization::HasSavedSettings());
-        CHECK(Localization::SetLanguage("uz") && Localization::LoadSettings() && Localization::GetLanguage() == "en");
+        CHECK(Localization::GetLanguage() == "uz" && Localization::HasSavedSettings());
+        CHECK(Localization::SetLanguage("en") && Localization::LoadSettings() && Localization::GetLanguage() == "uz");
         // the fullscreen switch shows the window as it is (no window here: windowed)
         CHECK(!scene->GetEntityByUUID(UUID(6113)).GetComponent<UIToggleComponent>().IsOn);
         scene->OnRuntimeStop();

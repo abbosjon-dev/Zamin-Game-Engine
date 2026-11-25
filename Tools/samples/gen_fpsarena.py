@@ -523,7 +523,7 @@ def build_scene():
     menu_panel = ui.panel("Menyu paneli", main_menu, (0, -120), (560, 420))
     play_button = ui.button("Parkur", menu_panel, "Parkur", "menu.play", "Play", True)
     ui.button("Nishon otish", menu_panel, "Nishon otish", "menu.range", "PlayRange")
-    language_button = ui.button("Til", menu_panel, "Til: O'zbekcha", None, "Language")
+    language_button = ui.button("Til", menu_panel, "Language: English", None, "Language")
     ui.button("Chiqish", menu_panel, "Chiqish", "menu.quit", "Quit")
     menu_best = s.entity("Bosh menyu rekordi", parent=main_menu, UITransform=k.ui_rect(pos=(0, -372), size=(1400, 44), font=32),
                          Text=k.ui_text("", (1.0, 0.85, 0.4, 1.0), "Center"))
@@ -534,7 +534,7 @@ def build_scene():
     pause_panel = ui.panel("Pauza paneli", pause_menu, (0, 0), (620, 520))
     ui.label("Pauza sarlavhasi", pause_panel, "PAUZA", (520, 80), 60, (1.0, 0.8, 0.5, 1.0), "pause.title")
     resume_button = ui.button("Davom etish", pause_panel, "Davom etish", "pause.resume", "Resume", True)
-    sens_label = ui.label("Sezgirlik yorlig'i", pause_panel, "Sichqoncha sezgirligi: 1.0", (520, 40), 28, (0.9, 0.9, 1.0, 1.0))
+    sens_label = ui.label("Sezgirlik yorlig'i", pause_panel, "Mouse sensitivity: 1.0", (520, 40), 28, (0.9, 0.9, 1.0, 1.0))
     sens_slider = s.entity("Sezgirlik", parent=pause_panel, UITransform=k.ui_rect(size=(520, 44)),
                            UISlider={"Min": 0.25, "Max": 3.0, "Value": 1.0, "WholeNumbers": False, "Direction": "LeftToRight",
                                      "Interactable": True, "TrackThickness": 10.0, "HandleSize": 30.0, "Rounded": True,
@@ -545,7 +545,7 @@ def build_scene():
     # the target range's results
     results_menu = ui.dim("Natijalar", False, 0.55)
     results_panel = ui.panel("Natijalar paneli", results_menu, (0, 0), (760, 560))
-    results_title = ui.label("Natijalar sarlavhasi", results_panel, "VAQT TUGADI!", (660, 84), 64, (1.0, 0.8, 0.5, 1.0))
+    results_title = ui.label("Natijalar sarlavhasi", results_panel, "TIME IS UP!", (660, 84), 64, (1.0, 0.8, 0.5, 1.0))
     results_score = ui.label("Natija ochkosi", results_panel, "", (660, 60), 48, (1.0, 0.92, 0.6, 1.0))
     results_stats = ui.label("Natija statistikasi", results_panel, "", (660, 40), 28, (0.85, 0.9, 1.0, 1.0))
     results_record = ui.label("Natija rekordi", results_panel, "", (660, 40), 30, (1.0, 0.6, 0.3, 1.0))

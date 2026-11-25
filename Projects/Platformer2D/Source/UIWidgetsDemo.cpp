@@ -70,7 +70,7 @@ private:
 
     void Greet(const std::string& name)
     {
-        SetStatus(name.empty() ? std::string("Avval ismingizni yozing") : std::format("Salom, {}!", name));
+        SetStatus(name.empty() ? std::string("Type your name first") : std::format("Salom, {}!", name));
     }
 
     void SetStatus(const std::string& text)

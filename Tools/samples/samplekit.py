@@ -802,7 +802,7 @@ def axis(name, negative, positive, gamepad_axis="", invert=False, deadzone=0.2):
 
 
 def write_project(project_dir, name, product, start_scene, start_uuid, version="1.0.0", build_scenes=(), actions=(), axes=(),
-                  vectors=(), tags_=(), layers=None, localization=("uz", "en"), audio_groups=None, extra=None, description=""):
+                  vectors=(), tags_=(), layers=None, localization=("en", "uz"), audio_groups=None, extra=None, description=""):
     """The .zproject. `description`: the launcher's text; the launcher's picture is Thumbnail.jpg next to the project
     (made from a real screenshot by Tools/samples/make_thumbnails.py) - named here when it exists."""
     proj = {

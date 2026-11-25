@@ -218,12 +218,12 @@ public:
             if (!m_Shown && GetSubScene())
             {
                 m_Shown = true;
-                SetLabel(std::format("'{}' yuklandi ({} obyekt)", GetSubScene()->GetName(), GetSubScene()->GetEntitiesInOrder().size()));
+                SetLabel(std::format("'{}' loaded ({} objects)", GetSubScene()->GetName(), GetSubScene()->GetEntitiesInOrder().size()));
             }
             return;
         }
         m_Time += ts;
-        SetLabel(std::format("Uchinchi lager {:.1f} s dan keyin yuklanadi", std::max(0.0f, Delay - m_Time)));
+        SetLabel(std::format("The third camp loads in {:.1f} s", std::max(0.0f, Delay - m_Time)));
         if (m_Time >= Delay)
             m_Requested = LoadSubScene(); // at the end of this frame, placed by this entity
     }

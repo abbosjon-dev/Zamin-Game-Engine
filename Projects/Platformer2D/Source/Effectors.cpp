@@ -50,7 +50,7 @@ private:
         }
         // What it reached: the circle for a moment.
         DebugDraw::Circle({ center, 0.5f }, Radius, glm::vec4(1.0f, 0.6f, 0.25f, 0.9f), 0.9f, false);
-        DebugDraw::Text({ center + glm::vec2(0.0f, Radius + 0.3f), 0.5f }, std::format("OverlapCircle2D: {} ta jism", found.size()),
+        DebugDraw::Text({ center + glm::vec2(0.0f, Radius + 0.3f), 0.5f }, std::format("OverlapCircle2D: {} bodies", found.size()),
                         glm::vec4(1.0f, 0.8f, 0.4f, 1.0f), 0.9f);
     }
 
@@ -99,7 +99,7 @@ public:
             DebugDraw::Text(p + glm::vec3(0.0f, 0.45f, 0.0f), std::to_string(i + 1), glm::vec4(1.0f, 0.92f, 0.45f, 1.0f), 0.0f, false);
         }
         if (Entity label = Resolve(Label); label && label.HasComponent<TextComponent>())
-            label.GetComponent<TextComponent>().Text = std::format("Raycast2DAll: {} ta obyekt", hits.size());
+            label.GetComponent<TextComponent>().Text = std::format("Raycast2DAll: {} objects", hits.size());
     }
 
 private:

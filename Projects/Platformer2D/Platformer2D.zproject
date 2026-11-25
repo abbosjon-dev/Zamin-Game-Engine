@@ -252,7 +252,7 @@
         ]
     },
     "Localization": {
-        "DefaultLanguage": "uz",
+        "DefaultLanguage": "en",
         "Languages": [
             "uz",
             "ru",

@@ -411,7 +411,7 @@ def build_scene():
     menu_panel = ui.panel("Menyu paneli", main_menu, (0, -90), (560, 420))
     play_button = ui.button("O'ynash", menu_panel, "O'ynash", "menu.play", "Play", True)
     ui.button("Darajalar", menu_panel, "Darajalar", "menu.levels", "Levels")
-    language_button = ui.button("Til", menu_panel, "Til: O'zbekcha", None, "Language")
+    language_button = ui.button("Til", menu_panel, "Language: English", None, "Language")
     ui.button("Chiqish", menu_panel, "Chiqish", "menu.quit", "Quit")
     progress = s.entity("Yechilganlar", parent=main_menu, UITransform=k.ui_rect(pos=(0, -340), size=(1200, 44), font=32),
                         Text=k.ui_text("", (1.0, 0.85, 0.4, 1.0), "Center"))

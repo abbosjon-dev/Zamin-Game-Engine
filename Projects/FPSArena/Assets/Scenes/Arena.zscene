@@ -8260,7 +8260,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Til: O'zbekcha",
+        "Text": "Language: English",
         "Color": [1.0, 1.0, 1.0, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -8665,7 +8665,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Sichqoncha sezgirligi: 1.0",
+        "Text": "Mouse sensitivity: 1.0",
         "Color": [0.9, 0.9, 1.0, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -8974,7 +8974,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "VAQT TUGADI!",
+        "Text": "TIME IS UP!",
         "Color": [1.0, 0.8, 0.5, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,

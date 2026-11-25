@@ -1533,7 +1533,7 @@
         "BorderScale": 3.0
       },
       "Text": {
-        "Text": "Ekran o'lchami: 1280x720",
+        "Text": "Resolution: 1280x720",
         "Color": [
           0.08,
           0.12,
@@ -1929,7 +1929,7 @@
         "BorderScale": 3.0
       },
       "Text": {
-        "Text": "Grafika sifati: High",
+        "Text": "Graphics quality: High",
         "Color": [
           0.08,
           0.12,
@@ -3226,7 +3226,7 @@
         "BorderScale": 3.0
       },
       "Text": {
-        "Text": "Til: O'zbekcha",
+        "Text": "Language: English",
         "Color": [
           0.08,
           0.12,

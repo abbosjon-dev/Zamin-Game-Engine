@@ -164,7 +164,7 @@
                 ]
             },
             "Text": {
-                "Text": "2D fizika: effektorlar va so'rovlar",
+                "Text": "2D physics: effectors and queries",
                 "Color": [
                     1,
                     1,
@@ -443,7 +443,7 @@
                 ]
             },
             "Text": {
-                "Text": "Suv (Buoyancy Effector 2D): zichligi kichigi suzadi",
+                "Text": "Water (Buoyancy Effector 2D): lower density floats",
                 "Color": [
                     1,
                     1,
@@ -986,7 +986,7 @@
                 ]
             },
             "Text": {
-                "Text": "Shamol (Area Effector 2D)",
+                "Text": "Wind (Area Effector 2D)",
                 "Color": [
                     1,
                     1,
@@ -1020,7 +1020,7 @@
                 ]
             },
             "Text": {
-                "Text": "<- yon shamol",
+                "Text": "<- side wind",
                 "Color": [
                     1,
                     1,
@@ -1440,7 +1440,7 @@
                 ]
             },
             "Text": {
-                "Text": "Raycast2DAll: 0 ta obyekt",
+                "Text": "Raycast2DAll: 0 objects",
                 "Color": [
                     1.0,
                     0.85,
@@ -1586,7 +1586,7 @@
                 ]
             },
             "Text": {
-                "Text": "Sichqoncha: portlash (OverlapCircle2D)",
+                "Text": "Mouse: explosion (OverlapCircle2D)",
                 "Color": [
                     1,
                     0.85,

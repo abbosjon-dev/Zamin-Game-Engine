@@ -212,10 +212,12 @@ the game code's time.
 Every player-facing string in both slices (prompts, banners, HUD and stats labels, level titles, item, quest, objective
 and combat feed names) goes through a localization key with its Uzbek fallback: graph texts use `Localization.Text`,
 the bag, the quest log and the combat feed look up `item.<Key>`, `quest.<Quest>[.<Objective>]` and `combat.<Key>`, and
-the generators write `uz.json` / `en.json` with the same keys (checked by `Tests/samples_assets.py`). Prompts carry
+the generators write `uz.json` / `en.json` with the same keys (checked by `Tests/samples_assets.py`). Both games start
+in English (`"DefaultLanguage": "en"`, languages `en`, `uz` in the project file); Uzbek is one press of the settings
+menu's language button away and is kept with the player's settings. Prompts carry
 `{action:...}` tokens; the UI audit's `RawHint` rule fails any visible text that still shows one unexpanded.
-Settings are saved whenever the settings panel closes, by *Orqaga* or by Back/Escape (`SLICE_SETTINGS` then
-`Menyu: Asosiy`); *To'liq ekran* and the language go through `Display.SaveSettings` and
+Settings are saved whenever the settings panel closes, by *Back* (*Orqaga*) or by Back/Escape (`SLICE_SETTINGS` then
+`Menyu: Asosiy`); *Fullscreen* (*To'liq ekran*) and the language go through `Display.SaveSettings` and
 `Localization.SaveSettings`, so a fresh process starts with the same choice.
 Chiroqbon's ground uses a 47-variant blob autotile for paths (no holes in 2x2 corners), a 4-neighbour water autotile,
 seamless grass and a decal layer (`Bezak`: petals, clover, pebbles, moss, cracks, cobwebs, wall shadows) between the

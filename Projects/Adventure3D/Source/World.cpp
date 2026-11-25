@@ -112,9 +112,9 @@ void AdventureGame::Refresh()
     if (auto* text = TryGetComponent<TextComponent>())
     {
         text->Text = std::format("Kristallar: {} / {}", m_Collected, m_Total);
-        if (m_Total > 0 && m_Collected >= m_Total) text->Text += "   -   G'alaba!";
+        if (m_Total > 0 && m_Collected >= m_Total) text->Text += "   -   Victory!";
         if (const float scale = Time::GetTimeScale(); scale < 0.999f)
-            text->Text += std::format("   -   Sekin: {:.0f}%", scale * 100.0f);
+            text->Text += std::format("   -   Slow: {:.0f}%", scale * 100.0f);
     }
 }
 ZM_REGISTER_SCRIPT(AdventureGame, ZM_FIELD(AdventureGame, SlowMotionScale), ZM_FIELD(AdventureGame, SlowMotionEase))
@@ -243,7 +243,7 @@ public:
         if (ShowLabel)
         {
             const glm::vec3 p = GetWorldPosition() + glm::vec3(0.0f, LabelHeight, 0.9f);
-            const char* state = anim->IsPlaying() ? (m_Opening ? "ochilmoqda" : "yopilmoqda") : (m_Opening ? "ochiq" : "yopiq");
+            const char* state = anim->IsPlaying() ? (m_Opening ? "ochilmoqda" : "yopilmoqda") : (m_Opening ? "open" : "closed");
             DebugDraw::Text(p, std::format("Darvoza: {}", state), glm::vec4(0.9f, 0.92f, 0.98f, 1.0f));
             if (!m_LastEvent.empty())
                 DebugDraw::Text(p - glm::vec3(0.0f, 0.4f, 0.0f), "event: " + m_LastEvent, glm::vec4(1.0f, 0.82f, 0.3f, 1.0f));

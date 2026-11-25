@@ -295,7 +295,7 @@
         "Order": 1
       },
       "Text": {
-        "Text": "rasm (9-slice, to'ldirish) - slayder - belgilash - progress bar - matn maydoni",
+        "Text": "image (9-slice, fill) - slider - toggle - progress bar - text field",
         "Color": [
           0.6,
           0.66,
@@ -342,7 +342,7 @@
         "Order": 1
       },
       "Text": {
-        "Text": "Musiqa",
+        "Text": "Music",
         "Color": [
           0.86,
           0.9,
@@ -499,7 +499,7 @@
         "Order": 1
       },
       "Text": {
-        "Text": "Effektlar",
+        "Text": "Effects",
         "Color": [
           0.86,
           0.9,
@@ -684,7 +684,7 @@
         ]
       },
       "Text": {
-        "Text": "To'liq ekran",
+        "Text": "Fullscreen",
         "Color": [
           0.86,
           0.9,
@@ -759,7 +759,7 @@
         ]
       },
       "Text": {
-        "Text": "Vertikal sinxron",
+        "Text": "Vertical sync",
         "Color": [
           0.86,
           0.9,
@@ -956,7 +956,7 @@
         ]
       },
       "Text": {
-        "Text": "O'rta",
+        "Text": "Medium",
         "Color": [
           0.86,
           0.9,
@@ -1078,7 +1078,7 @@
         "Order": 1
       },
       "Text": {
-        "Text": "Yuklanish",
+        "Text": "Loading",
         "Color": [
           0.86,
           0.9,
@@ -1191,7 +1191,7 @@
         "Order": 1
       },
       "Text": {
-        "Text": "Sog'liq",
+        "Text": "Health",
         "Color": [
           0.86,
           0.9,
@@ -1407,7 +1407,7 @@
       },
       "UIInputField": {
         "Text": "Gʻulomjon",
-        "Placeholder": "Ismingizni kiriting...",
+        "Placeholder": "Enter your name...",
         "ContentType": "Standard",
         "CharacterLimit": 24,
         "Interactable": true,
@@ -1531,7 +1531,7 @@
         "BorderScale": 3.0
       },
       "Text": {
-        "Text": "Saqlash",
+        "Text": "Save",
         "Color": [
           0.08,
           0.12,
@@ -1578,7 +1578,7 @@
         "Order": 1
       },
       "Text": {
-        "Text": "Ismingizni yozing va Enter yoki Saqlash tugmasini bosing",
+        "Text": "Type your name and press Enter or the Save button",
         "Color": [
           0.75,
           0.85,

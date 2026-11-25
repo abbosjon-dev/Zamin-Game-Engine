@@ -586,7 +586,8 @@ def hud(s, C):
     for i in range(4):
         ui.text(6070 + i, f"Jang {i + 1}", root, "", (0, 0.5), (32, 60 - i * 36), (380, 32), 25, (1.0, 0.6, 0.5, 1), "Left", pivot=(0, 0.5))
     ui.stretch(6080, "Jarohat", root, order=-1, active=False, UIImage=k.ui_image((1, 1, 1, 0.8), "Textures/ui.png", "vignette", "Sliced", 1.0, raycast=False))
-    ui.text(6081, "Boshqaruv", root, "[Inventory] inventar   [Pause] pauza", (1, 0), (-24, 18), (640, 32), 25, MUTED, "Right", hints=True, pivot=(1, 0))
+    ui.text(6081, "Boshqaruv", root, "[Inventory] inventar   [Pause] pauza", (1, 0), (-24, 18), (640, 32), 25, MUTED, "Right", hints=True, pivot=(1, 0),
+            key=T_("hud.controls", "[Inventory] inventar   [Pause] pauza", "[Inventory] bag   [Pause] pause"))
     # pause
     ui.dim(6100, "Pauza", 50)
     ui.panel(6101, "Pauza paneli", 6100, (0, 0), (560, 470))
@@ -663,7 +664,9 @@ def menu_scene(assets, project, W):
     # the controls line: 78 % of the view's width (it wraps on narrow views and stays out of a 21:9 view's corners)
     s.add(6031, "Boshqaruv", CANVAS, UITransform=k.ui_rect((0.11, 0), (0.89, 0), (0.5, 0), (0, 30), (0, 76), 25),
           Text=k.ui_text("[Move] yurish   [LookX|Sichqoncha] qarash   [Jump] sakrash   [Attack] zarba   [Bolt] olov o'qi   [Interact] ishlatish   [Pause] pauza",
-                         MUTED, "Center", hints=True, wrap=True))
+                         MUTED, "Center", hints=True, wrap=True,
+                         key=T_("menu.controls", "[Move] yurish   [LookX|Sichqoncha] qarash   [Jump] sakrash   [Attack] zarba   [Bolt] olov o'qi   [Interact] ishlatish   [Pause] pauza",
+                                "[Move] move   [LookX|Mouse] look   [Jump] jump   [Attack] strike   [Bolt] fire bolt   [Interact] use   [Pause] pause")))
     ui.text(6032, "Versiya", CANVAS, "v1.0  Zamin Engine", (1, 0), (-24, 12), (420, 32), 25, MUTED, "Right", pivot=(1, 0))
     # settings
     ui.dim(6100, "Sozlamalar", 50)

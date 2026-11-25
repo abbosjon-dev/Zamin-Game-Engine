@@ -1630,7 +1630,7 @@
         "Font": "",
         "Kerning": 0.0,
         "LineSpacing": 0.0,
-        "Text": "Ekran o'lchami: 1280x720"
+        "Text": "Resolution: 1280x720"
       },
       "Transform": {
         "Rotation": [
@@ -2026,7 +2026,7 @@
         "Font": "",
         "Kerning": 0.0,
         "LineSpacing": 0.0,
-        "Text": "Grafika sifati: High"
+        "Text": "Graphics quality: High"
       },
       "Transform": {
         "Rotation": [
@@ -3323,7 +3323,7 @@
         "Font": "",
         "Kerning": 0.0,
         "LineSpacing": 0.0,
-        "Text": "Til: O'zbekcha"
+        "Text": "Language: English"
       },
       "Transform": {
         "Rotation": [
@@ -3869,7 +3869,7 @@
         "Font": "",
         "Kerning": 0.0,
         "LineSpacing": 0.0,
-        "Text": "Sessiya: 0 tanga"
+        "Text": "Session: 0 coins"
       },
       "Transform": {
         "Rotation": [

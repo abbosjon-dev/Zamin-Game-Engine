@@ -113,7 +113,7 @@ check_line "Skript moduli o'zgardi - qayta yuklanmoqda" "editor yangi modulni ko
 check_line "Skriptlar qayta yuklandi \(hot reload\)" "hot reload"
 check_line "HotReloadProbe v2: Speed=7.5 Label=saqlangan Count=3 Extra=42" "2-versiya: maydonlar saqlandi, yangi maydon standart qiymatda"
 check_line "HotReloadProbe v2: 20 kadr, pozitsiya \(0\.00, [1-9][0-9.]*\)" "2-versiya (yangi kod) Y bo'ylab yurdi"
-loads=$(echo "$output" | grep -c "Skript moduli yuklandi: libHotReload.so")
+loads=$(echo "$output" | grep -c "Script module loaded: libHotReload.so")
 if [[ $loads -eq 2 ]]; then pass "modul 2 marta yuklandi"; else fail "modul $loads marta yuklandi (2 kutilgan)"; fi
 # The editor's log file: no errors (also none from a half written module).
 editor_log="$(ls -t "$work/home/.local/share/zamin/editor/logs/"*.log 2>/dev/null | head -n 1)"

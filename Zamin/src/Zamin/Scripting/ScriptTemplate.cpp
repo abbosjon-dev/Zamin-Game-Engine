@@ -322,23 +322,22 @@ ZM_REGISTER_SCRIPT(PlayerController,
         std::string ValidateClassName(std::string_view name)
         {
             if (name.empty())
-                return "Klass nomi bo'sh";
+                return "The class name is empty";
             if (std::isdigit((unsigned char)name[0]))
-                return "Klass nomi raqam bilan boshlanmasligi kerak";
+                return "The class name must not start with a digit";
             for (char ch : name)
                 if (!(std::isalnum((unsigned char)ch) || ch == '_'))
-                    return std::format("Ruxsat etilmagan belgi: '{}' (faqat lotin harflari, raqamlar va _)", ch);
+                    return std::format("Character not allowed: '{}' (only Latin letters, digits and _)", ch);
             if (name.size() >= 2 && name[0] == '_' && (name[1] == '_' || std::isupper((unsigned char)name[1])))
-                return "'_' + katta harf yoki '__' bilan boshlanadigan nomlar C++ uchun band";
+                return "Names starting with '_' + a capital letter or '__' are reserved in C++";
             if (name.find("__") != std::string_view::npos)
-                return "'__' (ikki pastki chiziq) C++ uchun band";
+                return "'__' (two underscores) is reserved in C++";
             if (Contains(CppKeywords, name))
-                return std::format("'{}' - C++ kalit so'zi yoki band nom", name);
+                return std::format("'{}' is a C++ keyword or a reserved name", name);
             if (Contains(EngineNames, name))
-                return std::format("'{0}' - Zamin engine'idagi nom bilan to'qnashadi (using namespace Zamin). "
-                                   "Masalan '{0}Controller' yoki '{0}Script' deb nomlang", name);
+                return std::format("'{0}' clashes with a name in the Zamin engine (using namespace Zamin). Name it '{0}Controller' or '{0}Script', for example", name);
             if (Contains(TemplateNames, name))
-                return std::format("'{0}' - skript funksiyasi nomi bilan bir xil. Masalan '{0}Script' deb nomlang", name);
+                return std::format("'{0}' is the same as a script function name. Name it '{0}Script', for example", name);
             return {};
         }
 

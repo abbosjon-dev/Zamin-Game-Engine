@@ -88,7 +88,7 @@ namespace Zamin {
         if (!s_Module.LoadedCopy.empty())
             std::filesystem::remove(s_Module.LoadedCopy, ec);
         s_Module.LoadedCopy.clear();
-        ZM_CORE_INFO("Skript moduli yopildi");
+        ZM_CORE_INFO("Script module closed");
     }
 
     int ScriptEngine::RemoveStaleModuleCopies(const std::filesystem::path& folder)
@@ -122,12 +122,12 @@ namespace Zamin {
 
     bool ScriptEngine::LoadModule(const std::filesystem::path& path)
     {
-        if (s_LoadingModule) { ZM_CORE_ERROR("Modul yuklash ichida yana modul yuklash mumkin emas"); return false; }
+        if (s_LoadingModule) { ZM_CORE_ERROR("A module cannot be loaded while another module is loading"); return false; }
         struct LoadingGuard { LoadingGuard(){s_LoadingModule=true;} ~LoadingGuard(){s_LoadingModule=false;} } loading;
         std::error_code ec;
         if (!std::filesystem::exists(path, ec))
         {
-            ZM_CORE_WARN("Skript moduli topilmadi: '{}' (avval skriptlarni kompilyatsiya qiling)", path.string());
+            ZM_CORE_WARN("Script module not found: '{}' (compile the scripts first)", path.string());
             return false;
         }
 
@@ -138,7 +138,7 @@ namespace Zamin {
         std::filesystem::create_directories(tmpDir, ec);
         // Copies of runs that crashed or were killed (UnloadModule deletes the others) are not kept for ever.
         if (const int stale = RemoveStaleModuleCopies(tmpDir); stale > 0)
-            ZM_CORE_INFO("Eski skript moduli nusxalari o'chirildi: {} ta ({})", stale, tmpDir.string());
+            ZM_CORE_INFO("Old script module copies deleted: {} ({})", stale, tmpDir.string());
         std::filesystem::path copy = tmpDir / (path.stem().string() + "-" + std::to_string(getpid()) + "-" +
                                                std::to_string(++s_Module.Generation) + path.extension().string());
         const auto sourceWriteTime = std::filesystem::last_write_time(path, ec);
@@ -146,7 +146,7 @@ namespace Zamin {
         std::filesystem::copy_file(path, copy, std::filesystem::copy_options::overwrite_existing, ec);
         if (ec)
         {
-            ZM_CORE_ERROR("Modulni nusxalab bo'lmadi: {}", ec.message());
+            ZM_CORE_ERROR("Could not copy the module: {}", ec.message());
             return false;
         }
 
@@ -155,7 +155,7 @@ namespace Zamin {
         auto compatibility = ModuleABI::Inspect(copy);
         if (!compatibility.Compatible())
         {
-            ZM_CORE_ERROR("Skript moduli rad etildi: {}: {} (engine={}, modul={})", path.filename().string(), compatibility.Message,
+            ZM_CORE_ERROR("Script module rejected: {}: {} (engine={}, module={})", path.filename().string(), compatibility.Message,
                           compatibility.EngineFingerprint.substr(0,12), compatibility.ModuleFingerprint.substr(0,12));
             std::filesystem::remove(copy, ec);
             return false;
@@ -171,7 +171,7 @@ namespace Zamin {
         }
         if (!handle)
         {
-            ZM_CORE_ERROR("Skript moduli yuklanmadi: {}", dlerror());
+            ZM_CORE_ERROR("Script module failed to load: {}", dlerror());
             std::filesystem::remove(copy, ec);
             return false;
         }
@@ -182,11 +182,11 @@ namespace Zamin {
         s_Module.Path = path;
         s_Module.LoadedCopy = copy;
         s_Module.WriteTime = sourceWriteTime;
-        ZM_CORE_INFO("Skript moduli yuklandi: {} ({} ta skript klassi)", path.filename().string(),
+        ZM_CORE_INFO("Script module loaded: {} ({} script classes)", path.filename().string(),
                      classCount);
         return true;
 #else
-        ZM_CORE_ERROR("Bu platformada skript modullari hali qo'llab-quvvatlanmaydi");
+        ZM_CORE_ERROR("Script modules are not supported on this platform yet");
         return false;
 #endif
     }

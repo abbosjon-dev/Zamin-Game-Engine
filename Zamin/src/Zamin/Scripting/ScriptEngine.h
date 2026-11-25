@@ -86,7 +86,7 @@ namespace Zamin {
         ScriptFieldInfo Color(ScriptFieldInfo info, bool hdr)
         {
             static_assert(std::is_same_v<T, glm::vec3> || std::is_same_v<T, glm::vec4>,
-                          "ZM_FIELD_COLOR: maydon glm::vec3 yoki glm::vec4 bo'lishi kerak");
+                          "ZM_FIELD_COLOR: the field must be glm::vec3 or glm::vec4");
             info.Color(hdr);
             return info;
         }
@@ -96,7 +96,7 @@ namespace Zamin {
         {
             static_assert(std::is_same_v<T, float> || std::is_same_v<T, int> || std::is_same_v<T, glm::vec2> ||
                           std::is_same_v<T, glm::vec3> || std::is_same_v<T, glm::vec4> || std::is_same_v<T, AnimationCurve>,
-                          "ZM_FIELD_RANGE: maydon float, int, glm::vec2, glm::vec3, glm::vec4 yoki AnimationCurve bo'lishi kerak");
+                          "ZM_FIELD_RANGE: the field must be float, int, glm::vec2, glm::vec3, glm::vec4 or AnimationCurve");
             info.Range(min, max);
             return info;
         }
@@ -105,7 +105,7 @@ namespace Zamin {
         ScriptFieldInfo Enum(ScriptFieldInfo info, std::initializer_list<ScriptEnumOption> options)
         {
             static_assert(std::is_enum_v<T> || std::is_same_v<T, int>,
-                          "ZM_FIELD_ENUM: maydon enum (yoki int) bo'lishi kerak");
+                          "ZM_FIELD_ENUM: the field must be an enum (or int)");
             info.Options(options);
             return info;
         }

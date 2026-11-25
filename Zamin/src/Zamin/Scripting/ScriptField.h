@@ -45,7 +45,7 @@ namespace Zamin {
         else if constexpr (std::is_enum_v<T>)              return ScriptFieldType::Enum;
         else
         {
-            static_assert(sizeof(T) == 0, "ZM_FIELD: qo'llab-quvvatlanmaydigan tur (float,int,bool,vec2,vec3,vec4,std::string,EntityRef,AnimationCurve,enum)");
+            static_assert(sizeof(T) == 0, "ZM_FIELD: unsupported type (float,int,bool,vec2,vec3,vec4,std::string,EntityRef,AnimationCurve,enum)");
             return ScriptFieldType::None;
         }
     }

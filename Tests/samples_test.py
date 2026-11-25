@@ -396,7 +396,7 @@ def common_checks(case, args, text, code, shot, prefix=""):
     results.append((prefix + "logda xato yo'q", bool(text) and not error_lines,
                     "log yozilmadi" if not text else (f"{len(error_lines)} ta xato: {error_lines[0][:120]}" if error_lines else f"{len(text.splitlines())} qator")))
     if has_module(project, case.game):
-        m = re.search(r"Skript moduli yuklandi: (.*)", text)
+        m = re.search(r"Script module loaded: (.*)", text)
         results.append((prefix + "skript moduli yuklandi", bool(m), m.group(1) if m else "yo'q"))
     if os.path.exists(shot):
         ok, detail = check_picture(shot, args.resolution)

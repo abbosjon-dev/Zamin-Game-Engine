@@ -144,7 +144,7 @@ Skript moduli kompilyatsiya qilinmagan yoki klass ro'yxatga olinmagan:
 1. **Skriptlar → Kompilyatsiya + qayta yuklash** (`Ctrl+B`) va Konsolda natijani ko'ring.
 2. Fayl oxirida `ZM_REGISTER_SCRIPT(KlassNomi, ...)` bormi?
 
-> `Skript moduli topilmadi: '<fayl>' (avval skriptlarni kompilyatsiya qiling)`
+> `Script module not found: '<fayl>' (compile the scripts first)`
 
 Modul fayli (`Binaries/lib<O'yin>.so`) hali yo'q - kompilyatsiya qiling.
 
@@ -168,7 +168,7 @@ Loyiha ochilmagan bo'lsa:
 
 ### Modul yuklanmadi
 
-> `Skript moduli yuklanmadi: <dlerror xabari>`
+> `Script module failed to load: <dlerror xabari>`
 
 Odatda `undefined symbol: ...` - e'lon qilingan, lekin yozilmagan funksiya (masalan klass metodining tanasi
 unutilgan) yoki dvigatel qayta build qilinib, modul eskisi bilan qolgan: skriptlarni qayta kompilyatsiya qiling.
@@ -185,7 +185,7 @@ yoki modul hali kompilyatsiya qilinmagan. Inspektorda yangi klassni tanlang yoki
 **Skriptlar → Yangi C++ skript...** nomni tekshiradi: faqat lotin harflari, raqamlar va `_`, raqam bilan boshlanmaydi,
 C++ kalit so'zi bo'lmaydi va dvigateldagi nom bilan to'qnashmaydi:
 
-> `'<Nom>' - Zamin engine'idagi nom bilan to'qnashadi (using namespace Zamin). Masalan '<Nom>Controller' yoki '<Nom>Script' deb nomlang`
+> `'<Nom>' clashes with a name in the Zamin engine (using namespace Zamin). Name it '<Nom>Controller' or '<Nom>Script', for example`
 
 > `'<Nom>' klassi allaqachon mavjud (skript modulida ro'yxatdan o'tgan)`
 
@@ -201,9 +201,9 @@ Maydon `ZM_REGISTER_SCRIPT(Klass, ZM_FIELD(Klass, Maydon), ...)` ichida sanab o'
 turlar - [Scripting.md, 4](Scripting.md#4-inspektor-maydonlari-zm_field). Noto'g'ri tur kompilyatsiyada aytiladi,
 masalan:
 
-> `ZM_FIELD_RANGE: maydon float, int, glm::vec2, glm::vec3, glm::vec4 yoki AnimationCurve bo'lishi kerak`
+> `ZM_FIELD_RANGE: the field must be float, int, glm::vec2, glm::vec3, glm::vec4 or AnimationCurve`
 
-> `ZM_FIELD_COLOR: maydon glm::vec3 yoki glm::vec4 bo'lishi kerak`
+> `ZM_FIELD_COLOR: the field must be glm::vec3 or glm::vec4`
 
 ### O'yin osilib qoldi yoki xabarlar tashlab yuborildi
 
@@ -211,7 +211,7 @@ Skriptlar bir-biriga cheksiz xabar / hodisa yuborsa, dvigatel zanjirni uzadi:
 
 > `Xabar '<nom>' juda chuqur ichma-ich yuborildi (<N> daraja) va tashlab yuborildi (cheksiz tsikl?)`
 
-> `Hodisa '<nom>' juda chuqur ichma-ich chaqirildi (<N> daraja) va tashlab yuborildi (cheksiz tsikl?)`
+> `The event '<nom>' was raised nested too deep (<N> levels) and was dropped (an endless loop?)`
 
 `OnEnable` / `OnDisable` skriptni o'zi yoqib-o'chirib tursa:
 
@@ -238,7 +238,7 @@ Batafsil: [Scenes.md, 10](Scenes.md#10-yuklash-xatolari).
 
 Sahna almashtirish faqat o'yin ishlab turganda (editorning Play'i yoki player) - uni `SceneManager` boshqaradi:
 
-> `'<fayl>': qo'shimcha sahna yuklash uchun SceneManager kerak (o'yin rejimi / player)`
+> `'<fayl>': loading an additive scene needs the SceneManager (play mode / player)`
 
 Build ro'yxatida yo'q indeks so'ralsa:
 
@@ -257,7 +257,7 @@ bilan solishtiring). Format va migratsiya: [ProjectSettings.md, 17](ProjectSetti
 
 ### Material yoki rasm yuklanmadi
 
-> `Material yuklanmadi: <fayl> (<sabab>)`
+> `Material failed to load: <fayl> (<sabab>)`
 
 Asset ko'chirilgan yoki o'chirilgan. Fayllarni editorning kontent brauzerida ko'chiring - havolalar `.zmeta` dagi
 UUID orqali yangilanadi; editor tashqarisida ko'chirilsa, `.zmeta` ni ham birga ko'chiring.

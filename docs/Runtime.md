@@ -72,7 +72,7 @@ Zamin Engine 0.1.0 (kommit 40a7394f2c, build 2026-11-07, Release, GCC 13.3.0) is
 Log fayli: /home/ali/.local/share/Zamin Studio/Zamin Platformer/logs/player-2026-11-07_14-03-12.log
 Oyna sozlamalari: 1600x900 (saqlangan), oynali (loyiha), VSync: ha (loyiha), FPS: cheklovsiz (loyiha), monitor: asosiy (loyiha), splash: ha (loyiha)
 Zamin Platformer 0.4.0 (Zamin Studio)
-Skript moduli yuklandi: libPlatformer2D.so (25 ta skript klassi)
+Script module loaded: libPlatformer2D.so (25 script classes)
 ```
 
 ## 3. Sozlamalar va ustunlik tartibi
@@ -428,7 +428,7 @@ Eksport testi: Platformer2D (Zamin Platformer) -> /tmp/zamin-export-test.XXXX/ex
   [OK]   --version: Zamin Platformer 0.4.0 - Zamin Studio Zamin Engine 0.1.0
   [OK]   eksport qilingan o'yin 120 kadr ishladi (chiqish kodi 0)
   [OK]   o'yin logida xato yo'q (30 qator)
-  [OK]   Skript moduli yuklandi: libPlatformer2D.so (25 ta skript klassi)
+  [OK]   Script module loaded: libPlatformer2D.so (25 script classes)
   [OK]   boshqa papkaga ko'chirilgandan keyin ham ishga tushadi
 Eksport testi: hammasi o'tdi
 ```

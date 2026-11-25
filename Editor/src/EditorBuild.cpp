@@ -193,7 +193,7 @@ namespace Zamin {
             return false;
         }
         OpenInCodeEditor(file);
-        ZM_INFO("Yangi skript yaratildi ({} shablon): {}", ScriptTemplate::GetKindName(kind), file.string());
+        ZM_INFO("Yangi skript yaratildi ({} shablon): {}", kind == ScriptTemplateKind::Full ? "Full" : "Minimal", file.string());
         BuildScripts(true);
         return true;
     }

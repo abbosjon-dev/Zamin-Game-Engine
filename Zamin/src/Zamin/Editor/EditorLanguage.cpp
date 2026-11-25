@@ -5338,6 +5338,8 @@ namespace Zamin {
             { "Xotiraga (decompress)", "Decompress into memory" },
             { "Diskdan oqim (stream)", "Stream from disk" },
             { "Avtomatik (hajmiga qarab)", "Automatic (by size)" },
+            { "Hamma callback'lar (OnCreate, OnEnable, OnStart, OnUpdate, OnTriggerBegin ...) misollar bilan, har xil inspektor maydonlari (slayder, ro'yxat, rang, havola)", "All callbacks (OnCreate, OnEnable, OnStart, OnUpdate, OnTriggerBegin ...) with examples, different inspector fields (slider, list, color, reference)" },
+            { "Faqat OnCreate va OnUpdate, bitta maydon", "Only OnCreate and OnUpdate, one field" },
         };
 
         struct Table

@@ -29,7 +29,7 @@ to'plamlari Debug build'da, bir vaqtda boshqa build'lar ham ishlab turgan (shuni
 | Kod hajmi | 528 C++ fayl (vendor'siz): engine 385 fayl / 122 600 qator, editor 57 900, testlar 53 800, o'yinlar 14 900 |
 
 **Regressiyada topilgan xato.** `ScriptHotReload` og'ir yuklama ostida (bir vaqtda ikki build) yiqildi: editor modul
-faylini linker hali yozib bo'lmasdan o'qidi - `Skript moduli yuklanmadi: ... file too short`, keyingi so'rovda
+faylini linker hali yozib bo'lmasdan o'qidi - `Script module failed to load: ... file too short`, keyingi so'rovda
 yuklandi, lekin logdagi xato testni yiqitdi. Fayl hajmi va vaqti ikki so'rov (0.4 s) davomida o'zgarmasligi yetmas
 ekan: linker shuncha to'xtab qolishi mumkin. Endi editor ELF sarlavhasidagi bo'limlar jadvali (linker oxirida yozadi)
 fayl ichida ekanini ham tekshiradi (`IsElfFileComplete`, `EditorLayer.cpp`); qayta ishga tushirishda test o'tdi.

@@ -94,7 +94,7 @@ namespace Zamin {
         if (!mr || !Scene::SetMeshMaterial(*mr, assetPath, submesh))
             return false;
         if (!assetPath.empty() && !(submesh < 0 ? mr->MaterialRef : Scene::GetMeshMaterialAsset(*mr, (size_t)submesh)))
-            ZM_WARN("Material yuklanmadi: {} ({})", assetPath, other.GetName());
+            ZM_WARN("Material failed to load: {} ({})", assetPath, other.GetName());
         return true;
     }
 
@@ -669,7 +669,7 @@ namespace Zamin {
         else if (mode == LoadSceneMode::Single)
             m_Entity.GetScene()->RequestLoadScene(scenePath); // a scene on its own: the host switches
         else
-            ZM_CORE_WARN("'{}': qo'shimcha sahna yuklash uchun SceneManager kerak (o'yin rejimi / player)", scenePath);
+            ZM_CORE_WARN("'{}': loading an additive scene needs the SceneManager (play mode / player)", scenePath);
     }
 
     bool ScriptableEntity::LoadScene(int buildIndex, LoadSceneMode mode, const SceneTransition& transition)
@@ -679,7 +679,7 @@ namespace Zamin {
         std::filesystem::path path = Project::GetBuildScenePath(buildIndex);
         if (path.empty())
         {
-            ZM_CORE_ERROR("Build ro'yxatida {} indeksli sahna yo'q", buildIndex);
+            ZM_CORE_ERROR("The build list has no scene with index {}", buildIndex);
             return false;
         }
         LoadScene(path.generic_string(), mode, transition);
@@ -690,7 +690,7 @@ namespace Zamin {
     {
         if (SceneManager* manager = GetSceneManager())
             return manager->LoadSceneAsync(scenePath, mode, transition);
-        ZM_CORE_WARN("'{}': fonda yuklash uchun SceneManager kerak (o'yin rejimi / player)", scenePath);
+        ZM_CORE_WARN("'{}': loading in the background needs the SceneManager (play mode / player)", scenePath);
         return nullptr;
     }
 
@@ -698,7 +698,7 @@ namespace Zamin {
     {
         if (SceneManager* manager = GetSceneManager())
             return manager->LoadSceneAsync(buildIndex, mode, transition);
-        ZM_CORE_WARN("{}-build sahna: fonda yuklash uchun SceneManager kerak (o'yin rejimi / player)", buildIndex);
+        ZM_CORE_WARN("Build scene {}: loading in the background needs the SceneManager (play mode / player)", buildIndex);
         return nullptr;
     }
 
@@ -716,7 +716,7 @@ namespace Zamin {
     {
         if (SceneManager* manager = GetSceneManager())
             return manager->ReloadActiveScene(transition);
-        ZM_CORE_WARN("ReloadScene: sahna SceneManager'siz ishlayapti (o'yin rejimi / player kerak)");
+        ZM_CORE_WARN("ReloadScene: the scene runs without a SceneManager (play mode / the player is needed)");
         return false;
     }
 
@@ -750,7 +750,7 @@ namespace Zamin {
         SceneManager* manager = host.GetScene() ? host.GetScene()->GetSceneManager() : nullptr;
         if (!manager)
         {
-            ZM_CORE_WARN("LoadSubScene('{}'): sahna SceneManager'siz ishlayapti - sub-sahna yuklanmadi",
+            ZM_CORE_WARN("LoadSubScene('{}'): the scene runs without a SceneManager - the sub-scene was not loaded",
                          host.IsValid() ? host.GetName() : std::string("?"));
             return false;
         }
@@ -776,7 +776,7 @@ namespace Zamin {
         if (SceneManager* manager = entity.GetScene() ? entity.GetScene()->GetSceneManager() : nullptr)
             manager->DontDestroyOnLoad(entity);
         else
-            ZM_CORE_WARN("DontDestroyOnLoad('{}'): sahna SceneManager'siz ishlayapti - hech narsa qilinmadi",
+            ZM_CORE_WARN("DontDestroyOnLoad('{}'): the scene runs without a SceneManager - nothing was done",
                          entity.IsValid() ? entity.GetName() : std::string("?"));
     }
 

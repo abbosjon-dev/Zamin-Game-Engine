@@ -11403,10 +11403,10 @@ namespace Zamin {
             ImGui::SeparatorText(Tr("Shablon"));
             for (ScriptTemplateKind kind : { ScriptTemplateKind::Full, ScriptTemplateKind::Minimal })
             {
-                if (ImGui::RadioButton(ScriptTemplate::GetKindName(kind), m_NewScriptTemplate == kind))
+                if (ImGui::RadioButton(Tr(ScriptTemplate::GetKindName(kind)), m_NewScriptTemplate == kind))
                     m_NewScriptTemplate = kind;
                 ImGui::Indent(ImGui::GetFrameHeight());
-                ImGui::TextDisabled("%s", ScriptTemplate::GetKindDescription(kind));
+                ImGui::TextDisabled("%s", Tr(ScriptTemplate::GetKindDescription(kind)));
                 ImGui::Unindent(ImGui::GetFrameHeight());
             }
             ImGui::PopTextWrapPos();

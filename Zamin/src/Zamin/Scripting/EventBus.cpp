@@ -126,7 +126,7 @@ namespace Zamin {
         if (m_Depth >= MaxEmitDepth)
         {
             if (!m_DepthWarned)
-                ZM_CORE_WARN("Hodisa '{}' juda chuqur ichma-ich chaqirildi ({} daraja) va tashlab yuborildi (cheksiz tsikl?)",
+                ZM_CORE_WARN("The event '{}' was raised nested too deep ({} levels) and was dropped (an endless loop?)",
                              message.Name, MaxEmitDepth);
             m_DepthWarned = true;
             return 0;

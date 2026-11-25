@@ -295,7 +295,7 @@ namespace Zamin {
             if (!(sorted == asset->GetClip()))
                 asset->SetClip(sorted);
             if (!asset->Save())
-                ZM_ERROR("Sprite animatsiya klipi saqlanmadi: {}", m_Path.string());
+                ZM_ERROR("Sprite animation clip not saved: {}", m_Path.string());
         }
     }
 

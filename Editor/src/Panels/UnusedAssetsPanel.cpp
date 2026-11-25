@@ -51,10 +51,10 @@ namespace Zamin {
             std::string list;
             for (size_t i = 0; i < m_Unused.size() && i < 12; i++)
                 list += (i ? ", " : "") + m_Unused[i].Path;
-            ZM_INFO("Ishlatilmagan assetlar{}: {} ta ({}), {} ta asset va {} ta fayl tekshirildi{}{}", m_ReachableOnly ? " (chuqur)" : "",
+            ZM_INFO("Unused assets{}: {} ({}), {} assets and {} files checked{}{}", m_ReachableOnly ? " (deep)" : "",
                     m_Unused.size(), AssetFiles::FormatSize(m_TotalSize), m_AssetCount, m_ScannedFiles, list.empty() ? "" : ": ", list);
             for (const MissingAssetReference& m : index.GetMissing())
-                ZM_WARN("Buzilgan havola: {} -> {}", m.Name, m.Path);
+                ZM_WARN("Broken reference: {} -> {}", m.Name, m.Path);
         }
     }
 
@@ -298,7 +298,7 @@ namespace Zamin {
             }
             if (!deleted.empty())
             {
-                ZM_INFO("{} ta ishlatilmagan asset o'chirildi", deleted.size());
+                ZM_INFO("{} unused assets deleted", deleted.size());
                 if (OnAssetsDeleted)
                     OnAssetsDeleted(deleted);
             }

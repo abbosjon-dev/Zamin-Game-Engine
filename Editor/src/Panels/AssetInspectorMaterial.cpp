@@ -104,7 +104,7 @@ namespace Zamin {
         {
             m_PhysicsMaterialUnsaved = false;
             if (!PhysicsMaterial::Save(m_Path, asset->GetData()))
-                ZM_ERROR("Fizik material saqlanmadi: {}", m_Path.string());
+                ZM_ERROR("Physics material not saved: {}", m_Path.string());
         }
     }
 

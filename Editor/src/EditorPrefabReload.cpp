@@ -50,7 +50,7 @@ namespace Zamin {
             // The running game is never touched: its instances follow when it stops.
             if (!m_PrefabReloadNoticeShown)
             {
-                ZM_INFO("Prefab fayli o'zgardi: o'yin to'xtagach sahnadagi nusxalar yangilanadi");
+                ZM_INFO("The prefab file changed: the instances in the scene are updated when the game stops");
                 ShowViewportMessage(Tr(ICON_FA_BOX "  Prefab o'zgardi: o'yin to'xtagach nusxalar yangilanadi"));
                 m_PrefabReloadNoticeShown = true;
             }
@@ -78,17 +78,17 @@ namespace Zamin {
             for (entt::entity id : m_EditorScene->GetAllEntitiesWith<EditorMetadataComponent>())
                 if (Entity e{ id, m_EditorScene.get() }; PrefabUtility::IsInstanceRoot(e) && PrefabDatabase::NormalizePath(PrefabUtility::GetPrefabPath(e)) == path)
                 {
-                    ZM_WARN("Prefab fayli o'chirildi: {} - uning nusxalari ma'lumotlarini saqlaydi", path);
+                    ZM_WARN("Prefab file deleted: {} - its instances keep their data", path);
                     break;
                 }
         for (const std::string& path : reload.Failed)
-            ZM_WARN("Prefab yangilanmadi (ichidagi prefab o'zgardi, lekin fayl o'qilmadi yoki yangiroq formatda): {}", path);
+            ZM_WARN("Prefab not updated (a prefab inside it changed, but the file could not be read or is in a newer format): {}", path);
         for (const std::string& path : reload.Rewritten)
             m_ContentBrowserPanel.InvalidateThumbnail(Project::GetAssetFileSystemPath(path));
         if (!reload.Rewritten.empty())
         {
             m_ContentBrowserPanel.Refresh();
-            ZM_INFO("Prefab tashqarida o'zgardi ({}): {} ta bog'liq prefab fayli yangilandi", reload.Changed.empty() ? std::string("?") : reload.Changed.front(),
+            ZM_INFO("Prefab changed outside the editor ({}): {} dependent prefab files updated", reload.Changed.empty() ? std::string("?") : reload.Changed.front(),
                     reload.Rewritten.size());
         }
 
@@ -112,7 +112,7 @@ namespace Zamin {
         CommitUndo(); // what is pending is a step of its own first
         PrefabUtility::SyncResult sync = PrefabUtility::SyncScene(*m_EditorScene, m_PrefabDatabase, filter);
         for (const std::string& issue : sync.Issues)
-            ZM_WARN("Prefab nusxasi yangilanmadi: {}", issue);
+            ZM_WARN("Prefab instance not updated: {}", issue);
         if (!sync.Changed && !sync.Linked)
             return;
         if (sync.Changed)
@@ -128,8 +128,8 @@ namespace Zamin {
                                : reload.Changed.empty() ? Tr("prefablar")
                                : std::format("{} {}", reload.Changed.size(), Tr("ta prefab"));
         for (const std::string& path : reload.Changed)
-            ZM_INFO("Prefab tashqarida o'zgardi: {}", path);
-        ZM_INFO("Prefab yangilandi: {} - sahnada {} ta nusxa yangilandi", what, sync.Changed);
+            ZM_INFO("Prefab changed outside the editor: {}", path);
+        ZM_INFO("Prefab updated: {} - {} instances updated in the scene", what, sync.Changed);
         ShowViewportMessage(std::format(ICON_FA_ROTATE "  {}: {} ({} {})", Tr("Prefab yangilandi"), what, sync.Changed, Tr("nusxa")));
     }
 

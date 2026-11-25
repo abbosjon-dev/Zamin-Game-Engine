@@ -105,8 +105,8 @@ elif grep -q '"Succeeded": *true' "$report"; then
 else
     fail "export-report.json: with errors - $(grep -A3 '"Errors"' "$report" | tr -d '\n' | head -c 300)"
 fi
-if grep -q "Eksport: .*eksport to'liq emas" "$work/editor.log"; then
-    fail "eksport papkasi to'liq emas: $(grep "eksport to'liq emas" "$work/editor.log" | head -n 3 | tr '\n' ' ')"
+if grep -q "Export: .*export incomplete" "$work/editor.log"; then
+    fail "eksport papkasi to'liq emas: $(grep "export incomplete" "$work/editor.log" | head -n 3 | tr '\n' ' ')"
 fi
 launcher="$export_dir/$name.sh"
 if [[ ! -x "$launcher" ]]; then

@@ -1179,7 +1179,7 @@ namespace Zamin {
             const size_t before = moving.size();
             std::erase_if(moving, [&](Entity e) { return !CanReparent(e, newParent); });
             if (moving.size() != before)
-                ZM_WARN("Prefab ichidagi obyektni tashqariga chiqarib bo'lmaydi (avval bog'lanishni uzing)");
+                ZM_WARN("An object inside a prefab cannot be moved out of it (break the link first)");
             if (moving.empty())
                 return;
         }
@@ -1233,7 +1233,7 @@ namespace Zamin {
         if (changed)
             MarkModified();
         else if (moving.size() == 1 && (target == dragged || (target && m_Context->IsAncestorOf(dragged, target))))
-            ZM_WARN("Obyektni o'zining ichiga ko'chirib bo'lmaydi: {}", dragged.GetName());
+            ZM_WARN("An object cannot be moved into itself: {}", dragged.GetName());
     }
 
     // ------------------------------------------------------------------ play mode: several scenes

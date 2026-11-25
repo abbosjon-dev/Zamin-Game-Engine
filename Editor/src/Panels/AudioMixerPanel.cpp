@@ -309,7 +309,7 @@ namespace Zamin {
                 m_NewGroupError = TrFormat("'{}' nomli guruh bor", name);
             else if (settings.AddGroup(name, m_NewGroupParent))
             {
-                ZM_INFO("Audio guruhi qo'shildi: {} ({} ichida)", name, m_NewGroupParent);
+                ZM_INFO("Audio group added: {} (inside {})", name, m_NewGroupParent);
                 added = true;
                 ImGui::CloseCurrentPopup();
             }
@@ -564,7 +564,7 @@ namespace Zamin {
                 std::string parent = group->Parent;
                 if (settings.RemoveGroup(name))
                 {
-                    ZM_INFO("Audio guruhi o'chirildi: {} (bolalari va ovozlari {} ga o'tdi)", name, parent);
+                    ZM_INFO("Audio group deleted: {} (its children and sounds moved to {})", name, parent);
                     changed = true;
                 }
             }

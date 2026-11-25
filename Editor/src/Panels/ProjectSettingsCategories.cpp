@@ -607,7 +607,7 @@ namespace Zamin {
         if (ImGui::Button(Tr(ICON_FA_COPY "  Nusxa")))
         {
             ImGui::SetClipboardText(layers.ToJson().c_str());
-            ZM_INFO("Fizika qatlamlari buferga nusxalandi (JSON)");
+            ZM_INFO("Physics layers copied to the clipboard (JSON)");
         }
         if (ImGui::IsItemHovered())
             UI::Tooltip("Qatlam nomlari va matritsani JSON ko'rinishida buferga olish (boshqa loyihaga qo'yish uchun)");
@@ -620,10 +620,10 @@ namespace Zamin {
             {
                 layers = pasted;
                 m_Dirty = true;
-                ZM_INFO("Fizika qatlamlari buferdan qo'yildi");
+                ZM_INFO("Physics layers pasted from the clipboard");
             }
             else
-                ZM_WARN("Buferda fizika qatlamlari (JSON) yo'q");
+                ZM_WARN("The clipboard has no physics layers (JSON)");
         }
 
         // ---- the matrix of the named layers (a triangle: each pair once)

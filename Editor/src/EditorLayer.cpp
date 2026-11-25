@@ -130,7 +130,7 @@ namespace Zamin {
             for (const fs::path& scene : scenes)
                 if (std::find(m_ThumbnailQueue.begin(), m_ThumbnailQueue.end(), scene) == m_ThumbnailQueue.end())
                     m_ThumbnailQueue.push_back(scene);
-            ZM_INFO("{} ta sahna rasmi chizilmoqda", m_ThumbnailQueue.size());
+            ZM_INFO("Rendering {} scene thumbnails", m_ThumbnailQueue.size());
         };
         m_ScenesPanel.OnShowRuntimeScene = [this](const Ref<Scene>& scene) {
             if (m_SceneHierarchyPanel.OnRuntimeSceneSelected)
@@ -306,7 +306,7 @@ namespace Zamin {
             if (m_SceneDirty && !m_EditorScenePath.empty())
             {
                 SaveScene();
-                ZM_INFO("Sahna saqlandi, sub-sahna ochiladi: {}", file.filename().string());
+                ZM_INFO("Scene saved, opening the sub-scene: {}", file.filename().string());
             }
             OpenScene(file);
         };
@@ -393,37 +393,36 @@ namespace Zamin {
         {
             const auto& list = m_SceneHierarchyPanel.GetListTiming();
             const auto& grid = m_ContentBrowserPanel.GetGridTiming();
-            ZM_INFO("Panel vaqtlari: ierarxiya {} qator ({} tasi chizildi), o'rtacha {:.3f} ms, eng ko'pi {:.3f} ms ({} kadr); kontent "
-                    "brauzer {} element ({} tasi chizildi), o'rtacha {:.3f} ms, eng ko'pi {:.3f} ms ({} kadr){}",
+            ZM_INFO("Panel times: hierarchy {} rows ({} drawn), average {:.3f} ms, peak {:.3f} ms ({} frames); content browser {} items ({} drawn), "
+                    "average {:.3f} ms, peak {:.3f} ms ({} frames){}",
                     list.Rows, list.DrawnRows, list.Frames ? list.TotalMilliseconds / (double)list.Frames : 0.0, list.MaxMilliseconds,
                     list.Frames, grid.Items, grid.DrawnItems, grid.Frames ? grid.TotalMilliseconds / (double)grid.Frames : 0.0,
                     grid.MaxMilliseconds, grid.Frames,
-                    list.DrawnRows < list.Rows || grid.DrawnItems < grid.Items ? "" : " - hammasi chizildi");
+                    list.DrawnRows < list.Rows || grid.DrawnItems < grid.Items ? "" : " - everything drawn");
         }
         // ZAMIN_EDITOR_STATS: the last frame's numbers in the log as well (automation / CI).
         if (std::getenv("ZAMIN_EDITOR_STATS"))
         {
-            ZM_INFO("Render statistikasi (oxirgi kadr): {}", Renderer::GetStats().Format());
+            ZM_INFO("Render statistics (last frame): {}", Renderer::GetStats().Format());
             {
                 const MemoryStats::ProcessMemory process = MemoryStats::GetProcessMemory(0.0);
                 std::string categories;
                 for (size_t i = 0; i < MemoryCategoryCount; i++)
                     if (const MemoryStats::Category c = MemoryStats::Get((MemoryCategory)i); c.Bytes > 0)
                         categories += std::format(", {} {}", MemoryStats::GetName((MemoryCategory)i), MemoryStats::FormatBytes(c.Bytes));
-                ZM_INFO("Xotira: RAM {} (eng ko'pi {}), dvigatel {}{}", MemoryStats::FormatBytes(process.Resident),
+                ZM_INFO("Memory: RAM {} (peak {}), engine {}{}", MemoryStats::FormatBytes(process.Resident),
                         MemoryStats::FormatBytes(process.PeakResident), MemoryStats::FormatBytes(MemoryStats::GetTrackedTotal()), categories);
                 const JobSystem::Stats& jobs = JobSystem::GetLastFrameStats();
-                ZM_INFO("Vazifalar tizimi: {} ishchi, oxirgi kadrda {} vazifa, {} parallel for", jobs.Workers, jobs.Jobs,
+                ZM_INFO("Job system: {} workers, {} jobs in the last frame, {} parallel fors", jobs.Workers, jobs.Jobs,
                         jobs.ParallelFors);
             }
             if (m_ActiveScene)
             {
                 const Scene::AnimationStats& a = m_ActiveScene->GetAnimationStats();
-                ZM_INFO("Animatsiya statistikasi: {} animator, {} pozalangan, {} o'zgarmagan, {} kesilgan, {}/{} kesh/klip namunasi, "
-                        "kesh {:.1f} KB, {:.3f} ms", a.Animators, a.Posed, a.Unchanged, a.Culled, a.CachedSamples, a.ClipSamples,
+                ZM_INFO("Animation statistics: {} animators, {} posed, {} unchanged, {} culled, {}/{} cache/clip samples, cache {:.1f} KB, {:.3f} ms", a.Animators, a.Posed, a.Unchanged, a.Culled, a.CachedSamples, a.ClipSamples,
                         (double)a.CacheBytes / 1024.0, a.Milliseconds);
             }
-            ZM_INFO("Profiler (oxirgi kadr, ms):\n{}", Profiler::FormatTree(Profiler::GetLastFrame()));
+            ZM_INFO("Profiler (last frame, ms):\n{}", Profiler::FormatTree(Profiler::GetLastFrame()));
         }
         Cursor::BindWindow(nullptr);
         m_AssetHotReload.Stop();
@@ -563,7 +562,7 @@ namespace Zamin {
                 m_VisualGraphPanel.Open(Project::GetAssetFileSystemPath(graph));
                 // ZAMIN_EDITOR_VISUAL_NODE=<node id>: the node inspector shows that node of the opened graph.
                 if (const char* node = std::getenv("ZAMIN_EDITOR_VISUAL_NODE"); node && !m_VisualGraphPanel.SelectNode(uint32_t(std::strtoul(node, nullptr, 10))))
-                    ZM_WARN("Blueprint node topilmadi: {}", node);
+                    ZM_WARN("Blueprint node not found: {}", node);
             }
             // ZAMIN_EDITOR_ASSET=<path relative to Assets>: the asset inspector shows that file.
             if (const char* asset = std::getenv("ZAMIN_EDITOR_ASSET"))
@@ -716,7 +715,7 @@ namespace Zamin {
             if (const char* language = std::getenv("ZAMIN_EDITOR_LANGUAGE"))
                 EditorText::SetLanguage(EditorText::ParseLanguage(language));
             if (const char* language = std::getenv("ZAMIN_EDITOR_GAME_LANGUAGE"); language && !Localization::SetLanguage(language))
-                ZM_WARN("ZAMIN_EDITOR_GAME_LANGUAGE={}: o'yinda bunday til yo'q", language);
+                ZM_WARN("ZAMIN_EDITOR_GAME_LANGUAGE={}: the game has no such language", language);
             if (std::getenv("ZAMIN_EDITOR_LOCALIZATION"))
             {
                 m_ShowLocalization = true;
@@ -827,7 +826,7 @@ namespace Zamin {
                         found = true;
                     }
                 if (!found)
-                    ZM_WARN("ZAMIN_EDITOR_VIEW_MODE: noma'lum ko'rinish '{}'", mode);
+                    ZM_WARN("ZAMIN_EDITOR_VIEW_MODE: unknown view '{}'", mode);
             }
             if (const char* wire = std::getenv("ZAMIN_EDITOR_WIREFRAME"))
                 m_Wireframe = m_WireframeStyle = std::string_view(wire) == "shaded" ? WireframeMode::ShadedWire : WireframeMode::Wire;
@@ -969,9 +968,9 @@ namespace Zamin {
                     std::string_view item = rest.substr(0, comma);
                     rest = comma == std::string_view::npos ? std::string_view() : rest.substr(comma + 1);
                     if (item.starts_with("mute=") && !AudioEngine::SetGroupMuted(std::string(item.substr(5)), true))
-                        ZM_WARN("ZAMIN_EDITOR_AUDIO_MIXER: '{}' guruhi yo'q", item.substr(5));
+                        ZM_WARN("ZAMIN_EDITOR_AUDIO_MIXER: no group '{}'", item.substr(5));
                     if (item.starts_with("solo=") && !AudioEngine::SetGroupSolo(std::string(item.substr(5)), true))
-                        ZM_WARN("ZAMIN_EDITOR_AUDIO_MIXER: '{}' guruhi yo'q", item.substr(5));
+                        ZM_WARN("ZAMIN_EDITOR_AUDIO_MIXER: no group '{}'", item.substr(5));
                 }
             }
             // ZAMIN_EDITOR_SCENE_STATS=<components | scripts | prefabs | assets>[,<asset type key, e.g. Texture>]:
@@ -1032,7 +1031,7 @@ namespace Zamin {
                     else if (key == "depth") s.Shadows.DepthBias = (float)std::atof(value.c_str());
                     else if (key == "normal") s.Shadows.NormalBias = (float)std::atof(value.c_str());
                     else if (key == "distance") s.ShadowDistance = (float)std::atof(value.c_str());
-                    else ZM_WARN("ZAMIN_EDITOR_SHADOWS: noma'lum kalit '{}'", key);
+                    else ZM_WARN("ZAMIN_EDITOR_SHADOWS: unknown key '{}'", key);
                 }
                 s.Shadows.Sanitize();
             }
@@ -1126,7 +1125,7 @@ namespace Zamin {
             }
             // ZAMIN_EDITOR_QUALITY=<level name | index>: the quality level the editor shows.
             if (const char* quality = std::getenv("ZAMIN_EDITOR_QUALITY"); quality && !Quality::SetLevelFromString(quality))
-                ZM_WARN("ZAMIN_EDITOR_QUALITY={}: bunday sifat darajasi yo'q", quality);
+                ZM_WARN("ZAMIN_EDITOR_QUALITY={}: there is no such quality level", quality);
             // ZAMIN_EDITOR_PARALLAX=1: the scene view moves parallax layers with the editor camera.
             if (std::getenv("ZAMIN_EDITOR_PARALLAX"))
                 m_PreviewParallax = true;
@@ -1169,10 +1168,10 @@ namespace Zamin {
                     else if (key == "slice") doSlice = true;
                     else if (key == "save") doSave = true;
                     else if (key == "select") select = std::atoi(std::string(value).c_str());
-                    else ZM_WARN("ZAMIN_EDITOR_SPRITE_EDITOR: noma'lum kalit '{}'", key);
+                    else ZM_WARN("ZAMIN_EDITOR_SPRITE_EDITOR: unknown key '{}'", key);
                 }
                 if (doSlice)
-                    ZM_INFO("Sprite muharriri: {} ta kadr kesildi", m_SpriteEditorPanel.Slice(true));
+                    ZM_INFO("Sprite editor: {} frames sliced", m_SpriteEditorPanel.Slice(true));
                 if (select >= 0)
                     m_SpriteEditorPanel.SetSelected(select);
                 if (doSave)
@@ -1187,7 +1186,7 @@ namespace Zamin {
             }
             // ZAMIN_EDITOR_EXPORT_REPORT=<folder>: the report of an export done before (export-report.json) in its window.
             if (const char* folder = std::getenv("ZAMIN_EDITOR_EXPORT_REPORT"); folder && !OpenExportReport(folder))
-                ZM_WARN("ZAMIN_EDITOR_EXPORT_REPORT: {} da eksport hisoboti yo'q", folder);
+                ZM_WARN("ZAMIN_EDITOR_EXPORT_REPORT: no export report in {}", folder);
             if (std::getenv("ZAMIN_EDITOR_BUILD"))
                 BuildScripts(true);
             // ZAMIN_EDITOR_BUILD_LOG=<file>: a saved compiler output in the Kompilyatsiya window (screenshots).
@@ -1231,7 +1230,7 @@ namespace Zamin {
             float v[4] = { 0.7f, 1.0f, 20.0f, 30.0f };
             std::sscanf(shake, "%f,%f,%f,%f", &v[0], &v[1], &v[2], &v[3]);
             if (frame == std::max(6, (int)v[3]) && !m_ActiveScene->ShakeCamera(v[0], v[1], v[2]))
-                ZM_WARN("ZAMIN_EDITOR_CAMERA_SHAKE: asosiy kamera yo'q");
+                ZM_WARN("ZAMIN_EDITOR_CAMERA_SHAKE: no main camera");
         }
         // ZAMIN_EDITOR_TOGGLE_ACTIVE=1: switches the selection off / on at frame 20 (after
         // ZAMIN_EDITOR_PLAY has started the game), the same path as Alt+Shift+A.
@@ -1239,8 +1238,7 @@ namespace Zamin {
         if (const char* at = std::getenv("ZAMIN_EDITOR_THUMBNAIL_STATS"); at && frame == std::max(6, std::atoi(at)))
         {
             ThumbnailCache::Stats stats = m_ContentBrowserPanel.GetThumbnails().GetStats();
-            ZM_INFO("Thumbnaillar: {} ta xotirada, {} ta kutilmoqda, {} ta diskdan, {} ta yasaldi, {} ta model chizildi, "
-                    "{} ta material chizildi, {} ta xato, {} ta model/material teksturasi bo'shatildi",
+            ZM_INFO("Thumbnails: {} in memory, {} pending, {} from disk, {} made, {} models rendered, {} materials rendered, {} errors, {} model/material textures freed",
                     stats.Textures, stats.Waiting, stats.FromDisk, stats.Generated, stats.Rendered, stats.MaterialsRendered, stats.Failed,
                     stats.ReleasedTextures);
         }
@@ -1326,7 +1324,7 @@ namespace Zamin {
             if (Entity e = m_SceneHierarchyPanel.GetSelectedEntity(); e && e.HasComponent<PolygonCollider2DComponent>())
                 if (SceneHierarchyPanel::FitPolygonToSprite(e, e.GetComponent<PolygonCollider2DComponent>()))
                 {
-                    ZM_INFO("Polygon collider spraytga moslandi: {} ta nuqta", e.GetComponent<PolygonCollider2DComponent>().Points.size());
+                    ZM_INFO("Polygon collider fitted to the sprite: {} points", e.GetComponent<PolygonCollider2DComponent>().Points.size());
                     MarkDirty();
                 }
 
@@ -1381,7 +1379,7 @@ namespace Zamin {
                 if (Entity e = m_ActiveScene->FindEntityByName(sel))
                     m_SceneHierarchyPanel.SetSelectedEntity(e);
                 else
-                    ZM_WARN("ZAMIN_EDITOR_SELECT: '{}' topilmadi", sel);
+                    ZM_WARN("ZAMIN_EDITOR_SELECT: '{}' not found", sel);
                 // The inspector of the entity selected now shows its last components.
                 if (const char* bottom = std::getenv("ZAMIN_EDITOR_INSPECTOR_BOTTOM"))
                 {
@@ -1399,7 +1397,7 @@ namespace Zamin {
         {
             const MaterialPreset* chosen = MaterialPresets::Find(preset);
             if (!chosen && std::string_view(preset) != "1")
-                ZM_WARN("ZAMIN_EDITOR_NEW_MATERIAL: '{}' standart material topilmadi", preset);
+                ZM_WARN("ZAMIN_EDITOR_NEW_MATERIAL: default material '{}' not found", preset);
             m_ContentBrowserPanel.CreateMaterial(chosen);
         }
         // ZAMIN_EDITOR_EXPORT_MATERIALS=1 (with ZAMIN_EDITOR_ASSET on a glTF model): its materials
@@ -1428,7 +1426,7 @@ namespace Zamin {
                 if (Entity e = m_ActiveScene->FindEntityByName(target))
                     ApplyMaterialToEntity(e, std::string(v.substr(0, arrow)), submesh);
                 else
-                    ZM_WARN("ZAMIN_EDITOR_MATERIAL_DROP: '{}' obyekti topilmadi", target);
+                    ZM_WARN("ZAMIN_EDITOR_MATERIAL_DROP: object '{}' not found", target);
             }
         }
 
@@ -1551,7 +1549,7 @@ namespace Zamin {
                     else if (key == "PreserveSpecular") d.PreserveSpecular = value == "true" || value == "1";
                     else if (key == "SortPriority") d.SortPriority = (int)at(0);
                     else
-                        ZM_WARN("ZAMIN_EDITOR_MATERIAL_EDIT: noma'lum maydon '{}'", key);
+                        ZM_WARN("ZAMIN_EDITOR_MATERIAL_EDIT: unknown field '{}'", key);
                 }
                 m_AssetInspectorPanel.ApplyMaterialEdit();
                 if (std::getenv("ZAMIN_EDITOR_MATERIAL_SAVE"))
@@ -1607,12 +1605,12 @@ namespace Zamin {
             FinishBuildOutput(m_BuildSucceeded, Platform::GetTime() - m_BuildStartTime);
             if (m_BuildSucceeded)
             {
-                ZM_INFO("Skriptlar muvaffaqiyatli kompilyatsiya qilindi ({:.1f} s)", Platform::GetTime() - m_BuildStartTime);
+                ZM_INFO("Scripts compiled successfully ({:.1f} s)", Platform::GetTime() - m_BuildStartTime);
                 if (m_ReloadAfterBuild)
                     ReloadScriptModule();
             }
             else
-                ZM_ERROR("Skriptlarni kompilyatsiya qilishda xato: {} xato, {} ogohlantirish (Oyna > Kompilyatsiya)", m_BuildErrors, m_BuildWarnings);
+                ZM_ERROR("Script compile failed: {} errors, {} warnings (Window > Compilation)", m_BuildErrors, m_BuildWarnings);
         }
         if (!m_Exporting && m_ExportThread.joinable())
             m_ExportThread.join();
@@ -1627,7 +1625,7 @@ namespace Zamin {
         }
         if (m_HotReloadTestCloseIn > 0 && --m_HotReloadTestCloseIn == 0)
         {
-            ZM_INFO("ZAMIN_EDITOR_HOT_RELOAD_TEST: tugadi ({} marta yuklandi)", m_HotReloadTestLoads);
+            ZM_INFO("ZAMIN_EDITOR_HOT_RELOAD_TEST: finished (loaded {} times)", m_HotReloadTestLoads);
             // ZAMIN_SCREENSHOT: this last frame's picture (the run ends here, not at ZAMIN_MAX_FRAMES).
             if (const char* shot = std::getenv("ZAMIN_SCREENSHOT"))
                 Application::Get().RequestScreenshot(shot);
@@ -1798,7 +1796,7 @@ namespace Zamin {
         if (m_SceneState == SceneState::Play && m_RuntimeScenes && m_RuntimeScenes->IsQuitRequested())
         {
             // The game's Quit: in the editor Play stops.
-            ZM_INFO("O'yin chiqishni so'radi: Play to'xtatildi");
+            ZM_INFO("The game asked to quit: Play stopped");
             m_RuntimeScenes->ClearQuitRequest();
             OnSceneStop();
         }
@@ -1926,7 +1924,7 @@ namespace Zamin {
         if ((switched || !shownLoaded) && m_RuntimeScenes->GetActiveScene() && m_RuntimeScenes->GetActiveScene() != m_ActiveScene)
         {
             SetActiveScene(m_RuntimeScenes->GetActiveScene());
-            ZM_INFO("Sahna almashtirildi: {}", m_ActiveScene->GetName());
+            ZM_INFO("Scene switched: {}", m_ActiveScene->GetName());
         }
     }
 
@@ -2347,7 +2345,7 @@ namespace Zamin {
         Entity e = panel.GetSelectedEntity();
         if (!e || !e.HasComponent<TilemapComponent>())
         {
-            ZM_WARN("ZAMIN_EDITOR_TILEMAP: tilemap tanlanmagan (ZAMIN_EDITOR_SELECT bilan tanlang)");
+            ZM_WARN("ZAMIN_EDITOR_TILEMAP: no tilemap selected (select one with ZAMIN_EDITOR_SELECT)");
             return;
         }
         panel.SetTilePaint(true);
@@ -2404,7 +2402,7 @@ namespace Zamin {
             else if (key == "editrule") // the selected rule's variant editor; "editrule=5": variant 5 picked
                 panel.SetAutoTileRuleEditor(true, value.empty() ? -1 : std::atoi(text.c_str()));
             else
-                ZM_WARN("ZAMIN_EDITOR_TILEMAP: noma'lum kalit '{}'", key);
+                ZM_WARN("ZAMIN_EDITOR_TILEMAP: unknown key '{}'", key);
         }
         if (dragging)
         {
@@ -2427,7 +2425,7 @@ namespace Zamin {
             if (int changed = ApplyTileTool(e, panel.GetTileTool(), m_TileHoverCell, m_TileHoverCell, false))
             {
                 MarkDirty();
-                ZM_INFO("ZAMIN_EDITOR_TILEMAP: {} ta katak o'zgardi", changed);
+                ZM_INFO("ZAMIN_EDITOR_TILEMAP: {} cells changed", changed);
             }
     }
 
@@ -4535,13 +4533,13 @@ namespace Zamin {
         fs::path dir = directory / name;
         if (fs::exists(dir / (name + ".zproject")))
         {
-            ZM_WARN("Bu joyda loyiha allaqachon bor - ochilmoqda");
+            ZM_WARN("A project already exists here - opening it");
             OpenProject(dir / (name + ".zproject"));
             return;
         }
         if (!Project::CreateFromTemplate(dir, name))
         {
-            ZM_ERROR("Loyiha yaratilmadi: {}", dir.string());
+            ZM_ERROR("Project not created: {}", dir.string());
             return;
         }
         OpenProject(dir / (name + ".zproject")); // also compiles the template scripts (module missing)
@@ -4572,7 +4570,7 @@ namespace Zamin {
         }
         if (!loaded)
         {
-            ZM_ERROR("Loyiha ochilmadi: {}", path.string());
+            ZM_ERROR("Project could not be opened: {}", path.string());
             return false;
         }
         // The lock file first: the start scene's autosave check knows whether the last session crashed.
@@ -4715,7 +4713,7 @@ namespace Zamin {
             OnSceneStop();
         if (path.extension() != ".zscene")
         {
-            ZM_WARN("Sahna fayli emas: {}", path.string());
+            ZM_WARN("Not a scene file: {}", path.string());
             return false;
         }
         if (IsInPrefabStage())
@@ -4786,7 +4784,7 @@ namespace Zamin {
             sceneCamera = m_EditorScene->GetPrimaryCameraEntity(true);
         if (sceneCamera)
             Set2DMode(sceneCamera.GetComponent<CameraComponent>().Camera.GetProjectionType() == SceneCamera::ProjectionType::Orthographic);
-        ZM_INFO("Sahna ochildi: {}", path.filename().string());
+        ZM_INFO("Scene opened: {}", path.filename().string());
         AddRecentScene(path);
         m_LastAutosaveTime = ImGui::GetTime();
         CheckAutosaveRecovery(path); // a newer safety copy (the last session crashed): offered back
@@ -4802,12 +4800,12 @@ namespace Zamin {
         m_AnimationPanel.WithoutPreview([&]() { written = serializer.Serialize(path); });
         if (written)
         {
-            ZM_INFO("Sahna saqlandi: {}", path.filename().string());
+            ZM_INFO("Scene saved: {}", path.filename().string());
             // The grids that keep their bake in a file (NavGrid > Faylda saqlash): baked and written
             // next to the scene (an old file is removed when none does).
             size_t bakes = 0;
             if (SceneSerializer::WriteNavBakes(*scene, path, &bakes) && bakes > 0)
-                ZM_INFO("Navigatsiya: {} ta grid {} fayliga saqlandi", bakes, NavBakeFile::PathFor(path).filename().string());
+                ZM_INFO("Navigation: {} grids saved to the file {}", bakes, NavBakeFile::PathFor(path).filename().string());
         }
         return written;
     }
@@ -4918,7 +4916,7 @@ namespace Zamin {
         if (m_ThumbnailQueue.empty())
         {
             m_ScenesPanelDirty = true;
-            ZM_INFO("Sahna rasmlari chizildi");
+            ZM_INFO("Scene thumbnails rendered");
         }
     }
 
@@ -4942,7 +4940,7 @@ namespace Zamin {
     {
         if (m_SceneState != SceneState::Edit)
         {
-            ZM_WARN("O'yin rejimida saqlab bo'lmaydi - avval to'xtating");
+            ZM_WARN("Cannot save in play mode - stop first");
             return;
         }
         if (IsInPrefabStage())
@@ -4996,7 +4994,7 @@ namespace Zamin {
             {
                 // No dialog program: save next to the project assets with the scene name.
                 path = (start / (m_EditorScene->GetName() + ".zscene")).string();
-                ZM_WARN("Fayl dialogi yo'q (zenity o'rnating). Saqlanmoqda: {}", path);
+                ZM_WARN("No file dialog (install zenity). Saving: {}", path);
             }
             else return;
         }
@@ -5070,13 +5068,13 @@ namespace Zamin {
         // As in the player: the audio settings the game saved (its options menu) over the project's
         // mixer, for this run (the mixer is the project's again when play stops).
         if (Audio::LoadSettings())
-            ZM_INFO("O'yinda saqlangan ovoz sozlamalari yuklandi (SaveData)");
+            ZM_INFO("Audio settings saved in the game were loaded (SaveData)");
         // The display options too (no window of its own: the editor's stays as it is, the game sees them) - the
         // player's gamma and brightness as the game saved them (its options menu): Play shows them too.
         Display::LoadSettings();
         // The language the player chose in the game's language menu (else the editor's preview language).
         if (Localization::LoadSettings())
-            ZM_INFO("O'yinda saqlangan til yuklandi: {}", Localization::GetLanguageName(Localization::GetLanguage()));
+            ZM_INFO("The language saved in the game was loaded: {}", Localization::GetLanguageName(Localization::GetLanguage()));
         AudioEngine::ResetProfileCounters(); // the audio profiler counts this run
         // Every run starts as the game does: no global state, no services from the last run.
         Services::Clear();
@@ -5126,7 +5124,7 @@ namespace Zamin {
             if (!m_EditorScenePath.empty() && Project::GetAssetRelativePath(m_EditorScenePath) == scene)
                 continue; // the edit scene itself
             m_RuntimeScenes->LoadScene(fs::path(scene), LoadSceneMode::Additive);
-            ZM_INFO("O'yin bilan qo'shimcha sahna yuklanadi: {}", scene);
+            ZM_INFO("An additive scene is loaded with the game: {}", scene);
         }
     }
 
@@ -5155,7 +5153,7 @@ namespace Zamin {
         {
             // The game's global state and services end with the run (made by its scripts' code).
             if (const size_t services = Services::GetCount(); services > 0 || GameState::GetCount() > 0)
-                ZM_INFO("O'yin holati tozalandi: {} ta qiymat, {} ta servis", GameState::GetCount(), services);
+                ZM_INFO("Game state cleared: {} values, {} services", GameState::GetCount(), services);
             Services::Clear();
             GameState::Clear();
             GameState::ClearListeners();
@@ -5177,7 +5175,7 @@ namespace Zamin {
             m_SceneHierarchyPanel.GetSelection().Set(selection);
             m_2DMode = m_PlayStart.Mode2D;
             m_EditorCamera.SetViewState(m_PlayStart.Camera);
-            ZM_INFO("O'yin boshqa sahnada to'xtadi: editor '{}' sahnasiga qaytdi (tanlov: {} ta obyekt, kamera tiklandi)",
+            ZM_INFO("The game stopped in another scene: the editor went back to the scene '{}' (selection: {} objects, camera restored)",
                     m_EditorScene->GetName(), selection.size());
             ShowViewportMessage(TrFormat(ICON_FA_ROTATE_LEFT "  Editor holati tiklandi: {} ({} ta tanlangan)", m_EditorScene->GetName(), selection.size()));
         }
@@ -5204,7 +5202,7 @@ namespace Zamin {
             std::string names;
             for (const std::string& name : restored)
                 names += (names.empty() ? "" : ", ") + name;
-            ZM_INFO("O'yin vaqtida o'zgartirilgan umumiy materiallar asl holiga qaytarildi: {}", names);
+            ZM_INFO("Shared materials changed while playing were reverted: {}", names);
         }
         UpdateWindowTitle();
     }
@@ -5252,7 +5250,7 @@ namespace Zamin {
                                           : std::string(Tr(ICON_FA_CLONE "  Nusxa qoldirildi")));
         }
         else if (count > 1)
-            ZM_INFO("{} ta obyekt nusxalandi", count);
+            ZM_INFO("{} objects copied", count);
     }
 
     void EditorLayer::DeleteSelectedEntity()
@@ -5261,7 +5259,7 @@ namespace Zamin {
         EndGizmoDrag();
         size_t count = m_SceneHierarchyPanel.DeleteSelection();
         if (count > 1)
-            ZM_INFO("{} ta obyekt o'chirildi", count);
+            ZM_INFO("{} objects deleted", count);
     }
 
     std::vector<Entity> EditorLayer::GetGizmoTargets()
@@ -5360,7 +5358,7 @@ namespace Zamin {
         GetSceneBookmarks().Set(slot, m_EditorCamera.GetViewState());
         MarkViewSettingsDirty();
         ShowViewportMessage(TrFormat(ICON_FA_BOOKMARK "  Kamera xatcho'pi {} saqlandi", slot));
-        ZM_INFO("Kamera xatcho'pi {} saqlandi", slot);
+        ZM_INFO("Camera bookmark {} saved", slot);
     }
 
     void EditorLayer::RecallCameraBookmark(int slot)
@@ -5388,7 +5386,7 @@ namespace Zamin {
         fs::path path = ConfigDirectory() / "editor-view.json";
         std::error_code ec;
         if (fs::exists(path, ec) && !m_ViewSettings.Load(path))
-            ZM_WARN("Viewport sozlamalari o'qilmadi (standart qiymatlar ishlatiladi): {}", path.string());
+            ZM_WARN("The viewport settings could not be read (defaults are used): {}", path.string());
         m_ViewSettingsDirty = false;
     }
 
@@ -5415,7 +5413,7 @@ namespace Zamin {
                 saved = &*kept;
         }
         if (!saved->Save(ConfigDirectory() / "editor-view.json"))
-            ZM_WARN("Viewport sozlamalari saqlanmadi");
+            ZM_WARN("The viewport settings were not saved");
         m_ViewSettingsDirty = false;
     }
 
@@ -5465,9 +5463,9 @@ namespace Zamin {
         for (Entity root : roots)
             count += 1 + m_ActiveScene->GetDescendants(root).size();
         if (roots.size() == 1)
-            ZM_INFO("Nusxalandi: {} ({} obyekt)", roots.front().GetName(), count);
+            ZM_INFO("Copied: {} ({} objects)", roots.front().GetName(), count);
         else
-            ZM_INFO("Nusxalandi: {} ta tanlangan ({} obyekt)", roots.size(), count);
+            ZM_INFO("Copied: {} selected ({} objects)", roots.size(), count);
     }
 
     void EditorLayer::CopyPrefabToClipboard(const fs::path& prefab)
@@ -5479,13 +5477,13 @@ namespace Zamin {
         std::string text = EntityClipboard::CopyPrefab(m_PrefabDatabase, rel, &error);
         if (text.empty())
         {
-            ZM_WARN("Prefab nusxalanmadi ({}): {}", rel, error);
+            ZM_WARN("Prefab not copied ({}): {}", rel, error);
             m_ContentBrowserPanel.ShowNotice(std::format("{}: {}", Tr("Prefab nusxalanmadi"), error), true);
             return;
         }
         m_Clipboard = std::move(text);
         ImGui::SetClipboardText(m_Clipboard.c_str());
-        ZM_INFO("Prefab nusxalandi: {} (Ctrl+V - bog'langan nusxa joylanadi)", rel);
+        ZM_INFO("Prefab copied: {} (Ctrl+V pastes a linked instance)", rel);
         m_ContentBrowserPanel.ShowNotice(std::format("{}: {}", Tr("Prefab nusxalandi"), prefab.filename().string()));
     }
 
@@ -5568,7 +5566,7 @@ namespace Zamin {
         Entity root = PrefabUtility::InstantiateLinked(*m_EditorScene, m_PrefabDatabase, rel, parent);
         if (!root)
         {
-            ZM_ERROR("Prefab yuklanmadi: {}", assetPath.string());
+            ZM_ERROR("Prefab failed to load: {}", assetPath.string());
             return {};
         }
         m_EditorScene->ResolveAssets();
@@ -5620,7 +5618,7 @@ namespace Zamin {
                 std::string error;
                 if (!ParticlePresets::Load(path, preset, &error))
                 {
-                    ZM_ERROR("Particle preset o'qilmadi: {} - {}", assetPath, error);
+                    ZM_ERROR("Particle preset could not be read: {} - {}", assetPath, error);
                     return {};
                 }
                 Entity created = ParticlePresets::Instantiate(*m_EditorScene, preset, m_EditorCamera.GetFocalPoint());
@@ -5686,7 +5684,7 @@ namespace Zamin {
         if (own > 0)
             text += TrFormat("  ({} ta qismning o'z materiali bor)", own);
         ShowViewportMessage(text);
-        ZM_INFO("Material qo'llandi: {} -> {}", assetPath, where);
+        ZM_INFO("Material applied: {} -> {}", assetPath, where);
         return true;
     }
 
@@ -5858,7 +5856,7 @@ namespace Zamin {
                     OpenScene(p);
                     return;
                 }
-            ZM_WARN("Fayllarni import qilish uchun avval loyiha oching");
+            ZM_WARN("Open a project first to import files");
             return;
         }
 
@@ -5913,7 +5911,7 @@ namespace Zamin {
             {
                 bool code = AssetFiles::IsInside(file, source);
                 scripts |= code;
-                ZM_INFO("Import qilindi: {}", code ? file.lexically_relative(fs::weakly_canonical(projectDir)).generic_string()
+                ZM_INFO("Imported: {}", code ? file.lexically_relative(fs::weakly_canonical(projectDir)).generic_string()
                                                    : Project::GetAssetRelativePath(file));
                 if (AssetRegistry* registry = Project::GetAssetRegistry(); registry && !code)
                     registry->OnFileAdded(file); // a handle and a .zmeta right away (the watcher would follow later)
@@ -5986,10 +5984,10 @@ namespace Zamin {
         m_SavedRegistryRevision = ~0ull; // another registry: saved whatever its revision
         SaveAssetRegistryCache(true);
         if (m_AssetHotReload.Start(assets))
-            ZM_CORE_INFO("Assetlar kuzatilmoqda ({}): o'zgargan rasm, model, material, shrift va HDRI fayllar avtomatik qayta yuklanadi",
-                         m_AssetHotReload.GetWatcher().UsesNativeEvents() ? "inotify" : "har soniyada tekshirish");
+            ZM_CORE_INFO("Watching assets ({}): changed image, model, material, font and HDRI files are reloaded automatically",
+                         m_AssetHotReload.GetWatcher().UsesNativeEvents() ? "inotify" : "checking every second");
         else
-            ZM_WARN("Asset papkasini kuzatib bo'lmadi: {}", assets.string());
+            ZM_WARN("Could not watch the asset folder: {}", assets.string());
     }
 
     void EditorLayer::SaveAssetRegistryCache(bool now)
@@ -6003,7 +6001,7 @@ namespace Zamin {
         m_RegistrySaveTime = time;
         m_SavedRegistryRevision = registry->GetRevision();
         if (!Project::SaveAssetRegistryCache())
-            ZM_CORE_WARN("Asset registry keshi saqlanmadi: {}", Project::GetAssetRegistryCachePath().string());
+            ZM_CORE_WARN("The asset registry cache was not saved: {}", Project::GetAssetRegistryCachePath().string());
     }
 
     void EditorLayer::ProcessAssetChanges()
@@ -6034,7 +6032,7 @@ namespace Zamin {
             {
                 Localization::Reload();
                 m_LocalizationPanel.OnFilesChanged();
-                ZM_INFO("Til fayllari qayta yuklandi");
+                ZM_INFO("Language files reloaded");
             }
         }
         for (const auto* list : { &report.Added, &report.Modified, &report.Removed })
@@ -6080,7 +6078,7 @@ namespace Zamin {
             }
 
         for (const fs::path& p : report.Reloaded)
-            ZM_INFO("Qayta yuklandi: {}", Project::GetAssetRelativePath(p));
+            ZM_INFO("Reloaded: {}", Project::GetAssetRelativePath(p));
         if (!report.Failed.empty())
             m_ContentBrowserPanel.ShowNotice(TrFormat("'{}' qayta yuklanmadi - konsolni tekshiring", report.Failed.front().filename().string()), true);
         else if (report.Reloaded.size() == 1)
@@ -6116,14 +6114,14 @@ namespace Zamin {
         for (const auto& [from, to] : moves)
         {
             result.Moved.push_back({ assets / from, assets / to, false });
-            ZM_INFO("Asset tashqarida ko'chirildi: {} -> {}", from, to);
+            ZM_INFO("Asset moved outside the editor: {} -> {}", from, to);
         }
         AssetFiles::UpdateReferences(result, assets, Project::GetSourceDirectory());
         OnAssetsMoved(result);
         if (result.UpdatedReferences > 0)
-            ZM_INFO("{} ta faylda {} ta havola yangilandi", result.UpdatedFiles.size(), result.UpdatedReferences);
+            ZM_INFO("{1} references updated in {0} files", result.UpdatedFiles.size(), result.UpdatedReferences);
         for (const fs::path& source : result.SourceMentions)
-            ZM_WARN("C++ kodda eski yo'l yozilgan: {}", source.filename().string());
+            ZM_WARN("The C++ code names the old path: {}", source.filename().string());
         m_ContentBrowserPanel.ShowNotice(moves.size() == 1
             ? TrFormat("'{}' ko'chirilgani aniqlandi - havolalar yangilandi", fs::path(moves.front().second).filename().string())
             : TrFormat("{} ta asset ko'chirilgani aniqlandi - havolalar yangilandi", moves.size()));
@@ -6195,7 +6193,7 @@ namespace Zamin {
                     // Playing: the running copy keeps what it loaded; Stop returns to the updated scene.
                     if (m_SceneState == SceneState::Edit)
                         SetActiveScene(m_EditorScene, false);
-                    ZM_INFO("Ochiq sahnada {} ta havola yangilandi", n);
+                    ZM_INFO("{} references updated in the open scene", n);
                 }
             }
             // Undo / redo snapshots (and the prefab files their steps wrote) and the entity
@@ -6239,7 +6237,7 @@ namespace Zamin {
                 {
                     start = *mapped;
                     SaveProjectSettingsNow();
-                    ZM_INFO("Boshlang'ich sahna: {}", *mapped);
+                    ZM_INFO("Start scene: {}", *mapped);
                     break;
                 }
             auto& icon = project->GetConfig().Player.Icon;
@@ -6249,7 +6247,7 @@ namespace Zamin {
                     {
                         icon = *mapped;
                         SaveProjectSettingsNow();
-                        ZM_INFO("O'yin ikonkasi: {}", *mapped);
+                        ZM_INFO("Game icon: {}", *mapped);
                         break;
                     }
         }
@@ -6439,7 +6437,7 @@ namespace Zamin {
             MarkPreferencesDirty();
             if (!firstRun)
             {
-                ZM_INFO("Joylashuv qo'llandi: {}", EditorLayoutLibrary::GetBuiltInName(layout));
+                ZM_INFO("Layout applied: {}", EditorLayoutLibrary::GetBuiltInName(layout));
                 ShowViewportMessage(TrFormat(ICON_FA_WINDOW_RESTORE "  Joylashuv: {}", EditorLayoutLibrary::GetBuiltInName(layout)));
             }
         }
@@ -6508,7 +6506,7 @@ namespace Zamin {
                 if (m_HasExportReport)
                     m_ShowExportReport = true;
                 else if (!OpenExportReport(m_BuildGameOutput.empty() ? Project::GetProjectDirectory() / "Build" / "Game" : fs::path(m_BuildGameOutput)))
-                    ZM_WARN("Eksport hisoboti yo'q: avval o'yinni build qiling (Fayl > O'yinni build qilish)");
+                    ZM_WARN("No export report: build the game first (File > Build game)");
             }
             if (ImGui::MenuItem(Tr(ICON_FA_BOX "  Prefab'larni tekshirish"), nullptr, false, hasProject && !m_Exporting))
                 RunPrefabCheck();

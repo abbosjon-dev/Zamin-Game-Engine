@@ -77,7 +77,7 @@ namespace Zamin {
         const RecentFileList::Entry recent = entry; // the list changes while the scene opens
         if (!FileExists(recent.Path))
         {
-            ZM_WARN("Sahna topilmadi (ro'yxatdan olib tashlandi): {}", recent.Path);
+            ZM_WARN("Scene not found (removed from the list): {}", recent.Path);
             m_RecentScenes.Remove(recent.Path);
             SaveRecentScenes();
             return false;
@@ -88,7 +88,7 @@ namespace Zamin {
         {
             if (recent.Owner.empty() || !FileExists(recent.Owner) || !OpenProject(recent.Owner))
             {
-                ZM_WARN("Sahnaning loyihasi ochilmadi: {}", recent.Owner);
+                ZM_WARN("The scene's project could not be opened: {}", recent.Owner);
                 return false;
             }
             // The project opened its start scene: nothing more when that is the one.

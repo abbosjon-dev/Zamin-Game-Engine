@@ -19,7 +19,7 @@ namespace Zamin {
         m_ShowCodeEditor=true;
         m_CodeEditorPanel.SetProject(Project::GetProjectDirectory(),Project::GetCacheDirectory());
         const bool opened=m_CodeEditorPanel.Open(file,line,column);
-        if(!opened) ZM_WARN("Kod muharririda fayl ochilmadi: {}",file.string());
+        if(!opened) ZM_WARN("Could not open the file in the code editor: {}",file.string());
         return opened;
     }
 
@@ -29,11 +29,11 @@ namespace Zamin {
         std::string error;
         if (!ExternalEditor::Open(command, file, line, column, &error))
         {
-            ZM_ERROR("Tashqi muharrirda ochilmadi: {} ({})", file.filename().string(), error);
+            ZM_ERROR("Could not open in the external editor: {} ({})", file.filename().string(), error);
             ShowViewportMessage(Tr(ICON_FA_TRIANGLE_EXCLAMATION "  Tashqi muharrir ishga tushmadi - Sozlamalar > Tashqi muharrir"));
             return false;
         }
-        ZM_INFO("Tashqi muharrirda ochildi: {}{}", file.filename().string(), line > 0 ? std::format(":{}", line) : std::string());
+        ZM_INFO("Opened in the external editor: {}{}", file.filename().string(), line > 0 ? std::format(":{}", line) : std::string());
         return true;
     }
 
@@ -65,7 +65,7 @@ namespace Zamin {
         const SourceLocation& source = GetScriptSource(className);
         if (!source.IsValid())
         {
-            ZM_WARN("'{}' klassi Source papkasida topilmadi (ZM_REGISTER_SCRIPT({}) qidirildi)", className, className);
+            ZM_WARN("The class '{}' was not found in the Source folder (searched for ZM_REGISTER_SCRIPT({}))", className, className);
             return false;
         }
         return OpenInCodeEditor(source.File, source.Line, source.Column);

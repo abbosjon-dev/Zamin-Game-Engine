@@ -307,13 +307,13 @@ fonda ishlaydi (editor javob berib turadi):
 Log'da shunday ko'rinadi (Platformer2D, Debug dvigatel build'idan):
 
 ```
-Eksport: build ro'yxatidagi 16 ta sahna
-Eksport: 44 ta asset fayli (1.7 MB); 2 tasi chiqarib tashlandi (495 KB) - ro'yxat: .../excluded-assets.txt
-Eksport: 16 ta sahna binar keshga yozildi (1195.7 KB -> 415.9 KB)
-Eksport: skript moduli Release'da kompilyatsiya qilinmoqda (-O2 -DNDEBUG): .../Projects/Platformer2D/Build/ExportRelease
-Eksport: strip - 3 ta binar 263.3 MB -> 41.2 MB
-Eksport: ikonka 6 o'lchamda (16 ... 256 px, icons/hicolor)
-Eksport hisoboti: 122 ta fayl, 45.0 MB (0 ogohlantirish, 0 xato) - .../export-report.txt
+Export: 16 scenes of the build list
+Export: 44 asset files (1.7 MB); 2 excluded (495 KB) - list: .../excluded-assets.txt
+Export: 16 scenes written to the binary cache (1195.7 KB -> 415.9 KB)
+Export: compiling the script module in Release (-O2 -DNDEBUG): .../Projects/Platformer2D/Build/ExportRelease
+Export: strip - 3 binaries 263.3 MB -> 41.2 MB
+Export: icon in 6 sizes (16 ... 256 px, icons/hicolor)
+Export report: 122 files, 45.0 MB (0 warnings, 0 errors) - .../export-report.txt
 ```
 
 ## 9. Eksport papkasi

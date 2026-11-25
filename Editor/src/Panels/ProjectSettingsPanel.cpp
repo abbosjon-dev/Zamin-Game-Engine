@@ -181,7 +181,7 @@ namespace Zamin {
     {
         for (int i = 0; i < (int)Category::Count; i++)
             RevertCategory((Category)i, config);
-        ZM_INFO("Loyiha sozlamalari saqlangan holatiga qaytarildi");
+        ZM_INFO("Project settings reverted to their saved state");
     }
 
     void ProjectSettingsPanel::SaveIfDirty()
@@ -196,10 +196,10 @@ namespace Zamin {
             m_Saved = project->GetConfig();
             m_SavedSections = ProjectSerializer::ConfigToSections(m_Saved);
             m_DirtySections.clear();
-            ZM_INFO("Loyiha sozlamalari saqlandi: {}", Project::GetProjectFilePath().filename().string());
+            ZM_INFO("Project settings saved: {}", Project::GetProjectFilePath().filename().string());
         }
         else
-            ZM_ERROR("Loyiha sozlamalari saqlanmadi: {}", Project::GetProjectFilePath().string());
+            ZM_ERROR("Project settings not saved: {}", Project::GetProjectFilePath().string());
     }
 
     void ProjectSettingsPanel::OnImGuiRender(bool* show)
@@ -1106,12 +1106,12 @@ namespace Zamin {
             const std::filesystem::path open = m_OpenScenePath.empty() ? std::filesystem::path() : Project::GetAssetFileSystemPath(m_OpenScenePath);
             files = SceneFileReferences::RenameTagInDirectory(Project::GetAssetDirectory(), old, name, open, &errors);
             for (const std::string& error : errors)
-                ZM_ERROR("Teg qayta nomlanmadi: {}", error);
+                ZM_ERROR("Tag not renamed: {}", error);
         }
         tags[(size_t)index] = name;
         m_Dirty = true;
         m_ProjectUsageValid = false;
-        ZM_INFO("Teg '{}' -> '{}': ochiq sahnada {} ta obyekt, {} ta boshqa sahna / prefab fayli yangilandi", old, name, entities, files);
+        ZM_INFO("Tag '{}' -> '{}': {} objects in the open scene, {} other scene / prefab files updated", old, name, entities, files);
         // The entities and files have the new name now, so "Bekor qilish" must not bring the old one
         // back into the list: the rename goes into the project file at once.
         if (entities > 0 || files > 0)
@@ -1140,10 +1140,10 @@ namespace Zamin {
             m_Saved.FileVersion = ProjectMigration::CurrentVersion;
             if (Ref<Project> project = Project::GetActive())
                 project->GetConfig().FileVersion = ProjectMigration::CurrentVersion;
-            ZM_INFO("Teg nomi loyiha fayliga darhol yozildi ({}): sahna va prefablar bilan bir xil bo'lsin", file.filename().string());
+            ZM_INFO("The tag name was written to the project file at once ({}): so it matches the scenes and prefabs", file.filename().string());
         }
         else
-            ZM_ERROR("Teg nomi loyiha fayliga yozilmadi: {}", file.string());
+            ZM_ERROR("The tag name was not written to the project file: {}", file.string());
     }
 
     void ProjectSettingsPanel::DrawTagsAndLayers(ProjectConfig& config)

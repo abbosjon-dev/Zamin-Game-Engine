@@ -159,7 +159,7 @@ namespace Zamin {
         Ref<PropertyClipAsset> asset = PropertyClipLibrary::Load(file);
         if (!asset)
         {
-            ZM_ERROR("Animatsiya klipi ochilmadi: {}", relative);
+            ZM_ERROR("Animation clip could not be opened: {}", relative);
             return;
         }
         m_ClipPath = relative;
@@ -320,11 +320,11 @@ namespace Zamin {
         m_AssetRevision = m_Asset->GetRevision();
         if (!m_Asset->Save())
         {
-            ZM_ERROR("Animatsiya klipi saqlanmadi: {}", m_Asset->GetPath().string());
+            ZM_ERROR("Animation clip not saved: {}", m_Asset->GetPath().string());
             return false;
         }
         m_Dirty = false;
-        ZM_INFO("Animatsiya klipi saqlandi: {}", Project::GetAssetRelativePath(m_Asset->GetPath()));
+        ZM_INFO("Animation clip saved: {}", Project::GetAssetRelativePath(m_Asset->GetPath()));
         if (OnClipSaved)
             OnClipSaved(m_Asset->GetPath());
         return true;
@@ -1009,7 +1009,7 @@ namespace Zamin {
                     player.Clips.push_back(Project::GetAssetRelativePath(file));
                     if (OnClipSaved)
                         OnClipSaved(file);
-                    ZM_INFO("Animation Player va yangi klip: {} ({})", selected.GetName(), player.Clips.back());
+                    ZM_INFO("Animation Player and a new clip: {} ({})", selected.GetName(), player.Clips.back());
                     Open(selected, 0);
                 }
             }

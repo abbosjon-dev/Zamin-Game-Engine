@@ -168,7 +168,7 @@ namespace Zamin {
             else
             {
                 m_PixelsFailed = true;
-                ZM_WARN("Sprite muharriri: rasm piksellari o'qilmadi ({}): {}", m_TexturePath, error);
+                ZM_WARN("Sprite editor: the image pixels could not be read ({}): {}", m_TexturePath, error);
             }
         }
         return m_Pixels.get();
@@ -181,7 +181,7 @@ namespace Zamin {
         if (!meta)
         {
             SetStatus(Tr("Saqlanmadi: rasm asset registry'da yo'q"), true);
-            ZM_ERROR("Sprite kadrlari saqlanmadi: '{}' asset registry'da topilmadi", m_TexturePath);
+            ZM_ERROR("Sprite frames not saved: '{}' was not found in the asset registry", m_TexturePath);
             return false;
         }
         AssetImportSettings import = meta->Import; // the texture's own settings stay
@@ -195,7 +195,7 @@ namespace Zamin {
         m_SeenRevision = registry->GetRevision();
         m_Saved = m_Edit;
         SetStatus(TrFormat("Saqlandi: {} ta kadr", m_Edit.Frames.size()));
-        ZM_INFO("Sprite kadrlari saqlandi: {} ({} ta)", path, m_Edit.Frames.size());
+        ZM_INFO("Sprite frames saved: {} ({})", path, m_Edit.Frames.size());
         return true;
     }
 

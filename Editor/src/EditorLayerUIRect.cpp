@@ -520,7 +520,7 @@ namespace Zamin {
         float dx = 0.0f, dy = 0.0f;
         if (handle < 0 || colon == std::string_view::npos || std::sscanf(std::string(v.substr(colon + 1)).c_str(), "%f,%f", &dx, &dy) != 2)
         {
-            ZM_WARN("ZAMIN_EDITOR_UI_DRAG: noto'g'ri qiymat '{}' (masalan: right:40,0)", spec);
+            ZM_WARN("ZAMIN_EDITOR_UI_DRAG: invalid value '{}' (for example: right:40,0)", spec);
             return;
         }
         Scene& scene = *m_ActiveScene;
@@ -544,7 +544,7 @@ namespace Zamin {
         ApplyUIRectDrag(entity, handle, scene.UIViewToLayout(entity, startView + glm::vec2(dx, dy)), false, false, false);
         g.GuideX = g.GuideY = false;
         MarkDirty();
-        ZM_INFO("UI gizmo: '{}' {} ga surildi -> {:.0f} x {:.0f}", entity.GetName(), s_HandleNames[handle], scene.GetUIRect(entity).GetWidth(),
+        ZM_INFO("UI gizmo: '{}' dragged by {} -> {:.0f} x {:.0f}", entity.GetName(), s_HandleNames[handle], scene.GetUIRect(entity).GetWidth(),
                 scene.GetUIRect(entity).GetHeight());
     }
 

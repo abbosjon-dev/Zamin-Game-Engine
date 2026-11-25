@@ -256,7 +256,7 @@ namespace Zamin {
             if (prune)
             {
                 if (size_t removed = disk.Prune(); removed > 0)
-                    ZM_CORE_INFO("Eskirgan {} ta thumbnail keshdan o'chirildi", removed);
+                    ZM_CORE_INFO("{} stale thumbnails deleted from the cache", removed);
                 continue;
             }
             if (!job.Save.Pixels.empty())

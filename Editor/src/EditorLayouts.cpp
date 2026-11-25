@@ -93,7 +93,7 @@ namespace Zamin {
         std::optional<EditorLayout> layout = m_Layouts.Load(name);
         if (!layout || layout->Ini.empty())
         {
-            ZM_WARN("Joylashuv o'qilmadi: '{}'", name);
+            ZM_WARN("Layout could not be read: '{}'", name);
             ShowViewportMessage(TrFormat(ICON_FA_TRIANGLE_EXCLAMATION "  Joylashuv o'qilmadi: {}", name));
             return;
         }
@@ -106,7 +106,7 @@ namespace Zamin {
         m_Preferences.Layout.Current = layout->Name;
         MarkPreferencesDirty();
         MarkViewSettingsDirty(); // the extra views' open state
-        ZM_INFO("Joylashuv qo'llandi: {}", layout->Name);
+        ZM_INFO("Layout applied: {}", layout->Name);
         ShowViewportMessage(TrFormat(ICON_FA_WINDOW_RESTORE "  Joylashuv: {}", layout->Name));
     }
 
@@ -238,12 +238,12 @@ namespace Zamin {
         if (!m_Layouts.Save(layout, &error))
         {
             m_LayoutError = error;
-            ZM_WARN("Joylashuv saqlanmadi: {}", error);
+            ZM_WARN("Layout not saved: {}", error);
             return false;
         }
         m_Preferences.Layout.Current = layout.Name;
         MarkPreferencesDirty();
-        ZM_INFO("Joylashuv saqlandi: {} ({} bayt)", layout.Name, layout.Ini.size());
+        ZM_INFO("Layout saved: {} ({} bytes)", layout.Name, layout.Ini.size());
         ShowViewportMessage(TrFormat(ICON_FA_FLOPPY_DISK "  Joylashuv saqlandi: {}", layout.Name));
         m_LayoutError.clear();
         return true;
@@ -460,7 +460,7 @@ namespace Zamin {
                     m_Preferences.Layout.Current = to;
                     MarkPreferencesDirty();
                 }
-                ZM_INFO("Joylashuv nomi o'zgardi: {} → {}", *rename, to);
+                ZM_INFO("Layout renamed: {} → {}", *rename, to);
                 m_LayoutRenameFrom.clear();
                 m_LayoutError.clear();
             }
@@ -471,7 +471,7 @@ namespace Zamin {
         {
             if (m_Layouts.Remove(*remove))
             {
-                ZM_INFO("Joylashuv o'chirildi: {}", *remove);
+                ZM_INFO("Layout deleted: {}", *remove);
                 if (current == *remove)
                 {
                     m_Preferences.Layout.Current.clear();
@@ -526,7 +526,7 @@ namespace Zamin {
             else if (!item.empty())
             {
                 if (!EditorLayoutLibrary::FindBuiltIn(item) && !m_Layouts.Contains(item))
-                    ZM_WARN("ZAMIN_EDITOR_LAYOUT: '{}' joylashuvi yo'q", item);
+                    ZM_WARN("ZAMIN_EDITOR_LAYOUT: no layout '{}'", item);
                 else
                     RequestLayout(std::string(item));
             }

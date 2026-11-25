@@ -58,11 +58,11 @@ namespace Zamin {
         if (m_LoadedDirectory.empty() || !m_Table.Save(m_LoadedDirectory, &errors))
         {
             for (const std::string& e : errors)
-                ZM_ERROR("Lokalizatsiya saqlanmadi: {}", e);
+                ZM_ERROR("Localization not saved: {}", e);
             return false;
         }
         m_Dirty = false;
-        ZM_INFO("Lokalizatsiya saqlandi: {} ta til, {} ta kalit ({})", m_Table.Languages.size(), m_Keys.size(),
+        ZM_INFO("Localization saved: {} languages, {} keys ({})", m_Table.Languages.size(), m_Keys.size(),
                 Project::GetAssetRelativePath(m_LoadedDirectory));
         Localization::Reload(); // the scene's texts and the game use the new strings
         return true;

@@ -351,9 +351,9 @@ namespace Zamin {
                 m_Status = saved ? Tr("Saqlandi") : Tr("Saqlanmadi - faylga yozib bo'lmadi");
             }
             if (saved)
-                ZM_INFO("Material saqlandi: {}", name);
+                ZM_INFO("Material saved: {}", name);
             else
-                ZM_ERROR("Material saqlanmadi: {}", name);
+                ZM_ERROR("Material not saved: {}", name);
             return saved;
         }
         AssetRegistry* registry = GetRegistry();
@@ -395,7 +395,7 @@ namespace Zamin {
             else
                 m_Status = Tr("Saqlandi (keyingi yuklashda ishlatiladi)");
         }
-        ZM_INFO("Import sozlamalari saqlandi: {}{}", name, updated > 0 && !failed ? " (qayta import qilindi)" : "");
+        ZM_INFO("Import settings saved: {}{}", name, updated > 0 && !failed ? " (re-imported)" : "");
         return true;
     }
 
@@ -461,7 +461,7 @@ namespace Zamin {
             if (ImGui::Button(material ? Tr(ICON_FA_FLOPPY_DISK "  Saqlash") : Tr(ICON_FA_CHECK "  Qo'llash"), ImVec2(150, 0)))
             {
                 if (!ApplyEdits(edits, false) && !material)
-                    ZM_WARN("Import sozlamalari saqlanmadi: '{}' ro'yxatda yo'q", name);
+                    ZM_WARN("Import settings not saved: '{}' is not in the registry", name);
                 close = true;
             }
             ImGui::PopStyleColor();
@@ -1586,7 +1586,7 @@ namespace Zamin {
         m_ExportOpenSection = true;
         if (!Model::ExportMaterials(m_Path, options, m_Export, &m_ExportError))
         {
-            ZM_ERROR("Model materiallari eksport qilinmadi: {} - {}", m_Path.filename().string(), m_ExportError);
+            ZM_ERROR("Model materials not exported: {} - {}", m_Path.filename().string(), m_ExportError);
             return false;
         }
         for (const std::string& warning : m_Export.Warnings)
@@ -1689,7 +1689,7 @@ namespace Zamin {
             StopAudio();
             m_Sound = PlayPreviewSound();
             if (m_Sound)
-                ZM_INFO("Ovoz ko'rib chiqilmoqda: {}", m_Path.filename().string());
+                ZM_INFO("Previewing sound: {}", m_Path.filename().string());
         }
         else if (m_Type == AssetType::Model)
         {
@@ -2515,7 +2515,7 @@ namespace Zamin {
                     settings.Kerning = kerning;
                     AssetImporter::WriteFontSettings(settings, import);
                     if (registry->SetImportSettings(meta->Handle, import))
-                        ZM_INFO("Import sozlamalari saqlandi: {} (kerning {})", meta->RelativePath, kerning ? "yoqildi" : "o'chirildi");
+                        ZM_INFO("Import settings saved: {} (kerning {})", meta->RelativePath, kerning ? "yoqildi" : "off");
                 }
                 font->SetKerningEnabled(kerning); // texts lay out again with it from the next frame
             }

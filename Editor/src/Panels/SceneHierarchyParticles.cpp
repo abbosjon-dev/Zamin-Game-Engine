@@ -1209,7 +1209,7 @@ namespace Zamin {
         std::string error;
         if (!ParticlePresets::Load(Project::GetAssetFileSystemPath(assetPath), preset, &error))
         {
-            ZM_ERROR("Particle preset o'qilmadi: {} - {}", assetPath.generic_string(), error);
+            ZM_ERROR("Particle preset could not be read: {} - {}", assetPath.generic_string(), error);
             return false;
         }
         RequestParticlePreset(entity, std::move(preset));
@@ -1234,13 +1234,13 @@ namespace Zamin {
             if (m_Context->IsLockedInEditor(entity))
                 return {};
             std::vector<Entity> templates = ParticlePresets::Apply(*m_Context, entity, preset);
-            ZM_INFO("'{}' ga '{}' particle preset'i qo'llandi{}", entity.GetName(), preset.Name,
-                    templates.empty() ? std::string() : std::format(" ({} ta sub-emitter shabloni bilan)", templates.size()));
+            ZM_INFO("Particle preset '{1}' applied to '{0}'{2}", entity.GetName(), preset.Name,
+                    templates.empty() ? std::string() : std::format(" (with {} sub-emitter templates)", templates.size()));
         }
         else
         {
             entity = ParticlePresets::Instantiate(*m_Context, preset);
-            ZM_INFO("Yangi particle effekt: '{}'", entity.GetName());
+            ZM_INFO("New particle effect: '{}'", entity.GetName());
         }
         SetSelectedEntity(entity);
         MarkModified();
@@ -1262,15 +1262,15 @@ namespace Zamin {
         std::filesystem::path file = AssetFiles::MakeUniquePath(dir, name + ParticlePresets::Extension);
         if (!ParticlePresets::Save(file, preset))
         {
-            ZM_ERROR("Particle preset fayli yozilmadi: {}", file.string());
+            ZM_ERROR("Particle preset file could not be written: {}", file.string());
             return false;
         }
         if (AssetRegistry* registry = Project::GetAssetRegistry())
             registry->OnFileAdded(file); // listed in the library at once
         if (OnFilesCreated)
             OnFilesCreated({ file });
-        ZM_INFO("Particle preset saqlandi: {}{}", Project::GetAssetRelativePath(file),
-                preset.Templates.empty() ? std::string() : std::format(" ({} ta sub-emitter shabloni bilan)", preset.Templates.size()));
+        ZM_INFO("Particle preset saved: {}{}", Project::GetAssetRelativePath(file),
+                preset.Templates.empty() ? std::string() : std::format(" (with {} sub-emitter templates)", preset.Templates.size()));
         return true;
     }
 

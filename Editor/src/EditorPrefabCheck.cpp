@@ -43,13 +43,13 @@ namespace Zamin {
         {
             const std::string line = issue.File.empty() ? issue.Message : std::format("{} ({}): {}", issue.File, issue.Rule, issue.Message);
             if (issue.Level == PrefabExportIssue::Severity::Error || (strict && issue.Level == PrefabExportIssue::Severity::Warning))
-                ZM_ERROR("Prefab tekshiruvi: {}", line);
+                ZM_ERROR("Prefab check: {}", line);
             else if (issue.Level == PrefabExportIssue::Severity::Warning)
-                ZM_WARN("Prefab tekshiruvi: {}", line);
+                ZM_WARN("Prefab check: {}", line);
             else
-                ZM_INFO("Prefab tekshiruvi: {}", line);
+                ZM_INFO("Prefab check: {}", line);
         }
-        ZM_INFO("Prefab tekshiruvi: {}", m_PrefabCheck.Summary());
+        ZM_INFO("Prefab check: {}", m_PrefabCheck.Summary());
     }
 
     void EditorLayer::UI_PrefabCheckWindow()

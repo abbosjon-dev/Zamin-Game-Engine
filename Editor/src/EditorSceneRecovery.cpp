@@ -31,9 +31,9 @@ namespace Zamin {
         // The broken file stays as it was next to it (the saved scene replaces it only when saved).
         fs::path backup;
         if (SceneRecovery::WriteBackup(path, &backup))
-            ZM_INFO("Buzilgan sahna fayli nusxasi saqlandi: {}", backup.filename().string());
+            ZM_INFO("A copy of the broken scene file was saved: {}", backup.filename().string());
         else
-            ZM_WARN("Buzilgan sahna faylining nusxasi saqlanmadi: {}", path.string());
+            ZM_WARN("The copy of the broken scene file was not saved: {}", path.string());
 
         Ref<Scene> recovered = CreateRef<Scene>();
         SceneSerializer serializer(recovered);
@@ -66,12 +66,12 @@ namespace Zamin {
             m_UndoHistory.ReplaceCurrentScene(TakeSnapshot());
         const size_t linkedAfter = m_EditorScene->GetAllEntitiesWith<PrefabLinkComponent>().size();
         if (linkedAfter > linkedBefore)
-            ZM_INFO("Prefab nusxalarining buzilgan qismda qolgan {} ta obyekti prefabdan qayta yaratildi", linkedAfter - linkedBefore);
+            ZM_INFO("{} objects of prefab instances lost in the broken part were recreated from the prefab", linkedAfter - linkedBefore);
         m_SceneDirty = true; // the file still holds the broken text
         ShowSceneLoadReport(report);
         m_ShowLoadReport = true;
         const size_t entities = m_EditorScene->GetAllEntitiesWith<IDComponent>().size();
-        ZM_WARN("Sahna qisman tiklandi: {} ({} obyekt) - tekshirib, saqlang", path.filename().string(), entities);
+        ZM_WARN("Scene partly recovered: {} ({} objects) - check it and save", path.filename().string(), entities);
         ShowViewportMessage(std::format(ICON_FA_TRUCK_MEDICAL "  {}: {} ({} {})", Tr("Sahna qisman tiklandi"), path.filename().string(),
                                         entities, Tr("obyekt")));
         AddRecentScene(path);

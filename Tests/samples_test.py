@@ -186,7 +186,7 @@ def pad_case(game, started, script, checks=(), frames=None, downs=2, menu_at=Non
         in_order("gamepad: bosh menyu -> o'yin -> pauza (Start) -> davom -> pauza -> bosh menyu (D-pad, A)",
                  [MAIN_MENU, started, PAUSE, PAUSE_CLOSED, PAUSE, MAIN_MENU]),
         present("ishoralar gamepad'ga o'tdi", r"Input device: gamepad"),
-        absent("klaviaturaga qaytmadi (gamepad o'ynadi)", r"Input device: gamepad[\s\S]*Input device: klaviatura"),
+        absent("klaviaturaga qaytmadi (gamepad o'ynadi)", r"Input device: gamepad[\s\S]*Input device: keyboard"),
         *checks,
     ], env={"ZAMIN_PLAYER_INPUT": keys(*flow)}, note=note)
 
@@ -227,7 +227,7 @@ GAMEPAD_CASES = [
                  [MAIN_MENU, r"Omborchi: 1-daraja", PAUSE, PAUSE_CLOSED, r"Menyu: natijalar - 1-daraja yechildi, 2 qadam", MAIN_MENU]),
         present("yechim rekordga yozildi", r"Yangi rekord: 1-daraja 2 qadam"),
         present("ishoralar gamepad'ga o'tdi", r"Input device: gamepad"),
-        absent("klaviaturaga qaytmadi (gamepad o'ynadi)", r"Input device: gamepad[\s\S]*Input device: klaviatura"),
+        absent("klaviaturaga qaytmadi (gamepad o'ynadi)", r"Input device: gamepad[\s\S]*Input device: keyboard"),
     ], env={"ZAMIN_PLAYER_INPUT": keys((30, "pad=A"), (90, "pad=Start"), (110, "pad=Start"), (130, "pad=DPadRight"),
                                        (150, "pad=DPadRight"), (230, "pad=DPadDown"), (240, "pad=DPadDown"), (250, "pad=A"))},
         note="A - o'ynash, Start - pauza, D-pad - yurish (qutini itarish)"),

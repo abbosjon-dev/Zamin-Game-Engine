@@ -22,7 +22,7 @@ def save():click(473,140);time.sleep(1.2)
 try:
  for i in range(100):
   if app.poll() is not None:raise RuntimeError('Editor exited early')
-  if 'Sahna ochildi:' in (work/'editor.log').read_text():break
+  if 'Scene opened:' in (work/'editor.log').read_text():break
   time.sleep(.2)
  for i in range(60):
   pixel=subprocess.check_output(['import','-window','root','-crop','1x1+450+230','txt:-'],text=True)

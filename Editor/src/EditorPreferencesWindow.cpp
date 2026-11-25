@@ -69,7 +69,7 @@ namespace Zamin {
         const fs::path path = EditorPreferences::GetDefaultPath();
         std::error_code ec;
         if (fs::exists(path, ec) && !m_Preferences.Load(path))
-            ZM_WARN("Editor sozlamalari o'qilmadi (standart qiymatlar ishlatiladi): {}", path.string());
+            ZM_WARN("The editor preferences could not be read (defaults are used): {}", path.string());
         m_Preferences.Sanitize();
         m_ConsolePanel.SetPreferences(m_Preferences.Console);
         ApplyLogPreferences(true);  // the levels (the command line's over them) and the editor's log file
@@ -84,7 +84,7 @@ namespace Zamin {
         m_Preferences.Console = m_ConsolePanel.GetPreferences();
         m_Preferences.Sanitize();
         if (!m_Preferences.Save(EditorPreferences::GetDefaultPath()))
-            ZM_WARN("Editor sozlamalari saqlanmadi");
+            ZM_WARN("The editor preferences were not saved");
         m_PreferencesDirty = false;
     }
 

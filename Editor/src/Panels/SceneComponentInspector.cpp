@@ -157,10 +157,10 @@ namespace Zamin {
         if (count)
         {
             MarkModified();
-            ZM_INFO("Komponent joylandi: {} ({} ta obyekt)", ComponentDisplayName(m_PasteKey), count);
+            ZM_INFO("Component pasted: {} ({} objects)", ComponentDisplayName(m_PasteKey), count);
         }
         else
-            ZM_WARN("Komponentni joylab bo'lmadi: {}", ComponentDisplayName(m_PasteKey));
+            ZM_WARN("Could not paste the component: {}", ComponentDisplayName(m_PasteKey));
         return count;
     }
 
@@ -180,7 +180,7 @@ namespace Zamin {
                 ImGui::SetClipboardText(m_ComponentClipboard.c_str());
                 m_PasteText = m_ComponentClipboard;
                 m_PasteKey = std::string(key);
-                ZM_INFO("Komponent nusxalandi: {} ({})", display, entity.GetName());
+                ZM_INFO("Component copied: {} ({})", display, entity.GetName());
             }
         }
         size_t withComponent = 0;
@@ -411,7 +411,7 @@ namespace Zamin {
         std::filesystem::path modelFile = Project::GetAssetFileSystemPath(c.ModelPath);
         if (!Model::ExportMaterials(modelFile, {}, result, &error))
         {
-            ZM_ERROR("Model materiallari eksport qilinmadi: {} - {}", c.ModelPath, error);
+            ZM_ERROR("Model materials not exported: {} - {}", c.ModelPath, error);
             return false;
         }
         for (const std::string& warning : result.Warnings)
@@ -439,7 +439,7 @@ namespace Zamin {
             c.SubmeshMaterials = slots;
             Scene::SetMeshMaterial(c, c.MaterialPath); // trims empty slots, looks them up
         }
-        ZM_INFO("Model materiallari biriktirildi: {} ({} ta material, {} ta qism)", c.ModelPath, result.Materials.size(), subMeshes.size());
+        ZM_INFO("Model materials assigned: {} ({} materials, {} parts)", c.ModelPath, result.Materials.size(), subMeshes.size());
         if (OnFilesCreated && !result.Written.empty())
             OnFilesCreated(result.Written);
         return true;
@@ -476,11 +476,11 @@ namespace Zamin {
                 std::string error;
                 if (!MaterialPresets::Create(preset, MaterialPresets::GetSharedFolder(), true, result, &error))
                 {
-                    ZM_ERROR("Standart material '{}' yaratilmadi: {}", preset.FileName, error);
+                    ZM_ERROR("Default material '{}' not created: {}", preset.FileName, error);
                     continue;
                 }
                 if (!result.Existed)
-                    ZM_INFO("Standart material yaratildi: {}", Project::GetAssetRelativePath(result.Material));
+                    ZM_INFO("Default material created: {}", Project::GetAssetRelativePath(result.Material));
                 if (OnFilesCreated && !result.Written.empty())
                     OnFilesCreated(result.Written);
                 changed |= Scene::SetMeshMaterial(c, Project::GetAssetRelativePath(result.Material));
@@ -641,10 +641,10 @@ namespace Zamin {
                     c.MaterialPath = Project::GetAssetRelativePath(file);
                     Scene::ResolveMeshMaterials(c);
                     changed = true;
-                    ZM_INFO("Material asset yaratildi: {}", c.MaterialPath);
+                    ZM_INFO("Material asset created: {}", c.MaterialPath);
                 }
                 else
-                    ZM_ERROR("Material fayli yozilmadi: {}", file.string());
+                    ZM_ERROR("Material file could not be written: {}", file.string());
             }
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Shu qiymatlar va teksturalar bilan Assets/Materials ichida .zmat fayl yaratiladi va mesh uni ishlatadi");

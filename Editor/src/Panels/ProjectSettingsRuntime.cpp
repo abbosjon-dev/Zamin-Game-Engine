@@ -218,7 +218,7 @@ namespace Zamin {
                                                         current.Summary(), current.Vendor, current.Renderer, current.Version, current.ShadingLanguage,
                                                         current.Samples, current.SRGB ? "ha" : Tr("yo'q"), current.MaxTextureSize, current.MaxSamples,
                                                         current.MaxAnisotropy).c_str());
-                    ZM_INFO("Grafik kontekst ma'lumoti nusxalandi");
+                    ZM_INFO("Graphics context information copied");
                 }
                 if (ImGui::IsItemHovered())
                     UI::Tooltip("Xato hisobotlari uchun: kontekst, drayver va imkoniyatlar");

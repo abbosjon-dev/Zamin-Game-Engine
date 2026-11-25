@@ -143,7 +143,7 @@ def authoring(out):
         for _ in range(100):
             if app.poll() is not None:
                 raise RuntimeError("Editor exited early")
-            if "Sahna ochildi:" in log_path.read_text():
+            if "Scene opened:" in log_path.read_text():
                 break
             time.sleep(.2)
         for _ in range(60):
@@ -208,7 +208,7 @@ def slice_graphs(out):
         if errors:
             raise AssertionError(f"{game}: errors in the editor log: {errors[:5]}")
         for g in graphs:
-            m = re.search(rf"Blueprint graph QA: Scripts/{g}\.zgraph - (\d+) node, (\d+) link, (\d+) o'zgaruvchi, (\d+) diagnostika", text)
+            m = re.search(rf"Blueprint graph QA: Scripts/{g}\.zgraph - (\d+) nodes, (\d+) links, (\d+) variables, (\d+) diagnostics", text)
             if not m:
                 raise AssertionError(f"{game}: {g}.zgraph was not opened by the QA hook")
             if int(m.group(4)) != 0:

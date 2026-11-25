@@ -80,11 +80,11 @@ for project in "${projects[@]}"; do
     seconds=$(( $(date +%s) - start ))
     # (The terminal colours out.)
     sed 's/\x1b\[[0-9;]*m//g' "$log.raw" >"$log" && rm -f "$log.raw"
-    result="$(grep -oE "Editor smoke testi o'(tdi|tmadi): .*" "$log" | tail -n 1)"
-    steps="$(echo "$result" | grep -oE '[0-9]+/[0-9]+ qadam' | cut -d' ' -f1)"
-    frames="$(echo "$result" | grep -oE '[0-9]+ kadr' | cut -d' ' -f1)"
-    errors="$(echo "$result" | grep -oE '[0-9]+ xato' | head -n 1 | cut -d' ' -f1)"
-    if [[ $code -eq 0 && "$result" == *"o'tdi"* ]]; then
+    result="$(grep -oE "Editor smoke test (passed|failed): .*" "$log" | tail -n 1)"
+    steps="$(echo "$result" | grep -oE '[0-9]+/[0-9]+ steps' | cut -d' ' -f1)"
+    frames="$(echo "$result" | grep -oE '[0-9]+ frames' | cut -d' ' -f1)"
+    errors="$(echo "$result" | grep -oE '[0-9]+ errors' | head -n 1 | cut -d' ' -f1)"
+    if [[ $code -eq 0 && "$result" == *"smoke test passed:"* ]]; then
         echo "  [OK]   $result ($seconds s)"
         echo "| $name | o'tdi | $steps | $frames | $seconds s | 0 |" >>"$summary"
     else
@@ -94,7 +94,7 @@ for project in "${projects[@]}"; do
         [[ $code -gt 128 && $code -ne 124 ]] && reason="dastur yiqildi (signal $((code - 128)))"
         [[ -n "$result" ]] && reason="$reason; $result"
         echo "  [XATO] $reason"
-        grep -E "Smoke xatosi|IM_ASSERT|Assertion|crash|Crash" "$log" | head -n 20 | sed 's/^/           /'
+        grep -E "Smoke error|IM_ASSERT|Assertion|crash|Crash" "$log" | head -n 20 | sed 's/^/           /'
         echo "| $name | **o'tmadi** ($reason) | ${steps:--} | ${frames:--} | $seconds s | ${errors:--} |" >>"$summary"
     fi
     [[ $shots -eq 1 && -d "$out/$name-shots" ]] && echo "  rasmlar: $out/$name-shots ($(ls "$out/$name-shots" | wc -l) ta)"

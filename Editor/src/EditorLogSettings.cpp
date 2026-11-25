@@ -58,8 +58,8 @@ namespace Zamin {
         const LogLevelSettings levels = startup ? m_StartupLogLevels.Over(m_Preferences.Logging.Levels) : m_Preferences.Logging.Levels;
         levels.Apply();
         if (startup && !levels.IsDefault())
-            ZM_CORE_INFO("Log darajalari: {}{}", levels.Describe(),
-                         m_StartupLogLevels.IsEmpty() ? "" : std::format(" (buyruq qatori / ZAMIN_LOG_LEVEL: {})", m_StartupLogLevels.ToSpec()));
+            ZM_CORE_INFO("Log levels: {}{}", levels.Describe(),
+                         m_StartupLogLevels.IsEmpty() ? "" : std::format(" (command line / ZAMIN_LOG_LEVEL: {})", m_StartupLogLevels.ToSpec()));
         UpdateEditorLogFile();
     }
 
@@ -70,7 +70,7 @@ namespace Zamin {
         {
             if (LogFile::IsOpen())
             {
-                ZM_CORE_INFO("Editor log fayli yopildi (Sozlamalar > Log)");
+                ZM_CORE_INFO("Editor log file closed (Preferences > Log)");
                 LogFile::Close();
             }
             return;
@@ -86,9 +86,9 @@ namespace Zamin {
                                                m_StartupProject.empty() ? "-" : m_StartupProject.string());
         std::string error;
         if (LogFile::OpenRotating({ GetEditorLogDirectory(), "editor", prefs.KeepFiles, true, header }, &error))
-            ZM_CORE_INFO("Editor log fayli: {}", LogFile::GetPath().string());
+            ZM_CORE_INFO("Editor log file: {}", LogFile::GetPath().string());
         else
-            ZM_CORE_WARN("Editor log fayli ochilmadi ({}) - log faqat konsol va terminalda", error);
+            ZM_CORE_WARN("The editor log file could not be opened ({}) - the log is in the console and terminal only", error);
     }
 
     void EditorLayer::InstallAssertHandler()

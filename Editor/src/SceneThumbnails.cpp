@@ -22,7 +22,7 @@ namespace Zamin {
         const fs::path file = SceneMetadata::GetThumbnailPath(scenePath);
         if (!Image::WritePNG(file.string(), small.Width, small.Height, 4, small.Pixels.data()))
         {
-            ZM_WARN("Sahna rasmi yozilmadi: {}", file.string());
+            ZM_WARN("Scene thumbnail could not be written: {}", file.string());
             return false;
         }
         return true;

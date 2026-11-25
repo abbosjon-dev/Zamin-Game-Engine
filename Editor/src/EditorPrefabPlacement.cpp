@@ -91,7 +91,7 @@ namespace Zamin {
             Entity root = PrefabUtility::InstantiateLinked(*m_EditorScene, m_PrefabDatabase, prefab, {});
             if (!root)
             {
-                ZM_ERROR("Prefab yuklanmadi: {}", prefab);
+                ZM_ERROR("Prefab failed to load: {}", prefab);
                 continue;
             }
             roots.push_back(root);
@@ -229,7 +229,7 @@ namespace Zamin {
             (m_ViewportHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Right)))
         {
             if (m_PrefabPlacing.Placed)
-                ZM_INFO("Prefab qo'yish rejimi tugadi: {} ta qo'yildi", m_PrefabPlacing.Placed);
+                ZM_INFO("Prefab placement mode finished: {} placed", m_PrefabPlacing.Placed);
             m_PrefabPlacing = {};
             return;
         }

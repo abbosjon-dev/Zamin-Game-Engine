@@ -69,14 +69,14 @@ namespace Zamin {
         const State state = EditorAutosave::CheckLock(lock, EditorAutosave::GetCurrentProcessId(), EditorAutosave::IsProcessAlive);
         m_PreviousSessionCrashed = state == State::Crashed;
         if (state == State::Crashed)
-            ZM_WARN("Editor oldingi safar bu loyihani yopmasdan to'xtagan - avtomatik saqlangan nusxalar tekshiriladi");
+            ZM_WARN("The editor stopped last time without closing this project - autosaved copies are checked");
         else if (state == State::OtherInstance)
-            ZM_WARN("Bu loyiha boshqa editor oynasida ham ochiq (jarayon {}) - bir vaqtda tahrirlash o'zgarishlarni yo'qotishi mumkin",
+            ZM_WARN("This project is also open in another editor window (process {}) - editing at the same time can lose changes",
                     lock ? lock->ProcessId : 0);
         if (EditorAutosave::WriteLock(lockPath, EditorAutosave::MakeLock()))
             m_LockedProject = directory;
         else
-            ZM_WARN("Loyiha qulf fayli yozilmadi: {}", lockPath.string());
+            ZM_WARN("The project lock file could not be written: {}", lockPath.string());
     }
 
     void EditorLayer::ReleaseProjectLock()
@@ -133,7 +133,7 @@ namespace Zamin {
             return false;
         if (!EditorAutosave::WriteFileAtomic(path, *scene))
         {
-            ZM_WARN("Avtomatik saqlanmadi: {}", path.string());
+            ZM_WARN("Autosave failed: {}", path.string());
             return false;
         }
         m_AutosavedScene = scene;
@@ -142,9 +142,9 @@ namespace Zamin {
         m_AutosaveNoticeTime = ImGui::GetTime();
         const std::string shown = path.lexically_relative(Project::GetProjectDirectory()).generic_string();
         if (manual)
-            ZM_INFO("Sahnaning nusxasi saqlandi: {}", shown);
+            ZM_INFO("A copy of the scene was saved: {}", shown);
         else
-            ZM_INFO("Sahna avtomatik saqlandi: {} (fayl o'zgarmadi)", shown);
+            ZM_INFO("Scene autosaved: {} (the file did not change)", shown);
         return true;
     }
 
@@ -198,9 +198,9 @@ namespace Zamin {
             m_Recovery.SceneExists = check.SceneExists;
             m_Recovery.Crashed = m_PreviousSessionCrashed && !kept;
             if (kept)
-                ZM_WARN("'{}' sahnasining keyinroqqa qoldirilgan nusxasi bor ({}) - tiklash mumkin", m_Recovery.SceneName, WhenText(check.AutosaveTime));
+                ZM_WARN("The scene '{}' has a copy that was put aside for later ({}) - it can be restored", m_Recovery.SceneName, WhenText(check.AutosaveTime));
             else
-                ZM_WARN("'{}' sahnasining avtomatik saqlangan nusxasi topildi ({}) - tiklash mumkin", m_Recovery.SceneName, WhenText(check.AutosaveTime));
+                ZM_WARN("An autosaved copy of the scene '{}' was found ({}) - it can be restored", m_Recovery.SceneName, WhenText(check.AutosaveTime));
             return;
         }
     }
@@ -217,16 +217,16 @@ namespace Zamin {
         fs::rename(m_Recovery.Autosave, kept, ec);
         if (ec)
         {
-            ZM_WARN("Nusxa chetga olinmadi ({}): avtosaqlash yoki sahnani saqlash uni almashtirishi mumkin", ec.message());
+            ZM_WARN("The copy was not put aside ({}): autosave or saving the scene may replace it", ec.message());
             return;
         }
         m_SessionAutosaves.erase(m_Recovery.Autosave.lexically_normal().string());
         m_Recovery.Autosave = kept;
         m_Recovery.Kept = true;
         const std::string shown = Project::GetActive() ? kept.lexically_relative(Project::GetProjectDirectory()).generic_string() : kept.string();
-        ZM_INFO("'{}' nusxasi keyinroqqa qoldirildi ({}): sahna keyingi ochilganda yana so'raladi", m_Recovery.SceneName, shown);
+        ZM_INFO("The copy of '{}' was put aside for later ({}): you are asked again the next time the scene is opened", m_Recovery.SceneName, shown);
         if (replaced)
-            ZM_WARN("Avvalroq qoldirilgan nusxa shu yangisi bilan almashtirildi: {}", shown);
+            ZM_WARN("The copy put aside earlier was replaced by this new one: {}", shown);
     }
 
     void EditorLayer::DeleteOfferedAutosave()
@@ -236,7 +236,7 @@ namespace Zamin {
         std::error_code ec;
         fs::remove(m_Recovery.Autosave, ec);
         m_SessionAutosaves.erase(m_Recovery.Autosave.lexically_normal().string());
-        ZM_INFO("Avtomatik saqlangan nusxa o'chirildi: {}", m_Recovery.SceneName);
+        ZM_INFO("Autosaved copy deleted: {}", m_Recovery.SceneName);
     }
 
     void EditorLayer::RecoverAutosave()
@@ -245,7 +245,7 @@ namespace Zamin {
         Ref<Scene> scene = CreateRef<Scene>();
         if (text.empty() || !SceneSerializer(scene).DeserializeFromString(text))
         {
-            ZM_ERROR("Avtomatik saqlangan nusxa o'qilmadi: {}", m_Recovery.Autosave.string());
+            ZM_ERROR("The autosaved copy could not be read: {}", m_Recovery.Autosave.string());
             return;
         }
         if (m_SceneState != SceneState::Edit)
@@ -279,7 +279,7 @@ namespace Zamin {
         {
             fs::rename(m_Recovery.Autosave, usual, ec);
             if (ec)
-                ZM_WARN("Qoldirilgan nusxa avtosaqlash fayliga ko'chirilmadi ({}): {}", ec.message(), m_Recovery.Autosave.string());
+                ZM_WARN("The copy put aside was not moved to the autosave file ({}): {}", ec.message(), m_Recovery.Autosave.string());
             else
             {
                 m_Recovery.Autosave = usual;
@@ -289,7 +289,7 @@ namespace Zamin {
         m_SessionAutosaves.insert(m_Recovery.Autosave.lexically_normal().string());
         m_AutosavedScene = m_UndoHistory.GetCurrent().Scene;
         m_LastAutosaveTime = ImGui::GetTime();
-        ZM_INFO("'{}' avtomatik saqlangan nusxadan tiklandi ({}) - faylga yozish uchun saqlang", m_Recovery.SceneName,
+        ZM_INFO("'{}' was restored from the autosaved copy ({}) - save to write it to the file", m_Recovery.SceneName,
                 WhenText(m_Recovery.AutosaveTime));
         ShowViewportMessage(Tr(ICON_FA_LIFE_RING "  Avtosaqlashdan tiklandi - saqlash uchun ") + std::string(ShortcutLabel(EditorShortcut::SaveScene)));
         UpdateWindowTitle();
@@ -434,7 +434,7 @@ namespace Zamin {
                 fs::remove_all(directory, ec);
                 m_SessionAutosaves.clear();
                 m_AutosavedScene.reset();
-                ZM_INFO("Avtomatik saqlangan nusxalar o'chirildi");
+                ZM_INFO("Autosaved copies deleted");
             }
             ImGui::EndDisabled();
         }

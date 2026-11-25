@@ -222,7 +222,7 @@ namespace Zamin {
             m_PasteTransform = t;
             m_CanPasteTransform = true;
             ImGui::SetClipboardText(SceneSerializer::SerializeTransform(t).c_str());
-            ZM_INFO("Transform nusxalandi: {}", entity.GetName());
+            ZM_INFO("Transform copied: {}", entity.GetName());
         }
         const TransformComponent clip = m_PasteTransform;
         const bool canPaste = m_CanPasteTransform;
@@ -747,7 +747,7 @@ namespace Zamin {
                         "tekshirib qayta quradi");
 
         if (DrawNavGridStatus(m_Context.get(), entity, c.Grid, c.Baked, c.BakeCount, c.BakeMilliseconds, nullptr, c.FromBakeFile))
-            ZM_INFO("NavGrid 2D '{}' qurildi: {}x{} katak, {} tasi yuriladigan", entity.GetName(), c.Grid.GetWidth(), c.Grid.GetHeight(),
+            ZM_INFO("NavGrid 2D '{}' built: {}x{} cells, {} walkable", entity.GetName(), c.Grid.GetWidth(), c.Grid.GetHeight(),
                     c.Grid.CountWalkable());
         return changed;
     }
@@ -812,7 +812,7 @@ namespace Zamin {
 
         const std::string extra = TrFormat(", {} ta statik jism", c.BakeBodies);
         if (DrawNavGridStatus(m_Context.get(), entity, c.Grid, c.Baked, c.BakeCount, c.BakeMilliseconds, extra.c_str(), c.FromBakeFile))
-            ZM_INFO("NavGrid 3D '{}' qurildi: {}x{} katak, {} tasi yuriladigan, {} ta statik jism ({:.1f} ms)", entity.GetName(), c.Grid.GetWidth(),
+            ZM_INFO("NavGrid 3D '{}' built: {}x{} cells, {} walkable, {} static bodies ({:.1f} ms)", entity.GetName(), c.Grid.GetWidth(),
                     c.Grid.GetHeight(), c.Grid.CountWalkable(), c.BakeBodies, c.BakeMilliseconds);
         return changed;
     }
@@ -1598,10 +1598,10 @@ namespace Zamin {
                     changed = true;
                     if (OnFilesCreated)
                         OnFilesCreated({ file });
-                    ZM_INFO("Fizik material yaratildi: {}", path);
+                    ZM_INFO("Physics material created: {}", path);
                 }
                 else
-                    ZM_ERROR("Fizik material saqlanmadi: {}", file.string());
+                    ZM_ERROR("Physics material not saved: {}", file.string());
             }
         }
         return changed;
@@ -2421,14 +2421,14 @@ namespace Zamin {
                     registry->OnFileAdded(file);
                 c.Clips.push_back(Project::GetAssetRelativePath(file));
                 changed = true;
-                ZM_INFO("Yangi animatsiya klipi: {}", c.Clips.back());
+                ZM_INFO("New animation clip: {}", c.Clips.back());
                 if (OnFilesCreated)
                     OnFilesCreated({ file });
                 if (OnAnimationWindowRequested)
                     OnAnimationWindowRequested(entity, (int)c.Clips.size() - 1);
             }
             else
-                ZM_ERROR("Animatsiya klipi yozilmadi: {}", file.string());
+                ZM_ERROR("Animation clip could not be written: {}", file.string());
         }
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
@@ -2808,14 +2808,14 @@ namespace Zamin {
         const AssetMetadata* meta = registry ? registry->Find(std::filesystem::path(tilesetPath)) : nullptr;
         if (!meta)
         {
-            ZM_ERROR("Auto-tile qoidalari saqlanmadi: '{}' asset registry'da topilmadi", tilesetPath);
+            ZM_ERROR("Auto-tile rules not saved: '{}' was not found in the asset registry", tilesetPath);
             return false;
         }
         AssetImportSettings import = meta->Import; // the texture's own settings and its sprites stay
         set.WriteTo(import);
         if (!registry->SetImportSettings(meta->Handle, import))
         {
-            ZM_ERROR("Auto-tile qoidalari saqlanmadi: {}", tilesetPath);
+            ZM_ERROR("Auto-tile rules not saved: {}", tilesetPath);
             return false;
         }
         return true;
@@ -3216,14 +3216,14 @@ namespace Zamin {
         const AssetMetadata* meta = registry ? registry->Find(std::filesystem::path(tilesetPath)) : nullptr;
         if (!meta)
         {
-            ZM_ERROR("Plitka xususiyatlari saqlanmadi: '{}' asset registry'da topilmadi", tilesetPath);
+            ZM_ERROR("Tile properties not saved: '{}' was not found in the asset registry", tilesetPath);
             return false;
         }
         AssetImportSettings import = meta->Import; // sprites, auto-tile rules and texture settings stay
         properties.WriteTo(import);
         if (!registry->SetImportSettings(meta->Handle, import))
         {
-            ZM_ERROR("Plitka xususiyatlari saqlanmadi: {}", tilesetPath);
+            ZM_ERROR("Tile properties not saved: {}", tilesetPath);
             return false;
         }
         return true;
@@ -4486,14 +4486,14 @@ namespace Zamin {
                         registry->OnFileAdded(file);
                     c.Clips.push_back(Project::GetAssetRelativePath(file));
                     changed = true;
-                    ZM_INFO("Yangi sprite animatsiya klipi: {}", c.Clips.back());
+                    ZM_INFO("New sprite animation clip: {}", c.Clips.back());
                     if (OnFilesCreated)
                         OnFilesCreated({ file });
                     if (OnAssetEditRequested)
                         OnAssetEditRequested(file);
                 }
                 else
-                    ZM_ERROR("Sprite animatsiya klipi yozilmadi: {}", file.string());
+                    ZM_ERROR("Sprite animation clip could not be written: {}", file.string());
             }
             ImGui::EndDisabled();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))

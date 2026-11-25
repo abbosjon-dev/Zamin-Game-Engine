@@ -186,7 +186,7 @@ namespace Zamin {
         std::string text = FileSystem::ReadTextFile(file);
         if (text.empty())
         {
-            ZM_WARN("ZAMIN_EDITOR_BUILD_LOG: '{}' o'qilmadi", file.string());
+            ZM_WARN("ZAMIN_EDITOR_BUILD_LOG: '{}' could not be read", file.string());
             return;
         }
         BeginBuildOutput(Project::GetActive() ? Project::GetProjectDirectory() / "Build" : file.parent_path());
@@ -200,7 +200,7 @@ namespace Zamin {
             start = end + 1;
         }
         FinishBuildOutput(false, 4.2);
-        ZM_INFO("Kompilyatsiya natijasi yuklandi: {} xato, {} ogohlantirish", m_BuildErrors, m_BuildWarnings);
+        ZM_INFO("Compiler output loaded: {} errors, {} warnings", m_BuildErrors, m_BuildWarnings);
     }
 
     void EditorLayer::OpenDiagnostic(const CompilerDiagnostic& diagnostic)
@@ -211,7 +211,7 @@ namespace Zamin {
         std::error_code ec;
         if (!fs::exists(file, ec))
         {
-            ZM_WARN("Fayl topilmadi: {}", diagnostic.File);
+            ZM_WARN("File not found: {}", diagnostic.File);
             return;
         }
         OpenInCodeEditor(file, diagnostic.Line, diagnostic.Column);

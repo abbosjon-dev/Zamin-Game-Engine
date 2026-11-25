@@ -98,7 +98,7 @@ try:
     type_text('#error CODE_EDITOR_QA')
     offset = len(readlog())
     key('F7')
-    wait_for(lambda: 'Skriptlarni kompilyatsiya qilishda xato:' in readlog()[offset:], 70)
+    wait_for(lambda: 'Script compile failed:' in readlog()[offset:], 70)
     assert '#error CODE_EDITOR_QA' in source.read_text()
     assert json.loads(config.read_text())['Project']['ScriptModulePath'] == 'Binaries/libHotReload.so'
     print('UI F7 auto-save + compiler diagnostics passed', flush=True)
@@ -121,7 +121,7 @@ try:
     key('BackSpace')
     offset = len(readlog())
     key('F7')
-    wait_for(lambda: 'Skriptlar muvaffaqiyatli kompilyatsiya qilindi' in readlog()[offset:], 70)
+    wait_for(lambda: 'Scripts compiled successfully' in readlog()[offset:], 70)
     assert '#error CODE_EDITOR_QA' not in source.read_text()
     print('UI fix + build + reload passed', flush=True)
     click(180, 73)

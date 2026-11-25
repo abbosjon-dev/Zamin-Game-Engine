@@ -123,7 +123,7 @@ namespace Zamin {
                 // What people often type ("v1.2", "2") becomes a proper version.
                 if (auto lenient = SemanticVersion::ParseLenient(version); lenient && !SemanticVersion::IsValid(version))
                 {
-                    ZM_INFO("Versiya '{}' -> {}", version, lenient->ToString());
+                    ZM_INFO("Version '{}' -> {}", version, lenient->ToString());
                     version = lenient->ToString();
                 }
                 p.Version = version.empty() ? std::string(PlayerSettings::DefaultVersion) : version;

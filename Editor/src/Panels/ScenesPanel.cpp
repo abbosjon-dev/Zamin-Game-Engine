@@ -116,7 +116,7 @@ namespace Zamin {
     {
         if (Project::AddBuildScene(relative))
         {
-            ZM_INFO("Build ro'yxatiga qo'shildi: {} (indeks {})", relative, Project::GetBuildIndex(relative));
+            ZM_INFO("Added to the build list: {} (index {})", relative, Project::GetBuildIndex(relative));
             Modified();
         }
     }
@@ -128,7 +128,7 @@ namespace Zamin {
             return;
         auto& list = Project::GetActive()->GetConfig().BuildScenes;
         list.erase(list.begin() + index);
-        ZM_INFO("Build ro'yxatidan olib tashlandi: {}", relative);
+        ZM_INFO("Removed from the build list: {}", relative);
         Modified();
     }
 
@@ -154,7 +154,7 @@ namespace Zamin {
             return;
         project->GetConfig().StartScene = relative;
         project->GetConfig().StartSceneHandle = {}; // written from the asset registry when saved
-        ZM_INFO("Boshlang'ich sahna: {}", relative);
+        ZM_INFO("Start scene: {}", relative);
         Modified();
     }
 
@@ -294,7 +294,7 @@ namespace Zamin {
                 if (all || item.Info.Thumbnail.empty())
                     scenes.push_back(item.Path);
             if (scenes.empty())
-                ZM_INFO("Hamma sahnaning rasmi bor (Shift + bosish: hammasini qayta chizish)");
+                ZM_INFO("Every scene has a thumbnail (Shift + click: re-render all)");
             else
                 OnRenderThumbnails(scenes);
         }
@@ -384,9 +384,9 @@ namespace Zamin {
             }
             ImGui::EndTable();
             if (makeActive && m_SceneManager->SetActiveScene(makeActive))
-                ZM_INFO("Faol sahna: {}", makeActive->GetName());
+                ZM_INFO("Active scene: {}", makeActive->GetName());
             if (unload && m_SceneManager->UnloadScene(unload))
-                ZM_INFO("Sahna yopilmoqda: {}", unload->GetName());
+                ZM_INFO("Closing scene: {}", unload->GetName());
             if (show && OnShowRuntimeScene)
                 OnShowRuntimeScene(show);
         }

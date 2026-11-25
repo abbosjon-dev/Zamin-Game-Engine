@@ -97,7 +97,7 @@ namespace Zamin {
         t.Running = true;
         // Whatever the GPU reported before the test is not the test's.
         RenderCommand::PopErrors();
-        ZM_INFO("Editor smoke testi: {} qadam (har biri bir necha kadr), loyiha '{}'", t.Steps.size(),
+        ZM_INFO("Editor smoke test: {} steps (a few frames each), project '{}'", t.Steps.size(),
                 Project::GetActive() ? Project::GetActive()->GetConfig().Name : std::string("-"));
     }
 
@@ -121,9 +121,9 @@ namespace Zamin {
     {
         EditorSmokeTest& t = *m_SmokeTest;
         t.Errors++;
-        std::string line = std::format("{}: {}", t.LastStep.empty() ? std::string("(boshlanish)") : t.LastStep, std::move(message));
+        std::string line = std::format("{}: {}", t.LastStep.empty() ? std::string("(start)") : t.LastStep, std::move(message));
         // (A warning: the test's own lines are not errors it would count again.)
-        ZM_WARN("Smoke xatosi - {}", line);
+        ZM_WARN("Smoke error - {}", line);
         if (t.Failures.size() < MaxReportedFailures)
             t.Failures.push_back(std::move(line));
     }
@@ -147,7 +147,7 @@ namespace Zamin {
         if (const uint32_t count = RenderCommand::PopErrors(&names))
         {
             t.GLErrors += count;
-            RecordSmokeFailure(std::format("OpenGL xato bayrog'i: {}", names));
+            RecordSmokeFailure(std::format("OpenGL error flag: {}", names));
         }
     }
 
@@ -195,8 +195,8 @@ namespace Zamin {
             RestoreSmokeState();
         else
         {
-            t.LastStep = t.Current < t.Steps.size() ? t.Steps[t.Current].Name : std::string("(oxiri)");
-            RecordSmokeFailure(std::format("test oxirigacha yetmadi: {} qadamdan {} tasi (dastur oldinroq yopildi - ZAMIN_MAX_FRAMES?)",
+            t.LastStep = t.Current < t.Steps.size() ? t.Steps[t.Current].Name : std::string("(end)");
+            RecordSmokeFailure(std::format("the test did not reach the end: {1} of {0} steps (the program closed earlier - ZAMIN_MAX_FRAMES?)",
                                            t.Steps.size(), t.Current));
         }
         // The temporary entity, if a step was left half way.
@@ -205,15 +205,15 @@ namespace Zamin {
                 m_ActiveScene->DestroyEntity(e);
         const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - t.Start).count();
         const unsigned long long asserts = GetImGuiAssertCount() - t.ImGuiAssertsAtStart;
-        const std::string summary = std::format("{}/{} qadam, {} kadr, {:.1f} s: {} xato (OpenGL bayroqlari: {}, ImGui tekshiruvlari: {})",
+        const std::string summary = std::format("{}/{} steps, {} frames, {:.1f} s: {} errors (OpenGL flags: {}, ImGui checks: {})",
                                                 std::min(t.Current, t.Steps.size()), t.Steps.size(), t.Frames, seconds, t.Errors, t.GLErrors, asserts);
         if (t.Errors == 0)
-            ZM_INFO("Editor smoke testi o'tdi: {}", summary);
+            ZM_INFO("Editor smoke test passed: {}", summary);
         else
         {
             for (const std::string& failure : t.Failures)
                 ZM_WARN("  - {}", failure);
-            ZM_ERROR("Editor smoke testi o'tmadi: {}", summary);
+            ZM_ERROR("Editor smoke test failed: {}", summary);
         }
         Application::Get().SetExitCode(t.Errors == 0 ? 0 : 1);
         if (completed)
@@ -238,48 +238,48 @@ namespace Zamin {
         // ---- every window on its own (the others as they were)
         struct WindowEntry { const char* Name; bool* Flag; };
         const WindowEntry windows[] = {
-            { "Ierarxiya", &m_ShowHierarchy },
-            { "Inspektor", &m_ShowInspector },
-            { "Kontent", &m_ShowContentBrowser },
-            { "Konsol", &m_ShowConsole },
-            { "Sahna sozlamalari", &m_ShowSceneSettings },
-            { "Sahnalar", &m_ShowScenes },
-            { "Loyiha sozlamalari", &m_ShowProjectSettings },
-            { "Statistika", &m_ShowStats },
-            { "Sahna statistikasi", &m_ShowSceneStatistics },
-            { "Kompilyatsiya natijalari", &m_ShowBuildOutput },
+            { "Hierarchy", &m_ShowHierarchy },
+            { "Inspector", &m_ShowInspector },
+            { "Content", &m_ShowContentBrowser },
+            { "Console", &m_ShowConsole },
+            { "Scene settings", &m_ShowSceneSettings },
+            { "Scenes", &m_ShowScenes },
+            { "Project settings", &m_ShowProjectSettings },
+            { "Statistics", &m_ShowStats },
+            { "Scene statistics", &m_ShowSceneStatistics },
+            { "Compiler output", &m_ShowBuildOutput },
             { "Profiler", &m_ShowProfiler },
             { "Audio Mixer", &m_ShowAudioMixer },
-            { "Lokalizatsiya", &m_ShowLocalization },
-            { "Animatsiya", &m_ShowAnimation },
-            { "Animator grafi", &m_ShowAnimatorGraph },
-            { "Ishlatilmagan assetlar", &m_ShowUnusedAssets },
-            { "Sprite muharriri", &m_ShowSpriteEditor },
-            { "Plitka palitrasi", &m_ShowTilePalette },
+            { "Localization", &m_ShowLocalization },
+            { "Animation", &m_ShowAnimation },
+            { "Animator graph", &m_ShowAnimatorGraph },
+            { "Unused assets", &m_ShowUnusedAssets },
+            { "Sprite editor", &m_ShowSpriteEditor },
+            { "Tile palette", &m_ShowTilePalette },
             { "Map Terrain", &m_ShowTerrain },
-            { "Undo tarixi", &m_ShowUndoHistory },
-            { "Sozlamalar", &m_ShowPreferences },
-            { "Klaviatura yorliqlari", &m_ShowShortcuts },
-            { "Joylashuvlar", &m_ShowLayouts },
+            { "Undo history", &m_ShowUndoHistory },
+            { "Preferences", &m_ShowPreferences },
+            { "Keyboard shortcuts", &m_ShowShortcuts },
+            { "Layouts", &m_ShowLayouts },
             { "ImGui demo", &m_ShowImGuiDemo },
         };
         for (const WindowEntry& w : windows)
         {
             bool* flag = w.Flag;
-            add(std::format("Oyna: {}", w.Name), [flag]() { *flag = true; }, {}, 4);
+            add(std::format("Window: {}", w.Name), [flag]() { *flag = true; }, {}, 4);
         }
         for (int i = 0; i < SceneViewSettings::Count; i++)
-            add(std::format("Oyna: Ko'rinish {}", i + 2), [this, i]() { OpenSceneView(i, true); }, {}, 4);
+            add(std::format("Window: View {}", i + 2), [this, i]() { OpenSceneView(i, true); }, {}, 4);
         if (hasProject)
         {
-            add("Oyna: Prefab'lar tekshiruvi", [this]() { RunPrefabCheck(); });
+            add("Window: Prefab check", [this]() { RunPrefabCheck(); });
             const fs::path exportDir = Project::GetProjectDirectory() / "Build" / "Game";
             std::error_code ec;
             if (fs::is_directory(exportDir, ec))
-                add("Oyna: Eksport hisoboti", [this, exportDir]() { OpenExportReport(exportDir); });
+                add("Window: Export report", [this, exportDir]() { OpenExportReport(exportDir); });
         }
         if (m_LoadReport.HasIssues())
-            add("Oyna: Sahna yuklash hisoboti", [this]() { m_ShowLoadReport = true; });
+            add("Window: Scene load report", [this]() { m_ShowLoadReport = true; });
 
         // ---- all of them at once (docked together, the extra views too)
         auto openAll = [this, windows]() {
@@ -289,76 +289,84 @@ namespace Zamin {
             for (int i = 0; i < SceneViewSettings::Count; i++)
                 OpenSceneView(i, true);
         };
-        add("Barcha oynalar birga", openAll, {}, 20, true);
+        add("All windows together", openAll, {}, 20, true);
 
         // ---- the pages of the large windows
         const auto& categories = ProjectSettingsIndex::GetCategories();
         for (int c = 0; c < (int)ProjectSettingsPanel::Category::Count; c++)
         {
             const std::string title = c < (int)categories.size() ? categories[c].Title : std::to_string(c);
-            add(std::format("Loyiha sozlamalari: {}", title), [this, c]() {
+            add(std::format("Project settings: {}", title), [this, c]() {
                 m_ShowProjectSettings = true;
                 m_ProjectSettingsPanel.Focus((ProjectSettingsPanel::Category)c);
             }, {}, 3, c == 0);
         }
         for (int page = 0; page < 8; page++)
-            add(std::format("Sozlamalar: {}-sahifa", page + 1), [this, page]() {
+            add(std::format("Preferences: page {}", page + 1), [this, page]() {
                 m_ShowPreferences = true;
                 m_PreferencesPage = page;
             });
-        static const char* s_StatsTabs[] = { "komponentlar", "skriptlar", "prefablar", "assetlar" };
+        static const char* s_StatsTabs[] = { "components", "scripts", "prefabs", "assets" };
         for (int tab = 0; tab < 4; tab++)
-            add(std::format("Sahna statistikasi: {}", s_StatsTabs[tab]), [this, tab]() {
+            add(std::format("Scene statistics: {}", s_StatsTabs[tab]), [this, tab]() {
                 m_ShowSceneStatistics = true;
                 m_SceneStatsTab = tab;
             });
         for (const char* section : { "sky", "render", "shadows", "post", "bloom", "lens", "exposure" })
-            add(std::format("Sahna sozlamalari: {}", section), [this, section]() {
+            add(std::format("Scene settings: {}", section), [this, section]() {
                 m_ShowSceneSettings = m_FocusSceneSettings = true;
                 m_SceneSettingsScrollTo = section;
             });
 
         // ---- the main menus and their sub menus
-        for (const char* menu : { "Fayl", "Fayl/recent", "Tahrirlash", "Ko'rinish", "Obyekt", "Skriptlar", "Oyna", "Oyna/views", "Oyna/layout", "Yordam" })
-            add(std::format("Menyu: {}", menu), [this, menu]() { m_OpenMenu = menu; });
+        // (The menus are opened by their Uzbek keys; the step names are English like the rest of the log.)
+        struct MenuEntry { const char* Key; const char* Name; };
+        static const MenuEntry menus[] = { { "Fayl", "File" }, { "Fayl/recent", "File/recent" }, { "Tahrirlash", "Edit" }, { "Ko'rinish", "View" },
+                                           { "Obyekt", "Object" }, { "Skriptlar", "Scripts" }, { "Oyna", "Window" }, { "Oyna/views", "Window/views" },
+                                           { "Oyna/layout", "Window/layout" }, { "Yordam", "Help" } };
+        for (const MenuEntry& entry : menus)
+        {
+            const char* menu = entry.Key;
+            add(std::format("Menu: {}", entry.Name), [this, menu]() { m_OpenMenu = menu; });
+        }
 
         // ---- the viewport toolbar's popups
         struct PopupEntry { const char* Name; bool* Flag; };
         const PopupEntry popups[] = {
-            { "ko'rinish rejimi", &m_OpenViewModeMenu }, { "debug chizish", &m_OpenDebugDrawMenu }, { "gizmolar", &m_OpenGizmosMenu },
-            { "gizmo o'lchami", &m_OpenTransformGizmoMenu }, { "statistika overlay'i", &m_OpenStatsOverlayMenu },
-            { "obyekt nomlari", &m_OpenLabelsMenu }, { "o'yin oynasi o'lchami", &m_OpenGameViewMenu },
+            { "view mode", &m_OpenViewModeMenu }, { "debug draw", &m_OpenDebugDrawMenu }, { "gizmos", &m_OpenGizmosMenu },
+            { "gizmo size", &m_OpenTransformGizmoMenu }, { "statistics overlay", &m_OpenStatsOverlayMenu },
+            { "object names", &m_OpenLabelsMenu }, { "game window size", &m_OpenGameViewMenu },
         };
         for (const PopupEntry& p : popups)
         {
             bool* flag = p.Flag;
             add(std::format("Viewport: {}", p.Name), [flag]() { *flag = true; });
         }
-        add("Viewport: kamera sozlamalari", [this]() { m_OpenCameraSettings = 0; });
-        add("Ko'rinish 2: kamera sozlamalari", [this]() {
+        add("Viewport: camera settings", [this]() { m_OpenCameraSettings = 0; });
+        add("View 2: camera settings", [this]() {
             OpenSceneView(0, true);
             m_OpenCameraSettings = 1;
         }, {}, 4);
 
         // ---- the editor's prompts
-        add("Oyna: Zamin haqida", [this]() { m_ShowAbout = true; }, {}, 3, true);
-        add("Oyna: Loyihalar (launcher)", [this]() { m_ShowLauncher = true; });
+        add("Window: About Zamin", [this]() { m_ShowAbout = true; }, {}, 3, true);
+        add("Window: Projects (launcher)", [this]() { m_ShowLauncher = true; });
         if (hasProject)
         {
-            add("Oyna: Yangi C++ skript", [this]() {
+            add("Window: New C++ script", [this]() {
                 m_NewScriptName = "SmokeScript";
                 m_OpenNewScriptPopup = true;
             });
-            add("Oyna: O'yinni build qilish", [this]() {
+            add("Window: Build game", [this]() {
                 m_BuildGameOutput = (Project::GetProjectDirectory() / "Build" / "Game").string();
                 m_OpenBuildGamePopup = true;
             }, {}, 4, true);
         }
-        add("Oyna: Joylashuvni saqlash", [this]() { m_OpenSaveLayout = true; });
+        add("Window: Save layout", [this]() { m_OpenSaveLayout = true; });
         if (hasProject)
         {
-            add("Kontent: yangi papka", [this]() { m_ContentBrowserPanel.RequestNewItem(0); });
-            add("Kontent: yangi sahna", [this]() { m_ContentBrowserPanel.RequestNewItem(1); });
+            add("Content: new folder", [this]() { m_ContentBrowserPanel.RequestNewItem(0); });
+            add("Content: new scene", [this]() { m_ContentBrowserPanel.RequestNewItem(1); });
         }
 
         // ---- the asset inspector on a file of each type, the sprite editor, prefab mode
@@ -389,14 +397,14 @@ namespace Zamin {
         if (auto any = samples.begin(); any != samples.end())
         {
             const fs::path file = any->second;
-            add(std::format("Kontent: nomini o'zgartirish ({})", file.filename().string()), [this, file]() { m_ContentBrowserPanel.RequestRename(file); });
-            add(std::format("Kontent: o'chirishni tasdiqlash ({})", file.filename().string()),
+            add(std::format("Content: rename ({})", file.filename().string()), [this, file]() { m_ContentBrowserPanel.RequestRename(file); });
+            add(std::format("Content: confirm delete ({})", file.filename().string()),
                 [this, file]() { m_ContentBrowserPanel.RequestDelete({ file }); });
         }
         if (auto texture = samples.find(AssetType::Texture); texture != samples.end())
         {
             const std::string relative = Project::GetAssetRelativePath(texture->second);
-            add("Sprite muharriri (rasm bilan)", [this, relative]() {
+            add("Sprite editor (with an image)", [this, relative]() {
                 m_SpriteEditorPanel.Open(relative);
                 m_ShowSpriteEditor = true;
             }, {}, 4);
@@ -404,9 +412,9 @@ namespace Zamin {
         if (auto prefab = samples.find(AssetType::Prefab); prefab != samples.end())
         {
             const std::string relative = Project::GetAssetRelativePath(prefab->second);
-            add(std::format("Prefab rejimi ({})", prefab->second.filename().string()), [this, relative]() { RequestPrefabStage(relative); },
+            add(std::format("Prefab mode ({})", prefab->second.filename().string()), [this, relative]() { RequestPrefabStage(relative); },
                 [this]() { RequestLeavePrefabStages(0); }, 8);
-            add("Prefab rejimidan chiqish", {}, {}, 4);
+            add("Leave prefab mode", {}, {}, 4);
         }
 
         // ---- every entity selected (the inspector, the animation windows on it), then all of them
@@ -416,18 +424,18 @@ namespace Zamin {
         for (Entity entity : entities)
         {
             const UUID id = entity.GetUUID();
-            add(std::format("Tanlov: '{}'", entity.GetName()), [this, id, showInspector]() {
+            add(std::format("Selection: '{}'", entity.GetName()), [this, id, showInspector]() {
                 m_ShowAnimation = m_ShowAnimatorGraph = true;
                 if (Entity e = m_ActiveScene->GetEntityByUUID(id))
                     m_SceneHierarchyPanel.SetSelectedEntity(e);
                 showInspector();
             }, [this]() { m_SceneHierarchyPanel.SetSelectedEntity({}); }, 2);
         }
-        add("Tanlov: hammasi", [this]() { m_SceneHierarchyPanel.GetSelection().Set(m_ActiveScene->GetEntitiesInHierarchyOrder()); },
+        add("Selection: all", [this]() { m_SceneHierarchyPanel.GetSelection().Set(m_ActiveScene->GetEntitiesInHierarchyOrder()); },
             [this]() { m_SceneHierarchyPanel.SetSelectedEntity({}); }, 4);
 
         // ---- every component's inspector section: a temporary entity gets each in turn
-        add("Komponentlar: vaqtinchalik obyekt", [this, showInspector]() {
+        add("Components: temporary object", [this, showInspector]() {
             Entity e = m_ActiveScene->CreateEntity("ZaminSmokeTest");
             m_SmokeTest->TempEntity = e.GetUUID();
             m_SceneHierarchyPanel.SetSelectedEntity(e);
@@ -439,7 +447,7 @@ namespace Zamin {
                           !std::is_same_v<T, PrefabLinkComponent>)
             {
                 auto added = std::make_shared<bool>(false);
-                add(std::format("Komponent: {}", ComponentKey<T>()), [this, added]() {
+                add(std::format("Component: {}", ComponentKey<T>()), [this, added]() {
                     Entity e = m_ActiveScene->GetEntityByUUID(UUID(m_SmokeTest->TempEntity));
                     if (!e)
                         return;
@@ -456,7 +464,7 @@ namespace Zamin {
                 }, 2);
             }
         });
-        add("Komponentlar: obyekt olib tashlandi", [this]() {
+        add("Components: object removed", [this]() {
             m_SceneHierarchyPanel.SetSelectedEntity({});
             if (Entity e = m_ActiveScene->GetEntityByUUID(UUID(m_SmokeTest->TempEntity)))
                 m_ActiveScene->DestroyEntity(e);
@@ -465,24 +473,24 @@ namespace Zamin {
 
         // ---- the built-in layouts (back to the default one at the end)
         static const std::pair<const char*, BuiltInLayout> s_Layouts[] = {
-            { "2D", BuiltInLayout::Mode2D }, { "Animatsiya", BuiltInLayout::Animation }, { "4 ko'rinish", BuiltInLayout::FourViews },
+            { "2D", BuiltInLayout::Mode2D }, { "Animation", BuiltInLayout::Animation }, { "4 views", BuiltInLayout::FourViews },
             { "Standart", BuiltInLayout::Default },
         };
         for (const auto& [name, layout] : s_Layouts)
         {
             const BuiltInLayout which = layout;
-            add(std::format("Joylashuv: {}", name), [this, which]() { RequestBuiltInLayout(which); }, {}, 6, which == BuiltInLayout::FourViews);
+            add(std::format("Layout: {}", name), [this, which]() { RequestBuiltInLayout(which); }, {}, 6, which == BuiltInLayout::FourViews);
         }
 
         // ---- the game: play with every window open, pause, stop; simulate
-        add("O'yin: Play (barcha oynalar ochiq)", [this, openAll]() {
+        add("Game: Play (all windows open)", [this, openAll]() {
             openAll();
             OnScenePlay();
         }, {}, 40, true);
-        add("O'yin: pauza", [this]() { OnScenePause(); }, {}, 4);
-        add("O'yin: davom", [this]() { OnScenePause(); }, [this]() { OnSceneStop(); }, 6);
-        add("Simulyatsiya", [this]() { OnSceneSimulate(); }, [this]() { OnSceneStop(); }, 20);
-        add("Tahrirlash rejimi (oxiri)", {}, {}, 4);
+        add("Game: pause", [this]() { OnScenePause(); }, {}, 4);
+        add("Game: resume", [this]() { OnScenePause(); }, [this]() { OnSceneStop(); }, 6);
+        add("Simulated", [this]() { OnSceneSimulate(); }, [this]() { OnSceneStop(); }, 20);
+        add("Edit mode (end)", {}, {}, 4);
         return steps;
     }
 

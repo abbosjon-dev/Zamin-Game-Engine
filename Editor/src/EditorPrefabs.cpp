@@ -46,7 +46,7 @@ namespace Zamin {
             const std::optional<std::string>& expected = step.Undo ? std::optional<std::string>(edit.After) : edit.Before;
             const bool exists = fs::is_regular_file(file, ec);
             if (exists != expected.has_value() || (exists && FileSystem::ReadTextFile(file) != *expected))
-                ZM_WARN("Fayl tashqarida o'zgargan: {} - undo/redo uni ustiga yozdi", edit.Path);
+                ZM_WARN("The file changed outside the editor: {} - undo/redo overwrote it", edit.Path);
             const std::optional<std::string>& text = step.Undo ? edit.Before : std::optional<std::string>(edit.After);
             if (text)
                 m_PrefabDatabase.Write(edit.Path, *text, nullptr, true); // the exact text the step holds
@@ -68,7 +68,7 @@ namespace Zamin {
         PrefabUtility::SyncResult sync = PrefabUtility::SyncScene(*m_EditorScene, m_PrefabDatabase);
         if (reportIssues)
             for (const std::string& issue : sync.Issues)
-                ZM_WARN("Prefab nusxasi yangilanmadi: {}", issue);
+                ZM_WARN("Prefab instance not updated: {}", issue);
         if (!sync.Changed && !sync.Linked)
             return false;
         if (sync.Changed)
@@ -153,15 +153,15 @@ namespace Zamin {
                 PrefabApplyResult result = PrefabUtility::Apply(entity, request.Scope, request.Path, m_PrefabDatabase, request.Target);
                 if (!result.Applied)
                 {
-                    ZM_WARN("Prefabga qo'llanmadi ({}): {}", rootName, result.Error);
+                    ZM_WARN("Not applied to the prefab ({}): {}", rootName, result.Error);
                     ShowViewportMessage(TrFormat(ICON_FA_TRIANGLE_EXCLAMATION "  Qo'llanmadi: {}", result.Error));
                     return;
                 }
                 m_EditorScene->ResolveAssets();
                 for (const std::string& skipped : result.Skipped)
-                    ZM_WARN("Prefabga yozilmadi (nusxada o'zgarish bo'lib qoldi): {}", skipped);
+                    ZM_WARN("Not written to the prefab (the change stays on the instance): {}", skipped);
                 for (const std::string& written : result.Written)
-                    ZM_INFO("Prefab yozildi: {}", written);
+                    ZM_INFO("Prefab written: {}", written);
                 m_ContentBrowserPanel.Refresh();
                 const std::string what = request.Scope == PrefabScope::Field ? request.Path
                                        : request.Scope == PrefabScope::Component ? std::string(SceneHierarchyPanel::GetComponentDisplayName(request.Path))
@@ -215,7 +215,7 @@ namespace Zamin {
                 const bool completely = request.Operation == PrefabRequest::Op::UnpackCompletely;
                 PrefabUtility::Unpack(root, completely);
                 MarkDirty(TrFormat("Prefab bog'lanishi uzildi: {}", rootName));
-                ZM_INFO("Prefab bog'lanishi uzildi: {} ({}){}", rootName, prefab, completely ? " - ichidagi nusxalar bilan" : "");
+                ZM_INFO("Prefab link broken: {} ({}){}", rootName, prefab, completely ? " - with the instances inside it" : "");
                 break;
             }
             case PrefabRequest::Op::SaveAsVariant:
@@ -247,7 +247,7 @@ namespace Zamin {
         const std::string variant = PrefabUtility::CreateVariant(m_PrefabDatabase, base, {}, &files, &error);
         if (variant.empty())
         {
-            ZM_WARN("Variant yaratilmadi ({}): {}", base, error);
+            ZM_WARN("Variant not created ({}): {}", base, error);
             ShowViewportMessage(std::format(ICON_FA_TRIANGLE_EXCLAMATION "  {}: {}", Tr("Variant yaratilmadi"), error));
             return;
         }
@@ -256,7 +256,7 @@ namespace Zamin {
             registry->OnFileAdded(Project::GetAssetFileSystemPath(variant));
         m_ContentBrowserPanel.Refresh();
         CommitPrefabStep(TrFormat("Variant yaratildi: {}", FileName(variant)), std::move(files));
-        ZM_INFO("Prefab varianti yaratildi: {} ({} asosida)", variant, base);
+        ZM_INFO("Prefab variant created: {} (based on {})", variant, base);
         ShowViewportMessage(std::format(ICON_FA_CLONE "  {}: {} ({})", Tr("Variant yaratildi"), FileName(variant), FileName(base)));
         RequestPrefabStage(variant);
     }
@@ -282,7 +282,7 @@ namespace Zamin {
         std::string error;
         if (!PrefabUtility::SaveAsVariant(root, m_PrefabDatabase, path, &files, &error))
         {
-            ZM_WARN("Variant saqlanmadi ({}): {}", root.GetName(), error);
+            ZM_WARN("Variant not saved ({}): {}", root.GetName(), error);
             ShowViewportMessage(std::format(ICON_FA_TRIANGLE_EXCLAMATION "  {}: {}", Tr("Variant saqlanmadi"), error));
             return;
         }
@@ -293,7 +293,7 @@ namespace Zamin {
         m_ContentBrowserPanel.Refresh();
         const std::string name = root.GetName();
         CommitPrefabStep(TrFormat("Variant sifatida saqlandi: {} \xe2\x86\x92 {}", name, FileName(path)), std::move(files));
-        ZM_INFO("'{}' variant sifatida saqlandi: {} ({} asosida)", name, path, base);
+        ZM_INFO("'{}' saved as a variant: {} (based on {})", name, path, base);
         ShowViewportMessage(std::format(ICON_FA_CLONE "  {}: {} ({})", Tr("Variant saqlandi"), FileName(path), FileName(base)));
         m_SceneHierarchyPanel.SetSelectedEntity(m_EditorScene->GetEntityByUUID(id));
     }
@@ -312,10 +312,10 @@ namespace Zamin {
         if (!m_ActiveScene->SavePrefab(entity, path))
             return;
         const std::string rel = Project::GetAssetRelativePath(path);
-        ZM_INFO("Prefab saqlandi: {}", rel);
+        ZM_INFO("Prefab saved: {}", rel);
         // The flags are saved as they are: instances start the same way.
         if (!entity.IsActive())
-            ZM_INFO("'{}' nofaol holatda saqlandi: prefab nusxalari ham nofaol boshlanadi (SetActive(true) bilan yoqiladi)", entity.GetName());
+            ZM_INFO("'{}' was saved inactive: prefab instances start inactive too (turned on with SetActive(true))", entity.GetName());
         // A handle and a .zmeta at once (the link keeps the prefab's UUID).
         if (AssetRegistry* registry = Project::GetAssetRegistry())
             registry->OnFileAdded(path);
@@ -511,7 +511,7 @@ namespace Zamin {
                 AssetFiles::MoveResult result = AssetFiles::Rename(Project::GetAssetFileSystemPath(args[0]), args[1], Project::GetAssetDirectory(),
                                                                    Project::GetSourceDirectory());
                 for (const std::string& error : result.Errors)
-                    ZM_WARN("Nomi o'zgartirilmadi: {}", error);
+                    ZM_WARN("Not renamed: {}", error);
                 m_ContentBrowserPanel.Refresh();
                 OnAssetsMoved(result);
                 continue;

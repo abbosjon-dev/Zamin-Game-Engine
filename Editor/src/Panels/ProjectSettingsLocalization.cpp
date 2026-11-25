@@ -164,7 +164,7 @@ namespace Zamin {
                         std::vector<std::string> errors;
                         if (created.Save(directory, &errors))
                         {
-                            ZM_INFO("Til fayli yaratildi: {}", (directory / (code + ".json")).string());
+                            ZM_INFO("Language file created: {}", (directory / (code + ".json")).string());
                             Project::ApplyLocalization(true);
                         }
                         else

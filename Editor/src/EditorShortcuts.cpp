@@ -221,9 +221,9 @@ namespace Zamin {
     {
         const size_t applied = m_Shortcuts.ApplyOverrides(m_Preferences.Shortcuts);
         if (applied != m_Preferences.Shortcuts.size())
-            ZM_WARN("Klaviatura yorliqlari: {} ta saqlangan bog'lanish tanilmadi", m_Preferences.Shortcuts.size() - applied);
+            ZM_WARN("Keyboard shortcuts: {} saved bindings were not recognized", m_Preferences.Shortcuts.size() - applied);
         if (size_t conflicts = m_Shortcuts.CountConflicts(); conflicts > 0)
-            ZM_WARN("Klaviatura yorliqlarida {} ta to'qnashuv bor (Yordam > Klaviatura yorliqlari)", conflicts);
+            ZM_WARN("The keyboard shortcuts have {} conflicts (Help > Keyboard shortcuts)", conflicts);
 
         // ZAMIN_EDITOR_SHORTCUT_BIND="tools.move=E;file.save=Ctrl+O": bindings for automation (not saved).
         if (const char* bind = std::getenv("ZAMIN_EDITOR_SHORTCUT_BIND"); bind && *bind)
@@ -362,9 +362,9 @@ namespace Zamin {
                     {
                         std::vector<const ShortcutInfo*> conflicts = m_Shortcuts.FindConflicts(m_ShortcutCapture);
                         if (conflicts.empty())
-                            ZM_INFO("Yorliq: {} - {}", info->Name, chord.GetDisplayName());
+                            ZM_INFO("Shortcut: {} - {}", info->Name, chord.GetDisplayName());
                         else
-                            ZM_WARN("Yorliq: {} - {} ({} bilan to'qnashadi)", info->Name, chord.GetDisplayName(), conflicts.front()->Name);
+                            ZM_WARN("Shortcut: {} - {} (conflicts with {})", info->Name, chord.GetDisplayName(), conflicts.front()->Name);
                         SaveShortcutPreferences();
                     }
                     m_ShortcutCapture.clear();

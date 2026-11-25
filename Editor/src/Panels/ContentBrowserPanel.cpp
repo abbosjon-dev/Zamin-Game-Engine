@@ -425,7 +425,7 @@ namespace Zamin {
         for (const fs::path& p : paths)
         {
             if (IsProtected(p))
-                ZM_WARN("'{}' loyiha uchun kerak - ko'chirilmadi", p.filename().string());
+                ZM_WARN("'{}' is needed by the project - not moved", p.filename().string());
             else
                 movable.push_back(p);
         }
@@ -461,7 +461,7 @@ namespace Zamin {
         ZM_INFO("{}", text);
         if (result.UpdatedReferences > 0)
         {
-            ZM_INFO("{} ta faylda {} ta havola yangilandi", result.UpdatedFiles.size(), result.UpdatedReferences);
+            ZM_INFO("{1} references updated in {0} files", result.UpdatedFiles.size(), result.UpdatedReferences);
             text += TrFormat(" - {} ta havola yangilandi", result.UpdatedReferences);
         }
         bool warning = !result.Errors.empty();
@@ -470,7 +470,7 @@ namespace Zamin {
             std::string files;
             for (const fs::path& f : result.SourceMentions)
                 files += (files.empty() ? "" : ", ") + f.filename().string();
-            ZM_WARN("C++ kodida eski yo'l yozilgan (o'zgartirilmadi): {}", files);
+            ZM_WARN("The C++ code names the old path (not changed): {}", files);
             text += Tr(" - C++ kodini tekshiring");
             warning = true;
         }
@@ -850,7 +850,7 @@ namespace Zamin {
                                                 [&](const BuildSceneEntry& e) { return e.Path.generic_string() == relative; });
                 if (ImGui::MenuItem(Tr(ICON_FA_LIST_OL "  Build ro'yxatiga qo'shish"), nullptr, listed, !listed) && Project::AddBuildScene(relative))
                 {
-                    ZM_INFO("Build ro'yxatiga qo'shildi: {} (indeks {})", relative, Project::GetBuildIndex(relative));
+                    ZM_INFO("Added to the build list: {} (index {})", relative, Project::GetBuildIndex(relative));
                     if (OnProjectSettingsModified)
                         OnProjectSettingsModified();
                 }
@@ -859,7 +859,7 @@ namespace Zamin {
                 {
                     config.StartScene = relative;
                     config.StartSceneHandle = {};
-                    ZM_INFO("Boshlang'ich sahna: {}", relative);
+                    ZM_INFO("Start scene: {}", relative);
                     if (OnProjectSettingsModified)
                         OnProjectSettingsModified();
                 }
@@ -870,7 +870,7 @@ namespace Zamin {
                 if (ImGui::MenuItem(Tr(ICON_FA_IMAGE "  O'yin ikonkasi qilish"), nullptr, isIcon, !isIcon))
                 {
                     config.Player.Icon = relative;
-                    ZM_INFO("O'yin ikonkasi: {}", relative);
+                    ZM_INFO("Game icon: {}", relative);
                     if (OnProjectSettingsModified)
                         OnProjectSettingsModified();
                 }
@@ -895,7 +895,7 @@ namespace Zamin {
                     ShowNotice(TrFormat("'{}' qayta yuklanmadi - konsolni tekshiring", entry.Name), true);
                 else
                 {
-                    ZM_INFO("Qayta yuklandi: {} ({} ta nusxa)", Project::GetAssetRelativePath(path), n);
+                    ZM_INFO("Reloaded: {} ({} instances)", Project::GetAssetRelativePath(path), n);
                     ShowNotice(TrFormat("'{}' qayta yuklandi", entry.Name));
                 }
             }
@@ -1334,12 +1334,12 @@ namespace Zamin {
         if (!PropertyClipSerializer::Serialize(PropertyClip(), file))
         {
             ShowNotice(TrFormat("Klip yaratilmadi: {}", file.filename().string()), true);
-            ZM_ERROR("Animatsiya klipi yozilmadi: {}", file.string());
+            ZM_ERROR("Animation clip could not be written: {}", file.string());
             return {};
         }
         if (AssetRegistry* registry = Project::GetAssetRegistry())
             registry->OnFileAdded(file);
-        ZM_INFO("Yangi animatsiya klipi yaratildi: {}", Project::GetAssetRelativePath(file));
+        ZM_INFO("New animation clip created: {}", Project::GetAssetRelativePath(file));
         m_ListDirty = true;
         if (OnFilesChanged)
             OnFilesChanged();
@@ -1369,12 +1369,12 @@ namespace Zamin {
         if (!SpriteClipSerializer::Serialize(clip, file))
         {
             ShowNotice(TrFormat("Klip yaratilmadi: {}", file.filename().string()), true);
-            ZM_ERROR("Sprite animatsiya klipi yozilmadi: {}", file.string());
+            ZM_ERROR("Sprite animation clip could not be written: {}", file.string());
             return {};
         }
         if (AssetRegistry* registry = Project::GetAssetRegistry())
             registry->OnFileAdded(file);
-        ZM_INFO("Yangi sprite animatsiya klipi yaratildi: {}", Project::GetAssetRelativePath(file));
+        ZM_INFO("New sprite animation clip created: {}", Project::GetAssetRelativePath(file));
         m_ListDirty = true;
         if (OnFilesChanged)
             OnFilesChanged();
@@ -1402,7 +1402,7 @@ namespace Zamin {
             if (!MaterialPresets::Create(*preset, dir, false, result, &error))
             {
                 ShowNotice(TrFormat("Material yaratilmadi: {}", Tr(preset->Name)), true);
-                ZM_ERROR("Standart material '{}' yaratilmadi: {}", preset->FileName, error);
+                ZM_ERROR("Default material '{}' not created: {}", preset->FileName, error);
                 return {};
             }
             file = result.Material;
@@ -1414,7 +1414,7 @@ namespace Zamin {
             if (!MaterialSerializer::Serialize(MaterialData{}, file)) // makes the folder
             {
                 ShowNotice(TrFormat("Material yaratilmadi: {}", file.filename().string()), true);
-                ZM_ERROR("Material fayli yozilmadi: {}", file.string());
+                ZM_ERROR("Material file could not be written: {}", file.string());
                 return {};
             }
             if (AssetRegistry* registry = Project::GetAssetRegistry())
@@ -1422,9 +1422,9 @@ namespace Zamin {
             written.push_back(file);
         }
         if (preset)
-            ZM_INFO("Standart material yaratildi ({}): {}", preset->FileName, Project::GetAssetRelativePath(file));
+            ZM_INFO("Default material created ({}): {}", preset->FileName, Project::GetAssetRelativePath(file));
         else
-            ZM_INFO("Yangi material yaratildi: {}", Project::GetAssetRelativePath(file));
+            ZM_INFO("New material created: {}", Project::GetAssetRelativePath(file));
         for (const fs::path& p : written)
             m_Thumbnails.Invalidate(p);
         m_ListDirty = true;
@@ -1522,12 +1522,12 @@ namespace Zamin {
         if (!PhysicsMaterial::Save(file, p.Data))
         {
             ShowNotice(TrFormat("Fizik material yaratilmadi: {}", file.filename().string()), true);
-            ZM_ERROR("Fizik material fayli yozilmadi: {}", file.string());
+            ZM_ERROR("Physics material file could not be written: {}", file.string());
             return {};
         }
         if (AssetRegistry* registry = Project::GetAssetRegistry())
             registry->OnFileAdded(file); // its UUID at once
-        ZM_INFO("Yangi fizik material yaratildi: {}", Project::GetAssetRelativePath(file));
+        ZM_INFO("New physics material created: {}", Project::GetAssetRelativePath(file));
         m_ListDirty = true;
         if (OnFilesChanged)
             OnFilesChanged();
@@ -1722,7 +1722,7 @@ namespace Zamin {
                 {
                     if (IsProtected(p))
                     {
-                        ZM_WARN("'{}' loyiha uchun kerak - o'chirilmadi", p.filename().string());
+                        ZM_WARN("'{}' is needed by the project - not deleted", p.filename().string());
                         continue;
                     }
                     std::string error;
@@ -1733,7 +1733,7 @@ namespace Zamin {
                     m_Thumbnails.Invalidate(p);
                 }
                 if (inUse)
-                    ZM_WARN("Ishlatilayotgan {} ta asset o'chirildi - havolalar buzildi", m_DeleteUses.size());
+                    ZM_WARN("{} assets in use were deleted - references are broken", m_DeleteUses.size());
                 m_PendingDelete.clear();
                 m_DeleteUses.clear();
                 m_Selection.clear();

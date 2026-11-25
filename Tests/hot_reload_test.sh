@@ -106,11 +106,11 @@ check_line() { # $1 regex, $2 what it shows
     line="$(echo "$output" | grep -oE "$1" | head -n 1)"
     if [[ -n "$line" ]]; then pass "$2: $line"; else fail "$2 - topilmadi: $1"; fi
 }
-check_line "Skriptlar muvaffaqiyatli kompilyatsiya qilindi \([0-9.]+ s\)" "editor kompilyatsiyasi"
+check_line "Scripts compiled successfully \([0-9.]+ s\)" "editor kompilyatsiyasi"
 check_line "HotReloadProbe v1: Speed=7.5 Label=saqlangan Count=3" "1-versiya sahnadagi qiymatlar bilan"
 check_line "HotReloadProbe v1: 20 kadr, pozitsiya \([1-9][0-9.]*, 0\.00\)" "1-versiya X bo'ylab yurdi"
-check_line "Skript moduli o'zgardi - qayta yuklanmoqda" "editor yangi modulni ko'rdi"
-check_line "Skriptlar qayta yuklandi \(hot reload\)" "hot reload"
+check_line "The script module changed - reloading" "editor yangi modulni ko'rdi"
+check_line "Scripts reloaded \(hot reload\)" "hot reload"
 check_line "HotReloadProbe v2: Speed=7.5 Label=saqlangan Count=3 Extra=42" "2-versiya: maydonlar saqlandi, yangi maydon standart qiymatda"
 check_line "HotReloadProbe v2: 20 kadr, pozitsiya \(0\.00, [1-9][0-9.]*\)" "2-versiya (yangi kod) Y bo'ylab yurdi"
 loads=$(echo "$output" | grep -c "Script module loaded: libHotReload.so")

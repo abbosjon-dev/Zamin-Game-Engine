@@ -150,7 +150,7 @@ Modul fayli (`Binaries/lib<O'yin>.so`) hali yo'q - kompilyatsiya qiling.
 
 ### Kompilyatsiya xato bilan tugadi
 
-> `Skriptlarni kompilyatsiya qilishda xato: <N> xato, <M> ogohlantirish (Oyna > Kompilyatsiya)`
+> `Script compile failed: <N> errors, <M> warnings (Window > Compilation)`
 
 **Oyna → Kompilyatsiya** oynasida har xato fayl va qatori bilan; bosilsa tashqi muharrirda o'sha qatorda ochiladi.
 
@@ -160,11 +160,11 @@ Modul fayli (`Binaries/lib<O'yin>.so`) hali yo'q - kompilyatsiya qiling.
  Kompilyator
 xabarlari inglizcha (GCC / Clang). Kompilyatsiya ketayotganda qayta bosilsa:
 
-> `Kompilyatsiya allaqachon ketmoqda...`
+> `A compile is already running...`
 
 Loyiha ochilmagan bo'lsa:
 
-> `Avval loyiha oching`
+> `Open a project first`
 
 ### Modul yuklanmadi
 
@@ -187,7 +187,7 @@ C++ kalit so'zi bo'lmaydi va dvigateldagi nom bilan to'qnashmaydi:
 
 > `'<Nom>' clashes with a name in the Zamin engine (using namespace Zamin). Name it '<Nom>Controller' or '<Nom>Script', for example`
 
-> `'<Nom>' klassi allaqachon mavjud (skript modulida ro'yxatdan o'tgan)`
+> `The class '<Nom>' already exists (registered in the script module)`
 
 ### Kodni o'zgartirdim, lekin o'yin eski kod bilan ishlayapti
 
@@ -372,7 +372,7 @@ qatoriga qarang ([BuildAndExport.md, 8](BuildAndExport.md#8-oyinni-eksport-qilis
 
 ### Eksport hisobotini qayta ochib bo'lmayapti
 
-> `Eksport hisoboti yo'q: avval o'yinni build qiling (Fayl > O'yinni build qilish)`
+> `No export report: build the game first (File > Build game)`
 
 ### Player loyihani topmayapti
 

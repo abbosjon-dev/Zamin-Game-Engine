@@ -100,7 +100,7 @@ namespace Zamin {
             const SceneLoadIssue* main = report.GetMain();
             if (main && main->Type == SceneLoadIssue::Kind::ParseError && !recover)
                 m_PrefabStageRecoverPrompt = prefab; // the file is broken: recover what parses?
-            ZM_WARN("Prefab ochilmadi: {} ({})", prefab, report.Summary());
+            ZM_WARN("Prefab could not be opened: {} ({})", prefab, report.Summary());
             return false;
         }
         if (report.HasIssues())
@@ -142,7 +142,7 @@ namespace Zamin {
         // the camera is: a prefab of UI only has nothing to frame (and is not "nothing visible").
         if (AABB bounds; m_ActiveScene->ComputeSceneBounds(bounds))
             FrameAll();
-        ZM_INFO("Prefab rejimi: {}", prefab);
+        ZM_INFO("Prefab mode: {}", prefab);
         UpdateWindowTitle();
         return true;
     }
@@ -164,7 +164,7 @@ namespace Zamin {
         std::string error;
         if (!PrefabUtility::SaveStage(*m_EditorScene, m_PrefabDatabase, level.Prefab, &edits, &error, level.OverwriteDamaged))
         {
-            ZM_WARN("Prefab saqlanmadi ({}): {}", level.Prefab, error);
+            ZM_WARN("Prefab not saved ({}): {}", level.Prefab, error);
             ShowViewportMessage(std::format(ICON_FA_TRIANGLE_EXCLAMATION "  {}: {}", Tr("Saqlanmadi"), error));
             if (error.find("single root") != std::string::npos)
                 m_PrefabStageWrapPrompt = true; // offered: the roots under a new one
@@ -180,7 +180,7 @@ namespace Zamin {
         ReadFileState(Project::GetAssetFileSystemPath(level.Prefab), level.FileHash, level.FileTime);
         for (const FileEdit& edit : edits)
         {
-            ZM_INFO("Prefab saqlandi: {}", edit.Path);
+            ZM_INFO("Prefab saved: {}", edit.Path);
             m_ContentBrowserPanel.InvalidateThumbnail(Project::GetAssetFileSystemPath(edit.Path));
         }
         level.Files.insert(level.Files.end(), edits.begin(), edits.end());
@@ -255,7 +255,7 @@ namespace Zamin {
             m_UndoHistory.ReplaceCurrentScene(TakeSnapshot());
             m_SceneDirty = !m_UndoHistory.IsAtSavedState();
         }
-        ZM_INFO("Prefab rejimi yopildi: {}", name);
+        ZM_INFO("Prefab mode closed: {}", name);
         UpdateWindowTitle();
     }
 
@@ -268,7 +268,7 @@ namespace Zamin {
         while (IsInPrefabStage())
         {
             if (m_SceneDirty)
-                ZM_WARN("Prefab rejimi yopildi, saqlanmagan o'zgarishlar tashlab ketildi: {}", m_PrefabStages.back().Prefab);
+                ZM_WARN("Prefab mode closed, unsaved changes discarded: {}", m_PrefabStages.back().Prefab);
             m_SceneDirty = false;
             PopPrefabStage();
         }
@@ -335,7 +335,7 @@ namespace Zamin {
             level.ExternalChange = true; // the banner: read it again, or keep the edits
             return;
         }
-        ZM_INFO("Prefab fayli tashqarida o'zgardi, qayta o'qildi: {}", level.Prefab);
+        ZM_INFO("The prefab file changed outside the editor and was re-read: {}", level.Prefab);
         ReloadPrefabStage();
     }
 
@@ -379,7 +379,7 @@ namespace Zamin {
         {
             // The prefab edited (or its folder) moved: saving writes the file where it is now.
             if (remapPath(level.Prefab))
-                ZM_INFO("Prefab rejimidagi prefab ko'chirildi: {}", level.Prefab);
+                ZM_INFO("The prefab in prefab mode was moved: {}", level.Prefab);
             // The scene (or prefab) waiting below: in memory with its unsaved state, its history.
             if (level.OuterScene)
             {
@@ -581,7 +581,7 @@ namespace Zamin {
             {
                 fs::path backup;
                 if (SceneRecovery::WriteBackup(Project::GetAssetFileSystemPath(m_PrefabStageRecoverPrompt), &backup))
-                    ZM_INFO("Buzilgan prefab nusxasi saqlandi: {}", backup.filename().string());
+                    ZM_INFO("A copy of the broken prefab was saved: {}", backup.filename().string());
                 RequestPrefabStage(m_PrefabStageRecoverPrompt, 0, true);
                 m_PrefabStageRecoverPrompt.clear();
                 ImGui::CloseCurrentPopup();
@@ -610,7 +610,7 @@ namespace Zamin {
                 fs::path backup;
                 if (SceneRecovery::WriteBackup(Project::GetAssetFileSystemPath(level.Prefab), &backup))
                 {
-                    ZM_INFO("Prefab faylining asl nusxasi saqlandi: {}", backup.filename().string());
+                    ZM_INFO("The original of the prefab file was saved: {}", backup.filename().string());
                     level.OverwriteDamaged = true;
                     SavePrefabStage();
                 }

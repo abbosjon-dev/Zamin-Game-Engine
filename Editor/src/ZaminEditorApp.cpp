@@ -41,12 +41,12 @@ namespace Zamin {
                     value = args[++i];
                 std::string error;
                 if (!LogLevelOverride::Parse(value, levels, &error))
-                    ZM_WARN("Buyruq qatori: --log-level {}: {}", value, error);
+                    ZM_WARN("Command line: --log-level {}: {}", value, error);
             }
             else if (!arg.empty() && arg[0] != '-' && project.empty())
                 project = std::filesystem::absolute(arg);
             else if (!arg.empty())
-                ZM_WARN("Buyruq qatori: noma'lum argument '{}' (ZaminEditor [loyiha] [--log-level <daraja>])", arg);
+                ZM_WARN("Command line: unknown argument '{}' (ZaminEditor [project] [--log-level <level>])", arg);
         }
         levels.Over(LogLevelSettings::GetCurrent()).Apply();
         return new ZaminEditor(spec, project, levels);

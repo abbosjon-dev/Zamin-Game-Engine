@@ -19,13 +19,13 @@ namespace Zamin {
     {
         if (m_Building)
         {
-            ZM_WARN("Kompilyatsiya allaqachon ketmoqda...");
+            ZM_WARN("A compile is already running...");
             return;
         }
         auto project = Project::GetActive();
         if (!project)
         {
-            ZM_WARN("Avval loyiha oching");
+            ZM_WARN("Open a project first");
             return;
         }
         if(!m_CodeEditorPanel.SaveAll()) {
@@ -66,7 +66,7 @@ namespace Zamin {
         m_ReloadAfterBuild = reloadAfter;
         m_BuildStartTime = Platform::GetTime();
         BeginBuildOutput(buildDir);
-        ZM_INFO("C++ skriptlar kompilyatsiya qilinmoqda: {}", project->GetConfig().Name);
+        ZM_INFO("Compiling the C++ scripts: {}", project->GetConfig().Name);
 
         m_BuildThread = std::thread([this, configure, build, needsConfigure]() {
             auto onLine = [this](const std::string& line) {
@@ -102,7 +102,7 @@ namespace Zamin {
         if (!loaded) return; // preserve the running scene and inspector after a rejected candidate
         if (m_SceneState != SceneState::Edit) OnSceneStop();
         if (loaded)
-            ZM_INFO("Skriptlar qayta yuklandi (hot reload) " ICON_FA_CHECK);
+            ZM_INFO("Scripts reloaded (hot reload) " ICON_FA_CHECK);
         m_SceneHierarchyPanel.OnScriptsReloaded();
         // ZAMIN_EDITOR_HOT_RELOAD_TEST=<frames> (Tests/hot_reload_test.sh): the game plays again after every load
         // of the module (the first build, then each hot reload); <frames> frames after the first hot reload the
@@ -160,7 +160,7 @@ namespace Zamin {
                 return;
             }
             if(rejectedPath==module&&rejectedTime==time&&rejectedSize==size)return;
-            ZM_INFO("Skript moduli o'zgardi - qayta yuklanmoqda");
+            ZM_INFO("The script module changed - reloading");
             ReloadScriptModule();
             if(!ScriptEngine::IsModuleLoaded()||ScriptEngine::GetModulePath()!=module||ScriptEngine::GetLoadedModuleWriteTime()!=time)
             {rejectedPath=module;rejectedTime=time;rejectedSize=size;}
@@ -173,27 +173,27 @@ namespace Zamin {
         if (!Project::GetActive()) return false;
         if (std::string problem = ScriptTemplate::ValidateClassName(className); !problem.empty())
         {
-            ZM_ERROR("Skript yaratilmadi: {}", problem);
+            ZM_ERROR("Script not created: {}", problem);
             return false;
         }
         if (ScriptRegistry::Find(className))
         {
-            ZM_WARN("'{}' klassi allaqachon mavjud (skript modulida ro'yxatdan o'tgan)", className);
+            ZM_WARN("The class '{}' already exists (registered in the script module)", className);
             return false;
         }
         fs::path file = Project::GetSourceDirectory() / (className + ".cpp");
         if (fs::exists(file))
         {
-            ZM_WARN("Fayl allaqachon mavjud: {}", file.string());
+            ZM_WARN("The file already exists: {}", file.string());
             return false;
         }
         if (!FileSystem::WriteTextFile(file, ScriptTemplate::Generate(className, kind)))
         {
-            ZM_ERROR("Fayl yozilmadi: {}", file.string());
+            ZM_ERROR("Could not write the file: {}", file.string());
             return false;
         }
         OpenInCodeEditor(file);
-        ZM_INFO("Yangi skript yaratildi ({} shablon): {}", kind == ScriptTemplateKind::Full ? "Full" : "Minimal", file.string());
+        ZM_INFO("New script created ({} template): {}", kind == ScriptTemplateKind::Full ? "Full" : "Minimal", file.string());
         BuildScripts(true);
         return true;
     }
@@ -206,16 +206,16 @@ namespace Zamin {
         if (plan.Excluded.empty())
         {
             fs::remove(report, ec);
-            ZM_INFO("Eksport: {} ta asset fayli ({}), hammasi ishlatiladi", plan.Included.size(), ExportAssets::FormatSize(plan.IncludedBytes));
+            ZM_INFO("Export: {} asset files ({}), all of them used", plan.Included.size(), ExportAssets::FormatSize(plan.IncludedBytes));
             return;
         }
-        ZM_INFO("Eksport: {} ta asset fayli ({}); {} tasi chiqarib tashlandi ({}) - ro'yxat: {}", plan.Included.size(),
+        ZM_INFO("Export: {} asset files ({}); {} excluded ({}) - list: {}", plan.Included.size(),
                 ExportAssets::FormatSize(plan.IncludedBytes), plan.Excluded.size(), ExportAssets::FormatSize(plan.ExcludedBytes), report.string());
         const size_t shown = std::min<size_t>(plan.Excluded.size(), 12);
         for (size_t i = 0; i < shown; i++)
             ZM_INFO("    - {} ({}, {})", plan.Excluded[i].Path, ExportAssets::FormatSize(plan.Excluded[i].Size), plan.Excluded[i].Reason);
         if (plan.Excluded.size() > shown)
-            ZM_INFO("    ... va yana {} ta", plan.Excluded.size() - shown);
+            ZM_INFO("    ... and {} more", plan.Excluded.size() - shown);
         FileSystem::WriteTextFile(report, plan.FormatReport(gameName));
     }
 
@@ -227,7 +227,7 @@ namespace Zamin {
         if (m_SceneDirty) SaveScene();
         if (m_SceneDirty)
         {
-            ZM_ERROR("O'yin eksport qilinmadi: sahna saqlanmadi");
+            ZM_ERROR("The game was not exported: the scene was not saved");
             return;
         }
         m_ProjectSettingsPanel.SaveIfDirty(); // the exported game reads the .zproject (input map)
@@ -254,11 +254,11 @@ namespace Zamin {
         }
         // (Only the export thread uses these from here on: the main thread reads the report once it is handed over.)
         auto warn = [report](std::string message) {
-            ZM_WARN("Eksport: {}", message);
+            ZM_WARN("Export: {}", message);
             report->Warnings.push_back(std::move(message));
         };
         auto fail = [report](std::string message) {
-            ZM_ERROR("Eksport: {}", message);
+            ZM_ERROR("Export: {}", message);
             report->Errors.push_back(std::move(message));
         };
         // The start scene and the build list: what would break the game is an error, the rest warnings.
@@ -319,7 +319,7 @@ namespace Zamin {
         AssetReferenceIndex referenceIndex;
         const ExportAssetPlan assetPlan = ExportAssets::PlanForActiveProject(&buildScenes, &notes, &referenceIndex);
         for (const std::string& note : notes)
-            ZM_INFO("Eksport: {}", note);
+            ZM_INFO("Export: {}", note);
         // The prefabs the game gets are checked (R1-R10, docs/Prefabs.md), and the scenes / prefabs that
         // hold the editor's prefab links are exported without them (instances older than their prefabs
         // brought up to date in the copy; the project's files stay as they are). Here, on this thread
@@ -337,10 +337,10 @@ namespace Zamin {
                 else if (issue.Level == PrefabExportIssue::Severity::Warning)
                     warn(std::move(message));
                 else
-                    ZM_INFO("Eksport: {}", message);
+                    ZM_INFO("Export: {}", message);
             }
-            ZM_INFO("Eksport: {}{}", prefabCheck.Summary(),
-                    prefabCheck.Stripped ? std::format(" ({} ta faylning prefab bog'lanishlari olib tashlandi)", prefabCheck.Stripped) : std::string());
+            ZM_INFO("Export: {}{}", prefabCheck.Summary(),
+                    prefabCheck.Stripped ? std::format(" (prefab links removed from {} files)", prefabCheck.Stripped) : std::string());
             bakedFiles = std::move(prefabCheck.Baked);
         }
         const bool binaryScenes = m_BuildGameBinaryScenes;
@@ -407,7 +407,7 @@ namespace Zamin {
                         copy(meta, assets / (file + ".zmeta"));
                 }
                 if (!buildScenes.empty())
-                    ZM_INFO("Eksport: build ro'yxatidagi {} ta sahna", buildScenes.size());
+                    ZM_INFO("Export: {} scenes of the build list", buildScenes.size());
                 ReportExcludedAssets(assetPlan, name, outputDirectory);
             }
             if (binaryScenes)
@@ -432,7 +432,7 @@ namespace Zamin {
                         warn(TrFormat("sahnaning binar keshi yozilmadi ({}): {}", error, it->path().filename().string()));
                 }
                 if (written)
-                    ZM_INFO("Eksport: {} ta sahna binar keshga yozildi ({:.1f} KB -> {:.1f} KB)", written, (double)textBytes / 1024.0,
+                    ZM_INFO("Export: {} scenes written to the binary cache ({:.1f} KB -> {:.1f} KB)", written, (double)textBytes / 1024.0,
                             (double)binaryBytes / 1024.0);
             }
             if (!registryText.empty() && !FileSystem::WriteTextFile(outputDirectory / "Game" / Project::BuildAssetRegistryFile, registryText))
@@ -450,7 +450,7 @@ namespace Zamin {
                 std::string how = Tr("editor moduli nusxalandi");
                 if (exportSettings.ReleaseScriptModule && hasSources)
                 {
-                    ZM_INFO("Eksport: skript moduli Release'da kompilyatsiya qilinmoqda ({}): {}", moduleBuild.OptimizationFlags,
+                    ZM_INFO("Export: compiling the script module in Release ({}): {}", moduleBuild.OptimizationFlags,
                             moduleBuild.BuildDirectory.string());
                     const auto buildStart = std::chrono::steady_clock::now();
                     std::string firstError;
@@ -476,7 +476,7 @@ namespace Zamin {
                     {
                         module = built;
                         how = TrFormat("Release ({}), {:.1f} s da kompilyatsiya qilindi", moduleBuild.OptimizationFlags, seconds);
-                        ZM_INFO("Eksport: skript moduli {} ({})", how, ExportAssets::FormatSize(fs::file_size(built, e)));
+                        ZM_INFO("Export: script module {} ({})", how, ExportAssets::FormatSize(fs::file_size(built, e)));
                     }
                     else
                     {
@@ -535,7 +535,7 @@ namespace Zamin {
                     }
                     report->StrippedBytes = before > after ? before - after : 0;
                     if (stripped)
-                        ZM_INFO("Eksport: strip - {} ta binar {} -> {}", stripped, ExportAssets::FormatSize(before), ExportAssets::FormatSize(after));
+                        ZM_INFO("Export: strip - {} binaries {} -> {}", stripped, ExportAssets::FormatSize(before), ExportAssets::FormatSize(after));
                 }
             }
 
@@ -568,7 +568,7 @@ namespace Zamin {
                     if (sizes.empty())
                         warn(TrFormat("ikonka o'lchamlari yozilmadi: {}", iconError));
                     else
-                        ZM_INFO("Eksport: ikonka {} o'lchamda ({} ... {} px, icons/hicolor)", sizes.size(), sizes.front(), sizes.back());
+                        ZM_INFO("Export: icon in {} sizes ({} ... {} px, icons/hicolor)", sizes.size(), sizes.front(), sizes.back());
                 }
             }
             if (!FileSystem::WriteTextFile(outputDirectory / (name + ".desktop"),
@@ -608,12 +608,12 @@ namespace Zamin {
             report->Seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
             report->Succeeded = ok && report->Errors.empty();
             if (!report->Write(outputDirectory))
-                ZM_WARN("Eksport hisoboti yozilmadi: {}", (outputDirectory / ExportReport::JsonFileName).string());
-            ZM_INFO("Eksport hisoboti: {} ta fayl, {} ({} ogohlantirish, {} xato) - {}", report->FileCount, ExportAssets::FormatSize(report->TotalBytes),
+                ZM_WARN("The export report could not be written: {}", (outputDirectory / ExportReport::JsonFileName).string());
+            ZM_INFO("Export report: {} files, {} ({} warnings, {} errors) - {}", report->FileCount, ExportAssets::FormatSize(report->TotalBytes),
                     report->Warnings.size(), report->Errors.size(), (outputDirectory / ExportReport::TextFileName).string());
 
-            if (report->Succeeded) ZM_INFO("O'yin eksport qilindi " ICON_FA_ROCKET " {}  (ishga tushirish: {})", outputDirectory.string(), launcher.string());
-            else ZM_ERROR("O'yinni eksport qilishda xatolar bo'ldi");
+            if (report->Succeeded) ZM_INFO("Game exported " ICON_FA_ROCKET " {}  (launch: {})", outputDirectory.string(), launcher.string());
+            else ZM_ERROR("There were errors while exporting the game");
             {
                 std::lock_guard<std::mutex> lock(m_ExportReportMutex);
                 m_PendingExportReport = std::make_unique<ExportReport>(*report);

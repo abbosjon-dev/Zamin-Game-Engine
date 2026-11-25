@@ -197,7 +197,7 @@ namespace Zamin {
             return;
         }
         {
-            ZM_PROFILE_SCOPE("Sahna fayllari");
+            ZM_PROFILE_SCOPE("Scene files");
             Refresh(false);
         }
         DrawToolbar();
@@ -257,7 +257,7 @@ namespace Zamin {
                 DrawList(shown);
             else
             {
-                ZM_PROFILE_SCOPE("Sahna kartalari");
+                ZM_PROFILE_SCOPE("Scene cards");
                 DrawCards(shown);
             }
         }

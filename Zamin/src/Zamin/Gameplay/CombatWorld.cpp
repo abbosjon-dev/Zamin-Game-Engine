@@ -818,7 +818,7 @@ namespace Zamin::Gameplay {
     }
     AreaResult CombatWorld::Area(const AreaSpec& spec, Entity source, uint64_t sourceID, uint16_t team, bool teams, glm::dvec3 center, double magnitude, const EffectSpec* effect)
     {
-        ZM_PROFILE_SCOPE("Hududlar");
+        ZM_PROFILE_SCOPE("Zones");
         AreaResult out;
         out.Success = true;
         ++m_Detonations;
@@ -931,7 +931,7 @@ namespace Zamin::Gameplay {
     }
     void CombatWorld::EffectsPhase(double h)
     {
-        ZM_PROFILE_SCOPE("Effektlar");
+        ZM_PROFILE_SCOPE("Effects");
         auto* rules = m_Scene->GetRegistry().ctx().find<RuleWorld>();
         if (!rules) return;
         // Books are in UUID order; instances and their ticks in Sequence order.
@@ -996,7 +996,7 @@ namespace Zamin::Gameplay {
         // Effects first: a damage-over-time kill this step makes its victim untouchable for the projectiles.
         if (m_EffectCount > 0) EffectsPhase(h);
         if (m_Pool.Count() == 0) return;
-        ZM_PROFILE_SCOPE("Snaryadlar");
+        ZM_PROFILE_SCOPE("Projectiles");
         auto& rules = RuleWorld::For(*m_Scene);
         uint32_t detonations = 0;
         // At most 16 detonations per step; the rest keep their slot and detonate on a later step, by slot.
@@ -1157,7 +1157,7 @@ namespace Zamin::Gameplay {
     void CombatWorld::Tick(double delta)
     {
         if (!std::isfinite(delta) || delta < 0 || delta > 1e6) throw std::runtime_error("Invalid combat clock delta");
-        ZM_PROFILE_SCOPE("Jang: snaryad va effektlar");
+        ZM_PROFILE_SCOPE("Combat: projectiles and effects");
         // The physics fixed step and its frame cap: a frame at the cap drops the remaining time, as physics does.
         auto rate = m_Scene->GetSettings().PhysicsStep;
         rate.Sanitize();

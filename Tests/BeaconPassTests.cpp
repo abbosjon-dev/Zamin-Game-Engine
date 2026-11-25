@@ -388,7 +388,7 @@ namespace {
     }
     bool Clean(const std::string& log, bool stuck = true)
     {
-        for (auto bad : { "SLICE_CONFIG_FAILED", "SLICE_IO_FAILED", "SLICE_BOT_STUCK", "SLICE_ORACLE_FAILED", "Visual graph '", "Instruction budget", "nomli harakat topilmadi" })
+        for (auto bad : { "SLICE_CONFIG_FAILED", "SLICE_IO_FAILED", "SLICE_BOT_STUCK", "SLICE_ORACLE_FAILED", "Visual graph '", "Instruction budget", "is not a known action" })
             if ((stuck || std::string(bad) != "SLICE_BOT_STUCK") && log.find(bad) != std::string::npos) return false;
         return true;
     }
@@ -834,7 +834,7 @@ namespace {
     }
     bool CleanIO(const std::string& log)
     {
-        for (auto bad : { "SLICE_CONFIG_FAILED", "SLICE_ORACLE_FAILED", "Visual graph '", "Instruction budget", "nomli harakat topilmadi", "SLICE_IO_FAILED autosave" })
+        for (auto bad : { "SLICE_CONFIG_FAILED", "SLICE_ORACLE_FAILED", "Visual graph '", "Instruction budget", "is not a known action", "SLICE_IO_FAILED autosave" })
             if (log.find(bad) != std::string::npos) return false;
         return true;
     }

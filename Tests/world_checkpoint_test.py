@@ -64,7 +64,7 @@ def main():
                     raise RuntimeError("Wizard did not publish six cells")
                 env.pop("ZAMIN_EDITOR_WORLD_AUTHORING", None)
                 env.update(ZAMIN_EDITOR_PLAY="1", ZAMIN_EDITOR_WORLD_CHECKPOINT_QA="1", ZAMIN_MAX_FRAMES="140", ZAMIN_SCREENSHOT=str(out / (name + "-authored-play.png")))
-                run("ZaminEditor", name + "-authored-play", ["Cell navigation", "Sahna yuklash vaqti", "World checkpoint editor QA passed"], 180)
+                run("ZaminEditor", name + "-authored-play", ["Cell navigation", "Scene load time", "World checkpoint editor QA passed"], 180)
                 if name == "WorldWorkshop3D":
                     # Keep the generated, portable project available for a separate native export test.
                     target = out / "GeneratedProject3D"

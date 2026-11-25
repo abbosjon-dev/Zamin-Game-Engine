@@ -73,7 +73,7 @@ def main():
                 for _ in range(200):
                     if app.poll() is not None:
                         raise RuntimeError('Editor exited before authoring test')
-                    if 'Ishga tushish: birinchi kadr' in (OUT / 'editor.log').read_text():
+                    if 'Startup: first frame' in (OUT / 'editor.log').read_text():
                         break
                     time.sleep(.2)
                 else:

@@ -1257,7 +1257,7 @@ namespace Zamin {
         auto view = m_Registry.view<NavObstacleComponent>();
         if (view.empty())
             return;
-        ZM_PROFILE_SCOPE("Navigatsiya to'siqlari");
+        ZM_PROFILE_SCOPE("Navigation obstacles");
         std::vector<glm::vec3> points;
         std::vector<CarveTarget> targets;
         std::vector<uint32_t> cells, added, removed;
@@ -1412,7 +1412,7 @@ namespace Zamin {
         auto view = m_Registry.view<NavAgentComponent>();
         if (view.empty() || !(dt > 0.0f))
             return;
-        ZM_PROFILE_SCOPE("Navigatsiya agentlari");
+        ZM_PROFILE_SCOPE("Navigation agents");
         std::vector<glm::vec2> plane;
         // Each active agent's grid this frame (found once: the lookup walks the grids).
         struct AgentFrame
@@ -1507,7 +1507,7 @@ namespace Zamin {
         m_NavFrameStats.PathRequests = (uint32_t)requests.size();
         if (!requests.empty())
         {
-            ZM_PROFILE_SCOPE("Navigatsiya yo'llari");
+            ZM_PROFILE_SCOPE("Navigation paths");
             const auto clock = std::chrono::steady_clock::now();
             m_NavFrameStats.Parallel = requests.size() >= NavParallelPathThreshold && JobSystem::IsParallel();
             if (m_NavFrameStats.Parallel)

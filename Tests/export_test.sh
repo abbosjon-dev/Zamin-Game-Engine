@@ -151,7 +151,7 @@ else
             fail "skript moduli yuklanmadi"
         fi
     fi
-    if grep -q "Sahna yuklash vaqti\|Ishlash testi: " "$player_log"; then pass "boshlang'ich sahna yuklandi"; else fail "boshlang'ich sahna yuklanmadi"; fi
+    if grep -q "Scene load time\|Ishlash testi: " "$player_log"; then pass "boshlang'ich sahna yuklandi"; else fail "boshlang'ich sahna yuklanmadi"; fi
 fi
 
 # 4. Headless again, its last frame saved: the picture shows the game (not a black or empty window).

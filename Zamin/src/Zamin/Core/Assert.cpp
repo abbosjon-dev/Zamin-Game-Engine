@@ -77,11 +77,11 @@ namespace Zamin {
 
             if (ShouldLog(info.Count))
             {
-                const std::string times = info.Count > 1 ? std::format(" [{}-marta]", info.Count) : std::string();
+                const std::string times = info.Count > 1 ? std::format(" [x{}]", info.Count) : std::string();
                 if (info.Fatal)
-                    Log::Write(LogLevel::Critical, !info.Core, std::format("Assert bajarilmadi: {}{}", info.Describe(), times));
+                    Log::Write(LogLevel::Critical, !info.Core, std::format("Assert failed: {}{}", info.Describe(), times));
                 else
-                    Log::Write(LogLevel::Error, !info.Core, std::format("Tekshiruv bajarilmadi (ZM_VERIFY): {}{}", info.Describe(), times));
+                    Log::Write(LogLevel::Error, !info.Core, std::format("Check failed (ZM_VERIFY): {}{}", info.Describe(), times));
             }
 
             const AssertAction action = handler ? handler(info) : Decide(info, checks);
@@ -138,7 +138,7 @@ namespace Zamin {
                 if (const std::optional<AssertMode> parsed = ParseMode(text))
                     fromEnvironment = *parsed;
                 else
-                    ZM_CORE_WARN("ZAMIN_ASSERT={}: auto, break, abort yoki continue kerak - auto ishlatiladi", text);
+                    ZM_CORE_WARN("ZAMIN_ASSERT={}: expected auto, break, abort or continue - using auto", text);
             }
             int expected = -1;
             s_Mode.compare_exchange_strong(expected, (int)fromEnvironment);

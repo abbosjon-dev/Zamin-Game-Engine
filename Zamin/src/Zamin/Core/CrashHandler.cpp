@@ -357,15 +357,15 @@ namespace Zamin {
             }
             Append(note, sizeof(note), "] CRASH ZAMIN: ");
             Append(note, sizeof(note), s_Program);
-            Append(note, sizeof(note), " kutilmaganda to'xtadi: ");
+            Append(note, sizeof(note), " stopped unexpectedly: ");
             if (exception)
             {
-                Append(note, sizeof(note), "ushlanmagan istisno - ");
+                Append(note, sizeof(note), "unhandled exception - ");
                 Append(note, sizeof(note), exception);
             }
             else if (signal == SIGABRT && s_AbortReasonSet.load() == 1)
             {
-                Append(note, sizeof(note), "assert bajarilmadi - ");
+                Append(note, sizeof(note), "assert failed - ");
                 Append(note, sizeof(note), s_AbortReason);
             }
             else
@@ -374,7 +374,7 @@ namespace Zamin {
                 Append(note, sizeof(note), " - ");
                 Append(note, sizeof(note), CrashHandler::DescribeSignal(signal));
             }
-            Append(note, sizeof(note), s_LastReport[0] ? ". Hisobot: " : ". Hisobot yozilmadi.");
+            Append(note, sizeof(note), s_LastReport[0] ? ". Report: " : ". The report could not be written.");
             Append(note, sizeof(note), s_LastReport);
             Append(note, sizeof(note), "\n");
             Write(STDERR_FILENO, "\n");
@@ -436,10 +436,10 @@ namespace Zamin {
             if (s_Reporting.exchange(1) == 0)
             {
                 s_ReporterThread = CurrentThreadId();
-                std::string what = "std::terminate (istisnosiz)";
+                std::string what = "std::terminate (no exception)";
                 if (std::exception_ptr current = std::current_exception())
                 {
-                    std::string type = "noma'lum tur";
+                    std::string type = "unknown type";
                     if (const std::type_info* info = abi::__cxa_current_exception_type())
                     {
                         int status = 0;
@@ -512,17 +512,17 @@ namespace Zamin {
         const std::string product = settings.Product.empty() ? settings.Application : settings.Product;
         CopyText(s_Program, sizeof(s_Program), product.empty() ? std::string("Zamin") : product);
 
-        std::string header = "=== Zamin crash hisoboti ===\n";
-        header += std::format("Dastur: {}\n", settings.Application);
+        std::string header = "=== Zamin crash report ===\n";
+        header += std::format("Program: {}\n", settings.Application);
         if (!settings.Product.empty())
-            header += std::format("O'yin: {}{}\n", settings.Product, settings.Version.empty() ? "" : " " + settings.Version);
-        header += std::format("Dvigatel: {}\n", BuildInfo::Get().Describe());
+            header += std::format("Game: {}{}\n", settings.Product, settings.Version.empty() ? "" : " " + settings.Version);
+        header += std::format("Engine: {}\n", BuildInfo::Get().Describe());
         if (!settings.LogFile.empty())
-            header += std::format("Log fayli: {}\n", settings.LogFile.string());
+            header += std::format("Log file: {}\n", settings.LogFile.string());
         CopyText(s_Header, HeaderSize, header);
 
-        CopyText(s_MessagePrefix, ArgSize, std::format("{} kutilmaganda to'xtadi.\n\nXato haqida hisobot saqlandi:\n", s_Program));
-        CopyText(s_MessageSuffix, ArgSize, "\n\nIltimos, shu faylni o'yin muallifiga yuboring.");
+        CopyText(s_MessagePrefix, ArgSize, std::format("{} stopped unexpectedly.\n\nA report about the error was saved:\n", s_Program));
+        CopyText(s_MessageSuffix, ArgSize, "\n\nPlease send this file to the game's author.");
 
         s_ShowDialog = settings.ShowDialog;
         s_DialogCount = 0;
@@ -542,7 +542,7 @@ namespace Zamin {
             }
             return &command;
         };
-        const std::string title = std::format("{} - xato", s_Program);
+        const std::string title = std::format("{} - error", s_Program);
         add(FindInPath("zenity"), { { "zenity", ArgAppend::None }, { "--error", ArgAppend::None }, { "--title=" + title, ArgAppend::None },
                                     { "--width=560", ArgAppend::None }, { "--text=", ArgAppend::Message } });
         add(FindInPath("kdialog"), { { "kdialog", ArgAppend::None }, { "--title", ArgAppend::None }, { title, ArgAppend::None },
@@ -663,16 +663,16 @@ namespace Zamin {
         static char line[PathSize * 2];
         Write(fd, s_Header);
         line[0] = '\0';
-        Append(line, sizeof(line), "Vaqt: ");
+        Append(line, sizeof(line), "Time: ");
         AppendTime(line, sizeof(line), ::time(nullptr), false);
         Append(line, sizeof(line), "\n");
         Write(fd, line);
 
         line[0] = '\0';
-        Append(line, sizeof(line), "Sabab: ");
+        Append(line, sizeof(line), "Reason: ");
         if (exception)
         {
-            Append(line, sizeof(line), "ushlanmagan C++ istisnosi - ");
+            Append(line, sizeof(line), "unhandled C++ exception - ");
             Write(fd, line);
             Write(fd, exception);
             Write(fd, "\n");
@@ -680,7 +680,7 @@ namespace Zamin {
         else if (signal == SIGABRT && s_AbortReasonSet.load() == 1)
         {
             // abort() after a failed ZM_ASSERT: what failed (the expression, the message, file:line).
-            Append(line, sizeof(line), "assert bajarilmadi - ");
+            Append(line, sizeof(line), "assert failed - ");
             Write(fd, line);
             Write(fd, s_AbortReason);
             Write(fd, "\n");
@@ -696,28 +696,28 @@ namespace Zamin {
         line[0] = '\0';
         Append(line, sizeof(line), "Signal: ");
         AppendNumber(line, sizeof(line), signal);
-        Append(line, sizeof(line), ", kod ");
+        Append(line, sizeof(line), ", code ");
         AppendNumber(line, sizeof(line), code);
-        Append(line, sizeof(line), ", manzil ");
+        Append(line, sizeof(line), ", address ");
         AppendHex(line, sizeof(line), (uintptr_t)address);
         Append(line, sizeof(line), "\nPID: ");
         AppendNumber(line, sizeof(line), (long long)::getpid());
-        Append(line, sizeof(line), ", oqim: ");
+        Append(line, sizeof(line), ", thread: ");
         AppendNumber(line, sizeof(line), CurrentThreadId());
         Append(line, sizeof(line), "\n");
         Write(fd, line);
 
-        Write(fd, "\n--- Backtrace (birinchi qatorlar - crash handler'ning o'zi) ---\n");
+        Write(fd, "\n--- Backtrace (the first lines are the crash handler itself) ---\n");
         void* frames[64];
         const int count = ::backtrace(frames, 64);
         ::backtrace_symbols_fd(frames, count, fd);
 
-        Write(fd, "\n--- Oxirgi log satrlari ---\n");
+        Write(fd, "\n--- Last log lines ---\n");
         Log::ForEachRecentLineUnsafe(EmitLogLine, &fd);
 
-        Write(fd, "\n--- Yuklangan modullar (/proc/self/maps) ---\n");
+        Write(fd, "\n--- Loaded modules (/proc/self/maps) ---\n");
         WriteModules(fd);
-        Write(fd, "=== Hisobot oxiri ===\n");
+        Write(fd, "=== End of report ===\n");
 #else
         (void)fd; (void)signal; (void)code; (void)address; (void)exception;
 #endif
@@ -745,16 +745,16 @@ namespace Zamin {
 #if ZM_CRASH_HANDLER_SUPPORTED
         switch (signal)
         {
-            case SIGSEGV: return "xotiraga noto'g'ri murojaat (segmentation fault)";
-            case SIGABRT: return "dastur to'xtatildi (abort: assert yoki ichki xato)";
-            case SIGFPE:  return "arifmetik xato (nolga bo'lish)";
-            case SIGILL:  return "noto'g'ri protsessor buyrug'i";
-            case SIGBUS:  return "xotira shinasi xatosi (bus error)";
+            case SIGSEGV: return "invalid memory access (segmentation fault)";
+            case SIGABRT: return "the program was aborted (abort: an assert or an internal error)";
+            case SIGFPE:  return "arithmetic error (division by zero)";
+            case SIGILL:  return "illegal processor instruction";
+            case SIGBUS:  return "memory bus error (bus error)";
             default:      break;
         }
 #endif
         (void)signal;
-        return "kutilmagan signal";
+        return "unexpected signal";
     }
 
     std::string CrashHandler::MakeReportFileName(std::time_t time)
@@ -824,7 +824,7 @@ namespace Zamin {
     bool CrashHandler::ReadReport(const fs::path& report, CrashReportSummary& out)
     {
         const std::string text = FileSystem::ReadTextFile(report);
-        if (text.find("=== Zamin crash hisoboti ===") == std::string::npos)
+        if (text.find("=== Zamin crash report ===") == std::string::npos)
             return false;
         out = CrashReportSummary();
         std::istringstream in(text);
@@ -844,7 +844,7 @@ namespace Zamin {
                 continue;
             if (line.starts_with("--- "))
             {
-                section = line.starts_with("--- Backtrace") ? Section::Backtrace : line.starts_with("--- Oxirgi log") ? Section::Log : Section::Other;
+                section = line.starts_with("--- Backtrace") ? Section::Backtrace : line.starts_with("--- Last log") ? Section::Log : Section::Other;
                 continue;
             }
             if (line.empty())
@@ -854,10 +854,10 @@ namespace Zamin {
                 case Section::Header:
                 {
                     std::string game;
-                    if (value("Dastur: ", out.Application) || value("Dvigatel: ", out.Engine) || value("Vaqt: ", out.Time) ||
-                        value("Sabab: ", out.Reason) || value("Log fayli: ", out.LogFile))
+                    if (value("Program: ", out.Application) || value("Engine: ", out.Engine) || value("Time: ", out.Time) ||
+                        value("Reason: ", out.Reason) || value("Log file: ", out.LogFile))
                         break;
-                    if (value("O'yin: ", game))
+                    if (value("Game: ", game))
                     {
                         // "<product> <version>": the version is the last word.
                         const size_t space = game.rfind(' ');

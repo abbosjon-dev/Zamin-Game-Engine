@@ -104,7 +104,7 @@ namespace Zamin {
         s_Timings.ProcessMs = s_ProcessAgeAtLoad;
         s_CreateStart = Now();
         // Everything until the first frame goes under one scope (the profiler records before its first frame too).
-        s_Scope = Profiler::BeginScope("Ishga tushish");
+        s_Scope = Profiler::BeginScope("Startup");
         s_ScopeOpen = true;
     }
 
@@ -137,7 +137,7 @@ namespace Zamin {
             {
                 s_Timings.FirstFrameProfile = Profiler::FormatTree(entries, 1.0f);
                 if (const char* profile = std::getenv("ZAMIN_STARTUP_PROFILE"); profile && *profile && *profile != '0')
-                    ZM_CORE_INFO("Birinchi kadr profili:\n{}", s_Timings.FirstFrameProfile);
+                    ZM_CORE_INFO("First frame profile:\n{}", s_Timings.FirstFrameProfile);
             }
             return;
         }
@@ -164,22 +164,22 @@ namespace Zamin {
         const MemoryStats::ProcessMemory memory = MemoryStats::GetProcessMemory(0.0);
         s_Timings.ResidentBytes = memory.Resident;
         s_Timings.PeakResidentBytes = memory.PeakResident;
-        ZM_CORE_INFO("Ishga tushish: birinchi kadr {}", Describe(s_Timings));
+        ZM_CORE_INFO("Startup: first frame {}", Describe(s_Timings));
         if (const char* profile = std::getenv("ZAMIN_STARTUP_PROFILE"); profile && *profile && *profile != '0')
-            ZM_CORE_INFO("Ishga tushish profili:\n{}Eng sekin joylar (o'z vaqti):\n{}", s_Timings.Profile, s_Timings.Hotspots);
+            ZM_CORE_INFO("Startup profile:\n{}Slowest places (self time):\n{}", s_Timings.Profile, s_Timings.Hotspots);
     }
 
     const StartupTimer::Timings& StartupTimer::Get() { return s_Timings; }
 
     std::string StartupTimer::Describe(const Timings& t)
     {
-        std::string out = std::format("{:.0f} ms (dvigatel {:.0f}, layer'lar {:.0f}, birinchi kadr {:.0f} ms", t.TotalMs, t.EngineMs, t.LayersMs,
+        std::string out = std::format("{:.0f} ms (engine {:.0f}, layers {:.0f}, first frame {:.0f} ms", t.TotalMs, t.EngineMs, t.LayersMs,
                                       t.FirstFrameMs);
         if (t.ProcessMs >= 0.0)
-            out += std::format("; jarayon boshidan ~{:.0f} ms", t.FromProcessStartMs());
+            out += std::format("; ~{:.0f} ms since the process started", t.FromProcessStartMs());
         out += ")";
         if (t.ResidentBytes > 0)
-            out += std::format(", RAM {} (eng ko'pi {})", MemoryStats::FormatBytes(t.ResidentBytes), MemoryStats::FormatBytes(t.PeakResidentBytes));
+            out += std::format(", RAM {} (peak {})", MemoryStats::FormatBytes(t.ResidentBytes), MemoryStats::FormatBytes(t.PeakResidentBytes));
         return out;
     }
 

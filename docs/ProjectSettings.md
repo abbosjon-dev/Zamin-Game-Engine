@@ -192,7 +192,7 @@ va o'rtada "Pauza" yozuvi (ostida "O'yin oynasi fokusda emas - davom etish uchun
 fayllarida `player.paused` / `player.paused_hint` kalitlari bo'lsa, ular ishlatiladi (Platformer2D: uz, ru, en).
 Pauzada CPU band emas: player voqealarni kutadi, rasmni boshida, oyna o'lchami o'zgarganda va har 0.5 s da qayta
 chizadi. Oyna yana fokusga kelsa o'yin to'xtagan joyidan davom etadi (uzun kadr sakrashisiz). Log:
-`O'yin to'xtatildi (pauza): oyna fokusda emas` / `O'yin davom etmoqda: oyna yana fokusda`. Avtomatlashtirishda
+`O'yin to'xtatildi (pauza): oyna fokusda emas` / `O'yin resumed: the window is focused again`. Avtomatlashtirishda
 (screenshot, CI) `ZAMIN_FOCUS_LOSS_TEST=<kadr>[:<kadrlar soni>]` shu kadrdan fokus yo'qolganini taqlid qiladi.
 
 **Gamma va yorqinlik** (o'yinchi sozlamasi): player tayyor kadrni (sahna, UI, o'tishlar) ekranga oxirgi o'tishda

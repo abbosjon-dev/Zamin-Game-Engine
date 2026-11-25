@@ -258,7 +258,7 @@ namespace Zamin {
                 view.HoveredEntity = {};
                 continue;
             }
-            ZM_PROFILE_SCOPE("Qo'shimcha ko'rinish");
+            ZM_PROFILE_SCOPE("Extra view");
             const uint32_t width = (uint32_t)view.Size.x, height = (uint32_t)view.Size.y;
             Scene& scene = *m_ActiveScene;
             const glm::uvec2 renderSize = Renderer::GetRenderResolution(width, height, scene.GetSettings().RenderScale);

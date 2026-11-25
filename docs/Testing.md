@@ -178,7 +178,7 @@ logiga qarab tekshiradi:
   `Rekordlar: ...` qatorida xuddi shu qiymatni o'qiydi va bosh menyuni ochadi (`--no-records` — o'tkazib yuborish).
 - **gamepad**: oltita o'yin faqat simulyatsiya qilingan gamepad bilan (`ZAMIN_PLAYER_INPUT`: `pad=A`, `padhold=` /
   `padrelease=`, `stick=LeftX,0.8`). Bosh menyuda A, o'yinning o'z boshqaruvi (stiklar, tugmalar, triggerlar), Start —
-  pauza va qaytish, D-pad pastga + A — bosh menyu. Ishoralar gamepad'ga o'tishi (`Kiritish qurilmasi: gamepad`,
+  pauza va qaytish, D-pad pastga + A — bosh menyu. Ishoralar gamepad'ga o'tishi (`Input device: gamepad`,
   klaviaturaga qaytmasdan) va o'yinda natija bo'lishi tekshiriladi: Neon Maydon'da RT bilan o'q otilgan, Breakout'da
   g'isht singan, Omborchi'da 1-daraja D-pad bilan yechilgan, Ipak Yo'li'da masofa — rekord bo'lib yozilgan.
 

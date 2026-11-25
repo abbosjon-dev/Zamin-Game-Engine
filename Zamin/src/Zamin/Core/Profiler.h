@@ -61,10 +61,10 @@ namespace Zamin {
         static void SetThreadParent(const ScopeToken& parent);
 
         static const std::vector<Entry>& GetLastFrame();
-        // The last frame's "Kadr" scope (the main loop's frame), 0 when there was none.
+        // The last frame's "Frame" scope (the main loop's frame), 0 when there was none.
         static float GetLastFrameTotal();
         // A node of the last frame by its path: the names from the top, separated by '/'
-        // ("Kadr/Layer'lar (update)/Render"). Null when the frame has no such node.
+        // ("Frame/Layers (update)/Render"). Null when the frame has no such node.
         static const Entry* Find(std::string_view path);
         // The indices of a node's direct children (`parent` -1: the top level) in `entries`.
         static std::vector<int> GetChildren(const std::vector<Entry>& entries, int parent);

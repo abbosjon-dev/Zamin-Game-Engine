@@ -660,5 +660,5 @@ TEST(GameplayInputEmptyActionNamesReadNothing)
     uint64_t first = 0;
     auto messages = Log::GetMessages(&first);
     for (size_t i = 0; i < messages.size(); ++i)
-        if (first + i >= warnings) CHECK(messages[i].Text.find("'' nomli") == std::string::npos);
+        if (first + i >= warnings) CHECK(messages[i].Text.find("'' is not a known") == std::string::npos);
 }

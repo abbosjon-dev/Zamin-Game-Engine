@@ -81,11 +81,11 @@ namespace Zamin {
         switch (level)
         {
             case LogLevel::Trace:    return "Trace";
-            case LogLevel::Info:     return "Ma'lumot";
-            case LogLevel::Warn:     return "Ogohlantirish";
-            case LogLevel::Error:    return "Xato";
+            case LogLevel::Info:     return "Info";
+            case LogLevel::Warn:     return "Warning";
+            case LogLevel::Error:    return "Error";
             case LogLevel::Critical: return "Kritik";
-            case LogLevel::Off:      return "O'chiq";
+            case LogLevel::Off:      return "Off";
         }
         return "Trace";
     }

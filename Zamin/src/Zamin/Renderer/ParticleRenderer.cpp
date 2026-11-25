@@ -129,7 +129,7 @@ void main()
     {
         if (!IsAvailable() || count == 0)
             return;
-        ZM_PROFILE_SCOPE("Particle'lar (instanced)");
+        ZM_PROFILE_SCOPE("Particles (instanced)");
         static_assert(sizeof(ParticleInstance) == 14 * sizeof(float), "the instance layout above");
         Renderer2D::Flush(); // what was submitted before is drawn first
         Shader& shader = *s_Data->Program;

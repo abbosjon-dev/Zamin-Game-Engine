@@ -80,13 +80,13 @@ namespace Zamin {
             temp += ".tmp";
             if (!FileSystem::WriteTextFile(temp, root.dump(4)))
             {
-                ZM_CORE_ERROR("SaveData yozilmadi: {}", s.LoadedPath.string());
+                ZM_CORE_ERROR("SaveData could not be written: {}", s.LoadedPath.string());
                 return false;
             }
             std::filesystem::rename(temp, s.LoadedPath, ec);
             if (ec)
             {
-                ZM_CORE_ERROR("SaveData yozilmadi: {} ({})", s.LoadedPath.string(), ec.message());
+                ZM_CORE_ERROR("SaveData could not be written: {} ({})", s.LoadedPath.string(), ec.message());
                 std::filesystem::remove(temp, ec);
                 return false;
             }
@@ -127,7 +127,7 @@ namespace Zamin {
                     else if (v.is_string())
                         s.Values[it.key()] = v.get<std::string>();
                     else
-                        ZM_CORE_WARN("SaveData: '{}' kalitining qiymati tushunarsiz, o'tkazib yuborildi", it.key());
+                        ZM_CORE_WARN("SaveData: the value of the key '{}' is not understood, skipped", it.key());
                 }
                 return true;
             }
@@ -138,7 +138,7 @@ namespace Zamin {
                 std::filesystem::path backup = path;
                 backup += ".bak";
                 std::filesystem::rename(path, backup, ec);
-                ZM_CORE_ERROR("SaveData fayli buzilgan ({}): {} -> {}", e.what(), path.string(), backup.filename().string());
+                ZM_CORE_ERROR("The SaveData file is broken ({}): {} -> {}", e.what(), path.string(), backup.filename().string());
                 return false;
             }
         }
@@ -307,7 +307,7 @@ namespace Zamin {
             return true; // nothing to write (untouched data is never loaded just to be saved)
         if (!WriteFile(s))
             return false;
-        ZM_CORE_INFO("SaveData saqlandi: {}", s.LoadedPath.string());
+        ZM_CORE_INFO("SaveData saved: {}", s.LoadedPath.string());
         return true;
     }
 

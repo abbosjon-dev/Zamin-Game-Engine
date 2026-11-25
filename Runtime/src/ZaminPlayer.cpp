@@ -177,7 +177,7 @@ namespace Zamin {
 
             if (auto module = Project::GetScriptModulePath(); !module.empty())
             {
-                ZM_PROFILE_SCOPE("Skript moduli");
+                ZM_PROFILE_SCOPE("Script module");
                 ScriptEngine::LoadModule(module);
             }
 
@@ -300,7 +300,7 @@ namespace Zamin {
             }
             else
             {
-                ZM_PROFILE_SCOPE("Boshlang'ich sahna");
+                ZM_PROFILE_SCOPE("Start scene");
                 std::string error;
                 if (!m_Scenes->Start(scenePath, &error))
                 {

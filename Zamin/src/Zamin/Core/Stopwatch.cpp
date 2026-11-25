@@ -23,7 +23,7 @@ namespace Zamin {
             return;
         const std::string took = StringUtils::FormatDuration(ms / 1000.0);
         Log::Write(m_Level, m_FromClient,
-                   m_Threshold > 0.0 ? std::format("{}: {} (chegara {})", m_Name, took, StringUtils::FormatDuration(m_Threshold / 1000.0))
+                   m_Threshold > 0.0 ? std::format("{}: {} (limit {})", m_Name, took, StringUtils::FormatDuration(m_Threshold / 1000.0))
                                      : std::format("{}: {}", m_Name, took));
     }
 

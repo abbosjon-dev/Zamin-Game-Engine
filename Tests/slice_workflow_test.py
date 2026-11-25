@@ -51,7 +51,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 FORBIDDEN = ("GL_INVALID_", "Assertion failed", "Visual graph '", "Instruction budget exceeded", "SLICE_CONFIG_FAILED", "SLICE_IO_FAILED",
-             "SLICE_ORACLE_FAILED", "nomli harakat topilmadi", "Snaryad vizual prefabi rad etildi")
+             "SLICE_ORACLE_FAILED", "is not a known action", "Snaryad vizual prefabi rad etildi")
 UNREADABLE = "The save could not be read - the level starts again"
 GAMES = {
     # Per game: its level scenes (the hero is entity 1000 in each), the hero's name (Editor selection), the window size and
@@ -332,7 +332,7 @@ def damaged_phase(name, game, run, need, homes, out):
 def pad_phase(name, game, run, need, homes):
     """P6: the gamepad tape through the menu and the level, ending with the pause menu's quit save."""
     text, seconds = run("P6-gamepad", homes["pad"], "Menu", 520, tape=PAD_TAPES[name])
-    need("P6", text, ["Menyu: Asosiy davom=0", "Kiritish qurilmasi: gamepad", "Menyu: Sozlamalar", "SLICE_SETTINGS music=", "Menyu: Yangi o'yin",
+    need("P6", text, ["Menyu: Asosiy davom=0", "Input device: gamepad", "Menyu: Sozlamalar", "SLICE_SETTINGS music=", "Menyu: Yangi o'yin",
                       "SLICE_SAVED lvl=1 at=auto", "SLICE_LEVEL_START lvl=1 entry=new", "SLICE_SAVED lvl=1 at=quit", "Menyu: Asosiy davom=1"])
     if "SLICE_SETTINGS music=0.55" in text:
         raise RuntimeError("P6: the music slider did not move on the D-pad")

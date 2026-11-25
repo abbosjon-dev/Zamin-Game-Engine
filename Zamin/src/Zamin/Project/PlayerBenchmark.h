@@ -71,8 +71,8 @@ namespace Zamin {
         // The statistics so far and the limits checked (the caller fills in what was run: the game, the scene ...).
         Result GetResult() const;
 
-        // The game's own CPU work in a frame's profile (Profiler::GetLastFrame): "Kadr/Layer'lar (update)" without
-        // its drawing children ("Sahnalar (chizish)", "Post-processing"); -1 when the frame has no update layer.
+        // The game's own CPU work in a frame's profile (Profiler::GetLastFrame): "Frame/Layers (update)" without
+        // its drawing children ("Scenes (render)", "Post-processing"); -1 when the frame has no update layer.
         static double GameCodeMilliseconds(const std::vector<Profiler::Entry>& frame);
 
         // The report: {"Game": ..., "Frame": {"Average": ..., "P95": ...}, "Update": {...}, "GameCode": {...} (when

@@ -118,7 +118,7 @@ namespace Zamin {
         auto view = m_Registry.view<SplineFollowerComponent>();
         if (view.empty())
             return;
-        ZM_PROFILE_SCOPE("Spline follower'lar");
+        ZM_PROFILE_SCOPE("Spline followers");
         for (auto e : view)
         {
             Entity entity{ e, this };

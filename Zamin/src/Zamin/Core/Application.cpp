@@ -42,13 +42,13 @@ namespace Zamin {
         if (!m_Specification.WorkingDirectory.empty())
             std::filesystem::current_path(m_Specification.WorkingDirectory);
 
-        ZM_CORE_INFO("{} ishga tushmoqda ({})", BuildInfo::Get().Describe(), m_Specification.Name);
+        ZM_CORE_INFO("{} is starting ({})", BuildInfo::Get().Describe(), m_Specification.Name);
 
         WindowProps props = m_Specification.Window;
         if (props.Title.empty())
             props.Title = m_Specification.Name;
         {
-            ZM_PROFILE_SCOPE("Oyna va GL konteksti");
+            ZM_PROFILE_SCOPE("Window and GL context");
             m_Window = Window::Create(props);
         }
         m_Window->SetEventCallback(ZM_BIND_EVENT_FN(OnEvent));
@@ -64,7 +64,7 @@ namespace Zamin {
         if (m_Specification.JobWorkers != 0 || std::getenv("ZAMIN_JOBS"))
             JobSystem::Init(m_Specification.JobWorkers > 0 ? (uint32_t)m_Specification.JobWorkers : 0u);
         else
-            ZM_CORE_INFO("Vazifalar tizimi o'chiq: hamma ish asosiy oqimda");
+            ZM_CORE_INFO("Job system off: all work on the main thread");
         // ZAMIN_CAPTURE_FPS=N: every frame is 1 / N s of game time (headless tests progress the same way on
         // every computer, frame-by-frame recordings).
         if (const char* capture = std::getenv("ZAMIN_CAPTURE_FPS"); capture && *capture)
@@ -72,7 +72,7 @@ namespace Zamin {
             const int fps = std::atoi(capture);
             Time::SetCaptureFrameRate(fps);
             if (Time::GetCaptureFrameRate() > 0)
-                ZM_CORE_INFO("O'yin vaqti qat'iy: har kadr 1/{} s (ZAMIN_CAPTURE_FPS)", Time::GetCaptureFrameRate());
+                ZM_CORE_INFO("Fixed game time: every frame is 1/{} s (ZAMIN_CAPTURE_FPS)", Time::GetCaptureFrameRate());
         }
 
 #if ZAMIN_WITH_IMGUI
@@ -167,7 +167,7 @@ namespace Zamin {
                 AudioEngine::SetGroupMuted(AudioSettings::Master, false);
             m_AudioPausedForBackground = m_MutedForBackground = false;
         }
-        ZM_CORE_INFO("O'yin {}", paused ? "to'xtatildi (pauza): oyna fokusda emas (fonda ishlash o'chirilgan)" : "davom etmoqda: oyna yana fokusda");
+        ZM_CORE_INFO("Game {}", paused ? "paused: the window is not focused (running in the background is off)" : "resumed: the window is focused again");
     }
 
     bool Application::IsFocusLossTestActive() const
@@ -220,14 +220,14 @@ namespace Zamin {
             m_Window->SetVSyncInterval(plan.VSyncInterval);
             if (m_TargetFrameRate > 0)
             {
-                const std::string monitor = m_RefreshRate > 0 ? std::format("{} Hz monitor", m_RefreshRate) : std::string("monitor chastotasi noma'lum");
+                const std::string monitor = m_RefreshRate > 0 ? std::format("{} Hz monitor", m_RefreshRate) : std::string("monitor refresh rate unknown");
                 if (plan.LimiterRate > 0)
-                    ZM_CORE_INFO("Kadr chastotasi: {} FPS - kutish bilan cheklanadi (VSync {}, {})", m_TargetFrameRate,
-                                 m_Window->IsVSync() ? "yoqiq" : "o'chiq", monitor);
+                    ZM_CORE_INFO("Frame rate: {} FPS - limited by waiting (VSync {}, {})", m_TargetFrameRate,
+                                 m_Window->IsVSync() ? "on" : "off", monitor);
                 else if (plan.VSyncInterval > 1)
-                    ZM_CORE_INFO("Kadr chastotasi: {} FPS - VSync har {} ta yangilanishda bir kadr ({})", m_TargetFrameRate, plan.VSyncInterval, monitor);
+                    ZM_CORE_INFO("Frame rate: {} FPS - VSync, one frame per {} refreshes ({})", m_TargetFrameRate, plan.VSyncInterval, monitor);
                 else
-                    ZM_CORE_INFO("Kadr chastotasi: {} FPS - VSync o'zi ushlab turadi ({})", m_TargetFrameRate, monitor);
+                    ZM_CORE_INFO("Frame rate: {} FPS - held by VSync itself ({})", m_TargetFrameRate, monitor);
             }
         }
         m_FramePacer.SetTargetFrameRate(plan.LimiterRate);
@@ -286,7 +286,7 @@ namespace Zamin {
             if (minimized != m_Minimized)
             {
                 m_Minimized = minimized;
-                ZM_CORE_INFO("{}", minimized ? "Oyna kichraytirildi: yangilash va chizish to'xtatildi" : "Oyna tiklandi: yangilash va chizish davom etmoqda");
+                ZM_CORE_INFO("{}", minimized ? "Window minimized: update and rendering paused" : "Window restored: update and rendering resumed");
             }
             if (m_Minimized)
             {
@@ -340,7 +340,7 @@ namespace Zamin {
             // Background loads: what the workers decoded goes onto the GPU (a few ms a frame).
             if (AsyncLoader::GetPendingCount() || AsyncLoader::GetPendingUploadCount())
             {
-                ZM_PROFILE_SCOPE("Fon yuklashlari");
+                ZM_PROFILE_SCOPE("Background loads");
                 AsyncLoader::Update(4.0);
             }
             // Snapshot keyboard / mouse / gamepads once per frame (JustPressed, actions, axes).
@@ -354,9 +354,9 @@ namespace Zamin {
             }
 
             {
-                ZM_PROFILE_SCOPE("Kadr");
+                ZM_PROFILE_SCOPE("Frame");
                 {
-                    ZM_PROFILE_SCOPE("Layer'lar (update)");
+                    ZM_PROFILE_SCOPE("Layers (update)");
                     for (Layer* layer : m_LayerStack)
                         layer->OnUpdate(timestep);
                 }
@@ -367,11 +367,11 @@ namespace Zamin {
                     ZM_PROFILE_SCOPE("UI (ImGui)");
                     m_ImGuiLayer->Begin();
                     {
-                        ZM_PROFILE_SCOPE("Layer'lar (UI)");
+                        ZM_PROFILE_SCOPE("Layers (UI)");
                         for (Layer* layer : m_LayerStack)
                             layer->OnImGuiRender();
                     }
-                    ZM_PROFILE_SCOPE("ImGui chizish");
+                    ZM_PROFILE_SCOPE("ImGui render");
                     m_ImGuiLayer->End();
                 }
 #endif
@@ -382,7 +382,7 @@ namespace Zamin {
             HandleAutomation();
             {
                 // Swapping the buffers (waits for vsync) and the window's events.
-                ZM_PROFILE_SCOPE("Oyna (swap, hodisalar)");
+                ZM_PROFILE_SCOPE("Window (swap, events)");
                 m_Window->OnUpdate();
             }
             if (m_FrameCount == 1)
@@ -421,7 +421,7 @@ namespace Zamin {
             const uint32_t w = m_Window->GetFramebufferWidth(), h = m_Window->GetFramebufferHeight();
             std::vector<uint8_t> pixels = RenderCommand::ReadDefaultFramebuffer(w, h);
             if (Image::WritePNG(path, w, h, 4, pixels.data(), true))
-                ZM_CORE_INFO("Screenshot saqlandi: {}", path);
+                ZM_CORE_INFO("Screenshot saved: {}", path);
         }
         static const char* maxFramesEnv = std::getenv("ZAMIN_MAX_FRAMES");
         if (!maxFramesEnv)
@@ -435,7 +435,7 @@ namespace Zamin {
             uint32_t w = m_Window->GetFramebufferWidth(), h = m_Window->GetFramebufferHeight();
             std::vector<uint8_t> pixels = RenderCommand::ReadDefaultFramebuffer(w, h);
             if (Image::WritePNG(shot, w, h, 4, pixels.data(), true))
-                ZM_CORE_INFO("Screenshot saqlandi: {}", shot);
+                ZM_CORE_INFO("Screenshot saved: {}", shot);
         }
         m_Running = false;
     }

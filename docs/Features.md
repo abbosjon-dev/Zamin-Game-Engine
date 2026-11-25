@@ -77,7 +77,7 @@ Batafsil: [Editor.md](Editor.md).
   Ichma-ich `ZM_PROFILE_SCOPE` bo'limlari daraxt bo'lib yig'iladi: Statistika panelida yoki Oyna > Profiler oynasida
   har bo'limning jami vaqti, o'z vaqti (ichki bo'limlarsiz), chaqiruvlar soni va kadrdagi ulushi; o'rtacha (silliqlangan)
   yoki oxirgi kadr, **Muzlatish** bilan bir kadrni ushlab ko'rish. Bir xil nomli bo'lim bir ota ostida bitta tugun,
-  boshqa ota ostida alohida. `Profiler::Find("Kadr/Layer'lar (update)/Sahna")`, `GetHotspots`, `FormatTree`;
+  boshqa ota ostida alohida. `Profiler::Find("Kadr/Layers (update)/Sahna")`, `GetHotspots`, `FormatTree`;
   `ZAMIN_EDITOR_STATS=1` / `ZAMIN_PLAYER_STATS=1` daraxtni logga ham yozadi
 - **Statistika overlay** (viewport ustida, faqat editor; toolbar'dagi spidometr tugmasi yoki Ko'rinish > Statistika
   overlay): FPS va kadr vaqti, so'nggi 240 kadr grafigi (maqsad FPS chiziqlari, ranglar: yashil - sig'di, sariq - ikki

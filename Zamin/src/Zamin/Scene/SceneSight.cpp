@@ -223,7 +223,7 @@ namespace Zamin {
         auto view = m_Registry.view<SightSensorComponent>();
         if (view.empty())
             return;
-        ZM_PROFILE_SCOPE("Ko'rish sensorlari");
+        ZM_PROFILE_SCOPE("Sight sensors");
         dt = std::isfinite(dt) ? std::max(0.0f, dt) : 0.0f;
         struct SightEvent
         {

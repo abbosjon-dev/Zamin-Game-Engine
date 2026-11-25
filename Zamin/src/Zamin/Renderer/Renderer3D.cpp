@@ -1679,7 +1679,7 @@ void main()
         // ---------------- shadow pass (cascades rendered into tiles of the atlas)
         if (shadows)
         {
-            ZM_PROFILE_SCOPE("Soyalar");
+            ZM_PROFILE_SCOPE("Shadows");
             // Resize recreates and unbinds the atlas FBO. Save the caller target first.
             RenderCommand::SaveRenderTarget();
             if (s_Data->ShadowMapSize != shadowSettings.AtlasSize)
@@ -1808,7 +1808,7 @@ void main()
         // ---------------- main pass
         if (!s_Data->Queue.empty())
         {
-          ZM_PROFILE_SCOPE("Asosiy o'tish (opaque)");
+          ZM_PROFILE_SCOPE("Main pass (opaque)");
           const LocalLightArrays localLights = PackLocalLights(env);
           const ExtraSunArrays extraSuns = PackExtraSuns(env);
           UploadFrameUniforms(env, viewProj, cascades, shadowSettings, skySettings, shadows, localLights, extraSuns, stats);
@@ -1889,7 +1889,7 @@ void main()
         // ---------------- sky (drawn behind everything, depth = far plane)
         if (env.DrawSky)
         {
-            ZM_PROFILE_SCOPE("Osmon");
+            ZM_PROFILE_SCOPE("Sky");
             RenderCommand::SetDepthWrite(false);
             auto& sky = s_Data->SkyShader;
             sky->Bind();
@@ -1938,7 +1938,7 @@ void main()
         // ---------------- transparent surfaces: over the opaque scene and the sky, by priority and
         // back to front (by the center of their bounds), depth tested but not written (what is
         // behind them stays visible). Output is premultiplied by alpha.
-        ZM_PROFILE_SCOPE("Shaffof sirtlar");
+        ZM_PROFILE_SCOPE("Transparent surfaces");
         std::vector<TransparentSortItem> sortItems;
         static std::vector<size_t> transparent;
         transparent.clear();

@@ -479,9 +479,9 @@ Har sahna yuklanishi bosqichlar bo'yicha o'lchanadi (`SceneLoadTiming`):
 Natija:
 
 - **konsolga** yoziladi:
-  `Sahna yuklash vaqti: Level1 (yagona): 12.40 ms, 97 obyekt - O'qish 0.10, JSON 0.84, ... Fizika 0.79, Skriptlar 0.17`;
+  `Scene load time: Level1 (yagona): 12.40 ms, 97 obyekt - O'qish 0.10, JSON 0.84, ... Fizika 0.79, Skriptlar 0.17`;
 - **profiler** daraxtida o'sha kadrning `Sahna yuklash` bo'limi ostida bosqichlar ko'rinadi (fonda yuklashda —
-  `Sahna yuklash (fon)` ostida `Obyektlar` va `Assetlar`);
+  `Scene load (background)` ostida `Obyektlar` va `Assetlar`);
 - editorning **Statistika** va **Profiler** oynalarida **"Sahna yuklash vaqti"** bo'limi: oxirgi yuklash rangli
   chiziq (bosqichlar ulushi, ustiga olib borilsa — bosqich nomi va vaqti), so'nggi 32 ta yuklash jadvali
   (bosilgani yuqorida batafsil), **Tozalash** va **Nusxa olish** tugmalari. Statistika overlay'ida oxirgi yuklash
@@ -495,7 +495,7 @@ SceneLoadTiming last;
 if (SceneLoadProfiler::GetLast(last))
     ZM_INFO("{} {:.1f} ms, eng sekini: {}", last.SceneName, last.TotalMilliseconds(),
             SceneLoadTiming::StageName(last.GetSlowestStage()));
-// Fonda yuklash: op->GetTiming() (asosiy oqim vaqti - MainThreadMilliseconds(), kadrlar - Frames)
+// Fonda yuklash: op->GetTiming() (main thread vaqti - MainThreadMilliseconds(), kadrlar - Frames)
 ```
 
 ---

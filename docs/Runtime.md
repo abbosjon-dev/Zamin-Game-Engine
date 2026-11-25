@@ -68,7 +68,7 @@ o'yin davomida boshqa sahnaga o'tib bo'lmasa yuqorida qizil polosa bir necha son
 Log boshida doim:
 
 ```
-Zamin Engine 0.1.0 (kommit 40a7394f2c, build 2026-11-07, Release, GCC 13.3.0) ishga tushmoqda (Zamin Player)
+Zamin Engine 0.1.0 (kommit 40a7394f2c, build 2026-11-07, Release, GCC 13.3.0) is starting (Zamin Player)
 Log fayli: /home/ali/.local/share/Zamin Studio/Zamin Platformer/logs/player-2026-11-07_14-03-12.log
 Oyna sozlamalari: 1600x900 (saqlangan), oynali (loyiha), VSync: ha (loyiha), FPS: cheklovsiz (loyiha), monitor: asosiy (loyiha), splash: ha (loyiha)
 Zamin Platformer 0.4.0 (Zamin Studio)
@@ -198,7 +198,7 @@ O'yin qulasa (SIGSEGV, SIGABRT, SIGFPE, SIGILL, SIGBUS yoki ushlanmagan C++ isti
 `crash-<sana_vaqt>.txt` yoziladi:
 
 ```
-=== Zamin crash hisoboti ===
+=== Zamin crash report ===
 Dastur: Zamin Player
 O'yin: Zamin Platformer 0.4.0
 Dvigatel: Zamin Engine 0.1.0 (kommit 40a7394f2c, build 2026-11-07, Release, GCC 13.3.0)

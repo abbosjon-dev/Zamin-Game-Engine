@@ -335,7 +335,7 @@ tanlash uchun hamma qator); qolgan kadr vaqti llvmpipe'ning viewport chizishi. O
 
 Yangi o'lchov: `StartupTimer` har dasturda dvigatel kutubxonasi yuklangandan birinchi kadr ekranga chiqquncha vaqtni
 logga yozadi (`Ishga tushish: birinchi kadr 670 ms (dvigatel 182, layer'lar 88, birinchi kadr 422 ms; jarayon boshidan
-~680 ms), RAM ...`), editorning Statistika panelida ham ko'rinadi; `ZAMIN_STARTUP_PROFILE=1` ishga tushish va birinchi
+~680 ms), RAM ...`), editorning Statistics panelda ham ko'rinadi; `ZAMIN_STARTUP_PROFILE=1` ishga tushish va birinchi
 kadrning profiler daraxtini chiqaradi. `Tests/startup_bench.py` editor va player'ni bir kadr bilan 5 marta ochadi
 (oldin bir marta isitadi: shader / shrift keshlari) va medianani beradi; "jarayon" - tashqaridan o'lchangan exec ->
 chiqish vaqti (yopilish ham ichida), uni har qanday build beradi, shuning uchun "oldin" (`14e8435`, 488-494 dan

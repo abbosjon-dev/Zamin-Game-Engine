@@ -116,7 +116,7 @@ namespace Zamin {
         if (options.Directory.empty())
         {
             if (error)
-                *error = "log papkasi ko'rsatilmagan";
+                *error = "no log folder given";
             return false;
         }
         // This run's file (a second run in the same second gets "_2" ... after the name).

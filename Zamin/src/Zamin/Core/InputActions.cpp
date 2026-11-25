@@ -224,7 +224,7 @@ namespace Zamin {
         switch (b.Source)
         {
             case InputSource::Key:           return KeyToString((Key)b.Code);
-            case InputSource::Mouse:         return std::format("Sichqoncha {}", MouseButtonToString((MouseButton)b.Code));
+            case InputSource::Mouse:         return std::format("Mouse {}", MouseButtonToString((MouseButton)b.Code));
             case InputSource::GamepadButton: return std::format("Gamepad {}", GamepadButtonToString((GamepadButton)b.Code));
             case InputSource::GamepadAxis:   return std::format("Gamepad {} {}", GamepadAxisToString((GamepadAxis)b.Code), b.Direction < 0 ? '-' : '+');
         }

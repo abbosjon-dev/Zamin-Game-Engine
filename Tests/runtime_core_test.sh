@@ -29,5 +29,5 @@ env HOME="$work/home" LD_LIBRARY_PATH="$(dirname "$library"):${LD_LIBRARY_PATH:-
 if grep -E 'Assertion|ASSERT|GL_INVALID|GL_OUT_OF_MEMORY|terminate called|Segmentation fault' "$work/player.log"; then
     exit 1
 fi
-grep -E 'Sahna yuklash vaqti: MapWorkshop \(boshlanish\):.*[1-9][0-9]* obyekt' "$work/player.log" || { cat "$work/player.log"; exit 1; }
+grep -E 'Scene load time: MapWorkshop \(start\):.*[1-9][0-9]* objects' "$work/player.log" || { cat "$work/player.log"; exit 1; }
 echo 'UI-free runtime: no editor service/ImGui symbols; saved terrain map loaded and played'

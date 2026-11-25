@@ -123,13 +123,13 @@ namespace Zamin {
     {
         switch (category)
         {
-            case MemoryCategory::Textures: return "Teksturalar";
-            case MemoryCategory::RenderTargets: return "Render buferlari";
-            case MemoryCategory::Meshes: return "GPU buferlari";
+            case MemoryCategory::Textures: return "Textures";
+            case MemoryCategory::RenderTargets: return "Render buffers";
+            case MemoryCategory::Meshes: return "GPU buffers";
             case MemoryCategory::Audio: return "Audio";
-            case MemoryCategory::Scenes: return "Sahnalar";
-            case MemoryCategory::Particles: return "Particle'lar";
-            case MemoryCategory::Animation: return "Animatsiya keshi";
+            case MemoryCategory::Scenes: return "Scenes";
+            case MemoryCategory::Particles: return "Particles";
+            case MemoryCategory::Animation: return "Animation cache";
             default: return "?";
         }
     }
@@ -139,19 +139,19 @@ namespace Zamin {
         switch (category)
         {
             case MemoryCategory::Textures:
-                return "GPU'dagi teksturalar (rasmlar, shrift atlaslari, sprite'lar): eni x bo'yi x piksel hajmi, mipmap'lari bilan";
+                return "Textures on the GPU (images, font atlases, sprites): width x height x pixel size, with mipmaps";
             case MemoryCategory::RenderTargets:
-                return "Framebuffer'lar (viewport, post-process, soyalar, kamera tasvirlari): rang va chuqurlik qatlamlari, MSAA bilan";
+                return "Framebuffers (viewport, post-process, shadows, camera images): color and depth attachments, with MSAA";
             case MemoryCategory::Meshes:
-                return "Vertex va indeks buferlari: meshlar, modellar, 2D partiyalar, particle instance buferlari";
+                return "Vertex and index buffers: meshes, models, 2D batches, particle instance buffers";
             case MemoryCategory::Audio:
-                return "Xotiraga ochilgan (decode qilingan) ovoz fayllari - oqim (stream) bilan o'qiladiganlar kirmaydi";
+                return "Sound files decoded into memory - streamed ones are not counted";
             case MemoryCategory::Scenes:
-                return "Ochiq sahnalarning komponent ma'lumotlari (taxminiy: komponentlar hajmi, skelet pozalari)";
+                return "Component data of the open scenes (estimate: component sizes, skeleton poses)";
             case MemoryCategory::Particles:
-                return "Particle tizimlarining zarrachalari, izlari va hodisalari";
+                return "Particles, trails and events of the particle systems";
             case MemoryCategory::Animation:
-                return "Animator'larning poza keshi (CachePoses: kliplar oldindan hisoblangan pozalar)";
+                return "Pose cache of the Animators (CachePoses: poses precomputed from clips)";
             default:
                 return "";
         }

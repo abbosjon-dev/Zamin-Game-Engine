@@ -243,7 +243,7 @@ namespace Zamin {
 
     void Scene::UpdateParticles(Timestep ts, bool editor)
     {
-        ZM_PROFILE_SCOPE("Particle'lar");
+        ZM_PROFILE_SCOPE("Particles");
         std::vector<entt::entity> finished;
         std::optional<glm::vec3> viewer;
         bool viewerFound = false;
@@ -346,7 +346,7 @@ namespace Zamin {
         // The simulation itself (on a worker for the independent systems).
         auto simulate = [ts, editor](ParticleSystemComponent& ps, const glm::mat4& world, const ParticleEnvironment& environment) {
             {
-                ZM_PROFILE_SCOPE("Particle simulyatsiyasi");
+                ZM_PROFILE_SCOPE("Particle simulation");
                 if (ParticleSimulation::Update(ps, world, ts, editor, &environment))
                     ps.FinishPending = true;
             }
@@ -412,7 +412,7 @@ namespace Zamin {
             simulate(ps, world, environment);
             if (ps.SubEmitters.Enabled && !ps.Paused)
             {
-                ZM_PROFILE_SCOPE("Sub-emitterlar");
+                ZM_PROFILE_SCOPE("Sub-emitters");
                 RunSubEmitters(*this, entity, ps, world, environment, ts * std::max(0.0f, ps.SimulationSpeed), editor);
             }
             ps.Events.clear();
@@ -642,7 +642,7 @@ namespace Zamin {
     {
         if (!ps.RendererEnabled)
             return;
-        ZM_PROFILE_SCOPE("Particle chizish");
+        ZM_PROFILE_SCOPE("Particle draw");
         // What came before is drawn with depth writes; the particles without them.
         Renderer2D::Flush();
         if (ps.Additive) Renderer2D::SetBlendMode(BlendMode::Additive);
@@ -660,7 +660,7 @@ namespace Zamin {
         // The order they are drawn in: alpha-blended ones back to front (Sorting).
         static thread_local std::vector<uint32_t> order;
         {
-            ZM_PROFILE_SCOPE("Particle saralash");
+            ZM_PROFILE_SCOPE("Particle sort");
             ParticleSimulation::GetDrawOrder(ps, world ? nullptr : &space, viewer, -glm::vec3(billboard[2]), perspective, order);
         }
         const size_t count = ps.Particles.size();

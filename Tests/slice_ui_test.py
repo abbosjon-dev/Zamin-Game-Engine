@@ -12,7 +12,7 @@ open panel and every widget of it reachable by navigation, nothing off-anchor in
   U1  keyboard tour: main menu -> settings (music slider, the UI scale slider to 120 %, back: SLICE_SETTINGS ui=1.20)
       -> credits -> new game -> the HUD -> pause -> inventory -> back -> back; screens audited at 120 % from the settings on
   U2  a fresh process with the same HOME (the 120 % setting re-applied at start), then the gamepad tour of the same tree
-      (D-pad, A, B, Start; the UI scale back to 80 %: ui=0.80; "Kiritish qurilmasi: gamepad"), and a mouse run that
+      (D-pad, A, B, Start; the UI scale back to 80 %: ui=0.80; "Input device: gamepad"), and a mouse run that
       clicks two menu buttons where the audit says they are
   U3  seeded fuzz: --fuzz-frames of random Up/Down/Left/Right/Submit/Back/Pause/Inventory on the keyboard, then on the
       gamepad (a quit from the menu starts the next segment in a fresh process): no error, at most 8 panels open, the
@@ -178,7 +178,7 @@ def main():
                 # The same HOME: the 120 % setting comes back at start; then the gamepad tour sets 80 %.
                 tape, frames = gamepad_tour(game)
                 text, audits, seconds, png = run("U2-gamepad", homes["keys"], frames, tape)
-                need("U2", text, ["Menyu: Asosiy davom=", "Kiritish qurilmasi: gamepad", "Menyu: Sozlamalar", "ui=0.80", "Menyu: Mualliflar",
+                need("U2", text, ["Menyu: Asosiy davom=", "Input device: gamepad", "Menyu: Sozlamalar", "ui=0.80", "Menyu: Mualliflar",
                                   "Menyu: Yangi o'yin", "SLICE_LEVEL_START lvl=1 entry=new"])
                 first = next((a for a in audits if a["Scene"] == "Menu"), None)
                 if not first or abs(first["UIScale"] - 1.2) > 1e-3:

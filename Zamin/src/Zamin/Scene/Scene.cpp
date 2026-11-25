@@ -4519,7 +4519,7 @@ namespace Zamin {
     {
         m_Physics2DStepsLastFrame = 0;
         if (!m_PhysicsWorld && !m_PhysicsWorld3D) return;
-        ZM_PROFILE_SCOPE("Fizika");
+        ZM_PROFILE_SCOPE("Physics");
         // The settings may change while the game runs (the editor's scene settings, scripts).
         m_Settings.PhysicsStep.Sanitize();
         m_Settings.Physics2D.Sanitize();
@@ -4646,7 +4646,7 @@ namespace Zamin {
                     m_PhysicsWorld3D->Step(fixedStep);
                     CheckJointBreaks3D(fixedStep);
                 }
-                ZM_PROFILE_SCOPE("Personajlar (3D)");
+                ZM_PROFILE_SCOPE("Characters (3D)");
                 StepCharacters(fixedStep);
             }
             m_PhysicsAccumulator -= fixedStep;
@@ -5141,7 +5141,7 @@ namespace Zamin {
     // ------------------------------------------------------------------ update
     void Scene::UpdatePausedScripts()
     {
-        ZM_PROFILE_SCOPE("Skriptlar");
+        ZM_PROFILE_SCOPE("Scripts");
         ApplyActiveChanges();
         std::vector<entt::entity> scripted;
         auto collectScripted = [&]() {
@@ -5290,7 +5290,7 @@ namespace Zamin {
             ApplyActiveChanges();
 
             {
-                ZM_PROFILE_SCOPE("Skriptlar");
+                ZM_PROFILE_SCOPE("Scripts");
                 if (m_ScriptsRunning)
                 {
                     // Enabled flags written straight into the component (inspector, other
@@ -5337,7 +5337,7 @@ namespace Zamin {
             UpdateAnimationPlayers(ts, false);
 
             {
-                ZM_PROFILE_SCOPE("Skriptlar");
+                ZM_PROFILE_SCOPE("Scripts");
                 for (auto e : scripted)
                     if (auto* inst = active(e))
                         inst->OnLateUpdate(ts);
@@ -5555,7 +5555,7 @@ namespace Zamin {
                 : TextureLibrary::LoadAsync(Project::GetAssetFileSystemPath(sprite->TexturePath), sprite->PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
         if (auto* mr = entity.TryGetComponent<MeshRendererComponent>())
         {
-            ZM_PROFILE_SCOPE("Mesh va materiallar");
+            ZM_PROFILE_SCOPE("Meshes and materials");
             ResolveMeshRenderer(*mr);
         }
         if (auto* tm = entity.TryGetComponent<TilemapComponent>())
@@ -5563,7 +5563,7 @@ namespace Zamin {
                 : TextureLibrary::LoadAsync(Project::GetAssetFileSystemPath(tm->TilesetPath), tm->PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
         if (auto* text = entity.TryGetComponent<TextComponent>())
         {
-            ZM_PROFILE_SCOPE("Shriftlar");
+            ZM_PROFILE_SCOPE("Fonts");
             text->FontAsset = text->FontPath.empty() ? Font::GetDefault() : Font::Load(Project::GetAssetFileSystemPath(text->FontPath));
         }
         if (auto* image = entity.TryGetComponent<UIImageComponent>())
@@ -5923,7 +5923,7 @@ namespace Zamin {
                 }
             };
 
-            ZM_PROFILE_SCOPE("Pozalar");
+            ZM_PROFILE_SCOPE("Poses");
             if (fading)
             {
                 samplePose(previous, scratch.Base);
@@ -5991,7 +5991,7 @@ namespace Zamin {
 
     void Scene::UpdateAnimators(Timestep ts, bool editor)
     {
-        ZM_PROFILE_SCOPE("Animatsiya");
+        ZM_PROFILE_SCOPE("Animation");
         const Stopwatch watch;
         m_AnimationStats = {};
         // A view was drawn since the last update: what it did not see is off screen.
@@ -6519,7 +6519,7 @@ namespace Zamin {
         }
         if (frame.TaskCount > 0)
         {
-            ZM_PROFILE_SCOPE("Pozalar (parallel)");
+            ZM_PROFILE_SCOPE("Poses (parallel)");
             std::vector<AnimatorPoseTask>& tasks = frame.Tasks;
             JobSystem::ParallelFor((uint32_t)frame.TaskCount, 1, [&tasks](uint32_t begin, uint32_t end) {
                 AnimatorScratch& own = ThreadScratch(); // the worker's
@@ -6800,7 +6800,7 @@ namespace Zamin {
     {
         if (m_Registry.view<AnimationPlayerComponent>().empty())
             return;
-        ZM_PROFILE_SCOPE("Animatsiya");
+        ZM_PROFILE_SCOPE("Animation");
         std::vector<ClipSpan> spans;
         std::vector<size_t> hit;
         std::vector<PendingAnimationEvent> fired;
@@ -8021,7 +8021,7 @@ namespace Zamin {
         }
 
         // ---------------- 2D (sorted back-to-front for correct blending)
-        ZM_PROFILE_SCOPE("2D va UI");
+        ZM_PROFILE_SCOPE("2D and UI");
         using Item2D = RenderItem2D;
         std::vector<Item2D>& items = m_RenderItems2D;
         items.clear();

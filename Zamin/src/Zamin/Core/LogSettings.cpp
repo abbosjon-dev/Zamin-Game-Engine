@@ -24,7 +24,7 @@ namespace Zamin {
 
     std::string LogLevelSettings::Describe() const
     {
-        return std::format("dvigatel: {}, o'yin: {}, fayl: {}", Log::LevelDisplayName(Engine), Log::LevelDisplayName(App), Log::LevelDisplayName(File));
+        return std::format("engine: {}, game: {}, file: {}", Log::LevelDisplayName(Engine), Log::LevelDisplayName(App), Log::LevelDisplayName(File));
     }
 
     std::string LogLevelSettings::ToSpec() const
@@ -68,7 +68,7 @@ namespace Zamin {
         LogLevelOverride result = out;
         const std::vector<std::string_view> entries = StringUtils::SplitAnyView(spec, ",; \t", StringUtils::SplitFlags::SkipEmpty);
         if (entries.empty())
-            return fail("log darajasi ko'rsatilmagan (masalan: warn yoki engine=warn,app=info,file=error)");
+            return fail("no log level given (for example: warn or engine=warn,app=info,file=error)");
         for (std::string_view entry : entries)
         {
             std::string_view key = "all", value = entry;
@@ -80,7 +80,7 @@ namespace Zamin {
             }
             const std::optional<LogLevel> level = Log::ParseLevel(value);
             if (!level)
-                return fail(std::format("'{}': noma'lum log darajasi (trace, info, warn, error, critical, off)", value));
+                return fail(std::format("'{}': unknown log level (trace, info, warn, error, critical, off)", value));
             if (StringUtils::EqualsIgnoreCase(key, "all") || key == "*")
                 result.Engine = result.App = *level;
             else if (StringUtils::EqualsIgnoreCase(key, "engine") || StringUtils::EqualsIgnoreCase(key, "zamin") ||
@@ -92,7 +92,7 @@ namespace Zamin {
             else if (StringUtils::EqualsIgnoreCase(key, "file") || StringUtils::EqualsIgnoreCase(key, "fayl"))
                 result.File = *level;
             else
-                return fail(std::format("'{}': noma'lum logger (engine, app, file yoki all)", key));
+                return fail(std::format("'{}': unknown logger (engine, app, file or all)", key));
         }
         out = result;
         return true;
@@ -107,7 +107,7 @@ namespace Zamin {
         std::string error;
         if (!Parse(text, result, &error))
         {
-            ZM_CORE_WARN("ZAMIN_LOG_LEVEL={}: {} - e'tiborsiz qoldirildi", text, error);
+            ZM_CORE_WARN("ZAMIN_LOG_LEVEL={}: {} - ignored", text, error);
             return {};
         }
         return result;

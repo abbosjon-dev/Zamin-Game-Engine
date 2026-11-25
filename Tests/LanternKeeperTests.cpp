@@ -228,7 +228,7 @@ namespace {
     // stuck: whether a stuck pilot is an error (the lose plan walks to the locked gate without the chief's key).
     bool Clean(const std::string& log, bool stuck = true)
     {
-        for (auto bad : { "SLICE_CONFIG_FAILED", "SLICE_IO_FAILED", "SLICE_BOT_STUCK", "SLICE_ORACLE_FAILED", "Visual graph '", "Instruction budget", "nomli harakat topilmadi" })
+        for (auto bad : { "SLICE_CONFIG_FAILED", "SLICE_IO_FAILED", "SLICE_BOT_STUCK", "SLICE_ORACLE_FAILED", "Visual graph '", "Instruction budget", "is not a known action" })
             if ((stuck || std::string(bad) != "SLICE_BOT_STUCK") && log.find(bad) != std::string::npos) return false;
         return true;
     }
@@ -389,7 +389,7 @@ namespace {
     // Only the markers a run on broken files is allowed to show (an unreadable save says so, never crashes).
     bool CleanIO(const std::string& log)
     {
-        for (auto bad : { "SLICE_CONFIG_FAILED", "SLICE_ORACLE_FAILED", "Visual graph '", "Instruction budget", "nomli harakat topilmadi", "SLICE_IO_FAILED autosave" })
+        for (auto bad : { "SLICE_CONFIG_FAILED", "SLICE_ORACLE_FAILED", "Visual graph '", "Instruction budget", "is not a known action", "SLICE_IO_FAILED autosave" })
             if (log.find(bad) != std::string::npos) return false;
         return true;
     }

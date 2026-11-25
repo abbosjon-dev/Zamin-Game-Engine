@@ -125,7 +125,7 @@ namespace {
 
     bool BadMessage(const std::string& text)
     {
-        for (auto bad : { "Visual graph '", "Instruction budget", "SLICE_CONFIG_FAILED", "nomli harakat topilmadi" })
+        for (auto bad : { "Visual graph '", "Instruction budget", "SLICE_CONFIG_FAILED", "is not a known action" })
             if (text.find(bad) != std::string::npos)
                 return true;
         return false;

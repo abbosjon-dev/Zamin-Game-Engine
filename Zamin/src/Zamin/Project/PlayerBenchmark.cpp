@@ -38,14 +38,14 @@ namespace Zamin {
         for (size_t i = 0; i < frame.size(); i++)
         {
             const Profiler::Entry& layer = frame[i];
-            if (layer.Depth != 1 || layer.Parent < 0 || std::string_view(frame[(size_t)layer.Parent].Name) != "Kadr" ||
-                std::string_view(layer.Name) != "Layer'lar (update)")
+            if (layer.Depth != 1 || layer.Parent < 0 || std::string_view(frame[(size_t)layer.Parent].Name) != "Frame" ||
+                std::string_view(layer.Name) != "Layers (update)")
                 continue;
             double ms = layer.Milliseconds;
             for (int child = (int)i + 1; child < layer.End && child < (int)frame.size(); child++)
             {
                 const Profiler::Entry& e = frame[(size_t)child];
-                if (e.Parent == (int)i && (std::string_view(e.Name) == "Sahnalar (chizish)" || std::string_view(e.Name) == "Post-processing"))
+                if (e.Parent == (int)i && (std::string_view(e.Name) == "Scenes (render)" || std::string_view(e.Name) == "Post-processing"))
                     ms -= e.Milliseconds;
             }
             return std::max(0.0, ms);

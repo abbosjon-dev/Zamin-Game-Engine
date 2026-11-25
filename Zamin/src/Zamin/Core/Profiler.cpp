@@ -197,7 +197,7 @@ namespace Zamin {
     float Profiler::GetLastFrameTotal()
     {
         for (const auto& e : s_Last)
-            if (e.Parent < 0 && std::strcmp(e.Name, "Kadr") == 0) return e.Milliseconds;
+            if (e.Parent < 0 && std::strcmp(e.Name, "Frame") == 0) return e.Milliseconds;
         return 0.0f;
     }
 
@@ -273,7 +273,7 @@ namespace Zamin {
             {
                 out += " (";
                 if (children)
-                    out += std::format("o'zi {:.2f} ms", e.GetSelfMilliseconds());
+                    out += std::format("self {:.2f} ms", e.GetSelfMilliseconds());
                 if (e.Calls > 1)
                     out += std::format("{}{}x", children ? ", " : "", e.Calls);
                 out += ")";
@@ -396,8 +396,8 @@ namespace Zamin {
     std::string FrameTimeStats::Format() const
     {
         if (Count == 0)
-            return "kadr yo'q";
-        return std::format("o'rtacha {:.2f} ms ({:.1f} FPS), mediana {:.2f}, p95 {:.2f}, p99 {:.2f}, min {:.2f}, max {:.2f} ms", Average, AverageFPS,
+            return "no frames";
+        return std::format("average {:.2f} ms ({:.1f} FPS), median {:.2f}, p95 {:.2f}, p99 {:.2f}, min {:.2f}, max {:.2f} ms", Average, AverageFPS,
                            Median, P95, P99, Min, Max);
     }
 

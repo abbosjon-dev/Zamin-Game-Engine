@@ -327,7 +327,7 @@ namespace Zamin {
         auto view = m_Registry.view<FormationComponent>();
         if (view.empty() || !(dt >= 0.0f))
             return;
-        ZM_PROFILE_SCOPE("Formatsiyalar");
+        ZM_PROFILE_SCOPE("Formations");
         std::vector<glm::vec3> slots;
         std::vector<int> slotToMember;
         const float reassignCos = std::cos(glm::radians(ReassignAngle));

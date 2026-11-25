@@ -124,14 +124,14 @@ namespace Zamin {
         {
             static std::unordered_set<std::string> s_Reported;
             if (s_Reported.emplace(name).second)
-                ZM_CORE_WARN("Input: '{}' nomli {} topilmadi (Loyiha sozlamalari > Input)", name, kind);
+                ZM_CORE_WARN("Input: '{}' is not a known {} (Project settings > Input)", name, kind);
         }
 
         const InputAction* LookupAction(std::string_view name)
         {
             const InputAction* action = Project::GetInputActionMap().FindAction(name);
             if (!action)
-                WarnUnknown("harakat", name);
+                WarnUnknown("action", name);
             return action;
         }
 
@@ -139,7 +139,7 @@ namespace Zamin {
         {
             const InputAxis* axis = Project::GetInputActionMap().FindAxis(name);
             if (!axis)
-                WarnUnknown("o'q", name);
+                WarnUnknown("axis", name);
             return axis;
         }
 
@@ -372,7 +372,7 @@ namespace Zamin {
         const InputVector* v = Project::GetInputActionMap().FindVector(vector);
         if (!v)
         {
-            WarnUnknown("vektor", vector);
+            WarnUnknown("vector", vector);
             return glm::vec2(0.0f);
         }
         return GetVector(*v);
@@ -443,7 +443,7 @@ namespace Zamin {
         {
             s_ActiveDevice = device;
             s_ActiveDeviceVersion++;
-            ZM_CORE_INFO("Kiritish qurilmasi: {}", device == InputDevice::Gamepad ? "gamepad" : "klaviatura va sichqoncha");
+            ZM_CORE_INFO("Input device: {}", device == InputDevice::Gamepad ? "gamepad" : "keyboard and mouse");
         }
     }
 

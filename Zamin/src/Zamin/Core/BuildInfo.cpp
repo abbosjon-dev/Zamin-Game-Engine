@@ -21,7 +21,7 @@ namespace Zamin {
 #elif defined(_MSC_VER)
             return std::format("MSVC {}", _MSC_VER);
 #else
-            return "noma'lum kompilyator";
+            return "unknown compiler";
 #endif
         }
 
@@ -60,7 +60,7 @@ namespace Zamin {
             if (!part.empty())
                 details += (details.empty() ? "" : ", ") + part;
         };
-        add(Commit.empty() ? std::string() : "kommit " + GetCommitText());
+        add(Commit.empty() ? std::string() : "commit " + GetCommitText());
         add(BuildDate.empty() ? std::string() : "build " + BuildDate);
         add(BuildType + (Shipping ? " Shipping" : ""));
         add(Compiler);
@@ -100,10 +100,10 @@ namespace Zamin {
             text += program + "\n";
         text += std::format("Zamin Engine {}{}\n", Engine.EngineVersion, Engine.Shipping ? " (Shipping)" : "");
         if (!Engine.Commit.empty())
-            text += std::format("  Kommit:  {}{}{}\n", Engine.Commit, Engine.CommitDate.empty() ? std::string() : " (" + Engine.CommitDate + ")",
-                                Engine.Dirty ? "  [o'zgarishlar bilan]" : "");
+            text += std::format("  Commit:  {}{}{}\n", Engine.Commit, Engine.CommitDate.empty() ? std::string() : " (" + Engine.CommitDate + ")",
+                                Engine.Dirty ? "  [with uncommitted changes]" : "");
         else
-            text += "  Kommit:  noma'lum (git'siz build)\n";
+            text += "  Commit:  unknown (built without git)\n";
         std::string build = Engine.BuildDate;
         for (const std::string& part : { Engine.BuildType, Engine.Compiler })
             if (!part.empty())

@@ -89,7 +89,7 @@ namespace Zamin {
         // The milliseconds since the last Lap (or the start), without starting a new one.
         double GetCurrentLapMilliseconds() const { return std::chrono::duration<double, std::milli>(Elapsed() - m_LapMark).count(); }
 
-        // The elapsed time for people: "0.42 ms", "850 ms", "12.4 s", "3 daq 05 s" (StringUtils::FormatDuration).
+        // The elapsed time for people: "0.42 ms", "850 ms", "12.4 s", "3 min 05 s" (StringUtils::FormatDuration).
         std::string Format() const;
 
     private:

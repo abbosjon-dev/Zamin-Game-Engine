@@ -69,9 +69,9 @@ namespace Zamin {
         {
             static const std::array<std::string, JobSystem::MaxWorkers + 1> names = [] {
                 std::array<std::string, JobSystem::MaxWorkers + 1> n;
-                n[0] = "Asosiy oqim";
+                n[0] = "Main thread";
                 for (uint32_t i = 1; i <= JobSystem::MaxWorkers; i++)
-                    n[i] = std::format("Ishchi {}", i);
+                    n[i] = std::format("Worker {}", i);
                 return n;
             }();
             return names[std::min<size_t>(index, JobSystem::MaxWorkers)].c_str();
@@ -128,11 +128,11 @@ namespace Zamin {
             }
             catch (const std::exception& e)
             {
-                ZM_CORE_ERROR("Vazifa (job) xato bilan to'xtadi: {}", e.what());
+                ZM_CORE_ERROR("A job stopped with an error: {}", e.what());
             }
             catch (...)
             {
-                ZM_CORE_ERROR("Vazifa (job) noma'lum xato bilan to'xtadi");
+                ZM_CORE_ERROR("A job stopped with an unknown error");
             }
         }
 
@@ -178,7 +178,7 @@ namespace Zamin {
         {
             t_ThreadIndex = index;
 #if defined(__linux__)
-            const std::string name = std::format("zamin-ishchi-{}", index); // at most 15 characters
+            const std::string name = std::format("zamin-worker-{}", index); // at most 15 characters
             pthread_setname_np(pthread_self(), name.c_str());
 #endif
             for (;;)
@@ -281,7 +281,7 @@ namespace Zamin {
         workers = std::min(workers, MaxWorkers);
         if (workers == 0)
         {
-            ZM_CORE_INFO("Vazifalar tizimi o'chiq (ZAMIN_JOBS=0): hamma ish asosiy oqimda");
+            ZM_CORE_INFO("Job system off (ZAMIN_JOBS=0): all work on the main thread");
             return;
         }
         {
@@ -294,7 +294,7 @@ namespace Zamin {
             s_Threads.emplace_back(WorkerMain, i);
         s_Running.store(true);
         s_FrameStart = Snapshot();
-        ZM_CORE_INFO("Vazifalar tizimi: {} ishchi oqim", workers);
+        ZM_CORE_INFO("Job system: {} worker threads", workers);
     }
 
     void JobSystem::Shutdown()

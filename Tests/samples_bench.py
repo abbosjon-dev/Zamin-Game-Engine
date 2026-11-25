@@ -54,9 +54,9 @@ def last_match(pattern, text):
     return found[-1] if found else None
 
 
-# The parts of a frame that are the game's own work on the CPU (the profiler's entries under "Layer'lar (update)"):
+# The parts of a frame that are the game's own work on the CPU (the profiler's entries under "Layers (update)"):
 # everything else of a frame is drawing - on llvmpipe the rasterizer's work, on a GPU the driver's.
-GAME_CPU = ("Skriptlar", "Fizika", "Particle'lar", "Animatsiya", "Audio", "AI", "Navigatsiya", "UI")
+GAME_CPU = ("Scripts", "Physics", "Particles", "Animation", "Audio", "AI", "Navigation", "UI")
 
 
 def profile_entries(text):

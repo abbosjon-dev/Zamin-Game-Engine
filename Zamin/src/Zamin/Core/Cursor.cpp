@@ -155,7 +155,7 @@ namespace Zamin {
         std::string reason;
         if (!Image::Load(path.string(), data, 4, false, &reason))
         {
-            ZM_CORE_WARN("Kursor rasmi o'qilmadi ({}): {}", file.generic_string(), reason);
+            ZM_CORE_WARN("Cursor image could not be read ({}): {}", file.generic_string(), reason);
             if (error)
                 *error = reason;
             return false;
@@ -167,7 +167,7 @@ namespace Zamin {
         image.HotspotX = hotspot.x;
         image.HotspotY = hotspot.y;
         if (image.Width > 256 || image.Height > 256)
-            ZM_CORE_WARN("Kursor rasmi katta ({}x{}): ba'zi tizimlar uni ko'rsatmaydi (32-64 px tavsiya etiladi)", image.Width, image.Height);
+            ZM_CORE_WARN("The cursor image is large ({}x{}): some systems do not show it (32-64 px is recommended)", image.Width, image.Height);
         return SetImage(image);
     }
 

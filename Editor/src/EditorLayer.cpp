@@ -1752,7 +1752,7 @@ namespace Zamin {
 
         uint64_t scenesDrawn = Renderer3D::GetEndSceneCount();
         {
-            ZM_PROFILE_SCOPE("Sahna");
+            ZM_PROFILE_SCOPE("Scene");
             switch (m_SceneState)
             {
                 case SceneState::Edit:
@@ -1810,7 +1810,7 @@ namespace Zamin {
         int mouseX = (int)std::floor(mousePixel.x), mouseY = (int)std::floor(viewportSize.y - mousePixel.y);
         if (mousePixel.x >= 0.0f && mousePixel.y >= 0.0f && mouseX < (int)viewportSize.x && mouseY >= 0 && mouseY < (int)viewportSize.y)
         {
-            ZM_PROFILE_SCOPE("ID o'qish (sichqoncha)");
+            ZM_PROFILE_SCOPE("ID readback (mouse)");
             glm::ivec2 render = ViewportToRenderPixel({ mouseX, mouseY });
             int pixel = m_Framebuffer->ReadPixel(1, render.x, render.y);
             m_HoveredEntity = pixel == -1 ? Entity() : Entity((entt::entity)pixel, m_ActiveScene.get());
@@ -1876,7 +1876,7 @@ namespace Zamin {
         RenderSelectionOutline();
         RenderDebugDraw();
         {
-            ZM_PROFILE_SCOPE("Editor overlay (gizmolar)");
+            ZM_PROFILE_SCOPE("Editor overlay (gizmos)");
             OnOverlayRender();
         }
         // A fade between the game's scenes covers the game view (the editor's overlays too).
@@ -4564,7 +4564,7 @@ namespace Zamin {
         SaveAssetRegistryCache(true);
         DiscardSessionAutosave(); // the previous project's scene is left
         m_PrefabDatabase.Clear(); // the previous project's prefabs
-        ZM_PROFILE_SCOPE("Loyihani ochish");
+        ZM_PROFILE_SCOPE("Open project");
         bool loaded = false;
         {
             ZM_PROFILE_SCOPE("Project::Load");
@@ -4581,7 +4581,7 @@ namespace Zamin {
         AddRecentProject(projectFile);
         m_ShowLauncher = false;
         {
-            ZM_PROFILE_SCOPE("Asset registry + kuzatuvchi");
+            ZM_PROFILE_SCOPE("Asset registry + watcher");
             StartAssetWatcher(); // the asset registry first (missing .zmeta files are written), then the watcher
         }
 
@@ -4589,7 +4589,7 @@ namespace Zamin {
         fs::path module = Project::GetScriptModulePath();
         if (!module.empty())
         {
-            ZM_PROFILE_SCOPE("Skript moduli");
+            ZM_PROFILE_SCOPE("Script module");
             if (fs::exists(module))
                 ScriptEngine::LoadModule(module);
             else if (fs::exists(Project::GetProjectDirectory() / "CMakeLists.txt"))
@@ -4606,7 +4606,7 @@ namespace Zamin {
         auto& config = Project::GetActive()->GetConfig();
         fs::path startScene = Project::GetAssetFileSystemPath(config.StartScene);
         {
-            ZM_PROFILE_SCOPE("Boshlang'ich sahna");
+            ZM_PROFILE_SCOPE("Start scene");
             if (config.StartScene.empty() || !OpenScene(startScene))
                 NewScene();
         }
@@ -6280,7 +6280,7 @@ namespace Zamin {
         }
 
         {
-            ZM_PROFILE_SCOPE("Menyu");
+            ZM_PROFILE_SCOPE("Menu");
             UI_MenuBar();
         }
         UI_StatusBar();
@@ -6288,7 +6288,7 @@ namespace Zamin {
 
         m_SceneHierarchyPanel.SetSceneEditable(m_SceneState == SceneState::Edit);
         {
-            ZM_PROFILE_SCOPE("Ierarxiya + inspektor");
+            ZM_PROFILE_SCOPE("Hierarchy + inspector");
             m_SceneHierarchyPanel.OnImGuiRender(&m_ShowHierarchy, &m_ShowInspector);
         }
         ProcessPrefabRequests(); // Apply / Revert asked in the hierarchy / inspector (the panel is drawn)
@@ -6296,7 +6296,7 @@ namespace Zamin {
         UI_PrefabStagePopups();
         UI_SceneRecoveryPopups();
         {
-            ZM_PROFILE_SCOPE("Kontent brauzer");
+            ZM_PROFILE_SCOPE("Content browser");
             m_ContentBrowserPanel.OnImGuiRender(&m_ShowContentBrowser);
         }
         if (m_ShowUnusedAssets && !m_UnusedAssetsShown)
@@ -6304,13 +6304,13 @@ namespace Zamin {
         m_UnusedAssetsShown = m_ShowUnusedAssets;
         m_UnusedAssetsPanel.OnImGuiRender(&m_ShowUnusedAssets);
         {
-            ZM_PROFILE_SCOPE("Sahna statistikasi");
+            ZM_PROFILE_SCOPE("Scene statistics");
             UI_SceneStatistics();
         }
         UI_BuildOutput();
         m_AssetInspectorPanel.DrawPopups();
         {
-            ZM_PROFILE_SCOPE("Konsol");
+            ZM_PROFILE_SCOPE("Console");
             m_ConsolePanel.OnImGuiRender(&m_ShowConsole);
         }
         UI_SceneSettings();
@@ -6325,7 +6325,7 @@ namespace Zamin {
         if (ImGuiWindow* content = ImGui::FindWindowByName("###ContentBrowser"); content && content->DockId)
             m_ScenesPanel.SetDefaultDock(content->DockId); // first opened: a tab next to the content browser
         {
-            ZM_PROFILE_SCOPE("Sahnalar paneli");
+            ZM_PROFILE_SCOPE("Scenes panel");
             m_ScenesPanel.OnImGuiRender(&m_ShowScenes);
         }
         // ZAMIN_EDITOR_FOCUS=<window id, e.g. ContentBrowser / Console / ScenesPanel>: that window's tab in
@@ -6337,7 +6337,7 @@ namespace Zamin {
         m_ProjectSettingsPanel.SetOpenScenePath(m_EditorScenePath.empty() ? fs::path() : fs::path(Project::GetAssetRelativePath(m_EditorScenePath)));
         m_ProjectSettingsPanel.SetSceneEditable(m_SceneState == SceneState::Edit);
         {
-            ZM_PROFILE_SCOPE("Loyiha sozlamalari");
+            ZM_PROFILE_SCOPE("Project settings");
             m_ProjectSettingsPanel.OnImGuiRender(&m_ShowProjectSettings);
         }
         m_SpriteEditorPanel.OnImGuiRender(&m_ShowSpriteEditor);
@@ -6366,7 +6366,7 @@ namespace Zamin {
         DrawWorldStreamingPanel(m_RuntimeScenes.get());
         if (auto requested = TakeWorldSceneRequest(); !requested.empty()) OpenScene(requested);
         {
-            ZM_PROFILE_SCOPE("Statistika paneli");
+            ZM_PROFILE_SCOPE("Statistics panel");
             UI_Stats();
         }
         UI_ProfilerWindow();
@@ -11081,10 +11081,10 @@ namespace Zamin {
         for (const auto& e : entries)
             if (e.Parent >= 0)
                 self[(size_t)e.Parent] -= timeOf(e);
-        // The bars: share of the frame (the "Kadr" scope; the slowest top scope when there is none).
+        // The bars: share of the frame (the "Frame" scope; the slowest top scope when there is none).
         float total = 0.0f;
         for (const auto& e : entries)
-            if (e.Parent < 0 && std::strcmp(e.Name, "Kadr") == 0)
+            if (e.Parent < 0 && std::strcmp(e.Name, "Frame") == 0)
                 total = timeOf(e);
         if (total <= 0.0f)
             for (const auto& e : entries)

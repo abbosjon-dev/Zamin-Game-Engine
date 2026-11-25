@@ -3,7 +3,7 @@
 (ZAMIN_MAX_FRAMES=1) a few times; the table has the median of
 
   * "birinchi kadr" - the engine's own measurement (StartupTimer): from the moment the engine library was loaded
-    to the first frame's swap, with its parts (dvigatel: window, GL context, renderer, audio; layer'lar: project,
+    to the first frame's swap, with its parts (engine: window, GL context, renderer, audio; layers: project,
     scene, editor panels; the first frame itself). A build without StartupTimer (older) has none: "-".
   * "jarayon" - the whole process as seen from outside: exec -> exit after that frame (the shutdown included),
     which any build has, so two builds can be compared with it.
@@ -35,7 +35,7 @@ CASES = [
     ("ZaminPlayer", "Projects/Platformer2D"),
 ]
 
-LINE = re.compile(r"Ishga tushish: birinchi kadr (\d+) ms \(dvigatel (\d+), layer'lar (\d+), birinchi kadr (\d+) ms")
+LINE = re.compile(r"Startup: first frame (\d+) ms \(engine (\d+), layers (\d+), first frame (\d+) ms")
 
 
 def start_xvfb():
@@ -110,7 +110,7 @@ def main():
                 rows.append((program, project, statistics.median(walls), min(walls), inner))
                 if args.profile and "Eng sekin joylar" in log:
                     print(f"--- {program} {project}:")
-                    print(log[log.index("Ishga tushish profili"):].split("\x1b[0m")[0])
+                    print(log[log.index("Startup profili"):].split("\x1b[0m")[0])
     finally:
         if xvfb:
             xvfb.terminate()

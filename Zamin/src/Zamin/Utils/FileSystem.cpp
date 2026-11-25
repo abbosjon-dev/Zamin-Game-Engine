@@ -25,7 +25,7 @@ namespace Zamin {
         std::ifstream in(path, std::ios::in | std::ios::binary);
         if (!in)
         {
-            ZM_CORE_ERROR("Fayl ochilmadi: '{}'", path.string());
+            ZM_CORE_ERROR("Could not open the file: '{}'", path.string());
             return {};
         }
         // A folder opens as a stream on Linux (and seeking to its end gives a huge size - ext4:
@@ -48,7 +48,7 @@ namespace Zamin {
                 }
                 catch (const std::exception&)
                 {
-                    ZM_CORE_ERROR("Fayl o'qilmadi (xotira yetmadi): '{}' ({} bayt)", path.string(), size);
+                    ZM_CORE_ERROR("Could not read the file (out of memory): '{}' ({} bytes)", path.string(), size);
                     return {};
                 }
                 in.read(text.data(), (std::streamsize)size);
@@ -72,7 +72,7 @@ namespace Zamin {
         std::ofstream out(path, std::ios::out | std::ios::binary | std::ios::trunc);
         if (!out)
         {
-            ZM_CORE_ERROR("Faylga yozib bo'lmadi: '{}'", path.string());
+            ZM_CORE_ERROR("Could not write to the file: '{}'", path.string());
             return false;
         }
         out << content;
@@ -80,7 +80,7 @@ namespace Zamin {
         out.close();
         if (!out)
         {
-            ZM_CORE_ERROR("Fayl to'liq yozilmadi: '{}'", path.string());
+            ZM_CORE_ERROR("The file was not written completely: '{}'", path.string());
             return false;
         }
         return true;
@@ -100,7 +100,7 @@ namespace Zamin {
             std::ofstream out(temp, std::ios::out | std::ios::binary | std::ios::trunc);
             if (!out)
             {
-                ZM_CORE_ERROR("Faylga yozib bo'lmadi: '{}'", path.string());
+                ZM_CORE_ERROR("Could not write to the file: '{}'", path.string());
                 return false;
             }
             out << content;
@@ -109,7 +109,7 @@ namespace Zamin {
             if (!out)
             {
                 std::filesystem::remove(temp, ec);
-                ZM_CORE_ERROR("Faylga yozib bo'lmadi: '{}'", path.string());
+                ZM_CORE_ERROR("Could not write to the file: '{}'", path.string());
                 return false;
             }
         }
@@ -118,7 +118,7 @@ namespace Zamin {
         {
             // Preserve the original on every failure: never truncate it as a fallback.
             std::filesystem::remove(temp, ec);
-            ZM_CORE_ERROR("Fayl atomik almashtirilmadi: '{}'", path.string());
+            ZM_CORE_ERROR("The file was not replaced atomically: '{}'", path.string());
             return false;
         }
         return true;
@@ -134,7 +134,7 @@ namespace Zamin {
         std::ofstream out(path, std::ios::out | std::ios::binary | std::ios::trunc);
         if (!out)
         {
-            ZM_CORE_ERROR("Faylga yozib bo'lmadi: '{}'", path.string());
+            ZM_CORE_ERROR("Could not write to the file: '{}'", path.string());
             return false;
         }
         out.write((const char*)data, (std::streamsize)size);
@@ -457,7 +457,7 @@ namespace Zamin {
         std::string pattern = (temp / (name + "-XXXXXX")).string();
         if (char* made = mkdtemp(pattern.data()))
             return std::filesystem::path(made);
-        ZM_CORE_ERROR("Vaqtinchalik papka yaratilmadi: '{}' ({})", pattern, std::strerror(errno));
+        ZM_CORE_ERROR("Could not create the temporary folder: '{}' ({})", pattern, std::strerror(errno));
         return {};
 #else
         // No mkdtemp: random names until one is new (create_directory is atomic: false when it exists).
@@ -472,7 +472,7 @@ namespace Zamin {
             if (ec)
                 break;
         }
-        ZM_CORE_ERROR("Vaqtinchalik papka yaratilmadi: '{}'", (temp / name).string());
+        ZM_CORE_ERROR("Could not create the temporary folder: '{}'", (temp / name).string());
         return {};
 #endif
     }
@@ -581,7 +581,7 @@ namespace Zamin {
         std::error_code ec;
         std::filesystem::remove_all(m_Path, ec);
         if (ec)
-            ZM_CORE_WARN("Vaqtinchalik papka o'chirilmadi: '{}' ({})", m_Path.string(), ec.message());
+            ZM_CORE_WARN("Could not remove the temporary folder: '{}' ({})", m_Path.string(), ec.message());
         m_Path.clear();
     }
 

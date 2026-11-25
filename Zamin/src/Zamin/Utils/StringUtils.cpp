@@ -323,7 +323,7 @@ namespace Zamin::StringUtils {
     std::string FormatDuration(double seconds)
     {
         if (!std::isfinite(seconds))
-            return seconds > 0.0 ? "cheksiz" : seconds < 0.0 ? "-cheksiz" : "?";
+            return seconds > 0.0 ? "infinite" : seconds < 0.0 ? "-infinite" : "?";
         if (seconds < 0.0)
             return "-" + FormatDuration(-seconds);
         const double ms = seconds * 1000.0;
@@ -337,9 +337,9 @@ namespace Zamin::StringUtils {
             return std::format("{:.1f} s", seconds);
         const uint64_t whole = (uint64_t)std::llround(seconds);
         if (whole < 3600)
-            return std::format("{} daq {:02} s", whole / 60, whole % 60);
+            return std::format("{} min {:02} s", whole / 60, whole % 60);
         const uint64_t minutes = (whole + 30) / 60;
-        return std::format("{} soat {:02} daq", minutes / 60, minutes % 60);
+        return std::format("{} h {:02} min", minutes / 60, minutes % 60);
     }
 
     std::string FormatThousands(int64_t value, char separator)

@@ -130,7 +130,7 @@ int main(int argc, char** argv)
 `Application` konstruktori (`Core/Application.cpp`) shu tartibda:
 
 1. ishchi papka (`ApplicationSpecification::WorkingDirectory`), log'ga build ma'lumoti
-   (`Zamin Engine 0.1.0 (kommit ..., build ..., Release, GCC ...) ishga tushmoqda (...)`);
+   (`Zamin Engine 0.1.0 (kommit ..., build ..., Release, GCC ...) is starting (...)`);
 2. oyna (`Window::Create` - GLFW + OpenGL konteksti), hodisalar `Application::OnEvent` ga;
 3. `Renderer::Init()` - `RenderCommand`, `Renderer2D`, `Renderer3D`, `ParticleRenderer`, `PostProcessor`;
 4. `AudioEngine::Init()` (qurilma bo'lmasa ham dvigatel ishlaydi - hech narsa eshitilmaydi);
@@ -163,7 +163,7 @@ layer'larni `OnDetach` qilib o'chiradi.
 
 ![Profiler o'yin rejimida](images/profiler-play-editor.jpg)
 
-*Editorda Play, **Oyna > Profiler**: kadr bo'limlari daraxti — `Kadr` → `Layer'lar (update)` → `Sahna` → `Skriptlar` ...
+*Editorda Play, **Oyna > Profiler**: kadr bo'limlari daraxti — `Kadr` → `Layers (update)` → `Sahna` → `Skriptlar` ...
 (`ZM_PROFILE_SCOPE` bilan belgilangan), har birining jami va o'z vaqti (ms). Daraxt yuqoridagi sikl bosqichlarini takrorlaydi.*
 
 ### Layer'lar
@@ -470,8 +470,10 @@ Dvigatelga yangi komponent qo'shganda shu joylar o'zgaradi (hammasi kodda shu no
 
 - C++20, `namespace Zamin`, 4 bo'shliq, qavslar yangi qatorda (`.clang-format`; `Tests/format_check.sh` faqat
   o'zgargan qatorlarni tekshiradi).
-- Foydalanuvchi ko'radigan hamma matn - editor UI'si va log xabarlari - **o'zbekcha** (lotin yozuvi); editor
-  matnlari `Tr("...")` orqali (ingliz tiliga tarjima jadvali). Kod izohlari - inglizcha.
+- Mahsulot standart holda **inglizcha** o'qiladi. Editor UI matnlari kodda o'zbekcha (lotin yozuvi) yoziladi va
+  `Tr("...")` / `TrFormat(...)` orqali o'tadi: inglizchasi `EditorLanguage.cpp` jadvalidan olinadi, o'zbekcha editor
+  sozlamalarida tanlanadi. Log va xato xabarlari (`ZM_CORE_INFO` ..., qaytariladigan xato matnlari) inglizcha yoziladi.
+  Kod izohlari - inglizcha.
 - Log: `ZM_CORE_INFO` / `ZM_CORE_WARN` / `ZM_CORE_ERROR` (dvigatel), `ZM_INFO` / `ZM_WARN` / `ZM_ERROR` (o'yin va
   dasturlar), `std::format` sintaksisi bilan.
 - `Ref<T>` = `std::shared_ptr<T>`, `Scope<T>` = `std::unique_ptr<T>` (`Core/Base.h`).

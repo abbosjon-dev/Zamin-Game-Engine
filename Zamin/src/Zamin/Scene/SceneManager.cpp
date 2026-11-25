@@ -199,7 +199,7 @@ namespace Zamin {
             Stop();
         if (!scene)
             return;
-        ZM_PROFILE_SCOPE("Sahna yuklash");
+        ZM_PROFILE_SCOPE("Scene load");
         const auto clock = std::chrono::steady_clock::now();
         SceneLoadTiming timing = prepared ? *prepared : SceneLoadTiming();
         timing.How = SceneLoadTiming::Source::Start;
@@ -381,7 +381,7 @@ namespace Zamin {
             decode.clear(); // one image: nothing to do side by side
             return decode;
         }
-        ZM_PROFILE_SCOPE("Rasmlarni oldindan o'qish");
+        ZM_PROFILE_SCOPE("Image pre-read");
         JobSystem::ParallelFor((uint32_t)decode.size(), 1, [&](uint32_t begin, uint32_t end) {
             for (uint32_t i = begin; i < end; i++)
                 TextureLibrary::Predecode(decode[i]);
@@ -484,7 +484,7 @@ namespace Zamin {
     {
         if (!m_Running)
             return;
-        ZM_PROFILE_SCOPE("Sahnalar (chizish)");
+        ZM_PROFILE_SCOPE("Scenes (render)");
         Scene* camera = GetRenderScene();
         Scene::RuntimeView view;
         if (!camera || !camera->GetRuntimeView(view))
@@ -1051,7 +1051,7 @@ namespace Zamin {
                 }
                 case Request::Kind::Load:
                 {
-                    ZM_PROFILE_SCOPE("Sahna yuklash");
+                    ZM_PROFILE_SCOPE("Scene load");
                     const auto clock = std::chrono::steady_clock::now();
                     SceneLoadTiming timing;
                     timing.How = request.Mode == LoadSceneMode::Additive ? SceneLoadTiming::Source::Additive : SceneLoadTiming::Source::Single;
@@ -1090,7 +1090,7 @@ namespace Zamin {
             if (op->IsReady() && op->GetAllowSceneActivation() && fadeReady)
             {
                 m_AsyncOps.erase(m_AsyncOps.begin() + (ptrdiff_t)i);
-                ZM_PROFILE_SCOPE("Sahna yuklash");
+                ZM_PROFILE_SCOPE("Scene load");
                 SceneLoadTiming before = op->m_Timing;
                 Activate(op);
                 // This frame's part of it (the start: physics, scripts).
@@ -1146,7 +1146,7 @@ namespace Zamin {
     {
         if (m_AsyncOps.empty())
             return;
-        ZM_PROFILE_SCOPE("Sahna yuklash (fon)");
+        ZM_PROFILE_SCOPE("Scene load (background)");
         const double deadline = NowMs() + (double)budgetMs;
         // A copy: a failure is only marked here (the list changes in ProcessRequests).
         std::vector<Ref<AsyncOperation>> ops = m_AsyncOps;
@@ -1235,7 +1235,7 @@ namespace Zamin {
                     break;
                 case Stage::Building:
                 {
-                    ZM_PROFILE_SCOPE("Obyektlar");
+                    ZM_PROFILE_SCOPE("Objects");
                     if (!op.m_Scene)
                     {
                         op.m_Scene = CreateRef<Scene>();
@@ -1256,7 +1256,7 @@ namespace Zamin {
                 case Stage::Resolving:
                 {
                     // The GPU uploads (textures - predecoded -, meshes, fonts), a slice per frame.
-                    ZM_PROFILE_SCOPE("Assetlar");
+                    ZM_PROFILE_SCOPE("Assets");
                     struct SliceClock
                     {
                         SceneLoadTiming& Timing;

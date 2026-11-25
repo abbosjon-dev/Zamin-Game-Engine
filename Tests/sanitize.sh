@@ -97,7 +97,7 @@ if [[ $do_build -eq 1 ]]; then
             "") ;;
             gcc) cc=(-DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++) ;;
             clang) cc=(-DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++) ;;
-            *) echo "noma'lum kompilyator: $compiler (gcc, clang)" >&2; exit 2 ;;
+            *) echo "unknown compiler: $compiler (gcc, clang)" >&2; exit 2 ;;
         esac
         generator=()
         command -v ninja >/dev/null 2>&1 && generator=(-G Ninja)

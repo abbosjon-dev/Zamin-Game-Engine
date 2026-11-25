@@ -51,7 +51,7 @@ HITCH_BUDGET, CODE_P95_BUDGET = 1000.0, 6.0
 CODE_BUDGET = {"2D": 3.0, "3D": 4.0}
 SOAK_GROWTH_MIB = 32.0
 FORBIDDEN = ("GL_INVALID_", "Assertion failed", "Visual graph '", "Instruction budget exceeded", "SLICE_CONFIG_FAILED", "SLICE_IO_FAILED",
-             "SLICE_ORACLE_FAILED", "nomli harakat topilmadi", "Snaryad vizual prefabi rad etildi")
+             "SLICE_ORACLE_FAILED", "is not a known action", "Snaryad vizual prefabi rad etildi")
 
 
 def last(pattern, text):

@@ -258,7 +258,7 @@ namespace Zamin {
         auto view = m_Registry.view<PatrolPathComponent>();
         if (view.empty() || !(dt >= 0.0f))
             return;
-        ZM_PROFILE_SCOPE("Patrul yo'llari");
+        ZM_PROFILE_SCOPE("Patrol paths");
         std::vector<glm::vec3> points;
         std::vector<float> waits;
         struct Reached

@@ -205,7 +205,7 @@ darajadan. Kadr vaqti qat'iy bo'lsa (`ZAMIN_CAPTURE_FPS=20`), bot har kompyuterd
 | `demo` | bot o'ynaydi: ochko, to'lqin / daraja / aylana / masofa o'sadi (`Demo: ...` qatorlari) |
 | rekord (`demo` dan keyin) | demo natijasi `Yangi rekord: ...` bo'lib SaveData fayliga yoziladi; o'sha HOME bilan ikkinchi ishga tushirish `Rekordlar: ...` da xuddi shu qiymatni o'qiydi va bosh menyuni ko'rsatadi |
 | `menus` | klaviatura: bosh menyu → o'yin → pauza → davom → pauza → bosh menyu (ba'zilarida natijalar oynasi ham) |
-| `gamepad` | faqat gamepad (simulyatsiya: `ZAMIN_PLAYER_INPUT` `pad=A`, `stick=LeftX,0.8`): A bilan o'yin, o'yinning o'z boshqaruvi (stik, tugmalar, triggerlar), Start bilan pauza, D-pad + A bilan bosh menyu; ishoralar gamepad'ga o'tadi (`Kiritish qurilmasi: gamepad`) va o'yinda natija bor (o'q otildi, g'isht sindi, daraja yechildi, masofa) |
+| `gamepad` | faqat gamepad (simulyatsiya: `ZAMIN_PLAYER_INPUT` `pad=A`, `stick=LeftX,0.8`): A bilan o'yin, o'yinning o'z boshqaruvi (stik, tugmalar, triggerlar), Start bilan pauza, D-pad + A bilan bosh menyu; ishoralar gamepad'ga o'tadi (`Input device: gamepad`) va o'yinda natija bor (o'q otildi, g'isht sindi, daraja yechildi, masofa) |
 | `smoke` | eski namunalar ishga tushadi, rasm chiqaradi |
 
 ```bash

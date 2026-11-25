@@ -17696,7 +17696,7 @@ TEST(ProfilerHierarchy)
     Profiler::Reset();
     CHECK(Profiler::IsEnabled());
     // Kadr { Update { Fizika, Skriptlar { Timer }, Fizika again }, Render { Fizika }, Update again { AI }, Audio } and Oyna.
-    auto kadr = Profiler::BeginScope("Kadr");
+    auto kadr = Profiler::BeginScope("Frame");
     auto update = Profiler::BeginScope("Update");
     auto physics = Profiler::BeginScope("Fizika");
     Profiler::EndScope(physics, 2.0f);
@@ -17724,7 +17724,7 @@ TEST(ProfilerHierarchy)
 
     const auto& entries = Profiler::GetLastFrame();
     // Depth-first: AI (made after Render) is listed under Update, before Render.
-    const char* order[] = { "Kadr", "Update", "Fizika", "Skriptlar", "Timer", "AI", "Render", "Fizika", "Audio", "Oyna" };
+    const char* order[] = { "Frame", "Update", "Fizika", "Skriptlar", "Timer", "AI", "Render", "Fizika", "Audio", "Oyna" };
     const int depths[] = { 0, 1, 2, 2, 3, 2, 1, 2, 1, 0 };
     CHECK(entries.size() == 10);
     for (size_t i = 0; i < entries.size() && i < 10; i++)
@@ -17746,11 +17746,11 @@ TEST(ProfilerHierarchy)
     CHECK_NEAR(Profiler::GetLastFrameTotal(), 9.0f, 1e-5f);
 
     // Paths and children.
-    const Profiler::Entry* found = Profiler::Find("Kadr/Update/Fizika");
+    const Profiler::Entry* found = Profiler::Find("Frame/Update/Fizika");
     CHECK(found == &entries[2]);
-    CHECK(Profiler::Find("Kadr/Render/Fizika") == &entries[7]);
-    CHECK(Profiler::Find("Kadr/Fizika") == nullptr && Profiler::Find("Fizika") == nullptr && Profiler::Find("Kadr/Yo'q") == nullptr);
-    CHECK(Profiler::Find("Oyna") == &entries[9] && Profiler::Find("Kadr") == &entries[0]);
+    CHECK(Profiler::Find("Frame/Render/Fizika") == &entries[7]);
+    CHECK(Profiler::Find("Frame/Fizika") == nullptr && Profiler::Find("Fizika") == nullptr && Profiler::Find("Frame/Yo'q") == nullptr);
+    CHECK(Profiler::Find("Oyna") == &entries[9] && Profiler::Find("Frame") == &entries[0]);
     CHECK((Profiler::GetChildren(entries, -1) == std::vector<int>{ 0, 9 }));
     CHECK((Profiler::GetChildren(entries, 1) == std::vector<int>{ 2, 3, 5 }));
     CHECK((Profiler::GetChildren(entries, 0) == std::vector<int>{ 1, 6, 8 }));
@@ -17762,8 +17762,8 @@ TEST(ProfilerHierarchy)
 
     // The log's text: indented by depth, self time and calls where they say something.
     std::string tree = Profiler::FormatTree(entries);
-    CHECK(tree.find("Kadr 9.00 ms (o'zi 0.50 ms)\n") == 0);
-    CHECK(tree.find("\n  Update 5.00 ms (o'zi 0.90 ms, 2x)\n") != std::string::npos);
+    CHECK(tree.find("Frame 9.00 ms (self 0.50 ms)\n") == 0);
+    CHECK(tree.find("\n  Update 5.00 ms (self 0.90 ms, 2x)\n") != std::string::npos);
     CHECK(tree.find("\n    Fizika 2.50 ms (2x)\n") != std::string::npos);
     CHECK(tree.find("\n      Timer 0.25 ms\n") != std::string::npos);
     std::string slow = Profiler::FormatTree(entries, 1.0f); // small nodes (and what is inside them) left out
@@ -17820,26 +17820,26 @@ TEST(ProfilerScopedTimersAndAverages)
     // Averages follow the same path from frame to frame (a new or returning path starts afresh).
     Profiler::Reset();
     auto frame = [](float ms) {
-        auto t = Profiler::BeginScope("Kadr");
+        auto t = Profiler::BeginScope("Frame");
         auto x = Profiler::BeginScope("X");
         Profiler::EndScope(x, ms);
         Profiler::EndScope(t, ms + 1.0f);
         Profiler::BeginFrame();
     };
     frame(10.0f);
-    CHECK_NEAR(Profiler::Find("Kadr/X")->AverageMilliseconds, 10.0f, 1e-5f);
+    CHECK_NEAR(Profiler::Find("Frame/X")->AverageMilliseconds, 10.0f, 1e-5f);
     frame(0.0f);
-    CHECK_NEAR(Profiler::Find("Kadr/X")->AverageMilliseconds, 10.0f * (1.0f - Profiler::AverageWeight), 1e-4f);
-    CHECK(Profiler::Find("Kadr/X")->Milliseconds == 0.0f && Profiler::Find("Kadr/X")->Calls == 1);
+    CHECK_NEAR(Profiler::Find("Frame/X")->AverageMilliseconds, 10.0f * (1.0f - Profiler::AverageWeight), 1e-4f);
+    CHECK(Profiler::Find("Frame/X")->Milliseconds == 0.0f && Profiler::Find("Frame/X")->Calls == 1);
     frame(0.0f);
-    CHECK_NEAR(Profiler::Find("Kadr/X")->AverageMilliseconds, 10.0f * 0.81f, 1e-4f);
+    CHECK_NEAR(Profiler::Find("Frame/X")->AverageMilliseconds, 10.0f * 0.81f, 1e-4f);
     // A frame without X, then X again: its average starts over.
-    auto t = Profiler::BeginScope("Kadr");
+    auto t = Profiler::BeginScope("Frame");
     Profiler::EndScope(t, 1.0f);
     Profiler::BeginFrame();
-    CHECK(Profiler::Find("Kadr/X") == nullptr);
+    CHECK(Profiler::Find("Frame/X") == nullptr);
     frame(4.0f);
-    CHECK_NEAR(Profiler::Find("Kadr/X")->AverageMilliseconds, 4.0f, 1e-5f);
+    CHECK_NEAR(Profiler::Find("Frame/X")->AverageMilliseconds, 4.0f, 1e-5f);
     // Hotspots on the averages.
     CHECK(!Profiler::GetHotspots(Profiler::GetLastFrame(), 1, true).empty() && Profiler::GetHotspots(Profiler::GetLastFrame(), 1, true)[0] == 1);
     Profiler::Reset();
@@ -31942,7 +31942,7 @@ TEST(SceneLoadTimingBreakdown)
     CHECK(last.Get(Stage::Decode) == 0.0 && last.MainThreadMilliseconds() == last.TotalMilliseconds());
     // The stages are parts of the load's own time.
     CHECK(last.WallMilliseconds + 1e-6 >= last.TotalMilliseconds());
-    CHECK(last.Format().find("Fizika") != std::string::npos && last.Format().find("Busy (yagona)") == 0);
+    CHECK(last.Format().find("Physics") != std::string::npos && last.Format().find("Busy (yagona)") == 0);
     CHECK(m.GetActiveScene()->GetRuntimeStartTiming().PhysicsMilliseconds > 0.0);
     // A failed switch is recorded too (the game stays).
     Log::SetMinLevel(LogLevel::Critical);
@@ -31977,7 +31977,7 @@ TEST(SceneLoadTimingBreakdown)
     CHECK(async.How == SceneLoadTiming::Source::Async && async.Additive && async.Frames >= 2 && async.Get(Stage::Parse) > 0.0);
     CHECK(async.MainThreadMilliseconds() < async.TotalMilliseconds() && async.WallMilliseconds >= async.MainThreadMilliseconds());
     CHECK(SceneLoadProfiler::GetLast(last) && last.How == SceneLoadTiming::Source::Async && last.SceneName == "Plain");
-    CHECK(last.Format().find("fonda, qo'shimcha") != std::string::npos);
+    CHECK(last.Format().find("background, additive") != std::string::npos);
 
     // The frame of a switch shows its stages in the profiler, under "Sahna yuklash".
     const bool profiling = Profiler::IsEnabled();
@@ -31986,8 +31986,8 @@ TEST(SceneLoadTimingBreakdown)
     m.LoadScene(f.Path("Busy"));
     m.ProcessRequests();
     Profiler::BeginFrame();
-    CHECK(Profiler::Find("Sahna yuklash") && Profiler::Find("Sahna yuklash/Fizika") && Profiler::Find("Sahna yuklash/Obyektlar"));
-    CHECK(Profiler::Find("Sahna yuklash/JSON") && Profiler::Find("Sahna yuklash")->Milliseconds >= Profiler::Find("Sahna yuklash/Fizika")->Milliseconds);
+    CHECK(Profiler::Find("Scene load") && Profiler::Find("Scene load/Physics") && Profiler::Find("Scene load/Objects"));
+    CHECK(Profiler::Find("Scene load/JSON") && Profiler::Find("Scene load")->Milliseconds >= Profiler::Find("Scene load/Physics")->Milliseconds);
     Profiler::SetEnabled(profiling);
     m.Stop();
 
@@ -34955,13 +34955,13 @@ TEST(CrashHandlerReports)
     CrashHandler::WriteReport(fd, SIGSEGV, 1, (const void*)0x10, nullptr);
     close(fd);
     const std::string text = FileSystem::ReadTextFile(file);
-    CHECK(text.starts_with("=== Zamin crash hisoboti ===\nDastur: Sinov Player\nO'yin: Sinov O'yini 2.1.0\n"));
-    CHECK(text.find("Sabab: SIGSEGV - xotiraga noto'g'ri murojaat") != std::string::npos);
-    CHECK(text.find("manzil 0x0000000000000010") != std::string::npos);
-    CHECK(text.find("Log fayli: /tmp/sinov.log") != std::string::npos);
+    CHECK(text.starts_with("=== Zamin crash report ===\nProgram: Sinov Player\nGame: Sinov O'yini 2.1.0\n"));
+    CHECK(text.find("Reason: SIGSEGV - invalid memory access") != std::string::npos);
+    CHECK(text.find("address 0x0000000000000010") != std::string::npos);
+    CHECK(text.find("Log file: /tmp/sinov.log") != std::string::npos);
     CHECK(text.find("--- Backtrace") != std::string::npos && text.find("libZamin.so") != std::string::npos);
     CHECK(text.find("INFO APP: crash sinovi marker 7") != std::string::npos);
-    CHECK(text.find("--- Yuklangan modullar") != std::string::npos && text.ends_with("=== Hisobot oxiri ===\n"));
+    CHECK(text.find("--- Loaded modules") != std::string::npos && text.ends_with("=== End of report ===\n"));
 
     // Read back (the dialog), with the backtrace made readable.
     CHECK(CrashHandler::DemangleReport(file) > 0);
@@ -34990,7 +34990,7 @@ TEST(CrashHandlerReports)
         if (command == std::vector<std::string>{ "/opt/game/ZaminPlayer", "--crash-dialog", "/r/crash.txt" })
             player = true;
     CHECK(player);
-    CHECK(CrashHandler::MakeDialogMessage("/r/crash.txt").find("Sinov O'yini kutilmaganda to'xtadi") != std::string::npos);
+    CHECK(CrashHandler::MakeDialogMessage("/r/crash.txt").find("Sinov O'yini stopped unexpectedly") != std::string::npos);
     CHECK(CrashHandler::MakeDialogMessage("/r/crash.txt").find("/r/crash.txt") != std::string::npos);
 
     // A real crash in a child process: the report is written, then the signal ends the program as usual.
@@ -35005,7 +35005,7 @@ TEST(CrashHandlerReports)
     const fs::path segvReport = FindCrashReport(dir / "segv");
     CHECK(!segvReport.empty());
     const std::string segvText = FileSystem::ReadTextFile(segvReport);
-    CHECK(segvText.find("Sabab: SIGSEGV") != std::string::npos && segvText.find("manzil 0x0000000000000008") != std::string::npos);
+    CHECK(segvText.find("Reason: SIGSEGV") != std::string::npos && segvText.find("address 0x0000000000000008") != std::string::npos);
     CHECK(segvText.find("bola jarayon marker") != std::string::npos);
 
     // An uncaught exception (here in a thread): its type and message, then abort - one report only.
@@ -35017,7 +35017,7 @@ TEST(CrashHandlerReports)
     CHECK(exception != -1 && WIFSIGNALED(exception) && WTERMSIG(exception) == SIGABRT);
     const fs::path exceptionReport = FindCrashReport(dir / "exception");
     CHECK(!exceptionReport.empty());
-    CHECK(FileSystem::ReadTextFile(exceptionReport).find("Sabab: ushlanmagan C++ istisnosi - std::runtime_error: bola istisnosi") != std::string::npos);
+    CHECK(FileSystem::ReadTextFile(exceptionReport).find("Reason: unhandled C++ exception - std::runtime_error: bola istisnosi") != std::string::npos);
     size_t reports = 0;
     for (auto& entry : fs::directory_iterator(dir / "exception"))
         reports += entry.path().filename().string().starts_with("crash-") ? 1 : 0;
@@ -35030,7 +35030,7 @@ TEST(CrashHandlerReports)
         std::abort();
     });
     CHECK(aborted != -1 && WIFSIGNALED(aborted) && WTERMSIG(aborted) == SIGABRT);
-    CHECK(FileSystem::ReadTextFile(FindCrashReport(dir / "abort")).find("Sabab: SIGABRT") != std::string::npos);
+    CHECK(FileSystem::ReadTextFile(FindCrashReport(dir / "abort")).find("Reason: SIGABRT") != std::string::npos);
 
     Log::SetMinLevel(level);
     Log::SetTerminalOutput(terminal);
@@ -35815,7 +35815,7 @@ TEST(PlayerBenchmarkStatsAndLimits)
     CHECK(s.Count == 3 && s.Median == 2.0 && s.P95 == 3.0 && s.Min == 1.0);
     s = FrameTimeStats::Compute({ 16.0 });
     CHECK(s.Count == 1 && s.Median == 16.0 && s.P99 == 16.0 && s.StdDev == 0.0);
-    CHECK(FrameTimeStats::Compute({}).Count == 0 && FrameTimeStats::Compute({}).Format() == "kadr yo'q");
+    CHECK(FrameTimeStats::Compute({}).Count == 0 && FrameTimeStats::Compute({}).Format() == "no frames");
     CHECK(FrameTimeStats::Percentile({}, 95.0) == 0.0);
     CHECK(FrameTimeStats::Percentile({ 1.0, 2.0, 3.0, 4.0 }, 0.0) == 1.0 && FrameTimeStats::Percentile({ 1.0, 2.0, 3.0, 4.0 }, 50.0) == 2.0);
     CHECK(FrameTimeStats::Percentile({ 1.0, 2.0, 3.0, 4.0 }, 100.0) == 4.0 && FrameTimeStats::Percentile({ 1.0, 2.0, 3.0, 4.0 }, 76.0) == 4.0);
@@ -35865,14 +35865,14 @@ TEST(PlayerBenchmarkStatsAndLimits)
     // From a frame's profile: the update layer without its drawing children; nothing without that layer.
     {
         std::vector<Profiler::Entry> frame(6);
-        frame[0] = { "Kadr", 12.0f, 1, -1, 0, 6 };
-        frame[1] = { "Layer'lar (update)", 10.0f, 1, 0, 1, 6 };
+        frame[0] = { "Frame", 12.0f, 1, -1, 0, 6 };
+        frame[1] = { "Layers (update)", 10.0f, 1, 0, 1, 6 };
         frame[2] = { "Skriptlar", 2.5f, 1, 1, 2, 3 };
-        frame[3] = { "Sahnalar (chizish)", 4.0f, 1, 1, 2, 5 };
+        frame[3] = { "Scenes (render)", 4.0f, 1, 1, 2, 5 };
         frame[4] = { "Render", 3.9f, 1, 3, 3, 5 };
         frame[5] = { "Post-processing", 1.5f, 1, 1, 2, 6 };
         CHECK_NEAR(PlayerBenchmark::GameCodeMilliseconds(frame), 4.5, 1e-6);
-        frame[1].Name = "Layer'lar (UI)";
+        frame[1].Name = "Layers (UI)";
         CHECK(PlayerBenchmark::GameCodeMilliseconds(frame) < 0.0 && PlayerBenchmark::GameCodeMilliseconds({}) < 0.0);
     }
 
@@ -35953,7 +35953,7 @@ TEST(BuildInfoAndVersionText)
     b.BuildType = "Release";
     b.Compiler = "GCC 13.3.0";
     CHECK(b.GetCommitText() == "0123456789" && b.GetShortVersion() == "1.4.2 (0123456)");
-    CHECK(b.Describe() == "Zamin Engine 1.4.2 (kommit 0123456789, build 2026-11-07, Release, GCC 13.3.0)");
+    CHECK(b.Describe() == "Zamin Engine 1.4.2 (commit 0123456789, build 2026-11-07, Release, GCC 13.3.0)");
     b.Dirty = true;
     CHECK(b.GetCommitText() == "0123456789-dirty" && b.GetShortVersion() == "1.4.2 (0123456*)");
     b.Commit.clear();
@@ -35971,17 +35971,17 @@ TEST(BuildInfoAndVersionText)
     b.Commit = "0123456789";
     v.Engine = b;
     CHECK(v.HasGame && v.Product == "Kosmos Sarguzashti" && v.Version == "2.0.1" && v.Company == "Yulduz");
-    CHECK(v.Format() == "Kosmos Sarguzashti 2.0.1 - Yulduz\nZamin Engine 1.4.2\n  Kommit:  0123456789 (2026-10-01)\n"
+    CHECK(v.Format() == "Kosmos Sarguzashti 2.0.1 - Yulduz\nZamin Engine 1.4.2\n  Commit:  0123456789 (2026-10-01)\n"
                         "  Build:   2026-11-07, Release, GCC 13.3.0\n");
     CHECK(v.FormatShort() == "Kosmos Sarguzashti v2.0.1  |  Zamin Engine 1.4.2 (0123456)");
     v.Engine.Dirty = true;
-    CHECK(v.Format().find("[o'zgarishlar bilan]") != std::string::npos);
+    CHECK(v.Format().find("[with uncommitted changes]") != std::string::npos);
     // Without a project: the player and the engine only; without git: the commit is unknown.
     VersionInfo none;
     none.Engine = b;
     none.Engine.Commit.clear();
     CHECK(!none.HasGame && none.Format("Zamin Player").starts_with("Zamin Player\nZamin Engine 1.4.2\n"));
-    CHECK(none.Format().find("noma'lum") != std::string::npos && none.FormatShort() == "Zamin Engine 1.4.2");
+    CHECK(none.Format().find("unknown") != std::string::npos && none.FormatShort() == "Zamin Engine 1.4.2");
     CHECK(!VersionInfo::ForActiveProject().HasGame || Project::GetActive());
     // The product name falls back to the project's name.
     config.Player.ProductName.clear();
@@ -36292,7 +36292,7 @@ TEST(GameMenuSampleScene)
         UIKeyFrame(scene, { Key::Down });
     CHECK(scene->GetSelectedUI() == language);
     UIKeyFrame(scene, { Key::Enter });
-    CHECK(Localization::GetLanguage() != "uz");
+    CHECK(Localization::GetLanguage() != "en"); // (the sample starts in English)
     CHECK(language.GetComponent<TextComponent>().Text == Localize("settings.language", Localization::GetLanguageName(Localization::GetLanguage())));
     Localization::SetLanguage("uz");
     // Esc: back to the menu - everything saved (the next start opens with them).
@@ -37581,7 +37581,7 @@ TEST(JobSystemSpeedupAndStats)
     CHECK(root != nullptr);
     bool workerNode = false, pieceUnderWorker = false;
     for (const Profiler::Entry& e : entries)
-        if (e.Parent >= 0 && std::strcmp(entries[(size_t)e.Parent].Name, "Vazifalar sinovi") == 0 && std::strncmp(e.Name, "Ishchi ", 7) == 0)
+        if (e.Parent >= 0 && std::strcmp(entries[(size_t)e.Parent].Name, "Vazifalar sinovi") == 0 && std::strncmp(e.Name, "Worker ", 7) == 0)
         {
             workerNode = true;
             for (int i = (int)(&e - entries.data()) + 1; i < e.End; i++)
@@ -37844,7 +37844,7 @@ TEST(MemoryStatsCategories)
     CHECK(MemoryStats::Get(MemoryCategory::Count).Bytes == 0 && std::string(MemoryStats::GetName(MemoryCategory::Count)) == "?");
     for (size_t i = 0; i < MemoryCategoryCount; i++)
         CHECK(std::strlen(MemoryStats::GetName((MemoryCategory)i)) > 2 && std::strlen(MemoryStats::GetDescription((MemoryCategory)i)) > 10);
-    CHECK(std::string(MemoryStats::GetName(MemoryCategory::Textures)) == "Teksturalar");
+    CHECK(std::string(MemoryStats::GetName(MemoryCategory::Textures)) == "Textures");
 
     // TrackedMemory: one object while it holds memory, given back when it goes, moves with its owner.
     const MemoryStats::Category textures = MemoryStats::Get(MemoryCategory::Textures);
@@ -38015,7 +38015,7 @@ TEST(StringUtilsBasics)
     for (uint64_t bytes : { 0ull, 1023ull, 1024ull, 99999ull, 123456789ull, 5ull << 40 })
         CHECK(AssetFiles::FormatSize(bytes) == FormatBytes(bytes)); // the asset browser uses it
     CHECK(FormatDuration(0.00004) == "40.0 \xC2\xB5s" && FormatDuration(0.00042) == "0.42 ms" && FormatDuration(0.85) == "850 ms");
-    CHECK(FormatDuration(12.4) == "12.4 s" && FormatDuration(185.0) == "3 daq 05 s" && FormatDuration(3720.0) == "1 soat 02 daq");
+    CHECK(FormatDuration(12.4) == "12.4 s" && FormatDuration(185.0) == "3 min 05 s" && FormatDuration(3720.0) == "1 h 02 min");
     CHECK(FormatDuration(-2.0) == "-2.0 s" && FormatDuration(0.0) == "0.0 \xC2\xB5s");
     CHECK(FormatThousands(1234567) == "1 234 567" && FormatThousands(-1000, ',') == "-1,000" && FormatThousands(999) == "999" && FormatThousands(0) == "0");
     CHECK(FormatThousands(INT64_MIN) == "-9 223 372 036 854 775 808");
@@ -38189,7 +38189,7 @@ TEST(StopwatchAndTimers)
         ScopedLogTimer slow("Sekin blok", 1.0, LogLevel::Warn);
         std::this_thread::sleep_for(3ms);
     }
-    CHECK(last().Text.starts_with("Sekin blok: ") && last().Text.find("(chegara 1.00 ms)") != std::string::npos && last().Level == LogLevel::Warn);
+    CHECK(last().Text.starts_with("Sekin blok: ") && last().Text.find("(limit 1.00 ms)") != std::string::npos && last().Level == LogLevel::Warn);
     Log::SetLevel(LogSource::Engine, LogLevel::Error); // the engine's info is not wanted: no message
     written = Log::GetTotalWritten();
     {
@@ -38282,7 +38282,7 @@ TEST(LogLevelsPerLogger)
     settings.File = LogLevel::Error;
     settings.Apply();
     CHECK(LogLevelSettings::GetCurrent() == settings && Log::GetFileLevel() == LogLevel::Error && Log::GetLevel(LogSource::App) == LogLevel::Info);
-    CHECK(settings.Describe() == "dvigatel: Ogohlantirish, o'yin: Ma'lumot, fayl: Xato" && settings.ToSpec() == "engine=warn,app=info,file=error");
+    CHECK(settings.Describe() == "engine: Warning, game: Info, file: Error" && settings.ToSpec() == "engine=warn,app=info,file=error");
     LogLevelOverride over;
     CHECK(LogLevelOverride::Parse(settings.ToSpec(), over) && over.Over(LogLevelSettings()) == settings);
     over = {};
@@ -38409,7 +38409,7 @@ TEST(AssertsWithMessages)
         CHECK((info.Describe() == std::format("value < 3 - qiymat 5 katta (chegara 3) (ZaminTests.cpp:{}, AssertsWithMessages)", assertLine)));
     }
     CHECK(lastMessage().Level == LogLevel::Critical && lastMessage().FromClient &&
-          lastMessage().Text.starts_with("Assert bajarilmadi: value < 3 - qiymat 5 katta (chegara 3) (ZaminTests.cpp:"));
+          lastMessage().Text.starts_with("Assert failed: value < 3 - qiymat 5 katta (chegara 3) (ZaminTests.cpp:"));
     // The engine's, without a message.
     const int coreLine = __LINE__; ZM_CORE_ASSERT(value == 0);
     CHECK(failed.size() == 2 && failed.back().Core && failed.back().Message.empty() &&
@@ -38431,7 +38431,7 @@ TEST(AssertsWithMessages)
     int n = 0;
     const bool ok = ZM_VERIFY(++n == 2, "n = {}", n);
     CHECK(!ok && n == 1 && failed.size() == 1 && !failed.back().Fatal && failed.back().Message == "n = 1");
-    CHECK(lastMessage().Level == LogLevel::Error && lastMessage().Text.starts_with("Tekshiruv bajarilmadi (ZM_VERIFY): ++n == 2 - n = 1"));
+    CHECK(lastMessage().Level == LogLevel::Error && lastMessage().Text.starts_with("Check failed (ZM_VERIFY): ++n == 2 - n = 1"));
     // One place failing again and again: counted every time, logged the 1st, 10th, 100th ... time.
     const uint64_t total = Assert::GetFailureCount();
     const uint64_t written = Log::GetTotalWritten();
@@ -38442,7 +38442,7 @@ TEST(AssertsWithMessages)
     }
     CHECK(Assert::GetFailureCount() == total + 25 && Assert::GetFailureCount(__FILE__, repeatLine) == 25 && failed.back().Count == 25);
     CHECK(Log::GetTotalWritten() == written + 2 && lastMessage().Text.find("takror 9") != std::string::npos &&
-          lastMessage().Text.ends_with("[10-marta]"));
+          lastMessage().Text.ends_with("[x10]"));
     Assert::ResetCounts();
     CHECK(Assert::GetFailureCount() == 0 && Assert::GetFailureCount(__FILE__, repeatLine) == 0);
 
@@ -38476,7 +38476,7 @@ TEST(AssertsWithMessages)
     const int fd = open(manual.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
     CrashHandler::WriteReport(fd, SIGABRT, 0, nullptr, nullptr);
     close(fd);
-    CHECK(FileSystem::ReadTextFile(manual).find("Sabab: assert bajarilmadi - birinchi sabab\n") != std::string::npos);
+    CHECK(FileSystem::ReadTextFile(manual).find("Reason: assert failed - birinchi sabab\n") != std::string::npos);
     CrashHandler::ClearAbortReason();
     CHECK(CrashHandler::GetAbortReason().empty());
 
@@ -38492,8 +38492,8 @@ TEST(AssertsWithMessages)
     });
     CHECK(aborted != -1 && WIFSIGNALED(aborted) && WTERMSIG(aborted) == SIGABRT);
     const std::string report = FileSystem::ReadTextFile(FindCrashReport(dir / "abort"));
-    CHECK(report.find("Sabab: assert bajarilmadi - lives > 0 - o'yinchining joni 0 - davom etib bo'lmaydi (ZaminTests.cpp:") != std::string::npos);
-    CHECK(report.find("CRITICAL APP: Assert bajarilmadi: lives > 0") != std::string::npos); // the last log lines
+    CHECK(report.find("Reason: assert failed - lives > 0 - o'yinchining joni 0 - davom etib bo'lmaydi (ZaminTests.cpp:") != std::string::npos);
+    CHECK(report.find("CRITICAL APP: Assert failed: lives > 0") != std::string::npos); // the last log lines
 #endif
     // ZM_VERIFY never aborts, even in Abort mode.
     const int verified = RunCrashingChild([] {
@@ -47287,7 +47287,7 @@ TEST(StartupTimerParsesProcessStartTime)
     t.FirstFrameMs = 362.0;
     t.ProcessMs = 11.0;
     const std::string text = StartupTimer::Describe(t);
-    CHECK(text.starts_with("612 ms (dvigatel 180, layer'lar 70, birinchi kadr 362 ms; jarayon boshidan ~623 ms)"));
+    CHECK(text.starts_with("612 ms (engine 180, layers 70, first frame 362 ms; ~623 ms since the process started)"));
     CHECK_NEAR(t.FromProcessStartMs(), 623.4, 1e-9);
     t.ProcessMs = -1.0; // unknown: the process part is left out
     CHECK(StartupTimer::Describe(t).find("jarayon") == std::string::npos);

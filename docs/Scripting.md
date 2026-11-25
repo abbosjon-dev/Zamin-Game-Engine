@@ -347,7 +347,7 @@ Kursor: `Cursor::SetLockMode(CursorLockMode::Locked)` (sichqoncha bilan qarash �
 **Boshqaruv ishoralari** — o'yin ekranidagi "qaysi tugma nima qiladi" matni input xaritasidan olinadi va o'yinchi
 ishlatayotgan qurilmaga moslashadi. `Input::GetActiveDevice()` — oxirgi ishlatilgan qurilma (`InputDevice::KeyboardMouse`:
 tugma, sichqoncha tugmasi, g'ildirak yoki bir necha piksel siljish; `InputDevice::Gamepad`: gamepad tugmasi yoki stik /
-trigger yarmidan ko'proq bosilsa); almashganda logga `Kiritish qurilmasi: gamepad` yoziladi.
+trigger yarmidan ko'proq bosilsa); almashganda logga `Input device: gamepad` yoziladi.
 `Input::GetBindingText("Jump")` — shu qurilmaning bog'lanishlari (`"Space / W"`, gamepad'da `"A"`; o'q: `"A, D / Arrows"`,
 `"Left stick / D-pad"`; vektor: `"WASD"`), `Input::ExpandBindings("[Jump] - sakrash")` — matndagi har `[Nom]` o'rniga.
 `[Nom|matn]` — shu qurilmada bog'lanish bo'lmasa `matn` (`[Look|Sichqoncha]`), `[kb:matn]` / `[pad:matn]` — matn faqat

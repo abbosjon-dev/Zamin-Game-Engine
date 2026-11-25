@@ -71,7 +71,7 @@ O'yinniki: `~/.local/share/<kompaniya>/<o'yin>/savedata.json` ([Runtime.md, 3](R
 Editorniki: `~/.config/zamin/preferences.json` (barcha loyihalar uchun umumiy). Fayl buzilgan bo'lsa o'yin uni
 chetga olib qo'yadi va bo'shidan boshlaydi:
 
-> `SaveData fayli buzilgan (<sabab>): <fayl> -> <nusxa>`
+> `The SaveData file is broken (<sabab>): <fayl> -> <nusxa>`
 
 ## 2. O'rnatish va build
 
@@ -351,7 +351,7 @@ Audio Source yoki kod mixerda yo'q guruhni ko'rsatyapti - guruhni Audio Mixer'da
 
 ### `IsActionPressed("Jump")` ishlamayapti
 
-> `Input: '<nom>' nomli <harakat / o'q> topilmadi (Loyiha sozlamalari > Input)`
+> `Input: '<nom>' is not a known <action / axis> (Project settings > Input)`
 
 Harakat nomi loyihaning input xaritasida yo'q (katta-kichik harf muhim). Project settings > Input'da qo'shing
 yoki nomni tuzating ([ProjectSettings.md, 10](ProjectSettings.md#10-input), [Scripting.md, 8](Scripting.md#8-input)).

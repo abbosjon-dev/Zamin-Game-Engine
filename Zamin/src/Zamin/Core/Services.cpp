@@ -59,7 +59,7 @@ namespace Zamin {
         if (it != registry.Entries.end())
         {
             previous = std::move(it->second.Instance); // destroyed after the new one is in
-            ZM_CORE_WARN("Servis qayta ro'yxatdan o'tkazildi (eskisi o'chirildi): {}", it->second.Name);
+            ZM_CORE_WARN("Service registered again (the old one was removed): {}", it->second.Name);
             it->second.Instance = std::move(service);
             it->second.Order = registry.NextOrder++;
         }

@@ -50,15 +50,15 @@ namespace Zamin {
     {
         switch (stage)
         {
-            case Stage::Read:        return "O'qish";
+            case Stage::Read:        return "Read";
             case Stage::Parse:       return "JSON";
-            case Stage::Migrate:     return "Migratsiya";
-            case Stage::Deserialize: return "Obyektlar";
-            case Stage::Decode:      return "Rasmlar (fon)";
-            case Stage::Assets:      return "Assetlar";
+            case Stage::Migrate:     return "Migration";
+            case Stage::Deserialize: return "Objects";
+            case Stage::Decode:      return "Images (background)";
+            case Stage::Assets:      return "Assets";
             case Stage::Audio:       return "Audio";
-            case Stage::Physics:     return "Fizika";
-            case Stage::Scripts:     return "Skriptlar";
+            case Stage::Physics:     return "Physics";
+            case Stage::Scripts:     return "Scripts";
             case Stage::Count:       break;
         }
         return "?";
@@ -68,15 +68,15 @@ namespace Zamin {
     {
         switch (stage)
         {
-            case Stage::Read:        return "Faylni diskdan o'qish";
-            case Stage::Parse:       return "JSON matnini (yoki binar keshni) tahlil qilish";
-            case Stage::Migrate:     return "Eski format versiyasidan joriysiga o'tkazish";
-            case Stage::Deserialize: return "Obyektlar va komponentlarni yaratish, ierarxiyani bog'lash";
-            case Stage::Decode:      return "Rasmlarni oldindan dekodlash (fon oqimida, asosiy oqimni to'xtatmaydi)";
-            case Stage::Assets:      return "Tekstura, mesh, shrift va animatsiyalarni yuklash (GPU'ga yuborish)";
-            case Stage::Audio:       return "Sahna oldindan yuklaydigan ovoz kliplari";
-            case Stage::Physics:     return "2D va 3D fizika dunyolarini, jismlar va kolliderlarni yaratish";
-            case Stage::Scripts:     return "Skriptlarning OnCreate va OnEnable chaqiruvlari";
+            case Stage::Read:        return "Reading the file from disk";
+            case Stage::Parse:       return "Parsing the JSON text (or the binary cache)";
+            case Stage::Migrate:     return "Converting from an old format version to the current one";
+            case Stage::Deserialize: return "Creating objects and components, linking the hierarchy";
+            case Stage::Decode:      return "Pre-decoding images (on a background thread, without stopping the main thread)";
+            case Stage::Assets:      return "Loading textures, meshes, fonts and animations (uploading to the GPU)";
+            case Stage::Audio:       return "Sound clips the scene preloads";
+            case Stage::Physics:     return "Creating the 2D and 3D physics worlds, bodies and colliders";
+            case Stage::Scripts:     return "The scripts' OnCreate and OnEnable calls";
             case Stage::Count:       break;
         }
         return "";
@@ -87,10 +87,10 @@ namespace Zamin {
         switch (source)
         {
             case Source::Editor:   return "editor";
-            case Source::Start:    return "boshlanish";
+            case Source::Start:    return "start";
             case Source::Single:   return "yagona";
-            case Source::Additive: return "qo'shimcha";
-            case Source::Async:    return "fonda";
+            case Source::Additive: return "additive";
+            case Source::Async:    return "background";
         }
         return "?";
     }
@@ -104,16 +104,16 @@ namespace Zamin {
     {
         std::string how = SourceName(How);
         if (How == Source::Async && Additive)
-            how += ", qo'shimcha";
+            how += ", additive";
         if (Binary)
-            how += ", binar kesh";
+            how += ", binary cache";
         std::string text = std::format("{} ({}): {:.2f} ms", SceneName.empty() ? Path : SceneName, how, TotalMilliseconds());
         if (How == Source::Async)
-            text += std::format(" (asosiy oqim {:.2f} ms, {} kadr, {:.0f} ms davomida)", MainThreadMilliseconds(), Frames, WallMilliseconds);
+            text += std::format(" (main thread {:.2f} ms, {} frames, over {:.0f} ms)", MainThreadMilliseconds(), Frames, WallMilliseconds);
         if (Entities)
-            text += std::format(", {} obyekt", Entities);
+            text += std::format(", {} objects", Entities);
         if (Failed)
-            text += ", muvaffaqiyatsiz";
+            text += ", failed";
         std::string stages;
         for (size_t i = 0; i < StageCount; i++)
             if (Milliseconds[i] >= 0.005)
@@ -143,7 +143,7 @@ namespace Zamin {
             log = s_Logging;
         }
         if (log)
-            ZM_CORE_INFO("Sahna yuklash vaqti: {}", timing.Format());
+            ZM_CORE_INFO("Scene load time: {}", timing.Format());
     }
 
     std::vector<SceneLoadTiming> SceneLoadProfiler::GetHistory()

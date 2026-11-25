@@ -185,8 +185,8 @@ def pad_case(game, started, script, checks=(), frames=None, downs=2, menu_at=Non
         present("o'yin gamepad bilan boshlandi", started),
         in_order("gamepad: bosh menyu -> o'yin -> pauza (Start) -> davom -> pauza -> bosh menyu (D-pad, A)",
                  [MAIN_MENU, started, PAUSE, PAUSE_CLOSED, PAUSE, MAIN_MENU]),
-        present("ishoralar gamepad'ga o'tdi", r"Kiritish qurilmasi: gamepad"),
-        absent("klaviaturaga qaytmadi (gamepad o'ynadi)", r"Kiritish qurilmasi: gamepad[\s\S]*Kiritish qurilmasi: klaviatura"),
+        present("ishoralar gamepad'ga o'tdi", r"Input device: gamepad"),
+        absent("klaviaturaga qaytmadi (gamepad o'ynadi)", r"Input device: gamepad[\s\S]*Input device: klaviatura"),
         *checks,
     ], env={"ZAMIN_PLAYER_INPUT": keys(*flow)}, note=note)
 
@@ -226,8 +226,8 @@ GAMEPAD_CASES = [
         in_order("gamepad: bosh menyu -> pauza (Start) -> davom -> D-pad bilan yechildi -> bosh menyu",
                  [MAIN_MENU, r"Omborchi: 1-daraja", PAUSE, PAUSE_CLOSED, r"Menyu: natijalar - 1-daraja yechildi, 2 qadam", MAIN_MENU]),
         present("yechim rekordga yozildi", r"Yangi rekord: 1-daraja 2 qadam"),
-        present("ishoralar gamepad'ga o'tdi", r"Kiritish qurilmasi: gamepad"),
-        absent("klaviaturaga qaytmadi (gamepad o'ynadi)", r"Kiritish qurilmasi: gamepad[\s\S]*Kiritish qurilmasi: klaviatura"),
+        present("ishoralar gamepad'ga o'tdi", r"Input device: gamepad"),
+        absent("klaviaturaga qaytmadi (gamepad o'ynadi)", r"Input device: gamepad[\s\S]*Input device: klaviatura"),
     ], env={"ZAMIN_PLAYER_INPUT": keys((30, "pad=A"), (90, "pad=Start"), (110, "pad=Start"), (130, "pad=DPadRight"),
                                        (150, "pad=DPadRight"), (230, "pad=DPadDown"), (240, "pad=DPadDown"), (250, "pad=A"))},
         note="A - o'ynash, Start - pauza, D-pad - yurish (qutini itarish)"),
@@ -306,14 +306,14 @@ CASES = [
         record=Record(r"Yangi rekord: aylana (\S+)", r"Rekordlar: eng yaxshi aylana {0}$", ["Racing.BestLap"])),
     menu_case("Racing", r"Vodiy Poygasi: poyga boshlandi"),
     # ---- the older samples
-    Case("Platformer2D", "smoke", 150, [present("sahna yuklandi", r"Sahna yuklash vaqti")]),
+    Case("Platformer2D", "smoke", 150, [present("sahna yuklandi", r"Scene load time")]),
     # Menu.zscene: Enter on "O'ynash" - the loading screen loads Level1 in the background and switches; Esc: pause.
     Case("Platformer2D", "menus", 200, [
         in_order("menyu -> yuklanish ekrani -> 1-daraja -> pauza",
                  [r"O'yin menyusi: '.*' ochilmoqda", r"Yuklanish ekrani: 'Scenes/Level1.zscene' tayyor", r"O'yinchi tayyor", r"APP: Pauza"]),
     ], env={"ZAMIN_PLAYER_INPUT": keys((30, "Enter"), (150, "Escape"))}, scene="Scenes/Menu.zscene",
         note="Menu.zscene dan: O'ynash -> Loading -> Level1 (fon oqimida yuklash), Esc - pauza"),
-    Case("Showcase3D", "smoke", 120, [present("sahna yuklandi", r"Sahna yuklash vaqti")]),
+    Case("Showcase3D", "smoke", 120, [present("sahna yuklandi", r"Scene load time")]),
     Case("Adventure3D", "smoke", 150, [present("qahramon tayyor", r"Qahramon tayyor")]),
     *GAMEPAD_CASES,
 ]

@@ -290,7 +290,7 @@ namespace Zamin {
             return false;
         };
         if (folder.empty())
-            return fail("papka berilmagan");
+            return fail("no folder given");
         fs::path file = shared ? folder / (preset.FileName + ".zmat") : AssetFiles::MakeUniquePath(folder, preset.FileName + ".zmat");
         std::error_code ec;
         if (shared && fs::exists(file, ec))
@@ -301,7 +301,7 @@ namespace Zamin {
         }
         fs::create_directories(folder, ec);
         if (ec)
-            return fail(std::format("papka yaratilmadi: {}", ec.message()));
+            return fail(std::format("could not create the folder: {}", ec.message()));
 
         MaterialData data = preset.Data;
         if (preset.Texture != MaterialPreset::Pattern::None)
@@ -312,14 +312,14 @@ namespace Zamin {
                 PresetTexture image = GenerateTexture(preset.Texture);
                 fs::create_directories(texture.parent_path(), ec);
                 if (!image.IsValid() || !Image::WritePNG(texture.string(), image.Width, image.Height, 4, image.Pixels.data()))
-                    return fail(std::format("tekstura yozilmadi: {}", texture.string()));
+                    return fail(std::format("could not write the texture: {}", texture.string()));
                 result.Written.push_back(texture);
                 Register(texture); // its UUID is written next to the path in the .zmat
             }
             (preset.Texture == MaterialPreset::Pattern::BrushedMetal ? data.MetalRoughMap : data.AlbedoMap) = ToMaterialPath(texture);
         }
         if (!MaterialSerializer::Serialize(data, file))
-            return fail(std::format("material fayli yozilmadi: {}", file.string()));
+            return fail(std::format("could not write the material file: {}", file.string()));
         Register(file);
         result.Material = file;
         result.Written.push_back(file);

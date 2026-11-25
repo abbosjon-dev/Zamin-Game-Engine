@@ -14175,7 +14175,7 @@ TEST(AssetImportLogReportsOnce)
     CHECK(Font::Load(dir / "broken.ttf") == nullptr && Font::Load(dir / "broken.ttf") == nullptr);
     CHECK(CountLoggedErrors("missing.ttf") == 1 && CountLoggedErrors("broken.ttf") == 1);
     CHECK(AssetImportLog::Find(dir / "missing.ttf")->Reason == "file not found");
-    CHECK(AssetImportLog::Find(dir / "broken.ttf")->Reason.find("shrift") != std::string::npos);
+    CHECK(AssetImportLog::Find(dir / "broken.ttf")->Reason.find("font") != std::string::npos);
     CHECK(AssetImportLog::Find(dir / "broken.ttf")->Type == AssetType::Font);
 
     WriteFile(dir / "sky.hdr", "#?RADIANCE but broken");
@@ -14186,7 +14186,7 @@ TEST(AssetImportLogReportsOnce)
     WriteFile(dir / "Models" / "broken.gltf", "{ not json");
     CHECK(Model::Load(dir / "Models" / "broken.gltf") == nullptr && Model::Load(dir / "Models" / "absent.gltf") == nullptr);
     CHECK(AssetImportLog::Find(dir / "Models" / "broken.gltf") && AssetImportLog::Find(dir / "Models" / "absent.gltf"));
-    CHECK(AssetImportLog::Find(dir / "Models" / "absent.gltf")->Reason == "fayl topilmadi");
+    CHECK(AssetImportLog::Find(dir / "Models" / "absent.gltf")->Reason == "file not found");
 
     // Scenes and prefabs: the reason, with the file's path.
     WriteFile(dir / "Scenes" / "broken.zscene", "{ \"Scene\": ");
@@ -15656,7 +15656,7 @@ TEST(MaterialSerializationRobust)
             int count = 0;
             Log::ForEach([&](const LogMessage& m) {
                 if (m.Level == LogLevel::Warn && m.Text.find("Noisy.zmat") != std::string::npos &&
-                    m.Text.find("chegaradan tashqari") != std::string::npos)
+                    m.Text.find("out-of-range") != std::string::npos)
                     count++;
             });
             return count;
@@ -16518,11 +16518,11 @@ TEST(RenderStatsSummary)
     stats.TileChunkCount = 2;
     stats.CulledTileChunkCount = 10;
     std::string line = stats.Format();
-    CHECK(line.find("draw call 12") != std::string::npos);
-    CHECK(line.find("mesh: 30 chizildi, 7 kesildi, 20 instanced (3 chaqiruv)") != std::string::npos);
-    CHECK(line.find("soya: 55 chizildi, 9 kesildi (0 ko'rinmas soya), 40 instanced (4 chaqiruv)") != std::string::npos);
-    CHECK(line.find("2D: 14 chizildi, 86 kesildi") != std::string::npos);
-    CHECK(line.find("tile bo'laklari: 2 chizildi, 10 kesildi") != std::string::npos);
+    CHECK(line.find("draw calls 12") != std::string::npos);
+    CHECK(line.find("mesh: 30 drawn, 7 culled, 20 instanced (3 calls)") != std::string::npos);
+    CHECK(line.find("shadow: 55 drawn, 9 culled (0 out of view), 40 instanced (4 calls)") != std::string::npos);
+    CHECK(line.find("2D: 14 drawn, 86 culled") != std::string::npos);
+    CHECK(line.find("tile chunks: 2 drawn, 10 culled") != std::string::npos);
     // A new frame starts from zero.
     Renderer::GetStats() = stats;
     Renderer::ResetStats();
@@ -33786,7 +33786,7 @@ TEST(GraphicsContextSettings)
     CHECK(props.Graphics.IsDefault());
     CHECK(!GraphicsContext::GetInfo().Valid);
     GraphicsContextInfo info;
-    CHECK(info.Summary() == "OpenGL konteksti yo'q");
+    CHECK(info.Summary() == "no OpenGL context");
     info.Valid = true;
     info.Major = 4;
     info.Minor = 6;

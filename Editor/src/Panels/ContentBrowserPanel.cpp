@@ -1401,8 +1401,8 @@ namespace Zamin {
             std::string error;
             if (!MaterialPresets::Create(*preset, dir, false, result, &error))
             {
-                ShowNotice(TrFormat("Material yaratilmadi: {}", preset->Name), true);
-                ZM_ERROR("Standart material '{}' yaratilmadi: {}", preset->Name, error);
+                ShowNotice(TrFormat("Material yaratilmadi: {}", Tr(preset->Name)), true);
+                ZM_ERROR("Standart material '{}' yaratilmadi: {}", preset->FileName, error);
                 return {};
             }
             file = result.Material;
@@ -1422,7 +1422,7 @@ namespace Zamin {
             written.push_back(file);
         }
         if (preset)
-            ZM_INFO("Standart material yaratildi ({}): {}", preset->Name, Project::GetAssetRelativePath(file));
+            ZM_INFO("Standart material yaratildi ({}): {}", preset->FileName, Project::GetAssetRelativePath(file));
         else
             ZM_INFO("Yangi material yaratildi: {}", Project::GetAssetRelativePath(file));
         for (const fs::path& p : written)

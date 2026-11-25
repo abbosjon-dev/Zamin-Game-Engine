@@ -186,7 +186,7 @@ namespace Zamin {
             }
             else
             {
-                ZM_CORE_WARN("Splash rasmi o'qilmadi: {} - Zamin logotipi ko'rsatiladi", image.generic_string());
+                ZM_CORE_WARN("Splash image could not be read: {} - the Zamin logo is shown", image.generic_string());
                 ok = false;
             }
         }

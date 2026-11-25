@@ -319,7 +319,7 @@ void main()
             for (const Ref<Shader>& shader : { g->Mask, g->Silhouette, g->SkinnedSilhouette, g->Composite })
                 if (!shader || !shader->IsValid())
                 {
-                    ZM_CORE_ERROR("Tanlash konturi shaderlari kompilyatsiya qilinmadi: kontur ko'rinmaydi");
+                    ZM_CORE_ERROR("The selection outline shaders did not compile: the outline is not shown");
                     g->Failed = true;
                     return nullptr;
                 }

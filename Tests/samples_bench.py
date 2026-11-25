@@ -113,9 +113,9 @@ def run(game, kind, env_extra, budget, args, runner, out):
         row.update(entities=int(m.group(1)), active=int(m.group(2)), components=int(m.group(3)), scripts=int(m.group(4)), top=m.group(5))
     stats = last_match(r"Render statistics \(last frame\): (.*)$", text)
     if stats:
-        dc = re.search(r"draw call (\d+), uchburchak (\d+)", stats)
-        quads = re.search(r"quad (\d+)", stats)
-        particles = re.search(r"particle (\d+)", stats)
+        dc = re.search(r"draw calls (\d+), triangles (\d+)", stats)
+        quads = re.search(r"quads (\d+)", stats)
+        particles = re.search(r"particles (\d+)", stats)
         row.update(drawcalls=int(dc.group(1)) if dc else None, triangles=int(dc.group(2)) if dc else None,
                    quads=int(quads.group(1)) if quads else None, particles=int(particles.group(1)) if particles else None)
     entries = profile_entries(text)

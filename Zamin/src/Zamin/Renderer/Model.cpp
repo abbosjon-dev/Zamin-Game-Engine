@@ -73,18 +73,18 @@ namespace Zamin {
                 continue;
             if (!findSource(s.Source))
             {
-                warn(std::format("'{}' klipi faylda yo'q - '{}' yaratilmadi", s.Source, s.GetName()));
+                warn(std::format("the clip '{}' is not in the file - '{}' was not created", s.Source, s.GetName()));
                 continue;
             }
             if (std::find(names.begin(), names.end(), s.GetName()) != names.end())
             {
-                warn(std::format("'{}' nomli klip ikki marta - ikkinchisi tashlab ketildi", s.GetName()));
+                warn(std::format("a clip named '{}' appears twice - the second one was dropped", s.GetName()));
                 continue;
             }
             // A sub-clip may not take the name of another file clip (it would hide it).
             if (s.GetName() != s.Source && findSource(s.GetName()))
             {
-                warn(std::format("'{}' nomi fayldagi boshqa klipniki - '{}' dan kesilgan klip yaratilmadi", s.GetName(), s.Source));
+                warn(std::format("the name '{}' belongs to another clip in the file - the clip cut from '{}' was not created", s.GetName(), s.Source));
                 continue;
             }
             names.push_back(s.GetName());
@@ -141,16 +141,16 @@ namespace Zamin {
     {
         switch (result)
         {
-            case cgltf_result_data_too_short:   return "fayl qisqa (buzilgan?)";
-            case cgltf_result_unknown_format:   return "noma'lum format";
-            case cgltf_result_invalid_json:     return "JSON xato";
-            case cgltf_result_invalid_gltf:     return "glTF tuzilishi xato";
-            case cgltf_result_invalid_options:  return "noto'g'ri sozlamalar";
-            case cgltf_result_file_not_found:   return "fayl topilmadi";
-            case cgltf_result_io_error:         return "o'qish xatosi";
-            case cgltf_result_out_of_memory:    return "xotira yetmadi";
-            case cgltf_result_legacy_gltf:      return "eski glTF 1.0 qo'llab-quvvatlanmaydi";
-            default:                            return "noma'lum xato";
+            case cgltf_result_data_too_short:   return "the file is too short (broken?)";
+            case cgltf_result_unknown_format:   return "unknown format";
+            case cgltf_result_invalid_json:     return "invalid JSON";
+            case cgltf_result_invalid_gltf:     return "invalid glTF structure";
+            case cgltf_result_invalid_options:  return "invalid options";
+            case cgltf_result_file_not_found:   return "file not found";
+            case cgltf_result_io_error:         return "read error";
+            case cgltf_result_out_of_memory:    return "out of memory";
+            case cgltf_result_legacy_gltf:      return "old glTF 1.0 is not supported";
+            default:                            return "unknown error";
         }
     }
 
@@ -472,7 +472,7 @@ namespace Zamin {
         }
         if (cgltf_result result = cgltf_load_buffers(&options, data, file.c_str()); result != cgltf_result_success)
         {
-            if (error) *error = std::format("buferlar yuklanmadi - {}", CgltfResultText(result));
+            if (error) *error = std::format("the buffers failed to load - {}", CgltfResultText(result));
             cgltf_free(data);
             return false;
         }
@@ -492,7 +492,7 @@ namespace Zamin {
             std::error_code ec;
             if (!fs::exists(path, ec))
             {
-                if (error) *error = "fayl topilmadi";
+                if (error) *error = "file not found";
                 return false;
             }
             out.emplace_back(); // .obj: one default material
@@ -554,7 +554,7 @@ namespace Zamin {
             return false;
         };
         if (!FileSystem::HasExtension(path, { ".gltf", ".glb" }))
-            return fail("faqat glTF (.gltf, .glb) modellarining materiallari eksport qilinadi");
+            return fail("only materials of glTF (.gltf, .glb) models are exported");
 
         cgltf_options cgltfOptions{};
         cgltf_data* data = nullptr;
@@ -564,12 +564,12 @@ namespace Zamin {
         if (data->materials_count == 0)
         {
             cgltf_free(data);
-            return fail("modelda material yo'q");
+            return fail("the model has no materials");
         }
         // Buffers hold the images of a .glb; without them the values are still exported.
         bool buffers = cgltf_load_buffers(&cgltfOptions, data, file.c_str()) == cgltf_result_success;
         if (!buffers)
-            result.Warnings.push_back("model buferlari o'qilmadi - fayl ichidagi rasmlar eksport qilinmaydi");
+            result.Warnings.push_back("the model buffers could not be read - images inside the file are not exported");
 
         const fs::path modelDir = path.parent_path();
         const fs::path outDir = (options.OutputDirectory.empty() ? GetDefaultMaterialExportDirectory(path) : options.OutputDirectory).lexically_normal();
@@ -579,7 +579,7 @@ namespace Zamin {
         if (!fs::is_directory(outDir, ec))
         {
             cgltf_free(data);
-            return fail(std::format("papka yaratilmadi: {}", outDir.string()));
+            return fail(std::format("could not create the folder: {}", outDir.string()));
         }
 
         const bool project = Project::GetActive() != nullptr;
@@ -639,7 +639,7 @@ namespace Zamin {
                 fs::path source = (modelDir / uri).lexically_normal();
                 if (!fs::is_regular_file(source, ec))
                 {
-                    result.Warnings.push_back(std::format("rasm topilmadi: {}", uri));
+                    result.Warnings.push_back(std::format("image not found: {}", uri));
                     return out;
                 }
                 if (!project || AssetFiles::IsInside(source, assetDir))
@@ -654,7 +654,7 @@ namespace Zamin {
                 }
                 else
                 {
-                    result.Warnings.push_back(std::format("rasm nusxalanmadi: {}", uri));
+                    result.Warnings.push_back(std::format("could not copy the image: {}", uri));
                     return out;
                 }
                 return out = materialPath(target);
@@ -667,7 +667,7 @@ namespace Zamin {
                 const cgltf_buffer_view* bv = image->buffer_view;
                 if (!bv->buffer || !bv->buffer->data || bv->offset + bv->size > bv->buffer->size)
                 {
-                    result.Warnings.push_back(std::format("'{}' rasmi o'qilmadi (bufer yo'q)", label));
+                    result.Warnings.push_back(std::format("the image '{}' could not be read (no buffer)", label));
                     return out;
                 }
                 const uint8_t* begin = (const uint8_t*)bv->buffer->data + bv->offset;
@@ -692,20 +692,20 @@ namespace Zamin {
                 }
                 if (bytes.empty())
                 {
-                    result.Warnings.push_back(std::format("'{}' rasmi o'qilmadi (data URI)", label));
+                    result.Warnings.push_back(std::format("the image '{}' could not be read (data URI)", label));
                     return out;
                 }
             }
             std::string extension = ImageExtension(bytes.data(), bytes.size(), image->mime_type);
             if (extension.empty())
             {
-                result.Warnings.push_back(std::format("'{}' rasmi PNG ham, JPEG ham emas - eksport qilinmadi", label));
+                result.Warnings.push_back(std::format("the image '{}' is neither PNG nor JPEG - not exported", label));
                 return out;
             }
             fs::path target = claimName(SafeFileName(label, "texture"), extension);
             if (!writeFile(target, bytes.data(), bytes.size()))
             {
-                result.Warnings.push_back(std::format("rasm yozilmadi: {}", target.string()));
+                result.Warnings.push_back(std::format("could not write the image: {}", target.string()));
                 return out;
             }
             return out = materialPath(target);
@@ -750,10 +750,10 @@ namespace Zamin {
                     MaterialLibrary::ReloadFile(target); // an earlier export is in use: show the new one
             }
             else
-                return fail(std::format("material yozilmadi: {}", target.string()));
+                return fail(std::format("could not write the material: {}", target.string()));
             result.Materials.push_back(target);
         }
-        ZM_CORE_INFO("Model materiallari eksport qilindi: {} -> {} ({} material, {} fayl yozildi)", path.filename().string(),
+        ZM_CORE_INFO("Model materials exported: {} -> {} ({} materials, {} files written)", path.filename().string(),
                      materialPath(outDir), result.Materials.size(), result.Written.size());
         return true;
     }
@@ -786,7 +786,7 @@ namespace Zamin {
         }
         if (cgltf_result result = cgltf_load_buffers(&options, data, file.c_str()); result != cgltf_result_success)
         {
-            error = std::format("buferlar yuklanmadi - {}", CgltfResultText(result));
+            error = std::format("the buffers failed to load - {}", CgltfResultText(result));
             cgltf_free(data);
             return nullptr;
         }
@@ -799,8 +799,7 @@ namespace Zamin {
         BuildGLTFSkeleton(data, model->m_Skeleton, model->m_Skins, jointIndex);
         for (const ModelSkin& s : model->m_Skins)
             if (!s.Direct && s.Joints.size() > (size_t)MaxJoints)
-                ZM_CORE_WARN("{}: '{}' skinida {} suyak bor - GPU {} tasini oladi; ortiqcha suyaklarning og'irligi uchning "
-                             "boshqa suyaklariga o'tadi (ular bo'lmasa birinchi suyakka bog'lanadi)",
+                ZM_CORE_WARN("{}: the skin '{}' has {} bones - the GPU takes {}; the weights of the extra bones go to a vertex's other bones (to the first bone if there are none)",
                              path.filename().string(), s.Name, s.Joints.size(), MaxJoints);
 
         // Morph groups: one per mesh node with targets (its weights are the node's / mesh's).
@@ -1121,15 +1120,15 @@ namespace Zamin {
         cgltf_free(data);
         if (model->m_SubMeshes.empty())
         {
-            error = "faylda uchburchakli mesh yo'q";
+            error = "the file has no triangle mesh";
             return nullptr;
         }
         std::string extra;
         if (model->m_Skins.size() > 1)
-            extra += std::format(", {} skin", model->m_Skins.size());
+            extra += std::format(", {} skins", model->m_Skins.size());
         if (model->HasMorphTargets())
             extra += std::format(", {} morph target", model->GetMorphWeightCount());
-        ZM_CORE_INFO("glTF yuklandi: {} ({} qism, {} uchburchak, {} suyak, {} animatsiya{})", path.filename().string(),
+        ZM_CORE_INFO("glTF loaded: {} ({} parts, {} triangles, {} bones, {} animations{})", path.filename().string(),
                      model->m_SubMeshes.size(), triangles, model->m_Skeleton.Joints.size(), model->m_Animations.size(), extra);
         return model;
     }
@@ -1162,7 +1161,7 @@ namespace Zamin {
         model->m_ImportSettings = settings;
         model->m_SubMeshes.push_back({ mesh, Material{}, path.stem().string(), 0 });
         model->m_Bounds = mesh->GetBounds();
-        ZM_CORE_INFO("Model yuklandi: {} ({} uchburchak)", path.filename().string(), indices.size() / 3);
+        ZM_CORE_INFO("Model loaded: {} ({} triangles)", path.filename().string(), indices.size() / 3);
         return model;
     }
 
@@ -1175,7 +1174,7 @@ namespace Zamin {
         std::error_code ec;
         if (!fs::is_regular_file(path, ec))
         {
-            error = "fayl topilmadi";
+            error = "file not found";
             return nullptr;
         }
         const std::string ext = FileSystem::GetExtension(path);
@@ -1183,7 +1182,7 @@ namespace Zamin {
             return LoadGLTF(path, settings, error);
         if (ext == ".obj")
             return LoadOBJ(path, settings, error);
-        error = "format qo'llab-quvvatlanmaydi";
+        error = "the format is not supported";
         return nullptr;
     }
 
@@ -1417,7 +1416,7 @@ namespace Zamin {
         if (!model)
         {
             if (info.Error.empty())
-                info.Error = "o'qilmadi";
+                info.Error = "unreadable";
             return false;
         }
         for (const SubMesh& sub : model->m_SubMeshes)

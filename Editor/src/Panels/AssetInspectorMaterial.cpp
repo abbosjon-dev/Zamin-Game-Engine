@@ -222,13 +222,13 @@ namespace Zamin {
 
         ImGui::SameLine();
         ImGui::SetNextItemWidth(std::clamp(ImGui::GetContentRegionAvail().x * 0.4f, 70.0f, 110.0f));
-        const char* shape = MaterialPreview::GetShapeName(m_MaterialView.PreviewShape);
+        const char* shape = Tr(MaterialPreview::GetShapeName(m_MaterialView.PreviewShape));
         if (ImGui::BeginCombo("##materialShape", shape))
         {
             for (int i = 0; i <= (int)MaterialPreview::Shape::Cylinder; i++)
             {
                 auto s = (MaterialPreview::Shape)i;
-                if (ImGui::Selectable(MaterialPreview::GetShapeName(s), s == m_MaterialView.PreviewShape))
+                if (ImGui::Selectable(Tr(MaterialPreview::GetShapeName(s)), s == m_MaterialView.PreviewShape))
                     m_MaterialView.PreviewShape = s;
             }
             ImGui::EndCombo();

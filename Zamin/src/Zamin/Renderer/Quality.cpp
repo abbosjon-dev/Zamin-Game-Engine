@@ -47,7 +47,7 @@ namespace Zamin {
         {
             switch (filter)
             {
-                case ShadowFilter::Hard:    return "qattiq";
+                case ShadowFilter::Hard:    return "hard";
                 case ShadowFilter::PCF3x3:  return "PCF 3x3";
                 case ShadowFilter::PCF5x5:  return "PCF 5x5";
                 case ShadowFilter::Poisson: return "Poisson";
@@ -150,27 +150,27 @@ namespace Zamin {
     {
         std::vector<std::string> lines;
         if (!Shadows)
-            lines.push_back("Quyosh soyalari o'chirilgan");
+            lines.push_back("Sun shadows off");
         else
         {
             ShadowSettings scene = shadows;
             scene.Sanitize();
             const ShadowSettings limited = ApplyTo(scene);
             if (limited.AtlasSize != scene.AtlasSize)
-                lines.push_back(std::format("Soya atlasi {} -> {}", scene.AtlasSize, limited.AtlasSize));
+                lines.push_back(std::format("Shadow atlas {} -> {}", scene.AtlasSize, limited.AtlasSize));
             if (limited.Filter != scene.Filter)
-                lines.push_back(std::format("Soya filtri {} -> {}", FilterLabel(scene.Filter), FilterLabel(limited.Filter)));
+                lines.push_back(std::format("Shadow filter {} -> {}", FilterLabel(scene.Filter), FilterLabel(limited.Filter)));
             if (limited.CascadeCount != scene.CascadeCount)
-                lines.push_back(std::format("Kaskadlar {} -> {}", scene.CascadeCount, limited.CascadeCount));
+                lines.push_back(std::format("Cascades {} -> {}", scene.CascadeCount, limited.CascadeCount));
             if (ShadowDistanceScale != 1.0f)
-                lines.push_back(std::format("Soya masofasi {:.0f} -> {:.0f} m", shadowDistance, ApplyShadowDistance(shadowDistance)));
+                lines.push_back(std::format("Shadow distance {:.0f} -> {:.0f} m", shadowDistance, ApplyShadowDistance(shadowDistance)));
         }
-        if (post.SSAO && !SSAO) lines.push_back("SSAO o'chirilgan");
-        if (post.Bloom && !Bloom) lines.push_back("Bloom o'chirilgan");
-        if (post.FXAA && !FXAA) lines.push_back("FXAA o'chirilgan");
-        if (post.AutoExposure && !AutoExposure) lines.push_back("Avto ekspozitsiya o'chirilgan");
+        if (post.SSAO && !SSAO) lines.push_back("SSAO off");
+        if (post.Bloom && !Bloom) lines.push_back("Bloom off");
+        if (post.FXAA && !FXAA) lines.push_back("FXAA off");
+        if (post.AutoExposure && !AutoExposure) lines.push_back("Auto exposure off");
         if (RenderScale != 1.0f)
-            lines.push_back(std::format("Render masshtabi x{:.2f} -> x{:.2f}", renderScale, ApplyRenderScale(renderScale)));
+            lines.push_back(std::format("Render scale x{:.2f} -> x{:.2f}", renderScale, ApplyRenderScale(renderScale)));
         return lines;
     }
 
@@ -431,7 +431,7 @@ namespace Zamin {
         const std::string name = SaveData::GetString(LevelKey());
         if (!SetLevel(name))
         {
-            ZM_CORE_WARN("Saqlangan sifat darajasi '{}' loyihada yo'q - standart daraja qoldi", name);
+            ZM_CORE_WARN("The saved quality level '{}' is not in the project - the default level stays", name);
             return false;
         }
         return true;

@@ -195,7 +195,7 @@ namespace Zamin {
         std::string moved = handle ? registry->GetPath(*handle) : std::string();
         if (moved.empty() || moved == path)
             return path;
-        notes.Infos.push_back(std::format("teksturasi UUID orqali topildi: '{}' -> '{}'", path, moved));
+        notes.Infos.push_back(std::format("its texture was found by UUID: '{}' -> '{}'", path, moved));
         return moved;
     }
 
@@ -226,7 +226,7 @@ namespace Zamin {
 
     static void LogNotes(const MaterialSerializer::ReadNotes& notes, const std::string& file)
     {
-        std::string prefix = file.empty() ? std::string("Material fayli") : std::format("Material fayli '{}'", file);
+        std::string prefix = file.empty() ? std::string("Material file") : std::format("Material file '{}'", file);
         for (const std::string& warning : notes.Warnings)
             ZM_CORE_WARN("{}: {}", prefix, warning);
         for (const std::string& info : notes.Infos)
@@ -242,26 +242,26 @@ namespace Zamin {
         if (j.is_discarded() || !j.is_object())
         {
             if (error)
-                *error = j.is_discarded() ? "JSON xatosi (fayl buzilgan)" : "material fayli JSON obyekt emas";
+                *error = j.is_discarded() ? "JSON error (the file is broken)" : "the material file is not a JSON object";
             return false;
         }
         MaterialData d;
         int version = j.value("Version", 1);
         if (version > MaterialData::CurrentVersion)
-            notes.Warnings.push_back(std::format("yangiroq versiyada ({} > {}): tanilgan maydonlar o'qiladi", version, MaterialData::CurrentVersion));
+            notes.Warnings.push_back(std::format("is a newer version ({} > {}): the known fields are read", version, MaterialData::CurrentVersion));
         if (auto it = j.find("Shader"); it != j.end() && it->is_string())
         {
             if (auto shader = ShaderFromString(it->get<std::string>()))
                 d.Shader = *shader;
             else
-                notes.Warnings.push_back(std::format("noma'lum shader '{}' - Lit ishlatiladi", it->get<std::string>()));
+                notes.Warnings.push_back(std::format("unknown shader '{}' - Lit is used", it->get<std::string>()));
         }
         if (auto it = j.find("BlendMode"); it != j.end() && it->is_string())
         {
             if (auto mode = BlendModeFromString(it->get<std::string>()))
                 d.BlendMode = *mode;
             else
-                notes.Warnings.push_back(std::format("noma'lum aralashtirish rejimi '{}' - Opaque ishlatiladi", it->get<std::string>()));
+                notes.Warnings.push_back(std::format("unknown blend mode '{}' - Opaque is used", it->get<std::string>()));
         }
         d.AlphaCutoff = ReadFloat(j, "AlphaCutoff", d.AlphaCutoff);
         if (auto it = j.find("DoubleSided"); it != j.end() && it->is_boolean())
@@ -292,7 +292,7 @@ namespace Zamin {
                                                      : 0;
         }
         if (d.Sanitize())
-            notes.Warnings.push_back("chegaradan tashqari qiymatlar bor edi - ular to'g'rilandi (saqlanganda faylga ham yoziladi)");
+            notes.Warnings.push_back("it had out-of-range values - they were corrected (written to the file when saved)");
         if (!notesOut)
             LogNotes(notes, {});
         out = d;
@@ -494,8 +494,8 @@ namespace Zamin {
 
     bool MaterialAsset::Reload(std::string* error)
     {
-        std::string reason = m_Instance ? "material instansiyasi faylga bog'lanmagan"
-                           : m_Path.empty() ? "materialning fayli yo'q" : std::string();
+        std::string reason = m_Instance ? "the material instance is not bound to a file"
+                           : m_Path.empty() ? "the material has no file" : std::string();
         MaterialData data;
         if (reason.empty() && MaterialSerializer::Deserialize(m_Path, data, &reason))
         {
@@ -516,7 +516,7 @@ namespace Zamin {
         if (m_Instance)
         {
             // A script's copy: writing it would put one entity's runtime look into the shared file.
-            ZM_CORE_WARN("Material instansiyasi faylga saqlanmaydi: {}", m_Path.empty() ? std::string("(xotirada)") : m_Path.filename().string());
+            ZM_CORE_WARN("A material instance is not saved to a file: {}", m_Path.empty() ? std::string("(in memory)") : m_Path.filename().string());
             return false;
         }
         return !m_Path.empty() && MaterialSerializer::Serialize(m_Data, m_Path);

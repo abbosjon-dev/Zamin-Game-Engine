@@ -412,7 +412,7 @@ namespace Zamin {
                 while (!error->empty() && (error->back() == '\n' || error->back() == '\r'))
                     error->pop_back();
                 if (error->empty())
-                    *error = "o'qilmadi";
+                    *error = "unreadable";
             }
             return false;
         }
@@ -451,7 +451,7 @@ namespace Zamin {
         }
         if (vertices.empty())
         {
-            if (error) *error = "faylda uchburchak yo'q";
+            if (error) *error = "the file has no triangles";
             return false;
         }
         return true;
@@ -477,7 +477,7 @@ namespace Zamin {
         AssetImportLog::Clear(path);
         auto mesh = CreateRef<Mesh>(vertices, indices);
         s_Models[key] = mesh;
-        ZM_CORE_INFO("Model yuklandi: {} ({} uchburchak)", key, indices.size() / 3);
+        ZM_CORE_INFO("Model loaded: {} ({} triangles)", key, indices.size() / 3);
         return mesh;
     }
 

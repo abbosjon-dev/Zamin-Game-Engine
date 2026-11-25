@@ -92,7 +92,7 @@ namespace Zamin {
             return nullptr;
         }
         AssetImportLog::Clear(path);
-        ZM_CORE_INFO("Muhit xaritasi (IBL) yuklandi: {} ({}x{})", path.filename().string(),
+        ZM_CORE_INFO("Environment map (IBL) loaded: {} ({}x{})", path.filename().string(),
                      env->m_Texture->GetWidth(), env->m_Texture->GetHeight());
         s_EnvCache[key] = env;
         return env;

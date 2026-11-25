@@ -304,7 +304,7 @@ namespace Zamin::UI {
             swatch = { 0.52f, 0.51f, 0.49f };
         float h = ImGui::GetTextLineHeight();
         ImVec2 at = ImGui::GetCursorScreenPos();
-        std::string label = "      " + preset.Name; // room for the swatch
+        std::string label = "      " + Tr(preset.Name); // room for the swatch
         bool clicked = ImGui::MenuItem(label.c_str());
         ImDrawList* draw = ImGui::GetWindowDrawList();
         ImVec2 min(at.x + 1.0f, at.y + 1.0f), max(at.x + h - 1.0f, at.y + h - 1.0f);
@@ -320,7 +320,7 @@ namespace Zamin::UI {
             draw->AddCircleFilled(ImVec2(min.x + h * 0.32f, min.y + h * 0.32f), h * 0.14f, IM_COL32(255, 255, 255, 170));
         if (ImGui::IsItemHovered())
         {
-            std::string text = preset.Description;
+            std::string text = Tr(preset.Description);
             if (tooltipExtra)
                 text += std::string("\n") + tooltipExtra;
             Tooltip(text.c_str());

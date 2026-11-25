@@ -46,11 +46,11 @@ namespace Zamin {
             PostProcessor::Init();
         }
         const ShaderCache::Stats& shaders = ShaderCache::GetStats();
-        ZM_CORE_INFO("Shader'lar: {} ta keshdan ({:.1f} ms), {} ta kompilyatsiya ({:.1f} ms){}", shaders.Hits, shaders.LoadMilliseconds,
+        ZM_CORE_INFO("Shaders: {} from cache ({:.1f} ms), {} compiled ({:.1f} ms){}", shaders.Hits, shaders.LoadMilliseconds,
                      shaders.Misses, shaders.CompileMilliseconds,
                      ShaderCache::IsAvailable()            ? std::string()
-                     : ShaderCache::GetDirectory().empty() ? std::string(" - binary kesh o'chiq")
-                                                           : std::string(" - drayver program binary'ni qo'llamaydi"));
+                     : ShaderCache::GetDirectory().empty() ? std::string(" - binary cache off")
+                                                           : std::string(" - the driver does not support program binaries"));
     }
 
     void Renderer::Shutdown()
@@ -109,10 +109,10 @@ namespace Zamin {
 
     std::string RenderStatistics::Format() const
     {
-        return std::format("draw call {}, uchburchak {} | mesh: {} chizildi, {} kesildi, {} instanced ({} chaqiruv), {} shaffof | "
-                           "soya: {} chizildi, {} kesildi ({} ko'rinmas soya), {} instanced ({} chaqiruv) | 2D: {} chizildi, {} kesildi | tile bo'laklari: "
-                           "{} chizildi, {} kesildi | quad {}, doira {}, chiziq {} | particle {} ({} instanced, {} chaqiruv) | "
-                           "2D batch bo'linishi: tekstura {}, tur {}, holat {}; tartibi o'zgargan {} | uniform bufer {} ({} bayt)",
+        return std::format("draw calls {}, triangles {} | mesh: {} drawn, {} culled, {} instanced ({} calls), {} transparent | "
+                           "shadow: {} drawn, {} culled ({} out of view), {} instanced ({} calls) | 2D: {} drawn, {} culled | tile chunks: "
+                           "{} drawn, {} culled | quads {}, circles {}, lines {} | particles {} ({} instanced, {} calls) | "
+                           "2D batch splits: texture {}, kind {}, state {}; reordered {} | uniform buffer {} ({} bytes)",
                            DrawCalls, TriangleCount, MeshCount, CulledMeshCount, InstancedMeshCount, InstancedDrawCount, TransparentCount,
                            ShadowCasterCount, CulledShadowCasterCount, CulledShadowByViewCount, InstancedShadowCasterCount, InstancedShadowDrawCount, SpriteCount,
                            CulledSpriteCount, TileChunkCount, CulledTileChunkCount, QuadCount, CircleCount, LineCount, ParticleCount,
@@ -131,7 +131,7 @@ namespace Zamin {
             for (auto& c : candidates)
                 if (std::filesystem::exists(c))
                     return c;
-            ZM_CORE_WARN("'Resources' papkasi topilmadi");
+            ZM_CORE_WARN("'Resources' folder not found");
             return candidates[0];
         }();
         return dir;

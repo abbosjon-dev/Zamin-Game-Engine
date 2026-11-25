@@ -476,7 +476,7 @@ namespace Zamin {
                 std::string error;
                 if (!MaterialPresets::Create(preset, MaterialPresets::GetSharedFolder(), true, result, &error))
                 {
-                    ZM_ERROR("Standart material '{}' yaratilmadi: {}", preset.Name, error);
+                    ZM_ERROR("Standart material '{}' yaratilmadi: {}", preset.FileName, error);
                     continue;
                 }
                 if (!result.Existed)

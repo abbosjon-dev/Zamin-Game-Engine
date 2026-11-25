@@ -109,8 +109,8 @@ def bench(args, runner, out, game, scene, kind, demo, size, home, run):
         row.update(entities=int(m.group(1)), active=int(m.group(2)))
     stats = last(r"Render statistics \(last frame\): (.*)$", text)
     if stats:
-        dc = re.search(r"draw call (\d+), uchburchak (\d+)", stats)
-        quads = re.search(r"quad (\d+)", stats)
+        dc = re.search(r"draw calls (\d+), triangles (\d+)", stats)
+        quads = re.search(r"quads (\d+)", stats)
         row.update(drawcalls=int(dc.group(1)) if dc else None, triangles=int(dc.group(2)) if dc else None, quads=int(quads.group(1)) if quads else None)
     mem = re.search(r"Memory: RAM ([0-9.]+) (KB|MB|GB)", text)
     if mem:

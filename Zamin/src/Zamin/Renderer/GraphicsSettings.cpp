@@ -136,7 +136,7 @@ namespace Zamin {
     std::string GraphicsContextInfo::Summary() const
     {
         if (!Valid)
-            return "OpenGL konteksti yo'q";
+            return "no OpenGL context";
         std::string extras;
         auto add = [&](const std::string& part) { extras += (extras.empty() ? "" : ", ") + part; };
         if (DebugContext)

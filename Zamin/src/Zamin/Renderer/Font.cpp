@@ -674,7 +674,7 @@ namespace Zamin {
         if (ttf.empty())
         {
             std::string reason = AssetImportLog::CheckReadable(path);
-            AssetImportLog::Report(path, reason.empty() ? "fayl o'qilmadi" : reason, reload);
+            AssetImportLog::Report(path, reason.empty() ? "the file could not be read" : reason, reload);
             return false;
         }
 
@@ -682,7 +682,7 @@ namespace Zamin {
         int offset = stbtt_GetFontOffsetForIndex(ttf.data(), 0);
         if (offset < 0 || !stbtt_InitFont(&info, ttf.data(), offset))
         {
-            AssetImportLog::Report(path, "TrueType / OpenType shrift emas yoki fayl buzilgan", reload);
+            AssetImportLog::Report(path, "not a TrueType / OpenType font, or the file is broken", reload);
             return false;
         }
 
@@ -691,7 +691,7 @@ namespace Zamin {
         main.Texture = m_Main.Texture; // refilled in place when reloading
         if (!BakeAtlas(ttf, pixelHeight, 2, 2, 2048, true, main, m_Textures))
         {
-            AssetImportLog::Report(path, "TrueType / OpenType shrift emas yoki fayl buzilgan", reload);
+            AssetImportLog::Report(path, "not a TrueType / OpenType font, or the file is broken", reload);
             return false;
         }
 

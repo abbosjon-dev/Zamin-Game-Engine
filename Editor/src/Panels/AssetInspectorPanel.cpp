@@ -1066,14 +1066,14 @@ namespace Zamin {
         {
             UI::PropertyHeader("Import sozlamalari");
             const TextureFilter filters[] = { TextureFilter::Linear, TextureFilter::Nearest };
-            const char* filterNames[] = { AssetImporter::GetFilterName(filters[0]), AssetImporter::GetFilterName(filters[1]) };
+            const char* filterNames[] = { Tr(AssetImporter::GetFilterName(filters[0])), Tr(AssetImporter::GetFilterName(filters[1])) };
             int filter = m_TextureEdit.Filter == TextureFilter::Nearest ? 1 : 0;
             UI::PropertyLabel("Filtr", "Kattalashtirilganda: silliq (linear) yoki aniq kvadrat piksellar (nearest - pixel-art uchun).");
             if (ImGui::Combo("##filter", &filter, filterNames, 2))
                 m_TextureEdit.Filter = filters[filter];
 
             const TextureWrap wraps[] = { TextureWrap::Repeat, TextureWrap::ClampToEdge, TextureWrap::MirroredRepeat };
-            const char* wrapNames[] = { AssetImporter::GetWrapName(wraps[0]), AssetImporter::GetWrapName(wraps[1]), AssetImporter::GetWrapName(wraps[2]) };
+            const char* wrapNames[] = { Tr(AssetImporter::GetWrapName(wraps[0])), Tr(AssetImporter::GetWrapName(wraps[1])), Tr(AssetImporter::GetWrapName(wraps[2])) };
             int wrap = (int)(std::find(std::begin(wraps), std::end(wraps), m_TextureEdit.Wrap) - std::begin(wraps));
             UI::PropertyLabel("Wrap", "UV 0..1 dan tashqarida (tiling): rasm takrorlanadi, chetdagi piksel cho'ziladi "
                                       "yoki har safar ko'zgudek aks etadi.");
@@ -1642,7 +1642,7 @@ namespace Zamin {
             }
 
             int axis = m_ModelEdit.UpAxis == ModelUpAxis::Z ? 1 : 0;
-            const char* axisNames[] = { AssetImporter::GetUpAxisName(ModelUpAxis::Y), AssetImporter::GetUpAxisName(ModelUpAxis::Z) };
+            const char* axisNames[] = { Tr(AssetImporter::GetUpAxisName(ModelUpAxis::Y)), Tr(AssetImporter::GetUpAxisName(ModelUpAxis::Z)) };
             UI::PropertyLabel("Yuqori o'q", "Fayl qaysi o'qni yuqori deb hisoblaydi. Z: CAD va ba'zi eksportchilar - model "
                                             "Y-yuqoriga aylantiriladi (skelet va animatsiyalar bilan).");
             if (ImGui::Combo("##upAxis", &axis, axisNames, 2))
@@ -2209,8 +2209,8 @@ namespace Zamin {
         {
             UI::PropertyHeader("Import sozlamalari");
             int mode = (int)m_AudioEdit.LoadMode;
-            const char* modes[] = { AssetImporter::GetLoadModeName(AudioLoadMode::Auto), AssetImporter::GetLoadModeName(AudioLoadMode::Decompress),
-                                    AssetImporter::GetLoadModeName(AudioLoadMode::Stream) };
+            const char* modes[] = { Tr(AssetImporter::GetLoadModeName(AudioLoadMode::Auto)), Tr(AssetImporter::GetLoadModeName(AudioLoadMode::Decompress)),
+                                    Tr(AssetImporter::GetLoadModeName(AudioLoadMode::Stream)) };
             UI::PropertyLabel("Yuklash usuli", "Avtomatik: xotiraga yechiladi, loyiha chegarasidan (Audio Mixer > Sozlamalar) katta fayl "
                                                "diskdan oqim bilan o'qiladi. Xotiraga: har doim to'liq yechiladi - tez-tez chalinadigan "
                                                "qisqa ovozlar. Oqim: o'ynayotganda diskdan o'qiladi - uzun musiqa va fon ovozlari.");

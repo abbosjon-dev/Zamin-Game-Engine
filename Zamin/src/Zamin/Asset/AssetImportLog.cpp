@@ -78,31 +78,31 @@ namespace Zamin {
     {
         std::error_code ec;
         if (file.empty())
-            return "fayl yo'li bo'sh";
+            return "the file path is empty";
         fs::file_status status = fs::status(file, ec);
         if (ec || status.type() == fs::file_type::not_found)
-            return "fayl topilmadi";
+            return "file not found";
         if (status.type() == fs::file_type::directory)
-            return "bu papka, fayl emas";
+            return "this is a folder, not a file";
         if (status.type() != fs::file_type::regular)
-            return "oddiy fayl emas";
+            return "not a regular file";
         if (fs::file_size(file, ec) == 0 && !ec)
-            return "fayl bo'sh";
+            return "the file is empty";
         return {};
     }
 
     std::string AssetImportLog::DescribeImageError(const char* reason)
     {
         std::string raw = reason && *reason ? reason : "unknown";
-        const char* words = "rasm buzilgan yoki formati qo'llab-quvvatlanmaydi";
+        const char* words = "the image is broken or its format is not supported";
         if (raw == "can't fopen")
-            words = "fayl ochilmadi";
+            words = "the file could not be opened";
         else if (raw == "unknown image type")
-            words = "noma'lum rasm formati (PNG, JPG, TGA, BMP, PSD, GIF, HDR yoki PIC bo'lishi kerak)";
+            words = "unknown image format (it must be PNG, JPG, TGA, BMP, PSD, GIF, HDR or PIC)";
         else if (raw == "outofmem")
-            words = "xotira yetmadi";
+            words = "out of memory";
         else if (raw == "too large" || raw == "Image too large")
-            words = "rasm juda katta";
+            words = "the image is too large";
         return std::string(words) + " (stb: " + raw + ")";
     }
 
@@ -112,7 +112,7 @@ namespace Zamin {
         FileStamp stamp = ReadStamp(key);
         std::string name = DisplayName(key);
         AssetType type = AssetTypes::FromPath(key);
-        std::string text(reason.empty() ? std::string_view("noma'lum xato") : reason);
+        std::string text(reason.empty() ? std::string_view("unknown error") : reason);
 
         bool log = false;
         {
@@ -139,11 +139,11 @@ namespace Zamin {
         }
         if (log)
         {
-            const char* what = type == AssetType::Other ? "Asset" : AssetTypes::GetName(type);
+            const char* what = type == AssetType::Other ? "Asset" : AssetTypes::GetKey(type);
             if (reload)
-                ZM_CORE_ERROR("{} qayta yuklanmadi: '{}' - {} (avvalgi holati qoldi)", what, name, text);
+                ZM_CORE_ERROR("{} was not reloaded: '{}' - {} (its previous state is kept)", what, name, text);
             else
-                ZM_CORE_ERROR("{} yuklanmadi: '{}' - {}", what, name, text);
+                ZM_CORE_ERROR("{} failed to load: '{}' - {}", what, name, text);
         }
         return log;
     }

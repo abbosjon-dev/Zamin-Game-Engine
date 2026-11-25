@@ -311,7 +311,7 @@ overlay'da "Xotira".
 ```cpp
 ZM_INFO("O'yinchi {} ochko to'pladi", score);       // o'yin / editor ("APP" logger)
 ZM_WARN("Saqlash fayli eski: v{}", version);
-ZM_CORE_ERROR("Tekstura yuklanmadi: '{}'", path);  // dvigatelning o'zi ("ZAMIN")
+ZM_CORE_ERROR("Tekstura failed to load: '{}'", path);  // dvigatelning o'zi ("ZAMIN")
 ```
 
 Darajalar: `Trace`, `Info`, `Warn`, `Error`, `Critical`, `Off`. Har logger o'z minimal darajasiga ega

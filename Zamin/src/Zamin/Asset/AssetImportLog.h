@@ -17,7 +17,7 @@ namespace Zamin {
         std::filesystem::path File;   // absolute
         std::string Name;             // as logged: relative to the asset folder when it is inside it
         AssetType Type = AssetType::Other;
-        std::string Reason;           // "fayl topilmadi", the decoder's reason...
+        std::string Reason;           // "file not found", the decoder's reason...
         bool Reload = false;          // the file failed when it was imported again (the old content stayed)
         uint32_t Count = 0;           // failures since it was reported
         uint64_t Sequence = 0;        // report order (larger = newer)

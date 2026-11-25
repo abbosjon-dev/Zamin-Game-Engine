@@ -208,7 +208,7 @@ namespace Zamin {
             if (scan)
             {
                 scan->RepairedMeta++;
-                scan->Problems.push_back(std::format("'{}': UUID boshqa assetniki bilan bir xil - yangi UUID berildi", c.RelativePath));
+                scan->Problems.push_back(std::format("'{}': the UUID is the same as another asset's - a new UUID was given", c.RelativePath));
             }
         }
         else if (!c.MetaError.empty())
@@ -218,7 +218,7 @@ namespace Zamin {
             if (scan)
             {
                 scan->BrokenMeta++;
-                scan->Problems.push_back(std::format("'{}.zmeta' o'qilmadi ({}) - tuzating yoki o'chiring", c.RelativePath, c.MetaError));
+                scan->Problems.push_back(std::format("'{}.zmeta' could not be read ({}) - fix or delete it", c.RelativePath, c.MetaError));
             }
         }
         else
@@ -787,15 +787,15 @@ namespace Zamin {
         };
         ordered_json root = ordered_json::parse(text.begin(), text.end(), nullptr, false);
         if (root.is_discarded() || !root.is_object())
-            return fail("JSON formati buzilgan");
+            return fail("broken JSON format");
         auto version = root.find("Version");
         if (version == root.end() || !version->is_number_integer())
-            return fail("asset registry fayli emas (Version yo'q)");
+            return fail("not an asset registry file (no Version)");
         if (version->get<int>() > SnapshotVersion)
-            return fail("editorning yangiroq versiyasida yozilgan");
+            return fail("written by a newer version of the editor");
         auto assets = root.find("Assets");
         if (assets == root.end() || !assets->is_array())
-            return fail("Assets ro'yxati yo'q");
+            return fail("no Assets list");
 
         std::unordered_set<AssetHandle> handles;
         std::unordered_set<std::string> paths;

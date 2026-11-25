@@ -5328,6 +5328,16 @@ namespace Zamin {
             { "{} rasm, {} model\n{} audio, {} material", "{} images, {} models\n{} audio, {} materials" },
             { "UI Rasm", "UI Image" },
             { "Rasm (*.png *.jpg) | *.png *.jpg", "Image (*.png *.jpg) | *.png *.jpg" },
+            { "Piksel (nearest)", "Pixel (nearest)" },
+            { "Silliq (linear)", "Smooth (linear)" },
+            { "Chetda to'xtash (clamp)", "Clamp to edge" },
+            { "Ko'zgu (mirror)", "Mirror" },
+            { "Takrorlash (repeat)", "Repeat" },
+            { "Z yuqoriga", "Z up" },
+            { "Y yuqoriga", "Y up" },
+            { "Xotiraga (decompress)", "Decompress into memory" },
+            { "Diskdan oqim (stream)", "Stream from disk" },
+            { "Avtomatik (hajmiga qarab)", "Automatic (by size)" },
         };
 
         struct Table

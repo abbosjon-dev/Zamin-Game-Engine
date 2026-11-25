@@ -188,7 +188,7 @@ namespace Zamin {
         int offset = ttf.empty() ? -1 : stbtt_GetFontOffsetForIndex(ttf.data(), 0);
         if (offset < 0 || !stbtt_InitFont(&info, ttf.data(), offset))
         {
-            error = ttf.empty() ? "fayl o'qilmadi" : "TrueType / OpenType shrift emas yoki fayl buzilgan";
+            error = ttf.empty() ? "the file could not be read" : "not a TrueType / OpenType font, or the file is broken";
             return false;
         }
         uint32_t size = std::max(16u, maxSize);
@@ -266,7 +266,7 @@ namespace Zamin {
                 case AssetType::Texture:     ok = GenerateImage(path, maxSize, out, reason); break;
                 case AssetType::Environment: ok = GenerateEnvironment(path, maxSize, out, reason); break;
                 case AssetType::Font:        ok = GenerateFont(path, maxSize, out, reason); break;
-                default:                     reason = "bu turdagi fayl uchun rasm yasalmaydi"; break;
+                default:                     reason = "no thumbnail is made for this kind of file"; break;
             }
         }
         if (!ok)

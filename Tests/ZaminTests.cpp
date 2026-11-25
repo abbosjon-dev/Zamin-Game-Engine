@@ -13800,7 +13800,7 @@ TEST(AssetInfoImages)
     ImageFileInfo broken = AssetInfo::ReadImage(dir / "broken.png");
     CHECK(!broken.Valid && !broken.Error.empty());
     ImageFileInfo missing = AssetInfo::ReadImage(dir / "nope.png");
-    CHECK(!missing.Valid && missing.Error == "fayl topilmadi");
+    CHECK(!missing.Valid && missing.Error == "file not found");
 
     // CPU pixels and channel views (what the preview shows for R / G / B / A).
     ImageData data;
@@ -13890,7 +13890,7 @@ TEST(AssetInfoAudio)
     AudioFileInfo broken = AssetInfo::ReadAudio(dir / "broken.wav");
     CHECK(!broken.Valid && !broken.Error.empty());
     CHECK(AssetInfo::ReadAudioWaveform(dir / "broken.wav", 64, &error).empty() && !error.empty());
-    CHECK(AssetInfo::ReadAudio(dir / "nope.wav").Error == "fayl topilmadi");
+    CHECK(AssetInfo::ReadAudio(dir / "nope.wav").Error == "file not found");
     std::error_code ec;
     fs::remove_all(dir, ec);
 }
@@ -13970,7 +13970,7 @@ TEST(AssetInfoModels)
     WriteFile(dir / "broken.gltf", "{ not json");
     ModelFileInfo broken = AssetInfo::ReadModel(dir / "broken.gltf");
     CHECK(!broken.Valid && !broken.Error.empty());
-    CHECK(AssetInfo::ReadModel(dir / "nope.glb").Error == "fayl topilmadi");
+    CHECK(AssetInfo::ReadModel(dir / "nope.glb").Error == "file not found");
     std::error_code ec;
     fs::remove_all(dir, ec);
 }
@@ -14114,9 +14114,9 @@ TEST(AssetImportLogReportsOnce)
     // Readability and stb reasons in words.
     WriteFile(dir / "empty.png", "");
     WriteFile(dir / "fine.txt", "x");
-    CHECK(AssetImportLog::CheckReadable(dir / "nothing.png") == "fayl topilmadi");
-    CHECK(AssetImportLog::CheckReadable(dir) == "bu papka, fayl emas");
-    CHECK(AssetImportLog::CheckReadable(dir / "empty.png") == "fayl bo'sh" && AssetImportLog::CheckReadable(dir / "fine.txt").empty());
+    CHECK(AssetImportLog::CheckReadable(dir / "nothing.png") == "file not found");
+    CHECK(AssetImportLog::CheckReadable(dir) == "this is a folder, not a file");
+    CHECK(AssetImportLog::CheckReadable(dir / "empty.png") == "the file is empty" && AssetImportLog::CheckReadable(dir / "fine.txt").empty());
     CHECK(AssetImportLog::DescribeImageError("unknown image type").find("stb: unknown image type") != std::string::npos);
     CHECK(AssetImportLog::DescribeImageError(nullptr).find("stb: unknown") != std::string::npos);
 
@@ -14166,7 +14166,7 @@ TEST(AssetImportLogReportsOnce)
     }
     CHECK(CountLoggedErrors("missing.png") == 1 && CountLoggedErrors("broken.png") == 1);
     error = AssetImportLog::Find(dir / "missing.png");
-    CHECK(error && error->Reason == "fayl topilmadi" && error->Count == 6);
+    CHECK(error && error->Reason == "file not found" && error->Count == 6);
     error = AssetImportLog::Find(dir / "broken.png");
     CHECK(error && error->Reason.find("stb:") != std::string::npos);
 
@@ -14174,14 +14174,14 @@ TEST(AssetImportLogReportsOnce)
     CHECK(Font::Load(dir / "missing.ttf") == nullptr && Font::Load(dir / "missing.ttf") == nullptr);
     CHECK(Font::Load(dir / "broken.ttf") == nullptr && Font::Load(dir / "broken.ttf") == nullptr);
     CHECK(CountLoggedErrors("missing.ttf") == 1 && CountLoggedErrors("broken.ttf") == 1);
-    CHECK(AssetImportLog::Find(dir / "missing.ttf")->Reason == "fayl topilmadi");
+    CHECK(AssetImportLog::Find(dir / "missing.ttf")->Reason == "file not found");
     CHECK(AssetImportLog::Find(dir / "broken.ttf")->Reason.find("shrift") != std::string::npos);
     CHECK(AssetImportLog::Find(dir / "broken.ttf")->Type == AssetType::Font);
 
     WriteFile(dir / "sky.hdr", "#?RADIANCE but broken");
     CHECK(EnvironmentMap::Load(dir / "sky.hdr") == nullptr && EnvironmentMap::Load(dir / "nosky.hdr") == nullptr);
     CHECK(AssetImportLog::Find(dir / "sky.hdr") && AssetImportLog::Find(dir / "sky.hdr")->Reason.find("stb:") != std::string::npos);
-    CHECK(AssetImportLog::Find(dir / "nosky.hdr") && AssetImportLog::Find(dir / "nosky.hdr")->Reason == "fayl topilmadi");
+    CHECK(AssetImportLog::Find(dir / "nosky.hdr") && AssetImportLog::Find(dir / "nosky.hdr")->Reason == "file not found");
 
     WriteFile(dir / "Models" / "broken.gltf", "{ not json");
     CHECK(Model::Load(dir / "Models" / "broken.gltf") == nullptr && Model::Load(dir / "Models" / "absent.gltf") == nullptr);
@@ -14193,7 +14193,7 @@ TEST(AssetImportLogReportsOnce)
     WriteFile(dir / "Scenes" / "notascene.zscene", "{ \"Hello\": 1 }");
     Ref<Scene> scene = CreateRef<Scene>();
     SceneSerializer serializer(scene);
-    CHECK(!serializer.Deserialize(dir / "Scenes" / "absent.zscene") && serializer.GetLastError() == "fayl topilmadi");
+    CHECK(!serializer.Deserialize(dir / "Scenes" / "absent.zscene") && serializer.GetLastError() == "file not found");
     CHECK(!serializer.Deserialize(dir / "Scenes" / "broken.zscene") && serializer.GetLastError().starts_with("JSON xatosi"));
     CHECK(!serializer.Deserialize(dir / "Scenes" / "broken.zscene"));
     CHECK(!serializer.Deserialize(dir / "Scenes" / "notascene.zscene") && serializer.GetLastError().find("Scene") != std::string::npos);
@@ -14212,7 +14212,7 @@ TEST(AssetImportLogReportsOnce)
         CHECK(!scene->InstantiatePrefab(dir / "Prefabs" / "bad.zprefab"));
     }
     CHECK(CountLoggedErrors("gone.zprefab") == 1 && CountLoggedErrors("bad.zprefab") == 1);
-    CHECK(AssetImportLog::Find(dir / "Prefabs" / "gone.zprefab")->Reason == "fayl topilmadi");
+    CHECK(AssetImportLog::Find(dir / "Prefabs" / "gone.zprefab")->Reason == "file not found");
     CHECK(AssetImportLog::Find(dir / "Prefabs" / "bad.zprefab")->Reason.find("Entities") != std::string::npos);
     std::string error2;
     CHECK(SceneSerializer::DeserializeEntities(*scene, "nope", true, nullptr, &error2).empty() && error2.starts_with("JSON xatosi"));
@@ -14229,7 +14229,7 @@ TEST(AssetImportLogReportsOnce)
             CHECK(AudioEngine::Play(dir / "Audio" / "broken.wav") == 0);
         }
         CHECK(CountLoggedErrors("nosound.wav") == 1 && CountLoggedErrors("broken.wav") == 1);
-        CHECK(AssetImportLog::Find(dir / "Audio" / "nosound.wav")->Reason == "fayl topilmadi");
+        CHECK(AssetImportLog::Find(dir / "Audio" / "nosound.wav")->Reason == "file not found");
         CHECK(AssetImportLog::Find(dir / "Audio" / "broken.wav")->Reason.find("miniaudio") != std::string::npos);
         CHECK(AssetImportLog::Find(dir / "Audio" / "broken.wav")->Count == 3);
     }
@@ -14441,7 +14441,7 @@ TEST(AssetThumbnailsAndDiskCache)
         CHECK(inked > 200 && inked < 64 * 64 / 2); // letters, not a filled square
     }
     CHECK(!AssetThumbnails::Generate(dir / "broken.png", 64, thumb, &error) && error.find("stb:") != std::string::npos && !thumb.IsValid());
-    CHECK(!AssetThumbnails::Generate(dir / "gone.png", 64, thumb, &error) && error == "fayl topilmadi");
+    CHECK(!AssetThumbnails::Generate(dir / "gone.png", 64, thumb, &error) && error == "file not found");
     WriteFile(dir / "bad.ttf", "nope");
     CHECK(!AssetThumbnails::Generate(dir / "bad.ttf", 64, thumb, &error) && !error.empty());
     CHECK(!AssetThumbnails::CanGenerate(dir / "Robot.gltf") && !AssetThumbnails::CanGenerate(dir / "Level.zscene"));
@@ -32128,7 +32128,7 @@ TEST(SceneBinaryCache)
         CHECK(SceneSerializer(fromCache).SerializeToString() == SceneSerializer(fromText).SerializeToString());
         CHECK(serializer.GetTiming().Get(Stage::Migrate) >= 0.0);
     }
-    CHECK(!SceneSerializer::WriteBinaryCache(f.Path("Missing"), &error) && error == "fayl topilmadi");
+    CHECK(!SceneSerializer::WriteBinaryCache(f.Path("Missing"), &error) && error == "file not found");
 }
 
 TEST(LargeSceneSerialization)
@@ -45086,7 +45086,7 @@ TEST(PrefabCacheReads)
     }
     CHECK(PrefabCache::GetStats().Entries == entriesBefore);
     CHECK(AssetImportLog::Find(broken) && AssetImportLog::Find(broken)->Reason.starts_with("JSON xatosi"));
-    CHECK(AssetImportLog::Find(temp.GetPath() / "Prefabs" / "Gone.zprefab")->Reason == "fayl topilmadi");
+    CHECK(AssetImportLog::Find(temp.GetPath() / "Prefabs" / "Gone.zprefab")->Reason == "file not found");
     FileSystem::WriteTextFile(broken, R"({"ZaminEntities":1,"Entities":[{"Entity":1,"Tag":"Tuzatildi"}]})");
     Entity fixed = scene->InstantiatePrefab(broken);
     CHECK(fixed && fixed.GetName() == "Tuzatildi" && !AssetImportLog::HasError(broken));

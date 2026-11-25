@@ -156,18 +156,18 @@ namespace Zamin {
         };
         ordered_json j = ordered_json::parse(text.begin(), text.end(), nullptr, false);
         if (j.is_discarded() || !j.is_object())
-            return fail("JSON formati buzilgan");
+            return fail("broken JSON format");
 
         AssetHandle handle;
         auto uuid = j.find("UUID");
         if (uuid == j.end())
-            return fail("UUID yo'q");
+            return fail("no UUID");
         if (uuid->is_string())
             handle = AssetHandle::FromString(uuid->get<std::string>()).value_or(AssetHandle());
         else if (uuid->is_number_unsigned())
             handle = AssetHandle(uuid->get<uint64_t>());
         if (!handle)
-            return fail("UUID noto'g'ri");
+            return fail("invalid UUID");
 
         out.Handle = handle;
         if (auto type = j.find("Type"); type != j.end() && type->is_string())

@@ -4400,7 +4400,7 @@ namespace Zamin {
     // A file that cannot be read at all (AssetImportLog::CheckReadable's reason).
     static SceneLoadIssue MakeUnreadableIssue(const std::string& reason)
     {
-        return MakeIssue(reason == "fayl topilmadi" ? SceneLoadIssue::Kind::FileMissing : SceneLoadIssue::Kind::Unreadable,
+        return MakeIssue(reason == "file not found" ? SceneLoadIssue::Kind::FileMissing : SceneLoadIssue::Kind::Unreadable,
                          SceneLoadIssue::Severity::Fatal, reason);
     }
 

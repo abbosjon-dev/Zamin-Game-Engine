@@ -518,7 +518,7 @@ Editor haqida batafsil: [Editor.md](Editor.md#5-viewport).
 | Belgi | Sabab va yechim |
 |---|---|
 | O'yinda qora ekran / hech narsa chizilmaydi | Asosiy kamera yo'q, kamera obyekti nofaol, yoki kamera teskari tomonga qaragan; 2D'da ortografik kamera va obyektlarning Z i near / far ichida |
-| Rasm o'rniga oq / pushti to'rtburchak, konsolda `Rasm yuklanmadi: '...' - ...` | Yo'l noto'g'ri yoki fayl buzilgan; kontent brauzerdagi qizil belgi va asset inspektoridagi sabab, **Qayta urinish** |
+| Rasm o'rniga oq / pushti to'rtburchak, konsolda `Rasm failed to load: '...' - ...` | Yo'l noto'g'ri yoki fayl buzilgan; kontent brauzerdagi qizil belgi va asset inspektoridagi sabab, **Qayta urinish** |
 | Pixel-art xira | Rasm import sozlamalarida filtr — piksel, Sprite Renderer `PixelArt`, ortografik kamerada pixel-perfect |
 | Shaffof obyektlar noto'g'ri tartibda | `Transparent` sirtlar markazi bo'yicha saralanadi — katta / kesishgan sirtlarda `SetSortPriority` (material ustuvorligi) bering; *Ko'rinish > Shaffoflar tartibi* |
 | Soya "akne"si yoki soya obyektdan uzilgan | `DepthBias` / `NormalBias` ni sozlang; soya masofasini kamaytiring yoki kaskadlarni ko'paytiring |

@@ -40,7 +40,7 @@ namespace Zamin {
         std::error_code ec;
         if (!fs::is_regular_file(path, ec))
         {
-            info.Error = "fayl topilmadi";
+            info.Error = "file not found";
             return info;
         }
         std::string file = path.string();
@@ -48,7 +48,7 @@ namespace Zamin {
         if (!stbi_info(file.c_str(), &width, &height, &channels))
         {
             const char* reason = stbi_failure_reason();
-            info.Error = reason ? reason : "rasm emas";
+            info.Error = reason ? reason : "not an image";
             return info;
         }
         info.Valid = width > 0 && height > 0;
@@ -58,7 +58,7 @@ namespace Zamin {
         info.Is16Bit = stbi_is_16_bit(file.c_str()) != 0;
         info.IsHDR = stbi_is_hdr(file.c_str()) != 0;
         if (!info.Valid)
-            info.Error = "o'lchami 0";
+            info.Error = "size 0";
         return info;
     }
 
@@ -105,16 +105,16 @@ namespace Zamin {
     {
         switch (result)
         {
-            case cgltf_result_data_too_short:   return "fayl qisqa (buzilgan?)";
-            case cgltf_result_unknown_format:   return "noma'lum format";
-            case cgltf_result_invalid_json:     return "JSON xato";
-            case cgltf_result_invalid_gltf:     return "glTF tuzilishi xato";
-            case cgltf_result_invalid_options:  return "noto'g'ri sozlamalar";
-            case cgltf_result_file_not_found:   return "fayl topilmadi";
-            case cgltf_result_io_error:         return "o'qish xatosi";
-            case cgltf_result_out_of_memory:    return "xotira yetmadi";
-            case cgltf_result_legacy_gltf:      return "eski glTF 1.0 qo'llab-quvvatlanmaydi";
-            default:                            return "noma'lum xato";
+            case cgltf_result_data_too_short:   return "the file is too short (broken?)";
+            case cgltf_result_unknown_format:   return "unknown format";
+            case cgltf_result_invalid_json:     return "invalid JSON";
+            case cgltf_result_invalid_gltf:     return "invalid glTF structure";
+            case cgltf_result_invalid_options:  return "invalid options";
+            case cgltf_result_file_not_found:   return "file not found";
+            case cgltf_result_io_error:         return "read error";
+            case cgltf_result_out_of_memory:    return "out of memory";
+            case cgltf_result_legacy_gltf:      return "old glTF 1.0 is not supported";
+            default:                            return "unknown error";
         }
     }
 
@@ -275,7 +275,7 @@ namespace Zamin {
         std::error_code ec;
         if (!fs::is_regular_file(path, ec))
         {
-            info.Error = "fayl topilmadi";
+            info.Error = "file not found";
             return info;
         }
         std::string ext = FileSystem::GetExtension(path);
@@ -302,7 +302,7 @@ namespace Zamin {
             info.Primitives.push_back(std::move(prim));
             return info;
         }
-        info.Error = "model formati emas";
+        info.Error = "not a model format";
         return info;
     }
 
@@ -333,8 +333,8 @@ namespace Zamin {
     static std::string DecoderError(const fs::path& path, ma_result result)
     {
         if (result == MA_NO_BACKEND || result == MA_INVALID_FILE || result == MA_INVALID_DATA || result == MA_FORMAT_NOT_SUPPORTED)
-            return FileSystem::GetExtension(path) == ".ogg" ? "OGG Vorbis dekoderi yo'q (WAV, MP3 yoki FLAC ishlating)"
-                                                 : "format qo'llab-quvvatlanmaydi yoki fayl buzilgan";
+            return FileSystem::GetExtension(path) == ".ogg" ? "no OGG Vorbis decoder (use WAV, MP3 or FLAC)"
+                                                 : "the format is not supported or the file is broken";
         return ma_result_description(result);
     }
 
@@ -345,7 +345,7 @@ namespace Zamin {
         std::error_code ec;
         if (!fs::is_regular_file(path, ec))
         {
-            info.Error = "fayl topilmadi";
+            info.Error = "file not found";
             return info;
         }
         ma_decoder decoder;
@@ -369,7 +369,7 @@ namespace Zamin {
         info.Duration = sampleRate ? (double)frames / (double)sampleRate : 0.0;
         info.Valid = channels > 0 && sampleRate > 0;
         if (!info.Valid)
-            info.Error = "ovoz ma'lumoti yo'q";
+            info.Error = "no audio data";
         return info;
     }
 
@@ -394,7 +394,7 @@ namespace Zamin {
         {
             ma_decoder_uninit(&decoder);
             if (error)
-                *error = "ovoz bo'sh";
+                *error = "the sound is empty";
             return peaks;
         }
 

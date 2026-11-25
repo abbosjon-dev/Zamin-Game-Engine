@@ -163,7 +163,7 @@ darhol to'liq ekranda ochiladi (oynali -> to'liq ekran sakrashisiz). Masalan `--
 saqlangan to'liq ekran tanlovi kuchda qoladi. Log'da har bir qiymat qayerdan kelgani yoziladi:
 
 ```
-Oyna sozlamalari: 1600x900 (buyruq qatori), to'liq ekran (saqlangan), VSync: ha (loyiha), FPS: 60 (loyiha), monitor: asosiy (loyiha), splash: ha (loyiha)
+Window settings: 1600x900 (buyruq qatori), to'liq ekran (saqlangan), VSync: ha (loyiha), FPS: 60 (loyiha), monitor: asosiy (loyiha), splash: ha (loyiha)
 ```
 
 **F11 / Alt+Enter**: o'yin ichida to'liq ekran (loyihaning turi: eksklyuziv yoki chegarasiz) va oyna orasida
@@ -188,11 +188,11 @@ biroz kech uyg'onsa ham o'rtacha chastota aniq; davrdan uzoq to'xtash (yuklanish
 **Fonda pauza** (`RunInBackground: false`): oyna fokusni yo'qotsa (boshqa oyna oldinga chiqdi, Alt+Tab) o'yin
 butunlay to'xtaydi - skriptlar, fizika, animatsiyalar, o'yin vaqti (`Time`) yangilanmaydi, audio chiqishi pauzada
 (har bir tovush va musiqa joyida turadi, ovoz eshitilmaydi). Ekranda o'yinning oxirgi kadri xiralashgan holda
-va o'rtada "Pauza" yozuvi (ostida "O'yin oynasi fokusda emas - davom etish uchun oynani tanlang"); o'yinning til
+va o'rtada "Paused" yozuvi (ostida "The game window is not focused - select the window to continue"); o'yinning til
 fayllarida `player.paused` / `player.paused_hint` kalitlari bo'lsa, ular ishlatiladi (Platformer2D: uz, ru, en).
 Pauzada CPU band emas: player voqealarni kutadi, rasmni boshida, oyna o'lchami o'zgarganda va har 0.5 s da qayta
 chizadi. Oyna yana fokusga kelsa o'yin to'xtagan joyidan davom etadi (uzun kadr sakrashisiz). Log:
-`O'yin to'xtatildi (pauza): oyna fokusda emas` / `O'yin resumed: the window is focused again`. Avtomatlashtirishda
+`Game paused: the window is not focused (running in the background is off)` / `Game resumed: the window is focused again`. Avtomatlashtirishda
 (screenshot, CI) `ZAMIN_FOCUS_LOSS_TEST=<kadr>[:<kadrlar soni>]` shu kadrdan fokus yo'qolganini taqlid qiladi.
 
 **Gamma va yorqinlik** (o'yinchi sozlamasi): player tayyor kadrni (sahna, UI, o'tishlar) ekranga oxirgi o'tishda
@@ -840,7 +840,7 @@ ushlaydi va log papkasiga `crash-<sana_vaqt>.txt` yozadi: o'yin va versiya, saba
 yoki istisno turi va matni), backtrace, oxirgi 48 log satri, yuklangan modullar. Log fayliga va terminalga
 qisqa xabar yoziladi. Keyin xabar oynasi ochiladi (alohida jarayon, o'yin darhol yopiladi): `zenity`,
 `kdialog`, bo'lmasa playerning o'z oynasi (`ZaminPlayer --crash-dialog <hisobot>`: sabab, hisobot yo'li,
-"Papkani ochish", "Yo'lni nusxalash", "Yopish"), oxiri `xmessage`. Oyna backtrace'dagi C++ nomlarini
+"Open folder", "Copy path", "Close"), oxiri `xmessage`. Oyna backtrace'dagi C++ nomlarini
 o'qiladigan qiladi. Signal handler faqat async-signal-safe chaqiruvlardan foydalanadi (hamma narsa oldindan
 tayyorlanadi; ikkinchi crash darhol tugatadi). Signal so'ng odatdagidek dasturni tugatadi (chiqish kodi, core
 dump o'zgarmaydi). Avtomatik ishga tushishlarda (`ZAMIN_MAX_FRAMES`) oyna ko'rsatilmaydi

@@ -813,7 +813,7 @@ Batafsil: [Editor.md](Editor.md).
   60 Hz da VSync intervali 2, boshqalari uyqu + aylanish jadvali), Zamin logotipli splash ekran (birinchi sahna fonda yuklanadi,
   tugma bilan o'tkaziladi, o'z rasmi / fon rangi), `--windowed` / `--borderless` / `--resolution` / `--monitor` / `--no-splash` / `--help`;
   fonda ishlash o'chiq bo'lsa oyna fokusni yo'qotganda pauza (vaqt, fizika, audio to'xtaydi; oxirgi kadr xiralashib
-  "Pauza" yozuvi), o'yinchining gamma va yorqinlik sozlamasi (oxirgi o'tish, `Display::SetGamma` / `SetBrightness`,
+  "Paused" yozuvi), o'yinchining gamma va yorqinlik sozlamasi (oxirgi o'tish, `Display::SetGamma` / `SetBrightness`,
   saqlanadi, `--gamma` / `--brightness`; Platformer2D pauza menyusida slayderlar); `--version` (o'yin versiyasi va dvigatel
   build'i: git kommiti, sana - `BuildInfo`, log va crash hisobotlarida ham), `--benchmark N` (headless ishlash testi: o'rtacha,
   p95, p99 ms, JSON, chegaralar - `Tests/player_bench.sh`), avtomatik eksport testi (`Tests/export_test.sh`: editor eksporti,

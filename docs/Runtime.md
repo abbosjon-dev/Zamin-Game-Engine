@@ -70,7 +70,7 @@ Log boshida doim:
 ```
 Zamin Engine 0.1.0 (kommit 40a7394f2c, build 2026-11-07, Release, GCC 13.3.0) is starting (Zamin Player)
 Log fayli: /home/ali/.local/share/Zamin Studio/Zamin Platformer/logs/player-2026-11-07_14-03-12.log
-Oyna sozlamalari: 1600x900 (saqlangan), oynali (loyiha), VSync: ha (loyiha), FPS: cheklovsiz (loyiha), monitor: asosiy (loyiha), splash: ha (loyiha)
+Window settings: 1600x900 (saqlangan), oynali (loyiha), VSync: ha (loyiha), FPS: cheklovsiz (loyiha), monitor: asosiy (loyiha), splash: ha (loyiha)
 Zamin Platformer 0.4.0 (Zamin Studio)
 Script module loaded: libPlatformer2D.so (25 script classes)
 ```
@@ -142,7 +142,7 @@ log'ga ogohlantirish bo'lib yoziladi, qolganlari ishlatiladi. `ZaminPlayer --hel
   bilan (sichqoncha tasvir ichida hisoblanadi).
 - **Kichraytirilgan oyna** - o'yin yangilanmaydi va chizilmaydi, CPU band emas; qaytganda vaqt sakramaydi.
 - **Fonda ishlash o'chiq** (`RunInBackground: false`) bo'lsa oyna fokusni yo'qotganda o'yin to'xtaydi (vaqt,
-  fizika, skriptlar, ovoz) va oxirgi kadr xira, "Pauza" yozuvi bilan ko'rsatiladi.
+  fizika, skriptlar, ovoz) va oxirgi kadr xira, "Paused" yozuvi bilan ko'rsatiladi.
 - **FPS cheklovi** (`TargetFrameRate` / `--fps`) VSync bilan birga ishlaydi: monitor chastotasini bo'ladigan
   cheklovni VSync o'zi ushlaydi, boshqalarini aniq jadvalli kutish (uyqu + qisqa aylanish).
 
@@ -204,12 +204,12 @@ O'yin: Zamin Platformer 0.4.0
 Dvigatel: Zamin Engine 0.1.0 (kommit 40a7394f2c, build 2026-11-07, Release, GCC 13.3.0)
 Sabab: SIGSEGV (segmentation fault) - manzil 0x8
 Backtrace: ...
-Oxirgi log satrlari: ...
+Last log lines: ...
 Yuklangan modullar: ...
 ```
 
 Keyin alohida jarayonda xabar oynasi ochiladi: `zenity`, `kdialog`, bo'lmasa playerning o'z oynasi
-(`ZaminPlayer --crash-dialog <hisobot>`: sabab, hisobot yo'li, "Papkani ochish", "Yo'lni nusxalash", "Yopish"),
+(`ZaminPlayer --crash-dialog <hisobot>`: sabab, hisobot yo'li, "Open folder", "Copy path", "Close"),
 oxiri `xmessage`. O'yinchidan shu faylni yuborishni so'rang - unda kommit bor, xato aynan qaysi koddan ekanini
 bilasiz. Signal handler faqat xavfsiz (async-signal-safe) chaqiruvlardan foydalanadi; dastur odatdagi signal
 chiqish kodi bilan tugaydi. `--no-crash-handler` - debugger / core dump uchun, `--no-crash-dialog` - oynasiz.

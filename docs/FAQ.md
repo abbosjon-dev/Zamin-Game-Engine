@@ -242,7 +242,7 @@ Sahna almashtirish faqat o'yin ishlab turganda (editorning Play'i yoki player) -
 
 Build ro'yxatida yo'q indeks so'ralsa:
 
-> `Build ro'yxatida <N> indeksli sahna yo'q (<M> ta sahna bor)`
+> `The build list has no scene with index <N>`
 
 Oxirgi yuklangan sahnani yopib bo'lmaydi:
 
@@ -376,7 +376,7 @@ qatoriga qarang ([BuildAndExport.md, 8](BuildAndExport.md#8-oyinni-eksport-qilis
 
 ### Player loyihani topmayapti
 
-> `Loyiha topilmadi. Foydalanish: ZaminPlayer <Game.zproject> (hamma variantlar: --help)`
+> `Project not found. Usage: ZaminPlayer <Game.zproject> (all options: --help)`
 
 Player'ga `.zproject` faylini yoki loyiha papkasini bering; eksport qilingan o'yinni `<O'yin>.sh` bilan ishga
 tushiring (u o'z papkasidagi `Game/*.zproject` ni ochadi).
@@ -385,9 +385,9 @@ tushiring (u o'z papkasidagi `Game/*.zproject` ni ochadi).
 
 Tushunilmagan qiymat log'ga yoziladi va o'yin standart qiymat bilan davom etadi, masalan:
 
-> `--quality <nom>: bunday sifat darajasi yo'q (bor: <ro'yxat>) - standart daraja qoldi`
+> `--quality <nom>: there is no such quality level (available: <ro'yxat>) - the default level stays`
 
-> `--scene <qiymat>: build ro'yxatida bunday indeks yo'q (<N> ta sahna bor)`
+> `--scene <qiymat>: the build list has no such index (it has <N> scenes)`
 
 > `No monitor <N> (<M> monitors found) - the primary monitor is used`
 
@@ -395,7 +395,7 @@ Hamma variantlar: `ZaminPlayer --help` va [Runtime.md, 4](Runtime.md#4-buyruq-qa
 
 ### Log fayli yozilmayapti
 
-> `Log fayli ochilmadi (<sabab>) - log faqat terminalda`
+> `The log file could not be opened (<sabab>) - the log is in the terminal only`
 
 Log papkasiga yozish huquqi yo'q (yoki disk to'lgan): `--log-file <fayl>` bilan boshqa joy bering.
 

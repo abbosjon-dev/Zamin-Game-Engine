@@ -145,13 +145,13 @@ else
     errors="$(log_errors "$player_log")"
     if [[ -z "$errors" ]]; then pass "o'yin logida xato yo'q ($(wc -l <"$player_log") qator)"; else fail "o'yin logida xatolar:"; echo "$errors" | head -n 10 | sed 's/^/           /'; fi
     if [[ $has_module -eq 1 ]]; then
-        if grep -q "Skript moduli yuklandi" "$player_log"; then
-            pass "$(grep -o "Skript moduli yuklandi.*" "$player_log" | head -n 1)"
+        if grep -q "Script module loaded" "$player_log"; then
+            pass "$(grep -o "Script module loaded.*" "$player_log" | head -n 1)"
         else
             fail "skript moduli yuklanmadi"
         fi
     fi
-    if grep -q "Scene load time\|Ishlash testi: " "$player_log"; then pass "boshlang'ich sahna yuklandi"; else fail "boshlang'ich sahna yuklanmadi"; fi
+    if grep -q "Scene load time\|Benchmark: " "$player_log"; then pass "boshlang'ich sahna yuklandi"; else fail "boshlang'ich sahna yuklanmadi"; fi
 fi
 
 # 4. Headless again, its last frame saved: the picture shows the game (not a black or empty window).

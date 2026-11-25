@@ -258,7 +258,7 @@ nom bilan chaqiriladigan har ovoz eksportga kirishini tekshiradi.
 (`ZAMIN_DEMO=1`, qat'iy o'yin soati `ZAMIN_CAPTURE_FPS=30` — har ishga tushirishda o'yinning bir xil lahzalari), 90 ta
 isitish kadridan keyin 300 kadr o'lchanadi. `ZAMIN_PLAYER_STATS` bilan player chiqishda oxirgi kadrning sahnasini
 (obyektlar, eng ko'p komponentlar), chizilganlarni va profiler daraxtini yozadi; `--benchmark` esa eng sekin kadrning
-profilini ham ("Ishlash testi: eng sekin kadr ...").
+profilini ham ("Benchmark: slowest frame ...").
 
 ```bash
 cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DZAMIN_BUILD_EDITOR=OFF -DZAMIN_BUILD_TESTS=OFF \

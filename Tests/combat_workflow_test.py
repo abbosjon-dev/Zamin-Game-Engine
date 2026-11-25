@@ -9,7 +9,7 @@ TAPES=['8:R;11:Space;14:L;20:N;32:Space;34:F5','8:F9;80:Space;116:Space;122:F5',
 FRAMES=['90','160','75']
 def validate(log,phase):
  text=log.read_text(errors='replace')
- for marker in ('GL_INVALID_','Assertion failed',"Visual graph '",'Visual graph error','COMBAT_ORACLE_FAILED','COMBAT_IO_FAILED','COMBAT_CONFIG_FAILED','Snaryad vizual prefabi rad etildi','is not a known action'):
+ for marker in ('GL_INVALID_','Assertion failed',"Visual graph '",'Visual graph error','COMBAT_ORACLE_FAILED','COMBAT_IO_FAILED','COMBAT_CONFIG_FAILED','Projectile visual prefab rejected','is not a known action'):
   if marker in text:raise RuntimeError(f'{marker}: {log}')
  if MARKERS[phase] not in text:raise RuntimeError(f'Missing combat acceptance: {log}')
  if phase==1 and 'Combat state restored: 8 effects, 1 projectiles' not in text:raise RuntimeError(f'Missing combat restore: {log}')

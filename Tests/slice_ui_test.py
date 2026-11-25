@@ -227,7 +227,7 @@ def main():
                             if a["Depth"] > 8 or (a["Depth"] == 0 and (a["Paused"] or abs(a["TimeScale"] - 1.0) > 1e-3)):
                                 breaks += 1
                         last = max((a["Frame"] for a in audits), default=0)
-                        if "O'yin chiqishni so'radi" in text:
+                        if "The game asked to quit" in text:
                             done += max(last, 30) # quit from the menu: the rest in a fresh process
                         else:
                             done = args.fuzz_frames

@@ -51,7 +51,7 @@ HITCH_BUDGET, CODE_P95_BUDGET = 1000.0, 6.0
 CODE_BUDGET = {"2D": 3.0, "3D": 4.0}
 SOAK_GROWTH_MIB = 32.0
 FORBIDDEN = ("GL_INVALID_", "Assertion failed", "Visual graph '", "Instruction budget exceeded", "SLICE_CONFIG_FAILED", "SLICE_IO_FAILED",
-             "SLICE_ORACLE_FAILED", "is not a known action", "Snaryad vizual prefabi rad etildi")
+             "SLICE_ORACLE_FAILED", "is not a known action", "Projectile visual prefab rejected")
 
 
 def last(pattern, text):
@@ -61,7 +61,7 @@ def last(pattern, text):
 
 def profile_top(text, count=5):
     """The biggest parts of the last frame's update layer (ZAMIN_PLAYER_STATS' profiler tree), drawing included."""
-    block = text.split("Profiler (oxirgi kadr, ms):", 1)
+    block = text.split("Profiler (last frame, ms):", 1)
     if len(block) < 2:
         return []
     parts = []
@@ -104,15 +104,15 @@ def bench(args, runner, out, game, scene, kind, demo, size, home, run):
                    code_avg=code.get("Average"), code_p95=code.get("P95"), code_max=code.get("Max"), renderer=data.get("Renderer", ""))
     except (OSError, ValueError):
         row["error"] = "no report"
-    m = re.search(r"Sahna \(oxirgi kadr\): (\d+) obyekt \((\d+) faol\)", text)
+    m = re.search(r"Scene \(last frame\): (\d+) objects \((\d+) active\)", text)
     if m:
         row.update(entities=int(m.group(1)), active=int(m.group(2)))
-    stats = last(r"Render statistikasi \(oxirgi kadr\): (.*)$", text)
+    stats = last(r"Render statistics \(last frame\): (.*)$", text)
     if stats:
         dc = re.search(r"draw call (\d+), uchburchak (\d+)", stats)
         quads = re.search(r"quad (\d+)", stats)
         row.update(drawcalls=int(dc.group(1)) if dc else None, triangles=int(dc.group(2)) if dc else None, quads=int(quads.group(1)) if quads else None)
-    mem = re.search(r"Xotira: RAM ([0-9.]+) (KB|MB|GB)", text)
+    mem = re.search(r"Memory: RAM ([0-9.]+) (KB|MB|GB)", text)
     if mem:
         row["rss_mib"] = round(float(mem.group(1)) * {"KB": 1 / 1024, "MB": 1.0, "GB": 1024.0}[mem.group(2)], 1)
     row["profile"] = profile_top(text)

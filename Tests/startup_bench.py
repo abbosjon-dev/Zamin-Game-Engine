@@ -108,9 +108,9 @@ def main():
                         inners.append(inner)
                 inner = tuple(statistics.median(v[i] for v in inners) for i in range(4)) if inners else None
                 rows.append((program, project, statistics.median(walls), min(walls), inner))
-                if args.profile and "Eng sekin joylar" in log:
+                if args.profile and "Slowest places" in log:
                     print(f"--- {program} {project}:")
-                    print(log[log.index("Startup profili"):].split("\x1b[0m")[0])
+                    print(log[log.index("Startup profile"):].split("\x1b[0m")[0])
     finally:
         if xvfb:
             xvfb.terminate()

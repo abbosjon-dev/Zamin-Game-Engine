@@ -61,7 +61,7 @@ GAME_CPU = ("Scripts", "Physics", "Particles", "Animation", "Audio", "AI", "Navi
 
 def profile_entries(text):
     """(depth, name, ms) of the last frame's profiler tree the player logs at exit (ZAMIN_PLAYER_STATS)."""
-    block = text.split("Profiler (oxirgi kadr, ms):", 1)
+    block = text.split("Profiler (last frame, ms):", 1)
     if len(block) < 2:
         return []
     entries = []
@@ -108,10 +108,10 @@ def run(game, kind, env_extra, budget, args, runner, out):
                    max=frame.get("Max"), update=update.get("Average"), renderer=data.get("Renderer", ""))
     except (OSError, ValueError):
         row["error"] = "hisobot yo'q"
-    m = re.search(r"Sahna \(oxirgi kadr\): (\d+) obyekt \((\d+) faol\), (\d+) komponent, (\d+) skript; eng ko'p: (.*)", text)
+    m = re.search(r"Scene \(last frame\): (\d+) objects \((\d+) active\), (\d+) components, (\d+) scripts; most common: (.*)", text)
     if m:
         row.update(entities=int(m.group(1)), active=int(m.group(2)), components=int(m.group(3)), scripts=int(m.group(4)), top=m.group(5))
-    stats = last_match(r"Render statistikasi \(oxirgi kadr\): (.*)$", text)
+    stats = last_match(r"Render statistics \(last frame\): (.*)$", text)
     if stats:
         dc = re.search(r"draw call (\d+), uchburchak (\d+)", stats)
         quads = re.search(r"quad (\d+)", stats)

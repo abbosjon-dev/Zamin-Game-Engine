@@ -64,7 +64,7 @@ namespace Zamin {
             }
             if (!projectLoaded)
             {
-                ZM_CRITICAL("Loyiha yuklanmadi: {}", m_ProjectPath.string());
+                ZM_CRITICAL("Project failed to load: {}", m_ProjectPath.string());
                 if (m_Benchmark.IsEnabled())
                     Application::Get().SetExitCode(PlayerBenchmarkSettings::ExitFailed);
                 Application::Get().Close();
@@ -85,18 +85,18 @@ namespace Zamin {
                 if (GameIcon::Load(Project::GetIconPath(), icon, &error))
                     window.SetIcon(GameIcon::MakeWindowImages(icon));
                 else
-                    ZM_WARN("O'yin ikonkasi o'qilmadi ({}): {}", player.Icon.generic_string(), error);
+                    ZM_WARN("The game icon could not be read ({}): {}", player.Icon.generic_string(), error);
             }
             // The window was made with the resolved settings (the command line > the saved display options >
             // the project); the frame rate limit the same way.
-            ZM_INFO("Oyna sozlamalari: {}", m_Launch.Describe());
+            ZM_INFO("Window settings: {}", m_Launch.Describe());
             Application::Get().SetTargetFrameRate(m_Launch.TargetFrameRate);
             Application::Get().SetRunInBackground(player.RunInBackground);
             if (m_Launch.TargetFrameRate > 0)
-                ZM_INFO("Kadr chastotasi cheklovi: {} FPS", m_Launch.TargetFrameRate);
+                ZM_INFO("Frame rate limit: {} FPS", m_Launch.TargetFrameRate);
             // The player's own audio settings (the game's options menu saved them) over the project's mixer.
             if (Audio::LoadSettings())
-                ZM_INFO("Saqlangan ovoz sozlamalari yuklandi");
+                ZM_INFO("Saved audio settings loaded");
             // The game's display options change this window (fullscreen, vsync); the window already is as
             // they were saved (or as the command line says).
             Display::BindWindow(&Application::Get().GetWindow());
@@ -113,19 +113,19 @@ namespace Zamin {
                 if (m_CommandLine.Brightness)
                     Display::SetBrightness(*m_CommandLine.Brightness);
                 if (!Display::GetAdjustment().IsIdentity())
-                    ZM_INFO("Tasvir: gamma {:.2f} ({}), yorqinlik {:.0f}% ({})", Display::GetGamma(),
-                            m_CommandLine.Gamma ? "buyruq qatori" : saved.Gamma ? "saqlangan" : "standart", Display::GetBrightness() * 100.0f,
-                            m_CommandLine.Brightness ? "buyruq qatori" : saved.Brightness ? "saqlangan" : "standart");
+                    ZM_INFO("Image: gamma {:.2f} ({}), brightness {:.0f}% ({})", Display::GetGamma(),
+                            m_CommandLine.Gamma ? "command line" : saved.Gamma ? "saved" : "standart", Display::GetBrightness() * 100.0f,
+                            m_CommandLine.Brightness ? "command line" : saved.Brightness ? "saved" : "standart");
             }
             if (m_Benchmark.IsEnabled())
             {
                 // The test measures the game, not a pause: it runs whatever the window's focus.
                 Application::Get().SetRunInBackground(true);
-                ZM_INFO("Ishlash testi: {} kadr o'lchanadi ({} ta isitish kadridan keyin; splash, FPS cheklovi{} yo'q)", m_Benchmark.GetSettings().Frames,
-                        m_Benchmark.GetSettings().Warmup, m_Launch.Window.VSync ? "" : " va VSync");
+                ZM_INFO("Benchmark: {} frames are measured (after {} warm-up frames; no splash, FPS limit{})", m_Benchmark.GetSettings().Frames,
+                        m_Benchmark.GetSettings().Warmup, m_Launch.Window.VSync ? "" : " or VSync");
             }
             else if (!player.RunInBackground)
-                ZM_INFO("Fonda ishlash o'chiq: oyna fokusni yo'qotsa o'yin pauzada (vaqt, fizika, ovoz to'xtaydi)");
+                ZM_INFO("Running in the background is off: the game pauses when the window loses focus (time, physics and sound stop)");
             // The game's cursor wishes (Cursor: hidden, locked, its picture) go to this window.
             Cursor::BindWindow(&Application::Get().GetWindow());
             Cursor::SetHostActive(true);
@@ -140,12 +140,12 @@ namespace Zamin {
                     std::string names;
                     for (const std::string& name : Quality::GetLevelNames())
                         names += (names.empty() ? "" : ", ") + name;
-                    ZM_WARN("--quality {}: bunday sifat darajasi yo'q (bor: {}) - standart daraja qoldi", m_CommandLine.Quality, names);
+                    ZM_WARN("--quality {}: there is no such quality level (available: {}) - the default level stays", m_CommandLine.Quality, names);
                 }
             }
             else if (Quality::LoadSettings())
-                ZM_INFO("Saqlangan sifat darajasi yuklandi");
-            ZM_INFO("Sifat darajasi: {}", Quality::GetLevelName());
+                ZM_INFO("Saved quality level loaded");
+            ZM_INFO("Quality level: {}", Quality::GetLevelName());
 
             // Language: --lang, else the one the player chose in the game (saved), else the project's start language.
             if (!m_CommandLine.Language.empty())
@@ -155,13 +155,13 @@ namespace Zamin {
                     std::string codes;
                     for (const std::string& code : Localization::GetLanguages())
                         codes += (codes.empty() ? "" : ", ") + code;
-                    ZM_WARN("--lang {}: o'yinda bunday til yo'q (bor: {}) - '{}' qoldi", m_CommandLine.Language, codes, Localization::GetLanguage());
+                    ZM_WARN("--lang {}: the game has no such language (available: {}) - '{}' stays", m_CommandLine.Language, codes, Localization::GetLanguage());
                 }
             }
             else if (Localization::LoadSettings())
-                ZM_INFO("Saqlangan til yuklandi");
+                ZM_INFO("Saved language loaded");
             if (Localization::GetLanguages().size() > 1 || Localization::GetTable(Localization::GetLanguage()))
-                ZM_INFO("Til: {} ({})", Localization::GetLanguageName(Localization::GetLanguage()), Localization::GetLanguage());
+                ZM_INFO("Language: {} ({})", Localization::GetLanguageName(Localization::GetLanguage()), Localization::GetLanguage());
 
             // Debug drawing: the project's settings, then the command line (Shipping: compiled out).
             DebugDrawSettings& debugDraw = DebugDraw::GetSettings();
@@ -222,7 +222,7 @@ namespace Zamin {
                     m_ShotSeen = Log::GetTotalWritten();
                 }
                 else
-                    ZM_WARN("ZAMIN_SCREENSHOT_ON: \"<matn>|<kadr>|<fayl.png>\" kutilgan: {}", spec);
+                    ZM_WARN("ZAMIN_SCREENSHOT_ON: expected \"<text>|<frames>|<file.png>\": {}", spec);
             }
             // ZAMIN_PLAYER_INPUT="<frame>:<action>;..." plays input in (screenshots, CI): a key name
             // ("Down", "Enter", "Tab": pressed in that frame, released in the next), "hold=W" / "release=W"
@@ -256,7 +256,7 @@ namespace Zamin {
                     !resolved.empty() && resolved != config.StartScene)
                 {
                     if (!config.StartScene.empty())
-                        ZM_WARN("Boshlang'ich sahna topilmadi ({}) - birinchi build sahnasi ochiladi: {}", config.StartScene.generic_string(),
+                        ZM_WARN("Start scene not found ({}) - the first build scene is opened: {}", config.StartScene.generic_string(),
                                 resolved.generic_string());
                     start = resolved;
                 }
@@ -266,7 +266,7 @@ namespace Zamin {
             {
                 start = Project::GetBuildScenePath(buildIndex);
                 if (start.empty())
-                    ZM_ERROR("--scene {}: build ro'yxatida bunday indeks yo'q ({} ta sahna bor)", buildIndex, SceneManager::GetBuildSceneCount());
+                    ZM_ERROR("--scene {}: the build list has no such index (it has {} scenes)", buildIndex, SceneManager::GetBuildSceneCount());
             }
             else if (!m_SceneOverride.empty() && !start.has_extension())
                 if (std::filesystem::path named = Project::FindBuildScene(m_SceneOverride); !named.empty())
@@ -288,15 +288,15 @@ namespace Zamin {
                 m_StartLoad = m_Scenes->LoadSceneAsync(scenePath);
                 if (!m_StartLoad)
                 {
-                    ShowStartError("fayl topilmadi");
+                    ShowStartError("file not found");
                     return;
                 }
                 m_StartLoad->SetAllowSceneActivation(false); // it starts the game itself, after the splash
                 const std::filesystem::path image = player.SplashImage.empty() ? std::filesystem::path()
                                                                                : Project::GetAssetFileSystemPath(player.SplashImage);
                 m_Splash.Begin(player.SplashDuration, player.SplashSkippable, player.SplashBackground, image);
-                ZM_INFO("Splash ekran ({:.1f} s{}); birinchi sahna fonda yuklanmoqda: {}", player.SplashDuration,
-                        player.SplashSkippable ? ", tugma bosilsa o'tadi" : "", start.generic_string());
+                ZM_INFO("Splash screen ({:.1f} s{}); the first scene is loading in the background: {}", player.SplashDuration,
+                        player.SplashSkippable ? ", skipped by a key press" : "", start.generic_string());
             }
             else
             {
@@ -315,7 +315,7 @@ namespace Zamin {
         // wrong, Esc to quit).
         void ShowStartError(const std::string& error)
         {
-            ZM_CRITICAL("Boshlang'ich sahna yuklanmadi: {} ({})", m_StartScenePath.string(), error);
+            ZM_CRITICAL("Start scene failed to load: {} ({})", m_StartScenePath.string(), error);
             std::vector<SceneLoadReport> reports = m_Scenes ? m_Scenes->TakeLoadReports() : std::vector<SceneLoadReport>();
             if (!reports.empty())
                 m_ErrorReport = reports.back();
@@ -324,7 +324,7 @@ namespace Zamin {
                 m_ErrorReport.File = m_StartScenePath.generic_string();
                 SceneLoadIssue issue;
                 issue.Level = SceneLoadIssue::Severity::Fatal;
-                issue.Message = error.empty() ? std::string("sahna yuklanmadi") : error;
+                issue.Message = error.empty() ? std::string("the scene failed to load") : error;
                 m_ErrorReport.Add(std::move(issue));
             }
             m_ErrorScreen = true;
@@ -350,7 +350,7 @@ namespace Zamin {
                 return;
             if (m_ErrorScreen || (!m_Scenes && !m_ProjectLoaded))
             {
-                FinishBenchmark("o'yin ishga tushmadi (boshlang'ich sahna yuklanmadi)");
+                FinishBenchmark("the game did not start (the start scene failed to load)");
                 return;
             }
             if (!m_GameStarted || !m_Scenes)
@@ -399,7 +399,7 @@ namespace Zamin {
                 result.Failures.insert(result.Failures.begin(), std::string(failure));
             }
             if (m_SlowestFrameMs > 0.0)
-                ZM_INFO("Ishlash testi: eng sekin kadr #{} - {:.1f} ms (profiler, 0.5 ms dan kattalari):\n{}", m_SlowestFrameIndex + 1,
+                ZM_INFO("Benchmark: slowest frame #{} - {:.1f} ms (profiler, entries above 0.5 ms):\n{}", m_SlowestFrameIndex + 1,
                         m_SlowestFrameMs, m_SlowestFrameProfile);
             const std::string text = PlayerBenchmark::Describe(result);
             if (result.Passed)
@@ -412,9 +412,9 @@ namespace Zamin {
                 std::string error;
                 written = PlayerBenchmark::WriteJson(result, output, &error);
                 if (written)
-                    ZM_INFO("Ishlash testi natijasi: {}", std::filesystem::absolute(output).string());
+                    ZM_INFO("Benchmark result: {}", std::filesystem::absolute(output).string());
                 else
-                    ZM_ERROR("Ishlash testi: natija fayli {}", error);
+                    ZM_ERROR("Benchmark: result file {}", error);
             }
             // (A report that was asked for and is missing is a failed run: a script cannot tell it from a pass.)
             const int code = !ran || !written ? PlayerBenchmarkSettings::ExitFailed : result.Passed ? 0 : PlayerBenchmarkSettings::ExitLimitExceeded;
@@ -445,7 +445,7 @@ namespace Zamin {
             m_StartLoad.reset();
             OnGameStarted();
             m_SplashCover = 1.0f; // the game's first picture comes out of the splash's colour
-            ZM_INFO("Splash ekran tugadi ({:.1f} s{}), o'yin boshlandi", timeline.GetElapsed(), timeline.WasSkipped() ? ", o'tkazib yuborildi" : "");
+            ZM_INFO("Splash screen finished ({:.1f} s{}), the game started", timeline.GetElapsed(), timeline.WasSkipped() ? ", skipped" : "");
         }
 
         // F11 / Alt+Enter (and the input map's "ToggleFullscreen"): fullscreen <-> the window as it was. True
@@ -464,7 +464,7 @@ namespace Zamin {
                 return false;
             Display::SetFullscreen(!Display::IsFullscreen());
             Display::SaveSettings(); // the next start opens the same way
-            ZM_INFO("Ekran: {} (saqlandi)", Display::IsFullscreen() ? "to'liq ekran" : "oynali rejim");
+            ZM_INFO("Display: {} (saved)", Display::IsFullscreen() ? "fullscreen" : "windowed mode");
             return true;
         }
 
@@ -527,7 +527,7 @@ namespace Zamin {
                         m_UIAudit.Sizes.push_back({ w, h });
                 }
             m_UIAudit.Elements = std::getenv("ZAMIN_UI_AUDIT_ELEMENTS") != nullptr;
-            ZM_INFO("UI audit: {}{} kadrda ({} o'lcham)", m_UIAudit.Top ? "har panel almashganda va " : "", m_UIAudit.Frames.size(),
+            ZM_INFO("UI audit: {}on frame {} ({} sizes)", m_UIAudit.Top ? "on every panel change and " : "", m_UIAudit.Frames.size(),
                     m_UIAudit.Sizes.empty() ? size_t(1) : m_UIAudit.Sizes.size());
         }
 
@@ -585,7 +585,7 @@ namespace Zamin {
             }
             if (m_ShotDue >= 0 && m_ShotFrame == m_ShotDue)
             {
-                ZM_INFO("ZAMIN_SCREENSHOT_ON: '{}' dan {} kadr keyin", m_ShotMarker, m_ShotDelay);
+                ZM_INFO("ZAMIN_SCREENSHOT_ON: {1} frames after '{0}'", m_ShotMarker, m_ShotDelay);
                 Application::Get().RequestScreenshot(m_ShotPath);
                 m_ShotMarker.clear();
                 if (m_ShotQuit)
@@ -704,7 +704,7 @@ namespace Zamin {
                             m_ReleaseButtons.push_back(button); // a tap: released in the next frame
                     }
                     else
-                        ZM_WARN("ZAMIN_PLAYER_INPUT: noma'lum gamepad tugmasi '{}'", action);
+                        ZM_WARN("ZAMIN_PLAYER_INPUT: unknown gamepad button '{}'", action);
                 }
                 else if (action.starts_with("stick="))
                 {
@@ -720,7 +720,7 @@ namespace Zamin {
                         Input::SimulateGamepadAxis(0, axis, value);
                     }
                     else
-                        ZM_WARN("ZAMIN_PLAYER_INPUT: noma'lum gamepad o'qi '{}'", action);
+                        ZM_WARN("ZAMIN_PLAYER_INPUT: unknown gamepad axis '{}'", action);
                 }
                 else if (KeyFromString(action, key))
                 {
@@ -729,7 +729,7 @@ namespace Zamin {
                     m_ReleaseKeys.push_back(key);
                 }
                 else
-                    ZM_WARN("ZAMIN_PLAYER_INPUT: noma'lum amal '{}'", action);
+                    ZM_WARN("ZAMIN_PLAYER_INPUT: unknown action '{}'", action);
             }
             m_Frame++;
         }
@@ -742,14 +742,14 @@ namespace Zamin {
                 return;
             std::string failure;
             if (!m_ProjectLoaded)
-                failure = "loyiha yuklanmadi";
+                failure = "the project failed to load";
             else if (m_ErrorScreen || (!m_GameStarted && !m_Scenes))
-                failure = "o'yin ishga tushmadi (boshlang'ich sahna yuklanmadi)";
+                failure = "the game did not start (the start scene failed to load)";
             else if (!m_GameStarted)
-                failure = "player o'yin boshlanmasdan yopildi";
+                failure = "the player closed before the game started";
             else
-                failure = std::format("player test tugamasdan yopildi ({})",
-                                      m_QuitRequested ? "o'yin chiqishni so'radi" : "oyna yopildi yoki ZAMIN_MAX_FRAMES");
+                failure = std::format("the player closed before the benchmark finished ({})",
+                                      m_QuitRequested ? "the game asked to quit" : "the window was closed or ZAMIN_MAX_FRAMES");
             FinishBenchmark(failure, false);
         }
 
@@ -758,7 +758,7 @@ namespace Zamin {
             WriteWorldTourReport(); // (a tour the player's end cut short still reports: "Complete": false)
             if (std::getenv("ZAMIN_PLAYER_STATS"))
             {
-                ZM_INFO("Render statistikasi (oxirgi kadr): {}", Renderer::GetStats().Format());
+                ZM_INFO("Render statistics (last frame): {}", Renderer::GetStats().Format());
                 {
                     // The process's memory and what the engine holds of it (task 496: measured per sample).
                     const MemoryStats::ProcessMemory process = MemoryStats::GetProcessMemory(0.0);
@@ -766,7 +766,7 @@ namespace Zamin {
                     for (size_t i = 0; i < MemoryCategoryCount; i++)
                         if (const MemoryStats::Category c = MemoryStats::Get((MemoryCategory)i); c.Bytes > 0)
                             categories += std::format(", {} {}", MemoryStats::GetName((MemoryCategory)i), MemoryStats::FormatBytes(c.Bytes));
-                    ZM_INFO("Xotira: RAM {} (eng ko'pi {}), dvigatel {}{}", MemoryStats::FormatBytes(process.Resident),
+                    ZM_INFO("Memory: RAM {} (peak {}), engine {}{}", MemoryStats::FormatBytes(process.Resident),
                             MemoryStats::FormatBytes(process.PeakResident), MemoryStats::FormatBytes(MemoryStats::GetTrackedTotal()), categories);
                 }
                 // What the last frame's scene holds (the performance check of the samples quotes it).
@@ -777,18 +777,18 @@ namespace Zamin {
                     std::string top;
                     for (size_t i = 0; i < stats.Components.size() && i < 8; i++)
                         top += std::format("{}{} {}", top.empty() ? "" : ", ", stats.Components[i].Key, stats.Components[i].Count());
-                    ZM_INFO("Sahna (oxirgi kadr): {} obyekt ({} faol), {} komponent, {} skript; eng ko'p: {}", stats.Entities, stats.Active,
+                    ZM_INFO("Scene (last frame): {} objects ({} active), {} components, {} scripts; most common: {}", stats.Entities, stats.Active,
                             stats.ComponentTotal, stats.ScriptComponents, top);
                 }
                 // The real frame times (frame pacing: --fps, vsync).
                 const FrameTimeHistory& frames = Application::Get().GetFrameTimeHistory();
                 const FrameTimeHistory::Summary summary = frames.Summarize();
-                ZM_INFO("Kadr vaqti (oxirgi {} kadr): o'rtacha {:.2f} ms ({:.1f} FPS), min {:.2f} ms, max {:.2f} ms, eng sekin 1%: {:.2f} ms", frames.Size(),
+                ZM_INFO("Frame time (last {} frames): average {:.2f} ms ({:.1f} FPS), min {:.2f} ms, max {:.2f} ms, slowest 1%: {:.2f} ms", frames.Size(),
                         summary.Average, summary.AverageFPS, summary.Min, summary.Max, summary.Worst1Percent);
-                ZM_INFO("Profiler (oxirgi kadr, ms):\n{}", Profiler::FormatTree(Profiler::GetLastFrame()));
-                ZM_INFO("Audio profili (oxirgi kadr): {}", m_LastAudioProfile);
+                ZM_INFO("Profiler (last frame, ms):\n{}", Profiler::FormatTree(Profiler::GetLastFrame()));
+                ZM_INFO("Audio profile (last frame): {}", m_LastAudioProfile);
                 for (const SceneLoadTiming& load : SceneLoadProfiler::GetHistory())
-                    ZM_INFO("Sahna yuklash: {}", load.Format());
+                    ZM_INFO("Scene load: {}", load.Format());
             }
             if (m_Scenes)
             {
@@ -844,15 +844,15 @@ namespace Zamin {
                 y -= size * 1.55f;
             };
             const glm::vec4 white(0.93f, 0.94f, 0.96f, 1.0f), grey(0.60f, 0.63f, 0.68f, 1.0f), red(0.95f, 0.45f, 0.42f, 1.0f);
-            line("O'yinning sahnasi yuklanmadi", 36.0f * scale, white);
-            line(m_ErrorReport.File.empty() ? std::string("(sahna ko'rsatilmagan)") : m_ErrorReport.File, 17.0f * scale, grey);
+            line("The game's scene failed to load", 36.0f * scale, white);
+            line(m_ErrorReport.File.empty() ? std::string("(no scene given)") : m_ErrorReport.File, 17.0f * scale, grey);
             y -= 14.0f * scale;
             size_t shown = 0;
             for (const SceneLoadIssue& issue : m_ErrorReport.Issues)
             {
                 if (shown++ == 10)
                 {
-                    line(std::format("... va yana {} ta", m_ErrorReport.Issues.size() - 10), 18.0f * scale, grey);
+                    line(std::format("... and {} more", m_ErrorReport.Issues.size() - 10), 18.0f * scale, grey);
                     break;
                 }
                 line(issue.Message, 20.0f * scale, issue.Level == SceneLoadIssue::Severity::Warning ? white : red);
@@ -860,7 +860,7 @@ namespace Zamin {
                     line("    " + issue.SourceLine, 17.0f * scale, grey);
             }
             y = 70.0f * scale;
-            line("Esc - chiqish.  To'liq ma'lumot konsolda (log).", 17.0f * scale, grey);
+            line("Esc - quit.  Full details in the console (log).", 17.0f * scale, grey);
             Renderer2D::EndScene();
             Renderer2D::SetDisplayOutput(false);
         }
@@ -902,10 +902,10 @@ namespace Zamin {
                 if (m_SizeSettle > 0 && --m_SizeSettle == 0)
                 {
                     if (area.Letterboxed)
-                        ZM_INFO("Oyna o'lchami: {}x{} - o'yin tasviri {}x{} ({}:{}, chetlarida polosalar)", w, h, area.Width, area.Height,
+                        ZM_INFO("Window size: {}x{} - game image {}x{} ({}:{}, bars at the edges)", w, h, area.Width, area.Height,
                                 Project::GetPlayerSettings().AspectWidth, Project::GetPlayerSettings().AspectHeight);
                     else
-                        ZM_INFO("Oyna o'lchami: {}x{}", w, h);
+                        ZM_INFO("Window size: {}x{}", w, h);
                 }
                 return;
             }
@@ -928,7 +928,7 @@ namespace Zamin {
             if (frames++ != at || !colon)
                 return;
             const std::string_view kind = colon + 1;
-            ZM_WARN("ZAMIN_PLAYER_CRASH_TEST: ataylab crash ({}) - {}-kadr", kind, at);
+            ZM_WARN("ZAMIN_PLAYER_CRASH_TEST: deliberate crash ({}) - frame {}", kind, at);
             if (kind == "segv")
             {
                 // A real invalid write, through a volatile pointer (a constant address made GCC -O2 warn).
@@ -945,17 +945,17 @@ namespace Zamin {
                 std::raise(SIGFPE); // where division by zero does not trap
             }
             else if (kind == "exception")
-                throw std::runtime_error("ZAMIN_PLAYER_CRASH_TEST sinov istisnosi");
+                throw std::runtime_error("ZAMIN_PLAYER_CRASH_TEST test exception");
             else if (kind == "assert")
             {
                 // A failed assert (where they are compiled in): the report names it as the reason.
                 const int lives = 0;
-                ZM_ASSERT(lives > 0, "o'yinchining joni {} - ZAMIN_PLAYER_CRASH_TEST sinov assert'i ({}-kadr)", lives, at);
+                ZM_ASSERT(lives > 0, "the player's health is {} - ZAMIN_PLAYER_CRASH_TEST test assert (frame {})", lives, at);
                 if (!Assert::AreAssertsEnabled())
-                    ZM_WARN("ZAMIN_PLAYER_CRASH_TEST: bu build'da assert'lar o'chiq (-DZAMIN_ASSERTS=ON)");
+                    ZM_WARN("ZAMIN_PLAYER_CRASH_TEST: asserts are off in this build (-DZAMIN_ASSERTS=ON)");
                 return;
             }
-            ZM_WARN("ZAMIN_PLAYER_CRASH_TEST: noma'lum tur '{}' (segv, abort, fpe, exception, assert)", kind);
+            ZM_WARN("ZAMIN_PLAYER_CRASH_TEST: unknown type '{}' (segv, abort, fpe, exception, assert)", kind);
         }
 
         void OnUpdate(Timestep ts) override
@@ -1127,7 +1127,7 @@ namespace Zamin {
 
             if (m_Scenes->IsQuitRequested())
             {
-                ZM_INFO("O'yin chiqishni so'radi");
+                ZM_INFO("The game asked to quit");
                 m_QuitRequested = true;
                 m_Scenes->ClearQuitRequest();
                 Application::Get().Close();
@@ -1143,8 +1143,8 @@ namespace Zamin {
                     if (report.Failed() || report.Count(SceneLoadIssue::Severity::Error) > 0)
                     {
                         const std::string name = std::filesystem::path(report.File).filename().string();
-                        m_BannerText = report.Failed() ? std::format("Sahnaga o'tilmadi: {} - {}", name, report.Summary())
-                                                       : std::format("'{}' sahnasi qisman yuklandi: {}", name, report.Summary());
+                        m_BannerText = report.Failed() ? std::format("Could not switch to the scene: {} - {}", name, report.Summary())
+                                                       : std::format("Scene '{}' loaded partly: {}", name, report.Summary());
                         m_BannerTime = 6.0f;
                     }
             }
@@ -1175,9 +1175,9 @@ namespace Zamin {
             if (!font)
                 return true;
             // The game's own words when its language files have them ("player.paused", "player.paused_hint").
-            const std::string title = Localization::Has("player.paused") ? Localization::Get("player.paused") : std::string("Pauza");
+            const std::string title = Localization::Has("player.paused") ? Localization::Get("player.paused") : std::string("Paused");
             const std::string hint = Localization::Has("player.paused_hint") ? Localization::Get("player.paused_hint")
-                                                                             : std::string("O'yin oynasi fokusda emas - davom etish uchun oynani tanlang");
+                                                                             : std::string("The game window is not focused - select the window to continue");
             const float scale = std::clamp((float)h / 720.0f, 0.6f, 3.0f);
             RenderCommand::SetDepthTest(false);
             // (Colours only: the window stays opaque under the translucent band.)
@@ -1283,10 +1283,10 @@ namespace Zamin {
             // The crashed program could not make the backtrace readable; this one can.
             CrashHandler::DemangleReport(m_Report);
             m_HasReport = CrashHandler::ReadReport(m_Report, m_Summary);
-            const std::string product = !m_Summary.Product.empty() ? m_Summary.Product : !m_Summary.Application.empty() ? m_Summary.Application : "O'yin";
-            Application::Get().GetWindow().SetTitle(std::format("{} - xato", product));
+            const std::string product = !m_Summary.Product.empty() ? m_Summary.Product : !m_Summary.Application.empty() ? m_Summary.Application : "Game";
+            Application::Get().GetWindow().SetTitle(std::format("{} - error", product));
             m_Product = product;
-            ZM_INFO("Crash hisoboti: {} ({})", m_Report.string(), m_HasReport ? m_Summary.Reason : "o'qilmadi");
+            ZM_INFO("Crash report: {} ({})", m_Report.string(), m_HasReport ? m_Summary.Reason : "unreadable");
         }
 
         void OnUpdate(Timestep) override
@@ -1302,7 +1302,7 @@ namespace Zamin {
 
             // The buttons along the bottom, right to left.
             struct Button { const char* Label; int Action; glm::vec2 Min, Max; };
-            Button buttons[] = { { "Yopish", 0, {}, {} }, { "Yo'lni nusxalash", 1, {}, {} }, { "Papkani ochish", 2, {}, {} } };
+            Button buttons[] = { { "Close", 0, {}, {} }, { "Copy path", 1, {}, {} }, { "Open folder", 2, {}, {} } };
             const Ref<Font> font = Font::GetDefault();
             const float buttonText = 17.0f * scale, buttonHeight = 38.0f * scale, gap = 12.0f * scale;
             float right = (float)w - 24.0f * scale;
@@ -1326,7 +1326,7 @@ namespace Zamin {
             if (Input::IsKeyJustPressed(Key::C) || clicked == 1)
             {
                 Input::SetClipboardText(m_Report.string());
-                m_Notice = "Yo'l nusxalandi";
+                m_Notice = "Path copied";
                 m_NoticeTime = 2.5f;
             }
             if (Input::IsKeyJustPressed(Key::O) || clicked == 2)
@@ -1399,25 +1399,25 @@ namespace Zamin {
                     line(lines[i], size, color, i + 1 < lines.size() ? 1.3f : after);
             };
             const glm::vec4 white(0.94f, 0.95f, 0.97f, 1.0f), grey(0.60f, 0.63f, 0.68f, 1.0f), red(0.96f, 0.50f, 0.46f, 1.0f), dim(0.45f, 0.48f, 0.53f, 1.0f);
-            line(std::format("{} kutilmaganda to'xtadi", m_Product), 30.0f * scale, white, 1.7f);
+            line(std::format("{} stopped unexpectedly", m_Product), 30.0f * scale, white, 1.7f);
             if (m_HasReport)
             {
                 if (!m_Summary.Version.empty() || !m_Summary.Engine.empty())
-                    line(std::format("{}{}{}", m_Summary.Version.empty() ? "" : "Versiya " + m_Summary.Version, !m_Summary.Version.empty() && !m_Summary.Engine.empty() ? "  |  " : "",
+                    line(std::format("{}{}{}", m_Summary.Version.empty() ? "" : "Version " + m_Summary.Version, !m_Summary.Version.empty() && !m_Summary.Engine.empty() ? "  |  " : "",
                                      m_Summary.Engine),
                          15.0f * scale, dim, 1.9f);
                 // (A failed assert's reason is long: the expression, the message, file:line.)
-                wrapped("Sabab: " + m_Summary.Reason, 18.0f * scale, red, 3, 2.0f);
+                wrapped("Reason: " + m_Summary.Reason, 18.0f * scale, red, 3, 2.0f);
             }
             else
-                line("Hisobot o'qilmadi.", 18.0f * scale, red, 2.0f);
-            line("Xato haqida hisobot saqlandi:", 17.0f * scale, white, 1.45f);
+                line("The report could not be read.", 18.0f * scale, red, 2.0f);
+            line("A report about the error was saved:", 17.0f * scale, white, 1.45f);
             line(m_Report.string(), 16.0f * scale, grey, 2.0f, true);
-            line("Iltimos, shu faylni o'yin muallifiga yuboring - u xatoni tuzatishga yordam beradi.", 15.0f * scale, grey, 1.9f);
+            line("Please send this file to the game's author - it helps to fix the error.", 15.0f * scale, grey, 1.9f);
             // The last things the game logged.
             if (m_HasReport && !m_Summary.LastLog.empty())
             {
-                line("Oxirgi log satrlari:", 14.0f * scale, dim, 1.4f);
+                line("Last log lines:", 14.0f * scale, dim, 1.4f);
                 const size_t first = m_Summary.LastLog.size() > 4 ? m_Summary.LastLog.size() - 4 : 0;
                 for (size_t i = first; i < m_Summary.LastLog.size() && y > 80.0f * scale; i++)
                     line(m_Summary.LastLog[i], 13.0f * scale, dim, 1.35f);
@@ -1538,8 +1538,8 @@ namespace Zamin {
         // The window about a crash report (the crash handler started this process): nothing else.
         if (!commandLine.CrashDialog.empty())
         {
-            spec.Name = "Zamin Player (xato)";
-            spec.Window.Title = "Xato";
+            spec.Name = "Zamin Player (error)";
+            spec.Window.Title = "Error";
             spec.Window.Width = 780;
             spec.Window.Height = 440;
             spec.Window.Resizable = false;
@@ -1547,14 +1547,14 @@ namespace Zamin {
             return new CrashDialogApp(spec, std::filesystem::absolute(commandLine.CrashDialog));
         }
         for (const std::string& problem : commandLine.Errors)
-            ZM_WARN("Buyruq qatori: {}", problem);
+            ZM_WARN("Command line: {}", problem);
         if (commandLine.Jobs)
             spec.JobWorkers = *commandLine.Jobs;
 
         std::filesystem::path project = FindProject(commandLine.Project.empty() ? nullptr : commandLine.Project.c_str());
         if (project.empty())
         {
-            ZM_CRITICAL("Loyiha topilmadi. Foydalanish: ZaminPlayer <Game.zproject> (hamma variantlar: --help)");
+            ZM_CRITICAL("Project not found. Usage: ZaminPlayer <Game.zproject> (all options: --help)");
             std::exit(1);
         }
 
@@ -1576,7 +1576,7 @@ namespace Zamin {
         const LogLevelSettings levels = commandLine.LogLevels.Over(LogLevelOverride::FromEnvironment().Over(logging.Levels));
         levels.Apply();
         if (!levels.IsDefault())
-            ZM_INFO("Log darajalari: {}", levels.Describe());
+            ZM_INFO("Log levels: {}", levels.Describe());
 
         // The log file (from here on every message goes there too; the ones before are written first):
         // --log-file, else ~/.local/share/<company>/<product>/logs/player-<date>.log (the last N, the
@@ -1584,7 +1584,7 @@ namespace Zamin {
         const std::string product = config.Player.GetProductName(config.Name);
         const std::filesystem::path logDirectory = LogFile::GetDefaultDirectory(config.Player.CompanyName, product);
         if (!commandLine.NoLogFile && !logging.WriteFile && commandLine.LogFile.empty())
-            ZM_CORE_INFO("Log fayli o'chiq (Project settings > Player > Log) - log faqat terminalda");
+            ZM_CORE_INFO("The log file is off (Project settings > Player > Log) - the log is in the terminal only");
         if (!commandLine.NoLogFile && (logging.WriteFile || !commandLine.LogFile.empty()))
         {
             std::string command;
@@ -1595,7 +1595,7 @@ namespace Zamin {
             std::tm tm{};
             localtime_r(&now, &tm);
             std::strftime(started, sizeof(started), "%Y-%m-%d %H:%M:%S", &tm);
-            const std::string header = std::format("# {} {} - Zamin Player\n# {}\n# Boshlandi: {}\n# Loyiha: {}\n# Buyruq qatori: {}\n", product,
+            const std::string header = std::format("# {} {} - Zamin Player\n# {}\n# Started: {}\n# Project: {}\n# Command line: {}\n", product,
                                                    config.Player.Version, BuildInfo::Get().Describe(), started, project.string(),
                                                    command.empty() ? "-" : command);
             std::string logError;
@@ -1603,9 +1603,9 @@ namespace Zamin {
                                     ? LogFile::Open(commandLine.LogFile, header, &logError)
                                     : LogFile::OpenRotating({ logDirectory, "player", logging.KeepFiles, true, header }, &logError);
             if (opened)
-                ZM_INFO("Log fayli: {}", LogFile::GetPath().string());
+                ZM_INFO("Log file: {}", LogFile::GetPath().string());
             else
-                ZM_WARN("Log fayli ochilmadi ({}) - log faqat terminalda", logError);
+                ZM_WARN("The log file could not be opened ({}) - the log is in the terminal only", logError);
         }
         // Crashes (fatal signals, uncaught exceptions): a report next to the logs and a window about it
         // (this program again, --crash-dialog; automation runs - screenshots, CI - without the window
@@ -1624,7 +1624,7 @@ namespace Zamin {
             crash.DialogProgram = FileSystem::GetExecutablePath();
             crash.DialogArguments = { "--crash-dialog" };
             if (CrashHandler::Install(crash))
-                ZM_INFO("Crash hisobotlari: {}", crash.ReportDirectory.string());
+                ZM_INFO("Crash reports: {}", crash.ReportDirectory.string());
         }
 
         PlayerLaunchSettings launch = PlayerLaunchSettings::Resolve(config, saved, commandLine);

@@ -51,7 +51,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 FORBIDDEN = ("GL_INVALID_", "Assertion failed", "Visual graph '", "Instruction budget exceeded", "SLICE_CONFIG_FAILED", "SLICE_IO_FAILED",
-             "SLICE_ORACLE_FAILED", "is not a known action", "Snaryad vizual prefabi rad etildi")
+             "SLICE_ORACLE_FAILED", "is not a known action", "Projectile visual prefab rejected")
 UNREADABLE = "The save could not be read - the level starts again"
 GAMES = {
     # Per game: its level scenes (the hero is entity 1000 in each), the hero's name (Editor selection), the window size and

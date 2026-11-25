@@ -1,7 +1,7 @@
 // The unit tests' small framework: the registry, the failed checks, choosing tests by name and the
 // timing report. It does not depend on the engine (ZaminTests.cpp defines TEST / CHECK on top of it).
 //
-//   ZaminTests                         every test; the output ends with "N test, M xato"
+//   ZaminTests                         every test; the output ends with "N tests, M failures"
 //   ZaminTests --list [patterns]       the names only (one per line), nothing runs
 //   ZaminTests Prefab* -Physics*       a pattern with * / ? is a glob over the whole name, one without them
 //   ZaminTests --filter "Scene*:-*Fuzz" matches the names that contain it; '-' excludes (a positional "-X" of
@@ -107,7 +107,7 @@ namespace ZaminTest {
     std::string FormatJUnitReport(const RunSummary& summary, std::string_view suite);
 
     // Runs the chosen tests: the lines "[ i] Name  OK  12.3 ms", the report, the files and last the line
-    // "N test, M xato". 0 when every test passed, 1 when one failed or none matched, 2 on bad arguments.
+    // "N tests, M failures". 0 when every test passed, 1 when one failed or none matched, 2 on bad arguments.
     int RunMain(int argc, const char* const* argv);
 
 }

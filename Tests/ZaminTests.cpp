@@ -175,11 +175,11 @@ TEST(TestFrameworkReports)
     CHECK(run.CountFailures() == 3 && run.CountFailedTests() == 2);
 
     const std::string timing = ZaminTest::FormatTimingReport(run, 2);
-    CHECK(timing.find("3 test") != std::string::npos && timing.find("Eng sekin 2 test") != std::string::npos);
+    CHECK(timing.find("3 tests") != std::string::npos && timing.find("Slowest 2 tests") != std::string::npos);
     const size_t slow = timing.find("Slow"), thrower = timing.find("Thrower");
     CHECK(slow != std::string::npos && thrower != std::string::npos && slow < thrower); // slowest first
     CHECK(timing.find("Fast") == std::string::npos);                                   // only the 2 slowest
-    CHECK(timing.find("(XATO)") != std::string::npos && timing.find("Taqsimot:") != std::string::npos);
+    CHECK(timing.find("(FAILED)") != std::string::npos && timing.find("Distribution:") != std::string::npos);
     CHECK(timing.find("1.20 s") != std::string::npos && timing.find(">= 1 s: 1") != std::string::npos && timing.find("1-10 ms: 1") != std::string::npos);
 
     const std::string json = ZaminTest::FormatJsonReport(run);
@@ -191,8 +191,8 @@ TEST(TestFrameworkReports)
     const std::string xml = ZaminTest::FormatJUnitReport(run, "ZaminTests");
     CHECK(xml.starts_with("<?xml") && xml.find("tests=\"3\" failures=\"1\" errors=\"1\"") != std::string::npos);
     CHECK(xml.find("<testcase name=\"Fast\" classname=\"ZaminTests\" time=\"0.002\"/>") != std::string::npos);
-    CHECK(xml.find("<failure message=\"2 ta tekshiruv o&apos;tmadi\"") != std::string::npos && xml.find("x.cpp:1: a &lt; b") != std::string::npos);
-    CHECK(xml.find("<error message=\"istisno: bad &lt;thing&gt; &amp; co\"") != std::string::npos);
+    CHECK(xml.find("<failure message=\"2 checks failed\"") != std::string::npos && xml.find("x.cpp:1: a &lt; b") != std::string::npos);
+    CHECK(xml.find("<error message=\"exception: bad &lt;thing&gt; &amp; co\"") != std::string::npos);
     CHECK(xml.find("&quot;q&quot;") != std::string::npos && xml.find("timestamp=\"2026-11-08T12:00:00Z\"") != std::string::npos);
 }
 

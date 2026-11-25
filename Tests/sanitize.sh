@@ -164,7 +164,7 @@ code=$?
 tail -n 1 "$test_log"
 secs=$(( $(date +%s) - start ))
 echo "   $secs s"
-if [[ $code -eq 0 ]] && ! tail -n 1 "$test_log" | grep -qE "^[0-9]+ test, 0 xato$"; then
+if [[ $code -eq 0 ]] && ! tail -n 1 "$test_log" | grep -qE "^[0-9]+ tests, 0 failures$"; then
     code=1
 fi
 check "ZaminTests ($(tail -n 1 "$test_log"))" "$code" "$test_log" "$secs"

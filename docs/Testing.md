@@ -8,7 +8,7 @@ faqat `Tests/*.sh` skriptlarini chaqiradi. Raqamlar va o'lchangan natijalar: [Qu
 
 | O'zgarish | Ishga tushiring | Vaqt (Debug, 4 vCPU) |
 |---|---|---|
-| Har qanday o'zgarish (commit oldidan) | `cmake --build build && ./build/bin/ZaminTests` (oxiri `N test, 0 xato`) | ~5 daqiqa (shundan ~85 % slice o'tishlari) |
+| Har qanday o'zgarish (commit oldidan) | `cmake --build build && ./build/bin/ZaminTests` (oxiri `N tests, 0 failures`) | ~5 daqiqa (shundan ~85 % slice o'tishlari) |
 | Tez tekshiruv (ish davomida) | `./build/bin/ZaminTests --quick` (yoki `ctest --test-dir build -L unit`): `SLOW_TEST` lar (butun o'yin o'tishlari) siz | ~45 s |
 | Faqat bir qism | `./build/bin/ZaminTests "Prefab*"`, `--filter "Scene*:-*Fuzz*"`, `--list` | soniyalar |
 | Rendering, shader, post effektlar | `Tests/render_tests.sh` | soniyalar |
@@ -34,7 +34,7 @@ sozlamalari, editor mantiqi (panelsiz qismlari), matematika va yordamchi kutubxo
 [ilovada](#ilova-barcha-unit-testlar).
 
 ```bash
-./build/bin/ZaminTests                         # hammasi; oxirgi qator: "628 test, 0 xato"
+./build/bin/ZaminTests                         # hammasi; oxirgi qator: "628 tests, 0 failures"
 ./build/bin/ZaminTests Prefab*                 # glob (katta-kichik harf farqsiz); *, ? siz - nomning bir qismi
 ./build/bin/ZaminTests --filter "Scene*:-*Fuzz*"   # bir nechta namuna (: yoki ,), '-' bilan chiqarib tashlash
 ./build/bin/ZaminTests Prefab* -Physics*       # xuddi shunday alohida argumentlar bilan ("-x" kabi bitta harf - parametr)
@@ -168,14 +168,14 @@ logiga qarab tekshiradi:
   so'ng Esc — pauza, yana Esc — o'yin davom etadi, keyin pauza menyusidan "Bosh menyu". Omborchi va Ipak Yo'li
   holatlarida natija oynasi ham ochiladi. Omborchi'ning `menuwait` holati bosh menyuda 10 s kutadi (orqadagi bot
   keyingi darajaga o'tadi), so'ng "O'ynash" o'yinchining 1-darajasini ochishini va qadam animatsiyasi paytida tez
-  bosilgan ikkinchi qadam yo'qolmasligini tekshiradi. O'yinlar har panel uchun jurnalga `Menyu: bosh menyu` / `pauza` /
-  `pauza yopildi` / `natijalar` yozadi, test shu qatorlarning tartibini tekshiradi. Platformer2D'da `Menu.zscene` dan
+  bosilgan ikkinchi qadam yo'qolmasligini tekshiradi. O'yinlar har panel uchun jurnalga `Menu: main menu` / `pause` /
+  `pause closed` / `results` yozadi, test shu qatorlarning tartibini tekshiradi. Platformer2D'da `Menu.zscene` dan
   yuklanish ekrani orqali 1-darajaga o'tiladi.
 - **smoke**: uchta eski namuna (Platformer2D, Showcase3D, Adventure3D) ishga tushadi va sahnasi yuklanadi.
 - **rekord** (har `demo` dan keyin): demo `ZAMIN_DEMO_RECORDS=1` bilan o'ynaydi, ya'ni botning natijasi ham rekord
-  bo'ladi. Jurnalda `Yangi rekord: ...` bo'lishi va o'yinning SaveData fayli (`savedata.json`, ishga tushirishning
+  bo'ladi. Jurnalda `New record: ...` bo'lishi va o'yinning SaveData fayli (`savedata.json`, ishga tushirishning
   `HOME` ida) rekord kalitlarini saqlashi kerak. So'ng o'sha `HOME` bilan qisqa ikkinchi ishga tushirish (botsiz)
-  `Rekordlar: ...` qatorida xuddi shu qiymatni o'qiydi va bosh menyuni ochadi (`--no-records` — o'tkazib yuborish).
+  `Records: ...` qatorida xuddi shu qiymatni o'qiydi va bosh menyuni ochadi (`--no-records` — o'tkazib yuborish).
 - **gamepad**: oltita o'yin faqat simulyatsiya qilingan gamepad bilan (`ZAMIN_PLAYER_INPUT`: `pad=A`, `padhold=` /
   `padrelease=`, `stick=LeftX,0.8`). Bosh menyuda A, o'yinning o'z boshqaruvi (stiklar, tugmalar, triggerlar), Start —
   pauza va qaytish, D-pad pastga + A — bosh menyu. Ishoralar gamepad'ga o'tishi (`Input device: gamepad`,

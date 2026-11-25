@@ -651,9 +651,9 @@ int main(int argc, char** argv)
         else if (arg == "--save-all") saveAll = true;
         else
         {
-            std::printf("Noma'lum argument: %s\n"
-                        "Foydalanish: ZaminRenderTests [--update] [--filter matn] [--list] [--out papka] [--reference papka]\n"
-                        "                              [--threshold 0..255] [--max-percent foiz] [--save-all]\n", arg.c_str());
+            std::printf("Unknown argument: %s\n"
+                        "Usage: ZaminRenderTests [--update] [--filter text] [--list] [--out folder] [--reference folder]\n"
+                        "                              [--threshold 0..255] [--max-percent percent] [--save-all]\n", arg.c_str());
             return 2;
         }
     }
@@ -703,7 +703,7 @@ int main(int argc, char** argv)
         std::vector<uint8_t> pixels = Render(c);
         if (pixels.empty())
         {
-            std::printf("[XATO] %-16s sahna tayyorlanmadi\n", c.Name.c_str());
+            std::printf("[FAIL] %-16s the scene was not set up\n", c.Name.c_str());
             result.Status = "error";
             result.Error = "sahna tayyorlanmadi";
             failed++;
@@ -715,12 +715,12 @@ int main(int argc, char** argv)
         {
             if (Image::WritePNG(reference.string(), s_Width, s_Height, 4, pixels.data()))
             {
-                std::printf("[YANGI] %-16s etalon yozildi: %s\n", c.Name.c_str(), reference.string().c_str());
+                std::printf("[NEW] %-16s reference written: %s\n", c.Name.c_str(), reference.string().c_str());
                 result.Status = "updated";
             }
             else
             {
-                std::printf("[XATO] %-16s etalon yozilmadi: %s\n", c.Name.c_str(), reference.string().c_str());
+                std::printf("[FAIL] %-16s reference not written: %s\n", c.Name.c_str(), reference.string().c_str());
                 result.Status = "error";
                 result.Error = "etalon yozilmadi";
                 failed++;
@@ -732,7 +732,7 @@ int main(int argc, char** argv)
         std::string error;
         if (!Image::Load(reference.string(), expected, 4, false, &error))
         {
-            std::printf("[XATO] %-16s etalon yo'q yoki o'qilmadi (%s): %s - '--update' bilan yarating\n", c.Name.c_str(),
+            std::printf("[FAIL] %-16s no reference or it could not be read (%s): %s - create it with '--update'\n", c.Name.c_str(),
                         error.c_str(), reference.string().c_str());
             write(c.Name + ".png", s_Width, pixels);
             result.Status = "error";
@@ -742,7 +742,7 @@ int main(int argc, char** argv)
         }
         if (expected.Width != s_Width || expected.Height != s_Height)
         {
-            std::printf("[XATO] %-16s etalon o'lchami %ux%u, kutilgan %ux%u\n", c.Name.c_str(), expected.Width, expected.Height,
+            std::printf("[FAIL] %-16s reference size %ux%u, expected %ux%u\n", c.Name.c_str(), expected.Width, expected.Height,
                         s_Width, s_Height);
             write(c.Name + ".png", s_Width, pixels);
             result.Status = "error";
@@ -753,7 +753,7 @@ int main(int argc, char** argv)
 
         ImageDiff diff = Image::Compare(expected.Pixels, pixels, s_Width, s_Height, threshold, true);
         const bool ok = diff.GetDifferentPercent() <= maxPercent;
-        std::printf("[%s] %-16s farqli piksellar %.3f%% (%llu), eng katta farq %d, o'rtacha %.3f\n", ok ? "OK" : "XATO", c.Name.c_str(),
+        std::printf("[%s] %-16s differing pixels %.3f%% (%llu), largest difference %d, average %.3f\n", ok ? "OK" : "FAIL", c.Name.c_str(),
                     diff.GetDifferentPercent(), (unsigned long long)diff.DifferentPixels, diff.MaxDelta, diff.MeanDelta);
         result.Status = ok ? "ok" : "failed";
         result.DifferentPercent = diff.GetDifferentPercent();
@@ -768,7 +768,7 @@ int main(int argc, char** argv)
             write(c.Name + ".diff.png", s_Width, diff.DiffPixels);
             write(c.Name + ".compare.png", s_Width * 3, SideBySide(expected.Pixels, pixels, diff.DiffPixels));
             if (!ok)
-                std::printf("       yangi rasm: %s\n       farq: %s\n       solishtirish (etalon | yangi | farq): %s\n",
+                std::printf("       new image: %s\n       difference: %s\n       comparison (reference | new | difference): %s\n",
                             (outDir / (c.Name + ".png")).string().c_str(), (outDir / (c.Name + ".diff.png")).string().c_str(),
                             (outDir / (c.Name + ".compare.png")).string().c_str());
         }
@@ -777,9 +777,9 @@ int main(int argc, char** argv)
     WriteReport(outDir, results, threshold, maxPercent, update);
     delete app;
     if (update)
-        std::printf("\n%d ta etalon yangilandi, %d xato\n", checked, failed);
+        std::printf("\n%d references updated, %d failures\n", checked, failed);
     else
-        std::printf("\n%d ta render holati, %d xato (chegara: kanal farqi > %d, ruxsat %.2f%% piksel)\n", checked, failed, threshold,
+        std::printf("\n%d render cases, %d failures (threshold: channel difference > %d, allowed %.2f%% of the pixels)\n", checked, failed, threshold,
                     maxPercent);
     return failed == 0 ? 0 : 1;
 }

@@ -251,25 +251,25 @@ namespace ZaminTest {
 
     std::string Usage()
     {
-        return "Foydalanish: ZaminTests [parametrlar] [namuna ...]\n"
+        return "Usage: ZaminTests [options] [pattern ...]\n"
                "\n"
-               "  namuna, --filter <namuna>, -f   faqat nomi mos testlar. * va ? bilan - butun nomga glob (Prefab*),\n"
-               "                                  ularsiz - nomida shu matn bor testlar; katta-kichik harf farqsiz.\n"
-               "                                  Bir nechtasi ':' yoki ',' bilan; '-' bilan boshlangani chiqarib\n"
-               "                                  tashlaydi (\"Scene*:-*Fuzz*\" yoki alohida: Scene* -*Fuzz*).\n"
-               "                                  ZAMIN_TESTS muhit o'zgaruvchisi ham.\n"
-               "  --exclude <namuna>              mos testlarni chiqarib tashlash\n"
-               "  --list, -l                      testlar nomlari (har qatorda bittasi), hech narsa ishga tushmaydi\n"
-               "  --timing, -t                    vaqt hisoboti: eng sekin testlar, jami, taqsimot\n"
-               "  --slowest <N>                   hisobotda eng sekin N test (odatda 10; --timing ni yoqadi)\n"
-               "  --fail-fast, -x                 birinchi xato bergan testdan keyin to'xtash\n"
-               "  --quick, -q                     sekin testlarsiz (SLOW_TEST: butun o'yin o'tishlari) - tez tekshiruv\n"
-               "  --slow                          faqat sekin testlar\n"
-               "  --report <fayl.json>            natijalar JSON faylga (har test: vaqt, holat, xatolar)\n"
-               "  --junit <fayl.xml>              natijalar JUnit XML faylga (CI uchun)\n"
-               "  --help, -h                      shu yordam\n"
+               "  pattern, --filter <pattern>, -f only the tests whose name matches. With * or ? - a glob over the whole\n"
+               "                                  name (Prefab*), without them - the tests whose name has this text;\n"
+               "                                  case-insensitive. Several with ':' or ','; one that starts with '-'\n"
+               "                                  excludes (\"Scene*:-*Fuzz*\" or separately: Scene* -*Fuzz*).\n"
+               "                                  The ZAMIN_TESTS environment variable too.\n"
+               "  --exclude <pattern>             leave out the matching tests\n"
+               "  --list, -l                      the test names (one per line), nothing is run\n"
+               "  --timing, -t                    timing report: the slowest tests, the total, the distribution\n"
+               "  --slowest <N>                   the N slowest tests in the report (10 by default; turns --timing on)\n"
+               "  --fail-fast, -x                 stop after the first failing test\n"
+               "  --quick, -q                     without the slow tests (SLOW_TEST: whole playthroughs) - a quick check\n"
+               "  --slow                          only the slow tests\n"
+               "  --report <file.json>            the results to a JSON file (per test: time, status, failures)\n"
+               "  --junit <file.xml>              the results to a JUnit XML file (for CI)\n"
+               "  --help, -h                      this help\n"
                "\n"
-               "Chiqish kodi: 0 - hammasi o'tdi, 1 - xato bor yoki filtrga mos test yo'q, 2 - noto'g'ri parametr.\n";
+               "Exit code: 0 - everything passed, 1 - a failure or no test matches the filter, 2 - a bad option.\n";
     }
 
     bool ParseOptions(int argc, const char* const* argv, RunnerOptions& out, std::string& error)
@@ -283,7 +283,7 @@ namespace ZaminTest {
                 {
                     if (i + 1 >= argc || !argv[i + 1])
                     {
-                        error = std::format("{} uchun qiymat berilmagan", name);
+                        error = std::format("{}: no value given", name);
                         return true;
                     }
                     result = argv[++i];
@@ -327,7 +327,7 @@ namespace ZaminTest {
                     return false;
                 if (!ParseCount(text, out.Slowest))
                 {
-                    error = std::format("--slowest: musbat butun son kerak, berilgan: '{}'", text);
+                    error = std::format("--slowest: a positive whole number is needed, got: '{}'", text);
                     return false;
                 }
                 out.Timing = true;
@@ -350,7 +350,7 @@ namespace ZaminTest {
                 out.Filter.Add(arg); // "-Physics*": a pattern that excludes (a short option is "-" and one letter)
             else
             {
-                error = std::format("noma'lum parametr: {}", arg);
+                error = std::format("unknown option: {}", arg);
                 return false;
             }
         }
@@ -403,7 +403,7 @@ namespace ZaminTest {
         // Slowest first; equal times keep the run's order.
         std::stable_sort(sorted.begin(), sorted.end(), [](const TestResult* a, const TestResult* b) { return a->Milliseconds > b->Milliseconds; });
         const double median = sorted.empty() ? 0.0 : sorted[sorted.size() / 2]->Milliseconds;
-        out += std::format("Vaqt hisoboti: {} test, jami {} (testlarning o'zi {}; o'rtacha {}, mediana {})\n", results.size(),
+        out += std::format("Timing report: {} tests, total {} (the tests themselves {}; average {}, median {})\n", results.size(),
                            FormatDuration(summary.TotalMilliseconds), FormatDuration(sum),
                            FormatDuration(results.empty() ? 0.0 : sum / (double)results.size()), FormatDuration(median));
         const size_t shown = std::min(sorted.size(), (size_t)std::max(0, slowest));
@@ -412,8 +412,8 @@ namespace ZaminTest {
             double top = 0.0;
             for (size_t i = 0; i < shown; i++)
                 top += sorted[i]->Milliseconds;
-            out += std::format("Eng sekin {} test (testlar vaqtining {:.1f} %):\n", shown, sum > 0.0 ? top * 100.0 / sum : 0.0);
-            out += std::format("  {:>3}  {:>10}  {:>7}  {:>9}  {}\n", "#", "vaqt", "ulush", "yig'indi", "test");
+            out += std::format("Slowest {} tests ({:.1f} % of the tests' time):\n", shown, sum > 0.0 ? top * 100.0 / sum : 0.0);
+            out += std::format("  {:>3}  {:>10}  {:>7}  {:>9}  {}\n", "#", "time", "share", "running", "test");
             double running = 0.0;
             for (size_t i = 0; i < shown; i++)
             {
@@ -421,7 +421,7 @@ namespace ZaminTest {
                 running += r.Milliseconds;
                 out += std::format("  {:>3}  {:>10}  {:>6.1f}%  {:>8.1f}%  {}{}\n", i + 1, FormatDuration(r.Milliseconds),
                                    sum > 0.0 ? r.Milliseconds * 100.0 / sum : 0.0, sum > 0.0 ? running * 100.0 / sum : 0.0, r.Name,
-                                   r.Passed() ? "" : "  (XATO)");
+                                   r.Passed() ? "" : "  (FAILED)");
             }
         }
         // How the times spread: how many tests took how long, and how much of the time they make up.
@@ -441,7 +441,7 @@ namespace ZaminTest {
                     b.Ms += r.Milliseconds;
                     break;
                 }
-        out += "Taqsimot:";
+        out += "Distribution:";
         for (const Bucket& b : buckets)
             out += std::format("  {}: {} ({:.0f} %)", b.Label, b.Count, sum > 0.0 ? b.Ms * 100.0 / sum : 0.0);
         out += "\n";
@@ -506,10 +506,10 @@ namespace ZaminTest {
             for (const std::string& m : r.Messages)
                 details += m + "\n";
             if (!r.Exception.empty())
-                out += std::format("      <error message=\"istisno: {}\" type=\"exception\">{}</error>\n", XmlEscape(r.Exception), XmlEscape(details));
+                out += std::format("      <error message=\"exception: {}\" type=\"exception\">{}</error>\n", XmlEscape(r.Exception), XmlEscape(details));
             else
                 out += std::format("      <failure message=\"{}\" type=\"check\">{}</failure>\n",
-                                   XmlEscape(std::format("{} ta tekshiruv o'tmadi", r.Failures)), XmlEscape(details));
+                                   XmlEscape(std::format("{} checks failed", r.Failures)), XmlEscape(details));
             out += "    </testcase>\n";
         }
         out += "  </testsuite>\n</testsuites>\n";
@@ -540,12 +540,12 @@ namespace ZaminTest {
         {
             for (size_t i : chosen)
                 std::printf("%s\n", tests[i].Name);
-            std::fprintf(stderr, "%zu test (jami %zu)\n", chosen.size(), tests.size());
+            std::fprintf(stderr, "%zu tests (of %zu)\n", chosen.size(), tests.size());
             return 0;
         }
         if (chosen.empty())
         {
-            std::printf("Filtrga mos test yo'q: %s (jami %zu test; nomlar: --list)\n", options.Filter.Describe().c_str(), tests.size());
+            std::printf("No test matches the filter: %s (%zu tests in all; names: --list)\n", options.Filter.Describe().c_str(), tests.size());
             return 1;
         }
 
@@ -582,7 +582,7 @@ namespace ZaminTest {
             s_Current = nullptr;
             if (!result.Exception.empty())
             {
-                std::printf("    FAIL istisno: %s\n", result.Exception.c_str());
+                std::printf("    FAIL exception: %s\n", result.Exception.c_str());
                 FailureCounter()++;
             }
             result.Failures = FailureCounter() - before;
@@ -600,31 +600,31 @@ namespace ZaminTest {
         for (const TestResult& r : summary.Results)
             if (r.Milliseconds > slowest->Milliseconds)
                 slowest = &r;
-        std::printf("\nVaqt: %s (eng sekin: %s, %s)\n", FormatDuration(summary.TotalMilliseconds).c_str(), slowest->Name.c_str(),
+        std::printf("\nTime: %s (slowest: %s, %s)\n", FormatDuration(summary.TotalMilliseconds).c_str(), slowest->Name.c_str(),
                     FormatDuration(slowest->Milliseconds).c_str());
         if (options.Timing)
             std::printf("%s", FormatTimingReport(summary, options.Slowest).c_str());
         if (summary.Skipped > 0)
-            std::printf("--fail-fast: birinchi xatodan keyin to'xtatildi, %zu test ishga tushmadi\n", summary.Skipped);
+            std::printf("--fail-fast: stopped after the first failure, %zu tests did not run\n", summary.Skipped);
         if (summary.Results.size() < tests.size())
-            std::printf("Filtr: %s%s (%zu / %zu test)\n", summary.Filter.empty() ? "-" : summary.Filter.c_str(),
-                        options.Pace == RunnerOptions::Speed::Quick ? ", sekin testlarsiz (--quick)" : options.Pace == RunnerOptions::Speed::Slow ? ", faqat sekin testlar (--slow)" : "",
+            std::printf("Filter: %s%s (%zu / %zu tests)\n", summary.Filter.empty() ? "-" : summary.Filter.c_str(),
+                        options.Pace == RunnerOptions::Speed::Quick ? ", without the slow tests (--quick)" : options.Pace == RunnerOptions::Speed::Slow ? ", only the slow tests (--slow)" : "",
                         chosen.size(), tests.size());
         bool written = true;
         if (!options.JsonReport.empty())
         {
             const bool ok = WriteFile(options.JsonReport, FormatJsonReport(summary));
-            std::printf("%s: %s\n", ok ? "JSON hisobot" : "JSON hisobot YOZILMADI", options.JsonReport.c_str());
+            std::printf("%s: %s\n", ok ? "JSON report" : "JSON report NOT WRITTEN", options.JsonReport.c_str());
             written = written && ok;
         }
         if (!options.JUnitReport.empty())
         {
             const bool ok = WriteFile(options.JUnitReport, FormatJUnitReport(summary, "ZaminTests"));
-            std::printf("%s: %s\n", ok ? "JUnit hisobot" : "JUnit hisobot YOZILMADI", options.JUnitReport.c_str());
+            std::printf("%s: %s\n", ok ? "JUnit report" : "JUnit report NOT WRITTEN", options.JUnitReport.c_str());
             written = written && ok;
         }
         const int failures = summary.CountFailures();
-        std::printf("\n%zu test, %d xato\n", summary.Results.size(), failures);
+        std::printf("\n%zu tests, %d failures\n", summary.Results.size(), failures);
         return failures == 0 && written ? 0 : 1;
     }
 

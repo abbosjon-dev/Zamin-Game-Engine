@@ -95,7 +95,7 @@ namespace Zamin {
         if (Ref<const CollisionMesh3D> mesh = CollisionShapes3D::GetMesh(modelPath, primitive, &error))
             ps.MeshRuntime = GetEmitterMesh(mesh);
         else
-            ZM_CORE_WARN("'{}': particle mesh shakli o'qilmadi - {}", entity.GetName(), error);
+            ZM_CORE_WARN("'{}': the particle mesh shape could not be read - {}", entity.GetName(), error);
     }
 
     // Where a system's particles live. Returns the emitter's matrix the simulation gets (World /

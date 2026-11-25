@@ -162,14 +162,14 @@ namespace Zamin {
         r = {};
         if (NestsDeeperThan(text, SceneRecovery::MaxDepth))
         {
-            r.Error = std::format("JSON {} qavatdan chuqur: tiklanmaydi", SceneRecovery::MaxDepth);
+            r.Error = std::format("JSON deeper than {} levels: not recovered", SceneRecovery::MaxDepth);
             return std::nullopt;
         }
         const Scanner sc(text);
         size_t i = sc.SkipSpace(0);
         if (i >= sc.N || text[i] != '{')
         {
-            r.Error = "JSON obyekt emas: tiklab bo'lmaydi";
+            r.Error = "not a JSON object: cannot be recovered";
             return std::nullopt;
         }
         json root = json::object();
@@ -304,7 +304,7 @@ namespace Zamin {
         r.Truncated = !closed;
         if (!sawEntities && !root.contains("Scene") && !root.contains("ZaminEntities"))
         {
-            r.Error = "sahna fayli emas (\"Scene\" / \"Entities\" topilmadi)";
+            r.Error = "not a scene file (\"Scene\" / \"Entities\" not found)";
             return std::nullopt;
         }
         if (!root.contains("Entities"))
@@ -354,9 +354,9 @@ namespace Zamin {
 
     std::string SceneRecovery::Summary(const Result& result)
     {
-        std::string text = std::format("{} obyekt tiklandi, {} bayt o'tkazib yuborildi", result.Entities, result.BytesSkipped);
+        std::string text = std::format("{} objects recovered, {} bytes skipped", result.Entities, result.BytesSkipped);
         if (result.EntriesDropped)
-            text += std::format(" ({} ta buzilgan yozuv tashlab ketildi)", result.EntriesDropped);
+            text += std::format(" ({} broken entries dropped)", result.EntriesDropped);
         return text;
     }
 

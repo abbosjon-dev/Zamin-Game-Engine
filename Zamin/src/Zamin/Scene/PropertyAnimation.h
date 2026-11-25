@@ -94,7 +94,7 @@ namespace Zamin {
     public:
         static const char* PropertyToKey(AnimatedProperty property);     // "Transform.Position" ...
         static std::optional<AnimatedProperty> PropertyFromKey(std::string_view key);
-        static const char* GetPropertyName(AnimatedProperty property);   // shown in the editor (Uzbek)
+        static const char* GetPropertyName(AnimatedProperty property);   // shown in the editor (the Uzbek key of its label)
         static int GetComponentCount(AnimatedProperty property);
         // Whether the components are a colour (r, g, b[, a]).
         static bool IsColor(AnimatedProperty property);

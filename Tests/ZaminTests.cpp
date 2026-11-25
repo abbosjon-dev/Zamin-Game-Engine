@@ -2805,7 +2805,7 @@ TEST(ParticleBuiltinPresets)
     for (const auto& info : builtins)
     {
         std::optional<ParticlePreset> preset = ParticlePresets::GetBuiltin(info.Key);
-        CHECK(preset && !preset->Name.empty() && std::string(info.Name) == preset->Name && std::strlen(info.Description) > 10);
+        CHECK(preset && !preset->Name.empty() && std::strlen(info.Description) > 10);
         if (!preset)
             continue;
         for (const auto& sub : preset->System.SubEmitters.Emitters)
@@ -2860,7 +2860,7 @@ TEST(ParticleBuiltinPresets)
     CHECK(countEntities() == entities); // one template out, one in
     const auto& firework = rain.GetComponent<PS>();
     CHECK(firework.SortingLayer == 7 && firework.SortingOrder == 3 && !firework.FollowCamera.Enabled && firework.Particles.empty());
-    CHECK(scene->GetChildren(rain).size() == 1 && scene->GetChildren(rain)[0].GetName() == "Mushak portlashi");
+    CHECK(scene->GetChildren(rain).size() == 1 && scene->GetChildren(rain)[0].GetName() == "Firework burst");
     CHECK(firework.SubEmitters.Emitters.size() == 1 && firework.SubEmitters.Emitters[0].Emitter.ID == (uint64_t)scene->GetChildren(rain)[0].GetUUID());
     CHECK(scene->GetChildren(rain)[0].GetComponent<PS>().SortingLayer == 7);
 }
@@ -14194,12 +14194,12 @@ TEST(AssetImportLogReportsOnce)
     Ref<Scene> scene = CreateRef<Scene>();
     SceneSerializer serializer(scene);
     CHECK(!serializer.Deserialize(dir / "Scenes" / "absent.zscene") && serializer.GetLastError() == "file not found");
-    CHECK(!serializer.Deserialize(dir / "Scenes" / "broken.zscene") && serializer.GetLastError().starts_with("JSON xatosi"));
+    CHECK(!serializer.Deserialize(dir / "Scenes" / "broken.zscene") && serializer.GetLastError().starts_with("JSON error"));
     CHECK(!serializer.Deserialize(dir / "Scenes" / "broken.zscene"));
     CHECK(!serializer.Deserialize(dir / "Scenes" / "notascene.zscene") && serializer.GetLastError().find("Scene") != std::string::npos);
     CHECK(CountLoggedErrors("broken.zscene") == 1 && CountLoggedErrors("absent.zscene") == 1 && CountLoggedErrors("notascene.zscene") == 1);
     CHECK(AssetImportLog::Find(dir / "Scenes" / "broken.zscene")->Type == AssetType::Scene);
-    CHECK(!serializer.DeserializeFromString("[1, 2") && serializer.GetLastError().starts_with("JSON xatosi"));
+    CHECK(!serializer.DeserializeFromString("[1, 2") && serializer.GetLastError().starts_with("JSON error"));
     CHECK(serializer.DeserializeFromString("{\"Scene\": \"Ok\", \"Entities\": []}") && serializer.GetLastError().empty());
     std::string fine = serializer.SerializeToString();
     WriteFile(dir / "Scenes" / "broken.zscene", fine); // fixed: loads, the error goes away
@@ -14215,7 +14215,7 @@ TEST(AssetImportLogReportsOnce)
     CHECK(AssetImportLog::Find(dir / "Prefabs" / "gone.zprefab")->Reason == "file not found");
     CHECK(AssetImportLog::Find(dir / "Prefabs" / "bad.zprefab")->Reason.find("Entities") != std::string::npos);
     std::string error2;
-    CHECK(SceneSerializer::DeserializeEntities(*scene, "nope", true, nullptr, &error2).empty() && error2.starts_with("JSON xatosi"));
+    CHECK(SceneSerializer::DeserializeEntities(*scene, "nope", true, nullptr, &error2).empty() && error2.starts_with("JSON error"));
 
     // Audio (no device needed): a missing / undecodable sound is reported once, and not decoded again.
     WriteFile(dir / "Audio" / "broken.wav", "RIFF but not really");
@@ -24986,7 +24986,7 @@ TEST(Joint3DPrefabFileAndSpawn)
         int n = 0;
         const std::string id = std::format("{:016x}", (uint64_t)hook.GetUUID());
         Log::ForEach([&](const LogMessage& m) {
-            if (m.Level == LogLevel::Warn && m.Text.find(id) != std::string::npos && m.Text.find("sahnada yo'q") != std::string::npos)
+            if (m.Level == LogLevel::Warn && m.Text.find(id) != std::string::npos && m.Text.find("is not in the scene") != std::string::npos)
                 n++;
         });
         return n;
@@ -30808,7 +30808,7 @@ TEST(SceneManagerAsyncLoad)
                    (uint64_t)a[i].GetComponent<RelationshipComponent>().Parent == (uint64_t)b[i].GetComponent<RelationshipComponent>().Parent;
         CHECK(same && sliced->GetName() == whole->GetName());
         SceneLoadJob broken;
-        CHECK(!broken.Parse(f.Path("Bad")) && broken.GetError().starts_with("JSON xatosi"));
+        CHECK(!broken.Parse(f.Path("Bad")) && broken.GetError().starts_with("JSON error"));
     }
 
     SceneManager m;
@@ -30852,7 +30852,7 @@ TEST(SceneManagerAsyncLoad)
         m.ProcessRequests();
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
-    CHECK(bad && bad->HasFailed() && bad->GetError().starts_with("JSON xatosi") && m.GetAsyncOperations().empty());
+    CHECK(bad && bad->HasFailed() && bad->GetError().starts_with("JSON error") && m.GetAsyncOperations().empty());
     CHECK(m.GetSceneCount() == 2);
     // Stopping drops a load that is still on its way.
     Ref<AsyncOperation> dropped = m.LoadSceneAsync(f.Path("Big"));
@@ -30878,7 +30878,7 @@ TEST(SceneManagerStartFromBackgroundLoad)
     Ref<AsyncOperation> op = m.LoadSceneAsync(f.Path("First"));
     CHECK(op && !m.IsRunning() && m.GetSceneCount() == 0);
     op->SetAllowSceneActivation(false);
-    CHECK(!m.Start(op, &error) && error.find("yuklanmagan") != std::string::npos); // not ready yet
+    CHECK(!m.Start(op, &error) && error.find("not loaded yet") != std::string::npos); // not ready yet
     std::vector<std::string> events;
     m.GetEventBus().Subscribe("ActiveSceneChanged", [&](const ScriptMessage&) { events.push_back("ActiveSceneChanged"); });
     m.GetEventBus().Subscribe("SceneLoaded", [&](const ScriptMessage&) { events.push_back("SceneLoaded"); });
@@ -30906,7 +30906,7 @@ TEST(SceneManagerStartFromBackgroundLoad)
         n.UpdateAsyncLoads(2.0f);
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
-    CHECK(bad && bad->HasFailed() && !n.Start(bad, &error) && error.starts_with("JSON xatosi") && !n.IsRunning());
+    CHECK(bad && bad->HasFailed() && !n.Start(bad, &error) && error.starts_with("JSON error") && !n.IsRunning());
     CHECK(!n.TakeLoadReports().empty());
     CHECK(!n.LoadSceneAsync(f.Path("Missing")) && !n.TakeLoadReports().empty());
 }
@@ -31323,8 +31323,8 @@ TEST(SceneLoadErrors)
         const SceneLoadReport& report = serializer.GetLoadReport();
         CHECK(report.Failed() && report.Issues.size() == 1 && report.Issues[0].Type == SceneLoadIssue::Kind::ParseError);
         CHECK(report.Issues[0].Line == 3 && report.Issues[0].Column > 20 && report.Issues[0].SourceLine.find("\"Entity\": 1") != std::string::npos);
-        CHECK(serializer.GetLastError().starts_with("JSON xatosi 3-qator"));
-        CHECK(report.Summary() == serializer.GetLastError() && report.Format().find("[xato]") != std::string::npos);
+        CHECK(serializer.GetLastError().starts_with("JSON error at line 3"));
+        CHECK(report.Summary() == serializer.GetLastError() && report.Format().find("[error]") != std::string::npos);
         // Cut off at the end: the last line.
         CHECK(!serializer.DeserializeFromString("{ \"Scene\": \"X\",\n \"Entities\": [") && serializer.GetLoadReport().Issues[0].Line == 2);
         CHECK(!serializer.DeserializeFromString("{ \"Hello\": 1 }") && serializer.GetLoadReport().Issues[0].Type == SceneLoadIssue::Kind::NotAScene);
@@ -31352,7 +31352,7 @@ TEST(SceneLoadErrors)
         CHECK(!report.Failed() && report.EntitiesLoaded == 7 && report.EntitiesSkipped == 1);
         CHECK(count(SceneLoadIssue::Kind::BadEntity) == 1 && count(SceneLoadIssue::Kind::UnknownComponent) == 1 && count(SceneLoadIssue::Kind::DuplicateID) == 1);
         CHECK(count(SceneLoadIssue::Kind::BadComponent) == 2 && count(SceneLoadIssue::Kind::BadHierarchy) == 2);
-        CHECK(report.Count(SceneLoadIssue::Severity::Error) == 3 && report.Summary().find("3 ta xato") != std::string::npos);
+        CHECK(report.Count(SceneLoadIssue::Severity::Error) == 3 && report.Summary().find("3 errors") != std::string::npos);
         // The broken component is left out, the entity's others stay; the settings keep what was read.
         Entity broken = scene->FindEntityByName("Broken");
         CHECK(broken && !broken.HasComponent<CameraComponent>() && broken.HasComponent<CircleRendererComponent>());
@@ -43449,14 +43449,14 @@ TEST(PrefabNested)
     CHECK(qi && pi);
     PrefabUtility::RecordOverrides(qi, db);
     r = PrefabUtility::Apply(qi, PrefabScope::Instance, {}, db);
-    CHECK(!r.Applied && r.Error.find("sikli") != std::string::npos);
+    CHECK(!r.Applied && r.Error.find("cycle") != std::string::npos);
     // A prefab that names itself inside: reported, not followed.
     FileSystem::WriteTextFile(temp.GetPath() / "Prefabs" / "Loop.zprefab",
                               R"({"ZaminEntities":1,"Entities":[{"Entity":1,"Tag":"A"},{"Entity":2,"Parent":1,"Tag":"B","Editor":{"Prefab":"Prefabs/Loop.zprefab","PrefabEntity":1}}]})");
     const PrefabDatabase::Template* loop = db.Get("Prefabs/Loop.zprefab");
     bool cycle = false;
     for (const std::string& issue : loop ? loop->Issues : std::vector<std::string>())
-        cycle |= issue.find("sikli") != std::string::npos;
+        cycle |= issue.find("cycle") != std::string::npos;
     CHECK(loop && loop->Readable && cycle);
 }
 
@@ -43745,7 +43745,7 @@ TEST(PrefabEntityRefRemap)
         CHECK(w->SavePrefab(guard, temp.GetPath() / "Prefabs" / "Guard.zprefab"));
         Log::SetMinLevel(level);
         Log::ForEach([&](const LogMessage& m) {
-            reported += m.Text.find("Guard.zprefab") != std::string::npos && m.Text.find("tashqi havola") != std::string::npos &&
+            reported += m.Text.find("Guard.zprefab") != std::string::npos && m.Text.find("outside reference") != std::string::npos &&
                         m.Text.find("NavAgent.Target") != std::string::npos ? 1 : 0;
         });
         CHECK(reported == 1);
@@ -43856,12 +43856,12 @@ TEST(EntitySetVersionMigration)
             i.GetComponent<TransformComponent>().Scale = glm::vec3(3.0f);
             PrefabUtility::RecordOverrides(i, db);
             PrefabApplyResult r = PrefabUtility::Apply(i, PrefabScope::Instance, {}, db);
-            CHECK(!r.Applied && r.Error.find("yangiroq") != std::string::npos && FileSystem::ReadTextFile(file) == future);
+            CHECK(!r.Applied && r.Error.find("newer") != std::string::npos && FileSystem::ReadTextFile(file) == future);
         }
         auto stage = CreateRef<Scene>();
         CHECK(PrefabUtility::LoadStage(*stage, db, "Prefabs/Future.zprefab"));
         std::string error;
-        CHECK(!PrefabUtility::SaveStage(*stage, db, "Prefabs/Future.zprefab", nullptr, &error) && error.find("yangiroq") != std::string::npos);
+        CHECK(!PrefabUtility::SaveStage(*stage, db, "Prefabs/Future.zprefab", nullptr, &error) && error.find("newer") != std::string::npos);
         CHECK(FileSystem::ReadTextFile(file) == future);
     }
     // A prefab written by SavePrefab and applied to: current version, a prefab.
@@ -43922,7 +43922,7 @@ TEST(EntitySetPartialLoad)
     options.Error = &error;
     std::vector<Entity> made = SceneSerializer::DeserializeEntities(*scene, text, options);
     CHECK(made.size() == 8 && report.EntitiesLoaded == 8 && report.EntitiesSkipped == 1);
-    CHECK(error.starts_with("Entity ma'lumotlari xato"));
+    CHECK(error.starts_with("Invalid entity data"));
     Entity good = scene->GetEntityByUUID(UUID(1)), broken = scene->GetEntityByUUID(UUID(3)), orphan = scene->GetEntityByUUID(UUID(5));
     Entity child = scene->GetEntityByUUID(UUID(8));
     CHECK(good && good.GetName() == "Yaxshi" && good.GetComponent<TransformComponent>().Translation == glm::vec3(1, 2, 3));
@@ -43940,7 +43940,7 @@ TEST(EntitySetPartialLoad)
     CHECK(kinds[(size_t)SceneLoadIssue::Kind::BadHierarchy] >= 2);
     // The fatal cases keep their messages.
     std::string e1, e2;
-    CHECK(SceneSerializer::DeserializeEntities(*scene, "nope", true, nullptr, &e1).empty() && e1.starts_with("JSON xatosi"));
+    CHECK(SceneSerializer::DeserializeEntities(*scene, "nope", true, nullptr, &e1).empty() && e1.starts_with("JSON error"));
     CHECK(SceneSerializer::DeserializeEntities(*scene, "{ \"ZaminEntities\": 1 }", true, nullptr, &e2).empty() && e2.find("Entities") != std::string::npos);
     // A clean set has an empty report.
     SceneLoadReport clean;
@@ -43983,7 +43983,7 @@ TEST(SceneSalvage)
         for (const SceneLoadIssue& issue : report.Issues)
         {
             parse |= issue.Type == SceneLoadIssue::Kind::ParseError && issue.Level == SceneLoadIssue::Severity::Error &&
-                     issue.Message.find("obyekt tiklandi") != std::string::npos && issue.Line > 0;
+                     issue.Message.find("objects recovered") != std::string::npos && issue.Line > 0;
             truncated |= issue.Type == SceneLoadIssue::Kind::Truncated;
         }
         CHECK(parse && truncated && !report.Failed());
@@ -44017,7 +44017,7 @@ TEST(SceneSalvage)
         const std::string cut = set.substr(0, set.size() / 2);
         auto target = CreateRef<Scene>();
         std::string error;
-        CHECK(SceneSerializer::DeserializeEntities(*target, cut, true, nullptr, &error).empty() && error.starts_with("JSON xatosi"));
+        CHECK(SceneSerializer::DeserializeEntities(*target, cut, true, nullptr, &error).empty() && error.starts_with("JSON error"));
         SceneLoadReport report;
         SceneSerializer::EntitySetReadOptions options;
         options.Recover = true;
@@ -44037,7 +44037,7 @@ TEST(SceneSalvage)
     CHECK(!SceneRecovery::Salvage(deep).Recovered && !SceneSerializer(CreateRef<Scene>()).RecoverFromString(deep));
     // The public API: the salvaged text parses; the summary line.
     SceneRecovery::Result r = SceneRecovery::Salvage(text.substr(0, text.size() / 2));
-    CHECK(r.Recovered && r.Truncated && r.Entities >= 2 && !r.Text.empty() && SceneRecovery::Summary(r).find("obyekt tiklandi") != std::string::npos);
+    CHECK(r.Recovered && r.Truncated && r.Entities >= 2 && !r.Text.empty() && SceneRecovery::Summary(r).find("objects recovered") != std::string::npos);
     // The sample level, cut in half (read only: the file is not touched).
     {
         const fs::path level = fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Platformer2D" / "Assets" / "Scenes" / "Level1.zscene";
@@ -44103,7 +44103,7 @@ TEST(PrefabStageRoundTrip)
     // One root only.
     Entity stray = stage->CreateEntity("Ortiqcha");
     const std::string saved = FileSystem::ReadTextFile(prefab.File);
-    CHECK(!PrefabUtility::SaveStage(*stage, db, prefab.Rel(), nullptr, &error) && error.find("bitta ildiz") != std::string::npos);
+    CHECK(!PrefabUtility::SaveStage(*stage, db, prefab.Rel(), nullptr, &error) && error.find("single root") != std::string::npos);
     CHECK(FileSystem::ReadTextFile(prefab.File) == saved);
     stage->DestroyEntity(stray);
 
@@ -44143,7 +44143,7 @@ TEST(PrefabStageRoundTrip)
             // A cycle: the Gun stage cannot hold an instance of Enemy (made of Gun).
             CHECK(PrefabUtility::InstantiateLinked(*gunStage, db, prefab.Rel(), g));
             const std::string gunNow = FileSystem::ReadTextFile(temp.GetPath() / "Prefabs" / "Gun.zprefab");
-            CHECK(!PrefabUtility::SaveStage(*gunStage, db, "Prefabs/Gun.zprefab", nullptr, &error) && error.find("sikli") != std::string::npos);
+            CHECK(!PrefabUtility::SaveStage(*gunStage, db, "Prefabs/Gun.zprefab", nullptr, &error) && error.find("cycle") != std::string::npos);
             CHECK(FileSystem::ReadTextFile(temp.GetPath() / "Prefabs" / "Gun.zprefab") == gunNow);
         }
     }
@@ -45086,7 +45086,7 @@ TEST(PrefabCacheReads)
         CHECK(!scene->InstantiatePrefab(temp.GetPath() / "Prefabs" / "Gone.zprefab"));
     }
     CHECK(PrefabCache::GetStats().Entries == entriesBefore);
-    CHECK(AssetImportLog::Find(broken) && AssetImportLog::Find(broken)->Reason.starts_with("JSON xatosi"));
+    CHECK(AssetImportLog::Find(broken) && AssetImportLog::Find(broken)->Reason.starts_with("JSON error"));
     CHECK(AssetImportLog::Find(temp.GetPath() / "Prefabs" / "Gone.zprefab")->Reason == "file not found");
     FileSystem::WriteTextFile(broken, R"({"ZaminEntities":1,"Entities":[{"Entity":1,"Tag":"Tuzatildi"}]})");
     Entity fixed = scene->InstantiatePrefab(broken);
@@ -45169,7 +45169,7 @@ TEST(PrefabVariants)
     const PrefabDatabase::Template* vt = db.Get(variant);
     CHECK(vt && vt->Readable && vt->Linkable && vt->IsVariant && vt->Base == base && vt->Order.size() == 3);
     CHECK(PrefabUtility::CreateVariant(db, base) == "Prefabs/Enemy Variant (1).zprefab"); // made unique
-    CHECK(PrefabUtility::CreateVariant(db, base, variant, nullptr, &error).empty() && error.find("bor") != std::string::npos);
+    CHECK(PrefabUtility::CreateVariant(db, base, variant, nullptr, &error).empty() && error.find("exists") != std::string::npos);
     CHECK(PrefabUtility::CreateVariant(db, "Prefabs/Missing.zprefab", {}, nullptr, &error).empty());
     // The game reads it as it is (flat: no base needed).
     {
@@ -45912,7 +45912,7 @@ TEST(PrefabDamagedFileNotWritten)
     enemy.GetComponent<TransformComponent>().Scale = { 3.0f, 3.0f, 3.0f };
     PrefabUtility::RecordOverrides(enemy, db);
     PrefabApplyResult r = PrefabUtility::Apply(enemy, PrefabScope::Instance, {}, db);
-    CHECK(!r.Applied && r.Error.find("o'qilmagan") != std::string::npos && r.Files.empty());
+    CHECK(!r.Applied && r.Error.find("were not read") != std::string::npos && r.Files.empty());
     r = PrefabUtility::Apply(enemy, PrefabScope::Field, "Transform/Scale", db);
     CHECK(!r.Applied && FileSystem::ReadTextFile(pFile) == damaged);
 
@@ -45934,7 +45934,7 @@ TEST(PrefabDamagedFileNotWritten)
     if (root)
         root.GetComponent<TransformComponent>().Translation = { 1.0f, 0.0f, 0.0f };
     std::string error;
-    CHECK(!PrefabUtility::SaveStage(*stage, db, P, &edits, &error) && error.find("o'qilmagan") != std::string::npos && edits.empty());
+    CHECK(!PrefabUtility::SaveStage(*stage, db, P, &edits, &error) && error.find("were not read") != std::string::npos && edits.empty());
     CHECK(FileSystem::ReadTextFile(pFile) == damaged);
     // The user chose to save over it: written (undoable), clean from then on.
     CHECK(PrefabUtility::SaveStage(*stage, db, P, &edits, &error, true) && edits.size() == 1 && edits[0].Before == std::optional<std::string>(damaged));

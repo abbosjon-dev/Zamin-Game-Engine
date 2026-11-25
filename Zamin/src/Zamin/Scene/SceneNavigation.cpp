@@ -644,7 +644,7 @@ namespace Zamin {
         }
         const double cellsX = std::ceil((double)(max.x - min.x) / cellSize - 1e-4), cellsY = std::ceil((double)(max.y - min.y) / cellSize - 1e-4);
         if (cellsX > NavGrid::MaxSize || cellsY > NavGrid::MaxSize)
-            ZM_CORE_WARN("NavGrid 2D '{}': maydon {}x{} katak - {} gacha qisqartirildi (katak o'lchamini kattalashtiring)", entity.GetName(),
+            ZM_CORE_WARN("NavGrid 2D '{}': the area is {}x{} cells - reduced to {} (increase the cell size)", entity.GetName(),
                          (long long)cellsX, (long long)cellsY, NavGrid::MaxSize);
         NavGrid& grid = c->Grid;
         grid.Reset((int)std::clamp(cellsX, 1.0, (double)NavGrid::MaxSize), (int)std::clamp(cellsY, 1.0, (double)NavGrid::MaxSize), cellSize, min);
@@ -696,7 +696,7 @@ namespace Zamin {
             size[i] = std::isfinite(size[i]) ? std::max(size[i], i == 1 ? 0.1f : cellSize) : 10.0f;
         const double cellsX = std::ceil((double)size.x / cellSize - 1e-4), cellsZ = std::ceil((double)size.z / cellSize - 1e-4);
         if (cellsX > NavGrid::MaxSize || cellsZ > NavGrid::MaxSize)
-            ZM_CORE_WARN("NavGrid 3D '{}': maydon {}x{} katak - {} gacha qisqartirildi (katak o'lchamini kattalashtiring)", entity.GetName(),
+            ZM_CORE_WARN("NavGrid 3D '{}': the area is {}x{} cells - reduced to {} (increase the cell size)", entity.GetName(),
                          (long long)cellsX, (long long)cellsZ, NavGrid::MaxSize);
         const int width = (int)std::clamp(cellsX, 1.0, (double)NavGrid::MaxSize), height = (int)std::clamp(cellsZ, 1.0, (double)NavGrid::MaxSize);
         const glm::vec2 origin(center.x - (float)width * cellSize * 0.5f, center.z - (float)height * cellSize * 0.5f);
@@ -797,7 +797,7 @@ namespace Zamin {
         const uint64_t fingerprint = GetNavGridSourceHash(entity, dimension);
         if (fingerprint != saved->Fingerprint)
         {
-            ZM_CORE_INFO("Navigatsiya: '{}' grid'ining manbalari .znav saqlangandan beri o'zgargan - qayta yaratiladi", entity.GetName());
+            ZM_CORE_INFO("Navigation: the sources of the grid '{}' changed since the .znav was saved - it is rebuilt", entity.GetName());
             return false;
         }
         if (dimension == 3)
@@ -861,20 +861,20 @@ namespace Zamin {
         {
             c->StartBakePending = false;
             if (c->Paths.CacheBake && LoadSavedNavBake(e, 2))
-                ZM_CORE_INFO("Navigatsiya: '{}' 2D grid'i .znav faylidan olindi: {}x{} katak ({:.1f} ms)", e.GetName(), c->Grid.GetWidth(),
+                ZM_CORE_INFO("Navigation: the 2D grid '{}' was read from its .znav file: {}x{} cells ({:.1f} ms)", e.GetName(), c->Grid.GetWidth(),
                              c->Grid.GetHeight(), c->BakeMilliseconds);
             else if (BakeNavGrid2D(e))
-                ZM_CORE_INFO("Navigatsiya: '{}' 2D grid'i {}x{} katak, {} tasi yuriladigan ({:.1f} ms)", e.GetName(), c->Grid.GetWidth(),
+                ZM_CORE_INFO("Navigation: the 2D grid '{}' has {}x{} cells, {} walkable ({:.1f} ms)", e.GetName(), c->Grid.GetWidth(),
                              c->Grid.GetHeight(), c->Grid.CountWalkable(), c->BakeMilliseconds);
         }
         if (auto* c = e.TryGetComponent<NavGrid3DComponent>(); c && c->StartBakePending)
         {
             c->StartBakePending = false;
             if (c->Paths.CacheBake && LoadSavedNavBake(e, 3))
-                ZM_CORE_INFO("Navigatsiya: '{}' 3D grid'i .znav faylidan olindi: {}x{} katak ({:.1f} ms)", e.GetName(), c->Grid.GetWidth(),
+                ZM_CORE_INFO("Navigation: the 3D grid '{}' was read from its .znav file: {}x{} cells ({:.1f} ms)", e.GetName(), c->Grid.GetWidth(),
                              c->Grid.GetHeight(), c->BakeMilliseconds);
             else if (BakeNavGrid3D(e))
-                ZM_CORE_INFO("Navigatsiya: '{}' 3D grid'i {}x{} katak, {} tasi yuriladigan, {} ta statik jism ({:.1f} ms)", e.GetName(),
+                ZM_CORE_INFO("Navigation: the 3D grid '{}' has {}x{} cells, {} walkable, {} static bodies ({:.1f} ms)", e.GetName(),
                              c->Grid.GetWidth(), c->Grid.GetHeight(), c->Grid.CountWalkable(), c->BakeBodies, c->BakeMilliseconds);
         }
     }

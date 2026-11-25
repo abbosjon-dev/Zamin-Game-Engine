@@ -47,7 +47,7 @@ namespace Zamin {
             return false;
         }
         recovered->ResolveAssets();
-        if (recovered->GetName() == "Tiklangan sahna")
+        if (recovered->GetName() == "Recovered scene")
             recovered->SetName(path.stem().string()); // its name was in the lost part
 
         DiscardSessionAutosave();

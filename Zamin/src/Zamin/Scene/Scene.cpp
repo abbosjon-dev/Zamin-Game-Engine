@@ -1150,7 +1150,7 @@ namespace Zamin {
         for (Entity e : subtree)
             if (target.GetEntityByUUID(e.GetUUID()))
             {
-                ZM_CORE_WARN("'{}' boshqa sahnaga ko'chirilmadi: '{}' sahnasida shu UUID ({}) bilan obyekt bor", entity.GetName(),
+                ZM_CORE_WARN("'{}' was not moved to the other scene: the scene '{}' has an object with the same UUID ({})", entity.GetName(),
                              target.GetName(), (uint64_t)e.GetUUID());
                 return {};
             }
@@ -1205,7 +1205,7 @@ namespace Zamin {
                 {
                     // Separate buses (not one SceneManager): the subscriptions cannot follow.
                     if (source.m_EventBus->UnsubscribeOwner(instance->m_OwnerID) > 0)
-                        ZM_CORE_WARN("'{}' skriptining hodisa obunalari boshqa sahnaga o'tmadi", e.GetName());
+                        ZM_CORE_WARN("The event subscriptions of the script '{}' did not move to the other scene", e.GetName());
                 }
             }
             // Its sounds play on (the source must not stop them when the old entity goes).
@@ -1296,7 +1296,7 @@ namespace Zamin {
         }
         if (entities.empty())
         {
-            AssetImportLog::Report(path, error.empty() ? std::string("prefabda obyekt yo'q") : error);
+            AssetImportLog::Report(path, error.empty() ? std::string("the prefab has no object") : error);
             return {};
         }
         if (!error.empty())
@@ -1325,7 +1325,7 @@ namespace Zamin {
                 if (!id || inside.count(id))
                     return;
                 Entity other = GetEntityByUUID(id);
-                ZM_CORE_WARN("Prefab {}: '{}' obyektidagi {}.{} tashqi havola (prefabdan tashqarida): '{}' - boshqa sahnalarda u bo'lmaydi",
+                ZM_CORE_WARN("Prefab {0}: {2}.{3} on the object '{1}' is an outside reference (outside the prefab): '{4}' - it will not exist in other scenes",
                              path.filename().string(), e.GetName(), key, field, other ? other.GetName() : std::string("?"));
             });
         // Instances should not start hidden / locked in the editor: those flags stay in this scene.
@@ -2955,7 +2955,7 @@ namespace Zamin {
         const ScriptClassInfo* info = ScriptRegistry::Find(nsc.ClassName);
         if (!info)
         {
-            ZM_CORE_WARN("Skript klassi topilmadi: '{}' (entity '{}')", nsc.ClassName, entity.GetName());
+            ZM_CORE_WARN("Script class not found: '{}' (entity '{}')", nsc.ClassName, entity.GetName());
             return;
         }
         ScriptableEntity* instance = info->Factory();
@@ -2999,7 +2999,7 @@ namespace Zamin {
             if (++instance->m_EnableTransitions > MaxTransitions)
             {
                 if (instance->m_EnableTransitions == MaxTransitions + 1) // once per chain (outer levels unwind here too)
-                    ZM_CORE_WARN("'{}': OnEnable/OnDisable skriptni to'xtovsiz yoqib-o'chirmoqda - to'xtatildi", entity.GetName());
+                    ZM_CORE_WARN("'{}': OnEnable/OnDisable keeps turning the script on and off - stopped", entity.GetName());
                 // Settle on the state the script was told last. Only the script's own flag is
                 // changed: an inactive entity's script gets no per-frame callbacks anyway.
                 if (IsActiveInHierarchy(entity))
@@ -3159,7 +3159,7 @@ namespace Zamin {
         if (m_MessageDepth >= MaxMessageDepth)
         {
             if (!m_MessageDepthWarned)
-                ZM_CORE_WARN("Xabar '{}' juda chuqur ichma-ich yuborildi ({} daraja) va tashlab yuborildi (cheksiz tsikl?)",
+                ZM_CORE_WARN("The message '{}' was sent nested too deep ({} levels) and was dropped (an endless loop?)",
                              message.Name, MaxMessageDepth);
             m_MessageDepthWarned = true;
             return false;
@@ -3290,7 +3290,7 @@ namespace Zamin {
                     return;
                 if (!m_ReportedMissingJointBodies.insert(joint->ConnectedBody.ID).second)
                     return;
-                ZM_CORE_WARN("'{}' obyektidagi {} ulangan jismi ({:016x}) sahnada yo'q - joint yaratilmaydi", e.GetName(),
+                ZM_CORE_WARN("The connected body ({2:016x}) of the {1} on the object '{0}' is not in the scene - no joint is created", e.GetName(),
                              Joint2DTypeName(Joint2DTypeOf<T>()), joint->ConnectedBody.ID);
             });
             ForEachJoint3DType([&](auto type) {
@@ -3300,7 +3300,7 @@ namespace Zamin {
                     return;
                 if (!m_ReportedMissingJointBodies.insert(joint->ConnectedBody.ID).second)
                     return;
-                ZM_CORE_WARN("'{}' obyektidagi {} ulangan jismi ({:016x}) sahnada yo'q - joint yaratilmaydi", e.GetName(),
+                ZM_CORE_WARN("The connected body ({2:016x}) of the {1} on the object '{0}' is not in the scene - no joint is created", e.GetName(),
                              Joint3DTypeName(Joint3DTypeOf<T>()), joint->ConnectedBody.ID);
             });
         };
@@ -4092,7 +4092,7 @@ namespace Zamin {
                 desc.Shapes.push_back(s);
             }
             else if (!quiet)
-                ZM_CORE_WARN("'{}': Convex Hull Collider 3D qurilmadi - {}", entity.GetName(), error);
+                ZM_CORE_WARN("'{}': the Convex Hull Collider 3D was not built - {}", entity.GetName(), error);
         }
         if (auto* c = entity.TryGetComponent<MeshCollider3DComponent>(); c && (!entity.HasComponent<TerrainComponent>() || entity.GetComponent<TerrainComponent>().Collision))
         {
@@ -4100,8 +4100,7 @@ namespace Zamin {
             if (rb.Type == Rigidbody3DComponent::BodyType::Dynamic)
             {
                 if (!quiet)
-                    ZM_CORE_WARN("'{}': Mesh Collider 3D faqat statik yoki kinematik jismda ishlaydi - dinamik jism uni hisobga olmaydi "
-                                 "(Convex Hull Collider 3D ishlating)", entity.GetName());
+                    ZM_CORE_WARN("'{}': a Mesh Collider 3D only works on a static or kinematic body - a dynamic body ignores it (use a Convex Hull Collider 3D)", entity.GetName());
             }
             else if (Ref<const CollisionMesh3D> mesh = GetMeshCollider(entity, &error))
             {
@@ -4114,12 +4113,12 @@ namespace Zamin {
                 desc.Shapes.push_back(s);
             }
             else if (!quiet)
-                ZM_CORE_WARN("'{}': Mesh Collider 3D qurilmadi - {}", entity.GetName(), error);
+                ZM_CORE_WARN("'{}': the Mesh Collider 3D was not built - {}", entity.GetName(), error);
         }
         if (desc.Shapes.empty())
         {
             if (!quiet && !entity.HasComponent<MeshCollider3DComponent>())
-                ZM_CORE_WARN("'{}': Rigidbody3D uchun collider yo'q (Box/Sphere/Capsule/Convex Hull/Mesh Collider 3D qo'shing)", entity.GetName());
+                ZM_CORE_WARN("'{}': the Rigidbody3D has no collider (add a Box/Sphere/Capsule/Convex Hull/Mesh Collider 3D)", entity.GetName());
             return false;
         }
         return true;
@@ -4143,7 +4142,7 @@ namespace Zamin {
         if (modelPath.empty() && primitive == PrimitiveMesh::Model)
         {
             if (error)
-                *error = "model yo'q (Mesh Renderer qo'shing yoki model faylini tanlang)";
+                *error = "no model (add a Mesh Renderer or choose a model file)";
             return false;
         }
         return true;
@@ -4155,7 +4154,7 @@ namespace Zamin {
         if (!c)
         {
             if (error)
-                *error = "Convex Hull Collider 3D yo'q";
+                *error = "no Convex Hull Collider 3D";
             return nullptr;
         }
         std::string modelPath;
@@ -4171,7 +4170,7 @@ namespace Zamin {
         if (!c)
         {
             if (error)
-                *error = "Mesh Collider 3D yo'q";
+                *error = "no Mesh Collider 3D";
             return nullptr;
         }
         if (auto* terrain = entity.TryGetComponent<TerrainComponent>())

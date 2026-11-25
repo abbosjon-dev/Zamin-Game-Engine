@@ -255,7 +255,7 @@ namespace Zamin {
         if (!op || !op->IsReady())
         {
             if (error)
-                *error = !op ? std::string("sahna yo'q") : op->HasFailed() ? op->GetError() : std::string("sahna hali yuklanmagan");
+                *error = !op ? std::string("no scene") : op->HasFailed() ? op->GetError() : std::string("the scene is not loaded yet");
             return false;
         }
         m_AsyncOps.erase(std::remove(m_AsyncOps.begin(), m_AsyncOps.end(), op), m_AsyncOps.end());
@@ -593,7 +593,7 @@ namespace Zamin {
         fs::path path = Project::GetBuildScenePath(buildIndex);
         if (path.empty())
         {
-            ZM_CORE_ERROR("Build ro'yxatida {} indeksli sahna yo'q ({} ta sahna bor)", buildIndex, Project::GetBuildScenes().size());
+            ZM_CORE_ERROR("The build list has no scene with index {} (it has {} scenes)", buildIndex, Project::GetBuildScenes().size());
             return false;
         }
         LoadScene(path, mode, transition);
@@ -605,7 +605,7 @@ namespace Zamin {
         fs::path path = Project::GetBuildScenePath(buildIndex);
         if (path.empty())
         {
-            ZM_CORE_ERROR("Build ro'yxatida {} indeksli sahna yo'q ({} ta sahna bor)", buildIndex, Project::GetBuildScenes().size());
+            ZM_CORE_ERROR("The build list has no scene with index {} (it has {} scenes)", buildIndex, Project::GetBuildScenes().size());
             return nullptr;
         }
         return LoadSceneAsync(path, mode, transition);
@@ -616,12 +616,12 @@ namespace Zamin {
         const int current = GetActiveSceneBuildIndex();
         if (current < 0)
         {
-            ZM_CORE_WARN("Faol sahna build ro'yxatida yo'q: keyingi sahna noma'lum");
+            ZM_CORE_WARN("The active scene is not in the build list: the next scene is unknown");
             return false;
         }
         if (current + 1 >= GetBuildSceneCount())
         {
-            ZM_CORE_WARN("'{}' build ro'yxatining oxirgi sahnasi: keyingisi yo'q", m_Active->GetName());
+            ZM_CORE_WARN("'{}' is the last scene of the build list: there is no next one", m_Active->GetName());
             return false;
         }
         return LoadScene(current + 1, LoadSceneMode::Single, transition);
@@ -632,7 +632,7 @@ namespace Zamin {
         const std::string path = GetScenePath(m_Active.get());
         if (path.empty())
         {
-            ZM_CORE_WARN("Faol sahnaning fayli yo'q: qayta yuklab bo'lmaydi");
+            ZM_CORE_WARN("The active scene has no file: it cannot be reloaded");
             return false;
         }
         LoadScene(fs::path(path), LoadSceneMode::Single, transition);
@@ -664,13 +664,13 @@ namespace Zamin {
         std::error_code ec;
         if (!fs::is_regular_file(file, ec))
         {
-            AssetImportLog::Report(file, "fayl topilmadi"); // logged once with the path
+            AssetImportLog::Report(file, "file not found"); // logged once with the path
             SceneLoadReport report;
             report.File = file.generic_string();
             SceneLoadIssue issue;
             issue.Type = SceneLoadIssue::Kind::FileMissing;
             issue.Level = SceneLoadIssue::Severity::Fatal;
-            issue.Message = "fayl topilmadi";
+            issue.Message = "file not found";
             report.Add(std::move(issue));
             AddLoadReport(report);
             return nullptr;
@@ -685,7 +685,7 @@ namespace Zamin {
             // in (its scene is in: a loading screen starting the next load) hands the cover over.
             if (m_Fade.Phase == FadePhase::Waiting || m_Fade.Phase == FadePhase::Out || m_Fade.Phase == FadePhase::Covered)
             {
-                ZM_CORE_WARN("Oldingi sahna o'tishi hali tugamagan: '{}' o'tishsiz yuklanadi", op->GetPath().generic_string());
+                ZM_CORE_WARN("The previous scene transition has not finished: '{}' is loaded without a transition", op->GetPath().generic_string());
                 op->m_Transition = {};
             }
             else
@@ -723,7 +723,7 @@ namespace Zamin {
             scene = GetSceneByName(nameOrPath);
         if (!scene || scene == m_Persistent)
         {
-            ZM_CORE_WARN("Yopiladigan sahna topilmadi: '{}'", nameOrPath);
+            ZM_CORE_WARN("Scene to close not found: '{}'", nameOrPath);
             return false;
         }
         return UnloadScene(scene);
@@ -792,7 +792,7 @@ namespace Zamin {
         m_Scenes.push_back({ scene, path });
         if (mode == LoadSceneMode::Single || !m_Active)
             SetActive(scene);
-        ZM_CORE_INFO("Sahna yuklandi: {} ({})", path.empty() ? scene->GetName() : path, mode == LoadSceneMode::Additive ? "qo'shimcha" : "yagona");
+        ZM_CORE_INFO("Scene loaded: {} ({})", path.empty() ? scene->GetName() : path, mode == LoadSceneMode::Additive ? "additive" : "yagona");
         std::vector<SceneEventInfo> subScenes;
         LoadSubScenes(scene, subScenes);
 
@@ -883,14 +883,14 @@ namespace Zamin {
             const SceneEntry* entry = FindEntry(up);
             if (entry && entry->Path == path)
             {
-                ZM_CORE_WARN("Sub-sahna halqasi: '{}' o'zining ichida yuklanmaydi ('{}' obyekti)", path, host.GetName());
+                ZM_CORE_WARN("Sub-scene loop: '{}' is not loaded inside itself (object '{}')", path, host.GetName());
                 return false;
             }
             up = entry ? entry->Owner : nullptr;
         }
         if (depth > MaxSubSceneDepth)
         {
-            ZM_CORE_WARN("Sub-sahna juda chuqur ({} qavatdan ortiq): '{}' yuklanmadi", MaxSubSceneDepth, path);
+            ZM_CORE_WARN("Sub-scene too deep (more than {} levels): '{}' not loaded", MaxSubSceneDepth, path);
             return false;
         }
         const auto clock = std::chrono::steady_clock::now();
@@ -900,7 +900,7 @@ namespace Zamin {
         Ref<Scene> sub = LoadNow(fs::path(path), &error, &timing);
         if (!sub)
         {
-            ZM_CORE_ERROR("Sub-sahna yuklanmadi: {} ('{}' obyekti: {})", path, host.GetName(), error);
+            ZM_CORE_ERROR("Sub-scene not loaded: {} (object '{}': {})", path, host.GetName(), error);
             timing.WallMilliseconds = ElapsedMilliseconds(clock);
             SceneLoadProfiler::Record(timing);
             return false;
@@ -917,7 +917,7 @@ namespace Zamin {
         entry.Owner = owner.get();
         entry.OwnerEntity = host.GetUUID();
         m_Scenes.push_back(std::move(entry));
-        ZM_CORE_INFO("Sub-sahna yuklandi: {} ('{}' ichida, '{}' obyekti)", path, owner->GetName(), host.GetName());
+        ZM_CORE_INFO("Sub-scene loaded: {} (inside '{}', object '{}')", path, owner->GetName(), host.GetName());
         timing.SceneName = sub->GetName();
         timing.WallMilliseconds = ElapsedMilliseconds(clock);
         SceneLoadProfiler::Record(timing);
@@ -998,7 +998,7 @@ namespace Zamin {
                     const std::string name = entity.GetName();
                     if (Entity moved = Scene::MoveEntityToScene(entity, *EnsurePersistentScene()))
                     {
-                        ZM_CORE_INFO("'{}' {} sahnasiga ko'chirildi: sahna almashganda saqlanadi", name, DontDestroyOnLoadSceneName);
+                        ZM_CORE_INFO("'{}' was moved to the {} scene: it is kept when the scene changes", name, DontDestroyOnLoadSceneName);
                         changed = true;
                     }
                     break;
@@ -1014,7 +1014,7 @@ namespace Zamin {
                     going.push_back(request.Target);
                     if (going.size() >= m_Scenes.size())
                     {
-                        ZM_CORE_WARN("Oxirgi sahnani yopib bo'lmaydi: '{}' (boshqasini Single rejimida yuklang)", request.Target->GetName());
+                        ZM_CORE_WARN("The last scene cannot be closed: '{}' (load another one in Single mode)", request.Target->GetName());
                         break;
                     }
                     for (const Ref<Scene>& scene : going)
@@ -1024,7 +1024,7 @@ namespace Zamin {
                         const bool wasActive = scene == m_Active;
                         RemoveLoaded(scene);
                         StopScene(scene);
-                        ZM_CORE_INFO("Sahna yopildi: {}", name);
+                        ZM_CORE_INFO("Scene closed: {}", name);
                         changed = true;
                         NotifySceneUnloaded(info);
                         if (wasActive)
@@ -1059,7 +1059,7 @@ namespace Zamin {
                     Ref<Scene> scene = LoadNow(request.Path, &error, &timing);
                     if (!scene)
                     {
-                        ZM_CORE_ERROR("Sahnaga o'tilmadi: {} ({})", request.Path.generic_string(), error);
+                        ZM_CORE_ERROR("Could not switch to the scene: {} ({})", request.Path.generic_string(), error);
                         timing.WallMilliseconds = ElapsedMilliseconds(clock);
                         RecordStagesToProfiler(timing);
                         timings.push_back(std::move(timing));
@@ -1279,7 +1279,7 @@ namespace Zamin {
                     op.m_Report = op.m_Job->GetReport();
                     op.m_Report.Log();
                     AddLoadReport(op.m_Report);
-                    ZM_CORE_INFO("Sahna fonda yuklandi: {} ({} ta obyekt, {} ta rasm oldindan o'qildi)", op.m_Path.generic_string(),
+                    ZM_CORE_INFO("Scene loaded in the background: {} ({} objects, {} images pre-read)", op.m_Path.generic_string(),
                                  op.m_ResolveOrder.size(), op.m_ImagesDecoded.load());
                     return;
                 }

@@ -70,7 +70,7 @@ namespace Zamin {
     // ------------------------------------------------------------------ built-ins
     static ParticlePreset MakeFire()
     {
-        ParticlePreset preset{ "Olov", {}, {} };
+        ParticlePreset preset{ "Fire", {}, {} };
         PS& ps = preset.System;
         ps.EmissionRate = 70.0f;
         ps.MaxParticles = 400;
@@ -103,7 +103,7 @@ namespace Zamin {
 
     static ParticlePreset MakeSmoke()
     {
-        ParticlePreset preset{ "Tutun", {}, {} };
+        ParticlePreset preset{ "Smoke", {}, {} };
         PS& ps = preset.System;
         ps.EmissionRate = 10.0f;
         ps.MaxParticles = 200;
@@ -137,7 +137,7 @@ namespace Zamin {
 
     static ParticlePreset MakeSparks()
     {
-        ParticlePreset preset{ "Uchqunlar", {}, {} };
+        ParticlePreset preset{ "Sparks", {}, {} };
         PS& ps = preset.System;
         ps.EmissionRate = 30.0f;
         ps.Bursts = { { 0.0f, 20, 0, 1.0f, 1.0f } };
@@ -172,7 +172,7 @@ namespace Zamin {
 
     static ParticlePreset MakeRain()
     {
-        ParticlePreset preset{ "Yomg'ir", {}, {} };
+        ParticlePreset preset{ "Rain", {}, {} };
         PS& ps = preset.System;
         ps.EmissionRate = 1200.0f;
         ps.MaxParticles = 2500;
@@ -219,13 +219,13 @@ namespace Zamin {
         splash.EndColor = { 0.82f, 0.88f, 1.0f, 0.0f };
         splash.Additive = false;
         splash.Sorting = PS::SortMode::None;
-        preset.Templates.push_back({ "Yomg'ir sachrashi", splash });
+        preset.Templates.push_back({ "Rain splash", splash });
         return preset;
     }
 
     static ParticlePreset MakeSnow()
     {
-        ParticlePreset preset{ "Qor", {}, {} };
+        ParticlePreset preset{ "Snow", {}, {} };
         PS& ps = preset.System;
         ps.EmissionRate = 220.0f;
         ps.MaxParticles = 3000;
@@ -270,7 +270,7 @@ namespace Zamin {
 
     static ParticlePreset MakeMagic()
     {
-        ParticlePreset preset{ "Sehr", {}, {} };
+        ParticlePreset preset{ "Magic", {}, {} };
         PS& ps = preset.System;
         ps.EmissionRate = 40.0f;
         ps.MaxParticles = 300;
@@ -311,7 +311,7 @@ namespace Zamin {
 
     static ParticlePreset MakeExplosion()
     {
-        ParticlePreset preset{ "Portlash", {}, {} };
+        ParticlePreset preset{ "Explosion", {}, {} };
         PS& ps = preset.System;
         ps.Looping = false;
         ps.Duration = 2.0f;
@@ -366,13 +366,13 @@ namespace Zamin {
         t.Collision.Enabled = true;
         t.Collision.Bounce = 0.3f;
         t.Collision.Dampen = 0.3f;
-        preset.Templates.push_back({ "Portlash uchqunlari", t });
+        preset.Templates.push_back({ "Explosion sparks", t });
         return preset;
     }
 
     static ParticlePreset MakeDust()
     {
-        ParticlePreset preset{ "Chang", {}, {} };
+        ParticlePreset preset{ "Dust", {}, {} };
         PS& ps = preset.System;
         ps.EmissionRate = 6.0f;
         ps.MaxParticles = 100;
@@ -403,7 +403,7 @@ namespace Zamin {
 
     static ParticlePreset MakeFirework()
     {
-        ParticlePreset preset{ "Mushak", {}, {} };
+        ParticlePreset preset{ "Firework", {}, {} };
         PS& ps = preset.System;
         ps.Duration = 3.6f;
         ps.EmissionRate = 0.0f;
@@ -453,7 +453,7 @@ namespace Zamin {
         t.Trails.Lifetime = 0.3f;
         t.Trails.Width = 0.5f;
         t.Additive = true;
-        preset.Templates.push_back({ "Mushak portlashi", t });
+        preset.Templates.push_back({ "Firework burst", t });
         return preset;
     }
 

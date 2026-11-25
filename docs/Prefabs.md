@@ -341,7 +341,7 @@ Ichma-ich nusxa (7, 8) to'liq yozilgan va o'z bog'lanish qatlamiga ega. Variantd
 
 Faqat `Prefab` yozilgan ildiz — eski (M21 dan oldingi) nusxa: sahna ochilganda u prefabga bog'lanadi (ildiz
 ildizga, bolalar nomi bo'yicha tartib bilan; ma'lumot o'zgarmaydi, farqlar override bo'ladi). Masalan Platformer2D
-`Menu.zscene`: "Eski prefab nusxasi bog'landi: Bosh menyu (44/44, 0 override)", sahna saqlanmagan deb belgilanmaydi.
+`Menu.zscene`: "Old prefab instance linked: Bosh menyu (44/44, 0 overrides)", sahna saqlanmagan deb belgilanmaydi.
 
 ---
 

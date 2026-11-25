@@ -359,7 +359,7 @@ namespace Zamin {
                 }
             }
             for (const std::string& issue : t->Issues)
-                if (!cycle && issue.find("sikli") != std::string::npos)
+                if (!cycle && issue.find("cycle") != std::string::npos)
                 {
                     add(Severity::Error, "R9", prefab, issue);
                     cycle = true;

@@ -35,7 +35,7 @@ namespace Zamin {
     };
 
     static constexpr std::array<PropertyInfo, (size_t)AnimatedProperty::Count> s_Properties = { {
-        { AnimatedProperty::Position, "Transform.Position", "Joylashuv", 3, false },
+        { AnimatedProperty::Position, "Transform.Position", "Pozitsiya", 3, false },
         { AnimatedProperty::Rotation, "Transform.Rotation", "Burilish (gradus)", 3, false },
         { AnimatedProperty::Scale, "Transform.Scale", "Masshtab", 3, false },
         { AnimatedProperty::SpriteColor, "SpriteRenderer.Color", "Sprite rangi", 4, true },
@@ -309,12 +309,12 @@ namespace Zamin {
         json j = json::parse(text, nullptr, false);
         if (j.is_discarded() || !j.is_object())
         {
-            if (error) *error = "JSON o'qilmadi";
+            if (error) *error = "the JSON could not be read";
             return false;
         }
         if (j.value("Version", 1) > PropertyClip::CurrentVersion)
         {
-            if (error) *error = std::format("yangiroq versiya ({})", j.value("Version", 1));
+            if (error) *error = std::format("newer version ({})", j.value("Version", 1));
             return false;
         }
         PropertyClip clip;
@@ -334,7 +334,7 @@ namespace Zamin {
                 auto property = PropertyAnimation::PropertyFromKey(t.value("Property", std::string()));
                 if (!property)
                 {
-                    ZM_CORE_WARN("Animatsiya klipi: noma'lum xususiyat '{}' o'tkazib yuborildi", t.value("Property", std::string()));
+                    ZM_CORE_WARN("Animation clip: unknown property '{}' skipped", t.value("Property", std::string()));
                     continue;
                 }
                 AnimationTrack track;
@@ -397,7 +397,7 @@ namespace Zamin {
         std::error_code ec;
         if (!fs::exists(path, ec))
         {
-            if (error) *error = "fayl topilmadi";
+            if (error) *error = "file not found";
             return false;
         }
         return DeserializeFromString(FileSystem::ReadTextFile(path), out, error);

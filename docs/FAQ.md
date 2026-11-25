@@ -175,7 +175,7 @@ unutilgan) yoki dvigatel qayta build qilinib, modul eskisi bilan qolgan: skriptl
 
 ### Sahnani ochganimda "Skript klassi topilmadi"
 
-> `Skript klassi topilmadi: '<klass>' (entity '<obyekt>')`
+> `Script class not found: '<klass>' (entity '<obyekt>')`
 
 Obyektdagi C++ Script komponenti modulda yo'q klassni ko'rsatyapti: klass nomi o'zgartirilgan yoki o'chirilgan,
 yoki modul hali kompilyatsiya qilinmagan. Inspektorda yangi klassni tanlang yoki kompilyatsiya qiling.
@@ -209,28 +209,28 @@ masalan:
 
 Skriptlar bir-biriga cheksiz xabar / hodisa yuborsa, dvigatel zanjirni uzadi:
 
-> `Xabar '<nom>' juda chuqur ichma-ich yuborildi (<N> daraja) va tashlab yuborildi (cheksiz tsikl?)`
+> `The message '<nom>' was sent nested too deep (<N> levels) and was dropped (an endless loop?)`
 
 > `The event '<nom>' was raised nested too deep (<N> levels) and was dropped (an endless loop?)`
 
 `OnEnable` / `OnDisable` skriptni o'zi yoqib-o'chirib tursa:
 
-> `'<obyekt>': OnEnable/OnDisable skriptni to'xtovsiz yoqib-o'chirmoqda - to'xtatildi`
+> `'<obyekt>': OnEnable/OnDisable keeps turning the script on and off - stopped`
 
 ## 5. Sahnalar va loyiha
 
 ### Sahna ochilmayapti
 
-> `Sahna yuklanmadi: <fayl> - <sabab>`
+> `Scene failed to load: <fayl> - <sabab>`
 
 Sabab fayl yo'qligi, JSON xatosi yoki boshqa narsa bo'lishi mumkin. Fayl qisman buzilgan bo'lsa editor tiklashni
 taklif qiladi, o'yin esa yaroqli qismini yuklaydi:
 
-> `Sahna '<nom>' qisman yuklandi (<nima>): yaroqli obyektlar qoldi`
+> `Scene '<nom>' loaded partly (<nima>): the valid objects were kept`
 
 Sahna dvigatelning yangiroq versiyasida saqlangan bo'lsa:
 
-> `Sahna fayli yangiroq formatda (v<N>, bu dvigatel v<M> gacha biladi): <fayl> - tanilgan qismi o'qildi`
+> `The scene file is in a newer format (v<N>, this engine knows up to v<M>): <fayl> - the known part was read`
 
 Batafsil: [Scenes.md, 10](Scenes.md#10-yuklash-xatolari).
 
@@ -246,7 +246,7 @@ Build ro'yxatida yo'q indeks so'ralsa:
 
 Oxirgi yuklangan sahnani yopib bo'lmaydi:
 
-> `Oxirgi sahnani yopib bo'lmaydi: '<nom>' (boshqasini Single rejimida yuklang)`
+> `The last scene cannot be closed: '<nom>' (load another one in Single mode)`
 
 ### Loyiha ochilmayapti
 
@@ -268,7 +268,7 @@ UUID orqali yangilanadi; editor tashqarisida ko'chirilsa, `.zmeta` ni ham birga 
 
 3D jismga collider kerak:
 
-> `'<obyekt>': Rigidbody3D uchun collider yo'q (Box/Sphere/Capsule/Convex Hull/Mesh Collider 3D qo'shing)`
+> `'<obyekt>': the Rigidbody3D has no collider (add a Box/Sphere/Capsule/Convex Hull/Mesh Collider 3D)`
 
 Boshqa sabablar: jism va pol turli fizika dunyosida (biri 2D, biri 3D), to'qnashuv qatlamlari bir-birini
 ko'rmaydi (Project settings > Physics), collider sensor (`IsSensor`) - u faqat trigger beradi.
@@ -281,13 +281,13 @@ oshiring (sahna sozlamalaridagi fizika bo'limi: **Qadam chastotasi**, `StepRate`
 
 ### Mesh Collider dinamik jismda ishlamayapti
 
-> `'<obyekt>': Mesh Collider 3D faqat statik yoki kinematik jismda ishlaydi - dinamik jism uni hisobga olmaydi`
+> `'<obyekt>': a Mesh Collider 3D only works on a static or kinematic body - a dynamic body ignores it (use a Convex Hull Collider 3D)`
 
 Harakatlanadigan jism uchun Convex Hull Collider 3D yoki oddiy shakllardan foydalaning.
 
 ### Joint yaratilmadi
 
-> `'<obyekt>' obyektidagi <joint> ulangan jismi (<UUID>) sahnada yo'q - joint yaratilmaydi`
+> `The connected body (<UUID>) of the <joint> on the object '<obyekt>' is not in the scene - no joint is created`
 
 Joint ko'rsatgan ikkinchi obyekt o'chirilgan yoki boshqa sahnada: inspektorda **Ulangan jism** ni qayta tanlang.
 

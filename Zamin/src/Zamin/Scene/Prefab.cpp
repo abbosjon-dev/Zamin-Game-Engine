@@ -413,7 +413,7 @@ namespace Zamin {
                 if (SceneSerializerJson::ApplyComponentJson(e, key, mv, &error))
                     changed = true;
                 else if (!error.empty())
-                    ZM_CORE_WARN("Prefab: '{}' obyektining {} qiymati yozilmadi ({})", e.GetName(), key, error);
+                    ZM_CORE_WARN("Prefab: the value {1} of the object '{0}' was not written ({2})", e.GetName(), key, error);
             }
             return changed;
         }
@@ -496,7 +496,7 @@ namespace Zamin {
                 }
                 catch (const std::exception& ex)
                 {
-                    ZM_CORE_WARN("Prefab: '{}' obyekti to'liq o'qilmadi ({})", e.GetName(), ex.what());
+                    ZM_CORE_WARN("Prefab: the object '{}' was not read completely ({})", e.GetName(), ex.what());
                 }
                 e.AddOrReplaceComponent<PrefabLinkComponent>().PrefabEntity = local;
                 in.Linked[local] = e;
@@ -517,7 +517,7 @@ namespace Zamin {
                 const auto& link = e.GetComponent<PrefabLinkComponent>();
                 const json merged = PO::Merge(clean[local], current, link.Overrides, link.RemovedComponents, e == in.Root, &orphans);
                 for (const std::string& path : orphans)
-                    ZM_CORE_WARN("Prefab {}: '{}' obyektining '{}' o'zgarishi eskirdi (prefabda bu qism yo'q) - olib tashlandi", in.T->Path,
+                    ZM_CORE_WARN("Prefab {0}: the change '{2}' of the object '{1}' is stale (the prefab no longer has this part) - removed", in.T->Path,
                                  e.GetName(), path);
                 if (ApplyDifferences(e, merged, current))
                     changed = true;
@@ -578,7 +578,7 @@ namespace Zamin {
                 {
                     if (goneSet.contains((entt::entity)child))
                         continue;
-                    ZM_CORE_WARN("Prefab {}: '{}' prefabdan olib tashlangan - unga qo'shilgan '{}' '{}' ga ko'chirildi", in.T->Path, e.GetName(),
+                    ZM_CORE_WARN("Prefab {}: '{}' was removed from the prefab - '{}' added to it was moved to '{}'", in.T->Path, e.GetName(),
                                  child.GetName(), keep.GetName());
                     scene.SetParent(child, keep, true);
                 }
@@ -658,7 +658,7 @@ namespace Zamin {
                 if (nested == self || db.DependsOn(nested, self))
                 {
                     if (error)
-                        *error = std::format("Prefab sikli: {} o'z ichida {} ni ishlatadi, u esa {} dan iborat", self, nested, self);
+                        *error = std::format("Prefab cycle: {} uses {} inside itself, which consists of {}", self, nested, self);
                     return false;
                 }
                 Instance in;
@@ -703,14 +703,14 @@ namespace Zamin {
             if (out.is_discarded() || !out.is_object())
             {
                 if (error)
-                    *error = "Prefab fayli o'qilmadi";
+                    *error = "The prefab file could not be read";
                 return false;
             }
             const SceneMigrationResult migration = SceneMigrationJson::Migrate(out);
             if (migration.IsNewer())
             {
                 if (error)
-                    *error = std::format("Prefab fayli yangiroq formatda (v{}, bu dvigatel v{} gacha biladi): yozilmaydi",
+                    *error = std::format("The prefab file is in a newer format (v{}, this engine knows up to v{}): not written",
                                          migration.FileVersion, SceneMigration::CurrentVersion);
                 return false;
             }
@@ -798,7 +798,7 @@ namespace Zamin {
             const bool entityAdded = added.contains((uint64_t)entity.GetUUID());
             if (scope == PrefabScope::Field || scope == PrefabScope::Component)
                 if (entityAdded)
-                    return Fail("Bu obyekt prefabda yo'q: avval obyektni qo'llang");
+                    return Fail("This object is not in the prefab: apply the object first");
 
             // What goes into the file.
             std::unordered_set<uint64_t> inScope;
@@ -833,7 +833,7 @@ namespace Zamin {
             {
                 Entity parent = ParentOf(entity);
                 if (!parent || !ids.contains((uint64_t)parent.GetUUID()))
-                    return Fail("Obyektning ota-onasi prefabda yo'q: avval uni qo'llang");
+                    return Fail("The object's parent is not in the prefab: apply it first");
             }
 
             // The file's entities in a scratch scene (UUID = prefab ID).
@@ -907,11 +907,11 @@ namespace Zamin {
                     const bool toAdded = added.contains(ref);
                     const std::string site = std::format("{}/{}", key, field);
                     if (RefSiteTouches(site, fieldSite))
-                        refused = toAdded ? "Avval qo'shilgan obyektni qo'llang (havola unga ko'rsatadi)"
-                                          : "Tashqi havola prefabga yozilmaydi (prefabdan tashqaridagi obyekt)";
+                        refused = toAdded ? "Apply the added object first (the reference points to it)"
+                                          : "An outside reference is not written to the prefab (an object outside the prefab)";
                     ref = RefAt(old, key, field);
                     result.Skipped.push_back(std::format("{}: {} - {}", e.GetName(), site,
-                                                         toAdded ? "qo'shilgan obyektga havola" : "tashqi havola (prefabdan tashqarida)"));
+                                                         toAdded ? "a reference to an added object" : "an outside reference (outside the prefab)"));
                 });
             }
             if (!refused.empty())
@@ -926,7 +926,7 @@ namespace Zamin {
             writeOptions.Kind = SceneSerializer::EntitySetKind::Prefab;
             json written = json::parse(SceneSerializer::SerializeEntities(*local, ordered, writeOptions), nullptr, false);
             if (written.is_discarded())
-                return Fail("Prefab ma'lumotlari yozilmadi");
+                return Fail("The prefab data could not be written");
             json& newList = written["Entities"];
             std::unordered_map<uint64_t, const json*> newByID;
             for (const json& e : newList)
@@ -1034,7 +1034,7 @@ namespace Zamin {
             if (!NormalizeNestedLinks(file, db, prefab, &error))
                 return Fail(error);
             if (!db.Write(prefab, DumpFile(file), &result.Files))
-                return Fail(std::format("Prefab fayliga yozib bo'lmadi: {}", prefab));
+                return Fail(std::format("Could not write the prefab file: {}", prefab));
             result.Written.push_back(prefab);
             result.Target = prefab;
 
@@ -1063,13 +1063,13 @@ namespace Zamin {
                                       PrefabDatabase& db)
         {
             if (scope != PrefabScope::Field && scope != PrefabScope::Component)
-                return Fail("Ichma-ich prefabga faqat qiymat yoki komponent qo'llanadi");
+                return Fail("Only a value or a component can be applied to a nested prefab");
             Scene& scene = *in.Root.GetScene();
             RecordOverridesImpl(in);
             Collect(in);
             const uint64_t entityLocal = LocalOf(entity);
             if (!entityLocal)
-                return Fail("Bu obyekt prefabda yo'q");
+                return Fail("This object is not in the prefab");
 
             // Down the chain of nested prefabs: (file, the entity's ID there).
             std::vector<std::pair<std::string, uint64_t>> levels;
@@ -1083,7 +1083,7 @@ namespace Zamin {
             {
                 const PrefabDatabase::Template* t = db.Get(current);
                 if (!t || !t->Readable)
-                    return Fail(std::format("Prefab o'qilmadi: {}", current));
+                    return Fail(std::format("The prefab could not be read: {}", current));
                 auto nested = t->NestedOwner.find(currentLocal);
                 if (nested == t->NestedOwner.end())
                     break;
@@ -1098,10 +1098,10 @@ namespace Zamin {
                 reached = current == target;
             }
             if (!reached)
-                return Fail(std::format("{} bu obyekt uchun qo'llash maqsadi emas", target));
+                return Fail(std::format("{} is not an apply target for this object", target));
             const PrefabDatabase::Template* qt = db.Get(target);
             if (!qt || !qt->Readable || !HasTemplateEntity(*qt, currentLocal))
-                return Fail(std::format("Prefab o'qilmadi: {}", target));
+                return Fail(std::format("The prefab could not be read: {}", target));
 
             // The entity's values in the nested prefab's IDs.
             Scene scratch;
@@ -1120,7 +1120,7 @@ namespace Zamin {
                 }
                 const std::string site = std::format("{}/{}", key, field);
                 if (scope == PrefabScope::Field ? RefSiteTouches(site, path) : PO::RootKey(site) == path)
-                    refused = "Tashqi havola prefabga yozilmaydi (ichma-ich prefabdan tashqarida)";
+                    refused = "An outside reference is not written to the prefab (outside the nested prefab)";
                 ref = RefAt(old, key, field);
             });
             if (!refused.empty())
@@ -1151,7 +1151,7 @@ namespace Zamin {
                 return Fail(std::format("{}: {}", parseError, target));
             json* dst = FindFileEntity(file, currentLocal);
             if (!dst)
-                return Fail(std::format("Prefab fayli o'qilmadi: {}", target));
+                return Fail(std::format("The prefab file could not be read: {}", target));
             for (const std::string& p : paths)
             {
                 if (p == "Tag" || p == "Active" || p == "Parent" || p == "ChildOrder")
@@ -1176,7 +1176,7 @@ namespace Zamin {
             if (!NormalizeNestedLinks(file, db, targetPath, &error))
                 return Fail(error);
             if (!db.Write(targetPath, DumpFile(file), &result.Files))
-                return Fail(std::format("Prefab fayliga yozib bo'lmadi: {}", targetPath));
+                return Fail(std::format("Could not write the prefab file: {}", targetPath));
             result.Written.push_back(targetPath);
             result.Target = targetPath;
 
@@ -1287,14 +1287,14 @@ namespace Zamin {
         const PrefabDatabase::Template* t = db.Get(path);
         if (!t || !t->Readable)
         {
-            ZM_CORE_ERROR("Prefab o'qilmadi: {} ({})", path, t && !t->Issues.empty() ? t->Issues.front() : std::string("fayl yo'q"));
+            ZM_CORE_ERROR("The prefab could not be read: {} ({})", path, t && !t->Issues.empty() ? t->Issues.front() : std::string("no file"));
             return {};
         }
         const bool linkable = t->Linkable;
         const std::string text = linkable ? t->Resolved : t->Text;
         const uint64_t hash = linkable ? db.ResolvedHash(path) : 0;
         if (!linkable)
-            ZM_CORE_WARN("Prefab bog'lanmadi: bitta ildiz va takrorlanmas ID kerak ({}: {})", path, t->Issues.empty() ? std::string() : t->Issues.front());
+            ZM_CORE_WARN("Prefab not linked: it needs a single root and unique IDs ({}: {})", path, t->Issues.empty() ? std::string() : t->Issues.front());
         std::unordered_map<uint64_t, UUID> ids;
         SceneSerializer::EntitySetReadOptions options;
         options.KeepPrefabLinks = false;
@@ -1304,7 +1304,7 @@ namespace Zamin {
         std::vector<Entity> created = SceneSerializer::DeserializeEntities(scene, text, options);
         if (created.empty())
         {
-            ZM_CORE_ERROR("Prefab o'qilmadi: {} ({})", path, error);
+            ZM_CORE_ERROR("The prefab could not be read: {} ({})", path, error);
             return {};
         }
         Entity root = created.front();
@@ -1416,7 +1416,7 @@ namespace Zamin {
                 if (const auto* l = e.TryGetComponent<PrefabLinkComponent>())
                     overrides += l->Overrides.size() + l->RemovedComponents.size();
             overrides += root.GetComponent<PrefabLinkComponent>().RemovedEntities.size();
-            ZM_CORE_INFO("Eski prefab nusxasi bog'landi: {} ({}/{}, {} override)", root.GetName(), paired, t->Order.size(), overrides);
+            ZM_CORE_INFO("Old prefab instance linked: {} ({}/{}, {} overrides)", root.GetName(), paired, t->Order.size(), overrides);
             linked++;
         }
         return linked;
@@ -1647,7 +1647,7 @@ namespace Zamin {
             if (!t || !t->Readable || !t->Linkable)
             {
                 if (reported.insert(path).second)
-                    result.Issues.push_back(std::format("{}: {}", path, t && !t->Issues.empty() ? t->Issues.front() : std::string("o'qilmadi")));
+                    result.Issues.push_back(std::format("{}: {}", path, t && !t->Issues.empty() ? t->Issues.front() : std::string("unreadable")));
                 continue;
             }
             if (!IsLinkedRoot(root, t))
@@ -1689,25 +1689,25 @@ namespace Zamin {
     PrefabApplyResult PrefabUtility::Apply(Entity entity, PrefabScope scope, std::string_view path, PrefabDatabase& db, std::string_view target)
     {
         if (!entity || !entity.IsValid())
-            return Fail("Obyekt yo'q");
+            return Fail("No object");
         if (entity.GetScene()->IsRunning())
-            return Fail("O'yin paytida prefabga yozilmaydi");
+            return Fail("A prefab cannot be written while playing");
         Entity root = GetInstanceRoot(entity);
         if (!root)
-            return Fail("Bu obyekt prefab nusxasi emas");
+            return Fail("This object is not a prefab instance");
         Instance in;
         if (!Prepare(root, db, in))
-            return Fail(std::format("Prefab bog'lanmagan yoki o'qilmadi: {}", GetPrefabPath(root)));
+            return Fail(std::format("The prefab is not linked or could not be read: {}", GetPrefabPath(root)));
         if (scope == PrefabScope::Instance)
             entity = root;
         const std::vector<std::string> targets = GetApplyTargets(entity, db);
         const std::string goal = target.empty() ? targets.front() : PrefabDatabase::NormalizePath(target);
         auto it = std::find(targets.begin(), targets.end(), goal);
         if (it == targets.end())
-            return Fail(std::format("{} bu obyekt uchun qo'llash maqsadi emas", goal));
+            return Fail(std::format("{} is not an apply target for this object", goal));
         // A file that could not all be read is never written (what was not read would be lost).
         if (const size_t errors = db.CountLoadErrors(goal); errors > 0)
-            return Fail(std::format("Prefab faylining {} ta qismi o'qilmagan: unga yozilmaydi (avval faylni tuzating) - {}", errors, goal));
+            return Fail(std::format("{} parts of the prefab file were not read: it is not written (fix the file first) - {}", errors, goal));
         Prepare(root, db, in); // GetApplyTargets may have read the files again
         if (it == targets.begin())
             return ApplyOwn(in, entity, scope, path, db);
@@ -1901,7 +1901,7 @@ namespace Zamin {
         std::string parseError;
         if (!ParsePrefabFile(t->Text, file, &parseError))
         {
-            ZM_CORE_WARN("Prefab yangilanmadi ({}): {}", parseError, path);
+            ZM_CORE_WARN("Prefab not updated ({}): {}", parseError, path);
             return false;
         }
         // The file as written, read without bringing anything up to date - compared entity by
@@ -1949,7 +1949,7 @@ namespace Zamin {
         file["Entities"] = std::move(list);
         const bool ok = db.Write(path, DumpFile(file), edits);
         if (ok)
-            ZM_CORE_INFO("Prefab yangilandi (ichidagi prefab o'zgardi): {}", path);
+            ZM_CORE_INFO("Prefab updated (a prefab inside it changed): {}", path);
         return ok;
     }
 
@@ -1971,7 +1971,7 @@ namespace Zamin {
                     if (!id || inside.contains(id))
                         return;
                     Entity other = scene.GetEntityByUUID(UUID(id));
-                    ZM_CORE_WARN("Prefab {}: '{}' obyektidagi {}.{} tashqi havola (prefabdan tashqarida): '{}' - boshqa sahnalarda u bo'lmaydi",
+                    ZM_CORE_WARN("Prefab {0}: {2}.{3} on the object '{1}' is an outside reference (outside the prefab): '{4}' - it will not exist in other scenes",
                                  std::filesystem::path(path).filename().string(), e.GetName(), key, field, other ? other.GetName() : std::string("?"));
                 });
             SceneSerializer::EntitySetWriteOptions options;
@@ -2000,28 +2000,28 @@ namespace Zamin {
         const std::string base = PrefabDatabase::NormalizePath(basePath);
         const PrefabDatabase::Template* t = db.Get(base);
         if (!t || !t->Readable)
-            return fail(std::format("Prefab o'qilmadi: {}", base));
+            return fail(std::format("The prefab could not be read: {}", base));
         if (!t->Linkable)
-            return fail(std::format("Prefabdan variant yaratib bo'lmaydi (bitta ildiz va takrorlanmas ID kerak): {}", base));
+            return fail(std::format("A variant cannot be created from the prefab (it needs a single root and unique IDs): {}", base));
         if (t->Newer)
-            return fail(std::format("Prefab yangiroq formatda (v{}): {}", t->FileVersion, base));
+            return fail(std::format("The prefab is in a newer format (v{}): {}", t->FileVersion, base));
         const std::filesystem::path baseFile(base);
         const std::string wanted = PrefabDatabase::NormalizePath(
             (baseFile.parent_path() / (baseFile.stem().string() + " Variant.zprefab")).generic_string());
         const std::string path = variantPath.empty() ? MakeUniquePath(db, wanted) : PrefabDatabase::NormalizePath(variantPath);
         if (path.empty() || path == base)
-            return fail("Variant fayli nomi noto'g'ri");
+            return fail("Invalid variant file name");
         if (FileExists(db, path))
-            return fail(std::format("Bu nomli fayl bor: {}", path));
+            return fail(std::format("A file with this name exists: {}", path));
         // A clean instance of the base (new IDs: the variant's own), its root link written.
         Scene scratch;
         Entity root = InstantiateLinked(scratch, db, base);
         if (!root || !IsLinkedRoot(root, db.Get(base)))
-            return fail(std::format("Prefab o'qilmadi: {}", base));
+            return fail(std::format("The prefab could not be read: {}", base));
         root.SetName(std::filesystem::path(path).stem().string()); // the root's name is the instance's own: no override
         if (!db.Write(path, SerializePrefabSubtree(root, true, path), edits))
-            return fail(std::format("Prefab fayliga yozib bo'lmadi: {}", path));
-        ZM_CORE_INFO("Prefab varianti yaratildi: {} ({} asosida)", path, base);
+            return fail(std::format("Could not write the prefab file: {}", path));
+        ZM_CORE_INFO("Prefab variant created: {} (based on {})", path, base);
         return path;
     }
 
@@ -2034,26 +2034,26 @@ namespace Zamin {
             return false;
         };
         if (!root || !root.IsValid())
-            return fail("Obyekt yo'q");
+            return fail("No object");
         if (root.GetScene()->IsRunning())
-            return fail("O'yin paytida prefabga yozilmaydi");
+            return fail("A prefab cannot be written while playing");
         if (!IsInstanceRoot(root))
-            return fail("Bu obyekt prefab nusxasining ildizi emas");
+            return fail("This object is not the root of a prefab instance");
         Instance in;
         if (!Prepare(root, db, in))
-            return fail(std::format("Prefab bog'lanmagan yoki o'qilmadi: {}", GetPrefabPath(root)));
+            return fail(std::format("The prefab is not linked or could not be read: {}", GetPrefabPath(root)));
         const std::string base = in.T->Path;
         const std::string path = PrefabDatabase::NormalizePath(variantPath);
         if (path.empty() || path == base)
-            return fail("Variant fayli nomi noto'g'ri");
+            return fail("Invalid variant file name");
         if (FileExists(db, path))
-            return fail(std::format("Bu nomli fayl bor: {}", path));
+            return fail(std::format("A file with this name exists: {}", path));
         // The instance as it is (its changes in its lists) is the variant; its UUIDs are its IDs.
         RecordOverridesImpl(in);
         if (!db.Write(path, SerializePrefabSubtree(root, true, path), edits))
-            return fail(std::format("Prefab fayliga yozib bo'lmadi: {}", path));
+            return fail(std::format("Could not write the prefab file: {}", path));
         LinkSource(root, path, db);
-        ZM_CORE_INFO("Nusxa variant sifatida saqlandi: {} ({} asosida)", path, base);
+        ZM_CORE_INFO("Instance saved as a variant: {} (based on {})", path, base);
         return true;
     }
 
@@ -2119,7 +2119,7 @@ namespace Zamin {
             report->File = path;
         std::error_code ec;
         if (path.empty() || !std::filesystem::is_regular_file(file, ec))
-            return fatal(SceneLoadIssue::Kind::FileMissing, "fayl topilmadi");
+            return fatal(SceneLoadIssue::Kind::FileMissing, "file not found");
         const std::string text = FileSystem::ReadTextFile(file);
         SceneSerializer::EntitySetReadOptions options;
         options.GenerateNewUUIDs = false;
@@ -2130,7 +2130,7 @@ namespace Zamin {
         options.Error = &error;
         std::vector<Entity> created = SceneSerializer::DeserializeEntities(stage, text, options);
         if (created.empty())
-            return fatal(SceneLoadIssue::Kind::NotAScene, error.empty() ? std::string("prefabda obyekt yo'q") : error);
+            return fatal(SceneLoadIssue::Kind::NotAScene, error.empty() ? std::string("the prefab has no object") : error);
         stage.SetName(std::filesystem::path(path).stem().string());
         // The prefabs nested in it as they are now (a file left stale by a change of one of them).
         SyncScene(stage, db);
@@ -2147,8 +2147,8 @@ namespace Zamin {
         if (roots.size() != 1)
         {
             if (error)
-                *error = roots.empty() ? std::string("Prefabda obyekt yo'q")
-                                       : std::format("Prefabda bitta ildiz bo'lishi kerak ({} ta ildiz bor)", roots.size());
+                *error = roots.empty() ? std::string("The prefab has no object")
+                                       : std::format("A prefab must have a single root ({} roots found)", roots.size());
             return {};
         }
         // What the prefabs nested in it differ in from them, as it is now.
@@ -2178,16 +2178,16 @@ namespace Zamin {
             return false;
         };
         if (stage.IsRunning())
-            return fail("O'yin paytida prefab saqlanmaydi");
+            return fail("A prefab cannot be saved while playing");
         const std::string path = PrefabDatabase::NormalizePath(relPath);
         if (path.empty())
-            return fail("Prefab fayli ko'rsatilmagan");
+            return fail("No prefab file given");
         if (const PrefabDatabase::Template* t = db.Get(path); t && t->Newer)
-            return fail(std::format("Prefab fayli yangiroq formatda (v{}, bu dvigatel v{} gacha biladi): yozilmaydi", t->FileVersion,
+            return fail(std::format("The prefab file is in a newer format (v{}, this engine knows up to v{}): not written", t->FileVersion,
                                     SceneMigration::CurrentVersion));
         if (!overwriteDamaged)
             if (const size_t errors = db.CountLoadErrors(path); errors > 0)
-                return fail(std::format("Prefab faylining {} ta qismi o'qilmagan: saqlansa ular yo'qoladi", errors));
+                return fail(std::format("{} parts of the prefab file were not read: saving would lose them", errors));
         // A prefab nested in it must not be made of it.
         for (Entity e : stage.GetEntitiesInHierarchyOrder())
         {
@@ -2195,14 +2195,14 @@ namespace Zamin {
                 continue;
             const std::string nested = PrefabDatabase::NormalizePath(MarkerOf(e));
             if (nested == path || db.DependsOn(nested, path))
-                return fail(std::format("Prefab sikli: {} ichidagi {} o'zi {} dan iborat", path, nested, path));
+                return fail(std::format("Prefab cycle: {} inside {} itself consists of {}", path, nested, path));
         }
         std::string text = SerializeStage(stage, db, error);
         if (text.empty())
             return false;
         const size_t before = edits ? edits->size() : 0;
         if (!db.Write(path, text, edits, overwriteDamaged))
-            return fail(std::format("Prefab fayliga yozib bo'lmadi: {}", path));
+            return fail(std::format("Could not write the prefab file: {}", path));
         // The prefabs made of it follow (their files too).
         if (!edits || edits->size() > before)
             for (const std::string& dependent : db.GetDependents(path))

@@ -129,7 +129,7 @@ namespace Zamin {
         if (!t || !t->Readable || !t->Entities)
         {
             if (error)
-                *error = t && !t->Issues.empty() ? t->Issues.front() : std::string("prefab o'qilmadi");
+                *error = t && !t->Issues.empty() ? t->Issues.front() : std::string("the prefab could not be read");
             return {};
         }
         std::vector<Entity> ordered;
@@ -164,7 +164,7 @@ namespace Zamin {
         PasteResult result;
         if (!IsEntityText(text))
         {
-            result.Error = "nusxalangan obyektlar yo'q";
+            result.Error = "no copied objects";
             return result;
         }
         Entity parent = sibling ? scene.GetParent(sibling) : Entity();
@@ -198,7 +198,7 @@ namespace Zamin {
             {
                 origin = ResolveOrigin(*it, *db);
                 if (origin.empty() && it->is_object())
-                    ZM_CORE_WARN("Nusxalangan prefab topilmadi ({}): obyektlari bog'lanmagan holda joylandi", it->value("Prefab", std::string("?")));
+                    ZM_CORE_WARN("The copied prefab was not found ({}): its objects were pasted unlinked", it->value("Prefab", std::string("?")));
             }
         }
 
@@ -229,7 +229,7 @@ namespace Zamin {
         result.Entities = SceneSerializer::DeserializeEntities(scene, text, options);
         if (result.Entities.empty())
         {
-            result.Error = error.empty() ? std::string("obyekt yo'q") : error;
+            result.Error = error.empty() ? std::string("no objects") : error;
             return result;
         }
         // A pasted instance stays one; a part of one (outside it now) is plain.

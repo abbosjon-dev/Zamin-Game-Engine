@@ -46,12 +46,12 @@ namespace Zamin {
         json j = json::parse(text, nullptr, false);
         if (j.is_discarded() || !j.is_object())
         {
-            if (error) *error = "JSON o'qilmadi";
+            if (error) *error = "the JSON could not be read";
             return false;
         }
         if (j.value("Version", 1) > SpriteClip::CurrentVersion)
         {
-            if (error) *error = std::format("yangiroq versiya ({})", j.value("Version", 1));
+            if (error) *error = std::format("newer version ({})", j.value("Version", 1));
             return false;
         }
         auto integer = [](const json& o, const char* key, int fallback) {
@@ -110,7 +110,7 @@ namespace Zamin {
         std::error_code ec;
         if (!fs::exists(path, ec))
         {
-            if (error) *error = "fayl topilmadi";
+            if (error) *error = "file not found";
             return false;
         }
         return DeserializeFromString(FileSystem::ReadTextFile(path), out, error);

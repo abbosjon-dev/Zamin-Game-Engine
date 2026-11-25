@@ -12,17 +12,17 @@ namespace Zamin {
         TerrainReprojectResult result;
         if (!terrain || !terrain.IsValid() || terrain.GetScene() != &scene || !terrain.HasComponent<TerrainComponent>())
         {
-            result.Error = "Faol terrain noto'g'ri.";
+            result.Error = "The active terrain is invalid.";
             return result;
         }
         if (scene.IsRunning() || scene.IsSimulating())
         {
-            result.Error = "Foliage qayta joylash faqat Edit rejimida ishlaydi.";
+            result.Error = "Foliage can only be re-placed in Edit mode.";
             return result;
         }
         if (!std::isfinite(options.HeightOffset) || !std::isfinite(options.Radius) || !std::isfinite(options.Center.x) || !std::isfinite(options.Center.y))
         {
-            result.Error = "Foliage parametrlari chekli son bo'lishi kerak.";
+            result.Error = "Foliage parameters must be finite numbers.";
             return result;
         }
         auto& surface = terrain.GetComponent<TerrainComponent>();
@@ -31,7 +31,7 @@ namespace Zamin {
         const glm::mat3 linear(world);
         if (!std::isfinite(glm::determinant(linear)) || std::abs(glm::determinant(linear)) < 1e-8f)
         {
-            result.Error = "Terrain masshtabi nolga yaqin.";
+            result.Error = "The terrain scale is close to zero.";
             return result;
         }
         const auto inverse = glm::inverse(linear), normalMatrix = glm::transpose(inverse);

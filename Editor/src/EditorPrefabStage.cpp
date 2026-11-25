@@ -166,7 +166,7 @@ namespace Zamin {
         {
             ZM_WARN("Prefab saqlanmadi ({}): {}", level.Prefab, error);
             ShowViewportMessage(std::format(ICON_FA_TRIANGLE_EXCLAMATION "  {}: {}", Tr("Saqlanmadi"), error));
-            if (error.find("bitta ildiz") != std::string::npos)
+            if (error.find("single root") != std::string::npos)
                 m_PrefabStageWrapPrompt = true; // offered: the roots under a new one
             return false;
         }

@@ -588,13 +588,13 @@ namespace Zamin {
                 std::ifstream f(path, std::ios::binary | std::ios::ate);
                 if (!f)
                 {
-                    error = "Fayl ochilmadi";
+                    error = "Could not open the file";
                     return false;
                 }
                 auto bytes = f.tellg();
                 if (bytes <= 0 || bytes > 33570818 || bytes % 2 != 0)
                 {
-                    error = "R16 hajmi noto'g'ri";
+                    error = "Wrong R16 size";
                     return false;
                 }
                 size_t count = size_t(bytes) / 2;
@@ -602,7 +602,7 @@ namespace Zamin {
                 height = width;
                 if (size_t(width) * size_t(width) != count)
                 {
-                    error = "R16 kvadrat bo'lishi kerak";
+                    error = "An R16 must be square";
                     return false;
                 }
                 f.seekg(0);
@@ -610,7 +610,7 @@ namespace Zamin {
                 f.read(reinterpret_cast<char*>(raw.data()), bytes);
                 if (!f)
                 {
-                    error = "Fayl to'liq o'qilmadi";
+                    error = "The file was not read completely";
                     return false;
                 }
                 values.resize(count);
@@ -621,13 +621,13 @@ namespace Zamin {
                 int channels = 0;
                 if (!stbi_info(path.string().c_str(), &width, &height, &channels) || width < 2 || height < 2 || int64_t(width) * height > 16777216)
                 {
-                    error = "PNG / rasm ochilmadi yoki 16 MP dan katta";
+                    error = "The PNG / image could not be opened or is larger than 16 MP";
                     return false;
                 }
                 auto* data = stbi_load_16(path.string().c_str(), &width, &height, &channels, 1);
                 if (!data)
                 {
-                    error = "Heightmap ochilmadi";
+                    error = "Could not open the heightmap";
                     return false;
                 }
                 values.assign(data, data + size_t(width) * size_t(height));
@@ -635,7 +635,7 @@ namespace Zamin {
             }
             if (width < 2 || height < 2)
             {
-                error = "Kamida 2x2 heightmap kerak";
+                error = "A heightmap of at least 2x2 is needed";
                 return false;
             }
             std::vector<float> heights(t.Heights.size());
@@ -654,7 +654,7 @@ namespace Zamin {
         {
             if (!Valid(t) || path.extension() != ".r16")
             {
-                error = ".r16 formatini tanlang";
+                error = "Choose the .r16 format";
                 return false;
             }
             auto temp = path;
@@ -662,7 +662,7 @@ namespace Zamin {
             std::ofstream f(temp, std::ios::binary | std::ios::trunc);
             if (!f)
             {
-                error = "Fayl yozilmadi";
+                error = "Could not write the file";
                 return false;
             }
             for (float h : t.Heights)
@@ -676,7 +676,7 @@ namespace Zamin {
             {
                 std::error_code ec;
                 std::filesystem::remove(temp, ec);
-                error = "Fayl to'liq yozilmadi";
+                error = "The file was not written completely";
                 return false;
             }
             std::error_code ec;
@@ -684,7 +684,7 @@ namespace Zamin {
             if (ec)
             {
                 std::filesystem::remove(temp);
-                error = "Fayl almashtirilmadi";
+                error = "The file was not replaced";
                 return false;
             }
             error.clear();

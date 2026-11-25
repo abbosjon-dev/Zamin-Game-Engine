@@ -8028,7 +8028,7 @@ namespace Zamin {
                 ImGui::TextColored(warning ? ImVec4(0.96f, 0.74f, 0.30f, 1.0f) : ImVec4(0.95f, 0.40f, 0.36f, 1.0f), "%s",
                                    warning ? ICON_FA_TRIANGLE_EXCLAMATION : ICON_FA_CIRCLE_XMARK);
                 ImGui::TableNextColumn();
-                ImGui::TextUnformatted(SceneLoadIssue::KindName(issue.Type));
+                ImGui::TextUnformatted(Tr(SceneLoadIssue::KindName(issue.Type)));
                 ImGui::TableNextColumn();
                 if (!issue.Entity.empty())
                 {

@@ -80,7 +80,7 @@ namespace Zamin {
             if (!SyncPrefabFile(db, dependent, &result.Files))
             {
                 result.Failed.push_back(dependent);
-                ZM_CORE_WARN("Prefab yangilanmadi (ichidagi prefab tashqarida o'zgardi): {}", dependent);
+                ZM_CORE_WARN("Prefab not updated (a prefab inside it changed on disk): {}", dependent);
                 continue;
             }
             if (result.Files.size() > before)

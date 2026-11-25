@@ -390,7 +390,7 @@ namespace Zamin {
             size_t slash = track.Path.rfind('/');
             owner = slash == std::string::npos ? track.Path : track.Path.substr(slash + 1);
         }
-        std::string label = owner + "  " + PropertyAnimation::GetPropertyName(track.Property);
+        std::string label = owner + "  " + Tr(PropertyAnimation::GetPropertyName(track.Property));
         if (track.Property == AnimatedProperty::ScriptFloat)
             label += " " + track.Field;
         return label;
@@ -1048,7 +1048,7 @@ namespace Zamin {
                     ImGui::TextDisabled("%s", Tr("Animatsiya qilinadigan narsa yo'q"));
                 for (const auto& c : candidates)
                 {
-                    std::string name = PropertyAnimation::GetPropertyName(c.Property);
+                    std::string name = Tr(PropertyAnimation::GetPropertyName(c.Property));
                     if (c.Property == AnimatedProperty::ScriptFloat)
                         name += ": " + c.Field;
                     const bool exists = m_Work.FindTrack(path, c.Property, c.Field) != nullptr;

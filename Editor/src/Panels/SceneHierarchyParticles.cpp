@@ -1157,7 +1157,7 @@ namespace Zamin {
         ImGui::SeparatorText(Tr("Tayyor effektlar"));
         for (const auto& info : ParticlePresets::GetBuiltins())
         {
-            std::string label = std::format("{}  {}", GetParticlePresetIcon(info.Key), info.Name);
+            std::string label = std::format("{}  {}", GetParticlePresetIcon(info.Key), Tr(info.Name));
             if (ImGui::MenuItem(label.c_str()))
             {
                 if (std::optional<ParticlePreset> preset = ParticlePresets::GetBuiltin(info.Key))
@@ -1165,7 +1165,7 @@ namespace Zamin {
                 chosen = true;
             }
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-                UI::Tooltip(std::format("{}{}", info.Description, replaces).c_str());
+                UI::Tooltip(std::format("{}{}", Tr(info.Description), replaces).c_str());
         }
         ImGui::SeparatorText(Tr("Loyiha preset'lari (.zparticle)"));
         std::vector<std::string> files;

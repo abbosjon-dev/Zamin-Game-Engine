@@ -2454,7 +2454,7 @@ namespace Zamin {
                 UI::PropertyLabel("");
                 std::string field = t.Property == AnimatedProperty::ScriptFloat ? " " + t.Field : std::string();
                 ImGui::TextDisabled(Tr("%s  %s%s  (%zu kalit)"), t.Path.empty() ? Tr("(o'zi)") : t.Path.c_str(),
-                                    PropertyAnimation::GetPropertyName(t.Property), field.c_str(), t.Keys.size());
+                                    Tr(PropertyAnimation::GetPropertyName(t.Property)), field.c_str(), t.Keys.size());
             }
             UI::PropertyLabel("Event'lar");
             ImGui::Text("%zu", clip.Events.size());

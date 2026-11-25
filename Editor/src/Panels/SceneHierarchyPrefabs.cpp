@@ -37,7 +37,7 @@ namespace Zamin {
             if (PrefabUtility::IsLegacyInstance(root))
                 return Tr("Prefabga bog'lanmagan (eski nusxa)");
             for (const std::string& issue : t->Issues)
-                if (issue.find("sikli") != std::string::npos)
+                if (issue.find("cycle") != std::string::npos)
                     return issue;
             return {};
         }

@@ -152,8 +152,8 @@ namespace Zamin {
         issue.Component = component;
         issue.Asset = path;
         issue.Message = m_EntitySource
-            ? std::format("'{}' obyekti ({}.{}): asset topilmadi '{}'", m_EntityName, component, key, path)
-            : std::format("Sahna sozlamalari ({}): asset topilmadi '{}'", key, path);
+            ? std::format("Object '{}' ({}.{}): asset not found '{}'", m_EntityName, component, key, path)
+            : std::format("Scene settings ({}): asset not found '{}'", key, path);
         m_Report->Add(std::move(issue));
     }
 
@@ -192,7 +192,7 @@ namespace Zamin {
             scope->ReportMissingAsset(object, key, path);
             return path;
         }
-        ZM_CORE_INFO("Asset havolasi UUID orqali tiklandi: '{}' -> '{}'", path, moved);
+        ZM_CORE_INFO("Asset reference restored by UUID: '{}' -> '{}'", path, moved);
         scope->AddRepair(path, moved);
         return moved;
     }
@@ -214,7 +214,7 @@ namespace Zamin {
         std::string moved = handle ? registry->GetPath(*handle) : std::string();
         if (moved.empty() || moved == path)
             return path;
-        ZM_CORE_INFO("Prefab havolasi UUID orqali tiklandi: '{}' -> '{}'", path, moved);
+        ZM_CORE_INFO("Prefab reference restored by UUID: '{}' -> '{}'", path, moved);
         scope->AddRepair(path, moved);
         return moved;
     }
@@ -3606,7 +3606,7 @@ namespace Zamin {
         }
         catch (const std::exception& ex)
         {
-            ZM_CORE_ERROR("Komponent ma'lumotlari xato: {}", ex.what());
+            ZM_CORE_ERROR("Invalid component data: {}", ex.what());
             return false;
         }
         const ComponentTypeInfo* type = ComponentRegistry::Find(key);
@@ -3809,7 +3809,7 @@ namespace Zamin {
         void Read(json& out, int depth = 0)
         {
             if (depth > 512)
-                Fail("juda chuqur ichma-ich tuzilma");
+                Fail("structure nested too deep");
             const uint8_t b = Byte();
             if (b <= 0x7f) { out = (uint64_t)b; return; }
             if (b >= 0xe0) { out = (int64_t)(int8_t)b; return; }
@@ -3857,7 +3857,7 @@ namespace Zamin {
                 case 0xdf: return ReadMap(out, Unsigned(4), depth);
                 default: break;
             }
-            Fail(std::format("noma'lum MessagePack turi 0x{:02x}", b));
+            Fail(std::format("unknown MessagePack type 0x{:02x}", b));
         }
         bool AtEnd() const { return m_At == m_End; }
 
@@ -3867,13 +3867,13 @@ namespace Zamin {
         uint8_t Byte()
         {
             if (m_At >= m_End)
-                Fail("ma'lumot kutilmaganda tugadi");
+                Fail("the data ended unexpectedly");
             return *m_At++;
         }
         uint64_t Unsigned(int bytes) // big-endian
         {
             if (Left() < (size_t)bytes)
-                Fail("ma'lumot kutilmaganda tugadi");
+                Fail("the data ended unexpectedly");
             uint64_t value = 0;
             for (int i = 0; i < bytes; i++)
                 value = (value << 8) | m_At[i];
@@ -3883,7 +3883,7 @@ namespace Zamin {
         std::string Text(uint64_t length)
         {
             if (length > Left())
-                Fail("satr uzunligi ma'lumotdan katta");
+                Fail("string length larger than the data");
             std::string text((const char*)m_At, (size_t)length);
             m_At += length;
             return text;
@@ -3892,14 +3892,14 @@ namespace Zamin {
         void ReadBinary(json& out, uint64_t length)
         {
             if (length > Left())
-                Fail("binar uzunligi ma'lumotdan katta");
+                Fail("binary length larger than the data");
             out = json::binary(std::vector<uint8_t>(m_At, m_At + length));
             m_At += length;
         }
         void ReadArray(json& out, uint64_t count, int depth)
         {
             if (count > Left())
-                Fail("ro'yxat uzunligi ma'lumotdan katta");
+                Fail("list length larger than the data");
             out = json::array();
             json::array_t& items = out.get_ref<json::array_t&>();
             items.resize((size_t)count);
@@ -3909,7 +3909,7 @@ namespace Zamin {
         void ReadMap(json& out, uint64_t count, int depth)
         {
             if (count > Left() / 2)
-                Fail("obyekt kalitlari soni ma'lumotdan katta");
+                Fail("object key count larger than the data");
             out = json::object();
             json::object_t& members = out.get_ref<json::object_t&>();
             for (uint64_t i = 0; i < count; i++)
@@ -3925,7 +3925,7 @@ namespace Zamin {
                 else if (b == 0xdb)
                     length = Unsigned(4);
                 else
-                    Fail("obyekt kaliti satr emas");
+                    Fail("object key is not a string");
                 // Written in sorted order: each key goes at the end in constant time.
                 json& value = members.emplace_hint(members.end(), Text(length), nullptr)->second;
                 Read(value, depth + 1);
@@ -3942,7 +3942,7 @@ namespace Zamin {
         json root;
         reader.Read(root);
         if (!reader.AtEnd())
-            throw std::runtime_error("ma'lumot oxirida ortiqcha baytlar bor");
+            throw std::runtime_error("extra bytes at the end of the data");
         return root;
     }
 
@@ -3970,15 +3970,15 @@ namespace Zamin {
             return fail(text);
         text = FileSystem::ReadTextFile(sceneFile);
         if (text.empty())
-            return fail("fayl o'qilmadi");
+            return fail("the file could not be read");
         json root = json::parse(text, nullptr, false);
         if (root.is_discarded() || !root.is_object() || !root.contains("Scene"))
-            return fail("sahna fayli emas yoki JSON xato");
+            return fail("not a scene file or invalid JSON");
         // Stored already migrated: the player reads the current format straight away.
         SceneMigrationJson::Migrate(root);
         const std::vector<uint8_t> bytes = MakeBinary(root, text.size());
         if (!FileSystem::WriteBinaryFile(GetBinaryCachePath(sceneFile), bytes.data(), bytes.size()))
-            return fail("kesh yozilmadi");
+            return fail("the cache could not be written");
         return true;
     }
 
@@ -4038,7 +4038,7 @@ namespace Zamin {
         std::string error;
         if (!NavBakeFile::Save(sceneFile, bakes, &error))
         {
-            ZM_CORE_ERROR("Navigatsiya: '{}' yozilmadi ({})", NavBakeFile::PathFor(sceneFile).filename().string(), error);
+            ZM_CORE_ERROR("Navigation: '{}' could not be written ({})", NavBakeFile::PathFor(sceneFile).filename().string(), error);
             return false;
         }
         // The scene in memory starts with what was just saved (its next Play reads it like the game).
@@ -4067,7 +4067,7 @@ namespace Zamin {
             readMs = ElapsedMilliseconds(readStart);
             bytes = data.size();
             if (data.empty() && m_LastError.empty())
-                m_LastError = "fayl o'qilmadi";
+                m_LastError = "the file could not be read";
             if (m_LastError.empty())
             {
                 m_QuietErrors = true;
@@ -4083,7 +4083,7 @@ namespace Zamin {
             if (ok || !fromCache)
                 break;
             // A cache that cannot be read (nothing was made from it): the text instead.
-            ZM_CORE_WARN("Sahnaning binar keshi o'qilmadi ({}): matn fayli o'qiladi - {}", m_LastError, cache.filename().string());
+            ZM_CORE_WARN("The scene's binary cache could not be read ({}): the text file is read - {}", m_LastError, cache.filename().string());
             fromCache = false;
         }
         m_Timing[SceneLoadTiming::Stage::Read] = readMs;
@@ -4316,12 +4316,12 @@ namespace Zamin {
             return GetMain()->Message;
         const size_t errors = Count(SceneLoadIssue::Severity::Error), warnings = Count(SceneLoadIssue::Severity::Warning);
         if (errors && warnings)
-            return std::format("{} ta xato, {} ta ogohlantirish", errors, warnings);
+            return std::format("{} errors, {} warnings", errors, warnings);
         if (errors)
-            return std::format("{} ta xato", errors);
+            return std::format("{} errors", errors);
         if (warnings)
-            return std::format("{} ta ogohlantirish", warnings);
-        return "muammo yo'q";
+            return std::format("{} warnings", warnings);
+        return "no problems";
     }
 
     std::string SceneLoadReport::Format(size_t maxLines) const
@@ -4332,10 +4332,10 @@ namespace Zamin {
         {
             if (shown == maxLines)
             {
-                text += std::format("... va yana {} ta\n", Issues.size() - shown);
+                text += std::format("... and {} more\n", Issues.size() - shown);
                 break;
             }
-            const char* level = issue.Level == SceneLoadIssue::Severity::Warning ? "ogohlantirish" : "xato";
+            const char* level = issue.Level == SceneLoadIssue::Severity::Warning ? "warning" : "error";
             text += std::format("[{}] {}\n", level, issue.Message);
             if (!issue.SourceLine.empty())
                 text += std::format("    {}\n", issue.SourceLine);
@@ -4348,13 +4348,13 @@ namespace Zamin {
     {
         if (Issues.empty())
             return;
-        const std::string name = File.empty() ? std::string("(matn)") : std::filesystem::path(File).filename().string();
+        const std::string name = File.empty() ? std::string("(text)") : std::filesystem::path(File).filename().string();
         if (Failed())
-            ZM_CORE_ERROR("Sahna yuklanmadi: {} - {}", name, Summary());
+            ZM_CORE_ERROR("Scene failed to load: {} - {}", name, Summary());
         else if (Count(SceneLoadIssue::Severity::Error))
-            ZM_CORE_ERROR("Sahna '{}' qisman yuklandi ({}): yaroqli obyektlar qoldi", name, Summary());
+            ZM_CORE_ERROR("Scene '{}' loaded partly ({}): the valid objects were kept", name, Summary());
         else
-            ZM_CORE_WARN("Sahna '{}' yuklandi, {}", name, Summary());
+            ZM_CORE_WARN("Scene '{}' loaded, {}", name, Summary());
         constexpr size_t MaxLogged = 20;
         size_t logged = 0;
         for (const SceneLoadIssue& issue : Issues)
@@ -4367,7 +4367,7 @@ namespace Zamin {
             }
             if (logged++ == MaxLogged)
             {
-                ZM_CORE_WARN("  ... va yana {} ta muammo", Issues.size() - MaxLogged);
+                ZM_CORE_WARN("  ... and {} more problems", Issues.size() - MaxLogged);
                 break;
             }
             if (issue.Level == SceneLoadIssue::Severity::Error)
@@ -4429,16 +4429,16 @@ namespace Zamin {
             if (line.size() > 160)
                 line = line.substr(0, 160) + "...";
             issue.SourceLine = std::move(line);
-            issue.Message = std::format("JSON xatosi {}-qator, {}-ustunda: {}", issue.Line, issue.Column, reason);
+            issue.Message = std::format("JSON error at line {}, column {}: {}", issue.Line, issue.Column, reason);
         }
         else
-            issue.Message = std::format("JSON xatosi: {}", reason);
+            issue.Message = std::format("JSON error: {}", reason);
         return issue;
     }
 
     static SceneLoadIssue MakeNotASceneIssue()
     {
-        return MakeIssue(SceneLoadIssue::Kind::NotAScene, SceneLoadIssue::Severity::Fatal, "sahna fayli emas (\"Scene\" kaliti yo'q)");
+        return MakeIssue(SceneLoadIssue::Kind::NotAScene, SceneLoadIssue::Severity::Fatal, "not a scene file (no \"Scene\" key)");
     }
 
     // Text that did not parse, salvaged in part (SceneRecovery): where it broke (an error, no longer
@@ -4449,15 +4449,15 @@ namespace Zamin {
             return;
         SceneLoadIssue issue = MakeParseIssue(text, ex);
         issue.Level = SceneLoadIssue::Severity::Error;
-        issue.Message += std::format(" - qisman tiklandi: {}", SceneRecovery::Summary(r));
+        issue.Message += std::format(" - partly recovered: {}", SceneRecovery::Summary(r));
         report->Add(std::move(issue));
         if (r.Truncated)
             report->Add(MakeIssue(SceneLoadIssue::Kind::Truncated, SceneLoadIssue::Severity::Warning,
-                                  "Fayl oxirigacha yozilmagan (uzilib qolgan): oxiridagi to'liq bo'lmagan qism tashlab ketildi"));
+                                  "The file was not written to the end (cut off): the incomplete part at the end was dropped"));
         for (const std::string& key : r.LostKeys)
         {
             SceneLoadIssue lost = MakeIssue(SceneLoadIssue::Kind::BadComponent, SceneLoadIssue::Severity::Warning,
-                                            std::format("Fayldagi \"{}\" qismi o'qilmadi: standart qiymatlar olindi", key));
+                                            std::format("The \"{}\" part of the file could not be read: default values were used", key));
             lost.Component = key;
             report->Add(std::move(lost));
         }
@@ -4482,8 +4482,7 @@ namespace Zamin {
         SceneMigrationResult migration = SceneMigrationJson::Migrate(root);
         if (migration.IsNewer() && report)
             report->Add(MakeIssue(SceneLoadIssue::Kind::NewerVersion, SceneLoadIssue::Severity::Warning,
-                                  std::format("Fayl yangiroq formatda (v{}, bu dvigatel v{} gacha biladi): tanilmagan ma'lumotlar o'qilmadi "
-                                              "va saqlanganda yo'qoladi", migration.FileVersion, SceneMigration::CurrentVersion)));
+                                  std::format("The file is in a newer format (v{}, this engine knows up to v{}): unknown data was not read and is lost when saved", migration.FileVersion, SceneMigration::CurrentVersion)));
         return migration;
     }
 
@@ -4559,7 +4558,7 @@ namespace Zamin {
                 else if (key != "Active")
                     ComponentRegistry::Remove(entity, key);
                 AddEntityIssue(report, SceneLoadIssue::Kind::BadComponent, SceneLoadIssue::Severity::Error,
-                               std::format("'{}' obyektining '{}' komponenti o'qilmadi ({}): usiz yuklandi", name, key, DescribeException(ex)),
+                               std::format("The component '{1}' of the object '{0}' could not be read ({2}): loaded without it", name, key, DescribeException(ex)),
                                name, id, std::string(key));
             }
         }
@@ -4597,7 +4596,7 @@ namespace Zamin {
             {
                 report->EntitiesSkipped++;
                 AddEntityIssue(report, SceneLoadIssue::Kind::BadEntity, SceneLoadIssue::Severity::Error,
-                               std::format("\"Entities\" ro'yxatining {}-yozuvi obyekt emas ({}): o'tkazib yuborildi", index + 1, e.type_name()), {}, 0);
+                               std::format("Entry {} of the \"Entities\" list is not an object ({}): skipped", index + 1, e.type_name()), {}, 0);
             }
             return false;
         }
@@ -4607,11 +4606,11 @@ namespace Zamin {
         uint64_t uuid = ReadEntityID(e, "Entity");
         if (!uuid && e.contains("Entity"))
             AddEntityIssue(report, SceneLoadIssue::Kind::BadEntity, SceneLoadIssue::Severity::Warning,
-                           std::format("'{}' obyektining ID'si xato: yangi ID berildi", name), name, 0);
+                           std::format("The ID of the object '{}' is invalid: a new ID was given", name), name, 0);
         if (uuid && scene.GetEntityByUUID(uuid))
         {
             AddEntityIssue(report, SceneLoadIssue::Kind::DuplicateID, SceneLoadIssue::Severity::Warning,
-                           std::format("'{}' obyektining ID'si ({}) takrorlangan: yangi ID berildi", name, uuid), name, uuid);
+                           std::format("The ID of the object '{}' ({}) is repeated: a new ID was given", name, uuid), name, uuid);
             uuid = 0;
         }
         Entity entity = scene.CreateEntityWithUUID(uuid ? UUID(uuid) : UUID(), name);
@@ -4623,7 +4622,7 @@ namespace Zamin {
             for (auto it = e.begin(); it != e.end(); ++it)
                 if (!IsKnownEntityKey(it.key()))
                     AddEntityIssue(report, SceneLoadIssue::Kind::UnknownComponent, SceneLoadIssue::Severity::Warning,
-                                   std::format("'{}' obyektida noma'lum komponent '{}': o'tkazib yuborildi (saqlanganda yo'qoladi)", name, it.key()),
+                                   std::format("Unknown component '{1}' on the object '{0}': skipped (lost when saved)", name, it.key()),
                                    name, id, it.key());
         try
         {
@@ -4638,7 +4637,7 @@ namespace Zamin {
         const uint64_t parent = ReadEntityID(e, "Parent");
         if (!parent && e.contains("Parent"))
             AddEntityIssue(report, SceneLoadIssue::Kind::BadHierarchy, SceneLoadIssue::Severity::Warning,
-                           std::format("'{}' obyektining ota obyekti (\"Parent\") xato: ildiz qilib yuklandi", name), name, id);
+                           std::format("The parent (\"Parent\") of the object '{}' is invalid: loaded as a root", name), name, id);
         loaded.push_back({ entity, parent, &e });
         if (report)
             report->EntitiesLoaded++;
@@ -4746,7 +4745,7 @@ namespace Zamin {
             if (!p || p == item.Handle)
             {
                 AddEntityIssue(report, SceneLoadIssue::Kind::BadHierarchy, SceneLoadIssue::Severity::Warning,
-                               std::format("'{}' obyektining ota obyekti ({}) sahnada yo'q: ildiz qilib yuklandi", name, item.Parent),
+                               std::format("The parent ({1}) of the object '{0}' is not in the scene: loaded as a root", name, item.Parent),
                                name, (uint64_t)self);
                 continue;
             }
@@ -4767,7 +4766,7 @@ namespace Zamin {
             if (loop)
             {
                 AddEntityIssue(report, SceneLoadIssue::Kind::BadHierarchy, SceneLoadIssue::Severity::Warning,
-                               std::format("'{}' obyekti o'z avlodining farzandi bo'lib qolardi (halqa): ildiz qilib yuklandi", name),
+                               std::format("The object '{}' would become a child of its own descendant (a loop): loaded as a root", name),
                                name, (uint64_t)self);
                 continue;
             }
@@ -4790,7 +4789,7 @@ namespace Zamin {
         {
             if (report)
                 report->Add(MakeIssue(SceneLoadIssue::Kind::BadEntity, SceneLoadIssue::Severity::Error,
-                                      std::format("\"Entities\" ro'yxat emas ({}): obyektlar yuklanmadi", list->type_name())));
+                                      std::format("\"Entities\" is not a list ({}): no objects were loaded", list->type_name())));
             return s_NoEntities;
         }
         return *list;
@@ -4808,7 +4807,7 @@ namespace Zamin {
             if (report)
             {
                 SceneLoadIssue issue = MakeIssue(SceneLoadIssue::Kind::BadComponent, SceneLoadIssue::Severity::Error,
-                                                 std::format("Sahna sozlamalari to'liq o'qilmadi ({}): qolganlari standart", DescribeException(ex)));
+                                                 std::format("The scene settings were not read completely ({}): the rest are defaults", DescribeException(ex)));
                 issue.Component = "Settings";
                 report->Add(std::move(issue));
             }
@@ -4879,7 +4878,7 @@ namespace Zamin {
             root = std::move(*salvaged);
             // Cut off before its name (written after "Entities"): a scene all the same.
             if (!root.contains("Scene"))
-                root["Scene"] = "Tiklangan sahna";
+                root["Scene"] = "Recovered scene";
         }
         m_Timing[SceneLoadTiming::Stage::Parse] = ElapsedMilliseconds(parseStart);
         if (!root.is_object() || !root.contains("Scene"))
@@ -4918,7 +4917,7 @@ namespace Zamin {
         uint64_t sourceSize = 0;
         if (!ReadBinaryHeader(data, size, sourceSize))
             return fail(MakeIssue(SceneLoadIssue::Kind::Unreadable, SceneLoadIssue::Severity::Fatal,
-                                  "Binar sahna keshi emas yoki boshqa versiyadagi kesh"));
+                                  "Not a binary scene cache, or a cache of another version"));
         const auto parseStart = std::chrono::steady_clock::now();
         json root;
         try { root = ParseMessagePack(data + s_BinaryHeaderSize, data + size); }
@@ -4926,7 +4925,7 @@ namespace Zamin {
         {
             m_Timing[SceneLoadTiming::Stage::Parse] = ElapsedMilliseconds(parseStart);
             return fail(MakeIssue(SceneLoadIssue::Kind::ParseError, SceneLoadIssue::Severity::Fatal,
-                                  std::format("Binar sahna keshi buzilgan: {}", DescribeException(e))));
+                                  std::format("The binary scene cache is broken: {}", DescribeException(e))));
         }
         m_Timing[SceneLoadTiming::Stage::Parse] = ElapsedMilliseconds(parseStart);
         if (!root.is_object() || !root.contains("Scene"))
@@ -4967,12 +4966,12 @@ namespace Zamin {
         json root = json::parse(text, nullptr, false);
         if (root.is_discarded())
         {
-            out.Error = "JSON o'qilmadi";
+            out.Error = "the JSON could not be read";
             return false;
         }
         if (!root.is_object() || !root.contains("Scene"))
         {
-            out.Error = "sahna fayli emas";
+            out.Error = "not a scene file";
             return false;
         }
         out.Version = SceneMigrationJson::ReadVersion(root);
@@ -5005,7 +5004,7 @@ namespace Zamin {
         std::string error = AssetImportLog::CheckReadable(file);
         std::string text = error.empty() ? FileSystem::ReadTextFile(file) : std::string();
         if (error.empty() && text.empty())
-            error = "fayl o'qilmadi";
+            error = "the file could not be read";
         if (!error.empty())
         {
             out.Error = std::move(error);
@@ -5065,7 +5064,7 @@ namespace Zamin {
             std::string data = error.empty() ? FileSystem::ReadTextFile(source) : std::string();
             const double readMs = ElapsedMilliseconds(readStart);
             if (data.empty() && error.empty())
-                error = "fayl o'qilmadi";
+                error = "the file could not be read";
             if (!error.empty())
             {
                 m_Data->Timing = {};
@@ -5090,7 +5089,7 @@ namespace Zamin {
                 if (!fromCache)
                     return false;
             }
-            ZM_CORE_WARN("Sahnaning binar keshi o'qilmadi ({}): matn fayli o'qiladi - {}", m_Data->Error, cache.filename().string());
+            ZM_CORE_WARN("The scene's binary cache could not be read ({}): the text file is read - {}", m_Data->Error, cache.filename().string());
             fromCache = false;
         }
         return false;
@@ -5132,7 +5131,7 @@ namespace Zamin {
         {
             m_Data->Timing.Failed = true;
             m_Data->Fail(MakeIssue(SceneLoadIssue::Kind::Unreadable, SceneLoadIssue::Severity::Fatal,
-                                   "Binar sahna keshi emas yoki boshqa versiyadagi kesh"));
+                                   "Not a binary scene cache, or a cache of another version"));
             return false;
         }
         const auto parseStart = std::chrono::steady_clock::now();
@@ -5142,7 +5141,7 @@ namespace Zamin {
             m_Data->Timing[SceneLoadTiming::Stage::Parse] = ElapsedMilliseconds(parseStart);
             m_Data->Timing.Failed = true;
             m_Data->Fail(MakeIssue(SceneLoadIssue::Kind::ParseError, SceneLoadIssue::Severity::Fatal,
-                                   std::format("Binar sahna keshi buzilgan: {}", DescribeException(e))));
+                                   std::format("The binary scene cache is broken: {}", DescribeException(e))));
             return false;
         }
         m_Data->Timing[SceneLoadTiming::Stage::Parse] = ElapsedMilliseconds(parseStart);
@@ -5286,7 +5285,7 @@ namespace Zamin {
         catch (const std::exception& ex)
         {
             d.Timing.Failed = true;
-            d.Fail(MakeIssue(SceneLoadIssue::Kind::BadEntity, SceneLoadIssue::Severity::Fatal, std::format("Sahna formati xato: {}", ex.what())));
+            d.Fail(MakeIssue(SceneLoadIssue::Kind::BadEntity, SceneLoadIssue::Severity::Fatal, std::format("Invalid scene format: {}", ex.what())));
         }
         return true;
     }
@@ -5394,9 +5393,9 @@ namespace Zamin {
         if (!root.is_object() || !root.contains("Entities") || !root["Entities"].is_array())
         {
             if (options.Error)
-                *options.Error = "obyektlar ro'yxati (\"Entities\") yo'q";
+                *options.Error = "no object list (\"Entities\")";
             if (report)
-                report->Add(MakeIssue(SceneLoadIssue::Kind::NotAScene, SceneLoadIssue::Severity::Fatal, "obyektlar ro'yxati (\"Entities\") yo'q"));
+                report->Add(MakeIssue(SceneLoadIssue::Kind::NotAScene, SceneLoadIssue::Severity::Fatal, "no object list (\"Entities\")"));
             return false;
         }
         migration = MigrateSceneRoot(root, report);
@@ -5407,7 +5406,7 @@ namespace Zamin {
             if (const json& list = root["Entities"]; !list.empty() && list[0].is_object())
                 if (auto tag = list[0].find("Tag"); tag != list[0].end() && tag->is_string())
                     first = tag->get<std::string>();
-            SceneMigration::LogMigration(std::format("obyektlar to'plami '{}'", first), migration);
+            SceneMigration::LogMigration(std::format("object set '{}'", first), migration);
         }
         return true;
     }
@@ -5458,9 +5457,9 @@ namespace Zamin {
                 if (report)
                     report->EntitiesSkipped++;
                 AddEntityIssue(report, SceneLoadIssue::Kind::BadEntity, SceneLoadIssue::Severity::Error,
-                               std::format("\"Entities\" ro'yxatining {}-yozuvi obyekt emas ({}): o'tkazib yuborildi", at + 1, e.type_name()), {}, 0);
+                               std::format("Entry {} of the \"Entities\" list is not an object ({}): skipped", at + 1, e.type_name()), {}, 0);
                 if (firstError.empty())
-                    firstError = std::format("{}-yozuv obyekt emas", at + 1);
+                    firstError = std::format("entry {} is not an object", at + 1);
                 continue;
             }
             std::string name = "Entity";
@@ -5469,11 +5468,11 @@ namespace Zamin {
             const uint64_t old = ReadEntityID(e, "Entity");
             if (!old && e.contains("Entity"))
                 AddEntityIssue(report, SceneLoadIssue::Kind::BadEntity, SceneLoadIssue::Severity::Warning,
-                               std::format("'{}' obyektining ID'si xato: yangi ID berildi", name), name, 0);
+                               std::format("The ID of the object '{}' is invalid: a new ID was given", name), name, 0);
             const bool repeated = old && remap.contains(old);
             if (repeated)
                 AddEntityIssue(report, SceneLoadIssue::Kind::DuplicateID, SceneLoadIssue::Severity::Warning,
-                               std::format("'{}' obyektining ID'si ({}) takrorlangan: yangi ID berildi", name, old), name, old);
+                               std::format("The ID of the object '{}' ({}) is repeated: a new ID was given", name, old), name, old);
             UUID id;
             bool mapped = false;
             if (options.IDMap && !repeated)
@@ -5495,7 +5494,7 @@ namespace Zamin {
                 for (auto it = e.begin(); it != e.end(); ++it)
                     if (!IsKnownEntityKey(it.key()))
                         AddEntityIssue(report, SceneLoadIssue::Kind::UnknownComponent, SceneLoadIssue::Severity::Warning,
-                                       std::format("'{}' obyektida noma'lum komponent '{}': o'tkazib yuborildi", name, it.key()),
+                                       std::format("Unknown component '{1}' on the object '{0}': skipped", name, it.key()),
                                        name, newID, it.key());
             try
             {
@@ -5513,7 +5512,7 @@ namespace Zamin {
             const uint64_t parent = ReadEntityID(e, "Parent");
             if (!parent && e.contains("Parent"))
                 AddEntityIssue(report, SceneLoadIssue::Kind::BadHierarchy, SceneLoadIssue::Severity::Warning,
-                               std::format("'{}' obyektining ota obyekti (\"Parent\") xato: ildiz qilib yuklandi", name), name, newID);
+                               std::format("The parent (\"Parent\") of the object '{}' is invalid: loaded as a root", name), name, newID);
             made.push_back({ entity, &e, parent });
             created.push_back(entity);
             if (report)
@@ -5531,7 +5530,7 @@ namespace Zamin {
                 // A copy of part of a scene has no parents outside it: one named here means the text
                 // was cut or edited.
                 AddEntityIssue(report, SceneLoadIssue::Kind::BadHierarchy, SceneLoadIssue::Severity::Warning,
-                               std::format("'{}' obyektining ota obyekti ({}) to'plamda yo'q: ildiz qilib yuklandi", m.Handle.GetName(), m.OldParent),
+                               std::format("The parent ({1}) of the object '{0}' is not in the set: loaded as a root", m.Handle.GetName(), m.OldParent),
                                m.Handle.GetName(), (uint64_t)m.Handle.GetUUID());
                 continue;
             }
@@ -5556,7 +5555,7 @@ namespace Zamin {
             if (loop)
             {
                 AddEntityIssue(report, SceneLoadIssue::Kind::BadHierarchy, SceneLoadIssue::Severity::Warning,
-                               std::format("'{}' obyekti o'z avlodining farzandi bo'lib qolardi (halqa): ildiz qilib yuklandi", m.Handle.GetName()),
+                               std::format("The object '{}' would become a child of its own descendant (a loop): loaded as a root", m.Handle.GetName()),
                                m.Handle.GetName(), (uint64_t)self);
                 continue;
             }
@@ -5578,9 +5577,9 @@ namespace Zamin {
         {
             // Read in part: the caller hears why (the import log, the paste notice).
             if (options.Error)
-                *options.Error = std::format("Entity ma'lumotlari xato: {}", firstError);
+                *options.Error = std::format("Invalid entity data: {}", firstError);
             else
-                ZM_CORE_ERROR("Entity ma'lumotlari xato: {}", firstError);
+                ZM_CORE_ERROR("Invalid entity data: {}", firstError);
         }
         if (options.IDsOut)
         {
@@ -5625,7 +5624,7 @@ namespace Zamin {
                 if (options.Report)
                     options.Report->Add(MakeParseIssue(text, e));
                 if (options.Error)
-                    *options.Error = std::format("JSON xatosi: {}", e.what());
+                    *options.Error = std::format("JSON error: {}", e.what());
                 return {};
             }
             ReportSalvage(options.Report, text, e, recovery);
@@ -5662,12 +5661,12 @@ namespace Zamin {
         };
         json root = json::parse(text, nullptr, false);
         if (root.is_discarded() || !root.is_object())
-            return fail("JSON o'qilmadi");
+            return fail("the JSON could not be read");
         auto system = root.find("System");
         if (!root.contains("ZaminParticlePreset") || system == root.end() || !system->is_object())
-            return fail("Bu particle preset fayli emas");
+            return fail("This is not a particle preset file");
         if (auto version = root["ZaminParticlePreset"]; version.is_number_integer() && version.get<int>() > FileVersion)
-            ZM_CORE_WARN("Particle preset yangiroq versiyada ({}): ba'zi sozlamalar o'qilmasligi mumkin", version.get<int>());
+            ZM_CORE_WARN("The particle preset is a newer version ({}): some settings may not be read", version.get<int>());
         AssetReferenceScope scope;
         ParticlePreset preset;
         try
@@ -5692,7 +5691,7 @@ namespace Zamin {
         }
         catch (const std::exception& ex)
         {
-            return fail(std::format("Particle preset xato: {}", ex.what()));
+            return fail(std::format("Invalid particle preset: {}", ex.what()));
         }
         // Entity references of another scene mean nothing here; sub-emitters: template numbers.
         preset.System.CustomSpace = EntityRef();
@@ -5732,7 +5731,7 @@ namespace Zamin::SceneSerializerJson {
             if (!value->is_string())
             {
                 if (error)
-                    *error = "Tag matn emas";
+                    *error = "Tag is not text";
                 return false;
             }
             entity.SetName(value->get<std::string>());
@@ -5775,7 +5774,7 @@ namespace Zamin::SceneSerializerJson {
         if (!type->Has(temp))
         {
             if (error)
-                *error = "komponent o'qilmadi";
+                *error = "the component could not be read";
             return false;
         }
         type->Copy(temp, entity);

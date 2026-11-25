@@ -736,10 +736,10 @@ argumentlarida bir nechta tasodifiy son olmang (hisoblash tartibi kompilyatorga 
 | Belgi | Sabab va yechim |
 |---|---|
 | Obyekt tushmaydi, to'qnashmaydi | Faqat collider bor — jism yo'q (2D: Rigidbody 2D qo'shing), jism `Static`, yoki `GravityScale` / `GravityFactor` 0. Fizika faqat Play / Simulate'da ishlaydi |
-| Konsolda `'X': Rigidbody3D uchun collider yo'q (Box/Sphere/Capsule/Convex Hull/Mesh Collider 3D qo'shing)` | 3D jismga shakl kerak |
+| Konsolda `'X': the Rigidbody3D has no collider (add a Box/Sphere/Capsule/Convex Hull/Mesh Collider 3D)` | 3D jismga shakl kerak |
 | `'X': Mesh Collider 3D faqat statik yoki kinematik jismda ishlaydi - dinamik jism uni hisobga olmaydi` | Dinamik jismga Convex Hull Collider 3D yoki oddiy shakllar qo'ying |
-| `'X' obyektidagi ... ulangan jismi (...) sahnada yo'q - joint yaratilmaydi` | Joint'ning `ConnectedBody` si o'chirilgan yoki boshqa sahnada; inspektorda qayta tanlang |
-| `Convex Hull Collider 3D qurilmadi` / `Mesh Collider 3D qurilmadi` | Mesh Renderer'da model / primitiv yo'q yoki model fayli o'qilmadi (sabab xabarda) |
+| `The connected body (...) of the ... on the object 'X' is not in the scene - no joint is created` | Joint'ning `ConnectedBody` si o'chirilgan yoki boshqa sahnada; inspektorda qayta tanlang |
+| `the Convex Hull Collider 3D was not built` / `the Mesh Collider 3D was not built` | Mesh Renderer'da model / primitiv yo'q yoki model fayli o'qilmadi (sabab xabarda) |
 | Qahramon ag'dariladi | Rigidbody 2D **Aylanmasin** yoki Rigidbody 3D `LockRotation`; 3D'da Character Controller 3D yaxshiroq |
 | Tez jism devordan o'tib ketadi | 2D `Bullet`, 3D **Uzluksiz (CCD)**; yupqa devorni qalinroq qiling yoki qadam chastotasini oshiring |
 | Uzun zanjir / ragdoll cho'ziladi | *Sahna sozlamalari > Fizika > Sub-qadamlar* 2 ... 4, iteratsiyalarni oshiring; ulangan jismlar massasi juda farq qilmasin |

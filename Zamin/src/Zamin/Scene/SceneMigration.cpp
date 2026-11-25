@@ -245,12 +245,11 @@ namespace Zamin {
         const std::vector<StepFunction>& Steps()
         {
             static const std::vector<StepFunction> s_Steps = {
-                { { 0, 1, "Versiyasiz fayl: obyekt ID'lari raqamga, \"Name\" -> \"Tag\"" }, &MigrateV0 },
-                { { 1, 2, "Eski maydonlar: Text \"Centered\" -> AlignH/AlignV, UITransform \"Anchor\" -> AnchorMin/AnchorMax/Pivot; "
-                          "sahna metadata (\"Metadata\")" }, &MigrateV1 },
-                { { 2, 3, "Sub-sahna fayli: SubScene \"Scene\" -> \"Path\" (fayl ko'chirilganda havola yangilanadi)" }, &MigrateV2 },
-                { { 3, 4, "Gravitatsiya: dvigatelning standart qiymati olib tashlandi (sahna loyiha gravitatsiyasiga ergashadi)" }, &MigrateV3 },
-                { { 4, 5, "Prefab bog'lanishlari: Editor.Prefab yo'li '/' bilan; nusxa bog'lanishlari (PrefabEntity/Overrides) qo'shildi" }, &MigrateV4 },
+                { { 0, 1, "File without a version: object IDs to numbers, \"Name\" -> \"Tag\"" }, &MigrateV0 },
+                { { 1, 2, "Old fields: Text \"Centered\" -> AlignH/AlignV, UITransform \"Anchor\" -> AnchorMin/AnchorMax/Pivot; scene metadata (\"Metadata\")" }, &MigrateV1 },
+                { { 2, 3, "Sub-scene file: SubScene \"Scene\" -> \"Path\" (the reference is updated when the file moves)" }, &MigrateV2 },
+                { { 3, 4, "Gravity: the engine's default value was removed (the scene follows the project gravity)" }, &MigrateV3 },
+                { { 4, 5, "Prefab links: Editor.Prefab path with '/'; instance links (PrefabEntity/Overrides) added" }, &MigrateV4 },
             };
             return s_Steps;
         }
@@ -314,7 +313,7 @@ namespace Zamin {
     {
         if (!Migrated())
             return {};
-        return std::format("v{} -> v{} ({} qadam, {} ta o'zgarish)", FileVersion, Version, Steps.size(), GetChangeCount());
+        return std::format("v{} -> v{} ({} steps, {} changes)", FileVersion, Version, Steps.size(), GetChangeCount());
     }
 
     // ------------------------------------------------------------------ SceneMigration
@@ -349,7 +348,7 @@ namespace Zamin {
         if (root.is_discarded() || !IsVersionedRoot(root))
         {
             if (error)
-                *error = root.is_discarded() ? "JSON o'qilmadi" : "sahna fayli emas (\"Scene\" kaliti yo'q)";
+                *error = root.is_discarded() ? "the JSON could not be read" : "not a scene file (no \"Scene\" key)";
             return false;
         }
         SceneMigrationResult migrated = SceneMigrationJson::Migrate(root);
@@ -377,16 +376,16 @@ namespace Zamin {
                 return false;
             it->second = result.FileVersion;
         }
-        const std::string name = file.empty() ? std::string("(matn)") : file;
+        const std::string name = file.empty() ? std::string("(text)") : file;
         if (result.IsNewer())
         {
-            ZM_CORE_WARN("Sahna fayli yangiroq formatda (v{}, bu dvigatel v{} gacha biladi): {} - tanilgan qismi o'qildi",
+            ZM_CORE_WARN("The scene file is in a newer format (v{}, this engine knows up to v{}): {} - the known part was read",
                          result.FileVersion, SceneMigration::CurrentVersion, name);
             return true;
         }
-        ZM_CORE_INFO("Sahna formati yangilandi {}: {} (fayl saqlanganda yangi formatda yoziladi)", result.Summary(), name);
+        ZM_CORE_INFO("Scene format upgraded {}: {} (written in the new format when the file is saved)", result.Summary(), name);
         for (const SceneMigrationStep& step : result.Steps)
-            ZM_CORE_INFO("    v{} -> v{}: {} - {} ta o'zgarish", step.From, step.To, step.Description, step.Changes);
+            ZM_CORE_INFO("    v{} -> v{}: {} - {} changes", step.From, step.To, step.Description, step.Changes);
         return true;
     }
 

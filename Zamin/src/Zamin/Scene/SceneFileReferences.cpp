@@ -198,7 +198,7 @@ namespace Zamin {
                 if (FileSystem::WriteTextFile(full, text))
                     written++;
                 else if (errors)
-                    errors->push_back(std::format("{}: yozib bo'lmadi", file.generic_string()));
+                    errors->push_back(std::format("{}: could not write", file.generic_string()));
             }
             return written;
         }

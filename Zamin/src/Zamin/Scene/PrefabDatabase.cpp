@@ -146,7 +146,7 @@ namespace Zamin {
         t.Path = path;
         if (!entry.Exists)
         {
-            t.Issues.push_back(std::format("Prefab fayli topilmadi: {}", path));
+            t.Issues.push_back(std::format("Prefab file not found: {}", path));
             entry.T = std::move(t);
             return;
         }
@@ -169,7 +169,7 @@ namespace Zamin {
         t.LoadErrors = report.Count(SceneLoadIssue::Severity::Error) + report.Count(SceneLoadIssue::Severity::Fatal);
         if (created.empty())
         {
-            t.Issues.push_back(error.empty() ? std::string("prefabda obyekt yo'q") : error);
+            t.Issues.push_back(error.empty() ? std::string("the prefab has no object") : error);
             entry.T = std::move(t);
             return;
         }
@@ -177,7 +177,7 @@ namespace Zamin {
         if (!error.empty())
             t.Issues.push_back(error);
         if (t.Newer)
-            t.Issues.push_back(std::format("yangiroq formatda (v{}, bu dvigatel v{} gacha biladi): o'zgartirib yozilmaydi",
+            t.Issues.push_back(std::format("in a newer format (v{}, this engine knows up to v{}): it is not rewritten",
                                            t.FileVersion, SceneMigration::CurrentVersion));
 
         // Linkable: one root, every entity with an ID of its own.
@@ -190,9 +190,9 @@ namespace Zamin {
                 roots.push_back(e);
         t.Linkable = idsOk && roots.size() == 1;
         if (!idsOk)
-            t.Issues.push_back("obyekt ID'lari takrorlanadi yoki yo'q");
+            t.Issues.push_back("object IDs repeat or are missing");
         if (roots.size() > 1)
-            t.Issues.push_back(std::format("prefabda {} ta ildiz bor (bitta bo'lishi kerak)", roots.size()));
+            t.Issues.push_back(std::format("the prefab has {} roots (it must have one)", roots.size()));
         t.Root = roots.empty() ? 0 : (uint64_t)roots.front().GetUUID();
 
         // Depth-first order.
@@ -237,13 +237,13 @@ namespace Zamin {
                 const std::string nested = NormalizePath(owner.GetComponent<EditorMetadataComponent>().Prefab);
                 if (m_Building.contains(nested))
                 {
-                    t.Issues.push_back(std::format("Prefab sikli: {} -> {}", path, nested));
-                    ZM_CORE_WARN("Prefab sikli: {} o'z ichida {} ni ishlatadi (u esa {} ni) - ichma-ich nusxa yangilanmadi", path, nested, path);
+                    t.Issues.push_back(std::format("Prefab cycle: {} -> {}", path, nested));
+                    ZM_CORE_WARN("Prefab cycle: {} uses {} inside itself (which uses {}) - the nested instance was not updated", path, nested, path);
                     continue;
                 }
                 if (m_Depth > MaxDepth)
                 {
-                    t.Issues.push_back(std::format("Prefablar juda chuqur ichma-ich ({} dan ortiq): {}", MaxDepth, nested));
+                    t.Issues.push_back(std::format("Prefabs are nested too deep (more than {}): {}", MaxDepth, nested));
                     continue;
                 }
                 PrefabUtility::SyncInstance(owner, *this);
@@ -449,7 +449,7 @@ namespace Zamin {
             return true;
         if (before && SceneMigration::ReadVersion(*before) > SceneMigration::CurrentVersion)
         {
-            ZM_CORE_WARN("Prefab fayli yangiroq formatda (v{}, bu dvigatel v{} gacha biladi): ustiga yozilmadi - {}",
+            ZM_CORE_WARN("The prefab file is in a newer format (v{}, this engine knows up to v{}): not overwritten - {}",
                          SceneMigration::ReadVersion(*before), SceneMigration::CurrentVersion, key);
             return false;
         }
@@ -457,7 +457,7 @@ namespace Zamin {
         if (before && !overwriteDamaged)
             if (const size_t errors = CountLoadErrors(key, *before); errors > 0)
             {
-                ZM_CORE_WARN("Prefab faylining {} ta qismi o'qilmagan: ustiga yozilmadi (ular yo'qolardi) - {}", errors, key);
+                ZM_CORE_WARN("{} parts of the prefab file were not read: not overwritten (they would be lost) - {}", errors, key);
                 return false;
             }
         if (!FileSystem::WriteTextFileAtomic(file, text))

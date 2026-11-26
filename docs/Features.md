@@ -841,7 +841,7 @@ Batafsil: [Editor.md](Editor.md).
 
 ## Editor boshqaruvi
 
-Barcha oynalar, menyular va yorliqlar (to'liq jadval, qayta bog'lash): [Editor.md](Editor.md#13-klaviatura-yorliqlari).
+Barcha oynalar, menyular va yorliqlar (to'liq jadval, qayta bog'lash): [Editor.md](Editor.md#13-keyboard-shortcuts).
 
 | Tugma | Amal |
 |---|---|

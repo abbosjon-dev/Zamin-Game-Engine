@@ -50,7 +50,7 @@ separate: 2D bodies (Box2D) do not collide with 3D bodies (Jolt) ([Physics.md](P
 
 ### Can the editor language be changed?
 
-Yes - English or Uzbek: **Edit → Preferences... → View** ([Editor.md, 12](Editor.md#12-sozlamalar-joylashuvlar-til)).
+Yes - English or Uzbek: **Edit → Preferences... → View** ([Editor.md, 12](Editor.md#12-preferences-layouts-language)).
 The game's own languages are separate - Project settings > Localization ([ProjectSettings.md, 13](ProjectSettings.md#13-lokalizatsiya)).
 
 ### What is the license? Can I sell my game?
@@ -114,7 +114,7 @@ is enough).
 
 **Window → Reset layout (default)**, or a ready-made layout from **Window → Layout** (**Default**, **2D**,
 **Animation**, **4 views**). Closed windows are reopened from the **Window** menu
-([Editor.md, 3](Editor.md#3-menyular)).
+([Editor.md, 3](Editor.md#3-menus)).
 
 ### The viewport says there is no camera
 
@@ -133,7 +133,7 @@ When nothing is happening the editor lowers its frame rate (to save the processo
 ### My changes are gone / the editor crashed
 
 The editor regularly writes a safety copy of an unsaved scene (`<project>/.zamin/autosave/`); when the scene is opened
-again, recovering it is offered. The undo history - `Ctrl+H` ([Editor.md, 11](Editor.md#11-undo-avtosaqlash-va-tiklash)).
+again, recovering it is offered. The undo history - `Ctrl+H` ([Editor.md, 11](Editor.md#11-undo-autosave-and-recovery)).
 
 ## 4. C++ scripts
 

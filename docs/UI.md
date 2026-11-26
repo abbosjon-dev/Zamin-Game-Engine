@@ -422,7 +422,7 @@ o'tmaydi).
   bilan ham animatsiya qila oladi ([Animation.md](Animation.md#2-property-kliplar-zanim)).
 - Avtomatlashtirish: `ZAMIN_EDITOR_UI_HOVER=right` — gizmo tutqichi sichqoncha ostidagidek ko'rinadi,
   `ZAMIN_EDITOR_UI_DRAG="bottom-right:60,-30"` — 20-kadrda tanlangan UI obyektning tutqichini shuncha piksel sudraydi
-  (skrinshotlar uchun, [Editor.md](Editor.md#15-avtomatlashtirish-skrinshotlar-ci)).
+  (skrinshotlar uchun, [Editor.md](Editor.md#15-automation-screenshots-ci)).
 
 ---
 

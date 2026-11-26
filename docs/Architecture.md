@@ -420,14 +420,14 @@ Boshqa oqimdan asosiy oqimga ish: `Application::SubmitToMainThread`.
   `AnimationTimelinePanel`, `AnimatorGraphPanel`, `AudioMixerPanel`, `SpriteEditorPanel`, `AssetInspectorPanel`,
   `LocalizationPanel`, `ScenesPanel`, `UnusedAssetsPanel`.
 - **Undo** - `UndoHistory` (`Zamin/Editor`): sahnaning matn holatlari va tanlov; har amal yangi holat
-  ([Editor.md, 11-bo'lim](Editor.md#11-undo-avtosaqlash-va-tiklash)).
+  ([Editor.md, 11-bo'lim](Editor.md#11-undo-autosave-and-recovery)).
 - **Play** - `OnScenePlay`: `Scene::Copy`, assetlarni yechish, o'yin saqlagan sozlamalar (audio, ekran, til),
   servislar va `GameState` tozalanadi, nusxa yangi `SceneManager` da ishga tushadi - player'dagi kabi. Stop
   hammasini tashlab, tahrir sahnasiga qaytadi (o'yin sahna almashtirgan bo'lsa ham).
 - **Skriptlar** - kompilyatsiya va hot reload (9-bo'lim), kompilyator xatolari oynasi (`CompilerDiagnostics`).
 - **Eksport** - `BuildGame` alohida oqimda ([BuildAndExport.md](BuildAndExport.md)).
 - **Avtomatlashtirish** - `ZAMIN_EDITOR_*` muhit o'zgaruvchilari (skrinshotlar, smoke test, eksport;
-  [Editor.md, 15-bo'lim](Editor.md#15-avtomatlashtirish-skrinshotlar-ci)).
+  [Editor.md, 15-bo'lim](Editor.md#15-automation-screenshots-ci)).
 
 Editorning GUI'siz qismlari (undo tarixi, yorliqlar, joylashuvlar, sozlamalar, avtosaqlash, statistikalar)
 dvigatelda (`Zamin/src/Zamin/Editor`) - shuning uchun unit testlar ularni GPU'siz sinaydi.

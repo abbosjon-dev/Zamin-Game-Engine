@@ -526,7 +526,7 @@ UI slayderlari haqida: [UI.md](UI.md).
   `GetVoiceStats()`.
 - Player: `ZAMIN_PLAYER_STATS=1` chiqishda, **F10** istalgan payt audio profilini logga yozadi.
 - Editor avtomatlashtirish: `ZAMIN_EDITOR_AUDIO_MIXER=1` — Audio Mixer oynasi ochiladi (skrinshotlar uchun,
-  [Editor.md](Editor.md#15-avtomatlashtirish-skrinshotlar-ci)).
+  [Editor.md](Editor.md#15-automation-screenshots-ci)).
 
 ---
 

@@ -1,429 +1,429 @@
-# Zamin Engine: editor qo'llanmasi
+# Zamin Engine: the editor guide
 
-Zamin Editor (`ZaminEditor`) — loyihalarni ochish, sahnalarni yig'ish, komponentlarni sozlash, C++ skriptlarni
-kompilyatsiya qilish, o'yinni editor ichida sinash va tayyor o'yinni eksport qilish uchun dastur. Bu qo'llanma
-editorning oynalari, menyulari, viewport boshqaruvi, o'yin rejimi, sozlamalari va klaviatura yorliqlarini tushuntiradi.
-Noldan o'yin yasash: [Tutorial-2D.md](Tutorial-2D.md) va [Tutorial-3D.md](Tutorial-3D.md).
+Zamin Editor (`ZaminEditor`) is the program for opening projects, assembling scenes, setting up components, compiling C++
+scripts, testing the game inside the editor and exporting the finished game. This guide explains the
+editor's windows, menus, viewport controls, play mode, preferences and keyboard shortcuts.
+Making a game from scratch: [Tutorial-2D.md](Tutorial-2D.md) and [Tutorial-3D.md](Tutorial-3D.md).
 
-Editor interfeysi o'zbekcha (inglizchaga **Tahrirlash → Sozlamalar → Ko'rinish** da o'tkaziladi).
+The editor interface is in English (it can be switched to Uzbek in **Edit → Preferences → View**).
 
-Mundarija:
+Contents:
 
-1. [Ishga tushirish va launcher](#1-ishga-tushirish-va-launcher)
-2. [Oyna tuzilishi](#2-oyna-tuzilishi)
-3. [Menyular](#3-menyular)
-4. [Ierarxiya](#4-ierarxiya)
+1. [Starting and the launcher](#1-starting-and-the-launcher)
+2. [The window layout](#2-the-window-layout)
+3. [Menus](#3-menus)
+4. [Hierarchy](#4-hierarchy)
 5. [Viewport](#5-viewport)
-6. [Inspektor](#6-inspektor)
-7. [Kontent brauzer](#7-kontent-brauzer)
-8. [O'yin rejimi: Play, Simulate, Pauza](#8-oyin-rejimi-play-simulate-pauza)
-9. [Konsol va kompilyatsiya](#9-konsol-va-kompilyatsiya)
-10. [Boshqa oynalar](#10-boshqa-oynalar)
-11. [Undo, avtosaqlash va tiklash](#11-undo-avtosaqlash-va-tiklash)
-12. [Sozlamalar, joylashuvlar, til](#12-sozlamalar-joylashuvlar-til)
-13. [Klaviatura yorliqlari](#13-klaviatura-yorliqlari)
-14. [O'yinni build qilish](#14-oyinni-build-qilish)
-15. [Avtomatlashtirish (skrinshotlar, CI)](#15-avtomatlashtirish-skrinshotlar-ci)
+6. [Inspector](#6-inspector)
+7. [The content browser](#7-the-content-browser)
+8. [Play mode: Play, Simulate, Pause](#8-play-mode-play-simulate-pause)
+9. [The console and compiling](#9-the-console-and-compiling)
+10. [Other windows](#10-other-windows)
+11. [Undo, autosave and recovery](#11-undo-autosave-and-recovery)
+12. [Preferences, layouts, language](#12-preferences-layouts-language)
+13. [Keyboard shortcuts](#13-keyboard-shortcuts)
+14. [Building the game](#14-building-the-game)
+15. [Automation (screenshots, CI)](#15-automation-screenshots-ci)
 
 ---
 
-## 1. Ishga tushirish va launcher
+## 1. Starting and the launcher
 
 ```bash
-./build/bin/ZaminEditor                          # launcher ochiladi
-./build/bin/ZaminEditor Projects/Platformer2D    # loyiha papkasi yoki .zproject fayli
+./build/bin/ZaminEditor                          # the launcher opens
+./build/bin/ZaminEditor Projects/Platformer2D    # a project folder or a .zproject file
 ```
 
-Loyihasiz ochilganda (yoki **Fayl → Yangi loyiha...**) **launcher** chiqadi:
+When it opens without a project (or with **File → New project...**) the **launcher** appears:
 
-- **Yangi loyiha** — **Loyiha nomi** va **Joylashuv** (papka tanlash tugmasi bilan) → **Yaratish**. Nomdan faqat lotin
-  harflari, raqamlar va `_` olinadi. Loyiha shablondan yaratiladi: 3D sahna (`Scenes/Main.zscene`: `Main Camera`,
-  `Sun`, `Ground`, `Rotator` skriptli `Cube`, `Sphere`), `Source/Scripts.cpp` (`Rotator` va `PlayerController`),
-  `CMakeLists.txt`, `.gitignore`, til fayllari (`uz`, `en`) va standart input harakatlari. Editor ochilishi bilan C++
-  skriptlarni kompilyatsiya qiladi.
-- **Loyihani ochish** — `.zproject` fayl yoki papka yo'li.
-- **So'nggi sahnalar** va **So'nggi loyihalar** — avval o'zingizning ishingiz.
-- **Namuna o'yinlar** — `Projects/` dagi namunalar rasmli kartalarda: loyihaning rasmi (`.zproject`dagi
-  `Thumbnail`), nomi (Player'dagi mahsulot nomi) va tavsifi (`Description`); bir bosishda ochiladi. Namunalarning
-  rasmlari o'yinlarning headless skrinshotlaridan `Tools/samples/make_thumbnails.py` bilan olinadi. So'nggi
-  sahna yoki loyiha bo'lsa, kartalar ro'yxatlardan keyin bir qatorda ko'rinadi (**Hammasini ko'rsatish** — hammasi);
-  hali hech narsa ochilmagan bo'lsa, kartalar birinchi turadi.
+- **New project** — the **Project name** and the location (with a folder picker button) → **Create**. Only Latin
+  letters, digits and `_` are taken from the name. The project is created from a template: a 3D scene (`Scenes/Main.zscene`: `Main Camera`,
+  `Sun`, `Ground`, a `Cube` with the `Rotator` script, `Sphere`), `Source/Scripts.cpp` (`Rotator` and `PlayerController`),
+  `CMakeLists.txt`, `.gitignore`, language files (`uz`, `en`) and the default input actions. The editor compiles the C++
+  scripts as soon as it opens.
+- **Open project** — a `.zproject` file or a folder path.
+- **Recent scenes** and **Recent projects** — your own work first.
+- **Sample games** — the samples in `Projects/` on cards with pictures: the project's picture (`Thumbnail` in the
+  `.zproject`), its name (the product name in Player) and its description (`Description`); one click opens it. The samples'
+  pictures are taken from the games' headless screenshots with `Tools/samples/make_thumbnails.py`. When there are recent
+  scenes or projects, the cards show in one row after the lists (**Show all** — all of them);
+  when nothing has been opened yet, the cards come first.
 
-![Yangi loyiha editorda](images/editor-new-project.jpg)
+![A new project in the editor](images/editor-new-project.jpg)
 
-Loyiha tuzilmasi:
+The project structure:
 
 ```
-MeningOyinim/
-├── MeningOyinim.zproject     # loyiha sozlamalari (JSON)
-├── CMakeLists.txt            # skript modulini build qilish (editor yaratadi)
-├── Source/                   # C++ skriptlar (Scripts.cpp ...)
-├── Assets/                   # sahnalar, teksturalar, ovozlar, modellar, prefab'lar, til fayllari
+MyGame/
+├── MyGame.zproject           # the project settings (JSON)
+├── CMakeLists.txt            # builds the script module (the editor creates it)
+├── Source/                   # C++ scripts (Scripts.cpp ...)
+├── Assets/                   # scenes, textures, sounds, models, prefabs, language files
 │   ├── Scenes/Main.zscene
-│   └── Scenes/Main.zscene.zmeta  # asset UUID'si va import sozlamalari (versiya nazoratiga qo'shing)
-├── Build/                    # CMake build papkasi (.gitignore'da)
-├── Binaries/lib<Nom>.so      # kompilyatsiya qilingan skriptlar (.gitignore'da)
-└── .zamin/                   # editor keshi: asset reyestri, rasmlar, avtosaqlash (.gitignore'da)
+│   └── Scenes/Main.zscene.zmeta  # the asset's UUID and import settings (add it to version control)
+├── Build/                    # the CMake build folder (in .gitignore)
+├── Binaries/lib<Name>.so     # the compiled scripts (in .gitignore)
+└── .zamin/                   # the editor cache: the asset registry, pictures, autosave (in .gitignore)
 ```
 
-`.zproject` formati va har bir sozlama: [ProjectSettings.md](ProjectSettings.md).
+The `.zproject` format and every setting: [ProjectSettings.md](ProjectSettings.md).
 
-## 2. Oyna tuzilishi
+## 2. The window layout
 
-![Editor: ierarxiya, viewport, inspektor, kontent](images/tutorial-2d-editor.jpg)
+![Editor: hierarchy, viewport, inspector, content](images/tutorial-2d-editor.jpg)
 
-| Panel | Vazifasi |
+| Panel | Purpose |
 |---|---|
-| **Ierarxiya** (chapda) | Sahnadagi obyektlar daraxti (4-bo'lim) |
-| **Viewport** (markazda) | Sahna ko'rinishi: kamera, gizmo, asboblar paneli, o'yin (5-bo'lim) |
-| **Inspektor** (o'ngda) | Tanlangan obyektning komponentlari yoki kontent brauzerda tanlangan asset (6-bo'lim) |
-| **Sahna** (o'ngda, Inspektor yonida) | Sahna sozlamalari: nom va metama'lumot, osmon / HDRI, atrof yorug'ligi, ekspozitsiya, tuman, post-processing, soyalar, fizika (Box2D / Jolt) |
-| **Kontent** (pastda) | Loyiha fayllari (7-bo'lim) |
-| **Konsol** (pastda) | Log xabarlari (9-bo'lim) |
-| **Sahnalar** (pastda) | Loyihaning hamma sahnalari, build ro'yxati, boshlang'ich sahna ([Scenes.md](Scenes.md)) |
-| Holat qatori (eng pastda) | Rejim (**Tahrirlash** / **O'yin**), ochiq sahna, skript klasslari soni, tanlangan obyekt (joyi, komponentlari, bolalari), oxirgi kompilyatsiya natijasi, FPS |
+| **Hierarchy** (left) | The tree of entities in the scene (section 4) |
+| **Viewport** (center) | The scene view: the camera, gizmos, the toolbar, the game (section 5) |
+| **Inspector** (right) | The components of the selected entity, or the asset selected in the content browser (section 6) |
+| **Scene** (right, next to the Inspector) | The scene settings: name and metadata, sky / HDRI, ambient light, exposure, fog, post-processing, shadows, physics (Box2D / Jolt) |
+| **Content** (bottom) | The project files (section 7) |
+| **Console** (bottom) | Log messages (section 9) |
+| **Scenes** (bottom) | All the project's scenes, the build list, the start scene ([Scenes.md](Scenes.md)) |
+| The status bar (very bottom) | The mode (**Edit** / **Playing**), the open scene, the number of script classes, the selected entity (its position, components, children), the last compile result, FPS |
 
-Panellarni sudrab boshqa joyga ko'chirish, yorliq qilib birlashtirish yoki alohida oyna qilish mumkin (ImGui docking).
-Joylashuvni saqlash va tayyor joylashuvlar — 12-bo'lim.
+Panels can be dragged elsewhere, merged into tabs or turned into separate windows (ImGui docking).
+Saving a layout and the ready-made layouts — section 12.
 
-## 3. Menyular
+## 3. Menus
 
-**Fayl**: Yangi loyiha..., Loyihani ochish... (`Ctrl+Shift+O`), So'nggi loyihalar, Loyiha sozlamalari..., Loyihani
-yopish, Yangi sahna (`Ctrl+N`), Sahnani ochish... (`Ctrl+O`), Saqlash (`Ctrl+S`), Boshqacha saqlash...
-(`Ctrl+Shift+S`), O'yinni build qilish..., Eksport hisoboti, Prefab'larni tekshirish, Chiqish (`Alt+F4`).
+**File**: New project..., Open project... (`Ctrl+Shift+O`), Recent projects, Project settings..., Close
+project, New scene (`Ctrl+N`), Open scene... (`Ctrl+O`), Save (`Ctrl+S`), Save as...
+(`Ctrl+Shift+S`), Build game..., Export report, Check prefabs, Exit (`Alt+F4`).
 
-**Tahrirlash**: Undo / Redo (`Ctrl+Z` / `Ctrl+Y`), Undo tarixi... (`Ctrl+H`), Nusxalash (`Ctrl+C`), Joylash
-(`Ctrl+V`), Prefab sifatida saqlash, Nusxa olish (`Ctrl+D`), O'chirish (`Delete`), Fokus (`F`), Yashirish (editorda)
-(`H`), Qulflash (viewport'da), Nofaol qilish / Faollashtirish (`Alt+Shift+A`), Hammasini ko'rsatish (`Alt+H`), Hamma
-qulflarni ochish, Hammasini tanlash (`Ctrl+A`), Tanlovni bekor qilish, Sozlamalar... (`Ctrl+,`), Klaviatura
-yorliqlari... (`F1`).
+**Edit**: Undo / Redo (`Ctrl+Z` / `Ctrl+Y`), Undo history... (`Ctrl+H`), Copy (`Ctrl+C`), Paste
+(`Ctrl+V`), Save as prefab, Duplicate (`Ctrl+D`), Delete (`Delete`), Focus (`F`), Hide (in the editor)
+(`H`), Lock (in viewport), Deactivate / Activate (`Alt+Shift+A`), Show all (`Alt+H`), Unlock
+all, Select all (`Ctrl+A`), Clear selection, Preferences... (`Ctrl+,`), Keyboard
+shortcuts... (`F1`).
 
-**Ko'rinish**: Grid va Grid sozlamalari, Snapping va Snapping qadamlari, Fizik colliderlar, Debug chizish va uning
-sozlamalari, Ikonkalar, UI elementlarini tanlash (to'rtburchagi bo'yicha), Parallax (editor kamerasi bilan), O'yin
-oynasi o'lchami.
+**View**: Grid and Grid settings, Snapping and Snapping steps, Physics colliders, Debug drawing and its
+settings, Icons, Select UI elements (by their rectangle), Parallax (with the editor camera), Game
+view size.
 
-**Obyekt** — yangi obyekt (tahrirlash rejimida):
+**Object** — a new entity (in edit mode):
 
-| Bo'lim | Elementlar |
+| Section | Items |
 |---|---|
-| — | Bo'sh obyekt |
-| 2D | Sprite, Doira, Matn, Tilemap, Fizik quti, Fizik shar |
-| 3D | Kub, Shar, Tekislik, Silindr, Konus, Model (glTF / OBJ), Fizik kub, Fizik shar, Fizik yer (statik), Qahramon (Character Controller) |
-| Yorug'lik | Quyosh (yo'naltirilgan), Nuqtali, Spot (konus) |
-| Kamera | Perspektiv (3D), Ortografik (2D) |
-| Effektlar | Particle effektlari kutubxonasi (olov, uchqun, tutun ...) |
-| UI (ekran) | Matn, Rasm, Tugma, Slayder, Belgilash (toggle), Progress bar, Matn maydoni (input), Canvas, Menyu (vertikal layout), Scroll view (ro'yxat) |
-| — | Ovoz manbai |
+| — | Empty object |
+| 2D | Sprite, Circle, Text, Tilemap, Physics box, Physics ball |
+| 3D | Cube, Sphere, Plane, Cylinder, Cone, Model (glTF / OBJ), Physics cube, Physics ball, Physics ground (static), Hero (Character Controller) |
+| Light | Sun (directional), Point, Spot (cone) |
+| Camera | Perspective (3D), Orthographic (2D) |
+| Effects | The library of particle effects (fire, sparks, smoke ...) |
+| UI (screen) | Text, Image, Button, Slider, Toggle, Progress bar, Input field, Canvas, Menu (vertical layout), Scroll view (list) |
+| — | Audio source |
 
-Har biri qaysi komponentlarni qo'shishi: [Components.md](Components.md).
+Which components each one adds: [Components.md](Components.md).
 
-**Skriptlar**: Kompilyatsiya + qayta yuklash (`Ctrl+B`), Modulni qayta yuklash, Avtomatik hot-reload, Kompilyatsiya
-natijalari, Yangi C++ skript..., Source papkasini ochish, ro'yxatdan o'tgan klasslar (bosilganda kodi ochiladi).
-Batafsil: [Scripting.md](Scripting.md).
+**Scripts**: Compile + reload (`Ctrl+B`), Reload module, Automatic hot reload, Compiler
+output, New C++ script..., Open Source folder, the registered classes (clicking one opens its code).
+More: [Scripting.md](Scripting.md).
 
-**Oyna**: Ierarxiya, Inspektor, Kontent, Konsol, Sahna sozlamalari, Sahnalar, Loyiha sozlamalari, Statistika, Sahna
-statistikasi, Kompilyatsiya, Profiler, Audio Mixer, Lokalizatsiya, Animatsiya, Animator grafi, Ishlatilmagan
-assetlar, Sprite muharriri, Plitka palitrasi, Undo tarixi, Ko'rinishlar (qo'shimcha sahna ko'rinishlari, 4 ko'rinish
-(2x2 joylashuv)), Joylashuv, ImGui demo.
+**Window**: Hierarchy, Inspector, Content, Console, Scene settings, Scenes, Project settings, Statistics, Scene
+statistics, Compilation, Profiler, Audio Mixer, Localization, Animation, Animator graph, Unused
+assets, Sprite editor, Tile palette, Undo history, Views (extra scene views, 4 views
+(a 2x2 layout)), Layout, ImGui demo.
 
-**Yordam**: Klaviatura yorliqlari (`F1`), Zamin haqida.
+**Help**: Keyboard shortcuts (`F1`), About Zamin.
 
-## 4. Ierarxiya
+## 4. Hierarchy
 
-- Yuqoridagi `+` tugmasi yoki bo'sh joyga o'ng tugma — yangi obyekt (Obyekt menyusi bilan bir xil).
-- Obyektga o'ng tugma: **Bola obyekt yaratish**, **Nomini o'zgartirish** (`F2`), **Nusxa olish** (`Ctrl+D`),
-  **Fokus** (`F`), **Ota-onadan ajratish**, **Prefab sifatida saqlash**, **O'chirish** va boshqalar.
-- Obyektni boshqasining ustiga sudrab qo'yish — bola qilish; qatorlar orasiga — tartibni o'zgartirish.
-- Bir nechtasini tanlash: `Ctrl` + bosish (qo'shish), `Shift` + bosish (oraliq), `Ctrl+A` (hammasi). Nusxa, o'chirish
-  va faollik amallari hamma tanlanganlarga qo'llanadi.
-- Qatordagi ko'z — editorda yashirish (`H`; o'yinga ta'sir qilmaydi), qulf — viewport'da tanlanmasin (inspektorda
-  tahrirlash mumkin). Nofaol obyektlar xira ko'rinadi.
-- **Qidirish**: nom bo'yicha; `#Enemy` — shu tegli obyektlar.
-- Prefab nusxalari alohida belgi va rang bilan ko'rinadi ([Prefabs.md](Prefabs.md)).
-- Katta sahnalar: ierarxiya ko'rinadigan qatorlarni tekis ro'yxat qiladi va faqat ekrandagilarini chizadi
-  (`ImGuiListClipper`) — 10 000 obyektli sahnada ham ro'yxat ekrandagi ~30 qator narxida.
+- The `+` button at the top, or a right click on an empty spot — a new entity (the same as the Object menu).
+- Right-clicking an entity: **Create child object**, **Rename** (`F2`), **Duplicate** (`Ctrl+D`),
+  **Focus** (`F`), **Unparent**, **Save as prefab**, **Delete** and more.
+- Dragging an entity onto another one makes it a child; dropping it between rows reorders it.
+- Selecting several: `Ctrl` + click (add), `Shift` + click (a range), `Ctrl+A` (all). Duplicate, delete
+  and the activity operations apply to every selected entity.
+- The eye on a row — hide in the editor (`H`; it does not affect the game), the lock — not selectable in the viewport (it can
+  still be edited in the inspector). Inactive entities look dimmed.
+- **Search**: by name; `#Enemy` — the entities with that tag.
+- Prefab instances show up with their own marker and color ([Prefabs.md](Prefabs.md)).
+- Large scenes: the hierarchy turns the visible rows into a flat list and draws only the ones on screen
+  (`ImGuiListClipper`) — even in a 10 000-entity scene the list costs about as much as ~30 rows on screen.
 
 ## 5. Viewport
 
-**Asboblar paneli** (chapdan o'ngga): **Tanlash** (`Q`), **Ko'chirish** (`W`; `Alt` + sudrash — nusxasini sudrash),
-**Aylantirish** (`E`), **Masshtab** (`R`), gizmo markazi (tanlov markazida / asosiy obyektda), snapping (magnit;
-`Ctrl` bosib turish — vaqtincha teskari) va snapping qadami; markazda **O'ynash** (`Ctrl+P`), **Fizikani simulyatsiya
-qilish**, **Pauza**, **Bir kadr oldinga**; o'ngda **Hammasini ko'rsatish** (`Shift+F`), kamera xatcho'plari, o'q
-bo'yicha ko'rinish (yuqoridan, old, yon ...), kamera sozlamalari (uchish tezligi, tezlanish, FOV, near / far ...),
-**2D / 3D** rejim, grid, ko'rinish rejimi (oddiy, faqat yorug'lik, normallar, albedo ...) va wireframe, fizik
-colliderlar, debug chizish, statistika overlay, ikonkalar va komponent gizmolari, obyekt nomlari, **Lokal / Global
-koordinatalar**, **O'yinda to'liq oyna** (Maximize on Play). O'yin rejimida chapda **O'yin oynasi o'lchami**
-(Erkin yoki aniq o'lcham / nisbat).
+**The toolbar** (left to right): **Select** (`Q`), **Move** (`W`; `Alt` + drag — drag a copy),
+**Rotate** (`E`), **Scale** (`R`), the gizmo pivot (at the selection center / on the primary entity), snapping (the magnet;
+holding `Ctrl` — temporarily the opposite) and the snapping step; in the middle **Play** (`Ctrl+P`), **Simulate
+physics**, **Pause**, **One frame forward**; on the right **Show all** (`Shift+F`), the camera bookmarks, the axis
+views (from the top, front, side ...), the camera settings (fly speed, acceleration, FOV, near / far ...),
+the **2D / 3D** mode, the grid, the view mode (normal, lighting only, normals, albedo ...) and wireframe, physics
+colliders, debug drawing, the statistics overlay, icons and component gizmos, entity names, **Local / Global
+coordinates**, **Maximize on Play**. In play mode, on the left, the **Game view size**
+(Free, or an exact size / aspect ratio).
 
-**Kamera boshqaruvi** (3D):
+**Camera controls** (3D):
 
-| Harakat | Natija |
+| Action | Result |
 |---|---|
-| O'ng tugma + `W A S D` (`Q` / `E` — pastga / yuqoriga, `Shift` — tezroq) | Kamerada uchish |
-| O'ng tugma + g'ildirak | Uchish tezligi |
-| `Alt` + chap tugma | Aylanib qarash (orbit) |
-| O'rta tugma | Surish (pan) |
-| G'ildirak, `Alt` + o'ng tugma | Yaqinlashish / uzoqlashish |
-| `F` / `Shift+F` | Tanlovga fokus / butun sahna |
-| `1`..`5` / `Ctrl+1`..`5` | Kamera xatcho'piga qaytish / saqlash |
-| Numpad `7` `1` `3` (`Ctrl` bilan teskari), `5`, `0` | Yuqoridan / old / o'ng ortografik ko'rinish, perspektiv ↔ ortografik, erkin perspektiv |
+| Right button + `W A S D` (`Q` / `E` — down / up, `Shift` — faster) | Fly the camera |
+| Right button + wheel | The fly speed |
+| `Alt` + left button | Orbit |
+| Middle button | Pan |
+| Wheel, `Alt` + right button | Zoom in / out |
+| `F` / `Shift+F` | Focus on the selection / the whole scene |
+| `1`..`5` / `Ctrl+1`..`5` | Return to / save a camera bookmark |
+| Numpad `7` `1` `3` (opposite with `Ctrl`), `5`, `0` | Top / front / right orthographic view, perspective ↔ orthographic, free perspective |
 
-**2D rejim** (asboblar panelidagi **2D**): kamera XY tekisligiga qaraydi, surish va zoom. 2D sahna ochilganda editor
-o'zi 2D rejimga o'tadi.
+**2D mode** (**2D** in the toolbar): the camera looks at the XY plane, with pan and zoom. When a 2D scene opens, the editor
+switches to 2D mode by itself.
 
-**Tanlash**: chap tugma bilan bosish (`Ctrl` / `Shift` bilan — tanlovga qo'shish); UI elementlari to'rtburchagi
-bo'yicha (**Ko'rinish → UI elementlarini tanlash**). Bir nechta tanlangan obyekt gizmo bilan birga suriladi (gizmo
-markazi — asosiy obyekt yoki tanlov markazi). Gizmo bilan sudrashda `Ctrl+D` — shu joyda nusxa qoldirib davom etish.
-Collider, spline, joint anchor va polygon nuqtalari inspektordagi tahrirlash tugmasi bilan viewport'da suriladi.
+**Selecting**: click with the left button (with `Ctrl` / `Shift` — add to the selection); UI elements by their rectangle
+(**View → Select UI elements**). Several selected entities move together with the gizmo (the gizmo
+pivot is the primary entity or the selection center). While dragging with the gizmo, `Ctrl+D` leaves a copy in place and goes on.
+Collider, spline, joint anchor and polygon points are moved in the viewport with the edit button in the inspector.
 
-**Sudrab tashlash**: kontent brauzerdan sahna, prefab (bir nechtasini birga; `Shift` — ketma-ket qo'yishda davom
-etish), rasm, model va ovoz fayllarini viewport'ga tashlash mumkin; material (`.zmat`) sichqoncha ostidagi mesh'ga
-qo'yiladi. Tizim fayl menejeridan editor oynasiga tashlangan fayllar `Assets` ga nusxalanadi (import).
+**Drag and drop**: scenes, prefabs (several together; `Shift` — keep placing one after another), pictures, models and
+sound files can be dropped from the content browser onto the viewport; a material (`.zmat`) goes onto the mesh under the
+mouse. Files dropped onto the editor window from the system's file manager are copied into `Assets` (import).
 
-**Qo'shimcha ko'rinishlar**: **Oyna → Ko'rinishlar** — har biri o'z kamerasi bilan (masalan yuqoridan ortografik);
-**4 ko'rinish (2x2 joylashuv)**.
+**Extra views**: **Window → Views** — each with its own camera (for example an orthographic view from the top);
+**4 views (2x2 layout)**.
 
-## 6. Inspektor
+## 6. Inspector
 
-Sarlavha: faollik belgisi (obyektni o'yinda o'chirish), obyekt ikonkasi va nomi, **Hamma komponentlarni yig'ish /
-ochish**, **+ Komponent** (qidiruv bilan, bo'limlarga ajratilgan menyu; nusxalangan komponent bo'lsa — **Buferdan
-joylash**). Ostida `ID`, nofaollik sababi, yashirin / qulflangan belgilar va prefab nusxasi bo'lsa — prefab paneli
+The header: the activity checkbox (turns the entity off in the game), the entity's icon and name, **Collapse all / expand all
+components**, **+ Component** (a menu with a search, split into sections; when a component was copied — **Paste
+from clipboard**). Below it the `ID`, the reason for inactivity, the hidden / locked markers and, for a prefab instance, the prefab panel
 (Apply / Revert).
 
-Har komponent bo'limi yig'iladi; sarlavhadagi tishli g'ildirak menyusi: **Komponentni nusxalash**, joylash,
-**Yuqoriga / Pastga ko'chirish**, **Eng yuqoriga / Eng pastga**, **Komponentni olib tashlash**. Transform menyusida
-alohida tiklash va joylash (faqat pozitsiya / aylanish / masshtab).
+Every component section collapses; the cog menu in its header: **Copy component**, paste,
+**Move up / Move down**, **To the top / To the bottom**, **Remove component**. The Transform menu has
+its own reset and paste (position / rotation / scale only).
 
-Maydonlar: sonlarni sichqoncha bilan sudrab yoki ikki marta bosib yozib o'zgartirish mumkin; asset maydonlariga
-(tekstura, model, ovoz, material) kontent brauzerdan sudrab tashlanadi; obyekt havolalariga — ierarxiyadan. Barcha
-o'zgarishlar undo qilinadi. Bir nechta obyekt tanlanganda asosiy (oxirgi tanlangan) obyekt ko'rsatiladi, ko'p amallar
-hammasiga qo'llanadi.
+Fields: numbers can be changed by dragging with the mouse or by double-clicking and typing; assets
+(textures, models, sounds, materials) are dragged onto asset fields from the content browser; entities onto entity references — from the hierarchy. Every
+change can be undone. With several entities selected the primary (last selected) entity is shown, and most operations
+apply to all of them.
 
-Kontent brauzerda asset (rasm, model, ovoz, material, sprite kliplari ...) tanlansa, inspektor uning import
-sozlamalari va ko'rinishini ko'rsatadi.
+When an asset (a picture, model, sound, material, sprite clips ...) is selected in the content browser, the inspector shows its import
+settings and a preview.
 
-## 7. Kontent brauzer
+## 7. The content browser
 
-- Loyiha papkasi bo'ylab navigatsiya (`Enter` — ochish, `Backspace` — yuqori papka, yo'l satri), katakcha / ro'yxat
-  ko'rinishi, katakcha o'lchami (`Ctrl` + g'ildirak), rasm, model, material, prefab va sahnalar uchun kichik rasmlar.
-- **Qidirish** (`Ctrl+F`): nom, `*.png`, `t:rasm` kabi tur filtrlari; filtr tugmasi.
-- Katta papkalar: katakcha ko'rinishida faqat ekrandagi qatorlar chiziladi (ro'yxat ko'rinishi kabi `ImGuiListClipper`) —
-  5 000 faylli papka ham sekinlashtirmaydi. Avtomatlashtirish: `ZAMIN_EDITOR_PANEL_TIMES=1` chiqishda ierarxiya ro'yxati
-  va katakchalar vaqtini logga yozadi, `ZAMIN_EDITOR_NO_CLIPPER=1` solishtirish uchun hammasini chizadi.
-- Bo'sh joyga o'ng tugma: **Yangi papka**, **Yangi sahna**, **Yangi C++ skript...**, **Yangi animatsiya klipi**,
-  **Yangi sprite animatsiya klipi** va boshqalar. Faylga o'ng tugma: nomini o'zgartirish (`F2`), o'chirish (`Delete`),
-  sahna uchun **Boshlang'ich sahna qilish** va hokazo.
-- Fayllarni tizim fayl menejeridan editor oynasiga sudrab tashlash — `Assets` ga import.
-- Har bir asset yonida `.zmeta` fayli (UUID va import sozlamalari) — uni versiya nazoratiga qo'shing; nomni editorda
-  o'zgartirsangiz havolalar buzilmaydi.
+- Navigating the project folder (`Enter` — open, `Backspace` — the parent folder, the path bar), a grid / list
+  view, the tile size (`Ctrl` + wheel), small pictures for images, models, materials, prefabs and scenes.
+- **Search** (`Ctrl+F`): a name, `*.png`, type filters like `t:rasm`; a filter button.
+- Large folders: in the grid view only the rows on screen are drawn (`ImGuiListClipper`, like the list view) —
+  even a 5 000-file folder does not slow it down. Automation: `ZAMIN_EDITOR_PANEL_TIMES=1` writes the times of the hierarchy list
+  and the tiles to the log on exit, `ZAMIN_EDITOR_NO_CLIPPER=1` draws everything for a comparison.
+- Right-clicking an empty spot: **New folder**, **New scene**, **New C++ script...**, **New animation clip**,
+  **New sprite animation clip** and more. Right-clicking a file: rename (`F2`), delete (`Delete`),
+  **Make start scene** for a scene, and so on.
+- Dragging files from the system's file manager onto the editor window imports them into `Assets`.
+- Next to every asset is a `.zmeta` file (the UUID and import settings) — add it to version control; when you rename a file in the
+  editor the references do not break.
 
-![Asset inspektori](images/editor-asset-inspector.jpg)
+![The asset inspector](images/editor-asset-inspector.jpg)
 
-*Kontent brauzerda `Assets/Models/Robot.gltf` tanlangan: inspektor modelni aylanadigan 3D ko'rinishda (animatsiyalarni
-o'ynatish bilan), yo'li, UUID'si va ma'lumotlari (submeshlar, uchburchaklar, skelet) bilan ko'rsatadi.*
+*`Assets/Models/Robot.gltf` selected in the content browser: the inspector shows the model in a rotating 3D view (playing its
+animations), with its path, UUID and details (submeshes, triangles, skeleton).*
 
-## 8. O'yin rejimi: Play, Simulate, Pauza
+## 8. Play mode: Play, Simulate, Pause
 
-- **O'ynash** (`Ctrl+P`, yoki `Shift+Escape` — to'xtatish): sahna nusxasi yaratiladi va o'yin shu nusxada ishlaydi —
-  skriptlar, fizika, audio, animatsiya, UI. Editor ramkasi rangi o'zgaradi (**Sozlamalar → O'yin rejimi**). **Stop**
-  bosilganda o'yin paytidagi hamma o'zgarishlar yo'qoladi va tahrirlangan sahna qaytadi — sahnani o'zgartirish uchun
-  avval to'xtating. O'yin paytida inspektordagi qiymatlarni o'zgartirib tajriba qilish mumkin (saqlanmaydi).
-- **Fizikani simulyatsiya qilish**: skriptlarsiz faqat fizika ishlaydi, editor kamerasi bilan kuzatiladi.
-- **Pauza** va **Bir kadr oldinga** — kadrma-kadr ko'rish.
-- O'yin rejimida klaviatura va sichqoncha viewport fokusda bo'lganda o'yinga boradi.
-- O'yin sahnalar almashtirsa (`LoadScene`), **Stop** dan keyin editor boshlang'ich sahnaga va avvalgi holatiga qaytadi.
-- Prefab rejimida o'yin ishga tushmaydi.
+- **Play** (`Ctrl+P`, or `Shift+Escape` — stop): a copy of the scene is made and the game runs in that copy —
+  scripts, physics, audio, animation, UI. The color of the editor frame changes (**Preferences → Play mode**). When **Stop**
+  is pressed every change made during play is lost and the edited scene comes back — stop first to change the
+  scene. During play you can experiment by changing values in the inspector (they are not saved).
+- **Simulate physics**: only physics runs, without scripts, watched with the editor camera.
+- **Pause** and **One frame forward** — frame-by-frame viewing.
+- In play mode the keyboard and the mouse go to the game while the viewport has the focus.
+- When the game switches scenes (`LoadScene`), after **Stop** the editor returns to the start scene and its previous state.
+- The game does not start in prefab mode.
 
-## 9. Konsol va kompilyatsiya
+## 9. The console and compiling
 
-**Konsol**: dvigatel (`ZAMIN`) va o'yin / editor (`APP`) xabarlari, daraja bo'yicha ranglar. Matn bo'yicha filtr
-(regex va katta-kichik harf variantlari), darajalar, bir xil xabarlarni guruhlash, vaqt ko'rsatish, Play'da tozalash,
-xabarni nusxalash (`Ctrl+C`). Log darajalari va log fayli — **Sozlamalar → Log** ([Core.md](Core.md)).
+**Console**: the messages of the engine (`ZAMIN`) and of the game / editor (`APP`), colored by level. A text filter
+(regex and case-sensitivity options), the levels, grouping identical messages, showing the time, clearing on Play,
+copying a message (`Ctrl+C`). The log levels and the log file — **Preferences → Log** ([Core.md](Core.md)).
 
-**Kompilyatsiya** oynasi (**Oyna → Kompilyatsiya**): **Muammolar** — xato va ogohlantirishlar ro'yxati (bosilganda
-fayl shu qatorda [ichki kod muharririda](CodeEditor.md) ochiladi), **To'liq chiqish** — CMake va kompilyator chiqishi. Batafsil:
+The **Compilation** window (**Window → Compilation**): **Problems** — the list of errors and warnings (clicking one opens the
+file at that line in the [built-in code editor](CodeEditor.md)), **Full output** — the CMake and compiler output. More:
 [Scripting.md](Scripting.md#20-kompilyatsiya-va-hot-reload).
 
-## 10. Boshqa oynalar
+## 10. Other windows
 
-| Oyna | Vazifasi | Batafsil |
+| Window | Purpose | More |
 |---|---|---|
-| Loyiha sozlamalari | Player, grafika, sifat darajalari, input, teglar, fizika qatlamlari, saralash qatlamlari, build sahnalar, audio, lokalizatsiya, saqlangan ma'lumotlar ... | [ProjectSettings.md](ProjectSettings.md) |
-| Statistika | FPS, kadr vaqti, render (draw call, uchburchak), fizika, xotira, vazifalar tizimi | — |
-| Sahna statistikasi | Sahnadagi obyektlar, komponentlar, assetlar va ularning hajmi | — |
-| Profiler | Kadr ichidagi bosqichlar vaqti (CPU) | — |
-| Audio Mixer | Mixer guruhlari, ovoz balandligi, mute / solo, filtrlar, daraja o'lchagichlari | — |
-| Lokalizatsiya | Til fayllari jadvali (kalitlar x tillar) | [ProjectSettings.md](ProjectSettings.md) |
-| Animatsiya | `.zanim` kliplar timeline'i: kalitlar, egri chiziqlar, event'lar | [Animation.md](Animation.md) |
-| Animator grafi | Animator holat mashinasining grafi | [Animation.md](Animation.md) |
-| Sprite muharriri | Teksturani nomlangan kadrlarga kesish (sprite varag'i) | — |
-| Plitka palitrasi | Tilemap chizish: mo'yqalam (`B`), to'rtburchak (`R`), to'ldirish (`G`), o'chirg'ich (`E`), pipetka (`I`) | — |
-| Ishlatilmagan assetlar | Hech qayerda ishlatilmayotgan fayllar | [Runtime.md](Runtime.md) |
-| Undo tarixi | Bajarilgan amallar ro'yxati, istalganiga qaytish | 11-bo'lim |
-| Sahnalar | Loyiha sahnalari, build ro'yxati | [Scenes.md](Scenes.md) |
+| Project settings | Player, graphics, quality levels, input, tags, physics layers, sorting layers, build scenes, audio, localization, saved data ... | [ProjectSettings.md](ProjectSettings.md) |
+| Statistics | FPS, frame time, render (draw calls, triangles), physics, memory, the job system | — |
+| Scene statistics | The entities, components and assets in the scene and their size | — |
+| Profiler | The time of the stages inside a frame (CPU) | — |
+| Audio Mixer | Mixer groups, volume, mute / solo, filters, level meters | — |
+| Localization | The table of the language files (keys x languages) | [ProjectSettings.md](ProjectSettings.md) |
+| Animation | The timeline of `.zanim` clips: keys, curves, events | [Animation.md](Animation.md) |
+| Animator graph | The graph of an Animator's state machine | [Animation.md](Animation.md) |
+| Sprite editor | Cutting a texture into named frames (a sprite sheet) | — |
+| Tile palette | Drawing a tilemap: brush (`B`), rectangle (`R`), fill (`G`), eraser (`E`), picker (`I`) | — |
+| Unused assets | Files that are not used anywhere | [Runtime.md](Runtime.md) |
+| Undo history | The list of performed operations, going back to any of them | section 11 |
+| Scenes | The project's scenes, the build list | [Scenes.md](Scenes.md) |
 
-Prefab rejimi (prefabni alohida tahrirlash), Apply / Revert va variantlar: [Prefabs.md](Prefabs.md).
+Prefab mode (editing a prefab on its own), Apply / Revert and variants: [Prefabs.md](Prefabs.md).
 
-## 11. Undo, avtosaqlash va tiklash
+## 11. Undo, autosave and recovery
 
-- Sahnadagi deyarli har bir amal (yaratish, o'chirish, ko'chirish, komponent maydonlari, ierarxiya, tanlov) undo
-  qilinadi: `Ctrl+Z`, `Ctrl+Y` (yoki `Ctrl+Shift+Z`), **Undo tarixi** (`Ctrl+H`). Prefab fayllariga yozish ham.
-- **Avtosaqlash**: saqlanmagan o'zgarishlar bo'lsa, editor ochiq sahnaning xavfsizlik nusxasini muntazam yozadi
-  (`<loyiha>/.zamin/autosave/`, asl fayl o'zgarmaydi); oraliq — **Sozlamalar → Saqlash va undo**. Editor kutilmaganda
-  yopilsa, sahna ochilganda nusxani tiklash taklif qilinadi.
-- Buzilgan sahna fayli ochilmasa, editor uni qisman tiklashni taklif qiladi ([Scenes.md](Scenes.md)).
+- Almost every operation in the scene (create, delete, move, component fields, the hierarchy, the selection) can be
+  undone: `Ctrl+Z`, `Ctrl+Y` (or `Ctrl+Shift+Z`), **Undo history** (`Ctrl+H`). Writes to prefab files too.
+- **Autosave**: while there are unsaved changes, the editor regularly writes a safety copy of the open scene
+  (`<project>/.zamin/autosave/`, the original file does not change); the interval — **Preferences → Saving and undo**. When the editor
+  closes unexpectedly, recovering the copy is offered when the scene is opened.
+- When a broken scene file does not open, the editor offers to recover it partly ([Scenes.md](Scenes.md)).
 
-## 12. Sozlamalar, joylashuvlar, til
+## 12. Preferences, layouts, language
 
-**Tahrirlash → Sozlamalar...** (`Ctrl+,`) sahifalari: **Ko'rinish** (asosiy rang, shrift o'lchami, til), **O'yin
-rejimi** (UI rang tusi), **Konsol**, **Editor kamerasi** (tezlik, FOV, Y o'qi), **Saqlash va undo** (avtosaqlash),
-**Tashqi muharrir** (kodni ochadigan dastur), **Ishlash** (bo'sh turganda FPS ni kamaytirish), **Log**. Sozlamalar
-`~/.config/zamin/preferences.json` da saqlanadi (barcha loyihalar uchun umumiy).
+The pages of **Edit → Preferences...** (`Ctrl+,`): **View** (the accent color, the font size, the language), **Play
+mode** (the UI tint), **Console**, **Editor camera** (speed, FOV, the Y axis), **Saving and undo** (autosave),
+**External editor** (the program that opens code), **Performance** (lowering the FPS while idle), **Log**. The preferences
+are kept in `~/.config/zamin/preferences.json` (shared by all projects).
 
-**Joylashuvlar** (**Oyna → Joylashuv**): tayyorlari — **Standart**, **2D**, **Animatsiya**, **4 ko'rinish**;
-joriysini nom bilan saqlash va boshqarish.
+**Layouts** (**Window → Layout**): the ready-made ones — **Default**, **2D**, **Animation**, **4 views**;
+saving the current one under a name and managing them.
 
-**Til**: editor interfeysi o'zbekcha yoki inglizcha (**Sozlamalar → Ko'rinish**). O'yin matnlarining tili alohida —
-[ProjectSettings.md](ProjectSettings.md). Matnlar `Tr("...")` orqali o'tadi (o'zbekchasi kalit, inglizchasi
-`EditorLanguage.cpp` jadvalida; `UI::PropertyLabel` / `PropertyHeader` / `Property*` yorliqlarini o'zi tarjima
-qiladi). `ZaminTests` dagi `EditorTranslationKeysComplete` testi editor kodidagi har bunday yorliqning inglizchasi
-borligini tekshiradi va yo'qlarini fayl nomi bilan chiqaradi; yangi yorliq qo'shganda jadvalga juftini ham qo'shing.
-Uzun izohlar (tooltiplar, `TextDisabled` maslahatlari) hozircha faqat o'zbekcha.
+**Language**: the editor interface is in English or Uzbek (**Preferences → View**). The language of the game's texts is separate —
+[ProjectSettings.md](ProjectSettings.md). The texts go through `Tr("...")` (the Uzbek text is the key, the English one is in the
+`EditorLanguage.cpp` table; `UI::PropertyLabel` / `PropertyHeader` / `Property*` translate their labels
+themselves). The `EditorTranslationKeysComplete` test in `ZaminTests` checks that every such label in the editor code has an
+English text and lists the missing ones with their file names; when you add a new label, add its pair to the table too.
+Long hints (tooltips, `TextDisabled` hints) go through the same table.
 
-## 13. Klaviatura yorliqlari
+## 13. Keyboard shortcuts
 
-**Yordam → Klaviatura yorliqlari** (`F1`) — hamma yorliqlar ro'yxati; ko'pchiligini shu oynada qayta bog'lash mumkin
-(o'zgarishlar sozlamalarda saqlanadi). Standartlari:
+**Help → Keyboard shortcuts** (`F1`) — the list of all the shortcuts; most of them can be rebound in this window
+(the changes are kept in the preferences). The defaults:
 
-| Bo'lim | Yorliq | Amal |
+| Section | Shortcut | Action |
 |---|---|---|
-| Fayl | `Ctrl+N` / `Ctrl+O` / `Ctrl+S` / `Ctrl+Shift+S` | Yangi sahna / Sahnani ochish / Saqlash / Boshqacha saqlash |
-| Fayl | `Ctrl+Shift+O` | Loyihani ochish |
-| Tahrirlash | `Ctrl+Z` / `Ctrl+Y` (`Ctrl+Shift+Z`) | Bekor qilish / Qaytarish |
-| Tahrirlash | `Ctrl+H` | Undo tarixi oynasi |
-| Tahrirlash | `Ctrl+C` / `Ctrl+V` / `Ctrl+D` | Nusxalash / Joylash / Nusxa olish (dublikat) |
-| Tahrirlash | `Ctrl+,` | Sozlamalar oynasi |
-| Tanlov | `Delete` / `Ctrl+A` | O'chirish / Hammasini tanlash |
-| Tanlov | `Alt+Shift+A` | Faol / nofaol qilish |
-| Tanlov | `H` / `Alt+H` | Editorda yashirish / ko'rsatish, Hammasini ko'rsatish |
-| O'yin | `Ctrl+P` / `Shift+Escape` | O'ynash / to'xtatish, O'yinni to'xtatish |
-| O'yin | `Ctrl+B` | Skriptlarni kompilyatsiya qilish |
-| Asboblar (viewport) | `Q` / `W` / `E` / `R` | Tanlash / Siljitish / Aylantirish / Masshtab |
-| Kamera (viewport) | `F` / `Shift+F` | Tanlovga fokus / Butun sahnani ko'rsatish |
-| Kamera (viewport) | `1`..`5` / `Ctrl+1`..`5` | Xatcho'pga qaytish / saqlash |
-| Kamera (viewport) | Numpad `7` `1` `3` `5` `0` (`Ctrl` bilan teskari) | Ortografik ko'rinishlar, perspektiv / ortografik, erkin perspektiv |
-| Plitka chizish | `B` / `R` / `G` / `E` / `I` | Mo'yqalam / To'rtburchak / To'ldirish / O'chirg'ich / Pipetka |
-| Plitka chizish | `Escape`, `Q`, `W` / `Shift` + chap tugma | Chizishdan chiqish / Vaqtincha o'chirish |
-| Nuqtalar va langarlar | `Escape`, `Q`, `W` / `Delete` / `Ctrl` + chap tugma | Tahrirlashdan chiqish / Nuqtani o'chirish / Nuqtani olib tashlash |
-| Oynalar | `F1` | Klaviatura yorliqlari |
-| Ierarxiya, Kontent | `F2` | Nomini o'zgartirish |
-| Kontent | `Delete` / `Ctrl+A` / `Ctrl+F` / `Enter` / `Backspace` / `Escape` | O'chirish / Hammasini tanlash / Qidiruv / Ochish / Yuqori papka / Tanlovni bekor qilish |
-| Konsol | `Ctrl+C` | Xabarni nusxalash |
-| Animatsiya | `Space` / `K` / `Delete` / `F` / `Home` / `End` / `←` `→` | Ijro-pauza / Kalit qo'shish / Kalitlarni o'chirish / Hammasini ko'rsatish / Boshiga / Oxiriga / Oldingi-keyingi kadr |
-| Animator grafi | `Delete` / `F` / `Escape` | O'chirish / Hammasini ko'rsatish / Bog'lashni bekor qilish |
-| Sprite muharriri | `Delete` / `F` | Kadrni o'chirish / Hammasini ko'rsatish |
+| File | `Ctrl+N` / `Ctrl+O` / `Ctrl+S` / `Ctrl+Shift+S` | New scene / Open scene / Save / Save as |
+| File | `Ctrl+Shift+O` | Open project |
+| Edit | `Ctrl+Z` / `Ctrl+Y` (`Ctrl+Shift+Z`) | Undo / Redo |
+| Edit | `Ctrl+H` | The Undo history window |
+| Edit | `Ctrl+C` / `Ctrl+V` / `Ctrl+D` | Copy / Paste / Duplicate |
+| Edit | `Ctrl+,` | The Preferences window |
+| Selection | `Delete` / `Ctrl+A` | Delete / Select all |
+| Selection | `Alt+Shift+A` | Activate / deactivate |
+| Selection | `H` / `Alt+H` | Hide / show in the editor, Show all |
+| Play | `Ctrl+P` / `Shift+Escape` | Play / stop, Stop the game |
+| Play | `Ctrl+B` | Compile the scripts |
+| Tools (viewport) | `Q` / `W` / `E` / `R` | Select / Move / Rotate / Scale |
+| Camera (viewport) | `F` / `Shift+F` | Focus on the selection / Show the whole scene |
+| Camera (viewport) | `1`..`5` / `Ctrl+1`..`5` | Return to / save a bookmark |
+| Camera (viewport) | Numpad `7` `1` `3` `5` `0` (opposite with `Ctrl`) | Orthographic views, perspective / orthographic, free perspective |
+| Tile painting | `B` / `R` / `G` / `E` / `I` | Brush / Rectangle / Fill / Eraser / Picker |
+| Tile painting | `Escape`, `Q`, `W` / `Shift` + left button | Leave painting / Erase temporarily |
+| Points and anchors | `Escape`, `Q`, `W` / `Delete` / `Ctrl` + left button | Leave editing / Delete the point / Remove the point |
+| Windows | `F1` | Keyboard shortcuts |
+| Hierarchy, Content | `F2` | Rename |
+| Content | `Delete` / `Ctrl+A` / `Ctrl+F` / `Enter` / `Backspace` / `Escape` | Delete / Select all / Search / Open / Parent folder / Clear selection |
+| Console | `Ctrl+C` | Copy the message |
+| Animation | `Space` / `K` / `Delete` / `F` / `Home` / `End` / `←` `→` | Play-pause / Add a key / Delete keys / Show all / To the start / To the end / Previous-next frame |
+| Animator graph | `Delete` / `F` / `Escape` | Delete / Show all / Cancel linking |
+| Sprite editor | `Delete` / `F` | Delete the frame / Show all |
 
-Jadval `Zamin/src/Zamin/Editor/ShortcutRegistry.cpp` (`RegisterEditorShortcuts`) dagi ro'yxatdan olingan.
+The table is taken from the list in `Zamin/src/Zamin/Editor/ShortcutRegistry.cpp` (`RegisterEditorShortcuts`).
 
-## 14. O'yinni build qilish
+## 14. Building the game
 
-**Fayl → O'yinni build qilish...** — chiqish papkasini tanlang (ixtiyoriy: sahnalarni binar keshga ham yozish
-`.zsceneb`). Editor skript modulini Release'da qayta kompilyatsiya qiladi, ishlatilgan assetlarni, `ZaminPlayer`,
-`libZamin.so`, `Resources`, `.sh` launcher va `.desktop` faylini papkaga yig'adi, prefab'larni tekshiradi va
-**Eksport hisoboti** oynasini ochadi (`export-report.json` / `.txt`). Tayyor o'yin `<O'yin>.sh` bilan ishga tushadi.
-Batafsil: [Runtime.md](Runtime.md#11-eksport).
+**File → Build game...** — choose the output folder (optionally: also write the scenes to a binary cache,
+`.zsceneb`). The editor recompiles the script module in Release, collects the assets in use, `ZaminPlayer`,
+`libZamin.so`, `Resources`, the `.sh` launcher and the `.desktop` file into the folder, checks the prefabs and opens the
+**Export report** window (`export-report.json` / `.txt`). The finished game starts with `<Game>.sh`.
+More: [Runtime.md](Runtime.md#11-eksport).
 
-## 15. Avtomatlashtirish (skrinshotlar, CI)
+## 15. Automation (screenshots, CI)
 
-Editor muhit o'zgaruvchilari bilan boshqariladi — headless skrinshotlar, testlar va CI uchun (`Tests/editor_smoke.sh`,
-`Tests/export_test.sh`, `Tests/hot_reload_test.sh`). Eng ko'p ishlatiladiganlari:
+The editor is driven by environment variables — for headless screenshots, tests and CI (`Tests/editor_smoke.sh`,
+`Tests/export_test.sh`, `Tests/hot_reload_test.sh`). The most used ones:
 
-| O'zgaruvchi | Natija |
+| Variable | Result |
 |---|---|
-| `ZAMIN_MAX_FRAMES=N` | N kadrdan keyin yopiladi (bo'sh turganda sekinlashmaydi) |
-| `ZAMIN_SCREENSHOT=<fayl.png>` | Oxirgi kadr rasmi |
-| `ZAMIN_EDITOR_NEW_PROJECT="<papka>\|<Nom>"` | Shu nomli yangi loyiha yaratib ochadi (launcher'dagi kabi) |
-| `ZAMIN_EDITOR_SCENE=<Scenes/X.zscene>` | Shu sahnani ochadi |
-| `ZAMIN_EDITOR_SELECT=<obyekt nomi>` | Obyektni tanlaydi (inspektorda ko'rinadi) |
-| `ZAMIN_EDITOR_INSPECTOR_BOTTOM=1` | Inspektor oxirigacha suriladi (kattaroq son — shuncha piksel) |
-| `ZAMIN_EDITOR_PLAY=1` | O'yin rejimini boshlaydi (`ZAMIN_EDITOR_TIME_SCALE` — vaqt masshtabi) |
-| `ZAMIN_EDITOR_CAMERA="x,y,z,masofa,pitch,yaw"` | Editor kamerasi shu nuqtaga qaraydi |
-| `ZAMIN_EDITOR_MENU=<Fayl\|Tahrirlash\|...>` | Shu menyu ochiq turadi |
-| `ZAMIN_EDITOR_LAYOUT=<Default\|2D\|Animation\|FourViews\|nom>` | Joylashuvni qo'llaydi |
-| `ZAMIN_EDITOR_OPEN_PREFAB=<Prefabs/X.zprefab>` | Prefabni prefab rejimida ochadi |
-| `ZAMIN_EDITOR_VISUAL_GRAPH=<Scripts/X.zgraph>` | Blueprint graphini ochadi; `ZAMIN_EDITOR_VISUAL_NODE=<id>` uning node'ini inspektorda tanlaydi |
-| `ZAMIN_EDITOR_GRAPH_QA=<Scripts/A.zgraph,Scripts/B.zgraph>` | Blueprint oynasi graflarni navbat bilan ochadi (10-kadrdan har 20 kadrda, oxirgisi ochiq qoladi) va har biri uchun `Blueprint graph QA: … nodes, … links, … variables, … diagnostics` qatorini yozadi (`Tests/slice_editor_test.py`) |
-| `ZAMIN_EDITOR_NEW_SCRIPT=<Klass>[\|minimal]` | Yangi skript yaratib kompilyatsiya qiladi (`dialog` — oynani ochadi) |
-| `ZAMIN_EDITOR_BUILD=1` | Skriptlarni kompilyatsiya qiladi |
-| `ZAMIN_EDITOR_EXPORT=<papka>` | O'yinni shu papkaga eksport qiladi |
-| `ZAMIN_EDITOR_OPEN_ALL_PANELS=1` | Smoke test: hamma oyna, menyu va inspektorlarni ochib chiqadi, xato bo'lsa 1 kodi bilan yopiladi |
-| `ZAMIN_EDITOR_STATS=1` | Oxirgi kadr statistikasini logga ham yozadi |
+| `ZAMIN_MAX_FRAMES=N` | Closes after N frames (it does not slow down while idle) |
+| `ZAMIN_SCREENSHOT=<file.png>` | A picture of the last frame |
+| `ZAMIN_EDITOR_NEW_PROJECT="<folder>\|<Name>"` | Creates a new project with that name and opens it (like the launcher) |
+| `ZAMIN_EDITOR_SCENE=<Scenes/X.zscene>` | Opens that scene |
+| `ZAMIN_EDITOR_SELECT=<entity name>` | Selects the entity (it shows in the inspector) |
+| `ZAMIN_EDITOR_INSPECTOR_BOTTOM=1` | Scrolls the inspector to the end (a larger number — that many pixels) |
+| `ZAMIN_EDITOR_PLAY=1` | Starts play mode (`ZAMIN_EDITOR_TIME_SCALE` — the time scale) |
+| `ZAMIN_EDITOR_CAMERA="x,y,z,distance,pitch,yaw"` | The editor camera looks at that point |
+| `ZAMIN_EDITOR_MENU=<Fayl\|Tahrirlash\|...>` | That menu stays open (named by the menu's translation key: Fayl = File, Tahrirlash = Edit, ...) |
+| `ZAMIN_EDITOR_LAYOUT=<Default\|2D\|Animation\|FourViews\|name>` | Applies the layout |
+| `ZAMIN_EDITOR_OPEN_PREFAB=<Prefabs/X.zprefab>` | Opens the prefab in prefab mode |
+| `ZAMIN_EDITOR_VISUAL_GRAPH=<Scripts/X.zgraph>` | Opens a Blueprint graph; `ZAMIN_EDITOR_VISUAL_NODE=<id>` selects one of its nodes in the inspector |
+| `ZAMIN_EDITOR_GRAPH_QA=<Scripts/A.zgraph,Scripts/B.zgraph>` | The Blueprint window opens the graphs in turn (every 20 frames from frame 10, the last one stays open) and writes a `Blueprint graph QA: … nodes, … links, … variables, … diagnostics` line for each (`Tests/slice_editor_test.py`) |
+| `ZAMIN_EDITOR_NEW_SCRIPT=<Class>[\|minimal]` | Creates a new script and compiles it (`dialog` — opens the window) |
+| `ZAMIN_EDITOR_BUILD=1` | Compiles the scripts |
+| `ZAMIN_EDITOR_EXPORT=<folder>` | Exports the game to that folder |
+| `ZAMIN_EDITOR_OPEN_ALL_PANELS=1` | Smoke test: opens every window, menu and inspector and exits with code 1 on an error |
+| `ZAMIN_EDITOR_STATS=1` | Also writes the last frame's statistics to the log |
 
-Masalan, [2D qo'llanmadagi](Tutorial-2D.md) rasm shunday olingan:
+For example, the picture in the [2D tutorial](Tutorial-2D.md) was taken like this:
 
 ```bash
 ZAMIN_EDITOR_SELECT=Player ZAMIN_EDITOR_INSPECTOR_BOTTOM=1 ZAMIN_MAX_FRAMES=60 ZAMIN_SCREENSHOT=editor.png \
-    xvfb-run -a -s "-screen 0 1600x900x24" ./build/bin/ZaminEditor <loyiha>
+    xvfb-run -a -s "-screen 0 1600x900x24" ./build/bin/ZaminEditor <project>
 ```
 
-Player uchun o'zgaruvchilar: [Runtime.md](Runtime.md#14-avtomatlashtirish-uchun-muhit-ozgaruvchilari); testlar:
+The variables for the player: [Runtime.md](Runtime.md#14-avtomatlashtirish-uchun-muhit-ozgaruvchilari); the tests:
 [Testing.md](Testing.md).
 
-### World navigation route va portal authoring
+### World navigation route and portal authoring
 
-World Streaming panelidagi **Sparse navigation / route** loaded atlas cell/memory/link sonini,
-start va goal plane koordinatalarini ko‘rsatadi. **Find sparse route** status, cost, expansion va
-route diagrammasini chiqaradi: green walk, purple explicit traversal. Atlas revision o‘zgarsa
-preview `STALE` va gray bo‘ladi; qayta query qiling.
+**Sparse navigation / route** in the World Streaming panel shows the number of loaded atlas cells/memory/links and
+the start and goal plane coordinates. **Find sparse route** prints the status, cost, expansions and a
+route diagram: green walk, purple explicit traversal. When the atlas revision changes the
+preview turns `STALE` and gray; query again.
 
-Policy ichidagi **Traversal links (saved in .zworld)** ro‘yxatidan link qo‘shish/o‘chirish, endpoint,
-cost, two-way va enabled sozlanadi. **Saqlash va loyihaga ulash** authored faylni saqlaydi;
-**Apply authored links to running world** esa joriy runtime'ga qo‘llaydi. Gameplay linkni explicit
-complete qilishi kerak; panel collision/animation controller yaratmaydi. Atlas va legacy mosaic
-statistikalari alohida: uzoq tile'larda mosaic budjeti tugashi sparse atlas xatosi degani emas.
+In the **Traversal links (saved in .zworld)** list inside the policy, links are added/removed and their endpoints,
+cost, two-way and enabled are set. **Save and link to project** saves the authored file;
+**Apply authored links to running world** applies them to the current runtime. Gameplay has to complete a link
+explicitly; the panel does not create a collision/animation controller. The atlas and legacy mosaic
+statistics are separate: the mosaic budget running out on far tiles does not mean a sparse atlas error.
 
 ### NavAgent world traversal
 
-Nav Agent'da **World navigation** yoqilganda query expansion limit va runtime atlas/request/traversal
-soni ko‘rinadi. Mode almashtirilsa runtime path reset bo‘ladi. Pending link va ticket bilan
-**Complete traversal** yoki **Cancel traversal** mavjud; completion live CharacterController exit
-occupancy'ni tekshiradi. World rejimida eski grid smoothing/avoidance settings qo‘llanmaydi.
-Visual Script palette'da Navigation tugunlari va NavTraversalRequested event'i bor. WorldWorkshop
-`Scripts/WorldTraversal.zgraph` Message → destination va event → delay → completion → success branch
-namunasini beradi. B — yangi physics/graph actor, N — kinematic preview.
+When **World navigation** is on in a Nav Agent, the query expansion limit and the runtime atlas/request/traversal
+counts show. Switching the mode resets the runtime path. With a pending link and ticket there are
+**Complete traversal** and **Cancel traversal**; completion checks the live CharacterController exit
+occupancy. In world mode the old grid smoothing/avoidance settings do not apply.
+The Visual Script palette has the Navigation nodes and the NavTraversalRequested event. WorldWorkshop
+`Scripts/WorldTraversal.zgraph` gives a Message → destination and event → delay → completion → success branch
+sample. B — a new physics/graph actor, N — a kinematic preview.
 
-### Async world navigation diagnostikasi
+### Async world navigation diagnostics
 
-World Streaming / Sparse navigation bo‘limida queued/running/ready, submitted/delivered/cancelled/rejected/stale,
-retained snapshot/result MiB va worker total vaqt ko‘rinadi. Policy'da async navigation, workers, capacity,
-starts/results per tick sozlanadi; Save + runtime reload joriy service konfiguratsiyasini yangilaydi.
-WorldTraversal.zgraph'dagi NavQueryPending → Searching backend request holatini ko‘rsatadi. Bu portal pending
-hodisasidan alohida; pending query davomida agent planar harakat qilmaydi.
+The World Streaming / Sparse navigation section shows queued/running/ready, submitted/delivered/cancelled/rejected/stale,
+the retained snapshot/result MiB and the worker's total time. Async navigation, workers, capacity,
+starts/results per tick are set in the policy; Save + runtime reload updates the current service configuration.
+NavQueryPending → Searching in WorldTraversal.zgraph shows the state of the backend request. This is separate from the portal pending
+event; during a pending query the agent makes no planar movement.
 
-World NavAgent inspector’da **Predictive crowd steering**: neighbor distance, prediction horizon,
-priority, vertical height va qo‘shnilar/limited/blocked diagnostikasi bor. Preferred va steered velocity
-ko‘rsatiladi; world mode’da Spline o‘chirilgan, `SmoothPath` esa atlas worker’da ishlaydi.
-World Streaming panel’da crowd agent/check/limited/blocked sonlari va CPU vaqti chiqadi.
-WorldWorkshop2D/3D’da **C** to‘rt agentli crowd demo’ni yoqadi/o‘chiradi. `CrowdMonitor.zgraph`
-`NavSteeringState` orqali uchta runtime o‘zgaruvchini yangilaydi; graph’ni alohida actor’ga ulash mumkin.
+The world NavAgent inspector has **Predictive crowd steering**: neighbor distance, prediction horizon,
+priority, vertical height and the neighbors/limited/blocked diagnostics. The preferred and steered velocities
+are shown; in world mode Spline is off, and `SmoothPath` runs in the atlas worker.
+The World Streaming panel shows the crowd agent/check/limited/blocked counts and the CPU time.
+In WorldWorkshop2D/3D **C** turns the four-agent crowd demo on/off. `CrowdMonitor.zgraph`
+updates three runtime variables through `NavSteeringState`; the graph can be attached to a separate actor.
 
-World NavAgent’da **Recover from blocked movement**: stall timeout, retry cooldown, progress threshold,
-maximum retries va joriy phase/timer/counter ko‘rsatiladi. **Retry navigation** destination’ni saqlab
-watchdog va eskirgan traversal token’ini tiklaydi. World Streaming panel recovery holatlarini jamlaydi.
-WorldWorkshop2D/3D: **R** barrier/recovery demo, **T** explicit graph retry; qizil navigation region
-agentni Partial/Exhausted holatiga olib keladi va keyin ochilib, ayni manzilga yurishni tiklaydi.
+The world NavAgent has **Recover from blocked movement**: the stall timeout, retry cooldown, progress threshold,
+maximum retries and the current phase/timer/counter are shown. **Retry navigation** keeps the destination and
+resets the watchdog and the stale traversal token. The World Streaming panel sums up the recovery states.
+WorldWorkshop2D/3D: **R** the barrier/recovery demo, **T** an explicit graph retry; a red navigation region
+brings the agent to the Partial/Exhausted state, then opens and restores walking to the same destination.
 
-World Streaming panelining **Asset streaming and residency limits** (*Asset oqimi va rezidentlik limitlari*)
-bo‘limi Play paytida tayyorlangan / o‘qilmagan / bekor qilingan / byudjetdan oshgan fayllarni, upload navbati va
-band qilingan staging baytlarini, GPU’ga yuborilgan hajm va bitta kadr cho‘qqisini byudjetga nisbatan,
-asosiy oqimdagi decode/parse sonini (0 bo‘lsa yashil) hamda limit hisoblagichlarini (chiqarilgan, ushlab
-turilgan, rad etilgan kataklar, OS’ga qaytarilgan xotira) ko‘rsatadi. Gridda `Staging` bosqichi build rangi bilan,
-limit ushlab turgan katak to‘q sariq hoshiya bilan chiziladi. **Streaming siyosati** ichida
-*Evict far cells when over a limit*, cooldown va **Asset budget (texture / model)** maydonlari
-(fonda tayyorlash, kadrdagi upload soni/baytlari, bo‘shatiladigan GPU baytlari, fayl / katak / jami staging
-baytlari) tahrirlanadi; o‘zgarishlar Save + runtime reload bilan qo‘llanadi.
-[Tafsilotlar](Terrain.md#asset-byudjeti-rezidentlik-limitlari-va-kamera-yoli).
+The **Asset streaming and residency limits** section of the World Streaming panel
+shows, during Play, the files prepared / not read / cancelled / over budget, the upload queue and the
+reserved staging bytes, the size sent to the GPU and the peak of a single frame against the budget,
+the number of decodes/parses on the main thread (green when 0) and the limit counters (evicted, held,
+rejected cells, memory returned to the OS). In the grid the `Staging` stage is drawn in the build color, and a
+cell held by a limit with an orange border. Inside the **Streaming policy**,
+*Evict far cells when over a limit*, the cooldown and the **Asset budget (texture / model)** fields
+(background preparation, the uploads/bytes per frame, the GPU bytes to free, the file / cell / total staging
+bytes) are edited; the changes are applied with Save + runtime reload.
+[Details](Terrain.md#asset-byudjeti-rezidentlik-limitlari-va-kamera-yoli).
 
-Visual Script panel play rejimida matching scene instance’ning **Live variables** qiymatlarini yuqorida
-ko‘rsatadi (16 tagacha, uzun string’lar preview’da qisqartiriladi). Bu authoring default/override
-qiymatlaridan alohida; runtime debugger’ning to‘liq variables/trace bo‘limi ham saqlanadi.
+In play mode the Visual Script panel shows the **Live variables** values of the matching scene instance at the top
+(up to 16, long strings are shortened in the preview). This is separate from the authoring default/override
+values; the full variables/trace section of the runtime debugger is kept too.

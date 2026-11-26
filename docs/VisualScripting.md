@@ -2,7 +2,7 @@
 
 Zamin Visual Script is the engine's built-in `.zgraph` node editor and a bounded execution system.
 It works the same for 2D and 3D projects. A graph-based project needs neither a C++ compiler nor a game `.so` module.
-The gameplay graph authoring and execution part works with typed functions, collections, enums, debugging and a compiler-free export. Full parity with Unreal Blueprints is not claimed.
+The gameplay graph authoring and execution part works with typed functions, collections, enums, structs, debugging and a compiler-free export. Full parity with Unreal Blueprints is not claimed.
 
 ## Getting started
 
@@ -27,6 +27,7 @@ The file is written atomically; on a write error the edits stay in the window.
 - Typed Function.Entry/Call/Return: parameters, several results, separate local variables for each call, nested/delayed/recursive calls (depth 32). Old Function/Call graphs still work.
 - Enums: graph-local enums and enums imported from reflected C++ enum fields; Enum pins, variables, parameters, results and locals; Switch, Equal, ToNumber/ToText, FromNumber/FromText and ReadField/WriteField.Enum.
 - Collapse to function: the selected nodes become a typed function with a call in their place.
+- Structs: graph-local structs of typed fields; Struct/ArrayStruct pins, variables, parameters, results and locals; Make, Break, GetField, SetField and the array nodes.
 - Bool/Number/String/Vec2/Vec3/Vec4/Entity arrays: Empty, Append, Set, Remove, Get, Length, Contains, Find, Slice, Concat and a snapshot ForEach.
 - Event.Custom + EmitEvent: a named event inside a graph instance, with a Number/Text/Bool/Vector3/Other payload. SendMessage is used for a message to another entity.
 - Math, logic and vector operations, joining text, turning a number into text (`FormatNumber` — 0..6 decimal places, `FormatTime` — `mm:ss` / `h:mm:ss`).
@@ -93,6 +94,34 @@ does not change the contents of the current loop. After returning from Body the 
 Break cannot cross a typed function boundary into a caller's loop.
 EmitEvent is delivered in the VM's next execution pass after the current chain; it does not build a recursive synchronous event stack.
 
+## Structs
+
+**Structs → Struct name → Create struct** adds a graph struct with one Number field. In its tree add, remove (a struct keeps at
+least one field), rename (Enter) and retype fields and set their defaults. A field can be any value type: Bool, Number, String,
+Vec2/3/4, Entity, an enum of the graph or an array; a struct cannot hold another struct yet. A graph holds up to 64 structs of
+1..32 fields; the field defaults of one struct are limited to 64 KiB. Renaming a field keeps the wires of the Make/Break pins named
+after it, moves the GetField/SetField field literals and renames the field in every stored value; renaming a struct retypes every
+node, variable and signature pin that uses it. When a field is added, removed or retyped, every stored value of the struct keeps
+its fitting fields and takes the field defaults for the others, and wires/literals that no longer fit are removed (Undo restores
+them). A struct in use is not deleted. Every struct edit is one Undo/Redo step.
+
+A graph variable, a function parameter/result and a local can have the Struct type (one value) or the ArrayStruct type (an array of
+one struct's values). Their literals are edited field by field. Struct nodes name their struct in the literal **Struct** input
+(Get/Set and locals may leave it empty: the variable's or local's struct) and the field nodes name the field in the literal **Field**
+input; both are combos in the node inspector and must be literals. The node library also lists **Structs / Make <name>** and
+**Break <name>** for each struct.
+
+- `Struct.Make`: one input per field → the struct value.
+- `Struct.Break`: the struct value → one output per field.
+- `Struct.GetField`: the value of the named field. `Struct.SetField`: a copy of the struct with the named field replaced
+  (`FieldValue`); like `Array.Set` it does not change a variable until a Set stores the copy.
+- `Get/Set.Struct`, `Local.Get/Set.Struct`, and for struct arrays `Constant/Get/Set.ArrayStruct`, `Array.*.Struct` and `ForEach.Struct`.
+
+Two pins connect only when they name the same struct. A struct value must have exactly the struct's fields, each of its field's
+type; this is checked on literals, variable defaults, instance overrides (an override of another shape is ignored), arguments,
+returns and every node result. A struct value is limited to 32 fields and 64 KiB, a struct array to 1024 elements and 64 KiB: a
+struct array that would grow past it stops the graph with an error at the node that builds it.
+
 ## Execution rules and debugging
 
 Data pins are evaluated when they are needed: a Get inside a loop sees the updated variable.
@@ -117,9 +146,11 @@ An error stops that graph instance and is printed to the console/debug panel.
 
 ## Saving, C++ and export
 
-`.zgraph` files are format version 2: version 2 added the `Enums` section and the `Enum` key of enum-typed pins, variables and locals.
-Version 1 files (all graphs written before) load unchanged, including legacy Function/Call nodes and typed functions; the window header
-says `(format 1: saving writes format 2)` until the graph is saved. A version 1 file that contains an enum type, or a newer version, is rejected.
+`.zgraph` files are format version 3: version 2 added the `Enums` section and the `Enum` key of enum-typed pins, variables and locals;
+version 3 added the `Structs` section (each struct's `Fields`: name, type, default and, for an enum field, `Enum`) and the `Struct` key
+of struct-typed pins, variables and locals. Version 1 and 2 files load unchanged, including legacy Function/Call nodes, typed functions
+and enums; the window header says `(format 2: saving writes format 3)` until the graph is saved. An enum type in a version 1 file, a
+struct type in a version 1 or 2 file, or a newer version is rejected.
 
 A graph runs in the engine's existing `NativeScriptComponent` lifecycle through the built-in `Zamin.VisualGraph` host.
 That is why either C++ or a visual graph is attached to an entity's single script slot. On an entity with a C++ script the attach button says clearly that it replaces it.
@@ -129,7 +160,7 @@ The enumerated Number pins of the gameplay nodes (AbilityDefine/ProjectileDefine
 EffectDefine Tick/Stacking, AreaDefine Falloff, UIBindHUD Kind, the equipment Slot) show up in the node inspector as a named list
 (a combo, `Visual::PinChoices`) and the index is saved as a plain number; while playing the inspector also shows the
 [combat state](GameplayCombat.md#editor-authoring) of the selected actor.
-Curve and custom struct pins, reusable inline macros, graph inheritance, network RPC and bytecode/native code generation are separate development stages. Typed functions, collapse to function, enums and the seven array types above are part of this one.
+Curve pins, structs inside structs, enum arrays, reusable inline macros, graph inheritance, network RPC and bytecode/native code generation are separate development stages. Typed functions, collapse to function, enums, graph structs (with struct arrays) and the array types above are part of this one.
 
 Graph assets are listed in the registry, open in the Content Browser, and the asset inspector shows their diagnostics.
 Asset paths inside a graph take part in the reference scan and in renames. Rather than hiding an asset path that overrides a graph variable
@@ -143,20 +174,24 @@ C++ hot reload keeps the graph variables, but, like other native timers, restart
 
 - `Visual2D`: WASD/arrow input → 2D velocity; touching a trigger changes the color for a while.
 - `Visual3D`: two cubes with one graph spin at opposite speeds through different Speed overrides.
-- `BlueprintGameplay.zgraph` in both scenes: an array → ForEach → a typed Award(Amount, Factor) → local/Delay/Return → Total → the Finished event → Print. Because of the Multiplier override the 2D total is 12 and the 3D total 18. The Finished event then calls `RankOf(Total)`, which returns the `Rank` enum through one of three Returns into the `FinalRank` variable and prints `BLUEPRINT_RANK rank=Silver` (2D) / `rank=Gold` (3D).
+- `BlueprintGameplay.zgraph` in both scenes: an array → ForEach → a typed Award(Amount, Factor) → local/Delay/Return → Total → the Finished event → Print. Because of the Multiplier override the 2D total is 12 and the 3D total 18. The Finished event then calls `RankOf(Total)`, which returns the `Rank` enum through one of three Returns into the `FinalRank` variable and prints `BLUEPRINT_RANK rank=Silver` (2D) / `rank=Gold` (3D). Both values then go into `Summary`, a variable of the graph struct `Result {Total, Rank}` made with Struct.Make, which Struct.Break and Struct.GetField read back: `BLUEPRINT_SUMMARY total=12 rank=Silver` (2D) / `total=18 rank=Gold` (3D).
 
 `ZaminTests --filter VisualGraph` runs the VM, the type/format/cycle checks, continuing delays/loops/functions, the budget, debugging, isolation,
 the C++ field bridge, a real scene lifecycle and the null target protection.
 
 The real ImGui mouse regression (adding nodes, a typed wire, rejection, save/undo/redo; then a typed function created in the UI, a parameter
-added, called from the node library, wired, undone/redone, opened with a double-click, and the saved graph run in the Player):
+added, called from the node library, wired, undone/redone, opened with a double-click, and the saved graph run in the Player; then a struct
+created in the UI with an added and a renamed field, Make/GetField from the node library, wired, the wired field renamed with the wires kept,
+undone/redone, and that graph run in the Player):
 
 ```bash
 ZAMIN_BUILD_DIR=build-review LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe LP_NUM_THREADS=2 \
   xvfb-run -a -s '-screen 0 1600x1000x24 -nolisten tcp' python3 Tests/visual_graph_editor_test.py
 ```
 
-The test needs `xdotool` and the ImageMagick `import` tool; it does not change the original sample.
+The test needs `xdotool` and the ImageMagick `import` tool; it does not change the original sample. It clicks the properties column and
+the canvas through `ZAMIN_EDITOR_VISUAL_LAYOUT=<file.json>`: the editor writes the screen rectangles of the column's widgets and of the
+canvas node headers/pins there each frame, and the test fails if a widget in the column is clipped at its right edge.
 
 The 2026-11-10 check: 173 node definitions; 26 VisualGraph tests (including a reference to an entity in another loaded scene),
 682 unit tests overall, 12 render cases and 223 + 265 editor steps over two projects passed without errors.
@@ -168,6 +203,11 @@ The 2026-11-26 check (typed functions, enums, collapse): `ZaminTests --filter Bl
 arity diagnostics, format 2 round trips and the version 1 migration, enum Switch/conversions/type checks/parameters/locals/renames/paste,
 recursion with enum arguments, collapse equivalence and refusals; `VisualGraphReadsAndWritesReflectedCppEnums` imports and drives a real
 reflected C++ enum field.
+
+The 2026-11-26 struct check: `ZaminTests --filter BlueprintStruct` (and the format test) covers Make/Break/GetField/SetField, struct
+parameters/results/locals, overrides, static and runtime type errors, the 64 KiB struct array limit, format 3 round trips with the
+version 1/2 migration, paste, field and struct renames that keep wires and values, field add/remove/retype with conformed values,
+struct arrays through the array nodes and ForEach, and collapse over a struct wire.
 
 ## World navigation and traversal
 

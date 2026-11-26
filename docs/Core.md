@@ -218,13 +218,13 @@ Particle turbulence, camera shake and 2D light flicker use this module too.
 - **`AnimationCurve`** (`Math/AnimationCurve.h`) - one number over time: keys, Bezier tangents,
   `PreWrap` / `PostWrap` (`Once`, `Loop`, `PingPong`), `Evaluate(t)`, `AddKey`, `SmoothTangents`,
   `AnimationCurve::Linear / EaseInOut / Constant`. Edited in the inspector as a script field (`ZM_FIELD`).
-  More: [Animation.md, section 18](Animation.md#18-animationcurve-skriptdagi-egri-chiziq).
+  More: [Animation.md, section 18](Animation.md#18-animationcurve-a-curve-in-a-script).
 - **Easing** (`Math/Easing.h`) - `ApplyEase(Ease::OutBack, t)`: `Linear`, `InQuad`, `OutQuad`, `InOutQuad`,
   `OutCubic`, `InOutCubic`, `OutBack`, `OutElastic`, `OutBounce` (0 -> 0, 1 -> 1).
 - **Spline** (`Math/Spline.h`) - Catmull-Rom (centripetal), Bezier and straight lines; `Evaluate(u)`,
   `EvaluateTangent`, `FindClosest(point)`, `InsertPoint`, `AutoTangents`; the distance <-> parameter table
   `SplineLengthTable`. In a scene with `SplineComponent` and `SplineFollowerComponent`. More:
-  [Animation.md, section 19](Animation.md#19-spline-yollar-va-spline-follower).
+  [Animation.md, section 19](Animation.md#19-spline-paths-and-the-spline-follower).
 
 ![A spline in the editor](images/core-splines-editor.jpg)
 

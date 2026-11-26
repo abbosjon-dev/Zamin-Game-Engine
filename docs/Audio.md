@@ -427,7 +427,7 @@ fields, `Scene::GetAmbientZoneWeight(zone, world, point)` (for any point).
 **Footsteps** (`FootstepsComponent`) listens to an animation event (`EventName`, `Footstep` by default) and plays a random one from the
 `Sounds` list (no immediate repeats): by the Animator's speed parameter (`SpeedParameter`) it is louder and higher pitched
 when walking faster (`ReferenceSpeed`, `SpeedVolume`, `SpeedPitch`), silent below `MinSpeed`, and steps closer than
-`MinInterval` count as one; 3D, with a mixer group. More: [Animation.md](Animation.md#9-eventlar).
+`MinInterval` count as one; 3D, with a mixer group. More: [Animation.md](Animation.md#9-events).
 Sample: the Adventure3D robot (`Audio/Step1.wav` ... `Step4.wav`).
 
 ---

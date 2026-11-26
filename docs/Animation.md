@@ -1,177 +1,181 @@
-# Zamin Engine: animatsiya
+# Zamin Engine: animation
 
-Bu hujjat Zamin'dagi animatsiya tizimini tushuntiradi: property kliplar va Animatsiya oynasi (timeline), skelet
-animatsiyasi va Animator (holat mashinasi, blend tree, qatlamlar), event'lar, root motion, suyakka biriktirish,
-morph target'lar, sprite animatsiyasi va kliplar, tint (rang) animatsiyasi, skript tween'lari, AnimationCurve va
-spline yo'llar, samaradorlik (keshlash, kesish), testlar va ko'p uchraydigan muammolar. Har bo'limda C++ skript
-misollari bor (`#include <Zamin/Zamin.h>`, `using namespace Zamin;`). Komponentlarning to'liq maydonlari —
-[Components.md](Components.md#2-rendering); UI animatsiyalari — [UI.md](UI.md#10-ui-animations); particle'larning
-tekstura sheet (flipbook) moduli — [Rendering.md](Rendering.md#13-the-particle-system).
+This document explains the animation system in Zamin: property clips and the Animation window (timeline), skeletal
+animation and the Animator (state machine, blend trees, layers), events, root motion, attaching to bones, morph
+targets, sprite animation and clips, tint (colour) animation, script tweens, AnimationCurve and spline paths,
+performance (caching, culling), tests and common problems. Every section has C++ script examples
+(`#include <Zamin/Zamin.h>`, `using namespace Zamin;`). The full fields of the components —
+[Components.md](Components.md#2-rendering); UI animations — [UI.md](UI.md#10-ui-animations); the particles' texture
+sheet (flipbook) module — [Rendering.md](Rendering.md#13-the-particle-system).
 
-![Animatsiya oynasi: darvoza klipi](images/animation-timeline-editor.jpg)
+![The Animation window: the gate clip](images/animation-timeline-editor.jpg)
 
-*Adventure3D `Darvoza` tanlangan: pastda **Animatsiya** oynasi (treklar, kalitlar, event'lar qatori, klip sozlamalari),
-inspektorda Animation Player va `ProximityDoor` skripti.*
+*Adventure3D with `Gate` selected: the **Animation** window at the bottom (tracks, keys, the event row, clip settings),
+the Animation Player and the `ProximityDoor` script in the inspector.*
 
-Mundarija:
+Contents:
 
-1. [Ikki xil animatsiya](#1-ikki-xil-animatsiya)
-2. [Property kliplar (.zanim)](#2-property-kliplar-zanim)
-3. [Animatsiya oynasi (timeline)](#3-animatsiya-oynasi-timeline)
-4. [Animation Player va skriptlar](#4-animation-player-va-skriptlar)
-5. [Skelet animatsiyasi va Animator](#5-skelet-animatsiyasi-va-animator)
-6. [Holat mashinasi va Animator grafi](#6-holat-mashinasi-va-animator-grafi)
+1. [Two kinds of animation](#1-two-kinds-of-animation)
+2. [Property clips (.zanim)](#2-property-clips-zanim)
+3. [The Animation window (timeline)](#3-the-animation-window-timeline)
+4. [Animation Player and scripts](#4-animation-player-and-scripts)
+5. [Skeletal animation and the Animator](#5-skeletal-animation-and-the-animator)
+6. [The state machine and the Animator graph](#6-the-state-machine-and-the-animator-graph)
 7. [Blend tree 1D](#7-blend-tree-1d)
-8. [Qatlamlar va avatar maska](#8-qatlamlar-va-avatar-maska)
-9. [Event'lar](#9-eventlar)
+8. [Layers and the avatar mask](#8-layers-and-the-avatar-mask)
+9. [Events](#9-events)
 10. [Root motion](#10-root-motion)
-11. [Suyakka biriktirish](#11-suyakka-biriktirish)
-12. [Morph target'lar (blend shape'lar)](#12-morph-targetlar-blend-shapelar)
-13. [glTF kliplarini kesish va bo'lish](#13-gltf-kliplarini-kesish-va-bolish)
-14. [Bir nechta skin](#14-bir-nechta-skin)
-15. [Sprite animatsiyasi va kliplar (.zsanim)](#15-sprite-animatsiyasi-va-kliplar-zsanim)
-16. [Samaradorlik: keshlash va kesish](#16-samaradorlik-keshlash-va-kesish)
-17. [Namuna: yaqinlashganda ochiladigan darvoza](#17-namuna-yaqinlashganda-ochiladigan-darvoza)
-18. [AnimationCurve: skriptdagi egri chiziq](#18-animationcurve-skriptdagi-egri-chiziq)
-19. [Spline yo'llar va Spline Follower](#19-spline-yollar-va-spline-follower)
-20. [Tint animatsiyasi (rang)](#20-tint-animatsiyasi-rang)
-21. [Skript tween'lari](#21-skript-tweenlari)
-22. [UI animatsiyalari](#22-ui-animatsiyalari)
-23. [Namuna sahnalar](#23-namuna-sahnalar)
-24. [Ko'p uchraydigan muammolar](#24-kop-uchraydigan-muammolar)
-25. [Testlar](#25-testlar)
-26. [Qisqa API ma'lumotnomasi](#26-qisqa-api-malumotnomasi)
+11. [Attaching to a bone](#11-attaching-to-a-bone)
+12. [Morph targets (blend shapes)](#12-morph-targets-blend-shapes)
+13. [Trimming and splitting glTF clips](#13-trimming-and-splitting-gltf-clips)
+14. [Several skins](#14-several-skins)
+15. [Sprite animation and clips (.zsanim)](#15-sprite-animation-and-clips-zsanim)
+16. [Performance: caching and culling](#16-performance-caching-and-culling)
+17. [Sample: a gate that opens as you approach](#17-sample-a-gate-that-opens-as-you-approach)
+18. [AnimationCurve: a curve in a script](#18-animationcurve-a-curve-in-a-script)
+19. [Spline paths and the Spline Follower](#19-spline-paths-and-the-spline-follower)
+20. [Tint animation (colour)](#20-tint-animation-colour)
+21. [Script tweens](#21-script-tweens)
+22. [UI animations](#22-ui-animations)
+23. [Sample scenes](#23-sample-scenes)
+24. [Common problems](#24-common-problems)
+25. [Tests](#25-tests)
+26. [Short API reference](#26-short-api-reference)
 
 ---
 
-## 1. Ikki xil animatsiya
+## 1. Two kinds of animation
 
-| | Property animatsiya | Skelet animatsiyasi |
+| | Property animation | Skeletal animation |
 |---|---|---|
-| Nima o'zgaradi | Obyekt va bolalarining xususiyatlari: transform, rang, yorug'lik, UI, skript maydonlari | glTF modelning suyaklari (GPU skinning) va blend shape'lari |
-| Klip qayerda | `.zanim` fayl (Animatsiya oynasida yaratiladi) | glTF fayl ichida (`.gltf` / `.glb`) |
-| Komponent | **Animation Player** | **Animator** (Mesh Renderer'dagi model bilan) |
-| Misol | eshik, mayoq, ko'tarilgan platforma, UI panel | yurish / yugurish, qo'l silkitish, yuz ifodasi |
+| What changes | Properties of the object and its children: transform, colour, light, UI, script fields | The bones (GPU skinning) and blend shapes of a glTF model |
+| Where the clip lives | A `.zanim` file (created in the Animation window) | Inside the glTF file (`.gltf` / `.glb`) |
+| Component | **Animation Player** | **Animator** (with the model on the Mesh Renderer) |
+| Example | a door, a beacon, a rising platform, a UI panel | walking / running, waving a hand, a facial expression |
 
-Ikkalasida ham **event'lar** bor (klipning ma'lum nuqtasida skriptga xabar), ikkalasi ham editorda **play rejimisiz**
-ko'rib chiqiladi (Animatsiya oynasida vaqtni surib).
+Both have **events** (a message to the script at a given point of the clip), and both can be previewed in the editor
+**without play mode** (by scrubbing the time in the Animation window).
 
-Uchinchisi — 2D uchun **sprite animatsiyasi** (sprite sheet kadrlari, `.zsanim` kliplar), 15-bo'limda.
+The third kind — **sprite animation** for 2D (sprite sheet frames, `.zsanim` clips), in section 15.
 
-**Qaysi vositani tanlash:**
+**Which tool to choose:**
 
-| Vazifa | Vosita | Bo'lim |
+| Task | Tool | Section |
 |---|---|---|
-| Eshik, lift, mayoq, sahnadagi "kesma" — oldindan chizilgan harakat | Animation Player + `.zanim` | [2](#2-property-kliplar-zanim)-[4](#4-animation-player-va-skriptlar) |
-| Personaj yurishi, yugurishi, sakrashi (glTF) | Animator (+ holat mashinasi, blend tree) | [5](#5-skelet-animatsiyasi-va-animator)-[8](#8-qatlamlar-va-avatar-maska) |
-| 2D personaj kadrlari | Sprite Animation (+ `.zsanim`) | [15](#15-sprite-animatsiyasi-va-kliplar-zsanim) |
-| Miltillash, rang pulsatsiyasi (2D) | Tint Animation | [20](#20-tint-animatsiyasi-rang) |
-| Koddan "shu yerga 0.3 s da bor", "so'n" | `TweenPosition`, `TweenScale`, `TweenColor`, `FadeTo`, `Tween` | [21](#21-skript-tweenlari) |
-| Menyu paydo bo'lishi, tugma "sakrashi" | UI Animation, `UIScaleTo` ... | [22](#22-ui-animatsiyalari) |
-| Yo'l bo'ylab yurish (platforma, poyezd) | Spline + Spline Follower | [19](#19-spline-yollar-va-spline-follower) |
-| Skript qiymati vaqt bo'yicha (sakrash balandligi) | `AnimationCurve` | [18](#18-animationcurve-skriptdagi-egri-chiziq) |
+| A door, a lift, a beacon, a "cutscene" in the scene — movement drawn in advance | Animation Player + `.zanim` | [2](#2-property-clips-zanim)-[4](#4-animation-player-and-scripts) |
+| A character walking, running, jumping (glTF) | Animator (+ state machine, blend tree) | [5](#5-skeletal-animation-and-the-animator)-[8](#8-layers-and-the-avatar-mask) |
+| 2D character frames | Sprite Animation (+ `.zsanim`) | [15](#15-sprite-animation-and-clips-zsanim) |
+| Blinking, a pulsing colour (2D) | Tint Animation | [20](#20-tint-animation-colour) |
+| From code: "go here in 0.3 s", "fade out" | `TweenPosition`, `TweenScale`, `TweenColor`, `FadeTo`, `Tween` | [21](#21-script-tweens) |
+| A menu appearing, a button "bouncing" | UI Animation, `UIScaleTo` ... | [22](#22-ui-animations) |
+| Moving along a path (a platform, a train) | Spline + Spline Follower | [19](#19-spline-paths-and-the-spline-follower) |
+| A script value over time (jump height) | `AnimationCurve` | [18](#18-animationcurve-a-curve-in-a-script) |
 
 ---
 
-## 2. Property kliplar (.zanim)
+## 2. Property clips (.zanim)
 
-Klip — **treklar** ro'yxati. Har trek bitta obyektning bitta xususiyatini animatsiya qiladi:
+A clip is a list of **tracks**. Every track animates one property of one object:
 
-- **Yo'l** (`Path`) — Animation Player turgan obyektdan boshlab bolalar nomlari, `/` bilan: `""` — obyektning o'zi,
-  `"Oshiq"` — uning `Oshiq` nomli bolasi, `"Eshik/Oshiq/Tutqich"` — chuqurroq. Shu sababli bitta klip bir xil tuzilishdagi
-  har qanday obyektda ishlaydi (prefab nusxalari ham).
-- **Xususiyat** (`Property`):
+- **Path** (`Path`) — the names of children starting from the object with the Animation Player, separated by `/`:
+  `""` — the object itself, `"Hinge"` — its child named `Hinge`, `"Door/Hinge/Handle"` — deeper. So one clip works on
+  any object with the same structure (prefab instances too).
+- **Property** (`Property`):
 
-  | Fayldagi nomi | Nima | Komponentlar |
+  | Name in the file | What | Components |
   |---|---|---|
-  | `Transform.Position` | lokal joylashuv | 3 |
-  | `Transform.Rotation` | lokal burilish (**gradus**) | 3 |
-  | `Transform.Scale` | masshtab | 3 |
-  | `SpriteRenderer.Color`, `CircleRenderer.Color`, `Text.Color`, `MeshRenderer.Color` | rang (RGBA) | 4 |
-  | `Light.Color`, `Light.Intensity` | obyektdagi birinchi yorug'lik (nuqtali, spot, directional yoki 2D) | 3 / 1 |
-  | `UITransform.Position`, `UITransform.Size`, `UITransform.Scale`, `UITransform.Alpha` | UI elementi | 2 / 2 / 2 / 1 |
-  | `UIImage.Color` | UI rasm rangi | 4 |
-  | `Script.Float` | skriptning float maydoni (`ZM_FIELD`, trekning `Field`i — maydon nomi) | 1 |
+  | `Transform.Position` | local position | 3 |
+  | `Transform.Rotation` | local rotation (**degrees**) | 3 |
+  | `Transform.Scale` | scale | 3 |
+  | `SpriteRenderer.Color`, `CircleRenderer.Color`, `Text.Color`, `MeshRenderer.Color` | colour (RGBA) | 4 |
+  | `Light.Color`, `Light.Intensity` | the first light on the object (point, spot, directional or 2D) | 3 / 1 |
+  | `UITransform.Position`, `UITransform.Size`, `UITransform.Scale`, `UITransform.Alpha` | a UI element | 2 / 2 / 2 / 1 |
+  | `UIImage.Color` | a UI image's colour | 4 |
+  | `Script.Float` | a float field of the script (`ZM_FIELD`; the track's `Field` is the field name) | 1 |
 
-  `MeshRenderer.Color` material asset ishlatilsa shu renderer'ning o'z nusxasiga yoziladi (boshqa obyektlar o'zgarmaydi).
+  When a material asset is used, `MeshRenderer.Color` is written to this renderer's own copy (other objects do not
+  change).
 
-- **Kalitlar** (`Keys`): vaqt (soniya), qiymat va keyingi kalitgacha **interpolyatsiya**:
-  - `Step` — keyingi kalitgacha qiymat o'zgarmaydi (chiroq yoqildi / o'chdi);
-  - `Linear` — to'g'ri chiziq;
-  - `Bezier` — silliq egri chiziq. Tangentlar: **Auto** (avtomatik silliq: cho'qqida tekis — oshib ketmaydi, chetlarda
-    sekinlashib boshlanadi / tugaydi, o'suvchi qatorda monoton), **Flat** (tekis) yoki **Free** (qo'lda: `InTangent` /
-    `OutTangent` — soniyasiga qiymat). Ikki kalit orasidagi egri chiziq — `a`, `a + a.Out·dt/3`, `b − b.In·dt/3`, `b`
-    nuqtali kubik Bezier.
+- **Keys** (`Keys`): a time (seconds), a value and the **interpolation** up to the next key:
+  - `Step` — the value does not change until the next key (a lamp switched on / off);
+  - `Linear` — a straight line;
+  - `Bezier` — a smooth curve. Tangents: **Auto** (automatically smooth: flat at a peak — it does not overshoot, it
+    eases in / out at the ends, monotonic over a rising run), **Flat** or **Free** (by hand: `InTangent` /
+    `OutTangent` — value per second). The curve between two keys is a cubic Bezier through `a`, `a + a.Out·dt/3`,
+    `b − b.In·dt/3`, `b`.
 
-Klipning o'zi: davomiyligi (`Duration`), kadr tezligi (`FrameRate` — faqat timeline kadrlari uchun), tugash rejimi
-(`Wrap`: `Once` — bir marta va oxirgi qiymatlarda qoladi, `Loop` — takror, `PingPong` — borib-qaytish) va event'lar.
+The clip itself: its length (`Duration`), frame rate (`FrameRate` — only for the timeline's frames), end mode (`Wrap`:
+`Once` — once, and it stays at the last values, `Loop` — repeats, `PingPong` — there and back) and events.
 
-Fayl ko'rinishi (qisqartirilgan; odatda Animatsiya oynasi yozadi):
+What the file looks like (shortened; normally the Animation window writes it):
 
 ```json
 {
   "Version": 1, "Duration": 1.6, "FrameRate": 30, "Wrap": "Once",
   "Tracks": [
-    { "Path": "ChapOshiq", "Property": "Transform.Rotation",
+    { "Path": "LeftHinge", "Property": "Transform.Rotation",
       "Keys": [ { "Time": 0,   "Value": [0, 0, 0],   "Interpolation": "Bezier" },
                 { "Time": 1.3, "Value": [0, 104, 0], "Interpolation": "Bezier" },
                 { "Time": 1.6, "Value": [0, 100, 0], "Interpolation": "Bezier" } ] },
-    { "Path": "Chiroq", "Property": "Light.Color",
+    { "Path": "Light", "Property": "Light.Color",
       "Keys": [ { "Time": 0,   "Value": [1, 0.15, 0.1], "Interpolation": "Step" },
                 { "Time": 1.3, "Value": [0.2, 1, 0.35], "Interpolation": "Step" } ] }
   ],
-  "Events": [ { "Time": 0.05, "Name": "Gichirlash", "Parameter": "ochilish" } ]
+  "Events": [ { "Time": 0.05, "Name": "Creak", "Parameter": "opening" } ]
 }
 ```
 
-Kliplar kontent brauzerda **Animation** asset turi sifatida ko'rinadi (o'ng tugma → **Yangi animatsiya klipi**), fayl
-tashqarida o'zgartirilsa o'ynab turgan obyektlarda darhol yangilanadi.
+Clips appear in the content browser as the **Animation** asset type (right-click → **New animation clip**); when the
+file is changed outside, objects playing it update at once.
 
 ---
 
-## 3. Animatsiya oynasi (timeline)
+## 3. The Animation window (timeline)
 
-**Oyna > Animatsiya**. Animation Player'li obyekt tanlansa uning klipi ochiladi (`.zanim` ni kontent brauzerda ikki marta
-bosish ham shu).
+**Window > Animation**. When an object with an Animation Player is selected its clip opens (so does double-clicking a
+`.zanim` in the content browser).
 
-**Birinchi klip — qadam-baqadam** (masalan ko'tariladigan platforma):
+**The first clip — step by step** (a rising platform, for example):
 
-1. Obyektni tanlang, **Oyna > Animatsiya**. Unda Animation Player bo'lmasa oynadagi **"Platforma" ga Animation Player va yangi
-   klip** tugmasi komponentni qo'shadi va `Assets/Animations/Platforma.zanim` ni yaratadi (yoki kontent brauzerda o'ng tugma →
-   **Yangi animatsiya klipi** va uni Animation Player'ning `Clips` ro'yxatiga qo'shing).
-2. **+ Trek qo'shish** → obyekt (o'zi yoki bolasi) → `Transform.Position`.
-3. **Yozish** (●) ni yoqing. Vaqt chizg'ichida 0 ni bosing — platforma joyida turgan holatda kalit qo'ying (ikki marta
-   bosish); vaqtni 2 s ga suring va platformani gizmo bilan yuqoriga ko'taring — kalit o'zi qo'yiladi.
-4. Klip sozlamalarida tugash rejimini `PingPong` qiling, ▶ — sahna ko'rinishida play rejimisiz ko'rib chiqing.
-5. `Ctrl+S` (klipni saqlash). Animation Player'da **Avto boshlash** yoqiq bo'lsa o'yinda o'zi o'ynaydi; skriptdan —
-   `PlayAnimation("Platforma")` (4-bo'lim).
+1. Select the object, **Window > Animation**. When it has no Animation Player, the window's **Animation Player and a
+   new clip on "Platform"** button adds the component and creates `Assets/Animations/Platform.zanim` (or right-click in
+   the content browser → **New animation clip** and add it to the Animation Player's `Clips` list).
+2. **+ Add track** → the object (itself or a child) → `Transform.Position`.
+3. Turn on **Record** (●). Click 0 on the time ruler and set a key with the platform where it stands (double-click);
+   move the time to 2 s and lift the platform with the gizmo — the key is set by itself.
+4. Set the end mode to `PingPong` in the clip settings, ▶ — preview it in the scene view without play mode.
+5. `Ctrl+S` (save the clip). With **Auto start** on in the Animation Player it plays by itself in the game; from a
+   script — `PlayAnimation("Platform")` (section 4).
 
-Kinematik jismni (Rigidbody 2D / 3D `Kinematic`) shunday animatsiya qilsangiz ustida turgan qahramon birga ko'tariladi
+When you animate a kinematic body (Rigidbody 2D / 3D `Kinematic`) this way, a character standing on it rises with it
 ([Physics.md](Physics.md#1-core-concepts)).
 
-- **Treklar ro'yxati**: `+ Trek qo'shish` — obyekt (yo'l avtomatik) va uning xususiyatlari ro'yxatidan.
-- **Dope sheet**: kalitlar romblar; sudrab ko'chirish, ikki marta bosish — yangi kalit, `Delete` — o'chirish, o'ng tugma —
-  interpolyatsiya va tangent turi. Yuqorida **event'lar qatori** (event qo'shish, sudrash, nomlash).
-- **Egri chiziqlar** (toolbar tugmasi): tanlangan trekning har komponenti alohida chiziq, kalitlar va Bezier tutqichlari
-  sudraladi.
-- **Vaqt chizg'ichi**: bosib / sudrab **scrub**; g'ildirak — masshtab, surish; **kadrlarga yopishish**.
-- **Play rejimisiz ko'rib chiqish**: vaqt surilganda yoki ▶ bosilganda sahna ko'rinishida klip qo'llanadi. Oyna yopilsa,
-  sahna saqlansa, undo qilinsa yoki Play bosilsa — sahnaning o'z qiymatlari qaytadi (ko'rib chiqish sahnani buzmaydi).
-- **Yozish** (●): yoqilganda inspektor yoki gizmo bilan qilingan har o'zgarish joriy vaqtda kalit bo'ladi (xususiyatning
-  treki bo'lmasa — yangi trek qo'shiladi). Obyektni sudrab, vaqtni surib, yana sudrab — animatsiya tayyor.
-- Oynaning o'z undo/redo'si bor (oyna fokusda: `Ctrl+Z` / `Ctrl+Y`), `Ctrl+S` — klipni saqlash.
+- **The track list**: `+ Add track` — from the object (the path is automatic) and the list of its properties.
+- **Dope sheet**: keys are diamonds; drag to move them, double-click — a new key, `Delete` — remove, right-click — the
+  interpolation and tangent type. Above it, the **event row** (add events, drag them, name them).
+- **Curves** (a toolbar button): every component of the selected track is a separate line; keys and Bezier handles can
+  be dragged.
+- **The time ruler**: click / drag to **scrub**; the wheel — zoom, pan; **Snap to frames**.
+- **Preview without play mode**: when the time is moved or ▶ is pressed, the clip is applied in the scene view. When
+  the window closes, the scene is saved, an undo happens or Play is pressed, the scene's own values come back (the
+  preview never damages the scene).
+- **Record** (●): while it is on, every change made with the inspector or the gizmo becomes a key at the current time
+  (when the property has no track, a new track is added). Drag the object, move the time, drag again — the animation
+  is ready.
+- The window has its own undo/redo (with the window focused: `Ctrl+Z` / `Ctrl+Y`), `Ctrl+S` — save the clip.
 
-**Skelet rejimi**: Animator'li (Animation Player'siz) obyekt tanlansa oyna glTF kliplarini ko'rsatadi — klip tanlash,
-scrub (sahnada model shu pozada), o'ynatish, takror, tezlik; klip harakatlantiradigan suyaklar va blend shape'lar qatorlari
-(qator bosilsa — shu vaqtdagi qiymatlari); **Animator event'larini** shu yerda qo'shish va sudrash (sahnaning undo'si bilan).
+**Skeletal mode**: when an object with an Animator (and no Animation Player) is selected, the window shows the glTF
+clips — choose a clip, scrub (the model in the scene takes that pose), play, loop, speed; rows for the bones and blend
+shapes the clip moves (clicking a row shows its values at that time); **Animator events** are added and dragged here
+too (with the scene's undo).
 
 ---
 
-## 4. Animation Player va skriptlar
+## 4. Animation Player and scripts
 
-**Animation Player** komponenti: kliplar ro'yxati (`Clips`, Assets'ga nisbatan yo'llar), tezlik (`Speed`), **Avto
-boshlash** (`PlayOnStart` — birinchi klip o'yin boshlanganda), tugash rejimi (`Wrap`: klipdagidek yoki Once / Loop /
-PingPong). To'xtab turgan player hech narsa yozmaydi — skript o'sha qiymatlarni bemalol o'zgartiradi.
+The **Animation Player** component: a list of clips (`Clips`, paths relative to Assets), a speed (`Speed`), **Auto
+start** (`PlayOnStart` — the first clip when the game starts), the end mode (`Wrap`: as in the clip, or Once / Loop /
+PingPong). A stopped player writes nothing — a script is free to change those values.
 
 ```cpp
 class Lift : public ScriptableEntity
@@ -180,62 +184,63 @@ public:
     void OnUpdate(Timestep) override
     {
         if (Input::IsKeyPressed(Key::E) && !IsAnimationPlaying())
-            PlayAnimation("LiftUp");               // boshidan oldinga
+            PlayAnimation("LiftUp");               // forwards from the start
         if (Input::IsKeyPressed(Key::Q) && !IsAnimationPlaying())
-            PlayAnimation("LiftUp", -1.0f);        // oxiridan orqaga
+            PlayAnimation("LiftUp", -1.0f);        // backwards from the end
     }
 };
 ZM_REGISTER_SCRIPT(Lift)
 ```
 
-Komponentning o'zi bilan ko'proq imkoniyat:
+More options through the component itself:
 
 ```cpp
 auto& player = GetComponent<AnimationPlayerComponent>();
-player.Play("Pulse");                 // nom (fayl nomi .zanim'siz) yoki yo'l
-player.PlayFrom("DoorOpen", player.GetTime(), -1.0f); // turgan joyidan orqaga (yarim ochiq eshik yopiladi)
-player.Stop();                        // joyida to'xtaydi, qiymatlar qoladi
+player.Play("Pulse");                 // a name (the file name without .zanim) or a path
+player.PlayFrom("DoorOpen", player.GetTime(), -1.0f); // backwards from where it is (a half-open door closes)
+player.Stop();                        // stops in place, the values stay
 player.Resume();
-player.SetTime(0.5f);                 // to'xtab turganda ham: keyingi yangilanishda yoziladi
+player.SetTime(0.5f);                 // while stopped too: written on the next update
 float t = player.GetNormalizedTime(); // 0..1
 ```
 
-`PlayFrom` — `Play` dan farqli, klipni boshidan emas, berilgan vaqtdan boshlaydi va aynan shu vaqtdagi event'larni
-qayta chaqirmaydi (u yerda allaqachon turibdi).
+`PlayFrom` — unlike `Play`, it starts the clip from the given time rather than from the beginning, and does not fire
+the events at exactly that time again (it is already standing there).
 
-Player fizika va `OnUpdate` dan keyin, `OnLateUpdate` dan oldin yangilanadi: kamera kuzatuvchi skriptlar animatsiya qilingan
-joyni ko'radi.
+The player updates after physics and `OnUpdate`, before `OnLateUpdate`: camera-following scripts see the animated
+position.
 
 ---
 
-## 5. Skelet animatsiyasi va Animator
+## 5. Skeletal animation and the Animator
 
-Mesh Renderer'da skinned glTF model va **Animator** komponenti bo'lsa model animatsiya qilinadi (GPU skinning, 80 tagacha
-suyak bir skin'da, soyalar ham).
+When the Mesh Renderer has a skinned glTF model and there is an **Animator** component, the model is animated (GPU
+skinning, up to 80 bones per skin, shadows too).
 
-- `Clip` — o'ynaydigan klip (`""` — birinchisi), `Speed`, `Loop`, `Playing`;
-- **Editorda ko'rsatish** (`PlayInEditor`) — edit rejimida ham o'ynaydi;
-- **O'tish vaqti** (`DefaultFade`) — `Play` bergan crossfade davomiyligi.
+- `Clip` — the clip to play (`""` — the first one), `Speed`, `Loop`, `Playing`;
+- **Show in editor** (`PlayInEditor`) — plays in edit mode too;
+- **Transition time** (`DefaultFade`) — the crossfade length `Play` uses.
 
 ```cpp
 auto& anim = GetComponent<AnimatorComponent>();
-anim.Play("Run", true, 1.0f, 0.25f);   // klip, loop, tezlik, crossfade (soniya; < 0 — DefaultFade, 0 — darhol)
+anim.Play("Run", true, 1.0f, 0.25f);   // clip, loop, speed, crossfade (seconds; < 0 — DefaultFade, 0 — at once)
 anim.Speed = 1.5f;
-float n = anim.GetNormalizedTime(GetComponent<MeshRendererComponent>().ModelAsset.get()); // 1 = bir sikl
+float n = anim.GetNormalizedTime(GetComponent<MeshRendererComponent>().ModelAsset.get()); // 1 = one cycle
 ```
 
-Kliplar orasida **crossfade**: oldingi klip vaqti davom etadi va pozalar silliq (smoothstep) aralashadi.
+**Crossfade** between clips: the previous clip's time keeps running and the poses blend smoothly (smoothstep).
 
 ---
 
-## 6. Holat mashinasi va Animator grafi
+## 6. The state machine and the Animator graph
 
-Animator'da holatlar bo'lsa klipni **holat mashinasi** tanlaydi:
+When the Animator has states, a **state machine** chooses the clip:
 
-- **Parametrlar** — `Float`, `Bool`, `Trigger` (shart bajarilganda o'zi o'chadi);
-- **Holatlar** — klip (yoki blend tree), tezlik (ixtiyoriy tezlik parametri bilan ko'paytiriladi), takror;
-- **O'tishlar** — `From` → `To` (`From = -1`: **har qanday holatdan**), crossfade (`Fade`), shartlar (`Greater`, `Less`,
-  `IsTrue`, `IsFalse`, `Triggered`) va ixtiyoriy **exit time** (normalizatsiyalangan vaqt, masalan `1.0` — klip tugagach).
+- **Parameters** — `Float`, `Bool`, `Trigger` (switches itself off when a condition consumes it);
+- **States** — a clip (or a blend tree), a speed (optionally multiplied by a speed parameter), looping;
+- **Transitions** — `From` → `To` (`From = -1`: **from any state**), a crossfade (`Fade`), conditions (`Greater`,
+  `Less`, `IsTrue`, `IsFalse`, `Triggered`) and an optional **exit time** (normalized time, for example `1.0` — when
+  the clip ends).
 
 ```cpp
 void OnUpdate(Timestep) override
@@ -248,173 +253,179 @@ void OnUpdate(Timestep) override
     if (std::string(anim.GetCurrentStateName()) == "Dead")
         return;
 }
-// To'g'ridan-to'g'ri holatga: anim.SetState("Jump", 0.1f);
+// Straight to a state: anim.SetState("Jump", 0.1f);
 ```
 
-**Oyna > Animator grafi** (yoki inspektordagi tugma): holatlar node'lar (boshlang'ich holat to'q sariq), o'tishlar strelkalar,
-"Har qanday holat" node'i. Node'larni sudrash (joylari sahnada saqlanadi), **Shift + sudrash** bilan o'tish chizish, bosib
-tanlash va o'ng panelda tahrirlash (shartlar, fade, exit time, blend motion'lari), `Delete`, g'ildirak — masshtab, o'rta /
-o'ng tugma — surish; hammasi undo bilan. O'yin davomida jonli: hozirgi holat va vaqti, o'tish strelkasi to'q sariq, blend
-og'irliklari. Inspektorda **Holat (jonli)** bloki — normalizatsiyalangan vaqt, o'tish jarayoni, og'irliklar va o'yin
-davomida o'zgartirsa bo'ladigan parametrlar (trigger tugmasi bilan).
+**Window > Animator graph** (or the button in the inspector): states are nodes (the initial state orange),
+transitions are arrows, plus an "Any state" node. Drag nodes (their positions are saved in the scene), draw a
+transition with **Shift + drag**, click to select and edit in the right panel (conditions, fade, exit time, blend
+motions), `Delete`, the wheel — zoom, the middle / right button — pan; all with undo. Live while playing: the current
+state and its time, the transition arrow in orange, the blend weights. The **State (live)** block in the inspector —
+the normalized time, the transition progress, the weights and the parameters that can be changed while playing (with
+a trigger button).
 
 ---
 
 ## 7. Blend tree 1D
 
-Holat turi **Blend tree 1D**: float parametr (masalan `Speed`) bo'yicha bir nechta klip aralashadi. Har motion — klip,
-**chegara** (threshold) va tezlik:
+The **Blend tree 1D** state type: several clips blend by a float parameter (`Speed`, for example). Every motion has a
+clip, a **threshold** and a speed:
 
-| Motion | Chegara |
+| Motion | Threshold |
 |---|---|
 | Idle | 0 |
 | Walk | 3 |
 | Run | 6.5 |
 
-`Speed = 4.75` bo'lsa Walk va Run teng (0.5 / 0.5) aralashadi; eng pastdan pastda / eng yuqoridan yuqorida — o'sha klip
-yolg'iz. Chegaralar istalgan tartibda bo'lishi mumkin.
+With `Speed = 4.75` Walk and Run blend equally (0.5 / 0.5); below the lowest / above the highest that clip plays on
+its own. The thresholds may be in any order.
 
-Hamma kliplar **bitta normalizatsiyalangan vaqtda** o'ynaydi: Walk 1 s, Run 0.7 s bo'lsa ham ularning qadamlari fazada
-(oyoq bir vaqtda yerga tegadi). Sikl davomiyligi — kliplar davomiyliklarining og'irliklar bo'yicha o'rtachasi. Blend tree
-boshqa holatlarga crossfade, exit time, root motion (og'irliklar bo'yicha) va event'lar (eng og'ir klipdan) bilan ishlaydi.
+All the clips play at **one normalized time**: even when Walk is 1 s and Run 0.7 s, their steps are in phase (the feet
+touch the ground at the same moment). The cycle length is the weighted average of the clip lengths. A blend tree works
+with crossfades to other states, exit time, root motion (by the weights) and events (from the heaviest clip).
 
-Chegaralarni yurish tezligiga moslang (Adventure3D robotida 3 va 6.5 — skriptdagi `WalkSpeed` / `RunSpeed`): oyoqlar
-yerda sirpanmaydi.
+Match the thresholds to the walking speed (3 and 6.5 on the Adventure3D robot — `WalkSpeed` / `RunSpeed` in the
+script): the feet do not slide on the ground.
 
 ```cpp
-anim.SetFloat("Speed", speed);   // shuning o'zi yetarli
-// Og'irliklar (inspektor, debug): anim.BlendWeights[i] — GetBlendTreeState()->Motions[i] uchun
+anim.SetFloat("Speed", speed);   // that alone is enough
+// The weights (inspector, debugging): anim.BlendWeights[i] — for GetBlendTreeState()->Motions[i]
 ```
 
 ---
 
 ### 7.1. Cartesian 2D blend field
 
-Holat turi **Blend field 2D**: ikki Float parametr (masalan `MoveX`, `MoveY`) motion'larning `(X,Y)` joylari orasida
-kliplarni aralashtiradi. Animator grafidagi **2D blend** tugmasi holat va ikkita parametrni yaratadi.
-O‘ng panelda nuqtalarni sudrash yoki Position maydonlarini tahrirlash mumkin; sariq xoch jonli parametrni ko‘rsatadi.
-Og‘irliklar manfiy bo‘lmaydi va jami 1 bo‘ladi. Hisoblash Cartesian gradient band usulida: har sample boshqa
-sample'lar yo‘nalishi bo‘yicha ta’sirini kamaytiradi, so‘ng natijalar normallashtiriladi. Bu triangulyatsiya yoki
-Unreal blend space bilan aynan bir xil algoritm degani emas.
+The **Blend field 2D** state type: two Float parameters (`MoveX`, `MoveY`, for example) blend the clips between the
+motions' `(X,Y)` positions. The **2D blend** button in the Animator graph creates the state and the two parameters.
+In the right panel you can drag the points or edit the Position fields; a yellow cross shows the live parameter.
+Weights are never negative and add up to 1. The computation uses the Cartesian gradient band method: every sample
+reduces its influence along the directions of the other samples, then the results are normalized. This does not mean
+it is exactly the same algorithm as triangulation or an Unreal blend space.
 
-| Nuqta | Klip | Position |
+| Point | Clip | Position |
 |---|---|---|
-| Markaz | Idle | (0, 0) |
-| O‘ng | StrafeRight | (1, 0) |
-| Chap | StrafeLeft | (-1, 0) |
-| Old | WalkForward | (0, 1) |
-| Orqa | WalkBack | (0, -1) |
+| Centre | Idle | (0, 0) |
+| Right | StrafeRight | (1, 0) |
+| Left | StrafeLeft | (-1, 0) |
+| Forward | WalkForward | (0, 1) |
+| Back | WalkBack | (0, -1) |
 
-Bir xil joydagi sample'larning birinchisi ishlaydi; editor diagnostikasi takrorni ko‘rsatadi. 1..64 motion;
-nonfinite koordinata hisobga olinmaydi. Kliplar 1D kabi bitta normalized fazani, og‘irlikli sikl davomiyligini,
-root motion va dominant klip event'larini ishlatadi. Qatlamlar va pose cache ikkala blend turiga ham qo‘llanadi.
+Of samples at the same position the first one counts; the editor diagnostics show the duplicate. 1..64 motions; a
+nonfinite coordinate is ignored. As in 1D, the clips use one normalized phase, a weighted cycle length, root motion and
+the dominant clip's events. Layers and the pose cache apply to both blend kinds.
 
-### 7.2. Parametrlar va o‘tish siyosati
+### 7.2. Parameters and transition policy
 
-`SetFloat`, `SetBool`, `SetTrigger`, `ResetTrigger` muvaffaqiyatni bool bilan qaytaradi: yo‘q yoki boshqa turdagi
-parametr o‘zgarmaydi. Float nonfinite qiymatni rad etadi. `SetFloatDamped(name, target, dampingSeconds, delta)`
-exponential smoothing ishlatadi: vaqtni kichik qadamlarga bo‘lish natijani deyarli o‘zgartirmaydi.
-Damping 0 — darhol; musbat damping bilan Delta 0 — turgan joyida; manfiy/nonfinite vaqt rad etiladi.
+`SetFloat`, `SetBool`, `SetTrigger`, `ResetTrigger` return success as a bool: a missing parameter or one of another
+type does not change. Float rejects a nonfinite value. `SetFloatDamped(name, target, dampingSeconds, delta)` uses
+exponential smoothing: splitting the time into small steps barely changes the result.
+Damping 0 — at once; with a positive damping, Delta 0 — stays where it is; a negative/nonfinite time is rejected.
 
-Transition **Ustuvorlik**: katta son avval, teng bo‘lsa yozilgan tartib. Faqat yutgan transition triggerlarni iste’mol qiladi.
-**Fade ichida o‘tish** o‘chirilsa joriy fade tugaguncha shart va trigger kutadi; yoqiq bo‘lsa faol destination holatidan
-yangi fade boshlanadi (oldingi aralash pose alohida snapshot qilinmaydi). Eski sahnalarda qiymat true va Priority 0.
-Yo‘q yoki noto‘g‘ri turdagi shart parametridan o‘tish bajarilmaydi. **Controller diagnostics** noto‘g‘ri nomlar,
-reference'lar, default index, timing va blend sample'larini ko‘rsatadi; C++ uchun `ValidateController(model)` mavjud.
+Transition **Priority**: a larger number first, on a tie the order they were written in. Only the winning transition
+consumes triggers. With **Transition during a fade** off, conditions and triggers wait until the current fade ends;
+with it on, a new fade starts from the active destination state (the earlier blended pose is not snapshotted
+separately). In old scenes the value is true and Priority 0.
+A transition whose condition parameter is missing or of the wrong type does not fire. **Controller diagnostics** show
+wrong names, references, the default index, timing and blend samples; for C++ there is `ValidateController(model)`.
 
-`SetState` va transition holat vaqtini qayta boshlaydi, hatto ikki holat bir klipni ishlatsa ham. Self transition ham
-qayta boshlaydi. Eski sahna formatlari va 1D motion threshold'lari saqlanadi.
+`SetState` and a transition restart the state time, even when the two states use the same clip. A self transition
+restarts it too. Old scene formats and the 1D motion thresholds are kept.
 
-### 7.3. Modelsiz 2D holatlar va Blueprint
+### 7.3. 2D states without a model and Blueprint
 
-Animator model bo‘lmagan obyektda ham holat mashinasi bo‘la oladi. **2D holat vaqti** (`AnimatorState::Duration`)
-0 dan katta bo‘lsa normalized clock, exit time va Animator event'lari ishlaydi. Klip holatida vaqt soniyada,
-blend holatida normalized fazada saqlanadi; non-loop holat oxirida to‘xtaydi. Duration 0 eski timing xatti-harakatini saqlaydi.
-Sprite/property kliplar avtomatik tanlanmaydi: holatga qarab Blueprint bilan rang/transform yoki `PlayAnimation`
-chaqiring. Shu usul bilan 2D va 3D bir xil parametr/o‘tish mantiqidan foydalanadi.
+An Animator can have a state machine on an object without a model too. When the **2D state time**
+(`AnimatorState::Duration`) is greater than 0, the normalized clock, exit time and Animator events work. In a clip
+state the time is kept in seconds, in a blend state as the normalized phase; a non-looping state stops at its end.
+Duration 0 keeps the old timing behaviour.
+Sprite/property clips are not chosen automatically: depending on the state, set the colour/transform with a Blueprint
+or call `PlayAnimation`. This way 2D and 3D use the same parameter/transition logic.
 
-Visual Script kutubxonasidagi **Animator** guruhida Set/GetFloat, Set/GetBool, Set/GetTrigger, ResetTrigger,
-SetFloatDamped, SetState, StateIs, State (nom, normalized vaqt, fade va root motion), BlendWeight,
-PlayClip, PlayLayer va LayerWeight/SetLayerWeight mavjud. Setter'larning Success chiqishi xatoni boshqarishga yordam beradi.
-PlayLayer'ning `Restart` pini (standart o'chiq; undan oldin saqlangan graflar o'zgarmaydi) qatlam allaqachon o'ynayotgan
-klipni boshidan qo'yadi (o'zidan crossfade bilan): bir xil zarbaning ikkinchi siltanishi o'z event'larini (`Hit`) yana
-chaqiradi.
-Get noto‘g‘ri tur/reference, yo‘q Animator yoki chegaradan tashqari BlendWeight indeksi aniq diagnostika beradi.
-PlayClip state machine'ni runtime'da pauza qiladi; SetState uni qayta yoqadi. Play tugagach yangi nusxa controller bilan boshlanadi.
+The **Animator** group in the Visual Script library has Set/GetFloat, Set/GetBool, Set/GetTrigger, ResetTrigger,
+SetFloatDamped, SetState, StateIs, State (name, normalized time, fade and root motion), BlendWeight,
+PlayClip, PlayLayer and LayerWeight/SetLayerWeight. The setters' Success output helps handle errors.
+PlayLayer's `Restart` pin (off by default; graphs saved before it existed do not change) starts the clip the layer is
+already playing from the beginning (with a crossfade from itself): the second swing of the same strike fires its
+events (`Hit`) again.
+Get with a wrong type/reference, a missing Animator or an out-of-range BlendWeight index gives a precise diagnostic.
+PlayClip pauses the state machine at runtime; SetState turns it back on. After Play ends, a new instance starts with
+the controller.
 
-**Sprite kliplarini boshqarish** (`DriveSpriteClips`, standart o'chiq): modelsiz Animator bir xil obyektdagi
-Sprite Animation'ning `.zsanim` kliplarini o'zi tanlaydi — holatning `Clip` nomi yoki blend tree'ning eng katta
-og'irlikdagi harakati (teng bo'lsa kichik indeks); o'tishda fade yarmigacha eski holat, keyin yangisi ko'rsatiladi
-(sprite'lar aralashtirilmaydi). Kadr holatning normal vaqtiga ergashadi: `kadr = floor(faza × kadrlar soni)`, loop
-bo'lmagan klip oxirgi kadrda to'xtaydi; shu bois 2D blend ichida yo'nalish o'zgarsa ham yurish fazasi saqlanadi.
-Holat va Animator tezligi fazani masshtablaydi; `.zsanim` kadr event'lari har kesib o'tilgan kadrda bir marta
-(20/30/60/144 Hz'da ham) chaqiriladi; noma'lum klip nomi hech narsani o'zgartirmaydi; nofaol obyekt to'xtab turadi.
-Bir holat soati davom etayotganda klip almashsa (2D blend yo'nalishi burildi, yurish to'xtab Idle'ga o'tdi) kesib
-o'tilgan kadrlar yangi klipning kadr sonida ham kesib o'tilgan hisoblanadi — yo'nalish o'zgarishi bir qadam event'ini
-ikki marta chaqirmaydi (`AnimatorSpriteClipsDirectionSwitchesFireEachStepOnce`). O'chiq bo'lsa (eski sahnalar) sprite o'z
-soati bilan ijro etadi. Testlar: `AnimatorSpriteClips*`.
+**Drive sprite clips** (`DriveSpriteClips`, off by default): an Animator without a model chooses the `.zsanim` clips of
+the Sprite Animation on the same object by itself — the state's `Clip` name or the blend tree's motion with the largest
+weight (on a tie the smaller index); during a transition the old state is shown until half of the fade, then the new
+one (sprites are not blended). The frame follows the state's normalized time: `frame = floor(phase × frame count)`, a
+non-looping clip stops on its last frame; so inside a 2D blend the walking phase is kept even when the direction
+changes. The state and Animator speeds scale the phase; `.zsanim` frame events fire once for every frame crossed (at
+20/30/60/144 Hz too); an unknown clip name changes nothing; an inactive object stands still.
+When the clip changes while one state's clock keeps running (the 2D blend direction turned, walking stopped and went
+to Idle), the frames already crossed count as crossed in the new clip's frame count too — a change of direction does
+not fire one step's event twice (`AnimatorSpriteClipsDirectionSwitchesFireEachStepOnce`). When it is off (old scenes)
+the sprite plays on its own clock. Tests: `AnimatorSpriteClips*`.
 
-**Animator yangilanishi ajratmasiz:** barqaror kadrda Animator yangilanishi (holatlar, blend og'irliklari, qatlamlar,
-event'lar, pozalar, sprite kliplari) heap'dan hech narsa ajratmaydi — event va poza ro'yxatlari, blend tree namunalari,
-bo'g'in matritsalari oqim bo'yicha saqlanadigan ro'yxatlarda qayta ishlatiladi; ishchi oqimlarda faqat vazifalar
-tizimining `ParallelFor` yuborishi ajratadi. `ZaminBench --animation` buni o'lchaydi ([Benchmarks.md](Benchmarks.md)):
-256 odam va 1 024 sprite Animator bitta oqimda 0 ajratma / kadr.
+**The Animator update allocates nothing:** in a steady frame the Animator update (states, blend weights, layers,
+events, poses, sprite clips) allocates nothing from the heap — the event and pose lists, blend tree samples and joint
+matrices are reused in per-thread lists; on worker threads only the job system's `ParallelFor` dispatch allocates.
+`ZaminBench --animation` measures this ([Benchmarks.md](Benchmarks.md)): 256 humans and 1 024 sprite Animators on one
+thread, 0 allocations / frame.
 
-**Odam lokomotsiyasi misoli** — *Beacon Pass* ([VerticalSlices.md](VerticalSlices.md), `Projects/BeaconPass`):
-21 bo'g'inli skelet (`Tools/samples/gltfkit.py`), `Locomotion` BlendTree1D `Speed` bo'yicha — Idle 0, Walk 1.8, Run 5.4;
-chegaralar yurish tezliklariga teng va klip uzunligi = qadam / tezlik (Walk 2.0 m / 1.8 m/s, Run 3.9 m / 5.4 m/s), shuning
-uchun sof Walk yoki Run oyoqni sirpantirmaydi; `Air`/`Land`/`Dead` holatlari; `UpperBody` qatlami (Spine'dan Override)
-Attack/Cast'ni `PlayLayer(..., restart)` bilan, `Hit` qatlami (Additive) Hurt'ni o'ynaydi; `Hit`/`Release` event'lari
-zarba va olov o'qini, Walk/Run'ning 0 va 0.5 dagi `Footstep` event'lari qadam ovozlarini beradi. Parametrlarni
-`Gameplay.BindAnimator` haqiqiy tezlikdan yozadi. `BeaconPassLocomotionHeadless` testi sof Walk/Run og'irliklari, qadamlar
-oralig'i (yarim qadam ±10 %) va damplangan Speed'ning o'lchangan tezlikdan farqini (≤ 0.05 m/s) tekshiradi.
+**A human locomotion example** — *Beacon Pass* ([VerticalSlices.md](VerticalSlices.md), `Projects/BeaconPass`):
+a 21-joint skeleton (`Tools/samples/gltfkit.py`), a `Locomotion` BlendTree1D on `Speed` — Idle 0, Walk 1.8, Run 5.4;
+the thresholds equal the walking speeds and clip length = stride / speed (Walk 2.0 m / 1.8 m/s, Run 3.9 m / 5.4 m/s),
+so a pure Walk or Run does not slide the feet; `Air`/`Land`/`Dead` states; an `UpperBody` layer (Override from the
+Spine) plays Attack/Cast with `PlayLayer(..., restart)`, a `Hit` layer (Additive) plays Hurt; the `Hit`/`Release`
+events give the strike and the fire bolt, the `Footstep` events at 0 and 0.5 of Walk/Run give the footstep sounds.
+`Gameplay.BindAnimator` writes the parameters from the real speed. The `BeaconPassLocomotionHeadless` test checks the
+pure Walk/Run weights, the step spacing (half a stride ±10 %) and the difference between the damped Speed and the
+measured speed (≤ 0.05 m/s).
 
-[VisualWorkshop](../Projects/VisualWorkshop/VisualWorkshop.zproject) ikkala sahnada `AnimatorGameplay.zgraph` bilan
-2D blend → trigger/action → state resume → damping zanjirini compiler/game modulisiz bajaradi. 2D display holatga qarab
-rangini almashtiradi; 3D actor haqiqiy skinned model kliplarini aralashtiradi.
+[VisualWorkshop](../Projects/VisualWorkshop/VisualWorkshop.zproject) runs the 2D blend → trigger/action → state resume
+→ damping chain with `AnimatorGameplay.zgraph` in both scenes, without a compiler or a game module. The 2D display
+changes its colour by state; the 3D actor blends the clips of a real skinned model.
 
 ```bash
 python3 Tests/animator_workflow_test.py --build build-review --exports
 ZAMIN_BUILD_DIR=build-review xvfb-run -a -s '-screen 0 1600x1000x24 -nolisten tcp' python3 Tests/animator_editor_test.py
 ```
 
-## 8. Qatlamlar va avatar maska
+## 8. Layers and the avatar mask
 
-**Qatlam** — asosiy animatsiya ustidan o'z klipini tananing bir qismida o'ynaydi (yuradi va qo'l silkitadi):
+A **layer** plays its own clip on part of the body over the base animation (walking and waving):
 
-- `Clip`, `Speed`, `Loop`, `Weight` (0..1; ixtiyoriy `WeightParameter` — float parametr ham ko'paytiradi);
-- `Blend`: **Override** (maskadagi suyaklar shu klip pozasiga og'irlik bo'yicha o'tadi) yoki **Additive** (klipning o'z
-  birinchi kadriga nisbatan o'zgarishi qo'shiladi — bosh irg'ash, nafas olish);
-- `MaskBones` — **avatar maska**: sanab o'tilgan suyaklar va ulardan pastdagi hammasi (masalan `Spine` — ustki tana).
-  Bo'sh — butun tana.
+- `Clip`, `Speed`, `Loop`, `Weight` (0..1; an optional `WeightParameter` — a float parameter multiplies it too);
+- `Blend`: **Override** (the bones in the mask move to this clip's pose by the weight) or **Additive** (the clip's
+  change relative to its own first frame is added — a nod, breathing);
+- `MaskBones` — the **avatar mask**: the listed bones and everything below them (for example `Spine` — the upper body).
+  Empty — the whole body.
 
 ```cpp
 auto& anim = GetComponent<AnimatorComponent>();
-anim.PlayLayer("UpperBody", "Wave");            // qatlamda klip (crossfade bilan; bo'sh qatlam asta paydo bo'ladi)
-anim.PlayLayer("UpperBody", "Attack", false, 1.25f, 0.08f, true); // shu klip o'ynasa ham boshidan (restart)
-anim.SetLayerWeight("UpperBody", 0.0f, 0.3f);   // 0.3 s da o'chadi
+anim.PlayLayer("UpperBody", "Wave");            // a clip on the layer (with a crossfade; an empty layer fades in)
+anim.PlayLayer("UpperBody", "Attack", false, 1.25f, 0.08f, true); // from the start even if this clip is playing (restart)
+anim.SetLayerWeight("UpperBody", 0.0f, 0.3f);   // fades out in 0.3 s
 float w = anim.GetLayerWeight("UpperBody");
 ```
 
-Qatlamlar sahnada saqlanadi, o'yin boshlanganda o'z og'irliklaridan boshlaydi. Qatlam klipining event'lari ham keladi
-(faqat shu klip nomi yozilganlari).
+Layers are saved in the scene and start from their own weights when the game starts. A layer clip's events come too
+(only the ones written with that clip's name).
 
 ---
 
-## 9. Event'lar
+## 9. Events
 
-Event — klipning bir nuqtasi: **nom** va ixtiyoriy **parametr** matni. O'sha nuqtadan o'tilganda skript xabar oladi.
+An event is a point of a clip: a **name** and an optional **parameter** text. When playback passes that point the
+script gets a message.
 
-- Property kliplarda: vaqt **soniyada**, Animatsiya oynasining event'lar qatorida.
-- glTF kliplarda: Animator > **Hodisalar** (yoki skelet rejimidagi timeline): klip nomi (`""` — har qanday klip) va vaqt
-  **0..1** (klip boshidan oxirigacha).
+- In property clips: the time in **seconds**, in the event row of the Animation window.
+- In glTF clips: Animator > **Events** (or the timeline in skeletal mode): the clip name (`""` — any clip) and a time
+  **0..1** (from the start of the clip to its end).
 
-Kafolatlar: har event o'tilganda **aynan bir marta** chaqiriladi — takrorlanganda (loop) har siklda, borib-qaytganda ikkala
-yo'nalishda, orqaga o'ynaganda ham. Bir kadr butun sikldan uzun bo'lsa (qotish) ham har event bir martadan ortiq emas. Klip
-tugagan nuqtaga tushgan qadam oxirgi event'ni chaqiradi, keyingi siklning boshi keyingi qadamda keladi. Editorda (play
-rejimisiz) event'lar chaqirilmaydi.
+Guarantees: every event fires **exactly once** when it is passed — on every cycle when looping, in both directions
+when ping-ponging, and when playing backwards. Even when one frame is longer than the whole cycle (a hitch) every event
+fires at most once. A step that lands exactly on the clip's end fires the last event, and the start of the next cycle
+comes on the next step. In the editor (without play mode) events do not fire.
 
-Skriptda qabul qilish — ikki yo'l:
+Receiving them in a script — two ways:
 
 ```cpp
 class Hero : public ScriptableEntity
@@ -422,41 +433,42 @@ class Hero : public ScriptableEntity
 public:
     void OnCreate() override
     {
-        // 1) Nom bo'yicha usul
+        // 1) By name
         AddAnimationEventHandler("Hit", [this](const AnimationEventInfo& e) { DealDamage(e.Parameter); });
     }
-    // 2) Hammasi bitta joyda
+    // 2) All in one place
     void OnAnimationEvent(const AnimationEventInfo& e) override
     {
-        ZM_INFO("{} klipida '{}' (t={:.2f}, skelet: {})", e.Clip, e.Name, e.Time, e.Skeletal);
+        ZM_INFO("'{}' in clip {} (t={:.2f}, skeletal: {})", e.Name, e.Clip, e.Time, e.Skeletal);
     }
 
 private:
-    void DealDamage(const std::string& weapon) { ZM_INFO("Zarba: {}", weapon); }
+    void DealDamage(const std::string& weapon) { ZM_INFO("Strike: {}", weapon); }
 };
 ```
 
-Event'lar sahnaning event bus'iga ham `"AnimationEvent"` nomi bilan chiqadi (boshqa obyektlar `Subscribe` qilishi mumkin).
+Events also go out on the scene's event bus as `"AnimationEvent"` (other objects can `Subscribe`).
 
-**Qadam tovushlari** — `Footsteps` komponenti event'larni o'zi tinglaydi (kod kerak emas): `EventName` (odatda
-`Footstep`) kelganda ovozlar ro'yxatidan tasodifiysi (ketma-ket takrorlanmaydi), tasodifiy balandlik / ton, Animator'ning
-tezlik parametri bo'yicha (`ReferenceSpeed`da — 1; tezroq — balandroq va yuqoriroq), `MinSpeed`dan sekinda jim, yaqin
-event'lar (`MinInterval`) bitta qadam, 3D ovoz va mixer guruhi. Walk / Run kliplarining 0 va 0.5 nuqtalariga `Footstep`
-event'i qo'ying — tamom (Adventure3D roboti shunday).
+**Footstep sounds** — the `Footsteps` component listens to the events by itself (no code needed): when `EventName`
+(usually `Footstep`) comes it plays a random one from its list of sounds (never the same twice in a row), with a
+random volume / pitch, scaled by the Animator's speed parameter (1 at `ReferenceSpeed`; faster — louder and higher),
+silent below `MinSpeed`, events close together (`MinInterval`) count as one step, a 3D sound and a mixer group. Put
+`Footstep` events at 0 and 0.5 of the Walk / Run clips — done (that is how the Adventure3D robot works).
 
 ---
 
 ## 10. Root motion
 
-Ko'p kliplar (mocap yurishi) ildiz suyakni oldinga siljitadi: Animator bunday klipni joyida o'ynasa model obyektdan
-uzoqlashib ketadi va keyin orqaga sakraydi. **Root motion** (Animator > Root motion > **Qo'llash**) ildiz suyakning XZ
-yurishini va Y atrofida burilishini olib, **obyektni** siljitadi; poza joyida qoladi (balandligi — sakrash, chayqalish —
-qoladi).
+Many clips (mocap walks) move the root bone forward: when the Animator plays such a clip in place, the model walks
+away from the object and then jumps back. **Root motion** (Animator > Root motion > **Apply**) takes the root bone's
+XZ walk and its turn around Y and moves the **object**; the pose stays in place (its height — jumps, bobbing — is
+kept).
 
-- Ildiz suyak — avtomatik (klip siljitadigan eng yuqori suyak, odatda Hips / Root) yoki tanlanadi (`RootMotionBone`).
-- **Character Controller 3D** bo'lsa u yuradi (to'qnashuvlar, zinapoyalar bilan), bo'lmasa transform siljiydi.
-- Loop'lar, crossfade va blend tree (og'irliklar bo'yicha) hisobga olinadi; editor ko'rinishida model joyida turadi.
-- Skript o'qishi mumkin: `anim.RootMotionVelocity` (m/s), `anim.RootMotionTurnRate` (radian/s).
+- The root bone — automatic (the highest bone the clip moves, usually Hips / Root) or chosen (`RootMotionBone`).
+- With a **Character Controller 3D** it walks (with collisions, stairs), otherwise the transform moves.
+- Loops, crossfades and blend trees (by the weights) are taken into account; in the editor view the model stays in
+  place.
+- A script can read it: `anim.RootMotionVelocity` (m/s), `anim.RootMotionTurnRate` (radians/s).
 
 ```cpp
 auto& anim = GetComponent<AnimatorComponent>();
@@ -466,49 +478,50 @@ anim.RootMotionBone = "Hips";
 
 ---
 
-## 11. Suyakka biriktirish
+## 11. Attaching to a bone
 
-**Bone Attachment** komponenti obyektni skinned modelning suyagiga ergashtiradi — qo'lda qilich, boshda shlyapa, belda
-fonar:
+The **Bone Attachment** component makes an object follow a bone of a skinned model — a sword in the hand, a hat on the
+head, a lantern on the belt:
 
-- `Target` — Animator'li model obyekti (bo'sh — eng yaqin skinned ota-ona);
-- `Bone` — suyak nomi (inspektorda ro'yxatdan);
-- `InheritBoneScale` — suyak masshtabini ham olish.
+- `Target` — the model object with the Animator (empty — the nearest skinned parent);
+- `Bone` — the bone name (from a list in the inspector);
+- `InheritBoneScale` — take the bone's scale too.
 
-Suyak (Animator pozasi bilan, editorda ham) obyekt otasining o'rnini egallaydi, obyektning Transform'i esa **suyakka
-nisbatan siljish** bo'ladi (gizmo ham suyak fazosida ishlaydi). "Suyakka qo'yish (offset 0)" tugmasi siljish va burilishni nolga qaytaradi.
-Joylashuv har kadr animatsiyadan keyin olinadi, shuning uchun fizika va kamera to'g'ri joyni ko'radi.
+The bone (with the Animator pose, in the editor too) takes the place of the object's parent, and the object's
+Transform becomes an **offset relative to the bone** (the gizmo works in bone space too). The "Snap to bone (offset 0)"
+button resets the offset and rotation to zero.
+The position is taken every frame after the animation, so physics and the camera see the right place.
 
 ```cpp
-glm::mat4 hand = GetScene().GetWorldTransform(sword);   // suyakdagi obyektning dunyo transformi
+glm::mat4 hand = GetScene().GetWorldTransform(sword);   // the world transform of the object on the bone
 ```
 
 ---
 
-## 12. Morph target'lar (blend shape'lar)
+## 12. Morph targets (blend shapes)
 
-glTF morph target'lari o'qiladi: har target'ning joy va normal siljishlari, nomlari va boshlang'ich og'irliklari. Har
-og'irlik 0..1 — mesh shu target tomon o'zgaradi (yuz ifodasi, shishish, tikanlar).
+glTF morph targets are read: every target's position and normal offsets, names and default weights. Every weight is
+0..1 — the mesh changes towards that target (a facial expression, swelling, spikes).
 
-- Mesh Renderer inspektorida har target uchun slayder; og'irliklar sahnada saqlanadi (`MorphWeights`).
-- glTF'dagi `weights` animatsiya kanallari Animator kliplarida o'ynaydi (crossfade va blend tree bilan aralashadi):
-  klip animatsiya qiladigan target'lar klipdan, qolganlari Mesh Renderer'dan.
-- Og'irliklar CPU'da qo'llanadi: og'irliklari modelnikidan farq qiladigan har obyekt o'z mesh nusxasini oladi va
-  og'irliklar o'zgarganda qayta yoziladi (skinning bilan ham ishlaydi).
+- A slider for every target in the Mesh Renderer inspector; the weights are saved in the scene (`MorphWeights`).
+- The glTF `weights` animation channels play in Animator clips (blended with crossfades and blend trees): the targets
+  the clip animates come from the clip, the rest from the Mesh Renderer.
+- The weights are applied on the CPU: every object whose weights differ from the model's gets its own mesh copy, which
+  is rewritten when the weights change (works with skinning too).
 
 ```cpp
 auto& mr = GetComponent<MeshRendererComponent>();
-mr.SetMorphWeight("Smile", 0.8f);        // nom yoki "Guruh/Target"
-mr.SetMorphWeight(2, 0.5f);              // yoki indeks
+mr.SetMorphWeight("Smile", 0.8f);        // a name or "Group/Target"
+mr.SetMorphWeight(2, 0.5f);              // or an index
 float s = mr.GetMorphWeight("Smile");
-mr.ResetMorphWeights();                  // modelning o'z og'irliklari
+mr.ResetMorphWeights();                  // the model's own weights
 ```
 
 ---
 
-## 13. glTF kliplarini kesish va bo'lish
+## 13. Trimming and splitting glTF clips
 
-Model `.zmeta` faylining import sozlamalarida (asset inspektori > **Kliplar**) fayldagi klipdan qism kesib olinadi:
+In the import settings of the model's `.zmeta` file (asset inspector > **Clips**) a part is cut from a clip in the file:
 
 ```json
 "Import": {
@@ -522,65 +535,66 @@ Model `.zmeta` faylining import sozlamalarida (asset inspektori > **Kliplar**) f
 }
 ```
 
-- Boshqa nom bilan — alohida klip (bitta uzun yozuvdan Walk / Run / Jump); nomsiz yoki manba nomi bilan — manba kesiladi.
-- `End` < 0 yoki yo'q — klip oxirigacha. `KeepSourceClips: false` — bo'lingan manbaning o'zi qolmaydi.
-- `ClipFPS` — inspektor vaqtlarni kadrlarda ko'rsatishi uchun.
+- With another name — a separate clip (Walk / Run / Jump from one long recording); without a name or with the source's
+  name — the source is trimmed.
+- `End` < 0 or missing — to the end of the clip. `KeepSourceClips: false` — the split source itself is not kept.
+- `ClipFPS` — so that the inspector shows the times in frames.
 
-Inspektorda har qator uchun oraliq chizig'i (chetlari sudraladi), soniya va kadr maydonlari, ogohlantirishlar va
-qo'llashdan oldin ko'rib chiqish bor.
-
----
-
-## 14. Bir nechta skin
-
-Bitta glTF faylda bir nechta skin bo'lishi mumkin: har skinned mesh tuguni o'z skin'i bilan — tana va kiyim alohida
-skin'larda, bir faylda ikki personaj, yoki ikki armaturaning suyaklariga bog'langan arqon. Zamin hammasini yuklaydi:
-
-- Modelning **skeleti** — barcha skin'larning suyaklari (har tugun bir marta, ota-onalar oldin). Turli joylashgan
-  armaturalarning tugunlari ham skeletga qo'shiladi — har qism faylda turgan joyida. Bitta Animator hammasini bir pozada
-  animatsiya qiladi.
-- Har **skin** o'z suyaklari ro'yxatini va inverse bind matritsalarini saqlaydi (`Model::GetSkins()`). Skeletniki bilan bir
-  xil bo'lsa mesh to'g'ridan-to'g'ri skelet matritsalari bilan chiziladi, farq qilsa (mesh boshqa fazoda bog'langan) —
-  o'z **palitrasi** bilan (`GetSkinMatrices`). Bitta skin'da 80 tagacha suyak (GPU chegarasi) — butun model emas.
-- Bone Attachment, root motion, editordagi skelet gizmosi barcha skin'lar suyaklari bilan ishlaydi.
-
-Namuna: Showcase3D `Models/TentaclePair.gltf` (`Scenes/Crowd.zscene` oldida): ikki armatura (biri teskari burilgan)
-va ikkala uchini bog'lagan oltin arqon — uch skin, bitta Animator.
+The inspector has a range bar for every row (its edges can be dragged), second and frame fields, warnings and a preview
+before applying.
 
 ---
 
-## 15. Sprite animatsiyasi va kliplar (.zsanim)
+## 14. Several skins
 
-2D uchun: **Sprite Animation** komponenti (`SpriteAnimationComponent`, *+ Komponent → Render → Sprite Animation*) Sprite
-Renderer teksturasining kadrlarini FPS bilan o'ynaydi. Kadrlar uch xil beriladi:
+One glTF file can have several skins: every skinned mesh node with its own skin — the body and the clothes in separate
+skins, two characters in one file, or a rope bound to the bones of two armatures. Zamin loads all of them:
 
-- **Grid** — tekstura `Columns` x `Rows` kataklarga bo'linadi (chapdan o'ngga, yuqoridan pastga raqamlanadi), `StartFrame`
-  dan `FrameCount` ta kadr, `FPS`, `Loop`;
-- **Nomlangan kadrlar** — `Frames` ro'yxati (sprite sheet'dagi nomlar, **Oyna > Sprite muharriri** da kesiladi; inspektorda
-  `run_0, run_1, ...` ketma-ketliklari bitta tanlov bilan);
-- **Kliplar** — `Clips` ro'yxatidagi `.zsanim` assetlar (pastda).
+- The model's **skeleton** — the bones of all the skins (every node once, parents first). The nodes of armatures placed
+  in different spots are added to the skeleton too — each part where it stands in the file. One Animator animates all
+  of them in one pose.
+- Every **skin** keeps its own bone list and inverse bind matrices (`Model::GetSkins()`). When it is the same as the
+  skeleton's, the mesh is drawn directly with the skeleton matrices; when it differs (the mesh is bound in another
+  space) — with its own **palette** (`GetSkinMatrices`). Up to 80 bones per skin (the GPU limit) — not per model.
+- Bone Attachment, root motion and the skeleton gizmo in the editor work with the bones of all the skins.
 
-Skriptdan:
+Sample: Showcase3D `Models/TentaclePair.gltf` (in front of `Scenes/Crowd.zscene`): two armatures (one turned around)
+and a golden rope joining both ends — three skins, one Animator.
+
+---
+
+## 15. Sprite animation and clips (.zsanim)
+
+For 2D: the **Sprite Animation** component (`SpriteAnimationComponent`, *+ Component → Rendering → Sprite Animation*)
+plays the frames of the Sprite Renderer's texture at an FPS. Frames are given in three ways:
+
+- **Grid** — the texture is divided into `Columns` x `Rows` cells (numbered left to right, top to bottom),
+  `FrameCount` frames from `StartFrame`, `FPS`, `Loop`;
+- **Named frames** — a `Frames` list (names in the sprite sheet, cut in **Window > Sprite editor**; in the inspector
+  `run_0, run_1, ...` sequences with one choice);
+- **Clips** — `.zsanim` assets in the `Clips` list (below).
+
+From a script:
 
 ```cpp
-// Platformer2D PlayerController: sprite sheet panjarasidagi holatlar.
+// Platformer2D PlayerController: states on the sprite sheet grid.
 if (auto* anim = TryGetComponent<SpriteAnimationComponent>())
 {
-    if (m_GroundContacts == 0)             anim->Play(8, 1, 1.0f, true);   // sakrash: 8-kadr
-    else if (std::abs(velocity.x) > 0.5f)  anim->Play(4, 4, 12.0f, true);  // yugurish: 4..7, 12 kadr/s
-    else                                   anim->Play(0, 2, 3.0f, true);   // turish: 0..1
+    if (m_GroundContacts == 0)             anim->Play(8, 1, 1.0f, true);   // jump: frame 8
+    else if (std::abs(velocity.x) > 0.5f)  anim->Play(4, 4, 12.0f, true);  // run: 4..7, 12 frames/s
+    else                                   anim->Play(0, 2, 3.0f, true);   // idle: 0..1
 }
 if (auto* sprite = TryGetComponent<SpriteRendererComponent>(); sprite && dir != 0.0f)
-    sprite->FlipX = dir < 0.0f;                                            // chapga qaraganda aks
+    sprite->FlipX = dir < 0.0f;                                            // mirrored when facing left
 
-PlaySpriteSequence("run", 12.0f);   // nomlangan "run_0", "run_1", ... (Sprite Animation bo'lmasa qo'shiladi)
-SetSprite("idle");                  // bitta nomlangan kadr ("" - butun rasm)
+PlaySpriteSequence("run", 12.0f);   // the named "run_0", "run_1", ... (a Sprite Animation is added when missing)
+SetSprite("idle");                  // one named frame ("" - the whole image)
 anim->PlayFrames({ "hit_0", "hit_1" }, 15.0f, false);
 ```
 
-`Play` shu kadrlar allaqachon o'ynayotgan bo'lsa ularni qayta boshlamaydi — har kadr chaqirish xavfsiz.
+`Play` does not restart those frames when they are already playing — it is safe to call every frame.
 
-Kliplar asset sifatida — `.zsanim`:
+Clips as assets — `.zsanim`:
 
 ```json
 { "Version": 1, "Texture": "Textures/hero.png", "FPS": 10.0, "Loop": true,
@@ -588,55 +602,55 @@ Kliplar asset sifatida — `.zsanim`:
   "Events": [ { "Frame": 1, "Name": "Step" }, { "Frame": 3, "Name": "Step" } ] }
 ```
 
-Komponentning **Kliplar** ro'yxati (birinchisi `PlayOnStart` bilan boshlanadi); o'ynayotgan klip renderer teksturasini ham
-qo'yadi. Kadr event'lari har siklda bir marta (katta kadrda ham).
+The component's **Clips** list (the first one starts with `PlayOnStart`); the playing clip also sets the renderer's
+texture. Frame events fire once per cycle (with a long frame too).
 
 ```cpp
-PlaySpriteClip("HeroSide");          // o'ynab turgan bo'lsa davom etadi
-PlaySpriteClip("HeroSide", true);    // boshidan
+PlaySpriteClip("HeroSide");          // continues when it is already playing
+PlaySpriteClip("HeroSide", true);    // from the start
 std::string current = GetSpriteClip();
 ```
 
-Kontent brauzer: **Yangi sprite animatsiya klipi**; inspektorda "Shu kadrlardan klip"; asset inspektorida o'ynaydigan
-ko'rinish, kadrlar tasmasi va event'lar.
+The content browser: **New sprite animation clip**; in the inspector "Clip from these frames"; in the asset inspector
+a playing preview, a strip of frames and the events.
 
 ---
 
-## 16. Samaradorlik: keshlash va kesish
+## 16. Performance: caching and culling
 
-Ko'p animatsiyali personaj bo'lsa skelet pozalarini hisoblash qimmatlashadi. Animator > **Samaradorlik**:
+With many animated characters, computing the skeleton poses gets expensive. Animator > **Performance**:
 
-**Bir xil kirishlar — hisob yo'q** (doim ishlaydi, sozlash kerak emas). Poza nimadan yasalgani (kliplar, vaqtlar, og'irliklar,
-crossfade, qatlamlar, morph og'irliklari, root motion suyagi) o'tgan kadrdagidek bo'lsa — pauza, tezlik 0, tugagan
-(takrorlanmaydigan) klip — oldingi poza qoladi.
+**Same inputs — no work** (always on, nothing to set). When what the pose is made from (clips, times, weights,
+crossfade, layers, morph weights, the root motion bone) is the same as in the previous frame — a pause, speed 0, a
+finished (non-looping) clip — the previous pose stays.
 
-**Ko'rinmasa** (`Culling`): model hech bir ko'rinishda (o'yin kamerasi, editorning sahna ko'rinishi — qaysi biri bo'lsa ham)
-ko'rinmagan bo'lsa:
+**When not visible** (`Culling`): when the model was not visible in any view (the game camera, the editor's scene view
+— whichever):
 
-| Rejim | Nima bo'ladi |
+| Mode | What happens |
 |---|---|
-| **Doim** (`AlwaysAnimate`) | odatdagidek |
-| **Pozasiz** (`CullPose`) | vaqt, holat mashinasi, event'lar (qadam tovushlari!) va root motion davom etadi, skelet pozasi hisoblanmaydi; ko'ringan kadridan keyin yana pozalanadi |
-| **To'liq** (`CullCompletely`) | hech narsa yangilanmaydi — ko'ringanda turgan joyidan davom etadi |
+| **Always** (`AlwaysAnimate`) | as usual |
+| **Without pose** (`CullPose`) | the time, the state machine, events (footstep sounds!) and root motion go on, the skeleton pose is not computed; it is posed again from the frame it becomes visible |
+| **Full** (`CullCompletely`) | nothing is updated — when it becomes visible it continues from where it stood |
 
-Chegaralar — modelning oxirgi pozasidagi skinned chegaralari (biroz kattalashtirilgan). Yangi animator kamida bir marta
-pozalanadi. Sahna umuman chizilmasa (headless) hech narsa kesilmaydi. Eslatma: faqat soyasi ko'rinib turgan model ham
-kesiladi.
+The bounds are the model's skinned bounds in its last pose (slightly enlarged). A new animator is posed at least once.
+When the scene is not drawn at all (headless) nothing is culled. Note: a model whose shadow alone is visible is culled
+too.
 
-**Poza keshi** (`CachePoses`, `PoseCacheRate` kadr/s, 30 standart): klip oldindan shu tezlikda namuna olinib saqlanadi
-(modelning har klipi va tezligi uchun bir marta, uning shu tezlikdagi barcha animatorlari ulashadi; bir klipga 8 tagacha
-turli tezlik, undan ko'pi eng uzoq so'ralmaganining o'rniga); har kadr ikki saqlangan kadr aralashtiriladi —
-har kanal kalitlarini qidirish yo'q. Ko'p suyakli, ko'p kalitli kliplarda arzonroq; saqlangan kadrlar orasida biroz
-kamroq aniq, **step kalitlar aniq qoladi** (bunday suyaklar klipning o'zidan o'qiladi). Debug build'da 100 ta 60 suyakli
-animator (10 s, 30 kalit/s): klipdan ~40 ms → keshdan ~24 ms; yarmi pauzada bo'lsa ~19 ms.
+**Pose cache** (`CachePoses`, `PoseCacheRate` frames/s, 30 by default): the clip is sampled in advance at that rate and
+stored (once for every clip and rate of the model, shared by all its animators at that rate; up to 8 different rates
+per clip, beyond that the least recently requested one is replaced); every frame two stored frames are blended — no
+key search on every channel. Cheaper for clips with many bones and many keys; slightly less accurate between the stored
+frames, **step keys stay exact** (such bones are read from the clip itself). In a Debug build 100 animators with 60
+bones (10 s, 30 keys/s): ~40 ms from the clip → ~24 ms from the cache; ~19 ms when half of them are paused.
 
-**O'lchash**: Statistika oynasi (Oyna > Statistika) > **Animatsiya** — animatorlar soni va vaqti, pozalanganlar,
-o'zgarmaganlar, kesilganlar, keshdan / klipdan namunalar, kesh xotirasi. Profiler daraxtida `Animatsiya` va uning ichida
-`Pozalar` (chaqiruvlar soni — pozalangan animatorlar). Skriptdan:
+**Measuring**: the Statistics window (Window > Statistics) > **Animation** — the number of animators and the time,
+posed, unchanged, culled, samples from the cache / from the clip, the cache memory. In the profiler tree `Animation`
+with `Poses` inside it (the number of calls — posed animators). From a script:
 
 ```cpp
 const Scene::AnimationStats& a = GetScene().GetAnimationStats();
-ZM_INFO("{} animator, {} pozalangan, {} kesilgan, {:.2f} ms", a.Animators, a.Posed, a.Culled, a.Milliseconds);
+ZM_INFO("{} animators, {} posed, {} culled, {:.2f} ms", a.Animators, a.Posed, a.Culled, a.Milliseconds);
 ```
 
 ```cpp
@@ -646,36 +660,36 @@ anim.CachePoses = true;
 anim.PoseCacheRate = 30.0f;
 ```
 
-Namuna: Showcase3D `Scenes/Crowd.zscene` — 168 ta tentakl (keshlangan, `CullPose`, ba'zilari pauzada), kamera chapga-o'ngga
-buriladi; `AnimationStatsDemo` skripti raqamlarni sahnada yozib turadi.
+Sample: Showcase3D `Scenes/Crowd.zscene` — 168 tentacles (cached, `CullPose`, some paused), the camera turns left and
+right; the `AnimationStatsDemo` script writes the numbers in the scene.
 
 ---
 
-## 17. Namuna: yaqinlashganda ochiladigan darvoza
+## 17. Sample: a gate that opens as you approach
 
-Adventure3D `Scenes/Island.zscene` — orqadagi ark ostidagi ikki tabaqali darvoza (`Darvoza` obyekti):
+Adventure3D `Scenes/Island.zscene` — a two-leaf gate under the arch at the back (the `Gate` object):
 
 ```
-Darvoza                (Animation Player: Animations/GateOpening.zanim, Avto boshlash o'chiq; ProximityDoor skripti)
-├── ChapOshiq          (chap oshiq — klip shuni buradi)
-│   └── ChapTabaqa     (taxta: kinematik Rigidbody 3D + Box Collider — qahramonni to'sadi va itaradi)
-├── OngOshiq
-│   └── OngTabaqa
-└── Chiroq             (sfera + nuqtali yorug'lik: qizil -> sariq -> yashil)
+Gate                   (Animation Player: Animations/GateOpening.zanim, Auto start off; the ProximityDoor script)
+├── LeftHinge          (the left hinge — the clip turns it)
+│   └── LeftLeaf       (the board: a kinematic Rigidbody 3D + Box Collider — blocks and pushes the character)
+├── RightHinge
+│   └── RightLeaf
+└── Light              (a sphere + a point light: red -> yellow -> green)
 ```
 
-Klip (1.6 s, `Once`): oshiqlar Bezier bilan ±104° gacha buriladi va 100° ga qaytib o'tiradi; chiroq rangi `Step`
-kalitlar bilan, yorug'lik kuchi `Linear`. Event'lar:
+The clip (1.6 s, `Once`): the hinges turn to ±104° with Bezier keys and settle back to 100°; the lamp colour with
+`Step` keys, the light intensity `Linear`. Events:
 
-| Vaqt | Nom | Parametr | Qachon eshitiladi |
+| Time | Name | Parameter | When it is heard |
 |---|---|---|---|
-| 0.0 | `Taqillash` | | yopilib bo'lganda (orqaga o'ynab 0 ga yetganda) |
-| 0.05 | `Gichirlash` | `ochilish` | ochila boshlaganda |
-| 1.5 | `Gichirlash` | `yopilish` | yopila boshlaganda (oxiridan orqaga) |
-| 1.6 | `Ochildi` | | ochilib bo'lganda |
+| 0.0 | `Thud` | | when it has closed (playing backwards and reaching 0) |
+| 0.05 | `Creak` | `opening` | when it starts to open |
+| 1.5 | `Creak` | `closing` | when it starts to close (backwards from the end) |
+| 1.6 | `Opened` | | when it has opened |
 
-Event har ikki yo'nalishda o'tilganda keladi, shuning uchun parametr qaysi yo'nalishga tegishli ekanini aytadi. Skript
-(`Projects/Adventure3D/Source/World.cpp`, qisqartirilgan):
+An event comes when it is passed in either direction, so the parameter tells which direction it belongs to. The
+script (`Projects/Adventure3D/Source/World.cpp`, shortened):
 
 ```cpp
 class ProximityDoor : public ScriptableEntity
@@ -688,11 +702,11 @@ public:
 
     void OnCreate() override
     {
-        AddAnimationEventHandler("Gichirlash", [this](const AnimationEventInfo& e) {
-            if ((e.Parameter == "ochilish") == m_Opening)   // shu yo'nalishniki
+        AddAnimationEventHandler("Creak", [this](const AnimationEventInfo& e) {
+            if ((e.Parameter == "opening") == m_Opening)   // the one for this direction
                 Sound(CreakSound, 0.9f, { 0.9f, 1.1f });
         });
-        AddAnimationEventHandler("Taqillash", [this](const AnimationEventInfo&) {
+        AddAnimationEventHandler("Thud", [this](const AnimationEventInfo&) {
             if (!m_Opening)
                 Sound(ThudSound, 1.0f, { 0.95f, 1.05f });
         });
@@ -721,7 +735,7 @@ private:
     {
         m_Opening = open;
         m_Away = 0.0f;
-        // Turgan joyidan: yarim ochilgan darvoza shu yerdan yopiladi (oxiriga sakramaydi).
+        // From where it is: a half-open gate closes from there (it does not jump to the end).
         const float from = anim.Current >= 0 ? anim.GetTime() : (open ? 0.0f : anim.GetDuration());
         anim.PlayFrom(Clip, from, open ? 1.0f : -1.0f);
     }
@@ -729,7 +743,7 @@ private:
     {
         SoundParams p;
         p.Volume = volume;
-        p.PitchRandom = pitch;           // har safar biroz boshqacha
+        p.PitchRandom = pitch;           // a little different every time
         p.Spatial = true;
         p.Position = GetWorldPosition() + glm::vec3(0.0f, 1.8f, 0.0f);
         PlaySound(path, p);
@@ -740,20 +754,20 @@ private:
 ZM_REGISTER_SCRIPT(ProximityDoor, ZM_FIELD(ProximityDoor, OpenRadius), ZM_FIELD(ProximityDoor, CloseRadius) /* ... */)
 ```
 
-Klipni editorda ko'rish: `Darvoza` ni tanlang, **Oyna > Animatsiya** — vaqtni surib darvozaning ochilishini play
-rejimisiz ko'rasiz; event'lar qatorida to'rtta event.
+Viewing the clip in the editor: select `Gate`, **Window > Animation** — scrub the time to watch the gate open without
+play mode; the event row shows the four events.
 
 ---
 
-## 18. AnimationCurve: skriptdagi egri chiziq
+## 18. AnimationCurve: a curve in a script
 
-`AnimationCurve` (`Zamin/Math/AnimationCurve.h`) - vaqt bo'yicha bitta son: kalitlar (vaqt, qiymat, kirish / chiqish
-tangentlari), ular orasida pog'onali / chiziqli / silliq (Bezier) o'tish va birinchi kalitdan oldin / oxirgisidan
-keyin nima bo'lishi (`PreWrap` / `PostWrap`: `Once` - chetki qiymat, `Loop` - takrorlash, `PingPong` - borib-qaytish).
-Kalitlar va arifmetika property kliplar va particle egri chiziqlari bilan bir xil (`Math/CurveKey.h`: `CurveKeys`).
+`AnimationCurve` (`Zamin/Math/AnimationCurve.h`) - one number over time: keys (time, value, in / out tangents),
+stepped / linear / smooth (Bezier) transitions between them, and what happens before the first key / after the last
+one (`PreWrap` / `PostWrap`: `Once` - the edge value, `Loop` - repeat, `PingPong` - there and back).
+The keys and the arithmetic are the same as in property clips and particle curves (`Math/CurveKey.h`: `CurveKeys`).
 
-Skript maydoni sifatida inspektorda egri chiziq muharriri bilan tahrirlanadi (kalitni sudrash, ikki marta bosish -
-yangi kalit, o'ng tugma - interpolatsiya / tayyor shakllar, pastda - chetlardagi xatti-harakat) va sahna bilan saqlanadi:
+As a script field it is edited in the inspector with the curve editor (drag a key, double-click - a new key,
+right-click - interpolation / ready-made shapes, below - the behaviour at the edges) and saved with the scene:
 
 ```cpp
 class Hopper : public ScriptableEntity
@@ -769,27 +783,28 @@ public:
 private:
     float m_Ground = 0.0f, m_Time = 0.0f;
 };
-// ZM_FIELD_RANGE: muharrir kamida shu qiymatlarni ko'rsatadi.
+// ZM_FIELD_RANGE: the editor shows at least these values.
 ZM_REGISTER_SCRIPT(Hopper, ZM_FIELD_RANGE(Hopper, Jump, 0.0f, 2.0f))
 ```
 
-Kodda: `AddKey(t, v)`, `AddKey(t)` (egri chiziq qiymati bilan), `RemoveKey`, `MoveKey`, `SetTangents` (qo'lda),
-`SmoothTangents()` / `FlattenTangents()`, `SetInterpolation`, `GetStartTime()` / `GetEndTime()`, `GetMin()` / `GetMax()`,
-tayyorlari: `Constant`, `Linear`, `EaseInOut`. Namuna: Showcase3D `Splines` sahnasi, `CurveBob` skripti.
+In code: `AddKey(t, v)`, `AddKey(t)` (with the curve's value), `RemoveKey`, `MoveKey`, `SetTangents` (by hand),
+`SmoothTangents()` / `FlattenTangents()`, `SetInterpolation`, `GetStartTime()` / `GetEndTime()`, `GetMin()` /
+`GetMax()`, ready-made ones: `Constant`, `Linear`, `EaseInOut`. Sample: the Showcase3D `Splines` scene, the `CurveBob`
+script.
 
-## 19. Spline yo'llar va Spline Follower
+## 19. Spline paths and the Spline Follower
 
-**Spline** komponenti obyektning o'z koordinatalaridagi nuqtalar orqali yo'l: Catmull-Rom (har bir nuqtadan silliq
-o'tadi; `Alpha` 0.5 - centripetal, yaqin nuqtalarda halqa va o'tkir uch bo'lmaydi), Bezier (har nuqtaning ikki
-tutqichi) yoki chiziqli; ochiq yoki yopiq (halqa). Inspektorda "Nuqtalarni tahrirlash" - nuqtalar viewportda
-sudraladi (3D: kameraga qaragan tekislikda, tanlangan nuqtada o'qli gizmo), chiziqqa bosish - yangi nuqta, bo'sh joyga
-ikki marta bosish - oxiriga nuqta, Ctrl + bosish / Delete - o'chirish, Shift - 0.1 qadam; Bezier'da tanlangan
-nuqtaning tutqichlari (Ctrl bilan alohida). Yo'llar editorda doim chiziladi (Ko'rinish > Gizmolar > "Spline yo'llar").
+The **Spline** component is a path through points in the object's own coordinates: Catmull-Rom (passes smoothly
+through every point; `Alpha` 0.5 - centripetal, no loops or sharp cusps at close points), Bezier (two handles per
+point) or linear; open or closed (a loop). In the inspector "Edit points" - the points are dragged in the viewport (3D:
+in a plane facing the camera, an axis gizmo on the selected point), clicking the line - a new point, double-clicking an
+empty spot - a point at the end, Ctrl + click / Delete - remove, Shift - a 0.1 step; with Bezier the selected point's
+handles (separately with Ctrl). The paths are always drawn in the editor (View > Gizmos > "Spline paths").
 
-**Spline Follower** obyektni yo'l bo'ylab `Speed` (dunyo birligi / s) tezlikda yurgizadi: `Bir marta`, `Aylanma`
-yoki `Borib-qaytish`; `Burilish` - yo'l bo'ylab qarash (3D: -Z oldinga; 2D: +X yo'l bo'ylab), `Siljish` - yo'lning o'z
-o'qlarida (x o'ngga, y yuqoriga, z yo'l bo'ylab), `Boshlanish` - yo'lning qaysi ulushidan. Kinematik jism tezlik bilan
-suriladi - ustida turgan o'yinchini olib yuradi (Platformer2D `Level2` dagi yoy bo'ylab yuradigan platforma).
+The **Spline Follower** moves an object along the path at `Speed` (world units / s): `Once`, `Loop` or `Ping-pong`;
+`Rotation offset` - facing along the path (3D: -Z forward; 2D: +X along the path), `Offset` - in the path's own axes
+(x to the right, y up, z along the path), `Origin` - from which fraction of the path. A kinematic body is moved by
+velocity - it carries a player standing on it (the platform that moves along an arc in Platformer2D `Level2`).
 
 ```cpp
 auto& follower = GetComponent<SplineFollowerComponent>();
@@ -797,143 +812,144 @@ follower.Speed = 4.0f;
 follower.Pause();          // Play(), Restart()
 float progress = GetScene().GetSplineFollowerProgress(GetEntity());   // 0..1
 
-// Yo'ldan namuna olish (dunyo koordinatalari; masofa - yo'lning o'z birliklarida):
-Entity rail = FindEntity("Poyga yo'li");
-float d = GetScene().GetSplineClosestDistance(rail, playerPosition);  // o'yinchiga eng yaqin nuqta
+// Sampling the path (world coordinates; the distance is in the path's own units):
+Entity rail = FindEntity("Race track");
+float d = GetScene().GetSplineClosestDistance(rail, playerPosition);  // the point nearest to the player
 glm::vec3 p = GetScene().GetSplinePosition(rail, d);
 glm::vec3 dir = GetScene().GetSplineTangent(rail, d);
 ```
 
-Matematikasi `Zamin/Math/Spline.h` da: `Spline::Evaluate(u)` / `EvaluateTangent(u)`, `SplineLengthTable` (masofa <->
-parametr), `FindClosest`, `InsertPoint` (Bezier shakli saqlanadi), `AutoTangents` (Catmull-Rom shaklidagi tutqichlar).
+The math is in `Zamin/Math/Spline.h`: `Spline::Evaluate(u)` / `EvaluateTangent(u)`, `SplineLengthTable` (distance <->
+parameter), `FindClosest`, `InsertPoint` (keeps the Bezier shape), `AutoTangents` (handles in the Catmull-Rom shape).
 
-## 20. Tint animatsiyasi (rang)
+## 20. Tint animation (colour)
 
-**Tint Animation** (`TintAnimationComponent`, *+ Komponent → Render → Tint Animation (rang)*) 2D renderer (Sprite, Circle,
-Text, Tilemap) va Light 2D rangini gradient bo'yicha o'zgartiradi: chiziladigan rang = renderer rangi x gradient rangi
-(renderer'ning o'z `Color` i o'zgarmaydi).
+**Tint Animation** (`TintAnimationComponent`, *+ Component → Rendering → Tint Animation (color)*) changes the colour of
+a 2D renderer (Sprite, Circle, Text, Tilemap) and of a Light 2D along a gradient: the drawn colour = the renderer's
+colour x the gradient colour (the renderer's own `Color` does not change).
 
-| Maydon | Ma'nosi |
+| Field | Meaning |
 |---|---|
-| `Keys` (`TintKey`: vaqt 0..1 + rang) | gradient |
-| `Duration` | bir o'tish, soniya |
-| `Mode` (`TintPlayMode`): `Once`, `Loop`, `PingPong` | tugash rejimi |
-| `Easing` (`Ease`) | vaqt egri chizig'i |
-| `Cycles` | Loop / PingPong: shuncha sikl (0 — cheksiz) |
-| `StartOffset` | boshlanish siljishi — bir xil nusxalar bir vaqtda miltillamasin |
-| `PlayOnStart` | o'yin boshida |
+| `Keys` (`TintKey`: time 0..1 + colour) | the gradient |
+| `Duration` | one pass, in seconds |
+| `Mode` (`TintPlayMode`): `Once`, `Loop`, `PingPong` | the end mode |
+| `Easing` (`Ease`) | the time curve |
+| `Cycles` | Loop / PingPong: that many cycles (0 — endless) |
+| `StartOffset` | a start offset — so that identical copies do not blink in sync |
+| `PlayOnStart` | at the start of the game |
 
-Inspektorda gradient chizig'i va "Sahnada ko'rish". Skriptdan:
+The inspector has a gradient bar and "Preview in scene". From a script:
 
 ```cpp
-PlayTint();                                                   // komponentning o'zini qayta boshlash
-PlayTint({ 1.0f, 1.0f, 1.0f, 0.2f }, 0.08f, TintPlayMode::PingPong, 6);   // 6 marta miltillash (komponent bo'lmasa qo'shiladi)
-StopTint();                                                   // joyida to'xtaydi; StopTint(true) - birinchi rangga
+PlayTint();                                                   // restart the component itself
+PlayTint({ 1.0f, 1.0f, 1.0f, 0.2f }, 0.08f, TintPlayMode::PingPong, 6);   // blink 6 times (the component is added when missing)
+StopTint();                                                   // stops in place; StopTint(true) - back to the first colour
 bool on = IsTintPlaying();
 ```
 
-Qisqa bir martalik chaqnash uchun `Flash(color, seconds)` qulayroq ([Rendering.md](Rendering.md#14-from-a-script-color-effects-camera)).
-Namuna: Platformer2D `Scenes/TopDown2D.zscene` (fonarlar, gulxan, kristallar).
+For a short one-off flash `Flash(color, seconds)` is handier ([Rendering.md](Rendering.md#14-from-a-script-color-effects-camera)).
+Sample: Platformer2D `Scenes/TopDown2D.zscene` (lanterns, a campfire, crystals).
 
 ---
 
-## 21. Skript tween'lari
+## 21. Script tweens
 
-Kod bilan qisqa silliq o'zgarishlar — animatsiya asseti kerak emas. Hammasi o'yin vaqtida (`SetTimeScale` ga ergashadi,
-pauzada kutadi; `SetTimersUnscaled(true)` — haqiqiy vaqtda), skript o'chirilsa to'xtab turadi:
+Short smooth changes in code — no animation asset needed. All of them run in game time (they follow `SetTimeScale`
+and wait during the pause; `SetTimersUnscaled(true)` — in real time) and pause while the script is disabled:
 
 ```cpp
-TweenPosition(GetWorldPosition() + glm::vec3(0.0f, 2.0f, 0.0f), 0.5f, Ease::OutBack);   // 0.5 s da 2 birlik yuqoriga
-TweenScale(glm::vec3(1.3f), 0.2f);                                                    // standart Ease::OutBack
-TweenColor({ 1.0f, 0.3f, 0.3f, 1.0f }, 0.25f);                                        // 2D renderer rangi
-FadeTo(0.0f, 0.5f, Ease::OutQuad, [this] { Destroy(); });                             // so'nib yo'qolish
+TweenPosition(GetWorldPosition() + glm::vec3(0.0f, 2.0f, 0.0f), 0.5f, Ease::OutBack);   // 2 units up in 0.5 s
+TweenScale(glm::vec3(1.3f), 0.2f);                                                    // Ease::OutBack by default
+TweenColor({ 1.0f, 0.3f, 0.3f, 1.0f }, 0.25f);                                        // the 2D renderer's colour
+FadeTo(0.0f, 0.5f, Ease::OutQuad, [this] { Destroy(); });                             // fade out and disappear
 
-// Umumiy: t (0..1, easing bilan) har kadr keladi.
+// General: t (0..1, with easing) comes every frame.
 const float from = Transform().Rotation.y;
 Tween(1.0f, [this, from](float t) { Transform().Rotation.y = from + t * glm::two_pi<float>(); },
-      Ease::InOutCubic, [] { ZM_INFO("Aylanib bo'ldi"); });
+      Ease::InOutCubic, [] { ZM_INFO("Finished turning"); });
 
-CancelTweens();             // hammasi joyida to'xtaydi
+CancelTweens();             // everything stops in place
 bool busy = IsTweening();
 ```
 
-Easing turlari (`Ease`, `Zamin/Math/Easing.h`): `Linear`, `InQuad`, `OutQuad`, `InOutQuad`, `OutCubic`, `InOutCubic`, `OutBack`,
-`OutElastic`, `OutBounce`; qiymatning o'zi — `ApplyEase(ease, t)`. Tween dinamik jismni emas, transformni o'zgartiradi —
-fizik jismlar uchun tezlik yoki kinematik tur ishlating. Taymerlar va tween'lar haqida: [Scripting.md](Scripting.md#10-time-timers-tweens).
+Easing kinds (`Ease`, `Zamin/Math/Easing.h`): `Linear`, `InQuad`, `OutQuad`, `InOutQuad`, `OutCubic`, `InOutCubic`,
+`OutBack`, `OutElastic`, `OutBounce`; the value itself — `ApplyEase(ease, t)`. A tween changes the transform, not a
+dynamic body — for physics bodies use a velocity or the kinematic type. About timers and tweens:
+[Scripting.md](Scripting.md#10-time-timers-tweens).
 
 ---
 
-## 22. UI animatsiyalari
+## 22. UI animations
 
-Ekran UI uchun alohida, **UI vaqtida** (o'yin pauzasida ham) ishlaydigan tween'lar (`UIScaleTo`, `UIFadeTo`, `UIMoveTo`,
-`UIPunchScale`, `Scene::TweenUI`) va **UI Animation** komponenti (paydo bo'lish / yashirish presetlari, ustiga kelganda va
-bosilganda masshtab) — [UI.md](UI.md#10-ui-animations). UI xususiyatlari (`UITransform.Position`, `Size`, `Scale`, `Alpha`,
-`UIImage.Color`) property kliplarda ham animatsiya qilinadi (2-bo'lim).
+For screen UI there are separate tweens that run in **UI time** (during the game pause too) (`UIScaleTo`, `UIFadeTo`,
+`UIMoveTo`, `UIPunchScale`, `Scene::TweenUI`) and the **UI Animation** component (show / hide presets, scale on hover
+and on press) — [UI.md](UI.md#10-ui-animations). UI properties (`UITransform.Position`, `Size`, `Scale`, `Alpha`,
+`UIImage.Color`) can be animated in property clips too (section 2).
 
 ---
 
-## 23. Namuna sahnalar
+## 23. Sample scenes
 
-| Loyiha / sahna | Nima ko'rsatadi | Skriptlar |
+| Project / scene | What it shows | Scripts |
 |---|---|---|
-| Showcase3D `Scenes/Animation.zscene` | property kliplar (mayoq, eshik), glTF Animator event'lari | `AnimationEventDemo` |
-| Showcase3D `Scenes/Animator.zscene` | blend tree, "Har qanday holat" trigger'i, maskali qatlam, morph target'lar, suyakka biriktirish | `AnimatorDemo`, `BlendShapeDemo` |
-| Showcase3D `Scenes/Crowd.zscene` | 168 ta animator: poza keshi, kesish | `AnimationStatsDemo`, `SweepCamera` |
-| Showcase3D `Scenes/Splines.zscene` | spline yo'llar, AnimationCurve | `CurveBob`, `SplineMagnet` |
-| Adventure3D `Scenes/Island.zscene` | robot (Idle / Walk / Run blend tree, qadam tovushlari, qo'ldagi fonar), darvoza | `ThirdPersonController`, `ProximityDoor` |
-| Platformer2D `Scenes/Level1.zscene` | grid sprite animatsiyasi | `PlayerController` |
-| Platformer2D `Scenes/TopDown2D.zscene` | `.zsanim` kliplar, tint animatsiyalar | `TopDownController` |
+| Showcase3D `Scenes/Animation.zscene` | property clips (a beacon, a door), glTF Animator events | `AnimationEventDemo` |
+| Showcase3D `Scenes/Animator.zscene` | a blend tree, an "Any state" trigger, a masked layer, morph targets, attaching to a bone | `AnimatorDemo`, `BlendShapeDemo` |
+| Showcase3D `Scenes/Crowd.zscene` | 168 animators: the pose cache, culling | `AnimationStatsDemo`, `SweepCamera` |
+| Showcase3D `Scenes/Splines.zscene` | spline paths, AnimationCurve | `CurveBob`, `SplineMagnet` |
+| Adventure3D `Scenes/Island.zscene` | the robot (Idle / Walk / Run blend tree, footstep sounds, a lantern in its hand), the gate | `ThirdPersonController`, `ProximityDoor` |
+| Platformer2D `Scenes/Level1.zscene` | grid sprite animation | `PlayerController` |
+| Platformer2D `Scenes/TopDown2D.zscene` | `.zsanim` clips, tint animations | `TopDownController` |
 
 ---
 
-## 24. Ko'p uchraydigan muammolar
+## 24. Common problems
 
-| Belgi | Sabab va yechim |
+| Symptom | Cause and fix |
 |---|---|
-| Animation Player o'ynamaydi | `Clips` bo'sh yoki klip topilmadi (Animatsiya oynasi: "Klip yuklanmadi"), **Avto boshlash** o'chiq va skript `PlayAnimation` chaqirmagan, yoki obyekt nofaol |
-| Trek ishlamaydi (qiymat o'zgarmaydi) | Trekning yo'li (`Path`) bola nomiga mos emas — bola qayta nomlangan; Animatsiya oynasida trek qizil ko'rinadi |
-| Animator modelni harakatlantirmaydi | Mesh Renderer'dagi model skinned emas yoki klip nomi noto'g'ri (`""` — birinchisi); holat mashinasida boshlang'ich holat yo'q |
-| Oyoqlar yerda sirpanadi | Blend tree chegaralarini yurish tezligiga moslang (`Speed` parametri skript tezligi bilan bir birlikda) |
-| Model obyektdan uzoqlashib, keyin orqaga sakraydi | Klipda ildiz siljishi bor — **Root motion > Qo'llash** (10-bo'lim) |
-| Event ikki marta keladi | Bir event ikki klipda (crossfade) — `Footsteps` `MinInterval` bilan birlashtiradi; o'zingizniki uchun vaqtni tekshiring |
-| Editorda animatsiya ko'rinmaydi | Animator: **Editorda ko'rsatish** (`PlayInEditor`); property klip: Animatsiya oynasida vaqtni suring |
-| Ko'p personaj sekin | `Culling = CullPose`, `CachePoses` (16-bo'lim); Statistika oynasi > Animatsiya |
+| The Animation Player does not play | `Clips` is empty or the clip was not found (the Animation window: "Clip failed to load"), **Auto start** is off and no script called `PlayAnimation`, or the object is inactive |
+| A track does nothing (the value does not change) | The track's path (`Path`) does not match the child's name — the child was renamed; the track shows red in the Animation window |
+| The Animator does not move the model | The model on the Mesh Renderer is not skinned or the clip name is wrong (`""` — the first one); the state machine has no initial state |
+| The feet slide on the ground | Match the blend tree thresholds to the walking speed (the `Speed` parameter in the same units as the script's speed) |
+| The model walks away from the object, then jumps back | The clip has root movement — **Root motion > Apply** (section 10) |
+| An event comes twice | The same event in two clips (crossfade) — `Footsteps` merges them with `MinInterval`; check the time for your own |
+| The animation is not visible in the editor | Animator: **Show in editor** (`PlayInEditor`); property clip: scrub the time in the Animation window |
+| Many characters are slow | `Culling = CullPose`, `CachePoses` (section 16); Statistics window > Animation |
 
 ---
 
-## 25. Testlar
+## 25. Tests
 
 ```bash
 ./build/bin/ZaminTests "*Anim*:*Tint*:*Tween*:*Skin*:*Morph*:*Bone*:*Footstep*:*Clip*:*Blend*:*Pose*:*Spline*:*Curve*"
 ```
 
-Asosiylari: `PropertyClipInterpolation`, `PropertyClipFileRoundtrip`, `PropertyClipAnimatesEveryProperty`,
+The main ones: `PropertyClipInterpolation`, `PropertyClipFileRoundtrip`, `PropertyClipAnimatesEveryProperty`,
 `AnimationPlayerPlaysClips`, `AnimationPlayerPlayFromTurnsRound`, `AnimationEventsFireOnce`, `AnimationEventsExactlyOnceInScene`,
 `SkeletalPoseEvaluation`, `AnimatorStateMachine`, `BlendTree1DWeights`, `AnimatorBlendTreeSyncsClips`, `AnimatorLayersMasks`,
 `RootMotionExtraction`, `BoneAttachmentFollowsJoint`, `MorphTargetsApplyWeights`, `MultipleSkinsInOneGLTF`,
 `AnimationClipTrimming`, `AnimationPoseCache`, `AnimatorSkipsUnchangedAndCulledPoses`, `SpriteAnimationFrames`,
 `SpriteClipAssetsPlayWithEvents`, `TintGradientAndPhases`, `TintAnimationInScene`, `TweensRunAndChain`,
-`FootstepsFromAnimationEvents`, `AnimationCurveEvaluateAndWrap`, `SplineEvaluation`. Katalog: [Testing.md](Testing.md).
+`FootstepsFromAnimationEvents`, `AnimationCurveEvaluateAndWrap`, `SplineEvaluation`. Catalogue: [Testing.md](Testing.md).
 
 ---
 
-## 26. Qisqa API ma'lumotnomasi
+## 26. Short API reference
 
-| Nima | API |
+| What | API |
 |---|---|
-| Property klip o'ynatish | `PlayAnimation("Klip", speed)`, `StopAnimation()`, `IsAnimationPlaying()` |
+| Playing a property clip | `PlayAnimation("Clip", speed)`, `StopAnimation()`, `IsAnimationPlaying()` |
 | Animation Player | `Play(name, speed)`, `PlayFrom(name, seconds, speed)`, `Stop()`, `Resume()`, `SetTime(s)`, `GetTime()`, `GetDuration()`, `GetNormalizedTime()`, `GetCurrentClipName()` |
-| Animator klipi | `Play("Run", loop, speed, fade)`, `Speed`, `Playing`, `GetNormalizedTime(model)`, `IsFading()`, `GetFadeProgress()` |
-| Holat mashinasi | `SetFloat`, `SetBool`, `SetTrigger`, `GetFloat`, `GetBool`, `SetState("Jump", fade)`, `GetCurrentStateName()` |
+| Animator clip | `Play("Run", loop, speed, fade)`, `Speed`, `Playing`, `GetNormalizedTime(model)`, `IsFading()`, `GetFadeProgress()` |
+| State machine | `SetFloat`, `SetBool`, `SetTrigger`, `GetFloat`, `GetBool`, `SetState("Jump", fade)`, `GetCurrentStateName()` |
 | Blend tree | `GetBlendTreeState()`, `BlendWeights` |
-| Qatlamlar | `PlayLayer(layer, clip, loop, speed, fade, restart)`, `SetLayerWeight(layer, w, fade)`, `GetLayerWeight(layer)` |
-| Event'lar | `OnAnimationEvent(const AnimationEventInfo&)` (`Name`, `Parameter`, `Clip`, `Time`, `Source`, `Skeletal`), `AddAnimationEventHandler(name, fn)`, event bus: `"AnimationEvent"` |
+| Layers | `PlayLayer(layer, clip, loop, speed, fade, restart)`, `SetLayerWeight(layer, w, fade)`, `GetLayerWeight(layer)` |
+| Events | `OnAnimationEvent(const AnimationEventInfo&)` (`Name`, `Parameter`, `Clip`, `Time`, `Source`, `Skeletal`), `AddAnimationEventHandler(name, fn)`, event bus: `"AnimationEvent"` |
 | Root motion | `ApplyRootMotion`, `RootMotionBone`, `RootMotionVelocity`, `RootMotionTurnRate` |
-| Morph target'lar | `MeshRendererComponent::SetMorphWeight(name / index, w)`, `GetMorphWeight`, `ResetMorphWeights()` |
-| Sprite animatsiya | `SpriteAnimationComponent::Play(start, count, fps, loop)`, `PlayFrames(frames, fps, loop)`; `PlaySpriteSequence(prefix, fps, loop)`, `SetSprite(name)` |
-| Sprite kliplar | `PlaySpriteClip(name, restart)`, `GetSpriteClip()` |
+| Morph targets | `MeshRendererComponent::SetMorphWeight(name / index, w)`, `GetMorphWeight`, `ResetMorphWeights()` |
+| Sprite animation | `SpriteAnimationComponent::Play(start, count, fps, loop)`, `PlayFrames(frames, fps, loop)`; `PlaySpriteSequence(prefix, fps, loop)`, `SetSprite(name)` |
+| Sprite clips | `PlaySpriteClip(name, restart)`, `GetSpriteClip()` |
 | Tint | `TintAnimationComponent` (`Keys`, `Duration`, `Mode`, `Easing`, `Cycles`, `StartOffset`), `PlayTint`, `StopTint`, `IsTintPlaying` |
-| Tween'lar | `Tween(duration, fn, ease, onComplete)`, `TweenPosition`, `TweenScale`, `TweenColor`, `FadeTo`, `CancelTweens`, `IsTweening`; `Ease`, `ApplyEase` |
-| Samaradorlik | `AnimatorComponent::Culling`, `CachePoses`, `PoseCacheRate`, `Culled`; `Scene::GetAnimationStats()` |
-| Egri chiziq va yo'l | `AnimationCurve::Evaluate`, `AddKey`, `SmoothTangents`; `SplineFollowerComponent::Play` / `Pause` / `Restart`; `Scene::GetSplinePosition`, `GetSplineTangent`, `GetSplineLength`, `GetSplineClosestDistance`, `GetSplineFollowerProgress` |
-| Past daraja | `SampleLocalPose`, `BlendLocalPose`, `AddLocalPose`, `ComposeJointMatrices`, `ComputeBlend1DWeights`, `BuildJointMask`, `ExtractRootMotion`, `TrimClip`, `BakeClip` / `SampleBakedPose`, `GetSkinMatrices` (`Zamin/Renderer/Animation.h`, `Model.h`) |
+| Tweens | `Tween(duration, fn, ease, onComplete)`, `TweenPosition`, `TweenScale`, `TweenColor`, `FadeTo`, `CancelTweens`, `IsTweening`; `Ease`, `ApplyEase` |
+| Performance | `AnimatorComponent::Culling`, `CachePoses`, `PoseCacheRate`, `Culled`; `Scene::GetAnimationStats()` |
+| Curve and path | `AnimationCurve::Evaluate`, `AddKey`, `SmoothTangents`; `SplineFollowerComponent::Play` / `Pause` / `Restart`; `Scene::GetSplinePosition`, `GetSplineTangent`, `GetSplineLength`, `GetSplineClosestDistance`, `GetSplineFollowerProgress` |
+| Low level | `SampleLocalPose`, `BlendLocalPose`, `AddLocalPose`, `ComposeJointMatrices`, `ComputeBlend1DWeights`, `BuildJointMask`, `ExtractRootMotion`, `TrimClip`, `BakeClip` / `SampleBakedPose`, `GetSkinMatrices` (`Zamin/Renderer/Animation.h`, `Model.h`) |

@@ -177,7 +177,7 @@ model (`ModelPath`: `.gltf`, `.glb`, `.obj`), a material, `CastShadows`, `MorphW
 Cube / Sphere / Plane / Cylinder / Cone / Model (glTF / OBJ)* or drag a model file into the viewport.
 
 **glTF 2.0** — several meshes, PBR materials, embedded textures, skins and animations
-([Animation.md](Animation.md#5-skelet-animatsiyasi-va-animator)), morph targets; `alphaMode` (MASK / BLEND),
+([Animation.md](Animation.md#5-skeletal-animation-and-the-animator)), morph targets; `alphaMode` (MASK / BLEND),
 `alphaCutoff`, `doubleSided`, `KHR_materials_unlit`, `emissiveFactor`, `KHR_materials_emissive_strength` are read.
 
 **Model import settings** (the model's `.zmeta`, the asset inspector): scale (cm → m), the up axis (Y / Z — rotated
@@ -442,7 +442,7 @@ void OnMessage(const ScriptMessage& m) override
   lod)`, `GetPrimitiveLOD`): at 1080p the outline changes by less than 0.3 pixels, and a distant sphere has 576 / 144
   triangles instead of 2 304. The shadow passes draw the same copy. In the Silk Road sample the frame's triangles went
   119K -> 53K.
-- **Animation culling** — invisible models are not posed ([Animation.md](Animation.md#16-samaradorlik-keshlash-va-kesish)).
+- **Animation culling** — invisible models are not posed ([Animation.md](Animation.md#16-performance-caching-and-culling)).
 - **2D batch order** (`BatchOrder`) — when sprites, circles and text alternate in the sorted 2D list, every switch used
   to flush a Renderer2D batch. Now draws that do **not overlap** on the screen move next to the previous one of their
   kind (the order of draws that cover each other does not change — the image stays identical to the bit); runs of

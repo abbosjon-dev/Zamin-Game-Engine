@@ -429,7 +429,7 @@ become a jump in the game).
 - **Game view size** (the viewport toolbar during Play): 16:9, 4:3, 1920x1080 ... — try the Canvas on different
   screens.
 - The **Animation window** can also animate UI properties (`UITransform.Position`, `Size`, `Scale`, `Alpha`,
-  `UIImage.Color`) with a property clip ([Animation.md](Animation.md#2-property-kliplar-zanim)).
+  `UIImage.Color`) with a property clip ([Animation.md](Animation.md#2-property-clips-zanim)).
 - Automation: `ZAMIN_EDITOR_UI_HOVER=right` — the gizmo handle looks as if it were under the mouse,
   `ZAMIN_EDITOR_UI_DRAG="bottom-right:60,-30"` — on frame 20 drags the selected UI object's handle by that many pixels
   (for screenshots, [Editor.md](Editor.md#15-automation-screenshots-ci)).

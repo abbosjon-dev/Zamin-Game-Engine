@@ -510,7 +510,7 @@ The main menu is a prefab built from the same widgets: Platformer2D `Prefabs/Gam
 | `Scenes/UIWidgets.zscene` | sliders, toggles (with a group), a progress bar, a radial fill, an input field, a button | `UIWidgetsDemo` |
 | `Scenes/Level1.zscene` ... `Level3` | the HUD, the pause menu (scroll view, mask, sliders, switches) | `PauseMenu`, `GameManager` |
 | `Scenes/Menu.zscene` | the main menu (the `GameMenu` prefab) | `GameMenu` |
-| `Scenes/Loading.zscene` | the loading screen: a progress bar ([Scenes.md](Scenes.md#5-fonda-yuklash-va-yuklanish-ekrani)) | `LoadingScreen` |
+| `Scenes/Loading.zscene` | the loading screen: a progress bar ([Scenes.md](Scenes.md#5-background-loading-and-the-loading-screen)) | `LoadingScreen` |
 
 ---
 

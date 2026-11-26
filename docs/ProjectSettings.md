@@ -502,7 +502,7 @@ glm::vec2 move = Input::GetVector("Move");
 `"BuildScenes"`: o'yin quriladigan sahnalar tartib bilan. Yoqilganlari build indeksini oladi (0, 1, 2 ...;
 `LoadScene(int)`), eksport faqat ularni (va boshlang'ich sahnani) oladi. Oyna muammolarni ko'rsatadi:
 boshlang'ich sahna yo'q / ro'yxatda emas / o'chirilgan, fayl topilmadi, takroriy sahna. Batafsil:
-[docs/Scenes.md, 7-bo'lim](Scenes.md#7-build-sahnalar-royxati-va-indekslar).
+[docs/Scenes.md, 7-bo'lim](Scenes.md#7-the-build-scene-list-and-indices).
 
 ### Eksport: ishlatilmagan assetlar
 

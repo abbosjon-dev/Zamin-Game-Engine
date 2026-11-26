@@ -441,7 +441,7 @@ only the first time. An error for a file that could not be read is reported once
 ## 17. Performance
 
 `ZaminBench --serialize --prefabs [--instances N] [--json file]` (Release, the median; more:
-[Scenes.md](Scenes.md#18-testlar-va-benchmark)):
+[Scenes.md](Scenes.md#18-tests-and-benchmarks)):
 
 | Measurement | Result | Budget |
 |---|---|---|

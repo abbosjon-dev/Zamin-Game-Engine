@@ -232,7 +232,7 @@ When the scene was saved by a newer version of the engine:
 
 > `The scene file is in a newer format (v<N>, this engine knows up to v<M>): <file> - the known part was read`
 
-More: [Scenes.md, 10](Scenes.md#10-yuklash-xatolari).
+More: [Scenes.md, 10](Scenes.md#10-load-errors).
 
 ### `LoadScene` / additive loading does not work in the editor
 

@@ -447,7 +447,7 @@ library with `LD_LIBRARY_PATH` serves to test the runtime boundary.
 
 ### Native module SDK compatibility
 
-SDK consumers are built through `zamin_add_game_module`. The helper creates a `.zamin_abi` record and checks the engine's SDK header fingerprint/toolchain at configure time. When the SDK files changed, rebuild the engine first, then reconfigure the project build. An old `.so` made directly by hand is not loaded. The loader keeps the running module before moving on to a wrong candidate; the export also checks the compatibility of the copied module. Details: [Scripting.md](Scripting.md#native-sdk--abi-mosligi).
+SDK consumers are built through `zamin_add_game_module`. The helper creates a `.zamin_abi` record and checks the engine's SDK header fingerprint/toolchain at configure time. When the SDK files changed, rebuild the engine first, then reconfigure the project build. An old `.so` made directly by hand is not loaded. The loader keeps the running module before moving on to a wrong candidate; the export also checks the compatibility of the copied module. Details: [Scripting.md](Scripting.md#native-sdk--abi-compatibility).
 
 
 ### Streaming world export

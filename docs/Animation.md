@@ -859,7 +859,7 @@ bool busy = IsTweening();
 
 Easing turlari (`Ease`, `Zamin/Math/Easing.h`): `Linear`, `InQuad`, `OutQuad`, `InOutQuad`, `OutCubic`, `InOutCubic`, `OutBack`,
 `OutElastic`, `OutBounce`; qiymatning o'zi — `ApplyEase(ease, t)`. Tween dinamik jismni emas, transformni o'zgartiradi —
-fizik jismlar uchun tezlik yoki kinematik tur ishlating. Taymerlar va tween'lar haqida: [Scripting.md](Scripting.md#10-vaqt-taymerlar-tween).
+fizik jismlar uchun tezlik yoki kinematik tur ishlating. Taymerlar va tween'lar haqida: [Scripting.md](Scripting.md#10-time-timers-tweens).
 
 ---
 

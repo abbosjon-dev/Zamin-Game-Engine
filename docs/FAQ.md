@@ -6,7 +6,7 @@ file (`~/.local/share/<company>/<game>/logs/`, [Runtime.md, section 6](Runtime.m
 messages are exactly as the program writes them; `<...>` marks a place where a concrete value (a file, a name, a number) goes. Type a part
 of a message into the Console's search field, or find it on this page.
 
-Every system also has its own detailed "problems" section: [Scripting.md, 23](Scripting.md#23-kop-uchraydigan-xatolar),
+Every system also has its own detailed "problems" section: [Scripting.md, 23](Scripting.md#23-common-mistakes),
 [Physics.md, 18](Physics.md#18-common-problems), [Rendering.md, 18](Rendering.md#18-common-problems),
 [Audio.md, 18](Audio.md#18-common-problems), [Runtime.md, 15](Runtime.md#15-problems-and-solutions),
 [BuildAndExport.md, 13](BuildAndExport.md#13-problems-and-solutions).
@@ -193,12 +193,12 @@ not a C++ keyword and not clashing with a name in the engine:
 
 **Scripts → Compile + reload** (`Ctrl+B`) - compile + reload. If you build outside (an IDE, a terminal), the editor
 reloads the module by itself when **Scripts → Automatic hot reload** is on. A reload stops Play.
-More: [Scripting.md, 20](Scripting.md#20-kompilyatsiya-va-hot-reload).
+More: [Scripting.md, 20](Scripting.md#20-compilation-and-hot-reload).
 
 ### My field does not show up in the inspector
 
 The field has to be listed inside `ZM_REGISTER_SCRIPT(Class, ZM_FIELD(Class, Field), ...)`; the supported
-types - [Scripting.md, 4](Scripting.md#4-inspektor-maydonlari-zm_field). A wrong type is reported when compiling,
+types - [Scripting.md, 4](Scripting.md#4-inspector-fields-zm_field). A wrong type is reported when compiling,
 for example:
 
 > `ZM_FIELD_RANGE: the field must be float, int, glm::vec2, glm::vec3, glm::vec4 or AnimationCurve`

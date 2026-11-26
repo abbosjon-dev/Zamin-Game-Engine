@@ -92,7 +92,7 @@ Bugs the sanitizers found during the milestone, all fixed:
 1. **ASan, use-after-free** - deleting a mixer group (with several child groups / sounds) and `AudioEngine::Shutdown`:
    miniaudio's `ma_node_uninit` detached only the first input node. Fixed with `DetachAllInputs`, test
    `AudioMixerGroupTeardown`.
-2. **UBSan** - an invalid value in a test enum (outside the enum's range); the `ZM_FIELD_ENUM` rule in [Scripting.md](Scripting.md#4-inspektor-maydonlari-zm_field).
+2. **UBSan** - an invalid value in a test enum (outside the enum's range); the `ZM_FIELD_ENUM` rule in [Scripting.md](Scripting.md#4-inspector-fields-zm_field).
 3. **Clang UBSan, pointer-overflow** (this measurement) - the miniaudio implementation was compiled inside the engine's
    `AudioEngine.cpp`, so a report from third-party code was as fatal as one from our own code (the tests stopped at
    test 150). The implementation moved to its own translation unit (`Zamin/src/Zamin/Audio/MiniaudioImpl.cpp`, the

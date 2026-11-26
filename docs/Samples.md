@@ -149,7 +149,7 @@ opens, `Menu: ...` is written to the log — the tests check these lines.
 
 ### Records (SaveData)
 
-Every game saves its record with [`SaveData::SubmitRecord`](Scripting.md#18-saqlash-lokalizatsiya-log):
+Every game saves its record with [`SaveData::SubmitRecord`](Scripting.md#18-saving-localization-logging):
 the result is written when it is better than the previous one (`RecordOrder::Lower` for times and moves). The record is counted
 when the game ends, when leaving from the pause to the main menu, when restarting and when the game is closed; the bot behind the
 main menu does not set records. On start the game writes `Records: ...`, and `New record: ...` on a new record; the main menu and the

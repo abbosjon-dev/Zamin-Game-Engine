@@ -1,252 +1,256 @@
-# Zamin Engine: C++ skriptlar qo'llanmasi
+# Zamin Engine: the C++ scripting guide
 
-Kodsiz node mantig'i uchun [Visual Script](VisualScripting.md) mavjud. Ushbu qo'llanma C++ yo'lini yoritadi:
+For node logic without code there is [Visual Script](VisualScripting.md). This guide covers the C++ path:
 
-O'yin mantig'i C++ da ham yoziladi: har bir skript `ScriptableEntity` dan meros olgan klass, u sahnadagi obyektga
-**C++ Script** komponenti orqali ulanadi. Bu qo'llanma skript yaratishdan tortib hayot sikli, inspektor maydonlari,
-hodisalar, fizika, input, sahnalar, audio, hot reload va eksportgacha hammasini tushuntiradi. Har bir funksiya nomi
-`Zamin/src/Zamin/Scripting/ScriptableEntity.h` dagi haqiqiy API; misollar namuna loyihalardan
-(`Projects/Platformer2D`, `Projects/Showcase3D`, `Projects/Adventure3D`) yoki
-[2D](Tutorial-2D.md) / [3D](Tutorial-3D.md) qo'llanmalaridan olingan va kompilyatsiya qilib sinalgan.
+Game logic can also be written in C++: every script is a class derived from `ScriptableEntity`, attached to an object
+in the scene with the **C++ Script** component. This guide explains everything from creating a script to the life
+cycle, inspector fields, events, physics, input, scenes, audio, hot reload and export. Every function name is the real
+API in `Zamin/src/Zamin/Scripting/ScriptableEntity.h`; the examples come from the sample projects
+(`Projects/Platformer2D`, `Projects/Showcase3D`, `Projects/Adventure3D`) or from the
+[2D](Tutorial-2D.md) / [3D](Tutorial-3D.md) tutorials and have been compiled and tested.
 
-Skriptni engine ichida tahrirlash, build va diagnostika uchun [Kod muharriri](CodeEditor.md) qo'llanmasi mavjud.
+For editing, building and diagnosing scripts inside the engine there is the [Code editor](CodeEditor.md) guide.
 
-Kod misollari `#include <Zamin/Zamin.h>` va `using namespace Zamin;` bilan yoziladi.
+The code examples are written with `#include <Zamin/Zamin.h>` and `using namespace Zamin;`.
 
-Mundarija:
+Contents:
 
-1. [Skript qanday ishlaydi](#1-skript-qanday-ishlaydi)
-2. [Birinchi skript](#2-birinchi-skript)
-3. [Skript fayli tuzilishi](#3-skript-fayli-tuzilishi)
-4. [Inspektor maydonlari (ZM_FIELD)](#4-inspektor-maydonlari-zm_field)
-5. [Hayot sikli](#5-hayot-sikli)
-6. [Hodisa callback'lari](#6-hodisa-callbacklari)
-7. [Obyektlar, komponentlar, ierarxiya](#7-obyektlar-komponentlar-ierarxiya)
+1. [How a script works](#1-how-a-script-works)
+2. [The first script](#2-the-first-script)
+3. [The structure of a script file](#3-the-structure-of-a-script-file)
+4. [Inspector fields (ZM_FIELD)](#4-inspector-fields-zm_field)
+5. [The life cycle](#5-the-life-cycle)
+6. [Event callbacks](#6-event-callbacks)
+7. [Objects, components, hierarchy](#7-objects-components-hierarchy)
 8. [Input](#8-input)
-9. [Fizika va so'rovlar](#9-fizika-va-sorovlar)
-10. [Vaqt, taymerlar, tween](#10-vaqt-taymerlar-tween)
-11. [Xabarlar, hodisalar shinasi, global holat](#11-xabarlar-hodisalar-shinasi-global-holat)
-12. [Sahnalar](#12-sahnalar)
+9. [Physics and queries](#9-physics-and-queries)
+10. [Time, timers, tweens](#10-time-timers-tweens)
+11. [Messages, the event bus, global state](#11-messages-the-event-bus-global-state)
+12. [Scenes](#12-scenes)
 13. [Audio](#13-audio)
-14. [Grafika, rang va effektlar](#14-grafika-rang-va-effektlar)
+14. [Graphics, colour and effects](#14-graphics-colour-and-effects)
 15. [UI](#15-ui)
-16. [Animatsiya](#16-animatsiya)
-17. [AI va navigatsiya](#17-ai-va-navigatsiya)
-18. [Saqlash, lokalizatsiya, log](#18-saqlash-lokalizatsiya-log)
-19. [Bir nechta fayl va skriptlar orasida aloqa](#19-bir-nechta-fayl-va-skriptlar-orasida-aloqa)
-20. [Kompilyatsiya va hot reload](#20-kompilyatsiya-va-hot-reload)
-21. [Eksport qilingan o'yinda skriptlar](#21-eksport-qilingan-oyinda-skriptlar)
-22. [Namuna skriptlar](#22-namuna-skriptlar)
-23. [Ko'p uchraydigan xatolar](#23-kop-uchraydigan-xatolar)
-24. [API ma'lumotnomasi](#24-api-malumotnomasi)
+16. [Animation](#16-animation)
+17. [AI and navigation](#17-ai-and-navigation)
+18. [Saving, localization, logging](#18-saving-localization-logging)
+19. [Several files and communication between scripts](#19-several-files-and-communication-between-scripts)
+20. [Compilation and hot reload](#20-compilation-and-hot-reload)
+21. [Scripts in an exported game](#21-scripts-in-an-exported-game)
+22. [Sample scripts](#22-sample-scripts)
+23. [Common mistakes](#23-common-mistakes)
+24. [API reference](#24-api-reference)
 
 ---
 
-## 1. Skript qanday ishlaydi
+## 1. How a script works
 
-- Loyihaning C++ kodi `Source/` papkasida turadi (`.zproject` dagi `SourceDirectory`). Loyiha yaratilganda editor
-  `CMakeLists.txt` yozadi: `Source/*.cpp` va `Source/*.h` fayllar `zamin_add_game_module(<Loyiha> ...)` bilan bitta
-  **skript moduli** — `Binaries/lib<Loyiha>.so` (`ScriptModulePath`) bo'lib kompilyatsiya qilinadi. Yangi fayl
-  qo'shish uchun CMake'ni o'zgartirish shart emas (`file(GLOB_RECURSE ... CONFIGURE_DEPENDS)`).
-- Dvigatel `libZamin.so` umumiy kutubxona: editor, player va o'yin moduli uning bitta nusxasidan foydalanadi, shuning
-  uchun skript `Scene`, `Input`, `Audio` va boshqa hamma API'ni to'g'ridan-to'g'ri chaqiradi.
-- Har bir skript klassi faylning oxirida `ZM_REGISTER_SCRIPT(Klass, maydonlar...)` bilan ro'yxatdan o'tadi. Modul
-  yuklanganda (`ScriptEngine::LoadModule`) klasslar `ScriptRegistry` ga yoziladi va inspektorda **C++ Script →
-  Klass** ro'yxatida ko'rinadi; modul yopilganda o'zlari chiqib ketadi.
-- Obyektdagi `NativeScriptComponent` faqat klass nomi (`ClassName`), inspektorda berilgan maydon qiymatlari
-  (`Fields`) va `Enabled` belgisini saqlaydi. O'yin boshlanganda (editorda **Play**, yoki `ZaminPlayer`) sahna har bir
-  shunday komponent uchun klass nusxasini yaratadi, maydon qiymatlarini unga yozadi va callback'larni chaqiradi.
-- Editorda **Play** sahnaning nusxasida ishlaydi: o'yin davomida skript o'zgartirgan hamma narsa **Stop** bosilganda
-  yo'qoladi, tahrirlangan sahna joyida qoladi.
+- The project's C++ code lives in the `Source/` folder (`SourceDirectory` in the `.zproject`). When a project is
+  created the editor writes a `CMakeLists.txt`: the `Source/*.cpp` and `Source/*.h` files are compiled with
+  `zamin_add_game_module(<Project> ...)` into one **script module** — `Binaries/lib<Project>.so` (`ScriptModulePath`).
+  Adding a new file needs no change to CMake (`file(GLOB_RECURSE ... CONFIGURE_DEPENDS)`).
+- The engine, `libZamin.so`, is a shared library: the editor, the player and the game module use one copy of it, so a
+  script calls `Scene`, `Input`, `Audio` and every other API directly.
+- Every script class registers itself at the end of its file with `ZM_REGISTER_SCRIPT(Class, fields...)`. When the
+  module is loaded (`ScriptEngine::LoadModule`) the classes are written to the `ScriptRegistry` and appear in the
+  inspector's **C++ Script → Class** list; when the module is closed they remove themselves.
+- The `NativeScriptComponent` on an object stores only the class name (`ClassName`), the field values set in the
+  inspector (`Fields`) and the `Enabled` flag. When the game starts (**Play** in the editor, or `ZaminPlayer`) the
+  scene creates an instance of the class for every such component, writes the field values into it and calls the
+  callbacks.
+- In the editor **Play** runs on a copy of the scene: everything a script changes while playing is gone when **Stop**
+  is pressed, and the edited scene stays as it was.
 
-## 2. Birinchi skript
+## 2. The first script
 
-1. Loyiha oching (launcher yoki **Fayl → Loyihani ochish...**). Yangi loyihada `Source/Scripts.cpp` allaqachon bor:
-   unda `Rotator` va `PlayerController` klasslari (shablon sahnadagi `Cube` obyekti `Rotator` bilan aylanadi).
-2. **Skriptlar → Yangi C++ skript...** (yoki **Kontent** panelida bo'sh joyga o'ng tugma → **Yangi C++ skript...**).
-   Oynada:
-   - **Klass nomi** — masalan `EnemyAI`. Nom darhol tekshiriladi: bo'sh bo'lmasligi, raqam bilan boshlanmasligi,
-     faqat lotin harflari, raqamlar va `_` bo'lishi kerak; C++ kalit so'zlari va `using namespace Zamin` bilan
-     to'qnashadigan engine nomlari (`Camera`, `Entity`, `Input` ...) qabul qilinmaydi — oyna `CameraController`
-     kabi nom taklif qiladi. Shu nomli klass yoki `Source/<Nom>.cpp` fayli bor bo'lsa ham ogohlantiradi.
-   - **Shablon** — **To'liq** (hamma callback'lar misollar bilan, har xil inspektor maydonlari: slayder, ro'yxat,
-     rang, havola) yoki **Minimal** (faqat `OnCreate` va `OnUpdate`, bitta maydon).
-   - **Yaratish** — `Source/<Nom>.cpp` yoziladi va skriptlar darhol kompilyatsiya qilinadi.
-3. Obyektni tanlang → inspektorda **+ Komponent → Boshqa → C++ Script** → **Klass** ro'yxatidan klassni tanlang.
-   Klass yonidagi qalam tugmasi uning kodini ichki [Kod muharririda](CodeEditor.md) ochadi (ixtiyoriy tashqi
-   muharrir; `Source` dagi `ZM_REGISTER_SCRIPT` bo'yicha topiladi).
-4. **▶ O'ynash** (`Ctrl+P`). Skriptning `ZM_INFO(...)` xabarlari **Konsol** panelida chiqadi.
-5. Kodni o'zgartirgach **Skriptlar → Kompilyatsiya + qayta yuklash** (`Ctrl+B`). Batafsil: [20-bo'lim](#20-kompilyatsiya-va-hot-reload).
+1. Open a project (the launcher or **File → Open project...**). A new project already has `Source/Scripts.cpp`: it
+   holds the `Rotator` and `PlayerController` classes (the `Cube` object in the template scene spins with `Rotator`).
+2. **Scripts → New C++ script...** (or right-click an empty spot in the **Content** panel → **New C++ script...**).
+   In the window:
+   - **Class name** — for example `EnemyAI`. The name is checked at once: it must not be empty, must not start with a
+     digit and may only hold Latin letters, digits and `_`; C++ keywords and engine names that clash with
+     `using namespace Zamin` (`Camera`, `Entity`, `Input` ...) are not accepted — the window suggests a name such as
+     `CameraController`. It also warns when a class with that name or a `Source/<Name>.cpp` file already exists.
+   - **Template** — **Full** (every callback with examples, all kinds of inspector fields: a slider, a list, a colour,
+     a reference) or **Minimum** (only `OnCreate` and `OnUpdate`, one field).
+   - **Create** — `Source/<Name>.cpp` is written and the scripts are compiled at once.
+3. Select an object → in the inspector **+ Component → Other → C++ Script** → choose the class from the **Class**
+   list. The pencil button next to the class opens its code in the built-in [Code editor](CodeEditor.md) (or an
+   external editor of your choice; it is found by `ZM_REGISTER_SCRIPT` in `Source`).
+4. **▶ Play** (`Ctrl+P`). The script's `ZM_INFO(...)` messages appear in the **Console** panel.
+5. After changing the code, **Scripts → Compile + reload** (`Ctrl+B`). Details: [section 20](#20-compilation-and-hot-reload).
 
-**Skriptlar** menyusining pastida modulda ro'yxatdan o'tgan hamma klasslar ko'rinadi (yonida maydonlar soni);
-bosilganda klass kodi ochiladi.
+The bottom of the **Scripts** menu lists every class registered in the module (with the number of fields next to it);
+clicking one opens the class's code.
 
-![Yangi C++ skript oynasi](images/scripting-new-script-dialog.jpg)
+![The New C++ script window](images/scripting-new-script-dialog.jpg)
 
-*Skriptlar → Yangi C++ skript...: klass nomi (fayl `Source/EnemyAI.cpp` bo'ladi) va shablon — To'liq yoki Minimal.*
+*Scripts → New C++ script...: the class name (the file becomes `Source/EnemyAI.cpp`) and the template — Full or Minimum.*
 
-## 3. Skript fayli tuzilishi
+## 3. The structure of a script file
 
-Yangi loyihaning `Source/Scripts.cpp` faylidagi eng oddiy skript:
+The simplest script, from a new project's `Source/Scripts.cpp`:
 
 ```cpp
 #include <Zamin/Zamin.h>
 
 using namespace Zamin;
 
-// Obyektni doimiy aylantiradi.
+// Rotates the entity all the time.
 class Rotator : public ScriptableEntity
 {
 public:
-    glm::vec3 Speed = { 0.0f, 1.0f, 0.0f }; // radian/sekund
+    glm::vec3 Speed = { 0.0f, 1.0f, 0.0f }; // radians per second
 
     void OnUpdate(Timestep ts) override
     {
         Transform().Rotation += Speed * (float)ts;
     }
 };
-ZM_REGISTER_SCRIPT(Rotator, ZM_FIELD_TOOLTIP(Rotator, Speed, "Har bir o'q atrofida aylanish tezligi (radian/sekund)"))
+ZM_REGISTER_SCRIPT(Rotator, ZM_FIELD_TOOLTIP(Rotator, Speed, "Rotation speed around each axis (radians per second)"))
 ```
 
-- `#include <Zamin/Zamin.h>` — dvigatelning butun ommaviy API'si (sahna, komponentlar, input, audio, matematika ...).
-- Klass `ScriptableEntity` dan **public** meros oladi; callback'lar `override` bilan yoziladi (keraklilarigina).
-- Ommaviy a'zo o'zgaruvchilar `ZM_FIELD` bilan ro'yxatga qo'shilsa, inspektorda tahrirlanadi (4-bo'lim);
-  qolganlari (`m_` bilan boshlanadigan `private` a'zolar) faqat kodning o'zi uchun.
-- `Timestep` — kadr vaqti sekundda; `float` ga o'z-o'zidan aylanadi (`(float)ts` yoki `ts.GetSeconds()`).
-- `Transform()` — obyektning `TransformComponent`'i (`Translation`, `Rotation` — Euler burchaklar radianda, `Scale`).
-- Bir faylda bir nechta klass bo'lishi mumkin; har biri o'zining `ZM_REGISTER_SCRIPT` qatoriga ega.
+- `#include <Zamin/Zamin.h>` — the engine's whole public API (scene, components, input, audio, math ...).
+- The class derives **publicly** from `ScriptableEntity`; callbacks are written with `override` (only the ones you need).
+- Public member variables listed with `ZM_FIELD` are edited in the inspector (section 4); the rest (the `private`
+  members starting with `m_`) are for the code itself.
+- `Timestep` — the frame time in seconds; it converts to `float` by itself (`(float)ts` or `ts.GetSeconds()`).
+- `Transform()` — the object's `TransformComponent` (`Translation`, `Rotation` — Euler angles in radians, `Scale`).
+- A file can hold several classes; each has its own `ZM_REGISTER_SCRIPT` line.
 
-## 4. Inspektor maydonlari (ZM_FIELD)
+## 4. Inspector fields (ZM_FIELD)
 
-`ZM_REGISTER_SCRIPT(Klass, ...)` ichida sanalgan a'zolar inspektorda **C++ Skript** bo'limida chiqadi. Qiymatlar
-sahna faylida (`"NativeScript": { "Class": ..., "Fields": {...} }`) saqlanadi va o'yin boshlanganda nusxaga yoziladi —
-koddagi boshlang'ich qiymat faqat inspektorda o'zgartirilmagan maydon uchun ishlaydi.
+The members listed in `ZM_REGISTER_SCRIPT(Class, ...)` appear in the **C++ Script** section of the inspector. The
+values are stored in the scene file (`"NativeScript": { "Class": ..., "Fields": {...} }`) and written into the instance
+when the game starts — the initial value in the code only applies to a field not changed in the inspector.
 
-![Skript maydonlari inspektorda](images/scripting-inspector-fields.jpg)
+![Script fields in the inspector](images/scripting-inspector-fields.jpg)
 
-*Adventure3D'da `Player` tanlangan: **C++ Skript** bo'limida `ThirdPersonController` klassi (yonida kodni ochish tugmasi) va
-`ZM_FIELD` bilan ro'yxatdan o'tgan maydonlari — `WalkSpeed`, `RunSpeed`, `JumpSpeed`, `TurnSpeed` (`float`) va `Camera`
-(`std::string`, kamera obyektining nomi).*
+*`Player` selected in Adventure3D: the **C++ Script** section with the `ThirdPersonController` class (with the button
+that opens the code next to it) and its fields registered with `ZM_FIELD` — `WalkSpeed`, `RunSpeed`, `JumpSpeed`,
+`TurnSpeed` (`float`) and `Camera` (`std::string`, the name of the camera object).*
 
-Qo'llab-quvvatlanadigan turlar (`ScriptFieldType`): `float`, `int`, `bool`, `glm::vec2`, `glm::vec3`, `glm::vec4`,
-`std::string`, `EntityRef` (boshqa obyektga havola), `AnimationCurve` (egri chiziq muharriri bilan) va istalgan `enum` /
-`enum class` (har qanday asosiy tur). Boshqa tur `ZM_FIELD` da kompilyatsiya xatosini beradi.
+Supported types (`ScriptFieldType`): `float`, `int`, `bool`, `glm::vec2`, `glm::vec3`, `glm::vec4`, `std::string`,
+`EntityRef` (a reference to another object), `AnimationCurve` (with the curve editor) and any `enum` / `enum class`
+(with any underlying type). Any other type in `ZM_FIELD` is a compile error.
 
-| Makros | Inspektorda |
+| Macro | In the inspector |
 |---|---|
-| `ZM_FIELD(Klass, A'zo)` | Turiga mos boshqaruv (son, belgilash, vektor, matn, havola ...) |
-| `ZM_FIELD_RANGE(Klass, A'zo, Min, Max)` | `[Min, Max]` slayder (`float`, `int`, `glm::vecN`; `AnimationCurve` uchun ko'rinadigan oraliq) |
-| `ZM_FIELD_COLOR(Klass, A'zo)` | Rang tanlagich (`glm::vec3` / `glm::vec4`) |
-| `ZM_FIELD_COLOR_HDR(Klass, A'zo)` | Rang tanlagich, qiymatlar 1 dan katta bo'lishi mumkin |
-| `ZM_FIELD_TOOLTIP(Klass, A'zo, "matn")` | Sichqoncha ustiga kelganda yordam matni |
-| `ZM_FIELD_ENUM(Klass, A'zo, "A", "B", {"C", 10})` | Ochiladigan ro'yxat (`enum` yoki `int`) |
+| `ZM_FIELD(Class, Member)` | A control for its type (number, checkbox, vector, text, reference ...) |
+| `ZM_FIELD_RANGE(Class, Member, Min, Max)` | A `[Min, Max]` slider (`float`, `int`, `glm::vecN`; for an `AnimationCurve` the visible range) |
+| `ZM_FIELD_COLOR(Class, Member)` | A colour picker (`glm::vec3` / `glm::vec4`) |
+| `ZM_FIELD_COLOR_HDR(Class, Member)` | A colour picker whose values may be above 1 |
+| `ZM_FIELD_TOOLTIP(Class, Member, "text")` | A help text when the mouse hovers over it |
+| `ZM_FIELD_ENUM(Class, Member, "A", "B", {"C", 10})` | A drop-down list (`enum` or `int`) |
 
-Atributlar zanjir bo'lib ham qo'shiladi (`ScriptFieldInfo`): `.Range(min, max)`, `.Tooltip("...")`,
-`.Label("Nom")`, `.Header("Bo'lim")`, `.Color(hdr)`, `.Multiline()`, `.Options({...})`. Ular faqat inspektordagi
-ko'rinishni o'zgartiradi. `Projects/Platformer2D/Source/Player.cpp` dan:
+Attributes can also be chained (`ScriptFieldInfo`): `.Range(min, max)`, `.Tooltip("...")`, `.Label("Name")`,
+`.Header("Section")`, `.Color(hdr)`, `.Multiline()`, `.Options({...})`. They only change how the field looks in the
+inspector. From `Projects/Platformer2D/Source/Player.cpp`:
 
 ```cpp
 ZM_REGISTER_SCRIPT(PlayerController,
-    ZM_FIELD_RANGE(PlayerController, MoveSpeed, 0.0f, 20.0f).Header("Harakat").Tooltip("Yurish tezligi (birlik/sekund)"),
-    ZM_FIELD_RANGE(PlayerController, JumpImpulse, 0.0f, 30.0f).Tooltip("Sakrash kuchi (impuls)"),
-    ZM_FIELD(PlayerController, FallLimit).Tooltip("Shu balandlikdan pastga tushsa, o'yinchi boshlang'ich joyga qaytadi"),
-    ZM_FIELD(PlayerController, DropThrough).Label("Platformadan tushish")
-        .Tooltip("Pastga (S) + sakrash: bir tomonlama platformadan (plitka yoki Box Collider) pastga tushib ketadi"))
+    ZM_FIELD_RANGE(PlayerController, MoveSpeed, 0.0f, 20.0f).Header("Movement").Tooltip("Walk speed (units/second)"),
+    ZM_FIELD_RANGE(PlayerController, JumpImpulse, 0.0f, 30.0f).Tooltip("Jump force (impulse)"),
+    ZM_FIELD(PlayerController, FallLimit).Tooltip("Falling below this height returns the player to the start"),
+    ZM_FIELD(PlayerController, DropThrough).Label("Dropping through platforms")
+        .Tooltip("Down (S) + jump: drops down through a one-way platform (a tile or a Box Collider)"))
 ```
 
-Ro'yxat (enum) — `Projects/Platformer2D/Source/Gameplay.cpp` dagi `MovingPlatform`:
+A list (enum) — `MovingPlatform` in `Projects/Platformer2D/Source/Gameplay.cpp`:
 
 ```cpp
 enum class Motion { Smooth, Linear };
 Motion Mode = Motion::Smooth;
 ...
-ZM_FIELD_ENUM(MovingPlatform, Mode, "Silliq (sinus)", "Bir tekis").Label("Harakat turi")
+ZM_FIELD_ENUM(MovingPlatform, Mode, "Smooth (sine)", "Linear").Label("Movement type")
 ```
 
-Variantlarning qiymati avvalgisidan bittaga ortadi (`{"A", "B", {"Z", 10}, "W"}` → 0, 1, 10, 11). Aniq qiymat
-(`{"Boss", 10}`) enum'ning haqiqiy qiymati bo'lishi kerak — asosiy turi berilmagan enum faqat o'z qiymatlari
-oralig'ini saqlay oladi (aniq tur bering: `enum class Mode : int`). Maydon turi `int` ↔ `enum` o'zgarsa, sahnadagi
-qiymat saqlanib qoladi.
-Bunday qiymatdan tashqari son aniqlanmagan xatti-harakat (UBSan topadi). Oddiy `ZM_FIELD` bilan `glm::vec4` maydon
-inspektorda 4 ta son sifatida ko'rinadi — rang uchun `ZM_FIELD_COLOR` ishlating.
+Each option's value is one more than the previous one (`{"A", "B", {"Z", 10}, "W"}` → 0, 1, 10, 11). An explicit
+value (`{"Boss", 10}`) must be a real value of the enum — an enum without an underlying type can only hold the range
+of its own values (give it an explicit type: `enum class Mode : int`). When the field's type changes between `int` and
+`enum`, the value in the scene is kept.
+A number outside such values is undefined behaviour (UBSan finds it). A `glm::vec4` field with a plain `ZM_FIELD`
+appears in the inspector as 4 numbers — use `ZM_FIELD_COLOR` for a colour.
 
-**Havola (`EntityRef`)** — boshqa obyektga ishora. Inspektorda ierarxiyadan obyektni maydonga sudrab qo'yiladi yoki
-ro'yxatdan tanlanadi; kodda `Resolve(ref)` bilan `Entity` olinadi (topilmasa bo'sh `Entity`). Obyekt nusxalanganda yoki
-prefab'dan yaratilganda ichki havolalar yangi nusxaga moslashadi. [3D qo'llanmadagi](Tutorial-3D.md) kamera:
+**Reference (`EntityRef`)** — points to another object. In the inspector an object is dragged from the hierarchy onto
+the field or chosen from a list; in code `Resolve(ref)` gives the `Entity` (an empty `Entity` when it is not found).
+When the object is duplicated or created from a prefab, internal references follow the new copy. The camera from the
+[3D tutorial](Tutorial-3D.md):
 
 ```cpp
-EntityRef Target;  // ierarxiyadan sudrab qo'yiladi
+EntityRef Target;  // dragged from the hierarchy
 ...
 Entity target = Resolve(Target);
 if (!target)
     return;
 ```
 
-**O'yin paytida** inspektordagi maydonni o'zgartirish ishlayotgan nusxaga darhol yoziladi (tajriba qilish uchun), lekin
-sahnaga saqlanmaydi — **Stop** dan keyin avvalgi qiymat qaytadi. O'yin paytida klassni almashtirib bo'lmaydi.
+**While playing**, changing a field in the inspector is written into the running instance at once (for
+experimenting), but it is not saved to the scene — after **Stop** the previous value comes back. The class cannot be
+switched while playing.
 
-## 5. Hayot sikli
+## 5. The life cycle
 
-| Callback | Qachon chaqiriladi |
+| Callback | When it is called |
 |---|---|
-| `OnCreate()` | Bir marta, nusxa yaratilganda (o'yin boshlanganda yoki obyekt paydo bo'lganda). Sahnadagi hamma `OnCreate`'lar birinchi `OnEnable`'dan oldin |
-| `OnEnable()` | `OnCreate`'dan keyin (skript yoqilgan bo'lsa) va har safar qayta yoqilganda |
-| `OnStart()` | Bir marta, birinchi `OnUpdate`'dan oldin — o'sha paytda mavjud hamma skriptlar `OnCreate`/`OnEnable`'dan o'tgan: boshqa obyektlarni qidirish uchun qulay joy |
-| `OnUpdate(ts)` | Har kadr (fizika qadamidan oldin), skript yoqilgan bo'lsa |
-| `OnLateUpdate(ts)` | Har kadr, fizikadan keyin — kamera kuzatish uchun |
-| `OnDisable()` | O'chirilganda (`SetEnabled(false)`, obyekt nofaol bo'lganda) va `OnDestroy`'dan oldin (yoqilgan bo'lsa) |
-| `OnDestroy()` | Bir marta: obyekt o'chirilganda yoki o'yin to'xtaganda |
+| `OnCreate()` | Once, when the instance is created (when the game starts or the object appears). All the `OnCreate`s of a scene run before the first `OnEnable` |
+| `OnEnable()` | After `OnCreate` (if the script is enabled) and every time it is enabled again |
+| `OnStart()` | Once, before the first `OnUpdate` — by then every script that exists has been through `OnCreate`/`OnEnable`: a good place to look up other objects |
+| `OnUpdate(ts)` | Every frame (before the physics step), if the script is enabled |
+| `OnLateUpdate(ts)` | Every frame, after the physics — for camera following |
+| `OnDisable()` | When it is disabled (`SetEnabled(false)`, the object becomes inactive) and before `OnDestroy` (if it was enabled) |
+| `OnDestroy()` | Once: when the object is destroyed or the game stops |
 
-Tartib: `OnCreate → OnEnable → OnStart → (OnUpdate → OnLateUpdate)... → OnDisable → OnDestroy`.
+Order: `OnCreate → OnEnable → OnStart → (OnUpdate → OnLateUpdate)... → OnDisable → OnDestroy`.
 
-**Yoqilgan / o'chirilgan skript.** Inspektordagi **Faol** belgisi (`NativeScriptComponent::Enabled`), kodda
-`SetEnabled(bool)` / `IsEnabled()`. `SetEnabled` `OnEnable` / `OnDisable` ni darhol chaqiradi. O'chirilgan skript
-`OnUpdate` / `OnLateUpdate` olmaydi, taymer va tween'lari to'xtab turadi va yoqilganda davom etadi (`OnStart` qayta
-chaqirilmaydi). `HasStarted()` — `OnStart` o'tganmi.
+**An enabled / disabled script.** The **Enabled** checkbox in the inspector (`NativeScriptComponent::Enabled`), in
+code `SetEnabled(bool)` / `IsEnabled()`. `SetEnabled` calls `OnEnable` / `OnDisable` at once. A disabled script gets
+no `OnUpdate` / `OnLateUpdate`, its timers and tweens pause and continue when it is enabled (`OnStart` is not called
+again). `HasStarted()` — whether `OnStart` has run.
 
-**Faol / nofaol obyekt.** Obyektning o'z belgisi (`TagComponent::Active`) va ota-onalarinikilar: `SetActive(false)`
-(shu obyekt), `SetActive(entity, false)` yoki `entity.SetActive(false)` butun ierarxiyani o'chiradi. Skriptlar
-`SetActive` qaytishidan oldin `OnDisable` oladi (avval ota, keyin bolalar), ularning fizik jismlari dunyodan chiqadi,
-hech narsasi chizilmaydi; qayta yoqilganda `OnEnable` keladi. `IsActive()` — o'z belgisi, `IsActiveInHierarchy()` —
-ota-onalari bilan, `IsActiveAndEnabled()` — skript ham yoqilgan va obyekt ham faol. O'yin boshida nofaol obyekt
-skripti faqat `OnCreate` oladi; `OnEnable` / `OnStart` u faol bo'lganda keladi. Obyekt o'chganda uning ovozi
-`OnDisable` dan keyin to'xtaydi, yoqilganda esa `OnEnable` dan oldin boshlanadi.
+**An active / inactive object.** The object's own flag (`TagComponent::Active`) and its parents' flags:
+`SetActive(false)` (this object), `SetActive(entity, false)` or `entity.SetActive(false)` switch off the whole
+hierarchy. The scripts get `OnDisable` before `SetActive` returns (the parent first, then the children), their physics
+bodies leave the world and nothing of them is drawn; when they are enabled again `OnEnable` comes. `IsActive()` — the
+own flag, `IsActiveInHierarchy()` — with the parents, `IsActiveAndEnabled()` — the script is enabled and the object is
+active. The script of an object inactive at the start of the game only gets `OnCreate`; `OnEnable` / `OnStart` come
+when it becomes active. When an object is switched off its sound stops after `OnDisable`, and when it is switched on
+the sound starts before `OnEnable`.
 
-Hodisa callback'lari (to'qnashuv, trigger, xabar, `OnClick` ...) o'chirilgan skriptga ham keladi — u o'zini javoban
-yoqishi mumkin. Xabarlar va hodisalar shinasi nofaol obyekt skriptiga ham yetadi, `OnClick` esa kelmaydi (nofaol
-tugma bosilmaydi).
+Event callbacks (collision, trigger, message, `OnClick` ...) reach a disabled script too — it can enable itself in
+response. Messages and the event bus reach the script of an inactive object too, but `OnClick` does not (an inactive
+button cannot be pressed).
 
-## 6. Hodisa callback'lari
+## 6. Event callbacks
 
-Hammasi `virtual`, bo'sh standart amalga ega — faqat keraklisini `override` qiling.
+All of them are `virtual` with an empty default — `override` only the ones you need.
 
-| Callback | Qachon |
+| Callback | When |
 |---|---|
-| `OnCollisionBegin(Entity other)` / `OnCollisionEnd(other)` | Qattiq to'qnashuv (ikkala collider ham sensor emas), har obyekt jufti uchun bir marta; 2D va 3D |
-| `OnTriggerBegin(Entity other)` / `OnTriggerEnd(other)` | Kamida bittasi sensor (**Trigger (sensor)** / `IsSensor`) bo'lgan tegish; 2D, 3D va Character Controller 3D. `OnTriggerEnd` ichida turgan obyekt o'chirilganda ham keladi |
-| `OnJointBreak(const JointBreak2D&)` | Shu obyektning 2D joint'i uzildi (`Type`, `ConnectedBody`, `Force`, `Torque`) |
-| `OnJointBreak3D(const JointBreak3D&)` | Shu obyektning 3D joint'i uzildi |
-| `OnClick()` | Shu obyektdagi UI Button bosildi (sichqoncha, yoki tanlangan paytda Enter / gamepad A) |
-| `OnPointerEnter/Exit/Down/Up/Click(const UIPointerEvent&)` | Sichqoncha UI obyekt ustida (`e.Target`, `e.Position`, `e.ScreenPosition`, `e.Inside`) |
-| `OnSelect()` / `OnDeselect()` / `OnCancel()` | Klaviatura / gamepad navigatsiyasi: tanlandi / tanlov ketdi / Escape yoki B |
-| `OnValueChanged(float)` | UI Slider o'yinchi tomonidan surildi |
-| `OnToggleChanged(bool)` | UI Toggle almashdi |
-| `OnTextChanged / OnTextSubmit / OnTextEndEdit(const std::string&)` | UI Input Field: matn o'zgardi / Enter / tahrir tugadi |
-| `OnScrollChanged(const glm::vec2&)` | UI Scroll View kontenti surildi (x: 0 chap..1 o'ng, y: 1 tepa..0 past) |
-| `OnSoundFinished(const SoundFinished&)` | Shu obyektning ovozi o'zi tugadi (`Handle`, `Clip`, `FromAudioSource`, `Stolen`) |
-| `OnParticlesFinished()` | Takrorlanmaydigan Particle System o'z siklini tugatdi |
-| `OnTargetSpotted(Entity)` / `OnTargetLost(Entity)` | Sight Sensor nishonni ko'rdi / yo'qotdi |
-| `OnPatrolPointReached(int index)` | Patrol Path nuqtaga yetdi |
-| `OnMessage(const ScriptMessage&)` | Shu obyektga xabar keldi (`SendMessage`, `Broadcast` ...) |
-| `OnAnimationEvent(const AnimationEventInfo&)` | Animation Player / Animator event'i (`Name`, `Parameter`, `Clip`, `Time`, `Source`, `Skeletal`) |
-| `OnLanguageChanged(const std::string&)` | O'yin tili almashdi — `Localize(...)` bilan yasalgan matnlarni qayta yozing |
-| `OnSceneLoaded / OnSceneUnloaded(const SceneEventInfo&)`, `OnActiveSceneChanged(prev, current)` | SceneManager hodisalari (`Name`, `Path`, `BuildIndex`, `Mode`) |
+| `OnCollisionBegin(Entity other)` / `OnCollisionEnd(other)` | A solid collision (neither collider is a sensor), once per pair of objects; 2D and 3D |
+| `OnTriggerBegin(Entity other)` / `OnTriggerEnd(other)` | A contact where at least one is a sensor (**Trigger (sensor)** / `IsSensor`); 2D, 3D and Character Controller 3D. `OnTriggerEnd` also comes when an object inside is destroyed |
+| `OnJointBreak(const JointBreak2D&)` | A 2D joint of this object broke (`Type`, `ConnectedBody`, `Force`, `Torque`) |
+| `OnJointBreak3D(const JointBreak3D&)` | A 3D joint of this object broke |
+| `OnClick()` | The UI Button on this object was pressed (mouse, or Enter / gamepad A while it is selected) |
+| `OnPointerEnter/Exit/Down/Up/Click(const UIPointerEvent&)` | The mouse over a UI object (`e.Target`, `e.Position`, `e.ScreenPosition`, `e.Inside`) |
+| `OnSelect()` / `OnDeselect()` / `OnCancel()` | Keyboard / gamepad navigation: selected / selection left / Escape or B |
+| `OnValueChanged(float)` | A UI Slider was moved by the player |
+| `OnToggleChanged(bool)` | A UI Toggle switched |
+| `OnTextChanged / OnTextSubmit / OnTextEndEdit(const std::string&)` | UI Input Field: the text changed / Enter / editing finished |
+| `OnScrollChanged(const glm::vec2&)` | A UI Scroll View's content was scrolled (x: 0 left..1 right, y: 1 top..0 bottom) |
+| `OnSoundFinished(const SoundFinished&)` | A sound of this object finished by itself (`Handle`, `Clip`, `FromAudioSource`, `Stolen`) |
+| `OnParticlesFinished()` | A non-looping Particle System finished its cycle |
+| `OnTargetSpotted(Entity)` / `OnTargetLost(Entity)` | The Sight Sensor saw / lost the target |
+| `OnPatrolPointReached(int index)` | The Patrol Path reached a point |
+| `OnMessage(const ScriptMessage&)` | A message came to this object (`SendMessage`, `Broadcast` ...) |
+| `OnAnimationEvent(const AnimationEventInfo&)` | An Animation Player / Animator event (`Name`, `Parameter`, `Clip`, `Time`, `Source`, `Skeletal`) |
+| `OnLanguageChanged(const std::string&)` | The game's language changed — rewrite the texts built with `Localize(...)` |
+| `OnSceneLoaded / OnSceneUnloaded(const SceneEventInfo&)`, `OnActiveSceneChanged(prev, current)` | SceneManager events (`Name`, `Path`, `BuildIndex`, `Mode`) |
 
-Ko'pchiligi sahnaning hodisalar shinasiga ham chiqadi (masalan `"SoundFinished"`, `"ParticlesFinished"`,
-`"TargetSpotted"`, `"UISliderChanged"`, `"SceneLoaded"`) — boshqa skriptlar `Subscribe` bilan tinglashi mumkin.
+Most of them also go out on the scene's event bus (for example `"SoundFinished"`, `"ParticlesFinished"`,
+`"TargetSpotted"`, `"UISliderChanged"`, `"SceneLoaded"`) — other scripts can listen with `Subscribe`.
 
-Tanga misoli (`Projects/Platformer2D/Source/Gameplay.cpp`): collider'i sensor, shuning uchun tegish
-`OnTriggerBegin` bo'lib keladi:
+The coin example (`Projects/Platformer2D/Source/Gameplay.cpp`): its collider is a sensor, so a touch arrives as
+`OnTriggerBegin`:
 
 ```cpp
 void OnTriggerBegin(Entity other) override
@@ -254,117 +258,118 @@ void OnTriggerBegin(Entity other) override
     if (m_Collected || !other.HasTag("Player"))
         return;
     m_Collected = true;
-    Emit("CoinCollected"); // GameManager obuna bo'lgan
+    Emit("CoinCollected"); // the GameManager subscribed to it
     Instantiate(Effect, GetWorldPosition());
     Destroy();
 }
 ```
 
-## 7. Obyektlar, komponentlar, ierarxiya
+## 7. Objects, components, hierarchy
 
-**Komponentlar.** `GetComponent<T>()` (bo'lishi shart), `TryGetComponent<T>()` (yo'q bo'lsa `nullptr`),
-`HasComponent<T>()`, `AddComponent<T>(...)`. Barcha komponentlar va ularning maydonlari: [Components.md](Components.md).
+**Components.** `GetComponent<T>()` (it must exist), `TryGetComponent<T>()` (`nullptr` when it does not),
+`HasComponent<T>()`, `AddComponent<T>(...)`. All the components and their fields: [Components.md](Components.md).
 
 ```cpp
 if (auto* sprite = TryGetComponent<SpriteRendererComponent>(); sprite && dir != 0.0f)
     sprite->FlipX = dir < 0.0f;
 ```
 
-**Obyekt haqida.** `GetEntity()`, `GetScene()`, `Transform()`, `GetName()`, `SetName("...")`,
-`GetScriptClassName()` (nusxa qaysi klassdan yaratilgan).
+**About the object.** `GetEntity()`, `GetScene()`, `Transform()`, `GetName()`, `SetName("...")`,
+`GetScriptClassName()` (which class the instance was created from).
 
-**Qidirish.** `FindEntity("Nom")` — birinchi shu nomli obyekt (keshlangan, har kadr chaqirish arzon), avval shu
-sahnada, keyin boshqa yuklangan sahnalarda; `FindEntities("Nom")` — hammasi. Nomni `SetName` bilan o'zgartiring:
-`TagComponent::Tag` ga to'g'ridan-to'g'ri yozish keshda keyingi kadrda seziladi. Teglar (**Teglar** komponenti):
+**Finding.** `FindEntity("Name")` — the first object with that name (cached, cheap to call every frame), first in this
+scene, then in the other loaded scenes; `FindEntities("Name")` — all of them. Change a name with `SetName`: writing to
+`TagComponent::Tag` directly is noticed by the cache only on the next frame. Tags (the **Tags** component):
 `HasTag("Enemy")`, `AddTag(...)`, `RemoveTag(...)`, `FindEntitiesWithTag("Enemy")`, `FindEntityWithTag(...)`.
-Tur bo'yicha: `FindObjectsOfType<T>()` / `FindObjectOfType<T>()` — `T` komponent yoki skript klassi bo'lishi mumkin:
+By type: `FindObjectsOfType<T>()` / `FindObjectOfType<T>()` — `T` can be a component or a script class:
 
 ```cpp
 for (auto* enemy : FindObjectsOfType<EnemyAI>()) enemy->Alert();
 if (auto* hud = FindObjectOfType<Hud>()) hud->SetScore(m_Score);
 ```
 
-**Boshqa obyektning skripti.** `GetScript<T>(entity)` — `T*` yoki `nullptr`
+**Another object's script.** `GetScript<T>(entity)` — a `T*` or `nullptr`
 (`Projects/Adventure3D/Source/World.cpp`):
 
 ```cpp
 if (auto* game = GetScript<AdventureGame>(FindEntity("Game"))) game->Collect();
 ```
 
-**Yaratish va o'chirish.** `Instantiate(entity, position)` / `Instantiate(entity)` — mavjud obyektdan nusxa (o'z faollik
-belgisi bilan); `Instantiate("Prefabs/Ball.zprefab", position)` — prefab assetidan ([Prefabs.md](Prefabs.md)).
-`Destroy(entity)` / `Destroy()` — kadr oxirida o'chiriladi.
+**Creating and destroying.** `Instantiate(entity, position)` / `Instantiate(entity)` — a copy of an existing object
+(with its own active flag); `Instantiate("Prefabs/Ball.zprefab", position)` — from a prefab asset ([Prefabs.md](Prefabs.md)).
+`Destroy(entity)` / `Destroy()` — destroyed at the end of the frame.
 
-**Ierarxiya.** `GetParent()`, `SetParent(parent, keepWorldTransform = true)`, `GetWorldPosition()`, `GetChildren()`,
-`GetChildCount()`, `GetChild(i)`, `FindChild("Nom", recursive = true)`, `GetDescendants()`, `GetRoot()`. Bolalar
-`Transform`'i otasiga nisbatan. Bolalar / ota-onalardan komponent yoki skript: `GetComponentInChildren<T>()`,
-`GetComponentsInChildren<T>()`, `GetComponentInParent<T>()`, `GetComponentsInParent<T>()`, obyektning o'zi uchun
-`FindInChildren<T>()`, `FindInParent<T>()` (hammasida `includeSelf = true` standart).
+**Hierarchy.** `GetParent()`, `SetParent(parent, keepWorldTransform = true)`, `GetWorldPosition()`, `GetChildren()`,
+`GetChildCount()`, `GetChild(i)`, `FindChild("Name", recursive = true)`, `GetDescendants()`, `GetRoot()`. A child's
+`Transform` is relative to its parent. A component or script from the children / parents:
+`GetComponentInChildren<T>()`, `GetComponentsInChildren<T>()`, `GetComponentInParent<T>()`,
+`GetComponentsInParent<T>()`, and for the object itself `FindInChildren<T>()`, `FindInParent<T>()` (all with
+`includeSelf = true` by default).
 
-**Faollik.** `SetActive(bool)`, `SetActive(entity, bool)`, `IsActive()`, `IsActiveInHierarchy()`,
-`IsActiveAndEnabled()` (5-bo'lim).
+**Activity.** `SetActive(bool)`, `SetActive(entity, bool)`, `IsActive()`, `IsActiveInHierarchy()`,
+`IsActiveAndEnabled()` (section 5).
 
 ## 8. Input
 
-Nomlangan harakatlar va o'qlar **Loyiha sozlamalari → Input** oynasida tugma, sichqoncha yoki gamepad'ga bog'lanadi
-va `.zproject` da saqlanadi ([ProjectSettings.md](ProjectSettings.md)); oynada har harakat / o'qning jonli holati
-ko'rinadi. O'q qiymati: manfiy / musbat tugmalar (-1 / +1) va gamepad o'qi (deadzone'dan keyin 0..1 ga qayta
-masshtablanadi) — kattarog'i olinadi; gamepad bog'lanishlari ulangan barcha gamepad'larni tinglaydi. Yangi loyihadagi
-standartlar:
+Named actions and axes are bound to keys, mouse buttons or the gamepad in the **Project settings → Input** window and
+stored in the `.zproject` ([ProjectSettings.md](ProjectSettings.md)); the window shows the live state of every action /
+axis. An axis value: the negative / positive keys (-1 / +1) and the gamepad axis (rescaled to 0..1 after the deadzone)
+— the larger one wins; gamepad bindings listen to every connected gamepad. The defaults in a new project:
 
-| Nom | Turi | Bog'lanishlar |
+| Name | Kind | Bindings |
 |---|---|---|
-| `Jump` | harakat | Space, gamepad A |
-| `Fire` | harakat | sichqoncha chap tugmasi, chap Ctrl, o'ng trigger |
-| `Interact` | harakat | E, gamepad X |
-| `Sprint` | harakat | chap Shift, chap stik bosilishi |
-| `Pause` | harakat | Escape, gamepad Start |
-| `Horizontal` | o'q | A/D, ←/→, D-pad, chap stik X |
-| `Vertical` | o'q | S/W, ↓/↑, D-pad, chap stik Y |
-| `Move` | 2D vektor | `Horizontal` + `Vertical`, uzunligi 1 bilan cheklangan |
+| `Jump` | action | Space, gamepad A |
+| `Fire` | action | left mouse button, left Ctrl, right trigger |
+| `Interact` | action | E, gamepad X |
+| `Sprint` | action | left Shift, left stick press |
+| `Pause` | action | Escape, gamepad Start |
+| `Horizontal` | axis | A/D, ←/→, D-pad, left stick X |
+| `Vertical` | axis | S/W, ↓/↑, D-pad, left stick Y |
+| `Move` | 2D vector | `Horizontal` + `Vertical`, length limited to 1 |
 
 ```cpp
 float dir = Input::GetAxis("Horizontal");             // -1..1
-glm::vec2 move = Input::GetVector("Move");            // yoki Input::GetAxis2D("Horizontal", "Vertical")
-if (Input::IsActionJustPressed("Jump")) ...           // aynan bitta kadr true
-if (Input::IsActionPressed("Sprint")) ...             // bosib turilgan paytda
+glm::vec2 move = Input::GetVector("Move");            // or Input::GetAxis2D("Horizontal", "Vertical")
+if (Input::IsActionJustPressed("Jump")) ...           // true for exactly one frame
+if (Input::IsActionPressed("Sprint")) ...             // while it is held
 if (Input::IsActionJustReleased("Fire")) ...
 ```
 
-Qurilmaning o'zi: `Input::IsKeyPressed(Key::W)`, `IsKeyJustPressed`, `IsKeyJustReleased`,
-`IsMouseButtonPressed(MouseButton::Left)` (va `...JustPressed` / `...JustReleased`), `GetMousePosition()`,
+The device itself: `Input::IsKeyPressed(Key::W)`, `IsKeyJustPressed`, `IsKeyJustReleased`,
+`IsMouseButtonPressed(MouseButton::Left)` (and `...JustPressed` / `...JustReleased`), `GetMousePosition()`,
 `GetMouseDelta()`, `GetMouseScrollDelta()`, `IsGamepadConnected(id)`, `IsGamepadButtonPressed(GamepadButton::A)`,
-`GetGamepadAxis(GamepadAxis::LeftX)`. Holat har kadr boshida bir marta olinadi: `JustPressed` / `JustReleased` aynan
-bitta kadr davomida `true`.
+`GetGamepadAxis(GamepadAxis::LeftX)`. The state is read once at the start of every frame: `JustPressed` /
+`JustReleased` are `true` for exactly one frame.
 
-Skriptning o'yin ko'rinishiga bog'liq yordamchilari (piksel, chap-yuqori burchakdan): `GetMousePosition()`,
-`GetViewportSize()`, `GetMouseWorldPosition()` (2D: asosiy kamera orqali z = 0 tekisligiga), `ScreenToWorld(screen, z)`,
-`ScreenPointToRay(screen)` va `GetMouseRay()` (`Geometry::Raycast` bilan tanlash uchun).
+The script's helpers tied to the game view (pixels, from the top-left corner): `GetMousePosition()`,
+`GetViewportSize()`, `GetMouseWorldPosition()` (2D: through the main camera onto the z = 0 plane),
+`ScreenToWorld(screen, z)`, `ScreenPointToRay(screen)` and `GetMouseRay()` (for picking with `Geometry::Raycast`).
 
-Kursor: `Cursor::SetLockMode(CursorLockMode::Locked)` (sichqoncha bilan qarash — `Input::GetMouseDelta()`),
+The cursor: `Cursor::SetLockMode(CursorLockMode::Locked)` (mouse look — `Input::GetMouseDelta()`),
 `Cursor::SetVisible(false)`, `Cursor::SetImage("Textures/crosshair.png", { 16, 16 })`.
 
-**Boshqaruv ishoralari** — o'yin ekranidagi "qaysi tugma nima qiladi" matni input xaritasidan olinadi va o'yinchi
-ishlatayotgan qurilmaga moslashadi. `Input::GetActiveDevice()` — oxirgi ishlatilgan qurilma (`InputDevice::KeyboardMouse`:
-tugma, sichqoncha tugmasi, g'ildirak yoki bir necha piksel siljish; `InputDevice::Gamepad`: gamepad tugmasi yoki stik /
-trigger yarmidan ko'proq bosilsa); almashganda logga `Input device: gamepad` yoziladi.
-`Input::GetBindingText("Jump")` — shu qurilmaning bog'lanishlari (`"Space / W"`, gamepad'da `"A"`; o'q: `"A, D / Arrows"`,
-`"Left stick / D-pad"`; vektor: `"WASD"`), `Input::ExpandBindings("[Jump] - sakrash")` — matndagi har `[Nom]` o'rniga.
-`[Nom|matn]` — shu qurilmada bog'lanish bo'lmasa `matn` (`[Look|Sichqoncha]`), `[kb:matn]` / `[pad:matn]` — matn faqat
-klaviatura / faqat gamepad uchun. Matn komponentining **Boshqaruv ishoralari** (`InputHints`) belgisi buni o'zi qiladi va
-qurilma almashganda matnni yangilaydi ([UI.md](UI.md)). Tugma nomlari o'yinning til fayllarida `input.<id>` kalitlari bilan
-o'zgartiriladi: `input.key.Arrows` → `strelkalar`, `input.mouse.Left` → `LKM`, `input.stick.Left` → `chap stik`,
-`input.pad.DPad` (id'lar: `key.<Key>`, `mouse.<Button>`, `pad.<Button>`, `stick.Left/Right`, `pad.LeftTrigger/RightTrigger`).
-Namuna o'yinlarning bosh menyulari shunday ([Samples.md](Samples.md)).
+**Control hints** — the "which button does what" text on the game screen is taken from the input map and adapts to
+the device the player is using. `Input::GetActiveDevice()` — the device used last (`InputDevice::KeyboardMouse`: a
+key, a mouse button, the wheel or a move of a few pixels; `InputDevice::Gamepad`: a gamepad button, or a stick /
+trigger pushed more than halfway); when it changes, `Input device: gamepad` is written to the log.
+`Input::GetBindingText("Jump")` — that device's bindings (`"Space / W"`, on a gamepad `"A"`; an axis:
+`"A, D / Arrows"`, `"Left stick / D-pad"`; a vector: `"WASD"`), `Input::ExpandBindings("[Jump] - jump")` — in place of
+every `[Name]` in the text. `[Name|text]` — `text` when that device has no binding (`[Look|Mouse]`), `[kb:text]` /
+`[pad:text]` — text only for the keyboard / only for the gamepad. The **Control hints** checkbox (`InputHints`) of the
+Text component does this by itself and refreshes the text when the device changes ([UI.md](UI.md)). Button names are
+changed in the game's language files with `input.<id>` keys: `input.key.Arrows` → `arrows`, `input.mouse.Left` →
+`LMB`, `input.stick.Left` → `left stick`, `input.pad.DPad` (the ids: `key.<Key>`, `mouse.<Button>`, `pad.<Button>`,
+`stick.Left/Right`, `pad.LeftTrigger/RightTrigger`). The main menus of the sample games work this way
+([Samples.md](Samples.md)).
 
-## 9. Fizika va so'rovlar
+## 9. Physics and queries
 
-To'liq qo'llanma (jismlar, collider'lar, joint'lar, qatlamlar, sozlamalar, namunalar): [Physics.md](Physics.md).
+The full guide (bodies, colliders, joints, layers, settings, samples): [Physics.md](Physics.md).
 
-**2D** (obyektda `Rigidbody2DComponent`): `GetVelocity()`, `SetVelocity(v)`, `ApplyImpulse(i)`, `ApplyForce(f)`,
-`SetPosition2D(p)` (jismni ham ko'chiradi), `DropThroughPlatforms(seconds)` (bir tomonlama platformadan tushish),
-uxlash: `IsSleeping()`, `WakeUp()`, `PutToSleep()` va boshqa obyekt uchun `IsSleeping(other)`, `WakeUp(other)`.
-Boshqa obyektga: `SetVelocity(other, v)`, `ApplyImpulse(other, i)`.
+**2D** (a `Rigidbody2DComponent` on the object): `GetVelocity()`, `SetVelocity(v)`, `ApplyImpulse(i)`,
+`ApplyForce(f)`, `SetPosition2D(p)` (moves the body too), `DropThroughPlatforms(seconds)` (dropping through one-way
+platforms), sleeping: `IsSleeping()`, `WakeUp()`, `PutToSleep()` and for another object `IsSleeping(other)`,
+`WakeUp(other)`. On another object: `SetVelocity(other, v)`, `ApplyImpulse(other, i)`.
 
 ```cpp
 // Projects/Platformer2D/Source/Player.cpp
@@ -376,14 +381,14 @@ if (Input::IsActionJustPressed("Jump") && m_GroundContacts > 0)
     ApplyImpulse({ 0.0f, JumpImpulse });
 ```
 
-**3D** (`Rigidbody3DComponent` + 3D collider): `GetVelocity3D()`, `SetVelocity3D(v)`, `GetAngularVelocity3D()`,
+**3D** (`Rigidbody3DComponent` + a 3D collider): `GetVelocity3D()`, `SetVelocity3D(v)`, `GetAngularVelocity3D()`,
 `SetAngularVelocity3D(v)`, `ApplyImpulse3D(i)`, `ApplyForce3D(f)`, `ApplyTorque3D(t)`, `SetPosition3D(p)`,
-`IsSleeping3D()`, `WakeUp3D()`, `PutToSleep3D()` (va `(other)` variantlari), `SetVelocity3D(other, v)`,
+`IsSleeping3D()`, `WakeUp3D()`, `PutToSleep3D()` (and their `(other)` variants), `SetVelocity3D(other, v)`,
 `ApplyImpulse3D(other, i)`.
 
-**Qahramon** (`CharacterController3DComponent`): `Move(velocity)` — gorizontal tezlik, `Jump(speed)` (faqat yerda),
-`Grounded`, `Velocity` (oxirgi qadamdagi haqiqiy tezlik), `VerticalVelocity`. Tortishish va zinapoyalarni
-komponentning o'zi hisoblaydi:
+**A character** (`CharacterController3DComponent`): `Move(velocity)` — the horizontal velocity, `Jump(speed)` (only
+on the ground), `Grounded`, `Velocity` (the real velocity of the last step), `VerticalVelocity`. The component works out
+gravity and stairs itself:
 
 ```cpp
 auto* cc = TryGetComponent<CharacterController3DComponent>();
@@ -393,8 +398,8 @@ if (Input::IsActionJustPressed("Jump"))
     cc->Jump(JumpSpeed);
 ```
 
-**So'rovlar.** Natija `RaycastHit` (`Hit`, `EntityID`, `Point`, `Normal`, `Distance`; `if (hit)` bilan tekshiriladi;
-obyekt: `GetScene().GetEntityByUUID(hit.EntityID)`).
+**Queries.** The result is a `RaycastHit` (`Hit`, `EntityID`, `Point`, `Normal`, `Distance`; checked with `if (hit)`;
+the object: `GetScene().GetEntityByUUID(hit.EntityID)`).
 
 | 2D | 3D |
 |---|---|
@@ -403,258 +408,261 @@ obyekt: `GetScene().GetEntityByUUID(hit.EntityID)`).
 | `OverlapCircle2D(center, r, mask)` | `OverlapSphere3D(center, r, mask)` |
 | `OverlapBox2D(center, halfExtents, angleDegrees, mask)` | `OverlapBox3D(center, halfExtents, rotation, mask)` |
 | `OverlapPoint2D(point, mask)` | `OverlapCapsule3D(p0, p1, r, mask)` |
-| | `SphereCast3D`, `BoxCast3D`, `CapsuleCast3D` (+ `...All`) — "qalin nur" |
+| | `SphereCast3D`, `BoxCast3D`, `CapsuleCast3D` (+ `...All`) — a "thick ray" |
 
-To'qnashuv qatlamlari **Loyiha sozlamalari → Fizika qatlamlari** da nomlanadi (2D va 3D umumiy): `LayerMask({ "Ground",
-"Enemy" })` — bit niqobi, `LayerIndex("Player")` — indeks (yo'q bo'lsa -1).
+Collision layers are named in **Project settings → Physics layers** (shared by 2D and 3D): `LayerMask({ "Ground",
+"Enemy" })` — a bit mask, `LayerIndex("Player")` — the index (-1 when there is none).
 
 ```cpp
 if (RaycastHit hit = Raycast3D(GetWorldPosition(), { 0, 0, 1 }, 20.0f, LayerMask({ "Enemy" })))
     Hurt(GetScene().GetEntityByUUID(hit.EntityID));
 ```
 
-Joint'lar va boshqa fizik sozlamalar komponentlar orqali (`GetComponent<RevoluteJoint2DComponent>().MotorSpeed`,
+Joints and other physics settings go through the components (`GetComponent<RevoluteJoint2DComponent>().MotorSpeed`,
 `GetComponent<HingeJoint3DComponent>().JointAngle` ...) — [Components.md](Components.md).
 
-## 10. Vaqt, taymerlar, tween
+## 10. Time, timers, tweens
 
-- `GetTime()` — skriptning sahnasi ishga tushgandan beri o'tgan soniyalar (o'yin soati: vaqt masshtabi va pauzaga ergashadi). Hamma joydan: `Time::GetDeltaTime()`,
+- `GetTime()` — the seconds since the script's scene started (the game clock: it follows the time scale and the
+  pause). From anywhere: `Time::GetDeltaTime()`,
   `Time::GetUnscaledDeltaTime()`, `Time::GetFixedDeltaTime()`, `Time::GetFrameCount()`, `Time::GetTimeSinceStartup()`.
-- Vaqt masshtabi: `SetTimeScale(0.5f)` (sekin harakat), `GetTimeScale()`; pauza: `PauseGame()`, `ResumeGame()`,
-  `IsGamePaused()`. `OnUpdate` vaqti, taymerlar, fizika va animatsiyalar unga ergashadi, UI esa yo'q.
-  `GetUnscaledDeltaTime()` — haqiqiy kadr vaqti. Pauza menyusini boshqaradigan skript `OnCreate` da
-  `SetUpdateWhenPaused(true)` qiladi; taymer/tween'larni haqiqiy vaqtda yurgizish — `SetTimersUnscaled(true)`.
-- `QuitGame()` — o'yindan chiqish (player yopiladi, editorda Play to'xtaydi).
-- Qat'iy kadr vaqti: `Time::SetCaptureFrameRate(30)` — har kadr haqiqiy vaqtdan qat'i nazar aniq 1/30 s (kadrma-kadr
-  video yozish, testlar; `0` — yana haqiqiy vaqt). Muhit o'zgaruvchisi `ZAMIN_CAPTURE_FPS=N` ham shunday qiladi
-  (`Tests/samples_test.py` namuna o'yinlarni shu bilan ishlatadi).
+- The time scale: `SetTimeScale(0.5f)` (slow motion), `GetTimeScale()`; the pause: `PauseGame()`, `ResumeGame()`,
+  `IsGamePaused()`. The `OnUpdate` time, timers, physics and animations follow it, the UI does not.
+  `GetUnscaledDeltaTime()` — the real frame time. A script that drives the pause menu calls
+  `SetUpdateWhenPaused(true)` in `OnCreate`; to run timers/tweens in real time — `SetTimersUnscaled(true)`.
+- `QuitGame()` — quits the game (the player closes, in the editor Play stops).
+- A fixed frame time: `Time::SetCaptureFrameRate(30)` — every frame is exactly 1/30 s whatever the real time
+  (frame-by-frame video recording, tests; `0` — real time again). The `ZAMIN_CAPTURE_FPS=N` environment variable does
+  the same (`Tests/samples_test.py` runs the sample games with it).
 
-**Taymerlar** (asosiy oqimda, `OnUpdate`'dan keyin; callback ichidan ham chaqirish xavfsiz): `Invoke(sekund, fn)`,
-`InvokeRepeating(kechikish, interval, fn)`, `CancelInvokes()`, `IsInvoking()`.
+**Timers** (on the main thread, after `OnUpdate`; safe to call from inside a callback too): `Invoke(seconds, fn)`,
+`InvokeRepeating(delay, interval, fn)`, `CancelInvokes()`, `IsInvoking()`.
 
-**Tween**: `Tween(davomiylik, [](float t) {...}, Ease::OutBack, onComplete)` — `t` 0..1 (easing bilan),
-`TweenPosition(target, sekund, ease, onComplete)`, `TweenScale(...)`, `CancelTweens()`, `IsTweening()`.
+**Tween**: `Tween(duration, [](float t) {...}, Ease::OutBack, onComplete)` — `t` 0..1 (with easing),
+`TweenPosition(target, seconds, ease, onComplete)`, `TweenScale(...)`, `CancelTweens()`, `IsTweening()`.
 `Ease`: `Linear`, `InQuad`, `OutQuad`, `InOutQuad`, `OutCubic`, `InOutCubic`, `OutBack`, `OutElastic`, `OutBounce`
 (`ApplyEase(ease, t)`).
 
 ```cpp
-// Tutorial-3D: hamma kristal yig'ilgach 3 soniyadan keyin sahna boshidan yuklanadi
+// Tutorial-3D: 3 seconds after every crystal is collected the scene loads from the start
 Invoke(RestartDelay, [this]() { ReloadScene(SceneTransition::Fade(0.5f)); });
 ```
 
-Silliq harakat uchun `Math::Damp(current, target, sharpness, dt)` (kadr tezligiga bog'liq emas),
-`Math::SmoothDamp`, `Math::MoveTowards`, `Math::Remap` va boshqalar — [Core.md](Core.md).
+For smooth movement `Math::Damp(current, target, sharpness, dt)` (independent of the frame rate),
+`Math::SmoothDamp`, `Math::MoveTowards`, `Math::Remap` and others — [Core.md](Core.md).
 
-## 11. Xabarlar, hodisalar shinasi, global holat
+## 11. Messages, the event bus, global state
 
-**Xabarlar** — aniq obyektning skriptiga darhol yetkaziladi (avval `AddMessageHandler` bilan shu nomga bog'langan
-funksiyalar, keyin `OnMessage`). Yuk (`payload`) istalgan nusxalanadigan qiymat; `msg.Get<T>()` bilan o'qiladi
-(sonlar bir-biriga aylanadi), `msg.Sender` — yuborgan obyekt.
+**Messages** — delivered at once to a specific object's script (first the functions bound to that name with
+`AddMessageHandler`, then `OnMessage`). The `payload` is any copyable value; it is read with `msg.Get<T>()` (numbers
+convert to each other), `msg.Sender` — the object that sent it.
 
 ```cpp
-// Dushman
+// The enemy
 AddMessageHandler("Damage", [this](const ScriptMessage& m) { Health -= m.Get<float>(); });
-// O'yinchi
+// The player
 SendMessage(FindEntityWithTag("Enemy"), "Damage", 25.0f);
 ```
 
-`SendMessage(target, nom, yuk)` (skripti bor bo'lsa `true`), `SendMessageToChildren(...)`, `SendMessageUpwards(...)`,
-`Broadcast(nom, yuk)` (sahnadagi hamma skriptlarga), `RemoveMessageHandlers(nom)`.
+`SendMessage(target, name, payload)` (`true` when it has a script), `SendMessageToChildren(...)`,
+`SendMessageUpwards(...)`, `Broadcast(name, payload)` (to every script in the scene), `RemoveMessageHandlers(name)`.
 
-**Hodisalar shinasi** (publish / subscribe) — yuboruvchi kim tinglashini bilmaydi. Shu skript qilgan obunalar skript
-o'chirilganda o'zi bekor bo'ladi.
+**The event bus** (publish / subscribe) — the sender does not know who listens. The subscriptions a script made are
+cancelled by themselves when the script is destroyed.
 
 ```cpp
 // GameManager (Projects/Platformer2D/Source/GameManager.cpp)
 m_CoinSubscription = Subscribe("CoinCollected", [this](const ScriptMessage&) { AddCoin(); });
 ...
 Unsubscribe(m_CoinSubscription);
-// Tanga
-Emit("CoinCollected");            // obuna bo'lganlarga hozir
-EmitDeferred("LevelDone", 2);     // shu kadrning OnLateUpdate'idan keyin
+// The coin
+Emit("CoinCollected");            // to the subscribers, now
+EmitDeferred("LevelDone", 2);     // after this frame's OnLateUpdate
 ```
 
-`GetEventBus()` — sahnaning shinasi.
+`GetEventBus()` — the scene's bus.
 
-**Global holat va servislar** — sahnalardan tashqarida, har sahna almashishida saqlanadi:
+**Global state and services** — outside the scenes, kept across every scene change:
 
 ```cpp
 GameState::Increment("Coins");
 int coins = GameState::GetInt("Coins");
-WatchGameState("Coins", [this](std::string_view) { RefreshHud(); }); // skript bilan birga tugaydi
-auto& stats = GetOrCreateService<SessionStats>();                    // GetService<T>() - yo'q bo'lsa nullptr
+WatchGameState("Coins", [this](std::string_view) { RefreshHud(); }); // ends together with the script
+auto& stats = GetOrCreateService<SessionStats>();                    // GetService<T>() - nullptr when missing
 ```
 
-`UnwatchGameState(id)` kuzatishni bekor qiladi. Batafsil: [Scenes.md](Scenes.md).
+`UnwatchGameState(id)` cancels a watch. Details: [Scenes.md](Scenes.md).
 
-## 12. Sahnalar
+## 12. Scenes
 
-Yo'llar `Assets` ga nisbatan; build ro'yxatidagi sahnani nomi yoki indeksi bilan ham chaqirish mumkin (**Loyiha
-sozlamalari → Build sahnalar**). Almashish kadr oxirida bo'ladi.
+Paths are relative to `Assets`; a scene in the build list can also be loaded by name or index (**Project settings →
+Build scenes**). The switch happens at the end of the frame.
 
 ```cpp
 LoadScene("Scenes/Level2.zscene");
-LoadScene("Scenes/Level2.zscene", SceneTransition::Fade(0.5f));   // qorong'ilashib, qayta yorishadi
-LoadScene("Scenes/HUD.zscene", LoadSceneMode::Additive);          // yoniga qo'shib
-LoadScene(2);                                                      // build indeksi
-if (!LoadNextScene(SceneTransition::Fade(0.5f))) LoadScene(0);     // oxirgi daraja: menyuga
+LoadScene("Scenes/Level2.zscene", SceneTransition::Fade(0.5f));   // fades to black and back
+LoadScene("Scenes/HUD.zscene", LoadSceneMode::Additive);          // added alongside
+LoadScene(2);                                                      // build index
+if (!LoadNextScene(SceneTransition::Fade(0.5f))) LoadScene(0);     // the last level: to the menu
 ReloadScene();
 ```
 
 `GetSceneBuildIndex()`, `GetActiveSceneBuildIndex()`, `GetBuildSceneCount()`, `UnloadScene("HUD")`,
-`DontDestroyOnLoad()` / `DontDestroyOnLoad(entity)` (sahna almashganda ham qoladi), `GetSceneManager()`.
-Fonda yuklash (yuklanish ekrani) — `LoadSceneAsync` (`Projects/Platformer2D/Source/SceneFlow.cpp`):
+`DontDestroyOnLoad()` / `DontDestroyOnLoad(entity)` (stays when the scene changes), `GetSceneManager()`.
+Loading in the background (a loading screen) — `LoadSceneAsync` (`Projects/Platformer2D/Source/SceneFlow.cpp`):
 
 ```cpp
 m_Load = LoadSceneAsync(Target, LoadSceneMode::Single, SceneTransition::Fade(Fade));
 if (m_Load)
-    m_Load->SetAllowSceneActivation(false); // ekran tayyor bo'lganda o'zi ruxsat beradi
+    m_Load->SetAllowSceneActivation(false); // the screen allows it itself when it is ready
 ...
-// GetProgress() 0..1 (0.9 - yuklandi, faollashtirishni kutmoqda), IsReady(), HasFailed()
+// GetProgress() 0..1 (0.9 - loaded, waiting for activation), IsReady(), HasFailed()
 ```
 
-Sub-sahnalar (Sub-sahna komponenti): `LoadSubScene()` / `LoadSubScene(host)`, `UnloadSubScene()`, `GetSubScene()`.
-Batafsil: [Scenes.md](Scenes.md).
+Sub-scenes (the Sub-scene component): `LoadSubScene()` / `LoadSubScene(host)`, `UnloadSubScene()`, `GetSubScene()`.
+Details: [Scenes.md](Scenes.md).
 
 ## 13. Audio
 
-To'liq qo'llanma (mixer, musiqa, 3D, filtrlar, limitlar, zonalar, profiler): [Audio.md](Audio.md).
+The full guide (mixer, music, 3D, filters, limits, zones, profiler): [Audio.md](Audio.md).
 
-Bir martalik ovozlar (qaytaradi: `AudioEngine` handle'i, 0 — chalinmadi):
+One-shot sounds (they return an `AudioEngine` handle, 0 — not played):
 
 ```cpp
-PlaySound("Audio/coin.wav");                                // SFX guruhi
-PlaySound("Audio/click.wav", 0.8f, 1.0f, "UI");             // ovoz, pitch, mixer guruhi
-PlaySoundAt("Audio/boom.wav", GetWorldPosition());          // 3D o'rni bilan
+PlaySound("Audio/coin.wav");                                // the SFX group
+PlaySound("Audio/click.wav", 0.8f, 1.0f, "UI");             // volume, pitch, mixer group
+PlaySoundAt("Audio/boom.wav", GetWorldPosition());          // with a 3D position
 SoundParams step; step.PitchRandom = { 0.9f, 1.1f }; step.MaxInstances = 3;
-PlaySound("Audio/step.wav", step);                          // tasodifiy oraliq, limit, ustuvorlik, FadeIn ...
+PlaySound("Audio/step.wav", step);                          // random range, limit, priority, FadeIn ...
 ```
 
-Obyektning **Audio Source** komponenti: `PlayAudio()` / `PlayAudio(fadeIn)`, `StopAudio()` / `StopAudio(fadeOut)`,
+The object's **Audio Source** component: `PlayAudio()` / `PlayAudio(fadeIn)`, `StopAudio()` / `StopAudio(fadeOut)`,
 `PauseAudio()`, `ResumeAudio()`, `IsAudioPlaying()`, `IsAudioPaused()`, `SetAudioVolume(v)` / `GetAudioVolume()`,
 `SetAudioPitch(p)` / `GetAudioPitch()`, `GetAudioTime()` / `SetAudioTime(s)`, `GetAudioLength()`,
-`FadeAudio(volume, seconds)`, `GetAudioFade()`, `SetAudioLowPass(hz)`, `SetAudioHighPass(hz)`. Ko'pchiligining boshqa
-obyekt uchun `(Entity other, ...)` varianti bor.
+`FadeAudio(volume, seconds)`, `GetAudioFade()`, `SetAudioLowPass(hz)`, `SetAudioHighPass(hz)`. Most have an
+`(Entity other, ...)` variant for another object.
 
-Musiqa va mixer — `Audio` klassi: `Audio::PlayMusic("Audio/theme.wav")`, `Audio::CrossfadeTo("Audio/boss.wav", 2.0f)`,
+Music and the mixer — the `Audio` class: `Audio::PlayMusic("Audio/theme.wav")`, `Audio::CrossfadeTo("Audio/boss.wav", 2.0f)`,
 `Audio::StopMusic()`, `Audio::SetGroupVolume("SFX", 0.5f)`, `Audio::SetGroupMuted("Music", true)`,
 `Audio::SaveSettings()` / `LoadSettings()`.
 
-## 14. Grafika, rang va effektlar
+## 14. Graphics, colour and effects
 
-To'liq qo'llanma (kameralar, materiallar, yorug'lik, soyalar, post-processing, particle'lar): [Rendering.md](Rendering.md).
+The full guide (cameras, materials, lights, shadows, post-processing, particles): [Rendering.md](Rendering.md).
 
-- **Material** (`MeshRendererComponent`): `GetMaterial()` — shu obyektning o'z nusxasi (boshqalarga ta'sir qilmaydi),
-  `GetMaterial(submesh)`, `GetSharedMaterial()` (umumiy `.zmat` — hammaga ta'sir qiladi), `SetSharedMaterial(path)`,
-  `ResetMaterial()`; boshqa obyekt uchun `(Entity other, ...)` variantlari.
+- **Material** (`MeshRendererComponent`): `GetMaterial()` — this object's own copy (does not affect the others),
+  `GetMaterial(submesh)`, `GetSharedMaterial()` (the shared `.zmat` — affects everyone), `SetSharedMaterial(path)`,
+  `ResetMaterial()`; `(Entity other, ...)` variants for another object.
 
   ```cpp
   GetMaterial()->SetColor({ 1.0f, 0.2f, 0.2f, 1.0f });
   GetMaterial()->SetEmission({ 1.0f, 0.5f, 0.1f }, 4.0f);
   ```
-- **2D rang** (Sprite Renderer, bo'lmasa Circle Renderer, Text, Tilemap): `GetColor()`, `SetColor(c)`,
-  `TweenColor(target, sekund, ease, onComplete)`, `FadeTo(alpha, sekund, ...)`.
-- **Sprite effektlari**: `Flash(color, duration)` (urilish chaqnashi), `SetOutline(color, thickness)`.
-- **Tint animatsiya** (Tint Animation komponenti): `PlayTint()`, `PlayTint(color, duration, mode, cycles, ease)`,
+- **2D colour** (Sprite Renderer, otherwise Circle Renderer, Text, Tilemap): `GetColor()`, `SetColor(c)`,
+  `TweenColor(target, seconds, ease, onComplete)`, `FadeTo(alpha, seconds, ...)`.
+- **Sprite effects**: `Flash(color, duration)` (a hit flash), `SetOutline(color, thickness)`.
+- **Tint animation** (the Tint Animation component): `PlayTint()`, `PlayTint(color, duration, mode, cycles, ease)`,
   `StopTint()`, `IsTintPlaying()`.
-- **Sprite kadrlari**: `GetSpriteSheet()`, `SetSprite("kadr")`, `PlaySpriteSequence("run", fps, loop)`,
+- **Sprite frames**: `GetSpriteSheet()`, `SetSprite("frame")`, `PlaySpriteSequence("run", fps, loop)`,
   `PlaySpriteClip("HeroSide")`, `GetSpriteClip()`.
-- **Kamera**: `ShakeCamera(intensity, duration, frequency)`, `StopCameraShake()`, `SetCameraTarget(entity, snap)`
-  (asosiy kameraning Camera 2D Follow nishoni).
-- **Particle**: `EmitParticles(n)`.
-- **Debug chizish** (faqat ko'rish uchun; Shipping build'da yo'q): `DebugDraw::Line(a, b, DebugColor::Red)`, `Ray(o, dir)`,
+- **Camera**: `ShakeCamera(intensity, duration, frequency)`, `StopCameraShake()`, `SetCameraTarget(entity, snap)`
+  (the Camera 2D Follow target of the main camera).
+- **Particles**: `EmitParticles(n)`.
+- **Debug drawing** (for viewing only; absent from a Shipping build): `DebugDraw::Line(a, b, DebugColor::Red)`, `Ray(o, dir)`,
   `Arrow(a, b)`, `Box(center, half)` / `Box(center, half, quat)` / `Box(worldTransform)`, `Bounds(aabb)`, `Rect(c, size)`,
   `WireSphere(c, r)`, `Circle(c, normal, r)`, `Cross(p, size)`, `Point(p)`, `Axes(transform)`, `Path(points)`,
-  `NavigationPath(points)`, `Text(p, "matn")` — oxirgi parametrlar: rang, `duration` (soniya, 0 = bir kadr), `depthTest`.
+  `NavigationPath(points)`, `Text(p, "text")` — the last parameters: colour, `duration` (seconds, 0 = one frame), `depthTest`.
 
 ## 15. UI
 
-To'liq qo'llanma (langarlar, Canvas, layout, vidjetlar, hodisalar, navigatsiya, scroll view): [UI.md](UI.md).
+The full guide (anchors, Canvas, layout, widgets, events, navigation, scroll view): [UI.md](UI.md).
 
-UI obyektlari (**UI Transform** komponenti) uchun animatsiyalar o'yin pauzasida ham yuradi; har biri tween ID'sini
-qaytaradi (0 — UI Transform yo'q):
+Animations for UI objects (the **UI Transform** component) run during the game pause too; each returns a tween ID
+(0 — no UI Transform):
 
 ```cpp
-UIScaleTo({ 1.2f, 1.2f }, 0.2f);                                 // pivot atrofida kattalashadi
+UIScaleTo({ 1.2f, 1.2f }, 0.2f);                                 // grows around the pivot
 UIFadeTo(0.0f, 0.3f, Ease::OutQuad, [this] { SetActive(false); });
-UIMoveTo({ 0.0f, 40.0f }, 0.4f);                                 // 40 UI birligi yuqoriroqda
-UIPunchScale(0.15f);                                             // qisqa "sakrash"
+UIMoveTo({ 0.0f, 40.0f }, 0.4f);                                 // 40 UI units higher
+UIPunchScale(0.15f);                                             // a short "bounce"
 TweenUI(UITweenProperty::Alpha, glm::vec4(0.3f), 0.6f, { .Easing = Ease::InOutQuad, .Loop = UITweenLoop::PingPong });
 ```
 
-`CancelUITweens(complete)`, `ShowUI(panel)` / `HideUI(panel, animate)` (UI Animation komponenti bilan ochiladi /
-yopiladi). UI hodisalari — 6-bo'lim (`OnClick`, `OnPointer...`, `OnValueChanged` ...). Namunalar:
+`CancelUITweens(complete)`, `ShowUI(panel)` / `HideUI(panel, animate)` (opened / closed with the UI Animation
+component). UI events — section 6 (`OnClick`, `OnPointer...`, `OnValueChanged` ...). Samples:
 `Projects/Platformer2D/Source/PauseMenu.cpp`, `GameMenu.cpp`, `UIWidgetsDemo.cpp`, `UILayoutDemo.cpp`.
 
-## 16. Animatsiya
+## 16. Animation
 
-- **Property animatsiya** (Animation Player, `.zanim` kliplar): `PlayAnimation("Klip", speed)` (`speed < 0` —
-  oxiridan orqaga), `StopAnimation()`, `IsAnimationPlaying()`.
-- **Skeletal** (Animator): komponent orqali — `GetComponent<AnimatorComponent>().SetFloat("Speed", v)`, `SetBool`,
-  `SetTrigger`, `Play("Walk", ...)` (`Projects/Adventure3D/Source/Player.cpp` holat mashinasiga `Speed` va `Grounded`
-  beradi).
-- **Event'lar**: `OnAnimationEvent(e)` yoki nom bo'yicha `AddAnimationEventHandler("Footstep", fn)`,
+- **Property animation** (Animation Player, `.zanim` clips): `PlayAnimation("Clip", speed)` (`speed < 0` — backwards
+  from the end), `StopAnimation()`, `IsAnimationPlaying()`.
+- **Skeletal** (Animator): through the component — `GetComponent<AnimatorComponent>().SetFloat("Speed", v)`,
+  `SetBool`, `SetTrigger`, `Play("Walk", ...)` (`Projects/Adventure3D/Source/Player.cpp` feeds `Speed` and `Grounded`
+  to the state machine).
+- **Events**: `OnAnimationEvent(e)` or by name `AddAnimationEventHandler("Footstep", fn)`,
   `RemoveAnimationEventHandlers("Footstep")`.
 
-Batafsil: [Animation.md](Animation.md).
+Details: [Animation.md](Animation.md).
 
-## 17. AI va navigatsiya
+## 17. AI and navigation
 
-Nav Agent komponenti bo'lsa: `SetDestination(point)`, `StopMoving()`, `SetNavTarget(entity)`, `IsMoving()`,
-`GetRemainingDistance()`, `HasArrived()`, `GetNavTraversalLink()`, `CompleteNavTraversal(link, revision, ticket)`, `CancelNavTraversal()`, `FindPath(from, to)`, `HasNavLineOfSight(from, to)`. Ko'rish (Sight Sensor):
-`CanSee(target)`, `CanSeeTarget()`, `GetSeenTarget()`, `GetLastSeenPosition()`, `RemembersTarget()`. Patrul (Patrol
+With a Nav Agent component: `SetDestination(point)`, `StopMoving()`, `SetNavTarget(entity)`, `IsMoving()`,
+`GetRemainingDistance()`, `HasArrived()`, `GetNavTraversalLink()`, `CompleteNavTraversal(link, revision, ticket)`,
+`CancelNavTraversal()`, `FindPath(from, to)`, `HasNavLineOfSight(from, to)`. Sight (Sight Sensor):
+`CanSee(target)`, `CanSeeTarget()`, `GetSeenTarget()`, `GetLastSeenPosition()`, `RemembersTarget()`. Patrol (Patrol
 Path): `PausePatrol()`, `ResumePatrol()`, `IsPatrolling()`, `GetPatrolPoint()`, `GetPatrolTarget()`,
-`IsWaitingAtPatrolPoint()`, `SetPatrolPoint(i)`. Guruh (Formation): `SetFormationShape(FormationShape::Line)`,
+`IsWaitingAtPatrolPoint()`, `SetPatrolPoint(i)`. Group (Formation): `SetFormationShape(FormationShape::Line)`,
 `GetFormationShape()`, `AddFormationMember(e)`, `RemoveFormationMember(e)`, `IsFormationInPlace()`,
-`GetFormationLeader()`, `GetFormationSlot(slot)`. Holat mashinasi va xulq daraxti inspektorda ko'rinishi uchun:
+`GetFormationLeader()`, `GetFormationSlot(slot)`. To show a state machine and a behavior tree in the inspector:
 `WatchStateMachine(machine)`, `UnwatchStateMachine(...)`, `GetWatchedStateMachines()`, `WatchBehaviorTree(tree)`,
-`UnwatchBehaviorTree(...)`, `GetWatchedBehaviorTrees()`. Batafsil va misollar: [AI.md](AI.md)
+`UnwatchBehaviorTree(...)`, `GetWatchedBehaviorTrees()`. Details and examples: [AI.md](AI.md)
 (`Projects/Adventure3D/Source/Guard.cpp`, `Projects/Showcase3D/Source/AI.cpp`).
 
-## 18. Saqlash, lokalizatsiya, log
+## 18. Saving, localization, logging
 
-**SaveData** — o'yinlar orasida saqlanadigan qiymatlar: `SaveData::SetInt/SetFloat/SetString/SetBool(kalit, qiymat)`,
-`GetInt/GetFloat/GetString/GetBool(kalit, standart)`, `HasKey`, `DeleteKey`, `DeleteAll`, `Save()`. Fayl —
-`~/.local/share/<Kompaniya>/<Mahsulot>/savedata.json` (**Loyiha sozlamalari → Player** dagi kompaniya va mahsulot
-nomi; kompaniyasiz — `~/.local/share/zamin/<Mahsulot>/`); o'yin to'xtaganda, sahna almashganda va dastur yopilganda
-avtomatik yoziladi.
+**SaveData** — values kept between games: `SaveData::SetInt/SetFloat/SetString/SetBool(key, value)`,
+`GetInt/GetFloat/GetString/GetBool(key, default)`, `HasKey`, `DeleteKey`, `DeleteAll`, `Save()`. The file is
+`~/.local/share/<Company>/<Product>/savedata.json` (the company and product name from **Project settings → Player**;
+without a company — `~/.local/share/zamin/<Product>/`); it is written automatically when the game stops, when the
+scene changes and when the program closes.
 
 ```cpp
 SaveData::SetInt("TotalCoins", SaveData::GetInt("TotalCoins") + 1);
 ```
 
-Rekordlar uchun `SaveData::SubmitRecord(kalit, natija)` — natija saqlanganidan yaxshi bo'lsa (yoki hali hech narsa
-saqlanmagan bo'lsa) uni yozadi va `true` qaytaradi; `RecordOrder::Lower` — kichigi yaxshi (aylana vaqti, qadamlar).
-`IsNewRecord(kalit, natija)` — yozmasdan tekshiradi. Faylga keyingi `Save()` yozadi:
+For records, `SaveData::SubmitRecord(key, result)` — writes the result and returns `true` when it is better than the
+stored one (or nothing is stored yet); `RecordOrder::Lower` — smaller is better (lap time, steps).
+`IsNewRecord(key, result)` — checks without writing. The next `Save()` writes it to the file:
 
 ```cpp
 if (SaveData::SubmitRecord("Neon.BestScore", m_Score))
-    ShowBanner(Localize("over.record"));                               // "YANGI REKORD!"
+    ShowBanner(Localize("over.record"));                               // "NEW RECORD!"
 SaveData::SubmitRecord("Racing.BestLap", lapSeconds, RecordOrder::Lower);
 SaveData::Save();
 ```
 
-Olti M24 namuna o'yin rekordlarini shunday saqlaydi ([Samples.md](Samples.md#records-savedata)).
+The six M24 sample games store their records this way ([Samples.md](Samples.md#records-savedata)).
 
-**Lokalizatsiya** — `Localize("menu.start")`, `Localize("hud.score", score)` (`{0}` o'rniga), `LocalizePlural(...)`;
-til almashsa `OnLanguageChanged` keladi. Til fayllari: `Assets/Localization/<til>.json` ([ProjectSettings.md](ProjectSettings.md)).
+**Localization** — `Localize("menu.start")`, `Localize("hud.score", score)` (in place of `{0}`), `LocalizePlural(...)`;
+when the language changes `OnLanguageChanged` comes. The language files: `Assets/Localization/<language>.json`
+([ProjectSettings.md](ProjectSettings.md)).
 
-**Log** — `ZM_TRACE`, `ZM_INFO`, `ZM_WARN`, `ZM_ERROR`, `ZM_CRITICAL` (`std::format` sintaksisi) editorning
-**Konsol** paneliga va player log fayliga yoziladi:
+**Logging** — `ZM_TRACE`, `ZM_INFO`, `ZM_WARN`, `ZM_ERROR`, `ZM_CRITICAL` (`std::format` syntax) write to the editor's
+**Console** panel and to the player's log file:
 
 ```cpp
-ZM_INFO("Daraja tugadi! Keyingisi: {}", NextScene);
+ZM_INFO("Level finished! Next: {}", NextScene);
 ```
 
-**Tekshiruvlar** — `ZM_ASSERT(shart, "xabar {}", qiymat)` faqat Debug build'da yoki CMake `-DZAMIN_ASSERTS=ON` bilan
-kompilyatsiya qilinadi (editor skript modulini Release'da build qiladi — skriptdagi `ZM_ASSERT` odatda o'chiq);
-`ZM_VERIFY(shart, ...)` har doim tekshiriladi va natijani qaytaradi: `if (!ZM_VERIFY(texture, "'{}' rasmi yo'q", path)) return;`.
-Batafsil: [Core.md](Core.md).
+**Checks** — `ZM_ASSERT(condition, "message {}", value)` is only compiled in a Debug build or with CMake
+`-DZAMIN_ASSERTS=ON` (the editor builds the script module in Release — `ZM_ASSERT` in a script is usually off);
+`ZM_VERIFY(condition, ...)` is always checked and returns the result:
+`if (!ZM_VERIFY(texture, "no image '{}'", path)) return;`. Details: [Core.md](Core.md).
 
-## 19. Bir nechta fayl va skriptlar orasida aloqa
+## 19. Several files and communication between scripts
 
-`Source/` dagi har bir `.cpp` va `.h` modulga kiradi. Klassni boshqa skriptlar ham ishlatishi kerak bo'lsa, uning
-e'lonini header'ga chiqaring (`Projects/Platformer2D/Source/GameManager.h`):
+Every `.cpp` and `.h` in `Source/` goes into the module. When other scripts need a class too, move its declaration
+into a header (`Projects/Platformer2D/Source/GameManager.h`):
 
 ```cpp
 #pragma once
@@ -670,118 +678,119 @@ public:
 };
 ```
 
-`ZM_REGISTER_SCRIPT(GameManager, ...)` esa `.cpp` faylda (bitta joyda) bo'ladi. Aloqa usullari, bog'liqlik
-kamayishi tartibida: hodisalar shinasi (`Emit` / `Subscribe` — yuboruvchi qabul qiluvchini bilmaydi), xabarlar
-(`SendMessage` — nom va yuk bilan), to'g'ridan-to'g'ri chaqiruv (`GetScript<GameManager>(entity)->AddCoin()`),
-global holat (`GameState`, `Services`).
+`ZM_REGISTER_SCRIPT(GameManager, ...)` stays in the `.cpp` file (in one place). The ways to communicate, from the
+loosest coupling to the tightest: the event bus (`Emit` / `Subscribe` — the sender does not know the receiver),
+messages (`SendMessage` — with a name and a payload), a direct call (`GetScript<GameManager>(entity)->AddCoin()`),
+global state (`GameState`, `Services`).
 
-## 20. Kompilyatsiya va hot reload
+## 20. Compilation and hot reload
 
-- **Skriptlar → Kompilyatsiya + qayta yuklash** (`Ctrl+B`) — editor loyiha papkasidagi `Build/` da
-  `cmake -DCMAKE_BUILD_TYPE=Release -DZamin_DIR=<engine>` (birinchi marta) va `cmake --build Build --parallel`
-  ni fonda ishga tushiradi. Muvaffaqiyatli bo'lsa modul qayta yuklanadi.
-- **Oyna → Kompilyatsiya** (yoki **Skriptlar → Kompilyatsiya natijalari**) — **Muammolar** (xato va ogohlantirishlar
-  ro'yxati; bosilganda fayl shu qatorda ichki kod muharririda ochiladi) va **To'liq chiqish**. Holat qatorida oxirgi
-  kompilyatsiya natijasi ko'rinadi.
-- **Skriptlar → Avtomatik hot-reload** (standart yoqilgan) — modul fayli editordan tashqarida (IDE, terminalda
-  `cmake --build`) o'zgarsa, editor uni o'zi qayta yuklaydi. Linker faylni joyida yozgani uchun, yangi modul fayl
-  o'zgarmay qolgandan keyingina yuklanadi. **Skriptlar → Modulni qayta yuklash** — qo'lda.
-- Modul yuklashdan oldin vaqtinchalik faylga nusxalanadi, shuning uchun asl `.so` ni editor ochiq turganda qayta
-  build qilish mumkin.
-- Muvaffaqiyatli qayta yuklashda o'yin rejimi to'xtatiladi (`Stop`), skript nusxalari yo'q qilinadi; inspektordagi maydon qiymatlari
-  sahnada saqlangani uchun yangi kod ular bilan ishlaydi. Maydon nomi o'zgarsa, eski qiymat yangi maydonga o'tmaydi.
-- Terminalda build: `cmake -S <loyiha> -B <loyiha>/Build -DZamin_DIR=<engine>/build && cmake --build <loyiha>/Build`.
-  Namuna loyihalar engine bilan birga build qilinadi (ildizdagi `CMakeLists.txt`). Sanitizer va coverage build'lari
-  namuna modullarini o'zining `GameModules` papkasiga yozadi; dasturlar modulni boshqa papkadan
-  `ZAMIN_SCRIPT_MODULE_DIR=<papka>` bilan yuklaydi ([Testing.md](Testing.md)).
+- **Scripts → Compile + reload** (`Ctrl+B`) — the editor runs
+  `cmake -DCMAKE_BUILD_TYPE=Release -DZamin_DIR=<engine>` (the first time) and `cmake --build Build --parallel`
+  in the background, in `Build/` in the project folder. On success the module is reloaded.
+- **Window → Compilation** (or **Scripts → Compiler output**) — **Problems** (the list of errors and warnings;
+  clicking one opens the file at that line in the built-in code editor) and **Full output**. The status bar shows the
+  result of the last compilation.
+- **Scripts → Automatic hot reload** (on by default) — when the module file changes outside the editor (an IDE,
+  `cmake --build` in a terminal), the editor reloads it by itself. Since the linker writes the file in place, the new
+  module is loaded only once the file has stopped changing. **Scripts → Reload module** — by hand.
+- Before loading, the module is copied to a temporary file, so the original `.so` can be rebuilt while the editor is
+  open.
+- A successful reload stops play mode (`Stop`) and destroys the script instances; since the field values from the
+  inspector are stored in the scene, the new code works with them. When a field is renamed, the old value does not
+  move to the new field.
+- Building in a terminal: `cmake -S <project> -B <project>/Build -DZamin_DIR=<engine>/build && cmake --build <project>/Build`.
+  The sample projects are built together with the engine (the root `CMakeLists.txt`). Sanitizer and coverage builds
+  write the sample modules to their own `GameModules` folder; the programs load a module from another folder with
+  `ZAMIN_SCRIPT_MODULE_DIR=<folder>` ([Testing.md](Testing.md)).
 
-### Native SDK / ABI mosligi
+### Native SDK / ABI compatibility
 
-`zamin_add_game_module` modulga `.zamin_abi` yozuvini qo'shadi: SDK va uning GLM/EnTT/JSON headerlari, toolchain va engine ABI ta'riflarining SHA-256 fingerprint'i; standart kutubxona/GLM o'lcham, alignment va ayrim ABI flaglari. Tekshiruv konservativ: SDK headeridagi o'zgarish qayta build talab qilishi mumkin.
+`zamin_add_game_module` adds a `.zamin_abi` record to the module: a SHA-256 fingerprint of the SDK and its GLM/EnTT/JSON headers, the toolchain and the engine ABI definitions; the standard library/GLM sizes, alignments and some ABI flags. The check is conservative: a change in an SDK header may require a rebuild.
 
-Yuklovchi vaqtinchalik nusxaning ELF64 x86-64 yozuvini **dlopen'dan oldin** tekshiradi. Belgisiz/eski, buzilgan yoki mos kelmagan modul rad etiladi; uning konstruktori bajarilmaydi. `dlopen` xatosida ham ishlayotgan modul va klass metadata'si saqlanadi. Muvaffaqiyatli nomzodning registratsiyalari vaqtincha ajratiladi; eski modul to'liq yopilgach yangi klasslar ulanadi. Avtomatik watcher o'zgarmagan xato nomzodni har soniyada qayta yuklamaydi.
+The loader checks the record of the temporary copy's ELF64 x86-64 file **before dlopen**. An unmarked/old, damaged or mismatched module is rejected; its constructors never run. On a `dlopen` error the running module and its class metadata are kept too. A successful candidate's registrations are held aside for the moment; the new classes are connected once the old module is fully closed. The automatic watcher does not retry an unchanged failed candidate every second.
 
-**SDK headerlari o'zgardi** xabari chiqsa avval engine'ni, so'ng loyiha skriptlarini qayta build qiling. Boshqa compiler/toolchain bo'lsa xabar konfiguratsiyada chiqadi. Qo'lda `.so` yig'ish o'rniga SDK'ning `zamin_add_game_module` helper'idan foydalaning. Editor eksportda nusxalangan native modulni ham tekshiradi; mos bo'lmagan modul bilan eksport muvaffaqiyatli deb belgilanmaydi. *Oyna → Sahna statistikasi → Skriptlar* engine fingerprint'i va nomzodning mosligini ko'rsatadi.
+When the **SDK headers changed** message appears, rebuild the engine first, then the project's scripts. With a different compiler/toolchain the message appears at configure time. Instead of assembling a `.so` by hand, use the SDK's `zamin_add_game_module` helper. The editor also checks the native module copied into an export; an export with a mismatched module is not marked successful. *Window → Scene statistics → Scripts* shows the engine fingerprint and whether the candidate matches.
 
-Bu yozuv native kodga imzo yoki sandbox bermaydi. API asosiy oqimda ishlatiladi; C++ konstruktori/destruktori o'zi qilgan tashqi ta'sirlar uchun umumiy rollback kafolati yo'q.
+This record gives native code no signature and no sandbox. The API is used on the main thread; there is no general rollback guarantee for external side effects of C++ constructors/destructors.
 
-## 21. Eksport qilingan o'yinda skriptlar
+## 21. Scripts in an exported game
 
-**Fayl → O'yinni build qilish...** skript modulini alohida `Build/ExportRelease` papkasida Release rejimida
-(`-O2 -DNDEBUG`) qayta kompilyatsiya qiladi va o'yin papkasiga qo'yadi; player uni loyiha bilan birga yuklaydi.
-Release'da `ZM_ASSERT` tekshirilmaydi va `DebugDraw` (Shipping build'da) chizilmaydi. Batafsil: [Runtime.md](Runtime.md).
+**File → Build game...** recompiles the script module in Release mode (`-O2 -DNDEBUG`) in a separate
+`Build/ExportRelease` folder and puts it in the game folder; the player loads it together with the project.
+In Release `ZM_ASSERT` is not checked and `DebugDraw` (in a Shipping build) draws nothing. Details: [Runtime.md](Runtime.md).
 
-## 22. Namuna skriptlar
+## 22. Sample scripts
 
-| Fayl | Nimani ko'rsatadi |
+| File | What it shows |
 |---|---|
-| `Projects/Platformer2D/Source/Player.cpp` | 2D qahramon: tezlik, sakrash, kamera silkinishi, chaqnash, bir tomonlama platformalar |
-| `Projects/Platformer2D/Source/Gameplay.cpp` | Tanga (trigger + hodisa), kamera kuzatish, harakatlanuvchi platforma (enum maydon), daraja oxiri |
-| `Projects/Platformer2D/Source/GameManager.*` | Header + `.cpp`, obuna, `SaveData`, lokalizatsiya |
-| `Projects/Platformer2D/Source/SceneFlow.cpp` | Yuklanish ekrani (`LoadSceneAsync`), `DontDestroyOnLoad`, servislar |
-| `Projects/Platformer2D/Source/PauseMenu.cpp`, `GameMenu.cpp` | Pauza va bosh menyu, UI hodisalari, `SetUpdateWhenPaused` |
-| `Projects/Platformer2D/Source/Joints.cpp`, `Ragdoll.cpp`, `Effectors.cpp` | 2D joint'lar, ragdoll, effektorlar |
-| `Projects/Platformer2D/Source/Chase.cpp`, `TopDown.cpp` | Navigatsiya, top-down boshqaruv |
-| `Projects/Showcase3D/Source/Showcase.cpp` | 3D fizika, raycast'lar, materiallar, particle, audio namunalari |
-| `Projects/Showcase3D/Source/AI.cpp`, `Squad.cpp` | Ko'rish sensori, holat mashinasi, guruh shakllari |
-| `Projects/Adventure3D/Source/Player.cpp` | Uchinchi shaxs qahramon: Character Controller 3D, Animator parametrlari |
-| `Projects/Adventure3D/Source/Guard.cpp`, `World.cpp` | Qorovul AI, kristallar, darvoza animatsiyasi |
-| [Tutorial-2D.md](Tutorial-2D.md), [Tutorial-3D.md](Tutorial-3D.md) | Noldan qadam-baqadam o'yin va to'liq kod |
-| [Samples.md](Samples.md) | Olti M24 namuna o'yin: shooter, Breakout, FPS, Sokoban, endless runner, poyga — menyular, rekordlar, gamepad |
+| `Projects/Platformer2D/Source/Player.cpp` | A 2D character: velocity, jumping, camera shake, flash, one-way platforms |
+| `Projects/Platformer2D/Source/Gameplay.cpp` | A coin (trigger + event), camera following, a moving platform (enum field), the end of a level |
+| `Projects/Platformer2D/Source/GameManager.*` | Header + `.cpp`, subscriptions, `SaveData`, localization |
+| `Projects/Platformer2D/Source/SceneFlow.cpp` | A loading screen (`LoadSceneAsync`), `DontDestroyOnLoad`, services |
+| `Projects/Platformer2D/Source/PauseMenu.cpp`, `GameMenu.cpp` | The pause and main menus, UI events, `SetUpdateWhenPaused` |
+| `Projects/Platformer2D/Source/Joints.cpp`, `Ragdoll.cpp`, `Effectors.cpp` | 2D joints, a ragdoll, effectors |
+| `Projects/Platformer2D/Source/Chase.cpp`, `TopDown.cpp` | Navigation, top-down controls |
+| `Projects/Showcase3D/Source/Showcase.cpp` | 3D physics, raycasts, materials, particles, audio samples |
+| `Projects/Showcase3D/Source/AI.cpp`, `Squad.cpp` | The sight sensor, the state machine, group shapes |
+| `Projects/Adventure3D/Source/Player.cpp` | A third-person character: Character Controller 3D, Animator parameters |
+| `Projects/Adventure3D/Source/Guard.cpp`, `World.cpp` | Guard AI, crystals, the gate animation |
+| [Tutorial-2D.md](Tutorial-2D.md), [Tutorial-3D.md](Tutorial-3D.md) | A game step by step from scratch, with the full code |
+| [Samples.md](Samples.md) | The six M24 sample games: shooter, Breakout, FPS, Sokoban, endless runner, racing — menus, records, gamepad |
 
-## 23. Ko'p uchraydigan xatolar
+## 23. Common mistakes
 
-| Belgi | Sabab va yechim |
+| Symptom | Cause and fix |
 |---|---|
-| Inspektorda **Klass yuklanmagan** (qizil nom) | Modul kompilyatsiya qilinmagan yoki klass `ZM_REGISTER_SCRIPT` siz. `Ctrl+B`, keyin **Oyna → Kompilyatsiya** ni tekshiring |
-| Klass ro'yxati bo'sh: "Skriptlar yo'q. 'Skriptlar > Kompilyatsiya' ni bosing" | Modul hali yo'q — `Ctrl+B` |
-| `ZM_FIELD: qo'llab-quvvatlanmaydigan tur` kompilyatsiya xatosi | Maydon turi 4-bo'limdagi ro'yxatda yo'q |
-| `OnCollisionBegin` kelmaydi | Collider sensor bo'lsa `OnTriggerBegin` keladi; 2D/3D jism (`Rigidbody`) borligini tekshiring |
-| 3D trigger ishlamaydi | Sensor collider ham `Rigidbody 3D` (masalan Static) bilan bo'lishi kerak — jismsiz collider fizik dunyoga qo'shilmaydi |
-| `Transform()` noto'g'ri ishlaydi / `Destroy()` hech narsa qilmaydi | Klass nomi ScriptableEntity funksiyasi bilan bir xil (masalan `Transform`) — yangi skript oynasi bunday nomni qabul qilmaydi; boshqa nom bering |
-| O'yin paytidagi o'zgarish yo'qoldi | Play sahna nusxasida ishlaydi; maydonlarni Stop holatida o'zgartiring |
-| Hot reload'dan keyin Play to'xtadi | Shunday ishlaydi: modul almashganda o'yin rejimi to'xtatiladi |
+| **Class not loaded** in the inspector (red name) | The module is not compiled, or the class has no `ZM_REGISTER_SCRIPT`. `Ctrl+B`, then check **Window → Compilation** |
+| The class list is empty: "No scripts. Click 'Scripts > Compile'" | There is no module yet — `Ctrl+B` |
+| The `ZM_FIELD: unsupported type` compile error | The field's type is not in the list in section 4 |
+| `OnCollisionBegin` does not come | If the collider is a sensor, `OnTriggerBegin` comes; check that there is a 2D/3D body (`Rigidbody`) |
+| A 3D trigger does not work | A sensor collider also needs a `Rigidbody 3D` (Static, for example) — a collider without a body is not added to the physics world |
+| `Transform()` misbehaves / `Destroy()` does nothing | The class name is the same as a ScriptableEntity function (`Transform`, for example) — the new script window does not accept such a name; choose another one |
+| A change made while playing was lost | Play runs on a copy of the scene; change fields while stopped |
+| Play stopped after a hot reload | That is how it works: play mode stops when the module changes |
 
-## 24. API ma'lumotnomasi
+## 24. API reference
 
-`ScriptableEntity` ning barcha ommaviy funksiyalari (bo'limlarga ko'ra). Imzolar va izohlar —
-`Zamin/src/Zamin/Scripting/ScriptableEntity.h`. `Tests/docs_check.py` bu ro'yxat header bilan mosligini tekshiradi.
+All the public functions of `ScriptableEntity` (by area). Signatures and comments —
+`Zamin/src/Zamin/Scripting/ScriptableEntity.h`. `Tests/docs_check.py` checks that this list matches the header.
 
-| Soha | Funksiyalar |
+| Area | Functions |
 |---|---|
-| Hayot sikli | `OnCreate`, `OnEnable`, `OnStart`, `OnUpdate`, `OnLateUpdate`, `OnDisable`, `OnDestroy` |
-| Fizika hodisalari | `OnCollisionBegin`, `OnCollisionEnd`, `OnTriggerBegin`, `OnTriggerEnd`, `OnJointBreak`, `OnJointBreak3D` |
-| UI hodisalari | `OnClick`, `OnPointerEnter`, `OnPointerExit`, `OnPointerDown`, `OnPointerUp`, `OnPointerClick`, `OnSelect`, `OnDeselect`, `OnCancel`, `OnValueChanged`, `OnToggleChanged`, `OnTextChanged`, `OnTextSubmit`, `OnTextEndEdit`, `OnScrollChanged` |
-| Boshqa hodisalar | `OnSoundFinished`, `OnParticlesFinished`, `OnTargetSpotted`, `OnTargetLost`, `OnPatrolPointReached`, `OnMessage`, `OnAnimationEvent`, `OnLanguageChanged`, `OnSceneLoaded`, `OnSceneUnloaded`, `OnActiveSceneChanged` |
-| Yoqish va faollik | `IsEnabled`, `SetEnabled`, `HasStarted`, `SetActive`, `IsActive`, `IsActiveInHierarchy`, `IsActiveAndEnabled`, `GetScriptClassName` |
-| Komponentlar va obyekt | `GetComponent`, `TryGetComponent`, `HasComponent`, `AddComponent`, `GetEntity`, `GetScene`, `Transform`, `GetName`, `SetName` |
-| Qidirish | `FindEntity`, `FindEntities`, `HasTag`, `AddTag`, `RemoveTag`, `FindEntitiesWithTag`, `FindEntityWithTag`, `FindObjectsOfType`, `FindObjectOfType`, `GetScript` |
-| Yaratish | `Instantiate`, `Destroy` |
-| Ierarxiya | `GetParent`, `SetParent`, `GetWorldPosition`, `GetChildren`, `GetChildCount`, `GetChild`, `FindChild`, `GetDescendants`, `GetRoot`, `GetComponentInChildren`, `GetComponentsInChildren`, `GetComponentInParent`, `GetComponentsInParent`, `FindInChildren`, `FindInParent` |
-| 2D fizika | `GetVelocity`, `SetVelocity`, `ApplyImpulse`, `ApplyForce`, `SetPosition2D`, `DropThroughPlatforms`, `IsSleeping`, `WakeUp`, `PutToSleep` |
-| 3D fizika | `GetVelocity3D`, `SetVelocity3D`, `GetAngularVelocity3D`, `SetAngularVelocity3D`, `ApplyImpulse3D`, `ApplyForce3D`, `ApplyTorque3D`, `SetPosition3D`, `IsSleeping3D`, `WakeUp3D`, `PutToSleep3D` |
-| So'rovlar | `Raycast2D`, `Raycast2DAll`, `LayerMask`, `LayerIndex`, `OverlapCircle2D`, `OverlapBox2D`, `OverlapPoint2D`, `Raycast3D`, `Raycast3DAll`, `OverlapSphere3D`, `OverlapBox3D`, `OverlapCapsule3D`, `SphereCast3D`, `SphereCast3DAll`, `BoxCast3D`, `BoxCast3DAll`, `CapsuleCast3D`, `CapsuleCast3DAll` |
-| Navigatsiya | `SetDestination`, `StopMoving`, `SetNavTarget`, `IsMoving`, `GetRemainingDistance`, `HasArrived`, `GetNavTraversalLink`, `CompleteNavTraversal`, `CancelNavTraversal`, `FindPath`, `HasNavLineOfSight` |
-| Ko'rish va patrul | `CanSee`, `CanSeeTarget`, `GetSeenTarget`, `GetLastSeenPosition`, `RemembersTarget`, `PausePatrol`, `ResumePatrol`, `IsPatrolling`, `GetPatrolPoint`, `GetPatrolTarget`, `IsWaitingAtPatrolPoint`, `SetPatrolPoint` |
-| Guruh va AI | `SetFormationShape`, `GetFormationShape`, `AddFormationMember`, `RemoveFormationMember`, `IsFormationInPlace`, `GetFormationLeader`, `GetFormationSlot`, `WatchStateMachine`, `UnwatchStateMachine`, `GetWatchedStateMachines`, `WatchBehaviorTree`, `UnwatchBehaviorTree`, `GetWatchedBehaviorTrees` |
-| Ekran va sichqoncha | `GetMousePosition`, `GetViewportSize`, `GetMouseWorldPosition`, `ScreenToWorld`, `ScreenPointToRay`, `GetMouseRay` |
-| Kamera | `ShakeCamera`, `StopCameraShake`, `SetCameraTarget` |
+| Life cycle | `OnCreate`, `OnEnable`, `OnStart`, `OnUpdate`, `OnLateUpdate`, `OnDisable`, `OnDestroy` |
+| Physics events | `OnCollisionBegin`, `OnCollisionEnd`, `OnTriggerBegin`, `OnTriggerEnd`, `OnJointBreak`, `OnJointBreak3D` |
+| UI events | `OnClick`, `OnPointerEnter`, `OnPointerExit`, `OnPointerDown`, `OnPointerUp`, `OnPointerClick`, `OnSelect`, `OnDeselect`, `OnCancel`, `OnValueChanged`, `OnToggleChanged`, `OnTextChanged`, `OnTextSubmit`, `OnTextEndEdit`, `OnScrollChanged` |
+| Other events | `OnSoundFinished`, `OnParticlesFinished`, `OnTargetSpotted`, `OnTargetLost`, `OnPatrolPointReached`, `OnMessage`, `OnAnimationEvent`, `OnLanguageChanged`, `OnSceneLoaded`, `OnSceneUnloaded`, `OnActiveSceneChanged` |
+| Enabling and activity | `IsEnabled`, `SetEnabled`, `HasStarted`, `SetActive`, `IsActive`, `IsActiveInHierarchy`, `IsActiveAndEnabled`, `GetScriptClassName` |
+| Components and the object | `GetComponent`, `TryGetComponent`, `HasComponent`, `AddComponent`, `GetEntity`, `GetScene`, `Transform`, `GetName`, `SetName` |
+| Finding | `FindEntity`, `FindEntities`, `HasTag`, `AddTag`, `RemoveTag`, `FindEntitiesWithTag`, `FindEntityWithTag`, `FindObjectsOfType`, `FindObjectOfType`, `GetScript` |
+| Creating | `Instantiate`, `Destroy` |
+| Hierarchy | `GetParent`, `SetParent`, `GetWorldPosition`, `GetChildren`, `GetChildCount`, `GetChild`, `FindChild`, `GetDescendants`, `GetRoot`, `GetComponentInChildren`, `GetComponentsInChildren`, `GetComponentInParent`, `GetComponentsInParent`, `FindInChildren`, `FindInParent` |
+| 2D physics | `GetVelocity`, `SetVelocity`, `ApplyImpulse`, `ApplyForce`, `SetPosition2D`, `DropThroughPlatforms`, `IsSleeping`, `WakeUp`, `PutToSleep` |
+| 3D physics | `GetVelocity3D`, `SetVelocity3D`, `GetAngularVelocity3D`, `SetAngularVelocity3D`, `ApplyImpulse3D`, `ApplyForce3D`, `ApplyTorque3D`, `SetPosition3D`, `IsSleeping3D`, `WakeUp3D`, `PutToSleep3D` |
+| Queries | `Raycast2D`, `Raycast2DAll`, `LayerMask`, `LayerIndex`, `OverlapCircle2D`, `OverlapBox2D`, `OverlapPoint2D`, `Raycast3D`, `Raycast3DAll`, `OverlapSphere3D`, `OverlapBox3D`, `OverlapCapsule3D`, `SphereCast3D`, `SphereCast3DAll`, `BoxCast3D`, `BoxCast3DAll`, `CapsuleCast3D`, `CapsuleCast3DAll` |
+| Navigation | `SetDestination`, `StopMoving`, `SetNavTarget`, `IsMoving`, `GetRemainingDistance`, `HasArrived`, `GetNavTraversalLink`, `CompleteNavTraversal`, `CancelNavTraversal`, `FindPath`, `HasNavLineOfSight` |
+| Sight and patrol | `CanSee`, `CanSeeTarget`, `GetSeenTarget`, `GetLastSeenPosition`, `RemembersTarget`, `PausePatrol`, `ResumePatrol`, `IsPatrolling`, `GetPatrolPoint`, `GetPatrolTarget`, `IsWaitingAtPatrolPoint`, `SetPatrolPoint` |
+| Group and AI | `SetFormationShape`, `GetFormationShape`, `AddFormationMember`, `RemoveFormationMember`, `IsFormationInPlace`, `GetFormationLeader`, `GetFormationSlot`, `WatchStateMachine`, `UnwatchStateMachine`, `GetWatchedStateMachines`, `WatchBehaviorTree`, `UnwatchBehaviorTree`, `GetWatchedBehaviorTrees` |
+| Screen and mouse | `GetMousePosition`, `GetViewportSize`, `GetMouseWorldPosition`, `ScreenToWorld`, `ScreenPointToRay`, `GetMouseRay` |
+| Camera | `ShakeCamera`, `StopCameraShake`, `SetCameraTarget` |
 | Material | `GetMaterial`, `GetSharedMaterial`, `SetSharedMaterial`, `ResetMaterial` |
-| Particle va sprite | `EmitParticles`, `Flash`, `SetOutline`, `GetSpriteSheet`, `SetSprite`, `PlaySpriteSequence`, `PlaySpriteClip`, `GetSpriteClip` |
-| Rang va tint | `GetColor`, `SetColor`, `TweenColor`, `FadeTo`, `PlayTint`, `StopTint`, `IsTintPlaying` |
-| UI animatsiya | `TweenUI`, `UIScaleTo`, `UIFadeTo`, `UIMoveTo`, `UIPunchScale`, `CancelUITweens`, `ShowUI`, `HideUI` |
-| Sahnalar | `LoadScene`, `LoadNextScene`, `ReloadScene`, `GetSceneBuildIndex`, `GetActiveSceneBuildIndex`, `GetBuildSceneCount`, `LoadSceneAsync`, `UnloadScene`, `DontDestroyOnLoad`, `GetSceneManager`, `LoadSubScene`, `UnloadSubScene`, `GetSubScene` |
+| Particles and sprites | `EmitParticles`, `Flash`, `SetOutline`, `GetSpriteSheet`, `SetSprite`, `PlaySpriteSequence`, `PlaySpriteClip`, `GetSpriteClip` |
+| Colour and tint | `GetColor`, `SetColor`, `TweenColor`, `FadeTo`, `PlayTint`, `StopTint`, `IsTintPlaying` |
+| UI animation | `TweenUI`, `UIScaleTo`, `UIFadeTo`, `UIMoveTo`, `UIPunchScale`, `CancelUITweens`, `ShowUI`, `HideUI` |
+| Scenes | `LoadScene`, `LoadNextScene`, `ReloadScene`, `GetSceneBuildIndex`, `GetActiveSceneBuildIndex`, `GetBuildSceneCount`, `LoadSceneAsync`, `UnloadScene`, `DontDestroyOnLoad`, `GetSceneManager`, `LoadSubScene`, `UnloadSubScene`, `GetSubScene` |
 | Audio | `PlaySound`, `PlaySoundAt`, `PlayAudio`, `StopAudio`, `PauseAudio`, `ResumeAudio`, `IsAudioPlaying`, `IsAudioPaused`, `SetAudioVolume`, `GetAudioVolume`, `SetAudioPitch`, `GetAudioPitch`, `GetAudioTime`, `SetAudioTime`, `GetAudioLength`, `FadeAudio`, `GetAudioFade`, `SetAudioLowPass`, `SetAudioHighPass` |
-| Vaqt | `GetTime`, `SetTimeScale`, `GetTimeScale`, `PauseGame`, `ResumeGame`, `IsGamePaused`, `GetUnscaledDeltaTime`, `SetUpdateWhenPaused`, `IsUpdateWhenPaused`, `SetTimersUnscaled`, `IsTimersUnscaled`, `QuitGame` |
-| Taymer va tween | `Invoke`, `InvokeRepeating`, `CancelInvokes`, `IsInvoking`, `Tween`, `TweenPosition`, `TweenScale`, `CancelTweens`, `IsTweening` |
-| Havolalar | `Resolve` |
-| Xabarlar | `AddMessageHandler`, `RemoveMessageHandlers`, `SendMessage`, `SendMessageToChildren`, `SendMessageUpwards`, `Broadcast` |
-| Animatsiya | `AddAnimationEventHandler`, `RemoveAnimationEventHandlers`, `PlayAnimation`, `StopAnimation`, `IsAnimationPlaying` |
-| Hodisalar shinasi | `Subscribe`, `Unsubscribe`, `Emit`, `EmitDeferred`, `GetEventBus` |
-| Global holat | `WatchGameState`, `UnwatchGameState`, `GetService`, `GetOrCreateService` |
-| Ichki | `TickTimers` — sahna har kadr chaqiradi (taymer va tween'larni yurgizadi); skriptdan chaqirilmaydi |
+| Time | `GetTime`, `SetTimeScale`, `GetTimeScale`, `PauseGame`, `ResumeGame`, `IsGamePaused`, `GetUnscaledDeltaTime`, `SetUpdateWhenPaused`, `IsUpdateWhenPaused`, `SetTimersUnscaled`, `IsTimersUnscaled`, `QuitGame` |
+| Timers and tweens | `Invoke`, `InvokeRepeating`, `CancelInvokes`, `IsInvoking`, `Tween`, `TweenPosition`, `TweenScale`, `CancelTweens`, `IsTweening` |
+| References | `Resolve` |
+| Messages | `AddMessageHandler`, `RemoveMessageHandlers`, `SendMessage`, `SendMessageToChildren`, `SendMessageUpwards`, `Broadcast` |
+| Animation | `AddAnimationEventHandler`, `RemoveAnimationEventHandlers`, `PlayAnimation`, `StopAnimation`, `IsAnimationPlaying` |
+| Event bus | `Subscribe`, `Unsubscribe`, `Emit`, `EmitDeferred`, `GetEventBus` |
+| Global state | `WatchGameState`, `UnwatchGameState`, `GetService`, `GetOrCreateService` |
+| Internal | `TickTimers` — the scene calls it every frame (it runs the timers and tweens); not to be called from a script |
 
-Ko'p ishlatiladigan boshqa API'lar: `Input` (8-bo'lim), `Time`, `Math::...` va `Random::...` ([Core.md](Core.md)),
-`Audio` (13-bo'lim), `SaveData`, `GameState`, `Services`, `Localization` (18-bo'lim), `DebugDraw` (14-bo'lim),
+Other APIs used often: `Input` (section 8), `Time`, `Math::...` and `Random::...` ([Core.md](Core.md)),
+`Audio` (section 13), `SaveData`, `GameState`, `Services`, `Localization` (section 18), `DebugDraw` (section 14),
 `Scene` (`GetScene()`: `GetPrimaryCameraEntity()`, `GetEntityByUUID(id)`, `GetWorldPosition(entity)`,
 `SetActive(entity, bool)` ...).

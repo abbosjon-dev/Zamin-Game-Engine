@@ -17,7 +17,7 @@ scene and that the engine or a script fills in while the game runs (for scripts 
 `TransformComponent` and shown in degrees in the inspector.
 
 Using components from a script: `GetComponent<T>()`, `TryGetComponent<T>()`, `HasComponent<T>()`, `AddComponent<T>()`
-([Scripting.md](Scripting.md#7-obyektlar-komponentlar-ierarxiya)). In the editor: select the entity → **Inspector** →
+([Scripting.md](Scripting.md#7-objects-components-hierarchy)). In the editor: select the entity → **Inspector** →
 **+ Component** (it has a search field); the gear menu in a component's header has **Copy component**, paste,
 **Move up / Move down** and **Remove component**.
 
@@ -102,7 +102,7 @@ _In the inspector: **Transform**; on every entity; in the scene file: `"Transfor
 
 The parent / child hierarchy: `Parent` (0 — a root) and `Children`. In the Hierarchy panel an entity becomes a child
 by dragging it onto another one; in a script `SetParent(parent, keepWorldTransform)`, `GetParent()`, `GetChildren()`
-... ([Scripting.md](Scripting.md#7-obyektlar-komponentlar-ierarxiya)). Only `"Parent"` is written to the scene file;
+... ([Scripting.md](Scripting.md#7-objects-components-hierarchy)). Only `"Parent"` is written to the scene file;
 the child lists are rebuilt on load.
 
 <!-- gen:RelationshipComponent -->
@@ -296,7 +296,7 @@ A 3D mesh: a primitive (`Type`: `Cube`, `Sphere`, `Plane`, `Cylinder`, `Cone`) o
 model) or the built-in material (`Mat`: albedo, metallic, roughness, emission, textures ...). `CastShadows` — casts a
 shadow. `MorphWeights` — the weights of glTF blend shapes (`SetMorphWeight("Smile", 0.8f)`). In a script:
 `GetMaterial()` — the entity's own copy of the material, `GetSharedMaterial()`, `SetSharedMaterial(path)`
-([Scripting.md](Scripting.md#14-grafika-rang-va-effektlar)). Create: **Object → 3D → Cube / Sphere / Plane / Cylinder
+([Scripting.md](Scripting.md#14-graphics-colour-and-effects)). Create: **Object → 3D → Cube / Sphere / Plane / Cylinder
 / Cone / Model (glTF / OBJ)**.
 
 <!-- gen:MeshRendererComponent -->

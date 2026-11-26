@@ -242,7 +242,7 @@ copying a message (`Ctrl+C`). The log levels and the log file — **Preferences 
 
 The **Compilation** window (**Window → Compilation**): **Problems** — the list of errors and warnings (clicking one opens the
 file at that line in the [built-in code editor](CodeEditor.md)), **Full output** — the CMake and compiler output. More:
-[Scripting.md](Scripting.md#20-kompilyatsiya-va-hot-reload).
+[Scripting.md](Scripting.md#20-compilation-and-hot-reload).
 
 ## 10. Other windows
 

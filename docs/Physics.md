@@ -77,7 +77,7 @@ and `OnLateUpdate` sees the bodies' new positions.
 **When it runs.** Physics runs only in **Play** (`Ctrl+P`) and **Simulate physics** (a button on the viewport toolbar:
 without scripts, with the editor camera). In edit mode there are no bodies — colliders are only drawn
 (**View > Physics colliders**). An inactive object (`SetActive(false)`) is removed from physics and created at its current
-transform when enabled again ([Scripting.md](Scripting.md#5-hayot-sikli)).
+transform when enabled again ([Scripting.md](Scripting.md#5-the-life-cycle)).
 
 ---
 

@@ -916,7 +916,7 @@ void main()
         for (auto& shader : { s_Data->MeshShader, s_Data->SkinnedMeshShader, s_Data->InstancedMeshShader, s_Data->TerrainShader })
         {
             if (!shader->BindUniformBlock("ZaminFrame", FrameBlockBinding))
-                ZM_CORE_ERROR("Shader '{}': ZaminFrame uniform bloki topilmadi", shader->GetName());
+                ZM_CORE_ERROR("Shader '{}': the ZaminFrame uniform block was not found", shader->GetName());
             shader->Bind();
             shader->SetInt("u_AlbedoMap", 0);
             shader->SetInt("u_ShadowMap", 1);

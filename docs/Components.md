@@ -437,7 +437,7 @@ _In the inspector: **Camera**; add with: **+ Component → Rendering → Camera*
 
 ## 3. Lights
 
-Guide: [Rendering.md](Rendering.md#9-yorugliklar).
+Guide: [Rendering.md](Rendering.md#9-lights).
 
 ### DirectionalLightComponent
 

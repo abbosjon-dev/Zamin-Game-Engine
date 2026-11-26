@@ -7,7 +7,7 @@ messages are exactly as the program writes them; `<...>` marks a place where a c
 of a message into the Console's search field, or find it on this page.
 
 Every system also has its own detailed "problems" section: [Scripting.md, 23](Scripting.md#23-kop-uchraydigan-xatolar),
-[Physics.md, 18](Physics.md#18-kop-uchraydigan-muammolar), [Rendering.md, 18](Rendering.md#18-kop-uchraydigan-muammolar),
+[Physics.md, 18](Physics.md#18-kop-uchraydigan-muammolar), [Rendering.md, 18](Rendering.md#18-common-problems),
 [Audio.md, 18](Audio.md#18-common-problems), [Runtime.md, 15](Runtime.md#15-problems-and-solutions),
 [BuildAndExport.md, 13](BuildAndExport.md#13-problems-and-solutions).
 
@@ -300,7 +300,7 @@ The second entity the joint points to was deleted or is in another scene: pick t
    camera)?
 3. Is there a light in a 3D scene (a Directional / Point / Spot Light or the sky)?
 
-More: [Rendering.md, 18](Rendering.md#18-kop-uchraydigan-muammolar).
+More: [Rendering.md, 18](Rendering.md#18-common-problems).
 
 ### A shader error
 
@@ -313,13 +313,13 @@ software driver that does not fully support OpenGL 4.1. Update the driver; send 
 ### Text is blurry or pixelated
 
 Text is drawn from the atlas closest to its size on the screen; in pixel-art games use a pixel-perfect camera and an integer
-scale ([Rendering.md, 5](Rendering.md#5-2d-yoruglik-va-pixel-perfect-kamera), [UI.md](UI.md)).
+scale ([Rendering.md, 5](Rendering.md#5-2d-lighting-and-the-pixel-perfect-camera), [UI.md](UI.md)).
 
 ### The game is slow
 
 In the player **F10** writes the FPS to the log; `ZAMIN_PLAYER_STATS=1` gives the draw statistics on exit;
 `--benchmark 300` measures it precisely. The quality level (`--quality Low`), the render scale, shadows and post effects
-take the most time ([Rendering.md, 15](Rendering.md#15-samaradorlik-va-sifat-darajalari)). Under `xvfb-run` there is
+take the most time ([Rendering.md, 15](Rendering.md#15-performance-and-quality-levels)). Under `xvfb-run` there is
 no GPU - the FPS there is not real.
 
 ## 8. Audio

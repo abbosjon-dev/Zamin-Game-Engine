@@ -6,7 +6,7 @@ morph target'lar, sprite animatsiyasi va kliplar, tint (rang) animatsiyasi, skri
 spline yo'llar, samaradorlik (keshlash, kesish), testlar va ko'p uchraydigan muammolar. Har bo'limda C++ skript
 misollari bor (`#include <Zamin/Zamin.h>`, `using namespace Zamin;`). Komponentlarning to'liq maydonlari —
 [Components.md](Components.md#2-rendering); UI animatsiyalari — [UI.md](UI.md#10-ui-animations); particle'larning
-tekstura sheet (flipbook) moduli — [Rendering.md](Rendering.md#13-particle-tizimi).
+tekstura sheet (flipbook) moduli — [Rendering.md](Rendering.md#13-the-particle-system).
 
 ![Animatsiya oynasi: darvoza klipi](images/animation-timeline-editor.jpg)
 
@@ -832,7 +832,7 @@ StopTint();                                                   // joyida to'xtayd
 bool on = IsTintPlaying();
 ```
 
-Qisqa bir martalik chaqnash uchun `Flash(color, seconds)` qulayroq ([Rendering.md](Rendering.md#14-skriptdan-rang-effektlar-kamera)).
+Qisqa bir martalik chaqnash uchun `Flash(color, seconds)` qulayroq ([Rendering.md](Rendering.md#14-from-a-script-color-effects-camera)).
 Namuna: Platformer2D `Scenes/TopDown2D.zscene` (fonarlar, gulxan, kristallar).
 
 ---

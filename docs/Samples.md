@@ -337,7 +337,7 @@ CPU time. Rasterization (the GPU work) is the difference from the 1280x720 colum
 
 Conclusion: the game code is ≤ 0.55 ms everywhere; the 2D samples and five 3D samples fit the 60 FPS budget by CPU.
 Silk Road (EndlessRunner) did not fit — the vertex work of its 155K triangles runs on the CPU on llvmpipe. Now
-distant spheres / cylinders / cones draw a simpler copy (the primitive LODs, [Rendering.md](Rendering.md#15-samaradorlik-va-sifat-darajalari)):
+distant spheres / cylinders / cones draw a simpler copy (the primitive LODs, [Rendering.md](Rendering.md#15-performance-and-quality-levels)):
 the frame's triangles 155K -> 67K. A Release build, 284x160, Low, 3 alternating pairs of measurements (`ZAMIN_PRIMITIVE_LOD=0` -
 without LODs): without LODs a mean of 22.7-24.1 ms (p95 28.9-31.4), with LODs **15.1-15.5 ms** (p95 18.7-20.3) - the mean fits the 60 FPS
 budget, the slowest 5 % of frames are still 19-20 ms (like Racing). The rest of the frame at 1280x720 is shading pixels (SSAO, bloom), which on a real GPU happens on the graphics card.

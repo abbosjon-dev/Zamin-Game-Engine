@@ -665,7 +665,7 @@ namespace Zamin {
             { "Filtr", "Filter" },
             { "Tasodifiylik", "Randomness" },
             { "Ovozlar limiti", "Voice limit" },
-            { "Hajm", "Volume" },
+            { "Hajm", "Size" }, // a file's size on disk
             // ---- particles, scenes, sprite editor
             { "Portlash qo'shish", "Add burst" },
             { "Tayyor effektlar", "Ready-made effects" },
@@ -759,7 +759,8 @@ namespace Zamin {
             { "Qidirish...  (#teg)", "Search...  (#tag)" },
             { "Xabarlardan qidirish", "Search messages" },
             { "Konsolni tozalash", "Clear the console" },
-            { "O'yin", "Playing" },
+            { "O'yin", "Playing" }, // the shortcut group; the game's own name and version: "O'yin (mahsulot)"
+            { "O'yin (mahsulot)", "Game" },
             { "klass", "classes" },
             { "Skript moduli yuklanmagan", "Script module not loaded" },
             { "Hech narsa tanlanmagan", "Nothing selected" },
@@ -1015,7 +1016,8 @@ namespace Zamin {
             { "Qat'iy nisbat", "Fixed aspect ratio" },
             { "Maks. siljish", "Max. offset" },
             { "Maks. burchak", "Max. angle" },
-            { "Daraja", "Exponent" },
+            { "Daraja", "Level" }, // a meter's level, a quality level
+            { "Daraja (ko'rsatkich)", "Exponent" },
             { "Qalinlik", "Thickness" },
             { "Yumshoqlik", "Softness" },
             { "Harf oralig'i", "Letter spacing" },

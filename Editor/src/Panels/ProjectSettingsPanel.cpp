@@ -470,7 +470,7 @@ namespace Zamin {
             if (!std::filesystem::is_regular_file(Project::GetProjectDirectory() / c.Thumbnail, ec))
                 ImGui::TextColored(ImVec4(0.95f, 0.6f, 0.3f, 1.0f), "%s", Tr("Fayl topilmadi"));
         }
-        UI::PropertyLabel("O'yin", "Player bo'limidagi mahsulot nomi, versiya va kompaniya (Application::GetProductName / GetVersion)");
+        UI::PropertyLabel("O'yin (mahsulot)", "Player bo'limidagi mahsulot nomi, versiya va kompaniya (Application::GetProductName / GetVersion)");
         ImGui::Text("%s %s%s", c.Player.GetProductName(c.Name).c_str(), c.Player.Version.c_str(),
                     c.Player.CompanyName.empty() ? "" : std::format("  ({})", c.Player.CompanyName).c_str());
         ImGui::SameLine();

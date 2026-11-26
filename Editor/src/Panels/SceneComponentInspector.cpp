@@ -1327,7 +1327,7 @@ namespace Zamin {
                 c.Shake.MaxAngle = std::clamp(c.Shake.MaxAngle, 0.0f, 45.0f);
                 changed = true;
             }
-            UI::PropertyLabel("Daraja", "Silkinish = kuch ^ daraja. 2: kichik zarbalar yengil, kattalari kuchli; 1: chiziqli");
+            UI::PropertyLabel("Daraja (ko'rsatkich)", "Silkinish = kuch ^ daraja. 2: kichik zarbalar yengil, kattalari kuchli; 1: chiziqli");
             if (ImGui::SliderFloat("##shakeExponent", &c.Shake.Exponent, 0.5f, 4.0f, "%.2f"))
             {
                 c.Shake.Exponent = std::clamp(c.Shake.Exponent, 0.1f, 8.0f);

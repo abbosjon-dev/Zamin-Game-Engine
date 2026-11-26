@@ -3,6 +3,7 @@
 #include "Zamin/Scripting/Visual/VisualGraphHost.h"
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include <cmath>
 namespace Zamin {
     const Visual::Definition& VisualGraphPanel::Describe(const Visual::Node& node)
@@ -368,8 +369,14 @@ namespace Zamin {
                     char key[65]{};
                     std::snprintf(key, sizeof(key), "%s", draft.Entries[i].Name.c_str());
                     if (ImGui::InputText(Tr("Qiymat nomi###Entry name"), key, sizeof(key), ImGuiInputTextFlags_EnterReturnsTrue) && draft.Entries[i].Name != key) entryRename = { draft.Entries[i].Name, key };
+                    // Committed on Enter (a half-typed number must not collide with another entry's value).
+                    char number[32]{};
+                    std::snprintf(number, sizeof(number), "%lld", (long long)draft.Entries[i].Value);
+                    char* end = nullptr;
                     int64_t value = draft.Entries[i].Value;
-                    if (ImGui::InputScalar(Tr("Son qiymati###Entry value"), ImGuiDataType_S64, &value, nullptr, nullptr, nullptr, ImGuiInputTextFlags_EnterReturnsTrue) && value != draft.Entries[i].Value)
+                    if (ImGui::InputText(Tr("Son qiymati###Entry value"), number, sizeof(number), ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CharsDecimal))
+                        value = std::strtoll(number, &end, 10);
+                    if (end && end != number && value != draft.Entries[i].Value)
                     {
                         if (draft.Find(value) || std::abs(value) > (int64_t(1) << 53)) m_Error = Tr("Son qiymati band yoki chegaradan tashqarida");
                         else

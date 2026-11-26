@@ -1,4 +1,4 @@
-// The editor's preferences (Tahrirlash > Sozlamalar): the theme's accent colour and font size, the
+// The editor's preferences (Edit > Preferences): the theme's accent colour and font size, the
 // play-mode tint of the UI, the console's options (and the log's levels and file: EditorLogSettings.cpp)
 // and the editor camera's defaults, stored per user in preferences.json; the ImGui style made from them.
 #include "EditorLayer.h"

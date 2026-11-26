@@ -487,7 +487,7 @@ namespace Zamin {
                 UI::Tooltip(m_PrefabStages[i].Prefab.c_str());
         }
         ImGui::PopStyleColor(2);
-        // [Saqlash] [Yopish] on the right.
+        // [Save] [Close] on the right.
         const char* saveLabel = Tr(ICON_FA_FLOPPY_DISK "  Saqlash");
         const char* closeLabel = Tr(ICON_FA_XMARK "  Yopish");
         const float buttons = ImGui::CalcTextSize(saveLabel).x + ImGui::CalcTextSize(closeLabel).x + style.FramePadding.x * 4.0f + style.ItemSpacing.x;

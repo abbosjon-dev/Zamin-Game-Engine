@@ -8,7 +8,7 @@
 
 namespace Zamin {
 
-    // The language of the editor's own UI (Tahrirlash > Sozlamalar > Til): its menus, window titles,
+    // The language of the editor's own UI (Edit > Preferences > Language): its menus, window titles,
     // common buttons and the main panels. Uzbek is the source language; the English texts come from a
     // built-in table keyed by the Uzbek ones (a text without an English entry stays Uzbek).
     enum class EditorLanguage { Uzbek = 0, English, Count };

@@ -10,7 +10,7 @@
 namespace Zamin {
 
     // How often the editor writes a safety copy of the open scene while it has unsaved changes
-    // (Tahrirlash > Sozlamalar > Avtosaqlash). The copy never replaces the scene's own file.
+    // (Edit > Preferences > Autosave). The copy never replaces the scene's own file.
     struct AutosaveSettings
     {
         bool Enabled = true;

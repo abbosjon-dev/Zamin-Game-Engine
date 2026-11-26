@@ -309,7 +309,7 @@ namespace Zamin {
         void SaveViewSettings();
         void MarkViewSettingsDirty() { m_ViewSettingsDirty = true; }
 
-        // ---- editor preferences (EditorPreferencesWindow.cpp): Tahrirlash > Sozlamalar, per user in
+        // ---- editor preferences (EditorPreferencesWindow.cpp): Edit > Preferences, per user in
         // preferences.json - the theme's accent colour and font size, the play-mode tint, the editor
         // camera's defaults, the console's options.
         void LoadPreferences();
@@ -386,7 +386,7 @@ namespace Zamin {
         void CheckModuleHotReload(Timestep ts);
 
         // ---- the external code editor (EditorExternalTools.cpp): C++ files open in the user's own
-        // editor (Sozlamalar > Tashqi muharrir; $VISUAL / $EDITOR, VS Code, xdg-open by default).
+        // editor (Preferences > External editor; $VISUAL / $EDITOR, VS Code, xdg-open by default).
         bool OpenInCodeEditor(const std::filesystem::path& file, int line = 0, int column = 0);
         bool OpenInExternalEditor(const std::filesystem::path& file, int line = 0, int column = 0);
         // A script class's source (found in the project's Source folder by its ZM_REGISTER_SCRIPT).
@@ -868,7 +868,7 @@ namespace Zamin {
             EditorViewSettings Before, Applied;
         };
         std::optional<ViewSettingsOverride> m_ViewSettingsOverride;
-        // preferences.json (Tahrirlash > Sozlamalar)
+        // preferences.json (Edit > Preferences)
         EditorPreferences m_Preferences;
         bool m_PreferencesDirty = false;
         bool m_ShowPreferences = false;

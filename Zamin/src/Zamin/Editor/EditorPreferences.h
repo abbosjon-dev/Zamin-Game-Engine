@@ -137,7 +137,7 @@ namespace Zamin {
         std::string Command;
     };
 
-    // The editor's per-user preferences (Tahrirlash > Sozlamalar), stored as JSON in the user's
+    // The editor's per-user preferences (Edit > Preferences), stored as JSON in the user's
     // config directory (~/.config/zamin/preferences.json).
     struct EditorPreferences
     {

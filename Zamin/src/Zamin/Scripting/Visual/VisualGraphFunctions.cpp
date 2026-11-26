@@ -368,4 +368,121 @@ namespace Zamin::Visual {
         }
         return result;
     }
+    bool Graph::CollapseToFunction(const std::set<uint32_t>& selected, const std::string& requested, uint32_t& call, std::string& error)
+    {
+        call = 0;
+        error.clear();
+        try
+        {
+            Need(!selected.empty(), "Select the nodes to collapse");
+            Need(Functions.size() < 64, "Function definition limit exceeds 64");
+            Graph next = *this;
+            std::map<uint32_t, Definition> defs;
+            float minX = 1e30f, minY = 1e30f, maxX = -1e30f, graphMaxY = -1e30f;
+            uint64_t id = 0;
+            for (const auto& n : Nodes)
+            {
+                defs[n.ID] = Describe(n);
+                id = std::max<uint64_t>(id, n.ID);
+                graphMaxY = std::max(graphMaxY, n.Y + 65 + 24 * float(std::max(defs[n.ID].Inputs.size(), defs[n.ID].Outputs.size())));
+                if (!selected.contains(n.ID)) continue;
+                Need(!n.Kind.starts_with("Event.") && n.Kind != "Function" && n.Kind != "Function.Entry" && n.Kind != "Function.Return" && !n.Kind.starts_with("Local."),
+                     "Events, function entries/returns and locals cannot be collapsed");
+                minX = std::min(minX, n.X);
+                minY = std::min(minY, n.Y);
+                maxX = std::max(maxX, n.X);
+            }
+            for (auto selectedID : selected) Need(defs.contains(selectedID), "A selected node does not exist");
+            Need(id + 3 <= UINT32_MAX && Nodes.size() + 3 <= 4096, "Node count/ID limit reached");
+            std::string name = requested;
+            if (name.empty() || Functions.contains(name))
+            {
+                const std::string base = name.empty() ? "Collapsed" : name;
+                name = base;
+                for (int i = 2; Functions.contains(name); ++i) name = base + std::to_string(i);
+            }
+            Need(name.size() <= 128, "Invalid function name");
+            auto isExec = [&](const Link& l) {
+                const auto& inputs = defs.at(l.To).Inputs;
+                auto pin = std::find_if(inputs.begin(), inputs.end(), [&](const Pin& p) { return p.Name == l.Input; });
+                return pin != inputs.end() && pin->Kind == Type::Exec;
+            };
+            auto outputPin = [&](const Link& l) {
+                const auto& outputs = defs.at(l.From).Outputs;
+                auto pin = std::find_if(outputs.begin(), outputs.end(), [&](const Pin& p) { return p.Name == l.Output; });
+                Need(pin != outputs.end(), "A wire references a missing pin");
+                return *pin;
+            };
+            std::vector<Link> kept, entries, exits, dataIn, dataOut;
+            for (const auto& l : Links)
+            {
+                if (!defs.contains(l.From) || !defs.contains(l.To)) continue;
+                const bool from = selected.contains(l.From), to = selected.contains(l.To);
+                if (from == to) kept.push_back(l);
+                else if (isExec(l)) (to ? entries : exits).push_back(l);
+                else (to ? dataIn : dataOut).push_back(l);
+            }
+            Need(!entries.empty(), "The selection needs one incoming execution wire");
+            for (const auto& l : entries) Need(l.To == entries[0].To && l.Input == entries[0].Input, "The selection needs one execution entry");
+            Need(exits.size() <= 1, "The selection needs at most one execution exit");
+            for (const auto& l : dataOut) Need(!defs.at(l.From).Pure, "A selected pure node also feeds unselected nodes; select its users too or leave it out");
+            FunctionSignature signature;
+            std::set<std::string> taken{ "Name", "In", "Then" };
+            auto pinFor = [&](const Pin& source, std::vector<Pin>& pins) {
+                std::string pinName = source.Name;
+                for (int i = 2; taken.contains(pinName); ++i) pinName = source.Name + std::to_string(i);
+                taken.insert(pinName);
+                Value initial = Fits(source, source.Default) ? source.Default : DefaultValue(source.Kind);
+                if (source.Kind == Type::Enum && !Fits(source, initial) && Enums.contains(source.Enum)) initial = Enums.at(source.Enum).Entries.front().Value;
+                pins.push_back({ pinName, source.Kind, initial, source.Enum });
+                return pinName;
+            };
+            std::map<std::pair<uint32_t, std::string>, std::string> parameters, results;
+            for (const auto& l : dataIn)
+                if (!parameters.contains({ l.From, l.Output })) parameters[{ l.From, l.Output }] = pinFor(outputPin(l), signature.Inputs);
+            taken = { "Name", "In", "Then" };
+            for (const auto& l : dataOut)
+                if (!results.contains({ l.From, l.Output })) results[{ l.From, l.Output }] = pinFor(outputPin(l), signature.Outputs);
+            Need(signature.Inputs.size() <= 32 && signature.Outputs.size() <= 32, "Function parameter/local limit exceeds 32");
+            Need(signature.Outputs.empty() || !exits.empty(), "A function with results needs the selection's execution exit");
+            const uint32_t entry = uint32_t(id + 1), callID = uint32_t(id + 2), ret = uint32_t(id + 3);
+            const bool needsReturn = !exits.empty();
+            // The body moves below the graph, between its entry and return; the call takes its place.
+            const float dx = 280, dy = graphMaxY + 200 - minY;
+            for (auto& n : next.Nodes)
+                if (selected.contains(n.ID))
+                {
+                    n.X += dx;
+                    n.Y += dy;
+                }
+            next.Functions[name] = signature;
+            next.Nodes.push_back({ entry, "Function.Entry", minX, minY + dy, { { "Name", name } } });
+            next.Nodes.push_back({ callID, "Function.Call", minX, minY, { { "Name", name } } });
+            if (needsReturn) next.Nodes.push_back({ ret, "Function.Return", maxX + 2 * dx, minY + dy, { { "Name", name } } });
+            next.Links = kept;
+            for (const auto& l : entries) next.Links.push_back({ l.From, l.Output, callID, "In" });
+            next.Links.push_back({ entry, "Then", entries[0].To, entries[0].Input });
+            for (const auto& l : exits)
+            {
+                next.Links.push_back({ l.From, l.Output, ret, "In" });
+                next.Links.push_back({ callID, "Then", l.To, l.Input });
+            }
+            for (const auto& l : dataIn) next.Links.push_back({ entry, parameters.at({ l.From, l.Output }), l.To, l.Input });
+            for (const auto& [source, pin] : parameters) next.Links.push_back({ source.first, source.second, callID, pin });
+            for (const auto& l : dataOut) next.Links.push_back({ callID, results.at({ l.From, l.Output }), l.To, l.Input });
+            for (const auto& [source, pin] : results) next.Links.push_back({ source.first, source.second, ret, pin });
+            // Accept only when the collapse adds no diagnostic the graph did not already have.
+            const auto before = Validate(), after = next.Validate();
+            for (const auto& d : after)
+                Need(std::any_of(before.begin(), before.end(), [&](const Diagnostic& old) { return old.Message == d.Message; }), d.Message.c_str());
+            *this = std::move(next);
+            call = callID;
+            return true;
+        }
+        catch (const std::exception& e)
+        {
+            error = e.what();
+            return false;
+        }
+    }
 }

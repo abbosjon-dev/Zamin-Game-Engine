@@ -137,6 +137,12 @@ namespace Zamin::Visual {
         std::vector<Diagnostic> Warnings() const;
         // The nodes of a typed function: its entry, everything its execution reaches, and their data sources.
         std::set<uint32_t> FunctionNodes(const std::string& name) const;
+        // Moves the selected nodes into a new typed function and puts a call in their place: data wires that
+        // enter the selection become parameters, wires that leave it become results, the one execution wire in
+        // becomes the call's In and the one execution wire out its Then. Events, entries/returns, locals and a
+        // selected pure node that also feeds unselected nodes are refused. All or nothing; the new call node's ID
+        // is returned in call.
+        bool CollapseToFunction(const std::set<uint32_t>& selected, const std::string& name, uint32_t& call, std::string& error);
         Value Serialize() const;
         static Graph Parse(const Value& json);
         static Graph Load(const std::filesystem::path& path);

@@ -701,3 +701,79 @@ TEST(BlueprintFunctionNodesSelectsTheBodyOnly)
     CHECK(body == std::set<uint32_t>({ 10, 11, 12, 13, 14 }));
     CHECK(g.FunctionNodes("Missing").empty());
 }
+namespace {
+    // Start -> Set Out = A * 2 -> Set Done = true; A is read by a pure Get outside the selection.
+    Graph CollapseGraph()
+    {
+        Graph g;
+        g.Variables = { { "A", { Type::Number, 3. } }, { "Out", { Type::Number, 0. } }, { "Done", { Type::Bool, false } } };
+        g.Nodes = { { 1, "Event.Start" }, { 2, "Get.Number", 0, 100, { { "Name", "A" } } }, { 3, "Multiply", 200, 100, { { "B", 2. } } }, { 4, "Set.Number", 300, 0, { { "Name", "Out" } } }, { 5, "Set.Bool", 600, 0, { { "Name", "Done" }, { "Value", true } } } };
+        g.Links = { { 1, "Then", 4, "In" }, { 2, "Value", 3, "A" }, { 3, "Value", 4, "Value" }, { 4, "Then", 5, "In" } };
+        return g;
+    }
+    std::map<std::string, Value> RunStart(const Graph& g)
+    {
+        Machine vm;
+        CHECK(vm.Load(g));
+        vm.Event("Start");
+        CHECK(vm.Error().empty());
+        return vm.Variables();
+    }
+}
+TEST(BlueprintCollapseSelectionToFunctionKeepsBehaviour)
+{
+    auto g = CollapseGraph();
+    const auto expected = RunStart(g);
+    uint32_t call = 0;
+    std::string error;
+    CHECK(g.CollapseToFunction({ 3, 4 }, "Scale", call, error) && error.empty() && call == 7);
+    CHECK(g.Validate().empty() && g.Warnings().empty());
+    const auto& signature = g.Functions.at("Scale");
+    CHECK(signature.Inputs.size() == 1 && signature.Inputs[0].Name == "Value" && signature.Inputs[0].Kind == Type::Number && signature.Outputs.empty());
+    CHECK(g.Find(call)->Kind == "Function.Call" && g.Find(call)->X == 200.f);
+    // The call sits in the chain: Start -> Call -> Set Done; the Get feeds its parameter.
+    auto linked = [&](uint32_t from, const char* output, uint32_t to, const char* input) { return std::any_of(g.Links.begin(), g.Links.end(), [&](const Link& l) { return l.From == from && l.Output == output && l.To == to && l.Input == input; }); };
+    CHECK(linked(1, "Then", call, "In") && linked(call, "Then", 5, "In") && linked(2, "Value", call, "Value") && linked(6, "Value", 3, "A") && linked(4, "Then", 8, "In"));
+    CHECK(g.FunctionNodes("Scale") == std::set<uint32_t>({ 3, 4, 6, 8 }));
+    CHECK(RunStart(g) == expected && expected.at("Out") == 6.);
+    // A second collapse with the same name picks a free one.
+    auto again = CollapseGraph();
+    again.Functions["Scale"] = {};
+    again.Nodes.push_back({ 9, "Function.Entry", 0, 0, { { "Name", "Scale" } } });
+    CHECK(again.CollapseToFunction({ 4 }, "Scale", call, error) && again.Functions.contains("Scale2"));
+}
+TEST(BlueprintCollapseTurnsExecutionResultsIntoReturns)
+{
+    // Collapsing the call of Double(7) wraps it: its Result leaves the selection, so it becomes a result.
+    auto g = FunctionGraph();
+    uint32_t call = 0;
+    std::string error;
+    CHECK(g.CollapseToFunction({ 2 }, "", call, error));
+    CHECK(g.Functions.contains("Collapsed") && g.Functions.at("Collapsed").Outputs.size() == 1 && g.Functions.at("Collapsed").Outputs[0].Name == "Result");
+    CHECK(g.Validate().empty() && g.Warnings().empty());
+    Machine vm;
+    CHECK(vm.Load(g));
+    vm.Event("Start");
+    CHECK(vm.Error().empty() && vm.Variables().at("Answer") == 14.);
+    // Undo in the editor is a serialized snapshot: the collapsed graph round-trips exactly.
+    CHECK(Graph::Parse(g.Serialize()).Serialize() == g.Serialize());
+}
+TEST(BlueprintCollapseRejectsUnsafeSelectionsAtomically)
+{
+    const auto base = CollapseGraph();
+    const auto snapshot = base.Serialize();
+    uint32_t call = 0;
+    std::string error;
+    auto g = base;
+    CHECK(!g.CollapseToFunction({ 1, 4 }, "", call, error) && error.find("Events") != std::string::npos);
+    CHECK(!g.CollapseToFunction({ 3 }, "", call, error) && error.find("incoming execution wire") != std::string::npos);
+    CHECK(!g.CollapseToFunction({ 2, 4 }, "", call, error) && error.find("pure node also feeds") != std::string::npos); // the Get also feeds the Multiply
+    auto shared = base;
+    shared.Nodes.push_back({ 6, "Set.Number", 0, 0, { { "Name", "Out" } } });
+    shared.Links.push_back({ 5, "Then", 6, "In" });
+    shared.Links.push_back({ 3, "Value", 6, "Value" });
+    CHECK(!shared.CollapseToFunction({ 3, 4 }, "", call, error) && error.find("pure node also feeds") != std::string::npos);
+    CHECK(!g.CollapseToFunction({ 99 }, "", call, error) && error.find("does not exist") != std::string::npos);
+    CHECK(!g.CollapseToFunction({}, "", call, error));
+    CHECK(call == 0 && g.Serialize() == snapshot);
+}

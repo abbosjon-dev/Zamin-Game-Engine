@@ -129,7 +129,7 @@ namespace {
                 ps.Noise.Octaves = 2;
             });
         } });
-        cases.push_back({ "Shovqin", "shovqin turbulentligi (2 oktava)",
+        cases.push_back({ "Noise", "noise turbulence (2 octaves)",
                           [](Scene& s, int n) {
                               Grid(s, n, 50, [](PS& ps, int) {
                                   ps.Noise.Enabled = true;
@@ -143,7 +143,7 @@ namespace {
                                   ps.Gravity = { 0.0f, -9.8f, 0.0f };
                               });
                           } });
-        cases.push_back({ "Iz (trail)", "hamma particle'larda iz (16 nuqta)",
+        cases.push_back({ "Trail", "a trail on every particle (16 points)",
                           [](Scene& s, int n) {
                               Grid(s, n, 50, [](PS& ps, int) {
                                   ps.Trails.Enabled = true;

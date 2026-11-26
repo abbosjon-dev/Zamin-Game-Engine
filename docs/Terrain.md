@@ -338,7 +338,7 @@ siyosat va world hisoblagichlarini yozadi (tur tugamasa `"Complete": false`).
 
 Namuna: [`Projects/WorldGallery3D`](../Projects/WorldGallery3D/README.md) — 24 katak, 32 PNG, 8 OBJ;
 `Tools/make_world_gallery.py` uni va og‘ir nusxasini (2048 px, 5184 uchburchak) deterministik yaratadi.
-O‘lchovlar — [Quality.md](Quality.md#world-asset-streaming-paketi--2026-11-23).
+O‘lchovlar — [Quality.md](Quality.md#the-world-asset-streaming-package--2026-11-23).
 
 ### Kataklararo grid navigation
 

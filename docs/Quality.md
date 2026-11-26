@@ -1,209 +1,210 @@
-# Sifat hisoboti
+# Quality report
 
-Ikki o'lchov: avval loyihaning **yakuniy regressiyasi** (M25, 500-vazifa, 2026-11-09), so'ng M22 "Sifat va testlar"
-milestone'i oxiridagi batafsil hisobot (sanitizerlar, qamrov, formatlash statistikasi). Hamma raqamlar shu kompyuterda
-haqiqatan o'lchangan (4 vCPU, 15 GB RAM, Ubuntu 24.04, GCC 13.3, Clang 18.1, Mesa llvmpipe - GPU yo'q). Testlar va
-ularni ishga tushirish: [Testing.md](Testing.md); ishlash tezligi: [Performance.md](Performance.md).
+Two measurements: first the project's **final regression** (M25, task 500, 2026-11-09), then the detailed report from
+the end of the M22 "Quality and tests" milestone (sanitizers, coverage, formatting statistics). Every number was
+actually measured on this computer (4 vCPU, 15 GB RAM, Ubuntu 24.04, GCC 13.3, Clang 18.1, Mesa llvmpipe - no GPU).
+The tests and how to run them: [Testing.md](Testing.md); performance: [Performance.md](Performance.md).
 
-## Yakuniy regressiya (M25, 2026-11-09)
+## Final regression (M25, 2026-11-09)
 
-Hamma 500 vazifadan keyin (`c2b82dd` + hot reload tuzatishi). Har build noldan yoki to'liq sozlangan holda; ctest
-to'plamlari Debug build'da, bir vaqtda boshqa build'lar ham ishlab turgan (shuning uchun vaqtlar odatdagidan uzun).
+After all 500 tasks (`c2b82dd` + a hot reload fix). Every build from scratch or fully configured; the ctest suites in
+the Debug build, with other builds running at the same time (so the times are longer than usual).
 
-| Tekshiruv | Natija |
+| Check | Result |
 |---|---|
-| GCC 13 Debug (`build/`) | build: **0** ogohlantirish; `ZaminTests` **651 test, 0 xato** (53 s) |
-| GCC 13 Release (alohida build papkasi, to'liq: engine, editor, player, testlar, benchmark, 9 o'yin moduli) | build: **0** ogohlantirish; `ZaminTests` **651 / 0** (12 s) |
-| Clang 18 Debug (`build-clang`, to'liq: 437 qadam) | build: **0** ogohlantirish; `ZaminTests` **651 / 0** (38 s) |
-| ASan + UBSan (GCC Debug, `Tests/sanitize.sh address,undefined`) | `ZaminTests` **651 / 0, 0 sanitizer xabari** (198 s) |
-| Rendering etalonlari (`Tests/render_tests.sh`) | **12 / 12** - GCC Debug, GCC Release va Clang build'larida |
-| Hujjatlar (`DocsCheck`, `DocsSnippets`) | 0 muammo (29 hujjat, 35 rasm); hujjat kodi: 25 skript klassi, 12 fayl kompilyatsiya qilindi |
-| Benchmark smoke (`BenchEcsSmoke`, `BenchSerializeSmoke`) | o'tdi |
-| Editor smoke testi (`EditorSmoke`) | Showcase3D **221 / 221**, Platformer2D **263 / 263** qadam, 0 xato, 0 OpenGL bayrog'i, 0 ImGui tekshiruvi |
-| Skript hot reload (`ScriptHotReload`) | o'tdi (21 s) - birinchi ishga tushirishda yiqildi, tuzatildi (pastda) |
-| Eksport testi (`ExportTest`) | o'tdi (137 s) |
-| Namuna o'yinlar (`ctest -L samples`: `SampleAssets` + 9 o'yin) | **10 / 10** o'tdi |
-| Eksport qilingan namunalar (`SampleExports`) | **9 / 9** namuna eksport qilindi va eksport qilingan papkadan o'ynaldi (6 ta bot demo, 3 ta smoke; 891 s) |
-| Fizika determinizmi (Box2D, Jolt) | `ZaminTests` ichida, hamma build'da o'tdi |
-| Formatlash (`Tests/format_check.sh --base 14e8435`) | o'zgargan qatorlarda 2 bo'lak tuzatildi, endi toza |
-| Kod hajmi | 528 C++ fayl (vendor'siz): engine 385 fayl / 122 600 qator, editor 57 900, testlar 53 800, o'yinlar 14 900 |
+| GCC 13 Debug (`build/`) | build: **0** warnings; `ZaminTests` **651 tests, 0 failures** (53 s) |
+| GCC 13 Release (a separate build folder, complete: engine, editor, player, tests, benchmarks, 9 game modules) | build: **0** warnings; `ZaminTests` **651 / 0** (12 s) |
+| Clang 18 Debug (`build-clang`, complete: 437 steps) | build: **0** warnings; `ZaminTests` **651 / 0** (38 s) |
+| ASan + UBSan (GCC Debug, `Tests/sanitize.sh address,undefined`) | `ZaminTests` **651 / 0, 0 sanitizer reports** (198 s) |
+| Rendering references (`Tests/render_tests.sh`) | **12 / 12** - in the GCC Debug, GCC Release and Clang builds |
+| Documentation (`DocsCheck`, `DocsSnippets`) | 0 problems (29 documents, 35 images); documentation code: 25 script classes, 12 files compiled |
+| Benchmark smoke (`BenchEcsSmoke`, `BenchSerializeSmoke`) | passed |
+| Editor smoke test (`EditorSmoke`) | Showcase3D **221 / 221**, Platformer2D **263 / 263** steps, 0 errors, 0 OpenGL flags, 0 ImGui checks |
+| Script hot reload (`ScriptHotReload`) | passed (21 s) - failed on the first run, fixed (below) |
+| Export test (`ExportTest`) | passed (137 s) |
+| Sample games (`ctest -L samples`: `SampleAssets` + 9 games) | **10 / 10** passed |
+| Exported samples (`SampleExports`) | **9 / 9** samples exported and played from the exported folder (6 bot demos, 3 smoke runs; 891 s) |
+| Physics determinism (Box2D, Jolt) | inside `ZaminTests`, passed in every build |
+| Formatting (`Tests/format_check.sh --base 14e8435`) | 2 hunks fixed in the changed lines, clean now |
+| Code size | 528 C++ files (without vendor): engine 385 files / 122 600 lines, editor 57 900, tests 53 800, games 14 900 |
 
-**Regressiyada topilgan xato.** `ScriptHotReload` og'ir yuklama ostida (bir vaqtda ikki build) yiqildi: editor modul
-faylini linker hali yozib bo'lmasdan o'qidi - `Script module failed to load: ... file too short`, keyingi so'rovda
-yuklandi, lekin logdagi xato testni yiqitdi. Fayl hajmi va vaqti ikki so'rov (0.4 s) davomida o'zgarmasligi yetmas
-ekan: linker shuncha to'xtab qolishi mumkin. Endi editor ELF sarlavhasidagi bo'limlar jadvali (linker oxirida yozadi)
-fayl ichida ekanini ham tekshiradi (`IsElfFileComplete`, `EditorLayer.cpp`); qayta ishga tushirishda test o'tdi.
+**A bug found by the regression.** `ScriptHotReload` failed under heavy load (two builds at once): the editor read the
+module file before the linker had finished writing it - `Script module failed to load: ... file too short`; it loaded on
+the next request, but the error in the log failed the test. A file size and time that do not change over two requests
+(0.4 s) turned out not to be enough: the linker can pause that long. Now the editor also checks that the section table
+in the ELF header (the linker writes it last) lies inside the file (`IsElfFileComplete`, `EditorLayer.cpp`); on a rerun
+the test passed.
 
-## M22 hisoboti: qisqacha
+## M22 report: summary
 
-| Ko'rsatkich | Natija |
+| Metric | Result |
 |---|---|
-| Unit testlar (`ZaminTests`) | **627 test, 0 xato** - GCC Debug 39 s, ASan 107 s, Clang UBSan 48 s |
-| Rendering etalon testlari | **12 / 12** o'tdi (llvmpipe, 480x270, chegara 0.5 % piksel) |
-| Editor smoke testi | Showcase3D **221 / 221** qadam, Platformer2D **263 / 263** qadam, 0 xato, 0 OpenGL xatosi, 0 ImGui tekshiruvi |
-| Skript hot reload testi | o'tdi (19 s): maydon qiymatlari saqlanadi (`Speed=7.5`, `Count=3`), yangi maydon `Extra=42`, yangi kod ishlaydi, logda xato yo'q |
-| Eksport testi va o'yin build'lari | **3 / 3** o'yin eksport qilindi, tekshirildi va paketlandi (11-14 MB `.tar.gz`) |
-| Fizika determinizmi | Box2D va Jolt: 4 ishga tushirish (ikki marta, saqlash / yuklashdan keyin, teskari tartibda qurilgan) bit darajasida bir xil |
-| AddressSanitizer + LeakSanitizer | **0 xabar**: unit testlar, 3 o'yin, editor, editor smoke testi (484 qadam) |
-| UndefinedBehaviorSanitizer | **0 xabar** bizning kodda: GCC (avvalgi o'lchov) va Clang (bu o'lchov) |
-| Kod qamrovi (gcov) | engine **82.6 %** qator (unit testlar) / **89.3 %** (`--gui` bilan); editor 43.6 %; hammasi 70.0 % |
-| Ogohlantirishlar (`-Wall -Wextra -Wpedantic`) | **0** - GCC Debug / Release, Clang Release va Clang Debug (UBSan) build'larida |
-| Formatlash (`.clang-format`) | kod bazaning 3.11 % qatori o'zgarardi; 491 dan 209 fayl umuman o'zgarmasdi |
-| Kod hajmi | 491 C++ fayl, ~233 500 qator (vendor'siz): engine 117 700, editor 57 300, testlar 51 900 |
+| Unit tests (`ZaminTests`) | **627 tests, 0 failures** - GCC Debug 39 s, ASan 107 s, Clang UBSan 48 s |
+| Rendering reference tests | **12 / 12** passed (llvmpipe, 480x270, threshold 0.5 % of pixels) |
+| Editor smoke test | Showcase3D **221 / 221** steps, Platformer2D **263 / 263** steps, 0 errors, 0 OpenGL errors, 0 ImGui checks |
+| Script hot reload test | passed (19 s): field values are kept (`Speed=7.5`, `Count=3`), a new field `Extra=42`, the new code runs, no errors in the log |
+| Export test and game builds | **3 / 3** games exported, checked and packaged (11-14 MB `.tar.gz`) |
+| Physics determinism | Box2D and Jolt: 4 runs (twice, after save / load, built in reverse order) identical to the bit |
+| AddressSanitizer + LeakSanitizer | **0 reports**: unit tests, 3 games, the editor, the editor smoke test (484 steps) |
+| UndefinedBehaviorSanitizer | **0 reports** in our code: GCC (the previous measurement) and Clang (this measurement) |
+| Code coverage (gcov) | engine **82.6 %** of lines (unit tests) / **89.3 %** (with `--gui`); editor 43.6 %; everything 70.0 % |
+| Warnings (`-Wall -Wextra -Wpedantic`) | **0** - in the GCC Debug / Release, Clang Release and Clang Debug (UBSan) builds |
+| Formatting (`.clang-format`) | 3.11 % of the code base's lines would change; 209 of 491 files would not change at all |
+| Code size | 491 C++ files, ~233 500 lines (without vendor): engine 117 700, editor 57 300, tests 51 900 |
 
-## Testlar
+## Tests
 
-| Qatlam | Soni | Vaqt | Izoh |
+| Layer | Count | Time | Note |
 |---|---|---|---|
-| Unit testlar | 627 test, 92 bo'lim | 39 s (Debug) | GPU'siz; eng sekinlari: `PhysicsDeterminism2D`, `PhysicsDeterminism3D`, `SerializationFuzz` |
-| Rendering etalonlari | 12 holat | 2 s (xvfb, llvmpipe) | `Tests/Reference/*.png` |
-| Editor smoke testi | 2 loyiha, 484 qadam, 1 434 kadr | 163 s (106 + 57 s) | har oyna, sahifa, menyu, popup, inspektor |
-| Hot reload testi | 1 loyiha, 2 versiya | 19 s (editor kompilyatsiyasi 7.9 s) | `Tests/Fixtures/HotReload` |
-| Eksport testi | 3 o'yin x 5 bosqich | 84-109 s har o'yin | paket ochilib, yana ishga tushiriladi |
-| ctest | 6 test (`gui` label - 3, `bench` - 2) | | `ctest -LE gui` CI'da |
-| Benchmark smoke testlari | 2 | soniyalar | `ctest -L bench` |
+| Unit tests | 627 tests, 92 sections | 39 s (Debug) | without a GPU; the slowest: `PhysicsDeterminism2D`, `PhysicsDeterminism3D`, `SerializationFuzz` |
+| Rendering references | 12 cases | 2 s (xvfb, llvmpipe) | `Tests/Reference/*.png` |
+| Editor smoke test | 2 projects, 484 steps, 1 434 frames | 163 s (106 + 57 s) | every window, page, menu, popup, inspector |
+| Hot reload test | 1 project, 2 versions | 19 s (editor compilation 7.9 s) | `Tests/Fixtures/HotReload` |
+| Export test | 3 games x 5 stages | 84-109 s per game | the package is unpacked and run again |
+| ctest | 6 tests (`gui` label - 3, `bench` - 2) | | `ctest -LE gui` in CI |
+| Benchmark smoke tests | 2 | seconds | `ctest -L bench` |
 
-Unit testlar vaqti taqsimoti (Debug): 244 test 1 ms dan tez, 217 - 1-10 ms, 119 - 10-100 ms, 38 - 0.1-1 s, 9 - 1 s
-dan sekin (ular umumiy vaqtning 60 %).
+How the unit test time is spread (Debug): 244 tests faster than 1 ms, 217 - 1-10 ms, 119 - 10-100 ms, 38 - 0.1-1 s,
+9 - slower than 1 s (they are 60 % of the total time).
 
-## Sanitizerlar
+## Sanitizers
 
-| Build | Nima ishga tushirildi | Natija | Vaqt |
+| Build | What was run | Result | Time |
 |---|---|---|---|
-| ASan + LSan (GCC Debug, `build-asan`) | `ZaminTests` | 627 test, 0 xato, 0 xabar | 107 s |
-| | `ZaminPlayer` Platformer2D / Showcase3D / Adventure3D (60 kadr, xvfb) | 0 xabar | 7 / 17 / 16 s |
-| | `ZaminEditor` Showcase3D (60 kadr) | 0 xabar | 16 s |
-| | editor smoke testi (Showcase3D 221 qadam, Platformer2D 263 qadam) | 0 xato, 0 xabar | 205 s |
-| UBSan (Clang Debug, `build-ubsan`) | `ZaminTests` | 627 test, 0 xato, 0 xabar | 48 s |
-| UBSan (GCC), alohida LSan | `ZaminTests` (avvalgi o'lchov, 421-423) | 0 xabar | |
-| TSan | faqat sozlanishi tekshirilgan | ishga tushirilmagan | |
+| ASan + LSan (GCC Debug, `build-asan`) | `ZaminTests` | 627 tests, 0 failures, 0 reports | 107 s |
+| | `ZaminPlayer` Platformer2D / Showcase3D / Adventure3D (60 frames, xvfb) | 0 reports | 7 / 17 / 16 s |
+| | `ZaminEditor` Showcase3D (60 frames) | 0 reports | 16 s |
+| | the editor smoke test (Showcase3D 221 steps, Platformer2D 263 steps) | 0 errors, 0 reports | 205 s |
+| UBSan (Clang Debug, `build-ubsan`) | `ZaminTests` | 627 tests, 0 failures, 0 reports | 48 s |
+| UBSan (GCC), LSan separately | `ZaminTests` (the previous measurement, 421-423) | 0 reports | |
+| TSan | only its configuration was checked | not run | |
 
-Bostirish fayllari (`Tests/sanitizers/`), har biri izohi bilan - hammasi uchinchi tomon kodi:
+Suppression files (`Tests/sanitizers/`), each with a comment - all of it third-party code:
 
-| Fayl | Yozuvlar | Nima |
+| File | Entries | What |
 |---|---|---|
-| `lsan.supp` | 3 | miniaudio PulseAudio backend'i (server bo'lmaganda kontekst bo'shatilmaydi), uning JACK tekshiruvi, Mesa llvmpipe'ning `glGenerateMipmap` dan keyingi keshi |
-| `ubsan.supp` | 1 | miniaudio'ning MurmurHash3'i manfiy indeks bilan ko'rsatkich qo'shadi (`pointer-overflow`) - Clang UBSan topdi |
+| `lsan.supp` | 3 | miniaudio's PulseAudio backend (the context is not freed when there is no server), its JACK probe, Mesa llvmpipe's cache after `glGenerateMipmap` |
+| `ubsan.supp` | 1 | miniaudio's MurmurHash3 adds a negative index to a pointer (`pointer-overflow`) - found by Clang UBSan |
 | `asan.supp`, `tsan.supp` | 0 | |
 
-Milestone davomida sanitizerlar topgan va tuzatilgan xatolar:
+Bugs the sanitizers found during the milestone, all fixed:
 
-1. **ASan, use-after-free** - mixer guruhini (bir nechta bola guruh / tovush bilan) o'chirish va `AudioEngine::Shutdown`:
-   miniaudio'ning `ma_node_uninit` faqat birinchi kiruvchi tugunni ajratardi. `DetachAllInputs` bilan tuzatildi,
-   `AudioMixerGroupTeardown` testi.
-2. **UBSan** - test enum'ida yaroqsiz qiymat (enum oralig'idan tashqari); [Scripting.md](Scripting.md#4-inspektor-maydonlari-zm_field) da `ZM_FIELD_ENUM` qoidasi.
-3. **Clang UBSan, pointer-overflow** (bu o'lchov) - miniaudio implementatsiyasi engine'ning `AudioEngine.cpp` ichida
-   kompilyatsiya qilinardi, shuning uchun uchinchi tomon kodining xabari ham bizning kodimizniki kabi fatal edi (testlar
-   150-testda to'xtardi). Implementatsiya o'z translation unit'iga ko'chirildi (`Zamin/src/Zamin/Audio/MiniaudioImpl.cpp`,
-   konfiguratsiya - `Miniaudio.h`): sanitizer build'da u vendor kutubxonalar kabi tiklanadigan (recoverable), xabar
-   izohi bilan `ubsan.supp` da; engine'ning qolgan kodida har xabar hamon fatal.
+1. **ASan, use-after-free** - deleting a mixer group (with several child groups / sounds) and `AudioEngine::Shutdown`:
+   miniaudio's `ma_node_uninit` detached only the first input node. Fixed with `DetachAllInputs`, test
+   `AudioMixerGroupTeardown`.
+2. **UBSan** - an invalid value in a test enum (outside the enum's range); the `ZM_FIELD_ENUM` rule in [Scripting.md](Scripting.md#4-inspektor-maydonlari-zm_field).
+3. **Clang UBSan, pointer-overflow** (this measurement) - the miniaudio implementation was compiled inside the engine's
+   `AudioEngine.cpp`, so a report from third-party code was as fatal as one from our own code (the tests stopped at
+   test 150). The implementation moved to its own translation unit (`Zamin/src/Zamin/Audio/MiniaudioImpl.cpp`, the
+   configuration - `Miniaudio.h`): in a sanitizer build it is recoverable like the vendor libraries, with the report
+   commented in `ubsan.supp`; in the rest of the engine's code every report is still fatal.
 
-## Kod qamrovi
+## Code coverage
 
-`Tests/coverage.sh` (GCC, `--coverage -O0`), 2026-11-08 (batafsil: [Coverage.md](Coverage.md)):
+`Tests/coverage.sh` (GCC, `--coverage -O0`), 2026-11-08 (details: [Coverage.md](Coverage.md)):
 
-| Qism | Unit testlar | `--gui` bilan (player, editor smoke) |
+| Part | Unit tests | With `--gui` (player, editor smoke) |
 |---|---|---|
-| Engine (Zamin), 59 655 qator | **82.6 %** qator / 86.3 % funksiya | **89.3 %** / 92.4 % |
-| Editor, 38 277 qator | - | 43.6 % / 57.5 % |
+| Engine (Zamin), 59 655 lines | **82.6 %** of lines / 86.3 % of functions | **89.3 %** / 92.4 % |
+| Editor, 38 277 lines | - | 43.6 % / 57.5 % |
 | Player | - | 33.5 % / 50.0 % |
-| Namuna o'yinlar | - | 27.3 % / 29.3 % |
-| Hammasi, 101 402 qator | 82.6 % | 70.0 % / 82.6 % |
+| Sample games | - | 27.3 % / 29.3 % |
+| Everything, 101 402 lines | 82.6 % | 70.0 % / 82.6 % |
 
-Eng kam qamralgan engine modullari (unit testlar): `Zamin/Platform` 8.2 % (oyna, OpenGL - GPU kerak; `--gui` bilan
-59.0 %), `Zamin/Renderer` 56.9 % (85.3 %), `Zamin/Scripting` 67.8 % (modul yuklash - hot reload testi qamraydi).
+The least covered engine modules (unit tests): `Zamin/Platform` 8.2 % (window, OpenGL - needs a GPU; 59.0 % with
+`--gui`), `Zamin/Renderer` 56.9 % (85.3 %), `Zamin/Scripting` 67.8 % (module loading - covered by the hot reload test).
 
-## Ogohlantirishlar
+## Warnings
 
-Bizning target'lar (engine, editor, player, testlar, benchmarklar, namuna o'yin modullari) `-Wall -Wextra -Wpedantic`
-bilan, vendor sarlavhalari `-isystem` orqali (bizning `Zamin/src` hech qayerda tizim papkasi emas - aks holda engine
-sarlavhalaridagi ogohlantirishlar engine'ning o'z fayllarida yashirinardi; `cmake/Dependencies.cmake` buni tekshiradi);
-`-Wno-missing-field-initializers` faqat (sozlamalar struct'larining birinchi maydonlarini sanash ataylab qilingan, ~70 joy).
+Our targets (engine, editor, player, tests, benchmarks, sample game modules) build with `-Wall -Wextra -Wpedantic`,
+vendor headers through `-isystem` (our `Zamin/src` is never a system folder - otherwise warnings in the engine headers
+would be hidden in the engine's own files; `cmake/Dependencies.cmake` checks this); only
+`-Wno-missing-field-initializers` (listing the first fields of the settings structs is deliberate, ~70 places).
 
-| Build | Qadam | Ogohlantirish |
+| Build | Steps | Warnings |
 |---|---|---|
-| GCC 13 Debug (`build/`) | to'liq | 0 |
-| GCC 13 Debug (`build/`), `Zamin/src` endi engine fayllarida ham `-I` (avval ImGui orqali `-isystem` edi) | to'liq qayta build (498 fayl) | 0 |
-| Clang 18 Release, xuddi shu holatda | engine (`libZamin`, 193 fayl) | 0 |
-| GCC 13 Debug + ASan (`build-asan`, bu o'lchov) | 517 (engine, editor, player, testlar, 3 modul, vendor) | 0 |
-| Clang 18 Debug + UBSan (`build-ubsan`, bu o'lchov) | 432 (engine, testlar, vendor) | 0 |
-| GCC Release, Clang Release (424-vazifa o'lchovi) | to'liq | 0 |
+| GCC 13 Debug (`build/`) | complete | 0 |
+| GCC 13 Debug (`build/`), `Zamin/src` now `-I` in the engine files too (before, `-isystem` through ImGui) | complete rebuild (498 files) | 0 |
+| Clang 18 Release, in the same state | engine (`libZamin`, 193 files) | 0 |
+| GCC 13 Debug + ASan (`build-asan`, this measurement) | 517 (engine, editor, player, tests, 3 modules, vendor) | 0 |
+| Clang 18 Debug + UBSan (`build-ubsan`, this measurement) | 432 (engine, tests, vendor) | 0 |
+| GCC Release, Clang Release (the task 424 measurement) | complete | 0 |
 
-## Formatlash
+## Formatting
 
-`.clang-format` mavjud uslubni tasvirlaydi (4 bo'shliq, Allman qavslar, `namespace Zamin {`, ustun chegarasi yo'q).
-`Tests/format_check.sh --stats` (clang-format 18.1.3): 491 fayl, 233 505 qatordan **7 264 qator (3.11 %)**
-o'zgarardi, **209 fayl** umuman o'zgarmasdi. Farq turlari (`Tests/format_stats.py` taxminiy ajratadi):
+`.clang-format` describes the existing style (4 spaces, Allman braces, `namespace Zamin {`, no column limit).
+`Tests/format_check.sh --stats` (clang-format 18.1.3): of 491 files and 233 505 lines **7 264 lines (3.11 %)** would
+change, **209 files** would not change at all. The kinds of difference (`Tests/format_stats.py` sorts them roughly):
 
-| Tur | Qator | Sabab |
+| Kind | Lines | Reason |
 |---|---|---|
-| bir qatorli `{ ...; ...; }` bloklar | 1 547 | clang-format bir qatorda bir nechta ifodani hech qachon qoldirmaydi |
-| bir qatorli qisqa enum'lar | 1 171 | qavslar yangi qatorda bo'lganda clang-format 18 har enum'ni yoyadi |
-| bir qatorda bir nechta ifoda (`a.X = 1; a.Y = 2;`) | 843 | (yuqoridagi kabi) |
-| qo'lda bo'lingan `{...}` ro'yxatlar | 829 | ustun chegarasiz clang-format ro'yxat ichidagi bo'linishlarni saqlamaydi |
-| ?: zanjirlari | 786 | zanjirdagi har shartni o'z qatoriga tekislaydi |
-| bir qatorda bir nechta element (enumerator, ro'yxat) | 679 | har elementni o'z qatoriga qo'yadi |
-| case qatorlarini qo'lda tekislash | 280 | tekislash usuli fayldan faylga farq qiladi |
-| boshqa (bo'linish, chekinish) | 1 129 | qisman haqiqiy nomuvofiqliklar (noto'g'ri chekinish) |
+| one-line `{ ...; ...; }` blocks | 1 547 | clang-format never leaves several statements on one line |
+| short one-line enums | 1 171 | with braces on a new line clang-format 18 expands every enum |
+| several statements on one line (`a.X = 1; a.Y = 2;`) | 843 | (as above) |
+| hand-wrapped `{...}` lists | 829 | without a column limit clang-format does not keep the breaks inside a list |
+| ?: chains | 786 | it aligns every condition of the chain on its own line |
+| several elements on one line (enumerators, lists) | 679 | it puts every element on its own line |
+| hand-aligned case lines | 280 | the alignment style differs from file to file |
+| other (wrapping, indentation) | 1 129 | partly real inconsistencies (wrong indentation) |
 
-Shuning uchun kod baza qayta formatlanmaydi va CI'dagi tekshiruv faqat o'zgargan qatorlarda, ogohlantiruvchi.
-Sozlash jarayonida ColumnLimit 120 / 140 / 160 sinab ko'rildi (21.6 / 17.3 / 16.8 % farq), `0` eng yaqini;
-`LambdaBodyIndentation: OuterScope` tanlandi - standart qiymat bilan clang-format 18 bir nechta ko'p qatorli lambda
-oladigan chaqiruvlarda yopuvchi qavsni oxirgi ifoda qatoriga tortardi (`...; }, [this]() {` - 93 qator, 6 fayl).
+So the code base is not reformatted, and the CI check looks only at changed lines and only warns. While tuning,
+ColumnLimit 120 / 140 / 160 were tried (21.6 / 17.3 / 16.8 % difference), `0` is the closest;
+`LambdaBodyIndentation: OuterScope` was chosen - with the default value clang-format 18 pulled the closing bracket onto
+the last statement's line in calls that take several multi-line lambdas (`...; }, [this]() {` - 93 lines, 6 files).
 
-## Benchmarklar (Release boshlang'ich natijalari)
+## Benchmarks (Release baseline results)
 
-Batafsil: [Benchmarks.md](Benchmarks.md). Rendering - llvmpipe (dasturiy rasterizator), shuning uchun mutlaq ms
-haqiqiy GPU'dagidan ancha katta; raqamlar o'zgarishlarni solishtirish uchun.
+Details: [Benchmarks.md](Benchmarks.md). Rendering - llvmpipe (a software rasterizer), so the absolute ms are much
+larger than on a real GPU; the numbers are for comparing changes.
 
-| Benchmark | Natija |
+| Benchmark | Result |
 |---|---|
-| 10 000 sprite | 24.5 ms / kadr (GPU bilan), 3 draw call |
-| 1 000 mesh, instancing bilan / siz | 136.5 / 141.7 ms, 46 / 2 027 draw call |
-| ECS: 10 000 `CreateEntity` | 2.29 ms (229 ns / ta) |
-| ECS: `Scene::Copy` 10 000 obyekt (editor Play) | 6.93 ms |
-| ECS: 1 000 skript `OnUpdate` | 0.308 ms / kadr |
-| Serializatsiya: 10 000 obyektli 2D sahna, JSON saqlash / yuklash | 119 / 176 ms (8.8 MB) |
-| Serializatsiya: binar kesh bilan yuklash | 99 ms (3.2 MB) |
-| Eksport qilingan o'yin (Debug engine, llvmpipe, 120 kadr) | Platformer2D, Showcase3D, Adventure3D - `benchmark.json` artefaktda |
+| 10 000 sprites | 24.5 ms / frame (with the GPU), 3 draw calls |
+| 1 000 meshes, with / without instancing | 136.5 / 141.7 ms, 46 / 2 027 draw calls |
+| ECS: 10 000 `CreateEntity` | 2.29 ms (229 ns each) |
+| ECS: `Scene::Copy` of 10 000 objects (editor Play) | 6.93 ms |
+| ECS: 1 000 script `OnUpdate` | 0.308 ms / frame |
+| Serialization: a 2D scene with 10 000 objects, JSON save / load | 119 / 176 ms (8.8 MB) |
+| Serialization: loading with the binary cache | 99 ms (3.2 MB) |
+| Exported game (Debug engine, llvmpipe, 120 frames) | Platformer2D, Showcase3D, Adventure3D - `benchmark.json` in the artifact |
 
-Benchmarklar topgan va tuzatilgan muammolar: skriptlarning `Destroy` navbati kvadratik edi (10 000 ta - 525 ms, endi
-87 ms Debug'da; `DeferredDestroyOnceEachAndLinear`).
+A problem the benchmarks found, now fixed: the scripts' `Destroy` queue was quadratic (10 000 of them - 525 ms, now
+87 ms in Debug; `DeferredDestroyOnceEachAndLinear`).
 
-## Milestone'da topilgan boshqa xatolar
+## Other bugs found during the milestone
 
-| Vosita | Xato | Tuzatish |
+| Tool | Bug | Fix |
 |---|---|---|
-| Fizika determinizm testi | jismlar / bo'g'inlar komponent hovuzi tartibida yaratilardi: editor Play va eksport qilingan o'yin boshqacha simulyatsiya qilardi | sahna tartibida yaratish, `Scene::Copy` ierarxiya tartibida |
-| Clang Release build | particle'larning tasodifiy sonlari GCC / Clang'da boshqa tartibda; FMA qisqartirish farqi; xotira testi optimallashtirilardi | ifodalar ajratildi, `-ffp-contract=off`, volatile yozuv |
-| Clang build | testlar umuman kompilyatsiya bo'lmasdi (`std::pair` to'liqmas tur bilan) | `Member` struct |
-| Hot reload testi | linker yozayotgan modul yuklanardi; quvurga log to'liq buferlanardi; `/tmp/zamin-modules` da 423 MB nusxa | barqarorlikni kutish, qator buferi, `RemoveStaleModuleCopies` |
-| Kod qamrovi | editor smoke testi Inspektor'ni hech chizmasdi (tab yashirin) | tab oldinga chiqariladi: Editor/Panels qamrovi 21.2 → 41.6 % |
-| Editor smoke testi | (topilgan xatolar yo'q - ataylab kiritilgan log xatosi, GL xatosi va ImGui `End()` xatosi ushlandi) | |
+| Physics determinism test | bodies / joints were created in component pool order: editor Play and the exported game simulated differently | create them in scene order, `Scene::Copy` in hierarchy order |
+| Clang Release build | the particles' random numbers came in a different order in GCC / Clang; an FMA contraction difference; a memory test was optimized away | expressions split, `-ffp-contract=off`, a volatile write |
+| Clang build | the tests did not compile at all (`std::pair` with an incomplete type) | a `Member` struct |
+| Hot reload test | a module the linker was still writing got loaded; the log to a pipe was fully buffered; a 423 MB copy in `/tmp/zamin-modules` | wait for stability, line buffering, `RemoveStaleModuleCopies` |
+| Code coverage | the editor smoke test never drew the Inspector (its tab was hidden) | the tab is brought to the front: Editor/Panels coverage 21.2 → 41.6 % |
+| Editor smoke test | (no bugs found - a deliberately planted log error, GL error and ImGui `End()` error were caught) | |
 
 ## CI
 
-`.github/workflows/linux.yml` - 4 job: `build` (GCC va Clang, Release: unit testlar, rendering, editor smoke, hot
-reload, eksport + o'yin build'lari, skrinshotlar), `sanitizers` (`asan`, `ubsan-clang`), `format`, `coverage`. Har
-qadam mahalliy kompyuterda ham ishga tushirilgan skriptni chaqiradi. Artefaktlar: unit test natijalari (JSON, JUnit),
-rendering rasmlari va farqlari, editor smoke loglari va rasmlari, eksport loglari va skrinshotlari, **o'yin
-build'lari** (`player-builds-<cc>`: 3 ta `.tar.gz` + `.sha256`, 14 kun), sanitizer loglari, qamrov hisoboti.
+`.github/workflows/linux.yml` - 4 jobs: `build` (GCC and Clang, Release: unit tests, rendering, editor smoke, hot
+reload, export + game builds, screenshots), `sanitizers` (`asan`, `ubsan-clang`), `format`, `coverage`. Every step
+calls a script that was also run on the local computer. Artifacts: unit test results (JSON, JUnit), rendering images
+and diffs, editor smoke logs and images, export logs and screenshots, **game builds** (`player-builds-<cc>`: 3
+`.tar.gz` + `.sha256`, 14 days), sanitizer logs, the coverage report.
 
-Diqqat: workflow GitHub Actions'da shu ish davomida ishga tushirilmagan - YAML Python bilan tekshirilgan va har qadam
-buyrug'i mahalliy kompyuterda bajarilgan.
+Note: the workflow was not run on GitHub Actions during this work - the YAML was checked with Python and every step's
+command was run on the local computer.
 
-## Ma'lum kamchiliklar va keyingi qadamlar
+## Known gaps and next steps
 
-- **ThreadSanitizer** hali ishga tushirilmagan (job tizimi, audio oqimi, asset yuklash oqimlari).
-- **Editor qamrovi** 43.6 %: ko'p panellarning tugma bosish / sudrash yo'llari faqat qo'lda sinaladi; editor smoke
-  testi oynalarni ochadi, lekin ular bilan o'zaro ta'sir qilmaydi.
-- Rendering faqat Mesa llvmpipe'da sinaladi (haqiqiy GPU drayverlari, boshqa OpenGL implementatsiyalari yo'q);
-  Windows / macOS build'lari yo'q.
-- `clang-tidy` / statik tahlil hali qo'llanmagan.
-- `Zamin/Events` qamrovi past (18.8 %, kichik modul) va `Zamin/Scripting` 67.8 %.
-- Formatlash tekshiruvi ogohlantiruvchi: clang-format uy uslubining ba'zi odatlarini ifodalay olmaydi.
+- **ThreadSanitizer** has not been run yet (the job system, the audio thread, the asset loading threads).
+- **Editor coverage** is 43.6 %: the click / drag paths of many panels are tested only by hand; the editor smoke test
+  opens the windows but does not interact with them.
+- Rendering is tested only on Mesa llvmpipe (no real GPU drivers, no other OpenGL implementations); there are no
+  Windows / macOS builds.
+- `clang-tidy` / static analysis has not been applied yet.
+- `Zamin/Events` coverage is low (18.8 %, a small module) and `Zamin/Scripting` is 67.8 %.
+- The formatting check only warns: clang-format cannot express some habits of the house style.
 
-## Qayta o'lchash
+## Measuring again
 
 ```bash
 ./build/bin/ZaminTests --timing --slowest 10
@@ -215,233 +216,232 @@ Tests/bench.sh --compare; Tests/render_bench.sh
 ```
 
 
-## Dastlabki auditdagi yetti band
+## Seven items from the initial audit
 
-1. Scene save xatosi dirty/history/autosave holatini tozalamaydi; eksport saqlanmagan sahna bilan davom etmaydi.
-2. Scene va project konfiguratsiyasi atomik yoziladi, flush/close xatolari tekshiriladi; almashtirish xatosida eski fayl saqlanadi.
-3. Editor skript build'i `RunProcess(argv)` orqali, shell'siz ishga tushadi. Papka nomidagi `$()` yoki backtick bajarilmaydi.
-4. Noto'liq yoki takrorlangan shader stage'lari nazorat qilinadi: log va bo'sh shader, `std::out_of_range` emas.
-5. Undo uchun standart 128 MiB saqlanadigan ma'lumot chegarasi bor. Scene nusxalari, prefab fayl tahrirlari,
-   nomlar va tanlovlar hisoblanadi; allocator overhead'i va vaqtinchalik serializer xotirasi bu limitga kirmaydi.
-   Joriy holatning o'zi limitdan katta bo'lsa, u yagona holat sifatida qoladi. Saqlangan eski snapshot weak reference bilan eslanadi.
-6. Editor xizmatlari alohida kutubxonaga, katta inspektor/build modullari va editor unit testlari alohida fayllarga ajratildi.
-   Monolit `EditorLayer.cpp` va qolgan asosiy test faylini keyingi o'zgarishlarda yana maydalash mumkin; bu refaktor butun kod bazasini qayta yozmaydi.
-7. Standart CPU profili x86-64/SSE2. AVX2/FMA faqat aniq opt-in bilan; [talablar](BuildAndExport.md#the-cpu-profile-and-a-runtime-without-the-editor-services).
+1. A scene save error does not clear the dirty / history / autosave state; an export does not go on with an unsaved scene.
+2. The scene and project configuration are written atomically, flush / close errors are checked; on a replace error the old file is kept.
+3. The editor's script build starts through `RunProcess(argv)`, without a shell. `$()` or a backtick in a folder name is not executed.
+4. Incomplete or repeated shader stages are handled: a log and an empty shader, not `std::out_of_range`.
+5. Undo has a default limit of 128 MiB of stored data. Scene copies, prefab file edits, names and selections are
+   counted; allocator overhead and temporary serializer memory do not count toward this limit.
+   When the current state alone is larger than the limit, it stays as the only state. A stored old snapshot is remembered with a weak reference.
+6. The editor services moved into a separate library; the large inspector / build modules and the editor unit tests moved into separate files.
+   The monolithic `EditorLayer.cpp` and the remaining main test file can be split further in later changes; this refactor does not rewrite the whole code base.
+7. The default CPU profile is x86-64/SSE2. AVX2/FMA only with an explicit opt-in; [requirements](BuildAndExport.md#the-cpu-profile-and-a-runtime-without-the-editor-services).
 
-Regressiyalar: `SafetyTests.cpp`, `EditorServicesTests.cpp`, `TerrainTests.cpp`. `ZAMIN_EDITOR_TERRAIN=test`
-haqiqiy editor ichida save xatosidan keyin dirty, history va autosave saqlanishini ham tekshiradi.
+Regressions: `SafetyTests.cpp`, `EditorServicesTests.cpp`, `TerrainTests.cpp`. `ZAMIN_EDITOR_TERRAIN=test` also checks
+inside the real editor that dirty, history and autosave are kept after a save error.
 
 
-Tekshiruv natijalari (2026-11-09): 645/645 unit test, 12/12 render holati, editor smoke 265/265
-(OpenGL/ImGui xatosi 0), docs check 0 muammo. `ZAMIN_EDITOR_TERRAIN=test` save xatosida dirty/history/autosave
-saqlanishini tasdiqladi. ImGui'siz `ZaminStandalone` kutubxonasida haqiqiy Player 271 obyektli map'ni ochdi.
-Hot reload bo'shliq, apostrof va `$()` bor papkada ikki skript versiyasi bilan o'tdi; shell marker fayli yaralmadi.
-QEMU x86-64/SSE2 (SSE3/SSE4/AVX/AVX2/FMA/F16C/BMI/ABM/POPCNT o'chirilgan) ostida Jolt terrain collision
-regressiyasi o'tdi. Loglar va JSON/JUnit hisobotlar `build-review/Audit/` da.
+Check results (2026-11-09): 645/645 unit tests, 12/12 render cases, editor smoke 265/265
+(OpenGL/ImGui errors 0), docs check 0 problems. `ZAMIN_EDITOR_TERRAIN=test` confirmed that dirty/history/autosave are
+kept on a save error. With the `ZaminStandalone` library, without ImGui, the real Player opened a map of 271 objects.
+Hot reload passed with two script versions in a folder with a space, an apostrophe and `$()`; no shell marker file was created.
+Under QEMU x86-64/SSE2 (SSE3/SSE4/AVX/AVX2/FMA/F16C/BMI/ABM/POPCNT off) the Jolt terrain collision
+regression passed. The logs and JSON/JUnit reports are in `build-review/Audit/`.
 
 
 ### GPU terrain PBR — 2026-11-10
 
-696/696 unit, 12/12 reference render va OpenGL 4.1 pixel-oracle terrain sinovi o'tdi. Soya atlasi resize'idan oldin caller framebuffer saqlanadi; float paint normallashishi takroriy validation'da control upload chaqirmaydi. Editor to'rtta albedo/normal/ORM qatlamini yukladi, 271 obyektli map ImGui'siz runtime'da ishladi. Export reachability barcha 12 source xaritasini oldi; Player screenshot va ko'chirilgan papkada ishga tushish tekshiruvlaridan o'tdi. Native SDK sample modullari qayta yig'ildi. Hisobotlar `build-review/TerrainPBR/` da; GPU drayverlar matritsasi va katta dunyo performance acceptance hali ochiq.
+696/696 unit tests, 12/12 reference renders and the OpenGL 4.1 pixel-oracle terrain test passed. The caller's framebuffer is saved before the shadow atlas is resized; float paint normalization no longer calls a control upload on a repeated validation. The editor loaded four albedo/normal/ORM layers, and a map of 271 objects ran in the runtime without ImGui. Export reachability picked up all 12 source maps; the Player passed the screenshot and relocated-folder launch checks. The native SDK sample modules were rebuilt. The reports are in `build-review/TerrainPBR/`; the GPU driver matrix and large-world performance acceptance are still open.
 
 
-### SDK ABI, GPU profiling va foliage authoring — 2026-11-10
+### SDK ABI, GPU profiling and foliage authoring — 2026-11-10
 
-707/707 unit va 12/12 reference render regressiyasi o'tdi. Native fixture mos/mos emas/belgisiz/strip qilingan modullarni tekshirdi; mos kelmagan modul konstruktorlari bajarilmadi, failed dlopen oldingi klass registry'sini saqladi. Ko'chirilgan SDK configure bo'ldi; uning headeri yoki toolchain'i o'zgartirilganda aniq xato bilan rad etildi. Editor hot reload yangi maydon default'i va oldingi qiymatlarni saqladi. Native Platformer2D eksporti 26 klass bilan ishladi, screenshot va relocation o'tdi; mos kelmagan modul bilan eksport `Succeeded=false` chiqardi.
+The 707/707 unit and 12/12 reference render regression passed. A native fixture checked matching / mismatching / unmarked / stripped modules; the constructors of a mismatching module did not run, and a failed dlopen kept the previous class registry. A relocated SDK configured; when its header or toolchain was changed it was refused with a clear error. Editor hot reload kept a new field's default and the previous values. The native Platformer2D export ran with 26 classes, screenshot and relocation passed; an export with a mismatching module reported `Succeeded=false`.
 
-GL 4.1 GPU timestamp suite 34 completed sample, 1 pending, 0 dropped qayd etdi; bu software Mesa correctness dalili. Foliage API: region/offset, world normal (nonuniform parent), lock/hidden, invalid/runtime holat, hierarchy/save/copy testlari. Haqiqiy editorda 89 ildiz reproject va Undo/Redo o'tdi. Root/module/diagnostika/profiler screenshot va loglari `build-review/SDKQuality/` da. Alohida GPU foliage culling/LOD va physical GPU byudjeti keyingi paketda.
-
-
-## Upstream integratsiyasi — 2026-11-10
-
-GitHub `main` dagi `7f71a6c` gacha bo'lgan 13 commit lokal terrain, foliage, visual graph, C++ muharriri va SDK/ABI ishlari bilan merge qilindi. Asl tarix va ikkala yo'nalish saqlandi. Terrain shader'i ham upstream `ZaminFrame` UBO'sidan foydalanadi; upstream ELF linker-completion tekshiruvi ko'chirilgan build/hot-reload kodiga qo'shildi. Yangi UI kalitlari tarjima coverage'iga kiritildi. Shader link xatosida nol program'dan detach qilish bartaraf etildi; keyingi terrain draw va toza GL error state regressiyada tekshirildi. Visual graph GUI testi sekin software render'da pointer va tugma holatlari kuzatilishi uchun vaqt ajratadi; tugun, Undo/Redo va typed wire assert'lari saqlangan.
-
-Linux Release / GCC 13.3 / Mesa llvmpipe tekshiruvi:
-
-- 730/730 unit; barcha 8 ta GUI'siz CTest (hujjat/snippet, bench smoke, sample assets, native ABI va SDK manifest) o'tdi.
-- 12/12 reference render; GL 4.3 foliage compute va GL 4.1 CPU fallback, 4096 instance / besh kamera / asosiy tasvirlarda 0 pixel farqi.
-- GL 4.1 terrain PBR/cache/reload/shadow resize va shader link failure recovery; GPU profiler va UI'siz runtime.
-- Showcase3D 224/224 va Platformer2D 266/266 editor qadami: 0 GL/ImGui xatosi.
-- Visual graph haqiqiy node/wire/Undo/Redo GUI testi va C++ muharriri typing/save/completion/build/error navigation/recovery testi.
-- Haqiqiy native hot reload v1→v2: maydonlar saqlandi va sahna fayli o'zgarmadi.
-- FoliageWorkshop va Platformer2D eksportlari: Player, screenshot, relocation; native eksportda 26 skript klassi yuklandi.
-
-Dalillar lokal `build-review/IntegrationReview/` da; bu natijalar physical GPU yoki boshqa OS/drayverlar uchun frame-time acceptance o'rnini bosmaydi.
+The GL 4.1 GPU timestamp suite recorded 34 completed samples, 1 pending, 0 dropped; this is correctness evidence on software Mesa. Foliage API: region/offset, world normal (nonuniform parent), lock/hidden, invalid/runtime state, hierarchy/save/copy tests. In the real editor 89 roots were reprojected and Undo/Redo passed. Root/module/diagnostics/profiler screenshots and logs are in `build-review/SDKQuality/`. Separate GPU foliage culling/LOD and a physical GPU budget come in the next package.
 
 
-### CI compiler/sanitizer kuzatuvi — 2026-11-10
+## Upstream integration — 2026-11-10
 
-`69140f2` push'idan keyingi Actions `42877104904` lokal GCC tekshiruvlari qamramagan
-holatlarni ko'rsatdi: Clang sanitizer DSO link'idagi `--no-undefined` va yangi native
-modulning standart GCC bilan konfiguratsiyasi. Sanitizer DSO'larida faqat Clang runtime
-reference'lariga mos siyosat ishlatiladi; oddiy build'ning no-undefined himoyasi saqlanadi.
-`SanitizerSharedLink` Clang ASan/UBSan/combined executable'da ishga tushish va real overflow
-aniqlanishini tasdiqladi. Production export command'i haqiqiy Clang SDK konfiguratsiyasi bilan
-kompilyatorni tanladi, explicit noto'g'ri GCC override esa ABI gate tomonidan rad etildi.
+The 13 commits on GitHub `main` up to `7f71a6c` were merged with the local terrain, foliage, visual graph, C++ editor and SDK/ABI work. The original history and both lines of work were kept. The terrain shader also uses the upstream `ZaminFrame` UBO; the upstream ELF linker-completion check was added to the relocated build/hot-reload code. The new UI keys were included in the translation coverage. A detach from a zero program on a shader link error was removed; the next terrain draw and a clean GL error state were checked in the regression. The visual graph GUI test allows time for pointer and button states to be observed under slow software rendering; the node, Undo/Redo and typed wire asserts are kept.
 
-ASan artefaktidagi 128-byte leak stack'i GLFW `extensionSupportedGLX` orqali
-`glXQueryExtensionsString` ga boradi (Mesa `25.2.8-0ubuntu0.24.04.4`). Faqat shu vendor
-query uchun LSan istisnosi kiritildi; Zamin/GlfwWindow yoki barcha Mesa allocation'lari
-istisno qilinmaydi. Lokal `.2` Mesa paketidagi minimal GLFW probe bu leak'ni chiqarmadi;
-shu istisno ostida ataylab qoldirilgan 713-byte application allocation baribir LSan
-hisobotiga tushdi. `63a6f67` uchun [Actions 42882285887](https://github.com/abbosjon-dev/Zamin-Game-Engine/actions/runs/42882285887) da
-Clang Release (render/editor/hot reload/export bilan), Clang UBSan, GCC ASan (player/editor va barcha
-panel smoke bilan), coverage va format job'lari muvaffaqiyatli tugadi. To‘liq matritsaning natijasi shu run sahifasida.
+Linux Release / GCC 13.3 / Mesa llvmpipe check:
+
+- 730/730 unit tests; all 8 non-GUI CTests (docs/snippets, bench smoke, sample assets, native ABI and the SDK manifest) passed.
+- 12/12 reference renders; GL 4.3 foliage compute and the GL 4.1 CPU fallback, 0 pixel difference on 4096 instances / five cameras / the main images.
+- GL 4.1 terrain PBR/cache/reload/shadow resize and shader link failure recovery; the GPU profiler and the runtime without UI.
+- Showcase3D 224/224 and Platformer2D 266/266 editor steps: 0 GL/ImGui errors.
+- The visual graph's real node/wire/Undo/Redo GUI test and the C++ editor's typing/save/completion/build/error navigation/recovery test.
+- Real native hot reload v1→v2: the fields were kept and the scene file did not change.
+- The FoliageWorkshop and Platformer2D exports: Player, screenshot, relocation; the native export loaded 26 script classes.
+
+The evidence is local, in `build-review/IntegrationReview/`; these results do not replace frame-time acceptance on a physical GPU or on other OSes/drivers.
+
+
+### CI compiler/sanitizer follow-up — 2026-11-10
+
+Actions run `42877104904` after the `69140f2` push showed cases the local GCC checks
+did not cover: `--no-undefined` in the Clang sanitizer DSO link and configuring the new native
+module with the default GCC. The sanitizer DSOs use a policy that allows only the Clang runtime's
+references; the normal build's no-undefined protection is kept.
+`SanitizerSharedLink` confirmed launching a Clang ASan/UBSan/combined executable and detecting a real
+overflow. The production export command picked the compiler with a real Clang SDK configuration,
+while an explicit wrong GCC override was refused by the ABI gate.
+
+The 128-byte leak stack in the ASan artifact goes through GLFW `extensionSupportedGLX` to
+`glXQueryExtensionsString` (Mesa `25.2.8-0ubuntu0.24.04.4`). An LSan exception was added for that vendor
+query only; Zamin/GlfwWindow and Mesa allocations in general are not excepted. A minimal GLFW probe on the
+local `.2` Mesa package did not produce this leak; a 713-byte application allocation deliberately left behind
+under that exception still showed up in the LSan report. For `63a6f67`, in [Actions 42882285887](https://github.com/abbosjon-dev/Zamin-Game-Engine/actions/runs/42882285887),
+the Clang Release (with render/editor/hot reload/export), Clang UBSan, GCC ASan (with player/editor and all-panel
+smoke), coverage and format jobs finished successfully. The full matrix's result is on that run's page.
 
 
 ## World-cell manifest v1 — 2026-11-10
 
-P3 ning birinchi qismi: 2D/3D uchun umumiy `.zworld` metadata, double bounds, qatlam koordinatalari,
-barqaror UUID va deterministik dependency tartibi. Fayl/katak/dependency/nesting chegaralari, takroriy JSON
-kalitlari, cycle va traversal/symlink tekshiruvi; parse xatosida oldingi obyekt saqlanadi, save atomik.
-Bu bosqich entity/GPU faollashtirish, runtime streaming, editor paneli yoki eksport integratsiyasini o‘z ichiga olmaydi.
+The first part of P3: shared `.zworld` metadata for 2D/3D, double bounds, layer coordinates,
+stable UUIDs and a deterministic dependency order. File/cell/dependency/nesting limits, duplicate JSON
+keys, cycle and traversal/symlink checks; on a parse error the previous object is kept, save is atomic.
+This stage does not include entity/GPU activation, runtime streaming, an editor panel or export integration.
 
-Tekshiruvlar:
+Checks:
 
-- Asosiy Release build: engine, barcha targetlar va `ZaminStandalone` muvaffaqiyatli build qilindi.
-- Umumiy unit suite: **735/735**; GUI'siz CTest: **9/9**, shu jumladan docs/snippet, SDK/ABI va sanitizer link regressiyasi.
-- Beshta yangi manifest testi GCC va Clang 18 standalone probe'da o'tdi; Clang `-Wall -Wextra -Wpedantic -Werror` bilan kompilyatsiya qilindi.
-- Xuddi shu besh test ASan+UBSan bilan instrumentlangan yangi manifest/parser kodida o'tdi; 0 sanitizer xabari. Probe mavjud, instrumentlanmagan engine kutubxonasining UUID/FileSystem funksiyalariga link qilindi; bu butun engine sanitizer build'i emas.
-- 4096 katakli teskari tartibdagi dependency zanjiri, limitdan katta/buzilgan kirish, atomik fayl IO, symlink escape, worker parse va xatoda oldingi holatni saqlash tekshirildi.
-- Haqiqiy UI'siz runtime kutubxonasiga link qilingan probe: roundtrip va failed-load preservation o'tdi.
+- The main Release build: the engine, every target and `ZaminStandalone` built successfully.
+- The shared unit suite: **735/735**; non-GUI CTest: **9/9**, including docs/snippets, SDK/ABI and the sanitizer link regression.
+- The five new manifest tests passed in a GCC and a Clang 18 standalone probe; Clang compiled with `-Wall -Wextra -Wpedantic -Werror`.
+- The same five tests passed on the new manifest/parser code instrumented with ASan+UBSan; 0 sanitizer reports. The probe was linked against the UUID/FileSystem functions of the existing, uninstrumented engine library; this is not a sanitizer build of the whole engine.
+- A 4096-cell dependency chain in reverse order, oversized/corrupt input, atomic file IO, symlink escape, worker parsing and keeping the previous state on an error were checked.
+- A probe linked against the real runtime library without UI: roundtrip and failed-load preservation passed.
 
-Dalillar: lokal `build-review/WorldManifestReview/`; shu yerda mavjud 4096 instance'li FoliageWorkshop editorining
-screenshot'i ham bor. Manifest metadata qismi UI ko'rinishini o'zgartirmaydi. Navbat: bounded async IO/decode,
-versiyali cancel/unload va main-thread activation/residency byudjetlari.
+Evidence: local `build-review/WorldManifestReview/`; it also holds a screenshot of the existing FoliageWorkshop editor
+with 4096 instances. The manifest metadata part does not change how the UI looks. Next: bounded async IO/decode,
+versioned cancel/unload and main-thread activation/residency budgets.
 
 
 ## World-cell CPU staging v1 — 2026-11-10
 
-`WorldCellLoader` manifestdan dependency closure oladi; 1–4 xususiy worker bilan bounded `.zscene` IO,
-SAX preflight va `SceneLoadJob` parse/migratsiyasini bajaradi. Avlodli so‘rov, stale-result discard,
-input reservation, failure propagation va explicit retry bor. `Poll` tayyor natijalarni son bo‘yicha
-cheklab e’lon qiladi; `TakeReady` mos avloddagi job’ni caller’ga uzatadi. Bu runtime activation/unload,
-texture decode/upload yoki haqiqiy RAM/VRAM residency boshqaruvi emas; input reservation va DOM/scratch
-xotirasi alohida tushunchalar. Chegaralar va shutdown/cancellation cheklovlari [Terrain.md](Terrain.md) da.
+`WorldCellLoader` takes the dependency closure from the manifest; with 1–4 private workers it performs bounded `.zscene` IO,
+SAX preflight and the `SceneLoadJob` parse/migration. There are generational requests, stale-result discard,
+input reservation, failure propagation and explicit retry. `Poll` announces ready results limited by
+count; `TakeReady` hands the job of the matching generation to the caller. This is not runtime activation/unload,
+texture decode/upload or real RAM/VRAM residency management; input reservation and DOM/scratch
+memory are separate concepts. The limits and the shutdown/cancellation constraints are in [Terrain.md](Terrain.md).
 
-Tekshiruvlar:
+Checks:
 
-- Umumiy Release build: barcha targetlar va `ZaminStandalone`; **744/744 unit**, **9/9 GUI'siz CTest**.
-- To‘qqiz yangi test GCC va Clang 18 probe’da `-Wall -Wextra -Wpedantic -Werror` bilan o‘tdi.
-- Worker staging, avlod/cancel/retry, dependency failure, bitta reservation bilan backpressure,
-  100 marta kamera talabi almashishi va pending worker bilan destruktsiya tekshirildi.
-- Buzilgan/katta JSON, node/entity/nesting chegaralari, duplicate key, kelajak versiyasi,
-  symlink, FIFO, directory va asset root almashtirilishi regressiyalari o‘tdi.
-- Haqiqiy Platformer2D Level1 (eski v1 → v5 migratsiya, 108 entity) va FoliageWorkshop Forest
-  (v5, 5 entity / 4096 packed instance) worker’da parse qilindi; natijalar oddiy scene parser bilan mos,
-  staging davomida entity/GPU faollashtirilmadi.
-- To‘qqiz test yangi loader/probe kodining ASan+UBSan build’ida o‘tdi: 0 sanitizer xabari.
-  Link qilingan mavjud engine kutubxonasi instrumentlanmagan; butun engine sanitizer tekshiruvi yangi CI’da alohida yuradi.
-- UI’siz runtime DSO’ga link qilingan alohida probe: worker staging → generation transfer → main-thread scene build o‘tdi.
-- TSan probe shu muhitda natija bermadi; minimal hello dasturi ham runtime startida
-  `FATAL: ThreadSanitizer: unexpected memory mapping` chiqardi. TSan coverage da’vo qilinmaydi.
+- The shared Release build: every target and `ZaminStandalone`; **744/744 unit**, **9/9 non-GUI CTest**.
+- The nine new tests passed in GCC and Clang 18 probes with `-Wall -Wextra -Wpedantic -Werror`.
+- Worker staging, generation/cancel/retry, dependency failure, backpressure with a single reservation,
+  the camera demand switching 100 times and destruction with a pending worker were checked.
+- Regressions for corrupt/large JSON, node/entity/nesting limits, duplicate keys, a future version,
+  symlinks, FIFOs, directories and a swapped asset root passed.
+- The real Platformer2D Level1 (old v1 → v5 migration, 108 entities) and FoliageWorkshop Forest
+  (v5, 5 entities / 4096 packed instances) were parsed on a worker; the results match the normal scene parser,
+  and no entity/GPU was activated during staging.
+- The nine tests passed in an ASan+UBSan build of the new loader/probe code: 0 sanitizer reports.
+  The existing engine library it links against is not instrumented; the whole-engine sanitizer check runs separately in the new CI.
+- A separate probe linked against the runtime DSO without UI: worker staging → generation transfer → main-thread scene build passed.
+- The TSan probe gave no result in this environment; even a minimal hello program printed
+  `FATAL: ThreadSanitizer: unexpected memory mapping` at runtime start. No TSan coverage is claimed.
 
-Oldingi `06d6055` push’ining [GitHub CI](https://github.com/abbosjon-dev/Zamin-Game-Engine/actions/runs/42886580325)
-barcha 6 job’i muvaffaqiyatli tugagan. Ushbu paketning yangi remote CI natijasi alohida baholanadi.
-Dalillar: lokal `build-review/WorldCellLoaderReview/`. Keyingi ish: main-thread activation/upload byudjeti,
-physics/script lifecycle va faol kataklarni xavfsiz unload qilish.
-
-
-## Yirik world streaming paketi — 2026-11-11 UTC
-
-Birgalikda yetkazilgan natija: kamera radiusi/hysteresis va XY/XZ/XYZ qatlam tanlovi, precomputed dependency
-closure, slot/entity/declared CPU-GPU admission, frame chegarasida bulk import va unload, umumiy 2D/3D fizika,
-Project.StreamingWorld avtomatik start, editor grid/policy/retry paneli va ikkita eksport qilinadigan demo.
-
-Mahalliy GCC Release / Mesa software render tekshiruvi:
-
-- **753/753 unit va 9/9 GUI’siz CTest**: docs/snippet, benchmark smoke, ABI/SDK va sanitizer link regressiyasi.
-- To‘qqiz world testi: radius/hysteresis, offset/unload/qaytish, dependency/layer/budget, UUID collision/retry,
-  barcha entity’lar mavjud bo‘lgandan keyingi script lifecycle, Stop/Single, export reachability.
-- Haqiqiy shared physics: 2D va 3D ball streamed pol ustida turdi, pol unload bo‘lgach tushdi.
-- 4096 katakli manifest va 0.1 ms soft byudjetda ham oxirgi katak faollashdi; planning sarfi starvation bermadi.
-- FIFO/malformed definition rad etildi; noto‘g‘ri kengaytmaga Save original scene faylini yozmaydi.
-- Xuddi shu **9 test UI’siz runtime DSO** bilan ham o‘tdi.
-- Mavjud editor smoke: **224/224 Showcase3D va 266/266 Platformer2D** qadam, 0 GL/ImGui xatosi.
-- **12/12 reference render** o‘tdi; bu threshold asosidagi regression, barcha holatda 0 pixel farqi degani emas.
-- Clang 18 `-fsyntax-only -Werror`: yangi runtime/import/manager/project/export va editor panel/build kodlari o‘tdi.
-- Haqiqiy Player kamera yo‘li: WorldWorkshop3D 660 frame, 21 activation / 15 unload, peak admission 10;
-  WorldWorkshop2D 660 frame, 14 activation / 11 unload, peak admission 7. Ikkalasida failed=0,
-  bo‘sh hududda Active=0 va qaytishda yana Active>0. Editor world paneli ham screenshot bilan tekshirildi.
-- Ikkala demo eksporti: Release native module, standalone Player, screenshot va boshqa papkaga relocation o‘tdi.
-  Yo‘q world-cell scene bilan eksport `Succeeded=false` va aniq xato qaytardi.
-
-Dalillar lokal `build-review/WorldPackage/` da. Source/declared reservation’lar haqiqiy RSS/VRAM emas;
-asset kesh eviction, hard timing, physical GPU byudjeti, floating origin va HLOD tugallangan deb belgilanmaydi.
-Bitta entity build/resolve, activation yoki callback o‘rtasidan uzilmaydi. Mualliflik chegaralari va saqlash
-semantikasi [Terrain.md](Terrain.md) da. Oldingi `9d6ec43` push’ining barcha 6 CI job’i o‘tgan;
-ushbu kattaroq paket uchun yangi remote matrix push’dan keyin boshlanadi, mahalliy Clang syntax tekshiruvi
-butun engine’ning Clang/sanitizer build’i o‘rnini bosmaydi.
+All 6 jobs of the [GitHub CI](https://github.com/abbosjon-dev/Zamin-Game-Engine/actions/runs/42886580325) for the previous `06d6055` push
+finished successfully. This package's new remote CI result is assessed separately.
+Evidence: local `build-review/WorldCellLoaderReview/`. Next: the main-thread activation/upload budget,
+the physics/script lifecycle and safely unloading active cells.
 
 
-## World asset streaming paketi — 2026-11-23
+## The large world streaming package — 2026-11-11 UTC
 
-P3 "dunyo va asset streaming" yo'nalishining uch bandi: texture/model decode va GPU upload uchun qat'iy
-byudjetlar bilan kadr vaqti gate'i, RAM/VRAM rezidentlik limitlari va ularning regressiyalari, ko'p katakli
-asset demo bilan takrorlanadigan kamera yo'li va hisobotlar. Tuzilishi va chegaralari —
-[Terrain.md](Terrain.md#asset-byudjeti-rezidentlik-limitlari-va-kamera-yoli), sinovlar —
+Delivered together: camera radius/hysteresis and XY/XZ/XYZ layer selection, a precomputed dependency
+closure, slot/entity/declared CPU-GPU admission, bulk import and unload at the frame boundary, shared 2D/3D physics,
+Project.StreamingWorld auto-start, an editor grid/policy/retry panel and two exportable demos.
+
+Local GCC Release / Mesa software render check:
+
+- **753/753 unit and 9/9 non-GUI CTest**: docs/snippets, benchmark smoke, ABI/SDK and the sanitizer link regression.
+- Nine world tests: radius/hysteresis, offset/unload/return, dependency/layer/budget, UUID collision/retry,
+  the script lifecycle once every entity exists, Stop/Single, export reachability.
+- Real shared physics: a 2D and a 3D ball stood on a streamed floor and fell once the floor was unloaded.
+- With a 4096-cell manifest and a 0.1 ms soft budget the last cell still activated; the planning cost did not cause starvation.
+- A FIFO/malformed definition was refused; Save does not write the original scene file to a wrong extension.
+- The same **9 tests also passed with the runtime DSO without UI**.
+- The existing editor smoke: **224/224 Showcase3D and 266/266 Platformer2D** steps, 0 GL/ImGui errors.
+- **12/12 reference renders** passed; this is a threshold-based regression, not a 0 pixel difference in every case.
+- Clang 18 `-fsyntax-only -Werror`: the new runtime/import/manager/project/export and editor panel/build code passed.
+- The real Player camera path: WorldWorkshop3D 660 frames, 21 activations / 15 unloads, peak admission 10;
+  WorldWorkshop2D 660 frames, 14 activations / 11 unloads, peak admission 7. Both had failed=0,
+  Active=0 in the empty area and Active>0 again on the way back. The editor world panel was also checked with a screenshot.
+- Both demo exports: the Release native module, the standalone Player, a screenshot and relocation to another folder passed.
+  An export with a missing world-cell scene returned `Succeeded=false` and a clear error.
+
+The evidence is local, in `build-review/WorldPackage/`. Source/declared reservations are not real RSS/VRAM;
+asset cache eviction, hard timing, a physical GPU budget, floating origin and HLOD are not marked as done.
+A single entity build/resolve, activation or callback is not interrupted midway. The authoring limits and save
+semantics are in [Terrain.md](Terrain.md). All 6 CI jobs of the previous `9d6ec43` push passed;
+the new remote matrix for this larger package starts after the push, and the local Clang syntax check
+does not replace a Clang/sanitizer build of the whole engine.
+
+
+## The world asset streaming package — 2026-11-23
+
+Three items of the P3 "world and asset streaming" track: a frame-time gate with strict budgets for texture/model
+decode and GPU upload, RAM/VRAM residency limits and their regressions, and a repeatable camera path and reports with a
+many-cell asset demo. The structure and limits —
+[Terrain.md](Terrain.md#asset-byudjeti-rezidentlik-limitlari-va-kamera-yoli), the tests —
 [Testing.md](Testing.md#world-asset-streaming-budget-limit-and-demo).
 
-Nima qo'shildi:
+What was added:
 
-- `AsyncLoader` upload byudjeti (bayt va chaqiruv, bo'laklanadigan upload); texture qatorlab yuklanadi va tayyor
-  bo'lguncha placeholder; `TextureLibrary::Stage/LoadStaged/ReleasePending`, `Model::Stage` — decode/parse va
-  mip zanjiri worker'da; `WorldAssetStager` — fayl / katak / jami staging byudjetlari; `WorldStreaming` ning
-  `Staging` bosqichi va `AssetStreaming` siyosati (default o'chiq: eski world'lar o'zgarmaydi).
-- `EvictOnPressure`: RSS / so'ralgan GPU limitida eng uzoq katakni chiqarish, o'lchangan GPU hajmi bo'yicha
-  oldindan rad etish, heap xotirasini yordamchi oqimda OS'ga qaytarish, `MaxAssetReleaseBytesPerFrame`.
-- `WorldTour` (`.ztour`), Player'ning `ZAMIN_WORLD_TOUR` / `ZAMIN_WORLD_REPORT` hook'lari, World Streaming
-  panelining asset/limit bo'limi, `Projects/WorldGallery3D` va `Tools/make_world_gallery.py`.
+- The `AsyncLoader` upload budget (bytes and calls, chunked uploads); a texture is uploaded row by row with a
+  placeholder until it is ready; `TextureLibrary::Stage/LoadStaged/ReleasePending`, `Model::Stage` — decode/parse and
+  the mip chain on a worker; `WorldAssetStager` — per-file / per-cell / total staging budgets; the `Staging` stage of
+  `WorldStreaming` and the `AssetStreaming` policy (off by default: old worlds do not change).
+- `EvictOnPressure`: at the RSS / requested-GPU limit the farthest cell is evicted, a cell is refused up front by its
+  measured GPU size, heap memory is returned to the OS on a helper thread, `MaxAssetReleaseBytesPerFrame`.
+- `WorldTour` (`.ztour`), the Player's `ZAMIN_WORLD_TOUR` / `ZAMIN_WORLD_REPORT` hooks, the asset/limit section of the
+  World Streaming panel, `Projects/WorldGallery3D` and `Tools/make_world_gallery.py`.
 
-O'lchovlar (GCC Debug engine, Mesa llvmpipe `LP_NUM_THREADS=2`, 4 CPU, xvfb; 1080 kadrli tur, 240 kadr isinish).
-Og'ir world: 24 katak, har texture 2048² (mip bilan 16 MiB), model 5184 uchburchak, oyna 640×360,
-kadrga 2 MiB / 8 chaqiruv upload byudjeti:
+Measurements (GCC Debug engine, Mesa llvmpipe `LP_NUM_THREADS=2`, 4 CPUs, xvfb; a 1080-frame tour, 240 warm-up frames).
+The heavy world: 24 cells, every texture 2048² (16 MiB with mips), a model of 5184 triangles, a 640×360 window,
+an upload budget of 2 MiB / 8 calls per frame:
 
-| | byudjet bilan | eski yo'l (`AssetStreaming: false`) |
+| | with the budget | the old path (`AssetStreaming: false`) |
 |---|---|---|
-| asosiy oqimda rasm decode / model parse | **0 / 0** | 118 / 8 |
-| bir kadrdagi streaming ishi (world update + upload), max | **13.99 ms** | 88.66 ms |
-| streaming ishi 30 ms dan oshgan kadrlar | 0 | 108 |
-| kadr vaqti p50 / p95 / p99 | 32.79 / 44.57 / 51.53 ms | 35.57 / 68.17 / 103.11 ms |
-| medianadan 40 ms uzun kadrlar (shulardan streaming ishi bilan) | 1 (0) | 39 (38) |
-| bir kadrda yuborilgan bayt / chaqiruv, max | 2 097 152 / 2 | — |
-| RSS cho'qqisi / so'ralgan GPU cho'qqisi | 839 / 406 MiB | 835 / 406 MiB |
-| faollashtirish / unload | 56 / 48 | 116 / 108 |
+| image decode / model parse on the main thread | **0 / 0** | 118 / 8 |
+| streaming work in one frame (world update + upload), max | **13.99 ms** | 88.66 ms |
+| frames with more than 30 ms of streaming work | 0 | 108 |
+| frame time p50 / p95 / p99 | 32.79 / 44.57 / 51.53 ms | 35.57 / 68.17 / 103.11 ms |
+| frames 40 ms longer than the median (of them with streaming work) | 1 (0) | 39 (38) |
+| bytes / calls sent in one frame, max | 2 097 152 / 2 | — |
+| RSS peak / requested GPU peak | 839 / 406 MiB | 835 / 406 MiB |
+| activations / unloads | 56 / 48 | 116 / 108 |
 
-Byudjetdan katta upload 0, staging cho'qqisi 256 MiB (= limit), 15 bekor qilingan katak, 345 marta upload keyingi
-kadrga qoldirildi. Byudjet bilan kataklar sekinroq paydo bo'ladi (16 MiB li texture 2 MiB/kadr bilan 8+ kadr):
-tez kamera bosqichida faollashtirishlar soni shuning uchun kam. Kadr vaqtining maksimumi (337 ms, eski yo'lda
-376 ms) ikkala holatda ham renderer'ning shader variantini birinchi marta kompilyatsiya qilishi — o'sha kadrda
-streaming ishi 0.2 ms. Katak byudjeti 8 MiB bo'lganda 17 ta staging rad etildi, 0 faollashtirish, 0 upload.
+0 uploads over the budget, a staging peak of 256 MiB (= the limit), 15 cancelled cells, 345 uploads deferred to the next
+frame. With the budget cells appear more slowly (a 16 MiB texture at 2 MiB/frame takes 8+ frames): that is why there
+are fewer activations in the fast camera stage. The frame-time maximum (337 ms, 376 ms on the old path) is in both
+cases the renderer compiling a shader variant for the first time — streaming work in that frame was 0.2 ms. With an
+8 MiB cell budget 17 stagings were refused, 0 activations, 0 uploads.
 
-Rezidentlik (o'sha og'ir world):
+Residency (the same heavy world):
 
-- Ikki davrali limitsiz tur (2160 kadr): 105 faollashtirish / 97 unload, 30 bekor qilish, 0 failed, asosiy oqimda
-  0 decode/parse; bo'sh hududda so'ralgan GPU 342 → 342 MiB, davra cho'qqisi 406 → 406 MiB, RSS cho'qqisi
-  819 → 819 MiB (o'sish yo'q).
-- So'ralgan GPU limiti 325.8 MiB (limitsiz cho'qqi 406): cho'qqi **325.6 MiB** (limitga yetmadi), 23 katak
-  yuklanmasdan rad etildi, 2 ta chiqarildi, 7 tagacha faol katak, 0 failed.
-- RSS limiti 667 MiB (limitsiz cho'qqi 819): 115 bosim kadri, heap 37 marta OS'ga qaytarildi (yordamchi oqimda,
-  eng uzuni 8.4 ms), cho'qqi 709 MiB (limitdan 42 MiB yuqori — limit kesib o'tilganda yo'lda bo'lgan ish),
-  9 tagacha faol katak, 0 failed. RSS limiti kuzatuvga asoslangan: qat'iy shift emas.
-- Buzilgan world (256 px): yo'q katak sahnasi va buzilgan katak JSON — aynan 2 failed; buzilgan va yo'q texture,
-  buzilgan model — 9 ta o'qilmagan fayl xabari, qolgan kataklar faol (10 tagacha), asosiy oqimda 0 decode/parse.
+- A two-lap tour without limits (2160 frames): 105 activations / 97 unloads, 30 cancellations, 0 failed, 0 decode/parse
+  on the main thread; requested GPU in the empty area 342 → 342 MiB, lap peak 406 → 406 MiB, RSS peak
+  819 → 819 MiB (no growth).
+- A requested-GPU limit of 325.8 MiB (peak without a limit 406): peak **325.6 MiB** (did not reach the limit), 23 cells
+  refused without loading, 2 evicted, up to 7 active cells, 0 failed.
+- An RSS limit of 667 MiB (peak without a limit 819): 115 pressure frames, the heap returned to the OS 37 times (on a
+  helper thread, the longest 8.4 ms), peak 709 MiB (42 MiB over the limit — work in flight when the limit was crossed),
+  up to 9 active cells, 0 failed. The RSS limit is based on observation: it is not a hard ceiling.
+- A broken world (256 px): a missing cell scene and corrupt cell JSON — exactly 2 failed; a corrupt and a missing texture,
+  a corrupt model — 9 unreadable-file reports, the other cells active (up to 10), 0 decode/parse on the main thread.
 
-Demo (`Projects/WorldGallery3D`, 512 px, 1280×720): ikki tur — bir xil kamera yo'li, tinch nuqtalarda
-(239 / 419 / 659 / 919 / 1079-kadr) faol kataklar 8 / 4 / 5 / 0 / 8, ikkalasida 79 faollashtirish / 71 unload;
-kadr vaqti p50 66.86 ms, p95 98.11, p99 111.84; streaming ishi uchala turda ko'pi bilan 3.54 ms; RSS 303 → 326 MiB, so'ralgan GPU
-100 → 110 MiB. Eksport: 190 fayl, 52.4 MB; ko'chirilgan papkada shu tur — bir xil kamera va tinch nuqtalar,
-p50 69.91 ms, RSS cho'qqisi 295 MiB, 0 o'qilmagan fayl. Loyiha generator chiqishi bilan bayt-bayt bir xil.
+Demo (`Projects/WorldGallery3D`, 512 px, 1280×720): two tours — the same camera path, at the rest points
+(frames 239 / 419 / 659 / 919 / 1079) active cells 8 / 4 / 5 / 0 / 8, 79 activations / 71 unloads in both;
+frame time p50 66.86 ms, p95 98.11, p99 111.84; streaming work at most 3.54 ms in all three tours; RSS 303 → 326 MiB, requested GPU
+100 → 110 MiB. Export: 190 files, 52.4 MB; the same tour in the relocated folder — the same camera and rest points,
+p50 69.91 ms, RSS peak 295 MiB, 0 unreadable files. The project is byte-identical to the generator output.
 
-Sinovlar: 1368/1368 unit (15 yangi, GL’siz: upload byudjeti, stager, siyosat, limit, tur, demo save/reload/export
-rejasi), `--quick` 1356/1356; GUI’siz CTest 17/17, docs 2/2; world/residency GUI CTest 11/11 — `AssetResidencyGPU`
-(haqiqiy GL: qatorlab upload, staged katak, qaytish, bekor qilish, tez kamera, bo‘shatish byudjeti, Retry) va uchta
-`WorldAssetStreaming_*` bosqichi bilan; 12/12 reference render; EditorSmoke.
+Tests: 1368/1368 unit (15 new, without GL: upload budget, stager, policy, limit, tour, the demo save/reload/export
+plan), `--quick` 1356/1356; non-GUI CTest 17/17, docs 2/2; world/residency GUI CTest 11/11 — with `AssetResidencyGPU`
+(real GL: row-by-row upload, a staged cell, return, cancellation, fast camera, release budget, Retry) and three
+`WorldAssetStreaming_*` stages; 12/12 reference renders; EditorSmoke.
 
-Chegaralar: llvmpipe natijalari jismoniy GPU tezlik bahosi emas. Bayt byudjeti ishni chegaralaydi; GL obyektini
-yaratish/yo'q qilish vaqti drayverniki (llvmpipe'da 16 MiB li texture storage'i bilan bitta upload bo'lagi 14 ms gacha, GPU limiti turida
-kesh bo'shatish bilan bitta world update 13.8 ms, upload 20.5 ms). So'ralgan GPU baytlari jismoniy VRAM emas. Terrain qatlam
-texture'lari, shriftlar, animatsiya kliplari va embedded rasmlar decode'i byudjetga kirmaydi. Remote
-compiler/sanitizer matritsasi bu paket uchun ishga tushirilmagan (push qilinmagan).
-Dalillar: lokal `build/WorldAssetStreaming/Final/` (hisobotlar, loglar, screenshot'lar).
+Limits: llvmpipe results are not an estimate of physical GPU speed. The byte budget bounds the work; creating /
+destroying GL objects takes the driver's time (on llvmpipe a single upload chunk with a 16 MiB texture's storage takes up to 14 ms; in the GPU-limit tour
+a single world update with a cache release took 13.8 ms, an upload 20.5 ms). Requested GPU bytes are not physical VRAM. The decode of terrain layer
+textures, fonts, animation clips and embedded images does not count toward the budget. The remote
+compiler/sanitizer matrix was not run for this package (not pushed).
+Evidence: local `build/WorldAssetStreaming/Final/` (reports, logs, screenshots).
 

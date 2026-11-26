@@ -739,7 +739,7 @@ editor nazorati va eksport qilinadigan 2D/3D demo. Quyidagi bandlar mahalliy tes
 - [x] RAM/VRAM residency limiti; tez kamera harakati, qaytish, bekor qilish va yo'q/buzilgan katak regressiyalari. `EvictOnPressure`: kuzatilgan RSS / so‘ralgan GPU baytlari limiti (jismoniy VRAM emas), o‘lchangan GPU hajmi bo‘yicha oldindan rad etish.
 - [x] Ko'p katakli demo, save/reload/export, qayta bajariladigan kamera yo'li va RSS/frame-time hisobotlari. `Projects/WorldGallery3D`, `.ztour` + `ZAMIN_WORLD_TOUR` / `ZAMIN_WORLD_REPORT`, `Tools/make_world_gallery.py`.
 
-Dalillar (2026-11-23, GCC Debug, Mesa llvmpipe 2 thread, 4 CPU, xvfb; batafsil — [Quality.md](Quality.md#world-asset-streaming-paketi--2026-11-23)):
+Dalillar (2026-11-23, GCC Debug, Mesa llvmpipe 2 thread, 4 CPU, xvfb; batafsil — [Quality.md](Quality.md#the-world-asset-streaming-package--2026-11-23)):
 1368/1368 unit (15 yangi; `--quick` 1356/1356), GUI’siz CTest 17/17, docs 2/2, world/residency GUI CTest 11/11
 (uchta yangi `WorldAssetStreaming_*` bosqichi va kengaytirilgan `AssetResidencyGPU` bilan), 12/12 reference render,
 EditorSmoke; build ogohlantirishsiz.

@@ -80,7 +80,7 @@ Tests/format_check.sh --fix --base main
 New files must be added to git (`git add` or `git add -N`). `vendor/` is never formatted.
 There are house habits clang-format cannot express — several short statements on one line (`a.X = 1; a.Y = 2;`), a
 short one-line `enum` — a suggestion on such a line may be ignored; that is why the `format` job in CI
-only warns. The difference for the whole code base: `Tests/format_check.sh --stats` ([Quality.md](docs/Quality.md#formatlash)).
+only warns. The difference for the whole code base: `Tests/format_check.sh --stats` ([Quality.md](docs/Quality.md#formatting)).
 
 ## 3. Texts: English, `Tr()` and localization
 

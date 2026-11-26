@@ -146,7 +146,7 @@ def world(s, W, level):
     ox, oz = W["origin"]
     s.add(2000, "Mountain valley", pos=(ox, 0, oz), Terrain=terrain(W), Rigidbody3D=k.rigidbody3d("Static", layer=M["WORLD_LAYER"]),
           MeshCollider3D={"Friction": 0.8, "IsSensor": False, "Model": "", "Offset": [0, 0, 0], "Restitution": 0.0})
-    s.add(SUN, "Quyosh", DirectionalLight=k.dir_light((1.0, 0.76, 0.52), 3.6, True))
+    s.add(SUN, "Sun", DirectionalLight=k.dir_light((1.0, 0.76, 0.52), 3.6, True))
     s.entities[SUN]["Transform"]["Rotation"] = k.v(math.radians(-17), math.radians(-62), 0)
     # ---- caravanserai (terrace y 3)
     w = W["WALLS"]
@@ -264,7 +264,7 @@ def world(s, W, level):
     for i in range(steps):
         h = pf["height"] * (i + 1) / steps
         zc = z_bottom - run * (i + 0.5)
-        solid(s, eid, "Zina", (0, py + h / 2 - 0.1, zc), (2.4, h + 0.2, run + 0.02), "stone", collider=False)
+        solid(s, eid, "Stairs", (0, py + h / 2 - 0.1, zc), (2.4, h + 0.2, run + 0.02), "stone", collider=False)
         eid += 1
     # one smooth ramp collider under the steps (the character walks it like stairs)
     length = math.hypot(z_bottom - z_top, pf["height"])
@@ -477,7 +477,7 @@ def level_scene(assets, project, C, W, ENEMIES, ARCHETYPES, route, codes, oracle
     use_ids = [5600 + i * 4 for i in range(len(uses))]
     for eid, (kind, (x, z), key, opts, path) in zip(use_ids, uses):
         if kind == "Gate":
-            solid(s, eid, "Darvoza", (x, 3.0 + 1.95, z), (2 * W["WALLS"]["gate"] + 0.1, 3.9, 0.45), "wood", tiling=0.6)
+            solid(s, eid, "Gate", (x, 3.0 + 1.95, z), (2 * W["WALLS"]["gate"] + 0.1, 3.9, 0.45), "wood", tiling=0.6)
             s.entities[eid]["Tags"] = ["Gate"]
             continue
         y = fy(x, z) if kind != "Beacon" else 9.0

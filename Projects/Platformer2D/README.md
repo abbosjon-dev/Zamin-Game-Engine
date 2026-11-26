@@ -1,67 +1,67 @@
-# Zamin Platformer — 2D namuna loyihasi
+# Zamin Platformer — a 2D sample project
 
 ![Zamin Platformer](Thumbnail.jpg)
 
-Dvigatelning eng birinchi namunasi. Uch darajali 2D platformer bor: tilemap, harakatlanuvchi platformalar,
-dushmanlar, tangalar, parallaks fon va 2D yorug'lik. Unga qo'shimcha ravishda har bir 2D imkoniyat uchun alohida
-ko'rgazma sahnalari bor (fizika, joint'lar, ragdoll, UI, AI, sahnalar oqimi). Boshlang'ich sahna — `Level1`.
+The engine's very first sample. It has a three-level 2D platformer: a tilemap, moving platforms, enemies, coins, a
+parallax background and 2D lights. On top of that there is a separate showcase scene for each 2D feature (physics,
+joints, ragdoll, UI, AI, the scene flow). The start scene is `Level1`.
 
-## Ishga tushirish
+## Running
 
-| Qanday | Buyruq |
+| How | Command |
 |---|---|
-| Editor | `./build/bin/ZaminEditor Projects/Platformer2D` (Kontent brauzerida `Scenes/` dan istalgan sahnani oching, keyin Play) |
-| O'yin | `./build/bin/ZaminPlayer Projects/Platformer2D` (`--scene Scenes/Menu.zscene` — bosh menyudan) |
-| Boshqa sahna | `./build/bin/ZaminPlayer Projects/Platformer2D --scene Scenes/Ragdoll2D.zscene` |
+| Editor | `./build/bin/ZaminEditor Projects/Platformer2D` (open any scene from `Scenes/` in the content browser, then Play) |
+| Game | `./build/bin/ZaminPlayer Projects/Platformer2D` (`--scene Scenes/Menu.zscene` — from the main menu) |
+| Another scene | `./build/bin/ZaminPlayer Projects/Platformer2D --scene Scenes/Ragdoll2D.zscene` |
 | Headless test | `Tests/samples_test.py --game Platformer2D` |
 
-## Boshqaruv (1-3 darajalar)
+## Controls (levels 1-3)
 
-| Harakat | Klaviatura / sichqoncha | Gamepad |
+| Action | Keyboard / mouse | Gamepad |
 |---|---|---|
-| Yurish (`Horizontal`) | A / D, strelkalar | chap stik, D-pad |
-| Sakrash (`Jump`) | Space, W, yuqori strelka | A |
-| Yugurish (`Sprint`) | chap Shift | chap stik bosilishi |
-| Otish / tashlash (`Fire`, ko'rgazma sahnalarida) | sichqoncha chap tugmasi, chap Ctrl | RT |
-| O'zaro ta'sir (`Interact`) | E | X |
-| Pauza (`Pause`) | Esc | Start |
+| Walk (`Horizontal`) | A / D, arrows | left stick, D-pad |
+| Jump (`Jump`) | Space, W, up arrow | A |
+| Run (`Sprint`) | left Shift | left stick press |
+| Shoot / throw (`Fire`, in the showcase scenes) | left mouse button, left Ctrl | RT |
+| Interact (`Interact`) | E | X |
+| Pause (`Pause`) | Esc | Start |
 
-Pauza menyusida "Davom etish", "Sozlamalar" (ovoz guruhlari, ekran, til) va "Chiqish" bor.
+The pause menu has "Resume", "Settings" (sound groups, display, language) and "Quit".
 
-## Sahnalar
+## Scenes
 
-| Sahna | Nima ko'rsatadi |
+| Scene | What it shows |
 |---|---|
-| `Menu`, `Loading`, `Level1`-`Level3` | Bosh menyu (`Prefabs/GameMenu.zprefab`) → yuklanish ekrani (`LoadSceneAsync`, progress bar, so'nib o'tish) → uch daraja: tilemap, tangalar, dushmanlar, harakatlanuvchi platformalar, bulutlar, darajaning oxiri, pauza menyusi; yig'ilgan tangalar SaveData'da (`TotalCoins`) |
-| `Showcase2D` | Sprite'lar va sprite animatsiyasi, parallaks fon, 2D fizika, kamera kuzatuvi (`Camera2DFollow`) |
-| `Tilemap2D` | Tilemap va uning collider'lari |
-| `Shapes2D` | Ko'pburchak va chiziq kolliderlari, fizik materiallar, to'qnashuv qatlamlari, bir tomonlama platformalar |
-| `Effectors2D` | Area / Buoyancy Effector 2D, `OverlapCircle2D` portlash, `Raycast2DAll` lazer |
-| `Joints2D` | Wheel Joint 2D mashina, motorli joint'lar, uziladigan joint |
-| `Ragdoll2D` | 11 bo'lakli ragdoll prefabi (10 ta chegarali Revolute Joint 2D) |
-| `TopDown2D`, `NavDemo2D`, `Chase2D` | Top-down qahramon (sprite animatsiya kliplari va event'lar), NavGrid 2D va Nav Agent'lar, qo'riqchilar: Patrol Path, Sight Sensor, holat mashinasi |
-| `UILayout`, `UIWidgets` | UI ierarxiyasi, anchor'lar, Canvas masshtabi, layout guruhlari; slayder, belgilash, progress bar, matn maydoni |
-| `SubScenes` | `SubSceneComponent`: `Parts/Camp.zscene` bo'lagini bir necha joyga qo'yish va keyinroq yuklash |
+| `Menu`, `Loading`, `Level1`-`Level3` | The main menu (`Prefabs/GameMenu.zprefab`) → a loading screen (`LoadSceneAsync`, a progress bar, a fade) → three levels: a tilemap, coins, enemies, moving platforms, clouds, the end of the level, a pause menu; the collected coins are in SaveData (`TotalCoins`) |
+| `Showcase2D` | Sprites and sprite animation, a parallax background, 2D physics, camera follow (`Camera2DFollow`) |
+| `Tilemap2D` | The tilemap and its colliders |
+| `Shapes2D` | Polygon and edge colliders, physics materials, collision layers, one-way platforms |
+| `Effectors2D` | Area / Buoyancy Effector 2D, an `OverlapCircle2D` explosion, a `Raycast2DAll` laser |
+| `Joints2D` | A Wheel Joint 2D car, motorized joints, a breakable joint |
+| `Ragdoll2D` | An 11-part ragdoll prefab (10 limited Revolute Joint 2D) |
+| `TopDown2D`, `NavDemo2D`, `Chase2D` | A top-down hero (sprite animation clips and events), NavGrid 2D and Nav Agents, guards: Patrol Path, Sight Sensor, a state machine |
+| `UILayout`, `UIWidgets` | The UI hierarchy, anchors, Canvas scaling, layout groups; a slider, a toggle, a progress bar, a text field |
+| `SubScenes` | `SubSceneComponent`: placing the `Parts/Camp.zscene` piece in several places and loading it later |
 
-## Kod bo'ylab sayohat (`Source/`)
+## A tour of the code (`Source/`)
 
-| Fayl | Nima bor |
+| File | What is in it |
 |---|---|
-| `Player.cpp` | `PlayerController`: input xaritasi bilan yurish va sakrash (Rigidbody 2D) |
-| `Gameplay.cpp` | `Coin`, `CameraFollow`, `MovingPlatform`, `Cloud`, `LevelGoal` (keyingi daraja), `AutoDestroy`, `RestartButton` |
-| `GameManager.cpp/.h` | Hisob, tangalar, HUD matni |
-| `GameMenu.cpp`, `PauseMenu.cpp`, `SceneFlow.cpp` | Bosh menyu (sozlamalar: ekran, sifat, gamma, ovoz, til), pauza menyusi, yuklanish ekrani va sahnalar oqimi |
-| `Shapes.cpp`, `Effectors.cpp`, `Joints.cpp`, `Ragdoll.cpp` | Fizika ko'rgazmalari |
-| `TopDown.cpp`, `Chase.cpp` | Top-down qahramon va AI qo'riqchilar |
-| `UILayoutDemo.cpp`, `UIWidgetsDemo.cpp` | UI ko'rgazmalari |
+| `Player.cpp` | `PlayerController`: walking and jumping with the input map (Rigidbody 2D) |
+| `Gameplay.cpp` | `Coin`, `CameraFollow`, `MovingPlatform`, `Cloud`, `LevelGoal` (the next level), `AutoDestroy`, `RestartButton` |
+| `GameManager.cpp/.h` | The score, coins, the HUD text |
+| `GameMenu.cpp`, `PauseMenu.cpp`, `SceneFlow.cpp` | The main menu (settings: display, quality, gamma, sound, language), the pause menu, the loading screen and the scene flow |
+| `Shapes.cpp`, `Effectors.cpp`, `Joints.cpp`, `Ragdoll.cpp` | The physics showcases |
+| `TopDown.cpp`, `Chase.cpp` | The top-down hero and the AI guards |
+| `UILayoutDemo.cpp`, `UIWidgetsDemo.cpp` | The UI showcases |
 
-Bu loyihadan [2D qo'llanma](../../docs/Tutorial-2D.md) ham foydalanadi.
+The [2D tutorial](../../docs/Tutorial-2D.md) uses this project too.
 
-## Testlar
+## Tests
 
-`Tests/samples_test.py --game Platformer2D` ikki holatni tekshiradi:
+`Tests/samples_test.py --game Platformer2D` checks two cases:
 
-- smoke: `Level1` xatosiz ishlaydi va rasm chiqaradi;
-- menyular: `Menu.zscene` da Enter bosilganda yuklanish ekrani 1-darajani yuklaydi, Esc pauza menyusini ochadi.
+- smoke: `Level1` runs without errors and renders a picture;
+- menus: in `Menu.zscene`, pressing Enter makes the loading screen load level 1, and Esc opens the pause menu.
 
-Bu loyiha `Tests/export_test.sh` eksport testida ham ishlatiladi.
+This project is also used by the `Tests/export_test.sh` export test.

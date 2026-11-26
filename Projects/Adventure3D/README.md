@@ -1,59 +1,58 @@
-# Adventure3D — orol sarguzashti (3D)
+# Adventure3D — an island adventure (3D)
 
 ![Adventure3D](Thumbnail.jpg)
 
-Orolda uchinchi shaxsdan boshqariladigan qahramon (glTF modeli, Animator bilan) kristallar teradi. Darvoza oldida
-patrulda yurgan qo'riqchi robot qahramonni ko'rib qolsa, uni quvadi. Ushlab olsa, qahramon boshlang'ich joyga
-qaytariladi. Hamma kristallar yig'ilganda orol qaytadan boshlanadi. Bu sahnada 3D renderer, Jolt fizikasi, skeletli
-animatsiya va AI bitta o'yinda birga ishlatilgan.
+On an island, a hero controlled from a third-person view (a glTF model, with an Animator) collects crystals. A guard
+robot patrols in front of the gate; when it spots the hero it chases them, and if it catches them the hero is sent
+back to the starting point. When every crystal has been collected the island starts over. This scene uses the 3D
+renderer, Jolt physics, skeletal animation and AI together in one game.
 
-## Ishga tushirish
+## Running
 
-| Qanday | Buyruq |
+| How | Command |
 |---|---|
-| Editor | `./build/bin/ZaminEditor Projects/Adventure3D`, keyin Play |
-| O'yin | `./build/bin/ZaminPlayer Projects/Adventure3D` |
+| Editor | `./build/bin/ZaminEditor Projects/Adventure3D`, then Play |
+| Game | `./build/bin/ZaminPlayer Projects/Adventure3D` |
 | Headless test | `Tests/samples_test.py --game Adventure3D` |
 
-## Boshqaruv
+## Controls
 
-| Harakat | Klaviatura / sichqoncha | Gamepad |
+| Action | Keyboard / mouse | Gamepad |
 |---|---|---|
-| Yurish (`Horizontal`, `Vertical`) | W A S D, strelkalar | chap stik, D-pad |
-| Yugurish (`Sprint`) | Shift | RT, chap stik bosilishi |
-| Sakrash (`Jump`) | Space | A |
-| Kamerani aylantirish | sichqoncha o'ng tugmasi bosilgan holda | o'ng stik |
-| Sekinlashtirish (yoqish / o'chirish) | T | Y |
+| Walk (`Horizontal`, `Vertical`) | W A S D, arrows | left stick, D-pad |
+| Run (`Sprint`) | Shift | RT, left stick press |
+| Jump (`Jump`) | Space | A |
+| Orbit the camera | with the right mouse button held | right stick |
+| Slow motion (on / off) | T | Y |
 
-## O'yin va ko'rsatilgan imkoniyatlar
+## The game and the features it shows
 
-- **Qahramon** (`ThirdPersonController`): `CharacterController3D` (Jolt) bilan yuradi, harakatlanuvchi platformalar
-  ustida ham turadi. Animator holat mashinasi kliplarni `Speed` va `Grounded` parametrlariga qarab almashtiradi.
-  Qadam tovushlari animatsiya event'lari orqali chiqadi (`Footsteps`). Qo'liga `BoneAttachment` bilan buyum
-  ulangan.
-- **Kamera** (`OrbitFollowCamera`) qahramon ortidan silliq ergashadi. Uni sichqonchaning o'ng tugmasi yoki o'ng
-  stik bilan aylantirish mumkin.
-- **Qo'riqchi** (`IslandGuard`): `PatrolPath` bo'ylab yuradi va burchaklarda atrofga qaraydi. `SightSensor` uni
-  ko'rsa, `NavGrid3D` ustida `NavAgent` bilan quvadi, yo'qotib qo'ysa qidiradi va keyin patrulga qaytadi.
-- **Dunyo**: kristallar (yig'ilganda prefab effekt chiqadi), harakatlanuvchi platformalar, aylanuvchi to'siqlar,
-  yaqinlashganda ochiladigan eshik.
-- **Sekinlashtirish**: T tugmasi o'yin soatini `Time::SetTimeScale` bilan silliq sekinlashtiradi va qaytaradi.
-- **Grafika**: osmon, tuman, soyalar, nuqtali va projektor yorug'liklar, post-processing
+- **The hero** (`ThirdPersonController`) walks with a `CharacterController3D` (Jolt) and also stands on moving
+  platforms. The Animator state machine switches clips by the `Speed` and `Grounded` parameters. Footstep sounds come
+  from animation events (`Footsteps`). An item is attached to the hand with `BoneAttachment`.
+- **The camera** (`OrbitFollowCamera`) follows smoothly behind the hero. It can be orbited with the right mouse
+  button or the right stick.
+- **The guard** (`IslandGuard`) walks along a `PatrolPath` and looks around at the corners. When the `SightSensor`
+  sees the hero it chases them with a `NavAgent` on the `NavGrid3D`; if it loses them it searches and then returns to
+  its patrol.
+- **The world**: crystals (a prefab effect plays when one is collected), moving platforms, spinning obstacles, a door
+  that opens when you come near.
+- **Slow motion**: the T key smoothly slows the game clock down with `Time::SetTimeScale` and brings it back.
+- **Graphics**: the sky, fog, shadows, point and spot lights, post-processing
   ([Rendering.md](../../docs/Rendering.md), [Animation.md](../../docs/Animation.md), [AI.md](../../docs/AI.md)).
 
-## Kod bo'ylab sayohat (`Source/`)
+## A tour of the code (`Source/`)
 
-| Fayl | Nima bor |
+| File | What is in it |
 |---|---|
-| `Player.cpp` | `ThirdPersonController`: input xaritasidan yurish, kameraga nisbatan yo'nalish, sakrash, Animator parametrlari |
-| `World.cpp` | `OrbitFollowCamera`, `AdventureGame` (kristallar hisobi, HUD, g'alaba, sekinlashtirish), `Crystal`, `MovingPlatform3D`, `Spinner`, `ProximityDoor`, `AutoDestroy` |
-| `Guard.cpp` | `IslandGuard`: AI holat mashinasi — patrul → ko'rdi → quvish → qidirish → patrulga qaytish |
-| `Adventure.h` | Umumiy e'lonlar |
+| `Player.cpp` | `ThirdPersonController`: walking from the input map, the direction relative to the camera, jumping, the Animator parameters |
+| `World.cpp` | `OrbitFollowCamera`, `AdventureGame` (the crystal count, HUD, victory, slow motion), `Crystal`, `MovingPlatform3D`, `Spinner`, `ProximityDoor`, `AutoDestroy` |
+| `Guard.cpp` | `IslandGuard`: an AI state machine — patrol → spotted → chase → search → back to patrol |
+| `Adventure.h` | Shared declarations |
 
-[3D qo'llanma](../../docs/Tutorial-3D.md) qahramonni boshqarishning to'liq misoli sifatida shu loyihaga ishora
-qiladi.
+The [3D tutorial](../../docs/Tutorial-3D.md) points to this project as the full example of controlling a hero.
 
-## Testlar
+## Tests
 
-`Tests/samples_test.py --game Adventure3D` (smoke): sahna yuklanadi, qahramon tayyor bo'ladi, o'yin xatosiz ishlaydi
-va rasm chiqaradi. Loyiha `Tests/player_bench.sh` va `Tests/package_games.sh` testlarida ham ishlatiladi.
+`Tests/samples_test.py --game Adventure3D` (smoke): the scene loads, the hero gets ready, the game runs without errors
+and renders a picture. The project is also used by the `Tests/player_bench.sh` and `Tests/package_games.sh` tests.

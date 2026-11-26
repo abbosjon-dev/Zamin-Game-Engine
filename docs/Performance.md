@@ -1,34 +1,34 @@
-# Ishlash tezligi: bottleneck hisoboti
+# Performance: the bottleneck report
 
-M25 (vazifalar 481–500) yakunidagi holat: vaqt qayerga ketadi, nima tuzatildi va nima qoldi. Hamma raqamlar
-o'lchangan (profiler yozuvlari, benchmarklar); oldin / keyin jadvallari va ularni qanday qaytarish —
-[Benchmarks.md](Benchmarks.md), namunalar jadvali — [Samples.md](Samples.md#ishlash-tezligi).
+The state at the end of M25 (tasks 481–500): where the time goes, what was fixed and what remains. Every number was
+measured (profiler records, benchmarks); the before / after tables and how to reproduce them —
+[Benchmarks.md](Benchmarks.md), the samples table — [Samples.md](Samples.md#ishlash-tezligi).
 
-**Muhit:** 4 vCPU Intel Xeon @ 2.10 GHz, GPU yo'q — Mesa 25.2.8 **llvmpipe** (LLVM 20.1.2, dasturiy rasterizator),
-xvfb, GCC 13.3, **Release** build, oyna 1280x720. llvmpipe'da "GPU" ishi ham shu to'rt yadroda bajariladi: piksel va
-vertex shader'lar, soya xaritalari, post-processing. Shuning uchun quyida ikki xil vaqt alohida ko'rsatiladi —
-dvigatelning o'z CPU ishi (o'yin kodi, sahna, chizish buyruqlarini yuborish) va rasterizatsiya (haqiqiy GPU'da u
-videokartada bo'lardi).
+**Environment:** 4 vCPU Intel Xeon @ 2.10 GHz, no GPU — Mesa 25.2.8 **llvmpipe** (LLVM 20.1.2, a software rasterizer),
+xvfb, GCC 13.3, a **Release** build, a 1280x720 window. On llvmpipe the "GPU" work also runs on these four cores: the
+pixel and vertex shaders, shadow maps, post-processing. That is why two kinds of time are shown separately below —
+the engine's own CPU work (game code, the scene, submitting draw commands) and rasterization (on a real GPU it would
+be done on the graphics card).
 
-## 1. Qanday o'lchandi
+## 1. How it was measured
 
-| Manba | Nimani beradi |
+| Source | What it gives |
 |---|---|
-| Profiler (`ZM_PROFILE_SCOPE`, `Profiler::FormatTree`) | kadrning daraxti: har qism vaqti, o'z vaqti, chaqiruvlar soni; editorda Profiler oynasi |
-| `ZAMIN_PLAYER_STATS=1` | player chiqishda: oxirgi kadrning profili, render statistikasi, sahna, xotira |
-| `ZaminPlayer --benchmark` | kadr vaqtlari (o'rtacha, p95, p99) va **eng sekin kadrning profili** |
-| `ZAMIN_WORLD_TOUR=<.ztour>` + `ZAMIN_WORLD_REPORT=<.json>` | streaming world: kadr raqamiga bog'langan kamera yo'li va har kadrning vaqti, streaming/upload ishi, RSS, so'ralgan GPU baytlari ([Terrain.md](Terrain.md#asset-byudjeti-rezidentlik-limitlari-va-kamera-yoli)) |
-| `ZAMIN_STARTUP_PROFILE=1` | ishga tushish daraxti (oyna, renderer, audio, loyiha, sahna) va birinchi kadrning daraxti |
-| `ZAMIN_EDITOR_PANEL_TIMES=1`, `ZAMIN_EDITOR_STATS=1` | editor panellarining vaqti, editor xotirasi |
-| `Tests/samples_bench.py` | to'qqiz namuna bot o'ynayotganda (yuqoridagilarni yig'adi) |
-| `Tests/startup_bench.py` | ishga tushish vaqti, ikki build solishtirish |
-| `ZaminBench` (`--render`, `--ecs`, `--serialize`, `--fonts`, `--animators`, `--nav`) | ajratilgan holatlar: 10 000 sprite, 1 000 mesh, ECS, serializatsiya, shriftlar ... |
+| Profiler (`ZM_PROFILE_SCOPE`, `Profiler::FormatTree`) | the frame's tree: the time of each part, its own time, the number of calls; the Profiler window in the editor |
+| `ZAMIN_PLAYER_STATS=1` | when the player exits: the last frame's profile, render statistics, the scene, memory |
+| `ZaminPlayer --benchmark` | frame times (mean, p95, p99) and **the profile of the slowest frame** |
+| `ZAMIN_WORLD_TOUR=<.ztour>` + `ZAMIN_WORLD_REPORT=<.json>` | the streaming world: a camera path tied to the frame number and each frame's time, streaming/upload work, RSS, requested GPU bytes ([Terrain.md](Terrain.md#asset-byudjeti-rezidentlik-limitlari-va-kamera-yoli)) |
+| `ZAMIN_STARTUP_PROFILE=1` | the startup tree (window, renderer, audio, project, scene) and the first frame's tree |
+| `ZAMIN_EDITOR_PANEL_TIMES=1`, `ZAMIN_EDITOR_STATS=1` | the time of the editor panels, the editor's memory |
+| `Tests/samples_bench.py` | nine samples while a bot plays them (collects the above) |
+| `Tests/startup_bench.py` | startup time, comparing two builds |
+| `ZaminBench` (`--render`, `--ecs`, `--serialize`, `--fonts`, `--animators`, `--nav`) | isolated cases: 10 000 sprites, 1 000 meshes, ECS, serialization, fonts ... |
 
-## 2. Eng og'ir joylar (kadr)
+## 2. The heaviest places (frame)
 
-Namunalarning oxirgi kadrlari profilidan (1280x720, 300 kadr o'rtachasi; `Tests/samples_bench.py`, 2026-11-09):
+From the profiles of the last frames of the samples (1280x720, the mean of 300 frames; `Tests/samples_bench.py`, 2026-11-09):
 
-| Namuna | Kadr | Post-processing (SSAO / Bloom) | Sahnani chizish | O'yin kodi (CPU) |
+| Sample | Frame | Post-processing (SSAO / Bloom) | Drawing the scene | Game code (CPU) |
 |---|---:|---|---:|---:|
 | Adventure3D | 152.9 ms | 125.7 ms (109.0 / 12.9) | 18.1 ms | 0.50 ms |
 | EndlessRunner | 145.2 ms | 86.8 ms (62.5 / 11.8) | 38.2 ms | 0.11 ms |
@@ -40,85 +40,84 @@ Namunalarning oxirgi kadrlari profilidan (1280x720, 300 kadr o'rtachasi; `Tests/
 | Breakout (2D) | 48.9 ms | 27.7 ms (- / 24.0) | 1.4 ms | 0.18 ms |
 | Platformer2D (2D) | 12.5 ms | 4.1 ms | 0.2 ms | 0.04 ms |
 
-1. **Piksellarni bo'yash (llvmpipe) — kadrning 80–95 %.** llvmpipe chizishni kechiktiradi va rasm birinchi
-   o'qilganda bajaradi: 3D sahnaning PBR yoritilishi, soyalari va shaffof qismlari "SSAO" ichida (u chuqurlikni
-   birinchi o'qiydi), 2D sahnaniki (har piksel uchun 20+ ta 2D chiroq) "Bloom" ichida ko'rinadi.
-2. **Sahnani chizish 13–38 ms** — shundan dvigatelning o'z ishi kam: chizish buyruqlarining CPU vaqti (instancing,
-   batching, culling, uniform buferlar) ZaminBench'da o'lchangan; qolgani — llvmpipe'ning vertex ishi va soya
-   xaritalari (2048 px, kaskadlar — oyna o'lchamiga bog'liq emas). Eng ko'pi Silk Road (EndlessRunner):
-   155 284 uchburchak.
-3. **O'yin kodi** (skriptlar, fizika, particle'lar, animatsiya, audio, AI) hamma namunada 0.04–0.55 ms.
+1. **Shading pixels (llvmpipe) — 80–95 % of the frame.** llvmpipe defers drawing and does it when the image is first
+   read: the PBR lighting, shadows and transparent parts of a 3D scene show up inside "SSAO" (it reads the depth
+   first), those of a 2D scene (20+ 2D lights per pixel) inside "Bloom".
+2. **Drawing the scene takes 13–38 ms** — the engine's own share of it is small: the CPU time of the draw commands
+   (instancing, batching, culling, uniform buffers) is measured in ZaminBench; the rest is llvmpipe's vertex work and
+   the shadow maps (2048 px, cascades — independent of the window size). The most is Silk Road (EndlessRunner):
+   155 284 triangles.
+3. **Game code** (scripts, physics, particles, animation, audio, AI) is 0.04–0.55 ms in every sample.
 
-**CPU vaqti (vazifa 497).** Rasterizatsiyani deyarli olib tashlash uchun namunalar 284x160 oynada o'lchandi (3D
-namunalar `--quality Low` bilan ham: SSAO yo'q, soya xaritalari kichik): qolgan kadr vaqti — dvigatelning CPU ishi
-va llvmpipe'ning vertex ishi birga, ya'ni dvigatel ishining yuqori chegarasi. 2D: 1.9–9.3 ms, 3D: 8.5–12.7 ms —
-16.6 ms (60 FPS) ichida; EndlessRunner 26.6 ms edi (155K uchburchakning vertex ishi) - primitivlar LOD'i bilan
-15.1-15.5 ms (67K uchburchak; p95 hali 19-20 ms). Jadval:
+**CPU time (task 497).** To remove nearly all rasterization the samples were measured in a 284x160 window (the 3D
+samples with `--quality Low` too: no SSAO, small shadow maps): the remaining frame time is the engine's CPU work and
+llvmpipe's vertex work together, i.e. an upper bound on the engine's work. 2D: 1.9–9.3 ms, 3D: 8.5–12.7 ms —
+within 16.6 ms (60 FPS); EndlessRunner was 26.6 ms (the vertex work of 155K triangles) - with the primitive LODs it is
+15.1-15.5 ms (67K triangles; p95 still 19-20 ms). The table:
 [Samples.md](Samples.md#m25-tekshiruvi-2026-11-09).
 
-**Eng sekin kadrlar.** TopDownShooter'da birinchi o'yinda bitta ~0.8 s lik kadr bor: katta matn (to'lqin banneri)
-birinchi chizilganda shu o'lchamning shrift atlasi rasterlanadi (~600 glif). Shrift keshi (485) uni diskka yozadi:
-ikkinchi ishga tushirishda eng sekin kadr 866 -> 148 ms. `samples_bench` har o'yinni yangi HOME bilan
-ishga tushiradi, shuning uchun u har safar ko'rinadi.
+**The slowest frames.** In TopDownShooter the first run has one frame of ~0.8 s: when a large text (the wave banner)
+is first drawn, the font atlas of that size is rasterized (~600 glyphs). The font cache (485) writes it to disk: on
+the second run the slowest frame is 866 -> 148 ms. `samples_bench` starts every game with a fresh HOME, so it shows
+up every time.
 
-## 3. Eng og'ir joylar (ishga tushish)
+## 3. The heaviest places (startup)
 
-`ZAMIN_STARTUP_PROFILE=1`, Release, Showcase3D (oxirgi o'lchov):
+`ZAMIN_STARTUP_PROFILE=1`, Release, Showcase3D (the latest measurement):
 
-| Qism | Editor | Player |
+| Part | Editor | Player |
 |---|---:|---:|
-| Oyna va GL konteksti | 52–68 ms | 55–68 ms |
-| `Renderer::Init` (shundan `Renderer3D::Init`: 25 ta shader dasturi binary keshdan) | 97–122 ms (63) | 97–110 ms (63–70) |
+| Window and GL context | 52–68 ms | 55–68 ms |
+| `Renderer::Init` (of which `Renderer3D::Init`: 25 shader programs from the binary cache) | 97–122 ms (63) | 97–110 ms (63–70) |
 | Audio | 9–10 ms | 9 ms |
-| Loyiha + boshlang'ich sahna (assetlar: mesh / material, shriftlar) | 64–90 ms | 50–60 ms |
-| Birinchi kadr (shundan SSAO — drayver shader variantlarini birinchi chizishda kompilyatsiya qiladi) | 380–420 ms (84–107) | 220–276 ms (80–90) |
+| Project + start scene (assets: meshes / materials, fonts) | 64–90 ms | 50–60 ms |
+| The first frame (of which SSAO — the driver compiles shader variants on the first draw) | 380–420 ms (84–107) | 220–276 ms (80–90) |
 
-## 4. M25 da nima tuzatildi
+## 4. What was fixed in M25
 
-| Vazifa | Joy | Oldin -> keyin |
+| Task | Place | Before -> after |
 |---|---|---|
-| 481 | 2D batching (`BatchOrder`, kamroq flush) | `mixed2d`: 670 -> 65 draw call, CPU 16.0 -> 10.1 ms |
-| 482 | kadrlararo ajratmalar | 10k sprite: 10 023 -> 2, 1k mesh: 1 504 -> 6 ajratma / kadr |
-| 483, 484 | dunyo transformi keshi, komponent pool'lari keshi | `GetWorldTransform` 221 -> 33 ns; pool o'qish 6.6 -> 1.7 ns |
-| 485 | shrift atlaslari diskda, glif jadvali, kerning (ixtiyoriy) | atlas 45 ms rasterlash -> 2.4 ms o'qish |
-| 486, 487 | tekstura va modellarni fonda yuklash | Showcase3D: bitta kadrda 103.8 ms -> 9 kadrda eng uzuni 6.9 ms |
-| 488 | shader program binary keshi | shader'lar 253 -> 74–91 ms (Mesa keshi o'chiq); 72 -> 64 ms (yoqiq) |
-| 489 | kadr uniform buferi (std140) | ~150–200 `glUniform` -> 1 bufer yuklash (llvmpipe'da tezlik sezilmaydi) |
-| 490 | soya o'tishida kesish | 1 000 mesh: soya chizish 1 024 -> 323, CPU 156.5 -> 126.0 ms |
-| 491, 492 | parallel particle va animatsiya | 49K particle: 12.2 -> 4.0 ms; animator ko'rinishi 0.196 -> 0.114 ms |
-| 493, 494 | editor: `ImGuiListClipper` | 10 000 obyekt + 5 000 fayl: editor kadri 42.7 -> 24.7 ms |
-| 495 | ishga tushish | editor (Showcase3D) 1 094 -> 750 ms; ImGui atlasi 236 -> 60–70 ms; Sahnalar paneli 71 -> 25 ms |
-| 496 | xotira | editor RAM 451 -> 325 MB (Showcase3D), 367 -> 242 MB (Platformer2D) |
+| 481 | 2D batching (`BatchOrder`, fewer flushes) | `mixed2d`: 670 -> 65 draw calls, CPU 16.0 -> 10.1 ms |
+| 482 | per-frame allocations | 10k sprites: 10 023 -> 2, 1k meshes: 1 504 -> 6 allocations / frame |
+| 483, 484 | the world transform cache, the component pool cache | `GetWorldTransform` 221 -> 33 ns; pool read 6.6 -> 1.7 ns |
+| 485 | font atlases on disk, a glyph table, kerning (optional) | atlas 45 ms of rasterizing -> 2.4 ms of reading |
+| 486, 487 | loading textures and models in the background | Showcase3D: 103.8 ms in one frame -> the longest of 9 frames 6.9 ms |
+| 488 | the shader program binary cache | shaders 253 -> 74–91 ms (Mesa cache off); 72 -> 64 ms (on) |
+| 489 | a per-frame uniform buffer (std140) | ~150–200 `glUniform` -> 1 buffer upload (no noticeable speed-up on llvmpipe) |
+| 490 | culling in the shadow pass | 1 000 meshes: shadow draws 1 024 -> 323, CPU 156.5 -> 126.0 ms |
+| 491, 492 | parallel particles and animation | 49K particles: 12.2 -> 4.0 ms; animator view 0.196 -> 0.114 ms |
+| 493, 494 | editor: `ImGuiListClipper` | 10 000 entities + 5 000 files: editor frame 42.7 -> 24.7 ms |
+| 495 | startup | editor (Showcase3D) 1 094 -> 750 ms; the ImGui atlas 236 -> 60–70 ms; the Scenes panel 71 -> 25 ms |
+| 496 | memory | editor RAM 451 -> 325 MB (Showcase3D), 367 -> 242 MB (Platformer2D) |
 
-Hamma optimallashtirishda rasm o'zgarmadi (`ZaminRenderTests` 12/12), fizika determinizmi testlari o'tadi, parallel
-yo'llar bitta oqimli natija bilan bit-bitgacha solishtiriladi.
+No optimization changed the picture (`ZaminRenderTests` 12/12), the physics determinism tests pass, and the parallel
+paths are compared bit for bit with the single-threaded result.
 
-## 5. Qolgan cheklovlar
+## 5. Remaining limits
 
-1. **Rasterizatsiya (GPU yo'q).** llvmpipe'da 3D namunalar 7–10 FPS, 2D'lar 16–80 FPS. Eng qimmati SSAO o'tishi
-   (ichida sahnaning o'zi bo'yaladi). Yechimlar: haqiqiy GPU; SSAO ni yarim o'lchamda hisoblash; sifat darajasi
-   Low (SSAO o'chiq) — 3D namunalar 284x160 da 100+ FPS.
-2. **EndlessRunner geometriyasi.** 155K uchburchak: sifat Low va kichik oynada ham 22.7-26.6 ms edi. Tuzatildi:
-   ekranda kichik shar / silindr / konus segmentlari yarmi yoki choragi bo'lgan nusxasini chizadi
-   (`MeshLibrary::GetPrimitiveLOD`) - 67K uchburchak, o'rtacha 15.1-15.5 ms. Qolgani: p95 19-20 ms (bo'laklar
-   paydo bo'lgan kadrlar); uzoqdagi bo'laklarni masofa bo'yicha kesish keyingi qadam.
-3. **Yangi o'lchamdagi shrift atlasi.** Birinchi ishga tushirishda katta matnning birinchi chizilishi ~0.8 s
-   (keyingi safarlar diskdagi keshdan). Yechim: o'lchamli atlaslarni ishchi oqimda tayyorlash yoki glif to'plamini
-   matnga qarab cheklash.
-4. **Ishga tushish (player ~0.35–0.55 s).** GL konteksti, shader dasturlari (binary keshdan ham llvmpipe kodni qayta
-   yaratadi) va birinchi kadrdagi drayver kompilyatsiyasi — dvigatel tashqarisida. Haqiqiy GPU drayverlarining o'z
-   shader keshi bor. ImGui atlasi hali har safar rasterlanadi (~60 ms) — diskda keshlanishi mumkin.
-5. **Vaqtinchalik xotira.** Player'larda birinchi kadr paytida ~80 MB vaqtinchalik o'sish (ikkinchi kadrda
-   qaytadi), manbai aniqlanmadi.
-6. **ECS.** Har kadrda 500 obyekt yaratib / o'chiradigan holat hali 1 518 ajratma qiladi (`ZaminBench --ecs`).
+1. **Rasterization (no GPU).** On llvmpipe the 3D samples run at 7–10 FPS, the 2D ones at 16–80 FPS. The most
+   expensive is the SSAO pass (the scene itself is shaded inside it). Solutions: a real GPU; computing SSAO at half
+   size; the Low quality level (SSAO off) — the 3D samples run at 100+ FPS at 284x160.
+2. **EndlessRunner geometry.** 155K triangles: even at Low quality and in a small window it was 22.7-26.6 ms. Fixed:
+   small spheres / cylinders / cones on screen draw a copy with half or a quarter of the segments
+   (`MeshLibrary::GetPrimitiveLOD`) - 67K triangles, 15.1-15.5 ms on average. What remains: p95 19-20 ms (the frames
+   where pieces appear); culling distant pieces by distance is the next step.
+3. **A font atlas of a new size.** On the first run, the first draw of a large text takes ~0.8 s (later runs use the
+   cache on disk). Solution: preparing the sized atlases on a worker thread, or limiting the glyph set to the text.
+4. **Startup (player ~0.35–0.55 s).** The GL context, the shader programs (llvmpipe regenerates the code even from the
+   binary cache) and the driver compilation in the first frame — outside the engine. Real GPU drivers have their own
+   shader cache. The ImGui atlas is still rasterized every time (~60 ms) — it could be cached on disk.
+5. **Temporary memory.** In the players there is a temporary growth of ~80 MB during the first frame (it comes back
+   on the second frame); its source was not found.
+6. **ECS.** A case that creates / destroys 500 entities every frame still makes 1 518 allocations (`ZaminBench --ecs`).
 
-## 6. O'zingiz o'lchash
+## 6. Measuring it yourself
 
 ```bash
 cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DZAMIN_GAME_MODULE_OUTPUT_DIR=$PWD/build-release/GameModules
 cmake --build build-release
-ZAMIN_BUILD_DIR=build-release python3 Tests/samples_bench.py               # namunalar (kadr, profil, o'yin kodi)
-ZAMIN_BUILD_DIR=build-release python3 Tests/samples_bench.py --resolution 284x160   # rasterizatsiyasiz (CPU)
-ZAMIN_BUILD_DIR=build-release python3 Tests/startup_bench.py               # ishga tushish vaqti
-ZAMIN_STARTUP_PROFILE=1 ZAMIN_MAX_FRAMES=2 build-release/bin/ZaminPlayer Projects/Showcase3D   # ishga tushish profili
+ZAMIN_BUILD_DIR=build-release python3 Tests/samples_bench.py               # the samples (frame, profile, game code)
+ZAMIN_BUILD_DIR=build-release python3 Tests/samples_bench.py --resolution 284x160   # without rasterization (CPU)
+ZAMIN_BUILD_DIR=build-release python3 Tests/startup_bench.py               # startup time
+ZAMIN_STARTUP_PROFILE=1 ZAMIN_MAX_FRAMES=2 build-release/bin/ZaminPlayer Projects/Showcase3D   # the startup profile
 ```

@@ -1,50 +1,50 @@
-# Showcase3D — 3D imkoniyatlar ko'rgazmasi
+# Showcase3D — a showcase of the 3D features
 
 ![Showcase3D](Thumbnail.jpg)
 
-Bu o'yin emas, ko'rgazma: har bir sahna dvigatelning bitta 3D imkoniyatini ko'rsatadi (renderer, materiallar,
-fizika, animatsiya, zarralar, ovoz, AI, matematika). Har sahnani editorda ochib, Play bilan o'ynab ko'rish va
-inspektorda sozlamalarini o'zgartirish mumkin. Boshlang'ich sahna — `Showcase`.
+This is not a game but a showcase: each scene shows one 3D feature of the engine (the renderer, materials, physics,
+animation, particles, sound, AI, math). Every scene can be opened in the editor, tried out with Play, and its settings
+changed in the inspector. The start scene is `Showcase`.
 
-## Ishga tushirish
+## Running
 
-| Qanday | Buyruq |
+| How | Command |
 |---|---|
-| Editor | `./build/bin/ZaminEditor Projects/Showcase3D` (Kontent brauzeri yoki "Sahnalar" paneli orqali sahna tanlanadi) |
-| O'yin | `./build/bin/ZaminPlayer Projects/Showcase3D --scene Scenes/Particles.zscene` |
+| Editor | `./build/bin/ZaminEditor Projects/Showcase3D` (pick a scene in the content browser or the "Scenes" panel) |
+| Game | `./build/bin/ZaminPlayer Projects/Showcase3D --scene Scenes/Particles.zscene` |
 | Headless test | `Tests/samples_test.py --game Showcase3D` |
 
-Sahnalarning ko'pida kamera sichqoncha bilan aylantiriladi (`OrbitCamera`), ba'zilarida W A S D bilan yuriladi
-(`PlayerMover3D`), sichqoncha bosilganda shar otiladi (`BallShooter`) yoki ragdoll tashlanadi.
+In most scenes the camera is orbited with the mouse (`OrbitCamera`); in some you walk with W A S D
+(`PlayerMover3D`), and a mouse click shoots a ball (`BallShooter`) or drops a ragdoll.
 
-## Sahnalar
+## Scenes
 
-| Sahna | Nima ko'rsatadi |
+| Scene | What it shows |
 |---|---|
-| `Showcase`, `Sunset`, `Lights`, `MaterialGallery` | PBR materiallar (metall, g'adir-budirlik, emissiya, normal map'lar), yo'naltirilgan / nuqtali / projektor yorug'liklar, soyalar, osmon, tuman, post-processing (bloom, SSAO, tonemapping) |
-| `Physics3D`, `Joints3D`, `Ragdoll3D`, `Queries3D`, `PhysicsDebug3D` | Jolt fizikasi: jismlar, materiallar, joint'lar, ragdoll, raycast / sweep / overlap so'rovlari, trigger'lar, fizika debug chizish |
-| `Animation`, `Animator` | glTF skeletli animatsiya, Animator holat mashinasi, blend tree, morph target'lar, animatsiya event'lari |
-| `Particles`, `ParticlesII`-`ParticlesIV` | Zarralar: rang gradienti, o'lcham va tezlik egri chiziqlari, sprite sheet, sub-emitter'lar, to'qnashuv, shovqin, izlar, GPU instancing, burst'lar, kamera atrofidagi yomg'ir va qor |
-| `Audio` | 3D ovoz, Doppler effekti, muhit zonalari (suv ostida past chastota filtri), musiqa, ovoz guruhlari |
-| `AI3D`, `Navigation3D`, `Squad3D` | NavGrid 3D va Nav Agent'lar, Nav Obstacle eshik, holat mashinasi va Sight Sensor, steering (qo'ylar suruvi), behavior tree va guruh harakati |
-| `Olomon` | 169 ta animatsiyali personaj: Animator keshlash, ko'rinmaydiganlarini o'tkazib yuborish, `ParallelFor` |
-| `Splines`, `Geometry`, `DebugDraw` | Spline yo'llar va Spline Follower, AnimationCurve, shovqin, rang (HSV); `Math/Geometry.h` nur testlari; debug chizish |
+| `Showcase`, `Sunset`, `Lights`, `MaterialGallery` | PBR materials (metal, roughness, emission, normal maps), directional / point / spot lights, shadows, the sky, fog, post-processing (bloom, SSAO, tonemapping) |
+| `Physics3D`, `Joints3D`, `Ragdoll3D`, `Queries3D`, `PhysicsDebug3D` | Jolt physics: bodies, materials, joints, a ragdoll, raycast / sweep / overlap queries, triggers, physics debug drawing |
+| `Animation`, `Animator` | glTF skeletal animation, the Animator state machine, a blend tree, morph targets, animation events |
+| `Particles`, `ParticlesII`-`ParticlesIV` | Particles: a color gradient, size and velocity curves, a sprite sheet, sub-emitters, collision, noise, trails, GPU instancing, bursts, rain and snow around the camera |
+| `Audio` | 3D sound, the Doppler effect, ambient zones (a low-pass filter under water), music, sound groups |
+| `AI3D`, `Navigation3D`, `Squad3D` | NavGrid 3D and Nav Agents, a Nav Obstacle door, a state machine and Sight Sensor, steering (a flock of sheep), a behavior tree and group movement |
+| `Olomon` | A crowd of 169 animated characters: Animator caching, skipping the invisible ones, `ParallelFor` |
+| `Splines`, `Geometry`, `DebugDraw` | Spline paths and the Spline Follower, AnimationCurve, noise, color (HSV); the ray tests of `Math/Geometry.h`; debug drawing |
 
-## Kod bo'ylab sayohat (`Source/`)
+## A tour of the code (`Source/`)
 
-| Fayl | Nima bor |
+| File | What is in it |
 |---|---|
-| `Showcase.cpp` | Ko'p sahnalar uchun kichik skriptlar: `Rotator`, `Bobbing`, `Orbit`, `OrbitCamera`, `PlayerMover3D`, `BallShooter`, `TowerBuilder`, fizika so'rovlari (`SphereSweep3D`, `OverlapGlow3D`, `LaserAll3D` ...), ragdoll, ovoz (`MusicDirector`, `DopplerFlyby`, `UnderwaterZone` ...), animatsiya (`AnimatorDemo`, `BlendShapeDemo` ...) |
-| `AI.cpp`, `Squad.cpp` | AI sahnalari: siljiydigan eshik, qorovul (holat mashinasi), kuzatuv kamerasi, qo'ylar suruvi; komandir (behavior tree) va otryad |
-| `Splines.cpp`, `Geometry.cpp` | Egri chiziqlar, shovqin va rang; geometriya testlari |
+| `Showcase.cpp` | Small scripts for many scenes: `Rotator`, `Bobbing`, `Orbit`, `OrbitCamera`, `PlayerMover3D`, `BallShooter`, `TowerBuilder`, physics queries (`SphereSweep3D`, `OverlapGlow3D`, `LaserAll3D` ...), the ragdoll, sound (`MusicDirector`, `DopplerFlyby`, `UnderwaterZone` ...), animation (`AnimatorDemo`, `BlendShapeDemo` ...) |
+| `AI.cpp`, `Squad.cpp` | The AI scenes: a sliding door, a guard (a state machine), a follow camera, a flock of sheep; a commander (a behavior tree) and a squad |
+| `Splines.cpp`, `Geometry.cpp` | Curves, noise and color; the geometry tests |
 
-Sahnalar bir-biridan mustaqil. Biror imkoniyatni o'rganish uchun tegishli sahnani oching, inspektorda uning
-skriptini toping va `Source/` dagi klassini o'qing. Qo'llanmalar: [Rendering.md](../../docs/Rendering.md),
+The scenes are independent of each other. To study a feature, open its scene, find its script in the inspector and
+read its class in `Source/`. Guides: [Rendering.md](../../docs/Rendering.md),
 [Physics.md](../../docs/Physics.md), [Animation.md](../../docs/Animation.md), [Audio.md](../../docs/Audio.md),
 [AI.md](../../docs/AI.md).
 
-## Testlar
+## Tests
 
-`Tests/samples_test.py --game Showcase3D` (smoke): boshlang'ich sahna xatosiz ishlaydi va rasm chiqaradi. Editor
-smoke testi (`Tests/editor_smoke.sh`) va rendering regressiya testi (`Showcase3D` holati) ham shu loyihadan
-foydalanadi.
+`Tests/samples_test.py --game Showcase3D` (smoke): the start scene runs without errors and renders a picture. The
+editor smoke test (`Tests/editor_smoke.sh`) and the rendering regression test (the `Showcase3D` case) use this
+project too.

@@ -7,7 +7,7 @@ results of every translation unit (a header used by many .cpp files counts once:
 ran it), keeps the files of this repository (not the vendor libraries, not the build folders) and sums them up:
 
   - per module: the engine's folders (Zamin/Core, Zamin/Scene, Zamin/Renderer ...), Editor, Editor/Panels, Player,
-    the sample games (Namuna/<project>); the tests' own code only with --include-tests;
+    the sample games (Sample/<project>); the tests' own code only with --include-tests;
   - lines and functions: how many there are, how many ran, the percentage;
   - the files with the most lines that never ran (--top N).
 
@@ -67,7 +67,7 @@ def module_of(rel):
     if rel.startswith("Runtime/"):
         return "Player"
     if rel.startswith("Projects/") and len(parts) > 2:
-        return "Namuna/" + parts[1]
+        return "Sample/" + parts[1]
     if rel.startswith("Tests/"):
         return "Tests"
     return None
@@ -217,7 +217,7 @@ def main():
         "Engine": total_of(lambda n: n.startswith("Zamin/")),
         "Editor": total_of(lambda n: n.startswith("Editor")),
         "Player": total_of(lambda n: n == "Player"),
-        "Samples": total_of(lambda n: n.startswith("Namuna/")),
+        "Samples": total_of(lambda n: n.startswith("Sample/")),
         "All": total_of(lambda n: True),
     }
 

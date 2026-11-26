@@ -1,75 +1,75 @@
-# Ichki C++ kod muharriri
+# The built-in C++ code editor
 
-Zamin Editor ichida C++ skriptlarni tahrirlash, saqlash, kompilyatsiya qilish va xatodan manba qatoriga o'tish mumkin.
-Visual Script va C++ bir loyihada ishlaydi; mavjud tashqi muharrir ham ixtiyoriy **External editor** tugmasida saqlangan.
+Inside Zamin Editor you can edit, save and compile C++ scripts and jump from an error to its source line.
+Visual Script and C++ work in one project; the existing external editor is still available behind the optional **External editor** button.
 
-## Ochish va yozish
+## Opening and writing
 
-**Oyna → Kod muharriri** yoki **Skriptlar → Kod muharriri** oynasini oching. Content Browser'da `.cpp` / `.h`
-faylini ikki marta bosish, skript inspektoridagi manba tugmasi, asset inspektori va compiler diagnostikasi ham shu oynaga olib keladi.
-Chap tomonda Source fayllari, o'rtada alohida tablar, o'ngda engine API va gameplay snippet'lari mavjud.
-**New script** engine'ning mavjud C++ shablonlarini ochadi; yangi fayl darhol muharrirda ochiladi.
+Open the **Window → Code editor** or **Scripts → Code editor** window. Double-clicking a `.cpp` / `.h` file in the
+Content Browser, the source button in the script inspector, the asset inspector and the compiler diagnostics also bring you to this window.
+On the left are the Source files, in the middle separate tabs, on the right the engine API and gameplay snippets.
+**New script** opens the engine's existing C++ templates; the new file opens in the editor right away.
 
-- C++ sintaksis ranglari, monospace shrift, qator raqamlari, avtomatik indent, bracket matching va whitespace ko'rinishi.
-- Klaviatura/sichqon bilan tanlash, copy/cut/paste, Ctrl+Z / Ctrl+Y undo/redo; multicursor uchun Ctrl+click.
-- Ctrl+S — joriy fayl; Ctrl+Shift+S — o'zgargan tablar; **Save all** ham mavjud.
-- Ctrl+F / Ctrl+H — qidirish/almashtirish paneli; **Next**, case-sensitive tanlov va undo qilinadigan **Replace all**.
-- **Go to line** — qatorga o'tish; compiler xatosini bosish qator/ustunni tanlaydi.
-- Ctrl+Space — engine API nomlarini to'ldirish; yon paneldan API nomi yoki tayyor snippet kiritish mumkin.
-- F7 / **Build + reload** — avval o'zgargan fayllarni saqlab, keyin mavjud CMake build va hot reload oqimini ishga tushiradi.
+- C++ syntax colors, a monospace font, line numbers, automatic indent, bracket matching and visible whitespace.
+- Selection with the keyboard/mouse, copy/cut/paste, Ctrl+Z / Ctrl+Y undo/redo; Ctrl+click for multiple cursors.
+- Ctrl+S — the current file; Ctrl+Shift+S — the changed tabs; there is also **Save all**.
+- Ctrl+F / Ctrl+H — the find/replace panel; **Next**, a case-sensitive option and an undoable **Replace all**.
+- **Go to line** — jump to a line; clicking a compiler error selects its line/column.
+- Ctrl+Space — completes engine API names; an API name or a ready-made snippet can be inserted from the side panel.
+- F7 / **Build + reload** — first saves the changed files, then starts the existing CMake build and hot reload flow.
 
-API ro'yxati `ScriptableEntity.h` dagi 265 ommaviy funksiya nomi va deklaratsiyasidan yaratilgan.
-Bu kompilyator/LSP asosidagi semantic IntelliSense emas: o'z klasslaringizni tahlil qilish, overload resolution,
-project-wide rename va live C++ type-check mavjud emas. Turlarni haqiqiy C++ kompilyatori tekshiradi.
-Snippetni mos joyga joylashtiring va klass/maydon nomlarini o'zingizga moslang.
+The API list is generated from the names and declarations of the 265 public functions in `ScriptableEntity.h`.
+This is not a compiler/LSP based semantic IntelliSense: analysis of your own classes, overload resolution,
+project-wide rename and a live C++ type check are not available. Types are checked by the real C++ compiler.
+Put a snippet in the right place and adapt the class/field names to your own.
 
-## Build va xatolar
+## Build and errors
 
-Build oynasidagi xato/ogohlantirishni bosganda manba ichki muharrirda ochiladi. Faylning diagnostikalari uning ostidagi panelda ham chiqadi.
-Build ketayotganida ikkinchi build boshlanmaydi. Save xatosi yoki diskdagi o'zgarish bilan konflikt bo'lsa build bekor qilinadi;
-muharrirdagi matn saqlanib qoladi. Hot reload avvalgi engine lifecycle qoidalaridan foydalanadi va kerak bo'lsa Play'ni to'xtatadi.
+Clicking an error/warning in the Build window opens its source in the built-in editor. A file's diagnostics also appear in the panel below it.
+While a build is running a second build does not start. On a save error or a conflict with a change on disk the build is cancelled;
+the text in the editor is kept. Hot reload uses the engine's existing lifecycle rules and stops Play when needed.
 
-Visual-only loyihada birinchi C++ build `Binaries/lib<Project>.so` modul yo'lini loyiha sozlamalariga yozadi;
-agar sozlamalar saqlanmasa build boshlanmaydi. Build uchun CMake, C++ kompilyator va engine SDK kerak.
-Tashqi o'yin loyihalariga beriladigan SDK include ro'yxati visual graph'ning JSON sarlavhalarini ham o'z ichiga oladi.
+In a visual-only project the first C++ build writes the `Binaries/lib<Project>.so` module path to the project settings;
+if the settings are not saved the build does not start. A build needs CMake, a C++ compiler and the engine SDK.
+The SDK include list given to external game projects contains the visual graph's JSON headers too.
 
-## Matnni himoyalash
+## Protecting the text
 
-Fayllar UTF-8 sifatida o'qiladi. BOM, CRLF va oxirgi yangi qator bor/yo'qligi saqlanadi; ichki bufer LF ishlatadi.
-Binary/NUL, noto'g'ri UTF-8 va 1 MB dan katta fayl yoki tahrir rad etiladi. Bir vaqtda 16 fayl ochiladi.
-Undo har tabda 256 yozuv / 4 MB amal matni bilan chegaralangan (bitta eng yangi katta amal saqlanadi).
+Files are read as UTF-8. A BOM, CRLF and the presence or absence of a final newline are kept; the internal buffer uses LF.
+Binary/NUL content, invalid UTF-8 and a file or edit larger than 1 MB are rejected. Up to 16 files are open at a time.
+Undo is limited per tab to 256 entries / 4 MB of edit text (a single newest large edit is kept).
 
-Save vaqtinchalik fayl va rename bilan atomik bajariladi. Diskdagi fayl o'qilgan nusxaga solishtiriladi;
-tashqarida o'zgarsa avtomatik bosib yozilmaydi. **Reload disk version** yoki alohida tasdiqlanadigan **Overwrite disk** tanlanadi.
-Loyihadan tashqaridagi compiler/SDK fayllari read-only ochiladi. Save symlink orqali loyiha tashqarisiga chiqishni ham rad etadi.
+A save is atomic, with a temporary file and a rename. The file on disk is compared with the copy that was read;
+if it was changed outside, it is not overwritten automatically. You choose **Reload disk version** or a separately confirmed **Overwrite disk**.
+Compiler/SDK files outside the project open read-only. A save also refuses to leave the project through a symlink.
 
-O'zgargan matn taxminan 0.75 soniya tinch turgach `.zamin/code-recovery/` ichiga atomik tiklash nusxasi yoziladi.
-Loyiha almashishi va editor yopilishida qolgan nusxalar yoziladi. Faylni qayta ochganda **Recover edits** yoki **Discard recovery** ko'rsatiladi.
-Recovery eski disk nusxasini ham tutadi: crash'dan keyin tashqarida o'zgargan fayl bilan konflikt aniqlanishi davom etadi.
-Save yoki saved holatga undo qilish eskirgan tiklash nusxasini olib tashlaydi.
-Tab/oyna yopishda o'zgargan bufer uchun Save / Discard / Cancel tanlovi mavjud. OS majburiy kill qilsa oxirgi yozilgan recovery qoladi.
-Diskdan o'chirilgan yoki ko'chirilgan asl faylni tiklash uchun recovery JSON nusxasidagi `Text` qiymati saqlanib qoladi; avtomatik file undelete yo'q.
+Once changed text has been idle for about 0.75 seconds, an atomic recovery copy is written into `.zamin/code-recovery/`.
+The remaining copies are written when the project changes and when the editor closes. Reopening the file offers **Recover edits** or **Discard recovery**.
+The recovery also holds the old disk copy: after a crash, a conflict with a file changed outside is still detected.
+A save, or an undo back to the saved state, removes the stale recovery copy.
+Closing a tab/window with a changed buffer offers Save / Discard / Cancel. If the OS force-kills the editor, the last written recovery remains.
+To restore an original file that was deleted or moved on disk, the `Text` value in the recovery JSON copy is kept; there is no automatic file undelete.
 
-## Tekshirish va komponentlar
+## Checks and components
 
-`ZaminTests --filter CodeDocument` UTF-8/BOM/CRLF, konflikt, crash recovery, stale recovery, qidirish/almashtirish,
-symlink chegarasi va yozish xatosida draft saqlanishini tekshiradi.
+`ZaminTests --filter CodeDocument` checks UTF-8/BOM/CRLF, conflicts, crash recovery, stale recovery, find/replace,
+the symlink boundary and that the draft is kept on a write error.
 
-`python3 Tests/code_api_catalog.py --check` yordamchi API katalogining header bilan mosligini tekshiradi.
-Yangilash: `python3 Tests/code_api_catalog.py`.
+`python3 Tests/code_api_catalog.py --check` checks that the helper API catalogue matches the header.
+To update it: `python3 Tests/code_api_catalog.py`.
 
-Kod oynasi MIT litsenziyali [ImGuiColorTextEdit](https://github.com/santaclose/ImGuiColorTextEdit) widgetidan foydalanadi;
-aniq commit va lokal o'zgarishlar [vendor izohida](../vendor/ImGuiColorTextEdit/ZAMIN-NOTES.md), [litsenziya](../vendor/ImGuiColorTextEdit/LICENSE) saqlangan.
-Widget faqat ZaminEditor'ga ulanadi; Player va UI'siz engine yangi kod-muharrir kutubxonasini yuklamaydi.
-DejaVu Sans Mono fontining [litsenziyasi](../Resources/fonts/DejaVuSansMono-LICENSE.txt) font bilan birga tarqatiladi.
+The code window uses the MIT-licensed [ImGuiColorTextEdit](https://github.com/santaclose/ImGuiColorTextEdit) widget;
+the exact commit and the local changes are kept in the [vendor note](../vendor/ImGuiColorTextEdit/ZAMIN-NOTES.md), along with the [license](../vendor/ImGuiColorTextEdit/LICENSE).
+The widget is linked only into ZaminEditor; the Player and the engine without UI do not load the new code editor library.
+The [license](../Resources/fonts/DejaVuSansMono-LICENSE.txt) of the DejaVu Sans Mono font is distributed with the font.
 
-Haqiqiy oynadagi regressiya sinovi:
+The regression test in a real window:
 
 ```bash
 ZAMIN_BUILD_DIR=build-review LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe LP_NUM_THREADS=2 \
   xvfb-run -a -s '-screen 0 1600x1000x24 -nolisten tcp' python3 Tests/code_editor_ui_test.py
 ```
 
-Sinov xdotool va ImageMagick `import` vositasini talab qiladi. Vaqtinchalik loyihada haqiqiy C++ build bajaradi:
-Ctrl+S, undo/redo, Ctrl+Space, ataylab compiler xatosi, diagnostika qator/ustuniga o'tish, tuzatish/hot reload va recovery tekshiriladi.
-2026-11-10: 9 CodeDocument testi va barcha 691 unit test o'tdi; yuqoridagi GUI oqimi Linux/Mesa muhitida sinovdan o'tdi.
+The test needs xdotool and the ImageMagick `import` tool. It runs a real C++ build in a temporary project:
+Ctrl+S, undo/redo, Ctrl+Space, a deliberate compiler error, jumping to the diagnostic's line/column, the fix/hot reload and the recovery are checked.
+2026-11-10: the 9 CodeDocument tests and all 691 unit tests passed; the GUI flow above was tested in a Linux/Mesa environment.

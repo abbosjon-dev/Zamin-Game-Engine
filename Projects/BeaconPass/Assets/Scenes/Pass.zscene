@@ -1,5 +1,5 @@
 {
-  "Scene": "Dovon",
+  "Scene": "Pass",
   "Version": 5,
   "Settings": {
     "DrawSky": true,
@@ -382,7 +382,7 @@
     },
     {
       "Entity": 1001,
-      "Tag": "Shamshir",
+      "Tag": "Sabre",
       "Transform": {
         "Translation": [0.0, -0.06, -0.02],
         "Rotation": [-1.2217304763960306, 0.0, 0.0],
@@ -422,7 +422,7 @@
     },
     {
       "Entity": 1002,
-      "Tag": "Qalqon",
+      "Tag": "Shield",
       "Transform": {
         "Translation": [-0.07, -0.12, 0.0],
         "Rotation": [0.0, -1.5707963267948966, 0.0],
@@ -462,7 +462,7 @@
     },
     {
       "Entity": 1003,
-      "Tag": "Kamera",
+      "Tag": "Camera",
       "Transform": {
         "Translation": [0.0, 3.9, 47.6],
         "Rotation": [-0.20943951023931956, 0.0, 0.0],
@@ -497,7 +497,7 @@
     },
     {
       "Entity": 1100,
-      "Tag": "O'yin",
+      "Tag": "Game",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -512,7 +512,7 @@
           },
           "Overrides": {
             "Type": "String",
-            "Value": "{\"Boss\":5060,\"PickupIds\":[5500,5504,5508,5512,5516],\"PickupItems\":[\"FireStone\",\"FireStone\",\"FireStone\",\"Potion\",\"Potion\"],\"PickupKeys\":[\"Dovon-FireStone-00\",\"Dovon-FireStone-01\",\"Dovon-FireStone-02\",\"Dovon-Potion-03\",\"Dovon-Potion-04\"],\"Self\":\"Scenes/Dovon.zscene\",\"Slot\":\"Run1\",\"UseConsume\":[false,false,false,false,false,false,true],\"UseCooldown\":[0.2,0.2,0.2,2,2,2,0.2],\"UseCounts\":[1,1,1,1,1,1,3],\"UseDeactivate\":[false,false,true,false,false,false,false],\"UseIds\":[5600,5604,5608,5612,5616,5620,5624],\"UseKeys\":[\"Dovon-Chest-1\",\"Dovon-Chest-2\",\"Dovon-Gate\",\"Dovon-Shrine-1\",\"Dovon-Shrine-2\",\"Dovon-Shrine-3\",\"Dovon-Beacon\"],\"UseMaxUses\":[1,1,1,0,0,0,1],\"UsePrompts\":[\"prompt.chest\",\"prompt.chest\",\"prompt.gate\",\"prompt.shrine\",\"prompt.shrine\",\"prompt.shrine\",\"prompt.beacon\"],\"UseRequired\":[\"\",\"\",\"\",\"\",\"\",\"\",\"FireStone\"],\"UseRewards\":[\"Shamshir\",\"Qalqon\",\"\",\"\",\"\",\"\",\"\"]}"
+            "Value": "{\"Boss\":5060,\"PickupIds\":[5500,5504,5508,5512,5516],\"PickupItems\":[\"FireStone\",\"FireStone\",\"FireStone\",\"Potion\",\"Potion\"],\"PickupKeys\":[\"Pass-FireStone-00\",\"Pass-FireStone-01\",\"Pass-FireStone-02\",\"Pass-Potion-03\",\"Pass-Potion-04\"],\"Self\":\"Scenes/Pass.zscene\",\"Slot\":\"Run1\",\"UseConsume\":[false,false,false,false,false,false,true],\"UseCooldown\":[0.2,0.2,0.2,2,2,2,0.2],\"UseCounts\":[1,1,1,1,1,1,3],\"UseDeactivate\":[false,false,true,false,false,false,false],\"UseIds\":[5600,5604,5608,5612,5616,5620,5624],\"UseKeys\":[\"Pass-Chest-1\",\"Pass-Chest-2\",\"Pass-Gate\",\"Pass-Shrine-1\",\"Pass-Shrine-2\",\"Pass-Shrine-3\",\"Pass-Beacon\"],\"UseMaxUses\":[1,1,1,0,0,0,1],\"UsePrompts\":[\"prompt.chest\",\"prompt.chest\",\"prompt.gate\",\"prompt.shrine\",\"prompt.shrine\",\"prompt.shrine\",\"prompt.beacon\"],\"UseRequired\":[\"\",\"\",\"\",\"\",\"\",\"\",\"FireStone\"],\"UseRewards\":[\"Sabre\",\"Shield\",\"\",\"\",\"\",\"\",\"\"]}"
           }
         }
       },
@@ -520,7 +520,7 @@
     },
     {
       "Entity": 1101,
-      "Tag": "Musiqa",
+      "Tag": "Music",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -528,7 +528,7 @@
       },
       "Parent": 1100,
       "AudioSource": {
-        "Path": "Audio/music_dovon.wav",
+        "Path": "Audio/music_pass.wav",
         "Volume": 0.75,
         "Pitch": 1.0,
         "Loop": true,
@@ -542,7 +542,7 @@
     },
     {
       "Entity": 1102,
-      "Tag": "Muhit",
+      "Tag": "Ambience",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -563,7 +563,7 @@
     },
     {
       "Entity": 1104,
-      "Tag": "Qorovul musiqasi",
+      "Tag": "Warden music",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -599,7 +599,7 @@
     },
     {
       "Entity": 2000,
-      "Tag": "Tog' vodiysi",
+      "Tag": "Mountain valley",
       "Transform": {
         "Translation": [-60.0, 0.0, -60.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -681,7 +681,7 @@
     },
     {
       "Entity": 2001,
-      "Tag": "Navigatsiya",
+      "Tag": "Navigation",
       "Transform": {
         "Translation": [0.0, 5.0, 2.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -703,7 +703,7 @@
     },
     {
       "Entity": 2100,
-      "Tag": "Devor",
+      "Tag": "Walls",
       "Transform": {
         "Translation": [-8.1, 4.8, 10.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -752,7 +752,7 @@
     },
     {
       "Entity": 2101,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [-12.82, 7.75, 10.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -785,7 +785,7 @@
     },
     {
       "Entity": 2102,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [-10.46, 7.75, 10.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -818,7 +818,7 @@
     },
     {
       "Entity": 2103,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [-8.1, 7.75, 10.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -851,7 +851,7 @@
     },
     {
       "Entity": 2104,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [-5.74, 7.75, 10.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -884,7 +884,7 @@
     },
     {
       "Entity": 2105,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [-3.379999999999999, 7.75, 10.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -917,7 +917,7 @@
     },
     {
       "Entity": 2106,
-      "Tag": "Devor",
+      "Tag": "Walls",
       "Transform": {
         "Translation": [8.1, 4.8, 10.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -966,7 +966,7 @@
     },
     {
       "Entity": 2107,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [3.379999999999999, 7.75, 10.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -999,7 +999,7 @@
     },
     {
       "Entity": 2108,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [5.739999999999999, 7.75, 10.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1032,7 +1032,7 @@
     },
     {
       "Entity": 2109,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [8.1, 7.75, 10.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1065,7 +1065,7 @@
     },
     {
       "Entity": 2110,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [10.459999999999999, 7.75, 10.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1098,7 +1098,7 @@
     },
     {
       "Entity": 2111,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [12.82, 7.75, 10.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1131,7 +1131,7 @@
     },
     {
       "Entity": 2112,
-      "Tag": "Devor",
+      "Tag": "Walls",
       "Transform": {
         "Translation": [-8.1, 4.8, -16.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1180,7 +1180,7 @@
     },
     {
       "Entity": 2113,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [-12.82, 7.75, -16.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1213,7 +1213,7 @@
     },
     {
       "Entity": 2114,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [-10.46, 7.75, -16.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1246,7 +1246,7 @@
     },
     {
       "Entity": 2115,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [-8.1, 7.75, -16.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1279,7 +1279,7 @@
     },
     {
       "Entity": 2116,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [-5.74, 7.75, -16.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1312,7 +1312,7 @@
     },
     {
       "Entity": 2117,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [-3.379999999999999, 7.75, -16.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1345,7 +1345,7 @@
     },
     {
       "Entity": 2118,
-      "Tag": "Devor",
+      "Tag": "Walls",
       "Transform": {
         "Translation": [8.1, 4.8, -16.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1394,7 +1394,7 @@
     },
     {
       "Entity": 2119,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [3.379999999999999, 7.75, -16.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1427,7 +1427,7 @@
     },
     {
       "Entity": 2120,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [5.739999999999999, 7.75, -16.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1460,7 +1460,7 @@
     },
     {
       "Entity": 2121,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [8.1, 7.75, -16.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1493,7 +1493,7 @@
     },
     {
       "Entity": 2122,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [10.459999999999999, 7.75, -16.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1526,7 +1526,7 @@
     },
     {
       "Entity": 2123,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [12.82, 7.75, -16.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1559,7 +1559,7 @@
     },
     {
       "Entity": 2124,
-      "Tag": "Devor",
+      "Tag": "Walls",
       "Transform": {
         "Translation": [-14.0, 4.8, -3.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1608,7 +1608,7 @@
     },
     {
       "Entity": 2125,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [-14.0, 7.75, -15.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1641,7 +1641,7 @@
     },
     {
       "Entity": 2126,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [-14.0, 7.75, -13.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1674,7 +1674,7 @@
     },
     {
       "Entity": 2127,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [-14.0, 7.75, -11.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1707,7 +1707,7 @@
     },
     {
       "Entity": 2128,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [-14.0, 7.75, -9.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1740,7 +1740,7 @@
     },
     {
       "Entity": 2129,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [-14.0, 7.75, -7.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1773,7 +1773,7 @@
     },
     {
       "Entity": 2130,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [-14.0, 7.75, -5.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1806,7 +1806,7 @@
     },
     {
       "Entity": 2131,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [-14.0, 7.75, -3.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1839,7 +1839,7 @@
     },
     {
       "Entity": 2132,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [-14.0, 7.75, -1.0000000000000013],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1872,7 +1872,7 @@
     },
     {
       "Entity": 2133,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [-14.0, 7.75, 1.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1905,7 +1905,7 @@
     },
     {
       "Entity": 2134,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [-14.0, 7.75, 2.999999999999999],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1938,7 +1938,7 @@
     },
     {
       "Entity": 2135,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [-14.0, 7.75, 5.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1971,7 +1971,7 @@
     },
     {
       "Entity": 2136,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [-14.0, 7.75, 7.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -2004,7 +2004,7 @@
     },
     {
       "Entity": 2137,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [-14.0, 7.75, 9.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -2037,7 +2037,7 @@
     },
     {
       "Entity": 2138,
-      "Tag": "Devor",
+      "Tag": "Walls",
       "Transform": {
         "Translation": [14.0, 4.8, -3.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -2086,7 +2086,7 @@
     },
     {
       "Entity": 2139,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [14.0, 7.75, -15.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -2119,7 +2119,7 @@
     },
     {
       "Entity": 2140,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [14.0, 7.75, -13.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -2152,7 +2152,7 @@
     },
     {
       "Entity": 2141,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [14.0, 7.75, -11.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -2185,7 +2185,7 @@
     },
     {
       "Entity": 2142,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [14.0, 7.75, -9.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -2218,7 +2218,7 @@
     },
     {
       "Entity": 2143,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [14.0, 7.75, -7.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -2251,7 +2251,7 @@
     },
     {
       "Entity": 2144,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [14.0, 7.75, -5.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -2284,7 +2284,7 @@
     },
     {
       "Entity": 2145,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [14.0, 7.75, -3.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -2317,7 +2317,7 @@
     },
     {
       "Entity": 2146,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [14.0, 7.75, -1.0000000000000013],
         "Rotation": [0.0, 0.0, 0.0],
@@ -2350,7 +2350,7 @@
     },
     {
       "Entity": 2147,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [14.0, 7.75, 1.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -2383,7 +2383,7 @@
     },
     {
       "Entity": 2148,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [14.0, 7.75, 2.999999999999999],
         "Rotation": [0.0, 0.0, 0.0],
@@ -2416,7 +2416,7 @@
     },
     {
       "Entity": 2149,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [14.0, 7.75, 5.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -2449,7 +2449,7 @@
     },
     {
       "Entity": 2150,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [14.0, 7.75, 7.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -2482,7 +2482,7 @@
     },
     {
       "Entity": 2151,
-      "Tag": "Tishli devor",
+      "Tag": "Crenellated wall",
       "Transform": {
         "Translation": [14.0, 7.75, 9.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -2564,7 +2564,7 @@
     },
     {
       "Entity": 2153,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [-12.5, 9.9, -16.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -2597,7 +2597,7 @@
     },
     {
       "Entity": 2154,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [-12.939339828220179, 9.9, -14.939339828220179],
         "Rotation": [0.0, 0.0, 0.0],
@@ -2630,7 +2630,7 @@
     },
     {
       "Entity": 2155,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [-14.0, 9.9, -14.5],
         "Rotation": [0.0, 0.0, 0.0],
@@ -2663,7 +2663,7 @@
     },
     {
       "Entity": 2156,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [-15.060660171779821, 9.9, -14.939339828220179],
         "Rotation": [0.0, 0.0, 0.0],
@@ -2696,7 +2696,7 @@
     },
     {
       "Entity": 2157,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [-15.5, 9.9, -16.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -2729,7 +2729,7 @@
     },
     {
       "Entity": 2158,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [-15.060660171779821, 9.9, -17.060660171779823],
         "Rotation": [0.0, 0.0, 0.0],
@@ -2762,7 +2762,7 @@
     },
     {
       "Entity": 2159,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [-14.0, 9.9, -17.5],
         "Rotation": [0.0, 0.0, 0.0],
@@ -2795,7 +2795,7 @@
     },
     {
       "Entity": 2160,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [-12.939339828220179, 9.9, -17.060660171779823],
         "Rotation": [0.0, 0.0, 0.0],
@@ -2877,7 +2877,7 @@
     },
     {
       "Entity": 2162,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [-12.5, 9.9, 10.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -2910,7 +2910,7 @@
     },
     {
       "Entity": 2163,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [-12.939339828220179, 9.9, 11.060660171779821],
         "Rotation": [0.0, 0.0, 0.0],
@@ -2943,7 +2943,7 @@
     },
     {
       "Entity": 2164,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [-14.0, 9.9, 11.5],
         "Rotation": [0.0, 0.0, 0.0],
@@ -2976,7 +2976,7 @@
     },
     {
       "Entity": 2165,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [-15.060660171779821, 9.9, 11.060660171779821],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3009,7 +3009,7 @@
     },
     {
       "Entity": 2166,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [-15.5, 9.9, 10.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3042,7 +3042,7 @@
     },
     {
       "Entity": 2167,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [-15.060660171779821, 9.9, 8.939339828220179],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3075,7 +3075,7 @@
     },
     {
       "Entity": 2168,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [-14.0, 9.9, 8.5],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3108,7 +3108,7 @@
     },
     {
       "Entity": 2169,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [-12.939339828220179, 9.9, 8.939339828220179],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3190,7 +3190,7 @@
     },
     {
       "Entity": 2171,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [15.5, 9.9, -16.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3223,7 +3223,7 @@
     },
     {
       "Entity": 2172,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [15.060660171779821, 9.9, -14.939339828220179],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3256,7 +3256,7 @@
     },
     {
       "Entity": 2173,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [14.0, 9.9, -14.5],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3289,7 +3289,7 @@
     },
     {
       "Entity": 2174,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [12.939339828220179, 9.9, -14.939339828220179],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3322,7 +3322,7 @@
     },
     {
       "Entity": 2175,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [12.5, 9.9, -16.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3355,7 +3355,7 @@
     },
     {
       "Entity": 2176,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [12.939339828220179, 9.9, -17.060660171779823],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3388,7 +3388,7 @@
     },
     {
       "Entity": 2177,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [14.0, 9.9, -17.5],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3421,7 +3421,7 @@
     },
     {
       "Entity": 2178,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [15.060660171779821, 9.9, -17.060660171779823],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3503,7 +3503,7 @@
     },
     {
       "Entity": 2180,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [15.5, 9.9, 10.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3536,7 +3536,7 @@
     },
     {
       "Entity": 2181,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [15.060660171779821, 9.9, 11.060660171779821],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3569,7 +3569,7 @@
     },
     {
       "Entity": 2182,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [14.0, 9.9, 11.5],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3602,7 +3602,7 @@
     },
     {
       "Entity": 2183,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [12.939339828220179, 9.9, 11.060660171779821],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3635,7 +3635,7 @@
     },
     {
       "Entity": 2184,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [12.5, 9.9, 10.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3668,7 +3668,7 @@
     },
     {
       "Entity": 2185,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [12.939339828220179, 9.9, 8.939339828220179],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3701,7 +3701,7 @@
     },
     {
       "Entity": 2186,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [14.0, 9.9, 8.5],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3734,7 +3734,7 @@
     },
     {
       "Entity": 2187,
-      "Tag": "Burj tishi",
+      "Tag": "Bastion merlon",
       "Transform": {
         "Translation": [15.060660171779821, 9.9, 8.939339828220179],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3767,7 +3767,7 @@
     },
     {
       "Entity": 2188,
-      "Tag": "Darvoza minorasi",
+      "Tag": "Gate tower",
       "Transform": {
         "Translation": [-3.4, 6.1, 10.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3816,7 +3816,7 @@
     },
     {
       "Entity": 2189,
-      "Tag": "Minora tishi",
+      "Tag": "Tower merlon",
       "Transform": {
         "Translation": [-4.3, 10.1, 9.1],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3849,7 +3849,7 @@
     },
     {
       "Entity": 2190,
-      "Tag": "Minora tishi",
+      "Tag": "Tower merlon",
       "Transform": {
         "Translation": [-2.5, 10.1, 9.1],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3882,7 +3882,7 @@
     },
     {
       "Entity": 2191,
-      "Tag": "Minora tishi",
+      "Tag": "Tower merlon",
       "Transform": {
         "Translation": [-4.3, 10.1, 10.9],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3915,7 +3915,7 @@
     },
     {
       "Entity": 2192,
-      "Tag": "Minora tishi",
+      "Tag": "Tower merlon",
       "Transform": {
         "Translation": [-2.5, 10.1, 10.9],
         "Rotation": [0.0, 0.0, 0.0],
@@ -4015,7 +4015,7 @@
     },
     {
       "Entity": 2195,
-      "Tag": "Olov",
+      "Tag": "Fire",
       "Transform": {
         "Translation": [0.0, 1.05, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -4055,7 +4055,7 @@
     },
     {
       "Entity": 2196,
-      "Tag": "Chiroq",
+      "Tag": "Light",
       "Transform": {
         "Translation": [0.0, 1.5, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -4070,7 +4070,7 @@
     },
     {
       "Entity": 2197,
-      "Tag": "Darvoza minorasi",
+      "Tag": "Gate tower",
       "Transform": {
         "Translation": [3.4, 6.1, 10.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -4119,7 +4119,7 @@
     },
     {
       "Entity": 2198,
-      "Tag": "Minora tishi",
+      "Tag": "Tower merlon",
       "Transform": {
         "Translation": [2.5, 10.1, 9.1],
         "Rotation": [0.0, 0.0, 0.0],
@@ -4152,7 +4152,7 @@
     },
     {
       "Entity": 2199,
-      "Tag": "Minora tishi",
+      "Tag": "Tower merlon",
       "Transform": {
         "Translation": [4.3, 10.1, 9.1],
         "Rotation": [0.0, 0.0, 0.0],
@@ -4185,7 +4185,7 @@
     },
     {
       "Entity": 2200,
-      "Tag": "Minora tishi",
+      "Tag": "Tower merlon",
       "Transform": {
         "Translation": [2.5, 10.1, 10.9],
         "Rotation": [0.0, 0.0, 0.0],
@@ -4218,7 +4218,7 @@
     },
     {
       "Entity": 2201,
-      "Tag": "Minora tishi",
+      "Tag": "Tower merlon",
       "Transform": {
         "Translation": [4.3, 10.1, 10.9],
         "Rotation": [0.0, 0.0, 0.0],
@@ -4318,7 +4318,7 @@
     },
     {
       "Entity": 2204,
-      "Tag": "Olov",
+      "Tag": "Fire",
       "Transform": {
         "Translation": [0.0, 1.05, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -4358,7 +4358,7 @@
     },
     {
       "Entity": 2205,
-      "Tag": "Chiroq",
+      "Tag": "Light",
       "Transform": {
         "Translation": [0.0, 1.5, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -4422,7 +4422,7 @@
     },
     {
       "Entity": 2207,
-      "Tag": "Ravoq bezagi",
+      "Tag": "Arch ornament",
       "Transform": {
         "Translation": [0.0, 6.55, 10.72],
         "Rotation": [0.0, 0.0, 0.0],
@@ -4504,7 +4504,7 @@
     },
     {
       "Entity": 2209,
-      "Tag": "Ustun",
+      "Tag": "Pillar",
       "Transform": {
         "Translation": [7.6, 4.5, -13.4],
         "Rotation": [0.0, 0.0, 0.0],
@@ -4553,7 +4553,7 @@
     },
     {
       "Entity": 2210,
-      "Tag": "Ustun",
+      "Tag": "Pillar",
       "Transform": {
         "Translation": [7.6, 4.5, -8.1],
         "Rotation": [0.0, 0.0, 0.0],
@@ -4602,7 +4602,7 @@
     },
     {
       "Entity": 2211,
-      "Tag": "Ustun",
+      "Tag": "Pillar",
       "Transform": {
         "Translation": [7.6, 4.5, -2.8],
         "Rotation": [0.0, 0.0, 0.0],
@@ -4651,7 +4651,7 @@
     },
     {
       "Entity": 2212,
-      "Tag": "Ustun",
+      "Tag": "Pillar",
       "Transform": {
         "Translation": [13.4, 4.5, -13.4],
         "Rotation": [0.0, 0.0, 0.0],
@@ -4700,7 +4700,7 @@
     },
     {
       "Entity": 2213,
-      "Tag": "Ustun",
+      "Tag": "Pillar",
       "Transform": {
         "Translation": [13.4, 4.5, -8.1],
         "Rotation": [0.0, 0.0, 0.0],
@@ -4749,7 +4749,7 @@
     },
     {
       "Entity": 2214,
-      "Tag": "Ustun",
+      "Tag": "Pillar",
       "Transform": {
         "Translation": [13.4, 4.5, -2.8],
         "Rotation": [0.0, 0.0, 0.0],
@@ -4798,7 +4798,7 @@
     },
     {
       "Entity": 2215,
-      "Tag": "Otxona tomi",
+      "Tag": "Stable roof",
       "Transform": {
         "Translation": [10.5, 6.15, -8.1],
         "Rotation": [0.0, 0.0, -0.10471975511965978],
@@ -4864,7 +4864,7 @@
     },
     {
       "Entity": 2217,
-      "Tag": "Soyabon ustuni",
+      "Tag": "Awning post",
       "Transform": {
         "Translation": [-9.799999999999999, 4.1, 1.9],
         "Rotation": [0.0, 0.0, 0.0],
@@ -4897,7 +4897,7 @@
     },
     {
       "Entity": 2218,
-      "Tag": "Soyabon ustuni",
+      "Tag": "Awning post",
       "Transform": {
         "Translation": [-9.799999999999999, 4.1, 5.1],
         "Rotation": [0.0, 0.0, 0.0],
@@ -4963,7 +4963,7 @@
     },
     {
       "Entity": 2220,
-      "Tag": "Soyabon ustuni",
+      "Tag": "Awning post",
       "Transform": {
         "Translation": [-9.799999999999999, 4.1, -10.1],
         "Rotation": [0.0, 0.0, 0.0],
@@ -4996,7 +4996,7 @@
     },
     {
       "Entity": 2221,
-      "Tag": "Soyabon ustuni",
+      "Tag": "Awning post",
       "Transform": {
         "Translation": [-9.799999999999999, 4.1, -6.9],
         "Rotation": [0.0, 0.0, 0.0],
@@ -5447,7 +5447,7 @@
     },
     {
       "Entity": 2231,
-      "Tag": "Olov",
+      "Tag": "Fire",
       "Transform": {
         "Translation": [0.0, 1.05, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -5487,7 +5487,7 @@
     },
     {
       "Entity": 2232,
-      "Tag": "Chiroq",
+      "Tag": "Light",
       "Transform": {
         "Translation": [0.0, 1.5, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -5536,7 +5536,7 @@
     },
     {
       "Entity": 2234,
-      "Tag": "Olov",
+      "Tag": "Fire",
       "Transform": {
         "Translation": [0.0, 1.05, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -5576,7 +5576,7 @@
     },
     {
       "Entity": 2235,
-      "Tag": "Chiroq",
+      "Tag": "Light",
       "Transform": {
         "Translation": [0.0, 1.5, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -5625,7 +5625,7 @@
     },
     {
       "Entity": 2237,
-      "Tag": "Olov",
+      "Tag": "Fire",
       "Transform": {
         "Translation": [0.0, 1.05, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -5665,7 +5665,7 @@
     },
     {
       "Entity": 2238,
-      "Tag": "Chiroq",
+      "Tag": "Light",
       "Transform": {
         "Translation": [0.0, 1.5, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -5714,7 +5714,7 @@
     },
     {
       "Entity": 2240,
-      "Tag": "Olov",
+      "Tag": "Fire",
       "Transform": {
         "Translation": [0.0, 1.05, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -5754,7 +5754,7 @@
     },
     {
       "Entity": 2241,
-      "Tag": "Chiroq",
+      "Tag": "Light",
       "Transform": {
         "Translation": [0.0, 1.5, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -5769,7 +5769,7 @@
     },
     {
       "Entity": 2242,
-      "Tag": "Gulxan",
+      "Tag": "Campfire",
       "Transform": {
         "Translation": [-3.5, 0.0, 37.5],
         "Rotation": [0.0, 0.0, 0.0],
@@ -5803,7 +5803,7 @@
     },
     {
       "Entity": 2243,
-      "Tag": "Olov",
+      "Tag": "Fire",
       "Transform": {
         "Translation": [0.0, 0.4, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -5883,7 +5883,7 @@
     },
     {
       "Entity": 2245,
-      "Tag": "Chiroq",
+      "Tag": "Light",
       "Transform": {
         "Translation": [0.0, 1.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -5898,7 +5898,7 @@
     },
     {
       "Entity": 2246,
-      "Tag": "Tosh",
+      "Tag": "Rock",
       "Transform": {
         "Translation": [-2.75, 0.0, 37.5],
         "Rotation": [0.0, 0.0, 0.0],
@@ -5931,7 +5931,7 @@
     },
     {
       "Entity": 2247,
-      "Tag": "Tosh",
+      "Tag": "Rock",
       "Transform": {
         "Translation": [-3.03238264860595, 0.0, 38.08637361185102],
         "Rotation": [0.0, 0.0, 0.0],
@@ -5964,7 +5964,7 @@
     },
     {
       "Entity": 2248,
-      "Tag": "Tosh",
+      "Tag": "Rock",
       "Transform": {
         "Translation": [-3.6668907004672358, 0.0, 38.231195934136366],
         "Rotation": [0.0, 0.0, 0.0],
@@ -5997,7 +5997,7 @@
     },
     {
       "Entity": 2249,
-      "Tag": "Tosh",
+      "Tag": "Rock",
       "Transform": {
         "Translation": [-4.175726650926814, 0.0, 37.82541280433817],
         "Rotation": [0.0, 0.0, 0.0],
@@ -6030,7 +6030,7 @@
     },
     {
       "Entity": 2250,
-      "Tag": "Tosh",
+      "Tag": "Rock",
       "Transform": {
         "Translation": [-4.175726650926815, 0.0, 37.17458719566183],
         "Rotation": [0.0, 0.0, 0.0],
@@ -6063,7 +6063,7 @@
     },
     {
       "Entity": 2251,
-      "Tag": "Tosh",
+      "Tag": "Rock",
       "Transform": {
         "Translation": [-3.6668907004672358, 0.0, 36.768804065863634],
         "Rotation": [0.0, 0.0, 0.0],
@@ -6096,7 +6096,7 @@
     },
     {
       "Entity": 2252,
-      "Tag": "Tosh",
+      "Tag": "Rock",
       "Transform": {
         "Translation": [-3.03238264860595, 0.0, 36.91362638814898],
         "Rotation": [0.0, 0.0, 0.0],
@@ -6129,7 +6129,7 @@
     },
     {
       "Entity": 2253,
-      "Tag": "Chodir",
+      "Tag": "Tent",
       "Transform": {
         "Translation": [-9.0, 0.0, 43.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -6178,7 +6178,7 @@
     },
     {
       "Entity": 2254,
-      "Tag": "Chodir",
+      "Tag": "Tent",
       "Transform": {
         "Translation": [8.5, 0.0, 45.5],
         "Rotation": [0.0, 0.0, 0.0],
@@ -6326,7 +6326,7 @@
     },
     {
       "Entity": 2258,
-      "Tag": "Qoya supasi",
+      "Tag": "Rock ledge",
       "Transform": {
         "Translation": [10.5, 0.09999999999999998, 29.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -6474,7 +6474,7 @@
     },
     {
       "Entity": 2262,
-      "Tag": "Mash'al supasi",
+      "Tag": "Beacon platform",
       "Transform": {
         "Translation": [0.0, 7.0, -42.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -6523,7 +6523,7 @@
     },
     {
       "Entity": 2263,
-      "Tag": "Supa tishi",
+      "Tag": "Platform merlon",
       "Transform": {
         "Translation": [2.6, 9.35, -42.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -6556,7 +6556,7 @@
     },
     {
       "Entity": 2264,
-      "Tag": "Supa tishi",
+      "Tag": "Platform merlon",
       "Transform": {
         "Translation": [1.5920408388915593e-16, 9.35, -39.4],
         "Rotation": [0.0, 0.0, 0.0],
@@ -6589,7 +6589,7 @@
     },
     {
       "Entity": 2265,
-      "Tag": "Supa tishi",
+      "Tag": "Platform merlon",
       "Transform": {
         "Translation": [-2.6, 9.35, -42.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -6622,7 +6622,7 @@
     },
     {
       "Entity": 2266,
-      "Tag": "Supa tishi",
+      "Tag": "Platform merlon",
       "Transform": {
         "Translation": [-4.776122516674677e-16, 9.35, -44.6],
         "Rotation": [0.0, 0.0, 0.0],
@@ -7051,7 +7051,7 @@
     },
     {
       "Entity": 2279,
-      "Tag": "Zina rampasi",
+      "Tag": "Stair ramp",
       "Transform": {
         "Translation": [0.0, 7.38, -36.8],
         "Rotation": [0.5984188934785374, 0.0, 0.0],
@@ -7076,7 +7076,7 @@
     },
     {
       "Entity": 2280,
-      "Tag": "Zina yoni",
+      "Tag": "Stair side",
       "Transform": {
         "Translation": [-1.42, 7.4, -36.8],
         "Rotation": [0.0, 0.0, 0.0],
@@ -7125,7 +7125,7 @@
     },
     {
       "Entity": 2281,
-      "Tag": "Zina yoni",
+      "Tag": "Stair side",
       "Transform": {
         "Translation": [1.42, 7.4, -36.8],
         "Rotation": [0.0, 0.0, 0.0],
@@ -7174,7 +7174,7 @@
     },
     {
       "Entity": 2282,
-      "Tag": "Kuzatuv minorasi",
+      "Tag": "Watchtower",
       "Transform": {
         "Translation": [10.5, 13.0, -43.5],
         "Rotation": [0.0, 0.0, 0.0],
@@ -7223,7 +7223,7 @@
     },
     {
       "Entity": 2283,
-      "Tag": "Minora ayvoni",
+      "Tag": "Tower gallery",
       "Transform": {
         "Translation": [10.5, 20.2, -43.5],
         "Rotation": [0.0, 0.0, 0.0],
@@ -7256,7 +7256,7 @@
     },
     {
       "Entity": 2284,
-      "Tag": "Ayvon ustuni",
+      "Tag": "Gallery post",
       "Transform": {
         "Translation": [12.8, 21.3, -43.5],
         "Rotation": [0.0, 0.0, 0.0],
@@ -7289,7 +7289,7 @@
     },
     {
       "Entity": 2285,
-      "Tag": "Ayvon ustuni",
+      "Tag": "Gallery post",
       "Transform": {
         "Translation": [11.65, 21.3, -41.508141571295795],
         "Rotation": [0.0, 0.0, 0.0],
@@ -7322,7 +7322,7 @@
     },
     {
       "Entity": 2286,
-      "Tag": "Ayvon ustuni",
+      "Tag": "Gallery post",
       "Transform": {
         "Translation": [9.350000000000001, 21.3, -41.50814157129579],
         "Rotation": [0.0, 0.0, 0.0],
@@ -7355,7 +7355,7 @@
     },
     {
       "Entity": 2287,
-      "Tag": "Ayvon ustuni",
+      "Tag": "Gallery post",
       "Transform": {
         "Translation": [8.2, 21.3, -43.5],
         "Rotation": [0.0, 0.0, 0.0],
@@ -7388,7 +7388,7 @@
     },
     {
       "Entity": 2288,
-      "Tag": "Ayvon ustuni",
+      "Tag": "Gallery post",
       "Transform": {
         "Translation": [9.35, 21.3, -45.491858428704205],
         "Rotation": [0.0, 0.0, 0.0],
@@ -7421,7 +7421,7 @@
     },
     {
       "Entity": 2289,
-      "Tag": "Ayvon ustuni",
+      "Tag": "Gallery post",
       "Transform": {
         "Translation": [11.65, 21.3, -45.491858428704205],
         "Rotation": [0.0, 0.0, 0.0],
@@ -7454,7 +7454,7 @@
     },
     {
       "Entity": 2290,
-      "Tag": "Minora tomi",
+      "Tag": "Tower roof",
       "Transform": {
         "Translation": [10.5, 23.3, -43.5],
         "Rotation": [0.0, 0.0, 0.0],
@@ -7487,7 +7487,7 @@
     },
     {
       "Entity": 2291,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [-13.0, -0.1, 30.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -7520,7 +7520,7 @@
     },
     {
       "Entity": 2292,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [14.5, -0.1, 36.0],
         "Rotation": [0.0, 1.7, 0.0],
@@ -7553,7 +7553,7 @@
     },
     {
       "Entity": 2293,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [-16.0, -0.1, 47.0],
         "Rotation": [0.0, 3.4, 0.0],
@@ -7586,7 +7586,7 @@
     },
     {
       "Entity": 2294,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [16.0, 1.7192419825072882, 22.0],
         "Rotation": [0.0, 5.1, 0.0],
@@ -7619,7 +7619,7 @@
     },
     {
       "Entity": 2295,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [-17.0, 2.7338192419825074, 18.0],
         "Rotation": [0.0, 6.8, 0.0],
@@ -7652,7 +7652,7 @@
     },
     {
       "Entity": 2296,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [17.5, 5.039818671030462, -22.0],
         "Rotation": [0.0, 8.5, 0.0],
@@ -7685,7 +7685,7 @@
     },
     {
       "Entity": 2297,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [-16.5, 5.122222222222223, -24.0],
         "Rotation": [0.0, 10.2, 0.0],
@@ -7718,7 +7718,7 @@
     },
     {
       "Entity": 2298,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [-14.5, 5.9, -35.0],
         "Rotation": [0.0, 11.9, 0.0],
@@ -7751,7 +7751,7 @@
     },
     {
       "Entity": 2299,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [15.0, 5.9, -44.0],
         "Rotation": [0.0, 13.6, 0.0],
@@ -8642,7 +8642,7 @@
     },
     {
       "Entity": 2326,
-      "Tag": "Qorli cho'qqi",
+      "Tag": "Snowy peak",
       "Transform": {
         "Translation": [143.3004733688409, -6.0, 34.328030999200934],
         "Rotation": [0.0, 0.3, 0.0],
@@ -8675,7 +8675,7 @@
     },
     {
       "Entity": 2327,
-      "Tag": "Qorli cho'qqi",
+      "Tag": "Snowy peak",
       "Transform": {
         "Translation": [112.68423432269844, -6.0, 123.89273070300416],
         "Rotation": [0.0, 0.8711986642890532, 0.0],
@@ -8708,7 +8708,7 @@
     },
     {
       "Entity": 2328,
-      "Tag": "Qorli cho'qqi",
+      "Tag": "Snowy peak",
       "Transform": {
         "Translation": [25.609296959671234, -6.0, 188.35363346616916],
         "Rotation": [0.0, 1.4423973285781067, 0.0],
@@ -8741,7 +8741,7 @@
     },
     {
       "Entity": 2329,
-      "Tag": "Qorli cho'qqi",
+      "Tag": "Snowy peak",
       "Transform": {
         "Translation": [-64.2706192513435, -6.0, 125.53334460954187],
         "Rotation": [0.0, 2.0135959928671596, 0.0],
@@ -8774,7 +8774,7 @@
     },
     {
       "Entity": 2330,
-      "Tag": "Qorli cho'qqi",
+      "Tag": "Snowy peak",
       "Transform": {
         "Translation": [-148.56653434540678, -6.0, 82.48234897857571],
         "Rotation": [0.0, 2.584794657156213, 0.0],
@@ -8807,7 +8807,7 @@
     },
     {
       "Entity": 2331,
-      "Tag": "Qorli cho'qqi",
+      "Tag": "Snowy peak",
       "Transform": {
         "Translation": [-199.97926243491372, -6.0, -12.88003402547754],
         "Rotation": [0.0, 3.1559933214452665, 0.0],
@@ -8840,7 +8840,7 @@
     },
     {
       "Entity": 2332,
-      "Tag": "Qorli cho'qqi",
+      "Tag": "Snowy peak",
       "Transform": {
         "Translation": [-125.00714779988326, -6.0, -92.90484303668961],
         "Rotation": [0.0, 3.7271919857343194, 0.0],
@@ -8873,7 +8873,7 @@
     },
     {
       "Entity": 2333,
-      "Tag": "Qorli cho'qqi",
+      "Tag": "Snowy peak",
       "Transform": {
         "Translation": [-70.39778970632035, -6.0, -170.2159517790432],
         "Rotation": [0.0, 4.298390650023373, 0.0],
@@ -8906,7 +8906,7 @@
     },
     {
       "Entity": 2334,
-      "Tag": "Qorli cho'qqi",
+      "Tag": "Snowy peak",
       "Transform": {
         "Translation": [31.310735823199888, -6.0, -207.53389031305434],
         "Rotation": [0.0, 4.869589314312426, 0.0],
@@ -8939,7 +8939,7 @@
     },
     {
       "Entity": 2335,
-      "Tag": "Qorli cho'qqi",
+      "Tag": "Snowy peak",
       "Transform": {
         "Translation": [99.85136329563355, -6.0, -121.93616595186475],
         "Rotation": [0.0, 5.440787978601479, 0.0],
@@ -8972,7 +8972,7 @@
     },
     {
       "Entity": 2336,
-      "Tag": "Qorli cho'qqi",
+      "Tag": "Snowy peak",
       "Transform": {
         "Translation": [168.60383445911023, -6.0, -56.880134446105735],
         "Rotation": [0.0, 6.011986642890533, 0.0],
@@ -9005,7 +9005,7 @@
     },
     {
       "Entity": 2900,
-      "Tag": "Qarag'ayzor",
+      "Tag": "Pine forest",
       "Transform": {
         "Translation": [-60.0, 0.0, -60.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -9354,7 +9354,7 @@
           },
           "Overrides": {
             "Type": "String",
-            "Value": "{\"Ability\":\"\",\"Armor\":10,\"Boss\":false,\"Cooldown\":1.5,\"Damage\":9,\"Enter\":1.7,\"Exit\":2.2,\"FOV\":140,\"HP\":50,\"Key\":\"Dovon-Guard-01\",\"Kind\":\"guard\",\"Leash\":12,\"Lose\":10,\"Patrol\":[[0,0,0],[5,0,0]],\"Ranged\":false,\"Reach\":2.3,\"Ring\":0,\"Speed\":2.6,\"View\":8}"
+            "Value": "{\"Ability\":\"\",\"Armor\":10,\"Boss\":false,\"Cooldown\":1.5,\"Damage\":9,\"Enter\":1.7,\"Exit\":2.2,\"FOV\":140,\"HP\":50,\"Key\":\"Pass-Guard-01\",\"Kind\":\"guard\",\"Leash\":12,\"Lose\":10,\"Patrol\":[[0,0,0],[5,0,0]],\"Ranged\":false,\"Reach\":2.3,\"Ring\":0,\"Speed\":2.6,\"View\":8}"
           }
         }
       },
@@ -9741,7 +9741,7 @@
           },
           "Overrides": {
             "Type": "String",
-            "Value": "{\"Ability\":\"\",\"Armor\":10,\"Boss\":false,\"Cooldown\":1.5,\"Damage\":9,\"Enter\":1.7,\"Exit\":2.2,\"FOV\":140,\"HP\":50,\"Key\":\"Dovon-Guard-02\",\"Kind\":\"guard\",\"Leash\":12,\"Lose\":10,\"Patrol\":[],\"Ranged\":false,\"Reach\":2.3,\"Ring\":0,\"Speed\":2.6,\"View\":8}"
+            "Value": "{\"Ability\":\"\",\"Armor\":10,\"Boss\":false,\"Cooldown\":1.5,\"Damage\":9,\"Enter\":1.7,\"Exit\":2.2,\"FOV\":140,\"HP\":50,\"Key\":\"Pass-Guard-02\",\"Kind\":\"guard\",\"Leash\":12,\"Lose\":10,\"Patrol\":[],\"Ranged\":false,\"Reach\":2.3,\"Ring\":0,\"Speed\":2.6,\"View\":8}"
           }
         }
       },
@@ -10128,7 +10128,7 @@
           },
           "Overrides": {
             "Type": "String",
-            "Value": "{\"Ability\":\"\",\"Armor\":10,\"Boss\":false,\"Cooldown\":1.5,\"Damage\":9,\"Enter\":1.7,\"Exit\":2.2,\"FOV\":140,\"HP\":50,\"Key\":\"Dovon-Guard-03\",\"Kind\":\"guard\",\"Leash\":12,\"Lose\":10,\"Patrol\":[[0,0,0],[0,0,-6]],\"Ranged\":false,\"Reach\":2.3,\"Ring\":0,\"Speed\":2.6,\"View\":8}"
+            "Value": "{\"Ability\":\"\",\"Armor\":10,\"Boss\":false,\"Cooldown\":1.5,\"Damage\":9,\"Enter\":1.7,\"Exit\":2.2,\"FOV\":140,\"HP\":50,\"Key\":\"Pass-Guard-03\",\"Kind\":\"guard\",\"Leash\":12,\"Lose\":10,\"Patrol\":[[0,0,0],[0,0,-6]],\"Ranged\":false,\"Reach\":2.3,\"Ring\":0,\"Speed\":2.6,\"View\":8}"
           }
         }
       },
@@ -10515,7 +10515,7 @@
           },
           "Overrides": {
             "Type": "String",
-            "Value": "{\"Ability\":\"Arrow\",\"Armor\":0,\"Boss\":false,\"Cooldown\":2.2,\"Damage\":8,\"Enter\":9,\"Exit\":11,\"FOV\":200,\"HP\":32,\"Key\":\"Dovon-Archer-01\",\"Kind\":\"archer\",\"Leash\":14,\"Lose\":14,\"Patrol\":[],\"Ranged\":true,\"Reach\":0,\"Ring\":0,\"Speed\":1.2,\"View\":12}"
+            "Value": "{\"Ability\":\"Arrow\",\"Armor\":0,\"Boss\":false,\"Cooldown\":2.2,\"Damage\":8,\"Enter\":9,\"Exit\":11,\"FOV\":200,\"HP\":32,\"Key\":\"Pass-Archer-01\",\"Kind\":\"archer\",\"Leash\":14,\"Lose\":14,\"Patrol\":[],\"Ranged\":true,\"Reach\":0,\"Ring\":0,\"Speed\":1.2,\"View\":12}"
           }
         }
       },
@@ -10902,7 +10902,7 @@
           },
           "Overrides": {
             "Type": "String",
-            "Value": "{\"Ability\":\"\",\"Armor\":10,\"Boss\":false,\"Cooldown\":1.5,\"Damage\":9,\"Enter\":1.7,\"Exit\":2.2,\"FOV\":140,\"HP\":50,\"Key\":\"Dovon-Guard-04\",\"Kind\":\"guard\",\"Leash\":12,\"Lose\":10,\"Patrol\":[[0,0,0],[0,0,4]],\"Ranged\":false,\"Reach\":2.3,\"Ring\":0,\"Speed\":2.6,\"View\":8}"
+            "Value": "{\"Ability\":\"\",\"Armor\":10,\"Boss\":false,\"Cooldown\":1.5,\"Damage\":9,\"Enter\":1.7,\"Exit\":2.2,\"FOV\":140,\"HP\":50,\"Key\":\"Pass-Guard-04\",\"Kind\":\"guard\",\"Leash\":12,\"Lose\":10,\"Patrol\":[[0,0,0],[0,0,4]],\"Ranged\":false,\"Reach\":2.3,\"Ring\":0,\"Speed\":2.6,\"View\":8}"
           }
         }
       },
@@ -11289,7 +11289,7 @@
           },
           "Overrides": {
             "Type": "String",
-            "Value": "{\"Ability\":\"Arrow\",\"Armor\":0,\"Boss\":false,\"Cooldown\":2.2,\"Damage\":8,\"Enter\":9,\"Exit\":11,\"FOV\":200,\"HP\":32,\"Key\":\"Dovon-Archer-02\",\"Kind\":\"archer\",\"Leash\":14,\"Lose\":14,\"Patrol\":[],\"Ranged\":true,\"Reach\":0,\"Ring\":0,\"Speed\":1.2,\"View\":12}"
+            "Value": "{\"Ability\":\"Arrow\",\"Armor\":0,\"Boss\":false,\"Cooldown\":2.2,\"Damage\":8,\"Enter\":9,\"Exit\":11,\"FOV\":200,\"HP\":32,\"Key\":\"Pass-Archer-02\",\"Kind\":\"archer\",\"Leash\":14,\"Lose\":14,\"Patrol\":[],\"Ranged\":true,\"Reach\":0,\"Ring\":0,\"Speed\":1.2,\"View\":12}"
           }
         }
       },
@@ -11349,7 +11349,7 @@
     },
     {
       "Entity": 5060,
-      "Tag": "Qora qorovul",
+      "Tag": "The Black Warden",
       "Transform": {
         "Translation": [2.5, 6.0, -32.5],
         "Rotation": [0.0, 3.141592653589793, 0.0],
@@ -11676,7 +11676,7 @@
           },
           "Overrides": {
             "Type": "String",
-            "Value": "{\"Ability\":\"\",\"Armor\":25,\"Boss\":true,\"Cooldown\":1.6,\"Damage\":16,\"Enter\":2.0,\"Exit\":2.6,\"FOV\":200,\"HP\":280,\"Key\":\"Dovon-Warden\",\"Kind\":\"warden\",\"Leash\":9.5,\"Lose\":9.5,\"Patrol\":[],\"Ranged\":false,\"Reach\":2.8,\"Ring\":5063,\"Speed\":2.4,\"View\":7.5}"
+            "Value": "{\"Ability\":\"\",\"Armor\":25,\"Boss\":true,\"Cooldown\":1.6,\"Damage\":16,\"Enter\":2.0,\"Exit\":2.6,\"FOV\":200,\"HP\":280,\"Key\":\"Pass-Warden\",\"Kind\":\"warden\",\"Leash\":9.5,\"Lose\":9.5,\"Patrol\":[],\"Ranged\":false,\"Reach\":2.8,\"Ring\":5063,\"Speed\":2.4,\"View\":7.5}"
           }
         }
       },
@@ -11736,7 +11736,7 @@
     },
     {
       "Entity": 5062,
-      "Tag": "Chiroq",
+      "Tag": "Light",
       "Transform": {
         "Translation": [0.0, 2.6, -0.4],
         "Rotation": [0.0, 0.0, 0.0],
@@ -11751,7 +11751,7 @@
     },
     {
       "Entity": 5063,
-      "Tag": "Zarba halqasi",
+      "Tag": "Strike ring",
       "Transform": {
         "Translation": [0.0, 0.08, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -11821,7 +11821,7 @@
     },
     {
       "Entity": 5501,
-      "Tag": "Chiroq",
+      "Tag": "Light",
       "Transform": {
         "Translation": [0.0, 0.2, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -11911,7 +11911,7 @@
     },
     {
       "Entity": 5505,
-      "Tag": "Chiroq",
+      "Tag": "Light",
       "Transform": {
         "Translation": [0.0, 0.2, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -12001,7 +12001,7 @@
     },
     {
       "Entity": 5509,
-      "Tag": "Chiroq",
+      "Tag": "Light",
       "Transform": {
         "Translation": [0.0, 0.2, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -12325,7 +12325,7 @@
     },
     {
       "Entity": 5613,
-      "Tag": "Chiroq",
+      "Tag": "Light",
       "Transform": {
         "Translation": [0.0, 1.8, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -12391,7 +12391,7 @@
     },
     {
       "Entity": 5617,
-      "Tag": "Chiroq",
+      "Tag": "Light",
       "Transform": {
         "Translation": [0.0, 1.8, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -12457,7 +12457,7 @@
     },
     {
       "Entity": 5621,
-      "Tag": "Chiroq",
+      "Tag": "Light",
       "Transform": {
         "Translation": [0.0, 1.8, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -12559,7 +12559,7 @@
     },
     {
       "Entity": 6010,
-      "Tag": "Holat",
+      "Tag": "Status",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -12589,7 +12589,7 @@
     },
     {
       "Entity": 6011,
-      "Tag": "Daraja nishoni",
+      "Tag": "Level badge",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -12618,7 +12618,7 @@
     },
     {
       "Entity": 6012,
-      "Tag": "Daraja",
+      "Tag": "Level",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -12646,7 +12646,7 @@
     },
     {
       "Entity": 6013,
-      "Tag": "Tajriba",
+      "Tag": "Experience",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -12677,7 +12677,7 @@
     },
     {
       "Entity": 6014,
-      "Tag": "Sog'liq",
+      "Tag": "Health",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -12717,7 +12717,7 @@
     },
     {
       "Entity": 6015,
-      "Tag": "Energiya",
+      "Tag": "Energy",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -12757,7 +12757,7 @@
     },
     {
       "Entity": 6016,
-      "Tag": "Nom",
+      "Tag": "Name",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -12774,7 +12774,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "TEMUR  ·  CHOPAR",
+        "Text": "TEMUR  ·  COURIER",
         "Color": [0.72, 0.68, 0.8, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -12785,7 +12785,7 @@
     },
     {
       "Entity": 6020,
-      "Tag": "Boyliklar",
+      "Tag": "Resources",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -12843,7 +12843,7 @@
     },
     {
       "Entity": 6022,
-      "Tag": "stone soni",
+      "Tag": "stone count",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -12899,7 +12899,7 @@
     },
     {
       "Entity": 6024,
-      "Tag": "potion soni",
+      "Tag": "potion count",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -12927,7 +12927,7 @@
     },
     {
       "Entity": 6030,
-      "Tag": "Vazifalar",
+      "Tag": "Quests",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -12957,7 +12957,7 @@
     },
     {
       "Entity": 6031,
-      "Tag": "Sarlavha",
+      "Tag": "Title",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -12974,7 +12974,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Vazifalar",
+        "Text": "Quests",
         "Color": [0.98, 0.74, 0.34, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -12986,7 +12986,7 @@
     },
     {
       "Entity": 6032,
-      "Tag": "Vazifa 1",
+      "Tag": "Quest 1",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13014,7 +13014,7 @@
     },
     {
       "Entity": 6033,
-      "Tag": "Vazifa 2",
+      "Tag": "Quest 2",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13042,7 +13042,7 @@
     },
     {
       "Entity": 6034,
-      "Tag": "Vazifa 3",
+      "Tag": "Quest 3",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13070,7 +13070,7 @@
     },
     {
       "Entity": 6035,
-      "Tag": "Vazifa 4",
+      "Tag": "Quest 4",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13098,7 +13098,7 @@
     },
     {
       "Entity": 6036,
-      "Tag": "Vazifa 5",
+      "Tag": "Quest 5",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13126,7 +13126,7 @@
     },
     {
       "Entity": 6040,
-      "Tag": "Qobiliyatlar",
+      "Tag": "Abilities",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13156,7 +13156,7 @@
     },
     {
       "Entity": 6041,
-      "Tag": "Slot Zarba",
+      "Tag": "Slot Strike",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13186,7 +13186,7 @@
     },
     {
       "Entity": 6042,
-      "Tag": "Belgi Zarba",
+      "Tag": "Icon Strike",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13214,7 +13214,7 @@
     },
     {
       "Entity": 6043,
-      "Tag": "Tayyorlik Zarba",
+      "Tag": "Cooldown Strike",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13245,7 +13245,7 @@
     },
     {
       "Entity": 6044,
-      "Tag": "Tugma Zarba",
+      "Tag": "Key Strike",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13304,7 +13304,7 @@
     },
     {
       "Entity": 6046,
-      "Tag": "Belgi Bolt",
+      "Tag": "Icon Bolt",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13332,7 +13332,7 @@
     },
     {
       "Entity": 6047,
-      "Tag": "Tayyorlik Bolt",
+      "Tag": "Cooldown Bolt",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13363,7 +13363,7 @@
     },
     {
       "Entity": 6048,
-      "Tag": "Tugma Bolt",
+      "Tag": "Key Bolt",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13392,7 +13392,7 @@
     },
     {
       "Entity": 6049,
-      "Tag": "Slot Zilzila",
+      "Tag": "Slot Slam",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13422,7 +13422,7 @@
     },
     {
       "Entity": 6050,
-      "Tag": "Belgi Zilzila",
+      "Tag": "Icon Slam",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13450,7 +13450,7 @@
     },
     {
       "Entity": 6051,
-      "Tag": "Tayyorlik Zilzila",
+      "Tag": "Cooldown Slam",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13481,7 +13481,7 @@
     },
     {
       "Entity": 6052,
-      "Tag": "Tugma Zilzila",
+      "Tag": "Key Slam",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13540,7 +13540,7 @@
     },
     {
       "Entity": 6054,
-      "Tag": "Belgi Potion",
+      "Tag": "Icon Potion",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13568,7 +13568,7 @@
     },
     {
       "Entity": 6055,
-      "Tag": "Tayyorlik Potion",
+      "Tag": "Cooldown Potion",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13599,7 +13599,7 @@
     },
     {
       "Entity": 6056,
-      "Tag": "Tugma Potion",
+      "Tag": "Key Potion",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13628,7 +13628,7 @@
     },
     {
       "Entity": 6070,
-      "Tag": "Jang 1",
+      "Tag": "Combat 1",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13656,7 +13656,7 @@
     },
     {
       "Entity": 6071,
-      "Tag": "Jang 2",
+      "Tag": "Combat 2",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13684,7 +13684,7 @@
     },
     {
       "Entity": 6072,
-      "Tag": "Jang 3",
+      "Tag": "Combat 3",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13712,7 +13712,7 @@
     },
     {
       "Entity": 6073,
-      "Tag": "Jang 4",
+      "Tag": "Combat 4",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13740,7 +13740,7 @@
     },
     {
       "Entity": 6080,
-      "Tag": "Jarohat",
+      "Tag": "Hurt",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13770,7 +13770,7 @@
     },
     {
       "Entity": 6081,
-      "Tag": "Boshqaruv",
+      "Tag": "Controls",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13787,7 +13787,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "[Inventory] inventar   [Pause] pauza",
+        "Text": "[Inventory] bag   [Pause] pause",
         "Color": [0.72, 0.68, 0.8, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -13800,7 +13800,7 @@
     },
     {
       "Entity": 6090,
-      "Tag": "Ishora",
+      "Tag": "Prompt",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13829,7 +13829,7 @@
     },
     {
       "Entity": 6091,
-      "Tag": "Xabar",
+      "Tag": "Banner",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13858,7 +13858,7 @@
     },
     {
       "Entity": 6092,
-      "Tag": "Daraja nomi",
+      "Tag": "Level title",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13875,19 +13875,19 @@
         "Order": 0
       },
       "Text": {
-        "Text": "DOVON",
+        "Text": "THE PASS",
         "Color": [0.94, 0.92, 0.86, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
         "AlignH": "Center",
         "AlignV": "Middle",
         "Font": "",
-        "LocalizationKey": "level.Dovon"
+        "LocalizationKey": "level.Pass"
       }
     },
     {
       "Entity": 6093,
-      "Tag": "Boss nomi",
+      "Tag": "Boss name",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13905,7 +13905,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Qora qorovul",
+        "Text": "The Black Warden",
         "Color": [1.0, 0.55, 0.4, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -13917,7 +13917,7 @@
     },
     {
       "Entity": 6094,
-      "Tag": "Boss sog'lig'i",
+      "Tag": "Boss health",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13949,7 +13949,7 @@
     },
     {
       "Entity": 6100,
-      "Tag": "Pauza",
+      "Tag": "Pause",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -13991,7 +13991,7 @@
     },
     {
       "Entity": 6101,
-      "Tag": "Pauza paneli",
+      "Tag": "Pause panel",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -14021,7 +14021,7 @@
     },
     {
       "Entity": 6102,
-      "Tag": "Sarlavha",
+      "Tag": "Title",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -14038,7 +14038,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Pauza",
+        "Text": "Paused",
         "Color": [0.98, 0.74, 0.34, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -14050,7 +14050,7 @@
     },
     {
       "Entity": 6111,
-      "Tag": "Davom etish",
+      "Tag": "Resume",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -14085,7 +14085,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Davom etish",
+        "Text": "Resume",
         "Color": [0.94, 0.92, 0.86, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -14120,7 +14120,7 @@
     },
     {
       "Entity": 6112,
-      "Tag": "Inventar",
+      "Tag": "Inventory",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -14155,7 +14155,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Inventar",
+        "Text": "Inventory",
         "Color": [0.94, 0.92, 0.86, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -14190,7 +14190,7 @@
     },
     {
       "Entity": 6113,
-      "Tag": "Saqlab chiqish",
+      "Tag": "Save and quit",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -14225,7 +14225,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Saqlab, bosh menyuga",
+        "Text": "Save and quit to menu",
         "Color": [0.94, 0.92, 0.86, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -14260,7 +14260,7 @@
     },
     {
       "Entity": 6200,
-      "Tag": "Inventar",
+      "Tag": "Inventory",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -14302,7 +14302,7 @@
     },
     {
       "Entity": 6201,
-      "Tag": "Inventar paneli",
+      "Tag": "Inventory panel",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -14332,7 +14332,7 @@
     },
     {
       "Entity": 6202,
-      "Tag": "Sarlavha",
+      "Tag": "Title",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -14349,7 +14349,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Inventar",
+        "Text": "Inventory",
         "Color": [0.98, 0.74, 0.34, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -14361,7 +14361,7 @@
     },
     {
       "Entity": 6211,
-      "Tag": "Qator 1",
+      "Tag": "Row 1",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -14430,7 +14430,7 @@
     },
     {
       "Entity": 6212,
-      "Tag": "Qator 2",
+      "Tag": "Row 2",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -14499,7 +14499,7 @@
     },
     {
       "Entity": 6213,
-      "Tag": "Qator 3",
+      "Tag": "Row 3",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -14568,7 +14568,7 @@
     },
     {
       "Entity": 6214,
-      "Tag": "Qator 4",
+      "Tag": "Row 4",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -14637,7 +14637,7 @@
     },
     {
       "Entity": 6215,
-      "Tag": "Qator 5",
+      "Tag": "Row 5",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -14706,7 +14706,7 @@
     },
     {
       "Entity": 6216,
-      "Tag": "Qator 6",
+      "Tag": "Row 6",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -14775,7 +14775,7 @@
     },
     {
       "Entity": 6221,
-      "Tag": "Kiyish",
+      "Tag": "Equip",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -14810,7 +14810,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Kiyish",
+        "Text": "Equip",
         "Color": [0.94, 0.92, 0.86, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -14845,7 +14845,7 @@
     },
     {
       "Entity": 6222,
-      "Tag": "Ichish",
+      "Tag": "Drink",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -14880,7 +14880,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Ichish",
+        "Text": "Drink",
         "Color": [0.94, 0.92, 0.86, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -14915,7 +14915,7 @@
     },
     {
       "Entity": 6223,
-      "Tag": "Keyingi",
+      "Tag": "Next",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -14950,7 +14950,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Keyingi",
+        "Text": "Next",
         "Color": [0.94, 0.92, 0.86, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -14985,7 +14985,7 @@
     },
     {
       "Entity": 6224,
-      "Tag": "Yopish",
+      "Tag": "Close",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -15020,7 +15020,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Yopish",
+        "Text": "Close",
         "Color": [0.94, 0.92, 0.86, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -15055,7 +15055,7 @@
     },
     {
       "Entity": 6300,
-      "Tag": "Mag'lubiyat",
+      "Tag": "Defeat",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -15097,7 +15097,7 @@
     },
     {
       "Entity": 6301,
-      "Tag": "Mag'lubiyat paneli",
+      "Tag": "Defeat panel",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -15127,7 +15127,7 @@
     },
     {
       "Entity": 6302,
-      "Tag": "Sarlavha",
+      "Tag": "Title",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -15144,7 +15144,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "YO'L YOPILDI",
+        "Text": "THE ROAD IS CLOSED",
         "Color": [1.0, 0.45, 0.4, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -15156,7 +15156,7 @@
     },
     {
       "Entity": 6303,
-      "Tag": "Izoh",
+      "Tag": "Subtitle",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -15173,7 +15173,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Temur uch marta yiqildi",
+        "Text": "Temur fell three times",
         "Color": [0.72, 0.68, 0.8, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -15185,7 +15185,7 @@
     },
     {
       "Entity": 6311,
-      "Tag": "Qayta",
+      "Tag": "Retry",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -15220,7 +15220,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Oxirgi saqlashdan",
+        "Text": "From the last save",
         "Color": [0.94, 0.92, 0.86, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -15255,7 +15255,7 @@
     },
     {
       "Entity": 6312,
-      "Tag": "Menyu",
+      "Tag": "Menu",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -15290,7 +15290,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Bosh menyu",
+        "Text": "Main menu",
         "Color": [0.94, 0.92, 0.86, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -15325,7 +15325,7 @@
     },
     {
       "Entity": 6400,
-      "Tag": "G'alaba",
+      "Tag": "Victory",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -15367,7 +15367,7 @@
     },
     {
       "Entity": 6401,
-      "Tag": "G'alaba paneli",
+      "Tag": "Victory panel",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -15397,7 +15397,7 @@
     },
     {
       "Entity": 6402,
-      "Tag": "Sarlavha",
+      "Tag": "Title",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -15414,7 +15414,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "MASH'AL YONDI",
+        "Text": "THE BEACON BURNS",
         "Color": [0.98, 0.74, 0.34, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -15426,7 +15426,7 @@
     },
     {
       "Entity": 6403,
-      "Tag": "Izoh",
+      "Tag": "Subtitle",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -15443,7 +15443,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Karvon yo'lni topdi",
+        "Text": "The caravan found its road",
         "Color": [0.94, 0.92, 0.86, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -15455,7 +15455,7 @@
     },
     {
       "Entity": 6410,
-      "Tag": "Natijalar",
+      "Tag": "Results",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -15484,7 +15484,7 @@
     },
     {
       "Entity": 6411,
-      "Tag": "Menyu",
+      "Tag": "Menu",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -15519,7 +15519,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Bosh menyu",
+        "Text": "Main menu",
         "Color": [0.94, 0.92, 0.86, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -15554,7 +15554,7 @@
     },
     {
       "Entity": 8000,
-      "Tag": "Chang zarralari",
+      "Tag": "Dust motes",
       "Transform": {
         "Translation": [0.0, 5.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -15593,7 +15593,7 @@
     },
     {
       "Entity": 8100,
-      "Tag": "Zarba uchquni",
+      "Tag": "Hit sparks",
       "Transform": {
         "Translation": [0.0, -50.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -15632,7 +15632,7 @@
     },
     {
       "Entity": 8101,
-      "Tag": "Daraja halqasi",
+      "Tag": "Level-up ring",
       "Transform": {
         "Translation": [0.0, 0.2, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -15672,7 +15672,7 @@
     },
     {
       "Entity": 8102,
-      "Tag": "Olov",
+      "Tag": "Fire",
       "Transform": {
         "Translation": [0.0, 11.4, -42.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -15712,7 +15712,7 @@
     },
     {
       "Entity": 8103,
-      "Tag": "Mash'al nuri",
+      "Tag": "Beacon light",
       "Transform": {
         "Translation": [0.0, 13.0, -42.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -15727,7 +15727,7 @@
     },
     {
       "Entity": 8104,
-      "Tag": "Zilzila changi",
+      "Tag": "Slam dust",
       "Transform": {
         "Translation": [0.0, 0.1, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -15767,7 +15767,7 @@
     },
     {
       "Entity": 8105,
-      "Tag": "To'lqin changi",
+      "Tag": "Shockwave dust",
       "Transform": {
         "Translation": [0.0, -50.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -15806,7 +15806,7 @@
     },
     {
       "Entity": 8106,
-      "Tag": "Mash'al tutuni",
+      "Tag": "Beacon smoke",
       "Transform": {
         "Translation": [0.0, 14.0, -42.0],
         "Rotation": [0.0, 0.0, 0.0],

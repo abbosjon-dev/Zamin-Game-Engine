@@ -423,7 +423,7 @@ bu raqamlar undan kichik, shuning uchun faqat katta sekinlashish ushlanadi). `ct
 
 ## Vertical slice stress darvozalari: fizika, animatsiya, o'yin ichida (`--physics`, `--animation`, `--slice-stress`)
 
-P5 vertical slice'larining (Chiroqbon 2D, Dovon mash'ali 3D — [VerticalSlices.md](VerticalSlices.md#gates)) stress
+P5 vertical slice'larining (Lantern Keeper 2D, Beacon Pass 3D — [VerticalSlices.md](VerticalSlices.md#gates)) stress
 darvozalari. Uchala benchmark ham headless, natijasi JSON, va invariantlardan biri buzilsa 3 kodi bilan tugaydi (raqam
 qanchalik yaxshi bo'lmasin):
 
@@ -446,7 +446,7 @@ qanchalik yaxshi bo'lmasin):
 - **`ZaminBench --slice-stress`** (`Tests/SliceStressBench.cpp`) — slice darajasi o'zining haqiqiy graflari (qahramon,
   daraja boshqaruvchisi, dushmanlar), gameplay dunyolari va fizikasi bilan, chizishsiz; o'lchanadigani har kadrdagi
   `Scene::UpdateRuntime` (skriptlar, AI, fizika, animatsiya, combat, qoidalar, UI bog'lanishlari). *SliceStress2D*
-  (Boglar): dushmanlar sahnaning 32 AI miyasi chegarasigacha ko'paytiriladi, 200 quti (Box2D), qahramonga 64 tagacha
+  (Orchards): dushmanlar sahnaning 32 AI miyasi chegarasigacha ko'paytiriladi, 200 quti (Box2D), qahramonga 64 tagacha
   uchayotgan snaryad, 256 qo'shimcha sprite Animator, 48 Light 2D. *SliceStress3D* (Dovon): 24 animatsiyali qorovul
   (skinned, haqiqiy locomotion controller), qahramon, 64 snaryad, lager atrofida 200 jism (Jolt). Qahramon har kadrda
   davolanadi (jang to'xtamaydi). Invariantlar: graf xatosi va "Visual graph" / instruksiya byudjeti xabari yo'q, har
@@ -465,7 +465,7 @@ Muhit: 4 vCPU Intel Xeon @ 2.10 GHz, GCC 13.3, **Release** (`build-release`), 20
 | AnimationHumanoids, bitta oqim (butun kadr) | 0.99–1.73 ms | 1.23–2.07 ms | **0.0** | o'rtacha ≤ 4.0 ms, ajratma 0 — bajarildi |
 | AnimationSprites, bitta oqim — Animator yangilash | 0.30–0.48 ms | 0.38–0.61 ms | **0.0** | o'rtacha ≤ 0.6 ms, ajratma 0 — bajarildi |
 | AnimationSprites, bitta oqim (butun kadr) | 0.39–0.66 ms | 0.51–0.85 ms | 0.0 | |
-| SliceStress2D (Boglar, o'yin kodi) | 2.80–3.42 ms | 3.00–4.71 ms | | o'rtacha ≤ 6, p95 ≤ 10 ms — bajarildi |
+| SliceStress2D (Orchards, o'yin kodi) | 2.80–3.42 ms | 3.00–4.71 ms | | o'rtacha ≤ 6, p95 ≤ 10 ms — bajarildi |
 | SliceStress3D (Dovon, o'yin kodi) | 3.89–5.45 ms | 5.41–6.37 ms | | o'rtacha ≤ 8, p95 ≤ 12 ms — bajarildi |
 
 Invariantlar har beshta ishga tushirishda o'tdi: 2D maydondan chiqqan 0, eng katta tezlik 6.88 m/s; 3D oyoq-yer
@@ -491,7 +491,7 @@ Boshlang'ich natijalar: `Tests/Baselines/physics-release.json`, `animation-relea
 
 ## Vertical slice'lar Player'da: profiling va regressiya darvozasi (`Tests/slice_bench.py`)
 
-Ikkala slice'ning har sahnasi (Menu, Boglar, Yertola, Dovon) **Release** `ZaminPlayer --benchmark 300
+Ikkala slice'ning har sahnasi (Menu, Orchards, Yertola, Dovon) **Release** `ZaminPlayer --benchmark 300
 --benchmark-warmup 90` da, qat'iy o'yin soati bilan (`ZAMIN_CAPTURE_FPS=30`), darajalarda demo pilot o'ynaydi
 (`ZAMIN_DEMO=1`), menyular o'yinchi ko'rgandek (demosiz). Ikki oyna: 284x160 `--quality Low` (darvoza: o'yin kodi) va
 1280x720 (faqat baseline bilan solishtiriladi — u llvmpipe rasterizatorining ishi). *O'yin kodi* — Player benchmark
@@ -505,16 +505,16 @@ Muhit: 4 vCPU Intel Xeon @ 2.10 GHz, GCC 13.3, Release (`build-release`), Mesa l
 
 | Sahna | Oyna | Obyekt (faol) | Draw call | Uchburchak / quad | Kadr o'rtacha | p95 | Eng sekin (birinchi sessiya) | O'yin kodi | p95 | RSS |
 |---|---|---:|---:|---|---:|---:|---:|---:|---:|---:|
-| Chiroqbon / Menu | 284x160 Low | 57 (38) | 18 | 0 / 875 | 3.48 ms | 4.17 | 6 (7) | 0.32 ms | 0.40 | 197 MiB |
-| Chiroqbon / Boglar | 284x160 Low | 211 (158) | 30 | 0 / 1 183 | 5.44 ms | 6.32 | 12 (117) | 2.02 ms | 2.41 | 205 MiB |
-| Chiroqbon / Yertola | 284x160 Low | 224 (162) | 33 | 0 / 860 | 5.67 ms | 6.92 | 11 (1 869) | 2.03 ms | 2.49 | 211 MiB |
-| Dovon mash'ali / Menu | 284x160 Low | 278 (259) | 130 | 34 286 / 266 | 22.22 ms | 26.19 | 34 (34) | 0.53 ms | 0.65 | 227 MiB |
-| Dovon mash'ali / Dovon | 284x160 Low | 377 (330) | 210 | 74 516 / 342 | 28.16 ms | 36.06 | 51 (345) | 3.50 ms | 4.40 | 236 MiB |
-| Chiroqbon / Menu | 1280x720 | 57 (38) | 31 | 0 / 875 | 54.93 ms | 63.78 | 76 (98) | 0.51 ms | 0.64 | 225 MiB |
-| Chiroqbon / Boglar | 1280x720 | 211 (158) | 43 | 0 / 1 183 | 55.71 ms | 67.06 | 76 (126) | 2.44 ms | 3.06 | 234 MiB |
-| Chiroqbon / Yertola | 1280x720 | 224 (162) | 46 | 0 / 860 | 56.06 ms | 65.18 | 85 (1 951) | 2.50 ms | 3.27 | 236 MiB |
-| Dovon mash'ali / Menu | 1280x720 | 278 (259) | 191 | 34 286 / 265 | 208.88 ms | 250.81 | 305 (305) | 0.68 ms | 0.86 | 317 MiB |
-| Dovon mash'ali / Dovon | 1280x720 | 377 (330) | 295 | 74 560 / 342 | 227.13 ms | 266.12 | 328 (576) | 3.73 ms | 4.74 | 261 MiB |
+| Lantern Keeper / Menu | 284x160 Low | 57 (38) | 18 | 0 / 875 | 3.48 ms | 4.17 | 6 (7) | 0.32 ms | 0.40 | 197 MiB |
+| Lantern Keeper / Orchards | 284x160 Low | 211 (158) | 30 | 0 / 1 183 | 5.44 ms | 6.32 | 12 (117) | 2.02 ms | 2.41 | 205 MiB |
+| Lantern Keeper / Yertola | 284x160 Low | 224 (162) | 33 | 0 / 860 | 5.67 ms | 6.92 | 11 (1 869) | 2.03 ms | 2.49 | 211 MiB |
+| Beacon Pass / Menu | 284x160 Low | 278 (259) | 130 | 34 286 / 266 | 22.22 ms | 26.19 | 34 (34) | 0.53 ms | 0.65 | 227 MiB |
+| Beacon Pass / Dovon | 284x160 Low | 377 (330) | 210 | 74 516 / 342 | 28.16 ms | 36.06 | 51 (345) | 3.50 ms | 4.40 | 236 MiB |
+| Lantern Keeper / Menu | 1280x720 | 57 (38) | 31 | 0 / 875 | 54.93 ms | 63.78 | 76 (98) | 0.51 ms | 0.64 | 225 MiB |
+| Lantern Keeper / Orchards | 1280x720 | 211 (158) | 43 | 0 / 1 183 | 55.71 ms | 67.06 | 76 (126) | 2.44 ms | 3.06 | 234 MiB |
+| Lantern Keeper / Yertola | 1280x720 | 224 (162) | 46 | 0 / 860 | 56.06 ms | 65.18 | 85 (1 951) | 2.50 ms | 3.27 | 236 MiB |
+| Beacon Pass / Menu | 1280x720 | 278 (259) | 191 | 34 286 / 265 | 208.88 ms | 250.81 | 305 (305) | 0.68 ms | 0.86 | 317 MiB |
+| Beacon Pass / Dovon | 1280x720 | 377 (330) | 295 | 74 560 / 342 | 227.13 ms | 266.12 | 328 (576) | 3.73 ms | 4.74 | 261 MiB |
 
 Darvozalar (kichik oyna): o'yin kodi o'rtacha ≤ 3 ms (2D) / ≤ 4 ms (3D) va p95 ≤ 6 ms — bajarildi (eng ko'pi 2.03 /
 3.50 ms, p95 4.40 ms); kadr o'rtacha ≤ 16.6 ms (2D) — bajarildi (≤ 5.67 ms); eng sekin kadr ≤ 1000 ms — bajarildi (≤ 51
@@ -524,12 +524,12 @@ post-processing; o'yin kodi esa 3.5 ms. Birinchi sessiyadagi 1.9 s lik kadr (Yer
 yangi zarra/2D blend holati uchun shader JIT'i: shu HOME bilan ikkinchi ishga tushirishda yo'q (eng sekini 11 ms).
 1280x720 qatorlari (va kichik oynaning hammasi) `Tests/Baselines/slices-release.json` ga yozilgan; `--compare` har
 raqamni `bench_compare.py --tolerance 15` bilan solishtiradi. Tekshiruv: 2 ishga tushirishli qayta o'lchash 40 raqamdan
-3 tasini (1280x720 da Chiroqbon Menu p95 +15.3 %, Yertola p95 +19.7 % va o'yin kodi +17 %) sekinlashgan deb belgiladi —
+3 tasini (1280x720 da Lantern Keeper Menu p95 +15.3 %, Yertola p95 +19.7 % va o'yin kodi +17 %) sekinlashgan deb belgiladi —
 o'sha qatorlar 3 ishga tushirish bilan −8.1 … +3.4 % (16 raqam, 0 sekinlashish): 720p da llvmpipe oqimlari o'yin bilan 4
 yadroni bo'lishadi. Shuning uchun standart `--runs 3` va 720p dagi p95 lar `Noisy` (ro'yxatda, hisoblanmaydi). Ajratmalar (`ZAMIN_ALLOC_TRACE`) Player'da sanalmaydi —
 o'rniga RSS va engine hisoblagan xotira (`ZAMIN_SOAK_STATS`) qayd etiladi.
 
-Soak (`--no-bench --soak 18000`, attract loop, 284x160 Low, har 30 kadrda namuna): Chiroqbon 3 g'alaba, menyuga 3
+Soak (`--no-bench --soak 18000`, attract loop, 284x160 Low, har 30 kadrda namuna): Lantern Keeper 3 g'alaba, menyuga 3
 qaytish — har safar 57 obyekt, RAM 302.9 MiB, engine 99.2 MiB (birinchi aylanadan keyingi o'sish 0.0 MiB); Dovon
 mash'ali 7 g'alaba — har qaytishda 278 obyekt, RAM 269.4 → 275.5 → 278.8 MiB va keyin tekis (o'sish 9.5 MiB ≤ 32),
 engine 39.0 MiB; logda xato yo'q.

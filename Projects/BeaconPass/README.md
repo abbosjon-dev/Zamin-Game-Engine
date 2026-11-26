@@ -1,31 +1,31 @@
-# Dovon mash'ali
+# Beacon Pass
 
-Karvon yo'li afsonasi: bu kecha dovondan karvon o'tadi, lekin zo'ravon Qora qorovul tog' boshidagi mash'alni o'chirib
-qo'ydi. Chopar Temur vodiydagi qarorgohdan karvonsaroy orqali minoraga ko'tariladi, uchta olov toshini yig'adi, Qora
-qorovulni yengadi va qorong'i tushmasdan mash'alni qayta yoqadi.
+A legend of the caravan road: tonight a caravan crosses the pass, but the tyrant Black Warden has put out the beacon at
+the top of the mountain. The courier Temur climbs from the camp in the valley through the caravanserai to the tower,
+gathers three fire stones, defeats the Black Warden and lights the beacon again before dark.
 
-Zamin Engine'ning kompilyatorsiz 3D vertical slice'i: bosh menyu, bitta to'liq daraja (Dovon: qarorgoh, karvonsaroy,
-otxona, minora oldidagi maydon), uchinchi shaxs qahramoni (character controller + orbit kamera), skinned odam modeli va
-Animator lokomotsiyasi (turish/yurish/yugurish blend'i, sakrash va qo'nish, yuqori tana qatlamida zarba va sehr, zarba
-olganda additiv qatlam, o'lim), animatsiya hodisalariga bog'langan zarba va olov o'qi, Zilzila (yerga urish), AI
-qorovullar, kamonchilar va boss, to'rt vazifali kitob (tajriba, darajalar), jihozlar, ziyoratgohlarda saqlash, g'alaba
-va mag'lubiyat ekranlari, musiqa va ovozlar. Hammasi `Tools/samples/gen_beacon_pass.py` generatoridan.
+Zamin Engine's compiler-free 3D vertical slice: a title menu, one complete level (the Pass: the camp, the caravanserai,
+the stable, the plateau in front of the tower), a third-person hero (character controller + orbit camera), a skinned
+humanoid model and Animator locomotion (an idle/walk/run blend, jump and landing, strikes and magic on an upper-body
+layer, an additive layer when hit, death), strikes and the fire bolt tied to animation events, the ground slam, AI
+guards, archers and a boss, a book of four quests (experience, levels), equipment, saving at shrines, the victory
+and defeat screens, music and sound. All of it comes from the `Tools/samples/gen_beacon_pass.py` generator.
 
-| Klaviatura / sichqoncha | Gamepad | Harakat |
+| Keyboard / mouse | Gamepad | Action |
 |---|---|---|
-| WASD / strelkalar | chap stik | Yugurish (chap Shift ushlab — sekin yurish) |
-| Sichqoncha | o'ng stik | Kamera |
-| Space | A | Sakrash |
-| LKM / J | X | Zarba (Shamshir bilan kuchliroq) |
-| PKM / K | RB | Olov o'qi (Bolt, yondiradi) |
-| Q | Y | Zilzila (2-darajadan, atrofdagilarni urib, gangitadi) |
-| R | D-pad past | Ichimlik |
-| E | B | Ishlatish (sandiq, darvoza, ziyoratgoh, mash'al) |
-| I / Tab | Back | Inventar |
-| Esc / P | Start | Pauza (Davom etish, Saqlab bosh menyuga) |
+| WASD / arrows | left stick | Run (hold left Shift — walk slowly) |
+| Mouse | right stick | Camera |
+| Space | A | Jump |
+| LMB / J | X | Strike (stronger with the sabre) |
+| RMB / K | RB | Fire bolt (Bolt, sets on fire) |
+| Q | Y | Ground slam (from level 2, hits and stuns everyone around) |
+| R | D-pad down | Potion |
+| E | B | Use (chest, gate, shrine, beacon) |
+| I / Tab | Back | Inventory |
+| Esc / P | Start | Pause (Resume, Save and quit to menu) |
 
-Vazifalar: **Dovon yo'li** (darvoza qorovullarini yengib, karvonsaroy darvozasini ochish), **Olov toshlari** (uchta tosh),
-**Qora qorovul** (boss), **Mash'al** (minora tepasidagi mash'alni yoqish) — jami 800 tajriba, 4-daraja.
-Ziyoratgohlar o'yinni saqlaydi va sog'liqni tiklaydi; uch marta yiqilsangiz mag'lubiyat ekranidan oxirgi saqlashdan
-davom etasiz. Demo: `ZAMIN_DEMO=1 ./build/bin/ZaminPlayer Projects/BeaconPass` — o'yinni bot o'ynaydi.
-Batafsil: [docs/VerticalSlices.md](../../docs/VerticalSlices.md).
+Quests: **The mountain pass** (defeat the gate guards and open the caravanserai gate), **Fire stones** (three stones),
+**The Black Warden** (the boss), **The beacon** (light the beacon on top of the tower) — 800 experience in total, level 4.
+Shrines save the game and restore health; after three falls you continue from the last save on the defeat screen.
+Demo: `ZAMIN_DEMO=1 ./build/bin/ZaminPlayer Projects/BeaconPass` — a bot plays the game.
+Details: [docs/VerticalSlices.md](../../docs/VerticalSlices.md).

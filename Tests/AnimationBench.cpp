@@ -4,7 +4,7 @@
 // `ZaminBench --animators N`; `--animators N --model <glb> [--controller ...]` and `--animators N --sprite-clips` run
 // the scenarios below with N animators.
 //   AnimationHumanoids (A1): N (256) copies of the 3D slice's hero - its skinned glTF (Projects/BeaconPass Hero.glb,
-//     21 joints) with its real controller (the Dovon scene's hero Animator: Locomotion 1D blend Idle/Walk/Run, Air,
+//     21 joints) with its real controller (the Pass scene's hero Animator: Locomotion 1D blend Idle/Walk/Run, Air,
 //     Land, Dead, the UpperBody override and Hit additive layers, Footstep/Hit/Release events). Speed sweeps through
 //     every threshold, an attack swing every 1.7 s (UpperBody, restarted) and a hurt flinch every 3.1 s (Hit), half of
 //     them off screen (CullPose + MarkVisibleAnimators). Timed with the job system off and on (--jobs, 3).
@@ -51,7 +51,7 @@ namespace {
         int Humanoids = 256, Sprites = 1024, Frames = 600, Jobs = 3;
         bool RunHumanoids = true, RunSprites = true;
         std::string ModelPath = std::string(ZAMIN_SOURCE_DIR) + "/Projects/BeaconPass/Assets/Models/Hero.glb";
-        std::string Controller = std::string(ZAMIN_SOURCE_DIR) + "/Projects/BeaconPass/Assets/Scenes/Dovon.zscene:1000";
+        std::string Controller = std::string(ZAMIN_SOURCE_DIR) + "/Projects/BeaconPass/Assets/Scenes/Pass.zscene:1000";
     };
 
     struct Hash

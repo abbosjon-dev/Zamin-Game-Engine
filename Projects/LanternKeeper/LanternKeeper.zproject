@@ -8,12 +8,12 @@
         "SourceDirectory": "Source",
         "ScriptModulePath": "",
         "EngineVersion": "0.1.0",
-        "Description": "Chiroqbon: a 2D action-adventure vertical slice - two levels, melee and magic, AI enemies, quests, equipment, saves and a boss.",
+        "Description": "Lantern Keeper: a 2D action-adventure vertical slice - two levels, melee and magic, AI enemies, quests, equipment, saves and a boss.",
         "Thumbnail": "Thumbnail.jpg"
     },
     "Player": {
         "Company": "Zamin Studio",
-        "Product": "Chiroqbon",
+        "Product": "Lantern Keeper",
         "Version": "1.0.0",
         "Width": 1280,
         "Height": 720,
@@ -33,14 +33,14 @@
             "UUID": "b1eac1d8f8f44065"
         },
         {
-            "Path": "Scenes/Boglar.zscene",
+            "Path": "Scenes/Orchards.zscene",
             "Enabled": true,
-            "UUID": "37a08ff506d92ad2"
+            "UUID": "4c72ac8406f1fba9"
         },
         {
-            "Path": "Scenes/Yertola.zscene",
+            "Path": "Scenes/Crypt.zscene",
             "Enabled": true,
-            "UUID": "ecf53da5f8345581"
+            "UUID": "6c9261dd1b44e730"
         }
     ],
     "InputActions": {

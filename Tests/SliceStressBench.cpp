@@ -2,10 +2,10 @@
 // headless: a slice level played with its real graphs (hero, level director, enemies), its real gameplay worlds and
 // physics, crowded far past what the level ships with - and what that costs the game per frame (Scene::UpdateRuntime:
 // scripts, AI, physics, animation, combat, rules, UI bindings; no drawing).
-//   SliceStress2D (Chiroqbon, Boglar): enemies cloned up to the scene's 32 AI brains around the hero, 200 crates
+//   SliceStress2D (Lantern Keeper, Orchards): enemies cloned up to the scene's 32 AI brains around the hero, 200 crates
 //     (Box2D), 64 projectiles kept in flight at the hero, 256 extra sprite Animators (DriveSpriteClips, directions
 //     turning) and 48 Light 2D.
-//   SliceStress3D (Dovon mash'ali, Dovon): 24 animated guards (skinned humanoids with the real locomotion controller,
+//   SliceStress3D (Beacon Pass, Pass): 24 animated guards (skinned humanoids with the real locomotion controller,
 //     AI crowd), the hero, 64 projectiles in flight, 200 rigid crates (Jolt) dropped round the camp.
 // The hero is kept alive (healed every frame) so the fight goes on; the pilot is off. Invariants: no graph error and no
 // "Visual graph" / instruction budget message, every brain alive or dead consistently with its health, the projectile
@@ -145,7 +145,7 @@ namespace {
             return r;
         }
         auto scene = CreateRef<Scene>();
-        const auto file = Project::GetAssetDirectory() / (twoD ? "Scenes/Boglar.zscene" : "Scenes/Dovon.zscene");
+        const auto file = Project::GetAssetDirectory() / (twoD ? "Scenes/Orchards.zscene" : "Scenes/Pass.zscene");
         if (!SceneSerializer(scene).Deserialize(file))
         {
             r.Error = "sahna yuklanmadi";
@@ -309,9 +309,9 @@ namespace {
             if (brain && h && h->Dead && (brain->Brain.Mode == G::BrainMode::Chase || brain->Brain.Mode == G::BrainMode::Attack)) r.Inconsistent++;
         }
         r.Animators = (int)scene->GetAnimationStats().Animators;
-        r.Label = twoD ? std::format("Boglar: {} dushman ({} AI miyasi, chegara 32), 200 quti, 64 tagacha snaryad, {} qo'shimcha sprite Animator, {} Light 2D", r.Enemies,
+        r.Label = twoD ? std::format("Orchards: {} dushman ({} AI miyasi, chegara 32), 200 quti, 64 tagacha snaryad, {} qo'shimcha sprite Animator, {} Light 2D", r.Enemies,
                                      r.Brains, sprites.size(), r.Lights)
-                       : std::format("Dovon: {} dushman ({} AI miyasi; 24 qorovul), qahramon, 64 tagacha snaryad, 200 jism (Jolt)", r.Enemies, r.Brains);
+                       : std::format("Pass: {} dushman ({} AI miyasi; 24 qorovul), qahramon, 64 tagacha snaryad, 200 jism (Jolt)", r.Enemies, r.Brains);
         scene->OnRuntimeStop();
         scene.reset();
         for (const auto& path : models) Model::ReleaseIfUnused(path);

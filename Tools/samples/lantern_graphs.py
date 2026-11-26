@@ -1,4 +1,4 @@
-"""Scenes, prefabs and Visual Script graphs of Chiroqbon (gen_lantern_keeper.py).
+"""Scenes, prefabs and Visual Script graphs of Lantern Keeper (gen_lantern_keeper.py).
 
 UUID ranges are fixed and identical in every scene so shared graphs target literals: 1000-1099 hero and camera,
 1100-1199 controllers and audio, 2000-4999 level geometry and props, 5000-5499 enemies, 5500-5999 interactables,
@@ -17,16 +17,16 @@ GAME, MUSIC, AMBIENCE, BOSS_MUSIC = 1100, 1101, 1102, 1104
 CANVAS = 6000
 GS = "LK"
 # the banner of a save whose primary and backup are both unreadable (the level starts again from its entry)
-UNREADABLE = "Saqlash o'qilmadi - daraja boshidan"
+UNREADABLE = "The save could not be read - the level starts again"
 # Every string a graph builds for the player (banners, prompts, end screen lines) is a key of the language files with
-# its Uzbek text as the fallback: key -> (uz, en); gen_lantern_keeper.py writes them into uz.json / en.json.
+# its English text as the fallback: key -> (uz, en); gen_lantern_keeper.py writes them into uz.json / en.json.
 TEXT = {}
 
 
 def L(g, key, uz, en):
-    """Localization.Text of `key` (uz / en registered in TEXT): (node, 'Value')."""
+    """Localization.Text of `key` (uz / en registered in TEXT; English is the fallback): (node, 'Value')."""
     assert TEXT.setdefault(key, (uz, en)) == (uz, en), key
-    return g.loc(key, uz)
+    return g.loc(key, en)
 
 
 def T_(key, uz, en):
@@ -35,14 +35,14 @@ def T_(key, uz, en):
     return key
 
 
-# interaction prompts (the level data's Uzbek text) -> their language keys
-PROMPTS = {"Sandiqni ochish": ("prompt.chest", "Open the chest"), "Saqlash ziyoratgohi": ("prompt.shrine", "Save at the shrine"),
-           "Darvozani ochish": ("prompt.gate", "Open the gate"), "Tong chirog'ini yoqish": ("prompt.altar", "Light the Dawn Lamp")}
+# interaction prompts (the level data's English text) -> their language keys and Uzbek texts
+PROMPTS = {"Open the chest": ("prompt.chest", "Sandiqni ochish"), "Save at the shrine": ("prompt.shrine", "Saqlash ziyoratgohi"),
+           "Open the gate": ("prompt.gate", "Darvozani ochish"), "Light the Dawn Lamp": ("prompt.altar", "Tong chirog'ini yoqish")}
 
 
 def prompt_key(text):
-    key, en = PROMPTS[text]
-    return T_(key, text, en)
+    key, uz = PROMPTS[text]
+    return T_(key, uz, text)
 
 
 def item_name(g, item):
@@ -203,7 +203,7 @@ def light(scene, eid, parent, pos, col, intensity, radius, flicker=0.0, inner=0.
 
 
 def fire_fx(scene, eid, parent, pos, scale=1.0):
-    return scene.add(eid, "Olov", parent, pos=pos, ParticleSystem=k.particles(
+    return scene.add(eid, "Fire", parent, pos=pos, ParticleSystem=k.particles(
         EmissionRate=38.0 * scale, MaxParticles=int(120 * scale), Shape=0, ShapeRadius=0.12 * scale, LifetimeMin=0.35, LifetimeMax=0.8,
         SpeedMin=0.6, SpeedMax=1.4 * scale, Direction=(0, 1, 0), Spread=18.0, StartColor=(1.0, 0.75, 0.3, 1.0), EndColor=(0.9, 0.25, 0.08, 0.0),
         StartSize=0.32 * scale, EndSize=0.05, SortingOrder=30))
@@ -211,14 +211,14 @@ def fire_fx(scene, eid, parent, pos, scale=1.0):
 
 def fireflies(scene, eid, size, count=60, col=(0.85, 1.0, 0.45, 0.95)):
     w, h = size
-    return scene.add(eid, "Yorug' qo'ng'izlar", pos=(w / 2, h / 2, 0), ParticleSystem=k.particles(
+    return scene.add(eid, "Fireflies", pos=(w / 2, h / 2, 0), ParticleSystem=k.particles(
         EmissionRate=count / 4.0, MaxParticles=count * 2, Shape=2, ShapeExtents=(w / 2, h / 2, 0), LifetimeMin=3.0, LifetimeMax=6.0,
         SpeedMin=0.05, SpeedMax=0.35, Direction=(0, 1, 0), Spread=180.0, Drag=0.2, StartColor=col, EndColor=(col[0] * 0.7, col[1], col[2] * 0.6, 0.0),
         StartSize=0.12, EndSize=0.05, SortingOrder=40, Billboard=False))
 
 
-# Tileset indices (gen_lantern_keeper.make_art): Boglar 16 x 6 - grass 0-3, flowers 4, walls 5/6, the path blob
-# autotile 16 + its index in slicekit.blob_masks (47 tiles), the water autotile 64 + mask, decals 80-89; Yertola 8 x 2 -
+# Tileset indices (gen_lantern_keeper.make_art): Orchards 16 x 6 - grass 0-3, flowers 4, walls 5/6, the path blob
+# autotile 16 + its index in slicekit.blob_masks (47 tiles), the water autotile 64 + mask, decals 80-89; Crypt 8 x 2 -
 # slabs 0-3, rune 4, dark 5, wall 6, inlay 8, decals 9-15.
 B_PATH, B_WATER = 16, 64
 B_BLOB = {m: i for i, m in enumerate(sk.blob_masks())}
@@ -243,7 +243,7 @@ def connect4(cells, ok):
     return cells
 
 
-def boglar_layers(w, h, kind, rng):
+def orchard_layers(w, h, kind, rng):
     """The orchard's three layers from kind(x, y): '#' wall, '~' water, 'p' path, '.' grass (off the map: '#').
     Ground: seamless grass variants and the path autotile; decals: the walls' shadows, scattered petals, clover,
     leaves ... (none on every cell: the grass shows through); walls: stone and the water autotile (banks)."""
@@ -285,14 +285,14 @@ def tilemap(level, g):
     rng = __import__("numpy").random.default_rng(7 + w)
     path_cells = level.get("_path", set())
     inside = lambda x, y: 0 <= x < w and 0 <= y < h
-    if level["scene"] == "Boglar":
+    if level["scene"] == "Orchards":
         def kind(x, y):
             if not inside(x, y) or g[y][x] == "#":
                 return "#"
             if g[y][x] == "~":
                 return "~"
             return "p" if (x, y) in path_cells else "."
-        ground, decals, walls = boglar_layers(w, h, kind, rng)
+        ground, decals, walls = orchard_layers(w, h, kind, rng)
     else:
         ground, decals, walls = [], [], []
         wall = lambda x, y: not inside(x, y) or g[y][x] == "#"
@@ -327,12 +327,12 @@ def tilemap(level, g):
                     decals.append(Y_PUDDLE)
                 else:
                     decals.append(-1)
-    boglar = level["scene"] == "Boglar"
-    tex = "Textures/tiles_boglar.png" if boglar else "Textures/tiles_yertola.png"
-    return {"Tileset": tex, "PixelArt": False, "TilesetColumns": 16 if boglar else 8, "TilesetRows": 6 if boglar else 2, "Width": w, "Height": h, "TileSize": 1.0,
-            "Layers": [{"Name": "Zamin", "Visible": True, "Collision": False, "SortingOrder": 0, "Opacity": 1.0, "Tiles": ground},
-                       {"Name": "Bezak", "Visible": True, "Collision": False, "SortingOrder": 1, "Opacity": 1.0, "Tiles": decals},
-                       {"Name": "Devor", "Visible": True, "Collision": True, "SortingOrder": 2, "Opacity": 1.0, "Tiles": walls}],
+    orchards = level["scene"] == "Orchards"
+    tex = "Textures/tiles_orchards.png" if orchards else "Textures/tiles_crypt.png"
+    return {"Tileset": tex, "PixelArt": False, "TilesetColumns": 16 if orchards else 8, "TilesetRows": 6 if orchards else 2, "Width": w, "Height": h, "TileSize": 1.0,
+            "Layers": [{"Name": "Ground", "Visible": True, "Collision": False, "SortingOrder": 0, "Opacity": 1.0, "Tiles": ground},
+                       {"Name": "Decor", "Visible": True, "Collision": False, "SortingOrder": 1, "Opacity": 1.0, "Tiles": decals},
+                       {"Name": "Walls", "Visible": True, "Collision": True, "SortingOrder": 2, "Opacity": 1.0, "Tiles": walls}],
             "Color": [1, 1, 1, 1], "SortingOrder": -10, "Collision": True, "Friction": 0.0, "CollisionLayer": 1, "Lit": True}
 
 
@@ -384,11 +384,11 @@ def level_scene(assets, project, C, number, level, ENEMIES, route, kinds, g, ora
                     level["_path"].add((int(px + dx), int(py)))
         connect4(level["_path"], lambda x, y: 0 <= y < h and 0 <= x < w and g[y][x] == ".")
     s.add(2000, "Tilemap", Tilemap=tilemap(level, g))
-    s.add(2001, "Navigatsiya", NavGrid2D={"AutoBounds": True, "Offset": [0, 0], "Size": [w, h], "CellSize": 0.5, "UseTilemaps": True, "OneWayBlocks": False,
+    s.add(2001, "Navigation", NavGrid2D={"AutoBounds": True, "Offset": [0, 0], "Size": [w, h], "CellSize": 0.5, "UseTilemaps": True, "OneWayBlocks": False,
                                           "Tilemap": 0, "UseColliders": True, "LayerMask": WALL_MASK, "AgentRadius": 0.3, "Diagonals": True,
                                           "CutCorners": False, "BakeOnStart": True, "AutoRebuild": False})
     # camera
-    s.add(CAMERA, "Kamera", pos=(level["spawn"][0] + 0.5, level["spawn"][1] + 0.5, 10),
+    s.add(CAMERA, "Camera", pos=(level["spawn"][0] + 0.5, level["spawn"][1] + 0.5, 10),
           Camera=k.camera_ortho(12.5, (0.03, 0.03, 0.06, 1), shake={"Trauma": 0.0, "MaxOffset": 0.5, "MaxAngle": 0.05}),
           Camera2DFollow=k.camera_follow(HERO, (0, 0.4), (0.15, 0.15), (0.6, 0.45), (1.0, 0.8), ((0, 0), (w, h))))
     # hero
@@ -401,7 +401,7 @@ def level_scene(assets, project, C, number, level, ENEMIES, route, kinds, g, ora
     pickups = level["pickups"]
     pickup_ids = [5500 + i for i in range(len(pickups))]
     use_ids = [5600 + i for i in range(len(uses))]
-    game = {"Level": number, "Slot": f"Run{number}", "Next": "Scenes/Yertola.zscene" if number == 1 else "Scenes/Menu.zscene",
+    game = {"Level": number, "Slot": f"Run{number}", "Next": "Scenes/Crypt.zscene" if number == 1 else "Scenes/Menu.zscene",
             "Self": f"Scenes/{level['scene']}.zscene", "Title": level["title"],
             "PickupIds": pickup_ids, "PickupKeys": [f"L{number}-{item}-{i:02d}" for i, (item, _) in enumerate(pickups)],
             "PickupItems": [item for item, _ in pickups],
@@ -412,11 +412,11 @@ def level_scene(assets, project, C, number, level, ENEMIES, route, kinds, g, ora
             "UseCooldown": [u[3].get("Cooldown", 0.2) for u in uses], "UseDeactivate": [u[0] in ("Chest", "Gate") for u in uses],
             "HasExit": level["exit"] is not None, "Exit": [level["exit"][0] + 0.5, level["exit"][1] + 0.5, 0] if level["exit"] else [0, 0, 0]}
     boss_ids, wisp_ids = [], []
-    s.add(GAME, "O'yin", NativeScript=graph_script("Game", **game))
-    s.add(MUSIC, "Musiqa", GAME, AudioSource=k.audio_source(f"Audio/{level['music']}", 0.8, True, True, "Music", True))
-    s.add(AMBIENCE, "Muhit", GAME, AudioSource=k.audio_source(f"Audio/{level['amb']}", 0.6, True, True, "SFX"))
+    s.add(GAME, "Game", NativeScript=graph_script("Game", **game))
+    s.add(MUSIC, "Music", GAME, AudioSource=k.audio_source(f"Audio/{level['music']}", 0.8, True, True, "Music", True))
+    s.add(AMBIENCE, "Ambience", GAME, AudioSource=k.audio_source(f"Audio/{level['amb']}", 0.6, True, True, "SFX"))
     if number == 2:
-        s.add(BOSS_MUSIC, "Boss musiqasi", GAME, AudioSource=k.audio_source("Audio/music_boss.wav", 0.0, True, False, "Music", True))
+        s.add(BOSS_MUSIC, "Boss music", GAME, AudioSource=k.audio_source("Audio/music_boss.wav", 0.0, True, False, "Music", True))
     # enemies
     for i, (kind, c, key, patrol) in enumerate(level["enemies"]):
         spec = ENEMIES[kind]
@@ -431,7 +431,7 @@ def level_scene(assets, project, C, number, level, ENEMIES, route, kinds, g, ora
         if kind == "boss":
             boss_ids.append(eid)
             light(s, eid + 2, eid, (0, 0.8, 0), (0.7, 0.35, 1.0), 1.4, 5.0, flicker=0.15)
-            s.add(eid + 3, "Halqa", eid, pos=(0, 0, -0.05), active=False, SpriteRenderer=k.sprite("Textures/props.png", "ring", (1, 1, 1, 0.9), order=5, size=(7, 7), draw_mode="Sliced", lit=False))
+            s.add(eid + 3, "Ring", eid, pos=(0, 0, -0.05), active=False, SpriteRenderer=k.sprite("Textures/props.png", "ring", (1, 1, 1, 0.9), order=5, size=(7, 7), draw_mode="Sliced", lit=False))
         if kind == "wisp":
             wisp_ids.append(eid)
             light(s, eid + 2, eid, (0, 0.6, 0), (0.3, 1.0, 0.85), 1.2, 3.0, flicker=0.2)
@@ -458,13 +458,13 @@ def level_scene(assets, project, C, number, level, ENEMIES, route, kinds, g, ora
             fire_fx(s, eid + 350, eid, (0, 0.55, 0), 0.6)
     if level["exit"]:
         ex = level["exit"]
-        s.add(5990, "Zinapoya", pos=(ex[0] + 0.5, ex[1] + 0.5, 0), SpriteRenderer=k.sprite("Textures/props.png", "stairs", order=2, size=(1.4, 1.4), draw_mode="Sliced", lit=True))
+        s.add(5990, "Stairs", pos=(ex[0] + 0.5, ex[1] + 0.5, 0), SpriteRenderer=k.sprite("Textures/props.png", "stairs", order=2, size=(1.4, 1.4), draw_mode="Sliced", lit=True))
         light(s, 5991, 5990, (0, 0, 0), (0.45, 0.55, 1.0), 1.0, 3.0, flicker=0.05)
     # decoration
     deco = 3000
     if number == 1:
         for i, c in enumerate(level["trees"]):
-            s.add(3000 + i, "Daraxt", pos=(c[0] + 0.5, c[1] + 0.5, 0), Rigidbody2D=k.rigidbody2d("Static", layer=1), CircleCollider2D=k.circle2d(0.35),
+            s.add(3000 + i, "Tree", pos=(c[0] + 0.5, c[1] + 0.5, 0), Rigidbody2D=k.rigidbody2d("Static", layer=1), CircleCollider2D=k.circle2d(0.35),
                   SpriteRenderer=k.sprite("Textures/props.png", f"tree_{i % 3}", order=20, size=(2.6, 2.6), draw_mode="Sliced", lit=True))
         # bushes and tents
         import numpy as np
@@ -476,15 +476,15 @@ def level_scene(assets, project, C, number, level, ENEMIES, route, kinds, g, ora
             c = floor[int(idx)]
             if c in blocked:
                 continue
-            s.add(3100 + n, "Buta", pos=(c[0] + 0.5, c[1] + 0.5, 0), SpriteRenderer=k.sprite("Textures/props.png", "bush", order=4, size=(0.9, 0.9), draw_mode="Sliced", lit=True))
+            s.add(3100 + n, "Bush", pos=(c[0] + 0.5, c[1] + 0.5, 0), SpriteRenderer=k.sprite("Textures/props.png", "bush", order=4, size=(0.9, 0.9), draw_mode="Sliced", lit=True))
             n += 1
         for i, c in enumerate([(21, 3), (30, 7), (19, 22)]):
-            s.add(3200 + i, "Chodir", pos=(c[0] + 0.5, c[1] + 0.5, 0), SpriteRenderer=k.sprite("Textures/props.png", "tent", order=6, size=(2.0, 2.0), draw_mode="Sliced", lit=True))
-        s.add(3300, "Gulxan", pos=(25.5, 4.5, 0), SpriteRenderer=k.sprite("Textures/props.png", "campfire", order=5, size=(1.2, 1.2), draw_mode="Sliced", lit=True))
+            s.add(3200 + i, "Tent", pos=(c[0] + 0.5, c[1] + 0.5, 0), SpriteRenderer=k.sprite("Textures/props.png", "tent", order=6, size=(2.0, 2.0), draw_mode="Sliced", lit=True))
+        s.add(3300, "Campfire", pos=(25.5, 4.5, 0), SpriteRenderer=k.sprite("Textures/props.png", "campfire", order=5, size=(1.2, 1.2), draw_mode="Sliced", lit=True))
         fire_fx(s, 3301, 3300, (0, 0.1, 0), 1.0)
         light(s, 3302, 3300, (0, 0.3, 0), (1.0, 0.62, 0.28), 1.6, 6.5, flicker=0.25)
         for i, c in enumerate([(18, 15), (34, 15), (18, 24), (34, 24), (39, 15), (44, 24)]):
-            s.add(3400 + i, "Mash'al", pos=(c[0] + 0.5, c[1] + 0.5, 0), SpriteRenderer=k.sprite("Textures/props.png", "torch", order=7, size=(0.8, 0.8), draw_mode="Sliced", lit=False))
+            s.add(3400 + i, "Torch", pos=(c[0] + 0.5, c[1] + 0.5, 0), SpriteRenderer=k.sprite("Textures/props.png", "torch", order=7, size=(0.8, 0.8), draw_mode="Sliced", lit=False))
             fire_fx(s, 3420 + i, 3400 + i, (0, 0.35, 0), 0.45)
             light(s, 3440 + i, 3400 + i, (0, 0.4, 0), (1.0, 0.65, 0.3), 1.1, 4.5, flicker=0.2)
         fireflies(s, 8000, (w, h), 70)
@@ -492,23 +492,23 @@ def level_scene(assets, project, C, number, level, ENEMIES, route, kinds, g, ora
         torches = [(2, 9), (12, 2), (14, 9), (30, 2), (30, 9), (32, 12), (41, 2), (2, 20), (10, 12), (14, 16), (30, 16),
                    (12, 18), (32, 18), (12, 28), (32, 28), (18, 28), (26, 28)]
         for i, c in enumerate(torches):
-            s.add(3400 + i, "Mash'al", pos=(c[0] + 0.5, c[1] + 0.5, 0), SpriteRenderer=k.sprite("Textures/props.png", "torch", order=7, size=(0.8, 0.8), draw_mode="Sliced", lit=False))
+            s.add(3400 + i, "Torch", pos=(c[0] + 0.5, c[1] + 0.5, 0), SpriteRenderer=k.sprite("Textures/props.png", "torch", order=7, size=(0.8, 0.8), draw_mode="Sliced", lit=False))
             fire_fx(s, 3430 + i, 3400 + i, (0, 0.35, 0), 0.45)
             light(s, 3460 + i, 3400 + i, (0, 0.4, 0), (1.0, 0.6, 0.28), 1.35, 5.0, flicker=0.25)
         for i, (x0, y0, x1, y1) in enumerate(level["pillars"]):
-            s.add(3500 + i, "Ustun", pos=((x0 + x1 + 1) / 2, (y0 + y1 + 1) / 2 + 0.3, 0),
+            s.add(3500 + i, "Pillar", pos=((x0 + x1 + 1) / 2, (y0 + y1 + 1) / 2 + 0.3, 0),
                   SpriteRenderer=k.sprite("Textures/props.png", "pillar", order=12, size=(x1 - x0 + 1.4, y1 - y0 + 2.0), draw_mode="Sliced", lit=True))
         for i, c in enumerate([(5, 7), (17, 3), (27, 8), (37, 3), (4, 17), (25, 14), (14, 20), (30, 27)]):
-            s.add(3600 + i, "Suyaklar", pos=(c[0] + 0.5, c[1] + 0.5, 0), SpriteRenderer=k.sprite("Textures/props.png", "bones", order=3, size=(0.9, 0.9), draw_mode="Sliced", lit=True))
+            s.add(3600 + i, "Bones", pos=(c[0] + 0.5, c[1] + 0.5, 0), SpriteRenderer=k.sprite("Textures/props.png", "bones", order=3, size=(0.9, 0.9), draw_mode="Sliced", lit=True))
         fireflies(s, 8000, (w, h), 40, (0.55, 0.7, 1.0, 0.8))
-        s.add(8001, "Chang", pos=(w / 2, h / 2, 0), ParticleSystem=k.particles(
+        s.add(8001, "Dust", pos=(w / 2, h / 2, 0), ParticleSystem=k.particles(
             EmissionRate=8.0, MaxParticles=120, Shape=2, ShapeExtents=(w / 2, h / 2, 0), LifetimeMin=4.0, LifetimeMax=7.0, SpeedMin=0.02, SpeedMax=0.12,
             Spread=180.0, StartColor=(0.7, 0.7, 0.9, 0.18), EndColor=(0.5, 0.5, 0.8, 0.0), StartSize=0.9, EndSize=1.6, Additive=False, SortingOrder=60))
     # effects the graphs trigger (bursts)
-    s.add(8100, "Zarba uchquni", pos=(0, 0, 0), ParticleSystem=k.particles(
+    s.add(8100, "Hit sparks", pos=(0, 0, 0), ParticleSystem=k.particles(
         Playing=False, Looping=False, EmissionRate=0.0, Burst=0, MaxParticles=80, Shape=0, ShapeRadius=0.2, LifetimeMin=0.25, LifetimeMax=0.5,
         SpeedMin=2.0, SpeedMax=5.0, Spread=180.0, StartColor=(1.0, 0.85, 0.5, 1.0), EndColor=(1.0, 0.3, 0.1, 0.0), StartSize=0.14, EndSize=0.02, SortingOrder=45))
-    s.add(8101, "Daraja halqasi", HERO, pos=(0, 0.2, 0), ParticleSystem=k.particles(
+    s.add(8101, "Level-up ring", HERO, pos=(0, 0.2, 0), ParticleSystem=k.particles(
         Playing=False, Looping=False, EmissionRate=0.0, MaxParticles=120, Shape=0, ShapeRadius=0.6, LifetimeMin=0.6, LifetimeMax=1.1,
         SpeedMin=1.0, SpeedMax=2.4, Spread=180.0, StartColor=(1.0, 0.9, 0.55, 1.0), EndColor=(0.6, 0.8, 1.0, 0.0), StartSize=0.2, EndSize=0.04, SortingOrder=46))
     hud(s, number, level, C)
@@ -521,9 +521,9 @@ HEALTH_FILL, ENERGY_FILL, XP_FILL = (0.76, 0.15, 0.15, 1), (0.13, 0.34, 0.80, 1)
 
 
 def hud_bars(ui):
-    ui.bar(6013, "Tajriba", 6010, (0, 1), (24, -132), (104, 20), XP_FILL, 0, pivot=(0, 1), back=(0.02, 0.02, 0.05, 0.95))
-    ui.bar(6014, "Sog'liq", 6010, (0, 1), (148, -30), (380, 38), HEALTH_FILL, 26, pivot=(0, 1))
-    ui.bar(6015, "Energiya", 6010, (0, 1), (148, -78), (380, 32), ENERGY_FILL, 25, pivot=(0, 1))
+    ui.bar(6013, "Experience", 6010, (0, 1), (24, -132), (104, 20), XP_FILL, 0, pivot=(0, 1), back=(0.02, 0.02, 0.05, 0.95))
+    ui.bar(6014, "Health", 6010, (0, 1), (148, -30), (380, 38), HEALTH_FILL, 26, pivot=(0, 1))
+    ui.bar(6015, "Energy", 6010, (0, 1), (148, -78), (380, 32), ENERGY_FILL, 25, pivot=(0, 1))
 
 
 def hud(s, number, level, C):
@@ -531,90 +531,90 @@ def hud(s, number, level, C):
     s.add(CANVAS, "UI", UICanvas=k.ui_canvas())
     root = ui.stretch(6001, "HUD", CANVAS)
     # top-left vitals
-    ui.panel(6010, "Holat", root, (24, -24), (560, 178), anchor=(0, 1), pivot=(0, 1))
-    ui.image(6011, "Daraja nishoni", 6010, "badge", (0, 1), (24, -22), (104, 104), pivot=(0, 1))
-    ui.text(6012, "Daraja", 6011, "1", (0.5, 0.5), (0, 2), (90, 60), 46, ACCENT)
+    ui.panel(6010, "Status", root, (24, -24), (560, 178), anchor=(0, 1), pivot=(0, 1))
+    ui.image(6011, "Level badge", 6010, "badge", (0, 1), (24, -22), (104, 104), pivot=(0, 1))
+    ui.text(6012, "Level", 6011, "1", (0.5, 0.5), (0, 2), (90, 60), 46, ACCENT)
     hud_bars(ui)
-    ui.text(6016, "Nom", 6010, "NILUFAR", (0, 1), (148, -122), (380, 34), 25, MUTED, "Left", pivot=(0, 1))
+    ui.text(6016, "Name", 6010, "NILUFAR", (0, 1), (148, -122), (380, 34), 25, MUTED, "Left", pivot=(0, 1))
     # top-right resources
-    ui.panel(6020, "Boyliklar", root, (-24, -24), (430, 96), anchor=(1, 1), pivot=(1, 1))
+    ui.panel(6020, "Resources", root, (-24, -24), (430, 96), anchor=(1, 1), pivot=(1, 1))
     for i, (icon, eid, txt) in enumerate((("coin", 6021, "0"), ("lamp", 6023, "0"), ("key", 6026, "0"), ("potion", 6028, "0"))):
         ui.image(eid, icon, 6020, f"icon_{icon}", (0, 0.5), (22 + i * 102, 0), (44, 44), pivot=(0, 0.5))
-        ui.text(eid + 1, f"{icon} soni", 6020, txt, (0, 0.5), (70 + i * 102, 0), (56, 40), 28, INK, "Left", pivot=(0, 0.5))
+        ui.text(eid + 1, f"{icon} count", 6020, txt, (0, 0.5), (70 + i * 102, 0), (56, 40), 28, INK, "Left", pivot=(0, 0.5))
     # quest tracker
-    ui.panel(6030, "Vazifalar", root, (-24, -136), (500, 330), anchor=(1, 1), pivot=(1, 1))
-    ui.text(6031, "Sarlavha", 6030, "Vazifalar", (0.5, 1), (0, -40), (440, 40), 28, ACCENT, key="hud.quests")
+    ui.panel(6030, "Quests", root, (-24, -136), (500, 330), anchor=(1, 1), pivot=(1, 1))
+    ui.text(6031, "Title", 6030, "Quests", (0.5, 1), (0, -40), (440, 40), 28, ACCENT, key="hud.quests")
     for i in range(6):
-        ui.text(6032 + i, f"Vazifa {i + 1}", 6030, "", (0, 1), (32, -84 - i * 40), (440, 34), 25, INK, "Left", pivot=(0, 1))
+        ui.text(6032 + i, f"Quest {i + 1}", 6030, "", (0, 1), (32, -84 - i * 40), (440, 34), 25, INK, "Left", pivot=(0, 1))
     # ability bar
-    bar = ui.panel(6040, "Qobiliyatlar", root, (0, 22), (700, 132), anchor=(0.5, 0), pivot=(0.5, 0))
-    for i, (icon, hint, label) in enumerate((("melee", "[Attack]", "Zarba"), ("bolt", "[Bolt]", "Bolt"), ("nova", "[Nova]", "Nova"),
+    bar = ui.panel(6040, "Abilities", root, (0, 22), (700, 132), anchor=(0.5, 0), pivot=(0.5, 0))
+    for i, (icon, hint, label) in enumerate((("melee", "[Attack]", "Strike"), ("bolt", "[Bolt]", "Bolt"), ("nova", "[Nova]", "Nova"),
                                               ("mend", "[Mend]", "Mend"), ("potion", "[Potion]", "Potion"))):
         x = -260 + i * 130
         ui.image(6041 + i * 4, f"Slot {label}", bar, "slot", (0.5, 0.5), (x, 10), (104, 104), kind="Sliced")
-        ui.image(6042 + i * 4, f"Belgi {label}", 6041 + i * 4, f"icon_{icon}", (0.5, 0.5), (0, 8), (68, 68))
-        ui.bar(6043 + i * 4, f"Tayyorlik {label}", 6041 + i * 4, (0.5, 0), (0, 4), (84, 12), (0.98, 0.76, 0.32, 1), 0, back=(0.05, 0.04, 0.08, 0.6))
-        ui.text(6044 + i * 4, f"Tugma {label}", bar, hint, (0.5, 0.5), (x, -58), (140, 32), 25, MUTED, hints=True)
+        ui.image(6042 + i * 4, f"Icon {label}", 6041 + i * 4, f"icon_{icon}", (0.5, 0.5), (0, 8), (68, 68))
+        ui.bar(6043 + i * 4, f"Cooldown {label}", 6041 + i * 4, (0.5, 0), (0, 4), (84, 12), (0.98, 0.76, 0.32, 1), 0, back=(0.05, 0.04, 0.08, 0.6))
+        ui.text(6044 + i * 4, f"Key {label}", bar, hint, (0.5, 0.5), (x, -58), (140, 32), 25, MUTED, hints=True)
     # the prompt and the banners name controls ("[Interact] ...", "[Nova]"): shown as the keys bound to them
-    ui.text(6090, "Ishora", root, "", (0.5, 0), (0, 178), (900, 40), 26, INK, hints=True)
-    ui.text(6091, "Xabar", root, "", (0.5, 1), (0, -170), (1100, 60), 40, ACCENT, hints=True)
-    ui.text(6092, "Daraja nomi", root, level["title"].upper(), (0.5, 1), (0, -96), (900, 70), 56, INK,
-            key=T_(f"level.{level['scene']}", level["title"].upper(), level["title_en"]))
-    ui.text(6093, "Boss nomi", root, "Soya Bek", (0.5, 0), (0, 214), (600, 34), 26, (0.85, 0.65, 1.0, 1), active=False, key="hud.boss")
-    ui.rect(6094, "Boss sog'lig'i", root, (0.5, 0), None, (0, 186), (760, 22), 0, active=False,
+    ui.text(6090, "Prompt", root, "", (0.5, 0), (0, 178), (900, 40), 26, INK, hints=True)
+    ui.text(6091, "Banner", root, "", (0.5, 1), (0, -170), (1100, 60), 40, ACCENT, hints=True)
+    ui.text(6092, "Level title", root, level["title"], (0.5, 1), (0, -96), (900, 70), 56, INK,
+            key=T_(f"level.{level['scene']}", level["title_uz"], level["title"]))
+    ui.text(6093, "Boss name", root, "Soya Bek", (0.5, 0), (0, 214), (600, 34), 26, (0.85, 0.65, 1.0, 1), active=False, key="hud.boss")
+    ui.rect(6094, "Boss health", root, (0.5, 0), None, (0, 186), (760, 22), 0, active=False,
             UIProgressBar=k.ui_progress(1.0, (0.05, 0.04, 0.08, 0.85), (0.62, 0.30, 0.95, 1), 2.0, 6.0))
     for i in range(4):
-        ui.text(6070 + i, f"Jang {i + 1}", root, "", (0, 0.5), (32, 60 - i * 36), (380, 32), 25, (1.0, 0.6, 0.5, 1), "Left", pivot=(0, 0.5))
-    ui.stretch(6080, "Jarohat", root, order=-1, active=False, UIImage=k.ui_image((1, 1, 1, 0.8), "Textures/ui.png", "vignette", "Sliced", 1.0, raycast=False))
-    ui.text(6081, "Boshqaruv", root, "[Inventory] inventar   [Pause] pauza", (1, 0), (-24, 18), (640, 32), 25, MUTED, "Right", hints=True, pivot=(1, 0),
+        ui.text(6070 + i, f"Combat {i + 1}", root, "", (0, 0.5), (32, 60 - i * 36), (380, 32), 25, (1.0, 0.6, 0.5, 1), "Left", pivot=(0, 0.5))
+    ui.stretch(6080, "Hurt", root, order=-1, active=False, UIImage=k.ui_image((1, 1, 1, 0.8), "Textures/ui.png", "vignette", "Sliced", 1.0, raycast=False))
+    ui.text(6081, "Controls", root, "[Inventory] bag   [Pause] pause", (1, 0), (-24, 18), (640, 32), 25, MUTED, "Right", hints=True, pivot=(1, 0),
             key=T_("hud.controls", "[Inventory] inventar   [Pause] pauza", "[Inventory] bag   [Pause] pause"))
     # pause
-    ui.dim(6100, "Pauza", 50)
-    ui.panel(6101, "Pauza paneli", 6100, (0, 0), (560, 470))
-    ui.text(6102, "Sarlavha", 6101, "Pauza", (0.5, 1), (0, -62), (480, 60), 46, ACCENT, key="pause.title")
-    b = [ui.button(6111, "Davom etish", 6101, "Davom etish", "pause.resume", "Resume", (0, 70), select=True),
-         ui.button(6112, "Inventar", 6101, "Inventar", "pause.bag", "Bag", (0, -10)),
-         ui.button(6113, "Saqlab chiqish", 6101, "Saqlab, bosh menyuga", "pause.savequit", "SaveQuit", (0, -90))]
+    ui.dim(6100, "Pause", 50)
+    ui.panel(6101, "Pause panel", 6100, (0, 0), (560, 470))
+    ui.text(6102, "Title", 6101, "Paused", (0.5, 1), (0, -62), (480, 60), 46, ACCENT, key="pause.title")
+    b = [ui.button(6111, "Resume", 6101, "Resume", "pause.resume", "Resume", (0, 70), select=True),
+         ui.button(6112, "Inventory", 6101, "Inventory", "pause.bag", "Bag", (0, -10)),
+         ui.button(6113, "Save and quit", 6101, "Save and quit to menu", "pause.savequit", "SaveQuit", (0, -90))]
     chain_nav(s, b)
     # inventory
-    ui.dim(6200, "Inventar", 51)
-    ui.panel(6201, "Inventar paneli", 6200, (0, 0), (980, 640))
-    ui.text(6202, "Sarlavha", 6201, "Inventar", (0.5, 1), (0, -60), (600, 60), 44, ACCENT, key="bag.title")
+    ui.dim(6200, "Inventory", 51)
+    ui.panel(6201, "Inventory panel", 6200, (0, 0), (980, 640))
+    ui.text(6202, "Title", 6201, "Inventory", (0.5, 1), (0, -60), (600, 60), 44, ACCENT, key="bag.title")
     rows = []
     for i in range(6):
-        rows.append(ui.button(6211 + i, f"Qator {i + 1}", 6201, "", "", "Select", (-200, 150 - i * 68), (460, 58), 26))
-    acts = [ui.button(6221, "Kiyish", 6201, "Kiyish", "bag.equip", "Equip", (270, 150), (300, 58), 26),
-            ui.button(6222, "Ichish", 6201, "Ichish", "bag.drink", "Drink", (270, 82), (300, 58), 26),
-            ui.button(6223, "Keyingi", 6201, "Keyingi", "bag.next", "NextPage", (270, 14), (300, 58), 26),
-            ui.button(6224, "Yopish", 6201, "Yopish", "bag.close", "CloseBag", (270, -54), (300, 58), 26)]
+        rows.append(ui.button(6211 + i, f"Row {i + 1}", 6201, "", "", "Select", (-200, 150 - i * 68), (460, 58), 26))
+    acts = [ui.button(6221, "Equip", 6201, "Equip", "bag.equip", "Equip", (270, 150), (300, 58), 26),
+            ui.button(6222, "Drink", 6201, "Drink", "bag.drink", "Drink", (270, 82), (300, 58), 26),
+            ui.button(6223, "Next", 6201, "Next", "bag.next", "NextPage", (270, 14), (300, 58), 26),
+            ui.button(6224, "Close", 6201, "Close", "bag.close", "CloseBag", (270, -54), (300, 58), 26)]
     chain_nav(s, rows + acts)
     for i, eid in enumerate(rows):
         s.entities[eid]["UINavigation"].update(Right=acts[min(i, 3)])
     for i, eid in enumerate(acts):
         s.entities[eid]["UINavigation"].update(Left=rows[i])
     for i in range(3):
-        ui.text(6231 + i, f"Jihoz {i + 1}", 6201, "", (0.5, 0.5), (270, -130 - i * 38), (380, 34), 25, MUTED)
+        ui.text(6231 + i, f"Equipment {i + 1}", 6201, "", (0.5, 0.5), (270, -130 - i * 38), (380, 34), 25, MUTED)
     # defeat / victory / level card
-    ui.dim(6300, "Mag'lubiyat", 52)
-    ui.panel(6301, "Mag'lubiyat paneli", 6300, (0, 0), (760, 420))
-    ui.text(6302, "Sarlavha", 6301, "CHIROQ SO'NDI", (0.5, 1), (0, -80), (700, 80), 60, (1.0, 0.45, 0.4, 1), key="defeat.title")
-    ui.text(6303, "Izoh", 6301, "Nilufar uch marta yiqildi", (0.5, 1), (0, -150), (700, 40), 26, MUTED,
+    ui.dim(6300, "Defeat", 52)
+    ui.panel(6301, "Defeat panel", 6300, (0, 0), (760, 420))
+    ui.text(6302, "Title", 6301, "THE LANTERN WENT OUT", (0.5, 1), (0, -80), (700, 80), 60, (1.0, 0.45, 0.4, 1), key="defeat.title")
+    ui.text(6303, "Subtitle", 6301, "Nilufar fell three times", (0.5, 1), (0, -150), (700, 40), 26, MUTED,
             key=T_("defeat.sub", "Nilufar uch marta yiqildi", "Nilufar fell three times"))
-    d = [ui.button(6311, "Qayta", 6301, "Oxirgi saqlashdan", "defeat.retry", "Retry", (0, -30), select=True),
-         ui.button(6312, "Menyu", 6301, "Bosh menyu", "end.menu", "Menu", (0, -110))]
+    d = [ui.button(6311, "Retry", 6301, "From the last save", "defeat.retry", "Retry", (0, -30), select=True),
+         ui.button(6312, "Menu", 6301, "Main menu", "end.menu", "Menu", (0, -110))]
     chain_nav(s, d)
-    ui.dim(6400, "G'alaba", 53)
-    ui.panel(6401, "G'alaba paneli", 6400, (0, 0), (860, 600))
-    ui.text(6402, "Sarlavha", 6401, "TONG OTDI", (0.5, 1), (0, -86), (800, 90), 72, ACCENT, key="victory.title")
-    ui.text(6403, "Izoh", 6401, "Qo'rg'on yana yorug'", (0.5, 1), (0, -160), (800, 44), 30, INK, key="victory.sub")
-    ui.text(6410, "Natijalar", 6401, "", (0.5, 0.5), (0, -10), (720, 220), 26, INK, wrap=True)
-    v = [ui.button(6411, "Menyu", 6401, "Bosh menyu", "end.menu", "Menu", (0, -220), select=True)]
+    ui.dim(6400, "Victory", 53)
+    ui.panel(6401, "Victory panel", 6400, (0, 0), (860, 600))
+    ui.text(6402, "Title", 6401, "DAWN HAS COME", (0.5, 1), (0, -86), (800, 90), 72, ACCENT, key="victory.title")
+    ui.text(6403, "Subtitle", 6401, "The fortress shines again", (0.5, 1), (0, -160), (800, 44), 30, INK, key="victory.sub")
+    ui.text(6410, "Results", 6401, "", (0.5, 0.5), (0, -10), (720, 220), 26, INK, wrap=True)
+    v = [ui.button(6411, "Menu", 6401, "Main menu", "end.menu", "Menu", (0, -220), select=True)]
     chain_nav(s, v)
-    ui.dim(6500, "Daraja yakuni", 54)
-    ui.panel(6501, "Daraja paneli", 6500, (0, 0), (860, 420))
-    ui.text(6502, "Sarlavha", 6501, "1-DARAJA YAKUNLANDI", (0.5, 1), (0, -86), (800, 80), 58, ACCENT, key="card.title")
-    ui.text(6503, "Izoh", 6501, "Bog'lar ozod", (0.5, 1), (0, -156), (800, 44), 30, INK, key="card.sub")
-    ui.text(6510, "Natijalar", 6501, "", (0.5, 0.5), (0, -60), (720, 120), 26, INK, wrap=True)
+    ui.dim(6500, "Level card", 54)
+    ui.panel(6501, "Level card panel", 6500, (0, 0), (860, 420))
+    ui.text(6502, "Title", 6501, "LEVEL 1 COMPLETE", (0.5, 1), (0, -86), (800, 80), 58, ACCENT, key="card.title")
+    ui.text(6503, "Subtitle", 6501, "The orchards are free", (0.5, 1), (0, -156), (800, 44), 30, INK, key="card.sub")
+    ui.text(6510, "Results", 6501, "", (0.5, 0.5), (0, -60), (720, 120), 26, INK, wrap=True)
 
 
 def menu_scene(assets, project, LEVELS):
@@ -641,77 +641,77 @@ def menu_scene(assets, project, LEVELS):
         if y >= 12 and not (12 <= x <= 14 and y <= 13):
             return "#"
         return "p" if (x, y) in path else "."
-    ground, decals, walls = boglar_layers(W, h, lambda x, y: kind(x - pad, y), np.random.default_rng(11))
-    s.add(2000, "Tilemap", pos=(-pad, 0, 0), Tilemap={"Tileset": "Textures/tiles_boglar.png", "PixelArt": False, "TilesetColumns": 16, "TilesetRows": 6, "Width": W,
+    ground, decals, walls = orchard_layers(W, h, lambda x, y: kind(x - pad, y), np.random.default_rng(11))
+    s.add(2000, "Tilemap", pos=(-pad, 0, 0), Tilemap={"Tileset": "Textures/tiles_orchards.png", "PixelArt": False, "TilesetColumns": 16, "TilesetRows": 6, "Width": W,
                                     "Height": h, "TileSize": 1.0,
-                                    "Layers": [{"Name": "Zamin", "Visible": True, "Collision": False, "SortingOrder": 0, "Opacity": 1.0, "Tiles": ground},
-                                               {"Name": "Bezak", "Visible": True, "Collision": False, "SortingOrder": 1, "Opacity": 1.0, "Tiles": decals},
-                                               {"Name": "Devor", "Visible": True, "Collision": False, "SortingOrder": 2, "Opacity": 1.0, "Tiles": walls}],
+                                    "Layers": [{"Name": "Ground", "Visible": True, "Collision": False, "SortingOrder": 0, "Opacity": 1.0, "Tiles": ground},
+                                               {"Name": "Decor", "Visible": True, "Collision": False, "SortingOrder": 1, "Opacity": 1.0, "Tiles": decals},
+                                               {"Name": "Walls", "Visible": True, "Collision": False, "SortingOrder": 2, "Opacity": 1.0, "Tiles": walls}],
                                     "Color": [1, 1, 1, 1], "SortingOrder": -10, "Collision": False, "Friction": 0.0, "Lit": True})
-    s.add(CAMERA, "Kamera", pos=(12.0, 8.6, 10), Camera=k.camera_ortho(12.0, (0.03, 0.03, 0.06, 1)))
+    s.add(CAMERA, "Camera", pos=(12.0, 8.6, 10), Camera=k.camera_ortho(12.0, (0.03, 0.03, 0.06, 1)))
     for i, c in enumerate([(2, 3), (5, 8), (22, 3), (25, 9), (8, 11), (20, 11), (1, 10), (27, 5), (9, 4), (17, 1)]):
-        s.add(3000 + i, "Daraxt", pos=(c[0] + 0.5, c[1] + 0.5, 0), SpriteRenderer=k.sprite("Textures/props.png", f"tree_{i % 3}", order=20, size=(3.0, 3.0), draw_mode="Sliced", lit=True))
+        s.add(3000 + i, "Tree", pos=(c[0] + 0.5, c[1] + 0.5, 0), SpriteRenderer=k.sprite("Textures/props.png", f"tree_{i % 3}", order=20, size=(3.0, 3.0), draw_mode="Sliced", lit=True))
     for i, c in enumerate([(11.4, 12.6), (15.6, 12.6)]):
-        s.add(3400 + i, "Mash'al", pos=(c[0], c[1], 0), SpriteRenderer=k.sprite("Textures/props.png", "torch", order=7, size=(0.9, 0.9), draw_mode="Sliced"))
+        s.add(3400 + i, "Torch", pos=(c[0], c[1], 0), SpriteRenderer=k.sprite("Textures/props.png", "torch", order=7, size=(0.9, 0.9), draw_mode="Sliced"))
         fire_fx(s, 3420 + i, 3400 + i, (0, 0.38, 0), 0.5)
         light(s, 3440 + i, 3400 + i, (0, 0.4, 0), (1.0, 0.62, 0.28), 1.5, 6.5, flicker=0.2)
-    s.add(3300, "Gulxan", pos=(19.5, 6.0, 0), SpriteRenderer=k.sprite("Textures/props.png", "campfire", order=5, size=(1.3, 1.3), draw_mode="Sliced", lit=True))
+    s.add(3300, "Campfire", pos=(19.5, 6.0, 0), SpriteRenderer=k.sprite("Textures/props.png", "campfire", order=5, size=(1.3, 1.3), draw_mode="Sliced", lit=True))
     fire_fx(s, 3301, 3300, (0, 0.1, 0), 1.1)
     light(s, 3302, 3300, (0, 0.3, 0), (1.0, 0.6, 0.26), 1.8, 7.5, flicker=0.25)
-    s.add(3200, "Chodir", pos=(22.5, 7.4, 0), SpriteRenderer=k.sprite("Textures/props.png", "tent", order=6, size=(2.2, 2.2), draw_mode="Sliced", lit=True))
+    s.add(3200, "Tent", pos=(22.5, 7.4, 0), SpriteRenderer=k.sprite("Textures/props.png", "tent", order=6, size=(2.2, 2.2), draw_mode="Sliced", lit=True))
     s.add(1000, "Nilufar", pos=(17.6, 6.3, 0), SpriteRenderer=k.sprite("Textures/hero.png", "hero_idle_0", lit=True, order=10, size=(1.6, 1.6), draw_mode="Sliced"),
           SpriteAnimation={"Columns": 1, "Rows": 1, "StartFrame": 0, "FrameCount": 2, "FPS": 3, "Loop": True, "Playing": True,
                            "Frames": ["hero_idle_0", "hero_idle_1"], "Clips": [{"Path": "Animations/hero_Idle.zsanim"}], "PlayOnStart": True})
     light(s, 1002, 1000, (0.4, 0.2, 0), (1.0, 0.78, 0.45), 1.4, 5.0, flicker=0.08)
     fireflies(s, 8000, (w, h), 90)
-    s.add(GAME, "Menyu", NativeScript=graph_script("Menu"))
-    s.add(MUSIC, "Musiqa", GAME, AudioSource=k.audio_source("Audio/music_menu.wav", 0.8, True, True, "Music", True))
+    s.add(GAME, "Menu", NativeScript=graph_script("Menu"))
+    s.add(MUSIC, "Music", GAME, AudioSource=k.audio_source("Audio/music_menu.wav", 0.8, True, True, "Music", True))
     ui = UI(s, GAME)
     s.add(CANVAS, "UI", UICanvas=k.ui_canvas())
-    ui.text(6010, "Nom", CANVAS, "CHIROQBON", (0, 1), (110, -96), (900, 150), 120, ACCENT, "Left", pivot=(0, 1), UIAnimation=k.ui_anim("Fade", "None", 0.8))
-    ui.text(6011, "Shior", CANVAS, "Ko'hna qo'rg'on afsonasi", (0, 1), (118, -236), (900, 50), 36, INK, "Left", key="menu.subtitle", pivot=(0, 1))
-    s.add(6020, "Asosiy", CANVAS, UITransform=k.ui_rect((0, 0.5), None, (0, 0.5), (110, -70), (540, 440)),
+    ui.text(6010, "Name", CANVAS, "LANTERN KEEPER", (0, 1), (110, -96), (900, 150), 120, ACCENT, "Left", pivot=(0, 1), UIAnimation=k.ui_anim("Fade", "None", 0.8))
+    ui.text(6011, "Tagline", CANVAS, "A legend of the old fortress", (0, 1), (118, -236), (900, 50), 36, INK, "Left", key="menu.subtitle", pivot=(0, 1))
+    s.add(6020, "Main", CANVAS, UITransform=k.ui_rect((0, 0.5), None, (0, 0.5), (110, -70), (540, 440)),
           UIImage=k.ui_image((1, 1, 1, 0.97), "Textures/ui.png", "panel", "Sliced", 1.0, raycast=True),
           UILayoutGroup=k.ui_layout("Vertical", (50, 50, 46, 46), 14, align=1, fit_height=True))
-    main = [ui.button(6021, "Yangi o'yin", 6020, "Yangi o'yin", "menu.new", "New", (0, 0), (440, 64), select=True),
-            ui.button(6022, "Davom etish", 6020, "Davom etish", "menu.continue", "Continue", (0, 0), (440, 64)),
-            ui.button(6023, "Sozlamalar", 6020, "Sozlamalar", "menu.settings", "Settings", (0, 0), (440, 64)),
-            ui.button(6024, "Mualliflar", 6020, "Mualliflar", "menu.credits", "Credits", (0, 0), (440, 64)),
-            ui.button(6025, "Chiqish", 6020, "Chiqish", "menu.quit", "Quit", (0, 0), (440, 64))]
-    ui.text(6030, "Rekord", CANVAS, "", (0, 0), (118, 124), (900, 40), 26, MUTED, "Left", pivot=(0, 0))
+    main = [ui.button(6021, "New game", 6020, "New game", "menu.new", "New", (0, 0), (440, 64), select=True),
+            ui.button(6022, "Continue", 6020, "Continue", "menu.continue", "Continue", (0, 0), (440, 64)),
+            ui.button(6023, "Settings", 6020, "Settings", "menu.settings", "Settings", (0, 0), (440, 64)),
+            ui.button(6024, "Credits", 6020, "Credits", "menu.credits", "Credits", (0, 0), (440, 64)),
+            ui.button(6025, "Quit", 6020, "Quit", "menu.quit", "Quit", (0, 0), (440, 64))]
+    ui.text(6030, "Record", CANVAS, "", (0, 0), (118, 124), (900, 40), 26, MUTED, "Left", pivot=(0, 0))
     # the controls line: 78 % of the view's width (any aspect, any UI scale: it wraps instead of running off a 4:3 view
     # or into a 21:9 view's corners)
-    s.add(6031, "Boshqaruv", CANVAS, UITransform=k.ui_rect((0.11, 0), (0.89, 0), (0.5, 0), (0, 30), (0, 76), 25),
-          Text=k.ui_text("[Move] yurish   [Attack] zarba   [Bolt] olov o'qi   [Interact] ishlatish   [Pause] pauza", MUTED, "Center", hints=True, wrap=True,
+    s.add(6031, "Controls", CANVAS, UITransform=k.ui_rect((0.11, 0), (0.89, 0), (0.5, 0), (0, 30), (0, 76), 25),
+          Text=k.ui_text("[Move] move   [Attack] strike   [Bolt] fire bolt   [Interact] use   [Pause] pause", MUTED, "Center", hints=True, wrap=True,
                          key=T_("menu.controls", "[Move] yurish   [Attack] zarba   [Bolt] olov o'qi   [Interact] ishlatish   [Pause] pauza",
                                 "[Move] move   [Attack] strike   [Bolt] fire bolt   [Interact] use   [Pause] pause")))
-    ui.text(6032, "Versiya", CANVAS, "v1.0  Zamin Engine", (1, 0), (-24, 12), (420, 32), 25, MUTED, "Right", pivot=(1, 0))
+    ui.text(6032, "Version", CANVAS, "v1.0  Zamin Engine", (1, 0), (-24, 12), (420, 32), 25, MUTED, "Right", pivot=(1, 0))
     # settings
-    ui.dim(6100, "Sozlamalar", 50)
-    ui.panel(6101, "Sozlamalar paneli", 6100, (0, 0), (760, 650))
-    ui.text(6102, "Sarlavha", 6101, "Sozlamalar", (0.5, 1), (0, -62), (600, 60), 44, ACCENT, key="menu.settings")
+    ui.dim(6100, "Settings", 50)
+    ui.panel(6101, "Settings panel", 6100, (0, 0), (760, 650))
+    ui.text(6102, "Title", 6101, "Settings", (0.5, 1), (0, -62), (600, 60), 44, ACCENT, key="menu.settings")
     # music, effects and the UI scale (80..120 % in 10 % steps: the slider's 8..12)
-    for i, (eid, label, key) in enumerate(((6111, "Musiqa", "menu.music"), (6112, "Ovoz effektlari", "menu.sfx"), (6116, "Interfeys o'lchami", "menu.uiscale"))):
+    for i, (eid, label, key) in enumerate(((6111, "Music", "menu.music"), (6112, "Sound effects", "menu.sfx"), (6116, "Interface size", "menu.uiscale"))):
         ui.text(eid + 10, label, 6101, label, (0.5, 0.5), (-180, 175 - i * 80), (300, 40), 28, INK, "Left", key=key)
         ui.rect(eid, f"{label} slider", 6101, (0.5, 0.5), None, (150, 175 - i * 80), (320, 44),
                 UISlider={"Min": 8.0 if i == 2 else 0.0, "Max": 12.0 if i == 2 else 1.0, "Value": (0.55, 0.9, 10.0)[i], "WholeNumbers": i == 2,
                           "Direction": "LeftToRight", "Interactable": True,
                           "TrackThickness": 10.0, "HandleSize": 30.0, "Rounded": True, "TrackColor": [0.12, 0.1, 0.18, 1], "FillColor": list(ACCENT),
                           "HandleColor": [1.0, 0.95, 0.85, 1]}, UINavigation=k.ui_nav("Explicit", i == 0, ACCENT[:3] + (1,)))
-    ui.text(6123, "To'liq ekran", 6101, "To'liq ekran", (0.5, 0.5), (-180, -65), (300, 40), 28, INK, "Left", key="menu.fullscreen")
-    ui.rect(6113, "To'liq ekran toggle", 6101, (0.5, 0.5), None, (150, -65), (90, 44),
+    ui.text(6123, "Fullscreen", 6101, "Fullscreen", (0.5, 0.5), (-180, -65), (300, 40), 28, INK, "Left", key="menu.fullscreen")
+    ui.rect(6113, "Fullscreen toggle", 6101, (0.5, 0.5), None, (150, -65), (90, 44),
             UIToggle={"IsOn": False, "Interactable": True, "Style": "Switch", "Mark": "Check", "BoxSize": 34.0, "LabelSpacing": 8.0, "Group": "",
                       "AllowSwitchOff": True, "BoxColor": [0.14, 0.12, 0.2, 1], "OnColor": list(ACCENT), "MarkColor": [1, 1, 1, 1]},
             UIButton=k.ui_button((1, 1, 1, 1), (1.2, 1.2, 1.2, 1), (1, 1, 1, 1), "Fullscreen", GAME), UINavigation=k.ui_nav("Explicit", False, ACCENT[:3] + (1,)))
-    st = [6111, 6112, 6116, 6113, ui.button(6114, "Til", 6101, "Til: O'zbekcha", "menu.language", "Language", (0, -145), (420, 60), 26),
-          ui.button(6115, "Orqaga", 6101, "Orqaga", "menu.back", "Back", (0, -225), (420, 60), 28)]
+    st = [6111, 6112, 6116, 6113, ui.button(6114, "Language", 6101, "Language: English", "menu.language", "Language", (0, -145), (420, 60), 26),
+          ui.button(6115, "Back", 6101, "Back", "menu.back", "Back", (0, -225), (420, 60), 28)]
     chain_nav(s, st)
     # credits
-    ui.dim(6200, "Mualliflar", 51)
-    ui.panel(6201, "Mualliflar paneli", 6200, (0, 0), (1100, 520))
-    ui.text(6202, "Sarlavha", 6201, "Mualliflar", (0.5, 1), (0, -62), (600, 60), 44, ACCENT, key="menu.credits")
-    ui.text(6210, "Matn", 6201, "", (0.5, 0.5), (0, 10), (980, 260), 26, INK, key="menu.credits.body", wrap=True)
-    c = [ui.button(6211, "Orqaga", 6201, "Orqaga", "menu.back", "Back", (0, -190), select=True)]
+    ui.dim(6200, "Credits", 51)
+    ui.panel(6201, "Credits panel", 6200, (0, 0), (1100, 520))
+    ui.text(6202, "Title", 6201, "Credits", (0.5, 1), (0, -62), (600, 60), 44, ACCENT, key="menu.credits")
+    ui.text(6210, "Text", 6201, "", (0.5, 0.5), (0, 10), (980, 260), 26, INK, key="menu.credits.body", wrap=True)
+    c = [ui.button(6211, "Back", 6201, "Back", "menu.back", "Back", (0, -190), select=True)]
     chain_nav(s, c)
     s.save(assets, project)
 
@@ -958,8 +958,8 @@ def hero_graph(assets, project, C):
         nxt = (col, "True")
         for item, sound, banner in (("Lamp", "sfx_lamp", ("Chiroq topildi!", "A lamp found!")), ("Coin", "sfx_coin", None),
                                     ("Herb", "sfx_coin", ("Shifobaxsh o't topildi", "A healing herb found")),
-                                    ("Qilich", "sfx_chest", ("Qilich! [Inventory] - inventarda kiying", "A sword! [Inventory] - equip it in the bag")),
-                                    ("Zirh", "sfx_chest", ("Zirh topildi!", "Armour found!")), ("Potion", "sfx_coin", ("Ichimlik topildi", "A potion found"))):
+                                    ("Sword", "sfx_chest", ("Qilich! [Inventory] - inventarda kiying", "A sword! [Inventory] - equip it in the bag")),
+                                    ("Armour", "sfx_chest", ("Zirh topildi!", "Armour found!")), ("Potion", "sfx_coin", ("Ichimlik topildi", "A potion found"))):
             ib = g.br(nxt, (g.text_is((poll, "Item"), item), "Value"))
             t = (g.ex((ib, "True"), "PlaySound", Path=f"Audio/{sound}.wav", Volume=0.7), "Then")
             t = (g.ex(t, "Print", Text=f"SLICE_TRACE ev=collect a={item}"), "Then")
@@ -1123,7 +1123,7 @@ def game_graph(assets, project, C):
     g.l(*g.text(["SLICE_IO_FAILED load ", (load, "Reason")]), lf, "Text")
     # an unreadable save (primary and backup) is said on screen: the level starts again from its entry (carry or fresh)
     lfb = g.ex((lf, "Then"), "SendMessage", Target=GAME, Name="Banner")
-    g.l(*L(g, "banner.unreadable", UNREADABLE, "The save could not be read - the level starts again"), lfb, "Text")
+    g.l(*L(g, "banner.unreadable", "Saqlash o'qilmadi - daraja boshidan", UNREADABLE), lfb, "Text")
     # ... in a later frame: the failed load spent one of the scene's two save file operations of this frame, the transfer
     # and the autosave below need both
     lfd = g.ex((lfb, "Then"), "Delay", Seconds=0.04)
@@ -1138,7 +1138,7 @@ def game_graph(assets, project, C):
     cf = g.ex((carried, "False"), "Print")
     g.l(*g.text(["SLICE_IO_FAILED transfer ", (carry, "Reason")]), cf, "Text")
     cfb = g.ex((cf, "Then"), "SendMessage", Target=GAME, Name="Banner")
-    g.l(*L(g, "banner.unreadable", UNREADABLE, "The save could not be read - the level starts again"), cfb, "Text")
+    g.l(*L(g, "banner.unreadable", "Saqlash o'qilmadi - daraja boshidan", UNREADABLE), cfb, "Text")
     fresh1 = g.setv((fresh, "False"), "Time", 0)
     auto = g.ex(g.join((pc, "Then"), (cfb, "Then"), fresh1), "Gameplay.SaveWrite", Schema=schema)
     g.l(g.get("Slot"), "Value", auto, "Slot")
@@ -1253,7 +1253,7 @@ def game_graph(assets, project, C):
                  (best2, "Value", "time")]), stats, "Text")
     allq = g.all_of([(g.n("Gameplay.QuestState", Target=HERO, Quest=q[0]), "Claimed") for q in C["Quests"]])
     pv = g.ex((stats, "Then"), "Print")
-    g.l(*g.text(["SLICE_VICTORY game=Chiroqbon time=", (g.get("Time"), "Value", "number", 1), " xp=", (prog, "XP", "number"), " level=", (prog, "Level", "number"),
+    g.l(*g.text(["SLICE_VICTORY game=LanternKeeper time=", (g.get("Time"), "Value", "number", 1), " xp=", (prog, "XP", "number"), " level=", (prog, "Level", "number"),
                  " coins=", (coins, "Count", "number"), " deaths=", (hp, "Deaths", "number"), " quests=", (g.n("Constant.String", Value="5/5"), "Value")]), pv, "Text")
     qb = g.br((pv, "Then"), allq)
     g.ex((qb, "False"), "Print", Text="SLICE_ORACLE_FAILED quests")
@@ -1370,7 +1370,7 @@ def game_graph(assets, project, C):
     g.ex((on("Menu"), "Then"), "LoadScene", Path="Scenes/Menu.zscene", FadeOut=0.5)
     t = (g.ex((on("Retry"), "Then"), "WriteState.String", Key=f"{GS}.Run.Entry", Value="continue"), "Then")
     t = (g.ex(t, "SaveGameState"), "Then")
-    t = (g.ex(t, "Print", Text="Menyu: Oxirgi saqlashdan"), "Then")
+    t = (g.ex(t, "Print", Text="Menu: From the last save"), "Then")
     re = g.ex(t, "LoadScene", FadeOut=0.5)
     g.l(g.get("Self"), "Value", re, "Path")
     t = (g.ex((on("Defeat"), "Then"), "Gameplay.UIOpen", Name="Defeat"), "Then")
@@ -1529,7 +1529,7 @@ UINT_SELF = 18446744073709551615  # an Entity pin's "Self"
 
 def menu_graph(assets, project):
     """The title menu: panels, Continue only for an unfinished run, settings (live volumes and UI scale kept when the
-    panel closes - Orqaga, Escape or B; fullscreen and language kept at once), credits, demo auto-start, new game /
+    panel closes - Back, Escape or B; fullscreen and language kept at once), credits, demo auto-start, new game /
     continue with a fade."""
     g = gk.Graph("Menu")
     _vars(g, (("Demo", "Bool", False), ("Started", "Bool", False), ("Time", "Number", 0), ("Can", "Bool", False)))
@@ -1572,8 +1572,8 @@ def menu_graph(assets, project):
     rt = g.ex((rb, "True"), "SetUIText", Target=6030)
     g.l(*g.text([L(g, "stat.best", "Eng yaxshi vaqt", "Best time"), "  ", (best, "Value", "time")]), rt, "Text")
     shown = g.br(g.join((rb, "False"), (rt, "Then")), V(g, "Can"))
-    g.ex((shown, "True"), "Print", Text="Menyu: Asosiy davom=1")
-    g.ex((shown, "False"), "Print", Text="Menyu: Asosiy davom=0")
+    g.ex((shown, "True"), "Print", Text="Menu: Main continue=1")
+    g.ex((shown, "False"), "Print", Text="Menu: Main continue=0")
     # ---- per frame: live volumes while the settings are open; the demo picks Continue or New game after 1 s
     g.lane("update")
     u = g.n("Event.Update")
@@ -1607,19 +1607,19 @@ def menu_graph(assets, project):
     wd = g.ex(t, "WriteState.Bool", Key=f"{GS}.Run.Demo", Persistent=False)
     g.l(*demo, wd, "Value")
     t = (g.ex((wd, "Then"), "SaveGameState"), "Then")
-    t = (g.ex(t, "Print", Text="Menyu: Yangi o'yin"), "Then")
-    g.ex(t, "LoadScene", Path="Scenes/Boglar.zscene", FadeOut=0.6, FadeIn=0.6, Color=[0.02, 0.01, 0.04, 1])
+    t = (g.ex(t, "Print", Text="Menu: New game"), "Then")
+    g.ex(t, "LoadScene", Path="Scenes/Orchards.zscene", FadeOut=0.6, FadeIn=0.6, Color=[0.02, 0.01, 0.04, 1])
     t = (g.ex(on("Continue"), "WriteState.String", Key=f"{GS}.Run.Entry", Value="continue"), "Then")
     wd = g.ex(t, "WriteState.Bool", Key=f"{GS}.Run.Demo", Persistent=False)
     g.l(*demo, wd, "Value")
-    t = (g.ex((wd, "Then"), "Print", Text="Menyu: Davom etish"), "Then")
+    t = (g.ex((wd, "Then"), "Print", Text="Menu: Continue"), "Then")
     two = g.br(t, (g.cmp("Greater", (level, "Value"), 1.5), "Value"))
-    g.ex((two, "True"), "LoadScene", Path="Scenes/Yertola.zscene", FadeOut=0.6, FadeIn=0.6, Color=[0.02, 0.01, 0.04, 1])
-    g.ex((two, "False"), "LoadScene", Path="Scenes/Boglar.zscene", FadeOut=0.6, FadeIn=0.6, Color=[0.02, 0.01, 0.04, 1])
-    g.ex((g.ex(on("Settings"), "Gameplay.UIOpen", Name="Settings"), "Then"), "Print", Text="Menyu: Sozlamalar")
-    g.ex((g.ex(on("Credits"), "Gameplay.UIOpen", Name="Credits"), "Then"), "Print", Text="Menyu: Mualliflar")
+    g.ex((two, "True"), "LoadScene", Path="Scenes/Crypt.zscene", FadeOut=0.6, FadeIn=0.6, Color=[0.02, 0.01, 0.04, 1])
+    g.ex((two, "False"), "LoadScene", Path="Scenes/Orchards.zscene", FadeOut=0.6, FadeIn=0.6, Color=[0.02, 0.01, 0.04, 1])
+    g.ex((g.ex(on("Settings"), "Gameplay.UIOpen", Name="Settings"), "Then"), "Print", Text="Menu: Settings")
+    g.ex((g.ex(on("Credits"), "Gameplay.UIOpen", Name="Credits"), "Then"), "Print", Text="Menu: Credits")
     g.ex(on("Back"), "Gameplay.UIBack")
-    # a panel closed by Orqaga, Escape or the gamepad's B (UIWorld's Back): the settings are kept whichever way
+    # a panel closed by Back, Escape or the gamepad's B (UIWorld's Back): the settings are kept whichever way
     g.lane("closed")
     cu = g.n("Event.Update")
     ev = g.ex((cu, "Then"), "Gameplay.UIEvent")
@@ -1639,7 +1639,7 @@ def menu_graph(assets, project):
     g.l(*g.text(["SLICE_SETTINGS music=", (music, "Value", "number", 2), " sfx=", (sfx, "Value", "number", 2), " ui=", (ui_scale[0], "Value", "number", 2),
                  " lang=", (g.n("Localization.Language"), "Value")]), p, "Text")
     credits = g.br((which, "False"), (g.text_is((ev, "Name"), "Credits"), "Value"))
-    g.ex(g.join((p, "Then"), (credits, "True")), "Print", Text="Menyu: Asosiy")
+    g.ex(g.join((p, "Then"), (credits, "True")), "Print", Text="Menu: Main")
     g.lane("messages2")
     g.ex(on("Quit"), "QuitGame")
     # fullscreen and the language are the player's choice: kept with SaveData (the player loads them at its start)

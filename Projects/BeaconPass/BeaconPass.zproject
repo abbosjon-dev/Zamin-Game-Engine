@@ -8,12 +8,12 @@
         "SourceDirectory": "Source",
         "ScriptModulePath": "",
         "EngineVersion": "0.1.0",
-        "Description": "Dovon mash'ali: a 3D action-adventure vertical slice - a mountain pass, a caravanserai, AI guards and a boss, Animator locomotion, quests, equipment, shrine saves and the beacon finale.",
+        "Description": "Beacon Pass: a 3D action-adventure vertical slice - a mountain pass, a caravanserai, AI guards and a boss, Animator locomotion, quests, equipment, shrine saves and the beacon finale.",
         "Thumbnail": "Thumbnail.jpg"
     },
     "Player": {
         "Company": "Zamin Studio",
-        "Product": "Dovon mash'ali",
+        "Product": "Beacon Pass",
         "Version": "1.0.0",
         "Width": 1280,
         "Height": 720,
@@ -33,9 +33,9 @@
             "UUID": "fef9078a62728422"
         },
         {
-            "Path": "Scenes/Dovon.zscene",
+            "Path": "Scenes/Pass.zscene",
             "Enabled": true,
-            "UUID": "d07d51278de25425"
+            "UUID": "7a272c1ec0fd8251"
         }
     ],
     "InputActions": {

@@ -132,10 +132,10 @@ jobs:
           ZAMIN_BUILD_DIR: build
         run: xvfb-run -a -s '-screen 0 1600x1000x24 -nolisten tcp' python3 Tests/slice_editor_test.py
 
-      - name: Chiroqbon 2D vertical slice, damaged saves, gamepad, Editor Play, relocated export resume and Player/headless determinism
+      - name: Lantern Keeper 2D vertical slice, damaged saves, gamepad, Editor Play, relocated export resume and Player/headless determinism
         run: python3 Tests/slice_workflow_test.py --build build --out world-streaming/slices/LanternKeeper --exports
 
-      - name: Dovon mash'ali 3D vertical slice, damaged saves, gamepad, Editor Play, relocated export resume and Player/headless determinism
+      - name: Beacon Pass 3D vertical slice, damaged saves, gamepad, Editor Play, relocated export resume and Player/headless determinism
         run: python3 Tests/slice_workflow_test.py --game BeaconPass --build build --out world-streaming/slices/BeaconPass --exports
 
       - name: Slice UI input/scale gate (keyboard/gamepad/mouse tours, UI scale, 6 resolutions, seeded fuzz, ultrawide)
@@ -218,7 +218,7 @@ jobs:
       - name: Editor smoke test (every panel)
         run: Tests/editor_smoke.sh --shots --out editor-smoke
 
-      - name: Editor smoke test on the vertical slices (Chiroqbon, Dovon mash'ali)
+      - name: Editor smoke test on the vertical slices (Lantern Keeper, Beacon Pass)
         run: Tests/editor_smoke.sh --out editor-smoke/slices Projects/LanternKeeper Projects/BeaconPass
 
       - uses: actions/upload-artifact@v4

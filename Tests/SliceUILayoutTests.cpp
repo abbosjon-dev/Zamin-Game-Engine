@@ -1,5 +1,5 @@
 // The UI audit (Scene::AuditUI, CheckUIAudit; UIAudit.h) and the vertical slices' UI layout gate (P5 item 3, U4): every
-// screen of Chiroqbon (Projects/LanternKeeper) and Dovon mash'ali (Projects/BeaconPass) - the title menu with each of its
+// screen of Lantern Keeper (Projects/LanternKeeper) and Beacon Pass (Projects/BeaconPass) - the title menu with each of its
 // panels, each level's HUD and every gameplay UI panel the level configures (pause, inventory, controls, level card,
 // victory, defeat) - laid out headless at six resolutions (4:3, 16:9, 21:9) and three UI scale settings, measured with
 // the default font's metrics, must keep the layout rules: usable widgets inside the view, no overlapping siblings,
@@ -316,15 +316,15 @@ namespace {
 
 TEST(SliceMenuLayoutLanternKeeper)
 {
-    AuditSlice("LanternKeeper", { "Scenes/Menu.zscene", "Scenes/Boglar.zscene", "Scenes/Yertola.zscene" }, 10);
+    AuditSlice("LanternKeeper", { "Scenes/Menu.zscene", "Scenes/Orchards.zscene", "Scenes/Crypt.zscene" }, 10);
 }
 
 TEST(SliceMenuLayoutBeaconPass)
 {
-    AuditSlice("BeaconPass", { "Scenes/Menu.zscene", "Scenes/Dovon.zscene" }, 7);
+    AuditSlice("BeaconPass", { "Scenes/Menu.zscene", "Scenes/Pass.zscene" }, 7);
 }
 
-// The gate catches what it is for: in Chiroqbon's settings panel the focused music slider's broken links (Down, and
+// The gate catches what it is for: in Lantern Keeper's settings panel the focused music slider's broken links (Down, and
 // Up's wrap-around) leave the rest of the panel unreachable, and the version line back at its old 18 units is under 12 px at 800 x 600.
 TEST(SliceMenuLayoutCatchesABrokenLinkAndTinyText)
 {

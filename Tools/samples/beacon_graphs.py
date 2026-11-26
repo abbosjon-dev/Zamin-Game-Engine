@@ -1,4 +1,4 @@
-"""Scenes, prefabs and Visual Script graphs of Dovon mash'ali (gen_beacon_pass.py).
+"""Scenes, prefabs and Visual Script graphs of Beacon Pass (gen_beacon_pass.py).
 
 UUID ranges are fixed and identical in both scenes so shared graphs target literals: 1000-1099 hero and camera,
 1100-1199 controllers and audio, 2000-4999 level geometry and props, 5000-5499 enemies, 5500-5999 interactables,
@@ -18,17 +18,17 @@ GAME, MUSIC, AMBIENCE, BOSS_MUSIC, SUN = 1100, 1101, 1102, 1104, 1110
 ACCENT = (0.98, 0.74, 0.34, 1)
 GS = "BP"
 # the banner of a save whose primary and backup are both unreadable (the level starts again from the camp)
-UNREADABLE = "Saqlash o'qilmadi - daraja boshidan"
+UNREADABLE = "The save could not be read - the level starts again"
 M = {}  # masks and layers (set by build)
-# Every string a graph builds for the player is a key of the language files with its Uzbek text as the fallback:
+# Every string a graph builds for the player is a key of the language files with its English text as the fallback:
 # key -> (uz, en); gen_beacon_pass.py writes them into uz.json / en.json.
 TEXT = {}
 
 
 def L(g, key, uz, en):
-    """Localization.Text of `key` (uz / en registered in TEXT): (node, 'Value')."""
+    """Localization.Text of `key` (uz / en registered in TEXT; English is the fallback): (node, 'Value')."""
     assert TEXT.setdefault(key, (uz, en)) == (uz, en), key
-    return g.loc(key, uz)
+    return g.loc(key, en)
 
 
 def T_(key, uz, en):
@@ -42,13 +42,13 @@ def item_name(g, item):
     return g.loc(g.text(["item.", item]), item)
 
 
-PROMPTS = {"Sandiqni ochish": ("prompt.chest", "Open the chest"), "Darvozani ochish": ("prompt.gate", "Open the gate"),
-           "Saqlash ziyoratgohi": ("prompt.shrine", "Save at the shrine"), "Mash'alni yoqish": ("prompt.beacon", "Light the beacon")}
+PROMPTS = {"Open the chest": ("prompt.chest", "Sandiqni ochish"), "Open the gate": ("prompt.gate", "Darvozani ochish"),
+           "Save at the shrine": ("prompt.shrine", "Saqlash ziyoratgohi"), "Light the beacon": ("prompt.beacon", "Mash'alni yoqish")}
 
 
 def prompt_key(text):
-    key, en = PROMPTS[text]
-    return T_(key, text, en)
+    key, uz = PROMPTS[text]
+    return T_(key, uz, text)
 
 
 # The orbit camera: radians per mouse count; the right stick's turn rate at full tilt (rad/s, yaw / pitch)
@@ -119,11 +119,11 @@ def settings_3d():
 
 
 def point(s, eid, parent, pos, col, intensity, radius):
-    return s.add(eid, "Chiroq", parent, pos=pos, PointLight=k.point_light(col, intensity, radius))
+    return s.add(eid, "Light", parent, pos=pos, PointLight=k.point_light(col, intensity, radius))
 
 
 def fire(s, eid, parent, pos, scale=1.0, active=True):
-    return s.add(eid, "Olov", parent, pos=pos, active=active, ParticleSystem=k.particles(
+    return s.add(eid, "Fire", parent, pos=pos, active=active, ParticleSystem=k.particles(
         EmissionRate=34.0 * scale, MaxParticles=int(110 * scale), Shape=2, ShapeRadius=0.16 * scale, LifetimeMin=0.35, LifetimeMax=0.85,
         SpeedMin=0.7 * scale, SpeedMax=1.8 * scale, Direction=(0, 1, 0), Spread=16.0, StartColor=(1.0, 0.72, 0.28, 1.0), EndColor=(0.85, 0.22, 0.06, 0.0),
         StartSize=0.34 * scale, EndSize=0.06 * scale, Gravity=(0, 0.6, 0)))
@@ -144,7 +144,7 @@ def world(s, W, level):
     P = W["P"]
     fy = W["floor_at"]
     ox, oz = W["origin"]
-    s.add(2000, "Tog' vodiysi", pos=(ox, 0, oz), Terrain=terrain(W), Rigidbody3D=k.rigidbody3d("Static", layer=M["WORLD_LAYER"]),
+    s.add(2000, "Mountain valley", pos=(ox, 0, oz), Terrain=terrain(W), Rigidbody3D=k.rigidbody3d("Static", layer=M["WORLD_LAYER"]),
           MeshCollider3D={"Friction": 0.8, "IsSensor": False, "Model": "", "Offset": [0, 0, 0], "Restitution": 0.0})
     s.add(SUN, "Quyosh", DirectionalLight=k.dir_light((1.0, 0.76, 0.52), 3.6, True))
     s.entities[SUN]["Transform"]["Rotation"] = k.v(math.radians(-17), math.radians(-62), 0)
@@ -156,7 +156,7 @@ def world(s, W, level):
             ((w["x0"] + -w["gate"]) / 2, w["z0"], -w["gate"] - w["x0"], t), ((w["gate"] + w["x1"]) / 2, w["z0"], w["x1"] - w["gate"], t),
             (w["x0"], (w["z0"] + w["z1"]) / 2, t, w["z1"] - w["z0"]), (w["x1"], (w["z0"] + w["z1"]) / 2, t, w["z1"] - w["z0"])]
     for cx, cz, sx, sz in segs:
-        solid(s, eid, "Devor", (cx, y0 + hgt / 2 - 0.3, cz), (sx, hgt + 0.6, sz), "stone")
+        solid(s, eid, "Walls", (cx, y0 + hgt / 2 - 0.3, cz), (sx, hgt + 0.6, sz), "stone")
         eid += 1
         # merlons along the top
         length = max(sx, sz)
@@ -164,7 +164,7 @@ def world(s, W, level):
         for i in range(n):
             f = (i + 0.5) / n - 0.5
             mx, mz = (cx + f * sx, cz) if sx > sz else (cx, cz + f * sz)
-            solid(s, eid, "Tishli devor", (mx, y0 + hgt + 0.55, mz), (0.8 if sx > sz else t, 0.8, t if sx > sz else 0.8), "stone", collider=False)
+            solid(s, eid, "Crenellated wall", (mx, y0 + hgt + 0.55, mz), (0.8 if sx > sz else t, 0.8, t if sx > sz else 0.8), "stone", collider=False)
             eid += 1
     for cx in (w["x0"], w["x1"]):
         for cz in (w["z0"], w["z1"]):
@@ -172,14 +172,14 @@ def world(s, W, level):
             eid += 1
             for i in range(8):
                 a = 2 * math.pi * i / 8
-                solid(s, eid, "Burj tishi", (cx + math.cos(a) * 1.5, y0 + 6.9, cz + math.sin(a) * 1.5), (0.6, 0.7, 0.6), "stone", collider=False)
+                solid(s, eid, "Bastion merlon", (cx + math.cos(a) * 1.5, y0 + 6.9, cz + math.sin(a) * 1.5), (0.6, 0.7, 0.6), "stone", collider=False)
                 eid += 1
     # gatehouse: two towers, the lintel, banners and braziers
     for sx in (-1, 1):
-        solid(s, eid, "Darvoza minorasi", (sx * 3.4, y0 + 3.1, w["z1"]), (2.6, 7.4, 2.6), "stone")
+        solid(s, eid, "Gate tower", (sx * 3.4, y0 + 3.1, w["z1"]), (2.6, 7.4, 2.6), "stone")
         eid += 1
         for i, (dx, dz) in enumerate(((-0.9, -0.9), (0.9, -0.9), (-0.9, 0.9), (0.9, 0.9))):
-            solid(s, eid, "Minora tishi", (sx * 3.4 + dx, y0 + 7.1, w["z1"] + dz), (0.6, 0.7, 0.6), "stone", collider=False)
+            solid(s, eid, "Tower merlon", (sx * 3.4 + dx, y0 + 7.1, w["z1"] + dz), (0.6, 0.7, 0.6), "stone", collider=False)
             eid += 1
         s.add(eid, "Bayroq", pos=(sx * 3.4, y0 + 2.2, w["z1"] + 1.32), MeshRenderer=model("Models/BannerIndigo.glb" if sx < 0 else "Models/BannerTeal.glb"))
         s.entities[eid]["Transform"]["Rotation"] = k.v(0, math.pi, 0)
@@ -190,7 +190,7 @@ def world(s, W, level):
         eid += 3
     solid(s, eid, "Ravoq", (0, y0 + hgt + 0.15, w["z1"]), (2 * w["gate"] + 0.2, 1.4, t + 0.2), "stone")
     eid += 1
-    solid(s, eid, "Ravoq bezagi", (0, y0 + hgt - 0.65, w["z1"] + 0.72), (2 * w["gate"], 0.25, 0.25), "plaster", collider=False)
+    solid(s, eid, "Arch ornament", (0, y0 + hgt - 0.65, w["z1"] + 0.72), (2 * w["gate"], 0.25, 0.25), "plaster", collider=False)
     eid += 1
     # well, stable, stalls, crates, courtyard torches
     wx, wz = P["well"]
@@ -200,9 +200,9 @@ def world(s, W, level):
     st = W["STABLE"]
     for px in (st["x0"], st["x1"]):
         for pz in (st["z0"], (st["z0"] + st["z1"]) / 2, st["z1"]):
-            solid(s, eid, "Ustun", (px, y0 + 1.5, pz), (0.35, 3.0, 0.35), "wood", kind="Cylinder", tiling=1.0)
+            solid(s, eid, "Pillar", (px, y0 + 1.5, pz), (0.35, 3.0, 0.35), "wood", kind="Cylinder", tiling=1.0)
             eid += 1
-    solid(s, eid, "Otxona tomi", ((st["x0"] + st["x1"]) / 2, y0 + 3.15, (st["z0"] + st["z1"]) / 2), (st["x1"] - st["x0"] + 1.0, 0.3, st["z1"] - st["z0"] + 1.0),
+    solid(s, eid, "Stable roof", ((st["x0"] + st["x1"]) / 2, y0 + 3.15, (st["z0"] + st["z1"]) / 2), (st["x1"] - st["x0"] + 1.0, 0.3, st["z1"] - st["z0"] + 1.0),
           "wood", collider=False, rot=(0, 0, math.radians(-6)))
     eid += 1
     for i, (ax, az) in enumerate(((-11.6, 3.5), (-11.6, -8.5))):
@@ -211,7 +211,7 @@ def world(s, W, level):
         s.entities[eid]["Transform"]["Rotation"] = k.v(0, 0, math.radians(14))
         eid += 1
         for dz in (-1.6, 1.6):
-            solid(s, eid, "Soyabon ustuni", (ax + 1.8, y0 + 1.1, az + dz), (0.15, 2.2, 0.15), "wood", collider=False, kind="Cylinder", tiling=1.0)
+            solid(s, eid, "Awning post", (ax + 1.8, y0 + 1.1, az + dz), (0.15, 2.2, 0.15), "wood", collider=False, kind="Cylinder", tiling=1.0)
             eid += 1
     for i, (cx, cz) in enumerate(W["CRATES"]):
         s.add(eid, "Yashik", pos=(cx, fy(cx, cz), cz), MeshRenderer=model("Models/Crate.glb"), Rigidbody3D=k.rigidbody3d("Static"),
@@ -225,18 +225,18 @@ def world(s, W, level):
         eid += 3
     # ---- camp (y 0)
     fx, fz = P["fire"]
-    s.add(eid, "Gulxan", pos=(fx, 0, fz), MeshRenderer=model("Models/Rock0.glb"), scale=(0.35, 0.25, 0.35))
+    s.add(eid, "Campfire", pos=(fx, 0, fz), MeshRenderer=model("Models/Rock0.glb"), scale=(0.35, 0.25, 0.35))
     fire(s, eid + 1, eid, (0, 0.4, 0), 1.3)
     smoke(s, eid + 2, eid, (0, 1.6, 0), 1.0)
     point(s, eid + 3, eid, (0, 1.0, 0), (1.0, 0.55, 0.24), 6.0, 10.0)
     eid += 4
     for i in range(7):
         a = 2 * math.pi * i / 7
-        s.add(eid, "Tosh", pos=(fx + math.cos(a) * 0.75, 0, fz + math.sin(a) * 0.75), scale=(0.22, 0.2, 0.22), MeshRenderer=model(f"Models/Rock{i % 3}.glb"))
+        s.add(eid, "Rock", pos=(fx + math.cos(a) * 0.75, 0, fz + math.sin(a) * 0.75), scale=(0.22, 0.2, 0.22), MeshRenderer=model(f"Models/Rock{i % 3}.glb"))
         eid += 1
     for name, mdl in (("tent1", "Tent"), ("tent2", "TentRed")):
         x, z = P[name]
-        s.add(eid, "Chodir", pos=(x, fy(x, z), z), MeshRenderer=model(f"Models/{mdl}.glb"), Rigidbody3D=k.rigidbody3d("Static", layer=M["WALL_LAYER"]),
+        s.add(eid, "Tent", pos=(x, fy(x, z), z), MeshRenderer=model(f"Models/{mdl}.glb"), Rigidbody3D=k.rigidbody3d("Static", layer=M["WALL_LAYER"]),
               BoxCollider3D=k.box3d((1.6, 1.2, 1.6), (0, 1.2, 0)))
         eid += 1
     for x, z, mdl in ((-1.8, 46.0, "BannerTeal"), (2.2, 46.4, "BannerIndigo"), (-3.0, 12.4, "BannerTeal")):
@@ -244,7 +244,7 @@ def world(s, W, level):
         eid += 1
     # the ledge: a rock shelf near the camp (the first fire stone waits on top)
     (lx, lz), (hx, hz), top = W["LEDGE"]
-    solid(s, eid, "Qoya supasi", (lx, top / 2 - 0.4, lz), (hx * 2, top + 0.8, hz * 2), "t_rock", tiling=0.6)
+    solid(s, eid, "Rock ledge", (lx, top / 2 - 0.4, lz), (hx * 2, top + 0.8, hz * 2), "t_rock", tiling=0.6)
     eid += 1
     for i, (dx, dz, sc) in enumerate(((-2.1, 0.8, 0.8), (1.9, -1.4, 0.9), (0.6, 2.0, 0.6))):
         s.add(eid, "Qoya", pos=(lx + dx, 0.0, lz + dz), scale=(sc, sc, sc), MeshRenderer=model(f"Models/Rock{i}.glb"))
@@ -252,11 +252,11 @@ def world(s, W, level):
     # ---- plateau: the beacon platform with its stairs, the watchtower
     pf = W["PLATFORM"]
     py = 6.0
-    solid(s, eid, "Mash'al supasi", (pf["cx"], py + pf["height"] / 2 - 0.5, pf["cz"]), (pf["half"] * 2, pf["height"] + 1.0, pf["half"] * 2), "stone")
+    solid(s, eid, "Beacon platform", (pf["cx"], py + pf["height"] / 2 - 0.5, pf["cz"]), (pf["half"] * 2, pf["height"] + 1.0, pf["half"] * 2), "stone")
     eid += 1
     for i in range(4):
         a = i * math.pi / 2
-        solid(s, eid, "Supa tishi", (pf["cx"] + math.cos(a) * 2.6, py + pf["height"] + 0.35, pf["cz"] + math.sin(a) * 2.6), (0.6, 0.7, 0.6), "stone", collider=False)
+        solid(s, eid, "Platform merlon", (pf["cx"] + math.cos(a) * 2.6, py + pf["height"] + 0.35, pf["cz"] + math.sin(a) * 2.6), (0.6, 0.7, 0.6), "stone", collider=False)
         eid += 1
     steps = 12
     z_top, z_bottom = pf["cz"] + pf["half"], pf["stair_z0"]
@@ -269,23 +269,23 @@ def world(s, W, level):
     # one smooth ramp collider under the steps (the character walks it like stairs)
     length = math.hypot(z_bottom - z_top, pf["height"])
     angle = math.atan2(pf["height"], z_bottom - z_top)
-    s.add(eid, "Zina rampasi", pos=(0, py + pf["height"] / 2 - 0.12, (z_top + z_bottom) / 2), scale=(2.4, 0.2, length),
+    s.add(eid, "Stair ramp", pos=(0, py + pf["height"] / 2 - 0.12, (z_top + z_bottom) / 2), scale=(2.4, 0.2, length),
           Rigidbody3D=k.rigidbody3d("Static", layer=M["WALL_LAYER"]), BoxCollider3D=k.box3d((0.5, 0.5, 0.5), friction=0.9))
     s.entities[eid]["Transform"]["Rotation"] = k.v(angle, 0, 0)
     eid += 1
     for sx in (-1, 1):
-        solid(s, eid, "Zina yoni", (sx * 1.42, py + pf["height"] / 2 - 0.1, (z_top + z_bottom) / 2), (0.36, pf["height"] + 0.2, z_bottom - z_top), "stone")
+        solid(s, eid, "Stair side", (sx * 1.42, py + pf["height"] / 2 - 0.1, (z_top + z_bottom) / 2), (0.36, pf["height"] + 0.2, z_bottom - z_top), "stone")
         eid += 1
     tx, tz = P["tower"]
-    solid(s, eid, "Kuzatuv minorasi", (tx, py + 7.0, tz), (4.4, 14.0, 4.4), "stone", kind="Cylinder", tiling=0.4)
+    solid(s, eid, "Watchtower", (tx, py + 7.0, tz), (4.4, 14.0, 4.4), "stone", kind="Cylinder", tiling=0.4)
     eid += 1
-    solid(s, eid, "Minora ayvoni", (tx, py + 14.2, tz), (5.4, 0.4, 5.4), "wood", kind="Cylinder", collider=False)
+    solid(s, eid, "Tower gallery", (tx, py + 14.2, tz), (5.4, 0.4, 5.4), "wood", kind="Cylinder", collider=False)
     eid += 1
     for i in range(6):
         a = 2 * math.pi * i / 6
-        solid(s, eid, "Ayvon ustuni", (tx + math.cos(a) * 2.3, py + 15.3, tz + math.sin(a) * 2.3), (0.22, 2.0, 0.22), "wood", kind="Cylinder", collider=False)
+        solid(s, eid, "Gallery post", (tx + math.cos(a) * 2.3, py + 15.3, tz + math.sin(a) * 2.3), (0.22, 2.0, 0.22), "wood", kind="Cylinder", collider=False)
         eid += 1
-    solid(s, eid, "Minora tomi", (tx, py + 17.3, tz), (6.2, 2.4, 6.2), "wood", kind="Cone", collider=False, albedo=(0.55, 0.32, 0.22, 1))
+    solid(s, eid, "Tower roof", (tx, py + 17.3, tz), (6.2, 2.4, 6.2), "wood", kind="Cone", collider=False, albedo=(0.55, 0.32, 0.22, 1))
     eid += 1
     # ---- nature: packed pines on the slopes, a few close pines and rocks, distant snow peaks
     pines = []
@@ -304,12 +304,12 @@ def world(s, W, level):
             continue
         pines.append({"Position": [round(x - ox, 3), round(y - 0.1, 3), round(z - oz, 3)], "Rotation": [0, round(float(rng.uniform(0, 6.28)), 3), 0],
                       "Scale": round(float(rng.uniform(0.75, 1.35)), 3)})
-    s.add(2900, "Qarag'ayzor", pos=(ox, 0, oz), Foliage={"NearType": "Model", "FarType": "Model", "NearModel": "Models/Pine0.glb", "FarModel": "Models/PineFar.glb",
+    s.add(2900, "Pine forest", pos=(ox, 0, oz), Foliage={"NearType": "Model", "FarType": "Model", "NearModel": "Models/Pine0.glb", "FarModel": "Models/PineFar.glb",
                                                          "Tint": [0.26, 0.42, 0.24, 1.0], "LODDistance": 45.0, "CullDistance": 140.0, "Hysteresis": 0.1,
                                                          "Backend": 0, "CastShadows": False, "Instances": pines})
     near = [(-13.0, 30.0), (14.5, 36.0), (-16.0, 47.0), (16.0, 22.0), (-17.0, 18.0), (17.5, -22.0), (-16.5, -24.0), (-14.5, -35.0), (15.0, -44.0)]
     for i, (x, z) in enumerate(near):
-        s.add(eid, "Qarag'ay", pos=(x, h(x, z) - 0.1, z), scale=(1.0 + 0.1 * (i % 3),) * 3, MeshRenderer=model(f"Models/Pine{i % 3}.glb"))
+        s.add(eid, "Pine", pos=(x, h(x, z) - 0.1, z), scale=(1.0 + 0.1 * (i % 3),) * 3, MeshRenderer=model(f"Models/Pine{i % 3}.glb"))
         s.entities[eid]["Transform"]["Rotation"] = k.v(0, i * 1.7, 0)
         eid += 1
     for _ in range(300):
@@ -326,13 +326,13 @@ def world(s, W, level):
     for i in range(11):
         a = 2 * math.pi * i / 11 + 0.3
         r = 150 + 25 * (i % 3)
-        s.add(eid, "Qorli cho'qqi", pos=(math.cos(a) * r, -6.0, math.sin(a) * r - 10), scale=(1.0 + 0.15 * (i % 2),) * 3,
+        s.add(eid, "Snowy peak", pos=(math.cos(a) * r, -6.0, math.sin(a) * r - 10), scale=(1.0 + 0.15 * (i % 2),) * 3,
               MeshRenderer=model(f"Models/Peak{i % 3}.glb", cast=False))
         s.entities[eid]["Transform"]["Rotation"] = k.v(0, a, 0)
         eid += 1
     assert eid < 3000, eid
     # dust motes in the evening light over the courtyard
-    s.add(8000, "Chang zarralari", pos=(0, 5.0, 0), ParticleSystem=k.particles(
+    s.add(8000, "Dust motes", pos=(0, 5.0, 0), ParticleSystem=k.particles(
         EmissionRate=14.0, MaxParticles=140, Shape=3, ShapeExtents=(14, 2.5, 16), LifetimeMin=5.0, LifetimeMax=9.0, SpeedMin=0.03, SpeedMax=0.15,
         Spread=180.0, StartColor=(1.0, 0.86, 0.6, 0.55), EndColor=(1.0, 0.8, 0.55, 0.0), StartSize=0.06, EndSize=0.03))
 
@@ -436,21 +436,21 @@ def projectiles(assets, project):
 
 
 def level_scene(assets, project, C, W, ENEMIES, ARCHETYPES, route, codes, oracle):
-    s = Scene("Dovon", settings_3d())
+    s = Scene("Pass", settings_3d())
     s.settings["Post"]["FXAA"] = True
     world(s, W, True)
     P = W["P"]
     fy = W["floor_at"]
     # navigation over the valley path, the terrace and the plateau
-    s.add(2001, "Navigatsiya", pos=(0, 5.0, 2.0), NavGrid3D={"Offset": [0, 0, 0], "Size": [40, 18, 100], "CellSize": 0.5, "AgentRadius": 0.4, "AgentHeight": 1.8,
+    s.add(2001, "Navigation", pos=(0, 5.0, 2.0), NavGrid3D={"Offset": [0, 0, 0], "Size": [40, 18, 100], "CellSize": 0.5, "AgentRadius": 0.4, "AgentHeight": 1.8,
                                                              "MaxSlope": 42.0, "StepHeight": 0.42, "LayerMask": (1 << M["WORLD_LAYER"]) | (1 << M["WALL_LAYER"]),
                                                              "Diagonals": True, "CutCorners": False, "BakeOnStart": True})
     # hero, sword and shield (shown once equipped), camera
     hero = {"Slot": "Run1", "Route": [[round(p[0], 3), round(p[1], 3), round(p[2], 3)] for p in route], "Steps": list(codes)}
     humanoid(s, HERO, "Temur", (0.0, 0.0, 42.0), 0.0, "Hero", "Hero", hero, ["Hero"], hero=True, walk=C["Hero"]["Walk"], run=C["Hero"]["Run"])
-    attach(s, SWORD, HERO, "Shamshir", "Models/Sword.glb", "Hand.R", (0, -0.06, -0.02), (math.radians(-70), 0, 0), active=False)
-    attach(s, SHIELD, HERO, "Qalqon", "Models/Shield.glb", "LowerArm.L", (-0.07, -0.12, 0.0), (0, math.radians(-90), 0), active=False)
-    s.add(CAMERA, "Kamera", pos=(0.0, 2.4 + 1.5, 47.6), Camera=k.camera_persp(1.0, 0.1, 400.0, (0.6, 0.5, 0.45, 1), shake={"Trauma": 0.0, "MaxOffset": 0.4, "MaxAngle": 0.05}),
+    attach(s, SWORD, HERO, "Sabre", "Models/Sword.glb", "Hand.R", (0, -0.06, -0.02), (math.radians(-70), 0, 0), active=False)
+    attach(s, SHIELD, HERO, "Shield", "Models/Shield.glb", "LowerArm.L", (-0.07, -0.12, 0.0), (0, math.radians(-90), 0), active=False)
+    s.add(CAMERA, "Camera", pos=(0.0, 2.4 + 1.5, 47.6), Camera=k.camera_persp(1.0, 0.1, 400.0, (0.6, 0.5, 0.45, 1), shake={"Trauma": 0.0, "MaxOffset": 0.4, "MaxAngle": 0.05}),
           NativeScript=graph_script("Camera3D"))
     s.entities[CAMERA]["Transform"]["Rotation"] = k.v(math.radians(-12), 0, 0)
     # interactables (pickups, chests, the gate, shrines, the beacon)
@@ -467,13 +467,13 @@ def level_scene(assets, project, C, W, ENEMIES, ARCHETYPES, route, codes, oracle
                                                                       EndColor=(1.0, 0.3, 0.1, 0.0), StartSize=0.07, EndSize=0.02))
         else:
             s.add(eid, "Ichimlik", pos=(x, y + 0.05, z), tags=["Pickup", "Potion"], MeshRenderer=model("Models/Potion.glb", cast=False))
-    uses = [("Chest", P["chest_sword"], "Dovon-Chest-1", dict(Prompt="Sandiqni ochish", Reward="Shamshir"), "Models/Chest.glb"),
-            ("Chest", P["chest_shield"], "Dovon-Chest-2", dict(Prompt="Sandiqni ochish", Reward="Qalqon"), "Models/Chest.glb"),
-            ("Gate", P["gate"], "Dovon-Gate", dict(Prompt="Darvozani ochish"), None),
-            ("Shrine", P["shrine1"], "Dovon-Shrine-1", dict(Prompt="Saqlash ziyoratgohi", MaxUses=0, Cooldown=2), "Models/Shrine.glb"),
-            ("Shrine", P["shrine2"], "Dovon-Shrine-2", dict(Prompt="Saqlash ziyoratgohi", MaxUses=0, Cooldown=2), "Models/Shrine.glb"),
-            ("Shrine", P["shrine3"], "Dovon-Shrine-3", dict(Prompt="Saqlash ziyoratgohi", MaxUses=0, Cooldown=2), "Models/Shrine.glb"),
-            ("Beacon", P["beacon"], "Dovon-Beacon", dict(Prompt="Mash'alni yoqish", Required="FireStone", RequiredCount=3, Consume=True), "Models/Beacon.glb")]
+    uses = [("Chest", P["chest_sword"], "Pass-Chest-1", dict(Prompt="Open the chest", Reward="Sabre"), "Models/Chest.glb"),
+            ("Chest", P["chest_shield"], "Pass-Chest-2", dict(Prompt="Open the chest", Reward="Shield"), "Models/Chest.glb"),
+            ("Gate", P["gate"], "Pass-Gate", dict(Prompt="Open the gate"), None),
+            ("Shrine", P["shrine1"], "Pass-Shrine-1", dict(Prompt="Save at the shrine", MaxUses=0, Cooldown=2), "Models/Shrine.glb"),
+            ("Shrine", P["shrine2"], "Pass-Shrine-2", dict(Prompt="Save at the shrine", MaxUses=0, Cooldown=2), "Models/Shrine.glb"),
+            ("Shrine", P["shrine3"], "Pass-Shrine-3", dict(Prompt="Save at the shrine", MaxUses=0, Cooldown=2), "Models/Shrine.glb"),
+            ("Beacon", P["beacon"], "Pass-Beacon", dict(Prompt="Light the beacon", Required="FireStone", RequiredCount=3, Consume=True), "Models/Beacon.glb")]
     use_ids = [5600 + i * 4 for i in range(len(uses))]
     for eid, (kind, (x, z), key, opts, path) in zip(use_ids, uses):
         if kind == "Gate":
@@ -488,40 +488,40 @@ def level_scene(assets, project, C, W, ENEMIES, ARCHETYPES, route, codes, oracle
             s.entities[eid]["Transform"]["Rotation"] = k.v(0, math.pi if z > 0 else -math.pi / 2, 0)
         if kind == "Shrine":
             point(s, eid + 1, eid, (0, 1.8, 0), (0.4, 0.85, 1.0), 3.0, 5.0)
-    # the beacon's fire (lit at the end), the Zilzila dust ring, hit sparks, the level-up ring
+    # the beacon's fire (lit at the end), the Slam dust ring, hit sparks, the level-up ring
     bx, bz = P["beacon"]
     fire(s, 8102, None, (bx, 11.4, bz), 4.0, active=False)
-    s.add(8103, "Mash'al nuri", pos=(bx, 13.0, bz), active=False, PointLight=k.point_light((1.0, 0.62, 0.25), 14.0, 40.0))
-    s.add(8106, "Mash'al tutuni", pos=(bx, 14.0, bz), active=False, ParticleSystem=k.particles(
+    s.add(8103, "Beacon light", pos=(bx, 13.0, bz), active=False, PointLight=k.point_light((1.0, 0.62, 0.25), 14.0, 40.0))
+    s.add(8106, "Beacon smoke", pos=(bx, 14.0, bz), active=False, ParticleSystem=k.particles(
         EmissionRate=10.0, MaxParticles=120, Shape=2, ShapeRadius=0.8, LifetimeMin=3.0, LifetimeMax=5.0, SpeedMin=1.0, SpeedMax=2.0, Direction=(0.3, 1, 0),
         Spread=10.0, StartColor=(0.35, 0.3, 0.28, 0.45), EndColor=(0.5, 0.45, 0.42, 0.0), StartSize=1.0, EndSize=4.0, Additive=False))
-    s.add(8100, "Zarba uchquni", pos=(0, -50, 0), ParticleSystem=k.particles(
+    s.add(8100, "Hit sparks", pos=(0, -50, 0), ParticleSystem=k.particles(
         Playing=False, Looping=False, EmissionRate=0.0, MaxParticles=80, Shape=2, ShapeRadius=0.15, LifetimeMin=0.2, LifetimeMax=0.45, SpeedMin=2.0,
         SpeedMax=5.0, Spread=180.0, Gravity=(0, -6, 0), StartColor=(1.0, 0.85, 0.5, 1.0), EndColor=(1.0, 0.3, 0.1, 0.0), StartSize=0.1, EndSize=0.02))
-    s.add(8101, "Daraja halqasi", HERO, pos=(0, 0.2, 0), ParticleSystem=k.particles(
+    s.add(8101, "Level-up ring", HERO, pos=(0, 0.2, 0), ParticleSystem=k.particles(
         Playing=False, Looping=False, EmissionRate=0.0, MaxParticles=120, Shape=1, ShapeRadius=0.7, LifetimeMin=0.6, LifetimeMax=1.2, SpeedMin=0.8,
         SpeedMax=2.0, Direction=(0, 1, 0), Spread=30.0, StartColor=(1.0, 0.9, 0.55, 1.0), EndColor=(0.6, 0.8, 1.0, 0.0), StartSize=0.12, EndSize=0.03))
-    s.add(8104, "Zilzila changi", HERO, pos=(0, 0.1, 0), ParticleSystem=k.particles(
+    s.add(8104, "Slam dust", HERO, pos=(0, 0.1, 0), ParticleSystem=k.particles(
         Playing=False, Looping=False, EmissionRate=0.0, MaxParticles=160, Shape=1, ShapeRadius=0.6, LifetimeMin=0.5, LifetimeMax=1.0, SpeedMin=3.0,
         SpeedMax=6.0, Direction=(0, 0.2, 0), Spread=90.0, Drag=2.0, StartColor=(0.85, 0.72, 0.55, 0.8), EndColor=(0.7, 0.6, 0.5, 0.0), StartSize=0.4,
         EndSize=1.2, Additive=False))
-    s.add(8105, "To'lqin changi", pos=(0, -50, 0), ParticleSystem=k.particles(
+    s.add(8105, "Shockwave dust", pos=(0, -50, 0), ParticleSystem=k.particles(
         Playing=False, Looping=False, EmissionRate=0.0, MaxParticles=160, Shape=1, ShapeRadius=1.0, LifetimeMin=0.5, LifetimeMax=1.0, SpeedMin=4.0,
         SpeedMax=7.0, Direction=(0, 0.2, 0), Spread=90.0, Drag=2.0, StartColor=(1.0, 0.45, 0.2, 0.9), EndColor=(0.5, 0.2, 0.1, 0.0), StartSize=0.4,
         EndSize=1.4))
     # controller and audio
     use_kinds = [u[0] for u in uses]
-    game = {"Slot": "Run1", "Self": "Scenes/Dovon.zscene",
-            "PickupIds": pickup_ids, "PickupKeys": [f"Dovon-{item}-{i:02d}" for i, (item, _, _) in enumerate(pickups)], "PickupItems": [p[0] for p in pickups],
+    game = {"Slot": "Run1", "Self": "Scenes/Pass.zscene",
+            "PickupIds": pickup_ids, "PickupKeys": [f"Pass-{item}-{i:02d}" for i, (item, _, _) in enumerate(pickups)], "PickupItems": [p[0] for p in pickups],
             "UseIds": use_ids, "UseKeys": [u[2] for u in uses], "UsePrompts": [prompt_key(u[3]["Prompt"]) for u in uses],
             "UseRequired": [u[3].get("Required", "") for u in uses], "UseCounts": [u[3].get("RequiredCount", 1) for u in uses],
             "UseConsume": [bool(u[3].get("Consume", False)) for u in uses], "UseRewards": [u[3].get("Reward", "") for u in uses],
             "UseMaxUses": [u[3].get("MaxUses", 1) for u in uses], "UseCooldown": [u[3].get("Cooldown", 0.2) for u in uses],
             "UseDeactivate": [k_ in ("Gate",) for k_ in use_kinds], "Boss": 5060}
-    s.add(GAME, "O'yin", NativeScript=graph_script("Game", **game))
-    s.add(MUSIC, "Musiqa", GAME, AudioSource=k.audio_source("Audio/music_dovon.wav", 0.75, True, True, "Music", True))
-    s.add(AMBIENCE, "Muhit", GAME, AudioSource=k.audio_source("Audio/amb_pass.wav", 0.55, True, True, "SFX"))
-    s.add(BOSS_MUSIC, "Qorovul musiqasi", GAME, AudioSource=k.audio_source("Audio/music_warden.wav", 0.0, True, False, "Music", True))
+    s.add(GAME, "Game", NativeScript=graph_script("Game", **game))
+    s.add(MUSIC, "Music", GAME, AudioSource=k.audio_source("Audio/music_pass.wav", 0.75, True, True, "Music", True))
+    s.add(AMBIENCE, "Ambience", GAME, AudioSource=k.audio_source("Audio/amb_pass.wav", 0.55, True, True, "SFX"))
+    s.add(BOSS_MUSIC, "Warden music", GAME, AudioSource=k.audio_source("Audio/music_warden.wav", 0.0, True, False, "Music", True))
     # enemies
     oracle["Keys"] = []
     for i, (kind, (x, z), key, patrol, tags) in enumerate(ENEMIES):
@@ -533,7 +533,7 @@ def level_scene(assets, project, C, W, ENEMIES, ARCHETYPES, route, codes, oracle
                 "Ranged": spec["Ranged"], "Ability": spec.get("Ability", ""), "Reach": spec["Reach"], "Patrol": [[p[0], 0, p[1]] for p in patrol],
                 "Boss": bool(spec.get("Boss")), "Ring": eid + 3 if spec.get("Boss") else 0}
         yaw = math.pi  # facing south, down the pass
-        humanoid(s, eid, {"guard": "Qorovul", "archer": "Kamonchi", "warden": "Qora qorovul"}[kind], (x, fy(x, z), z), yaw, spec["model"], "Enemy", over, tags,
+        humanoid(s, eid, {"guard": "Qorovul", "archer": "Kamonchi", "warden": "The Black Warden"}[kind], (x, fy(x, z), z), yaw, spec["model"], "Enemy", over, tags,
                  speed=spec["Speed"])
         bone, rot, off = ("Hand.R", (math.radians(-80), 0, 0), (0, -0.05, -0.02)) if kind != "archer" else ("Hand.L", (0, 0, 0), (0, -0.06, 0))
         if kind == "guard":
@@ -541,7 +541,7 @@ def level_scene(assets, project, C, W, ENEMIES, ARCHETYPES, route, codes, oracle
         attach(s, eid + 1, eid, spec["weapon"], f"Models/{spec['weapon']}.glb", bone, off, rot)
         if spec.get("Boss"):
             point(s, eid + 2, eid, (0, 2.6, -0.4), (1.0, 0.35, 0.15), 2.5, 5.0)
-            s.add(eid + 3, "Zarba halqasi", eid, pos=(0, 0.08, 0), active=False, MeshRenderer=model("Models/Ring.glb", cast=False))
+            s.add(eid + 3, "Strike ring", eid, pos=(0, 0.08, 0), active=False, MeshRenderer=model("Models/Ring.glb", cast=False))
         oracle["Keys"].append(key)
     hud(s, C)
     save_scene(s, assets, project)
@@ -553,78 +553,78 @@ def hud(s, C):
     s.add(CANVAS, "UI", UICanvas=k.ui_canvas())
     root = ui.stretch(6001, "HUD", CANVAS)
     # top-left vitals
-    ui.panel(6010, "Holat", root, (24, -24), (560, 178), anchor=(0, 1), pivot=(0, 1))
-    ui.image(6011, "Daraja nishoni", 6010, "badge", (0, 1), (24, -22), (104, 104), pivot=(0, 1))
-    ui.text(6012, "Daraja", 6011, "1", (0.5, 0.5), (0, 2), (90, 60), 46, ACCENT)
+    ui.panel(6010, "Status", root, (24, -24), (560, 178), anchor=(0, 1), pivot=(0, 1))
+    ui.image(6011, "Level badge", 6010, "badge", (0, 1), (24, -22), (104, 104), pivot=(0, 1))
+    ui.text(6012, "Level", 6011, "1", (0.5, 0.5), (0, 2), (90, 60), 46, ACCENT)
     hud_bars(ui)
-    ui.text(6016, "Nom", 6010, "TEMUR  ·  CHOPAR", (0, 1), (148, -122), (380, 34), 25, MUTED, "Left", pivot=(0, 1))
+    ui.text(6016, "Name", 6010, "TEMUR  ·  COURIER", (0, 1), (148, -122), (380, 34), 25, MUTED, "Left", pivot=(0, 1))
     # top-right: fire stones and potions
-    ui.panel(6020, "Boyliklar", root, (-24, -24), (260, 96), anchor=(1, 1), pivot=(1, 1))
+    ui.panel(6020, "Resources", root, (-24, -24), (260, 96), anchor=(1, 1), pivot=(1, 1))
     for i, (icon, eid) in enumerate((("stone", 6021), ("potion", 6023))):
         ui.image(eid, icon, 6020, f"icon_{icon}", (0, 0.5), (22 + i * 120, 0), (48, 48), pivot=(0, 0.5))
-        ui.text(eid + 1, f"{icon} soni", 6020, "0", (0, 0.5), (74 + i * 120, 0), (60, 40), 30, INK, "Left", pivot=(0, 0.5))
+        ui.text(eid + 1, f"{icon} count", 6020, "0", (0, 0.5), (74 + i * 120, 0), (60, 40), 30, INK, "Left", pivot=(0, 0.5))
     # quest tracker
-    ui.panel(6030, "Vazifalar", root, (-24, -136), (520, 300), anchor=(1, 1), pivot=(1, 1))
-    ui.text(6031, "Sarlavha", 6030, "Vazifalar", (0.5, 1), (0, -40), (460, 40), 28, ACCENT, key="hud.quests")
+    ui.panel(6030, "Quests", root, (-24, -136), (520, 300), anchor=(1, 1), pivot=(1, 1))
+    ui.text(6031, "Title", 6030, "Quests", (0.5, 1), (0, -40), (460, 40), 28, ACCENT, key="hud.quests")
     for i in range(5):
-        ui.text(6032 + i, f"Vazifa {i + 1}", 6030, "", (0, 1), (32, -84 - i * 40), (460, 34), 25, INK, "Left", pivot=(0, 1))
-    # ability bar: strike, Bolt, Zilzila, potion
-    bar = ui.panel(6040, "Qobiliyatlar", root, (0, 22), (580, 132), anchor=(0.5, 0), pivot=(0.5, 0))
-    for i, (icon, hint, label) in enumerate((("melee", "[Attack]", "Zarba"), ("bolt", "[Bolt]", "Bolt"), ("nova", "[Slam]", "Zilzila"), ("potion", "[Potion]", "Potion"))):
+        ui.text(6032 + i, f"Quest {i + 1}", 6030, "", (0, 1), (32, -84 - i * 40), (460, 34), 25, INK, "Left", pivot=(0, 1))
+    # ability bar: strike, Bolt, Slam, potion
+    bar = ui.panel(6040, "Abilities", root, (0, 22), (580, 132), anchor=(0.5, 0), pivot=(0.5, 0))
+    for i, (icon, hint, label) in enumerate((("melee", "[Attack]", "Strike"), ("bolt", "[Bolt]", "Bolt"), ("nova", "[Slam]", "Slam"), ("potion", "[Potion]", "Potion"))):
         x = -195 + i * 130
         ui.image(6041 + i * 4, f"Slot {label}", bar, "slot", (0.5, 0.5), (x, 10), (104, 104), kind="Sliced")
-        ui.image(6042 + i * 4, f"Belgi {label}", 6041 + i * 4, f"icon_{icon}", (0.5, 0.5), (0, 8), (68, 68))
-        ui.bar(6043 + i * 4, f"Tayyorlik {label}", 6041 + i * 4, (0.5, 0), (0, 4), (84, 12), (0.98, 0.76, 0.32, 1), 0, back=(0.05, 0.04, 0.08, 0.6))
-        ui.text(6044 + i * 4, f"Tugma {label}", bar, hint, (0.5, 0.5), (x, -58), (140, 32), 25, MUTED, hints=True)
+        ui.image(6042 + i * 4, f"Icon {label}", 6041 + i * 4, f"icon_{icon}", (0.5, 0.5), (0, 8), (68, 68))
+        ui.bar(6043 + i * 4, f"Cooldown {label}", 6041 + i * 4, (0.5, 0), (0, 4), (84, 12), (0.98, 0.76, 0.32, 1), 0, back=(0.05, 0.04, 0.08, 0.6))
+        ui.text(6044 + i * 4, f"Key {label}", bar, hint, (0.5, 0.5), (x, -58), (140, 32), 25, MUTED, hints=True)
     # the prompt and the banners name controls ("[Interact] ...", "[Slam]"): shown as the keys bound to them
-    ui.text(6090, "Ishora", root, "", (0.5, 0), (0, 178), (900, 40), 26, INK, hints=True)
-    ui.text(6091, "Xabar", root, "", (0.5, 1), (0, -170), (1100, 60), 40, ACCENT, hints=True)
-    ui.text(6092, "Daraja nomi", root, "DOVON", (0.5, 1), (0, -96), (900, 70), 56, INK, key=T_("level.Dovon", "DOVON", "THE PASS"))
-    ui.text(6093, "Boss nomi", root, "Qora qorovul", (0.5, 0), (0, 214), (600, 34), 26, (1.0, 0.55, 0.4, 1), active=False, key="hud.boss")
-    ui.rect(6094, "Boss sog'lig'i", root, (0.5, 0), None, (0, 186), (760, 22), 0, active=False,
+    ui.text(6090, "Prompt", root, "", (0.5, 0), (0, 178), (900, 40), 26, INK, hints=True)
+    ui.text(6091, "Banner", root, "", (0.5, 1), (0, -170), (1100, 60), 40, ACCENT, hints=True)
+    ui.text(6092, "Level title", root, "THE PASS", (0.5, 1), (0, -96), (900, 70), 56, INK, key=T_("level.Pass", "DOVON", "THE PASS"))
+    ui.text(6093, "Boss name", root, "The Black Warden", (0.5, 0), (0, 214), (600, 34), 26, (1.0, 0.55, 0.4, 1), active=False, key="hud.boss")
+    ui.rect(6094, "Boss health", root, (0.5, 0), None, (0, 186), (760, 22), 0, active=False,
             UIProgressBar=k.ui_progress(1.0, (0.05, 0.04, 0.08, 0.85), (0.9, 0.3, 0.2, 1), 2.0, 6.0))
     for i in range(4):
-        ui.text(6070 + i, f"Jang {i + 1}", root, "", (0, 0.5), (32, 60 - i * 36), (380, 32), 25, (1.0, 0.6, 0.5, 1), "Left", pivot=(0, 0.5))
-    ui.stretch(6080, "Jarohat", root, order=-1, active=False, UIImage=k.ui_image((1, 1, 1, 0.8), "Textures/ui.png", "vignette", "Sliced", 1.0, raycast=False))
-    ui.text(6081, "Boshqaruv", root, "[Inventory] inventar   [Pause] pauza", (1, 0), (-24, 18), (640, 32), 25, MUTED, "Right", hints=True, pivot=(1, 0),
+        ui.text(6070 + i, f"Combat {i + 1}", root, "", (0, 0.5), (32, 60 - i * 36), (380, 32), 25, (1.0, 0.6, 0.5, 1), "Left", pivot=(0, 0.5))
+    ui.stretch(6080, "Hurt", root, order=-1, active=False, UIImage=k.ui_image((1, 1, 1, 0.8), "Textures/ui.png", "vignette", "Sliced", 1.0, raycast=False))
+    ui.text(6081, "Controls", root, "[Inventory] bag   [Pause] pause", (1, 0), (-24, 18), (640, 32), 25, MUTED, "Right", hints=True, pivot=(1, 0),
             key=T_("hud.controls", "[Inventory] inventar   [Pause] pauza", "[Inventory] bag   [Pause] pause"))
     # pause
-    ui.dim(6100, "Pauza", 50)
-    ui.panel(6101, "Pauza paneli", 6100, (0, 0), (560, 470))
-    ui.text(6102, "Sarlavha", 6101, "Pauza", (0.5, 1), (0, -62), (480, 60), 46, ACCENT, key="pause.title")
-    b = [ui.button(6111, "Davom etish", 6101, "Davom etish", "pause.resume", "Resume", (0, 70), select=True),
-         ui.button(6112, "Inventar", 6101, "Inventar", "pause.bag", "Bag", (0, -10)),
-         ui.button(6113, "Saqlab chiqish", 6101, "Saqlab, bosh menyuga", "pause.savequit", "SaveQuit", (0, -90))]
+    ui.dim(6100, "Pause", 50)
+    ui.panel(6101, "Pause panel", 6100, (0, 0), (560, 470))
+    ui.text(6102, "Title", 6101, "Paused", (0.5, 1), (0, -62), (480, 60), 46, ACCENT, key="pause.title")
+    b = [ui.button(6111, "Resume", 6101, "Resume", "pause.resume", "Resume", (0, 70), select=True),
+         ui.button(6112, "Inventory", 6101, "Inventory", "pause.bag", "Bag", (0, -10)),
+         ui.button(6113, "Save and quit", 6101, "Save and quit to menu", "pause.savequit", "SaveQuit", (0, -90))]
     chain_nav(s, b)
     # inventory
-    ui.dim(6200, "Inventar", 51)
-    ui.panel(6201, "Inventar paneli", 6200, (0, 0), (980, 640))
-    ui.text(6202, "Sarlavha", 6201, "Inventar", (0.5, 1), (0, -60), (600, 60), 44, ACCENT, key="bag.title")
-    rows = [ui.button(6211 + i, f"Qator {i + 1}", 6201, "", "", "Select", (-200, 150 - i * 68), (460, 58), 26) for i in range(6)]
-    acts = [ui.button(6221, "Kiyish", 6201, "Kiyish", "bag.equip", "Equip", (270, 150), (300, 58), 26),
-            ui.button(6222, "Ichish", 6201, "Ichish", "bag.drink", "Drink", (270, 82), (300, 58), 26),
-            ui.button(6223, "Keyingi", 6201, "Keyingi", "bag.next", "NextPage", (270, 14), (300, 58), 26),
-            ui.button(6224, "Yopish", 6201, "Yopish", "bag.close", "CloseBag", (270, -54), (300, 58), 26)]
+    ui.dim(6200, "Inventory", 51)
+    ui.panel(6201, "Inventory panel", 6200, (0, 0), (980, 640))
+    ui.text(6202, "Title", 6201, "Inventory", (0.5, 1), (0, -60), (600, 60), 44, ACCENT, key="bag.title")
+    rows = [ui.button(6211 + i, f"Row {i + 1}", 6201, "", "", "Select", (-200, 150 - i * 68), (460, 58), 26) for i in range(6)]
+    acts = [ui.button(6221, "Equip", 6201, "Equip", "bag.equip", "Equip", (270, 150), (300, 58), 26),
+            ui.button(6222, "Drink", 6201, "Drink", "bag.drink", "Drink", (270, 82), (300, 58), 26),
+            ui.button(6223, "Next", 6201, "Next", "bag.next", "NextPage", (270, 14), (300, 58), 26),
+            ui.button(6224, "Close", 6201, "Close", "bag.close", "CloseBag", (270, -54), (300, 58), 26)]
     chain_nav(s, rows + acts)
     for i, eid in enumerate(rows):
         s.entities[eid]["UINavigation"].update(Right=acts[min(i, 3)])
     for i, eid in enumerate(acts):
         s.entities[eid]["UINavigation"].update(Left=rows[i])
     # defeat / victory
-    ui.dim(6300, "Mag'lubiyat", 52)
-    ui.panel(6301, "Mag'lubiyat paneli", 6300, (0, 0), (760, 420))
-    ui.text(6302, "Sarlavha", 6301, "YO'L YOPILDI", (0.5, 1), (0, -80), (700, 80), 60, (1.0, 0.45, 0.4, 1), key="defeat.title")
-    ui.text(6303, "Izoh", 6301, "Temur uch marta yiqildi", (0.5, 1), (0, -150), (700, 40), 26, MUTED,
+    ui.dim(6300, "Defeat", 52)
+    ui.panel(6301, "Defeat panel", 6300, (0, 0), (760, 420))
+    ui.text(6302, "Title", 6301, "THE ROAD IS CLOSED", (0.5, 1), (0, -80), (700, 80), 60, (1.0, 0.45, 0.4, 1), key="defeat.title")
+    ui.text(6303, "Subtitle", 6301, "Temur fell three times", (0.5, 1), (0, -150), (700, 40), 26, MUTED,
             key=T_("defeat.sub", "Temur uch marta yiqildi", "Temur fell three times"))
-    d = [ui.button(6311, "Qayta", 6301, "Oxirgi saqlashdan", "defeat.retry", "Retry", (0, -30), select=True),
-         ui.button(6312, "Menyu", 6301, "Bosh menyu", "end.menu", "Menu", (0, -110))]
+    d = [ui.button(6311, "Retry", 6301, "From the last save", "defeat.retry", "Retry", (0, -30), select=True),
+         ui.button(6312, "Menu", 6301, "Main menu", "end.menu", "Menu", (0, -110))]
     chain_nav(s, d)
-    ui.dim(6400, "G'alaba", 53)
-    ui.panel(6401, "G'alaba paneli", 6400, (0, 0), (860, 600))
-    ui.text(6402, "Sarlavha", 6401, "MASH'AL YONDI", (0.5, 1), (0, -86), (800, 90), 72, ACCENT, key="victory.title")
-    ui.text(6403, "Izoh", 6401, "Karvon yo'lni topdi", (0.5, 1), (0, -160), (800, 44), 30, INK, key="victory.sub")
-    ui.text(6410, "Natijalar", 6401, "", (0.5, 0.5), (0, -10), (720, 220), 26, INK, wrap=True)
-    v = [ui.button(6411, "Menyu", 6401, "Bosh menyu", "end.menu", "Menu", (0, -220), select=True)]
+    ui.dim(6400, "Victory", 53)
+    ui.panel(6401, "Victory panel", 6400, (0, 0), (860, 600))
+    ui.text(6402, "Title", 6401, "THE BEACON BURNS", (0.5, 1), (0, -86), (800, 90), 72, ACCENT, key="victory.title")
+    ui.text(6403, "Subtitle", 6401, "The caravan found its road", (0.5, 1), (0, -160), (800, 44), 30, INK, key="victory.sub")
+    ui.text(6410, "Results", 6401, "", (0.5, 0.5), (0, -10), (720, 220), 26, INK, wrap=True)
+    v = [ui.button(6411, "Menu", 6401, "Main menu", "end.menu", "Menu", (0, -220), select=True)]
     chain_nav(s, v)
 
 
@@ -633,7 +633,7 @@ def menu_scene(assets, project, W):
     world(s, W, False)
     # above the valley camp, looking north up the pass at the caravanserai and the watchtower in the evening sun (the
     # Menu graph sways it slowly); the view keeps the slopes' pines at the sides and the subject right of the menu panel
-    s.add(CAMERA, "Kamera", pos=MENU_EYE, Camera=k.camera_persp(0.9, 0.1, 400.0, (0.6, 0.5, 0.45, 1)))
+    s.add(CAMERA, "Camera", pos=MENU_EYE, Camera=k.camera_persp(0.9, 0.1, 400.0, (0.6, 0.5, 0.45, 1)))
     s.entities[CAMERA]["Transform"]["Rotation"] = k.v(MENU_PITCH, MENU_YAW, 0)
     # the courier resting at the camp fire; a guard on the gate; the unlit beacon
     s.add(HERO, "Temur", pos=(-2.6, 0.0, 39.6), MeshRenderer=model("Models/Hero.glb"),
@@ -645,54 +645,54 @@ def menu_scene(assets, project, W):
                     "States": [], "Transitions": []})
     s.entities[5000]["Transform"]["Rotation"] = k.v(0, math.pi, 0)
     attach(s, 5001, 5000, "Nayza", "Models/Spear.glb", "Hand.R", (0, -0.05, 0))
-    s.add(GAME, "Menyu", NativeScript=graph_script("Menu"))
-    s.add(MUSIC, "Musiqa", GAME, AudioSource=k.audio_source("Audio/music_menu.wav", 0.8, True, True, "Music", True))
-    s.add(AMBIENCE, "Muhit", GAME, AudioSource=k.audio_source("Audio/amb_pass.wav", 0.5, True, True, "SFX"))
+    s.add(GAME, "Menu", NativeScript=graph_script("Menu"))
+    s.add(MUSIC, "Music", GAME, AudioSource=k.audio_source("Audio/music_menu.wav", 0.8, True, True, "Music", True))
+    s.add(AMBIENCE, "Ambience", GAME, AudioSource=k.audio_source("Audio/amb_pass.wav", 0.5, True, True, "SFX"))
     ui = UI(s, GAME)
     s.add(CANVAS, "UI", UICanvas=k.ui_canvas())
-    ui.text(6010, "Nom", CANVAS, "DOVON MASH'ALI", (0, 1), (110, -96), (1200, 150), 112, ACCENT, "Left", pivot=(0, 1), UIAnimation=k.ui_anim("Fade", "None", 0.8))
-    ui.text(6011, "Shior", CANVAS, "Karvon yo'li afsonasi", (0, 1), (118, -236), (900, 50), 36, INK, "Left", key="menu.subtitle", pivot=(0, 1))
-    s.add(6020, "Asosiy", CANVAS, UITransform=k.ui_rect((0, 0.5), None, (0, 0.5), (110, -70), (540, 440)),
+    ui.text(6010, "Name", CANVAS, "BEACON PASS", (0, 1), (110, -96), (1200, 150), 112, ACCENT, "Left", pivot=(0, 1), UIAnimation=k.ui_anim("Fade", "None", 0.8))
+    ui.text(6011, "Tagline", CANVAS, "A legend of the caravan road", (0, 1), (118, -236), (900, 50), 36, INK, "Left", key="menu.subtitle", pivot=(0, 1))
+    s.add(6020, "Main", CANVAS, UITransform=k.ui_rect((0, 0.5), None, (0, 0.5), (110, -70), (540, 440)),
           UIImage=k.ui_image((1, 1, 1, 0.97), "Textures/ui.png", "panel", "Sliced", 1.0, raycast=True),
           UILayoutGroup=k.ui_layout("Vertical", (50, 50, 46, 46), 14, align=1, fit_height=True))
-    [ui.button(6021, "Yangi o'yin", 6020, "Yangi o'yin", "menu.new", "New", (0, 0), (440, 64), select=True),
-     ui.button(6022, "Davom etish", 6020, "Davom etish", "menu.continue", "Continue", (0, 0), (440, 64)),
-     ui.button(6023, "Sozlamalar", 6020, "Sozlamalar", "menu.settings", "Settings", (0, 0), (440, 64)),
-     ui.button(6024, "Mualliflar", 6020, "Mualliflar", "menu.credits", "Credits", (0, 0), (440, 64)),
-     ui.button(6025, "Chiqish", 6020, "Chiqish", "menu.quit", "Quit", (0, 0), (440, 64))]
-    ui.text(6030, "Rekord", CANVAS, "", (0, 0), (118, 124), (900, 40), 26, MUTED, "Left", pivot=(0, 0))
+    [ui.button(6021, "New game", 6020, "New game", "menu.new", "New", (0, 0), (440, 64), select=True),
+     ui.button(6022, "Continue", 6020, "Continue", "menu.continue", "Continue", (0, 0), (440, 64)),
+     ui.button(6023, "Settings", 6020, "Settings", "menu.settings", "Settings", (0, 0), (440, 64)),
+     ui.button(6024, "Credits", 6020, "Credits", "menu.credits", "Credits", (0, 0), (440, 64)),
+     ui.button(6025, "Quit", 6020, "Quit", "menu.quit", "Quit", (0, 0), (440, 64))]
+    ui.text(6030, "Record", CANVAS, "", (0, 0), (118, 124), (900, 40), 26, MUTED, "Left", pivot=(0, 0))
     # the controls line: 78 % of the view's width (it wraps on narrow views and stays out of a 21:9 view's corners)
-    s.add(6031, "Boshqaruv", CANVAS, UITransform=k.ui_rect((0.11, 0), (0.89, 0), (0.5, 0), (0, 30), (0, 76), 25),
-          Text=k.ui_text("[Move] yurish   [LookX|Sichqoncha] qarash   [Jump] sakrash   [Attack] zarba   [Bolt] olov o'qi   [Interact] ishlatish   [Pause] pauza",
+    s.add(6031, "Controls", CANVAS, UITransform=k.ui_rect((0.11, 0), (0.89, 0), (0.5, 0), (0, 30), (0, 76), 25),
+          Text=k.ui_text("[Move] move   [LookX|Mouse] look   [Jump] jump   [Attack] strike   [Bolt] fire bolt   [Interact] use   [Pause] pause",
                          MUTED, "Center", hints=True, wrap=True,
                          key=T_("menu.controls", "[Move] yurish   [LookX|Sichqoncha] qarash   [Jump] sakrash   [Attack] zarba   [Bolt] olov o'qi   [Interact] ishlatish   [Pause] pauza",
                                 "[Move] move   [LookX|Mouse] look   [Jump] jump   [Attack] strike   [Bolt] fire bolt   [Interact] use   [Pause] pause")))
-    ui.text(6032, "Versiya", CANVAS, "v1.0  Zamin Engine", (1, 0), (-24, 12), (420, 32), 25, MUTED, "Right", pivot=(1, 0))
+    ui.text(6032, "Version", CANVAS, "v1.0  Zamin Engine", (1, 0), (-24, 12), (420, 32), 25, MUTED, "Right", pivot=(1, 0))
     # settings
-    ui.dim(6100, "Sozlamalar", 50)
-    ui.panel(6101, "Sozlamalar paneli", 6100, (0, 0), (760, 650))
-    ui.text(6102, "Sarlavha", 6101, "Sozlamalar", (0.5, 1), (0, -62), (600, 60), 44, ACCENT, key="menu.settings")
+    ui.dim(6100, "Settings", 50)
+    ui.panel(6101, "Settings panel", 6100, (0, 0), (760, 650))
+    ui.text(6102, "Title", 6101, "Settings", (0.5, 1), (0, -62), (600, 60), 44, ACCENT, key="menu.settings")
     # music, effects and the UI scale (80..120 % in 10 % steps: the slider's 8..12)
-    for i, (eid, label, key) in enumerate(((6111, "Musiqa", "menu.music"), (6112, "Ovoz effektlari", "menu.sfx"), (6116, "Interfeys o'lchami", "menu.uiscale"))):
+    for i, (eid, label, key) in enumerate(((6111, "Music", "menu.music"), (6112, "Sound effects", "menu.sfx"), (6116, "Interface size", "menu.uiscale"))):
         ui.text(eid + 10, label, 6101, label, (0.5, 0.5), (-180, 175 - i * 80), (300, 40), 28, INK, "Left", key=key)
         ui.rect(eid, f"{label} slider", 6101, (0.5, 0.5), None, (150, 175 - i * 80), (320, 44),
                 UISlider={"Min": 8.0 if i == 2 else 0.0, "Max": 12.0 if i == 2 else 1.0, "Value": (0.55, 0.9, 10.0)[i], "WholeNumbers": i == 2,
                           "Direction": "LeftToRight", "Interactable": True,
                           "TrackThickness": 10.0, "HandleSize": 30.0, "Rounded": True, "TrackColor": [0.1, 0.12, 0.2, 1], "FillColor": list(ACCENT),
                           "HandleColor": [1.0, 0.95, 0.85, 1]}, UINavigation=k.ui_nav("Explicit", i == 0, ACCENT[:3] + (1,)))
-    ui.text(6123, "To'liq ekran", 6101, "To'liq ekran", (0.5, 0.5), (-180, -65), (300, 40), 28, INK, "Left", key="menu.fullscreen")
-    ui.rect(6113, "To'liq ekran toggle", 6101, (0.5, 0.5), None, (150, -65), (90, 44),
+    ui.text(6123, "Fullscreen", 6101, "Fullscreen", (0.5, 0.5), (-180, -65), (300, 40), 28, INK, "Left", key="menu.fullscreen")
+    ui.rect(6113, "Fullscreen toggle", 6101, (0.5, 0.5), None, (150, -65), (90, 44),
             UIToggle={"IsOn": False, "Interactable": True, "Style": "Switch", "Mark": "Check", "BoxSize": 34.0, "LabelSpacing": 8.0, "Group": "",
                       "AllowSwitchOff": True, "BoxColor": [0.12, 0.14, 0.22, 1], "OnColor": list(ACCENT), "MarkColor": [1, 1, 1, 1]},
             UIButton=k.ui_button((1, 1, 1, 1), (1.2, 1.2, 1.2, 1), (1, 1, 1, 1), "Fullscreen", GAME), UINavigation=k.ui_nav("Explicit", False, ACCENT[:3] + (1,)))
-    st = [6111, 6112, 6116, 6113, ui.button(6114, "Til", 6101, "Til: O'zbekcha", "menu.language", "Language", (0, -145), (420, 60), 26),
-          ui.button(6115, "Orqaga", 6101, "Orqaga", "menu.back", "Back", (0, -225), (420, 60), 28)]
+    st = [6111, 6112, 6116, 6113, ui.button(6114, "Language", 6101, "Language: English", "menu.language", "Language", (0, -145), (420, 60), 26),
+          ui.button(6115, "Back", 6101, "Back", "menu.back", "Back", (0, -225), (420, 60), 28)]
     chain_nav(s, st)
-    ui.dim(6200, "Mualliflar", 51)
-    ui.panel(6201, "Mualliflar paneli", 6200, (0, 0), (1100, 520))
-    ui.text(6202, "Sarlavha", 6201, "Mualliflar", (0.5, 1), (0, -62), (600, 60), 44, ACCENT, key="menu.credits")
-    ui.text(6210, "Matn", 6201, "", (0.5, 0.5), (0, 10), (980, 260), 26, INK, key="menu.credits.body", wrap=True)
-    c = [ui.button(6211, "Orqaga", 6201, "Orqaga", "menu.back", "Back", (0, -190), select=True)]
+    ui.dim(6200, "Credits", 51)
+    ui.panel(6201, "Credits panel", 6200, (0, 0), (1100, 520))
+    ui.text(6202, "Title", 6201, "Credits", (0.5, 1), (0, -62), (600, 60), 44, ACCENT, key="menu.credits")
+    ui.text(6210, "Text", 6201, "", (0.5, 0.5), (0, 10), (980, 260), 26, INK, key="menu.credits.body", wrap=True)
+    c = [ui.button(6211, "Back", 6201, "Back", "menu.back", "Back", (0, -190), select=True)]
     chain_nav(s, c)
     save_scene(s, assets, project)
 
@@ -729,7 +729,7 @@ def hero_graph(assets, project, C):
                                                TwoD=False, BlockMask=WALL, Effect="Burn", Prefab="Prefabs/Bolt.zprefab", Pool=8)),
             ("Gameplay.ProjectileDefine", dict(Projectile="Arrow", Kind=0, Speed=16, Lifetime=1.2, Radius=0.08, TargetRadius=0.5, TargetOffset=chest, Damage=8,
                                                TwoD=False, BlockMask=WALL, Prefab="Prefabs/Arrow.zprefab", Pool=8)),
-            ("Gameplay.AreaDefine", dict(Area="Zilzila", Kind=0, Amount=20, Radius=3.5, MaxTargets=8, TargetOffset=[0, 0.9, 0], TwoD=False, LineOfSight=True,
+            ("Gameplay.AreaDefine", dict(Area="Slam", Kind=0, Amount=20, Radius=3.5, MaxTargets=8, TargetOffset=[0, 0.9, 0], TwoD=False, LineOfSight=True,
                                          Mask=WALL, Effect="Shock")),
             ("Gameplay.AreaDefine", dict(Area="Shockwave", Kind=0, Amount=18, Radius=4.0, MaxTargets=4, TargetOffset=[0, 0.9, 0], TwoD=False, LineOfSight=True,
                                          Mask=WALL, Effect="Shock"))]
@@ -914,9 +914,9 @@ def hero_graph(assets, project, C):
     ma = g.br(f1, g.all_of([free, V(g, "Attack")]))
     upper((ma, "True"), "Attack", 1.25, 0.6, "Attack", "sfx_swing")
     bolt_ready = (g.n("Gameplay.AbilityState", Ability="Bolt"), "Ready")
-    slam_ready = (g.n("Gameplay.AbilityState", Ability="Zilzila"), "Ready")
+    slam_ready = (g.n("Gameplay.AbilityState", Ability="Slam"), "Ready")
     mb = g.br((ma, "False"), g.all_of([free, V(g, "Slam"), slam_ready]))
-    upper((mb, "True"), "Cast", 1.3, 0.62, "Zilzila", "sfx_ui")
+    upper((mb, "True"), "Cast", 1.3, 0.62, "Slam", "sfx_ui")
     mc = g.br((mb, "False"), g.all_of([free, V(g, "Bolt"), bolt_ready]))
     upper((mc, "True"), "Cast", 1.5, 0.53, "Bolt", "sfx_ui")
     # the busy timer releases the upper body
@@ -949,13 +949,13 @@ def hero_graph(assets, project, C):
     g.wire(cast, Victim=V(g, "Victim"), Direction=V(g, "Facing"))
     ok = g.br((cast, "Then"), (cast, "Success"))
     g.ex((ok, "True"), "PlaySound", Path="Audio/sfx_bolt.wav", Volume=0.6)
-    isslam = g.br((isbolt, "False"), (g.text_is(V(g, "Pending"), "Zilzila"), "Value"))
-    slam = g.ex(g.setv((isslam, "True"), "Pending", ""), "Gameplay.AbilityCast", Ability="Zilzila", TwoD=False, LineOfSight=True, Mask=WALL)
+    isslam = g.br((isbolt, "False"), (g.text_is(V(g, "Pending"), "Slam"), "Value"))
+    slam = g.ex(g.setv((isslam, "True"), "Pending", ""), "Gameplay.AbilityCast", Ability="Slam", TwoD=False, LineOfSight=True, Mask=WALL)
     sok = g.br((slam, "Then"), (slam, "Success"))
     t = (g.ex((sok, "True"), "EmitParticles", Target=8104, Count=120), "Then")
     t = (g.ex(t, "ShakeCamera", Intensity=0.45, Duration=0.45), "Then")
     t = (g.ex(t, "PlaySound", Path="Audio/sfx_nova.wav", Volume=0.8), "Then")
-    g.ex(t, "Print", Text="SLICE_TRACE ev=cast a=Zilzila")
+    g.ex(t, "Print", Text="SLICE_TRACE ev=cast a=Slam")
 
     # ---- 6. interaction (pickups automatically, everything else on Interact), prompt, animation parameters
     g.lane("interact")
@@ -1020,8 +1020,8 @@ def hero_graph(assets, project, C):
         col = g.br((used, "False"), (g.text_is(kind, "Collected"), "Value"))
         nxt = (col, "True")
         for item, sound, banner in (("FireStone", "sfx_lamp", ("Olov toshi topildi!", "A fire stone found!")),
-                                    ("Shamshir", "sfx_chest", ("Shamshir! Endi zarbangiz kuchliroq", "A sabre! Your strikes hit harder now")),
-                                    ("Qalqon", "sfx_chest", ("Qalqon topildi!", "A shield found!")), ("Potion", "sfx_lamp", ("Ichimlik topildi", "A potion found"))):
+                                    ("Sabre", "sfx_chest", ("Shamshir! Endi zarbangiz kuchliroq", "A sabre! Your strikes hit harder now")),
+                                    ("Shield", "sfx_chest", ("Qalqon topildi!", "A shield found!")), ("Potion", "sfx_lamp", ("Ichimlik topildi", "A potion found"))):
             ib = g.br(nxt, (g.text_is((poll, "Item"), item), "Value"))
             t = (g.ex((ib, "True"), "PlaySound", Path=f"Audio/{sound}.wav", Volume=0.7), "Then")
             t = (g.ex(t, "Print", Text=f"SLICE_TRACE ev=collect a={item}"), "Then")
@@ -1050,15 +1050,15 @@ def hero_graph(assets, project, C):
     dead = g.br(r2, (hp4, "Dead"))
     g.ex((dead, "True"), "Animator.SetBool", Name="Dead", Value=True)
 
-    # ---- 9. progression: Zilzila at XP level 2, automatic claims
+    # ---- 9. progression: Slam at XP level 2, automatic claims
     g.lane("progress")
     pg = g.n("Event.Update")
     lvl = g.n("Gameplay.QuestProgression")
-    st = g.n("Gameplay.AbilityState", Ability="Zilzila")
+    st = g.n("Gameplay.AbilityState", Ability="Slam")
     b = g.br((pg, "Then"), g.all_of([(g.cmp("Greater", (lvl, "Level"), 1.5), "Value"), (g.not_((st, "Unlocked")), "Value")]))
-    u = g.ex((b, "True"), "Gameplay.AbilityUnlock", Ability="Zilzila")
+    u = g.ex((b, "True"), "Gameplay.AbilityUnlock", Ability="Slam")
     m = g.ex((u, "Then"), "SendMessage", Target=GAME, Name="LevelUp")
-    g.l(*L(g, "banner.unlock.Zilzila", "Yangi daraja! Zilzila ochildi [Slam]", "Level up! Ground slam unlocked [Slam]"), m, "Text")
+    g.l(*L(g, "banner.unlock.Slam", "Yangi daraja! Zilzila ochildi [Slam]", "Level up! Ground slam unlocked [Slam]"), m, "Text")
     src = g.join((b, "False"), (m, "Then"))
     for key, *_ in C["Quests"]:
         qs = g.n("Gameplay.QuestState", Quest=key)
@@ -1178,7 +1178,7 @@ def game_graph(assets, project, C):
            ("Gameplay.UIBindHUD", dict(Target=6015, Actor=HERO, Kind=7, Item="Coin", Prefix="", Ratio=True)),
            ("Gameplay.UIBindHUD", dict(Target=6022, Actor=HERO, Kind=2, Item="FireStone", Prefix="", Ratio=False)),
            ("Gameplay.UIBindHUD", dict(Target=6024, Actor=HERO, Kind=2, Item="Potion", Prefix="", Ratio=False))]
-    for i, ability in enumerate(("Bolt", "Zilzila", "Potion")):
+    for i, ability in enumerate(("Bolt", "Slam", "Potion")):
         ops.append(("Gameplay.UIBindHUD", dict(Target=6047 + i * 4, Actor=HERO, Kind=8, Item=ability, Prefix="", Ratio=False)))
     for i, (quest, objective) in enumerate(QUEST_ROWS):
         ops.append(("Gameplay.QuestBindHUD", dict(Target=6032 + i, Actor=HERO, Quest=quest, Objective=objective)))
@@ -1257,7 +1257,7 @@ def game_graph(assets, project, C):
     g.l(*g.text(["SLICE_IO_FAILED load ", (load, "Reason")]), lf, "Text")
     # an unreadable save (primary and backup) is said on screen: the level starts again from the camp
     lfb = g.ex((lf, "Then"), "SendMessage", Target=GAME, Name="Banner")
-    g.l(*L(g, "banner.unreadable", UNREADABLE, "The save could not be read - the level starts again"), lfb, "Text")
+    g.l(*L(g, "banner.unreadable", "Saqlash o'qilmadi - daraja boshidan", UNREADABLE), lfb, "Text")
     fresh = g.setv(g.join((cont, "False"), (lfb, "Then")), "Time", 0)
     auto = g.ex(fresh, "Gameplay.SaveWrite", Schema=schema)
     g.l(g.get("Slot"), "Value", auto, "Slot")
@@ -1324,7 +1324,7 @@ def game_graph(assets, project, C):
     stones = g.n("Gameplay.InventoryCount", Target=HERO, Item="FireStone")
     allq = g.all_of([(g.n("Gameplay.QuestState", Target=HERO, Quest=q[0]), "Claimed") for q in C["Quests"]])
     pv = g.ex(t, "Print")
-    g.l(*g.text(["SLICE_VICTORY game=Dovon time=", (g.get("Time"), "Value", "number", 1), " xp=", (prog, "XP", "number"), " level=", (prog, "Level", "number"),
+    g.l(*g.text(["SLICE_VICTORY game=BeaconPass time=", (g.get("Time"), "Value", "number", 1), " xp=", (prog, "XP", "number"), " level=", (prog, "Level", "number"),
                  " stones=", (stones, "Count", "number"), " deaths=", (hp, "Deaths", "number"), " quests=", (g.n("Constant.String", Value="4/4"), "Value")]), pv, "Text")
     qb = g.br((pv, "Then"), allq)
     g.ex((qb, "False"), "Print", Text="SLICE_ORACLE_FAILED quests")
@@ -1338,7 +1338,7 @@ def game_graph(assets, project, C):
                  (hp, "Deaths", "number"), "\n", L(g, "stat.xp", "Tajriba", "Experience"), "  ", (prog, "XP", "number"), 
                  L(g, "stat.level.open", "  (", "  (level "), (prog, "Level", "number"), L(g, "stat.level.close", "-daraja)", ")"), "\n",
                  L(g, "stat.best", "Eng yaxshi vaqt", "Best time"), "  ", (best2, "Value", "time")]), stats, "Text")
-    t = (g.ex((stats, "Then"), "Print", Text="Menyu: G'alaba"), "Then")
+    t = (g.ex((stats, "Then"), "Print", Text="Menu: Victory"), "Then")
     attract = g.br(t, g.any_of([V(g, "Demo"), (g.n("App.DemoMode"), "Value")]))
     g.setv((attract, "True"), "Auto", 5.0)
 
@@ -1411,7 +1411,7 @@ def game_graph(assets, project, C):
     def on(name):
         return g.n("Event.Custom", Name=name)
     g.ex((on("Resume"), "Then"), "Gameplay.UIBack")
-    g.ex((g.ex((on("Bag"), "Then"), "Gameplay.UIOpen", Name="Bag"), "Then"), "Print", Text="Menyu: Inventar")
+    g.ex((g.ex((on("Bag"), "Then"), "Gameplay.UIOpen", Name="Bag"), "Then"), "Print", Text="Menu: Inventory")
     g.ex((on("CloseBag"), "Then"), "Gameplay.UIClose", Name="Bag")
     g.ex((on("NextPage"), "Then"), "Gameplay.UIInventoryPage", Name="Bag", Delta=1)
     inv = g.n("Gameplay.UIInventoryState", Name="Bag")
@@ -1437,7 +1437,7 @@ def game_graph(assets, project, C):
     g.ex((on("Menu"), "Then"), "LoadScene", Path="Scenes/Menu.zscene", FadeOut=0.5)
     t = (g.ex((on("Retry"), "Then"), "WriteState.String", Key=f"{GS}.Run.Entry", Value="continue"), "Then")
     t = (g.ex(t, "SaveGameState"), "Then")
-    t = (g.ex(t, "Print", Text="Menyu: Oxirgi saqlashdan"), "Then")
+    t = (g.ex(t, "Print", Text="Menu: From the last save"), "Then")
     re = g.ex(t, "LoadScene", FadeOut=0.5)
     g.l(g.get("Self"), "Value", re, "Path")
     t = (g.ex((on("Defeat"), "Then"), "Gameplay.UIOpen", Name="Defeat"), "Then")
@@ -1605,7 +1605,7 @@ def enemy_graph(assets, project):
 
 def menu_graph(assets, project):
     """The title menu over the pass: an orbiting camera, Continue only for an unfinished run, settings (live volumes and
-    UI scale kept when the panel closes - Orqaga, Escape or B; fullscreen and language kept at once), credits, demo
+    UI scale kept when the panel closes - Back, Escape or B; fullscreen and language kept at once), credits, demo
     auto-start, new game / continue with a fade."""
     g = gk.Graph("Menu")
     _vars(g, (("Demo", "Bool", False), ("Started", "Bool", False), ("Time", "Number", 0), ("Can", "Bool", False)))
@@ -1648,8 +1648,8 @@ def menu_graph(assets, project):
     rt = g.ex((rb, "True"), "SetUIText", Target=6030)
     g.l(*g.text([L(g, "stat.best", "Eng yaxshi vaqt", "Best time"), "  ", (best, "Value", "time")]), rt, "Text")
     shown = g.br(g.join((rb, "False"), (rt, "Then")), V(g, "Can"))
-    g.ex((shown, "True"), "Print", Text="Menyu: Asosiy davom=1")
-    g.ex((shown, "False"), "Print", Text="Menyu: Asosiy davom=0")
+    g.ex((shown, "True"), "Print", Text="Menu: Main continue=1")
+    g.ex((shown, "False"), "Print", Text="Menu: Main continue=0")
     # ---- per frame: the camera's slow orbit over the pass, live volumes, the demo's auto-start
     g.lane("update")
     u = g.n("Event.Update")
@@ -1695,17 +1695,17 @@ def menu_graph(assets, project):
     wd = g.ex(t, "WriteState.Bool", Key=f"{GS}.Run.Demo", Persistent=False)
     g.l(*demo, wd, "Value")
     t = (g.ex((wd, "Then"), "SaveGameState"), "Then")
-    t = (g.ex(t, "Print", Text="Menyu: Yangi o'yin"), "Then")
-    g.ex(t, "LoadScene", Path="Scenes/Dovon.zscene", FadeOut=0.6, FadeIn=0.8, Color=[0.05, 0.03, 0.02, 1])
+    t = (g.ex(t, "Print", Text="Menu: New game"), "Then")
+    g.ex(t, "LoadScene", Path="Scenes/Pass.zscene", FadeOut=0.6, FadeIn=0.8, Color=[0.05, 0.03, 0.02, 1])
     t = (g.ex(on("Continue"), "WriteState.String", Key=f"{GS}.Run.Entry", Value="continue"), "Then")
     wd = g.ex(t, "WriteState.Bool", Key=f"{GS}.Run.Demo", Persistent=False)
     g.l(*demo, wd, "Value")
-    t = (g.ex((wd, "Then"), "Print", Text="Menyu: Davom etish"), "Then")
-    g.ex(t, "LoadScene", Path="Scenes/Dovon.zscene", FadeOut=0.6, FadeIn=0.8, Color=[0.05, 0.03, 0.02, 1])
-    g.ex((g.ex(on("Settings"), "Gameplay.UIOpen", Name="Settings"), "Then"), "Print", Text="Menyu: Sozlamalar")
-    g.ex((g.ex(on("Credits"), "Gameplay.UIOpen", Name="Credits"), "Then"), "Print", Text="Menyu: Mualliflar")
+    t = (g.ex((wd, "Then"), "Print", Text="Menu: Continue"), "Then")
+    g.ex(t, "LoadScene", Path="Scenes/Pass.zscene", FadeOut=0.6, FadeIn=0.8, Color=[0.05, 0.03, 0.02, 1])
+    g.ex((g.ex(on("Settings"), "Gameplay.UIOpen", Name="Settings"), "Then"), "Print", Text="Menu: Settings")
+    g.ex((g.ex(on("Credits"), "Gameplay.UIOpen", Name="Credits"), "Then"), "Print", Text="Menu: Credits")
     g.ex(on("Back"), "Gameplay.UIBack")
-    # a panel closed by Orqaga, Escape or the gamepad's B (UIWorld's Back): the settings are kept whichever way
+    # a panel closed by Back, Escape or the gamepad's B (UIWorld's Back): the settings are kept whichever way
     g.lane("closed")
     cu = g.n("Event.Update")
     ev = g.ex((cu, "Then"), "Gameplay.UIEvent")
@@ -1725,7 +1725,7 @@ def menu_graph(assets, project):
     g.l(*g.text(["SLICE_SETTINGS music=", (music, "Value", "number", 2), " sfx=", (sfx, "Value", "number", 2), " ui=", (ui_scale[0], "Value", "number", 2),
                  " lang=", (g.n("Localization.Language"), "Value")]), p, "Text")
     credits = g.br((which, "False"), (g.text_is((ev, "Name"), "Credits"), "Value"))
-    g.ex(g.join((p, "Then"), (credits, "True")), "Print", Text="Menyu: Asosiy")
+    g.ex(g.join((p, "Then"), (credits, "True")), "Print", Text="Menu: Main")
     g.lane("messages2")
     g.ex(on("Quit"), "QuitGame")
     # fullscreen and the language are the player's choice: kept with SaveData (the player loads them at its start)

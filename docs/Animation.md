@@ -360,7 +360,7 @@ bo'g'in matritsalari oqim bo'yicha saqlanadigan ro'yxatlarda qayta ishlatiladi; 
 tizimining `ParallelFor` yuborishi ajratadi. `ZaminBench --animation` buni o'lchaydi ([Benchmarks.md](Benchmarks.md)):
 256 odam va 1 024 sprite Animator bitta oqimda 0 ajratma / kadr.
 
-**Odam lokomotsiyasi misoli** — *Dovon mash'ali* ([VerticalSlices.md](VerticalSlices.md), `Projects/BeaconPass`):
+**Odam lokomotsiyasi misoli** — *Beacon Pass* ([VerticalSlices.md](VerticalSlices.md), `Projects/BeaconPass`):
 21 bo'g'inli skelet (`Tools/samples/gltfkit.py`), `Locomotion` BlendTree1D `Speed` bo'yicha — Idle 0, Walk 1.8, Run 5.4;
 chegaralar yurish tezliklariga teng va klip uzunligi = qadam / tezlik (Walk 2.0 m / 1.8 m/s, Run 3.9 m / 5.4 m/s), shuning
 uchun sof Walk yoki Run oyoqni sirpantirmaydi; `Air`/`Land`/`Dead` holatlari; `UpperBody` qatlami (Spine'dan Override)

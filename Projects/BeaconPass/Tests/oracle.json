@@ -1,5 +1,5 @@
 {
-    "Schema": "Dovon-1",
+    "Schema": "BeaconPass-1",
     "XP": 800,
     "FinalLevel": 4,
     "Quests": [
@@ -26,13 +26,13 @@
         "Resolution": 81
     },
     "Keys": [
-        "Dovon-Guard-01",
-        "Dovon-Guard-02",
-        "Dovon-Guard-03",
-        "Dovon-Archer-01",
-        "Dovon-Guard-04",
-        "Dovon-Archer-02",
-        "Dovon-Warden"
+        "Pass-Guard-01",
+        "Pass-Guard-02",
+        "Pass-Guard-03",
+        "Pass-Archer-01",
+        "Pass-Guard-04",
+        "Pass-Archer-02",
+        "Pass-Warden"
     ],
     "Pickups": 5
 }

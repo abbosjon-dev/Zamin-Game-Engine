@@ -31,8 +31,8 @@ SHOTS = [
     ("endlessrunner", "EndlessRunner", {"ZAMIN_DEMO": "1"}, 520),
     ("racing", "Racing", {"ZAMIN_DEMO": "1"}, 520),
     # the P5 vertical slices (docs/VerticalSlices.md): the demo pilot in the orchards' fight and in the caravanserai
-    ("chiroqbon", "LanternKeeper", {"ZAMIN_DEMO": "1"}, 1000),
-    ("dovon", "BeaconPass", {"ZAMIN_DEMO": "1"}, 760),
+    ("lanternkeeper", "LanternKeeper", {"ZAMIN_DEMO": "1"}, 1000),
+    ("beaconpass", "BeaconPass", {"ZAMIN_DEMO": "1"}, 760),
 ]
 
 

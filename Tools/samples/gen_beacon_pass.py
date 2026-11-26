@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Dovon mash'ali (Projects/BeaconPass): the compiler-free 3D vertical slice - a title menu over the mountain pass, one
-level (Dovon: the valley camp, the caravanserai and the watchtower plateau), a third-person character controller with
+"""Beacon Pass (Projects/BeaconPass): the compiler-free 3D vertical slice - a title menu over the mountain pass, one
+level (Pass: the valley camp, the caravanserai and the watchtower plateau), a third-person character controller with
 an orbit camera, a skinned humanoid with Animator locomotion (idle/walk/run blend, air/land, an upper-body attack/cast
-layer, an additive hit layer, death), melee timed by animation events, Bolt and the Zilzila ground slam, AI guards with
+layer, an additive hit layer, death), melee timed by animation events, Bolt and the ground slam, AI guards with
 animation-timed (delegated) strikes, archers, the Black Warden boss, a four-quest campaign with XP levels, equipment,
 shrine saves (v4) and the beacon finale, victory and defeat screens, music and sound.
 
@@ -34,20 +34,20 @@ PROJECT = NAME
 WALK, RUN = 1.8, 5.4                     # m/s: the motor speeds and the locomotion blend thresholds
 WALK_STRIDE, RUN_STRIDE = 2.0, 3.9       # m per gait cycle (two steps): clip lengths = stride / speed
 C = {
-    "Schema": "Dovon-1",
+    "Schema": "BeaconPass-1",
     "Hero": {"Health": 120, "Team": 1, "HitGrace": 0.3, "RespawnDelay": 1.6, "Slots": 16, "Stack": 99, "Stats": [0, 0, 0, 80, 5],
              "Walk": WALK, "Run": RUN, "Jump": 6.5, "Acceleration": 26, "Melee": 14, "MeleeCooldown": 0.45, "MeleeRange": 2.2},
-    "Items": {"Shamshir": [0, [10, 0, 0, 0, 0]], "Qalqon": [1, [0, 30, 0, 0, 0]]},
+    "Items": {"Sabre": [0, [10, 0, 0, 0, 0]], "Shield": [1, [0, 30, 0, 0, 0]]},
     # Ability: Kind (0 damage, 1 heal), Amount, Cost, Cooldown, Range, Ingredient, Unlocked, Projectile, Area, Effect
     "Abilities": {"Bolt": [0, 14, 10, 0.6, 14, "", True, "Bolt", "", "Burn"],
-                  "Zilzila": [0, 20, 30, 7, 4, "", False, "", "Zilzila", "Shock"],
+                  "Slam": [0, 20, 30, 7, 4, "", False, "", "Slam", "Shock"],
                   "Potion": [1, 40, 0, 1, 5, "Potion", True, "", "", ""]},
     "Quests": [
         # Key, Title, objectives [(Key, Label, Kind 1 collect/2 kill/3 interact, Match, Goal)], Requires, Rewards, XP
-        ("Pass", "Dovon yo'li", [("Guards", "Darvoza qorovullarini yeng", 2, "GateGuard", 2), ("Gate", "Karvonsaroy darvozasini och", 3, "Gate", 1)], [], {}, 100),
-        ("Stones", "Olov toshlari", [("Stone", "Olov toshlarini yig'", 1, "FireStone", 3)], [], {}, 200),
-        ("Warden", "Qora qorovul", [("Warden", "Qora qorovulni yeng", 2, "Warden", 1)], ["Pass"], {}, 300),
-        ("Beacon", "Mash'al", [("Beacon", "Mash'alni yoq", 3, "Beacon", 1)], ["Stones", "Warden"], {}, 200),
+        ("Pass", "The mountain pass", [("Guards", "Defeat the gate guards", 2, "GateGuard", 2), ("Gate", "Open the caravanserai gate", 3, "Gate", 1)], [], {}, 100),
+        ("Stones", "Fire stones", [("Stone", "Gather the fire stones", 1, "FireStone", 3)], [], {}, 200),
+        ("Warden", "The Black Warden", [("Warden", "Defeat the Black Warden", 2, "Warden", 1)], ["Pass"], {}, 300),
+        ("Beacon", "The beacon", [("Beacon", "Light the beacon", 3, "Beacon", 1)], ["Stones", "Warden"], {}, 200),
     ],
     "XP": 800, "FinalLevel": 4,
 }
@@ -143,13 +143,13 @@ PLATFORM = dict(cx=0.0, cz=-42.0, half=3.0, height=3.0, stair_z0=-34.6)
 
 ENEMIES = [
     # kind, position (x, z), save key, patrol offsets (x, z)
-    ("guard", (-3.0, 14.0), "Dovon-Guard-01", [(0, 0), (5, 0)], ["Enemy", "GateGuard"]),
-    ("guard", (4.0, 12.6), "Dovon-Guard-02", [], ["Enemy", "GateGuard"]),
-    ("guard", (-6.5, -2.5), "Dovon-Guard-03", [(0, 0), (0, -6)], ["Enemy", "Guard"]),
-    ("archer", (-11.0, -13.0), "Dovon-Archer-01", [], ["Enemy", "Archer"]),
-    ("guard", (8.0, -6.0), "Dovon-Guard-04", [(0, 0), (0, 4)], ["Enemy", "Guard"]),
-    ("archer", (8.0, -30.5), "Dovon-Archer-02", [], ["Enemy", "Archer"]),
-    ("warden", (2.5, -32.5), "Dovon-Warden", [], ["Enemy", "Warden"]),
+    ("guard", (-3.0, 14.0), "Pass-Guard-01", [(0, 0), (5, 0)], ["Enemy", "GateGuard"]),
+    ("guard", (4.0, 12.6), "Pass-Guard-02", [], ["Enemy", "GateGuard"]),
+    ("guard", (-6.5, -2.5), "Pass-Guard-03", [(0, 0), (0, -6)], ["Enemy", "Guard"]),
+    ("archer", (-11.0, -13.0), "Pass-Archer-01", [], ["Enemy", "Archer"]),
+    ("guard", (8.0, -6.0), "Pass-Guard-04", [(0, 0), (0, 4)], ["Enemy", "Guard"]),
+    ("archer", (8.0, -30.5), "Pass-Archer-02", [], ["Enemy", "Archer"]),
+    ("warden", (2.5, -32.5), "Pass-Warden", [], ["Enemy", "Warden"]),
 ]
 ARCHETYPES = {
     "guard": dict(HP=50, Armor=10, Damage=9, Cooldown=1.5, Speed=2.6, View=8, FOV=140, Leash=12, Enter=1.7, Exit=2.2, Ranged=False, Reach=2.3,
@@ -463,7 +463,7 @@ def _bow():
 def make_audio():
     rel = lambda name: os.path.join(ASSETS, "Audio", name)
     k.write_wav(rel("music_menu.wav"), sk.music_loop(12.0, k.note_freq("D3"), "hijaz", 72, 21, 0.4, 0.35, drums=False))
-    k.write_wav(rel("music_dovon.wav"), sk.music_loop(12.0, k.note_freq("A2"), "dorian", 92, 22, 0.5, 0.28))
+    k.write_wav(rel("music_pass.wav"), sk.music_loop(12.0, k.note_freq("A2"), "dorian", 92, 22, 0.5, 0.28))
     k.write_wav(rel("music_warden.wav"), sk.music_loop(10.0, k.note_freq("C2"), "hijaz", 120, 23, 0.6, 0.3, dark=True))
     # 5 s: exactly two gusts of the wind (sin^2 at 0.2 Hz), so the loop has no seam
     t = np.arange(int(5 * k.RATE)) / k.RATE
@@ -525,13 +525,13 @@ TEXT = {
 
 # What the HUD names by key (the engine looks up "item.<Key>", "combat.<Key>" and "quest.<Quest>[.<Objective>]"; a key
 # without a string shows as it is): the bag's items, the combat feed's payloads, the quest book.
-ITEM_NAMES = {"FireStone": ("Olov toshi", "Fire stone"), "Potion": ("Ichimlik", "Potion"), "Shamshir": ("Shamshir", "Sabre"),
-              "Qalqon": ("Qalqon", "Shield"), "Key": ("Kalit", "Key")}
-COMBAT_NAMES = {"Bolt": ("Olov o'qi", "Fire bolt"), "Burn": ("Kuyish", "Burn"), "Arrow": ("O'q", "Arrow"), "Zilzila": ("Zilzila", "Ground slam"),
+ITEM_NAMES = {"FireStone": ("Olov toshi", "Fire stone"), "Potion": ("Ichimlik", "Potion"), "Sabre": ("Shamshir", "Sabre"),
+              "Shield": ("Qalqon", "Shield"), "Key": ("Kalit", "Key")}
+COMBAT_NAMES = {"Bolt": ("Olov o'qi", "Fire bolt"), "Burn": ("Kuyish", "Burn"), "Arrow": ("O'q", "Arrow"), "Slam": ("Zilzila", "Ground slam"),
                 "Shockwave": ("Zarba to'lqini", "Shockwave"), "Shock": ("Karaxt", "Stun"), "Potion": ("Ichimlik", "Potion")}
-QUEST_EN = {"Pass": ("The mountain pass", {"Guards": "Defeat the gate guards", "Gate": "Open the caravanserai gate"}),
-            "Stones": ("Fire stones", {"Stone": "Gather the fire stones"}), "Warden": ("The Black Warden", {"Warden": "Defeat the Black Warden"}),
-            "Beacon": ("The beacon", {"Beacon": "Light the beacon"})}
+QUEST_UZ = {"Pass": ("Dovon yo'li", {"Guards": "Darvoza qorovullarini yeng", "Gate": "Karvonsaroy darvozasini och"}),
+            "Stones": ("Olov toshlari", {"Stone": "Olov toshlarini yig'"}), "Warden": ("Qora qorovul", {"Warden": "Qora qorovulni yeng"}),
+            "Beacon": ("Mash'al", {"Beacon": "Mash'alni yoq"})}
 
 
 def make_localization():
@@ -544,10 +544,10 @@ def make_localization():
     for key, pair in COMBAT_NAMES.items():
         pairs[f"combat.{key}"] = pair
     for key, title, objectives, *_ in C["Quests"]:
-        en_title, en_labels = QUEST_EN[key]
-        pairs[f"quest.{key}"] = (title, en_title)
+        uz_title, uz_labels = QUEST_UZ[key]
+        pairs[f"quest.{key}"] = (uz_title, title)
         for o in objectives:
-            pairs[f"quest.{key}.{o[0]}"] = (o[1], en_labels[o[0]])
+            pairs[f"quest.{key}.{o[0]}"] = (uz_labels[o[0]], o[1])
     for lang, index in (("uz", 0), ("en", 1)):
         table = {"$name": "O'zbekcha" if lang == "uz" else "English"}
         for key, pair in sorted(pairs.items()):
@@ -592,8 +592,8 @@ def main():
     make_localization()  # after the graphs: they register the strings they build
     k.write_json(os.path.join(OUT, "Tests", "oracle.json"), oracle)
     names = ["Default", "World", "Wall", "Hero", "Enemy"]
-    k.write_project(OUT, NAME, "Dovon mash'ali", "Scenes/Menu.zscene", bg.scene_uuid(PROJECT, "Menu"), version="1.0.0",
-                    build_scenes=[(f"Scenes/{s}.zscene", bg.scene_uuid(PROJECT, s)) for s in ("Menu", "Dovon")],
+    k.write_project(OUT, NAME, "Beacon Pass", "Scenes/Menu.zscene", bg.scene_uuid(PROJECT, "Menu"), version="1.0.0",
+                    build_scenes=[(f"Scenes/{s}.zscene", bg.scene_uuid(PROJECT, s)) for s in ("Menu", "Pass")],
                     actions=ACTIONS,
                     axes=[{"Deadzone": 0.15, "GamepadAxis": "LeftX", "Invert": False, "Name": "Horizontal", "Negative": ["Key:A", "Key:Left", "Gamepad:DPadLeft"],
                            "Positive": ["Key:D", "Key:Right", "Gamepad:DPadRight"]},
@@ -607,7 +607,7 @@ def main():
                                                                                     ("Default", "Hero"), ("Default", "Enemy"), ("World", "Hero"), ("World", "Enemy"),
                                                                                     ("Wall", "Hero"), ("Wall", "Enemy"), ("Hero", "Enemy"), ("Enemy", "Enemy")])},
                     extra=k.export_always_include(["Audio/*.wav", "Localization/*.json"]),
-                    description="Dovon mash'ali: a 3D action-adventure vertical slice - a mountain pass, a caravanserai, AI guards and a boss, "
+                    description="Beacon Pass: a 3D action-adventure vertical slice - a mountain pass, a caravanserai, AI guards and a boss, "
                                 "Animator locomotion, quests, equipment, shrine saves and the beacon finale.")
     manifest = json.load(open(os.path.join(OUT, f"{NAME}.zproject")))
     manifest["Project"]["ScriptModulePath"] = ""

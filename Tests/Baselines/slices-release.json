@@ -36,70 +36,70 @@
       "PerFrame": true,
       "Noisy": true
     },
-    "LanternKeeper.Boglar.Small.Frame": {
+    "LanternKeeper.Orchards.Small.Frame": {
       "Ms": 5.437,
       "PerFrame": true
     },
-    "LanternKeeper.Boglar.Small.FrameP95": {
+    "LanternKeeper.Orchards.Small.FrameP95": {
       "Ms": 6.317,
       "PerFrame": true
     },
-    "LanternKeeper.Boglar.Small.GameCode": {
+    "LanternKeeper.Orchards.Small.GameCode": {
       "Ms": 2.017,
       "PerFrame": true
     },
-    "LanternKeeper.Boglar.Small.GameCodeP95": {
+    "LanternKeeper.Orchards.Small.GameCodeP95": {
       "Ms": 2.409,
       "PerFrame": true
     },
-    "LanternKeeper.Boglar.720p.Frame": {
+    "LanternKeeper.Orchards.720p.Frame": {
       "Ms": 55.714,
       "PerFrame": true
     },
-    "LanternKeeper.Boglar.720p.FrameP95": {
+    "LanternKeeper.Orchards.720p.FrameP95": {
       "Ms": 67.057,
       "PerFrame": true,
       "Noisy": true
     },
-    "LanternKeeper.Boglar.720p.GameCode": {
+    "LanternKeeper.Orchards.720p.GameCode": {
       "Ms": 2.438,
       "PerFrame": true
     },
-    "LanternKeeper.Boglar.720p.GameCodeP95": {
+    "LanternKeeper.Orchards.720p.GameCodeP95": {
       "Ms": 3.064,
       "PerFrame": true,
       "Noisy": true
     },
-    "LanternKeeper.Yertola.Small.Frame": {
+    "LanternKeeper.Crypt.Small.Frame": {
       "Ms": 5.668,
       "PerFrame": true
     },
-    "LanternKeeper.Yertola.Small.FrameP95": {
+    "LanternKeeper.Crypt.Small.FrameP95": {
       "Ms": 6.925,
       "PerFrame": true
     },
-    "LanternKeeper.Yertola.Small.GameCode": {
+    "LanternKeeper.Crypt.Small.GameCode": {
       "Ms": 2.032,
       "PerFrame": true
     },
-    "LanternKeeper.Yertola.Small.GameCodeP95": {
+    "LanternKeeper.Crypt.Small.GameCodeP95": {
       "Ms": 2.492,
       "PerFrame": true
     },
-    "LanternKeeper.Yertola.720p.Frame": {
+    "LanternKeeper.Crypt.720p.Frame": {
       "Ms": 56.06,
       "PerFrame": true
     },
-    "LanternKeeper.Yertola.720p.FrameP95": {
+    "LanternKeeper.Crypt.720p.FrameP95": {
       "Ms": 65.181,
       "PerFrame": true,
       "Noisy": true
     },
-    "LanternKeeper.Yertola.720p.GameCode": {
+    "LanternKeeper.Crypt.720p.GameCode": {
       "Ms": 2.505,
       "PerFrame": true
     },
-    "LanternKeeper.Yertola.720p.GameCodeP95": {
+    "LanternKeeper.Crypt.720p.GameCodeP95": {
       "Ms": 3.265,
       "PerFrame": true,
       "Noisy": true
@@ -138,36 +138,36 @@
       "PerFrame": true,
       "Noisy": true
     },
-    "BeaconPass.Dovon.Small.Frame": {
+    "BeaconPass.Pass.Small.Frame": {
       "Ms": 28.16,
       "PerFrame": true
     },
-    "BeaconPass.Dovon.Small.FrameP95": {
+    "BeaconPass.Pass.Small.FrameP95": {
       "Ms": 36.062,
       "PerFrame": true
     },
-    "BeaconPass.Dovon.Small.GameCode": {
+    "BeaconPass.Pass.Small.GameCode": {
       "Ms": 3.504,
       "PerFrame": true
     },
-    "BeaconPass.Dovon.Small.GameCodeP95": {
+    "BeaconPass.Pass.Small.GameCodeP95": {
       "Ms": 4.399,
       "PerFrame": true
     },
-    "BeaconPass.Dovon.720p.Frame": {
+    "BeaconPass.Pass.720p.Frame": {
       "Ms": 227.129,
       "PerFrame": true
     },
-    "BeaconPass.Dovon.720p.FrameP95": {
+    "BeaconPass.Pass.720p.FrameP95": {
       "Ms": 266.123,
       "PerFrame": true,
       "Noisy": true
     },
-    "BeaconPass.Dovon.720p.GameCode": {
+    "BeaconPass.Pass.720p.GameCode": {
       "Ms": 3.73,
       "PerFrame": true
     },
-    "BeaconPass.Dovon.720p.GameCodeP95": {
+    "BeaconPass.Pass.720p.GameCodeP95": {
       "Ms": 4.744,
       "PerFrame": true,
       "Noisy": true

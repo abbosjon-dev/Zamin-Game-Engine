@@ -1,21 +1,21 @@
 # Vertical slices
 
 Two small finished games built only from the engine's gameplay packages and played end to end by a deterministic
-demo pilot for acceptance: the 2D *Chiroqbon* (`Projects/LanternKeeper`) and the 3D *Dovon mash'ali*
+demo pilot for acceptance: the 2D *Lantern Keeper* (`Projects/LanternKeeper`) and the 3D *Beacon Pass*
 (`Projects/BeaconPass`). Both pass the package's stress, UI input/scale, fresh-process resume, relocated export and
 profiling gates ([Gates](#gates), [Resume, export and profiling](#resume-export-and-profiling); evidence in
 docs/TASKS.md).
 
-## Chiroqbon (2D, `Projects/LanternKeeper`)
+## Lantern Keeper (2D, `Projects/LanternKeeper`)
 
 A compiler-free top-down action-adventure (`ScriptModulePath ""`): title menu, two levels, victory and defeat screens.
-Soya Bek stole the Lamps of Dawn; Nilufar wins one back from the bandits of the orchards (**Boglar**) and two from the
+Soya Bek stole the Lamps of Dawn; Nilufar wins one back from the bandits of the orchards (**Orchards**) and two from the
 crypt below the fortress (**Yertola**), defeats Soya Bek and lights the Dawn Lamp on the altar.
 
 | Scene | Content |
 |---|---|
 | `Menu` | Lit diorama, *Yangi o'yin* / *Davom etish* (only for an unfinished run) / *Sozlamalar* (music and SFX volume, fullscreen, uz/en) / *Mualliflar* / *Chiqish*, best time |
-| `Boglar` (46 x 26) | Herbs, coins, the sword chest, a bandit camp with an archer, a shrine, the chief's yard (chief + bandits + archer), the gate opened with the chief's key, the first lamp, the crypt stairs |
+| `Orchards` (46 x 26) | Herbs, coins, the sword chest, a bandit camp with an archer, a shrine, the chief's yard (chief + bandits + archer), the gate opened with the chief's key, the first lamp, the crypt stairs |
 | `Yertola` (44 x 30) | Crypt hall with skeletons, two side rooms (lamps 2 and 3, the armour chest, archers), a shrine, the boss arena (Soya Bek, phase 2 below 55 % wakes two spirits and a shadow ring), the altar |
 
 Systems in one flow: `Gameplay.Motor2D` (top-down) and the 2D follow camera; melee (`Gameplay.Attack`) and abilities
@@ -37,13 +37,13 @@ model-free Animators with `DriveSpriteClips`; 2D lights, particles, music, ambie
 
 Shared UI and controllers have identical UUIDs in every scene (1000-1099 hero/camera, 1100-1199 controllers, 2000-4999
 geometry and props, 5000-5499 enemies, 5500-5999 interactables, 6000-7999 UI, 8000-8999 effects). Save keys:
-`Hero`, `L1-Bandit-01`, `L2-Boss`, `L1-Coin-03`, ...; schema `Chiroqbon-1`.
+`Hero`, `L1-Bandit-01`, `L2-Boss`, `L1-Coin-03`, ...; schema `Lantern Keeper-1`.
 
 ### Run flow and saves
 
 | Event | Writes |
 |---|---|
-| New game | GameState `LK.Run.*` reset, `Entry=new` → Boglar → autosave `Run1` |
+| New game | GameState `LK.Run.*` reset, `Entry=new` → Orchards → autosave `Run1` |
 | Shrine | full heal, then `SaveWrite(Run<n>)` (v4: combat is present), checkpoint, `LK.Run.Save/Step/Time` |
 | Level 1 exit (Gate claimed, hero alive) | level card (pauses the world, timed in real time) → `TransferWrite(Carry)` (retried after 1 s on failure) → `Run.Level=2, Run.Save=0, Entry=carry` → Yertola: `TransferLoad`, heal, autosave `Run2` |
 | Continue | the level's own save when `Run.Save == Run.Level`, else the transfer (level 2), else a fresh start |
@@ -71,22 +71,22 @@ Log contract: `Menyu: ...`, `SLICE_LEVEL_START`, `SLICE_RESUMED`, `SLICE_SAVED`,
 painted characters with 4-direction walk cycles (`slicekit.py`), tilesets, props, UI frames and icons, music and
 sounds, localization, scenes and graphs (`lantern_graphs.py` on `graphkit.py`), and `Tests/oracle.json` (test data,
 kept outside `Assets/` so it never ships). Headless tests (`ZaminTests --filter LanternKeeper*`): graphs validate and scenes load; the oracle
-plays menu → Boglar → transfer → Yertola → victory (850 XP, level 4, 5/5 quests, all coins, lamps consumed, three
+plays menu → Orchards → transfer → Yertola → victory (850 XP, level 4, 5/5 quests, all coins, lamps consumed, three
 items equipped, Nova/Mend unlocked, boss dead, no projectile in flight, transfer v1 and save v4 files); the lose plan
 reaches the defeat screen, reloads and completes level 1 with exactly the normal progress; two fresh level 1 runs
 give identical traces at identical frames.
 
 Player/Editor acceptance (`python3 Tests/slice_workflow_test.py [--build build] [--out DIR] [--phases ...]`, CI step
-*Chiroqbon 2D vertical slice*): private project copies, one HOME per run, fixed 30 fps capture, software GL. P0 a
+*Lantern Keeper 2D vertical slice*): private project copies, one HOME per run, fixed 30 fps capture, software GL. P0 a
 keyboard tape (menu → settings: music slider and *Orqaga* → new game → move, Bolt, strike, bag, pause); P1 the demo
 pilot writes level 1, the transfer and the level 2 shrine save (plan 3); P2 a fresh process continues from that save,
 beats the boss and reaches the victory screen (850 XP, level 4, 5/5 quests); P3 a fresh process: no Continue after the
 victory; P4 the lose plan (three deaths → defeat → reload → level 1 complete with 200 XP / 13 coins); E0 Editor Play of
-Boglar; E1 Editor Play of Yertola next to P1's stale `Carry.json` (a fresh level 2 run). Every phase rejects GL
+Orchards; E1 Editor Play of Yertola next to P1's stale `Carry.json` (a fresh level 2 run). Every phase rejects GL
 errors, graph errors, `SLICE_*_FAILED` and a stuck pilot, checks the last frame with `png_check.py` and the transfer
 and save JSON; `<out>/Report.json` lists the phases and their times.
 
-## Dovon mash'ali (3D, `Projects/BeaconPass`)
+## Beacon Pass (3D, `Projects/BeaconPass`)
 
 A compiler-free third-person action-adventure in one level. The Black Warden put out the signal fire of the mountain
 pass; the courier Temur climbs from the valley camp through the caravanserai to the watchtower plateau, gathers three
@@ -167,7 +167,7 @@ bag, quests, loadout) and both continuations to the plateau shrine, then quick-s
 flight and checks the restored projectile and its flight frame by frame; two fresh runs give identical traces at
 identical frames.
 
-Player/Editor acceptance (`python3 Tests/slice_workflow_test.py --game BeaconPass`, CI step *Dovon mash'ali 3D vertical
+Player/Editor acceptance (`python3 Tests/slice_workflow_test.py --game BeaconPass`, CI step *Beacon Pass 3D vertical
 slice*; 640x360, quality Low): P0 a keyboard tape (menu → settings → new game → run, jump, strike, Bolt, bag, pause →
 *Inventar*); P1 the demo pilot plays to the courtyard shrine save and stops (plan 3: save v4, 100 XP, two stones); P2 a
 fresh process continues from it to the victory screen (800 XP, level 4, 4/4 quests); P3 no Continue after the
@@ -190,7 +190,7 @@ baselines `Tests/Baselines/{physics,animation,slicestress}-release.json`, `Tests
 | P2 `--physics --3d` | pit, ramps, 0.25 m stairs, 35° slope, 65×65 terrain, 512 bodies, 64 Character Controller 3D, 128 sphere casts | step + CC ≤ 8 / ≤ 12 ms | 1.51–1.80 / 2.00–2.17 ms |
 | A1 `--animation` humanoids | 256 × `Hero.glb` (21 joints) with Dovon's controller, half off-screen | jobs 3 ≤ 1.5 / ≤ 2.0 ms, jobs 0 ≤ 4.0 ms, 0 allocations | 0.57–0.82 / 0.66–1.10 ms; jobs 0 0.99–1.73 ms; 0.0 allocations |
 | A2 `--animation` sprites | 1 024 model-free animators, `DriveSpriteClips`, 2D blend directions turning | ≤ 0.6 ms, 0 allocations | update 0.30–0.48 ms; 0.0 allocations |
-| P3 `--slice-stress --2d` | Boglar: 32 brains (the scene limit), 200 crates, 64 projectiles, 256 sprite animators, 48 Light 2D | game code ≤ 6 / ≤ 10 ms | 2.80–3.42 / 3.00–4.71 ms |
+| P3 `--slice-stress --2d` | Orchards: 32 brains (the scene limit), 200 crates, 64 projectiles, 256 sprite animators, 48 Light 2D | game code ≤ 6 / ≤ 10 ms | 2.80–3.42 / 3.00–4.71 ms |
 | A3 `--slice-stress --3d` | Dovon: 24 animated guards + the level's enemies (27 brains), hero, 64 projectiles, 200 Jolt crates | game code ≤ 8 / ≤ 12 ms | 3.89–5.45 / 5.41–6.37 ms |
 
 Invariants, all held: no body out of the arena / pit, no NaN, 2D speed ≤ 6.9 m/s; Character Controller feet never more
@@ -219,7 +219,7 @@ menu's language button away and is kept with the player's settings. Prompts carr
 Settings are saved whenever the settings panel closes, by *Back* (*Orqaga*) or by Back/Escape (`SLICE_SETTINGS` then
 `Menyu: Asosiy`); *Fullscreen* (*To'liq ekran*) and the language go through `Display.SaveSettings` and
 `Localization.SaveSettings`, so a fresh process starts with the same choice.
-Chiroqbon's ground uses a 47-variant blob autotile for paths (no holes in 2x2 corners), a 4-neighbour water autotile,
+Lantern Keeper's ground uses a 47-variant blob autotile for paths (no holes in 2x2 corners), a 4-neighbour water autotile,
 seamless grass and a decal layer (`Bezak`: petals, clover, pebbles, moss, cracks, cobwebs, wall shadows) between the
 ground and the walls. Dovon's terrain samples steep slopes triplanar, so cliffs no longer stretch.
 The long runs (oracles, lose plans, resume matrices, determinism) are `SLOW_TEST`s: `ZaminTests --quick` (ctest label
@@ -239,8 +239,8 @@ height 0.5* at reference 1920×1080; the layouts were fixed instead (texts ≥ 2
 78 % of the view and wrapping, the 2D menu's map widened so a 21:9 view never sees past it).
 
 - **Headless** (`ZaminTests --filter SliceMenuLayout*`): every scene of the slice played for 1.5 s, its first screen
-  (main menu / HUD) and then each of its gameplay UI panels opened in turn (Chiroqbon: Menu, Boglar, Yertola - 15
-  screens; Dovon mash'ali: Menu, Dovon - 8), audited at 800×600, 1024×768, 1280×720, 1600×900, 1920×1080 and
+  (main menu / HUD) and then each of its gameplay UI panels opened in turn (Lantern Keeper: Menu, Orchards, Yertola - 15
+  screens; Beacon Pass: Menu, Dovon - 8), audited at 800×600, 1024×768, 1280×720, 1600×900, 1920×1080 and
   2560×1080, each at UI scale 80 / 100 / 120 %: 270 + 144 audits, 13 932 + 5 472 elements, 0 issues, smallest text
   9.6 px (80 % at 800×600). `SliceMenuLayoutCatchesABrokenLinkAndTinyText` breaks the music
   slider's links (→ `Unreachable`) and shrinks the version line (→ `MinFont`).
@@ -252,7 +252,7 @@ height 0.5* at reference 1920×1080; the layouts were fixed instead (texts ≥ 2
     (`ui=0.80`, *Kiritish qurilmasi: gamepad*): 60 audits, 0 issues; a mouse run clicks *Sozlamalar* and *Orqaga*
     where the audit says they are.
   - U3 seeded fuzz, 2 000 frames of random navigation / submit / back / pause / inventory on the keyboard and on the
-    gamepad per game: 534 / 504 (Chiroqbon) and 546 / 450 (Dovon mash'ali) audits, at most 2 panels open, 0 invariant
+    gamepad per game: 534 / 504 (Lantern Keeper) and 546 / 450 (Beacon Pass) audits, at most 2 panels open, 0 invariant
     breaks (time scale back to 1 with no panel open), 0 errors.
   - UW the title menu in a real 2560×1080 window: 6 audits, 0 issues, screenshot.
 - **Mutations** (in the Player gate): clearing the music slider's Up/Down links fails U1 (the tour cannot reach
@@ -267,7 +267,7 @@ The fresh-process, export, editor and profiling gates of both slices (P5 item 4)
 killed at each step would leave behind; a fresh process (`SaveData::Reload`, `GameState::Load`, the demo menu's
 Continue) on each copy must resume a consistent run, and no reward is granted twice:
 
-| Cut / damage | Chiroqbon | Dovon mash'ali |
+| Cut / damage | Lantern Keeper | Beacon Pass |
 |---|---|---|
 | after New game, before the autosave | - | Continue offered, fresh start at the camp, autosave written then |
 | after a save, before its GameState | level 1 exit: the transfer written, `Run.Level` still 1 → level 1 from its shrine save; the exit replays and writes the same transfer (200 XP, same bag) | shrine save written, `Run.Time` old → the shrine save (100 XP, two stones, the saved pose to < 1 mm) |
@@ -282,7 +282,7 @@ failed (`SLICE_IO_FAILED autosave`). The fallback now continues one frame later.
 `Run.Save == Run.Level` guard the matrix fails three times.
 
 **Player/Editor** (`python3 Tests/slice_workflow_test.py --game LanternKeeper|BeaconPass --exports`, CI steps
-*Chiroqbon 2D / Dovon mash'ali 3D vertical slice ...*), besides P0-P4, E0/E1:
+*Lantern Keeper 2D / Beacon Pass 3D vertical slice ...*), besides P0-P4, E0/E1:
 
 - **C** damaged saves on copies of P1's files, each continued by a fresh Player: a changed byte → the backup with the
   *recovered* banner; save and backup torn → `SLICE_IO_FAILED load`, the visible message, the level's entry (2D: the
@@ -298,15 +298,15 @@ failed (`SLICE_IO_FAILED autosave`). The fallback now continues one frame later.
   new place a fresh process continues the save to the victory screen (`ZAMIN_SCREENSHOT_ON="SLICE_VICTORY|120|...|quit"`),
   a third shows no Continue, a fourth starts a new game (0 XP) and the best time stays.
 - **D** determinism: P1's trace in the Player (960x540 / 640x360, fixed 30 fps game clock) against the headless one
-  (`ZAMIN_SLICE_TRACE_OUT` of `*Determinism`): Chiroqbon's level 1 is the same 23 events in the same order, Dovon
+  (`ZAMIN_SLICE_TRACE_OUT` of `*Determinism`): Lantern Keeper's level 1 is the same 23 events in the same order, Dovon
   mash'ali's courtyard run the same first 12 of the headless 26.
 
 **Editor** (`xvfb-run -a -s "-screen 0 1600x1000x24" python3 Tests/slice_editor_test.py`, CI step *Slice Blueprint
 authoring ...*): in the real Blueprint window `Gameplay.TransferWrite`, `Gameplay.TransferLoad` and `Gameplay.Steer` are
 added, saved and undone; LoadScene's `FadeOut` is typed to 0.6, UIBindHUD's Kind combo scrolled to Kind 8
 *Qobiliyat* and AIConfigure's `Strike` checkbox turned off - each saved, undone and redone. Then
-`ZAMIN_EDITOR_GRAPH_QA` opens every slice graph in the window (Chiroqbon: Game 625/737 nodes/links, Enemy 174/205,
-Menu 160/175, Hero 560/678; Dovon mash'ali: Camera3D 38/46, Game 490/583, Enemy 180/211, Menu 168/183, Hero 655/787),
+`ZAMIN_EDITOR_GRAPH_QA` opens every slice graph in the window (Lantern Keeper: Game 625/737 nodes/links, Enemy 174/205,
+Menu 160/175, Hero 560/678; Beacon Pass: Camera3D 38/46, Game 490/583, Enemy 180/211, Menu 168/183, Hero 655/787),
 each with 0 compile diagnostics and no log error. `Tests/editor_smoke.sh Projects/LanternKeeper Projects/BeaconPass`
 (every editor window, page and popup over the slices; CI step) passes 243/243 and 268/268 steps with 0 errors.
 
@@ -315,15 +315,15 @@ the table and its method in [Benchmarks.md](Benchmarks.md#vertical-slicelar-play
 every slice scene in the Release Player's `--benchmark` (the levels with the demo pilot), at 284x160 Low and 1280x720.
 The Player's benchmark report now carries `GameCode` - the update layer without its drawing, per measured frame - so
 the game's own CPU work is gated apart from llvmpipe's rasterizer. Small window (best of 3 runs): game code 0.32 /
-2.02 / 2.03 ms (Chiroqbon Menu / Boglar / Yertola) and 0.53 / 3.50 ms (Dovon mash'ali Menu / Dovon), p95 at most 4.40
+2.02 / 2.03 ms (Lantern Keeper Menu / Orchards / Yertola) and 0.53 / 3.50 ms (Beacon Pass Menu / Dovon), p95 at most 4.40
 ms (gates ≤ 3 ms 2D, ≤ 4 ms 3D, p95 ≤ 6 ms); frames 3.5-5.7 ms in 2D (≤ 16.6 ms) and 22-28 ms in 3D (≤ 33.3 ms: the
 software rasterizer draws the level's ~74 500 triangles twice, shadow map and main pass); the slowest frame of a warm
 session ≤ 51 ms (a first session pays llvmpipe's shader JIT once: 1.9 s in Yertola's first fight, 345 ms in Dovon).
 
 **Soak** (`python3 Tests/slice_bench.py --build build-release --no-bench --soak 18000`): the attract loop (`ZAMIN_DEMO=1`,
-284x160 Low) for 18 000 frames - 10 game minutes - per game, sampled every 30 frames by `ZAMIN_SOAK_STATS`. Chiroqbon
+284x160 Low) for 18 000 frames - 10 game minutes - per game, sampled every 30 frames by `ZAMIN_SOAK_STATS`. Lantern Keeper
 won 3 times and came back to the menu 3 times, each time with 57 entities, 302.9 MiB resident and 99.2 MiB of engine
-memory (growth after the first loop 0.0 MiB); Dovon mash'ali won 7 times, 278 menu entities each time, the resident
+memory (growth after the first loop 0.0 MiB); Beacon Pass won 7 times, 278 menu entities each time, the resident
 memory 269.4 → 275.5 → 278.8 MiB over the first three returns and then flat (278.9 MiB; growth 9.5 MiB ≤ 32), the
 engine's own memory 39.0 MiB at every return. No log error in either.
 

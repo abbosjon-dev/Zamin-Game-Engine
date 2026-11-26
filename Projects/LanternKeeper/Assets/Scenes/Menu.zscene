@@ -92,7 +92,7 @@
     },
     {
       "Entity": 1003,
-      "Tag": "Kamera",
+      "Tag": "Camera",
       "Transform": {
         "Translation": [12.0, 8.6, 10.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -113,7 +113,7 @@
     },
     {
       "Entity": 1100,
-      "Tag": "Menyu",
+      "Tag": "Menu",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -132,7 +132,7 @@
     },
     {
       "Entity": 1101,
-      "Tag": "Musiqa",
+      "Tag": "Music",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -161,7 +161,7 @@
         "Scale": [1.0, 1.0, 1.0]
       },
       "Tilemap": {
-        "Tileset": "Textures/tiles_boglar.png",
+        "Tileset": "Textures/tiles_orchards.png",
         "PixelArt": false,
         "TilesetColumns": 16,
         "TilesetRows": 6,
@@ -170,7 +170,7 @@
         "TileSize": 1.0,
         "Layers": [
           {
-            "Name": "Zamin",
+            "Name": "Ground",
             "Visible": true,
             "Collision": false,
             "SortingOrder": 0,
@@ -178,7 +178,7 @@
             "Tiles": [0, 0, 4, 3, 4, 2, 0, 2, 2, 1, 0, 1, 2, 0, 3, 0, 3, 1, 18, 25, 2, 1, 3, 1, 3, 1, 3, 1, 0, 0, 1, 4, 0, 2, 3, 4, 3, 1, 3, 0, 4, 2, 0, 1, 4, 2, 4, 0, 3, 0, 0, 0, 0, 0, 22, 25, 3, 0, 4, 3, 0, 3, 0, 1, 0, 3, 0, 3, 2, 1, 4, 2, 3, 3, 2, 2, 2, 0, 4, 3, 4, 1, 0, 0, 0, 2, 0, 2, 2, 0, 33, 50, 1, 2, 0, 2, 1, 0, 3, 0, 1, 3, 3, 2, 0, 3, 2, 2, 3, 0, 0, 0, 3, 0, 4, 3, 2, 0, 0, 3, 0, 1, 3, 0, 3, 40, 58, 4, 3, 1, 0, 0, 1, 0, 1, 3, 0, 3, 0, 0, 1, 2, 0, 4, 4, 3, 4, 2, 0, 0, 0, 3, 0, 0, 0, 0, 2, 0, 1, 4, 40, 58, 3, 4, 4, 2, 0, 2, 3, 0, 0, 3, 2, 1, 2, 2, 3, 0, 1, 2, 3, 2, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 2, 37, 42, 0, 1, 0, 4, 0, 4, 3, 0, 2, 0, 0, 1, 0, 0, 4, 0, 4, 0, 2, 3, 0, 3, 4, 0, 0, 4, 0, 3, 0, 0, 2, 3, 19, 28, 2, 4, 1, 3, 2, 3, 3, 4, 0, 1, 0, 0, 4, 3, 0, 1, 1, 0, 1, 0, 0, 4, 3, 0, 1, 1, 2, 2, 0, 0, 0, 2, 19, 28, 2, 1, 0, 1, 0, 0, 0, 3, 3, 1, 0, 2, 2, 1, 0, 0, 0, 1, 0, 2, 2, 0, 2, 3, 1, 0, 3, 3, 0, 0, 0, 0, 19, 28, 0, 0, 2, 3, 0, 0, 1, 0, 2, 0, 0, 3, 2, 2, 0, 1, 0, 0, 0, 0, 0, 0, 3, 3, 0, 0, 4, 4, 0, 0, 0, 2, 32, 52, 0, 0, 1, 3, 1, 0, 1, 1, 2, 0, 1, 3, 1, 2, 1, 3, 0, 3, 1, 0, 3, 2, 3, 2, 0, 0, 2, 1, 2, 1, 3, 1, 2, 40, 58, 2, 3, 2, 1, 0, 0, 3, 0, 2, 2, 3, 3, 0, 4, 4, 0, 0, 0, 3, 0, 2, 4, 0, 1, 0, 0, 2, 3, 0, 1, 0, 2, 1, 36, 43, 3, 4, 2, 1, 0, 0, 0, 1, 0, 0, 4, 4, 1, 3, 0, 0, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 21, 3, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 22, 24, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]
           },
           {
-            "Name": "Bezak",
+            "Name": "Decor",
             "Visible": true,
             "Collision": false,
             "SortingOrder": 1,
@@ -186,7 +186,7 @@
             "Tiles": [-1, -1, -1, 81, -1, 80, -1, -1, -1, -1, -1, -1, 85, 83, -1, -1, -1, -1, -1, -1, -1, -1, 83, -1, -1, 84, -1, -1, -1, 86, -1, -1, -1, -1, -1, -1, 84, -1, -1, -1, -1, -1, -1, -1, -1, 86, -1, -1, -1, -1, -1, 87, -1, -1, 89, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 81, -1, -1, 83, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 83, 89, -1, 86, -1, -1, 83, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 80, -1, -1, -1, -1, -1, 80, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 87, 87, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 85, -1, -1, 85, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 85, -1, -1, -1, -1, -1, -1, -1, -1, 84, 83, 87, 83, -1, -1, -1, -1, 82, 84, -1, 81, 87, -1, -1, -1, -1, -1, -1, -1, -1, -1, 82, -1, -1, -1, -1, -1, -1, -1, 89, 89, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 83, 89, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 80, -1, -1, 81, -1, -1, -1, -1, -1, -1, -1, 86, -1, -1, 84, -1, -1, -1, -1, -1, -1, -1, -1, 80, -1, -1, -1, -1, -1, 85, 87, -1, 82, 81, -1, -1, 85, -1, -1, -1, 84, 83, -1, -1, -1, -1, -1, -1, 86, -1, -1, 80, -1, -1, 81, 89, -1, -1, -1, -1, -1, -1, -1, -1, 82, 87, 85, -1, -1, -1, -1, 81, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 81, -1, -1, -1, -1, -1, 85, -1, -1, -1, -1, -1, 83, -1, -1, -1, 87, -1, -1, -1, -1, -1, 86, 82, -1, -1, 83, 83, -1, 87, -1, 87, -1, -1, 83, -1, -1, -1, -1, -1, 84, -1, -1, -1, -1, -1, 87, 82, -1, -1, 86, -1, 82, -1, -1, -1, -1, -1, -1, -1, -1, 88, 88, 88, 88, 88, 88, 88, 88, 88, 88, 88, 88, 88, 88, 88, 88, 88, -1, -1, -1, 88, 88, 88, 88, 88, 88, 88, 88, 88, 88, 88, 88, 88, 88, 88, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 88, 88, 88, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]
           },
           {
-            "Name": "Devor",
+            "Name": "Walls",
             "Visible": true,
             "Collision": false,
             "SortingOrder": 2,
@@ -203,7 +203,7 @@
     },
     {
       "Entity": 3000,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [2.5, 3.5, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -225,7 +225,7 @@
     },
     {
       "Entity": 3001,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [5.5, 8.5, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -247,7 +247,7 @@
     },
     {
       "Entity": 3002,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [22.5, 3.5, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -269,7 +269,7 @@
     },
     {
       "Entity": 3003,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [25.5, 9.5, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -291,7 +291,7 @@
     },
     {
       "Entity": 3004,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [8.5, 11.5, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -313,7 +313,7 @@
     },
     {
       "Entity": 3005,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [20.5, 11.5, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -335,7 +335,7 @@
     },
     {
       "Entity": 3006,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [1.5, 10.5, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -357,7 +357,7 @@
     },
     {
       "Entity": 3007,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [27.5, 5.5, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -379,7 +379,7 @@
     },
     {
       "Entity": 3008,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [9.5, 4.5, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -401,7 +401,7 @@
     },
     {
       "Entity": 3009,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [17.5, 1.5, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -423,7 +423,7 @@
     },
     {
       "Entity": 3200,
-      "Tag": "Chodir",
+      "Tag": "Tent",
       "Transform": {
         "Translation": [22.5, 7.4, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -445,7 +445,7 @@
     },
     {
       "Entity": 3300,
-      "Tag": "Gulxan",
+      "Tag": "Campfire",
       "Transform": {
         "Translation": [19.5, 6.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -468,7 +468,7 @@
     },
     {
       "Entity": 3301,
-      "Tag": "Olov",
+      "Tag": "Fire",
       "Transform": {
         "Translation": [0.0, 0.1, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -530,7 +530,7 @@
     },
     {
       "Entity": 3400,
-      "Tag": "Mash'al",
+      "Tag": "Torch",
       "Transform": {
         "Translation": [11.4, 12.6, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -552,7 +552,7 @@
     },
     {
       "Entity": 3401,
-      "Tag": "Mash'al",
+      "Tag": "Torch",
       "Transform": {
         "Translation": [15.6, 12.6, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -574,7 +574,7 @@
     },
     {
       "Entity": 3420,
-      "Tag": "Olov",
+      "Tag": "Fire",
       "Transform": {
         "Translation": [0.0, 0.38, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -614,7 +614,7 @@
     },
     {
       "Entity": 3421,
-      "Tag": "Olov",
+      "Tag": "Fire",
       "Transform": {
         "Translation": [0.0, 0.38, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -715,7 +715,7 @@
     },
     {
       "Entity": 6010,
-      "Tag": "Nom",
+      "Tag": "Name",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -732,7 +732,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "CHIROQBON",
+        "Text": "LANTERN KEEPER",
         "Color": [0.98, 0.76, 0.32, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -756,7 +756,7 @@
     },
     {
       "Entity": 6011,
-      "Tag": "Shior",
+      "Tag": "Tagline",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -773,7 +773,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Ko'hna qo'rg'on afsonasi",
+        "Text": "A legend of the old fortress",
         "Color": [0.94, 0.92, 0.86, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -785,7 +785,7 @@
     },
     {
       "Entity": 6020,
-      "Tag": "Asosiy",
+      "Tag": "Main",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -828,7 +828,7 @@
     },
     {
       "Entity": 6021,
-      "Tag": "Yangi o'yin",
+      "Tag": "New game",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -863,7 +863,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Yangi o'yin",
+        "Text": "New game",
         "Color": [0.94, 0.92, 0.86, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -898,7 +898,7 @@
     },
     {
       "Entity": 6022,
-      "Tag": "Davom etish",
+      "Tag": "Continue",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -933,7 +933,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Davom etish",
+        "Text": "Continue",
         "Color": [0.94, 0.92, 0.86, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -968,7 +968,7 @@
     },
     {
       "Entity": 6023,
-      "Tag": "Sozlamalar",
+      "Tag": "Settings",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1003,7 +1003,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Sozlamalar",
+        "Text": "Settings",
         "Color": [0.94, 0.92, 0.86, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -1038,7 +1038,7 @@
     },
     {
       "Entity": 6024,
-      "Tag": "Mualliflar",
+      "Tag": "Credits",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1073,7 +1073,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Mualliflar",
+        "Text": "Credits",
         "Color": [0.94, 0.92, 0.86, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -1108,7 +1108,7 @@
     },
     {
       "Entity": 6025,
-      "Tag": "Chiqish",
+      "Tag": "Quit",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1143,7 +1143,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Chiqish",
+        "Text": "Quit",
         "Color": [0.94, 0.92, 0.86, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -1178,7 +1178,7 @@
     },
     {
       "Entity": 6030,
-      "Tag": "Rekord",
+      "Tag": "Record",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1206,7 +1206,7 @@
     },
     {
       "Entity": 6031,
-      "Tag": "Boshqaruv",
+      "Tag": "Controls",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1223,7 +1223,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "[Move] yurish   [Attack] zarba   [Bolt] olov o'qi   [Interact] ishlatish   [Pause] pauza",
+        "Text": "[Move] move   [Attack] strike   [Bolt] fire bolt   [Interact] use   [Pause] pause",
         "Color": [0.72, 0.68, 0.8, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -1237,7 +1237,7 @@
     },
     {
       "Entity": 6032,
-      "Tag": "Versiya",
+      "Tag": "Version",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1265,7 +1265,7 @@
     },
     {
       "Entity": 6100,
-      "Tag": "Sozlamalar",
+      "Tag": "Settings",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1307,7 +1307,7 @@
     },
     {
       "Entity": 6101,
-      "Tag": "Sozlamalar paneli",
+      "Tag": "Settings panel",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1337,7 +1337,7 @@
     },
     {
       "Entity": 6102,
-      "Tag": "Sarlavha",
+      "Tag": "Title",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1354,7 +1354,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Sozlamalar",
+        "Text": "Settings",
         "Color": [0.98, 0.76, 0.32, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -1366,7 +1366,7 @@
     },
     {
       "Entity": 6111,
-      "Tag": "Musiqa slider",
+      "Tag": "Music slider",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1409,7 +1409,7 @@
     },
     {
       "Entity": 6112,
-      "Tag": "Ovoz effektlari slider",
+      "Tag": "Sound effects slider",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1452,7 +1452,7 @@
     },
     {
       "Entity": 6113,
-      "Tag": "To'liq ekran toggle",
+      "Tag": "Fullscreen toggle",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1502,7 +1502,7 @@
     },
     {
       "Entity": 6114,
-      "Tag": "Til",
+      "Tag": "Language",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1537,7 +1537,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Til: O'zbekcha",
+        "Text": "Language: English",
         "Color": [0.94, 0.92, 0.86, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -1572,7 +1572,7 @@
     },
     {
       "Entity": 6115,
-      "Tag": "Orqaga",
+      "Tag": "Back",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1607,7 +1607,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Orqaga",
+        "Text": "Back",
         "Color": [0.94, 0.92, 0.86, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -1642,7 +1642,7 @@
     },
     {
       "Entity": 6116,
-      "Tag": "Interfeys o'lchami slider",
+      "Tag": "Interface size slider",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1685,7 +1685,7 @@
     },
     {
       "Entity": 6121,
-      "Tag": "Musiqa",
+      "Tag": "Music",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1702,7 +1702,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Musiqa",
+        "Text": "Music",
         "Color": [0.94, 0.92, 0.86, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -1714,7 +1714,7 @@
     },
     {
       "Entity": 6122,
-      "Tag": "Ovoz effektlari",
+      "Tag": "Sound effects",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1731,7 +1731,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Ovoz effektlari",
+        "Text": "Sound effects",
         "Color": [0.94, 0.92, 0.86, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -1743,7 +1743,7 @@
     },
     {
       "Entity": 6123,
-      "Tag": "To'liq ekran",
+      "Tag": "Fullscreen",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1760,7 +1760,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "To'liq ekran",
+        "Text": "Fullscreen",
         "Color": [0.94, 0.92, 0.86, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -1772,7 +1772,7 @@
     },
     {
       "Entity": 6126,
-      "Tag": "Interfeys o'lchami",
+      "Tag": "Interface size",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1789,7 +1789,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Interfeys o'lchami",
+        "Text": "Interface size",
         "Color": [0.94, 0.92, 0.86, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -1801,7 +1801,7 @@
     },
     {
       "Entity": 6200,
-      "Tag": "Mualliflar",
+      "Tag": "Credits",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1843,7 +1843,7 @@
     },
     {
       "Entity": 6201,
-      "Tag": "Mualliflar paneli",
+      "Tag": "Credits panel",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1873,7 +1873,7 @@
     },
     {
       "Entity": 6202,
-      "Tag": "Sarlavha",
+      "Tag": "Title",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1890,7 +1890,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Mualliflar",
+        "Text": "Credits",
         "Color": [0.98, 0.76, 0.32, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -1902,7 +1902,7 @@
     },
     {
       "Entity": 6210,
-      "Tag": "Matn",
+      "Tag": "Text",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1932,7 +1932,7 @@
     },
     {
       "Entity": 6211,
-      "Tag": "Orqaga",
+      "Tag": "Back",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1967,7 +1967,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Orqaga",
+        "Text": "Back",
         "Color": [0.94, 0.92, 0.86, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -2002,7 +2002,7 @@
     },
     {
       "Entity": 8000,
-      "Tag": "Yorug' qo'ng'izlar",
+      "Tag": "Fireflies",
       "Transform": {
         "Translation": [15.0, 9.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],

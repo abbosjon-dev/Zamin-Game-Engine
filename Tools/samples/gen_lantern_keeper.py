@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Chiroqbon (Projects/LanternKeeper): the compiler-free 2D vertical slice - a title menu, two levels (Boglar, the dusk
-orchards outside the old fortress; Yertola, the crypt beneath it with the boss Soya Bek), a hero motor with melee,
+"""Lantern Keeper (Projects/LanternKeeper): the compiler-free 2D vertical slice - a title menu, two levels (Orchards, the dusk
+orchards outside the old fortress; Crypt, the crypt beneath it with the boss Soya Bek), a hero motor with melee,
 projectile and area abilities, AI enemies (melee, archers, a chief, spirits and a boss), a campaign quest book with XP
 levels and unlocks, equipment, inventory, HUD, pause, level card, victory and defeat screens, music and sound.
 
@@ -29,10 +29,10 @@ PROJECT = NAME
 
 # ------------------------------------------------------------------------------------------------ constants (oracle)
 C = {
-    "Schema": "Chiroqbon-1",
+    "Schema": "LanternKeeper-1",
     "Hero": {"Health": 100, "Team": 1, "HitGrace": 0.35, "RespawnDelay": 1.2, "Slots": 16, "Stack": 99,
              "Stats": [0, 0, 0, 60, 4], "Speed": 4.2, "Acceleration": 28, "Melee": 10, "MeleeCooldown": 0.4, "MeleeRange": 1.3},
-    "Items": {"Qilich": [0, [8, 0, 0, 0, 0]], "Tumor": [3, [0, 0, 3, 20, 0]], "Zirh": [2, [0, 25, 0, 0, 0]]},
+    "Items": {"Sword": [0, [8, 0, 0, 0, 0]], "Charm": [3, [0, 0, 3, 20, 0]], "Armour": [2, [0, 25, 0, 0, 0]]},
     # Ability: Kind (0 damage, 1 heal, 3 effect), Amount, Cost, Cooldown, Range, Ingredient, Unlocked, Projectile, Area, Effect
     "Abilities": {"Bolt": [0, 12, 8, 0.55, 9, "", True, "Bolt", "", "Burn"],
                   "Nova": [0, 16, 25, 6, 4, "", False, "", "Nova", "Shock"],
@@ -40,11 +40,11 @@ C = {
                   "Potion": [1, 35, 0, 1, 5, "Potion", True, "", "", ""]},
     "Quests": [
         # Key, Title, objectives [(Key, Label, Kind 1 collect/2 kill/3 interact, Match, Goal)], Requires, Rewards, XP
-        ("Gate", "Bog' darvozasi", [("Chief", "Qaroqchi boshlig'ini yeng", 2, "Chief", 1), ("Gate", "Darvozani och", 3, "Gate", 1)], [], {"Coin": 5}, 100),
-        ("Herbs", "Shifobaxsh o'tlar", [("Herb", "Shifobaxsh o't", 1, "Herb", 3)], [], {"Potion": 2}, 100),
-        ("Lamps", "Uch chiroq", [("Lamp", "Tong chiroqlari", 1, "Lamp", 3)], [], {}, 200),
-        ("Boss", "Soya Bek", [("Boss", "Soya Bekni yeng", 2, "Boss", 1)], ["Gate"], {}, 250),
-        ("Dawn", "Tong chirog'i", [("Altar", "Mehrobda chiroqni yoq", 3, "Altar", 1)], ["Lamps"], {}, 200),
+        ("Gate", "The orchard gate", [("Chief", "Defeat the bandit chief", 2, "Chief", 1), ("Gate", "Open the gate", 3, "Gate", 1)], [], {"Coin": 5}, 100),
+        ("Herbs", "Healing herbs", [("Herb", "Healing herb", 1, "Herb", 3)], [], {"Potion": 2}, 100),
+        ("Lamps", "Three lamps", [("Lamp", "Lamps of Dawn", 1, "Lamp", 3)], [], {}, 200),
+        ("Boss", "Soya Bek", [("Boss", "Defeat Soya Bek", 2, "Boss", 1)], ["Gate"], {}, 250),
+        ("Dawn", "The Dawn Lamp", [("Altar", "Light the lamp on the altar", 3, "Altar", 1)], ["Lamps"], {}, 200),
     ],
     "XP": 850, "FinalLevel": 4,
 }
@@ -75,7 +75,7 @@ def grid(w, h, rooms, water=(), pillars=()):
 
 LEVELS = {
     1: dict(
-        scene="Boglar", title="Bog'lar", title_en="THE ORCHARDS", size=(46, 26),
+        scene="Orchards", title="THE ORCHARDS", title_uz="BOG'LAR", size=(46, 26),
         rooms=[(1, 1, 14, 24), (15, 4, 18, 7), (19, 1, 31, 11), (23, 12, 26, 14), (17, 15, 34, 24), (35, 18, 38, 20), (39, 15, 44, 24)],
         water=[(5, 15, 9, 18), (26, 6, 29, 8)],
         pillars=[],
@@ -93,18 +93,18 @@ LEVELS = {
         ],
         pickups=[("Herb", (11, 6)), ("Herb", (3, 13)), ("Herb", (12, 20)), ("Coin", (6, 4)), ("Coin", (8, 10)), ("Coin", (5, 22)),
                  ("Coin", (16, 5)), ("Coin", (24, 9)), ("Coin", (20, 16)), ("Coin", (33, 20)), ("Coin", (41, 19)), ("Lamp", (42, 22))],
-        uses=[("Chest", (3, 22), "L1-Chest", dict(Prompt="Sandiqni ochish", Reward="Qilich")),
-              ("Shrine", (21, 9), "L1-Shrine", dict(Prompt="Saqlash ziyoratgohi", MaxUses=0, Cooldown=2)),
-              ("Gate", (36, 19), "L1-Gate", dict(Prompt="Darvozani ochish", Required="Key", Consume=True))],
+        uses=[("Chest", (3, 22), "L1-Chest", dict(Prompt="Open the chest", Reward="Sword")),
+              ("Shrine", (21, 9), "L1-Shrine", dict(Prompt="Save at the shrine", MaxUses=0, Cooldown=2)),
+              ("Gate", (36, 19), "L1-Gate", dict(Prompt="Open the gate", Required="Key", Consume=True))],
         exit=(42, 16),
         # the bot's points of interest: (cell, code, argument). 0 go, 2 interact, 3 hold until clear, 4 equip, 7 finish
         plan=[((3, 3), 0), ((11, 6), 0), ((6, 4), 0), ((8, 10), 0), ((3, 13), 0), ((12, 20), 0), ((5, 22), 0), ((3, 21), 2), ((3, 20), 4),
               ((12, 13), 0), ((16, 5), 0), ((19, 6), 3), ((24, 9), 0), ((21, 8), 2), ((25, 12), 0), ((25, 14), 3), ((20, 16), 0), ((25, 17), 3),
               ((30, 19), 3), ((33, 20), 0), ((34, 19), 4), ((35, 19), 2), ((39, 19), 0), ((41, 19), 0), ((42, 22), 0), ((42, 16), 7)],
-        ambient=((1.0, 0.78, 0.60), 0.5), music="music_boglar.wav", amb="amb_orchard.wav",
+        ambient=((1.0, 0.78, 0.60), 0.5), music="music_orchards.wav", amb="amb_orchard.wav",
     ),
     2: dict(
-        scene="Yertola", title="Yertola", title_en="THE CRYPT", size=(44, 30),
+        scene="Crypt", title="THE CRYPT", title_uz="YERTOLA", size=(44, 30),
         rooms=[(2, 2, 12, 9), (13, 4, 13, 6), (14, 2, 30, 9), (31, 4, 31, 6), (32, 2, 41, 12), (21, 10, 23, 10), (14, 11, 30, 16),
                (11, 13, 13, 15), (2, 12, 10, 20), (21, 17, 23, 17), (12, 18, 32, 28)],
         water=[],
@@ -124,15 +124,15 @@ LEVELS = {
         ],
         pickups=[("Coin", (10, 3)), ("Coin", (22, 8)), ("Coin", (34, 3)), ("Coin", (40, 11)), ("Coin", (4, 15)), ("Coin", (28, 13)),
                  ("Lamp", (39, 11)), ("Lamp", (3, 19)), ("Potion", (9, 19))],
-        uses=[("Chest", (33, 11), "L2-Chest", dict(Prompt="Sandiqni ochish", Reward="Zirh")),
-              ("Shrine", (22, 13), "L2-Shrine", dict(Prompt="Saqlash ziyoratgohi", MaxUses=0, Cooldown=2)),
-              ("Altar", (22, 27), "L2-Altar", dict(Prompt="Tong chirog'ini yoqish", Required="Lamp", RequiredCount=3, Consume=True))],
+        uses=[("Chest", (33, 11), "L2-Chest", dict(Prompt="Open the chest", Reward="Armour")),
+              ("Shrine", (22, 13), "L2-Shrine", dict(Prompt="Save at the shrine", MaxUses=0, Cooldown=2)),
+              ("Altar", (22, 27), "L2-Altar", dict(Prompt="Light the Dawn Lamp", Required="Lamp", RequiredCount=3, Consume=True))],
         exit=None,
         plan=[((4, 5), 0), ((10, 3), 0), ((12, 5), 3), ((15, 5), 3), ((22, 8), 0), ((24, 5), 3), ((30, 5), 0), ((32, 5), 3),
               ((34, 3), 0), ((38, 6), 3), ((39, 11), 0), ((40, 11), 0), ((34, 11), 2), ((34, 10), 4), ((30, 5), 0), ((22, 9), 0),
               ((22, 12), 0), ((28, 13), 0), ((15, 14), 0), ((12, 14), 3), ((8, 16), 3), ((4, 15), 0), ((3, 19), 0), ((9, 19), 0),
               ((12, 14), 0), ((22, 13), 2), ((22, 15), 0), ((22, 18), 3), ((22, 21), 3), ((22, 26), 2), ((22, 25), 7)],
-        ambient=((0.48, 0.52, 0.9), 0.2), music="music_yertola.wav", amb="amb_crypt.wav",
+        ambient=((0.48, 0.52, 0.9), 0.2), music="music_crypt.wav", amb="amb_crypt.wav",
     ),
 }
 
@@ -140,7 +140,7 @@ LEVELS = {
 ENEMIES = {
     "bandit": dict(HP=36, Armor=0, Damage=7, Cooldown=1.0, Speed=2.4, View=6.5, FOV=110, Leash=9, Enter=1.1, Exit=1.4, Ranged=False, tags=["Enemy", "Bandit"], scale=1.25),
     "chief": dict(HP=90, Armor=15, Damage=12, Cooldown=1.2, Speed=2.2, View=6.5, FOV=140, Leash=7, Enter=1.2, Exit=1.5, Ranged=False, tags=["Enemy", "Chief"], scale=1.45,
-                  Loot="Key", Loot2="Tumor"),
+                  Loot="Key", Loot2="Charm"),
     "archer": dict(HP=26, Armor=0, Damage=0, Cooldown=1.8, Speed=2.0, View=7, FOV=160, Leash=4, Enter=6, Exit=7.5, Ranged=True, Ability="Arrow", Amount=6,
                    tags=["Enemy", "Archer"], scale=1.25),
     "skeleton": dict(HP=48, Armor=20, Damage=9, Cooldown=1.1, Speed=2.2, View=6, FOV=120, Leash=8, Enter=1.1, Exit=1.4, Ranged=False, tags=["Enemy", "Skeleton"], scale=1.25),
@@ -187,7 +187,7 @@ def make_art():
             k.blit(img, t, (i % cols) * sk.TILE, (i // cols) * sk.TILE)
         k.write_png(os.path.join(ASSETS, rel), img)
         k.write_zmeta(ASSETS, rel, "Texture", {"Filter": "Linear"}, PROJECT)
-    # Boglar: 16 x 6 tiles - seamless grass (0-3), flowers (4), walls (5, 6); the path's 47-tile blob autotile (16 + its
+    # Orchards: 16 x 6 tiles - seamless grass (0-3), flowers (4), walls (5, 6); the path's 47-tile blob autotile (16 + its
     # index in slicekit.blob_masks), the water autotile (64 + mask); decals (80-89). Every grass variant shares the base
     # noise at its border: no seams.
     GRASS, GRASS_DARK, GRASS_LIGHT = (0.46, 0.55, 0.27), (0.24, 0.31, 0.13), (0.62, 0.70, 0.34)
@@ -204,7 +204,7 @@ def make_art():
     tiles += [sk.water_autotile(m, base_grass, seed=m) for m in range(16)]
     tiles += [sk.decal_petals(), sk.decal_clover(), sk.decal_pebbles(), sk.decal_leaves(), sk.decal_mushrooms(), sk.decal_tuft(), sk.decal_moss(),
               sk.decal_wildflowers(), sk.decal_wall_shadow(), sk.decal_pebbles(13, (0.50, 0.44, 0.36))]
-    tileset("Textures/tiles_boglar.png", tiles, 16, 6)
+    tileset("Textures/tiles_orchards.png", tiles, 16, 6)
     slabs = [sk.paint_ground((0.40, 0.39, 0.50), (0.20, 0.19, 0.28), 60 + i, ((0.55, 0.55, 0.7), 3), cells=2) for i in range(4)]
     for slab in slabs:
         xs, ys = k.coords(sk.TILE, sk.TILE, (0, 0))
@@ -219,11 +219,11 @@ def make_art():
     cwall = sk.paint_wall((0.38, 0.36, 0.50), (0.20, 0.18, 0.28), 72)
     inlay = sk.paint_ground((0.34, 0.30, 0.40), (0.16, 0.13, 0.20), 73, cells=2)
     k.stroke(inlay, k.sd_polygon(x, y, k.regular_polygon(6, 24, 0)), (0.85, 0.65, 1.0, 0.5), 2)
-    # Yertola: slabs (0-3), rune (4), dark slab (5), wall (6, 7), inlay (8); decals (9-15): cracks, rubble, moss, a
+    # Crypt: slabs (0-3), rune (4), dark slab (5), wall (6, 7), inlay (8); decals (9-15): cracks, rubble, moss, a
     # puddle, a cobweb, the wall's shadow
     decals = [sk.decal_crack(9), sk.decal_crack(19), sk.decal_rubble(), sk.decal_moss(17, (0.20, 0.34, 0.30)), sk.decal_puddle(), sk.decal_cobweb(),
               sk.decal_wall_shadow(0.65)]
-    tileset("Textures/tiles_yertola.png", slabs + [rune, dark, cwall, cwall, inlay] + decals, 8, 2)
+    tileset("Textures/tiles_crypt.png", slabs + [rune, dark, cwall, cwall, inlay] + decals, 8, 2)
     # props atlas
     props = k.Atlas(1024, 512)
     for i in range(3):
@@ -362,8 +362,8 @@ def _vignette(size):
 def make_audio():
     rel = lambda name: os.path.join(ASSETS, "Audio", name)
     k.write_wav(rel("music_menu.wav"), sk.music_loop(16.0, k.note_freq("D3"), "hijaz", 84, 11, 0.45, 0.3, drums=False))
-    k.write_wav(rel("music_boglar.wav"), sk.music_loop(16.0, k.note_freq("A2"), "dorian", 100, 12, 0.55, 0.22))
-    k.write_wav(rel("music_yertola.wav"), sk.music_loop(16.0, k.note_freq("D2"), "minor", 76, 13, 0.35, 0.35, dark=True))
+    k.write_wav(rel("music_orchards.wav"), sk.music_loop(16.0, k.note_freq("A2"), "dorian", 100, 12, 0.55, 0.22))
+    k.write_wav(rel("music_crypt.wav"), sk.music_loop(16.0, k.note_freq("D2"), "minor", 76, 13, 0.35, 0.35, dark=True))
     k.write_wav(rel("music_boss.wav"), sk.music_loop(12.0, k.note_freq("C2"), "hijaz", 124, 14, 0.6, 0.3, dark=True))
     t = np.arange(int(8 * k.RATE)) / k.RATE
     wind = k.lowpass(k.noise(8, 21), 500) * (0.6 + 0.4 * np.sin(2 * np.pi * 0.11 * t))
@@ -409,14 +409,14 @@ TEXT = {
 # What the HUD names by key (the engine looks up "item.<Key>", "combat.<Key>" and "quest.<Quest>[.<Objective>]"; a key
 # without a string shows as it is): the bag's items, the combat feed's payloads, the quest book.
 ITEM_NAMES = {"Coin": ("Tanga", "Coin"), "Lamp": ("Chiroq", "Lamp"), "Key": ("Kalit", "Key"), "Herb": ("Shifobaxsh o't", "Healing herb"),
-              "Potion": ("Ichimlik", "Potion"), "Qilich": ("Qilich", "Sword"), "Tumor": ("Tumor", "Charm"), "Zirh": ("Zirh", "Armour")}
+              "Potion": ("Ichimlik", "Potion"), "Sword": ("Qilich", "Sword"), "Charm": ("Tumor", "Charm"), "Armour": ("Zirh", "Armour")}
 COMBAT_NAMES = {"Bolt": ("Olov o'qi", "Fire bolt"), "Burn": ("Kuyish", "Burn"), "Arrow": ("O'q", "Arrow"), "Poison": ("Zahar", "Poison"),
                 "Orb": ("Soya shari", "Shadow orb"), "Spit": ("Ruh zahri", "Spirit venom"), "Nova": ("Yorug' to'lqin", "Light wave"),
                 "Ring": ("Soya halqasi", "Shadow ring"), "Shock": ("Karaxt", "Stun"), "Regen": ("Tiklanish", "Mend"), "Mend": ("Tiklanish", "Mend"),
                 "Potion": ("Ichimlik", "Potion")}
-QUEST_EN = {"Gate": ("The orchard gate", {"Chief": "Defeat the bandit chief", "Gate": "Open the gate"}),
-            "Herbs": ("Healing herbs", {"Herb": "Healing herb"}), "Lamps": ("Three lamps", {"Lamp": "Lamps of Dawn"}),
-            "Boss": ("Soya Bek", {"Boss": "Defeat Soya Bek"}), "Dawn": ("The Dawn Lamp", {"Altar": "Light the lamp on the altar"})}
+QUEST_UZ = {"Gate": ("Bog' darvozasi", {"Chief": "Qaroqchi boshlig'ini yeng", "Gate": "Darvozani och"}),
+            "Herbs": ("Shifobaxsh o'tlar", {"Herb": "Shifobaxsh o't"}), "Lamps": ("Uch chiroq", {"Lamp": "Tong chiroqlari"}),
+            "Boss": ("Soya Bek", {"Boss": "Soya Bekni yeng"}), "Dawn": ("Tong chirog'i", {"Altar": "Mehrobda chiroqni yoq"})}
 
 
 def make_localization():
@@ -429,10 +429,10 @@ def make_localization():
     for key, pair in COMBAT_NAMES.items():
         pairs[f"combat.{key}"] = pair
     for key, title, objectives, *_ in C["Quests"]:
-        en_title, en_labels = QUEST_EN[key]
-        pairs[f"quest.{key}"] = (title, en_title)
+        uz_title, uz_labels = QUEST_UZ[key]
+        pairs[f"quest.{key}"] = (uz_title, title)
         for o in objectives:
-            pairs[f"quest.{key}.{o[0]}"] = (o[1], en_labels[o[0]])
+            pairs[f"quest.{key}.{o[0]}"] = (uz_labels[o[0]], o[1])
     for lang, index in (("uz", 0), ("en", 1)):
         table = {"$name": "O'zbekcha" if lang == "uz" else "English"}
         for key, pair in sorted(pairs.items()):
@@ -478,8 +478,8 @@ def main():
     make_localization()  # after the graphs: they register the strings they build
     k.write_json(os.path.join(OUT, "Tests", "oracle.json"), oracle)
     actions = list(ACTIONS)
-    k.write_project(OUT, NAME, "Chiroqbon", "Scenes/Menu.zscene", lg.scene_uuid(PROJECT, "Menu"), version="1.0.0",
-                    build_scenes=[(f"Scenes/{s}.zscene", lg.scene_uuid(PROJECT, s)) for s in ("Menu", "Boglar", "Yertola")],
+    k.write_project(OUT, NAME, "Lantern Keeper", "Scenes/Menu.zscene", lg.scene_uuid(PROJECT, "Menu"), version="1.0.0",
+                    build_scenes=[(f"Scenes/{s}.zscene", lg.scene_uuid(PROJECT, s)) for s in ("Menu", "Orchards", "Crypt")],
                     actions=actions,
                     axes=[{"Deadzone": 0.15, "GamepadAxis": "LeftX", "Invert": False, "Name": "Horizontal", "Negative": ["Key:A", "Key:Left", "Gamepad:DPadLeft"],
                            "Positive": ["Key:D", "Key:Right", "Gamepad:DPadRight"]},
@@ -491,7 +491,7 @@ def main():
                             "matrix": k.collision_matrix(["Default", "Wall", "Hero", "Enemy"], [("Default", "Default"), ("Default", "Wall"), ("Default", "Hero"), ("Default", "Enemy"),
                                                                                              ("Wall", "Hero"), ("Wall", "Enemy"), ("Hero", "Enemy"), ("Enemy", "Enemy")])},
                     extra=k.export_always_include(["Audio/*.wav", "Localization/*.json"]),
-                    description="Chiroqbon: a 2D action-adventure vertical slice - two levels, melee and magic, AI enemies, quests, equipment, saves and a boss.")
+                    description="Lantern Keeper: a 2D action-adventure vertical slice - two levels, melee and magic, AI enemies, quests, equipment, saves and a boss.")
     manifest = json.load(open(os.path.join(OUT, f"{NAME}.zproject")))
     manifest["Project"]["ScriptModulePath"] = ""
     k.write_json(os.path.join(OUT, f"{NAME}.zproject"), manifest)

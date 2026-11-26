@@ -38,14 +38,14 @@ SIZES = "800x600,1024x768,1280x720,1600x900,1920x1080,2560x1080"
 AUDIT = re.compile(r"UI_AUDIT scene=(\S*) frame=(\d+) (\{.*\})")
 # Per game: the window of the tours (the 3D slice smaller and at the Low quality level: llvmpipe), the fuzz window.
 GAMES = {
-    "LanternKeeper": dict(tour="1280x720", fuzz="960x540", quality=None, level="Boglar"),
-    "BeaconPass": dict(tour="960x540", fuzz="640x360", quality="Low", level="Dovon"),
+    "LanternKeeper": dict(tour="1280x720", fuzz="960x540", quality=None, level="Orchards"),
+    "BeaconPass": dict(tour="960x540", fuzz="640x360", quality="Low", level="Pass"),
 }
 
 
 def keyboard_tour(game):
-    """Main -> Sozlamalar (music Right x3, UI scale Right x2, Down x3 -> Orqaga) -> Mualliflar (the main panel focuses
-    Yangi o'yin again: Down x2 with no Continue) -> back -> Yangi o'yin -> the level: pause, inventory, back, back."""
+    """Main -> Settings (music Right x3, UI scale Right x2, Down x3 -> Back) -> Credits (the main panel focuses
+    New game again: Down x2 with no Continue) -> back -> New game -> the level: pause, inventory, back, back."""
     menu = ("40:Down;46:Enter;70:Right;76:Right;82:Right;96:Down;100:Down;106:Right;112:Right;126:Down;130:Down;134:Down;140:Enter;"
             "164:Down;168:Down;176:Enter;210:Escape;240:Up;246:Up;252:Up;260:Enter;")
     if game == "LanternKeeper":
@@ -55,7 +55,7 @@ def keyboard_tour(game):
 
 def gamepad_tour(game):
     """The same tree on the pad: D-pad, A (submit), B (back), Start (pause); the UI scale 120 % -> 80 % (Left x4); the
-    run of U1 left a game to continue, so Mualliflar is three down from Yangi o'yin."""
+    run of U1 left a game to continue, so Credits is three down from New game."""
     menu = ("40:pad=DPadDown;46:pad=A;70:pad=DPadDown;76:pad=DPadDown;82:pad=DPadLeft;88:pad=DPadLeft;94:pad=DPadLeft;100:pad=DPadLeft;"
             "116:pad=DPadDown;120:pad=DPadDown;124:pad=DPadDown;130:pad=A;154:pad=DPadDown;158:pad=DPadDown;162:pad=DPadDown;170:pad=A;200:pad=B;"
             "230:pad=DPadUp;236:pad=DPadUp;"
@@ -165,8 +165,8 @@ def main():
             if "U1" in phases:
                 tape, frames = keyboard_tour(game)
                 text, audits, seconds, png = run("U1-keyboard", homes["keys"], frames, tape)
-                need("U1", text, ["Menyu: Asosiy davom=0", "Menyu: Sozlamalar", "SLICE_SETTINGS music=", "ui=1.20", "Menyu: Asosiy", "Menyu: Mualliflar",
-                                  "Menyu: Yangi o'yin", "SLICE_LEVEL_START lvl=1 entry=new"])
+                need("U1", text, ["Menu: Main continue=0", "Menu: Settings", "SLICE_SETTINGS music=", "ui=1.20", "Menu: Main", "Menu: Credits",
+                                  "Menu: New game", "SLICE_LEVEL_START lvl=1 entry=new"])
                 row = check_audits("U1", audits, 6)
                 if 1.2 not in row["UIScales"] or 1.0 not in row["UIScales"]:
                     raise RuntimeError(f"{game} U1: the UI scale setting was not applied ({row['UIScales']})")
@@ -178,8 +178,8 @@ def main():
                 # The same HOME: the 120 % setting comes back at start; then the gamepad tour sets 80 %.
                 tape, frames = gamepad_tour(game)
                 text, audits, seconds, png = run("U2-gamepad", homes["keys"], frames, tape)
-                need("U2", text, ["Menyu: Asosiy davom=", "Input device: gamepad", "Menyu: Sozlamalar", "ui=0.80", "Menyu: Mualliflar",
-                                  "Menyu: Yangi o'yin", "SLICE_LEVEL_START lvl=1 entry=new"])
+                need("U2", text, ["Menu: Main continue=", "Input device: gamepad", "Menu: Settings", "ui=0.80", "Menu: Credits",
+                                  "Menu: New game", "SLICE_LEVEL_START lvl=1 entry=new"])
                 first = next((a for a in audits if a["Scene"] == "Menu"), None)
                 if not first or abs(first["UIScale"] - 1.2) > 1e-3:
                     raise RuntimeError(f"{game} U2: the saved UI scale (120 %) was not re-applied in a fresh process ({first and first['UIScale']})")
@@ -189,7 +189,7 @@ def main():
                 row["Seconds"] = round(seconds, 1)
                 rows["U2-gamepad"] = row
                 print(f"  {game} U2 gamepad: {row['Audits']} audit, {len(row['Screens'])} ekran, masshtablar {row['UIScales']}, {seconds:.0f} s")
-                # Mouse: where the audit says the Sozlamalar button and the settings' Orqaga are (window px, y down).
+                # Mouse: where the audit says the Settings button and the settings' Back are (window px, y down).
                 text, audits, _, _ = run("U2-probe", homes["pad"], 60, audit="40", elements=True, sizes=cfg["tour"])
                 size = [int(v) for v in cfg["tour"].split("x")]
                 view = next(a for a in audits if a["Viewport"] == size)
@@ -197,17 +197,17 @@ def main():
                 def centre(audit, tag):
                     e = next(x for x in audit["Elements"] if x["Tag"] == tag)
                     return int((e["Rect"][0] + e["Rect"][2]) / 2), int(size[1] - (e["Rect"][1] + e["Rect"][3]) / 2)
-                sx, sy = centre(view, "Sozlamalar")
+                sx, sy = centre(view, "Settings")
                 tape = f"30:mouse={sx},{sy};34:click;"
                 text, audits, seconds, _ = run("U2-mouse-open", homes["pad"], 90, tape, audit="80", elements=True, sizes=cfg["tour"])
-                need("U2 mouse", text, ["Menyu: Sozlamalar"])
+                need("U2 mouse", text, ["Menu: Settings"])
                 settings = next(a for a in audits if a["Viewport"] == size)
-                bx, by = centre(settings, "Orqaga")
+                bx, by = centre(settings, "Back")
                 tape += f"90:mouse={bx},{by};94:click"
                 text, audits, seconds, _ = run("U2-mouse", homes["pad"], 140, tape)
-                need("U2 mouse", text, ["Menyu: Sozlamalar", "SLICE_SETTINGS music=", "Menyu: Asosiy"])
+                need("U2 mouse", text, ["Menu: Settings", "SLICE_SETTINGS music=", "Menu: Main"])
                 rows["U2-mouse"] = {"Clicks": [[sx, sy], [bx, by]], "Seconds": round(seconds, 1)}
-                print(f"  {game} U2 sichqoncha: Sozlamalar ({sx},{sy}) va Orqaga ({bx},{by}) bosildi")
+                print(f"  {game} U2 sichqoncha: Settings ({sx},{sy}) va Back ({bx},{by}) bosildi")
             if "U3" in phases:
                 for device, pad in (("keyboard", False), ("gamepad", True)):
                     tape = fuzz_tape(args.seed + (1000 if pad else 0) + (0 if game == "LanternKeeper" else 7), args.fuzz_frames, pad)

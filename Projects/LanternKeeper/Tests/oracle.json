@@ -1,5 +1,5 @@
 {
-    "Schema": "Chiroqbon-1",
+    "Schema": "LanternKeeper-1",
     "XP": 850,
     "FinalLevel": 4,
     "Quests": [
@@ -11,13 +11,13 @@
     ],
     "Levels": {
         "1": {
-            "Scene": "Boglar",
+            "Scene": "Orchards",
             "Coins": 8,
             "Enemies": 7,
             "Waypoints": 49
         },
         "2": {
-            "Scene": "Yertola",
+            "Scene": "Crypt",
             "Coins": 6,
             "Enemies": 9,
             "Waypoints": 55

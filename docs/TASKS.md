@@ -17,7 +17,7 @@ saqlanadi; ulardagi belgi yangi imkoniyatning ishlayotganiga dalil o'rnini bosma
 | P2 Kontent sifati va mualliflik | Terrain GPU qatlamlari/PBR, normal/roughness, atlas/cook, foliage, 2D palette/animation qulayligi | Haqiqiy assetli 2D/3D sahnalar, import/export/undo roundtrip, tekstura xotira byudjeti | GPU terrain v1 yakunlandi; qolgan kontent ishlari rejada |
 | P3 Dunyo va asset streaming | Disk kataklari, async load/unload, data layers, HLOD, floating origin, asset residency | Tez harakatda/cancel/reload'da yo'qolmagan obyektlar, chegaralangan RAM/VRAM, main thread'da og'ir IO yo'q | Runtime v2: LRU cleanup, observed pressure gate, terrain tiles va grid mosaic bajarildi; HLOD/floating origin/hard timing rejada |
 | P4 Rendererning keyingi avlodi | GPU timer v1 mavjud; render graph, Vulkan, temporal AA/upscaling, katta sahna visibility va yoritish | Drayver/physical GPU matritsasi, HDR/alpha/picking/shadow regressiyalari, reference hardware byudjeti | Rejada; virtual geometry va dinamik GI — alohida tadqiqot |
-| P5 Gameplay, animatsiya, fizika va UI | Mavjud 2D/3D tizimlarini production darajasida birlashtirish, katta kontent va gameplay workflow | Ikki tugallangan vertical slice, saqlash/yuklash, controller, animatsiya/fizika stress, UI input/scale testlari | Motor/combat/AI/save/UI, quest, equipment/abilities, projectiles/effektlar va Animator 1D/2D zanjiri yakunlandi (2026-11-22); ikki to‘liq vertical slice (Chiroqbon 2D, Dovon mash'ali 3D) bilan stress, UI input/scale, yangi jarayonda davom etish, ko‘chirilgan eksport va profiling darvozalari ham bajarildi (2026-11-22) |
+| P5 Gameplay, animatsiya, fizika va UI | Mavjud 2D/3D tizimlarini production darajasida birlashtirish, katta kontent va gameplay workflow | Ikki tugallangan vertical slice, saqlash/yuklash, controller, animatsiya/fizika stress, UI input/scale testlari | Motor/combat/AI/save/UI, quest, equipment/abilities, projectiles/effektlar va Animator 1D/2D zanjiri yakunlandi (2026-11-22); ikki to‘liq vertical slice (Lantern Keeper 2D, Beacon Pass 3D) bilan stress, UI input/scale, yangi jarayonda davom etish, ko‘chirilgan eksport va profiling darvozalari ham bajarildi (2026-11-22) |
 | P6 Tarmoq va kengaytirish | Server authority, replication, latency compensation, plagin SDK/ABI, xavfsiz hot reload | Yo'qotilgan paket, kechikish, reconnect, versiya mos kelmasligi va plagin unload sinovlari | Rejada |
 | P7 Platforma, release va mahsulot | Linux/Windows, keyin macOS; cook/package/update/crash telemetry; editor/launcher yagona auth | Toza mashinada install/export/run, talablar va litsenziyalar, imzolangan release va rollback sinovi | Rejada |
 | P8 Yakuniy sifat darvozasi | Hujjatlar, ko'chirish yo'li, ikki namunaviy o'yin va profiling hisobotlari | Uzoq sessiya, resurs sizishi, recovery/fuzz, reference sahnalarda barqaror frame time va foydalanish sinovi | Rejada |
@@ -212,15 +212,15 @@ sarlavhasini yopishi barcha workshop'larda umumiy (LoadoutWorkshop'da ham) — a
 - [x] Animatsiya/fizika stress hamda UI input/scale (klaviatura/gamepad, turli rezolyutsiya) darvozalari.
 - [x] Fresh-process resume, relocated export, profiling va regression darvozalari ikkala slice uchun.
 
-Dalillar (2D slice, 2026-11-22): *Chiroqbon* (`Projects/LanternKeeper`, kompilyatorsiz, `ScriptModulePath ""`) —
-`Menu`, `Boglar` (46×26), `Yertola` (44×30), g‘alaba va mag‘lubiyat ekranlari, boss Soya Bek;
+Dalillar (2D slice, 2026-11-22): *Lantern Keeper* (`Projects/LanternKeeper`, kompilyatorsiz, `ScriptModulePath ""`) —
+`Menu`, `Orchards` (46×26), `Yertola` (44×30), g‘alaba va mag‘lubiyat ekranlari, boss Soya Bek;
 [VerticalSlices.md](VerticalSlices.md). Engine kengaytmalari: transfer hujjati (`Zamin.GameplayTransfer` v1,
 `SaveWorld::CaptureTransfer/RestoreTransfer`, `Gameplay.TransferWrite/Load/Inspect`), LoadScene fade, App/Audio/
 Localization/Display/UIValue node'lari, `Gameplay.Steer` va vektor matematikasi, `FormatNumber`/`FormatTime`, HUD
 kind 7–9 (energiya, qobiliyat, tajriba darajasi), AI `Strike=false` (delegatsiyalangan hujum), Animator
 `DriveSpriteClips`; generator kitlari `Tools/samples/graphkit.py`, `slicekit.py`, `gen_lantern_keeper.py`.
 1332/1332 unit (17 yangi: 4 transfer, 5 slice node/HUD, 1 AI, 3 sprite klip, 4 `LanternKeeper*`; to‘liq run 86 s),
-12/12 headless CTest, `ctest -L docs` 2/2, build ogohlantirishsiz. Headless: oracle menyu → Boglar → transfer →
+12/12 headless CTest, `ctest -L docs` 2/2, build ogohlantirishsiz. Headless: oracle menyu → Orchards → transfer →
 Yertola → g‘alaba 5022 kadrda (850 XP, 4-daraja, 5/5 vazifa, 19 tanga = 8 + 6 + vazifa mukofoti 5, Qilich/Tumor/Zirh
 kiyilgan, Nova/Mend ochiq, boss o‘lik, uchayotgan snaryad 0); mag‘lubiyat rejasi 5263 kadr (3 o‘lim → mag‘lubiyat →
 saqlashdan qayta yuklash → 1-daraja yana 200 XP/13 tanga bilan, mukofot takrorlanmaydi); determinizm 2252/2252 kadr,
@@ -229,7 +229,7 @@ saqlashdan qayta yuklash → 1-daraja yana 200 XP/13 tanga bilan, mukofot takror
 75.0 s, 13 tanga, 200 XP; `Carry.json` v1 XP 200, `Run2.json` v4 Yertola), P2 yangi jarayonda Davom etish → boss →
 g‘alaba 189 s (`time=166.3 xp=850 level=4 coins=19 deaths=0 quests=5/5`), P3 6 s (Davom etish yo‘q, "Eng yaxshi vaqt
 02:46"), P4 mag‘lubiyat → qayta yuklash 300 s (`coins=13 xp=200`, qayta yuklashdan keyin pilot tiqilmaydi), E0
-Editor Play Boglar 48 s, E1 Editor Play Yertola eski `Carry.json` yonida 41 s (shu qadamda tuzatildi: daraja
+Editor Play Orchards 48 s, E1 Editor Play Yertola eski `Carry.json` yonida 41 s (shu qadamda tuzatildi: daraja
 to‘g‘ridan-to‘g‘ri ochilganda eski transferni o‘qimaydi). Loyiha 192 fayl, 5.2 MB; graflar (node/link): Hero 560/678,
 Game 620/732, Enemy 174/205, Menu 147/160 (chegara 2500/5000); generator ikki marta ishga tushirilganda fayllar bir
 xil. Dizayndan farqlar: darajalar kichikroq (56×32/48×36 o‘rniga), o‘tlar 5 emas 3, dushmanlar kamroq (L1 4
@@ -237,7 +237,7 @@ qaroqchi, 2 kamonchi va boshliq; L2 4 skelet, 2 kamonchi, boss va 2 ruh), richag
 grafi arxetip override'lari bilan, daraja direktori `Game` grafida; sozlamalar faqat menyuda (o‘yin ichida va UI
 scale yo‘q). Gamepad lentasi, UI scale, relocated export va `samples_assets.py` graf rejimi 3–4-itemlarga qoldirildi.
 
-Dalillar (3D slice, 2026-11-22): *Dovon mash'ali* (`Projects/BeaconPass`, kompilyatorsiz) — `Menu` (oqshomgi dovon
+Dalillar (3D slice, 2026-11-22): *Beacon Pass* (`Projects/BeaconPass`, kompilyatorsiz) — `Menu` (oqshomgi dovon
 manzarasi, sekin chayqaluvchi kamera) va `Dovon` (120×120 m relyef, qarorgoh, karvonsaroy, otxona, minora maydoni,
 mash'al; 374 obyekt); [VerticalSlices.md](VerticalSlices.md), README (uz), launcher rasmi. Character controller +
 `Gameplay.Motor3D` (yugurish 5.4, yurish 1.8 m/s, sakrash), orbit kamera (sphere cast), `gltfkit.py` skinned odamlar
@@ -262,7 +262,7 @@ qatori. `slice_workflow_test.py --game BeaconPass` (yangi CI qadami, 640×360 Lo
 lentasi 40 s (musiqa 0.55 → 0.85, yangi o‘yin, autosave, yugurish/sakrash/zarba/Bolt/sumka, pauza → `Menyu: Inventar`),
 P1 demo 112 s (hovli ziyoratgohigacha: v4, 100 XP, 2 tosh, sog‘liq 120, combat bo‘limi bor), P2 yangi jarayonda Davom
 etish → g‘alaba 88 s (`time=73.6 xp=800 level=4 stones=0 deaths=0 quests=4/4`), P3 7 s (Davom etish yo‘q), P4 339 s (3
-o‘lim → mag‘lubiyat → *Oxirgi saqlashdan* → `Pass` bir marta), E0 Editor Play 155 s; Chiroqbon fazalari umumlashgan
+o‘lim → mag‘lubiyat → *Oxirgi saqlashdan* → `Pass` bir marta), E0 Editor Play 155 s; Lantern Keeper fazalari umumlashgan
 harness'da ham o‘tadi (P0 33 s, P3 11 s, E0 66 s). Loyiha 192 fayl, 6.3 MB (Assets 5.99 MiB; eng katta sahna 547 KB,
 model 372 KB, tekstura 140 KB, ovoz 516 KB / 12 s); graflar (node/link): Hero 655/787, Game 487/580, Enemy 180/211,
 Menu 155/168, Camera3D 38/46; generator ikki marta ishga tushirilganda fayllar bir xil. Shu qadamda tuzatildi:
@@ -283,7 +283,7 @@ fizika qadami o‘rtacha 1.56–2.15 ms, p95 2.3–3.1 (byudjet 4/6); P2 `--phys
 2.00–2.17 (8/12), cast'lar 0.23–0.28 ms; A1 `--animation` 256 odam (`Hero.glb`, 21 suyak, Dovon controller'i, yarmi
 ekrandan tashqarida) 3 ishchida 0.57–0.82 ms, p95 0.66–1.10 (1.5/2.0), bitta oqimda 0.99–1.73 ms (4.0), ajratma
 0.0 / kadr; A2 1 024 sprite animator (`DriveSpriteClips`, 2D blend yo‘nalishlari) Animator yangilash 0.30–0.48 ms (0.6),
-ajratma 0.0; P3 `--slice-stress --2d` (Boglar: 32 miya, 200 quti, 64 snaryad, 256 sprite animator, 48 Light 2D) o‘yin
+ajratma 0.0; P3 `--slice-stress --2d` (Orchards: 32 miya, 200 quti, 64 snaryad, 256 sprite animator, 48 Light 2D) o‘yin
 kodi 2.80–3.42 ms, p95 3.00–4.71 (6/10); A3 `--slice-stress --3d` (Dovon: 24 animatsiyali qorovul, jami 27 miya, 64
 snaryad, 200 Jolt jism) 3.89–5.45 ms, p95 5.41–6.37 (8/12). Invariantlar har safar o‘tdi: tunnel/NaN 0, 2D eng katta
 tezlik 6.88 m/s, CC oyog‘i relyefdan eng ko‘pi 0.0002 m pastda, buyurilgan yo‘lning ≥ 90.7 % i bosildi, ikki
@@ -302,15 +302,15 @@ qo‘llanadi). Headless `SliceMenuLayout*`: 15 + 8 ekran × 6 o‘lcham (800×60
 audit, 13 932 + 5 472 element, 0 xato, eng kichik matn 9.6 px (80 % da). `Tests/slice_ui_test.py` (yangi CI qadami)
 ikkala o‘yinda o‘tdi: U1 klaviatura turi 60 audit, 6 ekran, 0 xato, eng kichik matn 12.03 px (65/70 s); U2 yangi
 jarayon 120 % bilan ochiladi, gamepad turi 80 % ga qaytaradi (60 audit, 59/64 s), sichqoncha audit aytgan joyda
-*Sozlamalar* va *Orqaga*ni bosadi; U3 seed'li fuzz 2 000 kadr × klaviatura/gamepad: 534/504 (Chiroqbon) va 546/450
-(Dovon mash'ali) audit, eng ko‘pi 2 panel, invariant buzilishi 0, xato 0 (145–165 s); UW 2560×1080 menyu 6 audit.
+*Sozlamalar* va *Orqaga*ni bosadi; U3 seed'li fuzz 2 000 kadr × klaviatura/gamepad: 534/504 (Lantern Keeper) va 546/450
+(Beacon Pass) audit, eng ko‘pi 2 panel, invariant buzilishi 0, xato 0 (145–165 s); UW 2560×1080 menyu 6 audit.
 Mutatsiyalar (Player): musiqa slayderi havolalari uzilganda U1 yiqildi (tur *Orqaga*ga yetmaydi, audit uch vidjet uchun
 `Unreachable`), versiya qatori 25 → 18 birlik bo‘lganda U1 12 ta `MinFont` bilan yiqildi; headless
 `SliceMenuLayoutCatchesABrokenLinkAndTinyText` ham shuni tekshiradi. Layout tuzatishlari: matnlar ≥ 25 birlik,
 boshqaruv qatori ekran kengligining 78 % ida o‘raladi, 2D menyu xaritasi 21:9 chetini qoplaydi (oldin chapda qora
 yo‘lak). 1345/1345 unit (6 yangi: 1 animator, 5 UI audit/layout; to‘liq run 282 s), 14/14 headless CTest
 (`-LE gui`, ZaminTests alohida), `ctest -L docs` 2/2, build ogohlantirishsiz; `slice_workflow_test.py` P0+E0 ikkala
-o‘yinda (Chiroqbon 38 + 70 s, Dovon mash'ali 42 + 176 s); generatorlar ikki marta — fayllar bir xil. Dizayndan farqlar:
+o‘yinda (Lantern Keeper 38 + 70 s, Beacon Pass 42 + 176 s); generatorlar ikki marta — fayllar bir xil. Dizayndan farqlar:
 o‘yin ichidagi stress (A3, P3) Player `--benchmark` va alohida `Stress` sahnalari o‘rniga headless `--slice-stress` da
 haqiqiy darajalar nusxasi ustida (assetlar 6 MiB byudjetda, llvmpipe chizishi o‘yin kodi vaqtini ko‘madi;
 `slice_bench.py --stress` yo‘q); canvas'lar *Expand* emas, *Match 0.5* qoldi — layout'lar tuzatildi, shuning uchun
@@ -321,14 +321,14 @@ ajratmalar (2D 128.5, 3D 82.6 / kadr) Box2D/Jolt so‘rov natijalari — byudjet
 Dalillar (resume, eksport, profiling va regressiya darvozalari, 2026-11-22): **Yangi jarayonda davom etish** —
 headless `*ResumeMatrixHeadless` bitta oddiy o‘yindan har qadamda o‘ldirilgan jarayon qoldiradigan fayllarni saqlab,
 har nusxada yangi jarayonni (`SaveData::Reload`, `GameState::Load`, demo menyuning *Davom etish*i) ishga tushiradi:
-Chiroqbon 8 holat (1-daraja chiqishida transfer yozilgan, `Run.Level` hali 1 → shrine saqlashidan, transfer bir xil
+Lantern Keeper 8 holat (1-daraja chiqishida transfer yozilgan, `Run.Level` hali 1 → shrine saqlashidan, transfer bir xil
 200 XP; GameState'dan keyin / autosave'dan keyin → 2-daraja transfer orqali 200 XP, 13 tanga; checksum buzilgan →
 zaxira, *Zaxira nusxadan tiklandi*, `recovered=1`; asosiy va zaxira yirtilgan → `SLICE_IO_FAILED load`, ekranda
-*Saqlash o‘qilmadi - daraja boshidan*, transfer ham yirtilsa toza 2-daraja), Dovon mash'ali 5 holat (yangi o‘yin va
+*Saqlash o‘qilmadi - daraja boshidan*, transfer ham yirtilsa toza 2-daraja), Beacon Pass 5 holat (yangi o‘yin va
 autosave orasida, shrine saqlashi va GameState orasida — 100 XP, ikki tosh, holat < 1 mm; buzilgan → lager
 autosave'i; yirtilgan → toza boshlash); hech bir mukofot ikki marta berilmaydi, pilot qadami (`Run.Step`) 0–2.
 Mutatsiya: *Davom etish*ning `Run.Save == Run.Level` sharti olib tashlansa matritsa 3 marta yiqiladi.
-**Player/Editor** (`Tests/slice_workflow_test.py --exports`, ikkala o‘yin, CI qadamlari `--exports` bilan): Chiroqbon
+**Player/Editor** (`Tests/slice_workflow_test.py --exports`, ikkala o‘yin, CI qadamlari `--exports` bilan): Lantern Keeper
 P0 54 s, P1 417, C 51 (buzilgan → zaxira 200 XP; yirtilgan → transfer 200 XP + banner), P2 292, P3 8, P4 461, P6 50
 (gamepad lentasi: D-pad musiqa 0.85, A yangi o‘yin, stik qahramonni 7.17 m yurgizdi, RB/X, Back/B sumka, Start →
 *Saqlab, bosh menyuga* `SLICE_SAVED lvl=1 at=quit` v4, menyu *Davom etish*ni taklif qiladi), E0 80, E1 69, E2 54
@@ -336,33 +336,33 @@ P0 54 s, P1 417, C 51 (buzilgan → zaxira 200 XP; yirtilgan → transfer 200 XP
 X 545 s (eksport 215 fayl 54.4 MiB; attract run 2-daraja autosave'idan keyin `ZAMIN_MAX_FRAMES` bilan to‘xtatildi
 (200 XP), papka haqiqatan `mv` qilindi, yangi joydan yangi jarayon g‘alabagacha: 166.3 s, 850 XP, 4-daraja, 19 tanga,
 0 o‘lim, 5/5 vazifa; uchinchi jarayonda *Davom etish* yo‘q, to‘rtinchisi yangi o‘yin 0 XP, rekord 166.3 saqlandi);
-Dovon mash'ali P0 66, P1 178, C 58 (buzilgan → lager autosave'i; yirtilgan → toza boshlash + banner), P2 110, P3 8,
+Beacon Pass P0 66, P1 178, C 58 (buzilgan → lager autosave'i; yirtilgan → toza boshlash + banner), P2 110, P3 8,
 P4 398, P6 49 (stik 12.46 m, quit saqlashi v4), E0 176, E2 155, D 41 (headless'ning 26 hodisasidan birinchi 12 tasi
 bir xil), X 337 s (209 fayl 55.5 MiB; hovli shrine saqlashidan keyin to‘xtatildi (100 XP), ko‘chirilgan joydan
 g‘alaba: 73.6 s, 800 XP, 4-daraja, 4/4 vazifa, *Davom etish* yo‘q, yangi o‘yin 0 XP, rekord saqlandi). **Editor**:
 `Tests/slice_editor_test.py` (yangi CI qadami) haqiqiy Blueprint oynasida `Gameplay.TransferWrite`, `TransferLoad`,
 `Steer` qo‘shdi/saqladi/Undo qildi; LoadScene `FadeOut` 0.6 ga yozildi, UIBindHUD Kind combo'si 8 *Qobiliyat*ga
 aylantirildi, AIConfigure `Strike` checkbox'i o‘chirildi — har biri saqlandi, Undo/Redo; `ZAMIN_EDITOR_GRAPH_QA`
-(yangi hook) ikkala slice'ning 9 grafini oynada ochdi (Chiroqbon Hero 560/678 node/bog‘lanish, Game 625/737; Dovon
+(yangi hook) ikkala slice'ning 9 grafini oynada ochdi (Lantern Keeper Hero 560/678 node/bog‘lanish, Game 625/737; Dovon
 mash'ali Hero 655/787, Game 490/583 …), hammasida 0 diagnostika, logda xato yo‘q; `Tests/editor_smoke.sh
 Projects/LanternKeeper Projects/BeaconPass` (CI qadami) 243/243 va 268/268 qadam, 0 xato. **Profiling**
 (`Tests/slice_bench.py`, Release, llvmpipe, 3 ishga tushirishning eng yaxshisi, `Tests/Baselines/slices-release.json`):
-Player benchmark hisobotida yangi `GameCode` (update layer'i chizishsiz); 284x160 Low da o‘yin kodi Chiroqbon Menu /
-Boglar / Yertola 0.32 / 2.02 / 2.03 ms, Dovon mash'ali Menu / Dovon 0.53 / 3.50 ms, p95 eng ko‘pi 4.40 ms (darvoza
+Player benchmark hisobotida yangi `GameCode` (update layer'i chizishsiz); 284x160 Low da o‘yin kodi Lantern Keeper Menu /
+Orchards / Yertola 0.32 / 2.02 / 2.03 ms, Beacon Pass Menu / Dovon 0.53 / 3.50 ms, p95 eng ko‘pi 4.40 ms (darvoza
 ≤ 3 / ≤ 4 ms, p95 ≤ 6); kadr 2D da 3.48–5.67 ms (≤ 16.6), 3D da 22.2–28.2 ms (≤ 33.3); issiq sessiyada eng sekin kadr
 ≤ 51 ms (birinchi sessiyada llvmpipe shader JIT'i: Yertola 1.9 s, Dovon 345 ms — alohida ustunda); `--compare`
 (`bench_compare.py --tolerance 15`): 2 ishga tushirishda 720p dagi 3/40 raqam shovqin bo‘lib chiqdi (qayta o‘lchashda
 16 raqamda 0 sekinlashish) — shuning uchun standart 3 ishga tushirish va 720p p95 `Noisy`. **Soak** (`--soak 18000`,
-attract loop, 10 o‘yin daqiqasi): Chiroqbon 3 g‘alaba, har menyuga qaytishda 57 obyekt, RAM 302.9 MiB, engine 99.2 MiB
-(o‘sish 0.0 MiB); Dovon mash'ali 7 g‘alaba, 278 obyekt, RAM 269.4 → 278.8 MiB va keyin tekis (o‘sish 9.5 ≤ 32 MiB),
+attract loop, 10 o‘yin daqiqasi): Lantern Keeper 3 g‘alaba, har menyuga qaytishda 57 obyekt, RAM 302.9 MiB, engine 99.2 MiB
+(o‘sish 0.0 MiB); Beacon Pass 7 g‘alaba, 278 obyekt, RAM 269.4 → 278.8 MiB va keyin tekis (o‘sish 9.5 ≤ 32 MiB),
 engine 39.0 MiB; logda xato yo‘q. **Topilgan va tuzatilgan xatolar**: (1) 2-daraja o‘qilmagan saqlashdan keyin transfer
 yuklash va autosave'ni muvaffaqiyatsiz yuklash bilan bir kadrda qilardi — 3 fayl amali, sahna byudjeti 2 — autosave
 yiqilardi (`SLICE_IO_FAILED autosave`); endi bir kadr keyin; (2) daraja boshidagi saqlash demo pilotning `Run.Step`ini
 o‘chirmasdi — ko‘chirilgan eksportda davom etgan attract run 2-darajada 1-darajaning qadamidan boshlab tiqilib qolardi
 (`SLICE_BOT_STUCK step=31`); endi ikkala generatorda `Run.Step=0`; (3) o‘qilmagan saqlash jim edi — endi banner;
-(4) kontent: Dovon'ning *Quyosh*ida noma'lum `rot` komponenti ogohlantirishi, Chiroqbon Sprint'ida yaroqsiz
+(4) kontent: Dovon'ning *Quyosh*ida noma'lum `rot` komponenti ogohlantirishi, Lantern Keeper Sprint'ida yaroqsiz
 `Gamepad:LeftTrigger` (→ `GamepadAxis:LeftTrigger+`), banner'larda xom `[Slam]` / `[Nova]` (endi tugma nomi).
-Galereya: `docs/Samples.md` ga ikki slice (`sample-chiroqbon.jpg`, `sample-dovon.jpg`), launcher thumbnail'lari
+Galereya: `docs/Samples.md` ga ikki slice (`sample-lanternkeeper.jpg`, `sample-beaconpass.jpg`), launcher thumbnail'lari
 yangilandi. 1347/1347 unit (2 yangi: ikkala slice'ning resume matritsasi; to‘liq run 320 s), 14/14 headless CTest (`-LE gui`, ZaminTests alohida), `ctest -L docs` 2/2, build ogohlantirishsiz; generatorlar ikki marta — fayllar bir xil. Regressiya (Player/Editor, `--exports`): Gameplay, Rules, AI, UI, Save, Quest, Loadout, Combat, Animator va Blueprint workflow'lari 10/10 (86 faza, har biri 95–202 s); kontent tuzatishlaridan keyin slice P0, P1, C, P6, D ikkala o‘yinda qayta o‘tdi. Dizayndan farqlar: alohida klaviatura fazasi (P5) yo‘q — P0 klaviatura bilan o‘ynaydi; E1 faqat
 2D da; X da "o‘ldirish" `ZAMIN_MAX_FRAMES` bilan ikki saqlash orasida (yozish o‘rtasidagi kesishlar headless matritsada);
 3D determinizm Player va headless izining 12 hodisalik umumiy boshi bilan; `slice_bench.py` CI'da emas (Release va tinch
@@ -370,7 +370,7 @@ mashina kerak), Player'da ajratmalar sanalmaydi (RSS va engine xotirasi qayd eti
 (llvmpipe), birinchi sessiya hitch'i darvozadan tashqarida alohida qayd etiladi; soak shrift atlaslari / VM hajmini
 alohida o‘lchamaydi.
 
-Dalillar (tuzatuvchi, sharhlovchi topilmalari): xom `{action:...}` tokenlari uchun `FindUnexpandedInputToken` va UI auditining `RawHint` qoidasi (ikkala o‘yinning Play testlarida darvoza); graf matnlari, banner'lar, HUD/statistika, daraja nomlari, buyum/vazifa/combat feed nomlari lokalizatsiya kalitlari orqali (`item.*`, `quest.*`, `combat.*`; Dovon'da endi "-2 Kuyish"), uz/en kalitlari `samples_assets.py` graf rejimida tekshiriladi; sozlamalar har yopilishda (Orqaga va Back/Escape) saqlanadi, til va to‘liq ekran `Localization.SaveSettings` / `Display.SaveSettings` bilan yangi jarayonda tiklanadi (`SliceMenuSettingsKeptOnEveryCloseAndLanguagePersists`, eski menyularda yiqiladi); qo‘riqxonada davolash saqlashdan oldin; daraja kartasi dunyoni to‘xtatadi, real vaqtda sanaydi, o‘lik qahramon bilan o‘tmaydi va `TransferWrite` xatosida 1 s dan keyin qayta urinadi (`LanternKeeperShrineSaveAndLevelExitCardHoldUp`); boss 2-fazada tiklanadi (`LanternKeeperBossFightResumesInPhaseTwo`, Dovon'da Enraged); kamera tayoqchasi tezlik × Delta, sumka ochiq bo‘lsa to‘xtaydi (`BeaconPassCameraStickTurnsAtARate`: 0.5 s da −1.200 rad 30 va 60 Hz'da, sumka ortida 0; eski graf −0.63 / −1.26); `Gameplay.Input` bo‘sh harakat nomlarini o‘qimaydi; VM har qanday engine exec natijasini saqlaydi. Vizual: Chiroqbon'da 47 variantli blob yo‘l autotile, suv autotile, choksiz o‘t, `Bezak` qatlami; HUD energiya/XP chiziqlari kontrasti; Dovon'da tik qiyaliklar triplanar, cho‘qqilar radial mesh, o‘lim pozasi, tuman yengillashtirildi (0.0045). Oracle'lar `Tests/oracle.json` ga ko‘chdi (eksportga tushmaydi); `SLOW_TEST`: `ZaminTests --quick` 1341/1341, 61.7 s; `ZaminSliceTests` (`--slow`) 12/12, 326.6 s; `ctest -LE gui` 17/17, `ctest -L docs` 2/2; assetlar: Chiroqbon 5.31 MiB, Dovon mash'ali 5.96 MiB; `slice_ui_test.py` U1/U2 ikkala o‘yinda (60 audit, 0 muammo); `slice_workflow_test.py` P0 va P6 ikkala o‘yinda o‘tdi (41–56 s).
+Dalillar (tuzatuvchi, sharhlovchi topilmalari): xom `{action:...}` tokenlari uchun `FindUnexpandedInputToken` va UI auditining `RawHint` qoidasi (ikkala o‘yinning Play testlarida darvoza); graf matnlari, banner'lar, HUD/statistika, daraja nomlari, buyum/vazifa/combat feed nomlari lokalizatsiya kalitlari orqali (`item.*`, `quest.*`, `combat.*`; Dovon'da endi "-2 Kuyish"), uz/en kalitlari `samples_assets.py` graf rejimida tekshiriladi; sozlamalar har yopilishda (Orqaga va Back/Escape) saqlanadi, til va to‘liq ekran `Localization.SaveSettings` / `Display.SaveSettings` bilan yangi jarayonda tiklanadi (`SliceMenuSettingsKeptOnEveryCloseAndLanguagePersists`, eski menyularda yiqiladi); qo‘riqxonada davolash saqlashdan oldin; daraja kartasi dunyoni to‘xtatadi, real vaqtda sanaydi, o‘lik qahramon bilan o‘tmaydi va `TransferWrite` xatosida 1 s dan keyin qayta urinadi (`LanternKeeperShrineSaveAndLevelExitCardHoldUp`); boss 2-fazada tiklanadi (`LanternKeeperBossFightResumesInPhaseTwo`, Dovon'da Enraged); kamera tayoqchasi tezlik × Delta, sumka ochiq bo‘lsa to‘xtaydi (`BeaconPassCameraStickTurnsAtARate`: 0.5 s da −1.200 rad 30 va 60 Hz'da, sumka ortida 0; eski graf −0.63 / −1.26); `Gameplay.Input` bo‘sh harakat nomlarini o‘qimaydi; VM har qanday engine exec natijasini saqlaydi. Vizual: Lantern Keeper'da 47 variantli blob yo‘l autotile, suv autotile, choksiz o‘t, `Bezak` qatlami; HUD energiya/XP chiziqlari kontrasti; Dovon'da tik qiyaliklar triplanar, cho‘qqilar radial mesh, o‘lim pozasi, tuman yengillashtirildi (0.0045). Oracle'lar `Tests/oracle.json` ga ko‘chdi (eksportga tushmaydi); `SLOW_TEST`: `ZaminTests --quick` 1341/1341, 61.7 s; `ZaminSliceTests` (`--slow`) 12/12, 326.6 s; `ctest -LE gui` 17/17, `ctest -L docs` 2/2; assetlar: Lantern Keeper 5.31 MiB, Beacon Pass 5.96 MiB; `slice_ui_test.py` U1/U2 ikkala o‘yinda (60 audit, 0 muammo); `slice_workflow_test.py` P0 va P6 ikkala o‘yinda o‘tdi (41–56 s).
 
 ### Yakunlangan bo‘lim — gameplay UI
 

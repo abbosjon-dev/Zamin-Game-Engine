@@ -11,7 +11,7 @@ small window with the Low quality level (the CPU's share: the game code) and at 
     python3 Tests/slice_bench.py --build build-release --write-baseline Tests/Baselines/slices-release.json
     python3 Tests/slice_bench.py --build build-release --runs 3            each row three times, the best of them
     python3 Tests/slice_bench.py --build build-release --soak 18000        the attract loop soak (ZAMIN_DEMO=1, 284x160 Low)
-    python3 Tests/slice_bench.py --only LanternKeeper/Boglar               one row (game/scene, both sizes)
+    python3 Tests/slice_bench.py --only LanternKeeper/Orchards               one row (game/scene, both sizes)
 
 Gates of the small window (284x160, Low; Release): the game code (the update layer without drawing: scripts and graphs,
 gameplay, physics, AI, animation, particles, audio) mean <= 3 ms (2D) / 4 ms (3D) and p95 <= 6 ms; the frame mean <= 16.6
@@ -40,10 +40,10 @@ ROOT = Path(__file__).resolve().parents[1]
 # (game, scene, kind, demo): the menus without the demo (it would start a game after a second), the levels with it.
 ROWS = [
     ("LanternKeeper", "Menu", "2D", False),
-    ("LanternKeeper", "Boglar", "2D", True),
-    ("LanternKeeper", "Yertola", "2D", True),
+    ("LanternKeeper", "Orchards", "2D", True),
+    ("LanternKeeper", "Crypt", "2D", True),
     ("BeaconPass", "Menu", "3D", False),
-    ("BeaconPass", "Dovon", "3D", True),
+    ("BeaconPass", "Pass", "3D", True),
 ]
 SIZES = {"Small": ("284x160", "Low"), "720p": ("1280x720", None)}
 FRAME_BUDGET = {"2D": 16.6, "3D": 33.3}

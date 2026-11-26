@@ -1,4 +1,4 @@
-// Dovon mash'ali (Projects/BeaconPass, Tools/samples/gen_beacon_pass.py): the compiler-free 3D vertical slice, played
+// Beacon Pass (Projects/BeaconPass, Tools/samples/gen_beacon_pass.py): the compiler-free 3D vertical slice, played
 // headless from the title menu to the victory screen by its demo pilot, with the real scene switch (LoadScene request),
 // real gameplay saves and the real Animator: the humanoids' glTF models are read without GPU objects
 // (AsyncLoader::DeferGPU), so the locomotion blend, the layers and the clips' Hit/Release/Footstep events run as in the
@@ -88,7 +88,7 @@ namespace {
         for (auto& node : json["Nodes"])
             if (node["Kind"] == "Gameplay.ProjectileDefine") node["Inputs"]["Prefab"] = "";
         CHECK(FileSystem::WriteTextFile(graph, json.dump() + "\n"));
-        auto path = project / "Assets/Scenes/Dovon.zscene";
+        auto path = project / "Assets/Scenes/Pass.zscene";
         auto scene = J::parse(FileSystem::ReadTextFile(path));
         for (auto& e : scene["Entities"])
             if (e["Entity"] == Hero)
@@ -154,9 +154,9 @@ namespace {
                     if (key == item) return true;
                 return false;
             };
-            o.Sword = equipped("Shamshir");
-            o.Shield = equipped("Qalqon");
-            o.Slam = l->State.Abilities.at("Zilzila").Unlocked;
+            o.Sword = equipped("Sabre");
+            o.Shield = equipped("Shield");
+            o.Slam = l->State.Abilities.at("Slam").Unlocked;
         }
         if (auto warden = scene.GetEntityByUUID(UUID(Warden)))
             if (auto h = rules.Health(warden)) o.WardenDead = h->Dead;
@@ -294,14 +294,14 @@ namespace {
             {
                 scene->UpdateRuntime(1.0f / 30);
                 ++o.Frames;
-                if (sample && scene->GetName() == "Dovon") sampler.Step(*scene, o.M, 1.0f / 30);
+                if (sample && scene->GetName() == "Pass") sampler.Step(*scene, o.M, 1.0f / 30);
                 uint64_t first = 0;
                 auto messages = Log::GetMessages(&first);
                 for (size_t i = 0; i < messages.size(); ++i)
                 {
                     if (first + i < seen) continue;
                     const auto& text = messages[i].Text;
-                    const bool marker = text.find("SLICE_") != std::string::npos || text.find("Menyu:") != std::string::npos;
+                    const bool marker = text.find("SLICE_") != std::string::npos || text.find("Menu:") != std::string::npos;
                     if (marker || messages[i].Level >= LogLevel::Warn) o.Log += text + "\n";
                     if (text.find("SLICE_TRACE") != std::string::npos) o.Trace.push_back(text.substr(text.find("SLICE_TRACE")));
                     if (text.find("SLICE_TRACE") != std::string::npos) o.Timed.push_back(std::format("f{} {}", o.Frames, text.substr(text.find("SLICE_TRACE"))));
@@ -333,12 +333,12 @@ namespace {
                         }
                     }
                 }
-                if (!done && frame && scene->GetName() == "Dovon" && frame(*scene, o))
+                if (!done && frame && scene->GetName() == "Pass" && frame(*scene, o))
                 {
                     done = true;
                     Observe(*scene, o);
                 }
-                if (trace && o.Frames % trace == 0 && scene->GetName() == "Dovon")
+                if (trace && o.Frames % trace == 0 && scene->GetName() == "Pass")
                     if (auto hero = scene->GetEntityByUUID(UUID(Hero)))
                     {
                         auto p = hero.GetTransform().Translation;
@@ -414,12 +414,12 @@ TEST(BeaconPassGraphsValidateAndScenesLoad)
         nodes += g.Nodes.size();
     }
     CHECK(nodes > 1200);
-    for (auto name : { "Menu", "Dovon" })
+    for (auto name : { "Menu", "Pass" })
     {
         auto scene = CreateRef<Scene>();
         CHECK(SceneSerializer(scene).Deserialize(root / "Assets/Scenes" / (std::string(name) + ".zscene")));
         CHECK(scene->GetEntityByUUID(UUID(1100)) && scene->GetEntityByUUID(UUID(6000)) && scene->GetEntityByUUID(UUID(CameraId)) && scene->GetEntityByUUID(UUID(2000)));
-        if (std::string(name) == "Dovon")
+        if (std::string(name) == "Pass")
         {
             auto hero = scene->GetEntityByUUID(UUID(Hero));
             CHECK(hero && hero.HasComponent<CharacterController3DComponent>() && hero.HasComponent<AnimatorComponent>() && hero.HasComponent<FootstepsComponent>());
@@ -450,7 +450,7 @@ TEST(BeaconPassGraphsValidateAndScenesLoad)
     auto oracle = J::parse(FileSystem::ReadTextFile(root / "Tests/oracle.json"));
     CHECK(oracle["XP"] == 800 && oracle["FinalLevel"] == 4 && oracle["Stones"] == 3);
 }
-// Plan 0: New game from the menu -> Dovon (walk to the camp chest, equip, the ledge jump, the gate guards and the gate,
+// Plan 0: New game from the menu -> Pass (walk to the camp chest, equip, the ledge jump, the gate guards and the gate,
 // the courtyard, the shrine save, the stable, the plateau shrine, the Warden, the beacon stairs) -> victory.
 SLOW_TEST(BeaconPassOracleHeadless)
 {
@@ -469,19 +469,19 @@ SLOW_TEST(BeaconPassOracleHeadless)
     // every prompt and banner of the whole run showed keys, never "[Interact]" / "[Slam]" as written
     if (!o.RawHint.empty()) std::printf("  raw control hint: %s\n", o.RawHint.c_str());
     CHECK(o.RawHint.empty());
-    CHECK(o.Scenes.size() >= 2 && o.Scenes[0] == "Menu" && o.Scenes[1] == "Dovon");
+    CHECK(o.Scenes.size() >= 2 && o.Scenes[0] == "Menu" && o.Scenes[1] == "Pass");
     CHECK(o.XP == 800 && o.Level == 4 && o.Claimed == 4 && o.Stones == 0);
     CHECK(o.Sword && o.Shield && o.Slam && o.WardenDead && o.Projectiles == 0);
-    for (auto marker : { "Menyu: Asosiy", "Menyu: Yangi o'yin", "SLICE_LEVEL_START lvl=1 entry=new", "SLICE_SAVED lvl=1 at=auto", "SLICE_SAVED lvl=1 at=shrine",
+    for (auto marker : { "Menu: Main", "Menu: New game", "SLICE_LEVEL_START lvl=1 entry=new", "SLICE_SAVED lvl=1 at=auto", "SLICE_SAVED lvl=1 at=shrine",
                          "SLICE_TRACE ev=claim a=Pass", "SLICE_TRACE ev=claim a=Stones", "SLICE_TRACE ev=boss a=engaged", "SLICE_TRACE ev=boss a=defeated",
-                         "SLICE_TRACE ev=beacon a=lit", "SLICE_VICTORY game=Dovon" })
+                         "SLICE_TRACE ev=beacon a=lit", "SLICE_VICTORY game=BeaconPass" })
     {
         if (o.Log.find(marker) == std::string::npos) std::printf("    missing: %s\n", marker);
         CHECK(o.Log.find(marker) != std::string::npos);
     }
     G::GameSave save;
     std::string error;
-    CHECK(G::DecodeGameSave(FileSystem::ReadTextFile(work / "home/gameplay-saves/Run1.json"), save, error) && save.Version == 4 && save.Scene == "Dovon");
+    CHECK(G::DecodeGameSave(FileSystem::ReadTextFile(work / "home/gameplay-saves/Run1.json"), save, error) && save.Version == 4 && save.Scene == "Pass");
     CHECK(GameState::GetFloat("BP.Run.Finished", 0) == 1 && GameState::GetFloat("BP.Best.Time", 0) > 0);
     Finish(work, prior);
 }
@@ -538,7 +538,7 @@ SLOW_TEST(BeaconPassLocomotionHeadless)
 {
     const auto prior = Project::GetActive();
     const auto work = Prepare(0, false);
-    auto o = Play("Scenes/Dovon.zscene", 30 * 60 * 3, [](const std::string& line, Outcome&) { return line.find("SLICE_SAVED lvl=1 at=shrine") != std::string::npos; }, true);
+    auto o = Play("Scenes/Pass.zscene", 30 * 60 * 3, [](const std::string& line, Outcome&) { return line.find("SLICE_SAVED lvl=1 at=shrine") != std::string::npos; }, true);
     std::printf("  frames %d\n", o.Frames);
     PrintMotion(o.M);
     if (!Clean(o.Log)) std::printf("%s\n", o.Log.c_str());
@@ -556,7 +556,7 @@ SLOW_TEST(BeaconPassLocomotionHeadless)
     Finish(work, prior);
 }
 // Plan 1 (lose): the pilot does not fight or drink until a defeat - three deaths end the run on the defeat screen (the
-// Dead state plays); the demo picks "Oxirgi saqlashdan", the level reloads from the autosave and the pilot, now
+// Dead state plays); the demo picks "From the last save", the level reloads from the autosave and the pilot, now
 // fighting, wins the pass with exactly the normal reward (no replay).
 SLOW_TEST(BeaconPassLosePlanHeadless)
 {
@@ -569,8 +569,8 @@ SLOW_TEST(BeaconPassLosePlanHeadless)
     PrintMotion(o.M);
     if (!Clean(o.Log, false) || !o.Defeat) std::printf("%s\n", o.Log.c_str());
     CHECK(Clean(o.Log, false) && o.Defeat && o.M.Dead);
-    CHECK(o.Scenes.size() == 3 && o.Scenes[1] == "Dovon" && o.Scenes[2] == "Dovon");
-    const auto defeat = o.Log.find("SLICE_DEFEAT lvl=1 deaths=3"), retry = o.Log.find("Menyu: Oxirgi saqlashdan"), resumed = o.Log.find("SLICE_RESUMED lvl=1 source=save"),
+    CHECK(o.Scenes.size() == 3 && o.Scenes[1] == "Pass" && o.Scenes[2] == "Pass");
+    const auto defeat = o.Log.find("SLICE_DEFEAT lvl=1 deaths=3"), retry = o.Log.find("Menu: From the last save"), resumed = o.Log.find("SLICE_RESUMED lvl=1 source=save"),
                pass = o.Log.find("SLICE_TRACE ev=claim a=Pass");
     CHECK(defeat != std::string::npos && retry > defeat && resumed > retry && pass > resumed);
     CHECK(o.Log.find("SLICE_BOT_STUCK", resumed) == std::string::npos);
@@ -593,7 +593,7 @@ namespace {
     std::map<uint32_t, G::SavedProjectile> InFlight(Scene& scene)
     {
         std::map<uint32_t, G::SavedProjectile> out;
-        auto save = G::SaveWorld::For(scene).Capture("Dovon-1");
+        auto save = G::SaveWorld::For(scene).Capture("BeaconPass-1");
         if (save.Combat)
             for (const auto& p : save.Combat->Projectiles) out[p.Slot] = p;
         return out;
@@ -631,7 +631,7 @@ SLOW_TEST(BeaconPassSaveResumeHeadless)
     std::filesystem::copy(home, kept, std::filesystem::copy_options::recursive);
     G::GameSave save;
     std::string error;
-    CHECK(G::DecodeGameSave(FileSystem::ReadTextFile(home / "gameplay-saves/Run1.json"), save, error) && save.Version == 4 && save.Scene == "Dovon");
+    CHECK(G::DecodeGameSave(FileSystem::ReadTextFile(home / "gameplay-saves/Run1.json"), save, error) && save.Version == 4 && save.Scene == "Pass");
     std::printf("  saved at frame %d: hero (%.2f, %.2f, %.2f) hp %.1f xp %u stones %u enemies %zu used %zu projectiles %zu %s| %s\n", a.Frames, saved.Hero.x, saved.Hero.y,
                 saved.Hero.z, saved.Health, saved.XP, saved.Stones, saved.Enemies.size(), saved.Used.size(), saved.Projectiles, saved.Quests.c_str(), saved.Loadout.c_str());
     // the original scene goes on to the plateau shrine
@@ -709,7 +709,7 @@ SLOW_TEST(BeaconPassSaveResumeHeadless)
     Scene& live = *c2.Live;
     const auto before = InFlight(live);
     auto* heroHost = dynamic_cast<VisualGraphHost*>(live.GetEntityByUUID(UUID(Hero)).GetComponent<NativeScriptComponent>().Instance);
-    CHECK(heroHost != nullptr && G::SaveWorld::For(live).Save("Run1", "Dovon-1").Success);
+    CHECK(heroHost != nullptr && G::SaveWorld::For(live).Save("Run1", "BeaconPass-1").Success);
     if (heroHost) GameState::SetFloat("BP.Run.Step", heroHost->VM.Variables().at("Step").get<float>());
     GameState::Save();
     CHECK(SaveData::Save());
@@ -789,7 +789,7 @@ SLOW_TEST(BeaconPassDeterminism)
     for (int run = 0; run < 2; ++run)
     {
         const auto work = Prepare(0, false);
-        auto o = Play("Scenes/Dovon.zscene", 30 * 60 * 4, [](const std::string& line, Outcome&) { return line.find("SLICE_VICTORY") != std::string::npos; });
+        auto o = Play("Scenes/Pass.zscene", 30 * 60 * 4, [](const std::string& line, Outcome&) { return line.find("SLICE_VICTORY") != std::string::npos; });
         CHECK(Clean(o.Log) && o.Victory);
         traces[run] = o.Timed;
         frames[run] = o.Frames;
@@ -869,7 +869,7 @@ SLOW_TEST(BeaconPassResumeMatrixHeadless)
     const auto home = work / "home", cut = work / "cuts";
     const auto newGame = cut / "new-game", autosave = cut / "autosave", shrine = cut / "shrine";
     auto a = Play("Scenes/Menu.zscene", 30 * 60 * 3, [&](const std::string& line, Outcome&) {
-        if (line.find("Menyu: Yangi o'yin") != std::string::npos) Keep(home, newGame);
+        if (line.find("Menu: New game") != std::string::npos) Keep(home, newGame);
         if (line.find("SLICE_SAVED lvl=1 at=auto") != std::string::npos) Keep(home, autosave);
         if (line.find("SLICE_SAVED lvl=1 at=shrine") == std::string::npos) return false;
         Keep(home, shrine);
@@ -904,14 +904,14 @@ SLOW_TEST(BeaconPassResumeMatrixHeadless)
         {
             auto o = Continue(home, from, banner, at);
             std::printf("  %s: resumed at (%.3f, %.3f, %.3f) xp %u stones %u\n", name, at.x, at.y, at.z, o.XP, o.Stones);
-            CHECK(Clean(o.Log) && has(o, "Menyu: Asosiy davom=1") && has(o, "SLICE_RESUMED lvl=1 source=save recovered=0") && has(o, "SLICE_LEVEL_START lvl=1 entry=continue"));
+            CHECK(Clean(o.Log) && has(o, "Menu: Main continue=1") && has(o, "SLICE_RESUMED lvl=1 source=save recovered=0") && has(o, "SLICE_LEVEL_START lvl=1 entry=continue"));
             CHECK(o.XP == 100 && o.Stones == uint32_t(atShrine->Inventory.Count("FireStone")) && near(at, atShrine->Position));
         }
     }
     // 3. killed after New game, before the autosave: Continue offers the run and starts it fresh (its autosave written now)
     {
         auto o = Continue(home, newGame, banner, at);
-        CHECK(Clean(o.Log) && has(o, "Menyu: Asosiy davom=1") && has(o, "SLICE_SAVED lvl=1 at=auto") && has(o, "SLICE_LEVEL_START lvl=1 entry=continue"));
+        CHECK(Clean(o.Log) && has(o, "Menu: Main continue=1") && has(o, "SLICE_SAVED lvl=1 at=auto") && has(o, "SLICE_LEVEL_START lvl=1 entry=continue"));
         CHECK(o.XP == 0 && o.Stones == 0 && near(at, atCamp->Position) && SavedHero(home / "gameplay-saves/Run1.json"));
     }
     // 4. the shrine save damaged (a changed byte): its backup - the autosave - with the "recovered" banner
@@ -946,7 +946,7 @@ TEST(BeaconPassCameraStickTurnsAtARate)
     const auto prior = Project::GetActive();
     const auto work = Prepare(0, false);
     {
-        auto path = work / "BeaconPass/Assets/Scenes/Dovon.zscene";
+        auto path = work / "BeaconPass/Assets/Scenes/Pass.zscene";
         auto doc = J::parse(FileSystem::ReadTextFile(path));
         for (auto& e : doc["Entities"])
             if (e["Entity"] == Hero)
@@ -964,7 +964,7 @@ TEST(BeaconPassCameraStickTurnsAtARate)
     auto turn = [&](float hz, bool bag) {
         Input::ResetState();
         auto scene = CreateRef<Scene>();
-        CHECK(SceneSerializer(scene).Deserialize(Project::GetAssetDirectory() / "Scenes/Dovon.zscene"));
+        CHECK(SceneSerializer(scene).Deserialize(Project::GetAssetDirectory() / "Scenes/Pass.zscene"));
         LoadModels(*scene);
         scene->OnRuntimeStart();
         const float dt = 1.0f / hz;

@@ -1,4 +1,4 @@
-// Chiroqbon (Projects/LanternKeeper, Tools/samples/gen_lantern_keeper.py): the compiler-free 2D vertical slice, played
+// Lantern Keeper (Projects/LanternKeeper, Tools/samples/gen_lantern_keeper.py): the compiler-free 2D vertical slice, played
 // headless from the title menu through both levels to the victory screen by its demo pilot, with the real scene
 // switches (LoadScene requests), the real transfer document between the levels and the real gameplay saves.
 #include "TestAssertions.h"
@@ -31,7 +31,7 @@ namespace {
     constexpr uint64_t Hero = 1000;
     struct Outcome
     {
-        std::string Log;                 // SLICE_* / Menyu markers and every warning or error
+        std::string Log;                 // SLICE_* / Menu markers and every warning or error
         std::vector<std::string> Scenes; // the scenes played, in order
         bool Victory = false, Defeat = false;
         int Frames = 0;
@@ -60,7 +60,7 @@ namespace {
         for (auto& node : json["Nodes"])
             if (node["Kind"] == "Gameplay.ProjectileDefine") node["Inputs"]["Prefab"] = "";
         CHECK(FileSystem::WriteTextFile(graph, json.dump() + "\n"));
-        for (auto name : { "Boglar", "Yertola" })
+        for (auto name : { "Orchards", "Crypt" })
         {
             auto path = project / "Assets/Scenes" / (std::string(name) + ".zscene");
             auto scene = J::parse(FileSystem::ReadTextFile(path));
@@ -118,9 +118,9 @@ namespace {
                     if (key == item) return true;
                 return false;
             };
-            o.Sword = equipped("Qilich");
-            o.Charm = equipped("Tumor");
-            o.Armor = equipped("Zirh");
+            o.Sword = equipped("Sword");
+            o.Charm = equipped("Charm");
+            o.Armor = equipped("Armour");
             o.Nova = l->State.Abilities.at("Nova").Unlocked;
             o.Mend = l->State.Abilities.at("Mend").Unlocked;
         }
@@ -161,7 +161,7 @@ namespace {
                 {
                     if (first + i < seen) continue;
                     const auto& text = messages[i].Text;
-                    const bool marker = text.find("SLICE_") != std::string::npos || text.find("Menyu:") != std::string::npos;
+                    const bool marker = text.find("SLICE_") != std::string::npos || text.find("Menu:") != std::string::npos;
                     if (marker || messages[i].Level >= LogLevel::Warn) o.Log += text + "\n";
                     if (text.find("SLICE_TRACE") != std::string::npos) o.Trace.push_back(scene->GetName() + ": " + text.substr(text.find("SLICE_TRACE")));
                     if (text.find("SLICE_VICTORY") != std::string::npos)
@@ -248,7 +248,7 @@ TEST(LanternKeeperGraphsValidateAndScenesLoad)
         nodes += g.Nodes.size();
     }
     CHECK(nodes > 1000);
-    for (auto name : { "Menu", "Boglar", "Yertola" })
+    for (auto name : { "Menu", "Orchards", "Crypt" })
     {
         auto scene = CreateRef<Scene>();
         CHECK(SceneSerializer(scene).Deserialize(root / "Assets/Scenes" / (std::string(name) + ".zscene")));
@@ -260,8 +260,8 @@ TEST(LanternKeeperGraphsValidateAndScenesLoad)
     auto oracle = J::parse(FileSystem::ReadTextFile(root / "Tests/oracle.json"));
     CHECK(oracle["XP"] == 850 && oracle["FinalLevel"] == 4 && oracle["Coins"].get<int>() > 10);
 }
-// Plan 0: New game from the menu -> Boglar (fights, chest, equip, shrine, chief, gate, lamp) -> level card -> transfer
-// -> Yertola (carry, autosave, side rooms, shrine, boss phases, altar) -> victory.
+// Plan 0: New game from the menu -> Orchards (fights, chest, equip, shrine, chief, gate, lamp) -> level card -> transfer
+// -> Crypt (carry, autosave, side rooms, shrine, boss phases, altar) -> victory.
 SLOW_TEST(LanternKeeperOracleHeadless)
 {
     const auto prior = Project::GetActive();
@@ -277,13 +277,13 @@ SLOW_TEST(LanternKeeperOracleHeadless)
     // every prompt and banner of the whole run showed keys, never "[Interact]" / "[Nova]" as written
     if (!o.RawHint.empty()) std::printf("  raw control hint: %s\n", o.RawHint.c_str());
     CHECK(o.RawHint.empty());
-    CHECK(o.Scenes.size() >= 3 && o.Scenes[0] == "Menu" && o.Scenes[1] == "Boglar" && o.Scenes[2] == "Yertola");
+    CHECK(o.Scenes.size() >= 3 && o.Scenes[0] == "Menu" && o.Scenes[1] == "Orchards" && o.Scenes[2] == "Crypt");
     CHECK(o.XP == 850 && o.Level == 4 && o.Claimed == 5);
     CHECK(o.Coins == oracle["Coins"].get<uint32_t>() && o.Lamps == 0 && o.Herbs == 3);
     CHECK(o.Sword && o.Charm && o.Armor && o.Nova && o.Mend && o.BossDead && o.Projectiles == 0);
-    for (auto marker : { "Menyu: Asosiy", "Menyu: Yangi o'yin", "SLICE_LEVEL_START lvl=1 entry=new", "SLICE_SAVED lvl=1 at=auto", "SLICE_SAVED lvl=1 at=shrine",
+    for (auto marker : { "Menu: Main", "Menu: New game", "SLICE_LEVEL_START lvl=1 entry=new", "SLICE_SAVED lvl=1 at=auto", "SLICE_SAVED lvl=1 at=shrine",
                          "SLICE_LEVEL_COMPLETE lvl=1", "SLICE_RESUMED lvl=2 source=carry", "SLICE_LEVEL_START lvl=2 entry=carry", "SLICE_SAVED lvl=2 at=shrine",
-                         "SLICE_TRACE ev=boss a=engaged", "SLICE_TRACE ev=boss a=phase2", "SLICE_TRACE ev=boss a=defeated", "SLICE_VICTORY game=Chiroqbon" })
+                         "SLICE_TRACE ev=boss a=engaged", "SLICE_TRACE ev=boss a=phase2", "SLICE_TRACE ev=boss a=defeated", "SLICE_VICTORY game=LanternKeeper" })
     {
         if (o.Log.find(marker) == std::string::npos) std::printf("    missing: %s\n", marker);
         CHECK(o.Log.find(marker) != std::string::npos);
@@ -292,16 +292,16 @@ SLOW_TEST(LanternKeeperOracleHeadless)
     G::GameTransfer transfer;
     std::string error;
     CHECK(G::DecodeGameTransfer(FileSystem::ReadTextFile(work / "home/gameplay-transfers/Carry.json"), transfer, error));
-    CHECK(transfer.Key == "Hero" && transfer.Scene == "Boglar" && transfer.QuestBook.XP == 200);
+    CHECK(transfer.Key == "Hero" && transfer.Scene == "Orchards" && transfer.QuestBook.XP == 200);
     // The level 2 save is v4 (combat present) and the run is finished: the menu offers no Continue.
     G::GameSave save;
-    CHECK(G::DecodeGameSave(FileSystem::ReadTextFile(work / "home/gameplay-saves/Run2.json"), save, error) && save.Version == 4 && save.Scene == "Yertola");
+    CHECK(G::DecodeGameSave(FileSystem::ReadTextFile(work / "home/gameplay-saves/Run2.json"), save, error) && save.Version == 4 && save.Scene == "Crypt");
     CHECK(GameState::GetFloat("LK.Run.Finished", 0) == 1 && GameState::GetFloat("LK.Best.Time", 0) > 0);
     std::filesystem::remove_all(work);
     Project::SetActive(prior);
 }
 // Plan 1 (lose): the pilot walks into the bandits without fighting - three deaths end the run on the defeat screen;
-// the demo picks "Oxirgi saqlashdan", the level reloads from its save (no reward is granted again) and the pilot,
+// the demo picks "From the last save", the level reloads from its save (no reward is granted again) and the pilot,
 // now fighting, completes level 1 with exactly the normal run's progress.
 SLOW_TEST(LanternKeeperLosePlanHeadless)
 {
@@ -313,11 +313,11 @@ SLOW_TEST(LanternKeeperLosePlanHeadless)
     CHECK(Clean(o.Log, false) && o.Defeat);
     // after the reload the pilot fights: nothing is stuck any more
     CHECK(o.Log.find("SLICE_BOT_STUCK", o.Log.find("SLICE_RESUMED")) == std::string::npos);
-    CHECK(o.Scenes.size() == 3 && o.Scenes[1] == "Boglar" && o.Scenes[2] == "Boglar");
+    CHECK(o.Scenes.size() == 3 && o.Scenes[1] == "Orchards" && o.Scenes[2] == "Orchards");
     const auto defeat = o.Log.find("SLICE_DEFEAT lvl=1 deaths=3"), resumed = o.Log.find("SLICE_RESUMED lvl=1 source=save"),
                complete = o.Log.find("SLICE_LEVEL_COMPLETE lvl=1");
     CHECK(defeat != std::string::npos && resumed != std::string::npos && complete != std::string::npos && defeat < resumed && resumed < complete);
-    CHECK(o.Log.find("Menyu: Oxirgi saqlashdan") != std::string::npos);
+    CHECK(o.Log.find("Menu: From the last save") != std::string::npos);
     // No replay: the same 200 XP and 13 coins as a run without the defeat.
     CHECK(o.Log.find(" xp=200 ", complete) != std::string::npos && o.Log.find(" coins=13 ", complete) != std::string::npos);
     CHECK(GameState::GetFloat("LK.Run.Lost", 0) == 1);
@@ -333,7 +333,7 @@ SLOW_TEST(LanternKeeperDeterminism)
     for (int run = 0; run < 2; ++run)
     {
         const auto work = Prepare(0, false);
-        auto o = Play("Scenes/Boglar.zscene", 30 * 60 * 3, [](const std::string& line, Outcome&) { return line.find("SLICE_LEVEL_COMPLETE") != std::string::npos; });
+        auto o = Play("Scenes/Orchards.zscene", 30 * 60 * 3, [](const std::string& line, Outcome&) { return line.find("SLICE_LEVEL_COMPLETE") != std::string::npos; });
         CHECK(Clean(o.Log) && o.Log.find("SLICE_LEVEL_COMPLETE lvl=1") != std::string::npos);
         traces[run] = o.Trace;
         frames[run] = o.Frames;
@@ -421,7 +421,7 @@ SLOW_TEST(LanternKeeperResumeMatrixHeadless)
     const auto work = Prepare(3);
     const auto home = work / "home", cut = work / "cuts";
     std::filesystem::path complete = cut / "l1-complete", switched = cut / "l2-switch", l2 = cut / "l2-start", shrine = cut / "l2-shrine";
-    // the write run: menu -> Boglar (shrine) -> level card -> transfer -> Yertola (carry, autosave) -> shrine, pilot stops
+    // the write run: menu -> Orchards (shrine) -> level card -> transfer -> Crypt (carry, autosave) -> shrine, pilot stops
     auto keep = [&](const std::string& line, Outcome&) {
         if (line.find("SLICE_LEVEL_COMPLETE lvl=1") != std::string::npos) Keep(home, complete);
         if (line.find("SLICE_LEVEL_START lvl=2") != std::string::npos) Keep(home, l2);
@@ -430,7 +430,7 @@ SLOW_TEST(LanternKeeperResumeMatrixHeadless)
         return true;
     };
     auto switching = [&](const std::string& next) {
-        if (next.find("Yertola") != std::string::npos) Keep(home, switched);
+        if (next.find("Crypt") != std::string::npos) Keep(home, switched);
     };
     auto a = Play("Scenes/Menu.zscene", 30 * 60 * 5, keep, {}, switching);
     if (!Clean(a.Log)) std::printf("%s\n", a.Log.c_str());
@@ -465,7 +465,7 @@ SLOW_TEST(LanternKeeperResumeMatrixHeadless)
         FreshProcess(home, files);
         auto o = Play("Scenes/Menu.zscene", 30 * 60 * 3, [](const std::string& line, Outcome&) { return line.find("SLICE_RESUMED lvl=2") != std::string::npos; });
         std::printf("  after-transfer: resumed level 1 from its save (xp %u), exit again, level 2 xp %u coins %u\n", shrineXP, o.XP, o.Coins);
-        CHECK(Clean(o.Log) && has(o, "Menyu: Asosiy davom=1") && has(o, "SLICE_RESUMED lvl=1 source=save recovered=0") && has(o, "SLICE_LEVEL_START lvl=1 entry=continue"));
+        CHECK(Clean(o.Log) && has(o, "Menu: Main continue=1") && has(o, "SLICE_RESUMED lvl=1 source=save recovered=0") && has(o, "SLICE_LEVEL_START lvl=1 entry=continue"));
         CHECK(has(o, "SLICE_RESUMED lvl=2 source=carry") && o.Log.find(" xp=200 ") != std::string::npos && o.XP == 200 && o.Coins == uint32_t(carry.Inventory.Count("Coin")));
         G::GameTransfer again;
         CHECK(G::DecodeGameTransfer(FileSystem::ReadTextFile(home / "gameplay-transfers/Carry.json"), again, error) && again.QuestBook.XP == 200 &&
@@ -481,8 +481,8 @@ SLOW_TEST(LanternKeeperResumeMatrixHeadless)
         {
             auto o = Continue(home, from);
             std::printf("  %s: entered level 2 through the transfer, xp %u coins %u hp %.0f\n", name, o.XP, o.Coins, o.Health);
-            CHECK(Clean(o.Log) && has(o, "Menyu: Asosiy davom=1") && has(o, "SLICE_RESUMED lvl=2 source=carry recovered=0") && has(o, "SLICE_SAVED lvl=2 at=auto"));
-            CHECK(has(o, "SLICE_LEVEL_START lvl=2 entry=continue") && o.XP == 200 && o.Coins == l2Coins && o.Scenes.back() == "Yertola");
+            CHECK(Clean(o.Log) && has(o, "Menu: Main continue=1") && has(o, "SLICE_RESUMED lvl=2 source=carry recovered=0") && has(o, "SLICE_SAVED lvl=2 at=auto"));
+            CHECK(has(o, "SLICE_LEVEL_START lvl=2 entry=continue") && o.XP == 200 && o.Coins == l2Coins && o.Scenes.back() == "Crypt");
             CHECK(GameState::GetFloat("LK.Run.Save", 0) == 2 && SavedHero(home / "gameplay-saves/Run2.json").first == 200);
         }
     }
@@ -523,7 +523,7 @@ SLOW_TEST(LanternKeeperResumeMatrixHeadless)
         if (std::filesystem::exists(files / "gameplay-saves/Run1.json.bak")) Tear(files / "gameplay-saves/Run1.json.bak");
         auto o = Continue(home, files);
         CHECK(CleanIO(o.Log) && has(o, "SLICE_IO_FAILED load") && has(o, "SLICE_SAVED lvl=1 at=auto") && has(o, "SLICE_LEVEL_START lvl=1 entry=continue"));
-        CHECK(o.Banner == "The save could not be read - the level starts again" && o.XP == 0 && o.Coins == 0 && o.Scenes.back() == "Boglar");
+        CHECK(o.Banner == "The save could not be read - the level starts again" && o.XP == 0 && o.Coins == 0 && o.Scenes.back() == "Orchards");
     }
     // 8. level 2's save, its backup and the transfer (and its backup) all unreadable: a fresh level 2, said on screen
     {
@@ -533,7 +533,7 @@ SLOW_TEST(LanternKeeperResumeMatrixHeadless)
             if (std::filesystem::exists(files / name)) Tear(files / name);
         auto o = Continue(home, files);
         CHECK(CleanIO(o.Log) && has(o, "SLICE_IO_FAILED load") && has(o, "SLICE_IO_FAILED transfer") && has(o, "SLICE_SAVED lvl=2 at=auto"));
-        CHECK(o.Banner == "The save could not be read - the level starts again" && o.XP == 0 && o.Scenes.back() == "Yertola" && SavedHero(home / "gameplay-saves/Run2.json").first == 0);
+        CHECK(o.Banner == "The save could not be read - the level starts again" && o.XP == 0 && o.Scenes.back() == "Crypt" && SavedHero(home / "gameplay-saves/Run2.json").first == 0);
     }
     std::filesystem::remove_all(work);
     Project::SetActive(prior);
@@ -565,7 +565,7 @@ SLOW_TEST(LanternKeeperShrineSaveAndLevelExitCardHoldUp)
     int complete = -1, failed = -1, cardFrames = 0, pausedFrames = 0;
     double shrineSaved = -1, shrineLive = -1, hurtTo = -1, cardHealth = -1;
     auto o = Play(
-        "Scenes/Boglar.zscene", 30 * 60 * 3,
+        "Scenes/Orchards.zscene", 30 * 60 * 3,
         [&](const std::string& line, Outcome& o) {
             if (line.find("SLICE_SAVED lvl=1 at=shrine") != std::string::npos && shrineSaved < 0)
             {
@@ -608,7 +608,7 @@ SLOW_TEST(LanternKeeperShrineSaveAndLevelExitCardHoldUp)
     std::printf("  hurt to %.0f, shrine save %.0f (live %.0f); card %d frames (%d paused), transfer failed at %d after the exit at %d, scenes %zu\n", hurtTo,
                 shrineSaved, shrineLive, cardFrames, pausedFrames, failed, complete, o.Scenes.size());
     CHECK(hurt && hurtTo < 100 && shrineSaved == 100 && shrineLive == 100);
-    CHECK(complete > 0 && failed > complete && unblocked && o.Scenes.size() == 2 && o.Scenes.back() == "Yertola");
+    CHECK(complete > 0 && failed > complete && unblocked && o.Scenes.size() == 2 && o.Scenes.back() == "Crypt");
     CHECK(cardFrames > 60 && pausedFrames == cardFrames && !healthChanged);
     CHECK(o.Log.find("SLICE_IO_FAILED transfer") != std::string::npos && o.Log.find("SLICE_RESUMED lvl=2 source=carry") != std::string::npos);
     // a fresh process on the shrine save: Continue restores the rested keeper
@@ -677,7 +677,7 @@ SLOW_TEST(LanternKeeperBossFightResumesInPhaseTwo)
     const auto resumed = b.Log.find("SLICE_TRACE ev=boss a=phase2-resumed");
     std::printf("  resumed: banners '%s', killed spirit back %d, calm phase 2 %d\n", banners.c_str(), wispBack, resumed != std::string::npos);
     CHECK(Clean(b.Log) && b.Log.find("SLICE_RESUMED lvl=2 source=save") != std::string::npos && resumed != std::string::npos);
-    CHECK(b.Log.find("SLICE_TRACE ev=boss a=phase2\n") == std::string::npos && banners.find("Soya Bek g'azablandi!") == std::string::npos && !wispBack);
+    CHECK(b.Log.find("SLICE_TRACE ev=boss a=phase2\n") == std::string::npos && banners.find("Soya Bek is enraged!") == std::string::npos && !wispBack);
     std::filesystem::remove_all(work);
     Project::SetActive(prior);
 }

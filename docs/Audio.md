@@ -6,7 +6,7 @@ cone, ambient zones, footsteps, sound-finished events, the import settings of au
 settings and the audio profiler — in the editor and in C++ scripts.
 
 The full fields of the components: [Components.md](Components.md#9-audio). The project's audio defaults (the mixer, the stream
-threshold, the voice limit, the 3D distance model): [ProjectSettings.md](ProjectSettings.md#9-audio-standartlari). The examples use
+threshold, the voice limit, the 3D distance model): [ProjectSettings.md](ProjectSettings.md#9-audio-defaults). The examples use
 `#include <Zamin/Zamin.h>` and `using namespace Zamin;`.
 
 ![The Audio scene and the Audio Mixer window](images/audio-mixer-editor.jpg)
@@ -59,7 +59,7 @@ Contents:
   do not play (the Audio Mixer window says "No audio device - setup only").
 - **An inactive entity** — its sound stops; when it is turned on again, a source with **Play on start** plays from the start.
 - **When the window loses the focus** (the player): the output pauses — every sound and the music stay
-  where they are ([ProjectSettings.md](ProjectSettings.md#oyna), *Pause in the background*). `PauseGame()` does not stop sounds by itself (the pause menu needs its UI sounds) —
+  where they are ([ProjectSettings.md](ProjectSettings.md#window), *Pause in the background*). `PauseGame()` does not stop sounds by itself (the pause menu needs its UI sounds) —
   filter the music or `PauseAudio` when needed ([section 9](#9-low-pass--high-pass-filters)).
 
 ---
@@ -202,7 +202,7 @@ PlaySound(path, p);
 
 **Distance.** A 3D sound is at full volume closer than `MinDistance` and falls off up to `MaxDistance` by the project's distance
 model: `Inverse` (natural, the default), `Linear` (silent at the max distance), `Exponential`, `None` — the formulas and the
-factor: [ProjectSettings.md](ProjectSettings.md#3d-ovoz-standartlari). In code: `Audio::GetSpatialDefaults()`
+factor: [ProjectSettings.md](ProjectSettings.md#3d-sound-defaults). In code: `Audio::GetSpatialDefaults()`
 (`AudioSpatialSettings::ComputeGain(distance)`).
 
 **The listener.** 3D sounds are heard from where the **Audio Listener** component (`AudioListenerComponent`) is — for example

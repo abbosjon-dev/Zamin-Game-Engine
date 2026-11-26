@@ -1,397 +1,401 @@
-# Zamin Engine: loyiha sozlamalari
+# Zamin Engine: project settings
 
-Bu hujjat o'yin loyihasining sozlamalarini tushuntiradi: `.zproject` fayli va editordagi **Loyiha sozlamalari**
-oynasi, player oynasi va ikonka, kompaniya / mahsulot nomi va versiya, sifat darajalari, grafik kontekst, vaqt
-(qat'iy qadam, vaqt masshtabi va `Time::` skript API), standart gravitatsiya, audio standartlari, input,
-teglar va qatlamlar, build sahnalar, lokalizatsiya (til fayllari va `Localize("key")`), debug chizish va
-saqlangan ma'lumotlar. Oxirida editorning o'z tili (o'zbek / ingliz), fayl formati va player buyruq qatori
-bor. Skript misollari C++ (`#include <Zamin/Zamin.h>`, `using namespace Zamin;`).
+This document explains the settings of a game project: the `.zproject` file and the editor's **Project settings**
+window, the player window and icon, the company / product name and version, quality levels, the graphics context,
+time (the fixed step, the time scale and the `Time::` script API), default gravity, audio defaults, input, tags and
+layers, build scenes, localization (language files and `Localize("key")`), debug drawing and saved data. At the end
+come the editor's own language (Uzbek / English), the file format and the player command line. The script examples
+are C++ (`#include <Zamin/Zamin.h>`, `using namespace Zamin;`).
 
-Mundarija:
+Contents:
 
-1. [Asosiy tushunchalar](#1-asosiy-tushunchalar)
-2. [Loyiha sozlamalari oynasi](#2-loyiha-sozlamalari-oynasi)
-3. [Umumiy](#3-umumiy)
-4. [Player: oyna, nom, versiya, ikonka](#4-player-oyna-nom-versiya-ikonka)
-5. [Sifat darajalari](#5-sifat-darajalari)
-6. [Grafika: OpenGL konteksti](#6-grafika-opengl-konteksti)
-7. [Vaqt va Time API](#7-vaqt-va-time-api)
-8. [Fizika: gravitatsiya va to'qnashuv qatlamlari](#8-fizika-gravitatsiya-va-toqnashuv-qatlamlari)
-9. [Audio standartlari](#9-audio-standartlari)
+1. [Core concepts](#1-core-concepts)
+2. [The Project settings window](#2-the-project-settings-window)
+3. [General](#3-general)
+4. [Player: window, name, version, icon](#4-player-window-name-version-icon)
+5. [Quality levels](#5-quality-levels)
+6. [Graphics: the OpenGL context](#6-graphics-the-opengl-context)
+7. [Time and the Time API](#7-time-and-the-time-api)
+8. [Physics: gravity and collision layers](#8-physics-gravity-and-collision-layers)
+9. [Audio defaults](#9-audio-defaults)
 10. [Input](#10-input)
-11. [Teglar va qatlamlar](#11-teglar-va-qatlamlar)
-12. [Build sahnalar](#12-build-sahnalar)
-13. [Lokalizatsiya](#13-lokalizatsiya)
-14. [Debug chizish](#14-debug-chizish)
-15. [Saqlangan ma'lumotlar (SaveData)](#15-saqlangan-malumotlar-savedata)
-16. [Editor tili (o'zbek / ingliz)](#16-editor-tili-ozbek--ingliz)
-17. [.zproject fayli: format, versiya, migratsiya](#17-zproject-fayli-format-versiya-migratsiya)
-18. [Player buyruq qatori](#18-player-buyruq-qatori)
-19. [Testlar](#19-testlar)
-20. [Qisqa API ma'lumotnomasi](#20-qisqa-api-malumotnomasi)
+11. [Tags and layers](#11-tags-and-layers)
+12. [Build scenes](#12-build-scenes)
+13. [Localization](#13-localization)
+14. [Debug drawing](#14-debug-drawing)
+15. [Saved data (SaveData)](#15-saved-data-savedata)
+16. [Editor language (Uzbek / English)](#16-editor-language-uzbek--english)
+17. [The .zproject file: format, version, migration](#17-the-zproject-file-format-version-migration)
+18. [The player command line](#18-the-player-command-line)
+19. [Tests](#19-tests)
+20. [Short API reference](#20-short-api-reference)
 
 ---
 
-## 1. Asosiy tushunchalar
+## 1. Core concepts
 
-Har bir o'yin - bu **loyiha**: `<Nom>.zproject` fayli, `Assets/` (sahnalar, teksturalar, ovozlar, til fayllari),
-`Source/` (C++ skriptlar) va skript moduli (`Binaries/lib<Nom>.so`). Loyiha sozlamalari `.zproject` faylida
-saqlanadi va **hamma sahnalar uchun umumiy**: oyna, sifat, vaqt, gravitatsiya, ovoz, tillar ...
+Every game is a **project**: a `<Name>.zproject` file, `Assets/` (scenes, textures, sounds, language files),
+`Source/` (C++ scripts) and a script module (`Binaries/lib<Name>.so`). The project settings are stored in the
+`.zproject` file and are **shared by all scenes**: the window, quality, time, gravity, sound, languages ...
 
-| Daraja | Qayerda | Misol |
+| Level | Where | Example |
 |---|---|---|
-| **Loyiha** | `.zproject`, *Oyna > Loyiha sozlamalari* | O'yin oynasi 1280x720, 60 Hz fizika, standart til `uz` |
-| **Sahna** | `.zscene`, *Sahna sozlamalari* | Shu sahnaning osmoni, soyalari, o'z gravitatsiyasi |
-| **O'yinchi tanlovi** | `SaveData` (o'yinlar orasida qoladi) | O'yinchi menyuda tanlagan sifat, til, to'liq ekran |
-| **Buyruq qatori** | `ZaminPlayer --...` | `--quality Low`, `--lang ru`, `--windowed` |
+| **Project** | `.zproject`, *Window > Project settings* | A 1280x720 game window, 60 Hz physics, default language `uz` |
+| **Scene** | `.zscene`, *Scene settings* | This scene's sky, shadows, its own gravity |
+| **Player's choice** | `SaveData` (kept between games) | The quality, language, fullscreen the player chose in the menu |
+| **Command line** | `ZaminPlayer --...` | `--quality Low`, `--lang ru`, `--windowed` |
 
-Ustunlik tartibi (pastdagisi ustun): loyiha sozlamasi -> o'yinchi saqlagan tanlov -> buyruq qatori. Sahna o'z
-qiymatini bermagan joyda (masalan gravitatsiya, fizika qadami "Loyihadan") loyihaniki ishlatiladi.
+Order of precedence (the lower one wins): the project setting -> the player's saved choice -> the command line. Where
+a scene gives no value of its own (gravity or the physics step set to "From the project", for example) the project's
+is used.
 
-Loyiha ochilganda (`Project::Load`) sozlamalar darhol qo'llanadi: audio mikser (`AudioEngine::SetMixerSettings`),
-sifat darajalari (`Quality::SetSettings`), til fayllari (`Project::ApplyLocalization`). Player oynasi va grafik
-kontekst esa `ZaminPlayer` oynani yaratganda qo'llanadi. Sozlamasi yo'q (eski) loyihalar dvigatelning standart
-qiymatlarini oladi - ular o'zini avvalgidek tutadi.
+When a project is opened (`Project::Load`) the settings are applied at once: the audio mixer
+(`AudioEngine::SetMixerSettings`), the quality levels (`Quality::SetSettings`), the language files
+(`Project::ApplyLocalization`). The player window and the graphics context are applied when `ZaminPlayer` creates
+the window. (Old) projects without a setting get the engine's default values - they behave as before.
 
 ---
 
-## 2. Loyiha sozlamalari oynasi
+## 2. The Project settings window
 
-*Oyna > Loyiha sozlamalari* (yoki *Fayl > Loyiha sozlamalari...*). Oyna bo'limlarga ajratilgan:
+*Window > Project settings* (or *File > Project settings...*). The window is divided into sections:
 
-![Loyiha sozlamalari: Input](images/project-settings-input.jpg)
+![Project settings: Input](images/project-settings-input.jpg)
 
-*Platformer2D loyiha sozlamalari, **Input** bo'limi: chapda bo'limlar ro'yxati, o'ngda harakatlar (`Jump` — Space, W, Up,
-Gamepad A ...) va takroriy bog'lanishlar ogohlantirishi.*
+*The Platformer2D project settings, the **Input** section: the list of sections on the left, the actions on the right
+(`Jump` — Space, W, Up, Gamepad A ...) and a warning about duplicate bindings.*
 
-| Bo'lim | Nima bor |
+| Section | What it holds |
 |---|---|
-| **Umumiy** | Loyiha nomi, papkalar, skript moduli, boshlang'ich sahna |
-| **Player** | Kompaniya, mahsulot nomi, versiya, oyna, FPS cheklovi, ikonka |
-| **Sifat** | Sifat darajalari (Low ... Ultra) va standart daraja |
-| **Grafika** | OpenGL versiyasi, debug konteksti, MSAA, sRGB; ishlayotgan kontekst ma'lumoti |
-| **Vaqt** | Qat'iy qadam, kadrdagi qadamlar, boshlang'ich vaqt masshtabi, eng uzun kadr |
-| **Fizika** | Standart gravitatsiya (2D / 3D), to'qnashuv qatlamlari va matritsasi, presetlar |
-| **Audio** | Master ovozi, mikser guruhlari, ovoz dvigateli, 3D ovoz standartlari |
-| **Input** | Harakatlar, o'qlar, 2D vektorlar |
-| **Teglar va qatlamlar** | Gameplay teglari, 2D saralash qatlamlari |
-| **Build sahnalar** | O'yin quriladigan sahnalar ro'yxati va build indekslari |
-| **Lokalizatsiya** | Standart til, taklif qilinadigan tillar, til fayllari papkasi, tizim tili |
-| **Debug** | O'yindagi debug chizish |
-| **Saqlangan ma'lumotlar** | `SaveData` qiymatlarini ko'rish va tahrirlash (loyiha faylida emas) |
+| **General** | The project name, folders, script module, start scene |
+| **Player** | Company, product name, version, window, FPS limit, icon |
+| **Quality** | The quality levels (Low ... Ultra) and the default level |
+| **Graphics** | OpenGL version, debug context, MSAA, sRGB; information about the running context |
+| **Time** | Fixed step, steps per frame, starting time scale, longest frame |
+| **Physics** | Default gravity (2D / 3D), collision layers and matrix, presets |
+| **Audio** | Master volume, mixer groups, the sound engine, 3D sound defaults |
+| **Input** | Actions, axes, 2D vectors |
+| **Tags and layers** | Gameplay tags, 2D sorting layers |
+| **Build scenes** | The list of scenes the game is built from and their build indices |
+| **Localization** | Default language, offered languages, the language files folder, the system language |
+| **Debug** | Debug drawing in the game |
+| **Saved data** | Viewing and editing `SaveData` values (not in the project file) |
 
-- **Qidiruv** (chap yuqorida): "soya", "VSync", "gravitatsiya" ... - mos bo'limlar qoladi, topilgan yorliqlar
-  ajratib ko'rsatiladi.
-- O'zgargan bo'lim nomi yonida `*` turadi. **Saqlash** `.zproject`ni yozadi, **Bekor qilish** hamma saqlanmagan
-  o'zgarishlarni qaytaradi; bo'limning o'zini ham standartga qaytarish mumkin.
-- Ko'p o'zgarishlar darhol ko'rinadi (sifat darajasi, audio, til), oyna va grafik kontekst esa player keyingi
-  safar ishga tushganda qo'llanadi.
-
----
-
-## 3. Umumiy
-
-| Maydon | `.zproject` kaliti | Ma'nosi |
-|---|---|---|
-| Nomi | `Project.Name` | Loyiha nomi (mahsulot nomi bo'sh bo'lsa o'yin nomi ham shu) |
-| Tavsif | `Project.Description` | O'yin haqida bir-ikki jumla - editor launcher'idagi loyiha kartasida |
-| Rasm (launcher) | `Project.Thumbnail` | Kartadagi rasm: loyiha papkasiga nisbatan yo'l (PNG / JPG, ~16:9); eksportga kirmaydi |
-| Assets papkasi | `Project.AssetDirectory` | Assetlar papkasi (standart `Assets`) |
-| Skriptlar papkasi | `Project.SourceDirectory` | C++ skriptlar (standart `Source`) |
-| Skript moduli | `Project.ScriptModulePath` | Kompilyatsiya qilingan modul (`Binaries/lib<Nom>.so`) |
-| Boshlang'ich sahna | `Project.StartScene`, `StartSceneUUID` | O'yin shu sahnadan boshlanadi |
-
-Boshlang'ich sahna UUID bilan ham saqlanadi: fayl editor yopiq paytda ko'chirilsa yoki qayta nomlansa ham
-topiladi. Sahna yo'q bo'lsa o'yin birinchi yoqilgan build sahnadan boshlanadi (12-bo'lim).
+- **Search** (top left): "shadow", "VSync", "gravity" ... - the matching sections remain and the labels found are
+  highlighted.
+- A changed section has a `*` next to its name. **Save** writes the `.zproject`, **Cancel** reverts every unsaved
+  change; a single section can also be reset to its defaults.
+- Many changes show at once (quality level, audio, language); the window and the graphics context are applied the
+  next time the player starts.
 
 ---
 
-## 4. Player: oyna, nom, versiya, ikonka
+## 3. General
 
-`.zproject`ning `"Player"` bo'limi. `ZaminPlayer` va eksport qilingan o'yin oynani shu sozlamalar bilan yaratadi.
-
-### Nom va versiya
-
-| Maydon | Kalit | Ma'nosi |
+| Field | `.zproject` key | Meaning |
 |---|---|---|
-| Kompaniya | `Company` | Studiya / muallif. SaveData papkasi: `~/.local/share/<kompaniya>/<mahsulot>` |
-| Mahsulot nomi | `Product` | O'yinchilar ko'radigan nom (oyna sarlavhasi, SaveData papkasi). Bo'sh: loyiha nomi |
-| Versiya | `Version` | Semantik versiya: `1.4.2`, `2.0.0-beta.1` (standart `1.0.0`) |
+| Name | `Project.Name` | The project name (also the game's name when the product name is empty) |
+| Description | `Project.Description` | A sentence or two about the game - on the project card in the editor launcher |
+| Picture (launcher) | `Project.Thumbnail` | The picture on the card: a path relative to the project folder (PNG / JPG, ~16:9); not exported |
+| Assets folder | `Project.AssetDirectory` | The assets folder (`Assets` by default) |
+| Scripts folder | `Project.SourceDirectory` | The C++ scripts (`Source` by default) |
+| Script module | `Project.ScriptModulePath` | The compiled module (`Binaries/lib<Name>.so`) |
+| Start scene | `Project.StartScene`, `StartSceneUUID` | The game starts from this scene |
 
-Kompaniya bo'sh bo'lsa SaveData `~/.local/share/zamin/<mahsulot>` papkasida turadi. Skriptlardan:
+The start scene is stored with its UUID too: it is found even when the file was moved or renamed while the editor was
+closed. When there is no such scene the game starts from the first enabled build scene (section 12).
+
+---
+
+## 4. Player: window, name, version, icon
+
+The `"Player"` section of the `.zproject`. `ZaminPlayer` and the exported game create their window with these
+settings.
+
+### Name and version
+
+| Field | Key | Meaning |
+|---|---|---|
+| Company | `Company` | The studio / author. The SaveData folder: `~/.local/share/<company>/<product>` |
+| Product name | `Product` | The name players see (window title, SaveData folder). Empty: the project name |
+| Version | `Version` | A semantic version: `1.4.2`, `2.0.0-beta.1` (`1.0.0` by default) |
+
+Without a company, SaveData lives in `~/.local/share/zamin/<product>`. From scripts:
 
 ```cpp
 ZM_INFO("{} {} ({})", Application::GetProductName(), Application::GetVersion(), Application::GetCompanyName());
 ```
 
-### Oyna
+### Window
 
-| Maydon | Kalit | Ma'nosi |
+| Field | Key | Meaning |
 |---|---|---|
-| Oyna o'lchami | `Width`, `Height` | Oynali rejimdagi o'lcham (160 ... 7680). To'liq ekran monitornikini oladi |
-| Oyna rejimi | `WindowMode` | `Windowed` (oynali), `Fullscreen` (to'liq ekran), `Borderless` (chegarasiz, ekran o'lchamida) |
-| O'lchamini o'zgartirish | `Resizable` | O'yinchi oynani cho'za oladimi |
-| VSync | `VSync` | Kadrlar monitor chastotasiga moslanadi |
-| Oyna sarlavhasi | `Title` | Bo'sh: mahsulot nomi |
-| Sarlavhada versiya | `VersionInTitle` | `"Mening o'yinim 1.4.2"` |
-| FPS cheklovi | `TargetFrameRate` | Soniyadagi eng ko'p kadr (10 ... 1000); `0` - cheklovsiz (VSync boshqaradi) |
-| Fonda ishlash | `RunInBackground` | `false`: oyna fokusni yo'qotsa o'yin pauzada (pastda) |
-| F11 / Alt+Enter | `FullscreenToggle` | O'yin ichida to'liq ekran <-> oyna (standart: yoqiq) |
+| Window size | `Width`, `Height` | The size in windowed mode (160 ... 7680). Fullscreen takes the monitor's |
+| Window mode | `WindowMode` | `Windowed`, `Fullscreen`, `Borderless` (no border, the size of the screen) |
+| Resizable | `Resizable` | Whether the player can resize the window |
+| VSync | `VSync` | Frames are synced to the monitor's refresh rate |
+| Window title | `Title` | Empty: the product name |
+| Version in title | `VersionInTitle` | `"My game 1.4.2"` |
+| FPS limit | `TargetFrameRate` | The most frames per second (10 ... 1000); `0` - no limit (VSync decides) |
+| Run in background | `RunInBackground` | `false`: the game pauses when the window loses focus (below) |
+| F11 / Alt+Enter | `FullscreenToggle` | Fullscreen <-> window inside the game (default: on) |
 
-Standart: 1280x720, oynali, o'lchami o'zgaradi, VSync yoqiq, cheklovsiz, fonda ishlaydi - player avval ham
-shunday edi.
+Default: 1280x720, windowed, resizable, VSync on, no limit, runs in the background - the player behaved like this
+before too.
 
-O'yin ichidagi sozlamalar menyusi buni o'zgartira oladi va tanlovni saqlaydi (keyingi ishga tushishda
-loyiha sozlamasidan ustun):
+An in-game settings menu can change these and save the choice (on the next start it wins over the project setting):
 
 ```cpp
 Display::SetFullscreen(!Display::IsFullscreen());
 Display::SetVSync(false);
-Display::SetResolution(1920, 1080);   // Display::GetResolutions(): monitorning rejimlari
+Display::SetResolution(1920, 1080);   // Display::GetResolutions(): the monitor's modes
 Display::SaveSettings();     // SaveData: "Zamin.Display.*"
 ```
 
-**Ustunlik tartibi** (har bir qiymat alohida, `PlayerLaunchSettings::Resolve`):
+**Order of precedence** (each value separately, `PlayerLaunchSettings::Resolve`):
 
-1. buyruq qatori (`--fullscreen`, `--borderless`, `--windowed`, `--resolution`, `--monitor`, `--vsync` / `--no-vsync`,
-   `--fps`, `--no-splash` - 18-bo'lim);
-2. o'yinchi saqlagan tanlov (`Display::SaveSettings`: ekran o'lchami, to'liq ekran, VSync; sifat va til ham o'zinikini saqlaydi);
-3. loyiha sozlamalari (shu bo'lim).
+1. the command line (`--fullscreen`, `--borderless`, `--windowed`, `--resolution`, `--monitor`, `--vsync` /
+   `--no-vsync`, `--fps`, `--no-splash` - section 18);
+2. the player's saved choice (`Display::SaveSettings`: screen size, fullscreen, VSync; quality and language save their
+   own as well);
+3. the project settings (this section).
 
-Player saqlangan tanlovni oyna yaratilishidan **oldin** o'qiydi: o'yin to'liq ekranda yopilgan bo'lsa, keyingi safar
-darhol to'liq ekranda ochiladi (oynali -> to'liq ekran sakrashisiz). Masalan `--no-vsync` faqat VSync'ni o'zgartiradi:
-saqlangan to'liq ekran tanlovi kuchda qoladi. Log'da har bir qiymat qayerdan kelgani yoziladi:
+The player reads the saved choice **before** the window is created: when the game was closed in fullscreen, it opens
+in fullscreen right away the next time (no windowed -> fullscreen jump). `--no-vsync`, for example, only changes VSync:
+the saved fullscreen choice stays in force. The log records where every value came from:
 
 ```
 Window settings: 1600x900 (command line), fullscreen (saved), VSync: yes (project), FPS: 60 (project), monitor: primary (project), splash: yes (project)
 ```
 
-**F11 / Alt+Enter**: o'yin ichida to'liq ekran (loyihaning turi: eksklyuziv yoki chegarasiz) va oyna orasida
-almashtiradi. Oyna avvalgi o'lchami va joyiga qaytadi; to'liq ekran oyna turgan monitorda ochiladi (ikkinchi monitorga
-surilgan oyna o'sha yerda to'liq ekran bo'ladi). Tanlov `Display::SaveSettings` kabi saqlanadi. Input xaritasida
-`ToggleFullscreen` nomli harakat bo'lsa, u ham almashtiradi (masalan gamepad tugmasi). O'chirish: `FullscreenToggle: false`.
+**F11 / Alt+Enter**: switches between fullscreen (the project's kind: exclusive or borderless) and a window inside the
+game. The window returns to its previous size and position; fullscreen opens on the monitor the window is on (a window
+moved to the second monitor becomes fullscreen there). The choice is saved like `Display::SaveSettings`. When the input
+map has an action named `ToggleFullscreen`, it switches too (a gamepad button, for example). To turn it off:
+`FullscreenToggle: false`.
 
-**FPS cheklovi va VSync**: cheklov (`TargetFrameRate` yoki `--fps N`) VSync bilan birga shunday ishlaydi
+**FPS limit and VSync**: the limit (`TargetFrameRate` or `--fps N`) works together with VSync like this
 (`FramePacingPlan`):
 
-| Holat | Nima ushlab turadi |
+| Situation | What holds the rate |
 |---|---|
-| Cheklov yo'q | VSync (yoqiq bo'lsa) yoki hech narsa |
-| VSync + monitor chastotasini bo'ladigan cheklov (60 Hz da 30 / 20 / 15, 144 Hz da 72) | VSync har kadrda 2 / 3 / 4 yangilanish kutadi - kadrlar mutlaqo tekis |
-| VSync + monitor chastotasidan katta yoki teng cheklov | VSync o'zi |
-| VSync + boshqa cheklov (60 Hz da 50), VSync o'chiq, monitor chastotasi noma'lum | Kutish (uyqu + qisqa aylanish) |
+| No limit | VSync (when on) or nothing |
+| VSync + a limit that divides the refresh rate (30 / 20 / 15 at 60 Hz, 72 at 144 Hz) | VSync waits 2 / 3 / 4 refreshes per frame - perfectly even frames |
+| VSync + a limit at or above the refresh rate | VSync itself |
+| VSync + another limit (50 at 60 Hz), VSync off, unknown refresh rate | Waiting (sleep + a short spin) |
 
-Kutish jadval bo'yicha: kadrlar boshi bir-biridan aniq bir davr uzoqlikda (`FramePacer`), shuning uchun bitta uyqu
-biroz kech uyg'onsa ham o'rtacha chastota aniq; davrdan uzoq to'xtash (yuklanish) jadvalni qayta boshlaydi.
-`ZAMIN_PLAYER_STATS=1` chiqishda haqiqiy kadr vaqtlarini yozadi (o'rtacha, min, max, eng sekin 1%).
+The waiting follows a schedule: frame starts are exactly one period apart (`FramePacer`), so even when one sleep wakes
+a little late the average rate is exact; a stop longer than a period (loading) restarts the schedule.
+`ZAMIN_PLAYER_STATS=1` writes the real frame times on exit (average, min, max, the slowest 1%).
 
-**Fonda pauza** (`RunInBackground: false`): oyna fokusni yo'qotsa (boshqa oyna oldinga chiqdi, Alt+Tab) o'yin
-butunlay to'xtaydi - skriptlar, fizika, animatsiyalar, o'yin vaqti (`Time`) yangilanmaydi, audio chiqishi pauzada
-(har bir tovush va musiqa joyida turadi, ovoz eshitilmaydi). Ekranda o'yinning oxirgi kadri xiralashgan holda
-va o'rtada "Paused" yozuvi (ostida "The game window is not focused - select the window to continue"); o'yinning til
-fayllarida `player.paused` / `player.paused_hint` kalitlari bo'lsa, ular ishlatiladi (Platformer2D: uz, ru, en).
-Pauzada CPU band emas: player voqealarni kutadi, rasmni boshida, oyna o'lchami o'zgarganda va har 0.5 s da qayta
-chizadi. Oyna yana fokusga kelsa o'yin to'xtagan joyidan davom etadi (uzun kadr sakrashisiz). Log:
-`Game paused: the window is not focused (running in the background is off)` / `Game resumed: the window is focused again`. Avtomatlashtirishda
-(screenshot, CI) `ZAMIN_FOCUS_LOSS_TEST=<kadr>[:<kadrlar soni>]` shu kadrdan fokus yo'qolganini taqlid qiladi.
+**Pausing in the background** (`RunInBackground: false`): when the window loses focus (another window came to the
+front, Alt+Tab) the game stops completely - scripts, physics, animations and the game time (`Time`) are not updated,
+the audio output is paused (every sound and the music stand still, nothing is heard). The screen shows the game's last
+frame dimmed with "Paused" in the middle (below it "The game window is not focused - select the window to continue");
+when the game's language files have `player.paused` / `player.paused_hint` keys, those are used (Platformer2D: uz, ru,
+en). While paused the CPU is idle: the player waits for events and redraws the picture at the start, when the window
+size changes and every 0.5 s. When the window gets focus again the game continues from where it stopped (with no long
+frame jump). The log:
+`Game paused: the window is not focused (running in the background is off)` / `Game resumed: the window is focused again`. For automation (screenshots, CI) `ZAMIN_FOCUS_LOSS_TEST=<frame>[:<frame count>]`
+simulates losing the focus from that frame.
 
-**Gamma va yorqinlik** (o'yinchi sozlamasi): player tayyor kadrni (sahna, UI, o'tishlar) ekranga oxirgi o'tishda
-(`DisplayPass`) gamma va yorqinlik bilan chiqaradi: `ekran = (rang x Yorqinlik) ^ (1 / Gamma)`. Gamma 0.5 ... 2.0
-(1 - o'zgarishsiz, kattasi - o'rta tonlar yorqinroq, qora va oq o'zgarmaydi), yorqinlik 0.5 ... 1.5 (butun tasvir
-ko'paytiriladi). O'yin menyusi o'zgartiradi va saqlaydi:
+**Gamma and brightness** (a player setting): the player outputs the finished frame (scene, UI, transitions) to the
+screen in the last pass (`DisplayPass`) with gamma and brightness: `screen = (colour x Brightness) ^ (1 / Gamma)`.
+Gamma 0.5 ... 2.0 (1 - unchanged, larger - brighter midtones, black and white unchanged), brightness 0.5 ... 1.5 (the
+whole picture is multiplied). The game menu changes and saves it:
 
 ```cpp
-Display::SetGamma(1.2f);        // keyingi kadrdan
+Display::SetGamma(1.2f);        // from the next frame
 Display::SetBrightness(0.9f);
 Display::SaveSettings();        // SaveData: "Zamin.Display.Gamma", "Zamin.Display.Brightness"
 ```
 
-Player boshida saqlanganini oladi; `--gamma G` / `--brightness B` undan ustun. Ikkalasi 1 bo'lsa (va o'yin fonda
-ishlasa) kadr to'g'ridan-to'g'ri ekranga chiziladi - avvalgidek, qo'shimcha o'tishsiz. Editorning Play rejimi ham
-o'yin tasvirini shu sozlama bilan ko'rsatadi (editor gizmolari o'zgarmaydi); Play boshlanganda saqlangan qiymatlar
-olinadi, Stop'da tiklanadi. Platformer2D pauza menyusining Sozlamalar > Ekran bo'limida "Gamma" va "Yorqinlik"
-slayderlari bor.
+The player takes the saved values at the start; `--gamma G` / `--brightness B` win over them. When both are 1 (and
+the game runs in the background) the frame is drawn straight to the screen - as before, with no extra pass. The
+editor's Play mode also shows the game picture with this setting (the editor gizmos do not change); the saved values
+are taken when Play starts and restored on Stop. The Platformer2D pause menu has "Gamma" and "Brightness" sliders in
+its Settings > Display section.
 
-### Splash ekran
+### Splash screen
 
-Player birinchi sahnadan oldin Zamin logotipini (logotip dvigatelning o'zida chiziladi, fayl kerak emas) yoki o'yinning
-o'z rasmini ko'rsatadi: paydo bo'ladi (0.5 s), turadi va so'nadi (0.5 s). Shu vaqtda birinchi sahna **fonda yuklanadi**
-(`SceneManager::LoadSceneAsync`, keyin `SceneManager::Start(op)`); yuklanish splash'dan uzoq davom etsa, logotip
-progress chizig'i bilan kutib turadi. Splash'dan keyin o'yinning birinchi kadri fon rangidan ochiladi.
+Before the first scene the player shows the Zamin logo (the logo is drawn by the engine itself, no file needed) or the
+game's own image: it fades in (0.5 s), stays and fades out (0.5 s). Meanwhile the first scene **loads in the
+background** (`SceneManager::LoadSceneAsync`, then `SceneManager::Start(op)`); when loading takes longer than the
+splash, the logo waits with a progress bar. After the splash, the game's first frame fades in from the background
+colour.
 
-| Maydon | Kalit (`"Splash": { ... }`) | Ma'nosi |
+| Field | Key (`"Splash": { ... }`) | Meaning |
 |---|---|---|
-| Splash ko'rsatish | `Enabled` | Standart: yoqiq. Buyruq qatori: `--no-splash` |
-| Davomiyligi | `Duration` | Soniya (0.5 ... 10), paydo bo'lish va so'nish bilan; standart 2 |
-| Tugma bilan o'tkazish | `Skippable` | Istalgan tugma / sichqoncha / gamepad tugmasi tugatadi (sahna yuklangach) |
-| O'z rasmi | `Image` | PNG / JPG (assetlarga nisbatan); bo'sh: Zamin logotipi |
-| Fon rangi | `Background` | `[r, g, b]` (0 ... 1) |
+| Show splash | `Enabled` | Default: on. Command line: `--no-splash` |
+| Duration | `Duration` | Seconds (0.5 ... 10), with the fade in and out; 2 by default |
+| Skip with any key | `Skippable` | Any key / mouse / gamepad button ends it (once the scene has loaded) |
+| Own image | `Image` | PNG / JPG (relative to the assets); empty: the Zamin logo |
+| Background color | `Background` | `[r, g, b]` (0 ... 1) |
 
-Avtomatlashtirilgan ishga tushishlarda (`ZAMIN_MAX_FRAMES`: skrinshotlar, CI) splash ko'rsatilmaydi;
-`ZAMIN_PLAYER_SPLASH=1` uni majburan yoqadi.
+In automated runs (`ZAMIN_MAX_FRAMES`: screenshots, CI) the splash is not shown; `ZAMIN_PLAYER_SPLASH=1` forces it.
 
-### Ekran nisbati (letterbox)
+### Aspect ratio (letterbox)
 
-Bitta ekran shakli uchun qilingan o'yin (`"Aspect": { ... }`). Yoqilganda o'yin tasviri `Width : Height`
-nisbatida qoladi: oyna kengroq bo'lsa yon tomonlarda, balandroq bo'lsa tepa va pastda `BarColor` rangli
-polosalar. Sahnalar kamerasi, UI (canvas masshtabi), sichqoncha (`GetMousePosition`, UI bosishlari) va render
-nishonlari tasvir o'lchamida ishlaydi; oyna o'lchami o'zgarsa (tortish, F11) hammasi har kadrda moslashadi va
-yangi o'lcham bir marta log'ga yoziladi. O'chiq (standart): tasvir butun oynani egallaydi. Editorda Play ham
-shu nisbatda ko'rsatiladi (o'yin ko'rinishi "Erkin" bo'lsa). Sozlamalar oynasi turli oynalarda (o'yin oynasi,
-2560x1080, 1024x768) qanday ko'rinishini chizib beradi.
+A game made for one screen shape (`"Aspect": { ... }`). When on, the game picture keeps the `Width : Height` ratio:
+when the window is wider there are bars of the `BarColor` colour at the sides, when it is taller at the top and
+bottom. The scene cameras, the UI (canvas scale), the mouse (`GetMousePosition`, UI clicks) and the render targets
+work at the picture's size; when the window size changes (dragging, F11) everything adapts every frame and the new
+size is logged once. Off (the default): the picture fills the whole window. In the editor Play is shown at this ratio
+too (when the game view is "Free"). The settings window draws how it looks in various windows (the game window,
+2560x1080, 1024x768).
 
-| Maydon | Kalit | Ma'nosi |
+| Field | Key | Meaning |
 |---|---|---|
-| Qat'iy nisbat | `Fixed` | Standart: o'chiq |
-| Nisbat | `Width`, `Height` | Tomonlari 1 ... 64 (16:9, 4:3, 21:9 ...) |
-| Polosalar rangi | `BarColor` | `[r, g, b]` (0 ... 1), standart qora |
+| Fixed aspect ratio | `Fixed` | Default: off |
+| Ratio | `Width`, `Height` | Sides 1 ... 64 (16:9, 4:3, 21:9 ...) |
+| Bar color | `BarColor` | `[r, g, b]` (0 ... 1), black by default |
 
-Oyna kichraytirilganda (minimize) player va editor yangilash va chizishni to'xtatadi: sikl faqat
-hodisalarni kutadi (protsessor band bo'lmaydi), o'yin vaqti o'tmaydi; oyna qaytganda davom etadi.
+When the window is minimized the player and the editor stop updating and drawing: the loop only waits for events (the
+CPU is not busy) and game time does not pass; it continues when the window comes back.
 
 ### Log
 
-Player logi (`"Log": { ... }`, o'zgartirilmagan bo'lsa faylga yozilmaydi). Darajadan pastdagi xabarlar
-yozilmaydi; `ZAMIN_LOG_LEVEL` va `--log-level` bulardan ustun ([Runtime.md, 6-bo'lim](Runtime.md#6-log-files)).
+The player log (`"Log": { ... }`, not written to the file unless changed). Messages below the level are not written;
+`ZAMIN_LOG_LEVEL` and `--log-level` win over these ([Runtime.md, section 6](Runtime.md#6-log-files)).
 
-| Maydon | Kalit | Ma'nosi |
+| Field | Key | Meaning |
 |---|---|---|
-| Dvigatel | `Engine` | Dvigatel xabarlari (`ZM_CORE_*`): `trace` ... `critical`, `off`; standart `trace` |
-| O'yin skriptlari | `App` | O'yin xabarlari (`ZM_*`); standart `trace` |
-| Log fayli | `WriteFile` | `player-<sana>.log` va `latest.log` yoziladimi (standart: ha; `--log-file` baribir yozadi) |
-| Faylga yoziladigan | `File` | Faylga faqat shu darajadan boshlab (terminalda hammasi); standart `trace` |
-| Saqlanadigan fayllar | `Keep` | Nechta eski log qoladi (1 ... 100, standart 5) |
+| Engine | `Engine` | Engine messages (`ZM_CORE_*`): `trace` ... `critical`, `off`; `trace` by default |
+| Game scripts | `App` | Game messages (`ZM_*`); `trace` by default |
+| Log file | `WriteFile` | Whether `player-<date>.log` and `latest.log` are written (default: yes; `--log-file` writes anyway) |
+| Written to the file | `File` | Only from this level up goes to the file (everything in the terminal); `trace` by default |
+| Files kept | `Keep` | How many old logs remain (1 ... 100, 5 by default) |
 
-### Ikonka
+### Icon
 
-`Icon` - assetlar ichidagi PNG (masalan `Textures/GameIcon.png`). Player oynaga 16, 32, 48, 64, 128, 256 px
-o'lchamlarini (rasmdan katta bo'lmaganlarini) qo'yadi; kvadrat bo'lmagan rasm shaffof kvadrat o'rtasiga
-joylanadi. Sozlamalar oynasi ikonkani ko'rsatadi va ogohlantiradi (kvadrat emas, 64 px dan kichik ...).
-Eksportda ikonka uch xil yoziladi:
+`Icon` - a PNG inside the assets (for example `Textures/GameIcon.png`). The player gives the window the 16, 32, 48,
+64, 128, 256 px sizes (those not larger than the image); a non-square image is centred in a transparent square. The
+settings window shows the icon and warns (not square, smaller than 64 px ...). In an export the icon is written in
+three ways:
 
-- `<o'yin>.png` - asl rasm, launcher yonida;
-- `icons/hicolor/<o'lcham>x<o'lcham>/apps/zamin-<o'yin>.png` - ikonka mavzusining tuzilishida 16, 32, 48, 64, 128,
-  256 px (rasmdan katta bo'lmaganlari, `ExportFiles::WriteIconSet`);
-- `<o'yin>.desktop` - papka qayerga ko'chirilsa ham ishlaydigan desktop fayli: uning `Exec`i o'zi turgan papkadagi
-  launcher'ni ishga tushiradi (`sh -c "..." sh %k`, `%k` - desktop faylining o'z yo'li), `Path` yo'q. Faqat `Icon`
-  to'liq yo'l bo'lishi shart (desktop fayllari nisbiy ikonka yo'lini olmaydi) - u eksport qilingan joyni ko'rsatadi.
+- `<game>.png` - the original image, next to the launcher;
+- `icons/hicolor/<size>x<size>/apps/zamin-<game>.png` - 16, 32, 48, 64, 128, 256 px in the icon theme layout (those
+  not larger than the image, `ExportFiles::WriteIconSet`);
+- `<game>.desktop` - a desktop file that works wherever the folder is moved: its `Exec` starts the launcher in the
+  folder it is in (`sh -c "..." sh %k`, `%k` - the desktop file's own path), there is no `Path`. Only `Icon` has to be
+  a full path (desktop files do not take a relative icon path) - it points to where the game was exported.
 
-Dasturlar menyusiga qo'shish: papkada `install-desktop-entry.sh` ni ishga tushiring (ko'chirilgan, arxivdan ochilgan
-yoki boshqa kompyuterdagi papkada ham). Skript:
+Adding it to the applications menu: run `install-desktop-entry.sh` in the folder (in a moved folder, one unpacked
+from an archive or one on another computer too). The script:
 
-- `~/.local/share/applications/zamin-<o'yin>.desktop` (`$XDG_DATA_HOME/applications`) ni papkaning hozirgi to'liq
-  yo'llari bilan yozadi;
-- ikonkalarni hamma o'lchamda `~/.local/share/icons/hicolor/<o'lcham>/apps/` ga o'rnatadi va menyu yozuvi ikonkani
-  nomi bilan oladi (`Icon=zamin-<o'yin>`: menyu, panel, Alt+Tab o'ziga kerakli o'lchamni topadi); ikonka to'plami
-  bo'lmasa - launcher yonidagi PNG;
-- launcher yonidagi `<o'yin>.desktop` ni yangi joy uchun qayta yozadi (ikonka yo'li yangilanadi).
+- writes `~/.local/share/applications/zamin-<game>.desktop` (`$XDG_DATA_HOME/applications`) with the folder's current
+  full paths;
+- installs the icons in every size to `~/.local/share/icons/hicolor/<size>/apps/` and the menu entry takes the icon by
+  name (`Icon=zamin-<game>`: the menu, the panel and Alt+Tab find the size they need); without an icon set - the PNG
+  next to the launcher;
+- rewrites the `<game>.desktop` next to the launcher for the new location (the icon path is updated).
 
-`install-desktop-entry.sh --uninstall` menyu yozuvini va o'rnatilgan ikonkalarni olib tashlaydi.
+`install-desktop-entry.sh --uninstall` removes the menu entry and the installed icons.
 
 ---
 
-## 5. Sifat darajalari
+## 5. Quality levels
 
-Sifat darajasi sahna **so'ragan** narsani cheklaydi: har sahna o'z soyalari, effektlari va render masshtabini
-saqlaydi, faol daraja esa ulardan "ko'pi bilan" qancha ishlatilishini aytadi. Hamma narsaga ruxsat beruvchi
-daraja (standart "Ultra") sahnani o'zgartirmaydi.
+A quality level limits what a scene **asks for**: every scene keeps its own shadows, effects and render scale, and the
+active level says how much of them is used "at most". A level that allows everything (the default "Ultra") does not
+change the scene.
 
-| Maydon | JSON kaliti | Ma'nosi |
+| Field | JSON key | Meaning |
 |---|---|---|
-| Soyalar | `Shadows` | O'chiq: quyosh umuman soya tashlamaydi |
-| Soya atlasi (eng katta) | `ShadowAtlas` | 1024 / 2048 / 4096 |
-| Soya filtri (eng qimmati) | `ShadowFilter` | `Hard` < `PCF3x3` < `Poisson` < `PCF5x5` |
-| Kaskadlar (eng ko'pi) | `ShadowCascades` | 1 ... 4 |
-| Soya masofasi | `ShadowDistance` | Sahna soya masofasiga ko'paytiriladi |
-| SSAO, Bloom, FXAA, Avto ekspozitsiya | `SSAO`, `Bloom`, `FXAA`, `AutoExposure` | O'chiq: sahna yoqqan bo'lsa ham ishlamaydi |
-| Render masshtabi | `RenderScale` | Sahna render masshtabiga ko'paytiriladi (0.25 ... 2) |
-| Anizotropik filtr | `Anisotropy` | 1 (o'chiq), 2, 4, 8, 16 - darajaning o'ziniki |
-| Tekstura sifati | `TextureQuality` | 0 to'liq, 1 yarim, 2 chorak, 3 sakkizdan bir o'lcham |
+| Shadows | `Shadows` | Off: the sun casts no shadows at all |
+| Shadow atlas (largest) | `ShadowAtlas` | 1024 / 2048 / 4096 |
+| Shadow filter (most costly) | `ShadowFilter` | `Hard` < `PCF3x3` < `Poisson` < `PCF5x5` |
+| Cascades (at most) | `ShadowCascades` | 1 ... 4 |
+| Shadow distance | `ShadowDistance` | Multiplied by the scene's shadow distance |
+| SSAO, Bloom, FXAA, Auto exposure | `SSAO`, `Bloom`, `FXAA`, `AutoExposure` | Off: they do not run even when the scene turned them on |
+| Render scale | `RenderScale` | Multiplied by the scene's render scale (0.25 ... 2) |
+| Anisotropic filter | `Anisotropy` | 1 (off), 2, 4, 8, 16 - the level's own |
+| Texture quality | `TextureQuality` | 0 full, 1 half, 2 quarter, 3 one-eighth size |
 
-Standart darajalar:
+The default levels:
 
-| Daraja | Soya atlasi | Filtr | Kaskad | Soya masofasi | SSAO | Bloom / FXAA / Avto eksp. | Render masshtabi | Tekstura |
+| Level | Shadow atlas | Filter | Cascades | Shadow distance | SSAO | Bloom / FXAA / Auto exp. | Render scale | Textures |
 |---|---|---|---|---|---|---|---|---|
-| Low | 1024 | Hard | 1 | x0.5 | yo'q | yo'q | x0.75 | yarim |
-| Medium | 2048 | PCF3x3 | 2 | x0.75 | yo'q | ha | x1 | to'liq |
-| High | 4096 | PCF3x3 | 3 | x1 | ha | ha | x1 | to'liq |
-| Ultra | cheksiz | cheksiz | cheksiz | x1 | ha | ha | x1 | to'liq |
+| Low | 1024 | Hard | 1 | x0.5 | no | no | x0.75 | half |
+| Medium | 2048 | PCF3x3 | 2 | x0.75 | no | yes | x1 | full |
+| High | 4096 | PCF3x3 | 3 | x1 | yes | yes | x1 | full |
+| Ultra | unlimited | unlimited | unlimited | x1 | yes | yes | x1 | full |
 
-Darajalarni qo'shish, nusxalash, qayta nomlash va o'chirish mumkin (16 tagacha); **Standart daraja** o'yin
-boshlanadigan darajadir. Editor ko'rinishi uchun ham daraja tanlanadi (*Sifat* bo'limida "Editorda ko'rish"),
-*Sahna sozlamalari* esa joriy daraja sahnada nimani cheklayotganini yozib ko'rsatadi.
+Levels can be added, duplicated, renamed and deleted (up to 16); the **Default level** is the level the game starts
+with. A level can be chosen for the editor view too ("Preview in editor" in the *Quality* section), and *Scene
+settings* spell out what the current level limits in the scene.
 
-O'yindagi sozlamalar menyusi:
+An in-game settings menu:
 
 ```cpp
-// "Grafika: Low / Medium / High / Ultra" tugmasi
+// The "Graphics: Low / Medium / High / Ultra" button
 int next = (Quality::GetLevel() + 1) % Quality::GetLevelCount();
 Quality::SetLevel(next);
-Quality::SaveSettings();          // SaveData: "Zamin.Quality.Level" = daraja nomi
-ZM_INFO("Sifat: {}", Quality::GetLevelName());
+Quality::SaveSettings();          // SaveData: "Zamin.Quality.Level" = the level's name
+ZM_INFO("Quality: {}", Quality::GetLevelName());
 ```
 
-Player ishga tushganda tartib: `--quality <nom | indeks>` -> o'yinchi saqlagan daraja -> loyihaning standart
-darajasi.
+When the player starts the order is: `--quality <name | index>` -> the level the player saved -> the project's
+default level.
 
 ---
 
-## 6. Grafika: OpenGL konteksti
+## 6. Graphics: the OpenGL context
 
-`"Graphics"` bo'limi - player oynasining OpenGL konteksti va oyna buferi:
+The `"Graphics"` section - the OpenGL context and window buffer of the player window:
 
-| Maydon | Kalit | Ma'nosi |
+| Field | Key | Meaning |
 |---|---|---|
-| OpenGL versiyasi | `OpenGL` | `4.1` (standart; dvigatel shuni talab qiladi, macOS'dagi eng kattasi), `4.3`, `4.5`, `4.6` core |
-| Debug konteksti | `DebugContext` | `Auto` (faqat Debug build'da), `On` (Release'da ham, sekinroq), `Off` |
-| MSAA (oyna) | `MSAA` | Oyna buferining namunalari: 0, 2, 4, 8, 16 |
-| sRGB framebuffer | `SRGBFramebuffer` | Oxirgi rasm apparat sRGB kodlashi bilan (shader gamma 2.2 o'rniga) |
+| OpenGL version | `OpenGL` | `4.1` (the default; the engine requires it, the highest on macOS), `4.3`, `4.5`, `4.6` core |
+| Debug context | `DebugContext` | `Auto` (only in a Debug build), `On` (in Release too, slower), `Off` |
+| MSAA (window) | `MSAA` | The window buffer's samples: 0, 2, 4, 8, 16 |
+| sRGB framebuffer | `SRGBFramebuffer` | The final image with hardware sRGB encoding (instead of the shader's gamma 2.2) |
 
-- Yangi versiya faqat drayverdan ko'proq narsa so'raydi; dvigatelning o'z chizishi bir xil.
-- MSAA ekranga to'g'ridan-to'g'ri chiziladigan narsalarni (pixel-perfect o'yin ustidagi UI, debug chiziqlar)
-  silliqlaydi; 3D rasmni FXAA silliqlaydi (sifat darajasi).
-- Drayver so'ralgan kontekstni bera olmasa player standartga (4.1 core) qaytadi va logga yozadi.
-- Editorning o'z konteksti doim 4.1 core; *Grafika* bo'limi ishlayotgan kontekstni ko'rsatadi: ishlab
-  chiqaruvchi, renderer, versiya, MSAA, sRGB, eng katta tekstura va anizotropiya.
-- Buyruq qatori: `--gl 4.6`, `--msaa 4`, `--gl-debug` / `--no-gl-debug`, `--srgb` / `--no-srgb`.
+- A newer version only asks more of the driver; the engine's own drawing is the same.
+- MSAA smooths what is drawn straight to the screen (UI over a pixel-perfect game, debug lines); the 3D picture is
+  smoothed by FXAA (the quality level).
+- When the driver cannot give the requested context the player falls back to the default (4.1 core) and logs it.
+- The editor's own context is always 4.1 core; the *Graphics* section shows the running context: vendor, renderer,
+  version, MSAA, sRGB, the largest texture and anisotropy.
+- Command line: `--gl 4.6`, `--msaa 4`, `--gl-debug` / `--no-gl-debug`, `--srgb` / `--no-srgb`.
 
 ---
 
-## 7. Vaqt va Time API
+## 7. Time and the Time API
 
-`"Time"` bo'limi:
+The `"Time"` section:
 
-| Maydon | Kalit | Standart | Ma'nosi |
+| Field | Key | Default | Meaning |
 |---|---|---|---|
-| Qat'iy qadam | `FixedStepRate` | 60 | Fizika (2D va 3D) soniyada necha qadam (20 ... 240 Hz; presetlar 50, 60, 100, 120, 144, 240) |
-| Kadrdagi qadamlar | `MaxStepsPerFrame` | 5 | Bitta kadr eng ko'pi bilan nechta qadam oladi; sekin kadrda qolgani tashlanadi (o'yin orqada qolib ketmaydi, sekinlashadi) |
-| Boshlang'ich vaqt masshtabi | `DefaultTimeScale` | 1 | O'yin boshlanadigan soat tezligi (0 ... 10) |
-| Eng uzun kadr | `MaxDeltaTime` | 0.1 s | Bundan uzun kadr (qotish, oynani sudrash) shuncha deb hisoblanadi - o'yin sakramaydi |
+| Fixed step | `FixedStepRate` | 60 | How many physics (2D and 3D) steps per second (20 ... 240 Hz; presets 50, 60, 100, 120, 144, 240) |
+| Steps per frame | `MaxStepsPerFrame` | 5 | The most steps one frame takes; on a slow frame the rest is dropped (the game does not fall behind, it slows down) |
+| Starting time scale | `DefaultTimeScale` | 1 | The clock speed the game starts with (0 ... 10) |
+| Longest frame | `MaxDeltaTime` | 0.1 s | A longer frame (a hitch, dragging the window) counts as this long - the game does not jump |
 
-Qat'iy qadam va kadrdagi qadamlar o'zinikini bermagan sahnalar uchun ("Loyihadan"); sahna *Sahna sozlamalari >
-Fizika* da o'z qiymatini qo'yishi mumkin.
+The fixed step and the steps per frame apply to scenes that give no values of their own ("From the project"); a scene
+can set its own in *Scene settings > Physics*.
 
-### Time:: skript API
+### The Time:: script API
 
-Bitta statik API - qayerdan chaqirilsa ham o'yin soati:
+One static API - the game clock wherever it is called from:
 
-| Funksiya | Ma'nosi |
+| Function | Meaning |
 |---|---|
-| `Time::GetDeltaTime()` | Shu kadrning o'yin vaqti (masshtablangan; pauzada 0) |
-| `Time::GetUnscaledDeltaTime()` | Shu kadrning haqiqiy vaqti (eng ko'pi `MaxDeltaTime`) |
-| `Time::GetFixedDeltaTime()` | Fizika qadami (1 / qadam chastotasi) |
-| `Time::GetTime()` / `GetUnscaledTime()` | O'yin boshlangandan beri o'yin / haqiqiy vaqt |
-| `Time::GetTimeSinceStartup()` | Dastur boshlangandan beri haqiqiy soniyalar |
-| `Time::GetFrameCount()` | Dastur boshlangandan beri kadrlar |
-| `Time::SetTimeScale(s)` / `GetTimeScale()` | Soat tezligi: 1 oddiy, 0.5 yarim, 0 to'xtagan |
-| `Time::SetPaused(b)` / `IsPaused()` | Masshtab 0 va avvalgisiga qaytish (pauza menyusi) |
-| `Time::GetSettings()` | Loyihaning vaqt sozlamalari |
+| `Time::GetDeltaTime()` | This frame's game time (scaled; 0 while paused) |
+| `Time::GetUnscaledDeltaTime()` | This frame's real time (at most `MaxDeltaTime`) |
+| `Time::GetFixedDeltaTime()` | The physics step (1 / the step rate) |
+| `Time::GetTime()` / `GetUnscaledTime()` | Game / real time since the game started |
+| `Time::GetTimeSinceStartup()` | Real seconds since the program started |
+| `Time::GetFrameCount()` | Frames since the program started |
+| `Time::SetTimeScale(s)` / `GetTimeScale()` | Clock speed: 1 normal, 0.5 half, 0 stopped |
+| `Time::SetPaused(b)` / `IsPaused()` | Scale 0 and back to the previous one (a pause menu) |
+| `Time::GetSettings()` | The project's time settings |
 
-Vaqt masshtabiga hamma yuklangan sahnalar ergashadi: fizika, animatsiyalar, particle'lar, taymer va
-tween'lar. UI esa haqiqiy vaqtda ishlaydi (pauza menyusi pauzada ham jonli).
+Every loaded scene follows the time scale: physics, animations, particles, timers and tweens. The UI runs in real time
+(a pause menu stays alive while paused).
 
 ```cpp
-// Sekinlashtirish (Adventure3D: T tugmasi)
+// Slow motion (Adventure3D: the T key)
 void OnUpdate(Timestep) override
 {
     if (Input::IsKeyJustPressed(Key::T))
@@ -399,86 +403,85 @@ void OnUpdate(Timestep) override
 }
 ```
 
-Skriptning taymerlari va tween'lari haqiqiy vaqtda yursin desangiz (sekinlashtirish effektining o'z
-so'nishi, menyu animatsiyasi) - `SetTimersUnscaled(true)`.
+When a script's timers and tweens should run in real time (the slow-motion effect's own fade, a menu animation) -
+`SetTimersUnscaled(true)`.
 
 ---
 
-## 8. Fizika: gravitatsiya va to'qnashuv qatlamlari
+## 8. Physics: gravity and collision layers
 
-### Standart gravitatsiya
+### Default gravity
 
-`"Physics"` bo'limi: `Gravity2D` (standart `[0, -9.8]`) va `Gravity3D` (standart `[0, -9.81, 0]`). Bu qiymatni
-o'z gravitatsiyasini bermagan hamma sahnalar oladi: yangi sahnalar va dvigatel standartini saqlagan eski
-sahnalar (sahna formati v4 da ular "Loyihadan" ga o'tkazilgan). Sahna *Sahna sozlamalari > Fizika* da o'zinikini
-qo'ya oladi. Presetlar: Earth (9.81), Moon (1.62), Mars (3.71), Jupiter (24.79), Platformer (20), Zero gravity (0).
-Har komponent eng ko'pi +-1000 m/s².
+The `"Physics"` section: `Gravity2D` (`[0, -9.8]` by default) and `Gravity3D` (`[0, -9.81, 0]` by default). This value
+is taken by every scene that gives no gravity of its own: new scenes and old scenes that kept the engine default (in
+scene format v4 they were moved to "From the project"). A scene can set its own in *Scene settings > Physics*.
+Presets: Earth (9.81), Moon (1.62), Mars (3.71), Jupiter (24.79), Platformer (20), Zero gravity (0).
+Every component at most +-1000 m/s².
 
-### To'qnashuv qatlamlari
+### Collision layers
 
-16 ta nomli qatlam va qaysi juftlar to'qnashishini ko'rsatuvchi matritsa (2D va 3D uchun bir xil,
-`"CollisionLayers2D"`). Tayyor presetlar (masalan "Platformer 2D", "3D aksiya") matritsani bir bosishda to'ldiradi;
-qatorni nusxalash / qo'yish mumkin. Kollayder komponentlari qatlamni nomi bilan tanlaydi, `Raycast` va
-so'rovlar `LayerMask` oladi.
+16 named layers and a matrix of which pairs collide (the same for 2D and 3D, `"CollisionLayers2D"`). Ready-made
+presets ("Platformer 2D", "3D action", for example) fill the matrix in one click; a row can be copied / pasted.
+Collider components choose their layer by name, `Raycast` and queries take a `LayerMask`.
 
 ---
 
-## 9. Audio standartlari
+## 9. Audio defaults
 
-*Audio* bo'limi va *Audio Mixer* oynasi bitta sozlamani (`"Audio"`) tahrirlaydi.
+The *Audio* section and the *Audio Mixer* window edit one setting (`"Audio"`).
 
-| Maydon | Kalit | Ma'nosi |
+| Field | Key | Meaning |
 |---|---|---|
-| Master ovozi | `Groups[Master].Volume` | O'yinning umumiy ovozi: hamma ovozlar Master orqali o'tadi |
-| Mikser guruhlari | `Groups` | Music, SFX, UI ... - har birining boshlang'ich ovozi, ota guruhi, filtrlari |
-| Oqim chegarasi (MB) | `StreamThresholdMB` | Bundan katta fayllar xotiraga to'liq yuklanmaydi, oqim bilan o'qiladi |
-| Bir vaqtda ovozlar | `MaxVoices` | Eng ko'pi bilan nechta ovoz chalinadi (ortig'i - eng kam muhimi o'rnini beradi) |
-| Doppler | `DopplerFactor` | Harakatlanayotgan 3D ovozlarning Doppler effekti: 1 tabiiy, 0 o'chiq |
+| Master volume | `Groups[Master].Volume` | The game's overall volume: every sound goes through Master |
+| Mixer groups | `Groups` | Music, SFX, UI ... - each with its starting volume, parent group, filters |
+| Streaming threshold (MB) | `StreamThresholdMB` | Larger files are not loaded fully into memory, they are streamed |
+| Simultaneous voices | `MaxVoices` | The most voices that play at once (beyond that the least important one gives way) |
+| Doppler | `DopplerFactor` | The Doppler effect of moving 3D sounds: 1 natural, 0 off |
 
-### 3D ovoz standartlari
+### 3D sound defaults
 
-`"Audio"` ichidagi `"Spatial"` (faqat standartdan farq qilsa yoziladi):
+`"Spatial"` inside `"Audio"` (written only when it differs from the default):
 
-| Maydon | Kalit | Standart | Ma'nosi |
+| Field | Key | Default | Meaning |
 |---|---|---|---|
-| Min masofa | `MinDistance` | 1 m | Bundan yaqinda ovoz to'liq balandlikda |
-| Max masofa | `MaxDistance` | 30 m | Bundan uzoqda ovoz boshqa pasaymaydi (chiziqli modelda - eshitilmaydi) |
-| Masofa modeli | `Rolloff` | `Inverse` | Ovoz masofa bilan qanday pasayadi (pastda) |
-| Pasayish (rolloff) | `RolloffFactor` | 1 | Qanchalik tez pasayadi: 1 model o'zi, 0 umuman pasaymaydi (0 ... 10) |
+| Min distance | `MinDistance` | 1 m | Closer than this the sound is at full volume |
+| Max distance | `MaxDistance` | 30 m | Farther than this the sound gets no quieter (in the linear model - silent) |
+| Distance model | `Rolloff` | `Inverse` | How the sound falls off with distance (below) |
+| Rolloff | `RolloffFactor` | 1 | How fast it falls off: 1 the model itself, 0 not at all (0 ... 10) |
 
-Masofa modellari (`d` - masofa, `min`/`max` oralig'ida qisiladi, `k` - pasayish koeffitsiyenti):
+The distance models (`d` - the distance, clamped to `min`/`max`, `k` - the rolloff factor):
 
-| Model | Kuchaytirish | Qachon |
+| Model | Gain | When |
 |---|---|---|
-| `Inverse` (teskari) | `min / (min + k (d - min))` | Tabiatdagidek: yaqinda tez, keyin sekin pasayadi |
-| `Linear` (chiziqli) | `1 - k (d - min) / (max - min)` | Max masofada jim bo'lishi kerak bo'lsa |
-| `Exponential` | `(d / min) ^ -k` | Teskaridan tezroq pasayadi |
-| `None` (masofasiz) | `1` | Hamma joyda bir xil (faqat chap / o'ng) |
+| `Inverse` | `min / (min + k (d - min))` | As in nature: fast when close, then slower |
+| `Linear` | `1 - k (d - min) / (max - min)` | When it has to be silent at the max distance |
+| `Exponential` | `(d / min) ^ -k` | Falls off faster than inverse |
+| `None` (no distance) | `1` | The same everywhere (only left / right) |
 
-Sozlamalar oynasi egri chiziqni chizadi (ustiga olib borilsa shu masofadagi foiz va dB). Masofa modeli hozir
-chalinayotgan 3D ovozlarga ham darhol ta'sir qiladi. Yangi **Audio Source** va **Footsteps** komponentlari
-loyihaning min / max masofasi bilan yaratiladi; inspektor ularning ostida loyiha qiymatlarini ko'rsatadi va
-"Standart" tugmasi bilan qaytaradi. Skriptlarda:
+The settings window draws the curve (hovering shows the percentage and dB at that distance). The distance model also
+affects 3D sounds that are playing right now. New **Audio Source** and **Footsteps** components are created with the
+project's min / max distance; the inspector shows the project values under them and resets to them with the "Default"
+button. In scripts:
 
 ```cpp
-// Masofalarsiz: loyiha standarti
+// Without distances: the project default
 PlaySoundAt("Audio/explosion.wav", GetWorldPosition());
 
-// Kodda o'qish
+// Reading it in code
 const AudioSpatialSettings& spatial = Audio::GetSpatialDefaults();
-float gain = spatial.ComputeGain(12.0f);   // 12 m dagi kuchaytirish (0..1)
+float gain = spatial.ComputeGain(12.0f);   // the gain at 12 m (0..1)
 ```
 
-`SoundParams`ning `MinDistance` / `MaxDistance` maydonlari standart `-1` - "loyihaniki" degani.
+The `MinDistance` / `MaxDistance` fields of `SoundParams` default to `-1`, meaning "the project's".
 
 ---
 
 ## 10. Input
 
-`"InputActions"`: nomli **harakatlar** (`Jump`: `Key:Space`, `Gamepad:A` ...), **o'qlar** (`Horizontal`: musbat /
-manfiy tugmalar, gamepad o'qi, deadzone, teskari) va **2D vektorlar** (`Move` = `Horizontal` + `Vertical`, `Clamp`
-yoki `Normalize` rejimi, radial deadzone). Tahrirlovchida bog'lanish qo'shish uchun "Tugmani bosing..." rejimi bor
-(klaviatura, sichqoncha yoki gamepad), takroriy bog'lanishlar ogohlantiriladi, filtr bilan qidiriladi.
+`"InputActions"`: named **actions** (`Jump`: `Key:Space`, `Gamepad:A` ...), **axes** (`Horizontal`: positive /
+negative keys, a gamepad axis, deadzone, invert) and **2D vectors** (`Move` = `Horizontal` + `Vertical`, `Clamp` or
+`Normalize` mode, a radial deadzone). The editor has a "Press a key..." mode for adding a binding (keyboard, mouse or
+gamepad), warns about duplicate bindings and can search with a filter.
 
 ```cpp
 if (Input::IsActionJustPressed("Jump")) Jump();
@@ -487,40 +490,39 @@ glm::vec2 move = Input::GetVector("Move");
 
 ---
 
-## 11. Teglar va qatlamlar
+## 11. Tags and layers
 
-- **Teglar** (`"Tags"`): inspektorda taklif qilinadigan gameplay teglari. Bo'lim har tegning loyihadagi
-  ishlatilishini ko'rsatadi; qayta nomlash hamma sahna fayllarida o'zgartiradi. Obyektlar yoki fayllar o'zgargan
-  qayta nomlash `.zproject` ning teglar ro'yxatiga ham darhol yoziladi (boshqa saqlanmagan sozlamalar saqlanmagan
-  holicha qoladi): "Bekor qilish" eski nomni qaytarmaydi, aks holda sahnalardagi teg ro'yxatda bo'lmay qolardi.
-- **Saralash qatlamlari** (`"SortingLayers"`): 2D chizish tartibi (orqadan oldinga), Y bo'yicha saralash.
+- **Tags** (`"Tags"`): gameplay tags offered in the inspector. The section shows where each tag is used in the
+  project; renaming changes it in every scene file. A rename that changed objects or files is also written to the
+  `.zproject`'s tag list at once (other unsaved settings stay unsaved): "Cancel" does not bring the old name back,
+  otherwise the tag in the scenes would no longer be in the list.
+- **Sorting layers** (`"SortingLayers"`): the 2D drawing order (back to front), sorting by Y.
 
 ---
 
-## 12. Build sahnalar
+## 12. Build scenes
 
-`"BuildScenes"`: o'yin quriladigan sahnalar tartib bilan. Yoqilganlari build indeksini oladi (0, 1, 2 ...;
-`LoadScene(int)`), eksport faqat ularni (va boshlang'ich sahnani) oladi. Oyna muammolarni ko'rsatadi:
-boshlang'ich sahna yo'q / ro'yxatda emas / o'chirilgan, fayl topilmadi, takroriy sahna. Batafsil:
-[docs/Scenes.md, 7-bo'lim](Scenes.md#7-the-build-scene-list-and-indices).
+`"BuildScenes"`: the scenes the game is built from, in order. The enabled ones get a build index (0, 1, 2 ...;
+`LoadScene(int)`), and the export takes only them (and the start scene). The window shows problems: no start scene /
+not in the list / disabled, file not found, a duplicate scene. Details:
+[docs/Scenes.md, section 7](Scenes.md#7-the-build-scene-list-and-indices).
 
-### Eksport: ishlatilmagan assetlar
+### Export: unused assets
 
-Eksport (`File > O'yinni build qilish`) Assets papkasidan faqat o'yin ishlatadiganlarini oladi
+An export (`File > Build game`) takes only what the game uses from the Assets folder
 (`ExportAssets::Plan`, `AssetReferenceIndex`):
 
-- build sahnalari (ro'yxat bo'sh bo'lsa - hamma sahnalar), boshlang'ich sahna va ularning sub-sahnalari;
-- ular orqali kerak bo'lganlar: prefab, material, model (va uning `.bin` / rasm fayllari), sprite va xossa
-  animatsiya kliplari (`.zsanim`, `.zanim`), particle preset, shrift, tovush ...;
-- loyiha fayli nomlaganlar (ikonka, splash rasmi) va C++ skriptlardagi satrlar (`"Audio/jump.wav"`);
-- doim: `Resources/` papkasi, til fayllari papkasi (`Localization/`) va "Doim kiritish" ro'yxati.
+- the build scenes (when the list is empty - all scenes), the start scene and their sub-scenes;
+- what they need: prefabs, materials, models (and their `.bin` / image files), sprite and property animation clips
+  (`.zsanim`, `.zanim`), particle presets, fonts, sounds ...;
+- what the project file names (the icon, the splash image) and strings in the C++ scripts (`"Audio/jump.wav"`);
+- always: the `Resources/` folder, the language files folder (`Localization/`) and the "Always include" list.
 
-Build ro'yxatida yo'q sahna har doim chiqarib tashlanadi. Hech qaysi turga kirmaydigan va hech kim nomlamagan
-fayllar (masalan `Data/levels.json`) kiritiladi - skript ularni o'zi o'qishi mumkin. Chiqarib tashlanganlar
-log'ga va eksport papkasidagi `excluded-assets.txt` ga yoziladi (yo'l, hajm, sabab); eksport oynasi va
-Project settings > Build sahnalar > Eksport keyingi eksport nimani olishini ko'rsatadi (ro'yxatdagi assetni
-o'ng tugma bilan "Doim kiritish"ga qo'shish mumkin). O'yin registriga (`AssetRegistry.zreg`) ham faqat
-kiritilganlar yoziladi.
+A scene not in the build list is always left out. Files that fit no kind and that nothing names (for example
+`Data/levels.json`) are included - a script may read them itself. What is left out is written to the log and to
+`excluded-assets.txt` in the export folder (path, size, reason); the export window and
+Project settings > Build scenes > Export show what the next export will take (an asset in the list can be added to
+"Always include" with a right click). Only the included files are written to the game's registry (`AssetRegistry.zreg`) too.
 
 ```json
 "Export": {
@@ -529,27 +531,27 @@ kiritilganlar yoziladi.
 }
 ```
 
-Skript asset nomini o'zi yasasa (`"Levels/Level" + n + ".zscene"`), uni "Doim kiritish"ga qo'shing (`*`
-istalgan qismga mos keladi). Masalan Neon Arena va Zamin Breakout ovozlarni qisqa nomi bilan chaqiradi
-(`Sfx("hit")` → `"Audio/hit.wav"` ish vaqtida yasaladi), shuning uchun ularning loyihasida `"AlwaysInclude":
-[ "Audio/*.wav" ]` bor — busiz eksport qilingan o'yinda ovozlar topilmaydi (buni `Tests/samples_export.py` topgan,
-`Tests/samples_assets.py` endi tekshiradi). `ExcludeUnusedAssets: false` - hamma fayl kiradi (build ro'yxatidan tashqari
-sahnalardan boshqa). Bo'lim standartdan farq qilganda yoziladi.
+When a script builds an asset name itself (`"Levels/Level" + n + ".zscene"`), add it to "Always include" (`*` matches
+any part). Neon Arena and Zamin Breakout, for example, call their sounds by a short name (`Sfx("hit")` → `"Audio/hit.wav"`
+is built at runtime), so their projects have `"AlwaysInclude": [ "Audio/*.wav" ]` — without it the sounds are not found
+in the exported game (`Tests/samples_export.py` found this, `Tests/samples_assets.py` now checks it).
+`ExcludeUnusedAssets: false` - every file goes in (except scenes outside the build list). The section is written when
+it differs from the default.
 
-### Eksport: Release skript moduli va strip
+### Export: the Release script module and strip
 
-Eksport C++ skriptlarni o'zi qayta kompilyatsiya qiladi (`"ReleaseScriptModule": true`, standart): Release
-rejimida, `-O2 -DNDEBUG` bilan, alohida build papkasida (`<loyiha>/Build/ExportRelease`, `ExportModuleBuild`).
-Modul o'sha papkaning `bin/` iga yoziladi (`cmake/ZaminGame.cmake`: `ZAMIN_GAME_MODULE_OUTPUT_DIR`), shuning uchun
-editorning hot reload moduli (`Binaries/lib<o'yin>.so`) o'zgarmaydi. Loyihada `CMakeLists.txt` bo'lmasa, u
-yoziladi. Kompilyatsiya bo'lmasa (cmake / kompilyator yo'q, kodda xato) editor moduli nusxalanadi va hisobotda
-ogohlantirish chiqadi.
+An export recompiles the C++ scripts itself (`"ReleaseScriptModule": true`, the default): in Release mode, with
+`-O2 -DNDEBUG`, in a separate build folder (`<project>/Build/ExportRelease`, `ExportModuleBuild`). The module is
+written to that folder's `bin/` (`cmake/ZaminGame.cmake`: `ZAMIN_GAME_MODULE_OUTPUT_DIR`), so the editor's hot reload
+module (`Binaries/lib<game>.so`) does not change. When the project has no `CMakeLists.txt`, one is written. When
+compilation fails (no cmake / compiler, an error in the code) the editor's module is copied and the report shows a
+warning.
 
-So'ng eksport qilingan binarlar - `ZaminPlayer`, `libZamin.so` va skript moduli - `strip --strip-unneeded` dan
-o'tadi (`"StripBinaries": true`, standart; `BinaryStrip`): debug ma'lumotlari va lokal simvollar olib tashlanadi,
-dinamik simvollar qoladi (modul yuklanadi, crash hisobotida eksport qilingan funksiya nomlari ko'rinadi). Debug
-build qilingan engine'da bu eksport hajmini bir necha marta kamaytiradi. `strip` (binutils) topilmasa, binarlar
-o'zgarmaydi va hisobotda ogohlantirish chiqadi. Ikkala variant eksport oynasida ham bor.
+Then the exported binaries - `ZaminPlayer`, `libZamin.so` and the script module - go through `strip --strip-unneeded`
+(`"StripBinaries": true`, the default; `BinaryStrip`): debug information and local symbols are removed, the dynamic
+symbols stay (the module loads, a crash report shows the names of exported functions). With an engine built in Debug
+this makes the export several times smaller. When `strip` (binutils) is not found, the binaries stay unchanged and the
+report shows a warning. Both options are in the export window too.
 
 ```json
 "Export": {
@@ -558,35 +560,35 @@ o'zgarmaydi va hisobotda ogohlantirish chiqadi. Ikkala variant eksport oynasida 
 }
 ```
 
-### Eksport hisoboti
+### The export report
 
-Eksport tugagach editor "Eksport hisoboti" oynasini ochadi (`File > Eksport hisoboti` - qayta ochish) va hisobotni
-o'yin papkasiga yozadi: `export-report.json` (vositalar uchun) va `export-report.txt` (o'qish uchun),
+When an export finishes the editor opens the "Export report" window (`File > Export report` - to open it again) and
+writes the report to the game folder: `export-report.json` (for tools) and `export-report.txt` (for reading),
 `ExportReport`:
 
-- o'yin, versiya, papka, sana, eksport qancha vaqt olgani, natija (muvaffaqiyatli / ogohlantirishlar / xatolar);
-- jami hajm va fayllar soni;
-- turlar bo'yicha hajm va ulush: binarlar, teksturalar, modellar (`.gltf`, `.glb`, `.bin`), audio, sahnalar
-  (`.zscene`, `.zsceneb`, prefablar), shriftlar, ma'lumotlar (material, klip, `.zmeta`, loyiha fayli, JSON),
-  boshqa (launcher, desktop fayli, ikonkalar);
-- eng katta 15 ta fayl;
-- chiqarib tashlangan assetlar (yo'l, hajm, sabab);
-- skript moduli qanday olingani (Release kompilyatsiya vaqti bilan / editor moduli), strip qancha kamaytirgani;
-- ogohlantirishlar va xatolar (build sahnalari muammolari, o'qilmagan ikonka, nusxalash xatolari ...).
+- the game, version, folder, date, how long the export took, the result (successful / warnings / errors);
+- the total size and number of files;
+- size and share by kind: binaries, textures, models (`.gltf`, `.glb`, `.bin`), audio, scenes (`.zscene`, `.zsceneb`,
+  prefabs), fonts, data (materials, clips, `.zmeta`, the project file, JSON), other (launcher, desktop file, icons);
+- the 15 largest files;
+- the excluded assets (path, size, reason);
+- how the script module was obtained (the Release compilation with its time / the editor's module), how much strip
+  saved;
+- warnings and errors (build scene problems, an unreadable icon, copy errors ...).
 
-Oynada papkani ochish, `.txt` faylini ochish va hisobot matnini nusxalash tugmalari bor. Avtomatlashtirish:
-`ZAMIN_EDITOR_EXPORT=<papka>` eksportni tugashini kutadi (hisobot oynasi ochiladi), `ZAMIN_EDITOR_EXPORT_REPORT=<papka>`
-oldingi eksportning hisobotini ochadi.
+The window has buttons to open the folder, open the `.txt` file and copy the report text. Automation:
+`ZAMIN_EDITOR_EXPORT=<folder>` waits for the export to finish (the report window opens),
+`ZAMIN_EDITOR_EXPORT_REPORT=<folder>` opens the report of an earlier export.
 
 ---
 
-## 13. Lokalizatsiya
+## 13. Localization
 
-### Til fayllari
+### Language files
 
-Har til - `Assets/Localization/<kod>.json` fayli (papka sozlamada o'zgaradi). Ichma-ich obyektlar nuqtali
-kalitlarga aylanadi, `"$name"` - tilning o'z nomi, faqat ko'plik shakllaridan iborat obyekt - bitta ko'plik
-yozuvi:
+Every language is an `Assets/Localization/<code>.json` file (the folder can be changed in the settings). Nested
+objects become dotted keys, `"$name"` - the language's own name, an object made only of plural forms - one plural
+entry:
 
 ```json
 {
@@ -602,52 +604,53 @@ yozuvi:
 }
 ```
 
-Bu yerda kalitlar: `menu.start`, `menu.options.audio`, `hud.score`, `hud.coins`. Yangi loyiha `uz.json` va
-`en.json` bilan yaratiladi.
+The keys here: `menu.start`, `menu.options.audio`, `hud.score`, `hud.coins`. A new project is created with `uz.json`
+and `en.json`.
 
-### Sozlamalar (`"Localization"`)
+### Settings (`"Localization"`)
 
-| Maydon | Kalit | Ma'nosi |
+| Field | Key | Meaning |
 |---|---|---|
-| Standart til | `DefaultLanguage` | O'yin shu tilda boshlanadi; boshqa tilda yo'q yoki bo'sh kalitlar shu tildan olinadi (standart `uz`) |
-| Tillar ro'yxati | `Languages` | Taklif qilinadigan tillar, til menyusidagi tartibda. Bo'sh: papkadagi hamma fayllar (standart til birinchi) |
-| Til fayllari papkasi | `Directory` | Assets ichidagi papka (standart `Localization`) |
-| Tizim tilida boshlash | `UseSystemLanguage` | O'yin kompyuter tilida (`$LC_ALL` / `$LC_MESSAGES` / `$LANG`) boshlanadi, agar u taklif qilinsa |
+| Default language | `DefaultLanguage` | The game starts in this language; keys missing or empty in another language are taken from it (`uz` by default) |
+| Language list | `Languages` | The offered languages, in the order of the language menu. Empty: every file in the folder (the default language first) |
+| Language files folder | `Directory` | A folder inside Assets (`Localization` by default) |
+| Start in the system language | `UseSystemLanguage` | The game starts in the computer's language (`$LC_ALL` / `$LC_MESSAGES` / `$LANG`), if it is offered |
 
-Til kodi: 2-8 belgi, harf, raqam, `-` yoki `_` (`uz`, `ru`, `en`, `pt-BR`). Bo'lim har tilning faylini,
-yetishmayotgan tarjimalar sonini ko'rsatadi, yo'q faylni yaratadi, til qo'shadi; ro'yxatdagi tilni bosish uni
-editorda ko'rish tili qiladi (sahnadagi kalitli matnlar shu tilda ko'rinadi).
+A language code: 2-8 characters, letters, digits, `-` or `_` (`uz`, `ru`, `en`, `pt-BR`). The section shows each
+language's file and the number of missing translations, creates a missing file and adds languages; clicking a language
+in the list makes it the editor's preview language (keyed texts in the scene show in that language).
 
-### Skript API
+### Script API
 
 ```cpp
 Localize("menu.start");                    // "Boshlash" / "Начать" / "Start"
-Localize("hud.score", score);              // "Ochko: {0}" -> "Ochko: 120"
-Localize("hud.time", minutes, seconds);    // "{0}:{1:02}" - std::format belgilari ishlaydi
-LocalizePlural("hud.coins", coins);        // ko'plik shakli soniga qarab, {0} = son
+Localize("hud.score", score);              // "Score: {0}" -> "Score: 120"
+Localize("hud.time", minutes, seconds);    // "{0}:{1:02}" - std::format specifiers work
+LocalizePlural("hud.coins", coins);        // the plural form by the number, {0} = the number
 
-Localization::SetLanguage("ru");           // taklif qilinmagan til: false, hech narsa o'zgarmaydi
-Localization::NextLanguage();              // keyingi til (til tugmasi)
-Localization::SaveSettings();              // o'yinchi tanlovi: SaveData "Zamin.Language"
+Localization::SetLanguage("ru");           // a language not offered: false, nothing changes
+Localization::NextLanguage();              // the next language (a language button)
+Localization::SaveSettings();              // the player's choice: SaveData "Zamin.Language"
 Localization::GetLanguage();               // "ru"
 Localization::GetLanguageName("ru");       // "Русский"
 Localization::GetLanguages();              // { "uz", "ru", "en" }
 ```
 
-- **Zaxira**: joriy tilda kalit yo'q yoki bo'sh bo'lsa standart tilniki olinadi; hech qayerda bo'lmasa kalitning
-  o'zi qaytadi va bir marta ogohlantiriladi (`Localization::GetMissingKeys()` ro'yxati; lokalizatsiya jadvali
-  ularni "qo'shish" tugmasi bilan ko'rsatadi).
-- **Formatlash**: `{0}`, `{1}` ... std::format qoidalari bilan (`{0:.1f}`, `{1:>4}`). Argumentsiz `Localize` matnni
-  o'zgartirmaydi (qavslarni qochirish shart emas); buzilgan naqsh matnni o'zgarishsiz qaytaradi.
-- **Ko'plik**: CLDR qoidalari (o'zbek / ingliz: one, other; rus: one, few, many, other; yapon, xitoy: faqat other).
+- **Fallback**: when the key is missing or empty in the current language, the default language's is taken; when it is
+  nowhere, the key itself is returned and a warning is given once (the `Localization::GetMissingKeys()` list; the
+  localization table shows them with an "add" button).
+- **Formatting**: `{0}`, `{1}` ... with the std::format rules (`{0:.1f}`, `{1:>4}`). `Localize` without arguments does
+  not change the text (braces need no escaping); a broken pattern returns the text unchanged.
+- **Plurals**: the CLDR rules (Uzbek / English: one, other; Russian: one, few, many, other; Japanese, Chinese: only
+  other).
 
-### Text komponenti va til almashishi
+### The Text component and language changes
 
-Text komponentining **Lokalizatsiya kaliti** maydoni (inspektorda kalitlar ro'yxatidan tanlanadi): matn
-joriy tildagi satr bilan ko'rsatiladi va til o'zgarsa o'zi yangilanadi. Kalit hech bir tilda bo'lmasa
-komponentning o'z `Text`i ko'rinadi (inspektor ogohlantiradi).
+The Text component's **Localization key** field (chosen from the list of keys in the inspector): the text shows the
+string in the current language and updates itself when the language changes. When the key is in no language the
+component's own `Text` is shown (the inspector warns).
 
-Skript o'zi yasagan matnlar uchun `OnLanguageChanged` chaqiriladi (keyingi kadrda, `OnUpdate`dan oldin):
+For texts a script builds itself `OnLanguageChanged` is called (on the next frame, before `OnUpdate`):
 
 ```cpp
 class Hud : public ScriptableEntity
@@ -666,92 +669,93 @@ private:
 };
 ```
 
-Player tilni shunday tanlaydi: `--lang <kod>` -> o'yinchi saqlagan til -> tizim tili (yoqilgan bo'lsa) ->
-standart til. Editorning Play rejimi o'yin ichida til almashsa, To'xtatishda editor ko'rish tiliga qaytadi.
+The player chooses the language like this: `--lang <code>` -> the language the player saved -> the system language
+(when enabled) -> the default language. When the language changes inside the game in the editor's Play mode, Stop
+returns to the editor's preview language.
 
-### Lokalizatsiya jadvali
+### The localization table
 
-*Oyna > Lokalizatsiya*: hamma til fayllari bitta jadvalda - har kalit bir qator, har til bir ustun.
-Yetishmayotgan tarjimalar belgilanadi va sanaladi ("Faqat yetishmayotganlar" filtri), `{0}` belgilari standart
-tildagidan farq qilsa ogohlantiriladi, ko'plik shakllari alohida tahrirlanadi. Kalit qo'shish, qayta nomlash,
-o'chirish (hamma tillardan), `Localize("...")` ni nusxalash bor. **Saqlash** har `<kod>.json`ni yozadi va
-tillarni qayta yuklaydi; fayllar editor tashqarisida o'zgarsa ham editor ularni o'zi qayta o'qiydi.
+*Window > Localization*: every language file in one table - one row per key, one column per language.
+Missing translations are marked and counted (the "Only missing" filter), a warning is given when the `{0}` markers
+differ from the default language's, plural forms are edited separately. Keys can be added, renamed and deleted (from
+every language), and `Localize("...")` can be copied. **Save** writes every `<code>.json` and reloads the languages;
+when the files change outside the editor, the editor rereads them by itself.
 
-Namuna: **Platformer2D** menyu, HUD, yuklanish ekrani va pauza menyusi uch tilda (uz, ru, en); menyuda `L`
-tugmasi va pauza menyusidagi til tugmasi tilni almashtiradi va tanlovni saqlaydi.
-
----
-
-## 14. Debug chizish
-
-`"DebugDraw"`: o'yinda (player) skriptlarning `DebugDraw` shakllari va fizika ko'rinishlari: raycastlar
-(`RaycastDuration` soniya ko'rinadi), kontakt nuqtalari va ularning tafsilotlari, joint'lar, personaj va jismlar
-tezligi (`VelocityScale`), chiziq qalinligi, matn o'lchami. Buyruq qatori: `--no-debug-draw`, `--debug-raycasts`,
-`--debug-contacts`, `--debug-contact-details`, `--debug-joints`, `--debug-velocities`, `--debug-nav` (navigatsiya: grid kataklari,
-agentlar yo'li, ko'rish konuslari, patrul yo'llari; `--debug-nav-cells` - yuriladigan kataklar ham). Shipping build'larda debug
-chizish umuman yo'q; editor viewport'ining o'z tugmalari bor.
+Sample: the **Platformer2D** menu, HUD, loading screen and pause menu in three languages (uz, ru, en); the `L` key in
+the menu and the language button in the pause menu switch the language and save the choice.
 
 ---
 
-## 15. Saqlangan ma'lumotlar (SaveData)
+## 14. Debug drawing
 
-*Saqlangan ma'lumotlar* bo'limi o'yin `SaveData` bilan saqlagan qiymatlarni (o'yinlar orasida qoladi) ko'rsatadi,
-tahrirlaydi, yangi qiymat qo'shadi va tozalaydi. Ular loyiha faylida emas, foydalanuvchi papkasida
-(`~/.local/share/<kompaniya>/<mahsulot>`). Dvigatelning o'z kalitlari: `Zamin.Display.*` (to'liq ekran, VSync),
-`Zamin.Quality.Level`, `Zamin.Language`.
+`"DebugDraw"`: in the game (player) the scripts' `DebugDraw` shapes and the physics views: raycasts (visible for
+`RaycastDuration` seconds), contact points and their details, joints, character and body velocities
+(`VelocityScale`), line thickness, text size. Command line: `--no-debug-draw`, `--debug-raycasts`,
+`--debug-contacts`, `--debug-contact-details`, `--debug-joints`, `--debug-velocities`, `--debug-nav` (navigation: grid
+cells, agent paths, sight cones, patrol routes; `--debug-nav-cells` - the walkable cells too). Shipping builds have
+no debug drawing at all; the editor viewport has its own buttons.
 
 ---
 
-## 16. Editor tili (o'zbek / ingliz)
+## 15. Saved data (SaveData)
 
-Editorning o'z interfeysi ikki tilda: **ingliz** (standart) va **o'zbek**. *Edit > Preferences > Appearance >
-Editor language* (o'zbekchada: *Tahrirlash > Sozlamalar > Ko'rinish > Editor tili*) - darhol almashadi va
-`~/.config/zamin/preferences.json` ga (`"Language": "uz" | "en"`) yoziladi. Standart til: inglizcha (`"en"`);
-o'zbekcha Preferences oynasida tanlanadi.
+The *Saved data* section shows, edits, adds and clears the values the game stored with `SaveData` (kept between
+games). They are not in the project file but in the user's folder (`~/.local/share/<company>/<product>`). The
+engine's own keys: `Zamin.Display.*` (fullscreen, VSync), `Zamin.Quality.Level`, `Zamin.Language`.
 
-Tarjima qilinadi: editor ko'rsatadigan hamma matn - menyular, oyna sarlavhalari va dialoglar, tugmalar, belgilash
-katakchalari, tablar va bo'lim sarlavhalari, qidiruv maydonlari, holat paneli, inspektor va loyiha sozlamalari
-yorliqlari, uzun izohlar (tooltip'lar), ko'rsatmalar, viewport xabarlari, undo tarixi yozuvlari, klaviatura
-yorliqlari ro'yxati va editor yaratadigan obyektlarning standart nomlari. Inglizcha editorda o'zbekcha matn
-qolmasligi kerak. O'yinning tili (13-bo'lim) editor tilidan mustaqil.
+---
 
-Avtomatlashtirish / skrinshotlar uchun: `ZAMIN_EDITOR_LANGUAGE=uz ZaminEditor ...` (faylga yozilmaydi).
+## 16. Editor language (Uzbek / English)
 
-Dasturchilar uchun: matnlar o'zbekcha yoziladi va `Tr()` bilan o'raladi; inglizchasi
-`Zamin/src/Zamin/Editor/EditorLanguage.cpp` jadvalidan olinadi (kalit - o'zbekcha matn):
+The editor's own interface comes in two languages: **English** (the default) and **Uzbek**. *Edit > Preferences >
+Appearance > Editor language* (in Uzbek: *Tahrirlash > Sozlamalar > Ko'rinish > Editor tili*) - it switches at once and
+is written to `~/.config/zamin/preferences.json` (`"Language": "uz" | "en"`). The default language: English (`"en"`);
+Uzbek is chosen in the Preferences window.
+
+What is translated: every text the editor shows - menus, window titles and dialogs, buttons, checkboxes, tabs and
+section headers, search fields, the status bar, inspector and project settings labels, long explanations (tooltips),
+instructions, viewport messages, undo history entries, the keyboard shortcut list and the default names of objects the
+editor creates. No Uzbek text may remain in the English editor. The game's language (section 13) is independent of the
+editor's.
+
+For automation / screenshots: `ZAMIN_EDITOR_LANGUAGE=uz ZaminEditor ...` (not written to the file).
+
+For developers: the texts are written in Uzbek and wrapped in `Tr()`; the English comes from the table in
+`Zamin/src/Zamin/Editor/EditorLanguage.cpp` (the key is the Uzbek text):
 
 ```cpp
 if (ImGui::BeginMenu(Tr("Fayl")))                                   // "File"
-ImGui::Begin(Tr(ICON_FA_GEAR "  Loyiha sozlamalari###ProjectSettings"));  // ikonka, "###id" saqlanadi
-ImGui::MenuItem(Tr(ICON_FA_FOLDER_OPEN "  Sahnani ochish..."));     // "..." va ":" ham saqlanadi
-std::format("{}: {}", EditorText::Choose("Bekor qilish", "Undo"), name); // bir so'z - ikki ma'no
+ImGui::Begin(Tr(ICON_FA_GEAR "  Loyiha sozlamalari###ProjectSettings"));  // the icon and "###id" are kept
+ImGui::MenuItem(Tr(ICON_FA_FOLDER_OPEN "  Sahnani ochish..."));     // "..." and ":" are kept too
+std::format("{}: {}", EditorText::Choose("Bekor qilish", "Undo"), name); // one word - two meanings
 ```
 
-`UI::PropertyLabel` / `UI::PropertyHeader` (yorlig'i ham, izohi ham), `UI::Tooltip`, `UI::ToolbarButton` va
-`UI::TrCombo` matnni o'zi tarjima qiladi. Formatli matnlar: `ImGui::Text(Tr("%zu ta kalit"), n)` yoki
-`TrFormat("{} ta obyekt", n)` (`std::format` o'rniga) - inglizcha matn ham xuddi shu `%d` / `{}` o'rinlarini olishi
-shart. Static jadvallardagi (`static const char* items[]`) matnlar kalit bo'lib qoladi va ko'rsatiladigan joyda
-`Tr(items[i])` bilan tarjima qilinadi. Oyna sarlavhalarida `###id` ishlatiladi - til almashganda oynaning joyi va
-joylashuvi (layout) saqlanadi. Jadvalda yo'q matn o'zgarishsiz ko'rinadi, shuning uchun testlar buni tekshiradi:
-`EditorTranslationKeysComplete` (har bir `Tr` kalitining inglizchasi bor), `EditorNoRawUzbekLiterals` (`Editor/src`
-dagi o'zbekcha ko'rinadigan literal `Tr` siz ImGui / format chaqiruviga berilsa test yiqiladi) va
-`EditorLanguageStrings` (har juftlikning `%d` / `{}` o'rinlari bir xil).
+`UI::PropertyLabel` / `UI::PropertyHeader` (both the label and its tooltip), `UI::Tooltip`, `UI::ToolbarButton` and
+`UI::TrCombo` translate the text themselves. Formatted texts: `ImGui::Text(Tr("%zu ta kalit"), n)` or
+`TrFormat("{} ta obyekt", n)` (instead of `std::format`) - the English text must take exactly the same `%d` / `{}`
+placeholders. Texts in static tables (`static const char* items[]`) stay keys and are translated where they are shown
+with `Tr(items[i])`. Window titles use `###id` - so the window's position and layout are kept when the language
+changes. A text missing from the table shows unchanged, so tests check this: `EditorTranslationKeysComplete` (every
+`Tr` key has an English text), `EditorNoRawUzbekLiterals` (the test fails when a literal in `Editor/src` that looks
+Uzbek is passed to an ImGui / format call without `Tr`) and `EditorLanguageStrings` (the `%d` / `{}` placeholders of
+every pair are the same).
 
 ---
 
-## 17. .zproject fayli: format, versiya, migratsiya
+## 17. The .zproject file: format, version, migration
 
-Fayl JSON, bo'limlar qat'iy tartibda: `Version`, `Project`, `Player`, `BuildScenes`, `InputActions`, `Tags`,
-`SortingLayers`, `CollisionLayers2D`, `Physics`, `Time`, `Audio`, `Quality`, `Graphics`, `Localization`,
-`Export`, `DebugDraw`. Standart qiymatdagi bo'limlar (`Physics`, `Time`, `Quality`, `Graphics`, `Localization`,
-`Export`, audio `Spatial`) yozilmaydi - eski fayllar o'zgarmaydi.
+The file is JSON, with the sections in a fixed order: `Version`, `Project`, `Player`, `BuildScenes`, `InputActions`,
+`Tags`, `SortingLayers`, `CollisionLayers2D`, `Physics`, `Time`, `Audio`, `Quality`, `Graphics`, `Localization`,
+`Export`, `DebugDraw`. Sections with default values (`Physics`, `Time`, `Quality`, `Graphics`, `Localization`,
+`Export`, the audio `Spatial`) are not written - old files do not change.
 
-- **Versiya** (`"Version": 2`): eski fayl (v0 - tekis, v1 - `"Version"`siz) o'qilganda migratsiyalar zanjiri bilan
-  joriy versiyaga keltiriladi; diskdagi fayl loyiha saqlanmaguncha o'zgarmaydi. Log nima o'zgarganini yozadi.
-- **Noma'lum kalitlar** (asboblar bo'limlari, yangiroq dvigatel kalitlari) saqlanadi va loyiha saqlanganda
-  joyida qayta yoziladi; *Umumiy* bo'limi ularni ko'rsatadi.
+- **Version** (`"Version": 2`): when an old file (v0 - flat, v1 - without `"Version"`) is read, a chain of migrations
+  brings it to the current version; the file on disk does not change until the project is saved. The log says what
+  changed.
+- **Unknown keys** (tool sections, keys of a newer engine) are kept and written back in place when the project is
+  saved; the *General* section shows them.
 
-Qisqartirilgan misol (Platformer2D asosida; `Physics`, `Time`, `Quality`, `Graphics` qiymatlari namuna uchun):
+A shortened example (based on Platformer2D; the `Physics`, `Time`, `Quality`, `Graphics` values are for illustration):
 
 ```json
 {
@@ -790,161 +794,160 @@ Qisqartirilgan misol (Platformer2D asosida; `Physics`, `Time`, `Quality`, `Graph
 
 ---
 
-## 18. Player buyruq qatori
+## 18. The player command line
 
-Player, eksport, log, crash, versiya, ishlash va eksport testlari haqida to'liq qo'llanma: [Runtime.md](Runtime.md).
+The full guide to the player, export, logs, crashes, versions, performance and export tests: [Runtime.md](Runtime.md).
 
 ```
-ZaminPlayer [O'yin.zproject | loyiha papkasi] [variantlar]     # hammasi: ZaminPlayer --help
+ZaminPlayer [Game.zproject | project folder] [options]     # all of them: ZaminPlayer --help
 ```
 
-Qiymatli variantlar ikki xil yoziladi: `--fps 60` yoki `--fps=60`. Tushunilmagan variant yoki noto'g'ri qiymat
-ogohlantirish bilan log'ga yoziladi, qolganlari ishlatiladi.
+Options with values are written in two ways: `--fps 60` or `--fps=60`. An unknown option or a wrong value is logged
+with a warning, the rest are used.
 
-| Variant | Ma'nosi | Nimadan ustun |
+| Option | Meaning | What it wins over |
 |---|---|---|
-| `--windowed`, `--fullscreen`, `--borderless` | Oyna rejimi (oxirgisi yutadi) | Saqlangan `Display` tanlovi, loyiha |
-| `--resolution KxB` (`--width K`, `--height B`) | Oyna o'lchami; `--fullscreen` bilan video rejim ham | Saqlangan o'lcham, loyiha |
-| `--monitor N` | Qaysi monitorda ochiladi (0 - asosiy; log monitorlar ro'yxatini yozadi) | Asosiy monitor |
-| `--vsync`, `--no-vsync` | Vertikal sinxronizatsiya | Saqlangan tanlov, loyiha |
-| `--fps N` | Kadr chastotasi cheklovi (0 - cheklovsiz, 10 ... 1000) | Loyiha |
-| `--scene <yo'l / indeks / nom>` | Boshlang'ich sahna | Loyihaning boshlang'ich sahnasi |
-| `--quality <nom / indeks>` | Sifat darajasi | O'yinchi saqlagan daraja, loyiha standarti |
-| `--lang <kod>` (`--language`) | Til; yo'q til - ogohlantirish, joriy til qoladi | Saqlangan til, tizim tili, standart til |
-| `--no-splash` | Splash ekransiz | Loyiha |
-| `--gamma G`, `--brightness B` | Tasvir gammasi (0.5 ... 2.0) va yorqinligi (0.5 ... 1.5); 1 - o'zgarishsiz | Saqlangan tanlov |
-| `--gl`, `--msaa`, `--gl-debug` / `--no-gl-debug`, `--srgb` / `--no-srgb` | OpenGL konteksti | Grafika sozlamalari |
-| `--no-debug-draw`, `--debug-raycasts`, `--debug-contacts`, `--debug-contact-details`, `--debug-joints`, `--debug-velocities`, `--debug-nav`, `--debug-nav-cells` | Debug chizish | Loyihaning debug sozlamalari |
-| `--log-file <fayl>`, `--no-log-file` | Log faqat shu faylga / log faylsiz | Standart log papkasi |
-| `--no-crash-handler`, `--no-crash-dialog` | Crash hisobotisiz (debugger, core dump) / hisobot bor, oyna yo'q | - |
-| `--benchmark N` (`--benchmark-warmup`, `--benchmark-out`, `--benchmark-max-avg`, `--benchmark-max-p95`) | Ishlash testi: N kadr o'lchanadi (o'rtacha, mediana, p95, p99), JSON, chiqish kodi ([Runtime.md](Runtime.md#12-the-performance-test-headless)) | Splash, FPS cheklovi, VSync |
-| `-v`, `--version` | O'yin va dvigatel versiyasi (kommit, build sanasi) - oynasiz | - |
-| `-h`, `--help` | Hamma variantlar va ustunlik tartibi | - |
+| `--windowed`, `--fullscreen`, `--borderless` | Window mode (the last one wins) | The saved `Display` choice, the project |
+| `--resolution WxH` (`--width W`, `--height H`) | Window size; with `--fullscreen` the video mode too | The saved size, the project |
+| `--monitor N` | Which monitor it opens on (0 - the primary; the log lists the monitors) | The primary monitor |
+| `--vsync`, `--no-vsync` | Vertical sync | The saved choice, the project |
+| `--fps N` | Frame rate limit (0 - none, 10 ... 1000) | The project |
+| `--scene <path / index / name>` | The start scene | The project's start scene |
+| `--quality <name / index>` | The quality level | The level the player saved, the project default |
+| `--lang <code>` (`--language`) | The language; a missing language - a warning, the current language stays | The saved language, the system language, the default language |
+| `--no-splash` | No splash screen | The project |
+| `--gamma G`, `--brightness B` | Picture gamma (0.5 ... 2.0) and brightness (0.5 ... 1.5); 1 - unchanged | The saved choice |
+| `--gl`, `--msaa`, `--gl-debug` / `--no-gl-debug`, `--srgb` / `--no-srgb` | The OpenGL context | The graphics settings |
+| `--no-debug-draw`, `--debug-raycasts`, `--debug-contacts`, `--debug-contact-details`, `--debug-joints`, `--debug-velocities`, `--debug-nav`, `--debug-nav-cells` | Debug drawing | The project's debug settings |
+| `--log-file <file>`, `--no-log-file` | The log only to this file / no log file | The default log folder |
+| `--no-crash-handler`, `--no-crash-dialog` | No crash report (debugger, core dump) / a report, but no window | - |
+| `--benchmark N` (`--benchmark-warmup`, `--benchmark-out`, `--benchmark-max-avg`, `--benchmark-max-p95`) | Performance test: N frames are measured (average, median, p95, p99), JSON, exit code ([Runtime.md](Runtime.md#12-the-performance-test-headless)) | Splash, FPS limit, VSync |
+| `-v`, `--version` | The game and engine version (commit, build date) - without a window | - |
+| `-h`, `--help` | All the options and the order of precedence | - |
 
-O'yin ichida: **F11** / **Alt+Enter** - to'liq ekran <-> oyna, **F10** - FPS va audio profili log'ga.
+In the game: **F11** / **Alt+Enter** - fullscreen <-> window, **F10** - the FPS and audio profile to the log.
 
-### Log fayllari
+### Log files
 
-Player har ishga tushganda logni `~/.local/share/<kompaniya>/<o'yin>/logs/player-<sana_vaqt>.log` ga yozadi
-(kompaniya bo'sh bo'lsa `~/.local/share/zamin/<o'yin>/logs`; `$XDG_DATA_HOME` hisobga olinadi). Eng oxirgi
-5 tasi (Player > Log > Saqlanadigan fayllar) saqlanadi, eskilari o'chiriladi; `latest.log` - doim oxirgi ishga tushish. Fayl boshida o'yin nomi,
-versiyasi, dvigatel versiyasi, boshlanish vaqti va buyruq qatori yoziladi; fayl ochilishidan oldingi xabarlar
-ham (ishga tushish) yoziladi. Har satr darhol diskka yoziladi - crash bo'lsa ham log to'liq qoladi. Nechta fayl
-saqlanishi, log fayli yozilishi va darajalar: Player > Log (yuqorida).
+Every time the player starts it writes its log to `~/.local/share/<company>/<game>/logs/player-<date_time>.log`
+(`~/.local/share/zamin/<game>/logs` when the company is empty; `$XDG_DATA_HOME` is respected). The last 5 (Player >
+Log > Files kept) are kept, older ones are deleted; `latest.log` is always the last run. The start of the file holds
+the game's name, version, the engine version, the start time and the command line; messages from before the file was
+opened (the startup) are written too. Every line goes to disk at once - the log stays complete even after a crash.
+How many files are kept, whether a log file is written, and the levels: Player > Log (above).
 API: `LogFile::OpenRotating`, `LogFile::Open`, `LogFile::GetPath`, `LogFile::GetDefaultDirectory`.
 
-### Crash hisobotlari
+### Crash reports
 
-`CrashHandler` SIGSEGV, SIGABRT, SIGFPE, SIGILL, SIGBUS signallarini va ushlanmagan C++ istisnolarini
-ushlaydi va log papkasiga `crash-<sana_vaqt>.txt` yozadi: o'yin va versiya, sabab (signal, kodi va manzili
-yoki istisno turi va matni), backtrace, oxirgi 48 log satri, yuklangan modullar. Log fayliga va terminalga
-qisqa xabar yoziladi. Keyin xabar oynasi ochiladi (alohida jarayon, o'yin darhol yopiladi): `zenity`,
-`kdialog`, bo'lmasa playerning o'z oynasi (`ZaminPlayer --crash-dialog <hisobot>`: sabab, hisobot yo'li,
-"Open folder", "Copy path", "Close"), oxiri `xmessage`. Oyna backtrace'dagi C++ nomlarini
-o'qiladigan qiladi. Signal handler faqat async-signal-safe chaqiruvlardan foydalanadi (hamma narsa oldindan
-tayyorlanadi; ikkinchi crash darhol tugatadi). Signal so'ng odatdagidek dasturni tugatadi (chiqish kodi, core
-dump o'zgarmaydi). Avtomatik ishga tushishlarda (`ZAMIN_MAX_FRAMES`) oyna ko'rsatilmaydi
-(`ZAMIN_CRASH_DIALOG=1` majburlaydi); `ZAMIN_PLAYER_CRASH_TEST=<kadr>:<segv|abort|fpe|exception>` ataylab crash
-qiladi (sinov uchun).
+`CrashHandler` catches the SIGSEGV, SIGABRT, SIGFPE, SIGILL and SIGBUS signals and uncaught C++ exceptions and writes
+`crash-<date_time>.txt` to the log folder: the game and its version, the cause (the signal, its code and address, or
+the exception type and text), a backtrace, the last 48 log lines and the loaded modules. A short message goes to the
+log file and the terminal. Then a message window opens (a separate process, the game closes at once): `zenity`,
+`kdialog`, otherwise the player's own window (`ZaminPlayer --crash-dialog <report>`: the cause, the report path,
+"Open folder", "Copy path", "Close"), and finally `xmessage`. The window makes the C++ names in the backtrace readable.
+The signal handler uses only async-signal-safe calls (everything is prepared in advance; a second crash ends it at
+once). The signal then ends the program as usual (the exit code and core dump do not change). In automated runs
+(`ZAMIN_MAX_FRAMES`) the window is not shown (`ZAMIN_CRASH_DIALOG=1` forces it);
+`ZAMIN_PLAYER_CRASH_TEST=<frame>:<segv|abort|fpe|exception>` crashes on purpose (for testing).
 
-### Kursor (skript API)
+### The cursor (script API)
 
 ```cpp
-Cursor::SetLockMode(CursorLockMode::Locked);   // yashirin, joyida: Input::GetMouseDelta() bilan sichqoncha-qarash
-Cursor::SetLockMode(CursorLockMode::Confined); // oyna ichida qoladi
+Cursor::SetLockMode(CursorLockMode::Locked);   // hidden, in place: mouse look with Input::GetMouseDelta()
+Cursor::SetLockMode(CursorLockMode::Confined); // stays inside the window
 Cursor::SetVisible(false);
-Cursor::SetImage("Textures/crosshair.png", { 16, 16 });   // o'z rasmi (hotspot), Cursor::ClearImage()
-Cursor::SetShape(CursorShape::Hand);                      // tizim shakllari
-Cursor::SetReleaseWhenPaused(true);                       // Time::SetPaused paytida bo'sh va ko'rinadigan (standart)
+Cursor::SetImage("Textures/crosshair.png", { 16, 16 });   // its own image (hotspot), Cursor::ClearImage()
+Cursor::SetShape(CursorShape::Hand);                      // system shapes
+Cursor::SetReleaseWhenPaused(true);                       // free and visible during Time::SetPaused (the default)
 ```
 
-Istaklar saqlanadi va har kadr oynaga qo'llanadi: oyna fokusni yo'qotsa, o'yin pauzada bo'lsa va Play
-to'xtaganda tizim kursori qaytadi. Editorda o'yin ko'rinishi fokusda bo'lganda ishlaydi; **Esc** kursorni
-editorga qaytaradi (o'yin ko'rinishini bosish - yana o'yinga). Adventure3D kamerasi o'ng tugma bilan
-aylantirganda kursorni bloklaydi.
+The requests are kept and applied to the window every frame: the system cursor comes back when the window loses
+focus, when the game is paused and when Play stops. In the editor it works while the game view has the focus; **Esc**
+returns the cursor to the editor (clicking the game view - back to the game). The Adventure3D camera locks the cursor
+while it is turned with the right button.
 
 ---
 
-## 19. Testlar
+## 19. Tests
 
-`Tests/ZaminTests.cpp` (`./build/bin/ZaminTests`) loyiha sozlamalarini tekshiradi, jumladan:
+`Tests/ZaminTests.cpp` (`./build/bin/ZaminTests`) checks the project settings, including:
 
-| Test | Nimani |
+| Test | What |
 |---|---|
-| `ProjectSettingsFullRoundTrip` | Hamma bo'limlar yozilib, qayta o'qilganda bir xil |
-| `PlayerSettingsSerialization`, `PlayerCompanySaveDataAndVersion`, `GameIconImagesAndDesktopEntry` | Oyna, nom / versiya, SaveData papkasi, ikonka va .desktop |
-| `PlayerCommandLineParser`, `PlayerLaunchSettingsPrecedence` | Buyruq qatori, `--help`, ustunlik tartibi (buyruq qatori > saqlangan > loyiha) |
-| `PlayerSettingsFullscreenToggleAndSplash`, `SplashTimelineAndLogo`, `SceneManagerStartFromBackgroundLoad` | F11, splash sozlamalari, vaqt jadvali, logotip, fonda yuklangan birinchi sahna |
-| `FramePacingPlanAndPacer`, `InputAnyKeyAndMonitorPlacement` | FPS cheklovi va VSync, kadr jadvali, "istalgan tugma", monitor tanlash |
-| `QualityLevelLimits`, `QualitySettingsJson`, `QualityRuntimeLevel` | Darajalar, cheklashlar, JSON, saqlangan tanlov |
-| `ProjectFileMigrationAndUnknownKeys` | v0 / v1 -> v2 migratsiya, noma'lum kalitlar saqlanishi |
-| `GraphicsContextSettings` | Versiyalar, MSAA, debug konteksti, JSON |
-| `TimeSettingsAndClock`, `TimeApiTimeScaleAndUnscaledTimers` | Qadam, masshtab, `Time::` API |
-| `ProjectDefaultGravityAndStep` | Standart gravitatsiya, "Loyihadan" sahnalar |
-| `AudioSpatialDefaults` | Masofa modellari, `Spatial` JSON, yangi manbalar standarti |
-| `LocalizationStringFiles` | Til fayli: ichma-ich kalitlar, ko'plik, `$name`, yozish / o'qish |
-| `LocalizationLookupFormatPlural` | Zaxira til, `{0}` formatlash, ko'plik, yo'q kalitlar ro'yxati, til almashishi, tizim tili, saqlangan tanlov |
-| `LocalizationTableEditingAndFiles` | Jadval: kalit / til qo'shish, qayta nomlash, yetishmayotganlar, `{0}` mosligi, fayllar |
-| `LocalizedTextComponentAndScripts` | Text komponenti kaliti til bilan yangilanadi, `OnLanguageChanged` |
-| `ProjectLocalizationSettings` | `"Localization"` bo'limi va loyiha bilan yuklanishi |
-| `EditorLanguageStrings` | Editor tili jadvali: tarjima, ikonka / `###id` saqlanishi, `Choose`, preferences, `%d` / `{}` o'rinlari mosligi |
-| `EditorNoRawUzbekLiterals` | `Editor/src` da `Tr` siz ko'rsatiladigan o'zbekcha literal yo'q; `Tr` ichidagi har matnning inglizchasi bor |
-| `PlayerLogFileRotation` | Log fayl nomi, oxirgi 5 tasi, `latest.log`, `--log-file`, ochilishdan oldingi xabarlar |
-| `CrashHandlerReports` | Hisobot matni, demangle, o'qish, oyna buyruqlari; bola jarayonda haqiqiy SIGSEGV, istisno, abort |
-| `CursorApiForScripts` | Kursor holatlari (fokus, pauza), rasm, `Reset`, bloklashda sichqoncha siljishi |
-| `PlayerViewportFixedAspect` | Ekran nisbati: polosalar, sichqoncha, `"Aspect"` JSON, UI masshtabi oyna bilan |
-| `ExportExcludesUnusedAssets` | Eksportga kiradigan / kirmaydigan assetlar, sabablar, `"Export"` bo'limi, namuna loyihalar |
-| `ExportReleaseModuleAndStrip` | Release modul buyruqlari (`-O2`, alohida build va chiqish papkasi), haqiqiy kichik modul build'i, `strip` |
-| `ExportDesktopEntryRelocatableAndIcons` | Ko'chiriladigan `.desktop` (`%k`), ko'chirilgan papkadan ishga tushirish, ikonka o'lchamlari, o'rnatish skripti |
-| `ExportReportSizesAndFiles` | Hisobot: turlar, eng katta fayllar, chiqarib tashlanganlar, JSON / matn, yozish / o'qish |
-| `PauseInBackgroundAudioOutput` | Audio chiqishi pauzasi: tovush joyida turadi, keyin davom etadi |
-| `DisplayGammaAndBrightness` | Gamma / yorqinlik formulasi, diapazonlar, saqlash, `--gamma` / `--brightness` |
-| `DisplayResolutionSettings` | Ekran o'lchamlari ro'yxati, saqlash, ustunlik (buyruq qatori > saqlangan > loyiha) |
-| `PlayerBenchmarkStatsAndLimits`, `ExportFolderSelfCheck`, `BuildInfoAndVersionText`, `GameMenuSampleScene` | Ishlash testi, eksport tekshiruvi, versiya, o'yin menyusi ([Runtime.md](Runtime.md#16-tests)) |
+| `ProjectSettingsFullRoundTrip` | Every section written and read back is the same |
+| `PlayerSettingsSerialization`, `PlayerCompanySaveDataAndVersion`, `GameIconImagesAndDesktopEntry` | The window, name / version, the SaveData folder, the icon and .desktop |
+| `PlayerCommandLineParser`, `PlayerLaunchSettingsPrecedence` | The command line, `--help`, the order of precedence (command line > saved > project) |
+| `PlayerSettingsFullscreenToggleAndSplash`, `SplashTimelineAndLogo`, `SceneManagerStartFromBackgroundLoad` | F11, the splash settings, its timeline, the logo, the first scene loaded in the background |
+| `FramePacingPlanAndPacer`, `InputAnyKeyAndMonitorPlacement` | FPS limit and VSync, the frame schedule, "any key", choosing a monitor |
+| `QualityLevelLimits`, `QualitySettingsJson`, `QualityRuntimeLevel` | Levels, limits, JSON, the saved choice |
+| `ProjectFileMigrationAndUnknownKeys` | v0 / v1 -> v2 migration, unknown keys kept |
+| `GraphicsContextSettings` | Versions, MSAA, the debug context, JSON |
+| `TimeSettingsAndClock`, `TimeApiTimeScaleAndUnscaledTimers` | The step, the scale, the `Time::` API |
+| `ProjectDefaultGravityAndStep` | Default gravity, "From the project" scenes |
+| `AudioSpatialDefaults` | The distance models, the `Spatial` JSON, defaults for new sources |
+| `LocalizationStringFiles` | A language file: nested keys, plurals, `$name`, writing / reading |
+| `LocalizationLookupFormatPlural` | The fallback language, `{0}` formatting, plurals, the list of missing keys, switching languages, the system language, the saved choice |
+| `LocalizationTableEditingAndFiles` | The table: adding a key / language, renaming, missing ones, `{0}` consistency, files |
+| `LocalizedTextComponentAndScripts` | The Text component's key updates with the language, `OnLanguageChanged` |
+| `ProjectLocalizationSettings` | The `"Localization"` section and loading it with the project |
+| `EditorLanguageStrings` | The editor language table: translation, the icon / `###id` kept, `Choose`, preferences, matching `%d` / `{}` placeholders |
+| `EditorNoRawUzbekLiterals` | No shown Uzbek literal without `Tr` in `Editor/src`; every text inside `Tr` has an English one |
+| `PlayerLogFileRotation` | The log file name, the last 5, `latest.log`, `--log-file`, messages from before opening |
+| `CrashHandlerReports` | The report text, demangling, reading, the window commands; a real SIGSEGV, exception and abort in a child process |
+| `CursorApiForScripts` | Cursor states (focus, pause), the image, `Reset`, mouse movement while locked |
+| `PlayerViewportFixedAspect` | Aspect ratio: bars, the mouse, the `"Aspect"` JSON, the UI scale with the window |
+| `ExportExcludesUnusedAssets` | Assets that do / do not go into an export, the reasons, the `"Export"` section, the sample projects |
+| `ExportReleaseModuleAndStrip` | The Release module commands (`-O2`, separate build and output folders), a real build of a small module, `strip` |
+| `ExportDesktopEntryRelocatableAndIcons` | A relocatable `.desktop` (`%k`), starting from a moved folder, the icon sizes, the install script |
+| `ExportReportSizesAndFiles` | The report: kinds, the largest files, the excluded ones, JSON / text, writing / reading |
+| `PauseInBackgroundAudioOutput` | Pausing the audio output: the sound stands still, then continues |
+| `DisplayGammaAndBrightness` | The gamma / brightness formula, ranges, saving, `--gamma` / `--brightness` |
+| `DisplayResolutionSettings` | The list of screen sizes, saving, precedence (command line > saved > project) |
+| `PlayerBenchmarkStatsAndLimits`, `ExportFolderSelfCheck`, `BuildInfoAndVersionText`, `GameMenuSampleScene` | The performance test, the export check, the version, the game menu ([Runtime.md](Runtime.md#16-tests)) |
 
 ---
 
-## 20. Qisqa API ma'lumotnomasi
+## 20. Short API reference
 
 ```cpp
-// Loyiha
+// Project
 Ref<Project> project = Project::GetActive();
 ProjectConfig& config = project->GetConfig();
 Project::GetPlayerSettings(); Project::GetGraphicsSettings(); Project::GetTimeSettings(); Project::GetPhysicsDefaults();
 Project::GetProductName(); Project::GetIconPath(); Project::GetLocalizationDirectory();
 Application::GetVersion(); Application::GetProductName(); Application::GetCompanyName();
 
-// Oyna
+// Window
 Display::SetFullscreen(bool); Display::IsFullscreen(); Display::SetVSync(bool); Display::SaveSettings(); Display::LoadSettings();
-Display::SetGamma(float); Display::SetBrightness(float); Display::GetAdjustment();   // player tasviri (0.5 ... 2.0 / 0.5 ... 1.5)
-Display::GetResolutions(); Display::SetResolution(w, h); Display::GetResolution();    // ekran o'lchami
+Display::SetGamma(float); Display::SetBrightness(float); Display::GetAdjustment();   // the player picture (0.5 ... 2.0 / 0.5 ... 1.5)
+Display::GetResolutions(); Display::SetResolution(w, h); Display::GetResolution();    // the screen size
 
-// Versiya
+// Version
 BuildInfo::Get().Describe(); VersionInfo::ForActiveProject().Format(); VersionInfo::ForActiveProject().FormatShort();
 
-// Eksport (editor)
-ExportModuleBuild; BinaryStrip::Strip(file); ExportReport::Read(papka, report); ExportFiles::WriteIconSet(rasm, papka, id);
+// Export (editor)
+ExportModuleBuild; BinaryStrip::Strip(file); ExportReport::Read(folder, report); ExportFiles::WriteIconSet(image, folder, id);
 
-// Sifat
+// Quality
 Quality::GetLevel(); Quality::GetLevelName(); Quality::GetLevelNames(); Quality::SetLevel(int | "High");
 Quality::SaveSettings(); Quality::LoadSettings();
 
-// Vaqt
+// Time
 Time::GetDeltaTime(); Time::GetUnscaledDeltaTime(); Time::GetFixedDeltaTime(); Time::GetTime(); Time::GetUnscaledTime();
 Time::GetTimeSinceStartup(); Time::GetFrameCount(); Time::SetTimeScale(float); Time::GetTimeScale(); Time::SetPaused(bool);
-SetTimersUnscaled(bool);   // ScriptableEntity: taymer / tween'lar haqiqiy vaqtda
+SetTimersUnscaled(bool);   // ScriptableEntity: timers / tweens in real time
 
 // Audio
 Audio::GetSpatialDefaults();          // AudioSpatialSettings: MinDistance, MaxDistance, Rolloff, RolloffFactor, ComputeGain(d)
 AudioEngine::GetMixerSettings();
 
-// Lokalizatsiya
+// Localization
 Localize("key", args...); LocalizePlural("key", count, args...);
 Localization::SetLanguage("ru"); Localization::NextLanguage(); Localization::GetLanguage(); Localization::GetLanguages();
 Localization::GetLanguageName("ru"); Localization::Has("key"); Localization::GetMissingKeys();
 Localization::SaveSettings(); Localization::LoadSettings();
 virtual void OnLanguageChanged(const std::string& language);   // ScriptableEntity
 
-// Editor tili (editor kodi)
+// Editor language (editor code)
 Tr("Fayl"); EditorText::SetLanguage(EditorLanguage::English); EditorText::Choose("Bekor qilish", "Undo");
 ```

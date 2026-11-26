@@ -51,7 +51,7 @@ separate: 2D bodies (Box2D) do not collide with 3D bodies (Jolt) ([Physics.md](P
 ### Can the editor language be changed?
 
 Yes - English or Uzbek: **Edit → Preferences... → View** ([Editor.md, 12](Editor.md#12-preferences-layouts-language)).
-The game's own languages are separate - Project settings > Localization ([ProjectSettings.md, 13](ProjectSettings.md#13-lokalizatsiya)).
+The game's own languages are separate - Project settings > Localization ([ProjectSettings.md, 13](ProjectSettings.md#13-localization)).
 
 ### What is the license? Can I sell my game?
 
@@ -253,7 +253,7 @@ The last loaded scene cannot be closed:
 > `The project file could not be read '<file>': <reason>`
 
 A `.zproject` is JSON; if it was edited by hand, check the commas / brackets (compare it with the previous copy in version
-control). The format and migration: [ProjectSettings.md, 17](ProjectSettings.md#17-zproject-fayli-format-versiya-migratsiya).
+control). The format and migration: [ProjectSettings.md, 17](ProjectSettings.md#17-the-zproject-file-format-version-migration).
 
 ### A material or picture did not load
 

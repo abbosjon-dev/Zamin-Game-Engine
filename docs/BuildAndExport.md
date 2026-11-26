@@ -4,7 +4,7 @@ This guide is about two things: **building the engine from source** (requirement
 build types, targets, the API reference) and **preparing and distributing the game** (building the script module,
 exporting from the editor, the export folder, automatic export and packaging, running on the player's computer).
 The player itself (the command line, the log, crash reports) - [Runtime.md](Runtime.md); the export settings -
-[ProjectSettings.md, section 12](ProjectSettings.md#12-build-sahnalar); the internal structure - [Architecture.md](Architecture.md).
+[ProjectSettings.md, section 12](ProjectSettings.md#12-build-scenes); the internal structure - [Architecture.md](Architecture.md).
 
 ## Contents
 
@@ -281,7 +281,7 @@ The **File → Build game...** window:
 | Treat prefab warnings as errors | The prefab check's warnings stop the export |
 
 The last four are project settings (Project settings > Build scenes > Export, the `"Export"` section in the `.zproject`;
-[ProjectSettings.md](ProjectSettings.md#eksport-ishlatilmagan-assetlar)). After the **Build** button is pressed the export
+[ProjectSettings.md](ProjectSettings.md#export-unused-assets)). After the **Build** button is pressed the export
 runs in the background (the editor stays responsive):
 
 1. The start scene and the build list are checked (what would break the game is an error, the rest are warnings).
@@ -386,7 +386,7 @@ for the player (`--windowed`, `--resolution 1280x720`, `--quality Low`, `--no-sp
 files are in `~/.local/share/<company>/<game>/logs/` ([Runtime.md, section 6](Runtime.md#6-log-files)).
 
 The version, the company and product names, the icon, the splash, the window settings - Project settings > Player
-([ProjectSettings.md, section 4](ProjectSettings.md#4-player-oyna-nom-versiya-ikonka)).
+([ProjectSettings.md, section 4](ProjectSettings.md#4-player-window-name-version-icon)).
 
 ## 12. Sanitizer and coverage builds
 

@@ -107,8 +107,8 @@ During the game the same section shows live statistics: bodies, awake / sleeping
 Box2D steps in the frame. From a script: `GetScene().GetPhysics2DStats()` / `GetPhysics3DStats()` (`PhysicsStats2D` /
 `PhysicsStats3D`: `Bodies`, `Moving`, `Awake`, `Sleeping`, `Joints`, `Contacts`, `Steps`; `Characters` too in 3D).
 
-More about the project settings: [ProjectSettings.md](ProjectSettings.md#8-fizika-gravitatsiya-va-toqnashuv-qatlamlari),
-time: [ProjectSettings.md](ProjectSettings.md#7-vaqt-va-time-api) (`Time::GetFixedDeltaTime()` — the step length).
+More about the project settings: [ProjectSettings.md](ProjectSettings.md#8-physics-gravity-and-collision-layers),
+time: [ProjectSettings.md](ProjectSettings.md#7-time-and-the-time-api) (`Time::GetFixedDeltaTime()` — the step length).
 
 ---
 

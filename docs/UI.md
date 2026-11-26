@@ -204,7 +204,7 @@ The Text component (`TextComponent`) on a UI object is drawn inside the rectangl
 | `Overflow` (`TextOverflow`): `Overflow` / `Truncate` / `Ellipsis` | what does not fit spills out / is cut off (whole characters and lines) / ends in an ellipsis (…) |
 | `LineSpacing`, `Kerning` | line and letter spacing (em) |
 | `Color`, `FontPath` | color, font (empty — the engine font) |
-| `LocalizationKey` | text taken from the language files ([ProjectSettings.md](ProjectSettings.md#13-lokalizatsiya)) |
+| `LocalizationKey` | text taken from the language files ([ProjectSettings.md](ProjectSettings.md#13-localization)) |
 | `InputHints` (**Control hints** in the inspector) | `[Name]` in the text — an action / axis / vector of the project's input map — is shown with the buttons of the device the player is using |
 
 The text height is the UI Transform's `FontSize` (0 — the rectangle's height). Fonts get a separate atlas for every

@@ -47,7 +47,7 @@ Contents:
 
 - **Graphics API** — OpenGL 4.1 core, behind an RHI abstraction layer (`Renderer`, `RenderCommand`, `RendererAPI`).
   Its context (version, MSAA, sRGB, debug context): *Project settings > Graphics*
-  ([ProjectSettings.md](ProjectSettings.md#6-grafika-opengl-konteksti)).
+  ([ProjectSettings.md](ProjectSettings.md#6-graphics-the-opengl-context)).
 - **Who draws** — the scene's **main camera** (`CameraComponent::Primary`). In the game a scene without a main camera
   is not drawn (tests and headless runs rely on this). The editor viewport shows the scene from the editor camera.
 - **Frame order** (player): the scene — 3D (sun shadows, opaque meshes, the sky, transparent surfaces, 3D particles),
@@ -478,7 +478,7 @@ void OnMessage(const ScriptMessage& m) override
 - **Quality levels** (*Project settings > Quality*, `Quality`): limit the shadows, SSAO, bloom, FXAA, auto exposure,
   render scale and texture size a scene asks for (Low / Medium / High / Ultra or your own). From an in-game menu:
   `Quality::SetLevel(n)`, `Quality::SaveSettings()`; player: `--quality <name>`
-  ([ProjectSettings.md](ProjectSettings.md#5-sifat-darajalari)).
+  ([ProjectSettings.md](ProjectSettings.md#5-quality-levels)).
 
 Turning them off for comparison: `ZAMIN_EDITOR_NO_CULLING=1`, `ZAMIN_EDITOR_NO_INSTANCING=1` (in the player
 `ZAMIN_PLAYER_NO_CULLING`, `ZAMIN_PLAYER_NO_INSTANCING`); in code `Renderer3D::SetFrustumCulling(false)`,

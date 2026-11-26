@@ -249,7 +249,7 @@ python3 Tests/samples_test.py --exported build/SampleExports --kind gamepad   # 
 they call sounds by a short name (`Sfx("hit")` → `"Audio/hit.wav"` is built at runtime), and the export, seeing no full path
 in the C++ strings, left the WAV files out as "unused" (`excluded-assets.txt`).
 `"Export": { "AlwaysInclude": [ "Audio/*.wav" ] }` was added to both projects
-([ProjectSettings.md](ProjectSettings.md#eksport-ishlatilmagan-assetlar)), and `Tests/samples_assets.py` now checks that every
+([ProjectSettings.md](ProjectSettings.md#export-unused-assets)), and `Tests/samples_assets.py` now checks that every
 sound called by a short name gets into the export.
 
 ## Performance

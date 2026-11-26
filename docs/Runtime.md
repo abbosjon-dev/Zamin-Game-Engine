@@ -146,7 +146,7 @@ to the log as a warning, and the rest are used. `ZaminPlayer --help` - all of th
 - **The FPS limit** (`TargetFrameRate` / `--fps`) works together with VSync: VSync itself holds a limit that divides the monitor's
   refresh rate, the others use precisely scheduled waiting (sleep + a short spin).
 
-More: [ProjectSettings.md, section 4](ProjectSettings.md#4-player-oyna-nom-versiya-ikonka).
+More: [ProjectSettings.md, section 4](ProjectSettings.md#4-player-window-name-version-icon).
 
 ## 6. Log files
 
@@ -354,7 +354,7 @@ In the editor **File > Build game...** exports the game to a folder:
 
 - **Unused assets are left out**: the build scenes and everything needed through them
   (prefabs, materials, models, clips), the files named in the project file and in the `"..."` strings of the C++ code,
-  `Resources/`, the language files and the "Always include" list. More: [ProjectSettings.md, section 12](ProjectSettings.md#12-build-sahnalar).
+  `Resources/`, the language files and the "Always include" list. More: [ProjectSettings.md, section 12](ProjectSettings.md#12-build-scenes).
 - **The script module in Release** is recompiled in a separate build folder (`<project>/Build/ExportRelease`);
   the binaries are `strip`ped (~218 MB -> ~37 MB). Both can be turned off.
 - **The export checks itself** (`ExportFiles::CheckExportFolder`): the start script (with execute permission),

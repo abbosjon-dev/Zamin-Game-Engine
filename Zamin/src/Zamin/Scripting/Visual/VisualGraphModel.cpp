@@ -183,6 +183,45 @@ namespace Zamin::Visual {
             if (Typed(n.Kind) && Name(n) == from) n.Inputs["Name"] = to;
         return true;
     }
+    bool Graph::RenameFunctionPin(const std::string& function, bool result, const std::string& from, const std::string& to)
+    {
+        auto signature = Functions.find(function);
+        if (signature == Functions.end() || to.empty() || to.size() > 128 || to == "Name" || to == "In" || to == "Then") return false;
+        auto& pins = result ? signature->second.Outputs : signature->second.Inputs;
+        auto pin = std::find_if(pins.begin(), pins.end(), [&](const Pin& p) { return p.Name == from; });
+        if (pin == pins.end() || std::any_of(pins.begin(), pins.end(), [&](const Pin& p) { return p.Name == to; })) return false;
+        pin->Name = to;
+        std::map<uint32_t, std::string> kinds;
+        for (auto& n : Nodes)
+            if (Typed(n.Kind) && Name(n) == function)
+            {
+                kinds[n.ID] = n.Kind;
+                if (!result && n.Kind == "Function.Call")
+                    if (auto literal = n.Inputs.extract(from)) n.Inputs[to] = std::move(literal.mapped());
+            }
+        for (auto& l : Links)
+        {
+            auto source = kinds.find(l.From), target = kinds.find(l.To);
+            // A parameter leaves the entry and enters the calls; a result enters the returns and leaves the calls.
+            if (source != kinds.end() && l.Output == from && source->second == (result ? "Function.Call" : "Function.Entry")) l.Output = to;
+            if (target != kinds.end() && l.Input == from && target->second == (result ? "Function.Return" : "Function.Call")) l.Input = to;
+        }
+        return true;
+    }
+    bool Graph::RenameEnumEntry(const std::string& enumName, const std::string& from, const std::string& to)
+    {
+        auto definition = Enums.find(enumName);
+        if (definition == Enums.end() || to.empty() || to.size() > 64 || definition->second.Find(to)) return false;
+        auto entry = std::find_if(definition->second.Entries.begin(), definition->second.Entries.end(), [&](const EnumEntry& e) { return e.Name == from; });
+        if (entry == definition->second.Entries.end()) return false;
+        entry->Name = to;
+        std::set<uint32_t> switches;
+        for (const auto& n : Nodes)
+            if (n.Kind == "Enum.Switch" && EnumOf(*this, n) == enumName) switches.insert(n.ID);
+        for (auto& l : Links)
+            if (switches.contains(l.From) && l.Output == from) l.Output = to;
+        return true;
+    }
     size_t Graph::PruneInvalidPins()
     {
         size_t removed = 0;

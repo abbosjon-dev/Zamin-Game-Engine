@@ -75,7 +75,7 @@ namespace Zamin {
             ImGui::TextDisabled("%s", Tr("Effekt, to'plam, qolgan vaqt"));
             for (size_t i = 0; i < count; ++i) ImGui::Text("%s  x%u  %.2f s", effects[i].Key.c_str(), effects[i].Stacks, effects[i].Remaining);
         }
-        bool EditValue(const char* label, Visual::Type type, Visual::Value& v)
+        bool EditValue(const char* label, Visual::Type type, Visual::Value& v, const Visual::EnumDefinition* enumeration = nullptr)
         {
             using namespace Visual;
             ImGui::PushID(label);
@@ -147,6 +147,30 @@ namespace Zamin {
                         }
                     }
                     ImGui::TreePop();
+                }
+            }
+            else if (type == Type::Enum && enumeration)
+            {
+                // An enum value: its entries by name; the stored value is the entry's integer.
+                const auto* current = enumeration->Find(v.get<int64_t>());
+                if (ImGui::BeginCombo("##value", current ? current->Name.c_str() : Tr("Noma'lum qiymat")))
+                {
+                    for (const auto& entry : enumeration->Entries)
+                        if (ImGui::Selectable(entry.Name.c_str(), &entry == current) && &entry != current)
+                        {
+                            v = entry.Value;
+                            changed = true;
+                        }
+                    ImGui::EndCombo();
+                }
+            }
+            else if (type == Type::Enum)
+            {
+                int64_t x = v.get<int64_t>();
+                if (ImGui::InputScalar("##value", ImGuiDataType_S64, &x))
+                {
+                    v = x;
+                    changed = true;
                 }
             }
             else if (type == Type::Number)
@@ -228,7 +252,7 @@ namespace Zamin {
             return changed;
         }
     }
-    bool VisualGraphPanel::EditLiteral(const char* label, Visual::Type type, Visual::Value& value) { return EditValue(label, type, value); }
+    bool VisualGraphPanel::EditLiteral(const char* label, Visual::Type type, Visual::Value& value, const Visual::EnumDefinition* enumeration) { return EditValue(label, type, value, enumeration); }
     void VisualGraphPanel::SetContext(const Ref<Scene>& scene, bool editable, uint64_t selection)
     {
         m_Scene = scene;
@@ -263,6 +287,8 @@ namespace Zamin {
             m_ValidateDirty = true;
             m_Descriptions.clear();
             m_Selection.clear();
+            m_FocusFunction.clear();
+            m_FocusNodes.clear();
             m_Pan = { 40, 40 };
             m_Zoom = 1;
             m_Fit = true;
@@ -324,6 +350,24 @@ namespace Zamin {
         ImGui::TextColored({ .66f, .54f, 1, 1 }, "ZAMIN  /  VISUAL SCRIPT");
         ImGui::SameLine();
         ImGui::TextDisabled("%s%s", m_Path.filename().string().c_str(), m_Dirty ? " *" : "");
+        if (m_Graph.SourceVersion < Visual::Graph::FormatVersion)
+        {
+            ImGui::SameLine();
+            ImGui::TextDisabled(Tr("(format %d: saqlash %d formatida yozadi)"), m_Graph.SourceVersion, Visual::Graph::FormatVersion);
+        }
+        if (!m_FocusFunction.empty())
+        {
+            // An opened typed function: its body is framed, the rest of the graph dimmed.
+            ImGui::SameLine();
+            ImGui::TextColored({ .55f, .85f, 1, 1 }, "%s: %s", Tr("Funksiya"), m_FocusFunction.c_str());
+            ImGui::SameLine();
+            if (ImGui::SmallButton(Tr("Butun graf###Whole graph")))
+            {
+                m_FocusFunction.clear();
+                m_FocusNodes.clear();
+                m_Fit = true;
+            }
+        }
         ImGui::BeginDisabled(!m_Editable);
         ImGui::SetNextItemWidth(260);
         ImGui::InputText("##graphPath", m_File, sizeof(m_File));
@@ -409,17 +453,39 @@ namespace Zamin {
             CopySelection();
             PasteSelection();
         }
+        ImGui::SameLine();
+        if (ImGui::Button(Tr("Funksiyaga yig'ish###Collapse to function"))) CollapseSelection();
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", Tr("Tanlangan tugunlar yangi tiplangan funksiyaga ko'chadi, o'rniga chaqiruv qo'yiladi (Ctrl+G)"));
         ImGui::EndDisabled();
         if (!m_Error.empty()) ImGui::TextColored({ 1, .4f, .4f, 1 }, "%s", m_Error.c_str());
         if (m_ValidateDirty)
         {
             m_Diagnostics = m_Graph.Validate();
+            m_Warnings = m_Graph.Warnings();
             m_ValidateDirty = false;
             m_Descriptions.clear();
+            if (!m_FocusFunction.empty())
+            {
+                m_FocusNodes = m_Graph.FunctionNodes(m_FocusFunction);
+                if (m_FocusNodes.empty()) m_FocusFunction.clear();
+            }
         }
         const auto& diagnostics = m_Diagnostics;
         if (diagnostics.empty()) ImGui::TextColored({ .35f, .85f, .6f, 1 }, "%s  |  %zu %s  |  %zu %s  |  %zu %s", Tr("Kompilyatsiya bo'ldi"), m_Graph.Nodes.size(), Tr("tugun"), m_Graph.Links.size(), Tr("bog'lanish"), m_Graph.Variables.size(), Tr("o'zgaruvchi"));
-        else
+        if (!m_Warnings.empty())
+        {
+            // Warnings stay on the status line (hover: the list, click: the first node) so the panels do not move.
+            if (diagnostics.empty()) ImGui::SameLine();
+            ImGui::TextColored({ 1, .85f, .35f, 1 }, "|  %zu %s", m_Warnings.size(), Tr("ogohlantirish"));
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::BeginTooltip();
+                for (const auto& w : m_Warnings) ImGui::Text("%s %u: %s", Tr("Tugun"), w.Node, w.Message.c_str());
+                ImGui::EndTooltip();
+            }
+            if (ImGui::IsItemClicked()) m_Selected = m_Warnings.front().Node;
+        }
+        if (!diagnostics.empty())
         {
             ImGui::TextColored({ 1, .65f, .3f, 1 }, "%zu %s", diagnostics.size(), Tr("kompilyatsiya xatosi"));
             if (ImGui::TreeNode("Diagnostics"))
@@ -436,29 +502,41 @@ namespace Zamin {
         ImGui::InputTextWithHint("##search", Tr("Tugun qidirish..."), m_Search, sizeof(m_Search));
         ImGui::TextDisabled("%s", Tr("Bosib tugun qo'shing"));
         ImGui::BeginDisabled(!m_Editable);
-        std::string cat;
+        std::string q = m_Search;
+        std::transform(q.begin(), q.end(), q.begin(), ::tolower);
+        auto matches = [&](std::string text) {
+            std::transform(text.begin(), text.end(), text.begin(), ::tolower);
+            return q.empty() || text.find(q) != std::string::npos;
+        };
+        auto addNode = [&](const std::string& kind, std::map<std::string, Visual::Value> inputs) {
+            uint64_t nextID = 1;
+            for (auto& n : m_Graph.Nodes) nextID = std::max(nextID, uint64_t(n.ID) + 1);
+            if (nextID > UINT32_MAX || m_Graph.Nodes.size() >= 4096)
+            {
+                m_Error = Tr("Tugunlar soni chegarasiga yetildi");
+                return;
+            }
+            Snapshot();
+            const auto id = uint32_t(nextID);
+            m_Graph.Nodes.push_back({ id, kind, (100 - m_Pan.x) / m_Zoom, (100 - m_Pan.y) / m_Zoom, std::move(inputs) });
+            m_Selected = id;
+            m_Selection = { id };
+        };
+        // The graph's own typed functions first: one call entry each, found by "call" or the function's name.
+        for (const auto& [name, signature] : m_Graph.Functions)
+            if (matches("function.call " + name) && ImGui::Selectable((std::string(Tr("Funksiyalar")) + " / " + Tr("Chaqirish") + " " + name).c_str()))
+                addNode("Function.Call", { { "Name", name } });
         for (auto& [key, def] : Visual::Catalog())
         {
-            std::string q = m_Search, name = key;
-            std::transform(q.begin(), q.end(), q.begin(), ::tolower);
-            std::transform(name.begin(), name.end(), name.begin(), ::tolower);
-            if (!q.empty() && name.find(q) == std::string::npos) continue;
+            if (!matches(key)) continue;
             if (ImGui::Selectable((def.Category + " / " + key).c_str()))
             {
-                Snapshot();
-                uint64_t nextID = 1;
-                for (auto& n : m_Graph.Nodes) nextID = std::max(nextID, uint64_t(n.ID) + 1);
-                if (nextID > UINT32_MAX || m_Graph.Nodes.size() >= 4096)
-                {
-                    m_Error = "Node count/ID limit reached";
-                    continue;
-                }
-                const auto id = uint32_t(nextID);
-                float x = (100 - m_Pan.x) / m_Zoom, y = (100 - m_Pan.y) / m_Zoom;
-                m_Graph.Nodes.push_back({ id, key, x, y });
-                if (key.starts_with("Function.")) m_Graph.Nodes.back().Inputs["Name"] = m_Graph.Functions.empty() ? "MyFunction" : m_Graph.Functions.begin()->first;
-                m_Selected = id;
-                m_Selection = { id };
+                std::map<std::string, Visual::Value> inputs;
+                if (key.starts_with("Function.")) inputs["Name"] = m_Graph.Functions.empty() ? "MyFunction" : m_Graph.Functions.begin()->first;
+                // An enum node starts with the graph's first enum (Get/Set.Enum take their variable's enum instead).
+                const bool enumInput = std::any_of(def.Inputs.begin(), def.Inputs.end(), [](const Visual::Pin& p) { return p.Name == "Enum"; });
+                if (enumInput && !m_Graph.Enums.empty() && key != "Get.Enum" && key != "Set.Enum") inputs["Enum"] = m_Graph.Enums.begin()->first;
+                addNode(key, std::move(inputs));
             }
         }
         ImGui::EndDisabled();
@@ -483,6 +561,7 @@ namespace Zamin {
             float minX = 1e9f, minY = 1e9f, maxX = -1e9f, maxY = -1e9f;
             for (auto& n : m_Graph.Nodes)
             {
+                if (!m_FocusNodes.empty() && !m_FocusNodes.contains(n.ID)) continue;
                 auto it = Visual::Catalog().find(n.Kind);
                 const auto& definition = Describe(n);
                 size_t rows = it == Visual::Catalog().end() ? 1 : std::max(definition.Inputs.size(), definition.Outputs.size());
@@ -549,6 +628,7 @@ namespace Zamin {
                 if (auto* h = dynamic_cast<VisualGraphHost*>(c->Instance)) runningNode = h->VM.CurrentNode;
         }
         bool clickedPin = false;
+        std::string openFunction;
         for (auto& n : m_Graph.Nodes)
         {
             auto it = Catalog().find(n.Kind);
@@ -612,6 +692,10 @@ namespace Zamin {
                     }
                 }
             }
+            if (!m_FocusNodes.empty() && !m_FocusNodes.contains(n.ID)) draw->AddRectFilled(a, b, IM_COL32(20, 23, 33, 175), 7);
+            // Double-clicking a typed function node opens that function (Graph::FunctionNodes).
+            if (hover && !clickedPin && mouse.x >= a.x && mouse.x <= b.x && mouse.y >= a.y && mouse.y <= b.y && ImGui::IsMouseDoubleClicked(0) && n.Kind.starts_with("Function.") && n.Inputs.contains("Name") && n.Inputs.at("Name").is_string())
+                openFunction = n.Inputs.at("Name").get<std::string>();
             if (hover && !clickedPin && mouse.x >= a.x && mouse.x <= b.x && mouse.y >= a.y && mouse.y <= b.y && ImGui::IsMouseClicked(0))
             {
                 m_Selected = n.ID;
@@ -655,8 +739,10 @@ namespace Zamin {
                 PasteSelection();
             }
             if (ImGui::IsKeyPressed(ImGuiKey_Delete, false)) DeleteSelection();
+            if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_G, false)) CollapseSelection();
         }
         if (hover && ImGui::IsMouseClicked(1) && !clickedPin) m_From = 0;
+        if (!openFunction.empty()) FocusFunction(openFunction);
         draw->AddText({ origin.x + 12, origin.y + size.y - 24 }, IM_COL32(150, 155, 176, 255), Tr("O'rta tugma: surish  |  G'ildirak: masshtab  |  Chiqish > kirish: bog'lash"));
     }
     void VisualGraphPanel::Properties()
@@ -715,6 +801,32 @@ namespace Zamin {
                     continue;
                 }
                 auto v = n.Inputs.contains(p.Name) ? n.Inputs.at(p.Name) : p.Default;
+                // The Enum literal of an enum node: a combo of the graph's enums (empty: the variable's own enum).
+                if (p.Name == "Enum" && p.Kind == Type::String && n.Kind.find("Enum") != std::string::npos && v.is_string())
+                {
+                    ImGui::PushID("enumType");
+                    ImGui::TextUnformatted(p.Name.c_str());
+                    ImGui::SameLine(112);
+                    ImGui::SetNextItemWidth(-1);
+                    const auto current = v.get<std::string>();
+                    if (ImGui::BeginCombo("##enum", current.empty() ? Tr("(o'zgaruvchining enumi)") : current.c_str()))
+                    {
+                        if ((n.Kind == "Get.Enum" || n.Kind == "Set.Enum") && ImGui::Selectable(Tr("(o'zgaruvchining enumi)"), current.empty()) && !current.empty())
+                        {
+                            Snapshot();
+                            n.Inputs.erase("Enum");
+                        }
+                        for (const auto& [name, definition] : m_Graph.Enums)
+                            if (ImGui::Selectable(name.c_str(), name == current) && name != current)
+                            {
+                                Snapshot();
+                                n.Inputs["Enum"] = name;
+                            }
+                        ImGui::EndCombo();
+                    }
+                    ImGui::PopID();
+                    continue;
+                }
                 if (const auto* choices = p.Kind == Type::Number ? PinChoices(n.Kind, p.Name) : nullptr; choices && v.is_number())
                 {
                     if (EditChoice(p.Name.c_str(), *choices, v))
@@ -724,7 +836,7 @@ namespace Zamin {
                     }
                     continue;
                 }
-                if (EditValue(p.Name.c_str(), p.Kind, v))
+                if (EditValue(p.Name.c_str(), p.Kind, v, p.Kind == Type::Enum ? FindEnum(p.Enum) : nullptr))
                 {
                     Snapshot();
                     n.Inputs[p.Name] = v;
@@ -743,20 +855,21 @@ namespace Zamin {
         }
         ImGui::SeparatorText(Tr("Graf o'zgaruvchilari###Graph variables"));
         ImGui::InputTextWithHint("##variable", Tr("O'zgaruvchi nomi"), m_Name, sizeof(m_Name));
-        static int type = 2;
-        const char* types[] = { "Exec", "Bool", "Number", "String", "Vec2", "Vec3", "Vec4", "Entity", "ArrayBool", "ArrayNumber", "ArrayString", "ArrayVec2", "ArrayVec3", "ArrayVec4", "ArrayEntity" };
-        ImGui::Combo(Tr("Turi###Type"), &type, types, int(Type::Count));
-        if (ImGui::Button(Tr("O'zgaruvchi qo'shish###Add variable")) && m_Name[0] && type > 0 && !m_Graph.Variables.contains(m_Name))
+        TypeCombo(Tr("Turi###Type"), m_NewVariableType, m_NewVariableEnum);
+        if (ImGui::Button(Tr("O'zgaruvchi qo'shish###Add variable")) && m_Name[0] && !m_Graph.Variables.contains(m_Name))
         {
-            Snapshot();
-            Value d = DefaultValue(Type(type));
-            m_Graph.Variables[m_Name] = { (Type)type, d };
+            const auto* enumeration = m_NewVariableType == Type::Enum ? FindEnum(m_NewVariableEnum) : nullptr;
+            if (m_NewVariableType != Type::Enum || enumeration)
+            {
+                Snapshot();
+                m_Graph.Variables[m_Name] = { m_NewVariableType, enumeration ? Value(enumeration->Entries.front().Value) : DefaultValue(m_NewVariableType), enumeration ? m_NewVariableEnum : "" };
+            }
         }
         std::string remove, renameFrom, renameTo;
         for (auto& [name, v] : m_Graph.Variables)
         {
             auto value = v.Default;
-            if (EditValue(name.c_str(), v.Kind, value))
+            if (EditValue(name.c_str(), v.Kind, value, FindEnum(v.Enum)))
             {
                 Snapshot();
                 v.Default = value;
@@ -784,6 +897,7 @@ namespace Zamin {
             if (!m_Graph.RenameVariable(renameFrom, renameTo)) m_Error = "Variable rename rejected: duplicate/empty name";
         }
         Functions();
+        Enums();
         ImGui::EndDisabled();
         ImGui::SeparatorText(Tr("Sahnadagi nusxa###Scene instance"));
         Entity selected = m_Scene ? m_Scene->GetEntityByUUID(m_Entity) : Entity{};
@@ -816,9 +930,9 @@ namespace Zamin {
                 }
                 for (auto& [name, var] : m_Graph.Variables)
                 {
-                    auto value = overrides.contains(name) && Matches(var.Kind, overrides[name]) ? overrides[name] : var.Default;
+                    auto value = overrides.contains(name) && m_Graph.Fits(var.Kind, var.Enum, overrides[name]) ? overrides[name] : var.Default;
                     ImGui::PushID("instance");
-                    if (EditValue(name.c_str(), var.Kind, value))
+                    if (EditValue(name.c_str(), var.Kind, value, FindEnum(var.Enum)))
                     {
                         overrides[name] = value;
                         c->Fields["Overrides"].Set(overrides.dump());

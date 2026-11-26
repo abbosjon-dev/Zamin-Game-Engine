@@ -122,10 +122,15 @@ namespace Zamin::Visual {
         bool Fits(Type type, const std::string& enumName, const Value& value) const;
         bool Fits(const Pin& pin, const Value& value) const { return Fits(pin.Kind, pin.Enum, value); }
         bool RenameEnum(const std::string& from, const std::string& to);
+        // Renames an entry; the Switch outputs named after it keep their wires.
+        bool RenameEnumEntry(const std::string& enumName, const std::string& from, const std::string& to);
         // How many nodes, variables and signature pins name this enum.
         size_t EnumUses(const std::string& name) const;
         bool RenameVariable(const std::string& from, const std::string& to);
         bool RenameFunction(const std::string& from, const std::string& to);
+        // Renames a parameter (result == false) or result of a typed function; the wires and literal arguments of
+        // its entry, calls and returns follow the new name.
+        bool RenameFunctionPin(const std::string& function, bool result, const std::string& from, const std::string& to);
         size_t PruneInvalidPins();
         Value CopyNodes(const std::set<uint32_t>& selected) const;
         bool PasteNodes(const Value& fragment, float x, float y, std::set<uint32_t>& inserted, std::string& error);

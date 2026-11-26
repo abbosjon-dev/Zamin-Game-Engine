@@ -29,9 +29,24 @@ namespace Zamin {
         std::vector<Visual::Diagnostic> m_Diagnostics;
         std::map<uint32_t, Visual::Definition> m_Descriptions;
         const Visual::Definition& Describe(const Visual::Node& node);
-        char m_FunctionName[128]{ "Calculate" }, m_MemberName[128]{ "Value" };
-        static bool EditLiteral(const char* label, Visual::Type type, Visual::Value& value);
+        char m_FunctionName[128]{ "Calculate" }, m_MemberName[128]{ "Value" }, m_EnumName[65]{ "Mode" };
+        // A literal editor; an Enum value shows its enum's entries (enumeration) as a combo.
+        static bool EditLiteral(const char* label, Visual::Type type, Visual::Value& value, const Visual::EnumDefinition* enumeration = nullptr);
+        // A pin/variable type picker: the value types, and for Enum a second combo of the graph's enums.
+        bool TypeCombo(const char* label, Visual::Type& type, std::string& enumName);
+        const Visual::EnumDefinition* FindEnum(const std::string& name) const;
         void Functions();
+        void Enums();
+        // Collapse the selection into a typed function (Graph::CollapseToFunction), undoable.
+        void CollapseSelection();
+        // "Opens" a typed function: frames its body (Graph::FunctionNodes), selects its entry, dims other nodes.
+        void FocusFunction(const std::string& name);
+        std::string m_FocusFunction;
+        std::set<uint32_t> m_FocusNodes;
+        std::vector<Visual::Diagnostic> m_Warnings;
+        Visual::Type m_NewVariableType = Visual::Type::Number, m_NewLocalType = Visual::Type::Number;
+        std::string m_NewVariableEnum, m_NewLocalEnum;
+        int m_ImportField = 0;
         void CopySelection();
         void PasteSelection(float offset = 40);
         void DeleteSelection();

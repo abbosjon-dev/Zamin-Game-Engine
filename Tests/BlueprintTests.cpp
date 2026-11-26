@@ -777,3 +777,22 @@ TEST(BlueprintCollapseRejectsUnsafeSelectionsAtomically)
     CHECK(!g.CollapseToFunction({}, "", call, error));
     CHECK(call == 0 && g.Serialize() == snapshot);
 }
+TEST(BlueprintSignatureAndEnumEntryRenamesKeepWires)
+{
+    auto g = FunctionGraph();
+    CHECK(g.RenameFunctionPin("Double", false, "X", "Input") && g.RenameFunctionPin("Double", true, "Result", "Twice"));
+    CHECK(!g.RenameFunctionPin("Double", false, "Input", "Then") && !g.RenameFunctionPin("Double", false, "Missing", "Y") && !g.RenameFunctionPin("Nope", false, "Input", "Y"));
+    CHECK(g.Nodes[1].Inputs.contains("Input") && !g.Nodes[1].Inputs.contains("X"));
+    CHECK(g.Validate().empty() && g.PruneInvalidPins() == 0);
+    Machine vm;
+    CHECK(vm.Load(g));
+    vm.Event("Start");
+    CHECK(vm.Error().empty() && vm.Variables().at("Answer") == 14.);
+    auto e = EnumGraph();
+    CHECK(e.RenameEnumEntry("Mode", "Run", "Sprint") && !e.RenameEnumEntry("Mode", "Walk", "Idle") && !e.RenameEnumEntry("Mode", "Missing", "X"));
+    CHECK(e.Validate().empty() && e.PruneInvalidPins() == 0);
+    Machine run;
+    CHECK(run.Load(e));
+    run.Event("Start");
+    CHECK(run.Variables().at("Picked") == "run" && run.Variables().at("Label") == "Sprint");
+}

@@ -1,135 +1,135 @@
-# Zamin Engine: navigatsiya va sun'iy intellekt (AI)
+# Zamin Engine: navigation and artificial intelligence (AI)
 
-Bu qo'llanma o'yindagi personajlarni "aqlli" qiladigan hamma narsa haqida: yo'l topish uchun grid'lar (2D va 3D),
-A* bilan yo'l qidirish va yo'lni silliqlash, yo'l bo'ylab yuradigan agentlar, harakatlanuvchi to'siqlar, steering
-xatti-harakatlari va nurlar bilan to'siqdan qochish, ko'rish sensori (ko'rish maydoni va ko'rish chizig'i), patrul
-yo'llari, guruh shakllari (formatsiya), AI holat mashinasi va behavior tree, navigatsiyani debug chizish, ishlash
-tezligi (benchmark) va bake ma'lumotlarini saqlash (`.znav`).
+This guide covers everything that makes the characters of a game "smart": grids for pathfinding (2D and 3D), A* path
+search and path smoothing, agents that walk along a path, moving obstacles, steering behaviours and obstacle avoidance
+with rays, the sight sensor (field of view and line of sight), patrol routes, group shapes (formations), the AI state
+machine and the behavior tree, navigation debug drawing, performance (benchmarks) and storing bake data (`.znav`).
 
-Hamma narsa `#include <Zamin/Zamin.h>` bilan keladi; AI moduli `Zamin/src/Zamin/AI/` papkasida, sahnaga bog'liq
-qismi `Scene/SceneNavigation.cpp`, `ScenePatrol.cpp`, `SceneFormation.cpp`, `SceneSight.cpp` fayllarida.
+Everything comes with `#include <Zamin/Zamin.h>`; the AI module is in the `Zamin/src/Zamin/AI/` folder, the part that
+depends on the scene is in `Scene/SceneNavigation.cpp`, `ScenePatrol.cpp`, `SceneFormation.cpp` and `SceneSight.cpp`.
 
-## Mundarija
+## Contents
 
-1. [Umumiy tuzilma](#1-umumiy-tuzilma)
-2. [NavGrid: yo'l topish grid'i](#2-navgrid-yol-topish-gridi)
-3. [NavGrid 2D va NavGrid 3D komponentlari](#3-navgrid-2d-va-navgrid-3d-komponentlari)
-4. [A* yo'l qidirish va yo'lni silliqlash](#4-a-yol-qidirish-va-yolni-silliqlash)
-5. [Nav Agent: yo'l bo'ylab yurish](#5-nav-agent-yol-boylab-yurish)
-6. [Nav Obstacle: harakatlanuvchi to'siqlar](#6-nav-obstacle-harakatlanuvchi-tosiqlar)
-7. [Steering va to'siqdan qochish](#7-steering-va-tosiqdan-qochish)
-8. [Sight Sensor: ko'rish](#8-sight-sensor-korish)
-9. [Patrol Path: patrul yo'llari](#9-patrol-path-patrul-yollari)
-10. [Formation: guruh harakati](#10-formation-guruh-harakati)
-11. [AI holat mashinasi (StateMachine)](#11-ai-holat-mashinasi-statemachine)
+1. [Overview](#1-overview)
+2. [NavGrid: the pathfinding grid](#2-navgrid-the-pathfinding-grid)
+3. [The NavGrid 2D and NavGrid 3D components](#3-the-navgrid-2d-and-navgrid-3d-components)
+4. [A* path search and path smoothing](#4-a-path-search-and-path-smoothing)
+5. [Nav Agent: walking along a path](#5-nav-agent-walking-along-a-path)
+6. [Nav Obstacle: moving obstacles](#6-nav-obstacle-moving-obstacles)
+7. [Steering and obstacle avoidance](#7-steering-and-obstacle-avoidance)
+8. [Sight Sensor: seeing](#8-sight-sensor-seeing)
+9. [Patrol Path: patrol routes](#9-patrol-path-patrol-routes)
+10. [Formation: moving as a group](#10-formation-moving-as-a-group)
+11. [The AI state machine (StateMachine)](#11-the-ai-state-machine-statemachine)
 12. [Behavior tree](#12-behavior-tree)
-13. [Qaysi birini tanlash kerak?](#13-qaysi-birini-tanlash-kerak)
-14. [Debug chizish](#14-debug-chizish)
-15. [Ishlash tezligi va benchmark](#15-ishlash-tezligi-va-benchmark)
-16. [Serializatsiya va .znav fayli](#16-serializatsiya-va-znav-fayli)
-17. [Namuna sahnalar](#17-namuna-sahnalar)
-18. [Testlar](#18-testlar)
-19. [Qisqa API ma'lumotnomasi](#19-qisqa-api-malumotnomasi)
+13. [Which one to choose?](#13-which-one-to-choose)
+14. [Debug drawing](#14-debug-drawing)
+15. [Performance and benchmarks](#15-performance-and-benchmarks)
+16. [Serialization and the .znav file](#16-serialization-and-the-znav-file)
+17. [Sample scenes](#17-sample-scenes)
+18. [Tests](#18-tests)
+19. [Short API reference](#19-short-api-reference)
 
 ---
 
-## 1. Umumiy tuzilma
+## 1. Overview
 
-AI uch qatlamdan iborat:
+The AI has three layers:
 
-| Qatlam | Nima | Qayerda |
+| Layer | What | Where |
 |---|---|---|
-| Sof algoritmlar | `NavGrid`, `NavPathfinder` (A*), `NavPathSmoothing`, `Steering`, `Sight`, `Formation`, `StateMachine`, `BehaviorTree` | `AI/*.h` - sahnaga bog'liq emas, testlarda alohida ishlaydi |
-| Komponentlar | NavGrid 2D / 3D, Nav Agent, Nav Obstacle, Sight Sensor, Patrol Path, Formation | `Scene/Components.h`, inspektorda "Navigatsiya va AI" bo'limi |
-| Skript API | `SetDestination`, `CanSeeTarget`, `PausePatrol`, `SetFormationShape`, `WatchBehaviorTree` ... va callback'lar | `Scripting/ScriptableEntity.h` |
+| Pure algorithms | `NavGrid`, `NavPathfinder` (A*), `NavPathSmoothing`, `Steering`, `Sight`, `Formation`, `StateMachine`, `BehaviorTree` | `AI/*.h` - independent of the scene, they run on their own in the tests |
+| Components | NavGrid 2D / 3D, Nav Agent, Nav Obstacle, Sight Sensor, Patrol Path, Formation | `Scene/Components.h`, the "Navigation and AI" section of the inspector |
+| Script API | `SetDestination`, `CanSeeTarget`, `PausePatrol`, `SetFormationShape`, `WatchBehaviorTree` ... and callbacks | `Scripting/ScriptableEntity.h` |
 
-Har kadrda o'yin quyidagi tartibda ishlaydi (`Scene::OnUpdateRuntime`): skriptlarning `OnUpdate` -> grid'larni qayta
-qurish (AutoRebuild) -> Nav Obstacle'lar kataklarni yopadi -> Patrol Path'lar keyingi nuqtani tanlaydi -> Formation'lar
-a'zolarini joyiga yuboradi -> Nav Agent'lar yo'l topadi va yuradi -> fizika qadami -> Sight Sensor'lar qaraydi
-(`OnTargetSpotted` / `OnTargetLost`) -> navigatsiya debug chizish -> `OnLateUpdate`.
+Every frame the game runs in this order (`Scene::OnUpdateRuntime`): the scripts' `OnUpdate` -> grids are rebuilt
+(AutoRebuild) -> Nav Obstacles close cells -> Patrol Paths choose the next point -> Formations send their members to
+their places -> Nav Agents find paths and walk -> the physics step -> Sight Sensors look (`OnTargetSpotted` /
+`OnTargetLost`) -> navigation debug drawing -> `OnLateUpdate`.
 
-Koordinatalar: 2D o'yinlarda grid dunyoning **XY** tekisligida, 3D'da **XZ** tekisligida (grid'ning `y` o'qi = dunyo
-`z`). 3D obyekt `-Z` tomonga qaraydi, 2D obyekt `+X` tomonga.
+Coordinates: in 2D games the grid lies in the world's **XY** plane, in 3D in the **XZ** plane (the grid's `y` axis =
+the world's `z`). A 3D object faces `-Z`, a 2D object faces `+X`.
 
-## 2. NavGrid: yo'l topish grid'i
+## 2. NavGrid: the pathfinding grid
 
-`AI/NavGrid.h`. Kvadrat kataklar to'ri: har katak yuriladigan yoki to'siq, o'z narxiga ega (1 - oddiy yer, 3 - loy:
-undan o'tish 3 barobar qimmat). 3D grid'larda har katakning poli balandligi va qo'shni kataklar orasidagi eng katta
-balandlik farqi (`MaxClimb`, zinapoya) bor.
+`AI/NavGrid.h`. A net of square cells: every cell is walkable or an obstacle and has its own cost (1 - ordinary
+ground, 3 - mud: crossing it costs three times as much). 3D grids also store every cell's floor height and the largest
+height difference between neighbouring cells (`MaxClimb`, stairs).
 
 ```cpp
-NavGrid grid(32, 32, 0.5f, { -8.0f, -8.0f });   // 32x32 katak, 0.5 birlik, (-8, -8) dan boshlab
-grid.FillRect(10, 0, 11, 20, false);             // devor
-grid.SetCost(5, 5, 3.0f);                        // loy
-grid.Erode(0.3f);                                // agent radiusi: devorga 0.3 dan yaqin kataklar ham yopiq
+NavGrid grid(32, 32, 0.5f, { -8.0f, -8.0f });   // 32x32 cells, 0.5 units, starting at (-8, -8)
+grid.FillRect(10, 0, 11, 20, false);             // a wall
+grid.SetCost(5, 5, 3.0f);                        // mud
+grid.Erode(0.3f);                                // agent radius: cells closer than 0.3 to a wall are closed too
 glm::ivec2 cell = grid.WorldToCell({ 1.2f, -3.0f });
-bool ok = grid.HasLineOfSight({ -7, -7 }, { 7, -7 }); // to'g'ri yurib bo'ladimi (burchak kesmasdan)
+bool ok = grid.HasLineOfSight({ -7, -7 }, { 7, -7 }); // can it walk straight there (without cutting corners)
 ```
 
-- `TraceLine` - kesma tegadigan kataklar (supercover: aynan burchakdan o'tsa ikkala yon katak ham);
-- `FindNearestWalkable` - eng yaqin yuriladigan katak (devor ichiga bosilgan nishon uchun);
-- `Carve` / `Uncarve` - Nav Obstacle'lar uchun: bake qilingan holatdan alohida hisoblanadi (bir katakni bir nechta
-  to'siq yopishi mumkin), `GetCarveRevision` o'zgaradi - agentlar yo'li to'silganini tekshiradi;
-- `GetRevision` - grid har o'zgarganda oshadi (agentlar yo'lni qaytadan topadi).
+- `TraceLine` - the cells a segment touches (supercover: when it passes exactly through a corner, both side cells);
+- `FindNearestWalkable` - the nearest walkable cell (for a target pushed into a wall);
+- `Carve` / `Uncarve` - for Nav Obstacles: counted separately from the baked state (several obstacles can close one
+  cell), `GetCarveRevision` changes - agents check whether their path is blocked;
+- `GetRevision` - grows every time the grid changes (agents find their path again).
 
-## 3. NavGrid 2D va NavGrid 3D komponentlari
+## 3. The NavGrid 2D and NavGrid 3D components
 
-Grid'ni qo'lda to'ldirish shart emas: komponent uni darajadan o'zi quradi ("bake").
+You do not have to fill the grid by hand: the component builds it from the level itself ("bake").
 
-**NavGrid 2D** (`NavGrid2DComponent`): tilemap'larning to'qnashuvchi plitkalari (tileset sozlamasi: Solid; `OneWayBlocks`
-bilan OneWay ham) va statik 2D collider'lar (Rigidbody 2D Static, trigger'lar emas) ostidagi kataklar yopiq,
-`AgentRadius` dan yaqinlari ham. Maydon - manbalar chegarasi (`AutoBounds`) yoki obyekt atrofidagi `Size`.
-`AutoRebuild`: o'yin paytida plitka qo'yilsa / buzilsa yoki statik collider siljisa soniyasiga bir necha marta
-tekshirib qayta quradi.
+**NavGrid 2D** (`NavGrid2DComponent`): the cells under the colliding tiles of tilemaps (tileset setting: Solid; with
+`OneWayBlocks` OneWay too) and under static 2D colliders (Rigidbody 2D Static, not triggers) are closed, and so are the
+cells closer than `AgentRadius`. The area is the bounds of the sources (`AutoBounds`) or `Size` around the object.
+`AutoRebuild`: when a tile is placed / destroyed or a static collider moves while playing, it checks a few times a
+second and rebuilds.
 
-**NavGrid 3D** (`NavGrid3DComponent`): `Size` qutisidagi har katak markazidan pastga nur tashlanadi; birinchi tekkan
-statik 3D collider - katak poli. Pol `MaxSlope` dan tik bo'lmasa va ustida `AgentHeight` gacha hech narsa bo'lmasa
-(devor, yashik, past shift) - yuriladigan. Qo'shni pollar `StepHeight` dan ko'p farq qilsa bog'lanmaydi. Bu bitta
-qavat (eng yuqori pol) - navmesh emas.
+**NavGrid 3D** (`NavGrid3DComponent`): a ray is cast down from the centre of every cell in the `Size` box; the first
+static 3D collider it hits is the cell's floor. If the floor is not steeper than `MaxSlope` and nothing (a wall, a
+crate, a low ceiling) is above it up to `AgentHeight`, it is walkable. Neighbouring floors are not connected when they
+differ by more than `StepHeight`. This is a single storey (the highest floor) - not a navmesh.
 
-Ikkalasida ham `Paths` sozlamalari:
+Both have the `Paths` settings:
 
-| Sozlama | Ma'nosi |
+| Setting | Meaning |
 |---|---|
-| `Diagonals` | 8 qo'shni (diagonal qadam sqrt 2 turadi), o'chiq - faqat 4 tomon |
-| `CutCorners` | diagonal qadam bitta to'siq katak yonidan o'tishi mumkin |
-| `BakeOnStart` | o'yin boshlanganda (skriptlardan oldin) quriladi; o'shanda nofaol grid - yoqilganda, o'yin paytida yaratilgani (`Instantiate`, prefab) - darhol; o'chiq bo'lsa - `GetScene().BakeNavGrid(e)` |
-| `CacheBake` | bake sahna yonidagi `.znav` faylida saqlanadi ([16-bo'lim](#16-serializatsiya-va-znav-fayli)); faqat `BakeOnStart` bilan |
+| `Diagonals` | 8 neighbours (a diagonal step costs sqrt 2), off - only the 4 sides |
+| `CutCorners` | a diagonal step may pass next to one obstacle cell |
+| `BakeOnStart` | built when the game starts (before the scripts); a grid that is inactive then - when it is enabled, one created while playing (`Instantiate`, prefab) - at once; when off - `GetScene().BakeNavGrid(e)` |
+| `CacheBake` | the bake is stored in a `.znav` file next to the scene ([section 16](#16-serialization-and-the-znav-file)); only with `BakeOnStart` |
 
-Editor grid'ni o'zi quradi va viewport'da ko'rsatadi (Gizmo'lar > Navigatsiya); inspektordagi "Grid'ni qurish"
-tugmasi qaytadan quradi. Skriptdan: `Scene::BakeNavGrid(entity)`, `Scene::BakeNavGrids()`.
+The editor builds the grid itself and shows it in the viewport (Gizmos > Navigation); the "Bake grid" button in the
+inspector rebuilds it. From a script: `Scene::BakeNavGrid(entity)`, `Scene::BakeNavGrids()`.
 
-## 4. A* yo'l qidirish va yo'lni silliqlash
+## 4. A* path search and path smoothing
 
-`AI/NavPathfinder.h`: indekslangan binar heap'li A*. Buferlari qayta ishlatiladi (grid'ga sig'gandan keyin xotira
-ajratmaydi), shuning uchun har oqimga bitta pathfinder (grid'larni oqimlar baham ko'rishi mumkin - ular faqat
-o'qiladi). Bir xil narxli yo'llar orasidan har doim bir xil tanlanadi (deterministik).
+`AI/NavPathfinder.h`: A* with an indexed binary heap. Its buffers are reused (once they fit the grid it allocates no
+memory), so use one pathfinder per thread (threads may share grids - they are only read). Among paths of equal cost the
+same one is always chosen (deterministic).
 
 ```cpp
 NavPathfinder finder;
 NavPathResult path;
 NavPathOptions options;           // Diagonals, CutCorners, HeuristicWeight, MaxExpanded, SnapRadius, StartHeight
 finder.FindPath(grid, glm::vec2(-7, -7), glm::vec2(7, 7), path, options);
-if (path.IsComplete()) ...        // Complete - nishonga yetadi; Partial - unga eng yaqin joyga; Failed - umuman yo'q
+if (path.IsComplete()) ...        // Complete - reaches the target; Partial - the nearest place to it; Failed - none at all
 ```
 
-- `HeuristicWeight` > 1 - kamroq katak ochadi, yo'l shunchalik uzunroq bo'lishi mumkin; 0 - Dijkstra.
-- Nishon devor ichida yoki yopiq xonada bo'lsa natija **Partial**: unga eng yaqin yetib boriladigan katakkacha.
-- Boshlanish yopiq katakda bo'lsa (eroziya qilingan devor yonida) `SnapRadius` ichidagi eng yaqin bo'sh katakdan.
+- `HeuristicWeight` > 1 - opens fewer cells, the path may be that much longer; 0 - Dijkstra.
+- When the target is inside a wall or in a closed room the result is **Partial**: up to the reachable cell nearest to it.
+- When the start is in a closed cell (next to an eroded wall), the search starts from the nearest free cell within
+  `SnapRadius`.
 
-`AI/NavPathSmoothing.h`: kataklar ketma-ketligidan nuqtalar (`ToPoints`), **string pulling** (`StringPull`: ko'rinadigan
-eng uzoq burchakkacha to'g'ri chiziq - "zinapoya" yo'qoladi) va burchaklarni yumaloqlash (`SplineSmooth`:
-Catmull-Rom, faqat yuriladigan joydan). Sahna darajasida: `Scene::FindNavPath(from, to, path)`.
+`AI/NavPathSmoothing.h`: points from a sequence of cells (`ToPoints`), **string pulling** (`StringPull`: a straight line
+to the farthest visible corner - the "staircase" disappears) and rounding the corners (`SplineSmooth`: Catmull-Rom,
+only over walkable ground). At the scene level: `Scene::FindNavPath(from, to, path)`.
 
-## 5. Nav Agent: yo'l bo'ylab yurish
+## 5. Nav Agent: walking along a path
 
-`NavAgentComponent` obyektni grid bo'ylab yurgizadi: `SetDestination` (yoki `Target` - doim ortidan quvadigan obyekt)
-yo'lni topadi, agent esa unga `LookAhead` oldindagi nuqtaga qarab yuradi, `Acceleration` bilan tezlashadi / to'xtaydi,
-`AngularSpeed` bilan buriladi va oxiridan `StoppingDistance` da to'xtaydi. Yo'l har `RepathInterval` soniyada va grid
-o'zgarganda qaytadan topiladi.
+`NavAgentComponent` walks an object along the grid: `SetDestination` (or `Target` - an object it always follows) finds
+the path, and the agent walks towards the point `LookAhead` ahead on it, speeds up / stops with `Acceleration`, turns
+with `AngularSpeed` and stops `StoppingDistance` before the end. The path is found again every `RepathInterval` seconds
+and whenever the grid changes.
 
-Nimani suradi: Character Controller 3D (`Move` bilan), Rigidbody 2D / 3D (dinamik - tezlik bilan, kinematik -
-transform bilan) yoki transform'ning o'zini (3D'da grid poli ustida, `BaseOffset` balandlikda).
+What it moves: a Character Controller 3D (with `Move`), a Rigidbody 2D / 3D (dynamic - by velocity, kinematic - by the
+transform) or the transform itself (in 3D on the grid's floor, at the `BaseOffset` height).
 
 ```cpp
 class Guard : public ScriptableEntity
@@ -144,46 +144,46 @@ public:
     }
 
 private:
-    std::vector<glm::vec3> m_Points{ { 0, 0, 0 }, { 8, 0, 0 }, { 8, 0, 8 } };   // patrul nuqtalari
+    std::vector<glm::vec3> m_Points{ { 0, 0, 0 }, { 8, 0, 0 }, { 8, 0, 8 } };   // patrol points
     size_t m_Next = 0;
 };
 ```
 
-Skript API: `SetDestination(p)` (yo'l darhol topiladi; topilmasa `false`), `StopMoving(immediate)`, `IsMoving()`,
-`HasArrived()`, `GetRemainingDistance()`, `FindPath(from, to)`, `HasNavLineOfSight(a, b)`, `SetNavTarget(e)`.
+Script API: `SetDestination(p)` (the path is found at once; `false` when there is none), `StopMoving(immediate)`,
+`IsMoving()`, `HasArrived()`, `GetRemainingDistance()`, `FindPath(from, to)`, `HasNavLineOfSight(a, b)`, `SetNavTarget(e)`.
 
-`Target` li agent: `StopMoving()` (inspektordagi "To'xtatish" ham) va `SetDestination(p)` nishon ortidan yurishni
-**to'xtatib turadi** - `Target` saqlanadi, lekin agent turib qoladi yoki yuborilgan joyga boradi. Yana ta'qib qilish
-uchun: `SetNavTarget(e)` (komponentda `ResumeTarget()`, inspektorda "Nishon ortidan") yoki boshqa `Target` qo'yish;
-`SetNavTarget({})` nishonni olib tashlaydi va agentni to'xtatadi.
+An agent with a `Target`: `StopMoving()` (also "Stop" in the inspector) and `SetDestination(p)` **pause** following the
+target - the `Target` is kept, but the agent stands still or goes where it was sent. To chase again: `SetNavTarget(e)`
+(`ResumeTarget()` on the component, "Follow target" in the inspector) or set another `Target`; `SetNavTarget({})`
+removes the target and stops the agent.
 
-> Maslahat: "yetib keldimi?" uchun `HasArrived()` emas, `IsMoving()` ni tekshiring - yo'l topilmagan agent "yetib
-> kelmaydi", lekin harakatlanmaydi ham.
+> Tip: for "has it arrived?" check `IsMoving()`, not `HasArrived()` - an agent that found no path never "arrives", but
+> it does not move either.
 
-## 6. Nav Obstacle: harakatlanuvchi to'siqlar
+## 6. Nav Obstacle: moving obstacles
 
-`NavObstacleComponent` - eshik, surib yuriladigan yashik, to'xtab turgan arava: o'yin paytida o'z shakli (quti yoki
-doira/silindr, `AgentRadius` ga kengaytirilgan) ostidagi kataklarni bake qilingan grid'dan "o'yib" oladi
-(carving). `MoveThreshold` dan ko'p siljisa yoki burilsa faqat o'zgargan kataklarni qayta yopadi; o'chirilsa / nofaol
-bo'lsa kataklarni qaytaradi. Yo'li to'silgan agentlar shu kadrning o'zida yangi yo'l topadi.
+`NavObstacleComponent` - a door, a crate that can be pushed, a parked cart: while playing it "carves" the cells under
+its shape (a box or a circle / cylinder, grown by `AgentRadius`) out of the baked grid. When it moves or turns by more
+than `MoveThreshold` it closes only the cells that changed; when it is removed / inactive it gives the cells back.
+Agents whose path is blocked find a new path in the same frame.
 
-`CarveOnlyStationary`: faqat `StationaryTime` soniya turgandan keyin yopadi - harakat paytida uni agentlarning
-nurlari (Avoidance) aylanib o'tadi. Inspektor jonli holatni ko'rsatadi: nechta katak yopiq, necha marta yangilandi.
+`CarveOnlyStationary`: closes only after standing still for `StationaryTime` seconds - while it moves, the agents' rays
+(Avoidance) steer around it. The inspector shows the live state: how many cells are closed, how many times it updated.
 
-## 7. Steering va to'siqdan qochish
+## 7. Steering and obstacle avoidance
 
-`AI/Steering.h` - Reynolds steering xatti-harakatlari: kichik sof funksiyalar, har biri "steering kuchi" qaytaradi
-(xohlangan tezlik - hozirgi tezlik). `glm::vec2` va `glm::vec3` uchun.
+`AI/Steering.h` - Reynolds steering behaviours: small pure functions, each returns a "steering force"
+(desired velocity - current velocity). For `glm::vec2` and `glm::vec3`.
 
-| Funksiya | Nima qiladi |
+| Function | What it does |
 |---|---|
-| `Seek` / `Flee` | to'liq tezlikda nishonga / undan (Flee faqat `panicDistance` ichida) |
-| `Arrive` | nishonga, `slowingRadius` ichida sekinlashib, ustida to'xtaydi |
-| `Pursue` / `Evade` | nishonning kelajakdagi joyiga (tezligi bo'yicha bashorat) |
-| `Wander` | aylanadagi nuqta tasodifiy siljiydi - silliq, maqsadsiz yurish (o'z urug'i bilan) |
-| `Separation` / `Alignment` / `Cohesion` | suruv (flocking): bir-biridan uzoqlashish, bir tomonga, markazga |
-| `Accumulate` | ustuvorlik bilan qo'shish: avval muhimlari, `maxForce` tugasa qolgani kesiladi |
-| `Integrate` | kuch -> tezlik -> pozitsiya (oddiy "transport vositasi") |
+| `Seek` / `Flee` | at full speed towards the target / away from it (Flee only within `panicDistance`) |
+| `Arrive` | towards the target, slowing down within `slowingRadius` and stopping on it |
+| `Pursue` / `Evade` | towards the target's future position (predicted from its velocity) |
+| `Wander` | a point on a circle drifts randomly - smooth, aimless walking (with its own seed) |
+| `Separation` / `Alignment` / `Cohesion` | flocking: keeping apart, heading the same way, moving to the centre |
+| `Accumulate` | adding by priority: the important ones first, the rest is cut when `maxForce` runs out |
+| `Integrate` | force -> velocity -> position (a simple "vehicle") |
 
 ```cpp
 glm::vec2 force(0.0f);
@@ -193,145 +193,147 @@ Steering::Accumulate(force, Steering::Wander(m_Wander, p, v, MaxSpeed, dt) * 0.5
 Steering::Integrate(p, v, force, MaxForce, MaxSpeed, dt);
 ```
 
-**To'siqdan qochish (Avoidance)**: Nav Agent'da `Avoidance` yoqilsa uchta fizika nuri ("mo'ylov": oldinga
-`FeelerLength` va ikki yonga `FeelerAngle` ostida) grid bilmaydigan narsalarni - boshqa agentlar, yashiklar, harakatdagi
-jismlar - aylanib o'tadi; turtki yo'l bilan `AvoidanceWeight` da aralashtiriladi va hech qachon grid yopiq deb
-bilgan katakka yo'naltirmaydi. Statik jismlar faqat `AvoidStatic` bilan (ularni grid allaqachon biladi).
-`Steering::MakeFeelers` / `AvoidObstacles` - shu mantiqning sof qismi (o'z skriptingizda ham ishlatish mumkin).
+**Obstacle avoidance (Avoidance)**: with `Avoidance` on, a Nav Agent's three physics rays ("whiskers": `FeelerLength`
+forward and two at `FeelerAngle` to the sides) steer around things the grid does not know - other agents, crates,
+moving bodies; the push is blended with the path at `AvoidanceWeight` and never points into a cell the grid knows to
+be closed. Static bodies only with `AvoidStatic` (the grid already knows them).
+`Steering::MakeFeelers` / `AvoidObstacles` - the pure part of the same logic (you can use it in your own script too).
 
-## 8. Sight Sensor: ko'rish
+## 8. Sight Sensor: seeing
 
-`SightSensorComponent` - "ko'zlar": nishon `ViewDistance` ichida va oldinga qaragan `FieldOfView` konusida bo'lsa (yoki
-`NearDistance` dan yaqin bo'lsa har tomondan), ko'zdan (`EyeHeight`) nishonning nuqtalariga (collider markazi va
-qirralari) tashlangan fizika nurlaridan biri `BlockingMask` qatlamlaridagi collider'ga tegmasa - ko'radi. Nishonlar:
-`Target` obyekt yoki `TargetTag` tegli faol obyektlar. Har `CheckInterval` soniyada tekshiriladi.
+`SightSensorComponent` - "eyes": it sees the target when the target is within `ViewDistance` and inside the forward
+`FieldOfView` cone (or from any side when closer than `NearDistance`) and one of the physics rays cast from the eye
+(`EyeHeight`) to the target's points (the collider's centre and edges) hits no collider on the `BlockingMask` layers.
+Targets: the `Target` object or active objects with the `TargetTag` tag. Checked every `CheckInterval` seconds.
 
 ```cpp
-void OnTargetSpotted(Entity target) override { m_AI.SendEvent("ko'rdi"); }
-void OnTargetLost(Entity target) override { m_AI.SendEvent("yo'qotdi"); }
-// yoki har kadr: CanSeeTarget(), GetSeenTarget(), GetLastSeenPosition(), RemembersTarget()
+void OnTargetSpotted(Entity target) override { m_AI.SendEvent("spotted"); }
+void OnTargetLost(Entity target) override { m_AI.SendEvent("lost"); }
+// or every frame: CanSeeTarget(), GetSeenTarget(), GetLastSeenPosition(), RemembersTarget()
 ```
 
-`RemembersTarget()` - ko'ryapti yoki `MemoryTime` soniyadan kamroq oldin ko'rgan ("qidiruv" holati uchun). Istalgan
-obyektni darhol tekshirish: `Scene::CanSee(viewer, target)`, skriptda `CanSee(entity)`. Editor konusni chizadi (ko'rsa
-qizil) va oxirgi ko'rilgan joyni belgilaydi.
+`RemembersTarget()` - it sees the target or saw it less than `MemoryTime` seconds ago (for a "search" state). To check
+any object at once: `Scene::CanSee(viewer, target)`, in a script `CanSee(entity)`. The editor draws the cone (red when
+it sees) and marks the last seen position.
 
-## 9. Patrol Path: patrul yo'llari
+## 9. Patrol Path: patrol routes
 
-`PatrolPathComponent` - qorovul, hayvon, arava aylanib yuradigan yo'l. Nuqtalar manbai:
+`PatrolPathComponent` - the route a guard, an animal or a cart walks around. The source of the points:
 
-- **Ro'yxat** (`Points`): dunyo koordinatalari yoki `RelativeToStart` bilan boshlang'ich joydan siljish (prefab
-  nusxalari o'z joyida patrul qiladi); har nuqtaning o'z kutish vaqti bo'lishi mumkin;
-- **Bolalar**: `Route` obyektining faol bolalari, ierarxiya tartibida (viewport'da gizmo bilan suriladi);
-- **Spline**: `Route` dagi Spline nuqtalari yoki egri chiziq bo'ylab har `SplineSpacing` da nuqta.
+- **List** (`Points`): world coordinates, or with `RelativeToStart` offsets from the starting position (prefab
+  instances patrol in their own place); every point can have its own wait time;
+- **Children**: the active children of the `Route` object, in hierarchy order (moved with the gizmo in the viewport);
+- **Spline**: the points of the Spline on `Route`, or a point every `SplineSpacing` along the curve.
 
-Rejimlar: `Loop` (oxiridan boshiga), `PingPong` (borib-qaytish), `Random` (bir nuqtaga ketma-ket ikki marta emas),
-`Once` (oxirida to'xtaydi). Har nuqtada `WaitTime` (+/- `WaitVariance`) kutadi. Nav Agent bo'lsa grid bo'ylab yuradi
-(agentning tezligi, avoidance ...), bo'lmasa to'g'ri chiziq bo'ylab `Speed` bilan. Yetib bo'lmaydigan nuqta qisqa
-kutishdan yoki 5 s turib qolishdan keyin o'tkazib yuboriladi.
+Modes: `Loop` (from the end back to the start), `PingPong` (there and back), `Random` (never the same point twice in a
+row), `Once` (stops at the end). It waits `WaitTime` (+/- `WaitVariance`) at every point. With a Nav Agent it walks
+along the grid (the agent's speed, avoidance ...), without one in a straight line at `Speed`. A point it cannot reach
+is skipped after a short wait or after being stuck for 5 s.
 
-Skript API: `PausePatrol(stop)` (masalan ta'qib boshlanadi), `ResumePatrol(nearest)` (eng yaqin nuqtadan davom),
-`IsPatrolling()`, `GetPatrolPoint()`, `GetPatrolTarget()`, `IsWaitingAtPatrolPoint()`, `SetPatrolPoint(i)`;
-callback `OnPatrolPointReached(int index)` va event bus'da `"PatrolPointReached"` hodisasi.
+Script API: `PausePatrol(stop)` (a chase starts, for example), `ResumePatrol(nearest)` (continue from the nearest
+point), `IsPatrolling()`, `GetPatrolPoint()`, `GetPatrolTarget()`, `IsWaitingAtPatrolPoint()`, `SetPatrolPoint(i)`;
+the `OnPatrolPointReached(int index)` callback and the `"PatrolPointReached"` event on the event bus.
 
-## 10. Formation: guruh harakati
+## 10. Formation: moving as a group
 
-`FormationComponent` boshliq (leader) obyektda turadi: uning a'zolari - `Members` ro'yxati va (ixtiyoriy) `MemberTag`
-tegli faol obyektlar - boshliq atrofidagi "joylar"da (slot) turadi va u bilan birga yuradi.
+`FormationComponent` sits on the leader object: its members - the `Members` list and (optionally) active objects with
+the `MemberTag` tag - stand in "slots" around the leader and walk with it.
 
-| Shakl | Joylar |
+| Shape | Slots |
 |---|---|
-| `Line` (qator) | boshliq bilan yonma-yon: o'ngida, chapida, navbat bilan, `Spacing` oraliqda |
-| `Column` (kolonna) | boshliq ortidan bir qator bo'lib |
-| `Wedge` (pona) | V shaklida, boshliq uchida; `WedgeAngle` - V qanchalik ochiq |
-| `Circle` (doira) | boshliq atrofida halqa (boshliq bilan burilmaydi; a'zolar tashqariga qaraydi) |
+| `Line` | side by side with the leader: on its right, on its left, in turn, `Spacing` apart |
+| `Column` | in one file behind the leader |
+| `Wedge` | a V shape with the leader at its tip; `WedgeAngle` - how open the V is |
+| `Circle` | a ring around the leader (it does not turn with the leader; the members face outwards) |
 
-- **Yo'nalish**: boshliq yurgan tomon (Nav Agent tezligi yoki siljishi), turganda - oxirgi yo'nalish, boshida - u
-  qaragan tomon. Burilish silliq (300 gradus / s).
-- **Joy taqsimlash** (`AssignNearest`): har a'zo jami eng kam yuriladigan joyni oladi - Venger (Hungarian) usuli,
-  64 tadan ko'p a'zoda - "eng yaqin bo'sh joy". Shakl, a'zolar o'zgarsa yoki yo'nalish 75 gradusdan ko'p burilsa -
-  qaytadan (aks holda chapdagilar o'ngga o'tib bir-birini kesib o'tardi).
-- **Grid ichida** (`KeepOnGrid`): to'siq katakdagi joy eng yaqin yuriladigan katakka, devor ortidagisi boshliq
-  tomonga suriladi (yo'lakda qator o'z-o'zidan torayadi).
-- **Harakat**: Nav Agent'li a'zolar har `UpdateInterval` da joyi siljigan bo'lsa yangi manzil oladi (boshliq yurganda -
-  joyning keyingi yuborishgacha bo'ladigan o'rni: to'xtab-yurmaydi); Nav Agent'siz a'zolar to'g'ri chiziq bo'ylab
-  `Speed` bilan (Character Controller, dinamik jism yoki transform). A'zolar boshliqdan bir oz tezroq bo'lsin.
-- Joyida turgan a'zo (`SlotTolerance`) guruh qaragan tomonga buriladi (`FaceHeading`).
+- **Heading**: the direction the leader walks (the Nav Agent velocity or its movement), the last heading while it
+  stands, at the start - the way it faces. Turning is smooth (300 degrees / s).
+- **Slot assignment** (`AssignNearest`): the members get the slots with the least total walking - the Hungarian method,
+  with more than 64 members - "the nearest free slot". Assigned again when the shape or the members change or the
+  heading turns by more than 75 degrees (otherwise the ones on the left would cross over to the right through each
+  other).
+- **Inside the grid** (`KeepOnGrid`): a slot in an obstacle cell moves to the nearest walkable cell, one behind a wall
+  moves towards the leader (a line narrows by itself in a corridor).
+- **Movement**: members with a Nav Agent get a new destination every `UpdateInterval` when their slot has moved (while
+  the leader walks - where the slot will be by the next update: no stop-and-go); members without a Nav Agent move in a
+  straight line at `Speed` (Character Controller, dynamic body or transform). Make the members a little faster than
+  the leader.
+- A member standing in its slot (`SlotTolerance`) turns the way the group faces (`FaceHeading`).
 
 ```cpp
-// Komandir skripti: ko'rsa - pona, qidirganda - doira
+// Commander script: a wedge when it sees the target, a circle while searching
 if (CanSeeTarget()) SetFormationShape(FormationShape::Wedge);
 AddFormationMember(recruit);
 if (IsFormationInPlace()) StartNextOrder();
-// a'zo skriptida:
+// in a member's script:
 Entity leader = GetFormationLeader();
 glm::vec3 slot; GetFormationSlot(slot);
 ```
 
-Sahna API: `GetFormationMembers`, `GetFormationSlots(leader, slots, &members)` (editor'da ham ishlaydi - gizmo shundan),
-`SetFormationShape`, `AddFormationMember` / `RemoveFormationMember`, `GetFormationLeader`, `GetFormationSlot`.
-Sof matematika: `AI/Formation.h` (`ComputeOffsets`, `ToWorld`, `AssignSlots`).
+Scene API: `GetFormationMembers`, `GetFormationSlots(leader, slots, &members)` (works in the editor too - the gizmo
+uses it), `SetFormationShape`, `AddFormationMember` / `RemoveFormationMember`, `GetFormationLeader`, `GetFormationSlot`.
+The pure math: `AI/Formation.h` (`ComputeOffsets`, `ToWorld`, `AssignSlots`).
 
-Inspektor: shakl tugmalari, a'zolar ro'yxati (ierarxiyadan tortib tashlash; "Tanlanganlar" - Ctrl bilan birga
-tanlangan obyektlarni qo'shadi), o'yin paytida jonli holat ("4 / 6 joyida") va shaklni almashtirish tugmalari.
+Inspector: shape buttons, the member list (drag from the hierarchy; "Selected" adds the objects selected with Ctrl),
+the live state while playing ("4 / 6 in place") and buttons to switch the shape.
 
-## 11. AI holat mashinasi (StateMachine)
+## 11. The AI state machine (StateMachine)
 
-`AI/StateMachine.h` - nomli holatlar (`OnEnter` / `OnUpdate` / `OnExit`) va o'tishlar: shartli, vaqtli, hodisali
-(`SendEvent`) va "istalgan holatdan". Holatlar lambda yoki `AIState` dan meros klass.
+`AI/StateMachine.h` - named states (`OnEnter` / `OnUpdate` / `OnExit`) and transitions: conditional, timed, by event
+(`SendEvent`) and "from any state". States are lambdas or classes derived from `AIState`.
 
 ```cpp
-m_AI.AddState("Patrul", [this] { GoToNextWaypoint(); }, [this](float) { if (!IsMoving()) GoToNextWaypoint(); })
-    .AddState("Ta'qib", {}, [this](float) { SetDestination(TargetPosition()); })
-    .AddState("Qidiruv", [this] { SetDestination(GetLastSeenPosition()); })
-    .AddTransition("Patrul", "Ta'qib", [this] { return CanSeeTarget(); })
-    .AddEventTransition("Ta'qib", "Qidiruv", "yo'qotdi")
-    .AddTimedTransition("Qidiruv", "Patrul", 4.0f);
-m_AI.Start("Patrul");     // OnStart
+m_AI.AddState("Patrol", [this] { GoToNextWaypoint(); }, [this](float) { if (!IsMoving()) GoToNextWaypoint(); })
+    .AddState("Chase", {}, [this](float) { SetDestination(TargetPosition()); })
+    .AddState("Search", [this] { SetDestination(GetLastSeenPosition()); })
+    .AddTransition("Patrol", "Chase", [this] { return CanSeeTarget(); })
+    .AddEventTransition("Chase", "Search", "lost")
+    .AddTimedTransition("Search", "Patrol", 4.0f);
+m_AI.Start("Patrol");     // OnStart
 m_AI.Update(ts);          // OnUpdate
-WatchStateMachine(m_AI);  // inspektor holatni va o'tishlar tarixini ko'rsatadi
+WatchStateMachine(m_AI);  // the inspector shows the state and the history of transitions
 ```
 
 ## 12. Behavior tree
 
-`AI/BehaviorTree.h` - minimal behavior tree yordamchisi. Daraxt har kadr ildizdan "tik" qilinadi; har tugun javob
-beradi: **Running** (hali tugamadi - keyingi kadrda yana), **Success** yoki **Failure**.
+`AI/BehaviorTree.h` - a minimal behavior tree helper. The tree is "ticked" from the root every frame; every node
+answers: **Running** (not finished yet - again next frame), **Success** or **Failure**.
 
-| Tugun | Turi | Nima qiladi |
+| Node | Kind | What it does |
 |---|---|---|
-| `Sequence` | kompozit | bolalarini ketma-ket; birinchi Failure'da Failure, hammasi Success bo'lsa Success |
-| `Selector` | kompozit | birinchi Failure bo'lmagan bola ("A, bo'lmasa B, bo'lmasa C") |
-| `ReactiveSequence` / `ReactiveSelector` | kompozit | har tikda birinchi boladan boshlaydi: shart o'zgarsa ishlayotgan shox to'xtatiladi (halt) |
-| `Parallel` | kompozit | hamma bolalar har tikda; `successThreshold` muvaffaqiyat / `failureThreshold` xato yetganda tugaydi |
-| `Inverter` / `Succeeder` / `Failer` | dekorator | javobni teskari qiladi / doim Success / doim Failure |
-| `Repeat(n)` | dekorator | bolani n marta (n < 1 - abadiy); xato bo'lsa to'xtaydi; bir tikda ko'pi bilan bitta takror |
-| `Wait(s)` | barg | `s` soniya Running, keyin Success |
-| `Condition` | barg | shart: Success / Failure |
-| `Action` | barg | skript ishi: `BTStatus`, `bool` yoki hech narsa qaytaradi; `onHalt` - to'xtatilganda |
-| `CheckBlackboard` / `SetBlackboard` | barg | blackboard qiymatini tekshirish / yozish |
+| `Sequence` | composite | its children one after another; Failure at the first Failure, Success when all succeed |
+| `Selector` | composite | the first child that does not fail ("A, else B, else C") |
+| `ReactiveSequence` / `ReactiveSelector` | composite | starts from the first child on every tick: when a condition changes, the running branch is stopped (halt) |
+| `Parallel` | composite | all children every tick; finishes when `successThreshold` successes / `failureThreshold` failures are reached |
+| `Inverter` / `Succeeder` / `Failer` | decorator | inverts the answer / always Success / always Failure |
+| `Repeat(n)` | decorator | the child n times (n < 1 - forever); stops on a failure; at most one repetition per tick |
+| `Wait(s)` | leaf | Running for `s` seconds, then Success |
+| `Condition` | leaf | a condition: Success / Failure |
+| `Action` | leaf | script work: returns a `BTStatus`, a `bool` or nothing; `onHalt` - when it is stopped |
+| `CheckBlackboard` / `SetBlackboard` | leaf | checks / writes a blackboard value |
 
-**Oddiy va reaktiv**: oddiy `Sequence` / `Selector` ishlayotgan bolani eslab qoladi va keyingi tikda undan davom
-etadi. "Shart, keyin uzoq harakat" shoxi shart bajarilmay qolganda to'xtashi kerak bo'lsa - `ReactiveSequence`
-ishlating (oddiy Sequence shartni qayta so'ramaydi). "Ko'rsa - ta'qib, bo'lmasa - patrul" uchun ildiz -
-`ReactiveSelector`.
+**Plain and reactive**: a plain `Sequence` / `Selector` remembers the running child and continues from it on the next
+tick. When a "condition, then a long action" branch has to stop as soon as the condition no longer holds, use
+`ReactiveSequence` (a plain Sequence does not ask the condition again). For "chase when it sees, else patrol" the root
+is a `ReactiveSelector`.
 
-**Blackboard** - tugunlar va skript baham ko'radigan nomli qiymatlar: `bool`, `int`, `float`, matn, `vec2`, `vec3`,
-`uint64_t` (obyekt UUID'i). Sonlar bir-biriga o'tadi (int float sifatida o'qiladi), UUID aniq saqlanadi.
+**Blackboard** - named values the nodes and the script share: `bool`, `int`, `float`, text, `vec2`, `vec3`, `uint64_t`
+(an object's UUID). Numbers convert to each other (an int reads as a float), a UUID is stored exactly.
 
 ```cpp
 BehaviorTreeBuilder()
-    .ReactiveSelector("Komandir")
-        .ReactiveSequence("Hujum")
-            .Condition("Ko'ryaptimi", [this] { return CanSeeTarget(); })
-            .Action("Ta'qib", [this](BTContext& c) { return Chase(c); })
+    .ReactiveSelector("Commander")
+        .ReactiveSequence("Attack")
+            .Condition("Sees target", [this] { return CanSeeTarget(); })
+            .Action("Chase", [this](BTContext& c) { return Chase(c); })
         .End()
-        .ReactiveSequence("Qidiruv")
-            .Condition("Esidami", [this] { return RemembersTarget(); })
-            .Action("O'rab olish", [this](BTContext& c) { return Encircle(c); })
+        .ReactiveSequence("Search")
+            .Condition("Remembers", [this] { return RemembersTarget(); })
+            .Action("Encircle", [this](BTContext& c) { return Encircle(c); })
         .End()
-        .Sequence("Patrul")
-            .Action("Saf tortish", [this] { ResumePatrol(true); })  // void: Success
-            .Action("Yurish", [this] { return IsPatrolling() ? BTStatus::Running : BTStatus::Failure; })
+        .Sequence("Patrol")
+            .Action("Fall in", [this] { ResumePatrol(true); })  // void: Success
+            .Action("Walk", [this] { return IsPatrolling() ? BTStatus::Running : BTStatus::Failure; })
         .End()
     .End()
     .Build(m_Tree);
@@ -339,344 +341,348 @@ WatchBehaviorTree(m_Tree);   // OnStart
 m_Tree.Tick(ts);             // OnUpdate
 ```
 
-Quruvchi (`BehaviorTreeBuilder`): kompozit ochiladi, `End()` yopadi; dekorator bitta bolasini olgach o'zi yopiladi.
-Xatolar (ikkinchi ildiz, ortiqcha `End()`, bolasiz dekorator) logga yoziladi va `GetErrorCount()` da sanaladi.
-O'z barg klassingiz: `BTNode` dan meros (`OnStart`, `OnTick`, `OnHalt`) va `.Node(std::make_unique<...>())`.
+The builder (`BehaviorTreeBuilder`): a composite is opened and `End()` closes it; a decorator closes itself once it
+has its one child. Mistakes (a second root, an extra `End()`, a decorator without a child) are logged and counted in
+`GetErrorCount()`. Your own leaf class: derive from `BTNode` (`OnStart`, `OnTick`, `OnHalt`) and `.Node(std::make_unique<...>())`.
 
-Debug: `GetActivePath()` ("Komandir > Hujum > Ta'qib"), `Describe()`, `LogChanges = true` - har o'zgarish logga.
-`WatchBehaviorTree(tree)` bilan inspektor (C++ Skript bo'limi) o'yin paytida butun daraxtni ko'rsatadi: har tugunning
-oxirgi javobi (sariq - Running, yashil - Success, qizil - Failure, xira - oxirgi tikda tekshirilmagan) va blackboard.
+Debugging: `GetActivePath()` ("Commander > Attack > Chase"), `Describe()`, `LogChanges = true` - every change to the
+log. With `WatchBehaviorTree(tree)` the inspector (the C++ Script section) shows the whole tree while playing: every
+node's last answer (yellow - Running, green - Success, red - Failure, dim - not checked on the last tick) and the
+blackboard.
 
-## 13. Qaysi birini tanlash kerak?
+## 13. Which one to choose?
 
-- **Bir nechta aniq holat va ular orasidagi o'tishlar** (patrul / ta'qib / qidiruv / ushladi) - `StateMachine`:
-  o'tishlar ko'rinib turadi, hodisalar bilan yaxshi ishlaydi.
-- **Ustuvorliklar ro'yxati va qadamlar ketma-ketligi** ("ko'rsa hujum, esida bo'lsa qidir, bo'lmasa patrul; patrul =
-  nuqtaga bor, kut, qara") - behavior tree: yangi shox qo'shish oson, reaktiv tugunlar uzilishlarni o'zi hal qiladi.
-- **Guruh** - Formation; **harakat sifati** (suruv, qochish) - Steering; **qayerga borish** - Nav Agent.
+- **A few clear states and the transitions between them** (patrol / chase / search / caught) - `StateMachine`: the
+  transitions are easy to see, it works well with events.
+- **A list of priorities and a sequence of steps** ("attack when it sees, search when it remembers, else patrol;
+  patrol = go to a point, wait, look around") - a behavior tree: adding a new branch is easy, reactive nodes handle
+  interruptions by themselves.
+- **A group** - Formation; **the quality of movement** (flocking, fleeing) - Steering; **where to go** - Nav Agent.
 
-## 14. Debug chizish
+## 14. Debug drawing
 
-`AI/NavDebugDraw.h` - editor va o'yin baham ko'radigan chizish: grid'lar (to'siq kataklar qizil, Nav Obstacle yopgani
-to'q sariq, tanlangan grid'ning yuriladigan kataklari yashil), agent yo'llari, manzillar va nurlari, to'siqlar
-shakli, ko'rish konuslari, patrul yo'llari (raqamlangan nuqtalar, kutish vaqti) va formatsiyalar (joylar, yo'nalish
-strelkasi, a'zodan joyiga chiziq; joyida turgani yashil).
+`AI/NavDebugDraw.h` - drawing the editor and the game share: grids (obstacle cells red, cells closed by a Nav Obstacle
+orange, the walkable cells of the selected grid green), agent paths, destinations and rays, obstacle shapes, sight
+cones, patrol routes (numbered points, wait times) and formations (slots, a heading arrow, a line from each member to
+its slot; green when it is in place).
 
-- **Editor**: viewport > Gizmo'lar > **Navigatsiya** (o'yin paytida ham, qo'shimcha sahna ko'rinishlarida ham).
-- **O'yin**: Loyiha sozlamalari > Debug chizish > Navigatsiya, yoki player'da `--debug-nav` (`--debug-nav-cells` -
-  yuriladigan kataklar ham). Kodda: `Scene::DrawNavigationDebug()`.
+- **Editor**: viewport > Gizmos > **Navigation** (while playing too, and in additional scene views).
+- **Game**: Project settings > Debug drawing > Navigation, or `--debug-nav` in the player (`--debug-nav-cells` - the
+  walkable cells too). In code: `Scene::DrawNavigationDebug()`.
 
-![Navigatsiya gizmo'si o'yin rejimida](images/ai-navigation-play.jpg)
+![The navigation gizmo in play mode](images/ai-navigation-play.jpg)
 
-*Showcase3D `Scenes/AI3D.zscene` editorda Play rejimida, Gizmo'lar > **Navigatsiya** yoqilgan: agentlarning yo'llari
-(havorang chiziqlar va burilish nuqtalari), ko'rish konusi (to'q sariq yoy), qo'ra ichidagi qo'ylar suruvi.*
+*Showcase3D `Scenes/AI3D.zscene` in the editor in Play mode with Gizmos > **Navigation** on: the agents' paths (light
+blue lines and turning points), a sight cone (orange arc), a flock of sheep in a pen.*
 
-## 15. Ishlash tezligi va benchmark
+## 15. Performance and benchmarks
 
-Nav Agent'larning yo'l qidiruvlari **vazifalar tizimida guruhlab** bajariladi: har kadr avval qaysi agentlarga yangi
-yo'l kerakligi aniqlanadi (asosiy oqimda), keyin qidiruvlar - kamida 4 ta bo'lsa - `JobSystem::ParallelFor` bilan
-ishchi oqimlarga taqsimlanadi (har oqimning o'z pathfinder'i bor, grid'lar faqat o'qiladi), natijalar agentlar
-tartibida qo'llanadi. Natija bir oqimdagi bilan aynan bir xil. Oxirgi kadr statistikasi: `Scene::GetNavFrameStats()`
-(agentlar, yo'llar soni, ms, parallelmi).
+The path searches of Nav Agents run **in batches on the job system**: every frame it first works out which agents
+need a new path (on the main thread), then the searches - when there are at least 4 - are spread over the worker
+threads with `JobSystem::ParallelFor` (every thread has its own pathfinder, the grids are only read), and the results
+are applied in agent order. The result is exactly the same as on one thread. The last frame's statistics:
+`Scene::GetNavFrameStats()` (agents, number of paths, ms, whether it ran in parallel).
 
-Benchmark: `./build/bin/ZaminBench --nav [--agents N] [--grid N] [--frames N] [--jobs N]` yoki `nav_bench` maqsadi.
-Standart: 256x256 grid (xonalar, eshiklar, tasodifiy to'siqlar), 200 agent. Debug build'da, 4 apparat oqimli mashinada
-o'lchangan namuna:
+Benchmark: `./build/bin/ZaminBench --nav [--agents N] [--grid N] [--frames N] [--jobs N]` or the `nav_bench` target.
+Default: a 256x256 grid (rooms, doors, random obstacles), 200 agents. A sample measured in a Debug build on a machine
+with 4 hardware threads:
 
-| O'lchov | Bitta oqim | Vazifalar tizimi (3 ishchi) |
+| Measurement | One thread | Job system (3 workers) |
 |---|---|---|
-| 200 ta yo'l bir vaqtda (A* + string pulling) | 660 ms | 166 ms (4.0x) |
-| Sahna: birinchi kadr (200 yo'l) | 655 ms | 185 ms |
-| Sahna: o'rtacha kadr (har kadr ~7 yo'l) | 20.3 ms | 7.0 ms |
-| NavGrid 2D bake (256x256 tilemap'dan) | ~61 ms | |
-| NavGrid 3D bake (256x256 katak, ~1800 statik jism) | ~1300 ms | |
+| 200 paths at once (A* + string pulling) | 660 ms | 166 ms (4.0x) |
+| Scene: the first frame (200 paths) | 655 ms | 185 ms |
+| Scene: an average frame (~7 paths a frame) | 20.3 ms | 7.0 ms |
+| NavGrid 2D bake (from a 256x256 tilemap) | ~61 ms | |
+| NavGrid 3D bake (256x256 cells, ~1800 static bodies) | ~1300 ms | |
 
-Release build bir necha barobar tezroq. Katta darajalar uchun maslahatlar: kataklar sonini kamaytiring (`CellSize`),
-`RepathInterval` ni kattalashtiring (yoki 0 - faqat grid / manzil o'zgarganda), uzoq yo'llarda
-`NavPathOptions::HeuristicWeight` > 1.
+A Release build is several times faster. Tips for large levels: reduce the number of cells (`CellSize`), raise
+`RepathInterval` (or 0 - only when the grid / destination changes), `NavPathOptions::HeuristicWeight` > 1 for long
+paths.
 
-## 16. Serializatsiya va .znav fayli
+## 16. Serialization and the .znav file
 
-Komponentlarning **sozlamalari** sahna faylida (`.zscene`, JSON; eksportdagi binar kesh `.zsceneb` ham) saqlanadi:
-NavGrid 2D / 3D, Nav Agent (avoidance'i bilan), Nav Obstacle, Sight Sensor, Patrol Path (nuqtalar `[x, y, z]` yoki o'z
-kutishi bilan `[x, y, z, kutish]`), Formation (a'zolar UUID bilan). Ish vaqtidagi holat (yo'llar, ko'rgan nishon,
-patrul hisobi, taqsimlangan joylar) hech qachon yozilmaydi; nusxa olinganda (Duplicate, prefab, Play) tozalanadi,
-nusxadagi `EntityRef`'lar (Grid, Target, Route, Members) nusxaning o'z obyektlariga ko'rsatadi.
+The components' **settings** are stored in the scene file (`.zscene`, JSON; and in the export's binary cache
+`.zsceneb`): NavGrid 2D / 3D, Nav Agent (with its avoidance), Nav Obstacle, Sight Sensor, Patrol Path (points as
+`[x, y, z]` or with their own wait as `[x, y, z, wait]`), Formation (members by UUID). The runtime state (paths, the
+seen target, patrol counters, assigned slots) is never written; it is cleared when a copy is made (Duplicate, prefab,
+Play), and the `EntityRef`s of a copy (Grid, Target, Route, Members) point to the copy's own objects.
 
-**Bake ma'lumotlari: tanlov.** Grid'lar - darajadan hosil qilinadigan ma'lumot. Shuning uchun standart yo'l -
-**yuklanganda qayta qurish**: o'yin sahnani boshlaganda (`BakeOnStart`) grid'lar darajaning o'zidan quriladi. Bu hech
-qachon eskirmaydi, eksportga hech narsa qo'shmaydi va kichik grid'lar uchun arzon (namuna sahnalar: 1-25 ms).
+**Bake data: a choice.** Grids are data derived from the level. So the default is **rebuilding on load**: when the
+game starts the scene (`BakeOnStart`) the grids are built from the level itself. That never goes stale, adds nothing
+to an export and is cheap for small grids (the sample scenes: 1-25 ms).
 
-Katta 3D grid'larni qurish esa qimmat (har katakka nur va overlap; yuqoridagi jadvalga qarang). Ular uchun -
-**`.znav` fayli** (grid inspektorida "Faylda saqlash (.znav)" = `NavGridPathSettings::CacheBake`):
+Building large 3D grids is expensive, though (a ray and an overlap per cell; see the table above). For them there is
+the **`.znav` file** ("Save to file (.znav)" in the grid inspector = `NavGridPathSettings::CacheBake`):
 
-1. Editor sahnani saqlaganda shu grid'larni (`BakeOnStart` li, faol) quradi va sahna yoniga yozadi: `Level.zscene` -> `Level.znav`
-   (`AI/NavBakeFile.h`: "ZNAV" sarlavhasi, versiya; har grid uchun UUID, o'lcham, **barmoq izi** va kataklar:
-   yuriladigan bitlar, narxlar, pol balandliklari, `MaxClimb`). Hech bir grid so'ramasa eski fayl o'chiriladi.
-2. Barmoq izi - grid nimadan qurilgan bo'lsa hammasining xeshi: sozlamalari va joyi, tilemap'lar (plitkalar, tileset
-   to'qnashuv jadvali) yoki statik 2D / 3D collider'lar (transform, qatlam, shakl, model fayli yo'li va o'lchami),
-   3D'da to'qnashuv matritsasi. Manbalar **tartibdan mustaqil** yig'iladi - editordagi sahna va fayldan yuklangani
-   bir xil iz beradi.
-3. Sahna yuklanganda (`SceneSerializer::Deserialize` ham, SceneManager'ning asinxron `SceneLoadJob` i ham) `.znav`
-   o'qiladi; o'yin boshlanganda `CacheBake` li grid iz mos kelsagina fayldagini oladi (logda: "...grid'i .znav
-   faylidan olindi"), inspektor "`.znav` faylidan o'qildi" deb ko'rsatadi. Iz mos kelmasa (devor surilgan,
-   sozlama o'zgargan), fayl buzilgan, yo'q yoki yangiroq versiyada bo'lsa - grid odatdagidek quriladi.
+1. When the editor saves the scene it builds those grids (with `BakeOnStart`, active) and writes them next to the
+   scene: `Level.zscene` -> `Level.znav`
+   (`AI/NavBakeFile.h`: a "ZNAV" header, a version; for every grid its UUID, size, **fingerprint** and cells:
+   walkable bits, costs, floor heights, `MaxClimb`). When no grid asks for it, the old file is deleted.
+2. The fingerprint is a hash of everything the grid is built from: its settings and position, the tilemaps (tiles,
+   the tileset's collision table) or the static 2D / 3D colliders (transform, layer, shape, model file path and size),
+   in 3D the collision matrix. The sources are gathered **independently of their order** - the scene in the editor and
+   the one loaded from a file give the same fingerprint.
+3. When a scene is loaded (by `SceneSerializer::Deserialize` and by the SceneManager's asynchronous `SceneLoadJob`)
+   the `.znav` is read; when the game starts, a grid with `CacheBake` takes the stored one only if the fingerprint
+   matches (in the log: "...grid taken from the .znav file"), and the inspector shows "read from the .znav file". When
+   the fingerprint does not match (a wall moved, a setting changed), or the file is damaged, missing or from a newer
+   version, the grid is built as usual.
 
-Shunday qilib `.znav` darajani hech qachon noto'g'ri qilolmaydi - faqat yuklanishni tezlashtiradi (Squad3D namunasi:
-24 ms bake o'rniga 0.1 ms). Fayl sahna bilan birga ko'chadi, nusxalanadi, o'chiriladi (Kontent paneli) va eksportga
-sahnasi bilan kiradi. Kod: `Scene::GetNavGridSourceHash`, `Scene::CollectNavBakes`, `SceneSerializer::WriteNavBakes`.
+So a `.znav` can never make a level wrong - it only makes loading faster (the Squad3D sample: 0.1 ms instead of a
+24 ms bake). The file moves, is copied and is deleted with the scene (the Content panel) and goes into the export with
+its scene. Code: `Scene::GetNavGridSourceHash`, `Scene::CollectNavBakes`, `SceneSerializer::WriteNavBakes`.
 
-## 17. Namuna sahnalar
+## 17. Sample scenes
 
-| Loyiha / sahna | Nima ko'rsatadi | Skript |
+| Project / scene | What it shows | Script |
 |---|---|---|
-| Platformer2D / `NavDemo2D` | tilemap va statik collider'lardan 2D grid; uchta ta'qibchi Nav Agent o'yinchi ortidan (`Target`) yo'l topib yuradi | `TopDown.cpp` |
-| Platformer2D / `Chase2D` | ikki qo'riqchi: patrul, ko'rish (2D chiroq = konus), ta'qib, qidiruv, qaytish, ushlash | `Chase.cpp` |
-| Showcase3D / `Navigation3D` | NavGrid 3D: uch NPC devorlar, ustunlar, qiyalik va supa orasida halqa bo'ylab yuruvchi mayoq ortidan yuradi | - |
-| Showcase3D / `AI3D` | sirpanma eshik (Nav Obstacle), qorovul (StateMachine + Sight), kuzatuv kamerasi, hammollar (avoidance), qo'ylar suruvi (Steering) | `AI.cpp` |
-| Showcase3D / `Squad3D` | komandir (behavior tree: patrul / ta'qib / o'rab olish) va olti askar: kolonna, pona, qator, doira; karvonni besh qo'riqchi doira bo'lib kuzatadi; `.znav` | `Squad.cpp` |
-| Adventure3D / `Island` | orol qo'riqchisi robot: patrul, ko'rish, ta'qib, qaytish | `Guard.cpp` |
+| Platformer2D / `NavDemo2D` | a 2D grid from tilemaps and static colliders; three chasing Nav Agents find their way after the player (`Target`) | `TopDown.cpp` |
+| Platformer2D / `Chase2D` | two guards: patrol, sight (a 2D light = the cone), chase, search, return, catch | `Chase.cpp` |
+| Showcase3D / `Navigation3D` | NavGrid 3D: three NPCs follow a beacon that circles between walls, pillars, a slope and a platform | - |
+| Showcase3D / `AI3D` | a sliding door (Nav Obstacle), a guard (StateMachine + Sight), a surveillance camera, porters (avoidance), a flock of sheep (Steering) | `AI.cpp` |
+| Showcase3D / `Squad3D` | a commander (behavior tree: patrol / chase / encircle) and six soldiers: column, wedge, line, circle; five guards escort a caravan in a circle; `.znav` | `Squad.cpp` |
+| Adventure3D / `Island` | the island's guard robot: patrol, sight, chase, return | `Guard.cpp` |
 
-Player'da: `./build/bin/ZaminPlayer Projects/Showcase3D --scene Scenes/Squad3D.zscene --debug-nav`.
+In the player: `./build/bin/ZaminPlayer Projects/Showcase3D --scene Scenes/Squad3D.zscene --debug-nav`.
 
-## 18. Testlar
+## 18. Tests
 
-`Tests/ZaminTests.cpp` dagi navigatsiya / AI testlari (headless):
+The navigation / AI tests in `Tests/ZaminTests.cpp` (headless):
 
-- grid, A* (Dijkstra bilan optimallik, burchak kesmaslik, qisman yo'llar), tilemap / collider / 3D bake, string
-  pulling va spline, tasodifiy grid'larda silliqlangan yo'llar;
-- Nav Agent (2D / 3D, Character Controller, nishon ortidan), carving va qayta yo'l, avoidance;
-- steering, holat mashinasi, ko'rish konusi va devorlar orqali ko'rish, skript callback'lari;
-- patrul rejimlari, kutish, manbalar (ro'yxat, bolalar, spline), Nav Agent bilan;
-- formatsiya: shakllar matematikasi, joy taqsimlash (barcha o'rin almashtirishlar bilan solishtiriladi), a'zolar
-  boshliq ortidan, Nav Agent'li a'zolar grid ichida, serializatsiya va nusxalar;
-- behavior tree: kompozitlar, reaktiv uzilishlar, dekoratorlar, Parallel, Wait, blackboard, quruvchi xatolari;
-- `.znav`: format, buzilgan fayllar, sahna bilan saqlash / yuklash, manba o'zgarganda qayta qurish, asinxron yuklash;
-- hamma AI komponentlarining to'liq serializatsiyasi (matn, binar kesh), namuna sahnalar headless ishlashi.
+- grid, A* (optimality against Dijkstra, no corner cutting, partial paths), tilemap / collider / 3D bake, string
+  pulling and splines, smoothed paths on random grids;
+- Nav Agent (2D / 3D, Character Controller, following a target), carving and re-pathing, avoidance;
+- steering, the state machine, the sight cone and seeing through walls, the script callbacks;
+- patrol modes, waiting, the sources (list, children, spline), with a Nav Agent;
+- formations: the shape math, slot assignment (compared with every permutation), members following the leader,
+  members with a Nav Agent inside the grid, serialization and copies;
+- behavior tree: composites, reactive interruptions, decorators, Parallel, Wait, the blackboard, builder mistakes;
+- `.znav`: the format, damaged files, saving / loading with the scene, rebuilding when a source changes, asynchronous
+  loading;
+- full serialization of every AI component (text, binary cache), the sample scenes running headless.
 
-## 19. Qisqa API ma'lumotnomasi
+## 19. Short API reference
 
-**Skript (`ScriptableEntity`)**
+**Script (`ScriptableEntity`)**
 
-| Guruh | Funksiyalar |
+| Group | Functions |
 |---|---|
-| Navigatsiya | `SetDestination`, `StopMoving`, `SetNavTarget`, `IsMoving`, `HasArrived`, `GetRemainingDistance`, `FindPath`, `HasNavLineOfSight` |
-| Ko'rish | `CanSee(e)`, `CanSeeTarget`, `GetSeenTarget`, `GetLastSeenPosition`, `RemembersTarget`; `OnTargetSpotted`, `OnTargetLost` |
-| Patrul | `PausePatrol`, `ResumePatrol`, `IsPatrolling`, `GetPatrolPoint`, `GetPatrolTarget`, `IsWaitingAtPatrolPoint`, `SetPatrolPoint`; `OnPatrolPointReached` |
-| Formatsiya | `SetFormationShape`, `GetFormationShape`, `AddFormationMember`, `RemoveFormationMember`, `IsFormationInPlace`, `GetFormationLeader`, `GetFormationSlot` |
-| AI ko'rinishi | `WatchStateMachine` / `UnwatchStateMachine`, `WatchBehaviorTree` / `UnwatchBehaviorTree` |
+| Navigation | `SetDestination`, `StopMoving`, `SetNavTarget`, `IsMoving`, `HasArrived`, `GetRemainingDistance`, `FindPath`, `HasNavLineOfSight` |
+| Sight | `CanSee(e)`, `CanSeeTarget`, `GetSeenTarget`, `GetLastSeenPosition`, `RemembersTarget`; `OnTargetSpotted`, `OnTargetLost` |
+| Patrol | `PausePatrol`, `ResumePatrol`, `IsPatrolling`, `GetPatrolPoint`, `GetPatrolTarget`, `IsWaitingAtPatrolPoint`, `SetPatrolPoint`; `OnPatrolPointReached` |
+| Formation | `SetFormationShape`, `GetFormationShape`, `AddFormationMember`, `RemoveFormationMember`, `IsFormationInPlace`, `GetFormationLeader`, `GetFormationSlot` |
+| AI view | `WatchStateMachine` / `UnwatchStateMachine`, `WatchBehaviorTree` / `UnwatchBehaviorTree` |
 
-**Sahna (`Scene`)**: `BakeNavGrid(s)`, `GetNavGrid`, `FindNavGridEntity`, `GetNavAgentGrid`, `FindNavPath`,
+**Scene (`Scene`)**: `BakeNavGrid(s)`, `GetNavGrid`, `FindNavGridEntity`, `GetNavAgentGrid`, `FindNavPath`,
 `HasNavLineOfSight`, `SetNavDestination`, `IsNavPathBlocked`, `UpdateNavObstacles`, `CanSee`, `GetSightCone`,
 `GetPatrolWaypoints`, `PausePatrol`, `ResumePatrol`, `SetPatrolWaypoint`, `GetFormationMembers`, `GetFormationSlots`,
 `SetFormationShape`, `AddFormationMember`, `RemoveFormationMember`, `GetFormationLeader`, `GetFormationSlot`,
 `DrawNavigationDebug`, `GetNavFrameStats`, `GetNavGridSourceHash`, `CollectNavBakes`, `SetNavBakes` / `GetNavBakes`.
 
-**Modullar (`Zamin/AI/`)**: `NavGrid.h`, `NavGridBuilder.h`, `NavPathfinder.h`, `NavPathSmoothing.h`, `NavCarving.h`,
+**Modules (`Zamin/AI/`)**: `NavGrid.h`, `NavGridBuilder.h`, `NavPathfinder.h`, `NavPathSmoothing.h`, `NavCarving.h`,
 `Steering.h`, `Sight.h`, `StateMachine.h`, `BehaviorTree.h`, `Formation.h`, `NavDebugDraw.h`, `NavBakeFile.h`.
 
-## Sparse world navigation va traversal
+## Sparse world navigation and traversal
 
-`NavAtlas` loaded tile'larni alohida, immutable nusxa sifatida saqlaydi. Masalan, ikki 8×8 tile
-orasida 100000 world unit bo‘lsa ham atlas 128 katakdan iborat; bounding rectangle ajratilmaydi.
-Bir xil cell size/lattice, height mode va climb rule talab qilinadi; overlap/mixed resolution rad
-etiladi. Build transactional. 512 tile, 4096 link, ko‘pi bilan 1048576 loaded cell; world uchun
-`NavigationMaxCells` default 262144. Unloaded maydon yurib o‘tilmaydi.
+`NavAtlas` keeps the loaded tiles as separate, immutable copies. For example, even when two 8×8 tiles are 100000 world
+units apart, the atlas has 128 cells; no bounding rectangle is allocated. The same cell size / lattice, height mode
+and climb rule are required; overlaps and mixed resolutions are rejected. The build is transactional. 512 tiles, 4096
+links, at most 1048576 loaded cells; for a world `NavigationMaxCells` defaults to 262144. Unloaded areas cannot be
+walked through.
 
-World runtime har tile serial/revision/carve o‘zgarganda yangi snapshot e’lon qiladi.
-`WorldStreaming::GetNavigationAtlas()` owner thread'da olinadi; qaytgan
-`shared_ptr<const NavAtlas>` saqlangan holda uning `FindRoute` metodini worker'larda parallel
-chaqirish mumkin. World accessor va `SetNavigationLinks` owner thread API; ECS yoki source grid
-worker'da o‘qilmaydi. Har query o‘z scratch buffer'ini ajratadi: loaded cell soniga bog‘liq.
-`MaxExpanded` CPU expansion'ni cheklaydi, scratch allocation'ni emas; cheklanmagan parallel query
-soni uchun umumiy memory cap yo‘q. Eski snapshot world unload/stop'dan keyin ham o‘qishga yaroqli,
-ammo harakat uchun joriy revision bilan tekshirish kerak.
+The world runtime publishes a new snapshot whenever a tile's serial / revision / carving changes.
+`WorldStreaming::GetNavigationAtlas()` is called on the owner thread; while the returned
+`shared_ptr<const NavAtlas>` is held, its `FindRoute` method may be called in parallel on workers. The world accessor
+and `SetNavigationLinks` are owner-thread API; the ECS and the source grids are not read on workers. Every query
+allocates its own scratch buffer, proportional to the number of loaded cells. `MaxExpanded` limits the CPU expansion,
+not the scratch allocation; there is no overall memory cap for an unlimited number of parallel queries. An old snapshot
+stays readable even after the world unloads / stops, but for movement it has to be checked against the current
+revision.
 
-`FindNavigationRoute(from, to, options)` plane koordinatalarini oladi: 2D XY yoki 3D XZ.
-`NavRoute` status/cost/expanded/revision va tile ID, plane position, floor height,
-`IncomingLink` bo‘lgan nuqtalarni qaytaradi. Bular cell centre'laridir. World atlasdagi Tile qiymati
-source nav-grid entity UUID'sidir. Snapping radius 0..64
-katakka clamp qilinadi; loaded maydondan uzoq start `Failed`, yetishmayotgan/blocked goal yoki
-expansion limiti `Partial`. StartHeight 3D floor tanlashni tekshiradi. Cost walk distance, height
-farqi va destination cell cost'ni hisobga oladi; tile seam'da ham climb/corner qoidalari saqlanadi.
+`FindNavigationRoute(from, to, options)` takes plane coordinates: 2D XY or 3D XZ.
+`NavRoute` returns the status / cost / expanded / revision and points with a tile ID, plane position, floor height and
+`IncomingLink`. These are cell centres. In a world atlas the Tile value is the source nav-grid entity's UUID. The
+snapping radius is clamped to 0..64 cells; a start far from the loaded area is `Failed`, a missing / blocked goal or
+the expansion limit is `Partial`. StartHeight checks the 3D floor choice. The cost counts the walking distance, the
+height difference and the destination cell's cost; the climb / corner rules hold across tile seams too.
 
-`NavTraversalLink`: unique nonzero ID, From/To plane endpoint, positive Cost, Bidirectional va
-Enabled. Link endpoint'i loaded walkable cell'da bo‘lishi shart; yo‘q yoki carved endpoint inactive.
-Link oddiy walk segment emas: jump, elevator, door yoki teleport'ni gameplay bajaradi. Link borida
-A* geometric heuristic chegirma narxga mos kelmasligi sabab Dijkstra ishlatiladi; weight=1 shortest
-cost saqlanadi. Teng narxlar source/link ID bo‘yicha deterministik yechiladi.
+`NavTraversalLink`: a unique nonzero ID, From/To plane endpoints, a positive Cost, Bidirectional and Enabled. A link's
+endpoints must be on loaded walkable cells; a missing or carved endpoint is inactive. A link is not an ordinary walk
+segment: the gameplay performs the jump, elevator, door or teleport. When links exist Dijkstra is used, because the
+A* geometric heuristic would not be consistent with the discounted cost; with weight=1 the shortest cost is kept. Ties
+are broken deterministically by source / link ID.
 
-`WorldStreaming::Policy::NavigationLinks` `.zworld` dagi `Streaming.NavigationLinks` ichida saqlanadi.
-`SetNavigationLinks` validatsiya qilib runtime ro‘yxatni almashtiradi, keyingi world tick'da snapshot
-almashadi. Diskni o‘zgartirmaydi. Disable/re-enable, tile unload/return va carving keyingi route'ga
-aks etadi. Atlas xatosida current query fail closed; retained eski snapshot avtomatik yangilanmaydi.
+`WorldStreaming::Policy::NavigationLinks` is stored in `Streaming.NavigationLinks` in the `.zworld`.
+`SetNavigationLinks` validates and replaces the runtime list; the snapshot changes on the next world tick. It does not
+change the disk. Disabling / re-enabling, tile unload / return and carving show up in the next route. On an atlas
+error the current query fails closed; a retained old snapshot is not refreshed automatically.
 
-`NavRouteFollower` kinematic cursor: SetRoute, Advance(currentRevision, distance),
-GetPosition/GetPendingLink va CompleteTraversal(currentRevision, linkID). Link kirishigacha yurib,
-`AwaitingTraversal` holatida to‘xtaydi; explicit completion chiqish koordinatasini beradi. Topology
-revision o‘zgarsa `Stale`, qayta SetRoute kerak. Complete va partial oxiri alohida
-`Arrived`/`PartialEnd`; noto‘g‘ri link ID, negative/NaN distance harakat qilmaydi. Caller actor transform,
-collision sweep, fizik controller va animatsiyani o‘zi qo‘llaydi. Demo teleport'i collision controller emas.
+`NavRouteFollower` is a kinematic cursor: SetRoute, Advance(currentRevision, distance), GetPosition/GetPendingLink and
+CompleteTraversal(currentRevision, linkID). It walks up to a link's entry and stops in the `AwaitingTraversal` state;
+an explicit completion gives the exit coordinate. When the topology revision changes it is `Stale` and needs SetRoute
+again. A complete and a partial end are distinct: `Arrived` / `PartialEnd`; a wrong link ID or a negative / NaN
+distance does not move it. The caller applies the actor transform, the collision sweep, the physics controller and the
+animation itself. The demo's teleport is not a collision controller.
 
-Default `NavAgentComponent` va `Scene::FindNavPath` dense mosaic yo‘lidan foydalanadi.
-NavAgent uchun yangi opt-in WorldNavigation rejimi quyida; atlas/follower API ham alohida mavjud.
-Sparse route smoothing portalni o‘chirib yubormasligi uchun bu API unsmoothed nuqtalar qaytaradi.
-Bu grid navigation: polygon navmesh yoki ko‘p qavatli navmesh emas.
+The default `NavAgentComponent` and `Scene::FindNavPath` use the dense mosaic path. A new opt-in WorldNavigation mode
+for NavAgent is described below; the atlas / follower API is also available on its own. So that sparse route smoothing
+does not remove a portal, this API returns unsmoothed points. This is grid navigation: not a polygon navmesh, nor a
+multi-storey navmesh.
 
-WorldWorkshop2D/3D'da **N** route preview/kinematic actor'ni yoqadi. Yashil nuqtalar walk, binafsha
-portal chiqishi, sariq actor. QA rejimi portalni disable qiladi, empty region'ga chiqadi va qaytib
-qayta rejalaydi. `Tests/world_navigation_test.py --build build --out navigation` haqiqiy Player va
-editor route panelini tekshiradi; yangi workflow Linux GCC/Clang CI'ga ham ulangan.
+In WorldWorkshop2D/3D **N** turns on the route preview / kinematic actor. Green points are walking, purple a portal
+exit, yellow the actor. The QA mode disables the portal, goes out into an empty region and comes back, planning again.
+`Tests/world_navigation_test.py --build build --out navigation` checks the real Player and the editor's route panel;
+the new workflow is also wired into the Linux GCC/Clang CI.
 
-Snapshot build owner thread'da sinxron nusxalaydi; incremental bake hali alohida ish.
-Katta float koordinatalarda cell centre va qo‘shni qadam aniqligi yetmasa build rad etiladi;
-katta world uchun floating origin hali kerak bo‘lishi mumkin.
+The snapshot build copies synchronously on the owner thread; incremental baking is still separate work. When large
+float coordinates make the cell centre and neighbour step too imprecise, the build is rejected; a large world may
+still need a floating origin.
 
-## NavAgent world atlas rejimi
+## NavAgent world atlas mode
 
-NavAgent inspector'da **World navigation** yoki graph'dagi **SetWorldDestination** sparse atlas
-rejimini yoqadi. Default eski grid rejimi saqlangan. World rejimida Grid havolasi ishlatilmaydi;
-streaming anchor sahna va NavigationMode 2/3 talab qilinadi. WorldMaxExpanded 1..1048576 (default
-16384) har query expansion limitidir. Query hozir owner thread'da sinxron, umumiy hard frame budget emas.
-Start/goal snapping radius 0: loaded walkable maydondan tashqaridagi start Failed. Partial oxirida
-Arrived=true, PathStatus=Partial. Path so‘nggi haqiqiy manzilga boradi; ordinary replan boshlang‘ich
-katak markaziga qaytmaydi. Harakat unsmoothed corner route; legacy LookAhead/Smooth/Spline/Avoidance
-world rejimida qo‘llanmaydi. Speed/Acceleration/AutoBraking/StoppingDistance/UpdateRotation ishlaydi.
+**World navigation** in the NavAgent inspector or **SetWorldDestination** in a graph turns on the sparse atlas mode.
+The old grid mode stays the default. In world mode the Grid reference is not used; a streaming anchor scene and
+NavigationMode 2/3 are required. WorldMaxExpanded 1..1048576 (default 16384) is the expansion limit of every query.
+A query currently runs synchronously on the owner thread, with no overall hard frame budget. The start/goal snapping
+radius is 0: a start outside the loaded walkable area is Failed. At a Partial end Arrived=true, PathStatus=Partial.
+The path goes to the last real destination; an ordinary replan does not return to the centre of the starting cell.
+Movement follows the unsmoothed corner route; the legacy LookAhead/Smooth/Spline/Avoidance are not applied in world
+mode. Speed/Acceleration/AutoBraking/StoppingDistance/UpdateRotation work.
 
-Agent nuqtalarni haqiqiy transform/physics pozitsiyasidan tekshiradi. Controller devorga urilganda
-predicted cursor davom etmaydi, portalga yaqinlashgan deb belgilanmaydi. Rigidbody walking velocity
-orqali; 3D transform/kinematic floor height va BaseOffset orqali. CharacterController oyoq koordinatasini
-ishlatadi, BaseOffset unga qo‘llanmaydi. Controller yurish va gravity/grounding'ni o‘z fizikasida bajaradi.
+The agent checks the points against the real transform / physics position. When a controller hits a wall, a predicted
+cursor does not carry on and is not marked as having reached the portal. A Rigidbody walks by velocity; in 3D the
+transform / kinematic body uses the floor height and BaseOffset. A CharacterController uses its foot coordinate,
+BaseOffset is not applied to it. The controller performs walking and gravity/grounding in its own physics.
 
-Portal kirishida PendingTraversalLink, AtlasRevision, TraversalTicket, TraversalEntry va TraversalExit
-mavjud; Velocity nol, IsMoving=false. Ticket yangi nonzero UUID bo‘lib, bekor qilingan so‘rovni yoki
-oldingi sessiyadan qolgan tokenni yangi so‘rovga qo‘llashni oldini oladi. Bu gameplay identifikatori,
-auth token yoki kriptografik avtorizatsiya emas. Link/revision/ticket uchalasi completion bilan yuboriladi:
-Scene::CompleteNavTraversal(entity, link, revision, ticket), yoki ScriptableEntity::CompleteNavTraversal.
-GetNavTraversalLink nol bo‘lsa pending yo‘q yoki atlas eskirgan; tokenlar NavAgent runtime fields'da.
-CancelNavTraversal va Stop pending so‘rovni bekor qiladi. Topology/carve/links o‘zgarsa eski completion
-rad etiladi, agent stop/replan qiladi. Serialize/copy/start/stop ticket/path holatini saqlamaydi.
+At a portal entry there are PendingTraversalLink, AtlasRevision, TraversalTicket, TraversalEntry and TraversalExit;
+Velocity is zero, IsMoving=false. The ticket is a new nonzero UUID, which prevents applying a cancelled request or a
+token left over from an earlier session to a new request. It is a gameplay identifier, not an auth token or
+cryptographic authorization. All three, link/revision/ticket, are sent with the completion:
+Scene::CompleteNavTraversal(entity, link, revision, ticket), or ScriptableEntity::CompleteNavTraversal.
+When GetNavTraversalLink is zero, nothing is pending or the atlas is stale; the tokens are in the NavAgent runtime
+fields. CancelNavTraversal and Stop cancel the pending request. When the topology/carving/links change, an old
+completion is rejected and the agent stops/replans. Serialize/copy/start/stop do not keep the ticket/path state.
 
-Completion explicit teleport: transforms va live CharacterController uchun. Controller exit kapsulasi
-collision-layer mask bilan, triggers'siz va kichik floor contact tolerance bilan tekshiriladi. Band exit,
-wrong scene/token, entry'dan uzoqlashgan actor yoki yo‘qolgan atlas pozitsiyani o‘zgartirmaydi. Rigidbody
-bor agentlar yuradi, lekin shape-clearance traversal hali yo‘q: completion false. Jump/elevator animatsiya
-controller'i bu API tomonidan yaratilmaydi; caller completion vaqtini belgilaydi. Kechiktirilgan graph
-so‘rovi event payload'dagi Link/Revision/Ticket'ni saqlashi kerak, yangi query'dan token o‘qib almashtirmaydi.
+Completion is an explicit teleport: for transforms and a live CharacterController. The controller's exit capsule is
+checked with the collision-layer mask, without triggers and with a small floor contact tolerance. A blocked exit, the
+wrong scene/token, an actor that moved away from the entry or a missing atlas leave the position unchanged. Agents
+with a Rigidbody walk, but there is no shape-clearance traversal yet: completion returns false. This API does not
+create a jump/elevator animation controller; the caller decides when to complete. A delayed graph request has to keep
+the Link/Revision/Ticket from the event payload, not read the token from a new query instead.
 
-WorldWorkshop2D/3D'da **B** haqiqiy agent + Visual Graph demo'si, **N** avvalgi kinematic route preview.
-Anchor'dagi World traversal actor built-in Zamin.VisualGraph bilan ishlaydi; 3D actor CharacterController
-kapsulasi bilan yuradi. Graph Message → SetWorldDestination, NavTraversalRequested → Delay →
-CompleteNavTraversal → Success branch ishlatadi. Unloaded demo maydonida persistent actor gravity'si
-namuna driver'i tomonidan muzlatiladi; navigation o‘zi vertikal gravity'ni bekor qilmaydi.
+In WorldWorkshop2D/3D **B** is the real agent + Visual Graph demo, **N** the earlier kinematic route preview.
+The World traversal actor on the anchor works with the built-in Zamin.VisualGraph; the 3D actor walks with a
+CharacterController capsule. The graph uses Message → SetWorldDestination, NavTraversalRequested → Delay →
+CompleteNavTraversal → the Success branch. In the unloaded demo area the persistent actor's gravity is frozen by the
+sample's driver; navigation itself does not cancel vertical gravity.
 
 ## Bounded async world queries
 
-World policy'dagi `AsyncNavigation=true` NavAgent yo‘l qidiruvini `NavQueryQueue` worker'lariga beradi.
-Default false eski synchronous API'ni saqlaydi; WorldWorkshop2D/3D async rejimni yoqadi. Scene::SetNavDestination
-accepted worker request uchun true qaytaradi, PathStatus hali None bo‘ladi; to‘liq/partial/failed natija keyin keladi.
-Capacity sabab qabul bo‘lmagan request false, lekin agentning destination intent'i saqlanib, keyingi tick'da retry
-qilinadi; uni bekor qilish uchun StopMoving/Stop ishlating. Missing yoki empty atlas Failed, queue-wait emas.
-`NavQueryPending` graph pure node'i joriy agentning accepted queued/running/completed/published query'sini bildiradi;
-portal kutish uchun NavTraversalState.Pending alohida. Sample graph'da Searching bool shu node'dan yangilanadi.
+`AsyncNavigation=true` in the world policy hands NavAgent path searches to the `NavQueryQueue` workers.
+The default false keeps the old synchronous API; WorldWorkshop2D/3D turns async mode on. Scene::SetNavDestination
+returns true for an accepted worker request while PathStatus is still None; the complete/partial/failed result comes
+later. A request not accepted because of capacity returns false, but the agent's destination intent is kept and
+retried on the next tick; use StopMoving/Stop to cancel it. A missing or empty atlas is Failed, not a queue wait.
+The `NavQueryPending` pure graph node tells whether the current agent has an accepted queued/running/completed/published
+query; waiting at a portal is the separate NavTraversalState.Pending. In the sample graph the Searching bool is updated
+from this node.
 
-Worker faqat immutable atlas va copied primitive request data bilan ishlaydi. ECS, controller, ScriptInstance yoki
-plugin callback worker'ga berilmaydi. Owner `WorldStreaming::Update`/SceneManager::ProcessRequests'da Pump qiladi;
-so‘ng SceneManager::UpdateScenes natijani qo‘llaydi. Faqat UpdateScenes chaqirib world tick'ni tashlab ketmang.
-Requestlar FIFO, replacement queued work'ni oxirga qo‘yadi; completion timing worker scheduling'ga bog‘liq,
-route algoritmi deterministik. Bir tick'da start tokenlari default 4, publication 8, tokenlar yig‘ilmaydi.
-Workers default 2 (1..4), capacity 64 (1..1024); queued/running/completed/published hammasi capacity'ga kiradi.
+A worker only works with the immutable atlas and copied primitive request data. The ECS, controllers, ScriptInstance
+and plugin callbacks are never handed to a worker. The owner pumps in `WorldStreaming::Update`/SceneManager::ProcessRequests;
+then SceneManager::UpdateScenes applies the result. Do not call only UpdateScenes and skip the world tick.
+Requests are FIFO, a replacement puts the queued work at the end; completion timing depends on worker scheduling, the
+route algorithm is deterministic. Per tick the start tokens default to 4 and publications to 8; tokens do not
+accumulate. Workers default to 2 (1..4), capacity 64 (1..1024); queued/running/completed/published all count against
+the capacity.
 
-Generic queue default: max expanded 65536, max route points 32768, unique retained snapshot 64 MiB,
-retained result buffers 8 MiB. Snapshot bir nechta job tomonidan ishlatilsa bir marta hisoblanadi. Cancelled running
-job worker stop'ni ko‘rmaguncha charged bo‘lib qoladi. Oversize result explicit Failed/error, silent truncation yo‘q.
-Bu payload hisoblari OS RSS hard cap emas; caller ushlab turgan snapshot/results va worker scratch alohida.
-A* scratch loaded cell soniga, open heap bounded expansion/link soniga bog‘liq. Individual atlas limit 1048576 cell.
-Shutdown stop signal beradi va worker'larni join qiladi. Queue'dan tashqarida snapshot mutable alias bilan
-qayta Build qilinmasligi kerak; world wrapper faqat engine-owned immutable snapshot beradi.
+Generic queue defaults: max expanded 65536, max route points 32768, unique retained snapshots 64 MiB, retained result
+buffers 8 MiB. A snapshot used by several jobs is counted once. A cancelled running job stays charged until its worker
+sees the stop. An oversized result is an explicit Failed/error, with no silent truncation. These payload counts are not
+an OS RSS hard cap; snapshots/results held by the caller and the worker scratch are separate. The A* scratch depends
+on the number of loaded cells, the open heap on the bounded expansion/link count. An individual atlas is limited to
+1048576 cells. Shutdown signals stop and joins the workers. Outside the queue a snapshot must not be rebuilt through a
+mutable alias; the world wrapper only hands out engine-owned immutable snapshots.
 
-Cancel/replace/atlas publication aktiv qidiruvga cooperative stop_token yuboradi; heap pop va path reconstruction
-ichida signal davriy tekshiriladi. Result owner'da atlas revision, current destination, options, actual start drift,
-walkable start-cell identity, floor tolerance, active/HasDestination/WorldNavigation va EnTT entity generation bilan
-tekshiriladi. UUID qayta ishlatilgan actor eski natijani olmaydi. Deleted/inactive/stopped agentlar cleanup'da
-bekor qilinadi. Pending paytida planar motion nol; gravity physics tizimida qoladi. Drift yoki stale natija discard
-qilinib qayta query beriladi. Owner install faqat accepted current natijaga ruxsat beradi; traversal nonce tekshiruvi
-avvalgi paketdagidek saqlangan. Async route'lar hozir sequential movement/corner tracking ishlatadi; crowd avoidance
-va polygon navmesh alohida ish. Snapshot build va publication hali owner thread'da sinxron, hard deadline yo‘q.
+Cancel/replace/atlas publication sends a cooperative stop_token to an active search; the signal is checked
+periodically in the heap pop and in path reconstruction. On the owner the result is checked against the atlas
+revision, the current destination, the options, the actual start drift, the walkable start-cell identity, the floor
+tolerance, active/HasDestination/WorldNavigation and the EnTT entity generation. An actor with a reused UUID does not
+get an old result. Deleted/inactive/stopped agents are cancelled in cleanup. While pending, planar motion is zero;
+gravity stays in the physics system. A drifted or stale result is discarded and the query is issued again. The owner
+install only admits the accepted current result; the traversal nonce check is kept as in the previous package. Async
+routes currently use sequential movement/corner tracking; crowd avoidance and a polygon navmesh are separate work.
+Snapshot build and publication are still synchronous on the owner thread, with no hard deadline.
 
-### Streamed world smoothing va crowd steering
+### Streamed world smoothing and crowd steering
 
-`NavPathOptions::SmoothAtlas` sparse atlas uchun opt-in. World NavAgent `SmoothPath` qiymatini
-query options ichiga oladi; async rejimda silliqlash ham worker’da bajariladi. Qaytgan natijadagi
-option agentning joriy qiymatiga mos bo‘lmasa, owner uni rad etadi va qayta so‘raydi. Legacy
-`NavPathfinder` bu atlas option’ini ishlatmaydi. `SplinePath` world mode’da qo‘llanmaydi.
+`NavPathOptions::SmoothAtlas` is opt-in for the sparse atlas. A world NavAgent puts its `SmoothPath` value into the
+query options; in async mode smoothing also runs on the worker. When the option in a returned result does not match
+the agent's current value, the owner rejects it and asks again. The legacy `NavPathfinder` does not use this atlas
+option. `SplinePath` is not applied in world mode.
 
-`NavAtlas::CanWalkSegment` baked navigation space ichida konservativ clearance tekshiradi:
-yo‘q tile, bloklangan katak, burchakka tegish va floor/climb mos kelmasligi segmentni rad etadi.
-Grid’dagi AgentRadius allaqachon statik clearance’ni hisobga olgan; world harakat guard’i uni
-ikkinchi marta kengaytirmaydi. Alohida caller `NavSegmentOptions::Radius` bilan qo‘shimcha
-clearance talab qilishi mumkin. Bu aylana o‘rniga konservativ swept rectangle tekshiruvi.
-Bounding rectangle `MaxCells` limitidan oshsa, tekshiruv false; bu to‘siqsiz degani emas.
+`NavAtlas::CanWalkSegment` checks a conservative clearance inside the baked navigation space: a missing tile, a
+blocked cell, touching a corner and a floor/climb mismatch reject the segment. The grid's AgentRadius already accounts
+for static clearance; the world movement guard does not widen it a second time. A separate caller can require extra
+clearance with `NavSegmentOptions::Radius`. This is a conservative swept-rectangle check instead of a circle. When the
+bounding rectangle exceeds the `MaxCells` limit the check returns false; that does not mean there is an obstacle.
 
-`SmoothRoute` faqat joriy revision bilan ishlaydi: har gal eng ko‘pi 32 nuqta oldinga, umumiy
-64 shortcut probe, har probe eng ko‘pi 4096 katak. Byudjet tugasa qolgan original yo‘l saqlanadi.
-Portalning entry/exit nuqtalari olib tashlanmaydi; kiruvchi link ID va gameplay handshake qoladi.
-Yangi shortcut faqat cost=1 kataklardan o‘tadi. Original weighted qadamlar saqlanishi mumkin;
-`Cost` qidiruvning graph narxi bo‘lib qoladi, silliqlangan geometrik uzunlik emas.
+`SmoothRoute` only works with the current revision: at most 32 points ahead at a time, 64 shortcut probes in total,
+at most 4096 cells per probe. When the budget runs out the rest of the original path is kept. A portal's entry/exit
+points are never removed; the incoming link ID and the gameplay handshake stay. A new shortcut only crosses cost=1
+cells. Original weighted steps may be kept; `Cost` stays the search's graph cost, not the smoothed geometric length.
 
-World agentlarda `CrowdAvoidance` alohida opt-in. `Radius` shaxsiy masofa, `CrowdNeighborDistance`
-0.1..32, `CrowdTimeHorizon` 0.1..5 soniya, `CrowdPriority` 0.1..10, `CrowdHeight` 0.01..10.
-Yuqori priority qo‘shni uchun kuchliroq yon berish xarajatini beradi; collision qoidalarini chetlab
-qaror chiqarmaydi. 3D’da vertikal intervallari kesishmaydigan agentlar bir-birini chetlab o‘tmaydi.
-Legacy physics feeler `Avoidance` va yangi crowd sampler boshqa rejimlar: feeler legacy grid’da,
-crowd sparse world’da ishlaydi. Idle/pending/portal agentlar ham qo‘shni snapshot’iga to‘siq sifatida kiradi.
+On world agents `CrowdAvoidance` is a separate opt-in. `Radius` is the personal distance, `CrowdNeighborDistance`
+0.1..32, `CrowdTimeHorizon` 0.1..5 seconds, `CrowdPriority` 0.1..10, `CrowdHeight` 0.01..10.
+A higher priority gives a neighbour a stronger cost for giving way; it never decides by bypassing the collision rules.
+In 3D agents whose vertical intervals do not overlap do not steer around each other. The legacy physics feeler
+`Avoidance` and the new crowd sampler are different modes: the feelers work on the legacy grid, the crowd on the
+sparse world. Idle/pending/portal agents also enter the neighbour snapshot as obstacles.
 
-`NavCrowd::Solve` ECS va physics’siz sof CPU algoritm: kadr boshidagi pozitsiya/preferred velocity
-snapshot’i, 4 birlik spatial buckets, masofa+UUID bo‘yicha tartiblangan yaqin qo‘shnilar, cheklangan
-velocity candidate’lar. Update tartibi natijani o‘zgartirmaydi. 4096 agent, har biriga 128 candidate
-tekshiruvi va 16 qo‘shni limit. Dense hududda limit oshsa o‘sha agentning tezligi nol, `Limited/Blocked`
-true. Noto‘g‘ri/duplicate ID, NaN yoki umumiy capacity oshishi batch’ni rad etadi; Scene crowd
-agentlarini xavfsiz to‘xtatadi. Bu ORCA implementatsiyasi yoki physics collision kafolati emas.
+`NavCrowd::Solve` is a pure CPU algorithm without the ECS or physics: a snapshot of positions / preferred velocities at
+the start of the frame, 4-unit spatial buckets, nearby neighbours sorted by distance+UUID, a bounded set of velocity
+candidates. The update order does not change the result. Limits: 4096 agents, 128 candidate checks and 16 neighbours
+per agent. When the limit is exceeded in a dense area, that agent's velocity is zero and `Limited/Blocked` is true.
+A wrong/duplicate ID, NaN or exceeding the overall capacity rejects the batch; the Scene stops the crowd agents safely.
+This is not an ORCA implementation nor a guarantee of physics collisions.
 
-World update avval hamma agentning buyruqlarini tayyorlaydi, so‘ng snapshot’ni yechadi va harakatni
-qo‘llaydi. Har qadam atlas clearance bilan tekshiriladi; kerak bo‘lsa olti marta yarim tezlik sinovi,
-aks holda to‘xtash. CharacterController/Rigidbody collision yakuniy vakolatga ega.
-`PreferredVelocity`, `CrowdNeighbors`, `CrowdLimited`, `CrowdBlocked` runtime diagnostika;
-`Velocity` clearance’dan keyingi buyruq, fizik jismning haqiqiy o‘lchangan tezligi emas.
-Sozlamalar scene/copy/checkpoint’da qoladi, runtime diagnostika reset qilinadi.
+The world update first prepares the commands of all agents, then solves the snapshot and applies the movement. Every
+step is checked against the atlas clearance; if needed up to six half-speed tries, otherwise it stops. The
+CharacterController/Rigidbody collision has the final say.
+`PreferredVelocity`, `CrowdNeighbors`, `CrowdLimited`, `CrowdBlocked` are runtime diagnostics;
+`Velocity` is the command after the clearance check, not the physical body's actual measured velocity.
+The settings survive scene/copy/checkpoint, the runtime diagnostics are reset.
 
-### Dynamic obstacles va bounded recovery
+### Dynamic obstacles and bounded recovery
 
-Carving source tile’larda bajariladi. World mosaic — derived compatibility view; uni qayta carve
-qilish serial/rebuild feedback yaratishi sababli u source ro‘yxatiga kirmaydi. `NavObstacle.Grid`
-world mosaic’ga bog‘lansa, carving yuklangan world cell’larning gridlariga yo‘naltiriladi.
-Avtomatik obstacle esa odatdagidek barcha tegishli baked grid’larni ko‘radi.
+Carving is done on the source tiles. The world mosaic is a derived compatibility view; it is not in the source list,
+because carving it again would create a serial/rebuild feedback loop. When `NavObstacle.Grid` is bound to the world
+mosaic, carving is redirected to the grids of the loaded world cells. An automatic obstacle sees all the relevant
+baked grids as usual.
 
-Owner `WorldStreaming::SynchronizeNavigation()` source serial/revision/carve stamp’larini tekshiradi;
-o‘zgarish bo‘lsa yangi immutable atlas chop etadi, eski async query’larni bekor qiladi va replan
-so‘raydi. Queue start/publication credit bermaydi, streaming/checkpoint command bajarmaydi.
-Scene harakatdan oldin sync qiladi; explicit `SetNavDestination` va `CompleteNavTraversal`
-carving’ni ham yangilaydi. Shu sabab script shu kadrda yopgan eshik eski portal ticket’i bilan
-teleport qilinmaydi. Raw nav/collision transformlarini qo‘lda o‘zgartirgan tool read-after-write
-uchun `Scene::UpdateNavObstacles()` yoki source yangilangandan keyin sync chaqiradi.
+The owner's `WorldStreaming::SynchronizeNavigation()` checks the source serial/revision/carve stamps; when something
+changed it publishes a new immutable atlas, cancels old async queries and requests a replan. It gives no queue
+start/publication credit and runs no streaming/checkpoint command. The Scene syncs before movement; an explicit
+`SetNavDestination` and `CompleteNavTraversal` also refresh the carving. So a door a script closed in this frame is not
+teleported through with an old portal ticket. A tool that changes raw nav/collision transforms by hand calls
+`Scene::UpdateNavObstacles()`, or the sync after the source has been updated, for read-after-write.
 
-`NavAgent.RecoverySettings.Enabled` world mode uchun opt-in, default false. `StallSeconds`
-0.1..30, `CooldownSeconds` 0.1..30, `ProgressDistance` 0.001..10 va `MaxRetries` 1..16.
-Watchdog buyruq tezligi o‘rniga haqiqiy world planar pozitsiyani o‘lchaydi. Mayda jitter progress
-hisoblanmaydi; yetarli siljish retry budget’ini yangilaydi. Async queue/pending admission,
-portal handshake, bo‘sh atlas va zero speed stall hisoblanmaydi.
+`NavAgent.RecoverySettings.Enabled` is opt-in for world mode, default false. `StallSeconds` 0.1..30,
+`CooldownSeconds` 0.1..30, `ProgressDistance` 0.001..10 and `MaxRetries` 1..16.
+The watchdog measures the real planar world position instead of the commanded velocity. Small jitter does not count
+as progress; enough movement renews the retry budget. Async queue/pending admission, the portal handshake, an empty
+atlas and zero speed do not count as a stall.
 
-Partial yo‘l oxiri destination’ga yetish emas: recovery faol bo‘lsa u cheklangan replan’larni
-sinaydi. Failed path va physics’da qotib qolish ham shu watchdog’dan o‘tadi. Budget tugasa
-`Exhausted`, tezlik nol, `HasDestination` saqlanadi va avtomatik interval uni chetlab o‘tmaydi.
-Yangi destination, explicit re-path/ResumeTarget/manual retry yoki yangi atlas revision’i
-watchdog’ni tiklaydi. Physics-only to‘siq olib tashlanishi atlasni o‘zgartirmasa explicit retry
-kerak; to‘liq avtomatik reopening uchun to‘siqqa `NavObstacle` bog‘lanadi.
+A partial path's end is not reaching the destination: with recovery on it tries a bounded number of replans. A failed
+path and getting stuck in physics also go through this watchdog. When the budget runs out it is `Exhausted`, the
+velocity is zero, `HasDestination` is kept and the automatic interval does not bypass it. A new destination, an
+explicit re-path/ResumeTarget/manual retry or a new atlas revision resets the watchdog. When removing a physics-only
+obstacle does not change the atlas, an explicit retry is needed; for fully automatic reopening, bind a `NavObstacle` to
+the obstacle.
 
-`NavRecovery` sof CPU state machine; ECS/physics callback saqlamaydi. Settings serialize/copy/checkpoint’da
-qoladi, progress/retry timer’lar play start/stop, new intent va component runtime reset’da tozalanadi.
-Invalid config/pose watchdog’ni `Invalid` holatida xavfsiz to‘xtatadi; inspector’da config o‘zgarishi
-uni reset qiladi. Retry — teleport yoki obstacle’ni chetlab o‘tishga ruxsat emas.
+`NavRecovery` is a pure CPU state machine; it keeps no ECS/physics callbacks. The settings survive
+serialize/copy/checkpoint; the progress/retry timers are cleared on play start/stop, a new intent and a component
+runtime reset. An invalid config/pose stops the watchdog safely in the `Invalid` state; a config change in the
+inspector resets it. A retry is not permission to teleport or to bypass an obstacle.
 
-World mosaic UUID runtime proxy hisoblanadi. Unga explicit Grid binding runtime tool uchun;
-saqlanadigan obstacle uchun avtomatik Grid yoki authored tile reference ishlatiladi.
+The world mosaic UUID is a runtime proxy. An explicit Grid binding to it is for runtime tools; a saved obstacle uses an
+automatic Grid or an authored tile reference.

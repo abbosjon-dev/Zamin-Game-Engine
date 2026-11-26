@@ -3000,7 +3000,7 @@ namespace Zamin {
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Chap, o'ng, yuqori, past - guruh chetidan ichkariga, UI birliklarida");
             static const char* const s_Align[] = { "Yuqori-chap", "Yuqori", "Yuqori-o'ng", "Chap", "Markaz", "O'ng", "Past-chap", "Past", "Past-o'ng" };
-            changed |= UI::PropertyCombo("Tekislash", c.ChildAlignment, s_Align, 9);
+            changed |= UI::PropertyCombo("Bolalarni tekislash", c.ChildAlignment, s_Align, 9);
             if (c.Type != UILayoutType::Grid)
             {
                 changed |= UI::PropertyFloat("Oraliq", c.Spacing, 0.5f);

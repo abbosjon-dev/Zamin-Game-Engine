@@ -1085,7 +1085,8 @@ namespace Zamin {
             { "Masshtab rejimi", "Scale mode" },
             { "Mo'ljal o'lcham (px)", "Reference resolution (px)" },
             { "Kenglik <-> balandlik", "Width <-> height" },
-            { "Tekislash", "Child alignment" },
+            { "Bolalarni tekislash", "Child alignment" },
+            { "Tekislash", "Flatten" }, // the terrain brush
             { "Oraliq", "Spacing" },
             { "Teskari tartib", "Reverse order" },
             { "Kenglikni boshqarish", "Control child width" },

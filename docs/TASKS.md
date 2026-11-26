@@ -1,28 +1,28 @@
-# Zamin Engine — 500 ta vazifa rejasi
+# Zamin Engine — a plan of 500 tasks
 
-Dastlabki M01–M25 milestone'lari 20 tadan vazifa tutadi. `[x]` — bajarilgan, `[ ]` — rejada.
-Quyida yangi 2D/3D mahsulot bosqichlari ham alohida yuritiladi.
+The original milestones M01–M25 hold 20 tasks each. `[x]` — done, `[ ]` — planned.
+The new 2D/3D product phases below are tracked separately.
 
-## Faol yo'nalish: professional 2D va 3D engine
+## Active direction: a professional 2D and 3D engine
 
-2026-11-09: maqsad — 2D va 3D birinchi darajali bo'lgan umumiy engine. Unreal darajasidagi kenglik,
-ishonchlilik va ishlab chiqish qulayligi uzoq muddatli nishon; hozir bu tenglikka erishilgani da'vo qilinmaydi.
-Quyidagi bosqichlar mahsulotga tayyor natija va tekshiruv mezoni bilan yuritiladi. Pastdagi dastlabki 500 vazifa
-saqlanadi; ulardagi belgi yangi imkoniyatning ishlayotganiga dalil o'rnini bosmaydi.
+2026-11-09: the goal is a general-purpose engine where 2D and 3D are both first-class. Unreal-level breadth,
+reliability and ease of development are the long-term target; no claim is made that this parity has been reached.
+The phases below are run with a product-ready result and an acceptance criterion each. The original 500 tasks further
+down are kept; a mark on them does not replace evidence that a new capability works.
 
-| Bosqich | Natija | Tugallash mezoni | Holat |
+| Phase | Result | Completion criterion | Status |
 |---|---|---|---|
-| P0 Ishonchli asos | Atomik save, tiklash, xavfsiz build, chegaralangan Undo, CPU profili, ajratilgan runtime | Save xatosida ma'lumot yo'qolmasligi, zararli papka nomi bajarilmasligi, UI'siz Player, SSE2 sinovi | Auditdagi 7 band bajarilgan; boshlang'ich dalil 645 unit / 12 render / 265 editor qadam |
-| P1 2D/3D katta xarita render asosi | Terrain patch LOD, yoriqsiz qo'shni chegaralar, qisman GPU mesh yangilash; tilemap ierarxik culling | Geometriya kamayishi, LOD o'tish/hysteresis, collision aniqligi, 2D ko'rinish va chizish tartibi oracle bilan mos | Bajarildi (2026-11-10): 656 unit / 12 render / 265 editor qadam; o‘lchovlar quyida |
-| P2 Kontent sifati va mualliflik | Terrain GPU qatlamlari/PBR, normal/roughness, atlas/cook, foliage, 2D palette/animation qulayligi | Haqiqiy assetli 2D/3D sahnalar, import/export/undo roundtrip, tekstura xotira byudjeti | GPU terrain v1 yakunlandi; qolgan kontent ishlari rejada |
-| P3 Dunyo va asset streaming | Disk kataklari, async load/unload, data layers, HLOD, floating origin, asset residency | Tez harakatda/cancel/reload'da yo'qolmagan obyektlar, chegaralangan RAM/VRAM, main thread'da og'ir IO yo'q | Runtime v2: LRU cleanup, observed pressure gate, terrain tiles va grid mosaic bajarildi; HLOD/floating origin/hard timing rejada |
-| P4 Rendererning keyingi avlodi | GPU timer v1 mavjud; render graph, Vulkan, temporal AA/upscaling, katta sahna visibility va yoritish | Drayver/physical GPU matritsasi, HDR/alpha/picking/shadow regressiyalari, reference hardware byudjeti | Rejada; virtual geometry va dinamik GI — alohida tadqiqot |
-| P5 Gameplay, animatsiya, fizika va UI | Mavjud 2D/3D tizimlarini production darajasida birlashtirish, katta kontent va gameplay workflow | Ikki tugallangan vertical slice, saqlash/yuklash, controller, animatsiya/fizika stress, UI input/scale testlari | Motor/combat/AI/save/UI, quest, equipment/abilities, projectiles/effektlar va Animator 1D/2D zanjiri yakunlandi (2026-11-22); ikki to‘liq vertical slice (Lantern Keeper 2D, Beacon Pass 3D) bilan stress, UI input/scale, yangi jarayonda davom etish, ko‘chirilgan eksport va profiling darvozalari ham bajarildi (2026-11-22) |
-| P6 Tarmoq va kengaytirish | Server authority, replication, latency compensation, plagin SDK/ABI, xavfsiz hot reload | Yo'qotilgan paket, kechikish, reconnect, versiya mos kelmasligi va plagin unload sinovlari | Rejada |
-| P7 Platforma, release va mahsulot | Linux/Windows, keyin macOS; cook/package/update/crash telemetry; editor/launcher yagona auth | Toza mashinada install/export/run, talablar va litsenziyalar, imzolangan release va rollback sinovi | Rejada |
-| P8 Yakuniy sifat darvozasi | Hujjatlar, ko'chirish yo'li, ikki namunaviy o'yin va profiling hisobotlari | Uzoq sessiya, resurs sizishi, recovery/fuzz, reference sahnalarda barqaror frame time va foydalanish sinovi | Rejada |
+| P0 Reliable foundation | Atomic save, recovery, safe build, bounded Undo, CPU profile, separated runtime | No data lost on a save error, a malicious folder name is not executed, a Player without UI, an SSE2 test | The 7 audit items are done; baseline evidence 645 unit / 12 render / 265 editor steps |
+| P1 Large-map 2D/3D rendering foundation | Terrain patch LOD, crack-free neighbour borders, partial GPU mesh updates; hierarchical tilemap culling | Geometry reduction, LOD transitions/hysteresis, collision accuracy, 2D visibility and draw order matching an oracle | Done (2026-11-10): 656 unit / 12 render / 265 editor steps; measurements below |
+| P2 Content quality and authoring | Terrain GPU layers/PBR, normal/roughness, atlas/cook, foliage, 2D palette/animation convenience | 2D/3D scenes with real assets, import/export/undo roundtrip, a texture memory budget | GPU terrain v1 finished; the remaining content work is planned |
+| P3 World and asset streaming | Disk cells, async load/unload, data layers, HLOD, floating origin, asset residency | No objects lost during fast movement/cancel/reload, bounded RAM/VRAM, no heavy IO on the main thread | Runtime v2: LRU cleanup, observed pressure gate, terrain tiles and grid mosaic done; HLOD/floating origin/hard timing planned |
+| P4 The next renderer generation | GPU timer v1 exists; render graph, Vulkan, temporal AA/upscaling, large-scene visibility and lighting | A driver/physical GPU matrix, HDR/alpha/picking/shadow regressions, a reference hardware budget | Planned; virtual geometry and dynamic GI — separate research |
+| P5 Gameplay, animation, physics and UI | Bringing the existing 2D/3D systems together at production level, large content and gameplay workflows | Two finished vertical slices, save/load, controller, animation/physics stress, UI input/scale tests | Motor/combat/AI/save/UI, quest, equipment/abilities, projectiles/effects and the Animator 1D/2D chain finished (2026-11-22); with two complete vertical slices (Lantern Keeper 2D, Beacon Pass 3D) the stress, UI input/scale, fresh-process resume, relocated export and profiling gates are done too (2026-11-22) |
+| P6 Networking and extensibility | Server authority, replication, latency compensation, plugin SDK/ABI, safe hot reload | Tests for lost packets, latency, reconnect, version mismatch and plugin unload | Planned |
+| P7 Platform, release and product | Linux/Windows, then macOS; cook/package/update/crash telemetry; one auth for editor/launcher | Install/export/run on a clean machine, requirements and licences, a signed release and a rollback test | Planned |
+| P8 Final quality gate | Documentation, a migration path, two sample games and profiling reports | Long sessions, resource leaks, recovery/fuzz, a stable frame time in the reference scenes and usability tests | Planned |
 
-### Yakunlangan bo‘lim — quest/progression
+### Finished section — quest/progression
 
 - [x] Bounded objectives, prerequisites, receipts and progression model.
 - [x] Native/Blueprint automatic gameplay notices, atomic bag/XP rewards and HUD.
@@ -30,349 +30,361 @@ saqlanadi; ulardagi belgi yangi imkoniyatning ishlayotganiga dalil o'rnini bosma
 - [x] 2D/3D playable quests, fresh-process resume, Editor/export/screenshots.
 - [x] Unit, sanitizer, regression, documentation and main push.
 
-Dalillar (2026-11-12): 1199/1199 unit (39 yangi), 11/11 headless CTest, 12/12 render.
-Pure QuestModel ASan/UBSan/LSan: 12/12. QuestModel/World/Graph, SaveModel/World,
-GameplayRules/Runtime instrumentlangan 7 TU owner probe: 39/39, LeakSanitizer bilan.
-Qolgan shared engine, Scene/serializer/physics/VM normal build; bu butun engine sanitizer run’i emas.
-Clang 18 syntax-only -Werror: 12 ta TU. Haqiqiy ImGui Configure/Claim/BindHUD add/save/Undo.
-2D/3D Player va Editor uch fazali acceptance/resume/no-replay hamda compiler-free eksportning
-write/resume/real relocated no-replay kursi: 14/14 workflow. Canonical holat: XP=200,
-Coin=5, Badge=1, ikki quest Claimed. Generator deterministik; Python/format/docs tekshirildi.
-WorldCrowdHeadOn testining atlas readiness sharti birinchi katakdan barcha 300 katakka
-aniqlashtirildi; 10/10 mustaqil run o‘tdi. Hisobot va rasmlar: `build-review/GameplayQuest/`.
-Software Mesa; physical GPU byudjeti o‘lchanmagan. [Chegaralar](GameplayQuest.md).
+Evidence (2026-11-12): 1199/1199 unit (39 new), 11/11 headless CTest, 12/12 render.
+Pure QuestModel ASan/UBSan/LSan: 12/12. An owner probe of 7 instrumented TUs (QuestModel/World/Graph, SaveModel/World,
+GameplayRules/Runtime): 39/39, with LeakSanitizer.
+The rest of the shared engine, Scene/serializer/physics/VM, is a normal build; this is not a sanitizer run of the whole engine.
+Clang 18 syntax-only -Werror: 12 TUs. Real ImGui Configure/Claim/BindHUD add/save/Undo.
+The three-phase acceptance/resume/no-replay of the 2D/3D Player and Editor and the compiler-free export's
+write/resume/real relocated no-replay course: 14/14 workflows. Canonical state: XP=200,
+Coin=5, Badge=1, two quests Claimed. The generator is deterministic; Python/format/docs checked.
+The atlas readiness condition of the WorldCrowdHeadOn test was tightened from the first cell to all 300 cells;
+10/10 independent runs passed. Reports and pictures: `build-review/GameplayQuest/`.
+Software Mesa; the physical GPU budget was not measured. [Limits](GameplayQuest.md).
 
-### Yakunlangan bo‘lim — equipment, stats va abilities
+### Finished section — equipment, stats and abilities
 
-- [x] Item definitions, 4 equipment slots, deterministic stat modifiers va bag capacity rollback.
-- [x] Damage/heal/shield abilities, ingredients, energy/regen, cooldowns, unlocks va Blueprint API.
-- [x] Canonical-state HUD, v3 save/migration, transactional restore va actor lifecycle.
-- [x] 2D/3D acceptance, fresh-process resume, relocated export va main push.
+- [x] Item definitions, 4 equipment slots, deterministic stat modifiers and bag capacity rollback.
+- [x] Damage/heal/shield abilities, ingredients, energy/regen, cooldowns, unlocks and the Blueprint API.
+- [x] Canonical-state HUD, v3 save/migration, transactional restore and actor lifecycle.
+- [x] 2D/3D acceptance, fresh-process resume, relocated export and main push.
 
-Dalillar: 1225/1225 unit (26 yangi), 11/11 headless CTest. Pure LoadoutModel/RulesModel
-ASan/UBSan/LSan: 6/6. LoadoutModel/World/Graph instrumentlangan 3 TU owner probe:
-26/26, LeakSanitizer bilan; qolgan SaveWorld/Scene/VM/physics/shared engine normal build.
-Bu butun engine sanitizer run’i emas. Clang 18 syntax-only -Werror: 7 TU.
-Haqiqiy ImGui LoadoutConfigure/EquipmentEquip/AbilityCast add/save/Undo o‘tdi.
-2D/3D Player va Editor acceptance/resume/no-replay hamda compiler-free eksportning
-write/resume/real relocated no-replay kursi: 14/14 workflow. Canonical holat:
+Evidence: 1225/1225 unit (26 new), 11/11 headless CTest. Pure LoadoutModel/RulesModel
+ASan/UBSan/LSan: 6/6. An owner probe of 3 instrumented TUs (LoadoutModel/World/Graph):
+26/26, with LeakSanitizer; the remaining SaveWorld/Scene/VM/physics/shared engine is a normal build.
+This is not a sanitizer run of the whole engine. Clang 18 syntax-only -Werror: 7 TUs.
+Real ImGui LoadoutConfigure/EquipmentEquip/AbilityCast add/save/Undo passed.
+The acceptance/resume/no-replay of the 2D/3D Player and Editor and the compiler-free export's
+write/resume/real relocated no-replay course: 14/14 workflows. Canonical state:
 Sword/Plate equipped, Attack=20, Armor=100, Power=10, Energy=40, Bolt Uses=2,
-Potion=1, Coin=5, XP=150; saved first-cast cooldown musbat. Generator deterministik;
-Python/format/docs tekshirildi. Software Mesa, hardware GPU byudjeti o‘lchanmagan.
-Renderer o‘zgarmagani uchun eski 12 render holati qayta ishga tushirilmadi.
-[API va chegaralar](GameplayLoadout.md). Hisobotlar: `build-review/GameplayLoadout/`.
+Potion=1, Coin=5, XP=150; the saved first-cast cooldown is positive. The generator is deterministic;
+Python/format/docs checked. Software Mesa, the hardware GPU budget was not measured.
+Since the renderer did not change, the old 12 render cases were not run again.
+[API and limits](GameplayLoadout.md). Reports: `build-review/GameplayLoadout/`.
 
-### Yakunlangan bo‘lim — projectiles va gameplay effects
+### Finished section — projectiles and gameplay effects
 
-- [x] Bounded 2D/3D projectile lifecycle, collision/hit ownership, pooling va lifetime.
-- [x] Area damage/support, timed status effects va stacking/expiration qoidalari.
-- [x] Ability/effect authoring, HUD feedback va persistence compatibility.
-- [x] O‘ynaladigan 2D/3D combat slice, profiling, export va regression darvozalari.
+- [x] Bounded 2D/3D projectile lifecycle, collision/hit ownership, pooling and lifetime.
+- [x] Area damage/support, timed status effects and stacking/expiration rules.
+- [x] Ability/effect authoring, HUD feedback and persistence compatibility.
+- [x] A playable 2D/3D combat slice, profiling, export and regression gates.
 
-Dalillar (1-band, 2026-11-21): 1257/1257 unit (32 yangi: 12 `ProjectileModel*`, 20 `CombatWorld*`/`CombatRules*`),
-11/11 headless CTest (DocsCheck/DocsSnippets bilan). Pure ProjectileModel/RulesModel ASan/UBSan/LSan: 32/32.
-CombatWorld, CombatGraph, ProjectileModel, GameplayRules, RulesModel, LoadoutWorld va SaveWorld instrumentlangan
-7 TU owner probe: 33/33, LeakSanitizer bilan (32 test + Scene hook'lari libZamin ichida `-Bsymbolic-functions`
-bilan bog‘langani uchun step/sweep/vizual yo‘lini instrumentlangan nusxada yurgizuvchi 1 ta scratch test);
-Scene/serializer/physics/VM va qolgan shared engine normal build — bu butun engine sanitizer run’i emas.
-Clang 18 syntax-only -Werror: 10 TU. Mutatsiya tekshiruvi: world kanalidagi actor filtri o‘chirilsa 3 test,
-segment oxiridagi (T = 1) devor tuzatishi qaytarilsa yangi chegara testi, dead/inactive skip o‘chirilsa 1 test
-yiqiladi — shu tekshiruv Box2D float chegarasida devordan o‘tib ketish xatosini topdi va u tuzatildi.
-Determinizm: ikki yangi sahnada bir xil event-log hash; 1/30, 1/60, 1/144 s va jitter kadrlarda bir xil
-natija (7 hit, 3 s gacha hammasi tugaydi). 500 m/s snaryad 20 Hz’da 0.05 m nishonni o‘tkazib yubormaydi.
-LoadoutWorkshop Player workflow (2D/3D × 3 faza): 6/6, save hali v3. Scratch demo’da haqiqiy Player va
-Editor Play: 11/128 uchayotgan snaryad pool vizuallari bilan, GL/graph xatosi yo‘q. Saqlash vaqtinchalik
-siyosati: Restore uchayotgan snaryadlarni bekor qiladi, save versiyasi o‘zgarmadi. Renderer va editor UI
-o‘zgarmagani uchun render reference va ImGui editor testlari ishga tushirilmadi; Release bench 4-bandda.
-[API va chegaralar](GameplayCombat.md).
+Evidence (item 1, 2026-11-21): 1257/1257 unit (32 new: 12 `ProjectileModel*`, 20 `CombatWorld*`/`CombatRules*`),
+11/11 headless CTest (with DocsCheck/DocsSnippets). Pure ProjectileModel/RulesModel ASan/UBSan/LSan: 32/32.
+An owner probe of 7 instrumented TUs (CombatWorld, CombatGraph, ProjectileModel, GameplayRules, RulesModel, LoadoutWorld
+and SaveWorld): 33/33, with LeakSanitizer (32 tests + 1 scratch test that drives the step/sweep/visual path in the
+instrumented copy, because the Scene hooks inside libZamin are bound with `-Bsymbolic-functions`);
+Scene/serializer/physics/VM and the rest of the shared engine are a normal build — this is not a sanitizer run of the whole engine.
+Clang 18 syntax-only -Werror: 10 TUs. Mutation check: removing the actor filter of the world channel fails 3 tests,
+reverting the wall fix at the end of a segment (T = 1) fails the new boundary test, removing the dead/inactive skip fails
+1 test — this check found a bug where a projectile passed through a wall at the Box2D float boundary, and it was fixed.
+Determinism: the same event-log hash in two fresh scenes; the same result at 1/30, 1/60, 1/144 s and with jittered
+frames (7 hits, everything finishes within 3 s). A 500 m/s projectile at 20 Hz does not miss a 0.05 m target.
+LoadoutWorkshop Player workflow (2D/3D × 3 phases): 6/6, the save is still v3. In a scratch demo the real Player and
+Editor Play: 11/128 projectiles in flight with pooled visuals, no GL/graph errors. The interim save
+policy: Restore cancels projectiles in flight, the save version did not change. Since the renderer and the editor UI
+did not change, the render reference and the ImGui editor tests were not run; the Release bench is in item 4.
+[API and limits](GameplayCombat.md).
 
-Dalillar (2-band, 2026-11-21): 1288/1288 unit (31 yangi: 11 `EffectModel*`/`AreaModel*`, 20 `CombatEffect*`,
+Evidence (item 2, 2026-11-21): 1288/1288 unit (31 new: 11 `EffectModel*`/`AreaModel*`, 20 `CombatEffect*`,
 `CombatArea*`, `CombatProjectile*`, `CombatDetonation*`), 11/11 headless CTest, `ctest -L docs` 2/2. Pure
-EffectModel/ProjectileModel/RulesModel/LoadoutModel ASan/UBSan/LSan: 49/49. CombatWorld, CombatGraph,
-EffectModel, ProjectileModel, GameplayRules, RulesModel, LoadoutWorld, LoadoutModel va SaveWorld instrumentlangan
-9 TU owner probe: 84/84, LeakSanitizer bilan (83 test + effekt fazasi, hudud LoS va o‘limda tozalashni
-instrumentlangan nusxada `CombatWorld::Tick` orqali yurgizuvchi 1 ta scratch test); Scene/serializer/physics/VM
-va qolgan shared engine normal build — bu butun engine sanitizer run’i emas. Clang 18 syntax-only -Werror: 15 TU
-(12 engine + 3 test). Mutatsiya tekshiruvi: Refresh’da tick fazasini qayta boshlash, o‘limda effektlarni
-tozalamaslik, LoS’da health aktorlarni to‘siq deb hisoblash, stun paytida attack cooldown sarflash va
-16/step detonatsiya byudjetini olib tashlash — har biri mo‘ljallangan testlarni yiqitdi. Tick aniqligi: 6 ta
-davomiylik/davr jufti × 20, 30, 50, 60, 120, 144, 240 Hz (42 holat) — tick soni va expiry qadami aniq (3 s/1 s
-= 3 tick). Determinizm: barcha effekt/hudud yo‘llari bilan ssenariy ikki yangi sahnada va 1/30, 1/60, 1/144 s
-hamda jitter kadrlarda bir xil hash; 7 s ichida hammasi tugaydi (0 snaryad, 0 effekt, ittifoqchi 91 HP = 70 +
-Mend 5 + 4 × Regen 4). Scratch 2D demo (Player 76-kadr, Editor Play 90-kadr, 30 fps): Sentry 400 dan 319 HP —
-2 bomba × (8 + Attack 10) + Nova (12 + 10) × 0.894 falloff + 3 ta Zahar tick × 2 bilan mos; devor ortidagi aktor
-60/60 (LoS), Frost Extend 6 s bilan cheklangan, stun 4 s, pool vizuallari Editor ierarxiyasida, GL/graph xatosi
-yo‘q. Regressiya (Player): LoadoutWorkshop 6/6 (save hali v3), SaveWorkshop 6/6, AIWorkshop 2/2,
-RulesWorkshop 2/2. Saqlash vaqtinchalik siyosati: effektlar saqlanmaydi, Restore ularni olib tashlaydi; Capture
-energiyani effekt bonusisiz sig‘imgacha yozadi (effektsiz holatda baytma-bayt o‘zgarishsiz), save versiyasi
-o‘zgarmadi. Renderer o‘zgarmagani va editor UI qo‘shilmagani uchun render reference, ImGui editor testlari va
-Editor workflow fazalari ishga tushirilmadi; Release bench 4-bandda. [Hudud va effektlar](GameplayCombat.md#areas).
+EffectModel/ProjectileModel/RulesModel/LoadoutModel ASan/UBSan/LSan: 49/49. An owner probe of 9 instrumented TUs
+(CombatWorld, CombatGraph, EffectModel, ProjectileModel, GameplayRules, RulesModel, LoadoutWorld, LoadoutModel and
+SaveWorld): 84/84, with LeakSanitizer (83 tests + 1 scratch test that drives the effect phase, area LoS and cleanup on
+death through `CombatWorld::Tick` in the instrumented copy); Scene/serializer/physics/VM
+and the rest of the shared engine are a normal build — this is not a sanitizer run of the whole engine. Clang 18
+syntax-only -Werror: 15 TUs (12 engine + 3 test). Mutation check: restarting the tick phase on Refresh, not clearing
+effects on death, treating health actors as obstacles in LoS, spending the attack cooldown during a stun and removing
+the 16/step detonation budget — each failed the intended tests. Tick accuracy: 6 duration/period pairs × 20, 30, 50,
+60, 120, 144, 240 Hz (42 cases) — the tick count and the expiry step are exact (3 s/1 s
+= 3 ticks). Determinism: a scenario with every effect/area path gives the same hash in two fresh scenes and at 1/30,
+1/60, 1/144 s and with jittered frames; everything finishes within 7 s (0 projectiles, 0 effects, the ally at 91 HP =
+70 + Mend 5 + 4 × Regen 4). A scratch 2D demo (Player 76 frames, Editor Play 90 frames, 30 fps): Sentry from 400 to
+319 HP — matches 2 bombs × (8 + Attack 10) + Nova (12 + 10) × 0.894 falloff + 3 Poison ticks × 2; the actor behind
+the wall 60/60 (LoS), Frost Extend capped at 6 s, stun 4 s, pooled visuals in the Editor hierarchy, no GL/graph
+errors. Regression (Player): LoadoutWorkshop 6/6 (the save still v3), SaveWorkshop 6/6, AIWorkshop 2/2,
+RulesWorkshop 2/2. The interim save policy: effects are not saved, Restore removes them; Capture writes the energy up
+to the capacity without the effect bonus (byte-for-byte unchanged with no effects), the save version did not change.
+Since the renderer did not change and no editor UI was added, the render reference, the ImGui editor tests and the
+Editor workflow phases were not run; the Release bench is in item 4. [Areas and effects](GameplayCombat.md#areas).
 
-Dalillar (3-band, 2026-11-21): 1307/1307 unit (19 yangi: 2 `GameSaveLegacy*`, 3 `GameSaveModelV4*`, 6 `CombatSave*`,
+Evidence (item 3, 2026-11-21): 1307/1307 unit (19 new: 2 `GameSaveLegacy*`, 3 `GameSaveModelV4*`, 6 `CombatSave*`,
 4 `CombatAbility*`, 2 `CombatHUD*`, `GameUIModelCombatRowsRoundAndFade`, `VisualGraphPinChoicesAreTranslated`;
-oraliq save siyosatini tekshirgan 2 test v4 semantikasiga o‘tkazildi, `Version 4` rad testi endi 5 va 0 ni rad
-etadi), 11/11 headless CTest, `ctest -L docs` 2/2. Avval, o‘zgarmagan daraxtda `Tests/Fixtures/GameSaves` ga v1/v2/v3
-va haqiqiy LoadoutWorkshop faza-0 `loadout-v3.json` yozildi: to‘rttasi ham baytma-bayt qayta kodlanadi; haqiqiy
-fayl headless Loadout2D sahnasiga combat bilan ham, combatsiz ham tiklanadi (Sword/Plate, Energy 65, Bolt Uses 1)
-va yangi Player jarayonida faza 1 `LOADOUT_RESUMED casts=2 xp=150 coin=5` beradi, qayta yozilgan save hali v3.
-Save v4 eng katta hujjati (256 obyekt × 16 effekt, 64 belgili kalitlar, 128 snaryad × 8 hit, 65 536 belgili
-signature) 1 524 542 bayt — 2 MiB ichida; 38 struct va 12 JSON buzilishi har biri rad etildi. Determinizm (c):
-saqlab, yangi sahnaga tiklab 15 + 150 qadamdan keyin snaryad pozitsiyasi/tezligi/yoshi, sog‘liq va effekt
-qatorlari (qolgan vaqt, tik fazasi, Sequence) aynan teng. Pure ProjectileModel/EffectModel/RulesModel/
-LoadoutModel/SaveModel/QuestModel/UIModel ASan/UBSan/LSan: 85/85. CombatWorld, CombatGraph, ProjectileModel,
-EffectModel, SaveModel, SaveWorld, LoadoutWorld, LoadoutModel, LoadoutGraph, GameplayRules, RulesModel,
-GameplayUI, GameplayUIGraph va UIModel instrumentlangan 14 TU owner probe: 94/94, LeakSanitizer bilan (93 test +
-HUD/feed refresh, `CombatWorld::Tick` va v4 Capture/Restore'ni instrumentlangan nusxada yurgizuvchi 1 ta scratch
-test; libZamin bilan ataylab takrorlangan ta'riflar sabab ODR tekshiruvi o‘chirilgan); Scene/serializer/physics/VM
-va qolgan shared engine normal build — bu butun engine sanitizer run’i emas. Clang 18 syntax-only -Werror: 18 TU
-(13 engine/editor + 5 test). Mutatsiya tekshiruvi: effektlarni loadout'dan keyin bosqichlash, bog‘lanmagan ability
-signature'iga ham dum qo‘shish, hit marker'da effekt tiklarini sanash, hudud ability'sini faqat Applied > 0 da
-sarflash, tiklangan snaryad generatsiyasini 1 ga tushirish va eski save'da bog‘langan aktyor effektlarini
-qoldirish — har biri mo‘ljallangan testlarni yiqitdi (projectile commit bayrog‘i mutatsiyasi ekvivalent chiqdi va
-sanalmadi). Regressiya (Player): LoadoutWorkshop 6/6 (save hali v3), SaveWorkshop 6/6 (v1), QuestWorkshop 6/6
-(v2), UIWorkshop 6/6. Scratch 2D demo (30 fps): faza 0 Player'da 1.2 s da v4 yozildi — 3 ta uchayotgan snaryad,
-Sentry 370/400 (400 − (12 + Power 10 + Attack 5) − 3 Zahar tiki), Dummy 93/120 (pierce), 3 effekt; yangi jarayonda
-faza 1 `Jang holati tiklandi: 3 effekt, 3 snaryad`, tiklangan Bolt'lar urildi (10-kadrda Sentry 339/400, YONISH
-x2/3, ZAHAR x1/3). HUD Kind 5/6 va 4 qatorli zarbalar lentasi Player kadrida ko‘rindi. Editor Play'da node
-inspector "Jang holati" bloki 4/128 snaryad, 4/4 vizual, 2 qadam, 4/1024 effekt va Sentry effektlarini, tanlangan
-EffectDefine node'i "Tick: Zarar" nomli tanlovini ko‘rsatdi; editor smoke (`ZAMIN_EDITOR_OPEN_ALL_PANELS`, graph
-paneli va AbilityDefine node'i ochiq) 204/204 qadam, 0 xato. xdotool o‘rnatilmagan (o‘rnatishga ruxsat berilmadi),
-shu sababli combo'ning haqiqiy ImGui add/save/Undo testi 4-bandga qoldi; renderer o‘zgarmagani uchun render
-reference, workshop'larning Editor fazalari va Release bench ishga tushirilmadi.
-[Save v4](GameplaySave.md#combat-state-save-v4), [ability linklari](GameplayCombat.md#ability-links).
+the 2 tests that checked the interim save policy were moved to the v4 semantics, the `Version 4` rejection test now
+rejects 5 and 0), 11/11 headless CTest, `ctest -L docs` 2/2. First, on the unchanged tree, v1/v2/v3 and a real
+LoadoutWorkshop phase-0 `loadout-v3.json` were written to `Tests/Fixtures/GameSaves`: all four re-encode byte for
+byte; the real file restores into the headless Loadout2D scene both with and without combat (Sword/Plate, Energy 65,
+Bolt Uses 1), and in a fresh Player process phase 1 gives `LOADOUT_RESUMED casts=2 xp=150 coin=5`, the rewritten save
+still v3. The largest save v4 document (256 objects × 16 effects, 64-character keys, 128 projectiles × 8 hits, a
+65 536-character signature) is 1 524 542 bytes — within 2 MiB; each of 38 struct and 12 JSON corruptions was rejected.
+Determinism (c): after saving, restoring into a fresh scene and 15 + 150 steps, the projectile position/velocity/age,
+the health and the effect rows (remaining time, tick phase, Sequence) are exactly equal. Pure ProjectileModel/EffectModel/
+RulesModel/LoadoutModel/SaveModel/QuestModel/UIModel ASan/UBSan/LSan: 85/85. An owner probe of 14 instrumented TUs
+(CombatWorld, CombatGraph, ProjectileModel, EffectModel, SaveModel, SaveWorld, LoadoutWorld, LoadoutModel,
+LoadoutGraph, GameplayRules, RulesModel, GameplayUI, GameplayUIGraph and UIModel): 94/94, with LeakSanitizer (93
+tests + 1 scratch test that drives the HUD/feed refresh, `CombatWorld::Tick` and the v4 Capture/Restore in the instrumented
+copy; the ODR check is off because of definitions deliberately duplicated with libZamin); Scene/serializer/physics/VM
+and the rest of the shared engine are a normal build — this is not a sanitizer run of the whole engine. Clang 18
+syntax-only -Werror: 18 TUs (13 engine/editor + 5 test). Mutation check: staging effects after the loadout, adding a
+tail to an unbound ability signature too, counting effect ticks in the hit marker, spending an area ability only when
+Applied > 0, dropping the restored projectile generation to 1 and keeping the effects of a bound actor in an old save —
+each failed the intended tests (the projectile commit flag mutation turned out equivalent and was not counted).
+Regression (Player): LoadoutWorkshop 6/6 (the save still v3), SaveWorkshop 6/6 (v1), QuestWorkshop 6/6
+(v2), UIWorkshop 6/6. A scratch 2D demo (30 fps): in phase 0 the Player wrote v4 at 1.2 s — 3 projectiles in flight,
+Sentry 370/400 (400 − (12 + Power 10 + Attack 5) − 3 Poison ticks), Dummy 93/120 (pierce), 3 effects; in a fresh process
+phase 1 `Combat state restored: 3 effects, 3 projectiles`, the restored Bolts hit (at frame 10 Sentry 339/400, BURN
+x2/3, POISON x1/3). HUD Kind 5/6 and the 4-row hit feed showed in the Player frame. In Editor Play the node
+inspector's "Combat state" block showed 4/128 projectiles, 4/4 visuals, 2 steps, 4/1024 effects and the Sentry's
+effects, and the selected EffectDefine node showed the named "Tick: Damage" choice; the editor smoke
+(`ZAMIN_EDITOR_OPEN_ALL_PANELS`, the graph panel and an AbilityDefine node open) 204/204 steps, 0 errors. xdotool is
+not installed (installing it was not permitted), so the real ImGui add/save/Undo test of the combo was left for item
+4; since the renderer did not change, the render reference, the workshops' Editor phases and the Release bench were
+not run.
+[Save v4](GameplaySave.md#combat-state-save-v4), [ability links](GameplayCombat.md#ability-links).
 
-Dalillar (4-band, 2026-11-21): 1309/1309 unit (2 yangi: `CombatWorkshopGraphsValidateAndRoundtrip`,
-`CombatWorkshopOracleHeadless`), 12/12 headless CTest (yangi `BenchCombatSmoke` bilan), `ctest -L docs` 2/2, build
-ogohlantirishsiz. Compiler-free `Projects/CombatWorkshop` (`Tools/samples/gen_combat_workshop.py`; qayta generatsiya
-baytma-bayt bir xil, `git diff --exit-code` toza): 2D (Box2D, top-down) va 3D (Jolt, character controller) sahnalar,
-6 effekt, Nova hududi (`Wall` qatlami bo‘yicha LoS), Bolt/Lance/Venom snaryadlari pool vizual prefablari bilan, 5 ta
-o‘yinchi ability va Sentry'ning Spit snaryad ability'si, quest, 6 ta save bog‘lami, effekt/hit-marker HUD va zarbalar
-lentasi; klaviatura va gamepad. Oracle qoidalardan hisoblangan va 2D/3D'da aynan bir xil chiqdi: faza 0 (2.45 s) —
-Sentry 45 = 120 − 30 − 3 − 30 − 6 − 6 (YONISH x2), o‘yinchi 98 HP / 24 qalqon (Venom qalqonga, Zahar qalqondan o‘tib
-1 tik), nishonlar 13/13/35 (Lance pierce ×3 + Nova faqat 3.5 m ichidagi ikkitasiga), devor ortidagi nishon 30 (LoS),
-Frost Nova nishonlarida, Attack 10 (Haste), energiya 25; faza 1 (yangi jarayon) — saqlangan uchayotgan Bolt urildi,
-Burn tiki Sentry'ni o‘ldirdi (bir marta), o‘yinchi 94 (qolgan 3 Zahar tiki), energiya 15, Bolt 3, XP 150, Coin 5;
-faza 2 — o‘lik Sentry'ga Bolt va energiyasiz Nova hech narsani o‘zgartirmadi, takroriy mukofot yo‘q, effektlar 0.
-Faza 0 save'i: v4, 1 ta uchayotgan Bolt, o‘yinchida Poison/Haste, Sentry'da Burn (90 HP); tiklash logi `Jang holati
-tiklandi: 8 effekt, 1 snaryad`. `Tests/combat_workflow_test.py --exports`: 2D/3D × (3 Player faza klaviatura/gamepad
-lentasi bilan + 3 Editor Play faza) + 2 × eksport write/resume + haqiqiy ko‘chirilgan no-replay = 14/14 workflow,
-2 min 7 s; har birida markerlar, GL/graph xatosi yo‘qligi, PNG va save JSON tekshirildi (`build/GameplayCombat/`).
-Mutatsiya: generatorda Nova LoS'ni o‘chirish, Zaharni qalqonga yuttirish, Sentry'ni tiklangan fazada otdirish,
-Lance pierce'ni olib tashlash va F5'ni Bolt urilgandan keyinga surish — har biri headless oracle'ni yiqitdi (5/5,
-4–14 tekshiruv). Release `ZaminBench --combat` (600 kadr, 5 ishga tushirish): o‘rtacha `TickCombat` 2D 0.069–0.106
-ms (p95 0.092–0.150), 3D 0.079–0.101 ms (p95 0.218–0.270), 1024 effekt nusxasi 0.047–0.060 ms — maqsadlar (0.5 / 1.0
-/ 1.0 ms) bajarildi; ajratmalar 9.26 / 12.15 / 21.05 kadrga, `ZAMIN_ALLOC_TRACE` bo‘yicha hammasi fizika so‘rov
-vektorlari va `RuleWorld` voqea `std::deque`'idan, combat kodining o‘zi ajratmaydi; baseline
-`Tests/Baselines/combat-release.json`, `bench.sh --only combat --compare` 0 sekinlashish. Dizayndagi 512 × 16 effekt
-ssenariysi sahnaning 1024 nusxa chegarasidan oshgani uchun 64 × 16 = 1024 o‘lchandi. Pure ProjectileModel/EffectModel/
-RulesModel/LoadoutModel/SaveModel/QuestModel/UIModel ASan/UBSan/LSan: 85/85. CombatWorld, CombatGraph, ProjectileModel,
-EffectModel, GameplayRules, RulesModel, LoadoutWorld va LoadoutModel instrumentlangan 8 TU owner probe: 42/42
-(`CombatWorkshop*`, `CombatWorld*`, `CombatEffect*`), LeakSanitizer bilan; xuddi shu TU'lar bilan sanitizer'li
-`CombatBench` (to‘g‘ridan-to‘g‘ri chaqirilgan instrumentlangan `TickCombat`, 128 snaryad, 2D/3D va 1024 effekt, 3 × 300
-kadr) xatosiz. libZamin `-Bsymbolic-functions` bilan bog‘langani uchun workshop graph yo‘li libZamin ichida
-instrumentlanmagan; Scene/serializer/physics/VM va qolgan shared engine normal build — bu butun engine sanitizer
-run’i emas. Clang 18 syntax-only -Werror: 3 TU (`CombatWorkshopTests`, `CombatBench`, `ParticleBench`); format
-tekshiruvi va `py_compile` toza. Regressiya: LoadoutWorkshop 14/14 workflow (save hali v3), SaveWorkshop 6/6 (v1).
-Editor: workflow'ning 6 ta Editor Play fazasi o‘tdi; QA hook'lari bilan Editor Play'da node inspector "Jang holati"
-1/128 snaryad, 8/1024 effekt, Sentry'da Burn va ProjectileDefine'ning "Kind: Zarar" tanlovini ko‘rsatdi.
-`Tests/combat_editor_test.py` yozildi, lekin xdotool o‘rnatilmagan (o‘rnatishga ruxsat berilmadi), shuning uchun
-haqiqiy ImGui add/save/Undo testi ishga tushirilmadi; renderer o‘zgarmagani uchun render reference ham. Headless
-oracle snaryad vizual prefablarisiz yuradi (prefab instansiyasi GL kontekstsiz shrift atlasini quradi); vizual pool
-Player/Editor workflow'larida ishlaydi. Sentry'ning Spit chaqiruvi uning o‘z grafida emas, o‘yinchi grafida
-(`Target=850`) — QA fazasi o‘sha yerda. [Playable slice](GameplayCombat.md#playable-slice-combatworkshop),
+Evidence (item 4, 2026-11-21): 1309/1309 unit (2 new: `CombatWorkshopGraphsValidateAndRoundtrip`,
+`CombatWorkshopOracleHeadless`), 12/12 headless CTest (with the new `BenchCombatSmoke`), `ctest -L docs` 2/2, the build
+without warnings. The compiler-free `Projects/CombatWorkshop` (`Tools/samples/gen_combat_workshop.py`; regeneration is
+byte-for-byte identical, `git diff --exit-code` clean): 2D (Box2D, top-down) and 3D (Jolt, character controller)
+scenes, 6 effects, the Nova area (LoS by the `Wall` layer), the Bolt/Lance/Venom projectiles with pooled visual
+prefabs, 5 player abilities and the Sentry's Spit projectile ability, a quest, 6 save bindings, the effect/hit-marker
+HUD and the hit feed; keyboard and gamepad. The oracle is computed from the rules and came out exactly the same in 2D
+and 3D: phase 0 (2.45 s) — Sentry 45 = 120 − 30 − 3 − 30 − 6 − 6 (BURN x2), the player 98 HP / 24 shield (Venom into
+the shield, Poison through the shield for 1 tick), the targets 13/13/35 (Lance pierce ×3 + Nova only on the two within
+3.5 m), the target behind the wall 30 (LoS), Frost on the Nova targets, Attack 10 (Haste), energy 25; phase 1 (a fresh
+process) — the saved Bolt in flight hit, a Burn tick killed the Sentry (once), the player 94 (the 3 remaining Poison
+ticks), energy 15, Bolt 3, XP 150, Coin 5; phase 2 — a Bolt at the dead Sentry and a Nova without energy changed
+nothing, no repeated reward, 0 effects. The phase 0 save: v4, 1 Bolt in flight, Poison/Haste on the player, Burn on
+the Sentry (90 HP); the restore log `Combat state restored: 8 effects, 1 projectiles`.
+`Tests/combat_workflow_test.py --exports`: 2D/3D × (3 Player phases with a keyboard/gamepad tape + 3 Editor Play
+phases) + 2 × export write/resume + a real relocated no-replay = 14/14 workflows, 2 min 7 s; in each the markers, the
+absence of GL/graph errors, the PNG and the save JSON were checked (`build/GameplayCombat/`).
+Mutation: in the generator, turning off the Nova LoS, letting the shield absorb Poison, making the Sentry fire in the
+restored phase, removing the Lance pierce and moving F5 to after the Bolt hit — each failed the headless oracle (5/5,
+4–14 checks). Release `ZaminBench --combat` (600 frames, 5 runs): average `TickCombat` 2D 0.069–0.106 ms (p95
+0.092–0.150), 3D 0.079–0.101 ms (p95 0.218–0.270), 1024 effect instances 0.047–0.060 ms — the targets (0.5 / 1.0 /
+1.0 ms) are met; allocations 9.26 / 12.15 / 21.05 per frame, all of them, by `ZAMIN_ALLOC_TRACE`, from the physics
+query vectors and the `RuleWorld` event `std::deque`, the combat code itself does not allocate; baseline
+`Tests/Baselines/combat-release.json`, `bench.sh --only combat --compare` 0 slowdowns. Since the design's 512 × 16
+effect scenario exceeds the scene's limit of 1024 instances, 64 × 16 = 1024 was measured. Pure
+ProjectileModel/EffectModel/RulesModel/LoadoutModel/SaveModel/QuestModel/UIModel ASan/UBSan/LSan: 85/85. An owner probe
+of 8 instrumented TUs (CombatWorld, CombatGraph, ProjectileModel, EffectModel, GameplayRules, RulesModel, LoadoutWorld
+and LoadoutModel): 42/42 (`CombatWorkshop*`, `CombatWorld*`, `CombatEffect*`), with LeakSanitizer; a sanitized
+`CombatBench` with the same TUs (an instrumented `TickCombat` called directly, 128 projectiles, 2D/3D and 1024 effects,
+3 × 300 frames) without errors. Since libZamin is bound with `-Bsymbolic-functions`, the workshop graph path inside
+libZamin is not instrumented; Scene/serializer/physics/VM and the rest of the shared engine are a normal build — this
+is not a sanitizer run of the whole engine. Clang 18 syntax-only -Werror: 3 TUs (`CombatWorkshopTests`, `CombatBench`,
+`ParticleBench`); the format check and `py_compile` are clean. Regression: LoadoutWorkshop 14/14 workflows (the save
+still v3), SaveWorkshop 6/6 (v1).
+Editor: the workflow's 6 Editor Play phases passed; with the QA hooks the node inspector's "Combat state" in Editor Play
+showed 1/128 projectiles, 8/1024 effects, Burn on the Sentry and ProjectileDefine's "Kind: Damage" choice.
+`Tests/combat_editor_test.py` was written, but xdotool is not installed (installing it was not permitted), so the real
+ImGui add/save/Undo test was not run; neither was the render reference, since the renderer did not change. The
+headless oracle runs without the projectiles' visual prefabs (a prefab instance builds a font atlas without a GL
+context); the visual pool works in the Player/Editor workflows. The Sentry's Spit call is not in its own graph but in
+the player's graph (`Target=850`) — that is where the QA phase is. [Playable slice](GameplayCombat.md#playable-slice-combatworkshop),
 [profiling](GameplayCombat.md#profiling).
 
-Dalillar (review tuzatishlari, 2026-11-22): 1315/1315 unit (6 yangi: `CombatImpactDetonationLineOfSight*`,
+Evidence (review fixes, 2026-11-22): 1315/1315 unit (6 new: `CombatImpactDetonationLineOfSight*`,
 `CombatPureNodesNeverCreateTheCombatWorld`, `GameSaveModelV4TickPhase*`, `CombatSaveOwnerlessProjectile*`,
-`CombatAbilityCastKeepsEnergy*`, `CombatHUDZeroTicks*`; `CombatSaveUnresolved*` endi sobiq egasining UUID'ini
-kutadi), 12/12 headless CTest, `ctest -L docs` 2/2, build ogohlantirishsiz. Tuzatishlar: devorga urilgan
-snaryadning hududi sirtdan 2 sm oldinda portlaydi (LoS nurlari urilgan devor ichidan boshlanmaydi); egasiz
-snaryad saqlab-yuklangandan keyin ham sobiq egasining UUID'iga tegmaydi (v4'da ixtiyoriy `FormerOwner`, faqat
-o‘rnatilganda yoziladi: usiz hujjat baytlari o‘zgarmaydi, eski v4 fayllar o‘qiladi) va uning hududi doim jamoa snapshot'i bo‘yicha
-qabul qiladi; hech narsa o‘zgartirmagan tik (to‘la sog‘liqqa heal) hit halqasiga yozilmaydi, hit marker
-butun halqadan eng yangi to‘g‘ridan-to‘g‘ri zarbani oladi; pure `ProjectileState`/`EffectState`/
-`CombatModifiers` node'lari CombatWorld yaratmaydi; effekt MaxEnergy'ni kamaytirgan Cast energiyani sig‘imgacha
-qisadi (o‘sha kadrdagi save endi tiklanadi); save kodeki tik fazasini modeldagi kabi 60 + 1e-9 gacha qabul qiladi.
-Mutatsiya: oltita tuzatish (backoff, jamoa qabuli, sobiq ega, nol tik, energiya, tik epsiloni) qaytarilganda 6 test
-(5 yangi + o‘zgartirilgan `CombatSaveUnresolved*`, 17 tekshiruv) yiqildi; pure node va hit marker tuzatishlari
-qaytarib ko‘rilmadi. xdotool (1:3.20160805.1-5build1)
-o‘rnatildi va `Tests/combat_editor_test.py` haqiqiy ImGui'da o‘tdi (3 min 17 s): uchta node add/save/Undo
-hamda nomli tanlov combo'si orqali ProjectileDefine `Kind` → "Davolash" va EffectDefine `Tick` → "Zarar",
-har biri save, Undo, Redo, yana Undo — saqlangan graph har qadamda tekshirildi; test CI'ga qo‘shildi
-(combat workflow bilan). CombatWorkshop kadri: 2D ortografik o‘lcham 10 → 12, markaz y 1 → 2; 3D kamera
-z 12 → 10.5 — Editor Play'da Sentry viewport toolbar'i ostidan chiqdi (2D/3D skrinshotlar).
-`Tests/combat_workflow_test.py --exports` 14/14 (1 min 58 s); 3D erkin o‘yin (R, Space, L, N, M×2) lentasida "+0 Regen"
-qatori yo‘q, "+2 Regen" bor. Regressiya (Player): LoadoutWorkshop 6/6, SaveWorkshop 6/6. Editor toolbar'i HUD
-sarlavhasini yopishi barcha workshop'larda umumiy (LoadoutWorkshop'da ham) — alohida editor ishi.
+`CombatAbilityCastKeepsEnergy*`, `CombatHUDZeroTicks*`; `CombatSaveUnresolved*` now expects the former owner's UUID),
+12/12 headless CTest, `ctest -L docs` 2/2, the build without warnings. Fixes: the area of a projectile that hit a wall
+detonates 2 cm in front of the surface (the LoS rays do not start inside the wall that was hit); an ownerless
+projectile does not touch its former owner's UUID even after a save and load (an optional `FormerOwner` in v4, written
+only when set: without it the document's bytes do not change, old v4 files are read) and its area always admits by the
+team snapshot; a tick that changed nothing (a heal at full health) is not written to the hit ring, and the hit marker
+takes the newest direct hit from the whole ring; the pure `ProjectileState`/`EffectState`/
+`CombatModifiers` nodes do not create a CombatWorld; a Cast whose effect lowered MaxEnergy clamps the energy to the
+capacity (a save in that frame now restores); the save codec accepts the tick phase up to 60 + 1e-9, as the model does.
+Mutation: with the six fixes (backoff, team admission, former owner, zero tick, energy, tick epsilon) reverted, 6 tests
+(5 new + the changed `CombatSaveUnresolved*`, 17 checks) failed; the pure node and hit marker fixes were not reverted
+for a check. xdotool (1:3.20160805.1-5build1)
+was installed and `Tests/combat_editor_test.py` passed in real ImGui (3 min 17 s): three nodes add/save/Undo
+and, through the named choice combo, ProjectileDefine `Kind` → "Heal" and EffectDefine `Tick` → "Damage",
+each with save, Undo, Redo and Undo again — the saved graph was checked at every step; the test was added to CI
+(together with the combat workflow). The CombatWorkshop framing: the 2D orthographic size 10 → 12, the centre y 1 → 2;
+the 3D camera z 12 → 10.5 — in Editor Play the Sentry came out from under the viewport toolbar (2D/3D screenshots).
+`Tests/combat_workflow_test.py --exports` 14/14 (1 min 58 s); the 3D free play (R, Space, L, N, M×2) feed has no
+"+0 Regen" row and does have "+2 Regen". Regression (Player): LoadoutWorkshop 6/6, SaveWorkshop 6/6. That the editor
+toolbar covers the HUD title is common to every workshop (LoadoutWorkshop too) — separate editor work.
 
-### Keyingi paket — ikki tugallangan 2D/3D vertical slice va stress darvozalari
+### Next package — two finished 2D/3D vertical slices and stress gates
 
-- [x] 2D vertical slice: menyu, kamida ikki daraja, motor/combat/AI/quest/loadout/HUD bitta o‘yin oqimida, yakun ekrani.
-- [x] 3D vertical slice: character controller, kamera, Animator locomotion, combat/AI/quest va save bitta o‘yin oqimida.
-- [x] Animatsiya/fizika stress hamda UI input/scale (klaviatura/gamepad, turli rezolyutsiya) darvozalari.
-- [x] Fresh-process resume, relocated export, profiling va regression darvozalari ikkala slice uchun.
+- [x] 2D vertical slice: a menu, at least two levels, motor/combat/AI/quest/loadout/HUD in one game flow, an end screen.
+- [x] 3D vertical slice: character controller, camera, Animator locomotion, combat/AI/quest and save in one game flow.
+- [x] Animation/physics stress and UI input/scale (keyboard/gamepad, various resolutions) gates.
+- [x] Fresh-process resume, relocated export, profiling and regression gates for both slices.
 
-Dalillar (2D slice, 2026-11-22): *Lantern Keeper* (`Projects/LanternKeeper`, kompilyatorsiz, `ScriptModulePath ""`) —
-`Menu`, `Orchards` (46×26), `Yertola` (44×30), g‘alaba va mag‘lubiyat ekranlari, boss Soya Bek;
-[VerticalSlices.md](VerticalSlices.md). Engine kengaytmalari: transfer hujjati (`Zamin.GameplayTransfer` v1,
-`SaveWorld::CaptureTransfer/RestoreTransfer`, `Gameplay.TransferWrite/Load/Inspect`), LoadScene fade, App/Audio/
-Localization/Display/UIValue node'lari, `Gameplay.Steer` va vektor matematikasi, `FormatNumber`/`FormatTime`, HUD
-kind 7–9 (energiya, qobiliyat, tajriba darajasi), AI `Strike=false` (delegatsiyalangan hujum), Animator
-`DriveSpriteClips`; generator kitlari `Tools/samples/graphkit.py`, `slicekit.py`, `gen_lantern_keeper.py`.
-1332/1332 unit (17 yangi: 4 transfer, 5 slice node/HUD, 1 AI, 3 sprite klip, 4 `LanternKeeper*`; to‘liq run 86 s),
-12/12 headless CTest, `ctest -L docs` 2/2, build ogohlantirishsiz. Headless: oracle menyu → Orchards → transfer →
-Yertola → g‘alaba 5022 kadrda (850 XP, 4-daraja, 5/5 vazifa, 19 tanga = 8 + 6 + vazifa mukofoti 5, Qilich/Tumor/Zirh
-kiyilgan, Nova/Mend ochiq, boss o‘lik, uchayotgan snaryad 0); mag‘lubiyat rejasi 5263 kadr (3 o‘lim → mag‘lubiyat →
-saqlashdan qayta yuklash → 1-daraja yana 200 XP/13 tanga bilan, mukofot takrorlanmaydi); determinizm 2252/2252 kadr,
-23/23 trace qatori. `Tests/slice_workflow_test.py` (yangi CI qadami) 7/7 faza, 840 s: P0 klaviatura lentasi 24 s
-(musiqa 0.55 → 0.85, `SLICE_SETTINGS`, yangi o‘yin, harakat/Bolt/zarba/inventar/pauza), P1 demo 231 s (1-daraja
-75.0 s, 13 tanga, 200 XP; `Carry.json` v1 XP 200, `Run2.json` v4 Yertola), P2 yangi jarayonda Davom etish → boss →
-g‘alaba 189 s (`time=166.3 xp=850 level=4 coins=19 deaths=0 quests=5/5`), P3 6 s (Davom etish yo‘q, "Eng yaxshi vaqt
-02:46"), P4 mag‘lubiyat → qayta yuklash 300 s (`coins=13 xp=200`, qayta yuklashdan keyin pilot tiqilmaydi), E0
-Editor Play Orchards 48 s, E1 Editor Play Yertola eski `Carry.json` yonida 41 s (shu qadamda tuzatildi: daraja
-to‘g‘ridan-to‘g‘ri ochilganda eski transferni o‘qimaydi). Loyiha 192 fayl, 5.2 MB; graflar (node/link): Hero 560/678,
-Game 620/732, Enemy 174/205, Menu 147/160 (chegara 2500/5000); generator ikki marta ishga tushirilganda fayllar bir
-xil. Dizayndan farqlar: darajalar kichikroq (56×32/48×36 o‘rniga), o‘tlar 5 emas 3, dushmanlar kamroq (L1 4
-qaroqchi, 2 kamonchi va boshliq; L2 4 skelet, 2 kamonchi, boss va 2 ruh), richag/panjara/tikan tuzoqlari yo‘q; bitta `Enemy`
-grafi arxetip override'lari bilan, daraja direktori `Game` grafida; sozlamalar faqat menyuda (o‘yin ichida va UI
-scale yo‘q). Gamepad lentasi, UI scale, relocated export va `samples_assets.py` graf rejimi 3–4-itemlarga qoldirildi.
+Evidence (2D slice, 2026-11-22): *Lantern Keeper* (`Projects/LanternKeeper`, compiler-free, `ScriptModulePath ""`) —
+`Menu`, `Orchards` (46×26), `Crypt` (44×30), victory and defeat screens, the boss Soya Bek;
+[VerticalSlices.md](VerticalSlices.md). Engine extensions: a transfer document (`Zamin.GameplayTransfer` v1,
+`SaveWorld::CaptureTransfer/RestoreTransfer`, `Gameplay.TransferWrite/Load/Inspect`), the LoadScene fade, App/Audio/
+Localization/Display/UIValue nodes, `Gameplay.Steer` and vector math, `FormatNumber`/`FormatTime`, HUD
+kinds 7–9 (energy, ability, experience level), AI `Strike=false` (a delegated attack), Animator
+`DriveSpriteClips`; the generator kits `Tools/samples/graphkit.py`, `slicekit.py`, `gen_lantern_keeper.py`.
+1332/1332 unit (17 new: 4 transfer, 5 slice node/HUD, 1 AI, 3 sprite clip, 4 `LanternKeeper*`; the full run 86 s),
+12/12 headless CTest, `ctest -L docs` 2/2, the build without warnings. Headless: the oracle menu → Orchards → transfer →
+Crypt → victory in 5022 frames (850 XP, level 4, 5/5 quests, 19 coins = 8 + 6 + the quest reward 5, Sword/Charm/Armour
+equipped, Nova/Mend unlocked, the boss dead, 0 projectiles in flight); the defeat plan 5263 frames (3 deaths → defeat →
+reloading the save → level 1 again with 200 XP/13 coins, the reward is not repeated); determinism 2252/2252 frames,
+23/23 trace lines. `Tests/slice_workflow_test.py` (a new CI step) 7/7 phases, 840 s: P0 a keyboard tape 24 s
+(music 0.55 → 0.85, `SLICE_SETTINGS`, a new game, movement/Bolt/strike/inventory/pause), P1 the demo 231 s (level 1
+75.0 s, 13 coins, 200 XP; `Carry.json` v1 XP 200, `Run2.json` v4 Crypt), P2 in a fresh process Continue → the boss →
+victory 189 s (`time=166.3 xp=850 level=4 coins=19 deaths=0 quests=5/5`), P3 6 s (no Continue, "Best time
+02:46"), P4 defeat → reload 300 s (`coins=13 xp=200`, the pilot does not get stuck after the reload), E0
+Editor Play Orchards 48 s, E1 Editor Play Crypt next to an old `Carry.json` 41 s (fixed in this step: a level opened
+directly does not read an old transfer). The project is 192 files, 5.2 MB; graphs (nodes/links): Hero 560/678,
+Game 620/732, Enemy 174/205, Menu 147/160 (limit 2500/5000); running the generator twice gives identical files.
+Differences from the design: the levels are smaller (instead of 56×32/48×36), 3 herbs instead of 5, fewer enemies (L1 4
+bandits, 2 archers and the chief; L2 4 skeletons, 2 archers, the boss and 2 spirits), no lever/grate/spike traps; one
+`Enemy` graph with archetype overrides, the level director in the `Game` graph; settings only in the menu (no in-game
+settings and no UI scale). The gamepad tape, UI scale, relocated export and the `samples_assets.py` graph mode were
+left for items 3–4.
 
-Dalillar (3D slice, 2026-11-22): *Beacon Pass* (`Projects/BeaconPass`, kompilyatorsiz) — `Menu` (oqshomgi dovon
-manzarasi, sekin chayqaluvchi kamera) va `Dovon` (120×120 m relyef, qarorgoh, karvonsaroy, otxona, minora maydoni,
-mash'al; 374 obyekt); [VerticalSlices.md](VerticalSlices.md), README (uz), launcher rasmi. Character controller +
-`Gameplay.Motor3D` (yugurish 5.4, yurish 1.8 m/s, sakrash), orbit kamera (sphere cast), `gltfkit.py` skinned odamlar
-(21 bo‘g‘in; qahramon, qorovul, Qora qorovul) va Animator: Locomotion BlendTree1D (0 / 1.8 / 5.4 — klip uzunligi =
-qadam / tezlik), Air/Land/Dead, `UpperBody` (Override) va `Hit` (Additive) qatlamlari, `Hit`/`Release`/`Footstep`
-event'lari; zarba/olov o‘qi/Zilzila animatsiya event'ida, delegatsiyalangan qorovul zarbalari, kamonchilar, boss
-shockwave'i, 4 vazifa (800 XP, 4-daraja), Shamshir/Qalqon bone attachment bilan, ziyoratgohlarda v4 saqlash.
-Engine: `Animator.PlayLayer` `Restart` pini / `PlayLayer(..., restart)` (standart o‘chiq, eski graflar o‘zgarmaydi).
-1339/1339 unit (7 yangi: 6 `BeaconPass*` + `AnimatorLayerRestartReplaysTheClipAndItsEvents`; to‘liq run 251 s,
-`BeaconPass*` 133 s), 12/12 headless CTest, `ctest -L docs` 2/2, build ogohlantirishsiz. Headless: oracle menyu →
-Dovon → g‘alaba 2275 kadrda (800 XP, 4-daraja, 4/4 vazifa, 3 tosh sarflangan, Shamshir+Qalqon kiyilgan, Zilzila ochiq,
-Qora qorovul o‘lik, uchayotgan snaryad 0, `Run1.json` v4); lokomotsiya (1264 kadr): Walk/Run og‘irligi 1.00/1.00,
-UpperBody 1.00 zarbada, Air → Land, Hurt; qadam oralig‘i walk 1.007 m (yarim qadam 1.000), run 1.950 m (1.950);
-damplangan Speed xatosi 0.006 m/s (374 namuna, chegara 0.05); oyoq relyefdan pastga tushmaydi (min 0.000 m, 1264
-namuna), kamera devor ichida 0/1264; mag‘lubiyat rejasi 4272 kadr (3 o‘lim, Dead holati → mag‘lubiyat → qayta yuklash →
-`Pass` bir marta, 100 XP, 0 o‘lim); save/resume: hovli ziyoratgohi saqlashi (kadr 1294, qahramon (2.548, 3.001,
-1.600), 100 XP, 2 tosh, 3 dushman, 5 ishlatilgan obyekt) yangi jarayonda <1 mm aniqlikda tiklanadi (sumka, vazifalar,
-loadout ham), davomi 5/5 hodisa bir xil tartibda, 300/300 XP, 3/3 tosh, tog‘ ziyoratgohida bir xil joy (−5.898,
-−26.402); Qora qorovul jangida uchayotgan Bolt bilan tezkor saqlash (yoshi 0.133 s) aynan tiklanadi va 6/6 kadr bir xil
-yo‘l (eng katta farq 0.00000 m), 7-kadrda tegib, boss sog‘lig‘i 260.8/260.8; determinizm 2244/2244 kadr, 26/26 trace
-qatori. `slice_workflow_test.py --game BeaconPass` (yangi CI qadami, 640×360 Low) 6/6 faza, 742 s: P0 klaviatura
-lentasi 40 s (musiqa 0.55 → 0.85, yangi o‘yin, autosave, yugurish/sakrash/zarba/Bolt/sumka, pauza → `Menyu: Inventar`),
-P1 demo 112 s (hovli ziyoratgohigacha: v4, 100 XP, 2 tosh, sog‘liq 120, combat bo‘limi bor), P2 yangi jarayonda Davom
-etish → g‘alaba 88 s (`time=73.6 xp=800 level=4 stones=0 deaths=0 quests=4/4`), P3 7 s (Davom etish yo‘q), P4 339 s (3
-o‘lim → mag‘lubiyat → *Oxirgi saqlashdan* → `Pass` bir marta), E0 Editor Play 155 s; Lantern Keeper fazalari umumlashgan
-harness'da ham o‘tadi (P0 33 s, P3 11 s, E0 66 s). Loyiha 192 fayl, 6.3 MB (Assets 5.99 MiB; eng katta sahna 547 KB,
-model 372 KB, tekstura 140 KB, ovoz 516 KB / 12 s); graflar (node/link): Hero 655/787, Game 487/580, Enemy 180/211,
-Menu 155/168, Camera3D 38/46; generator ikki marta ishga tushirilganda fayllar bir xil. Shu qadamda tuzatildi:
-ziyoratgoh dam olish nuqtasi (pilot to‘xtab, keyin ishlatadi), qahramon rule event'larini `LateUpdate`da o‘qiydi —
-saqlash restore bilan bir fazada, tiklangan run saqlangan holatdan boshlanadi; resume'da yo‘nalish (yaw/facing)
-tiklanadi; menyu kamerasi qarag‘aylar ichidan vodiy ustiga ko‘chirildi; `[Look]` maslahati
-`[LookX|Sichqoncha]`. Dizayndan farqlar: Qora qorovul HP 280 (420 emas), qorovullar 4 (5 emas), relyef 120 m/81
-(128/129 emas), `meshkit.py` OBJ kit yo‘q (karvonsaroy teksturali primitivlar + gltfkit buyumlaridan), `Pass` vazifasi
-2 darvoza qorovuli + darvozani ochish (Manual receipt emas), sozlamalar faqat menyuda; restore jismlar va nav
-agentlarini to‘xtatgani uchun (saqlash tezlik/yo‘l saqlamaydi) davom bir xil hodisa/natija beradi, kadrlar esa farq
-qilishi mumkin. Gamepad lentasi, UI scale, relocated export va profiling 3–4-itemlarda.
+Evidence (3D slice, 2026-11-22): *Beacon Pass* (`Projects/BeaconPass`, compiler-free) — `Menu` (an evening view of the
+pass, a slowly swaying camera) and `Pass` (120×120 m of terrain, a camp, a caravanserai, a stable, the tower plateau,
+the beacon; 374 objects); [VerticalSlices.md](VerticalSlices.md), a README (uz), a launcher picture. A character
+controller + `Gameplay.Motor3D` (run 5.4, walk 1.8 m/s, jump), an orbit camera (sphere cast), skinned humans from
+`gltfkit.py` (21 joints; the hero, the guards, the Black Warden) and the Animator: a Locomotion BlendTree1D (0 / 1.8 /
+5.4 — clip length = stride / speed), Air/Land/Dead, the `UpperBody` (Override) and `Hit` (Additive) layers, the
+`Hit`/`Release`/`Footstep` events; the strike/fire bolt/Slam on an animation event, delegated guard strikes, archers,
+the boss's shockwave, 4 quests (800 XP, level 4), Sabre/Shield with bone attachments, v4 saves at the shrines.
+Engine: the `Animator.PlayLayer` `Restart` pin / `PlayLayer(..., restart)` (off by default, old graphs do not change).
+1339/1339 unit (7 new: 6 `BeaconPass*` + `AnimatorLayerRestartReplaysTheClipAndItsEvents`; the full run 251 s,
+`BeaconPass*` 133 s), 12/12 headless CTest, `ctest -L docs` 2/2, the build without warnings. Headless: the oracle menu →
+Pass → victory in 2275 frames (800 XP, level 4, 4/4 quests, 3 stones spent, Sabre+Shield equipped, Slam unlocked,
+the Black Warden dead, 0 projectiles in flight, `Run1.json` v4); locomotion (1264 frames): Walk/Run weights 1.00/1.00,
+UpperBody 1.00 on a strike, Air → Land, Hurt; step spacing walk 1.007 m (half stride 1.000), run 1.950 m (1.950);
+the damped Speed error 0.006 m/s (374 samples, limit 0.05); the feet never sink below the terrain (min 0.000 m, 1264
+samples), the camera inside a wall 0/1264; the defeat plan 4272 frames (3 deaths, the Dead state → defeat → reload →
+`Pass` once, 100 XP, 0 deaths); save/resume: the courtyard shrine save (frame 1294, the hero at (2.548, 3.001,
+1.600), 100 XP, 2 stones, 3 enemies, 5 used objects) restores in a fresh process to within <1 mm (the bag, the quests
+and the loadout too), the continuation has 5/5 events in the same order, 300/300 XP, 3/3 stones, the same spot at the
+mountain shrine (−5.898, −26.402); a quick save with a Bolt in flight during the Black Warden fight (age 0.133 s)
+restores exactly, and 6/6 frames follow the same path (the largest difference 0.00000 m), it hits on frame 7, the
+boss's health 260.8/260.8; determinism 2244/2244 frames, 26/26 trace
+lines. `slice_workflow_test.py --game BeaconPass` (a new CI step, 640×360 Low) 6/6 phases, 742 s: P0 a keyboard
+tape 40 s (music 0.55 → 0.85, a new game, autosave, run/jump/strike/Bolt/bag, pause → `Menu: Inventory`),
+P1 the demo 112 s (up to the courtyard shrine: v4, 100 XP, 2 stones, health 120, the combat section present), P2 in a
+fresh process Continue → victory 88 s (`time=73.6 xp=800 level=4 stones=0 deaths=0 quests=4/4`), P3 7 s (no
+Continue), P4 339 s (3 deaths → defeat → *From the last save* → `Pass` once), E0 Editor Play 155 s; the Lantern Keeper
+phases pass in the generalized harness too (P0 33 s, P3 11 s, E0 66 s). The project is 192 files, 6.3 MB (Assets
+5.99 MiB; the largest scene 547 KB, model 372 KB, texture 140 KB, sound 516 KB / 12 s); graphs (nodes/links): Hero
+655/787, Game 487/580, Enemy 180/211, Menu 155/168, Camera3D 38/46; running the generator twice gives identical files.
+Fixed in this step: a rest point at the shrine (the pilot stops, then uses it), the hero reads rule events in
+`LateUpdate` — the save is in the same phase as the restore, a restored run starts from the saved state; the heading
+(yaw/facing) is restored on resume; the menu camera was moved from inside the pines to above the valley; the `[Look]`
+hint became `[LookX|Mouse]`. Differences from the design: the Black Warden has 280 HP (not 420), 4 guards (not 5),
+the terrain is 120 m/81 (not 128/129), no `meshkit.py` OBJ kit (the caravanserai is made of textured primitives +
+gltfkit props), the `Pass` quest is 2 gate guards + opening the gate (not a Manual receipt), settings only in the menu;
+since the restore stops the bodies and nav agents (the save keeps no velocity/path), the continuation gives the same
+events/result, while the frames may differ. The gamepad tape, UI scale, relocated export and profiling are in items
+3–4.
 
-Dalillar (stress va UI darvozalari, 2026-11-22): [VerticalSlices.md](VerticalSlices.md#gates),
-[Benchmarks.md](Benchmarks.md). Stress (headless `ZaminBench`, Release, 4 vCPU Xeon 2.1 GHz, 5 ishga tushirish,
-oraliq — eng kichik/eng katta): P1 `--physics --2d` (60×40 m tilemap, 2 048 jism, 64 `StepMotor` aktor, 128 snaryad)
-fizika qadami o‘rtacha 1.56–2.15 ms, p95 2.3–3.1 (byudjet 4/6); P2 `--physics --3d` (chuqur, rampa, 0.25 m zinapoya,
-35° qiyalik, 65×65 relyef, 512 jism, 64 Character Controller 3D, 128 sphere cast) qadam + CC 1.51–1.80 ms, p95
-2.00–2.17 (8/12), cast'lar 0.23–0.28 ms; A1 `--animation` 256 odam (`Hero.glb`, 21 suyak, Dovon controller'i, yarmi
-ekrandan tashqarida) 3 ishchida 0.57–0.82 ms, p95 0.66–1.10 (1.5/2.0), bitta oqimda 0.99–1.73 ms (4.0), ajratma
-0.0 / kadr; A2 1 024 sprite animator (`DriveSpriteClips`, 2D blend yo‘nalishlari) Animator yangilash 0.30–0.48 ms (0.6),
-ajratma 0.0; P3 `--slice-stress --2d` (Orchards: 32 miya, 200 quti, 64 snaryad, 256 sprite animator, 48 Light 2D) o‘yin
-kodi 2.80–3.42 ms, p95 3.00–4.71 (6/10); A3 `--slice-stress --3d` (Dovon: 24 animatsiyali qorovul, jami 27 miya, 64
-snaryad, 200 Jolt jism) 3.89–5.45 ms, p95 5.41–6.37 (8/12). Invariantlar har safar o‘tdi: tunnel/NaN 0, 2D eng katta
-tezlik 6.88 m/s, CC oyog‘i relyefdan eng ko‘pi 0.0002 m pastda, buyurilgan yo‘lning ≥ 90.7 % i bosildi, ikki
-simulyatsiya hash'i teng; blend og‘irlik xatosi ≤ 3e-8, 0/3 ishchi poza hash'i teng, event'lar 20/30/60/144 Hz da
-animator bo‘yicha bir xil, sprite kadr/faza buzilishi 0 (14 223 klip almashishida), graf xatosi 0. Boshlang‘ich
-natijalar `Tests/Baselines/{physics,animation,slicestress}-release.json`, `bench.sh --compare` ishlaydi (sekin
-ko‘ringan animatsiya qayta o‘lchanib o‘tdi); `BenchPhysicsSmoke`/`BenchAnimationSmoke`/`BenchSliceStressSmoke`
-`ctest -L bench` da. Shu qadamda tuzatildi: yo‘nalish almashganda sprite klip shu kadr event'ini ikkinchi marta
-chaqirardi (`SpriteAnimationComponent::DrivenState`, `AnimatorSpriteClipsDirectionSwitchesFireEachStepOnce`); Animator
-yangilanishi bitta oqimda endi ajratmasiz (oldin 24 odamga 223, 64 sprite'ga 870 ajratma / kadr; oxirgisi poza
-signaturasining o‘sishi, `ZAMIN_ALLOC_TRACE` bilan topildi). UI: `Scene::AuditUI` + `CheckUIAudit` (`Margin`,
-`Offscreen`, `Overlap`, `TextOverflow`, `MinFont` 12/14 px, `Focus`, `Unreachable`, `SideBand`), Player'da
-`ZAMIN_UI_AUDIT`, `Scene/SceneManager::SetUIScaleMultiplier`, Blueprint `Display.SetUIScale`/`Display.UIScale`;
-ikkala slice sozlamalarida *Interfeys o‘lchami* 80–120 % (`SLICE_SETTINGS ui=`, `Settings.UIScale` da saqlanadi, start'da
-qo‘llanadi). Headless `SliceMenuLayout*`: 15 + 8 ekran × 6 o‘lcham (800×600 … 2560×1080) × 3 UI masshtabi = 270 + 144
-audit, 13 932 + 5 472 element, 0 xato, eng kichik matn 9.6 px (80 % da). `Tests/slice_ui_test.py` (yangi CI qadami)
-ikkala o‘yinda o‘tdi: U1 klaviatura turi 60 audit, 6 ekran, 0 xato, eng kichik matn 12.03 px (65/70 s); U2 yangi
-jarayon 120 % bilan ochiladi, gamepad turi 80 % ga qaytaradi (60 audit, 59/64 s), sichqoncha audit aytgan joyda
-*Sozlamalar* va *Orqaga*ni bosadi; U3 seed'li fuzz 2 000 kadr × klaviatura/gamepad: 534/504 (Lantern Keeper) va 546/450
-(Beacon Pass) audit, eng ko‘pi 2 panel, invariant buzilishi 0, xato 0 (145–165 s); UW 2560×1080 menyu 6 audit.
-Mutatsiyalar (Player): musiqa slayderi havolalari uzilganda U1 yiqildi (tur *Orqaga*ga yetmaydi, audit uch vidjet uchun
-`Unreachable`), versiya qatori 25 → 18 birlik bo‘lganda U1 12 ta `MinFont` bilan yiqildi; headless
-`SliceMenuLayoutCatchesABrokenLinkAndTinyText` ham shuni tekshiradi. Layout tuzatishlari: matnlar ≥ 25 birlik,
-boshqaruv qatori ekran kengligining 78 % ida o‘raladi, 2D menyu xaritasi 21:9 chetini qoplaydi (oldin chapda qora
-yo‘lak). 1345/1345 unit (6 yangi: 1 animator, 5 UI audit/layout; to‘liq run 282 s), 14/14 headless CTest
-(`-LE gui`, ZaminTests alohida), `ctest -L docs` 2/2, build ogohlantirishsiz; `slice_workflow_test.py` P0+E0 ikkala
-o‘yinda (Lantern Keeper 38 + 70 s, Beacon Pass 42 + 176 s); generatorlar ikki marta — fayllar bir xil. Dizayndan farqlar:
-o‘yin ichidagi stress (A3, P3) Player `--benchmark` va alohida `Stress` sahnalari o‘rniga headless `--slice-stress` da
-haqiqiy darajalar nusxasi ustida (assetlar 6 MiB byudjetda, llvmpipe chizishi o‘yin kodi vaqtini ko‘madi;
-`slice_bench.py --stress` yo‘q); canvas'lar *Expand* emas, *Match 0.5* qoldi — layout'lar tuzatildi, shuning uchun
-"Expand o‘chirilsa" mutatsiyasi o‘rniga kichik shrift va uzilgan havola mutatsiyalari; `MinFont` UI o‘lchami 100 % dan
-kichik bo‘lsa mutanosib kamayadi; 3 ishchidagi 15.2 ajratma / kadr `JobSystem::ParallelFor` ning o‘zi; fizikada
-ajratmalar (2D 128.5, 3D 82.6 / kadr) Box2D/Jolt so‘rov natijalari — byudjet qo‘yilmagan, qayd etildi.
+Evidence (stress and UI gates, 2026-11-22): [VerticalSlices.md](VerticalSlices.md#gates),
+[Benchmarks.md](Benchmarks.md). Stress (headless `ZaminBench`, Release, 4 vCPU Xeon 2.1 GHz, 5 runs, ranges — the
+smallest/largest): P1 `--physics --2d` (a 60×40 m tilemap, 2 048 bodies, 64 `StepMotor` actors, 128 projectiles)
+average physics step 1.56–2.15 ms, p95 2.3–3.1 (budget 4/6); P2 `--physics --3d` (a pit, a ramp, 0.25 m stairs, a
+35° slope, 65×65 terrain, 512 bodies, 64 Character Controller 3D, 128 sphere casts) step + CC 1.51–1.80 ms, p95
+2.00–2.17 (8/12), the casts 0.23–0.28 ms; A1 `--animation` 256 humans (`Hero.glb`, 21 bones, the Pass controller,
+half of them off screen) on 3 workers 0.57–0.82 ms, p95 0.66–1.10 (1.5/2.0), on one thread 0.99–1.73 ms (4.0),
+allocations 0.0 / frame; A2 1 024 sprite animators (`DriveSpriteClips`, 2D blend directions) Animator update
+0.30–0.48 ms (0.6), allocations 0.0; P3 `--slice-stress --2d` (Orchards: 32 brains, 200 crates, 64 projectiles, 256
+sprite animators, 48 Light 2D) game code 2.80–3.42 ms, p95 3.00–4.71 (6/10); A3 `--slice-stress --3d` (Pass: 24
+animated guards, 27 brains in all, 64 projectiles, 200 Jolt bodies) 3.89–5.45 ms, p95 5.41–6.37 (8/12). The
+invariants held every time: tunnelling/NaN 0, the largest 2D speed 6.88 m/s, the CC's feet at most 0.0002 m below the
+terrain, ≥ 90.7 % of the commanded path covered, the two simulation hashes equal; the blend weight error ≤ 3e-8, the
+0/3-worker pose hashes equal, the events the same per animator at 20/30/60/144 Hz, sprite frame/phase breaks 0 (over
+14 223 clip switches), graph errors 0. The baselines are in `Tests/Baselines/{physics,animation,slicestress}-release.json`,
+`bench.sh --compare` works (an animation result that looked slow passed on re-measuring);
+`BenchPhysicsSmoke`/`BenchAnimationSmoke`/`BenchSliceStressSmoke` are in `ctest -L bench`. Fixed in this step: when
+the direction changed, a sprite clip fired the event of the current frame a second time
+(`SpriteAnimationComponent::DrivenState`, `AnimatorSpriteClipsDirectionSwitchesFireEachStepOnce`); the Animator update
+on one thread now allocates nothing (before, 223 allocations / frame for 24 humans and 870 for 64 sprites; the latter was
+the pose signature growing, found with `ZAMIN_ALLOC_TRACE`). UI: `Scene::AuditUI` + `CheckUIAudit` (`Margin`,
+`Offscreen`, `Overlap`, `TextOverflow`, `MinFont` 12/14 px, `Focus`, `Unreachable`, `SideBand`), `ZAMIN_UI_AUDIT` in
+the Player, `Scene/SceneManager::SetUIScaleMultiplier`, Blueprint `Display.SetUIScale`/`Display.UIScale`;
+*Interface size* 80–120 % in both slices' settings (`SLICE_SETTINGS ui=`, saved in `Settings.UIScale`, applied at the
+start). Headless `SliceMenuLayout*`: 15 + 8 screens × 6 sizes (800×600 … 2560×1080) × 3 UI scales = 270 + 144
+audits, 13 932 + 5 472 elements, 0 errors, the smallest text 9.6 px (at 80 %). `Tests/slice_ui_test.py` (a new CI
+step) passed in both games: U1 a keyboard tour 60 audits, 6 screens, 0 errors, the smallest text 12.03 px (65/70 s);
+U2 a fresh process opens at 120 %, a gamepad tour returns it to 80 % (60 audits, 59/64 s), the mouse clicks
+*Settings* and *Back* where the audit said; U3 a seeded fuzz of 2 000 frames × keyboard/gamepad: 534/504 (Lantern
+Keeper) and 546/450 (Beacon Pass) audits, at most 2 panels, 0 invariant breaks, 0 errors (145–165 s); UW 2560×1080
+menu 6 audits. Mutations (Player): with the music slider's links broken U1 failed (the tour does not reach *Back*, the
+audit reports `Unreachable` for three widgets), with the version line at 18 units instead of 25 U1 failed with 12
+`MinFont`; the headless `SliceMenuLayoutCatchesABrokenLinkAndTinyText` checks the same. Layout fixes: texts ≥ 25
+units, the controls row wraps at 78 % of the screen width, the 2D menu map covers the 21:9 edge (before, a black band
+on the left). 1345/1345 unit (6 new: 1 animator, 5 UI audit/layout; the full run 282 s), 14/14 headless CTest
+(`-LE gui`, ZaminTests separately), `ctest -L docs` 2/2, the build without warnings; `slice_workflow_test.py` P0+E0 in
+both games (Lantern Keeper 38 + 70 s, Beacon Pass 42 + 176 s); the generators twice — identical files. Differences
+from the design: the in-game stress (A3, P3) runs headless with `--slice-stress` on copies of the real levels instead
+of the Player's `--benchmark` and separate `Stress` scenes (the assets within the 6 MiB budget, llvmpipe drawing would
+hide the game code time; no `slice_bench.py --stress`); the canvases stayed at *Match 0.5*, not *Expand* — the
+layouts were fixed, so instead of an "Expand turned off" mutation there are the small font and broken link mutations;
+`MinFont` shrinks in proportion when the UI size is below 100 %; the 15.2 allocations / frame on 3 workers are
+`JobSystem::ParallelFor` itself; the allocations in physics (2D 128.5, 3D 82.6 / frame) are Box2D/Jolt query results
+— no budget set, recorded.
 
-Dalillar (resume, eksport, profiling va regressiya darvozalari, 2026-11-22): **Yangi jarayonda davom etish** —
-headless `*ResumeMatrixHeadless` bitta oddiy o‘yindan har qadamda o‘ldirilgan jarayon qoldiradigan fayllarni saqlab,
-har nusxada yangi jarayonni (`SaveData::Reload`, `GameState::Load`, demo menyuning *Davom etish*i) ishga tushiradi:
-Lantern Keeper 8 holat (1-daraja chiqishida transfer yozilgan, `Run.Level` hali 1 → shrine saqlashidan, transfer bir xil
-200 XP; GameState'dan keyin / autosave'dan keyin → 2-daraja transfer orqali 200 XP, 13 tanga; checksum buzilgan →
-zaxira, *Zaxira nusxadan tiklandi*, `recovered=1`; asosiy va zaxira yirtilgan → `SLICE_IO_FAILED load`, ekranda
-*Saqlash o‘qilmadi - daraja boshidan*, transfer ham yirtilsa toza 2-daraja), Beacon Pass 5 holat (yangi o‘yin va
-autosave orasida, shrine saqlashi va GameState orasida — 100 XP, ikki tosh, holat < 1 mm; buzilgan → lager
-autosave'i; yirtilgan → toza boshlash); hech bir mukofot ikki marta berilmaydi, pilot qadami (`Run.Step`) 0–2.
-Mutatsiya: *Davom etish*ning `Run.Save == Run.Level` sharti olib tashlansa matritsa 3 marta yiqiladi.
-**Player/Editor** (`Tests/slice_workflow_test.py --exports`, ikkala o‘yin, CI qadamlari `--exports` bilan): Lantern Keeper
-P0 54 s, P1 417, C 51 (buzilgan → zaxira 200 XP; yirtilgan → transfer 200 XP + banner), P2 292, P3 8, P4 461, P6 50
-(gamepad lentasi: D-pad musiqa 0.85, A yangi o‘yin, stik qahramonni 7.17 m yurgizdi, RB/X, Back/B sumka, Start →
-*Saqlab, bosh menyuga* `SLICE_SAVED lvl=1 at=quit` v4, menyu *Davom etish*ni taklif qiladi), E0 80, E1 69, E2 54
-(Editor Play'da menyu → yangi o‘yin → daraja), D 25 (Player 960x540 / 640x360 izi headless bilan 23/23 hodisa bir xil),
-X 545 s (eksport 215 fayl 54.4 MiB; attract run 2-daraja autosave'idan keyin `ZAMIN_MAX_FRAMES` bilan to‘xtatildi
-(200 XP), papka haqiqatan `mv` qilindi, yangi joydan yangi jarayon g‘alabagacha: 166.3 s, 850 XP, 4-daraja, 19 tanga,
-0 o‘lim, 5/5 vazifa; uchinchi jarayonda *Davom etish* yo‘q, to‘rtinchisi yangi o‘yin 0 XP, rekord 166.3 saqlandi);
-Beacon Pass P0 66, P1 178, C 58 (buzilgan → lager autosave'i; yirtilgan → toza boshlash + banner), P2 110, P3 8,
-P4 398, P6 49 (stik 12.46 m, quit saqlashi v4), E0 176, E2 155, D 41 (headless'ning 26 hodisasidan birinchi 12 tasi
-bir xil), X 337 s (209 fayl 55.5 MiB; hovli shrine saqlashidan keyin to‘xtatildi (100 XP), ko‘chirilgan joydan
-g‘alaba: 73.6 s, 800 XP, 4-daraja, 4/4 vazifa, *Davom etish* yo‘q, yangi o‘yin 0 XP, rekord saqlandi). **Editor**:
-`Tests/slice_editor_test.py` (yangi CI qadami) haqiqiy Blueprint oynasida `Gameplay.TransferWrite`, `TransferLoad`,
-`Steer` qo‘shdi/saqladi/Undo qildi; LoadScene `FadeOut` 0.6 ga yozildi, UIBindHUD Kind combo'si 8 *Qobiliyat*ga
-aylantirildi, AIConfigure `Strike` checkbox'i o‘chirildi — har biri saqlandi, Undo/Redo; `ZAMIN_EDITOR_GRAPH_QA`
-(yangi hook) ikkala slice'ning 9 grafini oynada ochdi (Lantern Keeper Hero 560/678 node/bog‘lanish, Game 625/737; Dovon
-mash'ali Hero 655/787, Game 490/583 …), hammasida 0 diagnostika, logda xato yo‘q; `Tests/editor_smoke.sh
-Projects/LanternKeeper Projects/BeaconPass` (CI qadami) 243/243 va 268/268 qadam, 0 xato. **Profiling**
-(`Tests/slice_bench.py`, Release, llvmpipe, 3 ishga tushirishning eng yaxshisi, `Tests/Baselines/slices-release.json`):
-Player benchmark hisobotida yangi `GameCode` (update layer'i chizishsiz); 284x160 Low da o‘yin kodi Lantern Keeper Menu /
-Orchards / Yertola 0.32 / 2.02 / 2.03 ms, Beacon Pass Menu / Dovon 0.53 / 3.50 ms, p95 eng ko‘pi 4.40 ms (darvoza
-≤ 3 / ≤ 4 ms, p95 ≤ 6); kadr 2D da 3.48–5.67 ms (≤ 16.6), 3D da 22.2–28.2 ms (≤ 33.3); issiq sessiyada eng sekin kadr
-≤ 51 ms (birinchi sessiyada llvmpipe shader JIT'i: Yertola 1.9 s, Dovon 345 ms — alohida ustunda); `--compare`
-(`bench_compare.py --tolerance 15`): 2 ishga tushirishda 720p dagi 3/40 raqam shovqin bo‘lib chiqdi (qayta o‘lchashda
-16 raqamda 0 sekinlashish) — shuning uchun standart 3 ishga tushirish va 720p p95 `Noisy`. **Soak** (`--soak 18000`,
-attract loop, 10 o‘yin daqiqasi): Lantern Keeper 3 g‘alaba, har menyuga qaytishda 57 obyekt, RAM 302.9 MiB, engine 99.2 MiB
-(o‘sish 0.0 MiB); Beacon Pass 7 g‘alaba, 278 obyekt, RAM 269.4 → 278.8 MiB va keyin tekis (o‘sish 9.5 ≤ 32 MiB),
-engine 39.0 MiB; logda xato yo‘q. **Topilgan va tuzatilgan xatolar**: (1) 2-daraja o‘qilmagan saqlashdan keyin transfer
-yuklash va autosave'ni muvaffaqiyatsiz yuklash bilan bir kadrda qilardi — 3 fayl amali, sahna byudjeti 2 — autosave
-yiqilardi (`SLICE_IO_FAILED autosave`); endi bir kadr keyin; (2) daraja boshidagi saqlash demo pilotning `Run.Step`ini
-o‘chirmasdi — ko‘chirilgan eksportda davom etgan attract run 2-darajada 1-darajaning qadamidan boshlab tiqilib qolardi
-(`SLICE_BOT_STUCK step=31`); endi ikkala generatorda `Run.Step=0`; (3) o‘qilmagan saqlash jim edi — endi banner;
-(4) kontent: Dovon'ning *Quyosh*ida noma'lum `rot` komponenti ogohlantirishi, Lantern Keeper Sprint'ida yaroqsiz
-`Gamepad:LeftTrigger` (→ `GamepadAxis:LeftTrigger+`), banner'larda xom `[Slam]` / `[Nova]` (endi tugma nomi).
-Galereya: `docs/Samples.md` ga ikki slice (`sample-lanternkeeper.jpg`, `sample-beaconpass.jpg`), launcher thumbnail'lari
-yangilandi. 1347/1347 unit (2 yangi: ikkala slice'ning resume matritsasi; to‘liq run 320 s), 14/14 headless CTest (`-LE gui`, ZaminTests alohida), `ctest -L docs` 2/2, build ogohlantirishsiz; generatorlar ikki marta — fayllar bir xil. Regressiya (Player/Editor, `--exports`): Gameplay, Rules, AI, UI, Save, Quest, Loadout, Combat, Animator va Blueprint workflow'lari 10/10 (86 faza, har biri 95–202 s); kontent tuzatishlaridan keyin slice P0, P1, C, P6, D ikkala o‘yinda qayta o‘tdi. Dizayndan farqlar: alohida klaviatura fazasi (P5) yo‘q — P0 klaviatura bilan o‘ynaydi; E1 faqat
-2D da; X da "o‘ldirish" `ZAMIN_MAX_FRAMES` bilan ikki saqlash orasida (yozish o‘rtasidagi kesishlar headless matritsada);
-3D determinizm Player va headless izining 12 hodisalik umumiy boshi bilan; `slice_bench.py` CI'da emas (Release va tinch
-mashina kerak), Player'da ajratmalar sanalmaydi (RSS va engine xotirasi qayd etiladi), 3D kadr chegarasi 33.3 ms
-(llvmpipe), birinchi sessiya hitch'i darvozadan tashqarida alohida qayd etiladi; soak shrift atlaslari / VM hajmini
-alohida o‘lchamaydi.
+Evidence (resume, export, profiling and regression gates, 2026-11-22): **Resuming in a fresh process** — the
+headless `*ResumeMatrixHeadless` keeps, from one ordinary game, the files a process killed at every step would leave,
+and starts a fresh process on every copy (`SaveData::Reload`, `GameState::Load`, the demo menu's *Continue*):
+Lantern Keeper 8 cases (the transfer written at the level 1 exit, `Run.Level` still 1 → from the shrine save, the same
+transfer 200 XP; after GameState / after the autosave → level 2 through the transfer, 200 XP, 13 coins; a broken
+checksum → the backup, *Restored from the backup save*, `recovered=1`; the main and backup torn → `SLICE_IO_FAILED load`,
+on screen *The save could not be read - the level starts again*, with the transfer torn too a clean level 2), Beacon
+Pass 5 cases (between the new game and the autosave, between the shrine save and GameState — 100 XP, two stones, the
+state < 1 mm; broken → the camp autosave; torn → a clean start); no reward is ever given twice, the pilot step
+(`Run.Step`) 0–2. Mutation: removing *Continue*'s `Run.Save == Run.Level` condition fails the matrix 3 times.
+**Player/Editor** (`Tests/slice_workflow_test.py --exports`, both games, the CI steps with `--exports`): Lantern Keeper
+P0 54 s, P1 417, C 51 (broken → the backup 200 XP; torn → the transfer 200 XP + a banner), P2 292, P3 8, P4 461, P6 50
+(the gamepad tape: the D-pad music 0.85, A a new game, the stick walked the hero 7.17 m, RB/X, Back/B the bag, Start →
+*Save and quit to menu* `SLICE_SAVED lvl=1 at=quit` v4, the menu offers *Continue*), E0 80, E1 69, E2 54
+(in Editor Play the menu → a new game → the level), D 25 (the Player 960x540 / 640x360 trace has 23/23 events the same
+as headless), X 545 s (the export 215 files 54.4 MiB; the attract run was stopped with `ZAMIN_MAX_FRAMES` after the
+level 2 autosave (200 XP), the folder was really `mv`ed, a fresh process from the new place to victory: 166.3 s,
+850 XP, level 4, 19 coins, 0 deaths, 5/5 quests; in the third process no *Continue*, the fourth a new game 0 XP, the
+record 166.3 kept); Beacon Pass P0 66, P1 178, C 58 (broken → the camp autosave; torn → a clean start + a banner), P2
+110, P3 8, P4 398, P6 49 (the stick 12.46 m, the quit save v4), E0 176, E2 155, D 41 (the first 12 of the 26 headless
+events the same), X 337 s (209 files 55.5 MiB; stopped after the courtyard shrine save (100 XP), victory from the moved
+place: 73.6 s, 800 XP, level 4, 4/4 quests, no *Continue*, a new game 0 XP, the record kept). **Editor**:
+`Tests/slice_editor_test.py` (a new CI step) added/saved/undid `Gameplay.TransferWrite`, `TransferLoad`, `Steer` in the
+real Blueprint window; LoadScene `FadeOut` was set to 0.6, the UIBindHUD Kind combo was turned to 8 *Ability*, the
+AIConfigure `Strike` checkbox was cleared — each saved, Undo/Redo; `ZAMIN_EDITOR_GRAPH_QA` (a new hook) opened the 9
+graphs of both slices in the window (Lantern Keeper Hero 560/678 nodes/links, Game 625/737; Beacon Pass Hero 655/787,
+Game 490/583 …), 0 diagnostics in all of them, no errors in the log; `Tests/editor_smoke.sh
+Projects/LanternKeeper Projects/BeaconPass` (a CI step) 243/243 and 268/268 steps, 0 errors. **Profiling**
+(`Tests/slice_bench.py`, Release, llvmpipe, the best of 3 runs, `Tests/Baselines/slices-release.json`): a new
+`GameCode` in the Player benchmark report (the update layer without drawing); at 284x160 Low the game code of Lantern
+Keeper Menu / Orchards / Crypt 0.32 / 2.02 / 2.03 ms, Beacon Pass Menu / Pass 0.53 / 3.50 ms, p95 at most 4.40 ms (the
+gate ≤ 3 / ≤ 4 ms, p95 ≤ 6); the frame in 2D 3.48–5.67 ms (≤ 16.6), in 3D 22.2–28.2 ms (≤ 33.3); in a warm session the
+slowest frame ≤ 51 ms (in the first session llvmpipe's shader JIT: Crypt 1.9 s, Pass 345 ms — in a separate column);
+`--compare` (`bench_compare.py --tolerance 15`): with 2 runs 3/40 numbers at 720p turned out to be noise (0 slowdowns
+in 16 numbers on re-measuring) — hence 3 runs by default and the 720p p95 marked `Noisy`. **Soak** (`--soak 18000`,
+the attract loop, 10 game minutes): Lantern Keeper 3 victories, 57 objects at every return to the menu, RAM 302.9 MiB,
+engine 99.2 MiB (growth 0.0 MiB); Beacon Pass 7 victories, 278 objects, RAM 269.4 → 278.8 MiB and flat after that
+(growth 9.5 ≤ 32 MiB), engine 39.0 MiB; no errors in the log. **Bugs found and fixed**: (1) after an unreadable save,
+level 2 loaded the transfer and failed to load the autosave in the same frame — 3 file operations, the scene budget 2 —
+the autosave failed (`SLICE_IO_FAILED autosave`); now one frame later; (2) the save at the start of a level did not
+clear the demo pilot's `Run.Step` — an attract run continued in the relocated export got stuck on level 2 starting
+from level 1's step (`SLICE_BOT_STUCK step=31`); now `Run.Step=0` in both generators; (3) an unreadable save was
+silent — now a banner; (4) content: a warning about an unknown `rot` component on Pass's *Sun*, an invalid
+`Gamepad:LeftTrigger` on Lantern Keeper's Sprint (→ `GamepadAxis:LeftTrigger+`), raw `[Slam]` / `[Nova]` in the banners
+(now the key name). The gallery: two slices in `docs/Samples.md` (`sample-lanternkeeper.jpg`, `sample-beaconpass.jpg`),
+the launcher thumbnails updated. 1347/1347 unit (2 new: the resume matrix of both slices; the full run 320 s), 14/14
+headless CTest (`-LE gui`, ZaminTests separately), `ctest -L docs` 2/2, the build without warnings; the generators
+twice — identical files. Regression (Player/Editor, `--exports`): the Gameplay, Rules, AI, UI, Save, Quest, Loadout,
+Combat, Animator and Blueprint workflows 10/10 (86 phases, each 95–202 s); after the content fixes the slice P0, P1, C,
+P6, D passed again in both games. Differences from the design: no separate keyboard phase (P5) — P0 plays with the
+keyboard; E1 only in 2D; in X the "kill" is done with `ZAMIN_MAX_FRAMES` between two saves (cuts in the middle of a
+write are in the headless matrix); 3D determinism by the 12-event common prefix of the Player and headless traces;
+`slice_bench.py` is not in CI (it needs Release and a quiet machine), the Player does not count allocations (RSS and
+engine memory are recorded), the 3D frame limit is 33.3 ms (llvmpipe), the first-session hitch is recorded separately
+outside the gate; the soak does not measure the font atlases / VM size separately.
 
-Dalillar (tuzatuvchi, sharhlovchi topilmalari): xom `{action:...}` tokenlari uchun `FindUnexpandedInputToken` va UI auditining `RawHint` qoidasi (ikkala o‘yinning Play testlarida darvoza); graf matnlari, banner'lar, HUD/statistika, daraja nomlari, buyum/vazifa/combat feed nomlari lokalizatsiya kalitlari orqali (`item.*`, `quest.*`, `combat.*`; Dovon'da endi "-2 Kuyish"), uz/en kalitlari `samples_assets.py` graf rejimida tekshiriladi; sozlamalar har yopilishda (Orqaga va Back/Escape) saqlanadi, til va to‘liq ekran `Localization.SaveSettings` / `Display.SaveSettings` bilan yangi jarayonda tiklanadi (`SliceMenuSettingsKeptOnEveryCloseAndLanguagePersists`, eski menyularda yiqiladi); qo‘riqxonada davolash saqlashdan oldin; daraja kartasi dunyoni to‘xtatadi, real vaqtda sanaydi, o‘lik qahramon bilan o‘tmaydi va `TransferWrite` xatosida 1 s dan keyin qayta urinadi (`LanternKeeperShrineSaveAndLevelExitCardHoldUp`); boss 2-fazada tiklanadi (`LanternKeeperBossFightResumesInPhaseTwo`, Dovon'da Enraged); kamera tayoqchasi tezlik × Delta, sumka ochiq bo‘lsa to‘xtaydi (`BeaconPassCameraStickTurnsAtARate`: 0.5 s da −1.200 rad 30 va 60 Hz'da, sumka ortida 0; eski graf −0.63 / −1.26); `Gameplay.Input` bo‘sh harakat nomlarini o‘qimaydi; VM har qanday engine exec natijasini saqlaydi. Vizual: Lantern Keeper'da 47 variantli blob yo‘l autotile, suv autotile, choksiz o‘t, `Bezak` qatlami; HUD energiya/XP chiziqlari kontrasti; Dovon'da tik qiyaliklar triplanar, cho‘qqilar radial mesh, o‘lim pozasi, tuman yengillashtirildi (0.0045). Oracle'lar `Tests/oracle.json` ga ko‘chdi (eksportga tushmaydi); `SLOW_TEST`: `ZaminTests --quick` 1341/1341, 61.7 s; `ZaminSliceTests` (`--slow`) 12/12, 326.6 s; `ctest -LE gui` 17/17, `ctest -L docs` 2/2; assetlar: Lantern Keeper 5.31 MiB, Beacon Pass 5.96 MiB; `slice_ui_test.py` U1/U2 ikkala o‘yinda (60 audit, 0 muammo); `slice_workflow_test.py` P0 va P6 ikkala o‘yinda o‘tdi (41–56 s).
+Evidence (fixes for the reviewers' findings): `FindUnexpandedInputToken` for raw `{action:...}` tokens and the UI audit's `RawHint` rule (a gate in the Play tests of both games); graph texts, banners, HUD/statistics, level names and item/quest/combat feed names go through localization keys (`item.*`, `quest.*`, `combat.*`; Pass now shows "-2 Burn"), the uz/en keys are checked in the `samples_assets.py` graph mode; the settings are saved on every close (Back and Back/Escape), the language and fullscreen are restored in a fresh process with `Localization.SaveSettings` / `Display.SaveSettings` (`SliceMenuSettingsKeptOnEveryCloseAndLanguagePersists`, which fails with the old menus); healing at the shrine comes before the save; the level card stops the world, counts in real time, does not pass with a dead hero and retries after 1 s on a `TransferWrite` error (`LanternKeeperShrineSaveAndLevelExitCardHoldUp`); the boss resumes in phase 2 (`LanternKeeperBossFightResumesInPhaseTwo`, Enraged in Pass); the camera stick is speed × Delta and stops while the bag is open (`BeaconPassCameraStickTurnsAtARate`: −1.200 rad in 0.5 s at 30 and 60 Hz, 0 behind the bag; the old graph −0.63 / −1.26); `Gameplay.Input` does not read empty action names; the VM keeps every engine exec result. Visuals: in Lantern Keeper a 47-variant blob path autotile, a water autotile, seamless grass, a `Decor` layer; the contrast of the HUD energy/XP bars; in Pass triplanar steep slopes, radial mesh peaks, a death pose, lighter fog (0.0045). The oracles moved to `Tests/oracle.json` (not part of the export); `SLOW_TEST`: `ZaminTests --quick` 1341/1341, 61.7 s; `ZaminSliceTests` (`--slow`) 12/12, 326.6 s; `ctest -LE gui` 17/17, `ctest -L docs` 2/2; assets: Lantern Keeper 5.31 MiB, Beacon Pass 5.96 MiB; `slice_ui_test.py` U1/U2 in both games (60 audits, 0 problems); `slice_workflow_test.py` P0 and P6 passed in both games (41–56 s).
 
-### Yakunlangan bo‘lim — gameplay UI
+### Finished section — gameplay UI
 
 - [x] Bounded modal stack, focus/pause ownership and input fencing.
 - [x] HUD/rules bindings, deterministic inventory pages and live selection.
@@ -380,20 +392,20 @@ Dalillar (tuzatuvchi, sharhlovchi topilmalari): xom `{action:...}` tokenlari uch
 - [x] 2D/3D playable UI/save-resume workflow, scale and export screenshots.
 - [x] Unit, sanitizer, regression, documentation and main push.
 
-Dalillar (2026-11-12): 1160/1160 unit (42 yangi), 11/11 headless CTest, 12/12 render.
-Pure UIModel/RulesModel ASan/UBSan/LSan: 10/10. UIModel, GameplayUI, GameplayUIGraph va
-GameplayRuntime TU’lari instrumentlangan owner probe: 42/42, LeakSanitizer bilan; Scene,
-SceneUI, SceneUIScroll, serializer, physics, VM va qolgan shared engine normal build.
-Bu butun engine sanitizer run’i emas. Clang 18 syntax-only -Werror: 10 ta TU.
-Real ImGui: UIConfigure/UIBindHUD/UIInventoryConfigure add/save/Undo. 2D/3D real keyboard/gamepad
-Player replay (225 kadr), inventory capture (110), 1024x768 capture (110), Editor auto-play (225),
-compiler-free export benchmark/screenshot (225): jami 10 workflow. Save’dan keyin HP/coin ataylab
-kamayadi; Load native 75 HP / 8 coin qiymatini qaytarishi shart. Relocation --version smoke check.
-Oxirgi item-tint sayqalidan keyin yana 4 ta inventory capture/oracle (1280x720 va 1024x768) o‘tdi.
-Generator deterministik; hisobotlar/skrinshotlar: `build-review/GameplayUI/`. Software Mesa;
-physical GPU byudjeti o‘lchanmagan. [Scope, vaqt va input shartlari](GameplayUI.md).
+Evidence (2026-11-12): 1160/1160 unit (42 new), 11/11 headless CTest, 12/12 render.
+Pure UIModel/RulesModel ASan/UBSan/LSan: 10/10. An owner probe with the UIModel, GameplayUI, GameplayUIGraph and
+GameplayRuntime TUs instrumented: 42/42, with LeakSanitizer; Scene,
+SceneUI, SceneUIScroll, the serializer, physics, the VM and the rest of the shared engine are a normal build.
+This is not a sanitizer run of the whole engine. Clang 18 syntax-only -Werror: 10 TUs.
+Real ImGui: UIConfigure/UIBindHUD/UIInventoryConfigure add/save/Undo. A 2D/3D real keyboard/gamepad
+Player replay (225 frames), an inventory capture (110), a 1024x768 capture (110), Editor auto-play (225),
+a compiler-free export benchmark/screenshot (225): 10 workflows in all. After the save HP/coins are deliberately
+lowered; Load must bring back the native 75 HP / 8 coins. A relocation --version smoke check.
+After the last item-tint polish 4 more inventory captures/oracles (1280x720 and 1024x768) passed.
+The generator is deterministic; reports/screenshots: `build-review/GameplayUI/`. Software Mesa;
+the physical GPU budget was not measured. [Scope, timing and input conditions](GameplayUI.md).
 
-### Yakunlangan bo‘lim — gameplay save/load
+### Finished section — gameplay save/load
 
 - [x] Strict bounded versioned snapshot codec with integrity checks and stable entity keys.
 - [x] Atomic slots, validated backup recovery, per-scene I/O and spawn budgets.
@@ -401,19 +413,19 @@ physical GPU byudjeti o‘lchanmagan. [Scope, vaqt va input shartlari](GameplayU
 - [x] 2D/3D fresh-process resume, real Blueprint authoring, Player/export/screenshots.
 - [x] Native, sanitizer, regression, documentation and main push.
 
-Dalillar (2026-11-12): 1118/1118 unit (41 yangi), 11/11 headless CTest, 12/12 render.
-Pure SaveModel/RulesModel ASan/UBSan/LSan: 14/14. SaveModel, SaveWorld, SaveGraph va
-GameplayRuntime TU’lari instrumentlangan owner probe: 41/41, LeakSanitizer bilan; Scene,
-serializer, physics, VM va qolgan shared engine normal build. Bu butun engine sanitizer run’i emas.
-Clang 18 syntax-only -Werror: 9 ta TU. Real ImGui: SaveBind/SaveWrite/SaveLoad add/save/Undo.
-SaveWorkshop generatori deterministik, konfiguratsiya mosligi va root-only slot shartlari
-[GameplaySave.md](GameplaySave.md) da. Hisobot/skrinshotlar: `build-review/GameplaySave/`.
-2D/3D Player write/fresh-process resume/corrupt-primary backup, Editor write/resume va compiler-free
-export write/resume/real relocated resume: 150 kadrdan, jami 12 workflow tekshiruvi.
-Native HP/bag/used-door/AI arrivals/player pose/prefab-slot oracle’lari o‘tdi; relocation faqat
---version bilan cheklanmagan. Software Mesa; physical GPU vaqt byudjeti o‘lchanmagan.
+Evidence (2026-11-12): 1118/1118 unit (41 new), 11/11 headless CTest, 12/12 render.
+Pure SaveModel/RulesModel ASan/UBSan/LSan: 14/14. An owner probe with the SaveModel, SaveWorld, SaveGraph and
+GameplayRuntime TUs instrumented: 41/41, with LeakSanitizer; Scene,
+the serializer, physics, the VM and the rest of the shared engine are a normal build. This is not a sanitizer run of
+the whole engine. Clang 18 syntax-only -Werror: 9 TUs. Real ImGui: SaveBind/SaveWrite/SaveLoad add/save/Undo.
+The SaveWorkshop generator is deterministic; the configuration compatibility and root-only slot conditions are in
+[GameplaySave.md](GameplaySave.md). Report/screenshots: `build-review/GameplaySave/`.
+2D/3D Player write/fresh-process resume/corrupt-primary backup, Editor write/resume and compiler-free
+export write/resume/real relocated resume: from 150 frames, 12 workflow checks in all.
+The native HP/bag/used-door/AI arrivals/player pose/prefab-slot oracles passed; relocation is not limited to
+--version. Software Mesa; the physical GPU time budget was not measured.
 
-### Yakunlangan bo‘lim — AI gameplay
+### Finished section — AI gameplay
 
 - [x] Pure patrol/chase/investigate/attack/return FSM, memory/leash and attack hysteresis.
 - [x] Shared hostile perception/explicit strike, LOS/team filtering and bounded scene budgets.
@@ -421,20 +433,20 @@ Native HP/bag/used-door/AI arrivals/player pose/prefab-slot oracle’lari o‘td
 - [x] 2D/3D NPC prefab/course, physical movement/combat, Editor/export and screenshot acceptance.
 - [x] Unit, sanitizer, regression, documentation and main push.
 
-Dalillar (2026-11-12): 1077/1077 unit (38 yangi), 11/11 headless CTest, 12/12 render.
-Pure BrainModel ASan/UBSan/LSan: 14/14. BrainModel, GameplayAI, GameplayAIGraph, GameplayRules,
-GameplayRuleGraph va GameplayRuntime TU’lari instrumentlangan owner probe: 24/24, LeakSanitizer
-bilan. Scene, serializer, physics, VM va qolgan shared engine ushbu probe’da normal build;
-bu butun engine sanitizer run’i emas. Clang 18 syntax-only -Werror: 11 ta TU.
-2D/3D Player input replay va Editor auto-play: 420 kadrdan; compiler-free export benchmark
-420 / screenshot 450 kadrdan, jami 6 workflow. Patrol/chase/attack/investigate/return/dead/spawn
-va canonical HP/prefab-nav oracle’lari o‘tdi. Relocation launcher --version bilan tekshirildi.
-Haqiqiy ImGui authoring: AIConfigure/AIState/Sense add/save/Undo. AIWorkshop generatori deterministik.
-Hisobotlar va skrinshotlar: `build-review/AIGameplay/`. Software Mesa ishlatildi;
-physical GPU byudjeti o‘lchanmagan. AI runtime-only, konfiguratsiya graph assetlarda saqlanadi.
-[AI shartlari va cheklovlari](GameplayAI.md).
+Evidence (2026-11-12): 1077/1077 unit (38 new), 11/11 headless CTest, 12/12 render.
+Pure BrainModel ASan/UBSan/LSan: 14/14. An owner probe with the BrainModel, GameplayAI, GameplayAIGraph, GameplayRules,
+GameplayRuleGraph and GameplayRuntime TUs instrumented: 24/24, with LeakSanitizer.
+Scene, the serializer, physics, the VM and the rest of the shared engine are a normal build in this probe;
+this is not a sanitizer run of the whole engine. Clang 18 syntax-only -Werror: 11 TUs.
+2D/3D Player input replay and Editor auto-play: from 420 frames; a compiler-free export benchmark
+from 420 / a screenshot from 450 frames, 6 workflows in all. The patrol/chase/attack/investigate/return/dead/spawn
+and canonical HP/prefab-nav oracles passed. Relocation was checked with the launcher's --version.
+Real ImGui authoring: AIConfigure/AIState/Sense add/save/Undo. The AIWorkshop generator is deterministic.
+Reports and screenshots: `build-review/AIGameplay/`. Software Mesa was used;
+the physical GPU budget was not measured. AI is runtime-only, the configuration is stored in graph assets.
+[AI conditions and limits](GameplayAI.md).
 
-### Yakunlangan bo‘lim — health, combat, inventory va interaction
+### Finished section — health, combat, inventory and interaction
 
 - [x] Scene-owned shared state, bounded transactional health/shield/damage/heal and cooldown clocks.
 - [x] Death, checkpoint-aware respawn, motor gating and bounded rule event polling.
@@ -442,56 +454,56 @@ physical GPU byudjeti o‘lchanmagan. AI runtime-only, konfiguratsiya graph asse
 - [x] Blueprint/native APIs, melee attack selection and real 2D/3D combat/collectible courses.
 - [x] Unit/lifecycle/physics, sanitizer, UI, Player/export, screenshots, docs and main push.
 
-Dalillar (2026-11-11): 1039/1039 unit (51 yangi), 11/11 headless CTest, 12/12 render.
-Health/inventory leaf ASan/UBSan/LSan: 20/20. RulesModel, GameplayRules, GameplayRuleGraph va
-GameplayRuntime TU’lari instrumentlangan owner probe: 51/51, LeakSanitizer bilan; Scene,
-serializer, physics, VM va qolgan shared engine bu mahalliy probe’da normal build.
-Clang 18 syntax-only -Werror: 8 ta TU; bu butun engine sanitizer run’i emas.
-Haqiqiy ImGui authoring: Damage/InteractionConfigure/Respawn add/save/Undo. 2D/3D Player input
-replay va Editor (240 kadr), compiler-free export benchmark (240) / screenshot (270): jami 6 ta
-workflow, death/respawn/key/kill/heal/unlock/coin/finish hamda canonical HP/bag/guard oracle’lari.
-Relocation launcher --version orqali tekshirildi. Yangi pause-budget va skipped-dead-frame life
-invalidation regressiyalari ham tekshirildi. Eski SceneLoadTimingBreakdown testining worker scheduling’ga
-bog‘liq multi-frame taxmini activation gate bilan deterministik qilindi; 10/10 mustaqil run o‘tdi.
-Hisobot va rasmlar: `build-review/GameplayRules/`. Software Mesa; physical GPU byudjeti o‘lchanmagan.
-Graph configure input’lari saqlanadi; health/inventory holati runtime-only. [Shartlar](GameplayRules.md).
+Evidence (2026-11-11): 1039/1039 unit (51 new), 11/11 headless CTest, 12/12 render.
+Health/inventory leaf ASan/UBSan/LSan: 20/20. An owner probe with the RulesModel, GameplayRules, GameplayRuleGraph and
+GameplayRuntime TUs instrumented: 51/51, with LeakSanitizer; Scene,
+the serializer, physics, the VM and the rest of the shared engine are a normal build in this local probe.
+Clang 18 syntax-only -Werror: 8 TUs; this is not a sanitizer run of the whole engine.
+Real ImGui authoring: Damage/InteractionConfigure/Respawn add/save/Undo. 2D/3D Player input
+replay and Editor (240 frames), a compiler-free export benchmark (240) / screenshot (270): 6
+workflows in all, death/respawn/key/kill/heal/unlock/coin/finish and the canonical HP/bag/guard oracles.
+Relocation was checked through the launcher's --version. The new pause-budget and skipped-dead-frame life
+invalidation regressions were checked too. The old SceneLoadTimingBreakdown test's multi-frame assumption, which
+depended on worker scheduling, was made deterministic with an activation gate; 10/10 independent runs passed.
+Report and pictures: `build-review/GameplayRules/`. Software Mesa; the physical GPU budget was not measured.
+The graph configure inputs are saved; the health/inventory state is runtime-only. [Conditions](GameplayRules.md).
 
-Gameplay save/load yuqoridagi paketda davom ettirildi. To‘liq ECS/VM/physics snapshot,
-avtomatik ixtiyoriy obyekt resurrection va katta dunyoning async saqlashi alohida qoladi.
+Gameplay save/load continued in the package above. A full ECS/VM/physics snapshot,
+automatic resurrection of arbitrary objects and async saving of a large world remain separate.
 
-Gameplay UI, quest/progression, equipment/abilities va projectiles/gameplay effects yuqoridagi paketlarda
-birlashtirildi. Keyingi yirik paket — ikki tugallangan 2D/3D vertical slice va stress darvozalari; acceptance
-darvozalari yuqorida belgilangan. To‘liq ECS/physics snapshot, renderer va katta dunyo vazifalari umumiy rejada
-saqlanadi.
+Gameplay UI, quest/progression, equipment/abilities and projectiles/gameplay effects were brought together in the
+packages above. The next large package — two finished 2D/3D vertical slices and stress gates; its acceptance
+gates are set out above. The full ECS/physics snapshot, renderer and large-world tasks stay in the general
+plan.
 
-### Yakunlangan bo‘lim — motor, kamera, locomotion va checkpoint
+### Finished section — motor, camera, locomotion and checkpoint
 
-- [x] 2D/3D motor: input, acceleration/deceleration, analog clamp, jump buffer/coyote/cut va lifecycle stop.
-- [x] 2D follow/3D orbit camera, damping, bounds, obstruction va restore snap.
+- [x] 2D/3D motor: input, acceleration/deceleration, analog clamp, jump buffer/coyote/cut and lifecycle stop.
+- [x] 2D follow/3D orbit camera, damping, bounds, obstruction and restore snap.
 - [x] Actual physics velocity → typed Animator binding, reusable Blueprint authoring.
-- [x] Bounded checkpoint codec, atomic persistent save/load va physics-aware restore.
-- [x] O‘ynaladigan 2D/3D namunalar, UI/runtime/export, regression/sanitizer/screenshots va main push.
+- [x] Bounded checkpoint codec, atomic persistent save/load and physics-aware restore.
+- [x] Playable 2D/3D samples, UI/runtime/export, regression/sanitizer/screenshots and main push.
 
-Dalillar (2026-11-11): 988/988 unit (46 yangi), 11/11 headless CTest, 12/12 render.
-Motor/camera/codec leaf ASan/UBSan/LSan: 22/22. Gameplay uchta TU, graph VM/model/function va
-host instrumentlangan owner probe: 46/46, LeakSanitizer bilan. Scene/serializer/physics va qolgan
-shared engine bu mahalliy probe’da normal build; bu butun engine sanitizer run’i emas.
-Clang 18 syntax-only -Werror: 7 ta o‘zgargan TU. 2D/3D Player input replay (180 kadr), fresh-process
-resume (60), Editor auto-play (180), compiler-free export benchmark (180) va screenshot run (210)
-movement/jump/checkpoint/goal/restore oracle’laridan o‘tdi. Relocation launcher --version orqali tekshirildi.
-Haqiqiy ImGui authoring: motor/camera/checkpoint node search, save va Undo. CI ushbu ikki workflow’ni
-qaytaradi. Hisobot va rasmlar: `build-review/GameplayPackage/`; software Mesa, hardware byudjeti o‘lchanmagan.
+Evidence (2026-11-11): 988/988 unit (46 new), 11/11 headless CTest, 12/12 render.
+Motor/camera/codec leaf ASan/UBSan/LSan: 22/22. An owner probe with the three Gameplay TUs, the graph
+VM/model/function and the host instrumented: 46/46, with LeakSanitizer. Scene/serializer/physics and the rest of the
+shared engine are a normal build in this local probe; this is not a sanitizer run of the whole engine.
+Clang 18 syntax-only -Werror: 7 changed TUs. 2D/3D Player input replay (180 frames), fresh-process
+resume (60), Editor auto-play (180), a compiler-free export benchmark (180) and a screenshot run (210)
+passed the movement/jump/checkpoint/goal/restore oracles. Relocation was checked through the launcher's --version.
+Real ImGui authoring: motor/camera/checkpoint node search, save and Undo. CI runs these two workflows
+again. Report and pictures: `build-review/GameplayPackage/`; software Mesa, the hardware budget was not measured.
 
-Bu paket movement → physics → animation → camera → checkpoint zanjirini yakunlaydi.
-Motorlar Rigidbody2D/CharacterController3D ustida ishlaydi; checkpoint actor transformini saqlaydi.
-To‘liq inventory/ECS snapshot, humanoid retargeting va cinematic camera bu paketga kirmaydi;
-checkpoint clearance to‘liq capsule-fit emas, markaziy probe. Shartlar [Gameplay.md](Gameplay.md) da.
+This package completes the movement → physics → animation → camera → checkpoint chain.
+The motors work on top of Rigidbody2D/CharacterController3D; the checkpoint stores the actor transform.
+A full inventory/ECS snapshot, humanoid retargeting and a cinematic camera are not part of this package;
+the checkpoint clearance is a central probe, not a full capsule fit. The conditions are in [Gameplay.md](Gameplay.md).
 
-Reusable health/damage/death/respawn, interaction, combat/collectible va Blueprint workflow
-yuqoridagi gameplay rules paketida davom ettirildi.
-P2 kontent va P3/P4 world/renderer vazifalari yuqoridagi umumiy rejada saqlanadi.
+Reusable health/damage/death/respawn, interaction, combat/collectibles and the Blueprint workflow
+continued in the gameplay rules package above.
+The P2 content and the P3/P4 world/renderer tasks stay in the general plan above.
 
-### Yakunlangan bo‘lim — Animator gameplay va 2D blend
+### Finished section — Animator gameplay and 2D blend
 
 - [x] Cartesian 2D blend solver, skeletal pose/root motion/event integration and synchronized phase.
 - [x] Typed parameters/damping, priority and fade interruption policy, self restart and model-free state clocks.
@@ -500,20 +512,20 @@ P2 kontent va P3/P4 world/renderer vazifalari yuqoridagi umumiy rejada saqlanadi
 - [x] Regression, sanitizer, screenshots, documentation and main push.
 
 
-Dalillar (2026-11-11): 942/942 unit (31 yangi), 11/11 headless CTest, 12/12 render.
-CPU solver/controller ASan/UBSan: 20/20. Yangi blend/controller/Blueprint bridge hamda uchta VisualGraph
-TU’si instrumentlangan owner probe: 31/31, LeakSanitizer bilan; Scene/serializer va qolgan shared engine
-bu mahalliy probe’da normal build. Clang 18 syntax-only -Werror: 11 ta o‘zgargan TU.
-Real ImGui: sample drag/save/Undo, 2D state yaratish/Undo. Player/editor 120 kadrdan ikkala sahnada:
-Action ko‘rildi, Locomotion qaytdi, damping/blend weight0 = 0.63212055 va oldingi Blueprint total 12/18.
-Ikkala eksportda haqiqiy gameplay logi, PNG va ko‘chirilgan launcher tekshirildi. Dalillar:
-`build-review/AnimatorGameplay/`. Mesa software rasterizer; hardware performance o‘lchanmagan.
-Editor smoke: 490/490 qadam (224 Showcase3D + 266 Platformer2D), 0 xato. Main push bilan yakunlandi.
+Evidence (2026-11-11): 942/942 unit (31 new), 11/11 headless CTest, 12/12 render.
+CPU solver/controller ASan/UBSan: 20/20. An owner probe with the new blend/controller/Blueprint bridge and three
+VisualGraph TUs instrumented: 31/31, with LeakSanitizer; Scene/serializer and the rest of the shared engine
+are a normal build in this local probe. Clang 18 syntax-only -Werror: 11 changed TUs.
+Real ImGui: sample drag/save/Undo, creating a 2D state/Undo. Player/editor from 120 frames in both scenes:
+Action was seen, Locomotion came back, damping/blend weight0 = 0.63212055 and the earlier Blueprint total 12/18.
+In both exports the real gameplay log, the PNG and the relocated launcher were checked. Evidence:
+`build-review/AnimatorGameplay/`. Mesa software rasterizer; hardware performance was not measured.
+Editor smoke: 490/490 steps (224 Showcase3D + 266 Platformer2D), 0 errors. Finished with the main push.
 
-Keyingi bo‘lim: input/controller/camera va haqiqiy velocity → Animator parametr bog‘lanishi bilan
-2D/3D gameplay vertical slice, checkpoint/save hamda o‘ynash/eksport acceptance’i.
+Next section: a 2D/3D gameplay vertical slice with input/controller/camera and binding the real velocity →
+Animator parameters, checkpoint/save and play/export acceptance.
 
-### Yakunlangan bo‘lim — Blueprint gameplay acceptance
+### Finished section — Blueprint gameplay acceptance
 
 - [x] Typed function signatures, parameters/results, isolated locals, nested/delayed calls and bounded recursion.
 - [x] All seven typed arrays, safe operations and snapshot ForEach; literal/value/event memory limits.
@@ -521,22 +533,22 @@ Keyingi bo‘lim: input/controller/camera va haqiqiy velocity → Animator param
 - [x] Editor signature/array authoring, multi-select/copy/paste/duplicate/delete, rename and undo.
 - [x] Compiler-free 2D/3D workshop, real UI/runtime/export oracles, sanitizer/regression, docs and main push.
 
-Bu bo‘lim gameplay graph’ning author → validate → run/debug → export zanjirini yakunlaydi.
-Network RPC, graph inheritance va native code generation P6/toolchain bosqichlariga tegishli;
-ular shu acceptance uchun yashirin “qolgan ish” sifatida sanalmaydi.
+This section completes the gameplay graph's author → validate → run/debug → export chain.
+Network RPC, graph inheritance and native code generation belong to the P6/toolchain phases;
+they are not counted as hidden "remaining work" for this acceptance.
 
-Tekshiruv (2026-11-11): 911/911 unit (31 yangi), Blueprint focused 31/31, headless CTest 11/11.
-Clang 18 syntax-only -Werror: 7 ta o‘zgargan TU. Graph VM/model/function va 30 ta CPU test
-ASan/UBSan/LeakSanitizer bilan tekshirildi; leaf probe faqat fayl yozish uchun kichik stub ishlatadi,
-butun engine va diskdagi atomik yozuv bu sanitizer probe’da instrumentlanmagan. Haqiqiy I/O va sahna
-lifecycle normal unit to‘plamida tekshirildi. Dalillar: `build-review/BlueprintCompletion/`.
-Real ImGui authoring testi typed wire/rejection, Undo/Redo, copy/paste/duplicate/delete va guruh tahririni tekshiradi.
-2D/3D workflow compiler va native game modulisiz parametr/lokal/Delay/ForEach/custom event zanjirini
-12/18 natija bilan bajaradi. CI ushbu workflow, eksport va editor authoring tekshiruvlarini qaytaradi.
+Check (2026-11-11): 911/911 unit (31 new), Blueprint focused 31/31, headless CTest 11/11.
+Clang 18 syntax-only -Werror: 7 changed TUs. The graph VM/model/function and 30 CPU tests
+were checked with ASan/UBSan/LeakSanitizer; the leaf probe uses a small stub only for writing files,
+the whole engine and the atomic write to disk are not instrumented in this sanitizer probe. The real I/O and scene
+lifecycle were checked in the normal unit suite. Evidence: `build-review/BlueprintCompletion/`.
+The real ImGui authoring test checks typed wires/rejection, Undo/Redo, copy/paste/duplicate/delete and group edits.
+The 2D/3D workflow runs the parameter/local/Delay/ForEach/custom event chain without a compiler or a native game
+module, with the result 12/18. CI runs this workflow, the export and the editor authoring checks again.
 
-Animatsiya state machine/blend va gameplay integratsiyasi yuqoridagi Animator paketida davom ettirildi.
+The animation state machine/blend and gameplay integration continued in the Animator package above.
 
-### Yakunlangan katta paket — dynamic obstacle va bounded recovery
+### Finished large package — dynamic obstacles and bounded recovery
 
 - [x] Same-frame world atlas publication after carving; synthetic mosaic excluded from carve feedback.
 - [x] Recovery watchdog: real progress, pending/portal pause, bounded retry/cooldown/exhaustion and reset.
@@ -544,27 +556,27 @@ Animatsiya state machine/blend va gameplay integratsiyasi yuqoridagi Animator pa
 - [x] Live barrier 2D/3D demos, portal/async/physics regression, sanitizer, screenshots and native exports.
 - [x] CI failure audit, verified evidence, upstream check and main push.
 
-Mahalliy dalillar (2026-11-11): 880/880 unit (19 yangi), 138/138 focused, 11/11 headless CTest,
-12/12 render, 490/490 editor smoke, OpenGL 4.1 residency GPU. Clang 18 syntax-only -Werror: 14 ta TU.
-NavRecovery leaf ASan/UBSan: 10/10. Recovery, source carving, world movement va world service TU’lari
-hamda focused testlar instrumentlangan owner probe: 138/138; qolgan shared engine normal build,
-bu butun engine sanitizer run’i emas. 2D/3D Player 420 kadrdan; editor 160 kadrdan, 8-node/9-link/
-4-variable graph va yuqorida jonli Exhausted/Phase/Retries. Ikkala native export 420 kadr, oracle,
-PNG va relocation’dan o‘tdi. Oldingi NavAgent/portal Player regressiyasi 420, crowd 450 kadrdan
-ikkala o‘lchamda o‘tdi. Dalillar: `build-review/RecoveryNavigationPackage/`.
+Local evidence (2026-11-11): 880/880 unit (19 new), 138/138 focused, 11/11 headless CTest,
+12/12 render, 490/490 editor smoke, OpenGL 4.1 residency GPU. Clang 18 syntax-only -Werror: 14 TUs.
+NavRecovery leaf ASan/UBSan: 10/10. An owner probe with the recovery, source carving, world movement and world service
+TUs and the focused tests instrumented: 138/138; the rest of the shared engine is a normal build,
+this is not a sanitizer run of the whole engine. 2D/3D Player from 420 frames; the editor from 160 frames, an
+8-node/9-link/4-variable graph and the live Exhausted/Phase/Retries above it. Both native exports passed 420 frames,
+the oracle, the PNG and relocation. The earlier NavAgent/portal Player regression passed at 420 and the crowd one at
+450 frames, in both sizes. Evidence: `build-review/RecoveryNavigationPackage/`.
 
-763a7b0 remote coverage dependency bosqichida Azure va official Ubuntu mirror DNS xatosi bilan
-to‘xtagan; bu C++ test failure’i emas. Installer cached paketlarni qayta o‘rnatmaydi, ikkala DNS
-ishlamasa tezda aniq xabar beradi va butun update/install command’lari timeout bilan chegaralangan.
-Mock regression real apt/sudo yoki host mirror fayllarini o‘zgartirmaydi. Yangi remote CI push’dan
-keyin alohida kuzatiladi; tashqi DNS ishlashiga kod kafolat bermaydi.
+The 763a7b0 remote coverage run stopped in the dependency stage with an Azure and official Ubuntu mirror DNS error;
+this is not a C++ test failure. The installer does not reinstall cached packages, reports clearly and quickly when both
+DNS fail, and every update/install command is bounded by a timeout.
+The mock regression does not change the real apt/sudo or the host's mirror files. The new remote CI is watched
+separately after the push; the code cannot guarantee that external DNS works.
 
-Chegaralar: opt-in recovery; physics-only to‘siq olib tashlansa explicit retry, NavObstacle/topology
-o‘zgarsa avtomatik reset. Atlas build owner’da, hard frame deadline/hardware profiling yo‘q.
-Keyingi paket: animation locomotion va gameplay vertical slice; katta scene uchun profiler bilan
-aniq acceptance, streaming/query vaqtlarini o‘lchash.
+Limits: opt-in recovery; when a physics-only obstacle is removed an explicit retry, when a NavObstacle/the topology
+changes an automatic reset. The atlas build is on the owner, there is no hard frame deadline/hardware profiling.
+Next package: animation locomotion and a gameplay vertical slice; a precise acceptance with the profiler for a large
+scene, measuring the streaming/query times.
 
-### Yakunlangan katta paket — world smoothing va crowd steering
+### Finished large package — world smoothing and crowd steering
 
 - [x] Sparse atlas segment clearance: holes, corners, floor/climb, bounded work.
 - [x] Worker-side bounded smoothing; weighted costs and explicit portal endpoints preserved.
@@ -572,330 +584,330 @@ aniq acceptance, streaming/query vaqtlarini o‘lchash.
 - [x] World NavAgent integration, conservative movement clipping, serialized settings, inspector and graph telemetry.
 - [x] 2D/3D crowd demos, regression/sanitizer/runtime/export screenshots, upstream check and main push.
 
-Mahalliy dalillar (2026-11-11): 861/861 unit (22 yangi), 119/119 focused, 10/10 headless CTest,
-12/12 render va 490/490 editor smoke qadam; OpenGL 4.1 residency GPU. Clang 18 syntax-only -Werror:
-14 ta TU. Crowd/atlas/segment/grid leaf ASan/UBSan: 17/17, butun engine sanitizer run’i emas.
-2D/3D crowd Player 450 kadrdan va editor 130 kadrdan: 4 agent, ikki manzil, Stop/reverse, graph telemetry,
-separation; 5-node/6-link/3-variable graph. Ikkala native export 450 kadr, oracle, PNG va relocation’dan o‘tdi.
-Oldingi NavAgent/portal/unload/return Player regressiyasi ikkala o‘lchamda 420 kadrdan o‘tdi.
-Dalillar: `build-review/CrowdNavigationPackage/`. Software Mesa tekshiruvi; hardware performance o‘lchanmagan.
+Local evidence (2026-11-11): 861/861 unit (22 new), 119/119 focused, 10/10 headless CTest,
+12/12 render and 490/490 editor smoke steps; OpenGL 4.1 residency GPU. Clang 18 syntax-only -Werror:
+14 TUs. Crowd/atlas/segment/grid leaf ASan/UBSan: 17/17, not a sanitizer run of the whole engine.
+2D/3D crowd Player from 450 frames and the editor from 130 frames: 4 agents, two destinations, Stop/reverse, graph
+telemetry, separation; a 5-node/6-link/3-variable graph. Both native exports passed 450 frames, the oracle, the PNG and
+relocation. The earlier NavAgent/portal/unload/return Player regression passed in both sizes from 420 frames.
+Evidence: `build-review/CrowdNavigationPackage/`. Checked with software Mesa; hardware performance was not measured.
 
-51eead3 remote CI dependency bosqichida Azure Ubuntu mirror DNS xatosi sabab to‘xtagan, C++ tekshiruvi
-o‘sha run’da bajarilmagan. Shared bounded apt retry/timeout va official archive fallback qo‘shildi;
-workflow YAML/bash syntax tekshirildi. Yangi remote CI holati push’dan keyin kuzatiladi.
+The 51eead3 remote CI stopped in the dependency stage because of an Azure Ubuntu mirror DNS error, and the C++ check
+did not run in that run. A shared bounded apt retry/timeout and an official archive fallback were added;
+the workflow YAML/bash syntax was checked. The state of the new remote CI is watched after the push.
 
-Chegaralar: conservative swept rectangle va bounded string pulling, world spline emas. Crowd velocity
-sampling, ORCA yoki collision kafolati emas; physics yakuniy vakolatga ega. Dense overflow stop/diagnostic
-bilan ko‘rinadi. Keyingi paket: dynamic obstacle/repath recovery, ko‘p agentli profiling va animation locomotion.
+Limits: a conservative swept rectangle and bounded string pulling, not a world spline. Crowd velocity
+sampling, not ORCA nor a collision guarantee; physics has the final say. A dense overflow shows as a stop/diagnostic.
+Next package: dynamic obstacle/repath recovery, multi-agent profiling and animation locomotion.
 
-### Yakunlangan katta paket — bounded async world navigation
+### Finished large package — bounded async world navigation
 
 - [x] CPU-only worker queue, immutable snapshot lifetime, FIFO start/publication budgets.
 - [x] Active cancellation, replacement, retained snapshot/result byte budgets, bounded shutdown.
 - [x] NavAgent async admission, pending stop, stale destination/start/revision rejection, cancel/unload/destruction.
 - [x] Policy serialization, editor queue diagnostics, real 2D/3D graph/controller demos.
-- [x] Concurrency/regression, sanitizer, screenshots, native export va main push.
+- [x] Concurrency/regression, sanitizer, screenshots, native export and main push.
 
 
-Mahalliy dalillar (2026-11-11): 839/839 unit (19 yangi), 97/97 yo‘naltirilgan test,
-10/10 headless CTest, 12/12 render, 490/490 editor smoke qadam, OpenGL 4.1 residency GPU.
-Clang 18 syntax-only -Werror: 9 ta o‘zgargan TU. Queue/atlas/grid va queue testlari to‘liq
-instrumentlangan ASan/UBSan leaf probe: 10/10; bu butun engine sanitizer run’i emas.
-2D/3D Player 420 kadrdan, editor 120 kadrdan 13-node/16-link/3-variable graph bilan o‘tdi.
-Ikkala native export 420 kadr, async agent oracle, screenshot va relocation’dan o‘tdi.
-Oldingi 2c8585c CI barcha tekshiruvlarda yashil. Dalillar: `build-review/AsyncNavigationPackage/`.
+Local evidence (2026-11-11): 839/839 unit (19 new), 97/97 targeted tests,
+10/10 headless CTest, 12/12 render, 490/490 editor smoke steps, OpenGL 4.1 residency GPU.
+Clang 18 syntax-only -Werror: 9 changed TUs. A fully instrumented ASan/UBSan leaf probe of queue/atlas/grid and the
+queue tests: 10/10; this is not a sanitizer run of the whole engine.
+2D/3D Player from 420 frames and the editor from 120 frames passed with a 13-node/16-link/3-variable graph.
+Both native exports passed 420 frames, the async agent oracle, the screenshot and relocation.
+The earlier 2c8585c CI is green in every check. Evidence: `build-review/AsyncNavigationPackage/`.
 
-Chegaralar: scratch allocator/RSS va qattiq frame-time deadline bu payload byudjetlariga kirmaydi;
-atlas build owner thread’da. Harakat sequential corner tracking; local avoidance, yo‘lni silliqlash,
-jump/elevator animatsiyasi va umumiy job scheduler keyingi paketlarga qoladi.
-Keyingi paket: collision saqlangan holda route smoothing va ko‘p agentli local avoidance.
+Limits: the scratch allocator/RSS and a hard frame-time deadline are not part of these payload budgets;
+the atlas build is on the owner thread. Movement is sequential corner tracking; local avoidance, path smoothing,
+jump/elevator animation and a general job scheduler are left for later packages.
+Next package: route smoothing with collision preserved and multi-agent local avoidance.
 
-### Yakunlangan katta paket — NavAgent, controller va Visual Graph traversal
+### Finished large package — NavAgent, controller and Visual Graph traversal
 
 - [x] NavAgent opt-in sparse atlas, bounded query, actual-position corner tracking, stale replan.
-- [x] Character controller collision, safe exit occupancy, revision/link completion token va cancel.
-- [x] Serialize/copy/reset, C++ API, inspector runtime holati.
-- [x] Visual Graph world destination, traversal state/event, complete/cancel va success outputs.
-- [x] 2D/3D haqiqiy agent/graph demo, runtime screenshot, regression va native export.
-- [x] Test dalillari, hujjatlar, upstream merge tekshiruvi va main push.
+- [x] Character controller collision, safe exit occupancy, revision/link completion token and cancel.
+- [x] Serialize/copy/reset, C++ API, inspector runtime state.
+- [x] Visual Graph world destination, traversal state/event, complete/cancel and success outputs.
+- [x] A real 2D/3D agent/graph demo, runtime screenshots, regression and native export.
+- [x] Test evidence, documentation, an upstream merge check and main push.
 
-7d12f4a remote CI: format, GCC, Clang, ASan, UBSan va coverage to‘liq yashil.
+7d12f4a remote CI: format, GCC, Clang, ASan, UBSan and coverage fully green.
 
-Mahalliy dalillar (2026-11-11): 820/820 unit (10 yangi), 10/10 headless CTest, 12/12 render,
-490/490 editor smoke qadam, GL 4.1 residency GPU; Clang 18 syntax-only -Werror 12 fayl.
-Agent/VM TU va testlar instrumentlangan targeted ASan/UBSan probe: 78/78; shared engine normal
-build, bu to‘liq engine sanitizer run’i emas. Fixed capture 30 bilan 2D/3D Player 420 kadrdan uchta
-haqiqiy traversal/arrival, disable/unload/return; har editor 120 kadrdan 10-node/14-link graph preview.
-Ikkala native export ham 420 kadr, agent/graph oracle, screenshot va relocation’dan o‘tdi.
-Tarjima lug‘atidagi yangi inspector keys va float overflow oldidan mode mutatsiyasi regressiyasi tuzatildi.
-Dalillar: `build-review/AgentTraversalPackage/`. Yangi remote CI push’dan keyin alohida kuzatiladi.
+Local evidence (2026-11-11): 820/820 unit (10 new), 10/10 headless CTest, 12/12 render,
+490/490 editor smoke steps, GL 4.1 residency GPU; Clang 18 syntax-only -Werror 12 files.
+A targeted ASan/UBSan probe with the agent/VM TUs and tests instrumented: 78/78; the shared engine is a normal
+build, this is not a full engine sanitizer run. With fixed capture 30, the 2D/3D Player from 420 frames: three
+real traversals/arrivals, disable/unload/return; every editor from 120 frames with a 10-node/14-link graph preview.
+Both native exports also passed 420 frames, the agent/graph oracle, the screenshot and relocation.
+The new inspector keys in the translation dictionary and a mode mutation regression before a float overflow were fixed.
+Evidence: `build-review/AgentTraversalPackage/`. The new remote CI is watched separately after the push.
 
-Scope: opt-in sequential world queries, per-query expansion cap; corner route. Character exit
+Scope: opt-in sequential world queries, a per-query expansion cap; a corner route. Character exit
 occupancy checked; Rigidbody traversal completion, world local avoidance/smoothing, jump/elevator
-animation va async query scheduling keyingi ishlar. Transform/controller BaseOffset farqi hisobga olingan.
+animation and async query scheduling are later work. The Transform/controller BaseOffset difference is taken into account.
 
 
-### Yakunlangan katta paket — sparse navigation va traversal workflow
+### Finished large package — sparse navigation and traversal workflow
 
-- [x] Faqat yuklangan tile hajmiga bog‘liq immutable atlas; bounded va deterministik route query.
-- [x] Ikki/uch o‘lcham: tile chegarasi, floor/climb, cost, carve va partial path qoidalari.
-- [x] Yo‘nalishli, narxli, o‘chiriladigan traversal link; yetishmayotgan endpoint xavfsiz inactive.
-- [x] Route follower: link oldida to‘xtash, explicit completion, stale topology’da stop/replan.
-- [x] World runtime query/API, editor route diagnostikasi, haqiqiy 2D/3D demo va screenshot.
-- [x] Regression, build, export, hujjatlar va main push.
+- [x] An immutable atlas that depends only on the size of the loaded tiles; a bounded and deterministic route query.
+- [x] Two/three dimensions: tile borders, floor/climb, cost, carving and partial path rules.
+- [x] Directed, costed traversal links that can be disabled; a missing endpoint is safely inactive.
+- [x] Route follower: stopping before a link, explicit completion, stop/replan on stale topology.
+- [x] World runtime query/API, editor route diagnostics, a real 2D/3D demo and screenshots.
+- [x] Regression, build, export, documentation and main push.
 
-Oldingi 73a683c remote CI: GCC, Clang, ASan, UBSan, coverage va format to‘liq muvaffaqiyatli.
+The earlier 73a683c remote CI: GCC, Clang, ASan, UBSan, coverage and format fully successful.
 
-Dalillar (2026-11-11): 810/810 unit (18 yangi), 10/10 headless CTest, 12/12 reference render,
-490/490 editor smoke qadam, GL 4.1 residency GPU oracle; Clang 18 syntax-only -Werror 7 fayl.
-Atlas/grid/pathfinder/mosaic/follower uchun alohida instrumentlangan ASan/UBSan 16/16 test;
-bu to‘liq engine sanitizer run’i emas. 2D/3D Player 420 kadrdan portal/disable/stale/unload/return,
-ikkala editor 120 kadrdan route preview. Oldingi camera tour’lar 660 kadrdan (har birida 6 complete
-cross-cell path), checkpoint 540 kadrdan edit/delete/adopt/unload/return/restore. Ikkala native export
-420 kadrdan navigation oracle, screenshot va relocation’dan o‘tdi. Dalillar: `build-review/NavigationPackage/`.
+Evidence (2026-11-11): 810/810 unit (18 new), 10/10 headless CTest, 12/12 reference render,
+490/490 editor smoke steps, the GL 4.1 residency GPU oracle; Clang 18 syntax-only -Werror 7 files.
+A separately instrumented ASan/UBSan run for atlas/grid/pathfinder/mosaic/follower: 16/16 tests;
+this is not a full engine sanitizer run. 2D/3D Player from 420 frames portal/disable/stale/unload/return,
+both editors from 120 frames route preview. The earlier camera tours from 660 frames (6 complete
+cross-cell paths in each), the checkpoint from 540 frames edit/delete/adopt/unload/return/restore. Both native exports
+passed the navigation oracle from 420 frames, the screenshot and relocation. Evidence: `build-review/NavigationPackage/`.
 
-Snapshot build sinxron va bounded; incremental bake hali keyingi ish. Traversal follower kinematic;
-character collision/animation caller’da, eski NavAgent dense mosaic’dan foydalanadi. Keyingi navigation
-integratsiyasi: NavAgent/character controller va Visual Graph traversal tugunlari. Polygon navmesh alohida.
+The snapshot build is synchronous and bounded; incremental baking is still later work. The traversal follower is
+kinematic; character collision/animation is the caller's, the old NavAgent uses the dense mosaic. The next navigation
+integration: NavAgent/character controller and Visual Graph traversal nodes. A polygon navmesh is separate.
 
 
-### Yakunlangan yirik paket — world authoring va checkpoint workflow
+### Finished large package — world authoring and checkpoint workflow
 
-- [x] Xavfsiz checkpoint format: bounded cell snapshots, world identity, atomic save, buzilgan faylda mutatsiya yo‘q.
-- [x] Runtime: unload/return state, deleted/spawned entity, ownership API, root local/world koordinatalari.
-- [x] Asinxron restore: snapshot JSON worker’da parse, eski avlodni cancel, bosqichma-bosqich world reset.
-- [x] Mualliflik: yangi 2D/3D grid bundle, terrain/nav/camera, unique UUID, no-overwrite transactional publish.
-- [x] Editor: world wizard, runtime entity edit/adopt/delete, checkpoint save/restore/reset va status.
-- [x] Demo: F5/F9, qayta kirishda state va disk restore oracle, haqiqiy screenshot.
-- [x] Regressiyalar, ASan stack tahlili, export, hujjatlar, main push.
+- [x] A safe checkpoint format: bounded cell snapshots, world identity, atomic save, no mutation on a damaged file.
+- [x] Runtime: unload/return state, deleted/spawned entities, an ownership API, root local/world coordinates.
+- [x] Asynchronous restore: the snapshot JSON parsed on a worker, cancelling an old generation, a staged world reset.
+- [x] Authoring: a new 2D/3D grid bundle, terrain/nav/camera, unique UUIDs, a no-overwrite transactional publish.
+- [x] Editor: a world wizard, runtime entity edit/adopt/delete, checkpoint save/restore/reset and status.
+- [x] Demo: F5/F9, a state on re-entry and a disk restore oracle, real screenshots.
+- [x] Regressions, an ASan stack analysis, export, documentation, main push.
 
-Serialized component state saqlanadi; arbitrary C++ stack/heap va fizik replay checkpoint emas.
+Serialized component state is kept; arbitrary C++ stack/heap and physics replay are not a checkpoint.
 
-Dalillar (2026-11-11): 792/792 unit (20 yangi), 10/10 headless CTest, 12/12 render reference,
-490/490 editor smoke qadam. 2D/3D Player’da 540 kadrdan edit/delete/adopt/unload/return/disk restore oracle;
-ikkala editor’da 6-cell wizard, no-overwrite, project link, generated Play va actor restore; generated 3D
-loyiha native export/run/screenshot/relocation. Checkpoint store/writer uchun alohida instrumentlangan
-ASan/UBSan probe’da 6/6 test (to‘liq engine sanitizer run’i emas), Clang 18 syntax-only -Werror 13 fayl.
-Oldingi CI 625d750 GCC/Clang/UBSan/coverage’dan o‘tgan; ASan’dagi Mesa 2×56-byte drawArrays JIT retention
-artifact stack bo‘yicha tor vendor suppression bilan ajratildi. Yangi remote CI push’dan so‘ng alohida kuzatiladi.
-Dalillar: `build-review/CheckpointPackage/`. Serialized component snapshot arbitrary C++ heap/physics replay emas;
-restore validation va capture CPU qismi hali hard frame deadline bermaydi.
+Evidence (2026-11-11): 792/792 unit (20 new), 10/10 headless CTest, 12/12 render reference,
+490/490 editor smoke steps. In the 2D/3D Player from 540 frames the edit/delete/adopt/unload/return/disk restore
+oracle; in both editors the 6-cell wizard, no-overwrite, the project link, generated Play and the actor restore; the
+generated 3D project native export/run/screenshot/relocation. 6/6 tests in a separately instrumented ASan/UBSan probe
+for the checkpoint store/writer (not a full engine sanitizer run), Clang 18 syntax-only -Werror 13 files.
+The earlier CI 625d750 passed GCC/Clang/UBSan/coverage; Mesa's 2×56-byte drawArrays JIT retention in ASan was
+separated as an artifact by its stack with a narrow vendor suppression. The new remote CI is watched separately after
+the push. Evidence: `build-review/CheckpointPackage/`. A serialized component snapshot is not an arbitrary C++
+heap/physics replay; the restore validation and the CPU part of the capture give no hard frame deadline yet.
 
-### Yakunlangan katta paket — residency, terrain va navigation integratsiyasi
+### Finished large package — residency, terrain and navigation integration
 
-- [x] CI: barcha CMake module output joylarida ishlaydigan camera tour; vendor leak istisnosini tekshirish.
-- [x] Resurslar: texture/model/material/mesh LRU, jonli reference va async load pin, chegaralangan tozalash.
-- [x] Xotira: haqiqiy RSS va tracked GPU allocation alohida; high/low watermark bilan yangi admission nazorati.
-- [x] Terrain: world-space generator, turli resolution chegaralarini ulash va tashqi patch LOD himoyasi.
-- [x] Navigation: yuklangan katak gridlarini bounded mosaic orqali ulash, teshik va balandlik qoidalari.
-- [x] Editor/runtime: cache va pressure diagnostikasi, qo‘lda trim, yangilangan demo va haqiqiy screenshot.
-- [x] Sinov: cancellation/pinning/pressure/seam/path regressiyalari, build/export, main push.
+- [x] CI: a camera tour that works in every CMake module output location; checking the vendor leak exception.
+- [x] Resources: texture/model/material/mesh LRU, live references and async load pins, bounded cleanup.
+- [x] Memory: real RSS and tracked GPU allocations separately; a new admission control with high/low watermarks.
+- [x] Terrain: a world-space generator, joining borders of different resolutions and protecting outer patch LOD.
+- [x] Navigation: joining the loaded cells' grids through a bounded mosaic, hole and height rules.
+- [x] Editor/runtime: cache and pressure diagnostics, a manual trim, an updated demo and real screenshots.
+- [x] Tests: cancellation/pinning/pressure/seam/path regressions, build/export, main push.
 
-Bu paket physical VRAM hard cap, polygon navmesh yoki Unreal bilan tenglik da’vosi emas.
+This package is not a physical VRAM hard cap, a polygon navmesh or a claim of parity with Unreal.
 
-Tekshiruv (2026-11-10): 772/772 unit, barcha 10 headless CTest, 12/12 render reference;
-OpenGL 4.1 real texture/model/material/mesh residency va 32 cycle; 3D/2D camera tour 660 kadrdan,
-har birida 6 ta cross-cell complete path; terrain pair editor Undo/Redo; 490/490 editor smoke qadam;
-ikki demo native export, screenshot va relocation. Clang 18 syntax-only `-Werror` tekshiruvi ham o‘tdi.
-Qayta yuklashdagi asset resolve cursor tiklanmasligi tuzatildi; entity soni 3→1→4→2→0→3 bilan sinaldi.
-Qo‘lda va avtomatik trim bitta world tick allowance’ini bo‘lishadi; thumbnail/reimport LRU metadata’si ham tozalanadi.
-Dalillar: `build-review/ResidencyPackage/Final/`. Remote compiler/ASan matritsasi push’dan keyingi CI’da alohida tekshiriladi.
+Check (2026-11-10): 772/772 unit, all 10 headless CTest, 12/12 render reference;
+OpenGL 4.1 real texture/model/material/mesh residency and 32 cycles; 3D/2D camera tours from 660 frames,
+6 cross-cell complete paths in each; terrain pair editor Undo/Redo; 490/490 editor smoke steps;
+native export, screenshots and relocation of the two demos. The Clang 18 syntax-only `-Werror` check passed too.
+The asset resolve cursor not being reset on reload was fixed; the entity count was tested with 3→1→4→2→0→3.
+The manual and automatic trims share one world tick allowance; the thumbnail/reimport LRU metadata is cleaned up too.
+Evidence: `build-review/ResidencyPackage/Final/`. The remote compiler/ASan matrix is checked separately in the CI after the push.
 
-Keyingi P3 ishlar: incremental nav bake, terrain normal seam, HLOD, floating origin va versioned gameplay/physics persistence. Serialized cell checkpoint workflow bajarildi.
+The next P3 work: incremental nav bake, terrain normal seams, HLOD, floating origin and versioned gameplay/physics persistence. The serialized cell checkpoint workflow is done.
 
-### Yakunlangan paket — packed foliage GPU culling va LOD
+### Finished package — packed foliage GPU culling and LOD
 
-- [x] Bitta komponentda 65536 tagacha statik instance, ikki model/mesh LOD, tint va ko'rish masofasi.
-- [x] OpenGL 4.3 compute + SSBO compaction + indirect draw; OpenGL 4.1 CPU culling/instancing fallback.
-- [x] LOD hysteresis, konservativ birlashgan bounds, kamera harakatida statik input qayta yuklanmasligi.
-- [x] Asinxron GPU visibility hisoblari va CPU/GPU buffer hajmi; rendering yo'lida blocking readback yo'q.
-- [x] Scene/prefab/copy/undo serialization, model UUID havolalari, inspektor va parent terrain sirtiga joylash.
-- [x] CPU/GPU image/count oracle, shadow/picking/wire va ikkala capability holatini yakuniy tekshirish.
-- [x] Zich demo sahna, screenshot, eksport va regressiyalar.
+- [x] Up to 65536 static instances in one component, two model/mesh LODs, tint and view distance.
+- [x] OpenGL 4.3 compute + SSBO compaction + indirect draw; an OpenGL 4.1 CPU culling/instancing fallback.
+- [x] LOD hysteresis, conservative merged bounds, no reupload of the static input while the camera moves.
+- [x] Asynchronous GPU visibility counts and CPU/GPU buffer sizes; no blocking readback on the rendering path.
+- [x] Scene/prefab/copy/undo serialization, model UUID references, the inspector and placing on the parent terrain surface.
+- [x] A CPU/GPU image/count oracle, a final check of shadow/picking/wire and both capability states.
+- [x] A dense demo scene, screenshots, export and regressions.
 
-V1 chegaralari: statik opaque/cutout meshlar, 128 part/LOD; bitta komponent picking ID. Soya yaqin LOD'dagi barcha instance'larni konservativ chizadi; alohida GPU shadow culling yo'q. Ko'rinadigan selection konturi ID buferidan olinadi; packed occluded silhouette chizilmaydi. Collider/gameplay entity'lari har instance uchun yaratilmaydi. HLOD/streaming alohida bosqich.
+V1 limits: static opaque/cutout meshes, 128 parts/LODs; one picking ID per component. The shadow conservatively draws every instance in the near LOD; there is no separate GPU shadow culling. The visible selection outline comes from the ID buffer; a packed occluded silhouette is not drawn. Collider/gameplay entities are not created per instance. HLOD/streaming is a separate phase.
 
-Tekshiruv (2026-11-10): 711/711 unit, 12/12 reference render; GL 4.3 compute va GL 4.1 CPU oracle (4096 instance, besh kamera, asosiy tasvirlarda 0 pixel farqi), multi-part draw, shadow/picking/wire va backend switch o'tdi. Birinchi nazorat ko'rinishida 491520 o'rniga 54756 triangle; kamera source upload sonini o'zgartirmadi. FoliageWorkshop 4096 instance/5 entity bilan save/reload, eksport, Player screenshot va relocation'dan o'tdi; ikki OBJ va 12 PBR xaritasi paketga kirdi. Legacy terrain reproject packed root'ni siljitmasligi CPU regressiyasida tekshirildi. SDK 2 test va UI'siz runtime o'tdi. Dalillar: `build-review/PackedFoliage/`. Mesa llvmpipe natijalari physical GPU tezlik bahosi emas.
+Check (2026-11-10): 711/711 unit, 12/12 reference render; the GL 4.3 compute and GL 4.1 CPU oracle (4096 instances, five cameras, a 0 pixel difference in the main images), multi-part draws, shadow/picking/wire and the backend switch passed. In the first control view 54756 triangles instead of 491520; the camera did not change the number of source uploads. FoliageWorkshop with 4096 instances/5 entities passed save/reload, export, a Player screenshot and relocation; two OBJs and 12 PBR maps went into the package. That a legacy terrain reproject does not move the packed root was checked in a CPU regression. The SDK 2 test and the runtime without UI passed. Evidence: `build-review/PackedFoliage/`. Mesa llvmpipe results are not an estimate of physical GPU speed.
 
-### Yakunlangan yirik paket — ishlaydigan 2D/3D world streaming
+### Finished large package — working 2D/3D world streaming
 
-Bir paketning natijasi: kamera bo‘yicha yuklanadigan kataklar, umumiy sahnada fizika/script lifecycle,
-editor nazorati va eksport qilinadigan 2D/3D demo. Quyidagi bandlar mahalliy test dalili bilan yopildi; remote sanitizer/compiler matritsasi push’dan keyin alohida tekshiriladi.
+The result of one package: cells loaded by the camera, physics/script lifecycle in a shared scene,
+editor control and an exportable 2D/3D demo. The items below were closed with local test evidence; the remote sanitizer/compiler matrix is checked separately after the push.
 
 - [x] Runtime: radius/hysteresis, layer/dependency closure, slot/entity/declared memory admission.
-- [x] Bulk import: barcha obyektlar tayyor bo‘lgach runtime state boshlanadi; umumiy 2D/3D fizika, unload va rollback.
-- [x] Host integratsiyasi: Project.StreamingWorld, SceneManager frame chegaralari, Stop/Single/restart xavfsizligi.
-- [x] Editor: world manifest/policy tahriri, holatlar gridi, runtime statistika, retry/preview.
-- [x] 2D va 3D ko‘p katakli namuna, kamera yurishi va boundary/cancel qaytish regressiyasi.
-- [x] Export: manifest va unga tegishli scene/asset closure, toza joyga ko‘chirilgan Player sinovi.
-- [x] CPU/GL/editor/runtime/SDK testlari, screenshot va yakuniy hisobot; barchasi bitta paket sifatida main'ga push.
+- [x] Bulk import: the runtime state starts once every object is ready; shared 2D/3D physics, unload and rollback.
+- [x] Host integration: Project.StreamingWorld, SceneManager frame boundaries, Stop/Single/restart safety.
+- [x] Editor: editing the world manifest/policy, a grid of states, runtime statistics, retry/preview.
+- [x] A 2D and 3D multi-cell sample, a camera walk and a boundary/cancel return regression.
+- [x] Export: the manifest and its scene/asset closure, a Player test moved to a clean location.
+- [x] CPU/GL/editor/runtime/SDK tests, screenshots and a final report; all pushed to main as one package.
 
-### Yakunlangan paket — dunyo kataklari va streaming asosi
+### Finished package — world cells and the streaming foundation
 
-- [x] 2D tilemap va 3D terrain uchun umumiy world-cell manifest, barqaror UUID va dependency chegaralari. `.zworld` v1 metadata, bounded parse, atomik save va xavfsiz scene yo‘llari; editor/runtime streaming hali ulanmagan.
-- [x] Main thread'dan tashqarida bounded scene IO/parse; avlodli so‘rov va CPU staging cancel/discard. `WorldCellLoader` v1: dependency closure, bounded input admission va symlink-safe worker IO. Aktiv sahna unload, texture decode va renderer/residency integratsiyasi keyingi bandlarda.
-- [x] Main thread’da soft build/resolve va activation/unload count byudjeti; umumiy sahnada physics/script lifecycle.
-- [x] Texture/model decode/upload uchun qat’iy resurs/fayl byudjetlari; hard frame-time acceptance. `Streaming.AssetStreaming` (default o‘chiq): decode/parse va mip zanjiri `WorldAssetStager` worker’larida, GPU upload `AsyncLoader` kadr byudjeti bilan qatorlab; katak hamma asset GPU’da bo‘lgach faollashadi.
-- [x] RAM/VRAM residency limiti; tez kamera harakati, qaytish, bekor qilish va yo'q/buzilgan katak regressiyalari. `EvictOnPressure`: kuzatilgan RSS / so‘ralgan GPU baytlari limiti (jismoniy VRAM emas), o‘lchangan GPU hajmi bo‘yicha oldindan rad etish.
-- [x] Ko'p katakli demo, save/reload/export, qayta bajariladigan kamera yo'li va RSS/frame-time hisobotlari. `Projects/WorldGallery3D`, `.ztour` + `ZAMIN_WORLD_TOUR` / `ZAMIN_WORLD_REPORT`, `Tools/make_world_gallery.py`.
+- [x] A common world-cell manifest for 2D tilemaps and 3D terrain, stable UUIDs and dependency bounds. `.zworld` v1 metadata, bounded parsing, atomic save and safe scene paths; editor/runtime streaming not connected yet.
+- [x] Bounded scene IO/parse off the main thread; generational requests and CPU staging cancel/discard. `WorldCellLoader` v1: dependency closure, bounded input admission and symlink-safe worker IO. Active scene unload, texture decode and renderer/residency integration in later items.
+- [x] A soft build/resolve and activation/unload count budget on the main thread; physics/script lifecycle in a shared scene.
+- [x] Strict resource/file budgets for texture/model decode/upload; hard frame-time acceptance. `Streaming.AssetStreaming` (off by default): decode/parse and the mip chain on `WorldAssetStager` workers, the GPU upload queued under the `AsyncLoader` frame budget; a cell activates once all its assets are on the GPU.
+- [x] A RAM/VRAM residency limit; fast camera movement, return, cancellation and missing/damaged cell regressions. `EvictOnPressure`: a limit on the observed RSS / requested GPU bytes (not physical VRAM), rejecting in advance by the measured GPU size.
+- [x] A multi-cell demo, save/reload/export, a repeatable camera path and RSS/frame-time reports. `Projects/WorldGallery3D`, `.ztour` + `ZAMIN_WORLD_TOUR` / `ZAMIN_WORLD_REPORT`, `Tools/make_world_gallery.py`.
 
-Dalillar (2026-11-23, GCC Debug, Mesa llvmpipe 2 thread, 4 CPU, xvfb; batafsil — [Quality.md](Quality.md#the-world-asset-streaming-package--2026-11-23)):
-1368/1368 unit (15 yangi; `--quick` 1356/1356), GUI’siz CTest 17/17, docs 2/2, world/residency GUI CTest 11/11
-(uchta yangi `WorldAssetStreaming_*` bosqichi va kengaytirilgan `AssetResidencyGPU` bilan), 12/12 reference render,
-EditorSmoke; build ogohlantirishsiz.
-**Byudjet** (`ctest -R WorldAssetStreaming_budget`, 24 katak, 2048² texture = mip bilan 16 MiB, 5184 uchburchakli
-model, 1080 kadrli tur, kadrga 2 MiB / 8 upload): asosiy oqimda 0 rasm decode / 0 model parse (eski yo‘lda 118 / 8);
-har kadrda yuborilgan bayt ≤ 2 097 152 (cho‘qqi aynan shu), chaqiruv ≤ 2, byudjetdan katta upload 0, staging
-cho‘qqisi 256 MiB = limit; bir kadrdagi streaming ishi (world update + upload) ko‘pi bilan **13.99 ms**, eski yo‘lda
-88.66 ms (gate: ≤ 30 ms va eski yo‘lning yarmidan kam; eski yo‘l gate’dan o‘tmaydi — 108 kadr 30 ms dan yuqori);
-kadr vaqti p50/p95/p99 32.79/44.57/51.53 ms, eski yo‘lda 35.57/68.17/103.11; medianadan 40 ms uzun 1 kadr
-(streaming ishisiz) / eski yo‘lda 39 (38 tasi streaming bilan). 8 MiB katak byudjetida 17 staging nom bilan rad
-etildi, 0 upload. GL: worker mip zanjiri `glGenerateMipmap` dan 0 farq, yarim yuklangan texture ko‘rinmaydi,
-bekor qilingan upload GPU allocation’ini qaytaradi.
-**Limitlar** (`ctest -R WorldAssetStreaming_residency`): ikki davrali limitsiz tur (2160 kadr, tez kamera,
-bo‘sh hudud, qaytish) — 105 faollashtirish / 97 unload / 30 bekor qilish, 0 failed, bo‘sh hududda so‘ralgan GPU
-342 → 342 MiB, davra cho‘qqisi 406 → 406 MiB, RSS cho‘qqisi 819 → 819 MiB; GPU limiti 325.8 MiB — cho‘qqi
-325.6 MiB, 23 katak yuklanmasdan rad etildi, 2 tasi chiqarildi, 7 tagacha faol; RSS limiti 667 MiB — 115 bosim
-kadri, heap 37 marta OS’ga qaytarildi, cho‘qqi 709 MiB (+42 MiB: kuzatuvga asoslangan, qat’iy shift emas),
-9 tagacha faol; buzilgan world — yo‘q va buzilgan katak aynan 2 failed, buzilgan/yo‘q texture va buzilgan model
-9 marta xabar qilindi, qolganlari faol; hamma turda asosiy oqimda 0 decode/parse.
-**Demo** (`ctest -R WorldAssetStreaming_demo`): WorldGallery3D generator chiqishi bilan bayt-bayt bir xil; ikki
-tur — bir xil kamera yo‘li va tinch nuqtalarda 8/4/5/0/8 faol katak, 79 faollashtirish / 71 unload; kadr vaqti
-p50 66.86 / p95 98.11 / p99 111.84 ms, RSS 303 → 326 MiB, so‘ralgan GPU 100 → 110 MiB; editor world paneli
-screenshot bilan; eksport 190 fayl / 52.4 MB, ko‘chirilgan papkada shu tur bir xil natija (p50 69.91 ms, RSS
-cho‘qqisi 295 MiB, 0 o‘qilmagan fayl); save/reload va eksport rejasi unit testda (24 katak, 144 entity).
-Dalillar: lokal `build/WorldAssetStreaming/Final/`.
+Evidence (2026-11-23, GCC Debug, Mesa llvmpipe 2 threads, 4 CPUs, xvfb; details — [Quality.md](Quality.md#the-world-asset-streaming-package--2026-11-23)):
+1368/1368 unit (15 new; `--quick` 1356/1356), CTest without GUI 17/17, docs 2/2, world/residency GUI CTest 11/11
+(with three new `WorldAssetStreaming_*` stages and an extended `AssetResidencyGPU`), 12/12 reference render,
+EditorSmoke; the build without warnings.
+**Budget** (`ctest -R WorldAssetStreaming_budget`, 24 cells, a 2048² texture = 16 MiB with mips, a model of 5184
+triangles, a 1080-frame tour, 2 MiB / 8 uploads per frame): 0 image decodes / 0 model parses on the main thread (118 / 8
+on the old path); bytes sent per frame ≤ 2 097 152 (the peak is exactly that), calls ≤ 2, 0 uploads larger than the
+budget, the staging peak 256 MiB = the limit; the streaming work in one frame (world update + upload) at most
+**13.99 ms**, 88.66 ms on the old path (gate: ≤ 30 ms and less than half of the old path; the old path does not pass the
+gate — 108 frames above 30 ms); frame time p50/p95/p99 32.79/44.57/51.53 ms, on the old path 35.57/68.17/103.11;
+1 frame 40 ms longer than the median (without streaming work) / 39 on the old path (38 of them with streaming). With an
+8 MiB cell budget 17 stagings were rejected by name, 0 uploads. GL: the worker mip chain differs from
+`glGenerateMipmap` by 0, a half-loaded texture is never visible, a cancelled upload returns its GPU allocation.
+**Limits** (`ctest -R WorldAssetStreaming_residency`): a two-lap tour without limits (2160 frames, a fast camera, an
+empty area, a return) — 105 activations / 97 unloads / 30 cancellations, 0 failed, the requested GPU in the empty area
+342 → 342 MiB, the lap peak 406 → 406 MiB, the RSS peak 819 → 819 MiB; a GPU limit of 325.8 MiB — the peak
+325.6 MiB, 23 cells rejected without loading, 2 evicted, up to 7 active; an RSS limit of 667 MiB — 115 pressure
+frames, the heap returned to the OS 37 times, the peak 709 MiB (+42 MiB: based on observation, not a strict ceiling),
+up to 9 active; a damaged world — exactly 2 failed for the missing and the damaged cell, the damaged/missing texture and
+the damaged model reported 9 times, the rest active; 0 decodes/parses on the main thread in every tour.
+**Demo** (`ctest -R WorldAssetStreaming_demo`): WorldGallery3D is byte-for-byte identical to the generator's output;
+two tours — the same camera path and 8/4/5/0/8 active cells at the rest points, 79 activations / 71 unloads; frame
+time p50 66.86 / p95 98.11 / p99 111.84 ms, RSS 303 → 326 MiB, requested GPU 100 → 110 MiB; the editor's world panel
+with a screenshot; the export 190 files / 52.4 MB, the same tour in the moved folder gives the same result (p50
+69.91 ms, the RSS peak 295 MiB, 0 unread files); save/reload and the export plan in a unit test (24 cells, 144
+entities). Evidence: locally in `build/WorldAssetStreaming/Final/`.
 
-Chegaralar (bajarilgan deb belgilanmaydi): jismoniy GPU va jismoniy VRAM o‘lchovi; llvmpipe tezlik bahosi emas.
-Kadr vaqti gate’i streaming ishini chegaralaydi — renderer shader variantini birinchi marta kompilyatsiya qilgan
-kadr (337 ms, streaming ishi 0.2 ms) undan tashqarida. GL obyektini yaratish/yo‘q qilish vaqti drayverniki
-(llvmpipe’da bitta upload bo‘lagi 14 ms gacha, GPU limiti turida 20.5 ms). Terrain qatlam texture’lari, shriftlar,
-animatsiya kliplari va model ichidagi rasmlar decode’i asset byudjetiga kirmaydi; mesh bo‘linmaydi (kadr
-byudjetidan kattasi rad etiladi). RSS limiti hodisadan keyin ishlaydi. Remote compiler/sanitizer matritsasi
-ishga tushirilmagan.
+Limits (not marked as done): measuring a physical GPU and physical VRAM; llvmpipe is not a speed estimate.
+The frame time gate bounds the streaming work — the frame in which the renderer compiled a shader variant for the first
+time (337 ms, streaming work 0.2 ms) is outside it. The time to create/destroy GL objects is the driver's
+(on llvmpipe one upload chunk up to 14 ms, 20.5 ms in the GPU limit tour). Decoding terrain layer textures, fonts,
+animation clips and images inside models is not in the asset budget; meshes are not split (one larger than the frame
+budget is rejected). The RSS limit acts after the fact. The remote compiler/sanitizer matrix was not run.
 
-Packed foliage uchun qoladigan acceptance: GPU shadow culling, individual instance authoring/Undo, billboards/HLOD, physical GPU va OS/driver matritsasi. Mavjud v1 bularni tugallangan deb belgilamaydi.
+The acceptance that remains for packed foliage: GPU shadow culling, individual instance authoring/Undo, billboards/HLOD, a physical GPU and an OS/driver matrix. The existing v1 does not mark these as done.
 
 
-### SDK himoyasi, profiling va foliage muallifligi v1 — bajarilgan paket
+### SDK protection, profiling and foliage authoring v1 — a finished package
 
-1. **SDK/modul mosligi:** SDK headerlari va toolchain fingerprint'i, modul ichidagi ELF ABI record, `dlopen`dan oldingi bounded parser. Belgisiz, buzilgan yoki mos kelmagan modul rad etiladi; ishlab turgan modul saqlanadi. SDK headeri o'zgargan bo'lsa avval engine qayta build qilinadi.
-2. **Regressiya va editor diagnostikasi:** mos/noto'g'ri/eski/strip qilingan ELF, malformed chegaralari, constructor bajarilmasligi, ishlayotgan modulni saqlash, SDK orqali build/hot reload va eksport. Editor screenshot bilan holat ko'rsatiladi.
-3. **Profiling:** mavjud CPU/frame/memory hisoblagichlarini tekshirish; GPU timer query va frame-time ko'rinishi; takrorlanadigan 2D/3D benchmark sahnalari. VPS correctness va physical GPU performance dalillari alohida yuritiladi.
-4. **Foliage:** mavjud instancing yo'lini o'lchash; zichlik/LOD/culling va terrain sculpt'dan keyin obyektlarni sirtga qayta joylash. Kichik va zich map sinovlari, save/load/undo va screenshot.
-5. **Yakun:** tegishli CPU/GL/SDK/editor/export testlari; hujjatlar va natijalarni yangilash. Keyingi paketlar streaming, gameplay authoring va ikki tugallangan o'yin mezonlari bo'yicha davom etadi.
+1. **SDK/module compatibility:** a fingerprint of the SDK headers and toolchain, an ELF ABI record inside the module, a bounded parser before `dlopen`. An unmarked, damaged or mismatched module is rejected; the running module is kept. When an SDK header changed, the engine is rebuilt first.
+2. **Regression and editor diagnostics:** matching/wrong/old/stripped ELFs, malformed bounds, constructors not being run, keeping the running module, build/hot reload through the SDK and export. The editor shows the state, with a screenshot.
+3. **Profiling:** checking the existing CPU/frame/memory counters; GPU timer queries and a frame-time view; repeatable 2D/3D benchmark scenes. The VPS correctness and the physical GPU performance evidence are kept separately.
+4. **Foliage:** measuring the existing instancing path; density/LOD/culling and re-placing objects on the surface after a terrain sculpt. Small and dense map tests, save/load/undo and screenshots.
+5. **Wrap-up:** the relevant CPU/GL/SDK/editor/export tests; updating the documentation and the results. The next packages go on with streaming, gameplay authoring and the criteria for two finished games.
 
-- [x] SDK fingerprint va bounded ELF preflight.
-- [x] Xato reload'da ishlayotgan modulni/klass registry'sini saqlash va aniq diagnostika.
-- [x] Real SDK/modul/hot reload/export regressiyasi va screenshot.
-- [x] Asinxron GPU timeline profiling v1; physical GPU acceptance hali ochiq.
-- [x] Foliage sirtga moslash v1: manual, brush bilan avtomatik, offset/normal, lock/hidden, Undo/Redo.
-- [ ] Alohida GPU foliage culling/LOD/HLOD va zich sahna benchmark'i.
+- [x] SDK fingerprint and bounded ELF preflight.
+- [x] Keeping the running module/class registry on a failed reload, with precise diagnostics.
+- [x] A real SDK/module/hot reload/export regression and screenshots.
+- [x] Asynchronous GPU timeline profiling v1; the physical GPU acceptance is still open.
+- [x] Foliage surface fitting v1: manual, automatic with the brush, offset/normal, lock/hidden, Undo/Redo.
+- [ ] Separate GPU foliage culling/LOD/HLOD and a dense scene benchmark.
 
-Tekshiruv (2026-11-10): 707/707 unit, 12/12 reference render, GL 4.1 terrain va GPU timer sinovlari; SDK native load + ko'chirilgan SDK manifest testlari; haqiqiy editor hot reload; 26 skript klassli Platformer2D eksport/screenshot/relocation; mos bo'lmagan modul eksportini rad etish; UI'siz runtime. Foliage editori 89 ildizni yangiladi, Undo/Redo o'tdi. GUI'dagi native legacy nomzodning konstruktori bajarilmadi; o'zgarmagan nomzod doimiy qayta urinishga tushmadi. Hisobotlar `build-review/SDKQuality/` da.
+Check (2026-11-10): 707/707 unit, 12/12 reference render, GL 4.1 terrain and GPU timer tests; the SDK native load + relocated SDK manifest tests; a real editor hot reload; the Platformer2D export/screenshot/relocation with 26 script classes; rejecting an export with a mismatched module; the runtime without UI. The foliage editor updated 89 roots, Undo/Redo passed. In the GUI the constructor of a native legacy candidate did not run; an unchanged candidate did not fall into endless retries. The reports are in `build-review/SDKQuality/`.
 
-**SDK paketidan keyingi ish:** packed foliage GPU/CPU culling va model LOD v1 yuqoridagi paketda bajarildi. Dense scene eksporti va correctness oracle'lari shu yerda qayd etiladi. Physical GPU frame-time/RSS byudjeti hali alohida acceptance talab qiladi; undan keyingi dunyo bosqichi async tile streaming.
+**Work after the SDK package:** packed foliage GPU/CPU culling and model LOD v1 were done in the package above. The dense scene export and the correctness oracles are recorded there. A physical GPU frame-time/RSS budget still needs a separate acceptance; the world phase after it is async tile streaming.
 
-### P1 — yakunlangan ish paketi
+### P1 — a finished work package
 
-- [x] 32×32 katakli terrain render bo'laklari va masofaga bog'liq LOD.
-- [x] Qo'shni bo'laklar farqi ko'pi bilan bir daraja; mayda chetlar yirik chetga geometrik moslanadi.
-- [x] LOD chegarasida 15% hysteresis; ortografik ko'rinishda to'liq detal.
-- [x] O'zgargan balandlik va normal ta'sir qiladigan bo'laklargina qayta quriladi.
-- [x] Bo'yash geometriyani qayta qurmaydi; collision/raycast to'liq heightfield aniqligida qoladi.
-- [x] LOD sozlamalari sahna/prefab/copy/undo orqali saqlanadi; editor haqiqiy hisoblagichlarni ko'rsatadi.
-- [x] Katta 2D tilemap visibility hududlarni ierarxik tekshiradi va oldingi row-major tartibni saqlaydi.
-- [x] Aylangan, akslantirilgan va perspektiv 2D holatlar to'liq tekshiruv oracle'i bilan mos.
-- [x] CPU algoritm testlari, haqiqiy GL cache/sculpt testi, save/reload, render va editor regressiyasi.
-- [x] Geometriya va AABB tekshiruvi soni bilan qayta bajariladigan o'lchov; FPS bilan aralashtirilmaydi.
+- [x] Terrain render chunks of 32×32 cells and distance-based LOD.
+- [x] Neighbouring chunks differ by at most one level; fine edges are geometrically matched to the coarse edge.
+- [x] A 15% hysteresis at the LOD boundary; full detail in an orthographic view.
+- [x] Only the chunks affected by a changed height and normal are rebuilt.
+- [x] Painting does not rebuild the geometry; collision/raycasts stay at the full heightfield precision.
+- [x] The LOD settings are kept through scene/prefab/copy/undo; the editor shows the real counters.
+- [x] Large 2D tilemap visibility checks regions hierarchically and keeps the earlier row-major order.
+- [x] Rotated, mirrored and perspective 2D cases match the full-check oracle.
+- [x] CPU algorithm tests, a real GL cache/sculpt test, save/reload, render and editor regressions.
+- [x] A repeatable measurement by the number of geometry and AABB checks; not mixed with FPS.
 
-### Visual Script — foydalanuvchi so'rovi, 2026-11-10
+### Visual Script — a user request, 2026-11-10
 
-- [x] `.zgraph` format, typed katalog, tekshiruv va indekslangan bounded VM.
-- [x] Node/pin/wire muharriri, qidiruv, pan/zoom/fit, xato diagnostikasi, atomik save, 64 holatli undo/redo.
-- [x] Lifecycle, collision/trigger/UI/AI hodisalari; input, transform, 2D/3D fizika, prefab/audio/animation/UI amallari.
-- [x] O'zgaruvchilar, nusxa overrides, shart/sequence/loop/break/delay va nomlangan funksiyalar.
-- [x] Native host, aks ettirilgan C++ maydon ko'prigi, messages; C++ modulisiz ishlash.
-- [x] Breakpoint, pause/step/continue, watch va cheklangan execution trace.
-- [x] Asset registry / content browser / inspector / reference scan va rename integratsiyasi.
-- [x] `VisualWorkshop` 2D/3D namunasi va [qo'llanma](VisualScripting.md).
-- [ ] Parametr/return qiymatli funksiyalar, array/struct/enum/curve pinlari, macro/collapse va inheritance.
-- [ ] RPC/replication tugunlari, to'liq native metod reflection, bytecode/native cook va katta graph profiling.
+- [x] The `.zgraph` format, a typed catalogue, validation and an indexed bounded VM.
+- [x] A node/pin/wire editor, search, pan/zoom/fit, error diagnostics, atomic save, a 64-state undo/redo.
+- [x] Lifecycle, collision/trigger/UI/AI events; input, transform, 2D/3D physics, prefab/audio/animation/UI actions.
+- [x] Variables, instance overrides, condition/sequence/loop/break/delay and named functions.
+- [x] The native host, a bridge to reflected C++ fields, messages; running without a C++ module.
+- [x] Breakpoints, pause/step/continue, watches and a bounded execution trace.
+- [x] Asset registry / content browser / inspector / reference scan and rename integration.
+- [x] The `VisualWorkshop` 2D/3D sample and the [guide](VisualScripting.md).
+- [ ] Functions with parameters/return values, array/struct/enum/curve pins, macros/collapse and inheritance.
+- [ ] RPC/replication nodes, full native method reflection, bytecode/native cook and large graph profiling.
 
-### Ichki C++ kod muharriri — 2026-11-10
+### The built-in C++ code editor — 2026-11-10
 
-- [x] Editor ichida tablar, source ro'yxati, C++ ranglari, monospace font, qator raqamlari va auto-indent.
-- [x] Find/replace, undo/redo, 265 API nom/signatura katalogi, Ctrl+Space va gameplay snippet'lari.
-- [x] Inspektor/content browser/compiler manbasini ichki oynada ochish; read-only SDK fayllari.
-- [x] Builddan oldin save-all, F7 build/hot reload, error line/column navigatsiyasi.
-- [x] Atomik save, tashqi o'zgarish konflikti, UTF-8/BOM/CRLF, bounded undo va crash recovery.
-- [x] 9 fayl-himoya testi, 691 umumiy unit, haqiqiy keyboard/build/error/recovery GUI sinovi.
-- [ ] clangd/LSP orqali semantic completion, go-to-definition, project rename va live type diagnostics.
+- [x] Tabs inside the editor, a source list, C++ colours, a monospace font, line numbers and auto-indent.
+- [x] Find/replace, undo/redo, a catalogue of 265 API names/signatures, Ctrl+Space and gameplay snippets.
+- [x] Opening a source from the inspector/content browser/compiler in the built-in window; read-only SDK files.
+- [x] Save-all before a build, F7 build/hot reload, error line/column navigation.
+- [x] Atomic save, external change conflicts, UTF-8/BOM/CRLF, bounded undo and crash recovery.
+- [x] 9 file-protection tests, 691 unit tests in all, a real keyboard/build/error/recovery GUI test.
+- [ ] Semantic completion, go-to-definition, project rename and live type diagnostics through clangd/LSP.
 
-### P2 — GPU terrain materiallari, 2026-11-10
+### P2 — GPU terrain materials, 2026-11-10
 
-- [x] 512×512 runtime bake o'rniga GPU'da to'rtta linear albedo qatlami va resolution'ga mos RGBA32F control.
-- [x] Har qatlamga tangent normal, ORM, normal strength, roughness/metallic/occlusion va metrga bog'liq UV.
-- [x] Mavjud lighting/shadow/fog/debug/picking/wire yo'llariga ulash; normal mesh materiallari alohida qoladi.
-- [x] TextureLibrary import/cache/reload, xavfsiz asset yo'llari, yo'q xarita fallback'i va control hisoblagichlari.
-- [x] Serializer asset handle'lari, legacy default'lar va editor boshqaruvlari.
-- [x] 696/696 CPU, 12/12 render, GL 4.1 pixel/cache sinovlari, editor va MapWorkshop export/relocation tekshiruvi.
-- [x] Packed foliage instancing/culling va ikki model LOD v1 (yuqoridagi paket).
-- [ ] Atlas/cook, terrain tile streaming va 2D kontent workflow ishlari.
+- [x] Instead of a 512×512 runtime bake, four linear albedo layers on the GPU and an RGBA32F control matching the resolution.
+- [x] A tangent normal, ORM, normal strength, roughness/metallic/occlusion and metre-based UVs for every layer.
+- [x] Wired into the existing lighting/shadow/fog/debug/picking/wire paths; ordinary mesh materials stay separate.
+- [x] TextureLibrary import/cache/reload, safe asset paths, a fallback for missing maps and control counters.
+- [x] Serializer asset handles, legacy defaults and editor controls.
+- [x] 696/696 CPU, 12/12 render, GL 4.1 pixel/cache tests, editor and MapWorkshop export/relocation checks.
+- [x] Packed foliage instancing/culling and two model LODs v1 (the package above).
+- [ ] Atlas/cook, terrain tile streaming and 2D content workflow work.
 
-P2 dalillari: 12 ta source PBR teksturasi export reachability orqali paketga kirdi; eksport qilingan Player 12 o'lchov kadri, screenshot va boshqa papkaga ko'chirish tekshiruvidan o'tdi. Editor 67600 byte control, 1 upload, 0 missing map ko'rsatdi. GL testi LOD UV mosligi, normal/ORM/AO, picking/wire, native mesh binding, qayta import, xavfsiz yo'llar va 120 validation kadrida upload bo'lmasligini tasdiqladi. Shadow atlas resize'da render target yo'qolishi va paint float tebranishi tuzatildi. CI'da GPU test qadami qo'shildi; bu sessiyada testlar lokal VPS/Mesa llvmpipe'da bajarildi. Physical GPU, Windows/macOS va to'liq professional parity hali tasdiqlanmagan.
+P2 evidence: the 12 source PBR textures went into the package through export reachability; the exported Player passed 12 measurement frames, a screenshot and a move to another folder. The editor showed 67600 bytes of control, 1 upload, 0 missing maps. The GL test confirmed the LOD UV match, normal/ORM/AO, picking/wire, the native mesh binding, reimport, safe paths and no upload over 120 validation frames. Losing the render target on a shadow atlas resize and a paint float oscillation were fixed. A GPU test step was added to CI; in this session the tests ran locally on a VPS/Mesa llvmpipe. A physical GPU, Windows/macOS and full professional parity are not confirmed yet.
 
-### Unity / Unreal / Godot sifatiga chiqish mezonlari
+### Criteria for reaching Unity / Unreal / Godot quality
 
-Bu engine'lar bilan tenglik bitta imkoniyat yoki kod hajmi bilan belgilanmaydi. Har yo'nalishda foydalanuvchi bajara oladigan ish, takrorlanadigan test va ochiq cheklov ko'rsatiladi; tasdiqlanmagan foiz berilmaydi.
+Parity with these engines is not decided by a single feature or by the amount of code. For every area the work a user can do, a repeatable test and the open limits are shown; no unconfirmed percentage is given.
 
-| Yo'nalish | Zamin'dagi holat | Qabul qilish uchun keyingi dalil |
+| Area | State in Zamin | The next evidence for acceptance |
 |---|---|---|
-| 2D | Tilemap, sprite, animatsiya, Box2D, UI va katta map visibility mavjud | Tugallangan 2D o'yin; atlas/residency, input/UI va stress profili |
-| 3D xarita | Heightfield authoring, collision, patch LOD; GPU PBR qatlamlari GL/editor/export sinovlaridan o'tdi | Haqiqiy assetli map, foliage/streaming va physical GPU frame-time byudjeti |
-| Gameplay authoring | C++ muharriri va typed visual graph v1 mavjud | Funksiya argument/return, murakkab type'lar, LSP, katta graph/debug workflow |
-| Dunyo | Render bo'laklari va bounded world-cell manifest mavjud; disk streaming rejalashtirilgan | Chegaralangan RAM/VRAM bilan async load/unload/cancel va katta dunyo testi |
-| Jamoaviy tarmoq | Multiplayer production acceptance hali bajarilmagan | Authoritative replication, latency/loss/reconnect testlari, xavfsizlik va kuzatuv |
-| Mahsulot sifati | Linux testlar va eksport workflow mavjud | Native SDK ABI gate mavjud; OS/driver matritsasi, crash/recovery va uzoq sessiya |
+| 2D | Tilemaps, sprites, animation, Box2D, UI and large-map visibility exist | A finished 2D game; atlas/residency, input/UI and a stress profile |
+| 3D maps | Heightfield authoring, collision, patch LOD; GPU PBR layers passed the GL/editor/export tests | A map with real assets, foliage/streaming and a physical GPU frame-time budget |
+| Gameplay authoring | A C++ editor and a typed visual graph v1 exist | Function arguments/returns, complex types, LSP, a large graph/debug workflow |
+| World | Render chunks and a bounded world-cell manifest exist; disk streaming is planned | Async load/unload/cancel with bounded RAM/VRAM and a large world test |
+| Team networking | Multiplayer production acceptance not done yet | Authoritative replication, latency/loss/reconnect tests, security and monitoring |
+| Product quality | Linux tests and an export workflow exist | A native SDK ABI gate exists; an OS/driver matrix, crash/recovery and long sessions |
 
-Taqqoslash mezonlari uchun rasmiy manbalar: [Unity Terrain Layer](https://docs.unity.com/en-us/engine/6000.6/manual/creating-environments/script-terrain/terrain-textures/class-terrain-layer), [Unreal Landscape Materials](https://dev.epicgames.com/documentation/unreal-engine/landscape-materials-in-unreal-engine), [Godot MultiMesh](https://docs.godotengine.org/en/stable/classes/class_multimesh.html). Hozirgi GPU terrain bosqichi bu mahsulotlarning barcha imkoniyatlariga tenglik da'vosi emas.
+The official sources for the comparison criteria: [Unity Terrain Layer](https://docs.unity.com/en-us/engine/6000.6/manual/creating-environments/script-terrain/terrain-textures/class-terrain-layer), [Unreal Landscape Materials](https://dev.epicgames.com/documentation/unreal-engine/landscape-materials-in-unreal-engine), [Godot MultiMesh](https://docs.godotengine.org/en/stable/classes/class_multimesh.html). The current GPU terrain phase is not a claim of parity with every feature of these products.
 
-### P2–P8 uchun zarur ishlar
+### The work needed for P2–P8
 
-**2D:** tile render cache va dirty regions, katta atlaslar va texture residency, animated tile yangilanishi,
-terrain/auto-tile chegaralari, collision chunk rebake, navigation, sprite/animation/UI profiling. Mavjud culling,
-layer, auto-tile, Box2D, UI va animatsiya imkoniyatlari qayta yozilmaydi; kamchiliklari dalil bilan kuchaytiriladi.
+**2D:** a tile render cache and dirty regions, large atlases and texture residency, animated tile updates,
+terrain/auto-tile borders, collision chunk rebake, navigation, sprite/animation/UI profiling. The existing culling,
+layers, auto-tiles, Box2D, UI and animation are not rewritten; their weaknesses are strengthened with evidence.
 
-**3D terrain va foliage:** mavjud GPU qatlamlarini katta assetlarda tekshirish, texture arrays/material variantlari, screen-space
-error LOD va o'tishlarni silliqlash, terrain tile biriktirish, import/export formatlari, road/spline asboblari,
-GPU instancing/culling, zichlik maskalari, asset LOD/HLOD, tahrirdan keyin foliage'ni sirtga qayta joylash,
-async collider cooking va navmesh yangilash. Voxel/cave — heightfield'dan alohida tizim.
+**3D terrain and foliage:** checking the existing GPU layers with large assets, texture arrays/material variants,
+screen-space error LOD and smoothing the transitions, joining terrain tiles, import/export formats, road/spline tools,
+GPU instancing/culling, density masks, asset LOD/HLOD, re-placing foliage on the surface after edits,
+async collider cooking and navmesh updates. Voxels/caves — a system separate from the heightfield.
 
-**Umumiy kontent:** qayta importda havolalarni saqlash, cook va deterministik cache kalitlari, buzilgan fayllar,
-compressed paketlar, locale/shader variantlari, asset pipeline rollback'i va versiyalangan serialization; SDK ABI gate v1 qo'shildi.
-Engine komponentlari o'zgarsa eski C++ modullarni tekshirish/qayta build qilish avtomatik va tushunarli bo'lishi kerak.
+**Common content:** keeping references on reimport, cook and deterministic cache keys, damaged files,
+compressed packages, locale/shader variants, asset pipeline rollback and versioned serialization; the SDK ABI gate v1
+was added. When engine components change, checking/rebuilding old C++ modules must be automatic and understandable.
 
-**Gameplay:** character/controller, kamera, input remap/gamepad, AI/navigation, animation state/transition,
-root motion/IK/retarget workflow, audio mixer/streaming, timeline/VFX va saqlash tizimlarini bir o'yin
-jarayonida sinash. Mavjud funksiyalar uchun 'bor' degan belgi production sifatiga tenglashtirilmaydi.
+**Gameplay:** testing the character/controller, camera, input remap/gamepad, AI/navigation, animation state/transition,
+the root motion/IK/retarget workflow, the audio mixer/streaming, timeline/VFX and save systems in one game
+flow. A 'present' mark for an existing feature is not treated as production quality.
 
-**Multiplayer:** authoritative server, bandwidth budget, snapshot/interpolation, prediction/reconciliation,
-physics ownership, replication relevancy, matchmaking/session, host migration talabini alohida belgilash,
-reconnect va hisob xizmatlari. Avval transport va threat model tanlanadi; client server vakolatini bermaydi.
+**Multiplayer:** an authoritative server, a bandwidth budget, snapshots/interpolation, prediction/reconciliation,
+physics ownership, replication relevancy, matchmaking/sessions, deciding the host migration requirement separately,
+reconnect and account services. The transport and the threat model are chosen first; the client is not given the
+server's authority.
 
-**Editor/launcher auth:** oldingi talab bo'yicha Zamin yagona hisobi bilan majburiy login rejalashtirilgan.
-Native client ichiga server sirini joylamaslik, browser-based PKCE, OS secret store, sessiya bekor qilish va
-xizmat uzilgandagi xatti-harakat aniq belgilanadi. Bu engine yadrosining render/fizika sikliga kiritilmaydi.
+**Editor/launcher auth:** following the earlier requirement, a mandatory login with a single Zamin account is planned.
+Not embedding a server secret in the native client, browser-based PKCE, the OS secret store, session revocation and
+the behaviour when the service is down are set out explicitly. This is not part of the engine core's render/physics loop.
 
-**Performance va release:** 2D/3D uchun seed/scene/settings versiyasi biriktirilgan benchmarklar; CPU/GPU frame time,
-p95/p99, RAM/VRAM, yuklanish va draw/triangle hisoblagichlari. 60 FPS/16.7 ms maqsadi reference physical GPU
-va sahna byudjeti tanlangandan keyin tekshiriladi. VPS llvmpipe sinovi haqiqiy GPU unumdorligi dalili emas.
-Har bir bosqich correctness, sanitizer/recovery, regressiya, eksport va hujjat darvozasidan o'tadi.
+**Performance and release:** 2D/3D benchmarks pinned to a seed/scene/settings version; CPU/GPU frame time,
+p95/p99, RAM/VRAM, loading and draw/triangle counters. The 60 FPS/16.7 ms target is checked once a reference physical
+GPU and a scene budget are chosen. A VPS llvmpipe test is not evidence of real GPU performance.
+Every phase passes the correctness, sanitizer/recovery, regression, export and documentation gates.
 
-Unreal'dagi terrain komponentlari va ularning LOD birligi — [Epic Landscape texnik qo'llanmasi](https://dev.epicgames.com/documentation/en-us/unreal-engine/landscape-technical-guide-in-unreal-engine)
-bo'yicha taqqoslash manbasi. Disk kataklarini manbaga yaqinlik bo'yicha yuklash tushunchasi —
-[Epic World Partition qo'llanmasi](https://dev.epicgames.com/documentation/en-us/unreal-engine/world-partition-in-unreal-engine).
-Zamin P1 render bo'laklari disk streaming'i emas; u P3 da alohida bajariladi.
+The terrain components in Unreal and their LOD unit — the comparison source is the [Epic Landscape technical guide](https://dev.epicgames.com/documentation/en-us/unreal-engine/landscape-technical-guide-in-unreal-engine).
+The idea of loading disk cells by their proximity to a source —
+the [Epic World Partition guide](https://dev.epicgames.com/documentation/en-us/unreal-engine/world-partition-in-unreal-engine).
+The Zamin P1 render chunks are not disk streaming; that is done separately in P3.
 
 ---
 
